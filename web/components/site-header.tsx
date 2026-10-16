@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 // 메뉴는 버튼 모양이 아닌 링크다. 17px 글자에 누르는 높이 46px.
 const MENU_LINK_CLASS =
-  "rounded-lg px-3.5 py-2.5 type-ui-lg font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50";
+  "inline-flex items-center rounded-lg px-3.5 py-2.5 type-ui-lg font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50";
 
 // 첫 화면의 마케팅 머리말. 화면 위에 붙어 따라온다(sticky) — 구역은 scroll-mt-24(96px)로 머리말 높이(72px)보다 더 내려앉는다.
 // 시작하기의 목적지는 로그인 상태를 읽는 app/page.tsx 가 정해 내려 준다. 이 부품은 로그인 상태를 읽지 않는다.

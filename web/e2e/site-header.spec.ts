@@ -107,7 +107,11 @@ test("머리말은 72px 단색이고 메뉴 글자는 17px 이다", async ({ pag
   expect(height).toBeLessThanOrEqual(73);
   await expect(header).toHaveCSS("backdrop-filter", "none");
   await expect(header).toHaveCSS("background-color", "rgb(255, 255, 255)");
-  await expect(
-    header.getByRole("navigation", { name: "주요 메뉴" }).getByRole("link").first(),
-  ).toHaveCSS("font-size", "17px");
+  const firstMenuLink = header
+    .getByRole("navigation", { name: "주요 메뉴" })
+    .getByRole("link")
+    .first();
+  await expect(firstMenuLink).toHaveCSS("font-size", "17px");
+  // 링크가 inline 이면 위아래 여백이 칸 높이에 들어가지 않는다. 누르는 높이 44px 이상(메뉴 46).
+  expect((await boxOf(firstMenuLink)).height).toBeGreaterThanOrEqual(44);
 });

@@ -86,10 +86,10 @@ test("미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수�
 test("1440×900 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다", async ({ page }) => {
   await page.goto("/");
   const panel = previewOf(page).getByRole("tabpanel");
-  await expect(panel.getByRole("meter", { name: "SOL Score" })).toBeInViewport();
-  await expect(
-    panel.getByText("SOL Score는 사업 적합도이며 수주 확률이 아닙니다."),
-  ).toBeInViewport();
+  await expect(panel.getByRole("meter", { name: "SOL Score" })).toBeInViewport({ ratio: 1 });
+  await expect(panel.getByText("SOL Score는 사업 적합도이며 수주 확률이 아닙니다.")).toBeInViewport(
+    { ratio: 1 },
+  );
 });
 
 test("목록에서 다른 공고를 고르면 분석이 바뀐다", async ({ page }) => {

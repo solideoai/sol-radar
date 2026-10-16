@@ -153,3 +153,13 @@ test("없는 주소는 한국어 404 화면과 첫 화면으로 가는 링크를
   await expect(page.getByRole("link", { name: "처음 화면으로" })).toHaveAttribute("href", "/");
   await expect(page.getByText("could not be found")).toHaveCount(0);
 });
+
+// 브라우저·도구가 /favicon.ico 를 직접 요청한다. 리다이렉트가 없으면 조직 주소(/[slug])로 처리돼 HTML 안내 화면이 나온다.
+test("/favicon.ico 는 /icon.svg 로 영구 이동한다", async ({ request }) => {
+  const redirected = await request.get("/favicon.ico", { maxRedirects: 0 });
+  expect(redirected.status()).toBe(308);
+  expect(redirected.headers()["location"]).toBe("/icon.svg");
+
+  const followed = await request.get("/favicon.ico");
+  expect(followed.headers()["content-type"]).toContain("image/svg+xml");
+});
