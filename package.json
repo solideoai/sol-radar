@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "exceljs": "4.4.0",
     "husky": "^9",
     "pg": "^8.23.0",
     "prettier": "3.9.9",

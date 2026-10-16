@@ -1,0 +1,908 @@
+{
+  "schemaVersion": 1,
+  "companyName": "솔리데오",
+  "sourceSha256": "d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3",
+  "sourceRowCount": 250,
+  "excludedRowCount": 75,
+  "excludedSourceRanges": [
+    {
+      "sheet": "people",
+      "headerCell": "A7",
+      "nameRange": "A8:A8",
+      "titleColumn": "B"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "A21",
+      "nameRange": "A22:A22",
+      "titleColumn": "B"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "A25",
+      "nameRange": "A27:A46",
+      "titleColumn": "B"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "A47",
+      "nameRange": "A48:A51",
+      "titleColumn": "B"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "A55",
+      "nameRange": "A58:A59",
+      "titleColumn": "B"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "A85",
+      "nameRange": "A88:A88",
+      "titleColumn": "B"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "A90",
+      "nameRange": "A93:A96",
+      "titleColumn": "B"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "E13",
+      "nameRange": "E14:E14",
+      "titleColumn": "F"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "E21",
+      "nameRange": "E22:E22",
+      "titleColumn": "F"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "E33",
+      "nameRange": "E34:E34",
+      "titleColumn": "F"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "E37",
+      "nameRange": "E39:E47",
+      "titleColumn": "F"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "E48",
+      "nameRange": "E49:E49",
+      "titleColumn": "F"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "E88",
+      "nameRange": "E89:E95",
+      "titleColumn": "F"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I6",
+      "nameRange": "I7:I7",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I8",
+      "nameRange": "I9:I13",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I14",
+      "nameRange": "I15:I16",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I17",
+      "nameRange": "I18:I18",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I19",
+      "nameRange": "I20:I25",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I26",
+      "nameRange": "I27:I27",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I41",
+      "nameRange": "I42:I42",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I71",
+      "nameRange": "I72:I72",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "I78",
+      "nameRange": "I79:I81",
+      "titleColumn": "J"
+    },
+    {
+      "sheet": "people",
+      "headerCell": "M2",
+      "nameRange": "M5:M5",
+      "titleColumn": "N"
+    }
+  ],
+  "departments": [
+    {
+      "id": "SOL-D001",
+      "name": "AX사업본부 AI플랫폼운영팀",
+      "sourceCount": 14,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "I86",
+          "nameRange": "I87:I100",
+          "titleColumn": "J"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J009": 2,
+        "SOL-J010": 8,
+        "SOL-J011": 3
+      }
+    },
+    {
+      "id": "SOL-D002",
+      "name": "AX사업본부-사업전략팀",
+      "sourceCount": 1,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M49",
+          "nameRange": "M50:M50",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J011": 1
+      }
+    },
+    {
+      "id": "SOL-D003",
+      "name": "AX엔지니어링팀",
+      "sourceCount": 4,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E100",
+          "nameRange": "E101:E104",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J010": 2,
+        "SOL-J011": 1
+      }
+    },
+    {
+      "id": "SOL-D004",
+      "name": "MSP팀",
+      "sourceCount": 4,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M12",
+          "nameRange": "M13:M15",
+          "titleColumn": "N"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "M45",
+          "nameRange": "M48:M48",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J010": 2,
+        "SOL-J011": 1
+      }
+    },
+    {
+      "id": "SOL-D005",
+      "name": "MSP팀-대구PPP",
+      "sourceCount": 1,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A61",
+          "nameRange": "A64:A64",
+          "titleColumn": "B"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J010": 1
+      }
+    },
+    {
+      "id": "SOL-D006",
+      "name": "P&AX컨설팅본부 전략컨설팅팀",
+      "sourceCount": 6,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A52",
+          "nameRange": "A53:A53",
+          "titleColumn": "B"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "I69",
+          "nameRange": "I70:I70",
+          "titleColumn": "J"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "I73",
+          "nameRange": "I74:I77",
+          "titleColumn": "J"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 2,
+        "SOL-J010": 3,
+        "SOL-J012": 1
+      }
+    },
+    {
+      "id": "SOL-D007",
+      "name": "UXUI디자인팀",
+      "sourceCount": 6,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E26",
+          "nameRange": "E27:E28",
+          "titleColumn": "F"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "I35",
+          "nameRange": "I36:I36",
+          "titleColumn": "J"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "I51",
+          "nameRange": "I52:I53",
+          "titleColumn": "J"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "I65",
+          "nameRange": "I66:I66",
+          "titleColumn": "J"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J010": 4,
+        "SOL-J011": 1
+      }
+    },
+    {
+      "id": "SOL-D008",
+      "name": "UX엔지니어링팀",
+      "sourceCount": 3,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M9",
+          "nameRange": "M10:M11",
+          "titleColumn": "N"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "M61",
+          "nameRange": "M62:M62",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1,
+        "SOL-J010": 2
+      }
+    },
+    {
+      "id": "SOL-D009",
+      "name": "공공 마이데이터팀",
+      "sourceCount": 5,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E15",
+          "nameRange": "E16:E20",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J009": 1,
+        "SOL-J010": 3
+      }
+    },
+    {
+      "id": "SOL-D010",
+      "name": "공공AX1팀",
+      "sourceCount": 1,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M16",
+          "nameRange": "M17:M17",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1
+      }
+    },
+    {
+      "id": "SOL-D011",
+      "name": "공공AX1팀-AI안전지킴이",
+      "sourceCount": 4,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M31",
+          "nameRange": "M32:M35",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1,
+        "SOL-J010": 3
+      }
+    },
+    {
+      "id": "SOL-D012",
+      "name": "공공AX1팀-경영안정바우처",
+      "sourceCount": 4,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M18",
+          "nameRange": "M19:M22",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1,
+        "SOL-J010": 3
+      }
+    },
+    {
+      "id": "SOL-D013",
+      "name": "공공AX1팀-기후위기적응정보",
+      "sourceCount": 7,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M23",
+          "nameRange": "M24:M30",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 2,
+        "SOL-J010": 4,
+        "SOL-J011": 1
+      }
+    },
+    {
+      "id": "SOL-D014",
+      "name": "공공AX1팀-브리티웍스 확산 지원",
+      "sourceCount": 3,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M36",
+          "nameRange": "M37:M39",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J010": 1,
+        "SOL-J011": 2
+      }
+    },
+    {
+      "id": "SOL-D015",
+      "name": "공공AX1팀-환경영향평가",
+      "sourceCount": 1,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M40",
+          "nameRange": "M43:M43",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J010": 1
+      }
+    },
+    {
+      "id": "SOL-D016",
+      "name": "공공AX2팀-국가 바이오 데이터 스테이션",
+      "sourceCount": 3,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M94",
+          "nameRange": "M97:M99",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1,
+        "SOL-J010": 2
+      }
+    },
+    {
+      "id": "SOL-D017",
+      "name": "공공AX2팀-바이오 빅데이터 플랫폼",
+      "sourceCount": 8,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M78",
+          "nameRange": "M81:M87",
+          "titleColumn": "N"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "M89",
+          "nameRange": "M92:M92",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J009": 1,
+        "SOL-J010": 4,
+        "SOL-J011": 2
+      }
+    },
+    {
+      "id": "SOL-D018",
+      "name": "국토건축행정팀",
+      "sourceCount": 1,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E70",
+          "nameRange": "E71:E71",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1
+      }
+    },
+    {
+      "id": "SOL-D019",
+      "name": "국토건축행정팀(건축행정유지)",
+      "sourceCount": 11,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E72",
+          "nameRange": "E73:E83",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 3,
+        "SOL-J010": 6,
+        "SOL-J011": 2
+      }
+    },
+    {
+      "id": "SOL-D020",
+      "name": "국토건축행정팀(마이홈포털유지)",
+      "sourceCount": 2,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A76",
+          "nameRange": "A77:A78",
+          "titleColumn": "B"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1,
+        "SOL-J010": 1
+      }
+    },
+    {
+      "id": "SOL-D021",
+      "name": "국토건축행정팀(서울시유지)",
+      "sourceCount": 1,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A80",
+          "nameRange": "A83:A83",
+          "titleColumn": "B"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1
+      }
+    },
+    {
+      "id": "SOL-D022",
+      "name": "국토건축행정팀(임대등록시스템운영)",
+      "sourceCount": 7,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A66",
+          "nameRange": "A69:A75",
+          "titleColumn": "B"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1,
+        "SOL-J010": 3,
+        "SOL-J011": 3
+      }
+    },
+    {
+      "id": "SOL-D023",
+      "name": "민간서비스팀",
+      "sourceCount": 6,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "I28",
+          "nameRange": "I29:I34",
+          "titleColumn": "J"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J010": 4,
+        "SOL-J011": 1
+      }
+    },
+    {
+      "id": "SOL-D024",
+      "name": "범정부서비스통합팀",
+      "sourceCount": 7,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "I43",
+          "nameRange": "I44:I50",
+          "titleColumn": "J"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 3,
+        "SOL-J010": 4
+      }
+    },
+    {
+      "id": "SOL-D025",
+      "name": "사업본부 공통지원팀",
+      "sourceCount": 2,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M6",
+          "nameRange": "M7:M8",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J010": 2
+      }
+    },
+    {
+      "id": "SOL-D026",
+      "name": "사업전략팀",
+      "sourceCount": 7,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E105",
+          "nameRange": "E106:E112",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J010": 3,
+        "SOL-J011": 4
+      }
+    },
+    {
+      "id": "SOL-D027",
+      "name": "식의약AX팀-의약품AI심사구축",
+      "sourceCount": 6,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M52",
+          "nameRange": "M55:M60",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J005": 1,
+        "SOL-J009": 1,
+        "SOL-J010": 4
+      }
+    },
+    {
+      "id": "SOL-D028",
+      "name": "식의약팀AX팀-통합유지관리",
+      "sourceCount": 9,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "M64",
+          "nameRange": "M68:M76",
+          "titleColumn": "N"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J009": 2,
+        "SOL-J010": 6
+      }
+    },
+    {
+      "id": "SOL-D029",
+      "name": "인사총무팀",
+      "sourceCount": 2,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A14",
+          "nameRange": "A15:A16",
+          "titleColumn": "B"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J010": 1
+      }
+    },
+    {
+      "id": "SOL-D030",
+      "name": "인천공항서비스구축팀",
+      "sourceCount": 3,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A98",
+          "nameRange": "A101:A103",
+          "titleColumn": "B"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J009": 2
+      }
+    },
+    {
+      "id": "SOL-D031",
+      "name": "재무회계팀",
+      "sourceCount": 4,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A9",
+          "nameRange": "A10:A13",
+          "titleColumn": "B"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J010": 3
+      }
+    },
+    {
+      "id": "SOL-D032",
+      "name": "전자증명서팀",
+      "sourceCount": 3,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E5",
+          "nameRange": "E6:E8",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1,
+        "SOL-J010": 2
+      }
+    },
+    {
+      "id": "SOL-D033",
+      "name": "정부24 Native 전환팀",
+      "sourceCount": 8,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "I56",
+          "nameRange": "I57:I64",
+          "titleColumn": "J"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1,
+        "SOL-J009": 1,
+        "SOL-J010": 2,
+        "SOL-J011": 4
+      }
+    },
+    {
+      "id": "SOL-D034",
+      "name": "정부24운영팀",
+      "sourceCount": 11,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E50",
+          "nameRange": "E52:E62",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 2,
+        "SOL-J010": 5,
+        "SOL-J011": 4
+      }
+    },
+    {
+      "id": "SOL-D035",
+      "name": "지방행정사업팀",
+      "sourceCount": 1,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "A23",
+          "nameRange": "A24:A24",
+          "titleColumn": "B"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1
+      }
+    },
+    {
+      "id": "SOL-D036",
+      "name": "행정정보공동이용팀",
+      "sourceCount": 1,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E35",
+          "nameRange": "E36:E36",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J007": 1
+      }
+    },
+    {
+      "id": "SOL-D037",
+      "name": "행정정보공동이용팀(제출서류간소화)",
+      "sourceCount": 3,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E84",
+          "nameRange": "E85:E87",
+          "titleColumn": "F"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J009": 1,
+        "SOL-J010": 2
+      }
+    },
+    {
+      "id": "SOL-D038",
+      "name": "홍보서비스팀",
+      "sourceCount": 5,
+      "targetCount": null,
+      "sourceRanges": [
+        {
+          "sheet": "people",
+          "headerCell": "E23",
+          "nameRange": "E24:E25",
+          "titleColumn": "F"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "E63",
+          "nameRange": "E64:E64",
+          "titleColumn": "F"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "I54",
+          "nameRange": "I55:I55",
+          "titleColumn": "J"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "I67",
+          "nameRange": "I68:I68",
+          "titleColumn": "J"
+        }
+      ],
+      "titleCounts": {
+        "SOL-J010": 4,
+        "SOL-J011": 1
+      }
+    }
+  ]
+}

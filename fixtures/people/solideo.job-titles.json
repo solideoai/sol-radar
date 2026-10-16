@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "companyName": "솔리데오",
+  "jobTitles": [
+    {
+      "id": "SOL-J001",
+      "label": "CFO",
+      "sortOrder": 1
+    },
+    {
+      "id": "SOL-J002",
+      "label": "사장",
+      "sortOrder": 2
+    },
+    {
+      "id": "SOL-J003",
+      "label": "부사장",
+      "sortOrder": 3
+    },
+    {
+      "id": "SOL-J004",
+      "label": "이사",
+      "sortOrder": 4
+    },
+    {
+      "id": "SOL-J005",
+      "label": "본부장",
+      "sortOrder": 5
+    },
+    {
+      "id": "SOL-J006",
+      "label": "그룹장",
+      "sortOrder": 6
+    },
+    {
+      "id": "SOL-J007",
+      "label": "팀장",
+      "sortOrder": 7
+    },
+    {
+      "id": "SOL-J008",
+      "label": "소장",
+      "sortOrder": 8
+    },
+    {
+      "id": "SOL-J009",
+      "label": "수석",
+      "sortOrder": 9
+    },
+    {
+      "id": "SOL-J010",
+      "label": "책임",
+      "sortOrder": 10
+    },
+    {
+      "id": "SOL-J011",
+      "label": "담당",
+      "sortOrder": 11
+    },
+    {
+      "id": "SOL-J012",
+      "label": "인턴",
+      "sortOrder": 12
+    }
+  ]
+}
