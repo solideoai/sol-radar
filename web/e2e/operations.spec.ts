@@ -5,7 +5,7 @@ import { type APIResponse, expect, test } from "@playwright/test";
 // CSP 는 proxy.ts 가 요청마다 nonce 를 새로 만들어 화면 응답에 단다(스펙 polaris/specs/done/team-settings-mail-csp-errors.md 3.5).
 // 한 마디 주소(/<이름>)는 조직 주소(/[slug])라 로그인 전에는 "로그인이 필요합니다" 안내를 그린다. 없는 주소는 조직 아래의 없는 화면으로 쓴다.
 const NOT_FOUND_PATH = "/acme/route-that-does-not-exist";
-const PATHS = ["/", NOT_FOUND_PATH, "/favicon.ico"];
+const PATHS = ["/", NOT_FOUND_PATH, "/icon.svg"];
 
 PATHS.forEach((path) =>
   test(`${path} 응답에 보안 헤더가 붙고 X-Powered-By 는 없다`, async ({ request }) => {
