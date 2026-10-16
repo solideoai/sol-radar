@@ -2,7 +2,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { DEMO_BIDS } from "@/components/landing/demo-bids";
-import { ProductPreview } from "@/components/landing/product-preview";
+import { ProductPreviewSection } from "@/components/landing/product-preview-section";
 
 // 랜딩의 분석 미리보기를 진짜 브라우저로 그려, 고르면 분석이 바뀌는지·키보드로 되는지·1280px 에서 넘치지 않는지 본다.
 
@@ -14,12 +14,13 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-// 랜딩처럼 마케팅 단(max-w-320 + px-10) 안에 넣는다. 1280 넘침 시험이 실제 판 폭을 재게 한다.
+// 랜딩이 그리는 구역을 그대로 그린다 — 마케팅 단(max-w-320 + px-10)과 회색 무대(p-8)까지 같아야
+// 판의 가운데 단이 실제 폭이 된다. 낱말 단위 줄바꿈(break-keep)도 랜딩 main 과 같게 둔다.
 const render = async () => {
   const root = createRoot(document.body.appendChild(document.createElement("div")));
   root.render(
-    <main className="mx-auto w-full max-w-320 px-10">
-      <ProductPreview />
+    <main className="break-keep">
+      <ProductPreviewSection />
     </main>,
   );
   mounted.push(root);
@@ -95,18 +96,32 @@ describe("ProductPreview", () => {
     await expect.element(panel.getByText("대기", { exact: true })).toBeVisible();
   });
 
-  it("1280px 에서 화면 폭을 넘지 않는다", async () => {
-    await page.viewport(1280, 900);
-    await render();
-    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
-      document.documentElement.clientWidth,
-    );
-    // 루트가 overflow-hidden 이라 문서 폭만 재면 안쪽 넘침을 못 잡는다. 패널과 목록 안쪽도 잰다.
-    const panel = document.querySelector('[role="tabpanel"]');
-    if (panel === null) throw new Error("선택된 tabpanel 을 찾지 못했습니다");
-    expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth);
-    const list = document.querySelector('[role="tablist"]');
-    if (list === null) throw new Error("tablist 를 찾지 못했습니다");
-    expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth);
-  });
+  // 1265 는 1280 화면에서 세로 스크롤바(15px)를 뺀 폭이다. 시험 브라우저는 스크롤바가 폭을 차지하지 않아 따로 잰다.
+  [1265, 1280].forEach((width) =>
+    it(`${width}px 에서 세 공고 모두 화면 폭과 칸을 넘지 않는다`, async () => {
+      await page.viewport(width, 900);
+      await render();
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+        document.documentElement.clientWidth,
+      );
+      for (const bid of DEMO_BIDS) {
+        await tabOf(bid.title).click();
+        await expect
+          .element(page.getByRole("tabpanel").getByRole("heading", { name: bid.title }))
+          .toBeVisible();
+        // 루트가 overflow-hidden 이라 문서 폭만 재면 안쪽 넘침을 못 잡는다. 패널과 목록 안쪽도 잰다.
+        const panel = document.querySelector('[role="tabpanel"]');
+        if (panel === null) throw new Error("선택된 tabpanel 을 찾지 못했습니다");
+        expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth);
+        const list = document.querySelector('[role="tablist"]');
+        if (list === null) throw new Error("tablist 를 찾지 못했습니다");
+        expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth);
+        // 칸 안에서 이웃 칸으로 넘치는 것(결재란의 NO-BID 배지 등)은 패널 폭에 드러나지 않는다. 값 칸마다 잰다.
+        const overflowing = [...panel.querySelectorAll("dd")]
+          .filter((value) => value.scrollWidth > value.clientWidth)
+          .map((value) => `${bid.id}: ${value.textContent}`);
+        expect(overflowing).toEqual([]);
+      }
+    }),
+  );
 });
