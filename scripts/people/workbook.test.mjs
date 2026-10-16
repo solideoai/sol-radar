@@ -283,3 +283,53 @@ test("ends team inheritance at merged non-team headings even without font stylin
     },
   );
 });
+
+for (const [heading, isStyled] of [
+  ["신규프로젝트 사업단", false],
+  ["신규프로젝트 사업단", true],
+  ["신규 사업단", false],
+]) {
+  test(`ends team inheritance at a non-worksite business unit (${heading}, styled=${isStyled})`, async () => {
+    await withWorkbook(
+      async (filename) => {
+        await assert.rejects(
+          readOrganizationWorkbook(filename, [department("개발팀", [range("A1", "A2:A17")])]),
+          /Source range crosses an organization heading: A5/,
+        );
+      },
+      (_workbook, sheet) => {
+        sheet.getCell("A5").value = heading;
+        if (isStyled) {
+          sheet.mergeCells("A5:D5");
+          sheet.getCell("A5").font = { bold: true };
+          sheet.getCell("A5").fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FF777777" },
+          };
+        }
+      },
+    );
+  });
+}
+
+test("retains team continuity across the audited worksite business-unit heading", async () => {
+  await withWorkbook(
+    async (filename) => {
+      const result = await readOrganizationWorkbook(filename, [
+        department("개발팀", [range("A1", "A2:A6")]),
+      ]);
+      assert.equal(result.recognizedRows, 2);
+    },
+    (_workbook, sheet) => {
+      sheet.getCell("A5").value = "상암 사업단";
+      sheet.mergeCells("A5:D5");
+      sheet.getCell("A5").font = { bold: true };
+      sheet.getCell("A5").fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF777777" },
+      };
+    },
+  );
+});

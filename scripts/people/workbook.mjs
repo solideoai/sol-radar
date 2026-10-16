@@ -53,15 +53,17 @@ function ownText(cell) {
   return cell.isMerged && cell.master.address !== cell.address ? "" : cell.text.trim();
 }
 
+const AUDITED_WORKSITE_HEADINGS = new Set(["상암 사업단"]);
+
 function isWorksite(text) {
-  return /주소|근무지|사업단|\d+층|청사|비즈니스센터/.test(text);
+  return AUDITED_WORKSITE_HEADINGS.has(text) || /주소|근무지|\d+층|청사|비즈니스센터/.test(text);
 }
 
 function isOrganizationHeading(cell) {
   const text = ownText(cell);
   if (!text || isWorksite(text)) return false;
   if (cell.isMerged && cell.font?.bold && cell.fill?.fgColor) return true;
-  return /팀|본부|그룹|연구소|프로젝트|구축|유지|고도화/.test(text);
+  return /팀|본부|그룹|연구소|사업단|프로젝트|구축|유지|고도화/.test(text);
 }
 
 function buildAssignments(sheet, departments, excludedRanges) {
