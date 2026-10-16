@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import path from "node:path";
@@ -94,6 +94,16 @@ export function generatePeople({ departments, jobTitles, excludedNames, existing
     allocationPercent: 100,
   }));
   return { people, portraits, assignments };
+}
+
+/** Public signup projection deliberately selects fields instead of spreading private catalogs. */
+export function projectSignupOptions(departments, jobTitles) {
+  return {
+    companyName: "솔리데오",
+    catalogVersion: "solideo-organization/v1.0",
+    departments: departments.departments.map(({ id, name }) => ({ id, label: name })),
+    jobTitles: jobTitles.jobTitles.map(({ id, label }) => ({ id, label })),
+  };
 }
 
 async function readJson(filename, optional = false) {
@@ -207,6 +217,15 @@ async function generateFromWorkbook(filename) {
       fixturePath(name),
       await format(JSON.stringify(value, null, 2), { ...formatOptions, parser: "json" }),
     );
+  const publicPath = path.join(root, "web/server/profile/signup-options.generated.json");
+  await mkdir(path.dirname(publicPath), { recursive: true });
+  await writeFile(
+    publicPath,
+    await format(JSON.stringify(projectSignupOptions(departmentCatalog, calculatedTitles)), {
+      ...formatOptions,
+      parser: "json",
+    }),
+  );
   console.log(
     JSON.stringify({
       weightedRows: source.recognizedRows,

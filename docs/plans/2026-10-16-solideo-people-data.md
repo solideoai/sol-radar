@@ -75,7 +75,7 @@ updated: 2026-10-16
 
 **Interfaces:** Consumes Task 1 결과. Produces `allocatePeople(departments:DepartmentWeight[]):{departmentId:string,targetCount:number,maleCount:number,titleCounts:Record<string,number>}[]`; `selectNames({gender,count,excludedNames,usedNames}:{gender:Gender,count:number,excludedNames:Set<string>,usedNames:Set<string>}):string[]`; `generatePeople({departments,jobTitles,excludedNames,existingPeople}):{people,portraits}`. CLI `node scripts/people/generate.mjs --input <외부 xlsx>`는 최초 생성용이며, 기존 명부가 있으면 ID·이름을 보존하고 불일치는 덮어쓰기 대신 실패한다.
 
-- [ ] **1. 실패 시험 작성:** 아래 단언과 D=0/201·양수가 아닌 가중치 거절, D=200일 때 전원 1명, 직급 동률은 직급 ID 순, 원본의 동명이인 2행을 가중치 2로 세는 시험을 작성한다. 이름 시험은 실제 원본 대신 합성 이름에 공백/괄호 메모를 붙여 충돌 회피·후보 고갈 오류·개인정보 없는 메시지를 검사한다.
+- [x] **1. 실패 시험 작성:** 아래 단언과 D=0/201·양수가 아닌 가중치 거절, D=200일 때 전원 1명, 직급 동률은 직급 ID 순, 원본의 동명이인 2행을 가중치 2로 세는 시험을 작성한다. 이름 시험은 실제 원본 대신 합성 이름에 공백/괄호 메모를 붙여 충돌 회피·후보 고갈 오류·개인정보 없는 메시지를 검사한다.
 
 ```js
 assert.equal(allocated.reduce((n, d) => n + d.targetCount, 0), 200);
@@ -86,10 +86,10 @@ assert.equal(new Set(people.map(p => p.name)).size, 200);
 assert.ok(people.every(p => /^[가-힣]{3}$/.test(p.name) && !excludedNames.has(p.name)));
 ```
 
-- [ ] **2. 실패 확인:** `node --test scripts/people/allocation.test.mjs scripts/people/names.test.mjs` → 배분/이름 함수 미구현 FAIL.
-- [ ] **3. 구현:** 스펙 §5 공식을 그대로 적용한다. 이름 후보는 [남성](https://www.namechart.kr/chart/2008?gender=m)·[여성](https://www.namechart.kr/chart/2008?gender=f) 통계의 실제 두 글자 이름과 일반적인 한 글자 성씨를 사용하고 출처/확인일을 코드 주석과 증거에 남긴다. 임의 음절 생성·실존 직원 검색은 하지 않는다. 고정 후보 순서에서 제외 집합과 이미 쓴 이름을 건너뛰며 남녀 명단을 배분 결과에 연결한다. `normalizeSourceName(value:string):string`으로 공백·괄호 메모를 제거한 값도 제외한다. 27명 계산 대상 역할은 성별·직급과 독립적으로 지정하고, 이들의 기간 가용성·기존 가상 배정으로 20 FTE를 구성한다. 나머지 173명은 `scoringEligible=false`. 이미지 항목은 PLANNED와 인물 ID별 경로만 먼저 만든다.
-- [ ] **4. 통과 확인:** 위 Node 시험 PASS. 실제 원본을 넣어 생성 후 이름 200개를 읽고 자연스러운 조합인지 검토한다. 원본 정규화 이름과 교집합 0·ID 200·남녀 100/100·부서/직급 참조·반복 실행 동일성을 확인한다.
-- [ ] **5. 커밋:** `git add scripts/people/allocation.mjs scripts/people/allocation.test.mjs scripts/people/names.mjs scripts/people/names.test.mjs scripts/people/generate.mjs fixtures/people/solideo.departments.json fixtures/people/solideo.job-titles.json fixtures/people/solideo.people.json fixtures/people/solideo.portraits.json`; `git commit -m "feat: 가상 한국인 200명 명부 생성"`.
+- [x] **2. 실패 확인:** `node --test scripts/people/allocation.test.mjs scripts/people/names.test.mjs` → 배분/이름 함수 미구현 FAIL.
+- [x] **3. 구현:** 스펙 §5 공식을 그대로 적용한다. 이름 후보는 [남성](https://www.namechart.kr/chart/2008?gender=m)·[여성](https://www.namechart.kr/chart/2008?gender=f) 통계의 실제 두 글자 이름과 일반적인 한 글자 성씨를 사용하고 출처/확인일을 코드 주석과 증거에 남긴다. 임의 음절 생성·실존 직원 검색은 하지 않는다. 고정 후보 순서에서 제외 집합과 이미 쓴 이름을 건너뛰며 남녀 명단을 배분 결과에 연결한다. `normalizeSourceName(value:string):string`으로 공백·괄호 메모를 제거한 값도 제외한다. 27명 계산 대상 역할은 성별·직급과 독립적으로 지정하고, 이들의 기간 가용성·기존 가상 배정으로 20 FTE를 구성한다. 나머지 173명은 `scoringEligible=false`. 이미지 항목은 PLANNED와 인물 ID별 경로만 먼저 만든다.
+- [x] **4. 통과 확인:** 위 Node 시험 PASS. 실제 원본을 넣어 생성 후 이름 200개를 읽고 자연스러운 조합인지 검토한다. 원본 정규화 이름과 교집합 0·ID 200·남녀 100/100·부서/직급 참조·반복 실행 동일성을 확인한다.
+- [x] **5. 커밋:** `git add scripts/people/allocation.mjs scripts/people/allocation.test.mjs scripts/people/names.mjs scripts/people/names.test.mjs scripts/people/generate.mjs fixtures/people/solideo.departments.json fixtures/people/solideo.job-titles.json fixtures/people/solideo.people.json fixtures/people/solideo.portraits.json`; `git commit -m "feat: 가상 한국인 200명 명부 생성"`.
 
 ## Task 3: 공개 카탈로그 생성물과 검증 진입점
 
