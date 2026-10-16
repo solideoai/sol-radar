@@ -9,6 +9,8 @@ export function StateRetry({ failed = false }: { failed?: boolean }) {
     <Button
       variant="outline"
       disabled={pending}
+      focusableWhenDisabled
+      className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
       aria-live="polite"
       onClick={() => startTransition(() => router.refresh())}
     >

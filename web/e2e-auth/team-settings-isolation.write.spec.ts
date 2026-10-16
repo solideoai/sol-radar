@@ -91,13 +91,15 @@ test.describe("소유자(김소유)", () => {
       await expect(
         page.getByRole("main").getByText(`${renamed}의 이름을 바꾸거나 팀을 지웁니다.`),
       ).toBeVisible();
-      await expect(page.getByText(renamed, { exact: true })).toBeVisible();
+      const banner = page.getByRole("banner");
+      await banner.getByRole("button", { name: "사이드바 여닫기" }).click();
+      await expect(banner.getByText(renamed, { exact: true })).toBeVisible();
 
       // 저장된 효과: 새로 고쳐도 새 이름이고, 팀 주소는 바뀌지 않는다.
       await page.reload();
       await expect(nameInputOf(page)).toHaveValue(renamed);
       expect(new URL(page.url()).pathname).toBe(teamSettingsOf(team.slug));
-      await expect(page.getByText(renamed, { exact: true })).toBeVisible();
+      await expect(banner.getByText(renamed, { exact: true })).toBeVisible();
     });
   });
 

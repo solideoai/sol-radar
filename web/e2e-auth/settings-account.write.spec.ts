@@ -266,7 +266,9 @@ test.describe("회원 탈퇴", () => {
       await page.goto(`/${team.slug}/dashboard`);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("대시보드");
       await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
-      await expect(page.getByText(team.name, { exact: true })).toBeVisible();
+      const banner = page.getByRole("banner");
+      await banner.getByRole("button", { name: "사이드바 여닫기" }).click();
+      await expect(banner.getByText(team.name, { exact: true })).toBeVisible();
     } finally {
       await removeTestAccounts([owner, member]);
     }
