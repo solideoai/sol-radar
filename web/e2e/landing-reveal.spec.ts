@@ -19,7 +19,7 @@ const NO_TRANSLATE = /^(none|0px|0px 0px)$/;
 
 const heroOf = (page: Page) => page.getByRole("region", { name: /수많은 공고 속/ });
 const previewOf = (page: Page) => page.getByRole("region", { name: "공고 분석 예시" });
-// 주요 기능 구역의 제목 묶음(보조 문구·제목·설명·안내)을 감싼 블록. 처음 화면에서는 접히는 선 아래에 있다.
+// 주요 기능 구역의 제목 묶음(제목·설명·안내)을 감싼 블록. 처음 화면에서는 접히는 선 아래에 있다.
 const featuresHeadingOf = (page: Page) =>
   page.locator(REVEAL, { has: page.getByRole("heading", { level: 2, name: FEATURES_TITLE }) });
 
@@ -72,13 +72,14 @@ const watchDocuments = (page: Page) => {
   return documents;
 };
 
-// FAQ 첫 질문을 펼친다. 펼쳐지면 하이드레이션이 끝났다는 뜻이기도 하다.
-const openFirstQuestion = async (page: Page) => {
-  const question = page
-    .getByRole("region", { name: "자주 묻는 질문" })
-    .getByRole("button", { name: "어떤 기업을 위한 서비스인가요?" });
-  await question.click();
-  await expect(question).toHaveAttribute("aria-expanded", "true");
+// #faq 로 연 화면의 하이드레이션을 기다린다. FAQ 는 펼쳐 둔 목록이라 누를 것이 없어, 숨은 블록이 생기는지로 본다.
+// FAQ 아래의 권유 띠는 접히는 선 아래에 남아 숨는다. 숨은 블록은 모두 그 아래에 있어야 한다(화면 안 블록은 숨기지 않는다).
+const expectHydratedAtFaq = async (page: Page) => {
+  await expectSomeHidden(page);
+  const innerHeight = await page.evaluate(() => window.innerHeight);
+  for (const block of await styleOf(page.locator(HIDDEN))) {
+    expect(block.top).toBeGreaterThanOrEqual(innerHeight);
+  }
 };
 
 // 머리말의 로그인으로 옮겨 가서 오류 화면이 아닌 로그인 화면이 그려졌는지 본다.
@@ -163,18 +164,17 @@ test("움직임 줄이기면 스크롤하지 않아도 숨거나 비켜 선 블�
 });
 
 // 주소에 구역(#faq)을 붙여 열면 그 구역이 이미 화면 안이라, 그 자리의 블록은 숨기지 않는다(깜빡임 방지).
-test("주소에 #faq 를 붙여 바로 열면 FAQ 제목이 숨지 않고 보이며 질문을 펼칠 수 있다", async ({
-  page,
-}) => {
+test("주소에 #faq 를 붙여 바로 열면 FAQ 제목과 질문 목록이 숨지 않고 보인다", async ({ page }) => {
   const errors = watchPageErrors(page);
   await page.goto("/#faq");
   const faq = page.getByRole("region", { name: "자주 묻는 질문" });
   const heading = faq.getByRole("heading", { level: 2, name: "자주 묻는 질문" });
   await expect(heading).toBeInViewport();
   await expect.poll(() => visibleOpacity(heading), SETTLE).toBe(1);
-  // 질문이 펼쳐지면 하이드레이션이 끝난 것이다. 그 전에 단언을 마치면 ref 콜백이 돌기 전에 통과할 수 있다.
-  await openFirstQuestion(page);
+  // 하이드레이션을 기다린다. 그 전에 단언을 마치면 ref 콜백이 돌기 전에 통과할 수 있다.
+  await expectHydratedAtFaq(page);
   await expect(faq.locator(REVEAL)).toHaveCount(0);
+  await expect.poll(() => visibleOpacity(faq.locator("dl")), SETTLE).toBe(1);
   await expect(page.getByRole("heading", { name: ERROR_TITLE })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -187,7 +187,8 @@ test("#faq 로 바로 연 화면에서 머리말의 로그인으로 옮겨 가�
   const errors = watchPageErrors(page);
   const documents = watchDocuments(page);
   await page.goto("/#faq");
-  await openFirstQuestion(page);
+  // 하이드레이션 전에 누르면 링크가 문서를 새로 받아 클라이언트 이동을 시험하지 못한다.
+  await expectHydratedAtFaq(page);
   documents.length = 0;
 
   await goToLogin(page);

@@ -138,6 +138,9 @@ test("분석 원칙 네 가지가 있다", async ({ page }) => {
     "적합도와 수주 확률을 구분합니다",
     "AI 권고와 최종 결정을 구분합니다",
   ]);
+  // 원칙마다 말로만 하지 않고 화면의 실제 표시를 글자로 곁들인다.
+  await expect(principles.getByText("화면에서", { exact: true })).toHaveCount(4);
+  await expect(principles.getByText(/「소프트웨어사업자로 신고한 자」/)).toBeVisible();
 });
 
 const FAQ_QUESTIONS = [
@@ -148,25 +151,14 @@ const FAQ_QUESTIONS = [
   "어떤 데이터를 활용하나요?",
 ];
 
-test("FAQ 는 질문 다섯 개이고, 누르거나 Enter 로 답을 펼치고 접는다", async ({ page }) => {
+// 다섯 개뿐이라 접지 않는다. 핵심 고지("수주 확률 아님", "담당자가 결정")를 누르지 않고 읽게 한다.
+test("FAQ 는 질문 다섯 개와 답이 처음부터 펼쳐져 있다", async ({ page }) => {
   await page.goto("/");
   const faq = page.getByRole("region", { name: "자주 묻는 질문" });
-  await expect(faq.getByRole("button")).toHaveText(FAQ_QUESTIONS);
-  const score = faq.getByRole("button", { name: FAQ_QUESTIONS[1] });
-  const scoreAnswer = faq.getByText("실제 수주 확률을 의미하지 않습니다.", { exact: false });
-  await expect(score).toHaveAttribute("aria-expanded", "false");
-  await expect(scoreAnswer).toBeHidden();
-  await score.click();
-  await expect(score).toHaveAttribute("aria-expanded", "true");
-  await expect(scoreAnswer).toBeVisible();
-  await score.press("Enter");
-  await expect(score).toHaveAttribute("aria-expanded", "false");
-  await expect(scoreAnswer).toBeHidden();
-  const data = faq.getByRole("button", { name: FAQ_QUESTIONS[4] });
-  await data.focus();
-  await page.keyboard.press("Space");
-  await expect(data).toHaveAttribute("aria-expanded", "true");
-  await expect(faq.getByText(/실제 연동 범위는 개발 상태에 맞춰 안내합니다/)).toBeVisible();
+  await expect(faq.locator("dt")).toHaveText(FAQ_QUESTIONS);
+  await expect(faq.locator("dd")).toHaveCount(5);
+  await expect(faq.getByText(/실제 수주 확률을 의미하지 않습니다/)).toBeVisible();
+  await expect(faq.getByRole("button")).toHaveCount(0);
 });
 
 test("주소에 #faq 를 붙여 열면 FAQ 제목이 머리말 아래에 보인다", async ({ page }) => {
@@ -181,6 +173,10 @@ test("마지막 구역에 시작하기·분석 예시 보기와 MVP 개발 중 �
   await expect(cta.getByRole("link", { name: "시작하기", exact: true })).toHaveAttribute(
     "href",
     "/auth/sign-up",
+  );
+  await expect(cta.getByRole("link", { name: "시작하기", exact: true })).toHaveCSS(
+    "height",
+    "56px",
   );
   await expect(cta.getByRole("note")).toContainText("MVP를 개발하고 있습니다");
   const demo = cta.getByRole("link", { name: "분석 예시 보기" });

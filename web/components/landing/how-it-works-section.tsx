@@ -1,6 +1,6 @@
+import { cn } from "cn";
 import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
-import { Card } from "@/components/ui/card";
 
 // 단계마다 사용자가 하는 일과 얻는 것을 나란히 적는다. 번호는 글자로만 쓴다(색 원 번호 금지, design-system).
 const STEPS = [
@@ -22,11 +22,14 @@ const STEPS = [
   },
 ];
 
+const TERM = "type-label-lg font-semibold text-muted-foreground";
+const VALUE = "mt-1 type-body-lg text-foreground";
+
 // 머리말의 "분석 방식"(/#analysis)이 오는 자리. 바로 뒤에 분석 원칙 구역이 이어진다.
 export function HowItWorksSection() {
   return (
-    <section id="analysis" aria-labelledby="analysis-title" className="scroll-mt-20 px-8 py-24">
-      <div className="mx-auto w-full max-w-6xl">
+    <section id="analysis" aria-labelledby="analysis-title" className="scroll-mt-24 pt-36">
+      <div className="mx-auto w-full max-w-320 px-10">
         <Reveal>
           <SectionHeading
             id="analysis-title"
@@ -34,26 +37,31 @@ export function HowItWorksSection() {
             description="SOL RADAR MVP에서 만들고 있는 검토 흐름입니다. 아직 이용할 수 없습니다."
           />
         </Reveal>
-        <ol className="mt-12 grid grid-cols-3 gap-6">
-          {STEPS.map((step, index) => (
-            <Reveal as="li" key={step.title} className="flex">
-              <Card className="w-full gap-0 p-6">
-                <p className="type-label font-medium text-brand">{index + 1}단계</p>
-                <h3 className="mt-2 type-heading text-foreground">{step.title}</h3>
-                <dl className="mt-4 flex flex-col gap-3">
+        {/* 공공 문서의 업무 흐름도처럼 한 줄 띠로 잇는다. 시작은 2px 검정 선, 칸 사이는 가는 선이다. */}
+        {/* 번호는 순서라는 정보라서 쓰되, 강조색 없이 본문 색으로 둔다. */}
+        <Reveal className="mt-14">
+          <ol className="grid grid-cols-3 border-t-2 border-foreground">
+            {STEPS.map((step, index) => (
+              <li
+                key={step.title}
+                className={cn("pt-7 pr-8 pb-2", index > 0 && "border-l border-border pl-8")}
+              >
+                <p className="type-ui-lg font-bold text-foreground">{index + 1}단계</p>
+                <h3 className="mt-2 type-heading-lg text-foreground">{step.title}</h3>
+                <dl className="mt-5 flex flex-col gap-4">
                   <div>
-                    <dt className="type-caption font-medium text-muted-foreground">하는 일</dt>
-                    <dd className="mt-1 type-body text-foreground">{step.action}</dd>
+                    <dt className={TERM}>하는 일</dt>
+                    <dd className={VALUE}>{step.action}</dd>
                   </div>
-                  <div className="border-t border-border pt-3">
-                    <dt className="type-caption font-medium text-muted-foreground">얻는 것</dt>
-                    <dd className="mt-1 type-body text-foreground">{step.result}</dd>
+                  <div>
+                    <dt className={TERM}>얻는 것</dt>
+                    <dd className={VALUE}>{step.result}</dd>
                   </div>
                 </dl>
-              </Card>
-            </Reveal>
-          ))}
-        </ol>
+              </li>
+            ))}
+          </ol>
+        </Reveal>
       </div>
     </section>
   );

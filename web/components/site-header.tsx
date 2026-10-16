@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const MENU_LINK_CLASS =
   "rounded-lg px-3.5 py-2.5 type-ui-lg font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50";
 
-// 첫 화면의 마케팅 머리말. 화면 위에 붙어 따라온다(sticky) — 구역은 scroll-mt-20 으로 머리말 높이(72px)만큼 내려앉는다.
+// 첫 화면의 마케팅 머리말. 화면 위에 붙어 따라온다(sticky) — 구역은 scroll-mt-24(96px)로 머리말 높이(72px)보다 더 내려앉는다.
 // 시작하기의 목적지는 로그인 상태를 읽는 app/page.tsx 가 정해 내려 준다. 이 부품은 로그인 상태를 읽지 않는다.
 // 데스크톱 전용(docs/16-DECISIONS.md ADR-007)이라 좁은 폭용 메뉴를 두지 않는다. 현재 위치 표시는 하지 않는다.
 export function SiteHeader({ startHref }: { startHref: string }) {

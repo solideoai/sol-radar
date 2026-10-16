@@ -1,11 +1,5 @@
 import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 
 // 질문과 답은 요청 문구 그대로다. 실제 연동 범위처럼 개발 상태에 따라 바뀌는 답은 상태가 바뀌면 같이 고친다.
 const FAQS = [
@@ -34,22 +28,26 @@ const FAQS = [
   },
 ];
 
+// 질문이 다섯 개뿐이라 접지 않는다. 핵심 고지("수주 확률 아님", "담당자가 결정")를 누르지 않고 읽게 한다.
 export function FaqSection() {
   return (
-    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-20 px-8 py-24">
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-12 gap-8">
-        <Reveal className="col-span-4">
+    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-24 pt-36">
+      <div className="mx-auto w-full max-w-320 px-10">
+        <Reveal>
           <SectionHeading id="faq-title" title="자주 묻는 질문" />
         </Reveal>
-        <Reveal className="col-span-8">
-          <Accordion className="rounded-xl border border-border bg-card px-6 shadow-xs">
+        <Reveal className="mt-12">
+          <dl className="border-t-2 border-foreground">
             {FAQS.map((faq) => (
-              <AccordionItem key={faq.question} value={faq.question}>
-                <AccordionTrigger>{faq.question}</AccordionTrigger>
-                <AccordionContent>{faq.answer}</AccordionContent>
-              </AccordionItem>
+              <div
+                key={faq.question}
+                className="grid grid-cols-12 gap-10 border-b border-border py-7"
+              >
+                <dt className="col-span-5 type-lead font-bold text-foreground">{faq.question}</dt>
+                <dd className="col-span-7 type-body-lg text-muted-foreground">{faq.answer}</dd>
+              </div>
             ))}
-          </Accordion>
+          </dl>
         </Reveal>
       </div>
     </section>
