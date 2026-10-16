@@ -1,6 +1,6 @@
 ---
 title: "솔리데오 가상 인력 구현 계획 2 — 정장 사진 200장"
-status: proposed
+status: in-progress
 tags:
   - sol-radar
   - plan

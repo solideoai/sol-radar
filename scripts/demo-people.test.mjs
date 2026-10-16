@@ -265,7 +265,7 @@ test("fixture CLI explicitly reports source comparison not-run", () => {
   });
 });
 
-test("READY flags cannot pass release without original source and actual files", async () => {
+test("READY flags cannot pass release without human approval, original source and actual files", async () => {
   const value = copy();
   for (const [index, portrait] of value.portraits.portraits.entries()) {
     portrait.status = "READY";
@@ -278,7 +278,31 @@ test("READY flags cannot pass release without original source and actual files",
   assert.equal(result.ok, false);
   assert.ok(codes(result).includes("SOURCE_REQUIRED"));
   assert.ok(codes(result).includes("PORTRAIT_FILE_INVALID"));
-  assert.ok(!codes(result).includes("PORTRAITS_INCOMPLETE"));
+  assert.ok(codes(result).includes("PORTRAITS_INCOMPLETE"));
+  assert.ok(codes(result).includes("HUMAN_REVIEW_REQUIRED"));
+});
+
+test("fixture mode rejects fabricated READY without documented human PASS", async () => {
+  const value = copy();
+  const portrait = value.portraits.portraits[0];
+  Object.assign(portrait, {
+    status: "READY",
+    prompt: "Fictional adult in suit",
+    generator: "imagegen",
+    generatedAt: "2026-10-16T00:00:00.000Z",
+    sha256: "a".repeat(64),
+    review: {
+      actor: "ai",
+      reviewer: "AI inspection",
+      reviewedAt: "2026-10-16T00:00:00.000Z",
+      verdict: "PASS",
+      sha256: "a".repeat(64),
+      evidence: "AI inspection is not human approval",
+    },
+  });
+  const result = await checkPeople({ fixtures: value });
+  assert.equal(result.ok, false);
+  assert.ok(codes(result).includes("HUMAN_REVIEW_REQUIRED"));
 });
 
 test("malformed READY metadata returns safe errors instead of throwing", async () => {

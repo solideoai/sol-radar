@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
@@ -7,6 +6,7 @@ import { allocatePeople } from "./allocation.mjs";
 import { generatePeople, projectSignupOptions } from "./generate.mjs";
 import { normalizeSourceName } from "./names.mjs";
 import { readOrganizationWorkbook } from "./workbook.mjs";
+import { validatePortraitAssets } from "./portraits.mjs";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const SOURCE_SHA256 = "d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3";
@@ -28,7 +28,6 @@ const STARTS_AT = "2026-12-01";
 const ENDS_AT = "2027-07-01";
 const idAt = (prefix, index, length) => `${prefix}${String(index + 1).padStart(length, "0")}`;
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-const hashPattern = /^[a-f0-9]{64}$/;
 const validTime = (value) => typeof value === "string" && Number.isFinite(Date.parse(value));
 const unique = (values) => new Set(values).size === values.length;
 
@@ -210,68 +209,20 @@ function checkRoster(fixtures, add) {
 }
 
 async function checkPortraits(fixtures, requirePortraits, add) {
-  const portraits = fixtures.portraits.portraits;
-  const people = fixtures.people.people;
-  if (portraits.length !== 200) add("PORTRAIT_MANIFEST_INVALID");
-  for (const [index, portrait] of portraits.entries()) {
-    const person = people[index];
-    if (
-      !person ||
-      portrait.personId !== person.personId ||
-      portrait.gender !== person.gender ||
-      portrait.path !== person.portraitPath ||
-      !["PLANNED", "GENERATED", "READY", "FAILED"].includes(portrait.status) ||
-      typeof portrait.prompt !== "string" ||
-      !(
-        portrait.sha256 === null ||
-        (typeof portrait.sha256 === "string" && hashPattern.test(portrait.sha256))
-      ) ||
-      !(portrait.generator === null || typeof portrait.generator === "string") ||
-      !(portrait.generatedAt === null || validTime(portrait.generatedAt))
-    )
-      add("PORTRAIT_MANIFEST_INVALID", portrait.personId);
+  if (fixtures.portraits.portraits.length !== 200) {
+    add("PORTRAIT_MANIFEST_INVALID");
+    if (requirePortraits) add("PORTRAITS_INCOMPLETE");
   }
-  if (!requirePortraits) return;
-  if (portraits.length !== 200 || portraits.some((portrait) => portrait.status !== "READY")) {
-    add("PORTRAITS_INCOMPLETE");
-    return;
-  }
-  if (
-    !unique(portraits.map((portrait) => portrait.path)) ||
-    !unique(portraits.map((portrait) => portrait.sha256))
-  )
-    add("PORTRAITS_NOT_UNIQUE");
-  for (const portrait of portraits) {
-    if (
-      typeof portrait.personId !== "string" ||
-      !/^SOL-P(?:00\d\d|01\d\d|0200)$/.test(portrait.personId) ||
-      portrait.path !== `/demo/people/${portrait.personId}.png`
-    )
-      continue;
-    if (
-      typeof portrait.prompt !== "string" ||
-      !portrait.prompt.trim() ||
-      typeof portrait.generator !== "string" ||
-      !portrait.generator.trim() ||
-      !validTime(portrait.generatedAt) ||
-      typeof portrait.sha256 !== "string" ||
-      !hashPattern.test(portrait.sha256)
-    )
-      add("PORTRAIT_METADATA_INCOMPLETE", portrait.personId);
-    try {
-      const bytes = await readFile(path.join(ROOT, "web/public", portrait.path));
-      if (
-        bytes.length < 33 ||
-        bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" ||
-        bytes.subarray(12, 16).toString("ascii") !== "IHDR" ||
-        bytes.readUInt32BE(16) <= 0 ||
-        bytes.readUInt32BE(16) !== bytes.readUInt32BE(20) ||
-        createHash("sha256").update(bytes).digest("hex") !== portrait.sha256
-      )
-        add("PORTRAIT_FILE_INVALID", portrait.personId);
-    } catch {
-      add("PORTRAIT_FILE_INVALID", portrait.personId);
-    }
+  const errors = await validatePortraitAssets(fixtures.people.people, fixtures.portraits, {
+    requireReady: requirePortraits,
+    checkFiles: requirePortraits,
+  });
+  for (const { code, personId } of errors) {
+    add(code, personId);
+    if (["INVALID_PATH", "GENDER_MISMATCH", "INVALID_PERSON_ID"].includes(code))
+      add("PORTRAIT_MANIFEST_INVALID", personId);
+    if (code === "DUPLICATE_IMAGE") add("PORTRAITS_NOT_UNIQUE");
+    if (code === "HASH_MISMATCH") add("PORTRAIT_FILE_INVALID", personId);
   }
 }
 

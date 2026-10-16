@@ -1,6 +1,6 @@
 ---
 title: "솔리데오 가상 인력 구현 계획 1 — 카탈로그·200명 명부"
-status: in-progress
+status: completed
 tags:
   - sol-radar
   - plan
@@ -97,11 +97,11 @@ assert.ok(people.every(p => /^[가-힣]{3}$/.test(p.name) && !excludedNames.has(
 
 **Interfaces:** Produces `projectSignupOptions(departments,jobTitles):SignupOptions`, `checkPeople({fixtures,sourcePath,requirePortraits:boolean}):Promise<{ok:boolean,sourceComparison:"passed"|"not-run",errors:{code:string,personId?:string}[]}>`. `SignupOptions`는 05 §8 그대로다. `people:check:fixtures`는 저장 fixture 검사, 정본 문서의 `people:check -- --input <path>`는 원본 필수 대조, `people:check:release -- --input <path>`는 원본과 READY 이미지까지 필수 검사다.
 
-- [ ] **1. 실패 시험 작성:** `Object.keys(options)`가 `companyName,catalogVersion,departments,jobTitles` 네 개뿐이고 각 옵션은 `id,label`뿐임을 단언한다. 생성 투영과 커밋된 JSON의 깊은 동일성, 계산 대상 27명·역할별 2/4/18/3·나머지 173명, ID 안정성을 검사한다. 원본 없는 strict 대조는 `SOURCE_REQUIRED`, 일반 CI는 `sourceComparison:"not-run"`이어야 한다. PLANNED manifest는 데이터 단계에서 허용하되 release 모드에서 `PORTRAITS_INCOMPLETE`로 반드시 실패한다.
-- [ ] **2. 실패 확인:** `node --test scripts/demo-people.test.mjs` → 검증기/투영 미구현 FAIL.
-- [ ] **3. 구현:** 공개 투영을 생성 스크립트에서 함께 출력한다. 웹에서 루트 fixture를 직접 읽거나 전체 명부를 번들하지 않는다. 루트 기존 `test`가 새 `*.test.mjs`들을 자동 실행하도록 유지하고 검사를 빼지 않는다. 증거에는 sourceSha256·팀/직급/인물 건수·이름 출처·수동 검토 결과·원본 일치 0만 남긴다. 원본 파일이 없는 CI를 로컬 원본 대조 완료로 기록하지 않는다. 11 문서에 세 명령과 이미지 전/후 검증 범위를 명시한다.
-- [ ] **4. 통과 확인:** 위 시험 및 `pnpm people:check:fixtures` PASS, `pnpm people:check -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx` PASS, `pnpm people:check:release -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`는 아직 이미지 미완료로 FAIL. `pnpm verify` 통과 후에만 데이터 단계 완료 표시한다. 전체 인력/이미지/가입 완료로 표시하지 않는다.
-- [ ] **5. 커밋:** `git add scripts/people/check.mjs scripts/demo-people.test.mjs scripts/people/generate.mjs web/server/profile/signup-options.generated.json package.json docs/11-TESTING.md docs/PROGRESS.md docs/evidence/people/20261016-people-data.json`; `git commit -m "test: 인력 명부와 공개 카탈로그 검증"`.
+- [x] **1. 실패 시험 작성:** `Object.keys(options)`가 `companyName,catalogVersion,departments,jobTitles` 네 개뿐이고 각 옵션은 `id,label`뿐임을 단언한다. 생성 투영과 커밋된 JSON의 깊은 동일성, 계산 대상 27명·역할별 2/4/18/3·나머지 173명, ID 안정성을 검사한다. 원본 없는 strict 대조는 `SOURCE_REQUIRED`, 일반 CI는 `sourceComparison:"not-run"`이어야 한다. PLANNED manifest는 데이터 단계에서 허용하되 release 모드에서 `PORTRAITS_INCOMPLETE`로 반드시 실패한다.
+- [x] **2. 실패 확인:** `node --test scripts/demo-people.test.mjs` → 검증기/투영 미구현 FAIL.
+- [x] **3. 구현:** 공개 투영을 생성 스크립트에서 함께 출력한다. 웹에서 루트 fixture를 직접 읽거나 전체 명부를 번들하지 않는다. 루트 기존 `test`가 새 `*.test.mjs`들을 자동 실행하도록 유지하고 검사를 빼지 않는다. 증거에는 sourceSha256·팀/직급/인물 건수·이름 출처·수동 검토 결과·원본 일치 0만 남긴다. 원본 파일이 없는 CI를 로컬 원본 대조 완료로 기록하지 않는다. 11 문서에 세 명령과 이미지 전/후 검증 범위를 명시한다.
+- [x] **4. 통과 확인:** 위 시험 및 `pnpm people:check:fixtures` PASS, `pnpm people:check -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx` PASS, `pnpm people:check:release -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`는 아직 이미지 미완료로 FAIL. `pnpm verify` 통과 후에만 데이터 단계 완료 표시한다. 전체 인력/이미지/가입 완료로 표시하지 않는다.
+- [x] **5. 커밋:** `git add scripts/people/check.mjs scripts/demo-people.test.mjs scripts/people/generate.mjs web/server/profile/signup-options.generated.json package.json docs/11-TESTING.md docs/PROGRESS.md docs/evidence/people/20261016-people-data.json`; `git commit -m "test: 인력 명부와 공개 카탈로그 검증"`.
 
 ## 계획 자체 검토
 
