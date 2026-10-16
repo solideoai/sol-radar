@@ -6,7 +6,9 @@ import { defineConfig, devices } from "@playwright/test";
 //
 // 기본 포트는 3200 이다(기존 E2E 는 3100). 다른 서버가 쓰고 있으면 E2E_PORT 로 바꾼다(예: E2E_PORT=3211 pnpm test:e2e:auth).
 const port = Number(process.env.E2E_PORT) || 3200;
-const baseURL = `http://127.0.0.1:${port}`;
+// Confirmation/recovery redirects and session cookies must stay on one browser origin.
+const hostname = "localhost";
+const baseURL = `http://${hostname}:${port}`;
 
 // 시드는 명령 한 번에 한 번만 들어간다. 시험이 서로의 단언을 깨지 않도록 두 단계로 나눈다.
 //   1단계(chromium) — 시드 팀을 읽기만 한다. 바꿔야 하면 시드 팀 밖(자기가 만든 팀)에서 바꾼다.
@@ -44,7 +46,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm start --hostname 127.0.0.1 --port ${port}`,
+    command: `pnpm start --hostname ${hostname} --port ${port}`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: 60_000,

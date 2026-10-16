@@ -55,12 +55,8 @@ test("이메일 가입은 필수 신고 정보로 확인 메일을 보내고, �
 }) => {
   test.setTimeout(60_000);
   if (!baseURL) throw new Error("로컬 시험 서버 주소가 없습니다");
-  // Next's local production confirm redirect canonicalizes to localhost. Keep
-  // signup, OTP cookies, redirect and re-login on that one origin from the start.
-  const origin = new URL(baseURL);
-  origin.hostname = "localhost";
   const context = await browser.newContext({
-    baseURL: origin.origin,
+    baseURL,
     locale: "ko-KR",
     timezoneId: "Asia/Seoul",
   });
@@ -94,7 +90,7 @@ test("이메일 가입은 필수 신고 정보로 확인 메일을 보내고, �
     expect(link.pathname).toBe("/auth/confirm");
     // The local template SiteURL may use another port; keep its real token/query
     // and open the exact production route in this test checkout's server.
-    await page.goto(new URL(`${link.pathname}${link.search}`, origin).href);
+    await page.goto(new URL(`${link.pathname}${link.search}`, baseURL).href);
     await expect(page).toHaveURL(/\/auth\/organization-state$/);
     await expectEmployment(page, name);
     await signOut(page);
