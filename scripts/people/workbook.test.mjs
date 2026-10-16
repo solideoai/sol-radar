@@ -333,3 +333,19 @@ test("retains team continuity across the audited worksite business-unit heading"
     },
   );
 });
+
+for (const heading of ["주소정보팀", "청사관리팀", "청사관리팀 2층"]) {
+  test(`ends team inheritance at an explicit organization heading containing location words (${heading})`, async () => {
+    await withWorkbook(
+      async (filename) => {
+        await assert.rejects(
+          readOrganizationWorkbook(filename, [department("개발팀", [range("A1", "A2:A17")])]),
+          /Source range crosses an organization heading: A5/,
+        );
+      },
+      (_workbook, sheet) => {
+        sheet.getCell("A5").value = heading;
+      },
+    );
+  });
+}
