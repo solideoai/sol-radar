@@ -92,7 +92,8 @@ updated: 2026-10-16
 | 용어 | 정의 | 주 문서 |
 |---|---|---|
 | Supabase | DB(Postgres)와 인증(Auth)을 맡는 관리형 서비스. SOL RADAR는 이 둘만 쓴다. Storage·pgvector·Queues는 쓰지 않는다(첨부는 MinIO, 검색은 Qdrant, 큐는 Redis/BullMQ). 개발은 Supabase 클라우드 프로젝트. 데모·배포 실행 환경은 미결정 | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
-| Supabase Auth | 이메일 + 비밀번호 로그인, 초대 기반 가입, 토큰 발급·갱신을 맡는 Supabase 인증 기능. 사용자 원본은 `auth.users`. 자체 로그인·토큰 엔드포인트는 두지 않는다. 토큰 만료·로그인 제한 같은 세부 값은 대시보드 설정이고 미검증 | [[09-SECURITY]] |
+| Supabase Auth | 이메일 + 비밀번호·간편 로그인, 공개 가입(업무 조직 합류는 초대), 토큰 발급·갱신을 맡는 Supabase 인증 기능. 사용자 원본은 `auth.users`. 자체 로그인·토큰 엔드포인트는 두지 않는다. 토큰 만료·로그인 제한 같은 세부 값은 대시보드 설정이고 미검증 | [[09-SECURITY]] |
+| 간편 로그인 | 구글·카카오·네이버 계정으로 가입·로그인하는 방식. Supabase Auth 제공자로 받는다(구글·카카오는 기본 제공자, 네이버는 사용자 정의 OIDC `custom:naver`). 버튼은 `NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`로 켜고, 제공자 설정은 해커톤 후순위다 | [[16-DECISIONS]] |
 | Route Handler | Next.js App Router의 서버 HTTP 핸들러(`web/app/api/v1/**/route.ts`). 외부 API 계약 `/api/v1/...`과 헬스체크 `/health/live`·`/health/ready`를 낸다 | [[05-API-SPEC]] |
 | 서버 도메인 (`web/server/<도메인>`) | 서버 전용 업무 코드. model·repo·service·index(배럴)로 나누고 `import "server-only"`로 시작한다. 다른 코드는 배럴(`@/server/<도메인>`)로만 부른다. 예: `bids`·`ingestion`·`scoring`·`analysis`·`review`·`notifications`·`company-profile`·`health` | [[02-ARCHITECTURE]] |
 | zod 스키마 (계약 단일 원천) | `web/server/<도메인>/*.model.ts`의 zod 스키마. 화면 폼·Route Handler·worker가 같은 스키마로 입력을 검증한다. OpenAPI 문서는 필요하면 여기서 생성한다(선택) | [[05-API-SPEC]], [[16-DECISIONS]] |

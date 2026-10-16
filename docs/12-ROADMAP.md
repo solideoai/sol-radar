@@ -31,7 +31,7 @@ updated: 2026-10-16
 |구분|포함|이유|
 |---|---|---|
 |데모 필수|Phase 0~4 전부. Phase 5 중 AI gateway mock adapter(`AI_PROVIDER=mock`)·장애 대체(`PARTIAL`)·Kev 보조 의견 UI 영역. Phase 6 중 사람 최종 결정 기록·인앱 알림(outbox). Phase 7 중 `.env.example`·`pnpm check:env`·healthcheck·DEMO 배지·`docs/evidence/` 수집|[[19-DEMO-SCENARIO\|19 데모 시나리오]]의 8장면이 전부 여기서 나온다|
-|있으면 좋음|Phase 5 `ai-local` 프로필로 Kev-4B 실제 호출 1회 로그 또는 영상. Qdrant 의미 검색. 관리자 수집 현황 화면([[14-OBSERVABILITY\|14 관측성]] 지표 5개). Playwright 전체 E2E 녹화. 공고 revision diff 화면|"진짜 동작하나" 질문에 추가 증거. 데모 필수가 전부 녹색일 때만 착수|
+|있으면 좋음|Phase 5 `ai-local` 프로필로 Kev-4B 실제 호출 1회 로그 또는 영상. Qdrant 의미 검색. 관리자 수집 현황 화면([[14-OBSERVABILITY\|14 관측성]] 지표 5개). Playwright 전체 E2E 녹화. 공고 revision diff 화면. 간편 로그인 제공자 설정(구글·카카오·네이버, ADR-018)은 이 칸에서도 맨 마지막으로, 다른 기능을 모두 끝낸 뒤 한다|"진짜 동작하나" 질문에 추가 증거. 데모 필수가 전부 녹색일 때만 착수|
 |해커톤 이후|Phase 5 `ai-hosted`. Phase 7 운영 심화(nginx TLS, 백업·복구 리허설, Sentry/Grafana). Phase 8 P1 전부(카카오 실발송, 경쟁사 통계, 인력 배치). P2|외부 승인·비용·GPU 의존|
 
 규칙: 데모 필수 항목이 하나라도 빨간불이면 "있으면 좋음"에 손대지 않는다. 범위를 더 줄여야 하면 선택지를 보고하고 사용자가 결정한다 ([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).

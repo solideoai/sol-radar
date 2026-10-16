@@ -12,7 +12,7 @@ updated: 2026-10-16
 # 09. 인증·권한·보안·책임 있는 AI
 
 ## 인증
-로그인·로그아웃·비밀번호 재설정·초대 수락은 **Supabase Auth**(이메일 + 비밀번호, 초대 기반 가입)가 맡는다([[16-DECISIONS|16 ADR]] ADR-017). 화면은 템플릿의 `/auth/login` 등, 서버 쪽은 템플릿 `web/server/auth`·`web/server/supabase`다. 자체 로그인·토큰 발급 엔드포인트와 비밀번호 해시 저장은 없다(계정은 Supabase의 `auth.users`). 템플릿의 판단 근거는 `docs/boilerplate/AUTH-SECURITY.md`([[05-API-SPEC|05 API]] §1과 같은 내용).
+가입·로그인·로그아웃·비밀번호 재설정·초대 수락은 **Supabase Auth**(이메일 + 비밀번호, 간편 로그인 구글·카카오·네이버)가 맡는다([[16-DECISIONS|16 ADR]] ADR-017·018). 화면은 템플릿의 `/auth/login` 등, 서버 쪽은 템플릿 `web/server/auth`·`web/server/supabase`다. 자체 로그인·토큰 발급 엔드포인트와 비밀번호 해시 저장은 없다(계정은 Supabase의 `auth.users`). 템플릿의 판단 근거는 `docs/boilerplate/AUTH-SECURITY.md`([[05-API-SPEC|05 API]] §1과 같은 내용).
 
 세션 쿠키는 `@supabase/ssr`가 관리한다(`sb-<ref>-auth-token`, 길면 `.0`·`.1`로 나뉜다). 옵션은 서버와 브라우저가 같은 값을 쓰도록 `web/server/shared/auth-cookie.ts` 한 곳에 있다.
 
@@ -27,12 +27,12 @@ updated: 2026-10-16
 - **세션 갱신**: 화면 요청은 `web/proxy.ts`가 토큰을 갱신한다. 자체 refresh 엔드포인트는 없다.
 - **CSRF**: 쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. Bearer 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다. 다른 출처의 페이지가 이 헤더를 붙이려면 CORS preflight가 필요한데 CORS 헤더를 열지 않으므로 막힌다. 템플릿의 `/api/*`는 Bearer만 받아 이 문제가 없지만, SOL RADAR의 `/api/v1`은 화면의 polling·변경 요청 때문에 쿠키도 받으므로 이 헤더를 요구한다.
 - **XSS**: 요청마다 새 nonce를 만들고 그 nonce를 가진 스크립트만 실행한다(템플릿 `web/proxy.ts`·`web/server/csp`). 화면에 `dangerouslySetInnerHTML`을 쓰지 않고, 공고 본문·첨부 텍스트 같은 외부 입력은 텍스트로만 그린다. 세션 쿠키가 HttpOnly가 아니므로 이 방어가 토큰 보호의 핵심이다.
-- **가입**: 초대 기반이다. 템플릿의 공개 가입 화면(`/auth/sign-up`)과 간편 로그인(구글·카카오·네이버)은 SOL RADAR 범위 밖이며, 정리 범위는 Phase 0 템플릿 정리에서 정한다. 초대 없는 가입을 Supabase Auth에서 어떻게 막을지(공개 가입 끄기 등)는 아래 미검증 항목과 함께 정한다.
+- **가입**: 공개 가입이다([[16-DECISIONS|16 ADR]] ADR-018). 누구나 `/auth/sign-up`에서 이메일 + 비밀번호로, 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만든다. 가입만으로는 업무 조직 데이터가 열리지 않는다. 조직 데이터는 멤버십이 있어야 RLS(`my_org_ids()`)가 보여 주고, 업무 조직 합류는 초대 수락으로만 한다. 공용 표(`bid_notices` 등)는 `authenticated` 읽기라 가입한 사용자도 읽는다. 간편 로그인 제공자의 Client ID·Secret은 Supabase 쪽에만 두고 웹 env·브라우저 번들에 넣지 않는다. 버튼 플래그(`NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`)는 공개 값이고, 제공자를 설정한 뒤에만 켠다(설정 전에 켜면 누를 때 `provider is not enabled`).
 - **정지**: `profiles.status='suspended'`(템플릿 `20261015000001_account_status_and_deletion.sql`)면 토큰이 아직 유효해도 API는 `403 ACCOUNT_DISABLED`이고, 정책 도우미(`public.my_org_ids()`)가 빈 목록을 돌려 조직 데이터가 닫힌다. 정지는 서비스 운영자(`profiles.is_admin`)만 한다. 조직 ADMIN의 "비활성화"는 그 조직에서 내보내기다([[05-API-SPEC|05 API]] §2).
 - 로그인 실패 문구는 이메일 존재 여부를 구분하지 않는다([[06-UI-UX|06 UI]] §5.2).
 
 > [!warning] 미검증 가정 — Supabase Auth 설정
-> access token 만료 시간, refresh token 회전·재사용 탐지, 로그인 시도 제한(요청 수 제한), 비밀번호 정책, 공개 가입 허용 여부는 자체 코드가 아니라 **Supabase Auth 설정**이다. 구체 값은 Supabase 대시보드 설정으로 정하고 확인한다(미검증). 확인 전까지 이 문서는 값을 적지 않는다([[16-DECISIONS|16 ADR]] 미결정 표).
+> access token 만료 시간, refresh token 회전·재사용 탐지, 로그인 시도 제한(요청 수 제한), 비밀번호 정책은 자체 코드가 아니라 **Supabase Auth 설정**이다. 공개 가입은 켜 둔다(ADR-018). 구체 값은 Supabase 대시보드 설정으로 정하고 확인한다(미검증). 확인 전까지 이 문서는 값을 적지 않는다([[16-DECISIONS|16 ADR]] 미결정 표).
 
 ## RBAC
 권한은 세 가지를 나눠 쓴다.
