@@ -225,3 +225,64 @@ it.each(["missing", "suspended"])(
     expect(mutation).not.toHaveBeenCalled();
   },
 );
+
+it("bare legacy org entry checks incomplete profile before redirecting even a forged slug", async () => {
+  const { default: OrgHomePage } = await import("./[slug]/page");
+  await expect(
+    OrgHomePage({ searchParams: Promise.resolve({}), params: Promise.resolve({ slug: "alpha" }) }),
+  ).rejects.toThrow("REDIRECT:/auth/complete-profile");
+  expect(workspace).not.toHaveBeenCalled();
+});
+it.each(["no-org", "multiple-orgs"])(
+  "bare legacy org entry blocks %s before redirect",
+  async (status) => {
+    const { default: OrgHomePage } = await import("./[slug]/page");
+    profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+    workspace.mockResolvedValue({ status, userId: "me" });
+    await expect(
+      OrgHomePage({
+        searchParams: Promise.resolve({}),
+        params: Promise.resolve({ slug: "alpha" }),
+      }),
+    ).rejects.toThrow("REDIRECT:/auth/organization-state");
+  },
+);
+it.each(["historical-personal", "foreign", "/foreign"])(
+  "bare legacy entry never redirects unvalidated slug %s",
+  async (slug) => {
+    const { default: OrgHomePage } = await import("./[slug]/page");
+    profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+    workspace.mockResolvedValue({ status: "not-found" });
+    await expect(
+      OrgHomePage({ searchParams: Promise.resolve({}), params: Promise.resolve({ slug }) }),
+    ).rejects.toThrow("NOT_FOUND");
+  },
+);
+it("bare legacy entry redirects only after current workspace resolution", async () => {
+  const { default: OrgHomePage } = await import("./[slug]/page");
+  profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+  workspace.mockResolvedValue({
+    status: "ready",
+    userId: "me",
+    current: { id: "business", slug: "alpha" },
+  });
+  await expect(
+    OrgHomePage({ searchParams: Promise.resolve({}), params: Promise.resolve({ slug: "alpha" }) }),
+  ).rejects.toThrow("REDIRECT:/alpha/dashboard");
+  expect(workspace).toHaveBeenCalledWith("alpha");
+});
+
+it.each(["signed-out", "no-database"])(
+  "bare %s entry leaves the noindex guide to layout",
+  async (status) => {
+    const { default: OrgHomePage } = await import("./[slug]/page");
+    profile.mockResolvedValue({ status });
+    workspace.mockResolvedValue({ status });
+    await expect(
+      OrgHomePage({
+        searchParams: Promise.resolve({}),
+        params: Promise.resolve({ slug: "alpha" }),
+      }),
+    ).resolves.toBeNull();
+  },
+);
