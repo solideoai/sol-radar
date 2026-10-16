@@ -1,5 +1,6 @@
 import { FilesIcon, ListChecksIcon, UsersIcon } from "lucide-react";
 import { IconChip } from "@/components/landing/icon-chip";
+import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 import { Card } from "@/components/ui/card";
 
@@ -26,29 +27,34 @@ export function ProblemSection() {
   return (
     <section id="about" aria-labelledby="about-title" className="scroll-mt-20 px-8 py-24">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-12 gap-x-8 gap-y-10">
-        <SectionHeading
-          id="about-title"
-          eyebrow="서비스 소개"
-          title="공고 검색보다 오래 걸리는 건, 참여 여부를 판단하는 일입니다."
-          className="col-span-5"
-        />
-        <Card className="col-span-7 gap-0 py-0">
-          <ul className="divide-y divide-border">
-            {PAINS.map((pain) => (
-              <li key={pain.title} className="flex gap-4 px-6 py-5">
-                <IconChip icon={pain.icon} />
-                <div>
-                  <h3 className="type-heading text-foreground">{pain.title}</h3>
-                  <p className="mt-1 type-body text-muted-foreground">{pain.body}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        <p className="col-span-7 col-start-6 type-lead text-foreground">
-          SOL RADAR는 이 과정을 하나의 검토 흐름으로 묶습니다. 공고를 모으고, 회사 정보와 대조하고,
-          판단 근거와 함께 검토 순서를 정리합니다.
-        </p>
+        <Reveal className="col-span-5">
+          <SectionHeading
+            id="about-title"
+            eyebrow="서비스 소개"
+            title="공고 검색보다 오래 걸리는 건, 참여 여부를 판단하는 일입니다."
+          />
+        </Reveal>
+        <Reveal className="col-span-7">
+          <Card className="gap-0 py-0">
+            <ul className="divide-y divide-border">
+              {PAINS.map((pain) => (
+                <li key={pain.title} className="flex gap-4 px-6 py-5">
+                  <IconChip icon={pain.icon} />
+                  <div>
+                    <h3 className="type-heading text-foreground">{pain.title}</h3>
+                    <p className="mt-1 type-body text-muted-foreground">{pain.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </Reveal>
+        <Reveal className="col-span-7 col-start-6">
+          <p className="type-lead text-foreground">
+            SOL RADAR는 이 과정을 하나의 검토 흐름으로 묶습니다. 공고를 모으고, 회사 정보와
+            대조하고, 판단 근거와 함께 검토 순서를 정리합니다.
+          </p>
+        </Reveal>
       </div>
     </section>
   );

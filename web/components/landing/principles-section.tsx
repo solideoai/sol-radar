@@ -1,5 +1,6 @@
 import { CircleHelpIcon, GaugeIcon, LinkIcon, UserCheckIcon } from "lucide-react";
 import { IconChip } from "@/components/landing/icon-chip";
+import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 
 // 설계 원칙이다. 검증하지 않은 정확도·성능·보안 인증·수주 실적은 적지 않는다(docs/09-SECURITY.md 책임 있는 AI).
@@ -30,23 +31,27 @@ export function PrinciplesSection() {
   return (
     <section id="principles" aria-labelledby="principles-title" className="scroll-mt-20 px-8 py-24">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-12 gap-8">
-        <SectionHeading
-          id="principles-title"
-          eyebrow="분석 원칙"
-          title="점수만 보여주지 않고, 판단의 근거를 함께 제공합니다."
-          description="SOL RADAR의 분석 화면은 다음 네 가지 원칙으로 설계하고 있습니다."
-          className="col-span-5"
-        />
+        <Reveal className="col-span-5">
+          <SectionHeading
+            id="principles-title"
+            eyebrow="분석 원칙"
+            title="점수만 보여주지 않고, 판단의 근거를 함께 제공합니다."
+            description="SOL RADAR의 분석 화면은 다음 네 가지 원칙으로 설계하고 있습니다."
+          />
+        </Reveal>
         {/* 칸 사이 1px 틈으로 바탕(border 색)이 비쳐 가는 선이 된다. 선을 따로 긋지 않는다. */}
-        <ul className="col-span-7 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-xs">
-          {PRINCIPLES.map((principle) => (
-            <li key={principle.title} className="flex flex-col gap-3 bg-card p-6">
-              <IconChip icon={principle.icon} />
-              <h3 className="type-heading text-foreground">{principle.title}</h3>
-              <p className="type-body text-muted-foreground">{principle.body}</p>
-            </li>
-          ))}
-        </ul>
+        {/* 칸마다 따로 떠오르면 틈이 벌어져 보이므로 네 칸을 한 덩어리로 띄운다. */}
+        <Reveal className="col-span-7">
+          <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-xs">
+            {PRINCIPLES.map((principle) => (
+              <li key={principle.title} className="flex flex-col gap-3 bg-card p-6">
+                <IconChip icon={principle.icon} />
+                <h3 className="type-heading text-foreground">{principle.title}</h3>
+                <p className="type-body text-muted-foreground">{principle.body}</p>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
       </div>
     </section>
   );

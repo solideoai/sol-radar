@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 import {
   Accordion,
@@ -37,20 +38,19 @@ export function FaqSection() {
   return (
     <section id="faq" aria-labelledby="faq-title" className="scroll-mt-20 px-8 py-24">
       <div className="mx-auto grid w-full max-w-6xl grid-cols-12 gap-8">
-        <SectionHeading
-          id="faq-title"
-          eyebrow="FAQ"
-          title="자주 묻는 질문"
-          className="col-span-4"
-        />
-        <Accordion className="col-span-8 rounded-xl border border-border bg-card px-6 shadow-xs">
-          {FAQS.map((faq) => (
-            <AccordionItem key={faq.question} value={faq.question}>
-              <AccordionTrigger>{faq.question}</AccordionTrigger>
-              <AccordionContent>{faq.answer}</AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        <Reveal className="col-span-4">
+          <SectionHeading id="faq-title" eyebrow="FAQ" title="자주 묻는 질문" />
+        </Reveal>
+        <Reveal className="col-span-8">
+          <Accordion className="rounded-xl border border-border bg-card px-6 shadow-xs">
+            {FAQS.map((faq) => (
+              <AccordionItem key={faq.question} value={faq.question}>
+                <AccordionTrigger>{faq.question}</AccordionTrigger>
+                <AccordionContent>{faq.answer}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </Reveal>
       </div>
     </section>
   );

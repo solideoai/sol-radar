@@ -14,6 +14,7 @@ import {
   ScorePreview,
 } from "@/components/landing/feature-previews";
 import { IconChip } from "@/components/landing/icon-chip";
+import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 import { PlannedBadge } from "@/components/landing/status-badges";
 import { Card } from "@/components/ui/card";
@@ -68,23 +69,25 @@ export function FeaturesSection() {
   return (
     <section id="features" aria-labelledby="features-title" className="scroll-mt-20 px-8 py-24">
       <div className="mx-auto w-full max-w-6xl">
-        <SectionHeading
-          id="features-title"
-          eyebrow="주요 기능"
-          title="검토에 필요한 정보를 한 흐름으로 모읍니다"
-          description="공고 수집부터 참여 결정 기록까지, 담당자가 되풀이하던 확인 작업을 줄이는 데 집중합니다."
-        />
-        <p
-          role="note"
-          className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 type-label text-muted-foreground"
-        >
-          <InfoIcon aria-hidden className="size-4 shrink-0 text-brand" />
-          SOL RADAR는 MVP를 개발하고 있습니다. 아래 기능은 모두 개발 예정이며 아직 이용할 수
-          없습니다. 카드 아래 화면은 예시 데이터로 그린 그림입니다.
-        </p>
+        <Reveal>
+          <SectionHeading
+            id="features-title"
+            eyebrow="주요 기능"
+            title="검토에 필요한 정보를 한 흐름으로 모읍니다"
+            description="공고 수집부터 참여 결정 기록까지, 담당자가 되풀이하던 확인 작업을 줄이는 데 집중합니다."
+          />
+          <p
+            role="note"
+            className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 type-label text-muted-foreground"
+          >
+            <InfoIcon aria-hidden className="size-4 shrink-0 text-brand" />
+            SOL RADAR는 MVP를 개발하고 있습니다. 아래 기능은 모두 개발 예정이며 아직 이용할 수
+            없습니다. 카드 아래 화면은 예시 데이터로 그린 그림입니다.
+          </p>
+        </Reveal>
         <ul className="mt-10 grid grid-cols-12 gap-6">
           {FEATURES.map((feature) => (
-            <li key={feature.id} className={cn("flex", feature.span)}>
+            <Reveal as="li" key={feature.id} className={cn("flex", feature.span)}>
               <Card className="w-full gap-0 py-0 hover:shadow-sm motion-safe:transition-shadow">
                 <div className="flex flex-col gap-3 p-6">
                   <div className="flex items-center justify-between gap-3">
@@ -99,7 +102,7 @@ export function FeaturesSection() {
                   {feature.preview}
                 </div>
               </Card>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </div>

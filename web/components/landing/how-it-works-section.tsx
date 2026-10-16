@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 import { Card } from "@/components/ui/card";
 
@@ -26,15 +27,17 @@ export function HowItWorksSection() {
   return (
     <section id="analysis" aria-labelledby="analysis-title" className="scroll-mt-20 px-8 py-24">
       <div className="mx-auto w-full max-w-6xl">
-        <SectionHeading
-          id="analysis-title"
-          eyebrow="분석 방식"
-          title="기업 정보를 등록하면, 검토할 사업이 명확해집니다."
-          description="SOL RADAR MVP에서 만들고 있는 검토 흐름입니다. 아직 이용할 수 없습니다."
-        />
+        <Reveal>
+          <SectionHeading
+            id="analysis-title"
+            eyebrow="분석 방식"
+            title="기업 정보를 등록하면, 검토할 사업이 명확해집니다."
+            description="SOL RADAR MVP에서 만들고 있는 검토 흐름입니다. 아직 이용할 수 없습니다."
+          />
+        </Reveal>
         <ol className="mt-12 grid grid-cols-3 gap-6">
           {STEPS.map((step, index) => (
-            <li key={step.title} className="flex">
+            <Reveal as="li" key={step.title} className="flex">
               <Card className="w-full gap-0 p-6">
                 <p className="type-label font-medium text-brand">{index + 1}단계</p>
                 <h3 className="mt-2 type-heading text-foreground">{step.title}</h3>
@@ -49,7 +52,7 @@ export function HowItWorksSection() {
                   </div>
                 </dl>
               </Card>
-            </li>
+            </Reveal>
           ))}
         </ol>
       </div>
