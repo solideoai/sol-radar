@@ -199,7 +199,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 - 백테스트는 의사결정 시점 이전에 발행·수집된 revision만 쓴다. `bid_revisions.fetched_at <= 결정 시각`.
 - 낙찰·계약 결과를 특징량에 합치지 않는다. 결과 라벨은 별도 테이블로 두고 조인은 평가 코드에서만 한다.
 - 모델·프롬프트·점수 규칙이 바뀌면 기존 `score_runs`를 덮어쓰지 않고 새 run을 만든다. 비교는 `algorithm_version`, `prompt_hash`로 한다.
-- `AnalysisInput` 스냅샷에는 사용한 `revisionId`, `profileRevision`, `extractionId`가 들어가므로 같은 입력으로 재실행할 수 있다.
+- `AnalysisInput` 스냅샷에는 사용한 `revisionId`, `profileRevision`, `extractionId`와 점수 계산 대상 인력·기간 배정·기준 시각(`team.members`, `team.assignments`, `team.asOf`)이 들어가므로 같은 입력으로 재실행할 수 있다. 인력 이름·성별·사진은 입력에서 제외한다([[04-DATABASE]]·[[08-SCORING]], ADR-019).
 
 ## 8. 수집 소스 registry
 

@@ -33,6 +33,7 @@ updated: 2026-10-16
 |ADR-016|웹 클라이언트 공유 상태는 zustand, 입력 검증 스키마는 zod(4.x). Next.js 앱 `web/`에 설치(zustand 5.0.15, zod 4.6.5). 외부 API 계약(`/api/v1` Route Handler)의 DTO도 같은 zod 스키마(`web/server/<도메인>/*.model.ts`)가 단일 원천이고, worker(`web/worker`)도 같은 스키마를 쓴다|채택|2026-10-16|사용자 결정. zod는 DTO 단일 원천([[05-API-SPEC\|05 API]] §7)과 같은 라이브러리라 화면·Route Handler·worker가 스키마 표현을 공유한다. zustand는 여러 클라이언트 컴포넌트가 함께 쓰는 UI 상태만 담고, 서버 데이터와 URL 쿼리 필터는 담지 않는다 ([[06-UI-UX\|06 UI]] §11)|
 |ADR-017|아키텍처 전환: Next.js(`web/`, 화면·Route Handler·서버 도메인 `web/server/<도메인>`) + **Supabase(Postgres·RLS·Auth)**. NestJS·Prisma·자체 JWT 인증은 쓰지 않는다. Worker는 `web/worker` 진입점(같은 코드베이스의 별도 프로세스, BullMQ). MinIO·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose는 유지. 조직 데이터 열은 `org_id`, 업무 역할은 `memberships.sol_role`(ADMIN·SALES·ANALYST·VIEWER). service role 키는 worker·seed만. 개발 DB·Auth는 Supabase 클라우드 프로젝트(Pro)|채택|2026-10-16|사용자 결정(2026-10-16). 출발 템플릿(agentic-boilerplate)이 Next.js + Supabase(조직·역할·RLS·인증 견본, 정책 시험·타입 생성 게이트)라 그대로 쓰면 인증·격리를 새로 만들지 않는다. ADR-001·002를 대체한다([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
 |ADR-018|가입·로그인 방식: 공개 가입 + 초대. 누구나 이메일 + 비밀번호(`/auth/sign-up`) 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만들고, 업무 조직 합류는 초대 수락으로 한다. 간편 로그인 제공자 설정은 해커톤 안에서 하되 다른 기능을 모두 끝낸 뒤 한다(후순위)|채택|2026-10-16|사용자 결정(2026-10-16). 랜딩의 시작하기가 이미 `/auth/sign-up`으로 가고, 버튼·콜백·계정 연결 코드가 템플릿에 있어 새로 만들 것이 없다. 미결정 13번을 닫는다 ([[09-SECURITY\|09 보안]], [[12-ROADMAP\|12 로드맵]])|
+|ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명(남녀 100/100)·고유 정장 사진 200장, 엑셀 팀명 합산·비례 배분·자연스러운 세 글자 가상 이름, 가입 부서·직급/직책 필수|채택 (설계 승인, 구현 전)|2026-10-16|사용자 인터뷰 및 저장 경로 최종 승인. 상세는 아래 ADR-019·[[07-DATA-PIPELINE\|07 데이터]]·[[06-UI-UX\|06 UI]]|
 
 ### ADR-007 ~ 014 구현 결과
 - **ADR-007**: `web/`에 1280px 미만 breakpoint·결제 모듈·요금 화면 없음. UI 토큰·그리드는 1280~1920만 ([[06-UI-UX|06 UI]]). 17 절대 규칙으로 강제.
@@ -61,7 +62,7 @@ updated: 2026-10-16
 - **코드**: 템플릿 그대로다. 버튼은 `web/app/auth/social-sign-in.tsx`(로그인·가입 화면의 가는 선 아래), 켤 제공자 판단은 `web/lib/auth-providers.ts`, 콜백은 `web/app/auth/callback/route.ts`(받은 코드를 세션으로 바꾼다). 마이페이지의 로그인 수단 연결(템플릿 `/api/auth/*`)을 남길지는 Phase 0 템플릿 정리에서 정한다([[05-API-SPEC|05 API]]).
 - **버튼 켜기**: `web/.env.local`의 `NEXT_PUBLIC_AUTH_GOOGLE`·`NEXT_PUBLIC_AUTH_KAKAO`·`NEXT_PUBLIC_AUTH_NAVER`가 `true`인 제공자만 보인다(빌드 때 코드에 박힌다). Supabase에 제공자를 설정하기 전에 켜면 누를 때 Supabase가 `provider is not enabled`를 보이고 사이트로 돌아오지 않는다. 데모·배포 환경에서는 설정을 마친 제공자만 켠다.
 - **제공자 설정(후순위)**: 구글·카카오는 Supabase 기본 제공자, 네이버는 사용자 정의 OIDC 제공자 `custom:naver`다. Client ID·Secret은 Supabase 쪽(클라우드는 대시보드, 로컬은 `supabase/config.toml` + 깃 제외 `supabase/.env`)에만 두고 웹 env에는 넣지 않는다. 절차는 `docs/boilerplate/OAUTH-PROVIDERS.md`.
-- **가입이 여는 범위**: 가입하면 계정과 `profiles` 행이 생긴다(템플릿 가입 트리거는 개인 조직도 만든다. 유지 여부는 미결정 11번). 업무 조직(예: SOL테크) 데이터는 멤버십이 있어야 RLS(`my_org_ids()`)가 보여 주므로 가입만으로는 보이지 않는다. 공용 표(`bid_notices` 등)는 `authenticated` 읽기라 가입한 사용자도 읽는다.
+- **가입이 여는 범위**: 가입하면 계정과 `profiles` 행이 생긴다(템플릿 가입 트리거는 개인 조직도 만든다. 유지 여부는 미결정 11번). 업무 조직(예: 솔리데오) 데이터는 멤버십이 있어야 RLS(`my_org_ids()`)가 보여 주므로 가입만으로는 보이지 않는다. 공용 표(`bid_notices` 등)는 `authenticated` 읽기라 가입한 사용자도 읽는다.
 - **데모**: 로그인은 seed 계정의 이메일 + 비밀번호다([[19-DEMO-SCENARIO|19 데모 시나리오]] S0). 간편 로그인은 데모 장면에 쓰지 않는다.
 
 ## 반드시 검증할 미결정 사항
@@ -84,6 +85,18 @@ updated: 2026-10-16
 |15|`pg_trgm` 확장을 Supabase와 PGlite 양쪽에서 켤 수 있는지|미검증|-|PGlite에서 안 되면 정책 시험·타입 생성 게이트가 깨진다. Phase 1 첫 마이그레이션 전에 확인 ([[04-DATABASE\|04 DB]] §5)|
 
 검증 전에는 명세 가정으로 표시하고 기능 플래그·mock·fixture로 개발한다.
+
+## ADR-019 상세 — 솔리데오 고정·가상 인력·가입 신고 정보
+
+2026-10-16 인터뷰 후 사용자 최종 승인. 아래는 **설계 결정**이며 JSON·사진 생성·migration·가입 폼 구현은 아직 전이다. 승인 스펙은 [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)이다.
+
+- 사용자 회사명은 솔리데오로 고정하고 회사 선택을 만들지 않는다. `org-01`은 해당 업무 조직, `org-02`는 숨겨진 RLS 격리 시험용이다. 공개 가입 + 초대 합류(ADR-018), 조직 격리는 유지한다. 템플릿 개인 조직의 물리적 정리는 기존 미결정 11의 Phase 1 검토에 남긴다.
+- 직원 명부는 가상 200명(남성 100·여성 100), Auth 5계정과 분리한다. 엑셀의 같은 팀명은 합산하고 원본 인원 비율에 따라 각 팀 최소 1명, 총 200명으로 배분한다.
+- 한국 이름은 실제 사용되는 이름 통계를 참고한 한글 세 글자로, 내부 중복·원본 이름 일치는 0이다. 원본 엑셀은 저장소 밖이며 원본 실명·연락처·대응표는 저장하지 않는다.
+- 부서·직급·인물·사진 manifest의 정본은 `fixtures/people/solideo.{departments,job-titles,people,portraits}.json`이다. 사진은 imagegen 기본 내장 도구로 서로 다른 가상 정장 얼굴 200장을 만들고 `web/public/demo/people/<personId>.png`에 둔다. 공개 사진은 가상 자산만이며 MinIO 사설 첨부 정책은 유지한다.
+- 이메일 가입은 솔리데오 부서와 엑셀 표현 그대로인 `직급/직책`을 필수로 고른다. 간편 가입·기존 미완료 계정은 첫 로그인에 보완한다. 신고 정보는 `profiles`에 검증해 저장하고 부서·직급 선택으로 멤버십·권한을 만들지 않는다. 직무·기술등급·업무 권한과도 구분한다.
+- 기존 점수·데모 수치의 정합성을 위해 전체 200명 안의 가상 계산 하위 27명·가용 20 FTE를 명시하고 골든 94/72/68을 유지한다. 회사명·부서/직급 외의 직원·자격·실적·재무는 실제 회사 정보로 소개하지 않는다.
+- 검증은 [[11-TESTING]] PPL-01~07. 명부·이미지 생성/검수·가입 구현 완료 전에는 생성/구현된 것으로 보고하지 않는다.
 
 ## 관련 문서
 - [[00-README|00 인덱스]]

@@ -14,13 +14,13 @@ updated: 2026-10-16
 발표 시간표는 [[18-HACKATHON|18 해커톤 전략]] §6에 있다. 이 문서는 조작자가 따라가는 **클릭 경로**, 데모에 쓰는 **가상 기업과 fixture**, 각 장면에서 **화면에 보여야 하는 것**을 정의한다. fixture 20건의 전체 명세는 [[07-DATA-PIPELINE|07 수집]] §6.2의 fixture 표(`FX-01`~`FX-20`)가 단일 원천이고, 데모 기업 프로필과 점수 계산 예시는 [[08-SCORING|08 SOL Score]]가 단일 원천이다. 이 문서와 충돌하면 07·08을 따르고 이 문서를 고친다.
 
 > [!warning] 가상 데이터
-> 데모 기업 "SOL테크", 사용자, 공고, 실적은 모두 가상이다. 실제 기업·실제 공고가 아니며 모든 fixture는 `isDemo=true`, `sourceUrl`은 `https://demo.sol-radar.invalid/notices/FX-xx`다. 화면에 `DEMO` 배지가 붙는다. 발주기관 이름은 실제 기관명을 쓰지만 공고 내용은 지어낸 것이다.
+> 회사명 "솔리데오"와 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 가상 직원 200명·사용자·사진·공고·실적·자격·재무·가용성은 데모 설정이며 실제 회사 현황/공고를 뜻하지 않는다. 모든 데모 fixture는 `isDemo=true`이며, 공고 fixture의 `sourceUrl`은 `https://demo.sol-radar.invalid/notices/FX-xx`다. 화면에 `DEMO` 배지가 붙는다. 발주기관 이름은 실제 기관명을 쓰지만 공고 내용은 지어낸 것이다.
 
 ## 1. 데모 테넌트와 계정 (seed)
 
 | 테넌트 | ID | 내용 |
 |---|---|---|
-| SOL테크 (가상 공공 SI 중견) | `org-01` | 프로필 revision 2. 상세는 [[08-SCORING\|08]]이 단일 원천. 데모에 영향을 주는 값: 소프트웨어사업자·직접생산확인·**중소기업확인서(중기업)** 보유(FX-01 중소기업 제한경쟁 충족), ISO 27001·CMMI L3 보유, **정보통신공사업 등록 없음, 방산업체 지정 없음**, ISMS-P·CSAP 미보유, 단일 사업 수행 상한 50억, 기술 스택 Java/Spring·Next.js·NestJS·PostgreSQL·Kubernetes(FX-07 정정 후 BID 전환에 필요), 선호 분야 데이터 플랫폼·AX·민원·**교육**(FX-02 72 성립에 필요), 인력 27명 중 2026-12~2027-06 가용 20 FTE, 실적 3건 완료일 2024-11 / 2024-03 / 2025-09(모두 증빙 있음) |
+| 솔리데오 (고정 회사명의 가상 데모 프로필) | `org-01` | 프로필 revision 2. 상세는 [[08-SCORING\|08]]이 단일 원천. 데모에 영향을 주는 값: 소프트웨어사업자·직접생산확인·**중소기업확인서(중기업)** 보유(FX-01 중소기업 제한경쟁 충족), ISO 27001·CMMI L3 보유, **정보통신공사업 등록 없음, 방산업체 지정 없음**, ISMS-P·CSAP 미보유, 단일 사업 수행 상한 50억, 기술 스택 Java/Spring·Next.js·NestJS·PostgreSQL·Kubernetes(FX-07 정정 후 BID 전환에 필요), 선호 분야 데이터 플랫폼·AX·민원·**교육**(FX-02 72 성립에 필요), 전체 가상 명부 200명(남녀 100/100), 그 안의 점수 계산 하위 27명 중 2026-12~2027-06 가용 20 FTE, 실적 3건 완료일 2024-11 / 2024-03 / 2025-09(모두 증빙 있음) |
 | 비교조직 | `org-02` | 사용자 1명(VIEWER), 프로필 revision 1, 리뷰 0건. 격리 시연(S7) 전용 |
 
 | 역할 | 계정 | 데모에서 하는 일 |
@@ -31,9 +31,11 @@ updated: 2026-10-16
 | VIEWER | viewer@soltech.invalid (`org-01`) | 읽기 전용 확인(데모 미사용, RBAC 테스트용) |
 | VIEWER | viewer@other.invalid (`org-02`) | 격리 시연 |
 
+위 5계정은 가상 직원 명부 200명과 별개이며 명부에서 Auth 계정을 자동 생성하지 않는다. `.invalid`의 `soltech`는 기존 데모 계정 별칭으로 실제 회사 이메일이 아니다. 사용 회사 선택 UI는 솔리데오 하나만 표시하고 비교 조직은 격리 시험에서만 쓴다.
+
 계정은 Supabase Auth 사용자이고, 역할 열은 조직 구성원 표의 업무 역할 `memberships.sol_role` 값이다. admin@soltech.invalid는 조직 관리 권한도 가진다(`org_role=owner` + `sol_role=ADMIN`). 계정·조직·구성원은 `pnpm demo:reset`이 service role 키로 Supabase 프로젝트에 만든다([[16-DECISIONS|16 ADR]] ADR-017).
 
-이메일 도메인은 예약 TLD `.invalid`(RFC 2606)라 실제로 전달되지 않는다. seed 합계: 조직 2, 사용자 5, 프로필 revision 2, 공고 19건 적재 + 1건 격리(FX-12), 사전 리뷰 2건(FX-01 BID, FX-03 NO-BID. FX-02는 S4에서 라이브로 기록). seed 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 bids=19 quarantined=1 reviews=2 isDemo=true` ([[10-DEPLOYMENT|10]]).
+이메일 도메인은 예약 TLD `.invalid`(RFC 2606)라 실제로 전달되지 않는다. seed 합계: 조직 2, 사용자 5, 프로필 revision 2, 공고 19건 적재 + 1건 격리(FX-12), 사전 리뷰 2건(FX-01 BID, FX-03 NO-BID. FX-02는 S4에서 라이브로 기록). seed 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true` ([[10-DEPLOYMENT|10]]).
 
 비밀번호는 `.env.example`의 `DEMO_SEED_PASSWORD` placeholder로 두고 실제 값은 seed 시 입력한다. 문서와 저장소에 실제 값을 쓰지 않는다.
 
@@ -167,6 +169,16 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [ ] 1440px에서 상세 화면 상단 요약·자격·점수가 스크롤 없이 보이는지 확인
 - [ ] `AI: mock` 표시가 모든 화면에 보이는지 확인
 - [ ] 08 worked example 값과 S4 화면 값(72, 요소 분해, Kev 분포) 일치 확인
+
+## 솔리데오 직원·사진 준비 체크 (ADR-019, 구현 예정)
+
+- [ ] `solideo.departments.json`은 동일 팀명 합산·원본 비례·최소 1명·총 200명이다.
+- [ ] `solideo.people.json`은 고유 한글 세 글자 이름 200개·원본 이름 일치 0·남녀 100/100이며 `team_members` seed와 같다.
+- [ ] `solideo.portraits.json` READY 200건과 `web/public/demo/people/<personId>.png` 200장이 1:1로 연결되고 얼굴·정장 검수를 통과했다.
+- [ ] 가입 화면 회사는 솔리데오 고정, 부서·직급/직책 필수. 간편 가입·기존 미완료 계정은 필수 정보 보완 뒤 진입한다.
+- [ ] 전체 명부 200명을 전원 가용 인력으로 표시하지 않고, 점수 계산 하위 27명·20 FTE와 가상 데이터 표시를 확인한다.
+
+원본 엑셀은 배포물·발표 화면에 넣지 않는다. 직원 명부·사진 저장 위치는 [[07-DATA-PIPELINE]], 자동/사람 검증은 [[11-TESTING]] PPL-01~07을 따른다.
 
 ## 관련 문서
 

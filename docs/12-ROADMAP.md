@@ -18,9 +18,9 @@ updated: 2026-10-16
 |Phase|작업|종료 조건|해커톤 컷|
 |---|---|---|---|
 |0|템플릿 정리(Supabase·`web/` 유지, 견본 도메인 `memos`·`tasks` 등 정리 범위 결정), `infra/compose.yaml`(redis·minio·qdrant·ai-gateway·worker), `web/worker` 진입점, AI gateway 골격, `/health/live`·`/health/ready`, Supabase 클라우드 프로젝트 연결·env, `pnpm check:env`, CI(`verify.config.json`), `demo` 프로필 기동|Compose 서비스(redis/minio/qdrant/ai-gateway/worker) healthy + web `/health/ready` green + Supabase 프로젝트 연결(`checks.db` ok)|데모 필수|
-|1|`supabase/migrations`로 SOL RADAR 스키마([[04-DATABASE\|04 DB]])·RLS·`memberships.sol_role`, 정책 시험, seed(`pnpm demo:reset`), Supabase Auth 연결·RBAC|회사 격리 RLS 정책 시험(`pnpm test:db`) 통과, seed 20건(19건 적재 + `FX-12` 격리 1건) 멱등|데모 필수|
+|1|`supabase/migrations`로 SOL RADAR 스키마([[04-DATABASE\|04 DB]])·RLS·`memberships.sol_role`, 정책 시험, seed(`pnpm demo:reset`), Supabase Auth 연결·RBAC, 솔리데오 부서·직급 카탈로그·가상 인력 200명 seed(ADR-019)|회사 격리 RLS 정책 시험(`pnpm test:db`) 통과, seed 20건(19건 적재 + `FX-12` 격리 1건) 멱등|데모 필수|
 |2|공고 connector + fixture + 정규화 + revision|재실행 멱등 + 변경 감지 테스트|데모 필수|
-|3|Next.js 대시보드/검색/상세 (1440 기준)|fixture 실제 API로 화면 E2E|데모 필수|
+|3|Next.js 대시보드/검색/상세·가입 부서/직급 필수 선택·간편 가입 정보 보완·가상 정장 사진 200장 연결 (1440 기준)|fixture 실제 API로 화면 E2E, PPL-01~06|데모 필수|
 |4|기업 프로필·필수 자격·규칙 점수|골든셋 일치, 근거 저장, worked example 3건 일치|데모 필수|
 |5|AI gateway: mock adapter, 장애 대체, Kev 어댑터|mock/실모델 switch, PARTIAL 경로|mock·장애 대체는 데모 필수, 실모델은 있으면 좋음|
 |6|최종 권고 + 영업 리뷰 + 인앱 알림|엔드투엔드 검토 완료|데모 필수|
@@ -30,7 +30,7 @@ updated: 2026-10-16
 ## 해커톤 컷
 |구분|포함|이유|
 |---|---|---|
-|데모 필수|Phase 0~4 전부. Phase 5 중 AI gateway mock adapter(`AI_PROVIDER=mock`)·장애 대체(`PARTIAL`)·Kev 보조 의견 UI 영역. Phase 6 중 사람 최종 결정 기록·인앱 알림(outbox). Phase 7 중 `.env.example`·`pnpm check:env`·healthcheck·DEMO 배지·`docs/evidence/` 수집|[[19-DEMO-SCENARIO\|19 데모 시나리오]]의 8장면이 전부 여기서 나온다|
+|데모 필수|Phase 0~4 전부(ADR-019 솔리데오 고정·가상 명부 200명·서로 다른 정장 사진 200장·필수 가입 정보 포함). Phase 5 중 AI gateway mock adapter(`AI_PROVIDER=mock`)·장애 대체(`PARTIAL`)·Kev 보조 의견 UI 영역. Phase 6 중 사람 최종 결정 기록·인앱 알림(outbox). Phase 7 중 `.env.example`·`pnpm check:env`·healthcheck·DEMO 배지·`docs/evidence/` 수집|[[19-DEMO-SCENARIO\|19 데모 시나리오]]의 8장면이 전부 여기서 나온다|
 |있으면 좋음|Phase 5 `ai-local` 프로필로 Kev-4B 실제 호출 1회 로그 또는 영상. Qdrant 의미 검색. 관리자 수집 현황 화면([[14-OBSERVABILITY\|14 관측성]] 지표 5개). Playwright 전체 E2E 녹화. 공고 revision diff 화면. 간편 로그인 제공자 설정(구글·카카오·네이버, ADR-018)은 이 칸에서도 맨 마지막으로, 다른 기능을 모두 끝낸 뒤 한다|"진짜 동작하나" 질문에 추가 증거. 데모 필수가 전부 녹색일 때만 착수|
 |해커톤 이후|Phase 5 `ai-hosted`. Phase 7 운영 심화(nginx TLS, 백업·복구 리허설, Sentry/Grafana). Phase 8 P1 전부(카카오 실발송, 경쟁사 통계, 인력 배치). P2|외부 승인·비용·GPU 의존|
 

@@ -55,7 +55,7 @@ updated: 2026-10-16
 | 05 | [[05-API-SPEC]] | Route Handler(`/api/v1`) 계약·Supabase Auth·DTO(zod)·오류 코드·예시 |
 | 06 | [[06-UI-UX]] | 데스크톱 전용 화면 명세·디자인 토큰·라우트별 상태 표·상세 와이어프레임·분석 상태 머신 |
 | 07 | [[07-DATA-PIPELINE]] | Connector·정규화·변경 감지 / fixture 20건 명세(`FX-01`~`FX-20`)·mock 추출·mock Kev 값 |
-| 08 | [[08-SCORING]] | SOL Score 정규화 함수·missing 정책·결정 정책·SOL테크 프로필(단일 원천)·worked example 3건 |
+| 08 | [[08-SCORING]] | SOL Score 정규화 함수·missing 정책·결정 정책·솔리데오 프로필(단일 원천)·worked example 3건 |
 | 09 | [[09-SECURITY]] | 인증(Supabase Auth)·RLS·RBAC 표(`sol_role`)·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
 | 10 | [[10-DEPLOYMENT]] | Docker Compose(redis·minio·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
@@ -106,6 +106,10 @@ updated: 2026-10-16
 
 - 조달청 데이터: https://www.data.go.kr/ — API별 신청 및 문서 기반으로 endpoint/필드/제한을 확인한다. 확인 전에는 fixture만 사용한다.
 - 현재 문서는 구현용 설계안이다. 외부 API 필드/호출 한도, 모델 성능, 카카오 발송 조건은 검증 전 확정 사실로 취급하지 않는다. 검증 상태는 [[16-DECISIONS|16 ADR]]에 날짜와 함께 기록한다.
+
+## 솔리데오 가상 인력·가입 결정
+
+ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·남녀 100/100·고유 정장 사진 200장·가입 부서/직급 필수 선택을 설계했다. 원본 실명은 재사용하지 않는다. 이름·사진 경로와 생성/검증 규칙은 [[07-DATA-PIPELINE]], 가입 화면은 [[06-UI-UX]], 검증은 [[11-TESTING]] PPL-01~07, [승인 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)에 있다. 현재는 문서 반영 단계이며 JSON·사진·DB·폼은 후속 구현 대상이다.
 
 ## 관련 문서
 

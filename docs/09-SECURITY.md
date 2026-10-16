@@ -161,12 +161,21 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 호스트 포트: web 3000만 연다. API(`/api/v1`)와 헬스체크(`/health/*`)도 web이 응답하며 별도 api 서비스는 없다. redis/qdrant/minio/ai-gateway/kev는 Compose 내부 네트워크에 두고, web을 Compose 밖에서 띄우느라 호스트에 열어야 하는 포트도 `127.0.0.1`에만 바인딩한다.
 - 데모 노트북은 127.0.0.1 바인딩. 공용 Wi-Fi에서 0.0.0.0 바인딩 금지.
 - seed 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). `.invalid` TLD라 실제 메일 발송 불가. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
-- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 실제 회사 자료나 개인정보를 넣지 않는다. 첨부 원본은 MinIO(Compose)에 둔다. 데모·배포 실행 환경의 최종안은 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표).
+- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. 첨부 원본은 MinIO(Compose)에 둔다. 데모·배포 실행 환경의 최종안은 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표).
 - OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
 
 ## 정보 보존
 원본 공공 문서와 회사 자료를 분리. 회사 정보 삭제 요청 및 보존 기한은 실제 운영 조직 정책/법령 확인 후 정의; 백업에도 같은 절차 적용. 로그에는 원문/토큰/PII 미기록. 기본 TLS, DB/오브젝트 스토리지 주기적 백업 및 복구 테스트. Supabase 프로젝트의 백업 범위·보존 기간은 플랜 설정으로 확인한다(미검증). MinIO 첨부 원본(Compose volume)은 Supabase 백업에 들어가지 않는다.
+
+## 솔리데오 명부·가입 신고 정보·공개 가상 이미지 (ADR-019)
+
+- 원본 `people.xlsx`는 저장소 밖에 둔다. 실명·전화·주소·개인 사진·원본과 가상 인물 대응표를 DB·Git·문서·로그·모델 프롬프트로 옮기지 않는다. 원본 이름 제외 검사는 로컬에서 수행하고 증거에는 파일 해시·일치 0건만 남긴다.
+- 회사는 솔리데오 고정이지만 공개 가입만으로 업무 조직에 합류하지 않는다. 부서·직급/직책은 자기 신고 정보이며 Auth 메타데이터를 `org_role`·`sol_role`·`is_admin`이나 소속 증명으로 사용하지 않는다. 이름이 같아도 가상 직원 명부와 자동 연결하지 않는다.
+- OAuth·기존 사용자에게 null 가입 정보가 있을 수 있다. 서버가 이름·부서·직급의 유효성을 검사하고 보완 전 업무 화면/API를 차단한다. 본인 신고 정보 조회·저장은 조직 합류 전에도 허용하되 RLS로 본인만, 쿠키 쓰기는 CSRF 헤더를 요구한다. 기존 초대·권한·RLS 정책은 유지한다.
+- 공개 가입 카탈로그는 승인 fixture의 회사명·ID·표시명·버전만 반환한다. 원본 인원·명부·연락처를 함께 반환하거나 `departments`의 RLS를 익명 전체 읽기로 열지 않는다.
+- 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 MinIO public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다.
+- 200명의 가상 직원·사진은 `isDemo` 및 가상 인물 표시를 유지한다. 회사 이름과 부서가 실제라고 해서 가상 직원·수치가 실제 회사 정보인 것처럼 소개하지 않는다.
 
 ## 관련 문서
 - [[03-AI-PIPELINE|03 AI 파이프라인]]

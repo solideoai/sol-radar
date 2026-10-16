@@ -409,7 +409,7 @@ COMPANY (profile revision 2)
 - financial: annual revenue 18,000,000,000 KRW
 ```
 
-위 COMPANY 값은 데모 기업 SOL테크 프로필 revision 2([[19-DEMO-SCENARIO|19 데모 시나리오]] §1, [[08-SCORING|08 점수]])와 같다.
+위 COMPANY 값은 데모 기업 솔리데오 프로필 revision 2([[19-DEMO-SCENARIO|19 데모 시나리오]] §1, [[08-SCORING|08 점수]])와 같다.
 
 - 포함: `RequirementExtraction`의 `KNOWN` 값(영어 라벨 + 값), `UNKNOWN`/`CONFLICTED` 표기, 회사 프로필 요약.
 - 제외: 규칙 엔진의 자격 판정·SOL Score·권고. 규칙 결과를 넣지 않아야 Kev가 독립 신호가 된다(`MODEL_RULE_DISAGREEMENT`가 의미를 가진다). `/kev` 본문(§2.1)에도 넣지 않는다.
@@ -451,7 +451,7 @@ interface KevAssist {
 
 - `KEV_ENABLED=false` 또는 timeout/오류: `enabled=false`, 나머지 null, `recommendationBasis=RULES_ONLY`. 분석은 실패하지 않는다.
 - mock adapter: fixture별 고정 응답 파일 `fixtures/kev/FX-xx.json`(wire 응답 형식 그대로)을 우선 읽는다. 예: FX-02는 `BID 0.36 / WATCH 0.52 / NO_BID 0.12`, `needsHumanReview 0.74`([[19-DEMO-SCENARIO|19 데모 시나리오]]·[[08-SCORING|08 점수]] 계산 예시와 같은 숫자). 파일이 없으면 공식(추출·프로필만으로 계산, 규칙 결과 없음): `mandatory=true`인 `qualifications[].code`가 프로필 `licenses`에 없으면 `NO_BID` 0.8, 필수 항목 중 `UNKNOWN`/`CONFLICTED`가 있으면 `WATCH` 0.7, 아니면 `BID` 0.6 중심의 고정 분포. 어느 쪽이든 `provider="mock"`이고 UI가 DEMO 배지로 보여 준다.
-- 테넌트 표기: 문서 예시의 `orgId: "org-01"`(SOL테크), `"org-02"`(비교 조직)는 seed `organizations.slug`다. 실제 API·DB 값은 UUID([[04-DATABASE|04 DB]] §6).
+- 테넌트 표기: 문서 예시의 `orgId: "org-01"`(솔리데오), `"org-02"`(비교 조직)는 seed `organizations.slug`다. 실제 API·DB 값은 UUID([[04-DATABASE|04 DB]] §6).
 - wire 형식은 README를 따르되 `services/ai/adapters/kev_wire.py` 한 곳에서만 다룬다. 필드명을 다른 곳에 하드코딩하지 않는다.
 
 ### 5.8 hosted 경로
@@ -487,7 +487,7 @@ interface KevAssist {
 |---|---|
 |`requirement_extractions.payload`|`RequirementExtraction` 전체(검증 후)|
 |`requirement_extractions.prompt_hash`, `model_name`, `schema_version`|재사용 키|
-|`score_runs.input_snapshot`|`AnalysisInput`: `NormalizedBid` 요약, `extractionId`, 프로필 스냅샷, 규칙 설정 버전|
+|`score_runs.input_snapshot`|`AnalysisInput`: `NormalizedBid` 요약, `extractionId`, 프로필 스냅샷, 점수 계산 대상 `team.members`·기간 배정 `team.assignments`·고정 기준 시각 `team.asOf`, 규칙 설정 버전. 인력 이름·성별·사진은 제외|
 |`score_runs.kev_output`|Kev wire 응답 원문 + `questionSetVersion` + state 해시|
 |`score_runs.ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `prompt_hash`, `input_snapshot_hash`, `injection_suspected`|감사용 평문 컬럼([[09-SECURITY\|09 보안]] 감사 필드 표와 이름 일치). `input_snapshot_hash = sha256(canonical input_snapshot)`|
 |`score_runs.model_metadata`|`{qwen:{name,promptVersion,promptHash,temperature,latencyMs,retries}, kev:{model,questionSetVersion,latencyMs,requestId}, embedding:{model}, citation:{fuzzyMinRatio}}`|

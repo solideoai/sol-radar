@@ -84,12 +84,13 @@ Phase:
 1. docs 읽기 + open questions를 [[16-DECISIONS|16 ADR]] 미결정 표에 제안.
 2. 템플릿 정리: Supabase·`web/`은 유지하고, 견본 도메인(`tasks`·팀 화면 등. `memos`는 템플릿 마이그레이션이 이미 지웠다) 중 정리할 범위를 정한다. Python uv 프로젝트(`services/ai`) 생성. pnpm workspace·`apps/`·`packages/contracts`는 만들지 않는다(ADR-017).
 3. Docker Compose 기본 인프라(`infra/compose.yaml`: redis·minio·qdrant·ai-gateway·worker, web은 선택), `web/worker` 진입점(`server-only` 도메인 코드를 쓰는 실행 방식 `--conditions=react-server` 검증), healthcheck와 `/health/live`·`/health/ready`, Supabase 클라우드 프로젝트 연결·env, `.env.example`, `infra/env/demo.env.example`, `pnpm check:env`, CI(`verify.config.json`).
-4. `supabase/migrations`로 SOL RADAR 초기 스키마([[04-DATABASE|04 DB]])·RLS·`memberships.sol_role` + 정책 시험(`pnpm test:db`). seed는 스크립트 `pnpm demo:reset`(service role로 Supabase 프로젝트에 적재): 조직 2개(`org-01` SOL테크, `org-02` 격리 확인용), 계정 5개(`org-01` 역할별 4, `org-02` VIEWER 1), FX-01~FX-20 중 19건 적재 + FX-12 격리(`ingest_errors`), `is_demo=true`, 멱등.
+4. `supabase/migrations`로 SOL RADAR 초기 스키마([[04-DATABASE|04 DB]])·RLS·`memberships.sol_role` + 정책 시험(`pnpm test:db`). seed는 스크립트 `pnpm demo:reset`(service role로 Supabase 프로젝트에 적재): 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(`org-01` 역할별 4, `org-02` VIEWER 1), FX-01~FX-20 중 19건 적재 + FX-12 격리(`ingest_errors`), 별도 가상 직원 명부 200명(남녀 100/100, Auth 계정 아님)·부서/직급 카탈로그, `is_demo=true`, 멱등(ADR-019).
 5. Supabase Auth 연결(템플릿 로그인·초대) + `sol_role` RBAC. 외부 API 계약은 zod 스키마(`web/server/<도메인>/*.model.ts`, ADR-016)가 단일 원천이다.
-6. fixture ingestion(`web/server/ingestion`, `web/worker`) + 조회 Route Handler(`/api/v1`) + Next UI (1440 기준).
-7. rules/qualification + scores + review + worked example 골든 테스트(`web/server/scoring`, [[08-SCORING|08 스코어링]]).
-8. AI gateway mock adapter 먼저 (`AI_PROVIDER=mock`), 장애 대체(`PARTIAL`). `/extract`(ingest job, revision 단위)와 `/kev`(analysis job) 분리 (ADR-011). 실모델은 `ai-local` 프로필 + `KEV_ENABLED`. hosted는 `AI_HOSTED_APPROVED=true` 승인 후.
-9. 인앱 outbox, Playwright, release smoke, demo-day evidence.
+6. ADR-019의 가입 부서·직급 필수 선택·간편 가입 정보 보완, 가상 프로필 200장 연결을 명세·시험과 함께 구현한다. 이미지 생성은 imagegen 기본 도구로 별도 준비하며 CI·앱 기동에서 생성하지 않는다.
+7. fixture ingestion(`web/server/ingestion`, `web/worker`) + 조회 Route Handler(`/api/v1`) + Next UI (1440 기준).
+8. rules/qualification + scores + review + worked example 골든 테스트(`web/server/scoring`, [[08-SCORING|08 스코어링]]).
+9. AI gateway mock adapter 먼저 (`AI_PROVIDER=mock`), 장애 대체(`PARTIAL`). `/extract`(ingest job, revision 단위)와 `/kev`(analysis job) 분리 (ADR-011). 실모델은 `ai-local` 프로필 + `KEV_ENABLED`. hosted는 `AI_HOSTED_APPROVED=true` 승인 후.
+10. 인앱 outbox, Playwright, release smoke, demo-day evidence.
 
 ## 구현 성공 증거
 별도 리포트가 아닌 실행 로그로 `docker compose ps`, 마이그레이션 적용·정책 시험(`pnpm test:db`) 결과, 테스트 결과, 화면 E2E 스크린샷, 장애 시 fallback 결과를 `docs/evidence/`에 저장해 제출한다. 매 Phase 후 [[PROGRESS]] 체크리스트를 갱신한다.

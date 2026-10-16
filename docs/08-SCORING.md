@@ -95,7 +95,7 @@ function staffAvailability(bid: Bid, extraction: RequirementExtraction, team: Te
   const requiredFte = fteFromStaffing(extraction.staffing) ?? fteByBudget(bid.budgetKrw); // staffing KNOWN이면 Σ minCount. 둘 다 없으면 MISSING (§4)
   if (requiredFte === null) return MISSING;
   const period      = bid.projectPeriod ?? defaultPeriod(bid);                 // 기간 미상: 마감 +1개월부터 6개월
-  const available   = team.availableFte(period);                               // assignments 겹침 제외한 FTE 합
+  const available   = team.availableFte(period); // scoringEligible=true인 가상 계산 대상만 전달. 전체 명부 인원수와 구분                               // assignments 겹침 제외한 FTE 합
   const ratio       = Math.min(1, available / requiredFte);
   const bizDays     = bid.deadlineAt ? businessDaysBetween(today, bid.deadlineAt) : null;
   return ratio * (bizDays === null ? 1.0 : SCHEDULE(bizDays));                 // 마감 미상: 일정 계수 미적용
@@ -202,22 +202,22 @@ Kev 질문 세트는 [[03-AI-PIPELINE|03 AI 파이프라인]] §5의 4종이다.
 
 Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델 선택지 신뢰 분포 (수주 확률 아님)"으로 고정하고 본문에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 Kev 블록 3줄을 그대로 쓴다. 임계값 0.70과 플래그 이름은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5와 같다. 질문 세트 버전 `kev-qs/v0.1`.
 
-## 6. Worked example: 가상 데모 기업 "SOL테크"
+## 6. Worked example: 솔리데오의 가상 데모 프로필
 
 > [!warning] 가상 데이터
-> SOL테크와 아래 실적·재무·인력은 **모두 가상**이다. 실제 기업과 무관하며 seed 데이터에 `isDemo=true`로 들어간다. 공고 `FX-01`·`FX-02`·`FX-03`은 [[07-DATA-PIPELINE|07 수집]] §6.2의 가상 fixture다. 계산 기준일은 2026-10-16. 이 절이 프로필 값의 단일 원천이며 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1이 같은 값을 쓴다.
+> 회사명 솔리데오와 엑셀의 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 아래 직원 이름·얼굴·실적·자격·재무·가용 인력은 **가상 데모 설정**이며 실제 회사 현황을 뜻하지 않는다. seed 데이터에 `isDemo=true`로 들어간다. 공고 `FX-01`·`FX-02`·`FX-03`은 [[07-DATA-PIPELINE|07 수집]] §6.2의 가상 fixture다. 계산 기준일은 2026-10-16. 이 절이 프로필 값의 단일 원천이며 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1이 같은 값을 쓴다.
 
 ### 6.1 프로필 요약 (`org-01`, `company_profiles` revision 2)
 
 | 항목 | 값 |
 |---|---|
 | 테넌트 | `org-01`. 격리 시연용 비교 조직은 `org-02`(계정 `viewer@other.invalid`). seed 사전 리뷰 2건: `FX-01` BID, `FX-03` NO-BID(`FX-02`는 데모 S4에서 라이브로 기록) |
-| 업종·규모 | 공공 SI 중견, 중기업, 임직원 120명 |
+| 업종·규모 | 공공 SI 중견, 중기업, 가상 직원 명부 200명(남성 100·여성 100) |
 | 기술 (`technologies`) | Java, Spring Boot, 전자정부 표준프레임워크, NestJS, Next.js, PostgreSQL, Kubernetes, RAG/LLM 적용 |
 | 보유 자격 (`licenses`) | 소프트웨어사업자 신고확인서, 직접생산확인증명서(소프트웨어개발), 중소기업확인서(중기업), ISO 27001, CMMI L3 |
 | 미보유 자격 | 정보통신공사업 등록, 방산업체 지정, ISMS-P, CSAP |
-| 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 120, 단일 사업 수행 상한 `maxContractKrw` 50억 |
-| 인력 (`team_members`) | PM 2, PL 4, 개발 18, 데이터·AI 3 (총 27). 2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외) |
+| 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 200, 단일 사업 수행 상한 `maxContractKrw` 50억 |
+| 인력 (`team_members`) | 전체 가상 명부 200명. 그 안의 점수 계산 대상 하위 집합(`scoringEligible=true`)은 PM 2, PL 4, 개발 18, 데이터·AI 3의 27명. 나머지 173명은 계산 대상에서 제외. 2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외) |
 | 선호 (`preferences`) | `agencies: []`, `agencyTypes: [지자체, 교육청]`, `domains: [데이터 플랫폼, AX, 민원, 교육]`, `excludedDomains: [국방]`, `excludedKeywords: [무기체계]` |
 
 | 실적 ID | 사업명 (가상) | 분야 | 금액 | 완료 | 증빙 |
@@ -300,10 +300,14 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 - Kev 승격 금지 테스트(`FX-03`, `FX-16`). 골든 시나리오 G3.
 - 사람이 평가한 자격 검토와 비교, 추천 precision@K, 잘못된 자격 충족 판정률, 날짜 누설 방지 백테스트([[15-DATA-CONTRACTS|15 데이터 계약]] 시점 일치). 실제 낙찰확률 모델은 낙찰 라벨·시점 정합성이 검증될 때만 별도로 만든다.
 
+## 9. 가상 명부 200명과 점수 계산 범위
+
+ADR-019는 전체 직원 명부·프로필 `employeeCount`를 200으로 통일한다. 200명을 전원 가용 인력으로 입력하거나, 원본 직급/직책에서 PM·기술등급·실제 스킬을 추론하지 않는다. §6.1의 27명·20 FTE는 명부 안의 별도 가상 계산용 설정으로 유지한다. 이름·성별·정장 사진은 점수 입력이 아니며 직급/직책은 권한도 아니다. 입력 스냅샷에는 계산 대상 인력 ID·가용성을 보존한다. FX-01/02/03의 골든 94/72/68과 권고가 바뀌면 완료가 아니다.
+
 ## 관련 문서
 
 - [[07-DATA-PIPELINE|07 수집]] — fixture `FX-01`~`FX-20`과 기대 점수
-- [[19-DEMO-SCENARIO|19 데모 시나리오]] — SOL테크 프로필·데모 계정 (이 문서 §6.1과 동일 값)
+- [[19-DEMO-SCENARIO|19 데모 시나리오]] — 솔리데오 프로필·데모 계정 (이 문서 §6.1과 동일 값)
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — `RequirementExtraction`, Kev 질문 세트
 - [[04-DATABASE|04 DB]] — `score_runs`, `score_factors`, `company_profiles.financials`
 - [[05-API-SPEC|05 API]] — `AnalysisResult` DTO

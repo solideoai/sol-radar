@@ -166,6 +166,12 @@ flowchart TB
 
 네트워크 호출은 모두 timeout 및 circuit breaker 적용. 장애 상태 노출 방식은 [[06-UI-UX|06 UI]], 지표는 [[14-OBSERVABILITY|14 관측성]].
 
+## 솔리데오 인력·가입 카탈로그 (ADR-019, 구현 예정)
+
+사용 회사는 솔리데오 하나이며 `org-02`는 RLS 격리 시험 전용이다. 부서를 별도 테넌트(`organizations`)로 만들지 않는다. 부서·직급 카탈로그와 200명 가상 인력 정본은 `fixtures/people/solideo.*.json`, 공개 가상 사진은 `web/public/demo/people/<personId>.png`다. 공고 첨부의 MinIO 사설 저장과 구분한다. 이름·사진·직급 선택으로 Auth 계정·멤버십·권한을 자동 생성하지 않는다.
+
+가입 카탈로그는 Next의 `GET /api/v1/signup-options`가 허용된 ID·표시명만 공개한다. Supabase Auth 메타데이터에서 검증한 가입 신고 정보는 `profiles`로 옮기고, OAuth·기존 미완료 계정은 `/auth/complete-profile`에서 본인 정보만 보완한다. 업무 화면뿐 아니라 업무 API도 완료 여부를 확인한다. 데이터 필드는 [[04-DATABASE]], API는 [[05-API-SPEC]], 생성·배분은 [[07-DATA-PIPELINE]]이 정의한다.
+
 ## 관련 문서
 - [[01-PRD|01 PRD]]
 - [[03-AI-PIPELINE|03 AI 파이프라인]]

@@ -115,7 +115,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 |---|---|---|---|---|---|
 | 0 | S0 | 환경 | env에 `DEMO_MODE=true`, `AI_PROVIDER=mock`, 기본 비밀값 아님 확인. `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`·`SUPABASE_SERVICE_ROLE_KEY`가 채워져 있는지 `pnpm check:env`로 확인(값은 출력하지 않는다). 인터넷 연결(Supabase 클라우드 프로젝트 접속). 포트 3000 비어 있음 | — | 포트 충돌 프로세스 종료. 네트워크 불가면 1번의 대체로 |
 | 1 | S0 | 기동 | `docker compose -f infra/compose.yaml --profile demo up -d --build` 후 `docker compose -f infra/compose.yaml ps` | `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 `healthy`. web `GET /health/ready` 200, `checks.db: ok`(Supabase 연결), `checks.ai: mock` | 1회 재기동. `checks.db` 불가(503)면 네트워크·Supabase 프로젝트 상태 확인. 그래도 실패면 사전 녹화 영상(네트워크 없는 대체 경로는 미결정, [[16-DECISIONS\|16 ADR]]) |
-| 2 | S0 | seed | `pnpm demo:reset` (스크립트. service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 bids=19 quarantined=1 reviews=2 isDemo=true`. `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`. `GET /api/v1/bids` 총 19건. `bid_reviews` 2건(`FX-01` BID, `FX-03` NO-BID) | seed 재실행(멱등) |
+| 2 | S0 | seed | `pnpm demo:reset` (스크립트. service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`. `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`. `GET /api/v1/bids` 총 19건. `bid_reviews` 2건(`FX-01` BID, `FX-03` NO-BID) | seed 재실행(멱등) |
 | 3 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login`(Supabase Auth) | `/dashboard` 이동. Topbar에 `DEMO` 배지·`AI: mock`·수집 시각·🔔 | `admin@soltech.invalid`로 대체 |
 | 4 | S2 | 대시보드 | — | BID 권고 3건(`FX-01` 94, `FX-18` 82, `FX-06` 78), 마감 임박 카드에 `FX-14`(D-2), 수집 카드에 "격리 1건"(`FX-12`), 최근 변경 목록 | 숫자 불일치는 기록만 하고 진행 |
 | 5 | S2 | 목록 | `/bids`, 단계 NOTICE 필터, 점수 내림차순 | `FX-01` 최상단 94, `FX-12` 미노출, 모든 행 `DEMO` 칩, 1280px에서 가로 스크롤 없음 | — |
@@ -174,6 +174,22 @@ docs/evidence/
 ## 7. MVP 완료 조건
 
 `pnpm verify`(서식·타입·린트·단위)·`pnpm test:db`·E2E·pytest·smoke 모두 PASS. fixture 기반 시연 플로우(§5) 100% 통과. API 비밀 로그 유출 없음. 수집 중복 없음. 모든 스코어에 근거·`algorithm_version`·프로필 revision 존재. 사람 최종 결정이 `bid_reviews`와 감사로그에 기록. 성능 목표는 실측치를 기록하고 비현실적인 수치를 성공으로 주장하지 않는다. 실모델(Qwen·Kev 로컬/hosted) 경로는 해커톤 범위에서 **미검증**으로 표시한다.
+
+## 8. 솔리데오 인력·가입 수용 기준 (ADR-019, 후속 구현 시험)
+
+아래 파일·명령은 구현 시 추가할 예정이며 현재 시험을 실행/통과했다는 뜻이 아니다. 기존 골든 G1~G10과 구분해 PPL 번호를 사용한다.
+
+| ID | 자동 검증할 조건 | 위치 / 명령 |
+|---|---|---|
+| PPL-01 | 명부 200명·고유 ID/이름 200·남녀 100/100·한글 세 글자·원본 정규화 이름과 교집합 0. 입력 원본이 없으면 실패 | `scripts/demo-people.test.mjs`, `node --test scripts/demo-people.test.mjs`. 실제 원본 검사는 아래 로컬 절차 |
+| PPL-02 | 같은 팀명 합산·표시명 보존·모든 팀 1명 이상·목표 합 200·최대 나머지 배분·동률 ID 순·직급/부서 참조 유효·재실행 결정론 | 같은 fixture 시험. 원본 팀/직급 대조는 아래 로컬 절차 |
+| PPL-03 | portrait manifest READY 200·고유 경로/해시 200·PNG 파일 존재·정사각형·남녀 100/100·인물당 한 장 | 같은 fixture 시험 + 정장·서로 다른 얼굴·품질 사람 검수표 |
+| PPL-04 | 인력 200명 seed 2회 멱등·Auth는 5계정 유지·카탈로그/인력 RLS 격리·다른 회사 코드 거부·가입 신고 정보로 권한 상승 불가 | `scripts/database.test.mjs`, `pnpm test:db` |
+| PPL-05 | 이메일 가입의 부서·직급 필수·위조 코드 거부·본인 정보만 저장·재로그인 후 유지·기존 이름/약관 검증 유지 | `web/app/auth/sign-up/sign-up-schema.test.ts`, profile 도메인·신고 정보 Route Handler 계약 시험 |
+| PPL-06 | 간편 가입·기존 미완료 사용자의 필수 정보 보완·업무 화면/API 우회 차단·로그아웃/보완 접근·저장 실패 재시도·가입이 자동 조직 합류를 만들지 않음 | `web/e2e-auth/signup-employment.spec.ts` 및 Route Handler 시험. UI는 1440·1280·키보드 확인 |
+| PPL-07 | 전체 명부 200명과 점수 계산 하위 27명 구분, 가용 20 FTE·FX-01/02/03 골든 94/72/68 유지 | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
+
+CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm test`는 합성 입력으로 추출/제외 알고리즘을 시험하고 정본 JSON·이미지 수용 조건을 검사한다. 실제 원본 일치 0건·원본 팀/직급/배분 대조는 로컬 전용 `pnpm people:check -- --input /절대경로/people.xlsx`(후속 추가 명령)로 수행한다. 원본이 없으면 이 검사는 실패하며 CI 초록불로 대체하지 않는다. 로그에는 파일 해시·건수·오류 위치만 저장하고 이름은 출력하지 않는다. 실제 원본 통과 증거와 사람의 얼굴 검수표까지 있어야 인력 작업 완료다. 이미지 생성은 시험·CI에서 호출하지 않는다.
 
 ## 관련 문서
 

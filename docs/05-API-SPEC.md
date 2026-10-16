@@ -21,7 +21,7 @@ updated: 2026-10-16
 |인증|Supabase Auth 세션. 브라우저는 `@supabase/ssr`가 관리하는 세션 쿠키(HttpOnly 아님, 이유는 [[09-SECURITY\|09 보안]] 인증), 스크립트·시연(S7 격리 시연, 스모크)은 `Authorization: Bearer <Supabase access token>`. 서버는 둘 다 Supabase로 서명·만료를 검증하고, DB는 그 사용자 권한(anon 키 + 사용자 토큰)으로 불러 RLS가 적용된다. 로그인·로그아웃·토큰 갱신 엔드포인트는 이 API에 없다(§2 아래 참고)|
 |CSRF|쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수. 없으면 `403 CSRF_REJECTED`. `Authorization: Bearer` 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다|
 |테넌트|`orgId`는 서버가 세션 사용자의 멤버십(`memberships`)에서 정한다. 요청 본문·쿼리의 조직 ID는 무시한다. 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 거르므로 다른 조직 자원은 행이 보이지 않아 `403`이 아니라 `404`|
-|권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 조직 관리용이라 이 열에 쓰지 않는다|
+|권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 조직 관리용이라 이 열에 쓰지 않는다. `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
 |목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
 |멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간|
@@ -38,6 +38,9 @@ updated: 2026-10-16
 |---|---|---|---|---|
 |GET|`/health/live`|public|프로세스 생존|`200 {status:"ok"}`|
 |GET|`/health/ready`|public|의존성 상태|`200 {status:"ok"\|"degraded", checks:{db,redis,storage,ai}}`. `checks.db` = Supabase(Postgres) 연결, `checks.storage` = MinIO, `checks.ai ∈ "mock"\|"local"\|"hosted"\|"unavailable"`. db·redis·storage 중 하나라도 불가 = `503` + `status:"unavailable"`(같은 형태의 본문), AI만 불가 = `200` + `status:"degraded"`|
+|GET|`/signup-options`|public|솔리데오 고정 가입 선택 목록(ID·표시명·버전만)|`SignupOptions`|
+|GET|`/me/employment`|session(본인)|조직 합류 전에도 가입 신고 정보·완료 여부 조회|`EmploymentState`|
+|PATCH|`/me/employment`|session(본인)|부서·직급/직책 필수 보완|`EmploymentInput` → `200 EmploymentState`|
 |GET|`/me`|auth|세션 사용자·현재 조직·역할(`orgRole`·`solRole`)|`Me`|
 |GET|`/bids`|`ADMIN, SALES, ANALYST, VIEWER`|목록·검색·필터·커서|§3 → `Page<BidListItem>`|
 |GET|`/bids/:id`|`ADMIN, SALES, ANALYST, VIEWER`|상세(최신 revision, 추출, 최신 분석, 검토)|`BidDetail`|
@@ -125,6 +128,7 @@ type FactorKey = "skillMatch" | "pastPerformance" | "staffAvailability" | "scale
 ```ts
 interface Me {
   id: string; email: string; name: string;   // profiles.id(= auth.users.id)·email·display_name
+  employment: EmploymentInfo | null; profileComplete: boolean;  // 가입 신고 정보, 권한 아님
   orgRole: OrgRole;                // 현재 조직의 memberships.org_role
   solRole: Role;                   // 현재 조직의 memberships.sol_role
   organization: { id: string; name: string; slug: string; isDemo: boolean };
@@ -134,6 +138,7 @@ interface Me {
 interface User {                   // 조직 구성원 = memberships + profiles
   id: string; email: string; name: string;
   orgRole: OrgRole; solRole: Role;
+  employment: EmploymentInfo | null; profileComplete: boolean;
   status: "active" | "suspended";  // profiles.status. suspended = 서비스 운영자가 정지(로그인과 조직 데이터가 막힌다)
   joinedAt: string;                // memberships.created_at
 }
@@ -301,6 +306,7 @@ interface AiStatus {
 |401|`UNAUTHENTICATED`|세션 쿠키·Bearer 토큰 없음, 서명이 틀림, 만료. 브라우저는 Supabase 클라이언트가 세션을 갱신한 뒤 다시 시도하고, 그래도 401이면 `/auth/login`으로 보낸다|—|
 |403|`FORBIDDEN`|`sol_role`이 허용 목록에 없음|`{required:[Role]}`|
 |403|`CSRF_REJECTED`|쿠키 인증의 상태 변경 요청에 `X-Requested-With` 누락|—|
+|403|`PROFILE_INCOMPLETE`|이름·부서·직급/직책 보완 전 업무 API 요청|`{completionPath:"/auth/complete-profile"}`|
 |403|`ACCOUNT_DISABLED`|`profiles.status='suspended'`인 사용자(토큰이 아직 유효해도)|—|
 |404|`NOT_FOUND`|자원 없음 **또는 다른 조직 자원**(RLS로 행이 보이지 않음)|`{resource:"bid"\|"analysis"\|...}`|
 |409|`PROFILE_REVISION_CONFLICT`|`baseRevision` ≠ 최신|`{currentRevision}`|
@@ -345,7 +351,7 @@ curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/token?grant_type=password" \
 ```json
 GET /api/v1/me
 {"id":"...","email":"sales@soltech.invalid","name":"김영업","orgRole":"member","solRole":"SALES",
- "organization":{"id":"...","name":"SOL테크","slug":"org-01","isDemo":true},
+ "organization":{"id":"...","name":"솔리데오","slug":"org-01","isDemo":true},
  "permissions":["bids:read","analyses:create","reviews:create","notifications:read"],
  "sessionExpiresAt":"2026-10-16T02:15:00Z"}
 ```
@@ -451,6 +457,34 @@ SEED의 `retried: 2`는 FX-20(429 Retry-After 재시도) 케이스, `quarantined
 - 응답에 Kev 값이 있을 때마다 `disclaimer` 문자열을 내려 보내고, UI는 그 문자열을 그대로 보여 준다.
 - 계약 변경은 zod 스키마 diff와 Route Handler 계약 시험으로 PR에서 보이게 한다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성한다.
 - 템플릿의 `/api/auth/*`·`/api/users/me`·`/api/admin/users/[id]/status`는 템플릿 기능(로그인 수단 연결·운영자 정지 등)이며 이 계약(`/api/v1`) 밖이다. 남길지는 Phase 0 템플릿 정리에서 정한다.
+
+## 8. 솔리데오 가입 정보 계약 (ADR-019, 구현 예정)
+
+회원가입·로그인 자체는 계속 Supabase Auth다. 자체 비밀번호/토큰 API를 추가하지 않는다. 아래 타입은 외부 계약 설명이며 구현 시 `web/server/profile` 등 해당 도메인의 zod 스키마에서 타입을 얻는다.
+
+```ts
+interface OptionItem { id: string; label: string } // 승인 fixture의 안정적인 코드
+interface SignupOptions {
+  companyName: "솔리데오";
+  catalogVersion: "solideo-organization/v1.0";
+  departments: OptionItem[];
+  jobTitles: OptionItem[];
+}
+interface EmploymentSelection { departmentId: string; jobTitleId: string }
+interface EmploymentInput extends EmploymentSelection { name: string } // 기존과 같은 1~40자 표시 이름
+interface EmploymentInfo extends EmploymentSelection {
+  companyName: "솔리데오";
+  departmentName: string;
+  jobTitleLabel: string;
+}
+interface EmploymentState { name: string | null; employment: EmploymentInfo | null; profileComplete: boolean }
+```
+
+`id`·`departmentId`·`jobTitleId`는 공개 카탈로그 코드이고 DB UUID는 서버가 매핑한다. 이메일 가입은 `options.data`에 `name`, `department_code`, `job_title_code`를 담는다. 새 가입 트리거가 검증 후 `profiles`의 신고 정보 FK로 저장한다([[04-DATABASE]]). 빈 값·없는 코드·다른 회사 카탈로그는 거절하고 필드별 `VALIDATION_ERROR`를 반환한다. Supabase Auth가 직접 거절한 가입 오류는 Auth 응답을 화면에서 필드 오류로 바꾸며, 위 HTTP 오류 형태를 Supabase가 반환한다고 가정하지 않는다.
+
+`GET /signup-options`는 원본 인원·배분 인원·직원 이름·성별·사진 manifest·연락처를 노출하지 않는다. `PATCH /me/employment`는 로그인한 본인의 이름·부서·직급 신고 정보를 하나의 profiles 갱신으로 원자적으로 저장하며, 쿠키 요청은 §1 CSRF 헤더를 요구한다. 요청에 userId/orgId/역할을 받아 다른 사람이나 업무 권한을 바꾸지 않는다. `GET /me`·`User`의 employment도 자기 신고 정보이지 검증된 소속 증명은 아니다.
+
+`profileComplete`는 이름·두 신고 값의 현재 유효성으로 서버에서 계산하며 클라이언트의 boolean을 신뢰하지 않는다. OAuth 콜백·기존 미완료 계정 로그인은 `/auth/complete-profile`로 보낸다. 업무 화면과 업무 API에서 모두 보완 전 접근을 막는다. Auth 콜백·가입 옵션·본인 신고 정보 조회/저장·로그아웃·초대 안내는 보완 전에도 허용해 반복 이동을 막는다. 보완을 끝내도 멤버십·RLS 확인과 기존 초대 정책은 그대로 적용한다.
 
 ## 관련 문서
 
