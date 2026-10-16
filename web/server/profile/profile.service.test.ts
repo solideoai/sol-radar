@@ -13,8 +13,10 @@ const fakeRepo = (overrides: Partial<ProfileRepo> = {}): ProfileRepo => ({
     avatar_url: null,
     status: "active",
     created_at: "2026-10-14T06:00:00.000Z",
+    employment: null,
   })),
   updateDisplayName: vi.fn(async () => true),
+  updateEmployment: vi.fn(async () => true),
   deleteAccount: vi.fn(async () => "deleted" as const),
   ...overrides,
 });
@@ -31,6 +33,8 @@ describe("getMyProfile", () => {
         role: "회원",
         isAdmin: false,
         joinedAt: "2026-10-14T06:00:00.000Z",
+        employment: null,
+        profileComplete: false,
       },
     });
     expect(repo.findById).toHaveBeenCalledWith("user-1");
@@ -62,6 +66,7 @@ describe("getMyProfile", () => {
         avatar_url: null,
         status: "suspended",
         created_at: "2026-10-14T06:00:00.000Z",
+        employment: null,
       })),
     });
     await expect(getMyProfile(repo)).resolves.toEqual({ status: "suspended" });

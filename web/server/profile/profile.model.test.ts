@@ -8,6 +8,7 @@ const row = (overrides: Partial<ProfileRow> = {}): ProfileRow => ({
   avatar_url: null,
   status: "active",
   created_at: "2026-10-14T06:00:00.000Z",
+  employment: null,
   ...overrides,
 });
 
@@ -20,6 +21,8 @@ describe("toProfileView", () => {
       role: "회원",
       isAdmin: false,
       joinedAt: "2026-10-14T06:00:00.000Z",
+      employment: null,
+      profileComplete: false,
     });
     expect(toProfileView(row({ is_admin: true, display_name: null }))).toMatchObject({
       role: "운영자",
@@ -67,6 +70,8 @@ describe("toMyProfile", () => {
         role: "회원",
         isAdmin: false,
         joinedAt: "2026-10-14T06:00:00.000Z",
+        employment: null,
+        profileComplete: false,
       },
     });
   });

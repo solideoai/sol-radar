@@ -1,6 +1,6 @@
 ---
 title: "솔리데오 가상 인력 구현 계획 3 — DB·회원가입·필수 정보 보완"
-status: proposed
+status: in-progress
 tags:
   - sol-radar
   - plan
@@ -47,7 +47,7 @@ updated: 2026-10-16
 
 | 파일 | 책임 |
 |---|---|
-| `supabase/migrations/20261016000001_solideo_people_employment.sql` | 3개 표·신고 FK·검증/가입 트리거·권한/RLS. 실행 시 같은 번호가 생겼다면 더 큰 새 번호 사용 |
+| `supabase/migrations/20261016000001_solideo_people_signup.sql` 및 `20261016000002_declared_employment_cascade.sql` | 3개 표·신고 FK·검증/가입 트리거·권한/RLS. 실행 시 같은 번호가 생겼다면 더 큰 새 번호 사용 |
 | `scripts/people/seed.mjs`, `scripts/people/seed.test.mjs` | 안정 UUID 매핑·로컬 전용 카탈로그/명부 upsert |
 | `scripts/database.test.mjs`, `scripts/db-seed.mjs`, `scripts/db-seed.test.mjs` | RLS·기존 로그인 E2E seed의 신고 정보 보완 |
 | `web/lib/database.types.ts` | `pnpm db:types` 생성물 |
@@ -69,11 +69,11 @@ updated: 2026-10-16
 
 **Interfaces:** Produces SQL `departments`, `job_titles`, `team_members`와 `profiles.declared_department_id/declared_job_title_id`. Node `personUuid(personId:string):string`, `seedSolideoPeople({client,orgId:string,fixtures}):Promise<{peopleCount:number}>`; `client`는 seed의 service role 클라이언트이며 인력 함수에는 Auth admin 인터페이스를 전달하지 않는다. UUID v5의 DNS namespace `6ba7b810-9dad-11d1-80b4-00c04fd430c8`에서 `sol-radar:org-01:<안정 코드>`를 사용해 인물·카탈로그 UUID를 파생하고, 조직은 `sol-radar:org-01`/`sol-radar:org-02`를 사용한다. CLI `pnpm people:seed`는 기존 로컬 URL 거절 규칙을 재사용한다. SQL `resolve_solideo_employment(p_department text,p_job_title text)`는 안정 코드 또는 FK UUID 문자열을 받아 `{department_id,department_code,department_name,job_title_id,job_title_code,job_title_label}` 1행 또는 검증 오류만 반환한다. 조직에 아직 합류하지 않은 본인의 신고 정보를 읽고 쓸 때도 필요한 최소 카탈로그 변환용이다.
 
-- [ ] **1. 실패 시험 작성:** `scripts/database.test.mjs`에서 04 DB 열/복합 FK/RLS, 타 조직 0행, 카탈로그·명부 일반 사용자 쓰기 거부, 본인 신고 값만 변경, 알려지지 않은/다른 회사 코드 거부, 메타데이터 `is_admin` 위조 무효를 단언한다. OAuth처럼 메타데이터가 없으면 nullable 생성, 하나만 있거나 빈/위조 값이면 거절한다. Solideo 비멤버가 resolver로 허용 코드/자기 신고 FK를 변환하고 본인 UPDATE를 할 수 있지만 부서 가중치/명부/조직 데이터는 못 읽는지 검사한다. 카탈로그 삭제 시 일반 Auth 계정은 남고 신고 FK만 null이어야 한다. 원본 파일은 DB 시험에서 읽지 않는다.
-- [ ] **2. 실패 확인:** `pnpm test:db` → 새 표/FK/트리거가 없어 FAIL. seed 시험에는 같은 입력 두 번 실행 후 200행·동일 UUID·Auth API 호출 0·비로컬 거절을 먼저 추가하고 `node --test scripts/people/seed.test.mjs` FAIL을 확인한다.
-- [ ] **3. 구현:** 새 migration에 04 계약대로 표·UNIQUE/복합 FK·RLS/권한을 정의한다. `profiles` 갱신은 본인+활성 계정+고정 솔리데오 카탈로그만 허용하고 이름/두 FK를 하나의 UPDATE로 저장한다. resolver만 SECURITY DEFINER·고정 search_path·authenticated 실행으로 열어 공개 코드/표시명과 FK UUID만 변환하고 임의 org_id·인원·권한은 받거나 반환하지 않는다. 실제 프로필 UPDATE는 사용자 세션+기존 본인 RLS를 거친다. `handle_new_user`를 새 migration에서 교체하되 기존 OAuth 이름/HTTPS avatar 추출·개인 조직 bootstrap을 보존한다. 트리거는 정해진 카탈로그만 조회하며 search_path를 고정한다. 기존 5개 로컬 시험 계정·템플릿 시험 조직은 유지하고, Solideo 카탈로그를 Auth 계정보다 먼저 seed한 뒤 시험 계정에 유효한 신고 정보를 준다. `org-01` Solideo·숨은 `org-02` fixture 조직은 명시 UUID로 구분하고 템플릿 팀을 암묵적으로 Solideo로 바꾸지 않는다. 새 Auth 계정 200개나 전체 데모 reset을 추가하지 않는다.
-- [ ] **4. 통과 확인:** `pnpm db:types`, `pnpm test:db`, `node --test scripts/people/seed.test.mjs scripts/db-seed.test.mjs` PASS. `test:db`의 기존 배포 전 검증도 새 migration을 적용한 PGlite로 검사한다. `scripts/db-verify.mjs` allowlist에는 resolver의 공개 필드 변환만 허용하는 이유와 `public.resolve_solideo_employment(text, text)` 시그니처만 더한다. 검사 자체는 유지한다. `pnpm db:verify`는 실제 연결 DB용이므로 이번 로컬 구현 검증 명령으로 사용하지 않는다.
-- [ ] **5. 커밋:** migration·타입·seed·정책 시험·package만 명시해 `git commit -m "feat: 솔리데오 인력과 가입 정보 저장 구조"`.
+- [x] **1. 실패 시험 작성:** `scripts/database.test.mjs`에서 04 DB 열/복합 FK/RLS, 타 조직 0행, 카탈로그·명부 일반 사용자 쓰기 거부, 본인 신고 값만 변경, 알려지지 않은/다른 회사 코드 거부, 메타데이터 `is_admin` 위조 무효를 단언한다. OAuth처럼 메타데이터가 없으면 nullable 생성, 하나만 있거나 빈/위조 값이면 거절한다. Solideo 비멤버가 resolver로 허용 코드/자기 신고 FK를 변환하고 본인 UPDATE를 할 수 있지만 부서 가중치/명부/조직 데이터는 못 읽는지 검사한다. 카탈로그 삭제 시 일반 Auth 계정은 남고 신고 FK만 null이어야 한다. 원본 파일은 DB 시험에서 읽지 않는다.
+- [x] **2. 실패 확인:** `pnpm test:db` → 새 표/FK/트리거가 없어 FAIL. seed 시험에는 같은 입력 두 번 실행 후 200행·동일 UUID·Auth API 호출 0·비로컬 거절을 먼저 추가하고 `node --test scripts/people/seed.test.mjs` FAIL을 확인한다.
+- [x] **3. 구현:** 새 migration에 04 계약대로 표·UNIQUE/복합 FK·RLS/권한을 정의한다. `profiles` 갱신은 본인+활성 계정+고정 솔리데오 카탈로그만 허용하고 이름/두 FK를 하나의 UPDATE로 저장한다. resolver만 SECURITY DEFINER·고정 search_path·authenticated 실행으로 열어 공개 코드/표시명과 FK UUID만 변환하고 임의 org_id·인원·권한은 받거나 반환하지 않는다. 실제 프로필 UPDATE는 사용자 세션+기존 본인 RLS를 거친다. `handle_new_user`를 새 migration에서 교체하되 기존 OAuth 이름/HTTPS avatar 추출·개인 조직 bootstrap을 보존한다. 트리거는 정해진 카탈로그만 조회하며 search_path를 고정한다. 기존 5개 로컬 시험 계정·템플릿 시험 조직은 유지하고, Solideo 카탈로그를 Auth 계정보다 먼저 seed한 뒤 시험 계정에 유효한 신고 정보를 준다. `org-01` Solideo·숨은 `org-02` fixture 조직은 명시 UUID로 구분하고 템플릿 팀을 암묵적으로 Solideo로 바꾸지 않는다. 새 Auth 계정 200개나 전체 데모 reset을 추가하지 않는다.
+- [x] **4. 통과 확인:** `pnpm db:types`, `pnpm test:db`, `node --test scripts/people/seed.test.mjs scripts/db-seed.test.mjs` PASS. `test:db`의 기존 배포 전 검증도 새 migration을 적용한 PGlite로 검사한다. `scripts/db-verify.mjs` allowlist에는 resolver의 공개 필드 변환만 허용하는 이유와 `public.resolve_solideo_employment(text, text)` 시그니처만 더한다. 검사 자체는 유지한다. `pnpm db:verify`는 실제 연결 DB용이므로 이번 로컬 구현 검증 명령으로 사용하지 않는다.
+- [x] **5. 커밋:** migration·타입·seed·정책 시험·package만 명시해 `git commit -m "feat: 솔리데오 인력과 가입 정보 저장 구조"`.
 
 ## Task 2: profile 도메인과 v1 API 계약
 
