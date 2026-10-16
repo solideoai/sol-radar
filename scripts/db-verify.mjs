@@ -257,7 +257,10 @@ const bypassesQuery = `
 //   지우는 대상은 JWT 의 본인 id 하나다. 이유는 20261015000001 마이그레이션 주석에 있다.
 // - public.admin_set_user_status(uuid, text): 회원 정지·해제. auth.users·auth.sessions 를 고쳐야 해서 security definer 다.
 //   로그인 역할만 실행하고, 함수 안에서 운영자(is_admin())가 아니면 권한 오류를 낸다. 이유는 같은 마이그레이션에 있다.
+// - public.resolve_solideo_employment(text, text): 비멤버의 자기 신고를 위해 고정 솔리데오 카탈로그의
+//   코드·표시명·UUID만 변환한다. 조직 입력·인원·권한은 없고 프로필 쓰기는 본인 RLS를 거친다.
 const ALLOWED_DEFINER_FUNCTIONS = new Set([
+  "public.resolve_solideo_employment(text, text)",
   "public.is_admin()",
   "public.my_org_ids()",
   "public.my_owner_org_ids()",

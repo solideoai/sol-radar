@@ -21,6 +21,7 @@
     "db:seed": "node scripts/db-seed.mjs",
     "db:push": "bash scripts/db-push.sh",
     "db:verify": "bash scripts/db-verify.sh",
+    "people:seed": "node scripts/people/seed.mjs",
     "people:check": "node scripts/people/check.mjs",
     "people:check:fixtures": "node scripts/people/check.mjs --fixtures",
     "people:check:release": "node scripts/people/check.mjs --release",

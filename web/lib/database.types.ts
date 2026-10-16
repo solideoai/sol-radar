@@ -74,6 +74,47 @@ export type Database = {
           },
         ]
       }
+      departments: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          is_demo: boolean
+          name: string
+          org_id: string
+          source_count: number
+          target_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          is_demo?: boolean
+          name: string
+          org_id: string
+          source_count: number
+          target_count: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          is_demo?: boolean
+          name?: string
+          org_id?: string
+          source_count?: number
+          target_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           created_at: string
@@ -112,6 +153,41 @@ export type Database = {
           },
           {
             foreignKeyName: "invitations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_titles: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          label: string
+          org_id: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          label: string
+          org_id: string
+          sort_order: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          label?: string
+          org_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_titles_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -159,6 +235,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_demo: boolean
           name: string
           personal_owner_id: string | null
           slug: string
@@ -166,6 +243,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_demo?: boolean
           name: string
           personal_owner_id?: string | null
           slug: string
@@ -173,6 +251,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_demo?: boolean
           name?: string
           personal_owner_id?: string | null
           slug?: string
@@ -191,6 +270,8 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          declared_department_id: string | null
+          declared_job_title_id: string | null
           display_name: string | null
           email: string | null
           id: string
@@ -201,6 +282,8 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          declared_department_id?: string | null
+          declared_job_title_id?: string | null
           display_name?: string | null
           email?: string | null
           id: string
@@ -211,6 +294,8 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          declared_department_id?: string | null
+          declared_job_title_id?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
@@ -218,7 +303,22 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_declared_department_id_fkey"
+            columns: ["declared_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_declared_job_title_id_fkey"
+            columns: ["declared_job_title_id"]
+            isOneToOne: false
+            referencedRelation: "job_titles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
@@ -284,6 +384,82 @@ export type Database = {
           },
         ]
       }
+      team_members: {
+        Row: {
+          availability: Json
+          created_at: string
+          department_id: string
+          gender: string
+          grade: string | null
+          id: string
+          is_demo: boolean
+          job_title_id: string
+          name: string
+          org_id: string
+          person_code: string
+          portrait_path: string
+          role: string
+          scoring_eligible: boolean
+          skills: Json
+        }
+        Insert: {
+          availability?: Json
+          created_at?: string
+          department_id: string
+          gender: string
+          grade?: string | null
+          id?: string
+          is_demo?: boolean
+          job_title_id: string
+          name: string
+          org_id: string
+          person_code: string
+          portrait_path: string
+          role: string
+          scoring_eligible?: boolean
+          skills?: Json
+        }
+        Update: {
+          availability?: Json
+          created_at?: string
+          department_id?: string
+          gender?: string
+          grade?: string | null
+          id?: string
+          is_demo?: boolean
+          job_title_id?: string
+          name?: string
+          org_id?: string
+          person_code?: string
+          portrait_path?: string
+          role?: string
+          scoring_eligible?: boolean
+          skills?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_department_id_org_id_fkey"
+            columns: ["department_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "team_members_job_title_id_org_id_fkey"
+            columns: ["job_title_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "job_titles"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "team_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -328,6 +504,10 @@ export type Database = {
       my_owner_org_ids: {
         Args: never
         Returns: string[]
+      }
+      resolve_solideo_employment: {
+        Args: { p_department: string; p_job_title: string }
+        Returns: { department_code: string; department_id: string; department_name: string; job_title_code: string; job_title_id: string; job_title_label: string }[]
       }
       task_dashboard_stats: {
         Args: { as_of?: string; target_org: string }

@@ -164,7 +164,7 @@ describe("DB 접근 정책", () => {
     ]);
     await db.exec("reset role");
   });
-  it("화면 역할의 profiles 표 권한은 읽기(SELECT)뿐이고, 열 권한은 display_name 수정 하나다 — RLS 를 무시하는 TRUNCATE 도 없다", async () => {
+  it("화면 역할의 profiles 표 권한은 읽기(SELECT)뿐이고, 열 권한은 이름·신고 FK 수정뿐이다 — RLS 를 무시하는 TRUNCATE 도 없다", async () => {
     await db.exec("reset role");
     // 흉내 DB 는 Supabase 처럼 새 표에 권한을 전부 준다. 마이그레이션이 하나라도 남기면 여기 보인다.
     assert.deepEqual(
@@ -185,7 +185,11 @@ describe("DB 접근 정책", () => {
           "select grantee, column_name, privilege_type from information_schema.column_privileges where table_schema='public' and table_name='profiles' and grantee in ('anon','authenticated') and privilege_type <> 'SELECT' order by 1,2,3",
         )
       ).rows,
-      [{ grantee: "authenticated", column_name: "display_name", privilege_type: "UPDATE" }],
+      ["declared_department_id", "declared_job_title_id", "display_name"].map((column_name) => ({
+        grantee: "authenticated",
+        column_name,
+        privilege_type: "UPDATE",
+      })),
     );
     await asUser(users[0]);
     await assert.rejects(db.query("truncate public.profiles"), /permission denied/);
@@ -3513,4 +3517,302 @@ describe("RLS 정책 성능 — 질의마다 값이 같은 호출은 (select ...
     ])
       assert.deepEqual(await check(clause), ["probe.probe"], clause);
   });
+});
+
+describe("솔리데오 카탈로그·가입 신고", () => {
+  const solideo = "db4c863c-cb6a-593d-93ff-709a17e0157a";
+  const other = "33a80d95-1a64-5fe0-ad6d-e768657e9034";
+  const department = "a6c0f1fc-aeba-5e54-a20c-f6f4d1609f84";
+  const title = "33e315b9-aee8-5ea8-96eb-f9055af4eef2";
+  const otherDepartment = "10000000-0000-0000-0000-000000000001";
+  const otherTitle = "10000000-0000-0000-0000-000000000002";
+  const setup = async (t) => {
+    const fresh = await migratedDb(t);
+    await fresh.query(
+      "insert into public.organizations (id,slug,name) values ($1,'org-01','솔리데오'),($2,'org-02','격리 조직')",
+      [solideo, other],
+    );
+    await fresh.query(
+      "insert into public.departments (id,org_id,code,name,source_count,target_count,is_demo) values ($1,$2,'SOL-D001','시험부서',3,4,true),($3,$4,'OTHER-D001','다른부서',1,1,true)",
+      [department, solideo, otherDepartment, other],
+    );
+    await fresh.query(
+      "insert into public.job_titles (id,org_id,code,label,sort_order) values ($1,$2,'SOL-J007','팀장',7),($3,$4,'OTHER-J001','다른직급',1)",
+      [title, solideo, otherTitle, other],
+    );
+    await fresh.query(
+      "insert into public.memberships (org_id,user_id,org_role) values ($1,$2,'member'),($3,$4,'member')",
+      [solideo, users[0], other, users[1]],
+    );
+    await fresh.query(
+      "insert into public.team_members (org_id,person_code,name,gender,department_id,job_title_id,portrait_path,is_demo,scoring_eligible,role,skills,availability) values ($1,'SOL-P0001','김민준','MALE',$2,$3,'/demo/people/SOL-P0001.png',true,false,'OTHER','[]','[]')",
+      [solideo, department, title],
+    );
+    return fresh;
+  };
+  const resolve = (fresh, dept = "SOL-D001", job = "SOL-J007") =>
+    fresh.query("select * from public.resolve_solideo_employment($1,$2)", [dept, job]);
+  it("회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다", async (t) => {
+    const fresh = await setup(t);
+    await actAs(fresh, users[0]);
+    for (const table of ["departments", "job_titles", "team_members"]) {
+      assert.equal((await fresh.query(`select * from public.${table}`)).rows.length, 1);
+      assert.equal(
+        (await fresh.query(`select * from public.${table} where org_id=$1`, [other])).rows.length,
+        0,
+      );
+      for (const sql of [
+        `insert into public.${table} (org_id) values ($1)`,
+        `update public.${table} set org_id=$1`,
+        `delete from public.${table} where org_id=$1`,
+      ])
+        await assert.rejects(fresh.query(sql, [solideo]), /permission denied/);
+    }
+    await actAs(fresh, users[1]);
+    assert.equal((await fresh.query("select * from public.team_members")).rows.length, 0);
+    await actAs(fresh, null, "anon");
+    await assert.rejects(resolve(fresh), /permission denied/);
+  });
+  it("비멤버는 공개 필드만 변환하고 본인 이름·신고 FK를 한 번에 갱신한다", async (t) => {
+    const fresh = await setup(t);
+    await actAs(fresh, users[2]);
+    const expected = [
+      {
+        department_id: department,
+        department_code: "SOL-D001",
+        department_name: "시험부서",
+        job_title_id: title,
+        job_title_code: "SOL-J007",
+        job_title_label: "팀장",
+      },
+    ];
+    assert.deepEqual((await resolve(fresh)).rows, expected);
+    assert.deepEqual((await resolve(fresh, department, title)).rows, expected);
+    for (const table of ["departments", "job_titles", "team_members"])
+      assert.deepEqual((await fresh.query(`select * from public.${table}`)).rows, []);
+    assert.deepEqual(
+      (await fresh.query("select id from public.organizations where id=$1", [solideo])).rows,
+      [],
+    );
+    const update = (id) =>
+      fresh.query(
+        "update public.profiles set display_name='일반가입자',declared_department_id=$2,declared_job_title_id=$3 where id=$1 returning id",
+        [id, department, title],
+      );
+    assert.deepEqual((await update(users[2])).rows, [{ id: users[2] }]);
+    assert.deepEqual((await update(users[0])).rows, []);
+    await fresh.exec("reset role");
+    assert.equal(
+      (
+        await fresh.query("select * from public.memberships where org_id=$1 and user_id=$2", [
+          solideo,
+          users[2],
+        ])
+      ).rows.length,
+      0,
+    );
+    await fresh.query("select set_config('request.jwt.claims', '', false)");
+    await fresh.query("update public.profiles set status='suspended' where id=$1", [users[2]]);
+    await actAs(fresh, users[2]);
+    assert.deepEqual((await update(users[2])).rows, []);
+  });
+  it("다른 회사·미지 코드 및 UUID는 resolver와 본인 UPDATE 모두 거절한다", async (t) => {
+    const fresh = await setup(t);
+    await actAs(fresh, users[2]);
+    for (const [dept, job] of [
+      ["unknown", "SOL-J007"],
+      ["SOL-D001", ""],
+      [null, "SOL-J007"],
+      [otherDepartment, title],
+      [department, otherTitle],
+      ["OTHER-D001", "OTHER-J001"],
+    ])
+      await assert.rejects(resolve(fresh, dept, job), /invalid_employment/);
+    for (const [dept, job] of [
+      [otherDepartment, title],
+      [department, otherTitle],
+      [users[0], title],
+    ])
+      await assert.rejects(
+        fresh.query(
+          "update public.profiles set declared_department_id=$2,declared_job_title_id=$3 where id=$1",
+          [users[2], dept, job],
+        ),
+        /invalid_employment/,
+      );
+  });
+  it("명부의 복합 FK·이름·성별·카탈로그 최소 인원 제약을 강제한다", async (t) => {
+    const fresh = await setup(t);
+    await assert.rejects(
+      fresh.query("update public.team_members set department_id=$1", [otherDepartment]),
+      /foreign key/,
+    );
+    await assert.rejects(
+      fresh.query("update public.team_members set job_title_id=$1", [otherTitle]),
+      /foreign key/,
+    );
+    for (const sql of [
+      "update public.team_members set gender='UNKNOWN'",
+      "update public.team_members set name='두글'",
+      "update public.departments set target_count=0",
+    ])
+      await assert.rejects(fresh.query(sql), /check constraint/);
+  });
+  it("유효 메타데이터만 신고 FK로 옮기며 관리자·멤버십을 부여하지 않는다", async (t) => {
+    const fresh = await setup(t);
+    const {
+      rows: [{ id }],
+    } = await fresh.query(
+      "insert into auth.users (id,email,raw_user_meta_data) values (gen_random_uuid(),'signup@example.test',$1) returning id",
+      [
+        {
+          name: "새가입자",
+          department_code: "SOL-D001",
+          job_title_code: "SOL-J007",
+          is_admin: true,
+          org_role: "owner",
+        },
+      ],
+    );
+    assert.deepEqual(
+      (
+        await fresh.query(
+          "select display_name,declared_department_id,declared_job_title_id,is_admin from public.profiles where id=$1",
+          [id],
+        )
+      ).rows,
+      [
+        {
+          display_name: "새가입자",
+          declared_department_id: department,
+          declared_job_title_id: title,
+          is_admin: false,
+        },
+      ],
+    );
+    assert.deepEqual(
+      (
+        await fresh.query(
+          "select o.personal_owner_id,m.org_role from public.memberships m join public.organizations o on o.id=m.org_id where m.user_id=$1",
+          [id],
+        )
+      ).rows,
+      [{ personal_owner_id: id, org_role: "owner" }],
+    );
+    for (const meta of [
+      { department_code: "SOL-D001" },
+      { job_title_code: "SOL-J007" },
+      { department_code: "", job_title_code: "SOL-J007" },
+      { department_code: null, job_title_code: null },
+      { department_code: "unknown", job_title_code: "SOL-J007" },
+      { department_code: "OTHER-D001", job_title_code: "OTHER-J001" },
+    ])
+      await assert.rejects(
+        fresh.query(
+          "insert into auth.users (id,raw_user_meta_data) values (gen_random_uuid(),$1)",
+          [meta],
+        ),
+        /invalid_employment/,
+      );
+  });
+  it("신고 키가 모두 없는 OAuth는 nullable이며 HTTPS 사진·이름·개인 조직을 보존한다", async (t) => {
+    const fresh = await setup(t);
+    const {
+      rows: [{ id }],
+    } = await fresh.query(
+      "insert into auth.users (id,raw_user_meta_data) values (gen_random_uuid(),$1) returning id",
+      [{ full_name: "OAuth 가입자", avatar_url: "https://example.test/avatar.png" }],
+    );
+    assert.deepEqual(
+      (
+        await fresh.query(
+          "select display_name,avatar_url,declared_department_id,declared_job_title_id from public.profiles where id=$1",
+          [id],
+        )
+      ).rows,
+      [
+        {
+          display_name: "OAuth 가입자",
+          avatar_url: "https://example.test/avatar.png",
+          declared_department_id: null,
+          declared_job_title_id: null,
+        },
+      ],
+    );
+    assert.equal(
+      (await fresh.query("select * from public.organizations where personal_owner_id=$1", [id]))
+        .rows.length,
+      1,
+    );
+  });
+  it("카탈로그 삭제는 일반 Auth 계정을 남기고 신고 FK만 null로 만든다", async (t) => {
+    const fresh = await setup(t);
+    await fresh.query(
+      "update public.profiles set declared_department_id=$2,declared_job_title_id=$3 where id=$1",
+      [users[2], department, title],
+    );
+    await fresh.query("delete from public.team_members where org_id=$1", [solideo]);
+    await fresh.query("delete from public.departments where org_id=$1", [solideo]);
+    await fresh.query("delete from public.job_titles where org_id=$1", [solideo]);
+    assert.deepEqual(
+      (
+        await fresh.query(
+          "select declared_department_id,declared_job_title_id from public.profiles where id=$1",
+          [users[2]],
+        )
+      ).rows,
+      [{ declared_department_id: null, declared_job_title_id: null }],
+    );
+    assert.equal(
+      (await fresh.query("select id from auth.users where id=$1", [users[2]])).rows.length,
+      1,
+    );
+  });
+});
+
+it("솔리데오 조직 삭제도 신고한 일반 계정·개인 조직을 보존한다", async (t) => {
+  const fresh = await migratedDb(t);
+  const org = "db4c863c-cb6a-593d-93ff-709a17e0157a";
+  await fresh.query(
+    "insert into public.organizations (id,slug,name) values ($1,'org-01','솔리데오')",
+    [org],
+  );
+  const {
+    rows: [{ id: department }],
+  } = await fresh.query(
+    "insert into public.departments (org_id,code,name,source_count,target_count) values ($1,'SOL-D001','부서',1,1) returning id",
+    [org],
+  );
+  const {
+    rows: [{ id: title }],
+  } = await fresh.query(
+    "insert into public.job_titles (org_id,code,label,sort_order) values ($1,'SOL-J007','팀장',1) returning id",
+    [org],
+  );
+  await fresh.query(
+    "update public.profiles set declared_department_id=$1,declared_job_title_id=$2 where id=$3",
+    [department, title, users[0]],
+  );
+  await fresh.query("delete from public.organizations where id=$1", [org]);
+  assert.deepEqual(
+    (
+      await fresh.query(
+        "select declared_department_id,declared_job_title_id from public.profiles where id=$1",
+        [users[0]],
+      )
+    ).rows,
+    [{ declared_department_id: null, declared_job_title_id: null }],
+  );
+  assert.equal(
+    (await fresh.query("select id from auth.users where id=$1", [users[0]])).rows.length,
+    1,
+  );
+  assert.equal(
+    (
+      await fresh.query("select id from public.organizations where personal_owner_id=$1", [
+        users[0],
+      ])
+    ).rows.length,
+    1,
+  );
 });

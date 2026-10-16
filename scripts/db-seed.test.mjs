@@ -122,3 +122,63 @@ describe("시드 계획", () => {
     }
   });
 });
+
+it("재시드도 기존 다섯 계정·개인 조직·템플릿 팀을 보존하며 카탈로그를 Auth보다 먼저 넣는다", async (t) => {
+  const { seed, SEED_TEAM } = await import("./db-seed.mjs");
+  const calls = [];
+  const existing = Object.values(SEED_ACCOUNTS).map((account, index) => ({
+    id: `00000000-0000-0000-0000-00000000000${index + 1}`,
+    email: account.email,
+  }));
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    const path = new URL(url).pathname;
+    const body = init.body ? JSON.parse(init.body) : null;
+    calls.push({ path, method: init.method, body });
+    let data = null;
+    if (path === "/auth/v1/admin/users" && init.method === "GET") data = { users: existing };
+    else if (path === "/auth/v1/admin/users" && init.method === "POST")
+      data = existing.find((user) => user.email === body.email);
+    else if (path.startsWith("/auth/v1/admin/users/") && init.method === "PUT")
+      data = existing.find((user) => path.endsWith(user.id));
+    else if (path === "/auth/v1/token") data = { access_token: "local-test-token" };
+    else if (path === "/rest/v1/profiles" && init.method === "PATCH") data = [{ is_admin: true }];
+    else if (path === "/rest/v1/organizations" && init.method === "GET")
+      data = [
+        {
+          id: url.includes("personal_owner_id") ? "personal-org" : "template-team",
+          slug: SEED_TEAM.slug,
+        },
+      ];
+    else if (path === "/rest/v1/memberships" && init.method === "GET")
+      data = [{ org_id: "template-team", user_id: existing[1].id }];
+    else if (path === "/rest/v1/tasks" && init.method === "POST") data = [{ id: "task-id" }];
+    return new Response(JSON.stringify(data), { status: 200 });
+  });
+  await seed({
+    apiUrl: "http://127.0.0.1:54321",
+    anonKey: "local-test-anon",
+    serviceKey: "local-test-service",
+  });
+  assert.equal(
+    calls.filter(
+      (call) =>
+        call.method === "DELETE" &&
+        (call.path.startsWith("/auth/") || call.path === "/rest/v1/organizations"),
+    ).length,
+    0,
+  );
+  assert.equal(
+    calls.filter((call) => call.method === "POST" && call.path === "/auth/v1/admin/users").length,
+    0,
+  );
+  const authIndex = calls.findIndex((call) => call.path.startsWith("/auth/"));
+  assert.ok(calls.findIndex((call) => call.path === "/rest/v1/departments") < authIndex);
+  assert.ok(calls.findIndex((call) => call.path === "/rest/v1/job_titles") < authIndex);
+  const declarations = calls.filter(
+    (call) =>
+      call.method === "PATCH" &&
+      call.path === "/rest/v1/profiles" &&
+      call.body.declared_department_id,
+  );
+  assert.equal(declarations.length, 5);
+});
