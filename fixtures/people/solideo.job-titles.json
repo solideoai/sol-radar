@@ -5,62 +5,86 @@
     {
       "id": "SOL-J001",
       "label": "CFO",
-      "sortOrder": 1
+      "sortOrder": 1,
+      "sourceCount": 0,
+      "targetCount": 0
     },
     {
       "id": "SOL-J002",
       "label": "사장",
-      "sortOrder": 2
+      "sortOrder": 2,
+      "sourceCount": 0,
+      "targetCount": 0
     },
     {
       "id": "SOL-J003",
       "label": "부사장",
-      "sortOrder": 3
+      "sortOrder": 3,
+      "sourceCount": 0,
+      "targetCount": 0
     },
     {
       "id": "SOL-J004",
       "label": "이사",
-      "sortOrder": 4
+      "sortOrder": 4,
+      "sourceCount": 0,
+      "targetCount": 0
     },
     {
       "id": "SOL-J005",
       "label": "본부장",
-      "sortOrder": 5
+      "sortOrder": 5,
+      "sourceCount": 1,
+      "targetCount": 1
     },
     {
       "id": "SOL-J006",
       "label": "그룹장",
-      "sortOrder": 6
+      "sortOrder": 6,
+      "sourceCount": 0,
+      "targetCount": 0
     },
     {
       "id": "SOL-J007",
       "label": "팀장",
-      "sortOrder": 7
+      "sortOrder": 7,
+      "sourceCount": 16,
+      "targetCount": 21
     },
     {
       "id": "SOL-J008",
       "label": "소장",
-      "sortOrder": 8
+      "sortOrder": 8,
+      "sourceCount": 0,
+      "targetCount": 0
     },
     {
       "id": "SOL-J009",
       "label": "수석",
-      "sortOrder": 9
+      "sortOrder": 9,
+      "sourceCount": 31,
+      "targetCount": 34
     },
     {
       "id": "SOL-J010",
       "label": "책임",
-      "sortOrder": 10
+      "sortOrder": 10,
+      "sourceCount": 95,
+      "targetCount": 110
     },
     {
       "id": "SOL-J011",
       "label": "담당",
-      "sortOrder": 11
+      "sortOrder": 11,
+      "sourceCount": 31,
+      "targetCount": 33
     },
     {
       "id": "SOL-J012",
       "label": "인턴",
-      "sortOrder": 12
+      "sortOrder": 12,
+      "sourceCount": 1,
+      "targetCount": 1
     }
   ]
 }

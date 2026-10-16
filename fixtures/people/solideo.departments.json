@@ -149,7 +149,7 @@
       "id": "SOL-D001",
       "name": "AX사업본부 AI플랫폼운영팀",
       "sourceCount": 14,
-      "targetCount": null,
+      "targetCount": 14,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -169,7 +169,7 @@
       "id": "SOL-D002",
       "name": "AX사업본부-사업전략팀",
       "sourceCount": 1,
-      "targetCount": null,
+      "targetCount": 2,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -186,7 +186,7 @@
       "id": "SOL-D003",
       "name": "AX엔지니어링팀",
       "sourceCount": 4,
-      "targetCount": null,
+      "targetCount": 5,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -205,7 +205,7 @@
       "id": "SOL-D004",
       "name": "MSP팀",
       "sourceCount": 4,
-      "targetCount": null,
+      "targetCount": 5,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -230,7 +230,7 @@
       "id": "SOL-D005",
       "name": "MSP팀-대구PPP",
       "sourceCount": 1,
-      "targetCount": null,
+      "targetCount": 2,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -247,7 +247,7 @@
       "id": "SOL-D006",
       "name": "P&AX컨설팅본부 전략컨설팅팀",
       "sourceCount": 6,
-      "targetCount": null,
+      "targetCount": 7,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -278,7 +278,7 @@
       "id": "SOL-D007",
       "name": "UXUI디자인팀",
       "sourceCount": 6,
-      "targetCount": null,
+      "targetCount": 6,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -315,7 +315,7 @@
       "id": "SOL-D008",
       "name": "UX엔지니어링팀",
       "sourceCount": 3,
-      "targetCount": null,
+      "targetCount": 4,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -339,7 +339,7 @@
       "id": "SOL-D009",
       "name": "공공 마이데이터팀",
       "sourceCount": 5,
-      "targetCount": null,
+      "targetCount": 6,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -358,7 +358,7 @@
       "id": "SOL-D010",
       "name": "공공AX1팀",
       "sourceCount": 1,
-      "targetCount": null,
+      "targetCount": 2,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -375,7 +375,7 @@
       "id": "SOL-D011",
       "name": "공공AX1팀-AI안전지킴이",
       "sourceCount": 4,
-      "targetCount": null,
+      "targetCount": 5,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -393,7 +393,7 @@
       "id": "SOL-D012",
       "name": "공공AX1팀-경영안정바우처",
       "sourceCount": 4,
-      "targetCount": null,
+      "targetCount": 5,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -411,7 +411,7 @@
       "id": "SOL-D013",
       "name": "공공AX1팀-기후위기적응정보",
       "sourceCount": 7,
-      "targetCount": null,
+      "targetCount": 7,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -430,7 +430,7 @@
       "id": "SOL-D014",
       "name": "공공AX1팀-브리티웍스 확산 지원",
       "sourceCount": 3,
-      "targetCount": null,
+      "targetCount": 4,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -448,7 +448,7 @@
       "id": "SOL-D015",
       "name": "공공AX1팀-환경영향평가",
       "sourceCount": 1,
-      "targetCount": null,
+      "targetCount": 2,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -465,7 +465,7 @@
       "id": "SOL-D016",
       "name": "공공AX2팀-국가 바이오 데이터 스테이션",
       "sourceCount": 3,
-      "targetCount": null,
+      "targetCount": 4,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -483,7 +483,7 @@
       "id": "SOL-D017",
       "name": "공공AX2팀-바이오 빅데이터 플랫폼",
       "sourceCount": 8,
-      "targetCount": null,
+      "targetCount": 8,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -509,7 +509,7 @@
       "id": "SOL-D018",
       "name": "국토건축행정팀",
       "sourceCount": 1,
-      "targetCount": null,
+      "targetCount": 2,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -526,7 +526,7 @@
       "id": "SOL-D019",
       "name": "국토건축행정팀(건축행정유지)",
       "sourceCount": 11,
-      "targetCount": null,
+      "targetCount": 11,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -545,7 +545,7 @@
       "id": "SOL-D020",
       "name": "국토건축행정팀(마이홈포털유지)",
       "sourceCount": 2,
-      "targetCount": null,
+      "targetCount": 3,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -563,7 +563,7 @@
       "id": "SOL-D021",
       "name": "국토건축행정팀(서울시유지)",
       "sourceCount": 1,
-      "targetCount": null,
+      "targetCount": 2,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -580,7 +580,7 @@
       "id": "SOL-D022",
       "name": "국토건축행정팀(임대등록시스템운영)",
       "sourceCount": 7,
-      "targetCount": null,
+      "targetCount": 7,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -599,7 +599,7 @@
       "id": "SOL-D023",
       "name": "민간서비스팀",
       "sourceCount": 6,
-      "targetCount": null,
+      "targetCount": 6,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -618,7 +618,7 @@
       "id": "SOL-D024",
       "name": "범정부서비스통합팀",
       "sourceCount": 7,
-      "targetCount": null,
+      "targetCount": 7,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -636,7 +636,7 @@
       "id": "SOL-D025",
       "name": "사업본부 공통지원팀",
       "sourceCount": 2,
-      "targetCount": null,
+      "targetCount": 3,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -653,7 +653,7 @@
       "id": "SOL-D026",
       "name": "사업전략팀",
       "sourceCount": 7,
-      "targetCount": null,
+      "targetCount": 7,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -671,7 +671,7 @@
       "id": "SOL-D027",
       "name": "식의약AX팀-의약품AI심사구축",
       "sourceCount": 6,
-      "targetCount": null,
+      "targetCount": 6,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -690,7 +690,7 @@
       "id": "SOL-D028",
       "name": "식의약팀AX팀-통합유지관리",
       "sourceCount": 9,
-      "targetCount": null,
+      "targetCount": 9,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -709,7 +709,7 @@
       "id": "SOL-D029",
       "name": "인사총무팀",
       "sourceCount": 2,
-      "targetCount": null,
+      "targetCount": 3,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -727,7 +727,7 @@
       "id": "SOL-D030",
       "name": "인천공항서비스구축팀",
       "sourceCount": 3,
-      "targetCount": null,
+      "targetCount": 4,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -745,7 +745,7 @@
       "id": "SOL-D031",
       "name": "재무회계팀",
       "sourceCount": 4,
-      "targetCount": null,
+      "targetCount": 5,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -763,7 +763,7 @@
       "id": "SOL-D032",
       "name": "전자증명서팀",
       "sourceCount": 3,
-      "targetCount": null,
+      "targetCount": 4,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -781,7 +781,7 @@
       "id": "SOL-D033",
       "name": "정부24 Native 전환팀",
       "sourceCount": 8,
-      "targetCount": null,
+      "targetCount": 8,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -801,7 +801,7 @@
       "id": "SOL-D034",
       "name": "정부24운영팀",
       "sourceCount": 11,
-      "targetCount": null,
+      "targetCount": 11,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -820,7 +820,7 @@
       "id": "SOL-D035",
       "name": "지방행정사업팀",
       "sourceCount": 1,
-      "targetCount": null,
+      "targetCount": 2,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -837,7 +837,7 @@
       "id": "SOL-D036",
       "name": "행정정보공동이용팀",
       "sourceCount": 1,
-      "targetCount": null,
+      "targetCount": 2,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -854,7 +854,7 @@
       "id": "SOL-D037",
       "name": "행정정보공동이용팀(제출서류간소화)",
       "sourceCount": 3,
-      "targetCount": null,
+      "targetCount": 4,
       "sourceRanges": [
         {
           "sheet": "people",
@@ -872,7 +872,7 @@
       "id": "SOL-D038",
       "name": "홍보서비스팀",
       "sourceCount": 5,
-      "targetCount": null,
+      "targetCount": 6,
       "sourceRanges": [
         {
           "sheet": "people",

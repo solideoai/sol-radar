@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
+import { normalizeSourceName } from "./names.mjs";
 
 const TITLE_LABELS = [
   "CFO",
@@ -116,7 +117,7 @@ function buildAssignments(sheet, departments, excludedRanges) {
 
 function rememberName(excludedNames, name) {
   excludedNames.add(name);
-  const normalized = name.replace(/\([^)]*\)|（[^）]*）|\[[^\]]*\]/g, "").replace(/\s+/g, "");
+  const normalized = normalizeSourceName(name);
   if (normalized) excludedNames.add(normalized);
 }
 
