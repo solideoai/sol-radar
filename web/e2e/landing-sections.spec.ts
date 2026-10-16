@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { expectBelowHeader } from "./sticky-header";
 
 // 첫 화면의 히어로 아래 구역들. 데스크톱 전용이라 1440px 에서 본다. 구역은 h2 로 이름 붙은 region 이다.
@@ -42,7 +42,7 @@ test("서비스 소개는 지금 방식과 SOL RADAR 를 비교하는 표다", a
   await expect(about.getByRole("columnheader")).toHaveText([
     "검토 단계",
     "지금은",
-    /SOL RADAR에서는/,
+    "SOL RADAR에서는 (개발 중)",
   ]);
   await expect(about.getByRole("rowheader")).toHaveText([
     "요구사항 파악",
@@ -71,9 +71,44 @@ test("주요 기능은 네 가지이고, 모두 개발 예정이라고 밝힌다
     "검토 이력과 변경 알림",
   ]);
   await expect(features.getByText("개발 예정", { exact: true })).toHaveCount(4);
+  await expect(features.getByRole("note")).toContainText("MVP를 개발하고 있습니다");
   await expect(features.getByRole("note")).toContainText("아직 이용할 수 없습니다");
   // 점수 조각은 demo-3 의 판단 근거를 보인다(판에서 옮겨 왔다).
   await expect(features.getByText(/필수 실적 요건 미충족/)).toBeVisible();
+});
+
+// 글자마다 그려진 줄의 위치를 재서, 줄이 바뀐 자리의 첫 글자를 모은다.
+const lineStartsOf = (locator: Locator) =>
+  locator.evaluate((element) => {
+    const range = document.createRange();
+    const starts: string[] = [];
+    let lineTop: number | null = null;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const text = walker.currentNode as Text;
+      for (let index = 0; index < text.length; index += 1) {
+        range.setStart(text, index);
+        range.setEnd(text, index + 1);
+        const rect = range.getBoundingClientRect();
+        if (rect.height === 0) continue;
+        if (lineTop === null || rect.top > lineTop + rect.height / 2) {
+          lineTop = rect.top;
+          starts.push(text.data[index]);
+        }
+      }
+    }
+    return starts;
+  });
+
+// 회귀: 1440 에서 "기관·예산·마감 / ·사업 단계" 처럼 가운뎃점이 줄 맨 앞으로 떨어졌다.
+test("주요 기능 설명은 가운뎃점으로 줄을 시작하지 않는다", async ({ page }) => {
+  await page.goto("/");
+  const features = page.getByRole("region", { name: SECTIONS[0].title });
+  const descriptions = features.locator("h3 + p");
+  await expect(descriptions).toHaveCount(4);
+  for (const description of await descriptions.all()) {
+    expect(await lineStartsOf(description)).not.toContain("·");
+  }
 });
 
 test("작동 방식은 세 단계이고, 단계마다 하는 일과 얻는 것이 있다", async ({ page }) => {

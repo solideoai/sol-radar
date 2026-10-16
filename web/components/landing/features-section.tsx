@@ -22,7 +22,8 @@ const FEATURES: Feature[] = [
   {
     id: "collect",
     title: "공고 수집과 탐색",
-    body: "발주계획·사전규격·입찰공고를 모아, 기관·예산·마감·사업 단계 같은 조건으로 좁혀 봅니다.",
+    // Chrome 은 가운뎃점 앞을 줄바꿈 자리로 봐서 "·사업"처럼 점이 줄 맨 앞으로 떨어진다. 점 앞에 낱말 잇기(U+2060)를 둔다.
+    body: "발주계획\u2060·사전규격\u2060·입찰공고를 모아, 기관\u2060·예산\u2060·마감\u2060·사업 단계 같은 조건으로 좁혀 봅니다.",
     preview: <CollectPreview />,
   },
   {
@@ -57,7 +58,8 @@ export function FeaturesSection() {
           />
           <p role="note" className="mt-5 flex items-center gap-2 type-ui-lg text-muted-foreground">
             <InfoIcon aria-hidden className="size-5 shrink-0 text-brand" />
-            아래 기능은 모두 개발 예정이며 아직 이용할 수 없습니다. 화면은 예시 데이터로 그렸습니다.
+            SOL RADAR는 MVP를 개발하고 있습니다. 아래 기능은 모두 개발 예정이며 아직 이용할 수
+            없습니다. 화면은 예시 데이터로 그렸습니다.
           </p>
         </Reveal>
         <ul className="mt-16 flex flex-col gap-24">
