@@ -69,7 +69,7 @@ updated: 2026-10-16
 | 19 | [[19-DEMO-SCENARIO]] | 데모 기업·fixture 스토리·클릭 경로·장애 대체 시연 |
 | 20 | [[20-GLOSSARY]] | 용어집 (단일 원천) |
 | — | [[CLAUDE]] | Claude Code 지침 (루트 `CLAUDE.md`가 `@docs/CLAUDE.md`로 먼저 불러온다, ADR-015) |
-| — | [[PROGRESS]] | 진행 상황·작업 로그 (모노레포에서는 `docs/PROGRESS.md`) |
+| — | [[PROGRESS]] | 진행 상황·작업 로그 (저장소 경로 `docs/PROGRESS.md`) |
 
 ## 주장과 근거 (AI 심사 보조)
 
