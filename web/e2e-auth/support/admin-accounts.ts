@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { z } from "zod";
+import { declarationMetadata } from "./seed";
 
 // 관리자 E2E 의 시험 계정 — 정지·해제처럼 시드 계정에 하면 같은 실행의 다른 시험이 깨지는 일은 시험 안에서 만든 계정에 한다.
 // 관리 키(service_role)는 세 가지 준비에만 쓴다. 시험하는 동작(정지·해제·로그인·/api)에는 쓰지 않는다.
@@ -114,11 +115,13 @@ export const createTestAccount = async ({
   tag,
   name,
   isAdmin = false,
+  incomplete = false,
 }: {
   label: string;
   tag: string;
   name: string;
   isAdmin?: boolean;
+  incomplete?: boolean;
 }): Promise<TestAccount> => {
   const email = `e2e-admin-${label}-${tag}@example.test`;
   const password = `e2e-${randomUUID()}`;
@@ -126,7 +129,12 @@ export const createTestAccount = async ({
     expectOk(
       await send("POST", "/auth/v1/admin/users", {
         key: "service",
-        body: { email, password, email_confirm: true, user_metadata: { name } },
+        body: {
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: declarationMetadata(name, incomplete),
+        },
       }),
       "시험 계정 만들기",
     ),

@@ -44,10 +44,12 @@ updated: 2026-10-16
 - [x] 조직도 추출·부서/직급 카탈로그: 원본 250행을 배분 가중치 175행·비팀 구역 제외 75행으로 분류, 정확한 표시명 38개·직급 12개. 미분류·중복·원본 이름 유출 0, 작업별 독립 검토 통과.
 - [x] `fixtures/people/solideo.{departments,job-titles,people,portraits}.json` 및 최소 공개 가입 카탈로그 생성·원본 대조. 가상 200명·남녀 100/100·계산 대상 27명·가용 20 FTE 보존, 데이터 단계 `pnpm verify` 통과. Task 3 독립 검토 대기.
 - [ ] imagegen 고유 정장 프로필 200장 생성·검수·프로젝트 경로 저장.
-- [ ] 카탈로그·가입 신고 필드·가상 인력 seed/RLS migration 및 생성 타입.
-- [ ] 가입 폼·프로필 보완·업무 화면/API 가드 구현·검증.
+- [x] 카탈로그·가입 신고 필드·가상 인력 seed/RLS migration 및 생성 타입. Task1/2 독립 리뷰 통과; 실제 로컬 최종 재검증은 별도.
+- [x] 가입 폼·프로필 보완·업무 화면/Server Action 가드·계정 관리 호환 구현 및 Task3 독립 리뷰 통과. 현재 v1 업무 REST 엔드포인트는 없으며 재사용 API 가드 계약만 단위 검증.
+- [x] 전체200명→계산27명 snapshot, 고정 창20FTE·배정 경계와 별도 worked-example 요소94/72/68 순수 회귀 구현. 전체 점수 엔진 골든은 Phase4 미완료.
+- [ ] 신규 가입/보완 로컬 E2E·전체 verify/browser/E2E/authE2E·seed멱등·1440/1280 최종 독립 QA. [실행/미실행 기록](evidence/people/20261016-people-integration.md).
 
-원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 사진은 PLANNED 200건으로 아직 생성 전이고 release 검사는 `PORTRAITS_INCOMPLETE`로 실패한다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. DB·가입·점수 파이프라인 통합은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
+원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 PLANNED200/READY0이다. 별도 사진 작업 결과는 아직 합치지 않았으며 사람 승인 전 release 완료를 주장하지 않는다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. DB·가입 코드는 구현·독립 리뷰를 마쳤지만 최종 통합 QA는 대기다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
 
 ## hosted 모델 API 사용 승인 기록
 

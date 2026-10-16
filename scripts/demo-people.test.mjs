@@ -58,14 +58,22 @@ test("saved data passes without claiming source comparison or requiring planned 
     { PM: 2, PL: 4, DEVELOPER: 18, DATA_AI: 3 },
   );
   assert.equal(fixtures.people.assignments.length, 7);
-  assert.equal(
-    eligible.reduce((sum, person) => sum + person.availability[0].fte, 0) -
-      fixtures.people.assignments.reduce(
-        (sum, assignment) => sum + assignment.allocationPercent / 100,
-        0,
-      ),
-    20,
-  );
+  // These are fixed-window inputs, not an FTE implementation. The pure scoring
+  // regression computes interval-aware capacity separately in web/server/scoring.
+  for (const person of eligible)
+    assert.deepEqual(person.availability, [
+      { startsAt: "2026-12-01", endsAt: "2027-07-01", fte: 1 },
+    ]);
+  assert.equal(new Set(fixtures.people.assignments.map((row) => row.personId)).size, 7);
+  for (const assignment of fixtures.people.assignments) {
+    assert.ok(eligible.some((person) => person.personId === assignment.personId));
+    assert.deepEqual(assignment, {
+      personId: assignment.personId,
+      startsAt: "2026-12-01",
+      endsAt: "2027-07-01",
+      allocationPercent: 100,
+    });
+  }
 });
 
 // Each mutation names a concrete corruption that must be detected with safe codes only.

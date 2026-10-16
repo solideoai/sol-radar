@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { z } from "zod";
-import { uniqueTag } from "./seed";
+import { declarationMetadata, SOLIDEO_ORG_ID, uniqueTag } from "./seed";
 
 // 마이페이지 쓰기 시험(settings-account.write.spec.ts)이 쓰는 계정 준비 — 로그아웃(모든 기기)·탈퇴는 시드 계정에 하면
 // 같은 실행의 다른 시험이 깨진다(auth.setup.ts). 그래서 시험마다 따로 계정을 만들고 끝나면 지운다.
@@ -77,7 +77,7 @@ type Reply = { status: number; body: unknown };
 
 // 응답을 그대로 돌려준다(실패도). 키·토큰은 결과에 싣지 않는다.
 const send = async (
-  method: "GET" | "POST" | "DELETE",
+  method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
   { as, body, prefer }: CallOptions,
 ): Promise<Reply> => {
@@ -100,7 +100,7 @@ const send = async (
 
 // 성공해야 하는 호출. 실패하면 상태 코드와 서버의 짧은 이유만 담아 던진다.
 const call = async (
-  method: "GET" | "POST" | "DELETE",
+  method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
   options: CallOptions,
 ): Promise<unknown> => {
@@ -119,14 +119,21 @@ const createdUserSchema = z.object({ id: z.string() });
 
 // 메일 확인을 마친 계정을 만든다. 가입 트리거가 프로필과 개인 공간을 만든다.
 // 주소에 seed- 를 넣지 않는다 — 시드가 지우는 계정, 관리자 시험이 고정된 수로 세는 검색어(seed-)와 섞이지 않게 한다.
-export const createTestAccount = async (): Promise<TestAccount> => {
+export const createTestAccount = async ({
+  incomplete = false,
+}: { incomplete?: boolean } = {}): Promise<TestAccount> => {
   const tag = uniqueTag();
   const email = `e2e-account-${tag}@example.test`;
   const password = `e2e-pw-${uniqueTag()}`;
   const created = createdUserSchema.parse(
     await call("POST", "/auth/v1/admin/users", {
       as: "service",
-      body: { email, password, email_confirm: true },
+      body: {
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: declarationMetadata("시험 계정", incomplete),
+      },
     }),
   );
   return { id: created.id, email, password };
@@ -245,4 +252,57 @@ export const createTeamWithMember = async (
     prefer: "return=minimal",
   });
   return team;
+};
+
+// Only the exact disposable signup email is selected; paginated results are never
+// printed. Also handles failure before email confirmation so cleanup is reliable.
+export const findTestAccount = async (
+  email: string,
+  password: string,
+): Promise<TestAccount | null> => {
+  if (!/^e2e-signup-[a-z0-9]+@example\.test$/.test(email))
+    throw new Error("시험 가입 주소만 찾을 수 있습니다");
+  const usersSchema = z.object({
+    users: z.array(z.object({ id: z.string(), email: z.string().optional() })),
+  });
+  for (let page = 1; ; page++) {
+    const { users } = usersSchema.parse(
+      await call("GET", `/auth/v1/admin/users?page=${page}&per_page=100`, { as: "service" }),
+    );
+    const user = users.find((user) => user.email === email);
+    if (user) return { id: user.id, email, password };
+    if (users.length < 100) return null;
+  }
+};
+
+// Existing-account precompletion is prepared through the user's real column
+// grants/RLS, not by weakening production guards or changing Auth metadata.
+export const clearEmployment = async (session: ApiSession): Promise<void> => {
+  await call("PATCH", `/rest/v1/profiles?id=eq.${session.userId}`, {
+    as: { token: session.token },
+    body: { declared_department_id: null, declared_job_title_id: null },
+    prefer: "return=minimal",
+  });
+};
+
+export const readOwnPeopleAccess = async (session: ApiSession) => {
+  const rows = z.array(z.object({ id: z.string() }));
+  const memberships = z.array(z.object({ org_id: z.string() }));
+  return {
+    organizations: rows.parse(
+      await call("GET", `/rest/v1/organizations?select=id&id=eq.${SOLIDEO_ORG_ID}`, {
+        as: { token: session.token },
+      }),
+    ),
+    people: rows.parse(
+      await call("GET", `/rest/v1/team_members?select=id&org_id=eq.${SOLIDEO_ORG_ID}`, {
+        as: { token: session.token },
+      }),
+    ),
+    memberships: memberships.parse(
+      await call("GET", `/rest/v1/memberships?select=org_id&org_id=eq.${SOLIDEO_ORG_ID}`, {
+        as: { token: session.token },
+      }),
+    ),
+  };
 };

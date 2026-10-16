@@ -177,17 +177,17 @@ docs/evidence/
 
 ## 8. 솔리데오 인력·가입 수용 기준 (ADR-019)
 
-기존 골든 G1~G10과 구분해 PPL 번호를 사용한다. 명부·카탈로그 데이터 검증은 구현되었다. 사진·DB·가입·점수 파이프라인 통합은 후속 작업이며 아래 기준 전체를 통과했다는 뜻이 아니다.
+기존 골든 G1~G10과 구분해 PPL 번호를 사용한다. 명부·카탈로그, DB/RLS·가입/보완 가드와 순수 인력 계산 회귀는 구현되었다. 실제 로컬 가입 E2E와 전체 통합 검증은 독립 QA 대기다. 사진 release·전체 점수 파이프라인은 미완료이며 아래 기준 전체를 통과했다는 뜻이 아니다. [통합 검증 기록](evidence/people/20261016-people-integration.md)에 실행과 미실행을 구분한다.
 
 | ID | 자동 검증할 조건 | 위치 / 명령 |
 |---|---|---|
 | PPL-01 | 명부 200명·고유 ID/이름 200·남녀 100/100·한글 세 글자·원본 정규화 이름과 교집합 0. 입력 원본이 없으면 실패 | `scripts/demo-people.test.mjs`, `node --test scripts/demo-people.test.mjs`. 실제 원본 검사는 아래 로컬 절차 |
 | PPL-02 | 같은 팀명 합산·표시명 보존·모든 팀 1명 이상·목표 합 200·최대 나머지 배분·동률 ID 순·직급/부서 참조 유효·재실행 결정론 | 같은 fixture 시험. 원본 팀/직급 대조는 아래 로컬 절차 |
 | PPL-03 | portrait manifest READY 200·고유 경로/해시 200·PNG 파일 존재·정사각형·남녀 100/100·인물당 한 장 | 같은 fixture 시험 + 정장·서로 다른 얼굴·품질 사람 검수표 |
-| PPL-04 | 인력 200명 seed 2회 멱등·Auth는 5계정 유지·카탈로그/인력 RLS 격리·다른 회사 코드 거부·가입 신고 정보로 권한 상승 불가 | `scripts/database.test.mjs`, `pnpm test:db` |
+| PPL-04 | 인력 200명 seed 2회 멱등·기존 템플릿5계정 ID 유지·명부 seed의 추가 Auth 생성0·카탈로그/인력 RLS 격리·다른 회사 코드 거부·가입 신고 정보로 권한 상승 불가 | `scripts/database.test.mjs`, `pnpm test:db` |
 | PPL-05 | 이메일 가입의 부서·직급 필수·위조 코드 거부·본인 정보만 저장·재로그인 후 유지·기존 이름/약관 검증 유지 | `web/app/auth/sign-up/sign-up-schema.test.ts`, profile 도메인·신고 정보 Route Handler 계약 시험 |
-| PPL-06 | 간편 가입·기존 미완료 사용자의 필수 정보 보완·업무 화면/API 우회 차단·로그아웃/보완 접근·저장 실패 재시도·가입이 자동 조직 합류를 만들지 않음 | `web/e2e-auth/signup-employment.spec.ts` 및 Route Handler 시험. UI는 1440·1280·키보드 확인 |
-| PPL-07 | 전체 명부 200명과 점수 계산 하위 27명 구분, 가용 20 FTE·FX-01/02/03 골든 94/72/68 유지 | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
+| PPL-06 | 간편 가입·기존 미완료 사용자의 필수 정보 보완·업무 화면/API 우회 차단·로그아웃/보완 접근·저장 실패 재시도·가입이 자동 조직 합류를 만들지 않음 | `web/e2e-auth/signup-employment.spec.ts`·`signup-employment.write.spec.ts` 및 Route Handler 시험. UI는 1440·1280·키보드 확인 |
+| PPL-07 | 전체 명부 길이와 계산 하위27명 분리·고정 창20FTE·기간 경계/동시 배정·계산 용량과 §6 별도 요소값을 결합한94/72/68 회귀(전체 파이프라인 골든은 Phase4) | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
 
 CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm test`는 `scripts/**/*.test.mjs` 전체를 자동 실행하며 합성 입력으로 추출/제외 알고리즘과 저장 fixture 검증을 검사한다. 데이터 검증 진입점은 다음 세 가지다.
 
@@ -197,7 +197,7 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 | `pnpm people:check -- --input /절대경로/people.xlsx` | fixture 검사 + 원본 해시·250행(팀 가중치 175 + 제외 75)·미분류/범위·정확한 팀명/직급 가중치·ID/명부 재현·정규화 원본 이름 일치 0. 성공 시 `sourceComparison: "passed"`. 원본 누락은 `SOURCE_REQUIRED` 실패 |
 | `pnpm people:check:release -- --input /절대경로/people.xlsx` | 원본 필수 대조 + READY 200·고유 경로/해시 200·생성 metadata·PNG 파일/정사각형/실제 SHA-256 검사. PLANNED는 `PORTRAITS_INCOMPLETE` 실패 |
 
-사진 전 데이터 단계에서는 앞의 두 명령과 `pnpm verify`가 통과해야 한다. release 검사는 사진 미완료로 반드시 실패해야 하며 데이터 단계 검증을 위해 READY 요건을 낮추지 않는다. 사진 후에는 release 검사와 별도의 정장·서로 다른 얼굴·품질 사람 검수까지 통과해야 PPL-03 완료다. 이미지 해시가 다르다는 사실만으로 서로 다른 얼굴을 보장하지 않는다. PPL-07의 27명/20 FTE fixture 보존은 실제 점수 파이프라인의 94/72/68 골든 시험을 대신하지 않는다.
+사진 전 데이터 단계에서는 앞의 두 명령과 `pnpm verify`가 통과해야 한다. release 검사는 사진 미완료로 반드시 실패해야 하며 데이터 단계 검증을 위해 READY 요건을 낮추지 않는다. 사진 후에는 release 검사와 별도의 정장·서로 다른 얼굴·품질 사람 검수까지 통과해야 PPL-03 완료다. 이미지 해시가 다르다는 사실만으로 서로 다른 얼굴을 보장하지 않는다. PPL-07의 순수 snapshot/FTE 및 별도 worked-example 요소 회귀는 실제 점수 파이프라인의94/72/68 골든 시험을 대신하지 않는다. 기간은 반개구간이며 개인별 최소 잔여 용량을 합산하는 보수적인 보장 FTE다. 시간 평균이나 직원 교대 최적화가 아니다. 전체 pipeline 골든은 Phase4에 남긴다.
 
 원본이 없는 CI 초록불은 로컬 원본 대조 완료가 아니다. 검증 결과는 오류 코드와 안전한 인물 ID만 출력하며 원본 이름·제외 집합·경로·연락처를 출력하지 않는다. 로컬 원본 통과 증거는 [20261016-people-data.json](evidence/people/20261016-people-data.json)에 건수·입력 해시·이름 출처·AI 검토 결과로 남긴다. 사람의 이름/얼굴 검수 승인을 수행한 것처럼 기록하지 않는다. 이미지 생성은 시험·CI에서 호출하지 않는다.
 

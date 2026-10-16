@@ -93,11 +93,11 @@ updated: 2026-10-16
 
 **Interfaces:** Produces `createSignUpSchema(options:SignupOptions)`(기존 검증+필수 코드), `toSignUpRequest(values:SignUpValues)`(승인 Auth metadata), `EmploymentFields({options,control,disabled})`, `requireCompleteEmployment(next:string):Promise<void>`. 페이지/액션이 도메인 배럴들을 조합하며 도메인끼리 런타임 호출하지 않는다. 보완 폼은 `PATCH /api/v1/me/employment`와 필수 CSRF 헤더를 쓴다.
 
-- [ ] **1. 실패 시험 작성:** 이름 1~40자/약관/비밀번호/선택 사항 기존 검사 유지 + 부서/직급 빈 값·위조 코드 거절·Auth metadata 정확 키를 단언한다. 브라우저 시험은 회사 솔리데오 표시, 회사 selector 없음, 키보드 선택, 오류 필드 초점, 제출 중 중복 방지, 저장 실패 후 입력 유지/재시도를 검사한다. 가드 시험은 `next` 직접 진입·내부 이동·Server Action 호출에서 미완료면 `/auth/complete-profile`, v1 업무 helper는 `403 PROFILE_INCOMPLETE`+`completionPath`를 반환하게 한다. 완료자의 권한은 기존 멤버십/RLS로 검사한다.
-- [ ] **2. 실패 확인:** `pnpm -C web exec vitest run app/auth app/\(app\)/employment-guard.test.ts`와 해당 browser 시험을 실행해 요구 기능 부재로 FAIL을 확인한다.
-- [ ] **3. 구현:** 가입 페이지가 서버에서 옵션을 받아 폼에 전달하고 이름 가까이에 부서·직급/직책 필수 Select를 둔다. `/auth/complete-profile`는 현재 이름/선택값으로 시작하고 원자적 PATCH 성공 후 안전한 내부 next 또는 기존 홈으로 이동한다. login은 기존 next 분기보다 먼저 완료를 확인한다. callback/confirm은 인증 성공 후 확인하되 OAuth 계정 연결·비밀번호 복구·실패 경로를 가로채지 않는다. 모든 업무 페이지와 mutation/API 경계에서 가드를 호출하며 layout/proxy만으로 막지 않는다. 로그인·콜백·옵션·본인 보완·로그아웃·계정 복구·초대 안내는 허용한다. 초대 수락 후에도 미완료 업무 진입은 막는다.
-- [ ] **4. 통과 확인:** 위 단위/browser 검사 PASS. 페이지·Server Action·기존 API 목록을 대조해 실제 업무 데이터 진입점의 우회가 없는지 기록한다. 기존 템플릿 API 중 업무 데이터 엔드포인트가 없으면 없는 것으로 기록하고 가상의 입찰 API를 만들지 않는다. 계정 관리/로그아웃/정지 안내와 조직 권한 검증 회귀 PASS. 1440·1280에서 가로 넘침·Select 팝업·Tab/방향키/Enter·라벨·오류 초점을 확인한다.
-- [ ] **5. 커밋:** 이 태스크 auth/업무 가드·호출 지점·시험 파일만 명시해 `git commit -m "feat: 가입 부서 직급과 정보 보완 적용"`.
+- [x] **1. 실패 시험 작성:** 이름 1~40자/약관/비밀번호/선택 사항 기존 검사 유지 + 부서/직급 빈 값·위조 코드 거절·Auth metadata 정확 키를 단언한다. 브라우저 시험은 회사 솔리데오 표시, 회사 selector 없음, 키보드 선택, 오류 필드 초점, 제출 중 중복 방지, 저장 실패 후 입력 유지/재시도를 검사한다. 가드 시험은 `next` 직접 진입·내부 이동·Server Action 호출에서 미완료면 `/auth/complete-profile`, v1 업무 helper는 `403 PROFILE_INCOMPLETE`+`completionPath`를 반환하게 한다. 완료자의 권한은 기존 멤버십/RLS로 검사한다.
+- [x] **2. 실패 확인:** `pnpm -C web exec vitest run app/auth app/\(app\)/employment-guard.test.ts`와 해당 browser 시험을 실행해 요구 기능 부재로 FAIL을 확인한다.
+- [x] **3. 구현:** 가입 페이지가 서버에서 옵션을 받아 폼에 전달하고 이름 가까이에 부서·직급/직책 필수 Select를 둔다. `/auth/complete-profile`는 현재 이름/선택값으로 시작하고 원자적 PATCH 성공 후 안전한 내부 next 또는 기존 홈으로 이동한다. login은 기존 next 분기보다 먼저 완료를 확인한다. callback/confirm은 인증 성공 후 확인하되 OAuth 계정 연결·비밀번호 복구·실패 경로를 가로채지 않는다. 모든 업무 페이지와 mutation/API 경계에서 가드를 호출하며 layout/proxy만으로 막지 않는다. 로그인·콜백·옵션·본인 보완·로그아웃·계정 복구·초대 안내는 허용한다. 초대 수락 후에도 미완료 업무 진입은 막는다.
+- [x] **4. 통과 확인:** 위 단위/browser 검사 PASS. 페이지·Server Action·기존 API 목록을 대조해 실제 업무 데이터 진입점의 우회가 없는지 기록한다. 기존 템플릿 API 중 업무 데이터 엔드포인트가 없으면 없는 것으로 기록하고 가상의 입찰 API를 만들지 않는다. 계정 관리/로그아웃/정지 안내와 조직 권한 검증 회귀 PASS. 1440·1280에서 가로 넘침·Select 팝업·Tab/방향키/Enter·라벨·오류 초점을 확인한다.
+- [x] **5. 커밋:** 이 태스크 auth/업무 가드·호출 지점·시험 파일만 명시해 `git commit -m "feat: 가입 부서 직급과 정보 보완 적용"`.
 
 ## Task 4: 인력 계산 회귀·seed 멱등·통합 검증
 
@@ -105,11 +105,13 @@ updated: 2026-10-16
 
 **Interfaces:** Produces `toScoringTeam(people,assignments,asOf:string):{members,assignments,asOf}`(계산 대상만, 이름/성별/사진 제외), `availableFte(team,period:{startsAt:string,endsAt:string}):number`, `toPeopleProfile(people,assignments,asOf:string):{financials:{employeeCount:number},team:ReturnType<typeof toScoringTeam>}`. 재무의 인원 수는 전체 명부 길이에서 계산하며 team은 27명만 포함한다. 기존 전체 점수 엔진은 아직 없으므로 이 태스크는 08 §3.3의 인력 계산과 §6 worked example의 나머지 요소값을 결합한 회귀를 명시적으로 구분한다. 전체 공고/추출/규칙 엔진 통합 골든은 Phase 4까지 미완료로 남긴다.
 
-- [ ] **1. 실패 시험 작성:** `financials.employeeCount=200`과 200명→27명 snapshot, 역할 2/4/18/3, 2026-12~2027-06 가용 20 FTE, 비대상 173명의 스킬·가용성 변경/성별·사진 변경에도 계산 결과 동일, 배정 기간 겹침/경계·100% 배정 제외를 단언한다. 명부 길이를 바꾼 합성 입력에서는 employeeCount도 바뀌어야 한다. 08 §6의 FX-01/02/03 fixture 요소와 새 인력 계산을 사용한 합계가 `[94,72,68]`인지 검사한다. 상수를 그대로 반환하거나 점수 배열을 스스로 합격시키는 시험을 만들지 않는다. E2E는 이메일 필수 입력→확인/재로그인 유지, 간편 가입과 같은 미완료 DB 상태→보완→업무 접근, 기존 미완료 계정의 직접 URL/API 차단·로그아웃 허용, 보완만으로 org-01 접근 불가를 검사한다.
-- [ ] **2. 실패 확인:** `pnpm -C web exec vitest run server/scoring`과 `pnpm -C web exec playwright test -c playwright.auth.config.ts signup-employment --list`로 실패 시험/실행 대상이 존재하는지 확인한다. E2E는 목록 확인을 실행 통과로 기록하지 않는다.
+- [x] **1. 실패 시험 작성:** `financials.employeeCount=200`과 200명→27명 snapshot, 역할 2/4/18/3, 2026-12~2027-06 가용 20 FTE, 비대상 173명의 스킬·가용성 변경/성별·사진 변경에도 계산 결과 동일, 배정 기간 겹침/경계·100% 배정 제외를 단언한다. 명부 길이를 바꾼 합성 입력에서는 employeeCount도 바뀌어야 한다. 08 §6의 FX-01/02/03 fixture 요소와 새 인력 계산을 사용한 합계가 `[94,72,68]`인지 검사한다. 상수를 그대로 반환하거나 점수 배열을 스스로 합격시키는 시험을 만들지 않는다. E2E는 이메일 필수 입력→확인/재로그인 유지, 간편 가입과 같은 미완료 DB 상태→보완→업무 접근, 기존 미완료 계정의 직접 URL/API 차단·로그아웃 허용, 보완만으로 org-01 접근 불가를 검사한다.
+- [x] **2. 실패 확인:** `pnpm -C web exec vitest run server/scoring`과 `pnpm -C web exec playwright test -c playwright.auth.config.ts signup-employment --list`로 실패 시험/실행 대상이 존재하는지 확인한다. E2E는 목록 확인을 실행 통과로 기록하지 않는다.
 - [ ] **3. 구현:** 순수 snapshot/기간 FTE 함수만 추가하고 전체 입찰 분석 기능은 만들지 않는다. 로컬 seed/E2E에서 기존 5계정 재생성 뒤 인력 seed 2회, 안정 UUID·200명·추가 Auth 생성 0을 확인한다. 문서의 제품 데모 5계정과 현재 템플릿 로컬 시험 5계정은 목적이 다르므로 계정 이름/역할을 임의로 치환하지 않는다. OAuth 외부 제공자 설정은 후순위 그대로 두고 실제 OAuth E2E를 실행하지 않았으면 미실행으로 기록한다. 쓰기 E2E는 기존 `chromium-write` 단계에 둬 읽기 테스트와 상태를 충돌시키지 않는다.
 - [ ] **4. 통과 확인:** `pnpm verify`, `pnpm -C web test:browser`, `pnpm -C web test:e2e`, 로컬 Supabase에서 `pnpm -C web test:e2e:auth`, 사진 완료 후 `pnpm people:check:release -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`. 1440·1280 스크린샷/키보드·RLS·seed 멱등·실제 실행/미실행을 증거에 분리한다. 로컬 DB가 없으면 read-only 환경 점검을 하고 실행 가능한 로컬 DB 준비로 해결한다. 클라우드로 시험 대상을 바꾸지 않는다. 최종 독립 리뷰의 계약/보안 문제를 수정한 뒤 필요한 검사만 재실행한다.
 - [ ] **5. 커밋:** 이 태스크 scoring/E2E/support/검증 문서만 명시해 `git commit -m "test: 인력 가입 흐름과 가용성 회귀 검증"`. 세 계획의 완료 항목을 사실대로 갱신하고 검증 실패·미실행이 남으면 기능 전체 완료라고 보고하지 않는다.
+
+Task4 구현자 현황(2026-10-16): 순수 계산10건 RED→GREEN, 신규 읽기3/쓰기4 E2E 발견. 단계3의 실제 로컬 seed2회·단계4 전체 통합/화면 QA는 구현자와 다른 최종 QA 담당자가 실행한다. E2E 목록 확인을 실행 PASS로 기록하지 않는다. 단계3/4/전체 기능은 그 결과 전까지 미완료다. [증거 초안](../evidence/people/20261016-people-integration.md).
 
 ## 계획 자체 검토
 
