@@ -1,0 +1,161 @@
+/* 이 파일은 design/tokens.json 에서 생성됩니다. 손으로 고치지 마세요 (pnpm tokens). */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #FFFFFF;
+  --foreground: #191F28;
+  --card: #FFFFFF;
+  --card-foreground: #191F28;
+  --popover: #FFFFFF;
+  --popover-foreground: #191F28;
+  --primary: #191F28;
+  --primary-foreground: #FFFFFF;
+  --brand: #1B64DA;
+  --brand-foreground: #FFFFFF;
+  --chart-2: #0E9F8E;
+  --kakao: #FEE500;
+  --kakao-foreground: #000000;
+  --naver: #03A94D;
+  --naver-foreground: #FFFFFF;
+  --secondary: #F2F4F6;
+  --secondary-foreground: #333D4B;
+  --muted: #F2F4F6;
+  --muted-foreground: #5E6978;
+  --accent: #F2F4F6;
+  --accent-foreground: #191F28;
+  --destructive: #A51926;
+  --border: #E5E8EB;
+  --input: #D1D6DB;
+  --ring: #1B64DA;
+  --sidebar: #F9FAFB;
+  --sidebar-foreground: #333D4B;
+  --sidebar-primary: #191F28;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EDEFF2;
+  --sidebar-accent-foreground: #191F28;
+  --sidebar-border: #E5E8EB;
+  --sidebar-ring: #1B64DA;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-chart-2: var(--chart-2);
+  --color-kakao: var(--kakao);
+  --color-kakao-foreground: var(--kakao-foreground);
+  --color-naver: var(--naver);
+  --color-naver-foreground: var(--naver-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: calc(var(--radius) * 1);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@theme {
+  --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-heading: var(--font-sans);
+}
+
+@utility type-display {
+  font-size: 3.5rem;
+  line-height: calc(62 / 56);
+  letter-spacing: 0em;
+  font-weight: 700;
+}
+
+@utility type-headline {
+  font-size: 2.25rem;
+  line-height: calc(44 / 36);
+  letter-spacing: 0em;
+  font-weight: 700;
+}
+
+@utility type-title {
+  font-size: 1.875rem;
+  line-height: calc(36 / 30);
+  letter-spacing: 0em;
+  font-weight: 700;
+}
+
+@utility type-heading {
+  font-size: 1rem;
+  line-height: calc(24 / 16);
+  letter-spacing: 0em;
+  font-weight: 600;
+}
+
+@utility type-lead {
+  font-size: 1.125rem;
+  line-height: calc(28 / 18);
+  letter-spacing: 0em;
+}
+
+@utility type-body {
+  font-size: 0.875rem;
+  line-height: calc(22 / 14);
+  letter-spacing: 0em;
+}
+
+@utility type-label {
+  font-size: 0.8125rem;
+  line-height: calc(20 / 13);
+  letter-spacing: 0em;
+}
+
+@utility type-caption {
+  font-size: 0.75rem;
+  line-height: calc(16 / 12);
+  letter-spacing: 0em;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    letter-spacing: 0em;
+  }
+  code,
+  kbd,
+  samp,
+  pre {
+    letter-spacing: 0;
+  }
+}

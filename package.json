@@ -1,0 +1,39 @@
+{
+  "name": "agentic-boilerplate",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": "^22.13.0 || ^24.3.0"
+  },
+  "scripts": {
+    "prepare": "node scripts/install-hooks.mjs",
+    "bootstrap": "node scripts/template/bootstrap.mjs",
+    "tokens": "node scripts/tokens-gen.mjs",
+    "check:tokens": "node scripts/tokens-gen.mjs --check",
+    "check:colors": "bash scripts/check-colors.sh",
+    "db:types": "node scripts/db-types-gen.mjs",
+    "check:db-types": "node scripts/db-types-gen.mjs --check",
+    "format": "prettier --write . \"!web/**\" \"!mobile/**\"",
+    "format:check": "prettier --check . \"!web/**\" \"!mobile/**\"",
+    "doctor": "node scripts/doctor.mjs",
+    "db:start": "node scripts/db-local.mjs start",
+    "db:stop": "node scripts/db-local.mjs stop",
+    "db:seed": "node scripts/db-seed.mjs",
+    "db:push": "bash scripts/db-push.sh",
+    "db:verify": "bash scripts/db-verify.sh",
+    "test": "node --test \"scripts/**/*.test.mjs\"",
+    "test:package": "node --test scripts/gate-integrity.test.mjs \"scripts/template/{bootstrap,check-expo,ci-template,doc-paths,docs,docs-sql,vercel-build}.test.mjs\"",
+    "test:db": "node --test scripts/database.test.mjs",
+    "verify": "node scripts/verify.mjs",
+    "verify:quick": "node scripts/verify.mjs --quick",
+    "smoke:template": "node scripts/template/smoke-template.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "husky": "^9",
+    "pg": "^8.23.0",
+    "prettier": "3.9.9",
+    "typescript": "^6"
+  }
+}

@@ -1,0 +1,56 @@
+# =============================================================
+# Dependabot — 의존성을 주 1회 묶어서(group) 올리는 PR 을 연다
+# 버전 갱신은 이 파일이 기본 브랜치에 있으면 켜진다.
+# 취약점 알림·보안 갱신(security updates)은 저장소 Settings → Code security 에서 따로 켠다.
+#
+# PR·커밋 제목도 커밋 규칙(`타입: 작업 내용`, 첫 줄 50자 이내)을 지나야 CI 가 초록이 된다
+# (scripts/check-commits.mjs). 그래서 prefix 로 타입을 정하고 묶음 이름을 짧게 둔다.
+#   예: "build: bump the web group in /web with 12 updates" (49자)
+# 묶음 이름·prefix 를 바꾸면 템플릿 원본의 scripts/template/check-commits.test.mjs 가 제목 길이를 다시 잰다.
+# 묶이지 않은 보안 갱신 PR 은 패키지 이름이 길면 50자를 넘을 수 있다. 그때는 사람이 직접 올린다.
+#
+# mobile/ 은 넣지 않는다. Expo 는 SDK 마다 맞는 react-native·expo-* 버전이 정해져 있어서
+# 패키지를 하나씩 최신으로 올리면 SDK 와 어긋난다. mobile/ 에서 `npx expo install --fix` 로 맞춘다.
+# =============================================================
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    # major 는 마이그레이션이라 사람이 문서를 읽고 직접 올린다.
+    # update-types 로 버전 갱신만 막으므로 보안 갱신은 그대로 온다.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      root:
+        patterns: ["*"]
+
+  # web/ 을 지운 프로젝트(앱만)는 이 항목도 지운다. 없는 폴더는 Dependabot 이 오류로 알린다.
+  - package-ecosystem: npm
+    directory: "/web"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    # Next 같은 프레임워크의 major 는 깨지는 변경이 있다(AGENTS.md — 문서를 먼저 읽는다).
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      web:
+        patterns: ["*"]
+
+  # 워크플로의 uses: 는 커밋 SHA 로 고정돼 있다. Dependabot 이 SHA 와 뒤의 버전 주석을 함께 올린다.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]

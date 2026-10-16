@@ -1,0 +1,6 @@
+# push 전 검사 — 켠 저장소에서만 돈다(git config gate.prePush true). (husky v9: 이 본문은 `sh -e` 로 실행된다)
+#
+# CI 를 돌리지 못할 때 같은 검사를 push 할 커밋에 로컬로 돌린다. 내용과 켜고 끄는 법: scripts/pre-push.mjs
+# git 은 push 할 참조 목록을 표준 입력으로 넘긴다. $1 은 원격 이름, $2 는 주소다.
+
+node scripts/pre-push.mjs "$@"

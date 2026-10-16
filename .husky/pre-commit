@@ -1,0 +1,168 @@
+# 커밋 게이트 — 통과 못 하면 커밋이 막힌다. (husky v9: 이 본문은 `sh -e` 로 실행된다)
+#
+# 목표는 수 초 안에 끝나는 것. next build 는 여기서 돌리지 않는다(CI·Vercel 빌드가 본다).
+# 게이트가 느려지면 --no-verify 로 우회하기 시작하고, 그 순간 게이트는 없는 것이 된다.
+#
+# sh -e 주의: 무매치 grep 처럼 실패할 수 있는 명령은 `|| true` 를 붙이거나 if 조건 안에서 쓴다.
+# 이 파일의 시험은 템플릿 원본의 scripts/template/pre-commit.test.mjs 다(거기서 고치면 pnpm test 가 같이 돈다).
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
+# 한글 파일명이 따옴표·8진수로 깨지지 않게 그대로 받는다.
+# --no-renames: 이름 바꾸기를 '옛 이름 삭제 + 새 이름 추가'로 본다. 그래야 옮긴 파일의
+# 양쪽 폴더가 다 검사되고, 마이그레이션 이름 바꾸기가 삭제로 잡힌다.
+staged() { git -c core.quotePath=false diff --cached --name-only --no-renames --diff-filter="$1"; }
+
+# 이번 커밋에 들어가는 파일. 삭제(D)도 포함한다 — 파일을 지우면 그걸 import 하던 곳이 깨질 수 있다.
+CHANGED=$(staged ACMRDT)
+changed() { printf '%s\n' "$CHANGED" | grep -qE "$1"; }
+
+# ── 부분 스테이징 차단 (비싼 검사보다 먼저) ──
+# 아래 검사는 스테이징본이 아니라 작업 폴더의 파일을 읽는다. 스테이징한 파일에 스테이징 안 한 수정이 남아 있으면
+# 검사한 내용과 커밋되는 내용이 달라진다(틀린 서식을 스테이징하고 작업 폴더만 고치면 통과해 버린다).
+# 그래서 스테이징 목록과 `git diff`(인덱스 ↔ 작업 폴더) 목록에 함께 있는 파일을 짚어 막는다. 둘 다 같은 옵션
+# (quotePath=false·--no-renames)으로 받아야 이름이 같은 모양으로 나온다.
+# - 막지 않는 것: 스테이징으로 지운 파일(git rm)·추적만 끊은 파일(git rm --cached)·이름 바꾸기(git mv),
+#   git commit -a·git commit <경로>(git 이 임시 인덱스를 만들어 넘긴다), 스테이징 안 한 다른 파일의 수정.
+# - 보지 않는 것: 스테이징하지 않은 새 파일(untracked). 검사에 섞일 수 있지만 커밋에는 없다 — CI 가 깨끗한
+#   체크아웃에서 다시 본다.
+NL='
+'
+UNSTAGED=$(git -c core.quotePath=false diff --name-only --no-renames)
+PARTIAL=""
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$NL$CHANGED$NL" in
+    *"$NL$f$NL"*) PARTIAL="$PARTIAL$NL   - $f" ;;
+  esac
+done <<EOF
+$UNSTAGED
+EOF
+if [ -n "$PARTIAL" ]; then
+  echo "[차단] 스테이징한 파일에 스테이징하지 않은 수정이 남아 있습니다. 검사는 작업 폴더를 읽으므로 커밋될 내용과 달라집니다:$PARTIAL"
+  echo "   전부 스테이징하거나(git add -- <파일>), 이번 커밋에 넣지 않을 수정은 stash 로 치워 두세요(git stash push --keep-index)."
+  exit 1
+fi
+
+# 환경변수·비밀값·마이그레이션 정책은 CI와 같은 검사기를 쓴다.
+node scripts/check-policy.mjs --staged || { echo "[차단] 변경분 정책 위반"; exit 1; }
+
+# ── 4. 바뀐 폴더만 검사 (서식·타입·린트·테스트·구조·토큰·색) ──
+# 위에서 부분 스테이징을 막았으므로 스테이징한 파일은 작업 폴더와 같다. 검사는 작업 폴더에서 돈다.
+
+require_pnpm() {
+  command -v pnpm >/dev/null 2>&1 && return 0
+  echo "[차단] pnpm 을 찾을 수 없어 검사를 돌릴 수 없습니다. pnpm 이 잡히는 터미널에서 커밋하세요."
+  exit 1
+}
+
+node scripts/verify.mjs --quick --staged || { echo "[차단] 프로젝트 검증 실패"; exit 1; }
+
+# 서식(Prettier). web·mobile 아래 파일은 위에서 돈 각 폴더 verify:quick 맨 앞의 format:check 가 이미 봤다.
+# 그 밖의 파일(스크립트·디자인 정본·설정·CI)은 어느 폴더에도 속하지 않아 여기서 루트 format:check 를 돈다.
+# Prettier 가 다루는 확장자만 본다(마크다운·셸·SQL 은 서식 대상이 아니다). polaris/ 는 무시 목록에
+# 있어 검사해도 늘 통과하니 건너뛴다.
+ROOT_FORMAT=$(printf '%s\n' "$CHANGED" | grep -vE '^(web|mobile|polaris)/' \
+  | grep -E '\.(jsonc?|json5|[cm]?[jt]sx?|ya?ml|css|html)$|^\.prettier(rc\.json|ignore)$' || true)
+if [ -n "$ROOT_FORMAT" ]; then
+  require_pnpm
+  echo "서식 검사 중..."
+  pnpm format:check || {
+    echo "[차단] 서식이 Prettier 규칙과 다릅니다. 루트에서 pnpm format 을 돌리고 바뀐 파일을 다시 스테이징하세요."
+    exit 1
+  }
+fi
+
+# 서식 설정(.prettierrc.json·.prettierignore)은 web·mobile 도 함께 쓴다. 설정만 바꾼 커밋은 위의 폴더 검사가
+# 돌지 않으니 있는 폴더의 서식도 여기서 본다. 그러지 않으면 어긋남이 CI 에서야 드러난다.
+if changed '^\.prettier(rc\.json|ignore)$'; then
+  require_pnpm
+  for dir in web mobile; do
+    [ -f "$dir/package.json" ] || continue
+    # 의존성이 없으면 prettier 를 못 찾아 '서식이 어긋난다'는 엉뚱한 안내가 나온다. 먼저 짚는다.
+    [ -d "$dir/node_modules" ] || {
+      echo "[차단] $dir 의 의존성이 설치되지 않았습니다. pnpm -C $dir install 을 먼저 실행하세요."
+      exit 1
+    }
+    pnpm -C "$dir" format:check || {
+      echo "[차단] 서식 설정이 바뀌어 $dir/ 의 서식이 어긋납니다. pnpm -C $dir format 을 돌리고 바뀐 파일을 함께 스테이징하세요."
+      exit 1
+    }
+  done
+fi
+
+# 색·글꼴 정본과 그 검사 스크립트는 웹·앱 양쪽에 걸린다. 루트에서 한 번 본다.
+if changed '^(design/|scripts/(tokens-gen\.mjs|check-colors\.sh)$)'; then
+  require_pnpm
+  echo "디자인 토큰·색 검사 중..."
+  { pnpm check:tokens && pnpm check:colors; } || {
+    echo "[차단] 디자인 토큰·색 검사가 실패했습니다. design/tokens.json 을 고쳤다면 pnpm tokens 로 생성물을 갱신해 함께 스테이징하세요."
+    exit 1
+  }
+fi
+
+# DB 스키마는 웹·앱 어느 폴더에도 속하지 않아 위 '바뀐 폴더 검사'(--staged)에 걸리지 않는다. 공통 검사도
+# --staged 에서는 빠지므로 여기서 따로 돈다. 추가·수정·삭제 모두 본다(이미 있는 마이그레이션의 수정·삭제는
+# 위 정책 검사가 먼저 막는다).
+# 정책 시험: PGlite 에 마이그레이션 전체를 적용해 RLS·권한·트리거를 확인한다(scripts/database.test.mjs).
+if changed '^supabase/'; then
+  require_pnpm
+  echo "DB 정책 테스트 중..."
+  pnpm test:db || {
+    echo "[차단] DB 정책 테스트가 실패했습니다. 새 마이그레이션이 RLS·권한을 깨뜨렸거나 PGlite 에서 돌지 않습니다. scripts/database.test.mjs 를 보세요."
+    exit 1
+  }
+fi
+
+# DB 타입 생성물이 마이그레이션과 맞는지. 생성기·흉내 DB 를 고쳤거나 생성물을 직접 고친 경우도 본다.
+if changed '^(supabase/|scripts/(db-types-gen|supabase-pglite)\.mjs$|(web|mobile)/lib/database\.types\.ts$)'; then
+  require_pnpm
+  echo "DB 타입 검사 중..."
+  pnpm check:db-types || {
+    echo "[차단] DB 타입 생성물이 마이그레이션과 어긋납니다. pnpm db:types 로 생성물을 갱신해 함께 스테이징하세요."
+    exit 1
+  }
+fi
+
+# ── 5. 게이트가 바뀌면 게이트 자체를 시험한다 ──
+# 게이트가 조용히 망가지면 아무것도 막지 않으면서 초록불을 띄운다. 고친 그 커밋에서 잡는다.
+# 대상: .husky 의 훅(pre-commit·commit-msg), Claude 가드와 그 가드를 거는 설정(.claude/settings.json),
+# scripts/ 아래 전부(하위 폴더 포함), 검증 설정(verify.config.json), CI(.github/).
+# 게이트 시험(scripts/ 의 *.test.mjs)이 이 파일들을 읽어 고정하므로, 바꾼 그 커밋에서 시험이 돌아야 한다.
+# 루트·web·mobile 의 package.json 만 바뀌었으면 그 파일을 읽는 시험만 돈다(pnpm test:package).
+# 패키지 하나 추가하는 커밋에 루트 시험 전체를 돌리지 않는다. 전체는 CI 의 공통 검증이 다시 본다.
+if changed '^(\.husky/[^/]+$|\.claude/(hooks/|settings\.json$)|\.github/|scripts/|verify\.config\.json$)'; then
+  require_pnpm
+  echo "커밋 게이트 자체 테스트 중..."
+  pnpm test || { echo "[차단] 커밋 게이트 테스트가 실패했습니다. scripts/ 의 *.test.mjs 를 보고 고치세요."; exit 1; }
+elif changed '^((web|mobile)/)?package\.json$'; then
+  require_pnpm
+  echo "package.json 을 읽는 게이트 테스트 중..."
+  pnpm test:package || { echo "[차단] package.json 을 읽는 게이트 테스트가 실패했습니다. 검증 스크립트를 빼거나 바꿨는지 보세요."; exit 1; }
+fi
+
+# ── 6. 새 로직 파일의 테스트 경고 (차단하지 않는다) ──
+# 배럴(index)·저장소(*.repo*.ts)는 로직이 아니어서 뺀다.
+# 타입만 담는 파일(*.types.ts, 생성물 lib/database.types.ts 포함)도 뺀다.
+NEW_LOGIC=$(staged A | grep -E '^(web/(server|lib)|mobile/lib)/.*\.tsx?$' \
+  | grep -vE '\.(test|spec)\.tsx?$|\.d\.ts$|\.types\.ts$|(^|/)index\.ts$|\.repo(\.[^/]+)?\.ts$' || true)
+MISSING=""
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  stem=${f%.*}
+  if [ ! -f "$stem.test.ts" ] && [ ! -f "$stem.test.tsx" ] \
+     && ! git cat-file -e ":$stem.test.ts" 2>/dev/null && ! git cat-file -e ":$stem.test.tsx" 2>/dev/null; then
+    MISSING="$MISSING
+   - $f (테스트 위치: $stem.test.ts)"
+  fi
+done <<EOF
+$NEW_LOGIC
+EOF
+if [ -n "$MISSING" ]; then
+  echo "[경고] 형제 테스트가 없는 새 로직 파일:$MISSING"
+  echo "   순수 로직(계산·변환·검증)이면 테스트를 추가하세요. Supabase 연결·설정 코드면 넘어가도 됩니다."
+  echo "   (이 경고는 커밋을 막지 않습니다)"
+fi
+
+echo "[통과] 커밋 게이트 통과."

@@ -1,0 +1,11 @@
+<!-- 가입 확인 메일. 링크는 웹의 /auth/confirm(web/app/auth/confirm/route.ts)으로 간다.
+     로컬은 supabase/config.toml 이 이 파일을 읽는다. 클라우드는 대시보드 Authentication → Emails 의
+     "Confirm signup" 에 같은 내용을 붙여 넣는다(docs/database.md). -->
+<h2>가입을 확인해 주세요</h2>
+<p>아래 링크를 열면 가입이 끝납니다.</p>
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/auth/login"
+    >이메일 확인하기</a
+  >
+</p>
+<p>가입한 적이 없다면 이 메일은 무시하셔도 됩니다.</p>

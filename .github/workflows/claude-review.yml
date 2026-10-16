@@ -1,0 +1,145 @@
+# =============================================================
+# Claude 리뷰 봇 — PR이 열리거나 갱신될 때마다 1차 리뷰를 단다
+# 위치: .github/workflows/claude-review.yml
+# 기본은 꺼져 있다. 켜려면 저장소 설정에서 두 가지를 넣는다:
+#   1. Secrets 에 ANTHROPIC_API_KEY
+#      (Claude Code에서 /install-github-app 실행 시 앱·시크릿 설정을 안내받을 수 있음)
+#   2. Variables 에 CLAUDE_REVIEW = on
+# 꺼져 있으면 잡이 '건너뜀'으로 끝난다. 키가 없는 저장소에서 PR 마다 빨간 불이 뜨지 않는다.
+# =============================================================
+name: Claude Review Bot
+
+on:
+  pull_request:
+    # pull_request_target은 쓰지 않는다 — 포크발 PR에 시크릿이 노출되는 공격면
+    types: [opened, synchronize, ready_for_review]
+    # 비용 통제 1: 리뷰가 무의미한 변경은 트리거 자체를 차단
+    # 단, required status check로 등록하면 여기 걸린 PR은 체크가 생성되지 않아
+    # 영구 pending 상태가 된다. required로 쓸 거라면 잡 내부 조건으로 스킵할 것.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+
+# 비용 통제 2: 같은 PR에 푸시가 연달아 오면 이전 리뷰 실행을 취소
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # 켜는 스위치(vars.CLAUDE_REVIEW)가 없으면 건너뛴다 — 잡 조건에서는 secrets 를 읽을 수 없어
+    # 키 유무 대신 저장소 변수로 켠다
+    # 드래프트 PR은 건너뛴다 — 작업 중인 코드에 리뷰를 달면 소음
+    # 포크발 PR도 건너뛴다 — pull_request 이벤트는 포크에 시크릿을 주지 않으므로
+    # 가드가 없으면 빈 API 키로 매번 인증 실패한다
+    # Dependabot PR 도 건너뛴다 — Dependabot 이 연 실행은 Actions 시크릿 대신 Dependabot 시크릿만 받고,
+    # 이 액션은 봇이 일으킨 실행을 거부한다. 의존성 갱신은 CI(required)가 본다
+    if: >-
+      ${{ vars.CLAUDE_REVIEW == 'on' &&
+          !github.event.pull_request.draft &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+
+    # 비용 통제 4: --max-turns는 턴 수만 막는다. 실행 시간 상한은 여기서 건다
+    # (기본값은 360분)
+    timeout-minutes: 20
+
+    # 최소 권한 원칙: 읽기 + 코멘트 게시에 필요한 것만
+    # 이 봇은 리뷰만 하고 커밋하지 않으므로 contents는 read
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
+
+    steps:
+      # 액션은 커밋 SHA 로 고정한다(태그는 옮겨질 수 있다). 주석이 그 SHA 의 버전이고 Dependabot 이 함께 올린다.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # diff 맥락에 필요한 만큼만 — 0(전체 이력)은 대형 리포에서 매 푸시마다 비싸다
+          fetch-depth: 50
+          # 체크아웃 토큰을 .git/config 에 남기지 않는다. 리뷰 봇은 push 하지 않고,
+          # claude-code-action 은 체크아웃이 남긴 자격 증명을 지우고 자기 토큰으로 git 인증을 다시 건다
+          # (그 액션의 src/github/operations/git-config.ts 의 replaceCheckoutCredentials)
+          persist-credentials: false
+
+      - name: Claude 1차 리뷰
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 진행 상황을 PR 코멘트로 추적 표시
+          track_progress: true
+
+          # CI 실패 로그를 읽게 한다 — 잡 permissions의 actions: read와 한 쌍
+          additional_permissions: |
+            actions: read
+
+          # ---- 검토자 직무 기술서 (리뷰 관점 지시가 여기 산다) ----
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            이 PR의 변경분을 1차 리뷰하라. 너는 사람 리뷰어의 대체가 아니라
+            선발대다 — 기계적 성실함이 이기는 영역만 맡는다.
+
+            검토 관점 (우선순위 순):
+            1. 버그 가능성 — 엣지 케이스 누락, 널 처리, 경계 조건, 동시성
+            2. 보안 — 입력 검증 누락, 인젝션 가능성, 민감 정보 노출
+            3. 테스트 공백 — 변경된 로직 대비 추가되지 않은 테스트
+            4. 프로젝트 규약 위반 — 리포지토리의 CLAUDE.md 기준을 따른다
+
+            보고 규칙:
+            - 지적마다 심각도를 표기한다: [치명] / [권고] / [참고]
+            - 모든 지적에 근거를 붙인다 — 해당 라인과 실패 시나리오
+            - 확신 없는 지적은 단정하지 말고 질문 형태로 남긴다
+            - 린터·포매터가 잡을 수준의 스타일 문제는 침묵한다 (커밋 게이트·CI가 이미 본다)
+            - 구체적 지적은 해당 라인에 인라인 코멘트로, 총평은 요약 코멘트 하나로
+            - 아키텍처 방향·제품 판단은 담당 밖 — 사람 리뷰의 몫으로 남긴다
+            - 턴 상한에 걸려 변경분 전체를 보지 못했다면, 요약 코멘트 첫 줄에
+              "미검토 범위: <파일/디렉터리>"를 명시한다.
+              부분 리뷰가 전수 리뷰로 읽히게 두지 않는다
+
+          # ---- 실행 계약: 모델·턴 상한 (비용 통제 3) ----
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 15
+
+  # (선택) 심화 게이트: 민감 경로 변경 시에만 보안 전문 리뷰를 추가로 투입
+  # on.paths는 워크플로 전체에 걸리므로, 잡 단위로 거르려면 변경 파일을
+  # 판별하는 단계가 따로 필요하다. 이 조건이 없으면 모든 PR에서 opus가 돈다.
+  #
+  # security-review:
+  #   if: >-
+  #     ${{ vars.CLAUDE_REVIEW == 'on' &&
+  #         !github.event.pull_request.draft &&
+  #         github.event.pull_request.head.repo.full_name == github.repository }}
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 25
+  #   permissions:
+  #     contents: read
+  #     pull-requests: write
+  #     issues: write
+  #   steps:
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  #       with: { fetch-depth: 50, persist-credentials: false }
+  #     - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+  #       id: changed
+  #       with:
+  #         filters: |
+  #           sensitive:
+  #             - 'src/auth/**'
+  #             - 'src/billing/**'
+  #             - '**/*.prisma'
+  #     - if: steps.changed.outputs.sensitive == 'true'
+  #       uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+  #       with:
+  #         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+  #         prompt: |
+  #           인증·결제 관련 변경에 대한 보안 전문 리뷰.
+  #           공격자 관점에서 이 변경이 여는 공격면을 찾아라.
+  #         claude_args: |
+  #           --model claude-opus-5
+  #           --max-turns 20

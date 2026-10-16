@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "agentic-boilerplate",
+    "slug": "agentic-boilerplate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "scheme": "agenticboilerplate",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.example.agenticboilerplate" },
+    "android": { "package": "com.example.agenticboilerplate" },
+    "plugins": ["expo-router"]
+  }
+}

@@ -1,0 +1,371 @@
+"use client";
+
+import {
+  CheckIcon,
+  ChevronsUpDownIcon,
+  LayoutDashboardIcon,
+  ListChecksIcon,
+  LogOutIcon,
+  MailIcon,
+  PlusIcon,
+  SettingsIcon,
+  ShieldCheckIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuLinkItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { initialOf } from "@/lib/utils";
+import type { CurrentOrg, OrgSummary } from "@/server/organization";
+
+// 화면을 더하면 여기에 한 줄 더한다 — 사이드바 항목과 위 막대의 화면 이름이 같이 생긴다.
+const NAV = [
+  { path: "dashboard", label: "대시보드", icon: LayoutDashboardIcon },
+  { path: "tasks", label: "작업", icon: ListChecksIcon },
+  { path: "settings", label: "설정", icon: SettingsIcon },
+] as const;
+
+const isCurrent = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
+// 서버의 ORG_ROLE_LABELS 와 같은 글자다 — 서버 모듈은 브라우저로 가져올 수 없다.
+const ROLE_LABELS = { owner: "소유자", member: "멤버" } as const;
+
+// isAdmin 은 서비스 운영자인지다(조직 역할이 아니다). 링크를 숨기는 것은 화면 요구일 뿐이고,
+// 관리자 화면은 서버에서 다시 확인해 운영자가 아니면 404 다.
+// email 은 이메일을 주지 않는 제공자(카카오 비즈 앱 아님·네이버)로 가입하면 없다. avatarUrl 은 제공자가 준 https 주소다.
+type AppShellUser = {
+  name: string;
+  email: string | null;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+};
+type AppShellWorkspace = {
+  current: CurrentOrg;
+  orgs: OrgSummary[];
+  pendingInvitationCount: number;
+};
+
+// 본문 랜드마크(main)는 그리지 않는다. 안에 들어오는 화면이 그린다.
+export function AppShell({
+  user,
+  workspace,
+  defaultSidebarOpen,
+  children,
+}: {
+  user: AppShellUser;
+  workspace: AppShellWorkspace;
+  defaultSidebarOpen: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    // 부품의 기본 min-h-svh 를 푼다. 루트 layout 의 바깥 상자가 화면 높이를 이미 채운다.
+    <SidebarProvider defaultOpen={defaultSidebarOpen} className="min-h-0 flex-1">
+      <AppSidebar user={user} workspace={workspace} />
+      {/* min-w-0 이 없으면 넓은 표·긴 글이 이 단을 밀어 화면이 가로로 넘친다. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AppTopBar current={workspace.current} />
+        {children}
+      </div>
+    </SidebarProvider>
+  );
+}
+
+function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShellWorkspace }) {
+  const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
+  // 서랍(좁은 폭)을 닫지 않으면 옮겨 간 화면을 서랍이 가린다.
+  const closeDrawer = () => setOpenMobile(false);
+  const base = `/${workspace.current.slug}`;
+
+  return (
+    <Sidebar>
+      <SidebarHeader>
+        <OrgSwitcher workspace={workspace} onNavigate={closeDrawer} />
+        {workspace.pendingInvitationCount > 0 ? (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton render={<Link href="/invitations" onClick={closeDrawer} />}>
+                <MailIcon />
+                <span>받은 초대</span>
+              </SidebarMenuButton>
+              <SidebarMenuBadge className="tabular-nums">
+                {workspace.pendingInvitationCount}
+                <span className="sr-only">개</span>
+              </SidebarMenuBadge>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        ) : null}
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <nav aria-label="주요 메뉴">
+            <SidebarMenu className="gap-0.5">
+              {NAV.map((item) => {
+                const href = `${base}/${item.path}`;
+                const isActive = isCurrent(pathname, href);
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      render={
+                        <Link
+                          href={href}
+                          aria-current={isActive ? "page" : undefined}
+                          onClick={closeDrawer}
+                        />
+                      }
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </nav>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter>
+        <UserMenu user={user} settingsHref={`${base}/settings`} onNavigate={closeDrawer} />
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
+
+// 사람(동그란 아바타)과 구분되게 둥근 사각형으로 둔다.
+function OrgMark({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
+  return (
+    <span
+      aria-hidden
+      className={
+        size === "md"
+          ? "flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary type-label font-semibold text-sidebar-primary-foreground"
+          : "flex size-5 shrink-0 items-center justify-center rounded-md bg-sidebar-primary type-caption font-semibold text-sidebar-primary-foreground"
+      }
+    >
+      {initialOf(name)}
+    </span>
+  );
+}
+
+// 둘째 줄의 내 역할은 멤버 화면에서 버튼이 안 보이는 이유를 미리 알려 준다.
+function OrgSwitcher({
+  workspace,
+  onNavigate,
+}: {
+  workspace: AppShellWorkspace;
+  onNavigate: () => void;
+}) {
+  const { current, orgs, pendingInvitationCount } = workspace;
+  const personal = orgs.filter((org) => org.isPersonal);
+  const teams = orgs.filter((org) => !org.isPersonal);
+  const subtitle = current.isPersonal ? "개인" : `팀 · ${ROLE_LABELS[current.myRole]}`;
+
+  const orgItem = (org: OrgSummary) => {
+    const isCurrentOrg = org.slug === current.slug;
+    return (
+      <DropdownMenuLinkItem
+        key={org.slug}
+        render={<Link href={`/${org.slug}/dashboard`} />}
+        aria-current={isCurrentOrg ? "true" : undefined}
+        onClick={onNavigate}
+      >
+        <OrgMark name={org.name} size="sm" />
+        <span className="min-w-0 flex-1 truncate">{org.name}</span>
+        {isCurrentOrg ? <CheckIcon aria-hidden /> : null}
+      </DropdownMenuLinkItem>
+    );
+  };
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" title={current.name} />}>
+            {/* 조직 이름은 바뀌어 버튼 이름이 못 된다. 보이지 않는 고정 이름을 앞에 둔다. */}
+            <span className="sr-only">조직 전환</span>
+            <OrgMark name={current.name} />
+            {/* min-w-0 이 없으면 긴 이름이 말줄임되지 않고 사이드바 밖으로 나간다. */}
+            <span className="grid min-w-0 flex-1">
+              <span className="truncate font-medium text-sidebar-accent-foreground">
+                {current.name}
+              </span>
+              <span className="truncate type-caption text-muted-foreground">{subtitle}</span>
+            </span>
+            <ChevronsUpDownIcon className="text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="bottom" align="start">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>개인</DropdownMenuLabel>
+              {personal.map(orgItem)}
+            </DropdownMenuGroup>
+            {teams.length > 0 ? (
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>팀</DropdownMenuLabel>
+                {teams.map(orgItem)}
+              </DropdownMenuGroup>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              {pendingInvitationCount > 0 ? (
+                <DropdownMenuLinkItem render={<Link href="/invitations" />} onClick={onNavigate}>
+                  <MailIcon />
+                  받은 초대
+                  <span className="ml-auto type-caption text-muted-foreground tabular-nums">
+                    {pendingInvitationCount}
+                    <span className="sr-only">개</span>
+                  </span>
+                </DropdownMenuLinkItem>
+              ) : null}
+              <DropdownMenuLinkItem render={<Link href="/teams/new" />} onClick={onNavigate}>
+                <PlusIcon />새 팀 만들기
+              </DropdownMenuLinkItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+function UserMenu({
+  user,
+  settingsHref,
+  onNavigate,
+}: {
+  user: AppShellUser;
+  settingsHref: string;
+  onNavigate: () => void;
+}) {
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const signOut = async () => {
+    setIsSigningOut(true);
+    // 이 기기만 끊는다. 모든 기기는 설정의 "모든 기기에서 로그아웃"이 한다.
+    const { error } = await getSupabaseBrowser().auth.signOut({ scope: "local" });
+    if (error) {
+      setIsSigningOut(false);
+      toast.error(`로그아웃하지 못했습니다: ${error.message}`);
+      return;
+    }
+    // 브라우저에 남은 로그인 뒤 화면(라우터 캐시)을 버린다.
+    router.replace("/auth/login");
+    router.refresh();
+  };
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
+            <span className="sr-only">사용자 메뉴</span>
+            {/* 이름이 바로 옆에 글자로 있다. 사진을 못 불러오면 머리글자가 그 자리를 채운다(깨진 그림이 보이지 않는다). */}
+            <Avatar aria-hidden>
+              {user.avatarUrl ? (
+                <AvatarImage src={user.avatarUrl} alt="" referrerPolicy="no-referrer" />
+              ) : null}
+              <AvatarFallback>{initialOf(user.name)}</AvatarFallback>
+            </Avatar>
+            <span className="grid min-w-0 flex-1">
+              <span className="truncate font-medium text-sidebar-accent-foreground">
+                {user.name}
+              </span>
+              {user.email ? (
+                <span className="truncate type-caption text-muted-foreground">{user.email}</span>
+              ) : null}
+            </span>
+            <ChevronsUpDownIcon className="text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start">
+            <DropdownMenuGroup>
+              {/* 버튼에서 말줄임된 이메일을 여기서는 끝까지 보여 준다. */}
+              <DropdownMenuLabel className="wrap-anywhere">
+                {user.email ?? user.name}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuLinkItem render={<Link href={settingsHref} />} onClick={onNavigate}>
+                <SettingsIcon />
+                설정
+              </DropdownMenuLinkItem>
+              {user.isAdmin ? (
+                <DropdownMenuLinkItem render={<Link href="/admin" />} onClick={onNavigate}>
+                  <ShieldCheckIcon />
+                  관리자
+                </DropdownMenuLinkItem>
+              ) : null}
+              <DropdownMenuItem onClick={signOut} disabled={isSigningOut}>
+                <LogOutIcon />
+                로그아웃
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+function AppTopBar({ current }: { current: CurrentOrg }) {
+  const pathname = usePathname();
+  const { state } = useSidebar();
+  const screen = NAV.find((item) => isCurrent(pathname, `/${current.slug}/${item.path}`));
+
+  return (
+    // 높이를 고정하지 않는다. 글자를 키우면 막대도 커진다.
+    <header className="sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
+      {/* -ml-2 는 버튼 안쪽 여백만큼 당겨 아이콘을 본문 선에 맞춘다. */}
+      <SidebarTrigger className="-ml-2" />
+      {screen ? (
+        <>
+          <Separator orientation="vertical" className="my-3.5" />
+          {/* 사이드바가 안 보이면(서랍, 접은 넓은 폭) 지금 조직을 알 수 없어 조직 이름을 앞에 붙인다 —
+              다른 조직에 작업을 잘못 추가하지 않게. */}
+          <p className="flex min-w-0 items-center gap-1.5 type-label">
+            <span
+              className={
+                state === "collapsed"
+                  ? "flex min-w-0 items-center gap-1.5"
+                  : "flex min-w-0 items-center gap-1.5 md:hidden"
+              }
+            >
+              <span className="min-w-0 truncate text-muted-foreground">{current.name}</span>
+              <span aria-hidden className="text-muted-foreground">
+                /
+              </span>
+            </span>
+            <span className="shrink-0 font-medium text-foreground">{screen.label}</span>
+          </p>
+        </>
+      ) : null}
+    </header>
+  );
+}

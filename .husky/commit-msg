@@ -1,0 +1,6 @@
+# 커밋 메시지 규칙 — `타입: 작업 내용` 이 아니면 커밋이 막힌다. (husky v9: 이 본문은 `sh -e` 로 실행된다)
+#
+# 규칙과 타입 목록: scripts/commit-message.mjs · 테스트: 템플릿 원본의 scripts/template/commit-message.test.mjs
+# git 은 훅을 저장소 최상위에서 실행한다. $1 은 커밋 메시지가 든 파일 경로다.
+
+node scripts/check-commit-msg.mjs "$1"

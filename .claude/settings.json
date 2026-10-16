@@ -1,0 +1,73 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf *)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.env.production)",
+      "Edit(**/.env)",
+      "Edit(**/.env.local)",
+      "Edit(**/.env.*.local)",
+      "Edit(**/.env.production)",
+      "Edit(/.husky/**)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/settings.local.json)",
+      "Edit(/.claude/hooks/**)",
+      "Edit(/web/lodestar.config.*)",
+      "Edit(/.github/**)"
+    ],
+    "allow": [
+      "Bash(pnpm test *)",
+      "Bash(pnpm test:db)",
+      "Bash(pnpm test:package)",
+      "Bash(node --test scripts/*)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm type-check)",
+      "Bash(pnpm verify)",
+      "Bash(pnpm verify:quick)",
+      "Bash(pnpm run doctor)",
+      "Bash(pnpm tokens)",
+      "Bash(pnpm db:types)",
+      "Bash(pnpm check:tokens)",
+      "Bash(pnpm check:colors)",
+      "Bash(pnpm check:db-types)",
+      "Bash(pnpm format)",
+      "Bash(pnpm format:check)",
+      "Bash(pnpm -C web verify)",
+      "Bash(pnpm -C web verify:quick)",
+      "Bash(pnpm -C web test *)",
+      "Bash(pnpm -C web test:browser)",
+      "Bash(pnpm -C web test:e2e)",
+      "Bash(pnpm -C web exec vitest run *)",
+      "Bash(pnpm -C web lint)",
+      "Bash(pnpm -C web type-check)",
+      "Bash(pnpm -C web format)",
+      "Bash(pnpm -C web format:check)",
+      "Bash(pnpm -C mobile verify)",
+      "Bash(pnpm -C mobile verify:quick)",
+      "Bash(pnpm -C mobile test *)",
+      "Bash(pnpm -C mobile exec jest *)",
+      "Bash(pnpm -C mobile lint)",
+      "Bash(pnpm -C mobile type-check)",
+      "Bash(pnpm -C mobile format)",
+      "Bash(pnpm -C mobile format:check)",
+      "Bash(git status)",
+      "Bash(git add *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

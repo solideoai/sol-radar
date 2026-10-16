@@ -1,0 +1,4 @@
+# 줄바꿈은 저장소와 작업 폴더 모두 LF 로 둔다.
+# Git for Windows 의 기본값(core.autocrlf=true)이 작업 폴더를 CRLF 로 바꾸면 Prettier(endOfLine: lf)와
+# 생성물 검사(check:tokens·check:db-types)가 모든 파일을 어긋났다고 보고, 셸 스크립트·훅도 깨진다.
+* text=auto eol=lf

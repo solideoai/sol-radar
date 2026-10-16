@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "verification": {
+    "common": [
+      {
+        "command": "pnpm",
+        "args": ["format:check"]
+      },
+      {
+        "command": "pnpm",
+        "args": ["test"]
+      },
+      {
+        "command": "pnpm",
+        "args": ["check:tokens"]
+      },
+      {
+        "command": "pnpm",
+        "args": ["check:colors"]
+      },
+      {
+        "command": "pnpm",
+        "args": ["check:db-types"]
+      }
+    ],
+    "projects": [
+      {
+        "name": "web",
+        "directory": "web",
+        "marker": "package.json",
+        "setup": {
+          "command": "pnpm",
+          "args": ["install", "--frozen-lockfile"]
+        },
+        "verify": {
+          "command": "pnpm",
+          "args": ["verify"]
+        },
+        "quick": {
+          "command": "pnpm",
+          "args": ["verify:quick"]
+        },
+        "prepareE2e": {
+          "command": "pnpm",
+          "args": ["exec", "playwright", "install", "--with-deps", "chromium"]
+        },
+        "e2e": {
+          "command": "pnpm",
+          "args": ["test:e2e"]
+        }
+      },
+      {
+        "name": "mobile",
+        "directory": "mobile",
+        "marker": "package.json",
+        "setup": {
+          "command": "pnpm",
+          "args": ["install", "--frozen-lockfile"]
+        },
+        "verify": {
+          "command": "pnpm",
+          "args": ["verify"]
+        },
+        "quick": {
+          "command": "pnpm",
+          "args": ["verify:quick"]
+        }
+      }
+    ]
+  },
+  "migrationDirectories": ["supabase/migrations/"]
+}

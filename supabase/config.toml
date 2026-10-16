@@ -1,0 +1,70 @@
+# 로컬 Supabase(Docker + Supabase CLI) 설정 — pnpm db:start 가 읽는다.
+#
+# 여기 적지 않은 값은 CLI 기본값을 쓴다(포트 54321~54327 등). 바꿀 것만 적는다.
+# 키·비밀값은 두지 않는다. 로컬 키는 CLI 가 만들고, pnpm db:start 가 anon 키만 웹·앱 env 파일에 옮긴다.
+# 전체 항목: https://supabase.com/docs/guides/local-development/cli/config
+
+# Docker 컨테이너·볼륨 이름 앞에 붙는다. 이 템플릿으로 프로젝트를 여럿 만들면 이름이 겹쳐
+# 서로의 로컬 DB 를 건드리므로 프로젝트마다 바꾼다(pnpm bootstrap 은 --name 으로 바꾼다).
+project_id = "agentic-boilerplate"
+
+[db]
+# 클라우드 프로젝트와 같은 Postgres 메이저 버전이어야 로컬에서 통과한 마이그레이션이 클라우드에서도 돈다.
+# 클라우드에서 `show server_version;` 으로 확인하고 맞춘다.
+major_version = 17
+
+[db.seed]
+# 시드 파일(supabase/seed.sql)을 쓰지 않는다. 데이터는 마이그레이션이나 화면으로 넣는다.
+# 로컬 시험 계정·데이터는 pnpm db:seed(scripts/db-seed.mjs)가 넣는다 — db reset 없이 켜진 DB 에 다시 넣을 수 있다.
+enabled = false
+
+[local_smtp]
+# 메일함(Mailpit, http://127.0.0.1:54324)의 SMTP 포트를 연다. 웹의 초대 메일(web/server/organization)이 여기로 보낸다.
+# pnpm db:start 가 이 값과 아래 [auth] 의 site_url 을 읽어 web/.env.local 의 SMTP_PORT·SITE_URL 에 적는다(비어 있을 때만).
+# 메일은 실제로 나가지 않고 메일함에 쌓인다. 바꾸면 pnpm db:stop → pnpm db:start.
+smtp_port = 54325
+
+[analytics]
+# 로그 수집기. 쓰지 않고, Docker Desktop 에서 자주 시작에 실패해 끈다.
+enabled = false
+
+[edge_runtime]
+# Edge Functions(supabase/functions/)를 쓰지 않는다. 필요해지면 켠다.
+enabled = false
+
+[auth]
+# 메일 링크가 돌아올 웹 주소. 메일 템플릿의 {{ .SiteURL }} 이 이 값이다. pnpm -C web dev 의 주소와 맞춘다.
+# 클라우드는 대시보드 Authentication → URL Configuration 의 Site URL 에 운영 주소를 넣는다.
+site_url = "http://localhost:3000"
+
+# 마이페이지의 "로그인 수단 연결하기"(linkIdentity)를 연다. 끄면 연결 버튼이 manual_linking_disabled 로 거절된다.
+# 클라우드는 대시보드 Authentication → Sign In / Providers → "Allow manual linking" 을 켠다.
+enable_manual_linking = true
+
+# 간편 로그인(선택). 켜려면 아래 주석을 풀고 supabase/.env(깃 제외)에 값을 적은 뒤 pnpm db:stop → pnpm db:start.
+# 웹은 web/.env.local 에 NEXT_PUBLIC_AUTH_GOOGLE·KAKAO·NAVER=true. 설정법은 docs/OAUTH-PROVIDERS.md.
+# 네이버는 Supabase 의 기본 제공자가 아니라 사용자 정의 OIDC 제공자(custom:naver)라 대시보드나 관리 API 로 만든다(이 파일에 자리가 없다).
+# [auth.external.google]
+# enabled = true
+# client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+# secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# # 로컬에서 구글 로그인을 쓰려면 필요하다(Supabase CLI 안내).
+# skip_nonce_check = true
+# [auth.external.kakao]
+# enabled = true
+# client_id = "env(SUPABASE_AUTH_EXTERNAL_KAKAO_CLIENT_ID)"
+# secret = "env(SUPABASE_AUTH_EXTERNAL_KAKAO_SECRET)"
+
+[auth.email]
+# 가입하면 확인 메일의 링크를 열어야 로그인된다(클라우드 기본값과 같게 둔다).
+# 로컬 메일은 실제로 나가지 않고 메일함(http://127.0.0.1:54324)에 쌓인다.
+enable_confirmations = true
+
+# 링크가 웹의 /auth/confirm 으로 오게 하는 템플릿. 클라우드는 대시보드에 같은 내용을 붙여 넣는다.
+[auth.email.template.confirmation]
+subject = "가입을 확인해 주세요"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "비밀번호 재설정"
+content_path = "./supabase/templates/recovery.html"

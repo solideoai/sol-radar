@@ -1,0 +1,162 @@
+name: ci
+
+on:
+  # PR 편집(edited)은 받지 않는다. 받으면 본문만 고쳐도 전체 검증이 다시 돈다. 편집 실행에서 잡을 건너뛰게 하면
+  # 건너뛴(skipped) required 가 성공으로 쳐져 앞선 실패를 덮는다. 그래서 PR 제목만 고치면 검사가 다시 돌지 않고,
+  # Re-run 은 처음 이벤트의 옛 제목을 다시 본다. 제목을 고친 뒤에는 PR 을 닫았다 다시 열거나 새 커밋을 push 한다.
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# 같은 PR 에 다시 push 하면 이전 실행을 취소한다. push 는 run_id 로 묶여 서로 취소하지 않는다(커밋마다 결과를 남긴다).
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+# 액션은 태그가 아니라 커밋 SHA 로 고정한다(태그는 옮겨질 수 있다). 뒤의 주석이 그 SHA 의 버전이고,
+# Dependabot(.github/dependabot.yml)이 SHA 와 주석을 함께 올린다.
+# checkout 은 토큰을 .git/config 에 남기지 않는다(persist-credentials: false). 이 워크플로는 push 하지 않는다.
+jobs:
+  # 공통 검증(루트 시험·토큰·색·DB 타입·서식)과 변경분 정책. 검증할 프로젝트 목록도 여기서 정한다.
+  common:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      projects: ${{ steps.projects.outputs.projects }}
+      has-projects: ${{ steps.projects.outputs.has-projects }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: "0"
+      - run: node scripts/verify.mjs --common
+      - name: PR·push 변경분 정책
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/check-policy.mjs --base "$BASE_SHA"
+      - id: projects
+        run: node scripts/ci-projects.mjs >> "$GITHUB_OUTPUT"
+
+  # 로컬 commit-msg 훅을 거치지 않은 커밋(GitHub 웹 편집 등)과 PR 제목(squash 병합 제목)을 같은 규칙으로 본다.
+  # common 과 따로 돌아서 제목이 틀려도 project 검증은 그대로 돈다. 결과는 required 가 모은다.
+  # PR 제목은 PR 을 연 사람이 정하는 값이라 run 에 직접 넣지 않고 env 로 넘긴다.
+  # 병합 화면에서 squash 제목을 바꾸면 PR 검사는 그 제목을 보지 못한다. 그 제목은 main push 검사가 병합 뒤에 잡는다.
+  commits:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      # 규칙(scripts/commit-message.mjs)은 Node 기본 모듈만 써서 설치 없이 돈다
+      - name: 커밋 메시지 규칙
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.after }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node scripts/check-commits.mjs
+
+  # 루트 devDependency(pg·pglite·prettier·husky)의 의존성 감사. project 가 기다리는 common 과 따로 돌아서
+  # 루트에 critical 이 나오거나 npm 감사 서버가 멈춰도 project 검증은 그대로 돈다. 결과는 required 가 모은다.
+  # 루트 락파일은 늘 있으므로 건너뛰지 않는다(required 가 건너뜀을 막는다).
+  # 의존성 취약점은 critical 만 막는다. 그 아래 등급은 Dependabot 이 주마다 올리는 PR 로 다룬다.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: corepack enable
+      # 락파일이 package.json 과 어긋나면 여기서 멈춘다(감사가 옛 락파일을 보지 않게)
+      - run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: "0"
+      - name: 루트 의존성 감사
+        run: pnpm audit --audit-level critical
+
+  project:
+    needs: common
+    if: needs.common.outputs.has-projects == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.common.outputs.projects) }}
+    name: verify-${{ matrix.project.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: corepack enable
+      - name: 설정된 프로젝트 설치·검증·E2E
+        env:
+          PROJECT_NAME: ${{ matrix.project.name }}
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key-not-a-secret
+          EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key-not-a-secret
+        run: node scripts/verify.mjs --project "$PROJECT_NAME" --setup --ci
+      # 프로젝트마다 자기 락파일이 있다(workspace 아님). critical 만 막는다.
+      # pnpm 이 아닌 스택을 등록했다면 그 도구의 감사를 이 단계에 더한다.
+      - name: 프로젝트 의존성 감사
+        working-directory: ${{ matrix.project.directory }}
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm audit --audit-level critical
+          else
+            echo "pnpm-lock.yaml 이 없어 pnpm 의존성 감사를 건너뜁니다(pnpm 프로젝트가 아님)"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: test-results-${{ matrix.project.name }}
+          path: |
+            ${{ matrix.project.directory }}/playwright-report/
+            ${{ matrix.project.directory }}/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # 브랜치 보호에는 이 고정 이름을 등록한다. 프로젝트 삭제·추가 시에도 이름이 유지된다.
+  required:
+    if: always()
+    needs: [common, commits, audit, project]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: 모든 필수 검사 결과
+        env:
+          COMMON_RESULT: ${{ needs.common.result }}
+          COMMITS_RESULT: ${{ needs.commits.result }}
+          AUDIT_RESULT: ${{ needs.audit.result }}
+          PROJECT_RESULT: ${{ needs.project.result }}
+          HAS_PROJECTS: ${{ needs.common.outputs.has-projects }}
+        run: node scripts/ci-required.mjs check
