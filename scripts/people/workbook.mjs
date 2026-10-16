@@ -60,7 +60,7 @@ function isWorksite(text) {
 function isOrganizationHeading(cell) {
   const text = ownText(cell);
   if (!text || isWorksite(text)) return false;
-  if (cell.isMerged) return Boolean(cell.font?.bold && cell.fill?.fgColor);
+  if (cell.isMerged && cell.font?.bold && cell.fill?.fgColor) return true;
   return /팀|본부|그룹|연구소|프로젝트|구축|유지|고도화/.test(text);
 }
 

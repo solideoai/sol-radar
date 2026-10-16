@@ -269,3 +269,17 @@ test("does not classify adjacent phone numbers or address text as personnel", as
     },
   );
 });
+
+test("ends team inheritance at merged non-team headings even without font styling", async () => {
+  await withWorkbook(
+    async (filename) => {
+      await assert.rejects(
+        readOrganizationWorkbook(filename, [department("개발팀", [range("A1", "A2:A17")])]),
+        /Source range crosses an organization heading: A5/,
+      );
+    },
+    (_workbook, sheet) => {
+      sheet.mergeCells("A5:D5");
+    },
+  );
+});
