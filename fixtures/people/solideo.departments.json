@@ -286,7 +286,8 @@
         "SOL-J012": 1
       },
       "kind": "TEAM",
-      "parentId": "SOL-D048"
+      "parentId": null,
+      "parentReason": "PARENT_CONFLICT"
     },
     {
       "id": "SOL-D007",

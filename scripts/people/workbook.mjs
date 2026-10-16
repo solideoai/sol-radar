@@ -196,8 +196,10 @@ function extractHierarchy(sheet, departments) {
         department.name.startsWith(`${upper.name}-`),
     );
     const parents = new Set(
-      department.sourceRanges.map((range) =>
-        explicit.length === 1 ? explicit[0].id : (contexts.get(range.headerCell) ?? null),
+      // A label prefix can fill missing evidence, but cannot erase a source context.
+      department.sourceRanges.map(
+        (range) =>
+          contexts.get(range.headerCell) ?? (explicit.length === 1 ? explicit[0].id : null),
       ),
     );
     if (parents.size === 1 && !parents.has(null))

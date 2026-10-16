@@ -473,3 +473,39 @@ test("contact and phone headings containing organization words never become hier
     },
   );
 });
+
+test("a team-name prefix cannot replace conflicting accepted source-range parents", async () => {
+  await withWorkbook(
+    async (filename) => {
+      const result = await readOrganizationWorkbook(filename, [
+        department("합성본부 개발팀", [range("A2", "A3:A3"), range("E2", "E3:E3", "F")]),
+      ]);
+      assert.equal(result.recognizedRows, 2);
+      assert.deepEqual(
+        result.hierarchy.upperDepartments.map(({ id, name }) => ({ id, name })),
+        [
+          { id: "SOL-D039", name: "합성본부" },
+          { id: "SOL-D040", name: "다른본부" },
+        ],
+      );
+      assert.deepEqual(result.hierarchy.teamParents, [
+        { departmentId: "SOL-D001", parentId: null, parentReason: "PARENT_CONFLICT" },
+      ]);
+    },
+    (_workbook, sheet) => {
+      sheet.eachRow((row) =>
+        row.eachCell((cell) => {
+          if (!cell.isMerged || cell.master.address === cell.address) cell.value = null;
+        }),
+      );
+      sheet.getCell("A1").value = "합성본부";
+      sheet.getCell("A2").value = "합성본부 개발팀";
+      sheet.getCell("A3").value = "가나다";
+      sheet.getCell("B3").value = "책임";
+      sheet.getCell("E1").value = "다른본부";
+      sheet.getCell("E2").value = "합성본부 개발팀";
+      sheet.getCell("E3").value = "라마바";
+      sheet.getCell("F3").value = "책임";
+    },
+  );
+});
