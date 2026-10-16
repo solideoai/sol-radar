@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { isTeamDepartment } from "./departments.mjs";
+import { validateDepartmentHierarchy } from "./departments.mjs";
 import { isLocalUrl, parseStatusEnv } from "../local-env.mjs";
 
 const DNS_NAMESPACE = Buffer.from("6ba7b8109dad11d180b400c04fd430c8", "hex");
@@ -39,22 +39,43 @@ export const loadPeopleFixtures = async () => {
   return { departments, jobTitles, people };
 };
 
+const validateHierarchy = (fixtures) => {
+  const { errors } = validateDepartmentHierarchy(
+    fixtures.departments.departments,
+    fixtures.people.people,
+  );
+  if (errors.length)
+    throw new Error(
+      `Invalid department hierarchy: ${errors.map((error) => error.reason).join(", ")}`,
+    );
+};
+
 // Auth 인터페이스를 받지 않는다. 승인 JSON의 카탈로그·명부만 upsert한다.
 export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
   if (orgId !== orgUuid("org-01")) throw new Error("솔리데오 고정 조직만 seed할 수 있습니다");
-  await client.upsert(
-    "departments",
-    // Task6 persists upper rows after its hierarchy schema replaces NOT NULL targets.
-    fixtures.departments.departments.filter(isTeamDepartment).map((department) => ({
-      id: catalogUuid(department.id),
-      org_id: orgId,
-      code: department.id,
-      name: department.name,
-      source_count: department.sourceCount,
-      target_count: department.targetCount,
-      is_demo: true,
-    })),
-  );
+  validateHierarchy(fixtures);
+  // Valid kinds strictly increase in depth: this also works when the fixture lists children first.
+  for (const kind of ["DIVISION", "GROUP", "TEAM"]) {
+    const departments = fixtures.departments.departments.filter(
+      (department) => (department.kind ?? "TEAM") === kind,
+    );
+    if (departments.length)
+      await client.upsert(
+        "departments",
+        departments.map((department) => ({
+          id: catalogUuid(department.id),
+          org_id: orgId,
+          code: department.id,
+          name: department.name,
+          kind: department.kind ?? "TEAM",
+          parent_id: department.parentId == null ? null : catalogUuid(department.parentId),
+          source_count: department.sourceCount ?? null,
+          target_count: department.targetCount ?? null,
+          is_demo: true,
+        })),
+        "id",
+      );
+  }
   await client.upsert(
     "job_titles",
     fixtures.jobTitles.jobTitles.map((title) => ({
@@ -64,6 +85,7 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
       label: title.label,
       sort_order: title.sortOrder,
     })),
+    "id",
   );
   await client.upsert(
     "team_members",
@@ -77,12 +99,22 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
       job_title_id: catalogUuid(person.jobTitleId),
       portrait_path: person.portraitPath,
       is_demo: person.isDemo,
-      scoring_eligible: person.scoringEligible,
-      role: person.role,
-      grade: person.grade,
-      skills: person.skills,
-      availability: person.availability,
     })),
+    "id",
+  );
+  await client.upsert(
+    "team_member_scoring",
+    fixtures.people.people
+      .filter((person) => person.scoringEligible)
+      .map((person) => ({
+        member_id: personUuid(person.personId),
+        org_id: orgId,
+        role: person.role,
+        grade: person.grade,
+        skills: person.skills,
+        availability: person.availability,
+      })),
+    "member_id",
   );
   return { peopleCount: fixtures.people.people.length };
 };
@@ -90,9 +122,11 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
 export const seedLocalPeople = async ({ apiUrl, serviceKey, fixtures }) => {
   const refusal = refuseNonLocal(apiUrl);
   if (refusal) throw new Error(refusal);
+  const resolvedFixtures = fixtures ?? (await loadPeopleFixtures());
+  validateHierarchy(resolvedFixtures);
   const client = {
-    async upsert(table, rows) {
-      const response = await fetch(`${apiUrl}/rest/v1/${table}?on_conflict=id`, {
+    async upsert(table, rows, conflictColumn) {
+      const response = await fetch(`${apiUrl}/rest/v1/${table}?on_conflict=${conflictColumn}`, {
         method: "POST",
         headers: {
           apikey: serviceKey,
@@ -106,26 +140,30 @@ export const seedLocalPeople = async ({ apiUrl, serviceKey, fixtures }) => {
       if (!response.ok) throw new Error(`인력 seed ${table}: HTTP ${response.status}`);
     },
   };
-  await client.upsert("organizations", [
-    {
-      id: orgUuid("org-01"),
-      slug: "org-01",
-      name: "솔리데오",
-      personal_owner_id: null,
-      is_demo: true,
-    },
-    {
-      id: orgUuid("org-02"),
-      slug: "org-02",
-      name: "격리 확인 조직",
-      personal_owner_id: null,
-      is_demo: true,
-    },
-  ]);
+  await client.upsert(
+    "organizations",
+    [
+      {
+        id: orgUuid("org-01"),
+        slug: "org-01",
+        name: "솔리데오",
+        personal_owner_id: null,
+        is_demo: true,
+      },
+      {
+        id: orgUuid("org-02"),
+        slug: "org-02",
+        name: "격리 확인 조직",
+        personal_owner_id: null,
+        is_demo: true,
+      },
+    ],
+    "id",
+  );
   return seedSolideoPeople({
     client,
     orgId: orgUuid("org-01"),
-    fixtures: fixtures ?? (await loadPeopleFixtures()),
+    fixtures: resolvedFixtures,
   });
 };
 

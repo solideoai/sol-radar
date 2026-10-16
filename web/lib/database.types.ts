@@ -80,30 +80,36 @@ export type Database = {
           created_at: string
           id: string
           is_demo: boolean
+          kind: string | null
           name: string
           org_id: string
-          source_count: number
-          target_count: number
+          parent_id: string | null
+          source_count: number | null
+          target_count: number | null
         }
         Insert: {
           code: string
           created_at?: string
           id?: string
           is_demo?: boolean
+          kind?: string | null
           name: string
           org_id: string
-          source_count: number
-          target_count: number
+          parent_id?: string | null
+          source_count?: number | null
+          target_count?: number | null
         }
         Update: {
           code?: string
           created_at?: string
           id?: string
           is_demo?: boolean
+          kind?: string | null
           name?: string
           org_id?: string
-          source_count?: number
-          target_count?: number
+          parent_id?: string | null
+          source_count?: number | null
+          target_count?: number | null
         }
         Relationships: [
           {
@@ -112,6 +118,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_parent_org_fkey"
+            columns: ["parent_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -384,13 +397,56 @@ export type Database = {
           },
         ]
       }
-      team_members: {
+      team_member_scoring: {
         Row: {
           availability: Json
           created_at: string
+          grade: string | null
+          member_id: string
+          org_id: string
+          role: string
+          skills: Json
+        }
+        Insert: {
+          availability?: Json
+          created_at?: string
+          grade?: string | null
+          member_id: string
+          org_id: string
+          role: string
+          skills?: Json
+        }
+        Update: {
+          availability?: Json
+          created_at?: string
+          grade?: string | null
+          member_id?: string
+          org_id?: string
+          role?: string
+          skills?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_member_scoring_member_id_org_id_fkey"
+            columns: ["member_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "team_member_scoring_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_members: {
+        Row: {
+          created_at: string
           department_id: string
           gender: string
-          grade: string | null
           id: string
           is_demo: boolean
           job_title_id: string
@@ -398,16 +454,12 @@ export type Database = {
           org_id: string
           person_code: string
           portrait_path: string
-          role: string
-          scoring_eligible: boolean
-          skills: Json
+          updated_at: string
         }
         Insert: {
-          availability?: Json
           created_at?: string
           department_id: string
           gender: string
-          grade?: string | null
           id?: string
           is_demo?: boolean
           job_title_id: string
@@ -415,16 +467,12 @@ export type Database = {
           org_id: string
           person_code: string
           portrait_path: string
-          role: string
-          scoring_eligible?: boolean
-          skills?: Json
+          updated_at?: string
         }
         Update: {
-          availability?: Json
           created_at?: string
           department_id?: string
           gender?: string
-          grade?: string | null
           id?: string
           is_demo?: boolean
           job_title_id?: string
@@ -432,9 +480,7 @@ export type Database = {
           org_id?: string
           person_code?: string
           portrait_path?: string
-          role?: string
-          scoring_eligible?: boolean
-          skills?: Json
+          updated_at?: string
         }
         Relationships: [
           {

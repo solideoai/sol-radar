@@ -3545,7 +3545,7 @@ describe("솔리데오 카탈로그·가입 신고", () => {
       [solideo, users[0], other, users[1]],
     );
     await fresh.query(
-      "insert into public.team_members (org_id,person_code,name,gender,department_id,job_title_id,portrait_path,is_demo,scoring_eligible,role,skills,availability) values ($1,'SOL-P0001','김민준','MALE',$2,$3,'/demo/people/SOL-P0001.png',true,false,'OTHER','[]','[]')",
+      "insert into public.team_members (org_id,person_code,name,gender,department_id,job_title_id,portrait_path,is_demo) values ($1,'SOL-P0001','김민준','MALE',$2,$3,'/demo/people/SOL-P0001.png',true)",
       [solideo, department, title],
     );
     return fresh;
@@ -3745,6 +3745,186 @@ describe("솔리데오 카탈로그·가입 신고", () => {
       1,
     );
   });
+  it("ADR021 점수는 같은 조직만 읽고 owner·운영자·일반회원·익명은 쓰지 못한다", async (t) => {
+    const fresh = await setup(t);
+    await fresh.exec(
+      "insert into public.team_member_scoring(member_id,org_id,role) select id,org_id,'DEV' from public.team_members",
+    );
+    await fresh.query("update public.profiles set is_admin=true where id=$1", [users[2]]);
+    await fresh.query(
+      "update public.memberships set org_role='owner' where org_id=$1 and user_id=$2",
+      [solideo, users[0]],
+    );
+    for (const [user, role, count] of [
+      [users[0], "authenticated", 1],
+      [users[1], "authenticated", 0],
+      [users[2], "authenticated", 0],
+      [null, "anon", null],
+    ]) {
+      await actAs(fresh, user, role);
+      if (count === null)
+        await assert.rejects(
+          fresh.query("select * from public.team_member_scoring"),
+          /permission denied/,
+        );
+      else
+        assert.equal(
+          (await fresh.query("select * from public.team_member_scoring")).rows.length,
+          count,
+        );
+      for (const sql of [
+        "insert into public.team_member_scoring(member_id,org_id,role) values (gen_random_uuid(),$1,'DEV')",
+        "update public.team_member_scoring set org_id=$1",
+        "delete from public.team_member_scoring where org_id=$1",
+      ])
+        await assert.rejects(fresh.query(sql, [solideo]), /permission denied/);
+    }
+    await fresh.exec("reset role");
+    // An ordinary member has the same read-only scoring access.
+    await fresh.query(
+      "insert into public.memberships(org_id,user_id,org_role) values ($1,$2,'member')",
+      [solideo, users[1]],
+    );
+    await actAs(fresh, users[1]);
+    assert.equal((await fresh.query("select * from public.team_member_scoring")).rows.length, 1);
+    await assert.rejects(
+      fresh.query("delete from public.team_member_scoring"),
+      /permission denied/,
+    );
+  });
+
+  it("ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다", async (t) => {
+    const fresh = await setup(t);
+    const member = (await fresh.query("select id from public.team_members")).rows[0].id;
+    await assert.rejects(
+      fresh.query(
+        "insert into public.team_member_scoring(member_id,org_id,role) values ($1,$2,'DEV')",
+        [member, other],
+      ),
+      /foreign key/,
+    );
+    await fresh.query(
+      "insert into public.team_member_scoring(member_id,org_id,role) values ($1,$2,'DEV')",
+      [member, solideo],
+    );
+    await assert.rejects(
+      fresh.query("update public.team_member_scoring set org_id=$1", [other]),
+      /foreign key/,
+    );
+    await fresh.query("delete from public.team_members where id=$1", [member]);
+    assert.equal((await fresh.query("select * from public.team_member_scoring")).rows.length, 0);
+    await fresh.query(
+      "insert into public.team_members(id,org_id,person_code,name,gender,department_id,job_title_id,portrait_path) values ($1,$2,'SOL-P0001','김민준','MALE',$3,$4,'/demo/people/SOL-P0001.png')",
+      [member, solideo, department, title],
+    );
+    await fresh.query(
+      "insert into public.team_member_scoring(member_id,org_id,role) values ($1,$2,'DEV')",
+      [member, solideo],
+    );
+    await fresh.query("delete from public.organizations where id=$1", [solideo]);
+    assert.equal((await fresh.query("select * from public.team_member_scoring")).rows.length, 0);
+    assert.equal((await fresh.query("select * from public.team_members")).rows.length, 0);
+  });
+
+  it("ADR021 legacy null kind도 팀의 null 인원을 허용하지 않는다", async (t) => {
+    const fresh = await setup(t);
+    await fresh.query("update public.departments set kind=null");
+    await assert.rejects(
+      fresh.query("update public.departments set source_count=null,target_count=null"),
+      /check constraint/,
+    );
+    for (const column of ["source_count", "target_count"])
+      await assert.rejects(
+        fresh.query(`update public.departments set ${column}=null`),
+        /check constraint/,
+      );
+  });
+
+  it("ADR021 계층은 부모 조직·종류·인원 제약과 양방향 TEAM 소속을 강제한다", async (t) => {
+    const fresh = await setup(t);
+    const division = "20000000-0000-0000-0000-000000000001";
+    const group = "20000000-0000-0000-0000-000000000002";
+    await fresh.query(
+      "insert into public.departments(id,org_id,code,name,kind) values ($1,$3,'DIV','본부','DIVISION'),($2,$3,'GROUP','그룹','GROUP')",
+      [division, group, solideo],
+    );
+    await fresh.query("update public.departments set parent_id=$1 where id=$2", [division, group]);
+    await fresh.query("update public.departments set parent_id=$1 where id=$2", [
+      group,
+      department,
+    ]);
+    for (const parent of [division, group]) {
+      await assert.rejects(
+        fresh.query("update public.team_members set department_id=$1", [parent]),
+        /employee_requires_team/,
+      );
+      await assert.rejects(
+        fresh.query(
+          "insert into public.team_members(org_id,person_code,name,gender,department_id,job_title_id,portrait_path) values ($1,'SOL-P9999','이가상','FEMALE',$2,$3,'/demo/people/SOL-P9999.png')",
+          [solideo, parent, title],
+        ),
+        /employee_requires_team/,
+      );
+    }
+    await assert.rejects(
+      fresh.query("update public.departments set parent_id=$1 where id=$2", [
+        otherDepartment,
+        department,
+      ]),
+      /foreign key/,
+    );
+    for (const [parent, child] of [
+      [department, group],
+      [group, division],
+      [division, division],
+      [department, department],
+    ])
+      await assert.rejects(
+        fresh.query("update public.departments set parent_id=$1 where id=$2", [parent, child]),
+        /department_hierarchy/,
+      );
+    await assert.rejects(
+      fresh.query("update public.departments set kind='GROUP' where id=$1", [division]),
+      /department_hierarchy/,
+    );
+    await assert.rejects(
+      fresh.query(
+        "update public.departments set kind='GROUP',target_count=null,source_count=null,parent_id=$2 where id=$1",
+        [department, division],
+      ),
+      /employee_requires_team/,
+    );
+    await assert.rejects(
+      fresh.query(
+        "update public.departments set kind='TEAM',target_count=1,source_count=1 where id=$1",
+        [group],
+      ),
+      /department_hierarchy/,
+    );
+    for (const sql of [
+      "update public.departments set target_count=null where code='SOL-D001'",
+      "update public.departments set source_count=null where code='SOL-D001'",
+      "update public.departments set source_count=-1 where code='SOL-D001'",
+      "update public.departments set target_count=1 where kind='DIVISION'",
+      "update public.departments set source_count=1 where kind='GROUP'",
+      "update public.departments set kind='UNKNOWN' where code='SOL-D001'",
+    ])
+      await assert.rejects(fresh.query(sql), /check constraint/);
+    // Null kind is a legacy TEAM, still valid for existing employees.
+    await fresh.query("update public.departments set kind=null,parent_id=$1 where id=$2", [
+      division,
+      department,
+    ]);
+    await fresh.query("update public.team_members set department_id=$1", [department]);
+    await fresh.query("update public.team_members set updated_at='2000-01-01'::timestamptz");
+    const row = (
+      await fresh.query(
+        "select updated_at > '2000-01-01'::timestamptz as touched from public.team_members",
+      )
+    ).rows[0];
+    assert.equal(row.touched, true);
+  });
+
   it("카탈로그 삭제는 일반 Auth 계정을 남기고 신고 FK만 null로 만든다", async (t) => {
     const fresh = await setup(t);
     await fresh.query(

@@ -174,6 +174,9 @@ it("재시드도 기존 다섯 계정·개인 조직·템플릿 팀을 보존하
   const authIndex = calls.findIndex((call) => call.path.startsWith("/auth/"));
   assert.ok(calls.findIndex((call) => call.path === "/rest/v1/departments") < authIndex);
   assert.ok(calls.findIndex((call) => call.path === "/rest/v1/job_titles") < authIndex);
+  const scoringIndex = calls.findIndex((call) => call.path === "/rest/v1/team_member_scoring");
+  assert.ok(scoringIndex >= 0 && scoringIndex < authIndex);
+  assert.equal(calls[scoringIndex].body.length, 27);
   const declarations = calls.filter(
     (call) =>
       call.method === "PATCH" &&
@@ -241,7 +244,7 @@ it("수락된 시드 초대는 두 번 재시드해도 미수락 상태로 복�
     else if (
       !(path === "/rest/v1/tasks" && ["PATCH", "DELETE"].includes(init.method)) &&
       !(
-        ["organizations", "departments", "job_titles", "team_members"].some(
+        ["organizations", "departments", "job_titles", "team_members", "team_member_scoring"].some(
           (table) => path === `/rest/v1/${table}`,
         ) && init.method === "POST"
       )
