@@ -14,7 +14,7 @@ updated: 2026-10-16
 발표 시간표는 [[18-HACKATHON|18 해커톤 전략]] §6에 있다. 이 문서는 조작자가 따라가는 **클릭 경로**, 데모에 쓰는 **가상 기업과 fixture**, 각 장면에서 **화면에 보여야 하는 것**을 정의한다. fixture 20건의 전체 명세는 [[07-DATA-PIPELINE|07 수집]] §6.2의 fixture 표(`FX-01`~`FX-20`)가 단일 원천이고, 데모 기업 프로필과 점수 계산 예시는 [[08-SCORING|08 SOL Score]]가 단일 원천이다. 이 문서와 충돌하면 07·08을 따르고 이 문서를 고친다.
 
 > [!warning] 가상 데이터
-> 회사명 "솔리데오"와 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 가상 직원 200명·사용자·사진·공고·실적·자격·재무·가용성은 데모 설정이며 실제 회사 현황/공고를 뜻하지 않는다. 모든 데모 fixture는 `isDemo=true`이며, 공고 fixture의 `sourceUrl`은 `https://demo.sol-radar.invalid/notices/FX-xx`다. 화면에 `DEMO` 배지가 붙는다. 발주기관 이름은 실제 기관명을 쓰지만 공고 내용은 지어낸 것이다.
+> 회사명 "솔리데오"와 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 가상 직원 200명·사용자·사진·공고·실적·자격·재무·가용성은 데모 설정이며 실제 회사 현황/공고를 뜻하지 않는다. 모든 데모 fixture는 `isDemo=true`이며, 공고 fixture의 `sourceUrl`은 `https://demo.sol-radar.invalid/notices/FX-xx`다. 화면에 `DEMO` 배지가 붙는다. 발주기관 이름은 실제 기관명을 쓰지만 공고 내용은 지어낸 것이다. `live` 모드의 공고는 실제 나라장터 공고(`isDemo=false`)이지만, 회사 프로필은 모든 모드에서 가상 솔리데오이고 분석 화면에 "가상 회사 프로필로 분석" 배지가 붙는다([[16-DECISIONS|ADR-020]]).
 
 ## 1. 데모 테넌트와 계정 (seed)
 
@@ -64,18 +64,39 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 > [!tip] 심사 포인트
 > 세 결과(BID / WATCH / NO-BID)가 모두 한 번씩 나온다. 핵심은 **FX-03**: mock Kev가 BID 0.55를 내도 정보통신공사업 미충족이 규칙에서 `NOT_SATISFIED`라 NO-BID로 고정되고 `MODEL_RULE_DISAGREEMENT`가 기록된다. 이 한 장면이 "정직한 AI"(D3)와 "규칙이 최종"(D5)을 동시에 보여 준다. 사람 결정 기록(D4)은 FX-02에서 보여 준다.
 
+### 2.1 실행 모드 표시와 장애 대체 순서
+
+실행 모드는 `SOL_RUN_MODE` 하나로 고른다([[16-DECISIONS|ADR-020]]). 위 표의 fixture 장면(S2·S3·S5·S6·S7)과 기본 S4는 그대로 쓴다.
+
+| 모드 | 공고 | AI | 이 데모에서 쓰는 곳 |
+|---|---|---|---|
+| `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`) | **기본 시연 모드.** S2~S7 전부. 위 표의 기대 수치(94·72·68, Kev 분포)는 mock 기준이며 골든과 같다 |
+| `fixture` | fixture 20건 | 회사 GPU 서버의 Qwen3.5-9B·Kev-9B 실추론 | S0 기동 확인. 공공 API가 안 될 때의 대체 |
+| `live` | 실제 나라장터 공고 | 회사 GPU 서버의 Qwen3.5-9B·Kev-9B 실추론 | S0 기동 확인. S4 선택안(§4) |
+
+- 화면 표시: 머리말 "실행 모드: mock", fixture 공고의 `DEMO` 배지, 분석 패널 "AI: mock" 또는 "AI: local · Qwen3.5-9B · Kev-9B v1.0", 모든 모드의 "가상 회사 프로필로 분석" 배지. 분석마다 그때의 모드가 기록되므로 모드를 바꿔도 지난 분석의 표시는 그대로다.
+- `fixture`·`live` 모드의 실모델 결과는 mock과 다를 수 있다. S3 "규칙이 Kev를 이긴다"는 mock Kev의 v0.1 `recommendation`(FX-03 BID 0.55)에 기대므로 `mock` 모드에서만 보장된다.
+- 장애 대체 순서는 `live` → `fixture` → `mock`이다. 모드 전환은 env(`SOL_RUN_MODE`)를 바꾸고 worker·ai-gateway를 재시작해서 한다. 자동으로 바뀌지 않고(`AI_FALLBACK_TO_MOCK` 기본 `false`, `live`에서는 켤 수 없다), 바꿨으면 청중에게 말한다.
+- 회사 GPU 서버 터널이 끊기면 `live`·`fixture` 분석은 `PARTIAL`·`RULES_ONLY`로 끝난다. 숨기지 않고 S6처럼 보여 준다(§4 S6 터널 단절).
+- S5의 "live 배치"는 fixture의 두 번째 배치(`batch:"live"`)이며 실행 모드 `live`와 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH`라 S5는 `fixture`·`mock` 모드에서만 된다.
+
+**live 공고가 데모 DB에 남는 경우** (2026-10-16 메인 세션 정리)
+- `live` 모드로 수집한 실제 공고(`is_demo=false`)는 같은 DB에 남는다. `pnpm demo:reset`은 fixture 공고·데모 계정·프로필·사전 리뷰만 처음 상태로 되돌리고 live 공고와 그 분석은 지우지 않는다(실데이터를 시연 준비 때문에 잃지 않게 하려는 것).
+- 목록·대시보드의 기본 출처 필터는 실행 모드를 따른다: `fixture`·`mock` 모드면 `origin=demo`, `live` 모드면 `origin=live`. 그래서 S2 대시보드 수치(BID 권고 3건)와 목록 최상단(FX-01 94)은 fixture·mock 모드에서 live 공고와 섞이지 않고, live 모드 목록에는 fixture 공고가 기본으로 나오지 않는다([[05-API-SPEC|05 API]] §3).
+
 ## 3. S0 사전 준비 (발표 60분 전)
 
-장면 번호 규약: 데모 장면은 `S0`(준비)~`S7`, 테스트 골든 시나리오는 `G1`~`G10`([[11-TESTING|11]]). 둘을 섞어 쓰지 않는다.
+장면 번호 규약: 데모 장면은 `S0`(준비)~`S7`, 테스트 골든 시나리오는 `G1`~`G10`([[11-TESTING|11]]). 둘을 섞어 쓰지 않는다. [[21-MODEL-TRAINING|21 모델 학습]]의 평가 비교 대상은 `E0`~`E4`로 부르고 데모 장면 번호와 섞지 않는다.
 
 > [!warning] 네트워크 의존 (대체 경로 미결정)
-> DB와 인증이 Supabase 클라우드 프로젝트(개발 환경)라 데모 내내 인터넷 연결이 필요하다. 끊기면 로그인과 조회가 멈추고 `/health/ready`가 `503`(`status:"unavailable"`)을 낸다. 네트워크 없이 시연하는 경로는 아직 없다. 대체 경로(사전 녹화 영상 재생, 로컬 Supabase CLI `pnpm db:start`로 전환)는 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표). 정해지기 전까지 회선이 끊기면 사실대로 말한다.
+> DB와 인증이 Supabase 클라우드 프로젝트(개발 환경)라 데모 내내 인터넷 연결이 필요하다. 끊기면 로그인과 조회가 멈추고 `/health/ready`가 `503`(`status:"unavailable"`)을 낸다. 네트워크 없이 시연하는 경로는 아직 없다. 대체 경로(사전 녹화 영상 재생, 로컬 Supabase CLI `pnpm db:start`로 전환)는 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표). 정해지기 전까지 회선이 끊기면 사실대로 말한다. `live`·`fixture` 모드는 여기에 더해 회사 GPU 서버 터널이, `live`는 공공 API가 필요하다(§2.1).
 
-1. 인터넷 연결과 Supabase 프로젝트를 확인한다. 환경 변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`(서버 전용 비밀, worker·seed만 쓴다)가 들어 있고, Supabase 대시보드에서 프로젝트에 접속되는지 본다. SOL RADAR 마이그레이션은 미리 적용돼 있어야 한다(`pnpm db:push`는 운영 DB를 바꾸므로 사용자 확인 뒤에만 실행한다).
+1. 인터넷 연결과 Supabase 프로젝트를 확인한다. 환경 변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`(서버 전용 비밀, worker·seed만 쓴다)가 들어 있고, Supabase 대시보드에서 프로젝트에 접속되는지 본다. SOL RADAR 마이그레이션은 미리 적용돼 있어야 한다(`pnpm db:push`는 운영 DB를 바꾸므로 사용자 확인 뒤에만 실행한다). env는 `SOL_RUN_MODE=mock`, `AI_FALLBACK_TO_MOCK=false`로 시작한다. `live`·`fixture`를 확인하려면 나라장터 서비스키 `G2B_SERVICE_KEY`(서버 전용, 값은 출력하지 않는다)가 들어 있고 `pnpm check:env`가 모드 모순 없이 통과하는지, 회사 GPU 서버 터널이 열려 있는지(방식은 [[10-DEPLOYMENT|10 배포]]) 본다.
 2. `docker compose -f infra/compose.yaml --profile demo up -d --build`로 redis·minio·qdrant·ai-gateway·worker를 띄운다. DB 컨테이너는 없다(DB는 Supabase). web은 Compose의 선택 서비스 `web`으로 띄우거나 `web/`에서 따로 실행한다(데모 실행 방식은 [[10-DEPLOYMENT|10 배포]]). `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 확인한다. `checks.db`는 Supabase(Postgres) 연결이다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]].
 3. `pnpm demo:reset`으로 seed를 적용한다(Compose 서비스가 아니라 스크립트. service role 키로 Supabase 프로젝트에 조직·계정·구성원·프로필·fixture를 적재, 멱등). `/admin/ingestion`에서 SEED 배치 결과를 확인한다: `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}` (격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번).
-4. **FX-01, FX-03, FX-14는 분석을 미리 완료**해 둔다. **FX-02는 `NOT_ANALYZED`로 남겨** S4에서 라이브 분석한다. FX-06, FX-07은 r1 분석까지 완료해 둔다(S5에서 r2 재분석이 보이도록).
-5. 창 A(브라우저): `http://localhost:3000/auth/login` 화면에서 sales@soltech.invalid로 로그인한다(Supabase Auth). 창 B(터미널): viewer@other.invalid(`org-02`)의 Supabase access token을 받아 둔다. 비밀번호는 환경 변수 `DEMO_SEED_PASSWORD`에서 읽고 명령에 직접 쓰지 않는다.
+4. **세 모드 확인**: `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순서로 바꾸며 worker·ai-gateway를 재시작한다. 모드마다 기동 거부가 없는지, 머리말 "실행 모드"와 `GET /api/v1/admin/ai/status`(admin@soltech.invalid)의 `runMode`가 맞는지, `live`·`fixture`에서는 `qwen.healthy`·`kev.registryMatch`가 `true`인지 본다. `live`에서는 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)을 확인한다. 실패한 모드는 시연에서 빼고 기록한다. 마지막은 `mock`으로 두고 2의 `/health/ready`(`checks.ai:"mock"`)를 다시 확인한다. 결과는 `docs/evidence/demo-day/<일시>/run-modes.md`에 남긴다([[11-TESTING|11 테스트]] §5).
+5. `mock` 모드에서 **FX-01, FX-03, FX-14는 분석을 미리 완료**해 둔다. **FX-02는 `NOT_ANALYZED`로 남겨** S4에서 라이브 분석한다. FX-06, FX-07은 r1 분석까지 완료해 둔다(S5에서 r2 재분석이 보이도록).
+6. 창 A(브라우저): `http://localhost:3000/auth/login` 화면에서 sales@soltech.invalid로 로그인한다(Supabase Auth). 창 B(터미널): viewer@other.invalid(`org-02`)의 Supabase access token을 받아 둔다. 비밀번호는 환경 변수 `DEMO_SEED_PASSWORD`에서 읽고 명령에 직접 쓰지 않는다.
 
    ```bash
    export ORG02_TOKEN=$(curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/token?grant_type=password" \
@@ -84,8 +105,8 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
    ```
 
    access token에는 만료 시간이 있다(값은 Supabase Auth 설정, 미검증). 60분 전에 받은 토큰이 S7 전에 만료될 수 있으니 발표 직전에 한 번 더 받는다. 응답 형식은 리허설에서 확인한다.
-6. 화면 우상단 모드 표시가 `AI: mock`인지 확인한다.
-7. 백업 영상(3분)이 로컬에서 열리는지 확인한다.
+7. 머리말에 "실행 모드: mock", 화면 우상단 모드 표시가 `AI: mock`인지 확인한다.
+8. 백업 영상(3분)이 로컬에서 열리는지 확인한다.
 
 ## 4. 클릭 경로
 
@@ -98,16 +119,16 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 ### S2 대시보드 (0:30)
 
 1. 창 A `/dashboard`.
-2. 보여야 하는 것: `DEMO` 배지, `AI: mock` 표시, "마지막 수집" 시각, 카드: BID 후보 수, 검토 대기, **마감 임박 7일(FX-14 포함)**, 최근 변경. 관리자 요약에 "격리 1건(FX-12, 제목 누락)".
-3. 말할 것: 가상 데이터임을 먼저 밝힌다. "깨진 데이터는 숨기지 않고 격리한다."
+2. 보여야 하는 것: 머리말 "실행 모드: mock", `DEMO` 배지, `AI: mock` 표시, "마지막 수집" 시각, 카드: BID 후보 수, 검토 대기, **마감 임박 7일(FX-14 포함)**, 최근 변경. 관리자 요약에 "격리 1건(FX-12, 제목 누락)".
+3. 말할 것: 지금 모드가 `mock`(가상 공고 + 고정 AI 응답)이고 회사 프로필도 가상 솔리데오라는 것을 먼저 밝힌다. "깨진 데이터는 숨기지 않고 격리한다."
 
 ### S3 자격 판정과 규칙 우선 (1:00~2:15)
 
 1. `/bids`에서 필터: 단계 `입찰공고`, 정렬 `점수 내림차순`. 상단에 FX-01(94, BID), FX-18(82), FX-06(78) 순으로 보인다.
-2. **FX-01** 클릭 → `/bids/[id]`. 상단: 세종특별자치시, 12억, D-21, 단계 타임라인, 원문 링크, `revision 1`, 상태 `COMPLETED`.
+2. **FX-01** 클릭 → `/bids/[id]`. 상단: 세종특별자치시, 12억, D-21, 단계 타임라인, 원문 링크, `revision 1`, 상태 `COMPLETED`. 분석 패널에 "AI: mock"과 "가상 회사 프로필로 분석" 배지.
 3. 자격 체크리스트 3건 모두 `SATISFIED`. 한 건의 근거 열기 → `EvidenceDrawer`: RFP 인용 구절·페이지·문자 위치. 말할 것: "AI가 만든 인용이 아니라 원문과 대조된 인용. 대조에 실패하면 무효."
 4. 뒤로 → 필터에서 결정 `NO-BID` 선택 → **FX-03** 클릭.
-5. 자격 체크리스트: 정보통신공사업 등록 `NOT_SATISFIED`(사유: 프로필에 등록 없음). 권고 `NO-BID`. Kev 패널: `모델 선택지 신뢰 분포(수주 확률 아님)` 문구, BID 0.55 / WATCH 0.30 / NO_BID 0.15, 배지 `MODEL_RULE_DISAGREEMENT`.
+5. 자격 체크리스트: 정보통신공사업 등록 `NOT_SATISFIED`(사유: 프로필에 등록 없음). 권고 `NO-BID`. Kev 패널: `모델 선택지 신뢰 분포 (충족·수주 확률 아님)` 문구, BID 0.55 / WATCH 0.30 / NO_BID 0.15, 배지 `MODEL_RULE_DISAGREEMENT`.
 6. 말할 것: "모델이 BID라고 해도 필수 자격 미충족은 규칙이 이긴다. 모델 분포는 수주확률이 아니다."
 
 ### S4 라이브 분석과 사람 결정 (2:15~3:30)
@@ -119,9 +140,15 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 5. 결정 패널: 결정 `WATCH`, 사유 "요구기술 3개(Vue.js·SCORM·WebRTC) 미보유, 협력사 확보 후 재검토", 담당자 지정 → 저장.
 6. 보여야 하는 것: 결정 이력 1건(결정자·시각·사유), 알림 벨 `REVIEW_ASSIGNED` 1건.
 
+> [!todo] 선택안: S4를 live 실공고로 바꾸기 (기본은 위 FX-02 유지)
+> 승인 설계(§20)에 따라 구현 때 정한다. 정하기 전에는 위 FX-02(`mock`) 흐름이 기본이다.
+> - 방법: S0에서 `live` 모드로 실공고를 미리 수집해 두고, S4에서 그중 1건을 라이브 분석한다. 분석 패널에 "AI: local · Qwen3.5-9B · Kev-9B v1.0"과 "가상 회사 프로필로 분석" 배지가 보이고, 원문 링크는 실제 나라장터 공고다.
+> - 제약: 시연 중에 모드 전환(env 변경 + worker·ai-gateway 재시작)이 들어간다. 실모델 결과라 점수·Kev 분포가 골든과 달라 미리 정한 수치를 말할 수 없다. 실추론 지연은 실측 전이라 10초 안에 끝난다고 약속할 수 없다. S5는 `fixture`·`mock`에서만 되므로 S4 뒤에 `mock`으로 돌아와야 한다. 터널·공공 API 장애 때는 §2.1 순서로 대체한다.
+> - 사람 결정 장면(위 5~6)을 FX-02로 할지 실공고로 할지도 함께 정한다.
+
 ### S5 변경 감지와 멱등 (3:30~4:15, 시간 부족 시 생략)
 
-1. admin@soltech.invalid로 전환(또는 미리 로그인한 탭) → `/admin/ingestion` → "수동 수집 실행", 배치 `live`.
+1. admin@soltech.invalid로 전환(또는 미리 로그인한 탭) → `/admin/ingestion` → "수동 수집 실행", 배치 `live`. 이 배치는 fixture의 두 번째 배치이며 실행 모드 `live`가 아니다(§2.1).
 2. 보여야 하는 것: 수집 결과 `{created:0, changed:3, cancelled:1, skippedDuplicate:1, quarantined:0, retried:0}` = 변경 3(FX-06, FX-07, FX-10), 취소 1(FX-08), 중복 skip 1(FX-09).
 3. **FX-07** → `/bids/[id]/revisions`: 예산 18억 → 21.6억, 요구기술에 Kubernetes 추가가 diff로 하이라이트. 재분석 결과 68 → 76, 권고 WATCH → BID.
 4. 알림 벨: `BID_CHANGED`가 FX-06, FX-07, FX-10에 각 1건, FX-09는 0건. 말할 것: "같은 수집을 다시 돌려도 알림이 늘지 않는다."
@@ -130,9 +157,11 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 
 1. 장애 주입: 터미널에서 `docker compose -f infra/compose.yaml stop ai-gateway` ([[10-DEPLOYMENT|10]] 장애 주입 절). 우상단 표시가 `AI: unavailable`로 바뀐다.
 2. **FX-01** → "재분석(force)".
-3. 보여야 하는 것: 새 `score_run` 상태 `PARTIAL`, `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY|09]] 고지 문구). 자격 체크리스트와 점수는 ingest 때 저장된 추출 결과로 그대로 계산되고, Kev 패널은 "사용 불가", 설명은 템플릿 문장. 이전 `COMPLETED` run은 이력에 남아 있다.
+3. 보여야 하는 것: 새 `score_run` 상태 `PARTIAL`, `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY|09]] 고지 문구). 자격 체크리스트와 점수는 extract job이 저장해 둔 추출 결과로 그대로 계산되고, Kev 패널은 "사용 불가", 설명은 템플릿 문장. 이전 `COMPLETED` run은 이력에 남아 있다.
 4. 말할 것: "모델이 없어도 결과가 나오고, 없다는 사실을 숨기지 않는다. 결과를 덮어쓰지 않고 새 run을 만든다."
 5. 복구(Q&A 전): `docker compose -f infra/compose.yaml start ai-gateway` → `AI: mock` 복귀 확인.
+
+**터널 단절 (`live`·`fixture` 모드에서)**: 회사 GPU 서버 터널이 끊기면 gateway는 살아 있고 모델 서버에만 닿지 않는다. 분석은 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록하고(gateway가 꺼진 위의 `AI_UNAVAILABLE`과 다르다), Qwen 불가면 캐시된 추출로(없으면 모든 필드 `UNKNOWN`) `PARTIAL`, Kev 불가면 `RULES_ONLY`로 끝난다. Qwen까지 불가면 화면은 위 3과 같은 PARTIAL 배너이고 Kev 패널은 "사용 불가"다. mock 결과로 몰래 바꾸지 않는다. 시연 중에 일어나면 그 화면을 그대로 보여 주고 "모델 서버 연결이 끊겨도 규칙만으로 결과가 나오고 그 사실을 숨기지 않는다"고 말한다. 재연결을 한 번 시도하고, 안 되면 `mock` 모드로 전환하고 바꿨다고 말한다. 데모에서 일부러 넣는 장애는 지금처럼 ai-gateway 중지 하나다([[10-DEPLOYMENT|10]] 장애 주입 절).
 
 ### S7 격리와 마무리 (4:45~5:00)
 
@@ -156,7 +185,11 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | S5 수집 | 변경이 감지되지 않음 | 생략하고 S6으로. Q&A에서 [[07-DATA-PIPELINE\|07]] 변경 감지 설계로 답 |
 | S6 장애 | `PARTIAL`이 아니라 `FAILED` | `FAILED` 상태와 재시도 버튼을 보여 주고 "상태를 그대로 노출"로 설명 |
 | S7 격리 | 자격 판정 조회에 `200`이 돌아옴 | **데모를 멈추고 사실대로 말한다.** 격리는 핵심 보안 주장이므로 리허설에서 반드시 확인 |
-| S7 격리 | `401 UNAUTHENTICATED` | access token 만료. S0 5의 명령으로 토큰을 다시 받아 호출한다 |
+| S0 세 모드 | 한 모드가 기동 거부하거나 `kev.registryMatch: false` | 거부 메시지의 모순 키·레지스트리 항목을 고친다. 안 되면 그 모드를 시연에서 빼고 `run-modes.md`에 기록 |
+| `live`·`fixture` 장면 | 회사 GPU 서버 터널 단절 | §4 S6 터널 단절 대응. 재연결 1회, 안 되면 `mock` 전환을 말하고 진행 |
+| `live` 장면 | 공공 API 오류·일일 한도 초과(에러코드 22) | `fixture` 모드로 전환. 관리자 수집 화면의 "공공 API 오류: {코드}"를 그대로 보여 준다 |
+| `live` 장면 | 첨부 다운로드 실패 | `DOCUMENT_DOWNLOAD_FAILED`와 관련 자격 `확인 필요`를 그대로 보여 주고, 읽지 못한 첨부 내용을 AI가 추측하지 않는다고 설명한다 |
+| S7 격리 | `401 UNAUTHENTICATED` | access token 만료. S0 6의 명령으로 토큰을 다시 받아 호출한다 |
 | 전 장면 | 인터넷 끊김으로 Supabase 접속 불가(로그인 실패, `/health/ready` `503`) | 대체 경로 미결정(§3 경고). 정해지기 전까지 사실대로 말하고 중단한다 |
 
 ## 6. 리허설 체크리스트
@@ -167,7 +200,11 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [ ] S7 `404` 응답 캡처, S3 `MODEL_RULE_DISAGREEMENT` 화면, S6 `PARTIAL` 화면을 `docs/evidence/`에 저장
 - [ ] 백업 영상 3분 녹화 (S2~S7)
 - [ ] 1440px에서 상세 화면 상단 요약·자격·점수가 스크롤 없이 보이는지 확인
-- [ ] `AI: mock` 표시가 모든 화면에 보이는지 확인
+- [ ] 머리말 "실행 모드: mock"과 `AI: mock` 표시가 모든 화면에, "가상 회사 프로필로 분석" 배지가 분석 화면에 보이는지 확인
+- [ ] 세 모드(`live`·`fixture`·`mock`) 기동 각 1회, 머리말·`runMode` 일치, 마지막은 `mock`
+- [ ] 회사 GPU 서버 터널 단절 → `PARTIAL`·`RULES_ONLY` → 재연결, 소요 시간을 `rehearsal-log.md`에 기록. 끝나면 `pnpm demo:reset`
+- [ ] live 리허설 호출 수가 공공 API 일일 한도(개발계정 서비스당 1,000건/일) 안인지 확인
+- [ ] (S4 선택안을 쓰면) 실공고 1건 라이브 분석 소요 시간 실측
 - [ ] 08 worked example 값과 S4 화면 값(72, 요소 분해, Kev 분포) 일치 확인
 
 ## 솔리데오 직원·사진 준비 체크 (ADR-019, 구현 예정)
@@ -189,4 +226,6 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [[10-DEPLOYMENT|10 배포·프로필]]
 - [[11-TESTING|11 테스트·수용 체크리스트]]
 - [[09-SECURITY|09 보안·격리]]
-- [[16-DECISIONS|16 ADR]]
+- [[16-DECISIONS|16 ADR]] — ADR-020(실행 모드·실데이터)
+- [[12-ROADMAP|12 로드맵]] — 해커톤 컷, D-2~D-day 리허설
+- [[21-MODEL-TRAINING|21 모델 학습]] — 평가 비교 대상(E0~E4)

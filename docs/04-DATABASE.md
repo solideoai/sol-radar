@@ -22,9 +22,12 @@ updated: 2026-10-16
   1. Next 요청 처리(Route Handler `/api/v1`, Server Component, Server Action): 사용자 세션(anon 키 + 로그인 쿠키, 스크립트는 `Authorization: Bearer <Supabase access token>`)으로 DB를 부른다. 권한은 RLS가 정한다.
   2. worker(`web/worker`)와 seed 스크립트(`pnpm demo:reset`): `SUPABASE_SERVICE_ROLE_KEY`로 부른다. service role은 RLS를 무시한다. 그래서 worker는 `org_id`를 직접 지정하고, 복합 외래 키(§5)와 테넌트 혼입 시험으로 막는다. service role 키는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다([[09-SECURITY|09 보안]]).
 - **조직 데이터**(프로필, 점수, 검토, 인력, 알림, 감사)는 `org_id`를 가지며 정책 `org_id in (select public.my_org_ids())`로 거른다. 요청 본문·쿼리의 조직 ID는 쓰지 않는다. 다른 조직의 행은 보이지 않으므로 API는 `404`를 낸다. 서비스 운영자(`profiles.is_admin`)도 남의 조직 데이터는 읽지 못한다. 정지된 사용자에게는 `my_org_ids()`가 빈 목록을 돌려준다(템플릿).
-- **공고**(`bid_notices`, `bid_revisions`, `bid_documents`, `requirement_extractions`)는 공용이다. `org_id`가 없고, 로그인한 사용자는 읽기만 하며, 쓰기는 worker(service role)만 한다.
+- **공고**(`bid_notices`, `bid_revisions`, `bid_documents`, `bid_structured_requirements`, `requirement_extractions`)는 공용이다. `org_id`가 없고, 로그인한 사용자는 읽기만 하며, 쓰기는 worker(service role)만 한다. 나라장터에서 수집한 live 공고(`source`=`g2b-*`, `is_demo=false`)와 fixture 공고(`source=fixture`, `is_demo=true`)가 같은 표에 함께 있을 수 있고, 둘은 `source`와 `is_demo`로 구분한다([[16-DECISIONS|ADR-020]]).
 - 원본 공고는 `bid_revisions`로 버전화한다. 외부 공고는 `source + notice_id`로 유일하고, 내용이 바뀌면 revision이 늘어난다. 기존 revision은 수정·삭제하지 않는다.
 - AI·점수 결과는 덮어쓰지 않고 새 `score_runs` 행으로 쌓는다. 재현에 필요한 입력은 `input_snapshot`에 넣는다([[15-DATA-CONTRACTS|15 데이터 계약]] §7).
+- **실행 모드와 출처 기록**: 실행 모드는 env `SOL_RUN_MODE=live|fixture|mock`(기본 `mock`)이다([[16-DECISIONS|ADR-020]]). 분석 run(`score_runs.run_mode`·`ai_provider`·`qwen_model`·`kev_model`·`question_set_version`), 추출(`requirement_extractions.provider`·`model_name`), 수집 run(`ingest_runs.run_mode`·`source`)마다 그때의 모드와 출처를 남긴다. mock 자동 대체가 일어난 run은 `fallback_reason`과 `MOCK_FALLBACK` 플래그를 함께 남긴다(§3.4).
+- **회사 프로필은 모든 실행 모드에서 가상**이다(`company_profiles.is_demo=true`, ADR-020 M19). live 모드의 분석도 "실제 공고 × 가상 회사 프로필"이다. 실제 회사 자료를 넣으려면 별도 ADR과 [[09-SECURITY|09 보안]] 개정이 먼저 있어야 한다.
+- **모델 평가 결과**(`eval_runs`)는 플랫폼 표다. 조직·공고와 외래 키가 없고, 운영자 CLI(`pnpm eval:publish`)가 service role로 쓴다(§3.7).
 - 금액은 `numeric(18,0)`(KRW 정수)로 저장하고 API에서는 문자열로 내보낸다.
 - 여러 표를 한 번에 쓰는 일(검토 결정 → 감사 → outbox)은 트리거나 SQL 함수로 한 트랜잭션에 묶는다. PostgREST 요청 하나가 트랜잭션 하나이기 때문이다. 화면 역할이 직접 쓰지 못하는 표(`audit_logs`, `outbox_events`)에 쓰는 트리거는 `security definer`다(템플릿 `activities` 트리거와 같은 방식).
 - JSONB 열의 구조는 DB가 강제하지 않는다. 검증은 zod 스키마(`web/server/<도메인>/*.model.ts`, [[16-DECISIONS|16 ADR]] ADR-016)가 맡는다.
@@ -58,12 +61,14 @@ erDiagram
  PROFILE ||--o{ AUDIT_LOG : acts
  BID_NOTICE ||--o{ BID_REVISION : versions
  BID_REVISION ||--o{ BID_DOCUMENT : includes
+ BID_REVISION ||--o{ BID_STRUCTURED_REQUIREMENT : "API 자격 필드"
  BID_REVISION ||--o{ REQUIREMENT_EXTRACTION : extracted
  BID_REVISION ||--o{ SCORE_RUN : analyzed
  COMPANY_PROFILE ||--o{ SCORE_RUN : "input of"
  REQUIREMENT_EXTRACTION |o--o{ SCORE_RUN : "input of"
  SCORE_RUN ||--o{ SCORE_FACTOR : breakdown
  SCORE_RUN ||--o{ QUALIFICATION_CHECK : checks
+ SCORE_RUN ||--o{ REQUIREMENT_ASSESSMENT : "항목 판정"
  SCORE_RUN |o--o{ BID_REVIEW : "basis of"
  BID_NOTICE ||--o{ BID_REVIEW : reviewed
  BID_NOTICE ||--o{ ASSIGNMENT : requires
@@ -72,7 +77,7 @@ erDiagram
  OUTBOX_EVENT ||--o{ NOTIFICATION : "fans out"
 ```
 
-`AUTH_USERS`는 Supabase Auth의 `auth.users`다. `PROFILE`·`ORGANIZATION`·`MEMBERSHIP`·`INVITATION`·`ACTIVITY`는 템플릿 표를 그대로 쓴다(§3.1). 사용자를 가리키는 외래 키는 `auth.users`가 아니라 `public.profiles(id)`를 가리킨다. 템플릿과 같은 이유로, 외래 키가 `public` 표끼리여야 생성 타입에 관계가 생긴다.
+`AUTH_USERS`는 Supabase Auth의 `auth.users`다. `PROFILE`·`ORGANIZATION`·`MEMBERSHIP`·`INVITATION`·`ACTIVITY`는 템플릿 표를 그대로 쓴다(§3.1). 사용자를 가리키는 외래 키는 `auth.users`가 아니라 `public.profiles(id)`를 가리킨다. 템플릿과 같은 이유로, 외래 키가 `public` 표끼리여야 생성 타입에 관계가 생긴다. `eval_runs`(§3.7)는 다른 표와 외래 키가 없어 그림에서 뺐다.
 
 ## 3. 테이블
 
@@ -117,38 +122,71 @@ erDiagram
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
-|`company_profiles`|`id`, `org_id` FK, `revision` int, `name`, `technologies` JSONB, `licenses` JSONB, `past_projects` JSONB, `financials` JSONB nullable, `preferences` JSONB nullable, `effective_at`, `created_by` FK profiles(기본값 `auth.uid()`, on delete set null), `note` text, `created_at`|UNIQUE(`org_id`,`revision`), UNIQUE(`id`,`org_id`)(복합 FK 대상). 행은 불변, 수정은 새 revision|읽기: 조직 전원. 쓰기: insert만 역할 `ADMIN`(`PUT /company-profile`), `created_by = auth.uid()`. update·delete 권한 없음. `revision`은 서버가 최신 + 1로 넣고, 동시 요청이 겹치면 UNIQUE가 거절한다|
+|`company_profiles`|`id`, `org_id` FK, `revision` int, `name`, `technologies` JSONB, **`technologies_complete` boolean NOT NULL default false**, `licenses` JSONB, **`industry_codes` JSONB**, `past_projects` JSONB, `financials` JSONB nullable, `preferences` JSONB nullable, **`is_demo` boolean NOT NULL default true**, `effective_at`, `created_by` FK profiles(기본값 `auth.uid()`, on delete set null), `note` text, `created_at`|UNIQUE(`org_id`,`revision`), UNIQUE(`id`,`org_id`)(복합 FK 대상). 행은 불변, 수정은 새 revision|읽기: 조직 전원. 쓰기: insert만 역할 `ADMIN`(`PUT /company-profile`), `created_by = auth.uid()`. update·delete 권한 없음. `revision`은 서버가 최신 + 1로 넣고, 동시 요청이 겹치면 UNIQUE가 거절한다. `is_demo`는 화면 역할의 insert 열 권한에서 빼서 기본값 `true`만 들어간다|
 
-JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `financials`는 규모 적합성 요소의 "재무 한도"([[08-SCORING|08 점수]])에 쓰는 선택 필드로 `{fiscalYear, annualRevenueKrw?, capitalKrw?, employeeCount?, creditRating?, maxContractKrw?}`이다(`maxContractKrw` = 단일 사업 수행 상한, 솔리데오 seed는 50억). 없으면 해당 요소는 `missingFactors`에 기록된다. `preferences`는 전략적 선호 요소용 `{agencies[], agencyTypes[], domains[], excludedDomains[], excludedKeywords[]}`(`excludedDomains` 예: `["국방"]`, FX-16).
+굵게 쓴 세 열은 [[16-DECISIONS|ADR-020]]으로 더한 것이다(첫 SOL 마이그레이션에 처음부터 넣는다, §7).
+
+- `is_demo`: 모든 실행 모드에서 회사 프로필은 가상 솔리데오 프로필이다(§1). 화면은 이 값으로 "가상 회사 프로필로 분석" 배지를 붙인다. `false`인 행을 만드는 경로는 별도 ADR과 [[09-SECURITY|09 보안]] 개정 전에는 두지 않는다.
+- **명시적 부정 기록**: 자격 판정에서 `NOT_SATISFIED`(미충족)는 공고 쪽 근거와 회사 쪽 **명시적 부정 근거**가 둘 다 있어야 한다. 정보가 없다는 사실만으로는 미충족이 되지 않고 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다([[08-SCORING|08 점수]] §5.1). 그래서 프로필이 "없다"를 적을 수 있어야 한다.
+  - `licenses[].status`: `HELD`(보유) 또는 `NOT_HELD`(보유하지 않음을 확인). 목록에 없는 면허·인증은 "모름"이다.
+  - `industry_codes[].status`: 같은 규칙. `code`는 나라장터 업종 마스터(업종 및 근거법규 서비스 15129467)의 업종 코드다.
+  - `technologies_complete`: `true`면 `technologies`가 회사가 쓰는 기술의 전체 목록이라는 뜻이다. 이때 목록에 없는 기술은 명시적 부정 근거가 된다. 기본값 `false`(목록에 없으면 "모름").
+
+JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `licenses`는 `{code, name, status, validUntil?}[]`, `industry_codes`는 `{code, name, status}[]`이다. JSONB 내부 필드는 DB가 강제하지 않고 zod 스키마가 검증한다(§1). `financials`는 규모 적합성 요소의 "재무 한도"([[08-SCORING|08 점수]])에 쓰는 선택 필드로 `{fiscalYear, annualRevenueKrw?, capitalKrw?, employeeCount?, creditRating?, maxContractKrw?}`이다(`maxContractKrw` = 단일 사업 수행 상한, 솔리데오 seed는 50억). 없으면 해당 요소는 `missingFactors`에 기록된다. `preferences`는 전략적 선호 요소용 `{agencies[], agencyTypes[], domains[], excludedDomains[], excludedKeywords[]}`(`excludedDomains` 예: `["국방"]`, FX-16).
 
 ### 3.3 공고 (공용)
 
-네 표 모두 RLS는 같다. 읽기는 `authenticated` 중 활동 중 회원(`(select public.is_active_user())`), 쓰기는 worker(service role)만이다. 화면 역할에는 쓰기 권한이 없다.
+다섯 표 모두 RLS는 같다. 읽기는 `authenticated` 중 활동 중 회원(`(select public.is_active_user())`), 쓰기는 worker(service role)만이다. 화면 역할에는 쓰기 권한이 없다.
 
 |테이블|컬럼|제약|
 |---|---|---|
-|`bid_notices`|`id`, `source` text, `notice_id` text, `plan_ref` text nullable, `title`, `agency` nullable, `stage` text(bid_stage), `status` text(bid_status), `budget_krw` numeric(18,0) nullable, `published_at` nullable, `deadline_at` nullable, `source_url`, `latest_revision` int, `content_hash` text, `is_demo` boolean default false, `last_synced_at`, `created_at`, `updated_at`|UNIQUE(`source`,`notice_id`). `budget_krw >= 0`|
+|`bid_notices`|`id`, `source` text(bid_source), `notice_id` text, `plan_ref` text nullable, `pre_spec_ref` text nullable, `title`, `agency` nullable, `stage` text(bid_stage), `status` text(bid_status), `budget_krw` numeric(18,0) nullable, `published_at` nullable, `deadline_at` nullable, `source_url`, `latest_revision` int, `content_hash` text, `is_demo` boolean default false, `last_synced_at`, `created_at`, `updated_at`|UNIQUE(`source`,`notice_id`). `budget_krw >= 0`|
 |`bid_revisions`|`id`, `bid_id` FK, `revision` int, `amendment_no` text nullable, `raw_payload` JSONB, `normalized` JSONB(`NormalizedBid`), `checksum` text, `changed_fields` text[], `fetched_at`, `created_at`|UNIQUE(`bid_id`,`revision`). `checksum` = `NormalizedBid.checksum`|
-|`bid_documents`|`id`, `bid_id` FK, `revision_id` FK, `name`, `object_key` text, `sha256`, `mime_type`, `size_bytes` bigint, `parse_status` text(document_parse_status), `text_object_key` nullable, `page_count` int nullable, `original_url`, `created_at`|UNIQUE(`revision_id`,`sha256`). 원본·추출 텍스트는 MinIO, 키만 저장. 다운로드는 서버가 권한을 확인한 뒤 짧은 presigned URL을 준다([[09-SECURITY\|09 보안]])|
-|`requirement_extractions`|`id`, `bid_id` FK, `revision_id` FK, `provider` text(ai_provider), `model_name` text, `prompt_version` text, `prompt_hash` text, `schema_version` text, `status` text(extraction_status), `payload` JSONB(`RequirementExtraction`), `warnings` JSONB(코드 목록은 [[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4 표), `latency_ms` int, `retries` smallint, `created_at`|UNIQUE(`revision_id`,`model_name`,`prompt_hash`). 조직과 무관, 재사용|
+|`bid_documents`|`id`, `bid_id` FK, `revision_id` FK, `name`, `original_url`, `download_status` text(document_download_status) default `PENDING`, `download_error_code` text nullable, `format` text nullable, `object_key` text nullable, `sha256` nullable, `mime_type` nullable, `size_bytes` bigint nullable, `parse_status` text(document_parse_status) nullable, `parse_error_code` text(document_parse_error) nullable, `parser_id` text nullable, `parse_quality` JSONB nullable, `text_object_key` nullable, `page_count` int nullable, `created_at`|UNIQUE(`revision_id`,`sha256`). `download_status='OK'`이면 `object_key`·`sha256`·`size_bytes`가 NOT NULL(check). `parse_status ∈ (UNSUPPORTED, FAILED)`이면 `parse_error_code` NOT NULL(check). 원본·추출 텍스트는 MinIO, 키만 저장. 다운로드는 서버가 권한을 확인한 뒤 짧은 presigned URL을 준다([[09-SECURITY\|09 보안]])|
+|`bid_structured_requirements`|`id`, `bid_id` FK, `revision_id` FK, `kind` text(structured_requirement_kind), `seq` smallint, `code` text nullable, `name` text nullable, `value` JSONB, `source_operation` text, `created_at`|UNIQUE(`revision_id`,`kind`,`seq`). 공고 API가 구조화 필드로 준 자격 조건 한 행. 조직과 무관|
+|`requirement_extractions`|`id`, `bid_id` FK, `revision_id` FK, `provider` text(ai_provider), `model_name` text, `prompt_version` text, `prompt_hash` text, `schema_version` text, `status` text(extraction_status), `payload` JSONB(`RequirementExtraction`), `translations` JSONB nullable, `warnings` JSONB(코드 목록은 [[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4 표), `latency_ms` int, `retries` smallint, `created_at`|UNIQUE(`revision_id`,`model_name`,`prompt_hash`). 조직과 무관, 재사용|
 
 괄호 안 이름(`bid_stage` 등)은 §4의 값 집합이다. 열 타입은 `text`이고 값은 check 제약으로 묶는다.
+
+[[16-DECISIONS|ADR-020]]으로 더한 열의 뜻:
+- `bid_notices.pre_spec_ref`: 사전규격 등록번호(`bfSpecRgstNo`). `plan_ref`(발주계획 `orderPlanUntyNo`)와 함께 단계를 잇는다.
+- `bid_documents`: 다운로드와 파싱을 따로 기록한다. 한 유형의 실패를 다른 유형으로 뭉뚱그리지 않는다([[03-AI-PIPELINE|03 AI 파이프라인]] 실패 유형, [[16-DECISIONS|ADR-020]]).
+  - `download_status`: `PENDING` → `OK` 또는 `FAILED`. `FAILED`면 `download_error_code`에 사유(`AUTH_REQUIRED`·`HTTP_4XX`·`HTTP_5XX`·`REDIRECT_BLOCKED`·`HOST_NOT_ALLOWED`·`TOO_LARGE`·`TIMEOUT`, 값 집합 check 없이 text)를 적고 파일 열은 비운다. 이때 분석은 본문만으로 추출하고, 첨부에 의존하는 항목은 `NEEDS_REVIEW`가 된다.
+  - `format`: 확장자가 아니라 내용(매직 바이트)으로 판정한 형식. gateway `POST /parse` 응답의 `format` 값이다.
+  - `parse_status`·`parse_error_code`: `/parse` 결과. 다운로드가 `OK`가 되면 `PENDING`으로 두고 파싱 뒤 결과 값으로 바꾼다. 다운로드가 `PENDING`·`FAILED`인 동안은 NULL(파싱 시도 안 함)이다. 형식별 파서는 실제 RFP 샘플 비교로 정한다([[03-AI-PIPELINE|03 AI 파이프라인]] 문서 파싱 절). 50 MB 초과는 다운로드하지 않으므로 `download_status=FAILED` + `download_error_code=TOO_LARGE`이고 `parse_status`는 NULL이다.
+  - `parser_id`: 파서 어댑터와 버전. `parse_quality`: 파서가 낸 품질 신호.
+- `bid_structured_requirements`: 면허제한(`lcnsLmtNm`)·허용 업종(`permsnIndstrytyList`)·참가가능지역(`prtcptPsblRgnNm`)·지역의무공동도급(`rgnDutyJntcontrctRt`) 행. 같은 조건을 이 표와 Qwen 추출이 둘 다 주면 **이 표가 우선**이고, 둘이 다르면 그 조건은 `CONFLICTED`다([[08-SCORING|08 점수]] §5.1). `source_operation`은 값을 받은 오퍼레이션 이름, `value`는 그 행의 원본 필드다(담당자 필드는 넣지 않는다).
+- `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 원문의 숫자가 그대로 남은 번역만 들어간다. Kev 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
+
+> [!warning] 미검증 가정
+> `bid_structured_requirements`의 원천 필드 이름은 data.go.kr 서비스 페이지 명세(Swagger·참고문서, 2026-10-16)로 확인했다. 서비스키로 실제 응답을 받아 본 것은 아니다. 면허제한이 여러 행일 때 AND/OR 중 무엇인지도 모른다. 확인 전에는 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다. 검증 방법: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건을 저장하고 매핑을 확인한다([[07-DATA-PIPELINE|07 수집]]).
 
 식별자 규칙(fixture 기준, [[07-DATA-PIPELINE|07 수집]]):
 - `notice_id`는 차수를 뺀 공고번호다. 예: 원본 `DEMO-2026-0010-01`, `DEMO-2026-0010-02` → `notice_id="DEMO-2026-0010"`, 각각 `bid_revisions.amendment_no="01"`, `"02"`.
 - `plan_ref`는 발주계획 공개 식별자(예: `DEMO-PLAN-0042`)다. PLAN·PRE_SPEC·NOTICE 행이 같은 값을 가지면 UI가 한 묶음으로 보여 준다. 제목 유사도로 자동 병합하지 않는다.
 - `source_url` 예: `https://demo.sol-radar.invalid/notices/FX-02`. `.invalid` TLD라 실제로 열리지 않는다.
 
+식별자 규칙(live, 나라장터 입찰공고): `notice_id` = `bidNtceNo`, `amendment_no` = `bidNtceOrd`, `plan_ref` = `orderPlanUntyNo`, `pre_spec_ref` = `bfSpecRgstNo`. 식별자로 이어지지 않는 단계 연결은 "연결 후보"로만 표시한다([[07-DATA-PIPELINE|07 수집]]). 응답의 담당자 필드(이름·전화·이메일)는 `normalized`·`raw_payload`·`bid_structured_requirements`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관한다([[07-DATA-PIPELINE|07 수집]], [[09-SECURITY|09 보안]]).
+
 ### 3.4 분석 결과 (조직별)
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
-|`score_runs`|`id`, `org_id` FK, `bid_id` FK, `revision_id` FK, `company_profile_id` FK, `profile_revision` int, `extraction_id` FK nullable, `algorithm_version` text, `ai_provider` text(ai_provider), `qwen_model` text nullable, `kev_model` text nullable, `question_set_version` text nullable, `prompt_hash` text nullable, `input_snapshot_hash` text, `injection_suspected` boolean default false, `status` text(score_run_status), `score` smallint nullable, `recommendation` text(recommendation) nullable, `recommendation_basis` text(recommendation_basis) nullable, `explanation` text nullable, `review_flags` text[](review_flag), `missing_factors` text[], `input_snapshot` JSONB(`AnalysisInput`), `kev_output` JSONB nullable, `model_metadata` JSONB, `idempotency_key` text nullable, `requested_by` FK profiles(on delete set null), `error_code` text nullable, `queued_at`, `started_at` nullable, `finished_at` nullable, `created_at`|`score BETWEEN 0 AND 100`. `idempotency_key` UNIQUE. UNIQUE(`id`,`org_id`)(복합 FK 대상). 부분 UNIQUE 인덱스 §5|읽기: 조직 전원. 쓰기: 요청 행(`status='QUEUED'`) insert는 역할 `ADMIN`·`SALES`·`ANALYST`가 사용자 세션으로 한다(열 단위 권한으로 결과 열 제외, `requested_by = auth.uid()`). 상태 전이와 결과 열은 worker만 갱신한다. delete 없음|
+|`score_runs`|`id`, `org_id` FK, `bid_id` FK, `revision_id` FK, `company_profile_id` FK, `profile_revision` int, `extraction_id` FK nullable, `algorithm_version` text, `run_mode` text(run_mode), `ai_provider` text(ai_provider), `qwen_model` text nullable, `kev_model` text nullable, `question_set_version` text nullable, `kev_calibration` text(kev_calibration) nullable, `prompt_hash` text nullable, `input_snapshot_hash` text, `injection_suspected` boolean default false, `status` text(score_run_status), `score` smallint nullable, `recommendation` text(recommendation) nullable, `recommendation_basis` text(recommendation_basis) nullable, `explanation` text nullable, `review_flags` text[](review_flag), `missing_factors` text[], `input_snapshot` JSONB(`AnalysisInput`), `kev_output` JSONB nullable, `model_metadata` JSONB, `fallback_reason` text(fallback_reason) nullable, `idempotency_key` text nullable, `requested_by` FK profiles(on delete set null), `error_code` text nullable, `queued_at`, `started_at` nullable, `finished_at` nullable, `created_at`|`score BETWEEN 0 AND 100`. `idempotency_key` UNIQUE. UNIQUE(`id`,`org_id`)(복합 FK 대상). 부분 UNIQUE 인덱스 §5. `fallback_reason`이 있으면 `ai_provider='MOCK'`, `run_mode <> 'LIVE'`, `review_flags`에 `MOCK_FALLBACK`(check)|읽기: 조직 전원. 쓰기: 요청 행(`status='QUEUED'`) insert는 역할 `ADMIN`·`SALES`·`ANALYST`가 사용자 세션으로 한다(열 단위 권한으로 결과 열 제외, `requested_by = auth.uid()`). 상태 전이와 결과 열은 worker만 갱신한다. delete 없음|
 |`score_factors`|`id`, `score_run_id` FK, `org_id` FK, `factor` text, `raw_value` JSONB, `normalized` numeric(5,4) nullable, `points` numeric(5,1), `max_points` numeric(5,1), `missing` boolean, `evidence` JSONB(`EvidenceRef[]`), `note` text|UNIQUE(`score_run_id`,`factor`). `0 <= points <= max_points`. (`score_run_id`,`org_id`) → `score_runs(id, org_id)`|읽기: 조직 전원. 쓰기: worker만|
-|`qualification_checks`|`id`, `score_run_id` FK, `org_id` FK, `bid_id` FK, `revision_id` FK, `requirement_code` text nullable, `requirement_name` text, `mandatory` boolean, `outcome` text(qualification_outcome), `reason` text, `evidence` JSONB(`EvidenceRef[]`), `profile_evidence` JSONB, `checked_at`|`requirement_code` null이면 `outcome`은 `NEEDS_REVIEW`. (`score_run_id`,`org_id`) → `score_runs(id, org_id)`|읽기: 조직 전원. 쓰기: worker만|
+|`qualification_checks`|`id`, `score_run_id` FK, `org_id` FK, `bid_id` FK, `revision_id` FK, `requirement_code` text nullable, `requirement_name` text, `mandatory` boolean, `outcome` text(qualification_outcome), `reason_code` text(needs_review_reason) nullable, `reason` text, `basis` text(requirement_basis), `evidence` JSONB(`EvidenceRef[]`), `profile_evidence` JSONB, `company_evidence` JSONB(`CompanyEvidenceRef[]`), `checked_at`|`requirement_code` null이면 `outcome`은 `NEEDS_REVIEW`. `outcome='NEEDS_REVIEW'`이면 `reason_code` NOT NULL, 아니면 null(check). (`score_run_id`,`org_id`) → `score_runs(id, org_id)`|읽기: 조직 전원. 쓰기: worker만|
+|`requirement_assessments`|`id`, `score_run_id` FK, `org_id` FK, `item_id` text, `item_kind` text(requirement_item_kind), `rule_status` text(qualification_outcome), `rule_reason` text(needs_review_reason) nullable, `basis` text(requirement_basis), `notice_evidence` JSONB(`EvidenceRef[]`), `company_evidence` JSONB(`CompanyEvidenceRef[]`), `kev_distribution` JSONB nullable, `kev_label` text(qualification_outcome) nullable, `flags` text[](review_flag), `created_at`|UNIQUE(`score_run_id`,`item_id`). `rule_status='NEEDS_REVIEW'`이면 `rule_reason` NOT NULL, 아니면 null(check). (`score_run_id`,`org_id`) → `score_runs(id, org_id)`|읽기: 조직 전원. 쓰기: worker만|
 |`bid_reviews`|`id`, `org_id` FK, `bid_id` FK, `revision_id` FK, `score_run_id` FK nullable, `reviewer_id` FK profiles(on delete set null), `assignee_id` nullable, `decision` text(review_decision), `system_recommendation` text(recommendation) nullable, `disagreement_flag` boolean default false, `reason` text NOT NULL, `decided_at`, `created_at`|append-only. 최신 행이 현재 결정. (`org_id`,`assignee_id`) → `memberships(org_id, user_id)`(같은 조직 사용자만, 멤버십이 지워지면 `assignee_id`만 비운다). (`score_run_id`,`org_id`) → `score_runs(id, org_id)`. `disagreement_flag = (decision <> system_recommendation)`, 권고 없으면 false|읽기: 조직 전원. 쓰기: insert만 역할 `ADMIN`·`SALES`(`reviewer_id = auth.uid()`). update·delete 권한 없음. `system_recommendation`·`disagreement_flag`는 화면 역할 쓰기 권한이 없고 insert 트리거가 `score_run_id`에서 채운다. 같은 트리거가 `audit_logs`(`REVIEW_DECIDE`)와, 담당자가 있을 때 `REVIEW_ASSIGNED` outbox 1건을 같은 트랜잭션에 쓴다|
 
 `factor` 값은 `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference` 다섯 개로 [[08-SCORING|08 점수]]의 요소 순서와 같다. `score_runs`의 `ai_provider`·`qwen_model`·`kev_model`·`question_set_version`·`prompt_hash`·`input_snapshot_hash`·`injection_suspected`는 [[09-SECURITY|09 보안]] 감사 필드 표와 이름이 같은 평문 컬럼이며, `model_metadata` JSONB와 중복 저장한다(조회·감사용). `input_snapshot_hash = sha256(canonical input_snapshot)`. `score_runs.input_snapshot`은 `{schemaVersion:"analysis-input/v0.1", bid: NormalizedBid 요약, extractionId, profile: CompanyProfile 스냅샷, team:{members, assignments, asOf}, config:{algorithmVersion, thresholds}}`. `team.members`는 계산에 쓴 하위 27명의 personId·직무·기술등급·스킬·가용성이고 `team.assignments`는 해당 기간 배정 스냅샷, `team.asOf`는 고정 계산 기준 시각이다. 이름·성별·사진은 점수 입력에 넣지 않는다. 200명 명부가 바뀌어도 당시 계산을 재현할 수 있어야 한다. `score_factors.org_id`는 RLS를 다른 조직 표와 같은 식 하나로 쓰려고 둔다. 값은 부모 `score_runs.org_id`와 같아야 하고 복합 FK가 이를 강제한다.
+
+[[16-DECISIONS|ADR-020]]으로 더한 열과 표:
+- `score_runs.run_mode`: 그 분석을 돌린 실행 모드. `kev_calibration`: Kev 임계값의 보정 상태(`UNCALIBRATED`가 기본, Kev를 쓰지 않은 run은 null). `fallback_reason`: `AI_FALLBACK_TO_MOCK=true`에서 mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`). 자동 대체는 기본으로 꺼져 있고 `live` 모드에서는 켤 수 없다.
+- `score_runs.kev_output`: Kev 응답 원문과 함께 `KevStateTrace`(state 줄마다의 공고 인용·회사 증빙, `stateHash`)를 담는다([[03-AI-PIPELINE|03 AI 파이프라인]]). Kev는 인용을 만들지 못하므로 근거 추적은 이 trace로 한다.
+- `qualification_checks`: `reason_code`는 `NEEDS_REVIEW`의 사유, `basis`는 공고 쪽 값이 API 구조화 필드(`API_FIELD`)에서 왔는지 Qwen 추출(`EXTRACTION`)에서 왔는지다. `company_evidence`는 회사 쪽 근거를 `CompanyEvidenceRef`(프로필 revision·종류·레코드 키·증빙 파일·인용, [[15-DATA-CONTRACTS|15 데이터 계약]])로 남긴다. 기존 `profile_evidence`(`{type, ref, label}` 표시용)는 그대로 둔다.
+- `requirement_assessments`: 요구사항 항목(기술·실적·인력·자격)마다 규칙 판정·사유·양쪽 근거와 Kev 분포·라벨·플래그를 한 행에 둔다. `item_id`는 추출 필드 경로(예: `requiredSkills[2]`, `qualifications[0]`)다. `kev_distribution`·`kev_label`은 참고 지표이고 `rule_status`·점수·권고를 바꾸지 않는다([[08-SCORING|08 점수]] §5.4).
+- 미충족(`NOT_SATISFIED`)에는 공고 쪽 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 한다. 이 규칙은 규칙 엔진과 zod 스키마, 단위 시험이 강제한다(JSONB 내부라 DB check로 걸지 않는다, §1).
+- `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)를 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장할지, 값 집합에 `NOT_APPLICABLE`을 더할지는 구현자가 정한다(ADR-020). 결정 경로에서 둘을 같게 다루는 것은 바뀌지 않는다.
 
 ### 3.5 부서·직급 카탈로그와 인력 (ADR-019, 구현 예정)
 
@@ -167,8 +205,8 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `fi
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
-|`ingest_runs`|`id`, `source` text(`fixture` 또는 registry 키, [[15-DATA-CONTRACTS\|15 데이터 계약]] §8), `job_key` text, `trigger` text(ingest_trigger), `batch` text(ingest_batch) nullable, `cursor` text nullable, `status` text(ingest_status), `summary` JSONB(`{created, changed, cancelled, skippedDuplicate, quarantined, retried}`), `requested_by` FK profiles nullable(on delete set null), `idempotency_key` text nullable, `started_at`, `finished_at` nullable|`job_key` UNIQUE, `idempotency_key` UNIQUE|공용 표(`org_id` 없음). 읽기: 어느 조직에서든 역할 `ADMIN`인 사용자(`exists (select 1 from public.my_sol_org_ids(array['ADMIN']))`). 쓰기: worker만. 수동 수집도 Route Handler는 job만 넣고 행은 worker가 만든다([[07-DATA-PIPELINE\|07 수집]])|
-|`ingest_errors`|`id`, `ingest_run_id` FK, `source_key` text, `error_code` text, `redacted_detail` text, `created_at`|PII 없음([[15-DATA-CONTRACTS\|15 데이터 계약]] §6). `error_code` 값: `MISSING_REQUIRED_FIELD`, `SCHEMA_INVALID`, `BUDGET_UNPARSED`, `DATE_UNPARSED`, `DATE_ORDER`, `ENCODING_DEGRADED`, `ATTACHMENT_PARSE_FAILED`, `ATTACHMENT_REJECTED`, `RATE_LIMITED`, `DUPLICATE`|`ingest_runs`와 같다|
+|`ingest_runs`|`id`, `source` text(ingest_source), `run_mode` text(run_mode), `job_key` text, `trigger` text(ingest_trigger), `batch` text(ingest_batch) nullable, `params` JSONB nullable(`g2b` run의 `{window:{from,to}, stages:[…]}`, 요청 생략 시 실제 적용한 기본값), `cursor` text nullable, `status` text(ingest_status), `summary` JSONB(`{created, changed, cancelled, skippedDuplicate, quarantined, retried}`), `quota_used` int default 0, `requested_by` FK profiles nullable(on delete set null), `idempotency_key` text nullable, `started_at`, `finished_at` nullable|`job_key` UNIQUE, `idempotency_key` UNIQUE. `batch`는 `source='fixture'`일 때만 값이 있다|공용 표(`org_id` 없음). 읽기: 어느 조직에서든 역할 `ADMIN`인 사용자(`exists (select 1 from public.my_sol_org_ids(array['ADMIN']))`). 쓰기: worker만. 수동 수집도 Route Handler는 job만 넣고 행은 worker가 만든다([[07-DATA-PIPELINE\|07 수집]])|
+|`ingest_errors`|`id`, `ingest_run_id` FK, `source_key` text, `error_code` text, `result_code` text nullable, `redacted_detail` text, `created_at`|PII 없음([[15-DATA-CONTRACTS\|15 데이터 계약]] §6). `error_code` 값: `MISSING_REQUIRED_FIELD`, `SCHEMA_INVALID`, `BUDGET_UNPARSED`, `DATE_UNPARSED`, `DATE_ORDER`, `ENCODING_DEGRADED`, `ATTACHMENT_PARSE_FAILED`, `ATTACHMENT_REJECTED`, `RATE_LIMITED`, `DUPLICATE`. `result_code`는 공공 API 응답의 `resultCode` 원문|`ingest_runs`와 같다|
 |`outbox_events`|`id`, `org_id` FK nullable, `aggregate_type` text, `aggregate_id` UUID, `event_type` text(notification_type), `payload` JSONB, `idempotency_key` text, `status` text(outbox_status), `attempts` smallint, `next_attempt_at` nullable, `created_at`, `processed_at` nullable|`idempotency_key` UNIQUE = `source+noticeId+revision+eventType`([[07-DATA-PIPELINE\|07 수집]])|내부 표. 화면 역할은 읽기·쓰기 모두 권한이 없다. 쓰기: worker, `bid_reviews` insert 트리거|
 |`notifications`|`id`, `org_id` FK, `user_id`, `type` text(notification_type), `channel` text(notification_channel), `idempotency_key` text, `payload` JSONB, `status` text(notification_status), `provider_message_id` nullable, `error` text nullable, `sent_at` nullable, `read_at` nullable, `created_at`|`idempotency_key` UNIQUE = `outboxEventId+userId+channel`([[13-NOTIFICATIONS\|13 알림]]). (`org_id`,`user_id`) → `memberships(org_id, user_id)`(on delete cascade)|읽기: 본인(`user_id = auth.uid()` 그리고 조직 전원 조건). 쓰기: 본인의 `read_at` 열 update만. 생성은 worker. 남의 알림은 보이지 않으므로 `404`|
 |`audit_logs`|`id`, `org_id` FK, `actor_id` FK profiles nullable(on delete set null), `action` text, `target_type` text, `target_id` UUID, `before_after` JSONB, `request_id` text, `created_at`|append-only. IP·토큰·원문 미기록|읽기: 그 조직의 역할 `ADMIN`. 쓰기: 화면 역할은 권한이 없다. `security definer` 트리거와 worker·seed만 쓴다. update·delete 없음|
@@ -189,27 +227,40 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `fi
 
 템플릿 `activities`는 조직 피드(멤버·초대)이고 화면이 읽는다. `audit_logs`는 업무 감사이고 ADMIN만 읽는다. 둘을 합치지 않는다.
 
+수집 run의 [[16-DECISIONS|ADR-020]] 열:
+- `ingest_runs.source`: 요청한 소스(`fixture`·`g2b`, [[05-API-SPEC|05 API 명세]] `IngestionRunInput.source`). `g2b` run 하나가 여러 registry 키(입찰공고·면허제한·참가지역·e발주 첨부·사전규격·발주계획)를 부르므로, 키별 오류는 `ingest_errors.source_key`에 registry 키로 남긴다([[15-DATA-CONTRACTS|15 데이터 계약]] §8).
+- `ingest_runs.run_mode`: 수집 당시 실행 모드. `quota_used`: 이 run이 쓴 공공 API 호출 수(fixture는 0). 일일 호출 예산 자체는 Redis 카운터가 센다([[07-DATA-PIPELINE|07 수집]]).
+- 공공 API 실패(HTTP 오류, `resultCode` 비정상, 일일 한도 초과, timeout)는 `ingest_runs.status`와 `ingest_errors`(`error_code`·`result_code`)에 기록한다. 기존 공고는 그대로 둔다. `error_code`는 우선 `API_HTTP_ERROR`(HTTP 오류)·`API_RESULT_CODE`(`resultCode` 비정상, 원래 코드는 `result_code`)·`API_QUOTA_EXCEEDED`(에러코드 22)·`API_TIMEOUT`을 쓰고, P0-0에서 실제 응답을 확인한 뒤 세분한다.
+
+### 3.7 모델 평가 (플랫폼, ADR-020)
+
+|테이블|컬럼|제약|RLS (읽기 · 쓰기)|
+|---|---|---|---|
+|`eval_runs`|`id`, `dataset_version` text, `dataset_sha256` text, `system_id` text, `split` text(eval_split), `metrics` JSONB, `git_commit` text, `created_at`|`metrics`는 평가 리포트의 지표 표 전체(지표마다 값·부트스트랩 95% 신뢰구간·표본 수, 채우지 못한 칸은 이유). 조직·공고와 외래 키 없음|공용 표(`org_id` 없음). 읽기: 어느 조직에서든 역할 `ADMIN`인 사용자(`ingest_runs`와 같은 식). 쓰기: service role(`pnpm eval:publish`)만. 화면 역할 쓰기 권한 없음|
+
+`system_id`는 비교 대상 ID(`E0` 규칙만, `E1` Kev-9B 영어 state, `E2` Kev-9B 한국어 state 등, [[21-MODEL-TRAINING|21 모델 학습]] §4.2)다. 열 이름은 예약어 `commit`을 피해 `git_commit`으로 쓴다. 평가셋 원문(실제 RFP)은 이 표에 넣지 않는다. 데이터셋 빌드·평가 실행은 운영자 CLI가 하고 웹은 이 표를 읽기만 한다([[21-MODEL-TRAINING|21 모델 학습]] §6).
+
 ## 4. 값 집합(ENUM)
 
 PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 값은 **check 제약**으로 묶는다(이름은 `<표>_<열>_check`). 마이그레이션은 다시 적용해도 결과가 같아야 하는데 `create type`은 다시 적용하면 실패하기 때문이다. 템플릿의 `memberships.org_role`·`profiles.status`와 같은 방식이다. 값을 더할 때는 새 마이그레이션에서 `drop constraint if exists` 뒤 `add constraint`로 바꾼다. 배열 열(`score_runs.review_flags`)은 `text[]`이고 `review_flags <@ array[...]::text[]` check로 묶는다.
 
 생성 타입(`web/lib/database.types.ts`)에서 이 열들은 `string`으로 나온다. 값 union은 zod 스키마(`web/server/<도메인>/*.model.ts`)가 정의하며, 값은 이 표와 같아야 한다. 값은 API에 그대로 노출된다.
 
-DB check로 거는 값 집합은 19개이고, `field_state`는 JSON 안의 값이다.
+DB check로 거는 값 집합은 31개이고, `field_state`는 JSON 안의 값이다. 이 중 12개(`bid_source`부터 `eval_split`까지 표 끝의 묶음)와 `document_parse_status`·`review_flag`의 바뀐 값은 [[16-DECISIONS|ADR-020]]에서 왔다.
 
 |값 집합|값|사용 컬럼|비고|
 |---|---|---|---|
 |`sol_role`|`ADMIN`, `SALES`, `ANALYST`, `VIEWER`|`memberships.sol_role`, `invitations.sol_role`|업무 역할(이전 이름 `user_role`). 기본 `VIEWER`. 리소스별 정책은 [[09-SECURITY\|09 보안]]|
 |`bid_stage`|`PLAN`, `PRE_SPEC`, `NOTICE`|`bid_notices.stage`|발주계획 / 사전규격 / 입찰공고|
 |`bid_status`|`OPEN`, `AMENDED`, `CANCELLED`, `CLOSED`|`bid_notices.status`|낙찰·계약 상태는 P1에서 추가|
-|`document_parse_status`|`PENDING`, `PARSED`, `FAILED`, `SKIPPED`|`bid_documents.parse_status`|`SKIPPED` = 정책상 미처리(크기·MIME)|
+|`document_parse_status`|`PENDING`, `PARSED`, `PARTIAL`, `UNSUPPORTED`, `FAILED`|`bid_documents.parse_status`|`PARTIAL` = 부분 파싱, `UNSUPPORTED` = 처리하지 않는 형식(스캔 PDF·zip·xlsx·암호·배포용 HWP). 50 MB 초과는 다운로드 단계에서 끝나므로(`download_status=FAILED`, `TOO_LARGE`) 이 값이 아니라 NULL이다. 사유는 `parse_error_code`. 이전 값 `SKIPPED`(정책상 미처리)는 `UNSUPPORTED` + 사유 코드로 바뀌었다|
 |`ai_provider`|`MOCK`, `LOCAL`, `HOSTED`|`requirement_extractions.provider`, `score_runs.ai_provider`|[[03-AI-PIPELINE\|03 AI 파이프라인]] §3|
 |`extraction_status`|`PENDING`, `COMPLETED`, `PENDING_REVIEW`, `FAILED`|`requirement_extractions.status`|`PENDING_REVIEW` = 인용 실패율 > 50% 또는 파싱 품질 저하|
 |`score_run_status`|`QUEUED`, `RUNNING`, `COMPLETED`, `PARTIAL`, `FAILED`|`score_runs.status`|`PARTIAL` = AI 없이 규칙만|
 |`recommendation`|`BID`, `WATCH`, `NO_BID`|`score_runs.recommendation`, `bid_reviews.system_recommendation`|시스템 권고|
-|`recommendation_basis`|`RULES_ONLY`, `RULES_WITH_KEV_ASSIST`|`score_runs.recommendation_basis`|Kev는 `reviewFlags`만 추가|
-|`review_flag`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `AI_UNAVAILABLE`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`|`score_runs.review_flags[]`|사람 검토 유도 신호. `INJECTION_SUSPECTED` = 추출 입력·출력에서 지시문 패턴 탐지([[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4, [[09-SECURITY\|09 보안]]). `SCALE_LIMIT_EXCEEDED` = 규모 적합 요소 0점 사유(재무 한도 초과, [[08-SCORING\|08 점수]])|
-|`qualification_outcome`|`SATISFIED`, `NOT_SATISFIED`, `NEEDS_REVIEW`|`qualification_checks.outcome`|법적 자격 자동 확정 없음|
+|`recommendation_basis`|`RULES_ONLY`, `RULES_WITH_KEV_ASSIST`|`score_runs.recommendation_basis`|Kev는 `reviewFlags`와 참고 지표만 더한다(점수 미반영)|
+|`review_flag`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `KEV_REQUIREMENT_DISAGREEMENT`, `KEV_DELIVERY_RISK`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `AI_UNAVAILABLE`, `QWEN_UNAVAILABLE`, `KEV_UNAVAILABLE`, `MOCK_FALLBACK`, `PARSE_UNSUPPORTED`, `DOCUMENT_DOWNLOAD_FAILED`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`|`score_runs.review_flags[]`, `requirement_assessments.flags[]`|사람 검토 유도 신호. `INJECTION_SUSPECTED` = 추출 입력·출력에서 지시문 패턴 탐지([[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4, [[09-SECURITY\|09 보안]]). `SCALE_LIMIT_EXCEEDED` = 규모 적합 요소 0점 사유(재무 한도 초과, [[08-SCORING\|08 점수]]). ADR-020으로 더한 7개(`KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`·`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`·`MOCK_FALLBACK`·`PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`)의 조건은 [[08-SCORING\|08 점수]] §5.4. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다|
+|`qualification_outcome`|`SATISFIED`, `NOT_SATISFIED`, `NEEDS_REVIEW`|`qualification_checks.outcome`, `requirement_assessments.rule_status`·`kev_label`|법적 자격 자동 확정 없음. 규칙 판정·Kev 질문·평가셋 라벨이 같은 3값을 쓴다([[08-SCORING\|08 점수]] §5.1). `NOT_APPLICABLE` 처리는 §3.4|
 |`review_decision`|`BID`, `WATCH`, `NO_BID`|`bid_reviews.decision`|사람의 최종 결정|
 |`field_state`|`KNOWN`, `UNKNOWN`, `NOT_APPLICABLE`, `CONFLICTED`|JSONB 내부(`ExtractedField.state`)|DB check가 아닌 JSON 값. zod로 검증|
 |`ingest_trigger`|`SCHEDULED`, `MANUAL`, `DEMO`|`ingest_runs.trigger`|—|
@@ -219,14 +270,29 @@ DB check로 거는 값 집합은 19개이고, `field_state`는 JSON 안의 값�
 |`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 mock provider만|
 |`notification_status`|`PENDING`, `SENT`, `FAILED`, `DEAD`|`notifications.status`|`DEAD` = 재시도 소진(DLQ). 읽음은 `read_at`|
 |`outbox_status`|`PENDING`, `PROCESSED`, `FAILED`, `DEAD`|`outbox_events.status`|—|
+|`bid_source`|`fixture`, `g2b-bid-notice`, `g2b-pre-spec`, `g2b-order-plan`|`bid_notices.source`|소문자. 수집 소스 registry `key`와 같은 값([[15-DATA-CONTRACTS\|15 데이터 계약]] §8)|
+|`ingest_source`|`fixture`, `g2b`|`ingest_runs.source`|API `IngestionRunInput.source`와 같은 값|
+|`run_mode`|`LIVE`, `FIXTURE`, `MOCK`|`score_runs.run_mode`, `ingest_runs.run_mode`|env `SOL_RUN_MODE`와 API `runMode`는 소문자(`live`·`fixture`·`mock`)이고 저장할 때 대문자로 바꾼다(`ingest_batch`와 같은 방식)|
+|`document_download_status`|`PENDING`, `OK`, `FAILED`|`bid_documents.download_status`|첨부 다운로드 결과. 실패 사유는 `download_error_code`|
+|`document_parse_error`|`UNSUPPORTED_FORMAT`, `NO_TEXT_LAYER`, `ENCRYPTED`, `DISTRIBUTION_PROTECTED`, `TOO_LARGE`, `CORRUPTED`, `PARSER_ERROR`|`bid_documents.parse_error_code`|gateway `POST /parse`의 `errorCode`([[03-AI-PIPELINE\|03 AI 파이프라인]])|
+|`structured_requirement_kind`|`LICENSE_LIMIT`, `PERMITTED_INDUSTRY`, `PARTICIPATION_REGION`, `REGIONAL_JOINT_CONTRACT`|`bid_structured_requirements.kind`|면허제한 / 허용 업종 / 참가가능지역 / 지역의무공동도급|
+|`kev_calibration`|`UNCALIBRATED`, `CALIBRATED`|`score_runs.kev_calibration`|기본 `UNCALIBRATED`. `CALIBRATED`면 화면에 보정에 쓴 데이터셋 버전을 함께 보인다|
+|`fallback_reason`|`QWEN_UNAVAILABLE`, `KEV_UNAVAILABLE`|`score_runs.fallback_reason`|mock 자동 대체가 실제로 일어난 원인(§3.4)|
+|`requirement_item_kind`|`SKILL`, `PAST_PERFORMANCE`, `STAFFING`, `QUALIFICATION`|`requirement_assessments.item_kind`|기술·실적·인력·자격. 평가 지표의 항목 종류와 같다([[21-MODEL-TRAINING\|21 모델 학습]] §4.3)|
+|`requirement_basis`|`API_FIELD`, `EXTRACTION`|`qualification_checks.basis`, `requirement_assessments.basis`|공고 쪽 값의 출처. 둘 다 있으면 `API_FIELD`가 우선이다([[08-SCORING\|08 점수]] §5.1)|
+|`needs_review_reason`|`NOTICE_INFO_MISSING`, `NOTICE_CONFLICTED`, `COMPANY_EVIDENCE_MISSING`, `AMBIGUOUS_MATCH`, `PARSE_UNSUPPORTED`, `STAGE_NOT_APPLICABLE`|`qualification_checks.reason_code`, `requirement_assessments.rule_reason`|`NEEDS_REVIEW`의 사유. 뜻은 [[08-SCORING\|08 점수]] §5.1|
+|`eval_split`|`train`, `dev`, `test`|`eval_runs.split`|소문자. 데이터셋 분할 이름([[21-MODEL-TRAINING\|21 모델 학습]] §3.6)|
 
 ## 5. 인덱스·제약
 
 인덱스:
 - `bid_notices(stage, status, published_at DESC)`, `bid_notices(deadline_at)`, `bid_notices(is_demo)`, `bid_notices` 제목·기관 trigram 인덱스(`pg_trgm`). 한국어 검색 품질은 별도 측정([[16-DECISIONS|16 ADR]] 6번).
-- `bid_revisions(bid_id, revision DESC)`, `bid_documents(revision_id)`.
+- `bid_notices(source)`(공고 목록 `origin` 필터는 `is_demo` 인덱스를 쓴다).
+- `bid_revisions(bid_id, revision DESC)`, `bid_documents(revision_id)`, `bid_documents(download_status, parse_status)`(documents job 재시도 대상 찾기), `bid_structured_requirements(revision_id)`.
 - `requirement_extractions(revision_id, created_at DESC)`.
 - `score_runs(org_id, bid_id, created_at DESC)`, `score_runs(org_id, status)`.
+- `requirement_assessments(org_id, score_run_id)`.
+- `eval_runs(dataset_version, system_id, split)`, `eval_runs(created_at DESC)`.
 - **부분 UNIQUE**: `score_runs(org_id, bid_id, revision_id, company_profile_id, algorithm_version) WHERE status IN ('QUEUED','RUNNING')`. 같은 입력의 진행 중 job을 하나로 묶는다. 완료된 run은 이력으로 여러 개 허용.
 - `qualification_checks(score_run_id)`, `score_factors(score_run_id)`.
 - `bid_reviews(org_id, bid_id, decided_at DESC)`.
@@ -236,19 +302,25 @@ DB check로 거는 값 집합은 19개이고, `field_state`는 JSON 안의 값�
 
 UNIQUE:
 - `organizations(slug)`, `memberships(org_id, user_id)`(PK), `invitations(org_id, email)` — 템플릿.
-- `bid_notices(source, notice_id)`, `bid_revisions(bid_id, revision)`, `bid_documents(revision_id, sha256)`, `requirement_extractions(revision_id, model_name, prompt_hash)`.
-- `company_profiles(org_id, revision)`, `score_runs(idempotency_key)`, `score_factors(score_run_id, factor)`.
+- `bid_notices(source, notice_id)`, `bid_revisions(bid_id, revision)`, `bid_documents(revision_id, sha256)`(다운로드 전·실패 행은 `sha256`이 null이라 걸리지 않는다), `bid_structured_requirements(revision_id, kind, seq)`, `requirement_extractions(revision_id, model_name, prompt_hash)`.
+- `company_profiles(org_id, revision)`, `score_runs(idempotency_key)`, `score_factors(score_run_id, factor)`, `requirement_assessments(score_run_id, item_id)`.
 - `ingest_runs(job_key)`, `ingest_runs(idempotency_key)`, `outbox_events(idempotency_key)`, `notifications(idempotency_key)`.
 - 복합 FK 대상: `company_profiles(id, org_id)`, `score_runs(id, org_id)`, `team_members(id, org_id)`, `departments(id, org_id)`, `job_titles(id, org_id)`.
 
 복합 외래 키(테넌트 혼입 방지): worker는 service role로 RLS 없이 쓴다. 그래서 자식 행의 `org_id`가 부모와 다르면 DB가 거절하게 한다. 템플릿 `tasks_assignee_fkey`(`(org_id, assignee_id) → memberships`)와 같은 방식이다.
 - `score_runs(company_profile_id, org_id)` → `company_profiles(id, org_id)`
-- `score_factors`·`qualification_checks`·`bid_reviews`의 `(score_run_id, org_id)` → `score_runs(id, org_id)`
+- `score_factors`·`qualification_checks`·`requirement_assessments`·`bid_reviews`의 `(score_run_id, org_id)` → `score_runs(id, org_id)`
 - `bid_reviews(org_id, assignee_id)` → `memberships(org_id, user_id)` on delete set null (`assignee_id`)
 - `notifications(org_id, user_id)` → `memberships(org_id, user_id)` on delete cascade
 - `assignments(member_id, org_id)` → `team_members(id, org_id)`
 
-CHECK: `score BETWEEN 0 AND 100`, `budget_krw >= 0`, `allocation_percent BETWEEN 0 AND 100`, `ends_at > starts_at`, `0 <= points <= max_points`, §4의 값 집합 19개, 템플릿 check(`org_role`, `status`, `slug`, `name`, `display_name` 등).
+CHECK: `score BETWEEN 0 AND 100`, `budget_krw >= 0`, `allocation_percent BETWEEN 0 AND 100`, `ends_at > starts_at`, `0 <= points <= max_points`, §4의 값 집합 31개, 템플릿 check(`org_role`, `status`, `slug`, `name`, `display_name` 등).
+
+ADR-020으로 더한 CHECK(§3.3·§3.4):
+- `bid_documents`: `download_status <> 'OK' or (object_key is not null and sha256 is not null and size_bytes is not null)`, `parse_status not in ('UNSUPPORTED','FAILED') or parse_error_code is not null`.
+- `qualification_checks`: `(outcome = 'NEEDS_REVIEW') = (reason_code is not null)`.
+- `requirement_assessments`: `(rule_status = 'NEEDS_REVIEW') = (rule_reason is not null)`.
+- `score_runs`: `fallback_reason is null or (ai_provider = 'MOCK' and run_mode <> 'LIVE' and 'MOCK_FALLBACK' = any(review_flags))`.
 
 soft-delete는 쓰지 않는다. 계정 정지는 `profiles.status`, 탈퇴는 즉시 삭제(템플릿 `delete_my_account`)다. 계정이 지워지면 이력 열(`requested_by`, `reviewer_id`, `actor_id`, `created_by`)은 비우고 행은 남긴다(on delete set null). 프로필·검토·점수는 append-only. 개인정보 보존 정책은 [[09-SECURITY|09 보안]].
 
@@ -261,7 +333,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**이다
 
 - 키: `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`(서버 전용). 키 값은 출력하지 않는다.
 - 계정 5개는 Supabase Auth 관리 API(`POST /auth/v1/admin/users`, `email_confirm: true`)로 만든다. 템플릿 `scripts/db-seed.mjs`와 같은 방법이다. 비밀번호는 `.env.example`의 `DEMO_SEED_PASSWORD`로만 지정하고, 문서와 저장소에 실제 값을 쓰지 않는다. `profiles` 행은 가입 트리거가 만든다.
-- **멱등**: 다시 돌리면 데모 데이터만 지우고 처음 상태로 다시 만든다. 지우는 범위는 `is_demo=true` 조직·공고와 그 하위 행, 데모 계정 5개(이메일로 찾는다)다. 다른 데이터는 건드리지 않는다. `DEMO_MODE=true`가 아니면 아무것도 하지 않는다.
+- **멱등**: 다시 돌리면 데모 데이터만 지우고 처음 상태로 다시 만든다. 지우는 범위는 `is_demo=true` 조직·공고와 그 하위 행, 데모 계정 5개(이메일로 찾는다)다. 다른 데이터는 건드리지 않는다. live 모드로 수집한 공고(`is_demo=false`)와 그 하위 행, `eval_runs`도 지우지 않는다. 실행 모드와 무관하게 동작한다(`live` 시연에도 데모 계정·가상 회사 프로필이 필요하다, [[16-DECISIONS|ADR-020]]). 지우는 범위가 `is_demo=true` 데이터로 한정되므로 실데이터를 잃지 않는다. 배포(운영) 프로젝트에서 막는 장치는 배포처 결정(미결정 8번) 때 정한다.
 - 템플릿 `pnpm db:seed`는 로컬 Supabase 전용(로컬이 아닌 주소면 멈춘다)이므로 SOL RADAR 데모 seed로 쓰지 않는다.
 - 모든 공고는 `is_demo=true`, 조직은 `is_demo=true`. UI는 이 플래그로 `DEMO` 배지를 보여 준다.
 
@@ -270,12 +342,14 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**이다
 |`organizations`|2|`org-01` = 사용자 회사 "솔리데오"의 가상 데모 조직(공공 SI 중견 설정, 프로필 상세는 [[08-SCORING\|08 점수]]·[[19-DEMO-SCENARIO\|19 데모 시나리오]]). `org-02` = 비교 조직(테넌트 격리 시연용, 프로필 1개). 값은 `slug`이며 `id`는 seed가 고정 UUID로 만든다. 둘 다 팀 조직(`personal_owner_id is null`)이다. 가입 트리거가 만드는 개인 조직은 이 건수에 들지 않는다(§3.1 Phase 1 결정 1)|
 |`auth.users` / `profiles`|5|`org-01`에 역할당 1명(4), `org-02`에 VIEWER 1명(`viewer@other.invalid`, [[19-DEMO-SCENARIO\|19 데모 시나리오]] S7 격리 시연)|
 |`memberships`|5|`org-01`: `admin@soltech.invalid` = `owner` + `ADMIN`, `sales@`·`analyst@`·`viewer@soltech.invalid` = `member` + 각 `sol_role`. `org-02`: `viewer@other.invalid` = `member` + `VIEWER`|
-|`company_profiles`|2|revision 1(초기), revision 2(기술·실적 추가). 데모에서 revision 차이를 보여 준다|
-|`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재|
+|`company_profiles`|2|revision 1(초기), revision 2(기술·실적 추가). 데모에서 revision 차이를 보여 준다. 둘 다 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
+|`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재. `source=fixture`|
 |`bid_revisions`|20 + 정정 건수|정정·기한변경·취소 fixture는 `batch=LIVE` 수집에서 revision 2를 얻는다. 정확한 수는 07 표 기준|
-|`bid_documents`|07 표 기준|첨부가 있는 fixture만. 파싱 실패 케이스 1건 이상 포함|
+|`bid_documents`|07 표 기준|첨부가 있는 fixture만(`download_status=OK`). 파싱 실패 케이스(`parse_status` `UNSUPPORTED` 또는 `FAILED`) 1건 이상 포함|
+|`bid_structured_requirements`|07 표 기준|API 구조화 자격 필드를 담은 fixture만|
 |`requirement_extractions`|20|`fixtures/extractions/FX-xx.json`(mock 추출). 인용 검증 실패 케이스 1건 이상 포함|
-|`score_runs`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 사전 분석을 돌려 채운다|
+|`score_runs` / `requirement_assessments`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 사전 분석을 돌려 채운다|
+|`eval_runs`|0|seed 대상이 아니다. `pnpm eval:publish`가 채운다|
 |`bid_reviews`|2|`FX-01` BID, `FX-03` NO-BID(사전 기록). `FX-02` WATCH는 데모 S4에서 라이브로 기록한다([[19-DEMO-SCENARIO\|19 데모 시나리오]])|
 |`departments` / `job_titles`|승인 fixture 기준|같은 팀명 합산·총 배정 200, 직급/직책 12개. 계정 seed 전에 적재|
 |`team_members`|200|남성 100·여성 100, 고유 세 글자 가상 이름·고유 정장 사진. 점수 계산 대상은 이 중 27명, 가용 20 FTE([[08-SCORING\|08 점수]])|
@@ -292,12 +366,14 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 템플릿 마이그레이션(`20261013000001_init.sql` ~ `20261015000002_team_settings.sql`)은 그대로 둔다. SOL RADAR 스키마는 그 뒤에 새 파일로 쌓는다. 파일 이름은 템플릿 형식(`<YYYYMMDD><6자리 순번>_<이름>.sql`)을 따르고, 마지막 템플릿 파일보다 뒤 순번을 쓴다. 표를 만드는 파일 안에서 RLS 켜기, 권한 회수·부여, 정책까지 함께 쓴다(표는 만드는 즉시 잠근다).
 
 1. 템플릿 확장: `organizations.is_demo`, `memberships.sol_role`, `invitations.sol_role`, 초대 수락 정책 교체(`sol_role` 옮기기), `my_sol_org_ids()`, `protect_sol_role` 트리거.
-2. `bid_notices`, `bid_revisions`, `bid_documents`, `requirement_extractions`.
+2. `bid_notices`, `bid_revisions`, `bid_documents`, `bid_structured_requirements`, `requirement_extractions`.
 3. `company_profiles`.
-4. `score_runs`, `score_factors`, `qualification_checks`.
+4. `score_runs`, `score_factors`, `qualification_checks`, `requirement_assessments`.
 5. `departments`, `job_titles`, `profiles` 가입 신고 열·검증 트리거, `bid_reviews`, `team_members`, `assignments`. `profiles`에 추가하는 FK는 카탈로그 표를 만든 뒤 같은 새 migration에서 건다.
-6. `ingest_runs`, `ingest_errors`, `outbox_events`, `notifications`, `audit_logs`.
+6. `ingest_runs`, `ingest_errors`, `outbox_events`, `notifications`, `audit_logs`, `eval_runs`.
 7. 감사·outbox 트리거, 인덱스·부분 UNIQUE.
+
+[[16-DECISIONS|ADR-020]]의 저장 변경(`bid_notices.pre_spec_ref`·`source` 값, `bid_documents` 다운로드·파싱 열, `bid_structured_requirements`, `requirement_extractions.translations`, `company_profiles`의 `is_demo`·`industry_codes`·`licenses[].status`·`technologies_complete`, `score_runs`의 `run_mode`·`kev_calibration`·`fallback_reason`, `requirement_assessments`, `qualification_checks`의 `reason_code`·`company_evidence`·`basis`, `ingest_runs`의 `run_mode`·`quota_used`, `eval_runs`, `review_flag` 값 7개)은 **기존 표를 고치는 마이그레이션이 아니다.** SOL RADAR 표의 마이그레이션은 아직 하나도 없으므로([[PROGRESS|진행 상황]] Phase 1 미완료) 위 순서의 첫 SOL 마이그레이션들에 처음부터 넣는다. 이 문서의 표 정의가 먼저이고, 마이그레이션은 이 정의를 따른다. 새 표(`bid_structured_requirements`, `requirement_assessments`, `eval_runs`)마다 RLS 정책 시험을 `scripts/database.test.mjs`에 더한다.
 8. 템플릿 견본 정리: `tasks`와 그 함수·트리거(`task_dashboard_stats`, 작업 활동 기록)는 SOL RADAR가 쓰지 않는다. 지운다면 새 마이그레이션 한 장으로 Phase 1에 한다(`activities.kind`의 `task_*` 값 처리 포함). `memos`는 템플릿 `20261014000004_tasks_and_activity.sql`이 이미 지웠다.
 
 파일마다 지킬 것:
@@ -316,4 +392,5 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 - [[09-SECURITY|09 보안]] — 테넌트 격리(RLS), RBAC, 보존
 - [[11-TESTING|11 테스트]] — 정책 시험, G5 격리
 - [[13-NOTIFICATIONS|13 알림]] — outbox
-- [[16-DECISIONS|16 ADR]] — ADR-017 아키텍처 전환
+- [[16-DECISIONS|16 ADR]] — ADR-017 아키텍처 전환, ADR-020 실데이터 MVP와 AI 파이프라인 v0.2(실행 모드·첨부 파싱·항목 판정·평가 표)
+- [[21-MODEL-TRAINING|21 모델 학습]] — `eval_runs`에 올리는 평가 리포트, 비교 대상·지표

@@ -70,29 +70,34 @@ updated: 2026-10-16
 |CSRF|쿠키 인증의 상태 변경 요청에 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. 쿠키 SameSite=Lax와 이중 방어, CORS는 열지 않는다. Bearer 요청은 제외|
 |XSS|CSP nonce(템플릿 `web/proxy.ts`·`web/server/csp`), `dangerouslySetInnerHTML` 금지, 외부 텍스트는 텍스트로만 렌더링. 세션 쿠키가 HttpOnly가 아니라서 XSS는 곧 세션 탈취다|
 |SQL injection|supabase-js 질의 빌더(값은 파라미터로 전달). SQL은 마이그레이션·DB 함수에만 두고 문자열을 이어 붙여 만들지 않는다. DB 함수는 `search_path`를 고정한다(템플릿 `20261013000002_function_search_path.sql`)|
-|SSRF|첨부 다운로드는 도메인 allowlist, DNS 재검증, 사설 IP 거부, 응답 크기 제한|
+|SSRF|첨부 다운로드(worker의 `G2bAttachmentFetcher`)는 `https://www.g2b.go.kr`만 허용한다(allowlist. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트). 리다이렉트는 같은 allowlist 안에서만 따르고, 연결 전에 DNS를 다시 확인해 사설 IP로 풀리면 거부한다. timeout 30 s, 최대 50 MB(넘으면 받지 않는다), 형식은 확장자가 아니라 매직 바이트로 판정한다. 공공 API는 `infra/sources/registry.yaml`에 등록한 data.go.kr 엔드포인트만 부른다([[15-DATA-CONTRACTS\|15 데이터 계약]] §8). gateway(`/parse`)는 네트워크·MinIO에 접근하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.4)|
 |LLM prompt injection|아래 "책임 있는 AI" 절|
-|문서 악성코드|MIME/sniff, 확장자/크기 제한, 격리 처리, 필요한 경우 AV 스캔|
-|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`)|
+|문서 악성코드|MIME/sniff(매직 바이트), 확장자/크기 제한(50 MB), 격리 처리, 필요한 경우 AV 스캔. 파서는 gateway 안에서만 돌고 네트워크 권한이 없다|
+|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키 `G2B_SERVICE_KEY`는 worker 전용 서버 env다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 서버의 vLLM `--api-key` 값과 `KEV_API_KEY`는 GPU 서버와 gateway의 서버 env에만 둔다|
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
 
 ## 책임 있는 AI
 ### 원칙
 1. 규칙 엔진이 최종이다. 자격 판정과 SOL Score는 결정적 규칙으로만 계산한다.
-2. Kev는 보조 의견이다. 규칙상 `NOT_SATISFIED`·`NEEDS_REVIEW`를 BID로 승격할 수 없다.
-3. 수주확률·낙찰 확률을 표현하지 않는다. Kev 확률은 "선택지에 대한 모델 분포"로만 표기한다.
+2. Kev는 보조 의견이다. 규칙상 `NOT_SATISFIED`·`NEEDS_REVIEW`를 BID로 승격할 수 없다. Kev 결과는 "모델 참고 지표 (점수 미반영)" 영역에만 보이고 SOL Score의 입력이 아니다([[16-DECISIONS|ADR-020]]).
+3. 충족 확률·낙찰 확률·수주확률을 표현하지 않는다. Kev 확률은 "선택지에 대한 모델 분포"로만 표기한다(아래 고지 문구).
 4. 사람이 최종 결정을 내리고 사유와 함께 기록한다.
 5. DEMO 데이터는 DEMO로 표시한다. 실데이터처럼 보이게 하지 않는다.
+6. live 모드의 분석은 "실제 공고 × 가상 회사 프로필"이다. 회사 프로필은 모든 실행 모드에서 가상 솔리데오 프로필이고, 화면에 "가상 회사 프로필로 분석" 배지를 붙여 실제 회사의 판단처럼 보이지 않게 한다(ADR-019·020).
+7. mock 결과를 실제 모델 결과처럼 보이지 않게 한다. mock 자동 대체는 기본 금지다. `AI_FALLBACK_TO_MOCK=true`(`live`에서는 기동 거부)로 켰을 때 실제로 대체되면 `reviewFlags`에 `MOCK_FALLBACK`, 감사 필드 `fallback_reason`, 화면 배너로 밝힌다.
+8. 파싱·다운로드에 실패한 내용을 AI가 추측해 채우지 않는다. Qwen에는 파싱된 텍스트만 들어가고, Kev state에는 "RFP attachment could not be read; requirements may be incomplete" 사실 한 줄만 들어가며, `/explain`은 파싱 실패를 문장에 밝힌다([[07-DATA-PIPELINE|07 수집]] §2.6).
+9. 모델 성능은 평가셋 숫자(표본 수·신뢰구간 포함)로만 주장한다([[21-MODEL-TRAINING|21 모델 학습]]).
 
 > [!warning] 미검증 가정
-> Kev는 영어 모델이다 (모델 카드 `Languages: English`, 영어 외 언어는 "known not to work well". 2026-10-16 확인, https://github.com/jaredpalmer/kev docs/model-cards/kev-4b.md). 한국어 공고는 어댑터가 추출된 사실을 **영어 템플릿 state로 변환**해 전달한다 ([[03-AI-PIPELINE|03 AI 파이프라인]] §5.6). 이 변환이 한국어 입찰 도메인에서 유효한지는 미검증이다. 그래서 Kev는 `review_flags` 추가만 할 수 있고, `KEV_ENABLED` 기본값은 `false`다 ([[16-DECISIONS|16 ADR]] ADR-012).
+> Kev는 영어 모델이다. Kev-9B 모델 카드는 `language: en`이고 영어가 아닌 입력은 사용 범위 밖이다(2026-10-16 확인, https://github.com/jaredpalmer/kev main `1f04cfa` docs/model-cards/kev-9b.md. Kev-4B 모델 카드도 `Languages: English`). 한국어 공고는 어댑터가 추출된 사실을 **영어 템플릿 state로 변환**해 전달한다([[03-AI-PIPELINE|03 AI 파이프라인]] §5.6). 이 변환이 한국어 입찰 도메인에서 유효한지는 미검증이고, 평가셋의 E1(영어 state)·E2(한국어 state) 비교로 잰다([[21-MODEL-TRAINING|21 모델 학습]]). 그래서 Kev는 `review_flags` 추가와 참고 지표 표시만 할 수 있다. **한국어 state는 운영에서 거부한다.** 같은 구조의 한국어 템플릿은 평가 전용이라 gateway env `KEV_ALLOW_KO_STATE=true`일 때만 받고, 없이 오면 `422 KO_STATE_NOT_ALLOWED`다. `SOL_RUN_MODE=live`와 함께 쓰면 플래그가 있어도 gateway가 기동을 거부한다([[16-DECISIONS|16 ADR]] ADR-012·020). 한국어 운영 사용은 평가 결과를 보고 다시 검토한다.
 
 ### 사람 개입 지점 (HITL)
 |지점|누가|무엇을|시스템 동작|
 |---|---|---|---|
 |분석 결과 검토|ADMIN, SALES, ANALYST|자격 체크리스트·근거 인용 확인|`NEEDS_REVIEW` 항목은 사람이 확인 전까지 `SATISFIED`로 바뀌지 않는다|
-|규칙·모델 불일치|ADMIN, SALES, ANALYST|`review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW` 확인|UI 경고 배지. 권고는 바뀌지 않는다|
+|규칙·모델 불일치|ADMIN, SALES, ANALYST|`review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW`, `kev-qs/v0.2`의 `KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK` 확인|UI 경고 배지. 규칙 판정·점수·권고는 바뀌지 않는다|
+|첨부를 읽지 못함|ADMIN, SALES, ANALYST|`DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED`·"일부만 읽음" 문서의 원문 확인|첨부에 의존하는 항목은 `NEEDS_REVIEW`로 남는다. 시스템이 빈 내용을 추측해 채우지 않는다|
 |최종 참여 결정|ADMIN, SALES|BID/WATCH/NO-BID + 사유 입력 (`POST /bids/:id/reviews`)|권고와 다른 결정 허용, 사유 필수, `audit_logs` 기록|
 |프로필 개정|ADMIN|회사 역량 변경|새 revision 생성, 기존 score_run 불변, 재분석은 명시 요청|
 |자동 BID 차단|시스템|-|자격이 `NEEDS_REVIEW` 또는 `NOT_SATISFIED`이면 BID 권고 자체를 생성하지 않는다|
@@ -100,10 +105,31 @@ updated: 2026-10-16
 
 ### 모델 한계 고지 문구 (UI에 그대로 사용)
 ```text
-[Kev 보조 의견 영역]
+[모델 참고 지표 (점수 미반영) 영역 — kev-qs/v0.2, API KevAssist.disclaimer]
+Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.
+```
+```text
+[가상 회사 프로필 배지 — 모든 실행 모드의 분석 화면]
+가상 회사 프로필로 분석
+```
+```text
+[Mock 대체 배너 — AI_FALLBACK_TO_MOCK=true에서 실제로 대체된 run, reviewFlags MOCK_FALLBACK]
+모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)
+```
+```text
+[실행 모드 머리말]
+실행 모드: live | fixture | mock
+```
+```text
+[첨부 미처리 배지]
+첨부 원문 확인    ← DOCUMENT_DOWNLOAD_FAILED · PARSE_UNSUPPORTED
+일부만 읽음       ← parse_status=PARTIAL
+```
+```text
+[Kev 참고 지표 영역의 recommendation 블록 — kev-qs/v0.1, 모든 모드·데모 S3. 06·08의 "Kev 블록 3줄"]
 이 의견은 Kev 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.
-낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.
-최종 결정은 담당자가 기록합니다. 모델: {kev.model} · 질문 세트: {kev.questionSet} · 공급자: {kev.provider}
+충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.
+최종 결정은 담당자가 기록합니다. 모델: {kev.model} · 질문 세트: {kev.questionSetVersion} · 공급자: {kev.provider}
 ```
 ```text
 [AI 불가 배너]
@@ -126,10 +152,11 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 |출력 강제|JSON Schema 검증. 실패 시 1회 재시도, 재실패 시 `requirement_extractions.status=FAILED`, 분석은 `PARTIAL`. 스키마 밖 필드는 폐기|
 |권한 없음|모델에는 도구·파일·네트워크 호출 권한이 없다. gateway는 모델 출력을 실행하지 않고 값으로만 다룬다|
 |인용 검증|AI가 만든 인용은 원문 문자열 매칭에 실패하면 무효 ([[15-DATA-CONTRACTS\|15 데이터 계약]])|
-|Kev 입력 정형화|Kev에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다|
+|Kev 입력 정형화|Kev에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 자유 텍스트 값은 `/extract`의 `translations`(숫자 보존 검사 통과분)만 쓴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`)|
+|파싱 실패 처리|읽지 못한 첨부의 내용을 추정하라는 지시를 프롬프트에 넣지 않는다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`이 된다([[15-DATA-CONTRACTS\|15 데이터 계약]] §5.1)|
 
 ### 감사 가능성
-두 테이블이 모든 AI 실행을 재현 가능하게 남긴다 (컬럼 정의는 [[04-DATABASE|04 DB]] §3.3·§3.4):
+아래 테이블이 모든 AI 실행과 수집을 재현 가능하게 남긴다 (컬럼 정의는 [[04-DATABASE|04 DB]] §3):
 
 |테이블|필드|내용|
 |---|---|---|
@@ -137,16 +164,20 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 ||`model_name`, `prompt_version`, `prompt_hash`, `schema_version`|Qwen 모델 식별자, 프롬프트 템플릿 버전(`AI_PROMPT_VERSION`)과 SHA-256, 출력 스키마 버전|
 ||`status`, `warnings`, `latency_ms`, `retries`|`COMPLETED / PENDING_REVIEW / FAILED`, 경고 코드(`INJECTION_SUSPECTED`, `QDRANT_FALLBACK` 등)|
 |`score_runs`|`algorithm_version`|규칙 엔진·점수표 버전 (예: `sol-v0.1.0`)|
+||`run_mode`|그 분석을 돌린 실행 모드 `LIVE` / `FIXTURE` / `MOCK`([[16-DECISIONS\|ADR-020]])|
+||`ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `kev_calibration`|실제로 쓴 AI 공급자·모델·질문 세트(`kev-qs/v0.1`·`v0.2`), Kev 임계값 보정 상태(기본 `UNCALIBRATED`)|
+||`fallback_reason`|mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`). 이때 `ai_provider=MOCK`이고 `review_flags`에 `MOCK_FALLBACK`이 있다. `live` run에는 생길 수 없다(DB check)|
 ||`input_snapshot`|분석 입력 전체(`AnalysisInput`: 추출 결과 + 프로필 revision) JSONB|
-||`model_metadata`|`provider`, Kev 모델(`GET /v1/models` 응답, 예: `jaredpalmer/kev-4b@v1.0`), 질문 세트(`kev-qs/v0.1`), 프롬프트 버전|
-||`kev_output`|Kev 원 응답 JSONB (없으면 null)|
+||`model_metadata`|`provider`, Kev 모델(`GET /v1/models` 응답과 모델 레지스트리 항목, 예: `jaredpalmer/kev-9b@v1.0`), 질문 세트, 프롬프트 버전|
+||`kev_output`|Kev 원 응답 JSONB와 `KevStateTrace`(state 줄마다의 공고 인용·회사 증빙, [[15-DATA-CONTRACTS\|15 데이터 계약]] §2.1). 없으면 null|
 ||`review_flags`, `recommendation_basis`, `error_code`|사람 검토 사유, `RULES_ONLY / RULES_WITH_KEV_ASSIST`, 실패 사유|
 ||`queued_at`, `started_at`, `finished_at`, `status`|실행 시각과 `COMPLETED / PARTIAL / FAILED`|
+|`ingest_runs`|`run_mode`, `source`, `quota_used`|수집 당시 실행 모드, 요청 소스(`fixture`·`g2b`), 쓴 공공 API 호출 수|
 
 재현 규칙: 같은 `input_snapshot` + 같은 `algorithm_version`이면 규칙 점수·자격 판정·권고는 동일해야 한다. 이 성질은 테스트로 고정한다 ([[11-TESTING|11 테스트]]). 기존 run은 덮어쓰지 않고 새 run을 만든다.
 
 ### 편향·오탐 모니터링
-지표: 사람 최종 결정 vs 권고 불일치율, `review_flags`의 `MODEL_RULE_DISAGREEMENT` 비율, 발주기관·사업 유형별 NO-BID 비율 편중, `NEEDS_REVIEW` 비율. 임계 초과 시 가중치를 사람이 재검토한다. 지표 정의와 관리자 화면은 [[14-OBSERVABILITY|14 관측성]].
+지표: 사람 최종 결정 vs 권고 불일치율, `review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_REQUIREMENT_DISAGREEMENT` 비율, 발주기관·사업 유형별 NO-BID 비율 편중, `NEEDS_REVIEW` 비율. 임계 초과 시 가중치를 사람이 재검토한다. 지표 정의와 관리자 화면은 [[14-OBSERVABILITY|14 관측성]].
 
 > [!tip] 심사 포인트
 > "AI가 틀리면 어떻게 되나"에 대한 답이 이 절이다. 틀린 Kev 출력은 규칙을 넘지 못하고, 사람이 확인하기 전 자격은 확정되지 않으며, 모든 실행은 모델·프롬프트·입력 해시로 재현 가능하다.
@@ -155,15 +186,43 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - `.env.example`류 파일에는 placeholder만 둔다. 기동 전 `pnpm check:env`가 placeholder를 감지하면 중단.
 - env 구분:
   - 공개 값: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. anon 키는 브라우저 번들에 들어가도록 설계된 공개 키이고 권한은 RLS가 정한다.
-  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키).
+  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_SERVICE_KEY`(data.go.kr 서비스키, worker 전용), `KEV_API_KEY`와 vLLM `--api-key` 값(회사 GPU 서버의 모델 런타임 인증).
   - redis·minio는 `demo` 프로필에서도 기본 비밀값(`minioadmin` 등)을 쓰지 않는다.
-- `AI_HOSTED_APPROVED=false`, `KEV_ENABLED=false`가 기본. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다).
-- 호스트 포트: web 3000만 연다. API(`/api/v1`)와 헬스체크(`/health/*`)도 web이 응답하며 별도 api 서비스는 없다. redis/qdrant/minio/ai-gateway/kev는 Compose 내부 네트워크에 두고, web을 Compose 밖에서 띄우느라 호스트에 열어야 하는 포트도 `127.0.0.1`에만 바인딩한다.
+- `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다.
+- 호스트 포트: web 3000만 연다. API(`/api/v1`)와 헬스체크(`/health/*`)도 web이 응답하며 별도 api 서비스는 없다. redis/qdrant/minio/ai-gateway/kev는 Compose 내부 네트워크에 두고, web을 Compose 밖에서 띄우느라 호스트에 열어야 하는 포트도 `127.0.0.1`에만 바인딩한다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고 터널로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
 - 데모 노트북은 127.0.0.1 바인딩. 공용 Wi-Fi에서 0.0.0.0 바인딩 금지.
 - seed 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). `.invalid` TLD라 실제 메일 발송 불가. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
-- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. 첨부 원본은 MinIO(Compose)에 둔다. 데모·배포 실행 환경의 최종안은 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표).
+- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 MinIO(Compose)에 둔다. 데모·배포 실행 환경의 최종안은 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표).
 - OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
+
+## 실데이터와 회사 GPU 서버 (ADR-020)
+
+해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.5-9B·Kev-9B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020]]). 이 절은 그때 지킬 경계를 정한다.
+
+### 회사 GPU 서버 연결
+- gateway는 노트북 Compose에 그대로 둔다. 회사 GPU 서버에는 모델 런타임(Qwen은 vLLM, Kev는 `kev.serve`)만 올린다. Worker → gateway → 모델 구조는 바뀌지 않는다.
+- 모델 런타임은 GPU 서버의 `127.0.0.1`에만 바인딩하고 외부 포트를 열지 않는다. gateway는 터널(SSH 로컬 포트포워딩 등, 회사망 정책에 맞춘다)로만 닿는다. `QWEN_BASE_URL`·`KEV_BASE_URL`은 터널의 로컬 끝점을 가리킨다.
+- vLLM `--api-key`와 `KEV_API_KEY`를 설정한다. 키 값은 서버 env에만 두고 문서·로그·커밋·스크린샷에 남기지 않는다.
+- 회사망이 터널·외부 접속을 허용하는지, GPU 모델·VRAM·공유 여부는 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, ADR-020 P0-0에서 확인).
+- 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
+
+### 회사 GPU로 가는 데이터
+- 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
+- 평가 하네스·LoRA 메모리 검증도 GPU 서버에서 돈다. 회사 GPU에서 돌려받는 것은 체크포인트·리포트·모델 카드이고 데이터셋 원문은 돌려받지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).
+
+### 공공 API 응답의 개인정보
+- 입찰공고 응답에는 담당자 이름·전화·이메일이 있다.
+- 담당자 필드는 `NormalizedBid`, `bid_revisions.normalized`·`raw_payload`, `bid_structured_requirements`, 모델 입력(Qwen·Kev), 데이터셋에 넣지 않는다([[15-DATA-CONTRACTS|15 데이터 계약]] §3, [[04-DATABASE|04 DB]]).
+- 담당자 필드가 든 원본 응답(`rawPayload` 원본)은 사설 MinIO에만 보관한다. public bucket 금지와 presigned URL 규칙(위 MinIO 행)은 그대로다.
+- 데이터셋을 내보내기 전에 본문·첨부 텍스트의 전화·이메일 패턴을 같은 길이의 마스킹 문자로 바꾼다. 길이를 지켜서 인용 오프셋이 그대로 맞게 한다([[21-MODEL-TRAINING|21 모델 학습]] §3.6).
+- 증거(`docs/evidence/`)·시험 fixture·registry `sampleResponses`에 실제 응답을 둘 때도 담당자 필드를 빼거나 마스킹하고, 서비스키가 든 요청 URL은 남기지 않는다.
+
+### 첨부 원문 저작권과 파서 라이선스
+- 공공 API 데이터의 이용허락범위는 제한 없음으로 표시되어 있다([[16-DECISIONS|16 ADR]] 미결정 1번). 첨부 원문(공고문·제안요청서)의 저작권·재배포·학습 사용 조건은 별개이고 미확인이다(미결정 18번).
+- 그래서 첨부 원문은 내부 분석과 사내 학습에만 쓴다. 외부 공개·데이터셋 배포 전에 법무를 확인한다. 실제 RFP 원문은 저장소와 `docs/evidence/`에 넣지 않고 지표와 문서 id만 남긴다.
+- **배포용(보호) HWP는 복호화하지 않는다.** 일부 파서 후보는 배포용 문서를 풀 수 있지만, 작성자가 건 보호를 푸는 것이 저작권법상 기술적 보호조치 해제에 해당하는지 확인하지 않았다. 법무 확인 전에는 `UNSUPPORTED`(`DISTRIBUTION_PROTECTED`)로 처리하고, 열기 암호 문서는 `ENCRYPTED`로 둔다.
+- **파서 라이선스**: 후보는 MIT·Apache-2.0·BSD만 쓴다. AGPL(pyhwp·PyMuPDF, camelot의 `ghostscript` extra)은 네트워크 서비스로 제공하면 서비스 전체 소스 공개 의무가 생겨 쓰지 않는다. GPL(H2Orestart·poppler)은 이미지 배포 시 의무가 생기고, 별도 프로세스 호출이 의무를 피하는지 법률 검토 전이라 쓰지 않는다. marker 모델 가중치(수정 OpenRAIL-M, 상업 이용 제한)도 쓰지 않는다. 후보 목록은 [[07-DATA-PIPELINE|07 수집]] §2.5.
 
 ## 정보 보존
 원본 공공 문서와 회사 자료를 분리. 회사 정보 삭제 요청 및 보존 기한은 실제 운영 조직 정책/법령 확인 후 정의; 백업에도 같은 절차 적용. 로그에는 원문/토큰/PII 미기록. 기본 TLS, DB/오브젝트 스토리지 주기적 백업 및 복구 테스트. Supabase 프로젝트의 백업 범위·보존 기간은 플랜 설정으로 확인한다(미검증). MinIO 첨부 원본(Compose volume)은 Supabase 백업에 들어가지 않는다.
@@ -182,8 +241,11 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - [[04-DATABASE|04 DB]]
 - [[05-API-SPEC|05 API]]
 - [[06-UI-UX|06 UI]]
+- [[07-DATA-PIPELINE|07 수집 파이프라인]]
 - [[08-SCORING|08 스코어링]]
 - [[10-DEPLOYMENT|10 배포]]
 - [[11-TESTING|11 테스트]]
 - [[14-OBSERVABILITY|14 관측성]]
+- [[15-DATA-CONTRACTS|15 데이터 계약]]
 - [[16-DECISIONS|16 ADR]]
+- [[21-MODEL-TRAINING|21 모델 학습]]

@@ -41,7 +41,7 @@ updated: 2026-10-16
 | 권고 (recommendation) | 시스템이 내는 `BID` / `WATCH` / `NO_BID`. 결정이 아니다 | [[08-SCORING]] |
 | 결정 (decision, `bid_reviews`) | 사람이 사유와 함께 기록하는 최종 참여 판단 | [[08-SCORING]] |
 | BID / WATCH / NO-BID | 참여 / 관망·추가 검토 / 불참 | [[08-SCORING]] |
-| `MODEL_RULE_DISAGREEMENT` | Kev 보조 의견과 규칙 판정이 상충할 때 발생. 사람 검토 필수 | [[08-SCORING]] |
+| `MODEL_RULE_DISAGREEMENT` | Kev 참고 지표(`recommendation`)와 규칙 판정이 상충할 때 발생. 사람 검토 필수 | [[08-SCORING]] |
 | `INSUFFICIENT_DATA` | 근거가 없어 값을 표시하지 않는 상태. 임의 값으로 채우지 않는다 | [[00-README]] |
 | 분석 상태 | `NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED / PARTIAL / FAILED`. `PARTIAL`은 AI 없이 규칙만으로 완결한 결과 | [[06-UI-UX]] |
 | 골든셋 / 골든 시나리오 | 기대 결과가 사람에 의해 확정된 테스트 입력. 회귀 기준 | [[11-TESTING]] |
@@ -56,15 +56,15 @@ updated: 2026-10-16
 | Kev | Jared Palmer의 Apache-2.0 소형 결정 모델(Qwen3.5 기반 0.8B/4B/9B, Qwen3.8 기반 27B). 타입이 정해진 질문에 텍스트 생성 없이 캘리브레이션된 확률을 돌려준다. 모델 카드 기준 영어 전용. 저장소 https://github.com/jaredpalmer/kev | [[03-AI-PIPELINE]] |
 | System One (TypeSafe) | Kev 서버가 호환하는 API 프로토콜. 엔드포인트 `POST /v1/systemone` | [[03-AI-PIPELINE]] |
 | `noul` / `choice` / `score` | Kev 질문 타입: yes/no, 다지선다, 등급 평가 | [[03-AI-PIPELINE]] |
-| Kev 분포 | 선택지에 대한 모델 확률 분포. **수주확률이 아니다.** UI에 항상 고지 | [[06-UI-UX]] |
+| Kev 분포 | 선택지에 대한 모델 확률 분포. **충족 확률·수주확률이 아니다.** UI에 항상 고지 | [[06-UI-UX]] |
 | 규칙 엔진 | 필수 자격·점수·결정 정책을 계산하는 결정론적 코드. 최종 권고의 주체 | [[08-SCORING]] |
 | 임베딩 / Qdrant | 근거 문단을 벡터로 저장·검색. 재생성 가능한 파생 인덱스 | [[02-ARCHITECTURE]] |
-| `EvidenceRef` | 근거 인용 구조 `{documentId, revisionId, page?, charStart?, charEnd?, quotedText?, sourceUrl?, fetchedAt}`. 원문과 매칭 검증 실패 시 무효 | [[15-DATA-CONTRACTS]] |
+| `EvidenceRef` | 근거 인용 구조 `{kind, documentId, revisionId, page?, charStart?, charEnd?, apiField?, apiSource?, quotedText, sourceUrl?, fetchedAt}`. `kind=TEXT`는 본문·첨부 텍스트 인용, `kind=API_FIELD`는 공공 API 구조화 필드 값. 검증 실패 시 무효 | [[15-DATA-CONTRACTS]] |
 | `fieldState` | 필드 상태 `KNOWN / UNKNOWN / NOT_APPLICABLE / CONFLICTED` | [[15-DATA-CONTRACTS]] |
 | 프롬프트 인젝션 | 외부 문서 안의 지시문이 모델을 조종하려는 공격. 외부 문서는 데이터로만 취급 | [[09-SECURITY]] |
 | HITL (Human-in-the-loop) | 사람이 반드시 개입하는 지점. 최종 결정, `NEEDS_REVIEW`, `MODEL_RULE_DISAGREEMENT` | [[09-SECURITY]] |
 | `AI_PROVIDER` | `mock` / `local` / `hosted`. 데모 기본은 `mock` | [[03-AI-PIPELINE]], [[10-DEPLOYMENT]] |
-| `KEV_ENABLED` | Kev 실모델 사용 플래그. 한국어 도메인 검증 전 기본 `false` | [[03-AI-PIPELINE]] |
+| `KEV_ENABLED` | Kev 사용 플래그. 기본값은 실행 모드가 정한다(`live`·`fixture` → 실모델, `mock` → mock adapter, 모두 `true`). `false`면 Kev 없이 `RULES_ONLY` | [[03-AI-PIPELINE]] |
 
 ## 데이터·플랫폼
 
@@ -77,7 +77,7 @@ updated: 2026-10-16
 | 멱등키 (idempotency key) | 같은 요청·이벤트를 두 번 처리하지 않게 하는 고유 키 | [[05-API-SPEC]], [[13-NOTIFICATIONS]] |
 | 커서 페이지네이션 | `{items, pageInfo:{cursor,nextCursor,hasNext}}` 형식의 목록 응답 | [[05-API-SPEC]] |
 | fixture | 외부 API 없이 쓰는 가상 공고 데이터 `FX-01`~`FX-20` | [[07-DATA-PIPELINE]] |
-| `DEMO_MODE` / DEMO 데이터 | 외부 호출 없이 fixture로 동작하는 모드. 화면에 가상임을 표시 | [[00-README]] |
+| `DEMO_MODE` / DEMO 데이터 | `SOL_RUN_MODE`에서 파생되는 호환용 값(`fixture`·`mock` → `true`, `live` → `false`). `true`면 외부 공공 API 없이 fixture로 수집한다. DEMO 데이터(`is_demo=true`)는 화면에 가상임을 표시 | [[07-DATA-PIPELINE]] |
 | Connector | 수집 소스 어댑터 `fetchPage({from,to,cursor})` | [[07-DATA-PIPELINE]] |
 | 격리 (quarantine) | 검증 실패 레코드를 적재하지 않고 따로 보관 | [[07-DATA-PIPELINE]] |
 | DLQ | Dead-letter queue. 재시도 소진 작업 보관 | [[02-ARCHITECTURE]] |
@@ -97,7 +97,7 @@ updated: 2026-10-16
 | Route Handler | Next.js App Router의 서버 HTTP 핸들러(`web/app/api/v1/**/route.ts`). 외부 API 계약 `/api/v1/...`과 헬스체크 `/health/live`·`/health/ready`를 낸다 | [[05-API-SPEC]] |
 | 서버 도메인 (`web/server/<도메인>`) | 서버 전용 업무 코드. model·repo·service·index(배럴)로 나누고 `import "server-only"`로 시작한다. 다른 코드는 배럴(`@/server/<도메인>`)로만 부른다. 예: `bids`·`ingestion`·`scoring`·`analysis`·`review`·`notifications`·`company-profile`·`health` | [[02-ARCHITECTURE]] |
 | zod 스키마 (계약 단일 원천) | `web/server/<도메인>/*.model.ts`의 zod 스키마. 화면 폼·Route Handler·worker가 같은 스키마로 입력을 검증한다. OpenAPI 문서는 필요하면 여기서 생성한다(선택) | [[05-API-SPEC]], [[16-DECISIONS]] |
-| worker 진입점 (`web/worker`) | BullMQ 소비자(ingest job·analysis job)를 띄우는 별도 Node(TypeScript) 프로세스. `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈을 불러오는 실행 방식(`node --conditions=react-server`)은 Phase 0 검증 항목 | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
+| worker 진입점 (`web/worker`) | BullMQ 소비자(ingest·documents·extract·analysis job)를 띄우는 별도 Node(TypeScript) 프로세스. `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈을 불러오는 실행 방식(`node --conditions=react-server`)은 Phase 0 검증 항목 | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
 | AI gateway | Python FastAPI 서비스(`services/ai/`, :8000). Qwen·Kev 호출은 이것만 한다. Next 서버와 worker는 Kev에 직접 접근하지 않는다 | [[03-AI-PIPELINE]] |
 | 마이그레이션 (`supabase/migrations/`) | 스키마·RLS 정책·DB 함수를 담는 SQL 파일. 새 파일로만 쌓는다(append-only). 클라우드 적용은 `pnpm db:push`(사용자 확인 뒤에만) | [[04-DATABASE]] |
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |
@@ -163,6 +163,32 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | personId | 가상 직원의 `SOL-P0001`~`SOL-P0200` 고정 ID. 이름·소속·사진을 연결 | [[07-DATA-PIPELINE]] |
 | scoringEligible | 전체 200명 중 가상 점수 계산에 포함할 27명을 명시하는 값. 가입 권한·재직 여부와 무관 | [[08-SCORING]] |
 
+## 실데이터 파이프라인·모델 평가 용어 (ADR-020)
+
+| 용어 | 뜻 | 원천 |
+|---|---|---|
+| 실행 모드 (`SOL_RUN_MODE`) | `live`(나라장터 Open API + 실제 AI), `fixture`(fixture 20건 + 실제 AI), `mock`(fixture 20건 + mock AI). 분석마다 `score_runs.run_mode`로 기록 | [[03-AI-PIPELINE]] |
+| 정보화사업 (`infoBizYn`) | 입찰공고 응답의 정보화사업 여부. `Y`인 용역 공고만 수집 | [[07-DATA-PIPELINE]] |
+| API 구조화 필드 | 면허제한·참가가능지역·금액·마감처럼 공공 API가 필드로 주는 조건. 같은 조건이면 Qwen 추출보다 우선 | [[08-SCORING]] |
+| `DocumentParser` | HWP·HWPX·PDF 형식별 파서 어댑터 인터페이스. 결과는 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED`. 계약 정본은 03 §10 | [[03-AI-PIPELINE]] |
+| 실패 유형 | 공공 API 실패·첨부 다운로드 불가·파싱 실패·모델 서버 미접속(Qwen·Kev 따로). 서로 섞지 않고 따로 기록·표시 | [[03-AI-PIPELINE]] |
+| `MOCK_FALLBACK` | `AI_FALLBACK_TO_MOCK=true`(live 금지)일 때 실제 모델 대신 mock 결과를 낸 run의 플래그. 화면에 "실제 모델 결과 아님" 배너 | [[03-AI-PIPELINE]] |
+| 참고 지표 | Kev 결과를 보여 주는 화면 영역. SOL Score·자격·권고에 반영하지 않는다 | [[08-SCORING]] |
+| `kev-qs/v0.2` | Kev 질문 세트 v0.2. 요구사항별 `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`, `techFit`, `perfRelevance`, `risk.*`. v0.1과 함께 쓴다 | [[03-AI-PIPELINE]] |
+| 사유 코드 | `NEEDS_REVIEW`의 이유. `NOTICE_INFO_MISSING`·`NOTICE_CONFLICTED`·`COMPANY_EVIDENCE_MISSING`·`AMBIGUOUS_MATCH`·`PARSE_UNSUPPORTED`·`STAGE_NOT_APPLICABLE` | [[08-SCORING]] |
+| 명시적 부정 근거 | 회사가 조건을 충족하지 않는다는 기록(`NOT_HELD`, 요구치 미만 수치, 완결된 기술 목록에 없음). 미충족 판정에 필요 | [[08-SCORING]] |
+| `CompanyEvidenceRef` | 회사 쪽 근거 위치(프로필 revision·기록 키·증빙 문서) | [[15-DATA-CONTRACTS]] |
+| `KevStateTrace` | Kev state 줄마다 공고 인용·회사 증빙·요구사항 항목을 기록한 추적표 | [[15-DATA-CONTRACTS]] |
+| 모델 레지스트리 | `services/ai/models/registry.yaml`. 모델 id·run·base·sha256·데이터셋 버전. gateway가 기동할 때 대조 | [[21-MODEL-TRAINING]] |
+| 평가셋 | 실제 공고 × 가상 기업 원형 6개로 만든 라벨 데이터. test 20·dev 10 사업(해커톤) | [[21-MODEL-TRAINING]] |
+| 사업 클러스터 | 같은 사업의 발주계획·사전규격·공고·재공고를 묶은 단위. 평가셋 분할 단위 | [[21-MODEL-TRAINING]] |
+| 대조 변형 | 같은 공고에 대해 기업 기록만 바꿔 충족·미충족·정보 부족 사례를 만든 가상 기업 | [[21-MODEL-TRAINING]] |
+| 라벨 출처 | `CONSTRUCTED`(변형으로 정해짐), `HUMAN`(사람 검수 확정), `RULE_SILVER`(규칙 계산, 학습셋 전용) | [[21-MODEL-TRAINING]] |
+| 오류 원인 코드 | 오답의 원인 단계. `PARSE`·`EXTRACTION`·`TRANSLATION`·`STATE`·`RULE`·`LABEL`·`MODEL`. `MODEL`이 주된 원인일 때만 파인튜닝 검토 | [[21-MODEL-TRAINING]] |
+| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어, E2 Kev-9B 한국어, E3 Qwen 분류(선택), E4 Kev-9B+LoRA(후속). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
+| fixture 배치 `live` vs 실행 모드 `live` | fixture 두 번째 배치(`batch:"live"`, 데모 S5 변경분)와 실제 공공 API 실행 모드(`SOL_RUN_MODE=live`)는 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH` | [[19-DEMO-SCENARIO]] |
+| P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 터널·파서 비교 | [[12-ROADMAP]] |
+
 ## 관련 문서
 
 - [[00-README|00 인덱스]]
@@ -172,3 +198,4 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 - [[18-HACKATHON|18 해커톤 전략]]
 - [[16-DECISIONS|16 ADR]]
 - [[09-SECURITY|09 보안]]
+- [[21-MODEL-TRAINING|21 모델 학습]]
