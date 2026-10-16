@@ -3,25 +3,20 @@ import { PERSONAL_ORG_NAME, SEED_TEAM, authFileOf } from "./support/seed";
 import { expectTaskTitles } from "./support/tasks-page";
 
 // 조직 전환기로 개인 공간과 시드 팀을 오간다. 소유자(김소유)는 둘 다의 owner 다. 읽기만 한다.
-// 휴대폰 폭에서는 사이드바가 서랍이라 먼저 연다(이 파일은 mobile 프로젝트에서도 돈다).
 test.use({ storageState: authFileOf("owner") });
 
-const openOrgSwitcher = async (page: Page, isMobile: boolean) => {
-  if (isMobile) await page.getByRole("button", { name: "사이드바 여닫기" }).click();
+const openOrgSwitcher = async (page: Page) => {
   await page.getByRole("button", { name: "조직 전환" }).click();
   return page.getByRole("menu");
 };
 
-test("조직 전환기로 시드 팀에서 개인 공간으로 가고 다시 팀으로 돌아온다", async ({
-  page,
-  isMobile,
-}) => {
+test("조직 전환기로 시드 팀에서 개인 공간으로 가고 다시 팀으로 돌아온다", async ({ page }) => {
   await page.goto(`/${SEED_TEAM.slug}/dashboard`);
   await expect(
     page.getByRole("main").getByText("시드 팀의 작업 진행 상황을 한눈에 봅니다."),
   ).toBeVisible();
 
-  const menu = await openOrgSwitcher(page, isMobile);
+  const menu = await openOrgSwitcher(page);
   // 지금 조직에는 표시가 붙는다.
   await expect(menu.getByRole("menuitem", { name: SEED_TEAM.name })).toHaveAttribute(
     "aria-current",
@@ -39,7 +34,7 @@ test("조직 전환기로 시드 팀에서 개인 공간으로 가고 다시 팀
   await expect(page.getByRole("main").getByText("나만 보는 작업입니다.")).toBeVisible();
   await expectTaskTitles(page, ["읽을 글 고르기", "개인 메모 정리"]);
 
-  const back = await openOrgSwitcher(page, isMobile);
+  const back = await openOrgSwitcher(page);
   await expect(back.getByRole("menuitem", { name: PERSONAL_ORG_NAME })).toHaveAttribute(
     "aria-current",
     "true",

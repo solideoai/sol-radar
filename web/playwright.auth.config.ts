@@ -9,7 +9,7 @@ const port = Number(process.env.E2E_PORT) || 3200;
 const baseURL = `http://127.0.0.1:${port}`;
 
 // 시드는 명령 한 번에 한 번만 들어간다. 시험이 서로의 단언을 깨지 않도록 두 단계로 나눈다.
-//   1단계(chromium·mobile) — 시드 팀을 읽기만 한다. 바꿔야 하면 시드 팀 밖(자기가 만든 팀)에서 바꾼다.
+//   1단계(chromium) — 시드 팀을 읽기만 한다. 바꿔야 하면 시드 팀 밖(자기가 만든 팀)에서 바꾼다.
 //   2단계(chromium-write) — 시드 팀을 바꾸는 시험(*.write.spec.ts). 1단계가 모두 끝난 뒤에 돈다.
 //     자기가 만든 이름이 겹치지 않는 작업만 다루고, 초대 수락처럼 한 번뿐인 일은 이 단계의 한 시험만 한다.
 const WRITE = /\.write\.spec\.ts$/;
@@ -34,17 +34,10 @@ export default defineConfig({
       dependencies: ["setup"],
       testIgnore: WRITE,
     },
-    // 휴대폰 폭은 핵심 화면(대시보드·조직 전환기)만 본다. 서랍으로 열리는 사이드바가 여기서만 나온다.
-    {
-      name: "mobile",
-      use: { ...devices["Pixel 7"] },
-      dependencies: ["setup"],
-      testMatch: /(dashboard|org-switcher)\.spec\.ts$/,
-    },
     {
       name: "chromium-write",
       use: { ...devices["Desktop Chrome"] },
-      dependencies: ["chromium", "mobile"],
+      dependencies: ["chromium"],
       testMatch: WRITE,
     },
   ],

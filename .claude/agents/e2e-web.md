@@ -27,7 +27,7 @@ skills:
 
 `AGENTS.md` 와 `testing` 스킬은 이미 실려 있다(실행 명령, 두 E2E 묶음의 범위, 부품 레이아웃 시험). 여기에는 그 밖에 E2E 에 필요한 사실만 적는다.
 
-- **로그인 없는 묶음**(`web/e2e/`, 설정 `web/playwright.config.ts`): 데스크톱(`chromium`)과 휴대폰(`mobile`, Pixel 7) 두 프로젝트로 돈다.
+- **로그인 없는 묶음**(`web/e2e/`, 설정 `web/playwright.config.ts`): 데스크톱(`chromium`) 프로젝트 하나로 돈다. 휴대폰 기기 프로젝트는 두지 않는다(ADR-007).
   빌드 결과를 3100 포트에 직접 띄우고, 이미 떠 있는 서버는 재사용하지 않는다. 파일 하나는 `pnpm -C web exec playwright test <파일>`.
   실제 로그인·DB 없이 돈다(CI 는 가짜 Supabase 주소로 빌드한다). 화면을 열기만 해서는 Supabase 에 요청하지 않는지를
   `web/e2e/watch-supabase.ts` 로 본다. 새 공개 경로는 `web/e2e/responsive.spec.ts` 의 경로 목록에 더한다.

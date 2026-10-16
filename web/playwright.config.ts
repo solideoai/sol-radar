@@ -11,12 +11,8 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: { baseURL, trace: "retain-on-failure" },
-  // 모든 e2e 가 데스크톱과 휴대폰에서 한 번씩 돈다. CI 는 chromium 만 설치하므로
-  // 휴대폰도 chromium 기반 기기(Pixel)만 쓴다. webkit 기기(iPhone)를 쓰려면 CI 설치부터 바꾼다.
-  projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
-  ],
+  // 데스크톱 chromium 하나로 돈다. 휴대폰 기기 프로젝트는 두지 않는다(모바일 범위 외, docs/16-DECISIONS.md ADR-007).
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: `pnpm start --hostname 127.0.0.1 --port ${port}`,
     url: baseURL,
