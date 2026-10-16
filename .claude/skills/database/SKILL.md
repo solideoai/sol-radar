@@ -63,7 +63,7 @@ pnpm db:stop               # 끄기. 데이터는 Docker 볼륨에 남는다
 ## 2. 환경변수
 
 클라우드면 각 폴더의 `.env.example` 을 보고 세 파일(루트 `.env.local`·`web/.env.local`·`mobile/.env`)을 만든다. 값은 **그 값을 읽는 프로그램의 폴더**에 둔다.
-파일마다 넣는 변수와 읽는 쪽은 `docs/database.md` 의 "환경변수 파일 세 개" 표가 정본이다.
+파일마다 넣는 변수와 읽는 쪽은 `docs/boilerplate/database.md` 의 "환경변수 파일 세 개" 표가 정본이다.
 
 로컬(1-A)이면 `pnpm db:start` 가 웹·앱 두 파일의 URL·anon 키만 채운다(`SUPABASE_SERVICE_ROLE_KEY` 는 적지 않는다).
 루트 `.env.local` 은 클라우드 전용이다 — `db:push`·`db:verify` 는 TLS 인증서를 검사해서 로컬 DB 에 붙지 않는다.
@@ -126,7 +126,7 @@ create policy "본인 것만 쓰기"
 `profiles` 처럼 사람 하나에 딸린 값이면 그대로 쓴다.
 
 **사람이나 팀이 만드는 데이터는 조직에 속한다 — `org_id` 로 거른다.** 가입하면 개인 조직이 생기므로 혼자 쓰는 데이터도 조직 단위로 둔다.
-본보기는 `supabase/migrations/20261014000004_tasks_and_activity.sql` 의 `tasks`(2절 표, 6절 권한·정책)이고, 설명은 `docs/database.md` 의 조직 견본과 작업·활동 견본이다.
+본보기는 `supabase/migrations/20261014000004_tasks_and_activity.sql` 의 `tasks`(2절 표, 6절 권한·정책)이고, 설명은 `docs/boilerplate/database.md` 의 조직 견본과 작업·활동 견본이다.
 
 - 표에 `org_id uuid not null references public.organizations (id) on delete cascade` 와 그 인덱스를 둔다.
   누가 만들었는지가 필요하면 만든 사람 열을 함께 둔다(`tasks.created_by` — 기본값 `auth.uid()`, `profiles` 를 가리키고 `on delete set null`, 화면 역할에 그 열의 쓰기 권한을 주지 않는다).
@@ -255,7 +255,7 @@ is not available`). 그때는 흉내를 그 파일 한 곳에서 넓힌다(PGlit
   `(await getSupabase()).auth.getClaims()` 로 본다(`getSession()` 은 서버에서 믿지 않는다).
 - 앱: `supabase.auth.*` 로 한다. 세션은 기기 저장소(AsyncStorage)에 남아 앱을 다시 켜도 유지된다.
 - 화면을 가리는 것(로그인 안 하면 이동)은 편의일 뿐이다. 데이터를 지키는 것은 RLS 정책이다.
-- 견본의 코드 자리(도메인·화면)는 `architecture` 스킬의 "서버 코드라면", 화면별 동작은 `docs/database.md` 의 로그인·조직·작업·활동 견본에 있다.
+- 견본의 코드 자리(도메인·화면)는 `architecture` 스킬의 "서버 코드라면", 화면별 동작은 `docs/boilerplate/database.md` 의 로그인·조직·작업·활동 견본에 있다.
   여기에는 DB 쪽 본보기만 적는다. 로그인 견본은 가입 → 이메일·비밀번호 로그인 → 본인 `profiles` 읽기 → 로그아웃을 실제로 한다.
   운영자는 정책상 모든 행을 읽으므로 "내 것"은 로그인한 id 로 좁혀 읽는다.
 - 데이터 표(조직의 행 여러 개): `supabase/migrations/20261014000004_tasks_and_activity.sql` 의 `tasks`(열 단위 `insert`·`update` 권한, 조직 단위 정책,
@@ -263,7 +263,7 @@ is not available`). 그때는 흉내를 그 파일 한 곳에서 넓힌다(PGlit
   `task_dashboard_stats` 는 호출한 사람 권한(`security invoker`)으로 도는 집계 함수의 본보기다. 앱에는 없다.
 - 조직: `supabase/migrations/20261014000001_organizations.sql`(조직·멤버십·초대, 도우미, 트리거, 정책). 초대 수락은 JWT 의 `email` 클레임으로 판단하는 정책이다.
 - 메일 링크(가입 확인·비밀번호 재설정)는 웹의 `web/app/auth/confirm/route.ts` 가 받아 `@/server/auth` 로 확인한다. 링크 모양은 `supabase/templates/` 가 정하고,
-  클라우드는 대시보드에 Site URL 과 같은 템플릿을 넣어야 한다(`docs/database.md`). 새 메일 종류(초대·이메일 변경)를 더하면 `auth.model.ts` 의 종류 목록과 템플릿을 같이 더한다.
+  클라우드는 대시보드에 Site URL 과 같은 템플릿을 넣어야 한다(`docs/boilerplate/database.md`). 새 메일 종류(초대·이메일 변경)를 더하면 `auth.model.ts` 의 종류 목록과 템플릿을 같이 더한다.
 - 쓰기 견본: 웹의 표시 이름 고치기. `supabase/migrations/20261013000001_init.sql` 의 "표시 이름" 절이 열 단위 `grant update (display_name)`·
   본인 행 수정 정책·값 제약을 한자리에 둔다. 기존 표에 사용자가 고칠 열을 더할 때 이 모양을 따르고, 표 전체에 `update` 를 주지 않는다.
 
@@ -289,5 +289,5 @@ where id = (select id from auth.users where email = '<운영자 이메일>');
 
 ## 7. 배포에도 환경변수 넣기
 
-배포 서비스(Vercel·EAS)에 넣을 값과 자리는 `docs/first-deployment.md` 가 정본이다. 하나만 기억한다 — Vercel 운영의 `SUPABASE_DB_URL` 에는
+배포 서비스(Vercel·EAS)에 넣을 값과 자리는 `docs/boilerplate/first-deployment.md` 가 정본이다. 하나만 기억한다 — Vercel 운영의 `SUPABASE_DB_URL` 에는
 루트 `.env.local` 의 값(DDL 권한)을 넣지 않고, 배포 검사만 하는 읽기 전용 역할의 연결 문자열을 넣는다(같은 문서의 "배포 검사 전용 DB 역할").

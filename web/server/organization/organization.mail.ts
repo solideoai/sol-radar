@@ -114,7 +114,7 @@ const smtpResponseCode = (error: unknown): number | null =>
     ? error.responseCode
     : null;
 
-// 오류 기록과 같은 JSON 한 줄(docs/first-deployment.md 의 오류 로그). 오류 문장(message)은 남기지 않는다 —
+// 오류 기록과 같은 JSON 한 줄(docs/boilerplate/first-deployment.md 의 오류 로그). 오류 문장(message)은 남기지 않는다 —
 // SMTP 서버의 거절 문장에는 받는 사람 주소가 들어 있다. 이름·코드·SMTP 응답 번호면 원인을 가를 수 있다.
 const logMail = (event: string, fields: Record<string, unknown>): void => {
   console.error(

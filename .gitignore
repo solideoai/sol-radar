@@ -56,3 +56,8 @@ test-results/
 # 로그인 E2E 가 역할마다 저장하는 로그인 상태(쿠키·토큰). pnpm -C web test:e2e:auth 가 실행마다 새로 쓴다
 web/e2e-auth/.auth/
 
+# Obsidian — 창 배치·최근 파일은 내 컴퓨터의 상태다. vault 설정(app·appearance·core-plugins)은 커밋한다
+docs/.obsidian/workspace.json
+docs/.obsidian/workspace-mobile.json
+docs/.trash/
+

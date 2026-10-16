@@ -1,7 +1,7 @@
 # 첫 배포 안내
 
 이 문서는 웹(Vercel)과 앱(EAS)의 **첫 배포를 사람이 직접 설정하는 순서**입니다. 시작 순서와 로컬 실행은
-[README](../README.md) 에 있습니다. 이 저장소의 시험은 아래 설정 파일과 빌드 스크립트의 연결만 확인합니다.
+[README](../../README.md) 에 있습니다. 이 저장소의 시험은 아래 설정 파일과 빌드 스크립트의 연결만 확인합니다.
 실제 Vercel·EAS 배포, 네이티브 컴파일, 스토어 심사는 이 저장소가 대신 하거나 통과를 보장하지 않습니다.
 
 계정·프로젝트 만들기, 결제, 서명 인증서, 운영 DB 에 마이그레이션 적용은 모두 **사용자 작업**입니다.
@@ -11,15 +11,15 @@
 
 1. `pnpm verify` 가 통과합니다(웹 `next build`, 앱 JS 번들까지).
 2. 클로드에서 `/predeploy-review` 로 배포 전 점검을 합니다.
-3. Node·pnpm 버전은 저장소의 고정값을 따릅니다. Node 는 [`.nvmrc`](../.nvmrc) 의 메이저(22),
+3. Node·pnpm 버전은 저장소의 고정값을 따릅니다. Node 는 [`.nvmrc`](../../.nvmrc) 의 메이저(22),
    pnpm 은 각 `package.json` 의 `packageManager`(`pnpm@9.15.9`)입니다. 배포 서비스에도 같은 메이저를 고릅니다.
 4. DB 를 쓸지 정합니다. 템플릿 화면은 DB 없이 열리므로 첫 배포를 DB 없이 해도 됩니다.
 
 ## 1. 환경 변수는 어디에 두나
 
 값은 그 값을 읽는 프로그램이 있는 곳에 둡니다. 파일들은 깃에 올라가지 않고, 배포 서비스는 이 파일들을 읽지 않으므로
-배포 서비스에는 따로 넣습니다. 설명은 [`.env.example`](../.env.example)·[`web/.env.example`](../web/.env.example)·
-[`mobile/.env.example`](../mobile/.env.example) 에 있습니다.
+배포 서비스에는 따로 넣습니다. 설명은 [`.env.example`](../../.env.example)·[`web/.env.example`](../../web/.env.example)·
+[`mobile/.env.example`](../../mobile/.env.example) 에 있습니다.
 
 | 값 | 로컬 자리 | 배포 자리 | 공개 여부 |
 |---|---|---|---|
@@ -58,10 +58,10 @@ Vercel 에서 저장소를 가져온 뒤 프로젝트 설정(Build and Deploymen
 
 - **Node.js Version 은 프로젝트 설정에서 22.x 로 둡니다.** `web/package.json` 에 `engines` 를 넣으면 Vercel 이 이 설정을 덮고
   범위 안의 가장 높은 메이저(24)를 고르므로 넣지 않습니다(템플릿 원본의 `scripts/template/doctor.test.mjs` 가 지킵니다). 루트·`mobile` 의 `engines` 는 Vercel 이 읽지 않습니다.
-- **Build Command 를 꼭 `pnpm vercel-build` 로 둡니다.** [`web/package.json`](../web/package.json) 의 `vercel-build` 가
-  [`web/scripts/vercel-build.sh`](../web/scripts/vercel-build.sh) 를 실행합니다. 다른 명령으로 빌드하면 아래 운영 DB 검사를 건너뜁니다.
-- **Root Directory 밖 파일 포함**: 운영 DB 검사 [`web/scripts/verify-db.mjs`](../web/scripts/verify-db.mjs) 는 `web` 밖의
-  [`scripts/db-verify.mjs`](../scripts/db-verify.mjs)·`scripts/migrations.mjs` 와 `supabase/migrations/` 를 읽습니다.
+- **Build Command 를 꼭 `pnpm vercel-build` 로 둡니다.** [`web/package.json`](../../web/package.json) 의 `vercel-build` 가
+  [`web/scripts/vercel-build.sh`](../../web/scripts/vercel-build.sh) 를 실행합니다. 다른 명령으로 빌드하면 아래 운영 DB 검사를 건너뜁니다.
+- **Root Directory 밖 파일 포함**: 운영 DB 검사 [`web/scripts/verify-db.mjs`](../../web/scripts/verify-db.mjs) 는 `web` 밖의
+  [`scripts/db-verify.mjs`](../../scripts/db-verify.mjs)·`scripts/migrations.mjs` 와 `supabase/migrations/` 를 읽습니다.
   Root Directory 밖 소스를 빌드에 포함하는 설정이 켜져 있는지 확인합니다.
   근거: [Vercel 모노레포 FAQ](https://vercel.com/docs/monorepos/monorepo-faq). 이 설정 때문에 두 폴더를 workspace 로 바꾸지는 않습니다.
 - **pnpm 버전**: 첫 빌드 로그에서 pnpm 메이저가 9 인지 확인합니다. 다르면 Vercel 문서의 패키지 매니저·Corepack 안내에 따라
@@ -143,7 +143,7 @@ Secret 유형(옛 이름 Sensitive)은 저장한 값을 다시 못 보게 하고
 이 값이 새더라도 표의 행은 읽지도 쓰지도 못합니다. 다만 카탈로그는 누구나 읽으므로 표 구조·함수 본문은 보입니다.
 새면 아래 방법으로 비밀번호를 바꿉니다.
 
-검사([`scripts/db-verify.mjs`](../scripts/db-verify.mjs))가 읽는 것은 둘입니다.
+검사([`scripts/db-verify.mjs`](../../scripts/db-verify.mjs))가 읽는 것은 둘입니다.
 
 - PostgreSQL 카탈로그(`pg_class`·`pg_namespace`·`pg_proc`·`pg_roles`·`pg_depend`)와 권한 함수(`has_table_privilege` 등)·`to_regclass`·서버 버전.
   누구나 읽을 수 있어 따로 줄 권한이 없습니다.
@@ -216,7 +216,7 @@ postgresql://deploy_verifier.<프로젝트 ref>:<비밀번호>@<pooler 호스트
 | 단계 | 하는 일 | 필요한 것 |
 |---|---|---|
 | 1. Expo Go 미리보기 | `pnpm -C mobile start` 후 폰의 Expo Go 로 QR 스캔 | 폰과 PC 가 같은 네트워크. 계정 불필요 |
-| 2. development 빌드 | [`mobile/eas.json`](../mobile/eas.json) 의 `development` 프로필(`developmentClient`) | `expo-dev-client` 를 **별도로 설치**해야 함 |
+| 2. development 빌드 | [`mobile/eas.json`](../../mobile/eas.json) 의 `development` 프로필(`developmentClient`) | `expo-dev-client` 를 **별도로 설치**해야 함 |
 | 3. preview 빌드 | `preview` 프로필 — 내부 배포, Android 는 APK | Expo 계정. iOS 는 Apple Developer 계정과 기기 등록·서명 |
 | 4. production 빌드·스토어 | `production` 프로필(빌드 번호 자동 증가), `submit.production` | 스토어 계정·서명·심사 |
 
@@ -227,7 +227,7 @@ Expo Go 통과는 네이티브 빌드 통과를 뜻하지 않습니다.
 
 ### 2. 사용자 소유 식별자 정하기
 
-[`mobile/app.json`](../mobile/app.json) 의 `ios.bundleIdentifier`·`android.package` 는 템플릿 예시(`com.example.…`)입니다.
+[`mobile/app.json`](../../mobile/app.json) 의 `ios.bundleIdentifier`·`android.package` 는 템플릿 예시(`com.example.…`)입니다.
 스토어에 올릴 앱은 내 역도메인 ID 로 바꿉니다(`pnpm bootstrap` 의 `--ios-id`·`--android-id` 로 새로 만들거나 직접 수정).
 이 ID 는 스토어에 올린 뒤 바꾸기 어렵습니다.
 

@@ -38,5 +38,8 @@ pnpm-lock.yaml
 # 미션·스펙(/spec 과 Polaris 가 쓴다)
 /polaris/
 
+# Obsidian 설정 — Obsidian 이 저장할 때마다 자기 모양(배열을 여러 줄로)으로 다시 쓴다. 손으로 고치지 않는다
+/docs/.obsidian/
+
 # 스킬 — 템플릿 자체 스킬은 마크다운뿐이고, 나머지는 `skills add` 로 받은 서드파티 원본이라 고치지 않는다(skills-lock.json)
 /.claude/skills/

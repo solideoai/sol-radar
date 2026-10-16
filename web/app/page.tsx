@@ -71,7 +71,7 @@ function Hero() {
   );
 }
 
-// 기능 칸. 이 저장소에 실제로 있는 장치만 적는다 — 근거는 AGENTS.md 와 docs/guardrails.md 다.
+// 기능 칸. 이 저장소에 실제로 있는 장치만 적는다 — 근거는 AGENTS.md 와 docs/boilerplate/guardrails.md 다.
 // 장치를 빼거나 바꾸면 여기 글도 같이 고친다.
 const FEATURES = [
   {

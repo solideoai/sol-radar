@@ -1,6 +1,6 @@
 // ── 오류 기록 자리 ──
 // 서버 오류는 instrumentation.ts 의 onRequestError 가 reportServerError 로, 화면의 오류 경계(app/error.tsx·global-error.tsx)는
-// reportBrowserError 로 남긴다. 둘 다 JSON 한 줄이다. 오류 수집 업체를 붙이면 이 두 함수만 고친다(docs/first-deployment.md).
+// reportBrowserError 로 남긴다. 둘 다 JSON 한 줄이다. 오류 수집 업체를 붙이면 이 두 함수만 고친다(docs/boilerplate/first-deployment.md).
 // 쿠키·인증 헤더·요청 본문·검색어(?…)는 남기지 않는다 — 토큰과 개인정보가 들어 있을 수 있다.
 // 브라우저에서도 불리므로 아무것도 import 하지 않는다. onRequestError 의 인자는 필요한 칸만 같은 모양으로 적는다.
 

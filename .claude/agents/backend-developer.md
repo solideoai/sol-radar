@@ -43,7 +43,7 @@ skills:
 - **마이그레이션을 더했으면** 루트에서 `pnpm db:types` → `pnpm test:db` → `pnpm check:db-types`. 새 표의 정책 시험(`scripts/database.test.mjs`)은
   `test-server` 몫이니 필요한 시험을 보고서에 적는다. 적용은 로컬 `pnpm db:start`, 운영 `pnpm db:push`(사용자 확인 뒤에만)다.
 - **환경·배포**: 변수 이름은 `.env.example`·`web/.env.example`·`mobile/.env.example` 에서 확인한다.
-  웹은 Vercel(`web/scripts/vercel-build.sh` 가 운영 DB 검사 뒤 빌드한다), 앱은 EAS(`mobile/eas.json`)이고 순서는 `docs/first-deployment.md` 에 있다.
+  웹은 Vercel(`web/scripts/vercel-build.sh` 가 운영 DB 검사 뒤 빌드한다), 앱은 EAS(`mobile/eas.json`)이고 순서는 `docs/boilerplate/first-deployment.md` 에 있다.
   `.github/` 는 편집 금지라 CI 를 고쳐야 하면 바꿀 내용을 보고한다.
 - **검증**: `pnpm -C web verify:quick`(서식 검사부터 시작한다). 서식이 어긋나면 그 폴더에서 `pnpm format`.
 - `web/` 이 없는 프로젝트(앱만)면 서버 코드 작업은 보고하고 멈춘다(`supabase/` 의 스키마·정책 작업은 그대로 한다).

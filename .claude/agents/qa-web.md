@@ -28,13 +28,13 @@ skills:
 
 `AGENTS.md` 와 `design-system` 스킬은 이미 실려 있다. 여기에는 웹 QA 에 필요한 사실만 적는다.
 
-- **실행**: `pnpm -C web dev`(3000 포트), 또는 `pnpm -C web build` 뒤 `pnpm -C web start`. 화면별 동작은 `docs/database.md` 의 로그인·조직·작업·활동 견본 표에 있다.
+- **실행**: `pnpm -C web dev`(3000 포트), 또는 `pnpm -C web build` 뒤 `pnpm -C web start`. 화면별 동작은 `docs/boilerplate/database.md` 의 로그인·조직·작업·활동 견본 표에 있다.
 - **조작 도구**: `.mcp.json` 의 `playwright` 서버. 없거나 승인되지 않았으면 `curl` 과 코드 읽기로 대신하고, 눈으로 봐야 하는 항목은 "검증 불가"로 분류한다.
   이름을 준 스크린샷은 저장소 루트 기준으로 저장되므로 저장소 밖 경로를 준다.
 - **로그인·DB**: 로그인 뒤의 흐름은 로컬 Supabase 가 켜져 있어야 한다(`pnpm db:start` 는 env 파일을 쓰므로 사용자가 켠다).
   시험 계정은 `pnpm db:seed` 로 넣는다(역할별 계정·비밀번호·팀 주소는 `scripts/db-seed.mjs` 머리).
   가입·메일 확인·재설정 자체를 볼 때만 가입 화면으로 계정을 만들고, 메일은 `pnpm db:start` 가 알려 주는 로컬 메일함에서 연다.
-  자동으로 지키는 로그인 뒤 흐름은 `pnpm -C web test:e2e:auth` 에 있다. 그 밖의 절차는 `docs/database.md` 의 "실제 로그인 확인"에 있다.
+  자동으로 지키는 로그인 뒤 흐름은 `pnpm -C web test:e2e:auth` 에 있다. 그 밖의 절차는 `docs/boilerplate/database.md` 의 "실제 로그인 확인"에 있다.
 - **기준 문서**: 스펙, 디자인 스펙(호출자가 준 경로), 작업 지시서의 완료 기준.
 - `web/` 이 없는 프로젝트(앱만)면 보고하고 멈춘다. `verify.config.json` 에 다른 웹 스택이 등록돼 있으면 그 설정을 따른다.
 

@@ -27,7 +27,7 @@ skills:
 
 `AGENTS.md` 와 `verify` 스킬은 이미 실려 있다. 여기에는 배포 검증에 필요한 사실만 적는다.
 
-- **배포 경로**: 웹은 Vercel(Root Directory 는 `web`), 앱은 EAS, DB 는 Supabase 다. 설정 순서와 값의 자리는 `docs/first-deployment.md` 가 정본이다. 저장소에 `vercel.json` 은 없다.
+- **배포 경로**: 웹은 Vercel(Root Directory 는 `web`), 앱은 EAS, DB 는 Supabase 다. 설정 순서와 값의 자리는 `docs/boilerplate/first-deployment.md` 가 정본이다. 저장소에 `vercel.json` 은 없다.
 - **웹 빌드와 DB 검사**: Build Command 는 `pnpm vercel-build`(`web/scripts/vercel-build.sh`)다. 운영 빌드이고 DB 값이 하나라도 있으면 빌드 전에 `web/scripts/verify-db.mjs` 가
   적용 이력·RLS·위험 권한을 읽기 전용으로 검사하고, 어긋나면 빌드하지 않는다(Preview 는 검사하지 않는다).
   `pnpm db:verify` 는 같은 검사를 로컬에서 돈다(대상 DB 접속은 승인된 경우에만). `pnpm db:push` 는 운영 DB 를 바꾸므로 실행하지 않는다.

@@ -1,5 +1,5 @@
 // 간편 로그인 버튼을 보일지. Supabase 에 그 제공자를 설정한 프로젝트에서만 web/.env.local 에 켠다
-// (설정법은 docs/OAUTH-PROVIDERS.md). 설정 없이 버튼만 보이면 누를 때 실패한다. 꺼 둔 제공자는 버튼만 없고 나머지는 그대로 동작한다.
+// (설정법은 docs/boilerplate/OAUTH-PROVIDERS.md). 설정 없이 버튼만 보이면 누를 때 실패한다. 꺼 둔 제공자는 버튼만 없고 나머지는 그대로 동작한다.
 // NEXT_PUBLIC_ 값은 빌드 때 코드에 박힌다 — 이름을 글자 그대로 적어야 박히고, 바꿨으면 다시 빌드한다.
 export type SocialProvider = "google" | "kakao" | "naver";
 

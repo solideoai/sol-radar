@@ -32,7 +32,7 @@ import { SEED_ACCOUNTS, SEED_ROLES, authFileOf, uniqueTag } from "./support/seed
 // 시드 계정을 정지하면 같은 실행의 다른 시험이 깨진다. 정지할 회원과 "다른 운영자"는 시험마다 따로 만들고(support/admin-accounts.ts)
 // 끝나면 지운다. 계정을 만들면 관리자 목록의 전체 수가 바뀌어 2단계(시드를 읽는 시험이 끝난 뒤)에 돈다.
 // 목록은 그 시험의 꼬리표로 검색해 자기가 만든 줄만 본다(같은 단계의 시험이 병렬로 돈다).
-// 스펙: polaris/specs/done/social-auth-and-account.md 3장 5·4.3·4.4·5장, docs/AUTH-API.md
+// 스펙: polaris/specs/done/social-auth-and-account.md 3장 5·4.3·4.4·5장, docs/boilerplate/AUTH-API.md
 
 const SIGNED_OUT = { cookies: [], origins: [] };
 
@@ -67,7 +67,7 @@ const patchStatus = (api: APIRequestContext, userId: string, status: string, tok
 const getMe = (api: APIRequestContext, token: string) =>
   api.get("/api/users/me", { headers: bearer(token) });
 
-// 오류 응답의 모양: { error: { code, message } }, 공유 캐시에 남기지 않는다(docs/AUTH-API.md "오류").
+// 오류 응답의 모양: { error: { code, message } }, 공유 캐시에 남기지 않는다(docs/boilerplate/AUTH-API.md "오류").
 const expectApiError = async (response: APIResponse, status: number, code: string) => {
   expect(response.status(), code).toBe(status);
   expect(await response.json()).toEqual({ error: { code, message: expect.any(String) } });

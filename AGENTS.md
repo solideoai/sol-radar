@@ -1,3 +1,11 @@
+# 먼저: SOL RADAR 설계 문서가 이 파일보다 우선한다
+
+이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` ~ `docs/20-GLOSSARY.md`)다.
+기술 스택은 Next.js + NestJS + PostgreSQL(Prisma) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen·Kev) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-001·002·015).
+이 파일의 나머지는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히면 설계 문서를 따른다.
+Supabase(인증·DB·RLS·anon 키), Expo 앱(`mobile/`), `web/server/<도메인>/` 구조, Vercel·EAS 배포, 아래 "기술 스택" 절은 템플릿 기준이다.
+커밋 메시지 형식과 "결정적 강제 장치"(커밋 게이트·훅·린트를 끄거나 돌아가지 않기)는 그대로 지킨다.
+
 # 웹 코드 전에: 이 Next.js 는 학습 데이터와 다르다
 
 이 안내는 웹(`web/`) 코드에 적용한다. Next.js 16 은 API·규약·파일 구조가 학습 데이터와 다를 수 있다.
@@ -9,7 +17,7 @@
 이 저장소는 **Next.js 웹·Expo 앱·Supabase 로 시작해, 이후에도 자기 제품을 잘 키워가기 위한 보일러플레이트**다.
 핵심 철학: **"똑똑한 프롬프트가 아니라 가드레일."** 결과물이 무너지지 않게, 검증을 사람이 아니라 구조로 강제한다.
 
-이 파일에는 에이전트가 늘 지킬 규칙만 둔다. 각 장치가 무엇을 언제 검사하는지는 `docs/guardrails.md`, 영역별 상세는 스킬에 있다.
+이 파일에는 에이전트가 늘 지킬 규칙만 둔다. 각 장치가 무엇을 언제 검사하는지는 `docs/boilerplate/guardrails.md`, 영역별 상세는 스킬에 있다.
 
 ## 폴더와 명령 (workspace 아님)
 
@@ -28,7 +36,7 @@
   로그인 뒤 E2E 는 `pnpm -C web test:e2e:auth`(로컬 Supabase 필요, verify·CI 에는 없다 → `testing` 스킬)
 - 서식: 고친 폴더에서 `pnpm format` (루트·`web`·`mobile` 각자). 손으로 맞추지 않는다.
 - 한쪽만 쓰는 프로젝트면 다른 폴더를 통째로 지운다(검증·커밋 게이트·CI 가 없는 폴더를 건너뛴다).
-- Node 는 루트 `package.json` 의 `engines` 범위를 따른다. `web/package.json` 에는 `engines` 를 두지 않는다(이유는 `docs/first-deployment.md`).
+- Node 는 루트 `package.json` 의 `engines` 범위를 따른다. `web/package.json` 에는 `engines` 를 두지 않는다(이유는 `docs/boilerplate/first-deployment.md`).
 
 ## 커밋 메시지: `타입: 작업 내용`
 
@@ -93,7 +101,7 @@
 
 ## 결정적 강제 장치 (끄지 말 것)
 
-검사가 막으면 원인을 고친다. 끄거나 돌아가지 않는다. 장치마다의 상세와 CI 구성은 `docs/guardrails.md` 가 정본이다.
+검사가 막으면 원인을 고친다. 끄거나 돌아가지 않는다. 장치마다의 상세와 CI 구성은 `docs/boilerplate/guardrails.md` 가 정본이다.
 
 - **커밋 게이트**(`.husky/`): 검사는 작업 폴더를 읽는다. 파일은 통째로 스테이징한다.
 - **편집 금지 파일**(`.claude/settings.json` 의 `deny`): `.husky/`·`.claude/settings*.json`·`.claude/hooks/`·`.github/`·`web/lodestar.config.*`.

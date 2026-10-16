@@ -2,7 +2,7 @@ import "server-only";
 
 // ── Content-Security-Policy ──
 // proxy.ts 가 요청마다 새 nonce 로 이 정책을 만들어 요청(Next 가 nonce 를 꺼내 자기 스크립트에 붙인다)과 응답에 싣는다.
-// 근거: web/node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md. 설명은 docs/AUTH-SECURITY.md 의 "CSP".
+// 근거: web/node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md. 설명은 docs/boilerplate/AUTH-SECURITY.md 의 "CSP".
 // 바깥 출처를 더할 때는 여기 한 곳만 고친다. 운영 빌드를 브라우저로 열어 콘솔의 CSP 위반이 0건인지 본다.
 
 // 가입 화면의 주소 검색(카카오 우편번호, web/app/auth/sign-up/address-search.tsx).

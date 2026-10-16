@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { watchSupabase } from "./watch-supabase";
 
-// 로그인 견본(/auth/login)을 실제 인증 없이 본다. 실제 로그인은 docs/database.md 의 수동 확인이 맡는다.
+// 로그인 견본(/auth/login)을 실제 인증 없이 본다. 실제 로그인은 docs/boilerplate/database.md 의 수동 확인이 맡는다.
 // DB 설정이 없으면 연결이 없다고 알리고, 있으면(CI 는 가짜 주소) 로그인 폼을 그린다.
 // 어느 쪽이든 화면을 열기만 해서는 Supabase 에 요청하지 않는다.
 

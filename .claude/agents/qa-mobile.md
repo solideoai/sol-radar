@@ -30,7 +30,7 @@ skills:
 
 - **실행**: Expo(`mobile/`). `pnpm -C mobile start` 가 개발 서버를 켜고 `pnpm -C mobile ios`·`pnpm -C mobile android` 가 시뮬레이터·에뮬레이터에서 연다.
   개발 빌드는 없어 Expo Go 로 돈다(`expo-dev-client` 가 `mobile/package.json` 에 없다).
-- **화면과 설정**: 화면은 `mobile/app/`, 부품은 `mobile/components/`, 화면별 동작은 `docs/database.md` 의 로그인 견본 표에 있다(앱에는 로그인 견본만 있다). `mobile/app.json` 은 세로 고정·라이트 모드뿐이라
+- **화면과 설정**: 화면은 `mobile/app/`, 부품은 `mobile/components/`, 화면별 동작은 `docs/boilerplate/database.md` 의 로그인 견본 표에 있다(앱에는 로그인 견본만 있다). `mobile/app.json` 은 세로 고정·라이트 모드뿐이라
   다크 모드·회전은 시스템 설정을 바꿔도 화면이 깨지지 않는지만 본다. 딥링크 스킴은 그 파일의 `scheme` 이다.
 - **로그인·DB**: 로그인 뒤의 흐름은 로컬 Supabase 가 켜져 있어야 한다(`pnpm db:start` 는 env 파일을 쓰므로 사용자가 켠다). 값이 바뀌면 `pnpm -C mobile start --clear`.
   가입 확인 메일의 링크는 웹이 받으므로 로컬 메일함에서 연 뒤 앱에서 로그인한다.

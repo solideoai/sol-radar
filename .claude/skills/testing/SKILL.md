@@ -91,13 +91,13 @@ it("결제일이 3일 남았으면 3", () => {
 **막지는 않는다** — 화면 코드나 설정 파일일 수도 있어서다. 계산이라면 그 자리에서 추가한다.
 배럴(`index`)·저장소(`*.repo*.ts`)·타입만 담는 파일(`*.types.ts`, 생성물 `database.types.ts` 포함)은 경고에서 뺀다.
 
-바뀐 곳마다 커밋 게이트와 CI 가 어떤 시험을 돌리는지는 `docs/guardrails.md` 의 "커밋 게이트가 보는 것" 표가 정본이다.
+바뀐 곳마다 커밋 게이트와 CI 가 어떤 시험을 돌리는지는 `docs/boilerplate/guardrails.md` 의 "커밋 게이트가 보는 것" 표가 정본이다.
 
 ## 기본 검증 기반
 
 - 웹 단위 테스트는 `**/*.{test,spec}.{ts,tsx}`를 찾는다. `e2e/`는 Playwright가, `*.browser.test.tsx`(부품 레이아웃)는 `pnpm -C web test:browser`(Vitest 브라우저 모드)가 담당한다.
 - 웹·앱 모두 테스트가 0개이면 실패한다. 테스트를 추가할 때 실제로 탐색되는지 확인한다.
-- `pnpm test`는 `scripts/` 아래의 `*.test.mjs` 전부를 실행한다(무엇이 있는지와 템플릿 원본에만 있는 `scripts/template/` 의 시험은 `docs/guardrails.md`).
+- `pnpm test`는 `scripts/` 아래의 `*.test.mjs` 전부를 실행한다(무엇이 있는지와 템플릿 원본에만 있는 `scripts/template/` 의 시험은 `docs/boilerplate/guardrails.md`).
   DB 정책 시험(`scripts/database.test.mjs`)만 돌리려면 `pnpm test:db`.
 - DB 정책 시험은 PGlite 에 실제 마이그레이션을 적용한다. Supabase Auth HTTP 서비스 자체를 재현하지는 않는다. 흉내의 범위와 넓히는 법은 `database` 스킬에 있다.
 - 새 표의 정책을 만들었으면 "남의 행이 안 보인다"는 시험을 `scripts/database.test.mjs` 에 함께 더한다.

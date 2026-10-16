@@ -12,7 +12,7 @@ import { SEED_ACCOUNTS, SEED_PASSWORD, SEED_TEAM, authFileOf, escapeRegExp } fro
 // 마이페이지(/[slug]/settings 의 계정 탭)와 로그인 화면의 ?next=·?link= — 시드 계정으로 읽기만 한다.
 // 로그아웃(모든 기기)·탈퇴처럼 계정을 바꾸는 일은 settings-account.write.spec.ts 가 따로 만든 계정으로 한다.
 // 간편 로그인 줄은 빌드에 켠 제공자(NEXT_PUBLIC_AUTH_*)만큼 있다. 로컬 Supabase 에는 제공자를 설정하지 않아(supabase/config.toml)
-// "연결"을 누르면 Supabase 가 거절한다 — 실제 OAuth 는 자동 시험 범위 밖이다(docs/AUTH-TESTING.md).
+// "연결"을 누르면 Supabase 가 거절한다 — 실제 OAuth 는 자동 시험 범위 밖이다(docs/boilerplate/AUTH-TESTING.md).
 // 스펙: polaris/specs/done/social-auth-and-account.md 3·4.4·5장
 
 const SETTINGS = `/${SEED_TEAM.slug}/settings`;

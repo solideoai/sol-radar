@@ -21,7 +21,7 @@ export function bearerTokenOf(authorization: string | null): string | null {
 /**
  * 서명이 맞는 토큰이어도 이 프로젝트의 Auth 가(iss) 로그인한 사람에게(aud·role) 준 것만 받는다.
  * 다른 Supabase 프로젝트의 토큰, anon·service_role 키(이것도 JWT 다), sub 가 사람 id 가 아닌 토큰은 null.
- * 사용자 지정 도메인을 쓰면 iss 가 그 도메인이므로 NEXT_PUBLIC_SUPABASE_URL 도 그 도메인으로 둔다(docs/AUTH-SECURITY.md).
+ * 사용자 지정 도메인을 쓰면 iss 가 그 도메인이므로 NEXT_PUBLIC_SUPABASE_URL 도 그 도메인으로 둔다(docs/boilerplate/AUTH-SECURITY.md).
  */
 export function toAuthClaims(
   payload: Readonly<Record<string, unknown>>,

@@ -30,7 +30,7 @@ color: yellow
 
 - **기기에 올리는 길**: Expo(`mobile/`). 계정 없이는 Expo Go 다 — `pnpm -C mobile start` 뒤 폰에서 QR 을 읽는다(폰과 PC 가 같은 네트워크).
   빌드는 `mobile/eas.json` 의 `development`(`expo-dev-client` 를 따로 설치해야 한다)·`preview`(내부 배포, Android 는 APK)·`production` 프로필이고,
-  순서는 `docs/first-deployment.md` 의 "앱 — Expo / EAS" 절에 있다. EAS 클라우드 빌드와 스토어 제출은 비용이 들 수 있어 승인 없이 실행하지 않는다.
+  순서는 `docs/boilerplate/first-deployment.md` 의 "앱 — Expo / EAS" 절에 있다. EAS 클라우드 빌드와 스토어 제출은 비용이 들 수 있어 승인 없이 실행하지 않는다.
 - **앱 설정**(`mobile/app.json`): `ios.bundleIdentifier`·`android.package` 가 `com.example.` 로 시작하면 템플릿 예시값이다.
   템플릿에는 권한이 필요한 기기 기능(카메라·푸시·위치·생체 인증)이 없다. 더해졌는지는 이 파일의 `plugins` 와 `mobile/package.json` 의 의존성으로 확인한다.
 - **DB 연결**: 폰에서 로컬 Supabase 를 쓰려면 `mobile/.env` 에 PC 의 LAN IP 가 들어가야 한다(`pnpm db:start` 가 적는다. 사용자가 켠다).

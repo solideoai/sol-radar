@@ -74,4 +74,4 @@ description: 코드 변경 후 검증(서식·타입·린트·테스트·구조�
 이런 건 AI 말을 믿지 말고 **자동 검사로 강제**한다.
 
 커밋 시점에도 한 번 더 막는다(`.husky/pre-commit`). 다만 커밋 게이트는 **빌드를 뺀 빠른 검사**(`verify:quick`)와 바뀐 곳에 걸린 루트 검사만 돌고,
-빌드와 앱의 Expo 점검은 CI 가 본다. 바뀐 곳마다 무엇을 도는지와 CI 구성은 `docs/guardrails.md` 가 정본이다.
+빌드와 앱의 Expo 점검은 CI 가 본다. 바뀐 곳마다 무엇을 도는지와 CI 구성은 `docs/boilerplate/guardrails.md` 가 정본이다.

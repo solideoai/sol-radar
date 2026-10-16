@@ -49,7 +49,7 @@ describe("GET /api/auth/providers", () => {
     expect(authenticate).not.toHaveBeenCalled();
   });
 
-  // docs/AUTH-API.md "모든 응답은 Cache-Control: no-store 입니다."
+  // docs/boilerplate/AUTH-API.md "모든 응답은 Cache-Control: no-store 입니다."
   it("응답은 Cache-Control: no-store 다", async () => {
     const GET = await load({ GOOGLE: "true" });
     expect(GET().headers.get("cache-control")).toBe("no-store");
