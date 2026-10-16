@@ -176,3 +176,11 @@ test("바닥글에 로고·한 줄 소개·메뉴·저작권이 있고, 없는 �
   }
   await expect(footer.getByRole("link", { name: /약관|개인정보/ })).toHaveCount(0);
 });
+
+test("첫 화면 본문·머리말·바닥글은 낱말 단위로 줄을 바꾸고 바탕은 흰색이다", async ({ page }) => {
+  await page.goto("/");
+  for (const role of ["main", "banner", "contentinfo"] as const) {
+    await expect(page.getByRole(role)).toHaveCSS("word-break", "keep-all");
+  }
+  await expect(page.getByRole("main")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+});

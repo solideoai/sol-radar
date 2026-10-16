@@ -97,3 +97,17 @@ test("아래로 내려도 머리말이 화면 맨 위에 붙어 있다", async (
   await expect(header).toBeInViewport();
   expect((await boxOf(header)).y).toBe(0);
 });
+
+test("머리말은 72px 단색이고 메뉴 글자는 17px 이다", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const header = page.getByRole("banner");
+  const { height } = await boxOf(header);
+  expect(height).toBeGreaterThanOrEqual(72);
+  expect(height).toBeLessThanOrEqual(73);
+  await expect(header).toHaveCSS("backdrop-filter", "none");
+  await expect(header).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(
+    header.getByRole("navigation", { name: "주요 메뉴" }).getByRole("link").first(),
+  ).toHaveCSS("font-size", "17px");
+});

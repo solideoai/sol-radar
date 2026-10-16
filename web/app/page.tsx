@@ -39,8 +39,12 @@ export default async function Home() {
       <DesktopNotice />
       <SiteHeader startHref={startHref} />
       {/* 루트 layout 의 건너뛰기 링크가 여기로 온다. 머리말을 지나 본문부터 Tab 이 이어진다. */}
-      {/* 바탕(muted 의 절반) 위에서 흰 카드가 드러난다. 구역 사이는 선 없이 여백으로만 나눈다. */}
-      <main id="main-content" tabIndex={-1} className="flex-1 bg-muted/50 outline-none">
+      {/* 본문 바탕은 흰색이다. 구역은 면 색이 아니라 구성과 여백이 나누고, 제품 화면 무대·권유 띠만 muted 를 쓴다. */}
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 bg-background break-keep outline-none selection:bg-brand/15"
+      >
         <Hero startHref={startHref} />
         <ProductPreviewSection />
         <ProblemSection />
