@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { employmentStateSchema } from "@/server/shared";
 import { toEmploymentState, type ProfileRow } from "./profile.model";
-import type { ProfileRepo } from "./profile.repo";
+import { InvalidEmploymentError, type ProfileRepo } from "./profile.repo";
 import { getMyEmployment, saveMyEmployment } from "./profile.service";
 
 const employment = {
@@ -73,6 +73,8 @@ describe("my employment service", () => {
     const updateEmployment = vi.fn(async () => true);
     for (const value of [
       { ...input, departmentId: "missing" },
+      { ...input, departmentId: "SOL-D039" },
+      { ...input, departmentId: "SOL-D045" },
       { ...input, jobTitleId: "missing" },
       { ...input, userId: "user-b" },
     ]) {
@@ -100,6 +102,24 @@ describe("my employment service", () => {
       expect(updateEmployment).not.toHaveBeenCalled();
     },
   );
+  it("maps a rejected current DB catalog selection to field errors", async () => {
+    expect(
+      await saveMyEmployment(
+        input,
+        repoOf({
+          updateEmployment: async () => {
+            throw new InvalidEmploymentError();
+          },
+        }),
+      ),
+    ).toEqual({
+      status: "invalid",
+      fields: {
+        departmentId: "유효한 부서를 선택하세요",
+        jobTitleId: "유효한 직급/직책을 선택하세요",
+      },
+    });
+  });
   it("propagates arbitrary DB failures and does not claim success for a zero-row update", async () => {
     await expect(
       saveMyEmployment(

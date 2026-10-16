@@ -50,6 +50,7 @@ updated: 2026-10-16
 - [x] 기존 계획 코드의 가입/보완 로컬 E2E·verify/browser/E2E/authE2E·seed멱등·1440/1280 독립 QA. 공개130·브라우저89·인증92 PASS; QA-01/02 수정·별도 리뷰 후 관련 검사 재실행. [실행/미실행 기록](evidence/people/20261016-people-integration.md).
 
 - [ ] 최신 정본 04·05·06·09·16과 ADR-021 후속 정합화. 인력 표 분리·부서 계층·가입 개인 조직 생성 중단·멤버십 기반 조직 결정. 공유 DB 충돌 migration 적용/main 병합 금지, 기존 작업·다른 세션 파일 보존.
+- Task 7 저장 변경(격리 worktree): 새 가입은 프로필만 생성하고 TEAM/기존 null kind만 신고 허용. 이전 개인 조직·소유권·작업과 카탈로그 삭제 SET NULL 보존을 PGlite 141개, 개인 공간 없는 seed 호환을 HTTP mock 12개, 프로필·세션 API 계약을 60개 테스트로 확인했다. Task 8 무조직/단일 조직 라우팅과 함께 릴리스해야 하며 독립 검토·격리 실제 Supabase 검증은 대기 중이다. 공유 DB 적용·seed 실행·main 병합은 하지 않았다.
 
 원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 PLANNED200/READY0이다. 별도 사진 작업 결과는 아직 합치지 않았으며 사람 승인 전 release 완료를 주장하지 않는다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. 기존 계획의 DB·가입 코드와 통합 QA는 통과했으며 ADR-021 후속 변경을 시작한다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
 

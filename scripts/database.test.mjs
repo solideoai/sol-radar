@@ -9,6 +9,7 @@ import {
   migratedDb,
   migrations,
   planOf,
+  prepareLegacyPersonalOrgs,
   recordHistory,
   slowPolicies,
   users,
@@ -223,6 +224,7 @@ describe("DB 접근 정책", () => {
       .rows[0].id;
   const seedTasks = async () => {
     await asAdminTool();
+    await prepareLegacyPersonalOrgs(db, users.slice(0, 2));
     // 작업을 지우면 트리거가 '지움' 활동을 남기므로 활동은 그 뒤에 지운다.
     await db.query("delete from public.tasks");
     await db.query("delete from public.activities");
@@ -462,6 +464,7 @@ describe("조직·멤버십·초대 정책", () => {
   const rowsOf = async (pglite, sql, params = []) => (await pglite.query(sql, params)).rows;
   const teamDb = async (t) => {
     const pglite = await migratedDb(t);
+    await prepareLegacyPersonalOrgs(pglite, users);
     await pglite.query("update public.profiles set is_admin = true where id = $1", [users[2]]);
     await as(pglite, 0);
     await pglite.query("insert into public.organizations (slug, name) values ('acme', '에이크미')");
@@ -553,26 +556,14 @@ describe("조직·멤버십·초대 정책", () => {
       )
     )[0];
 
-  it("가입하면 개인 조직(무작위 8자 주소)과 owner 멤버십이 하나씩 생긴다", async (t) => {
+  it("새 가입은 프로필만 만들고 조직·멤버십은 만들지 않는다", async (t) => {
     const pglite = await migratedDb(t);
-    const orgs = await rowsOf(
-      pglite,
-      "select o.slug, o.name, o.personal_owner_id, m.user_id, m.org_role from public.organizations o join public.memberships m on m.org_id = o.id order by o.personal_owner_id",
+    assert.deepEqual(
+      await rowsOf(pglite, "select id from public.profiles order by id"),
+      users.map((id) => ({ id })),
     );
-    assert.equal(orgs.length, users.length);
-    for (const [i, org] of orgs.entries()) {
-      assert.match(org.slug, /^[0-9a-f]{8}$/);
-      assert.deepEqual(
-        { ...org, slug: undefined },
-        {
-          slug: undefined,
-          name: "개인 공간",
-          personal_owner_id: users[i],
-          user_id: users[i],
-          org_role: "owner",
-        },
-      );
-    }
+    assert.deepEqual(await rowsOf(pglite, "select id from public.organizations"), []);
+    assert.deepEqual(await rowsOf(pglite, "select * from public.memberships"), []);
   });
 
   it("팀을 만든 사람은 owner 가 되고, 개인 조직의 주인은 화면에서 지정하지 못한다", async (t) => {
@@ -2100,7 +2091,7 @@ describe("조직·멤버십·초대 정책", () => {
         );
     });
 
-    it("메타데이터가 없어도(null) 가입은 실패하지 않는다 — 표시 이름·이미지가 빈 활성 프로필과 개인 조직이 생긴다", async (t) => {
+    it("메타데이터가 없어도(null) 가입은 실패하지 않는다 — 표시 이름·이미지가 빈 활성 프로필만 생긴다", async (t) => {
       const pglite = await migratedDb(t);
       const id = await signUp(pglite, null);
       assert.deepEqual(await profileOf(pglite, id), {
@@ -2114,7 +2105,7 @@ describe("조직·멤버십·초대 정책", () => {
           "select m.org_role from public.organizations o join public.memberships m on m.org_id = o.id where o.personal_owner_id = $1",
           [id],
         ),
-        [{ org_role: "owner" }],
+        [],
       );
     });
 
@@ -3575,6 +3566,10 @@ describe("솔리데오 카탈로그·가입 신고", () => {
   });
   it("비멤버는 공개 필드만 변환하고 본인 이름·신고 FK를 한 번에 갱신한다", async (t) => {
     const fresh = await setup(t);
+    assert.deepEqual(
+      (await fresh.query("select * from public.memberships where user_id=$1", [users[2]])).rows,
+      [],
+    );
     await actAs(fresh, users[2]);
     const expected = [
       {
@@ -3615,6 +3610,7 @@ describe("솔리데오 카탈로그·가입 신고", () => {
     await fresh.query("update public.profiles set status='suspended' where id=$1", [users[2]]);
     await actAs(fresh, users[2]);
     assert.deepEqual((await update(users[2])).rows, []);
+    await assert.rejects(resolve(fresh), /authentication_required/);
   });
   it("다른 회사·미지 코드 및 UUID는 resolver와 본인 UPDATE 모두 거절한다", async (t) => {
     const fresh = await setup(t);
@@ -3641,6 +3637,81 @@ describe("솔리데오 카탈로그·가입 신고", () => {
         /invalid_employment/,
       );
   });
+  for (const kind of ["DIVISION", "GROUP"]) {
+    for (const entrance of ["signup", "RPC", "UPDATE"]) {
+      it(`${kind}은 ${entrance}에서 거절한다`, async (t) => {
+        const fresh = await setup(t);
+        const division = "20000000-0000-0000-0000-000000000001";
+        const group = "20000000-0000-0000-0000-000000000002";
+        await fresh.query(
+          "insert into public.departments(id,org_id,code,name,kind,parent_id) values ($1,$3,'UPPER-D','본부','DIVISION',null),($2,$3,'UPPER-G','그룹','GROUP',$1)",
+          [division, group, solideo],
+        );
+        const id = kind === "DIVISION" ? division : group;
+        const code = kind === "DIVISION" ? "UPPER-D" : "UPPER-G";
+        if (entrance === "signup") {
+          await assert.rejects(
+            fresh.query(
+              "insert into auth.users(id,raw_user_meta_data) values(gen_random_uuid(),$1)",
+              [{ name: "가입자", department_code: code, job_title_code: "SOL-J007" }],
+            ),
+            /invalid_employment/,
+          );
+          assert.equal(
+            (await fresh.query("select count(*)::int as count from auth.users")).rows[0].count,
+            3,
+          );
+        } else {
+          await actAs(fresh, users[2]);
+          if (entrance === "RPC") {
+            for (const value of [code, id])
+              await assert.rejects(resolve(fresh, value), /invalid_employment/);
+          } else {
+            await assert.rejects(
+              fresh.query(
+                "update public.profiles set declared_department_id=$2,declared_job_title_id=$3 where id=$1",
+                [users[2], id, title],
+              ),
+              /invalid_employment/,
+            );
+          }
+        }
+      });
+    }
+  }
+  for (const kind of ["TEAM", null]) {
+    it(`${kind ?? "legacy null"}은 조직 없는 계정의 가입·RPC·직접 UPDATE를 허용한다`, async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.departments set kind=$1 where id=$2", [kind, department]);
+      const {
+        rows: [{ id }],
+      } = await fresh.query(
+        "insert into auth.users(id,raw_user_meta_data) values(gen_random_uuid(),$1) returning id",
+        [{ name: "가입자", department_code: "SOL-D001", job_title_code: "SOL-J007" }],
+      );
+      assert.deepEqual(
+        (await fresh.query("select * from public.memberships where user_id=$1", [id])).rows,
+        [],
+      );
+      assert.deepEqual(
+        (await fresh.query("select id from public.organizations where personal_owner_id=$1", [id]))
+          .rows,
+        [],
+      );
+      await actAs(fresh, users[2]);
+      assert.equal((await resolve(fresh)).rows[0].department_id, department);
+      assert.equal((await resolve(fresh, department, title)).rows[0].department_id, department);
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "update public.profiles set declared_department_id=$2,declared_job_title_id=$3 where id=$1 returning id",
+            [users[2], department, title],
+          )
+        ).rows,
+        [{ id: users[2] }],
+      );
+    });
+  }
   it("명부의 복합 FK·이름·성별·카탈로그 최소 인원 제약을 강제한다", async (t) => {
     const fresh = await setup(t);
     await assert.rejects(
@@ -3660,6 +3731,9 @@ describe("솔리데오 카탈로그·가입 신고", () => {
   });
   it("유효 메타데이터만 신고 FK로 옮기며 관리자·멤버십을 부여하지 않는다", async (t) => {
     const fresh = await setup(t);
+    const organizationsBefore = (
+      await fresh.query("select id from public.organizations order by id")
+    ).rows;
     const {
       rows: [{ id }],
     } = await fresh.query(
@@ -3671,6 +3745,10 @@ describe("솔리데오 카탈로그·가입 신고", () => {
           job_title_code: "SOL-J007",
           is_admin: true,
           org_role: "owner",
+          sol_role: "ADMIN",
+          org_id: solideo,
+          organization_id: solideo,
+          slug: "org-01",
         },
       ],
     );
@@ -3697,7 +3775,11 @@ describe("솔리데오 카탈로그·가입 신고", () => {
           [id],
         )
       ).rows,
-      [{ personal_owner_id: id, org_role: "owner" }],
+      [],
+    );
+    assert.deepEqual(
+      (await fresh.query("select id from public.organizations order by id")).rows,
+      organizationsBefore,
     );
     for (const meta of [
       { department_code: "SOL-D001" },
@@ -3715,13 +3797,22 @@ describe("솔리데오 카탈로그·가입 신고", () => {
         /invalid_employment/,
       );
   });
-  it("신고 키가 모두 없는 OAuth는 nullable이며 HTTPS 사진·이름·개인 조직을 보존한다", async (t) => {
+  it("신고 키가 모두 없는 OAuth는 nullable이며 HTTPS 사진·이름만 보존한다", async (t) => {
     const fresh = await setup(t);
     const {
       rows: [{ id }],
     } = await fresh.query(
       "insert into auth.users (id,raw_user_meta_data) values (gen_random_uuid(),$1) returning id",
-      [{ full_name: "OAuth 가입자", avatar_url: "https://example.test/avatar.png" }],
+      [
+        {
+          full_name: "OAuth 가입자",
+          avatar_url: "https://example.test/avatar.png",
+          is_admin: true,
+          org_role: "owner",
+          sol_role: "ADMIN",
+          org_id: solideo,
+        },
+      ],
     );
     assert.deepEqual(
       (
@@ -3742,7 +3833,11 @@ describe("솔리데오 카탈로그·가입 신고", () => {
     assert.equal(
       (await fresh.query("select * from public.organizations where personal_owner_id=$1", [id]))
         .rows.length,
-      1,
+      0,
+    );
+    assert.deepEqual(
+      (await fresh.query("select * from public.memberships where user_id=$1", [id])).rows,
+      [],
     );
   });
   it("ADR021 점수는 같은 조직만 읽고 owner·운영자·일반회원·익명은 쓰지 못한다", async (t) => {
@@ -3952,6 +4047,7 @@ describe("솔리데오 카탈로그·가입 신고", () => {
 
 it("솔리데오 조직 삭제도 신고한 일반 계정·개인 조직을 보존한다", async (t) => {
   const fresh = await migratedDb(t);
+  await prepareLegacyPersonalOrgs(fresh, [users[0]]);
   const org = "db4c863c-cb6a-593d-93ff-709a17e0157a";
   await fresh.query(
     "insert into public.organizations (id,slug,name) values ($1,'org-01','솔리데오')",
@@ -3994,5 +4090,37 @@ it("솔리데오 조직 삭제도 신고한 일반 계정·개인 조직을 보�
       ])
     ).rows.length,
     1,
+  );
+});
+
+it("ADR021 가입 변경은 이전 개인 조직·소유권·작업을 그대로 보존한다", async (t) => {
+  const fresh = await freshDb(t);
+  const preceding = migrations.filter((migration) => migration.version < "20261016000004");
+  await applyMigrations(fresh, preceding);
+  await fresh.query("insert into auth.users(id,email) values($1,'legacy@example.invalid')", [
+    users[0],
+  ]);
+  const organizations = (await fresh.query("select * from public.organizations")).rows;
+  const memberships = (await fresh.query("select * from public.memberships")).rows;
+  assert.equal(organizations.length, 1);
+  assert.equal(organizations[0].personal_owner_id, users[0]);
+  assert.equal(memberships[0].org_role, "owner");
+  await fresh.query("insert into public.tasks(org_id,title) values($1,'기존 개인 작업')", [
+    organizations[0].id,
+  ]);
+  const tasks = (await fresh.query("select * from public.tasks")).rows;
+  await applyMigrations(
+    fresh,
+    migrations.filter((migration) => migration.version >= "20261016000004"),
+  );
+  await fresh.query("insert into auth.users(id,email) values($1,'new@example.invalid')", [
+    users[1],
+  ]);
+  assert.deepEqual((await fresh.query("select * from public.organizations")).rows, organizations);
+  assert.deepEqual((await fresh.query("select * from public.memberships")).rows, memberships);
+  assert.deepEqual((await fresh.query("select * from public.tasks")).rows, tasks);
+  assert.deepEqual(
+    (await fresh.query("select id from public.profiles order by id")).rows,
+    users.slice(0, 2).map((id) => ({ id })),
   );
 });

@@ -372,13 +372,16 @@ export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) =>
     `/rest/v1/organizations?select=id&personal_owner_id=eq.${owner.id}`,
     owner.as,
   );
-  await call("DELETE", `/rest/v1/tasks?org_id=eq.${personal.id}`, asService);
-  for (const task of SEED_PERSONAL_TASKS) {
-    await insertTask(call, owner.as, {
-      org_id: personal.id,
-      title: task.title,
-      status: task.status,
-    });
+  // ADR-021 이후 가입에는 개인 공간이 없다. 이전 계정에 남아 있는 공간만 갱신한다.
+  if (personal) {
+    await call("DELETE", `/rest/v1/tasks?org_id=eq.${personal.id}`, asService);
+    for (const task of SEED_PERSONAL_TASKS) {
+      await insertTask(call, owner.as, {
+        org_id: personal.id,
+        title: task.title,
+        status: task.status,
+      });
+    }
   }
 
   return { removed: 0, teamSlug: SEED_TEAM.slug };
