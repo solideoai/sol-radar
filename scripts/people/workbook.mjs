@@ -57,9 +57,10 @@ const AUDITED_WORKSITE_HEADINGS = new Set(["상암 사업단"]);
 const ORGANIZATION_HEADING_PATTERN = /팀|본부|그룹|연구소|프로젝트|구축|유지|고도화/;
 
 function isWorksite(text) {
-  if (AUDITED_WORKSITE_HEADINGS.has(text)) return true;
+  if (AUDITED_WORKSITE_HEADINGS.has(text) || /^(?:주소|근무지)(?:\s|[:：]|$)/.test(text))
+    return true;
   if (ORGANIZATION_HEADING_PATTERN.test(text)) return false;
-  return /^(?:주소|근무지)(?:\s|[:：]|$)|\d+\s*(?:층|청사)|비즈니스센터/.test(text);
+  return /\d+\s*(?:층|청사)|비즈니스센터/.test(text);
 }
 
 function isOrganizationHeading(cell) {

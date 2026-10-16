@@ -349,3 +349,32 @@ for (const heading of ["주소정보팀", "청사관리팀", "청사관리팀 2�
     );
   });
 }
+
+for (const heading of [
+  "근무지: 연구소 2층",
+  "주소: 사업본부 3층",
+  "근무지 연구소 2층",
+  "주소 사업본부 3층",
+]) {
+  test(`preserves team continuity for explicit location declarations containing organization words (${heading})`, async () => {
+    await withWorkbook(
+      async (filename) => {
+        const result = await readOrganizationWorkbook(filename, [
+          department("개발팀", [range("A1", "A2:A6")]),
+        ]);
+        assert.equal(result.recognizedRows, 2);
+        assert.equal(result.departments[0].sourceCount, 2);
+      },
+      (_workbook, sheet) => {
+        sheet.getCell("A5").value = heading;
+        sheet.mergeCells("A5:D5");
+        sheet.getCell("A5").font = { bold: true };
+        sheet.getCell("A5").fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF777777" },
+        };
+      },
+    );
+  });
+}
