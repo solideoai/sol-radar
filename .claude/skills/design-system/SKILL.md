@@ -13,7 +13,7 @@ description: 화면을 만들거나 고칠 때 따르는 디자인 시스템 규
 2. **조밀하게.** 본문 14px, 라벨 13px. 버튼은 기본 36px(작은 것 32·28px, 큰 것 44px), 입력칸 40px, 모서리 8px 이다.
 3. **제목이 화면을 이끈다.** `h1` 은 화면에 하나이고 `type-title` 이다. 같은 역할의 글자는 어느 화면에서나 같은 크기다.
 4. **주요 버튼은 화면에 하나.** `default`(남색)는 하나만 두고 나머지는 `outline`·`ghost`·링크로 낮춘다.
-5. **색은 아낀다.** 버튼은 `primary`(남색)이고 브랜드 색 `brand` 는 차트·선택 표시에만 쓴다. 나머지 위계는 회색 단계로 만든다.
+5. **색은 아낀다.** 버튼은 `primary`(남색)이고 브랜드 색 `brand` 는 차트·선택 표시에만 쓴다(첫 화면에서는 로고 점·선택 막대·점수 막대·인용 바탕·안내 아이콘에도 쓴다). 나머지 위계는 회색 단계로 만든다.
 6. **틀 안에 둔다.** 로그인 뒤 화면은 앱 틀(사이드바와 위 막대), 로그인·안내 화면은 인증 틀(화면 가운데의 좁은 단, 로고·카드 없음), 첫 화면은 마케팅 틀(머리말과 바닥글)이다.
 7. **아이콘은 `lucide-react`, 16px.** 글자 없이 아이콘만 둔 버튼에는 이름(`aria-label`)을 단다.
 8. **장식하지 않는다.** 그라데이션, 알약 배지 머리글, 색 원 번호, 문장 속 색 강조, 지어낸 수치·후기·로고, 동작하지 않는 버튼을 넣지 않는다.
@@ -25,14 +25,20 @@ description: 화면을 만들거나 고칠 때 따르는 디자인 시스템 규
 
 | 웹 이름 | 크기/줄 높이(px) | 굵기 | 쓰임 |
 |---|---|---|---|
-| `display` | 56/62 | 700 | 첫 화면 큰 제목(넓은 폭) |
-| `headline` | 36/44 | 700 | 첫 화면 제목(좁은 폭)·구역 제목 |
+| `display` | 64/76 | 700 | 첫 화면 전용: 히어로 큰 제목 |
+| `headline` | 44/56 | 700 | 첫 화면 전용: 구역 제목 |
+| `subhead` | 28/38 | 700 | 첫 화면 전용: 하위 제목 |
 | `title` | 30/36 | 700 | 화면 제목(`h1`) |
+| `heading-lg` | 24/34 | 600 | 첫 화면 전용: 큰 카드·구역 소제목 |
 | `heading` | 16/24 | 600 | 카드·구역 제목 |
-| `lead` | 18/28 | — | 첫 화면 설명 |
+| `lead` | 20/32 | — | 첫 화면 전용: 설명 |
+| `body-lg` | 18/30 | — | 첫 화면 전용: 본문 |
+| `ui-lg` | 17/26 | — | 첫 화면 전용: 메뉴·버튼·판 주요 글자 |
+| `label-lg` | 15/22 | — | 첫 화면 전용: 라벨·배지·인용 |
 | `body` | 14/22 | — | 본문 |
 | `label` | 13/20 | — | 라벨·메뉴·표 머리 |
 | `caption` | 12/16 | — | 날짜·배지 |
+| `wordmark` | 20/20 | 800 | 첫 화면 전용: 로고 글자 |
 
 앱 눈금은 따로다(`tokens.json` 의 `nativeTypography`): display 36/46, title 26/35, heading 20/29(셋 다 700), body 16/26, label 15/22, caption 13/20.
 
@@ -100,7 +106,7 @@ sidebar(딸려 온 sheet·tooltip)·avatar·table.
 
 | 틀 | 파일 | 쓰는 화면 |
 |---|---|---|
-| 마케팅 | `web/components/site-header.tsx`·`web/components/site-footer.tsx` | 첫 화면 `web/app/page.tsx`. 단 폭 `max-w-6xl`. 머리말은 흰색, 본문 바탕은 그보다 아주 조금 어둡고(`bg-muted/50`) 구역 사이에 선을 긋지 않는다. 바닥글은 어두운 바탕이다(`bg-foreground`·`text-background`, 로고는 `<Logo inverted />`) |
+| 마케팅 | `web/components/site-header.tsx`·`web/components/site-footer.tsx` | 첫 화면 `web/app/page.tsx`. 단 폭 `max-w-320` + `px-10`(글줄 1200px). 머리말 72px 단색 흰 바탕. 본문 바탕 흰색, 제품 화면 무대·권유 띠만 `bg-muted`. 글자는 첫 화면 눈금(`*-lg`·`subhead`·`wordmark`)을 쓰고 13px 미만을 쓰지 않는다. 바닥글은 어두운 바탕(`bg-foreground`·`text-background`, 로고는 `<Logo inverted />`) |
 | 인증 | `web/components/auth-frame.tsx` (`AuthFrame`·`AuthHeader`) | 로그인·가입·비밀번호(`web/app/auth/`, 주소 `/auth/login` 등), 팀 만들기(`web/app/teams/new/`)·받은 초대(`web/app/invitations/`), 로그인 필요·연결 없음 안내, 없는 주소·오류. 단 폭 `max-w-100`(400px), 가운데 정렬한 제목 아래에 폼·버튼. 비밀번호 칸은 `web/components/password-input.tsx`(보기·숨기기 버튼) |
 | 앱 | `web/app/(app)/[slug]/layout.tsx` + `web/components/app-shell.tsx` | `web/app/(app)/[slug]/` 아래의 로그인 뒤 조직 화면(대시보드·작업·설정·멤버) |
 | 관리자 | `web/app/admin/layout.tsx` | 서비스 운영자(`profiles.is_admin`)만 여는 화면. 조직과 상관없어 사이드바 없이 머리 막대(로고·"앱으로 돌아가기") 하나다. 본문은 `AppPage`. 운영자가 아니면 틀이 404 를 낸다 |

@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 
 // 글자 크기는 size 마다 둔다 — cn 은 type-* 를 text-* 와 합쳐 주지 않아 바탕에 두면 크기 변형과 겹친다.
-// 같은 이유로 쓰는 쪽에서 글자 크기 클래스를 넘기지 않는다. 높이는 xs 28 · sm 32 · 기본 36 · lg 44px 이다.
+// 같은 이유로 쓰는 쪽에서 글자 크기 클래스를 넘기지 않는다. 높이는 xs 28 · sm 32 · 기본 36 · lg 44px · xl 56px(첫 화면 전용) 이다.
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
@@ -25,8 +25,8 @@ const buttonVariants = cva(
           "h-9 gap-1.5 px-4 type-body has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
         xs: "h-7 gap-1 px-2.5 type-caption has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1.5 px-3 type-label has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5 [&_svg:not([class*='size-'])]:size-3.5",
-        // 15px 은 글자 눈금에 없는 크기다. 큰 버튼 한 곳에서만 쓰므로 여기에 적는다.
-        lg: "h-11 gap-2 px-5 text-[0.9375rem]/6 has-data-[icon=inline-end]:pr-4 has-data-[icon=inline-start]:pl-4",
+        lg: "h-11 gap-2 px-5 type-ui-lg has-data-[icon=inline-end]:pr-4 has-data-[icon=inline-start]:pl-4",
+        xl: "h-14 gap-2 px-7 type-ui-lg font-semibold has-data-[icon=inline-end]:pr-5 has-data-[icon=inline-start]:pl-5",
         icon: "size-9",
         "icon-xs": "size-7 [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",

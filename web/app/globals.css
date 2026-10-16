@@ -24,7 +24,7 @@
   --secondary: #F2F4F6;
   --secondary-foreground: #333D4B;
   --muted: #F2F4F6;
-  --muted-foreground: #5E6978;
+  --muted-foreground: #4E5968;
   --accent: #F2F4F6;
   --accent-foreground: #191F28;
   --destructive: #A51926;
@@ -99,16 +99,23 @@
 }
 
 @utility type-display {
-  font-size: 3.5rem;
-  line-height: calc(62 / 56);
-  letter-spacing: 0em;
+  font-size: 4rem;
+  line-height: calc(76 / 64);
+  letter-spacing: -0.03em;
   font-weight: 700;
 }
 
 @utility type-headline {
-  font-size: 2.25rem;
-  line-height: calc(44 / 36);
-  letter-spacing: 0em;
+  font-size: 2.75rem;
+  line-height: calc(56 / 44);
+  letter-spacing: -0.025em;
+  font-weight: 700;
+}
+
+@utility type-subhead {
+  font-size: 1.75rem;
+  line-height: calc(38 / 28);
+  letter-spacing: -0.02em;
   font-weight: 700;
 }
 
@@ -119,6 +126,13 @@
   font-weight: 700;
 }
 
+@utility type-heading-lg {
+  font-size: 1.5rem;
+  line-height: calc(34 / 24);
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+
 @utility type-heading {
   font-size: 1rem;
   line-height: calc(24 / 16);
@@ -127,8 +141,26 @@
 }
 
 @utility type-lead {
+  font-size: 1.25rem;
+  line-height: calc(32 / 20);
+  letter-spacing: -0.005em;
+}
+
+@utility type-body-lg {
   font-size: 1.125rem;
-  line-height: calc(28 / 18);
+  line-height: calc(30 / 18);
+  letter-spacing: 0em;
+}
+
+@utility type-ui-lg {
+  font-size: 1.0625rem;
+  line-height: calc(26 / 17);
+  letter-spacing: 0em;
+}
+
+@utility type-label-lg {
+  font-size: 0.9375rem;
+  line-height: calc(22 / 15);
   letter-spacing: 0em;
 }
 
@@ -148,6 +180,13 @@
   font-size: 0.75rem;
   line-height: calc(16 / 12);
   letter-spacing: 0em;
+}
+
+@utility type-wordmark {
+  font-size: 1.25rem;
+  line-height: calc(20 / 20);
+  letter-spacing: 0.02em;
+  font-weight: 800;
 }
 
 @layer base {

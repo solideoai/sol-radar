@@ -1,0 +1,29 @@
+{
+  "scope": "implementation plans only; product implementation not started",
+  "plans_checked": 3,
+  "tasks_checked": 9,
+  "local_links_checked": 17,
+  "source_workbook_sha256": "d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3",
+  "source_rows_recognized": 250,
+  "source_name_matches_in_plans": 0,
+  "plan_sha256": {
+    "2026-10-16-solideo-people-data.md": "3ad6fe3ba47e39da73895a31e47563c165e04d1bf1df68e8221346622b74420c",
+    "2026-10-16-solideo-people-portraits.md": "2fa38344c0544f33d230a04d00dc73258360d6015349dbce74db399988032f8e",
+    "2026-10-16-solideo-people-signup.md": "70fd7839413fcb600fe62ade3df5a3ff8d74e0b33fbdc25f6df3cab6564cc0a4"
+  },
+  "self_review": [
+    "spec coverage",
+    "step granularity",
+    "interface consistency",
+    "review focus tests",
+    "proportion"
+  ],
+  "errors": [],
+  "verification": {
+    "command": "pnpm verify",
+    "exit_code": 0,
+    "root_tests": 173,
+    "web_tests": 628,
+    "sandbox_retry_reason": "127.0.0.1 listen EPERM"
+  }
+}
