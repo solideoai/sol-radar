@@ -15,6 +15,8 @@ const baseURL = `http://127.0.0.1:${port}`;
 const WRITE = /\.write\.spec\.ts$/;
 
 export default defineConfig({
+  // Shared Node tooling uses native ESM (including import.meta for checkout-root cwd).
+  build: { external: ["**/scripts/local-test-target.mjs"] },
   testDir: "./e2e-auth",
   testMatch: /\.spec\.ts$/,
   // 기존 E2E 의 산출물(test-results·playwright-report)과 섞이지 않게 한 칸 아래에 둔다. 둘 다 깃에서 빠져 있다.

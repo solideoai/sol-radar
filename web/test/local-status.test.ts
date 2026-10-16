@@ -1,4 +1,6 @@
 import { expect, it, vi } from "vitest";
+import { fileURLToPath } from "node:url";
+import { readLocalStatus as sharedReadLocalStatus } from "@test-harness/local-test-target.mjs";
 import { readLocalStatus } from "@/e2e-auth/support/local-status";
 const env = {
   SOL_RADAR_TEST_SUPABASE_WORKDIR: "/tmp/isolated/project",
@@ -13,7 +15,10 @@ it("passes the exact isolated workdir, retaining output only in memory", () => {
     [
       "supabase",
       ["status", "-o", "env", "--workdir", env.SOL_RADAR_TEST_SUPABASE_WORKDIR],
-      expect.objectContaining({ stdio: ["ignore", "pipe", "pipe"] }),
+      expect.objectContaining({
+        stdio: ["ignore", "pipe", "pipe"],
+        cwd: fileURLToPath(new URL("../../", import.meta.url)),
+      }),
     ],
   ]);
 });
@@ -37,20 +42,35 @@ it("rejects mismatched origin with no fallback", () => {
 it("ordinary default command remains unchanged", () => {
   const run = vi.fn(() => ({ status: 0, stdout }));
   readLocalStatus({ env: {}, run });
-  expect(run.mock.calls[0]).toContainEqual(["status", "-o", "env"]);
+  expect(run.mock.calls[0]).toEqual([
+    "supabase",
+    ["status", "-o", "env"],
+    expect.objectContaining({ cwd: fileURLToPath(new URL("../../", import.meta.url)) }),
+  ]);
 });
 it.each([
   () => {
-    throw Object.assign(new Error("private-sentinel"), { stdout, stderr: stdout });
+    throw Object.assign(new Error("private-sentinel", { cause: new Error("private-sentinel") }), {
+      stdout,
+      stderr: stdout,
+    });
   },
-  () => ({ status: 1, stdout, error: new Error("private-sentinel") }),
+  () => ({ status: 1, stdout, stderr: stdout }),
+  () => ({ status: 0, stdout, error: new Error("private-sentinel") }),
+  () => ({ status: 0, stdout: { key: "private-sentinel" } }),
   () => ({ status: 0, stdout: 'API_URL="private-sentinel"' }),
 ])("sanitizes every status failure", (run) => {
+  let failure: unknown;
   try {
     readLocalStatus({ env, run });
-    expect.fail("must reject");
   } catch (error) {
-    expect(String(error) + JSON.stringify(error)).not.toContain("private-sentinel");
-    expect(error).not.toHaveProperty("cause");
+    failure = error;
   }
+  expect(failure).toBeInstanceOf(Error);
+  expect(String(failure) + JSON.stringify(failure)).not.toContain("private-sentinel");
+  expect(failure).not.toHaveProperty("cause");
+});
+
+it("web fixtures use the same policy entry as the seed CLIs", () => {
+  expect(readLocalStatus).toBe(sharedReadLocalStatus);
 });

@@ -13,6 +13,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@test-harness/local-test-target.mjs": fileURLToPath(
+        new URL("../scripts/local-test-target.mjs", import.meta.url),
+      ),
       "server-only": fileURLToPath(new URL("./test/stubs/server-only.ts", import.meta.url)),
       "@": fileURLToPath(new URL("./", import.meta.url)),
     },

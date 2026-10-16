@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
 import { readLocalStatus } from "./local-test-target.mjs";
 const target = {
   SOL_RADAR_TEST_SUPABASE_WORKDIR: "/tmp/isolated/project",
@@ -10,8 +11,9 @@ const output =
 test("explicit target uses exact workdir and matching origin", () => {
   const status = readLocalStatus({
     env: target,
-    run: (command, args) => {
+    run: (command, args, options) => {
       assert.equal(command, "supabase");
+      assert.equal(options.cwd, fileURLToPath(new URL("../", import.meta.url)));
       assert.deepEqual(args, [
         "status",
         "-o",
@@ -27,7 +29,9 @@ test("explicit target uses exact workdir and matching origin", () => {
 test("ordinary local command unchanged", () => {
   readLocalStatus({
     env: {},
-    run: (_, args) => {
+    run: (command, args, options) => {
+      assert.equal(command, "supabase");
+      assert.equal(options.cwd, fileURLToPath(new URL("../", import.meta.url)));
       assert.deepEqual(args, ["status", "-o", "env"]);
       return { status: 0, stdout: output };
     },
@@ -74,19 +78,26 @@ test("wrong returned origin refuses without fallback or secret leak", () => {
 });
 for (const run of [
   () => {
-    throw Object.assign(new Error("private-sentinel"), { stdout: output, stderr: output });
+    throw Object.assign(new Error("private-sentinel", { cause: new Error("private-sentinel") }), {
+      stdout: output,
+      stderr: output,
+    });
   },
-  () => ({ status: 1, error: new Error("private-sentinel"), stdout: output, stderr: output }),
+  () => ({ status: 1, stdout: output, stderr: output }),
+  () => ({ status: 0, error: new Error("private-sentinel"), stdout: output }),
+  () => ({ status: 0, stdout: { key: "private-sentinel" } }),
   () => ({ status: 0, stdout: 'API_URL="private-sentinel"' }),
 ])
   test("CLI errors never expose raw message stdout stderr or cause", () => {
-    try {
-      readLocalStatus({ env: target, run });
-      assert.fail("must fail");
-    } catch (error) {
-      assert.doesNotMatch(JSON.stringify(error) + error.stack, /private-sentinel/);
-      assert.equal(error.cause, undefined);
-    }
+    assert.throws(
+      () => readLocalStatus({ env: target, run }),
+      (error) => {
+        assert.ok(error instanceof Error);
+        assert.doesNotMatch(JSON.stringify(error) + error.stack, /private-sentinel/);
+        assert.equal(error.cause, undefined);
+        return true;
+      },
+    );
   });
 
 // Exercise both real CLI entry functions with only the process/network boundary replaced.

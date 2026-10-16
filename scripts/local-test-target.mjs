@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { isAbsolute, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isLocalUrl, parseStatusEnv } from "./local-env.mjs";
 
 const originOf = (value) => {
@@ -19,6 +20,10 @@ const originOf = (value) => {
   }
 };
 
+/**
+ * @param {import("./local-test-target.d.mts").LocalStatusOptions} [options]
+ * @returns {Record<string, string>}
+ */
 export function readLocalStatus({ env = process.env, run = spawnSync } = {}) {
   const workdir = env.SOL_RADAR_TEST_SUPABASE_WORKDIR;
   const expected = env.SOL_RADAR_TEST_SUPABASE_API_URL;
@@ -33,6 +38,7 @@ export function readLocalStatus({ env = process.env, run = spawnSync } = {}) {
   const result = (() => {
     try {
       return run("supabase", args, {
+        cwd: fileURLToPath(new URL("../", import.meta.url)),
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
         shell: process.platform === "win32",
