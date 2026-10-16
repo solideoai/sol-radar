@@ -11,14 +11,9 @@ const { invitee } = SEED_ACCOUNTS;
 test("받은 초대를 수락하면 시드 팀의 대시보드로 가고, 팀의 멤버가 되며, 받은 초대가 비어 있다", async ({
   page,
 }) => {
-  // 개인 대시보드의 사이드바에 받은 초대 항목과 그 수(링크 옆의 배지)가 보인다.
-  await page.goto("/auth/login");
-  await expect(page).toHaveURL(/\/[a-z0-9]{8}\/dashboard$/);
-  const invitationsLink = page.getByRole("link", { name: "받은 초대", exact: true });
-  await expect(page.getByRole("listitem").filter({ has: invitationsLink })).toHaveText(
-    /^받은 초대\s*1개$/,
-  );
-  await invitationsLink.click();
+  await page.goto("/auth/organization-state");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("조직 초대가 필요합니다");
+  await page.getByRole("link", { name: "받은 초대 보기" }).click();
 
   await expect(page).toHaveURL(/\/invitations$/);
   await expect(page.getByRole("heading", { level: 1, name: "받은 초대" })).toBeVisible();
@@ -35,7 +30,7 @@ test("받은 초대를 수락하면 시드 팀의 대시보드로 가고, 팀의
   await expect(
     page.getByRole("main").getByText("시드 팀의 작업 진행 상황을 한눈에 봅니다."),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "조직 전환" })).toContainText("팀 · 멤버");
+  await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
   // 들어오자마자 팀의 작업이 보인다.
   await expect(
     page.getByRole("table", { name: "기한이 가까운 작업" }).getByText("분기 보고서 초안"),

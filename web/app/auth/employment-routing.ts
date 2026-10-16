@@ -35,3 +35,19 @@ export function businessLayoutNext(value: string | null, slug: string): string {
     ? path
     : `${prefix}dashboard`;
 }
+
+export function safeBusinessNext(value: unknown): string {
+  const path = safeEmploymentNext(value);
+  const pathname = path.split("?")[0];
+  return /^(?:\/(?:dashboard|memos|settings)|\/[^/]+\/(?:dashboard|tasks|settings(?:\/(?:members|team))?))\/?$/.test(
+    pathname,
+  )
+    ? path
+    : "/dashboard";
+}
+export function organizationStatePath(next?: unknown): string {
+  const path = safeBusinessNext(next);
+  return path === "/dashboard"
+    ? "/auth/organization-state"
+    : `/auth/organization-state?next=${encodeURIComponent(path)}`;
+}

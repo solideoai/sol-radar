@@ -19,7 +19,7 @@ it.each(["/auth/complete-profile", "//evil.test", "/auth/callback"])(
   "완료자는 순환/외부 next %s 대신 기본 진입으로",
   async (next) => {
     await expect(CompleteProfilePage({ searchParams: Promise.resolve({ next }) })).rejects.toThrow(
-      "REDIRECT:/auth/login",
+      "REDIRECT:/dashboard",
     );
     expect(options).not.toHaveBeenCalled();
   },

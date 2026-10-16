@@ -8,7 +8,6 @@ import { Logo } from "@/components/logo";
 import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { getAdminAccess } from "@/server/admin";
-import { getMyHome } from "@/server/organization";
 
 // 관리자 화면은 검색에 올리지 않는다. 화면(page)은 title 만 정하므로 이 값이 그대로 이어진다.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -20,10 +19,10 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // 로그인 상태는 요청마다 다르다. 빌드 때 미리 그려 두지 않는다.
   await connection();
-  const [access, home] = await Promise.all([getAdminAccess(), getMyHome()]);
+  const access = await getAdminAccess();
   if (access.status !== "ready") notFound();
   // 개인 조직이 없으면(가입 트리거보다 먼저 만든 계정) 계정 화면이 안내한다.
-  const backHref = home.status === "ready" ? `/${home.personalSlug}/dashboard` : "/auth/login";
+  const backHref = "/dashboard";
 
   return (
     <>

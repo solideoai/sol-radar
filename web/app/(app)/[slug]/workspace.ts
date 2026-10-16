@@ -1,6 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
-import { businessLayoutNext } from "@/app/auth/employment-routing";
+import { businessLayoutNext, organizationStatePath } from "@/app/auth/employment-routing";
 import { notFound, redirect } from "next/navigation";
 import { requireCompleteEmployment } from "@/app/(app)/employment-guard";
 import { cache } from "react";
@@ -27,6 +27,8 @@ export async function requireWorkspace(
   const path = businessLayoutNext((await headers()).get("x-sol-radar-path") || next, slug);
   await requireCompleteEmployment(path);
   const workspace = await loadWorkspace(slug, path);
+  if (workspace.status === "no-org" || workspace.status === "multiple-orgs")
+    redirect(organizationStatePath(path));
   if (workspace.status === "not-found") {
     if ((await getMyProfile()).status === "suspended") redirect("/auth/login");
     notFound();

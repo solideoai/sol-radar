@@ -101,7 +101,7 @@ function InvitationRow({
       switch (result.status) {
         case "accepted":
           toast.success(`${invitation.orgName}에 들어왔습니다`);
-          router.push(`/${result.slug}/dashboard`);
+          router.push("/dashboard");
           return;
         case "unavailable":
           setError("초대가 만료됐거나 취소됐습니다. 초대한 사람에게 다시 초대해 달라고 하세요.");

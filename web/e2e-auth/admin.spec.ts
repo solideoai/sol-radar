@@ -155,20 +155,14 @@ test.describe("운영자(정운영)", () => {
     await expect(pager(page).getByRole("button", { name: "다음" })).toBeDisabled();
   });
 
-  test("사용자 메뉴의 관리자 링크로 관리자 화면에 가고, 앱으로 돌아온다", async ({ page }) => {
-    // 로그인한 사람은 계정 화면에서 개인 조직의 대시보드로 간다.
-    await page.goto("/auth/login");
-    await expect(page).toHaveURL(/\/[a-z0-9]{8}\/dashboard$/);
-    const dashboard = page.url();
-
-    await page.getByRole("button", { name: "사용자 메뉴" }).click();
-    await page.getByRole("menu").getByRole("menuitem", { name: "관리자" }).click();
-    await expect(page).toHaveURL(/\/admin$/);
+  test("platform admin with no business membership retains admin access and returns through state", async ({
+    page,
+  }) => {
+    await page.goto("/admin");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("사용자 관리");
-
     await page.getByRole("link", { name: "앱으로 돌아가기" }).click();
-    await expect(page).toHaveURL(dashboard);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("대시보드");
+    await expect(page).toHaveURL(/\/auth\/organization-state$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("조직 초대가 필요합니다");
   });
 
   // 칸을 숨기는 기준은 화면이 아니라 카드의 폭이다(@container). 계정 유형·상태 칸은 @xl(576px), 가입일 칸은 @2xl(672px)부터 있다.
@@ -253,7 +247,12 @@ for (const role of NON_ADMIN_ROLES) {
 
     test("사용자 메뉴에 관리자 링크가 없다", async ({ page }) => {
       await page.goto("/auth/login");
-      await expect(page).toHaveURL(/\/[a-z0-9]{8}\/dashboard$/);
+      if (role === "outsider" || role === "invitee") {
+        await expect(page).toHaveURL(/\/auth\/organization-state$/);
+        await expect(page.getByRole("link", { name: "관리자", exact: true })).toHaveCount(0);
+        return;
+      }
+      await expect(page).toHaveURL(/\/seed-team\/dashboard$/);
       await page.getByRole("button", { name: "사용자 메뉴" }).click();
       const menu = page.getByRole("menu");
       await expect(menu.getByRole("menuitem", { name: "설정" })).toBeVisible();

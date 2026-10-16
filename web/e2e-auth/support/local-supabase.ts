@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { readLocalStatus } from "./local-status";
 import { z } from "zod";
 import { SEED_ACCOUNTS, SEED_PASSWORD, type SeedRole } from "./seed";
 
@@ -10,52 +10,22 @@ import { SEED_ACCOUNTS, SEED_PASSWORD, type SeedRole } from "./seed";
 // mailboxUrl 은 로컬 메일함(Mailpit)의 주소다. 로컬 주소가 아니거나 없으면 null 이다.
 type LocalSupabase = { apiUrl: string; anonKey: string; mailboxUrl: string | null };
 
-const STATUS_LINE = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
-const unquote = (value: string): string =>
-  value.length >= 2 && (value[0] === '"' || value[0] === "'") && value.at(-1) === value[0]
-    ? value.slice(1, -1)
-    : value;
-
-// 이 컴퓨터나 같은 네트워크(사설 대역)의 주소인가. 시드(scripts/local-env.mjs 의 isLocalUrl)와 같은 기준이다.
-const isLocalHost = (host: string): boolean =>
-  host === "localhost" ||
-  host === "[::1]" ||
-  /^127\./.test(host) ||
-  /^10\./.test(host) ||
-  /^192\.168\./.test(host) ||
-  /^172\.(1[6-9]|2\d|3[01])\./.test(host);
-
 const readLocalSupabase = (): LocalSupabase => {
-  const run = spawnSync("supabase", ["status", "-o", "env"], {
-    stdio: ["ignore", "pipe", "pipe"],
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  });
-  if (run.error || run.status !== 0) {
-    throw new Error(
-      "로컬 Supabase 상태를 읽지 못했습니다. 꺼져 있거나 Supabase CLI 가 없습니다. pnpm db:start 로 켠 뒤 다시 실행하세요.",
-    );
-  }
-  // 출력에는 관리 키도 들어 있다. 주소와 anon 키만 꺼낸다.
-  const env = new Map(
-    run.stdout.split(/\r?\n/).flatMap((line) => {
-      const match = STATUS_LINE.exec(line);
-      return match ? [[match[1], unquote(match[2])] as const] : [];
-    }),
-  );
-  const apiUrl = env.get("API_URL") ?? "";
-  const anonKey = env.get("ANON_KEY") || env.get("PUBLISHABLE_KEY") || "";
-  const host = URL.canParse(apiUrl) ? new URL(apiUrl).hostname : "";
-  if (!isLocalHost(host)) {
-    throw new Error(
-      `로컬 Supabase 주소가 아닙니다(${apiUrl || "비어 있음"}). 시험 데이터는 로컬에만 넣습니다.`,
-    );
-  }
-  if (anonKey === "") throw new Error("supabase status 출력에 anon 키가 없습니다.");
-  // CLI 버전에 따라 이름이 다르다(Mailpit 이전은 Inbucket).
-  const mailboxUrl = env.get("MAILPIT_URL") || env.get("INBUCKET_URL") || "";
-  const mailboxHost = URL.canParse(mailboxUrl) ? new URL(mailboxUrl).hostname : "";
-  return { apiUrl, anonKey, mailboxUrl: isLocalHost(mailboxHost) ? mailboxUrl : null };
+  const env = readLocalStatus();
+  const apiUrl = env.API_URL;
+  const anonKey = env.ANON_KEY || env.PUBLISHABLE_KEY || "";
+  if (!anonKey) throw new Error("supabase status 출력에 anon 키가 없습니다.");
+  const mailbox = env.MAILPIT_URL || env.INBUCKET_URL || "";
+  const url = URL.canParse(mailbox) ? new URL(mailbox) : null;
+  const mailboxUrl =
+    url &&
+    url.hostname === new URL(apiUrl).hostname &&
+    ["http:", "https:"].includes(url.protocol) &&
+    !url.username &&
+    !url.password
+      ? url.origin
+      : null;
+  return { apiUrl, anonKey, mailboxUrl };
 };
 
 // 한 작업자(worker) 안에서 `supabase status` 를 한 번만 부른다.

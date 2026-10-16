@@ -1,3 +1,4 @@
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 const { profile, login, workspace } = vi.hoisted(() => ({
   profile: vi.fn(),
@@ -9,11 +10,14 @@ vi.mock("next/navigation", () => ({
     throw new Error(`REDIRECT:${path}`);
   },
 }));
+vi.mock("@/app/account/sign-out-button", () => ({ SignOutButton: () => "로그아웃" }));
+vi.mock("./account-retry", () => ({ AccountRetry: () => "다시 시도" }));
 vi.mock("next/server", () => ({ connection: vi.fn() }));
 vi.mock("@/server/profile", () => ({ getMyProfile: profile }));
 vi.mock("@/server/auth", () => ({ getMyLoginMethods: login }));
 vi.mock("@/server/organization", () => ({ getMyWorkspace: workspace, getMyHome: workspace }));
 import AccountPage from "./page";
+import Loading from "./loading";
 beforeEach(() => {
   vi.clearAllMocks();
   profile.mockResolvedValue({
@@ -44,4 +48,16 @@ it("조회 오류는 페이지 오류 UI로 남아 재시도와 로그아웃을 
   profile.mockRejectedValue(new Error("db"));
   expect(await AccountPage({ searchParams: Promise.resolve({}) })).toBeTruthy();
   expect(workspace).not.toHaveBeenCalled();
+});
+
+it("loading and read-error exits return through live organization state", async () => {
+  profile.mockRejectedValue(new Error("database unavailable"));
+  const failure = renderToStaticMarkup(await AccountPage({ searchParams: Promise.resolve({}) }));
+  const loading = renderToStaticMarkup(Loading());
+  for (const html of [failure, loading]) {
+    expect(html).toContain('href="/auth/organization-state"');
+    expect(html).toContain("서비스로 돌아가기");
+    expect(html).toContain("로그아웃");
+    expect(html).not.toContain("필수 정보 입력으로 돌아가기");
+  }
 });

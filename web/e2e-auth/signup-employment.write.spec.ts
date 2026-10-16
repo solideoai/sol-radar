@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   clearEmployment,
   createTestAccount,
+  createOwnedTeam,
   findTestAccount,
   readOwnPeopleAccess,
   removeTestAccounts,
@@ -13,6 +14,7 @@ import {
   horizontalOverflow,
   sectionOf,
   signInThroughForm,
+  signInWithoutOrganization,
 } from "./support/account-page";
 import { deleteMailsTo, readMail, waitForMailsTo } from "./support/mailbox";
 import { SEED_EMPLOYMENT, uniqueTag } from "./support/seed";
@@ -93,10 +95,10 @@ test("이메일 가입은 필수 신고 정보로 확인 메일을 보내고, �
     // The local template SiteURL may use another port; keep its real token/query
     // and open the exact production route in this test checkout's server.
     await page.goto(new URL(`${link.pathname}${link.search}`, origin).href);
-    await expect(page).toHaveURL(/\/[a-z0-9]{8}\/dashboard$/);
+    await expect(page).toHaveURL(/\/auth\/organization-state$/);
     await expectEmployment(page, name);
     await signOut(page);
-    await signInThroughForm(page, { email, password });
+    await signInWithoutOrganization(page, { email, password });
     await expectEmployment(page, name);
     const account = await findTestAccount(email, password);
     if (!account) throw new Error("가입한 로컬 시험 계정이 없습니다");
@@ -132,7 +134,7 @@ for (const width of [1440, 1280]) {
       await expect(page.getByRole("heading", { level: 1, name: "계정 관리" })).toBeVisible();
       for (const section of ["프로필", "로그인 수단", "비밀번호", "세션", "회원 탈퇴"] as const)
         await expect(sectionOf(page, section)).toBeVisible();
-      await page.getByRole("link", { name: "필수 정보 입력으로 돌아가기" }).click();
+      await page.getByRole("link", { name: "서비스로 돌아가기" }).click();
       await page.getByRole("button", { name: "로그아웃", exact: true }).click();
       await expect(page).toHaveURL(/\/auth\/login$/);
       await fillSignInForm(page, account);
@@ -147,19 +149,18 @@ for (const width of [1440, 1280]) {
         fullPage: true,
       });
       await page.getByRole("button", { name: "저장하고 계속" }).click();
-      await expect(page).toHaveURL(/\/[a-z0-9]{8}\/dashboard$/);
+      await expect(page).toHaveURL(/\/auth\/organization-state$/);
       await expectEmployment(page, name);
       await signOut(page);
-      await signInThroughForm(page, account);
+      await signInWithoutOrganization(page, account);
       await expectEmployment(page, name);
       expect(await readOwnPeopleAccess(await signInByApi(account))).toEqual({
         organizations: [],
         people: [],
         memberships: [],
       });
-      const denied = await page.goto("/org-01/dashboard");
-      expect(denied?.status()).toBe(404);
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("페이지를 찾을 수 없습니다");
+      await page.goto("/org-01/dashboard");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("조직 초대가 필요합니다");
       await expect(page.getByRole("heading", { name: "대시보드", exact: true })).toHaveCount(0);
       await expect(page).not.toHaveURL(/\/auth\/complete-profile/);
     } finally {
@@ -174,6 +175,7 @@ test("기존 계정 선언이 지워지면 열린 작업 폼의 직접 서버 �
   const account = await createTestAccount();
   const title = `보완 전 저장 금지 ${uniqueTag()}`;
   try {
+    await createOwnedTeam(account);
     const slug = await signInThroughForm(page, account);
     await expectEmployment(page, "시험 계정");
     const session = await signInByApi(account);

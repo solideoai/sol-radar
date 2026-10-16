@@ -1,3 +1,4 @@
+import { createOwnedTeam, removeTestAccounts } from "./support/account-admin";
 import { randomUUID } from "node:crypto";
 import {
   type APIRequestContext,
@@ -54,7 +55,7 @@ test.use({ storageState: authFileOf("admin") });
 
 const NON_ADMIN_ROLES = SEED_ROLES.filter((role) => role !== "admin");
 const SUSPENDED_NOTICE = "정지된 계정이라 로그인할 수 없습니다. 운영자에게 문의해 주세요.";
-const DASHBOARD = /\/[a-z0-9]{8}\/dashboard$/;
+const DASHBOARD = /\/[^/]+\/dashboard$/;
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -99,7 +100,8 @@ test("운영자가 화면에서 회원을 정지하면 상태가 정지가 되�
   // 그 회원이 정지 뒤에 로그인하려는 기기.
   const device = await browser.newContext({ storageState: SIGNED_OUT });
   try {
-    // 정지 전: 그 회원의 토큰으로 API 와 자기 조직(개인 공간)이 열린다. 뒤에서 같은 토큰이 막히는지 본다.
+    await createOwnedTeam(target);
+    // 정지 전: 그 회원의 토큰으로 API 와 명시적으로 만든 업무 조직이 열린다. 뒤에서 같은 토큰이 막히는지 본다.
     const before = await signInOrThrow(target);
     expect((await getMe(api, before.accessToken)).status()).toBe(200);
     expect(await visibleMembershipCount(before.accessToken)).toBe(1);
@@ -173,7 +175,7 @@ test("운영자가 화면에서 회원을 정지하면 상태가 정지가 되�
     await expectActive(api, target, "user");
   } finally {
     await device.close();
-    await deleteTestAccount(target);
+    await removeTestAccounts([target]);
   }
 });
 
@@ -185,6 +187,7 @@ test("정지되기 전에 로그인해 둔 기기에서 앱 화면(대시보드)
   const target = await createTestAccount({ label: "device", tag, name: `기기 시험 ${tag}` });
   const device = await browser.newContext({ storageState: SIGNED_OUT });
   try {
+    await createOwnedTeam(target);
     const devicePage = await device.newPage();
     await submitLogin(devicePage, target);
     await expect(devicePage).toHaveURL(DASHBOARD);
@@ -204,7 +207,7 @@ test("정지되기 전에 로그인해 둔 기기에서 앱 화면(대시보드)
     await expect(devicePage.getByRole("button", { name: "로그아웃", exact: true })).toBeVisible();
   } finally {
     await device.close();
-    await deleteTestAccount(target);
+    await removeTestAccounts([target]);
   }
 });
 
@@ -279,7 +282,7 @@ test("운영자가 아닌 회원이 자기 토큰으로 상태 API 를 부르면
     await page.goto(`/admin?q=${tag}`);
     await expectRowCells(userRowOf(page, target.email), target);
   } finally {
-    await deleteTestAccount(target);
+    await removeTestAccounts([target]);
   }
 });
 
@@ -317,7 +320,7 @@ test("운영자의 토큰으로 상태 API 를 부르면 정지·해제되고, �
     );
     await expectActive(api, target, "user");
   } finally {
-    await deleteTestAccount(target);
+    await removeTestAccounts([target]);
   }
 });
 
@@ -362,6 +365,6 @@ test("375·1280px 에서 정지된 회원의 줄과 해제 대화상자가 가�
       await expect(restore).toBeFocused();
     }
   } finally {
-    await deleteTestAccount(target);
+    await removeTestAccounts([target]);
   }
 });

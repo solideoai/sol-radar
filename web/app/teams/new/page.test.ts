@@ -7,6 +7,9 @@ vi.mock("next/link", () => ({
   default: ({ href, children }: ComponentProps<"a">) => createElement("a", { href }, children),
 }));
 vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw new Error("NOT_FOUND");
+  },
   redirect: (path: string) => {
     throw new Error(`REDIRECT:${path}`);
   },
@@ -48,3 +51,14 @@ it.each(["missing", "suspended"])(
     expect(home).not.toHaveBeenCalled();
   },
 );
+
+it.each(["no-org", "multiple-orgs"])("%s goes to organization state", async (status) => {
+  profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+  home.mockResolvedValue({ status, userId: "me" });
+  await expect(NewTeamPage()).rejects.toThrow("REDIRECT:/auth/organization-state");
+});
+it("READY direct company creation is unreleased 404", async () => {
+  profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+  home.mockResolvedValue({ status: "ready", userId: "me", current: { slug: "business" } });
+  await expect(NewTeamPage()).rejects.toThrow("NOT_FOUND");
+});

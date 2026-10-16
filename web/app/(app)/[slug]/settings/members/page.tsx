@@ -24,7 +24,7 @@ export default async function MembersPage({ params }: PageProps<"/[slug]/setting
     (await params).slug,
     `/${(await params).slug}/settings/members`,
   );
-  const { current, userId, orgs } = workspace;
+  const { current, userId } = workspace;
   const page = await getMembersPage({ org: current, userId });
 
   const description =
@@ -57,8 +57,8 @@ export default async function MembersPage({ params }: PageProps<"/[slug]/setting
               <LeaveTeam
                 orgId={current.id}
                 orgName={current.name}
-                // 나가면 개인 조직으로 간다. 가입하면 생기므로 보통 있다.
-                homeHref={`/${orgs.find((org) => org.isPersonal)?.slug ?? ""}/dashboard`}
+                // Membership changes are re-evaluated at the canonical entry.
+                homeHref="/dashboard"
                 isLastOwner={current.myRole === "owner" && page.ownerCount === 1}
                 isAlone={page.members.length === 1}
                 teamSettingsHref={`/${current.slug}/settings/team`}

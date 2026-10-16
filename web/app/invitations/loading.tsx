@@ -1,4 +1,5 @@
 import { AuthFrame, AuthHeader } from "@/components/auth-frame";
+import { InvitationLinks } from "./invitation-links";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // 제목은 진짜 글자로 둔다(page.tsx 와 같다).
@@ -23,6 +24,7 @@ export default function Loading() {
           ))}
         </ul>
       </div>
+      <InvitationLinks />
     </AuthFrame>
   );
 }

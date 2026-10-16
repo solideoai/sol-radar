@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import {
   ENABLED_SOCIAL,
-  PERSONAL_DASHBOARD,
+  BUSINESS_DASHBOARD,
   SETTINGS_SECTIONS,
   fillSignInForm,
   horizontalOverflow,
@@ -152,7 +152,7 @@ test.describe("소유자(김소유)의 마이페이지", () => {
     }
   });
 
-  for (const width of [375, 1280]) {
+  for (const width of [1440, 1280]) {
     test(`${width}px 폭에서 마이페이지가 가로로 넘치지 않는다(긴 연결 안내가 있어도)`, async ({
       page,
     }) => {
@@ -184,9 +184,9 @@ test.describe("로그아웃한 사람의 로그인 화면", () => {
   });
 
   for (const next of ["https://evil.example", "//evil.example", "/auth/sign-up"]) {
-    test(`?next=${next} 는 버리고 개인 대시보드로 간다`, async ({ page, baseURL }) => {
+    test(`?next=${next} 는 버리고 업무 대시보드로 간다`, async ({ page, baseURL }) => {
       await fillSignInForm(page, ownerLogin, `/auth/login?next=${encodeURIComponent(next)}`);
-      await expect(page).toHaveURL(PERSONAL_DASHBOARD);
+      await expect(page).toHaveURL(BUSINESS_DASHBOARD);
       expect(new URL(page.url()).origin).toBe(new URL(baseURL ?? "").origin);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("대시보드");
     });

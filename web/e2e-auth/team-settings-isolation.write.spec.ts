@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
-import { horizontalOverflow, PERSONAL_DASHBOARD } from "./support/account-page";
-import { createTeam, deleteTeam, signInAs } from "./support/local-supabase";
+import { horizontalOverflow, signInThroughForm } from "./support/account-page";
+import { createTestAccount, createOwnedTeam, removeTestAccounts } from "./support/account-admin";
 import { SEED_TEAM, authFileOf, uniqueTag } from "./support/seed";
 
 // 설정의 팀 탭(/<slug>/settings/team). 팀 조직에서만 보이고, owner 는 이름 폼과 팀 삭제를, member 는 이름과 주소만 본다.
@@ -21,16 +21,18 @@ const CONFIRM_LABEL = "확인하려면 위 팀 이름을 그대로 입력해 주
 // 시험만의 팀(owner 김소유)을 만들어 run 에 넘기고, 끝나면(실패해도) 지운다. 주소는 실행마다 다르다.
 // 이름에는 부르는 쪽이 uniqueTag 를 붙인다 — 조직 전환기에 같은 이름이 둘 보이지 않게 한다.
 const withOwnTeam = async (
+  page: Page,
   name: string,
   run: (team: { name: string; slug: string }) => Promise<void>,
 ) => {
-  const team = { name, slug: `e2e-team-${uniqueTag()}` };
-  const owner = await signInAs("owner");
-  const orgId = await createTeam(owner, team);
+  const account = await createTestAccount();
   try {
+    const team = await createOwnedTeam(account, name);
+    await page.context().clearCookies();
+    await signInThroughForm(page, account);
     await run(team);
   } finally {
-    await deleteTeam(owner, orgId);
+    await removeTestAccounts([account]);
   }
 };
 
@@ -65,26 +67,17 @@ test.describe("소유자(김소유)", () => {
     await expect(regionOf(page, "팀 삭제").getByRole("button", { name: "팀 삭제" })).toBeVisible();
   });
 
-  test("개인 공간의 설정에는 팀 탭이 없고, 팀 화면 주소를 직접 열면 없는 화면이다", async ({
-    page,
-  }) => {
-    // 로그인한 사람은 계정 화면에서 개인 대시보드로 간다. 개인 조직의 주소는 가입 때 무작위로 정해진다.
-    await page.goto("/auth/login");
-    await expect(page).toHaveURL(PERSONAL_DASHBOARD);
-    const personalSlug = new URL(page.url()).pathname.split("/")[1];
-
-    await page.goto(`/${personalSlug}/settings`);
-    await expect(settingsNavOf(page).getByRole("link")).toHaveText(["계정", "멤버"]);
-
-    await page.goto(teamSettingsOf(personalSlug));
+  test("retired creation entry is 404 for a READY business owner", async ({ page }) => {
+    const response = await page.goto("/teams/new");
+    expect(response?.status()).toBe(404);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("페이지를 찾을 수 없습니다");
     await expect(nameInputOf(page)).toHaveCount(0);
   });
 
-  test("팀 이름을 바꾸면 저장 토스트가 뜨고, 설명 줄과 조직 전환기가 새 이름이 되며, 새로 고쳐도 남고 주소는 그대로다", async ({
+  test("팀 이름을 바꾸면 저장 토스트가 뜨고, 설명 줄과 조직 표시가 새 이름이 되며, 새로 고쳐도 남고 주소는 그대로다", async ({
     page,
   }) => {
-    await withOwnTeam(`E2E 이름 바꾸기 ${uniqueTag()}`, async (team) => {
+    await withOwnTeam(page, `E2E 이름 바꾸기 ${uniqueTag()}`, async (team) => {
       const renamed = `E2E 바뀐 이름 ${uniqueTag()}`;
       await page.goto(teamSettingsOf(team.slug));
       await expect(nameInputOf(page)).toHaveValue(team.name);
@@ -98,20 +91,20 @@ test.describe("소유자(김소유)", () => {
       await expect(
         page.getByRole("main").getByText(`${renamed}의 이름을 바꾸거나 팀을 지웁니다.`),
       ).toBeVisible();
-      await expect(page.getByRole("button", { name: "조직 전환" })).toContainText(renamed);
+      await expect(page.getByText(renamed, { exact: true })).toBeVisible();
 
       // 저장된 효과: 새로 고쳐도 새 이름이고, 팀 주소는 바뀌지 않는다.
       await page.reload();
       await expect(nameInputOf(page)).toHaveValue(renamed);
       expect(new URL(page.url()).pathname).toBe(teamSettingsOf(team.slug));
-      await expect(page.getByRole("button", { name: "조직 전환" })).toContainText(renamed);
+      await expect(page.getByText(renamed, { exact: true })).toBeVisible();
     });
   });
 
   test("빈 이름이나 41자 이름은 저장하지 않고, 칸 아래에 이유를 보이며 칸에 초점을 둔다", async ({
     page,
   }) => {
-    await withOwnTeam(`E2E 이름 규칙 ${uniqueTag()}`, async (team) => {
+    await withOwnTeam(page, `E2E 이름 규칙 ${uniqueTag()}`, async (team) => {
       await page.goto(teamSettingsOf(team.slug));
       const input = nameInputOf(page);
       const cases = [
@@ -135,7 +128,7 @@ test.describe("소유자(김소유)", () => {
   test("팀 삭제 대화상자에서 팀 이름을 비우거나 틀리게 입력하면 지우지 않고, 이유를 보이며 입력칸에 초점을 돌린다", async ({
     page,
   }) => {
-    await withOwnTeam(`E2E 삭제 거절 ${uniqueTag()}`, async (team) => {
+    await withOwnTeam(page, `E2E 삭제 거절 ${uniqueTag()}`, async (team) => {
       await page.goto(teamSettingsOf(team.slug));
       await regionOf(page, "팀 삭제").getByRole("button", { name: "팀 삭제" }).click();
       const dialog = page.getByRole("dialog", { name: "팀을 지울까요?" });
@@ -171,12 +164,12 @@ test.describe("소유자(김소유)", () => {
     });
   });
 
-  test("띄어쓰기 없는 40자 팀 이름도 320px 폭의 팀 화면에서 가로로 넘치지 않는다", async ({
+  test("띄어쓰기 없는 40자 팀 이름도 1280px 폭의 팀 화면에서 가로로 넘치지 않는다", async ({
     page,
   }) => {
     const longName = `E2E${uniqueTag()}`.padEnd(40, "가");
-    await withOwnTeam(longName, async (team) => {
-      await page.setViewportSize({ width: 320, height: 800 });
+    await withOwnTeam(page, longName, async (team) => {
+      await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto(teamSettingsOf(team.slug));
       await expect(nameInputOf(page)).toHaveValue(longName);
       expect(await horizontalOverflow(page)).toBe(0);

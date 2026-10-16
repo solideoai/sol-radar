@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const { profile, home, workspace, mutation, routeHeader } = vi.hoisted(() => ({
+const { profile, home, workspace, mutation, routeHeader, members } = vi.hoisted(() => ({
   routeHeader: vi.fn(),
+  members: vi.fn(),
   profile: vi.fn(),
   home: vi.fn(),
   workspace: vi.fn(),
@@ -19,7 +20,9 @@ vi.mock("next/server", () => ({ connection: vi.fn() }));
 vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 vi.mock("@/server/profile", () => ({ getMyProfile: profile }));
 vi.mock("@/server/organization", () => ({
+  getMembersPage: members,
   getMyHome: home,
+  getCurrentOrganization: home,
   getMyWorkspace: workspace,
   createTeam: mutation,
   inviteMember: mutation,
@@ -60,14 +63,18 @@ it("내부 페이지 이동은 조직 조회 전에 막는다", async () => {
   );
   expect(workspace).not.toHaveBeenCalled();
 });
-it("실제 /memos 진입은 정확한 복귀 주소를 보존하고 완료 뒤 개인 작업으로 이동한다", async () => {
+it("실제 /memos 진입은 정확한 복귀 주소를 보존하고 완료 뒤 업무 작업으로 이동한다", async () => {
   await expect(LegacyMemosPage()).rejects.toThrow(
     /^REDIRECT:\/auth\/complete-profile\?next=%2Fmemos$/,
   );
   expect(home).not.toHaveBeenCalled();
   profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
-  home.mockResolvedValue({ status: "ready", personalSlug: "personal" });
-  await expect(LegacyMemosPage()).rejects.toThrow(/^REDIRECT:\/personal\/tasks$/);
+  home.mockResolvedValue({
+    status: "ready",
+    userId: "me",
+    current: { id: "org", slug: "business" },
+  });
+  await expect(LegacyMemosPage()).rejects.toThrow(/^REDIRECT:\/business\/tasks$/);
 });
 it.each([
   () => createTask("org", {}),
@@ -87,16 +94,18 @@ it.each([
   expect(mutation).not.toHaveBeenCalled();
   for (const status of ["signed-out", "no-database"]) {
     profile.mockResolvedValue({ status });
+    home.mockResolvedValue({ status });
     mutation.mockResolvedValue({ status: "signed-out" });
     await expect(action()).resolves.toEqual({ status: "signed-out" });
   }
-  expect(mutation).toHaveBeenCalledTimes(2);
+  expect(mutation).not.toHaveBeenCalled();
 });
 it("완료도 기존 멤버십 거절을 통과하지 못한다", async () => {
   profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
   workspace.mockResolvedValue({ status: "not-found" });
   await expect(requireWorkspace("stranger")).rejects.toThrow("NOT_FOUND");
-  expect(await createTask("stranger", {})).toEqual({ status: "forbidden" });
+  home.mockResolvedValue({ status: "ready", userId: "me", current: { id: "org", slug: "alpha" } });
+  await expect(createTask("stranger", {})).rejects.toThrow("NOT_FOUND");
 });
 it.each(["missing", "suspended"])("%s는 로그인 안내로", async (status) => {
   profile.mockResolvedValue({ status });
@@ -129,5 +138,90 @@ it.each(["signed-out", "no-database"])(
     await expect(loadWorkspace("alpha")).resolves.toEqual({ status });
     await expect(requireWorkspace("alpha")).rejects.toThrow(/^REDIRECT:\/auth\/login$/);
     await expect(LegacyMemosPage()).rejects.toThrow(/^REDIRECT:\/auth\/login$/);
+  },
+);
+
+it.each(["no-org", "multiple-orgs"])(
+  "every business action blocks %s before mutation",
+  async (status) => {
+    profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+    home.mockResolvedValue({ status, userId: "me" });
+    for (const action of [
+      () => createTask("org", {}),
+      () => saveTask("org", "id", {}),
+      () => changeStatus("org", "id", "done"),
+      () => removeTask("org", "id"),
+      () => invite("org", {}),
+      () => cancel("id"),
+      () => changeRole("org", "id", "owner"),
+      () => remove("org", "id"),
+      () => leave("org"),
+      () => rename("org", {}),
+      () => deleteTeam("org", {}),
+      () => create({}),
+    ]) {
+      await expect(action()).rejects.toThrow("REDIRECT:/auth/organization-state");
+    }
+    expect(mutation).not.toHaveBeenCalled();
+  },
+);
+it("a forged org cannot select the historical personal membership for mutation", async () => {
+  profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+  home.mockResolvedValue({
+    status: "ready",
+    userId: "me",
+    current: { id: "business", slug: "alpha" },
+  });
+  for (const action of [
+    () => createTask("personal", {}),
+    () => invite("personal", {}),
+    () => rename("personal", {}),
+    () => create({ name: "company", slug: "new-company" }),
+  ]) {
+    await expect(action()).rejects.toThrow("NOT_FOUND");
+  }
+  expect(mutation).not.toHaveBeenCalled();
+});
+
+it.each([
+  () => createTask("personal", {}),
+  () => saveTask("personal", "id", {}),
+  () => changeStatus("personal", "id", "done"),
+  () => removeTask("personal", "id"),
+  () => invite("personal", {}),
+  () => changeRole("personal", "id", "owner"),
+  () => remove("personal", "id"),
+  () => leave("personal"),
+  () => rename("personal", {}),
+  () => deleteTeam("personal", {}),
+])("every retained organization mutation rejects an alternate membership", async (action) => {
+  profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+  home.mockResolvedValue({
+    status: "ready",
+    userId: "me",
+    current: { id: "business", slug: "alpha" },
+  });
+  await expect(action()).rejects.toThrow("NOT_FOUND");
+  expect(mutation).not.toHaveBeenCalled();
+});
+it("cancel invitation is bound to current business owner's pending invitations", async () => {
+  profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+  const current = { id: "business", slug: "alpha", myRole: "owner" };
+  home.mockResolvedValue({ status: "ready", userId: "me", current });
+  members.mockResolvedValue({ status: "team", invitations: [{ id: "owned" }] });
+  await expect(cancel("foreign")).rejects.toThrow("NOT_FOUND");
+  expect(mutation).not.toHaveBeenCalled();
+  mutation.mockResolvedValue({ status: "done" });
+  await expect(cancel("owned")).resolves.toEqual({ status: "done" });
+  expect(members).toHaveBeenCalledWith({ org: current, userId: "me" });
+  expect(mutation).toHaveBeenCalledWith("owned");
+});
+it.each(["missing", "suspended"])(
+  "%s precedes organization and mutation checks",
+  async (status) => {
+    profile.mockResolvedValue({ status });
+    await expect(createTask("foreign", {})).rejects.toThrow("REDIRECT:/auth/login");
+    expect(home).not.toHaveBeenCalled();
+    expect(mutation).not.toHaveBeenCalled();
   },
 );

@@ -1,4 +1,8 @@
-import { completionPath, safeEmploymentNext } from "@/app/auth/employment-routing";
+import {
+  completionPath,
+  safeEmploymentNext,
+  organizationStatePath,
+} from "@/app/auth/employment-routing";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -6,7 +10,7 @@ import { SignOutButton } from "@/app/account/sign-out-button";
 import { AccountCard, AccountHeader, AccountLink, NoDatabase } from "@/app/auth/account-card";
 import { SocialSignIn } from "@/app/auth/social-sign-in";
 import { enabledSocialProviders } from "@/lib/auth-providers";
-import { getMyHome } from "@/server/organization";
+import { getCurrentOrganization } from "@/server/organization";
 import { getMyProfile, type MyProfile } from "@/server/profile";
 import { SUSPENDED_NOTICE } from "@/app/auth/notices";
 import { SignInForm } from "./sign-in-form";
@@ -28,12 +32,14 @@ export default async function LoginPage({
   // 로그인 직후(폼이 화면을 다시 그린다)와 메일 확인 링크(/auth/confirm)로 온 사람도 여기를 거쳐 개인 조직으로 간다.
   if (me.status === "ready") {
     if (!me.profile.profileComplete) redirect(completionPath(next ?? undefined));
-    if (next) redirect(next);
-    const home = await getMyHome();
-    if (home.status === "ready") redirect(`/${home.personalSlug}/dashboard`);
+    const organization = await getCurrentOrganization().catch(() => null);
+    if (organization?.status === "ready")
+      redirect(next ?? `/${organization.current.slug}/dashboard`);
+    if (organization?.status === "no-org" || organization?.status === "multiple-orgs")
+      redirect(organizationStatePath(next));
+    redirect("/auth/organization-state");
   }
-  // 프로필은 있는데 개인 조직이 없으면(가입 트리거보다 먼저 만든 계정) 프로필이 없는 계정과 같이 안내한다.
-  const status = me.status === "ready" ? "missing" : me.status;
+  const status = me.status;
   // 메일 링크(/auth/confirm)나 간편 로그인(/auth/callback)이 실패해 돌아온 경우, 정지된 계정이 로그인하려 한 경우.
   const notice = LINK_NOTICES[LINK_NOTICE_KEYS.find((key) => key === link) ?? "none"];
 
@@ -106,8 +112,7 @@ function AccountBody({
       return (
         <>
           <AccountHeader title="프로필이 없습니다">
-            로그인은 됐지만 profiles 행이나 개인 공간이 없습니다. 가입 트리거보다 먼저 만든 계정일
-            수 있습니다.
+            로그인은 됐지만 프로필이 없습니다. 가입 트리거보다 먼저 만든 계정일 수 있습니다.
           </AccountHeader>
           <SignOutButton className="w-full" />
         </>

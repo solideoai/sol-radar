@@ -1,9 +1,10 @@
+import { readLocalStatus } from "../local-test-target.mjs";
 import { createHash } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
+
 import { fileURLToPath } from "node:url";
 import { validateDepartmentHierarchy } from "./departments.mjs";
-import { isLocalUrl, parseStatusEnv } from "../local-env.mjs";
+import { isLocalUrl } from "../local-env.mjs";
 
 const DNS_NAMESPACE = Buffer.from("6ba7b8109dad11d180b400c04fd430c8", "hex");
 const uuidV5 = (name) => {
@@ -167,16 +168,15 @@ export const seedLocalPeople = async ({ apiUrl, serviceKey, fixtures }) => {
   });
 };
 
-const main = async () => {
-  const result = spawnSync("supabase", ["status", "-o", "env"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result.error || result.status !== 0) throw new Error("로컬 Supabase 상태를 읽지 못했습니다");
-  const status = parseStatusEnv(result.stdout);
+export async function seedSelectedPeople({ env = process.env, run, write = seedLocalPeople } = {}) {
+  const status = readLocalStatus({ env, ...(run ? { run } : {}) });
   const serviceKey = status.SERVICE_ROLE_KEY || status.SECRET_KEY;
   if (!serviceKey) throw new Error("로컬 관리 키가 없습니다");
-  const seeded = await seedLocalPeople({ apiUrl: status.API_URL, serviceKey });
+  return write({ apiUrl: status.API_URL, serviceKey });
+}
+
+const main = async () => {
+  const seeded = await seedSelectedPeople();
   console.log(
     `✓ 가상 인력 ${seeded.peopleCount}명과 부서·직급을 upsert했습니다(Auth 계정 생성 없음).`,
   );

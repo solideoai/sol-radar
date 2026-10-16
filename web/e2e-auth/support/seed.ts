@@ -43,9 +43,6 @@ export const SEED_ROLES: readonly SeedRole[] = ["owner", "member", "outsider", "
 
 export const SEED_TEAM = { name: "시드 팀", slug: "seed-team" } as const;
 
-// 개인 조직의 이름. 가입 트리거(create_personal_org)가 붙인다.
-export const PERSONAL_ORG_NAME = "개인 공간";
-
 // 역할마다 로그인 상태를 저장하는 파일. auth.setup.ts 가 쓰고, 시험은 test.use({ storageState }) 로 읽는다. 깃에서 뺀다.
 export const authFileOf = (role: SeedRole): string =>
   path.join(__dirname, "..", ".auth", `${role}.json`);

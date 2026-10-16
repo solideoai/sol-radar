@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readLocalStatus } from "./local-test-target.mjs";
 // db-seed.mjs — 로컬 Supabase 에 시드 계정과 데이터를 넣는다. 로그인 뒤 화면을 사람 손 없이 확인하고 시험하려고 쓴다.
 //
 //   pnpm db:seed                 시드를 (다시) 넣는다. 계정 목록과 비밀번호를 출력한다
@@ -14,10 +15,9 @@
 //
 // 계정·팀·대시보드 수치는 로그인 E2E(web/e2e-auth/support/seed.ts 와 dashboard·tasks-view·admin 시험)에 옮겨 적혀 있다. 바꾸면 같이 고친다.
 // 스펙: polaris/specs/done/seed-and-auth-e2e.md
-import { spawnSync } from "node:child_process";
+
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { parseStatusEnv } from "./local-env.mjs";
 
 import { catalogUuid, seedLocalPeople, refuseNonLocal } from "./people/seed.mjs";
 export { refuseNonLocal };
@@ -389,41 +389,18 @@ export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) =>
 
 // ── 4. 명령 ───────────────────────────────────────────────────
 
-const readStatus = () => {
-  const run = spawnSync("supabase", ["status", "-o", "env"], {
-    stdio: ["ignore", "pipe", "pipe"],
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  });
-  if (run.error || run.status !== 0) return null;
-  return parseStatusEnv(run.stdout);
-};
-
-const main = async () => {
-  // 출력에는 service_role·secret 키도 들어 있다. 화면에 흘리지 않고 받아서 필요한 값만 쓴다.
-  const status = readStatus();
-  if (!status) {
-    console.error("❌ 로컬 Supabase 상태를 읽지 못했습니다. 꺼져 있거나 Supabase CLI 가 없습니다.");
-    console.error("   pnpm db:start 로 켠 뒤 다시 실행하세요.");
-    return 1;
-  }
-  const refusal = refuseNonLocal(status.API_URL);
-  if (refusal) {
-    console.error(`❌ ${refusal}`);
-    return 1;
-  }
+export async function seedSelectedLocal({ env = process.env, run, write = seed } = {}) {
+  const status = readLocalStatus({ env, ...(run ? { run } : {}) });
   const anonKey = status.ANON_KEY || status.PUBLISHABLE_KEY;
   const serviceKey = status.SERVICE_ROLE_KEY || status.SECRET_KEY;
-  if (!anonKey || !serviceKey) {
-    console.error(
-      "❌ supabase status 출력에 anon·service_role 키가 없습니다. supabase status 로 auth 가 켜져 있는지 확인하세요.",
-    );
-    return 1;
-  }
+  if (!anonKey || !serviceKey) throw new Error("로컬 seed 인증 키가 없습니다.");
+  return write({ apiUrl: status.API_URL, anonKey, serviceKey });
+}
 
+const main = async () => {
   console.log("▶ 시드 넣기 (로컬 Supabase)");
   try {
-    await seed({ apiUrl: status.API_URL, anonKey, serviceKey });
+    await seedSelectedLocal();
   } catch (error) {
     console.error(`❌ 시드를 넣지 못했습니다: ${error.message}`);
     console.error("   마이그레이션이 밀렸으면 pnpm db:start 로 따라잡은 뒤 다시 실행하세요.");

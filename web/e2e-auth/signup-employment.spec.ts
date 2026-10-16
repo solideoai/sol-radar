@@ -59,7 +59,7 @@ test.describe("기존 완성 계정", () => {
       employment: SEED_EMPLOYMENT,
     });
     await page.goto("/auth/complete-profile");
-    await expect(page).toHaveURL(/\/[a-z0-9]{8}\/dashboard$/);
+    await expect(page).toHaveURL(/\/seed-team\/dashboard$/);
     await expect(page.getByRole("heading", { level: 1, name: "대시보드" })).toBeVisible();
   });
 });

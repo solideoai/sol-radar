@@ -182,6 +182,9 @@ Task4 현황(2026-10-16): 구현90c67bc 및 독립 리뷰 완료. 원래 구현�
 
 ## Task 8: Server organization resolver and minimum account-flow bridge
 
+Task8 구현 경계 확정: 고정 솔리데오에서 템플릿 `/teams/new` 회사 생성 폼과 공개 action은 폐기한다. 프로필/활성 상태와 현재 업무 조직을 먼저 판정하고, READY의 직접 접근도 404·무변경으로 닫는다. 이는 38개 departments TEAM 선택 목록과 구별되며 해당 가입 옵션은 보존한다. 기존 플랫폼 `/admin`은 조직 가입과 무관한 운영자 보안 경계를 유지하고 복귀 링크만 `/dashboard`로 연결한다. 실제 slug 없는 N1·sol_role/N2·/ops 이행은 별도다.
+
+
 **Files:** also update affected `web/e2e-auth/` fixtures/specs/support, `scripts/db-seed.mjs`, `scripts/people/seed.mjs` CLI target selection only and their meaningful target/isolation regressions; modify `web/server/organization/organization.model.ts`, `.repo.ts`, `.service.ts`, `index.ts`, adjacent model/service tests; create `web/app/auth/organization-state/page.tsx` and `.test.ts`; modify `web/app/auth/login/page.tsx`/`.test.ts`, `web/app/auth/employment-routing.ts`/`.test.ts`, `web/app/auth/account/page.tsx`/`.test.ts`, `web/app/(app)/home.ts`, `web/app/(app)/[slug]/workspace.ts`, `layout.tsx`/`layout.test.ts`; inspect/update invitation acceptance UI (`web/app/invitations/`) and `web/app/(app)/employment-guard.test.ts`. Create a tested business-guard adapter in `web/app/api/v1/_lib/organization.ts` only when used by an actual business caller; do not add dead middleware or change employment to organization-required.
 
 **Interfaces (one source of truth):**

@@ -20,7 +20,7 @@ export default async function AccountPage({
     <AccountCard>
       <AccountHeader title="계정 관리">프로필과 로그인 정보를 관리합니다.</AccountHeader>
       <p className="text-center type-body">
-        <AccountLink href="/auth/complete-profile">필수 정보 입력으로 돌아가기</AccountLink>
+        <AccountLink href="/auth/organization-state">서비스로 돌아가기</AccountLink>
       </p>
       {account?.me.status === "ready" && account.login.status === "ready" ? (
         <AccountSettings

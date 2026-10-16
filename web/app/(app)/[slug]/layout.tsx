@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { businessLayoutNext } from "@/app/auth/employment-routing";
+import { businessLayoutNext, organizationStatePath } from "@/app/auth/employment-routing";
 import { AccountHeader, NoDatabase } from "@/app/auth/account-card";
 import { AppShell } from "@/components/app-shell";
 import { AuthFrame } from "@/components/auth-frame";
@@ -52,6 +52,9 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[slu
           </Link>
         </AuthFrame>
       );
+    case "no-org":
+    case "multiple-orgs":
+      redirect(organizationStatePath(next));
     case "not-found":
       // 조직이 없거나 내가 멤버가 아니다. 남의 조직이 있는지 알려 주지 않도록 둘 다 404 다.
       notFound();

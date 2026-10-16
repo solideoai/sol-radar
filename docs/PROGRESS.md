@@ -90,3 +90,5 @@ updated: 2026-10-16
 - [[07-DATA-PIPELINE|공고·인력 fixture]]
 - [[11-TESTING|검증 기준]]
 - [[16-DECISIONS|결정 기록]]
+
+- Task 8 구현(격리 worktree, 독립 검토 전): 실제 업무 멤버십 0/1/복수 판정, 모든 기존 조직 업무 page/action 경계의 현재 조직 고정, 조직 상태 안내·계정/초대 복귀, 템플릿 회사 생성 경로 폐기 및 명시적 격리 Supabase test-target harness를 추가했다. 모의 단위·1440/1280 브라우저 검증과 정상 커밋 게이트 증거는 `.superpowers/sdd/2026-10-16-solideo-people-signup/task-8-report.md`에 기록한다. 실제 별도 Supabase의 build/Auth/E2E는 Task9 대기이며 공유 스택·클라우드·main은 변경하지 않았다. 전체 N1/N2·/ops·sidebar/P1 완료를 뜻하지 않는다.

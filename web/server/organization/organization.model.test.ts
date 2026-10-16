@@ -10,6 +10,7 @@ import {
   parseRole,
   parseTeamName,
   RESERVED_SLUGS,
+  resolveCurrentOrganization,
   sortMembers,
   sortOrgs,
   toCurrentOrg,
@@ -405,5 +406,32 @@ describe("toInvitationMailContent", () => {
     expect(content.text.split("\n")[0]).toBe(
       '홍 길 동 님이 "에이크미 Bcc: victim@example.com" 팀에 초대했습니다.',
     );
+  });
+});
+
+describe("resolveCurrentOrganization", () => {
+  const business = org({ orgId: "business", slug: "business" });
+  const personal = org({ orgId: "historical", slug: "historical", isPersonal: true });
+  it.each([{ rows: [] }, { rows: [personal] }])(
+    "no actual business membership is no-org",
+    ({ rows }) => {
+      expect(resolveCurrentOrganization(rows)).toEqual({ status: "no-org" });
+    },
+  );
+  it.each(
+    [[business], [business, personal], [personal, business], [business, business, personal]].map(
+      (rows) => ({ rows }),
+    ),
+  )("order and duplicates never select a personal organization", ({ rows }) => {
+    expect(resolveCurrentOrganization(rows)).toEqual({
+      status: "ready",
+      current: toCurrentOrg(business),
+    });
+  });
+  it("two actual business IDs block in either order without changing source rows", () => {
+    const rows = Object.freeze([business, org({ orgId: "second" }), personal]);
+    expect(resolveCurrentOrganization(rows)).toEqual({ status: "multiple-orgs" });
+    expect(resolveCurrentOrganization(rows.toReversed())).toEqual({ status: "multiple-orgs" });
+    expect(rows[0]).toBe(business);
   });
 });

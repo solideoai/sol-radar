@@ -1,13 +1,11 @@
 "use client";
 
 import {
-  CheckIcon,
   ChevronsUpDownIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
   LogOutIcon,
   MailIcon,
-  PlusIcon,
   SettingsIcon,
   ShieldCheckIcon,
 } from "lucide-react";
@@ -54,9 +52,6 @@ const NAV = [
 
 const isCurrent = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
-
-// 서버의 ORG_ROLE_LABELS 와 같은 글자다 — 서버 모듈은 브라우저로 가져올 수 없다.
-const ROLE_LABELS = { owner: "소유자", member: "멤버" } as const;
 
 // isAdmin 은 서비스 운영자인지다(조직 역할이 아니다). 링크를 숨기는 것은 화면 요구일 뿐이고,
 // 관리자 화면은 서버에서 다시 확인해 운영자가 아니면 404 다.
@@ -108,7 +103,10 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
   return (
     <Sidebar>
       <SidebarHeader>
-        <OrgSwitcher workspace={workspace} onNavigate={closeDrawer} />
+        <div className="flex items-center gap-2 p-2">
+          <OrgMark name={workspace.current.name} />
+          <span className="min-w-0 truncate font-medium">{workspace.current.name}</span>
+        </div>
         {workspace.pendingInvitationCount > 0 ? (
           <SidebarMenu>
             <SidebarMenuItem>
@@ -173,86 +171,6 @@ function OrgMark({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
     >
       {initialOf(name)}
     </span>
-  );
-}
-
-// 둘째 줄의 내 역할은 멤버 화면에서 버튼이 안 보이는 이유를 미리 알려 준다.
-function OrgSwitcher({
-  workspace,
-  onNavigate,
-}: {
-  workspace: AppShellWorkspace;
-  onNavigate: () => void;
-}) {
-  const { current, orgs, pendingInvitationCount } = workspace;
-  const personal = orgs.filter((org) => org.isPersonal);
-  const teams = orgs.filter((org) => !org.isPersonal);
-  const subtitle = current.isPersonal ? "개인" : `팀 · ${ROLE_LABELS[current.myRole]}`;
-
-  const orgItem = (org: OrgSummary) => {
-    const isCurrentOrg = org.slug === current.slug;
-    return (
-      <DropdownMenuLinkItem
-        key={org.slug}
-        render={<Link href={`/${org.slug}/dashboard`} />}
-        aria-current={isCurrentOrg ? "true" : undefined}
-        onClick={onNavigate}
-      >
-        <OrgMark name={org.name} size="sm" />
-        <span className="min-w-0 flex-1 truncate">{org.name}</span>
-        {isCurrentOrg ? <CheckIcon aria-hidden /> : null}
-      </DropdownMenuLinkItem>
-    );
-  };
-
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" title={current.name} />}>
-            {/* 조직 이름은 바뀌어 버튼 이름이 못 된다. 보이지 않는 고정 이름을 앞에 둔다. */}
-            <span className="sr-only">조직 전환</span>
-            <OrgMark name={current.name} />
-            {/* min-w-0 이 없으면 긴 이름이 말줄임되지 않고 사이드바 밖으로 나간다. */}
-            <span className="grid min-w-0 flex-1">
-              <span className="truncate font-medium text-sidebar-accent-foreground">
-                {current.name}
-              </span>
-              <span className="truncate type-caption text-muted-foreground">{subtitle}</span>
-            </span>
-            <ChevronsUpDownIcon className="text-muted-foreground" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="bottom" align="start">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>개인</DropdownMenuLabel>
-              {personal.map(orgItem)}
-            </DropdownMenuGroup>
-            {teams.length > 0 ? (
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>팀</DropdownMenuLabel>
-                {teams.map(orgItem)}
-              </DropdownMenuGroup>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              {pendingInvitationCount > 0 ? (
-                <DropdownMenuLinkItem render={<Link href="/invitations" />} onClick={onNavigate}>
-                  <MailIcon />
-                  받은 초대
-                  <span className="ml-auto type-caption text-muted-foreground tabular-nums">
-                    {pendingInvitationCount}
-                    <span className="sr-only">개</span>
-                  </span>
-                </DropdownMenuLinkItem>
-              ) : null}
-              <DropdownMenuLinkItem render={<Link href="/teams/new" />} onClick={onNavigate}>
-                <PlusIcon />새 팀 만들기
-              </DropdownMenuLinkItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
   );
 }
 

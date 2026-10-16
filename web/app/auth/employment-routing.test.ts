@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
-import { businessLayoutNext, completionPath, safeEmploymentNext } from "./employment-routing";
+import {
+  businessLayoutNext,
+  completionPath,
+  safeEmploymentNext,
+  safeBusinessNext,
+  organizationStatePath,
+} from "./employment-routing";
 it.each([
   "https://evil.test",
   "//evil.test",
@@ -42,4 +48,23 @@ it.each([
   { value: { next: "/alpha/tasks" } },
 ])("반복 쿼리와 문자열이 아닌 next는 기본 경로다", ({ value }) => {
   expect(safeEmploymentNext(value)).toBe("/auth/login");
+});
+
+it.each([
+  undefined,
+  ["/alpha/tasks"],
+  "https://evil.test",
+  "/auth/organization-state",
+  "/teams/new",
+  "/unreleased",
+  "/alpha/../auth/login",
+  "/%61uth/complete-profile",
+])("business continuation %s defaults to canonical dashboard", (value) => {
+  expect(safeBusinessNext(value)).toBe("/dashboard");
+  expect(organizationStatePath(value)).toBe("/auth/organization-state");
+});
+it("state continuation keeps supported business destinations without choosing an organization", () => {
+  expect(organizationStatePath("/alpha/tasks?q=1")).toBe(
+    "/auth/organization-state?next=%2Falpha%2Ftasks%3Fq%3D1",
+  );
 });
