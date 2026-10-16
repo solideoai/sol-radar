@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "agentic-boilerplate",
-    "slug": "agentic-boilerplate",
+    "name": "sol-radar",
+    "slug": "sol-radar",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
-    "scheme": "agenticboilerplate",
-    "ios": { "supportsTablet": true, "bundleIdentifier": "com.example.agenticboilerplate" },
-    "android": { "package": "com.example.agenticboilerplate" },
+    "scheme": "solradar",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.example.solradar" },
+    "android": { "package": "com.example.solradar" },
     "plugins": ["expo-router"]
   }
 }
