@@ -85,6 +85,12 @@ it.each([
 ])("직접 Server Action도 저장 전에 보완한다", async (action) => {
   await expect(action()).rejects.toThrow("REDIRECT:/auth/complete-profile");
   expect(mutation).not.toHaveBeenCalled();
+  for (const status of ["signed-out", "no-database"]) {
+    profile.mockResolvedValue({ status });
+    mutation.mockResolvedValue({ status: "signed-out" });
+    await expect(action()).resolves.toEqual({ status: "signed-out" });
+  }
+  expect(mutation).toHaveBeenCalledTimes(2);
 });
 it("완료도 기존 멤버십 거절을 통과하지 못한다", async () => {
   profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
@@ -92,13 +98,10 @@ it("완료도 기존 멤버십 거절을 통과하지 못한다", async () => {
   await expect(requireWorkspace("stranger")).rejects.toThrow("NOT_FOUND");
   expect(await createTask("stranger", {})).toEqual({ status: "forbidden" });
 });
-it.each(["signed-out", "missing", "suspended", "no-database"])(
-  "%s는 로그인 안내로",
-  async (status) => {
-    profile.mockResolvedValue({ status });
-    await expect(requireCompleteEmployment("/dashboard")).rejects.toThrow("REDIRECT:/auth/login");
-  },
-);
+it.each(["missing", "suspended"])("%s는 로그인 안내로", async (status) => {
+  profile.mockResolvedValue({ status });
+  await expect(requireCompleteEmployment("/dashboard")).rejects.toThrow("REDIRECT:/auth/login");
+});
 
 it("레이아웃 직접 조회도 전달받은 업무 경로를 보존하고 데이터 읽기 전에 막는다", async () => {
   await expect(loadWorkspace("alpha", "/alpha/tasks?q=1")).rejects.toThrow(
@@ -114,5 +117,17 @@ it.each(["/alpha/tasks?q=hello", "/alpha/settings?link=linked"])(
     await expect(requireWorkspace("alpha", "/alpha/dashboard")).rejects.toThrow(
       `REDIRECT:/auth/complete-profile?next=${encodeURIComponent(path)}`,
     );
+  },
+);
+
+it.each(["signed-out", "no-database"])(
+  "%s는 기존 안내 조회를 허용하되 업무 페이지 진입은 허용하지 않는다",
+  async (status) => {
+    profile.mockResolvedValue({ status });
+    workspace.mockResolvedValue({ status });
+    home.mockResolvedValue({ status });
+    await expect(loadWorkspace("alpha")).resolves.toEqual({ status });
+    await expect(requireWorkspace("alpha")).rejects.toThrow(/^REDIRECT:\/auth\/login$/);
+    await expect(LegacyMemosPage()).rejects.toThrow(/^REDIRECT:\/auth\/login$/);
   },
 );
