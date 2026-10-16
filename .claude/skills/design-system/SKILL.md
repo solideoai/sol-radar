@@ -52,7 +52,7 @@ design/tokens.json  ──pnpm tokens──▶  web/app/globals.css
 - 색 이름은 shadcn 의 짝을 따른다: `<이름>` 은 바탕, `<이름>-foreground` 는 그 위 글자.
   `muted` 는 연한 바탕이고 보조 글자는 `muted-foreground` 다. 테두리는 `border`, 입력칸 테두리는 `input`, 포커스 링은 `ring`.
 - `primary` 는 주요 버튼(남색), `brand` 는 브랜드 색(파랑), `accent` 는 메뉴 항목 hover 바탕이다.
-  `sidebar-*` 여덟 개는 사이드바 안에서만 쓴다(`web/components/ui/sidebar.tsx`·`web/components/app-shell.tsx`, 사이드바 모양을 그린 `web/components/dashboard-preview.tsx`).
+  `sidebar-*` 여덟 개는 사이드바 안에서만 쓴다(`web/components/ui/sidebar.tsx`·`web/components/app-shell.tsx`).
 - `chart-2` 는 차트의 둘째 계열 색이다(첫째 계열은 `brand`). 막대와 범례 색 칸에만 쓰고 글자·바탕·버튼에는 쓰지 않는다.
 - `kakao`·`naver`(와 `-foreground`)는 각 회사 로그인 버튼 가이드의 지정 색이다. 간편 로그인 버튼(`web/app/auth/social-sign-in.tsx`)과 로그인 수단 목록의 회사 표시(`web/components/provider-mark.tsx`)에만 쓰고 값을 바꾸지 않는다.
   네이버 짝(흰 글자/#03A94D)은 대비가 3.09:1 이라 대비 검사에서 예외다 — 대신 가이드 값 그대로인지를 검사한다. 예외는 사람이 정한다(이 짝은 2026-10-15 사용자 결정).
@@ -116,7 +116,7 @@ sidebar(딸려 온 sheet·tooltip)·avatar·table.
 - 버튼 모양이 아닌 링크(로고·문장 속 링크)의 초점 표시는 버튼과 같다: `outline-none focus-visible:ring-3 focus-visible:ring-ring/50`.
   사이드바 안에서는 항목과 같은 `ring-sidebar-ring outline-hidden focus-visible:ring-2` 다.
 - 표시 부품(`web/components/`): 로고는 `logo.tsx` 하나이고 마케팅 틀이 쓴다(앱 틀은 그 자리를 조직 전환기가 차지하고, 인증 틀에는 로고가 없다). 통계 카드 `stat-card.tsx` 와 CSS 막대 차트 `bar-chart.tsx` 는
-  props 만 받고 데이터를 읽지 않는다. `dashboard-preview.tsx` 는 첫 화면의 견본 화면 전용이다.
+  props 만 받고 데이터를 읽지 않는다. 첫 화면(랜딩) 전용 부품은 `web/components/landing/` 에 모으고, 분석 미리보기는 `product-preview.tsx` 다.
 - 견본: 통계·차트·표·활동 피드·빈 상태는 `web/app/(app)/[slug]/dashboard/`, 거르기·정렬·쪽이 있는 데이터 표와 추가·편집 대화상자·상태 메뉴·삭제 확인은 `web/app/(app)/[slug]/tasks/`,
   가는 선으로 나눈 구역 폼은 `web/app/(app)/[slug]/settings/`, 멤버 표와 초대 폼(역할 고르기는 `select`)은 `web/app/(app)/[slug]/settings/members/`.
 - 화면 안의 하위 메뉴(설정의 "계정"·"멤버")는 `SettingsNav`(`web/app/(app)/[slug]/settings/`)의 모양을 따른다. 링크 줄(`border-b`) 아래 지금 화면에만 2px 밑줄 막대(`foreground`)를 긋는다.
