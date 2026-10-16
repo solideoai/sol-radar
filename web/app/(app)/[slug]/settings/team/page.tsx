@@ -14,7 +14,10 @@ export const metadata: Metadata = { title: "팀" };
 // 개인 조직에는 이 탭이 없다(이름을 바꾸거나 지우지 않는다). 주소로 직접 열면 없는 화면으로 다룬다.
 export default async function TeamSettingsPage({ params }: PageProps<"/[slug]/settings/team">) {
   await connection();
-  const { current, orgs } = await requireWorkspace((await params).slug);
+  const { current, orgs } = await requireWorkspace(
+    (await params).slug,
+    `/${(await params).slug}/settings/team`,
+  );
   if (current.isPersonal) notFound();
   const isOwner = current.myRole === "owner";
   // 지운 뒤에는 개인 조직으로 간다. 가입하면 생기므로 보통 있고, 없으면 옛 주소가 개인 조직을 찾아 보낸다.

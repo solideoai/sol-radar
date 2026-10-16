@@ -1,5 +1,8 @@
 import "server-only";
+import { headers } from "next/headers";
+import { businessLayoutNext } from "@/app/auth/employment-routing";
 import { notFound, redirect } from "next/navigation";
+import { requireCompleteEmployment } from "@/app/(app)/employment-guard";
 import { cache } from "react";
 import type { ActivityScope } from "@/server/activity";
 import { getMyWorkspace, type MyWorkspace } from "@/server/organization";
@@ -10,12 +13,20 @@ export type ReadyWorkspace = Extract<MyWorkspace, { status: "ready" }>;
 
 // layout 과 화면이 같은 요청에서 함께 읽으므로 cache 로 요청 하나에 한 번만 읽는다
 // (받은 초대 수는 지금 시각을 조건으로 읽어서 같은 요청이 자동으로 합쳐지지 않는다).
-export const loadWorkspace = cache((slug: string) => getMyWorkspace(slug));
+export const loadWorkspace = cache(async (slug: string, next = `/${slug}/dashboard`) => {
+  await requireCompleteEmployment(next);
+  return getMyWorkspace(slug);
+});
 
 // 틀(layout)은 화면 실행을 막지 못하므로 화면마다 다시 확인한다: 멤버가 아닌 조직은 404, 로그인 전·DB 없음은 계정 화면으로.
 // 정지된 사람은 정책이 어느 조직도 열지 않아 늘 not-found 다 — 404 대신 계정 화면의 정지 안내로 보낸다.
-export async function requireWorkspace(slug: string): Promise<ReadyWorkspace> {
-  const workspace = await loadWorkspace(slug);
+export async function requireWorkspace(
+  slug: string,
+  next = `/${slug}/dashboard`,
+): Promise<ReadyWorkspace> {
+  const path = businessLayoutNext((await headers()).get("x-sol-radar-path") || next, slug);
+  await requireCompleteEmployment(path);
+  const workspace = await loadWorkspace(slug, path);
   if (workspace.status === "not-found") {
     if ((await getMyProfile()).status === "suspended") redirect("/auth/login");
     notFound();

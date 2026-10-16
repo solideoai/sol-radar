@@ -20,7 +20,10 @@ export const metadata: Metadata = { title: "멤버" };
 // DB 정책과 트리거가 강제한다(마지막 owner 보호 포함).
 export default async function MembersPage({ params }: PageProps<"/[slug]/settings/members">) {
   await connection();
-  const workspace = await requireWorkspace((await params).slug);
+  const workspace = await requireWorkspace(
+    (await params).slug,
+    `/${(await params).slug}/settings/members`,
+  );
   const { current, userId, orgs } = workspace;
   const page = await getMembersPage({ org: current, userId });
 

@@ -1,9 +1,10 @@
 import { cn } from "cn";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
+import { businessLayoutNext } from "@/app/auth/employment-routing";
 import { AccountHeader, NoDatabase } from "@/app/auth/account-card";
 import { AppShell } from "@/components/app-shell";
 import { AuthFrame } from "@/components/auth-frame";
@@ -24,7 +25,8 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[slu
   // 로그인 상태는 요청마다 다르다. 빌드 때 미리 그려 두지 않는다.
   await connection();
   const { slug } = await params;
-  const [workspace, me] = await Promise.all([loadWorkspace(slug), getMyProfile()]);
+  const next = businessLayoutNext((await headers()).get("x-sol-radar-path"), slug);
+  const [workspace, me] = await Promise.all([loadWorkspace(slug, next), getMyProfile()]);
   // 정지된 사람에게는 정책이 어느 조직도 열지 않아 아래에서 404 가 된다. 그 전에 계정 화면의 정지 안내로 보낸다.
   if (me.status === "suspended") redirect("/auth/login");
 

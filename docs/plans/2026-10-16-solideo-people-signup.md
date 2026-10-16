@@ -81,11 +81,11 @@ updated: 2026-10-16
 
 **Interfaces:** 공용 zod에서 `SignupOptions`, `EmploymentInput`, `EmploymentState`를 추론하며 05 §8과 이름/필드/값이 일치한다. Produces `getSignupOptions():SignupOptions`, `getMyEmployment(repo?:ProfileRepo):Promise<EmploymentResult>`, `saveMyEmployment(input:unknown,repo?:ProfileRepo):Promise<EmploymentResult>`; `EmploymentResult={status:"ready",state:EmploymentState}|{status:"signed-out"|"suspended"|"missing"|"no-database"}|{status:"invalid",fields:Record<string,string>}`. Repo `updateEmployment(id:string,input:EmploymentInput):Promise<boolean>`는 resolver로 코드→FK 검증 후 단일 UPDATE한다. 조회도 현재 본인 FK→코드 변환을 거친다. `ProfileView`에 `employment`·`profileComplete`를 추가한다. v1 helper `requireCompleteUser(request:Request):Promise<{ok:true,user:AuthUser}|{ok:false,response:Response}>`는 인증과 본인 완료 상태만 검사하며 이후 업무 API가 별도로 조직 권한을 검사한다.
 
-- [ ] **1. 실패 시험 작성:** profile 시험에서 `name:null`이면 두 선택이 있어도 미완료, 유효 이름+선택이면 완료, 없는/삭제된 코드면 미완료, 임의 `userId/orgId/is_admin/profileComplete` 필드는 strict DTO에서 거절됨을 단언한다. Route 시험은 public 옵션 정확 키, 미로그인 401, 정지 403, PATCH 쿠키+CSRF 없음 403, 유효 쿠키+`X-Requested-With: sol-radar` 200, Bearer는 헤더 없이 200, 잘못된 Bearer를 쿠키로 우회하지 않음, 오류 `requestId`·`Cache-Control:no-store`를 검사한다. 사용자 A가 B의 정보를 쓰는 경로는 없어야 한다.
-- [ ] **2. 실패 확인:** `pnpm -C web exec vitest run server/profile app/api/v1` → 새 함수/API 미구현 FAIL.
-- [ ] **3. 구현:** 공개 투영만 읽는 catalog 함수와 공유 zod를 만들고 기존 profile에 추가한다. 서버는 현재 이름·FK/카탈로그 유효성을 다시 계산한다. 새 v1 helper가 세션/Bearer 검증과 CSRF·대문자 오류 envelope를 제공한다. `/me/employment`는 조직 소속 전에도 본인만 쓸 수 있다. 기존 `/api/_lib/http.ts`와 템플릿 API의 Bearer 전용 계약을 유지하고 회귀 시험을 돌린다. 무효 Auth 가입 오류는 Supabase의 실제 오류에서 UI 필드 오류로 매핑하며 v1 envelope라고 가정하지 않는다.
-- [ ] **4. 통과 확인:** 위 Vitest 및 `pnpm -C web exec vitest run app/api/users app/api/auth app/api/admin` PASS. 기존 프로필 mock도 새 필드를 포함하도록 갱신하고 타입/계층 검사 PASS.
-- [ ] **5. 커밋:** 공용 DTO·profile·v1 handler·해당 시험만 명시해 `git commit -m "feat: 가입 카탈로그와 본인 정보 API 추가"`.
+- [x] **1. 실패 시험 작성:** profile 시험에서 `name:null`이면 두 선택이 있어도 미완료, 유효 이름+선택이면 완료, 없는/삭제된 코드면 미완료, 임의 `userId/orgId/is_admin/profileComplete` 필드는 strict DTO에서 거절됨을 단언한다. Route 시험은 public 옵션 정확 키, 미로그인 401, 정지 403, PATCH 쿠키+CSRF 없음 403, 유효 쿠키+`X-Requested-With: sol-radar` 200, Bearer는 헤더 없이 200, 잘못된 Bearer를 쿠키로 우회하지 않음, 오류 `requestId`·`Cache-Control:no-store`를 검사한다. 사용자 A가 B의 정보를 쓰는 경로는 없어야 한다.
+- [x] **2. 실패 확인:** `pnpm -C web exec vitest run server/profile app/api/v1` → 새 함수/API 미구현 FAIL.
+- [x] **3. 구현:** 공개 투영만 읽는 catalog 함수와 공유 zod를 만들고 기존 profile에 추가한다. 서버는 현재 이름·FK/카탈로그 유효성을 다시 계산한다. 새 v1 helper가 세션/Bearer 검증과 CSRF·대문자 오류 envelope를 제공한다. `/me/employment`는 조직 소속 전에도 본인만 쓸 수 있다. 기존 `/api/_lib/http.ts`와 템플릿 API의 Bearer 전용 계약을 유지하고 회귀 시험을 돌린다. 무효 Auth 가입 오류는 Supabase의 실제 오류에서 UI 필드 오류로 매핑하며 v1 envelope라고 가정하지 않는다.
+- [x] **4. 통과 확인:** 위 Vitest 및 `pnpm -C web exec vitest run app/api/users app/api/auth app/api/admin` PASS. 기존 프로필 mock도 새 필드를 포함하도록 갱신하고 타입/계층 검사 PASS.
+- [x] **5. 커밋:** 공용 DTO·profile·v1 handler·해당 시험만 명시해 `git commit -m "feat: 가입 카탈로그와 본인 정보 API 추가"`.
 
 ## Task 3: 가입 폼·보완 화면·업무 진입 가드
 

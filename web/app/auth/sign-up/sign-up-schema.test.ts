@@ -4,15 +4,28 @@ import {
   isValidBirthDate,
   localToday,
   SIGN_UP_DEFAULTS,
-  signUpSchema,
+  createSignUpSchema,
   type SignUpValues,
   toAddress,
   toSignUpRequest,
 } from "./sign-up-schema";
 
+const options = {
+  companyName: "솔리데오",
+  catalogVersion: "solideo-organization/v1.0",
+  departments: [{ id: "SOL-D001", label: "부서" }],
+  jobTitles: [{ id: "SOL-J001", label: "직급" }],
+} as const;
+const signUpSchema = createSignUpSchema({
+  ...options,
+  departments: [...options.departments],
+  jobTitles: [...options.jobTitles],
+});
 const valid: SignUpValues = {
   ...SIGN_UP_DEFAULTS,
   name: "홍길동",
+  departmentId: "SOL-D001",
+  jobTitleId: "SOL-J001",
   email: "hong@example.com",
   password: "secret12",
   passwordConfirm: "secret12",
@@ -120,7 +133,7 @@ describe("formatPhone", () => {
 });
 
 describe("toSignUpRequest", () => {
-  it("이메일·비밀번호·이름만 싣고 휴대폰·주소·생년월일·동의는 싣지 않는다", () => {
+  it("승인한 메타데이터만 싣고 휴대폰·주소·생년월일·동의는 싣지 않는다", () => {
     const request = toSignUpRequest({
       ...valid,
       name: "  홍길동 ",
@@ -134,7 +147,9 @@ describe("toSignUpRequest", () => {
     expect(request).toEqual({
       email: "hong@example.com",
       password: "secret12",
-      options: { data: { name: "홍길동" } },
+      options: {
+        data: { name: "홍길동", department_code: "SOL-D001", job_title_code: "SOL-J001" },
+      },
     });
   });
 });
@@ -167,4 +182,14 @@ describe("toAddress", () => {
       address: "서울 강남구 역삼동 737",
     });
   });
+});
+
+it.each(["", "SOL-D999", "forged"])("부서 코드 %s는 거절한다", (departmentId) => {
+  expect(errorsOf({ ...valid, departmentId })).toHaveProperty("departmentId");
+});
+it.each(["", "SOL-J999", "forged"])("직급 코드 %s는 거절한다", (jobTitleId) => {
+  expect(errorsOf({ ...valid, jobTitleId })).toHaveProperty("jobTitleId");
+});
+it.each(["A", "이름", "네글자이", "A".repeat(40)])("실제 이름 %s 허용", (name) => {
+  expect(errorsOf({ ...valid, name })).toEqual({});
 });

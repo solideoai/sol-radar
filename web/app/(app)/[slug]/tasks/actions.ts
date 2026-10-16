@@ -1,5 +1,7 @@
 "use server";
 
+import { requireCompleteEmployment } from "@/app/(app)/employment-guard";
+
 import { refresh } from "next/cache";
 import {
   type AddTaskResult,
@@ -19,6 +21,7 @@ import {
 const isStale = (status: string) => status !== "invalid" && status !== "signed-out";
 
 export async function createTask(orgId: unknown, input: unknown): Promise<AddTaskResult> {
+  await requireCompleteEmployment("/memos");
   const result = await addTask(orgId, input);
   if (isStale(result.status)) refresh();
   return result;
@@ -29,6 +32,7 @@ export async function saveTask(
   taskId: unknown,
   input: unknown,
 ): Promise<UpdateTaskResult> {
+  await requireCompleteEmployment("/memos");
   const result = await updateTask(orgId, taskId, input);
   if (isStale(result.status)) refresh();
   return result;
@@ -39,12 +43,14 @@ export async function changeStatus(
   taskId: unknown,
   status: unknown,
 ): Promise<ChangeTaskStatusResult> {
+  await requireCompleteEmployment("/memos");
   const result = await changeTaskStatus(orgId, taskId, status);
   if (isStale(result.status)) refresh();
   return result;
 }
 
 export async function removeTask(orgId: unknown, taskId: unknown): Promise<DeleteTaskResult> {
+  await requireCompleteEmployment("/memos");
   const result = await deleteTask(orgId, taskId);
   if (isStale(result.status)) refresh();
   return result;

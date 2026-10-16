@@ -80,7 +80,7 @@ function PrivacySummary() {
       <dl className="mt-2 grid gap-1.5 rounded-lg bg-muted px-3 py-2.5">
         <div>
           <dt className="font-medium text-foreground">수집 항목</dt>
-          <dd>필수: 이메일, 비밀번호, 이름 · 선택: 휴대폰 번호, 주소, 생년월일</dd>
+          <dd>필수: 이메일, 비밀번호, 이름, 부서, 직급/직책 · 선택: 휴대폰 번호, 주소, 생년월일</dd>
         </div>
         <div>
           <dt className="font-medium text-foreground">이용 목적</dt>

@@ -1,3 +1,4 @@
+import { completionPath, safeEmploymentNext } from "@/app/auth/employment-routing";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -5,7 +6,6 @@ import { SignOutButton } from "@/app/account/sign-out-button";
 import { AccountCard, AccountHeader, AccountLink, NoDatabase } from "@/app/auth/account-card";
 import { SocialSignIn } from "@/app/auth/social-sign-in";
 import { enabledSocialProviders } from "@/lib/auth-providers";
-import { safeNextPath } from "@/server/auth";
 import { getMyHome } from "@/server/organization";
 import { getMyProfile, type MyProfile } from "@/server/profile";
 import { SUSPENDED_NOTICE } from "@/app/auth/notices";
@@ -23,10 +23,11 @@ export default async function LoginPage({
   await connection();
   const [me, { link, next: rawNext }] = await Promise.all([getMyProfile(), searchParams]);
   // 로그인 뒤 갈 곳(?next=). 사이트 안 경로만 받고, 계정 화면(/auth/…)으로는 되돌리지 않는다(돌고 돈다).
-  const nextPath = rawNext === undefined ? null : safeNextPath(rawNext);
+  const nextPath = rawNext === undefined ? null : safeEmploymentNext(rawNext);
   const next = nextPath && !nextPath.startsWith("/auth/") ? nextPath : null;
   // 로그인 직후(폼이 화면을 다시 그린다)와 메일 확인 링크(/auth/confirm)로 온 사람도 여기를 거쳐 개인 조직으로 간다.
   if (me.status === "ready") {
+    if (!me.profile.profileComplete) redirect(completionPath(next ?? undefined));
     if (next) redirect(next);
     const home = await getMyHome();
     if (home.status === "ready") redirect(`/${home.personalSlug}/dashboard`);

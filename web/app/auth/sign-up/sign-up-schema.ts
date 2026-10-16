@@ -1,7 +1,9 @@
 import { z } from "zod";
+import type { SignupOptions } from "@/server/shared";
+import { createEmploymentSchema } from "@/app/auth/employment-schema";
 
 // ── 회원가입 폼의 규칙. 화면의 검증은 편의다 ──
-// 서버로 보내는 것은 이메일·비밀번호·이름뿐이다. 비밀번호 규칙의 정본은 Supabase Auth 설정(최소 길이 등)이고,
+// 서버로 보내는 것은 이메일·비밀번호·이름·부서·직급 코드다. 비밀번호 규칙의 정본은 Supabase Auth 설정(최소 길이 등)이고,
 // 이름은 가입 트리거가 표시 이름 규칙(앞뒤 공백 없이 1~40자)으로 다듬어 저장한다.
 // 휴대폰·주소·생년월일은 화면에서 받기만 하고 보내지 않는다 — 암호화 저장을 붙일 때 함께 저장한다.
 // 약관 동의도 아직 저장하지 않는다(동의 기록은 저장을 붙일 때 시각과 함께 남긴다).
@@ -38,50 +40,54 @@ export const localToday = (now: Date = new Date()): string =>
 
 const required = (message: string) => z.boolean().refine((agreed) => agreed, message);
 
-export const signUpSchema = z
-  .object({
-    name: z.string().trim().min(1, "이름을 입력하세요").max(40, "이름은 40자 이하입니다"),
-    email: z.email("이메일 형식이 아닙니다"),
-    password: z.string().min(6, "비밀번호는 6자 이상입니다"),
-    passwordConfirm: z.string().min(1, "비밀번호를 한 번 더 입력하세요"),
-    phone: z
-      .string()
-      .trim()
-      .refine(
-        (phone) => phone === "" || PHONE.test(phone),
-        "휴대폰 번호 형식이 아닙니다 (예: 010-1234-5678)",
-      ),
-    // 우편번호·기본 주소는 주소 검색이 채운다. 상세 주소만 직접 적는다.
-    postcode: z.string(),
-    address: z.string(),
-    addressDetail: z.string().trim().max(100, "상세 주소는 100자 이하입니다"),
-    birthDate: z
-      .string()
-      .refine(
-        (date) => date === "" || isValidBirthDate(date, localToday()),
-        "생년월일을 확인하세요",
-      ),
-    agreeTerms: required("이용약관에 동의해야 가입할 수 있습니다"),
-    agreePrivacy: required("개인정보 수집·이용에 동의해야 가입할 수 있습니다"),
-    agreeAge: required("만 14세 이상만 가입할 수 있습니다"),
-    agreeMarketing: z.boolean(),
-  })
-  // 칸 하나의 오류와 상관없이 늘 본다(기본값은 다른 칸이 틀리면 건너뛴다). 오류는 그 칸 아래에 보인다.
-  .refine((values) => values.password === values.passwordConfirm, {
-    path: ["passwordConfirm"],
-    message: "비밀번호가 일치하지 않습니다",
-    when: ({ value }) => typeof value === "object" && value !== null && "passwordConfirm" in value,
-  })
-  .refine((values) => values.addressDetail.trim() === "" || values.address !== "", {
-    path: ["addressDetail"],
-    message: "주소 검색으로 기본 주소를 먼저 고르세요",
-    when: ({ value }) => typeof value === "object" && value !== null && "address" in value,
-  });
+export const createSignUpSchema = (options: SignupOptions) =>
+  z
+    .object({
+      ...createEmploymentSchema(options).shape,
+      email: z.email("이메일 형식이 아닙니다"),
+      password: z.string().min(6, "비밀번호는 6자 이상입니다"),
+      passwordConfirm: z.string().min(1, "비밀번호를 한 번 더 입력하세요"),
+      phone: z
+        .string()
+        .trim()
+        .refine(
+          (phone) => phone === "" || PHONE.test(phone),
+          "휴대폰 번호 형식이 아닙니다 (예: 010-1234-5678)",
+        ),
+      // 우편번호·기본 주소는 주소 검색이 채운다. 상세 주소만 직접 적는다.
+      postcode: z.string(),
+      address: z.string(),
+      addressDetail: z.string().trim().max(100, "상세 주소는 100자 이하입니다"),
+      birthDate: z
+        .string()
+        .refine(
+          (date) => date === "" || isValidBirthDate(date, localToday()),
+          "생년월일을 확인하세요",
+        ),
+      agreeTerms: required("이용약관에 동의해야 가입할 수 있습니다"),
+      agreePrivacy: required("개인정보 수집·이용에 동의해야 가입할 수 있습니다"),
+      agreeAge: required("만 14세 이상만 가입할 수 있습니다"),
+      agreeMarketing: z.boolean(),
+    })
+    // 칸 하나의 오류와 상관없이 늘 본다(기본값은 다른 칸이 틀리면 건너뛴다). 오류는 그 칸 아래에 보인다.
+    .refine((values) => values.password === values.passwordConfirm, {
+      path: ["passwordConfirm"],
+      message: "비밀번호가 일치하지 않습니다",
+      when: ({ value }) =>
+        typeof value === "object" && value !== null && "passwordConfirm" in value,
+    })
+    .refine((values) => values.addressDetail.trim() === "" || values.address !== "", {
+      path: ["addressDetail"],
+      message: "주소 검색으로 기본 주소를 먼저 고르세요",
+      when: ({ value }) => typeof value === "object" && value !== null && "address" in value,
+    });
 
-export type SignUpValues = z.infer<typeof signUpSchema>;
+export type SignUpValues = z.infer<ReturnType<typeof createSignUpSchema>>;
 
 export const SIGN_UP_DEFAULTS: SignUpValues = {
   name: "",
+  departmentId: "",
+  jobTitleId: "",
   email: "",
   password: "",
   passwordConfirm: "",
@@ -101,7 +107,13 @@ export const SIGN_UP_DEFAULTS: SignUpValues = {
 export const toSignUpRequest = (values: SignUpValues) => ({
   email: values.email,
   password: values.password,
-  options: { data: { name: values.name.trim() } },
+  options: {
+    data: {
+      name: values.name.trim(),
+      department_code: values.departmentId,
+      job_title_code: values.jobTitleId,
+    },
+  },
 });
 
 // 우편번호 서비스가 돌려준 값으로 기본 주소를 만든다. 도로명을 고르면 법정동·건물 이름을 괄호로 덧붙인다(서비스 안내의 예시와 같다).

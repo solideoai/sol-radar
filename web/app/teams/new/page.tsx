@@ -1,3 +1,4 @@
+import { requireCompleteEmployment } from "@/app/(app)/employment-guard";
 import { cn } from "cn";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -16,6 +17,7 @@ export const metadata: Metadata = { title: "새 팀 만들기" };
 export default async function NewTeamPage() {
   // 로그인 상태는 요청마다 다르다. 빌드 때 미리 그려 두지 않는다.
   await connection();
+  await requireCompleteEmployment("/teams/new");
   const home = await getMyHome();
 
   switch (home.status) {

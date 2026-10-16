@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { AccountCard, AccountHeader, NoDatabase } from "@/app/auth/account-card";
 import { SocialSignIn } from "@/app/auth/social-sign-in";
 import { enabledSocialProviders } from "@/lib/auth-providers";
-import { getMyProfile } from "@/server/profile";
+import { getMyProfile, getSignupOptions } from "@/server/profile";
 import { SignUpForm } from "./sign-up-form";
 
 export const metadata: Metadata = { title: "회원가입" };
@@ -23,14 +23,24 @@ export default async function SignUpPage() {
   // 로그인돼 있으면(정지된 계정 포함) 계정 화면이 알맞은 곳으로 보낸다.
   if (me.status !== "no-database" && me.status !== "signed-out") redirect("/auth/login");
 
+  const options = (() => {
+    try {
+      return getSignupOptions();
+    } catch {
+      return null;
+    }
+  })();
+
   return (
     <AccountCard>
       {me.status === "no-database" ? (
         <NoDatabase />
       ) : (
         <>
-          <AccountHeader title="회원가입">이름과 이메일·비밀번호로 계정을 만듭니다.</AccountHeader>
-          <SignUpForm>
+          <AccountHeader title="회원가입">
+            솔리데오에서 사용할 계정 정보를 입력해 주세요.
+          </AccountHeader>
+          <SignUpForm options={options}>
             <SocialSignIn providers={enabledSocialProviders} labels={SIGN_UP_LABELS} />
           </SignUpForm>
         </>
