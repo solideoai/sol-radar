@@ -116,3 +116,11 @@ test("counts two synthetic same-name workbook rows as two weights", async () => 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("upper rows never receive reserved employees or source weights", () => {
+  const teams = [weight("A", 2), { ...weight("B", 1), kind: "TEAM" }];
+  assert.deepEqual(
+    allocatePeople([...teams, { id: "C", kind: "DIVISION", sourceCount: null, targetCount: null }]),
+    allocatePeople(teams),
+  );
+});

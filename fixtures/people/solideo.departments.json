@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "companyName": "솔리데오",
   "sourceSha256": "d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3",
   "sourceRowCount": 250,
@@ -163,7 +163,9 @@
         "SOL-J009": 2,
         "SOL-J010": 8,
         "SOL-J011": 3
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D044"
     },
     {
       "id": "SOL-D002",
@@ -180,7 +182,9 @@
       ],
       "titleCounts": {
         "SOL-J011": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D044"
     },
     {
       "id": "SOL-D003",
@@ -199,7 +203,9 @@
         "SOL-J007": 1,
         "SOL-J010": 2,
         "SOL-J011": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D044"
     },
     {
       "id": "SOL-D004",
@@ -224,7 +230,10 @@
         "SOL-J007": 1,
         "SOL-J010": 2,
         "SOL-J011": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D005",
@@ -241,7 +250,10 @@
       ],
       "titleCounts": {
         "SOL-J010": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D006",
@@ -272,7 +284,9 @@
         "SOL-J009": 2,
         "SOL-J010": 3,
         "SOL-J012": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D048"
     },
     {
       "id": "SOL-D007",
@@ -309,7 +323,10 @@
         "SOL-J007": 1,
         "SOL-J010": 4,
         "SOL-J011": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_CONFLICT"
     },
     {
       "id": "SOL-D008",
@@ -333,7 +350,10 @@
       "titleCounts": {
         "SOL-J009": 1,
         "SOL-J010": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D009",
@@ -352,7 +372,10 @@
         "SOL-J007": 1,
         "SOL-J009": 1,
         "SOL-J010": 3
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D010",
@@ -369,7 +392,10 @@
       ],
       "titleCounts": {
         "SOL-J007": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D011",
@@ -387,7 +413,10 @@
       "titleCounts": {
         "SOL-J009": 1,
         "SOL-J010": 3
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D012",
@@ -405,7 +434,10 @@
       "titleCounts": {
         "SOL-J009": 1,
         "SOL-J010": 3
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D013",
@@ -424,7 +456,10 @@
         "SOL-J009": 2,
         "SOL-J010": 4,
         "SOL-J011": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D014",
@@ -442,7 +477,10 @@
       "titleCounts": {
         "SOL-J010": 1,
         "SOL-J011": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D015",
@@ -459,7 +497,10 @@
       ],
       "titleCounts": {
         "SOL-J010": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D016",
@@ -477,7 +518,10 @@
       "titleCounts": {
         "SOL-J009": 1,
         "SOL-J010": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D017",
@@ -503,7 +547,10 @@
         "SOL-J009": 1,
         "SOL-J010": 4,
         "SOL-J011": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D018",
@@ -520,7 +567,9 @@
       ],
       "titleCounts": {
         "SOL-J007": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D047"
     },
     {
       "id": "SOL-D019",
@@ -539,7 +588,9 @@
         "SOL-J009": 3,
         "SOL-J010": 6,
         "SOL-J011": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D047"
     },
     {
       "id": "SOL-D020",
@@ -557,7 +608,10 @@
       "titleCounts": {
         "SOL-J009": 1,
         "SOL-J010": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D021",
@@ -574,7 +628,10 @@
       ],
       "titleCounts": {
         "SOL-J009": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D022",
@@ -593,7 +650,10 @@
         "SOL-J009": 1,
         "SOL-J010": 3,
         "SOL-J011": 3
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D023",
@@ -612,7 +672,9 @@
         "SOL-J007": 1,
         "SOL-J010": 4,
         "SOL-J011": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D044"
     },
     {
       "id": "SOL-D024",
@@ -630,7 +692,9 @@
       "titleCounts": {
         "SOL-J009": 3,
         "SOL-J010": 4
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D046"
     },
     {
       "id": "SOL-D025",
@@ -647,7 +711,10 @@
       ],
       "titleCounts": {
         "SOL-J010": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D026",
@@ -665,7 +732,9 @@
       "titleCounts": {
         "SOL-J010": 3,
         "SOL-J011": 4
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D044"
     },
     {
       "id": "SOL-D027",
@@ -684,7 +753,10 @@
         "SOL-J005": 1,
         "SOL-J009": 1,
         "SOL-J010": 4
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D028",
@@ -703,7 +775,10 @@
         "SOL-J007": 1,
         "SOL-J009": 2,
         "SOL-J010": 6
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D029",
@@ -721,7 +796,10 @@
       "titleCounts": {
         "SOL-J007": 1,
         "SOL-J010": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D030",
@@ -739,7 +817,10 @@
       "titleCounts": {
         "SOL-J007": 1,
         "SOL-J009": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D031",
@@ -757,7 +838,10 @@
       "titleCounts": {
         "SOL-J007": 1,
         "SOL-J010": 3
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D032",
@@ -775,7 +859,10 @@
       "titleCounts": {
         "SOL-J009": 1,
         "SOL-J010": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_NOT_EVIDENCED"
     },
     {
       "id": "SOL-D033",
@@ -795,7 +882,9 @@
         "SOL-J009": 1,
         "SOL-J010": 2,
         "SOL-J011": 4
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D046"
     },
     {
       "id": "SOL-D034",
@@ -814,7 +903,9 @@
         "SOL-J009": 2,
         "SOL-J010": 5,
         "SOL-J011": 4
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D047"
     },
     {
       "id": "SOL-D035",
@@ -831,7 +922,9 @@
       ],
       "titleCounts": {
         "SOL-J007": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D042"
     },
     {
       "id": "SOL-D036",
@@ -848,7 +941,9 @@
       ],
       "titleCounts": {
         "SOL-J007": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D045"
     },
     {
       "id": "SOL-D037",
@@ -866,7 +961,9 @@
       "titleCounts": {
         "SOL-J009": 1,
         "SOL-J010": 2
-      }
+      },
+      "kind": "TEAM",
+      "parentId": "SOL-D047"
     },
     {
       "id": "SOL-D038",
@@ -902,7 +999,158 @@
       "titleCounts": {
         "SOL-J010": 4,
         "SOL-J011": 1
-      }
+      },
+      "kind": "TEAM",
+      "parentId": null,
+      "parentReason": "PARENT_CONFLICT"
+    },
+    {
+      "id": "SOL-D039",
+      "name": "공공영업그룹",
+      "kind": "GROUP",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "I8"
+        }
+      ],
+      "parentReason": "PARENT_NOT_EVIDENCED"
+    },
+    {
+      "id": "SOL-D040",
+      "name": "사업혁신그룹",
+      "kind": "GROUP",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "I17"
+        }
+      ],
+      "parentReason": "PARENT_NOT_EVIDENCED"
+    },
+    {
+      "id": "SOL-D041",
+      "name": "품질&정보보호그룹",
+      "kind": "GROUP",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "I19"
+        }
+      ],
+      "parentReason": "PARENT_NOT_EVIDENCED"
+    },
+    {
+      "id": "SOL-D042",
+      "name": "지방행정사업본부",
+      "kind": "DIVISION",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "A21"
+        }
+      ]
+    },
+    {
+      "id": "SOL-D043",
+      "name": "크리에이티브그룹",
+      "kind": "GROUP",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "E21"
+        }
+      ],
+      "parentReason": "PARENT_NOT_EVIDENCED"
+    },
+    {
+      "id": "SOL-D044",
+      "name": "AX사업본부",
+      "kind": "DIVISION",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "I26"
+        },
+        {
+          "sheet": "people",
+          "headerCell": "E97"
+        }
+      ]
+    },
+    {
+      "id": "SOL-D045",
+      "name": "공공1본부",
+      "kind": "DIVISION",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "E33"
+        }
+      ]
+    },
+    {
+      "id": "SOL-D046",
+      "name": "공공2본부",
+      "kind": "DIVISION",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "I41"
+        }
+      ]
+    },
+    {
+      "id": "SOL-D047",
+      "name": "공공3본부",
+      "kind": "DIVISION",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "E48"
+        }
+      ]
+    },
+    {
+      "id": "SOL-D048",
+      "name": "P&AX컨설팅본부",
+      "kind": "DIVISION",
+      "parentId": null,
+      "sourceCount": null,
+      "targetCount": null,
+      "sourceHeaders": [
+        {
+          "sheet": "people",
+          "headerCell": "I71"
+        }
+      ]
     }
   ]
 }

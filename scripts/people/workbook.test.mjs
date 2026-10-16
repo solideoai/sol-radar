@@ -378,3 +378,98 @@ for (const heading of [
     );
   });
 }
+
+test("augmented catalog keeps source comparison and personnel counts on TEAM rows", async () => {
+  await withWorkbook(async (filename) => {
+    const result = await readOrganizationWorkbook(
+      filename,
+      [
+        ...teams(),
+        {
+          id: "SOL-D039",
+          name: "사업본부",
+          kind: "DIVISION",
+          sourceCount: null,
+          targetCount: null,
+        },
+      ],
+      exclusions(),
+    );
+    assert.equal(result.departments.length, 3);
+    assert.equal(result.recognizedRows, 4);
+    assert.equal(result.excludedRowCount, 12);
+  });
+});
+
+test("extracts evidenced upper headings and rejects conflicting repeated-team parents", async () => {
+  await withWorkbook(
+    async (filename) => {
+      const result = await readOrganizationWorkbook(
+        filename,
+        [
+          department("개발팀", [range("A1", "A2:A2"), range("E5", "E6:E6", "F")]),
+          department("AX지원팀", [range("I5", "I6:I6", "J")], "SOL-D002"),
+          department("식의약팀AX팀", [range("M1", "M2:M2", "N")], "SOL-D003"),
+        ],
+        exclusions(),
+      );
+      assert.deepEqual(
+        result.hierarchy.upperDepartments.map(({ id, name, kind, parentId }) => ({
+          id,
+          name,
+          kind,
+          parentId,
+        })),
+        [
+          { id: "SOL-D039", name: "다른본부", kind: "DIVISION", parentId: null },
+          { id: "SOL-D040", name: "합성본부", kind: "DIVISION", parentId: null },
+          { id: "SOL-D041", name: "합성그룹", kind: "GROUP", parentId: "SOL-D040" },
+          { id: "SOL-D042", name: "사업본부", kind: "DIVISION", parentId: null },
+        ],
+      );
+      assert.deepEqual(
+        result.hierarchy.teamParents.find((row) => row.departmentId === "SOL-D001"),
+        { departmentId: "SOL-D001", parentId: null, parentReason: "PARENT_CONFLICT" },
+      );
+      assert.deepEqual(
+        result.hierarchy.teamParents.find((row) => row.departmentId === "SOL-D002"),
+        { departmentId: "SOL-D002", parentId: "SOL-D041" },
+      );
+    },
+    (_workbook, sheet) => {
+      for (const address of ["E1", "E2", "F2", "I1", "I2", "J2"])
+        sheet.getCell(address).value = null;
+      sheet.getCell("E3").value = "다른본부";
+      sheet.getCell("E5").value = "개발팀";
+      sheet.getCell("E6").value = "라마바";
+      sheet.getCell("F6").value = "책임";
+      sheet.getCell("I3").value = "합성본부";
+      sheet.getCell("I4").value = "합성그룹";
+      sheet.getCell("I5").value = "AX지원팀";
+      sheet.getCell("I6").value = "사아자";
+      sheet.getCell("J6").value = "담당";
+    },
+  );
+});
+
+test("contact and phone headings containing organization words never become hierarchy evidence", async () => {
+  await withWorkbook(
+    async (filename) => {
+      const result = await readOrganizationWorkbook(filename, teams(), exclusions());
+      assert.deepEqual(
+        result.hierarchy.upperDepartments.map(({ name }) => name),
+        ["사업본부"],
+      );
+      const serialized = JSON.stringify(result.hierarchy);
+      for (const privateFragment of ["0000", "연락처", "주소", "옆열본부"])
+        assert.equal(serialized.includes(privateFragment), false);
+    },
+    (_workbook, sheet) => {
+      sheet.getCell("E3").value = "연락처 합성본부";
+      sheet.getCell("I3").value = "02-0000-0000 (본부)";
+      sheet.getCell("M3").value = "010-0000-0000 그룹";
+      sheet.getCell("E4").value = "주소: 합성그룹 3층";
+      sheet.getCell("F4").value = "옆열본부";
+    },
+  );
+});

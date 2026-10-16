@@ -21,7 +21,7 @@ const fixtures = Object.fromEntries(
   ),
 );
 
-it("같은 가상 명부를 두 번 넣어도 200명·동일 UUID이며 Auth를 호출하지 않는다", async (t) => {
+it("상위 카탈로그도 구 스키마에는 팀만 넣고 같은 명부를 두 번 넣어도 200명·동일 UUID이며 Auth를 호출하지 않는다", async (t) => {
   const { personUuid, orgUuid, seedSolideoPeople } = await import("./seed.mjs");
   assert.equal(personUuid("SOL-P0001"), "591e9ea0-0946-5534-89ea-5b4ad722a820");
   const fresh = await migratedDb(t);
@@ -51,11 +51,21 @@ it("같은 가상 명부를 두 번 넣어도 200명·동일 UUID이며 Auth를 
       }
     },
   };
+  const augmentedFixtures = structuredClone(fixtures);
+  augmentedFixtures.departments.departments.push({
+    id: "SOL-D999",
+    name: "합성본부",
+    kind: "DIVISION",
+    targetCount: null,
+    sourceCount: null,
+  });
   const authBefore = (await fresh.query("select id from auth.users order by id")).rows;
-  assert.deepEqual(await seedSolideoPeople({ client, orgId, fixtures }), { peopleCount: 200 });
+  assert.deepEqual(await seedSolideoPeople({ client, orgId, fixtures: augmentedFixtures }), {
+    peopleCount: 200,
+  });
   const before = (await fresh.query("select id,person_code from public.team_members order by id"))
     .rows;
-  await seedSolideoPeople({ client, orgId, fixtures });
+  await seedSolideoPeople({ client, orgId, fixtures: augmentedFixtures });
   assert.equal(before.length, 200);
   assert.deepEqual(
     (await fresh.query("select id,person_code from public.team_members order by id")).rows,

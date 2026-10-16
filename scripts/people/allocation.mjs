@@ -1,3 +1,5 @@
+import { isTeamDepartment } from "./departments.mjs";
+
 /** @typedef {{id:string, sourceCount:number, titleCounts:Record<string,number>}} DepartmentWeight */
 
 const compareIds = (left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
@@ -31,9 +33,13 @@ function largestRemainders(entries, total) {
  * @returns {{departmentId:string,targetCount:number,maleCount:number,titleCounts:Record<string,number>}[]}
  */
 export function allocatePeople(departments) {
-  if (!Array.isArray(departments) || departments.length < 1 || departments.length > 200)
+  if (
+    !Array.isArray(departments) ||
+    !departments.some(isTeamDepartment) ||
+    departments.filter(isTeamDepartment).length > 200
+  )
     throw new Error("Invalid allocation input");
-  const sorted = [...departments].sort(compareIds);
+  const sorted = departments.filter(isTeamDepartment).sort(compareIds);
   const ids = new Set();
   for (const department of sorted) {
     if (

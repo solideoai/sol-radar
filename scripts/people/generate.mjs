@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import path from "node:path";
 import { format, resolveConfig } from "prettier";
+import { isTeamDepartment, matchesSourceHierarchy } from "./departments.mjs";
 import { allocatePeople } from "./allocation.mjs";
 import { selectNames } from "./names.mjs";
 import { readOrganizationWorkbook } from "./workbook.mjs";
@@ -102,7 +103,9 @@ export function projectSignupOptions(departments, jobTitles) {
   return {
     companyName: "솔리데오",
     catalogVersion: "solideo-organization/v1.0",
-    departments: departments.departments.map(({ id, name }) => ({ id, label: name })),
+    departments: departments.departments
+      .filter(isTeamDepartment)
+      .map(({ id, name }) => ({ id, label: name })),
     jobTitles: jobTitles.jobTitles.map(({ id, label }) => ({ id, label })),
   };
 }
@@ -131,7 +134,8 @@ async function generateFromWorkbook(filename) {
     source.sourceSha256 !== catalog.sourceSha256 ||
     source.recognizedRows + source.excludedRowCount !== catalog.sourceRowCount ||
     source.excludedRowCount !== catalog.excludedRowCount ||
-    !isDeepStrictEqual(source.departments, catalog.departments)
+    !isDeepStrictEqual(source.departments, catalog.departments.filter(isTeamDepartment)) ||
+    !matchesSourceHierarchy(catalog, source.hierarchy)
   )
     throw new Error("Source catalog mismatch");
   const existing = await readJson(fixturePath("people"), true);
@@ -191,7 +195,9 @@ async function generateFromWorkbook(filename) {
     ...catalog,
     departments: catalog.departments.map((department) => ({
       ...department,
-      targetCount: allocations.find((entry) => entry.departmentId === department.id).targetCount,
+      targetCount: isTeamDepartment(department)
+        ? allocations.find((entry) => entry.departmentId === department.id).targetCount
+        : null,
     })),
   };
   const calculatedTitles = {

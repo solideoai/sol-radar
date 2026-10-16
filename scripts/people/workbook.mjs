@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
+import { isTeamDepartment } from "./departments.mjs";
 import { normalizeSourceName } from "./names.mjs";
 
 const TITLE_LABELS = [
@@ -75,7 +76,7 @@ function buildAssignments(sheet, departments, excludedRanges) {
   const assignments = new Map();
   const mergedDepartments = new Map();
   const sourceEntries = [];
-  for (const department of departments) {
+  for (const department of departments.filter(isTeamDepartment)) {
     const name = department.name.trim();
     if (!mergedDepartments.has(name))
       mergedDepartments.set(name, {
@@ -113,6 +114,101 @@ function buildAssignments(sheet, departments, excludedRanges) {
     }
   }
   return { assignments, departments: [...mergedDepartments.values()] };
+}
+
+// Only audited internal heading forms are eligible; raw cells never become diagnostics.
+const UPPER_ALIASES = new Map([
+  ["AX사업본부 (법초공, 지능형 사업)", "AX사업본부"],
+  ["P&AX컨설팅본부(AI 통합민원플랫폼 구축 BPI/ISP)", "P&AX컨설팅본부"],
+]);
+function upperHeading(text) {
+  if (/연락처|전화|휴대|팩스|주소|근무지|본부장|그룹장|사장|CFO|\d{2,}/.test(text)) return null;
+  const name = UPPER_ALIASES.get(text) ?? text;
+  if (!/^[가-힣A-Za-z& ]+[123]?(?:본부|그룹)$/.test(name)) return null;
+  return { name, kind: name.endsWith("본부") ? "DIVISION" : "GROUP" };
+}
+
+function extractHierarchy(sheet, departments) {
+  const events = [];
+  for (let row = 1; row <= sheet.rowCount; row++) {
+    for (const column of COLUMN_PAIRS.keys()) {
+      const cell = sheet.getCell(`${column}${row}`);
+      const upper = upperHeading(ownText(cell));
+      if (upper) events.push({ ...upper, row, column, headerCell: cell.address });
+    }
+  }
+  const upperDepartments = [];
+  const byName = new Map();
+  for (const event of events) {
+    if (!byName.has(event.name)) {
+      const entry = {
+        id: `SOL-D${String(39 + upperDepartments.length).padStart(3, "0")}`,
+        name: event.name,
+        kind: event.kind,
+        parentId: null,
+        sourceCount: null,
+        targetCount: null,
+        sourceHeaders: [],
+      };
+      byName.set(event.name, entry);
+      upperDepartments.push(entry);
+    }
+    event.department = byName.get(event.name);
+    event.department.sourceHeaders.push({ sheet: "people", headerCell: event.headerCell });
+  }
+  const eventsByCell = new Map(events.map((event) => [event.headerCell, event]));
+  const contexts = new Map();
+  const groupParents = new Map();
+  for (const column of COLUMN_PAIRS.keys()) {
+    let division = null;
+    let group = null;
+    for (let row = 1; row <= sheet.rowCount; row++) {
+      const address = `${column}${row}`;
+      const event = eventsByCell.get(address);
+      if (event?.kind === "DIVISION") {
+        division = event.department.id;
+        group = null;
+      } else if (event?.kind === "GROUP") {
+        group = event.department.id;
+        if (!groupParents.has(group)) groupParents.set(group, new Set());
+        groupParents.get(group).add(division);
+      } else {
+        const cell = sheet.getCell(address);
+        const text = ownText(cell);
+        if (isOrganizationHeading(cell) && !text.includes("팀")) {
+          division = null;
+          group = null;
+        }
+      }
+      contexts.set(address, group ?? division);
+    }
+  }
+  for (const department of upperDepartments) {
+    if (department.kind !== "GROUP") continue;
+    const parents = groupParents.get(department.id);
+    if (parents.size === 1 && !parents.has(null)) department.parentId = [...parents][0];
+    else department.parentReason = parents.size > 1 ? "PARENT_CONFLICT" : "PARENT_NOT_EVIDENCED";
+  }
+  const teamParents = departments.map((department) => {
+    const explicit = upperDepartments.filter(
+      (upper) =>
+        department.name.startsWith(`${upper.name} `) ||
+        department.name.startsWith(`${upper.name}-`),
+    );
+    const parents = new Set(
+      department.sourceRanges.map((range) =>
+        explicit.length === 1 ? explicit[0].id : (contexts.get(range.headerCell) ?? null),
+      ),
+    );
+    if (parents.size === 1 && !parents.has(null))
+      return { departmentId: department.id, parentId: [...parents][0] };
+    return {
+      departmentId: department.id,
+      parentId: null,
+      parentReason: parents.size > 1 ? "PARENT_CONFLICT" : "PARENT_NOT_EVIDENCED",
+    };
+  });
+  return { upperDepartments, teamParents };
 }
 
 function rememberName(excludedNames, name) {
@@ -173,6 +269,7 @@ export async function readOrganizationWorkbook(filename, departments, excludedRa
     }
   }
   return {
+    hierarchy: extractHierarchy(sheet, departments.filter(isTeamDepartment)),
     sourceSha256: createHash("sha256").update(bytes).digest("hex"),
     departments: result.departments,
     excludedNames,

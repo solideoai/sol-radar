@@ -1,7 +1,13 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import {
+  isTeamDepartment,
+  validateDepartmentHierarchy,
+  matchesSourceHierarchy,
+} from "./departments.mjs";
 import { allocatePeople } from "./allocation.mjs";
 import { generatePeople, projectSignupOptions } from "./generate.mjs";
 import { normalizeSourceName } from "./names.mjs";
@@ -55,7 +61,9 @@ function validEnvelopes(fixtures) {
       ([value, schemaVersion, key]) =>
         isRecord(value) &&
         value.companyName === "솔리데오" &&
-        value.schemaVersion === schemaVersion &&
+        (key === "departments"
+          ? [1, 2].includes(value.schemaVersion)
+          : value.schemaVersion === schemaVersion) &&
         Array.isArray(value[key]) &&
         value[key].every(isRecord),
     ) &&
@@ -67,14 +75,30 @@ function validEnvelopes(fixtures) {
 
 function checkCatalogs(fixtures, add) {
   const { departments: catalog, jobTitles: titleCatalog } = fixtures;
-  const departments = catalog.departments;
+  const departments = catalog.departments.filter(isTeamDepartment);
   const titles = titleCatalog.jobTitles;
+  if (validateDepartmentHierarchy(catalog.departments, fixtures.people.people).errors.length)
+    add("HIERARCHY_INVALID");
   if (
     catalog.sourceSha256 !== SOURCE_SHA256 ||
     catalog.sourceRowCount !== 250 ||
     catalog.excludedRowCount !== 75 ||
     !Array.isArray(catalog.excludedSourceRanges) ||
     departments.length !== 38 ||
+    createHash("sha256")
+      .update(
+        JSON.stringify(
+          departments.map(({ id, name, sourceCount, targetCount, sourceRanges, titleCounts }) => ({
+            id,
+            name,
+            sourceCount,
+            targetCount,
+            sourceRanges,
+            titleCounts,
+          })),
+        ),
+      )
+      .digest("hex") !== "77c2c9a91aec5d95b68822cc2fa667f54eac77524177ed4d5b7a6ef368eaf4a1" ||
     titles.length !== 12 ||
     !unique(departments.map((department) => department.name)) ||
     departments.some(
@@ -141,7 +165,9 @@ function checkRoster(fixtures, add) {
   const people = fixtures.people.people;
   if (people.length !== 200) add("PEOPLE_COUNT_INVALID");
   const names = new Set();
-  const departments = new Set(fixtures.departments.departments.map((department) => department.id));
+  const departments = new Set(
+    fixtures.departments.departments.filter(isTeamDepartment).map((department) => department.id),
+  );
   const titles = new Set(fixtures.jobTitles.jobTitles.map((title) => title.id));
   for (const [index, person] of people.entries()) {
     if (
@@ -241,7 +267,8 @@ async function compareSource(fixtures, sourcePath, add) {
       source.recognizedRows !== 175 ||
       source.excludedRowCount !== 75 ||
       source.recognizedRows + source.excludedRowCount !== 250 ||
-      !isDeepStrictEqual(source.departments, catalog.departments)
+      !isDeepStrictEqual(source.departments, catalog.departments.filter(isTeamDepartment)) ||
+      !matchesSourceHierarchy(catalog, source.hierarchy)
     ) {
       add("SOURCE_MISMATCH");
       return false;

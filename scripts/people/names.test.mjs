@@ -197,7 +197,7 @@ test("CLI regenerates safely, preserves reviewed/failed/candidate portrait state
   try {
     await mkdir(path.join(directory, "scripts/people"), { recursive: true });
     await mkdir(path.join(directory, "fixtures/people"), { recursive: true });
-    for (const name of ["generate", "allocation", "names", "workbook", "portraits"])
+    for (const name of ["generate", "allocation", "departments", "names", "workbook", "portraits"])
       await cp(
         path.join(root, `scripts/people/${name}.mjs`),
         path.join(directory, `scripts/people/${name}.mjs`),

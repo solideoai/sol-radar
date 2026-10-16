@@ -365,3 +365,34 @@ test("strict CLI does not accept fixture mode mixed with release", () => {
   assert.equal(result.status, 1);
   assert.equal(JSON.parse(result.stdout).sourceComparison, "not-run");
 });
+
+test("v2 upper catalog preserves every public option and fixture validation; legacy v1 still works", async () => {
+  const value = copy();
+  value.departments.schemaVersion = 2;
+  value.departments.departments.push({
+    id: "SOL-D999",
+    name: "합성본부",
+    kind: "DIVISION",
+    parentId: null,
+    targetCount: null,
+    sourceCount: null,
+  });
+  assert.deepEqual(
+    projectSignupOptions(value.departments, value.jobTitles),
+    fixtures.signupOptions,
+  );
+  assert.equal((await checkPeople({ fixtures: value })).ok, true);
+  const legacy = copy();
+  legacy.departments.schemaVersion = 1;
+  legacy.departments.departments = legacy.departments.departments
+    .filter((row) => row.kind == null || row.kind === "TEAM")
+    .map(({ kind, parentId, parentReason, ...rest }) => rest);
+  assert.equal((await checkPeople({ fixtures: legacy })).ok, true);
+});
+
+test("known-team names and allocation weights cannot drift even with a matching public projection", async () => {
+  const value = copy();
+  value.departments.departments[0].name = "합성 변경팀";
+  value.signupOptions.departments[0].label = "합성 변경팀";
+  assert.ok(codes(await checkPeople({ fixtures: value })).includes("CATALOG_INVALID"));
+});

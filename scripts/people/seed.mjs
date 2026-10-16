@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isTeamDepartment } from "./departments.mjs";
 import { isLocalUrl, parseStatusEnv } from "../local-env.mjs";
 
 const DNS_NAMESPACE = Buffer.from("6ba7b8109dad11d180b400c04fd430c8", "hex");
@@ -43,7 +44,8 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
   if (orgId !== orgUuid("org-01")) throw new Error("솔리데오 고정 조직만 seed할 수 있습니다");
   await client.upsert(
     "departments",
-    fixtures.departments.departments.map((department) => ({
+    // Task6 persists upper rows after its hierarchy schema replaces NOT NULL targets.
+    fixtures.departments.departments.filter(isTeamDepartment).map((department) => ({
       id: catalogUuid(department.id),
       org_id: orgId,
       code: department.id,
