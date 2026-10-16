@@ -1,7 +1,7 @@
 ---
 title: "랜딩 재설계 구현 계획 — 큰 글자·제품 화면 판·새 로고"
 doc: "plan-landing-redesign"
-status: draft
+status: final
 tags:
   - sol-radar
   - ui
