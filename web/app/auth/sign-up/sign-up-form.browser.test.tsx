@@ -142,3 +142,60 @@ it("목록을 다시 읽는 동안 선택 자리만 로딩하고 다른 가입 �
   pending.resolve(Response.json(options));
   await expect.element(page.getByRole("button", { name: "회원가입", exact: true })).toBeEnabled();
 });
+
+it.each(["body", "header"])(
+  "목록 실패의 %s 지원 번호를 표시하고 재조회에 지운다",
+  async (source) => {
+    const requestId = "86142b61-8f79-41ba-841c-3814f69a3c98";
+    const pending = Promise.withResolvers<Response>();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json(
+            {
+              error: {
+                code: "INTERNAL_ERROR",
+                message: "private catalog stack",
+                requestId: source === "body" ? requestId : "invalid",
+              },
+            },
+            { status: 500, headers: source === "header" ? { "X-Request-Id": requestId } : {} },
+          ),
+        )
+        .mockReturnValueOnce(pending.promise),
+    );
+    render(null);
+    await page.getByRole("button", { name: "다시 시도", exact: true }).click();
+    await expect.element(page.getByText(`지원 요청 번호: ${requestId}`)).toBeVisible();
+    expect(host.textContent).not.toContain("private catalog stack");
+    await page.getByRole("button", { name: "다시 시도", exact: true }).click();
+    await expect.element(page.getByText(`지원 요청 번호: ${requestId}`)).not.toBeInTheDocument();
+    pending.resolve(Response.json(options));
+    await expect.element(page.getByRole("button", { name: "회원가입", exact: true })).toBeEnabled();
+    expect(host.textContent).not.toContain("지원 요청 번호");
+  },
+);
+it.each([undefined, "<script>private</script>", "x".repeat(200)])(
+  "목록의 잘못되거나 없는 지원 ID %s는 안전하게 무시한다",
+  async (id) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          { error: { requestId: id } },
+          {
+            status: 500,
+            headers: id ? { "X-Request-Id": id } : {},
+          },
+        ),
+      ),
+    );
+    render(null);
+    await page.getByRole("button", { name: "다시 시도", exact: true }).click();
+    await expect.element(page.getByRole("alert")).toHaveTextContent("불러오지 못했습니다");
+    expect(host.textContent).not.toContain("지원 요청 번호");
+    expect(host.textContent).not.toContain("private");
+  },
+);

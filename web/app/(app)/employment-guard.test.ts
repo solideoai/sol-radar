@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("next/headers", () => ({ headers: async () => ({ get: routeHeader }) }));
+vi.mock("next/server", () => ({ connection: vi.fn() }));
 vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 vi.mock("@/server/profile", () => ({ getMyProfile: profile }));
 vi.mock("@/server/organization", () => ({
@@ -37,7 +38,7 @@ vi.mock("@/server/task", () => ({
 }));
 import { requireCompleteEmployment } from "./employment-guard";
 import { loadWorkspace, requireWorkspace } from "./[slug]/workspace";
-import { redirectToPersonal } from "./home";
+import LegacyMemosPage from "./memos/page";
 import { createTask, saveTask, changeStatus, removeTask } from "./[slug]/tasks/actions";
 import { invite, cancel, changeRole, remove, leave } from "./[slug]/settings/members/actions";
 import { rename, remove as deleteTeam } from "./[slug]/settings/team/actions";
@@ -59,9 +60,14 @@ it("내부 페이지 이동은 조직 조회 전에 막는다", async () => {
   );
   expect(workspace).not.toHaveBeenCalled();
 });
-it("옛 업무 주소도 홈 조회 전에 막는다", async () => {
-  await expect(redirectToPersonal("tasks")).rejects.toThrow("REDIRECT:/auth/complete-profile");
+it("실제 /memos 진입은 정확한 복귀 주소를 보존하고 완료 뒤 개인 작업으로 이동한다", async () => {
+  await expect(LegacyMemosPage()).rejects.toThrow(
+    /^REDIRECT:\/auth\/complete-profile\?next=%2Fmemos$/,
+  );
   expect(home).not.toHaveBeenCalled();
+  profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
+  home.mockResolvedValue({ status: "ready", personalSlug: "personal" });
+  await expect(LegacyMemosPage()).rejects.toThrow(/^REDIRECT:\/personal\/tasks$/);
 });
 it.each([
   () => createTask("org", {}),

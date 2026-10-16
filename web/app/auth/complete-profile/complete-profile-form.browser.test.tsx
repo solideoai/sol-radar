@@ -34,6 +34,7 @@ let host: HTMLDivElement;
 const fetcher = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
+  fetcher.mockReset();
   vi.stubGlobal("fetch", fetcher);
   signOut.mockResolvedValue({ error: null });
   host = document.createElement("div");
@@ -228,4 +229,72 @@ it("프로필 조회 실패는 저장을 잠그고 재조회한 서버 값만 �
     .toHaveTextContent("설계부");
   await expect.element(page.getByRole("button", { name: "저장하고 계속" })).toBeEnabled();
   expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+const requestId = "86142b61-8f79-41ba-841c-3814f69a3c98";
+it.each(["body", "header"])(
+  "%s의 지원 요청 번호만 표시하고 재시도 시작에 지운다",
+  async (source) => {
+    const pending = Promise.withResolvers<Response>();
+    fetcher
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            error: {
+              code: "INTERNAL_ERROR",
+              message: "private backend stack",
+              requestId: source === "body" ? requestId : "invalid",
+            },
+          },
+          { status: 500, headers: source === "header" ? { "X-Request-Id": requestId } : {} },
+        ),
+      )
+      .mockReturnValueOnce(pending.promise);
+    await fill();
+    await page.getByRole("button", { name: "저장하고 계속" }).click();
+    await expect.element(page.getByText(`지원 요청 번호: ${requestId}`)).toBeVisible();
+    expect(host.textContent).not.toContain("private backend stack");
+    await page.getByRole("button", { name: "저장하고 계속" }).click();
+    await expect.element(page.getByText(`지원 요청 번호: ${requestId}`)).not.toBeInTheDocument();
+    pending.resolve(Response.json({ error: { code: "INTERNAL_ERROR" } }, { status: 500 }));
+    await expect.element(page.getByRole("button", { name: "저장하고 계속" })).toBeEnabled();
+    expect(host.textContent).not.toContain("지원 요청 번호");
+  },
+);
+it.each([undefined, "<script>private</script>", "x".repeat(200)])(
+  "잘못되거나 없는 지원 ID %s는 노출하지 않는다",
+  async (id) => {
+    fetcher.mockResolvedValue(
+      Response.json(
+        { error: { code: "INTERNAL_ERROR", requestId: id } },
+        {
+          status: 500,
+          headers: id ? { "X-Request-Id": id } : {},
+        },
+      ),
+    );
+    await fill();
+    await page.getByRole("button", { name: "저장하고 계속" }).click();
+    await expect.element(page.getByRole("alert")).toHaveTextContent("저장하지 못했습니다");
+    expect(host.textContent).not.toContain("지원 요청 번호");
+    expect(host.textContent).not.toContain("private");
+  },
+);
+it("옛 메모 복귀 주소로 저장 완료 후 이동한다", async () => {
+  root.render(
+    <CompleteProfileForm
+      key="memos"
+      options={{
+        ...options,
+        departments: [...options.departments],
+        jobTitles: [...options.jobTitles],
+      }}
+      state={state}
+      next="/memos"
+    />,
+  );
+  fetcher.mockResolvedValue(Response.json({ ...state, profileComplete: true }));
+  await fill();
+  await page.getByRole("button", { name: "저장하고 계속" }).click();
+  await expect.poll(() => replace.mock.calls).toEqual([["/memos"]]);
 });

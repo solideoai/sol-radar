@@ -7,6 +7,7 @@ import { z } from "zod";
 import { AccountLink } from "@/app/auth/account-card";
 import { EmploymentFields } from "@/app/auth/employment-fields";
 import { EmploymentOptionsNotice, useEmploymentOptions } from "@/app/auth/employment-options";
+import { employmentRequestId } from "@/app/auth/employment-request-id";
 import { createEmploymentSchema, selectionUnavailable } from "@/app/auth/employment-schema";
 import { Button } from "@/components/ui/button";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
@@ -67,8 +68,10 @@ export function CompleteProfileForm({
       errorFocus.current = null;
     }
   }, [isSubmitting, errors, setFocus]);
+  const [requestId, setRequestId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(state === null);
-  const handleFailure = (status: number, body: unknown) => {
+  const handleFailure = (status: number, body: unknown, headers: Headers) => {
+    setRequestId(employmentRequestId(body, headers));
     if (status === 401) {
       setSessionExpired(true);
       return;
@@ -95,11 +98,13 @@ export function CompleteProfileForm({
     if (isLoading) return;
     const version = departureVersion.current;
     setIsLoading(true);
+    setRequestId(null);
+    form.clearErrors("root");
     try {
       const response = await fetch("/api/v1/me/employment", { cache: "no-store" });
-      const body: unknown = await response.json();
+      const body: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        handleFailure(response.status, body);
+        handleFailure(response.status, body, response.headers);
         return;
       }
       if (version !== departureVersion.current || leaving.current) return;
@@ -136,10 +141,10 @@ export function CompleteProfileForm({
         headers: { "Content-Type": "application/json", "X-Requested-With": "sol-radar" },
         body: JSON.stringify(values),
       });
-      const body: unknown = await response.json();
+      const body: unknown = await response.json().catch(() => null);
       if (version !== departureVersion.current || leaving.current) return;
       if (!response.ok) {
-        handleFailure(response.status, body);
+        handleFailure(response.status, body, response.headers);
         return;
       }
       const saved = employmentStateSchema.parse(body);
@@ -187,7 +192,10 @@ export function CompleteProfileForm({
   return (
     <div className="flex flex-col gap-4">
       <form
-        onSubmit={(event) => void form.handleSubmit(submit)(event)}
+        onSubmit={(event) => {
+          setRequestId(null);
+          void form.handleSubmit(submit)(event);
+        }}
         noValidate
         aria-busy={isSubmitting}
         className="flex flex-col gap-4"
@@ -233,6 +241,9 @@ export function CompleteProfileForm({
           <p role="alert" className="type-label text-destructive">
             {errors.root.message}
           </p>
+        ) : null}
+        {requestId ? (
+          <p className="type-label text-muted-foreground">지원 요청 번호: {requestId}</p>
         ) : null}
         {isComplete ? (
           <p role="status" className="type-label">
