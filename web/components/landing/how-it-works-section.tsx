@@ -30,7 +30,6 @@ export function HowItWorksSection() {
         <Reveal>
           <SectionHeading
             id="analysis-title"
-            eyebrow="분석 방식"
             title="기업 정보를 등록하면, 검토할 사업이 명확해집니다."
             description="SOL RADAR MVP에서 만들고 있는 검토 흐름입니다. 아직 이용할 수 없습니다."
           />

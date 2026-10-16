@@ -36,15 +36,29 @@ SECTIONS.forEach(({ link, hash, title }) =>
   }),
 );
 
-test("문제 공감 구역에 세 상황이 있다", async ({ page }) => {
+test("서비스 소개는 지금 방식과 SOL RADAR 를 비교하는 표다", async ({ page }) => {
   await page.goto("/");
   const about = page.getByRole("region", { name: SECTIONS[2].title });
-  await expect(about.getByText("서비스 소개", { exact: true })).toBeVisible();
-  await expect(about.getByRole("heading", { level: 3 })).toHaveText([
-    /공고와 첨부문서/,
-    /자격과 실적/,
-    /판단 근거/,
+  await expect(about.getByRole("columnheader")).toHaveText([
+    "검토 단계",
+    "지금은",
+    /SOL RADAR에서는/,
   ]);
+  await expect(about.getByRole("rowheader")).toHaveText([
+    "요구사항 파악",
+    "자격·실적 대조",
+    "판단 기록",
+  ]);
+  await expect(about.getByText("서비스 소개", { exact: true })).toHaveCount(0);
+});
+
+test("구역 제목 위에 작은 머리글이 없다", async ({ page }) => {
+  await page.goto("/");
+  const h2s = page.getByRole("main").locator("h2:not(.sr-only)");
+  await expect(h2s).not.toHaveCount(0);
+  for (const h2 of await h2s.all()) {
+    expect(await h2.evaluate((element) => element.previousElementSibling)).toBeNull();
+  }
 });
 
 test("주요 기능은 네 가지이고, 모두 개발 예정이라고 밝힌다", async ({ page }) => {
@@ -58,6 +72,8 @@ test("주요 기능은 네 가지이고, 모두 개발 예정이라고 밝힌다
   ]);
   await expect(features.getByText("개발 예정", { exact: true })).toHaveCount(4);
   await expect(features.getByRole("note")).toContainText("아직 이용할 수 없습니다");
+  // 점수 조각은 demo-3 의 판단 근거를 보인다(판에서 옮겨 왔다).
+  await expect(features.getByText(/필수 실적 요건 미충족/)).toBeVisible();
 });
 
 test("작동 방식은 세 단계이고, 단계마다 하는 일과 얻는 것이 있다", async ({ page }) => {

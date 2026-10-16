@@ -1,26 +1,24 @@
-import { cn } from "cn";
-
-// 구역 머리: 작은 이름 + 제목(h2) + 설명. 구역(section)은 aria-labelledby 로 이 h2 의 id 를 가리킨다.
+// 구역 머리: 제목(h2) + 설명. 구역(section)은 aria-labelledby 로 이 h2 의 id 를 가리킨다.
+// 제목 위에 작은 머리글을 두지 않는다 — 제목이 구역 이름이고, 메뉴 이름은 머리말이 이미 보인다.
 export function SectionHeading({
   id,
-  eyebrow,
   title,
   description,
   className,
 }: {
   id: string;
-  eyebrow: string;
   title: string;
   description?: string;
   className?: string;
 }) {
   return (
-    <div className={cn("max-w-2xl", className)}>
-      <p className="type-label font-medium text-brand">{eyebrow}</p>
-      <h2 id={id} className="mt-3 type-headline text-balance text-foreground">
+    <div className={className}>
+      <h2 id={id} className="max-w-220 type-headline text-balance text-foreground">
         {title}
       </h2>
-      {description && <p className="mt-4 type-lead text-muted-foreground">{description}</p>}
+      {description && (
+        <p className="mt-5 max-w-190 type-lead text-muted-foreground">{description}</p>
+      )}
     </div>
   );
 }

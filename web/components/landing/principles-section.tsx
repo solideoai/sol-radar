@@ -34,7 +34,6 @@ export function PrinciplesSection() {
         <Reveal className="col-span-5">
           <SectionHeading
             id="principles-title"
-            eyebrow="분석 원칙"
             title="점수만 보여주지 않고, 판단의 근거를 함께 제공합니다."
             description="SOL RADAR의 분석 화면은 다음 네 가지 원칙으로 설계하고 있습니다."
           />
