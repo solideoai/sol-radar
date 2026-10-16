@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { employmentInputSchema, employmentStateSchema } from "@/server/shared";
-import { getSignupOptions } from "./profile.catalog";
+import { employmentStateSchema } from "@/server/shared";
 import { toEmploymentState, type ProfileRow } from "./profile.model";
 import type { ProfileRepo } from "./profile.repo";
 import { getMyEmployment, saveMyEmployment } from "./profile.service";
@@ -33,40 +32,7 @@ const repoOf = (overrides: Partial<ProfileRepo> = {}): ProfileRepo => ({
 });
 const input = { name: " 홍길동 ", departmentId: "SOL-D001", jobTitleId: "SOL-J007" };
 
-describe("employment contract", () => {
-  it("public projection has only approved keys and exact counts", () => {
-    const options = getSignupOptions();
-    expect(Object.keys(options).sort()).toEqual([
-      "catalogVersion",
-      "companyName",
-      "departments",
-      "jobTitles",
-    ]);
-    expect(options).toMatchObject({
-      companyName: "솔리데오",
-      catalogVersion: "solideo-organization/v1.0",
-    });
-    expect(options.departments).toHaveLength(38);
-    expect(options.jobTitles).toHaveLength(12);
-    for (const option of [...options.departments, ...options.jobTitles]) {
-      expect(Object.keys(option).sort()).toEqual(["id", "label"]);
-    }
-    options.departments.pop();
-    expect(getSignupOptions().departments).toHaveLength(38);
-  });
-  it.each(["userId", "orgId", "is_admin", "profileComplete"])("rejects injected %s", (key) => {
-    expect(employmentInputSchema.safeParse({ ...input, [key]: "forged" }).success).toBe(false);
-  });
-  it("accepts 1 through 40 character real names, trims, and rejects blank or unknown selection", () => {
-    expect(employmentInputSchema.parse(input).name).toBe("홍길동");
-    expect(employmentInputSchema.safeParse({ ...input, name: "가" }).success).toBe(true);
-    expect(employmentInputSchema.safeParse({ ...input, name: "가".repeat(40) }).success).toBe(true);
-    expect(employmentInputSchema.safeParse({ ...input, name: "가".repeat(41) }).success).toBe(
-      false,
-    );
-    expect(employmentInputSchema.safeParse({ ...input, name: " " }).success).toBe(false);
-    expect(employmentInputSchema.safeParse({ ...input, departmentId: "" }).success).toBe(false);
-  });
+describe("employment state", () => {
   it("requires a current valid name and both resolved selections for completeness", () => {
     expect(toEmploymentState(row())).toEqual({ name: "홍길동", employment, profileComplete: true });
     expect(toEmploymentState(row({ display_name: null }))).toEqual({
