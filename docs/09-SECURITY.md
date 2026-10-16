@@ -28,6 +28,7 @@ updated: 2026-10-16
 - **CSRF**: 쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. Bearer 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다. 다른 출처의 페이지가 이 헤더를 붙이려면 CORS preflight가 필요한데 CORS 헤더를 열지 않으므로 막힌다. 템플릿의 `/api/*`는 Bearer만 받아 이 문제가 없지만, SOL RADAR의 `/api/v1`은 화면의 polling·변경 요청 때문에 쿠키도 받으므로 이 헤더를 요구한다.
 - **XSS**: 요청마다 새 nonce를 만들고 그 nonce를 가진 스크립트만 실행한다(템플릿 `web/proxy.ts`·`web/server/csp`). 화면에 `dangerouslySetInnerHTML`을 쓰지 않고, 공고 본문·첨부 텍스트 같은 외부 입력은 텍스트로만 그린다. 세션 쿠키가 HttpOnly가 아니므로 이 방어가 토큰 보호의 핵심이다.
 - **가입**: 공개 가입이다([[16-DECISIONS|16 ADR]] ADR-018). 누구나 `/auth/sign-up`에서 이메일 + 비밀번호로, 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만든다. 가입만으로는 업무 조직 데이터가 열리지 않는다. 조직 데이터는 멤버십이 있어야 RLS(`my_org_ids()`)가 보여 주고, 업무 조직 합류는 초대 수락으로만 한다. 공용 표(`bid_notices` 등)는 `authenticated` 읽기라 가입한 사용자도 읽는다. 간편 로그인 제공자의 Client ID·Secret은 Supabase 쪽에만 두고 웹 env·브라우저 번들에 넣지 않는다. 버튼 플래그(`NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`)는 공개 값이고, 제공자를 설정한 뒤에만 켠다(설정 전에 켜면 누를 때 `provider is not enabled`).
+- **현재 조직**: 서버가 정하고 요청의 조직 ID를 믿지 않는다. 업무 멤버십 2개 이상은 지원하지 않는다(`403 UNSUPPORTED_ACCOUNT_STATE`, [[16-DECISIONS|ADR-021]]).
 - **정지**: `profiles.status='suspended'`(템플릿 `20261015000001_account_status_and_deletion.sql`)면 토큰이 아직 유효해도 API는 `403 ACCOUNT_DISABLED`이고, 정책 도우미(`public.my_org_ids()`)가 빈 목록을 돌려 조직 데이터가 닫힌다. 정지는 서비스 운영자(`profiles.is_admin`)만 한다. 조직 ADMIN의 "비활성화"는 그 조직에서 내보내기다([[05-API-SPEC|05 API]] §2).
 - 로그인 실패 문구는 이메일 존재 여부를 구분하지 않는다([[06-UI-UX|06 UI]] §5.2).
 
@@ -40,8 +41,8 @@ updated: 2026-10-16
 |구분|저장 위치|값|쓰임|
 |---|---|---|---|
 |업무 역할|`memberships.sol_role`|`ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check 제약, 기본 `VIEWER`)|아래 표와 [[05-API-SPEC\|05 API]]의 권한 열|
-|조직 역할|`memberships.org_role`(템플릿)|`owner`·`member`|초대·구성원 관리 같은 조직 관리만|
-|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다|
+|조직 역할|`memberships.org_role`(템플릿)|`owner`·`member`|템플릿 호환용. 구성원 관리는 업무 역할 `ADMIN`([[16-DECISIONS\|ADR-021]])|
+|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다. 화면 `/ops`, API `/api/ops/*`. 조직 ADMIN 화면(`/admin/*`)에 들어오지 않고, 조직 ADMIN도 `/ops`는 404([[16-DECISIONS\|ADR-021]])|
 
 데모 `admin@soltech.invalid`는 `org_role=owner` + `sol_role=ADMIN`이다.
 
@@ -53,9 +54,16 @@ updated: 2026-10-16
 |분석 실행 요청 (`POST /bids/:id/analyses`)|ADMIN, SALES, ANALYST|
 |사람 최종 결정 기록 (`POST /bids/:id/reviews`)|ADMIN, SALES|
 |회사 프로필 개정 (`PUT /company-profile`)|ADMIN|
-|사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿 정책은 owner 기준, [[05-API-SPEC\|05 API]] §2 미결정)|
+|사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿의 owner 기준 정책을 `sol_role=ADMIN` 기준으로 바꾼다, [[16-DECISIONS\|ADR-021]])|
 |수동 수집 실행·수집 결과 조회|ADMIN|
 |본인 알림 조회·읽음 처리|모든 인증 사용자. 남의 알림은 `404`|
+|조직·인력 조회(`/people`, ADR-021)|ADMIN, SALES, ANALYST, VIEWER|
+|설정 조직 탭(구성원·초대·업무 역할, ADR-021)|ADMIN|
+|데이터 수집 관리 화면(`/admin/ingestion`, ADR-021)|ADMIN|
+|P1(ADR-021): 관심 공고|본인 것만(ADMIN 포함). 조직에는 공고별 관심 인원 수만 공개|
+|P1(ADR-021): 분석 결과 비교·인력 배치 시뮬레이션|ADMIN, SALES, ANALYST, VIEWER. 시뮬레이션은 저장하지 않는다|
+|P1(ADR-021): 입찰 프로젝트·체크리스트 생성·관리, 결과 기록|ADMIN, SALES. 조회는 모든 역할|
+|P1(ADR-021): 조직·인력 편집(추가·이동·퇴사)|ADMIN|
 
 표기는 [[05-API-SPEC|05 API]]와 동일하게 허용 역할 나열. 역할이 목록에 없으면 `403 FORBIDDEN`.
 
@@ -176,6 +184,8 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 재현 규칙: 같은 `input_snapshot` + 같은 `algorithm_version`이면 규칙 점수·자격 판정·권고는 동일해야 한다. 이 성질은 테스트로 고정한다 ([[11-TESTING|11 테스트]]). 기존 run은 덮어쓰지 않고 새 run을 만든다.
 
+업무 감사(`audit_logs`)에는 [[16-DECISIONS|ADR-021]]로 업무 역할 변경, 입찰 프로젝트 상태·결과 변경(P1), 인력 편집(P1)을 더한다.
+
 ### 편향·오탐 모니터링
 지표: 사람 최종 결정 vs 권고 불일치율, `review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_REQUIREMENT_DISAGREEMENT` 비율, 발주기관·사업 유형별 NO-BID 비율 편중, `NEEDS_REVIEW` 비율. 임계 초과 시 가중치를 사람이 재검토한다. 지표 정의와 관리자 화면은 [[14-OBSERVABILITY|14 관측성]].
 
@@ -233,7 +243,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 회사는 솔리데오 고정이지만 공개 가입만으로 업무 조직에 합류하지 않는다. 부서·직급/직책은 자기 신고 정보이며 Auth 메타데이터를 `org_role`·`sol_role`·`is_admin`이나 소속 증명으로 사용하지 않는다. 이름이 같아도 가상 직원 명부와 자동 연결하지 않는다.
 - OAuth·기존 사용자에게 null 가입 정보가 있을 수 있다. 서버가 이름·부서·직급의 유효성을 검사하고 보완 전 업무 화면/API를 차단한다. 본인 신고 정보 조회·저장은 조직 합류 전에도 허용하되 RLS로 본인만, 쿠키 쓰기는 CSRF 헤더를 요구한다. 기존 초대·권한·RLS 정책은 유지한다.
 - 공개 가입 카탈로그는 승인 fixture의 회사명·ID·표시명·버전만 반환한다. 원본 인원·명부·연락처를 함께 반환하거나 `departments`의 RLS를 익명 전체 읽기로 열지 않는다.
-- 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 MinIO public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다.
+- 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 MinIO public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다. 점수 계산 속성(직무·등급·스킬·가용성)은 `team_member_scoring`(seed 전용)에 있고 화면 역할은 쓰지 못한다([[16-DECISIONS|ADR-021]]).
 - 200명의 가상 직원·사진은 `isDemo` 및 가상 인물 표시를 유지한다. 회사 이름과 부서가 실제라고 해서 가상 직원·수치가 실제 회사 정보인 것처럼 소개하지 않는다.
 
 ## 관련 문서

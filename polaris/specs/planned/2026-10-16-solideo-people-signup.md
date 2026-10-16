@@ -35,7 +35,7 @@ updated: 2026-10-16
 
 구현 범위는 부서·직급 카탈로그, 가상 직원 200명의 명부, imagegen 생성 계획과 200개 최종 이미지, DB seed, 가입·추가 정보 입력 및 조회 계약이다. 문서 작업 이후 별도의 구현 계획과 검증을 거친다.
 
-이번 문서 단계에서 이미지 생성·DB 적용·가입 폼 코드를 실행하거나 수정하지 않는다. 다중 회사 선택, 가상 직원 200명 자동 가입, 원본 인물 식별 정보·사진 이식, 인력 자동 배정·추천은 범위 밖이다. 기존 인력 배정 API/화면은 P1이고, 모바일·결제는 계속 제외한다.
+이번 문서 단계에서 이미지 생성·DB 적용·가입 폼 코드를 실행하거나 수정하지 않는다. 다중 회사 선택, 가상 직원 200명 자동 가입, 원본 인물 식별 정보·사진 이식, 인력 자동 배정·추천은 범위 밖이다. 사람이 고르는 규칙 매칭 후보 표시는 ADR-021 P1(인력 배치 시뮬레이션, 점수 계산 대상 27명 안)에서 허용하고, 후보 저장·배정 확정은 해커톤 이후다. 기존 인력 배정 API/화면은 P1이고, 모바일·결제는 계속 제외한다. 조직·인력 조회 화면(`/people`)은 데모 필수다(ADR-021, `docs/16-DECISIONS.md`).
 
 솔리데오는 실제 회사명이다. 부서·직급 명칭을 제외한 직원 이름·얼굴·실적·자격·재무·가용 인력 수치는 데모용 가상 설정이며 회사의 실제 현황으로 소개하지 않는다. `org-01`을 솔리데오 업무 조직으로 사용하고 `org-02`는 숨겨진 RLS 격리 시험용 조직으로만 남긴다. 회사 고정은 RLS를 없애거나 가입만으로 멤버십을 부여한다는 뜻이 아니다.
 
@@ -46,7 +46,7 @@ updated: 2026-10-16
 | 자료 | 경로 | 내용 |
 |---|---|---|
 | 외부 원본 | `/Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx` | 읽기 전용 입력. 저장소·DB·공개 파일로 복사하지 않음 |
-| 부서 정본 | `fixtures/people/solideo.departments.json` | `schemaVersion`, `companyName`, 부서별 `id`, `name`, `sourceCount`, `targetCount`, 익명 원본 셀 범위 |
+| 부서 정본 | `fixtures/people/solideo.departments.json` | `schemaVersion`, `companyName`, 부서별 `id`, `name`, `sourceCount`, `targetCount`, 익명 원본 셀 범위. ADR-021: 선택 필드 `parentId`·`kind`(`DIVISION`·`GROUP`·`TEAM`), 본부·그룹은 `targetCount` 없음 |
 | 직급/직책 정본 | `fixtures/people/solideo.job-titles.json` | `schemaVersion`, 선택 항목별 `id`, `label`, `sortOrder`. 표시 문구는 엑셀 그대로 |
 | 인물 정본 | `fixtures/people/solideo.people.json` | `schemaVersion`, 200개의 `personId`, `name`, `gender`, `departmentId`, `jobTitleId`, `portraitPath`, `isDemo`, 가상 점수용 인력 속성 |
 | 이미지 manifest | `fixtures/people/solideo.portraits.json` | `personId`, `gender`, `prompt`, `status`, `path`, `sha256`, `generator`, `generatedAt`. 미생성 상태는 `PLANNED`, 검수 통과는 `READY` |
@@ -72,6 +72,8 @@ updated: 2026-10-16
 3. 각 팀에 `floor(q)`명을 더하고, 남은 자리는 q의 소수 부분이 큰 팀부터 1명씩 배치한다. 동률은 부서 ID 오름차순으로 해소한다.
 4. 부서별 직급 구성은 해당 부서 원본의 직급 비율에 최대 나머지 방식으로 맞추며 동률은 직급 ID 오름차순으로 해소한다. 최소 직급별 1명 조건은 추가하지 않는다. 선택 카탈로그는 원본의 12개 표현을 모두 유지한다.
 5. 각 팀 남성 수의 기본값은 `floor(targetCount / 2)`다. 남성 합계가 100명이 되도록 나머지가 큰 팀부터 보충하며 동률은 부서 ID 순으로 해소한다. 나머지는 여성으로 두어 총 100명씩 맞춘다. 성별 설정은 직급·업무 권한·점수에 사용하지 않는다.
+
+배분은 팀(`kind`가 `TEAM`이거나 생략된 항목)만 대상이다. 본부·그룹 항목은 조직도 표시용이고 `targetCount`가 없다. 직원 소속은 팀만 가리킨다(ADR-021).
 
 ## 6. 자연스러운 이름과 원본 이름 제외
 
@@ -103,7 +105,7 @@ Supabase Auth 이메일 가입 메타데이터에 이름과 `department_code`, `
 
 OAuth는 가입 폼을 건너뛸 수 있으므로 DB의 두 열은 처음에 null을 허용한다. 서버에서 이름·두 선택값을 검증하기 전에는 `/auth/complete-profile`로 보내고 업무 화면 및 업무 API는 차단한다. 기존 사용자 중 정보가 없는 사람도 같은 흐름을 거친다. 추가 정보 조회/저장 계약은 이름도 포함한다. 이름은 기존 표시 이름 규칙(1~40자)으로 검증해 부서·직급과 함께 원자적으로 저장한다. 추가 정보 저장은 세션 + RLS로 본인만 가능하며 실패하면 입력을 유지하고 재시도한다. 로그아웃·추가 정보 입력·초대 안내 등 계정 정리에 필요한 경로는 허용해 반복 이동을 막는다. 입력 완료만으로 솔리데오 조직에 자동 합류하지 않고 기존 초대·RLS 검증을 따른다.
 
-`departments`·`job_titles`는 `org_id`를 갖는 카탈로그 표로 seed가 쓴다. profiles의 두 신고 FK는 `ON DELETE SET NULL`로 하여 데모 카탈로그 삭제가 기존 가입 계정 삭제나 초기화 실패로 이어지지 않게 한다. 해당 값이 비면 다음 업무 진입에서 필수 정보 보완을 요구한다. 부서·직급은 `team_members`에도 연결하되, `team_members.role`(PM/개발 직무), `grade`(기술등급), `memberships.sol_role`(업무 권한)과 구분한다. 가상 명부는 로그인 사용자와 자동 매칭하지 않으며 200명이 Auth 생성으로 이어지는 코드 경로를 두지 않는다. `profiles.avatar_url`에 가상 사진 상대경로를 넣지 않는다.
+`departments`·`job_titles`는 `org_id`를 갖는 카탈로그 표로 seed가 쓴다. profiles의 두 신고 FK는 `ON DELETE SET NULL`로 하여 데모 카탈로그 삭제가 기존 가입 계정 삭제나 초기화 실패로 이어지지 않게 한다. 해당 값이 비면 다음 업무 진입에서 필수 정보 보완을 요구한다. 부서·직급은 `team_members`(운영 정보)에 연결한다. 직무(`role`, PM/개발)·기술등급(`grade`)·스킬·가용성은 점수 계산 대상 27명만 `team_member_scoring`(seed 전용)에 두고, 두 표는 같은 직원 식별자로 잇는다(ADR-021). 이 값들은 `memberships.sol_role`(업무 권한)과 구분한다. 가상 명부는 로그인 사용자와 자동 매칭하지 않으며 200명이 Auth 생성으로 이어지는 코드 경로를 두지 않는다. `profiles.avatar_url`에 가상 사진 상대경로를 넣지 않는다.
 
 ## 9. 기존 점수·데모 정합성
 
@@ -117,7 +119,7 @@ OAuth는 가입 폼을 건너뛸 수 있으므로 DB의 두 열은 처음에 nul
 
 | 순서 | 후속 산출물 | 기계적으로 검증할 조건 |
 |---|---|---|
-| 1 | 부서·직급·200명 이름 fixture | 합계 200, 팀마다 1명 이상, 승인 배분 알고리즘 일치, 남녀 100/100, 이름 고유 200·세 글자·원본과 교집합 0, 모든 참조 ID 유효 |
+| 1 | 부서·직급·200명 이름 fixture | 합계 200, 팀마다 1명 이상, 승인 배분 알고리즘 일치, 남녀 100/100, 이름 고유 200·세 글자·원본과 교집합 0, 모든 참조 ID 유효. ADR-021 부서 계층 검증(순환·없는 `parentId`·자기 참조·깊이 3 초과·팀이 아닌 직원 소속은 실패, 본부·그룹 `targetCount` 없음은 통과)과 팀별 목표·실제·차이 보고 |
 | 2 | 인물별 프롬프트·이미지 | READY 200, 경로·해시 고유 200, 파일 존재·정사각형·PNG, 남녀 100/100. 서로 다른 얼굴·정장·품질은 사람 검수 기록 |
 | 3 | DB 카탈로그·신고 정보·인력 seed | append-only migration, RLS·허용 값·본인 쓰기·권한 상승 거부·다른 조직 0행, 2회 seed 후 200명/5계정 동일 |
 | 4 | 가입·추가 정보 입력 | 이메일 누락/위조 거절, OAuth·기존 미완료 사용자 보완, 미완료 업무 화면/API 차단, 완료·재로그인 후 값 유지, 회원 가입이 Auth 200계정 생성으로 이어지지 않음 |

@@ -98,6 +98,7 @@ function staffAvailability(bid: Bid, extraction: RequirementExtraction, team: Te
   if (requiredFte === null) return MISSING;
   const period      = bid.projectPeriod ?? defaultPeriod(bid);                 // 기간 미상: 마감 +1개월부터 6개월
   const available   = team.availableFte(period); // scoringEligible=true인 가상 계산 대상만 전달. 전체 명부 인원수와 구분                               // assignments 겹침 제외한 FTE 합
+  // ADR-021: team_member_scoring 행이 있는 인력만 전달. P1 이후 재직 상태가 LEFT인 인력은 입력에서 빠진다(계산식 변화 아님, sol-v0.1.0 유지)
   const ratio       = Math.min(1, available / requiredFte);
   const bizDays     = bid.deadlineAt ? businessDaysBetween(today, bid.deadlineAt) : null;
   return ratio * (bizDays === null ? 1.0 : SCHEDULE(bizDays));                 // 마감 미상: 일정 계수 미적용
@@ -310,7 +311,7 @@ Kev v0.2의 플래그 처리. 어느 플래그도 규칙 판정·점수·권고�
 | 미보유 자격 (`licenses`, `status: NOT_HELD`) | 정보통신공사업 등록, 방산업체 지정, ISMS-P, CSAP. 보유하지 않음을 프로필에 명시적으로 기록한다(§5.1). 이 기록이 있어야 `FX-03`이 `NOT_SATISFIED`가 된다 |
 | 프로필 구분 | `isDemo=true`(가상 프로필, 모든 실행 모드 공통) |
 | 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 200, 단일 사업 수행 상한 `maxContractKrw` 50억 |
-| 인력 (`team_members`) | 전체 가상 명부 200명. 그 안의 점수 계산 대상 하위 집합(`scoringEligible=true`)은 PM 2, PL 4, 개발 18, 데이터·AI 3의 27명. 나머지 173명은 계산 대상에서 제외. 2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외) |
+| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 명부 200명. 그 안의 점수 계산 대상 하위 집합(`scoringEligible=true`)은 PM 2, PL 4, 개발 18, 데이터·AI 3의 27명. 나머지 173명은 계산 대상에서 제외. 2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외) |
 | 선호 (`preferences`) | `agencies: []`, `agencyTypes: [지자체, 교육청]`, `domains: [데이터 플랫폼, AX, 민원, 교육]`, `excludedDomains: [국방]`, `excludedKeywords: [무기체계]` |
 
 | 실적 ID | 사업명 (가상) | 분야 | 금액 | 완료 | 증빙 |

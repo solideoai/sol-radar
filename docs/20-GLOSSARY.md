@@ -111,7 +111,7 @@ updated: 2026-10-16
 |---|---|---|
 | ADMIN / SALES / ANALYST / VIEWER | SOL RADAR 업무 역할. `memberships.sol_role` 값이다. 리소스별 정책으로 적용되며 단순 상하 관계가 아니다 | [[09-SECURITY]] |
 | `sol_role` | `memberships`의 업무 역할 열. text + check(`ADMIN`·`SALES`·`ANALYST`·`VIEWER`), 기본 `VIEWER`. API 권한 열(허용 역할 나열)이 이 값을 본다 | [[04-DATABASE]], [[05-API-SPEC]], [[09-SECURITY]] |
-| `org_role` | `memberships`의 조직 관리 역할(`owner`·`member`, 템플릿에서 가져옴). 초대·구성원 관리에만 쓰고 업무 권한은 `sol_role`이 정한다. 데모 `admin@soltech.invalid`는 `owner` + `ADMIN` | [[04-DATABASE]], [[09-SECURITY]] |
+| `org_role` | `memberships`의 조직 역할(`owner`·`member`, 템플릿에서 가져옴). 템플릿 호환용으로 남고, 구성원 관리를 포함한 업무 권한은 `sol_role`이 정한다([[16-DECISIONS\|ADR-021]]). 데모 `admin@soltech.invalid`는 `owner` + `ADMIN` | [[04-DATABASE]], [[09-SECURITY]] |
 | 서비스 운영자 (`profiles.is_admin`) | 서비스 전체 운영자 플래그. 조직 역할과 별개이며, 운영자도 남의 조직 데이터는 읽지 못한다 | [[09-SECURITY]] |
 | `org_id` | 조직 소유 데이터 표의 조직 열 이름. JSON 필드는 `orgId`. 요청 본문·쿼리의 조직 ID는 믿지 않고 세션 사용자의 멤버십으로 정한다 | [[04-DATABASE]] |
 | `my_org_ids()` | `public.my_org_ids()`. 로그인한 사용자가 멤버인 조직 id 목록을 돌려주는 DB 함수(`security definer`). RLS 정책은 `org_id in (select public.my_org_ids())`로 쓴다 | [[04-DATABASE]], [[09-SECURITY]] |
@@ -161,7 +161,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 가입 신고 정보 | 가입자가 선택한 부서·직급. 검증해 저장하지만 멤버십·권한·실제 재직 증명으로 사용하지 않음 | [[05-API-SPEC]] |
 | 프로필 보완 | OAuth·기존 계정의 미완료 필수 가입 정보를 첫 업무 진입 전에 채우는 흐름 | [[06-UI-UX]] |
 | personId | 가상 직원의 `SOL-P0001`~`SOL-P0200` 고정 ID. 이름·소속·사진을 연결 | [[07-DATA-PIPELINE]] |
-| scoringEligible | 전체 200명 중 가상 점수 계산에 포함할 27명을 명시하는 값. 가입 권한·재직 여부와 무관 | [[08-SCORING]] |
+| scoringEligible | 전체 200명 중 가상 점수 계산에 포함할 27명을 명시하는 값. 가입 권한·재직 여부와 무관. DB에서는 `team_member_scoring` 행이 있는지로 정하고, 가용 인력 입력은 재직자만이다([[16-DECISIONS\|ADR-021]] P1) | [[08-SCORING]] |
 
 ## 실데이터 파이프라인·모델 평가 용어 (ADR-020)
 
@@ -188,6 +188,20 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어, E2 Kev-9B 한국어, E3 Qwen 분류(선택), E4 Kev-9B+LoRA(후속). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
 | fixture 배치 `live` vs 실행 모드 `live` | fixture 두 번째 배치(`batch:"live"`, 데모 S5 변경분)와 실제 공공 API 실행 모드(`SOL_RUN_MODE=live`)는 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH` | [[19-DEMO-SCENARIO]] |
 | P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 터널·파서 비교 | [[12-ROADMAP]] |
+
+## 사이드바·업무 확장 용어 (ADR-021)
+
+| 용어 | 뜻 | 원천 |
+|---|---|---|
+| 서비스 운영자 vs 조직 ADMIN | 서비스 운영자는 `profiles.is_admin`이고 `/ops`만 쓴다. 조직 ADMIN은 `memberships.sol_role=ADMIN`이고 그 조직의 `/admin/*`·설정 조직 탭을 쓴다. 서로의 화면에 들어가지 않는다 | [[09-SECURITY]] |
+| 현재 조직 | 요청을 처리할 업무 조직. 서버가 세션 사용자의 업무 멤버십으로 정하고 요청의 조직 ID를 받지 않는다. 멤버십 2개 이상은 지원하지 않는다 | [[05-API-SPEC]] |
+| 조직·인력 | 가상 직원 200명의 조직도(본부 → 그룹 → 팀)·명부·개인 상세 화면 `/people` | [[06-UI-UX]] |
+| 점수 계산 대상 인력 | 명부 200명 중 `team_member_scoring` 행이 있는 27명. SOL Score 인력 가용성과 인력 배치 시뮬레이션은 이 27명만 쓴다 | [[08-SCORING]] |
+| 분석 현황 카드 | 대시보드 다섯 번째 카드. 공고별 최신 분석 1건 기준 완료·부분·실패 건수. 입찰 프로젝트(P1)가 들어오면 "진행 중 입찰 프로젝트"로 바뀐다 | [[06-UI-UX]] |
+| 관심 공고 | 사용자가 본인용으로 표시한 공고(P1). 조직에는 공고별 관심 인원 수만 보인다 | [[05-API-SPEC]] |
+| 입찰 프로젝트 | BID 결정 뒤 제안 준비·제출·결과 확인을 관리하는 단위(P1). 사람 결정의 정본은 여전히 `bid_reviews`다 | [[04-DATABASE]] |
+| 체크리스트 | 입찰 프로젝트에 묶인 작업. 템플릿 `tasks`에 `bid_project_id`를 더해 쓴다(P1) | [[04-DATABASE]] |
+| ADR-021 P1 | [[12-ROADMAP]] "있으면 좋음" 최상단에 둔 해커톤 기간 기능. [[01-PRD]]의 P1(해커톤 이후)과 다르다 | [[16-DECISIONS]] |
 
 ## 관련 문서
 

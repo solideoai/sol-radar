@@ -158,7 +158,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 | 0 | `docker compose -f infra/compose.yaml ps`에서 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 healthy(`postgres`·`api` 서비스는 없다). web의 `/health/live`·`/health/ready` 200, `checks.db` = Supabase 클라우드 프로젝트 연결 ok. worker가 `web/server` 도메인 코드를 불러 기동(`server-only` 실행 방식 `--conditions=react-server` 검증, [[16-DECISIONS\|16 ADR]] 미결정). `pnpm verify` 통과. `pnpm check:env` 실행 모드 모순 거부(V2-01), `G2B_SERVICE_KEY` placeholder 자리(서버 전용), GPU 호스트 `ai-local` 연결 방식(터널) 정리. P0-0 외부 의존성 점검 결과를 항목별로 기록(막힌 항목은 막힘으로, §3.3) | `phase-0/compose-ps.txt`, `phase-0/health-ready.json`, `phase-0/test-report.txt`, `phase-0/run-mode-check.txt`, `phase-0/external-deps.md` |
 | 1 | `pnpm test:db` 통과(SOL RADAR 표의 RLS·`sol_role` CHECK·조직 격리 정책 시험, 마이그레이션 재실행). ADR-020 저장 변경(새 표 `requirement_assessments`·`bid_structured_requirements`·`eval_runs` 포함)이 첫 SOL 마이그레이션에 들어가고 새 표마다 정책 시험이 있다. 클라우드 적용 `pnpm db:push`는 사용자 확인 뒤. seed(`pnpm demo:reset`) 2회 실행 멱등. G5 통과 | `phase-1/test-db.txt`, `phase-1/migrate.log`(`pnpm db:push` 출력), `phase-1/test-isolation.txt` |
 | 2 | G1·G2·G7·G10 + §3.1 ingestion 케이스 통과, `SEED` summary `{created:19, quarantined:1, retried:2}`. V2-03(공고·첨부 쪽)·V2-10·V2-11·V2-12, `OfficialApiConnector` 계약 시험, 사전규격·발주계획 단계 연결(P0-8). 서비스키·첨부 다운로드가 되면 live 수집 `ingest_runs` 요약(P0-2)과 실공고 형식별 파싱 성공률(P0-3) | `phase-2/test-ingestion.txt`, `phase-2/test-contracts.txt`, `phase-2/seed-summary.json`, `phase-2/ingest-run-live-<일시>.json`, `phase-2/parse-success-rate.md` |
-| 3 | E2E 로그인 → 목록 → 상세, axe 위반 0, G8. V2-02 화면 부분(실행 모드·출처·가상 회사 프로필 배지, `origin` 필터) | `phase-3/e2e/*.png`, `phase-3/axe-report.json` |
+| 3 | E2E 로그인 → 목록 → 상세, axe 위반 0, G8. V2-02 화면 부분(실행 모드·출처·가상 회사 프로필 배지, `origin` 필터). NAV-01~NAV-09(§9, [[16-DECISIONS\|ADR-021]]) | `phase-3/e2e/*.png`, `phase-3/axe-report.json` |
 | 4 | G3·G4 + worked example 3건 수치 일치, missing 정책 9행, 재현성 테스트 통과(골든은 `mock` 모드). V2-05, V2-06 점수 부분 | `phase-4/goldens-report.txt`, `phase-4/coverage-summary.txt` |
 | 5 | G6·G9, V2-04·V2-06~V2-09·V2-13, `SOL_RUN_MODE=mock` 전체 흐름(mock adapter 먼저). 실추론: Qwen `/extract` local의 인용 검증 통과율과 실공고 1건 E2E 로그(P0-4), Kev-9B@v1.0 `kev-qs/v0.2` 응답 원문·`stateTrace` 저장(P0-6). 실추론 증거가 없는 항목은 미검증으로 표시 | `phase-5/ai-fallback.txt`, `phase-5/test-ai.txt`, `phase-5/` 실추론 로그 |
 | 6 | 결정 기록 → 감사로그, 알림 1건 규칙, E2E 전체 | `phase-6/e2e/*.png`, `phase-6/test-notifications.txt` |
@@ -176,7 +176,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 | 0 | S0 | 환경 | env에 `SOL_RUN_MODE=mock`(이 값이 `DEMO_MODE=true`·`AI_PROVIDER=mock`의 기본값을 정한다), `AI_FALLBACK_TO_MOCK=false`, 기본 비밀값 아님 확인. `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`·`SUPABASE_SERVICE_ROLE_KEY`·`G2B_SERVICE_KEY`가 채워져 있고 모드 모순이 없는지 `pnpm check:env`로 확인(값은 출력하지 않는다). 인터넷 연결(Supabase 클라우드 프로젝트 접속). 포트 3000 비어 있음 | — | 포트 충돌 프로세스 종료. 네트워크 불가면 2번의 대체로 |
 | 1 | S0 | 터널 | 회사 GPU 서버 터널을 연다(방식은 [[10-DEPLOYMENT\|10 배포]]) | 터널 로컬 끝점에서 vLLM·`kev.serve`의 `/v1/models` 응답 | 터널 불가면 `live`·`fixture`를 빼고 `mock`만으로 진행하고 사실대로 말한다 |
 | 2 | S0 | 기동 | `docker compose -f infra/compose.yaml --profile demo up -d --build` 후 `docker compose -f infra/compose.yaml ps` | `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 `healthy`. web `GET /health/ready` 200, `checks.db: ok`(Supabase 연결), `checks.ai: mock` | 1회 재기동. `checks.db` 불가(503)면 네트워크·Supabase 프로젝트 상태 확인. 그래도 실패면 사전 녹화 영상(네트워크 없는 대체 경로는 미결정, [[16-DECISIONS\|16 ADR]]) |
-| 3 | S0 | seed | `pnpm demo:reset` (스크립트. service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`. `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`. `GET /api/v1/bids` 총 19건. `bid_reviews` 2건(`FX-01` BID, `FX-03` NO-BID) | seed 재실행(멱등) |
+| 3 | S0 | seed | `pnpm demo:reset` (스크립트. service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`. `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`. `GET /api/v1/bids` 총 19건. `bid_reviews` 2건(`FX-01` BID, `FX-03` NO-BID). 조직·인력 편집(ADR-021 P1)이 생긴 뒤에는 점수 계산 대상 27명이 모두 재직(`ACTIVE`)인지 확인 | seed 재실행(멱등) |
 | 4 | S0 | 세 모드 | `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순으로 바꾸며 worker·ai-gateway 재시작. 모드마다 `GET /api/v1/admin/ai/status`(ADMIN)와 머리말 확인. 마지막은 `mock` | 각 모드에서 기동 거부 없음, 머리말 "실행 모드: live\|fixture\|mock", `runMode` 일치. `live`·`fixture`는 `qwen.healthy: true`, `kev.registryMatch: true`. `live`에서 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)이 리허설·시연 예상 호출 수보다 넉넉하다. 결과를 `run-modes.md`에 기록 | 기동 거부면 거부 메시지의 모순 키를 고친다. 실패한 모드는 시연에서 빼고 기록한다. 한도 부족이면 `live` 장면을 빼거나 `fixture`로. live 공고가 DB에 남아 6·7번 수치가 달라지면 기록한다([[19-DEMO-SCENARIO\|19]] §2.1 결정 필요) |
 | 5 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login`(Supabase Auth) | `/dashboard` 이동. Topbar에 "실행 모드: mock"·`DEMO` 배지·`AI: mock`·수집 시각·🔔 | `admin@soltech.invalid`로 대체 |
 | 6 | S2 | 대시보드 | — | BID 권고 3건(`FX-01` 94, `FX-18` 82, `FX-06` 78), 마감 임박 카드에 `FX-14`(D-2), 수집 카드에 "격리 1건"(`FX-12`), 최근 변경 목록 | 숫자 불일치는 기록만 하고 진행 |
@@ -210,7 +210,7 @@ docs/evidence/
   phase-2/  test-ingestion.txt  ingest-run-FX-20.json
             ingest-run-live-<일시>.json    # P0-2 live 수집 요약 (담당자 개인정보 제외)
             parse-success-rate.md          # P0-3 실공고 30건 형식별 파싱 성공률·파서 후보 비교
-  phase-3/  e2e/*.png  axe-report.json
+  phase-3/  e2e/*.png  axe-report.json   # people·settings·admin-ingestion·ops(forbidden) 포함(ADR-021)
   phase-4/  goldens-report.txt  coverage-summary.txt
   phase-5/  test-ai.txt  ai-fallback.txt  e2e/partial.png
             (실추론 로그)                  # P0-4 인용 검증 통과율·실공고 1건 E2E, P0-6 Kev 응답·stateTrace 표본
@@ -262,15 +262,40 @@ ADR-020 이후 해커톤 MVP는 실제 나라장터 수집과 회사 GPU 서버�
 
 | ID | 자동 검증할 조건 | 위치 / 명령 |
 |---|---|---|
-| PPL-01 | 명부 200명·고유 ID/이름 200·남녀 100/100·한글 세 글자·원본 정규화 이름과 교집합 0. 입력 원본이 없으면 실패 | `scripts/demo-people.test.mjs`, `node --test scripts/demo-people.test.mjs`. 실제 원본 검사는 아래 로컬 절차 |
+| PPL-01 | 명부 200명·고유 ID/이름 200·남녀 100/100·한글 세 글자·원본 정규화 이름과 교집합 0. 입력 원본이 없으면 실패. 부서 계층 검증([[16-DECISIONS\|ADR-021]]): 순환·없는 `parentId`·자기 참조·깊이 3 초과·팀이 아닌 직원 소속은 실패, 본부·그룹 `targetCount` 없음은 통과. 팀별 목표·실제·차이 보고(정본 JSON에서는 차이 0) | `scripts/demo-people.test.mjs`, `node --test scripts/demo-people.test.mjs`. 실제 원본 검사는 아래 로컬 절차 |
 | PPL-02 | 같은 팀명 합산·표시명 보존·모든 팀 1명 이상·목표 합 200·최대 나머지 배분·동률 ID 순·직급/부서 참조 유효·재실행 결정론 | 같은 fixture 시험. 원본 팀/직급 대조는 아래 로컬 절차 |
 | PPL-03 | portrait manifest READY 200·고유 경로/해시 200·PNG 파일 존재·정사각형·남녀 100/100·인물당 한 장 | 같은 fixture 시험 + 정장·서로 다른 얼굴·품질 사람 검수표 |
 | PPL-04 | 인력 200명 seed 2회 멱등·Auth는 5계정 유지·카탈로그/인력 RLS 격리·다른 회사 코드 거부·가입 신고 정보로 권한 상승 불가 | `scripts/database.test.mjs`, `pnpm test:db` |
 | PPL-05 | 이메일 가입의 부서·직급 필수·위조 코드 거부·본인 정보만 저장·재로그인 후 유지·기존 이름/약관 검증 유지 | `web/app/auth/sign-up/sign-up-schema.test.ts`, profile 도메인·신고 정보 Route Handler 계약 시험 |
 | PPL-06 | 간편 가입·기존 미완료 사용자의 필수 정보 보완·업무 화면/API 우회 차단·로그아웃/보완 접근·저장 실패 재시도·가입이 자동 조직 합류를 만들지 않음 | `web/e2e-auth/signup-employment.spec.ts` 및 Route Handler 시험. UI는 1440·1280·키보드 확인 |
-| PPL-07 | 전체 명부 200명과 점수 계산 하위 27명 구분, 가용 20 FTE·FX-01/02/03 골든 94/72/68 유지 | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
+| PPL-07 | 전체 명부 200명과 점수 계산 하위 27명 구분, 가용 20 FTE·FX-01/02/03 골든 94/72/68 유지. `team_member_scoring` 분리 뒤에도 골든 94/72/68, 운영 편집 뒤 기존 `score_runs` 불변(ADR-021) | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
 
 CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm test`는 합성 입력으로 추출/제외 알고리즘을 시험하고 정본 JSON·이미지 수용 조건을 검사한다. 실제 원본 일치 0건·원본 팀/직급/배분 대조는 로컬 전용 `pnpm people:check -- --input /절대경로/people.xlsx`(후속 추가 명령)로 수행한다. 원본이 없으면 이 검사는 실패하며 CI 초록불로 대체하지 않는다. 로그에는 파일 해시·건수·오류 위치만 저장하고 이름은 출력하지 않는다. 실제 원본 통과 증거와 사람의 얼굴 검수표까지 있어야 인력 작업 완료다. 이미지 생성은 시험·CI에서 호출하지 않는다.
+
+## 9. 사이드바·업무 확장 수용 기준 (ADR-021, 후속 구현 시험)
+
+아래 시험은 구현 때 추가할 예정이며 현재 시험을 실행/통과했다는 뜻이 아니다. 데모 필수 NAV-01~NAV-09는 Phase 3 수용 기준(§4)에 들어간다. 근거는 [[16-DECISIONS|ADR-021]]이다.
+
+| ID | 자동 검증할 조건 |
+|---|---|
+| NAV-01 | 역할 4개(ADMIN·SALES·ANALYST·VIEWER)별 사이드바 노출과 URL 직접 접근 거부(403·404) |
+| NAV-02 | `/ops`: 비운영자·조직 ADMIN 모두 404, 운영자 정지 기능 회귀 없음 |
+| NAV-03 | 현재 조직: 업무 멤버십 0개 초대 안내 / 1개 진입 / 2개 이상 `403 UNSUPPORTED_ACCOUNT_STATE`. 요청에 실은 조직 ID는 무시·거부. S7 격리 404 유지 |
+| NAV-04 | 조직·인력 조회: 200명·27명 수 일치, 3단 트리, 본부·그룹 표시 인원 = 하위 팀 실제 인원 합(중복 없음), 본부·그룹 `targetCount` 없음이 정상, 상위 부서 없음·사진 없음에서 오류 없음, 검색·필터, 다른 조직 0행 |
+| NAV-05 | 데이터 수집 관리: ADMIN 외 403(서버 가드 + RLS), 기록이 없는 항목은 빈 상태, 출처·실행 모드 표시 |
+| NAV-06 | 대시보드 분석 현황: 공고별 최신 1건 집계, 같은 공고 `force` 재분석 뒤 이중 집계 없음 |
+| NAV-07 | 설정 조직 탭: 비ADMIN 403·RLS 거부, 업무 역할 변경 감사 기록 |
+| NAV-08 | 템플릿 설정·가입 정보 보완(PPL-05·06) 회귀 없음 |
+| NAV-09 | 메뉴 노출과 라우트 접근 분리: 미인증 요청은 출시 여부와 관계없이 기존 인증 정책(화면 로그인 안내, API `401`), 로그인 사용자의 미출시 경로 직접 접근 404, 출시 경로라도 권한 없는 역할 403, 메뉴에 없는 출시 경로도 서버 권한 검사 적용, 메뉴 정의의 출시 표시만으로 메뉴가 바뀜 |
+
+P1([[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단, 데모 필수가 모두 끝난 뒤):
+
+| ID | 자동 검증할 조건 |
+|---|---|
+| NAV-P1-01 | 관심 공고: RLS(본인만·다른 조직 0행), 멱등 토글, 관심 인원 수 집계만 공개, 담당자 겸 관심 등록자에게 마감 알림 1건(중복 0) |
+| NAV-P1-02 | 입찰 프로젝트: BID 결정 없이 생성 거부, 수명 규칙(결정 변경 시 경고·상태 전진 차단, 자동 종료 없음), 상태 이력·감사 기록, 체크리스트 쓰기는 SALES·ADMIN만(정책 시험), 결과가 점수·Kev에 쓰이지 않음 |
+| NAV-P1-03 | 인력 배치 시뮬레이션: 단일 공고 가용 FTE = 그 공고 최신 `score_runs` 스냅샷 값, 기간 충돌 1건 탐지, 후보는 27명 안에서만, 저장 없음 |
+| NAV-P1-04 | 조직·인력 편집: ADMIN만(다른 역할 403·RLS 거부), 감사 기록, 편집 뒤 골든 94/72/68 그대로, 기존 `score_runs` 불변 |
 
 ## 관련 문서
 

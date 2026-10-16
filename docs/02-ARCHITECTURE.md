@@ -69,6 +69,7 @@ scripts/                  # 검증·seed(템플릿 scripts 재사용: db-seed, d
 design/tokens.json        # 디자인 토큰 정본 → web/app/globals.css 생성(pnpm tokens)
 docs/                     # 이 vault, docs/evidence/
 ```
+- [[16-DECISIONS|ADR-021]]로 더하는 서버 도메인: `people`(조직·인력 조회, 데모 필수), `ops`(템플릿 `admin`의 새 이름, 서비스 운영자 전용). P1: `watchlist`·`projects`·`workforce`.
 - pnpm workspace·`apps/`·`packages/`는 만들지 않는다. 출발 템플릿처럼 `web/`은 독립 설치한다(`pnpm -C web …`).
 - 프로필별 env 예시(`infra/env/*.env.example`)와 `ai-local` GPU override(`infra/compose.gpu.yaml`)는 [[10-DEPLOYMENT|10 배포]]에서 다룬다.
 
@@ -183,7 +184,7 @@ flowchart TB
 
 ## 솔리데오 인력·가입 카탈로그 (ADR-019, 구현 예정)
 
-사용 회사는 솔리데오 하나이며 `org-02`는 RLS 격리 시험 전용이다. 부서를 별도 테넌트(`organizations`)로 만들지 않는다. 부서·직급 카탈로그와 200명 가상 인력 정본은 `fixtures/people/solideo.*.json`, 공개 가상 사진은 `web/public/demo/people/<personId>.png`다. 공고 첨부의 MinIO 사설 저장과 구분한다. 이름·사진·직급 선택으로 Auth 계정·멤버십·권한을 자동 생성하지 않는다.
+사용 회사는 솔리데오 하나이며 `org-02`는 RLS 격리 시험 전용이다. 부서를 별도 테넌트(`organizations`)로 만들지 않는다. 부서·직급 카탈로그와 200명 가상 인력 정본은 `fixtures/people/solideo.*.json`, 공개 가상 사진은 `web/public/demo/people/<personId>.png`다. 공고 첨부의 MinIO 사설 저장과 구분한다. 이름·사진·직급 선택으로 Auth 계정·멤버십·권한을 자동 생성하지 않는다. 인력은 `team_members`(운영)와 `team_member_scoring`(점수 계산 속성, seed 전용)로 나눈다([[16-DECISIONS|ADR-021]]).
 
 가입 카탈로그는 Next의 `GET /api/v1/signup-options`가 허용된 ID·표시명만 공개한다. Supabase Auth 메타데이터에서 검증한 가입 신고 정보는 `profiles`로 옮기고, OAuth·기존 미완료 계정은 `/auth/complete-profile`에서 본인 정보만 보완한다. 업무 화면뿐 아니라 업무 API도 완료 여부를 확인한다. 데이터 필드는 [[04-DATABASE]], API는 [[05-API-SPEC]], 생성·배분은 [[07-DATA-PIPELINE]]이 정의한다.
 

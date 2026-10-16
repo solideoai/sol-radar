@@ -14,6 +14,7 @@ updated: 2026-10-16
 구조적 JSON 로그에 `requestId`, `jobId`, `orgId`(내부 pseudonymous, DB 열 `org_id`), `bidId`, `elapsedMs`; 토큰(Supabase access token·refresh token)/`SUPABASE_SERVICE_ROLE_KEY`/원문/비밀번호 로깅 금지. 로그는 Next 서버(`web/`)·worker(`web/worker`)·AI gateway가 같은 필드 이름으로 남긴다. 지표: 수집 마지막 성공 시각, 호출 실패/429 비율, 지연, 큐 적체, 분석 실패/재시도/timeout, GPU VRAM(`ai-local`만), 추천 분포, 사람 판정과 AI 차이, 알림 중복.
 
 ## 데모 관리자 화면 지표 (5개)
+이 화면은 데이터 수집 관리 `/admin/ingestion`이고 [[16-DECISIONS|ADR-021]]로 데모 필수다(화면 명세는 [[06-UI-UX|06 UI]] §5.8).
 데모에서 보여주는 관리자 화면은 아래 5개만 다룬다. 나머지 지표는 metrics endpoint로만 제공한다. 관리자 화면은 `memberships.sol_role=ADMIN` 사용자의 세션으로 읽고, 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 그 조직 행만 보여 준다. 화면 역할에 직접 열지 않는 표(예: `outbox_events`)를 어떻게 집계해 보여 줄지는 Phase 1 정책 설계에서 정한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
 
 |#|지표|원천|범위|데모에서 보이는 값|

@@ -306,7 +306,7 @@ services:
 
 ## 솔리데오 인력·사진 준비 (ADR-019, 구현 예정)
 
-`pnpm demo:reset`은 로그인 5계정과 별도로 `fixtures/people/solideo.people.json`의 가상 인력 200명을 `team_members`에 넣는다. 부서·직급 카탈로그를 계정보다 먼저 넣고, 2회 실행 후에도 인물 ID·명부 200명·Auth 5계정이 유지돼야 한다. 회사는 솔리데오 고정이며 `org-02`는 격리 시험 전용이다. 이 직원·사진 생성은 공고 SEED 배치의 created 19건과 별도 집계다.
+`pnpm demo:reset`은 로그인 5계정과 별도로 `fixtures/people/solideo.people.json`의 가상 인력 200명을 `team_members`에 넣는다. 점수 계산 대상 27명의 직무·등급·스킬·가용성은 같은 직원 ID로 `team_member_scoring` 27행에 넣는다([[16-DECISIONS|ADR-021]]). 부서·직급 카탈로그를 계정보다 먼저 넣고, 2회 실행 후에도 인물 ID·명부 200명·Auth 5계정이 유지돼야 한다. 회사는 솔리데오 고정이며 `org-02`는 격리 시험 전용이다. 이 직원·사진 생성은 공고 SEED 배치의 created 19건과 별도 집계다.
 
 이미지 생성은 앱 기동·seed·CI에서 수행하지 않는다. 미리 imagegen으로 생성·검수한 PNG 200장을 `web/public/demo/people/`에 준비하고, 이름·부서·직급·사진 JSON 4개를 `fixtures/people/`에 둔다. 데모 전에는 manifest READY 200건·파일/해시/성별 연결·이름 원본 제외 검사를 확인한다. 원본 엑셀을 배포 이미지에 넣지 않는다. 최종 seed 로그의 `people=200 portraits=200`는 실제 명부 건수와 READY 파일 검증 결과이며 파일 이름만 200개 있다고 성공 처리하지 않는다. 일반 개발의 미완성 자산은 명시적으로 미완료 표시하고 데모 수용 조건 통과로 보고하지 않는다.
 
