@@ -52,4 +52,20 @@ describe("DEMO_BIDS", () => {
   it("기관 이름은 가상임을 밝힌다", () => {
     DEMO_BIDS.forEach((bid) => expect(bid.agency).toMatch(/^가상 /));
   });
+
+  it("자격 항목마다 공고문 쪽수와 인용이 있고, 인용에는 낫표·조항 번호가 없다", () => {
+    DEMO_BIDS.flatMap((bid) => bid.checks).forEach((check) => {
+      expect(check.evidence.page).toBeGreaterThan(0);
+      expect(check.evidence.quote).not.toMatch(/[「」]|제\s*\d+\s*조/);
+    });
+  });
+
+  it("대표 예시의 인용은 디자인 문서의 값이다", () => {
+    const [first] = DEMO_BIDS;
+    expect(first.checks.map((check) => check.evidence)).toEqual([
+      { page: 2, quote: "소프트웨어사업자로 신고한 자" },
+      { page: 2, quote: "중소기업자 간 제한경쟁입찰" },
+      { page: 4, quote: "입찰 마감일 기준 유효한 인증서 사본" },
+    ]);
+  });
 });
