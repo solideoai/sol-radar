@@ -128,7 +128,9 @@ test("랜딩을 열고 가입 화면으로 옮겨 가는 동안 CSP 위반(콘�
   );
 
   await page.goto("/");
-  const start = page.getByRole("main").getByRole("link", { name: "시작하기", exact: true });
+  const start = page
+    .getByRole("region", { name: /수많은 공고 속/ })
+    .getByRole("link", { name: "시작하기", exact: true });
   await expect(start).toBeVisible();
   // 화면 옮기기는 스크립트(클라이언트 이동)와 RSC 요청(connect-src)을 함께 거친다.
   await start.click();

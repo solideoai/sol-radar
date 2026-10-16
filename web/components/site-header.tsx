@@ -1,30 +1,25 @@
 import Link from "next/link";
+import { LOGIN_HREF, SECTION_LINKS } from "@/components/landing/landing-links";
 import { Logo } from "@/components/logo";
 import { buttonVariants } from "@/components/ui/button";
 
-// 로그인 상태를 읽지 않는다 — cookies()·headers()·connection() 을 부르면 `/` 가 동적 렌더링으로 바뀐다.
-// 현재 위치 표시는 하지 않는다. 화면마다 title 과 h1 이 위치를 알린다. 구역의 id 는 app/page.tsx 가 갖는다.
-const LINKS = [
-  { href: "/#features", label: "기능" },
-  { href: "/#start", label: "시작 방법" },
-] as const;
-
-export function SiteHeader() {
+// 첫 화면의 마케팅 머리말. 화면 위에 붙어 따라온다(sticky) — 구역은 scroll-mt-20 으로 머리말 높이만큼 내려앉는다.
+// 시작하기의 목적지는 로그인 상태를 읽는 app/page.tsx 가 정해 내려 준다. 이 부품은 로그인 상태를 읽지 않는다.
+// 데스크톱 전용(docs/16-DECISIONS.md ADR-007)이라 좁은 폭용 메뉴를 두지 않는다. 현재 위치 표시는 하지 않는다.
+export function SiteHeader({ startHref }: { startHref: string }) {
   return (
-    <header className="border-b border-border bg-background px-4 sm:px-6">
-      {/* 높이를 고정하지 않는다(글자를 키우면 같이 커진다). 줄은 바뀌지 않고 좁으면 워드마크가 줄어든다. */}
-      <div className="mx-auto flex min-h-14 w-full max-w-6xl items-center gap-4">
-        {/* min-w-0 이 없으면 긴 프로젝트 이름이 버튼을 밀어 가로로 넘친다. */}
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 px-8 backdrop-blur-sm">
+      {/* 가운데 칸이 메뉴다. 양쪽 칸을 같은 비율(1fr)로 두어 메뉴가 화면 가운데에 온다. */}
+      <div className="mx-auto grid min-h-16 w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-6">
         <Link
           href="/"
-          className="min-w-0 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="min-w-0 justify-self-start rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <Logo />
         </Link>
-        {/* 좁은 폭에서는 구역 링크를 숨긴다. 구역은 화면을 내리면 차례로 나온다. */}
-        <nav aria-label="주요 메뉴" className="hidden md:block">
+        <nav aria-label="주요 메뉴">
           <ul className="flex items-center gap-1">
-            {LINKS.map((link) => (
+            {SECTION_LINKS.map((link) => (
               <li key={link.href}>
                 <Link href={link.href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
                   {link.label}
@@ -33,11 +28,11 @@ export function SiteHeader() {
             ))}
           </ul>
         </nav>
-        <div className="ml-auto flex shrink-0 items-center gap-1">
-          <Link href="/auth/login" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+        <div className="flex items-center gap-1 justify-self-end">
+          <Link href={LOGIN_HREF} className={buttonVariants({ variant: "ghost", size: "sm" })}>
             로그인
           </Link>
-          <Link href="/auth/sign-up" className={buttonVariants({ size: "sm" })}>
+          <Link href={startHref} className={buttonVariants({ size: "sm" })}>
             시작하기
           </Link>
         </div>

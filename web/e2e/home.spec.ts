@@ -10,7 +10,9 @@ test("첫 화면이 정상 응답하고 클라이언트 오류 없이 표시된�
   const response = await page.goto("/");
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("main")).toContainText("/setup");
+  await expect(page.getByRole("main")).toContainText(
+    "SOL Score는 사업 적합도이며 수주 확률이 아닙니다.",
+  );
   await page.waitForLoadState("networkidle");
   expect(errors).toEqual([]);
   expect(supabaseRequests).toEqual([]);
