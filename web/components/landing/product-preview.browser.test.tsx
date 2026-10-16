@@ -14,7 +14,7 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-// 랜딩이 그리는 구역을 그대로 그린다 — 마케팅 단(max-w-320 + px-10)과 회색 무대(p-8)까지 같아야
+// 랜딩이 그리는 구역을 그대로 그린다 — 마케팅 단(max-w-320 + px-10)과 회색 무대(p-7)까지 같아야
 // 판의 가운데 단이 실제 폭이 된다. 낱말 단위 줄바꿈(break-keep)도 랜딩 main 과 같게 둔다.
 const render = async () => {
   const root = createRoot(document.body.appendChild(document.createElement("div")));

@@ -25,7 +25,7 @@ test("히어로에 제목·설명·두 버튼·안내가 있고, 시작하기는
   await page.goto("/");
   const hero = heroOf(page);
   await expect(
-    hero.getByText(/공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원 서비스입니다/),
+    hero.getByText(/공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원 플랫폼입니다/),
   ).toBeVisible();
   await expect(hero.getByRole("heading", { level: 1 })).toHaveText(
     /수많은 공고 속,\s*우리 회사가 검토할 사업부터\./,
@@ -83,14 +83,23 @@ test("미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수�
   await expect(preview.getByRole("link")).toHaveCount(0);
 });
 
-test("1440×900 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다", async ({ page }) => {
-  await page.goto("/");
-  const panel = previewOf(page).getByRole("tabpanel");
-  await expect(panel.getByRole("meter", { name: "SOL Score" })).toBeInViewport({ ratio: 1 });
-  await expect(panel.getByText("SOL Score는 사업 적합도이며 수주 확률이 아닙니다.")).toBeInViewport(
-    { ratio: 1 },
-  );
-});
+// 심사 화면은 1440×900 과 13인치 노트북(1280×800) 둘 다다. 점수만 보이고 고지가 접힘선 아래로 빠지면 안 된다.
+[
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+].forEach((viewport) =>
+  test(`${viewport.width}×${viewport.height} 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    const panel = previewOf(page).getByRole("tabpanel");
+    await expect(panel.getByRole("meter", { name: "SOL Score" })).toBeInViewport({ ratio: 1 });
+    await expect(
+      panel.getByText("SOL Score는 사업 적합도이며 수주 확률이 아닙니다."),
+    ).toBeInViewport({ ratio: 1 });
+  }),
+);
 
 test("목록에서 다른 공고를 고르면 분석이 바뀐다", async ({ page }) => {
   await page.goto("/");

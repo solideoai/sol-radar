@@ -9,10 +9,10 @@ export function ProductPreviewSection() {
         <h2 id="demo-title" className="sr-only">
           공고 분석 예시
         </h2>
-        {/* 히어로와의 간격(56px)은 히어로의 아래 여백이 준다. 분석 예시 보기(/#demo)로 오면 판의 윗변이 머리말 바로 아래에 선다. */}
+        {/* 히어로와의 간격(40px)은 히어로의 아래 여백이 준다. 분석 예시 보기(/#demo)로 오면 판의 윗변이 머리말 바로 아래에 선다. */}
         <figure>
           {/* 회색 무대 위에 흰 창 하나. 무대 위 글자는 흰 창 안에만 둔다(회색 바탕 위 회색 글자 금지). */}
-          <div className="rounded-[20px] bg-muted p-8">
+          <div className="rounded-[20px] bg-muted p-7">
             <ProductPreview />
           </div>
           <figcaption className="mt-3.5 type-label-lg text-muted-foreground">
