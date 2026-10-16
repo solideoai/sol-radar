@@ -154,7 +154,7 @@ Task4 현황(2026-10-16): 구현90c67bc 및 독립 리뷰 완료. 원래 구현�
 - [x] Implement hierarchy parsing/validation and add only evidenced upper rows/links. Make source comparison compare team projection rather than full augmented catalog; maintain 175 recognized/75 excluded/250 source-row provenance and private-name intersection checks. Keep strict known-team identity/allocation checks instead of simply deleting the `38` guard. Report unresolved parents and target/actual/difference.
 - [x] Run the same tests and `pnpm people:check:fixtures`; require unchanged people/job-title/portrait hashes and all original team identity/allocation values. Private source comparison is separately reported if the original is available; fixture-only checks never imply it passed.
 - [x] Keep the existing SQL consumer coherent before Task6: current departments.target_count is NOT NULL. In this intermediate stage only, seed.mjs projects TEAM/legacy rows to the old table and does not pretend upper rows were persisted. Add a focused real-PGlite legacy-seed regression; existing 38 persisted team rows/200 people/27 eligible assertions stay intact. Task6 removes this compatibility filter and persists parents+children with its new schema. No shared network seed.
-- [ ] Commit this bounded deliverable with normal hooks after required verification, e.g. `feat: 부서 계층 카탈로그 계약 반영`.
+- [x] Commit this bounded deliverable with normal hooks after required verification, e.g. `feat: 부서 계층 카탈로그 계약 반영`.
 
 ## Task 6: Append-only roster split and seed projection
 
