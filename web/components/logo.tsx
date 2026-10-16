@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { LayersIcon } from "lucide-react";
+import { RadarIcon } from "lucide-react";
 // `pnpm bootstrap` 이 새 프로젝트를 만들 때 이 파일의 title 을 바꾼다.
 import project from "@/project.json";
 
@@ -17,7 +17,7 @@ export function Logo({ className, inverted = false }: { className?: string; inve
           inverted ? "bg-background text-foreground" : "bg-primary text-primary-foreground",
         )}
       >
-        <LayersIcon className="size-4" />
+        <RadarIcon className="size-4" />
       </span>
       <span
         className={cn(
