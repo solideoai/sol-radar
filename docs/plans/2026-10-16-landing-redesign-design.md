@@ -248,14 +248,14 @@ Airtable 은 오늘 다시 열었을 때 첫 화면이 바뀌어 있었다(A/B �
 ### 5. 분석 방식 `#analysis` (`how-it-works-section.tsx`) — 단계 띠
 
 - **목적**: 쓰는 순서(1→2→3)를 한 줄로.
-- **구성**: `h2` "기업 정보를 등록하면, 검토할 사업이 명확해집니다." → 설명 → `ol` 3칸 띠(`grid-cols-3 mt-14 border-t-2 border-foreground`), 칸 `pt-7 pr-8`, 2·3번째 칸 `pl-8 border-l`. 칸마다 "1단계"(`type-ui-lg font-bold text-foreground` — 파랑 아님), `h3 type-heading-lg mt-2`, `dl mt-5`: "하는 일"/"얻는 것"(`type-label-lg font-semibold` 보조) + 값 `type-body-lg`. 번호는 순서라는 정보가 있어 쓴다.
+- **구성**: `h2` "기업 정보를 등록하면, 검토할 사업이 명확해집니다." → 설명 → `ol` 3칸 띠(`grid-cols-3 mt-14 border-t-2 border-foreground`), 칸 `pt-7 pr-8 pb-2`(세로선이 마지막 줄 아래로 8px 내려가 선 끝이 글자에 붙지 않는다), 2·3번째 칸 `pl-8 border-l`. 칸마다 "1단계"(`type-ui-lg font-bold text-foreground` — 파랑 아님), `h3 type-heading-lg mt-2`, `dl mt-5`: "하는 일"/"얻는 것"(`type-label-lg font-semibold` 보조) + 값 `type-body-lg`. 번호는 순서라는 정보가 있어 쓴다.
 - **버리는 것**: 머리글, 카드 3개, 파란 단계 글자.
 - **레퍼런스**: 공공 문서의 업무 흐름도(단계 띠). Ramp 의 무카드 텍스트 구역.
 
 ### 6. 분석 원칙 `#principles` (`principles-section.tsx`) — 원칙과 화면 증거
 
 - **목적**: 책임 있는 AI 원칙을 말로만 하지 않고 화면의 실제 표시로 보인다.
-- **구성**: `h2` "점수만 보여주지 않고, 판단의 근거를 함께 제공합니다."(지금 문구) → 2×2 선 격자(`grid-cols-2 mt-14 border-t`, 칸 `py-9 pr-10 border-b`, 오른쪽 칸 `pl-10 border-l`). 칸마다 `h3 type-heading-lg`, 설명 `type-body-lg` 보조, **"화면에서"** 줄(`mt-5`, 이름 `type-body font-semibold` 보조 + 실제 부품):
+- **구성**: `h2` "점수만 보여주지 않고, 판단의 근거를 함께 제공합니다."(지금 문구) → 2×2 선 격자(`grid-cols-2 mt-14 border-t`, 칸 `flex flex-col py-9 pr-10 border-b`, 오른쪽 칸 `pl-10 pr-0 border-l` — 두 칸 글줄 폭이 560px 로 같다). 칸마다 `h3 type-heading-lg`, 설명 `type-body-lg` 보조, **"화면에서"** 줄(`mt-auto pt-5` — 같은 줄의 칸끼리 높이를 맞춘다, 이름 `type-body font-semibold` 보조 + 실제 부품):
   1. 원문과 근거를 연결합니다 → 인용 표시 "공고문 p.2 「소프트웨어사업자로 신고한 자」"
   2. 확인된 정보와 확인이 필요한 정보를 나눕니다 → `QualificationLabel` 세 개(충족·확인 필요·미충족)
   3. 적합도와 수주 확률을 구분합니다 → "SOL Score **82** / 100 · 수주 확률이 아닙니다"
@@ -274,7 +274,7 @@ Airtable 은 오늘 다시 열었을 때 첫 화면이 바뀌어 있었다(A/B �
 ### 8. 마지막 권유 `#get-started` (`final-cta-section.tsx`) — 권유 띠
 
 - **목적**: 페이지의 끝맺음, 행동 하나.
-- **구성**: 화면 폭 띠 `bg-muted`(위 여백 144px 뒤), 안쪽 `py-24`: `h2 type-headline` "다음 사업 검토, 근거부터 확인하세요." → 설명 `type-lead` 보조(지금 문구, `<br>` 없이) → 버튼 `xl` 둘(시작하기 `default`, 분석 예시 보기 `outline` + `border-foreground`) → 안내 `role="note"` `mt-6`(ⓘ + `type-ui-lg` 보조, 지금 문구).
+- **구성**: 화면 폭 띠 `bg-muted`(위 여백 144px 뒤), 안쪽 `py-24`: `h2 type-headline` "다음 사업 검토, 근거부터 확인하세요." → 설명 `type-lead text-foreground/80`(회색 바탕 위라 보조색 대신 진한 글자, 지금 문구, `<br>` 없이) → 버튼 `xl` 둘(시작하기 `default`, 분석 예시 보기 `outline` + `border-foreground hover:bg-foreground/5` — 띠와 같은 `bg-muted` hover 를 피한다) → 안내 `role="note"` `mt-6`(ⓘ + `type-ui-lg text-foreground/80`, 지금 문구).
 - **버리는 것**: 흰 카드 틀, 카드 안 가는 선.
 - **레퍼런스**: Ramp 끝의 한 줄 권유 + 행동. 회색 띠는 히어로 무대와 같은 재료라 처음과 끝이 맞물린다.
 

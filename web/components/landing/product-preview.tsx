@@ -180,7 +180,7 @@ function DecisionRail({ bid }: { bid: DemoBid }) {
         >
           <div className="h-full rounded-full bg-brand" style={{ width: `${bid.score}%` }} />
         </div>
-        <p id={noteId} className="mt-2.5 type-label-lg text-muted-foreground">
+        <p id={noteId} className="mt-2.5 type-label-lg text-balance text-muted-foreground">
           SOL Score는 사업 적합도이며 수주 확률이 아닙니다.
         </p>
       </div>

@@ -61,7 +61,8 @@ export function PrinciplesSection() {
         <Reveal>
           <SectionHeading
             id="principles-title"
-            title="점수만 보여주지 않고, 판단의 근거를 함께 제공합니다."
+            // 줄 바꿈 없는 공백(\u00a0)으로 "판단의 근거를"이 한 덩어리로 남게 한다. 접근 이름은 공백으로 정규화된다.
+            title={"점수만 보여주지 않고, 판단의\u00a0근거를 함께 제공합니다."}
             description="SOL RADAR의 분석 화면은 다음 네 가지 원칙으로 설계하고 있습니다."
           />
         </Reveal>
@@ -73,13 +74,13 @@ export function PrinciplesSection() {
               <li
                 key={principle.title}
                 className={cn(
-                  "border-b border-border py-9 pr-10",
+                  "flex flex-col border-b border-border py-9 pr-10",
                   index % 2 === 1 && "border-l pr-0 pl-10",
                 )}
               >
                 <h3 className="type-heading-lg text-foreground">{principle.title}</h3>
                 <p className="mt-3 type-body-lg text-muted-foreground">{principle.body}</p>
-                <p className="mt-5 flex flex-wrap items-center gap-x-2.5 gap-y-2">
+                <p className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-2 pt-5">
                   <span className="mr-1 type-body font-semibold text-muted-foreground">
                     화면에서
                   </span>
