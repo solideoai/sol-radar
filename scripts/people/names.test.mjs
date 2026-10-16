@@ -191,13 +191,13 @@ test("rejects unknown title references before generating records", () => {
   assert.throws(() => generatePeople({ ...input(), jobTitles: [] }), /Invalid job title catalog/);
 });
 
-test("CLI regenerates safely, preserves completed portrait state and refuses incompatible fixtures", async () => {
+test("CLI regenerates safely, preserves reviewed/failed/candidate portrait state and refuses incompatible fixtures", async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "sol-radar-generator-")));
   const root = fileURLToPath(new URL("../../", import.meta.url));
   try {
     await mkdir(path.join(directory, "scripts/people"), { recursive: true });
     await mkdir(path.join(directory, "fixtures/people"), { recursive: true });
-    for (const name of ["generate", "allocation", "names", "workbook"])
+    for (const name of ["generate", "allocation", "names", "workbook", "portraits"])
       await cp(
         path.join(root, `scripts/people/${name}.mjs`),
         path.join(directory, `scripts/people/${name}.mjs`),
@@ -256,11 +256,83 @@ test("CLI regenerates safely, preserves completed portrait state and refuses inc
       sha256: "a".repeat(64),
       generator: "imagegen",
       generatedAt: "2026-10-16T00:00:00.000Z",
+      review: {
+        actor: "human",
+        reviewer: "Synthetic test reviewer",
+        reviewedAt: "2026-10-16T00:00:00.000Z",
+        verdict: "PASS",
+        sha256: "a".repeat(64),
+        evidence: "Synthetic fixture human approval for this exact image hash",
+      },
+      candidate: {
+        prompt: "Synthetic adult replacement portrait",
+        status: "GENERATED",
+        sha256: "b".repeat(64),
+        generator: "imagegen",
+        generatedAt: "2026-10-16T01:00:00.000Z",
+      },
+    };
+    portraits.portraits[1] = {
+      ...portraits.portraits[1],
+      prompt: "Synthetic adult portrait awaiting retry",
+      status: "FAILED",
+      failure: "GENERATION_INTERRUPTED",
+    };
+    portraits.portraits[2] = {
+      ...portraits.portraits[2],
+      prompt: "Synthetic adult portrait awaiting human review",
+      status: "GENERATED",
+      sha256: "c".repeat(64),
+      generator: "imagegen",
+      generatedAt: "2026-10-16T00:00:00.000Z",
+      review: {
+        actor: "ai",
+        reviewer: "Synthetic AI inspection",
+        reviewedAt: "2026-10-16T00:00:00.000Z",
+        verdict: "PASS",
+        sha256: "c".repeat(64),
+        evidence: "Synthetic AI review is not human approval",
+      },
     };
     await save("portraits", portraits);
     run();
     assert.equal(await readFile(fixturePath("people"), "utf8"), roster);
     assert.deepEqual(await load("portraits"), portraits);
+    for (const mutate of [
+      (value) => {
+        value.portraits[0].gender = "FEMALE";
+      },
+      (value) => {
+        value.portraits[0].path = "/demo/people/../../private.png";
+      },
+      (value) => {
+        value.portraits[0].review.actor = "ai";
+      },
+      (value) => {
+        value.portraits[0].review.sha256 = "d".repeat(64);
+      },
+      (value) => {
+        value.portraits[0].candidate.status = "READY";
+      },
+      (value) => {
+        value.portraits[0].candidate.sha256 = "not-a-hash";
+      },
+      (value) => {
+        value.portraits[0].unsupportedMetadata = "unsupported";
+      },
+    ]) {
+      const incompatible = structuredClone(portraits);
+      mutate(incompatible);
+      await save("portraits", incompatible);
+      assert.throws(
+        run,
+        (error) =>
+          error.status === 1 && error.stderr.trim() === "Existing portrait manifest mismatch",
+      );
+      assert.deepEqual(await load("portraits"), incompatible);
+      assert.equal(await readFile(fixturePath("people"), "utf8"), roster);
+    }
+    await save("portraits", portraits);
     portraits.portraits[0].personId = "INVALID";
     await save("portraits", portraits);
     assert.throws(

@@ -6,6 +6,7 @@ import { format, resolveConfig } from "prettier";
 import { allocatePeople } from "./allocation.mjs";
 import { selectNames } from "./names.mjs";
 import { readOrganizationWorkbook } from "./workbook.mjs";
+import { validatePortraitAssets } from "./portraits.mjs";
 
 const STARTS_AT = "2026-12-01";
 const ENDS_AT = "2027-07-01";
@@ -166,24 +167,22 @@ async function generateFromWorkbook(filename) {
         Object.keys(existingPortraits).sort(),
         Object.keys(portraitCatalog).sort(),
       ) &&
-      existingPortraits.portraits.every((portrait, index) => {
-        const planned = result.portraits[index];
-        return (
+      existingPortraits.portraits.every(
+        (portrait) =>
           portrait &&
-          isDeepStrictEqual(Object.keys(portrait).sort(), Object.keys(planned).sort()) &&
-          portrait.personId === planned.personId &&
-          portrait.gender === planned.gender &&
-          portrait.path === planned.path &&
-          typeof portrait.prompt === "string" &&
-          ["PLANNED", "GENERATED", "READY", "FAILED"].includes(portrait.status) &&
-          (portrait.sha256 === null ||
-            (typeof portrait.sha256 === "string" && /^[a-f0-9]{64}$/.test(portrait.sha256))) &&
-          (portrait.generator === null || typeof portrait.generator === "string") &&
-          (portrait.generatedAt === null ||
-            (typeof portrait.generatedAt === "string" &&
-              Number.isFinite(Date.parse(portrait.generatedAt))))
-        );
-      });
+          typeof portrait === "object" &&
+          !Array.isArray(portrait) &&
+          Object.keys(portrait).every((key) =>
+            [...Object.keys(result.portraits[0]), "review", "failure", "candidate"].includes(key),
+          ),
+      ) &&
+      (
+        await validatePortraitAssets(result.people, existingPortraits, {
+          root,
+          requireReady: false,
+          checkFiles: false,
+        })
+      ).length === 0;
     if (!valid) throw new Error("Existing portrait manifest mismatch");
     portraitCatalog = existingPortraits;
   }
