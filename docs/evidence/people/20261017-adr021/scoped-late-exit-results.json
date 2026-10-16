@@ -1,0 +1,11 @@
+{
+  "head": "21c8b9785cc04fcd1d99eddd92e75cbe157bcedb",
+  "origin": "http://localhost:33272",
+  "results": [
+    {
+      "name": "scoped pending refresh Tab account departure ignores late result",
+      "status": "PASS"
+    }
+  ],
+  "ownedFixtureCleanup": true
+}

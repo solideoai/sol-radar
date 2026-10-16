@@ -1,0 +1,22 @@
+command: pnpm verify
+exit: 1
+
+> sol-radar@0.1.0 verify /Users/leegwanghui/.codex/worktrees/b3ef/sol-radar
+> node scripts/verify.mjs
+
+
+> sol-radar@0.1.0 format:check /Users/leegwanghui/.codex/worktrees/b3ef/sol-radar
+> prettier --check . "!web/**" "!mobile/**"
+
+Checking formatting...
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+
+[warn] .superpowers/sdd/2026-10-16-solideo-people-signup/task-9-evidence/02-preflight.json
+[warn] .superpowers/sdd/2026-10-16-solideo-people-signup/task-9-evidence/04-historical-populated.json
+[warn] .superpowers/sdd/2026-10-16-solideo-people-signup/task-9-evidence/06-upgrade-proof.json
+[warn] .superpowers/sdd/2026-10-16-solideo-people-signup/task-9-evidence/09-seed-invariants.json
+[warn] .superpowers/sdd/2026-10-16-solideo-people-signup/task-9-evidence/sourcecheck-identity.json
+[warn] .superpowers/sdd/2026-10-16-solideo-people-signup/task-9-evidence/verify-identity.json
+[warn] Code style issues found in 6 files. Run Prettier with --write to fix.
+✗ 검증 실패: pnpm format:check

@@ -1,0 +1,160 @@
+{
+  "scope": "Selected safe independent ADR-021 code QA evidence; no portrait READY or full release",
+  "finalCodeHead": "21c8b9785cc04fcd1d99eddd92e75cbe157bcedb",
+  "fullApplicationProofHead": "e4654386a85e52e84d960787a9aeb4bb0653995e",
+  "populatedUpgradeProofHead": "2d548015897ee6ab6fc583d348e26f3f01ff8a0b",
+  "originalArtifactIndexSha256": "424f0eebf02dbf4be4838b6cb325415d17fa1ffe8b17ea30ac5ad95482210aa8",
+  "originalArtifactsRetained": ".superpowers/sdd/2026-10-16-solideo-people-signup/task-9-evidence/",
+  "files": [
+    {
+      "file": "02-preflight.json",
+      "bytes": 1796,
+      "sha256": "60b3dfb92e7ad1f67bb9af852aae87a5b2c711e1b53e994ee8a7c823c129f7b4"
+    },
+    {
+      "file": "06-upgrade-proof.json",
+      "bytes": 1175,
+      "sha256": "6f33c12edb59e9916ae4a9e33e10b9d3122b7bb6de17fa7651d8b24bb2707b02"
+    },
+    {
+      "file": "09-seed-invariants.json",
+      "bytes": 1169,
+      "sha256": "85f95226726c59f81346b9ede3788b126c72949915bc2c8f1fe9d03b22d9be78"
+    },
+    {
+      "file": "sourcecheck.log",
+      "bytes": 170,
+      "sha256": "1f4046c92c0ed5ed94fde050aa3bbff846ec21dbcea71d7aaedeac8283fb5e77"
+    },
+    {
+      "file": "verify-initial-artifact-format-failure.log",
+      "bytes": 1077,
+      "sha256": "24c2f3f4111699951fe802e469f0a14d470fea242355f66961ae14b5c627de64"
+    },
+    {
+      "file": "verify.log",
+      "bytes": 44770,
+      "sha256": "0f1bd53f0908f919ff1e4d9bb9ebdabf47d14a06ae0f17ed69560b549780ea8e",
+      "sourceBytes": 44773,
+      "sourceSha256": "a077b477f0ee9ee65e73bb0c0c7fb857c9df878fe26bbdc4f459d989e21671ae"
+    },
+    {
+      "file": "public.log",
+      "bytes": 20383,
+      "sha256": "bf50a558ce3bbfb16c9f5fb86f10cc7b11fba0faaa8220e55287487155506d1c"
+    },
+    {
+      "file": "auth.log",
+      "bytes": 28514,
+      "sha256": "fdbee295a08e31d392479d80444407379cf8f7afe3f1d8b74f9f8a37186ad147"
+    },
+    {
+      "file": "manual-retry-focus-detail.json",
+      "bytes": 295,
+      "sha256": "85b56a5d6e860c679a4052f771dec4c18a6d55c5f8492cb784cb1e5aae3a8839"
+    },
+    {
+      "file": "manual-retry-focus-lost-1280.png",
+      "bytes": 23371,
+      "sha256": "b0ee0bf10611525ab0ae5de622e4bba6ed2e69b99718ddce52e5e4bcbede38a3"
+    },
+    {
+      "file": "scoped-build.log",
+      "bytes": 1578,
+      "sha256": "30de83b6fa19666baba8ec1cdc506f85b1fd839e32f93ff184e5fa2fd67cfeea",
+      "sourceBytes": 1581,
+      "sourceSha256": "5bb63eb55a5d2ef98d59dfb56f9078c1e8daa52badec9b09851cc49239e04c43"
+    },
+    {
+      "file": "scoped-build-api-identity.json",
+      "bytes": 126,
+      "sha256": "595f5c7c2475f08a107df3bf47c4de8c5305e2d8fbd94e5d4aa8fb52c0ff8008"
+    },
+    {
+      "file": "scoped-browser.log",
+      "bytes": 429,
+      "sha256": "0ed3f248e75fa40e9f1d4a04ee245e004b7a87b4c32421e4234a01f2b5a4b095"
+    },
+    {
+      "file": "scoped-setup.log",
+      "bytes": 1931,
+      "sha256": "9296e726aae8301264e51e02d47c941f87169feded16a3b086557f39a0dc2814"
+    },
+    {
+      "file": "scoped-auth2.log",
+      "bytes": 1569,
+      "sha256": "e56e4151e7f77b93c653fac2a268bdbfb398680bb94f9cc43935d0a97980ab10"
+    },
+    {
+      "file": "scoped-manual-results.json",
+      "bytes": 892,
+      "sha256": "f6c738c3b7d29c3078b2e1ea787bbbf6cc1d86a2ab2022220147800e32e11fc1"
+    },
+    {
+      "file": "scoped-late-exit-results.json",
+      "bytes": 263,
+      "sha256": "8879911bd28f49c8297f9ff0c09ce37b2780b85ba8bade57250c46295e24757d"
+    },
+    {
+      "file": "scoped-late-exit-observation.json",
+      "bytes": 257,
+      "sha256": "bb66993e88d3c18b0ae5a582586587398fca4f6d71334e593e8daa7fd03a6001"
+    },
+    {
+      "file": "scoped-final-inventory.json",
+      "bytes": 601,
+      "sha256": "7226343018132637dcc92d33efb5ecf8aac332d09d93ae9785c9878eee88f619"
+    },
+    {
+      "file": "scoped-cleanup-proof.json",
+      "bytes": 480,
+      "sha256": "5c836558bfc3aebe68b42369249a1265055f7976e928cd1052db51ba3f5e55c0"
+    },
+    {
+      "file": "scoped-cleanup.log",
+      "bytes": 439,
+      "sha256": "3c704005a0c59d3e122c4f55d4c96fe2add8e608c5281473fb2037d46f51276a"
+    },
+    {
+      "file": "artifact-safety-audit.json",
+      "bytes": 220,
+      "sha256": "915486eddc9862d3dda361d91ad3c8b42155e4025449036b6fd484df397ed4c4"
+    },
+    {
+      "file": "scoped-manual-retry-focus-pass-1440.png",
+      "bytes": 24573,
+      "sha256": "fa8695a5d816ee271195244f8cf5bba85049e2842fccb79851f5e55a8141749c"
+    },
+    {
+      "file": "scoped-manual-retry-focus-pass-1280.png",
+      "bytes": 23839,
+      "sha256": "6f65008034754816ed57452d63b7a41da064518b136d782a7036516ad411f389"
+    },
+    {
+      "file": "scoped-manual-account-settled-1440.png",
+      "bytes": 97138,
+      "sha256": "9cc516264decef4218aa4bfca9a745d9cebfbb08cdfcf16e53cf5de9dde16750"
+    },
+    {
+      "file": "scoped-manual-account-settled-1280.png",
+      "bytes": 94796,
+      "sha256": "4326e8348ea4df1aa87ed881907c888707fdbebbd117eb8f7559a92b0c97d196"
+    },
+    {
+      "file": "manual-multiple-state-1440.png",
+      "bytes": 21357,
+      "sha256": "418f192c9183d4b882697e1c63f0dab22fa9704664ca2b87715211d901b0319a"
+    },
+    {
+      "file": "manual-multiple-state-1280.png",
+      "bytes": 20599,
+      "sha256": "7cf0ab2eeb6d28fc7e84e2b6a4db7943f9434bc81fa192dafaf32f91a290f761"
+    },
+    {
+      "file": "fix-3-review.md",
+      "bytes": 5750,
+      "sha256": "5cc2cad25f9f159b80e72c77d60954a91afd9dabca23be30133b1d3f76e169fb"
+    }
+  ],
+  "logLineEndings": "Versioned logs normalize CRLF to LF; changed entries retain original sourceBytes/sourceSha256. Original raw QA files remain in the owned SDD evidence directory."
+}

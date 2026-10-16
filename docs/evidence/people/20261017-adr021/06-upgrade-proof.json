@@ -1,0 +1,53 @@
+{
+  "sourceHead": "2d548015897ee6ab6fc583d348e26f3f01ff8a0b",
+  "history": [
+    {
+      "version": "20261013000001"
+    },
+    {
+      "version": "20261013000002"
+    },
+    {
+      "version": "20261014000001"
+    },
+    {
+      "version": "20261014000002"
+    },
+    {
+      "version": "20261014000003"
+    },
+    {
+      "version": "20261014000004"
+    },
+    {
+      "version": "20261015000001"
+    },
+    {
+      "version": "20261015000002"
+    },
+    {
+      "version": "20261016000001"
+    },
+    {
+      "version": "20261016000002"
+    },
+    {
+      "version": "20261016000003"
+    },
+    {
+      "version": "20261016000004"
+    }
+  ],
+  "exactOperationalPreserved": true,
+  "exactScoringPreserved": true,
+  "exactLegacyProfileOrgMembershipTaskPreserved": true,
+  "operationalSha256": "bc1a7b3af1bebce2f7abca04b09967e623b385a24508dd2c3870ef10ca7ed535",
+  "scoringSha256": "d19f3b8d8c2cbe3e300209b850bd2568a6b32bb22d79684d01223a282b6391bb",
+  "legacySha256": "b12b8a31baa957461c5bdcce2316d1858ccc2cb393958d984949d555cc0a6a41",
+  "freshAuthSignup": {
+    "profile": 1,
+    "org": 0,
+    "membership": 0
+  },
+  "rollbackEvidence": "Reused Task6 PGlite; not live CLI"
+}

@@ -1,0 +1,18 @@
+command: pnpm -C web exec playwright test -c playwright.auth.config.ts --project=chromium-write --no-deps settings-account.write.spec.ts team-settings-isolation.write.spec.ts --grep 다른 멤버가 있는 팀의 유일한 소유자는 탈퇴하지 못하고|팀 이름을 바꾸면 저장 토스트가 뜨고
+exit: 0
+
+Running 2 tests using 2 workers
+
+  ✓  1 [chromium-write] › e2e-auth/team-settings-isolation.write.spec.ts:77:7 › 소유자(김소유) › 팀 이름을 바꾸면 저장 토스트가 뜨고, 설명 줄과 조직 표시가 새 이름이 되며, 새로 고쳐도 남고 주소는 그대로다 (3.0s)
+  ✓  2 [chromium-write] › e2e-auth/settings-account.write.spec.ts:245:7 › 회원 탈퇴 › 다른 멤버가 있는 팀의 유일한 소유자는 탈퇴하지 못하고, 대화상자 안에 이유를 보인다 (3.1s)
+
+  2 passed (4.9s)
+
+[WebServer] (node:93495) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:93518) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+(node:93537) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:93536) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)

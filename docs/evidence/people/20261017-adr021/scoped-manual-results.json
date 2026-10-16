@@ -1,0 +1,20 @@
+{
+  "head": "21c8b9785cc04fcd1d99eddd92e75cbe157bcedb",
+  "origin": "http://localhost:33272",
+  "results": [
+    {
+      "name": "scoped retry keyboard pending duplicate guard and focus at 1440/1280",
+      "status": "PASS"
+    },
+    {
+      "name": "scoped pending refresh Tab account departure ignores late result",
+      "status": "FAIL",
+      "reason": "expect(page).toHaveURL(expected) failed\n\nExpected pattern: /\\/auth\\/account$/\nReceived string:  \"http://localhost:33272/auth/organization-state\"\nTimeout: 5000ms\n\nCall log:\n  - Expect \"toHaveURL\" with timeout 5000ms\n    14 × locator resolved to <html lang=\"ko\" class=\"h-full\">…</html>\n       - unexpected value \"http://localhost:33272/auth/organization-state\"\n"
+    },
+    {
+      "name": "scoped settled full account screenshots 1440/1280",
+      "status": "PASS"
+    }
+  ],
+  "ownedFixtureCleanup": true
+}

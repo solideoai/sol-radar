@@ -4,7 +4,7 @@ status: draft
 tags:
   - sol-radar
   - progress
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 
 # 진행 상황
@@ -42,17 +42,18 @@ updated: 2026-10-16
 - [x] 승인 스펙·정본 문서에 저장 경로·DB/가입 계약·가상 데이터 경계·PPL-01~07 검증 기준 반영.
 - [x] 구현 계획 초안·자체 검토: [명부·카탈로그](plans/2026-10-16-solideo-people-data.md), [정장 사진 200장](plans/2026-10-16-solideo-people-portraits.md), [DB·가입·검증](plans/2026-10-16-solideo-people-signup.md). 사용자가 에이전트 분담·작업별 독립 검토 방식으로 실행을 승인했다. 구현 진행 중이며 전체 완료를 뜻하지 않는다.
 - [x] 조직도 추출·부서/직급 카탈로그: 원본 250행을 배분 가중치 175행·비팀 구역 제외 75행으로 분류, 정확한 표시명 38개·직급 12개. 미분류·중복·원본 이름 유출 0, 작업별 독립 검토 통과.
-- [x] `fixtures/people/solideo.{departments,job-titles,people,portraits}.json` 및 최소 공개 가입 카탈로그 생성·원본 대조. 가상 200명·남녀 100/100·계산 대상 27명·가용 20 FTE 보존, 데이터 단계 `pnpm verify` 통과. Task 3 독립 검토 대기.
-- [ ] imagegen 고유 정장 프로필 200장 생성·검수·프로젝트 경로 저장.
+- [x] `fixtures/people/solideo.{departments,job-titles,people,portraits}.json` 및 최소 공개 가입 카탈로그 생성·원본 대조. 가상 200명·남녀 100/100·계산 대상 27명·가용 20 FTE 보존, 데이터 단계 `pnpm verify` 및 명부·카탈로그 작업별 독립 검토 통과.
+- [x] imagegen 고유 정장 프로필200장 생성·AI 품질 검사 완료(별도9663 worktree, 남녀100/100, GENERATED200).
+- [ ] 위200명 이름·얼굴의 실제 사람 검수 승인·READY 전환·코드 worktree 통합·release 검사. 현재 READY0.
 - [x] 카탈로그·가입 신고 필드·가상 인력 seed/RLS migration 및 생성 타입. Task1/2 독립 리뷰 통과; 실제 로컬 최종 재검증은 별도.
 - [x] 가입 폼·프로필 보완·업무 화면/Server Action 가드·계정 관리 호환 구현 및 Task3 독립 리뷰 통과. 현재 v1 업무 REST 엔드포인트는 없으며 재사용 API 가드 계약만 단위 검증.
 - [x] 전체200명→계산27명 snapshot, 고정 창20FTE·배정 경계와 별도 worked-example 요소94/72/68 순수 회귀 구현. 전체 점수 엔진 골든은 Phase4 미완료.
 - [x] 기존 계획 코드의 가입/보완 로컬 E2E·verify/browser/E2E/authE2E·seed멱등·1440/1280 독립 QA. 공개130·브라우저89·인증92 PASS; QA-01/02 수정·별도 리뷰 후 관련 검사 재실행. [실행/미실행 기록](evidence/people/20261016-people-integration.md).
 
-- [ ] 최신 정본 04·05·06·09·16과 ADR-021 후속 정합화. 인력 표 분리·부서 계층·가입 개인 조직 생성 중단·멤버십 기반 조직 결정. 공유 DB 충돌 migration 적용/main 병합 금지, 기존 작업·다른 세션 파일 보존.
-- Task 7 저장 변경(격리 worktree): 새 가입은 프로필만 생성하고 TEAM/기존 null kind만 신고 허용. 이전 개인 조직·소유권·작업과 카탈로그 삭제 SET NULL 보존을 PGlite 141개, 개인 공간 없는 seed 호환을 HTTP mock 12개, 프로필·세션 API 계약을 60개 테스트로 확인했다. Task 8 무조직/단일 조직 라우팅과 함께 릴리스해야 하며 독립 검토·격리 실제 Supabase 검증은 대기 중이다. 공유 DB 적용·seed 실행·main 병합은 하지 않았다.
+- [x] 최신 정본 04·05·06·09·16과 ADR-021의 이번 가입·DB 범위 정합화 및 격리 실제 코드 QA. 인력 표 분리·부서 계층·가입 개인 조직 생성 중단·멤버십 기반 조직 결정. 공유 DB 충돌 migration 적용/main 병합 금지, 기존 작업·다른 세션 파일 보존.
+- Task 7 저장 변경(격리 worktree): 새 가입은 프로필만 생성하고 TEAM/기존 null kind만 신고 허용. 이전 개인 조직·소유권·작업과 카탈로그 삭제 SET NULL 보존을 PGlite 141개, 개인 공간 없는 seed 호환을 HTTP mock 12개, 프로필·세션 API 계약을 60개 테스트로 확인했다. 후속 Task 8 라우팅과 함께 독립 검토·격리 실제 Supabase 코드 QA를 완료했다(아래2026-10-17 기록). 사진 release와 전체 ADR-021 완료를 뜻하지 않는다. 공유 DB 적용·seed 실행·main 병합은 하지 않았다.
 
-원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 PLANNED200/READY0이다. 별도 사진 작업 결과는 아직 합치지 않았으며 사람 승인 전 release 완료를 주장하지 않는다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. 기존 계획의 DB·가입 코드와 통합 QA는 통과했으며 ADR-021 후속 변경을 시작한다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
+원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 PLANNED200/READY0이다. 별도 사진 작업 결과는 아직 합치지 않았으며 사람 승인 전 release 완료를 주장하지 않는다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. 기존 계획과 ADR-021의 이번 DB·가입 정합화 코드 QA는 통과했다. 전체 N1/N2 등 후속 범위는 남아 있다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
 
 ## hosted 모델 API 사용 승인 기록
 
@@ -92,3 +93,14 @@ updated: 2026-10-16
 - [[16-DECISIONS|결정 기록]]
 
 - Task 8 구현(격리 worktree, 독립 검토 전): 실제 업무 멤버십 0/1/복수 판정, 모든 기존 조직 업무 page/action 경계의 현재 조직 고정, 조직 상태 안내·계정/초대 복귀, 템플릿 회사 생성 경로 폐기 및 명시적 격리 Supabase test-target harness를 추가했다. 모의 단위·1440/1280 브라우저 검증과 정상 커밋 게이트 증거는 `.superpowers/sdd/2026-10-16-solideo-people-signup/task-8-report.md`에 기록한다. 실제 별도 Supabase의 build/Auth/E2E는 Task9 대기이며 공유 스택·클라우드·main은 변경하지 않았다. 전체 N1/N2·/ops·sidebar/P1 완료를 뜻하지 않는다.
+
+
+## ADR-021 가입·인력 코드 QA 완료 (2026-10-17)
+
+Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영200/평가27 분리,48개 계층(본부6·그룹4·기존팀38), 상위 인원NULL, 신규 가입profile만 생성, 실제 업무 멤버십0/1/복수 판정을 확인했다. 원본 대조passed,200개 고유 세글자 이름·남녀100/100·기존 ID/계산 입력을 보존했다.
+
+최종 코드 `21c8b9785cc04fcd1d99eddd92e75cbe157bcedb`에서 새 빌드·관련 브라우저12·로그인 준비5·기존 실패Auth2·실제 초점/계정 화면 재검증 통과. 전체verify(루트347/웹865)/공개130/포함 브라우저99와 Auth93통과·2실패의 원래 기록은`e465438` 귀속으로 보존한다. [최종 실행 근거·한계](evidence/people/20261016-adr021-people-integration.md), [독립 QA 보고서](evidence/people/20261017-adr021-qa-report.md).
+
+전용 임시 Supabase만 정리했으며 공유 DB의 새 migration/seed 적용·main 병합·다른 세션/소스 checkout 수정은 하지 않았다. 위의 Task7/Task8 구현 시점 메모에 적힌 검토/실제QA 대기는 이번 기록으로 종료한다.
+
+사진은 별도 worktree의 GENERATED200/READY0이며 사람 승인·통합은 대기 중이다. 전체 ADR-021 N1/N2·/people·/ops·sidebar/P1, 전체 Phase4, 실제 외부 OAuth는 후속 범위다. 실제 REST 중단의 초기 조회 안내와 RSC 응답 보류 중 즉시 화면 이동의 검증 한계도 근거 문서에 남겼다. 전체 기능·배포 완료로 표시하지 않는다.

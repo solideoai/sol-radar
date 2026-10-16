@@ -1,0 +1,4 @@
+command: node scripts/people/check.mjs --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx
+exit: 0
+{"ok":true,"sourceComparison":"passed","errors":[]}
+
