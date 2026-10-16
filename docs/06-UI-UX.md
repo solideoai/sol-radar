@@ -313,6 +313,7 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 
 - App Router. 서버 컴포넌트가 `packages/contracts` 타입드 클라이언트로 API를 읽고, 클라이언트 컴포넌트는 필터·폼·polling만 담당.
 - 인증 쿠키는 HttpOnly. Next.js route handler는 API 프록시만 하고 비즈니스 로직을 두지 않는다([[02-ARCHITECTURE|02 아키텍처]]).
+- 클라이언트 상태는 zustand, 입력 검증은 zod를 쓴다([[16-DECISIONS|ADR-016]]). 여러 클라이언트 컴포넌트가 함께 쓰는 UI 상태(예: `EvidenceDrawer` 열림과 선택한 근거)만 zustand store에 둔다. 서버 데이터는 store에 복사하지 않고, `BidFilters` 필터 값은 URL 쿼리가 정본이라 store에 두지 않는다. 폼은 react-hook-form + zod로 검증하고, 같은 입력을 API가 다시 검증한다([[05-API-SPEC|05 API]] §7).
 - 라우트마다 `loading.tsx`, `error.tsx`, `not-found.tsx`.
 - 금액은 서버에서 문자열로 받아 `Intl.NumberFormat('ko-KR')`로 표시. 시각은 UTC 저장값을 KST로 변환해 표시하고 툴팁에 UTC 원값.
 - 스타일 토큰 구현 방식(순수 CSS 변수 또는 Tailwind v4 `@theme`)은 Phase 3 시작 시 설치된 버전 문서를 읽고 정한다. 어느 쪽이든 §3 값이 단일 원천.

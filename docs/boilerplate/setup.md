@@ -6,12 +6,12 @@
 
 | 영역 | 스택 |
 |---|---|
-| 웹 `web/` | Next.js 16 · React 19 · Tailwind v4 · shadcn(Base UI) · react-hook-form + zod · sonner · Vitest · Playwright |
+| 웹 `web/` | Next.js 16 · React 19 · Tailwind v4 · shadcn(Base UI) · react-hook-form + zod · zustand · sonner · Vitest · Playwright |
 | 앱 `mobile/` | Expo SDK 57 · Expo Router · Jest |
 | DB·인증 | Supabase(RLS) · PGlite(DB 정책 시험·타입 생성) · 로컬 DB 는 Supabase CLI + Docker |
 | 공통 | pnpm 9 · TypeScript · ESLint 9 · Prettier · Husky · lodestar |
 
-공유 클라이언트 상태가 필요할 때만 zustand를, 브라우저에서 서버 데이터를 다시 가져오고 캐시해야 할 때만 TanStack Query를 설치합니다.
+브라우저에서 서버 데이터를 다시 가져오고 캐시해야 할 때만 TanStack Query를 설치합니다.
 
 ```
 agentic-boilerplate/

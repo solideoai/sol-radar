@@ -62,7 +62,7 @@ const result = data.filter(x => x.active).map(x => x.name);
 |---|---|---|
 | 한 컴포넌트 안에서만 쓰는 값 | `useState` | 그 컴포넌트 |
 | 서버 데이터(목록·상세) | 서버 컴포넌트에서 가져와 props 로 내린다. 브라우저에서 다시 가져오고 캐시할 때만 TanStack Query를 설치한다 | 도입할 때 `QueryClient` 를 앱 최상단에 하나 둔다 |
-| 여러 화면이 같이 쓰는 클라이언트 상태(장바구니, 필터, 패널 열림) | 먼저 props·context로 공유하고, 복잡해질 때만 zustand를 설치한다 | 도입할 때 `lib/stores/<이름>.ts` |
+| 여러 화면이 같이 쓰는 클라이언트 상태(장바구니, 필터, 패널 열림) | 먼저 props·context로 공유하고, 복잡해지면 zustand(설치됨)를 쓴다 | `lib/stores/<이름>.ts` |
 | 폼 입력과 검증 | react-hook-form + zod, 화면은 shadcn `field` | 스키마는 그 폼 옆 |
 | 알림 | sonner `toast()` | `<Toaster />` 는 앱 최상단에 하나 |
 

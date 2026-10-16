@@ -48,23 +48,6 @@
           "command": "pnpm",
           "args": ["test:e2e"]
         }
-      },
-      {
-        "name": "mobile",
-        "directory": "mobile",
-        "marker": "package.json",
-        "setup": {
-          "command": "pnpm",
-          "args": ["install", "--frozen-lockfile"]
-        },
-        "verify": {
-          "command": "pnpm",
-          "args": ["verify"]
-        },
-        "quick": {
-          "command": "pnpm",
-          "args": ["verify:quick"]
-        }
       }
     ]
   },

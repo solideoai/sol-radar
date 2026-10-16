@@ -2,6 +2,7 @@
 
 이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` ~ `docs/20-GLOSSARY.md`)다.
 기술 스택은 Next.js + NestJS + PostgreSQL(Prisma) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen·Kev) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-001·002·015).
+모바일(1280px 미만 레이아웃·`mobile/` Expo 앱)과 결제·구독은 만들지 않는다. 화면은 데스크톱 1280px 이상이다(`docs/16-DECISIONS.md` ADR-007).
 이 파일의 나머지는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히면 설계 문서를 따른다.
 Supabase(인증·DB·RLS·anon 키), Expo 앱(`mobile/`), `web/server/<도메인>/` 구조, Vercel·EAS 배포, 아래 "기술 스택" 절은 템플릿 기준이다.
 커밋 메시지 형식과 "결정적 강제 장치"(커밋 게이트·훅·린트를 끄거나 돌아가지 않기)는 그대로 지킨다.
@@ -86,7 +87,7 @@ Supabase(인증·DB·RLS·anon 키), Expo 앱(`mobile/`), `web/server/<도메인
   요구가 모호하면 먼저 `/interview-quick`. → `/predeploy-review` → 배포
 - **큰 일** — 여러 단계·여러 영역. `/interview` → `/spec`(`polaris/specs/`) → 계획(단계마다 고칠 파일과 완료 기준을 적어 사용자 승인) →
   단계별 구현(단계마다 `/verify`) → 검증(`/spec-check`·테스트·E2E·QA 는 구현과 다른 에이전트가 맡는다) → `/predeploy-review` → 배포
-  - 화면이 새로 생기거나 흐름이 바뀌면 구현 전에 `web-designer`·`mobile-designer` 에게 디자인 스펙을 받는다.
+  - 화면이 새로 생기거나 흐름이 바뀌면 구현 전에 `web-designer` 에게 디자인 스펙을 받는다.
   - 서로 독립인 단계는 Claude Code 의 worktree 에이전트에 병렬로 맡길 수 있다. 같은 파일은 한 작업자가 맡는다.
   - 검증은 `.claude/agents/` 의 `test-*`·`e2e-*`·`qa-*` 에 맡기고, 배포 전에 `test-deployment` 의 GO/NO-GO 를 받는다.
 
@@ -117,7 +118,7 @@ Supabase(인증·DB·RLS·anon 키), Expo 앱(`mobile/`), `web/server/<도메인
 - **훅**(`.claude/hooks/guard.sh`): 게이트 우회(`--no-verify` 등), 이력 없는 DB 파괴 명령, 비밀 키를 코드·공개 변수에 넣는 일, 셸로 `.env` 읽기, `rm -rf` 를 막는다.
 
 ## 기술 스택
-- **웹**: Next.js 16 · React 19 · Tailwind v4 · shadcn(Base UI, `web/components/ui/`) · react-hook-form + zod · sonner · Vitest.
-  zustand·TanStack Query 는 필요할 때만 설치한다 → `conventions` 스킬
+- **웹**: Next.js 16 · React 19 · Tailwind v4 · shadcn(Base UI, `web/components/ui/`) · react-hook-form + zod · zustand · sonner · Vitest.
+  TanStack Query 는 필요할 때만 설치한다 → `conventions` 스킬
 - **앱**: Expo SDK 57 · Expo Router · Jest
 - 공통: pnpm · TypeScript · ESLint 9 · Prettier · Husky · lodestar · **Supabase**(DB·인증) · PGlite(DB 정책 시험·타입 생성)

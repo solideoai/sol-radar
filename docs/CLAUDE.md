@@ -16,7 +16,11 @@ updated: 2026-10-16
 - 기술 스택: Next.js + NestJS + PostgreSQL + Prisma + Redis/BullMQ + MinIO + Qdrant + Python(Qwen + Kev) + Docker Compose. 이외로 임의 변경하지 않는다.
 - 순서: Phase 0 모노레포/인프라 구현 → 검증 → 보고 → 다음 Phase. 데모 필수 Phase를 먼저 끝낸다.
 - `docs/09-SECURITY.md` 우선 준수. 미확인 외부 명세는 mock + ADR(`docs/16-DECISIONS.md`). 최종 결정은 사람이 한다.
-- 범위 외: 결제·구독, 모바일 레이아웃, 자동 투찰, 승률 예측. 관련 코드를 쓰지 않는다. 화면은 데스크톱 1280px 이상.
+- 범위 외: 결제·구독, 모바일, 자동 투찰, 승률 예측. 관련 코드를 쓰지 않는다. 화면은 데스크톱 1280px 이상.
+  - 모바일과 결제는 해커톤 이후에도 구현하지 않는다(`docs/16-DECISIONS.md` ADR-007, `docs/17-CLAUDE-IMPLEMENTATION.md` 절대 규칙).
+  - 모바일은 1280px 미만 반응형 레이아웃과 네이티브 앱 둘 다다. 템플릿의 `mobile/`(Expo 앱)과 모바일 전용 에이전트는 지웠다. 다시 만들지 않는다.
+  - 화면 확인은 1440px·1280px 두 폭으로 한다. 모바일 폭은 확인하지 않는다.
+  - 결제는 결제·구독·요금제 화면, 결제 게이트웨이 연동, 관련 패키지 설치를 모두 포함한다.
 - `AI_PROVIDER=mock`이 기본. 유료 hosted 모델 API는 사용자 승인 전 호출하지 않는다.
 - 각 작업 후 `docs/PROGRESS.md` 갱신, 증거(테스트 리포트·스크린샷·기동 로그)는 `docs/evidence/`에 저장.
 - 이 `docs/` 폴더는 Obsidian vault다. 문서를 고칠 때 frontmatter와 위키링크 규약(`docs/00-README.md` Obsidian 규약 절)을 유지한다.
