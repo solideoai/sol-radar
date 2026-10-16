@@ -26,7 +26,7 @@ updated: 2026-10-16
 
 ```mermaid
 flowchart TD
- L[로그인 /login] --> D[대시보드 /dashboard]
+ L[로그인 /auth/login] --> D[대시보드 /dashboard]
  D --> B[공고 탐색 /bids]
  B --> S[공고 상세 /bids/id]
  S --> A[분석 실행·점수 근거]
@@ -38,7 +38,7 @@ flowchart TD
 
 ## 3. 디자인 토큰
 
-CSS 변수로 정의하고(`apps/web/src/styles/tokens.css`) 컴포넌트는 변수만 쓴다. 라이트 테마만 P0, 다크는 P1.
+아래 표의 값이 토큰 값의 기준이다. 구현은 템플릿 방식을 따른다: 값을 `design/tokens.json`(디자인 토큰 정본)에 적고 `pnpm tokens`로 `web/app/globals.css`(`:root` CSS 변수 + Tailwind v4 `@theme`)를 생성한다. 생성물은 손으로 고치지 않고, 컴포넌트는 변수(또는 그 변수에 이어진 Tailwind 클래스)만 쓴다. 아래 `--color-*` 이름과 `tokens.json`의 의미 이름(shadcn 체계) 사이의 대응은 Phase 3에서 정한다. 라이트 테마만 P0, 다크는 P1.
 
 ### 3.1 색
 
@@ -126,13 +126,13 @@ CSS 변수로 정의하고(`apps/web/src/styles/tokens.css`) 컴포넌트는 변
 | 권한 없음 | 403: "이 화면을 볼 권한이 없습니다" + 현재 역할 표시 + [대시보드로]. 404: 공고·분석이 다른 조직 것이면 404로 통일([[09-SECURITY\|09 보안]]) | 라우트 가드 |
 | 신선도 경고 | 마지막 수집 성공이 60분 초과면 Topbar 지표가 warning 색 + "수집 지연" 텍스트 | `DataFreshnessIndicator` |
 
-### 5.2 `/login`
+### 5.2 `/auth/login`
 
 | 항목 | 내용 |
 |---|---|
 | 섹션 | 중앙 카드 1개: 이메일, 비밀번호, [로그인]. 카드 상단 `DEMO` 배지(데모 모드일 때) |
-| 주요 액션 | 로그인 → 성공 시 `/dashboard` |
-| 빈/로딩/오류 | 로딩: 버튼 비활성 + 스피너. 오류: 필드 아래 텍스트 "이메일 또는 비밀번호가 올바르지 않습니다"(계정 존재 여부 노출 금지). 잠금: "잠시 후 다시 시도" |
+| 주요 액션 | 로그인(Supabase Auth, 템플릿 로그인 화면) → 성공 시 `/dashboard` |
+| 빈/로딩/오류 | 로딩: 버튼 비활성 + 스피너. 오류: 필드 아래 텍스트 "이메일 또는 비밀번호가 올바르지 않습니다"(계정 존재 여부 노출 금지). 시도 제한(Supabase Auth 요청 제한): "잠시 후 다시 시도" |
 | 권한 | public. 로그인 상태면 `/dashboard`로 |
 
 ### 5.3 `/dashboard`
@@ -311,12 +311,12 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 
 ## 11. 구현 메모
 
-- App Router. 서버 컴포넌트가 `packages/contracts` 타입드 클라이언트로 API를 읽고, 클라이언트 컴포넌트는 필터·폼·polling만 담당.
-- 인증 쿠키는 HttpOnly. Next.js route handler는 API 프록시만 하고 비즈니스 로직을 두지 않는다([[02-ARCHITECTURE|02 아키텍처]]).
-- 클라이언트 상태는 zustand, 입력 검증은 zod를 쓴다([[16-DECISIONS|ADR-016]]). 여러 클라이언트 컴포넌트가 함께 쓰는 UI 상태(예: `EvidenceDrawer` 열림과 선택한 근거)만 zustand store에 둔다. 서버 데이터는 store에 복사하지 않고, `BidFilters` 필터 값은 URL 쿼리가 정본이라 store에 두지 않는다. 폼은 react-hook-form + zod로 검증하고, 같은 입력을 API가 다시 검증한다([[05-API-SPEC|05 API]] §7).
+- App Router. 서버 컴포넌트는 `web/server/<도메인>`의 service를 배럴(`@/server/<도메인>`)로 직접 불러 데이터를 읽는다(사용자 세션으로 DB를 불러 RLS 적용). 클라이언트 컴포넌트는 필터·폼·polling만 담당하고, polling(`pollUrl`)과 변경 요청은 `/api/v1` Route Handler(세션 쿠키 + `X-Requested-With: sol-radar`) 또는 Server Action으로 한다([[05-API-SPEC|05 API]] §1).
+- 인증은 Supabase Auth 세션 쿠키(`@supabase/ssr`)다. 이 쿠키는 HttpOnly가 아니므로 XSS 방어(CSP nonce, `dangerouslySetInnerHTML` 금지)를 지킨다([[09-SECURITY|09 보안]] 인증). Route Handler·Server Action은 인증·CSRF·zod 검증·오류 변환만 하고 업무 로직은 `web/server/<도메인>`에 둔다([[02-ARCHITECTURE|02 아키텍처]]).
+- 클라이언트 상태는 zustand, 입력 검증은 zod를 쓴다([[16-DECISIONS|ADR-016]]). 여러 클라이언트 컴포넌트가 함께 쓰는 UI 상태(예: `EvidenceDrawer` 열림과 선택한 근거)만 zustand store에 둔다. 서버 데이터는 store에 복사하지 않고, `BidFilters` 필터 값은 URL 쿼리가 정본이라 store에 두지 않는다. 폼은 react-hook-form + zod로 검증하고, 같은 zod 스키마로 서버(Route Handler·Server Action)가 다시 검증한다([[05-API-SPEC|05 API]] §7).
 - 라우트마다 `loading.tsx`, `error.tsx`, `not-found.tsx`.
 - 금액은 서버에서 문자열로 받아 `Intl.NumberFormat('ko-KR')`로 표시. 시각은 UTC 저장값을 KST로 변환해 표시하고 툴팁에 UTC 원값.
-- 스타일 토큰 구현 방식(순수 CSS 변수 또는 Tailwind v4 `@theme`)은 Phase 3 시작 시 설치된 버전 문서를 읽고 정한다. 어느 쪽이든 §3 값이 단일 원천.
+- 스타일 토큰은 템플릿 방식(`design/tokens.json` → `pnpm tokens` → `web/app/globals.css`, Tailwind v4)을 쓴다. 토큰 값은 §3 표를 기준으로 `design/tokens.json`에 적고, 색·글꼴·글자 눈금을 다른 곳에 직접 쓰지 않는다. Tailwind v4·Next.js 16 세부는 Phase 3 시작 시 설치된 버전 문서(`web/node_modules/next/dist/docs/` 등)를 읽고 따른다.
 
 ## 12. 증거 스크린샷 상태명
 
@@ -340,7 +340,7 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 - [[08-SCORING|08 SOL Score]] — 점수 분해·missing 배지·Kev 상이 처리
 - [[07-DATA-PIPELINE|07 수집]] — 화면 상태를 재현하는 fixture `FX-01`~`FX-20`
 - [[13-NOTIFICATIONS|13 알림]] — 알림 유형·읽음 처리
-- [[09-SECURITY|09 보안]] — 403/404 정책, 쿠키 인증, 모델 한계 고지 문구(원문)
+- [[09-SECURITY|09 보안]] — 403/404 정책, Supabase Auth 세션, 모델 한계 고지 문구(원문)
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 스크린샷 파일명 규칙
 - [[11-TESTING|11 테스트]] — E2E·a11y 검사, 데모 수용 체크리스트
 - [[19-DEMO-SCENARIO|19 데모 시나리오]] — 클릭 경로

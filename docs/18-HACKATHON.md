@@ -60,7 +60,7 @@ updated: 2026-10-16
 ### 3.3 왜 지금인가
 
 - 공공조달 규모가 매년 커지고(§2.1) 디지털 전환·AX 사업 공고가 늘어 SI 기업의 검토 부담이 커진다.
-- 소형 오픈 가중치 결정 모델(Kev, Apache-2.0)과 오픈 LLM(Qwen)으로 **사내 GPU 또는 노트북에서** 회사 기밀을 외부에 보내지 않고 돌릴 수 있게 되었다.
+- 소형 오픈 가중치 결정 모델(Kev, Apache-2.0)과 오픈 LLM(Qwen)으로 **사내 GPU 또는 노트북에서** 회사 기밀을 외부 모델 API에 보내지 않고 돌릴 수 있게 되었다(모델 추론 기준. 개발 DB는 Supabase 클라우드다, §7).
 - 공공데이터포털의 조달 공개 API로 공고를 합법적으로 수집할 수 있다 (실 API 필드는 [[07-DATA-PIPELINE|07 수집]]에서 검증 후 등록).
 
 ## 4. 심사 기준 매핑 (가설 기준)
@@ -69,7 +69,7 @@ updated: 2026-10-16
 |---|---|---|---|
 | 문제 정의·임팩트 | 실제 사용자가 있는 문제인가, 가치가 측정되는가 | §2 고통 표, 성공 지표 가설과 측정 방법 | [[01-PRD]] 성공 측정 |
 | 독창성 | 기존 서비스와 무엇이 다른가 | §3.2 D1~D5, 특히 D3 "정직한 AI" | [[01-PRD]] 차별점 절 |
-| 기술 완성도 | 아키텍처가 합리적인가, 테스트가 있는가 | 모노레포·Compose 기동 로그, 테스트 매트릭스, 골든 시나리오 G1~G10 PASS | [[11-TESTING]], `docs/evidence/` |
+| 기술 완성도 | 아키텍처가 합리적인가, 테스트가 있는가 | Next.js(`web/`) + Supabase(Postgres·RLS·Auth) 구조, Compose 기동 로그(redis·minio·qdrant·ai-gateway·worker), 테스트 매트릭스, 골든 시나리오 G1~G10 PASS. 조직 격리는 Supabase RLS 정책 + 정책 시험(`pnpm test:db`, PGlite)·Route Handler 시험·E2E(G5)로 증명, 인증은 Supabase Auth | [[11-TESTING]], [[16-DECISIONS]] ADR-017, `docs/evidence/` |
 | 실행 가능성·데모 | 실제로 동작하는가, 어디까지가 mock인가 | 5분 데모(§6), 정직성 표(§7) | [[19-DEMO-SCENARIO]] |
 | 책임 있는 AI | 환각·과장·편향·보안 대응 | 수주확률 금지, 근거 인용 검증, HITL, 프롬프트 인젝션 대응, 감사 로그 | [[09-SECURITY]] 책임 있는 AI, [[15-DATA-CONTRACTS]] |
 | 발표·문서 | 이해하기 쉬운가, 재현 가능한가 | Obsidian MOC, 용어집, ADR, 기동 절차 | [[00-README]], [[20-GLOSSARY]], [[16-DECISIONS]], [[10-DEPLOYMENT]] |
@@ -99,7 +99,7 @@ AI 심사자는 저장소 전체를 읽고 **내부 일관성, 주장과 근거�
 | 3:00 | 사람 결정 | "권고는 WATCH, 결정은 사람이 사유와 함께 기록한다" | 결정 패널 → `bid_reviews` 기록 → `REVIEW_ASSIGNED` 알림 1건 |
 | 3:30 | 변경 감지 | "정정공고가 들어오면 revision이 쌓이고 알림은 한 번만 간다. 중복 전송은 0건" | 관리자 수동 수집(live) → FX-07 revision diff(예산·기술) → WATCH→BID, FX-09 중복 0건 |
 | 4:15 | 장애 대체 | "AI를 끄면 규칙만으로 PARTIAL 결과를 내고 상태를 숨기지 않는다" | `docker compose stop ai-gateway` → `AI: unavailable` → FX-01 재분석 → `PARTIAL` 배너, 이전 run 보존 |
-| 4:45 | 격리와 마무리 | "다른 조직 토큰으로는 403. 결제·모바일·자동 투찰은 범위 밖" | API 호출 403 응답 → 마무리 슬라이드 |
+| 4:45 | 격리와 마무리 | "다른 조직 토큰으로는 404. 결제·모바일·자동 투찰은 범위 밖" | API 호출 404 응답(RLS가 다른 조직 행을 숨김) → 마무리 슬라이드 |
 
 시간이 밀리면 3:30 변경 감지 장면을 건너뛰고 4:15 장애 대체로 간다. 장애 대체와 격리는 D3·D4의 증거라 생략하지 않는다.
 
@@ -114,6 +114,10 @@ AI 심사자는 저장소 전체를 읽고 **내부 일관성, 주장과 근거�
 | Qwen 요구조건 추출 | 환경에 따라 다름 | 기본 `AI_PROVIDER=mock`(사전 작성 추출 결과). GPU 호스트에서는 실모델. 어떤 모드인지 화면에 표시 |
 | Kev 보조 의견 | 환경에 따라 다름 | 기본 mock adapter(`fixtures/kev/FX-xx.json`). 실모델은 `KEV_ENABLED=true`일 때만. 모델 카드는 영어 전용, 한국어 입찰 도메인 성능은 미검증 |
 | 인앱 알림 | 실제 구현 | outbox + 멱등키 |
+| 테넌트 격리 | 실제 구현 | Supabase RLS(`org_id in (select public.my_org_ids())`) + 정책 시험. 다른 조직 자원은 `404`. 단 worker·seed는 RLS를 무시하는 service role 키를 쓰므로 `org_id`를 직접 지정하고 혼입 방지 시험을 둔다 ([[09-SECURITY]]) |
+| DB·인증 실행 위치 | **Supabase 클라우드 프로젝트(개발 환경)** | 로컬 Compose가 아니라 클라우드다. Compose는 redis·minio·qdrant·ai-gateway·worker(web은 선택)를 띄우고 DB는 띄우지 않는다. 데모·배포 실행 환경 최종안은 미결정 ([[16-DECISIONS]] 미결정 표) |
+| 데모 네트워크 | **인터넷 연결 필요** | DB·Auth가 Supabase 클라우드라 회장 회선이 끊기면 로그인·조회가 멈춘다. AI는 `AI_PROVIDER=mock`이라 외부 호출 없음. 끊겼을 때 대체 경로는 미결정(§9) |
+| 세션 쿠키 | **설계상 HttpOnly 아님** | `@supabase/ssr`가 관리하고 브라우저 클라이언트가 같은 쿠키를 읽어 로그인·로그아웃한다. SameSite=Lax, 운영에서 Secure. XSS 방어는 CSP nonce가 맡는다 ([[09-SECURITY]]) |
 | 카카오톡 알림 | **범위 외(mock provider)** | 템플릿 승인·계약 전 |
 | 결제·모바일·자동 투찰·승률 예측 | **범위 외** | 구현하지 않음 |
 
@@ -127,16 +131,18 @@ AI 심사자는 저장소 전체를 읽고 **내부 일관성, 주장과 근거�
 6. **"GPU 없으면 못 쓰나?"** 데모 프로필은 GPU 없이 mock AI로 전 기능이 돈다. GPU 호스트에서는 `ai-local` 프로필로 실모델을 켠다 ([[10-DEPLOYMENT]]).
 7. **"기존 입찰 정보 서비스와 뭐가 다른가?"** 수집·알림은 기존 서비스도 한다. 우리는 **우리 회사 프로필 기준 자격 판정과 설명 가능한 점수, 사람 결정 기록**까지 간다 (§3.2 D1·D2·D4).
 8. **"AI가 틀리면?"** 근거 없는 인용은 무효 처리하고, 저신뢰·모순은 `NEEDS_REVIEW`로 사람에게 넘긴다. 사람 판정과 AI 차이를 지표로 추적한다 ([[14-OBSERVABILITY]]).
-9. **"보안은?"** 테넌트 격리(`organization_id` 강제), JWT 회전, Argon2id, SSRF allowlist, 외부 문서는 불신 데이터로 처리, 로그 마스킹 ([[09-SECURITY]]).
-10. **"해커톤 이후 계획은?"** 실 API 연동 → 데모 기업 파일럿 → 한국어 도메인에서 Kev·Qwen 성능 측정 → P1(경쟁사 통계·인력 배치) 순서 ([[12-ROADMAP]]).
+9. **"보안은?"** 테넌트 격리는 Supabase RLS(`org_id`, 다른 조직 자원은 `404`)와 정책 시험으로 강제한다. 인증은 Supabase Auth이고, 토큰 만료·refresh 회전·로그인 시도 제한·비밀번호 정책은 Supabase Auth 설정으로 다룬다(구체 값은 대시보드에서 정하고 확인할 항목, 미검증). 쿠키 인증의 상태 변경 요청은 `X-Requested-With` 헤더 검사(CSRF), XSS는 CSP nonce, RLS를 무시하는 service role 키는 worker·seed 전용이고 브라우저·`NEXT_PUBLIC_` 변수·로그에 넣지 않는다. 그 밖에 SSRF allowlist, 외부 문서는 불신 데이터로 처리, 로그 마스킹 ([[09-SECURITY]]).
+10. **"왜 Supabase인가?"** 출발 템플릿(agentic-boilerplate)이 이미 Next.js + Supabase로 조직·역할·초대·RLS·인증 견본과 정책 시험(PGlite)·타입 생성(`pnpm db:types`) 게이트를 갖추고 있다. 그대로 쓰면 인증과 조직 격리를 새로 만들지 않고, 해커톤 시간을 자격 판정·점수·근거에 쓴다. Supabase가 맡는 것은 DB와 인증뿐이고 첨부 원본(MinIO), 임베딩 검색(Qdrant), 작업 큐(Redis + BullMQ), AI gateway(Qwen·Kev)는 그대로다 ([[16-DECISIONS]] ADR-017).
+11. **"데모 중 네트워크가 끊기면?"** 개발 DB와 인증이 Supabase 클라우드라 인터넷이 끊기면 로그인과 조회가 멈춘다. 오프라인 시연은 약속하지 않는다. 대체 경로(로컬 Supabase CLI `pnpm db:start`로 전환, 사전 녹화 영상)는 아직 정하지 않았다([[16-DECISIONS]] 미결정 표). AI 장애는 별개로, AI gateway를 꺼도 규칙만으로 `PARTIAL` 결과가 나오는 것을 시연한다(§6 4:15).
+12. **"해커톤 이후 계획은?"** 실 API 연동 → 데모 기업 파일럿 → 한국어 도메인에서 Kev·Qwen 성능 측정 → P1(경쟁사 통계·인력 배치) 순서 ([[12-ROADMAP]]).
 
 ## 9. 데모 당일 리스크와 대응
 
 | 리스크 | 대응 | 담당 |
 |---|---|---|
-| 회장 네트워크 불안 | 전부 로컬 Compose. 외부 호출 없음(`AI_PROVIDER=mock`) | 조작자 |
+| 회장 네트워크 불안 | AI는 `AI_PROVIDER=mock`이라 외부 호출 없음. DB·Auth는 Supabase 클라우드라 인터넷이 필요하다. 발표 전 회선과 Supabase 프로젝트 접속(`/health/ready`의 `checks.db`)을 확인한다. 끊겼을 때 대체 경로(로컬 Supabase CLI `pnpm db:start`, 사전 녹화 영상)는 미결정 ([[16-DECISIONS]] 미결정 표) | 조작자 |
 | 분석 지연 | 데모 공고 3건은 분석 결과를 미리 생성해 둔다. 라이브 분석은 1건만 | 조작자 |
-| DB 상태 오염 | `pnpm demo:reset` 스크립트로 seed 재적용(스크립트 이름은 구현 시 확정) | 조작자 |
+| DB 상태 오염 | `pnpm demo:reset`으로 seed 재적용(service role로 Supabase 프로젝트에 적용, 멱등) | 조작자 |
 | 프로젝터 해상도 | 1440px 기준 레이아웃, 브라우저 확대 110% 사전 점검 | 발표자 |
 | 시간 초과 | §6 시간표 체크포인트. 3:30 장면 생략 가능 | 발표자 |
 | 질문이 길어짐 | §8 답을 한 문장으로 먼저 말하고 문서 위치를 안내 | 발표자 |
@@ -145,7 +151,7 @@ AI 심사자는 저장소 전체를 읽고 **내부 일관성, 주장과 근거�
 ## 10. 제출물 체크리스트
 
 - [ ] 저장소 링크 (README가 [[00-README|00 인덱스]] 역할, 기동 절차는 [[10-DEPLOYMENT|10 배포]])
-- [ ] 아키텍처 다이어그램 1장 ([[02-ARCHITECTURE]])
+- [ ] 아키텍처 다이어그램 1장: Next.js(`web/`, 화면·`/api/v1` Route Handler·서버 도메인) + Supabase(Postgres·RLS·Auth) + Compose(redis·minio·qdrant·ai-gateway·worker) + AI gateway(Qwen·Kev) ([[02-ARCHITECTURE]], [[16-DECISIONS]] ADR-017)
 - [ ] 데모 영상 3분(백업용)
 - [ ] 발표 슬라이드 (§1 → §2 → §3.2 → 데모 → §7 → 이후 계획)
 - [ ] `docs/evidence/` 테스트·E2E·기동 로그

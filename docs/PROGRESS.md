@@ -13,8 +13,8 @@ updated: 2026-10-16
 
 해커톤 컷(데모 필수 / 있으면 좋음 / 이후)은 [[12-ROADMAP|12 로드맵]]을 따른다.
 
-- [ ] Phase 0 monorepo/Compose/CI
-- [ ] Phase 1 DB/Auth/RBAC
+- [ ] Phase 0 템플릿 정리/Compose(redis·minio·qdrant·ai-gateway·worker)/CI/Supabase 연결
+- [ ] Phase 1 Supabase migrations·RLS·`sol_role`/seed/Supabase Auth·RBAC
 - [ ] Phase 2 ingestion/normalization (fixture 20건)
 - [ ] Phase 3 Next.js UI (데스크톱 전용)
 - [ ] Phase 4 eligibility/SOL Score
@@ -57,3 +57,4 @@ updated: 2026-10-16
 | 2026-10-16 | 문서·web | 웹 상태·검증 라이브러리 확정(ADR-016). zod는 이미 `web/`에 있어(4.6.5) 그대로 두고 zustand 5.0.15를 `web/`에 설치. 16에 ADR-016, 06 §11에 사용 범위(공유 UI 상태만, 서버 데이터·URL 필터 제외) 추가. `AGENTS.md` 기술 스택, `conventions` 스킬 상태 표, `docs/boilerplate/setup.md`의 "필요할 때만 설치" 문구 갱신 | `pnpm verify` | `apps/web`(Phase 0) 생성 시 의존성 이전 필요. 아직 store 코드 없음 |
 | 2026-10-16 | 정리 | 템플릿 모바일 앱 제거(ADR-007). `mobile/` 폴더(추적 24개 파일과 무시된 `node_modules`·`dist`·`.expo`), 모바일 에이전트 5개(`mobile-designer`·`qa-mobile`·`qa-mobile-device`·`e2e-mobile`·`test-mobile`) 삭제. `verify.config.json`에서 mobile 프로젝트 제거. 지운 에이전트를 가리키던 `AGENTS.md`·`e2e-healer`·`frontend-developer`·`test-deployment`·`test-server` 참조 정리. `docs/CLAUDE.md` 문구 갱신 | `pnpm verify` 통과(게이트 시험의 `mobile 검증`은 폴더가 없어 건너뜀) | 루트 `format:check`의 `"!mobile/**"`는 게이트 시험이 본문을 고정해 유지. 편집 금지 파일(`.claude/settings.json` 모바일 허용 규칙, `.husky/pre-commit`·`.github/dependabot.yml` 언급)과 템플릿 문서·스킬·스크립트의 mobile 분기는 폴더가 없으면 건너뛰므로 그대로 둠. 웹 Playwright의 `mobile`(Pixel 7) 프로젝트는 템플릿 웹 코드 정리 때 처리 |
 | 2026-10-16 | 정리 | 웹 Playwright의 `mobile`(Pixel 7) 프로젝트 제거(ADR-007). `web/playwright.config.ts`·`web/playwright.auth.config.ts`에서 프로젝트와 `chromium-write`의 의존을 빼고, `e2e-auth/org-switcher.spec.ts`의 휴대폰 사이드바 분기 삭제. `e2e-web` 에이전트·`testing` 스킬 설명 갱신 | `pnpm verify` 통과(웹 Vitest 600/600, 빌드), `pnpm -C web test:e2e` 110/110·브라우저 시험 48/48, 로그인 뒤 E2E는 `--list`로 프로젝트가 `setup`·`chromium`·`chromium-write`만 남은 것 확인(로컬 Supabase가 없어 실행은 안 함) | 템플릿 시험의 320px 폭 검사(`e2e/responsive.spec.ts`, `site-header`·`team-settings`·`admin`·`settings-account`·`admin-status` 시험의 `setViewportSize`)는 남아 있음. 템플릿 웹 코드 정리 때 처리 |
+| 2026-10-16 | 문서 | 아키텍처 전환(ADR-017, 사용자 결정): NestJS·Prisma·자체 JWT → Next.js(`web/`, Route Handler `/api/v1`, `web/server/<도메인>`, worker `web/worker`) + Supabase(Postgres·RLS·Auth). MinIO·Qdrant·Redis/BullMQ·Python AI·Compose 유지. 개발 DB·Auth는 Supabase 클라우드(Pro). 00~20 전 문서·`docs/CLAUDE.md`·루트 `CLAUDE.md`·`AGENTS.md` 머리절·README·`docs/boilerplate/README.md` 갱신: `organization_id`→`org_id`, 업무 역할 `memberships.sol_role`, service role은 worker·seed만, 세션 쿠키는 `@supabase/ssr`(HttpOnly 아님, CSP nonce), `/health/ready` 503 규칙(db·redis·storage), 시험은 Vitest·PGlite 정책 시험·Playwright, seed는 `pnpm demo:reset`. ADR-001·002 폐기, ADR-015·016 경로 갱신, 미결정 8~15 추가 | 낡은 표현 grep(남은 것은 fixture 기술 목록·ADR 이력·용어 대응표·부정문), frontmatter·위키링크·표 파이프 검사, 로그인 경로·seed 줄·503 규칙 교차 확인 | 미결정 11~15(현재 조직 고르기·구성원 관리 권한 기준·가입 방식·로그인 감사 지점·`pg_trgm`), 05의 새 `DELETE /admin/users/:id`(비활성화→조직에서 내보내기) 확인 필요, mermaid 렌더 미확인, 미커밋 |

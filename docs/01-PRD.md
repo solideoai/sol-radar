@@ -37,6 +37,8 @@ SOL RADAR는 공공 SI·AX 기업이 `어떤 입찰에 참여해야 하는가`�
 
 권한은 역할 순서가 아니라 리소스별 정책으로 적용한다. 표기는 `ADMIN, SALES, ANALYST`처럼 허용 역할을 나열한다. 최종 BID 결정 기록은 `ADMIN, SALES`. 상세는 [[09-SECURITY|09 보안]], [[05-API-SPEC|05 API]].
 
+로그인·초대 수락은 Supabase Auth(이메일+비밀번호, 초대 기반 가입)가 맡는다. 위 네 역할은 조직 구성원 표의 업무 역할 `memberships.sol_role` 값이고, 초대·구성원 관리 같은 조직 관리 권한(`org_role` owner·member)과 구분한다. 조직 데이터는 `org_id`로 소유를 표시하고 Supabase RLS 정책이 조직 밖 접근을 막는다. 다른 조직 자원 조회는 `404`다 ([[16-DECISIONS|16 ADR]] ADR-017).
+
 ## 기존 대안과 차별점
 나라장터(국가종합전자조달) 자체 알림과 민간 입찰정보 서비스는 일반적으로 **공고 수집·키워드 알림·검색**까지를 제공한다. SOL RADAR는 그 다음 단계, 즉 "우리 회사가 이 공고에 들어가야 하는가"를 다룬다.
 
@@ -71,10 +73,10 @@ SOL RADAR는 공공 SI·AX 기업이 `어떤 입찰에 참여해야 하는가`�
 ## 비기능 요구
 - API p95 응답 목표: 캐시된 공고 목록 800ms 이내(개발 검증 환경 기준 목표).
 - 데이터 수집: 체크포인트·중복 방지·재시도·백필 지원.
-- 개인정보/회사 기밀: 테넌트 격리, 파일 접근 검증, 로그 마스킹.
+- 개인정보/회사 기밀: 테넌트 격리(Supabase RLS, `org_id`, 정책 시험으로 검증), 파일 접근 검증, 로그 마스킹.
 - 분석: 실패·근거 부족 시 상태 표시; 무근거 확률 표현 금지. AI 불가 시 규칙 점수만으로 완결(`analysis.status=PARTIAL`).
 - 화면: 데스크톱 전용. 최소 폭 1280px, 1440px 기준 레이아웃, 1280~1920 반응형. WCAG AA, 키보드 조작, 색만으로 의미 전달 금지. 상세는 [[06-UI-UX|06 UI]].
-- 데모 환경: GPU 없는 노트북 1대에서 `AI_PROVIDER=mock`으로 전 기능 시연 가능. 상세는 [[10-DEPLOYMENT|10 배포]].
+- 데모 환경: GPU 없는 노트북 1대에서 `AI_PROVIDER=mock`으로 전 기능 시연 가능. DB와 인증은 Supabase 클라우드 프로젝트(개발 환경)라 시연 중 인터넷 연결이 필요하다. 데모·배포 실행 환경의 최종안과 네트워크가 끊겼을 때의 대체 경로는 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표). 상세는 [[10-DEPLOYMENT|10 배포]].
 
 ## 사용자 여정
 ```mermaid
@@ -95,14 +97,14 @@ flowchart LR
 
 |장면|이름|보여주는 것|
 |---|---|---|
-|S0|사전 준비|`demo` 프로필 기동, `pnpm demo:reset`, `sales@soltech.invalid` 로그인. 조작 없음|
+|S0|사전 준비|Supabase 프로젝트 접속 확인, `demo` 프로필 기동, `pnpm demo:reset`, `sales@soltech.invalid` 로그인. 조작 없음|
 |S1|문제 슬라이드|조작 없음. 수작업 검토의 시간·누락 문제|
 |S2|대시보드|DEMO 배지, 우상단 `AI: mock`, 목록 19건(격리 1건 제외), 마감 임박 FX-14, 격리 1건 FX-12(title 누락)|
 |S3|자격 판정과 근거|FX-01 필수 자격 3건 SATISFIED + 근거 서랍 → FX-03 NOT_SATISFIED. Kev가 BID 0.55를 내도 권고는 NO-BID, `MODEL_RULE_DISAGREEMENT` 플래그|
 |S4|라이브 분석과 결정|FX-02 분석 요청 → polling → SOL Score 72, WATCH → 사람 결정 + 사유 기록 → `REVIEW_ASSIGNED` 인앱 알림|
 |S5|LIVE 수집|수집 1회: FX-07 68→76 WATCH→BID, FX-06 기한 변경 revision + 알림 1건, FX-09 중복 0건|
 |S6|AI 장애 대체|`docker compose stop ai-gateway` → FX-01 재분석 `PARTIAL`, 배너, `AI: unavailable`|
-|S7|테넌트 격리|`org-02` VIEWER로 FX-01 자격 판정 조회 → `404 NOT_FOUND`|
+|S7|테넌트 격리|`org-02` VIEWER로 FX-01 자격 판정 조회 → RLS가 `org-01` 행을 숨겨 `404 NOT_FOUND`|
 
 ## 성공 측정
 > [!warning] 미검증 가정
@@ -124,5 +126,6 @@ flowchart LR
 - [[02-ARCHITECTURE|02 아키텍처]]
 - [[08-SCORING|08 스코어링]]
 - [[12-ROADMAP|12 로드맵]]
+- [[16-DECISIONS|16 ADR]]
 - [[18-HACKATHON|18 해커톤]]
 - [[19-DEMO-SCENARIO|19 데모 시나리오]]

@@ -10,7 +10,7 @@ updated: 2026-10-16
 
 # SOL RADAR — 구현 문서 인덱스
 
-> 최종 아키텍처: Next.js App Router + NestJS + PostgreSQL(Prisma) + Redis/BullMQ + Qdrant + MinIO + Python AI Service(Qwen, Kev) + Docker Compose.
+> 최종 아키텍처: Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen, Kev) + Docker Compose ([[16-DECISIONS|ADR-017]]).
 
 ## 10줄 요약
 
@@ -21,8 +21,8 @@ updated: 2026-10-16
 5. SOL Score(0~100)는 **결정론적 규칙**으로 계산하고 5개 요소·입력 스냅샷·알고리즘 버전을 저장한다. 낙찰 확률이 아니다.
 6. Kev(소형 결정 모델)는 BID/WATCH/NO_BID 보조 의견만 낸다. 규칙 판정을 뒤집을 수 없고, 분포는 수주확률이 아니라고 UI에 고지한다.
 7. 시스템은 **권고**만 하고, 최종 결정은 사람이 사유와 함께 `bid_reviews`에 기록한다.
-8. 모델이 꺼져도 규칙만으로 `PARTIAL` 결과를 낸다. 외부 API가 없어도 fixture 20건과 `DEMO_MODE`로 전 기능이 돈다. DEMO 데이터는 DEMO로 표시한다.
-9. 테넌트 격리(`organization_id`), JWT 회전, 외부 문서 불신 처리, 감사 로그를 기본으로 한다.
+8. 모델이 꺼져도 규칙만으로 `PARTIAL` 결과를 낸다. 조달 외부 API가 없어도 fixture 20건과 `DEMO_MODE`로 전 기능이 돈다. DEMO 데이터는 DEMO로 표시한다.
+9. 테넌트 격리(`org_id` + Supabase RLS), Supabase Auth 세션, 외부 문서 불신 처리, 감사 로그를 기본으로 한다.
 10. 해커톤 범위: 결제·모바일·자동 투찰·승률 예측은 **범위 외**. 데스크톱 전용.
 
 ## 읽는 순서
@@ -36,7 +36,7 @@ updated: 2026-10-16
 ## 구현 규칙
 
 1. 문서 번호 순서로 읽되 01~05의 계약부터 확정한다. 미결정 사항은 [[16-DECISIONS|16 ADR]]에 기록한다.
-2. 코드는 `apps/web`, `apps/api`, `services/ai`, `packages/contracts`, `infra/`에 둔다. API 계약은 OpenAPI를 단일 원천으로 사용한다.
+2. 코드는 `web/`(화면·Route Handler `web/app/api/v1`·서버 도메인 `web/server/<도메인>`), `web/worker/`(BullMQ 소비자), `supabase/migrations/`(스키마·RLS, append-only), `services/ai/`, `infra/`, `fixtures/`에 둔다. 외부 API 계약은 zod 스키마(`web/server/<도메인>/*.model.ts`)를 단일 원천으로 사용한다([[16-DECISIONS|ADR-016·017]]).
 3. MVP의 end-to-end 세로 기능은 **샘플 공고 수집 → 자격 검증 → SOL Score → BID/WATCH/NO-BID → 대시보드 → 알림 이벤트**다.
 4. 공식 API 접근 실패, 모델 오프라인, 파일 없음에서도 데모가 가능하도록 fixture와 명시적 `DEMO_MODE`를 제공한다. 데모 데이터는 실데이터처럼 표시하지 않는다.
 5. 정확하지 않은 수주확률, 평가위원 점수, 미래 발주예측은 만들어내지 않는다. 근거 미확보 시 `INSUFFICIENT_DATA`로 표시한다.
@@ -51,13 +51,13 @@ updated: 2026-10-16
 | 01 | [[01-PRD]] | 제품 요구사항 / MVP 범위 / 차별점 / 성공 지표 |
 | 02 | [[02-ARCHITECTURE]] | 서비스 경계·흐름·데모 토폴로지 |
 | 03 | [[03-AI-PIPELINE]] | env 플래그(`AI_PROVIDER`) / Qwen `RequirementExtraction` 스키마·프롬프트 / Kev 질문 세트 `kev-qs/v0.1`·mock adapter / 장애·수용 기준 |
-| 04 | [[04-DATABASE]] | PostgreSQL 스키마·ERD·ENUM 19종·seed 범위·식별자 규칙 |
-| 05 | [[05-API-SPEC]] | NestJS HTTP 계약 30개·쿠키 인증·DTO(TS)·오류 코드 20개·예시 |
+| 04 | [[04-DATABASE]] | Supabase Postgres 스키마·RLS 정책·ERD·ENUM·seed 범위·식별자 규칙 |
+| 05 | [[05-API-SPEC]] | Route Handler(`/api/v1`) 계약·Supabase Auth·DTO(zod)·오류 코드·예시 |
 | 06 | [[06-UI-UX]] | 데스크톱 전용 화면 명세·디자인 토큰·라우트별 상태 표·상세 와이어프레임·분석 상태 머신 |
 | 07 | [[07-DATA-PIPELINE]] | Connector·정규화·변경 감지 / fixture 20건 명세(`FX-01`~`FX-20`)·mock 추출·mock Kev 값 |
 | 08 | [[08-SCORING]] | SOL Score 정규화 함수·missing 정책·결정 정책·SOL테크 프로필(단일 원천)·worked example 3건 |
-| 09 | [[09-SECURITY]] | 인증(HttpOnly 쿠키)·RBAC 표·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
-| 10 | [[10-DEPLOYMENT]] | Docker Compose 실행 프로필(demo / ai-local / ai-hosted)·데모 당일 기동 12단계·장애 주입 |
+| 09 | [[09-SECURITY]] | 인증(Supabase Auth)·RLS·RBAC 표(`sol_role`)·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
+| 10 | [[10-DEPLOYMENT]] | Docker Compose(redis·minio·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
 | 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(데모 필수 / 있으면 좋음 / 이후)·D-2~D-day |
 | 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오 P1(mock) |
@@ -76,24 +76,24 @@ updated: 2026-10-16
 | 주장 | 어디서 확인하나 | 검증 수단 |
 |---|---|---|
 | 수주확률을 표시하지 않는다 | [[03-AI-PIPELINE]] 품질 가드레일, [[06-UI-UX]] 상세 화면 상태, [[18-HACKATHON]] §7 | G4 ([[11-TESTING]]) |
-| 점수는 결정론적이고 재현 가능하다 | [[08-SCORING]] 점수표·정규화 함수, [[04-DATABASE]] `score_runs.input_snapshot`, `algorithm_version` | Scoring Jest goldens |
+| 점수는 결정론적이고 재현 가능하다 | [[08-SCORING]] 점수표·정규화 함수, [[04-DATABASE]] `score_runs.input_snapshot`, `algorithm_version` | Scoring Vitest goldens |
 | Kev는 규칙 판정을 뒤집을 수 없다 | [[08-SCORING]] Kev 처리, [[03-AI-PIPELINE]] 가드레일 | G3 |
 | AI 없이도 결과가 나온다 | [[02-ARCHITECTURE]] 장애 원칙, [[10-DEPLOYMENT]] demo 프로필 | G6 |
 | 근거 인용은 원문과 대조된다 | [[15-DATA-CONTRACTS]] `EvidenceRef` 검증 | AI pytest citations |
 | 사람이 최종 결정하고 기록이 남는다 | [[08-SCORING]] 결정 정책, [[04-DATABASE]] `bid_reviews`, `audit_logs` | E2E 로그인→공고→분석→검토 |
-| 같은 공고를 두 번 수집해도 중복이 없다 | [[07-DATA-PIPELINE]] 변경 감지, [[04-DATABASE]] UNIQUE 제약 | G1·G2, Pipeline Jest |
-| 다른 조직 데이터를 볼 수 없다 | [[09-SECURITY]] RBAC·IDOR, [[05-API-SPEC]] orgId 토큰 결정 | G5, API Supertest |
+| 같은 공고를 두 번 수집해도 중복이 없다 | [[07-DATA-PIPELINE]] 변경 감지, [[04-DATABASE]] UNIQUE 제약 | G1·G2, Pipeline Vitest |
+| 다른 조직 데이터를 볼 수 없다 | [[09-SECURITY]] RBAC·IDOR·RLS, [[04-DATABASE]] `org_id` RLS 정책, [[05-API-SPEC]] `orgId` 세션 결정 | G5, RLS 정책 시험(PGlite)·Route Handler 시험·E2E |
 | 데모 데이터는 가상이며 그렇게 표시된다 | [[04-DATABASE]] `is_demo`, [[06-UI-UX]] DEMO 배지, [[18-HACKATHON]] §7 | G8 |
 | 근거 없는 값은 만들지 않는다 (`UNKNOWN`·`CONFLICTED`로 남긴다) | [[15-DATA-CONTRACTS]] §2 `FieldState`, §5 인용 검증 | AI pytest schema·citations |
-| 분석은 재현 가능한 키로 식별된다 | [[04-DATABASE]] `score_runs`(revision_id, company_profile_id, algorithm_version, prompt_hash, input_snapshot) | DB migration tests |
+| 분석은 재현 가능한 키로 식별된다 | [[04-DATABASE]] `score_runs`(revision_id, company_profile_id, algorithm_version, prompt_hash, input_snapshot) | `pnpm test:db` (제약·정책 시험, PGlite) |
 | Kev는 보수적 방향으로만 영향을 준다 | [[03-AI-PIPELINE]] §5.5 질문별 사용처·규칙 충돌 처리 | G3, AI pytest adapter |
 | Kev는 실재하는 Apache-2.0 모델이다. 영어 모델이며 한국어 성능은 미검증이다 | 아래 §출처, [[16-DECISIONS]] 미결정 2번, [[03-AI-PIPELINE]] §5.6 영어 템플릿 | 2026-10-16 README·모델 카드 확인 |
 | 외부 API 필드를 지어내지 않았다 | [[07-DATA-PIPELINE]] registry 절, [[16-DECISIONS]] 미결정 1번 | `> [!warning] 미검증 가정` 콜아웃 전수 |
 
 ## Obsidian 규약
 
-- 이 폴더가 vault이자 모노레포의 `docs/` 폴더다. 파일 이름은 바꾸지 않는다 (위키링크가 파일명 기준).
-- `boilerplate/`는 저장소를 시작한 템플릿(agentic-boilerplate)의 문서다. vault 규약 대상이 아니며 검색·그래프에서 제외한다(`.obsidian/app.json`). 이 vault의 문서와 다르면 이 vault의 문서가 우선한다. 분류는 `boilerplate/README.md`.
+- 이 폴더가 vault이자 저장소의 `docs/` 폴더다. 파일 이름은 바꾸지 않는다 (위키링크가 파일명 기준).
+- `boilerplate/`는 저장소를 시작한 템플릿(agentic-boilerplate)의 문서다. vault 규약 대상이 아니며 검색·그래프에서 제외한다(`.obsidian/app.json`). ADR-017 이후 Supabase(DB·RLS·인증)와 `web/server/<도메인>` 구조를 다루는 템플릿 문서는 SOL RADAR에도 적용된다. Expo(`mobile/`) 문서는 적용하지 않고, Vercel·EAS 배포 문서는 배포처가 정해질 때까지 보류한다([[16-DECISIONS|16 ADR]] 미결정 8번). 이 vault의 문서와 다르면 이 vault의 문서가 우선한다. 분류는 `boilerplate/README.md`.
 - 모든 문서에 frontmatter(`title`, `doc`, `status`, `tags`, `updated`)를 둔다. `status`는 `draft → review → final`. 태그는 `sol-radar` + 주제 1~3개(`product`, `architecture`, `ai`, `pipeline`, `db`, `api`, `ui`, `scoring`, `security`, `ops`, `test`, `decision`, `hackathon`, `demo`, `glossary`, `moc`).
 - 문서 간 참조는 `[[05-API-SPEC|05 API 명세]]` 형식의 위키링크. 문서 끝에 `## 관련 문서`를 둔다.
 - 콜아웃: `> [!warning] 미검증 가정`, `> [!success] 검증됨 (날짜, URL)`, `> [!todo]`, `> [!tip] 심사 포인트`.

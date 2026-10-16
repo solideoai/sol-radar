@@ -57,17 +57,17 @@ SOL RADAR는 이 검토 과정을 데이터와 AI 분석으로 지원합니다.
 
 | 영역 | 기술 | 역할 |
 | --- | --- | --- |
-| 기반 프로젝트 | agentic-boiler-plate | 초기 개발 환경 및 공통 기능 |
-| 프론트엔드 | Next.js · TypeScript | 서비스 화면 |
-| 백엔드 | NestJS · TypeScript | API 및 비즈니스 로직 |
-| 데이터베이스 | PostgreSQL · Prisma | 공고·기업·분석·검토 이력 저장 |
-| 큐·캐시 | Redis · BullMQ | 비동기 수집 및 분석 작업 |
+| 기반 프로젝트 | agentic-boiler-plate | 초기 개발 환경 및 공통 기능(조직·역할·인증 견본, 검증 게이트) |
+| 웹·서버 | Next.js · TypeScript | 서비스 화면, API(Route Handler `/api/v1`), 서버 도메인 로직(`web/server`) |
+| 데이터베이스·인증 | Supabase (Postgres · RLS · Auth) | 공고·기업·분석·검토 이력 저장, 조직별 접근 제어(RLS), 로그인 |
+| 큐·캐시 | Redis · BullMQ | 비동기 수집 및 분석 작업(worker `web/worker`) |
 | AI 서비스 | Python · FastAPI | AI 모델 연동 및 분석 파이프라인 |
 | AI 모델 | Qwen · Kev | 요구사항 구조화 및 의사결정 보조 |
 | 벡터 검색 | Qdrant | 관련 문서 및 근거 검색 |
 | 파일 저장 | MinIO | 공고 첨부파일 및 원본 문서 보관 |
-| 실행 환경 | Docker Compose | 로컬 및 서버 서비스 구성 |
+| 실행 환경 | Docker Compose | Redis·MinIO·Qdrant·AI 서비스·worker 실행 |
 
+개발 DB·인증은 Supabase 클라우드 프로젝트를 씁니다. 데모·배포 실행 환경은 아직 정하지 않았습니다([결정 기록](docs/16-DECISIONS.md) ADR-017·미결정 8번).
 모델의 구체적인 버전과 연동 방식은 검증 후 확정합니다.
 
 ## 데이터와 분석 원칙
@@ -91,10 +91,10 @@ SOL RADAR 전용 개발 환경을 구성한 뒤 아래 내용을 이 문서에 �
 - 환경변수 예제와 설정 방법
 - 로컬 인프라 실행 방법
 - 데이터베이스 마이그레이션 및 샘플 데이터 적재 방법
-- 웹·API·AI 서비스 실행 명령어
+- 웹·worker·AI 서비스 실행 명령어
 - 테스트·린트·타입 검사 명령어
 
-API 키, 데이터베이스 비밀번호 등 비밀 값은 Git에 커밋하지 않습니다.
+API 키, Supabase service role 키, 데이터베이스 연결 문자열 등 비밀 값은 Git에 커밋하지 않습니다.
 
 ## 프로젝트 문서
 
@@ -110,13 +110,13 @@ API 키, 데이터베이스 비밀번호 등 비밀 값은 Git에 커밋하지 �
 | [PRD](docs/01-PRD.md) | 제품 요구사항 및 MVP 범위 |
 | [아키텍처](docs/02-ARCHITECTURE.md) | 서비스 구성 및 역할 |
 | [AI 파이프라인](docs/03-AI-PIPELINE.md) | 모델 연동 및 분석 흐름 |
-| [데이터베이스](docs/04-DATABASE.md) | 데이터 모델 및 ERD |
-| [API 명세](docs/05-API-SPEC.md) | 백엔드 API 계약 |
+| [데이터베이스](docs/04-DATABASE.md) | Supabase 스키마·RLS 정책 및 ERD |
+| [API 명세](docs/05-API-SPEC.md) | API 계약(`/api/v1`) |
 | [UI·UX](docs/06-UI-UX.md) | 화면 및 사용자 흐름 |
 | [데이터 수집](docs/07-DATA-PIPELINE.md) | 공식 API 수집 및 정규화 |
 | [점수 산정](docs/08-SCORING.md) | SOL Score 및 권고 기준 |
 | [보안](docs/09-SECURITY.md) | 인증·권한·정보 보호 |
-| [배포](docs/10-DEPLOYMENT.md) | Docker 및 서버 환경 |
+| [배포](docs/10-DEPLOYMENT.md) | Docker Compose·Supabase 실행 환경 |
 | [테스트](docs/11-TESTING.md) | 검증 및 수용 기준 |
 | [로드맵](docs/12-ROADMAP.md) | 구현 순서 및 우선순위 |
 | [진행 상황](docs/PROGRESS.md) | Phase 체크리스트 및 작업 로그 |

@@ -1,10 +1,10 @@
 # 먼저: SOL RADAR 설계 문서가 이 파일보다 우선한다
 
 이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` ~ `docs/20-GLOSSARY.md`)다.
-기술 스택은 Next.js + NestJS + PostgreSQL(Prisma) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen·Kev) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-001·002·015).
+기술 스택은 Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen·Kev) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017).
 모바일(1280px 미만 레이아웃·`mobile/` Expo 앱)과 결제·구독은 만들지 않는다. 화면은 데스크톱 1280px 이상이다(`docs/16-DECISIONS.md` ADR-007).
 이 파일의 나머지는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히면 설계 문서를 따른다.
-Supabase(인증·DB·RLS·anon 키), Expo 앱(`mobile/`), `web/server/<도메인>/` 구조, Vercel·EAS 배포, 아래 "기술 스택" 절은 템플릿 기준이다.
+아래의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조 규칙은 설계와 일치하므로 따른다(ADR-017). Expo 앱(`mobile/`), Vercel·EAS 배포(배포처 미결정), 아래 "기술 스택" 절의 앱(Expo) 줄은 템플릿 기준이다.
 커밋 메시지 형식과 "결정적 강제 장치"(커밋 게이트·훅·린트를 끄거나 돌아가지 않기)는 그대로 지킨다.
 
 # 웹 코드 전에: 이 Next.js 는 학습 데이터와 다르다

@@ -22,7 +22,7 @@ SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이�
 
 | 파생값 | 출처 | 규칙 |
 |---|---|---|
-| `bid.domain` | `extraction.domain`(03에 `ExtractedField<string>`으로 추가 예정)이 `KNOWN`이면 그 값. 아니면 제목 + `extraction.summary`를 `apps/api/src/scoring/domain-keywords.yaml`로 분류 | 값 집합: `민원`, `데이터 플랫폼`, `교육`, `AX`, `스마트시티`, `국방`, `기타`. 키워드 예: 민원·행정정보 → `민원`, 데이터 플랫폼·데이터허브 → `데이터 플랫폼`, LMS·교육 → `교육`, AI·챗봇·지능형 → `AX`, CCTV·관제·스마트시티 → `스마트시티`, 국방·군 → `국방`. 어느 것도 안 맞으면 `UNKNOWN`(§4 missing) |
+| `bid.domain` | `extraction.domain`(03에 `ExtractedField<string>`으로 추가 예정)이 `KNOWN`이면 그 값. 아니면 제목 + `extraction.summary`를 `web/server/scoring/domain-keywords.yaml`로 분류 | 값 집합: `민원`, `데이터 플랫폼`, `교육`, `AX`, `스마트시티`, `국방`, `기타`. 키워드 예: 민원·행정정보 → `민원`, 데이터 플랫폼·데이터허브 → `데이터 플랫폼`, LMS·교육 → `교육`, AI·챗봇·지능형 → `AX`, CCTV·관제·스마트시티 → `스마트시티`, 국방·군 → `국방`. 어느 것도 안 맞으면 `UNKNOWN`(§4 missing) |
 | `requiredFte` | `extraction.staffing`이 `KNOWN`이면 `Σ staffing[].minCount`(없는 항목은 1) | `UNKNOWN`이면 §3.3 `FTE_BY_BUDGET` 예산 구간 표 |
 
 > [!warning] 미검증 가정
@@ -49,7 +49,7 @@ solScore      = clamp(round(sum(points)), 0, 100)                          # 정
 
 ## 3. 정규화 함수 (의사코드)
 
-모든 함수는 `0.0~1.0`을 반환한다. 입력이 없으면 §4의 missing 정책을 따른다. 아래는 TypeScript 스타일 의사코드이며 `apps/api/src/scoring/normalizers/*.ts`에 1:1로 옮긴다.
+모든 함수는 `0.0~1.0`을 반환한다. 입력이 없으면 §4의 missing 정책을 따른다. 아래는 TypeScript 스타일 의사코드이며 서버 도메인 `web/server/scoring/`의 정규화 함수로 1:1 옮긴다(규칙 엔진은 Next 서버와 `web/worker`가 같은 코드를 쓴다).
 
 ### 3.1 기술 스택 적합 `skillMatch`
 
@@ -294,7 +294,7 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 
 ## 8. 검증
 
-- 골든셋: `fixtures/goldens/FX-xx.json`에 요소별 points와 최종 권고를 고정하고 규칙 단위 테스트 100% 통과.
+- 골든셋: `fixtures/goldens/FX-xx.json`에 요소별 points와 최종 권고를 고정하고 규칙 단위 테스트(Vitest, `web/server/scoring/*.test.ts`) 100% 통과.
 - 재현성: 같은 `input_snapshot_hash` + `algorithm_version`이면 같은 `score`와 같은 요소별 `points`. 두 번 계산해 byte-동일.
 - 요소별 missing 정책 테스트(§4 표의 행마다 1개).
 - Kev 승격 금지 테스트(`FX-03`, `FX-16`). 골든 시나리오 G3.

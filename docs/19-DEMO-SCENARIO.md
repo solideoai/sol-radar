@@ -31,13 +31,15 @@ updated: 2026-10-16
 | VIEWER | viewer@soltech.invalid (`org-01`) | 읽기 전용 확인(데모 미사용, RBAC 테스트용) |
 | VIEWER | viewer@other.invalid (`org-02`) | 격리 시연 |
 
+계정은 Supabase Auth 사용자이고, 역할 열은 조직 구성원 표의 업무 역할 `memberships.sol_role` 값이다. admin@soltech.invalid는 조직 관리 권한도 가진다(`org_role=owner` + `sol_role=ADMIN`). 계정·조직·구성원은 `pnpm demo:reset`이 service role 키로 Supabase 프로젝트에 만든다([[16-DECISIONS|16 ADR]] ADR-017).
+
 이메일 도메인은 예약 TLD `.invalid`(RFC 2606)라 실제로 전달되지 않는다. seed 합계: 조직 2, 사용자 5, 프로필 revision 2, 공고 19건 적재 + 1건 격리(FX-12), 사전 리뷰 2건(FX-01 BID, FX-03 NO-BID. FX-02는 S4에서 라이브로 기록). seed 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 bids=19 quarantined=1 reviews=2 isDemo=true` ([[10-DEPLOYMENT|10]]).
 
 비밀번호는 `.env.example`의 `DEMO_SEED_PASSWORD` placeholder로 두고 실제 값은 seed 시 입력한다. 문서와 저장소에 실제 값을 쓰지 않는다.
 
 ## 2. 장면별 fixture와 기대 결과
 
-seed 배치는 기동 시 revision 1로 적재되고, live 배치(FX-06 r2, FX-07 r2, FX-08 r2, FX-09 재전송, FX-10 02차, FX-20 429 시퀀스)는 S5에서 수동 수집으로 투입한다. 날짜는 seed 시 KST 18:00 기준 절대값으로 변환된다 ([[07-DATA-PIPELINE|07]]).
+seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-06 r2, FX-07 r2, FX-08 r2, FX-09 재전송, FX-10 02차, FX-20 429 시퀀스)는 S5에서 수동 수집으로 투입한다. 날짜는 seed 시 KST 18:00 기준 절대값으로 변환된다 ([[07-DATA-PIPELINE|07]]).
 
 | 장면 | fixture | 단계 | 특수 케이스 | 기대 자격 | 기대 점수 | 기대 권고 | mock Kev (BID/WATCH/NO_BID) |
 |---|---|---|---|---|---|---|---|
@@ -50,7 +52,7 @@ seed 배치는 기동 시 revision 1로 적재되고, live 배치(FX-06 r2, FX-0
 | S5 변경 감지 | FX-06 대전광역시 스마트시티 통합플랫폼 유지보수 (마감 +14일 → +28일) | NOTICE 정정 | 기한 변경 | 변동 없음 | 78 유지 | BID 유지, `BID_CHANGED` 1건 | — |
 | S5 멱등 | FX-09 서울특별시 공공데이터 개방 플랫폼 운영 | NOTICE | 동일 payload 재전송 | — | — | revision 1 유지, 이벤트 0건 추가 | — |
 | S6 장애 대체 | FX-01 재분석(`force=true`) + AI 장애 주입 플래그 | NOTICE | AI 추출 불가 | 규칙 기반 판정만 | 규칙 점수 | `PARTIAL` | 비활성 |
-| S7 격리 | FX-01 자격 판정을 `org-02` 토큰으로 조회 | — | — | — | — | `403`/`404` | — |
+| S7 격리 | FX-01 자격 판정을 `org-02` access token으로 조회 | — | — | — | — | `404 NOT_FOUND`(RLS가 `org-01` 행을 숨김). 공고 자체 조회는 공용이라 `200` | — |
 | Q&A 예비 | FX-04 NIA 데이터 거버넌스 컨설팅 (첨부 없음) | NOTICE | 자격 요건 본문에 없음 | `NEEDS_REVIEW`, 인용 0건 | — | WATCH | 0.60 WATCH |
 | Q&A 예비 | FX-05 건보공단 대국민 포털 재구축 (HWP 손상) | NOTICE | 첨부 파싱 실패 | `NEEDS_REVIEW`, 추출 `PENDING_REVIEW` | — | WATCH, "첨부 원문 확인" 배지 | 0.60 WATCH |
 | Q&A 예비 | FX-15 행정안전부 차세대 지방행정 공통기반 (80억) | NOTICE | 수행 상한 50억 초과 | `SATISFIED` | 58 | WATCH, `SCALE_LIMIT_EXCEEDED` | 0.60 WATCH |
@@ -64,12 +66,24 @@ seed 배치는 기동 시 revision 1로 적재되고, live 배치(FX-06 r2, FX-0
 
 장면 번호 규약: 데모 장면은 `S0`(준비)~`S7`, 테스트 골든 시나리오는 `G1`~`G10`([[11-TESTING|11]]). 둘을 섞어 쓰지 않는다.
 
-1. `docker compose -f infra/compose.yaml --profile demo up -d --build` 실행 후 `GET /health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 확인한다. 전체 12단계 기동 절차는 [[10-DEPLOYMENT|10 배포]].
-2. `pnpm demo:reset`으로 seed를 적용한다(`seed-demo` 서비스, migrate deploy + seed, 멱등). `/admin/ingestion`에서 SEED 배치 결과를 확인한다: `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}` (격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번).
-3. **FX-01, FX-03, FX-14는 분석을 미리 완료**해 둔다. **FX-02는 `NOT_ANALYZED`로 남겨** S4에서 라이브 분석한다. FX-06, FX-07은 r1 분석까지 완료해 둔다(S5에서 r2 재분석이 보이도록).
-4. 브라우저 창 두 개. 창 A: sales@soltech.invalid 로그인. 창 B: REST 클라이언트(또는 `curl`)에 viewer@other.invalid(`org-02`)로 로그인해 받은 쿠키를 넣어 둔다.
-5. 화면 우상단 모드 표시가 `AI: mock`인지 확인한다.
-6. 백업 영상(3분)이 로컬에서 열리는지 확인한다.
+> [!warning] 네트워크 의존 (대체 경로 미결정)
+> DB와 인증이 Supabase 클라우드 프로젝트(개발 환경)라 데모 내내 인터넷 연결이 필요하다. 끊기면 로그인과 조회가 멈추고 `/health/ready`가 `503`(`status:"unavailable"`)을 낸다. 네트워크 없이 시연하는 경로는 아직 없다. 대체 경로(사전 녹화 영상 재생, 로컬 Supabase CLI `pnpm db:start`로 전환)는 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표). 정해지기 전까지 회선이 끊기면 사실대로 말한다.
+
+1. 인터넷 연결과 Supabase 프로젝트를 확인한다. 환경 변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`(서버 전용 비밀, worker·seed만 쓴다)가 들어 있고, Supabase 대시보드에서 프로젝트에 접속되는지 본다. SOL RADAR 마이그레이션은 미리 적용돼 있어야 한다(`pnpm db:push`는 운영 DB를 바꾸므로 사용자 확인 뒤에만 실행한다).
+2. `docker compose -f infra/compose.yaml --profile demo up -d --build`로 redis·minio·qdrant·ai-gateway·worker를 띄운다. DB 컨테이너는 없다(DB는 Supabase). web은 Compose의 선택 서비스 `web`으로 띄우거나 `web/`에서 따로 실행한다(데모 실행 방식은 [[10-DEPLOYMENT|10 배포]]). `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 확인한다. `checks.db`는 Supabase(Postgres) 연결이다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]].
+3. `pnpm demo:reset`으로 seed를 적용한다(Compose 서비스가 아니라 스크립트. service role 키로 Supabase 프로젝트에 조직·계정·구성원·프로필·fixture를 적재, 멱등). `/admin/ingestion`에서 SEED 배치 결과를 확인한다: `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}` (격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번).
+4. **FX-01, FX-03, FX-14는 분석을 미리 완료**해 둔다. **FX-02는 `NOT_ANALYZED`로 남겨** S4에서 라이브 분석한다. FX-06, FX-07은 r1 분석까지 완료해 둔다(S5에서 r2 재분석이 보이도록).
+5. 창 A(브라우저): `http://localhost:3000/auth/login` 화면에서 sales@soltech.invalid로 로그인한다(Supabase Auth). 창 B(터미널): viewer@other.invalid(`org-02`)의 Supabase access token을 받아 둔다. 비밀번호는 환경 변수 `DEMO_SEED_PASSWORD`에서 읽고 명령에 직접 쓰지 않는다.
+
+   ```bash
+   export ORG02_TOKEN=$(curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/token?grant_type=password" \
+     -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Content-Type: application/json" \
+     -d "{\"email\":\"viewer@other.invalid\",\"password\":\"$DEMO_SEED_PASSWORD\"}" | jq -r .access_token)
+   ```
+
+   access token에는 만료 시간이 있다(값은 Supabase Auth 설정, 미검증). 60분 전에 받은 토큰이 S7 전에 만료될 수 있으니 발표 직전에 한 번 더 받는다. 응답 형식은 리허설에서 확인한다.
+6. 화면 우상단 모드 표시가 `AI: mock`인지 확인한다.
+7. 백업 영상(3분)이 로컬에서 열리는지 확인한다.
 
 ## 4. 클릭 경로
 
@@ -120,9 +134,16 @@ seed 배치는 기동 시 revision 1로 적재되고, live 배치(FX-06 r2, FX-0
 
 ### S7 격리와 마무리 (4:45~5:00)
 
-1. 창 B에서 `org-02`(viewer@other.invalid) 쿠키로 `GET /api/v1/bids/{FX-01 id}/qualification-checks` 호출.
-2. 보여야 하는 것: `403` 또는 `404`, 본문 `{error:{code,message,details,requestId}}`. 공고 자체는 공용일 수 있지만 회사 점수·판정·검토·인력은 조직 밖에서 보이지 않는다.
-3. 마무리 슬라이드: 정직성 표([[18-HACKATHON|18]] §7)와 범위 외 항목.
+1. 창 B 터미널에서 S0에서 받은 `org-02`(viewer@other.invalid) access token으로 FX-01 자격 판정을 조회한다. API는 web이 함께 제공한다(`http://localhost:3000/api/v1/...`).
+
+   ```bash
+   curl -s -i -H "Authorization: Bearer $ORG02_TOKEN" \
+     "http://localhost:3000/api/v1/bids/{FX-01 id}/qualification-checks"
+   ```
+
+2. 보여야 하는 것: `404 NOT_FOUND`, 본문 `{error:{code,message,details,requestId}}`. 서버가 토큰을 Supabase로 검증한 뒤 그 사용자 권한으로 조회하므로, RLS가 `org-01`의 자격 판정 행을 숨겨 404가 된다.
+3. 대조: 같은 토큰으로 `GET http://localhost:3000/api/v1/bids/{FX-01 id}` → `200`. 공고는 공용 데이터이고, 회사 점수·판정·검토·인력은 조직 밖에서 보이지 않는다.
+4. 마무리 슬라이드: 정직성 표([[18-HACKATHON|18]] §7)와 범위 외 항목.
 
 ## 5. 장면별 실패 대응
 
@@ -132,13 +153,16 @@ seed 배치는 기동 시 revision 1로 적재되고, live 배치(FX-06 r2, FX-0
 | S4 저장 | 결정 저장 실패 | 오류 코드와 `requestId`를 그대로 보여 주고 "오류를 숨기지 않는 설계"로 설명. 백업 영상 해당 구간 |
 | S5 수집 | 변경이 감지되지 않음 | 생략하고 S6으로. Q&A에서 [[07-DATA-PIPELINE\|07]] 변경 감지 설계로 답 |
 | S6 장애 | `PARTIAL`이 아니라 `FAILED` | `FAILED` 상태와 재시도 버튼을 보여 주고 "상태를 그대로 노출"로 설명 |
-| S7 격리 | `200`이 돌아옴 | **데모를 멈추고 사실대로 말한다.** 격리는 핵심 보안 주장이므로 리허설에서 반드시 확인 |
+| S7 격리 | 자격 판정 조회에 `200`이 돌아옴 | **데모를 멈추고 사실대로 말한다.** 격리는 핵심 보안 주장이므로 리허설에서 반드시 확인 |
+| S7 격리 | `401 UNAUTHENTICATED` | access token 만료. S0 5의 명령으로 토큰을 다시 받아 호출한다 |
+| 전 장면 | 인터넷 끊김으로 Supabase 접속 불가(로그인 실패, `/health/ready` `503`) | 대체 경로 미결정(§3 경고). 정해지기 전까지 사실대로 말하고 중단한다 |
 
 ## 6. 리허설 체크리스트
 
+- [ ] 발표 회장 회선에서 Supabase 프로젝트 접속, `/auth/login` 로그인, `org-02` access token 발급 확인
 - [ ] seed 재적용 포함 전체 경로 2회 연속 통과
 - [ ] 각 장면 소요 시간 기록, 합계 5분 이내
-- [ ] S7 `403` 응답 캡처, S3 `MODEL_RULE_DISAGREEMENT` 화면, S6 `PARTIAL` 화면을 `docs/evidence/`에 저장
+- [ ] S7 `404` 응답 캡처, S3 `MODEL_RULE_DISAGREEMENT` 화면, S6 `PARTIAL` 화면을 `docs/evidence/`에 저장
 - [ ] 백업 영상 3분 녹화 (S2~S7)
 - [ ] 1440px에서 상세 화면 상단 요약·자격·점수가 스크롤 없이 보이는지 확인
 - [ ] `AI: mock` 표시가 모든 화면에 보이는지 확인
@@ -152,3 +176,5 @@ seed 배치는 기동 시 revision 1로 적재되고, live 배치(FX-06 r2, FX-0
 - [[06-UI-UX|06 화면]]
 - [[10-DEPLOYMENT|10 배포·프로필]]
 - [[11-TESTING|11 테스트·수용 체크리스트]]
+- [[09-SECURITY|09 보안·격리]]
+- [[16-DECISIONS|16 ADR]]

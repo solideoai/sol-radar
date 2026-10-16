@@ -1,5 +1,5 @@
 ---
-title: "05. NestJS REST API 명세"
+title: "05. REST API 명세 (Next.js Route Handler)"
 doc: "05"
 status: review
 tags:
@@ -8,37 +8,37 @@ tags:
 updated: 2026-10-16
 ---
 
-# 05. NestJS REST API 명세
+# 05. REST API 명세 (Next.js Route Handler)
 
-OpenAPI(Swagger 생성, `apps/api` → `packages/contracts`)가 계약의 단일 원천이다. 이 문서는 그 OpenAPI가 담아야 할 내용을 사람이 읽는 형태로 적은 것이며, 둘이 다르면 OpenAPI를 고치고 이 문서를 맞춘다. CI는 생성된 클라이언트의 diff를 검사한다.
+외부 API 계약의 단일 원천은 **zod 스키마**(`web/server/<도메인>/*.model.ts`, [[16-DECISIONS|16 ADR]] ADR-016)다. Route Handler(`web/app/api/v1/**/route.ts`)는 요청을 이 스키마로 검증하고, 응답 타입도 같은 스키마에서 얻는다(`z.infer`). 이 문서는 그 스키마가 담아야 할 내용을 사람이 읽는 형태로 적은 것이며, 둘이 다르면 zod 스키마를 고치고 이 문서를 맞춘다. 상태 코드와 응답 형태는 Route Handler 계약 시험(Vitest, [[11-TESTING|11 테스트]])이 검사한다. 구조 결정은 ADR-017(Next.js + Supabase)이다.
 
 ## 1. 규칙
 
 |항목|규칙|
 |---|---|
-|기본 경로|`/api/v1`. 헬스체크만 `/health/live`, `/health/ready`|
+|기본 경로|`/api/v1`. Next.js Route Handler(`web/app/api/v1/**/route.ts`)로 구현하고, §2 표의 경로는 `/api/v1` 뒤에 붙는다(예: `/me` = `/api/v1/me`). 헬스체크만 `/health/live`, `/health/ready`이며 같은 Next 앱의 라우트(`web/app/health/{live,ready}/route.ts`)다. 별도 API 서버는 없다|
 |표현|JSON camelCase. 시각 ISO8601 UTC(`2026-10-16T02:00:00Z`). ID는 UUID. 금액은 KRW 정수 **문자열**(`"450000000"`)|
-|인증|로그인 시 `sol_access`(HttpOnly, Secure, SameSite=Lax, 15분)와 `sol_refresh`(HttpOnly, Secure, SameSite=Strict, `Path=/api/v1/auth`, 7일) 쿠키 발급. 본문·헤더로 토큰을 내려 주지 않는다([[09-SECURITY\|09 보안]])|
-|CSRF|상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수. 없으면 `403 CSRF_REJECTED`|
-|테넌트|`organizationId`는 항상 토큰 컨텍스트에서 가져온다. 요청 본문·쿼리의 조직 ID는 무시한다. 다른 조직 자원은 `403`이 아니라 `404`|
-|권한|표의 권한 열은 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC)|
+|인증|Supabase Auth 세션. 브라우저는 `@supabase/ssr`가 관리하는 세션 쿠키(HttpOnly 아님, 이유는 [[09-SECURITY\|09 보안]] 인증), 스크립트·시연(S7 격리 시연, 스모크)은 `Authorization: Bearer <Supabase access token>`. 서버는 둘 다 Supabase로 서명·만료를 검증하고, DB는 그 사용자 권한(anon 키 + 사용자 토큰)으로 불러 RLS가 적용된다. 로그인·로그아웃·토큰 갱신 엔드포인트는 이 API에 없다(§2 아래 참고)|
+|CSRF|쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수. 없으면 `403 CSRF_REJECTED`. `Authorization: Bearer` 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다|
+|테넌트|`orgId`는 서버가 세션 사용자의 멤버십(`memberships`)에서 정한다. 요청 본문·쿼리의 조직 ID는 무시한다. 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 거르므로 다른 조직 자원은 행이 보이지 않아 `403`이 아니라 `404`|
+|권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 조직 관리용이라 이 열에 쓰지 않는다|
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
-|목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...|null","hasNext":true}}`. 커서는 불투명 문자열|
+|목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
 |멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간|
 |요청 ID|모든 응답에 `X-Request-Id`. 로그·감사·오류 본문에 같은 값|
-|속도 제한|`/auth/login` IP당 10회/분, `/bids/:id/analyses` 조직당 30회/분, `/admin/ingestion/runs` 조직당 5회/분. 초과 `429` + `Retry-After`|
-|문서|`/api/docs`(Swagger UI), `/api/docs-json`은 개발 환경에서만|
+|속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `/admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 초과 `429` + `Retry-After`|
+|문서|계약의 원천은 zod 스키마다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성하고 개발 환경에서만 노출한다|
+
+> [!warning] 미결정 — 현재 조직을 고르는 방법
+> 템플릿은 가입할 때 개인 조직을 하나 만들고(`public.create_personal_org`), 화면의 현재 조직을 주소의 slug(`web/app/(app)/[slug]/`)로 고른다. 그래서 한 사용자가 멤버십을 여러 개 가질 수 있다. 이 API는 "세션 사용자의 업무 조직 하나"를 전제한다. 업무 조직을 정하는 규칙(SOL RADAR 조직 멤버십 하나로 제한 / 개인 조직 생성 끄기 / 요청에 slug 받기 등)은 Phase 1에서 정한다. 어느 쪽이든 요청에 실린 조직 값은 그대로 믿지 않고 멤버십으로 확인한다.
 
 ## 2. 엔드포인트
 
 |Method|Path|권한|기능|요청 → 응답|
 |---|---|---|---|---|
 |GET|`/health/live`|public|프로세스 생존|`200 {status:"ok"}`|
-|GET|`/health/ready`|public|의존성 상태|`200 {status:"ok"\|"degraded", checks:{db,redis,storage,ai}}`. `checks.ai ∈ "mock"\|"local"\|"hosted"\|"unavailable"`. DB 또는 Redis 불가 = `503`(같은 본문), AI만 불가 = `200` + `status:"degraded"`|
-|POST|`/auth/login`|public|쿠키 발급|`LoginInput` → `200 Me` + Set-Cookie|
-|POST|`/auth/refresh`|refresh 쿠키|토큰 회전|`204` + Set-Cookie. 재사용 탐지 시 `401 REFRESH_TOKEN_INVALID` + 패밀리 폐기|
-|POST|`/auth/logout`|auth|refresh 폐기, 쿠키 삭제|`204`|
-|GET|`/me`|auth|내 정보·역할|`Me`|
+|GET|`/health/ready`|public|의존성 상태|`200 {status:"ok"\|"degraded", checks:{db,redis,storage,ai}}`. `checks.db` = Supabase(Postgres) 연결, `checks.storage` = MinIO, `checks.ai ∈ "mock"\|"local"\|"hosted"\|"unavailable"`. db·redis·storage 중 하나라도 불가 = `503` + `status:"unavailable"`(같은 형태의 본문), AI만 불가 = `200` + `status:"degraded"`|
+|GET|`/me`|auth|세션 사용자·현재 조직·역할(`orgRole`·`solRole`)|`Me`|
 |GET|`/bids`|`ADMIN, SALES, ANALYST, VIEWER`|목록·검색·필터·커서|§3 → `Page<BidListItem>`|
 |GET|`/bids/:id`|`ADMIN, SALES, ANALYST, VIEWER`|상세(최신 revision, 추출, 최신 분석, 검토)|`BidDetail`|
 |GET|`/bids/:id/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 목록·변경 필드|`BidRevisionSummary[]`|
@@ -56,13 +56,19 @@ OpenAPI(Swagger 생성, `apps/api` → `packages/contracts`)가 계약의 단일
 |GET|`/dashboard/summary`|`ADMIN, SALES, ANALYST, VIEWER`|대시보드 요약|`DashboardSummary`|
 |GET|`/notifications`|auth|내 알림 목록|`?unreadOnly&cursor&limit` → `Page<Notification>`|
 |PATCH|`/notifications/:id/read`|auth(본인)|읽음 처리|`200 Notification`. 남의 알림은 `404`|
-|GET|`/admin/users`|`ADMIN`|구성원 목록|`User[]`|
-|POST|`/admin/users/invite`|`ADMIN`|초대(이메일·역할)|`InviteInput` → `201 User`|
-|PATCH|`/admin/users/:id`|`ADMIN`|역할 변경·비활성화|`UserPatch` → `200 User`|
+|GET|`/admin/users`|`ADMIN`|이 조직의 구성원 목록(템플릿 `memberships` + `profiles`)|`User[]`|
+|POST|`/admin/users/invite`|`ADMIN`|초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
+|PATCH|`/admin/users/:id`|`ADMIN`|업무 역할 변경(`memberships.sol_role`). `:id`는 구성원의 사용자 ID(`profiles.id`). 이 조직 구성원이 아니면 `404`|`UserPatch` → `200 User`|
+|DELETE|`/admin/users/:id`|`ADMIN`|비활성화 = 이 조직에서 내보내기(`memberships` 행 삭제, 템플릿 구성원 기능). 계정 자체 정지(`profiles.status='suspended'`)는 서비스 운영자(`profiles.is_admin`) 기능이라 이 API에 없다|`204`|
 |POST|`/admin/ingestion/runs`|`ADMIN`|수동 수집(멱등)|`IngestionRunInput` → `202 IngestionRun`|
 |GET|`/admin/ingestion/runs`|`ADMIN`|수집 이력|`Page<IngestionRun>`|
 |GET|`/admin/ingestion/runs/:id`|`ADMIN`|수집 결과·오류|`IngestionRun`|
 |GET|`/admin/ai/status`|`ADMIN`|AI 공급자·Kev 상태|`AiStatus`|
+
+로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
+
+> [!warning] 미결정 — 구성원 관리 권한의 기준
+> 템플릿의 RLS 정책은 초대·역할 변경·내보내기를 `org_role = 'owner'`(`public.my_owner_org_ids()`)에게만 연다. 이 API의 권한은 `sol_role = ADMIN`이다. 데모 `admin@soltech.invalid`는 `org_role=owner` + `sol_role=ADMIN`이라 데모 흐름은 영향이 없다. owner가 아닌 ADMIN을 어떻게 다룰지(정책을 `sol_role` 기준으로 새 마이그레이션에서 바꾸기 / ADMIN 부여 시 owner도 함께 부여)와 `sol_role` 열의 쓰기 권한·정책은 Phase 1에서 정한다([[04-DATABASE|04 DB]]).
 
 범위 밖(이번 해커톤에서 만들지 않음): 인력 배정 API(P1), 카카오 발송 설정, 경쟁사 분석.
 
@@ -85,11 +91,11 @@ OpenAPI(Swagger 생성, `apps/api` → `packages/contracts`)가 계약의 단일
 |`cursor`|string|—|서버 발급 값|이전 응답의 `nextCursor`. 변조는 `400 INVALID_CURSOR`|
 |`limit`|int|20|1~100|페이지 크기|
 
-커서는 `(sort 키 값, id)`를 base64url로 인코딩하고 HMAC을 붙인다. 필터·정렬이 바뀌면 커서를 버리고 처음부터 요청한다.
+커서는 `(sort 키 값, id)`를 base64url로 인코딩하고 HMAC(키: 서버 전용 env `API_CURSOR_SECRET`, [[10-DEPLOYMENT|10 배포]])을 붙인다. 필터·정렬이 바뀌면 커서를 버리고 처음부터 요청한다.
 
 ## 4. DTO
 
-`packages/contracts`가 OpenAPI에서 생성한 TS 타입이 실제 소스다. 아래는 같은 내용이다. `EvidenceRef`, `FieldState`, `ExtractedField`, `NormalizedBid`는 [[15-DATA-CONTRACTS|15 데이터 계약]], `RequirementExtraction`·`KevAssist`는 [[03-AI-PIPELINE|03 AI 파이프라인]]과 같다.
+실제 소스는 `web/server/<도메인>/*.model.ts`의 zod 스키마이고, TS 타입은 `z.infer`로 얻는다([[16-DECISIONS|16 ADR]] ADR-016). 아래는 같은 내용을 TS 인터페이스로 적은 것이다. `EvidenceRef`, `FieldState`, `ExtractedField`, `NormalizedBid`는 [[15-DATA-CONTRACTS|15 데이터 계약]], `RequirementExtraction`·`KevAssist`는 [[03-AI-PIPELINE|03 AI 파이프라인]]과 같다.
 
 ### 4.1 공통
 
@@ -99,7 +105,8 @@ interface Page<T> { items: T[]; pageInfo: PageInfo }
 interface ApiError {
   error: { code: ErrorCode; message: string; details?: Record<string, unknown>; requestId: string }
 }
-type Role = "ADMIN" | "SALES" | "ANALYST" | "VIEWER";
+type Role = "ADMIN" | "SALES" | "ANALYST" | "VIEWER";   // memberships.sol_role. §2 권한 열이 보는 값
+type OrgRole = "owner" | "member";                      // memberships.org_role. 조직 관리(초대·구성원)용, 템플릿 값
 type BidStage = "PLAN" | "PRE_SPEC" | "NOTICE";
 type BidStatus = "OPEN" | "AMENDED" | "CANCELLED" | "CLOSED";
 type Recommendation = "BID" | "WATCH" | "NO_BID";
@@ -113,17 +120,29 @@ type FactorKey = "skillMatch" | "pastPerformance" | "staffAvailability" | "scale
 
 ### 4.2 인증·사용자
 
+로그인 입력·토큰 DTO는 없다. 로그인은 Supabase Auth가 받는다(§6.1).
+
 ```ts
-interface LoginInput { email: string; password: string }
 interface Me {
-  id: string; email: string; name: string; role: Role;
+  id: string; email: string; name: string;   // profiles.id(= auth.users.id)·email·display_name
+  orgRole: OrgRole;                // 현재 조직의 memberships.org_role
+  solRole: Role;                   // 현재 조직의 memberships.sol_role
   organization: { id: string; name: string; slug: string; isDemo: boolean };
-  permissions: string[];           // 예: ["bids:read","analyses:create","reviews:create"]. 리소스별 정책에서 파생
-  sessionExpiresAt: string;        // access 쿠키 만료
+  permissions: string[];           // 예: ["bids:read","analyses:create","reviews:create"]. solRole과 리소스별 정책에서 파생
+  sessionExpiresAt: string;        // Supabase access token 만료 시각(JWT exp)
 }
-interface User { id: string; email: string; name: string; role: Role; disabledAt: string | null; lastLoginAt: string | null; createdAt: string }
-interface InviteInput { email: string; name: string; role: Role }
-interface UserPatch { role?: Role; disabled?: boolean }
+interface User {                   // 조직 구성원 = memberships + profiles
+  id: string; email: string; name: string;
+  orgRole: OrgRole; solRole: Role;
+  status: "active" | "suspended";  // profiles.status. suspended = 서비스 운영자가 정지(로그인과 조직 데이터가 막힌다)
+  joinedAt: string;                // memberships.created_at
+}
+interface InviteInput { email: string; solRole: Role }   // 수락하면 이 업무 역할로 구성원이 된다
+interface Invitation {             // 템플릿 invitations 행. solRole을 담을 열(sol_role)은 Phase 1 마이그레이션에서 더한다
+  id: string; email: string; orgRole: OrgRole; solRole: Role;
+  invitedBy: { id: string; name: string } | null; expiresAt: string; createdAt: string;
+}
+interface UserPatch { solRole: Role }
 ```
 
 ### 4.3 공고
@@ -162,7 +181,7 @@ interface BidDetail extends BidListItem {
 
 ```ts
 interface CompanyProfile {
-  id: string; organizationId: string; revision: number; name: string;
+  id: string; orgId: string; revision: number; name: string;
   technologies: { name: string; level?: "BASIC" | "INTERMEDIATE" | "EXPERT"; yearsOfExperience?: number }[];
   licenses: { code: string; name: string; validUntil?: string }[];        // code는 qualification-codes.yaml 키
   pastProjects: { title: string; agency?: string; amountKrw: string; startedAt: string; endedAt: string; domain: string; isPublicSector: boolean }[];
@@ -171,7 +190,7 @@ interface CompanyProfile {
   effectiveAt: string; createdBy: { id: string; name: string }; createdAt: string; note: string | null;
 }
 type CompanyProfileSummary = Pick<CompanyProfile, "id" | "revision" | "effectiveAt" | "createdBy" | "createdAt" | "note">;
-interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "organizationId" | "revision" | "createdBy" | "createdAt"> {
+interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "orgId" | "revision" | "createdBy" | "createdAt"> {
   baseRevision: number;            // 현재 최신 revision. 다르면 409 PROFILE_REVISION_CONFLICT
 }
 ```
@@ -228,7 +247,7 @@ interface ReviewInput {
 }
 interface Review {
   id: string; bidId: string; revisionId: string; scoreRunId: string | null;
-  reviewer: { id: string; name: string; role: Role }; decision: Recommendation; reason: string; decidedAt: string;
+  reviewer: { id: string; name: string; role: Role /* memberships.sol_role */ }; decision: Recommendation; reason: string; decidedAt: string;
   assignee: { id: string; name: string } | null;                 // bid_reviews.assignee_id
   systemRecommendationAtDecision: Recommendation | null;         // 결정 당시 시스템 권고. 불일치 통계용
   disagreementFlag: boolean;                                     // decision !== systemRecommendationAtDecision. bid_reviews.disagreement_flag
@@ -279,44 +298,59 @@ interface AiStatus {
 |---:|---|---|---|
 |400|`VALIDATION_ERROR`|DTO·쿼리 검증 실패|`{issues:[{path,message}]}`|
 |400|`INVALID_CURSOR`|커서 변조·만료|—|
-|401|`UNAUTHENTICATED`|access 쿠키 없음·위조|—|
-|401|`TOKEN_EXPIRED`|access 만료. 클라이언트는 `/auth/refresh` 후 재시도|—|
-|401|`INVALID_CREDENTIALS`|로그인 실패. 이메일 존재 여부를 구분하지 않는다|—|
-|401|`REFRESH_TOKEN_INVALID`|refresh 없음·폐기·재사용. 재사용이면 패밀리 전체 폐기|—|
-|403|`FORBIDDEN`|역할이 허용 목록에 없음|`{required:[Role]}`|
-|403|`CSRF_REJECTED`|`X-Requested-With` 누락|—|
-|403|`ACCOUNT_DISABLED`|`disabledAt` 설정된 사용자|—|
-|404|`NOT_FOUND`|자원 없음 **또는 다른 조직 자원**|`{resource:"bid"\|"analysis"\|...}`|
+|401|`UNAUTHENTICATED`|세션 쿠키·Bearer 토큰 없음, 서명이 틀림, 만료. 브라우저는 Supabase 클라이언트가 세션을 갱신한 뒤 다시 시도하고, 그래도 401이면 `/auth/login`으로 보낸다|—|
+|403|`FORBIDDEN`|`sol_role`이 허용 목록에 없음|`{required:[Role]}`|
+|403|`CSRF_REJECTED`|쿠키 인증의 상태 변경 요청에 `X-Requested-With` 누락|—|
+|403|`ACCOUNT_DISABLED`|`profiles.status='suspended'`인 사용자(토큰이 아직 유효해도)|—|
+|404|`NOT_FOUND`|자원 없음 **또는 다른 조직 자원**(RLS로 행이 보이지 않음)|`{resource:"bid"\|"analysis"\|...}`|
 |409|`PROFILE_REVISION_CONFLICT`|`baseRevision` ≠ 최신|`{currentRevision}`|
 |409|`ANALYSIS_IN_PROGRESS`|같은 입력의 run이 `QUEUED`/`RUNNING`인데 `force=true`|`{analysisId}`|
 |409|`IDEMPOTENCY_KEY_REUSED`|같은 키, 다른 본문|—|
 |409|`INGESTION_IN_PROGRESS`|같은 소스 수집이 `RUNNING`|`{runId}`|
 |422|`INVALID_SOURCE_DOCUMENT`|분석 대상 revision에 본문·첨부 텍스트가 전혀 없음, 또는 수집 fixture 파일이 스키마 위반|`{revisionId}` 또는 `{file, issues}`|
 |422|`HOSTED_NOT_APPROVED`|`AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=false`. `/admin/ai/status`에서만|—|
-|423|`ACCOUNT_LOCKED`|로그인 실패 누적 잠금|`{retryAfterSec}`|
-|429|`RATE_LIMITED`|속도 제한|`Retry-After` 헤더|
+|429|`RATE_LIMITED`|속도 제한(Redis로 세는 §1의 API 제한)|`Retry-After` 헤더|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
-|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB·스토리지 연결 불가로 요청을 받을 수 없음|`{component:"queue"\|"db"\|"storage"}`|
+|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음|`{component:"queue"\|"db"\|"storage"}`|
+
+`TOKEN_EXPIRED`·`INVALID_CREDENTIALS`·`REFRESH_TOKEN_INVALID`·`ACCOUNT_LOCKED`는 이 API가 내지 않는다. 로그인 실패·시도 제한·토큰 갱신 실패는 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
 
 `AI_UNAVAILABLE`, `EXTRACTION_FAILED`는 HTTP 오류가 아니다. 분석은 비동기이므로 AI 장애는 `AnalysisResult.status=PARTIAL` + `errorCode`로 나타난다. API가 503을 내는 경우는 요청 자체를 큐에 넣지 못할 때뿐이다.
 
 ## 6. 예시
 
-### 6.1 로그인
+예시의 인증 정보는 생략했다. 브라우저는 세션 쿠키를 싣고 상태 변경 요청에 `X-Requested-With: sol-radar`를 붙인다. 스크립트는 `Authorization: Bearer <Supabase access token>`을 붙인다(§1).
+
+### 6.1 로그인 (Supabase Auth, 이 API 밖)
+
+로그인은 자체 엔드포인트가 아니라 Supabase Auth가 받는다. 화면은 템플릿 `/auth/login`이고, 브라우저 Supabase 클라이언트가 Supabase Auth에 직접 로그인한다.
+
+```ts
+// web/app/auth/login/sign-in-form.tsx (템플릿)
+const { error } = await getSupabaseBrowser().auth.signInWithPassword({ email, password });
+// 성공하면 @supabase/ssr가 세션 쿠키를 쓰고, 화면을 다시 그리면 서버가 그 쿠키로 사용자를 확인한다.
+// 실패하면 error.code(invalid_credentials·user_banned 등)를 화면 문구로 바꾼다(§5 아래).
+```
+
+스크립트·시연(S7)은 Supabase Auth의 비밀번호 로그인으로 access token을 받아 Bearer로 쓴다. 비밀번호는 환경 변수에서 읽고 명령에 직접 쓰지 않는다([[19-DEMO-SCENARIO|19 데모 시나리오]] S0).
+
+```bash
+curl -s -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/token?grant_type=password" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Content-Type: application/json" \
+  -d "{\"email\":\"sales@soltech.invalid\",\"password\":\"$DEMO_SEED_PASSWORD\"}" | jq -r .access_token
+```
+
+로그인 뒤 세션 사용자 정보:
 
 ```json
-POST /api/v1/auth/login
-{"email":"sales@soltech.invalid","password":"********"}
-```
-`200` + `Set-Cookie: sol_access=...; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900` + `Set-Cookie: sol_refresh=...; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth; Max-Age=604800`
-```json
-{"id":"...","email":"sales@soltech.invalid","name":"김영업","role":"SALES",
+GET /api/v1/me
+{"id":"...","email":"sales@soltech.invalid","name":"김영업","orgRole":"member","solRole":"SALES",
  "organization":{"id":"...","name":"SOL테크","slug":"org-01","isDemo":true},
  "permissions":["bids:read","analyses:create","reviews:create","notifications:read"],
  "sessionExpiresAt":"2026-10-16T02:15:00Z"}
 ```
 
-seed 계정 규약: `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(org-01), `viewer@other.invalid`(org-02, 격리 시연). 비밀번호는 `.env.example`의 seed 변수.
+seed 계정 규약: `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(org-01), `viewer@other.invalid`(org-02, 격리 시연). `admin@soltech.invalid`는 `orgRole=owner` + `solRole=ADMIN`이다. 계정은 `pnpm demo:reset`(service role로 Supabase 프로젝트에 seed)이 만들고, 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`(`.env.example`에는 placeholder만)다.
 
 ### 6.2 분석 요청
 
@@ -408,12 +442,15 @@ SEED의 `retried: 2`는 FX-20(429 Retry-After 재시도) 케이스, `quarantined
 
 ## 7. 구현 유의
 
-- 모든 DTO는 Zod 스키마에서 OpenAPI와 NestJS ValidationPipe 양쪽을 만든다. 손으로 두 번 쓰지 않는다.
-- 조직 범위 조회는 Prisma 미들웨어 또는 리포지토리 계층에서 강제하고, `organizationId` 없는 조직 테이블 query를 lint 규칙으로 막는다.
+- Route Handler는 얇게 둔다: 인증(세션 쿠키 또는 Bearer, Supabase로 검증) → CSRF 검사(쿠키 인증의 상태 변경 요청) → `sol_role` 확인 → zod 검증 → `@/server/<도메인>` 배럴의 service 호출 → 오류를 §5 형식으로 바꾼다. 업무 로직은 `web/server/<도메인>/`(model·repo·service·index, `import "server-only"`)에 두고 Route Handler·Server Action·서버 컴포넌트가 같이 쓴다.
+- 모든 DTO·쿼리·본문은 zod 스키마 하나에서 검증과 타입(`z.infer`)을 얻는다. 화면 폼(react-hook-form)도 같은 스키마를 쓴다. 손으로 두 번 쓰지 않는다.
+- 요청 처리 경로의 DB 호출은 사용자 세션(anon 키 + 사용자 토큰)으로만 한다. 조직 범위는 RLS(`org_id in (select public.my_org_ids())`)가 강제하므로 코드가 조건을 빠뜨려도 다른 조직 행은 보이지 않고 404가 된다. 쓰기 권한도 RLS 정책으로 한 번 더 막고, 정책 시험은 `scripts/database.test.mjs`(`pnpm test:db`)에 둔다. `SUPABASE_SERVICE_ROLE_KEY`는 Route Handler에서 쓰지 않는다(worker·seed만, [[09-SECURITY|09 보안]]).
+- worker(`web/worker`)는 service role이라 RLS를 거치지 않는다. 조직 데이터를 쓸 때 `org_id`를 직접 지정하고, 테넌트 혼입을 막는 시험을 둔다.
 - `POST /bids/:id/analyses`의 중복 방지는 [[04-DATABASE|04 DB]]의 부분 UNIQUE 인덱스와 `Idempotency-Key` 둘로 한다. `force=false`에서 같은 입력의 완료 run이 있으면 새 job을 만들지 않고 `deduplicated:true`로 그 run을 돌려준다.
-- `POST /bids/:id/reviews`는 트랜잭션 안에서 `bid_reviews` insert + `audit_logs` insert를 쓰고, `assigneeUserId`가 있을 때만 `REVIEW_ASSIGNED` outbox(수신자 = 담당자, idempotency `reviewId+assigneeUserId+REVIEW_ASSIGNED`)를 함께 쓴다.
+- `POST /bids/:id/reviews`는 한 트랜잭션 안에서 `bid_reviews` insert + `audit_logs` insert를 쓰고, `assigneeUserId`가 있을 때만 `REVIEW_ASSIGNED` outbox(수신자 = 담당자, idempotency `reviewId+assigneeUserId+REVIEW_ASSIGNED`)를 함께 쓴다. supabase-js 질의 빌더는 여러 문장을 한 트랜잭션으로 묶지 못하므로, 이런 쓰기는 `supabase/migrations`의 DB 함수로 만들고 `rpc`로 부른다.
 - 응답에 Kev 값이 있을 때마다 `disclaimer` 문자열을 내려 보내고, UI는 그 문자열을 그대로 보여 준다.
-- OpenAPI JSON은 CI에서 생성해 `packages/contracts/openapi.json`과 diff가 없어야 한다. 바뀌면 PR에서 보이게 한다.
+- 계약 변경은 zod 스키마 diff와 Route Handler 계약 시험으로 PR에서 보이게 한다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성한다.
+- 템플릿의 `/api/auth/*`·`/api/users/me`·`/api/admin/users/[id]/status`는 템플릿 기능(로그인 수단 연결·운영자 정지 등)이며 이 계약(`/api/v1`) 밖이다. 남길지는 Phase 0 템플릿 정리에서 정한다.
 
 ## 관련 문서
 
@@ -422,5 +459,7 @@ SEED의 `retried: 2`는 FX-20(429 Retry-After 재시도) 케이스, `quarantined
 - [[04-DATABASE|04 DB]] — 테이블·ENUM 대응
 - [[06-UI-UX|06 UI]] — 화면별 사용 엔드포인트
 - [[08-SCORING|08 점수]] — `scoreBreakdown` 계산
-- [[09-SECURITY|09 보안]] — 쿠키·CSRF·RBAC
+- [[09-SECURITY|09 보안]] — 세션 쿠키·CSRF·RBAC·RLS
 - [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트
+- [[11-TESTING|11 테스트]] — Route Handler 계약 시험·RLS 정책 시험
+- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase)

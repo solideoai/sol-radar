@@ -17,8 +17,8 @@ updated: 2026-10-16
 ## 순차 실행 (Claude Code 기준)
 |Phase|작업|종료 조건|해커톤 컷|
 |---|---|---|---|
-|0|모노레포, workspace, Compose 기본, CI, `demo` 프로필 기동|web/api/postgres/redis/qdrant/minio/ai-gateway health green|데모 필수|
-|1|Prisma schema/migrations/seed, Auth/RBAC|회사 격리 통합 테스트 통과, seed 20건|데모 필수|
+|0|템플릿 정리(Supabase·`web/` 유지, 견본 도메인 `memos`·`tasks` 등 정리 범위 결정), `infra/compose.yaml`(redis·minio·qdrant·ai-gateway·worker), `web/worker` 진입점, AI gateway 골격, `/health/live`·`/health/ready`, Supabase 클라우드 프로젝트 연결·env, `pnpm check:env`, CI(`verify.config.json`), `demo` 프로필 기동|Compose 서비스(redis/minio/qdrant/ai-gateway/worker) healthy + web `/health/ready` green + Supabase 프로젝트 연결(`checks.db` ok)|데모 필수|
+|1|`supabase/migrations`로 SOL RADAR 스키마([[04-DATABASE\|04 DB]])·RLS·`memberships.sol_role`, 정책 시험, seed(`pnpm demo:reset`), Supabase Auth 연결·RBAC|회사 격리 RLS 정책 시험(`pnpm test:db`) 통과, seed 20건(19건 적재 + `FX-12` 격리 1건) 멱등|데모 필수|
 |2|공고 connector + fixture + 정규화 + revision|재실행 멱등 + 변경 감지 테스트|데모 필수|
 |3|Next.js 대시보드/검색/상세 (1440 기준)|fixture 실제 API로 화면 E2E|데모 필수|
 |4|기업 프로필·필수 자격·규칙 점수|골든셋 일치, 근거 저장, worked example 3건 일치|데모 필수|
@@ -40,16 +40,16 @@ updated: 2026-10-16
 |시점|할 일|
 |---|---|
 |D-2|기능 freeze. fixture·seed 고정. 전체 테스트 green. `docs/evidence/` 갱신|
-|D-1|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~12 리허설 2회 (재부팅 1회 포함). 이미지 빌드·pull 완료 확인. 네트워크 끊고 1회 더|
-|D-day|기동 절차 1~12. 리허설 후 seed 재실행으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
+|D-1|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~12 리허설 2회 (재부팅 1회 포함). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 네트워크 없는 대체 경로(로컬 Supabase CLI `pnpm db:start`, 사전 녹화 영상)는 미결정([[16-DECISIONS\|16 ADR]])|
+|D-day|기동 절차 1~12. 리허설 후 `pnpm demo:reset`(seed 재실행, 멱등)으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
 
 ```mermaid
 gantt
  title SOL RADAR MVP: 완료 조건 기반 단계
  dateFormat YYYY-MM-DD
  section 기반
- Monorepo Compose :a1, 2026-10-15, 3d
- Auth DB :a2, after a1, 3d
+ Template Compose :a1, 2026-10-15, 3d
+ Supabase Auth RLS :a2, after a1, 3d
  section 핵심
  Ingestion :a3, after a2, 4d
  UI :a4, after a3, 4d
@@ -67,6 +67,7 @@ P1: 변경 알림(카카오 계약 승인), 경쟁사 공개 낙찰 통계, 가�
 - [[01-PRD|01 PRD]]
 - [[10-DEPLOYMENT|10 배포]]
 - [[11-TESTING|11 테스트]]
+- [[16-DECISIONS|16 ADR]] — ADR-017(Next.js + Supabase), 데모 실행 환경 미결정
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]
 - [[18-HACKATHON|18 해커톤]]
 - [[PROGRESS]]

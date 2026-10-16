@@ -12,43 +12,69 @@ updated: 2026-10-16
 # 09. 인증·권한·보안·책임 있는 AI
 
 ## 인증
-NestJS Passport JWT. 토큰은 쿠키로만 전달하고 본문·헤더로 내려 주지 않는다 ([[05-API-SPEC|05 API]] §1과 동일).
+로그인·로그아웃·비밀번호 재설정·초대 수락은 **Supabase Auth**(이메일 + 비밀번호, 초대 기반 가입)가 맡는다([[16-DECISIONS|16 ADR]] ADR-017). 화면은 템플릿의 `/auth/login` 등, 서버 쪽은 템플릿 `web/server/auth`·`web/server/supabase`다. 자체 로그인·토큰 발급 엔드포인트와 비밀번호 해시 저장은 없다(계정은 Supabase의 `auth.users`). 템플릿의 판단 근거는 `docs/boilerplate/AUTH-SECURITY.md`([[05-API-SPEC|05 API]] §1과 같은 내용).
 
-|쿠키|속성|용도|
+세션 쿠키는 `@supabase/ssr`가 관리한다(`sb-<ref>-auth-token`, 길면 `.0`·`.1`로 나뉜다). 옵션은 서버와 브라우저가 같은 값을 쓰도록 `web/server/shared/auth-cookie.ts` 한 곳에 있다.
+
+|속성|값|이유|
 |---|---|---|
-|`sol_access`|HttpOnly, Secure, SameSite=Lax, `Path=/`, 15분|API 인증|
-|`sol_refresh`|HttpOnly, Secure, SameSite=Strict, `Path=/api/v1/auth`, 7일|`POST /auth/refresh` 회전. 재사용 탐지 시 패밀리 전체 폐기(`401 REFRESH_TOKEN_INVALID`)|
+|HttpOnly|**켜지 않는다**|브라우저 Supabase 클라이언트가 같은 쿠키를 읽어 로그인·로그아웃을 한다(Supabase SSR의 설계). XSS가 나면 토큰이 읽히므로 XSS 방어는 CSP nonce가 맡는다(아래)|
+|SameSite|`Lax`|다른 사이트의 POST·fetch에 쿠키가 실리지 않는다. 링크로 들어오는 GET은 로그인된 채 열린다|
+|Secure|운영 빌드에서 켬|https로만 오간다. 개발 서버(http://localhost)는 끈다|
+|Path·Max-Age|`/`·400일(`@supabase/ssr` 기본값)|세션 수명은 쿠키가 아니라 Supabase의 refresh token이 정한다|
 
-- CSRF: 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수. 누락 시 `403 CSRF_REJECTED`.
-- refresh token은 서버에 해시로 저장·폐기. 비밀번호는 Argon2id, plaintext 금지. 회원가입은 초대 기반(`POST /admin/users/invite`).
-- 로그인 실패 누적 시 `423 ACCOUNT_LOCKED`. 이메일 존재 여부는 응답으로 구분하지 않는다.
+- **API 인증**: `/api/v1` Route Handler는 브라우저의 세션 쿠키 또는 스크립트·시연의 `Authorization: Bearer <Supabase access token>`을 받는다. 서버는 둘 다 Supabase로 서명·만료를 확인하고(템플릿 `web/server/supabase/client.ts`의 `getClaims` 검증), DB는 그 사용자 토큰으로 불러 RLS가 적용된다. 요청자 ID는 검증된 토큰의 `sub`만 믿는다. 업무 역할(`sol_role`)과 계정 상태는 요청마다 DB에서 읽고, 토큰의 `user_metadata`(본인이 바꿀 수 있다)는 권한 판단에 쓰지 않는다.
+- **세션 갱신**: 화면 요청은 `web/proxy.ts`가 토큰을 갱신한다. 자체 refresh 엔드포인트는 없다.
+- **CSRF**: 쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. Bearer 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다. 다른 출처의 페이지가 이 헤더를 붙이려면 CORS preflight가 필요한데 CORS 헤더를 열지 않으므로 막힌다. 템플릿의 `/api/*`는 Bearer만 받아 이 문제가 없지만, SOL RADAR의 `/api/v1`은 화면의 polling·변경 요청 때문에 쿠키도 받으므로 이 헤더를 요구한다.
+- **XSS**: 요청마다 새 nonce를 만들고 그 nonce를 가진 스크립트만 실행한다(템플릿 `web/proxy.ts`·`web/server/csp`). 화면에 `dangerouslySetInnerHTML`을 쓰지 않고, 공고 본문·첨부 텍스트 같은 외부 입력은 텍스트로만 그린다. 세션 쿠키가 HttpOnly가 아니므로 이 방어가 토큰 보호의 핵심이다.
+- **가입**: 초대 기반이다. 템플릿의 공개 가입 화면(`/auth/sign-up`)과 간편 로그인(구글·카카오·네이버)은 SOL RADAR 범위 밖이며, 정리 범위는 Phase 0 템플릿 정리에서 정한다. 초대 없는 가입을 Supabase Auth에서 어떻게 막을지(공개 가입 끄기 등)는 아래 미검증 항목과 함께 정한다.
+- **정지**: `profiles.status='suspended'`(템플릿 `20261015000001_account_status_and_deletion.sql`)면 토큰이 아직 유효해도 API는 `403 ACCOUNT_DISABLED`이고, 정책 도우미(`public.my_org_ids()`)가 빈 목록을 돌려 조직 데이터가 닫힌다. 정지는 서비스 운영자(`profiles.is_admin`)만 한다. 조직 ADMIN의 "비활성화"는 그 조직에서 내보내기다([[05-API-SPEC|05 API]] §2).
+- 로그인 실패 문구는 이메일 존재 여부를 구분하지 않는다([[06-UI-UX|06 UI]] §5.2).
+
+> [!warning] 미검증 가정 — Supabase Auth 설정
+> access token 만료 시간, refresh token 회전·재사용 탐지, 로그인 시도 제한(요청 수 제한), 비밀번호 정책, 공개 가입 허용 여부는 자체 코드가 아니라 **Supabase Auth 설정**이다. 구체 값은 Supabase 대시보드 설정으로 정하고 확인한다(미검증). 확인 전까지 이 문서는 값을 적지 않는다([[16-DECISIONS|16 ADR]] 미결정 표).
 
 ## RBAC
-역할 순서(`ADMIN > SALES > ANALYST > VIEWER`)가 모든 자원에 그대로 적용되는 것은 아니다. 리소스별 정책을 쓰고, 문서·코드에서는 허용 역할을 나열한다.
+권한은 세 가지를 나눠 쓴다.
 
-|작업|허용 역할|
+|구분|저장 위치|값|쓰임|
+|---|---|---|---|
+|업무 역할|`memberships.sol_role`|`ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check 제약, 기본 `VIEWER`)|아래 표와 [[05-API-SPEC\|05 API]]의 권한 열|
+|조직 역할|`memberships.org_role`(템플릿)|`owner`·`member`|초대·구성원 관리 같은 조직 관리만|
+|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다|
+
+데모 `admin@soltech.invalid`는 `org_role=owner` + `sol_role=ADMIN`이다.
+
+업무 역할의 순서(`ADMIN > SALES > ANALYST > VIEWER`)가 모든 자원에 그대로 적용되는 것은 아니다. 리소스별 정책을 쓰고, 문서·코드에서는 허용 역할을 나열한다.
+
+|작업|허용 역할(`sol_role`)|
 |---|---|
 |읽기 전부 (공고·revision·추출·분석·자격·검토 이력·프로필·대시보드)|ADMIN, SALES, ANALYST, VIEWER|
 |분석 실행 요청 (`POST /bids/:id/analyses`)|ADMIN, SALES, ANALYST|
 |사람 최종 결정 기록 (`POST /bids/:id/reviews`)|ADMIN, SALES|
 |회사 프로필 개정 (`PUT /company-profile`)|ADMIN|
-|사용자 초대·역할 변경·비활성화|ADMIN|
+|사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿 정책은 owner 기준, [[05-API-SPEC\|05 API]] §2 미결정)|
 |수동 수집 실행·수집 결과 조회|ADMIN|
 |본인 알림 조회·읽음 처리|모든 인증 사용자. 남의 알림은 `404`|
 
-표기는 [[05-API-SPEC|05 API]]와 동일하게 허용 역할 나열. 역할이 목록에 없으면 `403 FORBIDDEN`. 모든 DB 읽기/쓰기 query에 토큰에서 얻은 `organizationId` 조건을 건다. 사용자가 보낸 orgId는 신뢰하지 않는다. **다른 조직 자원은 존재 여부를 숨기기 위해 `404 NOT_FOUND`**로 응답한다.
+표기는 [[05-API-SPEC|05 API]]와 동일하게 허용 역할 나열. 역할이 목록에 없으면 `403 FORBIDDEN`.
+
+**조직 격리는 RLS가 강제한다.** 조직 데이터 표(`company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews`·`notifications`·`audit_logs` 등)는 `org_id`를 갖고 RLS `org_id in (select public.my_org_ids())`로 거른다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 토큰)으로 DB를 부르므로 코드가 조직 조건을 빠뜨려도 RLS가 막는다. 사용자가 보낸 orgId는 신뢰하지 않는다. **다른 조직 자원은 행이 보이지 않아 `404 NOT_FOUND`**가 된다(존재 여부를 숨긴다). 공고(공용) 표는 `authenticated` 읽기만 열고 쓰기는 worker(service role)만 한다. 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 정책 시험은 `scripts/database.test.mjs`(PGlite, `pnpm test:db`)에 둔다.
 
 ## 위협과 대응
 |위협|대응|
 |---|---|
-|IDOR|공고(`bid_notices`, `bid_revisions`, `requirement_extractions`)는 공용. 점수·검토·프로필·인력·알림은 조직별 검사, 다른 조직 자원은 `404 NOT_FOUND`|
-|CSRF|상태 변경 요청에 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. 쿠키 SameSite 속성과 이중 방어|
-|SQL injection|Prisma 파라미터; raw SQL 극소화, 있으면 태그드 템플릿만|
+|IDOR|공고(`bid_notices`, `bid_revisions`, `bid_documents`, `requirement_extractions`)는 공용(`authenticated` 읽기만). 점수·검토·프로필·인력·알림은 `org_id` + RLS로 조직별 격리, 다른 조직 자원은 `404 NOT_FOUND`. 검증은 G5(RLS 정책 시험 + Route Handler 시험 + E2E, [[11-TESTING\|11 테스트]])|
+|RLS 설정 오류|anon 키는 공개 값이라 RLS가 빠지거나 정책이 넓으면 브라우저에서 바로 데이터가 읽힌다. 표는 만들자마자 `enable row level security`, 필요한 권한·정책만 연다. 조직 격리·역할별 쓰기·공고 읽기 전용을 `scripts/database.test.mjs`(PGlite, `pnpm test:db`) 정책 시험으로 고정한다. 마이그레이션은 새 파일로만 쌓는다(append-only)|
+|service role 키 유출|`SUPABASE_SERVICE_ROLE_KEY`는 RLS를 무시한다. worker와 seed 스크립트(`pnpm demo:reset`)만 서버 전용 env로 쓰고, Next 요청 처리 경로에서는 쓰지 않는다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지에 넣지 않는다(템플릿 커밋 게이트·훅이 비밀 키를 코드·공개 변수에 넣는 일을 막는다). worker는 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다. 유출이 의심되면 Supabase 대시보드에서 키를 교체한다(절차 미검증)|
+|CSRF|쿠키 인증의 상태 변경 요청에 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. 쿠키 SameSite=Lax와 이중 방어, CORS는 열지 않는다. Bearer 요청은 제외|
+|XSS|CSP nonce(템플릿 `web/proxy.ts`·`web/server/csp`), `dangerouslySetInnerHTML` 금지, 외부 텍스트는 텍스트로만 렌더링. 세션 쿠키가 HttpOnly가 아니라서 XSS는 곧 세션 탈취다|
+|SQL injection|supabase-js 질의 빌더(값은 파라미터로 전달). SQL은 마이그레이션·DB 함수에만 두고 문자열을 이어 붙여 만들지 않는다. DB 함수는 `search_path`를 고정한다(템플릿 `20261013000002_function_search_path.sql`)|
 |SSRF|첨부 다운로드는 도메인 allowlist, DNS 재검증, 사설 IP 거부, 응답 크기 제한|
 |LLM prompt injection|아래 "책임 있는 AI" 절|
 |문서 악성코드|MIME/sniff, 확장자/크기 제한, 격리 처리, 필요한 경우 AV 스캔|
-|비밀 관리|`.env` 버전관리 금지, Docker secrets/실배포 secret manager, 로그 마스킹|
-|브루트포스|rate limiting, 계정 잠금 정책, 감사로그|
+|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`)|
+|브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
 
 ## 책임 있는 AI
@@ -126,21 +152,29 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 > "AI가 틀리면 어떻게 되나"에 대한 답이 이 절이다. 틀린 Kev 출력은 규칙을 넘지 못하고, 사람이 확인하기 전 자격은 확정되지 않으며, 모든 실행은 모델·프롬프트·입력 해시로 재현 가능하다.
 
 ## 데모 환경 보안 최소선
-- `.env.example`과 `infra/env/*.env.example`에는 placeholder만. `demo` 프로필도 기본 비밀값(`postgres`, `minioadmin` 등) 금지. 기동 전 `pnpm check:env`가 placeholder를 감지하면 중단.
+- `.env.example`류 파일에는 placeholder만 둔다. 기동 전 `pnpm check:env`가 placeholder를 감지하면 중단.
+- env 구분:
+  - 공개 값: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. anon 키는 브라우저 번들에 들어가도록 설계된 공개 키이고 권한은 RLS가 정한다.
+  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키).
+  - redis·minio는 `demo` 프로필에서도 기본 비밀값(`minioadmin` 등)을 쓰지 않는다.
 - `AI_HOSTED_APPROVED=false`, `KEV_ENABLED=false`가 기본. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다).
-- 호스트에 노출하는 포트는 web 3000, api 4000만. postgres/redis/qdrant/minio/ai-gateway/kev는 Compose 내부 네트워크.
+- 호스트 포트: web 3000만 연다. API(`/api/v1`)와 헬스체크(`/health/*`)도 web이 응답하며 별도 api 서비스는 없다. redis/qdrant/minio/ai-gateway/kev는 Compose 내부 네트워크에 두고, web을 Compose 밖에서 띄우느라 호스트에 열어야 하는 포트도 `127.0.0.1`에만 바인딩한다.
 - 데모 노트북은 127.0.0.1 바인딩. 공용 Wi-Fi에서 0.0.0.0 바인딩 금지.
-- seed 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). `.invalid` TLD라 실제 메일 발송 불가. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다.
-- OpenAPI `/api/docs`는 개발 환경에서만 노출.
+- seed 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). `.invalid` TLD라 실제 메일 발송 불가. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
+- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 실제 회사 자료나 개인정보를 넣지 않는다. 첨부 원본은 MinIO(Compose)에 둔다. 데모·배포 실행 환경의 최종안은 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표).
+- OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
 
 ## 정보 보존
-원본 공공 문서와 회사 자료를 분리. 회사 정보 삭제 요청 및 보존 기한은 실제 운영 조직 정책/법령 확인 후 정의; 백업에도 같은 절차 적용. 로그에는 원문/토큰/PII 미기록. 기본 TLS, DB/오브젝트 스토리지 주기적 백업 및 복구 테스트.
+원본 공공 문서와 회사 자료를 분리. 회사 정보 삭제 요청 및 보존 기한은 실제 운영 조직 정책/법령 확인 후 정의; 백업에도 같은 절차 적용. 로그에는 원문/토큰/PII 미기록. 기본 TLS, DB/오브젝트 스토리지 주기적 백업 및 복구 테스트. Supabase 프로젝트의 백업 범위·보존 기간은 플랜 설정으로 확인한다(미검증). MinIO 첨부 원본(Compose volume)은 Supabase 백업에 들어가지 않는다.
 
 ## 관련 문서
 - [[03-AI-PIPELINE|03 AI 파이프라인]]
 - [[04-DATABASE|04 DB]]
 - [[05-API-SPEC|05 API]]
+- [[06-UI-UX|06 UI]]
 - [[08-SCORING|08 스코어링]]
+- [[10-DEPLOYMENT|10 배포]]
+- [[11-TESTING|11 테스트]]
 - [[14-OBSERVABILITY|14 관측성]]
 - [[16-DECISIONS|16 ADR]]

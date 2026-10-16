@@ -21,13 +21,17 @@ updated: 2026-10-16
 |계약|정의 위치|생산자|소비자|
 |---|---|---|---|
 |`FieldState`, `EvidenceRef`, `ExtractedField<T>`|이 문서 §2|AI gateway|규칙 엔진, API, UI|
-|`NormalizedBid`|이 문서 §3|Connector(07)|DB `bid_revisions.normalized`, 추출기|
+|`NormalizedBid`|이 문서 §3|Connector(07, `web/server/ingestion`)|DB `bid_revisions.normalized`, 추출기|
 |`RequirementExtraction`|[[03-AI-PIPELINE\|03 AI 파이프라인]] §4.1|Qwen 추출기|규칙 엔진, `requirement_extractions.payload`|
-|`AnalysisInput`|[[04-DATABASE\|04 DB]] `score_runs.input_snapshot`|Worker|재현·백테스트|
-|`AnalysisResult`, `BidDetail` 등 API DTO|[[05-API-SPEC\|05 API 명세]] §4|NestJS|Next.js|
+|`AnalysisInput`|[[04-DATABASE\|04 DB]] `score_runs.input_snapshot`|worker(`web/worker`)|재현·백테스트|
+|`AnalysisResult`, `BidDetail` 등 API 응답·요청 스키마|[[05-API-SPEC\|05 API 명세]] §4|Route Handler(`web/app/api/v1`)|화면(`web/app`), 스크립트|
 |소스 registry|이 문서 §8|운영자|Connector|
 
 스키마 버전 문자열은 `"<이름>/v<major>.<minor>"` 형식이다. 필드를 지우거나 의미를 바꾸면 major를 올리고, 선택 필드 추가는 minor를 올린다. 저장된 JSONB에는 항상 `schemaVersion`이 들어간다.
+
+코드 정의: TypeScript 쪽 계약의 단일 원천은 zod 스키마(`web/server/<도메인>/*.model.ts`)이고, 타입은 스키마에서 얻는다([[16-DECISIONS|16 ADR]] ADR-016). 이 문서의 `interface` 표기는 설명용이며 필드 이름·뜻은 zod 스키마와 같아야 한다. Route Handler·worker·화면이 같은 스키마를 import한다. DB 행 타입은 생성물 `web/lib/database.types.ts`이고, JSONB 열 안의 구조는 이 문서의 계약을 zod로 검증한다([[04-DATABASE|04 DB]] §1).
+
+이름 규칙: DB 열은 snake_case, JSON 필드는 camelCase다. 조직 소유 데이터의 조직 열은 DB `org_id`, JSON `orgId`다.
 
 ## 2. 공통 타입
 
@@ -186,7 +190,9 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 |외부 API 429|Retry-After 후 재시도, `summary.retried` +1. 소진 시 `error_code=RATE_LIMITED`|
 |같은 checksum 재수집|적재 생략, `summary.skippedDuplicate` +1 (오류 아님)|
 
-격리된 레코드는 삭제하지 않고 `ingest_errors.redacted_detail`에 PII 없는 요약만 남긴다. 재실행하면 같은 `job_key`로 멱등 처리한다. 수집 결과 집계는 `ingest_runs.summary = {created, changed, cancelled, skippedDuplicate, quarantined, retried}`이며 [[05-API-SPEC|05 API 명세]] `IngestionRun.summary`와 같다.
+격리된 레코드는 삭제하지 않고 `ingest_errors.redacted_detail`에 PII 없는 요약만 남긴다. 재실행하면 같은 `job_key`로 멱등 처리한다. 수집 결과 집계는 `ingest_runs.summary = {created, changed, cancelled, skippedDuplicate, quarantined, retried}`이며 [[05-API-SPEC|05 API 명세]] `IngestionRun.summary`와 같다. 검증·격리와 `ingest_runs`·`ingest_errors` 쓰기는 수집 worker(`web/worker`)가 service role로 한다([[07-DATA-PIPELINE|07 수집]]).
+
+여기서 "격리"는 잘못된 레코드를 적재하지 않고 따로 두는 것(quarantine)이다. 조직 간 데이터 격리는 다른 장치다. 조직 소유 데이터는 `org_id`를 갖고, DB의 RLS 정책(`org_id in (select public.my_org_ids())`)이 다른 조직의 행을 보이지 않게 한다. 그래서 API는 다른 조직 자원에 `404`를 낸다. 공고와 이 절의 수집 기록은 조직 소유가 없는 공용 데이터다([[04-DATABASE|04 DB]] §1·§3, [[09-SECURITY|09 보안]]).
 
 ## 7. 시점 일치
 
@@ -218,7 +224,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 
 ## 9. 수용 기준
 
-- `NormalizedBid` 스키마 검증(Zod)을 fixture 20건 전부 통과하고, 같은 fixture를 두 번 적재해도 revision이 늘지 않는다.
+- `NormalizedBid` 스키마 검증(zod)을 fixture 20건 전부 통과하고, 같은 fixture를 두 번 적재해도 revision이 늘지 않는다(Vitest, `web/server/ingestion/*.test.ts`).
 - `ExtractedField`의 `KNOWN`은 유효 근거 없이 저장될 수 없다(DB 적재 전 gateway 검증 + API 응답 검증 테스트).
 - 인용 검증 4경로(EXACT/NORMALIZED/FUZZY/FAILED)와 §5.3 전이가 단위 테스트로 고정된다.
 - `UNKNOWN`이 0이나 기본값으로 바뀌는 경로가 코드에 없다(리뷰 체크리스트 항목).
@@ -227,7 +233,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — `RequirementExtraction` 전체 스키마, 프롬프트
 - [[04-DATABASE|04 DB]] — 저장 테이블과 ENUM
-- [[05-API-SPEC|05 API 명세]] — API DTO
+- [[05-API-SPEC|05 API 명세]] — API 요청·응답 스키마(zod)
 - [[07-DATA-PIPELINE|07 수집]] — Connector와 fixture
 - [[08-SCORING|08 점수]] — missing 정책
 - [[11-TESTING|11 테스트]] — 골든 시나리오

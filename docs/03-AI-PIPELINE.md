@@ -44,12 +44,12 @@ flowchart TD
 ```
 
 - 추출(D~E)은 **공고 revision 단위**로 1회 실행하고 조직과 무관하게 재사용한다. 자격 판정·점수·Kev(F~J)는 **조직 × revision × 프로필 revision** 단위다.
-- 호출 경로는 Worker → AI gateway(FastAPI :8000) → Kev(:8009)/Qwen runtime 하나로 고정한다. Worker가 Kev를 직접 부르지 않는다([[02-ARCHITECTURE|02 아키텍처]]). Worker가 부르는 gateway 엔드포인트는 `POST /extract`(ingest job)와 `POST /kev`(analysis job) 둘이다(§2.1).
+- 호출 경로는 Worker(`web/worker`, BullMQ 소비자) → AI gateway(FastAPI :8000) → Kev(:8009)/Qwen runtime 하나로 고정한다. Worker와 Next 서버는 Kev를 직접 부르지 않는다([[02-ARCHITECTURE|02 아키텍처]]). Worker가 부르는 gateway 엔드포인트는 `POST /extract`(ingest job)와 `POST /kev`(analysis job) 둘이다(§2.1).
 - AI 단계 어느 것이든 실패하면 F~I는 규칙만으로 끝내고 `status=PARTIAL`, `recommendationBasis=RULES_ONLY`.
 
 ### 2.1 gateway 내부 계약: `POST /extract`, `POST /kev`
 
-Compose 내부 네트워크 전용 엔드포인트 두 개([[02-ARCHITECTURE|02 아키텍처]], [[16-DECISIONS|16 ADR]] ADR-011). gateway는 PostgreSQL·MinIO에 접근하지 않는다. 텍스트는 Worker가 보내고 결과도 Worker가 저장한다.
+Compose 내부 네트워크 전용 엔드포인트 두 개([[02-ARCHITECTURE|02 아키텍처]], [[16-DECISIONS|16 ADR]] ADR-011). gateway는 DB(Supabase Postgres)·MinIO에 접근하지 않는다. 텍스트는 Worker가 보내고 결과도 Worker가 저장한다. Worker는 service role 키로 Supabase 표에 쓰므로 RLS를 거치지 않는다. 그래서 조직 데이터(`score_runs` 등)를 쓸 때 `org_id`를 직접 지정한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
 
 |엔드포인트|호출자|단위|하는 일|
 |---|---|---|---|
@@ -80,7 +80,7 @@ interface KevResponse { kev: KevAssist; timings: { kevMs: number } }
 
 - HTTP 200은 "gateway가 응답했다"는 뜻이다. 추출·Kev의 개별 실패는 본문 `status`/`errorCode`/`kev.enabled`로 표현한다. gateway가 503을 내는 경우는 `AI_PROVIDER=hosted`인데 승인이 없을 때(§3)와 기동 전뿐이다.
 - 재사용: Worker가 호출 전에 `requirement_extractions`에서 `(revision_id, model_name, prompt_hash)` 행을 찾고, 있으면 `/extract`를 부르지 않는다. 모델 이름·프롬프트 해시는 `GET /health`(gateway)로 미리 받아 둔다.
-- Worker analysis job 순서: ① 캐시된 추출 로드(없으면 `/extract` 먼저) → ② 추출 + 프로필로 자격 판정·SOL Score·권고 계산(규칙) → ③ `KEV_ENABLED`면 `/kev` → ④ Kev 답을 규칙 결과와 비교해 `reviewFlags` 추가(§5.5) → ⑤ `score_runs` 저장. timeout은 `AI_TIMEOUT_MS`(`/extract`), `KEV_TIMEOUT_MS`(`/kev`), circuit breaker는 Worker가 가진다.
+- Worker analysis job 순서: ① 캐시된 추출 로드(없으면 `/extract` 먼저) → ② 추출 + 프로필로 자격 판정·SOL Score·권고 계산(규칙) → ③ `KEV_ENABLED`면 `/kev` → ④ Kev 답을 규칙 결과와 비교해 `reviewFlags` 추가(§5.5) → ⑤ `score_runs` 저장(service role, 요청 조직의 `org_id` 지정). timeout은 `AI_TIMEOUT_MS`(`/extract`), `KEV_TIMEOUT_MS`(`/kev`), circuit breaker는 Worker가 가진다.
 - `/kev` 본문에 규칙 결과(자격 판정·점수·권고)를 넣지 않는다(§5.6).
 
 ## 3. 실행 모드와 feature flag
@@ -185,7 +185,7 @@ interface StaffingRequirement {
 - 모든 `ExtractedField`는 [[15-DATA-CONTRACTS|15 데이터 계약]] §2의 상태 규칙을 따른다. `KNOWN`은 검증 통과한 인용 1개 이상이 있어야 한다.
 - 배열 필드는 **원소마다 근거가 필요**하다. 한 필드에 인용이 여러 개면 `evidence[i]`가 어느 원소를 뒷받침하는지 `note`에 `"[0]→evidence[0], [1]→evidence[1]"` 형식으로 적는다. 짝이 안 맞는 원소는 버린다.
 - `code`는 모델이 아니라 gateway가 채운다. 사전에 없으면 `null`이고 규칙 엔진은 그 항목을 `NEEDS_REVIEW`로 낸다.
-- JSON Schema(draft 2020-12) 파일은 `services/ai/schemas/requirement-extraction.v0.1.json`에 두고, `packages/contracts`에서 TS 타입을 생성한다. 문서와 파일이 다르면 파일이 틀린 것이다.
+- JSON Schema(draft 2020-12) 파일은 `services/ai/schemas/requirement-extraction.v0.1.json`에 두고, TypeScript 쪽은 `web/server/<도메인>/*.model.ts`의 zod 스키마(ADR-016)로 두어 이 파일과 같은지 시험으로 대조한다. 문서와 파일이 다르면 파일이 틀린 것이다.
 
 ### 4.2 예시 1건 (가상 공고, DEMO)
 
@@ -426,7 +426,7 @@ COMPANY (profile revision 2)
 ```ts
 // 입력 (내부 계약, Kev wire 형식 아님)
 interface KevAdapterInput {
-  bidId: string; organizationId: string; revisionId: string; profileRevision: number;   // 예: organizationId "org-01"(slug 표기)
+  bidId: string; orgId: string; revisionId: string; profileRevision: number;   // 예: orgId "org-01"(slug 표기)
   extraction: RequirementExtraction;          // KNOWN 값만 state에 들어간다
   profileSummary: CompanyProfileSummary;      // 05 CompanyProfile에서 파생. 규칙 결과는 넣지 않는다(§5.6)
   questionSetVersion: "kev-qs/v0.1";
@@ -451,7 +451,7 @@ interface KevAssist {
 
 - `KEV_ENABLED=false` 또는 timeout/오류: `enabled=false`, 나머지 null, `recommendationBasis=RULES_ONLY`. 분석은 실패하지 않는다.
 - mock adapter: fixture별 고정 응답 파일 `fixtures/kev/FX-xx.json`(wire 응답 형식 그대로)을 우선 읽는다. 예: FX-02는 `BID 0.36 / WATCH 0.52 / NO_BID 0.12`, `needsHumanReview 0.74`([[19-DEMO-SCENARIO|19 데모 시나리오]]·[[08-SCORING|08 점수]] 계산 예시와 같은 숫자). 파일이 없으면 공식(추출·프로필만으로 계산, 규칙 결과 없음): `mandatory=true`인 `qualifications[].code`가 프로필 `licenses`에 없으면 `NO_BID` 0.8, 필수 항목 중 `UNKNOWN`/`CONFLICTED`가 있으면 `WATCH` 0.7, 아니면 `BID` 0.6 중심의 고정 분포. 어느 쪽이든 `provider="mock"`이고 UI가 DEMO 배지로 보여 준다.
-- 테넌트 표기: 문서 예시의 `organizationId: "org-01"`(SOL테크), `"org-02"`(비교 조직)는 seed `organizations.slug`다. 실제 API·DB 값은 UUID([[04-DATABASE|04 DB]] §6).
+- 테넌트 표기: 문서 예시의 `orgId: "org-01"`(SOL테크), `"org-02"`(비교 조직)는 seed `organizations.slug`다. 실제 API·DB 값은 UUID([[04-DATABASE|04 DB]] §6).
 - wire 형식은 README를 따르되 `services/ai/adapters/kev_wire.py` 한 곳에서만 다룬다. 필드명을 다른 곳에 하드코딩하지 않는다.
 
 ### 5.8 hosted 경로
@@ -493,7 +493,7 @@ interface KevAssist {
 |`score_runs.model_metadata`|`{qwen:{name,promptVersion,promptHash,temperature,latencyMs,retries}, kev:{model,questionSetVersion,latencyMs,requestId}, embedding:{model}, citation:{fuzzyMinRatio}}`|
 |`score_runs.review_flags`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `AI_UNAVAILABLE`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`(규칙 엔진이 설정)|
 
-테이블 정의는 [[04-DATABASE|04 DB]].
+테이블 정의와 RLS 정책은 [[04-DATABASE|04 DB]]. 위 표들은 Worker가 service role로 Supabase에 쓴다. `requirement_extractions`는 공용 공고 데이터라 `authenticated`는 읽기만 하고, `score_runs`는 `org_id`로 조직마다 나뉜다.
 
 ## 8. 장애와 대체
 
