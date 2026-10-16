@@ -61,12 +61,12 @@ updated: 2026-10-16
 
 **Files:** Create `scripts/people/workbook.mjs`, `scripts/people/workbook.test.mjs`, `fixtures/people/solideo.departments.json`, `fixtures/people/solideo.job-titles.json`; Modify `package.json`, `pnpm-lock.yaml`.
 
-**Interfaces:** Produces `readOrganizationWorkbook(path: string, departments: DepartmentWeight[]): Promise<{sourceSha256:string, departments:DepartmentWeight[], excludedNames:Set<string>, recognizedRows:number, unmappedCells:string[]}>`. `excludedNames`는 호출자 메모리에서만 사용한다. `sourceRanges`는 `{sheet:"people",headerCell:string,nameRange:string,titleColumn:"B"|"F"|"J"|"N"}[]`다.
+**Interfaces:** Produces `readOrganizationWorkbook(path:string,departments:DepartmentWeight[],excludedRanges:SourceRange[]=[]):Promise<{sourceSha256:string,departments:DepartmentWeight[],excludedNames:Set<string>,recognizedRows:number,excludedRowCount:number,unmappedCells:string[]}>`. `SourceRange`는 아래 `sourceRanges` 항목 구조와 같고, 부서 JSON 최상위 `excludedSourceRanges`에 승인된 비팀 구역을 익명 범위로 저장한다. `excludedNames`는 호출자 메모리에서만 사용한다. `sourceRanges`는 `{sheet:"people",headerCell:string,nameRange:string,titleColumn:"B"|"F"|"J"|"N"}[]`다.
 
 - [ ] **1. 실패 시험 작성:** 합성 XLSX에 A/B·E/F·I/J·M/N 이름/직급 쌍, 병합된 팀 헤더, 반복 팀, 전화·주소, 팀 없는 인력 행을 만든다. `assert.equal(result.departments.filter(d => d.name === "개발팀").length, 1)`; `assert.equal(result.recognizedRows, 4)`; 미분류 인력은 셀 주소로만 보고하며 직급 12개·표시명·내부 공백 보존을 단언한다.
 - [ ] **2. 실패 확인:** `node --test scripts/people/workbook.test.mjs` → 추출기 미구현으로 FAIL.
-- [ ] **3. 구현:** 루트에서 `pnpm add -D --save-exact exceljs@4.4.0`. [ExcelJS 공식 문서](https://github.com/exceljs/exceljs#reading-xlsx)대로 workbook을 읽는다. 실제 시트의 팀 헤더와 인력 범위를 읽어 두 카탈로그를 작성하고 추출기로 재검사한다. 원본 파일 해시는 `d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3`와 대조한다. 기존 조사에서 인식한 250행은 대조 출발점이며 고유 임직원 수로 발표하지 않는다. 임원/본부/근무지 구역의 인력에 팀이 명시되지 않았다면 임의 팀을 만들지 않고 해당 셀 주소·직급·행 수만으로 interview 질문을 한다. 해석이 확정되기 전 명부 생성으로 넘어가지 않는다.
-- [ ] **4. 통과 확인:** 위 Node 시험 PASS, 실제 입력 미분류 행 0, 각 원본 이름 셀을 정확히 한 팀에 연결, 표시 팀명/직급의 추가·변경 0. 콘솔/임시 파일에 원본 이름이 없는지 확인한다.
+- [ ] **3. 구현:** 루트에서 `pnpm add -D --save-exact exceljs@4.4.0`. [ExcelJS 공식 문서](https://github.com/exceljs/exceljs#reading-xlsx)대로 workbook을 읽는다. 실제 시트의 팀 헤더와 인력 범위를 읽어 두 카탈로그를 작성하고 추출기로 재검사한다. 원본 파일 해시는 `d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3`와 대조한다. 기존 조사에서 인식한 250행은 대조 출발점이며 고유 임직원 수로 발표하지 않는다. 추가 인터뷰의 사용자 1번 선택에 따라 팀명이 명시된 행만 배분 가중치에 사용한다. 팀명 없는 임원·본부·그룹·프로젝트 구역은 익명 제외 범위로 기록하고 가중치에 넣지 않는다. 새 비팀 조직/프로젝트 표제를 넘어 앞선 팀을 상속하지 않는다. 근무지·주소 행만으로 팀 소속을 끊지는 않는다. 원본 전체 250행의 이름은 제외 집합에 계속 포함하며, 제외 범위/팀 범위 밖의 행은 오류다.
+- [ ] **4. 통과 확인:** 위 Node 시험 PASS, 실제 입력 미분류 행 0, 각 원본 이름 셀을 정확히 한 팀 또는 승인된 비팀 제외 구역에 연결, 표시 팀명/직급의 추가·변경 0. 콘솔/임시 파일에 원본 이름이 없는지 확인한다.
 - [ ] **5. 커밋:** `git add package.json pnpm-lock.yaml scripts/people/workbook.mjs scripts/people/workbook.test.mjs fixtures/people/solideo.departments.json fixtures/people/solideo.job-titles.json`; `git commit -m "feat: 솔리데오 조직도 카탈로그 추출"`.
 
 ## Task 2: 비례 배분과 자연스러운 가상 이름 200개
