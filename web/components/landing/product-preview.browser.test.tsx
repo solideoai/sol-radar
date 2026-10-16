@@ -14,14 +14,12 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-// 랜딩처럼 본문 여백(px-8)과 단 폭(max-w-6xl) 안에 넣는다.
+// 랜딩처럼 마케팅 단(max-w-320 + px-10) 안에 넣는다. 1280 넘침 시험이 실제 판 폭을 재게 한다.
 const render = async () => {
   const root = createRoot(document.body.appendChild(document.createElement("div")));
   root.render(
-    <main className="px-8">
-      <div className="mx-auto max-w-6xl">
-        <ProductPreview />
-      </div>
+    <main className="mx-auto w-full max-w-320 px-10">
+      <ProductPreview />
     </main>,
   );
   mounted.push(root);
@@ -81,10 +79,20 @@ describe("ProductPreview", () => {
     expect(focused.matches(":focus-visible")).toBe(true);
   });
 
-  it("공고 원문 자리는 링크가 아니라 예시라서 원문이 없다고 밝힌다", async () => {
+  it("자격 항목마다 공고문 쪽수와 인용이 보이고, 판에는 링크가 없다", async () => {
     await render();
-    await expect.element(page.getByText(/예시 공고라 연결할 원문이 없습니다/)).toBeVisible();
+    const panel = page.getByRole("tabpanel");
+    await expect.element(panel.getByText("「소프트웨어사업자로 신고한 자」")).toBeVisible();
+    await expect.element(panel.getByText("공고문 p.4")).toBeVisible();
     expect(document.querySelectorAll("a")).toHaveLength(0);
+  });
+
+  it("결재란에 시스템 권고와 담당자 결정 대기가 나란히 있다", async () => {
+    await render();
+    const panel = page.getByRole("tabpanel");
+    await expect.element(panel.getByText("시스템 권고")).toBeVisible();
+    await expect.element(panel.getByText("담당자 결정")).toBeVisible();
+    await expect.element(panel.getByText("대기", { exact: true })).toBeVisible();
   });
 
   it("1280px 에서 화면 폭을 넘지 않는다", async () => {

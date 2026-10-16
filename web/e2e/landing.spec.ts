@@ -21,21 +21,17 @@ test("제목과 설명 메타데이터가 SOL RADAR 의 것이다", async ({ pag
   );
 });
 
-test("히어로에 보조 문구·제목·설명·두 버튼·안내가 있고, 시작하기는 가입 화면으로 간다", async ({
-  page,
-}) => {
+test("히어로에 제목·설명·두 버튼·안내가 있고, 시작하기는 가입 화면으로 간다", async ({ page }) => {
   await page.goto("/");
   const hero = heroOf(page);
-  await expect(hero.getByText("공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원")).toBeVisible();
+  await expect(
+    hero.getByText(/공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원 서비스입니다/),
+  ).toBeVisible();
   await expect(hero.getByRole("heading", { level: 1 })).toHaveText(
     /수많은 공고 속,\s*우리 회사가 검토할 사업부터\./,
   );
   await expect(hero.getByText(/참가 자격, 사업 적합도, 추가 확인 사항을 한눈에/)).toBeVisible();
-  await expect(hero.getByRole("listitem")).toHaveText([
-    "공식 API 기반 수집",
-    /근거 중심 분석/,
-    /담당자의 최종 결정/,
-  ]);
+  await expect(hero.getByRole("listitem")).toHaveCount(0);
   // 시작하기 곁에서 개발 중임을 밝힌다. 공고 분석을 지금 쓸 수 있는 것처럼 읽히지 않게 한다.
   await expect(hero.getByRole("note")).toHaveText(/MVP 개발 중.*계정 만들기와 로그인만/);
   await expect(hero.getByRole("link", { name: "분석 예시 보기" })).toHaveAttribute(
@@ -80,11 +76,20 @@ test("미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수�
   await expect(panel.getByText("SOL Score는 사업 적합도이며 수주 확률이 아닙니다.")).toBeVisible();
   await expect(panel.getByText("WATCH", { exact: true })).toBeVisible();
   await expect(panel.getByText("충족 2 · 확인 필요 1 · 미충족 0")).toBeVisible();
-  await expect(panel.getByText(/유사 사업 실적 보유/)).toBeVisible();
-  await expect(panel.getByText(/주요 기술 요구사항 부합/)).toBeVisible();
   await expect(panel.getByText("필수 증빙의 유효기간 확인 필요")).toBeVisible();
-  // 원문 자리는 링크가 아니다. 예시 공고를 실제 공고처럼 꾸미지 않는다.
+  await expect(panel.getByText("공고문 p.2").first()).toBeVisible();
+  await expect(panel.getByText("담당자 결정")).toBeVisible();
+  // 판에는 링크가 없다. 예시 공고를 실제 공고처럼 꾸미지 않는다.
   await expect(preview.getByRole("link")).toHaveCount(0);
+});
+
+test("1440×900 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다", async ({ page }) => {
+  await page.goto("/");
+  const panel = previewOf(page).getByRole("tabpanel");
+  await expect(panel.getByRole("meter", { name: "SOL Score" })).toBeInViewport();
+  await expect(
+    panel.getByText("SOL Score는 사업 적합도이며 수주 확률이 아닙니다."),
+  ).toBeInViewport();
 });
 
 test("목록에서 다른 공고를 고르면 분석이 바뀐다", async ({ page }) => {
