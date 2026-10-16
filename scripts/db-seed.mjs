@@ -292,7 +292,7 @@ export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) =>
     throw new Error(`${SEED_ACCOUNTS.admin.email} 을 운영자로 켜지 못했습니다`);
   }
 
-  // 기존 템플릿 팀은 그대로 두고 시드가 소유하는 작업·초대만 갱신한다.
+  // 기존 템플릿 팀은 그대로 두고 시드가 소유하는 작업·초대 상태만 갱신한다.
   const [existingTeam] = await call(
     "GET",
     `/rest/v1/organizations?select=id&slug=eq.${SEED_TEAM.slug}`,
@@ -311,6 +311,12 @@ export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) =>
     owner.as,
   );
   const asService = { apiKey: serviceKey };
+  // 초대 수락 E2E가 남긴 이 연결만 초기화한다. owner 승격·다른 조직/사용자는 보존한다.
+  await call(
+    "DELETE",
+    `/rest/v1/memberships?org_id=eq.${team.id}&user_id=eq.${people.invitee.id}&org_role=eq.member`,
+    owner.as,
+  );
   await call("DELETE", `/rest/v1/tasks?org_id=eq.${team.id}`, asService);
   await call("DELETE", `/rest/v1/invitations?org_id=eq.${team.id}`, asService);
   const members = await call(
