@@ -31,6 +31,21 @@ updated: 2026-10-16
 - 데스크톱 1280px 이상, 검증 폭 1440·1280. 기존 토큰·Select·폼 패턴을 사용한다. 모바일·결제·전체 입찰 파이프라인을 만들지 않는다.
 - 새 API는 `/api/v1` 계약을 따른다. 기존 템플릿 Bearer 전용 API의 인증·오류 형태를 조용히 바꾸지 않는다. 배포/클라우드 DB push는 별도 사용자 확인 없이 실행하지 않는다.
 
+
+ADR-021 아래 후속 제약은 Task5~9에 적용하며 과거 Task1~4의 당시 구현 기록을 대체하지 않는다.
+
+- 공유 Supabase `sol-radar`에 새 migration/변경된 seed를 적용하지 않는다. 클라우드 push·main 병합·기존 migration 수정·작업 초기화 금지. PGlite 후 고유 project_id/모든 포트의 별도 임시 Supabase에서 실제 검증한다.
+- 기존200명 ID/UUID·이름·100/100 성별·팀38개 ID/표시명/목표·직급·사진 경로/manifest·27명/20FTE 입력을 보존한다. 사진 작업은9663의 독립 worker 소유이며 이 계획에서 수정하지 않는다.
+- 부서는 `DIVISION`→`GROUP`→`TEAM`; `DIVISION`→`TEAM` 허용. kind 누락/null은 기존 TEAM, 불명확한 parentId는 null+이유다. 확인된 상위 조직만 추가하고 팀 합산으로 부모가 여러 개면 임의 선택하지 않는다. 본부/그룹 targetCount/sourceCount는 null이며 팀만 기존 양의 목표/원본 가중치를 갖는다. 가입 목록·200명 배분·소속은 TEAM만이다.
+- fixture 구조 버전2를 추가해1/2를 읽되, 팀 공개 투영이 같으면 공개 catalogVersion `solideo-organization/v1.0`은 유지한다. 새 상위 ID는 SOL-D038 뒤에 안정적으로 추가한다.
+- 운영200행과 scoring27행을 같은 직원 ID로 분리한다. 이미 구현한 예전 컬럼은 새 migration에서 검증·backfill 후 제거한다. 순수 계산 입력/골든 의미를 바꾸지 않는다.
+- 새 가입은 profile만 만들고 개인 조직/멤버십을 만들지 않는다. 기존 개인 조직은 삭제하지 않는다. 현재 업무 조직은 `personal_owner_id IS NULL`인 실제 멤버십만 세어0→초대 안내,1→해당 조직,2+→차단이다. 신고 부서·이름·요청 org/slug/헤더로 조직이나 권한을 만들거나 고르지 않는다.
+- 프로필/활성 상태를 업무 경계에서 먼저 검증한다. 보완·계정 관리·받은 초대는 조직 가입 없이도 접근한다. `/auth/organization-state` 설계는 가입 UI 스펙의 ADR-021 부록을 따른다. safe next의 auth 경로 제한을 넓히지 않고 `/dashboard`가 서버 재판정 진입점이다.
+- 이번 범위는 요청한 가입/DB 정합화다. 기존 slug 화면은 서버가 고른 단일 조직과 일치할 때만 연결하는 호환 경로다. 완전한 slug 없는 앱 셸(N1), sol_role/ADMIN 구성원 정책 전체 전환(N2), /people, /ops, sidebar/P1은 별도 미완료로 기록하며 구현 완료로 주장하지 않는다. org_role·이메일·메타데이터로 sol_role을 추론하지 않는다.
+- 새 업무 API가 없으므로 사용되지 않는 조직 middleware나 가짜 `/me`를 만들지 않는다. 0조직 API는 실제 호출자가 생길 때 `403 ORGANIZATION_REQUIRED`+초대 경로, 복수는 확정 `403 UNSUPPORTED_ACCOUNT_STATE`다. session 전용 employment API에는 조직을 요구하지 않는다.
+
+- Task5 원본 입력은 읽기 전용 `/Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`, SHA-256 `d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3`다. 원본 이름/연락처/제외 집합은 출력·저장·모델 프롬프트에 넣지 않는다.
+
 ## Review Focus
 
 1. 직접 Auth 가입·OAuth·낡은 카탈로그로 미완료 프로필 생성: Task 1의 null/위조 구분, Task 3의 보완·재로그인 검사.
@@ -116,3 +131,100 @@ Task4 현황(2026-10-16): 구현90c67bc 및 독립 리뷰 완료. 원래 구현�
 ## 계획 자체 검토
 
 승인 스펙 §8은 Task 1~3, §9~10은 Task 4와 나머지 두 계획으로 연결했다. 공개 카탈로그·신고 정보·로그인 계정·가상 인력의 경계를 분리했고, 스키마/실제 Auth 오류/기존 API 호환을 각각 검사한다. 전체 점수 엔진·실제 OAuth 제공자 연동은 기존 Phase 범위를 유지하며 해당 미구현 부분을 통합 검증 완료로 과장하지 않는다. 실행은 데이터 계획 완료 후 사진/가입을 독립적으로 진행할 수 있고 최종 검증에서 합친다.
+
+
+## ADR-021 후속 기준과 적용 순서 (2026-10-16)
+
+기존 Task1~4의 코드 통합 QA 후 사용자 지시대로 후속 작업을 진행한다. 위 단계는 당시 구현·검증 기록이며, 아래 Task5~9와 이 절의 계약이 개인 조직 bootstrap·한 표 인력 저장·평면 카탈로그에 관한 과거 지시를 대체한다. 기존 실행 방식2와 현재 격리 worktree를 유지한다.
+
+**정본:** 원본 체크아웃의 `114a10aa245b76909c4952c3c82a473337ba0cbd`에서 최신04·05·06·07·08·09·16과 승인된 sidebar 설계를 읽고 이 worktree에 동기화했다. 관련21·AI 설계·사용자 sidebar 입력 문서는 참조용이며 AI/전체 sidebar 구현 요청이 아니다. 원본 체크아웃·다른 세션 파일은 수정하지 않았다. 기존 증거·PROGRESS·가입 UI 자식 스펙은 보존한다.
+
+추가 제약은 위 **Global Constraints**의 ADR-021 항목으로 통합했다. 모든 후속 task brief에 같은 계약을 전달한다.
+
+**후속 Review Focus:** 계층 검증과 동일 팀 보존(Task5), populated-schema upgrade/RLS/seed conflict key(Task6), 직접 Auth/RPC/UPDATE와 FK cascade·기존 개인 조직 보존(Task7),0/1/2+실제 멤버십·위조 slug·재진입/복구/초대 예외(Task8), 별도 Supabase 실검증과 증거 정직성(Task9).
+
+## Task 5: Hierarchy-capable catalog with unchanged roster/public projection
+
+**Files:** modify `fixtures/people/solideo.departments.json`, `scripts/people/generate.mjs`, `scripts/people/check.mjs`, `scripts/people/workbook.mjs`, `scripts/people/allocation.mjs`; create `scripts/people/departments.mjs` and `scripts/people/departments.test.mjs`; update `scripts/people/workbook.test.mjs`, `scripts/people/allocation.test.mjs`, `scripts/demo-people.test.mjs`; regenerate `web/server/profile/signup-options.generated.json` only if its public projection actually changes. Do not rewrite people/job-title/portrait fixtures.
+
+**Interfaces:** `isTeamDepartment(department): boolean` treats absent/null kind as TEAM; `validateDepartmentHierarchy(departments, people): { errors, unresolvedParents, teamCounts, memberCounts }` returns safe IDs/reasons and `{departmentId,targetCount,actualCount,difference}` team rows plus `{departmentId,memberCount}` descendant-count rows. Error/unresolved entries use safe IDs and stable reason codes, never original personnel fields. `projectSignupOptions(departments, jobTitles)` retains its current public shape. Allocation/source comparison consume filtered team rows only, in the existing stable order.
+
+- [ ] Add tests: legacy v1 and explicit v2 catalog; DIVISION→GROUP→TEAM and DIVISION→TEAM; absent parent/kind allowed; missing/self/cyclic/depth-4 parent rejected; TEAM parent cannot be a TEAM; upper employee affiliation rejected; upper targets absent accepted; non-null upper targets rejected. Assert 38 public choices, 12 titles, unchanged option IDs/labels and no private fields.
+- [ ] Run `node --test scripts/people/departments.test.mjs scripts/people/allocation.test.mjs scripts/people/workbook.test.mjs scripts/demo-people.test.mjs` and observe the new cases fail for the intended missing behavior.
+- [ ] Implement hierarchy parsing/validation and add only evidenced upper rows/links. Make source comparison compare team projection rather than full augmented catalog; maintain 175 recognized/75 excluded/250 source-row provenance and private-name intersection checks. Keep strict known-team identity/allocation checks instead of simply deleting the `38` guard. Report unresolved parents and target/actual/difference.
+- [ ] Run the same tests and `pnpm people:check:fixtures`; require unchanged people/job-title/portrait hashes and all original team identity/allocation values. Private source comparison is separately reported if the original is available; fixture-only checks never imply it passed.
+- [ ] Commit this bounded deliverable with normal hooks after required verification, e.g. `feat: 부서 계층 카탈로그 계약 반영`.
+
+## Task 6: Append-only roster split and seed projection
+
+**Files:** create proposed `supabase/migrations/20261016000003_adr021_people_catalog.sql`; modify `scripts/people/seed.mjs`, `scripts/people/seed.test.mjs`, `scripts/database.test.mjs`, and `scripts/db-verify.mjs` only if a new protected trigger/function requires an explicit allowlist entry; generate `web/lib/database.types.ts`. Preserve `web/server/scoring/scoring.model.ts` pure fixture input contract.
+
+**Interfaces:** consume Task 5 catalog and unchanged roster. `seedSolideoPeople({client,orgId,fixtures})` continues to return `{peopleCount:200}`; extend its adapter contract to `client.upsert(table, rows, conflictColumn)` with explicit `id`/`member_id`. SQL produces `team_member_scoring.member_id = personUuid(personId)` and no duplicated scoring columns on operational rows.
+
+- [ ] Add PGlite tests for old-schema populated roster → new migration, fresh full migration, twice-run seed, no unauthorized scoring writes, same-org scoring FK and parent FK, team-only operational membership, 200/27 counts, and operational/scoring field separation. Include a real copied old eligible row so the backfill is exercised rather than tested only after empty schema creation.
+- [ ] Run `node --test scripts/people/seed.test.mjs scripts/database.test.mjs` for the intended new assertions; old-policy fixtures may need explicit historical data preparation, not disabled assertions.
+- [ ] In the new migration add hierarchy/target/source constraints, operational `updated_at`, and locked scoring table with organization SELECT-only RLS. Backfill eligible rows before dropping old columns; transactionally validate copied IDs/values before the drop. Define safe cascading delete behavior for scoring rows consistent with parent organization deletion and test it. Enforce employee team membership with a DB trigger or equivalent relational design, not a cross-table CHECK. Seed validates hierarchy before any writes and writes parents first, then children, titles, people, scoring.
+- [ ] Update seed adapters and tests for scoring conflict key; preserve catalog-before-Auth ordering. Do not execute any network seed. Run `pnpm db:types`, the targeted tests, `pnpm -C web exec vitest run server/scoring`, and `pnpm check:db-types`. Assert fixed-input golden/capacity behavior remains unchanged; the full scoring pipeline and stored score_runs are not implemented here, so do not claim their end-to-end validation.
+- [ ] Commit with hooks, e.g. `feat: 명부 운영 정보와 점수 속성 분리`.
+
+## Task 7: Team-only declaration and signup without personal bootstrap
+
+**Files:** create proposed `supabase/migrations/20261016000004_adr021_signup_bootstrap.sql`; modify `scripts/database.test.mjs`, `scripts/database-test-support.mjs` where legacy setup requires explicit historical personal rows, `scripts/db-seed.mjs`/`scripts/db-seed.test.mjs` for absent-personal compatibility only; regenerate types if needed. Review `web/server/profile/profile.repo.ts`, `.service.ts`, `employment.test.ts` and `profile.catalog.test.ts` for rejection mapping; preserve existing session-only API behavior.
+
+**Interfaces:** same Auth metadata keys and `resolve_solideo_employment(text,text)` RPC signature; same employment DTO and profileComplete semantics. New auth users still get profiles but no personal org/membership; existing personal records remain intact.
+
+- [ ] Add tests for direct email/OAuth signup with 0 organization/membership creation, forged role/org metadata ignored, TEAM valid and DIVISION/GROUP invalid via signup/RPC/direct UPDATE, no-org own declaration allowed, suspended denied, and v00002 catalog-delete cascade preserved. Add an upgrade test that inserts a legacy personal org before this migration and proves it survives.
+- [ ] Run `pnpm test:db` and affected profile tests to observe intended failures, then replace functions in the new migration while retaining changed-column validation, grants, search_path and metadata sanitization. Do not remove the historical `create_personal_org` function used by old migrations.
+- [ ] Explicitly prepare historical personal org fixtures in tests that exercise preservation/deletion/task isolation. Do not restore implicit bootstrap in the global new-signup helper. `scripts/db-seed.mjs` currently dereferences `personal.id`; make its personal-task block conditional on an existing row and never create one as fallback. Its mock test must cover absent and preexisting personal rows without changing the existing five accounts or foreign memberships. This is repository code compatibility, not permission to run seed against shared Supabase.
+- [ ] Run PGlite, `node --test scripts/db-seed.test.mjs`, and affected profile tests; require no test skips/gate changes. Pair release with Task 8: do not deploy bootstrap removal before new account routing exists.
+- [ ] Commit with hooks, e.g. `fix: 가입 시 개인 조직 자동 생성 중단`.
+
+## Task 8: Server organization resolver and minimum account-flow bridge
+
+**Files:** modify `web/server/organization/organization.model.ts`, `.repo.ts`, `.service.ts`, `index.ts`, adjacent model/service tests; create `web/app/auth/organization-state/page.tsx` and `.test.ts`; modify `web/app/auth/login/page.tsx`/`.test.ts`, `web/app/auth/employment-routing.ts`/`.test.ts`, `web/app/auth/account/page.tsx`/`.test.ts`, `web/app/(app)/home.ts`, `web/app/(app)/[slug]/workspace.ts`, `layout.tsx`/`layout.test.ts`; inspect/update invitation acceptance UI (`web/app/invitations/`) and `web/app/(app)/employment-guard.test.ts`. Create a tested business-guard adapter in `web/app/api/v1/_lib/organization.ts` only when used by an actual business caller; do not add dead middleware or change employment to organization-required.
+
+**Interfaces (one source of truth):**
+
+```ts
+type CurrentOrganizationResult =
+  | { status: 'no-database' | 'signed-out' }
+  | { status: 'no-org'; userId: string }
+  | { status: 'multiple-orgs'; userId: string }
+  | { status: 'ready'; userId: string; current: CurrentOrg };
+resolveCurrentOrganization(rows: readonly MyOrgRow[]):
+  | { status: 'no-org' }
+  | { status: 'multiple-orgs' }
+  | { status: 'ready'; current: CurrentOrg };
+getCurrentOrganization(repo?: OrganizationRepo): Promise<CurrentOrganizationResult>;
+```
+
+Use existing authenticated `listMyOrgs(userId)` and actual `personal_owner_id`; deduplicate by orgId defensively. No resolver request parameters. Query errors remain errors, not NO_ORG. Active/profile completeness is checked by the existing application guard before business resolution; account-status failure takes precedence over release/role/resource checks. Do not manufacture a SolRole until its schema exists.
+
+- [ ] Add resolver cases: zero rows; personal only; one business with/without personal; two business rows; order independence; duplicate orgId defensive normalization; forged slug/org input never selects another organization; DB exception remains error. Assert no organization or membership writes.
+- [ ] Run `pnpm -C web exec vitest run server/organization app/auth/employment-routing.test.ts app/auth/login/page.test.ts 'app/(app)/employment-guard.test.ts' 'app/(app)/[slug]/layout.test.ts'`; implement the resolver and call it at every existing business page/action boundary, not layout alone.
+- [ ] Add the minimum account-state page using existing AuthFrame/AccountCard: NO_ORG invitation guidance, `/invitations`, account management and logout; MULTIPLE_ORGS exact message “지원되지 않는 계정 상태입니다. 관리자에게 문의하세요”, account management/logout, no workspace. Re-evaluate on request and after invite acceptance. Preserve valid completion destinations but never bypass resolver/profile checks via `next`. Keep session-only account/employment/received-invitation routes accessible.
+- [ ] **Explicit bounded routing choice:** for this compatibility slice, `/dashboard` can still bridge to the single server-resolved current organization's existing dashboard. Legacy `getMyWorkspace(slug)` must resolve current first, then only accept the same slug; mismatch/old personal path returns 404, not another workspace. This prevents client organization selection without rebuilding the app shell. It is intentionally not completion of ADR-021's slugless routing target; N1 must later move actual dashboard/settings content to canonical slugless routes and replace legacy links. Do not claim that target complete. Remove/hide the organization switch/create affordances in this bridged shell; do not introduce a new selector. Any retained direct template route/action must fail closed for unsupported account states.
+- [ ] Apply the separately assigned focused design in sibling `adr-021-account-ui-extension.md` when delivered; do not duplicate that design work. Designer coordination agrees on `/auth/organization-state`, read-error/loading states, and changing `/auth/account`'s completion-only return link to “서비스로 돌아가기” through this state route. Invitation acceptance reruns completion/current-org routing rather than trusting `result.slug`. This is the unavoidable UI work; it does not authorize sidebar redesign, new business dashboards, new UI APIs, or `/ops` migration.
+- [ ] Test authenticated no-org fresh signup → declaration → invitation page; acceptance of sole org → READY; second org → unsupported; suspended/missing-profile first; wrong slug 404; no redirect loop; foreign next ignored; no-org employment/account unchanged. Run browser checks at 1440/1280 using mocked inputs by default.
+- [ ] Commit with hooks, e.g. `feat: 업무 멤버십으로 현재 조직 판단`.
+
+## Existing tests and fixtures that need deliberate treatment
+
+- `scripts/database.test.mjs`: personal-org helper assumptions around teamDb and my_org_ids; signup metadata case near line 2103 explicitly expects a personal organization; historical backfill near 1668 must remain a historical migration test. People block near 3523 inserts old scoring columns and must target the new split. Account-deletion/task-isolation tests should still test explicitly prepared historical personal data.
+- `scripts/database-test-support.mjs`: `migratedDb()` inserts fresh users after full migrations; callers must stop assuming these users have personal rows. Do not silently add personal rows globally and hide the new signup contract.
+- `scripts/people/seed.test.mjs`: currently asserts `departments.length === 38` and `team_members WHERE scoring_eligible`; change to 38 TEAM/legacy rows plus separately counted uppers and 27 scoring rows. Keep the original identity and 100/100 assertions.
+- `web/server/organization/organization.service.test.ts`, `web/app/auth/login/page.test.ts`: personal home/missing tests must distinguish actual missing profile from valid NO_ORG. Keep getMyWorkspace's foreign-org non-disclosure tests.
+- `web/e2e-auth/auth.setup.ts`, `support/account-page.ts`, `support/seed.ts`: login helpers expect random personal slug and organization switcher. Use explicit isolated test memberships for READY and explicit no-org cases; fresh signup helpers must no longer assert bootstrap.
+- `web/e2e-auth/org-switcher.spec.ts`, `isolation.spec.ts`, `permissions.spec.ts`, `team-settings*.spec.ts`, `invitation.write.spec.ts`, `settings-account*.spec.ts`, `admin*.spec.ts` and account helpers contain personal/switcher assumptions. Replace obsolete UI behavior assertions with current-org isolation/account-state cases; preserve permission, foreign-row isolation, session revocation, deletion and invitation security assertions. Do not skip files or weaken the gate to retain old test counts.
+- `web/e2e/protected.spec.ts`, `tasks.spec.ts`: legacy-route comments/expectations still say personal redirection. Update only route compatibility assertions; task functionality is not a new feature request.
+- Current local seed creates a template team for its fixture and may preserve other real memberships. Never delete these to force a READY outcome. If that yields two business orgs, MULTIPLE_ORGS is the correct result. New auth E2E must use an isolated dataset/environment.
+
+## Task 9: Verification and handoff
+
+**Files:** updated `web/e2e-auth/` fixtures/specs/support and affected public/browser tests; `docs/evidence/people/20261016-adr021-people-integration.md`, `docs/11-TESTING.md`, `docs/PROGRESS.md`. Dedicated Supabase project files and private credentials stay outside tracked source. This task is owned by independent QA after implementation; a runtime fix returns to its original implementer and receives scoped review.
+
+- [ ] After each bounded task, run appropriate checks and required normal gate with no bypass. At completion run `pnpm verify` including web build, `pnpm -C web test:browser`, and public E2E on an isolated web port if required by changed routing. Record commands/results against the actual final commit; old 773/293/92 totals are not targets to preserve.
+- [ ] After PGlite passes, prepare a dedicated external temporary Supabase project/config with a unique project_id and every API/DB/studio/mail port distinct from the existing shared stack. Parent preflight found shared project `sol-radar` on API 54321, DB 54322, Studio 54323, mail web 54324, SMTP 54325; inspect occupancy again before selecting alternatives. Use cached images where available and only explicitly targeted temporary-project CLI commands. Do not use default `db:start`/reset, stop unrelated containers, or change the shared project's config.
+- [ ] Copy the current append-only migrations to that dedicated test project, provision only its test fixtures/accounts, capture its own status without logging keys, and create a private isolated web environment pointing solely at that target. Use a unique web port and explicit test baseURL. Ensure any seed/test helper's project detection targets this test project rather than the repository's default project. Run updated authenticated signup/redirect/RLS E2E there; clean up only the owned temporary project after evidence capture. Until that exists, record auth E2E as not rerun for this delta, with PGlite/mocked coverage, and do not claim full completion under the repository gate.
+- [ ] Independently review schema backfill/security and account-flow behavior; preserve original roster hashes, explicit unresolved hierarchy reasons, source privacy, and old evidence. Save new evidence in this worktree's `docs/evidence/people/` and append PROGRESS without overwriting another session's records.
+- [ ] Deliver a precise completion statement: catalog/scoring/signup/resolver compatibility versus remaining slugless N1, sol_role/N2, people N4a, ops and other ADR-021 work. No shared migration/seed application, source integration, or merge is implied.

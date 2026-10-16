@@ -125,6 +125,20 @@ OAuth는 가입 폼을 건너뛸 수 있으므로 DB의 두 열은 처음에 nul
 
 구현 계획은 이 문서 검토 후 별도로 작성한다. 최종 검증 파일·명령 매핑은 `docs/11-TESTING.md`에 둔다. 이 문서 단계의 검증은 요구사항 추적·문서 링크·원본 이름 비포함·기존 문서 정합성 및 저장소 검증 결과다.
 
+## 11. ADR-021 후속 정합화 (2026-10-16)
+
+이 부록이 §8의 평면 부서·한 표 인력 속성 및 과거 개인 조직 bootstrap 지시를 대체한다. 기존 구현/검증은 [통합 기록](../../../docs/evidence/people/20261016-people-integration.md)대로 보존한다. 최신 정본04·05·06·09·16과 승인된 ADR-021의 가입/DB 관련 계약을 적용하며 원본 체크아웃은 읽기만 한다.
+
+- 부서 `parentId`·`kind`를 추가한다. kind는 DIVISION/GROUP/TEAM, 누락/null은 기존 TEAM이다. DIVISION→GROUP→TEAM 또는 DIVISION→TEAM을 허용하며 순환·자기 참조·없는 부모·깊이4·팀 아래 자식을 거부한다. 상위가 불분명하거나 합산된 같은 팀의 부모가 여럿이면 null과 익명 이유를 기록한다.
+- 기존 팀38개 ID/표시명/목표와200명 소속은 보존한다. 신규 본부/그룹은 확인된 라벨만 추가하고 sourceCount/targetCount는 null이다. 팀은 기존 sourceCount와 양의 targetCount를 갖는다. 가입 목록·배분은 팀만 대상으로 하며 실제/목표/차이와 하위 직원 ID 중복 제거 합계를 보고한다.
+- 명부 JSON은 하나다. DB seed가 운영 `team_members`200행과 점수 `team_member_scoring`27행으로 나눈다. scoring.member_id는 기존 직원 UUID, 복합 FK로 조직 혼입을 막고 화면 역할은 쓰지 못한다. 기존 저장 컬럼은 새 migration에서 backfill/동일성 확인 후 제거하며 새 운영 updated_at을 둔다. 27명/20FTE/순수94·72·68 회귀는 유지한다.
+- 새 email/OAuth 가입은 profile만 만들고 개인 조직/멤버십을 만들지 않는다. 기존 개인 조직은 보존한다. signup/RPC/직접 프로필 UPDATE 모두 팀 신고만 허용하고 v00002 FK SET NULL 동작을 보존한다.
+- 서버가 실제 멤버십과 organizations.personal_owner_id IS NULL로 현재 업무 조직을 정한다.0개는 초대 안내,1개는 해당 조직,2개 이상은 지원되지 않는 계정 상태와403 UNSUPPORTED_ACCOUNT_STATE다. 요청값/신고값/이름에 따른 자동 합류·권한 부여는 없다. 보완은 업무 진입 전에, 계정 관리·받은 초대는 가입 조직 없이도 가능하다.
+- [가입 UI 스펙](2026-10-16-solideo-signup-ui.md)의 ADR-021 부록과 `/auth/organization-state`를 사용한다. 기존 slug 화면은 서버 단일 조직과 일치할 때만 연결한다. 완전한 slug 없는 앱 셸(N1)·sol_role/ADMIN 정책 전환(N2)·sidebar/people/ops/P1은 이번 호환 구현의 완료 범위에 포함하지 않는다.
+- fixture 구조1/2를 읽고 신규 구조는2, 동일한 팀 공개 투영의 catalogVersion은 v1.0을 유지한다. 별도 Supabase 환경 전에는 새 migration/seed를 공유 DB에 적용하지 않는다. 기존 작업 초기화·main 병합·다른 세션 파일 수정 금지다.
+
+검증은 [기존 계획 후속 Task5~9](../../../docs/plans/2026-10-16-solideo-people-signup.md)에 따른다. 계층 합성/원본 익명 대조·populated migration backfill·RLS·직접 Auth와 신고·seed2회·현재 조직0/1/2+·실제 별도 로컬 가입 E2E·1440/1280을 각각 검사한다. 사진 사람 승인과 전체 점수 파이프라인은 별도 상태로 보고한다.
+
 ## 관련 문서
 
 - [04 DB](../../../docs/04-DATABASE.md)

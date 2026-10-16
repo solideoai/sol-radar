@@ -26,15 +26,44 @@ updated: 2026-10-16
 
 ```mermaid
 flowchart TD
- L[로그인 /auth/login] --> D[대시보드 /dashboard]
- D --> B[공고 탐색 /bids]
+ L[로그인 /auth/login] --> D
+ subgraph 업무
+  D[대시보드 /dashboard]
+  B[입찰 공고 /bids]
+  W[관심 공고 /watchlist · P1]
+  N[알림 /notifications]
+ end
+ subgraph AI분석[AI 분석 · P1]
+  AN[분석 결과 비교 /analysis]
+  WF[인력 배치 시뮬레이션 /workforce]
+ end
+ subgraph 입찰관리[입찰 관리 · P1]
+  P[입찰 프로젝트 /projects]
+ end
+ subgraph 조직
+  C[회사 역량 /company]
+  O[조직·인력 /people]
+ end
+ subgraph 시스템
+  ST[설정 /settings]
+  M[데이터 수집 관리 /admin/ingestion · ADMIN]
+ end
+ D --> B
  B --> S[공고 상세 /bids/id]
  S --> A[분석 실행·점수 근거]
  S --> R[참여 결정 패널]
- D --> N[알림함 /notifications]
- D --> C[회사 역량 /company]
- D --> M[관리자 수집 현황 /admin/ingestion]
+ D --> N
+ D --> C
+ D --> O
+ D --> ST
+ D --> M
+ D -.-> W
+ D -.-> AN
+ D -.-> WF
+ R -.->|BID 결정| P
 ```
+
+점선은 [[16-DECISIONS|ADR-021]] P1 화면이다. 구현과 검증 전에는 메뉴에 없다(§4).
 
 ## 3. 디자인 토큰
 
@@ -95,21 +124,25 @@ flowchart TD
 ## 4. 레이아웃 그리드
 
 ```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Topbar: SOL RADAR [DEMO] 조직명 ▾ │ AI: mock │ 수집 12분 전 ● │ 🔔 3 │ 사용자 ▾ │
-├──────────┬───────────────────────────────────────────────────────────────────┤
-│ Sidebar  │ Content (max 1440, padding 24, 12-col grid, gutter 24)            │
-│ 240px    │                                                                   │
-│ 대시보드 │  페이지 제목 ─────────────────────────── [주요 액션]              │
-│ 공고     │  ┌────────────────────────────────┬─────────────────────┐        │
-│ 회사 역량│  │ 주 영역 8col                    │ 우측 레일 4col       │        │
-│ 알림     │  │                                │ (상세에서만, sticky) │        │
-│ 관리자   │  └────────────────────────────────┴─────────────────────┘        │
-└──────────┴───────────────────────────────────────────────────────────────────┘
+┌─ Topbar ──────────────────────────────────────────────────────────────────────────────────┐
+│ SOL RADAR [DEMO] 솔리데오 │ 실행 모드: mock │ AI: mock │ 수집 12분 전 ● │ 🔔 3 │ 사용자 ▾ │
+├──────────┬────────────────────────────────────────────────────────────────────────────────┤
+│ Sidebar  │ Content (max 1440, padding 24, 12-col grid, gutter 24)                         │
+│ 240px    │                                                                                │
+│ 대시보드 │  페이지 제목 ─────────────────────────── [주요 액션]                           │
+│ 입찰 공고│  ┌────────────────────────────────┬─────────────────────┐                      │
+│ 알림     │  │ 주 영역 8col                   │ 우측 레일 4col      │                      │
+│ 회사 역량│  │                                │ (상세에서만, sticky)│                      │
+│ 조직·인력│  └────────────────────────────────┴─────────────────────┘                      │
+│ 설정     │                                                                                │
+│ 수집 관리│                                                                                │
+└──────────┴────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - 사이드바는 240px 고정, 접으면 64px(아이콘만). 활성 항목은 `brand-soft` 배경 + 좌측 3px `brand` 바.
-- Topbar 우측 순서는 고정: `AiModeIndicator` → `DataFreshnessIndicator` → `NotificationBell` → 사용자 메뉴. `DEMO` 배지는 로고 바로 옆, `DEMO_MODE=true`일 때만.
+- 사이드바 묶음은 업무·AI 분석·입찰 관리·조직·시스템이다. 구현과 검증이 끝난 메뉴만 보인다(노출 조건 5개는 [[16-DECISIONS|ADR-021]]). 메뉴 숨김은 권한이 아니며, 서버가 라우트마다 권한을 따로 검사한다. 미인증은 기존 인증 정책, 미출시 경로 404, 출시 경로에 권한 없음 403이다. 해커톤에는 조건을 채운 업무·조직·시스템 메뉴가 보인다. 그림의 "수집 관리"는 데이터 수집 관리(`/admin/ingestion`, ADMIN만)다. 사용자 메뉴: 설정, 서비스 운영(`/ops`, 운영자만), 로그아웃([[16-DECISIONS|ADR-021]]). Topbar의 회사 이름 "솔리데오"는 고정 표시이고 조직 전환 메뉴가 없다.
+- Topbar 우측 순서는 고정: `RunModeIndicator` → `AiModeIndicator` → `DataFreshnessIndicator` → `NotificationBell` → 사용자 메뉴. `DEMO` 배지는 로고 바로 옆, 실행 모드가 `fixture`·`mock`일 때만(`live`에서는 숨긴다. 행 단위 `DEMO` 배지는 모드와 무관하게 `isDemo=true` 레코드에 붙는다).
+- `RunModeIndicator`는 `실행 모드: live | fixture | mock`을 표시한다([[16-DECISIONS|ADR-020]]). `live`는 중립 색, `fixture`·`mock`은 warning 색.
 - `AiModeIndicator`는 `AI: mock | local | hosted | unavailable` 네 값만 표시한다. 값은 `GET /health/ready`의 `checks.ai`([[14-OBSERVABILITY|14 관측성]])이며 gateway 불가면 `unavailable` + danger 색. 30초 간격 갱신.
 - 1280px에서 `/bids` 표의 기본 열이 가로 스크롤 없이 모두 보여야 한다(열 목록은 §5.3).
 - 1920px 이상은 콘텐츠를 1440에 가두고 좌우 여백으로 처리한다.
@@ -155,10 +188,10 @@ flowchart TD
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | ① 요약 카드 4개(한 줄): BID 권고 N건, 검토 대기 N건, 마감 임박(72시간) N건, 수집 카드(마지막 수집 시각 + "적재 N · 격리 N", 값은 `DashboardSummary.dataFreshness.lastIngestSummary`). ② "BID 권고" 표(상위 5, 점수순). ③ "마감 임박" 표(마감순). ④ 최근 변경(revision 이벤트 10건) |
+| 섹션 | ① 요약 카드 5개(한 줄): BID 권고 N건, 검토 대기 N건, 마감 임박(7일) N건, 수집 카드(마지막 수집 시각 + "적재 N · 격리 N", 값은 `DashboardSummary.dataFreshness.lastIngestSummary`), 분석 현황(공고별 최신 분석 1건 기준 완료·부분·실패 건수, 중복 실행 이중 집계 없음, 값은 `DashboardSummary.analyses.latestByStatus`). 다섯 번째 슬롯은 입찰 프로젝트([[16-DECISIONS\|ADR-021]] P1)가 들어오면 "진행 중 입찰 프로젝트"로 바꾼다. ② "BID 권고" 표(상위 5, 점수순). ③ "마감 임박" 표(마감순). ④ 최근 변경(revision 이벤트 10건) |
 | 주요 액션 | 각 행 클릭 → `/bids/[id]`. "전체 보기" → `/bids?decision=…` 필터 적용 링크 |
-| 빈 상태 | 공고 0건: "아직 수집된 공고가 없습니다" + [수집 실행](ADMIN만) 또는 "관리자에게 요청". 권고 0건: "BID 권고 공고가 없습니다" |
-| 로딩 | 카드 4개 + 표 skeleton |
+| 빈 상태 | 공고 0건: "아직 수집된 공고가 없습니다" + [수집 실행](ADMIN만) 또는 "관리자에게 요청". 권고 0건: "BID 권고 공고가 없습니다". 분석 0건: 분석 현황 카드에 0을 보이고 "아직 분석한 공고가 없습니다" |
+| 로딩 | 카드 5개 + 표 skeleton |
 | 오류 | §5.1 |
 | 권한 | 모든 역할 |
 
@@ -191,7 +224,7 @@ flowchart TD
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | 탭: 기술 스택 · 보유 자격 · 수행 실적 · 인력 · 선호 설정 · 재무(선택). 상단에 현재 revision과 `effective_at`, [변경 이력] |
+| 섹션 | 탭: 기술 스택 · 보유 자격 · 수행 실적 · 인력 · 선호 설정 · 재무(선택). 상단에 현재 revision과 `effective_at`, [변경 이력]. 인력 탭은 점수 계산 대상 27명·가용 20 FTE 요약과 `/people?scoring=1` 링크다([[16-DECISIONS\|ADR-021]]) |
 | 주요 액션 | ADMIN: [편집] → 폼 → [새 revision 저장]. 저장 시 "기존 분석은 이전 revision 기준입니다. 재분석이 필요합니다" 안내 |
 | 빈 상태 | 항목 0건: "등록된 기술이 없습니다. 점수 요소 `기술 스택 적합`이 0점으로 계산됩니다" + [추가](ADMIN). 점수 영향을 문장으로 명시([[08-SCORING\|08 SOL Score]] missing 정책) |
 | 로딩/오류 | §5.1 |
@@ -211,25 +244,66 @@ flowchart TD
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | ① 소스별 카드: 마지막 성공·실패 시각, 적재 건수, 격리 건수. ② 실행 이력 표: run id, 배치, 상태, 시작/종료, 처리/격리/재시도 수. ③ 격리 오류 표: fixture/소스 키, 오류 코드, 민감정보 제거된 상세(`FX-12`). ④ 재시도 로그(429 대기 포함, `FX-20`) |
+| 섹션 | ① 소스별 카드: 마지막 성공·실패 시각, 적재 건수, 격리 건수. ② 실행 이력 표: run id, 배치, 상태, 시작/종료, 처리/격리/재시도 수. ③ 격리 오류 표: fixture/소스 키, 오류 코드, 민감정보 제거된 상세(`FX-12`). ④ 재시도 로그(429 대기 포함, `FX-20`). 각 실행의 데이터 출처(`source`)·실행 모드(`run_mode`), 마지막 수집 시각([[16-DECISIONS\|ADR-021]]) |
 | 주요 액션 | [수동 수집 실행] → 배치 선택(`seed`/`live`, 데모 모드) + `Idempotency-Key` 자동 → 202 → 이력 표 polling |
-| 빈 상태 | 실행 이력 0건: "아직 수집을 실행하지 않았습니다" + [수동 수집 실행] |
+| 빈 상태 | 실행 이력 0건: "아직 수집을 실행하지 않았습니다" + [수동 수집 실행]. 기록이 없는 항목은 빈 상태로 두고 임의 값을 보이지 않는다 |
 | 로딩/오류 | §5.1. 실행 중 버튼 비활성 + "실행 중 (run id)" |
-| 권한 | ADMIN만. 그 외 403 |
+| 권한 | ADMIN만. 그 외 403. 서버 가드 + RLS로 거부한다(메뉴 숨김만으로 막지 않는다) |
+
+### 5.9 `/people` (ADR-021, 구현 예정)
+
+| 항목 | 내용 |
+|---|---|
+| 섹션 | ① 조직도: 본부 → 그룹 → 팀 3단 트리. 부서마다 표시 인원은 하위 팀 재직 인원의 합(직원 ID 중복 없음). 본부·그룹에는 목표 인원 칸이 없다. ② 명부 표: 사진, 이름, 부서, 직급/직책, 점수 계산 대상 여부. ③ 검색·필터: 이름·부서·직급/직책·점수 계산 대상. ④ 개인 상세 서랍(`PersonDrawer`): 사진·부서·직급/직책, 점수 계산 대상이면 직무·등급·스킬·가용성 |
+| 주요 액션 | 행 클릭 → 개인 상세. 필터는 URL 쿼리와 동기화(`/people?scoring=1` 등) |
+| 빈 상태 | seed 전: "등록된 인력이 없습니다" |
+| 누락 처리 | 상위 부서가 없는 부서는 "상위 미지정" 묶음. 사진이 없으면 이니셜로 대신한다. 둘 다 오류 화면이 아니다 |
+| 표시 | 점수 계산 대상 배지(27명), "가상 인물" `DEMO` 배지. 연락처 칸은 없다 |
+| 권한 | 조회는 모든 역할. 편집(추가·이동·퇴사)은 ADMIN이고 P1이다 |
+
+### 5.10 `/settings` (ADR-021, 구현 예정)
+
+| 탭 | 내용 | 권한 |
+|---|---|---|
+| 개인 | 이름·부서/직급 신고 정보(ADR-019 보완 흐름과 같은 검증), 비밀번호·로그인 수단, 계정 삭제(템플릿 기능 재사용) | 본인 |
+| 조직 | 구성원 목록, 초대, 업무 역할(`sol_role`) 변경과 감사 기록 | ADMIN. 그 외 403(서버 가드 + RLS) |
+
+회사 선호 설정은 `/company`가 맡는다. 개인 알림 수신 설정은 해커톤 이후다.
+
+### 5.11 현재 조직과 계정 상태 (ADR-021, 구현 예정)
+
+현재 조직은 서버가 정한다. 화면에 조직 전환 메뉴가 없다.
+
+| 업무 조직 멤버십 | 화면 |
+|---|---|
+| 0개 | 조직 초대 안내 화면. 받은 초대 목록 링크를 보인다(문구는 구현 때 정한다). 업무 화면은 열지 않는다 |
+| 1개 | 그 조직으로 들어간다 |
+| 2개 이상 | "지원되지 않는 계정 상태입니다. 관리자에게 문의하세요". 업무 API는 `403 UNSUPPORTED_ACCOUNT_STATE` |
+
+### 5.12 P1 화면 (ADR-021)
+
+아래 화면은 [[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단이다. 데모 필수가 모두 끝난 뒤 착수하고, 구현과 검증 전에는 메뉴에 없다. 화면별 책임은 [사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md) §2.2다.
+
+| 경로 | 화면 | 요지 |
+|---|---|---|
+| `/watchlist` | 관심 공고 | 내 관심 공고만 미리 거른 공고 표. `/bids`와 같은 `BidTable`·`BidFilters`를 쓴다 |
+| `/analysis` | 분석 결과 비교 | 조직의 분석 이력과 2~4건 비교. 분석 실행은 `/bids/[id]`에서만 |
+| `/projects` | 입찰 프로젝트 | BID 결정 이후 업무(담당자·체크리스트·제출 마감·상태·결과 기록) |
+| `/workforce` | 인력 배치 시뮬레이션 | 점수 계산 대상 27명 안의 규칙 매칭 후보와 기간 충돌. 저장하지 않는다 |
 
 ## 6. `/bids/[id]` 와이어프레임 (1440px)
 
 ```text
 ┌─ Topbar ──────────────────────────────────────────────────────────────────────────────┐
-│ SOL RADAR [DEMO]  세종특별자치시 ▾   AI: mock   수집 12분 전 ●   🔔 3   김영업 ▾         │
+│ SOL RADAR [DEMO]  솔리데오  실행 모드: mock  AI: mock  수집 12분 전 ●  🔔 3  김영업 ▾    │
 ├─ Sidebar ─┬─ Content ──────────────────────────────────────────────────────────────────┤
 │ 대시보드  │ ← 공고 목록                                                                │
-│ ▶ 공고    │ [DEMO] [NOTICE] 세종특별자치시 차세대 행정정보시스템 고도화 (가상)            │
-│ 회사 역량 │ 발주기관 세종특별자치시 · 예산 1,200,000,000원 · 마감 2026-11-06 (D-21)      │
-│ 알림      │ 공고번호 DEMO-2026-0001 · revision 1 · 수집 2026-10-16 09:12 KST            │
-│ 관리자    │ [원문 보기 ↗]  [분석 재실행]                     분석 완료 ✓ 2026-10-16 09:15 │
-│           ├──────────────────────────────────────────┬─────────────────────────────────┤
-│           │ ■ 단계 이력 (StageTimeline)              │ ■ 결정 패널 (DecisionPanel)     │
+│ ▶ 입찰공고│ [DEMO] [NOTICE] 세종특별자치시 차세대 행정정보시스템 고도화 (가상)            │
+│ 알림      │ 발주기관 세종특별자치시 · 예산 1,200,000,000원 · 마감 2026-11-06 (D-21)      │
+│ 회사 역량 │ 공고번호 DEMO-2026-0001 · revision 1 · 수집 2026-10-16 09:12 KST            │
+│ 조직·인력 │ [원문 보기 ↗]  [분석 재실행]                     분석 완료 ✓ 2026-10-16 09:15 │
+│ 설정      ├──────────────────────────────────────────┬─────────────────────────────────┤
+│ 수집 관리 │ ■ 단계 이력 (StageTimeline)              │ ■ 결정 패널 (DecisionPanel)     │
 │           │ ○ 발주계획 — · ○ 사전규격 — · ● 공고 r1  │ 권고: ▲ BID                     │
 │           │                                          │ SOL Score 94 / 100              │
 │           │ ■ 필수자격 체크리스트                     │ ─────────────────────────────  │
@@ -245,11 +319,11 @@ flowchart TD
 │           │ 전략적 선호      ██████████ 10.0 / 10     │                                 │
 │           │ 알고리즘 sol-v0.1.0 · 프로필 rev 2        │                                 │
 │           │                                          │                                 │
-│           │ ■ Kev 보조 의견                           │                                 │
-│           │ 모델 선택지 신뢰 분포 (수주 확률 아님)     │                                 │
+│           │ ■ Kev 참고 지표                           │                                 │
+│           │ 모델 선택지 신뢰 분포 (충족·수주 확률 아님)│                                 │
 │           │ BID 71% · WATCH 24% · NO-BID 5%           │                                 │
 │           │ 낙찰 확률 아님 · 규칙 판정을 뒤집지 않음   │                                 │
-│           │ kev-4b · kev-qs/v0.1 · mock · 규칙과 일치  │                                 │
+│           │ kev-9b · kev-qs/v0.1 · mock · 규칙과 일치  │                                 │
 │           │                                          │                                 │
 │           │ ■ 근거 인용 (EvidenceDrawer 트리거)        │                                 │
 │           │ "요구기술: Java, Spring Boot…"  p.4 [열기] │                                 │
@@ -258,7 +332,15 @@ flowchart TD
 └───────────┴──────────────────────────────────────────┴─────────────────────────────────┘
 ```
 
-섹션 순서는 고정이다: 상단 요약 → 단계 이력 → 필수자격 체크리스트 → 점수 분해 → Kev 보조 의견 → 근거 인용. 우측 레일(결정 패널)은 sticky. 숫자는 [[08-SCORING|08 SOL Score]] §6.2 Example A(`FX-01`)와 같다. Kev 섹션 하단에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 Kev 블록 3줄이 그대로 들어간다(와이어프레임에는 지면상 요약).
+섹션 순서는 고정이다: 상단 요약 → 단계 이력 → 필수자격 체크리스트 → 점수 분해 → Kev 참고 지표 → 근거 인용. Kev 참고 지표는 점수에 반영하지 않는다는 점을 섹션 안에 항상 적는다([[08-SCORING|08 점수]], [[16-DECISIONS|ADR-020]]).
+
+`kev-qs/v0.2`(실모델 `live`·`fixture` 모드)에서는 Kev 참고 지표 섹션이 아래를 더 보여 준다. 시각 표현은 구현 전 `web-designer` 디자인 스펙으로 정한다.
+- 요구사항 항목별 3값 분포(충족·미충족·확인 필요)와 규칙 판정 나란히. 다르면 `KEV_REQUIREMENT_DISAGREEMENT` 배지
+- `techFit`·`perfRelevance` 등급, `risk.*` 리스크 목록(`KEV_DELIVERY_RISK`)
+- 보정 상태 태그 `미보정`/`보정됨(데이터셋 버전)`
+- 항목을 누르면 그 판단에 쓰인 state 줄과 공고 인용·회사 증빙(`KevStateTrace`)을 근거 서랍에 연다
+
+상단 요약에는 모든 실행 모드에서 "가상 회사 프로필로 분석" 배지를 붙인다(회사 프로필은 언제나 가상 솔리데오 프로필이다. `live` 공고면 "실제 공고 × 가상 회사 프로필"). 우측 레일(결정 패널)은 sticky. 숫자는 [[08-SCORING|08 SOL Score]] §6.2 Example A(`FX-01`)와 같다. Kev 섹션 하단에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 Kev 블록 3줄이 그대로 들어간다(와이어프레임에는 지면상 요약).
 
 상태별 변형:
 
@@ -268,7 +350,11 @@ flowchart TD
 | Kev 상이 (`MODEL_RULE_DISAGREEMENT`) | Kev 섹션에 `규칙 우선` 배지 + "Kev는 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다"(`FX-03`). 결정 패널 상단 "사람 검토 권장" |
 | 자격 `NEEDS_REVIEW` | 체크리스트 행 warning + "확인 필요". 근거가 없으면 09 문구 "근거를 확인할 수 없어 INSUFFICIENT_DATA로 표시합니다. 이 항목은 점수에 반영하지 않았습니다." 권고 WATCH |
 | `missingFactors` | 해당 요소 행 회색 바 + `미확인` 배지 + 툴팁 사유(`FX-11`) |
-| 첨부 파싱 실패 | 근거 섹션에 danger 배지 "첨부 원문 확인" + 원문 링크(`FX-05`) |
+| 첨부 파싱 실패 | 근거 섹션에 danger 배지 "첨부 원문 확인" + 원문 링크(`FX-05`). 사유(`UNSUPPORTED_FORMAT`·`NO_TEXT_LAYER`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED` 등)를 툴팁으로 |
+| 첨부 다운로드 실패 | 근거 섹션에 danger 배지 `DOCUMENT_DOWNLOAD_FAILED` "첨부를 내려받지 못했습니다" + 원문 링크. 파싱 실패와 다른 배지 |
+| 부분 파싱 (`PARTIAL`) | 해당 첨부에 warning 배지 "일부만 읽음". 근거 없는 항목은 확인 필요 |
+| Qwen 미접속 / Kev 미접속 | 각각 다른 문구: Qwen 불가는 `PARTIAL` 배너(위), Kev 불가는 Kev 섹션 "사용 불가 (Kev 서버 미접속)" + `RULES_ONLY` |
+| mock 자동 대체 (`MOCK_FALLBACK`) | 상단 danger 배너 "모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)". `AI_FALLBACK_TO_MOCK=true`일 때만 생기고 `live` 모드에서는 생기지 않는다 |
 | 취소 | §5.5 |
 
 ## 7. 분석 상태와 polling
@@ -288,12 +374,15 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 
 | 요소 | 위치 | 동작 |
 |---|---|---|
-| `DEMO` 배지 | Topbar 로고 옆, 목록 각 행, 상세 제목 앞, 로그인 카드 | `isDemo=true` 레코드와 `DEMO_MODE=true` 환경에서 표시. 툴팁은 09 문구 그대로: "이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다." |
+| `DEMO` 배지 | Topbar 로고 옆, 목록 각 행, 상세 제목 앞, 로그인 카드 | 행·상세는 `isDemo=true` 레코드에, Topbar·로그인 카드는 실행 모드가 `fixture`·`mock`일 때 표시. 툴팁은 09 문구 그대로: "이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다." |
+| `RunModeIndicator` | Topbar | `실행 모드: live \| fixture \| mock`. `/health/ready` 응답의 실행 모드 값 |
+| 가상 회사 프로필 배지 | 상세 상단 요약 | 모든 분석에 "가상 회사 프로필로 분석". 툴팁 "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다" |
+| 공고 출처 필터 | `/bids` 필터 바 | `origin=live\|demo\|all`(기본: `live` 모드 `live`, `fixture`·`mock` 모드 `demo`) |
 | `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable`. `/health/ready` `checks.ai` 값. `unavailable`이면 danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
 | `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("12분 전"). 60분 초과 warning, 수집 실패 시 danger + 관리자 링크 |
 | `AnalysisStatus` | 상세·목록 | §7 상태 + 실시간 polling |
 | AI 불가 배너 | 상세 상단, 대시보드 상단 | `analysis.status=PARTIAL` 또는 `/health/ready` `status: degraded`일 때. 문구는 09 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" + `recommendationBasis: RULES_ONLY` |
-| Kev 섹션 제목·고지 | Kev 섹션 | 제목은 "모델 선택지 신뢰 분포 (수주 확률 아님)" 고정. 본문 하단에 09 "모델 한계 고지 문구" Kev 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSet`으로 치환. 둘 다 생략 금지 |
+| Kev 섹션 제목·고지 | Kev 섹션 | 섹션 이름은 "Kev 참고 지표", 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" Kev 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSetVersion`으로 치환. 둘 다 생략 금지 |
 | 변경 diff | 상세 단계 이력 → revision 클릭 | 예산·마감·자격·첨부 변경 전/후 나란히(`FX-06`, `FX-07`) |
 
 ## 9. 컴포넌트
@@ -315,6 +404,9 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 | `DataFreshnessIndicator` | Topbar | §8 |
 | `DemoBadge` | 여러 곳 | 툴팁은 09 DEMO 문구 |
 | `AiUnavailableBanner` | 상세·대시보드 | 09 AI 불가 문구 + `recommendationBasis` + `errorCode` |
+| `OrgChart` | `/people` | 본부 → 그룹 → 팀 3단 트리, "상위 미지정" 묶음, 부서별 표시 인원([[16-DECISIONS\|ADR-021]]) |
+| `PersonDrawer` | `/people` (우측 서랍) | 개인 상세. 사진 없으면 이니셜, 점수 계산 대상이면 직무·등급·스킬·가용성. Esc로 닫힘 |
+| `DashboardCardSlots` | 대시보드 | 요약 카드 슬롯 정의 한 곳(슬롯 5개, 다섯 번째는 분석 현황 → P1 입찰 프로젝트로 교체) |
 
 ## 10. 접근성
 
@@ -340,11 +432,11 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 
 | state | 뜻 | 찍는 라우트 (최소) |
 |---|---|---|
-| `loaded` | 정상 데이터 표시 | `bids-list`, `bid-detail`, `dashboard`, `company`, `notifications`, `admin-ingestion` |
-| `empty` | 빈 상태 (§5) | `bids-list`(필터 0건), `notifications` |
+| `loaded` | 정상 데이터 표시 | `bids-list`, `bid-detail`, `dashboard`, `company`, `notifications`, `admin-ingestion`, `people`, `settings` |
+| `empty` | 빈 상태 (§5) | `bids-list`(필터 0건), `notifications`, `admin-ingestion`(실행 이력 0건) |
 | `loading` | skeleton | `bid-detail`(분석 polling 중) |
 | `error` | 오류 화면 + `requestId` | `bid-detail` |
-| `forbidden` | 403/404 | `admin-ingestion`(VIEWER), `bid-detail`(`org-02`) |
+| `forbidden` | 403/404 | `admin-ingestion`(VIEWER), `bid-detail`(`org-02`), `settings-org`(VIEWER), `ops`(조직 ADMIN, 404) |
 | `partial` | AI 불가 배너 + `RULES_ONLY` | `bid-detail`(`FX-01`), `dashboard` |
 | `demo-badge` | `DEMO` 배지·툴팁 클로즈업 | `bids-list`, `login` |
 
