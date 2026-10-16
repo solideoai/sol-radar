@@ -47,9 +47,11 @@ updated: 2026-10-16
 - [x] 카탈로그·가입 신고 필드·가상 인력 seed/RLS migration 및 생성 타입. Task1/2 독립 리뷰 통과; 실제 로컬 최종 재검증은 별도.
 - [x] 가입 폼·프로필 보완·업무 화면/Server Action 가드·계정 관리 호환 구현 및 Task3 독립 리뷰 통과. 현재 v1 업무 REST 엔드포인트는 없으며 재사용 API 가드 계약만 단위 검증.
 - [x] 전체200명→계산27명 snapshot, 고정 창20FTE·배정 경계와 별도 worked-example 요소94/72/68 순수 회귀 구현. 전체 점수 엔진 골든은 Phase4 미완료.
-- [ ] 신규 가입/보완 로컬 E2E·전체 verify/browser/E2E/authE2E·seed멱등·1440/1280 최종 독립 QA. [실행/미실행 기록](evidence/people/20261016-people-integration.md).
+- [x] 기존 계획 코드의 가입/보완 로컬 E2E·verify/browser/E2E/authE2E·seed멱등·1440/1280 독립 QA. 공개130·브라우저89·인증92 PASS; QA-01/02 수정·별도 리뷰 후 관련 검사 재실행. [실행/미실행 기록](evidence/people/20261016-people-integration.md).
 
-원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 PLANNED200/READY0이다. 별도 사진 작업 결과는 아직 합치지 않았으며 사람 승인 전 release 완료를 주장하지 않는다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. DB·가입 코드는 구현·독립 리뷰를 마쳤지만 최종 통합 QA는 대기다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
+- [ ] 최신 정본 04·05·06·09·16과 ADR-021 후속 정합화. 인력 표 분리·부서 계층·가입 개인 조직 생성 중단·멤버십 기반 조직 결정. 공유 DB 충돌 migration 적용/main 병합 금지, 기존 작업·다른 세션 파일 보존.
+
+원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 PLANNED200/READY0이다. 별도 사진 작업 결과는 아직 합치지 않았으며 사람 승인 전 release 완료를 주장하지 않는다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. 기존 계획의 DB·가입 코드와 통합 QA는 통과했으며 ADR-021 후속 변경을 시작한다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
 
 ## hosted 모델 API 사용 승인 기록
 

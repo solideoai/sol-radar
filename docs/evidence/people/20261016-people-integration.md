@@ -1,5 +1,5 @@
 ---
-title: "솔리데오 인력·가입 통합 검증 — 독립 QA 대기"
+title: "솔리데오 인력·가입 통합 검증 — 기존 계획 코드 QA 통과"
 status: draft
 tags:
   - sol-radar
@@ -10,7 +10,7 @@ updated: 2026-10-16
 
 # 솔리데오 인력·가입 통합 검증
 
-Task 1~3 구현·독립 리뷰 후 Task 4의 계산 회귀와 로컬 E2E를 준비한 기록이다. 구현자가 수행한 집중 검사와 독립 QA가 수행할 전체 검사를 구분한다. 전체 기능·배포·사진 release 완료 증거가 아니다.
+Task 1~4 구현·작업별 독립 리뷰와 기존 계획의 독립 통합 QA 기록이다. 코드 QA는 통과했으며 사진 release·사람 검수·ADR-021 후속 반영은 남아 있다. 전체 기능·배포 완료 증거가 아니다.
 
 ## 계산 범위와 승인된 기간 의미
 
@@ -50,19 +50,28 @@ Task 1~3 구현·독립 리뷰 후 Task 4의 계산 회귀와 로컬 E2E를 준�
 
 집중 로그는 작업용 `.superpowers/sdd/2026-10-16-solideo-people-signup/task-4-*.log`에 있다. 키·세션·원본 실명은 요약에 싣지 않는다.
 
-## 독립 QA 실행 대기
+## 독립 QA 실제 결과
 
-아래는 **이 Task4 구현자가 아직 수행하지 않은 최종 검사**다. 구현자와 다른 에이전트가 커밋된 동일 코드에서 수행하고 실제 결과·아티팩트를 후속 기록한다. 기존 다른 체크아웃 서버를 재사용하거나 포트를 점유한 서버를 종료하지 말고 빈 `E2E_PORT`를 쓴다.
+구현자와 다른 QA 담당자가 실제 로컬 Supabase Auth/PostgREST/Mailpit와 production Next/Chromium으로 실행했다. 가드 회귀와 seed 재실행 오류를 먼저 재현하고 원래 구현자의 수정·별도 검토 후 필요한 검사만 다시 실행했다. 아래 커밋별 실행 근거를 구분하며 다른 커밋의 결과를 새 실행으로 바꾸어 쓰지 않는다.
 
-| 검사 | 현재 상태 |
+| 검사 | 실제 결과와 실행 커밋 |
 |---|---|
-| 전체 `pnpm verify` | 독립 QA 대기 |
-| `pnpm -C web test:browser` | 독립 QA 대기 |
-| `pnpm -C web test:e2e` | 독립 QA 대기 |
-| 로컬 `pnpm -C web test:e2e:auth` | 독립 QA 대기. 자체 db-seed 이후 실제 Auth/PostgREST를 쓴다 |
-| 실제 로컬 인력 seed2회·200명/안정UUID·Auth 추가0 | 최종 독립 재확인 대기. Task1의 실제 로컬/정책 증거와 혼동하지 않음 |
-| 실제1440·1280 화면/키보드·오류·긴 라벨·스크린샷 | 새 E2E에 구현. 최종 독립 QA 결과/사람 시각 검수 대기 |
-| 실제 원본 필수 대조·사진 release | 독립 사진 결과 병합 후. 현재 worktree manifest PLANNED200/READY0; 사람의 사진 승인 전 release 성공을 주장하지 않음 |
+| 전체 `pnpm verify` | `83e1fac` exit0, 루트292·웹773 시험 및 서식·타입·린트·계층·새 production build PASS |
+| `pnpm -C web test:e2e` | 같은 커밋 공개130/130 PASS; 포함된 component-browser 단계89/89 PASS. 중복 단독 실행 없음 |
+| 로컬 `pnpm -C web test:e2e:auth` | seed 수정 `bff0daad`, 정규 seed 포함 exit0,92/92 PASS. 기존 실패4개와 이후 세션 격리 단언·새 가입7건 모두 실행 |
+| 실제 로컬 명부 seed2회 | `90c67bc` 독립 실행:200→200→200, 동일 UUID, 기존 Auth5→5→5 동일 ID, 명부 seed Auth 호출0 |
+| 실제1440·1280 화면/키보드·긴 라벨 | `90c67bc` 실제 브라우저·독립 AI 시각 검수 PASS. 아래 저장 스크린샷 참조. 사람의 제품 승인과 별개 |
+| 원본 필수 대조·사진 release | 데이터 단계 원본 대조 완료. 최종 사진 병합·사람 승인 후 release 재검증 대기. 이 코드 worktree manifest는 PLANNED200/READY0 |
+
+독립 QA가 실제로 열어 검토한 안정 상태 스크린샷: [가입1440](screenshots/20261016-people-signup-loaded-1440.png), [가입1280](screenshots/20261016-people-signup-loaded-1280.png), [보완1440](screenshots/20261016-people-completion-loaded-1440.png), [보완1280](screenshots/20261016-people-completion-loaded-1280.png). 원본 PNG를 그대로 보존했다.
+
+`83e1fac` 이후 변경은 로컬 seed와 인접 회귀 시험 두 파일뿐이다. 웹 코드·빌드 산출물은 같아서 통과한 공개/브라우저/빌드를 반복하지 않았다. `bff0daad` 정상 커밋 게이트 루트293/293 PASS는 구현자 실행이며 독립 전체 verify의 재실행으로 기록하지 않는다.
+
+해결한 오류는 두 개다. QA-01은 미로그인/DB 미설정에서 새 보완 가드가 기존 안내·noindex보다 먼저 redirect하던 회귀였다. 기존 안내와 도메인 인증을 보존하고 미완료 계정 차단은 유지했다. QA-02는 앞선 E2E에서 초대를 수락한 seed-invitee에게 다음 seed가 다시 초대해400으로 중단되던 오류였다. 소유자 세션/RLS로 정확한 seed-team·seed-invitee·member 멤버십만 복원하며, Auth/조직/팀 ID·다른 멤버십·승격된 owner를 보존한다. 상태 회귀 RED→11PASS, 실제 전체 seed2회 멱등·정규 auth92PASS로 확인했다.
+
+직접 API 검사에서 쿠키 PATCH CSRF403, 잘못된 Bearer의 쿠키 대체 금지401, Bearer와 쿠키가 다른 계정일 때 Bearer 본인만 변경, 역할·목표 인원·알 수 없는 코드 위조400과 부분 저장 없음, 비구성원의 솔리데오 명부 RLS0행을 확인했다. 실제 초대 수락 후에도 보완 전 업무 차단, 복구 메일·계정 삭제, 지연 저장 중 중복 요청 방지·오류 입력 유지·실제 재시도도 확인했다. 실제 초기 서버 읽기 장애 주입은 미실행이며 해당 오류/재시도/로그아웃 상태는 component browser 시험으로 검사했다.
+
+원시 로그/보고서는 작업용 `.superpowers/sdd/2026-10-16-solideo-people-signup/independent-qa-report.md`, `independent-qa-rerun-report.md`, `independent-qa-rerun2-report.md`와 인접 로그에 보존한다. 초기 실패·trace도 유지했다. QA가 만든 임시 계정·팀·서버를 정리했고 마지막 Auth5/명부200/마이그레이션00002를 확인했다. 클라우드·공유 schema 변경·main 병합은 하지 않았다. 외부 OAuth·사진 사람 승인·전체 Phase4 파이프라인·ADR-021은 이 통과 범위에 포함하지 않는다.
 
 로컬 seed 확인은 기존 템플릿5개 계정 ID가 유지되는지 별도로 보고, 전역 Auth 행수는 disposable 계정 때문에5라고 가정하지 않는다. 다른 시험이 Auth를 생성/삭제하지 않는 단독 시점에서 roster seed 전후 전체 Auth ID집합/건수와200명 ID집합을 비교한다. `supabase status -o env`는 메모리에서만 파싱하고 로컬 URL 거절 helper를 사용한다. 출력은 건수·동일성 여부·Auth 호출0 같은 익명 요약만 남긴다. 클라우드 push/reset/운영 DB 검사는 수행하지 않는다.
 

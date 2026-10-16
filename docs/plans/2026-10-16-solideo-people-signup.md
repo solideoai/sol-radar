@@ -107,11 +107,11 @@ updated: 2026-10-16
 
 - [x] **1. 실패 시험 작성:** `financials.employeeCount=200`과 200명→27명 snapshot, 역할 2/4/18/3, 2026-12~2027-06 가용 20 FTE, 비대상 173명의 스킬·가용성 변경/성별·사진 변경에도 계산 결과 동일, 배정 기간 겹침/경계·100% 배정 제외를 단언한다. 명부 길이를 바꾼 합성 입력에서는 employeeCount도 바뀌어야 한다. 08 §6의 FX-01/02/03 fixture 요소와 새 인력 계산을 사용한 합계가 `[94,72,68]`인지 검사한다. 상수를 그대로 반환하거나 점수 배열을 스스로 합격시키는 시험을 만들지 않는다. E2E는 이메일 필수 입력→확인/재로그인 유지, 간편 가입과 같은 미완료 DB 상태→보완→업무 접근, 기존 미완료 계정의 직접 URL/API 차단·로그아웃 허용, 보완만으로 org-01 접근 불가를 검사한다.
 - [x] **2. 실패 확인:** `pnpm -C web exec vitest run server/scoring`과 `pnpm -C web exec playwright test -c playwright.auth.config.ts signup-employment --list`로 실패 시험/실행 대상이 존재하는지 확인한다. E2E는 목록 확인을 실행 통과로 기록하지 않는다.
-- [ ] **3. 구현:** 순수 snapshot/기간 FTE 함수만 추가하고 전체 입찰 분석 기능은 만들지 않는다. 로컬 seed/E2E에서 기존 5계정 재생성 뒤 인력 seed 2회, 안정 UUID·200명·추가 Auth 생성 0을 확인한다. 문서의 제품 데모 5계정과 현재 템플릿 로컬 시험 5계정은 목적이 다르므로 계정 이름/역할을 임의로 치환하지 않는다. OAuth 외부 제공자 설정은 후순위 그대로 두고 실제 OAuth E2E를 실행하지 않았으면 미실행으로 기록한다. 쓰기 E2E는 기존 `chromium-write` 단계에 둬 읽기 테스트와 상태를 충돌시키지 않는다.
+- [x] **3. 구현:** 순수 snapshot/기간 FTE 함수만 추가하고 전체 입찰 분석 기능은 만들지 않는다. 로컬 seed/E2E에서 기존 5계정 재생성 뒤 인력 seed 2회, 안정 UUID·200명·추가 Auth 생성 0을 확인한다. 문서의 제품 데모 5계정과 현재 템플릿 로컬 시험 5계정은 목적이 다르므로 계정 이름/역할을 임의로 치환하지 않는다. OAuth 외부 제공자 설정은 후순위 그대로 두고 실제 OAuth E2E를 실행하지 않았으면 미실행으로 기록한다. 쓰기 E2E는 기존 `chromium-write` 단계에 둬 읽기 테스트와 상태를 충돌시키지 않는다.
 - [ ] **4. 통과 확인:** `pnpm verify`, `pnpm -C web test:browser`, `pnpm -C web test:e2e`, 로컬 Supabase에서 `pnpm -C web test:e2e:auth`, 사진 완료 후 `pnpm people:check:release -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`. 1440·1280 스크린샷/키보드·RLS·seed 멱등·실제 실행/미실행을 증거에 분리한다. 로컬 DB가 없으면 read-only 환경 점검을 하고 실행 가능한 로컬 DB 준비로 해결한다. 클라우드로 시험 대상을 바꾸지 않는다. 최종 독립 리뷰의 계약/보안 문제를 수정한 뒤 필요한 검사만 재실행한다.
-- [ ] **5. 커밋:** 이 태스크 scoring/E2E/support/검증 문서만 명시해 `git commit -m "test: 인력 가입 흐름과 가용성 회귀 검증"`. 세 계획의 완료 항목을 사실대로 갱신하고 검증 실패·미실행이 남으면 기능 전체 완료라고 보고하지 않는다.
+- [x] **5. 커밋:** 이 태스크 scoring/E2E/support/검증 문서만 명시해 `git commit -m "test: 인력 가입 흐름과 가용성 회귀 검증"`. 세 계획의 완료 항목을 사실대로 갱신하고 검증 실패·미실행이 남으면 기능 전체 완료라고 보고하지 않는다.
 
-Task4 구현자 현황(2026-10-16): 순수 계산10건 RED→GREEN, 신규 읽기3/쓰기4 E2E 발견. 단계3의 실제 로컬 seed2회·단계4 전체 통합/화면 QA는 구현자와 다른 최종 QA 담당자가 실행한다. E2E 목록 확인을 실행 PASS로 기록하지 않는다. 단계3/4/전체 기능은 그 결과 전까지 미완료다. [증거 초안](../evidence/people/20261016-people-integration.md).
+Task4 현황(2026-10-16): 구현90c67bc 및 독립 리뷰 완료. 원래 구현자 수정·별도 검토 후 기존 계획 코드 QA 통과: verify/build·공개130·브라우저89(`83e1fac`), 인증92(`bff0daad`), 실제 seed2회·1440/1280 시각/키보드 검사. 단계4의 사진 release·사람 검수와 ADR-021 후속 정합화는 남아 있다. 전체 기능 완료를 뜻하지 않는다. [커밋별 증거](../evidence/people/20261016-people-integration.md).
 
 ## 계획 자체 검토
 
