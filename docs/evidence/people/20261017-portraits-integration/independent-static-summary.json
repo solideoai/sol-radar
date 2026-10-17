@@ -1,0 +1,24 @@
+{
+  "approvedSnapshotSha256": "19cbd9408e9672273db9405073dde5f9133d7715fa40041e51b91c824e8ff0e1",
+  "approvedBindingsAndBytes": 200,
+  "pngBytes": 444095216,
+  "gender": {
+    "MALE": 100,
+    "FEMALE": 100
+  },
+  "departmentKinds": {
+    "TEAM": 38,
+    "GROUP": 4,
+    "DIVISION": 6
+  },
+  "teamTargetSum": 200,
+  "upperTargetNull": true,
+  "confirmedTeamParents": 13,
+  "unresolvedTeams": 25,
+  "unresolvedGroups": 4,
+  "fullyConnected3TierHierarchy": "UNVERIFIED_PENDING_AUTHORITATIVE_PARENT_INFORMATION",
+  "scoringEligible": 27,
+  "assignments": 7,
+  "historicalPendingAuditHashesPreserved": true,
+  "protectedHashesMatched": 7
+}

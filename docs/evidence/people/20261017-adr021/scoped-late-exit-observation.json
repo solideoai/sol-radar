@@ -1,0 +1,8 @@
+{
+  "head": "21c8b9785cc04fcd1d99eddd92e75cbe157bcedb",
+  "keyboardActivationCount": 1,
+  "beforeReleasePath": "/auth/organization-state",
+  "finalPath": "/auth/account",
+  "heldResponseReleased": true,
+  "immediateNavigationWhileHeld": "not established"
+}

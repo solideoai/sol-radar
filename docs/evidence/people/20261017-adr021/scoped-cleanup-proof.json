@@ -1,0 +1,13 @@
+{
+  "head": "21c8b9785cc04fcd1d99eddd92e75cbe157bcedb",
+  "project": "sol-radar-t9-20261017-b3ef-qa",
+  "command": ["supabase", "stop", "--workdir", "/tmp/sol-radar-t9-20261017-b3ef-qa", "--no-backup"],
+  "ownedContainersBefore": 9,
+  "ownedContainersAfter": 0,
+  "ownedVolumesAfter": 0,
+  "unrelatedRunningContainersPreservedExactly": 16,
+  "privateEnvironmentRemoved": true,
+  "ownedAuthStateFilesRemoved": 5,
+  "sourceTrackedClean": true,
+  "safeProbeCopies": "safe-probes/"
+}

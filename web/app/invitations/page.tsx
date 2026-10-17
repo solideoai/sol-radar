@@ -2,11 +2,14 @@ import { cn } from "cn";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
-import { AccountHeader, AccountLink, NoDatabase } from "@/app/auth/account-card";
+import { AccountHeader, NoDatabase } from "@/app/auth/account-card";
 import { AuthFrame } from "@/components/auth-frame";
 import { buttonVariants } from "@/components/ui/button";
 import { getReceivedInvitations } from "@/server/organization";
 import { getMyProfile } from "@/server/profile";
+import { redirect } from "next/navigation";
+import { StateRetry } from "@/app/auth/organization-state/state-retry";
+import { InvitationLinks } from "./invitation-links";
 import { InvitationList } from "./invitation-list";
 
 export const metadata: Metadata = { title: "받은 초대" };
@@ -16,7 +19,20 @@ export const metadata: Metadata = { title: "받은 초대" };
 export default async function InvitationsPage() {
   // 로그인 상태는 요청마다 다르다. 빌드 때 미리 그려 두지 않는다.
   await connection();
-  const [received, me] = await Promise.all([getReceivedInvitations(), getMyProfile()]);
+  const me = await getMyProfile().catch(() => null);
+  if (me?.status === "missing" || me?.status === "suspended") redirect("/auth/login");
+  const received = me ? await getReceivedInvitations().catch(() => null) : null;
+  if (!received)
+    return (
+      <AuthFrame>
+        <AccountHeader title="받은 초대" />
+        <p role="alert" className="type-body text-destructive">
+          받은 초대를 불러오지 못했습니다. 다시 시도해 주세요.
+        </p>
+        <StateRetry failed />
+        <InvitationLinks />
+      </AuthFrame>
+    );
 
   switch (received.status) {
     case "no-database":
@@ -41,7 +57,7 @@ export default async function InvitationsPage() {
         </AuthFrame>
       );
     case "ready": {
-      const email = me.status === "ready" ? (me.profile.email ?? "") : "";
+      const email = me?.status === "ready" ? (me.profile.email ?? "") : "";
       return (
         <AuthFrame>
           <AccountHeader title="받은 초대">
@@ -55,13 +71,7 @@ export default async function InvitationsPage() {
             )}
           </AccountHeader>
           <InvitationList invitations={received.invitations} email={email} />
-          {received.homeSlug ? (
-            <p className="text-center type-label">
-              <AccountLink href={`/${received.homeSlug}/dashboard`}>
-                대시보드로 돌아가기
-              </AccountLink>
-            </p>
-          ) : null}
+          <InvitationLinks />
         </AuthFrame>
       );
     }

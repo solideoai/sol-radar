@@ -1,12 +1,16 @@
 import "server-only";
+import { employmentInputSchema } from "@/server/shared";
+import { getSignupOptions } from "./profile.catalog";
 import {
   type DeleteAccountResult,
   type DisplayNameResult,
   type MyProfile,
+  type EmploymentResult,
+  toEmploymentState,
   parseDisplayName,
   toMyProfile,
 } from "./profile.model";
-import { profileRepo, type ProfileRepo } from "./profile.repo";
+import { InvalidEmploymentError, profileRepo, type ProfileRepo } from "./profile.repo";
 
 // ── 서비스: 모델과 저장을 잇는 흐름 ──
 // 저장은 인자로 받는다. 운영은 기본값(Supabase), 시험은 같은 모양의 가짜 객체를 넘긴다.
@@ -39,4 +43,56 @@ export async function deleteMyAccount(
   const id = repo.isConfigured() ? await repo.currentUserId() : null;
   if (!id) return { status: "signed-out" };
   return { status: await repo.deleteAccount() };
+}
+
+export async function getMyEmployment(repo: ProfileRepo = profileRepo): Promise<EmploymentResult> {
+  if (!repo.isConfigured()) return { status: "no-database" };
+  const id = await repo.currentUserId();
+  if (!id) return { status: "signed-out" };
+  const row = await repo.findById(id);
+  if (!row) return { status: "missing" };
+  if (row.status !== "active") return { status: "suspended" };
+  return { status: "ready", state: toEmploymentState(row) };
+}
+
+export async function saveMyEmployment(
+  input: unknown,
+  repo: ProfileRepo = profileRepo,
+): Promise<EmploymentResult> {
+  const parsed = employmentInputSchema.safeParse(input);
+  if (!parsed.success)
+    return {
+      status: "invalid",
+      fields: Object.fromEntries(
+        parsed.error.issues.map((issue) => [issue.path.join(".") || "form", issue.message]),
+      ),
+    };
+  const options = getSignupOptions();
+  const fields: Record<string, string> = {};
+  if (!options.departments.some((item) => item.id === parsed.data.departmentId))
+    fields.departmentId = "유효한 부서를 선택하세요";
+  if (!options.jobTitles.some((item) => item.id === parsed.data.jobTitleId))
+    fields.jobTitleId = "유효한 직급/직책을 선택하세요";
+  if (Object.keys(fields).length) return { status: "invalid", fields };
+  if (!repo.isConfigured()) return { status: "no-database" };
+  const id = await repo.currentUserId();
+  if (!id) return { status: "signed-out" };
+  const row = await repo.findById(id);
+  if (!row) return { status: "missing" };
+  if (row.status !== "active") return { status: "suspended" };
+  try {
+    if (!(await repo.updateEmployment(id, parsed.data)))
+      throw new Error("본인 가입 정보를 저장하지 못했습니다");
+  } catch (error) {
+    if (error instanceof InvalidEmploymentError)
+      return {
+        status: "invalid",
+        fields: {
+          departmentId: "유효한 부서를 선택하세요",
+          jobTitleId: "유효한 직급/직책을 선택하세요",
+        },
+      };
+    throw error;
+  }
+  return getMyEmployment(repo);
 }

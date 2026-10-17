@@ -1,0 +1,26 @@
+Command: ["pnpm","verify"]
+Owned API: http://127.0.0.1:57621
+Owned CLI workdir: /tmp/sol-radar-portraits-20261017-qa
+Started: 2026-10-17T02:11:23.205Z
+
+> sol-radar@0.1.0 verify /Users/leegwanghui/.codex/worktrees/b3ef/sol-radar
+> node scripts/verify.mjs
+
+
+> sol-radar@0.1.0 format:check /Users/leegwanghui/.codex/worktrees/b3ef/sol-radar
+> prettier --check . "!web/**" "!mobile/**"
+
+Checking formatting...
+[error] .superpowers/sdd/2026-10-17-approved-portraits-integration/task-2-evidence/initial-containers.json: SyntaxError: The input should contain exactly one expression, but the first expression is followed by the unexpected character `{`. (2:1)
+[error]   1 | {"Command":"\"docker-entrypoint.s…\"","CreatedAt":"2026-10-16 13:54:41 +0900 KST","ID":"0adfa3399872","Image":"ghcr.io/supabase/studio:2026.10.05-sha-94b8b06","Labels":"com.supabase.cli.workdir=/Users/leegwanghui/dev/hackathon/sol-radar,desktop.docker.io/binds/0/Source=/Users/leegwanghui/dev/hackathon/sol-radar/supabase/snippets,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/Users/leegwanghui/dev/hackathon/sol-radar/supabase/snippets,com.docker.compose.project=sol-radar,com.supabase.cli.project=sol-radar","LocalVolumes":"0","Mounts":"/host_mnt/User…","Names":"supabase_studio_sol-radar","Networks":"supabase_network_sol-radar","Ports":"0.0.0.0:54323-\u003e3000/tcp","RunningFor":"21 hours ago","Size":"0B (virtual 1.28GB)","State":"running","Status":"Up 21 hours (healthy)"}
+[error] > 2 | {"Command":"\"docker-entrypoint.s…\"","CreatedAt":"2026-10-16 13:54:41 +0900 KST","ID":"45ef9f02644a","Image":"ghcr.io/supabase/postgres-meta:v0.100.0","Labels":"com.docker.compose.project=sol-radar,com.supabase.cli.project=sol-radar,com.supabase.cli.workdir=/Users/leegwanghui/dev/hackathon/sol-radar","LocalVolumes":"0","Mounts":"","Names":"supabase_pg_meta_sol-radar","Networks":"supabase_network_sol-radar","Ports":"8080/tcp","RunningFor":"21 hours ago","Size":"0B (virtual 419MB)","State":"running","Status":"Up 21 hours (healthy)"}
+[error]     | ^
+[error]   3 | {"Command":"\"docker-entrypoint.s…\"","CreatedAt":"2026-10-16 13:54:40 +0900 KST","ID":"62180028bb23","Image":"public.ecr.aws/supabase/storage-api:v1.79.36","Labels":"com.supabase.cli.workdir=/Users/leegwanghui/dev/hackathon/sol-radar,com.docker.compose.project=sol-radar,com.supabase.cli.project=sol-radar","LocalVolumes":"1","Mounts":"supabase_stora…","Names":"supabase_storage_sol-radar","Networks":"supabase_network_sol-radar","Ports":"5000/tcp","RunningFor":"21 hours ago","Size":"0B (virtual 840MB)","State":"running","Status":"Up 21 hours (healthy)"}
+[error]   4 | {"Command":"\"/bin/postgrest\"","CreatedAt":"2026-10-16 13:54:39 +0900 KST","ID":"a4c93fc52389","Image":"public.ecr.aws/supabase/postgrest:v16.4","Labels":"com.docker.compose.project=sol-radar,com.supabase.cli.project=sol-radar,com.supabase.cli.workdir=/Users/leegwanghui/dev/hackathon/sol-radar","LocalVolumes":"0","Mounts":"","Names":"supabase_rest_sol-radar","Networks":"supabase_network_sol-radar","Ports":"3000/tcp","RunningFor":"21 hours ago","Size":"0B (virtual 20.5MB)","State":"running","Status":"Up 21 hours"}
+[error]   5 | {"Command":"\"/usr/bin/tini -s -g…\"","CreatedAt":"2026-10-16 13:54:38 +0900 KST","ID":"a9c4122eae4c","Image":"public.ecr.aws/supabase/realtime:v2.140.10","Labels":"com.docker.compose.project=sol-radar,com.supabase.cli.project=sol-radar,com.supabase.cli.workdir=/Users/leegwanghui/dev/hackathon/sol-radar","LocalVolumes":"0","Mounts":"","Names":"supabase_realtime_sol-radar","Networks":"supabase_network_sol-radar","Ports":"4000/tcp","RunningFor":"21 hours ago","Size":"0B (virtual 403MB)","State":"running","Status":"Up 21 hours (healthy)"}
+Error occurred when checking code style in the above file.
+ ELIFECYCLE  Command failed with exit code 2.
+✗ 검증 실패: pnpm format:check
+ ELIFECYCLE  Command failed with exit code 1.
+
+Exit: 1 Signal: null Finished: 2026-10-17T02:11:25.871Z

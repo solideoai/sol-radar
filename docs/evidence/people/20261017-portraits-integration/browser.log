@@ -1,0 +1,19 @@
+Command: ["pnpm","-C","web","test:browser"]
+Owned API: http://127.0.0.1:57621
+Owned CLI workdir: /tmp/sol-radar-portraits-20261017-qa
+Started: 2026-10-17T02:15:04.051Z
+
+> sol-radar-web@0.1.0 test:browser /Users/leegwanghui/.codex/worktrees/b3ef/sol-radar/web
+> vitest run --config vitest.browser.config.ts
+
+
+ RUN  v4.1.11 /Users/leegwanghui/.codex/worktrees/b3ef/sol-radar/web
+
+
+ Test Files  14 passed (14)
+      Tests  106 passed (106)
+   Start at  11:15:05
+   Duration  14.03s (transform 0ms, setup 1.46s, import 9.34s, tests 41.38s, environment 0ms)
+
+
+Exit: 0 Signal: null Finished: 2026-10-17T02:15:19.634Z

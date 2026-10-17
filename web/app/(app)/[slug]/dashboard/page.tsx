@@ -36,7 +36,10 @@ export const metadata: Metadata = { title: "대시보드" };
 // 작업 추가 버튼은 두지 않는다 — 작업 화면에 가서 추가한다.
 export default async function DashboardPage({ params }: PageProps<"/[slug]/dashboard">) {
   await connection();
-  const workspace = await requireWorkspace((await params).slug);
+  const workspace = await requireWorkspace(
+    (await params).slug,
+    `/${(await params).slug}/dashboard`,
+  );
   const [dashboard, activities] = await Promise.all([
     getTaskDashboard(taskScopeOf(workspace)),
     getRecentActivities(activityScopeOf(workspace)),

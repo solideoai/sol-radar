@@ -1,23 +1,26 @@
 #!/usr/bin/env node
+import { readLocalStatus } from "./local-test-target.mjs";
 // db-seed.mjs — 로컬 Supabase 에 시드 계정과 데이터를 넣는다. 로그인 뒤 화면을 사람 손 없이 확인하고 시험하려고 쓴다.
 //
 //   pnpm db:seed                 시드를 (다시) 넣는다. 계정 목록과 비밀번호를 출력한다
 //   pnpm -C web test:e2e:auth    시드를 넣고 로그인 E2E 를 돈다
 //
 // 로컬 전용이다. 주소·키는 `supabase status` 에서 읽고, 로컬이 아닌 주소면 아무것도 하지 않는다.
-// 다시 돌리면 시드 계정과 "시드 계정만 멤버인 조직"을 지우고 처음부터 만든다. 다른 로컬 데이터는 건드리지 않는다.
+// 다시 돌려도 기존 다섯 계정·개인 조직·템플릿 팀을 보존한다. 시드 작업·초대는 시험용 초기 상태로 갱신한다.
 //
 // 데이터는 그 사람으로 로그인해 넣는다(anon 키 + 그 사람의 토큰). RLS 를 거치고, 활동 기록에 행위자가 남는다.
-// 관리 키(service_role)는 계정을 만들고 지우는 일, 지난 시드를 지우는 일, 작업의 날짜를 과거로 옮기는 일,
+// 관리 키(service_role)는 카탈로그·명부 upsert, 시험 계정 생성·갱신, 시드 작업·초대 갱신, 날짜를 옮기는 일,
 // 운영자(profiles.is_admin)를 켜는 일에만 쓴다. is_admin 은 화면 역할이 바꾸지 못한다(권한과 protect_is_admin 트리거 — 관리 키는 통과시킨다).
 // 키 값은 화면에 찍지 않는다. 비밀번호는 로컬 시험 계정용이라 출력한다.
 //
 // 계정·팀·대시보드 수치는 로그인 E2E(web/e2e-auth/support/seed.ts 와 dashboard·tasks-view·admin 시험)에 옮겨 적혀 있다. 바꾸면 같이 고친다.
 // 스펙: polaris/specs/done/seed-and-auth-e2e.md
-import { spawnSync } from "node:child_process";
+
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { isLocalUrl, parseStatusEnv } from "./local-env.mjs";
+
+import { catalogUuid, seedLocalPeople, refuseNonLocal } from "./people/seed.mjs";
+export { refuseNonLocal };
 
 // ── 1. 시드 계획(순수) ─────────────────────────────────────────
 
@@ -169,12 +172,6 @@ export const planTeamTasks = (now) => {
   }));
 };
 
-// 시드는 로컬 Supabase 에만 넣는다. 로컬이 아니면 이유를 돌려준다(null 이면 통과).
-export const refuseNonLocal = (apiUrl) =>
-  isLocalUrl(apiUrl)
-    ? null
-    : `로컬 Supabase 주소가 아닙니다(${apiUrl || "비어 있음"}). 시드는 로컬에만 넣습니다.`;
-
 // ── 2. HTTP ───────────────────────────────────────────────────
 
 // 실패하면 상태 코드와 서버의 짧은 이유만 담아 던진다(키·토큰은 싣지 않는다).
@@ -207,8 +204,6 @@ const createClient =
 
 // ── 3. 시드 넣기 ──────────────────────────────────────────────
 
-const inList = (values) => `in.(${values.join(",")})`;
-
 const listSeedUsers = async (call, serviceKey) => {
   const emails = new Set(Object.values(SEED_ACCOUNTS).map((account) => account.email));
   const found = [];
@@ -222,44 +217,25 @@ const listSeedUsers = async (call, serviceKey) => {
   }
 };
 
-// 지난 시드를 지운다: 시드 계정만 멤버인 조직(개인 조직·시드 팀·시험 중 만든 팀) → 시드 계정.
-const removePreviousSeed = async (call, serviceKey) => {
-  const users = await listSeedUsers(call, serviceKey);
-  if (users.length === 0) return 0;
-  const seedIds = new Set(users.map((user) => user.id));
-  const asService = { apiKey: serviceKey };
-
-  const seedMemberships = await call(
-    "GET",
-    `/rest/v1/memberships?select=org_id&user_id=${inList([...seedIds])}`,
-    asService,
+const createAccount = async (call, keys, account, existing) => {
+  const metadata = {
+    name: account.displayName,
+    department_code: "SOL-D001",
+    job_title_code: "SOL-J007",
+  };
+  const created = await call(
+    existing ? "PUT" : "POST",
+    existing ? `/auth/v1/admin/users/${existing.id}` : "/auth/v1/admin/users",
+    {
+      apiKey: keys.service,
+      body: {
+        email: account.email,
+        password: SEED_PASSWORD,
+        email_confirm: true,
+        user_metadata: metadata,
+      },
+    },
   );
-  const orgIds = [...new Set(seedMemberships.map((row) => row.org_id))];
-  if (orgIds.length > 0) {
-    const members = await call(
-      "GET",
-      `/rest/v1/memberships?select=org_id,user_id&org_id=${inList(orgIds)}`,
-      asService,
-    );
-    const sharedWithOthers = new Set(
-      members.filter((row) => !seedIds.has(row.user_id)).map((row) => row.org_id),
-    );
-    const seedOnly = orgIds.filter((id) => !sharedWithOthers.has(id));
-    if (seedOnly.length > 0) {
-      await call("DELETE", `/rest/v1/organizations?id=${inList(seedOnly)}`, asService);
-    }
-  }
-  for (const user of users) {
-    await call("DELETE", `/auth/v1/admin/users/${user.id}`, asService);
-  }
-  return users.length;
-};
-
-const createAccount = async (call, keys, account) => {
-  const created = await call("POST", "/auth/v1/admin/users", {
-    apiKey: keys.service,
-    body: { email: account.email, password: SEED_PASSWORD, email_confirm: true },
-  });
   const session = await call("POST", "/auth/v1/token?grant_type=password", {
     apiKey: keys.anon,
     body: { email: account.email, password: SEED_PASSWORD },
@@ -267,7 +243,11 @@ const createAccount = async (call, keys, account) => {
   const as = { apiKey: keys.anon, token: session.access_token };
   await call("PATCH", `/rest/v1/profiles?id=eq.${created.id}`, {
     ...as,
-    body: { display_name: account.displayName },
+    body: {
+      display_name: account.displayName,
+      declared_department_id: catalogUuid(metadata.department_code),
+      declared_job_title_id: catalogUuid(metadata.job_title_code),
+    },
   });
   return { id: created.id, as };
 };
@@ -282,14 +262,22 @@ const insertTask = async (call, as, row) => {
 };
 
 export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) => {
+  const refusal = refuseNonLocal(apiUrl);
+  if (refusal) throw new Error(refusal);
+  await seedLocalPeople({ apiUrl, serviceKey });
   const call = createClient(apiUrl);
   const keys = { anon: anonKey, service: serviceKey };
 
-  const removed = await removePreviousSeed(call, serviceKey);
+  const existingUsers = await listSeedUsers(call, serviceKey);
 
   const people = {};
   for (const [role, account] of Object.entries(SEED_ACCOUNTS)) {
-    people[role] = await createAccount(call, keys, account);
+    people[role] = await createAccount(
+      call,
+      keys,
+      account,
+      existingUsers.find((user) => user.email === account.email),
+    );
   }
   const { owner, member, admin } = people;
 
@@ -304,29 +292,65 @@ export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) =>
     throw new Error(`${SEED_ACCOUNTS.admin.email} 을 운영자로 켜지 못했습니다`);
   }
 
-  // 팀: 소유자가 만들면 트리거가 owner 멤버십을 넣는다. 멤버를 초대해 수락시키고, 초대받은 사람에게는 초대만 남긴다.
-  await call("POST", "/rest/v1/organizations", {
-    ...owner.as,
-    body: SEED_TEAM,
-    prefer: "return=minimal",
-  });
+  // 기존 템플릿 팀은 그대로 두고 시드가 소유하는 작업·초대 상태만 갱신한다.
+  const [existingTeam] = await call(
+    "GET",
+    `/rest/v1/organizations?select=id&slug=eq.${SEED_TEAM.slug}`,
+    owner.as,
+  );
+  if (!existingTeam) {
+    await call("POST", "/rest/v1/organizations", {
+      ...owner.as,
+      body: SEED_TEAM,
+      prefer: "return=minimal",
+    });
+  }
   const [team] = await call(
     "GET",
     `/rest/v1/organizations?select=id&slug=eq.${SEED_TEAM.slug}`,
     owner.as,
   );
-  for (const email of [SEED_ACCOUNTS.member.email, SEED_ACCOUNTS.invitee.email]) {
+  const asService = { apiKey: serviceKey };
+  // slug만으로 팀의 소유권을 판단하지 않는다. 비시드 회원이 있으면 초대 수락 복원도 하지 않는다.
+  const teamMemberships = await call(
+    "GET",
+    `/rest/v1/memberships?select=user_id&org_id=eq.${team.id}`,
+    asService,
+  );
+  const seedUserIds = new Set(Object.values(people).map((person) => person.id));
+  if (teamMemberships.some((membership) => !seedUserIds.has(membership.user_id))) {
+    throw new Error("시드 계정 외 회원이 있는 팀의 초기화를 거부합니다.");
+  }
+  // 초대 수락 E2E가 남긴 이 연결만 초기화한다. owner 승격·다른 조직/사용자는 보존한다.
+  await call(
+    "DELETE",
+    `/rest/v1/memberships?org_id=eq.${team.id}&user_id=eq.${people.invitee.id}&org_role=eq.member`,
+    owner.as,
+  );
+  await call("DELETE", `/rest/v1/tasks?org_id=eq.${team.id}`, asService);
+  await call("DELETE", `/rest/v1/invitations?org_id=eq.${team.id}`, asService);
+  const members = await call(
+    "GET",
+    `/rest/v1/memberships?select=user_id&org_id=eq.${team.id}&user_id=eq.${member.id}`,
+    member.as,
+  );
+  for (const email of [
+    ...(members.length ? [] : [SEED_ACCOUNTS.member.email]),
+    SEED_ACCOUNTS.invitee.email,
+  ]) {
     await call("POST", "/rest/v1/invitations", {
       ...owner.as,
       body: { org_id: team.id, email, org_role: "member" },
       prefer: "return=minimal",
     });
   }
-  await call("POST", "/rest/v1/memberships", {
-    ...member.as,
-    body: { org_id: team.id, user_id: member.id, org_role: "member" },
-    prefer: "return=minimal",
-  });
+  if (!members.length) {
+    await call("POST", "/rest/v1/memberships", {
+      ...member.as,
+      body: { org_id: team.id, user_id: member.id, org_role: "member" },
+      prefer: "return=minimal",
+    });
+  }
 
   // 작업: 만든 사람으로 넣는다. 완료한 작업은 할 일로 넣고 완료로 바꿔 "완료함" 활동이 남게 한다.
   for (const task of planTeamTasks(now)) {
@@ -358,56 +382,35 @@ export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) =>
     `/rest/v1/organizations?select=id&personal_owner_id=eq.${owner.id}`,
     owner.as,
   );
-  for (const task of SEED_PERSONAL_TASKS) {
-    await insertTask(call, owner.as, {
-      org_id: personal.id,
-      title: task.title,
-      status: task.status,
-    });
+  // ADR-021 이후 가입에는 개인 공간이 없다. 이전 계정에 남아 있는 공간만 갱신한다.
+  if (personal) {
+    await call("DELETE", `/rest/v1/tasks?org_id=eq.${personal.id}`, asService);
+    for (const task of SEED_PERSONAL_TASKS) {
+      await insertTask(call, owner.as, {
+        org_id: personal.id,
+        title: task.title,
+        status: task.status,
+      });
+    }
   }
 
-  return { removed, teamSlug: SEED_TEAM.slug };
+  return { removed: 0, teamSlug: SEED_TEAM.slug };
 };
 
 // ── 4. 명령 ───────────────────────────────────────────────────
 
-const readStatus = () => {
-  const run = spawnSync("supabase", ["status", "-o", "env"], {
-    stdio: ["ignore", "pipe", "pipe"],
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  });
-  if (run.error || run.status !== 0) return null;
-  return parseStatusEnv(run.stdout);
-};
-
-const main = async () => {
-  // 출력에는 service_role·secret 키도 들어 있다. 화면에 흘리지 않고 받아서 필요한 값만 쓴다.
-  const status = readStatus();
-  if (!status) {
-    console.error("❌ 로컬 Supabase 상태를 읽지 못했습니다. 꺼져 있거나 Supabase CLI 가 없습니다.");
-    console.error("   pnpm db:start 로 켠 뒤 다시 실행하세요.");
-    return 1;
-  }
-  const refusal = refuseNonLocal(status.API_URL);
-  if (refusal) {
-    console.error(`❌ ${refusal}`);
-    return 1;
-  }
+export async function seedSelectedLocal({ env = process.env, run, write = seed } = {}) {
+  const status = readLocalStatus({ env, ...(run ? { run } : {}) });
   const anonKey = status.ANON_KEY || status.PUBLISHABLE_KEY;
   const serviceKey = status.SERVICE_ROLE_KEY || status.SECRET_KEY;
-  if (!anonKey || !serviceKey) {
-    console.error(
-      "❌ supabase status 출력에 anon·service_role 키가 없습니다. supabase status 로 auth 가 켜져 있는지 확인하세요.",
-    );
-    return 1;
-  }
+  if (!anonKey || !serviceKey) throw new Error("로컬 seed 인증 키가 없습니다.");
+  return write({ apiUrl: status.API_URL, anonKey, serviceKey });
+}
 
+const main = async () => {
   console.log("▶ 시드 넣기 (로컬 Supabase)");
   try {
-    const result = await seed({ apiUrl: status.API_URL, anonKey, serviceKey });
-    if (result.removed > 0)
-      console.log(`  지난 시드 계정 ${result.removed}개와 그 조직을 지우고 다시 만들었습니다`);
+    await seedSelectedLocal();
   } catch (error) {
     console.error(`❌ 시드를 넣지 못했습니다: ${error.message}`);
     console.error("   마이그레이션이 밀렸으면 pnpm db:start 로 따라잡은 뒤 다시 실행하세요.");

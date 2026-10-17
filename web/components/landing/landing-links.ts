@@ -14,4 +14,4 @@ export const SIGN_UP_HREF = "/auth/sign-up";
 
 // 로그인했지만 개인 조직이 없는 계정(missing)도 가입 화면으로 보낸다. 가입 화면이 로그인 화면으로 넘기고, 로그인 화면이 안내한다.
 export const startHrefFor = (home: MyHome): string =>
-  home.status === "ready" ? `/${home.personalSlug}/dashboard` : SIGN_UP_HREF;
+  home.status === "signed-out" || home.status === "no-database" ? SIGN_UP_HREF : "/dashboard";

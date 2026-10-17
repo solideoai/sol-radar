@@ -1,5 +1,7 @@
 "use server";
 
+import { requireCurrentOrganization } from "@/app/(app)/employment-guard";
+
 import { refresh } from "next/cache";
 import {
   type AddTaskResult,
@@ -19,6 +21,7 @@ import {
 const isStale = (status: string) => status !== "invalid" && status !== "signed-out";
 
 export async function createTask(orgId: unknown, input: unknown): Promise<AddTaskResult> {
+  if (!(await requireCurrentOrganization("/memos", orgId))) return { status: "signed-out" };
   const result = await addTask(orgId, input);
   if (isStale(result.status)) refresh();
   return result;
@@ -29,6 +32,7 @@ export async function saveTask(
   taskId: unknown,
   input: unknown,
 ): Promise<UpdateTaskResult> {
+  if (!(await requireCurrentOrganization("/memos", orgId))) return { status: "signed-out" };
   const result = await updateTask(orgId, taskId, input);
   if (isStale(result.status)) refresh();
   return result;
@@ -39,12 +43,14 @@ export async function changeStatus(
   taskId: unknown,
   status: unknown,
 ): Promise<ChangeTaskStatusResult> {
+  if (!(await requireCurrentOrganization("/memos", orgId))) return { status: "signed-out" };
   const result = await changeTaskStatus(orgId, taskId, status);
   if (isStale(result.status)) refresh();
   return result;
 }
 
 export async function removeTask(orgId: unknown, taskId: unknown): Promise<DeleteTaskResult> {
+  if (!(await requireCurrentOrganization("/memos", orgId))) return { status: "signed-out" };
   const result = await deleteTask(orgId, taskId);
   if (isStale(result.status)) refresh();
   return result;

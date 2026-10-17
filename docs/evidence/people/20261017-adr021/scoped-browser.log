@@ -1,0 +1,12 @@
+command: pnpm -C web exec vitest run --config vitest.browser.config.ts app/auth/organization-state/state-retry.browser.test.tsx app/auth/organization-state/state.browser.test.tsx
+exit: 0
+
+ RUN  v4.1.11 /Users/leegwanghui/.codex/worktrees/b3ef/sol-radar/web
+
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  02:34:50
+   Duration  3.01s (transform 0ms, setup 232ms, import 328ms, tests 1.97s, environment 0ms)
+
+

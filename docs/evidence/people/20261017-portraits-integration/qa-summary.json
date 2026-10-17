@@ -1,0 +1,46 @@
+{
+  "frozenHead": "a05217a05f0fb9adb3553c02978f0e2d531e9610",
+  "verify": {
+    "exit": 0,
+    "rootPass": 349,
+    "webPass": 879,
+    "build": "PASS",
+    "firstArtifactFormatAttempt": "FAILED_BEFORE_SUITES_RETAINED"
+  },
+  "normalAuth": {
+    "exit": 0,
+    "passed": 95,
+    "failed": 0,
+    "retried": 0
+  },
+  "browser": {
+    "exit": 0,
+    "passed": 106,
+    "failed": 0,
+    "avatarCases": 4
+  },
+  "nextGet": {
+    "passed": 200,
+    "failed": 0,
+    "mime": "image/png",
+    "shaMatchesApproved": 200,
+    "bodyBytes": 444095216
+  },
+  "nextBrowserDecode": {
+    "passed": 200,
+    "failed": 0,
+    "dimensionsHistogram": {
+      "1254x1254": 200
+    }
+  },
+  "publicSignupDesktopControls": {
+    "widths": [1440, 1280],
+    "overflow": 0,
+    "pageErrors": 0,
+    "selectedDepartment": "AX사업본부 AI플랫폼운영팀",
+    "selectedTitle": "팀장"
+  },
+  "fullGoldens": "G1-G10_UNVERIFIED",
+  "productPeopleOrgChartDetailUI": "UNIMPLEMENTED_UNVERIFIED",
+  "ownedCleanup": "PASS_UNRELATED_22_PRESERVED"
+}

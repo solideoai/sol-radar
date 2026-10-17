@@ -45,8 +45,8 @@ export const ENABLED_SOCIAL = [
 export const horizontalOverflow = (page: Page): Promise<number> =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
-// 개인 대시보드 주소. 개인 조직의 주소는 가입 때 무작위 8자로 정해진다.
-export const PERSONAL_DASHBOARD = /\/[a-z0-9]{8}\/dashboard$/;
+// Explicitly prepared sole-business fixture destination.
+export const BUSINESS_DASHBOARD = /\/[^/]+\/dashboard$/;
 
 // 로그인 화면의 폼으로 로그인한다. path 는 ?next= 같은 검색어를 붙인 로그인 주소.
 export const fillSignInForm = async (
@@ -60,13 +60,13 @@ export const fillSignInForm = async (
   await page.getByRole("button", { name: "로그인", exact: true }).click();
 };
 
-// 로그인해 개인 대시보드까지 간다. 개인 조직의 주소(slug)를 돌려준다.
+// Caller explicitly provisions one business membership before using this helper.
 export const signInThroughForm = async (
   page: Page,
   account: { email: string; password: string },
 ): Promise<string> => {
   await fillSignInForm(page, account);
-  await expect(page).toHaveURL(PERSONAL_DASHBOARD);
+  await expect(page).toHaveURL(BUSINESS_DASHBOARD);
   await expect(page.getByRole("heading", { level: 1, name: "대시보드" })).toBeVisible();
   return new URL(page.url()).pathname.split("/")[1];
 };
@@ -100,4 +100,13 @@ export const storedSessionOf = async (
     .object({ sub: z.string() })
     .parse(JSON.parse(Buffer.from(payload, "base64url").toString("utf8")));
   return { refreshToken: session.refresh_token, userId: claims.sub };
+};
+
+export const signInWithoutOrganization = async (
+  page: Page,
+  account: { email: string; password: string },
+) => {
+  await fillSignInForm(page, account);
+  await expect(page).toHaveURL(/\/auth\/organization-state$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("조직 초대가 필요합니다");
 };

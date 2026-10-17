@@ -1,0 +1,43 @@
+{
+  "head": "ca719cfff0040e00ff8a3eac98558861d9cbc394",
+  "normalSeedRuns": {
+    "count": 2,
+    "exits": [0, 0],
+    "counts": {
+      "operational": 200,
+      "scoring": 27,
+      "departments": 48,
+      "titles": 12,
+      "auth": 5
+    },
+    "allIdentitiesStable": true
+  },
+  "sharedTeamSeed": {
+    "expectedExit": 1,
+    "actualExit": 1,
+    "explicitGenericRefusal": true,
+    "allTeamMembershipTaskInvitationTuplesPreserved": true,
+    "authAndOrganizationIdentitiesPreserved": true
+  },
+  "verify": {
+    "attempts": 1,
+    "exit": 0,
+    "rootPass": 350,
+    "webPass": 879,
+    "build": "PASS"
+  },
+  "inheritedEvidence": {
+    "head": "a05217a05f0fb9adb3553c02978f0e2d531e9610",
+    "authPass": 95,
+    "browserPass": 106,
+    "nextGetAndDecodePass": 200,
+    "repeated": false
+  },
+  "ownedCleanup": {
+    "containersRemaining": 0,
+    "volumesRemaining": 0,
+    "unrelatedInitial22Preserved": true
+  },
+  "sourceWritesByQa": false,
+  "currentFullGoldens": "UNVERIFIED"
+}

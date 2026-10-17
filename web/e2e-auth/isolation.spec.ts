@@ -7,21 +7,21 @@ test.use({ storageState: authFileOf("outsider") });
 
 for (const screen of ["dashboard", "tasks", "settings/members"]) {
   const path = `/${SEED_TEAM.slug}/${screen}`;
-  test(`조직 밖 사람이 ${path} 를 열면 404 이고 팀의 내용이 보이지 않는다`, async ({ page }) => {
-    const response = await page.goto(path);
-    expect(response?.status()).toBe(404);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("페이지를 찾을 수 없습니다");
+  test(`조직 밖 사람이 ${path} 를 열면 조직 안내이고 팀의 내용이 보이지 않는다`, async ({
+    page,
+  }) => {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/auth\/organization-state(?:\?|$)/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("조직 초대가 필요합니다");
     await expect(page.getByText(SEED_TEAM.name)).toHaveCount(0);
     await expect(page.getByText("분기 보고서 초안")).toHaveCount(0);
   });
 }
 
-test("조직 밖 사람의 조직 전환기에는 시드 팀이 없다", async ({ page }) => {
-  // 로그인한 사람은 계정 화면에서 개인 조직의 대시보드로 간다.
+test("no-org account has invitation guidance without another company's data", async ({ page }) => {
   await page.goto("/auth/login");
-  await expect(page).toHaveURL(/\/[a-z0-9]{8}\/dashboard$/);
-  await page.getByRole("button", { name: "조직 전환" }).click();
-  const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem", { name: "개인 공간" })).toBeVisible();
-  await expect(menu.getByRole("menuitem", { name: SEED_TEAM.name })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/auth\/organization-state$/);
+  await expect(page.getByRole("link", { name: "받은 초대 보기" })).toBeVisible();
+  await expect(page.getByText(SEED_TEAM.name)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
 });

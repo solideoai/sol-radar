@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { employmentNameSchema, type EmploymentInfo, type EmploymentState } from "@/server/shared";
 // 타입만 가져온다. 생성물(pnpm db:types)은 lib 층에 있고, 층 규칙(lodestar)은 타입 import 만 넘게 해 준다.
 import type { Database } from "@/lib/database.types";
 
@@ -9,7 +10,7 @@ import type { Database } from "@/lib/database.types";
 export type ProfileRow = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
   "email" | "is_admin" | "display_name" | "avatar_url" | "status" | "created_at"
->;
+> & { employment: EmploymentInfo | null };
 
 // 화면이 그리는 모양. DB 행을 그대로 내보내지 않는다.
 // isAdmin 은 관리자 화면 링크를 보일지만 정한다. 관리자 화면은 따로 다시 확인한다(@/server/admin).
@@ -22,6 +23,8 @@ export type ProfileView = {
   role: "운영자" | "회원";
   isAdmin: boolean;
   joinedAt: string;
+  employment: EmploymentInfo | null;
+  profileComplete: boolean;
 };
 
 // 무엇을 보여 줄지는 화면이 아니라 서비스가 정한다.
@@ -41,6 +44,8 @@ export const toProfileView = (row: ProfileRow): ProfileView => ({
   role: row.is_admin ? "운영자" : "회원",
   isAdmin: row.is_admin,
   joinedAt: row.created_at,
+  employment: row.employment,
+  profileComplete: toEmploymentState(row).profileComplete,
 });
 
 export const toMyProfile = (row: ProfileRow | null): MyProfile => {
@@ -78,3 +83,15 @@ export type DeleteAccountResult =
   | { status: "signed-out" }
   | { status: "sole-owner" }
   | { status: "suspended" };
+
+export type EmploymentResult =
+  | { status: "ready"; state: EmploymentState }
+  | { status: "signed-out" | "suspended" | "missing" | "no-database" }
+  | { status: "invalid"; fields: Record<string, string> };
+
+export const toEmploymentState = (row: ProfileRow): EmploymentState => ({
+  name: row.display_name,
+  employment: row.employment,
+  profileComplete:
+    employmentNameSchema.safeParse(row.display_name).success && row.employment !== null,
+});

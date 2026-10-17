@@ -1,0 +1,41 @@
+{
+  "9663HeadBefore": "8ba281060d1cb27c6e3cb06da22b5d4ab3ca801e",
+  "9663HeadAfter": "694b6fac5caaaf02681a1af70a4e1d928c8a7cca",
+  "9663Status": "clean",
+  "changedFiles": ["docs/PROGRESS.md", "docs/plans/2026-10-16-solideo-people-portraits.md"],
+  "allOther9663TrackedSha256Unchanged": true,
+  "datedProgressHistoryUnchanged": true,
+  "originalPlanCheckboxesUnchanged": true,
+  "addedMarkdownLinkTargetsExist": [
+    {
+      "file": "docs/plans/2026-10-16-solideo-people-portraits.md",
+      "target": "../evidence/people/20261017-portraits-approval.json"
+    },
+    {
+      "file": "docs/plans/2026-10-16-solideo-people-portraits.md",
+      "target": "/Users/leegwanghui/.codex/worktrees/b3ef/sol-radar/docs/evidence/people/20261017-portraits-integration-task1.md"
+    },
+    {
+      "file": "docs/PROGRESS.md",
+      "target": "evidence/people/20261016-portraits-review.json"
+    },
+    {
+      "file": "docs/PROGRESS.md",
+      "target": "evidence/people/20261017-portraits-approval.json"
+    },
+    {
+      "file": "docs/PROGRESS.md",
+      "target": "/Users/leegwanghui/.codex/worktrees/b3ef/sol-radar/docs/evidence/people/20261017-portraits-integration-task1.md"
+    },
+    {
+      "file": "docs/PROGRESS.md",
+      "target": "evidence/people/20261016-people-data.json"
+    },
+    {
+      "file": "docs/PROGRESS.md",
+      "target": "../polaris/specs/planned/2026-10-16-solideo-people-signup.md"
+    }
+  ],
+  "b3efHeadUnchanged": "a05217a05f0fb9adb3553c02978f0e2d531e9610",
+  "originalTask2ReportSha256": "d135898db3737bde06546ba3b72d964191a473f8e9050905a48e562e93e431f3"
+}

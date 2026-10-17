@@ -11,6 +11,7 @@ import {
   deleteTeam,
   getMembersPage,
   getMyHome,
+  getCurrentOrganization,
   getMyWorkspace,
   getReceivedInvitations,
   inviteMember,
@@ -87,10 +88,7 @@ describe("getMyWorkspace", () => {
       userId: "me",
       current: { id: ORG_ID, slug: "acme", name: "에이크미", isPersonal: false, myRole: "member" },
       // 개인 조직이 먼저다.
-      orgs: [
-        { slug: "k3x9p2qa", name: "개인 공간", isPersonal: true },
-        { slug: "acme", name: "에이크미", isPersonal: false },
-      ],
+      orgs: [{ id: ORG_ID, slug: "acme", name: "에이크미", isPersonal: false, myRole: "member" }],
       pendingInvitationCount: 2,
     });
     expect(repo.listMyOrgs).toHaveBeenCalledWith("me");
@@ -120,13 +118,16 @@ describe("getMyWorkspace", () => {
 });
 
 describe("getMyHome", () => {
-  it("개인 조직의 주소를 돌려주고, 없으면 missing 이다", async () => {
-    await expect(getMyHome(fakeRepo())).resolves.toEqual({
+  it("home uses the sole business organization, with or without legacy personal", async () => {
+    const expected = {
       status: "ready",
-      personalSlug: "k3x9p2qa",
-    });
-    const noPersonal = fakeRepo({ listMyOrgs: vi.fn(async () => [TEAM]) });
-    await expect(getMyHome(noPersonal)).resolves.toEqual({ status: "missing" });
+      userId: "me",
+      current: { id: ORG_ID, slug: "acme", name: "에이크미", isPersonal: false, myRole: "member" },
+    };
+    await expect(getMyHome(fakeRepo())).resolves.toEqual(expected);
+    await expect(getMyHome(fakeRepo({ listMyOrgs: vi.fn(async () => [TEAM]) }))).resolves.toEqual(
+      expected,
+    );
   });
 
   it("로그인 전·DB 없음을 구분한다", async () => {
@@ -622,7 +623,6 @@ describe("받은 초대", () => {
     const result = await getReceivedInvitations(repo, NOW);
     expect(result).toMatchObject({
       status: "ready",
-      homeSlug: "k3x9p2qa",
       invitations: [
         { id: "i1", orgName: "에이크미", orgSlug: "acme", roleLabel: "멤버", isExpired: false },
       ],
@@ -677,10 +677,10 @@ describe("받은 초대", () => {
     });
   });
 
-  it("돌아갈 개인 조직이 없으면 homeSlug 는 null 이고, DB 없음·로그인 전을 구분한다", async () => {
+  it("조직이 없어도 초대를 읽고, DB 없음·로그인 전을 구분한다", async () => {
     await expect(
       getReceivedInvitations(fakeRepo({ listMyOrgs: vi.fn(async () => [TEAM]) }), NOW),
-    ).resolves.toEqual({ status: "ready", invitations: [], homeSlug: null });
+    ).resolves.toEqual({ status: "ready", invitations: [] });
     await expect(
       getReceivedInvitations(fakeRepo({ isConfigured: () => false }), NOW),
     ).resolves.toEqual({ status: "no-database" });
@@ -776,4 +776,49 @@ describe("로그인 전·DB 없음의 쓰기", () => {
     expect(repo.currentUser).not.toHaveBeenCalled();
     expect(repo[write.store]).not.toHaveBeenCalled();
   });
+});
+
+describe("current business organization", () => {
+  it.each([
+    { rows: [], status: "no-org" },
+    { rows: [PERSONAL], status: "no-org" },
+    { rows: [TEAM], status: "ready" },
+    { rows: [PERSONAL, TEAM], status: "ready" },
+    { rows: [TEAM, PERSONAL], status: "ready" },
+    { rows: [TEAM, TEAM], status: "ready" },
+    { rows: [TEAM, { ...TEAM, orgId: "second", slug: "second" }], status: "multiple-orgs" },
+  ])("resolves $status without writes", async ({ rows, status }) => {
+    const repo = fakeRepo({ listMyOrgs: vi.fn(async () => rows) });
+    expect(await getCurrentOrganization(repo)).toMatchObject({ status, userId: "me" });
+    expect(repo.insertTeam).not.toHaveBeenCalled();
+    expect(repo.insertMembership).not.toHaveBeenCalled();
+    if (status === "ready")
+      expect(await getCurrentOrganization(repo)).toMatchObject({ current: { id: ORG_ID } });
+  });
+  it("does not select an old personal slug beside a business membership", async () => {
+    await expect(getMyWorkspace(PERSONAL.slug, fakeRepo())).resolves.toEqual({
+      status: "not-found",
+    });
+  });
+  it("does not turn database failure into no-org", async () => {
+    await expect(
+      getCurrentOrganization(
+        fakeRepo({
+          listMyOrgs: vi.fn(async () => {
+            throw new Error("db down");
+          }),
+        }),
+      ),
+    ).rejects.toThrow("db down");
+  });
+});
+
+it("received invitations remain session-only when membership lookup is unavailable", async () => {
+  const repo = fakeRepo({
+    listMyOrgs: vi.fn(async () => {
+      throw new Error("org lookup unavailable");
+    }),
+  });
+  await expect(getReceivedInvitations(repo)).resolves.toEqual({ status: "ready", invitations: [] });
+  expect(repo.listMyOrgs).not.toHaveBeenCalled();
 });

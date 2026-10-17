@@ -1,0 +1,46 @@
+{
+  "head": "e4654386a85e52e84d960787a9aeb4bb0653995e",
+  "originalUpgradeProofHead": "2d548015897ee6ab6fc583d348e26f3f01ff8a0b",
+  "unchangedMigrationFixtureApp": true,
+  "changedFiles": [
+    "web/e2e-auth/signup-employment.write.spec.ts",
+    "web/playwright.auth.config.ts",
+    "web/test/auth-browser-origin.test.ts"
+  ],
+  "counts": {
+    "people": 200,
+    "scoring": 27,
+    "departments": [
+      {
+        "kind": "DIVISION",
+        "count": 6
+      },
+      {
+        "kind": "GROUP",
+        "count": 4
+      },
+      {
+        "kind": "TEAM",
+        "count": 38
+      }
+    ],
+    "titles": 12,
+    "genders": [
+      {
+        "gender": "FEMALE",
+        "count": 100
+      },
+      {
+        "gender": "MALE",
+        "count": 100
+      }
+    ],
+    "upperNullCounts": 10,
+    "auth": 5
+  },
+  "operationalSha256": "bc1a7b3af1bebce2f7abca04b09967e623b385a24508dd2c3870ef10ca7ed535",
+  "scoringSha256": "d19f3b8d8c2cbe3e300209b850bd2568a6b32bb22d79684d01223a282b6391bb",
+  "fiveAuthIdsSha256": "8c6a6f3527c7e842a6a624997e9dbbcd2ac337db873b30a657164af07a8c9259",
+  "unrelatedMembershipPreserved": true,
+  "ownedUnrelatedFixtureRemovedAfterProof": true
+}

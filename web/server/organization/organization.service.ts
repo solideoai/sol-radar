@@ -11,7 +11,8 @@ import {
   type InviteResult,
   type MembersPage,
   type MembershipChangeResult,
-  type MyHome,
+  type CurrentOrganizationResult,
+  resolveCurrentOrganization,
   type MyWorkspace,
   parseDeleteConfirmation,
   parseId,
@@ -22,12 +23,9 @@ import {
   type ReceivedInvitations,
   type RenameTeamResult,
   sortMembers,
-  sortOrgs,
-  toCurrentOrg,
   toInvitationMail,
   toInvitationView,
   toMemberView,
-  toOrgSummary,
 } from "./organization.model";
 import { organizationRepo, type OrganizationRepo } from "./organization.repo";
 
@@ -49,29 +47,28 @@ export async function getMyWorkspace(
   if (!repo.isConfigured()) return { status: "no-database" };
   const me = await repo.currentUser();
   if (!me) return { status: "signed-out" };
-  const [rows, pendingInvitationCount] = await Promise.all([
-    repo.listMyOrgs(me.id),
-    repo.countReceivedInvitations(me.email),
-  ]);
-  const orgs = sortOrgs(rows);
-  const current = orgs.find((row) => row.slug === slug);
-  if (!current) return { status: "not-found" };
+  const resolved = resolveCurrentOrganization(await repo.listMyOrgs(me.id));
+  if (resolved.status !== "ready") return { ...resolved, userId: me.id };
+  if (resolved.current.slug !== slug) return { status: "not-found" };
   return {
     status: "ready",
     userId: me.id,
-    current: toCurrentOrg(current),
-    orgs: orgs.map(toOrgSummary),
-    pendingInvitationCount,
+    current: resolved.current,
+    orgs: [resolved.current],
+    pendingInvitationCount: await repo.countReceivedInvitations(me.email),
   };
 }
 
-export async function getMyHome(repo: OrganizationRepo = organizationRepo): Promise<MyHome> {
+export async function getCurrentOrganization(
+  repo: OrganizationRepo = organizationRepo,
+): Promise<CurrentOrganizationResult> {
   if (!repo.isConfigured()) return { status: "no-database" };
   const me = await repo.currentUser();
   if (!me) return { status: "signed-out" };
-  const personal = (await repo.listMyOrgs(me.id)).find((row) => row.isPersonal);
-  return personal ? { status: "ready", personalSlug: personal.slug } : { status: "missing" };
+  return { ...resolveCurrentOrganization(await repo.listMyOrgs(me.id)), userId: me.id };
 }
+
+export const getMyHome = getCurrentOrganization;
 
 export async function createTeam(
   input: unknown,
@@ -261,10 +258,7 @@ export async function getReceivedInvitations(
   if (!repo.isConfigured()) return { status: "no-database" };
   const me = await repo.currentUser();
   if (!me) return { status: "signed-out" };
-  const [rows, orgs] = await Promise.all([
-    repo.listReceivedInvitations(me.email),
-    repo.listMyOrgs(me.id),
-  ]);
+  const rows = await repo.listReceivedInvitations(me.email);
   const at = now ?? new Date();
   return {
     status: "ready",
@@ -273,7 +267,6 @@ export async function getReceivedInvitations(
       orgName: row.orgName,
       orgSlug: row.orgSlug,
     })),
-    homeSlug: orgs.find((row) => row.isPersonal)?.slug ?? null,
   };
 }
 

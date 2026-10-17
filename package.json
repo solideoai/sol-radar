@@ -21,6 +21,10 @@
     "db:seed": "node scripts/db-seed.mjs",
     "db:push": "bash scripts/db-push.sh",
     "db:verify": "bash scripts/db-verify.sh",
+    "people:seed": "node scripts/people/seed.mjs",
+    "people:check": "node scripts/people/check.mjs",
+    "people:check:fixtures": "node scripts/people/check.mjs --fixtures",
+    "people:check:release": "node scripts/people/check.mjs --release",
     "test": "node --test \"scripts/**/*.test.mjs\"",
     "test:package": "node --test scripts/gate-integrity.test.mjs \"scripts/template/{bootstrap,check-expo,ci-template,doc-paths,docs,docs-sql,vercel-build}.test.mjs\"",
     "test:db": "node --test scripts/database.test.mjs",
@@ -29,6 +33,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "exceljs": "4.4.0",
     "husky": "^9",
     "pg": "^8.23.0",
     "prettier": "3.9.9",

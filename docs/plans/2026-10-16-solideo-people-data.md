@@ -1,6 +1,6 @@
 ---
 title: "솔리데오 가상 인력 구현 계획 1 — 카탈로그·200명 명부"
-status: proposed
+status: completed
 tags:
   - sol-radar
   - plan
@@ -61,13 +61,13 @@ updated: 2026-10-16
 
 **Files:** Create `scripts/people/workbook.mjs`, `scripts/people/workbook.test.mjs`, `fixtures/people/solideo.departments.json`, `fixtures/people/solideo.job-titles.json`; Modify `package.json`, `pnpm-lock.yaml`.
 
-**Interfaces:** Produces `readOrganizationWorkbook(path: string, departments: DepartmentWeight[]): Promise<{sourceSha256:string, departments:DepartmentWeight[], excludedNames:Set<string>, recognizedRows:number, unmappedCells:string[]}>`. `excludedNames`는 호출자 메모리에서만 사용한다. `sourceRanges`는 `{sheet:"people",headerCell:string,nameRange:string,titleColumn:"B"|"F"|"J"|"N"}[]`다.
+**Interfaces:** Produces `readOrganizationWorkbook(path:string,departments:DepartmentWeight[],excludedRanges:SourceRange[]=[]):Promise<{sourceSha256:string,departments:DepartmentWeight[],excludedNames:Set<string>,recognizedRows:number,excludedRowCount:number,unmappedCells:string[]}>`. `SourceRange`는 아래 `sourceRanges` 항목 구조와 같고, 부서 JSON 최상위 `excludedSourceRanges`에 승인된 비팀 구역을 익명 범위로 저장한다. `excludedNames`는 호출자 메모리에서만 사용한다. `sourceRanges`는 `{sheet:"people",headerCell:string,nameRange:string,titleColumn:"B"|"F"|"J"|"N"}[]`다.
 
-- [ ] **1. 실패 시험 작성:** 합성 XLSX에 A/B·E/F·I/J·M/N 이름/직급 쌍, 병합된 팀 헤더, 반복 팀, 전화·주소, 팀 없는 인력 행을 만든다. `assert.equal(result.departments.filter(d => d.name === "개발팀").length, 1)`; `assert.equal(result.recognizedRows, 4)`; 미분류 인력은 셀 주소로만 보고하며 직급 12개·표시명·내부 공백 보존을 단언한다.
-- [ ] **2. 실패 확인:** `node --test scripts/people/workbook.test.mjs` → 추출기 미구현으로 FAIL.
-- [ ] **3. 구현:** 루트에서 `pnpm add -D --save-exact exceljs@4.4.0`. [ExcelJS 공식 문서](https://github.com/exceljs/exceljs#reading-xlsx)대로 workbook을 읽는다. 실제 시트의 팀 헤더와 인력 범위를 읽어 두 카탈로그를 작성하고 추출기로 재검사한다. 원본 파일 해시는 `d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3`와 대조한다. 기존 조사에서 인식한 250행은 대조 출발점이며 고유 임직원 수로 발표하지 않는다. 임원/본부/근무지 구역의 인력에 팀이 명시되지 않았다면 임의 팀을 만들지 않고 해당 셀 주소·직급·행 수만으로 interview 질문을 한다. 해석이 확정되기 전 명부 생성으로 넘어가지 않는다.
-- [ ] **4. 통과 확인:** 위 Node 시험 PASS, 실제 입력 미분류 행 0, 각 원본 이름 셀을 정확히 한 팀에 연결, 표시 팀명/직급의 추가·변경 0. 콘솔/임시 파일에 원본 이름이 없는지 확인한다.
-- [ ] **5. 커밋:** `git add package.json pnpm-lock.yaml scripts/people/workbook.mjs scripts/people/workbook.test.mjs fixtures/people/solideo.departments.json fixtures/people/solideo.job-titles.json`; `git commit -m "feat: 솔리데오 조직도 카탈로그 추출"`.
+- [x] **1. 실패 시험 작성:** 합성 XLSX에 A/B·E/F·I/J·M/N 이름/직급 쌍, 병합된 팀 헤더, 반복 팀, 전화·주소, 팀 없는 인력 행을 만든다. `assert.equal(result.departments.filter(d => d.name === "개발팀").length, 1)`; `assert.equal(result.recognizedRows, 4)`; 미분류 인력은 셀 주소로만 보고하며 직급 12개·표시명·내부 공백 보존을 단언한다.
+- [x] **2. 실패 확인:** `node --test scripts/people/workbook.test.mjs` → 추출기 미구현으로 FAIL.
+- [x] **3. 구현:** 루트에서 `pnpm add -D --save-exact exceljs@4.4.0`. [ExcelJS 공식 문서](https://github.com/exceljs/exceljs#reading-xlsx)대로 workbook을 읽는다. 실제 시트의 팀 헤더와 인력 범위를 읽어 두 카탈로그를 작성하고 추출기로 재검사한다. 원본 파일 해시는 `d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3`와 대조한다. 기존 조사에서 인식한 250행은 대조 출발점이며 고유 임직원 수로 발표하지 않는다. 추가 인터뷰의 사용자 1번 선택에 따라 팀명이 명시된 행만 배분 가중치에 사용한다. 팀명 없는 임원·본부·그룹·프로젝트 구역은 익명 제외 범위로 기록하고 가중치에 넣지 않는다. 새 비팀 조직/프로젝트 표제를 넘어 앞선 팀을 상속하지 않는다. 근무지·주소 행만으로 팀 소속을 끊지는 않는다. 원본 전체 250행의 이름은 제외 집합에 계속 포함하며, 제외 범위/팀 범위 밖의 행은 오류다.
+- [x] **4. 통과 확인:** 위 Node 시험 PASS, 실제 입력 미분류 행 0, 각 원본 이름 셀을 정확히 한 팀 또는 승인된 비팀 제외 구역에 연결, 표시 팀명/직급의 추가·변경 0. 콘솔/임시 파일에 원본 이름이 없는지 확인한다.
+- [x] **5. 커밋:** `git add package.json pnpm-lock.yaml scripts/people/workbook.mjs scripts/people/workbook.test.mjs fixtures/people/solideo.departments.json fixtures/people/solideo.job-titles.json`; `git commit -m "feat: 솔리데오 조직도 카탈로그 추출"`.
 
 ## Task 2: 비례 배분과 자연스러운 가상 이름 200개
 
@@ -75,7 +75,7 @@ updated: 2026-10-16
 
 **Interfaces:** Consumes Task 1 결과. Produces `allocatePeople(departments:DepartmentWeight[]):{departmentId:string,targetCount:number,maleCount:number,titleCounts:Record<string,number>}[]`; `selectNames({gender,count,excludedNames,usedNames}:{gender:Gender,count:number,excludedNames:Set<string>,usedNames:Set<string>}):string[]`; `generatePeople({departments,jobTitles,excludedNames,existingPeople}):{people,portraits}`. CLI `node scripts/people/generate.mjs --input <외부 xlsx>`는 최초 생성용이며, 기존 명부가 있으면 ID·이름을 보존하고 불일치는 덮어쓰기 대신 실패한다.
 
-- [ ] **1. 실패 시험 작성:** 아래 단언과 D=0/201·양수가 아닌 가중치 거절, D=200일 때 전원 1명, 직급 동률은 직급 ID 순, 원본의 동명이인 2행을 가중치 2로 세는 시험을 작성한다. 이름 시험은 실제 원본 대신 합성 이름에 공백/괄호 메모를 붙여 충돌 회피·후보 고갈 오류·개인정보 없는 메시지를 검사한다.
+- [x] **1. 실패 시험 작성:** 아래 단언과 D=0/201·양수가 아닌 가중치 거절, D=200일 때 전원 1명, 직급 동률은 직급 ID 순, 원본의 동명이인 2행을 가중치 2로 세는 시험을 작성한다. 이름 시험은 실제 원본 대신 합성 이름에 공백/괄호 메모를 붙여 충돌 회피·후보 고갈 오류·개인정보 없는 메시지를 검사한다.
 
 ```js
 assert.equal(allocated.reduce((n, d) => n + d.targetCount, 0), 200);
@@ -86,10 +86,10 @@ assert.equal(new Set(people.map(p => p.name)).size, 200);
 assert.ok(people.every(p => /^[가-힣]{3}$/.test(p.name) && !excludedNames.has(p.name)));
 ```
 
-- [ ] **2. 실패 확인:** `node --test scripts/people/allocation.test.mjs scripts/people/names.test.mjs` → 배분/이름 함수 미구현 FAIL.
-- [ ] **3. 구현:** 스펙 §5 공식을 그대로 적용한다. 이름 후보는 [남성](https://www.namechart.kr/chart/2008?gender=m)·[여성](https://www.namechart.kr/chart/2008?gender=f) 통계의 실제 두 글자 이름과 일반적인 한 글자 성씨를 사용하고 출처/확인일을 코드 주석과 증거에 남긴다. 임의 음절 생성·실존 직원 검색은 하지 않는다. 고정 후보 순서에서 제외 집합과 이미 쓴 이름을 건너뛰며 남녀 명단을 배분 결과에 연결한다. `normalizeSourceName(value:string):string`으로 공백·괄호 메모를 제거한 값도 제외한다. 27명 계산 대상 역할은 성별·직급과 독립적으로 지정하고, 이들의 기간 가용성·기존 가상 배정으로 20 FTE를 구성한다. 나머지 173명은 `scoringEligible=false`. 이미지 항목은 PLANNED와 인물 ID별 경로만 먼저 만든다.
-- [ ] **4. 통과 확인:** 위 Node 시험 PASS. 실제 원본을 넣어 생성 후 이름 200개를 읽고 자연스러운 조합인지 검토한다. 원본 정규화 이름과 교집합 0·ID 200·남녀 100/100·부서/직급 참조·반복 실행 동일성을 확인한다.
-- [ ] **5. 커밋:** `git add scripts/people/allocation.mjs scripts/people/allocation.test.mjs scripts/people/names.mjs scripts/people/names.test.mjs scripts/people/generate.mjs fixtures/people/solideo.departments.json fixtures/people/solideo.job-titles.json fixtures/people/solideo.people.json fixtures/people/solideo.portraits.json`; `git commit -m "feat: 가상 한국인 200명 명부 생성"`.
+- [x] **2. 실패 확인:** `node --test scripts/people/allocation.test.mjs scripts/people/names.test.mjs` → 배분/이름 함수 미구현 FAIL.
+- [x] **3. 구현:** 스펙 §5 공식을 그대로 적용한다. 이름 후보는 [남성](https://www.namechart.kr/chart/2008?gender=m)·[여성](https://www.namechart.kr/chart/2008?gender=f) 통계의 실제 두 글자 이름과 일반적인 한 글자 성씨를 사용하고 출처/확인일을 코드 주석과 증거에 남긴다. 임의 음절 생성·실존 직원 검색은 하지 않는다. 고정 후보 순서에서 제외 집합과 이미 쓴 이름을 건너뛰며 남녀 명단을 배분 결과에 연결한다. `normalizeSourceName(value:string):string`으로 공백·괄호 메모를 제거한 값도 제외한다. 27명 계산 대상 역할은 성별·직급과 독립적으로 지정하고, 이들의 기간 가용성·기존 가상 배정으로 20 FTE를 구성한다. 나머지 173명은 `scoringEligible=false`. 이미지 항목은 PLANNED와 인물 ID별 경로만 먼저 만든다.
+- [x] **4. 통과 확인:** 위 Node 시험 PASS. 실제 원본을 넣어 생성 후 이름 200개를 읽고 자연스러운 조합인지 검토한다. 원본 정규화 이름과 교집합 0·ID 200·남녀 100/100·부서/직급 참조·반복 실행 동일성을 확인한다.
+- [x] **5. 커밋:** `git add scripts/people/allocation.mjs scripts/people/allocation.test.mjs scripts/people/names.mjs scripts/people/names.test.mjs scripts/people/generate.mjs fixtures/people/solideo.departments.json fixtures/people/solideo.job-titles.json fixtures/people/solideo.people.json fixtures/people/solideo.portraits.json`; `git commit -m "feat: 가상 한국인 200명 명부 생성"`.
 
 ## Task 3: 공개 카탈로그 생성물과 검증 진입점
 
@@ -97,11 +97,11 @@ assert.ok(people.every(p => /^[가-힣]{3}$/.test(p.name) && !excludedNames.has(
 
 **Interfaces:** Produces `projectSignupOptions(departments,jobTitles):SignupOptions`, `checkPeople({fixtures,sourcePath,requirePortraits:boolean}):Promise<{ok:boolean,sourceComparison:"passed"|"not-run",errors:{code:string,personId?:string}[]}>`. `SignupOptions`는 05 §8 그대로다. `people:check:fixtures`는 저장 fixture 검사, 정본 문서의 `people:check -- --input <path>`는 원본 필수 대조, `people:check:release -- --input <path>`는 원본과 READY 이미지까지 필수 검사다.
 
-- [ ] **1. 실패 시험 작성:** `Object.keys(options)`가 `companyName,catalogVersion,departments,jobTitles` 네 개뿐이고 각 옵션은 `id,label`뿐임을 단언한다. 생성 투영과 커밋된 JSON의 깊은 동일성, 계산 대상 27명·역할별 2/4/18/3·나머지 173명, ID 안정성을 검사한다. 원본 없는 strict 대조는 `SOURCE_REQUIRED`, 일반 CI는 `sourceComparison:"not-run"`이어야 한다. PLANNED manifest는 데이터 단계에서 허용하되 release 모드에서 `PORTRAITS_INCOMPLETE`로 반드시 실패한다.
-- [ ] **2. 실패 확인:** `node --test scripts/demo-people.test.mjs` → 검증기/투영 미구현 FAIL.
-- [ ] **3. 구현:** 공개 투영을 생성 스크립트에서 함께 출력한다. 웹에서 루트 fixture를 직접 읽거나 전체 명부를 번들하지 않는다. 루트 기존 `test`가 새 `*.test.mjs`들을 자동 실행하도록 유지하고 검사를 빼지 않는다. 증거에는 sourceSha256·팀/직급/인물 건수·이름 출처·수동 검토 결과·원본 일치 0만 남긴다. 원본 파일이 없는 CI를 로컬 원본 대조 완료로 기록하지 않는다. 11 문서에 세 명령과 이미지 전/후 검증 범위를 명시한다.
-- [ ] **4. 통과 확인:** 위 시험 및 `pnpm people:check:fixtures` PASS, `pnpm people:check -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx` PASS, `pnpm people:check:release -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`는 아직 이미지 미완료로 FAIL. `pnpm verify` 통과 후에만 데이터 단계 완료 표시한다. 전체 인력/이미지/가입 완료로 표시하지 않는다.
-- [ ] **5. 커밋:** `git add scripts/people/check.mjs scripts/demo-people.test.mjs scripts/people/generate.mjs web/server/profile/signup-options.generated.json package.json docs/11-TESTING.md docs/PROGRESS.md docs/evidence/people/20261016-people-data.json`; `git commit -m "test: 인력 명부와 공개 카탈로그 검증"`.
+- [x] **1. 실패 시험 작성:** `Object.keys(options)`가 `companyName,catalogVersion,departments,jobTitles` 네 개뿐이고 각 옵션은 `id,label`뿐임을 단언한다. 생성 투영과 커밋된 JSON의 깊은 동일성, 계산 대상 27명·역할별 2/4/18/3·나머지 173명, ID 안정성을 검사한다. 원본 없는 strict 대조는 `SOURCE_REQUIRED`, 일반 CI는 `sourceComparison:"not-run"`이어야 한다. PLANNED manifest는 데이터 단계에서 허용하되 release 모드에서 `PORTRAITS_INCOMPLETE`로 반드시 실패한다.
+- [x] **2. 실패 확인:** `node --test scripts/demo-people.test.mjs` → 검증기/투영 미구현 FAIL.
+- [x] **3. 구현:** 공개 투영을 생성 스크립트에서 함께 출력한다. 웹에서 루트 fixture를 직접 읽거나 전체 명부를 번들하지 않는다. 루트 기존 `test`가 새 `*.test.mjs`들을 자동 실행하도록 유지하고 검사를 빼지 않는다. 증거에는 sourceSha256·팀/직급/인물 건수·이름 출처·수동 검토 결과·원본 일치 0만 남긴다. 원본 파일이 없는 CI를 로컬 원본 대조 완료로 기록하지 않는다. 11 문서에 세 명령과 이미지 전/후 검증 범위를 명시한다.
+- [x] **4. 통과 확인:** 위 시험 및 `pnpm people:check:fixtures` PASS, `pnpm people:check -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx` PASS, `pnpm people:check:release -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`는 아직 이미지 미완료로 FAIL. `pnpm verify` 통과 후에만 데이터 단계 완료 표시한다. 전체 인력/이미지/가입 완료로 표시하지 않는다.
+- [x] **5. 커밋:** `git add scripts/people/check.mjs scripts/demo-people.test.mjs scripts/people/generate.mjs web/server/profile/signup-options.generated.json package.json docs/11-TESTING.md docs/PROGRESS.md docs/evidence/people/20261016-people-data.json`; `git commit -m "test: 인력 명부와 공개 카탈로그 검증"`.
 
 ## 계획 자체 검토
 

@@ -53,7 +53,7 @@ test.describe("멤버(이멤버)", () => {
     // 나가기는 멤버도 할 수 있다.
     await expect(page.getByRole("heading", { name: "팀 나가기" })).toBeVisible();
     // 조직 전환기의 둘째 줄이 역할을 알려 준다.
-    await expect(page.getByRole("button", { name: "조직 전환" })).toContainText("팀 · 멤버");
+    await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
   });
 });
 
@@ -80,6 +80,6 @@ test.describe("소유자(김소유)", () => {
     await expect(invitations.getByRole("row").filter({ has: page.getByRole("cell") })).toHaveText([
       new RegExp(`^${escapeRegExp(SEED_ACCOUNTS.invitee.email)}`),
     ]);
-    await expect(page.getByRole("button", { name: "조직 전환" })).toContainText("팀 · 소유자");
+    await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
   });
 });

@@ -39,7 +39,7 @@ test("로그인하지 않고 작업 화면을 열면 표·추가 단추 없이 �
 });
 
 // 메모 화면은 작업 화면으로 바뀌며 없어졌다(스펙 4.4). 조직 아래의 메모 주소는 로그인 안내가 아니라 404 다.
-// 옛 주소 /memos(조직 없음)는 지금도 개인 조직의 작업 화면으로 보낸다 — protected.spec.ts 가 본다.
+// 옛 주소 /memos(조직 없음)는 지금도 서버가 판정한 업무 조직의 작업 화면으로 보낸다 — protected.spec.ts 가 본다.
 test("없앤 메모 화면 /acme/memos 는 로그인 안내 대신 404 로 응답한다", async ({ page }) => {
   const supabaseRequests = watchSupabase(page);
   const response = await page.goto("/acme/memos");

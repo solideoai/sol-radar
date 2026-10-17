@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "작업" };
 export default async function TasksPage({ params, searchParams }: PageProps<"/[slug]/tasks">) {
   await connection();
   const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const workspace = await requireWorkspace(slug);
+  const workspace = await requireWorkspace(slug, `/${slug}/tasks`);
   const list = await getTaskList(taskScopeOf(workspace), query);
   const { id, name, isPersonal } = workspace.current;
   // 처음 빈 상태에서는 빈 상태의 "첫 작업 추가"가 주요 버튼이라 머리의 버튼은 그리지 않는다.

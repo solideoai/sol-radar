@@ -8,3 +8,20 @@ export {
   toServerErrorRecord,
 } from "./error-report";
 export type { ErrorRecord, ServerErrorContext, ServerErrorRequest } from "./error-report";
+export {
+  employmentInfoSchema,
+  employmentInputSchema,
+  employmentNameSchema,
+  employmentSelectionSchema,
+  employmentStateSchema,
+  optionItemSchema,
+  signupOptionsSchema,
+} from "./employment";
+export type {
+  EmploymentInfo,
+  EmploymentInput,
+  EmploymentSelection,
+  EmploymentState,
+  OptionItem,
+  SignupOptions,
+} from "./employment";

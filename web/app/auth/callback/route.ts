@@ -1,3 +1,4 @@
+import { afterEmploymentAuthentication } from "@/app/auth/employment-routing";
 import { NextResponse, type NextRequest } from "next/server";
 import { completeOAuthSignIn } from "@/server/auth";
 
@@ -5,5 +6,8 @@ import { completeOAuthSignIn } from "@/server/auth";
 // 어디로 보낼지는 도메인이 정하고, 늘 이 사이트 안의 경로다.
 export async function GET(request: NextRequest) {
   const path = await completeOAuthSignIn(request.nextUrl.searchParams);
-  return NextResponse.redirect(new URL(path, request.url));
+  const isExempt =
+    request.nextUrl.searchParams.get("flow") === "link" || path.startsWith("/auth/login?link=");
+  const destination = isExempt ? path : await afterEmploymentAuthentication(path);
+  return NextResponse.redirect(new URL(destination, request.url));
 }

@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 
 # 11. 검증·테스트 전략
@@ -256,21 +256,35 @@ docs/evidence/
 
 ADR-020 이후 해커톤 MVP는 실제 나라장터 수집과 회사 GPU 서버의 실추론(Qwen3.5-9B·Kev-9B@v1.0)까지 포함한다. 데모 필수 P0-0~P0-11의 완료 기준은 [[12-ROADMAP|12 로드맵]] 해커톤 컷, 평가 트랙의 기준은 [[21-MODEL-TRAINING|21 모델 학습]] §7이다. 세 실행 모드 기동 리허설을 통과해야 한다. 실모델 경로는 증거(로그·리포트)가 있는 항목만 검증됨으로 적고, 없는 항목은 **미검증**으로 표시한다. hosted 경로는 사용자 승인 전에는 쓰지 않으므로 해커톤 범위에서 미검증이다. Kev-9B LoRA 학습은 완료 조건이 아니다.
 
-## 8. 솔리데오 인력·가입 수용 기준 (ADR-019, 후속 구현 시험)
+## 8. 솔리데오 인력·가입 수용 기준 (ADR-019)
 
-아래 파일·명령은 구현 시 추가할 예정이며 현재 시험을 실행/통과했다는 뜻이 아니다. 기존 골든 G1~G10과 구분해 PPL 번호를 사용한다.
+기존 골든 G1~G10과 구분해 PPL 번호를 사용한다. 명부·카탈로그, DB/RLS·가입/보완 가드와 순수 인력 계산 회귀는 구현되었다. 기존 계획의 독립 코드 QA는 verify·공개130·브라우저89·인증92 및 실제 로컬 seed/1440·1280 검사를 통과했다. 이후 ADR-021의 가입·인력 저장 정합화도 별도 환경에서 검증했다(아래 §9.1). 사진은 2026-10-17 사람 APPROVED200/READY200·원본 대조 release·실제 Next 접근 검증을 통과했다. 전체 점수 파이프라인과 전체 ADR-021 후속 범위는 남아 있으며 아래 기준 전체를 통과했다는 뜻이 아니다. [통합 검증 기록](evidence/people/20261016-people-integration.md)에 실행과 미실행을 구분한다.
 
 | ID | 자동 검증할 조건 | 위치 / 명령 |
 |---|---|---|
 | PPL-01 | 명부 200명·고유 ID/이름 200·남녀 100/100·한글 세 글자·원본 정규화 이름과 교집합 0. 입력 원본이 없으면 실패. 부서 계층 검증([[16-DECISIONS\|ADR-021]]): 순환·없는 `parentId`·자기 참조·깊이 3 초과·팀이 아닌 직원 소속은 실패, 본부·그룹 `targetCount` 없음은 통과. 팀별 목표·실제·차이 보고(정본 JSON에서는 차이 0) | `scripts/demo-people.test.mjs`, `node --test scripts/demo-people.test.mjs`. 실제 원본 검사는 아래 로컬 절차 |
 | PPL-02 | 같은 팀명 합산·표시명 보존·모든 팀 1명 이상·목표 합 200·최대 나머지 배분·동률 ID 순·직급/부서 참조 유효·재실행 결정론 | 같은 fixture 시험. 원본 팀/직급 대조는 아래 로컬 절차 |
 | PPL-03 | portrait manifest READY 200·고유 경로/해시 200·PNG 파일 존재·정사각형·남녀 100/100·인물당 한 장 | 같은 fixture 시험 + 정장·서로 다른 얼굴·품질 사람 검수표 |
-| PPL-04 | 인력 200명 seed 2회 멱등·Auth는 5계정 유지·카탈로그/인력 RLS 격리·다른 회사 코드 거부·가입 신고 정보로 권한 상승 불가 | `scripts/database.test.mjs`, `pnpm test:db` |
+| PPL-04 | 인력 200명 seed 2회 멱등·기존 템플릿5계정 ID 유지·명부 seed의 추가 Auth 생성0·카탈로그/인력 RLS 격리·다른 회사 코드 거부·가입 신고 정보로 권한 상승 불가 | `scripts/database.test.mjs`, `pnpm test:db` |
 | PPL-05 | 이메일 가입의 부서·직급 필수·위조 코드 거부·본인 정보만 저장·재로그인 후 유지·기존 이름/약관 검증 유지 | `web/app/auth/sign-up/sign-up-schema.test.ts`, profile 도메인·신고 정보 Route Handler 계약 시험 |
-| PPL-06 | 간편 가입·기존 미완료 사용자의 필수 정보 보완·업무 화면/API 우회 차단·로그아웃/보완 접근·저장 실패 재시도·가입이 자동 조직 합류를 만들지 않음 | `web/e2e-auth/signup-employment.spec.ts` 및 Route Handler 시험. UI는 1440·1280·키보드 확인 |
-| PPL-07 | 전체 명부 200명과 점수 계산 하위 27명 구분, 가용 20 FTE·FX-01/02/03 골든 94/72/68 유지. `team_member_scoring` 분리 뒤에도 골든 94/72/68, 운영 편집 뒤 기존 `score_runs` 불변(ADR-021) | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
+| PPL-06 | 간편 가입·기존 미완료 사용자의 필수 정보 보완·업무 화면/API 우회 차단·로그아웃/보완 접근·저장 실패 재시도·가입이 자동 조직 합류를 만들지 않음 | `web/e2e-auth/signup-employment.spec.ts`·`signup-employment.write.spec.ts` 및 Route Handler 시험. UI는 1440·1280·키보드 확인 |
+| PPL-07 | 완료: 명부200/계산27 분리·고정 창20FTE·기간 경계/동시 배정·계산 용량과 §6 별도 요소값의 순수94/72/68 회귀. 후속 수용 기준: `team_member_scoring` 분리 뒤 전체 골든94/72/68 및 운영 편집 뒤 기존 `score_runs` 불변(ADR-021·Phase4 미검증) | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
 
-CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm test`는 합성 입력으로 추출/제외 알고리즘을 시험하고 정본 JSON·이미지 수용 조건을 검사한다. 실제 원본 일치 0건·원본 팀/직급/배분 대조는 로컬 전용 `pnpm people:check -- --input /절대경로/people.xlsx`(후속 추가 명령)로 수행한다. 원본이 없으면 이 검사는 실패하며 CI 초록불로 대체하지 않는다. 로그에는 파일 해시·건수·오류 위치만 저장하고 이름은 출력하지 않는다. 실제 원본 통과 증거와 사람의 얼굴 검수표까지 있어야 인력 작업 완료다. 이미지 생성은 시험·CI에서 호출하지 않는다.
+CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm test`는 `scripts/**/*.test.mjs` 전체를 자동 실행하며 합성 입력으로 추출/제외 알고리즘과 저장 fixture 검증을 검사한다. 데이터 검증 진입점은 다음 세 가지다.
+
+| 명령 | 검사 범위 / 원본 대조 표시 |
+|---|---|
+| `pnpm people:check:fixtures` | 저장된 카탈로그·공개 투영·명부·manifest 구조, 승인 배분·참조·남녀 100/100·27명 역할·기존 가상 100% 배정 7건·20 FTE 기간 검사. PLANNED 허용, 원본과 이미지 파일은 요구하지 않으며 `sourceComparison: "not-run"` |
+| `pnpm people:check -- --input /절대경로/people.xlsx` | fixture 검사 + 원본 해시·250행(팀 가중치 175 + 제외 75)·미분류/범위·정확한 팀명/직급 가중치·ID/명부 재현·정규화 원본 이름 일치 0. 성공 시 `sourceComparison: "passed"`. 원본 누락은 `SOURCE_REQUIRED` 실패 |
+| `pnpm people:check:release -- --input /절대경로/people.xlsx` | 원본 필수 대조 + READY 200·고유 경로/해시 200·생성 metadata·PNG 파일/정사각형/실제 SHA-256 검사. PLANNED는 `PORTRAITS_INCOMPLETE` 실패 |
+
+사진 전 데이터 단계에서는 앞의 두 명령과 `pnpm verify`가 통과해야 한다. release 검사는 사진 미완료로 반드시 실패해야 하며 데이터 단계 검증을 위해 READY 요건을 낮추지 않는다. 사진 후에는 release 검사와 별도의 정장·서로 다른 얼굴·품질 사람 검수까지 통과해야 PPL-03 완료다. 이미지 해시가 다르다는 사실만으로 서로 다른 얼굴을 보장하지 않는다. PPL-07의 순수 snapshot/FTE 및 별도 worked-example 요소 회귀는 실제 점수 파이프라인의94/72/68 골든 시험을 대신하지 않는다. 기간은 반개구간이며 개인별 최소 잔여 용량을 합산하는 보수적인 보장 FTE다. 시간 평균이나 직원 교대 최적화가 아니다. 전체 pipeline 골든은 Phase4에 남긴다.
+
+원본이 없는 CI 초록불은 로컬 원본 대조 완료가 아니다. 검증 결과는 오류 코드와 안전한 인물 ID만 출력하며 원본 이름·제외 집합·경로·연락처를 출력하지 않는다. 로컬 원본 통과 증거는 [20261016-people-data.json](evidence/people/20261016-people-data.json)에 건수·입력 해시·이름 출처·AI 검토 결과로 남긴다. 사람의 이름/얼굴 검수 승인을 수행한 것처럼 기록하지 않는다. 이미지 생성은 시험·CI에서 호출하지 않는다.
+
+### 배분 가중치 제외 검사 (추가 인터뷰)
+
+명시된 팀 구역과 사용자 승인 비팀 제외 구역이 원본 인력 행을 중복 없이 모두 분류해야 한다. 제외 구역의 이름도 원본 이름 제외 집합에 포함한다. 팀 범위·제외 범위에 동시에 걸리거나 어디에도 없는 행은 실패한다. 이 분류 검사와 200명 목표 배분 검사를 함께 수행한다.
 
 ## 9. 사이드바·업무 확장 수용 기준 (ADR-021, 후속 구현 시험)
 
@@ -297,6 +311,16 @@ P1([[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단, 데모 필수가 �
 | NAV-P1-03 | 인력 배치 시뮬레이션: 단일 공고 가용 FTE = 그 공고 최신 `score_runs` 스냅샷 값, 기간 충돌 1건 탐지, 후보는 27명 안에서만, 저장 없음 |
 | NAV-P1-04 | 조직·인력 편집: ADMIN만(다른 역할 403·RLS 거부), 감사 기록, 편집 뒤 골든 94/72/68 그대로, 기존 `score_runs` 불변 |
 
+### 9.1 ADR-021 가입·인력 저장 정합화 검증 (2026-10-17)
+
+운영200/평가27 분리·본부6/그룹4/팀38 계층·상위 인원 수NULL·신규 가입 개인 조직 생성 중단·실제 멤버십0/1/복수 정책을 독립 검증했다. 공개 부서 선택은TEAM38개, 직급12개로 유지한다. 신규 신고 정보는 권한·조직 합류를 만들지 않는다.
+
+전체 `pnpm verify`(루트347/웹865/새 빌드), 공개130/포함 브라우저99, 정상 Auth95 실행은 `e465438`의 증거다. Auth는93통과·중복 조직명 선택자2실패였고 실제 키보드 초점 결함을 추가 발견했다. 최종 `21c8b97`에서 세 결함 수정·독립 리뷰 후 정상 웹 게이트865, 새 빌드, 관련 브라우저12, 로그인 준비5와 기존 실패Auth2 및1440/1280 실제 초점·계정 화면 검증이 통과했다. 변경 없는 성공 증거를 최종 SHA에서 재실행했다고 표기하지 않는다.
+
+전용 Supabase에서 기존00002의200/27·과거 개인 조직 표본을 변경 없는00003/4로 전환해 ID·평가 튜플·과거 데이터 보존을 확인했다. 실제 신규 Auth는profile1/org0/membership0, 정상seed2회는200/27/기존5계정ID 보존, 원본 필수 검사는passed다. 최종 임시 사용자·조직을 제거하고 전용 스택만 정리했다. 공유 DB 적용·main 병합은 하지 않았다.
+
+[실행·실패·재검증·한계](evidence/people/20261016-adr021-people-integration.md)와 [독립 QA 원본](evidence/people/20261017-adr021-qa-report.md)을 따른다. 실제 REST 중단의 초기 조회 안내는30초 timeout으로 live-PASS가 아니며, RSC 응답을 보류한 동안의 즉시 화면 이동도 미확립이다. 사진은 별도 생성200/READY0로 사람 승인·통합 전이다. N1/N2·/people·/ops·전체 Phase4·실제 외부 OAuth는 이 완료 범위에 포함하지 않는다.
+
 ## 관련 문서
 
 - [[07-DATA-PIPELINE|07 수집]] — fixture `FX-01`~`FX-20` 명세
@@ -309,3 +333,11 @@ P1([[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단, 데모 필수가 �
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋·지표·오류 분석·파인튜닝 착수 판단
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — 실행 모드 env, 장애 주입 값, Kev `kev-qs/v0.2`
 - [[10-DEPLOYMENT|10 배포]] — 기동 절차, 회사 GPU 서버 터널
+
+## 10. 승인 사진 통합 검증 (2026-10-17)
+
+사진200장 사람 APPROVED/manifest READY와 기존 personId·SHA-256을 유지해 b3ef `a05217a05f0fb9adb3553c02978f0e2d531e9610`에 통합했다. 같은 고정 HEAD에서 새 `pnpm verify`(루트349·웹879·빌드), 정상 Auth95, 브라우저106, 실제 Next GET·승인 SHA·브라우저 decode200을 통과했다. 원본 필수 release 대조도 Task1에서 passed였다. 상세 명령·한계·원래 실패 기록은 [통합 결과](evidence/people/20261017-portraits-integration.md)와 [독립 QA 원문](evidence/people/20261017-portraits-integration-qa.md)에 있다.
+
+조직 종류/직원TEAM/상위target NULL/팀 합200 제약은 통과했으나 TEAM25·GROUP4의 부모는 미확정으로 보존했다. 완전히 연결된 본부→그룹→팀 조직도는 미검증이다. 조직도·운영 직원 목록·직원 상세 제품 화면과 전체 G1~G10은 미구현/미검증이며, 일반 RLS 통과를 전체 G5로 올리지 않는다. 외부 OAuth 실연결·이번 전체 공개 E2E도 미검증이다. 공유 DB 적용·main 병합·push는 수행하지 않았다.
+
+최종 리뷰 보존 수정 `ca719cf`에서 새 전체 verify(루트350·웹879·빌드)와 실제 비시드 팀 거절/전체 tuple 보존·정상 seed2회를 통과했다. 초기 a052의 Auth95·브라우저106·Next200 증거는 해당 SHA로 보존한다. [최종 QA](evidence/people/20261017-portraits-integration/final-fix/final-fix-qa-report.md).

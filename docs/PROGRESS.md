@@ -4,7 +4,7 @@ status: draft
 tags:
   - sol-radar
   - progress
-updated: 2026-10-16
+updated: 2026-10-17
 ---
 
 # 진행 상황
@@ -40,13 +40,20 @@ updated: 2026-10-16
 
 - [x] 인터뷰·대화 설계 최종 승인: 회사 솔리데오 고정, 가상 명부 200명, 동일 팀명 합산·원본 비율·팀별 최소 1명, 한글 세 글자 자연스러운 이름·원본 일치 0, 남녀 100/100, 고유 정장 사진 200장, 부서·직급/직책 필수 가입·간편 가입 보완.
 - [x] 승인 스펙·정본 문서에 저장 경로·DB/가입 계약·가상 데이터 경계·PPL-01~07 검증 기준 반영.
-- [x] 구현 계획 초안·자체 검토: [명부·카탈로그](plans/2026-10-16-solideo-people-data.md), [정장 사진 200장](plans/2026-10-16-solideo-people-portraits.md), [DB·가입·검증](plans/2026-10-16-solideo-people-signup.md). 실행 방식 검토 전이며 코드/데이터 구현 완료를 뜻하지 않는다.
-- [ ] `fixtures/people/solideo.{departments,job-titles,people,portraits}.json` 생성·원본 대조.
-- [ ] imagegen 고유 정장 프로필 200장 생성·검수·프로젝트 경로 저장.
-- [ ] 카탈로그·가입 신고 필드·가상 인력 seed/RLS migration 및 생성 타입.
-- [ ] 가입 폼·프로필 보완·업무 화면/API 가드 구현·검증.
+- [x] 구현 계획 초안·자체 검토: [명부·카탈로그](plans/2026-10-16-solideo-people-data.md), [정장 사진 200장](plans/2026-10-16-solideo-people-portraits.md), [DB·가입·검증](plans/2026-10-16-solideo-people-signup.md). 사용자가 에이전트 분담·작업별 독립 검토 방식으로 실행을 승인했다. 구현 진행 중이며 전체 완료를 뜻하지 않는다.
+- [x] 조직도 추출·부서/직급 카탈로그: 원본 250행을 배분 가중치 175행·비팀 구역 제외 75행으로 분류, 정확한 표시명 38개·직급 12개. 미분류·중복·원본 이름 유출 0, 작업별 독립 검토 통과.
+- [x] `fixtures/people/solideo.{departments,job-titles,people,portraits}.json` 및 최소 공개 가입 카탈로그 생성·원본 대조. 가상 200명·남녀 100/100·계산 대상 27명·가용 20 FTE 보존, 데이터 단계 `pnpm verify` 및 명부·카탈로그 작업별 독립 검토 통과.
+- [x] imagegen 고유 정장 프로필200장 생성·AI 품질 검사 완료(별도9663 worktree, 남녀100/100, GENERATED200).
+- [x] 위200명 이름·얼굴의 실제 사람 최종 승인·READY200 전환·코드 worktree 통합·release 검사. 승인 snapshot과 원본 PNG SHA-256 200개를 재대조했고 기존 AI 검수는 별도 보존했다.
+- [x] 카탈로그·가입 신고 필드·가상 인력 seed/RLS migration 및 생성 타입. Task1/2 독립 리뷰 통과; 실제 로컬 최종 재검증은 별도.
+- [x] 가입 폼·프로필 보완·업무 화면/Server Action 가드·계정 관리 호환 구현 및 Task3 독립 리뷰 통과. 현재 v1 업무 REST 엔드포인트는 없으며 재사용 API 가드 계약만 단위 검증.
+- [x] 전체200명→계산27명 snapshot, 고정 창20FTE·배정 경계와 별도 worked-example 요소94/72/68 순수 회귀 구현. 전체 점수 엔진 골든은 Phase4 미완료.
+- [x] 기존 계획 코드의 가입/보완 로컬 E2E·verify/browser/E2E/authE2E·seed멱등·1440/1280 독립 QA. 공개130·브라우저89·인증92 PASS; QA-01/02 수정·별도 리뷰 후 관련 검사 재실행. [실행/미실행 기록](evidence/people/20261016-people-integration.md).
 
-원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 사진·명부는 로그인 5계정과 별개이며 아직 생성 전이다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
+- [x] 최신 정본 04·05·06·09·16과 ADR-021의 이번 가입·DB 범위 정합화 및 격리 실제 코드 QA. 인력 표 분리·부서 계층·가입 개인 조직 생성 중단·멤버십 기반 조직 결정. 공유 DB 충돌 migration 적용/main 병합 금지, 기존 작업·다른 세션 파일 보존.
+- Task 7 저장 변경(격리 worktree): 새 가입은 프로필만 생성하고 TEAM/기존 null kind만 신고 허용. 이전 개인 조직·소유권·작업과 카탈로그 삭제 SET NULL 보존을 PGlite 141개, 개인 공간 없는 seed 호환을 HTTP mock 12개, 프로필·세션 API 계약을 60개 테스트로 확인했다. 후속 Task 8 라우팅과 함께 독립 검토·격리 실제 Supabase 코드 QA를 완료했다(아래2026-10-17 기록). 사진 release와 전체 ADR-021 완료를 뜻하지 않는다. 공유 DB 적용·seed 실행·main 병합은 하지 않았다.
+
+원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 READY200이며 승인된 원본 PNG 200장을 고정 공개 경로에 통합했다. [사람 승인 기록](evidence/people/20261017-portraits-approval.json)과 [기존 AI 검수 이력](evidence/people/20261016-portraits-review.json)은 구분해 보존한다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. 기존 계획과 ADR-021의 이번 DB·가입 정합화 코드 QA는 통과했다. 전체 N1/N2 등 후속 범위는 남아 있다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
 
 ## 실데이터 파이프라인·모델 평가 (ADR-020)
 
@@ -68,7 +75,11 @@ updated: 2026-10-16
 - [ ] 데모 필수 N9 대시보드 카드 5개(다섯 번째 "분석 현황").
 - [ ] P1(데모 필수 완료·핵심 시험 통과 뒤, 이 순서): N3 관심 공고 → N5 분석 결과 비교 → N6 입찰 프로젝트 → N7 인력 배치 시뮬레이션 → N4b 조직·인력 편집.
 
-남은 일: Codex 가입 작업(`5ece7c0`, main 미병합)의 마이그레이션은 동기화 전 04를 따라 `team_members` 한 표·`target_count` 필수·부서 계층 없음·개인 조직 생성 유지다. 새 마이그레이션으로 ADR-021에 맞춰야 한다(설계 문서 §8 G17). 명부 JSON에는 부서 계층(설계 문서 부록 A)이 아직 없다.
+> 2026-10-16 ADR-021 동기화 당시 기록(아래 후속 구현/통합 QA로 해소):
+>
+> 남은 일: Codex 가입 작업(`5ece7c0`, main 미병합)의 마이그레이션은 동기화 전 04를 따라 `team_members` 한 표·`target_count` 필수·부서 계층 없음·개인 조직 생성 유지다. 새 마이그레이션으로 ADR-021에 맞춰야 한다(설계 문서 §8 G17). 명부 JSON에는 부서 계층(설계 문서 부록 A)이 아직 없다.
+
+현재는 추가 migration00003/00004와 계층 카탈로그·운영/평가 분리·신규 가입 profile만 생성 정책이 b3ef에 구현·검증됐다. 공유 DB에는 적용하지 않았다. [최신 통합 결과](evidence/people/20261017-portraits-integration.md).
 
 ## hosted 모델 API 사용 승인 기록
 
@@ -103,6 +114,7 @@ updated: 2026-10-16
 | 2026-10-16 | 문서 | 실데이터 MVP·AI 파이프라인 v0.2·Kev-9B 파인튜닝 전략 설계(브레인스토밍 → 승인, ADR-020). 실행 모드 `live`·`fixture`·`mock`, 나라장터 Open API(15129394·15129437·15129462·15129467) 수집·첨부 allowlist·형식별 `DocumentParser`(후보 라이선스 조사, AGPL·GPL 배제, 배포용 HWP 복호화 안 함), 실패 유형 4종 분리·mock 자동 대체 명시, Kev-9B@v1.0 `kev-qs/v0.2` 참고 지표(점수 미반영)·`KevStateTrace`·`CompanyEvidenceRef`, 판정 3값+사유 코드(정보 부족 ≠ 미충족), 실추론은 회사 GPU 서버(터널), 평가셋·지표·오류 분석·LoRA 메모리 검증·모델 레지스트리(21 신설). 00~12·15~20 반영, 평가 대상 이름 E0~E4, 목록 기본 출처 필터는 실행 모드를 따름 | Kev 저장소 main `1f04cfa`·data.go.kr 명세·파서 LICENSE 조사(에이전트 3), 설계 빌더 검토 1회, 정본 반영 작업자 4 + 메인, 독립 정합성 검토 1회(높음 14·낮음 17 수정), 스크립트 검사(frontmatter·위키링크·표 파이프 오류 0), `prettier --check docs/**/*.md` 통과. 코드 변경 없음이라 `pnpm verify` 대상 아님 | 미결정 1·3·4·16~20(실제 API 응답, GPU 모델·VRAM, 파서 선택, 첨부 다운로드 가능 여부, 첨부 저작권, 면허제한 행 의미). seed `technologiesComplete`·`industryCodes` 값 미정(08 §6.1). 해커톤 마감일 미정. 미커밋 |
 | 2026-10-16 | 화면 | 랜딩 재설계 후속(사용자 결정 U5~U7): 1280×800 첫 화면에도 판의 점수 고지가 들어오게 히어로 여백을 줄임(`pt-10 pb-10`, 설명 `mt-5`, 버튼 `mt-8`, 안내 `mt-4`, 무대 `p-7` — 고지 아래 끝 778px, 여유 22px), 히어로 "지원 서비스입니다" → "지원 플랫폼입니다"(바닥글과 통일), 기능 제목 마침표는 그대로. 디자인 문서 §1·§2·사용자 결정 표 갱신 | 루트 `pnpm verify` 통과, 랜딩 e2e 42/42(1440×900·1280×800 고지 전체 보임 시험 추가, 바꾸기 전 RED 확인), 판 브라우저 시험 8/8, 1440·1280 증거 스크린샷 갱신(`docs/evidence/landing/20261016-redesign-{view,full}-{1440,1280}.png`, 콘솔 0) | 없음 |
 | 2026-10-16 | 문서 | ADR-021 정본 동기화(사용자 승인, 기준 `22b788e`). 설계 문서 부록 B.1~B.17과 재대조·교차 검사·확인 요청 보완 G1~G19를 12·16·06·05·04·01·11·19·09·02·20·08·13·07·14·10·[솔리데오 인력 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)에 적용. 16에 ADR-021 행·상세, ADR-018·019 개정 표시, 미결정 11·12번 종결. 06 §4 그림에 실행 모드 칸(ADR-020 누락분)을 넣으며 93칸으로 넓힘. 사전 검토 결정 1~4는 추천안대로 | 파일마다 diff로 삭제 줄이 지목 문장뿐인지 확인(ADR-020 줄 보존). vault 검사(위키링크 1,439·로컬 링크 102·표 280) 정본 오류 0, 남은 7건은 동기화 전부터 있던 설계 문서 항목. Codex 가입 커밋 `5ece7c0`과 3자 병합 시험: 07·11·polaris 스펙 충돌 0, PROGRESS는 동기화 전과 같은 작업 로그 끝 1곳. 루트 `pnpm test` 173/173 | 미커밋. `5ece7c0`의 마이그레이션이 ADR-021과 다름(설계 문서 §8 G17, 그 세션에 전달 필요). 17이 12의 없는 "결정 필요" 콜아웃을 가리키는 문제는 범위 밖으로 남김 |
+| 2026-10-16 | 인력 데이터 | 200명 가상 명부·38부서/12직급·최소 공개 가입 카탈로그 생성, 단계별 검증기와 CLI 3종 추가. 익명 증거에 원본 해시·250행(가중치175/제외75)·정규화 원본 이름 일치0·AI 이름 검토 출처 기록 | 집중84/84, fixture 검사 `not-run`, 실제 원본 필수 대조 `passed`, release는 `PORTRAITS_INCOMPLETE`로 의도한 실패. `pnpm verify` 통과(루트257/257·웹628/628·빌드) | 데이터 Task 3 독립 검토 대기. 사진 READY0/200, DB·가입·94/72/68 점수 파이프라인 골든은 후속 작업. 사람의 얼굴/품질 검수 미수행 |
 
 ## 관련 문서
 
@@ -111,3 +123,39 @@ updated: 2026-10-16
 - [[11-TESTING|검증 기준]]
 - [[16-DECISIONS|결정 기록]]
 - [[21-MODEL-TRAINING|모델 학습]]
+
+- Task 8 구현(격리 worktree, 독립 검토 전): 실제 업무 멤버십 0/1/복수 판정, 모든 기존 조직 업무 page/action 경계의 현재 조직 고정, 조직 상태 안내·계정/초대 복귀, 템플릿 회사 생성 경로 폐기 및 명시적 격리 Supabase test-target harness를 추가했다. 모의 단위·1440/1280 브라우저 검증과 정상 커밋 게이트 증거는 `.superpowers/sdd/2026-10-16-solideo-people-signup/task-8-report.md`에 기록한다. 실제 별도 Supabase의 build/Auth/E2E는 Task9 대기이며 공유 스택·클라우드·main은 변경하지 않았다. 전체 N1/N2·/ops·sidebar/P1 완료를 뜻하지 않는다.
+
+
+## ADR-021 가입·인력 코드 QA 완료 (2026-10-17)
+
+Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영200/평가27 분리,48개 계층(본부6·그룹4·기존팀38), 상위 인원NULL, 신규 가입profile만 생성, 실제 업무 멤버십0/1/복수 판정을 확인했다. 원본 대조passed,200개 고유 세글자 이름·남녀100/100·기존 ID/계산 입력을 보존했다.
+
+최종 코드 `21c8b9785cc04fcd1d99eddd92e75cbe157bcedb`에서 새 빌드·관련 브라우저12·로그인 준비5·기존 실패Auth2·실제 초점/계정 화면 재검증 통과. 전체verify(루트347/웹865)/공개130/포함 브라우저99와 Auth93통과·2실패의 원래 기록은`e465438` 귀속으로 보존한다. [최종 실행 근거·한계](evidence/people/20261016-adr021-people-integration.md), [독립 QA 보고서](evidence/people/20261017-adr021-qa-report.md).
+
+전용 임시 Supabase만 정리했으며 공유 DB의 새 migration/seed 적용·main 병합·다른 세션/소스 checkout 수정은 하지 않았다. 위의 Task7/Task8 구현 시점 메모에 적힌 검토/실제QA 대기는 이번 기록으로 종료한다.
+
+사진은 2026-10-17 사람 최종 승인 뒤 READY200으로 전환해 원본 바이트 그대로 통합했다. 전체 ADR-021 N1/N2·/people·/ops·sidebar/P1, 전체 Phase4, 실제 외부 OAuth는 후속 범위다. 실제 REST 중단의 초기 조회 안내와 RSC 응답 보류 중 즉시 화면 이동의 검증 한계도 근거 문서에 남겼다. 전체 기능·배포 완료로 표시하지 않는다.
+
+
+## 2026-10-17 승인 사진 통합 — Task 1
+
+사용자가 “사진 200장 전체를 최종 승인합니다.”라고 승인한 정확한 200명 ID·이름·성별·부서·직급·경로·해시 binding을 snapshot `19cbd9408e9672273db9405073dde5f9133d7715fa40041e51b91c824e8ff0e1` 및 실제 PNG와 다시 대조했다. 자동 PASS200/FAIL0과 사람 APPROVED200을 분리 기록하고, 이전 AI review200개를 승인 기록에 먼저 보존한 뒤 기존 API로 READY200으로 전환했다. 역사적 외부 audit의 PENDING 기록은 수정하지 않았다.
+
+`/demo/people/SOL-P0001.png`~`SOL-P0200.png`와 제한된 ID 경로 helper, 기존 Avatar 기반 `PersonAvatar`를 추가했다. ID 없음·범위 밖·이미지 decode 오류는 중립 인물 아이콘과 접근 가능한 설명을 표시한다. 향후 조직도와 직원 상세 화면은 같은 컴포넌트를 사용한다. 조직도·직원 상세·메뉴·제품 화면은 이번에 만들지 않았다. 실제 사용자 `avatar_url`과도 연결하지 않았다.
+
+실행 증거: [Task 1 검증](evidence/people/20261017-portraits-integration-task1.md). 사진·명부·조직 회귀99/99, helper14/14, Avatar Chromium4/4, 순수 점수10/10, 웹 타입 검사를 통과했다. 원본 엑셀 필수 release 검사는 `sourceComparison: passed`, 오류0이다. 명부·조직48개·직급·배정/평가27명·점수 입력·마이그레이션은 바꾸지 않았다. 전체 `pnpm verify`, 실제 Next HTTP200 URL 검사, 기존 인증/인가 회귀 및 전체 브랜치 리뷰는 독립 Task 2에서 수행한다. 전체 G1~G10·미출시 인력 화면·배포 완료를 주장하지 않는다. 공유 DB 적용·main 병합·push는 수행하지 않았다.
+
+## 승인 사진과 명부 통합 QA (2026-10-17)
+
+사용자가 SOL-P0001~SOL-P0200 전체를 최종 승인했다. 9663 승인 커밋 `8ba2810`, 현재 사진 worktree `694b6fa`(후속 문서 정정만)이며 b3ef 통합 커밋은 `a05217a`다. 사진200/명부200의 ID·이름·부서·직급·원본 SHA를 1:1로 보존했고, 별도 사람 APPROVED/manifest READY200·이전 AI 이력·과거 PENDING 검수 자료를 구분해 남겼다. `/demo/people/<personId>.png`와 공통 PersonAvatar/fallback을 준비했다.
+
+독립 QA: 같은 b3ef 고정 HEAD에서 전체 verify 루트349/웹879/빌드, 정상 Auth95, 브라우저106, 실제 Next GET·SHA·decode200 통과. 격리 DB에서 운영200/평가27/부서48/직급12/Auth5와 시험 계정 ID 보존을 확인했다. 전용9개 컨테이너/볼륨·생성 세션만 정리했고 기존22개는 보존했다. [결과·미검증 경계·병합 준비](evidence/people/20261017-portraits-integration.md). 전체 브랜치 최종 리뷰는 이 QA 문서 패키징 후 진행한다.
+
+상위 부모29건은 근거 부족으로 미확정이다. 조직도·직원 목록·상세 제품 화면, 전체 G1~G10, 외부 OAuth 실연결은 미검증이다. 위의 사진 승인·통합 대기 기록은 당시 상태이며 현재 사진 단계에는 적용되지 않는다. 공유 DB 적용·main 병합·push는 하지 않았다.
+
+## 인력 통합 최종 리뷰 완료 (2026-10-17)
+
+전체 브랜치 리뷰의 시드 보존 I1·옛 개인 조직 설명 M1을 `ca719cf` 한 차례 수정으로 해결하고 범위 재검토를 통과했다. 시드 팀의 비시드 회원은 변경 전에 명시적으로 거절하며 실제 격리 DB에서 해당 회원·작업·초대·식별자 보존을 검증했다. 정상 시드2회·운영200/평가27/부서48/직급12/Auth5도 유지했다. 최종 새 verify350/879/빌드 통과. Auth95·브라우저106·실제Next200의 원래 a052 SHA는 보존한다. [최종 결과](evidence/people/20261017-portraits-integration.md). 앞의 “최종 리뷰 진행 예정”은 당시 기록이며 이번 기록으로 종료한다.
+
+사진 APPROVED200/READY200·원본 SHA·명부 ID/이름/부서/직급은 그대로다. 상위 부모29건, 제품 조직도/직원 목록/상세 및 전체G1~G10은 미검증이다. 공유 DB 적용·main 병합·push는 하지 않았다. 다음 단계는 두 문서 충돌의 준비된 해결안과 검증 결과를 보고한 뒤 별도 main 병합 승인을 받는 것이다.

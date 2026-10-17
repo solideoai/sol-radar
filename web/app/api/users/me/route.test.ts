@@ -39,6 +39,8 @@ const profile = (isAdmin = false) =>
       role: isAdmin ? "운영자" : "회원",
       isAdmin,
       joinedAt: "2026-10-14T06:00:00.000Z",
+      employment: null,
+      profileComplete: false,
     },
   }) as const;
 

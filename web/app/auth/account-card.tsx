@@ -10,10 +10,19 @@ export function AccountHeader({ title, children }: { title: string; children?: R
 }
 
 // 폼 아래의 글자 링크다. 문장 속 링크에는 쓰지 않는다 — 본문과 색이 같아 밑줄이 없으면 링크인지 알 수 없다.
-export function AccountLink({ href, children }: { href: string; children: React.ReactNode }) {
+export function AccountLink({
+  href,
+  children,
+  onNavigate,
+}: {
+  href: string;
+  children: React.ReactNode;
+  onNavigate?: React.ComponentProps<typeof Link>["onNavigate"];
+}) {
   return (
     <Link
       href={href}
+      onNavigate={onNavigate}
       className="rounded-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       {children}

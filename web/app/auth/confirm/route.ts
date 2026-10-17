@@ -1,3 +1,4 @@
+import { afterEmploymentAuthentication } from "@/app/auth/employment-routing";
 import { NextResponse, type NextRequest } from "next/server";
 import { confirmEmailLink } from "@/server/auth";
 
@@ -6,5 +7,8 @@ import { confirmEmailLink } from "@/server/auth";
 // 그런 사용자가 생기면 확인 버튼을 누르는 화면(POST)이나 6자리 코드 입력으로 바꾼다.
 export async function GET(request: NextRequest) {
   const path = await confirmEmailLink(request.nextUrl.searchParams);
-  return NextResponse.redirect(new URL(path, request.url));
+  const isExempt =
+    request.nextUrl.searchParams.get("type") === "recovery" || path === "/auth/login?link=invalid";
+  const destination = isExempt ? path : await afterEmploymentAuthentication(path);
+  return NextResponse.redirect(new URL(destination, request.url));
 }

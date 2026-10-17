@@ -1,0 +1,164 @@
+{
+  "G1": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "web/server/ingestion/idempotent-upsert.test.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G2": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "web/server/ingestion/revision-diff.test.ts",
+        "exists": false
+      },
+      {
+        "path": "web/server/notifications/outbox-dedupe.test.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G3": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "web/server/scoring/decision-policy.golden.test.ts",
+        "exists": false
+      },
+      {
+        "path": "web/server/scoring/kev-no-override.test.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G4": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "web/server/scoring/needs-review.test.ts",
+        "exists": false
+      },
+      {
+        "path": "services/ai/tests/test_extraction_schema.py",
+        "exists": false
+      },
+      {
+        "path": "web/e2e-auth/no-evidence.spec.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G5": {
+    "implementation": "PARTIAL_GENERIC_RLS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "scripts/database.test.mjs",
+        "exists": true
+      },
+      {
+        "path": "web/app/api/v1/tenant-isolation.test.ts",
+        "exists": false
+      },
+      {
+        "path": "web/e2e-auth/bid-isolation.spec.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G6": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "web/server/analysis/ai-fallback.test.ts",
+        "exists": false
+      },
+      {
+        "path": "services/ai/tests/test_gateway_fallback.py",
+        "exists": false
+      },
+      {
+        "path": "web/e2e-auth/partial-analysis.spec.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G7": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "web/server/ingestion/rate-limit-retry.test.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G8": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "web/server/bids/demo-flag.test.ts",
+        "exists": false
+      },
+      {
+        "path": "web/e2e-auth/demo-badge.spec.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G9": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "services/ai/tests/test_extraction_schema.py",
+        "exists": false
+      },
+      {
+        "path": "services/ai/tests/test_citation_verify.py",
+        "exists": false
+      },
+      {
+        "path": "services/ai/tests/test_kev_adapter.py",
+        "exists": false
+      },
+      {
+        "path": "services/ai/tests/test_gateway_fallback.py",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  },
+  "G10": {
+    "implementation": "MISSING_DESIGNATED_TARGETS",
+    "commandDocumented": true,
+    "targets": [
+      {
+        "path": "web/server/ingestion/normalized-bid.contract.test.ts",
+        "exists": false
+      },
+      {
+        "path": "web/server/ingestion/evidence-ref.contract.test.ts",
+        "exists": false
+      }
+    ],
+    "fullResult": "UNVERIFIED"
+  }
+}

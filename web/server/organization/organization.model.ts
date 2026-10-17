@@ -3,7 +3,7 @@ import { z } from "zod";
 import { nameOf } from "@/server/shared";
 
 // ── 모델: 순수 타입과 규칙. 저장·화면을 모른다 ──
-// 조직은 개인 조직(가입하면 생기고 혼자 쓴다)과 팀 조직(만들고 초대한다) 둘이다.
+// 현재 업무 조직은 실제 업무 멤버십으로만 정한다. 과거 개인 조직은 보존하되 선택하지 않는다.
 // 역할 owner·member 는 서비스 전체 운영자(profiles.is_admin)와 다르다. 누가 무엇을 읽고 쓰는지는 DB 정책이 정한다.
 
 export type OrgRole = "owner" | "member";
@@ -23,6 +23,8 @@ export type OrgSummary = { slug: string; name: string; isPersonal: boolean };
 export type CurrentOrg = OrgSummary & { id: string; myRole: OrgRole };
 
 export type MyWorkspace =
+  | { status: "no-org"; userId: string }
+  | { status: "multiple-orgs"; userId: string }
   | { status: "no-database" }
   | { status: "signed-out" }
   // 그 주소의 조직이 없거나 내가 멤버가 아니다. 둘을 구분하지 않는다(남의 조직이 있는지 알려 주지 않는다).
@@ -35,12 +37,23 @@ export type MyWorkspace =
       pendingInvitationCount: number;
     };
 
-// 조직 주소가 없는 화면(/auth/login·옛 주소)이 보낼 곳. 개인 조직이 없으면(프로필이 없는 계정) missing 이다.
-export type MyHome =
-  | { status: "no-database" }
-  | { status: "signed-out" }
-  | { status: "missing" }
-  | { status: "ready"; personalSlug: string };
+export type CurrentOrganizationResult =
+  | { status: "no-database" | "signed-out" }
+  | { status: "no-org"; userId: string }
+  | { status: "multiple-orgs"; userId: string }
+  | { status: "ready"; userId: string; current: CurrentOrg };
+export type MyHome = CurrentOrganizationResult;
+
+export function resolveCurrentOrganization(
+  rows: readonly MyOrgRow[],
+): { status: "no-org" } | { status: "multiple-orgs" } | { status: "ready"; current: CurrentOrg } {
+  const business = [
+    ...new Map(rows.filter((row) => !row.isPersonal).map((row) => [row.orgId, row])).values(),
+  ];
+  if (business.length === 0) return { status: "no-org" };
+  if (business.length !== 1) return { status: "multiple-orgs" };
+  return { status: "ready", current: toCurrentOrg(business[0]) };
+}
 
 export function sortOrgs(rows: MyOrgRow[]): MyOrgRow[] {
   return rows.toSorted((a, b) =>
@@ -238,7 +251,7 @@ export type ReceivedInvitationView = InvitationView & { orgName: string; orgSlug
 export type ReceivedInvitations =
   | { status: "no-database" }
   | { status: "signed-out" }
-  | { status: "ready"; invitations: ReceivedInvitationView[]; homeSlug: string | null };
+  | { status: "ready"; invitations: ReceivedInvitationView[] };
 
 // ── 쓰기 결과 ──
 // 예상한 실패(로그인 안 함·틀린 입력·권한 없음·마지막 소유자)는 던지지 않고 값으로 돌려준다.

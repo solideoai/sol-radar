@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-10-17T02:44:41.055Z",
+  "gallerySha256": "f5bf15d715c6993f23f1d385a234f9c3ebb0d5ab30cf83ed59c01ca4ebe8dd9f",
+  "cards": 200,
+  "approvedLabels": 200,
+  "allNamesDepartmentsTitlesMatch": true,
+  "checks": [
+    {
+      "width": 1440,
+      "overflow": 0
+    },
+    {
+      "width": 1280,
+      "overflow": 0
+    }
+  ],
+  "pageErrors": [],
+  "scope": "Offline approved derivative gallery only; photo HTTP/decode proof belongs to independent Next QA; no photo bytes edited"
+}

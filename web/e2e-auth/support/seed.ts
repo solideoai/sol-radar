@@ -1,7 +1,28 @@
 import path from "node:path";
+import { z } from "zod";
 
 // 시드(scripts/db-seed.mjs)가 만드는 계정과 팀. 웹 코드는 부모 경로(../)를 가져오지 못해(eslint) 값을 여기에 옮겨 적는다.
 // 시드를 바꾸면 이 파일과, 시드 수치를 단언하는 시험(dashboard·tasks-view·admin)을 같이 고친다.
+
+// Approved declaration is separate from template-team membership and the product
+// demo's five .invalid accounts. It grants no Solideo access.
+export const SEED_EMPLOYMENT = {
+  companyName: "솔리데오",
+  departmentId: "SOL-D001",
+  departmentName: "AX사업본부 AI플랫폼운영팀",
+  jobTitleId: "SOL-J007",
+  jobTitleLabel: "팀장",
+} as const;
+export const SOLIDEO_ORG_ID = "db4c863c-cb6a-593d-93ff-709a17e0157a";
+export const declarationMetadata = (name: string, incomplete = false) => ({
+  name: z.string().trim().min(1).max(40).parse(name),
+  ...(incomplete
+    ? {}
+    : {
+        department_code: SEED_EMPLOYMENT.departmentId,
+        job_title_code: SEED_EMPLOYMENT.jobTitleId,
+      }),
+});
 
 // 로컬 Supabase 에서만 쓰는 시험용 비밀번호다. 시드가 출력하는 값과 같다.
 export const SEED_PASSWORD = "seed-password-1234";
@@ -21,9 +42,6 @@ export type SeedRole = keyof typeof SEED_ACCOUNTS;
 export const SEED_ROLES: readonly SeedRole[] = ["owner", "member", "outsider", "invitee", "admin"];
 
 export const SEED_TEAM = { name: "시드 팀", slug: "seed-team" } as const;
-
-// 개인 조직의 이름. 가입 트리거(create_personal_org)가 붙인다.
-export const PERSONAL_ORG_NAME = "개인 공간";
 
 // 역할마다 로그인 상태를 저장하는 파일. auth.setup.ts 가 쓰고, 시험은 test.use({ storageState }) 로 읽는다. 깃에서 뺀다.
 export const authFileOf = (role: SeedRole): string =>

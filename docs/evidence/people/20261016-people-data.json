@@ -1,0 +1,37 @@
+{
+  "sourceSha256": "d4febca8607f628d4fd405c5dac423d2eb0b7f6d4ab926f691ec45488b79a4c3",
+  "counts": {
+    "sourceRows": 250,
+    "weightedRows": 175,
+    "excludedRows": 75,
+    "unmappedRows": 0,
+    "departments": 38,
+    "jobTitles": 12,
+    "fictionalPeople": 200,
+    "uniquePersonIds": 200,
+    "uniqueThreeHangulNames": 200,
+    "male": 100,
+    "female": 100,
+    "scoringEligible": 27,
+    "scoringIneligible": 173,
+    "plannedPortraits": 200,
+    "readyPortraits": 0
+  },
+  "nameSources": [
+    "https://www.namechart.kr/chart/2008?gender=m",
+    "https://www.namechart.kr/chart/2008?gender=f"
+  ],
+  "nameReview": {
+    "referenceVerifiedOn": "2026-10-16",
+    "referencePurpose": "Documented two-syllable given-name usage; no employee age inference",
+    "method": "AI implementer and controller read all 200 fictional names for common surname combinations, pronunciation and concentration; deterministic adjacent repeated surname syllables excluded",
+    "result": "AI review passed; human naturalness approval not recorded"
+  },
+  "sourceComparison": {
+    "localStrictCheck": "passed",
+    "fixtureOnlyCI": "not-run",
+    "normalizedSourceNameMatches": 0,
+    "independentCoverageAudit": "Controller stdlib XLSX/XML audit: all 250 source staff cells covered exactly once; 175 weighted and 75 excluded; 38 exact headers and 12 titles; errors 0",
+    "independentNameAudit": "Controller stdlib XLSX/XML audit against all 250 source name cells, including excluded rows: matches 0"
+  }
+}

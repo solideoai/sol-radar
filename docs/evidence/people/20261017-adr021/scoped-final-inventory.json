@@ -1,0 +1,19 @@
+{
+  "head": "21c8b9785cc04fcd1d99eddd92e75cbe157bcedb",
+  "people": 200,
+  "scoring": 27,
+  "departments": 48,
+  "titles": 12,
+  "auth": 5,
+  "uniqueThreeHangulNames": 200,
+  "gender": {
+    "MALE": 100,
+    "FEMALE": 100
+  },
+  "exactOperationalHash": "bc1a7b3af1bebce2f7abca04b09967e623b385a24508dd2c3870ef10ca7ed535",
+  "exactScoringHash": "d19f3b8d8c2cbe3e300209b850bd2568a6b32bb22d79684d01223a282b6391bb",
+  "exactFiveAuthHash": "8c6a6f3527c7e842a6a624997e9dbbcd2ac337db873b30a657164af07a8c9259",
+  "allHashesEqualPrior": true,
+  "remainingOwnedManualUsers": 0,
+  "remainingOwnedManualOrgs": 0
+}

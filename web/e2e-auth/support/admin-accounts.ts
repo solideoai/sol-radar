@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { readLocalStatus } from "./local-status";
 import { z } from "zod";
+import { declarationMetadata } from "./seed";
 
 // 관리자 E2E 의 시험 계정 — 정지·해제처럼 시드 계정에 하면 같은 실행의 다른 시험이 깨지는 일은 시험 안에서 만든 계정에 한다.
 // 관리 키(service_role)는 세 가지 준비에만 쓴다. 시험하는 동작(정지·해제·로그인·/api)에는 쓰지 않는다.
@@ -12,50 +13,13 @@ import { z } from "zod";
 
 type LocalAuth = { apiUrl: string; anonKey: string; serviceKey: string };
 
-const STATUS_LINE = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
-const unquote = (value: string): string =>
-  value.length >= 2 && (value[0] === '"' || value[0] === "'") && value.at(-1) === value[0]
-    ? value.slice(1, -1)
-    : value;
-
-// 이 컴퓨터나 같은 네트워크(사설 대역)의 주소인가. 시드(scripts/local-env.mjs 의 isLocalUrl)와 같은 기준이다.
-const isLocalHost = (host: string): boolean =>
-  host === "localhost" ||
-  host === "[::1]" ||
-  /^127\./.test(host) ||
-  /^10\./.test(host) ||
-  /^192\.168\./.test(host) ||
-  /^172\.(1[6-9]|2\d|3[01])\./.test(host);
-
 const readLocalAuth = (): LocalAuth => {
-  const run = spawnSync("supabase", ["status", "-o", "env"], {
-    stdio: ["ignore", "pipe", "pipe"],
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  });
-  if (run.error || run.status !== 0) {
-    throw new Error(
-      "로컬 Supabase 상태를 읽지 못했습니다. 꺼져 있거나 Supabase CLI 가 없습니다. pnpm db:start 로 켠 뒤 다시 실행하세요.",
-    );
-  }
-  const env = new Map(
-    run.stdout.split(/\r?\n/).flatMap((line) => {
-      const match = STATUS_LINE.exec(line);
-      return match ? [[match[1], unquote(match[2])] as const] : [];
-    }),
-  );
-  const apiUrl = env.get("API_URL") ?? "";
-  const host = URL.canParse(apiUrl) ? new URL(apiUrl).hostname : "";
-  if (!isLocalHost(host)) {
-    throw new Error(
-      `로컬 Supabase 주소가 아닙니다(${apiUrl || "비어 있음"}). 시험 계정은 로컬에만 만듭니다.`,
-    );
-  }
-  const anonKey = env.get("ANON_KEY") || env.get("PUBLISHABLE_KEY") || "";
-  const serviceKey = env.get("SERVICE_ROLE_KEY") || env.get("SECRET_KEY") || "";
-  if (anonKey === "" || serviceKey === "") {
+  const env = readLocalStatus();
+  const apiUrl = env.API_URL;
+  const anonKey = env.ANON_KEY || env.PUBLISHABLE_KEY || "";
+  const serviceKey = env.SERVICE_ROLE_KEY || env.SECRET_KEY || "";
+  if (!anonKey || !serviceKey)
     throw new Error("supabase status 출력에 anon·service_role 키가 없습니다.");
-  }
   return { apiUrl, anonKey, serviceKey };
 };
 
@@ -107,18 +71,20 @@ const profileSchema = z.array(
 
 /**
  * 확인된 이메일 계정을 만든다. 표시 이름은 가입 트리거가 메타데이터(name)에서 채운다(20261015000001).
- * 그 사람의 개인 조직도 가입 트리거가 만든다.
+ * 가입 트리거는 프로필만 만든다. 업무 조직은 필요한 시험이 명시적으로 준비한다.
  */
 export const createTestAccount = async ({
   label,
   tag,
   name,
   isAdmin = false,
+  incomplete = false,
 }: {
   label: string;
   tag: string;
   name: string;
   isAdmin?: boolean;
+  incomplete?: boolean;
 }): Promise<TestAccount> => {
   const email = `e2e-admin-${label}-${tag}@example.test`;
   const password = `e2e-${randomUUID()}`;
@@ -126,7 +92,12 @@ export const createTestAccount = async ({
     expectOk(
       await send("POST", "/auth/v1/admin/users", {
         key: "service",
-        body: { email, password, email_confirm: true, user_metadata: { name } },
+        body: {
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: declarationMetadata(name, incomplete),
+        },
       }),
       "시험 계정 만들기",
     ),

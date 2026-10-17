@@ -1,0 +1,14 @@
+Command: ["node","/tmp/sol-radar-portraits-20261017-qa/ui-probe.mjs"]
+Owned API: http://127.0.0.1:57621
+Owned CLI workdir: /tmp/sol-radar-portraits-20261017-qa
+Started: 2026-10-17T02:16:25.101Z
+file:///private/tmp/sol-radar-portraits-20261017-qa/ui-probe.mjs:12
+  if(value.department.includes('선택해')||value.title.includes('선택해')||value.overflow)throw Error('UI control contract failed');
+                                                                                         ^
+
+Error: UI control contract failed
+    at file:///private/tmp/sol-radar-portraits-20261017-qa/ui-probe.mjs:12:90
+
+Node.js v24.16.0
+
+Exit: 1 Signal: null Finished: 2026-10-17T02:16:26.444Z

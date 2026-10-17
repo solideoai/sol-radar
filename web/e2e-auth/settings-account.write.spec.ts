@@ -3,6 +3,7 @@ import {
   accountExists,
   createTeamWithMember,
   createTestAccount,
+  createOwnedTeam,
   refreshSession,
   removeTestAccounts,
   type TestAccount,
@@ -57,6 +58,7 @@ test.describe("모든 기기에서 로그아웃", () => {
     const account = await createTestAccount();
     const other = await browser.newContext({ baseURL, locale, timezoneId });
     try {
+      await createOwnedTeam(account);
       const slug = await signInThroughForm(page, account);
       const here = await storedSessionOf(page.context());
       const elsewhere = await signInElsewhere(other, account);
@@ -90,6 +92,7 @@ test.describe("모든 기기에서 로그아웃", () => {
   test("확인 대화상자에서 취소하면 로그아웃하지 않는다", async ({ page }) => {
     const account = await createTestAccount();
     try {
+      await createOwnedTeam(account);
       const slug = await signInThroughForm(page, account);
       const here = await storedSessionOf(page.context());
       await page.goto(settingsOf(slug));
@@ -139,6 +142,7 @@ for (const { via, run } of LOCAL_SIGN_OUTS) {
     const account = await createTestAccount();
     const other = await browser.newContext({ baseURL, locale, timezoneId });
     try {
+      await createOwnedTeam(account);
       const slug = await signInThroughForm(page, account);
       const here = await storedSessionOf(page.context());
       const elsewhere = await signInElsewhere(other, account);
@@ -183,6 +187,7 @@ test.describe("회원 탈퇴", () => {
   }) => {
     const account = await createTestAccount();
     try {
+      await createOwnedTeam(account);
       const slug = await signInThroughForm(page, account);
       const dialog = await openDeleteDialog(page, slug);
       const input = dialog.getByLabel(CONFIRM_LABEL);
@@ -213,6 +218,7 @@ test.describe("회원 탈퇴", () => {
   }) => {
     const account = await createTestAccount();
     try {
+      await createOwnedTeam(account);
       const slug = await signInThroughForm(page, account);
       const here = await storedSessionOf(page.context());
       const dialog = await openDeleteDialog(page, slug);
@@ -259,7 +265,10 @@ test.describe("회원 탈퇴", () => {
       expect(await accountExists(owner)).toBe(true);
       await page.goto(`/${team.slug}/dashboard`);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("대시보드");
-      await expect(page.getByRole("button", { name: "조직 전환" })).toContainText(team.name);
+      await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
+      const banner = page.getByRole("banner");
+      await banner.getByRole("button", { name: "사이드바 여닫기" }).click();
+      await expect(banner.getByText(team.name, { exact: true })).toBeVisible();
     } finally {
       await removeTestAccounts([owner, member]);
     }

@@ -72,3 +72,10 @@ export const migratedDb = async (t) => {
   await recordHistory(fresh);
   return fresh;
 };
+
+// 이전 가입 흐름의 개인 공간이 필요한 보존·격리 시험에서만 명시적으로 호출한다.
+// migratedDb 의 신규 가입자는 조직·멤버십 없이 남긴다.
+export const prepareLegacyPersonalOrgs = async (pglite, ownerIds) => {
+  for (const ownerId of ownerIds)
+    await pglite.query("select public.create_personal_org($1)", [ownerId]);
+};

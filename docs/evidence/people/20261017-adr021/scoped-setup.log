@@ -1,0 +1,27 @@
+command: pnpm -C web exec playwright test -c playwright.auth.config.ts --project=setup
+exit: 0
+
+Running 5 tests using 5 workers
+
+  ✓  4 [setup] › e2e-auth/auth.setup.ts:9:8 › 김소유(owner) 로 로그인해 상태를 저장한다 (2.5s)
+  ✓  1 [setup] › e2e-auth/auth.setup.ts:9:8 › 이멤버(member) 로 로그인해 상태를 저장한다 (2.5s)
+  ✓  5 [setup] › e2e-auth/auth.setup.ts:9:8 › 정운영(admin) 로 로그인해 상태를 저장한다 (2.6s)
+  ✓  2 [setup] › e2e-auth/auth.setup.ts:9:8 › 박외부(outsider) 로 로그인해 상태를 저장한다 (2.6s)
+  ✓  3 [setup] › e2e-auth/auth.setup.ts:9:8 › 최초대(invitee) 로 로그인해 상태를 저장한다 (2.6s)
+
+  5 passed (4.6s)
+
+[WebServer] (node:93210) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:93233) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+(node:93244) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:93243) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:93240) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:93242) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:93241) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
