@@ -234,7 +234,20 @@ for (const [name, mutate, expected] of [
 }
 
 test("release requires original source and rejects the planned manifest", async () => {
-  const result = await checkPeople({ fixtures, requirePortraits: true });
+  const value = copy();
+  value.portraits.portraits = value.portraits.portraits.map(
+    ({ personId, gender, prompt, path }) => ({
+      personId,
+      gender,
+      prompt,
+      status: "PLANNED",
+      path,
+      sha256: null,
+      generator: null,
+      generatedAt: null,
+    }),
+  );
+  const result = await checkPeople({ fixtures: value, requirePortraits: true });
   assert.equal(result.ok, false);
   assert.equal(result.sourceComparison, "not-run");
   assert.ok(codes(result).includes("SOURCE_REQUIRED"));

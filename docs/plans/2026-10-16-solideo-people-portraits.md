@@ -79,3 +79,10 @@ manifest 항목은 승인 스펙의 `personId,gender,prompt,status,path,sha256,g
 ## 계획 자체 검토
 
 승인 스펙 §7의 개별 생성·내장 도구·캐시 복사·재시도·사람 검수·READY 조건을 각각 태스크에 연결했다. 생성 자체에는 동일 구현을 흉내 내는 테스트를 만들지 않고 상태·파일·연결·완료 조건을 시험한다. 사진 계획만 통과해도 DB·가입까지 완료했다고 표시하지 않는다.
+
+
+## 2026-10-17 후속 승인·통합 기록
+
+이 계획의 생성과 AI 검수는 9663의 `2d416f774b4d69e6a7a241bc2edd83ab46d1f5bb`에서 이미 완료했다. 이번 작업은 사진을 다시 생성하거나 교체하지 않았다. 사용자 원문 “사진 200장 전체를 최종 승인합니다.”와 정확한 200 binding snapshot을 [사람 승인 기록](../evidence/people/20261017-portraits-approval.json)에 기록하고 기존 AI review200개를 먼저 보존한 뒤 `markPortraitReady`로 READY200을 기록했다(9663 `8ba281060d1cb27c6e3cb06da22b5d4ab3ca801e`).
+
+b3ef에는 승인 manifest·원본 PNG200개·승인/이전 AI 증거만 선택 반입했다. 실제 원본 엑셀을 필수 대조한 release 검사는 통과했다. 현재 정적 사진과 재사용 Avatar/fallback을 제공하며 미출시 조직도·직원 상세 화면은 만들지 않았다. [통합 계획](2026-10-17-approved-portraits-integration.md)의 독립 Task 2가 전체 검증과 병합 준비를 맡는다. 상세 실행 결과는 [Task 1 증거](../evidence/people/20261017-portraits-integration-task1.md)를 참조한다.

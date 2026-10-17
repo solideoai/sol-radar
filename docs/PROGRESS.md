@@ -44,7 +44,7 @@ updated: 2026-10-17
 - [x] 조직도 추출·부서/직급 카탈로그: 원본 250행을 배분 가중치 175행·비팀 구역 제외 75행으로 분류, 정확한 표시명 38개·직급 12개. 미분류·중복·원본 이름 유출 0, 작업별 독립 검토 통과.
 - [x] `fixtures/people/solideo.{departments,job-titles,people,portraits}.json` 및 최소 공개 가입 카탈로그 생성·원본 대조. 가상 200명·남녀 100/100·계산 대상 27명·가용 20 FTE 보존, 데이터 단계 `pnpm verify` 및 명부·카탈로그 작업별 독립 검토 통과.
 - [x] imagegen 고유 정장 프로필200장 생성·AI 품질 검사 완료(별도9663 worktree, 남녀100/100, GENERATED200).
-- [ ] 위200명 이름·얼굴의 실제 사람 검수 승인·READY 전환·코드 worktree 통합·release 검사. 현재 READY0.
+- [x] 위200명 이름·얼굴의 실제 사람 최종 승인·READY200 전환·코드 worktree 통합·release 검사. 승인 snapshot과 원본 PNG SHA-256 200개를 재대조했고 기존 AI 검수는 별도 보존했다.
 - [x] 카탈로그·가입 신고 필드·가상 인력 seed/RLS migration 및 생성 타입. Task1/2 독립 리뷰 통과; 실제 로컬 최종 재검증은 별도.
 - [x] 가입 폼·프로필 보완·업무 화면/Server Action 가드·계정 관리 호환 구현 및 Task3 독립 리뷰 통과. 현재 v1 업무 REST 엔드포인트는 없으며 재사용 API 가드 계약만 단위 검증.
 - [x] 전체200명→계산27명 snapshot, 고정 창20FTE·배정 경계와 별도 worked-example 요소94/72/68 순수 회귀 구현. 전체 점수 엔진 골든은 Phase4 미완료.
@@ -53,7 +53,7 @@ updated: 2026-10-17
 - [x] 최신 정본 04·05·06·09·16과 ADR-021의 이번 가입·DB 범위 정합화 및 격리 실제 코드 QA. 인력 표 분리·부서 계층·가입 개인 조직 생성 중단·멤버십 기반 조직 결정. 공유 DB 충돌 migration 적용/main 병합 금지, 기존 작업·다른 세션 파일 보존.
 - Task 7 저장 변경(격리 worktree): 새 가입은 프로필만 생성하고 TEAM/기존 null kind만 신고 허용. 이전 개인 조직·소유권·작업과 카탈로그 삭제 SET NULL 보존을 PGlite 141개, 개인 공간 없는 seed 호환을 HTTP mock 12개, 프로필·세션 API 계약을 60개 테스트로 확인했다. 후속 Task 8 라우팅과 함께 독립 검토·격리 실제 Supabase 코드 QA를 완료했다(아래2026-10-17 기록). 사진 release와 전체 ADR-021 완료를 뜻하지 않는다. 공유 DB 적용·seed 실행·main 병합은 하지 않았다.
 
-원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 PLANNED200/READY0이다. 별도 사진 작업 결과는 아직 합치지 않았으며 사람 승인 전 release 완료를 주장하지 않는다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. 기존 계획과 ADR-021의 이번 DB·가입 정합화 코드 QA는 통과했다. 전체 N1/N2 등 후속 범위는 남아 있다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
+원본은 저장소 밖 `sol-radar-inputs/people.xlsx`. 명부는 생성·원본 대조했으며 로그인 5계정과 별개다. 이 worktree의 사진 manifest는 READY200이며 승인된 원본 PNG 200장을 고정 공개 경로에 통합했다. [사람 승인 기록](evidence/people/20261017-portraits-approval.json)과 [기존 AI 검수 이력](evidence/people/20261016-portraits-review.json)은 구분해 보존한다. [데이터 검증 증거](evidence/people/20261016-people-data.json)의 로컬 원본 대조와 CI의 `sourceComparison: "not-run"`을 구분한다. 기존 계획과 ADR-021의 이번 DB·가입 정합화 코드 QA는 통과했다. 전체 N1/N2 등 후속 범위는 남아 있다. 전체 점수 파이프라인은 미완료다. 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md).
 
 ## hosted 모델 API 사용 승인 기록
 
@@ -103,4 +103,13 @@ Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영20
 
 전용 임시 Supabase만 정리했으며 공유 DB의 새 migration/seed 적용·main 병합·다른 세션/소스 checkout 수정은 하지 않았다. 위의 Task7/Task8 구현 시점 메모에 적힌 검토/실제QA 대기는 이번 기록으로 종료한다.
 
-사진은 별도 worktree의 GENERATED200/READY0이며 사람 승인·통합은 대기 중이다. 전체 ADR-021 N1/N2·/people·/ops·sidebar/P1, 전체 Phase4, 실제 외부 OAuth는 후속 범위다. 실제 REST 중단의 초기 조회 안내와 RSC 응답 보류 중 즉시 화면 이동의 검증 한계도 근거 문서에 남겼다. 전체 기능·배포 완료로 표시하지 않는다.
+사진은 2026-10-17 사람 최종 승인 뒤 READY200으로 전환해 원본 바이트 그대로 통합했다. 전체 ADR-021 N1/N2·/people·/ops·sidebar/P1, 전체 Phase4, 실제 외부 OAuth는 후속 범위다. 실제 REST 중단의 초기 조회 안내와 RSC 응답 보류 중 즉시 화면 이동의 검증 한계도 근거 문서에 남겼다. 전체 기능·배포 완료로 표시하지 않는다.
+
+
+## 2026-10-17 승인 사진 통합 — Task 1
+
+사용자가 “사진 200장 전체를 최종 승인합니다.”라고 승인한 정확한 200명 ID·이름·성별·부서·직급·경로·해시 binding을 snapshot `19cbd9408e9672273db9405073dde5f9133d7715fa40041e51b91c824e8ff0e1` 및 실제 PNG와 다시 대조했다. 자동 PASS200/FAIL0과 사람 APPROVED200을 분리 기록하고, 이전 AI review200개를 승인 기록에 먼저 보존한 뒤 기존 API로 READY200으로 전환했다. 역사적 외부 audit의 PENDING 기록은 수정하지 않았다.
+
+`/demo/people/SOL-P0001.png`~`SOL-P0200.png`와 제한된 ID 경로 helper, 기존 Avatar 기반 `PersonAvatar`를 추가했다. ID 없음·범위 밖·이미지 decode 오류는 중립 인물 아이콘과 접근 가능한 설명을 표시한다. 향후 조직도와 직원 상세 화면은 같은 컴포넌트를 사용한다. 조직도·직원 상세·메뉴·제품 화면은 이번에 만들지 않았다. 실제 사용자 `avatar_url`과도 연결하지 않았다.
+
+실행 증거: [Task 1 검증](evidence/people/20261017-portraits-integration-task1.md). 사진·명부·조직 회귀99/99, helper14/14, Avatar Chromium4/4, 순수 점수10/10, 웹 타입 검사를 통과했다. 원본 엑셀 필수 release 검사는 `sourceComparison: passed`, 오류0이다. 명부·조직48개·직급·배정/평가27명·점수 입력·마이그레이션은 바꾸지 않았다. 전체 `pnpm verify`, 실제 Next HTTP200 URL 검사, 기존 인증/인가 회귀 및 전체 브랜치 리뷰는 독립 Task 2에서 수행한다. 전체 G1~G10·미출시 인력 화면·배포 완료를 주장하지 않는다. 공유 DB 적용·main 병합·push는 수행하지 않았다.
