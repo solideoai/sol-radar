@@ -177,7 +177,7 @@ docs/evidence/
 
 ## 8. 솔리데오 인력·가입 수용 기준 (ADR-019)
 
-기존 골든 G1~G10과 구분해 PPL 번호를 사용한다. 명부·카탈로그, DB/RLS·가입/보완 가드와 순수 인력 계산 회귀는 구현되었다. 기존 계획의 독립 코드 QA는 verify·공개130·브라우저89·인증92 및 실제 로컬 seed/1440·1280 검사를 통과했다. 이후 ADR-021의 가입·인력 저장 정합화도 별도 환경에서 검증했다(아래 §9). 사진 release·사람 검수·전체 점수 파이프라인과 전체 ADR-021 후속 범위는 남아 있으며 아래 기준 전체를 통과했다는 뜻이 아니다. [통합 검증 기록](evidence/people/20261016-people-integration.md)에 실행과 미실행을 구분한다.
+기존 골든 G1~G10과 구분해 PPL 번호를 사용한다. 명부·카탈로그, DB/RLS·가입/보완 가드와 순수 인력 계산 회귀는 구현되었다. 기존 계획의 독립 코드 QA는 verify·공개130·브라우저89·인증92 및 실제 로컬 seed/1440·1280 검사를 통과했다. 이후 ADR-021의 가입·인력 저장 정합화도 별도 환경에서 검증했다(아래 §9). 사진은 2026-10-17 사람 APPROVED200/READY200·원본 대조 release·실제 Next 접근 검증을 통과했다. 전체 점수 파이프라인과 전체 ADR-021 후속 범위는 남아 있으며 아래 기준 전체를 통과했다는 뜻이 아니다. [통합 검증 기록](evidence/people/20261016-people-integration.md)에 실행과 미실행을 구분한다.
 
 | ID | 자동 검증할 조건 | 위치 / 명령 |
 |---|---|---|
@@ -187,7 +187,7 @@ docs/evidence/
 | PPL-04 | 인력 200명 seed 2회 멱등·기존 템플릿5계정 ID 유지·명부 seed의 추가 Auth 생성0·카탈로그/인력 RLS 격리·다른 회사 코드 거부·가입 신고 정보로 권한 상승 불가 | `scripts/database.test.mjs`, `pnpm test:db` |
 | PPL-05 | 이메일 가입의 부서·직급 필수·위조 코드 거부·본인 정보만 저장·재로그인 후 유지·기존 이름/약관 검증 유지 | `web/app/auth/sign-up/sign-up-schema.test.ts`, profile 도메인·신고 정보 Route Handler 계약 시험 |
 | PPL-06 | 간편 가입·기존 미완료 사용자의 필수 정보 보완·업무 화면/API 우회 차단·로그아웃/보완 접근·저장 실패 재시도·가입이 자동 조직 합류를 만들지 않음 | `web/e2e-auth/signup-employment.spec.ts`·`signup-employment.write.spec.ts` 및 Route Handler 시험. UI는 1440·1280·키보드 확인 |
-| PPL-07 | 전체 명부 길이와 계산 하위27명 분리·고정 창20FTE·기간 경계/동시 배정·계산 용량과 §6 별도 요소값을 결합한94/72/68 회귀(전체 파이프라인 골든은 Phase4) | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
+| PPL-07 | 완료: 명부200/계산27 분리·고정 창20FTE·기간 경계/동시 배정·계산 용량과 §6 별도 요소값의 순수94/72/68 회귀. 후속 수용 기준: `team_member_scoring` 분리 뒤 전체 골든94/72/68 및 운영 편집 뒤 기존 `score_runs` 불변(ADR-021·Phase4 미검증) | `web/server/scoring/*.test.ts`, `pnpm -C web exec vitest run server/scoring` |
 
 CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm test`는 `scripts/**/*.test.mjs` 전체를 자동 실행하며 합성 입력으로 추출/제외 알고리즘과 저장 fixture 검증을 검사한다. 데이터 검증 진입점은 다음 세 가지다.
 
@@ -224,3 +224,9 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 - [[19-DEMO-SCENARIO|19 데모 시나리오]] — 데모 당일 서사와 계정
 - [[12-ROADMAP|12 로드맵]] — Phase별 해커톤 컷
 - [[16-DECISIONS|16 ADR]] — ADR-017(Next.js + Supabase 전환, 시험 도구·위치의 근거)
+
+## 10. 승인 사진 통합 검증 (2026-10-17)
+
+사진200장 사람 APPROVED/manifest READY와 기존 personId·SHA-256을 유지해 b3ef `a05217a05f0fb9adb3553c02978f0e2d531e9610`에 통합했다. 같은 고정 HEAD에서 새 `pnpm verify`(루트349·웹879·빌드), 정상 Auth95, 브라우저106, 실제 Next GET·승인 SHA·브라우저 decode200을 통과했다. 원본 필수 release 대조도 Task1에서 passed였다. 상세 명령·한계·원래 실패 기록은 [통합 결과](evidence/people/20261017-portraits-integration.md)와 [독립 QA 원문](evidence/people/20261017-portraits-integration-qa.md)에 있다.
+
+조직 종류/직원TEAM/상위target NULL/팀 합200 제약은 통과했으나 TEAM25·GROUP4의 부모는 미확정으로 보존했다. 완전히 연결된 본부→그룹→팀 조직도는 미검증이다. 조직도·운영 직원 목록·직원 상세 제품 화면과 전체 G1~G10은 미구현/미검증이며, 일반 RLS 통과를 전체 G5로 올리지 않는다. 외부 OAuth 실연결·이번 전체 공개 E2E도 미검증이다. 공유 DB 적용·main 병합·push는 수행하지 않았다.

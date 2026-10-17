@@ -1,0 +1,7 @@
+{
+  "workdir": "/tmp/sol-radar-portraits-20261017-qa",
+  "api": "http://127.0.0.1:57621",
+  "mailbox": "http://127.0.0.1:57624",
+  "hasAnon": true,
+  "hasLocalService": true
+}

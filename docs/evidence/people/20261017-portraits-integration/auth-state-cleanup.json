@@ -1,0 +1,11 @@
+{
+  "initialAuthStates": [],
+  "removedExactOwnedFiles": [
+    "web/e2e-auth/.auth/owner.json",
+    "web/e2e-auth/.auth/member.json",
+    "web/e2e-auth/.auth/outsider.json",
+    "web/e2e-auth/.auth/invitee.json",
+    "web/e2e-auth/.auth/admin.json"
+  ],
+  "remainingFiles": []
+}

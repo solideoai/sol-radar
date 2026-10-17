@@ -113,3 +113,11 @@ Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영20
 `/demo/people/SOL-P0001.png`~`SOL-P0200.png`와 제한된 ID 경로 helper, 기존 Avatar 기반 `PersonAvatar`를 추가했다. ID 없음·범위 밖·이미지 decode 오류는 중립 인물 아이콘과 접근 가능한 설명을 표시한다. 향후 조직도와 직원 상세 화면은 같은 컴포넌트를 사용한다. 조직도·직원 상세·메뉴·제품 화면은 이번에 만들지 않았다. 실제 사용자 `avatar_url`과도 연결하지 않았다.
 
 실행 증거: [Task 1 검증](evidence/people/20261017-portraits-integration-task1.md). 사진·명부·조직 회귀99/99, helper14/14, Avatar Chromium4/4, 순수 점수10/10, 웹 타입 검사를 통과했다. 원본 엑셀 필수 release 검사는 `sourceComparison: passed`, 오류0이다. 명부·조직48개·직급·배정/평가27명·점수 입력·마이그레이션은 바꾸지 않았다. 전체 `pnpm verify`, 실제 Next HTTP200 URL 검사, 기존 인증/인가 회귀 및 전체 브랜치 리뷰는 독립 Task 2에서 수행한다. 전체 G1~G10·미출시 인력 화면·배포 완료를 주장하지 않는다. 공유 DB 적용·main 병합·push는 수행하지 않았다.
+
+## 승인 사진과 명부 통합 QA (2026-10-17)
+
+사용자가 SOL-P0001~SOL-P0200 전체를 최종 승인했다. 9663 승인 커밋 `8ba2810`, 현재 사진 worktree `694b6fa`(후속 문서 정정만)이며 b3ef 통합 커밋은 `a05217a`다. 사진200/명부200의 ID·이름·부서·직급·원본 SHA를 1:1로 보존했고, 별도 사람 APPROVED/manifest READY200·이전 AI 이력·과거 PENDING 검수 자료를 구분해 남겼다. `/demo/people/<personId>.png`와 공통 PersonAvatar/fallback을 준비했다.
+
+독립 QA: 같은 b3ef 고정 HEAD에서 전체 verify 루트349/웹879/빌드, 정상 Auth95, 브라우저106, 실제 Next GET·SHA·decode200 통과. 격리 DB에서 운영200/평가27/부서48/직급12/Auth5와 시험 계정 ID 보존을 확인했다. 전용9개 컨테이너/볼륨·생성 세션만 정리했고 기존22개는 보존했다. [결과·미검증 경계·병합 준비](evidence/people/20261017-portraits-integration.md). 전체 브랜치 최종 리뷰는 이 QA 문서 패키징 후 진행한다.
+
+상위 부모29건은 근거 부족으로 미확정이다. 조직도·직원 목록·상세 제품 화면, 전체 G1~G10, 외부 OAuth 실연결은 미검증이다. 위의 사진 승인·통합 대기 기록은 당시 상태이며 현재 사진 단계에는 적용되지 않는다. 공유 DB 적용·main 병합·push는 하지 않았다.

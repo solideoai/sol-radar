@@ -1,0 +1,143 @@
+{
+  "initialUnrelatedContainers": 22,
+  "preservedIdNameState": [
+    {
+      "id": "0adfa3399872",
+      "name": "supabase_studio_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "45ef9f02644a",
+      "name": "supabase_pg_meta_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "62180028bb23",
+      "name": "supabase_storage_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "a4c93fc52389",
+      "name": "supabase_rest_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "a9c4122eae4c",
+      "name": "supabase_realtime_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "387b69294a7c",
+      "name": "supabase_inbucket_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "f2fb6edd220e",
+      "name": "supabase_auth_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "c17381d7eb77",
+      "name": "supabase_kong_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "9500f44555c3",
+      "name": "supabase_db_sol-radar",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "e9f3685bf686",
+      "name": "shopping-mall-redis",
+      "initialState": "exited",
+      "finalState": "exited"
+    },
+    {
+      "id": "0a7d64957888",
+      "name": "shopping-mall-postgres",
+      "initialState": "exited",
+      "finalState": "exited"
+    },
+    {
+      "id": "6b67f795266a",
+      "name": "easykube-control-plane",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "f808a04b9d02",
+      "name": "easykube-worker3",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "75d60cd98d92",
+      "name": "easykube-worker2",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "b8e7babfa213",
+      "name": "easykube-worker",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "5c0dad044273",
+      "name": "rebridge-postgres",
+      "initialState": "exited",
+      "finalState": "exited"
+    },
+    {
+      "id": "478d0fb91788",
+      "name": "rebridge-redis",
+      "initialState": "exited",
+      "finalState": "exited"
+    },
+    {
+      "id": "4ea80b3b602a",
+      "name": "k8s-worker",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "2cfa0cef8099",
+      "name": "k8s-worker2",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "99de3ffca17e",
+      "name": "k8s-control-plane",
+      "initialState": "running",
+      "finalState": "running"
+    },
+    {
+      "id": "206d6e1463de",
+      "name": "notice-postgres",
+      "initialState": "exited",
+      "finalState": "exited"
+    },
+    {
+      "id": "451e15378099",
+      "name": "kuke-board-mysql",
+      "initialState": "exited",
+      "finalState": "exited"
+    }
+  ],
+  "finalContainerCount": 22,
+  "ownedContainersRemaining": [],
+  "ownedVolumesRemaining": [],
+  "privateStartLogRemoved": true,
+  "ownedAuthStatesRemoved": 5,
+  "nextServerStopped": true
+}

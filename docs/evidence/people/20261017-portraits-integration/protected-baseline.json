@@ -1,0 +1,88 @@
+{
+  "checkedAt": "2026-10-17T01:35:32.730107+00:00",
+  "sourceMainSha": "114a10aa245b76909c4952c3c82a473337ba0cbd",
+  "codeHead": "f695ef4fe80beac4059c38fda74dffd7b77e2a85",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261013000001_init.sql",
+      "sha256": "098af1f11fb8a032ca697e2b7f08740afc08d5b23bbc27892f051de6312868cf",
+      "existsInMain": true,
+      "mainBytesEqual": true
+    },
+    {
+      "path": "supabase/migrations/20261013000002_function_search_path.sql",
+      "sha256": "331ae2ef758b9e9463282481502b67fa2f2ac7d0a0361fa17e6dd22fbf89a6d8",
+      "existsInMain": true,
+      "mainBytesEqual": true
+    },
+    {
+      "path": "supabase/migrations/20261014000001_organizations.sql",
+      "sha256": "71010c58e9c57c23cafca2847ca7491629fdec51c4bb6dbac412c0136feef330",
+      "existsInMain": true,
+      "mainBytesEqual": true
+    },
+    {
+      "path": "supabase/migrations/20261014000002_memos_author_profile.sql",
+      "sha256": "57bf30cb7289ad2ae2648d127414d54bf31738ce44356e6e067fe2f9f2d73606",
+      "existsInMain": true,
+      "mainBytesEqual": true
+    },
+    {
+      "path": "supabase/migrations/20261014000003_invitation_fixes.sql",
+      "sha256": "173de5dac4f045d74141b9ecbe59166475116b984d1fb73a396209f841f194bf",
+      "existsInMain": true,
+      "mainBytesEqual": true
+    },
+    {
+      "path": "supabase/migrations/20261014000004_tasks_and_activity.sql",
+      "sha256": "5ac5dc51aa2f3397fad7296126a7f918356018871c590ccefb3afca1aec14bf6",
+      "existsInMain": true,
+      "mainBytesEqual": true
+    },
+    {
+      "path": "supabase/migrations/20261015000001_account_status_and_deletion.sql",
+      "sha256": "8d9b245831feadd745bce5a43dbc998a64226018a7925bd3de72d8d74306deef",
+      "existsInMain": true,
+      "mainBytesEqual": true
+    },
+    {
+      "path": "supabase/migrations/20261015000002_team_settings.sql",
+      "sha256": "4f41a543cd2bfbafdfc64e883f288a0cf5ad1007ada89cb935d70cd0b7f750d8",
+      "existsInMain": true,
+      "mainBytesEqual": true
+    },
+    {
+      "path": "supabase/migrations/20261016000001_solideo_people_signup.sql",
+      "sha256": "44d3aa93f04b2607f7cf44cdc11d46dcfb5ad1237c052fb3611f7ffe3968158d",
+      "existsInMain": false,
+      "mainBytesEqual": null
+    },
+    {
+      "path": "supabase/migrations/20261016000002_declared_employment_cascade.sql",
+      "sha256": "c95d31c20d09f15d7fa0a2687a1c06d1d4e961707b4927df5af76622bfd79c67",
+      "existsInMain": false,
+      "mainBytesEqual": null
+    },
+    {
+      "path": "supabase/migrations/20261016000003_adr021_people_catalog.sql",
+      "sha256": "bf580aed073cfcdca797249a55a9c35fb2f8257ffedeb8e102dbb1b9054da62f",
+      "existsInMain": false,
+      "mainBytesEqual": null
+    },
+    {
+      "path": "supabase/migrations/20261016000004_adr021_signup_bootstrap.sql",
+      "sha256": "5d785b809cf3e5b759f262b5616cbca8ad423ea4a236c713133f212287229558",
+      "existsInMain": false,
+      "mainBytesEqual": null
+    }
+  ],
+  "protectedSha256": {
+    "fixtures/people/solideo.people.json": "8708e21afe0480ba8c5e0262020537c9a45a84eeb9b51d7f037772a8d07d0cb3",
+    "fixtures/people/solideo.departments.json": "ae28c5af69d2f0e7e876ecc0ff2eabf8a9f478805fcffb33535b43e40ee1706e",
+    "fixtures/people/solideo.job-titles.json": "9a4eda5b8904cfb32e225d31d76a3a1bc53a380a24d057eedac05f438efefab7",
+    "web/server/profile/signup-options.generated.json": "f284882c9424e49522714c0e066599cedf40658e3bd5dec507ef9982a81e82b1",
+    "web/server/scoring/scoring.model.ts": "d4ce7b9d91f6c00681d7fca0361e84307854af8dda3e147bb50806244dadd7ca",
+    "web/server/scoring/scoring.model.test.ts": "bead8b8d4729e370ad5031f7c6bee0e81b8d98b01290153a6ca673b49adc7912",
+    "web/lib/database.types.ts": "8e8e31be1bc6f7d369411db72429d10670d01ed2d067062279d031f572b38be6"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "api": "http://127.0.0.1:57621",
+  "authUsers": 5,
+  "seedUsers": [
+    {
+      "email": "seed-admin@example.test",
+      "id": "d85ea304-ffb1-4083-8bdf-96040cc0b5a2"
+    },
+    {
+      "email": "seed-invitee@example.test",
+      "id": "fef83613-cb2b-4f4f-b73f-c5f52d41effd"
+    },
+    {
+      "email": "seed-member@example.test",
+      "id": "91c864d9-c87d-4f7d-8032-90bcb8f15dac"
+    },
+    {
+      "email": "seed-outsider@example.test",
+      "id": "dfeda7ae-4bfd-40dc-b821-55703c0fcb25"
+    },
+    {
+      "email": "seed-owner@example.test",
+      "id": "e1a0b910-0f0d-40b9-a45c-986ce3f90122"
+    }
+  ],
+  "tables": {
+    "team_members": 200,
+    "team_member_scoring": 27,
+    "departments": 48,
+    "job_titles": 12
+  },
+  "scoringEligible": 27
+}

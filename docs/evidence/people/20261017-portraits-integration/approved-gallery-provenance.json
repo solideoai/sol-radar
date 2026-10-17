@@ -1,0 +1,10 @@
+{
+  "createdAt": "2026-10-17T01:39:13.941917+00:00",
+  "sourceAuditDataSha256": "927ff2487153d37f99c5fbe936fa944c053ed5b024c200267044f964127857a6",
+  "approvalSnapshotSha256": "19cbd9408e9672273db9405073dde5f9133d7715fa40041e51b91c824e8ff0e1",
+  "approved": 200,
+  "ready": 200,
+  "allPhotoHashesMatch": true,
+  "originalAuditModified": false,
+  "gallerySha256": "f5bf15d715c6993f23f1d385a234f9c3ebb0d5ab30cf83ed59c01ca4ebe8dd9f"
+}
