@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "sol-radar-main-merge-qa/v1.0",
+  "completedAt": "2026-10-17T04:42:55.900347+00:00",
+  "sourceSha": "42a4eaddf4b21256b0a69a816371815ea2a8f779",
+  "verdict": "PASS within merged implemented scope; all-function completion not asserted",
+  "ownedApi": "http://127.0.0.1:58621",
+  "ownedWorkdir": "/tmp/sol-radar-main-merge-20261017-qa",
+  "checks": {
+    "fullVerify": {
+      "status": "PASS",
+      "command": "pnpm verify",
+      "sourceSha": "42a4eaddf4b21256b0a69a816371815ea2a8f779",
+      "runner": "root using independent QA owned-target wrapper",
+      "rootTests": 350,
+      "webTestFiles": 50,
+      "webTests": 881,
+      "databasePolicyTests": 141,
+      "productionBuild": "PASS",
+      "log": "verify.log"
+    },
+    "authE2E": {
+      "status": "PASS",
+      "command": "pnpm -C web test:e2e:auth",
+      "tests": 95,
+      "exit": 0,
+      "log": "auth.log"
+    },
+    "publicAndBrowserE2E": {
+      "status": "PASS_AFTER_ONE_ENVIRONMENT_RETRY",
+      "command": "pnpm -C web test:e2e",
+      "publicTests": 138,
+      "browserTestFiles": 14,
+      "browserTests": 108,
+      "exit": 0,
+      "log": "public-warm-cache-retry.log",
+      "initialAttempt": {
+        "publicTestsPassed": 138,
+        "browser": "late Vite optimization replaced chunk hashes; imports failed then stalled",
+        "termination": "owned group SIGINT",
+        "exit": 130,
+        "log": "public.log"
+      },
+      "retryReason": "Existing regenerated metadata already included next/image and nodemailer; one minimum unchanged normal combined rerun used warmed cache. No source/test/config/cache removal."
+    },
+    "nextStaticPhotos": {
+      "status": "PASS",
+      "http200PngMimeApprovedSha256": 200,
+      "browserDecoded1254Square": 200,
+      "getEvidence": "next-200-get.json",
+      "decodeEvidence": "next-200-browser-decode.json"
+    },
+    "signupDesktop": {
+      "status": "PASS",
+      "widths": [1440, 1280],
+      "department": "AX사업본부 AI플랫폼운영팀",
+      "jobTitle": "팀장",
+      "horizontalOverflow": 0,
+      "pageErrors": 0,
+      "log": "next-ui-probe.log",
+      "evidence": "next-browser-ui.json",
+      "initialProbeError": {
+        "exit": 1,
+        "reason": "Screenshot settling locator matched two simultaneously closing select portals; external probe strictness error after 200 GET/decode had already passed",
+        "log": "next-probe.log"
+      },
+      "correction": "Only standalone external UI probe changed to retry count assertion for active role listbox; selected values persisted and no source/test/config changed. 200-image probes were not repeated."
+    },
+    "liveDatabaseAndSeed": {
+      "status": "PASS",
+      "initialAndSecondSeed": true,
+      "fiveAuthIdsStable": true,
+      "afterAuthIdsStable": true,
+      "operationalPeople": 200,
+      "scoringPeople": 27,
+      "departments": 48,
+      "jobTitles": 12,
+      "authUsers": 5,
+      "kindCounts": {
+        "DIVISION": 6,
+        "GROUP": 4,
+        "TEAM": 38
+      },
+      "upperTargetCountsNull": true,
+      "teamTargetTotal": 200,
+      "employeesTeamOnly": true,
+      "approvedPortraitMappings": 200,
+      "fixtureDatabaseExactFieldMatch": true,
+      "roleCounts": {
+        "PM": 2,
+        "PL": 4,
+        "DEVELOPER": 18,
+        "DATA_AI": 3
+      },
+      "assignments": 7,
+      "availableFteFixedWindow": 20,
+      "evidence": ["seed-before-auth.json", "seed-after-second-seed.json", "seed-after-auth.json"]
+    },
+    "mergeComposition": {
+      "status": "PASS",
+      "netChangedFileEntries": 467,
+      "renames": 3,
+      "all22HistoricalRowsPreserved": true,
+      "noAdditionalConflictPaths": true,
+      "mainCanonicalAndProtectedBranchContentPreserved": true,
+      "evidence": "merge-composition-audit.json"
+    },
+    "cleanup": {
+      "status": "PASS",
+      "ownedContainersRemoved": 7,
+      "existing22ContainersPreserved": true,
+      "ownedVolumesNetworksRemoved": true,
+      "generatedAuthStatesRemoved": 5,
+      "portsFree": true,
+      "mainCleanAndFrozen": true,
+      "evidence": "owned-cleanup.json"
+    }
+  },
+  "unverified": [
+    "29 unknown TEAM25/GROUP4 parent connections and fully connected division/group/team tree",
+    "Product organization chart and employee list/detail screens",
+    "Complete G1-G10 and whole scoring pipeline golden94/72/68",
+    "Existing score_runs immutability after operational information edits",
+    "Real external OAuth providers",
+    "Entire future ADR-021 N1/N2/ops/sidebar/P1 scope",
+    "Shared database application, production migration, deployment"
+  ],
+  "restrictionsObserved": {
+    "sharedDbApplied": false,
+    "productionDataChanged": false,
+    "remotePushed": false,
+    "deployed": false,
+    "otherWorktreesWritten": false,
+    "imagesRegeneratedOrReplaced": false,
+    "newFeaturesImplemented": false,
+    "sourceOrTestsEdited": false
+  },
+  "remainingHarnessLimitation": "Cold/changed Vite browser optimizer can invalidate dependency chunks during discovery; one warmed-cache rerun passed. No permanent config fix made in this merge-only task."
+}

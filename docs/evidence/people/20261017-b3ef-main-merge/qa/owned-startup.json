@@ -1,0 +1,30 @@
+{
+  "project": "sol-radar-main-merge-20261017-qa",
+  "ownedContainers": 7,
+  "containerNames": [
+    "supabase_storage_sol-radar-main-merge-20261017-qa",
+    "supabase_rest_sol-radar-main-merge-20261017-qa",
+    "supabase_realtime_sol-radar-main-merge-20261017-qa",
+    "supabase_inbucket_sol-radar-main-merge-20261017-qa",
+    "supabase_auth_sol-radar-main-merge-20261017-qa",
+    "supabase_kong_sol-radar-main-merge-20261017-qa",
+    "supabase_db_sol-radar-main-merge-20261017-qa"
+  ],
+  "appliedMigrations": [
+    "20261013000001",
+    "20261013000002",
+    "20261014000001",
+    "20261014000002",
+    "20261014000003",
+    "20261014000004",
+    "20261015000001",
+    "20261015000002",
+    "20261016000001",
+    "20261016000002",
+    "20261016000003",
+    "20261016000004"
+  ],
+  "copiedMigrationsMatchMain": true,
+  "sharedTargetUsed": false,
+  "testsOrBuildStarted": false
+}

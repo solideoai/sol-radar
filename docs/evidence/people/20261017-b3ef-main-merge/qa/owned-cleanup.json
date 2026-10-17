@@ -1,0 +1,159 @@
+{
+  "finishedAt": "2026-10-17T04:42:12.667554+00:00",
+  "ownedProject": "sol-radar-main-merge-20261017-qa",
+  "stopCommand": [
+    "supabase",
+    "stop",
+    "--workdir",
+    "/tmp/sol-radar-main-merge-20261017-qa",
+    "--no-backup"
+  ],
+  "stopExit": 0,
+  "ownedContainersRemoved": 7,
+  "ownedContainersRemaining": 0,
+  "ownedVolumesAndNetworksRemaining": 0,
+  "preexistingContainersPreserved": [
+    {
+      "id": "0adfa33998724e82d9ee73d59ec69969e35dff68a900122d97cc1a442490e12c",
+      "name": "supabase_studio_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "45ef9f02644a0ff99838366563835afaf3b63d49b390330aaa08d929fd8fd988",
+      "name": "supabase_pg_meta_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "62180028bb2313e24ed8e4d855ba717824b53d00c96cd4388da01a1c4019f065",
+      "name": "supabase_storage_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "a4c93fc52389ac524e3d3c689ae289d5ec6a14d4530571128531a5fabc5f15a7",
+      "name": "supabase_rest_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "a9c4122eae4ccf0533e6690103974417b325367a299264df764c4d3ddbc98084",
+      "name": "supabase_realtime_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "387b69294a7c92ce28a58dbf49818121fc1538972135d4583ea44f6f13f90412",
+      "name": "supabase_inbucket_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "f2fb6edd220eeb42c3dcb97430be0e13f1c861898d9cae91b653ea598cb01ee6",
+      "name": "supabase_auth_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "c17381d7eb77564bee632f7b3d28074efa7f385b9207a2b29759d4f346cfcd52",
+      "name": "supabase_kong_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "9500f44555c3eb4fd1baba8878e2c6fcc45e2dba8d368513ed024df32294539c",
+      "name": "supabase_db_sol-radar",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "e9f3685bf6861c16ff88006e579fcd4bcb50e4e9e416991f8dabbdf980a180e2",
+      "name": "shopping-mall-redis",
+      "state": "exited",
+      "preserved": true
+    },
+    {
+      "id": "0a7d64957888d2fe016f567ce4dd4972b84c917f35ec326a1577f4fb52c245c9",
+      "name": "shopping-mall-postgres",
+      "state": "exited",
+      "preserved": true
+    },
+    {
+      "id": "6b67f795266a03c8c9f3c7b2cb3607609d904cd09b41a673a0d9f6650d270e91",
+      "name": "easykube-control-plane",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "f808a04b9d02bf5de21c0e71093c38dde0e47169666716efff03d1c62d9e28bf",
+      "name": "easykube-worker3",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "75d60cd98d92d03419945809fe74cdd08c07123c6b28a2942ed2b7e42e53c291",
+      "name": "easykube-worker2",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "b8e7babfa2138164a0e6d8945d05aa2d71513dc63befd3edf5df09b1b4803802",
+      "name": "easykube-worker",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "5c0dad044273fbc9340e80b895fc13413641a3c44a20fd3277433177a10a9451",
+      "name": "rebridge-postgres",
+      "state": "exited",
+      "preserved": true
+    },
+    {
+      "id": "478d0fb9178862c02461ca88ae920a6a6313c8e1027011006d4f540d1ff857b1",
+      "name": "rebridge-redis",
+      "state": "exited",
+      "preserved": true
+    },
+    {
+      "id": "4ea80b3b602a6014f81d5d4ea22411eed3d95b1d0451905813de114fbcf726ef",
+      "name": "k8s-worker",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "2cfa0cef8099ea50232483dbc600a38840200336cef6ac38a5e2cba1938c2995",
+      "name": "k8s-worker2",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "99de3ffca17e5953323c161eea800f5461f9a49ebcae9cb2ce2d20b73438139b",
+      "name": "k8s-control-plane",
+      "state": "running",
+      "preserved": true
+    },
+    {
+      "id": "206d6e1463dea8d17dde97212dd0eea77355ccc9a40170bee7ecc7bf79f0ff0c",
+      "name": "notice-postgres",
+      "state": "exited",
+      "preserved": true
+    },
+    {
+      "id": "451e15378099ec8d990aaf9839a1c30c42a5adffc512afa02d4c61b607403940",
+      "name": "kuke-board-mysql",
+      "state": "exited",
+      "preserved": true
+    }
+  ],
+  "preexistingVolumesPreserved": true,
+  "preexistingNetworksPreserved": true,
+  "comparisonNote": "Docker comma-joined Labels/Mounts/Networks are unordered and compared as sets; IDs/names/state/image are exact.",
+  "finalContainerCount": 22,
+  "allOwnedPortsFree": [58620, 58621, 58622, 58623, 58624, 58625, 58626, 58629, 3862, 3863],
+  "generatedAuthStatesRemoved": 5,
+  "originalAuthStatesPreserved": 0,
+  "mainCleanAndFrozen": true,
+  "sharedDatabaseUsed": false,
+  "otherWorktreesWritten": false
+}

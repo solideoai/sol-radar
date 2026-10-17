@@ -1,0 +1,58 @@
+{
+  "recordedAt": "2026-10-17T04:39:07.484255+00:00",
+  "cachePath": "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps",
+  "cacheRealPath": "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps",
+  "mainNodeModulesIsSymlink": false,
+  "requestedChunks": {
+    "Separator-cGqFtSwd.js": false,
+    "useRenderElement-D8z4V7lG.js": false,
+    "DirectionContext-CGkH8uxy.js": false
+  },
+  "metadataFiles": [
+    "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/_metadata.json"
+  ],
+  "currentSeparatorChunks": [
+    "SeparatorDataAttributes-BfSNeoAh.js",
+    "Separator-sylkqEo7.js.map",
+    "SeparatorDataAttributes-BfSNeoAh.js.map",
+    "Separator-sylkqEo7.js"
+  ],
+  "lateOptimizedDependencies": ["next/image", "nodemailer"],
+  "hypothesis": "Vite late dependency optimization replaced chunk hashes during first merged browser run; browser retained now-missing prior chunk URLs. No application assertion or source failure identified yet.",
+  "metadataKeys": ["hash", "configHash", "lockfileHash", "browserHash", "optimized", "chunks"],
+  "optimizedDependencies": [
+    "@base-ui/react/avatar",
+    "@base-ui/react/button",
+    "@base-ui/react/dialog",
+    "@base-ui/react/input",
+    "@base-ui/react/menu",
+    "@base-ui/react/select",
+    "@base-ui/react/separator",
+    "@base-ui/react/tabs",
+    "@hookform/resolvers/zod",
+    "@supabase/ssr",
+    "@supabase/supabase-js",
+    "class-variance-authority",
+    "cn",
+    "expect-type",
+    "lucide-react",
+    "next/cache",
+    "next/headers",
+    "next/image",
+    "next/link",
+    "next/navigation",
+    "next/server",
+    "nodemailer",
+    "react",
+    "react-dom/client",
+    "react-hook-form",
+    "react/jsx-dev-runtime",
+    "server-only",
+    "sonner",
+    "vitest > @vitest/expect > chai",
+    "vitest > @vitest/snapshot > magic-string",
+    "vitest > expect-type",
+    "zod"
+  ],
+  "metadataModifiedAt": "2026-10-17T04:38:01.703021+00:00"
+}

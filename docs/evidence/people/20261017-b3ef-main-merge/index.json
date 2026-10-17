@@ -1,0 +1,340 @@
+{
+  "sourceCodeCommit": "42a4eaddf4b21256b0a69a816371815ea2a8f779",
+  "reportingChangesOnly": true,
+  "createdAt": "2026-10-17T04:43:50.086674+00:00",
+  "artifacts": [
+    {
+      "path": "preflight.json",
+      "upstreamSha256": "27615690abbe8611e7929594628530081254372f2856ed3f68f1b10a56220ead",
+      "sha256": "27615690abbe8611e7929594628530081254372f2856ed3f68f1b10a56220ead",
+      "bytes": 283692
+    },
+    {
+      "path": "source-freeze.json",
+      "upstreamSha256": "23e67bece000625a19a6e17e6bfc1d3c68ed987a39c3eb2fdd6523ea50c1d00a",
+      "sha256": "23e67bece000625a19a6e17e6bfc1d3c68ed987a39c3eb2fdd6523ea50c1d00a",
+      "bytes": 498
+    },
+    {
+      "path": "merge-command.log",
+      "upstreamSha256": "cf6af9f2bf2330050a4f2726841649b8afb8745677a6c7cc3af951deb36d8d18",
+      "sha256": "cf6af9f2bf2330050a4f2726841649b8afb8745677a6c7cc3af951deb36d8d18",
+      "bytes": 311
+    },
+    {
+      "path": "conflict-resolution.json",
+      "upstreamSha256": "5c35560da69f2fc79480edacfa2748697df16b090bea006e7a31c06d0bca8d72",
+      "sha256": "5c35560da69f2fc79480edacfa2748697df16b090bea006e7a31c06d0bca8d72",
+      "bytes": 603
+    },
+    {
+      "path": "merge-preservation-and-residual.json",
+      "upstreamSha256": "31c4874cbad8cc37684c2e24ec0154ba850c6fe4c2e8967ef1119355f1435e9b",
+      "sha256": "31c4874cbad8cc37684c2e24ec0154ba850c6fe4c2e8967ef1119355f1435e9b",
+      "bytes": 1603
+    },
+    {
+      "path": "merged-files.txt",
+      "upstreamSha256": "b294ca9da3ab182660e3031eb27c396f667b20b3185aa8e6c29f379fb7374de6",
+      "sha256": "b294ca9da3ab182660e3031eb27c396f667b20b3185aa8e6c29f379fb7374de6",
+      "bytes": 21614
+    },
+    {
+      "path": "imported-commits.txt",
+      "upstreamSha256": "4055008665002e533ce13a5d149b30ed97f0ea13c78920f0a277da3cd766e5af",
+      "sha256": "4055008665002e533ce13a5d149b30ed97f0ea13c78920f0a277da3cd766e5af",
+      "bytes": 3756
+    },
+    {
+      "path": "9663-residual-files.txt",
+      "upstreamSha256": "473f37b6e7bd9a33a5ce430012a5fc2bd1c557cb2857891e2a123fdf447f50c3",
+      "sha256": "473f37b6e7bd9a33a5ce430012a5fc2bd1c557cb2857891e2a123fdf447f50c3",
+      "bytes": 15314
+    },
+    {
+      "path": "post-qa-worktree-safety.json",
+      "upstreamSha256": "2df186ac464caab65a6d1381450818f14d5b1a8488a0c72d4b706576efcb8b58",
+      "sha256": "2df186ac464caab65a6d1381450818f14d5b1a8488a0c72d4b706576efcb8b58",
+      "bytes": 614
+    },
+    {
+      "path": "merge-commit-hooks.log",
+      "upstreamSha256": "540273c42d06eb379f250c9644616a535274808fd3e7a0ef4e174199b22bcaff",
+      "sha256": "540273c42d06eb379f250c9644616a535274808fd3e7a0ef4e174199b22bcaff",
+      "bytes": 64305
+    },
+    {
+      "path": "people-release.log",
+      "upstreamSha256": "6931242cde71f70f0a67f51beeaa2f8a3b7863205865a84cc296bbe4271ca08c",
+      "sha256": "6931242cde71f70f0a67f51beeaa2f8a3b7863205865a84cc296bbe4271ca08c",
+      "bytes": 251
+    },
+    {
+      "path": "qa/artifact-safety.json",
+      "upstreamSha256": "ea35189b7b46e66848e17d8171bb9d94af6a6e4f91eaaeedaba8696bf50b9da7",
+      "sha256": "ea35189b7b46e66848e17d8171bb9d94af6a6e4f91eaaeedaba8696bf50b9da7",
+      "bytes": 168
+    },
+    {
+      "path": "qa/auth-state-cleanup.json",
+      "upstreamSha256": "fddf9562f5c372d7495c27c6d7f4b127662185c5e0a65200b6c5f4449aa8f254",
+      "sha256": "fddf9562f5c372d7495c27c6d7f4b127662185c5e0a65200b6c5f4449aa8f254",
+      "bytes": 329
+    },
+    {
+      "path": "qa/auth.log",
+      "upstreamSha256": "55fa19f9645f3c9a861f5c2a83d777d51f6eab70f5cfbc423688f5cb44c1bccb",
+      "sha256": "55fa19f9645f3c9a861f5c2a83d777d51f6eab70f5cfbc423688f5cb44c1bccb",
+      "bytes": 23033
+    },
+    {
+      "path": "qa/browser-optimizer-diagnostic.json",
+      "upstreamSha256": "65760b294514d42166ac4d87e3185500d0a3af2f9493d5b480ed1268f0005d7d",
+      "sha256": "7f6b9f59aded6d61c1061b527d9b8ea6de27da0c84d97dc4160178bdd8787b26",
+      "bytes": 2107
+    },
+    {
+      "path": "qa/counts-after-auth.log",
+      "upstreamSha256": "f598ac40821531dd0ad11872b84815ca5f4196d1aa9f56da07893006bf9445cb",
+      "sha256": "f598ac40821531dd0ad11872b84815ca5f4196d1aa9f56da07893006bf9445cb",
+      "bytes": 1669
+    },
+    {
+      "path": "qa/counts-after-second-seed.log",
+      "upstreamSha256": "08a3f4030de1c17a53abb1dd64840d46bbfd2f1f4ef209434a2642f2fb1215a1",
+      "sha256": "08a3f4030de1c17a53abb1dd64840d46bbfd2f1f4ef209434a2642f2fb1215a1",
+      "bytes": 1676
+    },
+    {
+      "path": "qa/counts-before-auth.log",
+      "upstreamSha256": "7d83e9742248dd7c615081b017fb3902a84c98fc4d0739d7c14d686e9f1dacb1",
+      "sha256": "7d83e9742248dd7c615081b017fb3902a84c98fc4d0739d7c14d686e9f1dacb1",
+      "bytes": 1642
+    },
+    {
+      "path": "qa/final-containers.json",
+      "upstreamSha256": "44e421c315ceebc68c1d3248303ba71472d5360ce0dcb14ca657d8d003d06281",
+      "sha256": "44e421c315ceebc68c1d3248303ba71472d5360ce0dcb14ca657d8d003d06281",
+      "bytes": 29380
+    },
+    {
+      "path": "qa/independent-qa-report.md",
+      "upstreamSha256": "793ebeef361f5de1b8f12989759a461fd4d85d28b3545064babae27ece634d2c",
+      "sha256": "793ebeef361f5de1b8f12989759a461fd4d85d28b3545064babae27ece634d2c",
+      "bytes": 4666
+    },
+    {
+      "path": "qa/initial-containers.json",
+      "upstreamSha256": "9b82ab9f8824653fac633c6f6520332c05aa0ca4ff49e2a97df9a87c94d3e069",
+      "sha256": "9b82ab9f8824653fac633c6f6520332c05aa0ca4ff49e2a97df9a87c94d3e069",
+      "bytes": 29380
+    },
+    {
+      "path": "qa/initial-networks.jsonl",
+      "upstreamSha256": "a2f7d30b44eb5160fba3123050080481d71c31842ba47fde7467683fdee8e99c",
+      "sha256": "a2f7d30b44eb5160fba3123050080481d71c31842ba47fde7467683fdee8e99c",
+      "bytes": 2413
+    },
+    {
+      "path": "qa/initial-volumes.jsonl",
+      "upstreamSha256": "1066dc7b803a0e01d6ad9d668a25f610f8470d6340a3cff372b25e2c60663fad",
+      "sha256": "1066dc7b803a0e01d6ad9d668a25f610f8470d6340a3cff372b25e2c60663fad",
+      "bytes": 26717
+    },
+    {
+      "path": "qa/merge-composition-audit.json",
+      "upstreamSha256": "c3921ee8241e569850f4191441170a4cce9ce4f0e04bfc499a7963178e753cc8",
+      "sha256": "c3921ee8241e569850f4191441170a4cce9ce4f0e04bfc499a7963178e753cc8",
+      "bytes": 3941
+    },
+    {
+      "path": "qa/next-200-browser-decode.json",
+      "upstreamSha256": "3af4132910ccb6b49bd0b62304de50732dabe3508e6f83474314bec576c3644f",
+      "sha256": "3af4132910ccb6b49bd0b62304de50732dabe3508e6f83474314bec576c3644f",
+      "bytes": 21403
+    },
+    {
+      "path": "qa/next-200-get.json",
+      "upstreamSha256": "dbf5b3b73369e19f788d3bbf8e4c62aaefe2c127ed539d1e802fa67fc9b446c3",
+      "sha256": "dbf5b3b73369e19f788d3bbf8e4c62aaefe2c127ed539d1e802fa67fc9b446c3",
+      "bytes": 49003
+    },
+    {
+      "path": "qa/next-browser-ui.json",
+      "upstreamSha256": "e23ff9f3e39b1af22281606d84e0a1d053f37086d2fdd747488ee65acc7c8ce4",
+      "sha256": "e23ff9f3e39b1af22281606d84e0a1d053f37086d2fdd747488ee65acc7c8ce4",
+      "bytes": 319
+    },
+    {
+      "path": "qa/next-probe.log",
+      "upstreamSha256": "df96465b2caba3e3105828a05c628c5d0479321f27d092170b0befbfd51a9730",
+      "sha256": "df96465b2caba3e3105828a05c628c5d0479321f27d092170b0befbfd51a9730",
+      "bytes": 2054
+    },
+    {
+      "path": "qa/next-server.log",
+      "upstreamSha256": "9432a32a947b4c36d6ed9fc30b9e8e865600a25eebb696014b9dea51b41af898",
+      "sha256": "9432a32a947b4c36d6ed9fc30b9e8e865600a25eebb696014b9dea51b41af898",
+      "bytes": 635
+    },
+    {
+      "path": "qa/next-ui-probe.log",
+      "upstreamSha256": "00b124221a2058e98e82f4cb63d72dd7691ce2741513d9a06021d8306f2a10ac",
+      "sha256": "00b124221a2058e98e82f4cb63d72dd7691ce2741513d9a06021d8306f2a10ac",
+      "bytes": 712
+    },
+    {
+      "path": "qa/owned-cleanup.json",
+      "upstreamSha256": "195723f58de95e7cd3d042b26242c0267761d72b57e5441565fbcc482eff1943",
+      "sha256": "238089f07104b1cafc79a3db80b3a46261eb02992c92aa7ec380e091cf352120",
+      "bytes": 4874
+    },
+    {
+      "path": "qa/owned-processes.jsonl",
+      "upstreamSha256": "7a79194e179e70630ea06b3da0b489a66022a849a6378aa527bb02661834d121",
+      "sha256": "7a79194e179e70630ea06b3da0b489a66022a849a6378aa527bb02661834d121",
+      "bytes": 1706
+    },
+    {
+      "path": "qa/owned-startup.json",
+      "upstreamSha256": "e49755e4915e1c12e11cf65e69308e42a60981e5b3e1de3613fd049169da6b75",
+      "sha256": "e49755e4915e1c12e11cf65e69308e42a60981e5b3e1de3613fd049169da6b75",
+      "bytes": 880
+    },
+    {
+      "path": "qa/owned-supabase-start.log",
+      "upstreamSha256": "bb4ba724180b665501773e12a65cc00426248415ce85dff36fbf7802d967d76c",
+      "sha256": "bb4ba724180b665501773e12a65cc00426248415ce85dff36fbf7802d967d76c",
+      "bytes": 1303
+    },
+    {
+      "path": "qa/prep.json",
+      "upstreamSha256": "861d6e4c48c01c053e22fefc7fdb2bf39174e8e10a6c1c0dcb4298e2f65f314d",
+      "sha256": "04a11e52e51b82e1b3f873bd3fa29ed21b5fe15764ac532d1870689b8b4ebb0d",
+      "bytes": 1830
+    },
+    {
+      "path": "qa/probe-provenance.json",
+      "upstreamSha256": "acb26a6dd72f8e8e245c5ab459633f4b97b3f4b1305f342fa8807219b979f875",
+      "sha256": "acb26a6dd72f8e8e245c5ab459633f4b97b3f4b1305f342fa8807219b979f875",
+      "bytes": 953
+    },
+    {
+      "path": "qa/probes/counts.mjs.txt",
+      "upstreamSha256": "4d35a619c4477cbe37b20230d76b0be7767bd8479e159ec44ad721e160d0b914",
+      "sha256": "4d35a619c4477cbe37b20230d76b0be7767bd8479e159ec44ad721e160d0b914",
+      "bytes": 7753
+    },
+    {
+      "path": "qa/probes/next-probe.mjs.txt",
+      "upstreamSha256": "4348dfbec57f31c0a874592eaf3c044778f9c511f47247bc0c868ef1c6c7c273",
+      "sha256": "4348dfbec57f31c0a874592eaf3c044778f9c511f47247bc0c868ef1c6c7c273",
+      "bytes": 4740
+    },
+    {
+      "path": "qa/probes/run.mjs.txt",
+      "upstreamSha256": "1ae630cd1939db71eec6d1d7f57f3aaaafdcc097141a905dfc49ac773ec0e469",
+      "sha256": "1ae630cd1939db71eec6d1d7f57f3aaaafdcc097141a905dfc49ac773ec0e469",
+      "bytes": 3622
+    },
+    {
+      "path": "qa/probes/ui-probe.mjs.txt",
+      "upstreamSha256": "3c9c452a7b5f75965dc7b530d26f8a15a835c39de679634dbe46e81f078181e7",
+      "sha256": "3c9c452a7b5f75965dc7b530d26f8a15a835c39de679634dbe46e81f078181e7",
+      "bytes": 2143
+    },
+    {
+      "path": "qa/public-first-attempt-termination.json",
+      "upstreamSha256": "af8ca67073bc2beef5c1d1dfba717a81b9cafe2049d1ea72c2cd202a0555ecf6",
+      "sha256": "af8ca67073bc2beef5c1d1dfba717a81b9cafe2049d1ea72c2cd202a0555ecf6",
+      "bytes": 373
+    },
+    {
+      "path": "qa/public-signup-1280.png",
+      "upstreamSha256": "bc6cdcc0a535cc0188f7a453e991a560de7cbd7f2f381b7e86eff13730b2f5a8",
+      "sha256": "bc6cdcc0a535cc0188f7a453e991a560de7cbd7f2f381b7e86eff13730b2f5a8",
+      "bytes": 107003
+    },
+    {
+      "path": "qa/public-signup-1440.png",
+      "upstreamSha256": "438b49ac7a4fa441e72108f696d82043a93793cf590d2623dab9518072720f81",
+      "sha256": "438b49ac7a4fa441e72108f696d82043a93793cf590d2623dab9518072720f81",
+      "bytes": 109429
+    },
+    {
+      "path": "qa/public-warm-cache-retry.log",
+      "upstreamSha256": "eca4b1050fbc40220615a3a390b7bf8a2e522824583430c9b2517b5450fa4777",
+      "sha256": "eca4b1050fbc40220615a3a390b7bf8a2e522824583430c9b2517b5450fa4777",
+      "bytes": 22319
+    },
+    {
+      "path": "qa/public.log",
+      "upstreamSha256": "7ee7732ff4a7489520ecb28dcdb163cc31440a870c8f46a3d01029c6b52cf6a2",
+      "sha256": "7ee7732ff4a7489520ecb28dcdb163cc31440a870c8f46a3d01029c6b52cf6a2",
+      "bytes": 34677
+    },
+    {
+      "path": "qa/qa-summary.json",
+      "upstreamSha256": "9ba6df612aa8c4c1ffe63e35ce8cc43156046cbb1e8a87b37b1425ad7267ea27",
+      "sha256": "96c479c74d21d0aacc1c08cd7bf0d80a96c3005890ec469d14e04c765951cf73",
+      "bytes": 5095
+    },
+    {
+      "path": "qa/seed-after-auth.json",
+      "upstreamSha256": "42ea06ce4915345b99602b30b9c951a0eea99eaf33f51e3f75be93d0f2f9ed44",
+      "sha256": "42ea06ce4915345b99602b30b9c951a0eea99eaf33f51e3f75be93d0f2f9ed44",
+      "bytes": 1826
+    },
+    {
+      "path": "qa/seed-after-second-seed.json",
+      "upstreamSha256": "42ea06ce4915345b99602b30b9c951a0eea99eaf33f51e3f75be93d0f2f9ed44",
+      "sha256": "42ea06ce4915345b99602b30b9c951a0eea99eaf33f51e3f75be93d0f2f9ed44",
+      "bytes": 1826
+    },
+    {
+      "path": "qa/seed-before-auth.json",
+      "upstreamSha256": "0d52fbde6b6401b57f458e403ceb41dfeaea2e529672bff00261773737a242f3",
+      "sha256": "0d52fbde6b6401b57f458e403ceb41dfeaea2e529672bff00261773737a242f3",
+      "bytes": 1794
+    },
+    {
+      "path": "qa/seed-initial.log",
+      "upstreamSha256": "454127145d5ae6a79be16e0ac9a350150c167d6d2bafa6633a169727e51ec485",
+      "sha256": "454127145d5ae6a79be16e0ac9a350150c167d6d2bafa6633a169727e51ec485",
+      "bytes": 752
+    },
+    {
+      "path": "qa/seed-second.log",
+      "upstreamSha256": "5019e19f265fbc7a8d21d7707f1e9580103ec6ff1c3fe1a3c8491089760414e1",
+      "sha256": "5019e19f265fbc7a8d21d7707f1e9580103ec6ff1c3fe1a3c8491089760414e1",
+      "bytes": 752
+    },
+    {
+      "path": "qa/source-freeze.json",
+      "upstreamSha256": "5b9ac7623ccf2fad12c03ba53a3376c78e44742a02e5896ca3d8f0f75189bcc2",
+      "sha256": "5b9ac7623ccf2fad12c03ba53a3376c78e44742a02e5896ca3d8f0f75189bcc2",
+      "bytes": 189
+    },
+    {
+      "path": "qa/verify.log",
+      "upstreamSha256": "2311517a76f94931ea8f9e16c5b5b92293d4a71b32d29a8a4823e0bb6b058a01",
+      "sha256": "44ddb3a16c3ac72659362d78378a391e9855ee668d6b3dbdbf779db81631d450",
+      "bytes": 45229,
+      "newlineNormalization": "CRLF to LF; original bytes retained at upstream path"
+    }
+  ],
+  "note": "JSON copies formatted without semantic changes. Logs/probes preserve bytes except explicit CRLF→LF normalization required by Git; upstream SHA records raw originals. Product source frozen at sourceCodeCommit; full prior attempts retained.",
+  "reportingCommitFiles": 56,
+  "newReportingFiles": 55,
+  "finalIndexVs9663FileEntries": 366,
+  "packagingValidation": {
+    "jsonSemanticsMatchOriginal": true,
+    "binaryScreenshotsRestoredByteIdenticalAndPngVerified": [
+      "qa/public-signup-1280.png",
+      "qa/public-signup-1440.png"
+    ],
+    "newlineNormalizationRestrictedTo": ["qa/verify.log"],
+    "allOtherRawArtifactsByteIdentical": true,
+    "correctedPackagingIssue": "A text newline pass accidentally touched two newly copied review screenshots; both restored from external originals before committing. Profile PNGs never changed."
+  }
+}

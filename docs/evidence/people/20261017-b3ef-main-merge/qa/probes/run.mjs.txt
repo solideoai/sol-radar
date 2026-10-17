@@ -1,0 +1,120 @@
+import { spawn, spawnSync } from "node:child_process";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import { readLocalStatus } from "/Users/leegwanghui/dev/hackathon/sol-radar/scripts/local-test-target.mjs";
+const repo = "/Users/leegwanghui/dev/hackathon/sol-radar";
+const qa = "/tmp/sol-radar-main-merge-20261017-qa";
+const evidence =
+  "/Users/leegwanghui/dev/hackathon/sol-radar-inputs/main-merges/20261017-df51f2f/qa";
+const [name, command, ...args] = process.argv.slice(2);
+if (!name || !command) throw Error("Usage: run.mjs log-name command args");
+const freeze = JSON.parse(
+  readFileSync(evidence + "/source-freeze.json", "utf8"),
+);
+const sourceSha = spawnSync("git", ["rev-parse", "HEAD"], {
+  cwd: repo,
+  encoding: "utf8",
+}).stdout.trim();
+if (sourceSha !== freeze.sourceSha)
+  throw Error("Frozen source HEAD changed; stop QA");
+const targetEnv = {
+  ...process.env,
+  SOL_RADAR_TEST_SUPABASE_WORKDIR: qa,
+  SOL_RADAR_TEST_SUPABASE_API_URL: "http://127.0.0.1:58621",
+};
+const status = readLocalStatus({ env: targetEnv });
+if (status.API_URL !== "http://127.0.0.1:58621")
+  throw Error("Wrong owned Supabase API");
+const anon = status.ANON_KEY || status.PUBLISHABLE_KEY;
+const service = status.SERVICE_ROLE_KEY || status.SECRET_KEY;
+if (!anon || !service) throw Error("Owned local credentials missing");
+const port = name.startsWith("public") ? "3863" : "3862";
+const env = {
+  ...targetEnv,
+  NEXT_PUBLIC_SUPABASE_URL: status.API_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: anon,
+  SUPABASE_SERVICE_ROLE_KEY: service,
+  SUPABASE_URL: status.API_URL,
+  DATABASE_URL:
+    status.DB_URL || "postgresql://invalid:invalid@127.0.0.1:1/invalid",
+  SMTP_HOST: "127.0.0.1",
+  SMTP_PORT: "58625",
+  SMTP_USER: "",
+  SMTP_PASSWORD: "",
+  MAIL_FROM: "SOL RADAR QA <qa@example.test>",
+  SITE_URL: "http://localhost:3862",
+  NEXT_PUBLIC_AUTH_GOOGLE: "false",
+  NEXT_PUBLIC_AUTH_KAKAO: "false",
+  NEXT_PUBLIC_AUTH_NAVER: "false",
+  AI_PROVIDER: "mock",
+  DEMO_MODE: "true",
+  E2E_PORT: port,
+};
+const secrets = Object.entries(status)
+  .filter(([k]) => /KEY|SECRET|PASSWORD|TOKEN|DB_URL|DATABASE_URL/.test(k))
+  .map(([, v]) => v)
+  .filter(Boolean);
+const clean = (s) => {
+  for (const secret of secrets) s = s.split(secret).join("[REDACTED]");
+  return s
+    .replace(
+      /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
+      "[REDACTED_JWT]",
+    )
+    .replace(/seed-password-1234/g, "[LOCAL_TEST_PASSWORD]");
+};
+const log = evidence + "/" + name + ".log";
+writeFileSync(
+  log,
+  "Command: " +
+    JSON.stringify([command, ...args]) +
+    "\nSource: " +
+    sourceSha +
+    "\nOwned API: " +
+    status.API_URL +
+    "\nOwned workdir: " +
+    qa +
+    "\nStarted: " +
+    new Date().toISOString() +
+    "\n",
+);
+const child = spawn(command, args, {
+  cwd: repo,
+  env,
+  stdio: ["ignore", "pipe", "pipe"],
+  detached: true,
+});
+appendFileSync(
+  evidence + "/owned-processes.jsonl",
+  JSON.stringify({
+    name,
+    pid: child.pid,
+    command,
+    args,
+    createdAt: new Date().toISOString(),
+  }) + "\n",
+);
+for (const signal of ["SIGINT", "SIGTERM"])
+  process.on(signal, () => {
+    try {
+      process.kill(-child.pid, signal);
+    } catch {}
+  });
+for (const stream of [child.stdout, child.stderr])
+  stream.on("data", (chunk) => {
+    const safe = clean(chunk.toString());
+    appendFileSync(log, safe);
+    process.stdout.write(safe);
+  });
+child.on("exit", (code, signal) => {
+  appendFileSync(
+    log,
+    "\nExit: " +
+      code +
+      " Signal: " +
+      signal +
+      " Finished: " +
+      new Date().toISOString() +
+      "\n",
+  );
+  process.exitCode = code ?? 1;
+});

@@ -1,0 +1,41 @@
+df51f2f560f60eb210a34a318b88a5cdb7743f26 docs: 인력 통합 최종 검토와 보존 증거 기록
+ca719cfff0040e00ff8a3eac98558861d9cbc394 fix: 공유 시드 팀 초기화 전 회원 소유권 확인
+406549b4982b4612db0b653c0f1721b0d83f3d6d docs: 승인 사진 통합 독립 검증 기록
+a05217a05f0fb9adb3553c02978f0e2d531e9610 feat: 승인된 직원 사진과 공통 Avatar 통합
+f695ef4fe80beac4059c38fda74dffd7b77e2a85 docs: ADR-021 가입 정합화 검증 기록
+21c8b9785cc04fcd1d99eddd92e75cbe157bcedb fix: 조직 재확인 초점과 표시 검증 보완
+e4654386a85e52e84d960787a9aeb4bb0653995e fix: 인증 시험 브라우저 주소 통일
+2d548015897ee6ab6fc583d348e26f3f01ff8a0b docs: 조직 결정 단계 검토 결과 기록
+d2d0ca8b3f83b78b7b00e38e532d0bc738a8b207 fix: 격리 시험 대상 정책과 거절 검증 통합
+fe701eaeedf6e780bc8b1a6b508671a1ce846591 fix: 조직 바로가기에도 계정 상태 검증
+b2d2fa4ae87a8911002e2a871e258ae7254e0b34 feat: 업무 멤버십으로 현재 조직 판단
+e817ad6ddd90b449f01a0ad371614421eed745af docs: 가입 조직 정책 후속 단계 정리
+dfbe4c2ae78676548b831af725cb16bf093f4c70 fix: 가입 시 개인 조직 자동 생성 중단
+89afa2e9f97bac379d5f62daf3a6114eedb153eb docs: 명부 분리 단계 검증 기록
+c9fad760258d8d0a643cf6d74bae7c2e8921d6df feat: 명부 운영 정보와 점수 속성 분리
+3ccd603aaca06b8f9b7e30dcef9929a75a25b138 docs: 격리 인증 검증 대상 선택 계획 명시
+e49943483393f0d0f8e21dd3fa78572a3a0ce38a fix: 원본 부서 부모 충돌 보존
+0b65453c563197d26d9fcbdef2ce5b3248fe35b0 docs: Task5 검증 완료 기록
+94283105a5c6bd9438b591969c63a61c95736fb9 feat: 부서 계층 카탈로그 계약 반영
+91021c77d4be04af4882795212b9fd07c481c281 docs: 계층 카탈로그 단계 간 시드 계약 보완
+c8803add91b15185c7c39bb0e7fd925891ded12b docs: ADR-021 인력 가입 후속 계획 반영
+647b0cfb1b16b6aa2c8e6f0858c1eaf3ad61e02a docs: 인력 가입 독립 검증 결과 기록
+bff0daad95611714cd60458f0e91cfbd2e47f642 fix: 시드 초대 수락 후 재실행 복원
+83e1facf893fa7d643acd5e28d87e798d9f73fa0 fix: 미로그인 업무 안내 화면 유지
+90c67bc17307889a6773788e6194abf4bf4e8bd4 test: 인력 가입 흐름과 가용성 회귀 검증
+633b13f2d9250821f2c3ada5e6131d021e30216c fix: 보완 후 메모 복귀와 지원 요청 번호 수정
+5ece7c036754658b77ddb464ae891a1184e3c0b2 feat: 가입 부서 직급과 정보 보완 적용
+fc5d8802ada7a1f1d2100c9f53384e055cebd959 test: 가입 계약 시험을 구현 옆으로 이동
+21a91fabe3937ec2bdf6dcbe3157f15d0670a9a4 feat: 가입 카탈로그와 본인 정보 API 추가
+4b89237997cb6e6358f468e5ecce8380642ac6aa feat: 솔리데오 인력과 가입 정보 저장 구조
+cc070c910313290d3c1391dfae08d7651aa8b60e fix: 재생성 시 이미지 검수 정보 보존
+0a88d74edf5317e47e3282d813c6fc39db371da8 feat: 가상 프로필 이미지 검수 흐름 추가
+d0ad8abb5d09edb94e19c505e86b57b39921ef53 test: 인력 명부와 공개 카탈로그 검증
+b75e7859295993e2fafca92954297aabf704c43e feat: 가상 한국인 200명 명부 생성
+ebd76bd70133d097f2c1707147c69d415de58a13 docs: 인력 추출 결과와 가입 화면 설계 기록
+9446b6ec34fefdf07c665e5765138f2c104c45f2 fix: 명시된 근무지 선언의 팀 연속성 보존
+d142cff9c815ff54cf61e8445759cfd398c115b0 fix: 조직 표제를 위치 단서보다 우선 판정
+e1d99bcabf4d959a7f44097db981da7483d97431 fix: 사업단 조직 표제 경계 구분
+6e1b15eaa74435d5bfb47b78262dd8d9db50404d fix: 비팀 병합 표제 검증 보강
+335492798505e2a74c8b383072ae774fc7f6dccc feat: 솔리데오 조직도 카탈로그 추출
+1b28715fb55f2c137adc3f6d40335705e62659e7 docs: 팀 미명시 인력의 배분 제외 기준 확정

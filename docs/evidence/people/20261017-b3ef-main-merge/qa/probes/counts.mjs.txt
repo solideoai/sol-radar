@@ -1,0 +1,233 @@
+import { readLocalStatus } from "/Users/leegwanghui/dev/hackathon/sol-radar/scripts/local-test-target.mjs";
+import {
+  catalogUuid,
+  personUuid,
+  orgUuid,
+} from "/Users/leegwanghui/dev/hackathon/sol-radar/scripts/people/seed.mjs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { isDeepStrictEqual } from "node:util";
+import assert from "node:assert/strict";
+const repo = "/Users/leegwanghui/dev/hackathon/sol-radar";
+const evidence =
+  "/Users/leegwanghui/dev/hackathon/sol-radar-inputs/main-merges/20261017-df51f2f/qa";
+const status = readLocalStatus();
+assert.equal(status.API_URL, "http://127.0.0.1:58621");
+const key = status.SERVICE_ROLE_KEY || status.SECRET_KEY;
+const headers = { apikey: key, Authorization: "Bearer " + key };
+async function get(path) {
+  const res = await fetch(status.API_URL + path, { headers });
+  if (!res.ok) throw Error("Owned count GET failed: " + res.status);
+  return res.json();
+}
+const json = (path) => JSON.parse(readFileSync(repo + "/" + path, "utf8"));
+const roster = json("fixtures/people/solideo.people.json");
+const catalog = json("fixtures/people/solideo.departments.json").departments;
+const titles = json("fixtures/people/solideo.job-titles.json").jobTitles;
+const portraits = json("fixtures/people/solideo.portraits.json").portraits;
+const approval = json("docs/evidence/people/20261017-portraits-approval.json");
+assert.equal(approval.status, "APPROVED");
+assert.equal(approval.snapshot.length, 200);
+assert.equal(new Set(portraits.map((p) => p.sha256)).size, 200);
+for (const approved of approval.snapshot) {
+  const person = roster.people.find((p) => p.personId === approved.personId);
+  const portrait = portraits.find((p) => p.personId === approved.personId);
+  assert.ok(person && portrait);
+  for (const field of [
+    "personId",
+    "name",
+    "gender",
+    "departmentId",
+    "jobTitleId",
+    "portraitPath",
+  ])
+    assert.deepEqual(approved[field], person[field]);
+  assert.equal(approved.sha256, portrait.sha256);
+  assert.equal(
+    approved.department,
+    catalog.find((d) => d.id === person.departmentId).name,
+  );
+  assert.equal(
+    approved.jobTitle,
+    titles.find((t) => t.id === person.jobTitleId).label,
+  );
+}
+const users = (await get("/auth/v1/admin/users?per_page=1000")).users;
+const tables = {};
+for (const table of [
+  "team_members",
+  "team_member_scoring",
+  "departments",
+  "job_titles",
+])
+  tables[table] = await get(
+    "/rest/v1/" + table + "?select=*&org_id=eq." + orgUuid("org-01"),
+  );
+assert.equal(tables.team_members.length, 200);
+assert.equal(tables.team_member_scoring.length, 27);
+assert.equal(tables.departments.length, 48);
+assert.equal(tables.job_titles.length, 12);
+const mismatch = {
+  people: [],
+  scoring: [],
+  departments: [],
+  titles: [],
+  portraits: [],
+};
+for (const person of roster.people) {
+  const row = tables.team_members.find(
+    (r) => r.person_code === person.personId,
+  );
+  const expected = {
+    id: personUuid(person.personId),
+    name: person.name,
+    gender: person.gender,
+    department_id: catalogUuid(person.departmentId),
+    job_title_id: catalogUuid(person.jobTitleId),
+    portrait_path: person.portraitPath,
+    is_demo: person.isDemo,
+  };
+  if (
+    !row ||
+    Object.entries(expected).some(([k, v]) => !isDeepStrictEqual(row[k], v))
+  )
+    mismatch.people.push(person.personId);
+  const score = tables.team_member_scoring.find(
+    (r) => r.member_id === personUuid(person.personId),
+  );
+  if (person.scoringEligible) {
+    if (
+      !score ||
+      ["role", "grade", "skills", "availability"].some(
+        (k) => !isDeepStrictEqual(score[k], person[k]),
+      )
+    )
+      mismatch.scoring.push(person.personId);
+  } else if (score) mismatch.scoring.push(person.personId);
+  const portrait = portraits.filter((p) => p.personId === person.personId);
+  if (
+    portrait.length !== 1 ||
+    portrait[0].path !== person.portraitPath ||
+    portrait[0].status !== "READY" ||
+    portrait[0].review.actor !== "human" ||
+    portrait[0].review.verdict !== "PASS" ||
+    portrait[0].review.sha256 !== portrait[0].sha256
+  )
+    mismatch.portraits.push(person.personId);
+}
+for (const item of catalog) {
+  const row = tables.departments.find((r) => r.code === item.id);
+  const expected = {
+    id: catalogUuid(item.id),
+    name: item.name,
+    kind: item.kind,
+    parent_id: item.parentId == null ? null : catalogUuid(item.parentId),
+    target_count: item.targetCount ?? null,
+  };
+  if (
+    !row ||
+    Object.entries(expected).some(([k, v]) => !isDeepStrictEqual(row[k], v))
+  )
+    mismatch.departments.push(item.id);
+}
+for (const item of titles) {
+  const row = tables.job_titles.find((r) => r.code === item.id);
+  if (
+    !row ||
+    row.id !== catalogUuid(item.id) ||
+    row.label !== item.label ||
+    row.sort_order !== item.sortOrder
+  )
+    mismatch.titles.push(item.id);
+}
+assert.ok(
+  Object.values(mismatch).every((a) => a.length === 0),
+  "Fixture / actual seeded DB mismatch; inspect scoped ID lists",
+);
+const kindCounts = Object.fromEntries(
+  ["DIVISION", "GROUP", "TEAM"].map((k) => [
+    k,
+    tables.departments.filter((r) => r.kind === k).length,
+  ]),
+);
+assert.deepEqual(kindCounts, { DIVISION: 6, GROUP: 4, TEAM: 38 });
+assert.ok(
+  tables.departments
+    .filter((r) => r.kind !== "TEAM")
+    .every((r) => r.target_count === null),
+);
+const targetCount = tables.departments
+  .filter((r) => r.kind === "TEAM")
+  .reduce((s, r) => s + r.target_count, 0);
+assert.equal(targetCount, 200);
+assert.ok(
+  tables.team_members.every(
+    (r) =>
+      tables.departments.find((d) => d.id === r.department_id)?.kind === "TEAM",
+  ),
+);
+const unknownParents = catalog
+  .filter((d) => d.kind !== "DIVISION" && d.parentId == null)
+  .map((d) => d.id);
+assert.equal(unknownParents.length, 29);
+const assignedFte = roster.assignments.reduce(
+  (sum, item) => sum + item.allocationPercent / 100,
+  0,
+);
+const roleCounts = Object.fromEntries(
+  ["PM", "PL", "DEVELOPER", "DATA_AI"].map((role) => [
+    role,
+    tables.team_member_scoring.filter((p) => p.role === role).length,
+  ]),
+);
+assert.deepEqual(roleCounts, { PM: 2, PL: 4, DEVELOPER: 18, DATA_AI: 3 });
+assert.equal(assignedFte, 7);
+assert.equal(tables.team_member_scoring.length - assignedFte, 20);
+const summary = {
+  api: status.API_URL,
+  authUsers: users.length,
+  seedUsers: users
+    .filter((u) => /^seed-/.test(u.email))
+    .map((u) => ({ email: u.email, id: u.id }))
+    .sort((a, b) => a.email.localeCompare(b.email)),
+  tables: Object.fromEntries(
+    Object.entries(tables).map(([k, v]) => [k, v.length]),
+  ),
+  kindCounts,
+  teamTargetTotal: targetCount,
+  upperTargetCountsNull: true,
+  allEmployeesBelongToTeam: true,
+  fixtureAndDatabaseExactFieldMatch: true,
+  portraitMappings: portraits.length,
+  approvedPortraits: portraits.filter(
+    (p) =>
+      p.review.actor === "human" &&
+      p.review.verdict === "PASS" &&
+      p.review.sha256 === p.sha256,
+  ).length,
+  scoringEligible: roster.people.filter((p) => p.scoringEligible).length,
+  assignments: roster.assignments.length,
+  assignedFte,
+  availableFteFixedWindow: 20,
+  roleCounts,
+  unknownParents,
+  mismatch,
+};
+assert.equal(summary.seedUsers.length, 5);
+const phase = process.argv[2];
+if (!/^(before-auth|after-second-seed|after-auth)$/.test(phase))
+  throw Error("Expected before-auth or after-auth phase");
+if (phase !== "before-auth") {
+  const before = JSON.parse(
+    readFileSync(evidence + "/seed-before-auth.json", "utf8"),
+  );
+  summary.seedAccountIdsStable = isDeepStrictEqual(
+    before.seedUsers,
+    summary.seedUsers,
+  );
+  assert.ok(summary.seedAccountIdsStable);
+}
+writeFileSync(
+  evidence + "/seed-" + phase + ".json",
+  JSON.stringify(summary, null, 2) + "\n",
+);
+console.log(JSON.stringify(summary));

@@ -1,0 +1,55 @@
+{
+  "mainMerge": "42a4eaddf4b21256b0a69a816371815ea2a8f779",
+  "mainParent": "114a10a",
+  "sourceBranch": "df51f2f",
+  "sourceMainDesignFilesByteIdentical": [
+    "docs/00-README.md",
+    "docs/01-PRD.md",
+    "docs/02-ARCHITECTURE.md",
+    "docs/03-AI-PIPELINE.md",
+    "docs/04-DATABASE.md",
+    "docs/05-API-SPEC.md",
+    "docs/06-UI-UX.md",
+    "docs/07-DATA-PIPELINE.md",
+    "docs/08-SCORING.md",
+    "docs/09-SECURITY.md",
+    "docs/10-DEPLOYMENT.md",
+    "docs/12-ROADMAP.md",
+    "docs/13-NOTIFICATIONS.md",
+    "docs/14-OBSERVABILITY.md",
+    "docs/15-DATA-CONTRACTS.md",
+    "docs/16-DECISIONS.md",
+    "docs/17-CLAUDE-IMPLEMENTATION.md",
+    "docs/18-HACKATHON.md",
+    "docs/19-DEMO-SCENARIO.md",
+    "docs/20-GLOSSARY.md",
+    "docs/21-MODEL-TRAINING.md",
+    "docs/CLAUDE.md"
+  ],
+  "9663": {
+    "head": "694b6fac5caaaf02681a1af70a4e1d928c8a7cca",
+    "uniqueUnmergedCommits": [
+      "694b6fac5caaaf02681a1af70a4e1d928c8a7cca docs: 사진 승인과 통합 상태 정정",
+      "8ba281060d1cb27c6e3cb06da22b5d4ab3ca801e feat: 프로필 사진 200장 최종 승인 기록",
+      "2d416f774b4d69e6a7a241bc2edd83ab46d1f5bb feat: 가상 직원 프로필 200장 생성"
+    ],
+    "residualPathCount": 311,
+    "direction": "main-to-9663 (D means exists only in main)",
+    "statusCounts": {
+      "M": 132,
+      "D": 174,
+      "A": 2,
+      "R064": 1,
+      "R073": 1,
+      "R083": 1
+    },
+    "approvedPngBytesIdentical": 200,
+    "manifestByteIdentical": true
+  },
+  "migrations": {
+    "all12ByteIdenticalToB3ef": true
+  },
+  "scoring": {
+    "modelByteIdenticalToB3ef": true
+  }
+}

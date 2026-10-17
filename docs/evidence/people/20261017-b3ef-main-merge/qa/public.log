@@ -1,0 +1,230 @@
+Command: ["pnpm","-C","web","test:e2e"]
+Source: 42a4eaddf4b21256b0a69a816371815ea2a8f779
+Owned API: http://127.0.0.1:58621
+Owned workdir: /tmp/sol-radar-main-merge-20261017-qa
+Started: 2026-10-17T04:37:27.708Z
+
+> sol-radar-web@0.1.0 test:e2e /Users/leegwanghui/dev/hackathon/sol-radar/web
+> playwright test && pnpm test:browser
+
+[WebServer] (node:7622) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:7646) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 138 tests using 5 workers
+
+(node:7655) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7658) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7656) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7657) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7659) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓    4 [chromium] › e2e/account.spec.ts:65:5 › 로그인하지 않고 새 비밀번호 화면을 열면 폼 대신 재설정 안내를 보여 준다 (2.1s)
+  ✓    5 [chromium] › e2e/account.spec.ts:52:7 › /auth/reset 는 틀린 입력을 Supabase 에 보내지 않고 바로 알려 준다 (2.3s)
+  ✓    1 [chromium] › e2e/account.spec.ts:26:5 › 로그인 폼은 잘못된 입력을 Supabase 에 보내지 않고 바로 알려 준다 (2.4s)
+  ✓    3 [chromium] › e2e/account.spec.ts:52:7 › /auth/sign-up 는 틀린 입력을 Supabase 에 보내지 않고 바로 알려 준다 (2.4s)
+  ✓    9 [chromium] › e2e/account.spec.ts:132:7 › 옛 주소 /account?link=invalid 는 /auth/login?link=invalid 로 영구 이동한다 (35ms)
+  ✓   10 [chromium] › e2e/account.spec.ts:132:7 › 옛 주소 /account/sign-up 는 /auth/sign-up 로 영구 이동한다 (22ms)
+  ✓   11 [chromium] › e2e/account.spec.ts:132:7 › 옛 주소 /account/reset 는 /auth/reset 로 영구 이동한다 (50ms)
+  ✓    6 [chromium] › e2e/account.spec.ts:75:5 › 토큰 없는 메일 링크는 바깥 주소가 아니라 계정 화면의 안내로 보낸다 (371ms)
+  ✓   12 [chromium] › e2e/account.spec.ts:132:7 › 옛 주소 /account/password 는 /auth/password 로 영구 이동한다 (41ms)
+  ✓    7 [chromium] › e2e/account.spec.ts:82:5 › 간편 로그인이 오류로 돌아오면 Supabase 에 묻지 않고 로그인 화면의 안내로 보낸다 (286ms)
+  ✓    2 [chromium] › e2e/account.spec.ts:10:5 › 계정 화면은 로그인 전 상태를 오류 없이 그리고, 열기만 해서는 Supabase 에 요청하지 않는다 (2.7s)
+  ✓    8 [chromium] › e2e/account.spec.ts:111:5 › 간편 로그인 버튼은 켠 회사 것만 보인다 (663ms)
+  ✓   14 [chromium] › e2e/home.spec.ts:22:5 › 없는 주소는 정상적인 404로 응답한다 (1.1s)
+  ✓   13 [chromium] › e2e/home.spec.ts:6:5 › 첫 화면이 정상 응답하고 클라이언트 오류 없이 표시된다 (1.2s)
+  ✓   15 [chromium] › e2e/landing-reveal.spec.ts:95:5 › 처음 열면 접히는 선 아래 블록만 숨어 있고, 히어로·분석 미리보기는 숨지 않는다 (1.2s)
+  ✓   16 [chromium] › e2e/landing-reveal.spec.ts:115:5 › 블록이 화면에 들어오면 떠올라 나타나고, 다시 맨 위로 올라가도 숨지 않는다 (1.9s)
+  ✓   18 [chromium] › e2e/landing-reveal.spec.ts:155:5 › 움직임 줄이기면 스크롤하지 않아도 숨거나 비켜 선 블록이 없다 (912ms)
+  ✓   19 [chromium] › e2e/landing-reveal.spec.ts:167:5 › 주소에 #faq 를 붙여 바로 열면 FAQ 제목과 질문 목록이 숨지 않고 보인다 (1.0s)
+  ✓   17 [chromium] › e2e/landing-reveal.spec.ts:135:5 › 화면 높이씩 끝까지 내려가면 숨은 블록이 하나도 남지 않는다 (1.8s)
+  ✓   20 [chromium] › e2e/landing-reveal.spec.ts:184:5 › #faq 로 바로 연 화면에서 머리말의 로그인으로 옮겨 가도 오류 화면이 뜨지 않는다 (1.4s)
+  ✓   22 [chromium] › e2e/landing-sections.spec.ts:23:7 › 머리말의 주요 기능 링크는 그 구역으로 가고, 제목이 머리말에 가리지 않는다 (1.7s)
+  ✓   25 [chromium] › e2e/landing-sections.spec.ts:39:5 › 서비스 소개는 지금 방식과 SOL RADAR 를 비교하는 표다 (1.2s)
+  ✓   23 [chromium] › e2e/landing-sections.spec.ts:23:7 › 머리말의 분석 방식 링크는 그 구역으로 가고, 제목이 머리말에 가리지 않는다 (1.6s)
+  ✓   24 [chromium] › e2e/landing-sections.spec.ts:23:7 › 머리말의 서비스 소개 링크는 그 구역으로 가고, 제목이 머리말에 가리지 않는다 (1.6s)
+  ✓   21 [chromium] › e2e/landing-reveal.spec.ts:199:5 › 머리말의 로그인으로 옮겨 갔다가 뒤로 가면 오류 화면 없이 첫 화면이 보이고 블록도 나타난다 (3.0s)
+  ✓   26 [chromium] › e2e/landing-sections.spec.ts:64:5 › 주요 기능은 네 가지이고, 모두 개발 예정이라고 밝힌다 (1.7s)
+  ✓   27 [chromium] › e2e/landing-sections.spec.ts:55:5 › 구역 제목 위에 작은 머리글이 없다 (1.7s)
+  ✓   28 [chromium] › e2e/landing-sections.spec.ts:104:5 › 주요 기능 설명은 가운뎃점으로 줄을 시작하지 않는다 (1.7s)
+  ✓   29 [chromium] › e2e/landing-sections.spec.ts:114:5 › 작동 방식은 세 단계이고, 단계마다 하는 일과 얻는 것이 있다 (1.8s)
+  ✓   30 [chromium] › e2e/landing-sections.spec.ts:130:5 › 분석 원칙 네 가지가 있다 (582ms)
+  ✓   32 [chromium] › e2e/landing-sections.spec.ts:164:5 › 주소에 #faq 를 붙여 열면 FAQ 제목이 머리말 아래에 보인다 (987ms)
+  ✓   31 [chromium] › e2e/landing-sections.spec.ts:155:5 › FAQ 는 질문 다섯 개와 답이 처음부터 펼쳐져 있다 (1.7s)
+  ✓   35 [chromium] › e2e/landing.spec.ts:15:5 › 제목과 설명 메타데이터가 SOL RADAR 의 것이다 (1.5s)
+  ✓   34 [chromium] › e2e/landing-sections.spec.ts:169:5 › 마지막 구역에 시작하기·분석 예시 보기와 MVP 개발 중 안내가 있다 (1.6s)
+  ✓   33 [chromium] › e2e/landing-sections.spec.ts:192:5 › 첫 화면에는 빈 링크(href="#")와 이름 없는 링크·버튼이 없다 (1.8s)
+  ✓   38 [chromium] › e2e/landing.spec.ts:60:5 › 미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수·자격·권고가 맞는다 (1.4s)
+  ✓   37 [chromium] › e2e/landing.spec.ts:51:5 › 분석 예시 보기를 누르면 미리보기로 가고, 머리말에 가리지 않는다 (1.5s)
+  ✓   40 [chromium] › e2e/landing.spec.ts:91:7 › 1280×800 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다 (1.3s)
+  ✓   39 [chromium] › e2e/landing.spec.ts:91:7 › 1440×900 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다 (1.5s)
+  ✓   36 [chromium] › e2e/landing.spec.ts:24:5 › 히어로에 제목·설명·두 버튼·안내가 있고, 시작하기는 가입 화면으로 간다 (2.6s)
+  ✓   42 [chromium] › e2e/landing.spec.ts:118:7 › 1280px 폭에서 가로로 넘치지 않는다 (952ms)
+  ✓   44 [chromium] › e2e/landing.spec.ts:118:7 › 1920px 폭에서 가로로 넘치지 않는다 (989ms)
+  ✓   43 [chromium] › e2e/landing.spec.ts:118:7 › 1440px 폭에서 가로로 넘치지 않는다 (1.0s)
+  ✓   45 [chromium] › e2e/landing.spec.ts:128:5 › 1280px 미만에서만 데스크톱 화면 안내가 보인다 (756ms)
+  ✓   46 [chromium] › e2e/landing.spec.ts:146:5 › 움직임 줄이기를 켜면 등장 애니메이션이 하나도 없다 (1.3s)
+  ✓   41 [chromium] › e2e/landing.spec.ts:104:5 › 목록에서 다른 공고를 고르면 분석이 바뀐다 (2.3s)
+  ✓   47 [chromium] › e2e/landing.spec.ts:173:5 › 바닥글에 로고·한 줄 소개·메뉴·저작권이 있고, 없는 정책 화면으로 가는 링크는 없다 (1.3s)
+  ✓   48 [chromium] › e2e/landing.spec.ts:194:5 › 첫 화면 본문·머리말·바닥글은 낱말 단위로 줄을 바꾸고 바탕은 흰색이다 (1.3s)
+  ✓   50 [chromium] › e2e/operations.spec.ts:11:7 › / 응답에 보안 헤더가 붙고 X-Powered-By 는 없다 (94ms)
+  ✓   51 [chromium] › e2e/operations.spec.ts:11:7 › /acme/route-that-does-not-exist 응답에 보안 헤더가 붙고 X-Powered-By 는 없다 (102ms)
+  ✓   49 [chromium] › e2e/landing.spec.ts:202:5 › 1440 첫 화면의 보이는 글자는 모두 13px 이상이다 (832ms)
+  ✓   52 [chromium] › e2e/operations.spec.ts:11:7 › /icon.svg 응답에 보안 헤더가 붙고 X-Powered-By 는 없다 (73ms)
+  ✓   53 [chromium] › e2e/operations.spec.ts:66:7 › / 화면 응답의 CSP 는 nonce·'strict-dynamic'·필수 지시어를 담고, 본문의 script 는 모두 그 nonce 를 단다 (60ms)
+  ✓   54 [chromium] › e2e/operations.spec.ts:66:7 › /auth/login 화면 응답의 CSP 는 nonce·'strict-dynamic'·필수 지시어를 담고, 본문의 script 는 모두 그 nonce 를 단다 (71ms)
+  ✓   56 [chromium] › e2e/operations.spec.ts:66:7 › /apiary 화면 응답의 CSP 는 nonce·'strict-dynamic'·필수 지시어를 담고, 본문의 script 는 모두 그 nonce 를 단다 (53ms)
+  ✓   58 [chromium] › e2e/operations.spec.ts:94:5 › 요청에 CSP·nonce 헤더를 실어 보내도 응답과 script 의 nonce 는 서버가 새로 만든 값이다 (33ms)
+  ✓   55 [chromium] › e2e/operations.spec.ts:66:7 › /acme/route-that-does-not-exist 화면 응답의 CSP 는 nonce·'strict-dynamic'·필수 지시어를 담고, 본문의 script 는 모두 그 nonce 를 단다 (56ms)
+  ✓   57 [chromium] › e2e/operations.spec.ts:87:5 › 같은 화면을 두 번 요청하면 CSP 의 nonce 가 다르다 (60ms)
+  ✓   61 [chromium] › e2e/operations.spec.ts:158:5 › /favicon.ico 는 /icon.svg 로 영구 이동한다 (21ms)
+  ✓   60 [chromium] › e2e/operations.spec.ts:146:5 › 없는 주소는 한국어 404 화면과 첫 화면으로 가는 링크를 보여 준다 (1.2s)
+  ✓   63 [chromium] › e2e/protected.spec.ts:45:7 › 로그인하지 않고 /acme/dashboard 를 열면 앱 틀과 화면 내용 없이 계정 화면으로 가는 링크를 보여 준다 (1.4s)
+  ✓   59 [chromium] › e2e/operations.spec.ts:114:5 › 랜딩을 열고 가입 화면으로 옮겨 가는 동안 CSP 위반(콘솔 문장·securitypolicyviolation 이벤트)이 없다 (1.4s)
+  ✓   62 [chromium] › e2e/protected.spec.ts:31:7 › /acme/dashboard 는 로그인 전 상태를 오류 없이 그리고, 열기만 해서는 Supabase 에 요청하지 않는다 (1.7s)
+  ✓   64 [chromium] › e2e/protected.spec.ts:31:7 › /acme/settings 는 로그인 전 상태를 오류 없이 그리고, 열기만 해서는 Supabase 에 요청하지 않는다 (1.7s)
+  ✓   65 [chromium] › e2e/protected.spec.ts:45:7 › 로그인하지 않고 /acme/settings 를 열면 앱 틀과 화면 내용 없이 계정 화면으로 가는 링크를 보여 준다 (517ms)
+  ✓   67 [chromium] › e2e/protected.spec.ts:45:7 › 로그인하지 않고 /acme/settings/members 를 열면 앱 틀과 화면 내용 없이 계정 화면으로 가는 링크를 보여 준다 (536ms)
+  ✓   69 [chromium] › e2e/protected.spec.ts:45:7 › 로그인하지 않고 /teams/new 를 열면 앱 틀과 화면 내용 없이 계정 화면으로 가는 링크를 보여 준다 (526ms)
+  ✓   66 [chromium] › e2e/protected.spec.ts:31:7 › /acme/settings/members 는 로그인 전 상태를 오류 없이 그리고, 열기만 해서는 Supabase 에 요청하지 않는다 (860ms)
+  ✓   71 [chromium] › e2e/protected.spec.ts:45:7 › 로그인하지 않고 /invitations 를 열면 앱 틀과 화면 내용 없이 계정 화면으로 가는 링크를 보여 준다 (354ms)
+  ✓   72 [chromium] › e2e/protected.spec.ts:71:7 › /acme/dashboard 는 로그인 전 안내 화면을 검색 로봇이 색인하지 않게 한다 (221ms)
+  ✓   73 [chromium] › e2e/protected.spec.ts:71:7 › /route-that-does-not-exist 는 로그인 전 안내 화면을 검색 로봇이 색인하지 않게 한다 (227ms)
+  ✓   68 [chromium] › e2e/protected.spec.ts:31:7 › /teams/new 는 로그인 전 상태를 오류 없이 그리고, 열기만 해서는 Supabase 에 요청하지 않는다 (890ms)
+  ✓   70 [chromium] › e2e/protected.spec.ts:31:7 › /invitations 는 로그인 전 상태를 오류 없이 그리고, 열기만 해서는 Supabase 에 요청하지 않는다 (896ms)
+  ✓   74 [chromium] › e2e/protected.spec.ts:81:7 › 옛 주소 /dashboard 는 로그인 전이면 계정 화면으로 보낸다 (241ms)
+  ✓   75 [chromium] › e2e/protected.spec.ts:81:7 › 옛 주소 /memos 는 로그인 전이면 계정 화면으로 보낸다 (279ms)
+  ✓   76 [chromium] › e2e/protected.spec.ts:81:7 › 옛 주소 /settings 는 로그인 전이면 계정 화면으로 보낸다 (280ms)
+  ✓   77 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/login 는 375px 폭에서 가로로 넘치지 않는다 (1.5s)
+  ✓   79 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/login 는 768px 폭에서 가로로 넘치지 않는다 (1.6s)
+  ✓   78 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/login 는 320px 폭에서 가로로 넘치지 않는다 (1.6s)
+  ✓   80 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/login 는 1280px 폭에서 가로로 넘치지 않는다 (1.8s)
+  ✓   81 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/sign-up 는 320px 폭에서 가로로 넘치지 않는다 (1.8s)
+  ✓   83 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/sign-up 는 768px 폭에서 가로로 넘치지 않는다 (1.2s)
+  ✓   82 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/sign-up 는 375px 폭에서 가로로 넘치지 않는다 (1.3s)
+  ✓   84 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/sign-up 는 1280px 폭에서 가로로 넘치지 않는다 (1.3s)
+  ✓   86 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/reset 는 375px 폭에서 가로로 넘치지 않는다 (1.1s)
+  ✓   85 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/reset 는 320px 폭에서 가로로 넘치지 않는다 (1.1s)
+  ✓   87 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/reset 는 768px 폭에서 가로로 넘치지 않는다 (380ms)
+  ✓   88 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/reset 는 1280px 폭에서 가로로 넘치지 않는다 (369ms)
+  ✓   90 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/password 는 375px 폭에서 가로로 넘치지 않는다 (798ms)
+  ✓   91 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/password 는 768px 폭에서 가로로 넘치지 않는다 (817ms)
+  ✓   89 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/password 는 320px 폭에서 가로로 넘치지 않는다 (899ms)
+  ✓   92 [chromium] › e2e/responsive.spec.ts:31:9 › /auth/password 는 1280px 폭에서 가로로 넘치지 않는다 (912ms)
+  ✓   93 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/dashboard 는 320px 폭에서 가로로 넘치지 않는다 (919ms)
+  ✓   94 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/dashboard 는 375px 폭에서 가로로 넘치지 않는다 (365ms)
+  ✓   95 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/dashboard 는 768px 폭에서 가로로 넘치지 않는다 (373ms)
+  ✓   96 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/dashboard 는 1280px 폭에서 가로로 넘치지 않는다 (364ms)
+  ✓   98 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/tasks 는 375px 폭에서 가로로 넘치지 않는다 (348ms)
+  ✓   97 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/tasks 는 320px 폭에서 가로로 넘치지 않는다 (388ms)
+  ✓  100 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/tasks 는 1280px 폭에서 가로로 넘치지 않는다 (490ms)
+  ✓   99 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/tasks 는 768px 폭에서 가로로 넘치지 않는다 (556ms)
+  ✓  101 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings 는 320px 폭에서 가로로 넘치지 않는다 (550ms)
+  ✓  103 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings 는 768px 폭에서 가로로 넘치지 않는다 (870ms)
+  ✓  102 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings 는 375px 폭에서 가로로 넘치지 않는다 (862ms)
+  ✓  104 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings 는 1280px 폭에서 가로로 넘치지 않는다 (714ms)
+  ✓  105 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings/members 는 320px 폭에서 가로로 넘치지 않는다 (700ms)
+  ✓  106 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings/members 는 375px 폭에서 가로로 넘치지 않는다 (785ms)
+  ✓  108 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings/members 는 1280px 폭에서 가로로 넘치지 않는다 (475ms)
+  ✓  107 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings/members 는 768px 폭에서 가로로 넘치지 않는다 (489ms)
+  ✓  110 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings/team 는 375px 폭에서 가로로 넘치지 않는다 (496ms)
+  ✓  109 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings/team 는 320px 폭에서 가로로 넘치지 않는다 (516ms)
+  ✓  111 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings/team 는 768px 폭에서 가로로 넘치지 않는다 (448ms)
+  ✓  113 [chromium] › e2e/responsive.spec.ts:31:9 › /teams/new 는 320px 폭에서 가로로 넘치지 않는다 (368ms)
+  ✓  112 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/settings/team 는 1280px 폭에서 가로로 넘치지 않는다 (432ms)
+  ✓  115 [chromium] › e2e/responsive.spec.ts:31:9 › /teams/new 는 768px 폭에서 가로로 넘치지 않는다 (385ms)
+  ✓  114 [chromium] › e2e/responsive.spec.ts:31:9 › /teams/new 는 375px 폭에서 가로로 넘치지 않는다 (408ms)
+  ✓  116 [chromium] › e2e/responsive.spec.ts:31:9 › /teams/new 는 1280px 폭에서 가로로 넘치지 않는다 (294ms)
+  ✓  117 [chromium] › e2e/responsive.spec.ts:31:9 › /invitations 는 320px 폭에서 가로로 넘치지 않는다 (396ms)
+  ✓  118 [chromium] › e2e/responsive.spec.ts:31:9 › /invitations 는 375px 폭에서 가로로 넘치지 않는다 (410ms)
+  ✓  120 [chromium] › e2e/responsive.spec.ts:31:9 › /invitations 는 1280px 폭에서 가로로 넘치지 않는다 (347ms)
+  ✓  119 [chromium] › e2e/responsive.spec.ts:31:9 › /invitations 는 768px 폭에서 가로로 넘치지 않는다 (360ms)
+  ✓  121 [chromium] › e2e/responsive.spec.ts:31:9 › /admin 는 320px 폭에서 가로로 넘치지 않는다 (420ms)
+  ✓  122 [chromium] › e2e/responsive.spec.ts:31:9 › /admin 는 375px 폭에서 가로로 넘치지 않는다 (467ms)
+  ✓  123 [chromium] › e2e/responsive.spec.ts:31:9 › /admin 는 768px 폭에서 가로로 넘치지 않는다 (388ms)
+  ✓  125 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/route-that-does-not-exist 는 320px 폭에서 가로로 넘치지 않는다 (338ms)
+  ✓  124 [chromium] › e2e/responsive.spec.ts:31:9 › /admin 는 1280px 폭에서 가로로 넘치지 않는다 (370ms)
+  ✓  126 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/route-that-does-not-exist 는 375px 폭에서 가로로 넘치지 않는다 (329ms)
+  ✓  127 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/route-that-does-not-exist 는 768px 폭에서 가로로 넘치지 않는다 (478ms)
+  ✓  128 [chromium] › e2e/responsive.spec.ts:31:9 › /acme/route-that-does-not-exist 는 1280px 폭에서 가로로 넘치지 않는다 (498ms)
+  ✓  129 [chromium] › e2e/site-header.spec.ts:19:5 › 머리말의 로고는 첫 화면으로, 로그인·시작하기는 계정 화면으로 간다 (1.0s)
+  ✓  130 [chromium] › e2e/site-header.spec.ts:33:5 › 주요 메뉴에 구역 링크 세 개가 차례대로 있다 (1.1s)
+  ✓  132 [chromium] › e2e/site-header.spec.ts:66:5 › 인증 틀에서도 건너뛰기 링크가 본문(main)으로 간다 (658ms)
+  ✓  131 [chromium] › e2e/site-header.spec.ts:42:5 › 첫 Tab 에 건너뛰기 링크가 보이고 누르면 본문으로 간다 (1.1s)
+  ✓  133 [chromium] › e2e/site-header.spec.ts:75:5 › 1280px 에서 머리말이 한 줄이고 로고·메뉴·버튼이 겹치지 않는다 (1.1s)
+  ✓  137 [chromium] › e2e/tasks.spec.ts:30:5 › 로그인하지 않고 작업 화면을 열면 표·추가 단추 없이 계정 화면으로 가는 링크를 보여 준다 (826ms)
+  ✓  134 [chromium] › e2e/site-header.spec.ts:93:5 › 아래로 내려도 머리말이 화면 맨 위에 붙어 있다 (975ms)
+  ✓  135 [chromium] › e2e/site-header.spec.ts:101:5 › 머리말은 72px 단색이고 메뉴 글자는 17px 이다 (1.0s)
+  ✓  136 [chromium] › e2e/tasks.spec.ts:11:5 › 작업 화면은 로그인 전 상태를 오류 없이 그리고, 열기만 해서는 Supabase 에 요청하지 않는다 (1.3s)
+  ✓  138 [chromium] › e2e/tasks.spec.ts:43:5 › 없앤 메모 화면 /acme/memos 는 로그인 안내 대신 404 로 응답한다 (984ms)
+
+  138 passed (28.9s)
+
+> sol-radar-web@0.1.0 test:browser /Users/leegwanghui/dev/hackathon/sol-radar/web
+> vitest run --config vitest.browser.config.ts
+
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+1:38:00 PM [vite] (client) ✨ new dependencies optimized: next/image
+1:38:00 PM [vite] (client) ✨ optimized dependencies changed. reloading
+
+[vitest] Vite unexpectedly reloaded a test. This may cause tests to fail, lead to flaky behaviour or duplicated test runs.
+For a stable experience, please add mentioned dependencies to your config's `optimizeDeps.include` field manually.
+
+
+1:38:00 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/Separator-cGqFtSwd.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+ ❯ |chromium| app/auth/organization-state/state-retry.browser.test.tsx (0 test)
+ ❯ |chromium| app/auth/complete-profile/complete-profile-form.browser.test.tsx (0 test)
+ ❯ |chromium| app/(app)/[slug]/tasks/task-list.browser.test.tsx (0 test)
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useRenderElement-D8z4V7lG.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/DirectionContext-CGkH8uxy.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/formatErrorMessage-CRT5p1mf.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useButton-B5Sg-eB6.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useBaseUiId-C9qFWWs3.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/composite-3lgWPfGc.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useOpenInteractionType-CV0Gyalq.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useTransitionStatus-Uj7OjA5b.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useTimeout-C9t8jFo3.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/resolveValueLabel-DU9s6iCd.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useValueChanged-BblE9yp0.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useRegisterFieldControl-nYdtpovT.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+ ❯ |chromium| app/(app)/[slug]/tasks/task-form-dialog.browser.test.tsx (0 test)
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/Separator-cGqFtSwd.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useRenderElement-D8z4V7lG.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useButton-B5Sg-eB6.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/DirectionContext-CGkH8uxy.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+ ❯ |chromium| app/auth/sign-up/sign-up-form.browser.test.tsx (0 test)
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/formatErrorMessage-CRT5p1mf.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useBaseUiId-C9qFWWs3.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/composite-3lgWPfGc.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useOpenInteractionType-CV0Gyalq.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useTransitionStatus-Uj7OjA5b.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useTimeout-C9t8jFo3.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useRegisterFieldControl-nYdtpovT.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useValueChanged-BblE9yp0.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/resolveValueLabel-DU9s6iCd.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) ✨ new dependencies optimized: nodemailer
+1:38:01 PM [vite] (client) ✨ optimized dependencies changed. reloading
+
+[vitest] Vite unexpectedly reloaded a test. This may cause tests to fail, lead to flaky behaviour or duplicated test runs.
+For a stable experience, please add mentioned dependencies to your config's `optimizeDeps.include` field manually.
+
+
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/use-merged-ref-dfk3HjaH.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+ ❯ |chromium| app/auth/employment-fields.browser.test.tsx (0 test)
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useTransitionStatus-C3qX4lX5.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/inertValue-BidyiQvh.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/useOpenInteractionType-1UC9jYn5.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/resolveValueLabel-BzMJRbvf.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+1:38:01 PM [vite] (client) Pre-transform error: The file does not exist at "/Users/leegwanghui/dev/hackathon/sol-radar/web/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/deps/isElementDisabled-Bmge1EOd.js" which is in the optimize deps directory. The dependency might be incompatible with the dep optimizer. Try adding it to `optimizeDeps.exclude`.
+ ❯ |chromium| app/account/account-settings.browser.test.tsx (0 test)
+ ELIFECYCLE  Command failed with exit code 130.
+ ELIFECYCLE  Command failed with exit code 130.
+
+Exit: 130 Signal: null Finished: 2026-10-17T04:39:27.717Z

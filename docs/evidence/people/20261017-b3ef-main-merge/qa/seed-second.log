@@ -1,0 +1,14 @@
+Command: ["node","scripts/db-seed.mjs"]
+Source: 42a4eaddf4b21256b0a69a816371815ea2a8f779
+Owned API: http://127.0.0.1:58621
+Owned workdir: /tmp/sol-radar-main-merge-20261017-qa
+Started: 2026-10-17T04:34:07.425Z
+▶ 시드 넣기 (로컬 Supabase)
+✓ 시드를 넣었습니다. 비밀번호는 모두 [LOCAL_TEST_PASSWORD]
+  소유자        seed-owner@example.test   (팀 /seed-team 의 owner)
+  멤버          seed-member@example.test  (팀의 member)
+  조직 밖 사람  seed-outsider@example.test (팀과 관계없음)
+  초대받은 사람 seed-invitee@example.test  (팀 초대를 받아 둔 상태)
+  운영자        seed-admin@example.test    (서비스 운영자, /admin. 팀 없음)
+
+Exit: 0 Signal: null Finished: 2026-10-17T04:34:10.114Z

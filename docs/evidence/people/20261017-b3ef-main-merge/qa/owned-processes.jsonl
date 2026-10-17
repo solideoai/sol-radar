@@ -1,0 +1,12 @@
+{"name":"verify","pid":99209,"command":"pnpm","args":["verify"],"createdAt":"2026-10-17T04:33:36.479Z"}
+{"name":"seed-initial","pid":4203,"command":"node","args":["scripts/db-seed.mjs"],"createdAt":"2026-10-17T04:33:52.197Z"}
+{"name":"counts-before-auth","pid":4311,"command":"node","args":["/tmp/sol-radar-main-merge-20261017-qa/counts.mjs","before-auth"],"createdAt":"2026-10-17T04:33:59.534Z"}
+{"name":"seed-second","pid":4503,"command":"node","args":["scripts/db-seed.mjs"],"createdAt":"2026-10-17T04:34:07.428Z"}
+{"name":"counts-after-second-seed","pid":4609,"command":"node","args":["/tmp/sol-radar-main-merge-20261017-qa/counts.mjs","after-second-seed"],"createdAt":"2026-10-17T04:34:14.076Z"}
+{"name":"auth","pid":6222,"command":"pnpm","args":["-C","web","test:e2e:auth"],"createdAt":"2026-10-17T04:35:58.360Z"}
+{"name":"public","pid":7578,"command":"pnpm","args":["-C","web","test:e2e"],"createdAt":"2026-10-17T04:37:27.712Z"}
+{"name":"counts-after-auth","pid":7866,"command":"node","args":["/tmp/sol-radar-main-merge-20261017-qa/counts.mjs","after-auth"],"createdAt":"2026-10-17T04:37:43.230Z"}
+{"name":"public-warm-cache-retry","pid":9258,"command":"pnpm","args":["-C","web","test:e2e"],"createdAt":"2026-10-17T04:39:31.431Z"}
+{"name":"next-server","pid":9898,"command":"pnpm","args":["-C","web","start","--hostname","localhost","--port","3862"],"createdAt":"2026-10-17T04:40:16.094Z"}
+{"name":"next-probe","pid":10082,"command":"node","args":["/tmp/sol-radar-main-merge-20261017-qa/next-probe.mjs"],"createdAt":"2026-10-17T04:40:29.694Z"}
+{"name":"next-ui-probe","pid":10565,"command":"node","args":["/tmp/sol-radar-main-merge-20261017-qa/ui-probe.mjs"],"createdAt":"2026-10-17T04:40:53.296Z"}

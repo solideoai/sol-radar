@@ -1,0 +1,10 @@
+Command: ["node","/tmp/sol-radar-main-merge-20261017-qa/ui-probe.mjs"]
+Source: 42a4eaddf4b21256b0a69a816371815ea2a8f779
+Owned API: http://127.0.0.1:58621
+Owned workdir: /tmp/sol-radar-main-merge-20261017-qa
+Started: 2026-10-17T04:40:53.290Z
+{"width":1440,"department":"AX사업본부 AI플랫폼운영팀","title":"팀장","overflow":0}
+{"width":1280,"department":"AX사업본부 AI플랫폼운영팀","title":"팀장","overflow":0}
+{"controls":[{"width":1440,"department":"AX사업본부 AI플랫폼운영팀","title":"팀장","overflow":0},{"width":1280,"department":"AX사업본부 AI플랫폼운영팀","title":"팀장","overflow":0}],"pageErrors":0}
+
+Exit: 0 Signal: null Finished: 2026-10-17T04:40:55.949Z

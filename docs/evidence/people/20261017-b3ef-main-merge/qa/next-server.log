@@ -1,0 +1,17 @@
+Command: ["pnpm","-C","web","start","--hostname","localhost","--port","3862"]
+Source: 42a4eaddf4b21256b0a69a816371815ea2a8f779
+Owned API: http://127.0.0.1:58621
+Owned workdir: /tmp/sol-radar-main-merge-20261017-qa
+Started: 2026-10-17T04:40:16.089Z
+
+> sol-radar-web@0.1.0 start /Users/leegwanghui/dev/hackathon/sol-radar/web
+> next start --hostname localhost --port 3862
+
+▲ Next.js 16.4.0
+- Local:         http://localhost:3862
+- Network:       http://localhost:3862
+✓ Ready in 186ms
+✓ Running next.config.ts took 72ms
+ ELIFECYCLE  Command failed with exit code 143.
+
+Exit: 143 Signal: null Finished: 2026-10-17T04:41:16.529Z

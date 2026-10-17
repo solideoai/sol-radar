@@ -1,0 +1,5 @@
+
+> sol-radar@0.1.0 people:check:release /Users/leegwanghui/dev/hackathon/sol-radar
+> node scripts/people/check.mjs --release -- --input /Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx
+
+{"ok":true,"sourceComparison":"passed","errors":[]}

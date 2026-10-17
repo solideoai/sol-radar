@@ -1,0 +1,59 @@
+import { createRequire } from "node:module";
+import { writeFileSync } from "node:fs";
+const repo = "/Users/leegwanghui/dev/hackathon/sol-radar";
+const evidence =
+  "/Users/leegwanghui/dev/hackathon/sol-radar-inputs/main-merges/20261017-df51f2f/qa";
+const { chromium, expect } = createRequire(repo + "/web/package.json")(
+  "@playwright/test",
+);
+const browser = await chromium.launch();
+try {
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 1000 },
+    locale: "ko-KR",
+  });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  const controls = [];
+  for (const width of [1440, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("http://localhost:3862/auth/sign-up");
+    const department = page.getByRole("combobox", { name: "부서 (필수)" });
+    await department.click();
+    await page
+      .getByRole("option", { name: "AX사업본부 AI플랫폼운영팀", exact: true })
+      .click();
+    const title = page.getByRole("combobox", { name: "직급/직책 (필수)" });
+    await title.click();
+    await page.getByRole("option", { name: "팀장", exact: true }).click();
+    const value = {
+      width,
+      department: await department.innerText(),
+      title: await title.innerText(),
+      overflow: await page.evaluate(() =>
+        Math.max(0, document.documentElement.scrollWidth - innerWidth),
+      ),
+    };
+    controls.push(value);
+    console.log(JSON.stringify(value));
+    if (
+      value.department.includes("선택해") ||
+      value.title.includes("선택해") ||
+      value.overflow
+    )
+      throw Error("UI control contract failed");
+    await expect(page.getByRole("listbox")).toHaveCount(0);
+    await page.screenshot({
+      path: evidence + "/public-signup-" + width + ".png",
+      fullPage: true,
+    });
+  }
+  writeFileSync(
+    evidence + "/next-browser-ui.json",
+    JSON.stringify({ controls, pageErrors: errors }, null, 2) + "\n",
+  );
+  if (errors.length) throw Error("Browser page errors");
+  console.log(JSON.stringify({ controls, pageErrors: errors.length }));
+} finally {
+  await browser.close();
+}

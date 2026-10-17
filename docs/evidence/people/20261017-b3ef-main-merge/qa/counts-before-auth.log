@@ -1,0 +1,8 @@
+Command: ["node","/tmp/sol-radar-main-merge-20261017-qa/counts.mjs","before-auth"]
+Source: 42a4eaddf4b21256b0a69a816371815ea2a8f779
+Owned API: http://127.0.0.1:58621
+Owned workdir: /tmp/sol-radar-main-merge-20261017-qa
+Started: 2026-10-17T04:33:59.532Z
+{"api":"http://127.0.0.1:58621","authUsers":5,"seedUsers":[{"email":"seed-admin@example.test","id":"545a1c32-1624-4ece-8f1a-474cd63aa633"},{"email":"seed-invitee@example.test","id":"26992cb0-a008-4ade-a77a-11313b17cfde"},{"email":"seed-member@example.test","id":"af7b8b2b-dbc2-4eb6-bd31-a44f75571f70"},{"email":"seed-outsider@example.test","id":"4f8aa274-026d-47c6-b503-2dd6269140fd"},{"email":"seed-owner@example.test","id":"7dead872-aade-4886-bcf3-e2a77629bd0c"}],"tables":{"team_members":200,"team_member_scoring":27,"departments":48,"job_titles":12},"kindCounts":{"DIVISION":6,"GROUP":4,"TEAM":38},"teamTargetTotal":200,"upperTargetCountsNull":true,"allEmployeesBelongToTeam":true,"fixtureAndDatabaseExactFieldMatch":true,"portraitMappings":200,"approvedPortraits":200,"scoringEligible":27,"assignments":7,"assignedFte":7,"availableFteFixedWindow":20,"roleCounts":{"PM":2,"PL":4,"DEVELOPER":18,"DATA_AI":3},"unknownParents":["SOL-D004","SOL-D005","SOL-D006","SOL-D007","SOL-D008","SOL-D009","SOL-D010","SOL-D011","SOL-D012","SOL-D013","SOL-D014","SOL-D015","SOL-D016","SOL-D017","SOL-D020","SOL-D021","SOL-D022","SOL-D025","SOL-D027","SOL-D028","SOL-D029","SOL-D030","SOL-D031","SOL-D032","SOL-D038","SOL-D039","SOL-D040","SOL-D041","SOL-D043"],"mismatch":{"people":[],"scoring":[],"departments":[],"titles":[],"portraits":[]}}
+
+Exit: 0 Signal: null Finished: 2026-10-17T04:34:00.962Z

@@ -1,0 +1,25 @@
+Command: ["node","/tmp/sol-radar-main-merge-20261017-qa/next-probe.mjs"]
+Source: 42a4eaddf4b21256b0a69a816371815ea2a8f779
+Owned API: http://127.0.0.1:58621
+Owned workdir: /tmp/sol-radar-main-merge-20261017-qa
+Started: 2026-10-17T04:40:29.689Z
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Error: strict mode violation: locator('[data-slot="select-content"]') resolved to 2 elements:
+    1) <div tabindex="-1" data-closed="" data-side="bottom" data-align="center" role="presentation" data-base-ui-focusable="" data-slot="select-content" data-align-trigger="false" class="relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=…>…</div> aka locator('div').filter({ hasText: 'AX사업본부 AI플랫폼운영팀AX사업본부-사업전략팀AX' }).nth(2)
+    2) <div tabindex="-1" data-closed="" data-side="bottom" data-align="center" role="presentation" data-ending-style="" data-base-ui-focusable="" data-slot="select-content" data-align-trigger="false" class="relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-f…>…</div> aka locator('div').filter({ hasText: 'CFO사장부사장이사본부장그룹장팀장소장수석책임담당인턴' }).nth(2)
+
+Call log:
+[2m  - waiting for locator('[data-slot="select-content"]') to be detached[22m
+
+    at /private/tmp/sol-radar-main-merge-20261017-qa/next-probe.mjs:119:8 {
+  log: [
+    `  - waiting for locator('[data-slot="select-content"]') to be detached`
+  ]
+}
+
+Node.js v24.16.0
+
+Exit: 1 Signal: null Finished: 2026-10-17T04:40:34.765Z

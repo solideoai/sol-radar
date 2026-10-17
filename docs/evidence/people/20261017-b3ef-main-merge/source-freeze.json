@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-10-17T04:02:57.109402+00:00",
+  "head": "42a4eaddf4b21256b0a69a816371815ea2a8f779",
+  "parents": [
+    "114a10aa245b76909c4952c3c82a473337ba0cbd",
+    "df51f2f560f60eb210a34a318b88a5cdb7743f26"
+  ],
+  "status": "clean",
+  "importedB3efCommits": 41,
+  "netMergedFiles": 467,
+  "otherWorktreesUnchanged": true,
+  "gate": {
+    "webPass": 881,
+    "rootPass": 350,
+    "dbPolicyPass": 141,
+    "exit": 0
+  },
+  "sharedDbApplied": false,
+  "pushed": false,
+  "deployed": false
+}

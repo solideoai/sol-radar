@@ -1,0 +1,20 @@
+[
+  {
+    "path": "docs/11-TESTING.md",
+    "preparedPatchApplied": true,
+    "sha256": "8fecccd10827327436d2906093de775fc7289528c6cf20af602bcf831a42f773"
+  },
+  {
+    "path": "docs/PROGRESS.md",
+    "preparedPatchApplied": true,
+    "sha256": "ca28f0fa144d59d0622d057be00cc6a53d6bc5d3fc740819dd0d4e47353b65fe"
+  },
+  {
+    "progressAllDatedRowsFromBothParentsPreserved": true,
+    "dateOrder": "2026-10-16 stable source order then 2026-10-17 QA sections",
+    "adjustments": [
+      "preserve main section9; branch QA moved to9.1",
+      "remove blank line splitting shared progress table"
+    ]
+  }
+]

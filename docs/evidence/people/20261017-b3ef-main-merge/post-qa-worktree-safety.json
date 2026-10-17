@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-10-17T04:42:46.704241+00:00",
+  "mainMerge": "42a4eaddf4b21256b0a69a816371815ea2a8f779",
+  "mainClean": true,
+  "otherWorktrees": {
+    "b3ef": {
+      "head": "df51f2f560f60eb210a34a318b88a5cdb7743f26",
+      "clean": true,
+      "trackedFilesHashed": 969,
+      "allTrackedBytesUnchanged": true
+    },
+    "9663": {
+      "head": "694b6fac5caaaf02681a1af70a4e1d928c8a7cca",
+      "clean": true,
+      "trackedFilesHashed": 800,
+      "allTrackedBytesUnchanged": true
+    }
+  },
+  "sharedDbApplied": false,
+  "pushed": false,
+  "deployed": false,
+  "additionalFeaturesImplemented": false
+}

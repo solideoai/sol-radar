@@ -1,0 +1,9 @@
+{
+  "at": "2026-10-17T04:39:27.495559+00:00",
+  "ownedProcessGroup": 7578,
+  "signal": "SIGINT",
+  "reason": "Initial browser dependency optimization invalidated requested chunks; import failure0testfiles stalled; preserve firstattempt then single minimal warmcache normalcombinedretry",
+  "publicPlaywrightPassed": 138,
+  "sourceChanged": false,
+  "cacheCleared": false
+}
