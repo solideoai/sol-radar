@@ -1,0 +1,17 @@
+{
+  "head": "ca719cfff0040e00ff8a3eac98558861d9cbc394",
+  "api": "http://127.0.0.1:57621",
+  "actualCliExit": 1,
+  "explicitFailure": true,
+  "noFixtureEmailOrIdInCli": true,
+  "allExactTuplesPreserved": {
+    "identity": true,
+    "team": true,
+    "memberships": true,
+    "tasks": true,
+    "invitations": true
+  },
+  "nonseedMembershipPreserved": true,
+  "nonseedTaskPreserved": true,
+  "unrelatedPendingInvitationPreserved": true
+}

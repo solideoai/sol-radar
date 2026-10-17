@@ -1,0 +1,8 @@
+Command: ["node","/tmp/sol-radar-portraits-20261017-qa/final-fix-preservation.mjs","ca719cfff0040e00ff8a3eac98558861d9cbc394"]
+Owned API: http://127.0.0.1:57621
+Owned CLI workdir: /tmp/sol-radar-portraits-20261017-qa
+Started: 2026-10-17T03:15:20.852Z
+{"normalSeedRuns":2,"stable":{"authIdsAndEmails":true,"organizationIds":true,"operationalIds":true,"scoringIds":true,"departmentIds":true,"jobTitleIds":true},"liveRefusal":{"head":"ca719cfff0040e00ff8a3eac98558861d9cbc394","api":"http://127.0.0.1:57621","actualCliExit":1,"explicitFailure":true,"noFixtureEmailOrIdInCli":true,"allExactTuplesPreserved":{"identity":true,"team":true,"memberships":true,"tasks":true,"invitations":true},"nonseedMembershipPreserved":true,"nonseedTaskPreserved":true,"unrelatedPendingInvitationPreserved":true}}
+{"exactOwnFixtureCleanup":{"authIdsRestored":true,"organizationIdsRestored":true,"people200":true,"scoring27":true}}
+
+Exit: 0 Signal: null Finished: 2026-10-17T03:15:30.774Z

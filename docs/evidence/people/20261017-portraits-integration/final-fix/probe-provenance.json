@@ -1,0 +1,12 @@
+{
+  "final-fix-run.mjs": {
+    "executedSourceSha256": "d86d256ad07e29dd35b168f5284f14fdb8d1c6ea6bb68ee0dbe4772b06ae44b7",
+    "executedRawCopy": "final-fix-run.mjs.executed.txt",
+    "formattedReviewCopy": "final-fix-run.mjs"
+  },
+  "final-fix-preservation.mjs": {
+    "executedSourceSha256": "06092dd9e5fd046e609c5176d8bfa98698024a8661729244d8179545847bd7a0",
+    "executedRawCopy": "final-fix-preservation.mjs.executed.txt",
+    "formattedReviewCopy": "final-fix-preservation.mjs"
+  }
+}

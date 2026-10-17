@@ -230,3 +230,5 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 사진200장 사람 APPROVED/manifest READY와 기존 personId·SHA-256을 유지해 b3ef `a05217a05f0fb9adb3553c02978f0e2d531e9610`에 통합했다. 같은 고정 HEAD에서 새 `pnpm verify`(루트349·웹879·빌드), 정상 Auth95, 브라우저106, 실제 Next GET·승인 SHA·브라우저 decode200을 통과했다. 원본 필수 release 대조도 Task1에서 passed였다. 상세 명령·한계·원래 실패 기록은 [통합 결과](evidence/people/20261017-portraits-integration.md)와 [독립 QA 원문](evidence/people/20261017-portraits-integration-qa.md)에 있다.
 
 조직 종류/직원TEAM/상위target NULL/팀 합200 제약은 통과했으나 TEAM25·GROUP4의 부모는 미확정으로 보존했다. 완전히 연결된 본부→그룹→팀 조직도는 미검증이다. 조직도·운영 직원 목록·직원 상세 제품 화면과 전체 G1~G10은 미구현/미검증이며, 일반 RLS 통과를 전체 G5로 올리지 않는다. 외부 OAuth 실연결·이번 전체 공개 E2E도 미검증이다. 공유 DB 적용·main 병합·push는 수행하지 않았다.
+
+최종 리뷰 보존 수정 `ca719cf`에서 새 전체 verify(루트350·웹879·빌드)와 실제 비시드 팀 거절/전체 tuple 보존·정상 seed2회를 통과했다. 초기 a052의 Auth95·브라우저106·Next200 증거는 해당 SHA로 보존한다. [최종 QA](evidence/people/20261017-portraits-integration/final-fix/final-fix-qa-report.md).

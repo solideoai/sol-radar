@@ -1,0 +1,16 @@
+Command: pnpm db:seed
+Frozen HEAD: ca719cfff0040e00ff8a3eac98558861d9cbc394
+API: http://127.0.0.1:57621
+Started: 2026-10-17T03:15:28.108Z
+
+> sol-radar@0.1.0 db:seed /Users/leegwanghui/.codex/worktrees/b3ef/sol-radar
+> node scripts/db-seed.mjs
+
+▶ 시드 넣기 (로컬 Supabase)
+ ELIFECYCLE  Command failed with exit code 1.
+
+❌ 시드를 넣지 못했습니다: 시드 계정 외 회원이 있는 팀의 초기화를 거부합니다.
+   마이그레이션이 밀렸으면 pnpm db:start 로 따라잡은 뒤 다시 실행하세요.
+
+Exit: 1
+Finished: 2026-10-17T03:15:30.695Z

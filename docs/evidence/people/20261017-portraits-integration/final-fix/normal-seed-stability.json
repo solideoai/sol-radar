@@ -1,0 +1,8 @@
+{
+  "authIdsAndEmails": true,
+  "organizationIds": true,
+  "operationalIds": true,
+  "scoringIds": true,
+  "departmentIds": true,
+  "jobTitleIds": true
+}

@@ -10,7 +10,7 @@ updated: 2026-10-17
 
 # 승인 프로필 사진 200장 통합·검증 결과
 
-사진과 명부 통합 및 독립 QA를 완료했다. 이 문서 패키징 뒤 전체 브랜치 최종 리뷰를 진행한다. **공유 DB 적용·main 병합·원격 push는 수행하지 않았다.**
+사진과 명부 통합·독립 QA·전체 브랜치 리뷰 및 지적 수정 검증을 완료했다. 최종 제품 코드 `ca719cf`에서 전체 verify를 새로 통과했다. **공유 DB 적용·main 병합·원격 push는 수행하지 않았다.**
 
 ## 승인과 원본 보존
 
@@ -29,6 +29,7 @@ updated: 2026-10-17
 | 9663 승인 | `8ba281060d1cb27c6e3cb06da22b5d4ab3ca801e` | 해시를 재대조하고 APPROVED/READY200 기록. 원본 바이트 무변경 |
 | 9663 문서 정정/현재 HEAD | `694b6fac5caaaf02681a1af70a4e1d928c8a7cca` | 승인 대기라는 현재 문구만 정정. 문서 2개 외 무변경 |
 | b3ef 실제 통합/검증 코드 | `a05217a05f0fb9adb3553c02978f0e2d531e9610` | 승인 manifest·원본 PNG200·사람/AI 증거 선택 반입, 경로/helper/fallback과 회귀 검사 |
+| b3ef 최종 제품 코드 | `ca719cfff0040e00ff8a3eac98558861d9cbc394` | 시드 팀의 비시드 회원 확인 후 변경 전 거절. 주석 3개 정정. 새 verify350/879 통과 |
 | main | `114a10aa245b76909c4952c3c82a473337ba0cbd` | 읽기 전용 유지 |
 
 주요 변경은 `fixtures/people/solideo.portraits.json`, `web/public/demo/people/SOL-P0001.png`~`SOL-P0200.png`, `web/lib/demo-portrait.ts`, `web/components/people/person-avatar.tsx`, 인접 시험, `scripts/people/approved-portraits.test.mjs`, 미완료 입력을 명시한 `scripts/demo-people.test.mjs`, 승인/검수 증거 및 해당 계획·진행/검증 문서다. [전체 변경 파일 목록](20261017-portraits-integration/changed-files.json)은 명부 worktree의 이전 HEAD `f695ef4`부터의 목록이다. 9663 전체 이력이나 구형 DB·가입 코드는 병합하지 않았다.
@@ -62,7 +63,7 @@ updated: 2026-10-17
 | 가입 부서·직급 | PASS, 실제 가입/메일 확인/재로그인 저장 및 1440·1280 선택·넘침0·pageerror0 |
 | 조직도·운영 명부·직원 상세 제품 표시 | **미구현/미검증**, 해당 제품 route가 빌드에 없음. 준비된 사진/fallback을 화면 연동 완료로 표시하지 않음 |
 | 인증·인가·RLS | PASS, PGlite/RLS 포함 루트349 및 실제 정상 Auth95. 개인 조직 자동 생성 제거/멤버십 정책 회귀 포함 |
-| `pnpm verify` | PASS, 루트349/349·웹879/879·서식/타입/린트/경계/토큰/DB types/프로덕션 빌드 |
+| `pnpm verify` | PASS, 최종 ca719cf에서 루트350/350·웹879/879·서식/타입/린트/경계/토큰/DB types/프로덕션 빌드. 초기 a052 검증은349/879로 보존 |
 | 브라우저 전체 | PASS, 106/106, 사진/fallback4 포함 |
 | G1~G10 전체 | **미구현/미검증**, 현행 지정 시험 부재. G5는 일반 RLS만 통과, 공고/분석 격리 전체 시나리오는 없음 |
 
@@ -91,3 +92,15 @@ updated: 2026-10-17
 4. main 병합과 공유 DB 적용은 각각 사용자 승인을 받는다. 이번 승인 범위에는 둘 다 포함되지 않는다.
 
 전용 테스트 서버/컨테이너9개·볼륨·생성한 시험 세션5개만 정리했다. 초기22개 컨테이너의 ID·이름·상태와 main 파일은 유지됐다([정리 증거](20261017-portraits-integration/final-owned-cleanup-inventory.json)). Worktree·기존 계획·과거 증거는 보존한다.
+
+## 최종 리뷰와 보존 수정 완료
+
+전체 분기점 `f6700e1`→`406549b`를 한 번 검토하여 시드 보존 Important I1과 개인 조직 관련 주석 Minor M1을 발견했다([전체 리뷰 원문](20261017-portraits-integration/final-fix/final-review.md)). 한 차례 수정 커밋 `ca719cf`와 범위 재검토로 **I1·M1 모두 해결, 새 문제 없음**을 확인했다([재검토](20261017-portraits-integration/final-fix/final-fix-review.md)).
+
+시드 팀에 확인된 시험 계정5개 외의 회원이 있으면 초대 수락 복원·작업/초대 삭제 전에 명시적으로 중단한다. 기존 정상 시드2회와 식별자 보존은 유지했다. 새 집중 시험은 RED12/13→GREEN13/13, 정상 훅350/879 통과. 실제 격리 DB에서 비시드 회원·그 회원의 작업·별도 대기 초대를 넣고 실제 seed CLI의 의도한 exit1 거절과 모든 팀 row·멤버십3·작업12·초대2·Auth6/조직 식별자의 동일성을 확인했다. 해당 fixture만 정리해 운영200/평가27/부서48/직급12/Auth5를 복원했다.
+
+최종 ca719cf의 새 전체 verify는 **첫 시도350/350·879/879·빌드 통과**다([독립 최종 QA](20261017-portraits-integration/final-fix/final-fix-qa-report.md), [새 결과](20261017-portraits-integration/final-fix/qa-summary.json)). 이전 Auth95·브라우저106·Next200 GET/디코딩은 **a05217a의 실제 실행**으로 보존하고 재실행했다고 표시하지 않는다. 이후 변경은 시드 보호와 웹 주석3개여서 해당 증거를 재사용했으며 새 시드 경계는 실제 DB로 별도 검증했다. 외부 승인 갤러리도200개의 APPROVED·이름/부서/직급과1440/1280 넘침0·pageerror0을 확인했다([갤러리 확인](20261017-portraits-integration/approved-gallery-browser-proof.json)).
+
+서로 다른 작업자의 자료는 덮어쓰지 않았고 이전 실패·판정은 역사 증거로 남겼다. 최초 QA 뒤 새 소유 probe 사본5개의 서식 때문에 문서 커밋이 한 번 중단된 기록도 보존했다. 실행 원본을 외부 `qa-raw-preformat/`에 먼저 보관하고 사본만 포맷하여 검사 약화 없이 해결했다. 최종 검증 단계에서는 이런 오류나 재시도 없이 통과했다.
+
+최종 테스트 환경도 소유 컨테이너/볼륨만 정리하고 기존22개와 모든 worktree를 보존했다. G1~G10·미출시 화면·부모29건·외부 OAuth 등 위 미검증 경계는 그대로다. [검토 가능한 두 문서 병합 해결안](/Users/leegwanghui/dev/hackathon/sol-radar-inputs/portrait-integration-20261017/prepared-merge-resolution)은 worktree 밖의 준비 자료이며 실제 main에는 적용하지 않았다. main 병합과 공유 DB 적용은 사용자 별도 승인 대기다.

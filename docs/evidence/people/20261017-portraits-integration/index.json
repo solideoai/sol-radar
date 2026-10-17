@@ -1,9 +1,8 @@
 {
   "schemaVersion": 1,
-  "runtimeHead": "a05217a05f0fb9adb3553c02978f0e2d531e9610",
   "approvalCommit": "8ba281060d1cb27c6e3cb06da22b5d4ab3ca801e",
   "assetHead": "694b6fac5caaaf02681a1af70a4e1d928c8a7cca",
-  "scope": "Selected safe independent QA evidence; raw failures retained. No final whole-branch verdict yet.",
+  "scope": "Initial a052 live integration QA plus ca719 preservation fix and fresh full verify; broad review findings closed by one scoped re-review. No merge/push/shared DB application.",
   "excluded": "Private start log and generated Auth states removed; transitional screenshots/probe sources retained only in ignored raw QA workspace; full old audit unchanged.",
   "qaReport": {
     "path": "../20261017-portraits-integration-qa.md",
@@ -251,6 +250,183 @@
       "storedSha256": "ccd5b093d727160d55792cee3cb8a35794e8a24d3a2a59a934606d10a6623481",
       "bytes": 432,
       "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/qa-summary.json",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/qa-summary.json",
+      "sourceSha256": "5a08c5cc8f3fec9046c191fef114a723fb6e583cf10438d52011781e1ee20163",
+      "storedSha256": "5a08c5cc8f3fec9046c191fef114a723fb6e583cf10438d52011781e1ee20163",
+      "bytes": 990,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/verify.log",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/verify.log",
+      "sourceSha256": "8b8aaa0eef1be30e2c8f8aff1515b9e3fa5f6c12f9e43000acf1fc487a36c0fb",
+      "storedSha256": "b99b493c6c048388a971f9815ebdf973ad80808ab11fbfeb2bb70c47f0b4cf4c",
+      "bytes": 45330,
+      "transformation": "CRLF_TO_LF"
+    },
+    {
+      "path": "final-fix/normal-seed-stability.json",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/normal-seed-stability.json",
+      "sourceSha256": "644830f28f37c472cf2c886aee878ebdc1e608b9b10eda4c6bdedec93cd29680",
+      "storedSha256": "644830f28f37c472cf2c886aee878ebdc1e608b9b10eda4c6bdedec93cd29680",
+      "bytes": 154,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/shared-team-refusal-proof.json",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/shared-team-refusal-proof.json",
+      "sourceSha256": "f63b7ded7b485c5b86df8ebad0c259e2ab25c0c981ec88827b65b28b3b6044dd",
+      "storedSha256": "f63b7ded7b485c5b86df8ebad0c259e2ab25c0c981ec88827b65b28b3b6044dd",
+      "bytes": 437,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/fixture-cleanup-proof.json",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/fixture-cleanup-proof.json",
+      "sourceSha256": "f952c06f45adfb6dc610321958da4a6b94c0769821a456019ffeb9ec7a7a6b3c",
+      "storedSha256": "f952c06f45adfb6dc610321958da4a6b94c0769821a456019ffeb9ec7a7a6b3c",
+      "bytes": 107,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/final-live-counts.json",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/final-live-counts.json",
+      "sourceSha256": "f7368d86164d884a09a3534d7a9985b14c08e04eaef5ba2565b22b480bb73df7",
+      "storedSha256": "f7368d86164d884a09a3534d7a9985b14c08e04eaef5ba2565b22b480bb73df7",
+      "bytes": 149,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/final-source-preservation.json",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/final-source-preservation.json",
+      "sourceSha256": "afaebcbe03cc4561f620392abcbd2518bcfd6841c0d768f592f2c9195a950cbc",
+      "storedSha256": "afaebcbe03cc4561f620392abcbd2518bcfd6841c0d768f592f2c9195a950cbc",
+      "bytes": 381,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/final-owned-cleanup.json",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/final-owned-cleanup.json",
+      "sourceSha256": "2b07012ef4eb96737f4ec19794dc6a98fb050b6e070784e767a8582158202a18",
+      "storedSha256": "2b07012ef4eb96737f4ec19794dc6a98fb050b6e070784e767a8582158202a18",
+      "bytes": 3328,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/seed-normal-first.log",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/seed-normal-first.log",
+      "sourceSha256": "51b96931b0704933a6e99728f08d6db2f70c97c90c8806bcf542dc11283ec429",
+      "storedSha256": "51b96931b0704933a6e99728f08d6db2f70c97c90c8806bcf542dc11283ec429",
+      "bytes": 774,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/seed-normal-second.log",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/seed-normal-second.log",
+      "sourceSha256": "9de3f1563f1dc6ae14cd5195d86a0554ac65734df4cd608737763808a6d78ef3",
+      "storedSha256": "9de3f1563f1dc6ae14cd5195d86a0554ac65734df4cd608737763808a6d78ef3",
+      "bytes": 774,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/seed-shared-team-refusal.log",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/seed-shared-team-refusal.log",
+      "sourceSha256": "e05ecf1df2e2b9cd852fe8cd7fedd4879d520c5214b2cf4ecb1ac833e8e84473",
+      "storedSha256": "e05ecf1df2e2b9cd852fe8cd7fedd4879d520c5214b2cf4ecb1ac833e8e84473",
+      "bytes": 582,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/live-preservation.log",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/live-preservation.log",
+      "sourceSha256": "977ba1e80f1fe007e516242d1ab8f261f91101fcfc79d0afc18c0a5389b6533e",
+      "storedSha256": "977ba1e80f1fe007e516242d1ab8f261f91101fcfc79d0afc18c0a5389b6533e",
+      "bytes": 965,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/probe-provenance.json",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-evidence/probe-provenance.json",
+      "sourceSha256": "0d2570dde5354cff1baa8ddd82ca8f13ab87d1516c73d647df802a7f38163f76",
+      "storedSha256": "0d2570dde5354cff1baa8ddd82ca8f13ab87d1516c73d647df802a7f38163f76",
+      "bytes": 490,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/final-review.md",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-review.md",
+      "sourceSha256": "83975b268650b29973e263d9cfafe2bf174d61e7f82b359be5d3ffed5a6ca80f",
+      "storedSha256": "85d27bfd375d2e37dbc25ad1bacbf8fbbf8442066b757616466a6a88b4366556",
+      "bytes": 11547,
+      "transformation": "FRONTMATTER_ONLY"
+    },
+    {
+      "path": "final-fix/final-fix-report.md",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-report.md",
+      "sourceSha256": "6c58417f2602bbb091cbf4466d42d62b9776d4bc91182e850cb0ea58ac5e6bbf",
+      "storedSha256": "7f9e43da3daf2f8a0722862b1b1bcda45753671e194f93ac856567ac4c48ed6f",
+      "bytes": 7181,
+      "transformation": "FRONTMATTER_ONLY"
+    },
+    {
+      "path": "final-fix/final-fix-review.md",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-review.md",
+      "sourceSha256": "8d0f5e5bf072e9b2faed3f0b5c9f3cab0d71b24a191b4156719d035f481358d1",
+      "storedSha256": "151ba7029da54fb8179fcbdaa6d76d78799ef18d0badab7307d4a3eee7fbf4c6",
+      "bytes": 4866,
+      "transformation": "FRONTMATTER_ONLY"
+    },
+    {
+      "path": "final-fix/final-fix-qa-report.md",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-qa-report.md",
+      "sourceSha256": "e877adcf2069c709425763de8cf31e9577b68484e32d706a02b89669b1f15fe7",
+      "storedSha256": "0090c8e23fbcbf929bba87b021d8c240e795f1534ec1e87d6b0c2c2884e5c19b",
+      "bytes": 8286,
+      "transformation": "FRONTMATTER_ONLY"
+    },
+    {
+      "path": "final-fix/final-fix-red-corrected.log",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-red-corrected.log",
+      "sourceSha256": "195ed29e7b188222dc453521b3832c074c015ce5c8a98b33294f92b6893cf11b",
+      "storedSha256": "195ed29e7b188222dc453521b3832c074c015ce5c8a98b33294f92b6893cf11b",
+      "bytes": 12884,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/final-fix-green.log",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-green.log",
+      "sourceSha256": "7520d1f7bd60a42d3f38f91b2bd81702c270c9a43a6aaefabd2f92f1fe191efb",
+      "storedSha256": "7520d1f7bd60a42d3f38f91b2bd81702c270c9a43a6aaefabd2f92f1fe191efb",
+      "bytes": 1652,
+      "transformation": "NONE"
+    },
+    {
+      "path": "final-fix/final-fix-commit-hooks.log",
+      "sourcePath": ".superpowers/sdd/2026-10-17-approved-portraits-integration/final-fix-commit-hooks.log",
+      "sourceSha256": "6866adedb45bef9d6eca030229365d4dd2b18a5e4c81831f01ef96f82a88f9e5",
+      "storedSha256": "6866adedb45bef9d6eca030229365d4dd2b18a5e4c81831f01ef96f82a88f9e5",
+      "bytes": 43146,
+      "transformation": "NONE"
+    },
+    {
+      "path": "approved-gallery-browser-proof.json",
+      "sourcePath": "/Users/leegwanghui/dev/hackathon/sol-radar-inputs/portrait-integration-20261017/approved-gallery-browser-proof.json",
+      "sourceSha256": "28108c64f40f8294813c7f9d82d8ed60c142925bd55db52261787227bb93d692",
+      "storedSha256": "28108c64f40f8294813c7f9d82d8ed60c142925bd55db52261787227bb93d692",
+      "bytes": 496,
+      "transformation": "NONE"
     }
-  ]
+  ],
+  "initialRuntimeHead": "a05217a05f0fb9adb3553c02978f0e2d531e9610",
+  "verifiedRuntimeHead": "ca719cfff0040e00ff8a3eac98558861d9cbc394",
+  "finalReview": {
+    "initial": "final-fix/final-review.md",
+    "fix": "ca719cfff0040e00ff8a3eac98558861d9cbc394",
+    "scopedReview": "final-fix/final-fix-review.md",
+    "result": "I1_AND_M1_ADDRESSED_NO_NEW_BREAKAGE",
+    "qa": "final-fix/final-fix-qa-report.md"
+  }
 }

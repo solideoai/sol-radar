@@ -1,0 +1,358 @@
+▶ 시드 주소 검사
+  ✔ 로컬 주소는 통과시킨다 (0.597958ms)
+  ✔ 클라우드 주소·빈 값은 거부한다 (0.252042ms)
+✔ 시드 주소 검사 (1.473333ms)
+▶ 시드 날짜
+  ✔ 서울 날짜로 가르고 달을 넘겨 더한다 (11.651167ms)
+  ✔ n 일 전의 시각은 자정 직후·직전에도 그 서울 날짜 안이고, 오늘이면 지금보다 앞이다 (1.004917ms)
+✔ 시드 날짜 (12.748791ms)
+▶ 시드 계획
+  ✔ 이메일과 작업 제목이 겹치지 않는다 (0.119042ms)
+  ✔ 운영자 계정은 seed-admin(정운영)이고 팀 작업에 나오지 않는다 (0.758291ms)
+  ✔ 계정은 소유자·멤버·조직 밖 사람·초대받은 사람·운영자 순서로 만든다 (0.071292ms)
+  ✔ 만든 날·완료한 날은 최근 14일 안이고, 완료는 만든 뒤다 (0.626584ms)
+  ✔ 대시보드 수치는 어느 요일 어느 시각에 돌려도 열린 8 · 기한 지남 2 · 이번 주 완료 2 · 내 담당 3 이다 (15.638666ms)
+✔ 시드 계획 (17.378917ms)
+✔ 개인 조직 기존: 재시드는 다섯 계정·팀을 보존하고 개인 공간을 만들지 않는다 (32.071166ms)
+✔ 개인 조직 없음: 재시드는 다섯 계정·팀을 보존하고 개인 공간을 만들지 않는다 (4.931166ms)
+✔ 수락된 시드 초대는 두 번 재시드해도 미수락 상태로 복원하고 다른 멤버십을 보존한다 (15.20925ms)
+✖ 비시드 회원이 있는 팀은 초대 수락 복원 전 거절하고 모든 팀 데이터를 보존한다 (10.451875ms)
+ℹ tests 13
+ℹ suites 3
+ℹ pass 12
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 183.065333
+
+✖ failing tests:
+
+test at scripts/db-seed.test.mjs:220:3
+✖ 비시드 회원이 있는 팀은 초대 수락 복원 전 거절하고 모든 팀 데이터를 보존한다 (10.451875ms)
+  AssertionError [ERR_ASSERTION]: 거절 전 팀 데이터를 변경하면 안 된다
+  + actual - expected
+  
+  + [
+  +   {
+  +     body: null,
+  +     method: 'DELETE',
+  +     path: '/rest/v1/memberships',
+  +     search: 'org_id=eq.template-team&user_id=eq.00000000-0000-0000-0000-000000000004&org_role=eq.member'
+  +   },
+  +   {
+  +     body: null,
+  +     method: 'DELETE',
+  +     path: '/rest/v1/tasks',
+  +     search: 'org_id=eq.template-team'
+  +   },
+  +   {
+  +     body: null,
+  +     method: 'DELETE',
+  +     path: '/rest/v1/invitations',
+  +     search: 'org_id=eq.template-team'
+  +   },
+  +   {
+  +     body: {
+  +       email: 'seed-invitee@example.test',
+  +       org_id: 'template-team',
+  +       org_role: 'member'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/invitations',
+  +     search: ''
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000001',
+  +       due_date: '2026-10-14',
+  +       org_id: 'template-team',
+  +       status: 'todo',
+  +       title: '분기 보고서 초안'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: null,
+  +       created_at: '2026-10-04T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-1'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000002',
+  +       due_date: '2026-10-16',
+  +       org_id: 'template-team',
+  +       status: 'in_progress',
+  +       title: '고객 인터뷰 정리'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: null,
+  +       created_at: '2026-10-07T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-2'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000001',
+  +       due_date: '2026-10-17',
+  +       org_id: 'template-team',
+  +       status: 'in_progress',
+  +       title: '릴리스 노트 작성'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: null,
+  +       created_at: '2026-10-10T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-3'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000001',
+  +       due_date: '2026-10-19',
+  +       org_id: 'template-team',
+  +       status: 'todo',
+  +       title: '디자인 검토 회의'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: null,
+  +       created_at: '2026-10-12T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-4'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000002',
+  +       due_date: '2026-10-22',
+  +       org_id: 'template-team',
+  +       status: 'todo',
+  +       title: '온보딩 문서 갱신'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: null,
+  +       created_at: '2026-10-13T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-5'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: null,
+  +       due_date: null,
+  +       org_id: 'template-team',
+  +       status: 'todo',
+  +       title: '버그 분류'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: null,
+  +       created_at: '2026-10-14T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-6'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: null,
+  +       due_date: '2026-10-27',
+  +       org_id: 'template-team',
+  +       status: 'in_progress',
+  +       title: 'API 응답 시간 측정'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: null,
+  +       created_at: '2026-10-15T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-7'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000002',
+  +       due_date: null,
+  +       org_id: 'template-team',
+  +       status: 'todo',
+  +       title: '랜딩 문구 다듬기'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: null,
+  +       created_at: '2026-10-16T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-8'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000002',
+  +       due_date: '2026-10-15',
+  +       org_id: 'template-team',
+  +       status: 'todo',
+  +       title: '로그인 오류 수정'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       status: 'done'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-9'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: '2026-10-16T20:55:53.992Z',
+  +       created_at: '2026-10-05T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-9'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000001',
+  +       due_date: null,
+  +       org_id: 'template-team',
+  +       status: 'todo',
+  +       title: '팀 회의록 공유'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       status: 'done'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-10'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: '2026-10-16T20:55:53.992Z',
+  +       created_at: '2026-10-08T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-10'
+  +   },
+  +   {
+  +     body: {
+  +       assignee_id: '00000000-0000-0000-0000-000000000001',
+  +       due_date: null,
+  +       org_id: 'template-team',
+  +       status: 'todo',
+  +       title: '지난 스프린트 회고'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       status: 'done'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-11'
+  +   },
+  +   {
+  +     body: {
+  +       completed_at: '2026-10-06T20:55:53.992Z',
+  +       created_at: '2026-10-03T20:55:53.992Z'
+  +     },
+  +     method: 'PATCH',
+  +     path: '/rest/v1/tasks',
+  +     search: 'id=eq.task-11'
+  +   },
+  +   {
+  +     body: null,
+  +     method: 'DELETE',
+  +     path: '/rest/v1/tasks',
+  +     search: 'org_id=eq.personal-org'
+  +   },
+  +   {
+  +     body: {
+  +       org_id: 'personal-org',
+  +       status: 'todo',
+  +       title: '개인 메모 정리'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   },
+  +   {
+  +     body: {
+  +       org_id: 'personal-org',
+  +       status: 'in_progress',
+  +       title: '읽을 글 고르기'
+  +     },
+  +     method: 'POST',
+  +     path: '/rest/v1/tasks',
+  +     search: 'select=id'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///Users/leegwanghui/.codex/worktrees/b3ef/sol-radar/scripts/db-seed.test.mjs:360:16)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { path: '/rest/v1/memberships', search: 'org_id=eq.template-team&user_id=eq.00000000-0000-0000-0000-000000000004&org_role=eq.member', method: 'DELETE', body: null }, { path: '/rest/v1/tasks', search: 'org_id=eq.template-team', method: 'DELETE', body: null }, { path: '/rest/v1/invitations', search: 'org_id=eq.template-team', method: 'DELETE', body: null }, { path: '/rest/v1/invitations', search: '', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-1', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-2', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-3', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-4', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-5', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-6', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-7', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-8', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-9', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-9', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-10', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-10', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-11', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'id=eq.task-11', method: 'PATCH', body: [Object] }, { path: '/rest/v1/tasks', search: 'org_id=eq.personal-org', method: 'DELETE', body: null }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] }, { path: '/rest/v1/tasks', search: 'select=id', method: 'POST', body: [Object] } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
