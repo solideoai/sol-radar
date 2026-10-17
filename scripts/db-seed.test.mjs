@@ -216,90 +216,205 @@ for (const hasPersonal of [true, false]) {
   });
 }
 
-it("수락된 시드 초대는 두 번 재시드해도 미수락 상태로 복원하고 다른 멤버십을 보존한다", async (t) => {
-  const { seed, SEED_TEAM } = await import("./db-seed.mjs");
-  const existing = Object.values(SEED_ACCOUNTS).map((account, index) => ({
-    id: `00000000-0000-0000-0000-00000000000${index + 1}`,
-    email: account.email,
-  }));
-  const [owner, member, outsider, invitee] = existing;
-  const preservedMemberships = [
-    { org_id: "template-team", user_id: owner.id, org_role: "owner" },
-    { org_id: "template-team", user_id: member.id, org_role: "member" },
-    { org_id: "template-team", user_id: outsider.id, org_role: "member" },
-    { org_id: "other-team", user_id: invitee.id, org_role: "member" },
-    { org_id: "owned-team", user_id: invitee.id, org_role: "owner" },
-  ];
-  let memberships = [
-    ...preservedMemberships,
-    { org_id: "template-team", user_id: invitee.id, org_role: "member" },
-  ];
-  let invitations = [];
-  const matchesFilters = (row, searchParams) =>
-    [...searchParams].every(([column, filter]) =>
-      column === "select" ? true : filter === `eq.${row[column]}`,
-    );
-  t.mock.method(globalThis, "fetch", async (url, init) => {
-    const { pathname: path, searchParams } = new URL(url);
-    const body = init.body ? JSON.parse(init.body) : null;
-    let data = null;
-    if (path === "/auth/v1/admin/users" && init.method === "GET") data = { users: existing };
-    else if (path.startsWith("/auth/v1/admin/users/") && init.method === "PUT")
-      data = existing.find((user) => path.endsWith(user.id));
-    else if (path === "/auth/v1/token") {
-      const account = existing.find((user) => user.email === body.email);
-      data = { access_token: `session-${account.id}` };
-    } else if (path === "/rest/v1/profiles" && init.method === "PATCH") data = [{ is_admin: true }];
-    else if (path === "/rest/v1/organizations" && init.method === "GET")
-      data = [
-        {
-          id: searchParams.has("personal_owner_id") ? "personal-org" : "template-team",
-          slug: SEED_TEAM.slug,
-        },
+for (const sharedWithNonSeed of [false, true]) {
+  it(
+    sharedWithNonSeed
+      ? "비시드 회원이 있는 팀은 초대 수락 복원 전 거절하고 모든 팀 데이터를 보존한다"
+      : "수락된 시드 초대는 두 번 재시드해도 미수락 상태로 복원하고 다른 멤버십을 보존한다",
+    async (t) => {
+      const { seed, SEED_TEAM } = await import("./db-seed.mjs");
+      const existing = Object.values(SEED_ACCOUNTS).map((account, index) => ({
+        id: `00000000-0000-0000-0000-00000000000${index + 1}`,
+        email: account.email,
+      }));
+      const [owner, member, outsider, invitee] = existing;
+      const preservedMemberships = [
+        { org_id: "template-team", user_id: owner.id, org_role: "owner" },
+        { org_id: "template-team", user_id: member.id, org_role: "member" },
+        { org_id: "template-team", user_id: outsider.id, org_role: "member" },
+        { org_id: "other-team", user_id: invitee.id, org_role: "member" },
+        { org_id: "owned-team", user_id: invitee.id, org_role: "owner" },
       ];
-    else if (path === "/rest/v1/memberships" && init.method === "GET")
-      data = memberships.filter((row) => matchesFilters(row, searchParams));
-    else if (path === "/rest/v1/memberships" && init.method === "DELETE") {
-      assert.equal(init.headers.apikey, "local-test-anon");
-      assert.equal(init.headers.Authorization, `Bearer session-${owner.id}`);
-      memberships = memberships.filter((row) => !matchesFilters(row, searchParams));
-    } else if (path === "/rest/v1/invitations" && init.method === "DELETE") {
-      invitations = invitations.filter((row) => !matchesFilters(row, searchParams));
-    } else if (path === "/rest/v1/invitations" && init.method === "POST") {
-      const invited = existing.find((user) => user.email === body.email);
-      if (memberships.some((row) => row.org_id === body.org_id && row.user_id === invited.id))
-        return new Response(JSON.stringify({ message: "이미 멤버입니다" }), { status: 400 });
-      invitations.push(body);
-    } else if (path === "/rest/v1/tasks" && init.method === "POST") data = [{ id: "task-id" }];
-    else if (
-      !(path === "/rest/v1/tasks" && ["PATCH", "DELETE"].includes(init.method)) &&
-      !(
-        ["organizations", "departments", "job_titles", "team_members", "team_member_scoring"].some(
-          (table) => path === `/rest/v1/${table}`,
-        ) && init.method === "POST"
-      )
-    )
-      throw new Error(`Unexpected fixture operation: ${init.method} ${path}`);
-    return new Response(JSON.stringify(data), { status: 200 });
-  });
-  const runSeed = () =>
-    seed({
-      apiUrl: "http://127.0.0.1:54321",
-      anonKey: "local-test-anon",
-      serviceKey: "local-test-service",
-    });
-  for (let iteration = 0; iteration < 2; iteration++) {
-    await runSeed();
-    assert.deepEqual(memberships, preservedMemberships);
-    assert.deepEqual(invitations, [
-      { org_id: "template-team", email: invitee.email, org_role: "member" },
-    ]);
-  }
-  // 승격된 소유자를 지워 초기 상태로 위장하지 않는다. 기존 초대 검증이 실패해야 한다.
-  memberships.push({ org_id: "template-team", user_id: invitee.id, org_role: "owner" });
-  await assert.rejects(runSeed(), /이미 멤버입니다/);
-  assert.deepEqual(memberships, [
-    ...preservedMemberships,
-    { org_id: "template-team", user_id: invitee.id, org_role: "owner" },
-  ]);
-});
+      let memberships = [
+        ...preservedMemberships,
+        { org_id: "template-team", user_id: invitee.id, org_role: "member" },
+      ];
+      const nonSeedUser = { id: "unrelated-user", email: "private@example.test" };
+      const calls = [];
+      const organizations = [{ id: "template-team", slug: SEED_TEAM.slug }];
+      let tasks = [];
+      let invitations = [];
+      if (sharedWithNonSeed) {
+        existing.push(nonSeedUser);
+        memberships.push({
+          org_id: "template-team",
+          user_id: nonSeedUser.id,
+          org_role: "member",
+          created_at: "2026-09-10T03:00:00Z",
+        });
+        tasks.push({
+          id: "unrelated-task",
+          org_id: "template-team",
+          created_by: nonSeedUser.id,
+          title: "보존할 작업",
+          status: "in_progress",
+          assignee_id: nonSeedUser.id,
+          due_date: "2026-10-21",
+          created_at: "2026-09-11T04:00:00Z",
+          completed_at: null,
+        });
+        invitations.push({
+          id: "unrelated-invitation",
+          org_id: "template-team",
+          email: "another-private@example.test",
+          org_role: "member",
+          invited_by: nonSeedUser.id,
+          accepted_at: null,
+          expires_at: "2026-10-31T00:00:00Z",
+          created_at: "2026-10-16T05:00:00Z",
+        });
+      }
+      const before = structuredClone({ existing, organizations, memberships, tasks, invitations });
+      const matchesFilters = (row, searchParams) =>
+        [...searchParams].every(([column, filter]) =>
+          column === "select" ? true : filter === `eq.${row[column]}`,
+        );
+      t.mock.method(globalThis, "fetch", async (url, init) => {
+        const { pathname: path, searchParams } = new URL(url);
+        const body = init.body ? JSON.parse(init.body) : null;
+        calls.push({ path, search: searchParams.toString(), method: init.method, body });
+        let data = null;
+        if (path === "/auth/v1/admin/users" && init.method === "GET") data = { users: existing };
+        else if (path.startsWith("/auth/v1/admin/users/") && init.method === "PUT")
+          data = existing.find((user) => path.endsWith(user.id));
+        else if (path === "/auth/v1/token") {
+          const account = existing.find((user) => user.email === body.email);
+          data = { access_token: `session-${account.id}` };
+        } else if (path === "/rest/v1/profiles" && init.method === "PATCH")
+          data = [{ is_admin: true }];
+        else if (path === "/rest/v1/organizations" && init.method === "GET")
+          data = [
+            {
+              id: searchParams.has("personal_owner_id") ? "personal-org" : "template-team",
+              slug: SEED_TEAM.slug,
+            },
+          ];
+        else if (path === "/rest/v1/memberships" && init.method === "GET") {
+          assert.equal(searchParams.get("select"), "user_id");
+          assert.equal(searchParams.get("org_id"), "eq.template-team");
+          if (searchParams.has("user_id")) {
+            assert.equal(searchParams.size, 3);
+            assert.equal(searchParams.get("user_id"), `eq.${member.id}`);
+            assert.equal(init.headers.apikey, "local-test-anon");
+            assert.equal(init.headers.Authorization, `Bearer session-${member.id}`);
+          } else {
+            assert.equal(searchParams.size, 2);
+            assert.equal(init.headers.apikey, "local-test-service");
+            assert.equal(init.headers.Authorization, "Bearer local-test-service");
+          }
+          data = memberships.filter((row) => matchesFilters(row, searchParams));
+        } else if (path === "/rest/v1/memberships" && init.method === "DELETE") {
+          assert.equal(init.headers.apikey, "local-test-anon");
+          assert.equal(init.headers.Authorization, `Bearer session-${owner.id}`);
+          memberships = memberships.filter((row) => !matchesFilters(row, searchParams));
+        } else if (path === "/rest/v1/invitations" && init.method === "DELETE") {
+          invitations = invitations.filter((row) => !matchesFilters(row, searchParams));
+        } else if (path === "/rest/v1/invitations" && init.method === "POST") {
+          const invited = existing.find((user) => user.email === body.email);
+          if (memberships.some((row) => row.org_id === body.org_id && row.user_id === invited.id))
+            return new Response(JSON.stringify({ message: "이미 멤버입니다" }), { status: 400 });
+          invitations.push(body);
+        } else if (path === "/rest/v1/tasks" && init.method === "POST") {
+          const task = { id: `task-${tasks.length + 1}`, ...body };
+          tasks.push(task);
+          data = [{ id: task.id }];
+        } else if (path === "/rest/v1/tasks" && init.method === "DELETE") {
+          tasks = tasks.filter((row) => !matchesFilters(row, searchParams));
+        } else if (path === "/rest/v1/tasks" && init.method === "PATCH") {
+          tasks = tasks.map((row) =>
+            matchesFilters(row, searchParams) ? { ...row, ...body } : row,
+          );
+        } else if (!(
+          [
+            "organizations",
+            "departments",
+            "job_titles",
+            "team_members",
+            "team_member_scoring",
+          ].some((table) => path === `/rest/v1/${table}`) && init.method === "POST"
+        ))
+          throw new Error(`Unexpected fixture operation: ${init.method} ${path}`);
+        return new Response(JSON.stringify(data), { status: 200 });
+      });
+      const runSeed = () =>
+        seed({
+          apiUrl: "http://127.0.0.1:54321",
+          anonKey: "local-test-anon",
+          serviceKey: "local-test-service",
+        });
+      if (sharedWithNonSeed) {
+        const outcome = await runSeed().then(
+          () => ({ status: "fulfilled" }),
+          (error) => ({ status: "rejected", message: error.message }),
+        );
+        const teamMutations = calls.filter(
+          (call) =>
+            ["DELETE", "POST", "PATCH"].includes(call.method) &&
+            (["memberships", "tasks", "invitations"].some(
+              (table) => call.path === `/rest/v1/${table}`,
+            ) ||
+              (call.path === "/rest/v1/organizations" &&
+                (!Array.isArray(call.body) ||
+                  call.body.some(
+                    (row) => row.id === "template-team" || row.slug === SEED_TEAM.slug,
+                  )))),
+        );
+        assert.deepEqual(teamMutations, [], "거절 전 팀 데이터를 변경하면 안 된다");
+        assert.deepEqual({ existing, organizations, memberships, tasks, invitations }, before);
+        assert.equal(outcome.status, "rejected", "공유 팀의 재시드는 명시적으로 거절해야 한다");
+        assert.match(outcome.message, /시드.*팀.*초기화.*거부/);
+        for (const privateValue of [
+          nonSeedUser.id,
+          nonSeedUser.email,
+          "another-private@example.test",
+        ])
+          assert.ok(!outcome.message.includes(privateValue));
+        assert.ok(
+          !calls.some(
+            (call) =>
+              call.path.startsWith("/auth/v1/admin/users") &&
+              ["POST", "DELETE"].includes(call.method),
+          ),
+        );
+        return;
+      }
+      for (let iteration = 0; iteration < 2; iteration++) {
+        const callStart = calls.length;
+        await runSeed();
+        const iterationCalls = calls.slice(callStart);
+        const ownershipRead = iterationCalls.findIndex(
+          (call) =>
+            call.path === "/rest/v1/memberships" &&
+            call.method === "GET" &&
+            call.search === "select=user_id&org_id=eq.template-team",
+        );
+        const firstReset = iterationCalls.findIndex((call) => call.method === "DELETE");
+        assert.ok(ownershipRead >= 0 && ownershipRead < firstReset);
+        assert.equal(tasks.filter((task) => task.org_id === "template-team").length, 11);
+        assert.deepEqual(existing, before.existing);
+        assert.deepEqual(organizations, before.organizations);
+        assert.deepEqual(memberships, preservedMemberships);
+        assert.deepEqual(invitations, [
+          { org_id: "template-team", email: invitee.email, org_role: "member" },
+        ]);
+      }
+      // 승격된 소유자를 지워 초기 상태로 위장하지 않는다. 기존 초대 검증이 실패해야 한다.
+      memberships.push({ org_id: "template-team", user_id: invitee.id, org_role: "owner" });
+      await assert.rejects(runSeed(), /이미 멤버입니다/);
+      assert.deepEqual(memberships, [
+        ...preservedMemberships,
+        { org_id: "template-team", user_id: invitee.id, org_role: "owner" },
+      ]);
+    },
+  );
+}

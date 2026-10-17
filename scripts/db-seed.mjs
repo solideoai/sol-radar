@@ -311,6 +311,16 @@ export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) =>
     owner.as,
   );
   const asService = { apiKey: serviceKey };
+  // slug만으로 팀의 소유권을 판단하지 않는다. 비시드 회원이 있으면 초대 수락 복원도 하지 않는다.
+  const teamMemberships = await call(
+    "GET",
+    `/rest/v1/memberships?select=user_id&org_id=eq.${team.id}`,
+    asService,
+  );
+  const seedUserIds = new Set(Object.values(people).map((person) => person.id));
+  if (teamMemberships.some((membership) => !seedUserIds.has(membership.user_id))) {
+    throw new Error("시드 계정 외 회원이 있는 팀의 초기화를 거부합니다.");
+  }
   // 초대 수락 E2E가 남긴 이 연결만 초기화한다. owner 승격·다른 조직/사용자는 보존한다.
   await call(
     "DELETE",

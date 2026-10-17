@@ -16,7 +16,7 @@ const SIGN_UP_LABELS = {
   naver: "네이버로 간편가입",
 };
 
-// 가입하면 DB 트리거(handle_new_user)가 profiles 행과 개인 조직을 만든다. 화면은 행을 만들지 않는다.
+// 가입하면 DB 트리거(handle_new_user)가 profiles 행만 만든다. 업무 조직은 가입 시 만들지 않는다.
 export default async function SignUpPage() {
   await connection();
   const me = await getMyProfile();

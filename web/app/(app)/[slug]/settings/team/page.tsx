@@ -20,7 +20,7 @@ export default async function TeamSettingsPage({ params }: PageProps<"/[slug]/se
   );
   if (current.isPersonal) notFound();
   const isOwner = current.myRole === "owner";
-  // 지운 뒤에는 개인 조직으로 간다. 가입하면 생기므로 보통 있고, 없으면 옛 주소가 개인 조직을 찾아 보낸다.
+  // 지운 뒤에는 공통 진입점에서 남은 업무 조직 또는 조직 상태 화면으로 보낸다.
   const homeHref = "/dashboard";
   // 띄어쓰기 없는 긴 이름(40자)도 좁은 폭에서 줄을 바꾼다(본문은 break-keep 이라 그대로면 가로로 넘친다).
   const teamName = <span className="wrap-anywhere">{current.name}</span>;

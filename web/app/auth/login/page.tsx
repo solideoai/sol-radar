@@ -29,7 +29,7 @@ export default async function LoginPage({
   // 로그인 뒤 갈 곳(?next=). 사이트 안 경로만 받고, 계정 화면(/auth/…)으로는 되돌리지 않는다(돌고 돈다).
   const nextPath = rawNext === undefined ? null : safeEmploymentNext(rawNext);
   const next = nextPath && !nextPath.startsWith("/auth/") ? nextPath : null;
-  // 로그인 직후(폼이 화면을 다시 그린다)와 메일 확인 링크(/auth/confirm)로 온 사람도 여기를 거쳐 개인 조직으로 간다.
+  // 로그인 직후와 메일 확인 뒤에도 프로필 완성을 확인하고 현재 업무 조직 또는 조직 상태 화면으로 보낸다.
   if (me.status === "ready") {
     if (!me.profile.profileComplete) redirect(completionPath(next ?? undefined));
     const organization = await getCurrentOrganization().catch(() => null);
