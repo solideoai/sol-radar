@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "sol-run-modes/v1",
+  "default": "mock",
+  "modes": {
+    "live": {
+      "DEMO_MODE": ["false"],
+      "AI_PROVIDER": ["local", "hosted"],
+      "KEV_ENABLED": ["true"],
+      "forbidden": { "AI_FALLBACK_TO_MOCK": "true", "KEV_ALLOW_KO_STATE": "true" },
+      "requiredSecrets": [
+        "G2B_BID_NOTICE_SERVICE_KEY",
+        "G2B_PRE_SPEC_SERVICE_KEY",
+        "G2B_ORDER_PLAN_SERVICE_KEY",
+        "G2B_INDUSTRY_MASTER_SERVICE_KEY"
+      ]
+    },
+    "fixture": {
+      "DEMO_MODE": ["true"],
+      "AI_PROVIDER": ["local", "hosted"],
+      "KEV_ENABLED": ["true"],
+      "forbidden": {},
+      "requiredSecrets": []
+    },
+    "mock": {
+      "DEMO_MODE": ["true"],
+      "AI_PROVIDER": ["mock"],
+      "KEV_ENABLED": ["true"],
+      "forbidden": {},
+      "requiredSecrets": []
+    }
+  },
+  "hostedApproval": { "provider": "hosted", "key": "AI_HOSTED_APPROVED", "value": "true" }
+}

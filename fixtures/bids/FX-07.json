@@ -1,0 +1,48 @@
+{
+  "fixtureId": "FX-07",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0007",
+      "planRef": null,
+      "title": "한국도로공사 교통정보 데이터플랫폼 고도화 (가상)",
+      "agency": "한국도로공사",
+      "budgetKrw": "1800000000",
+      "noticeDate": "-4d",
+      "deadlineAt": "+18d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-07",
+      "content": "한국도로공사가 교통정보 데이터플랫폼 고도화 사업의 제안사를 모집한다. 사업 분야는 데이터 플랫폼이며 사업예산은 18억원이다. 필수 기술은 Hadoop, Spark 이다. 우대 기술은 PostgreSQL, Airflow 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-07-rfp.pdf"
+        }
+      ]
+    },
+    {
+      "amendmentNo": "02",
+      "ingestBatch": "LIVE",
+      "noticeId": "DEMO-2026-0007",
+      "planRef": null,
+      "title": "한국도로공사 교통정보 데이터플랫폼 고도화 (가상)",
+      "agency": "한국도로공사",
+      "budgetKrw": "2160000000",
+      "noticeDate": "-4d",
+      "deadlineAt": "+18d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-07",
+      "content": "한국도로공사가 교통정보 데이터플랫폼 고도화 사업의 제안사를 모집한다. 사업 분야는 데이터 플랫폼이며 사업예산은 21.6억원이다. 필수 기술은 Hadoop, Spark, Kubernetes 이다. 우대 기술은 PostgreSQL, Airflow 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다. 정정공고: 사업예산을 21.6억원으로 증액하고 필수 기술에 Kubernetes 를 추가한다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-07-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

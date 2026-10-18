@@ -22,6 +22,8 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 next-env.d.ts
+# Python gateway 의 가상환경 — uv 가 만든다
+/services/ai/.venv/
 
 # 락파일은 pnpm 이 쓴다
 pnpm-lock.yaml

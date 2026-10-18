@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "sol-golden/v0.1",
+  "fixtureId": "FX-03",
+  "calculationDate": "2026-10-16",
+  "factors": [
+    {
+      "factor": "skillMatch",
+      "normalized": 0.667,
+      "points": 20,
+      "maxPoints": 30
+    },
+    {
+      "factor": "pastPerformance",
+      "normalized": 0.487,
+      "points": 12.2,
+      "maxPoints": 25
+    },
+    {
+      "factor": "staffAvailability",
+      "normalized": 1,
+      "points": 20,
+      "maxPoints": 20
+    },
+    {
+      "factor": "scaleFit",
+      "normalized": 0.6,
+      "points": 9,
+      "maxPoints": 15
+    },
+    {
+      "factor": "strategicPreference",
+      "normalized": 0.7,
+      "points": 7,
+      "maxPoints": 10
+    }
+  ],
+  "total": 68.2,
+  "score": 68,
+  "recommendation": "NO_BID",
+  "reviewFlags": ["MODEL_RULE_DISAGREEMENT"]
+}

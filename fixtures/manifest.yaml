@@ -1,0 +1,108 @@
+schemaVersion: sol-fixtures/v1.0
+calculationDate: "2026-10-16"
+batches:
+  SEED:
+    [
+      FX-01,
+      FX-02,
+      FX-03,
+      FX-04,
+      FX-05,
+      FX-06,
+      FX-07,
+      FX-08,
+      FX-09,
+      FX-10,
+      FX-11,
+      FX-12,
+      FX-13,
+      FX-14,
+      FX-15,
+      FX-16,
+      FX-17,
+      FX-18,
+      FX-19,
+      FX-20,
+    ]
+  LIVE: [FX-06, FX-07, FX-08, FX-09, FX-10]
+fixtures:
+  - id: FX-01
+    stage: NOTICE
+    tags: [normal, G5, G6, G8, S3, S6, S7]
+    expected: { outcome: BID, designScore: 94 }
+  - id: FX-02
+    stage: NOTICE
+    tags: [normal, S4]
+    expected: { outcome: WATCH, designScore: 72 }
+  - id: FX-03
+    stage: NOTICE
+    tags: [normal, G3, S3, mandatory-unmet, kev-disagreement]
+    expected: { outcome: NO_BID, designScore: 68 }
+  - id: FX-04
+    stage: NOTICE
+    tags: [normal, G4, no-attachment, no-qualification-text]
+    expected: { outcome: WATCH, designScore: null }
+  - id: FX-05
+    stage: NOTICE
+    tags: [normal, G4, attachment-parse-failed]
+    expected: { outcome: WATCH, designScore: null }
+  - id: FX-06
+    stage: NOTICE
+    tags: [normal, G2, S5, deadline-change]
+    expected: { outcome: BID, designScore: 78 }
+  - id: FX-07
+    stage: NOTICE
+    tags: [normal, G2, S5, r1-WATCH-68, budget-change, requirement-added]
+    expected: { outcome: BID, designScore: 76 }
+  - id: FX-08
+    stage: NOTICE
+    tags: [normal, S5, cancelled]
+    expected: { outcome: CANCELLED, designScore: null }
+  - id: FX-09
+    stage: NOTICE
+    tags: [duplicate-delivery, G1, S5]
+    expected: { outcome: WATCH, designScore: null }
+  - id: FX-10
+    stage: NOTICE
+    tags: [normal, G1, re-notice]
+    expected: { outcome: WATCH, designScore: null }
+  - id: FX-11
+    stage: NOTICE
+    tags: [normal, missing-budget, missing-deadline]
+    expected: { outcome: WATCH, designScore: null }
+  - id: FX-12
+    stage: NOTICE
+    tags: [normal, S2, title-missing, quarantine]
+    expected: { outcome: QUARANTINED, designScore: null }
+  - id: FX-13
+    stage: NOTICE
+    tags: [normal, citation-mismatch-1, budget-text]
+    expected: { outcome: WATCH, designScore: null }
+  - id: FX-14
+    stage: NOTICE
+    tags: [normal, S2, deadline-soon, timezone]
+    expected: { outcome: WATCH, designScore: null }
+  - id: FX-15
+    stage: NOTICE
+    tags: [normal, scale-exceeded]
+    expected: { outcome: WATCH, designScore: 58 }
+  - id: FX-16
+    stage: NOTICE
+    tags: [normal, G3, excluded-domain, mandatory-unmet, kev-agreement]
+    expected: { outcome: NO_BID, designScore: null }
+  - id: FX-17
+    stage: PLAN
+    tags: [plan, early-track, S-stage-timeline]
+    expected: { outcome: EARLY_TRACK, designScore: null }
+  - id: FX-18
+    stage: PRE_SPEC
+    tags: [pre-spec, plan-link, S-stage-timeline]
+    expected: { outcome: BID, designScore: 82 }
+  - id: FX-19
+    stage: PRE_SPEC
+    tags: [pre-spec, no-plan-ref, similar-title]
+    expected: { outcome: WATCH, designScore: null }
+  - id: FX-20
+    stage: PLAN
+    tags: [plan, early-track, G7, rate-limit]
+    expected: { outcome: EARLY_TRACK, designScore: null }

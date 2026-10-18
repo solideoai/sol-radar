@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 10. Docker Compose 배포·실행 프로필
@@ -24,7 +24,7 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 Comp
 |---|---|---|---|---|
 |`mock`(기본)|`demo`|없음(gateway의 mock adapter)|fixture 20건(`is_demo=true`)|없음. GPU·서비스키 없이 돈다. CI·골든·모델 장애 시 시연|
 |`fixture`|`ai-local`|회사 GPU 서버(vLLM Qwen3.5-9B, `kev.serve` Kev-9B)|fixture 20건(`is_demo=true`)|SSH 터널, `KEV_API_KEY`, vLLM 키. 공공 API 장애 시 시연. 한국어 state 평가용 gateway도 이 모드로만 띄운다|
-|`live`|`ai-local`|회사 GPU 서버|data.go.kr 실공고(`is_demo=false`)|위 + worker의 `G2B_SERVICE_KEY`. `KEV_ALLOW_KO_STATE=true`와 함께 쓸 수 없다(gateway 기동 거부)|
+|`live`|`ai-local`|회사 GPU 서버|data.go.kr 실공고(`is_demo=false`)|위 + worker의 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE\|07 수집]] §2.2). `KEV_ALLOW_KO_STATE=true`와 함께 쓸 수 없다(gateway 기동 거부)|
 
 - 모드가 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`의 기본값을 정한다(`live` → `DEMO_MODE=false`·`AI_PROVIDER=local`·`KEV_ENABLED=true`, `fixture` → `true`·`local`·`true`, `mock` → `true`·`mock`·mock adapter). 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. 예: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`.
 - 모드 전환은 env를 바꾸고 worker·ai-gateway를 재시작해서 한다. 시연 중 장애 대체 순서는 `live` → `fixture` → `mock`이고 사람이 전환한다. 자동 대체(`AI_FALLBACK_TO_MOCK`)는 기본 `false`이고 `live`에서는 켤 수 없다([[03-AI-PIPELINE|03]] §8).
@@ -35,7 +35,7 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 Comp
 |프로필|대상 환경|AI 동작|추가 서비스|필수 env (요지)|기동 명령|
 |---|---|---|---|---|---|
 |`demo`|노트북 1대, GPU 없음, Docker Desktop, **인터넷 연결(Supabase 클라우드)**|`AI_PROVIDER=mock`: gateway가 fixture 기반 결정적 응답|없음 (seed는 Compose 서비스가 아니라 스크립트 `pnpm demo:reset`)|공통 env + `SOL_RUN_MODE=mock`, `DEMO_MODE=true`, `AI_PROVIDER=mock`, `KEV_ENABLED=true`(mock adapter가 응답), `AI_HOSTED_APPROVED=false`, `DEMO_SEED_PASSWORD`(seed 전용)|`docker compose -f infra/compose.yaml --profile demo up -d --build`|
-|`ai-local`|**노트북**(기본 5개 서비스, gateway 포함) + **회사 GPU 서버**(모델 런타임만). 클라우드 GPU 임대는 비용 승인 뒤만(ADR-010)|Qwen3.5-9B + Kev-9B@v1.0 실제 추론|노트북: 없음. GPU 서버: `kev`, `qwen-runtime`|공통 env + `SOL_RUN_MODE=live` 또는 `fixture`, `AI_PROVIDER=local`, `KEV_ENABLED=true`, `QWEN_BASE_URL`·`KEV_BASE_URL`(터널의 로컬 끝점), `QWEN_MODEL=Qwen/Qwen3.5-9B`, `KEV_MODEL_ID=kev-9b-v1.0`, `KEV_API_KEY`, `AI_FALLBACK_TO_MOCK=false`. `live`면 worker에 `G2B_SERVICE_KEY`. kev 컨테이너는 `KEV_RUN=jaredpalmer/kev-9b@v1.0`|GPU 서버: `docker compose -f infra/compose.yaml -f infra/compose.gpu.yaml --profile ai-local up -d kev qwen-runtime`. 노트북: SSH 터널 연결 뒤 `docker compose -f infra/compose.yaml up -d --build`(아래 "회사 GPU 서버 구성")|
+|`ai-local`|**노트북**(기본 5개 서비스, gateway 포함) + **회사 GPU 서버**(모델 런타임만). 클라우드 GPU 임대는 비용 승인 뒤만(ADR-010)|Qwen3.5-9B + Kev-9B@v1.0 실제 추론|노트북: 없음. GPU 서버: `kev`, `qwen-runtime`|공통 env + `SOL_RUN_MODE=live` 또는 `fixture`, `AI_PROVIDER=local`, `KEV_ENABLED=true`, `QWEN_BASE_URL`·`KEV_BASE_URL`(터널의 로컬 끝점), `QWEN_MODEL=Qwen/Qwen3.5-9B`, `KEV_MODEL_ID=kev-9b-v1.0`, `KEV_API_KEY`, `AI_FALLBACK_TO_MOCK=false`. `live`면 worker에 서비스키 4개(`G2B_*_SERVICE_KEY`). kev 컨테이너는 `KEV_RUN=jaredpalmer/kev-9b@v1.0`|GPU 서버: `docker compose -f infra/compose.yaml -f infra/compose.gpu.yaml --profile ai-local up -d kev qwen-runtime`. 노트북: SSH 터널 연결 뒤 `docker compose -f infra/compose.yaml up -d --build`(아래 "회사 GPU 서버 구성")|
 |`ai-hosted`|GPU 없는 환경에서 실모델이 필요할 때|hosted API 호출. **미검증, 비용 발생, 사용자 승인 필요**|없음|공통 env + `AI_PROVIDER=hosted`, `AI_HOSTED_APPROVED=true`(승인 후만), `HOSTED_API_BASE_URL`, `HOSTED_API_KEY`(placeholder)|`docker compose -f infra/compose.yaml --profile ai-hosted up -d --build`|
 
 - **공통 env**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`(공개 가능, 권한은 RLS가 정함), `SUPABASE_SERVICE_ROLE_KEY`(RLS를 무시하는 비밀. worker·seed 전용), `REDIS_URL`/`REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. `SUPABASE_DB_URL`은 마이그레이션 적용(`pnpm db:push`, 클라우드 DB를 바꾸므로 사용자 확인 뒤에만)과 상태 확인(`pnpm db:verify`)에만 쓴다. 자체 인증 서명 비밀이나 DB 컨테이너 비밀번호 변수는 없다(Auth·DB는 Supabase).
@@ -50,11 +50,11 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 Comp
 
 |파일|읽는 쪽|담는 값 (요지)|
 |---|---|---|
-|`infra/.env`|`docker compose -f infra/compose.yaml`의 변수 치환. Compose는 `--project-directory`가 없으면 첫 `-f` 파일의 디렉터리(`infra/`)를 프로젝트 디렉터리로 삼고 거기서 `.env`를 찾는다(https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/, 2026-10-16 확인). 컨테이너에 넘기는 값은 `compose.yaml`의 `environment`·`env_file`이 정한다|`worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REDIS_URL`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL`, `SOL_RUN_MODE`, `DEMO_MODE`, `G2B_SERVICE_KEY`(`live`만, 서버 전용·로그 금지). `redis`·`minio`: 각 비밀번호. `ai-gateway`: `SOL_RUN_MODE`, `AI_*`·`QWEN_*`·`KEV_*`·`PARSER_*`·`HOSTED_*`|
-|`web/.env.local`|Next.js `web/`(템플릿 위치)|`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL`, `DEMO_MODE`, `API_CURSOR_SECRET`(목록 커서 HMAC 키, 32자 이상, [[05-API-SPEC\|05 API]] §3). **`SUPABASE_SERVICE_ROLE_KEY`·`G2B_SERVICE_KEY`는 넣지 않는다**(요청 처리는 사용자 세션 + RLS, 공공 API 호출은 worker만)|
+|`infra/.env`|`docker compose -f infra/compose.yaml`의 변수 치환. Compose는 `--project-directory`가 없으면 첫 `-f` 파일의 디렉터리(`infra/`)를 프로젝트 디렉터리로 삼고 거기서 `.env`를 찾는다(https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/, 2026-10-16 확인). 컨테이너에 넘기는 값은 `compose.yaml`의 `environment`·`env_file`이 정한다|`worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REDIS_URL`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL`, `SOL_RUN_MODE`, `DEMO_MODE`, `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`(서비스별 서비스키 4개, `live`만 필수, 서버 전용·로그 금지). `redis`·`minio`: 각 비밀번호. `ai-gateway`: `SOL_RUN_MODE`, `AI_*`·`QWEN_*`·`KEV_*`·`PARSER_*`·`HOSTED_*`|
+|`web/.env.local`|Next.js `web/`(템플릿 위치)|`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL`, `DEMO_MODE`, `API_CURSOR_SECRET`(목록 커서 HMAC 키, 32자 이상, [[05-API-SPEC\|05 API]] §3). **`SUPABASE_SERVICE_ROLE_KEY`와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 넣지 않는다**(요청 처리는 사용자 세션 + RLS, 공공 API 호출은 worker만)|
 |루트 `.env.local`|`pnpm db:push`·`pnpm db:verify`(템플릿 `scripts/db-push.sh`·`scripts/db-verify.sh`가 `SUPABASE_DB_URL`을 여기서 읽는다), `pnpm demo:reset`|`SUPABASE_DB_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DEMO_SEED_PASSWORD`|
 
-- service role 키와 `G2B_SERVICE_KEY`는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 절대 넣지 않는다([[09-SECURITY|09 보안]]). `G2B_SERVICE_KEY`는 worker의 `OfficialApiConnector`만 읽는다. gateway에도 넘기지 않는다.
+- service role 키와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 절대 넣지 않는다([[09-SECURITY|09 보안]]). 서비스키는 worker의 `OfficialApiConnector`만 읽고, 소스마다 registry `serviceKeyEnv`가 가리키는 키 하나만 쓴다([[07-DATA-PIPELINE|07 수집]] §2.2). gateway에도 넘기지 않는다.
 - `pnpm check:env`는 세 파일의 placeholder를 세고, 실행 모드와 모순된 값(위 "실행 모드와 프로필")이 있으면 실패한다. `pnpm check:env`·`pnpm demo:reset`은 아직 없다. Phase 0·1에서 만든다([[12-ROADMAP|12 로드맵]]).
 
 ### `ai-local` env 예시
@@ -78,7 +78,12 @@ KEV_QUESTION_SET=kev-qs/v0.2
 PARSER_PDF=<비교 뒤 결정>
 PARSER_HWPX=<비교 뒤 결정>
 PARSER_HWP=<비교 뒤 결정>
-G2B_SERVICE_KEY=<placeholder>     # worker 전용, live 에서만. 로그 금지
+# data.go.kr 서비스키 — 서비스마다 하나씩(ADR-022). worker 전용, live 에서만 필수. 로그 금지
+# 값은 Decoding 키(인코딩 전 원문)
+G2B_BID_NOTICE_SERVICE_KEY=<placeholder>       # 입찰공고정보서비스 15129394
+G2B_PRE_SPEC_SERVICE_KEY=<placeholder>         # 사전규격정보서비스 15129437
+G2B_ORDER_PLAN_SERVICE_KEY=<placeholder>       # 발주계획현황서비스 15129462
+G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 15129467
 ```
 
 - gateway는 vLLM `--api-key`와 같은 값을 `QWEN_API_KEY`로 보낸다([[03-AI-PIPELINE|03 AI 파이프라인]] §3).
@@ -313,7 +318,7 @@ services:
 ## 관련 문서
 - [[02-ARCHITECTURE|02 아키텍처]]
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — env 전체 표, 실행 모드, `/parse`·레지스트리 계약
-- [[07-DATA-PIPELINE|07 수집 파이프라인]] — `OfficialApiConnector`, `G2B_SERVICE_KEY`, 호출 예산
+- [[07-DATA-PIPELINE|07 수집 파이프라인]] — `OfficialApiConnector`, 서비스키 4개(`G2B_*_SERVICE_KEY`), 호출 예산
 - [[09-SECURITY|09 보안]]
 - [[11-TESTING|11 테스트]]
 - [[12-ROADMAP|12 로드맵]]

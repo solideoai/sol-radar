@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-17",
+  "isDemo": true,
+  "stage": "PLAN",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0017",
+      "planRef": "DEMO-PLAN-0042",
+      "title": "과학기술정보통신부 2027년 AI 행정서비스 구축 발주계획 (가상)",
+      "agency": "과학기술정보통신부",
+      "budgetKrw": "5000000000",
+      "noticeDate": "-10d",
+      "deadlineAt": null,
+      "stage": "PLAN",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-17",
+      "content": "과학기술정보통신부가 2027년 AI 행정서비스 구축 사업을 발주할 계획이다. 예정 사업예산은 50억원이며 2027년 3월 발주 예정이다. 세부 요구사항은 사전규격 단계에서 공개한다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-17-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

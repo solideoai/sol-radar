@@ -7,7 +7,7 @@ tags:
   - ui
   - product
   - hackathon
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 설계: 사이드바 정보 구조와 입찰 업무 확장
@@ -518,6 +518,7 @@ flowchart LR
 | 2026-10-16 | G17. b3ef의 `supabase/migrations/20261016000001_solideo_people_signup.sql`은 동기화 전 04를 구현했다: `team_members` 한 표에 점수 속성(`scoring_eligible`·`role`·`grade`·`skills`·`availability`), `departments.target_count not null check (>= 1)`, `parent_id`·`kind` 없음, 가입 트리거의 개인 조직 생성 유지. 동기화 뒤 정본(M21·D9·D10)과 다르다. 이미 있는 마이그레이션은 고치지 않고 새 마이그레이션으로 맞춘다. 부록 A처럼 사용자가 그 세션에 전달한다. 이 세션은 그 파일을 고치지 않는다 | b3ef 대조 | §2.5, N1·N4a 선행 조건 | 사용자 전달 필요 |
 | 2026-10-16 | G18. 16 ADR-017 구현 결과의 "`tasks`는 쓰지 않는다"와 "`org_role`은 초대·구성원 관리에만 쓴다" 뒤에 ADR-021 결정(M11·D11)을 덧붙인다. 17의 "견본 도메인 중 정리할 범위를 정한다"는 범위 결정 절차라 그대로 둔다(B.18) | 교차 검사 | B.2 보완 | 반영함 |
 | 2026-10-16 | G19. 05 §4.7 `TeamMemberDetail.scoring` 구조(`role`·`grade`·`skills`·`availability`)는 그대로 쓴다. 확인 결과: 필드 이름이 `team_member_scoring` 열, SOL Score 입력 스냅샷 `team.members`(15·03, 인력 이름·성별·사진 제외), 명부 fixture 점수 계산 대상 27명의 키와 같다. 노출은 §2.4대로 조직 구성원 전원 읽기(RLS로 다른 조직 0행), 연락처 없음, 쓰기는 seed만. 주석의 참조만 "08 team 입력"에서 "`AnalysisInput.team.members`(15)·`TeamAvailability`(08 §3.3)"로 바로잡는다 | 사용자 확인 요청 | B.4 문구 | 반영함 |
+| 2026-10-18 | 사이드바를 트리로 보이고(묶음 줄은 접기 화살표와 글자만) 메뉴마다 lucide 아이콘을 붙인다. 조직도는 묶음 밖 **맨 아래 고정 칸**의 별도 메뉴 `/org-chart`(두 칸 탐색기)로 두고, N4a `/people`에서 조직도 탭을 뺀다. 우선순위는 N4a 데모 필수 그대로다. 상세는 [조직도 설계](2026-10-18-org-chart-sidebar-design.md) | 사용자 결정(2026-10-18) | §2.1 사이드바, §3.1 N1·N4a, 06 §2·§4·§4.1·§5.9·§5.9.1·§6·§9·§12, 20. 16 새 ADR·12·11(NAV-04 개정·NAV-10·NAV-11)·09·19·PROGRESS는 다른 세션의 미커밋 수정이 끝난 뒤 반영 | 일부 반영(06·20) |
 
 ## 부록 A. 명부 생성 작업에 전달할 요구사항
 

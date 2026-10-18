@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - decision
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 16. 아키텍처 결정 기록 (ADR)
@@ -35,6 +35,7 @@ updated: 2026-10-16
 |ADR-018|가입·로그인 방식: 공개 가입 + 초대. 누구나 이메일 + 비밀번호(`/auth/sign-up`) 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만들고, 업무 조직 합류는 초대 수락으로 한다. 간편 로그인 제공자 설정은 해커톤 안에서 하되 다른 기능을 모두 끝낸 뒤 한다(후순위)|채택 (ADR-021로 개정: 가입 시 개인 조직 생성 중단, 이미 있는 개인 조직은 보존)|2026-10-16|사용자 결정(2026-10-16). 랜딩의 시작하기가 이미 `/auth/sign-up`으로 가고, 버튼·콜백·계정 연결 코드가 템플릿에 있어 새로 만들 것이 없다. 미결정 13번을 닫는다 ([[09-SECURITY\|09 보안]], [[12-ROADMAP\|12 로드맵]])|
 |ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명(남녀 100/100)·고유 정장 사진 200장, 엑셀 팀명 합산·비례 배분·자연스러운 세 글자 가상 이름, 가입 부서·직급/직책 필수|채택 (설계 승인, 구현 전. ADR-021로 개정: 인력 표를 운영 `team_members`와 점수 `team_member_scoring`으로 분리, 사람이 고르는 규칙 매칭 후보 표시 허용)|2026-10-16|사용자 인터뷰 및 저장 경로 최종 승인. 상세는 아래 ADR-019·[[07-DATA-PIPELINE\|07 데이터]]·[[06-UI-UX\|06 UI]]|
 |ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 Open API 실수집·첨부 파싱, Qwen3.5-9B·Kev-9B 실추론(회사 GPU 서버), Kev `kev-qs/v0.2` 참고 지표(SOL Score 미반영), 평가셋·평가 체계, Kev-9B LoRA 는 오류 분석 뒤 후속|채택 (설계 승인, 구현 전)|2026-10-16|사용자 결정(2026-10-16): "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP". ADR-004·008·012를 개정한다. 상세는 아래 ADR-020·[[21-MODEL-TRAINING\|21 모델 학습]]·[[03-AI-PIPELINE\|03 AI 파이프라인]]·[[07-DATA-PIPELINE\|07 수집]]. 승인 설계: [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)|
+|ADR-022|data.go.kr 서비스키를 서비스마다 따로 둔다: env 4개(`G2B_BID_NOTICE_SERVICE_KEY` 15129394·`G2B_PRE_SPEC_SERVICE_KEY` 15129437·`G2B_ORDER_PLAN_SERVICE_KEY` 15129462·`G2B_INDUSTRY_MASTER_SERVICE_KEY` 15129467). 소스 registry의 `serviceKeyEnv`가 소스별 env 이름을 가리킨다. 단일 `G2B_SERVICE_KEY`는 쓰지 않는다|채택 (설계, 구현 전)|2026-10-18|사용자 결정(2026-10-18): 서비스 4개에 키를 각각 받았고 API마다 키를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있고, 호출 예산 카운터(`quota:{serviceId}:{YYYYMMDD}`)와 단위가 같다. ADR-020 승인 설계의 단일 키 표기를 대체한다. 상세는 아래 ADR-022·[[07-DATA-PIPELINE\|07 수집]] §2.2·[[15-DATA-CONTRACTS\|15 데이터 계약]] §8|
 |ADR-021|사이드바 정보 구조와 입찰 업무 확장: 데모 필수 화면(앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개)과 P1(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 편집), 조직 주소 없는 경로, 서비스 운영자 `/ops` 분리|채택 (설계 승인, 구현 전)|2026-10-16|사용자 승인 4차(2026-10-16). ADR-018·019를 개정하고 미결정 11·12번을 닫는다. 상세는 아래 ADR-021·[사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md)|
 
 ### ADR-007 ~ 014 구현 결과
@@ -70,7 +71,7 @@ updated: 2026-10-16
 ## 반드시 검증할 미결정 사항
 |#|항목|상태|검증일|근거 / 다음 행동|
 |---|---|---|---|---|
-|1|data.go.kr 사용 API별 서비스키·트래픽·페이지네이션·실제 응답 스키마|부분 검증|2026-10-16|**검증됨**(data.go.kr 서비스 페이지 Swagger·참고문서): 입찰공고정보서비스 15129394(`/1230000/ad/BidPublicInfoService`), 사전규격 15129437, 발주계획 15129462, 업종 및 근거법규 15129467의 오퍼레이션·요청 파라미터·응답 필드 이름, 무료·자동승인, 개발계정 1,000(사용자정보·개방표준 10,000), JSON/XML, 이용허락범위 제한 없음. **미검증**: 서비스키로 받은 실제 응답, 조회 기간 상한, `infoBizYn` 요청 필터 가능 여부, 면허제한 여러 행의 의미. 다음: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건 저장 ([[07-DATA-PIPELINE\|07 수집 파이프라인]], [[15-DATA-CONTRACTS\|15 데이터 계약]])|
+|1|data.go.kr 사용 API별 서비스키·트래픽·페이지네이션·실제 응답 스키마|부분 검증|2026-10-16|**검증됨**(data.go.kr 서비스 페이지 Swagger·참고문서): 입찰공고정보서비스 15129394(`/1230000/ad/BidPublicInfoService`), 사전규격 15129437, 발주계획 15129462, 업종 및 근거법규 15129467의 오퍼레이션·요청 파라미터·응답 필드 이름, 무료·자동승인, 개발계정 1,000(사용자정보·개방표준 10,000), JSON/XML, 이용허락범위 제한 없음. **미검증**: 서비스키로 받은 실제 응답, 조회 기간 상한, `infoBizYn` 요청 필터 가능 여부, 면허제한 여러 행의 의미. **2026-10-18**: 사용자가 4개 서비스의 서비스키를 받았다(값은 저장소 밖). 서비스별 env로 나눈다(ADR-022). 다음: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건 저장 ([[07-DATA-PIPELINE\|07 수집 파이프라인]], [[15-DATA-CONTRACTS\|15 데이터 계약]])|
 |2|Kev v1.0 체크포인트 가용성·추론 API·라이선스·메모리·한국어 성능|부분 검증|2026-10-16|**검증됨** (https://github.com/jaredpalmer/kev README 및 docs/model-cards/kev-4b.md): 체크포인트 4종(0.8B/4B/9B/27B) 공개, Hub 태그 `v1.0`로 가중치 고정(`--run jaredpalmer/kev-4b@v1.0`, README 명시), GitHub 태그 `kev-1.0`, API `POST /v1/systemone`(noul/choice/score) + `GET /v1/models`, Apache-2.0, Python 3.12/3.13 + uv 소스 설치, `--device cpu\|cuda\|mps\|auto`. 모델 카드 `Languages: English`, 영어 외 언어는 잘 동작하지 않음. **미검증**: 한국어 → 영어 state 변환의 효과(ADR-012), VRAM 요구량, Kev-0.8B CPU 실행, 자체 보고 수치의 독립 재현. hosted 공급자 존재·포맷·가격은 전부 미확인. 다음: [[03-AI-PIPELINE\|03 AI 파이프라인]] §5.9 절차로 `ai-local`에서 fixture 20건 측정. **2026-10-16 추가 검증**(main `1f04cfa`): `kev.train`(LoRA·full FT, QLoRA 없음, `--init_from`), `kev.benchmark`, `kev.compare`, Kev-9B@v1.0 = `db029f08`, 9B 추론 메모리는 모델 카드 21.9 GB·README 약 17 GB로 불일치. ADR-020으로 기본 모델을 Kev-9B로 바꾸고 한국어 성능은 평가셋 E2로 측정 ([[21-MODEL-TRAINING\|21 모델 학습]])|
 |3|Qwen 런타임(vLLM 등) 선택 및 GPU 메모리 분배|부분 결정|2026-10-16|ADR-020: 해커톤 실추론은 회사 GPU 서버, Qwen 런타임은 vLLM(guided JSON·logprob). **미결정**: GPU 모델·VRAM 확인 후 메모리 배분(48 GB 이상 1장이면 동시 적재, 24 GB 2장이면 모델당 1장, 24 GB 1장이면 Qwen FP8/AWQ). P0-0에서 확인 ([[10-DEPLOYMENT\|10 배포]])|
 |4|HWP/HWPX parser 라이브러리·라이선스·안전성|진행 (ADR-020)|2026-10-16|형식별 `DocumentParser` 인터페이스(HWP·HWPX·PDF)를 두고, 오픈소스 후보의 라이선스와 추출 품질(본문·표·금액·자격 조건·요구사항 누락)을 실제 RFP 샘플로 비교한 뒤 형식마다 정한다. 후보·절차는 [[03-AI-PIPELINE\|03 AI 파이프라인]] §10(요약은 [[07-DATA-PIPELINE\|07 수집]] §2.5). 결정 전까지 처리할 수 없는 첨부는 `PARSE_UNSUPPORTED` → 확인 필요|
@@ -135,6 +136,25 @@ updated: 2026-10-16
 - **조직**: 서버가 현재 조직을 정하고 요청의 조직 ID를 받지 않는다. 멀티 조직은 지원하지 않는다(업무 멤버십 2개 이상이면 `403 UNSUPPORTED_ACCOUNT_STATE`). RLS·`sol_role` 가드·404 정책은 그대로다.
 - **서비스 운영자**: `/ops`·`/api/ops/*`·`web/server/ops`. 조직 ADMIN(`/admin/*`·`/api/v1/admin/*`)과 서로의 화면에 들어가지 않는다. DB 객체 이름(`profiles.is_admin` 등)은 바꾸지 않는다.
 - 개정한 결정: ADR-019(사람이 고르는 후보 표시 허용, 인력 표 분리), ADR-018(가입 시 개인 조직 생성 중단). 종결한 미결정: 11·12번.
+
+## ADR-022 상세 — 서비스별 data.go.kr 서비스키
+
+2026-10-18 사용자 결정이다. 아래는 **설계 결정**이며 구현은 아직 전이다.
+
+|서비스 (ID)|env|쓰는 registry 키|
+|---|---|---|
+|입찰공고정보서비스 (15129394)|`G2B_BID_NOTICE_SERVICE_KEY`|`g2b-bid-notice`·`g2b-bid-license-limit`·`g2b-bid-region`·`g2b-bid-eorder-attach`|
+|사전규격정보서비스 (15129437)|`G2B_PRE_SPEC_SERVICE_KEY`|`g2b-pre-spec`|
+|발주계획현황서비스 (15129462)|`G2B_ORDER_PLAN_SERVICE_KEY`|`g2b-order-plan`|
+|업종 및 근거법규 (15129467)|`G2B_INDUSTRY_MASTER_SERVICE_KEY`|`g2b-industry-master`|
+
+- **연결**: registry 항목의 `serviceKeyEnv`가 env **이름**을 가리킨다. 값은 `infra/.env`(깃 제외)에만 둔다 ([[15-DATA-CONTRACTS|15 데이터 계약]] §8, [[10-DEPLOYMENT|10 배포]]).
+- **읽는 쪽**: worker의 `OfficialApiConnector`만 읽는다. web·gateway·`NEXT_PUBLIC_` 변수·`web/.env.local`·루트 `.env.local`에는 두지 않는다.
+- **빠졌을 때**: `live`에서 4개 모두 필수다. `pnpm check:env`는 빠진 키마다 그 이름으로 `MISSING_KEY`를 낸다. worker는 기동할 때 빠진 env 이름을 알리고 멈춘다. 다른 서비스의 키로 대신 부르지 않는다. `fixture`·`mock`에는 필요 없다.
+- **호출 예산**: 서비스마다 따로 센다. 에러코드 22를 받으면 그 서비스의 그날 호출만 멈추고, 다른 서비스의 수집은 계속한다 ([[07-DATA-PIPELINE|07 수집]] §2.2).
+- **값 형식**: data.go.kr Decoding 키(인코딩 전 원문)를 넣고 Connector가 URL 인코딩을 한 번만 한다. P0-0 실제 호출로 확인한다.
+- **비밀 보호**: 네 값을 모두 로그·오류 메시지·`ingest_errors`·응답 본문·증거에서 가린다(V2-11, [[11-TESTING|11 테스트]]). 네 값이 같아도 env는 나눈다.
+- 승인 설계 [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)는 고치지 않는다. 그 문서의 단일 `G2B_SERVICE_KEY` 표기는 이 ADR이 대체한다.
 
 ## 관련 문서
 - [[00-README|00 인덱스]]

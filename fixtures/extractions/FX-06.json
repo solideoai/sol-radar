@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "requirement-extraction/v0.1",
+  "bidId": "FX-06",
+  "revisionId": "FX-06#02",
+  "model": {
+    "provider": "mock",
+    "name": "fixture",
+    "promptVersion": "req-extract/v0.1",
+    "promptHash": "e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e",
+    "temperature": 0,
+    "extractedAt": "2026-10-16T09:00:00Z",
+    "latencyMs": 0,
+    "retries": 0
+  },
+  "summary": {
+    "value": "대전광역시가 스마트시티 통합플랫폼 유지보수 사업의 수행사를 모집한다.",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-06#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "대전광역시가 스마트시티 통합플랫폼 유지보수 사업의 수행사를 모집한다"
+      }
+    ]
+  },
+  "projectType": {
+    "value": "MAINTENANCE",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-06#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "대전광역시가 스마트시티 통합플랫폼 유지보수 사업의 수행사를 모집한다"
+      }
+    ]
+  },
+  "domain": {
+    "value": "스마트시티",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-06#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업 분야는 스마트시티"
+      }
+    ]
+  },
+  "requiredSkills": {
+    "value": ["Java", "Spring Boot", "PostgreSQL", "Redis"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-06#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "필수 기술은 Java, Spring Boot, PostgreSQL, Redis 이다"
+      }
+    ],
+    "note": "[0],[1],[2],[3]→evidence[0]"
+  },
+  "preferredSkills": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "qualifications": {
+    "value": [
+      {
+        "name": "소프트웨어사업자 신고확인서",
+        "kind": "REGISTRATION",
+        "mandatory": true,
+        "code": null
+      }
+    ],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-06#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "소프트웨어사업자 신고확인서를 보유한 업체"
+      }
+    ],
+    "note": "[0]→evidence[0]"
+  },
+  "pastPerformance": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "staffing": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "budgetKrw": {
+    "value": "900000000",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-06#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업예산은 9억원"
+      }
+    ],
+    "note": "9억원 → 900000000원 환산"
+  },
+  "deadlineAt": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "contractMethod": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "restrictions": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "submission": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "injectionSuspected": false,
+  "warnings": []
+}

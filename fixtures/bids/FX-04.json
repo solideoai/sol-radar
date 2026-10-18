@@ -1,0 +1,23 @@
+{
+  "fixtureId": "FX-04",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0004",
+      "planRef": null,
+      "title": "한국지능정보사회진흥원 데이터 거버넌스 체계 수립 컨설팅 (가상)",
+      "agency": "한국지능정보사회진흥원",
+      "budgetKrw": "600000000",
+      "noticeDate": "-2d",
+      "deadlineAt": "+12d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-04",
+      "content": "한국지능정보사회진흥원이 데이터 거버넌스 체계 수립 컨설팅 사업의 수행사를 모집한다. 사업예산은 6억원이다. 공공데이터 관리 현황을 진단하고 데이터 거버넌스 조직과 절차를 설계한다. 제안서는 접수 마감일까지 제출한다.",
+      "attachments": []
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "fixtureId": "FX-12",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0012",
+      "planRef": null,
+      "agency": "경상북도",
+      "budgetKrw": "300000000",
+      "noticeDate": "-1d",
+      "deadlineAt": "+10d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-12",
+      "content": "경상북도가 지역 정보화 지원 사업의 제안사를 모집한다. 사업예산은 3억원이다. 제안서는 접수 마감일까지 제출한다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-12-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

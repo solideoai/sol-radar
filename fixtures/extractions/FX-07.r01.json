@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "requirement-extraction/v0.1",
+  "bidId": "FX-07",
+  "revisionId": "FX-07#01",
+  "model": {
+    "provider": "mock",
+    "name": "fixture",
+    "promptVersion": "req-extract/v0.1",
+    "promptHash": "e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e",
+    "temperature": 0,
+    "extractedAt": "2026-10-16T09:00:00Z",
+    "latencyMs": 0,
+    "retries": 0
+  },
+  "summary": {
+    "value": "한국도로공사가 교통정보 데이터플랫폼 고도화 사업의 제안사를 모집한다.",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-07#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "한국도로공사가 교통정보 데이터플랫폼 고도화 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "projectType": {
+    "value": "SI",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-07#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "한국도로공사가 교통정보 데이터플랫폼 고도화 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "domain": {
+    "value": "데이터 플랫폼",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-07#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업 분야는 데이터 플랫폼"
+      }
+    ]
+  },
+  "requiredSkills": {
+    "value": ["Hadoop", "Spark"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-07#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "필수 기술은 Hadoop, Spark 이다"
+      }
+    ],
+    "note": "[0],[1]→evidence[0]"
+  },
+  "preferredSkills": {
+    "value": ["PostgreSQL", "Airflow"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-07#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "우대 기술은 PostgreSQL, Airflow 이다"
+      }
+    ],
+    "note": "[0],[1]→evidence[0]"
+  },
+  "qualifications": {
+    "value": [
+      {
+        "name": "소프트웨어사업자 신고확인서",
+        "kind": "REGISTRATION",
+        "mandatory": true,
+        "code": null
+      }
+    ],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-07#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "소프트웨어사업자 신고확인서를 보유한 업체"
+      }
+    ],
+    "note": "[0]→evidence[0]"
+  },
+  "pastPerformance": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "staffing": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "budgetKrw": {
+    "value": "1800000000",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-07#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업예산은 18억원"
+      }
+    ],
+    "note": "18억원 → 1800000000원 환산"
+  },
+  "deadlineAt": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "contractMethod": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "restrictions": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "submission": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "injectionSuspected": false,
+  "warnings": []
+}
