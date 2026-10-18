@@ -15,7 +15,7 @@
       "deadlineAt": "+10d",
       "stage": "NOTICE",
       "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-12",
-      "content": "경상북도가 공고하는 사업이다. 사업예산은 3억원이다. 이 공고는 제목이 없어 필수 필드 검사에서 격리된다.",
+      "content": "경상북도가 지역 정보화 지원 사업의 제안사를 모집한다. 사업예산은 3억원이다. 제안서는 접수 마감일까지 제출한다.",
       "attachments": [
         {
           "name": "제안요청서.pdf",

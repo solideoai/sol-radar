@@ -27,6 +27,12 @@ const REQUIRED_TAGS = {
   "FX-07": ["r1-WATCH-68"],
   "FX-13": ["citation-mismatch-1", "budget-text"],
 };
+// 예외 태그는 REQUIRED_TAGS 가 정한 FX 에만 허용한다.
+const EXCEPTION_TAGS = ["citation-mismatch-1", "budget-text"];
+// 앞선 개정이라 별도 추출 파일(FX-xx.rNN.json)이 반드시 있어야 하는 것(19:98 seed 가 미리 분석).
+const REQUIRED_REVISION_EXTRACTIONS = ["FX-07.r01"];
+const BUDGET_UNITS = { 백만원: 1e6, 천원: 1e3, 억원: 1e8, 억: 1e8, 원: 1 };
+const URL_PATTERN = /https?:\/\/([^\s/:"'<>)]+)/g;
 const RELATIVE_DATE = /^[+-]\d+d$/;
 const BUDGET_TEXT = /^[\d,]+(백만원|천원|억원|억|원)$/;
 const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
@@ -93,13 +99,18 @@ function* strings(value) {
   else if (isRecord(value)) for (const item of Object.values(value)) yield* strings(item);
 }
 
-function checkPii(bids, add) {
-  for (const [fixtureId, bid] of Object.entries(bids))
-    for (const text of strings(bid)) {
+// 파일 이름 `FX-xx.rNN` 의 FX-ID.
+const fixtureIdOf = (key) => key.match(/^(FX-\d{2})/)?.[1];
+
+function checkPii(groups, add) {
+  for (const [fixtureId, value] of groups)
+    for (const text of strings(value)) {
       // 합성 주소는 `.invalid` 만 허용한다(RFC 2606, 실제로 배달되지 않는다).
       if ([...text.matchAll(EMAIL)].some(([email]) => !email.endsWith(".invalid")))
         add("PII_EMAIL", fixtureId);
       if (PHONE.test(text)) add("PII_PHONE", fixtureId);
+      if ([...text.matchAll(URL_PATTERN)].some(([, host]) => !host.endsWith(".invalid")))
+        add("PII_URL", fixtureId);
     }
 }
 
@@ -119,9 +130,16 @@ function checkManifest(manifest, add) {
     Object.keys(batches).length !== BATCHES.length
   )
     add("MANIFEST_IDS");
-  for (const { id, tags } of manifest.fixtures)
-    if ((REQUIRED_TAGS[id] ?? []).some((tag) => !Array.isArray(tags) || !tags.includes(tag)))
+  for (const { id, tags } of manifest.fixtures) {
+    const required = Object.hasOwn(REQUIRED_TAGS, id) ? REQUIRED_TAGS[id] : [];
+    if (required.some((tag) => !Array.isArray(tags) || !tags.includes(tag)))
       add("TAGS_REQUIRED", id);
+    if (
+      Array.isArray(tags) &&
+      tags.some((tag) => EXCEPTION_TAGS.includes(tag) && !required.includes(tag))
+    )
+      add("TAG_NOT_ALLOWED", id);
+  }
 }
 
 function checkDistribution(entries, add) {
@@ -174,6 +192,11 @@ function checkBid(fixtureId, bid, entry, manifestBatches, add) {
   const tags = Array.isArray(entry.tags) ? entry.tags : [];
   const isCancelledOutcome = entry.expected?.outcome === "CANCELLED";
   const lastIndex = bid.records.length - 1;
+  // 마지막 레코드가 마지막 개정이라는 전제(추출 대상): amendmentNo 는 줄지 않는다(같은 값 반복 허용).
+  const numbers = bid.records.map((record) => record?.amendmentNo);
+  if (numbers.some((no, index) => index > 0 && !(no >= numbers[index - 1])))
+    add("RECORD_ORDER", fixtureId);
+  if (bid.records.some((record) => record?.stage !== bid.stage)) add("RECORD_STAGE", fixtureId);
   bid.records.forEach((record, index) =>
     checkRecord(record, { fixtureId, tags, isCancelledOutcome, isLast: index === lastIndex }, add),
   );
@@ -232,33 +255,78 @@ function checkExtractionShape(fixtureId, extraction, record, add) {
   return isShapeOk;
 }
 
+// 예산 문자열을 원 단위 정수 문자열로. 숫자 문자열은 그대로, 텍스트는 단위를 곱한다.
+function normalizeBudget(value) {
+  if (typeof value !== "string") return null;
+  if (/^\d+$/.test(value)) return value;
+  const matched = value.match(/^([\d,]+)(백만원|천원|억원|억|원)$/);
+  return matched ? String(Number(matched[1].replaceAll(",", "")) * BUDGET_UNITS[matched[2]]) : null;
+}
+
+const quotesOf = (extraction) =>
+  EXTRACTION_FIELDS.flatMap((name) => extraction[name].evidence.map((item) => item.quotedText));
+const countMismatches = (extraction, record) =>
+  quotesOf(extraction).filter(
+    (quote) => typeof record.content !== "string" || !record.content.includes(quote),
+  ).length;
+// 태그가 있는 FX 는 본문에 없는 인용이 정확히 1건이어야 하고, 없는 FX 는 0건이다.
+const isMismatchCountOk = (count, tags) =>
+  tags.includes(MISMATCH_TAG) ? count === 1 : count === 0;
+const isBudgetOk = (extraction, record) =>
+  extraction.budgetKrw.state !== "KNOWN" ||
+  (record.budgetKrw !== null &&
+    normalizeBudget(record.budgetKrw) === normalizeBudget(extraction.budgetKrw.value));
+
 // 인용 검사: 길이, KNOWN 의 근거, 본문 일치. 대상 레코드는 `FX-xx.json` 이면 마지막 개정,
 // `FX-xx.rNN.json` 이면 amendmentNo NN 인 앞선 개정이다(마지막 개정의 rNN 은 중복이라 막는다).
 function checkExtraction(fixtureId, extraction, bid, tags, add, revisionNo) {
-  if (!isRecord(extraction) || !isRecord(bid) || !Array.isArray(bid.records) || !bid.records.length)
-    return add("EXTRACTION_SHAPE", fixtureId);
+  if (
+    !isRecord(extraction) ||
+    !isRecord(bid) ||
+    !Array.isArray(bid.records) ||
+    !bid.records.length
+  ) {
+    add("EXTRACTION_SHAPE", fixtureId);
+    return false;
+  }
   const last = bid.records.at(-1);
   const record =
     revisionNo === undefined
       ? last
-      : bid.records.find((item) => item?.amendmentNo === revisionNo && item !== last);
-  if (!isRecord(record)) return add("EXTRACTION_REVISION", fixtureId);
-  if (!checkExtractionShape(fixtureId, extraction, record, add)) return;
-  const { content } = record;
+      : revisionNo === last.amendmentNo
+        ? undefined
+        : bid.records.find((item) => item?.amendmentNo === revisionNo);
+  if (!isRecord(record)) {
+    add("EXTRACTION_REVISION", fixtureId);
+    return false;
+  }
+  if (!checkExtractionShape(fixtureId, extraction, record, add)) return false;
   const fields = EXTRACTION_FIELDS.map((name) => extraction[name]);
-  const quotes = fields.flatMap((field) => field.evidence.map((item) => item.quotedText));
-  if (quotes.some((quote) => quote.length < QUOTE_MIN || quote.length > QUOTE_MAX))
+  if (quotesOf(extraction).some((quote) => quote.length < QUOTE_MIN || quote.length > QUOTE_MAX))
     add("QUOTE_LENGTH", fixtureId);
   if (fields.some((field) => field.state === "KNOWN" && !field.evidence.length))
     add("KNOWN_WITHOUT_EVIDENCE", fixtureId);
-  const mismatches =
-    typeof content === "string"
-      ? quotes.filter((quote) => !content.includes(quote)).length
-      : quotes.length;
-  // 태그가 있는 FX 는 본문에 없는 인용이 정확히 1건이어야 하고, 없는 FX 는 0건이다.
+  const mismatches = countMismatches(extraction, record);
   if (tags.includes(MISMATCH_TAG)) {
     if (mismatches !== 1) add("CITATION_MISMATCH_COUNT", fixtureId);
   } else if (mismatches > 0) add("CITATION_NOT_IN_CONTENT", fixtureId);
+  if (!isBudgetOk(extraction, record)) add("BUDGET_MISMATCH", fixtureId);
+  return true;
+}
+
+// rNN 파일이 없는 앞선 개정은 본파일이 대신 쓰인다(판정 19). 그 레코드와도 인용·예산이 맞아야 한다.
+function checkFallbacks(fixtureId, extraction, bid, tags, revisionNos, add) {
+  const last = bid.records.at(-1);
+  const seen = new Set();
+  for (const record of bid.records) {
+    const no = record?.amendmentNo;
+    if (!isRecord(record) || no === last.amendmentNo || revisionNos.includes(no) || seen.has(no))
+      continue;
+    seen.add(no);
+    if (!isMismatchCountOk(countMismatches(extraction, record), tags))
+      add("EXTRACTION_FALLBACK", fixtureId);
+    if (!isBudgetOk(extraction, record)) add("BUDGET_MISMATCH", fixtureId);
+  }
 }
 
 function checkProbabilities(probabilities, keys) {
@@ -382,9 +450,23 @@ function checkMockData(data, manifest, add) {
     if (isQuarantined(id)) {
       if (has(extractions, id)) add("EXTRACTION_UNEXPECTED", id);
     } else if (!has(extractions, id)) add("EXTRACTION_MISSING", id);
-    else checkExtraction(id, extractions[id], bids[id], tags, add);
-    for (const [key, revisionNo] of revisionKeys(extractions, id))
-      checkExtraction(id, extractions[key], bids[id], [], add, revisionNo);
+    else {
+      const isMainOk = checkExtraction(id, extractions[id], bids[id], tags, add);
+      const revisions = revisionKeys(extractions, id);
+      if (isMainOk)
+        checkFallbacks(
+          id,
+          extractions[id],
+          bids[id],
+          tags,
+          revisions.map(([, no]) => no),
+          add,
+        );
+      for (const [key, revisionNo] of revisions)
+        checkExtraction(id, extractions[key], bids[id], [], add, revisionNo);
+    }
+    for (const key of REQUIRED_REVISION_EXTRACTIONS)
+      if (fixtureIdOf(key) === id && !has(extractions, key)) add("EXTRACTION_MISSING", id);
     if (has(kev, id)) checkKev(id, kev[id], add);
     else if (REQUIRED_KEV_IDS.includes(id)) add("KEV_MISSING", id);
     if (has(goldens, id))
@@ -439,7 +521,16 @@ export function validateBidFixtures(data) {
     if (data.bids[entry.id] === undefined) add("FIXTURE_MISSING", entry.id);
     else checkBid(entry.id, data.bids[entry.id], entry, batchesOf(entry.id), add);
   }
-  checkPii(data.bids, add);
+  checkPii(
+    [
+      [undefined, manifest],
+      ...Object.entries(data.bids),
+      ...[extractions, kev, goldens].flatMap((group) =>
+        Object.entries(group).map(([key, value]) => [fixtureIdOf(key), value]),
+      ),
+    ],
+    add,
+  );
   checkMockData({ bids: data.bids, extractions, kev, goldens }, manifest, add);
   return { ok: errors.length === 0, errors };
 }

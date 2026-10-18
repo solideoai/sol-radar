@@ -146,6 +146,18 @@ test("FX-05 extraction records the attachment parse failure and quotes only the 
 test("FX-13 extraction has exactly one quote that is not in the content", async () => {
   const value = await baseline();
   assert.equal(mismatchesOf(value, "FX-13").length, 1);
+  // 어긋난 인용은 자격(qualifications) 근거 안에 있다(07:399 해당 필드 CONFLICTED).
+  const bad = mismatchesOf(value, "FX-13")[0];
+  assert.ok(
+    value.extractions["FX-13"].qualifications.evidence.some((item) => item.quotedText === bad),
+  );
+});
+
+test("FX-07 latest extraction keeps Kubernetes that the first revision lacks", async () => {
+  const { extractions } = await baseline();
+  assert.ok(
+    extractions["FX-07"].requiredSkills.value.some((skill) => skill.includes("Kubernetes")),
+  );
 });
 
 test("FX-11 extraction: staffing KNOWN, budget UNKNOWN", async () => {
@@ -513,7 +525,7 @@ for (const [name, mutate, expected] of [
     "QUOTE_LENGTH",
   ],
   [
-    "r01 extraction for a revision the fixture does not have",
+    "FX-01.r02 extraction for a revision the fixture does not have",
     (value) => {
       value.extractions["FX-01.r02"] = {
         ...structuredClone(value.extractions["FX-01"]),
@@ -554,6 +566,136 @@ for (const [name, mutate, expected] of [
       value.extractions["FX-07.r1"] = structuredClone(value.extractions["FX-07.r01"]);
     },
     "EXTRACTION_UNEXPECTED",
+  ],
+  [
+    "FX-07.r01 extraction removed",
+    (value) => {
+      delete value.extractions["FX-07.r01"];
+    },
+    "EXTRACTION_MISSING",
+  ],
+  [
+    "email address in an extraction note",
+    (value) => {
+      value.extractions["FX-01"].summary.note = "문의 kim@example.com";
+    },
+    "PII_EMAIL",
+  ],
+  [
+    "email address in an rNN extraction",
+    (value) => {
+      value.extractions["FX-07.r01"].summary.note = "문의 kim@example.com";
+    },
+    "PII_EMAIL",
+  ],
+  [
+    "phone number in a Kev file",
+    (value) => {
+      value.kev["FX-01"].memo = "010-1234-5678";
+    },
+    "PII_PHONE",
+  ],
+  [
+    "email address in a golden file",
+    (value) => {
+      value.goldens["FX-01"].memo = "kim@example.com";
+    },
+    "PII_EMAIL",
+  ],
+  [
+    "phone number in the manifest",
+    (value) => {
+      manifestEntry(value, "FX-01").memo = "010-1234-5678";
+    },
+    "PII_PHONE",
+  ],
+  [
+    "real url in a bid content",
+    (value) => {
+      lastRecord(value, "FX-01").content += " https://www.g2b.go.kr/notices/FX-01";
+    },
+    "PII_URL",
+  ],
+  [
+    "main extraction quoting text that the earlier revision lacks (no rNN file)",
+    (value) => {
+      const record = lastRecord(value, "FX-06");
+      record.content += " 마지막 개정에만 있는 문장입니다.";
+      value.extractions["FX-06"].summary.evidence[0].quotedText =
+        "마지막 개정에만 있는 문장입니다.";
+    },
+    "EXTRACTION_FALLBACK",
+  ],
+  [
+    "extraction budget differs from the record budget",
+    (value) => {
+      value.extractions["FX-01"].budgetKrw = {
+        value: "1",
+        state: "KNOWN",
+        evidence: [
+          {
+            documentId: null,
+            revisionId: value.extractions["FX-01"].revisionId,
+            fetchedAt: "2026-10-16T09:00:00Z",
+            quotedText: contentOf(value, "FX-01").slice(0, 20),
+          },
+        ],
+      };
+    },
+    "BUDGET_MISMATCH",
+  ],
+  [
+    "budget-text extraction not converted to won",
+    (value) => {
+      value.extractions["FX-13"].budgetKrw = {
+        value: String(lastRecord(value, "FX-13").budgetKrw.replace(/\D/g, "")),
+        state: "KNOWN",
+        evidence: [
+          {
+            documentId: null,
+            revisionId: value.extractions["FX-13"].revisionId,
+            fetchedAt: "2026-10-16T09:00:00Z",
+            quotedText: contentOf(value, "FX-13").slice(0, 20),
+          },
+        ],
+      };
+    },
+    "BUDGET_MISMATCH",
+  ],
+  [
+    "amendment numbers going down",
+    (value) => {
+      value.bids["FX-06"].records.reverse();
+    },
+    "RECORD_ORDER",
+  ],
+  [
+    "record stage differs from the file stage",
+    (value) => {
+      value.bids["FX-06"].records[0].stage = "PLAN";
+    },
+    "RECORD_STAGE",
+  ],
+  [
+    "exception tag on a fixture that may not carry it",
+    (value) => {
+      manifestEntry(value, "FX-01").tags.push("budget-text");
+    },
+    "TAG_NOT_ALLOWED",
+  ],
+  [
+    "FX-09.r01 duplicates the main file (both records are 01)",
+    (value) => {
+      value.extractions["FX-09.r01"] = structuredClone(value.extractions["FX-09"]);
+    },
+    "EXTRACTION_REVISION",
+  ],
+  [
+    "prototype-named manifest id",
+    (value) => {
+      value.manifest.fixtures.push({ id: "constructor", tags: [], expected: {} });
+    },
+    "MANIFEST_IDS",
   ],
   [
     "Kev FX-16 removed",

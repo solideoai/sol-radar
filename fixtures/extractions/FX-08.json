@@ -42,17 +42,17 @@
     "evidence": []
   },
   "requiredSkills": {
-    "value": ["Java", "Spring Boot"],
+    "value": ["Java", "Spring Boot", "Oracle", "Nexacro"],
     "state": "KNOWN",
     "evidence": [
       {
         "documentId": null,
         "revisionId": "FX-08#02",
         "fetchedAt": "2026-10-16T09:00:00Z",
-        "quotedText": "필수 기술은 Java, Spring Boot 이다"
+        "quotedText": "필수 기술은 Java, Spring Boot, Oracle, Nexacro 이다"
       }
     ],
-    "note": "[0],[1]→evidence[0]"
+    "note": "[0],[1],[2],[3]→evidence[0]"
   },
   "preferredSkills": {
     "value": null,
