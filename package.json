@@ -16,6 +16,7 @@
     "format": "prettier --write . \"!web/**\" \"!mobile/**\"",
     "format:check": "prettier --check . \"!web/**\" \"!mobile/**\"",
     "doctor": "node scripts/doctor.mjs",
+    "check:env": "node scripts/check-env.mjs",
     "db:start": "node scripts/db-local.mjs start",
     "db:stop": "node scripts/db-local.mjs stop",
     "db:seed": "node scripts/db-seed.mjs",
