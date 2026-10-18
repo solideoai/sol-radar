@@ -1,6 +1,6 @@
-node_modules
+**/node_modules
 .next
 e2e*
 test-results
 playwright-report
-.env*
+**/.env*

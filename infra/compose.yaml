@@ -22,7 +22,7 @@ services:
       - -c
       - |
         umask 0077
-        chown -R redis /data
+        chown -R redis /data || exit 1
         exec /bin/setpriv --reuid redis --regid redis --clear-groups --nnp \
           redis-server - <<EOF
         requirepass "$$REDIS_PASSWORD"
