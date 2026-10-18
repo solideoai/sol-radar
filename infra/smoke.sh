@@ -40,13 +40,13 @@ echo "ok 4 worker ping"
 
 STEP="5 redis volume 유지"
 VALUE="$(date +%s)"
-"${COMPOSE[@]}" exec -T redis sh -c 'redis-cli --no-auth-warning -a "$REDIS_PASSWORD" SET sol:smoke '"$VALUE" >/dev/null
+"${COMPOSE[@]}" exec -T redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli SET sol:smoke '"$VALUE" >/dev/null
 "${COMPOSE[@]}" restart redis >/dev/null
 for _ in $(seq 1 30); do
   "${COMPOSE[@]}" ps --format '{{.Service}} {{.Health}}' | grep -qx 'redis healthy' && break
   sleep 2
 done
-GOT="$("${COMPOSE[@]}" exec -T redis sh -c 'redis-cli --no-auth-warning -a "$REDIS_PASSWORD" GET sol:smoke')"
+GOT="$("${COMPOSE[@]}" exec -T redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli GET sol:smoke')"
 [ "$GOT" = "$VALUE" ]
 echo "ok 5 redis 재시작 뒤 값 유지 (호스트 포트 ${REDIS_PORT})"
 

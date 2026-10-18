@@ -14,14 +14,15 @@ x-logging: &default-logging
 services:
   redis:
     image: redis:8.8.3-alpine
+    # 비밀번호가 프로세스 인자·docker inspect 에 남지 않도록 설정을 stdin 으로 넘긴다.
     command:
-      [
-        "redis-server",
-        "--requirepass",
-        "${REDIS_PASSWORD:?REDIS_PASSWORD 를 infra/.env 에 채운다}",
-        "--appendonly",
-        "yes",
-      ]
+      - sh
+      - -c
+      - |
+        exec redis-server - <<EOF
+        requirepass "$$REDIS_PASSWORD"
+        appendonly yes
+        EOF
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 를 infra/.env 에 채운다}
     ports:
@@ -31,7 +32,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     healthcheck:
-      test: ["CMD-SHELL", 'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -100,6 +101,7 @@ services:
       KEV_ALLOW_KO_STATE: ${KEV_ALLOW_KO_STATE:-}
       QWEN_BASE_URL: ${QWEN_BASE_URL:-}
       QWEN_MODEL: ${QWEN_MODEL:-}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
       KEV_BASE_URL: ${KEV_BASE_URL:-}
       KEV_MODEL_ID: ${KEV_MODEL_ID:-}
       KEV_QUESTION_SET: ${KEV_QUESTION_SET:-}
