@@ -63,6 +63,7 @@ updated: 2026-10-16
 |GET|`/notifications`|auth|내 알림 목록|`?unreadOnly&cursor&limit` → `Page<Notification>`|
 |PATCH|`/notifications/:id/read`|auth(본인)|읽음 처리|`200 Notification`. 남의 알림은 `404`|
 |GET|`/departments`|`ADMIN, SALES, ANALYST, VIEWER`|조직도 트리([[16-DECISIONS\|ADR-021]]). 상위 없는 부서는 `parentId:null`. 부서마다 `memberCount`(하위 팀 재직 인원 합, 직원 ID 중복 제거)와 `targetCount`(팀만, 본부·그룹은 null)|`Department[]`(§4.7)|
+|GET|`/job-titles`|`ADMIN, SALES, ANALYST, VIEWER`|현재 조직 직급 카탈로그. UUID와 표시 코드 분리|`{id:string,code:string,label:string}[]`(§4.7)|
 |GET|`/team-members`|`ADMIN, SALES, ANALYST, VIEWER`|가상 직원 명부(ADR-021). 사진 경로(없으면 null)와 점수 계산 대상 여부. 연락처 없음|`?q&departmentId&jobTitleId&scoring&cursor` → `Page<TeamMemberListItem>`(§4.7)|
 |GET|`/team-members/:id`|`ADMIN, SALES, ANALYST, VIEWER`|개인 상세(ADR-021). 점수 계산 대상이면 직무·등급·스킬·가용성|`TeamMemberDetail`(§4.7)|
 |PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|P1 착수 때 zod 계약으로 정한다|
@@ -452,13 +453,13 @@ interface EvalRunReport extends EvalRunSummary {
 
 `IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 `G2B_SERVICE_KEY`는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
 
-### 4.7 조직·인력 (ADR-021, 구현 예정)
+### 4.7 조직·인력 (ADR-021)
 
 가상 직원 명부를 읽는 DTO다. 연락처 필드는 없다([[09-SECURITY|09 보안]] 솔리데오 명부 절).
 
 ```ts
 interface Department {
-  id: string; name: string;
+  id: string; code: string; name: string;
   kind: "DIVISION" | "GROUP" | "TEAM" | null;   // 본부·그룹·팀. 없으면 null
   parentId: string | null;                      // 상위 부서. null이면 화면에서 "상위 미지정"
   targetCount: number | null;                   // 팀만. 본부·그룹은 null(오류 아님)
@@ -475,6 +476,30 @@ interface TeamMemberDetail extends TeamMemberListItem {
   scoring: { role: string; grade: string | null; skills: unknown[]; availability: unknown[] } | null;  // 점수 계산 대상만. 원소 형태는 SOL Score 입력 `AnalysisInput.team.members`(15)·`TeamAvailability`(08 §3.3)와 같은 zod 스키마를 쓴다. 조직 구성원 누구나 읽는다(RLS로 다른 조직 0행)
 }
 ```
+
+### 4.7.1 인력 조회 계약 보완
+
+네 GET 경로는 쿠키·Bearer 인증, 활성 계정, 가입 정보 완료, 현재 업무 조직 하나와 네 업무 역할을 각각 확인한다. Authorization 헤더가 있으면 유효하지 않은 Bearer를 쿠키로 대체하지 않는다. 업무 조직이 없으면 `403 FORBIDDEN`, `details={reason:"ORGANIZATION_REQUIRED",organizationStatePath:"/auth/organization-state"}`다. 두 개 이상은 `403 UNSUPPORTED_ACCOUNT_STATE`, 역할 없음은 `403 FORBIDDEN`이다. 조직 ID 헤더는 조직 선택에 쓰지 않으며 `orgId` 쿼리는 `400 VALIDATION_ERROR`다. 현재 스키마에는 `employment_status`가 없으며 현재 명부 전체를 재직 인원으로 조회한다.
+
+`Department.id`·`TeamMemberListItem.id`·`departmentId`·`jobTitleId`와 `JobTitle.id`는 DB UUID다. 표시 코드는 `Department.code=SOL-Dxxx`, `JobTitle.code=SOL-Jxxx`, `personCode=SOL-Pxxxx`다. `GET /job-titles`는 `{id,code,label}[]`를 직급 순서로 반환한다. 본부의 `parentId:null`은 정상 루트이고, 그룹·팀의 null은 상위 미지정이다. `memberCount`는 전체 명부의 하위 직원 ID 중복을 제거해 계산한다.
+
+`GET /team-members`는 `q`(trim, 최대 40자), `departmentId`(팀 UUID), `jobTitleId`(UUID), `scoring=1|0`, `cursor`, `limit`(기본 20, 1~100)을 받는다. 알 수 없는 조건·중복 조건·잘못된 값은 `400 VALIDATION_ERROR`, 현재 조직에서 찾을 수 없는 부서·직급은 `404 NOT_FOUND`, 상위 본부·그룹 필터는 `400 VALIDATION_ERROR`다. 다른 세 경로는 쿼리 조건을 받지 않는다. 상세 경로 ID 형식은 UUID이며 잘못된 형식은 400, 현재 조직에 없거나 다른 조직의 직원은 404다.
+
+```ts
+interface PeoplePage {
+  items: TeamMemberListItem[];
+  pageInfo: {
+    cursor: string | null; nextCursor: string | null;
+    previousCursor: string | null; hasNext: boolean; startIndex: number;
+  };
+  totalCount: number; // 필터 결과 전체 수
+  summary: { totalCount: number; scoringCount: number }; // 필터 전 현재 조직 전체
+}
+```
+
+정렬은 `personCode ASC, id ASC`로 고정한다. `startIndex`는 0부터 시작한다. 이전 페이지는 `startIndex>0`일 때 제공하며, 첫 페이지로 돌아가는 `previousCursor:null`은 cursor 쿼리를 제거하라는 뜻이다. 그 외 이전 커서는 해당 페이지 앞 직원의 키를 담는다. 필터 변경 때 cursor를 제거한다. 조직도는 페이지의 20명이 아닌 전체 명부를 쓴다. 목록에는 `scoring` 상세 속성이 없으며, 상세에는 점수 행이 없는 직원도 `scoring:null`로 보존한다. 연락처·계정 연결 필드는 반환하지 않는다.
+
+커서는 버전·마지막 `personCode`/UUID·현재 orgId·정규화 필터/limit·발급시각을 base64url로 인코딩하고 HMAC-SHA256으로 서명한다. 서버 전용 `API_CURSOR_SECRET`은 32자 이상이며 기본값이나 다른 키로 대체하지 않는다. 발급 후 24시간 이상, 미래 발급시각, 조직·필터 불일치, 변조·잘못된 인코딩은 `400 INVALID_CURSOR`다. 서명은 `timingSafeEqual`로 비교한다. 키 미설정·길이 부족은 `503 SERVICE_UNAVAILABLE`, `details={component:"cursor"}`다. 사진은 해당 `personCode`와 정확히 일치하는 `/demo/people/<personCode>.png`만 공개하며 없거나 안전하지 않은 경로는 `portraitUrl:null`이다.
 
 ## 5. 오류 코드
 
