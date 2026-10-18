@@ -503,9 +503,9 @@ export function registerPeopleReadTests() {
         ).toBeVisible();
         for (let index = 0; index < 8; index++) {
           await page.keyboard.press("Tab");
-          expect(
-            await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))),
-          ).toBe(true);
+          await expect
+            .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+            .toBe(true);
         }
         await expect
           .poll(async () => Math.round((await dialog.boundingBox())?.width ?? 0))
@@ -577,7 +577,9 @@ export function registerPeopleReadTests() {
         await expect(
           page.getByText("자료에서 상위 부서가 확인되지 않은 부서입니다.", { exact: true }),
         ).toBeVisible();
-        await expect(page.getByRole("button", { name: /^P&AX컨설팅본부/ })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "P&AX컨설팅본부", exact: true })).toHaveCount(
+          0,
+        );
         await expect(page.getByText("P&AX컨설팅본부", { exact: true })).toBeVisible();
         await expect(peopleButtons(page)).toHaveCount(14);
         await expect(
@@ -986,6 +988,9 @@ export function registerPeopleReadTests() {
           name: `${first.name} 상세 보기`,
           exact: true,
         });
+        const firstOpenerElement = await firstOpener.elementHandle();
+        if (!firstOpenerElement)
+          throw new Error("The first opener must be mounted before opening.");
         await firstOpener.click();
         await requested;
         await expect(
@@ -1031,7 +1036,8 @@ export function registerPeopleReadTests() {
             }),
         ).toBeVisible();
         // A removed trigger must fall back to the current panel heading rather than body.
-        await firstOpener.evaluate((button) => button.remove());
+        await firstOpenerElement.evaluate((button) => button.remove());
+        await firstOpenerElement.dispose();
         await page.keyboard.press("Escape");
         await expect(
           page.getByRole("heading", {

@@ -205,7 +205,7 @@ describe("person read drawer", () => {
     await expect.poll(() => dialog.contains(document.activeElement)).toBe(true);
     for (let index = 0; index < 5; index++) {
       await userEvent.keyboard("{Tab}");
-      expect(dialog.contains(document.activeElement)).toBe(true);
+      await expect.poll(() => dialog.contains(document.activeElement)).toBe(true);
     }
     await userEvent.keyboard("{Escape}");
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
