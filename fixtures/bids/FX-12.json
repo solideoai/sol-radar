@@ -1,0 +1,27 @@
+{
+  "fixtureId": "FX-12",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0012",
+      "planRef": null,
+      "agency": "경상북도",
+      "budgetKrw": "300000000",
+      "noticeDate": "-1d",
+      "deadlineAt": "+10d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-12",
+      "content": "경상북도가 공고하는 사업이다. 사업예산은 3억원이다. 이 공고는 제목이 없어 필수 필드 검사에서 격리된다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-12-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

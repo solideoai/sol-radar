@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-15",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0015",
+      "planRef": null,
+      "title": "행정안전부 차세대 지방행정 공통기반 구축 (가상)",
+      "agency": "행정안전부",
+      "budgetKrw": "8000000000",
+      "noticeDate": "-3d",
+      "deadlineAt": "+30d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-15",
+      "content": "행정안전부가 차세대 지방행정 공통기반 구축 사업의 제안사를 모집한다. 사업 분야는 데이터 플랫폼이며 사업예산은 80억원이다. 필수 기술은 Java, Spring Boot, Tibero 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-15-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

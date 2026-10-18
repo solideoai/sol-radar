@@ -1,0 +1,48 @@
+{
+  "fixtureId": "FX-06",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0006",
+      "planRef": null,
+      "title": "대전광역시 스마트시티 통합플랫폼 유지보수 (가상)",
+      "agency": "대전광역시",
+      "budgetKrw": "900000000",
+      "noticeDate": "-3d",
+      "deadlineAt": "+14d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-06",
+      "content": "대전광역시가 스마트시티 통합플랫폼 유지보수 사업의 수행사를 모집한다. 사업 분야는 스마트시티이며 사업예산은 9억원이다. 필수 기술은 Java, Spring Boot, PostgreSQL, Redis 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-06-rfp.pdf"
+        }
+      ]
+    },
+    {
+      "amendmentNo": "02",
+      "ingestBatch": "LIVE",
+      "noticeId": "DEMO-2026-0006",
+      "planRef": null,
+      "title": "대전광역시 스마트시티 통합플랫폼 유지보수 (가상)",
+      "agency": "대전광역시",
+      "budgetKrw": "900000000",
+      "noticeDate": "-3d",
+      "deadlineAt": "+28d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-06",
+      "content": "대전광역시가 스마트시티 통합플랫폼 유지보수 사업의 수행사를 모집한다. 사업 분야는 스마트시티이며 사업예산은 9억원이다. 필수 기술은 Java, Spring Boot, PostgreSQL, Redis 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다. 정정공고: 접수 마감을 연장한다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-06-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

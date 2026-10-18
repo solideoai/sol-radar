@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-20",
+  "isDemo": true,
+  "stage": "PLAN",
+  "connectorBehavior": "rate-limit-then-ok",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0020",
+      "planRef": null,
+      "title": "경상남도 2027년 정보화사업 발주계획 (가상)",
+      "agency": "경상남도",
+      "budgetKrw": "1500000000",
+      "noticeDate": "-8d",
+      "deadlineAt": null,
+      "stage": "PLAN",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-20",
+      "content": "경상남도가 2027년 정보화사업을 발주할 계획이다. 예정 사업예산은 15억원이다. 세부 일정은 추후 공지한다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-20-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

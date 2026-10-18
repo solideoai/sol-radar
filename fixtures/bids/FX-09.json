@@ -1,0 +1,48 @@
+{
+  "fixtureId": "FX-09",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "duplicate-delivery",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0009",
+      "planRef": null,
+      "title": "서울특별시 공공데이터 개방 플랫폼 운영 (가상)",
+      "agency": "서울특별시",
+      "budgetKrw": "1100000000",
+      "noticeDate": "-2d",
+      "deadlineAt": "+25d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-09",
+      "content": "서울특별시가 공공데이터 개방 플랫폼 운영 사업의 수행사를 모집한다. 사업 분야는 데이터 플랫폼이며 사업예산은 11억원이다. 필수 기술은 Java, Hadoop, Spark, Airflow 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-09-rfp.pdf"
+        }
+      ]
+    },
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "LIVE",
+      "noticeId": "DEMO-2026-0009",
+      "planRef": null,
+      "title": "서울특별시 공공데이터 개방 플랫폼 운영 (가상)",
+      "agency": "서울특별시",
+      "budgetKrw": "1100000000",
+      "noticeDate": "-2d",
+      "deadlineAt": "+25d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-09",
+      "content": "서울특별시가 공공데이터 개방 플랫폼 운영 사업의 수행사를 모집한다. 사업 분야는 데이터 플랫폼이며 사업예산은 11억원이다. 필수 기술은 Java, Hadoop, Spark, Airflow 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-09-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

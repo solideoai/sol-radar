@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-19",
+  "isDemo": true,
+  "stage": "PRE_SPEC",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0019",
+      "planRef": null,
+      "title": "세종특별자치시 행정정보 연계 플랫폼 사전규격 (가상)",
+      "agency": "세종특별자치시",
+      "budgetKrw": "1000000000",
+      "noticeDate": "-1d",
+      "deadlineAt": "+7d",
+      "stage": "PRE_SPEC",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-19",
+      "content": "세종특별자치시가 행정정보 연계 플랫폼 사업의 사전규격을 공개하고 의견을 받는다. 사업예산은 10억원이다. 필수 기술은 Java, Spring Boot, PostgreSQL 이다. 연계 대상 사업 식별번호는 기재하지 않았다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-19-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}
