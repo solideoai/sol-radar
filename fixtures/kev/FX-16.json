@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "kev-mock/v0.1",
+  "fixtureId": "FX-16",
+  "provider": "mock",
+  "questionSetVersion": "kev-qs/v0.1",
+  "responses": {
+    "recommendation": {
+      "choice": "NO_BID",
+      "confidence": 0.7,
+      "probabilities": {
+        "BID": 0.1,
+        "WATCH": 0.2,
+        "NO_BID": 0.7
+      }
+    },
+    "mandatoryRisk": {
+      "noul": 0.9
+    },
+    "needsHumanReview": {
+      "noul": 0.3
+    },
+    "fit": {
+      "score": 0.6,
+      "legend": {
+        "0": "Very poor",
+        "1": "Poor",
+        "2": "Moderate",
+        "3": "Good",
+        "4": "Very good"
+      },
+      "probabilities": {
+        "0": 0.4,
+        "1": 0.6,
+        "2": 0,
+        "3": 0,
+        "4": 0
+      },
+      "confidence": 0.6
+    }
+  },
+  "usage": {
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "latency_ms": 0
+}

@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "requirement-extraction/v0.1",
+  "bidId": "FX-18",
+  "revisionId": "FX-18#01",
+  "model": {
+    "provider": "mock",
+    "name": "fixture",
+    "promptVersion": "req-extract/v0.1",
+    "promptHash": "e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e",
+    "temperature": 0,
+    "extractedAt": "2026-10-16T09:00:00Z",
+    "latencyMs": 0,
+    "retries": 0
+  },
+  "summary": {
+    "value": "과학기술정보통신부가 AI 행정서비스 구축 사업의 사전규격을 공개하고 의견을 받는다.",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-18#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "과학기술정보통신부가 AI 행정서비스 구축 사업의 사전규격을 공개하고 의견을 받는다"
+      }
+    ]
+  },
+  "projectType": {
+    "value": "AX",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-18#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "과학기술정보통신부가 AI 행정서비스 구축 사업의 사전규격을 공개하고 의견을 받는다"
+      }
+    ]
+  },
+  "domain": {
+    "value": "데이터 플랫폼",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-18#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업 분야는 데이터 플랫폼"
+      }
+    ]
+  },
+  "requiredSkills": {
+    "value": ["Java", "Spring Boot", "PostgreSQL"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-18#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "필수 기술은 Java, Spring Boot, PostgreSQL 이다"
+      }
+    ],
+    "note": "[0],[1],[2]→evidence[0]"
+  },
+  "preferredSkills": {
+    "value": ["NestJS", "Next.js", "RAG/LLM 적용", "전자정부 표준프레임워크", "Redis"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-18#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "우대 기술은 NestJS, Next.js, RAG/LLM 적용, 전자정부 표준프레임워크, Redis 이다"
+      }
+    ],
+    "note": "[0],[1],[2],[3],[4]→evidence[0]"
+  },
+  "qualifications": {
+    "value": [
+      {
+        "name": "소프트웨어사업자 신고확인서",
+        "kind": "REGISTRATION",
+        "mandatory": true,
+        "code": null
+      }
+    ],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-18#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "소프트웨어사업자 신고확인서를 보유한 업체"
+      }
+    ],
+    "note": "[0]→evidence[0]"
+  },
+  "pastPerformance": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "staffing": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "budgetKrw": {
+    "value": "4800000000",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-18#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업예산은 48억원"
+      }
+    ],
+    "note": "48억원 → 4800000000원 환산"
+  },
+  "deadlineAt": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "contractMethod": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "restrictions": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "submission": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "injectionSuspected": false,
+  "warnings": []
+}

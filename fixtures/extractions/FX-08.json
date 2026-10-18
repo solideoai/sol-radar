@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "requirement-extraction/v0.1",
+  "bidId": "FX-08",
+  "revisionId": "FX-08#02",
+  "model": {
+    "provider": "mock",
+    "name": "fixture",
+    "promptVersion": "req-extract/v0.1",
+    "promptHash": "e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e",
+    "temperature": 0,
+    "extractedAt": "2026-10-16T09:00:00Z",
+    "latencyMs": 0,
+    "retries": 0
+  },
+  "summary": {
+    "value": "충청북도가 농업기술정보시스템 구축 사업의 제안사를 모집한다.",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-08#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "충청북도가 농업기술정보시스템 구축 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "projectType": {
+    "value": "SI",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-08#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "충청북도가 농업기술정보시스템 구축 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "domain": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "requiredSkills": {
+    "value": ["Java", "Spring Boot"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-08#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "필수 기술은 Java, Spring Boot 이다"
+      }
+    ],
+    "note": "[0],[1]→evidence[0]"
+  },
+  "preferredSkills": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "qualifications": {
+    "value": [
+      {
+        "name": "소프트웨어사업자 신고확인서",
+        "kind": "REGISTRATION",
+        "mandatory": true,
+        "code": null
+      }
+    ],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-08#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "소프트웨어사업자 신고확인서를 보유한 업체"
+      }
+    ],
+    "note": "[0]→evidence[0]"
+  },
+  "pastPerformance": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "staffing": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "budgetKrw": {
+    "value": "700000000",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-08#02",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업예산은 7억원"
+      }
+    ],
+    "note": "7억원 → 700000000원 환산"
+  },
+  "deadlineAt": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "contractMethod": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "restrictions": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "submission": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "injectionSuspected": false,
+  "warnings": []
+}
