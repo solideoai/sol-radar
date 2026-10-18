@@ -127,6 +127,7 @@ services:
     build:
       context: ../web
       dockerfile: worker/Dockerfile
+    init: true
     environment:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?NEXT_PUBLIC_SUPABASE_URL 를 infra/.env 에 채운다}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY 를 infra/.env 에 채운다}
