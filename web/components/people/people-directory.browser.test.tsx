@@ -71,6 +71,38 @@ const render = (props: Partial<React.ComponentProps<typeof PeopleDirectory>> = {
   return root;
 };
 describe("people list", () => {
+  it("clears all unsubmitted drafts on the default URL and submits without filters", async () => {
+    render({ query: "" });
+    const name = page.getByRole("textbox", { name: "이름", exact: true });
+    const department = page.getByRole("combobox", { name: "부서", exact: true });
+    const jobTitle = page.getByRole("combobox", { name: "직급/직책", exact: true });
+    const scoring = page.getByRole("combobox", { name: "점수 계산 대상", exact: true });
+    await name.fill("미적용 이름");
+    await department.click();
+    await page.getByRole("option", { name: "긴 부서 이름 개발운영지원팀", exact: true }).click();
+    await jobTitle.click();
+    await page.getByRole("option", { name: "책임", exact: true }).click();
+    await scoring.click();
+    await page.getByRole("option", { name: "대상", exact: true }).click();
+    await expect.element(name).toHaveValue("미적용 이름");
+    await expect.element(department).toHaveTextContent("긴 부서 이름 개발운영지원팀");
+    await expect.element(jobTitle).toHaveTextContent("책임");
+    await expect.element(scoring).toHaveTextContent("대상");
+    expect(router.push).not.toHaveBeenCalled();
+    await page.getByRole("button", { name: "초기화", exact: true }).click();
+    expect(router.push).toHaveBeenCalledWith("/people", { scroll: false });
+    await expect.element(name).toHaveValue("");
+    await expect.element(department).toHaveTextContent("전체 부서");
+    await expect.element(jobTitle).toHaveTextContent("전체 직급/직책");
+    await expect.element(scoring).toHaveTextContent("전체");
+    await page.getByRole("button", { name: "검색", exact: true }).click();
+    const submitted = new URL(router.push.mock.calls.at(-1)?.[0], "http://local");
+    expect(submitted.pathname).toBe("/people");
+    for (const key of ["q", "departmentId", "jobTitleId", "scoring", "cursor"]) {
+      expect(submitted.searchParams.has(key)).toBe(false);
+    }
+  });
+
   it("offers retry for an empty whole organization without invented totals", async () => {
     render({
       view: "tree",

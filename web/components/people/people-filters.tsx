@@ -98,7 +98,13 @@ export function PeopleFilters({
         type="button"
         variant="outline"
         className="h-10"
-        onClick={() => onNavigate("/people")}
+        onClick={() => {
+          setName("");
+          setDepartment("");
+          setJobTitle("");
+          setScoring("");
+          onNavigate("/people");
+        }}
       >
         초기화
       </Button>
