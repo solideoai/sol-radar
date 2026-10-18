@@ -47,10 +47,23 @@ export function createReadinessProbes(env: WorkerEnv): ReadinessProbes {
   return {
     pingRedis: async () => {
       const redis = new IORedis(env.redisUrl, { maxRetriesPerRequest: 1, lazyConnect: true });
-      redis.on("error", () => undefined);
+      // connect() 의 거부 오류에는 code 가 없고 'error' 이벤트에만 ECONNREFUSED 같은 code 가 온다.
+      let eventCode: unknown;
+      redis.on("error", (error: unknown) => {
+        eventCode =
+          typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+      });
       try {
         await redis.connect();
         await redis.ping();
+      } catch (error) {
+        throw Object.assign(new Error("redis probe failed"), {
+          code:
+            eventCode ??
+            (typeof error === "object" && error !== null && "code" in error
+              ? error.code
+              : undefined),
+        });
       } finally {
         redis.disconnect();
       }

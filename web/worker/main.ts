@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import IORedis from "ioredis";
 import { readWorkerEnv, type WorkerEnv } from "@/worker/env";
-import { startHeartbeat } from "@/worker/heartbeat";
+import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
 import { checkReadiness, createReadinessProbes } from "@/worker/readiness";
 import { SYSTEM_QUEUE, processSystemJob } from "@/worker/system-queue";
 
@@ -11,12 +11,49 @@ export type WorkerDeps = {
   startHeartbeat: (file: string) => { stop(): void };
 };
 
+// 오류 코드(ECONNREFUSED·NOAUTH 등)는 비밀이 아니라 로그에 남겨도 된다. message 는 접속 문자열을 담을 수 있어 쓰지 않는다.
+export function errorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) return null;
+  return typeof error.code === "string" && /^[A-Za-z0-9_]{1,40}$/.test(error.code)
+    ? error.code
+    : null;
+}
+
+// 준비 확인 오류는 실패한 쪽 이름만 싣는다. 원인을 가리는 코드만 덧붙인다.
+async function checkReadinessWithCodes(env: WorkerEnv): Promise<void> {
+  const probes = createReadinessProbes(env);
+  const codes: string[] = [];
+  const track = (side: string, probe: () => Promise<unknown>) => async () => {
+    try {
+      return await probe();
+    } catch (error) {
+      const code = errorCode(error);
+      if (code) codes.push(`${side}: ${code}`);
+      throw error;
+    }
+  };
+  try {
+    await checkReadiness({
+      pingRedis: track("redis", probes.pingRedis),
+      pingSupabase: track("supabase", probes.pingSupabase),
+    });
+  } catch (error) {
+    if (error instanceof Error && codes.length > 0) {
+      throw new Error(`${error.message} (${codes.join(", ")})`);
+    }
+    throw error;
+  }
+}
+
 export const defaultWorkerDeps: WorkerDeps = {
-  checkReadiness: (env) => checkReadiness(createReadinessProbes(env)),
+  checkReadiness: checkReadinessWithCodes,
   createWorker: (env) => {
     const connection = new IORedis(env.redisUrl, { maxRetriesPerRequest: null });
     const worker = new Worker(SYSTEM_QUEUE, processSystemJob, { connection });
-    worker.on("error", (error) => console.error(`worker 오류: ${error.name}`));
+    worker.on("error", (error) => {
+      const code = errorCode(error);
+      console.error(code ? `worker 오류: ${error.name} ${code}` : `worker 오류: ${error.name}`);
+    });
     return {
       async close() {
         await worker.close();
@@ -32,6 +69,8 @@ export async function startWorker(
   deps: WorkerDeps = defaultWorkerDeps,
 ): Promise<{ close(): Promise<void> }> {
   const workerEnv = readWorkerEnv(env);
+  // 준비 확인보다 먼저 지워, 기동에 실패한 worker 가 이전 heartbeat 로 건강해 보이지 않게 한다.
+  removeHeartbeatFile(workerEnv.heartbeatFile);
   await deps.checkReadiness(workerEnv);
   const worker = deps.createWorker(workerEnv);
   const heartbeat = deps.startHeartbeat(workerEnv.heartbeatFile);
