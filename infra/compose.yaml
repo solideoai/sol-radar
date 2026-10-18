@@ -15,11 +15,16 @@ services:
   redis:
     image: redis:8.8.3-alpine
     # 비밀번호가 프로세스 인자·docker inspect 에 남지 않도록 설정을 stdin 으로 넘긴다.
+    # 첫 인자가 redis-server 가 아니면 공식 entrypoint 가 권한 강등을 건너뛰므로(su-exec 도 없다),
+    # entrypoint 와 같은 방식(data 소유권 정리 + setpriv)으로 redis 사용자로 내린다.
     command:
       - sh
       - -c
       - |
-        exec redis-server - <<EOF
+        umask 0077
+        chown -R redis /data
+        exec /bin/setpriv --reuid redis --regid redis --clear-groups --nnp \
+          redis-server - <<EOF
         requirepass "$$REDIS_PASSWORD"
         appendonly yes
         EOF
