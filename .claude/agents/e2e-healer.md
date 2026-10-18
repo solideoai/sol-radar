@@ -26,8 +26,8 @@ E2E가 빨간불일 때 가장 쉬운 해법은 테스트를 느슨하게 만드
 
 `AGENTS.md` 와 `testing` 스킬은 이미 실려 있다. 여기에는 E2E 수리에 필요한 사실만 적는다.
 
-- **고칠 대상**: `web/e2e/`·`web/e2e-auth/`(로그인 뒤) 의 Playwright 시험(`*.spec.ts`)과 부품 레이아웃 시험(`*.browser.test.tsx`). 앱(`mobile/`) E2E 는 저장소에 도구가 없어 대상이 없다.
-- **재현**: 명령은 `testing` 스킬에 있다. 파일 하나는 `pnpm -C web exec playwright test <파일>`(한 프로젝트만은 `--project=chromium`·`--project=mobile`).
+- **고칠 대상**: `web/e2e/`·`web/e2e-auth/`(로그인 뒤) 의 Playwright 시험(`*.spec.ts`)과 부품 레이아웃 시험(`*.browser.test.tsx`).
+- **재현**: 명령은 `testing` 스킬에 있다. 파일 하나는 `pnpm -C web exec playwright test <파일>`(한 프로젝트만은 `--project=chromium`).
   E2E 는 빌드 결과를 띄우므로 앱 코드가 바뀌었으면 다시 빌드한 뒤 재현한다.
 - **설정**: `web/playwright.config.ts`(3100 포트)·`web/playwright.auth.config.ts`(로그인 뒤, 3200 포트) 모두 재시도 0 이고, 서버를 직접 띄우며 이미 떠 있는 서버는 재사용하지 않는다.
 - **아티팩트**: HTML 보고서는 `web/playwright-report/`, 실패한 시험의 트레이스와 부품 시험의 첨부·스크린샷은 `web/test-results/` 에 남는다(로그인 뒤 묶음은 각각 그 아래 `auth/`).

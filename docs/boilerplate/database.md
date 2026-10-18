@@ -1,21 +1,19 @@
 # 데이터베이스
 
-웹과 앱이 같은 Supabase DB 를 씁니다. 처음 고르는 법은 [설치와 설정](setup.md#2-db-고르기), 자세한 규칙은
+웹이 Supabase DB 를 씁니다. 처음 고르는 법은 [설치와 설정](setup.md#2-db-고르기), 자세한 규칙은
 `database` 스킬(`.claude/skills/database/SKILL.md`)에 있습니다.
 
-## 환경변수 파일 세 개
+## 환경변수 파일 두 개
 
-값은 **그 값을 읽는 프로그램의 폴더**에 둡니다. Next 는 `web/` 의 파일만, Expo 는 `mobile/` 의 파일만 읽습니다.
-셋 다 깃에 올라가지 않고, 각 폴더의 `.env.example` 에 설명이 있습니다.
+값은 **그 값을 읽는 프로그램의 폴더**에 둡니다. Next 는 `web/` 의 파일만 읽습니다.
+둘 다 깃에 올라가지 않고, 각 폴더의 `.env.example` 에 설명이 있습니다.
 
 | 파일 | 넣는 것 | 읽는 쪽 |
 |---|---|---|
 | `.env.local` (루트) | `SUPABASE_DB_URL` (Session pooler 주소, 비밀) | `pnpm db:push`·`db:verify` — 클라우드 전용 |
 | `web/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`, 쓸 때만 `SUPABASE_SERVICE_ROLE_KEY`, 초대 메일을 보낼 때만 `SMTP_HOST`·`SMTP_PORT`·`SMTP_USER`·`SMTP_PASSWORD`·`MAIL_FROM`·`SITE_URL`(서버 전용) | 웹 |
-| `mobile/.env` | `EXPO_PUBLIC_SUPABASE_URL`·`EXPO_PUBLIC_SUPABASE_ANON_KEY` | 앱 |
 
-로컬 DB 면 `pnpm db:start` 가 웹·앱 두 파일의 주소와 anon 키를 채웁니다. 앱에는 `127.0.0.1` 대신 PC 의 LAN IP 가
-들어가므로 폰과 PC 가 같은 와이파이에 있어야 합니다. 파일에 이미 클라우드 주소가 있으면 덮지 않고 멈춥니다.
+로컬 DB 면 `pnpm db:start` 가 `web/.env.local` 의 주소와 anon 키를 채웁니다. 파일에 이미 클라우드 주소가 있으면 덮지 않고 멈춥니다.
 
 ## 규칙
 
@@ -23,7 +21,7 @@
   `service_role` 키는 RLS 를 무시하므로 기본 통로로 쓰지 않습니다. 관리자 화면도 `profiles.is_admin` 과 정책으로 가립니다.
 - 스키마 변경은 `supabase/migrations/` 에 **새 파일로만** 남깁니다. 이미 있는 파일을 고치거나 지우면 커밋 게이트가 막습니다.
 - 표는 만드는 그 파일에서 바로 RLS 로 잠그고, 필요한 만큼만 정책으로 엽니다.
-- 마이그레이션을 더하면 `pnpm db:types` 로 타입을 만들어 같은 커밋에 넣습니다. 웹·앱의 Supabase 클라이언트에 이 타입이
+- 마이그레이션을 더하면 `pnpm db:types` 로 타입을 만들어 같은 커밋에 넣습니다. 웹의 Supabase 클라이언트에 이 타입이
   붙어 있어서 없는 표·열 이름은 컴파일 오류가 됩니다.
 - 적용은 로컬이면 `pnpm db:start`(켜져 있어도 다시 돌리면 새 것만 적용), 클라우드면 `pnpm db:push` 뒤 `pnpm db:verify`.
 - 로컬 시험 계정·데이터는 `pnpm db:seed` 가 넣습니다(소유자·멤버·조직 밖 사람·초대받은 사람·운영자와 "시드 팀"의 작업). 다시 돌리면 시드 계정과 그 조직만 지우고 처음부터 만듭니다. 로컬 주소가 아니면 거부합니다.
@@ -34,22 +32,21 @@
 
 ## 로그인 견본
 
-웹과 앱(`mobile/app/account.tsx`)이 **가입 → 이메일·비밀번호 로그인 → 본인 `profiles` 읽기 → 로그아웃**을 실제로 합니다.
-웹은 `/auth/login`(`web/app/auth/login/`)에서 로그인하면 개인 조직의 대시보드(`/<slug>/dashboard`)로 가고, 프로필·표시 이름·로그아웃은 `/<slug>/settings`(`web/app/(app)/[slug]/settings/`)에 있습니다.
-웹에는 비밀번호 재설정(`/auth/reset` → 메일 링크 → `/auth/password`)이 끝까지 있고, 앱은 재설정 메일 요청까지만 합니다.
-표시 이름 고치기는 웹과 앱 둘 다 있습니다.
-DB 설정이 없으면 두 화면 모두 연결이 없다고 알리고 멈춥니다. 새 기능을 만들 때 이 코드가 기준입니다.
+웹이 **가입 → 이메일·비밀번호 로그인 → 본인 `profiles` 읽기 → 로그아웃**을 실제로 합니다.
+`/auth/login`(`web/app/auth/login/`)에서 로그인하면 개인 조직의 대시보드(`/<slug>/dashboard`)로 가고, 프로필·표시 이름·로그아웃은 `/<slug>/settings`(`web/app/(app)/[slug]/settings/`)에 있습니다.
+비밀번호 재설정(`/auth/reset` → 메일 링크 → `/auth/password`)도 끝까지 있습니다.
+DB 설정이 없으면 화면이 연결이 없다고 알리고 멈춥니다. 새 기능을 만들 때 이 코드가 기준입니다.
 
-| 자리 | 웹 | 앱 |
-|---|---|---|
-| 가입 | `/auth/sign-up` — `auth.signUp`. 이름은 `user_metadata.name` 으로 보내 가입 트리거가 표시 이름으로 옮긴다. 휴대폰·주소(카카오 우편번호 검색)·생년월일·약관 동의는 화면에서 받기만 하고 아직 보내지 않는다(`web/app/auth/sign-up/sign-up-schema.ts`) | 로그인 화면의 "이 이메일로 가입" — `supabase.auth.signUp` |
-| 메일 링크 확인 | 라우트 핸들러 `web/app/auth/confirm/route.ts` → 도메인 `@/server/auth` (가입 확인·비밀번호 재설정 공용) | 없음 — 링크는 웹이 받는다. 확인한 뒤 앱에서 로그인한다 |
-| 비밀번호 재설정 | `/auth/reset`(메일 요청) → `/auth/password`(새 비밀번호) | 로그인 화면에서 재설정 메일 요청만 한다. 링크는 웹 `/auth/confirm` 이 받고 새 비밀번호도 웹에서 정한다 |
-| 로그인·로그아웃 | 클라이언트 컴포넌트가 `getSupabaseBrowser().auth.*` (세션은 쿠키, `web/proxy.ts` 가 갱신). 로그인하면 `?next=` 나 개인 조직의 대시보드, 로그아웃(이 기기만)하면 `/auth/login` 으로 간다 | `supabase.auth.*` (세션은 AsyncStorage) |
-| 본인 프로필 읽기 | 설정 화면의 서버 컴포넌트 → 도메인 `@/server/profile` → `await getSupabase()` | `mobile/lib/profile.ts` → `supabase` |
-| 표시 이름 고치기 (쓰기 견본) | 설정 화면의 폼(`web/app/account/display-name-form.tsx`) → 서버 함수 `web/app/account/actions.ts` → 도메인 `@/server/profile` (zod 로 다시 검증) → `await getSupabase()` | 계정 화면의 폼 → `mobile/lib/profile.ts` → `supabase` (서버 함수가 없어 규칙 검사는 앱에서 하고, 마지막 검사는 DB 제약이 한다) |
-| 입력 검사 | react-hook-form + zod (화면의 편의) | `credentialsProblem` (화면의 편의) |
-| 시험 | `web/server/profile/*.test.ts` (모델·서비스) | `mobile/lib/profile.test.ts` |
+| 자리 | 웹 |
+|---|---|
+| 가입 | `/auth/sign-up` — `auth.signUp`. 이름은 `user_metadata.name` 으로 보내 가입 트리거가 표시 이름으로 옮긴다. 휴대폰·주소(카카오 우편번호 검색)·생년월일·약관 동의는 화면에서 받기만 하고 아직 보내지 않는다(`web/app/auth/sign-up/sign-up-schema.ts`) |
+| 메일 링크 확인 | 라우트 핸들러 `web/app/auth/confirm/route.ts` → 도메인 `@/server/auth` (가입 확인·비밀번호 재설정 공용) |
+| 비밀번호 재설정 | `/auth/reset`(메일 요청) → `/auth/password`(새 비밀번호) |
+| 로그인·로그아웃 | 클라이언트 컴포넌트가 `getSupabaseBrowser().auth.*` (세션은 쿠키, `web/proxy.ts` 가 갱신). 로그인하면 `?next=` 나 개인 조직의 대시보드, 로그아웃(이 기기만)하면 `/auth/login` 으로 간다 |
+| 본인 프로필 읽기 | 설정 화면의 서버 컴포넌트 → 도메인 `@/server/profile` → `await getSupabase()` |
+| 표시 이름 고치기 (쓰기 견본) | 설정 화면의 폼(`web/app/account/display-name-form.tsx`) → 서버 함수 `web/app/account/actions.ts` → 도메인 `@/server/profile` (zod 로 다시 검증) → `await getSupabase()` |
+| 입력 검사 | react-hook-form + zod (화면의 편의) |
+| 시험 | `web/server/profile/*.test.ts` (모델·서비스) |
 
 - "본인 행만"은 RLS 가 지키지만 운영자는 정책상 모든 행을 읽습니다. 그래서 "내 프로필"은 로그인한 id 로 좁혀 읽습니다.
 - 쓰기는 세 겹으로 지킵니다(`supabase/migrations/20261013000001_init.sql` 의 "표시 이름" 절). 권한은 `display_name` 열에만 주고,
@@ -60,7 +57,7 @@ DB 설정이 없으면 두 화면 모두 연결이 없다고 알리고 멈춥니
 - 로컬은 `supabase/config.toml` 이 메일 확인을 켜고 템플릿을 읽습니다. 메일은 실제로 나가지 않고 메일함(`pnpm db:start` 가 알려 주는 주소)에 쌓이니 링크를 거기서 엽니다.
   `config.toml` 을 바꾼 뒤에는 `pnpm db:stop` 뒤 `pnpm db:start` 로 다시 켭니다.
 
-### 간편 로그인과 회원 관리 (웹만)
+### 간편 로그인과 회원 관리
 
 구글·카카오·네이버 로그인, 마이페이지의 로그인 수단 연결·해제, 모든 기기 로그아웃, 회원 탈퇴, 운영자의 회원 정지, 회원 API(`/api/*`)는 인증 문서에 모았습니다.
 
@@ -114,7 +111,7 @@ DB 설정이 없으면 두 화면 모두 연결이 없다고 알리고 멈춥니
   활동 기록 트리거는 지워지는 조직의 일을 남기지 않습니다. 서비스는 사용자가 입력한 확인용 이름이 DB 의 지금 이름과 같을 때만 지웁니다(앞뒤 공백만 뗍니다).
   지워진 팀의 다른 멤버는 다음 요청에서 404 를 봅니다.
 - DB 정책 시험은 `scripts/database.test.mjs` 의 "조직·멤버십·초대 정책" 묶음입니다. 조직 밖의 사람(운영자 포함)이 못 읽는지, owner 만 관리하는지, 마지막 owner·초대 규칙을 봅니다.
-- 팀 주소(slug) 바꾸기·소유권 넘기기 화면(역할 바꾸기로 한다)·앱의 조직 화면은 이 견본에 없습니다. 앱은 조직을 읽지 않습니다.
+- 팀 주소(slug) 바꾸기·소유권 넘기기 화면(역할 바꾸기로 한다)은 이 견본에 없습니다.
 
 ### 초대 메일
 
@@ -137,7 +134,6 @@ DB 설정이 없으면 두 화면 모두 연결이 없다고 알리고 멈춥니
 `profiles` 가 "내 행 하나"의 기준이라면 `tasks` 는 "조직의 행 여러 개"의 기준입니다. 상태·마감일·담당자가 있어 대시보드가 상태 집계·기한·담당을 보여 줍니다.
 활동 기록(`activities`)은 조직 안에서 누가 언제 무엇을 했는지 DB 트리거가 남기고, 대시보드가 최근 10개를 보여 줍니다.
 로그인하지 않았거나 DB 가 연결되지 않았으면 작업 대신 안내를 보여 줍니다(앱 틀 `web/app/(app)/[slug]/layout.tsx` 이 그립니다).
-앱(`mobile/`)에는 이 견본이 없습니다. 앱은 로그인 견본만 둡니다.
 
 | 자리 | 웹 |
 |---|---|
@@ -188,14 +184,14 @@ DB 설정이 없으면 두 화면 모두 연결이 없다고 알리고 멈춥니
 DB 정책 시험(`scripts/database.test.mjs`)이 보지만 **실제 가입·메일 링크·비밀번호 재설정과 로그인 → 본인 프로필 읽기 → 로그아웃**, 두 계정의 초대 흐름은 자동으로 판정하지 않습니다.
 연결한 Supabase 프로젝트와 시험용 계정이 있을 때만 사람이 직접 확인하세요.
 
-1. `web/.env.local`·`mobile/.env` 에 그 프로젝트의 공개 URL·anon 키를 넣고 마이그레이션을 적용해 둡니다.
-2. 웹 `/auth/login`·앱 계정 화면에서 시험용 계정으로 로그인합니다. 웹은 개인 조직의 대시보드(`/<slug>/dashboard`)로 가는지 보고, 설정 화면(앱은 계정 화면)에 본인 `profiles` 행 하나만 보이는지 확인합니다.
-3. 로그아웃한 뒤(웹은 `/auth/login` 으로 갑니다) 설정 화면·앱 계정 화면이 프로필을 읽지 못하는지 확인합니다.
+1. `web/.env.local` 에 그 프로젝트의 공개 URL·anon 키를 넣고 마이그레이션을 적용해 둡니다.
+2. `/auth/login` 에서 시험용 계정으로 로그인합니다. 개인 조직의 대시보드(`/<slug>/dashboard`)로 가는지 보고, 설정 화면에 본인 `profiles` 행 하나만 보이는지 확인합니다.
+3. 로그아웃한 뒤(`/auth/login` 으로 갑니다) 설정 화면이 프로필을 읽지 못하는지 확인합니다.
 4. 조직은 시험용 계정 둘(A·B)로 웹에서 확인합니다. A 가 전환기의 "새 팀 만들기"(`/teams/new`)로 팀을 만들고, 멤버 화면(`/<slug>/settings/members`)에서 B 의 이메일을 초대합니다.
 5. B 로 로그인해 사이드바의 "받은 초대"(`/invitations`)에서 수락하고, 전환기로 팀에 들어가 A 가 만든 작업이 보이는지 확인합니다.
    B 가 작업을 A 에게 맡기고 완료하면 대시보드의 수치와 최근 활동에 남는지 봅니다.
-6. A 가 B 를 내보낸 뒤 B 가 맡던 작업의 담당자가 비는지, B 가 그 팀의 주소(`/<slug>/tasks`)를 열면 404 이고 전환기에 그 팀이 없는지 확인합니다. 화면은 375·1280px 폭에서 봅니다.
+6. A 가 B 를 내보낸 뒤 B 가 맡던 작업의 담당자가 비는지, B 가 그 팀의 주소(`/<slug>/tasks`)를 열면 404 이고 전환기에 그 팀이 없는지 확인합니다. 화면은 1440·1280px 폭에서 봅니다.
 
 확인 위치에 따라 보는 것이 다릅니다. Supabase REST 를 직접 부르는 검사는 RLS 정책만 봅니다.
-웹은 브라우저 쿠키 → `web/proxy.ts` 의 토큰 갱신 → 서버 렌더까지, 앱은 기기 저장소(AsyncStorage)에 남은 세션과 앱 복귀 때 갱신까지 이어져야 하므로 각 화면에서 따로 확인합니다.
+웹은 브라우저 쿠키 → `web/proxy.ts` 의 토큰 갱신 → 서버 렌더까지 이어져야 하므로 화면에서 따로 확인합니다.
 자격 증명 없이 이 확인을 했다고 적지 않습니다.

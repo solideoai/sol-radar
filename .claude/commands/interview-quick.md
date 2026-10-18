@@ -28,7 +28,7 @@ allowed-tools: Read, Grep, Glob
 
 - `polaris/mission.md` — 안 할 것, 현재 단계 (없으면 건너뛴다)
 - `polaris/specs/` — 같은 기능의 스펙이 이미 있는지 (`in-progress` → `planned` → `done`)
-- 관련 코드 — 화면 `web/app`·`web/components`·`mobile/app`, 서버 `web/server/<도메인>`, 표·정책 `supabase/migrations`
+- 관련 코드 — 화면 `web/app`·`web/components`, 서버 `web/server/<도메인>`, 표·정책 `supabase/migrations`
 - 이 요구에 걸리는 규칙 — `AGENTS.md`, 그리고 해당 스킬(`architecture`·`database`·`design-system`·`testing`)
 
 ## 1단계: 인터뷰

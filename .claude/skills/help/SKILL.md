@@ -48,7 +48,7 @@ doctor 통과는 `/verify` 통과를 대신하지 않는다.
 #### 환경이 아직 안 깔렸음 (doctor 의 버전·의존성·훅·생성물 검사 실패)
 > "먼저 `/setup`으로 환경을 확인하고 사용법을 훑어볼까요? 1~2분이면 끝납니다."
 
-설치 순서(세 곳에서 따로, ZIP 이면 `git init` 먼저)와 게이트 설치 실패의 처리는 `docs/boilerplate/setup.md` 의 "1. 설치" 절을 읽고 그대로 안내한다.
+설치 순서(루트·`web` 두 곳에서 따로, ZIP 이면 `git init` 먼저)와 게이트 설치 실패의 처리는 `docs/boilerplate/setup.md` 의 "1. 설치" 절을 읽고 그대로 안내한다.
 Supabase 설정은 선택이다. DB 설정 없이도 시작 화면은 열리므로 env 누락을 초기 설치 실패로 판단하지 않는다.
 설치 후 `pnpm run doctor` → 있는 플랫폼의 개발 서버 → `/verify` 또는 `pnpm verify` 순서로 안내한다.
 
@@ -84,14 +84,8 @@ Polaris 플러그인은 같은 자리를 쓰는 선택 도구라서 설치를 �
 
 스펙의 정본 자리는 `polaris/specs/` 다(`/spec` 이 쓴다). Polaris 는 같은 자리를 쓰는 선택 플러그인이다(AGENTS.md "미션 & 스펙").
 
-설치 상태 점검은 `pnpm run doctor`(기계 JSON: `pnpm --silent run doctor --json`), 새 프로젝트 복사는 `pnpm bootstrap <새 경로> --name <이름>` 이다(템플릿 원본에만 있다).
-
-### `/help bootstrap` 또는 새 프로젝트로 복사하기
-
-템플릿 원본에서만 안내한다. bootstrap 으로 만든 프로젝트(루트에 `template.json` 이 있다)에는 이 명령이 없다.
-
-명령·플래그·복사 범위·성공 뒤의 순서는 `docs/boilerplate/setup.md` 의 "새 프로젝트로 복사하기" 절(정본)을 읽고 그대로 안내한다.
-대신 실행하지 않는다. 첫 배포는 `docs/boilerplate/first-deployment.md` 를 안내한다. 실제 로그인·네이티브 컴파일·실기기·스토어 검증은 별도다.
+설치 상태 점검은 `pnpm run doctor`(기계 JSON: `pnpm --silent run doctor --json`)다. 첫 배포는 `docs/boilerplate/first-deployment.md` 를 안내한다.
+템플릿 원본에만 있는 `pnpm bootstrap`·`pnpm smoke:template` 은 이 저장소에 없으니 안내하지 않는다.
 
 ### `/help review` 또는 `/help predeploy-review`
 
@@ -105,7 +99,7 @@ Polaris 플러그인은 같은 자리를 쓰는 선택 도구라서 설치를 �
 - **"pnpm: command not found" / 버전 불일치** → `docs/boilerplate/setup.md` 의 "준비물" 대로 Node·pnpm 을 맞추게 안내(`corepack enable`)
 - **"타입 에러" / 커밋 차단** → 에러 위치를 찾아서 수정 방법 안내
 - **"모듈을 찾을 수 없습니다"** → `pnpm run doctor` 의 결과를 보고 해당 폴더에서 `pnpm install --frozen-lockfile` 안내
-- **"NEXT_PUBLIC_SUPABASE_URL" 가 없습니다** → DB 를 실제로 쓰는 기능이라면 `web/.env.example` 을 보고 `web/.env.local` 을 채우게 안내 (앱은 `mobile/.env` 의 `EXPO_PUBLIC_*`, `database` 스킬). 시작 화면만 여는 데는 DB 설정이 필요 없다. 로컬 DB 면 루트에서 `pnpm db:start` 가 웹·앱 두 파일을 채운다.
+- **"NEXT_PUBLIC_SUPABASE_URL" 가 없습니다** → DB 를 실제로 쓰는 기능이라면 `web/.env.example` 을 보고 `web/.env.local` 을 채우게 안내 (`database` 스킬). 시작 화면만 여는 데는 DB 설정이 필요 없다. 로컬 DB 면 루트에서 `pnpm db:start` 가 `web/.env.local` 을 채운다.
 
 ### 그 외 자유 질문
 

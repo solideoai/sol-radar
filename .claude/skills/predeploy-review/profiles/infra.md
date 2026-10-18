@@ -11,7 +11,7 @@
 
 ## 파일 필터
 
-- `web/next.config.*`, `vercel.json`, `.env*`, `mobile/eas.json`, `mobile/app.json`
+- `web/next.config.*`, `vercel.json`, `.env*`
 - `package.json` (의존성 변경)
 - `web/server/**` (서버 사이드 코드)
 - `supabase/**` (DB 관련)
@@ -34,7 +34,7 @@
 
 ### B. 배포 안전성
 
-- [ ] **빌드가 깨지지 않는가**: `pnpm -C web build`·`pnpm -C mobile build`(또는 둘을 함께 보는 `pnpm verify`)가 성공하는가?
+- [ ] **빌드가 깨지지 않는가**: `pnpm -C web build`(또는 `pnpm verify`)가 성공하는가?
 - [ ] **의존성이 고정되어 있는가**: `pnpm-lock.yaml`이 커밋에 포함되는가?
 - [ ] **호환성 깨짐이 없는가**: 기존 API 엔드포인트, URL 구조가 유지되는가?
 - [ ] **롤백이 가능한가**: 이전 배포 상태로 되돌릴 수 있는가?

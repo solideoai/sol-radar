@@ -55,11 +55,10 @@ worktree 에서 만든 작업은 원본이 아니라 그 worktree 에서 돌린�
 | `**/*.ts`, `**/*.tsx` (비 UI) | code |
 | `**/*.tsx` (컴포넌트·페이지) | code + design + customer-support |
 | `web/app/**/page.tsx` (웹 페이지) | code + design + marketer |
-| `mobile/app/**` (앱 화면) | code + design + qa |
 | `polaris/mission.md`, `polaris/specs/**` | product |
 | `web/server/**` | code + infra |
 | `supabase/migrations/**` | infra + code |
-| `.env*`, `web/next.config.*`, `web/proxy.ts`, `vercel.json`, `mobile/eas.json`, `mobile/app.json`, `package.json`, `.github/**` | infra |
+| `.env*`, `web/next.config.*`, `web/proxy.ts`, `vercel.json`, `package.json`, `.github/**` | infra |
 | `**/*.test.ts`, `**/*.test.tsx` | qa |
 | `README.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/**`, `.env.example` | developer |
 

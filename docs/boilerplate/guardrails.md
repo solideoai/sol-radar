@@ -5,8 +5,8 @@
 
 ## 디자인 토큰
 
-색·글꼴·글자 눈금은 `design/tokens.json` 한 곳에만 적습니다. `pnpm tokens` 가 웹 `web/app/globals.css` 와 앱 `mobile/theme/tokens.ts` 를
-만들어서, 정본 하나를 고치면 웹과 앱이 같이 바뀝니다.
+색·글꼴·글자 눈금은 `design/tokens.json` 한 곳에만 적습니다. `pnpm tokens` 가 웹 `web/app/globals.css` 를
+만들어서, 정본 하나를 고치면 화면이 같이 바뀝니다.
 
 화면 코드에 색을 직접 적거나(`#fff`·`rgba(...)`·`oklch(...)`) 웹에서 Tailwind 기본 팔레트 클래스(`bg-red-500`·`text-white`)를
 쓰면 커밋 게이트와 CI 가 막습니다. 새 색이 필요하면 `tokens.json` 에 추가합니다.
@@ -17,7 +17,7 @@
 
 ```
 feat: 로그인 화면 추가
-fix(mobile): 키보드가 입력창을 가리는 문제
+fix(web): 로그인 오류 문구가 겹치는 문제
 ```
 
 - 타입(소문자): `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`
@@ -26,22 +26,22 @@ fix(mobile): 키보드가 입력창을 가리는 문제
 
 ### 커밋 게이트가 보는 것
 
-`.husky/pre-commit` 은 바뀐 곳만 골라 검사합니다. 빌드와 앱의 Expo 점검(네트워크 필요)은 빼서 빠르게 끝나게 했고, 둘은 CI 가 봅니다.
+`.husky/pre-commit` 은 바뀐 곳만 골라 검사합니다. 빌드는 빼서 빠르게 끝나게 했고, 빌드는 CI 가 봅니다.
 느린 게이트는 결국 `--no-verify` 로 우회되기 때문입니다.
 
 | 바뀐 곳 | 검사 |
 |---|---|
-| `web/`·`mobile/` | 그 폴더의 서식·타입·린트·테스트·구조·토큰·색 |
+| `web/` | 그 폴더의 서식·타입·린트·테스트·구조·토큰·색 |
 | `design/` | 토큰·색 |
 | `supabase/` | DB 정책 시험(`pnpm test:db`)·DB 타입, 마이그레이션 수정·삭제 금지 |
 | 루트 소유 파일 (`scripts/`·`design/`·`verify.config.json`·`package.json`·`.claude/settings.json`·`.github/`) | 루트 서식 |
 | 게이트 자신 (`scripts/` 전부·`.husky/`·`.claude/hooks/`·`.claude/settings.json`·`verify.config.json`·`.github/`) | `pnpm test` |
-| 루트·`web`·`mobile` 의 `package.json` 만 | `pnpm test:package` (그 파일을 읽는 시험만. 전체는 CI 가 봅니다) |
+| 루트·`web` 의 `package.json` 만 | `pnpm test:package` (그 파일을 읽는 시험만. 전체는 CI 가 봅니다) |
 
 검사는 작업 폴더의 파일을 읽습니다. 그래서 스테이징한 파일에 스테이징하지 않은 수정이 남아 있으면(`git add -p` 같은 부분 스테이징) 검사 전에 막습니다.
 전부 스테이징하거나, 이번 커밋에 넣지 않을 수정은 `git stash push --keep-index` 로 치워 두세요.
 
-`web/server`·`web/lib`·`mobile/lib` 에 새 로직 파일을 넣었는데 옆에 테스트 파일이 없으면 경고합니다(차단하지는 않습니다).
+`web/server`·`web/lib` 에 새 로직 파일을 넣었는데 옆에 테스트 파일이 없으면 경고합니다(차단하지는 않습니다).
 
 ### push 전 검사 (CI 가 돌지 못할 때만 켠다)
 
@@ -71,7 +71,7 @@ E2E 브라우저 설치는 하지 않습니다. 브라우저가 없으면 E2E �
 - **`server-only`** — 서버 코드가 브라우저 번들로 새면 빌드가 실패합니다.
 - **마이그레이션 append-only** — 이미 있는 스키마 파일은 고치거나 지우거나 이름을 바꿀 수 없습니다. 이력이 곧 DB 상태입니다.
 - **RLS 기본 잠금** — 실제 DB 없이 PGlite(PostgreSQL 엔진)에 마이그레이션 전체를 적용해 RLS·권한·트리거를 시험합니다.
-- **생성물 4개** — `web/app/globals.css`·`mobile/theme/tokens.ts`·`web/lib/database.types.ts`·`mobile/lib/database.types.ts` 는
+- **생성물 2개** — `web/app/globals.css`·`web/lib/database.types.ts` 는
   정본에서 만들고 손으로 고치지 않습니다. 어긋나면 게이트와 CI 가 잡습니다.
 - **Prettier** — 서식의 정본은 루트 `.prettierrc.json` 하나입니다. 손으로 맞추지 말고 `pnpm format` 을 돌립니다.
   마크다운·락파일·생성물은 대상이 아닙니다.
@@ -101,10 +101,6 @@ E2E 브라우저 설치는 하지 않습니다. 브라우저가 없으면 E2E �
   커밋 메시지는 `commits` 잡이, 루트 의존성 감사는 `audit` 잡이 따로 봅니다(어느 쪽이 실패해도 프로젝트 검증은 그대로 돕니다).
   마지막 `required` 잡이 결과를 모읍니다. 공통 검증·커밋 메시지·루트 감사는 성공만 통과하고, 프로젝트 검증은 검사할 프로젝트가 없을 때만 건너뛸 수 있습니다(판정: `scripts/ci-required.mjs`).
   같은 PR 에 다시 push 하면 이전 실행은 취소됩니다.
-- **`template`(템플릿 원본에만)** — 템플릿 스모크(`smoke-web`·`smoke-mobile`·`smoke-both`)와 Windows(Git Bash) 공통 검증(`windows`).
-  각각 10분 넘게 걸려서 PR·push 에서는 돌지 않고, 주 1회 예약 실행(월요일 03:00 KST)과 Actions 에서 직접 돌릴 때(workflow_dispatch)만 돕니다.
-  예약 실행은 기본 브랜치를 봅니다. 설치·의존성·훅·스크립트·bootstrap 을 크게 바꿨으면 병합 전에 직접 돌립니다.
-  이 워크플로(`.github/workflows/template.yml`)는 새 프로젝트로 복사하지 않습니다.
 - **커밋 메시지** — 로컬 훅과 같은 규칙으로 PR 의 커밋들과 PR 제목(squash 병합 제목), `main` push 의 새 커밋을 다시 봅니다(`scripts/check-commits.mjs`).
   PR 제목에는 `Merge `·`fixup! ` 같은 예외가 없고 GitHub 되돌리기 제목(`Revert "…"`)만 통과합니다. 비교 기준 커밋이 이력에 없으면(force push) 실패합니다.
   PR 제목만 고치면 검사가 다시 돌지 않으니(Re-run 은 옛 제목을 봅니다) **PR 을 닫았다 다시 열거나 새 커밋을 push** 하세요.
@@ -122,19 +118,4 @@ CI 가 빨개도 병합을 막는 것은 GitHub 설정입니다. 템플릿이 �
    룰셋이면 `gh api repos/{owner}/{repo}/rules/branches/main` 결과의 `required_status_checks` 에 `required` 가 보여야 합니다.
 2. **Dependabot** — `.github/dependabot.yml` 이 기본 브랜치에 있으면 루트·`web`·액션의 갱신을 폴더마다 한 PR 로 묶어 주 1회 엽니다.
    제목은 커밋 규칙(50자 이내)을 지나도록 `build:`·`ci:` 로 시작하고, npm major 는 사람이 올립니다(보안 갱신은 그대로 옵니다).
-   `mobile/` 은 Expo SDK 마다 맞는 버전이 정해져 있어 하나씩 올리면 어긋나므로 넣지 않았습니다(`pnpm -C mobile exec expo install --fix` 로 맞춥니다).
-   `web/` 을 지운 프로젝트는 `/web` 항목도 지웁니다.
    취약점 알림·보안 갱신은 Settings → Code security 에서 따로 켭니다.
-
-### 템플릿 스모크 — `pnpm smoke:template`
-
-`pnpm bootstrap` 과 같은 복사 계획으로 임시 폴더에 새 프로젝트를 만들고, 처음 쓰는 사람의 순서를 실제로 돌립니다:
-`git init` → 루트·있는 폴더 frozen 설치(훅 설치 포함) → `pnpm run doctor` → `pnpm verify` → 웹은 임시 폴더 전용 chromium 을 받아 E2E,
-앱은 pnpm 을 거치지 않은 Jest 직접 실행 → 훅이 타입 오류·직접 적은 색·잘못된 메시지를 막고 작은 변경의 첫 커밋을 통과시키는지.
-mode 를 빼면 web·mobile·both 를 차례로 돕니다. 실패하면 단계를 알리고 멈추며, `--evidence <폴더>` 를 주면 경로를 가린 실패 기록을 남깁니다.
-
-- 원본 작업 폴더의 현재 내용(커밋 전 수정 포함)을 쓰고, 원본은 바꾸지 않습니다. 실제 env·개인 파일은 복사하지 않습니다.
-- 네트워크는 패키지와 Playwright 브라우저 설치에만 씁니다. 실행 환경의 DB·배포 변수를 지우므로 DB·Auth·배포에는 요청하지 않습니다.
-- 브라우저용 OS 라이브러리는 미리 갖춰 둬야 합니다(스모크가 시스템에 설치하지 않습니다). 없으면 건너뛰지 않고 실패합니다.
-- 앱은 `pnpm verify` 안의 iOS·Android JS export 까지 확인합니다. 네이티브 빌드·실기기 확인은 아닙니다.
-- `pnpm test`·`pnpm verify` 는 스모크를 부르지 않습니다(오래 걸려서 따로 둡니다).

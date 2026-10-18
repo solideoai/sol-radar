@@ -1,6 +1,6 @@
 ---
 name: testing
-description: 무엇을 테스트하고 무엇을 테스트하지 않을지의 기준과 작성법. 웹은 Vitest, 앱은 Jest. 테스트 추가·수정, "테스트 어떻게 짜지", 계산 로직 검증 시 사용.
+description: 무엇을 테스트하고 무엇을 테스트하지 않을지의 기준과 작성법. 웹은 Vitest. 테스트 추가·수정, "테스트 어떻게 짜지", 계산 로직 검증 시 사용.
 ---
 
 # testing — 로직·권한·사용자 흐름을 검증한다
@@ -50,22 +50,6 @@ describe("monthlyTotal", () => {
 });
 ```
 
-## 앱 — Jest (jest-expo)
-
-```bash
-pnpm -C mobile test
-```
-
-기본은 로직·연결 경계 테스트다. iOS·Android JS 번들은 `pnpm -C mobile build`로 검사하고, 네이티브 빌드·실기기 QA는 별도로 수행한다.
-
-```ts
-import { daysUntil } from "@/lib/dday";
-
-it("결제일이 3일 남았으면 3", () => {
-  expect(daysUntil("2026-01-04", new Date("2026-01-01"))).toBe(3);
-});
-```
-
 ## 어떤 경우를 쓰나
 
 - **평범한 경우** 하나. 이게 없으면 나머지는 의미가 없다.
@@ -78,8 +62,8 @@ it("결제일이 3일 남았으면 3", () => {
 ## 타입이 계약인 자리는 타입 시험으로 고정한다
 
 생성된 DB 타입이 붙은 Supabase 클라이언트처럼 타입이 빠지면(`any`) 조용히 무너지는 자리는 타입 시험을 둔다.
-웹은 Vitest 의 `expectTypeOf` 와 `// @ts-expect-error`(없는 표·열은 오류여야 한다), 앱은 Jest 에 `expectTypeOf` 가 없어 타입 단언을 직접 둔다
-(`web/lib/supabase-browser.test.ts`·`mobile/lib/supabase.test.ts`). 이 단언은 실행이 아니라 각 폴더의 `type-check`(tsc, `pnpm -C web type-check`·`pnpm -C mobile type-check`)가 잡는다.
+웹은 Vitest 의 `expectTypeOf` 와 `// @ts-expect-error`(없는 표·열은 오류여야 한다)를 쓴다(`web/lib/supabase-browser.test.ts`).
+이 단언은 실행이 아니라 `type-check`(tsc, `pnpm -C web type-check`)가 잡는다.
 
 ## 같은 에러가 두 번 나오면
 
@@ -96,7 +80,7 @@ it("결제일이 3일 남았으면 3", () => {
 ## 기본 검증 기반
 
 - 웹 단위 테스트는 `**/*.{test,spec}.{ts,tsx}`를 찾는다. `e2e/`는 Playwright가, `*.browser.test.tsx`(부품 레이아웃)는 `pnpm -C web test:browser`(Vitest 브라우저 모드)가 담당한다.
-- 웹·앱 모두 테스트가 0개이면 실패한다. 테스트를 추가할 때 실제로 탐색되는지 확인한다.
+- 웹 테스트가 0개이면 실패한다. 테스트를 추가할 때 실제로 탐색되는지 확인한다.
 - `pnpm test`는 `scripts/` 아래의 `*.test.mjs` 전부를 실행한다(무엇이 있는지와 템플릿 원본에만 있는 `scripts/template/` 의 시험은 `docs/boilerplate/guardrails.md`).
   DB 정책 시험(`scripts/database.test.mjs`)만 돌리려면 `pnpm test:db`.
 - DB 정책 시험은 PGlite 에 실제 마이그레이션을 적용한다. Supabase Auth HTTP 서비스 자체를 재현하지는 않는다. 흉내의 범위와 넓히는 법은 `database` 스킬에 있다.

@@ -38,12 +38,12 @@ skills:
   새 도메인은 가장 가까운 견본의 파일 구성을 그대로 따른다.
 - **조직 id 는 믿지 않는다**: 서버 함수가 받은 조직 id 가 내 조직인지는 정책이 다시 본다.
 - **실패를 돌려주는 모양**: `{ status: "invalid", field, message }` 같은 결과 값이다(견본 `web/server/task/task.model.ts` 의 결과 타입).
-- **데이터**: ORM 은 없고 타입이 붙은 클라이언트를 쓴다. 앱(`mobile/`)은 서버를 거치지 않고 같은 표를 직접 부르므로,
+- **데이터**: ORM 은 없고 타입이 붙은 클라이언트를 쓴다. 브라우저 클라이언트(`getSupabaseBrowser()`)도 서버를 거치지 않고 같은 표를 부를 수 있으므로,
   지켜야 할 규칙은 정책·제약으로 DB 에도 둔다.
 - **마이그레이션을 더했으면** 루트에서 `pnpm db:types` → `pnpm test:db` → `pnpm check:db-types`. 새 표의 정책 시험(`scripts/database.test.mjs`)은
   `test-server` 몫이니 필요한 시험을 보고서에 적는다. 적용은 로컬 `pnpm db:start`, 운영 `pnpm db:push`(사용자 확인 뒤에만)다.
-- **환경·배포**: 변수 이름은 `.env.example`·`web/.env.example`·`mobile/.env.example` 에서 확인한다.
-  웹은 Vercel(`web/scripts/vercel-build.sh` 가 운영 DB 검사 뒤 빌드한다), 앱은 EAS(`mobile/eas.json`)이고 순서는 `docs/boilerplate/first-deployment.md` 에 있다.
+- **환경·배포**: 변수 이름은 `.env.example`·`web/.env.example` 에서 확인한다.
+  웹은 Vercel(`web/scripts/vercel-build.sh` 가 운영 DB 검사 뒤 빌드한다)이고 순서는 `docs/boilerplate/first-deployment.md` 에 있다.
   `.github/` 는 편집 금지라 CI 를 고쳐야 하면 바꿀 내용을 보고한다.
 - **검증**: `pnpm -C web verify:quick`(서식 검사부터 시작한다). 서식이 어긋나면 그 폴더에서 `pnpm format`.
 - `web/` 이 없는 프로젝트(앱만)면 서버 코드 작업은 보고하고 멈춘다(`supabase/` 의 스키마·정책 작업은 그대로 한다).

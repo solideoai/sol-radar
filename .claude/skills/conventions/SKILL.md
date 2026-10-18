@@ -51,7 +51,7 @@ const result = data.filter(x => x.active).map(x => x.name);
 
 ## 8. 서식은 Prettier 가 정한다
 - 들여쓰기·따옴표·세미콜론·줄 바꿈은 손으로 맞추지 않는다. 정본은 루트 `.prettierrc.json` 하나다.
-- 고친 폴더에서 `pnpm format` 을 돌린다(루트·`web`·`mobile` 각자). 검증·커밋 게이트·CI 는 `pnpm format:check` 로 어긋남을 막는다.
+- 고친 폴더에서 `pnpm format` 을 돌린다(루트·`web` 각자). 검증·커밋 게이트·CI 는 `pnpm format:check` 로 어긋남을 막는다.
 - 마크다운(`.md`)·락파일·생성물(`globals.css`·`theme/tokens.ts`·`database.types.ts`)은 대상이 아니다. 빼는 목록은 루트 `.prettierignore` 하나다.
 - 서식 설정을 폴더마다 따로 두지 않는다. 바꿀 일이 있으면 루트 `.prettierrc.json` 하나만 고친다.
 

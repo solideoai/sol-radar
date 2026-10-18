@@ -28,7 +28,7 @@
 
 | 요청서 | 이 저장소 |
 |---|---|
-| publishable 키 변수 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` 자리에 publishable 키를 넣는다(이름은 그대로 — `pnpm db:start`·앱·문서가 이 이름을 쓴다) |
+| publishable 키 변수 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` 자리에 publishable 키를 넣는다(이름은 그대로 — `pnpm db:start`·문서가 이 이름을 쓴다) |
 | 서버용 Supabase 주소·secret 키 | 쓰지 않는다. 서버도 공개 주소와 그 사람의 토큰으로 부르고, 관리 키가 필요한 기능이 없다 |
 | 제공자별 사용 여부(`AUTH_*_ENABLED`) | `NEXT_PUBLIC_AUTH_*` — 버튼을 그리는 화면이 읽어야 해서 공개 값이다 |
 | 앱 주소·API 주소 | 쓰지 않는다. API 는 같은 사이트의 `/api/*`, 돌아올 주소는 브라우저의 `window.location.origin` 이다 |
