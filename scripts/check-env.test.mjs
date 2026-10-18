@@ -13,7 +13,7 @@ const CLI = fileURLToPath(new URL("./check-env.mjs", import.meta.url));
 const INFRA_BASE = {
   NEXT_PUBLIC_SUPABASE_URL: "https://example.test",
   SUPABASE_SERVICE_ROLE_KEY: "svc-fake-1",
-  REDIS_PASSWORD: "redis-fake-1",
+  REDIS_PASSWORD: "redisfake1",
   MINIO_ROOT_USER: "minio-user-1",
   MINIO_ROOT_PASSWORD: "minio-pass-1",
 };
@@ -416,4 +416,60 @@ test("checkEnv: process.env 는 판정에 쓰지 않는다", async () => {
       else process.env[name] = saved[name];
     }
   }
+});
+
+/** web/ 에 임의 이름의 env 파일을 더 쓴다. */
+const addWebFile = (root, name, values) =>
+  writeFile(path.join(root, "web", name), toEnvText(values));
+
+test("checkEnv: web/.env.production 의 금지 키는 그 파일 이름으로 FORBIDDEN_KEY", async () => {
+  await withRoot({}, async (root) => {
+    await addWebFile(root, ".env.production", { SUPABASE_SERVICE_ROLE_KEY: "x" });
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.filter((p) => p.code === "FORBIDDEN_KEY"),
+      [{ file: "web/.env.production", key: "SUPABASE_SERVICE_ROLE_KEY", code: "FORBIDDEN_KEY" }],
+    );
+  });
+});
+
+test("checkEnv: web/.env.example 의 금지 키는 무시한다", async () => {
+  await withRoot({}, async (root) => {
+    await addWebFile(root, ".env.example", { SUPABASE_SERVICE_ROLE_KEY: "" });
+    const result = await checkEnv({ root });
+    assert.equal(result.ok, true);
+  });
+});
+
+test("checkEnv: web 의 QWEN_API_KEY·KEV_API_KEY·HOSTED_API_KEY 는 FORBIDDEN_KEY", async () => {
+  const web = { ...WEB_BASE, QWEN_API_KEY: "x", KEV_API_KEY: "x", HOSTED_API_KEY: "x" };
+  await withRoot({ web }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems
+        .filter((p) => p.code === "FORBIDDEN_KEY")
+        .map((p) => p.key)
+        .sort(),
+      ["HOSTED_API_KEY", "KEV_API_KEY", "QWEN_API_KEY"],
+    );
+  });
+});
+
+test("checkEnv: REDIS_PASSWORD 에 영숫자 외 문자가 있으면 INVALID_FORMAT, 16진수는 통과", async () => {
+  await withRoot({ infra: { ...INFRA_BASE, REDIS_PASSWORD: "ab/cd" } }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.map(({ file, key, code }) => [file, key, code]),
+      [["infra/.env", "REDIS_PASSWORD", "INVALID_FORMAT"]],
+    );
+    assert.equal(result.counts.invalid, 1);
+    const cli = runCli(root);
+    assert.equal(cli.status, 1);
+    assert.match(cli.stderr, /FAIL infra\/\.env REDIS_PASSWORD INVALID_FORMAT/);
+    assert.ok(!(cli.stdout + cli.stderr).includes("ab/cd"));
+  });
+  const hex = "0123456789abcdef".repeat(4);
+  await withRoot({ infra: { ...INFRA_BASE, REDIS_PASSWORD: hex } }, async (root) => {
+    assert.equal((await checkEnv({ root })).ok, true);
+  });
 });

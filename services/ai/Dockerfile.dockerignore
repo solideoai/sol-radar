@@ -1,0 +1,9 @@
+# 빌드 컨텍스트(저장소 루트)에서 services/ai 와 infra/run-modes.json 밖은 전부 뺀다
+*
+!services/ai/**
+!infra/run-modes.json
+services/ai/.venv
+services/ai/tests
+services/ai/**/__pycache__
+services/ai/.pytest_cache
+services/ai/.ruff_cache

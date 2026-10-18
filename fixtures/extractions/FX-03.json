@@ -1,0 +1,146 @@
+{
+  "schemaVersion": "requirement-extraction/v0.1",
+  "bidId": "FX-03",
+  "revisionId": "FX-03#01",
+  "model": {
+    "provider": "mock",
+    "name": "fixture",
+    "promptVersion": "req-extract/v0.1",
+    "promptHash": "e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e",
+    "temperature": 0,
+    "extractedAt": "2026-10-16T09:00:00Z",
+    "latencyMs": 0,
+    "retries": 0
+  },
+  "summary": {
+    "value": "부산광역시가 지능형 CCTV 통합관제센터 구축 사업의 제안사를 모집한다.",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-03#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "부산광역시가 지능형 CCTV 통합관제센터 구축 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "projectType": {
+    "value": "SI",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-03#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "부산광역시가 지능형 CCTV 통합관제센터 구축 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "domain": {
+    "value": "스마트시티",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-03#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업 분야는 스마트시티"
+      }
+    ]
+  },
+  "requiredSkills": {
+    "value": ["Java", "Spring Boot", "PostgreSQL", "영상분석 AI", "Kubernetes", "VMS 연동"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-03#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "필수 기술은 Java, Spring Boot, PostgreSQL, 영상분석 AI, Kubernetes, VMS 연동이다"
+      }
+    ],
+    "note": "[0],[1],[2],[3],[4],[5]→evidence[0]"
+  },
+  "preferredSkills": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "qualifications": {
+    "value": [
+      {
+        "name": "소프트웨어사업자 신고확인서",
+        "kind": "REGISTRATION",
+        "mandatory": true,
+        "code": null
+      },
+      {
+        "name": "정보통신공사업 등록",
+        "kind": "REGISTRATION",
+        "mandatory": true,
+        "code": null
+      }
+    ],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-03#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "소프트웨어사업자 신고확인서를 보유한 업체"
+      },
+      {
+        "documentId": null,
+        "revisionId": "FX-03#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "정보통신공사업법에 따른 정보통신공사업 등록업체"
+      }
+    ],
+    "note": "[0]→evidence[0], [1]→evidence[1]"
+  },
+  "pastPerformance": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "staffing": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "budgetKrw": {
+    "value": "4500000000",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-03#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업예산은 45억원"
+      }
+    ],
+    "note": "45억원 → 4500000000원 환산"
+  },
+  "deadlineAt": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "contractMethod": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "restrictions": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "submission": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "injectionSuspected": false,
+  "warnings": []
+}

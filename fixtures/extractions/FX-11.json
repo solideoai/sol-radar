@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "requirement-extraction/v0.1",
+  "bidId": "FX-11",
+  "revisionId": "FX-11#01",
+  "model": {
+    "provider": "mock",
+    "name": "fixture",
+    "promptVersion": "req-extract/v0.1",
+    "promptHash": "e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e",
+    "temperature": 0,
+    "extractedAt": "2026-10-16T09:00:00Z",
+    "latencyMs": 0,
+    "retries": 0
+  },
+  "summary": {
+    "value": "인천광역시가 민원 챗봇 고도화 사업의 제안사를 모집한다.",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-11#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "인천광역시가 민원 챗봇 고도화 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "projectType": {
+    "value": "AX",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-11#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "인천광역시가 민원 챗봇 고도화 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "domain": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "requiredSkills": {
+    "value": ["Java", "Spring Boot", "RAG/LLM 적용"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-11#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "필수 기술은 Java, Spring Boot, RAG/LLM 적용이다"
+      }
+    ],
+    "note": "[0],[1],[2]→evidence[0]"
+  },
+  "preferredSkills": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "qualifications": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "pastPerformance": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "staffing": {
+    "value": [
+      {
+        "role": "PM",
+        "minCount": 1,
+        "mandatory": false
+      },
+      {
+        "role": "PL",
+        "minCount": 1,
+        "mandatory": false
+      },
+      {
+        "role": "개발",
+        "minCount": 6,
+        "mandatory": false
+      }
+    ],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-11#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "PM 1명, PL 1명, 개발 6명으로 합계 8명"
+      }
+    ],
+    "note": "[0],[1],[2]→evidence[0]"
+  },
+  "budgetKrw": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "deadlineAt": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "contractMethod": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "restrictions": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "submission": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "injectionSuspected": false,
+  "warnings": []
+}

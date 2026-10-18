@@ -127,6 +127,20 @@ export async function unlinkAuthIdentity(
 }
 
 /**
+ * 쿠키·헤더를 읽지 않는 anon 클라이언트. 로그인 없이 도는 곳(상태 검사 등)에서만 쓴다.
+ * 세션을 저장하거나 갱신하지 않으므로 요청 사이에 로그인이 섞이지 않는다.
+ */
+export function getSupabaseAnon(): SupabaseClient<Database> {
+  return createClient<Database>(
+    need("NEXT_PUBLIC_SUPABASE_URL"),
+    need("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    },
+  );
+}
+
+/**
  * ⚠️ RLS를 우회한다. 관리 작업(배치·마이그레이션 보조)에만, 꼭 필요할 때만 쓴다.
  * 어드민 화면도 쓰지 않는다. 운영자 판단은 profiles.is_admin 과 관리자 정책으로 DB가 한다 —
  * 우회하면 "누가 운영자인가"를 코드가 판단하고, 그 판단이 틀리면 막을 방법이 없다.

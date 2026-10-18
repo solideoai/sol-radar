@@ -5,6 +5,7 @@ export {
   getAuthClaims,
   getAuthContext,
   getSupabase,
+  getSupabaseAnon,
   getSupabaseAdmin,
   isSupabaseConfigured,
   unlinkAuthIdentity,

@@ -1,8 +1,14 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
 import { loadRunModeRules, resolveRunMode } from "./run-mode.mjs";
+
+const WEB_DIR = "web";
+// Next 가 읽는 env 파일 이름(.env, .env.local, .env.production* 등). 예시 파일은 비밀을 담지 않으므로 뺀다.
+const WEB_ENV_FILE = /^\.env(\..+)?$/;
+const WEB_ENV_EXAMPLE = ".env.example";
+const REDIS_PASSWORD_FORMAT = /^[A-Za-z0-9]+$/;
 
 const DEFAULT_ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -26,13 +32,14 @@ const WEB_REQUIRED = [
   "MINIO_ENDPOINT",
   "AI_GATEWAY_URL",
 ];
+// G2B 서비스키 4개 이름은 실행 모드 규칙(infra/run-modes.json)에서 가져온다.
 const WEB_FORBIDDEN = [
   "SUPABASE_SERVICE_ROLE_KEY",
-  "G2B_BID_NOTICE_SERVICE_KEY",
-  "G2B_PRE_SPEC_SERVICE_KEY",
-  "G2B_ORDER_PLAN_SERVICE_KEY",
-  "G2B_INDUSTRY_MASTER_SERVICE_KEY",
-];
+  "KEV_API_KEY",
+  "HOSTED_API_KEY",
+  "QWEN_API_KEY",
+  ...loadRunModeRules().modes.live.requiredSecrets,
+].map((key) => key.toUpperCase());
 
 const isPlaceholder = (value) => value.includes("CHANGE_ME") || value === "minioadmin";
 // 대소문자를 구분하지 않고 비교한다(NEXT_PUBLIC_service_role 같은 변형도 막는다).
@@ -43,6 +50,17 @@ const isForbiddenWebKey = (key) => {
     (upper.startsWith("NEXT_PUBLIC_") && (upper.includes("SERVICE_ROLE") || upper.includes("G2B")))
   );
 };
+
+/** web/ 에 실제로 있는 env 파일 이름(.env.example 제외). */
+async function listWebEnvFiles(root) {
+  try {
+    const names = await readdir(path.join(root, WEB_DIR));
+    return names.filter((name) => WEB_ENV_FILE.test(name) && name !== WEB_ENV_EXAMPLE).sort();
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+}
 
 /** env 파일을 읽는다. 파일이 없으면 null. */
 async function readEnvFile(root, relative) {
@@ -76,10 +94,11 @@ function requiredInfraKeys(resolved, rules) {
 /** 파일 내용만 보고 env 를 검사한다(process.env 는 쓰지 않는다). */
 export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
   const rules = loadRunModeRules();
-  const [infra, web, rootLocal] = await Promise.all([
+  const [infra, web, rootLocal, webEnvNames] = await Promise.all([
     readEnvFile(root, INFRA_FILE),
     readEnvFile(root, WEB_FILE),
     readEnvFile(root, ROOT_FILE),
+    listWebEnvFiles(root),
   ]);
   const problems = [];
   const missingFile = (file) => problems.push({ file, key: "*", code: "MISSING_FILE" });
@@ -94,6 +113,10 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
     for (const key of missingKeys(infra, requiredInfraKeys(resolved, rules))) {
       problems.push({ file: INFRA_FILE, key, code: "MISSING_KEY" });
     }
+    const redisPassword = infra.REDIS_PASSWORD;
+    if (redisPassword && !REDIS_PASSWORD_FORMAT.test(redisPassword)) {
+      problems.push({ file: INFRA_FILE, key: "REDIS_PASSWORD", code: "INVALID_FORMAT" });
+    }
     problems.push(...placeholderProblems(INFRA_FILE, infra));
   }
 
@@ -103,10 +126,18 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
     for (const key of missingKeys(web, WEB_REQUIRED)) {
       problems.push({ file: WEB_FILE, key, code: "MISSING_KEY" });
     }
-    for (const key of Object.keys(web).filter(isForbiddenWebKey)) {
-      problems.push({ file: WEB_FILE, key, code: "FORBIDDEN_KEY" });
-    }
     problems.push(...placeholderProblems(WEB_FILE, web));
+  }
+
+  // 금지 키는 Next 가 읽는 web/ 의 모든 env 파일에서 찾는다. .env.local 외 파일은 placeholder 도 본다.
+  for (const name of webEnvNames) {
+    const file = `${WEB_DIR}/${name}`;
+    const values = file === WEB_FILE ? web : await readEnvFile(root, file);
+    if (values === null) continue;
+    for (const key of Object.keys(values).filter(isForbiddenWebKey)) {
+      problems.push({ file, key, code: "FORBIDDEN_KEY" });
+    }
+    if (file !== WEB_FILE) problems.push(...placeholderProblems(file, values));
   }
 
   if (rootLocal !== null) problems.push(...placeholderProblems(ROOT_FILE, rootLocal));
@@ -125,6 +156,7 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
       ]),
       missing: count(["MISSING_FILE", "MISSING_KEY"]),
       forbidden: count(["FORBIDDEN_KEY"]),
+      invalid: count(["INVALID_FORMAT"]),
     },
     problems,
   };
@@ -149,7 +181,7 @@ async function main() {
     return;
   }
   console.log(
-    `check:env 실패: 실행 모드 ${result.mode ?? "알 수 없음"}, placeholder ${counts.placeholder}건, 모드 모순 ${counts.contradiction}건, 누락 ${counts.missing}건, 금지 ${counts.forbidden}건`,
+    `check:env 실패: 실행 모드 ${result.mode ?? "알 수 없음"}, placeholder ${counts.placeholder}건, 모드 모순 ${counts.contradiction}건, 누락 ${counts.missing}건, 금지 ${counts.forbidden}건${counts.invalid > 0 ? `, 형식 오류 ${counts.invalid}건` : ""}`,
   );
   process.exitCode = 1;
 }
