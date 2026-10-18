@@ -148,6 +148,103 @@ describe("organization explorer", () => {
         .map((node) => node.getAttribute("data-person-id")),
     ).toEqual(["person-1", "person-0"]);
   });
+  it("collapses and reopens UI bundles without changing team selection or empty department rows", async () => {
+    render();
+    const section = page.getByRole("button", { name: "상위 미지정", exact: true });
+    const groups = page.getByRole("button", { name: "그룹 1개", exact: true });
+    const teams = page.getByRole("button", { name: "팀 1개", exact: true });
+    await expect.element(section).toHaveAttribute("aria-expanded", "true");
+    await expect.element(section).toHaveAttribute("aria-controls", "org-unassigned-content");
+    await expect.element(groups).toHaveAttribute("aria-controls", "org-unassigned-groups");
+    await expect.element(teams).toHaveAttribute("aria-controls", "org-unassigned-teams");
+    await groups.click();
+    await expect.element(groups).toHaveAttribute("aria-expanded", "false");
+    await expect.element(page.getByText("미확인 그룹", { exact: true })).not.toBeVisible();
+    await groups.click();
+    const emptyGroup = page.getByText("미확인 그룹", { exact: true }).element().closest("li");
+    expect(emptyGroup?.querySelector("button")).toBeNull();
+    expect(emptyGroup?.textContent).toContain("0명 · 연결된 팀 없음");
+    const unknownTeam = page.getByRole("button", { name: "미확인 팀", exact: true }).element();
+    await teams.click();
+    await expect.element(teams).toHaveAttribute("aria-expanded", "false");
+    await expect.element(unknownTeam).not.toBeVisible();
+    await teams.click();
+    await expect
+      .element(page.getByRole("button", { name: "미확인 팀", exact: true }))
+      .toBeVisible();
+    await section.click();
+    await expect.element(section).toHaveAttribute("aria-expanded", "false");
+    expect(document.getElementById("org-unassigned-content")?.hidden).toBe(true);
+    expect(location.search).toBe("?team=direct");
+    expect(document.querySelectorAll("[data-person-id]")).toHaveLength(80);
+    await section.click();
+    await expect
+      .element(page.getByRole("button", { name: "미확인 팀", exact: true }))
+      .toBeVisible();
+    expect(document.body.textContent).toContain("상위 미지정 · 2개 부서 · 120명");
+  });
+  it.each(["teams", "groups"])(
+    "finder expands a collapsed unknown section and containing %s bundle only",
+    async (bundle) => {
+      const directory =
+        bundle === "groups"
+          ? {
+              ...data,
+              departments: data.departments.map((department) =>
+                department.id === "unknown" ? { ...department, parentId: "group" } : department,
+              ),
+            }
+          : data;
+      const { onSelect } = render(directory);
+      const containingBundle = page.getByRole("button", {
+        name: bundle === "groups" ? "그룹 1개" : "팀 1개",
+        exact: true,
+      });
+      await containingBundle.click();
+      await page.getByRole("button", { name: "상위 미지정", exact: true }).click();
+      const finder = page.getByRole("combobox", { name: "이름으로 찾기", exact: true });
+      await finder.fill("직원200");
+      await userEvent.keyboard("{ArrowDown}");
+      await userEvent.keyboard("{Enter}");
+      await expect
+        .element(page.getByRole("button", { name: "직원200 상세 보기", exact: true }))
+        .toHaveFocus();
+      await expect
+        .element(page.getByRole("button", { name: "상위 미지정", exact: true }))
+        .toHaveAttribute("aria-expanded", "true");
+      await expect.element(containingBundle).toHaveAttribute("aria-expanded", "true");
+      await expect
+        .element(page.getByRole("button", { name: "미확인 팀", exact: true }))
+        .toHaveAttribute("aria-current", "true");
+      if (bundle === "groups")
+        await expect
+          .element(page.getByRole("button", { name: "미확인 그룹", exact: true }))
+          .toHaveAttribute("aria-expanded", "true");
+      expect(onSelect).not.toHaveBeenCalled();
+      expect(location.search).toBe("?team=unknown");
+    },
+  );
+  it("restores the containing unknown UI path on deep link and Back while preserving unrelated collapsed bundles", async () => {
+    originalReplace(null, "", "/org-chart?team=unknown");
+    render();
+    const section = page.getByRole("button", { name: "상위 미지정", exact: true });
+    const teams = page.getByRole("button", { name: "팀 1개", exact: true });
+    const groups = page.getByRole("button", { name: "그룹 1개", exact: true });
+    await expect.element(section).toHaveAttribute("aria-expanded", "true");
+    await expect.element(teams).toHaveAttribute("aria-expanded", "true");
+    await groups.click();
+    await page.getByRole("button", { name: "자연 본부", exact: true }).click();
+    await page.getByRole("button", { name: "자연 본부 직속팀", exact: true }).click();
+    await teams.click();
+    await section.click();
+    history.back();
+    await expect
+      .element(page.getByRole("button", { name: "미확인 팀", exact: true }))
+      .toHaveAttribute("aria-current", "true");
+    await expect.element(section).toHaveAttribute("aria-expanded", "true");
+    await expect.element(teams).toHaveAttribute("aria-expanded", "true");
+    await expect.element(groups).toHaveAttribute("aria-expanded", "false");
+  });
   it("selects every employee exactly once across teams and keeps unknown breadcrumbs and empty teams", async () => {
     const { onSelect } = render();
     await expect
