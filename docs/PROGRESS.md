@@ -4,7 +4,7 @@ status: draft
 tags:
   - sol-radar
   - progress
-updated: 2026-10-17
+updated: 2026-10-18
 ---
 
 # 진행 상황
@@ -116,6 +116,7 @@ updated: 2026-10-17
 | 2026-10-16 | 문서 | ADR-021 정본 동기화(사용자 승인, 기준 `22b788e`). 설계 문서 부록 B.1~B.17과 재대조·교차 검사·확인 요청 보완 G1~G19를 12·16·06·05·04·01·11·19·09·02·20·08·13·07·14·10·[솔리데오 인력 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)에 적용. 16에 ADR-021 행·상세, ADR-018·019 개정 표시, 미결정 11·12번 종결. 06 §4 그림에 실행 모드 칸(ADR-020 누락분)을 넣으며 93칸으로 넓힘. 사전 검토 결정 1~4는 추천안대로 | 파일마다 diff로 삭제 줄이 지목 문장뿐인지 확인(ADR-020 줄 보존). vault 검사(위키링크 1,439·로컬 링크 102·표 280) 정본 오류 0, 남은 7건은 동기화 전부터 있던 설계 문서 항목. Codex 가입 커밋 `5ece7c0`과 3자 병합 시험: 07·11·polaris 스펙 충돌 0, PROGRESS는 동기화 전과 같은 작업 로그 끝 1곳. 루트 `pnpm test` 173/173 | 미커밋. `5ece7c0`의 마이그레이션이 ADR-021과 다름(설계 문서 §8 G17, 그 세션에 전달 필요). 17이 12의 없는 "결정 필요" 콜아웃을 가리키는 문제는 범위 밖으로 남김 |
 | 2026-10-16 | 인력 데이터 | 200명 가상 명부·38부서/12직급·최소 공개 가입 카탈로그 생성, 단계별 검증기와 CLI 3종 추가. 익명 증거에 원본 해시·250행(가중치175/제외75)·정규화 원본 이름 일치0·AI 이름 검토 출처 기록 | 집중84/84, fixture 검사 `not-run`, 실제 원본 필수 대조 `passed`, release는 `PORTRAITS_INCOMPLETE`로 의도한 실패. `pnpm verify` 통과(루트257/257·웹628/628·빌드) | 데이터 Task 3 독립 검토 대기. 사진 READY0/200, DB·가입·94/72/68 점수 파이프라인 골든은 후속 작업. 사람의 얼굴/품질 검수 미수행 |
 | 2026-10-18 | 계획 | Phase 0 구현 계획 초안([계획](plans/2026-10-18-phase-0-infra.md)): check:env·실행 모드 규칙 원천 `infra/run-modes.json`, AI gateway 골격, worker 진입점(미결정 9 검증), web health, Compose·env 예시·smoke, 공고 fixture E1(manifest·20건·검증기)·E2(추출 19·Kev 4·골든 3), 통합 증거, 정본 동기화의 9작업. 정본이 Phase 0에 맡긴 결정 D1~D15와 정본 불일치 목록 포함 | 정본 03·05·07·08·10·11·12·14·16·17 대조(읽기 전용 추출 4건). 코드 변경 없음 | 사용자 검토·결정 D1~D15 승인 전. 실행 방식 미선택. P0-0은 서비스키·회사 GPU 대기 |
+| 2026-10-18 | 문서 | data.go.kr 서비스키를 서비스별 env 4개로 분리([[16-DECISIONS\|ADR-022]], 사용자 결정): `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, registry `serviceKeyEnv`, 에러코드 22는 그 서비스만 중단. 정본 02·05·07·09·10·11·12·15·16·17·19와 Phase 0 계획(D5·env 예시·check:env 시험) 반영 | `G2B_SERVICE_KEY` 잔존 검색: ADR-022와 승인 설계 문서(고치지 않음)만 남음 | 사용자가 4개 서비스 키 발급(값은 저장소 밖). 실제 응답은 P0-0. 15 §8의 "서비스키 발급 전이라 `NOT_REQUESTED`" 문구와 `approvalStatus`는 P0-0에서 갱신 |
 
 ## 관련 문서
 

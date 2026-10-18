@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 07. 조달청 데이터 수집
@@ -75,7 +75,7 @@ registry 키(`g2b-bid-notice` 등 8개)와 호출 시점은 [[15-DATA-CONTRACTS|
 
 ## 2. Connector 계약
 
-Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage({from,to,cursor}) -> {records,nextCursor,rateLimitInfo}`다. 요청 timeout 15s, 오류 시 지수 backoff + jitter(1s·2s·4s, 최대 3회), 429는 `Retry-After` 헤더를 존중한다. 일정 실행은 BullMQ repeatable scheduler로 구성하되 `job_key`로 중복 예약을 막는다. data.go.kr 서비스키 `G2B_SERVICE_KEY`는 worker 전용 서버 env이고 로그·오류 메시지·`ingest_errors`에 남기지 않는다. 쿼리 파라미터로 가므로 요청 URL도 기록 전에 가린다([[09-SECURITY|09 보안]]).
+Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage({from,to,cursor}) -> {records,nextCursor,rateLimitInfo}`다. 요청 timeout 15s, 오류 시 지수 backoff + jitter(1s·2s·4s, 최대 3회), 429는 `Retry-After` 헤더를 존중한다. 일정 실행은 BullMQ repeatable scheduler로 구성하되 `job_key`로 중복 예약을 막는다. data.go.kr 서비스키 4개(`G2B_*_SERVICE_KEY`, §2.2)는 worker 전용 서버 env이고 로그·오류 메시지·`ingest_errors`에 남기지 않는다. 쿼리 파라미터로 가므로 요청 URL도 기록 전에 가린다([[09-SECURITY|09 보안]]).
 
 실행 위치와 DB 쓰기:
 - 수집 job(ingest job)은 **`web/worker`**가 돌린다. BullMQ 소비자이고, 같은 코드베이스의 별도 Node(TypeScript) 프로세스다. Connector·정규화·변경 감지 코드는 `web/server/ingestion`에 두고 worker가 import한다.
@@ -93,7 +93,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 
 | 인터페이스 | 구현체 | 조건 | 동작 |
 |---|---|---|---|
-| `BidSourceConnector` | `OfficialApiConnector` | `SOL_RUN_MODE=live` + registry 항목([[15-DATA-CONTRACTS\|15]] §8) + `G2B_SERVICE_KEY` | data.go.kr 실제 HTTP 호출(§2.2) |
+| `BidSourceConnector` | `OfficialApiConnector` | `SOL_RUN_MODE=live` + registry 항목([[15-DATA-CONTRACTS\|15]] §8) + 그 소스의 서비스키(registry `serviceKeyEnv`, §2.2) | data.go.kr 실제 HTTP 호출(§2.2) |
 | | `FixtureConnector` | `SOL_RUN_MODE=fixture` 또는 `mock` | `fixtures/manifest.yaml` 순서대로 페이지 반환, 네트워크 호출 없음 |
 | | `RecordedApiConnector` | 시험·개발 | 저장한 실제 응답을 재생한다(서비스키 발급 전에는 공식 참고문서의 응답 예시, §2.3). 네트워크 호출 없음 |
 | `AttachmentFetcher` | `G2bAttachmentFetcher` | `live` | `www.g2b.go.kr` allowlist 다운로드(§2.4) |
@@ -101,11 +101,22 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 | `DocumentParser` | 형식별 어댑터 | 모든 모드 | gateway `POST /parse` 안에서 동작(§2.5) |
 
 - 세 실행 모드는 `RecordedApiConnector`를 고르지 않는다. `OfficialApiConnector`의 응답 해석(정규화·오류 처리)을 네트워크 없이 시험하는 데 쓴다.
-- `OfficialApiConnector`는 registry 항목이나 `G2B_SERVICE_KEY`가 없으면 기동할 때 명확한 오류로 멈춘다. 다른 Connector로 조용히 바꾸지 않는다.
+- `OfficialApiConnector`는 registry 항목이나 서비스키 4개 중 하나라도 없으면 기동할 때 빠진 env 이름을 알리고 멈춘다(값은 출력하지 않는다). 다른 Connector로 조용히 바꾸지 않고, 다른 서비스의 키를 대신 쓰지 않는다.
 
 ### 2.2 나라장터 요청 규칙
 
-- 공통 파라미터: `serviceKey`(env `G2B_SERVICE_KEY`, 서버 전용·로그 금지), `type=json`, `pageNo`, `numOfRows=100`.
+서비스키는 data.go.kr 서비스마다 따로 둔다([[16-DECISIONS|ADR-022]]). 소스마다 registry `serviceKeyEnv`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)가 env 이름을 가리키고, `OfficialApiConnector`는 그 env만 읽는다.
+
+| 서비스 (ID) | env | 쓰는 registry 키 |
+|---|---|---|
+| 입찰공고정보서비스 (15129394) | `G2B_BID_NOTICE_SERVICE_KEY` | `g2b-bid-notice`·`g2b-bid-license-limit`·`g2b-bid-region`·`g2b-bid-eorder-attach` |
+| 사전규격정보서비스 (15129437) | `G2B_PRE_SPEC_SERVICE_KEY` | `g2b-pre-spec` |
+| 발주계획현황서비스 (15129462) | `G2B_ORDER_PLAN_SERVICE_KEY` | `g2b-order-plan` |
+| 업종 및 근거법규 (15129467) | `G2B_INDUSTRY_MASTER_SERVICE_KEY` | `g2b-industry-master` |
+
+- 네 env는 worker의 `infra/.env`에만 둔다([[10-DEPLOYMENT|10 배포]] env 표). 네 값이 같아도 env를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있게 하기 위해서다.
+- 값은 data.go.kr 일반 인증키 중 Decoding 키(인코딩 전 원문)를 넣는다. Connector가 요청을 만들 때 한 번만 URL 인코딩한다. Encoding 키를 넣으면 두 번 인코딩될 수 있다. 실제 호출 확인은 P0-0이다.
+- 공통 파라미터: `serviceKey`(그 서비스의 env 값, 서버 전용·로그 금지), `type=json`, `pageNo`, `numOfRows=100`.
 - 공고 목록 조회(`getBidPblancListInfoServc`)
   - 신규: `inqryDiv=1`(등록일시)
   - 정정·취소: `inqryDiv=3`(변경일시)
@@ -117,9 +128,9 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 정보화사업 필터: 응답의 `infoBizYn='Y'`로 클라이언트 쪽에서 거른다. 요청 파라미터로 거를 수 있는지는 미확인이다. 그 밖의 보조 필터(키워드)를 쓸지는 구현자가 정한다.
 - 보조 조회 3종(면허제한 `getBidPblancListInfoLicenseLimit`, 참가가능지역 `getBidPblancListInfoPrtcptPsblRgn`, e발주 첨부 `getBidPblancListInfoEorderAtchFileInfo`)은 `bidNtceNo`+`bidNtceOrd`로 공고마다 1회씩, **새 revision일 때만** 부른다.
 - 사전규격은 일정 실행, 발주계획은 하루 1회, 업종 코드 마스터는 수동으로 받아 사전으로 저장한다(키별 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8).
-- 호출 예산은 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST)로 센다.
+- 호출 예산은 서비스마다 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST)로 따로 센다.
   - 한도의 90%에 닿으면 보조 조회를 멈춘다. 그 공고는 `확인 필요`(`NEEDS_REVIEW`, 정보 부족)로 남긴다.
-  - 에러코드 22(일일 허용량 초과)를 받으면 그날 수집을 멈춘다.
+  - 에러코드 22(일일 허용량 초과)를 받으면 그 서비스의 그날 호출을 멈춘다. 다른 서비스의 수집은 계속한다. 입찰공고정보서비스가 멈추면 목록과 보조 조회 3종이 함께 멈춘다.
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
 - timeout 15 s, 지수 backoff, `Retry-After` 존중은 위 Connector 계약 그대로다. 초당 30 tps(참고문서)를 넘지 않는다.
 
@@ -426,7 +437,7 @@ fixture 한 건의 형태:
 - CI의 수집 시험은 `FixtureConnector`·`RecordedApiConnector`로 돈다. 실제 data.go.kr 호출과 실제 첨부 다운로드는 CI에 없다(§2.3).
 - fixture 로더는 `fixtures/manifest.yaml`의 JSON Schema 검증을 통과해야 기동한다. 잘못된 fixture는 조용히 건너뛰지 않고 기동 실패로 드러낸다.
 - 단위 테스트는 fixture ID로 입력을 고른다. 수집 파이프라인 시험은 Vitest로 `web/server/ingestion/*.test.ts`, worker 진입점 시험은 `web/worker/*.test.ts`에 둔다(`pnpm -C web test`). 공고·수집 표의 쓰기 권한(화면 역할은 쓰기 불가) 시험은 `scripts/database.test.mjs`(`pnpm test:db`)에 둔다. 골든 시나리오 ↔ fixture ↔ 테스트 파일 매핑은 [[11-TESTING|11 테스트]] §3.
-- `live` 모드는 registry 항목([[15-DATA-CONTRACTS|15 데이터 계약]] §8)과 `G2B_SERVICE_KEY`가 있어야 기동한다. 없으면 `OfficialApiConnector`가 기동 시 명확한 오류로 멈춘다(§2.1).
+- `live` 모드는 registry 항목([[15-DATA-CONTRACTS|15 데이터 계약]] §8)과 서비스키 4개(§2.2)가 모두 있어야 기동한다. 없으면 `OfficialApiConnector`가 기동 시 명확한 오류로 멈춘다(§2.1).
 
 ## 8. 솔리데오 가상 직원 fixture (ADR-019, 구현 예정)
 

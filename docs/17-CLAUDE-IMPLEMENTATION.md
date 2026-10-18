@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - ops
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 17. Claude Code 구현 운영 규칙
@@ -32,7 +32,7 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 [
 - **실패 유형을 섞지 않는다.** 공공 API 실패, 첨부 다운로드 불가, 파싱 실패, 모델 서버 미접속(Qwen·Kev 따로), gateway 미접속을 각각의 코드로 기록하고 따로 보여 준다.
 - **파싱에 실패한 내용을 AI가 추측하지 않는다.** Qwen에는 파싱된 텍스트만 넣고 "첨부가 있었다"로 내용을 추정하게 하는 지시를 넣지 않는다. Kev state에는 첨부를 읽지 못했다는 사실 한 줄만 넣고 읽지 못한 문서로 질문을 만들지 않는다. `/explain`은 파싱 실패를 문장에 밝힌다.
 - **외부 의존성은 조기에 점검한다(P0-0).** 서비스키·회사 GPU가 준비되면 다른 작업보다 먼저 실제 API 응답·첨부 다운로드·GPU 터널·파서 후보를 확인하고 `docs/evidence/phase-0/external-deps.md`에 남긴다. 막히면 즉시 사용자에게 보고한다. 기다리는 동안은 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)로 진행하고, 저장 응답·문서 예시를 실제 응답인 것처럼 표시하지 않는다.
-- **나라장터 서비스키 `G2B_SERVICE_KEY`는 서버 전용이다.** `OfficialApiConnector`(worker)만 읽는다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지·`docs/evidence/`에 넣지 않고, 쿼리 파라미터로 붙으므로 요청 URL 로그에서도 가린다. 응답의 담당자 이름·전화·이메일은 `NormalizedBid`·데이터셋·모델 입력에 넣지 않는다 ([[09-SECURITY|09 보안]]).
+- **나라장터 서비스키 4개(`G2B_*_SERVICE_KEY`, 서비스마다 하나, [[16-DECISIONS|ADR-022]])는 서버 전용이다.** `OfficialApiConnector`(worker)만 읽고, 소스마다 registry `serviceKeyEnv`가 가리키는 키만 쓴다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지·`docs/evidence/`에 넣지 않고, 쿼리 파라미터로 붙으므로 요청 URL 로그에서도 가린다. 응답의 담당자 이름·전화·이메일은 `NormalizedBid`·데이터셋·모델 입력에 넣지 않는다 ([[09-SECURITY|09 보안]]).
 - **첨부 다운로드는 allowlist로만 한다.** `https://www.g2b.go.kr`만 허용하고, 리다이렉트는 allowlist 안에서만 따르며, DNS를 다시 확인해 사설 IP를 거부한다. timeout 30 s, 최대 50 MB, 형식은 확장자가 아니라 내용으로 판단한다 ([[09-SECURITY|09 보안]] SSRF).
 - 외부 API 필드/URL, 실제 기업 수주실적, 카카오 승인 상태, 벤치마크 수치, 모델 성능을 지어내지 말 것. 공공 API 엔드포인트는 `infra/sources/registry.yaml`에 등록한 것만 부른다. 모르면 `> [!warning] 미검증 가정` + mock.
 - DEMO 데이터는 `is_demo=true`로 저장하고 UI에 DEMO 배지. 실데이터처럼 표시 금지. live 공고는 `is_demo=false`로 fixture 공고와 같은 DB에 있을 수 있으므로 `source`·`is_demo`로 구분해 표시한다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필(`is_demo=true`)이고 분석 화면에 "가상 회사 프로필로 분석" 배지를 붙인다. 실제 회사 자료를 쓰려면 ADR과 [[09-SECURITY|09 보안]] 개정이 먼저다 (ADR-019, ADR-020).
@@ -101,7 +101,7 @@ P0 항목: (이번에 다룬 P0 번호, 없으면 없음)
 ## 권장 작업 순서
 1. docs 읽기 + open questions를 [[16-DECISIONS|16 ADR]] 미결정 표에 제안.
 2. 템플릿 정리: Supabase·`web/`은 유지하고, 견본 도메인(`tasks`·팀 화면 등. `memos`는 템플릿 마이그레이션이 이미 지웠다) 중 정리할 범위를 정한다. Python uv 프로젝트(`services/ai`) 생성. pnpm workspace·`apps/`·`packages/contracts`는 만들지 않는다(ADR-017).
-3. Docker Compose 기본 인프라(`infra/compose.yaml`: redis·minio·qdrant·ai-gateway·worker, web은 선택), `web/worker` 진입점(`server-only` 도메인 코드를 쓰는 실행 방식 `--conditions=react-server` 검증), healthcheck와 `/health/live`·`/health/ready`, Supabase 클라우드 프로젝트 연결·env, `.env.example`, `infra/env/demo.env.example`, `pnpm check:env`, CI(`verify.config.json`). 실행 모드 `SOL_RUN_MODE`와 모드 모순 검사, `G2B_SERVICE_KEY` placeholder(서버 전용), 회사 GPU 서버에 터널로 붙는 `ai-local` 연결 방식. 서비스키·회사 GPU가 준비되면 이 시점에 P0-0 외부 의존성 점검을 먼저 한다([[11-TESTING|11 테스트]] §3.3).
+3. Docker Compose 기본 인프라(`infra/compose.yaml`: redis·minio·qdrant·ai-gateway·worker, web은 선택), `web/worker` 진입점(`server-only` 도메인 코드를 쓰는 실행 방식 `--conditions=react-server` 검증), healthcheck와 `/health/live`·`/health/ready`, Supabase 클라우드 프로젝트 연결·env, `.env.example`, `infra/env/demo.env.example`, `pnpm check:env`, CI(`verify.config.json`). 실행 모드 `SOL_RUN_MODE`와 모드 모순 검사, 서비스키 4개(`G2B_*_SERVICE_KEY`) placeholder(서버 전용), 회사 GPU 서버에 터널로 붙는 `ai-local` 연결 방식. 서비스키·회사 GPU가 준비되면 이 시점에 P0-0 외부 의존성 점검을 먼저 한다([[11-TESTING|11 테스트]] §3.3).
 4. `supabase/migrations`로 SOL RADAR 초기 스키마([[04-DATABASE|04 DB]])·RLS·`memberships.sol_role` + 정책 시험(`pnpm test:db`). seed는 스크립트 `pnpm demo:reset`(service role로 Supabase 프로젝트에 적재): 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(`org-01` 역할별 4, `org-02` VIEWER 1), FX-01~FX-20 중 19건 적재 + FX-12 격리(`ingest_errors`), 별도 가상 직원 명부 200명(남녀 100/100, Auth 계정 아님)·부서/직급 카탈로그, `is_demo=true`, 멱등(ADR-019). ADR-020 저장 변경(실행 모드·출처, 첨부 다운로드·파싱 상태, 새 표 `requirement_assessments`·`bid_structured_requirements`·`eval_runs`)은 [[04-DATABASE|04 DB]]를 먼저 고친 뒤 첫 SOL 마이그레이션에 넣는다.
 5. Supabase Auth 연결(템플릿 로그인·초대) + `sol_role` RBAC. 외부 API 계약은 zod 스키마(`web/server/<도메인>/*.model.ts`, ADR-016)가 단일 원천이다.
 6. ADR-019의 가입 부서·직급 필수 선택·간편 가입 정보 보완, 가상 프로필 200장 연결을 명세·시험과 함께 구현한다. 이미지 생성은 imagegen 기본 도구로 별도 준비하며 CI·앱 기동에서 생성하지 않는다.

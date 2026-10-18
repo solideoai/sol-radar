@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -290,7 +290,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |외부 API 429|Retry-After 후 재시도, `summary.retried` +1. 소진 시 `error_code=RATE_LIMITED`|
 |같은 checksum 재수집|적재 생략, `summary.skippedDuplicate` +1 (오류 아님)|
 
-격리된 레코드는 삭제하지 않고 `ingest_errors.redacted_detail`에 PII 없는 요약만 남긴다. 공공 API 응답의 담당자 필드와 서비스키(`G2B_SERVICE_KEY`, 요청 URL의 쿼리 파라미터 포함)는 `redacted_detail`·로그에 넣지 않는다. 재실행하면 같은 `job_key`로 멱등 처리한다. 수집 결과 집계는 `ingest_runs.summary = {created, changed, cancelled, skippedDuplicate, quarantined, retried}`이며 [[05-API-SPEC|05 API 명세]] `IngestionRun.summary`와 같다. 검증·격리와 `ingest_runs`·`ingest_errors` 쓰기는 수집 worker(`web/worker`)가 service role로 한다([[07-DATA-PIPELINE|07 수집]]).
+격리된 레코드는 삭제하지 않고 `ingest_errors.redacted_detail`에 PII 없는 요약만 남긴다. 공공 API 응답의 담당자 필드와 서비스키(`G2B_*_SERVICE_KEY` 4개, 요청 URL의 쿼리 파라미터 포함)는 `redacted_detail`·로그에 넣지 않는다. 재실행하면 같은 `job_key`로 멱등 처리한다. 수집 결과 집계는 `ingest_runs.summary = {created, changed, cancelled, skippedDuplicate, quarantined, retried}`이며 [[05-API-SPEC|05 API 명세]] `IngestionRun.summary`와 같다. 검증·격리와 `ingest_runs`·`ingest_errors` 쓰기는 수집 worker(`web/worker`)가 service role로 한다([[07-DATA-PIPELINE|07 수집]]).
 
 여기서 "격리"는 잘못된 레코드를 적재하지 않고 따로 두는 것(quarantine)이다. 조직 간 데이터 격리는 다른 장치다. 조직 소유 데이터는 `org_id`를 갖고, DB의 RLS 정책(`org_id in (select public.my_org_ids())`)이 다른 조직의 행을 보이지 않게 한다. 그래서 API는 다른 조직 자원에 `404`를 낸다. 공고와 이 절의 수집 기록은 조직 소유가 없는 공용 데이터다([[04-DATABASE|04 DB]] §1·§3, [[09-SECURITY|09 보안]]).
 
@@ -311,6 +311,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |`displayName`|나라장터 입찰공고정보서비스|서비스 이름 수준만 적는다|
 |`provider`|조달청 / data.go.kr|—|
 |`serviceId`|`15129394`|data.go.kr 서비스 ID. 호출 예산 카운터 `quota:{serviceId}:{YYYYMMDD}`의 키([[07-DATA-PIPELINE\|07 수집]] §2.2)|
+|`serviceKeyEnv`|`G2B_BID_NOTICE_SERVICE_KEY`|그 소스가 쓰는 서비스키의 env **이름**(값이 아니다). 같은 data.go.kr 서비스의 소스는 같은 env를 쓴다. `OfficialApiConnector`는 이 env만 읽고 다른 서비스의 키로 대체하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.2, [[16-DECISIONS\|ADR-022]]). `g2b-attachment`·`fixture`는 비운다|
 |`approvalStatus`|`NOT_REQUESTED` / `PENDING` / `APPROVED`|활용신청 상태. 서비스키 발급 전이라 g2b 키는 모두 `NOT_REQUESTED`|
 |`endpoint`|기본 URL + 오퍼레이션|data.go.kr 명세로 확인한 값(아래 표)|
 |`method`|`GET`|입찰공고정보서비스 참고문서 v1.2의 인터페이스 표준 "REST (GET)"(2026-10-16 확인). 나머지 서비스도 같은 표준으로 보고 P0-0 실제 호출로 확인한다|
@@ -323,17 +324,17 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 
 등록할 소스(설계 확정값, 2026-10-16):
 
-|`key`|서비스 (ID)|`endpoint` (기본 URL + 오퍼레이션)|호출 시점|`approvalStatus`|
-|---|---|---|---|---|
-|`g2b-bid-notice`|입찰공고정보서비스 (15129394)|`http://apis.data.go.kr/1230000/ad/BidPublicInfoService` + `getBidPblancListInfoServc`, `getBidPblancListInfoChgHstryServc`|일정 실행·수동 실행|`NOT_REQUESTED`|
-|`g2b-bid-license-limit`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoLicenseLimit`|새 revision마다|`NOT_REQUESTED`|
-|`g2b-bid-region`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoPrtcptPsblRgn`|새 revision마다|`NOT_REQUESTED`|
-|`g2b-bid-eorder-attach`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoEorderAtchFileInfo`|새 revision마다|`NOT_REQUESTED`|
-|`g2b-pre-spec`|사전규격정보서비스 (15129437)|`/1230000/ao/HrcspSsstndrdInfoService` + `getPublicPrcureThngInfoServc`|일정 실행|`NOT_REQUESTED`|
-|`g2b-order-plan`|발주계획현황서비스 (15129462)|`/1230000/ao/OrderPlanSttusService` + `getOrderPlanSttusListServc`|하루 1회|`NOT_REQUESTED`|
-|`g2b-industry-master`|업종 및 근거법규 (15129467)|`/1230000/ao/IndstrytyBaseLawrgltInfoService` + `getIndstrytyBaseLawrgltInfoList`|수동(사전 갱신)|`NOT_REQUESTED`|
-|`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job|`NOT_REQUESTED`|
-|`fixture`|fixture 20건(`FX-01`~`FX-20`)|— (네트워크 호출 없음)|seed·수동 수집|`APPROVED`|
+|`key`|서비스 (ID)|`endpoint` (기본 URL + 오퍼레이션)|호출 시점|`approvalStatus`|`serviceKeyEnv`|
+|---|---|---|---|---|---|
+|`g2b-bid-notice`|입찰공고정보서비스 (15129394)|`http://apis.data.go.kr/1230000/ad/BidPublicInfoService` + `getBidPblancListInfoServc`, `getBidPblancListInfoChgHstryServc`|일정 실행·수동 실행|`NOT_REQUESTED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-bid-license-limit`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoLicenseLimit`|새 revision마다|`NOT_REQUESTED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-bid-region`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoPrtcptPsblRgn`|새 revision마다|`NOT_REQUESTED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-bid-eorder-attach`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoEorderAtchFileInfo`|새 revision마다|`NOT_REQUESTED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-pre-spec`|사전규격정보서비스 (15129437)|`/1230000/ao/HrcspSsstndrdInfoService` + `getPublicPrcureThngInfoServc`|일정 실행|`NOT_REQUESTED`|`G2B_PRE_SPEC_SERVICE_KEY`|
+|`g2b-order-plan`|발주계획현황서비스 (15129462)|`/1230000/ao/OrderPlanSttusService` + `getOrderPlanSttusListServc`|하루 1회|`NOT_REQUESTED`|`G2B_ORDER_PLAN_SERVICE_KEY`|
+|`g2b-industry-master`|업종 및 근거법규 (15129467)|`/1230000/ao/IndstrytyBaseLawrgltInfoService` + `getIndstrytyBaseLawrgltInfoList`|수동(사전 갱신)|`NOT_REQUESTED`|`G2B_INDUSTRY_MASTER_SERVICE_KEY`|
+|`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job|`NOT_REQUESTED`|—|
+|`fixture`|fixture 20건(`FX-01`~`FX-20`)|— (네트워크 호출 없음)|seed·수동 수집|`APPROVED`|—|
 
 - 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
 - `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 다운로드에 로그인·세션이 필요한지 확인한 뒤(미결정 16번) `approvalStatus`와 `quota`의 뜻을 정한다.

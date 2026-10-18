@@ -26,7 +26,7 @@ updated: 2026-10-18
 - 이번 Phase에는 마이그레이션을 만들지 않는다(SOL 스키마는 Phase 1). `pnpm db:push`·`pnpm demo:reset`은 실행하지 않는다.
 - 자동 시험은 모두 `SOL_RUN_MODE=mock`으로 돈다. 공공 API·회사 GPU·hosted 모델을 부르지 않는다. hosted 클라이언트 코드는 만들지 않는다(ADR-010).
 - 실행 모드: `SOL_RUN_MODE=live|fixture|mock`, 미지정이면 `mock`. 모드가 기본값을 정한다: `live` → `DEMO_MODE=false`·`AI_PROVIDER=local`·`KEV_ENABLED=true`, `fixture` → `true`·`local`·`true`, `mock` → `true`·`mock`·`true`(mock adapter가 응답). 모순이면 기동 거부하고 **모순된 키 이름만** 알린다. 값을 조용히 바꾸지 않는다.
-- 비밀값(`SUPABASE_SERVICE_ROLE_KEY`·`G2B_SERVICE_KEY`·`REDIS_PASSWORD`·`MINIO_ROOT_PASSWORD`·`KEV_API_KEY`·`HOSTED_API_KEY`)은 표준 출력·오류·로그·증거·`NEXT_PUBLIC_` 변수에 넣지 않는다. `web/.env.local`에는 `SUPABASE_SERVICE_ROLE_KEY`·`G2B_SERVICE_KEY`를 두지 않는다(10:54).
+- 비밀값(`SUPABASE_SERVICE_ROLE_KEY`·서비스키 4개 `G2B_*_SERVICE_KEY`(ADR-022)·`REDIS_PASSWORD`·`MINIO_ROOT_PASSWORD`·`KEV_API_KEY`·`HOSTED_API_KEY`)은 표준 출력·오류·로그·증거·`NEXT_PUBLIC_` 변수에 넣지 않는다. `web/.env.local`에는 `SUPABASE_SERVICE_ROLE_KEY`·`G2B_*_SERVICE_KEY`를 두지 않는다(10:54).
 - `.env*` 실제 파일은 사람이 만든다. 에이전트는 읽거나 출력하지 않는다. placeholder 토큰은 `CHANGE_ME` 하나로 통일하고, `minioadmin`은 금지 기본값으로 placeholder와 같게 센다(09:200).
 - 이미지 고정: `redis:8.8.3-alpine`, `qdrant/qdrant:v1.19.2-unprivileged`, `cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8`(비root 65532). 호스트 포트는 `127.0.0.1:6379`·`127.0.0.1:6333`·`127.0.0.1:9000`·`127.0.0.1:8000`만 연다. `0.0.0.0` 바인딩 금지.
 - named volume: `redisdata`·`qdrantdata`·`miniodata`. 무한 재시작 대신 명확한 오류 출력(10:301).
@@ -45,7 +45,7 @@ updated: 2026-10-18
 | D2 | worker 실행 방식(미결정 9) | `node --conditions=react-server --import tsx worker/main.ts` | esbuild 번들 후 `node` | 16:57·81, 11:158 |
 | D3 | worker health | 준비 확인 뒤 10초마다 heartbeat 파일 갱신, Compose healthcheck가 30초 안 갱신을 확인 | Redis 키 TTL | 14:37 |
 | D4 | `AI_PROVIDER=hosted` 허용 모드 | `live`·`fixture`에서만, `AI_HOSTED_APPROVED=true`일 때만 | hosted 금지 | 정본 미정(03 모드 표에 hosted 없음) |
-| D5 | `G2B_SERVICE_KEY` 필수 범위 | `live`에서만 필수. demo env 예시에는 줄을 두지 않음 | 모든 모드 필수 | 10:27·53·81 vs 11:176 |
+| D5 | 서비스키 4개(`G2B_*_SERVICE_KEY`, ADR-022) 필수 범위 | `live`에서만 4개 모두 필수. demo env 예시에는 줄을 두지 않음 | 모든 모드 필수 | 10:27·53·81 vs 11:176 |
 | D6 | mock의 `KEV_ENABLED` | `true`(mock adapter) | `false` | 10:37·16:42 vs `ai-gateway-developer`·`infra-developer` 정의 |
 | D7 | 실행 모드 규칙 원천 | `infra/run-modes.json` 하나. gateway 이미지는 저장소 루트를 빌드 컨텍스트로 써서 이 파일(향후 `fixtures/`)을 복사 | 언어별 복제 | 같은 규칙 두 구현의 표류 방지 |
 | D8 | `infra/compose.gpu.yaml`·`ai-local` 실기동 | P0-0(회사 GPU 준비) 때 작성·검증. Phase 0은 `infra/env/ai-local.env.example`과 터널 절차만 | 지금 예시로 작성 | 10:298 "요구 명세 예시", GPU 없이 검증 불가 |
@@ -113,7 +113,7 @@ updated: 2026-10-18
       "AI_PROVIDER": ["local", "hosted"],
       "KEV_ENABLED": ["true"],
       "forbidden": { "AI_FALLBACK_TO_MOCK": "true", "KEV_ALLOW_KO_STATE": "true" },
-      "requiredSecrets": ["G2B_SERVICE_KEY"]
+      "requiredSecrets": ["G2B_BID_NOTICE_SERVICE_KEY", "G2B_PRE_SPEC_SERVICE_KEY", "G2B_ORDER_PLAN_SERVICE_KEY", "G2B_INDUSTRY_MASTER_SERVICE_KEY"]
     },
     "fixture": {
       "DEMO_MODE": ["true"],
@@ -139,7 +139,7 @@ updated: 2026-10-18
 - Produces `checkEnv({ root: string }) → Promise<{ ok: boolean, mode: string | null, counts: { placeholder: number, contradiction: number, missing: number, forbidden: number }, problems: Array<{ file: string, key: string, code: "MISSING_FILE" | "MISSING_KEY" | "PLACEHOLDER" | "FORBIDDEN_KEY" | "UNKNOWN_MODE" | "CONTRADICTS_MODE" | "FORBIDDEN_IN_MODE" | "HOSTED_NOT_APPROVED" }> }>` in `scripts/check-env.mjs`. env 파일은 `node:util`의 `parseEnv`로 읽는다.
 - 읽는 파일과 필수 키(Phase 0 범위. 이후 Phase가 키를 더한다):
   - `infra/.env` (필수 파일): `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REDIS_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`. 실행 모드는 이 파일로 판정한다. 모드의 `requiredSecrets`도 이 파일에서 찾는다. `live`·`fixture`면 `QWEN_BASE_URL`·`KEV_BASE_URL`·`KEV_API_KEY`, `AI_PROVIDER=hosted`면 `HOSTED_API_BASE_URL`·`HOSTED_API_KEY`도 필수.
-  - `web/.env.local` (필수 파일): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`, `MINIO_ENDPOINT`, `AI_GATEWAY_URL`. 금지 키: `SUPABASE_SERVICE_ROLE_KEY`, `G2B_SERVICE_KEY`, 그리고 이름이 `NEXT_PUBLIC_`로 시작하면서 `SERVICE_ROLE` 또는 `G2B`를 포함하는 키.
+  - `web/.env.local` (필수 파일): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`, `MINIO_ENDPOINT`, `AI_GATEWAY_URL`. 금지 키: `SUPABASE_SERVICE_ROLE_KEY`, 서비스키 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`), 그리고 이름이 `NEXT_PUBLIC_`로 시작하면서 `SERVICE_ROLE` 또는 `G2B`를 포함하는 키.
   - 루트 `.env.local` (선택 파일, Phase 1부터 필수): 있으면 placeholder만 센다.
 - placeholder: 값에 `CHANGE_ME`가 들어 있거나 값이 정확히 `minioadmin`.
 - CLI: `node scripts/check-env.mjs [--root <dir>]`. 문제마다 `FAIL <file> <KEY> <code>` 한 줄을 stderr에 쓰고(값은 쓰지 않는다), 마지막 줄을 stdout에 쓴다.
@@ -162,7 +162,7 @@ updated: 2026-10-18
   - `checkEnv: infra/.env 가 없으면 MISSING_FILE`.
   - `checkEnv: CHANGE_ME 와 minioadmin 을 placeholder 로 센다` → `counts.placeholder === 2`.
   - `checkEnv: web/.env.local 의 SUPABASE_SERVICE_ROLE_KEY 는 FORBIDDEN_KEY`.
-  - `checkEnv: live 인데 G2B_SERVICE_KEY 가 없으면 MISSING_KEY, mock 은 통과`.
+  - `checkEnv: live 인데 빠진 서비스키마다 MISSING_KEY, mock 은 통과` → `G2B_PRE_SPEC_SERVICE_KEY`만 비우면 그 키 이름으로 `MISSING_KEY` 1건.
   - `CLI: 통과하면 exit 0 과 정해진 마지막 줄` → stdout 마지막 줄이 `check:env 통과: 실행 모드 mock, placeholder 0건, 모드 모순 0건`.
   - `CLI 출력에 비밀값이 없다` → 실패하는 임시 폴더에 `SUPABASE_SERVICE_ROLE_KEY=sk-test-SECRET-123`, `REDIS_PASSWORD=pw-SECRET-456` 등을 넣고 실행. exit 1, stdout+stderr에 `SECRET`이 0회.
 
@@ -318,7 +318,7 @@ updated: 2026-10-18
     - `minio`: `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`. 명령 `server /data`.
     - `qdrant`: 없음.
     - `ai-gateway`: `SOL_RUN_MODE`, `DEMO_MODE`, `AI_PROVIDER`, `AI_HOSTED_APPROVED`, `AI_FALLBACK_TO_MOCK`, `KEV_ENABLED`, `KEV_ALLOW_KO_STATE`. 빌드 `context: ..`, `dockerfile: services/ai/Dockerfile`. `extra_hosts: ["host.docker.internal:host-gateway"]`(ai-local 터널용). Supabase·G2B 키는 넘기지 않는다.
-    - `worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL=http://ai-gateway:8000`, `SOL_RUN_MODE`, `DEMO_MODE`, `G2B_SERVICE_KEY`(10:53). 빌드 `context: ../web`, `dockerfile: worker/Dockerfile`. `depends_on: redis: condition: service_healthy`.
+    - `worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL=http://ai-gateway:8000`, `SOL_RUN_MODE`, `DEMO_MODE`, 서비스키 4개 `G2B_*_SERVICE_KEY`(10:53, ADR-022). 빌드 `context: ../web`, `dockerfile: worker/Dockerfile`. `depends_on: redis: condition: service_healthy`.
   - 포트: `127.0.0.1:6379:6379`, `127.0.0.1:9000:9000`, `127.0.0.1:6333:6333`, `127.0.0.1:8000:8000`. worker는 포트 없음.
   - volume: `redisdata:/data`, `miniodata:/data`, `qdrantdata:/qdrant/storage`.
   - restart: redis·minio·qdrant `unless-stopped`, ai-gateway·worker `on-failure:3`.
@@ -330,8 +330,8 @@ updated: 2026-10-18
     - ai-gateway: `python -c` urllib로 `http://127.0.0.1:8000/health` 200
     - worker: `node -e`로 heartbeat 파일 mtime이 30초 이내
     - qdrant·minio 이미지에는 shell·curl이 없을 수 있다. Step 2에서 이미지 안의 도구를 먼저 확인하고 그 도구로 쓴다. 이미지 안에 쓸 도구가 없으면 멈추고 보고한다(이미지 교체는 10 변경이라 사용자 결정).
-- Produces `infra/env/demo.env.example`: `SOL_RUN_MODE=mock`, `DEMO_MODE=true`, `AI_PROVIDER=mock`, `KEV_ENABLED=true`, `AI_HOSTED_APPROVED=false`, `AI_FALLBACK_TO_MOCK=false`, `KEV_ALLOW_KO_STATE=false`, 그리고 `NEXT_PUBLIC_SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`·`REDIS_PASSWORD`·`MINIO_ROOT_USER`·`MINIO_ROOT_PASSWORD`는 `CHANGE_ME`. `G2B_SERVICE_KEY` 줄은 두지 않는다(D5). `AI_FAULT_INJECT`는 넣지 않는다. 맨 위 주석에 `cp infra/env/demo.env.example infra/.env` 후 값을 채우라는 안내와 파일별 비밀 규칙.
-- Produces `infra/env/ai-local.env.example`: `SOL_RUN_MODE=live`(주석으로 `fixture` 안내), `DEMO_MODE=false`, `AI_PROVIDER=local`, `KEV_ENABLED=true`, `AI_FALLBACK_TO_MOCK=false`, `QWEN_BASE_URL=http://host.docker.internal:8001`, `QWEN_MODEL=Qwen/Qwen3.5-9B`, `KEV_BASE_URL=http://host.docker.internal:8009`, `KEV_MODEL_ID=kev-9b-v1.0`, `KEV_QUESTION_SET=kev-qs/v0.2`, `KEV_API_KEY=CHANGE_ME`, `G2B_SERVICE_KEY=CHANGE_ME`, 공통 키는 `CHANGE_ME`. 터널 명령 `ssh -N -L 8001:127.0.0.1:8001 -L 8009:127.0.0.1:8009 <user>@<gpu-host>`을 주석으로(10:134). 호스트·계정 값은 적지 않는다.
+- Produces `infra/env/demo.env.example`: `SOL_RUN_MODE=mock`, `DEMO_MODE=true`, `AI_PROVIDER=mock`, `KEV_ENABLED=true`, `AI_HOSTED_APPROVED=false`, `AI_FALLBACK_TO_MOCK=false`, `KEV_ALLOW_KO_STATE=false`, 그리고 `NEXT_PUBLIC_SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`·`REDIS_PASSWORD`·`MINIO_ROOT_USER`·`MINIO_ROOT_PASSWORD`는 `CHANGE_ME`. `G2B_*_SERVICE_KEY` 줄은 두지 않는다(D5). `AI_FAULT_INJECT`는 넣지 않는다. 맨 위 주석에 `cp infra/env/demo.env.example infra/.env` 후 값을 채우라는 안내와 파일별 비밀 규칙.
+- Produces `infra/env/ai-local.env.example`: `SOL_RUN_MODE=live`(주석으로 `fixture` 안내), `DEMO_MODE=false`, `AI_PROVIDER=local`, `KEV_ENABLED=true`, `AI_FALLBACK_TO_MOCK=false`, `QWEN_BASE_URL=http://host.docker.internal:8001`, `QWEN_MODEL=Qwen/Qwen3.5-9B`, `KEV_BASE_URL=http://host.docker.internal:8009`, `KEV_MODEL_ID=kev-9b-v1.0`, `KEV_QUESTION_SET=kev-qs/v0.2`, `KEV_API_KEY=CHANGE_ME`, 서비스키 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`)는 각각 `CHANGE_ME`, 공통 키는 `CHANGE_ME`. 터널 명령 `ssh -N -L 8001:127.0.0.1:8001 -L 8009:127.0.0.1:8009 <user>@<gpu-host>`을 주석으로(10:134). 호스트·계정 값은 적지 않는다.
 - Produces `web/worker/Dockerfile`: `node:22-slim`(`.nvmrc` 22), corepack pnpm, `package.json`·`pnpm-lock.yaml`로 `pnpm install --frozen-lockfile`, `worker`·`server`·`lib`·`tsconfig.json` 복사, 비root, `CMD ["pnpm", "worker"]`. `Dockerfile.dockerignore`는 `node_modules`·`.next`·`e2e*`·`test-results`·`playwright-report`·`.env*`를 뺀다.
 - Produces `infra/smoke.sh` (`set -euo pipefail`, 실패 단계 이름을 찍고 exit 1):
   1. `docker compose -f infra/compose.yaml ps --format '{{.Service}} {{.Health}}'`에서 5개 모두 `healthy`
@@ -491,7 +491,7 @@ fixtures:
 - FX-13 인용 실패 결과: `CONFLICTED`(07:375·399, 11:76·97) vs `UNKNOWN`+`CITATION_FAILED`(03:771, 15:255). fixture 내용은 같고 결과 판정은 Phase 5.
 - FX-05 `PENDING_REVIEW` 근거: 03 §4.4의 `PENDING_REVIEW` 조건(인젝션·인용 실패 50% 초과)에 파싱 실패가 없다.
 - `AI_FAULT_INJECT` 값 5개(03:199) vs 3개(에이전트 정의). `KEV_ENABLED` 기본 `false`(ADR-012 행, 에이전트 정의) vs demo `true`(10:37).
-- `G2B_SERVICE_KEY` mock 필요 여부(11:176). `infra-developer`의 `production` 프로필·`kev-4b` 태그·`infra/nginx/`.
+- 서비스키 4개(`G2B_*_SERVICE_KEY`) mock 필요 여부(11:176). `infra-developer`의 `production` 프로필·`kev-4b` 태그·`infra/nginx/`.
 - `/health/ready`에 실행 모드 필드 없음(05:43) vs `RunModeIndicator`가 거기서 읽음(06:378). Phase 3 전에 정한다.
 - 04:373 `requirement_extractions` 20 vs 적재 19. 19:44 FX-20 LIVE vs 07 SEED. 19:128 S3 "입찰공고" 필터에 PRE_SPEC FX-18. 19:155 S5 알림에 FX-08 누락.
 - 03:137 "hosted 미승인 503"과 "기동 거부"의 모순.

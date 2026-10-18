@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - demo
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 19. 데모 시나리오
@@ -91,7 +91,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 > [!warning] 네트워크 의존 (대체 경로 미결정)
 > DB와 인증이 Supabase 클라우드 프로젝트(개발 환경)라 데모 내내 인터넷 연결이 필요하다. 끊기면 로그인과 조회가 멈추고 `/health/ready`가 `503`(`status:"unavailable"`)을 낸다. 네트워크 없이 시연하는 경로는 아직 없다. 대체 경로(사전 녹화 영상 재생, 로컬 Supabase CLI `pnpm db:start`로 전환)는 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표). 정해지기 전까지 회선이 끊기면 사실대로 말한다. `live`·`fixture` 모드는 여기에 더해 회사 GPU 서버 터널이, `live`는 공공 API가 필요하다(§2.1).
 
-1. 인터넷 연결과 Supabase 프로젝트를 확인한다. 환경 변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`(서버 전용 비밀, worker·seed만 쓴다)가 들어 있고, Supabase 대시보드에서 프로젝트에 접속되는지 본다. SOL RADAR 마이그레이션은 미리 적용돼 있어야 한다(`pnpm db:push`는 운영 DB를 바꾸므로 사용자 확인 뒤에만 실행한다). env는 `SOL_RUN_MODE=mock`, `AI_FALLBACK_TO_MOCK=false`로 시작한다. `live`·`fixture`를 확인하려면 나라장터 서비스키 `G2B_SERVICE_KEY`(서버 전용, 값은 출력하지 않는다)가 들어 있고 `pnpm check:env`가 모드 모순 없이 통과하는지, 회사 GPU 서버 터널이 열려 있는지(방식은 [[10-DEPLOYMENT|10 배포]]) 본다.
+1. 인터넷 연결과 Supabase 프로젝트를 확인한다. 환경 변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`(서버 전용 비밀, worker·seed만 쓴다)가 들어 있고, Supabase 대시보드에서 프로젝트에 접속되는지 본다. SOL RADAR 마이그레이션은 미리 적용돼 있어야 한다(`pnpm db:push`는 운영 DB를 바꾸므로 사용자 확인 뒤에만 실행한다). env는 `SOL_RUN_MODE=mock`, `AI_FALLBACK_TO_MOCK=false`로 시작한다. `live`·`fixture`를 확인하려면 나라장터 서비스키 4개(`G2B_*_SERVICE_KEY`, 서버 전용, 값은 출력하지 않는다)가 모두 들어 있고 `pnpm check:env`가 모드 모순 없이 통과하는지, 회사 GPU 서버 터널이 열려 있는지(방식은 [[10-DEPLOYMENT|10 배포]]) 본다.
 2. `docker compose -f infra/compose.yaml --profile demo up -d --build`로 redis·minio·qdrant·ai-gateway·worker를 띄운다. DB 컨테이너는 없다(DB는 Supabase). web은 Compose의 선택 서비스 `web`으로 띄우거나 `web/`에서 따로 실행한다(데모 실행 방식은 [[10-DEPLOYMENT|10 배포]]). `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 확인한다. `checks.db`는 Supabase(Postgres) 연결이다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]].
 3. `pnpm demo:reset`으로 seed를 적용한다(Compose 서비스가 아니라 스크립트. service role 키로 Supabase 프로젝트에 조직·계정·구성원·프로필·fixture를 적재, 멱등). `/admin/ingestion`에서 SEED 배치 결과를 확인한다: `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}` (격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번).
 4. **세 모드 확인**: `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순서로 바꾸며 worker·ai-gateway를 재시작한다. 모드마다 기동 거부가 없는지, 머리말 "실행 모드"와 `GET /api/v1/admin/ai/status`(admin@soltech.invalid)의 `runMode`가 맞는지, `live`·`fixture`에서는 `qwen.healthy`·`kev.registryMatch`가 `true`인지 본다. `live`에서는 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)을 확인한다. 실패한 모드는 시연에서 빼고 기록한다. 마지막은 `mock`으로 두고 2의 `/health/ready`(`checks.ai:"mock"`)를 다시 확인한다. 결과는 `docs/evidence/demo-day/<일시>/run-modes.md`에 남긴다([[11-TESTING|11 테스트]] §5).
