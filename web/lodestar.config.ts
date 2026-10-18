@@ -38,6 +38,10 @@ export default defineConfig({
 
           // 공통. 아무것도 부르지 않는다
           { name: "shared", path: "server/shared/**", canImport: [] },
+
+          // worker. service role 을 쓰는 유일한 런타임이라 infra 를 직접 부른다.
+          // 다른 층의 canImport 에는 worker 를 넣지 않는다(worker 는 아무도 부르지 않는다)
+          { name: "worker", path: "worker/**", canImport: ["domain", "infra", "shared"] },
         ],
         allowTypeOnly: true,
       },
