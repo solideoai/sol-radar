@@ -126,16 +126,34 @@ const allMembers = async (
   );
   return items;
 };
-const signIn = async (page: Page, role = "viewer") => {
+// Feature-specific setup verifies real form authentication and the browser session cookie.
+// Automatic login router.refresh redirection belongs to the unchanged Auth regressions;
+// explicit document navigation below must never be reported as that redirect passing.
+const signIn = async (page: Page, role = "viewer", destination = "/people") => {
   const account = fixture().accounts[role];
   await page.goto("/auth/login");
   await page.getByLabel("이메일").fill(account.email);
   await page.getByLabel("비밀번호", { exact: true }).fill(account.password);
+  const authenticated = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === "/auth/v1/token" && response.request().method() === "POST";
+  });
   await page.getByRole("button", { name: "로그인", exact: true }).click();
-  await expect(page).toHaveURL(/\/[^/]+\/dashboard$/);
-  await page.goto("/people");
+  expect((await authenticated).status()).toBe(200);
+  await expect
+    .poll(async () =>
+      (await page.context().cookies()).some(({ name }) =>
+        /^sb-.+-auth-token(?:\.\d+)?$/.test(name),
+      ),
+    )
+    .toBe(true);
+  await page.goto(destination);
   await expect(
-    page.getByRole("heading", { level: 1, name: "조직·인력", exact: true }),
+    page.getByRole("heading", {
+      level: 1,
+      name: destination.startsWith("/org-chart") ? "조직도" : "조직·인력",
+      exact: true,
+    }),
   ).toBeVisible();
 };
 const overflow = (page: Page) =>
@@ -200,6 +218,12 @@ export function registerPeopleReadTests() {
         const cookie = await page.request.get("/api/v1/team-members");
         expect(cookie.status()).toBe(200);
         expect(pageSchema.parse(await cookie.json()).summary).toEqual(first.summary);
+        await page.goto("/org-chart");
+        await expect(
+          page.getByRole("heading", { level: 1, name: "조직도", exact: true }),
+        ).toBeVisible();
+        await expect(page.getByText(/전체 200명.*본부 6.*그룹 4.*팀 38/)).toBeVisible();
+        await expect(peopleButtons(page)).toHaveCount(14);
         await expect(
           page.getByRole("button", {
             name: /직원 추가|인력 추가|편집|퇴사|시뮬레이션/,
@@ -516,62 +540,299 @@ export function registerPeopleReadTests() {
         });
       });
 
-      test(`${width}px organization tree expands all200 once with honest null roots`, async ({
+      test(`${width}px standalone chart initial team, URL/history, cards and keyboard search`, async ({
         page,
         request,
       }) => {
-        test.setTimeout(90_000);
+        test.setTimeout(120_000);
         await page.setViewportSize({ width, height: 1000 });
-        const expected = await allMembers(request);
-        await signIn(page);
+        const people = await allMembers(request);
+        const departments = z
+          .array(departmentSchema)
+          .parse(await (await get(request, "/api/v1/departments")).json());
+        const titles = z
+          .array(titleSchema)
+          .parse(await (await get(request, "/api/v1/job-titles")).json());
+        const firstTeam = departments.find(({ name }) => name === "AX사업본부 AI플랫폼운영팀");
+        expect(firstTeam).toBeDefined();
+        const firstTeamId = z.uuid().parse(firstTeam?.id);
+        await signIn(page, "viewer", "/org-chart");
         await assertOpenSidebar(page);
-        await page.goto("/people?scoring=1&q=김");
-        await page.getByRole("link", { name: "조직도", exact: true }).click();
-        await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("tree");
-        expect(new URL(page.url()).searchParams.get("q")).toBe("김");
-        expect(new URL(page.url()).searchParams.get("scoring")).toBe("1");
-        await expect(page.getByRole("heading", { name: "본부", exact: true })).toBeVisible();
-        await expect(page.getByRole("heading", { name: "상위 미지정", exact: true })).toBeVisible();
+        const footer = page.getByRole("link", { name: "조직도", exact: true });
+        await expect(footer).toHaveAttribute("href", "/org-chart");
+        await expect(footer).toHaveAttribute("aria-current", "page");
+        expect(
+          await footer.evaluate((link) => Boolean(link.closest('[data-slot="sidebar-footer"]'))),
+        ).toBe(true);
+        const userMenu = page.getByRole("button", { name: /^사용자 메뉴/ });
+        await expect
+          .poll(async () => {
+            const linkBox = await footer.boundingBox();
+            const userBox = await userMenu.boundingBox();
+            return Boolean(linkBox && userBox && linkBox.y + linkBox.height <= userBox.y + 1);
+          })
+          .toBe(true);
+        await expect(page.getByText(/전체 200명.*본부 6.*그룹 4.*팀 38/)).toBeVisible();
         await expect(page.getByText(/29개 부서.*119명/)).toBeVisible();
         await expect(
-          page.getByText(/전체 조직도.*목록 검색 조건은 명부에만 적용됩니다/),
+          page.getByText("자료에서 상위 부서가 확인되지 않은 부서입니다.", { exact: true }),
         ).toBeVisible();
-        await page.getByRole("button", { name: "모두 펼치기", exact: true }).click();
-        await expect(peopleButtons(page)).toHaveCount(200);
-        const names = z
-          .array(z.string())
-          .parse(
-            await peopleButtons(page).evaluateAll((buttons) =>
-              buttons.map((button) => button.getAttribute("aria-label")),
-            ),
-          )
-          .map((label) => label.replace(/ 상세 보기$/, ""))
-          .toSorted();
-        expect(names).toEqual(expected.map(({ name }) => name).toSorted());
-        const personIds = z
+        await expect(page.getByRole("button", { name: /^P&AX컨설팅본부/ })).toHaveCount(0);
+        await expect(page.getByText("P&AX컨설팅본부", { exact: true })).toBeVisible();
+        await expect(peopleButtons(page)).toHaveCount(14);
+        await expect(
+          page.getByRole("button", { name: firstTeam?.name, exact: true }),
+        ).toHaveAttribute("aria-current", "true");
+        await expect(
+          page.getByRole("heading", {
+            name: new RegExp("AX사업본부 AI플랫폼운영팀.*14명.*목표 14명"),
+          }),
+        ).toBeVisible();
+        expect(await overflow(page)).toBe(0);
+        const expectedOrder = people
+          .filter(({ departmentId }) => departmentId === firstTeamId)
+          .toSorted(
+            (left, right) =>
+              titles.findIndex(({ id }) => id === left.jobTitleId) -
+                titles.findIndex(({ id }) => id === right.jobTitleId) ||
+              left.name.localeCompare(right.name, "ko"),
+          );
+        expect(
+          await peopleButtons(page).evaluateAll((buttons) =>
+            buttons.map((button) => button.getAttribute("aria-label")),
+          ),
+        ).toEqual(expectedOrder.map(({ name }) => `${name} 상세 보기`));
+        const selectedTeam = page.getByRole("region", { name: "선택한 팀", exact: true });
+        const cards = selectedTeam.locator("[data-person-id]");
+        await expect(cards).toHaveCount(14);
+        expect(
+          await selectedTeam
+            .locator('[data-slot="org-people-grid"]')
+            .evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(/\s+/).length),
+        ).toBe(width === 1440 ? 4 : 3);
+        await expect(page.getByRole("tree")).toHaveCount(0);
+        for (const person of expectedOrder) {
+          const card = selectedTeam.locator(`[data-person-id="${person.id}"]`);
+          await expect(card).toContainText(
+            z.string().parse(titles.find(({ id }) => id === person.jobTitleId)?.label),
+          );
+          await expect(card.getByText("점수 계산 대상", { exact: true })).toHaveCount(
+            person.scoringEligible ? 1 : 0,
+          );
+          const portrait = card.locator('[data-slot="avatar"]');
+          await expect
+            .poll(async () => Math.round((await portrait.boundingBox())?.width ?? 0))
+            .toBe(44);
+          await expect(card.locator("img")).toHaveAttribute(
+            "src",
+            `/demo/people/${person.personCode}.png`,
+          );
+          expect(await card.innerText()).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-|MALE|FEMALE|@|010-/);
+        }
+        const unknown = page.getByRole("button", { name: "상위 미지정", exact: true });
+        const unknownGroups = page.getByRole("button", { name: "그룹 4개", exact: true });
+        const unknownTeams = page.getByRole("button", { name: "팀 25개", exact: true });
+        for (const [button, id] of [
+          [unknown, "org-unassigned-content"],
+          [unknownGroups, "org-unassigned-groups"],
+          [unknownTeams, "org-unassigned-teams"],
+        ] as const) {
+          await expect(button).toHaveAttribute("aria-expanded", "true");
+          await expect(button).toHaveAttribute("aria-controls", id);
+          await button.click();
+          await expect(button).toHaveAttribute("aria-expanded", "false");
+          await expect(page.locator(`#${id}`)).toBeHidden();
+          await button.click();
+          await expect(button).toHaveAttribute("aria-expanded", "true");
+          await expect(page.locator(`#${id}`)).toBeVisible();
+        }
+        for (const group of departments.filter(
+          ({ kind, parentId }) => kind === "GROUP" && parentId === null,
+        )) {
+          await expect(page.getByRole("button", { name: group.name, exact: true })).toHaveCount(0);
+          await expect(page.getByText(group.name, { exact: true })).toBeVisible();
+        }
+        const unknownTeamIds = new Set(
+          departments
+            .filter(({ kind, parentId }) => kind === "TEAM" && parentId === null)
+            .map(({ id }) => id),
+        );
+        const highlighted = people.find(({ departmentId }) => unknownTeamIds.has(departmentId));
+        expect(highlighted).toBeDefined();
+        const person = memberSchema.parse(highlighted);
+        // Finder must reveal UI-only bundles without inventing a department parent.
+        await unknownTeams.click();
+        await expect(unknownTeams).toHaveAttribute("aria-expanded", "false");
+        await unknown.click();
+        await expect(unknown).toHaveAttribute("aria-expanded", "false");
+        const find = page.getByRole("combobox", { name: "이름으로 찾기", exact: true });
+        await find.fill("김");
+        await expect(page.getByRole("option").first()).toBeVisible();
+        expect(await page.getByRole("option").count()).toBeLessThanOrEqual(8);
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("option")).toHaveCount(0);
+        await find.fill("일치없는이름");
+        await expect(page.getByText("일치하는 이름이 없습니다", { exact: true })).toBeVisible();
+        await find.fill(person.name);
+        const option = page.getByRole("option").filter({ hasText: person.name });
+        await expect(option).toContainText(
+          z.string().parse(departments.find(({ id }) => id === person.departmentId)?.name),
+        );
+        await expect(option).toContainText(
+          z.string().parse(titles.find(({ id }) => id === person.jobTitleId)?.label),
+        );
+        await page.keyboard.press("ArrowDown");
+        await page.keyboard.press("Enter");
+        await expect
+          .poll(() => new URL(page.url()).searchParams.get("team"))
+          .toBe(person.departmentId);
+        await expect(unknown).toHaveAttribute("aria-expanded", "true");
+        await expect(unknownTeams).toHaveAttribute("aria-expanded", "true");
+        await expect(
+          page.getByRole("navigation", { name: "팀 부서 경로", exact: true }),
+        ).toContainText("상위 부서 미지정");
+        const card = page.getByRole("button", { name: `${person.name} 상세 보기`, exact: true });
+        await expect(card).toBeFocused();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await page.reload();
+        await expect(card).toBeVisible();
+        await expect(unknown).toHaveAttribute("aria-expanded", "true");
+        await expect(unknownTeams).toHaveAttribute("aria-expanded", "true");
+        await page.goBack();
+        await expect(peopleButtons(page)).toHaveCount(14);
+        if ((await unknown.getAttribute("aria-expanded")) === "false") await unknown.click();
+        if ((await unknownTeams.getAttribute("aria-expanded")) === "true")
+          await unknownTeams.click();
+        await unknown.click();
+        await expect(unknown).toHaveAttribute("aria-expanded", "false");
+        await page.goForward();
+        await expect(card).toBeVisible();
+        await expect(unknown).toHaveAttribute("aria-expanded", "true");
+        await expect(unknownTeams).toHaveAttribute("aria-expanded", "true");
+        await card.focus();
+        await page.keyboard.press("Enter");
+        const dialog = page.getByRole("dialog", { name: person.name, exact: true });
+        await expect(dialog).toBeVisible();
+        await expect
+          .poll(async () => Math.round((await dialog.boundingBox())?.width ?? 0))
+          .toBe(480);
+        await expect
+          .poll(async () => {
+            const box = await dialog.boundingBox();
+            return Boolean(box && box.x >= 0 && box.x + box.width <= width + 1);
+          })
+          .toBe(true);
+        await assertAxe(page, `chart-drawer-${width}`);
+        await page.screenshot({
+          path: test.info().outputPath(`org-chart-drawer-${width}.png`),
+          fullPage: true,
+        });
+        await page.keyboard.press("Escape");
+        await expect(card).toBeFocused();
+        await assertAxe(page, `chart-${width}`);
+        expect(await overflow(page)).toBe(0);
+        await page.screenshot({
+          path: test.info().outputPath(`org-chart-${width}.png`),
+          fullPage: true,
+        });
+      });
+    }
+
+    test("people ignores all legacy view values and keeps the directory without tabs", async ({
+      page,
+    }) => {
+      await signIn(page);
+      for (const view of ["tree", "list", "invalid"]) {
+        await page.goto(`/people?view=${view}`);
+        await expect(
+          page.getByRole("heading", { level: 1, name: "조직·인력", exact: true }),
+        ).toBeVisible();
+        expect(new URL(page.url()).pathname).toBe("/people");
+        expect(new URL(page.url()).searchParams.get("view")).toBe(view);
+        await expect(peopleButtons(page)).toHaveCount(20);
+        await expect(page.getByRole("navigation", { name: "인력 보기", exact: true })).toHaveCount(
+          0,
+        );
+        await expect(page.getByRole("heading", { name: "전체 조직도", exact: true })).toHaveCount(
+          0,
+        );
+        await expect(
+          page.getByRole("combobox", { name: "이름으로 찾기", exact: true }),
+        ).toHaveCount(0);
+      }
+    });
+
+    test("all200 belong exactly once across38 actual team selections; invalid team defaults safely", async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(180_000);
+      const expected = await allMembers(request);
+      const departments = z
+        .array(departmentSchema)
+        .parse(await (await get(request, "/api/v1/departments")).json());
+      const teams = departments
+        .filter(({ kind }) => kind === "TEAM")
+        .toSorted((a, b) => a.code.localeCompare(b.code));
+      expect(teams).toHaveLength(38);
+      await signIn(page, "viewer", "/org-chart");
+      const ids: string[] = [];
+      // Actual selection uses nested native buttons, retaining the documented hierarchy.
+      for (const team of teams) {
+        await page.goto(`/org-chart?team=${team.id}`);
+        const chooseTeam = page.getByRole("button", { name: team.name, exact: true });
+        if (team.parentId === null) {
+          await expect(
+            page.getByRole("button", { name: "상위 미지정", exact: true }),
+          ).toHaveAttribute("aria-expanded", "true");
+          await expect(page.getByRole("button", { name: "팀 25개", exact: true })).toHaveAttribute(
+            "aria-expanded",
+            "true",
+          );
+        }
+        await expect(chooseTeam).toBeVisible();
+        await chooseTeam.click();
+        await expect(chooseTeam).toHaveAttribute("aria-current", "true");
+        const members = expected.filter(({ departmentId }) => departmentId === team.id);
+        await expect(peopleButtons(page)).toHaveCount(members.length);
+        const selectedIds = z
           .array(z.uuid())
           .parse(
             await page
               .locator("[data-person-id]")
-              .evaluateAll((items) => items.map((item) => item.getAttribute("data-person-id"))),
+              .evaluateAll((cards) => cards.map((card) => card.getAttribute("data-person-id"))),
           );
-        expect(new Set(personIds).size).toBe(200);
-        expect(personIds.toSorted()).toEqual(expected.map(({ id }) => id).toSorted());
-        for (const button of await page.locator('button[aria-expanded="true"]').all())
-          expect(await button.getAttribute("aria-controls")).toBeTruthy();
-        expect(await overflow(page)).toBe(0);
-        await assertAxe(page, `tree-${width}`);
-        await page.screenshot({
-          path: test.info().outputPath(`people-tree-${width}.png`),
-          fullPage: true,
-        });
-        await page.getByRole("button", { name: "모두 접기", exact: true }).click();
-        await expect(peopleButtons(page)).toHaveCount(0);
-        await page.getByRole("link", { name: "명부", exact: true }).click();
-        await expect(page.getByLabel("이름", { exact: true })).toHaveValue("김");
-        expect(new URL(page.url()).searchParams.get("scoring")).toBe("1");
+        expect(selectedIds.toSorted()).toEqual(members.map(({ id }) => id).toSorted());
+        ids.push(...selectedIds);
+      }
+      expect(ids).toHaveLength(200);
+      expect(new Set(ids).size).toBe(200);
+      expect(ids.toSorted()).toEqual(expected.map(({ id }) => id).toSorted());
+      const upper = z.uuid().parse(departments.find(({ kind }) => kind === "DIVISION")?.id);
+      for (const invalid of [
+        "invalid",
+        "11111111-1111-4111-8111-111111111111",
+        fixture().foreign.departmentId,
+        upper,
+      ]) {
+        await page.goto(`/org-chart?team=${invalid}`);
+        await expect(
+          page.getByRole("heading", { level: 1, name: "조직도", exact: true }),
+        ).toBeVisible();
+        await expect(peopleButtons(page)).toHaveCount(14);
+        await expect(
+          page.getByRole("button", { name: "AX사업본부 AI플랫폼운영팀", exact: true }),
+        ).toHaveAttribute("aria-current", "true");
+      }
+      await test.info().attach("actual38-team200-uuid-coverage", {
+        body: JSON.stringify({
+          teams: teams.length,
+          total: ids.length,
+          unique: new Set(ids).size,
+        }),
+        contentType: "application/json",
       });
-    }
+    });
 
     test("foreign one-person org uses server totals and real DIV-GROUP-TEAM; null portrait stays initials", async ({
       page,
@@ -586,6 +847,7 @@ export function registerPeopleReadTests() {
       await page.getByRole("button", { name: "김시험 상세 보기", exact: true }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog.getByText("점수 계산 대상이 아닙니다", { exact: true })).toBeVisible();
+      await expect(dialog.getByText("QA본부 → QA그룹 → QA팀", { exact: true })).toBeVisible();
       const fallback = dialog.getByRole("img", {
         name: "김시험 프로필 사진 없음",
         exact: true,
@@ -593,11 +855,19 @@ export function registerPeopleReadTests() {
       await expect(fallback).toHaveText("김");
       await expect(dialog.locator('img[src*="SOL-P9999"]')).toHaveCount(0);
       await page.keyboard.press("Escape");
-      await page.getByRole("link", { name: "조직도", exact: true }).click();
-      await page.getByRole("button", { name: "모두 펼치기", exact: true }).click();
+      await page.goto(`/org-chart?team=${fixture().foreign.departmentId}`);
+      await expect(page.getByText(/전체 1명.*본부 1.*그룹 1.*팀 2/)).toBeVisible();
       await expect(peopleButtons(page)).toHaveCount(1);
       for (const name of ["QA본부", "QA그룹", "QA팀"])
-        await expect(page.getByRole("button", { name: new RegExp(name) })).toBeVisible();
+        await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "QA빈팀", exact: true }).click();
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get("team"))
+        .toBe(fixture().foreign.emptyDepartmentId);
+      await expect(page.getByText("소속 인력이 없습니다", { exact: true })).toBeVisible();
+      await expect(peopleButtons(page)).toHaveCount(0);
+      await page.getByRole("button", { name: "QA팀", exact: true }).click();
+      await expect(peopleButtons(page)).toHaveCount(1);
     });
 
     test("drawer failed fetch retries and missing detail is honest; image decode failure uses initials", async ({

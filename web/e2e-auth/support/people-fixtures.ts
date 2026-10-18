@@ -20,6 +20,7 @@ type Foreign = {
   divisionId: string;
   groupId: string;
   departmentId: string;
+  emptyDepartmentId: string;
   jobTitleId: string;
   personId: string;
 };
@@ -171,6 +172,7 @@ async function preparePeople(worker: WorkerInfo, browserName: string) {
     divisionId: randomUUID(),
     groupId: randomUUID(),
     departmentId: randomUUID(),
+    emptyDepartmentId: randomUUID(),
     jobTitleId: randomUUID(),
     personId: randomUUID(),
   };
@@ -205,6 +207,17 @@ async function preparePeople(worker: WorkerInfo, browserName: string) {
       await call("DELETE", `/rest/v1/organizations?id=eq.${foreign.orgId}`);
     }
     for (const id of ownedUserIds) await call("DELETE", `/auth/v1/admin/users/${id}`);
+    const foreignRemaining: Record<string, number> = {};
+    for (const table of ["departments", "job_titles", "team_members", "team_member_scoring"]) {
+      const rows = z
+        .array(rowSchema)
+        .parse(
+          await call("GET", `/rest/v1/${table}?select=*&org_id=eq.${foreign.orgId}&limit=1000`),
+        );
+      foreignRemaining[table] = rows.length;
+      expect(rows).toHaveLength(0);
+    }
+    proof.foreignRemainingAfterCleanup = foreignRemaining;
     const after = await snapshot();
     proof.after = after;
     proof.state = "removed-owned-resources";
@@ -251,6 +264,15 @@ async function preparePeople(worker: WorkerInfo, browserName: string) {
         id: foreign.departmentId,
         code: "SOL-D999",
         name: "QA팀",
+        kind: "TEAM",
+        parent_id: foreign.groupId,
+        source_count: 1,
+        target_count: 1,
+      },
+      {
+        id: foreign.emptyDepartmentId,
+        code: "SOL-D996",
+        name: "QA빈팀",
         kind: "TEAM",
         parent_id: foreign.groupId,
         source_count: 1,
@@ -379,6 +401,8 @@ async function preparePeople(worker: WorkerInfo, browserName: string) {
       tokens.set(account.id, token);
       return token;
     };
+    proof.foreignFixtureIds = foreign;
+    proof.foreignCounts = { divisions: 1, groups: 1, teams: 2, people: 1, scoring: 0 };
     proof.state = "ready";
     saveProof();
     const fixtures: PeopleFixtures = {

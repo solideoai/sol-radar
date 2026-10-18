@@ -59,12 +59,28 @@ const sample = async (request: APIRequestContext) => {
   expect(response.status()).toBe(200);
   return memberPageSchema.parse(await response.json()).items[0];
 };
+// Feature setup authenticates the real form, then uses document navigation.
+// This does not validate the separately failing automatic login redirect regression.
 const fillLogin = async (page: Page, role: string) => {
   const account = fixture().accounts[role];
   await page.goto("/auth/login");
   await page.getByLabel("이메일").fill(account.email);
   await page.getByLabel("비밀번호", { exact: true }).fill(account.password);
+  const authenticated = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/auth/v1/token" &&
+      response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "로그인", exact: true }).click();
+  expect((await authenticated).status()).toBe(200);
+  await expect
+    .poll(async () =>
+      (await page.context().cookies()).some(({ name }) =>
+        /^sb-.+-auth-token(?:\.\d+)?$/.test(name),
+      ),
+    )
+    .toBe(true);
+  await page.goto("/people");
 };
 
 // New disposable users are created only in chromium-write, after the existing
@@ -87,16 +103,18 @@ test.describe("[people-read-qa] independent access and denied-write integration"
       expect(response.status()).toBe(401);
       expect(errorSchema.parse(await response.json()).error.code).toBe("UNAUTHENTICATED");
     }
-    await page.goto("/people");
-    await expect(page).toHaveURL(/\/auth\/login(?:\?|$)/);
-    await expect(page.getByRole("heading", { name: "조직·인력", exact: true })).toHaveCount(0);
+    for (const path of ["/people", "/org-chart"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/auth\/login(?:\?|$)/);
+      await expect(page.getByRole("heading", { name: /^(조직·인력|조직도)$/ })).toHaveCount(0);
+    }
   });
 
   test("invalid/malformed/present-empty Bearer never falls back to valid cookies", async ({
     page,
   }) => {
     await fillLogin(page, "viewer");
-    await expect(page).toHaveURL(/\/org-01\/dashboard$/);
+    await expect(page.getByRole("heading", { name: "조직·인력", exact: true })).toBeVisible();
     const cookie = await page.request.get("/api/v1/team-members");
     expect(cookie.status()).toBe(200);
     for (const Authorization of ["Bearer invalid", "Basic invalid", ""]) {
@@ -161,6 +179,8 @@ test.describe("[people-read-qa] independent access and denied-write integration"
       await fillLogin(page, role);
       if (role === "incomplete") await expect(page).toHaveURL(/\/auth\/complete-profile(?:\?|$)/);
       else await expect(page).toHaveURL(/\/auth\/organization-state(?:\?|$)/);
+      await page.goto("/org-chart");
+      await expect(page.getByRole("heading", { name: /^(조직·인력|조직도)$/ })).toHaveCount(0);
       await page.goto("/people");
       await expect(page.getByRole("heading", { name: "조직·인력", exact: true })).toHaveCount(0);
       if (role === "noorg")
