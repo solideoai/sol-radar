@@ -25,9 +25,9 @@ export function buildOrgChart(departments: Department[], members: TeamMemberList
     const isTeam = department.kind === "TEAM" || department.kind === null;
     const children = ancestors.has(department.id)
       ? []
-      : (childrenByParent.get(department.id) ?? []).map((child) =>
-          build(child, new Set([...ancestors, department.id])),
-        );
+      : [...(childrenByParent.get(department.id) ?? [])]
+          .sort((a, b) => a.code.localeCompare(b.code))
+          .map((child) => build(child, new Set([...ancestors, department.id])));
     const people = isTeam ? (membersByTeam.get(department.id) ?? []) : [];
     const ids = new Set(people.map((person) => person.id));
     const collect = (node: OrgNode) => {
@@ -54,9 +54,15 @@ export function buildOrgChart(departments: Department[], members: TeamMemberList
   };
   [...unassignedGroups, ...unassignedTeams].forEach(collectUnassigned);
   return {
-    divisions,
-    unassignedGroups,
-    unassignedTeams,
+    divisions: divisions.sort(
+      (a, b) => b.memberCount - a.memberCount || a.department.code.localeCompare(b.department.code),
+    ),
+    unassignedGroups: unassignedGroups.sort((a, b) =>
+      a.department.code.localeCompare(b.department.code),
+    ),
+    unassignedTeams: unassignedTeams.sort((a, b) =>
+      a.department.code.localeCompare(b.department.code),
+    ),
     unassignedCount: unassignedIds.size,
     totalCount: uniqueMembers.length,
   };

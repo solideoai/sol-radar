@@ -42,14 +42,22 @@ beforeEach(() => {
   });
 });
 describe("people SSR page", () => {
-  it("loads the whole directory for tree without using20-row list", async () => {
-    const element = await PeoplePage({
-      searchParams: Promise.resolve({ view: "tree", cursor: "page2", scoring: "1" }),
-    });
-    expect(directory).toHaveBeenCalledWith(access);
-    expect(list).not.toHaveBeenCalled();
-    expect(element.props.directory.data).toBe(data);
-  });
+  it.each(["tree", "list", "invalid", ["tree", "bad"]])(
+    "ignores view=%s while preserving real filters and paging",
+    async (view) => {
+      const element = await PeoplePage({
+        searchParams: Promise.resolve({ view, q: "김", cursor: "page2", scoring: "1" }),
+      });
+      expect(directory).toHaveBeenCalledWith(access);
+      expect(list).toHaveBeenCalledWith(access, expect.any(URLSearchParams));
+      const params = list.mock.calls[0][1] as URLSearchParams;
+      expect(params.has("view")).toBe(false);
+      expect(params.get("q")).toBe("김");
+      expect(params.get("cursor")).toBe("page2");
+      expect(params.get("scoring")).toBe("1");
+      expect(element.props.view).toBeUndefined();
+    },
+  );
   it("independently invokes guarded directory and list service, strips view and fixes page size20", async () => {
     await PeoplePage({
       searchParams: Promise.resolve({ view: "list", q: "김", cursor: "opaque" }),

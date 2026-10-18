@@ -51,6 +51,16 @@
 - [ ] Step3 TDD drawer27scoringvs173null,personCodeimages/null/decodeinitials,staleasync/close/errors/retry/keyboardreturnfocus; implementstage5. UseexistingSheet/Avatar/tokenclasses.
 - [ ] Step4 ScopeoutP1andfullN1; routeguards inpageaswellaslayout; legacyapp/authpreserved;1440/1280tests;type/lintgreen. Normalhookcommit(feat: 조직 인력 조회 화면 추가), selfreview/report. Controllerreview.
 
+### Task 3A: Approved standalone organization explorer (supersedes Task3 view tabs)
+
+User2026-10-18 approved design §5/7/AppendixA. Task1–3 and their c178 evidence remain historical; do not redo them.
+**Files:** owned people UI/unit/browser tests and `/people` route composition; new `/org-chart` page/layout/loading/error; minimal optional AppPage content width; AppShell footer NetworkIcon link only; this plan and both in-progress read/UI specs. QA owns the three E2E source files. No API/domain/migration/package/data/docs06/docs20 changes.
+**Interfaces:** Same guarded `getPeopleDirectory(peopleAccess)` cached per request; current org server authority unchanged. `/people` ignores all view query values, preserving real filters/cursor validation. `/org-chart` full directory drives natural roots, unknown sections, selected team and shared Drawer.
+- [ ] Step1 TDD list-only view and actual-count/code ordering; update list/page and model; focused unit/browser green.
+- [ ] Step2 TDD two-column explorer, default14, team URL/history/fallback, title/name ordering,200 unique across team selections, combobox max8/keyboard/card focus/no Drawer; implement using installed native primitives and Next16 history integration.
+- [ ] Step3 Add scoped layout/error/loading and data-derived header; preserve recoverable AppShell on expected catalog errors; footer separator/link only. Shared Drawer test uses cancellation-tolerant settlement plus actual480px/bounds polling.
+- [ ] Step4 Measure expanded-sidebar1440/1280 grids4/3 and no overflow, shared Drawer/fallback, focused unit/browser/type/lint; project Prettier changed code only. Normal hooked commit with process-local VITEST_MAX_WORKERS=2. Preserve RED and failures externally; report exact SHA/locators. No full verify/liveDB (independent QA after review).
+
 ### Task 4: Independent real integration and regression QA
 
 **Files:** Independent QA mayadd scoped web/e2e-auth/people.read.spec.ts /people.write.spec.ts onlyforephemeraltestsetup, ifneeded;noapplicationcode. Newdocs/evidence/people/20261018-people-read* reports/logs/screenshots. ExistingE2E no weakening orskip. ControllerpackagesafterQA.
@@ -59,4 +69,4 @@
 - [ ] Step2 Seed2x/IDstability, separateephemeralorg01fourroles forAPI/UI,0/1/multiple andforeignorg404/RLS0/deniedwrites/roleescalation. Do notaddorg01membershipstobaseAuth5orchange200data.
 - [ ] Step3 Freshsinglefullpnpmverify and normal Auth/publicincludingbrowser atfrozenfinalcode; all200NextGET/MIME/approvedSHA/decode, desktoplist/tree/all200unique/drawer27+173/initials/axe+keyboard. Preserveinitialfailures/boundedrootcauseonlyreruns. No config/hookweakening, no fabricatedPASS.
 - [ ] Step4 CleanupONLYownedresources/processes/ephemeralaccounts/generatedauthstates;comparemain/b3ef/9663HEAD/status/alltrackedhashesandmainsettingschange. Keepfeatureworktreebranch. ReportG1–G10/unexecutedlimitsseparately.
-- [ ] Step5 Wholebranchreviewonceusingcode-reviewerpackage; onefixwaveandscopedreviewifnecessary,coveringtestsonlyuntilfinalchangesjustifynewfullverify. Packageversionedevidence/PROGRESSwithnormaldoccommit,finalcleanfeatureHEAD/main89b2b5euntouched; nomainmerge/push/deploy.
+- [ ] Step5 Wholebranchreviewonceusingcode-reviewerpackage; onefixwaveandscopedreviewifnecessary,coveringtestsonlyuntilfinalchangesjustifynewfullverify. Packageversionedevidence/PROGRESSwithnormaldoccommit,final clean feature HEAD; feature base remains89b2b5e, this session makes no main changes. Observe/report external main advancements (latest approved-design source8317b75) rather than require global main HEAD89. No main merge/push/deploy.

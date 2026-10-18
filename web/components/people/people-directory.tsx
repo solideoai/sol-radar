@@ -1,24 +1,22 @@
 "use client";
 import { useRef, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppPage } from "@/components/app-page";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PeopleDirectory as Directory, PeoplePage, TeamMemberListItem } from "@/server/people";
-import { OrgChart } from "./org-chart";
 import { PeopleFilters } from "./people-filters";
 import { PersonDrawer } from "./person-drawer";
 import { PeopleTable } from "./people-table";
 import { peopleHref } from "./people-query";
-export type PeopleUiResult<T> = { status: "ready"; data: T } | { status: "error"; code: string };
+export type PeopleUiResult<T> =
+  { status: "ready"; data: T } | { status: "error"; code: string; requestId?: string };
 export type PeopleDirectoryProps = {
   query: string;
-  view: "list" | "tree";
   directory: PeopleUiResult<Directory>;
   list: PeopleUiResult<PeoplePage>;
 };
-export function PeopleDirectory({ query, view, directory, list }: PeopleDirectoryProps) {
+export function PeopleDirectory({ query, directory, list }: PeopleDirectoryProps) {
   const router = useRouter();
   const triggerRef = useRef<HTMLElement | null>(null);
   const [selection, setSelection] = useState<{ query: string; person: TeamMemberListItem | null }>({
@@ -39,13 +37,8 @@ export function PeopleDirectory({ query, view, directory, list }: PeopleDirector
     startTransition(() => router.push(href, { scroll: false }));
   };
   const retry = () => startTransition(() => router.refresh());
-  const isReady = directory.status === "ready" && (view === "tree" || list.status === "ready");
-  const summary =
-    view === "tree" && directory.status === "ready"
-      ? directory.data.summary
-      : list.status === "ready"
-        ? list.data.summary
-        : null;
+  const isReady = directory.status === "ready" && list.status === "ready";
+  const summary = list.status === "ready" ? list.data.summary : null;
   return (
     <AppPage
       title="조직·인력"
@@ -59,8 +52,7 @@ export function PeopleDirectory({ query, view, directory, list }: PeopleDirector
           </p>
         ) : null}
       </div>
-      <PeopleViewNav query={query} view={view} onNavigate={navigate} />
-      {directory.status === "ready" && view === "list" ? (
+      {directory.status === "ready" ? (
         <PeopleFilters
           key={query}
           query={query}
@@ -75,16 +67,10 @@ export function PeopleDirectory({ query, view, directory, list }: PeopleDirector
         className="grid min-w-0 gap-4"
       >
         <h2 id="people-panel-heading" tabIndex={-1} className="type-heading outline-none">
-          {view === "tree" ? "전체 조직도" : "명부"}
+          명부
         </h2>
         {isPending ? (
           <PeoplePending />
-        ) : view === "tree" ? (
-          directory.status === "ready" ? (
-            <OrgChart directory={directory.data} onSelect={selectPerson} onRetry={retry} />
-          ) : (
-            <PeopleFailure onRetry={retry} tree />
-          )
         ) : directory.status !== "ready" || list.status !== "ready" ? (
           <PeopleFailure onRetry={retry} />
         ) : (
@@ -157,46 +143,6 @@ export function PeopleDirectory({ query, view, directory, list }: PeopleDirector
     </AppPage>
   );
 }
-export function PeopleViewNav({
-  query,
-  view,
-  onNavigate,
-}: {
-  query: string;
-  view: "list" | "tree";
-  onNavigate?: (href: string) => void;
-}) {
-  return (
-    <nav aria-label="인력 보기" className="flex gap-6 border-b border-border">
-      {(
-        [
-          { value: "list", label: "명부" },
-          { value: "tree", label: "조직도" },
-        ] as const
-      ).map((item) => {
-        const href = peopleHref(query, { view: item.value });
-        return (
-          <Link
-            key={item.value}
-            href={href}
-            aria-current={view === item.value ? "page" : undefined}
-            onClick={
-              onNavigate
-                ? (event) => {
-                    event.preventDefault();
-                    onNavigate(href);
-                  }
-                : undefined
-            }
-            className={`flex h-10 items-center border-b-2 type-body outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${view === item.value ? "border-foreground font-medium text-foreground" : "border-transparent text-muted-foreground"}`}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
 export function PeoplePending() {
   return (
     <div role="status" className="grid gap-3">
@@ -206,11 +152,11 @@ export function PeoplePending() {
     </div>
   );
 }
-export function PeopleFailure({ onRetry, tree = false }: { onRetry: () => void; tree?: boolean }) {
+export function PeopleFailure({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="rounded-lg border border-border p-6">
       <p role="alert" className="type-body">
-        {tree ? "조직도를 불러오지 못했습니다" : "인력 명부를 불러오지 못했습니다"}
+        인력 명부를 불러오지 못했습니다
       </p>
       <Button variant="outline" onClick={onRetry} className="mt-3">
         다시 시도

@@ -18,11 +18,15 @@ export function peopleUiResult<T>(result: PeopleResult<T>): PeopleUiResult<T> {
     (code === "FORBIDDEN" && details.reason === "ORGANIZATION_REQUIRED")
   )
     redirect("/auth/organization-state");
-  return { status: "error", code };
+  return {
+    status: "error",
+    code,
+    ...(typeof details.requestId === "string" ? { requestId: details.requestId } : {}),
+  };
 }
-export function PeopleForbidden() {
+export function PeopleForbidden({ title = "조직·인력" }: { title?: string } = {}) {
   return (
-    <AppPage title="조직·인력">
+    <AppPage title={title}>
       <p role="alert" className="type-body">
         조회 권한이 없습니다
       </p>

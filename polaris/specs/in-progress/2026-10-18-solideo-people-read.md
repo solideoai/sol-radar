@@ -36,9 +36,12 @@ GET /api/v1/team-members/[id] → docs05 TeamMemberDetail. id는UUID;27명만sco
 ## 3. UI
 
 새 /people scopedlayout/page에서기존AppShell/AppPage를재사용한다. 기존 slug레이아웃을전체이동/중복wrap하지않고모든기존routes/auth/settings/admin동작을보존한다. NAV에현재출시people링크하나만추가해 /people을연결한다. 상세는PersonDrawer/Sheet이며별도people/[id]페이지없다.
-view=list|tree. 목록은SSR가같은people서비스로초기데이터를읽고searchParams기반URLnavigation으로필터/페이지를유지할수있다. 상세는인증GET API로읽고서로다른직원선택/닫기/실패의오래된응답을막는다. 조회실패때다시시도가능. 필터에UUID를쓰고표시에는부서명·직급label을쓴다. 조직도데이터는전체200DTO,단한번씩팀아래에표시하고펼치기/모두펼치기/접기지원. 루트본부와미지정그룹/팀을분리한다. 데이터null을오류화하지않는다.
+`/people`은 명부 전용이다. 모든 `view` 값은 무시하고(리다이렉트 없음) 실제 API 필터·cursor 검증은 유지한다. 목록은SSR가같은people서비스로초기데이터를읽고searchParams기반URLnavigation으로필터/페이지를유지할수있다. 상세는인증GET API로읽고서로다른직원선택/닫기/실패의오래된응답을막는다. 조회실패때다시시도가능. 필터에UUID를쓰고표시에는부서명·직급label을쓴다. 조직도는 별도 `/org-chart` 두 칸 탐색기다. 전체 guarded directory를 요청당 한 번 읽고 실제 parentId만 사용한다. 왼쪽 약300px 중첩 ul/li 부서 탐색기와 오른쪽 선택 팀 카드 격자를 둔다. 본부는 하위 고유 직원 수 내림차순·코드순, 그룹/팀은 코드순, 카드는 직급 카탈로그 배열순·한글 이름순이다. 처음 첫 본부의 첫 비어 있지 않은 팀(현재 AX사업본부 AI플랫폼운영팀14명)을 선택한다. `?team=UUID`는 선택·새로고침·뒤로 가기에 동기화하며 잘못된 값/누락은 기본 팀으로 안전하게 정규화한다. 이름 combobox 최대8개 후보 선택은 팀/조상을 펼치고 카드에 초점·잠깐 강조하며 Drawer는 열지 않는다. 팀 카드44px Avatar와 공유 Drawer를 재사용한다. 전체200DTO는 팀 선택 전체를 순회할 때 각자 정확히 한 번 나타난다. 루트본부와미지정그룹/팀을분리한다. 데이터null을오류화하지않는다.
 PersonAvatar에는personCode를전달하고nullableportraitUrl을존중한다. 사진없음/404/decode오류는이름이니셜. 기존PNG는변경하지않는다. drawer는Esc/닫기/초점복귀/포커스트랩/접근가능이름/상세로딩·오류·재시도. UI스펙을구체기준으로쓴다.
 
 ## 4. 완료 검증
 
 TDD 단계별 실패/통과 증거. 데이터/사진/기존SQL·스코어입력SHA 불변. PGlite4역할SELECT/다른조직0행/자기역할승격·직원쓰기거부/owner-member기존기능보존. 서비스/API 쿠키Bearer·0/1/복수·정지/미완료·다른조직404·검색/필터/HMAC/cursor페이지200/27/173·직급코드UUID. 전체계층/목표/실제/29unknown/81+119/인원중복제거. 실제전용Supabase13마이그레이션/시드2회/기존5ID보존. 실제브라우저1440/1280 UI전체상태,키보드/axe0、이미지200HTTP/MIME/SHA/decode/fallback. 전체pnpm verify와정상기존Auth/public/browser회귀. 실행못한검사는미검증이며G1~G10은미완료상태유지. 일반문서진행·계약은갱신하되ADR020/021결정을고치지않는다.
+
+
+2026-10-18 Task3A 개정 근거: 사용자가 승인한 `docs/plans/2026-10-18-org-chart-sidebar-design.md` §5·§7·부록A. 기존 Task3의 보기 탭 구현·검증 기록은 당시 c178 기준 역사이며 이번 개정으로 대체한다. API·역할·RLS·불변 데이터 계약은 변경하지 않는다.

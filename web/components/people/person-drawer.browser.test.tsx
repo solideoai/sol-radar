@@ -99,7 +99,6 @@ describe("person read drawer", () => {
     fetchDetail.mockResolvedValue(Response.json(details));
     render();
     await open();
-    await Promise.all(document.getAnimations().map((animation) => animation.finished));
     const dialog = page.getByRole("dialog").element();
     await expect.poll(() => Math.round(dialog.getBoundingClientRect().width)).toBe(480);
     await expect.poll(() => dialog.getBoundingClientRect().right).toBeLessThanOrEqual(width);

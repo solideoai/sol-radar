@@ -62,7 +62,6 @@ const render = (props: Partial<React.ComponentProps<typeof PeopleDirectory>> = {
   root.render(
     <PeopleDirectory
       query="scoring=1&cursor=page2"
-      view="list"
       directory={{ status: "ready", data: directory }}
       list={{ status: "ready", data: list }}
       {...props}
@@ -103,24 +102,11 @@ describe("people list", () => {
     }
   });
 
-  it("offers retry for an empty whole organization without invented totals", async () => {
-    render({
-      view: "tree",
-      directory: {
-        status: "ready",
-        data: {
-          departments: [],
-          jobTitles: [],
-          members: [],
-          summary: { totalCount: 0, scoringCount: 0 },
-        },
-      },
-    });
-    await expect
-      .element(page.getByText("등록된 조직·인력이 없습니다", { exact: true }))
-      .toBeVisible();
-    await page.getByRole("button", { name: "다시 시도", exact: true }).click();
-    expect(router.refresh).toHaveBeenCalledOnce();
+  it("renders only the list even with a legacy tree query", async () => {
+    render({ query: "view=tree&scoring=1&cursor=page2" });
+    await expect.element(page.getByRole("table")).toBeVisible();
+    expect(document.querySelector('nav[aria-label="인력 보기"]')).toBeNull();
+    expect(document.body.textContent).not.toContain("전체 조직도");
   });
   it.each([0, 41])(
     "distinguishes empty directory vs zero filtered results with organization total%i",
@@ -165,7 +151,6 @@ describe("people list", () => {
       root.render(
         <PeopleDirectory
           query="q=새조건"
-          view="list"
           directory={{ status: "ready", data: directory }}
           list={{ status: "ready", data: list }}
         />,
@@ -174,7 +159,6 @@ describe("people list", () => {
       root.render(
         <PeopleDirectory
           query="scoring=1&cursor=page2"
-          view="list"
           directory={{ status: "ready", data: directory }}
           list={{ status: "ready", data: list }}
         />,
@@ -218,7 +202,6 @@ describe("people list", () => {
     root.render(
       <PeopleDirectory
         query="q=복원"
-        view="list"
         directory={{ status: "ready", data: directory }}
         list={{ status: "ready", data: list }}
       />,
@@ -248,7 +231,6 @@ describe("people list", () => {
     root.render(
       <PeopleDirectory
         query=""
-        view="list"
         directory={{ status: "ready", data: directory }}
         list={{ status: "ready", data: list }}
       />,

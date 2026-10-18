@@ -17,6 +17,7 @@ export function peopleListParams(params: URLSearchParams) {
 
 export function peopleHref(query: string, changes: Record<string, string | null>) {
   const params = new URLSearchParams(query);
+  params.delete("view");
   for (const [key, value] of Object.entries(changes)) {
     if (value === null || value === "") params.delete(key);
     else params.set(key, value);

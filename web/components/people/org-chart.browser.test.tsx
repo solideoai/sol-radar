@@ -1,12 +1,46 @@
+import { useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { page } from "vitest/browser";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 import { OrgChart } from "./org-chart";
+import { OrgChartDirectory, OrgChartPending } from "./org-chart-directory";
 import type { PeopleDirectory } from "@/server/people";
+const { router, fetchDetail } = vi.hoisted(() => ({
+  router: { refresh: vi.fn() },
+  fetchDetail: vi.fn(),
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+  useSearchParams: () => {
+    const [search, setSearch] = useState(window.location.search);
+    useEffect(() => {
+      const update = () => setSearch(window.location.search);
+      window.addEventListener("popstate", update);
+      return () => window.removeEventListener("popstate", update);
+    }, []);
+    return new URLSearchParams(search);
+  },
+}));
 const mounted: Root[] = [];
+const originalPush = history.pushState.bind(history);
+const originalReplace = history.replaceState.bind(history);
+beforeEach(() => {
+  originalReplace(null, "", "/org-chart");
+  vi.spyOn(history, "pushState").mockImplementation((...args) => {
+    originalPush(...args);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  vi.spyOn(history, "replaceState").mockImplementation((...args) => {
+    originalReplace(...args);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+});
 afterEach(() => {
   mounted.splice(0).forEach((root) => root.unmount());
   document.body.replaceChildren();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  document.body.style.paddingLeft = "";
 });
 const data: PeopleDirectory = {
   departments: [
@@ -17,16 +51,25 @@ const data: PeopleDirectory = {
       kind: "DIVISION",
       parentId: null,
       targetCount: null,
-      memberCount: 80,
+      memberCount: 999,
+    },
+    {
+      id: "empty-division",
+      code: "e",
+      name: "P&AX컨설팅본부",
+      kind: "DIVISION",
+      parentId: null,
+      targetCount: null,
+      memberCount: 0,
     },
     {
       id: "direct",
-      code: "t",
-      name: "직속팀",
+      code: "a",
+      name: "자연 본부 직속팀",
       kind: "TEAM",
       parentId: "division",
       targetCount: 80,
-      memberCount: 80,
+      memberCount: 999,
     },
     {
       id: "group",
@@ -43,64 +86,205 @@ const data: PeopleDirectory = {
       name: "미확인 팀",
       kind: "TEAM",
       parentId: null,
-      targetCount: 120,
-      memberCount: 120,
+      targetCount: null,
+      memberCount: 999,
+    },
+    {
+      id: "empty",
+      code: "z",
+      name: "빈 팀",
+      kind: "TEAM",
+      parentId: "division",
+      targetCount: null,
+      memberCount: 0,
     },
   ],
-  jobTitles: [{ id: "j", code: "j", label: "책임" }],
+  jobTitles: [
+    { id: "senior", code: "z", label: "수석" },
+    { id: "junior", code: "a", label: "책임" },
+  ],
   members: Array.from({ length: 200 }, (_, index) => ({
     id: `person-${index}`,
     personCode: `SOL-P${String(index + 1).padStart(4, "0")}`,
-    name: `가상직원${index + 1}`,
+    name: index === 0 ? "가나" : index === 1 ? "나나" : `직원${String(index + 1).padStart(3, "0")}`,
     departmentId: index < 80 ? "direct" : "unknown",
-    jobTitleId: "j",
+    jobTitleId: index === 1 ? "senior" : "junior",
     portraitUrl: null,
     scoringEligible: index < 27,
     isDemo: true as const,
   })),
   summary: { totalCount: 200, scoringCount: 27 },
 };
-const render = () => {
+const render = (directory = data) => {
   const onSelect = vi.fn();
+  const onRetry = vi.fn();
   const root = createRoot(document.body.appendChild(document.createElement("div")));
   mounted.push(root);
-  root.render(<OrgChart directory={data} onSelect={onSelect} />);
-  return onSelect;
+  root.render(<OrgChart directory={directory} onSelect={onSelect} onRetry={onRetry} />);
+  return { onSelect, onRetry };
 };
-describe("full organization chart", () => {
-  it("discloses every200 person once and collapses again without inventing a group parent", async () => {
-    const select = render();
-    await expect.element(page.getByRole("heading", { name: "본부", exact: true })).toBeVisible();
-    expect(document.querySelectorAll('button[aria-label$="상세 보기"]')).toHaveLength(0);
-    await page.getByRole("button", { name: "모두 펼치기", exact: true }).click();
-    expect(document.querySelectorAll('button[aria-label$="상세 보기"]')).toHaveLength(200);
+describe("organization explorer", () => {
+  it("selects a real default team, counts unique people and exposes empty divisions without arrows", async () => {
+    render();
+    await expect.element(page.getByRole("heading", { name: "조직도", exact: true })).toBeVisible();
+    await expect
+      .element(
+        page.getByRole("heading", { name: "자연 본부 직속팀 · 80명 · 목표 80명", exact: true }),
+      )
+      .toBeVisible();
+    await expect.poll(() => new URLSearchParams(location.search).get("team")).toBe("direct");
+    expect(document.querySelectorAll("[data-person-id]")).toHaveLength(80);
+    expect(document.querySelector('[role="tree"]')).toBeNull();
+    expect(document.body.textContent).toContain("전체 200명 · 본부 2 · 그룹 1 · 팀 3");
+    expect(document.body.textContent).toContain("본부 · 80명");
+    expect(document.body.textContent).toContain("상위 미지정 · 2개 부서 · 120명");
+    expect(document.querySelector('button[aria-label="P&AX컨설팅본부"]')).toBeNull();
+    const emptyDivision = page.getByText("P&AX컨설팅본부", { exact: true }).element().closest("li");
+    expect(emptyDivision?.querySelector("button")).toBeNull();
+    expect(emptyDivision?.textContent).toContain("연결된 팀 없음");
     expect(
-      new Set(
-        [...document.querySelectorAll("[data-person-id]")].map((node) =>
-          node.getAttribute("data-person-id"),
-        ),
-      ).size,
-    ).toBe(200);
-    await page.getByRole("button", { name: "가상직원200 상세 보기", exact: true }).click();
-    expect(select.mock.calls[0][0].id).toBe("person-199");
-    await expect
-      .element(page.getByText("2개 부서 · 소속 인력 120명", { exact: true }))
-      .toBeVisible();
-    await expect
-      .element(page.getByText("소속 인력 0명 · 연결된 팀 없음", { exact: true }))
-      .toBeVisible();
-    await page.getByRole("button", { name: "모두 접기", exact: true }).click();
-    expect(document.querySelectorAll('button[aria-label$="상세 보기"]')).toHaveLength(0);
+      [...document.querySelectorAll("[data-person-id]")]
+        .slice(0, 2)
+        .map((node) => node.getAttribute("data-person-id")),
+    ).toEqual(["person-1", "person-0"]);
   });
-  it.each([1280, 1440])("keeps expanded tree inside %ipx with sidebar space", async (width) => {
+  it("selects every employee exactly once across teams and keeps unknown breadcrumbs and empty teams", async () => {
+    const { onSelect } = render();
+    await expect
+      .element(page.getByRole("button", { name: "자연 본부 직속팀", exact: true }))
+      .toHaveAttribute("aria-current", "true");
+    const ids = [...document.querySelectorAll("[data-person-id]")].map((node) =>
+      node.getAttribute("data-person-id"),
+    );
+    await page.getByRole("button", { name: "미확인 팀", exact: true }).click();
+    await expect
+      .element(page.getByRole("heading", { name: "미확인 팀 · 120명", exact: true }))
+      .toBeVisible();
+    expect(document.body.textContent).toContain("상위 부서 미지정");
+    ids.push(
+      ...[...document.querySelectorAll("[data-person-id]")].map((node) =>
+        node.getAttribute("data-person-id"),
+      ),
+    );
+    expect(ids).toHaveLength(200);
+    expect(new Set(ids).size).toBe(200);
+    await page.getByRole("button", { name: "직원200 상세 보기", exact: true }).click();
+    expect(onSelect.mock.calls[0][0].id).toBe("person-199");
+    await page.getByRole("button", { name: "빈 팀", exact: true }).click();
+    await expect.element(page.getByText("소속 인력이 없습니다", { exact: true })).toBeVisible();
+    expect(location.search).toBe("?team=empty");
+  });
+  it.each(["foreign", "division", "", "malformed"])(
+    'safely defaults invalid team "%s" without an error',
+    async (team) => {
+      originalReplace(null, "", `/org-chart?team=${team}`);
+      render();
+      await expect
+        .element(
+          page.getByRole("heading", { name: "자연 본부 직속팀 · 80명 · 목표 80명", exact: true }),
+        )
+        .toBeVisible();
+      await expect.poll(() => new URLSearchParams(location.search).get("team")).toBe("direct");
+    },
+  );
+  it("finds at most8 names by keyboard, selects their team and focuses a card without opening detail", async () => {
+    const { onSelect } = render();
+    const finder = page.getByRole("combobox", { name: "이름으로 찾기", exact: true });
+    await finder.fill("직원");
+    await expect.poll(() => document.querySelectorAll('[role="option"]').length).toBe(8);
+    await finder.fill("직원200");
+    await expect
+      .element(page.getByRole("option", { name: "직원200 · 미확인 팀 · 책임", exact: true }))
+      .toBeVisible();
+    await finder.click();
+    await userEvent.keyboard("{ArrowDown}");
+    await userEvent.keyboard("{Enter}");
+    const card = page.getByRole("button", { name: "직원200 상세 보기", exact: true });
+    await expect.element(card).toHaveFocus();
+    expect(location.search).toBe("?team=unknown");
+    expect(onSelect).not.toHaveBeenCalled();
+    await expect.element(card).toHaveAttribute("data-highlighted", "true");
+    await finder.fill("없는 이름");
+    await expect.element(page.getByText("일치하는 이름이 없습니다", { exact: true })).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect.element(finder).toHaveAttribute("aria-expanded", "false");
+  });
+  it("restores a valid team on initial load and browser history", async () => {
+    originalReplace(null, "", "/org-chart?team=unknown");
+    render();
+    await expect
+      .element(page.getByRole("heading", { name: "미확인 팀 · 120명", exact: true }))
+      .toBeVisible();
+    await page.getByRole("button", { name: "자연 본부", exact: true }).click();
+    await page.getByRole("button", { name: "자연 본부 직속팀", exact: true }).click();
+    history.back();
+    await expect
+      .element(page.getByRole("heading", { name: "미확인 팀 · 120명", exact: true }))
+      .toBeVisible();
+  });
+  it("retries a truly empty directory without invented counts", async () => {
+    const { onRetry } = render({
+      departments: [],
+      jobTitles: [],
+      members: [],
+      summary: { totalCount: 0, scoringCount: 0 },
+    });
+    await expect
+      .element(page.getByText("등록된 조직·인력이 없습니다", { exact: true }))
+      .toBeVisible();
+    await page.getByRole("button", { name: "다시 시도", exact: true }).click();
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+  it.each([
+    [1280, 3],
+    [1440, 4],
+  ])("measures %ipx grid with expanded sidebar space", async (width, columns) => {
     await page.viewport(width, 900);
     document.body.style.paddingLeft = "256px";
-    try {
-      render();
-      await page.getByRole("button", { name: "모두 펼치기", exact: true }).click();
-      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
-    } finally {
-      document.body.style.paddingLeft = "";
-    }
+    render();
+    await expect.element(page.getByRole("heading", { name: "조직도", exact: true })).toBeVisible();
+    const grid = document.querySelector('[data-slot="org-people-grid"]');
+    expect(grid).not.toBeNull();
+    expect(getComputedStyle(grid!).gridTemplateColumns.split(" ")).toHaveLength(columns);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+    const avatar = document.querySelector('[data-person-id] [data-slot="avatar"]');
+    expect(avatar?.getBoundingClientRect().width).toBe(44);
+  });
+  it("opens the shared Drawer from a card by keyboard and returns focus on Escape", async () => {
+    vi.stubGlobal("fetch", fetchDetail);
+    fetchDetail.mockResolvedValue(Response.json({ ...data.members[1], scoring: null }));
+    const root = createRoot(document.body.appendChild(document.createElement("div")));
+    mounted.push(root);
+    root.render(<OrgChartDirectory directory={{ status: "ready", data }} />);
+    const card = page.getByRole("button", { name: "나나 상세 보기", exact: true });
+    await expect.element(card).toBeVisible();
+    card.element().focus();
+    await userEvent.keyboard("{Enter}");
+    await expect.element(page.getByRole("dialog", { name: "나나", exact: true })).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect.element(card).toHaveFocus();
+  });
+  it("shows recoverable directory errors with requestId but no partial counts", async () => {
+    router.refresh.mockReset();
+    const root = createRoot(document.body.appendChild(document.createElement("div")));
+    mounted.push(root);
+    root.render(
+      <OrgChartDirectory
+        directory={{ status: "error", code: "SERVICE_UNAVAILABLE", requestId: "public-request" }}
+      />,
+    );
+    await expect.element(page.getByRole("alert")).toHaveTextContent("조직도를 불러오지 못했습니다");
+    expect(document.body.textContent).toContain("public-request");
+    expect(document.body.textContent).not.toContain("전체 200명");
+    await page.getByRole("button", { name: "다시 시도", exact: true }).click();
+    expect(router.refresh).toHaveBeenCalledOnce();
+  });
+  it("renders a loading skeleton without fixed or partial numbers", async () => {
+    const root = createRoot(document.body.appendChild(document.createElement("div")));
+    mounted.push(root);
+    root.render(<OrgChartPending />);
+    await expect.element(page.getByRole("status")).toHaveTextContent("조직도를 불러오는 중입니다");
+    expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2);
+    expect(document.body.textContent).not.toContain("200");
   });
 });

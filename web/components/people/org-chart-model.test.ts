@@ -43,6 +43,9 @@ describe("organization display hierarchy", () => {
     expect(tree.divisions.reduce((sum, node) => sum + node.memberCount, 0)).toBe(81);
     expect(tree.unassignedCount).toBe(119);
     expect(tree.totalCount).toBe(200);
+    expect(tree.divisions[0].department.name).toBe("AX사업본부");
+    expect(tree.divisions[0].children[0].department.name).toBe("AX사업본부 AI플랫폼운영팀");
+    expect(tree.divisions[0].children[0].memberCount).toBe(14);
     expect(
       tree.unassignedGroups.every((node) => node.children.length === 0 && node.memberCount === 0),
     ).toBe(true);
@@ -73,9 +76,9 @@ describe("organization display hierarchy", () => {
     const tree = buildOrgChart(
       [
         dept("division", "DIVISION", null),
-        dept("group", "GROUP", "division"),
+        dept("zgroup", "GROUP", "division"),
         dept("direct", "TEAM", "division"),
-        dept("nested", "TEAM", "group"),
+        dept("nested", "TEAM", "zgroup"),
         dept("unknown", "TEAM", null),
       ],
       [person("a", "direct"), person("b", "nested"), person("b", "nested"), person("c", "unknown")],
@@ -83,10 +86,10 @@ describe("organization display hierarchy", () => {
     expect(tree.totalCount).toBe(3);
     expect(tree.divisions[0].memberCount).toBe(2);
     expect(tree.divisions[0].children.map((node) => node.department.id)).toEqual([
-      "group",
       "direct",
+      "zgroup",
     ]);
-    expect(tree.divisions[0].children[0].children[0].members).toHaveLength(1);
+    expect(tree.divisions[0].children[1].children[0].members).toHaveLength(1);
     expect(tree.unassignedTeams[0].memberCount).toBe(1);
   });
 });

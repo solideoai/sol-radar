@@ -6,6 +6,7 @@ import {
   ListChecksIcon,
   LogOutIcon,
   MailIcon,
+  NetworkIcon,
   SettingsIcon,
   ShieldCheckIcon,
   UsersIcon,
@@ -154,6 +155,26 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        <Separator />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              isActive={isCurrent(pathname, "/org-chart")}
+              tooltip="조직도"
+              render={
+                <Link
+                  href="/org-chart"
+                  aria-label="조직도"
+                  aria-current={isCurrent(pathname, "/org-chart") ? "page" : undefined}
+                  onClick={closeDrawer}
+                />
+              }
+            >
+              <NetworkIcon aria-hidden />
+              <span>조직도</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <UserMenu user={user} settingsHref={`${base}/settings`} onNavigate={closeDrawer} />
       </SidebarFooter>
     </Sidebar>
@@ -257,9 +278,12 @@ function UserMenu({
 function AppTopBar({ current }: { current: CurrentOrg }) {
   const pathname = usePathname();
   const { state } = useSidebar();
-  const screen = NAV.find((item) =>
-    isCurrent(pathname, item.path === "people" ? "/people" : `/${current.slug}/${item.path}`),
-  );
+  const screen =
+    pathname === "/org-chart"
+      ? { label: "조직도" }
+      : NAV.find((item) =>
+          isCurrent(pathname, item.path === "people" ? "/people" : `/${current.slug}/${item.path}`),
+        );
 
   return (
     // 높이를 고정하지 않는다. 글자를 키우면 막대도 커진다.

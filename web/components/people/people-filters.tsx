@@ -34,7 +34,6 @@ export function PeopleFilters({
     event.preventDefault();
     onNavigate(
       peopleHref("", {
-        view: "list",
         q: name.trim(),
         departmentId: department,
         jobTitleId: jobTitle,

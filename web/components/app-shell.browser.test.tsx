@@ -59,4 +59,43 @@ describe("people navigation", () => {
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
     },
   );
+  it("places organization chart in a separated footer above the user menu and names its topbar", async () => {
+    navigation.pathname = "/org-chart";
+    const root = createRoot(document.body.appendChild(document.createElement("div")));
+    mounted.push(root);
+    root.render(
+      <AppShell
+        user={{ name: "사용자", email: null, avatarUrl: null, isAdmin: false }}
+        workspace={{
+          current: {
+            id: "org",
+            slug: "solideo",
+            name: "솔리데오",
+            isPersonal: false,
+            myRole: "member",
+          },
+          orgs: [],
+          pendingInvitationCount: 0,
+        }}
+        defaultSidebarOpen
+      >
+        <main>본문</main>
+      </AppShell>,
+    );
+    const link = page.getByRole("link", { name: "조직도", exact: true });
+    await expect.element(link).toHaveAttribute("href", "/org-chart");
+    await expect.element(link).toHaveAttribute("aria-current", "page");
+    const footer = link.element().closest('[data-slot="sidebar-footer"]');
+    expect(footer).not.toBeNull();
+    expect(footer?.querySelector('[data-slot="separator"]')).not.toBeNull();
+    const user = page.getByRole("button", { name: /사용자 메뉴/ }).element();
+    expect(
+      link.element().compareDocumentPosition(user) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(document.querySelector("header")?.textContent).toContain("조직도");
+    await expect
+      .element(page.getByRole("link", { name: "조직·인력", exact: true }))
+      .toHaveAttribute("href", "/people");
+    navigation.pathname = "/people";
+  });
 });

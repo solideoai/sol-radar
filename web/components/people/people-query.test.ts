@@ -9,14 +9,17 @@ describe("people URL state", () => {
     expect(peopleListParams(params).get("orgId")).toBe("foreign");
     expect(peopleListParams(params).get("limit")).toBe("20");
   });
-  it("view navigation preserves opaque cursor and every filter", () => {
+  it("paging ignores legacy view while retaining opaque cursor and every filter", () => {
     const query = "q=김&scoring=1&departmentId=team&jobTitleId=title&cursor=opaque%2Btoken";
-    const url = new URL(peopleHref(query, { view: "tree" }), "http://local");
+    const url = new URL(
+      peopleHref(`view=tree&${query}`, { cursor: "opaque+token" }),
+      "http://local",
+    );
     expect(url.pathname).toBe("/people");
     expect(url.searchParams.get("cursor")).toBe("opaque+token");
     expect(url.searchParams.get("departmentId")).toBe("team");
     expect(url.searchParams.get("scoring")).toBe("1");
-    expect(url.searchParams.get("view")).toBe("tree");
+    expect(url.searchParams.has("view")).toBe(false);
   });
   it("page two previous removes null cursor while retaining filters", () => {
     const url = new URL(peopleHref("q=김&cursor=page2", { cursor: null }), "http://local");

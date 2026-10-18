@@ -63,6 +63,22 @@ describe("scoped people layout", () => {
     expect(result.props.defaultSidebarOpen).toBe(true);
     expect(result.props.children).toBe("인력 내용");
   });
+  it("keeps a recoverable shell when the catalog is unavailable", async () => {
+    directory.mockResolvedValue({
+      status: "error",
+      error: { code: "SERVICE_UNAVAILABLE", details: {} },
+    });
+    const result = await PeopleLayout({ children: "오류와 다시 시도" });
+    expect(result.props.defaultSidebarOpen).toBe(true);
+    expect(result.props.children).toBe("오류와 다시 시도");
+    expect(workspace).toHaveBeenCalledWith("solideo");
+  });
+  it("keeps shell navigation around unexpected directory failures", async () => {
+    directory.mockRejectedValue(new Error("catalog down"));
+    const result = await PeopleLayout({ children: "recoverable error" });
+    expect(result.props.children).toBe("recoverable error");
+    expect(result.props.defaultSidebarOpen).toBe(true);
+  });
   it("denies invalid role without shell or profile data requests", async () => {
     directory.mockResolvedValue({ status: "error", error: { code: "FORBIDDEN", details: {} } });
     const result = await PeopleLayout({ children: "비공개 인력" });
