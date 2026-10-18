@@ -27,6 +27,8 @@ export async function probeRedis(url: string | undefined): Promise<CheckState> {
     client = new Redis(url, {
       lazyConnect: true,
       connectTimeout: PROBE_TIMEOUT_MS,
+      // TCP 는 받지만 답이 없는 서버에서는 connect() 가 AUTH 단계에서 끝나지 않아 finally 의 disconnect 에 못 닿는다.
+      commandTimeout: PROBE_TIMEOUT_MS,
       maxRetriesPerRequest: 0,
     });
     // 연결 실패는 'error' 이벤트로도 오므로 듣지 않으면 처리되지 않은 오류가 된다.

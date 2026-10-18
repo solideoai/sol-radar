@@ -5,10 +5,14 @@ import { getReadiness } from "./health.service";
 const world = vi.hoisted(() => ({
   pingMode: "pong" as "pong" | "hang",
   dbError: null as { message: string } | null,
+  redisOptions: null as Record<string, unknown> | null,
 }));
 
 vi.mock("ioredis", () => {
   class FakeRedis {
+    constructor(_url: string, options: Record<string, unknown>) {
+      world.redisOptions = options;
+    }
     on() {
       return this;
     }
@@ -52,6 +56,7 @@ function respond(reply: Reply) {
 beforeEach(() => {
   world.pingMode = "pong";
   world.dbError = null;
+  world.redisOptions = null;
   routes.storage = { status: 200 };
   routes.ai = { status: 200, body: { provider: "mock" } };
   vi.stubEnv("REDIS_URL", "redis://fake-redis.invalid");
@@ -119,6 +124,16 @@ describe("getReadiness", () => {
     const result = await pending;
     expect(result.body.checks.redis).toBe("unavailable");
     expect(result.httpStatus).toBe(503);
+  });
+
+  it("Redis 검사는 답 없는 서버에서 연결이 남지 않도록 명령 제한 시간을 건다", async () => {
+    await getReadiness();
+    expect(world.redisOptions).toMatchObject({
+      lazyConnect: true,
+      connectTimeout: 2000,
+      commandTimeout: 2000,
+      maxRetriesPerRequest: 0,
+    });
   });
 
   it("DB 오류가 있으면 db 가 unavailable 이고 503", async () => {
