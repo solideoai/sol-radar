@@ -18,8 +18,8 @@ updated: 2026-10-18
 - Python AI gateway (FastAPI :8000): 첨부 파싱(`/parse`, 형식별 `DocumentParser`), 문서 요구조건 구조화(Qwen `/extract`), 근거 설명(Qwen `/explain`), 임베딩, Kev 호출 어댑터(`/kev`), JSON schema 검증, `AI_PROVIDER=mock|local|hosted` 분기. **Kev와 Qwen 런타임을 호출하는 유일한 컴포넌트**다. Worker·Next 서버는 Kev에 직접 접근하지 않는다. 실행 모드(`SOL_RUN_MODE=live|fixture|mock`)는 [[03-AI-PIPELINE|03 AI 파이프라인]]과 [[16-DECISIONS|ADR-020]].
 - Qdrant: 임베딩 검색; MinIO: 첨부파일; Redis: job queue/cache. 세 서비스와 AI gateway·worker는 Docker Compose로 띄운다([[10-DEPLOYMENT|10 배포]]).
 
-> [!warning] 미검증 가정 (Phase 0 검증 항목)
-> `web/server` 모듈은 `import "server-only"`로 시작한다. Next.js 밖에서 도는 worker가 이 코드를 쓰려면 `node --conditions=react-server`(또는 같은 효과의 실행 방식)로 띄워야 한다고 본다. 실제로 되는지는 Phase 0에서 확인하고 결과를 [[16-DECISIONS|16 ADR]] 미결정 표에 적는다.
+> [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`, 커밋 `fa92254`)
+> `web/server` 모듈은 `import "server-only"`로 시작한다. worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `web/server` 코드를 그대로 불러온다(`pnpm -C web worker:check` → `worker modules loaded`). `--conditions` 없이 띄우면 `server-only`가 "This module cannot be imported from a Client Component module" 오류로 멈춘다. [[16-DECISIONS|16 ADR]] 미결정 9번 종결.
 
 ## AI 호출 경로 (단일)
 |호출자|대상|방식|비고|
@@ -182,11 +182,11 @@ flowchart TB
 
 네트워크 호출은 모두 timeout 및 circuit breaker 적용. 장애 상태 노출 방식은 [[06-UI-UX|06 UI]], 지표는 [[14-OBSERVABILITY|14 관측성]].
 
-## 솔리데오 인력·가입 카탈로그 (ADR-019, 구현 예정)
+## 솔리데오 인력·가입 카탈로그 (ADR-019, 데이터·DB·가입 구현됨)
 
 사용 회사는 솔리데오 하나이며 `org-02`는 RLS 격리 시험 전용이다. 부서를 별도 테넌트(`organizations`)로 만들지 않는다. 부서·직급 카탈로그와 200명 가상 인력 정본은 `fixtures/people/solideo.*.json`, 공개 가상 사진은 `web/public/demo/people/<personId>.png`다. 공고 첨부의 MinIO 사설 저장과 구분한다. 이름·사진·직급 선택으로 Auth 계정·멤버십·권한을 자동 생성하지 않는다. 인력은 `team_members`(운영)와 `team_member_scoring`(점수 계산 속성, seed 전용)로 나눈다([[16-DECISIONS|ADR-021]]).
 
-가입 카탈로그는 Next의 `GET /api/v1/signup-options`가 허용된 ID·표시명만 공개한다. Supabase Auth 메타데이터에서 검증한 가입 신고 정보는 `profiles`로 옮기고, OAuth·기존 미완료 계정은 `/auth/complete-profile`에서 본인 정보만 보완한다. 업무 화면뿐 아니라 업무 API도 완료 여부를 확인한다. 데이터 필드는 [[04-DATABASE]], API는 [[05-API-SPEC]], 생성·배분은 [[07-DATA-PIPELINE]]이 정의한다.
+가입 카탈로그는 Next의 `GET /api/v1/signup-options`가 허용된 ID·표시명만 공개한다. Supabase Auth 메타데이터에서 검증한 가입 신고 정보는 `profiles`로 옮기고, OAuth·기존 미완료 계정은 `/auth/complete-profile`에서 본인 정보만 보완한다. 업무 화면뿐 아니라 업무 API도 완료 여부를 확인한다. 데이터 필드는 [[04-DATABASE]], API는 [[05-API-SPEC]], 생성·배분은 [[07-DATA-PIPELINE]]이 정의한다. 구현 상태는 [[00-README|00 인덱스]] 솔리데오 절과 [[PROGRESS]]를 따른다. `/people`·`/org-chart` 화면은 미구현이다.
 
 ## 관련 문서
 - [[01-PRD|01 PRD]]

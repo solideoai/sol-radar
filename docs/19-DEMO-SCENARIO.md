@@ -95,7 +95,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 2. `docker compose -f infra/compose.yaml --profile demo up -d --build`로 redis·minio·qdrant·ai-gateway·worker를 띄운다. DB 컨테이너는 없다(DB는 Supabase). web은 Compose의 선택 서비스 `web`으로 띄우거나 `web/`에서 따로 실행한다(데모 실행 방식은 [[10-DEPLOYMENT|10 배포]]). `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 확인한다. `checks.db`는 Supabase(Postgres) 연결이다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]].
 3. `pnpm demo:reset`으로 seed를 적용한다(Compose 서비스가 아니라 스크립트. service role 키로 Supabase 프로젝트에 조직·계정·구성원·프로필·fixture를 적재, 멱등). `/admin/ingestion`에서 SEED 배치 결과를 확인한다: `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}` (격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번).
 4. **세 모드 확인**: `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순서로 바꾸며 worker·ai-gateway를 재시작한다. 모드마다 기동 거부가 없는지, 머리말 "실행 모드"와 `GET /api/v1/admin/ai/status`(admin@soltech.invalid)의 `runMode`가 맞는지, `live`·`fixture`에서는 `qwen.healthy`·`kev.registryMatch`가 `true`인지 본다. `live`에서는 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)을 확인한다. 실패한 모드는 시연에서 빼고 기록한다. 마지막은 `mock`으로 두고 2의 `/health/ready`(`checks.ai:"mock"`)를 다시 확인한다. 결과는 `docs/evidence/demo-day/<일시>/run-modes.md`에 남긴다([[11-TESTING|11 테스트]] §5).
-5. `mock` 모드에서 **FX-01, FX-03, FX-14는 분석을 미리 완료**해 둔다. **FX-02는 `NOT_ANALYZED`로 남겨** S4에서 라이브 분석한다. FX-06, FX-07은 r1 분석까지 완료해 둔다(S5에서 r2 재분석이 보이도록).
+5. `mock` 모드에서 **FX-02를 뺀 적재 공고 18건을 전부 미리 분석**해 둔다(FX-12는 격리라 공고가 없다). S2 대시보드의 BID 권고 3건(FX-01·FX-18·FX-06), 목록 상단 순서(94·82·78), 분석 현황 카드 "완료 18", [[14-OBSERVABILITY|14 관측성]] 지표 #2·#3이 이 사전 분석 건수에 기댄다. **FX-02는 `NOT_ANALYZED`로 남겨** S4에서 라이브 분석한다. FX-06·FX-07의 r1 분석도 이때 들어가고 S5에서 r2 재분석이 보인다.
 6. 창 A(브라우저): `http://localhost:3000/auth/login` 화면에서 sales@soltech.invalid로 로그인한다(Supabase Auth). 창 B(터미널): viewer@other.invalid(`org-02`)의 Supabase access token을 받아 둔다. 비밀번호는 환경 변수 `DEMO_SEED_PASSWORD`에서 읽고 명령에 직접 쓰지 않는다.
 
    ```bash
@@ -119,7 +119,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 ### S2 대시보드 (0:30)
 
 1. 창 A `/dashboard`.
-2. 보여야 하는 것: 머리말 "실행 모드: mock", `DEMO` 배지, `AI: mock` 표시, "마지막 수집" 시각, 카드 5개: BID 권고, 검토 대기, **마감 임박 7일(FX-14 포함)**, 수집(격리 1건 FX-12), 분석 현황(완료·부분·실패). 최근 변경 목록. 관리자 요약에 "격리 1건(FX-12, 제목 누락)". 분석 현황 기대값은 seed 기준으로 Phase 3에서 [[11-TESTING|11 테스트]] 체크리스트에 고정한다([[16-DECISIONS|ADR-021]]).
+2. 보여야 하는 것: 머리말 "실행 모드: mock", `DEMO` 배지, `AI: mock` 표시, "마지막 수집" 시각, 카드 5개: BID 권고, 검토 대기, **마감 임박 7일(FX-14 포함)**, 수집(격리 1건 FX-12), 분석 현황(완료 18 · 부분 0 · 실패 0, §3 5번 사전 분석 기준. S6 뒤에는 완료 17 · 부분 1). 최근 변경 목록. 관리자 요약에 "격리 1건(FX-12, 제목 누락)". 이 기대값은 Phase 3에서 [[11-TESTING|11 테스트]] 체크리스트에도 적는다([[16-DECISIONS|ADR-021]]).
 3. 말할 것: 지금 모드가 `mock`(가상 공고 + 고정 AI 응답)이고 회사 프로필도 가상 솔리데오라는 것을 먼저 밝힌다. "깨진 데이터는 숨기지 않고 격리한다."
 4. (선택, 시간이 남을 때 15초) 사이드바 → 조직·인력: 200명 조직도와 "점수 계산 대상" 27명 배지. 말할 것: "사진과 사람은 모두 가상이고, 점수 계산에는 이 27명만 쓴다." 기존 시각표는 바꾸지 않는다([[16-DECISIONS|ADR-021]]).
 
@@ -208,7 +208,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [ ] (S4 선택안을 쓰면) 실공고 1건 라이브 분석 소요 시간 실측
 - [ ] 08 worked example 값과 S4 화면 값(72, 요소 분해, Kev 분포) 일치 확인
 
-## 솔리데오 직원·사진 준비 체크 (ADR-019, 구현 예정)
+## 솔리데오 직원·사진 준비 체크 (ADR-019, 데이터 구현됨 · `/people` 화면 미구현)
 
 - [ ] `solideo.departments.json`의 팀 항목은 동일 팀명 합산·원본 비례·최소 1명·총 200명이다. 본부·그룹 항목(`parentId`·`kind`, [[16-DECISIONS|ADR-021]])은 `targetCount` 없이 조직도 표시용이다.
 - [ ] `solideo.people.json`은 고유 한글 세 글자 이름 200개·원본 이름 일치 0·남녀 100/100이며 `team_members` seed와 같다.

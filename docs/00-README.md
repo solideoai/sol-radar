@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - moc
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # SOL RADAR — 구현 문서 인덱스
@@ -113,7 +113,7 @@ updated: 2026-10-16
 
 ## 솔리데오 가상 인력·가입 결정
 
-ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·남녀 100/100·고유 정장 사진 200장·가입 부서/직급 필수 선택을 설계했다. 원본 실명은 재사용하지 않는다. 이름·사진 경로와 생성/검증 규칙은 [[07-DATA-PIPELINE]], 가입 화면은 [[06-UI-UX]], 검증은 [[11-TESTING]] PPL-01~07, [승인 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)에 있다. 현재는 문서 반영 단계이며 JSON·사진·DB·폼은 후속 구현 대상이다.
+ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·남녀 100/100·고유 정장 사진 200장·가입 부서/직급 필수 선택을 설계했다. 원본 실명은 재사용하지 않는다. 이름·사진 경로와 생성/검증 규칙은 [[07-DATA-PIPELINE]], 가입 화면은 [[06-UI-UX]], 검증은 [[11-TESTING]] PPL-01~07, [승인 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)에 있다. 구현 상태(2026-10-17, main `42a4ead`): 명부·카탈로그 JSON 4개(`fixtures/people/`), 승인 사진 200장(`web/public/demo/people/`), 마이그레이션 4개(`20261016000001`~`04`: 카탈로그·`team_members`·`team_member_scoring`·`profiles` 가입 신고 열·가입 트리거), 가입 폼 부서·직급 필수와 `/auth/complete-profile` 보완, `pnpm people:seed`가 main에 있다. 미구현: `/people`·`/org-chart` 화면, `pnpm demo:reset` 통합, 클라우드 DB 적용(`pnpm db:push`), 상위 부서가 확인되지 않은 29개 부서의 `parentId`([[PROGRESS]]).
 
 ## 관련 문서
 

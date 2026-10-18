@@ -97,7 +97,7 @@ updated: 2026-10-18
 | Route Handler | Next.js App Router의 서버 HTTP 핸들러(`web/app/api/v1/**/route.ts`). 외부 API 계약 `/api/v1/...`과 헬스체크 `/health/live`·`/health/ready`를 낸다 | [[05-API-SPEC]] |
 | 서버 도메인 (`web/server/<도메인>`) | 서버 전용 업무 코드. model·repo·service·index(배럴)로 나누고 `import "server-only"`로 시작한다. 다른 코드는 배럴(`@/server/<도메인>`)로만 부른다. 예: `bids`·`ingestion`·`scoring`·`analysis`·`review`·`notifications`·`company-profile`·`health` | [[02-ARCHITECTURE]] |
 | zod 스키마 (계약 단일 원천) | `web/server/<도메인>/*.model.ts`의 zod 스키마. 화면 폼·Route Handler·worker가 같은 스키마로 입력을 검증한다. OpenAPI 문서는 필요하면 여기서 생성한다(선택) | [[05-API-SPEC]], [[16-DECISIONS]] |
-| worker 진입점 (`web/worker`) | BullMQ 소비자(ingest·documents·extract·analysis job)를 띄우는 별도 Node(TypeScript) 프로세스. `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈을 불러오는 실행 방식(`node --conditions=react-server`)은 Phase 0 검증 항목 | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
+| worker 진입점 (`web/worker`) | BullMQ 소비자(ingest·documents·extract·analysis job)를 띄우는 별도 Node(TypeScript) 프로세스. `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈은 `node --conditions=react-server --import tsx worker/main.ts`로 불러온다(2026-10-18 검증, 16 미결정 9번) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
 | AI gateway | Python FastAPI 서비스(`services/ai/`, :8000). Qwen·Kev 호출은 이것만 한다. Next 서버와 worker는 Kev에 직접 접근하지 않는다 | [[03-AI-PIPELINE]] |
 | 마이그레이션 (`supabase/migrations/`) | 스키마·RLS 정책·DB 함수를 담는 SQL 파일. 새 파일로만 쌓는다(append-only). 클라우드 적용은 `pnpm db:push`(사용자 확인 뒤에만) | [[04-DATABASE]] |
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |

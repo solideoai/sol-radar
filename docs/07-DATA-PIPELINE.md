@@ -84,8 +84,8 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다.
 - 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다. 변경 감지 뒤 분석 job 등록도 Redis/BullMQ로 한다.
 
-> [!warning] 미검증 가정
-> `web/server` 모듈은 `import "server-only"`로 시작한다. 그래서 worker는 `node --conditions=react-server`(또는 같은 효과의 실행 방식)로 띄워야 한다고 본다. 이 방식은 아직 확인하지 않았다. 검증 방법: Phase 0에서 worker 진입점이 `web/server/ingestion`을 import해 fixture 1건을 적재하는지 확인하고 [[16-DECISIONS|16 ADR]] 미결정 표를 갱신한다.
+> [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`)
+> worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `import "server-only"`인 `web/server` 모듈을 불러온다. 지금은 `system` 큐의 `ping` job까지이고, `web/server/ingestion`을 import해 fixture 1건을 적재하는 것은 Phase 2에서 같은 방식으로 한다([[16-DECISIONS|16 ADR]] 미결정 9번).
 
 ### 2.1 인터페이스와 구현체
 
@@ -439,7 +439,7 @@ fixture 한 건의 형태:
 - 단위 테스트는 fixture ID로 입력을 고른다. 수집 파이프라인 시험은 Vitest로 `web/server/ingestion/*.test.ts`, worker 진입점 시험은 `web/worker/*.test.ts`에 둔다(`pnpm -C web test`). 공고·수집 표의 쓰기 권한(화면 역할은 쓰기 불가) 시험은 `scripts/database.test.mjs`(`pnpm test:db`)에 둔다. 골든 시나리오 ↔ fixture ↔ 테스트 파일 매핑은 [[11-TESTING|11 테스트]] §3.
 - `live` 모드는 registry 항목([[15-DATA-CONTRACTS|15 데이터 계약]] §8)과 서비스키 4개(§2.2)가 모두 있어야 기동한다. 없으면 `OfficialApiConnector`가 기동 시 명확한 오류로 멈춘다(§2.1).
 
-## 8. 솔리데오 가상 직원 fixture (ADR-019, 구현 예정)
+## 8. 솔리데오 가상 직원 fixture (ADR-019, 구현됨)
 
 공고 `FX-01`~`FX-20`과 별도의 인력 데이터다. 원본은 저장소 밖 `/Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`이며 읽기 전용이다. 팀명과 이름 오른쪽 직급/직책만 구조의 근거로 사용한다. 원본 이름·연락처·주소·실제 인물 사진은 적재하거나 저장소로 복사하지 않는다.
 
@@ -459,7 +459,7 @@ fixture 한 건의 형태:
 
 imagegen 스킬의 기본 내장 도구로 인물별 1개 작업씩 생성한다. 남녀 각 100개 작업, 총 200개의 다른 가상 성인 얼굴·정장·정사각형 프로필이다. 콜라주·사진 재사용은 완료로 인정하지 않는다. 결과를 Codex 기본 생성 캐시에서 위 프로젝트 경로로 복사하고 manifest의 READY·고유 경로·고유 해시 200건 및 사람의 얼굴 중복 검수를 확인한다. CLI/API 모드로 전환하려면 별도 선택을 받는다.
 
-상세 승인 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md). 해당 JSON·사진·seed·폼은 아직 생성/구현 전이며, 인력 배정 API는 기존대로 P1이다.
+상세 승인 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md). JSON 4개·사진 200장(manifest READY 200, 사람 승인 2026-10-17)·`pnpm people:seed`·가입 폼은 구현됐다([[PROGRESS]]). 상위 부서가 확인되지 않은 29개 부서는 `parentId: null`로 남아 있고, 인력 배정 API는 기존대로 P1이다.
 
 ## 관련 문서
 

@@ -13,8 +13,8 @@ updated: 2026-10-18
 
 해커톤 컷(데모 필수 / 있으면 좋음 / 이후)은 [[12-ROADMAP|12 로드맵]]을 따른다.
 
-- [ ] Phase 0 템플릿 정리/Compose(redis·minio·qdrant·ai-gateway·worker)/CI/Supabase 연결
-- [ ] Phase 1 Supabase migrations·RLS·`sol_role`/seed/Supabase Auth·RBAC
+- [ ] Phase 0 템플릿 정리/Compose(redis·minio·qdrant·ai-gateway·worker)/CI/Supabase 연결 — 진행 중([계획](plans/2026-10-18-phase-0-infra.md)). 완료: 실행 모드 규칙·`pnpm check:env`(`15f5214`), worker 진입점·`system` 큐·`server-only` 실행 방식 검증(`fa92254`, 16 미결정 9번 종결), 공고 fixture 20건·검증기(`caf0abd`). 미완: AI gateway 골격(`services/ai`), `infra/compose.yaml`·env 예시·smoke, web `/health/*`, 통합 기동 증거, P0-0 외부 의존성 점검. 17 보고 형식의 Phase 0 보고는 아직 없다
+- [ ] Phase 1 Supabase migrations·RLS·`sol_role`/seed/Supabase Auth·RBAC — 일부 선행: 인력·가입 마이그레이션 4개(`20261016000001`~`04`)와 `pnpm people:seed`는 main에 있다(ADR-019·021, 클라우드 적용 전). `sol_role`·공고·분석·알림 표·`pnpm demo:reset`·클라우드 적용은 미완
 - [ ] Phase 2 ingestion/normalization (fixture 20건)
 - [ ] Phase 3 Next.js UI (데스크톱 전용)
 - [ ] Phase 4 eligibility/SOL Score
@@ -34,7 +34,7 @@ updated: 2026-10-18
 - [x] 06/07/08/11 데모 표면 (데스크톱 화면 명세·토큰·와이어프레임, fixture `FX-01`~`FX-20`·mock 추출·mock Kev, SOL테크 프로필·worked example 3건, 골든 `G1`~`G10` 매핑·데모 체크리스트) — 세션 a3
 - [x] 01/02/09/10/12/13/14/16/17 제품 정의·운영·ADR (모바일·결제 제외, 차별점·가설 지표, 책임 있는 AI·고지 문구, `demo`/`ai-local`/`ai-hosted` 프로필·기동 12단계·장애 주입, 해커톤 컷, ADR-007~014) — 세션 5d
 - [x] 전 문서 frontmatter·위키링크·관련 문서 절 적용, 깨진 링크 0건, 표 안 파이프 이스케이프 0건, 용어·숫자 교차 검사(FX-02 72점 분해, Kev 분포, seed 집계, 계정 5개, `@v1.0`) 통과
-- [ ] 해커톤 공식 심사 기준·마감일 입력 ([[18-HACKATHON]] §4, [[12-ROADMAP]])
+- [x] 해커톤 공식 심사 기준·마감일 입력 ([[18-HACKATHON]] §4, [[12-ROADMAP]]) — 2026-10-18, 마감 2026-10-27, 실용성 30·창의성 25·완성도 25·확장성 20
 
 ## 솔리데오 인력·가입 정보 (ADR-019)
 
@@ -116,6 +116,8 @@ updated: 2026-10-18
 | 2026-10-16 | 문서 | ADR-021 정본 동기화(사용자 승인, 기준 `22b788e`). 설계 문서 부록 B.1~B.17과 재대조·교차 검사·확인 요청 보완 G1~G19를 12·16·06·05·04·01·11·19·09·02·20·08·13·07·14·10·[솔리데오 인력 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)에 적용. 16에 ADR-021 행·상세, ADR-018·019 개정 표시, 미결정 11·12번 종결. 06 §4 그림에 실행 모드 칸(ADR-020 누락분)을 넣으며 93칸으로 넓힘. 사전 검토 결정 1~4는 추천안대로 | 파일마다 diff로 삭제 줄이 지목 문장뿐인지 확인(ADR-020 줄 보존). vault 검사(위키링크 1,439·로컬 링크 102·표 280) 정본 오류 0, 남은 7건은 동기화 전부터 있던 설계 문서 항목. Codex 가입 커밋 `5ece7c0`과 3자 병합 시험: 07·11·polaris 스펙 충돌 0, PROGRESS는 동기화 전과 같은 작업 로그 끝 1곳. 루트 `pnpm test` 173/173 | 미커밋. `5ece7c0`의 마이그레이션이 ADR-021과 다름(설계 문서 §8 G17, 그 세션에 전달 필요). 17이 12의 없는 "결정 필요" 콜아웃을 가리키는 문제는 범위 밖으로 남김 |
 | 2026-10-16 | 인력 데이터 | 200명 가상 명부·38부서/12직급·최소 공개 가입 카탈로그 생성, 단계별 검증기와 CLI 3종 추가. 익명 증거에 원본 해시·250행(가중치175/제외75)·정규화 원본 이름 일치0·AI 이름 검토 출처 기록 | 집중84/84, fixture 검사 `not-run`, 실제 원본 필수 대조 `passed`, release는 `PORTRAITS_INCOMPLETE`로 의도한 실패. `pnpm verify` 통과(루트257/257·웹628/628·빌드) | 데이터 Task 3 독립 검토 대기. 사진 READY0/200, DB·가입·94/72/68 점수 파이프라인 골든은 후속 작업. 사람의 얼굴/품질 검수 미수행 |
 | 2026-10-18 | 계획 | Phase 0 구현 계획 초안([계획](plans/2026-10-18-phase-0-infra.md)): check:env·실행 모드 규칙 원천 `infra/run-modes.json`, AI gateway 골격, worker 진입점(미결정 9 검증), web health, Compose·env 예시·smoke, 공고 fixture E1(manifest·20건·검증기)·E2(추출 19·Kev 4·골든 3), 통합 증거, 정본 동기화의 9작업. 정본이 Phase 0에 맡긴 결정 D1~D15와 정본 불일치 목록 포함 | 정본 03·05·07·08·10·11·12·14·16·17 대조(읽기 전용 추출 4건). 코드 변경 없음 | 사용자 검토·결정 D1~D15 승인 전. 실행 방식 미선택. P0-0은 서비스키·회사 GPU 대기 |
+| 2026-10-18 | 문서 | 심사 관점 문서 감사에서 찾은 내부 불일치 8건 수정. ① "구현 전" 낡은 서술을 2026-10-17 main `42a4ead` 기준 구현 상태로 교체(00·02·04 §3.5·06 §5.2.1·§5.2.2·07 §8·10·16 ADR-019 행·상세) ② 04 §7에 이미 있는 SOL 마이그레이션 4개와 남은 순서 명시 ③ 16 미결정 9번(worker `server-only`)을 검증됨으로 종결하고 02·04 §6·07·10·20의 같은 서술 갱신 ④ 19 §3 5번 사전 분석을 FX-02 제외 18건으로 고치고 S2 분석 현황 기대값·14 지표 #2 참조 정정 ⑤ 03 §5.6 Kev state 예시의 COMPANY 블록을 08 §6.1 프로필과 일치(20 FTE/27명, 중기업 확인서, ISMS-P·CSAP) ⑥ 10 기동 절차 8번 분석 완료 기준 5초 → 10초로 통일 ⑦ Phase 0·1 체크리스트에 진행 상태 주석 ⑧ 01 FR 표 번호순 정렬, `docs/evidence/README.md` 색인 신설 | `prettier --check`, 위키링크 대상 실재 확인. 코드 변경 없음 | 데모 계정 도메인 `soltech.invalid`와 회사명 불일치는 seed·ADR 결정이라 그대로 둠 |
+| 2026-10-18 | 문서 | 해커톤 제출 마감일(2026-10-27)과 공식 심사 기준·배점(실용성 30·사업적 창의성 25·완성도 25·확장 가능성 20)을 사용자 입력으로 확정. 18 머리 콜아웃·§4 표를 공식 기준 4항목으로 교체하고 배점이 정하는 우선순위 한 줄 추가, §10 체크, 12 콜아웃·우선순위 문장 갱신 | 위키링크 대상 실재 확인. 코드 변경 없음 | 발표일·발표 시간·해커톤 이름 미입력. 12 간트 역산 미반영 |
 | 2026-10-18 | 문서 | data.go.kr 서비스키를 서비스별 env 4개로 분리([[16-DECISIONS\|ADR-022]], 사용자 결정): `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, registry `serviceKeyEnv`, 에러코드 22는 그 서비스만 중단. 정본 02·05·07·09·10·11·12·15·16·17·19와 Phase 0 계획(D5·env 예시·check:env 시험) 반영 | `G2B_SERVICE_KEY` 잔존 검색: ADR-022와 승인 설계 문서(고치지 않음)만 남음 | 사용자가 4개 서비스 키 발급(값은 저장소 밖). 실제 응답은 P0-0. 15 §8의 "서비스키 발급 전이라 `NOT_REQUESTED`" 문구와 `approvalStatus`는 P0-0에서 갱신 |
 
 ## 관련 문서

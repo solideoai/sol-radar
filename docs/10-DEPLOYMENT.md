@@ -100,7 +100,8 @@ seed 적용·재적용은 스크립트 `pnpm demo:reset`이다(Compose 서비스
 > - `ai-hosted`: hosted 공급자, 요청·응답 포맷, 가격 모두 미확인. Kev README의 Modal 배포 스크립트도 비용이 든다. 승인(`AI_HOSTED_APPROVED=true`) 전에는 구현·호출하지 않는다. 검증 방법은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.8.
 > - Kev-0.8B의 CPU 실행 가능성은 미검증. 데모는 이것에 의존하지 않는다. 확인 절차는 03 §5.9.
 > - Qwen 런타임은 vLLM이다(16 미결정 3번 부분 결정). GPU 메모리 배분은 회사 GPU 모델·VRAM을 확인한 뒤 정한다(아래 "GPU 메모리 배분").
-> - worker가 `import "server-only"`인 `web/server` 코드를 쓰려면 `node --conditions=react-server`(또는 같은 효과의 실행 방식)가 필요하다고 본다. Phase 0에서 검증한다([[02-ARCHITECTURE|02 아키텍처]]).
+
+worker 실행 방식은 검증됐다: `node --conditions=react-server --import tsx worker/main.ts`(2026-10-18, [[16-DECISIONS|16 ADR]] 미결정 9번). Compose worker 이미지의 entrypoint도 이 명령이다.
 
 ## 회사 GPU 서버 구성 (해커톤 실추론)
 
@@ -202,7 +203,7 @@ Kev-9B 추론 메모리는 모델 카드 21.9 GB, README 약 17 GB로 문서마�
 5. web 기동: `pnpm -C web start`(:3000). Compose `web`(선택)을 쓰면 4에서 함께 뜨고 `ps`에 `healthy`로 보인다.
 6. seed: `pnpm demo:reset` 마지막 줄이 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true` 형식인지 확인(사전 리뷰 2건은 FX-01, FX-03). 숫자가 다르면 중단. `live`에서 seed를 넣는 방법은 위 seed 절 todo.
 7. `curl -s http://localhost:3000/health/ready`: `status` ok, `checks.db`(Supabase)·`checks.redis`·`checks.storage`(MinIO) ok, `checks.ai`가 모드와 맞는지 본다(`mock` → `mock`, `live`·`fixture` → `local`). AI만 불가면 `status` degraded(HTTP 200)로 통과. db·redis·storage 중 하나라도 불가면 503 `status:"unavailable"`이므로 중단. 응답을 `health-ready.json`으로 저장. **[live·fixture]** gateway `GET /health`의 `runMode`가 2번에서 정한 모드이고 `kev.registryMatch=true`인지도 확인해 `gateway-health.json`으로 저장. 응답 형식은 [[05-API-SPEC|05 API]], `checks.ai` 의미는 [[14-OBSERVABILITY|14 관측성]].
-8. API 스모크: `org-01` 계정으로 Supabase Auth 비밀번호 로그인을 해 access token을 받는다(`supabase-js` `signInWithPassword` 또는 Auth REST `POST /auth/v1/token?grant_type=password`). `Authorization: Bearer <token>`으로 `GET /api/v1/bids` 19건(`live` 모드는 기본 필터가 `origin=live`라 fixture가 안 보이므로 `origin=demo`로 19건) → `POST /api/v1/bids/:id/analyses` 202 → poll이 5초 안에 `COMPLETED`(실모델 모드의 소요 시간은 리허설 실측값으로 판단). Bearer 요청은 CSRF 헤더 검사 대상이 아니다([[05-API-SPEC|05 API]]).
+8. API 스모크: `org-01` 계정으로 Supabase Auth 비밀번호 로그인을 해 access token을 받는다(`supabase-js` `signInWithPassword` 또는 Auth REST `POST /auth/v1/token?grant_type=password`). `Authorization: Bearer <token>`으로 `GET /api/v1/bids` 19건(`live` 모드는 기본 필터가 `origin=live`라 fixture가 안 보이므로 `origin=demo`로 19건) → `POST /api/v1/bids/:id/analyses` 202 → poll이 10초 안에 `COMPLETED`(`mock` 기준, [[19-DEMO-SCENARIO|19 데모 시나리오]] S4·[[11-TESTING|11 테스트]] §5와 같은 값. 실모델 모드의 소요 시간은 리허설 실측값으로 판단). Bearer 요청은 CSRF 헤더 검사 대상이 아니다([[05-API-SPEC|05 API]]).
 9. 브라우저(폭 1440px, 줌 100%)에서 `/auth/login` → 머리말 "실행 모드: …"가 2번의 모드와 같은지, 우상단 `AI: mock`(또는 `live`·`fixture`면 `AI: local`, 분석 패널 "AI: local · Qwen3.5-9B · Kev-9B v1.0")과 DEMO 배지 확인 → 목록 19건(`live`는 `origin=demo` 필터), 격리 1건(FX-12)은 관리자 수집 현황에만 표시 → 상세 1건이 자격·점수·근거·Kev 참고 지표 영역까지 렌더. 화면 캡처를 `run-mode-header.png`로 저장.
 10. 장애 대체 리허설 (아래 "장애 주입" 절): `docker compose -f infra/compose.yaml stop ai-gateway` → FX-01 재분석 → 상세에 `PARTIAL` 배너, 우상단 `AI: unavailable` → `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` 확인 → FX-01 재분석 `COMPLETED`. **[live·fixture]** 터널 재연결도 한다: SSH 터널 프로세스를 끊는다 → FX-01 재분석이 `PARTIAL`·`RULES_ONLY`(`QWEN_UNAVAILABLE` 또는 `KEV_UNAVAILABLE`)로 끝나고 mock 결과가 나오지 않는지 확인 → 4번 ②의 명령으로 다시 연결하고 ③으로 확인 → FX-01 재분석 `COMPLETED`. 재연결 소요 시간을 기록한다.
 11. 테넌트 격리 리허설: `org-02` VIEWER(`viewer@other.invalid`)로 Supabase Auth 로그인해 받은 access token을 `Authorization: Bearer`로 붙여 `GET /api/v1/bids/{FX-01 id}/qualification-checks` → `404 NOT_FOUND`(RLS가 `org-01` 행을 보여 주지 않는다). 공고 자체(`GET /api/v1/bids/{FX-01 id}`)는 공용이라 200. 404 응답을 `isolation-404.json`으로 저장. 절차는 [[19-DEMO-SCENARIO|19 데모 시나리오]] S7.
@@ -309,7 +310,7 @@ services:
 - HTTPS reverse proxy·웹 배포처는 미결정(ADR-017 미결정 표).
 - 운영 모델 교체(Kev LoRA 등)는 레지스트리 항목 추가 → 컨테이너 sha256·gateway 대조 통과 → ADR 순서로 한다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).
 
-## 솔리데오 인력·사진 준비 (ADR-019, 구현 예정)
+## 솔리데오 인력·사진 준비 (ADR-019, 데이터·`pnpm people:seed` 구현됨, `pnpm demo:reset` 통합은 Phase 1)
 
 `pnpm demo:reset`은 로그인 5계정과 별도로 `fixtures/people/solideo.people.json`의 가상 인력 200명을 `team_members`에 넣는다. 점수 계산 대상 27명의 직무·등급·스킬·가용성은 같은 직원 ID로 `team_member_scoring` 27행에 넣는다([[16-DECISIONS|ADR-021]]). 부서·직급 카탈로그를 계정보다 먼저 넣고, 2회 실행 후에도 인물 ID·명부 200명·Auth 5계정이 유지돼야 한다. 회사는 솔리데오 고정이며 `org-02`는 격리 시험 전용이다. 이 직원·사진 생성은 공고 SEED 배치의 created 19건과 별도 집계다.
 

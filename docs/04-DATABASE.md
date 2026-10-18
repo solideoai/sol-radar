@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -191,7 +191,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 - 미충족(`NOT_SATISFIED`)에는 공고 쪽 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 한다. 이 규칙은 규칙 엔진과 zod 스키마, 단위 시험이 강제한다(JSONB 내부라 DB check로 걸지 않는다, §1).
 - `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)를 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장할지, 값 집합에 `NOT_APPLICABLE`을 더할지는 구현자가 정한다(ADR-020). 결정 경로에서 둘을 같게 다루는 것은 바뀌지 않는다.
 
-### 3.5 부서·직급 카탈로그와 인력 (ADR-019, 구현 예정)
+### 3.5 부서·직급 카탈로그와 인력 (ADR-019, 마이그레이션 4개로 구현됨)
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
@@ -202,6 +202,8 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |`assignments`|`id`, `org_id` FK, `bid_id` FK, `member_id` FK, `starts_at`, `ends_at`, `allocation_percent` smallint, `created_at`|`allocation_percent BETWEEN 0 AND 100`, `ends_at > starts_at`. (`member_id`,`org_id`) → `team_members(id, org_id)`|`team_members`와 같다|
 
 `team_member_scoring.role`은 직무(PM·개발 등), `grade`는 기술등급, `team_members.job_title_id`는 엑셀의 직급/직책이다. 셋은 `memberships.sol_role` 및 `org_role`과 다르다. 가상 명부 정본과 정확히 200명 seed, 27명 점수 계산 대상·가용 20 FTE의 관계는 [[07-DATA-PIPELINE]]·[[08-SCORING]]을 따른다. `portrait_path`는 가상 인물 전용 `/demo/people/<personId>.png`다. `profiles.avatar_url`의 HTTPS 제약을 완화해 상대경로를 넣지 않는다. 운영 정보(`team_members`)와 점수 계산 속성(`team_member_scoring`)을 나누는 이유는 골든 보호다([[16-DECISIONS|ADR-021]]): 골든 시험은 DB가 아니라 고정 입력(정본 JSON의 27명 + 고정 `team.asOf`)으로 순수 함수를 계산하고, 저장된 `score_runs`는 입력 스냅샷이라 운영 편집 뒤에도 바뀌지 않는다. 명부 JSON은 한 파일이고 seed가 두 표로 나눠 넣는다.
+
+구현 상태: `departments`·`job_titles`·`team_members`·`team_member_scoring`·`profiles` 신고 열·가입 트리거는 `20261016000001`~`04`에 있다(§7). `assignments`는 아직 없다.
 
 가입 신고 정보: 이메일 가입의 Auth 메타데이터 `department_code`·`job_title_code`를 새 가입 트리거가 카탈로그와 대조해 위 두 `profiles` FK로 옮긴다. 다른 회사 카탈로그·존재하지 않는 값은 거절한다. 직접 Auth 가입·OAuth·기존 사용자 때문에 null은 허용하지만, 서버가 이름·두 값의 유효성을 확인한 `profileComplete=true` 전에는 업무 화면/API를 허용하지 않는다. 자기 신고 값 저장만 본인 RLS로 열고 권한 열은 계속 잠근다. 이름·부서가 같아도 `team_members`와 자동 연결하지 않는다. 신고 FK는 `ON DELETE SET NULL`이다. 데모 카탈로그가 삭제되면 비데모 계정 자체는 보존하고 신고 값만 null로 바뀌며, 다음 업무 진입에서 정보 보완을 요구한다. seed가 새 카탈로그·신고 정보를 만들어도 조직 합류·권한은 자동 부여하지 않는다. 카탈로그를 Auth 계정 seed보다 먼저 넣고, org-02 시험 계정의 솔리데오 신고 정보도 org-01 접근 권한을 만들지 않는지 시험한다.
 
@@ -381,7 +383,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**이다
 |`notifications`|0|데모 중 이벤트로 생성|
 |`audit_logs`|seed 작업분|seed 자체도 `actor_id=null`, `action=SEED`로 남긴다|
 
-SEED 배치 공고는 worker와 같은 수집 코드(`web/server/ingestion`, `FixtureConnector`)로 적재한다. 스크립트가 그 코드를 직접 부를지 worker 큐에 넣고 기다릴지는 Phase 1에서 정한다. `server-only` 모듈을 Node 프로세스에서 쓰는 실행 방식 검증과 같은 문제다([[16-DECISIONS|16 ADR]] 미결정).
+SEED 배치 공고는 worker와 같은 수집 코드(`web/server/ingestion`, `FixtureConnector`)로 적재한다. 스크립트가 그 코드를 직접 부를지 worker 큐에 넣고 기다릴지는 Phase 1에서 정한다. `server-only` 모듈을 Node 프로세스에서 쓰는 실행 방식은 `node --conditions=react-server --import tsx`로 검증됐다([[16-DECISIONS|16 ADR]] 미결정 9번).
 
 seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/database.test.mjs`)에서 "두 번 돌려도 건수가 같다"와 "`org-02` 사용자가 `org-01` 행을 읽지 못한다"를 확인한다([[11-TESTING|11 테스트]] G5).
 
@@ -397,7 +399,15 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 6. `ingest_runs`, `ingest_errors`, `outbox_events`, `notifications`, `audit_logs`, `eval_runs`.
 7. 감사·outbox 트리거, 인덱스·부분 UNIQUE.
 
-[[16-DECISIONS|ADR-020]]의 저장 변경(`bid_notices.pre_spec_ref`·`source` 값, `bid_documents` 다운로드·파싱 열, `bid_structured_requirements`, `requirement_extractions.translations`, `company_profiles`의 `is_demo`·`industry_codes`·`licenses[].status`·`technologies_complete`, `score_runs`의 `run_mode`·`kev_calibration`·`fallback_reason`, `requirement_assessments`, `qualification_checks`의 `reason_code`·`company_evidence`·`basis`, `ingest_runs`의 `run_mode`·`quota_used`, `eval_runs`, `review_flag` 값 7개)은 **기존 표를 고치는 마이그레이션이 아니다.** SOL RADAR 표의 마이그레이션은 아직 하나도 없으므로([[PROGRESS|진행 상황]] Phase 1 미완료) 위 순서의 첫 SOL 마이그레이션들에 처음부터 넣는다. 이 문서의 표 정의가 먼저이고, 마이그레이션은 이 정의를 따른다. 새 표(`bid_structured_requirements`, `requirement_assessments`, `eval_runs`)마다 RLS 정책 시험을 `scripts/database.test.mjs`에 더한다.
+[[16-DECISIONS|ADR-020]]의 저장 변경(`bid_notices.pre_spec_ref`·`source` 값, `bid_documents` 다운로드·파싱 열, `bid_structured_requirements`, `requirement_extractions.translations`, `company_profiles`의 `is_demo`·`industry_codes`·`licenses[].status`·`technologies_complete`, `score_runs`의 `run_mode`·`kev_calibration`·`fallback_reason`, `requirement_assessments`, `qualification_checks`의 `reason_code`·`company_evidence`·`basis`, `ingest_runs`의 `run_mode`·`quota_used`, `eval_runs`, `review_flag` 값 7개)은 **기존 표를 고치는 마이그레이션이 아니다.** 공고·회사 프로필·분석·수집·알림·감사 표(순서 2·3·4·6·7)의 마이그레이션은 아직 없으므로 그 첫 마이그레이션에 처음부터 넣는다. 이 문서의 표 정의가 먼저이고, 마이그레이션은 이 정의를 따른다.
+
+이미 있는 SOL 마이그레이션(2026-10-17 main `42a4ead`, 클라우드 적용 전):
+- `20261016000001_solideo_people_signup.sql`: `organizations.is_demo`, `departments`·`job_titles`·`team_members`(읽기 정책), `profiles.declared_department_id`·`declared_job_title_id`와 검증 트리거, `resolve_solideo_employment()`, `handle_new_user()` 교체.
+- `20261016000002_declared_employment_cascade.sql`: 신고 FK 검증 함수 보완.
+- `20261016000003_adr021_people_catalog.sql`: `departments.kind`·`parent_id`와 계층 검증 트리거, `team_members.updated_at`, `team_member_scoring`(읽기 정책).
+- `20261016000004_adr021_signup_bootstrap.sql`: 가입 시 개인 조직 생성 중단, 신고 소속 TEAM 한정.
+
+그래서 순서 1 중 `organizations.is_demo`와 순서 5 중 인력 네 표는 끝났고, 순서 1의 `memberships.sol_role`·`invitations.sol_role`·`my_sol_org_ids()`·`protect_sol_role`·초대 수락 정책 교체와 순서 5의 `bid_reviews`·`assignments`는 남았다. 인력 네 표의 정책은 지금 템플릿 `my_org_ids()` 기준 읽기뿐이라 `sol_role`이 없어도 동작하고, ADR-021 P1의 ADMIN 편집 정책은 순서 1 뒤에 새 파일로 더한다. 새 표(`bid_structured_requirements`, `requirement_assessments`, `eval_runs`)마다 RLS 정책 시험을 `scripts/database.test.mjs`에 더한다.
 
 [[16-DECISIONS|ADR-021]]의 해커톤 저장 변경(`departments.parent_id`·`kind`와 팀 한정 `target_count` check, `team_member_scoring` 분리, 가입 트리거의 개인 조직 생성 중단, 구성원·초대 정책의 `sol_role='ADMIN'` 기준 교체)은 Phase 1 SOL 마이그레이션에 넣는다. 이미 만든 마이그레이션 파일은 고치지 않고 새 파일로 바꾼다. P1 변경(`bid_watches`·`bid_projects`·`bid_project_events`(§3.8), `tasks.bid_project_id`와 제한 정책, `team_members.employment_status`와 ADMIN 쓰기 정책)은 P1 착수 때 따로 새 마이그레이션으로 만든다. 새 표마다 정책 시험을 더한다.
 8. 템플릿 견본 정리: `tasks`와 그 함수·트리거(`task_dashboard_stats`, 작업 활동 기록)는 지우지 않는다. ADR-021 P1 입찰 프로젝트 체크리스트로 재사용하고(`bid_project_id` 열은 P1 마이그레이션), 사이드바의 "작업" 메뉴만 뺀다([[16-DECISIONS|ADR-021]]). `memos`는 템플릿 `20261014000004_tasks_and_activity.sql`이 이미 지웠다.
