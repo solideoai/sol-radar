@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-05",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0005",
+      "planRef": null,
+      "title": "국민건강보험공단 대국민 포털 재구축 (가상)",
+      "agency": "국민건강보험공단",
+      "budgetKrw": "3200000000",
+      "noticeDate": "-6d",
+      "deadlineAt": "+20d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-05",
+      "content": "국민건강보험공단이 대국민 포털 재구축 사업의 제안사를 모집한다. 사업예산은 32억원이다. 상세 요구사항은 첨부한 제안요청서를 따른다. 필수 기술은 Java, Spring Boot 이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.hwp",
+          "objectKey": "fixtures/docs/FX-05-rfp.hwp"
+        }
+      ]
+    }
+  ]
+}

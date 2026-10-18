@@ -1,0 +1,48 @@
+{
+  "fixtureId": "FX-10",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0010",
+      "planRef": null,
+      "title": "강원특별자치도 관광정보시스템 재구축 (재공고) (가상)",
+      "agency": "강원특별자치도",
+      "budgetKrw": "800000000",
+      "noticeDate": "-4d",
+      "deadlineAt": "+14d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-10",
+      "content": "강원특별자치도가 관광정보시스템 재구축 사업을 재공고한다. 앞선 공고는 유찰되었다. 사업 분야는 관광이며 사업예산은 8억원이다. 필수 기술은 Java, Elasticsearch, Redis 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-10-rfp.pdf"
+        }
+      ]
+    },
+    {
+      "amendmentNo": "02",
+      "ingestBatch": "LIVE",
+      "noticeId": "DEMO-2026-0010",
+      "planRef": null,
+      "title": "강원특별자치도 관광정보시스템 재구축 (재공고) (가상)",
+      "agency": "강원특별자치도",
+      "budgetKrw": "800000000",
+      "noticeDate": "-4d",
+      "deadlineAt": "+14d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-10",
+      "content": "강원특별자치도가 관광정보시스템 재구축 사업을 재공고한다. 앞선 공고는 유찰되었다. 사업 분야는 관광이며 사업예산은 8억원이다. 필수 기술은 Java, Elasticsearch, Redis 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다. 재공고 02차: 제안서 접수를 다시 받는다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-10-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

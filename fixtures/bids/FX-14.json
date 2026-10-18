@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-14",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0014",
+      "planRef": null,
+      "title": "광주광역시 AI 행정 비서 시범사업 (가상)",
+      "agency": "광주광역시",
+      "budgetKrw": "500000000",
+      "noticeDate": "-6d",
+      "deadlineAt": "+2d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-14",
+      "content": "광주광역시가 AI 행정 비서 시범사업의 제안사를 모집한다. 사업예산은 5억원이다. 사업 분야는 AX이며 접수 마감이 임박했다. 필수 기술은 Java, RAG/LLM 적용, 음성인식 엔진이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-14-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

@@ -21,6 +21,7 @@
     "db:seed": "node scripts/db-seed.mjs",
     "db:push": "bash scripts/db-push.sh",
     "db:verify": "bash scripts/db-verify.sh",
+    "bids:check": "node scripts/bids/check.mjs",
     "people:seed": "node scripts/people/seed.mjs",
     "people:check": "node scripts/people/check.mjs",
     "people:check:fixtures": "node scripts/people/check.mjs --fixtures",
@@ -37,6 +38,7 @@
     "husky": "^9",
     "pg": "^8.23.0",
     "prettier": "3.9.9",
-    "typescript": "^6"
+    "typescript": "^6",
+    "yaml": "^2.9.1"
   }
 }
