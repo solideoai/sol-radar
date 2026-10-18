@@ -67,7 +67,7 @@ jobs:
           persist-credentials: false
 
       - name: Claude 1차 리뷰
-        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        uses: anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9 # v1.0.251
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # 진행 상황을 PR 코멘트로 추적 표시
@@ -134,7 +134,7 @@ jobs:
   #             - 'src/billing/**'
   #             - '**/*.prisma'
   #     - if: steps.changed.outputs.sensitive == 'true'
-  #       uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+  #       uses: anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9 # v1.0.251
   #       with:
   #         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
   #         prompt: |
