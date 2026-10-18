@@ -2,19 +2,19 @@
 # 화면 코드에 색을 직접 적었거나 Tailwind 기본 팔레트 클래스를 썼으면 실패한다.
 #
 # 색의 정본은 design/tokens.json 하나다. 화면에서는 생성된 토큰만 쓴다
-# (웹: Tailwind 토큰 클래스 또는 var(--이름), 앱: theme/tokens.ts 의 colors).
+# (Tailwind 토큰 클래스 또는 var(--이름)).
 #
 # 1. 직접 적은 색: #RGB · #RRGGBB · #RRGGBBAA · rgb()/rgba() · hsl()/hsla() · hwb() · lab()/lch() · oklab()/oklch() · color(<색공간> …)
 #    shadcn 테마와 예제는 oklch() 를 쓰므로, 복사해 온 값이 그대로 박히는 것도 막는다.
 #    '#' 뒤 16진수는 앵커·URL 조각·HTML 문자 참조·SVG 조각 참조(href="#add" · "/docs#fed" · "&#123;" · fill="url(#abc)")에도
 #    나온다. 색이 아니니 넘긴다.
 #    #RGBA(4자리)는 보지 않는다. 주석의 이슈 번호(#1234)와 구별할 수 없어 오탐만 늘어난다.
-# 2. 기본 팔레트 클래스(웹만): bg-red-500 · text-white · hover:bg-black/50 …
+# 2. 기본 팔레트 클래스: bg-red-500 · text-white · hover:bg-black/50 …
 #    생성된 globals.css 가 `--color-*: initial` 로 기본 팔레트를 지워 두어서, 이런 클래스는
-#    오류 없이 아무 색도 안 나온다(조용한 실패). 앱은 Tailwind 를 쓰지 않으므로 보지 않는다.
+#    오류 없이 아무 색도 안 나온다(조용한 실패).
 #    tokens.json 에 같은 이름의 색(white 등)을 두었다면 그건 토큰 클래스이니 막지 않는다.
 #
-# 대상: web/·mobile/ 아래 .ts .tsx .js .jsx .mjs .css 전부. 새 폴더(web/features 등)도 등록 없이 본다.
+# 대상: web/ 아래 .ts .tsx .js .jsx .mjs .css 전부. 새 폴더(web/features 등)도 등록 없이 본다.
 # 예외: 빌드·의존성 폴더, 생성물(tokens --check 가 따로 본다), 프로젝트 바로 아래 도구 설정(*.config.*),
 #       시험 파일(*.test.* · *.spec.* · e2e/ — 기대값으로 색을 적을 수 있다).
 #
@@ -31,19 +31,18 @@ export LC_ALL=C
 grep_or_none() { grep "$@" || [ "$?" -eq 1 ]; }
 
 # ── 검사 대상 파일 ──
-# 의존성·도구 산출물 폴더(node_modules · .next · .expo · .vercel · e2e · playwright-report · test-results)는 어느 깊이든 뺀다.
+# 의존성·도구 산출물 폴더(node_modules · .next · .vercel · e2e · playwright-report · test-results)는 어느 깊이든 뺀다.
 # 빌드 결과 폴더(out · dist · build · coverage)는 프로젝트 바로 아래 것만 뺀다 — web/app/coverage/ 같은 경로 폴더는 화면 코드다.
 # 도구 설정도 프로젝트 바로 아래 것만 뺀다 — web/lib/theme.config.ts 처럼 안쪽의 *.config.* 는 앱 코드라서 색이 숨어들 수 있다.
 list_sources() {
   find "$1" \
-    \( -type d \( -name node_modules -o -name .next -o -name .expo -o -name .vercel -o -name e2e \
+    \( -type d \( -name node_modules -o -name .next -o -name .vercel -o -name e2e \
          -o -name playwright-report -o -name test-results \
          -o -path "$1/out" -o -path "$1/dist" -o -path "$1/build" -o -path "$1/coverage" \) -prune \) \
     -o \( -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.mjs' -o -name '*.css' \) \
          ! -name '*.test.*' ! -name '*.spec.*' \
          ! \( -name '*.config.*' ! -path "$1/*/*" \) \
-         ! -path web/app/globals.css ! -path mobile/theme/tokens.ts \
-         ! -path web/lib/database.types.ts ! -path mobile/lib/database.types.ts \
+         ! -path web/app/globals.css ! -path web/lib/database.types.ts \
          -print \)
 }
 
@@ -52,7 +51,7 @@ list_sources() {
 # 정렬하는 이유: BSD·GNU find 는 폴더를 읽는 순서가 달라서, 정렬하지 않으면 실패 목록 순서가 OS 마다 다르다.
 ALL_FILES=()
 WEB_FILES=()
-for project in web mobile; do
+for project in web; do
   [ -d "$project" ] || continue
   sources=$(list_sources "$project" | sort)
   while IFS= read -r file; do
@@ -101,7 +100,7 @@ SHADES="50 100 200 300 400 500 600 700 800 900 950"
 UTILITIES='bg|text|border|border-[xytrblse]|ring|ring-offset|outline|fill|stroke|from|via|to|shadow|inset-shadow|inset-ring|drop-shadow|text-shadow|divide|placeholder|caret|accent|decoration'
 
 # tokens.json 의 colors 에 같은 이름으로 둔 색(예: "white")은 globals.css 가 다시 만들어 주는 토큰 클래스다.
-# colors 의 키만 본다. tokens-gen 이 --color-* 로 만드는 것은 colors 뿐이라, fonts·nativeFonts 같은 다른
+# colors 의 키만 본다. tokens-gen 이 --color-* 로 만드는 것은 colors 뿐이라, fonts·typography 같은 다른
 # 키 이름이 우연히 "white" 여도 bg-white 는 여전히 무색이다.
 TOKEN_NAMES=" "
 if [ -f design/tokens.json ]; then
@@ -135,7 +134,7 @@ if [ -n "$color_hits" ]; then
   echo "❌ 화면 코드에 색이 직접 적혀 있습니다. 여기 적은 색은 design/tokens.json 을 고쳐도 따라오지 않습니다:" >&2
   echo "$color_hits" >&2
   echo "" >&2
-  echo "   웹: 토큰 클래스(bg-primary) 또는 var(--이름)   앱: colors.이름 (mobile/theme/tokens.ts)" >&2
+  echo "   토큰 클래스(bg-primary) 또는 var(--이름)를 쓰세요." >&2
   echo "   색이 아니라 앵커라면 href=\"#이름\" 이나 \"/경로#이름\" 처럼 링크로, SVG 요소 참조라면 url(#이름) 으로 적으세요." >&2
   echo "" >&2
 fi

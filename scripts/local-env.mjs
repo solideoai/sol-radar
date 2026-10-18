@@ -1,9 +1,9 @@
-// 로컬 Supabase 의 주소·키를 웹·앱 env 파일에 옮기는 규칙. db-local.mjs 가 부른다.
+// 로컬 Supabase 의 주소·키를 웹 env 파일에 옮기는 규칙. db-local.mjs 가 부른다.
 //
 // 순수 함수만 둔다. supabase CLI 를 부르고 파일을 읽고 쓰는 일은 db-local.mjs 가 한다.
 // 옮기는 값은 주소와 anon 키 둘뿐이다. `supabase status` 가 함께 내는 service_role·secret 키와
 // JWT secret 은 RLS 를 무시하고, DB 주소는 DB 를 통째로 연다. 그래서 어떤 결과에도 싣지 않는다.
-// 웹에는 초대 메일을 로컬 메일함으로 보내는 SMTP 값도 적는다(4-2절). 비밀이 아니고, 비어 있을 때만 적는다.
+// 웹에는 초대 메일을 로컬 메일함으로 보내는 SMTP 값도 적는다(3-2절). 비밀이 아니고, 비어 있을 때만 적는다.
 
 // ── 1. supabase status -o env 읽기 ─────────────────────────────
 
@@ -45,8 +45,7 @@ const hostnameOf = (value) => {
 const isLoopbackHost = (host) =>
   host === "localhost" || host === "[::1]" || ipv4Octets(host)?.[0] === 127;
 
-// 같은 와이파이 안에서만 닿는 사설 대역(10/8 · 172.16/12 · 192.168/16).
-// db:start 가 앱 env 에 적는 LAN 주소가 여기 들어서, 다시 돌려도 "로컬"로 알아본다.
+// 같은 와이파이 안에서만 닿는 사설 대역(10/8 · 172.16/12 · 192.168/16). 클라우드 주소가 아니므로 로컬로 본다.
 const isPrivateHost = (host) => {
   const [first, second] = ipv4Octets(host) ?? [];
   return (
@@ -62,55 +61,11 @@ export const isLocalUrl = (value) => {
   return host !== null && (isLoopbackHost(host) || isPrivateHost(host));
 };
 
-// ── 3. 폰이 닿을 PC 주소 ───────────────────────────────────────
+// ── 3. 무엇을 어디에 적나 ──────────────────────────────────────
 
-// 가상·터널 인터페이스(Docker·VPN·VM·AirDrop)의 주소로는 폰이 PC 에 닿지 않는다.
-// 대소문자를 가리지 않아 윈도우의 vEthernet(Hyper-V·WSL)도 veth 로 걸러진다.
-const VIRTUAL_INTERFACE =
-  /^(docker|br-|veth|bridge|utun|vboxnet|vmnet|awdl|llw|vmware|virtualbox)/i;
-// 실제 랜카드를 먼저 고른다: macOS en0, 리눅스 eth0·enp0s3·wlan0·wlp2s0, 윈도우 Ethernet·Wi-Fi.
-const PHYSICAL_INTERFACE = /^(en|eth|wl|wi-?fi)/i;
-
-const isLanAddress = (entry) =>
-  !entry.internal &&
-  (entry.family === "IPv4" || entry.family === 4) && // node 18.0~18.3 은 family 를 숫자로 냈다
-  !entry.address.startsWith("169.254."); // 주소를 못 받았을 때 스스로 붙이는 링크 로컬
-
-// os.networkInterfaces() 모양({ 이름: [{ address, family, internal }] }) → 폰이 닿을 IPv4, 없으면 null.
-// 실제 랜카드 주소를 먼저, 없으면 가상이 아닌 다른 인터페이스의 주소를 고른다.
-export const pickLanIp = (interfaces) => {
-  const candidates = Object.entries(interfaces ?? {})
-    .filter(([name]) => !VIRTUAL_INTERFACE.test(name))
-    .flatMap(([name, entries]) => (entries ?? []).map((entry) => ({ ...entry, name })))
-    .filter(isLanAddress);
-  const physical = candidates.find((entry) => PHYSICAL_INTERFACE.test(entry.name));
-  return (physical ?? candidates[0])?.address ?? null;
-};
-
-// 스킴:// · authority(사용자@호스트:포트) · 나머지(경로·쿼리). URL 객체로 다시 쓰면 끝에 / 가
-// 붙어 원래 값과 달라지므로 문자열에서 호스트 자리만 바꾼다.
-const URL_PARTS = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*)(.*)$/is;
-
-const replaceHost = (url, host) => {
-  const [, scheme, authority, rest] = URL_PARTS.exec(url);
-  const userInfo = /^.*@/s.exec(authority)?.[0] ?? "";
-  const port = /:\d+$/.exec(authority.slice(userInfo.length))?.[0] ?? "";
-  const hostPart = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
-  return `${scheme}${userInfo}${hostPart}${port}${rest}`;
-};
-
-// 폰은 127.0.0.1 로 PC 에 닿지 않는다(폰 자기 자신을 가리킨다). loopback 주소면 호스트만 PC 의
-// LAN 주소로 바꾸고 스킴·포트·경로는 그대로 둔다. host 가 없거나 loopback 이 아니면 원래 값.
-export const toMobileUrl = (apiUrl, host) =>
-  host && isLoopbackHost(hostnameOf(apiUrl) ?? "") && URL_PARTS.test(apiUrl)
-    ? replaceHost(apiUrl, host)
-    : apiUrl;
-
-// ── 4. 무엇을 어디에 적나 ──────────────────────────────────────
-
-// status → { web: [[이름, 값], ...], mobile: [[이름, 값], ...] }. 각 폴더 env 파일에 적을 두 값씩.
+// status → { web: [[이름, 값], ...] }. 웹 env 파일에 적을 두 값.
 // 키는 anon 키(옛 JWT 형식)를 먼저, 없으면 새 형식 publishable 키를 쓴다. 둘 다 화면용 공개 키다.
-export const localEnvUpdates = (status, mobileHost) => {
+export const localEnvUpdates = (status) => {
   const apiUrl = status.API_URL;
   const anonKey = status.ANON_KEY || status.PUBLISHABLE_KEY;
   if (!apiUrl)
@@ -126,14 +81,10 @@ export const localEnvUpdates = (status, mobileHost) => {
       ["NEXT_PUBLIC_SUPABASE_URL", apiUrl],
       ["NEXT_PUBLIC_SUPABASE_ANON_KEY", anonKey],
     ],
-    mobile: [
-      ["EXPO_PUBLIC_SUPABASE_URL", toMobileUrl(apiUrl, mobileHost)],
-      ["EXPO_PUBLIC_SUPABASE_ANON_KEY", anonKey],
-    ],
   };
 };
 
-// ── 4-2. 초대 메일을 로컬 메일함으로 ───────────────────────────
+// ── 3-2. 초대 메일을 로컬 메일함으로 ───────────────────────────
 //
 // 웹의 초대 메일(web/server/organization)은 SMTP 설정이 있을 때만 나간다. 로컬에서는 Supabase 의 메일함(Mailpit)이
 // SMTP 를 받아 실제로 내보내지 않고 쌓아 둔다(http://127.0.0.1:54324). 그 SMTP 포트와 웹 주소는
@@ -193,7 +144,7 @@ export const localMailUpdates = (status, settings) => {
   ];
 };
 
-// ── 5. env 파일 고치기 ─────────────────────────────────────────
+// ── 4. env 파일 고치기 ─────────────────────────────────────────
 
 // 주석이 아닌 KEY= · export KEY= 줄. # 으로 시작하는 줄(꺼 둔 값)은 걸리지 않아 그대로 남는다.
 const ASSIGNMENT = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/;
@@ -267,37 +218,16 @@ export const planEnvFile = ({ existing, example, updates, urlKey }) => {
   return hasFile && text === existing ? { action: "unchanged" } : { action: "write", text };
 };
 
-// ── 6. 명령 인자 ───────────────────────────────────────────────
+// ── 5. 명령 인자 ───────────────────────────────────────────────
 
 const COMMANDS = ["start", "stop"];
 
-// 폰이 접속할 호스트 이름이나 IPv4. URL 이 고쳐 읽지 않고 그대로 받아들이는 값만 통과시킨다
-// (1.2.3 처럼 1.2.0.3 으로 바꿔 읽히는 값, 공백·경로·포트가 섞인 값을 걸러낸다).
-const isValidHost = (host) => host !== "" && hostnameOf(`http://${host}`) === host.toLowerCase();
-
-const HOST_HINT = "--host 뒤에 PC 의 LAN IP 를 적으세요 (예: --host 192.168.0.12)";
-
-// ["--host", "X"] · ["--host=X"] → ["X"]. 그 밖의 인자는 모르는 인자다.
-const hostValues = (options) => {
-  if (options.length === 0) return [];
-  const [first, ...rest] = options;
-  const inline = /^--host=(.*)$/s.exec(first);
-  if (inline) return [inline[1], ...hostValues(rest)];
-  if (first !== "--host") throw new Error(`모르는 인자입니다: ${first}`);
-  const [value, ...after] = rest;
-  if (value === undefined || value.startsWith("-")) throw new Error(HOST_HINT);
-  return [value, ...hostValues(after)];
-};
-
-// db-local.mjs 의 인자 → { command: "start" | "stop", host: 문자열 | null }.
-// pnpm 9 는 `pnpm db:start -- --host X` 의 -- 를 그대로 넘긴다. npm 습관으로 붙여도 되게 건너뛴다.
+// db-local.mjs 의 인자 → { command: "start" | "stop" }. 명령 뒤의 인자는 받지 않는다.
+// pnpm 9 는 `pnpm db:start -- …` 의 -- 를 그대로 넘긴다. npm 습관으로 붙여도 되게 건너뛴다.
 export const parseDbLocalArgs = (argv) => {
   const [command, ...options] = argv.filter((arg) => arg !== "--");
   if (!COMMANDS.includes(command))
     throw new Error(command ? `모르는 명령입니다: ${command}` : "명령(start·stop)을 적으세요");
-  const hosts = hostValues(options);
-  if (hosts.length > 1) throw new Error("--host 는 한 번만 적으세요");
-  const host = hosts[0] ?? null;
-  if (host !== null && !isValidHost(host)) throw new Error(`${HOST_HINT} — 받은 값: ${host}`);
-  return { command, host };
+  if (options.length > 0) throw new Error(`모르는 인자입니다: ${options[0]}`);
+  return { command };
 };

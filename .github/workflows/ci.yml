@@ -120,8 +120,6 @@ jobs:
           PROJECT_NAME: ${{ matrix.project.name }}
           NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key-not-a-secret
-          EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key-not-a-secret
         run: node scripts/verify.mjs --project "$PROJECT_NAME" --setup --ci
       # 프로젝트마다 자기 락파일이 있다(workspace 아님). critical 만 막는다.
       # pnpm 이 아닌 스택을 등록했다면 그 도구의 감사를 이 단계에 더한다.

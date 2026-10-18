@@ -8,9 +8,6 @@
 #   예: "build: bump the web group in /web with 12 updates" (49자)
 # 묶음 이름·prefix 를 바꾸면 템플릿 원본의 scripts/template/check-commits.test.mjs 가 제목 길이를 다시 잰다.
 # 묶이지 않은 보안 갱신 PR 은 패키지 이름이 길면 50자를 넘을 수 있다. 그때는 사람이 직접 올린다.
-#
-# mobile/ 은 넣지 않는다. Expo 는 SDK 마다 맞는 react-native·expo-* 버전이 정해져 있어서
-# 패키지를 하나씩 최신으로 올리면 SDK 와 어긋난다. mobile/ 에서 `npx expo install --fix` 로 맞춘다.
 # =============================================================
 version: 2
 updates:
@@ -29,7 +26,6 @@ updates:
       root:
         patterns: ["*"]
 
-  # web/ 을 지운 프로젝트(앱만)는 이 항목도 지운다. 없는 폴더는 Dependabot 이 오류로 알린다.
   - package-ecosystem: npm
     directory: "/web"
     schedule:

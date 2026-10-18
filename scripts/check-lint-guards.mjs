@@ -2,7 +2,7 @@
 // 린트 가드레일 검사 — 검사를 끄는 길이 그 폴더의 eslint.config.mjs 에서 다시 열리면 실패한다.
 //
 // 규칙을 설정에서 빼도 lint 는 초록불이라, 설정이 약해진 것을 아무도 모르게 된다. 그래서 막혀야 할 코드를
-// 그 폴더의 ESLint 에 직접 넣어 보고, 기대한 오류가 그대로 나는지 본다. web·mobile 의 verify 가 각 폴더에서
+// 그 폴더의 ESLint 에 직접 넣어 보고, 기대한 오류가 그대로 나는지 본다. web 의 verify 가 그 폴더에서
 // 부른다(check:lint-guards). 그 폴더에 설치된 eslint 를 쓴다.
 import { createRequire } from "node:module";
 import { join } from "node:path";

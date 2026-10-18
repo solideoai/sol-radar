@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // 루트 검증 — `pnpm verify` · `pnpm verify:quick`(각 폴더의 빌드 빼고)
 //
-// 순서: 게이트 테스트 → 디자인 토큰 → 색 → web → mobile. 하나라도 실패하면 거기서 멈춘다.
-// 웹·앱 중 한쪽만 쓰는 프로젝트도 있다. package.json 이 없는 폴더는 건너뛴다.
+// 순서: 게이트 테스트 → 디자인 토큰 → 색 → 등록된 프로젝트(web). 하나라도 실패하면 거기서 멈춘다.
+// 표시 파일(package.json 등)이 없는 프로젝트 폴더는 건너뛴다.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectMigrations, pendingMigrations } from "./migrations.mjs";
 
-// 화면(웹·앱)이 anon 키로 들어올 때 쓰는 역할.
+// 화면(웹)이 anon 키로 들어올 때 쓰는 역할.
 export const SCREEN_ROLES = ["anon", "authenticated"];
 
 // 이 파일이 직접 판정한 검증 실패. 메시지에는 마이그레이션 파일·스키마/표·역할·권한 이름만 담아

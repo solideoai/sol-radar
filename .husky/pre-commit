@@ -59,11 +59,11 @@ require_pnpm() {
 
 node scripts/verify.mjs --quick --staged || { echo "[차단] 프로젝트 검증 실패"; exit 1; }
 
-# 서식(Prettier). web·mobile 아래 파일은 위에서 돈 각 폴더 verify:quick 맨 앞의 format:check 가 이미 봤다.
-# 그 밖의 파일(스크립트·디자인 정본·설정·CI)은 어느 폴더에도 속하지 않아 여기서 루트 format:check 를 돈다.
+# 서식(Prettier). web 아래 파일은 위에서 돈 web verify:quick 맨 앞의 format:check 가 이미 봤다.
+# 그 밖의 파일(스크립트·디자인 정본·설정·CI)은 web 에 속하지 않아 여기서 루트 format:check 를 돈다.
 # Prettier 가 다루는 확장자만 본다(마크다운·셸·SQL 은 서식 대상이 아니다). polaris/ 는 무시 목록에
 # 있어 검사해도 늘 통과하니 건너뛴다.
-ROOT_FORMAT=$(printf '%s\n' "$CHANGED" | grep -vE '^(web|mobile|polaris)/' \
+ROOT_FORMAT=$(printf '%s\n' "$CHANGED" | grep -vE '^(web|polaris)/' \
   | grep -E '\.(jsonc?|json5|[cm]?[jt]sx?|ya?ml|css|html)$|^\.prettier(rc\.json|ignore)$' || true)
 if [ -n "$ROOT_FORMAT" ]; then
   require_pnpm
@@ -74,11 +74,11 @@ if [ -n "$ROOT_FORMAT" ]; then
   }
 fi
 
-# 서식 설정(.prettierrc.json·.prettierignore)은 web·mobile 도 함께 쓴다. 설정만 바꾼 커밋은 위의 폴더 검사가
-# 돌지 않으니 있는 폴더의 서식도 여기서 본다. 그러지 않으면 어긋남이 CI 에서야 드러난다.
+# 서식 설정(.prettierrc.json·.prettierignore)은 web 도 함께 쓴다. 설정만 바꾼 커밋은 위의 폴더 검사가
+# 돌지 않으니 web 의 서식도 여기서 본다. 그러지 않으면 어긋남이 CI 에서야 드러난다.
 if changed '^\.prettier(rc\.json|ignore)$'; then
   require_pnpm
-  for dir in web mobile; do
+  for dir in web; do
     [ -f "$dir/package.json" ] || continue
     # 의존성이 없으면 prettier 를 못 찾아 '서식이 어긋난다'는 엉뚱한 안내가 나온다. 먼저 짚는다.
     [ -d "$dir/node_modules" ] || {
@@ -92,7 +92,7 @@ if changed '^\.prettier(rc\.json|ignore)$'; then
   done
 fi
 
-# 색·글꼴 정본과 그 검사 스크립트는 웹·앱 양쪽에 걸린다. 루트에서 한 번 본다.
+# 색·글꼴 정본과 그 검사 스크립트는 web/ 밖에 있어 위 폴더 검사에 걸리지 않는다. 루트에서 한 번 본다.
 if changed '^(design/|scripts/(tokens-gen\.mjs|check-colors\.sh)$)'; then
   require_pnpm
   echo "디자인 토큰·색 검사 중..."
@@ -102,7 +102,7 @@ if changed '^(design/|scripts/(tokens-gen\.mjs|check-colors\.sh)$)'; then
   }
 fi
 
-# DB 스키마는 웹·앱 어느 폴더에도 속하지 않아 위 '바뀐 폴더 검사'(--staged)에 걸리지 않는다. 공통 검사도
+# DB 스키마는 web/ 에 속하지 않아 위 '바뀐 폴더 검사'(--staged)에 걸리지 않는다. 공통 검사도
 # --staged 에서는 빠지므로 여기서 따로 돈다. 추가·수정·삭제 모두 본다(이미 있는 마이그레이션의 수정·삭제는
 # 위 정책 검사가 먼저 막는다).
 # 정책 시험: PGlite 에 마이그레이션 전체를 적용해 RLS·권한·트리거를 확인한다(scripts/database.test.mjs).
@@ -116,7 +116,7 @@ if changed '^supabase/'; then
 fi
 
 # DB 타입 생성물이 마이그레이션과 맞는지. 생성기·흉내 DB 를 고쳤거나 생성물을 직접 고친 경우도 본다.
-if changed '^(supabase/|scripts/(db-types-gen|supabase-pglite)\.mjs$|(web|mobile)/lib/database\.types\.ts$)'; then
+if changed '^(supabase/|scripts/(db-types-gen|supabase-pglite)\.mjs$|web/lib/database\.types\.ts$)'; then
   require_pnpm
   echo "DB 타입 검사 중..."
   pnpm check:db-types || {
@@ -130,13 +130,13 @@ fi
 # 대상: .husky 의 훅(pre-commit·commit-msg), Claude 가드와 그 가드를 거는 설정(.claude/settings.json),
 # scripts/ 아래 전부(하위 폴더 포함), 검증 설정(verify.config.json), CI(.github/).
 # 게이트 시험(scripts/ 의 *.test.mjs)이 이 파일들을 읽어 고정하므로, 바꾼 그 커밋에서 시험이 돌아야 한다.
-# 루트·web·mobile 의 package.json 만 바뀌었으면 그 파일을 읽는 시험만 돈다(pnpm test:package).
+# 루트·web 의 package.json 만 바뀌었으면 그 파일을 읽는 시험만 돈다(pnpm test:package).
 # 패키지 하나 추가하는 커밋에 루트 시험 전체를 돌리지 않는다. 전체는 CI 의 공통 검증이 다시 본다.
 if changed '^(\.husky/[^/]+$|\.claude/(hooks/|settings\.json$)|\.github/|scripts/|verify\.config\.json$)'; then
   require_pnpm
   echo "커밋 게이트 자체 테스트 중..."
   pnpm test || { echo "[차단] 커밋 게이트 테스트가 실패했습니다. scripts/ 의 *.test.mjs 를 보고 고치세요."; exit 1; }
-elif changed '^((web|mobile)/)?package\.json$'; then
+elif changed '^(web/)?package\.json$'; then
   require_pnpm
   echo "package.json 을 읽는 게이트 테스트 중..."
   pnpm test:package || { echo "[차단] package.json 을 읽는 게이트 테스트가 실패했습니다. 검증 스크립트를 빼거나 바꿨는지 보세요."; exit 1; }
@@ -145,7 +145,7 @@ fi
 # ── 6. 새 로직 파일의 테스트 경고 (차단하지 않는다) ──
 # 배럴(index)·저장소(*.repo*.ts)는 로직이 아니어서 뺀다.
 # 타입만 담는 파일(*.types.ts, 생성물 lib/database.types.ts 포함)도 뺀다.
-NEW_LOGIC=$(staged A | grep -E '^(web/(server|lib)|mobile/lib)/.*\.tsx?$' \
+NEW_LOGIC=$(staged A | grep -E '^web/(server|lib)/.*\.tsx?$' \
   | grep -vE '\.(test|spec)\.tsx?$|\.d\.ts$|\.types\.ts$|(^|/)index\.ts$|\.repo(\.[^/]+)?\.ts$' || true)
 MISSING=""
 while IFS= read -r f; do

@@ -40,8 +40,8 @@ describe("push 참조 읽기", () => {
 
 describe("검사할 프로젝트 고르기", () => {
   const web = { name: "web", directory: "web" };
-  const mobile = { name: "mobile", directory: "mobile" };
-  const projects = [web, mobile];
+  const api = { name: "api", directory: "api" };
+  const projects = [web, api];
 
   it("비교할 커밋이 없으면(files 가 null) 전부 돈다", () => {
     assert.deepEqual(projectsToCheck(projects, null), projects);
@@ -49,7 +49,7 @@ describe("검사할 프로젝트 고르기", () => {
 
   it("바뀐 프로젝트 폴더만 돈다", () => {
     assert.deepEqual(projectsToCheck(projects, ["web/app/page.tsx"]), [web]);
-    assert.deepEqual(projectsToCheck(projects, ["mobile/app/index.tsx"]), [mobile]);
+    assert.deepEqual(projectsToCheck(projects, ["api/src/index.ts"]), [api]);
   });
 
   it("프로젝트 폴더 밖의 문서 아닌 파일은 모든 프로젝트에 걸린다", () => {
@@ -144,7 +144,7 @@ const CONFIG = {
   version: 1,
   verification: {
     common: [{ command: "pnpm", args: ["test"] }],
-    projects: ["web", "mobile"].map((name) => ({
+    projects: ["web", "api"].map((name) => ({
       name,
       directory: name,
       marker: "package.json",
@@ -181,7 +181,7 @@ function makeRepo() {
   copyFileSync(join(root, ".husky/pre-push"), join(repo, ".husky/pre-push"));
   writeFileSync(join(repo, "verify.config.json"), JSON.stringify(CONFIG, null, 2));
   writeFileSync(join(repo, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
-  ["web", "mobile"].forEach((name) => {
+  ["web", "api"].forEach((name) => {
     mkdirSync(join(repo, name));
     writeFileSync(join(repo, name, "package.json"), "{}\n");
   });
@@ -255,7 +255,7 @@ describe("push 전 검사 실행", () => {
     assert.match(run.stderr, /gate\.prePush/);
   });
 
-  it("web 만 바뀌면 커밋·정책·설치 뒤 공통·감사·web 을 돌리고, mobile 은 건너뛴다", () => {
+  it("web 만 바뀌면 커밋·정책·설치 뒤 공통·감사·web 을 돌리고, api 는 건너뛴다", () => {
     const fixture = makeRepo();
     const head = commitChange(fixture.repo, "web/a.ts");
     const run = runPrePush(fixture, `refs/heads/main ${head} refs/heads/main ${fixture.base}\n`);
@@ -290,7 +290,7 @@ describe("push 전 검사 실행", () => {
       "pnpm test:e2e @web",
       "pnpm audit --audit-level critical @web",
     ]);
-    assert.match(run.stdout, /mobile: 바뀐 파일이 없어 건너뜁니다/);
+    assert.match(run.stdout, /api: 바뀐 파일이 없어 건너뜁니다/);
     assert.match(run.stdout, /\[통과\]/);
     assert.equal(worktrees(fixture.repo), 1, "임시 worktree 가 남았습니다");
     assert.deepEqual(readdirSync(run.tmp), [], "임시 폴더가 남았습니다");
@@ -312,7 +312,7 @@ describe("push 전 검사 실행", () => {
       const run = runPrePush(fixture, `refs/heads/x ${head} refs/heads/x ${remote}\n`);
       assert.equal(run.status, 0, run.stderr);
       assert.ok(run.calls.includes("verify --project web --setup @repo"), remote);
-      assert.ok(run.calls.includes("verify --project mobile --setup @repo"), remote);
+      assert.ok(run.calls.includes("verify --project api --setup @repo"), remote);
     });
   });
 

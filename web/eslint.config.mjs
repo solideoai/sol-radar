@@ -2,7 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
-// 테스트를 골라 돌리거나(.only) 건너뛰어(.skip·.fixme) 초록불을 만드는 길을 막는다. 앱(mobile)도 같은 목록을 쓴다.
+// 테스트를 골라 돌리거나(.only) 건너뛰어(.skip·.fixme) 초록불을 만드는 길을 막는다.
 const focusOrSkip = ["describe", "it", "test"].flatMap((object) =>
   ["only", "skip", "fixme"].map((property) => ({
     object,

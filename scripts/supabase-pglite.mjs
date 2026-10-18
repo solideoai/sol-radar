@@ -59,7 +59,7 @@ export const mimicSupabase = async (pglite) => {
 // 흉내를 깐 빈 DB. 닫는 것은 부른 쪽 몫이다.
 export const createSupabaseDb = () => mimicSupabase(new PGlite());
 
-// 웹·앱에서 들어온 요청처럼 JWT claim 을 싣고 화면 역할로 바꾼다.
+// 웹에서 들어온 요청처럼 JWT claim 을 싣고 화면 역할로 바꾼다.
 // email 은 Supabase 토큰의 email 클레임이다. 초대 정책처럼 로그인 이메일을 읽는 정책을 시험할 때 넘긴다.
 export const actAs = async (pglite, id, role = "authenticated", email = undefined) => {
   await pglite.exec("reset role");
