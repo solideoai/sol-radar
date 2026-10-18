@@ -48,6 +48,23 @@
           "command": "pnpm",
           "args": ["test:e2e"]
         }
+      },
+      {
+        "name": "ai",
+        "directory": "services/ai",
+        "marker": "pyproject.toml",
+        "setup": {
+          "command": "uv",
+          "args": ["sync", "--frozen"]
+        },
+        "verify": {
+          "command": "bash",
+          "args": ["verify.sh"]
+        },
+        "quick": {
+          "command": "bash",
+          "args": ["verify.sh"]
+        }
       }
     ]
   },
