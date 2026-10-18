@@ -26,7 +26,7 @@ vi.mock("@supabase/ssr", () => ({
     },
   }),
 }));
-import { proxy } from "./proxy";
+import { config, proxy } from "./proxy";
 it("실제 요청 경로를 전달하고 외부 입력 헤더를 덮어쓴다", async () => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
@@ -97,4 +97,14 @@ it("세션 갱신 뒤에도 업무 경로·쿠키·CSP를 함께 전달하고 �
     refreshed.enabled = false;
     vi.unstubAllEnvs();
   }
+});
+
+it("matcher 는 /health/* 를 프록시에서 빼고 화면 경로는 거친다", () => {
+  const matcher = config.matcher[0];
+  // Next 의 matcher 는 path-to-regexp 형식이지만 이 식은 정규식과 같아 ^...$ 로 감싸 검사한다.
+  const pattern = new RegExp(`^${matcher}$`);
+  expect(pattern.test("/health/ready")).toBe(false);
+  expect(pattern.test("/health/live")).toBe(false);
+  expect(pattern.test("/dashboard")).toBe(true);
+  expect(pattern.test("/healthy-team/dashboard")).toBe(true);
 });
