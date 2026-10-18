@@ -1,0 +1,27 @@
+$ pnpm -C web worker:check
+
+> sol-radar-web@0.1.0 worker:check /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/web-runtime/web
+> node --conditions=react-server --import tsx worker/main.ts --check
+
+worker modules loaded
+exit=0
+
+$ cd web && node --import tsx worker/main.ts --check   (대조: --conditions=react-server 없음)
+/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/web-runtime/web/node_modules/.pnpm/server-only@0.0.1/node_modules/server-only/index.js:1
+throw new Error(
+      ^
+
+Error: This module cannot be imported from a Client Component module. It should only be used from a Server Component.
+    at Object.<anonymous> (/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/web-runtime/web/node_modules/.pnpm/server-only@0.0.1/node_modules/server-only/index.js:1:7)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object.transformer (/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/web-runtime/web/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-B1c7OH6V.cjs:22:2188)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1600:12)
+    at require (node:internal/modules/helpers:153:16)
+    at <anonymous> (/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/web-runtime/web/server/supabase/index.ts:1:8)
+    at Object.<anonymous> (/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/web-runtime/web/server/supabase/index.ts:14:32)
+
+Node.js v24.16.0
+exit=1
