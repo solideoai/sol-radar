@@ -463,3 +463,24 @@ $ pnpm -C web exec vitest run worker/demo-preanalyze.test.ts (요약)
 - test-server 참조 구현 변형 43건(31+12) 빨간불, 동작이 같은 변형 2건만 통과(배열 raw_payload, store 의 revision 필터 — model 이 거름)
 - 메인 세션(실제 구현): mock 확인 제거 → 4 failed / 71 passed, FX-02 제외 목록 비움 → 49 failed / 84 passed, 원복 cmp 일치
 - 구현 담당 검증: 루트 pnpm test 567 pass · web vitest 86 files / 2533 · type-check·lint·lodestar·format 통과
+
+## 병합 기준점(C5-B): main 7641ee4(C3 d933c9e + people-read) 병합 e3f1f19 위
+작성 2026-10-19T07:43:03Z
+- C3 병합 e6f5367: package.json 충돌(demo:reset=main, demo:preanalyze 유지), WORKER_REGISTRATIONS 에 analysisWorkerRegistration(1단계 설정 검증, 2단계 공유 연결 duplicate), 첨부 port 타입 @/server/ingestion, seed 도우미를 seedFixtureBids 경로로(단언 무변경), main.test C3 기존 시험 조정(목록·Worker 목록·close 순서)
+- people-read 병합 e3f1f19: 충돌 없음, database.types 무변경
+
+$ pnpm verify (worktree 루트, e3f1f19)
+  ℹ pass 595
+  ℹ fail 0
+  ✓ DB 타입 일치 — 정본 supabase/migrations
+   Test Files  135 passed (135)
+        Tests  4382 passed (4382)
+    2 rules passed, 0 errors, 0 warnings (159ms)
+  ✓ Compiled successfully in 2.4s
+  ======================== 536 passed, 1 warning in 6.32s ========================
+  exit 0
+$ pnpm -C web worker:check → worker modules loaded
+
+## 실행하지 않은 것(사용자 확인 필요)
+- 클라우드 DB: pnpm db:push(20261019000010 포함), pnpm demo:reset, pnpm demo:preanalyze — 모두 클라우드 쓰기
+- Compose 실기동(worker 이미지 재빌드 포함), 실제 gateway·Redis·Supabase 경로
