@@ -15,12 +15,16 @@ from sol_ai.adapters.kev_local import LocalKev, check_kev_registry
 from sol_ai.adapters.qwen import LocalQwen, system_prompt
 from sol_ai.errors import StartupRefused
 from sol_ai.paths import PROMPT_FILE, REGISTRY_FILE
-from sol_ai.question_sets import QuestionSet
+from sol_ai.question_sets import V0_1, QuestionSet
 from sol_ai.registry import ModelRegistry
 from sol_ai.schema import ExtractionSchema
 from sol_ai.settings import Settings
 
 logger = logging.getLogger("sol_ai.local")
+
+# local Kev 어댑터가 답하는 질문 세트. 지원 여부는 파일이 있는지가 아니라 이 집합으로 판정한다
+# (v0.2 초안 파일이 있어도 v0.2 지원 단계 전에는 QUESTION_SET_NOT_AVAILABLE)
+SUPPORTED_QUESTION_SETS = frozenset({V0_1})
 
 # 기동 대조 요청마다의 timeout(초)
 REGISTRY_TIMEOUT_S = 5.0
@@ -101,7 +105,8 @@ def configure_local(
     # 4·5. 질문 세트·레지스트리 항목
     entry = registry.kev(settings.KEV_MODEL_ID)
     if kev_enabled:
-        if settings.KEV_QUESTION_SET not in question_sets:
+        version = settings.KEV_QUESTION_SET
+        if version not in SUPPORTED_QUESTION_SETS or version not in question_sets:
             violations.append(("KEV_QUESTION_SET", "QUESTION_SET_NOT_AVAILABLE"))
         if entry is not None and entry.question_set not in (None, settings.KEV_QUESTION_SET):
             violations.append(("KEV_MODEL_ID", "QUESTION_SET_MISMATCH"))

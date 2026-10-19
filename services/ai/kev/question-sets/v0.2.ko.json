@@ -1,0 +1,73 @@
+{
+  "version": "kev-qs/v0.2",
+  "language": "ko",
+  "status": "초안 — 사용자 검토 전 (2026-10-19). 평가(E2) 전용 한국어판. v0.2 추가 질문은 03 §5.10 표의 한국어 요지를 그대로 옮겼고, v0.1 네 질문과 선택지 문구는 영어 원문을 옮긴 번역 초안이다",
+  "source": "docs/03-AI-PIPELINE.md §5.5·§5.10",
+  "questions": {
+    "recommendation": {
+      "type": "choice",
+      "instructions": "회사 프로필과 공고 요구사항을 볼 때 영업팀은 어떻게 해야 하는가?",
+      "criteria": {
+        "BID": "요구사항을 충족하고 적합도가 높다",
+        "WATCH": "유망하지만 먼저 확인할 것이 있다",
+        "NO_BID": "필수 요구사항을 충족하지 못하거나 적합도가 낮다"
+      }
+    },
+    "mandatoryRisk": {
+      "type": "noul",
+      "instructions": "이 회사가 충족하지 못할 가능성이 높은 필수 자격·면허·실적 요건이 있는가?",
+      "criteria": {
+        "true": "필수 항목 중 하나 이상이 미충족이거나 확인할 수 없다",
+        "false": "필수 항목을 모두 충족하는 것으로 보인다"
+      }
+    },
+    "needsHumanReview": {
+      "type": "noul",
+      "instructions": "결정 전에 사람이 확인해야 할 모호함·상충하는 숫자·특이 조건이 공고에 있는가?"
+    },
+    "fit": {
+      "type": "score",
+      "instructions": "이 회사의 역량이 이 공고와 전반적으로 얼마나 맞는가?",
+      "criteria": ["매우 낮음", "낮음", "보통", "높음", "매우 높음"]
+    },
+    "req.{itemId}.status": {
+      "type": "choice",
+      "instructions": "공고(NOTICE)의 [{itemId}] 요구사항을 회사(COMPANY)가 충족하는가?",
+      "criteria": {
+        "SATISFIED": "충족",
+        "NOT_SATISFIED": "미충족(회사 기록에 명시적 부정 근거가 있음)",
+        "NEEDS_REVIEW": "확인 필요(정보 부족·모호·대응 불확실)"
+      }
+    },
+    "techFit": {
+      "type": "score",
+      "instructions": "기술 스택 전체의 의미적 적합성",
+      "criteria": ["매우 낮음", "낮음", "보통", "높음", "매우 높음"]
+    },
+    "perfRelevance": {
+      "type": "score",
+      "instructions": "가장 관련 깊은 수행 실적과의 연관성",
+      "criteria": ["매우 낮음", "낮음", "보통", "높음", "매우 높음"]
+    },
+    "risk.schedule": {
+      "type": "noul",
+      "instructions": "일정·기간이 회사 가용 상황에 비해 촉박한가"
+    },
+    "risk.staffing": {
+      "type": "noul",
+      "instructions": "요구 인력·등급을 회사가 충원하기 어려운가"
+    },
+    "risk.scale": {
+      "type": "noul",
+      "instructions": "사업 규모가 회사 수행 경험을 크게 넘는가"
+    },
+    "risk.techGap": {
+      "type": "noul",
+      "instructions": "핵심 기술 중 회사 경험이 없는 것이 있는가"
+    },
+    "risk.scopeAmbiguity": {
+      "type": "noul",
+      "instructions": "범위·조건이 모호하거나 상충하는가"
+    }
+  }
+}
