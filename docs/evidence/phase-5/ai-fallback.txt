@@ -438,3 +438,28 @@ analysis runtime module loaded
 ## 변형 확인(등록 단계)
 - test-server 참조 구현 변형: 사용량 한도로 중단(참조 사본에서만, worktree 무영향)
 - 메인 세션(실제 구현): completed 를 FAIL 대상에서 뺌 → 3 failed / 117 passed, 진행 중 상태 KEEP 제거 → 3 failed / 117 passed, 원복 cmp 일치
+
+## 사전 분석: pnpm demo:preanalyze (web/worker/demo-preanalyze.ts, preanalyze.model.ts, createPreanalyzeStore)
+작성 2026-10-19T07:16:15Z · 근거 19 §3 5번(FX-02 를 뺀 적재 공고 18건, FX-02 는 S4 라이브 분석), 11 §5 6번, e8 승인 제안
+실행 위치: worker 컨테이너(docker compose exec -T worker). 실제 실행은 하지 않음 — 클라우드 DB 쓰기라 사용자 확인 뒤에만.
+
+$ pnpm -C web exec vitest run server/analysis/preanalyze.model.test.ts --reporter=verbose (대상 목록 발췌)
+ ✓ server/analysis/preanalyze.model.test.ts > 사전 분석 상수 > 제외 fixture 는 FX-02 하나다(19 §3 5번: S4 라이브 분석)
+ ✓ server/analysis/preanalyze.model.test.ts > selectPreanalyzeTargets · seed 데모 공고 > seed 적재 공고는 19건이다(전제: FX-01~20 가운데 FX-12 격리)
+ ✓ server/analysis/preanalyze.model.test.ts > selectPreanalyzeTargets · seed 데모 공고 > 대상은 seed 적재 공고에서 FX-02 를 뺀 공고이고 r1 이다
+ ✓ server/analysis/preanalyze.model.test.ts > selectPreanalyzeTargets · seed 데모 공고 > 대상은 18건이다(19 §3 5번: FX-02 를 뺀 적재 공고 18건)
+ ✓ server/analysis/preanalyze.model.test.ts > selectPreanalyzeTargets · seed 데모 공고 > FX-02 는 대상이 아니다(19 §3 5번: 미분석으로 남겨 S4 에서 라이브 분석)
+ ✓ server/analysis/preanalyze.model.test.ts > selectPreanalyzeTargets · seed 데모 공고 > S2 BID 권고 공고 FX-01 는 대상이다(11 §5 6번)
+ ✓ server/analysis/preanalyze.model.test.ts > selectPreanalyzeTargets · seed 데모 공고 > S2 BID 권고 공고 FX-18 는 대상이다(11 §5 6번)
+ ✓ server/analysis/preanalyze.model.test.ts > selectPreanalyzeTargets · 제외 > FX-02 는 최신 revision 이 바뀌어도 뺀다
+ ✓ server/analysis/preanalyze.model.test.ts > selectPreanalyzeTargets · 제외 > FX-02 하나만 있으면 대상은 0건이다
+ ✓ server/analysis/preanalyze.model.test.ts > preanalyzeIdempotencyKey > seed 대상 18건의 키는 서로 다르다
+
+$ pnpm -C web exec vitest run worker/demo-preanalyze.test.ts (요약)
+ Test Files  1 passed (1)
+      Tests  75 passed (75)
+
+## 변형 확인(사전 분석)
+- test-server 참조 구현 변형 43건(31+12) 빨간불, 동작이 같은 변형 2건만 통과(배열 raw_payload, store 의 revision 필터 — model 이 거름)
+- 메인 세션(실제 구현): mock 확인 제거 → 4 failed / 71 passed, FX-02 제외 목록 비움 → 49 failed / 84 passed, 원복 cmp 일치
+- 구현 담당 검증: 루트 pnpm test 567 pass · web vitest 86 files / 2533 · type-check·lint·lodestar·format 통과

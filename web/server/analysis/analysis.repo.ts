@@ -23,6 +23,14 @@ import {
   toScoreRunResultUpdate,
   type AttachmentTextReader,
 } from "./analysis-store.model";
+import {
+  DEMO_ORG_SLUG,
+  toDemoBidRows,
+  toPreanalyzeRun,
+  toPreanalyzeRunRow,
+  type PreanalyzeRun,
+  type PreanalyzeStore,
+} from "./preanalyze.model";
 
 // ── 저장: 분석 port 네 개와 멈춘 run 찾기 port 의 Supabase 구현. supabase-js 호출만 두고 규칙은 analysis-store.model 에 둔다 ──
 // worker 가 service role 클라이언트(getSupabaseAdmin)를 넘긴다. service role 은 RLS 를 거치지 않으므로
@@ -325,6 +333,108 @@ function createStaleRunFinder(client: Client): StaleRunFinder {
         .limit(input.limit);
       if (runs.error) throw storeError("score_runs", "stale", runs.error);
       return runs.data.map(toStaleRun);
+    },
+  };
+}
+
+// ── 사전 분석 저장 port(`pnpm demo:preanalyze`, C5-B) ──
+// worker 컨테이너에서 service role 클라이언트로 돈다. 조직 표(company_profiles·score_runs)는 모든 질의·쓰기에 org_id 를 건다.
+// 쓰기는 score_runs 넣기 하나다. idempotency_key 충돌이면 아무것도 하지 않고(이미 끝난 run 의 결과를 덮지 않는다) 그 키로 다시 읽는다.
+
+const DEMO_BID_SOURCE = "fixture";
+/** bid_notices 는 공고마다 하나라 다대일 임베드다. !inner 로 조건에 맞는 공고의 revision 만 남긴다. */
+const DEMO_REVISION_COLUMNS =
+  "id, bid_id, revision, raw_payload, notice:bid_notices!inner(latest_revision)";
+
+function toRunOrThrow(row: { id: string; status: string }, action: string): PreanalyzeRun {
+  const run = toPreanalyzeRun(row);
+  if (run === null) {
+    throw new Error(`analysis store 오류: score_runs.${action} UNEXPECTED_STATUS`);
+  }
+  return run;
+}
+
+/** service role 클라이언트로 사전 분석 저장 port 를 만든다. 클라이언트는 받기만 하고 모듈에 담아 두지 않는다. */
+export function createPreanalyzeStore(client: SupabaseClient<Database>): PreanalyzeStore {
+  return {
+    async findDemoOrg() {
+      const org = await client
+        .from("organizations")
+        .select("id")
+        .eq("slug", DEMO_ORG_SLUG)
+        .eq("is_demo", true)
+        .maybeSingle();
+      if (org.error) throw storeError("organizations", "select", org.error);
+      return org.data === null ? null : org.data.id;
+    },
+
+    async latestProfile(orgId) {
+      const profile = await client
+        .from("company_profiles")
+        .select("id, revision")
+        .eq("org_id", orgId)
+        .order("revision", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (profile.error) throw storeError("company_profiles", "select", profile.error);
+      return profile.data === null
+        ? null
+        : { id: profile.data.id, revision: profile.data.revision };
+    },
+
+    async listDemoBids() {
+      const revisions = await client
+        .from("bid_revisions")
+        .select(DEMO_REVISION_COLUMNS)
+        .eq("notice.is_demo", true)
+        .eq("notice.source", DEMO_BID_SOURCE);
+      if (revisions.error) throw storeError("bid_revisions", "select", revisions.error);
+      return toDemoBidRows(revisions.data);
+    },
+
+    async latestExtractionId(revisionId) {
+      const extraction = await client
+        .from("requirement_extractions")
+        .select("id")
+        .eq("revision_id", revisionId)
+        .in("status", SUCCESS_EXTRACTION_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (extraction.error) {
+        throw storeError("requirement_extractions", "select", extraction.error);
+      }
+      return extraction.data === null ? null : extraction.data.id;
+    },
+
+    async ensureQueuedRun(input) {
+      const inserted = await client.from("score_runs").upsert(toPreanalyzeRunRow(input), {
+        onConflict: "idempotency_key",
+        ignoreDuplicates: true,
+      });
+      if (inserted.error) throw storeError("score_runs", "insert", inserted.error);
+
+      const run = await client
+        .from("score_runs")
+        .select("id, status")
+        .eq("idempotency_key", input.idempotencyKey)
+        .eq("org_id", input.orgId)
+        .maybeSingle();
+      if (run.error) throw storeError("score_runs", "select", run.error);
+      // 같은 키의 행이 다른 조직에 있다. 남의 run 을 가리키지 않는다.
+      if (run.data === null) throw new Error("analysis store 오류: score_runs.select NOT_FOUND");
+      return toRunOrThrow(run.data, "select");
+    },
+
+    async readStatuses(orgId, ids) {
+      if (ids.length === 0) return [];
+      const runs = await client
+        .from("score_runs")
+        .select("id, status")
+        .in("id", [...ids])
+        .eq("org_id", orgId);
+      if (runs.error) throw storeError("score_runs", "status", runs.error);
+      return runs.data.map((row) => toRunOrThrow(row, "status"));
     },
   };
 }

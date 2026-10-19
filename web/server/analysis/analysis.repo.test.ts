@@ -1,10 +1,16 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import * as analysisBarrel from "@/server/analysis";
-import type { AnalysisStores, AttachmentTextReader, RevisionDocumentText } from "@/server/analysis";
+import type {
+  AnalysisStores,
+  AttachmentTextReader,
+  PreanalyzeStore,
+  RevisionDocumentText,
+} from "@/server/analysis";
+import { ALGORITHM_VERSION } from "@/server/scoring";
 import type { ExtractionCacheKey } from "./analysis-job.model";
 import { toExtractionRecord, type AnalysisRunRecord } from "./analysis.model";
 import { runAnalysis } from "./analysis.service";
-import { createAnalysisStores } from "./analysis.repo";
+import { createAnalysisStores, createPreanalyzeStore } from "./analysis.repo";
 import {
   toExtractionRow,
   toFailedUpdate,
@@ -20,6 +26,7 @@ import {
   LEAKY_ERROR_TEXT,
   ORG_ID,
   OTHER_ORG_ID,
+  SEED_PROFILE,
   bodyRows,
   conflictColumns,
   contextFromLoaded,
@@ -29,10 +36,23 @@ import {
   loaderRoute,
   loaderRowsFor,
   postgrestError,
+  seedBid,
   selectedColumns,
   type PostgrestCall,
   type PostgrestRoute,
 } from "./store.test-support";
+import {
+  G2B_BID_ID,
+  NON_DEMO_BID_ID,
+  bidTablesRoute,
+  seedBidTables,
+  seedTargets,
+  toDemoBidRows,
+  withForeignBids,
+  withRevision2,
+  type BidTables,
+} from "./preanalyze.test-support";
+import type { DemoBidRow } from "./preanalyze.model";
 import {
   QUEUED_AT,
   buildContext,
@@ -874,5 +894,435 @@ describe("@/server/analysis 배럴 · 저장 port", () => {
 describe("@/server/analysis 배럴 · 멈춘 run 찾기 port", () => {
   it("AnalysisStores.staleRuns 는 StaleRunFinder 다", () => {
     expectTypeOf<AnalysisStores["staleRuns"]>().toEqualTypeOf<analysisBarrel.StaleRunFinder>();
+  });
+});
+
+// ── createPreanalyzeStore(사전 분석 `pnpm demo:preanalyze`, C5-B) ──
+// worker 컨테이너에서 service role 클라이언트로 돈다. RLS 를 거치지 않으므로 조직 표(company_profiles·score_runs)의
+// 모든 질의·쓰기에 org_id 를 직접 건다. score_runs 는 idempotency_key 충돌 시 아무것도 하지 않는(on conflict do nothing)
+// insert 로 만들고 그 키로 다시 읽는다. 공고 행은 seed 의 행 계획 함수가 만든 것이다.
+
+const PRE_RUN_ID = "4a3b2c1d-0e9f-4a8b-9c7d-6e5f4a3b2c1d";
+const PRE_OTHER_RUN_ID = "6c5d4e3f-2a1b-4c0d-8e9f-7a6b5c4d3e2f";
+const FX01_TARGET = seedTargets().filter((target) => target.fixtureId === "FX-01")[0];
+const FX01_EXTRACTION_ID = seedBid("FX-01").extraction.id;
+const PRE_KEY = `${ORG_ID}:demo-pre-FX-01-r01`;
+
+type EnsureInput = Parameters<PreanalyzeStore["ensureQueuedRun"]>[0];
+
+/** ensureQueuedRun 입력(사전 분석 CLI 가 넘기는 값). */
+const ENSURE_INPUT: EnsureInput = {
+  orgId: ORG_ID,
+  bidId: FX01_TARGET.bidId,
+  revisionId: FX01_TARGET.revisionId,
+  companyProfileId: SEED_PROFILE.id,
+  profileRevision: SEED_PROFILE.revision,
+  extractionId: FX01_EXTRACTION_ID,
+  idempotencyKey: PRE_KEY,
+};
+
+/** 한 행 요청(object+json)이면 객체, 아니면 배열로 답한다. */
+function rowsReply(call: PostgrestCall, rows: unknown[]): ReturnType<PostgrestRoute> {
+  if (!call.accept.includes("vnd.pgrst.object+json")) return { status: 200, body: rows };
+  return rows.length === 1 ? { status: 200, body: rows[0] } : postgrestError("PGRST116", 406);
+}
+
+/** 그 표 GET 에 rows 로 답한다. */
+function getRows(table: string, rows: unknown[]): PostgrestRoute {
+  return (call) =>
+    call.method === "GET" && call.table === table ? rowsReply(call, rows) : undefined;
+}
+
+function preStore(route?: PostgrestRoute) {
+  const fake = fakeSupabase(route);
+  return { store: createPreanalyzeStore(fake.client), fake };
+}
+
+/** 이미 있는 run 을 다시 읽은 것처럼 score_runs GET 에 { id, status } 로 답한다. */
+const existingRun = (status: string) => getRows("score_runs", [{ id: PRE_RUN_ID, status }]);
+
+describe("createPreanalyzeStore · findDemoOrg", () => {
+  it("organizations 를 slug=org-01·is_demo=true 로 id 만 골라 읽는다", async () => {
+    const { store, fake } = preStore(getRows("organizations", [{ id: ORG_ID }]));
+    await store.findDemoOrg();
+    const call = only(fake.callsTo("organizations", "GET"));
+    // 19 §1: 데모 조직은 솔리데오(org-01)다.
+    expect(eqValue(call, "slug")).toBe("org-01");
+    expect(eqValue(call, "is_demo")).toBe("true");
+    expect(selectedColumns(call)).toEqual(["id"]);
+  });
+
+  it("찾으면 그 조직 id 를 돌려준다", async () => {
+    const { store } = preStore(getRows("organizations", [{ id: ORG_ID }]));
+    await expect(store.findDemoOrg()).resolves.toBe(ORG_ID);
+  });
+
+  it("없으면 null 을 돌려준다", async () => {
+    const { store } = preStore(getRows("organizations", []));
+    await expect(store.findDemoOrg()).resolves.toBeNull();
+  });
+
+  it("organizations 만 한 번 읽는다", async () => {
+    const { store, fake } = preStore(getRows("organizations", [{ id: ORG_ID }]));
+    await store.findDemoOrg();
+    expect(fake.sequence()).toEqual(["GET organizations"]);
+  });
+});
+
+describe("createPreanalyzeStore · latestProfile", () => {
+  const PROFILE_ROW = { id: SEED_PROFILE.id, revision: SEED_PROFILE.revision };
+
+  it("company_profiles 를 org_id 로 revision 내림차순 1행, id·revision 만 읽는다", async () => {
+    const { store, fake } = preStore(getRows("company_profiles", [PROFILE_ROW]));
+    await store.latestProfile(ORG_ID);
+    const call = only(fake.callsTo("company_profiles", "GET"));
+    expect(eqValue(call, "org_id")).toBe(ORG_ID);
+    expect(call.params.get("order")).toBe("revision.desc");
+    expect(call.params.get("limit")).toBe("1");
+    expect(selectedColumns(call)).toEqual(["id", "revision"]);
+  });
+
+  it("받은 orgId 를 그대로 org_id 조건에 쓴다", async () => {
+    const { store, fake } = preStore(getRows("company_profiles", []));
+    await store.latestProfile(OTHER_ORG_ID);
+    expect(eqValue(only(fake.callsTo("company_profiles", "GET")), "org_id")).toBe(OTHER_ORG_ID);
+  });
+
+  it("최신 프로필의 { id, revision } 을 돌려준다", async () => {
+    const { store } = preStore(getRows("company_profiles", [PROFILE_ROW]));
+    await expect(store.latestProfile(ORG_ID)).resolves.toEqual({
+      id: SEED_PROFILE.id,
+      revision: SEED_PROFILE.revision,
+    });
+  });
+
+  it("프로필이 없으면 null 을 돌려준다", async () => {
+    const { store } = preStore(getRows("company_profiles", []));
+    await expect(store.latestProfile(ORG_ID)).resolves.toBeNull();
+  });
+});
+
+describe("createPreanalyzeStore · listDemoBids", () => {
+  /** seed 공고 19건 + FX-06 r2(latest 2) + 대상 아닌 공고(g2b·데모 아님). */
+  const tables = (): BidTables => withForeignBids(withRevision2(seedBidTables(), "FX-06"));
+
+  async function list(source: BidTables = tables()) {
+    const fake = fakeSupabase(bidTablesRoute(source));
+    const rows = await createPreanalyzeStore(fake.client).listDemoBids();
+    return { rows, fake, source };
+  }
+
+  const byRevisionId = (a: DemoBidRow, b: DemoBidRow) =>
+    a.revisionId < b.revisionId ? -1 : a.revisionId > b.revisionId ? 1 : 0;
+
+  /** 데모 fixture 공고(seed 19건)의 revision 행 전부를 DemoBidRow 로. */
+  const demoRows = (source: BidTables) =>
+    toDemoBidRows(source).filter(
+      (row) => row.bidId !== G2B_BID_ID && row.bidId !== NON_DEMO_BID_ID,
+    );
+
+  it("읽기만 한다(GET 외 요청이 없다)", async () => {
+    const { fake } = await list();
+    expect(fake.calls.length).toBeGreaterThan(0);
+    expect(fake.calls.filter((call) => call.method !== "GET")).toEqual([]);
+  });
+
+  it("bid_notices·bid_revisions 만 읽는다", async () => {
+    const { fake } = await list();
+    for (const call of fake.calls) expect(["bid_notices", "bid_revisions"]).toContain(call.table);
+  });
+
+  it("최신 revision 행(revision = latestRevision)을 데모 fixture 공고마다 하나씩 돌려준다", async () => {
+    const { rows, source } = await list();
+    const latest = rows.filter((row) => row.revision === row.latestRevision).toSorted(byRevisionId);
+    const expected = demoRows(source)
+      .filter((row) => row.revision === row.latestRevision)
+      .toSorted(byRevisionId);
+    expect(expected).toHaveLength(19);
+    expect(latest).toEqual(expected);
+  });
+
+  it("행은 { bidId, revisionId, revision, rawPayload, latestRevision } 이고 값은 두 표의 값 그대로다", async () => {
+    const { rows, source } = await list();
+    const all = demoRows(source);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(all.find((candidate) => candidate.revisionId === row.revisionId)).toEqual(row);
+    }
+  });
+
+  it("raw_payload 를 바꾸지 않고 그대로 싣는다(fixtureId 를 꺼낼 수 있다)", async () => {
+    const { rows } = await list();
+    const fx01 = rows.find((row) => row.revisionId === FX01_TARGET.revisionId);
+    expect(fx01?.rawPayload).toMatchObject({ fixtureId: "FX-01" });
+  });
+
+  it("FX-06 은 latestRevision 2 로 읽고 r2 행이 있다", async () => {
+    const { rows } = await list();
+    const fx06 = rows.filter((row) => row.bidId === seedBid("FX-06").notice.id);
+    expect(fx06.every((row) => row.latestRevision === 2)).toBe(true);
+    expect(fx06.map((row) => row.revision)).toContain(2);
+  });
+
+  it("g2b 공고(source=g2b)는 is_demo=true 여도 돌려주지 않는다", async () => {
+    const { rows } = await list();
+    expect(rows.map((row) => row.bidId)).not.toContain(G2B_BID_ID);
+  });
+
+  it("데모가 아닌 공고(is_demo=false)는 source=fixture 여도 돌려주지 않는다", async () => {
+    const { rows } = await list();
+    expect(rows.map((row) => row.bidId)).not.toContain(NON_DEMO_BID_ID);
+  });
+
+  it("같은 revision 을 두 번 돌려주지 않는다", async () => {
+    const { rows } = await list();
+    const ids = rows.map((row) => row.revisionId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("공고가 없으면 빈 목록이다", async () => {
+    const { rows } = await list({ notices: [], revisions: [] });
+    expect(rows).toEqual([]);
+  });
+});
+
+describe("createPreanalyzeStore · latestExtractionId", () => {
+  it("requirement_extractions 를 revision_id·성공 상태로 created_at 내림차순 1행, id 만 읽는다", async () => {
+    const { store, fake } = preStore(
+      getRows("requirement_extractions", [{ id: FX01_EXTRACTION_ID }]),
+    );
+    await store.latestExtractionId(FX01_TARGET.revisionId);
+    const call = only(fake.callsTo("requirement_extractions", "GET"));
+    expect(eqValue(call, "revision_id")).toBe(FX01_TARGET.revisionId);
+    expect(inValues(call, "status")).toEqual(["COMPLETED", "PENDING_REVIEW"]);
+    expect(call.params.get("order")).toBe("created_at.desc");
+    expect(call.params.get("limit")).toBe("1");
+    expect(selectedColumns(call)).toEqual(["id"]);
+  });
+
+  it("찾으면 그 추출 id 를 돌려준다", async () => {
+    const { store } = preStore(getRows("requirement_extractions", [{ id: FX01_EXTRACTION_ID }]));
+    await expect(store.latestExtractionId(FX01_TARGET.revisionId)).resolves.toBe(
+      FX01_EXTRACTION_ID,
+    );
+  });
+
+  it("성공 추출이 없으면 null 을 돌려준다", async () => {
+    const { store } = preStore(getRows("requirement_extractions", []));
+    await expect(store.latestExtractionId(FX01_TARGET.revisionId)).resolves.toBeNull();
+  });
+});
+
+describe("createPreanalyzeStore · ensureQueuedRun", () => {
+  async function ensure(status = "QUEUED", input: EnsureInput = ENSURE_INPUT) {
+    const { store, fake } = preStore(existingRun(status));
+    const result = await store.ensureQueuedRun(input);
+    return { result, fake };
+  }
+
+  it("score_runs 에 넣고 같은 키로 다시 읽는다(POST → GET)", async () => {
+    const { fake } = await ensure();
+    expect(fake.sequence()).toEqual(["POST score_runs", "GET score_runs"]);
+  });
+
+  it("넣기는 idempotency_key 충돌 시 아무것도 하지 않는다(Prefer resolution=ignore-duplicates)", async () => {
+    const { fake } = await ensure();
+    const call = only(fake.callsTo("score_runs", "POST"));
+    expect(conflictColumns(call)).toEqual(["idempotency_key"]);
+    expect(call.prefer).toContain("resolution=ignore-duplicates");
+  });
+
+  it("넣기는 병합 upsert 가 아니다(이미 있는 run 의 결과를 덮어쓰지 않는다)", async () => {
+    const { fake } = await ensure();
+    expect(only(fake.callsTo("score_runs", "POST")).prefer).not.toContain(
+      "resolution=merge-duplicates",
+    );
+  });
+
+  it("넣는 행은 조직·공고·revision·프로필·추출·ALGORITHM_VERSION·MOCK·MOCK·멱등 키 한 행이다", async () => {
+    const { fake } = await ensure();
+    expect(bodyRows(only(fake.callsTo("score_runs", "POST")))).toEqual([
+      {
+        org_id: ORG_ID,
+        bid_id: FX01_TARGET.bidId,
+        revision_id: FX01_TARGET.revisionId,
+        company_profile_id: SEED_PROFILE.id,
+        profile_revision: SEED_PROFILE.revision,
+        extraction_id: FX01_EXTRACTION_ID,
+        algorithm_version: ALGORITHM_VERSION,
+        run_mode: "MOCK",
+        ai_provider: "MOCK",
+        idempotency_key: PRE_KEY,
+      },
+    ]);
+  });
+
+  it("추출이 없으면 extraction_id 는 null 이다", async () => {
+    const { fake } = await ensure("QUEUED", { ...ENSURE_INPUT, extractionId: null });
+    const [row] = bodyRows(only(fake.callsTo("score_runs", "POST")));
+    expect(row).toHaveProperty("extraction_id", null);
+  });
+
+  it("다시 읽기는 idempotency_key·org_id 조건이고 id·status 만 고른다", async () => {
+    const { fake } = await ensure();
+    const call = only(fake.callsTo("score_runs", "GET"));
+    expect(eqValue(call, "idempotency_key")).toBe(PRE_KEY);
+    expect(eqValue(call, "org_id")).toBe(ORG_ID);
+    expect(selectedColumns(call)).toEqual(["id", "status"]);
+  });
+
+  it("새로 만든 run 이면 { id, status: QUEUED } 를 돌려준다", async () => {
+    const { result } = await ensure("QUEUED");
+    expect(result).toEqual({ id: PRE_RUN_ID, status: "QUEUED" });
+  });
+
+  it("이미 끝난 run 이면 다시 읽은 상태(COMPLETED)를 그대로 돌려준다", async () => {
+    const { result } = await ensure("COMPLETED");
+    expect(result).toEqual({ id: PRE_RUN_ID, status: "COMPLETED" });
+  });
+});
+
+describe("createPreanalyzeStore · readStatuses", () => {
+  const ROWS = [
+    { id: PRE_RUN_ID, status: "COMPLETED" },
+    { id: PRE_OTHER_RUN_ID, status: "RUNNING" },
+  ];
+
+  it("score_runs 를 id in (…)·org_id 로 id·status 만 읽는다", async () => {
+    const { store, fake } = preStore(getRows("score_runs", ROWS));
+    await store.readStatuses(ORG_ID, [PRE_RUN_ID, PRE_OTHER_RUN_ID]);
+    const call = only(fake.callsTo("score_runs", "GET"));
+    expect(inValues(call, "id")).toEqual([PRE_RUN_ID, PRE_OTHER_RUN_ID].toSorted());
+    expect(eqValue(call, "org_id")).toBe(ORG_ID);
+    expect(selectedColumns(call)).toEqual(["id", "status"]);
+  });
+
+  it("행을 { id, status } 로 돌려준다", async () => {
+    const { store } = preStore(getRows("score_runs", ROWS));
+    const statuses = await store.readStatuses(ORG_ID, [PRE_RUN_ID, PRE_OTHER_RUN_ID]);
+    expect(statuses.toSorted((a, b) => (a.id < b.id ? -1 : 1))).toEqual(
+      ROWS.toSorted((a, b) => (a.id < b.id ? -1 : 1)),
+    );
+  });
+
+  it("읽기만 한다", async () => {
+    const { store, fake } = preStore(getRows("score_runs", ROWS));
+    await store.readStatuses(ORG_ID, [PRE_RUN_ID]);
+    expect(fake.sequence()).toEqual(["GET score_runs"]);
+  });
+});
+
+describe("createPreanalyzeStore · 조직 조건과 쓰기", () => {
+  /** 여섯 동작을 한 번씩 부르고 나간 요청을 모은다. */
+  async function everyCall() {
+    const fake = fakeSupabase(
+      routes(
+        getRows("organizations", [{ id: ORG_ID }]),
+        getRows("company_profiles", [{ id: SEED_PROFILE.id, revision: SEED_PROFILE.revision }]),
+        getRows("requirement_extractions", [{ id: FX01_EXTRACTION_ID }]),
+        getRows("score_runs", [{ id: PRE_RUN_ID, status: "QUEUED" }]),
+        bidTablesRoute(seedBidTables()),
+      ),
+    );
+    const store = createPreanalyzeStore(fake.client);
+    await store.findDemoOrg();
+    await store.latestProfile(ORG_ID);
+    await store.listDemoBids();
+    await store.latestExtractionId(FX01_TARGET.revisionId);
+    await store.ensureQueuedRun(ENSURE_INPUT);
+    await store.readStatuses(ORG_ID, [PRE_RUN_ID]);
+    return fake;
+  }
+
+  // service role 은 RLS 를 거치지 않는다. 조직 표 요청은 모두 org_id 로 거른다.
+  it("조직 표(company_profiles·score_runs) 읽기는 모두 org_id 조건이 있다", async () => {
+    const fake = await everyCall();
+    const reads = fake.calls.filter(
+      (call) => call.method === "GET" && ["company_profiles", "score_runs"].includes(call.table),
+    );
+    expect(reads.length).toBe(3);
+    for (const call of reads) expect(eqValue(call, "org_id")).toBe(ORG_ID);
+  });
+
+  it("score_runs 에 넣는 행은 모두 받은 orgId 를 갖는다", async () => {
+    const fake = await everyCall();
+    const rows = fake.callsTo("score_runs", "POST").flatMap(bodyRows);
+    expect(rows.length).toBe(1);
+    for (const row of rows) expect(row.org_id).toBe(ORG_ID);
+  });
+
+  it("쓰기는 ensureQueuedRun 의 score_runs 넣기 하나뿐이다(갱신·삭제가 없다)", async () => {
+    const fake = await everyCall();
+    expect(
+      fake.calls
+        .filter((call) => call.method !== "GET")
+        .map((call) => `${call.method} ${call.table}`),
+    ).toEqual(["POST score_runs"]);
+  });
+});
+
+describe("createPreanalyzeStore · 질의 오류", () => {
+  type Action = (store: PreanalyzeStore) => Promise<unknown>;
+  const ACTIONS: [string, string, string, Action][] = [
+    ["findDemoOrg", "GET", "organizations", (store) => store.findDemoOrg()],
+    ["latestProfile", "GET", "company_profiles", (store) => store.latestProfile(ORG_ID)],
+    [
+      "latestExtractionId",
+      "GET",
+      "requirement_extractions",
+      (store) => store.latestExtractionId(FX01_TARGET.revisionId),
+    ],
+    ["ensureQueuedRun 넣기", "POST", "score_runs", (store) => store.ensureQueuedRun(ENSURE_INPUT)],
+    [
+      "ensureQueuedRun 다시 읽기",
+      "GET",
+      "score_runs",
+      (store) => store.ensureQueuedRun(ENSURE_INPUT),
+    ],
+    ["readStatuses", "GET", "score_runs", (store) => store.readStatuses(ORG_ID, [PRE_RUN_ID])],
+  ];
+
+  it.each(ACTIONS)(
+    "%s 오류(%s %s)는 'analysis store 오류: <표>.<동작> <code>' 로 던진다",
+    async (_label, method, table, action) => {
+      const { store } = preStore(on(method, table, postgrestError("42501")));
+      const error = await rejectionOf(action(store));
+      expect(error.message).toMatch(new RegExp(`^analysis store 오류: ${table}\\.\\S+ 42501$`));
+    },
+  );
+
+  it.each(ACTIONS)(
+    "%s 오류 message 에 PostgREST 의 message·details·hint 를 싣지 않는다",
+    async (_label, method, table, action) => {
+      const { store } = preStore(on(method, table, postgrestError("42501")));
+      const error = await rejectionOf(action(store));
+      expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
+    },
+  );
+
+  it("listDemoBids 질의 오류는 'analysis store 오류: <공고 표>.<동작> <code>' 로 던지고 message 를 싣지 않는다", async () => {
+    const fake = fakeSupabase((call) =>
+      call.method === "GET" ? postgrestError("42501") : undefined,
+    );
+    const error = await rejectionOf(createPreanalyzeStore(fake.client).listDemoBids());
+    expect(error.message).toMatch(/^analysis store 오류: bid_(notices|revisions)\.\S+ 42501$/);
+    expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
+  });
+
+  it("PostgREST 오류에 code 가 없으면 UNKNOWN 이다", async () => {
+    const { store } = preStore(on("GET", "company_profiles", postgrestError(null)));
+    const error = await rejectionOf(store.latestProfile(ORG_ID));
+    expect(error.message).toMatch(/^analysis store 오류: company_profiles\.\S+ UNKNOWN$/);
+  });
+});
+
+describe("@/server/analysis 배럴 · 사전 분석 저장 port", () => {
+  it("값 createPreanalyzeStore 를 내보낸다", () => {
+    expect(Object.keys(analysisBarrel)).toContain("createPreanalyzeStore");
+  });
+
+  it("배럴의 createPreanalyzeStore 는 analysis.repo 의 것이다", () => {
+    expect(typeof createPreanalyzeStore).toBe("function");
+    expect(Reflect.get(analysisBarrel, "createPreanalyzeStore")).toBe(createPreanalyzeStore);
   });
 });

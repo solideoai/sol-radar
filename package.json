@@ -23,6 +23,7 @@
     "db:push": "bash scripts/db-push.sh",
     "db:verify": "bash scripts/db-verify.sh",
     "demo:reset": "node scripts/demo-reset.mjs",
+    "demo:preanalyze": "docker compose -f infra/compose.yaml exec -T worker node --conditions=react-server --import tsx worker/demo-preanalyze.ts",
     "bids:check": "node scripts/bids/check.mjs",
     "people:seed": "node scripts/people/seed.mjs",
     "people:check": "node scripts/people/check.mjs",
