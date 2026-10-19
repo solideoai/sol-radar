@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from support import extraction_fixture, write_fixture_dir
+from fake_models import closed_url
+from support import KEV_KEY, extraction_fixture, run_main, write_fixture_dir
 
 RULES_FILE = Path(__file__).resolve().parents[3] / "infra" / "run-modes.json"
 EX_CONFIG = 78
@@ -76,30 +77,8 @@ def test_refusal_does_not_print_values():
 # 검사를 통과한 경우 서버가 뜨지 않게 uvicorn.run 만 비우고 sol_ai.__main__.main 을 그대로 부른다
 # (통과면 exit 0, 거부면 exit 78). 포트를 열지 않는다.
 
-RUN_MAIN = (
-    "import sys, uvicorn; uvicorn.run = lambda *args, **kwargs: None; "
-    "from sol_ai.__main__ import main; sys.exit(main())"
-)
 MODEL_MISMATCH = "기동 거부: SOL_FIXTURES_DIR(MOCK_FIXTURE_MODEL_MISMATCH)"
 FIXTURES_MISSING = "기동 거부: SOL_FIXTURES_DIR(MOCK_FIXTURES_MISSING)"
-
-
-def run_main(extra: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    env = {
-        k: v
-        for k, v in os.environ.items()
-        if not k.startswith(LEAKY_PREFIXES) and k not in LEAKY_NAMES
-    }
-    env["SOL_RUN_MODES_FILE"] = str(RULES_FILE)
-    env.update(extra)
-    return subprocess.run(
-        [sys.executable, "-c", RUN_MAIN],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
 
 
 def mismatched_fixture_dir(root, key: str, value: str):
@@ -159,6 +138,28 @@ def test_k13_mock_allows_other_model_fields_to_differ(tmp_path):
 
 
 def test_k13_fixture_mode_skips_fixture_model_check(tmp_path):
+    # fixture 모드는 local 기동 검사(엔드포인트 설정)를 통과해야 하므로 닫힌 127.0.0.1 포트를 준다(L1: 미확인 → 기동)
     root = mismatched_fixture_dir(tmp_path / "fixtures", "promptHash", "0" * 64)
-    result = run_main({"SOL_RUN_MODE": "fixture", "SOL_FIXTURES_DIR": str(root)})
+    result = run_main(
+        {
+            "SOL_RUN_MODE": "fixture",
+            "SOL_FIXTURES_DIR": str(root),
+            "QWEN_BASE_URL": closed_url(),
+            "KEV_BASE_URL": closed_url(),
+            "KEV_API_KEY": KEV_KEY,
+        }
+    )
     assert (result.returncode, "기동 거부" in result.stderr) == (0, False)
+
+
+def test_m2_hosted_with_korean_state_refuses_startup():
+    result = run_main(
+        {
+            "SOL_RUN_MODE": "fixture",
+            "AI_PROVIDER": "hosted",
+            "AI_HOSTED_APPROVED": "true",
+            "KEV_ALLOW_KO_STATE": "true",
+        }
+    )
+    assert result.returncode == EX_CONFIG
+    assert "기동 거부: KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)" in result.stderr

@@ -2,7 +2,8 @@
 
 HTTP 200 은 "gateway 가 응답했다"는 뜻이다. 개별 실패는 본문 status·errorCode·kev.enabled·fallback 으로 낸다.
 200 이 아닌 본문은 {"errorCode","message"} 이고 422 KO_STATE_NOT_ALLOWED·503 AI_UNAVAILABLE 둘뿐이다(K9).
-요청 본문 형식 오류는 FastAPI 기본 422 를 그대로 둔다. 실행 모드 위반은 기동 거부(exit 78)다.
+요청 본문 형식 오류·크기 상한 초과는 FastAPI 기본 422 를 그대로 둔다. 실행 모드 위반과 local 기동 검사 위반은
+기동 거부(exit 78)다.
 """
 
 import logging
@@ -30,12 +31,12 @@ from sol_ai.errors import StartupRefused
 from sol_ai.explain import explain
 from sol_ai.extraction import ExtractionConfig, run_extraction
 from sol_ai.guards import InjectionGuard
+from sol_ai.logsafe import log_id
 from sol_ai.parse import parse_document, parser_inventory, read_limited
 from sol_ai.paths import (
     INJECTION_PATTERNS_FILE,
     PROMPT_FILE,
     QUESTION_SETS_DIR,
-    fixtures_dir,
 )
 from sol_ai.qualifications import default_dictionary
 from sol_ai.question_sets import load_question_sets
@@ -82,13 +83,15 @@ def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str,
     schema = default_schema()
     dictionary = default_dictionary()
     question_sets = load_question_sets(QUESTION_SETS_DIR)
+    computed_hash = prompt_hash(PROMPT_FILE, schema.text, settings.AI_PROMPT_VERSION)
     adapters = build_adapters(
+        settings,
         provider=effective["AI_PROVIDER"],
         kev_enabled=effective["KEV_ENABLED"] == "true",
-        fault=settings.AI_FAULT_INJECT or None,
-        fixtures_root=fixtures_dir(settings.SOL_FIXTURES_DIR),
         dictionary=dictionary,
         question_sets=question_sets,
+        schema=schema,
+        prompt_hash=computed_hash,
     )
     for fmt, key in PARSER_SETTINGS.items():
         if getattr(settings, key):
@@ -101,7 +104,7 @@ def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str,
         guard=InjectionGuard.load(INJECTION_PATTERNS_FILE),
         dictionary=dictionary,
         prompt_version=settings.AI_PROMPT_VERSION,
-        prompt_hash=prompt_hash(PROMPT_FILE, schema.text, settings.AI_PROMPT_VERSION),
+        prompt_hash=computed_hash,
         fuzzy_min_ratio=settings.CITATION_FUZZY_MIN_RATIO,
     )
     kev = KevAdapter(
@@ -152,7 +155,7 @@ def create_app(settings: Settings) -> FastAPI:
         parsed = parse_document(data, too_large)
         logger.info(
             "parse requestId=%s format=%s status=%s errorCode=%s ms=%d",
-            request.headers.get("x-request-id"),
+            log_id(request.headers.get("x-request-id")),
             parsed.format,
             parsed.status,
             parsed.errorCode,
@@ -167,7 +170,7 @@ def create_app(settings: Settings) -> FastAPI:
         response = run_extraction(body, adapters.qwen, runtime.extraction)
         logger.info(
             "extract requestId=%s provider=%s status=%s errorCode=%s ms=%d",
-            body.requestId,
+            log_id(body.requestId),
             adapters.provider,
             response.status,
             response.errorCode,
@@ -198,7 +201,7 @@ def create_app(settings: Settings) -> FastAPI:
         )
         logger.info(
             "kev requestId=%s provider=%s enabled=%s errorCode=%s ms=%d",
-            body.requestId,
+            log_id(body.requestId),
             adapters.provider,
             outcome.kev.enabled,
             outcome.error_code,
@@ -211,7 +214,7 @@ def create_app(settings: Settings) -> FastAPI:
         if adapters.gateway_down:
             return _gateway_down()
         response = explain(body, await request.json())
-        logger.info("explain requestId=%s fallback=%s", body.requestId, response.fallback)
+        logger.info("explain requestId=%s fallback=%s", log_id(body.requestId), response.fallback)
         return response
 
     return app

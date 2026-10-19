@@ -5,7 +5,14 @@
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from sol_ai.schema import default_schema
 from sol_ai.timeutil import parse_instant
@@ -16,6 +23,37 @@ QuestionSetVersion = Literal["kev-qs/v0.1", "kev-qs/v0.2"]
 Provider = Literal["mock", "local", "hosted"]
 
 KEV_DISCLAIMER = "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."
+
+# 요청 크기 상한(보안 점검 Low). 넘으면 FastAPI 기본 422
+MAX_TEXT_CHARS = 2_000_000
+MAX_ATTACHMENTS = 200
+
+
+def _longest_string_ok(value: Any) -> bool:
+    """값 안의 모든 문자열(키 포함)이 MAX_TEXT_CHARS 이하인지. JSON 깊이는 파서가 막는다."""
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            if len(item) > MAX_TEXT_CHARS:
+                return False
+        elif isinstance(item, dict):
+            stack.extend(item.keys())
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return True
+
+
+class SizeLimitedModel(BaseModel):
+    """요청 안의 어느 문자열도 MAX_TEXT_CHARS 를 넘지 않는다(/kev·/explain 은 자유 모양 객체를 받는다)."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _limit_string_sizes(cls, data: Any) -> Any:
+        if not _longest_string_ok(data):
+            raise ValueError(f"문자열이 {MAX_TEXT_CHARS}자를 넘는다")
+        return data
 
 
 class OpenModel(BaseModel):
@@ -57,18 +95,18 @@ class PageOffset(BaseModel):
 
 class Attachment(BaseModel):
     documentId: str = Field(min_length=1)
-    text: str
+    text: str = Field(max_length=MAX_TEXT_CHARS)
     pages: list[PageOffset] = Field(default_factory=list)
 
 
-class ExtractRequest(BaseModel):
+class ExtractRequest(SizeLimitedModel):
     requestId: str
     bidId: str = Field(min_length=1)
     revisionId: str = Field(min_length=1)
     fixtureId: str | None = None
     meta: ExtractMeta
-    body: str
-    attachments: list[Attachment] = Field(default_factory=list)
+    body: str = Field(max_length=MAX_TEXT_CHARS)
+    attachments: list[Attachment] = Field(default_factory=list, max_length=MAX_ATTACHMENTS)
 
 
 class ExtractTimings(BaseModel):
@@ -128,7 +166,7 @@ class ProfileSummary(OpenModel):
     staffAvailability: StaffAvailability | None = None
 
 
-class KevRequest(BaseModel):
+class KevRequest(SizeLimitedModel):
     """03 §5.7 KevAdapterInput + requestId·fixtureId. 규칙 결과(자격 판정·점수·권고) 필드는 없다.
 
     그런 키가 와도 버린다(extra="ignore"). Kev 가 규칙 판정을 바꾸지 못하는 계약이다.
@@ -196,7 +234,8 @@ class KevResponse(BaseModel):
     stateHash: str | None
     requirements: None = None
     wire: list[dict[str, Any]] | None
-    errorCode: Literal["KEV_UNAVAILABLE"] | None
+    # KEV_UNAVAILABLE: 미접속·timeout·오류(K4). INJECTION_SUSPECTED: 추출이 인젝션 의심이라 Kev 를 부르지 않았다(K4')
+    errorCode: Literal["KEV_UNAVAILABLE", "INJECTION_SUSPECTED"] | None
     timings: KevTimings
 
 
@@ -230,7 +269,7 @@ class DocumentIssue(OpenModel):
     errorCode: str | None
 
 
-class ExplainRequest(BaseModel):
+class ExplainRequest(SizeLimitedModel):
     requestId: str
     qualificationChecks: list[QualificationCheckInput]
     scoreBreakdown: ScoreBreakdownInput

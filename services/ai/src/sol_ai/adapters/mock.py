@@ -10,7 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sol_ai.adapters import kev_wire
-from sol_ai.adapters.base import ExtractionFailed, KevUnavailable, ModelOutput, ModelUnavailable
+from sol_ai.adapters.base import (
+    ExtractionFailed,
+    KevReply,
+    KevUnavailable,
+    ModelOutput,
+    ModelUnavailable,
+)
 from sol_ai.contracts import ExtractRequest, KevRequest
 from sol_ai.errors import StartupRefused
 from sol_ai.qualifications import QualificationDictionary
@@ -24,7 +30,8 @@ from sol_ai.question_sets import (
 )
 
 # K5: "FX-07" 또는 파일 stem "FX-07.r01". 이 형식 밖이면 파일을 열지 않는다(경로 조작 방지)
-FIXTURE_ID = re.compile(r"FX-\d{2}(?:\.r\d{2})?")
+# ASCII 숫자만 받는다(\d 는 전각·아랍 숫자도 맞춘다. 보안 점검 Low)
+FIXTURE_ID = re.compile(r"FX-[0-9]{2}(?:\.r[0-9]{2})?")
 
 FAULT_QWEN_ERROR = "qwen_error"
 FAULT_QWEN_UNREACHABLE = "qwen_unreachable"
@@ -120,7 +127,8 @@ class MockQwen:
         self.model_name: str | None = identity.name
         self.prompt_hash: str | None = identity.prompt_hash
 
-    def extract(self, request: ExtractRequest) -> ModelOutput:
+    def extract(self, request: ExtractRequest, retry_note: str | None = None) -> ModelOutput:
+        # 재시도(retry_note)여도 같은 fixture 를 돌려준다. 스키마 위반 fixture 는 다시 실패한다
         if self._fault == FAULT_QWEN_ERROR:
             raise ExtractionFailed("fault injected: qwen_error")
         if self._fault == FAULT_QWEN_UNREACHABLE:
@@ -184,6 +192,8 @@ class MockKev:
 
     provider = "mock"
     model_id = "mock"
+    assist_model = "mock"
+    request_model = "mock"
     registry_match = None
     question_sets = (V0_1,)
 
@@ -199,15 +209,17 @@ class MockKev:
         self._dictionary = dictionary
         self._question_set = question_set
 
-    def answer(self, wire_request: dict, request: KevRequest) -> dict:
-        # wire_request 는 실제 Kev 에 보낼 본문과 같다. mock 은 보내지 않는다
+    def precheck(self) -> None:
         if self._fault in (FAULT_KEV_TIMEOUT, FAULT_KEV_UNREACHABLE):
             raise KevUnavailable(f"fault injected: {self._fault}")
+
+    def answer(self, wire_request: dict, request: KevRequest) -> KevReply:
+        # wire_request 는 실제 Kev 에 보낼 본문과 같다. mock 은 보내지 않는다
         path = fixture_file(self._root, "kev", request.fixtureId)
         if path is not None:
             try:
-                return kev_wire.wire_record(json.loads(path.read_text(encoding="utf-8")))
+                return KevReply(kev_wire.wire_record(json.loads(path.read_text(encoding="utf-8"))))
             except ValueError as error:
                 raise KevUnavailable("mock kev fixture is invalid") from error
         answers = formula_answers(request, self._dictionary, self._question_set)
-        return kev_wire.build_response(self._question_set.questions, answers)
+        return KevReply(kev_wire.build_response(self._question_set.questions, answers))

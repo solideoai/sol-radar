@@ -1,8 +1,8 @@
 """POST /extract 검증 파이프라인(docs/03 §4.4, 명세 §1). mock·local 이 같은 코드로 지난다.
 
 어느 단계도 값을 "고쳐서 살리지" 않는다. 살릴 수 없으면 UNKNOWN 이다.
-순서: 입력 인젝션 → 모델 호출 → 스키마 정리·검증 → gateway 값 채우기 → 상태 정합성 → 인용 검증
-→ 출력 인젝션 → 정규화 → 메타데이터 대조 → 사전 매핑 → 상태 결정.
+순서: 입력 인젝션 → 모델 호출 → 스키마 정리·검증(JSON 아님·위반이면 오류 요약을 붙여 1회 재시도, 03 §4.3)
+→ gateway 값 채우기 → 상태 정합성 → 인용 검증 → 출력 인젝션 → 정규화 → 메타데이터 대조 → 사전 매핑 → 상태 결정.
 """
 
 import copy
@@ -65,6 +65,7 @@ REF_KEYS = (
 )
 QUALIFICATION_KEYS = ("name", "kind", "mandatory", "detail", "code")
 NOTE_MAX_CHARS = 200
+RETRY_SUMMARY_MAX_CHARS = 200
 
 INJECTION_SUSPECTED = "INJECTION_SUSPECTED"
 LOW_CONFIDENCE = "EXTRACTION_LOW_CONFIDENCE"
@@ -136,11 +137,20 @@ def _ordered_ref(ref: dict, revision_id: str) -> dict:
     return {key: ref[key] for key in REF_KEYS if key in ref}
 
 
+@dataclass(frozen=True)
+class Attempt:
+    """검증을 통과한 모델 응답. retries 는 0 또는 1, latency 는 호출 지연의 합(ms)."""
+
+    output: ModelOutput
+    retries: int
+    latency: int | float
+
+
 def _fill_gateway_values(
     extraction: dict,
     request: ExtractRequest,
     qwen: QwenAdapter,
-    output: ModelOutput,
+    attempt: Attempt,
     config: ExtractionConfig,
 ) -> dict:
     """bidId·revisionId·evidence[].revisionId 는 요청 값(K5).
@@ -150,6 +160,7 @@ def _fill_gateway_values(
     payload = copy.deepcopy(extraction)
     payload["bidId"] = request.bidId
     payload["revisionId"] = request.revisionId
+    output = attempt.output
     if output.model_block is None:
         payload["model"] = {
             "provider": qwen.provider,
@@ -158,8 +169,8 @@ def _fill_gateway_values(
             "promptHash": config.prompt_hash,
             "temperature": 0,
             "extractedAt": output.extracted_at,
-            "latencyMs": output.latency,
-            "retries": output.retries,
+            "latencyMs": attempt.latency,
+            "retries": attempt.retries,
         }
     for name in FIELDS:
         payload[name]["evidence"] = [
@@ -252,6 +263,44 @@ def _ordered_field(extracted: dict) -> dict:
     return ordered
 
 
+def _validated(output: ModelOutput, config: ExtractionConfig) -> tuple[dict | None, str]:
+    """(스키마를 통과한 추출, 실패 요약). 요약은 위치·검사 이름뿐이다(모델 출력 값을 담지 않는다)."""
+    try:
+        raw = json.loads(output.text)
+    except ValueError:
+        return None, "JSON 파싱 실패"
+    if isinstance(raw, dict):
+        if output.model_block is not None:
+            # 어댑터가 준 고정 model 블록도 같은 스키마 정리·검증을 지난다
+            raw = {**raw, "model": output.model_block}
+        else:
+            # model 은 gateway 가 채운다. 모델 출력에 섞여 와도 쓰지 않는다
+            raw = {k: v for k, v in raw.items() if k != "model"}
+    extraction = config.schema.prune(raw)
+    errors = config.schema.errors(extraction)
+    if errors:
+        return None, ("스키마 위반 " + ", ".join(errors))[:RETRY_SUMMARY_MAX_CHARS]
+    return extraction, ""
+
+
+def _call_and_validate(
+    request: ExtractRequest, qwen: QwenAdapter, config: ExtractionConfig
+) -> tuple[Attempt, dict]:
+    output = qwen.extract(request)
+    latency = output.latency or 0
+    extraction, problem = _validated(output, config)
+    if extraction is not None:
+        return Attempt(output, 0, latency), extraction
+    logger.warning("extract: invalid model output, retrying once (%s)", problem)
+    output = qwen.extract(request, retry_note=problem)
+    latency += output.latency or 0
+    extraction, problem = _validated(output, config)
+    if extraction is None:
+        logger.warning("extract: invalid model output after retry (%s)", problem)
+        raise ExtractionFailed("invalid model output after retry")
+    return Attempt(output, 1, latency), extraction
+
+
 def run_extraction(
     request: ExtractRequest, qwen: QwenAdapter, config: ExtractionConfig
 ) -> ExtractResponse:
@@ -260,37 +309,25 @@ def run_extraction(
     # 1. 입력 인젝션 탐지. 텍스트는 그대로 모델에 보낸다(지우면 인용 오프셋이 틀어진다)
     input_flag = config.guard.scan_input([request.body, *(a.text for a in request.attachments)])
 
-    # 2. 모델 호출
+    # 2·3. 모델 호출 → 스키마 정리·검증. JSON 이 아니거나 스키마 위반이면 오류 요약을 붙여 1회 재시도(03 §4.3)
     try:
-        output = qwen.extract(request)
+        attempt, extraction = _call_and_validate(request, qwen, config)
     except ModelUnavailable as error:
         return _failed(QWEN_UNAVAILABLE, input_flag, error.warnings, started)
     except ExtractionFailed as error:
         return _failed(EXTRACTION_FAILED, input_flag, error.warnings, started)
-
-    # 3. 스키마 정리·검증. 위반은 FAILED(mock 은 재시도해도 같다)
-    try:
-        raw = json.loads(output.text)
-    except ValueError:
-        logger.warning("extract: model output is not JSON")
-        return _failed(EXTRACTION_FAILED, input_flag, [], started)
-    if output.model_block is not None and isinstance(raw, dict):
-        # 어댑터가 준 고정 model 블록도 같은 스키마 정리·검증을 지난다
-        raw = {**raw, "model": output.model_block}
-    extraction = config.schema.prune(raw)
-    errors = config.schema.errors(extraction)
-    if errors:
-        logger.warning("extract: schema violation at %s", errors[:5])
-        return _failed(EXTRACTION_FAILED, input_flag, [], started)
+    output = attempt.output
 
     # 7단계(출력 인젝션)는 모델이 낸 값으로 본다. 5단계가 값을 지우기 전에 판정하고 결과만 뒤에 합친다
     output_flag = config.guard.scan_output(extraction, FIELDS)
     model_warnings = list(extraction["warnings"])
 
     # 4. gateway 가 채우는 값
-    payload = _fill_gateway_values(extraction, request, qwen, output, config)
+    payload = _fill_gateway_values(extraction, request, qwen, attempt, config)
     fields = {name: payload[name] for name in FIELDS}
     warnings = [INJECTION_SUSPECTED] if input_flag else []
+    # 입력 조립 경고(예: TRUNCATED_INPUT)
+    warnings += list(output.warnings)
 
     # 5. 상태 정합성
     warnings += fix_states(fields)

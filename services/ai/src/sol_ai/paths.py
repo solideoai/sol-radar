@@ -12,6 +12,7 @@ PROMPT_FILE = AI_ROOT / "prompts" / "req-extract.v0.1.md"
 INJECTION_PATTERNS_FILE = AI_ROOT / "guards" / "injection-patterns.yaml"
 QUALIFICATION_CODES_FILE = AI_ROOT / "dictionaries" / "qualification-codes.yaml"
 QUESTION_SETS_DIR = AI_ROOT / "kev" / "question-sets"
+REGISTRY_FILE = AI_ROOT / "models" / "registry.yaml"
 
 
 def fixtures_dir(override: str | None) -> Path:

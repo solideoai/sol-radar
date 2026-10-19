@@ -1,0 +1,28 @@
+# 모델 레지스트리(docs/03 §11, ADR-020·025). git 으로 관리하고 가중치는 넣지 않는다.
+# gateway 는 기동할 때 KEV_MODEL_ID 항목을 Kev GET /v1/models 와, QWEN_MODEL(없으면 qwen 기본 항목 run)을
+# vLLM GET /v1/models 와 대조한다. 값을 모르는 항목은 null 로 두고 지어내지 않는다.
+schemaVersion: model-registry/v0.1
+entries:
+  - id: kev-9b-v1.0
+    kind: kev
+    run: jaredpalmer/kev-9b@v1.0
+    # /v1/models 실제 응답 확인 전(C1 ③ G2). 대조 필드 이름 run·base·lora·temperature 는 03 §11 미검증 가정
+    base: null
+    base_revision: null
+    init_from: null
+    lora: null
+    # 회사 운영(ADR-025)에서 채운다
+    weights_sha256: null
+    head_sha256: null
+    temperature: null
+    dataset: null
+    # 공개 모델은 특정 질문 세트로 학습하지 않았다
+    questionSet: null
+    stateTemplate: null
+    # 미검증 가정(Kev README 예시): POST /v1/systemone 요청 본문의 "model" 값
+    requestModel: kev-latest
+    reports: []
+  - id: qwen3.5-9b
+    kind: qwen
+    run: Qwen/Qwen3.5-9B
+    default: true

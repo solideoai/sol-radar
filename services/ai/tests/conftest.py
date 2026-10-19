@@ -1,14 +1,16 @@
-"""공용 fixture: 실행 모드 규칙 파일, 환경 격리, 외부 네트워크 차단, 시험 클라이언트."""
+"""공용 fixture: 실행 모드 규칙 파일, 환경 격리, 외부 네트워크 차단, 시험 클라이언트, 가짜 모델 서버."""
 
 import ipaddress
 import json
 import os
 import socket
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from fake_models import FakeModelServer, Reply, kev_models, vllm_models
 from fastapi.testclient import TestClient
-from support import write_fixture_dir
+from support import KEV_KEY, QWEN_KEY, QWEN_RUN, write_fixture_dir
 
 from sol_ai.app import create_app
 from sol_ai.run_mode import rule_env_keys
@@ -127,3 +129,39 @@ def custom_fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         return root
 
     return _point
+
+
+@pytest.fixture
+def fake_server():
+    """127.0.0.1 가짜 모델 서버를 만든다. 시험이 끝나면 모두 닫는다(스레드가 남지 않는다)."""
+    servers: list[FakeModelServer] = []
+
+    def _make(port: int = 0) -> FakeModelServer:
+        server = FakeModelServer(port)
+        servers.append(server)
+        return server
+
+    yield _make
+    for server in servers:
+        server.close()
+
+
+@dataclass
+class LocalModels:
+    qwen: FakeModelServer
+    kev: FakeModelServer
+
+
+@pytest.fixture
+def local_models(fake_server, monkeypatch: pytest.MonkeyPatch) -> LocalModels:
+    """fixture 모드(AI_PROVIDER=local)용 가짜 Qwen(vLLM)·Kev 서버와 env(QWEN_*·KEV_*).
+
+    두 서버의 GET /v1/models 는 레지스트리와 맞는다. 추출·Kev 응답 경로는 시험이 정한다.
+    """
+    qwen = fake_server().route("GET", "/v1/models", Reply(json_body=vllm_models(QWEN_RUN)))
+    kev = fake_server().route("GET", "/v1/models", Reply(json_body=kev_models()))
+    monkeypatch.setenv("QWEN_BASE_URL", qwen.url)
+    monkeypatch.setenv("QWEN_API_KEY", QWEN_KEY)
+    monkeypatch.setenv("KEV_BASE_URL", kev.url)
+    monkeypatch.setenv("KEV_API_KEY", KEV_KEY)
+    return LocalModels(qwen, kev)

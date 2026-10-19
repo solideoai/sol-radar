@@ -3,6 +3,7 @@
 다른 모듈은 여기 함수와 상수를 쓴다. 필드명을 다른 곳에 하드코딩하지 않는다(03 §5.7).
 """
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -30,6 +31,10 @@ PROBABILITIES = "probabilities"
 LEGEND = "legend"
 INPUT_TOKENS = "input_tokens"
 OUTPUT_TOKENS = "output_tokens"
+# 응답 헤더(03 §5.4). KevAssist.requestId 로 옮긴다
+REQUEST_ID_HEADER = "x-typesafe-request-id"
+# 선택지 분포 합의 허용 오차(보안 점검 Low)
+PROBABILITY_SUM_TOLERANCE = 0.01
 
 
 class WireFormatError(ValueError):
@@ -104,16 +109,23 @@ def score_legend(question: WireQuestion) -> dict[str, str]:
     return {str(index): name for index, name in enumerate(question.criteria or [])}
 
 
-def _number(value: Any) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        raise WireFormatError("숫자가 아니다")
+def _number(value: Any, low: float | None = None, high: float | None = None) -> float:
+    """유한한 숫자이고 [low, high] 안이어야 한다. NaN·Infinity·bool 은 받지 않는다."""
+    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+        raise WireFormatError("유한한 숫자가 아니다")
+    if (low is not None and value < low) or (high is not None and value > high):
+        raise WireFormatError("숫자가 범위 밖이다")
     return value
 
 
 def _probabilities(value: Any) -> dict[str, float]:
-    if not isinstance(value, Mapping):
+    """각 값이 [0, 1] 이고 합이 1 ± 0.01 인 분포."""
+    if not isinstance(value, Mapping) or not value:
         raise WireFormatError("probabilities 가 객체가 아니다")
-    return {str(k): _number(v) for k, v in value.items()}
+    distribution = {str(k): _number(v, 0, 1) for k, v in value.items()}
+    if abs(sum(distribution.values()) - 1) > PROBABILITY_SUM_TOLERANCE:
+        raise WireFormatError("probabilities 합이 1 이 아니다")
+    return distribution
 
 
 def _parse_answer(question: WireQuestion, raw: Any) -> Answer:
@@ -124,20 +136,22 @@ def _parse_answer(question: WireQuestion, raw: Any) -> Answer:
         if not isinstance(choice, str) or choice not in (question.criteria or {}):
             raise WireFormatError(f"질문 {question.qid}: choice 가 선택지 밖이다")
         return ChoiceAnswer(
-            choice, _number(raw.get(CONFIDENCE)), _probabilities(raw.get(PROBABILITIES))
+            choice, _number(raw.get(CONFIDENCE), 0, 1), _probabilities(raw.get(PROBABILITIES))
         )
     if question.kind == NOUL:
-        return YesAnswer(_number(raw.get(NOUL)))
+        return YesAnswer(_number(raw.get(NOUL), 0, 1))
     legend = raw.get(LEGEND, score_legend(question))
     if not isinstance(legend, Mapping):
         raise WireFormatError(f"질문 {question.qid}: legend 가 객체가 아니다")
     probabilities = raw.get(PROBABILITIES)
     confidence = raw.get(CONFIDENCE)
+    # score 는 0부터 센 평균 등급 index 라 [0, 등급 수 - 1](v0.1 fit 은 [0, 4])
+    top_grade = max(len(question.criteria or []) - 1, 0)
     return ScoreAnswer(
-        _number(raw.get(SCORE)),
+        _number(raw.get(SCORE), 0, top_grade),
         {str(k): str(v) for k, v in legend.items()},
         None if probabilities is None else _probabilities(probabilities),
-        None if confidence is None else _number(confidence),
+        None if confidence is None else _number(confidence, 0, 1),
     )
 
 
@@ -152,7 +166,7 @@ def parse_response(response: Any, questions: Mapping[str, WireQuestion]) -> Wire
     latency = response.get(LATENCY_MS)
     return WireResult(
         {qid: _parse_answer(q, raw[qid]) for qid, q in questions.items()},
-        None if latency is None else _number(latency),
+        None if latency is None else _number(latency, 0),
     )
 
 

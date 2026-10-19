@@ -1,8 +1,9 @@
 """Kev 어댑터(docs/03 §5.7). 영어 state → wire 요청 → Kev 응답 → KevAssist.
 
 - Kev 는 참고 지표만 낸다. 입력에 규칙 결과가 없고(KevRequest), 출력은 KevAssist 뿐이다.
-- KEV_ENABLED=false 면 Kev 를 부르지 않는다(enabled=false, errorCode=null).
-- timeout·미접속·형식 오류는 enabled=false, errorCode=KEV_UNAVAILABLE(K4). 분석은 실패하지 않는다.
+- 판정 순서(e8): ko state 거부(422) → KEV_ENABLED=false(errorCode=null) → 장애 주입(KEV_UNAVAILABLE)
+  → 추출 인젝션 의심(INJECTION_SUSPECTED, 서버를 부르지 않는다) → Kev 호출.
+- timeout·미접속·형식 오류·값 범위 밖은 enabled=false, errorCode=KEV_UNAVAILABLE(K4). 분석은 실패하지 않는다.
 """
 
 import hashlib
@@ -23,6 +24,7 @@ from sol_ai.question_sets import (
 
 OPTIONS = ("BID", "WATCH", "NO_BID")
 KEV_UNAVAILABLE = "KEV_UNAVAILABLE"
+INJECTION_SUSPECTED = "INJECTION_SUSPECTED"
 
 
 class KoStateNotAllowed(Exception):
@@ -42,7 +44,9 @@ def disabled_assist() -> KevAssist:
     return KevAssist(enabled=False)
 
 
-def _assist(result: kev_wire.WireResult, client: KevClient, version: str) -> KevAssist:
+def _assist(
+    result: kev_wire.WireResult, client: KevClient, version: str, request_id: str | None
+) -> KevAssist:
     recommendation = result.answers[Q_RECOMMENDATION]
     mandatory_risk = result.answers[Q_MANDATORY_RISK]
     needs_review = result.answers[Q_NEEDS_HUMAN_REVIEW]
@@ -59,7 +63,7 @@ def _assist(result: kev_wire.WireResult, client: KevClient, version: str) -> Kev
     return KevAssist(
         enabled=True,
         provider=client.provider,
-        model=client.model_id,
+        model=client.assist_model,
         questionSetVersion=version,
         suggestedOption=recommendation.choice,
         probabilities={option: recommendation.probabilities[option] for option in OPTIONS},
@@ -68,8 +72,8 @@ def _assist(result: kev_wire.WireResult, client: KevClient, version: str) -> Kev
         needsHumanReview=needs_review.probability,
         fit=FitScore(score=fit.score, legend=fit.legend),
         latencyMs=result.latency,
-        # x-typesafe-request-id. mock 은 HTTP 를 쓰지 않아 없다
-        requestId=None,
+        # 응답 헤더 x-typesafe-request-id. mock 은 HTTP 를 쓰지 않아 없다
+        requestId=request_id,
     )
 
 
@@ -99,21 +103,29 @@ class KevAdapter:
         if self._client is None:
             return KevOutcome(disabled_assist(), None, None, None)
         unavailable = KevOutcome(disabled_assist(), None, None, KEV_UNAVAILABLE)
+        try:
+            self._client.precheck()
+        except KevUnavailable:
+            return unavailable
+        if request.extraction.get("injectionSuspected") is True:
+            # 인젝션이 의심되는 추출로 state 를 만들지 않는다. 서버를 부르지 않는다(보안 점검 결정)
+            return KevOutcome(disabled_assist(), None, None, INJECTION_SUSPECTED)
         question_set = self._question_set(request.questionSetVersion)
         if question_set is None:
             return unavailable
         state = build_state(request, request.stateLanguage, self._dictionary)
         wire_request = kev_wire.build_request(
-            state, self._client.model_id or "", question_set.questions
+            state, self._client.request_model, question_set.questions
         )
         try:
-            response = self._client.answer(wire_request, request)
+            reply = self._client.answer(wire_request, request)
             assist = _assist(
-                kev_wire.parse_response(response, question_set.questions),
+                kev_wire.parse_response(reply.body, question_set.questions),
                 self._client,
                 question_set.version,
+                reply.request_id,
             )
         except (KevUnavailable, kev_wire.WireFormatError):
             return unavailable
         state_hash = hashlib.sha256(state.encode("utf-8")).hexdigest()
-        return KevOutcome(assist, state_hash, [response], None)
+        return KevOutcome(assist, state_hash, [reply.body], None)

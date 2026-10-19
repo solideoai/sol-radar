@@ -1,5 +1,6 @@
 # 프롬프트 인젝션 탐지 패턴(docs/03 §4.4 1·5단계, docs/09 프롬프트 인젝션 대응).
-# norm(docs/15 §5.1) 한 텍스트에 대소문자 무시로 대조한다. 텍스트는 바꾸지 않는다.
+# 가드 전용 정규화(norm 뒤 Unicode Cf 서식 문자 제거, sol_ai.guards.guard_norm) 텍스트에 대소문자 무시로 대조한다.
+# 텍스트는 바꾸지 않는다.
 # 휴리스틱이다. 통과가 안전을 보장하지 않는다. 방어의 본체는 "문서는 데이터, 출력은 스키마, 모델에 권한 없음"이다.
 # fixtures/bids 공고 20건 content 는 하나도 걸리지 않아야 한다(오탐 금지, tests/test_injection.py).
 version: injection-patterns/v0.1
@@ -18,6 +19,24 @@ patterns:
     regex: 이\s*공고를\s*(?:적합|참여)\s*(?:으로|로)?\s*(?:판정|평가|분류|표시)
   - id: ko-mark-all-satisfied
     regex: 모든\s*(?:자격|요건|요구\s*사항|조건)\s*(?:을|를|이|은)?\s*(?:충족|만족)\s*(?:으로|한\s*것으로)?\s*(?:표시|판정|처리|간주)
+  # M1(보안 점검) 보강
+  - id: en-forget-everything
+    regex: \bforget\s+(?:everything|all)\s+(?:above|before|prior)\b
+  - id: en-you-are-now
+    regex: \byou\s+are\s+now\b
+  - id: en-new-instructions
+    regex: \bnew\s+instructions?\b
+  - id: en-disregard-above
+    regex: \bdisregard\s+(?:the\s+)?above\b
+  - id: ko-new-instructions
+    regex: 새(?:로운)?\s*지시
+  - id: ko-from-now-you-are
+    regex: 지금부터\s*(?:너는|당신은|넌)
+  - id: ko-ignore-above
+    regex: 앞(?:의)?\s*(?:내용|지시(?:사항|문)?)\s*(?:을|를|은|는)?\s*무시
+  # 데이터 속 프롬프트 구분 태그(<document>·<notice>). 전각 ＜ 로 무력화한 것도 NFKC 가 < 로 되돌려 잡는다
+  - id: data-prompt-tag
+    regex: <\s*/?\s*(?:document|notice)\b
 
 # 출력 전용: restrictions·qualifications 에 근거(evidence=[]) 없이 값으로 나온 완화 문구
 relaxation:

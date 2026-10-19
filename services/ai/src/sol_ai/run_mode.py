@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 CHECKED_KEYS = ("DEMO_MODE", "AI_PROVIDER", "KEV_ENABLED")
+# M2(보안 점검): 한국어 state(평가 전용)는 hosted 공급자와 함께 쓸 수 없다. 모든 모드에 같은 판정이라 규칙 파일 밖에 둔다
+KO_STATE_KEY = "KEV_ALLOW_KO_STATE"
+KO_STATE_ON = "true"
 
 
 @dataclass(frozen=True)
@@ -36,7 +39,7 @@ def load_rules() -> dict:
 
 def rule_env_keys(rules: dict) -> set[str]:
     """판정에 쓰는 env 키 집합. 규칙 파일에서만 나온다(코드에 키를 따로 적지 않는다)."""
-    keys = {"SOL_RUN_MODE", rules["hostedApproval"]["key"], *CHECKED_KEYS}
+    keys = {"SOL_RUN_MODE", rules["hostedApproval"]["key"], KO_STATE_KEY, *CHECKED_KEYS}
     for spec in rules["modes"].values():
         keys.update(spec["forbidden"])
     return keys
@@ -48,7 +51,8 @@ def _given(value: str | None) -> str | None:
 
 
 def resolve_run_mode(env: Mapping[str, str], rules: dict) -> RunModeResult:
-    """판정 순서: SOL_RUN_MODE, DEMO_MODE, AI_PROVIDER, KEV_ENABLED, forbidden, hosted 승인.
+    """판정 순서: SOL_RUN_MODE, DEMO_MODE, AI_PROVIDER, KEV_ENABLED, forbidden, hosted + 한국어 state(M2),
+    hosted 승인.
 
     requiredSecrets 는 보지 않는다(gateway 는 서비스키를 받지 않는다. Node resolveRunMode 와 같다).
     """
@@ -69,6 +73,12 @@ def resolve_run_mode(env: Mapping[str, str], rules: dict) -> RunModeResult:
             violations.append(Violation(key, "FORBIDDEN_IN_MODE"))
 
     approval = rules["hostedApproval"]
+    if (
+        effective["AI_PROVIDER"] == approval["provider"]
+        and _given(env.get(KO_STATE_KEY)) == KO_STATE_ON
+    ):
+        violations.append(Violation(KO_STATE_KEY, "FORBIDDEN_WITH_HOSTED"))
+
     if (
         effective["AI_PROVIDER"] == approval["provider"]
         and approval["provider"] in spec["AI_PROVIDER"]
