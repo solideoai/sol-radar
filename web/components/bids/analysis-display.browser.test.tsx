@@ -11,7 +11,7 @@ import { ScoreFactors } from "@/components/bids/score-factors";
 import { ScoreGauge } from "@/components/bids/score-gauge";
 import { StageTimeline } from "@/components/bids/stage-timeline";
 import { FX01_PARTIAL_VIEW, FX01_VIEW, FX02_VIEW, FX03_VIEW } from "@/components/bids/test-data";
-import type { AnalysisView, KevView } from "@/server/bids";
+import type { AnalysisView, KevView, RequirementAssessmentView } from "@/server/bids";
 
 // 분석 표시 부품을 진짜 브라우저로 잰다. 컨테이너 폭은 상세 주 영역(1280 = 616px)과 776px(1440)이다.
 
@@ -148,6 +148,50 @@ describe("ScoreFactors", () => {
       />,
     );
     expect(text(host)).toContain("수행 상한 초과");
+  });
+});
+
+describe("ScoreFactors 동작", () => {
+  const longText = "설명".repeat(60);
+  const withText = (explanation: string, onOpenEvidence?: (ctx: unknown) => void) => (
+    <ScoreFactors
+      factors={FX02_VIEW.scoreBreakdown.map((f) =>
+        f.factor === "skillMatch"
+          ? { ...f, evidence: [FX03_VIEW.qualification.checks[1]!.evidence[0]!] }
+          : f,
+      )}
+      reviewFlags={[]}
+      explanation={explanation}
+      algorithmVersion="sol-v0.1.0"
+      profileRevision={2}
+      onOpenEvidence={onOpenEvidence}
+    />
+  );
+
+  it("100자를 넘는 설명은 접힌 채 시작해 펼치기로 풀린다", async () => {
+    const host = render(withText(longText));
+    const button = host.querySelector<HTMLButtonElement>("button[aria-expanded]")!;
+    const para = document.getElementById(button.getAttribute("aria-controls")!)!;
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(para.className).toContain("line-clamp-4");
+    await userEvent.click(page.getByRole("button", { name: "펼치기" }));
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(para.className).not.toContain("line-clamp-4");
+  });
+
+  it("100자 이하면 펼치기 버튼이 없다", () => {
+    const host = render(withText("짧은 설명"));
+    expect(host.querySelector("button[aria-expanded]")).toBeNull();
+  });
+
+  it("근거 버튼은 요소 라벨과 근거로 핸들러를 1회 부른다", async () => {
+    const onOpenEvidence = vi.fn();
+    render(withText("짧은 설명", onOpenEvidence));
+    await userEvent.click(page.getByRole("button", { name: "근거 1건" }));
+    expect(onOpenEvidence).toHaveBeenCalledTimes(1);
+    const ctx = onOpenEvidence.mock.calls[0]?.[0] as { title: string; evidence: unknown[] };
+    expect(ctx.title).toBe("기술 스택 적합");
+    expect(ctx.evidence).toHaveLength(1);
   });
 });
 
@@ -322,7 +366,81 @@ describe("KevOpinion", () => {
   });
 });
 
+describe("KevOpinion 항목별 분포", () => {
+  const base = FX01_VIEW.requirementAssessments[0]!;
+  const assessmentList: { assessment: RequirementAssessmentView; label: string }[] = [
+    { assessment: base, label: "소프트웨어사업자 신고" },
+    {
+      assessment: {
+        ...base,
+        itemId: "qualifications[1]",
+        ruleStatus: "NOT_SATISFIED",
+        flags: ["KEV_REQUIREMENT_DISAGREEMENT"],
+      },
+      label: "정보통신공사업 등록",
+    },
+  ];
+  const v02 = (qs: "kev-qs/v0.1" | "kev-qs/v0.2", assessments?: typeof assessmentList) => (
+    <KevOpinion
+      kev={{ ...FX01_VIEW.kev, questionSetVersion: qs }}
+      reviewFlags={[]}
+      recommendation="BID"
+      ruleReason={null}
+      errorCode={null}
+      assessments={assessments}
+    />
+  );
+
+  it("v0.2 이고 항목이 있으면 접힌 details 를 그리고 열면 행과 분포가 보인다", () => {
+    const host = render(v02("kev-qs/v0.2", assessmentList));
+    const details = host.querySelector("details")!;
+    expect(details.open).toBe(false);
+    expect(details.querySelector("summary")?.textContent).toContain("항목별 분포 2건");
+    details.querySelector("summary")!.click();
+    expect(details.open).toBe(true);
+    expect(details.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(text(details)).toContain("충족 86% · 미충족 4% · 확인 필요 10%");
+    expect(text(details)).toContain("소프트웨어사업자 신고");
+    expect(text(details).match(/항목 판정 상이/g)).toHaveLength(1);
+    expect(text(details)).toContain("미충족");
+  });
+
+  it("kev 분포가 없는 항목은 —를 보인다", () => {
+    const host = render(
+      v02("kev-qs/v0.2", [{ assessment: { ...base, kev: null }, label: "항목" }]),
+    );
+    expect(host.querySelector("tbody td:last-child")?.textContent).toBe("—");
+  });
+
+  it("v0.1 이거나 항목이 없으면 details 가 없다", () => {
+    expect(render(v02("kev-qs/v0.1", assessmentList)).querySelector("details")).toBeNull();
+    expect(render(v02("kev-qs/v0.2")).querySelector("details")).toBeNull();
+    expect(render(v02("kev-qs/v0.2", [])).querySelector("details")).toBeNull();
+  });
+});
+
 describe("AnalysisBanner", () => {
+  it("실패 배너의 재분석과 지연 배너의 새로고침은 핸들러가 있을 때만 그려지고 1회 불린다", async () => {
+    const onReanalyze = vi.fn();
+    const onRefresh = vi.fn();
+    const failed = { ...FX01_VIEW, status: "FAILED" as const, errorCode: "ANALYSIS_TIMEOUT" };
+    render(
+      <AnalysisBanner
+        analysis={failed}
+        bidStatus="OPEN"
+        delayed
+        onReanalyze={onReanalyze}
+        onRefresh={onRefresh}
+      />,
+    );
+    await userEvent.click(page.getByRole("button", { name: "재분석" }));
+    await userEvent.click(page.getByRole("button", { name: "새로고침" }));
+    expect(onReanalyze).toHaveBeenCalledTimes(1);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    const bare = render(<AnalysisBanner analysis={failed} bidStatus="OPEN" delayed />);
+    expect(bare.querySelectorAll("button")).toHaveLength(0);
+  });
+
   it("PARTIAL 은 09 고정 문장과 코드를 role=status 안에 보인다", () => {
     const host = render(<AnalysisBanner analysis={FX01_PARTIAL_VIEW} bidStatus="OPEN" />);
     const status = host.querySelector('[role="status"]');

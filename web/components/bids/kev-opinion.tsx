@@ -4,7 +4,7 @@ import { fitOutOfFive, formatPercent, formatSignal } from "@/components/bids/for
 import { KEV_RISK_LABEL, RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import { MeterBar } from "@/components/bids/meter-bar";
 import { StatusBadge } from "@/components/bids/status-badge";
-import type { KevView, Recommendation, ReviewFlag } from "@/server/bids";
+import type { KevView, Recommendation, RequirementAssessmentView, ReviewFlag } from "@/server/bids";
 
 // Kev 참고 지표(§5.4.7). 점수에 더하지 않는 보조 신호라 구역 테두리에 색을 더하지 않는다.
 // 고지 3줄은 09 고정이고 셋째 줄만 {kev.model}·{kev.questionSetVersion}·{kev.provider} 로 바뀐다.
@@ -14,6 +14,8 @@ type KevOpinionProps = {
   recommendation: Recommendation | null;
   ruleReason: string | null;
   errorCode: string | null;
+  // 항목 라벨은 화면이 extraction 의 itemId 경로로 풀어 넘긴다. 부품은 경로 조회를 하지 않는다.
+  assessments?: { assessment: RequirementAssessmentView; label: string }[];
 };
 
 const SIGNAL_THRESHOLD = 0.7;
@@ -54,7 +56,7 @@ function Signal({ label, value, threshold }: { label: string; value: number; thr
   );
 }
 
-function Body({ kev, reviewFlags, recommendation, ruleReason }: KevOpinionProps) {
+function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: KevOpinionProps) {
   const probabilities = kev.probabilities;
   const suggested = kev.suggestedOption;
   const disagree =
@@ -126,7 +128,7 @@ function Body({ kev, reviewFlags, recommendation, ruleReason }: KevOpinionProps)
           </p>
         )}
       </div>
-      <V02 kev={kev} />
+      <V02 kev={kev} assessments={assessments} />
       <div className="flex flex-col gap-0.5 type-caption text-muted-foreground">
         <p>이 의견은 Kev 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.</p>
         <p>충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.</p>
@@ -141,9 +143,74 @@ function Body({ kev, reviewFlags, recommendation, ruleReason }: KevOpinionProps)
 }
 
 // v0.2 필드(scores·risks·calibration)가 null 이 아니면 더 그린다.
-function V02({ kev }: { kev: KevView }) {
+const DISTRIBUTION_LABEL = [
+  ["SATISFIED", "충족"],
+  ["NOT_SATISFIED", "미충족"],
+  ["NEEDS_REVIEW", "확인 필요"],
+] as const;
+
+function AssessmentTable({
+  assessments,
+}: {
+  assessments: NonNullable<KevOpinionProps["assessments"]>;
+}) {
+  return (
+    <details className="group">
+      <summary className="cursor-pointer rounded-sm type-label text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        항목별 분포 {assessments.length}건 <span aria-hidden="true">▾</span>
+      </summary>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full min-w-0 text-left type-caption">
+          <thead className="text-muted-foreground">
+            <tr>
+              <th scope="col" className="py-1 pr-3 font-normal">
+                항목
+              </th>
+              <th scope="col" className="py-1 pr-3 font-normal">
+                규칙 판정
+              </th>
+              <th scope="col" className="py-1 font-normal">
+                Kev 분포
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {assessments.map(({ assessment, label }) => (
+              <tr key={assessment.itemId} className="align-top">
+                <td className="py-2 pr-3 text-foreground wrap-anywhere">{label}</td>
+                <td className="py-2 pr-3">
+                  <StatusBadge
+                    kind="qualification"
+                    value={assessment.ruleStatus}
+                    reasonCode={assessment.ruleReason}
+                    variant="inline"
+                  />
+                </td>
+                <td className="py-2 tabular-nums text-foreground">
+                  {assessment.kev === null
+                    ? "—"
+                    : DISTRIBUTION_LABEL.map(
+                        ([key, name]) =>
+                          `${name} ${formatPercent(assessment.kev?.distribution[key] ?? 0)}`,
+                      ).join(" · ")}
+                  {assessment.flags.includes("KEV_REQUIREMENT_DISAGREEMENT") && (
+                    <span className="ml-2 text-warning">항목 판정 상이</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
+function V02({ kev, assessments }: { kev: KevView; assessments?: KevOpinionProps["assessments"] }) {
   const { calibration, scores, risks } = kev;
-  if (calibration === null && scores === null && risks === null) return null;
+  const showAssessments =
+    kev.questionSetVersion === "kev-qs/v0.2" && assessments !== undefined && assessments.length > 0;
+  if (calibration === null && scores === null && risks === null && !showAssessments) return null;
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-3">
       {calibration !== null && (
@@ -190,6 +257,7 @@ function V02({ kev }: { kev: KevView }) {
           </ul>
         </div>
       )}
+      {showAssessments && <AssessmentTable assessments={assessments} />}
     </div>
   );
 }

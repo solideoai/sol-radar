@@ -1,4 +1,6 @@
+import { RefreshCwIcon } from "lucide-react";
 import { cn } from "cn";
+import { Button } from "@/components/ui/button";
 import { STATUS_ICON } from "@/components/bids/labels";
 import type { AnalysisView, BidStatus } from "@/server/bids";
 
@@ -25,9 +27,16 @@ const AI_UNAVAILABLE_TEXT =
 const MOCK_FALLBACK_TEXT =
   "모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)";
 
-type BannerSpec = { key: string; tone: Tone; text: string; codes: string[] };
+type BannerAction = { label: string; onClick: () => void; icon?: boolean };
+type BannerSpec = {
+  key: string;
+  tone: Tone;
+  text: string;
+  codes: string[];
+  action?: BannerAction;
+};
 
-function BannerRow({ tone, text, codes }: Omit<BannerSpec, "key">) {
+function BannerRow({ tone, text, codes, action }: Omit<BannerSpec, "key">) {
   const { icon: Icon, className } = TONE_ICON[tone];
   return (
     <div
@@ -48,6 +57,12 @@ function BannerRow({ tone, text, codes }: Omit<BannerSpec, "key">) {
           ))}
         </p>
       )}
+      {action !== undefined && (
+        <Button type="button" variant="outline" size="sm" onClick={action.onClick}>
+          {action.icon === true && <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />}
+          {action.label}
+        </Button>
+      )}
     </div>
   );
 }
@@ -56,6 +71,7 @@ function specsFor(
   analysis: AnalysisView | null,
   bidStatus: BidStatus,
   delayed: boolean,
+  handlers: Pick<AnalysisBannerProps, "onReanalyze" | "onRefresh">,
 ): BannerSpec[] {
   const specs: BannerSpec[] = [];
   if (bidStatus === "CANCELLED") {
@@ -92,10 +108,23 @@ function specsFor(
       tone: "destructive",
       text: "분석에 실패했습니다.",
       codes: analysis.errorCode === null ? [] : [analysis.errorCode],
+      action:
+        handlers.onReanalyze === undefined
+          ? undefined
+          : { label: "재분석", onClick: handlers.onReanalyze, icon: true },
     });
   }
   if (delayed) {
-    specs.push({ key: "delayed", tone: "warning", text: "분석이 지연되고 있습니다.", codes: [] });
+    specs.push({
+      key: "delayed",
+      tone: "warning",
+      text: "분석이 지연되고 있습니다.",
+      codes: [],
+      action:
+        handlers.onRefresh === undefined
+          ? undefined
+          : { label: "새로고침", onClick: handlers.onRefresh },
+    });
   }
   return specs;
 }
@@ -104,10 +133,18 @@ type AnalysisBannerProps = {
   analysis: AnalysisView | null;
   bidStatus: BidStatus;
   delayed?: boolean;
+  onReanalyze?: () => void;
+  onRefresh?: () => void;
 };
 
-function AnalysisBanner({ analysis, bidStatus, delayed = false }: AnalysisBannerProps) {
-  const specs = specsFor(analysis, bidStatus, delayed);
+function AnalysisBanner({
+  analysis,
+  bidStatus,
+  delayed = false,
+  onReanalyze,
+  onRefresh,
+}: AnalysisBannerProps) {
+  const specs = specsFor(analysis, bidStatus, delayed, { onReanalyze, onRefresh });
   if (specs.length === 0) return null;
   return (
     <div className="flex flex-col gap-2">
