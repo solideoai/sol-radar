@@ -1,13 +1,13 @@
 ---
 title: "구현 계획 — C6 화면 B단계 (main 병합 뒤)"
 doc: "plan-c6-screens-b"
-status: draft
+status: active
 tags:
   - sol-radar
   - ui
   - hackathon
 created: 2026-10-19
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # C6 화면 B단계 구현 계획
@@ -271,7 +271,7 @@ return `${c}.${op}.${v},and(${c}.eq.${v},id.gt.${q(after.id)}),${c}.is.null`;
 - `dashboard.load`: `bid_notices`(origin 필터)에 `score_runs(id,status,recommendation,review_flags,created_at)`·`bid_reviews(decision,disagreement_flag,decided_at)`를 붙여 읽는다. 상태는 `effectiveStatus`로 바꾼다. 신선도는 `rpc("latest_ingest_run",{p_origin})`, 안 읽은 수는 `notifications` `count: "exact", head: true` + `read_at is null`, `ai`는 `config.aiStatus()`다.
 
 - [ ] **Step 1: 실패하는 시험을 쓴다.** `vi.mock("@/server/supabase")`로 호출을 기록하는 가짜 클라이언트를 쓴다(체인 메서드를 `{method,args}` 배열로 남기고 정해 둔 응답을 준다).
-  - `postgrest.test.ts`: `likePattern('a,b)"c%')`를 `quoteValue`로 감싼 값이 `"*a,b)\"c\%*"`다. `uniqueViolation({code:"23505", message:'… "score_runs_active_input_key"'}) === "ACTIVE_INPUT"`, `code:"23503"`이면 null이다. `keysetFilter("scored_score","desc",{sortValue:null,id:"x",…})`가 `and(scored_score.is.null,id.gt."x")`다.
+  - `postgrest.test.ts`: `likePattern('a,b)"c%')`를 `quoteValue`로 감싼 값이 `"*a,b)\"c\\%*"`다. `uniqueViolation({code:"23505", message:'… "score_runs_active_input_key"'}) === "ACTIVE_INPUT"`, `code:"23503"`이면 null이다. `keysetFilter("scored_score","desc",{sortValue:null,id:"x",…})`가 `and(scored_score.is.null,id.gt."x")`다.
   - `bids.supabase.test.ts`
     - "q 예약 문자": `q="a,b)"`의 `or` 인자가 정확히 세 조건이다.
     - `createAnalysisRun`의 insert 열 집합이 위 목록과 같다.
