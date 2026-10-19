@@ -259,8 +259,13 @@ const bypassesQuery = `
 //   로그인 역할만 실행하고, 함수 안에서 운영자(is_admin())가 아니면 권한 오류를 낸다. 이유는 같은 마이그레이션에 있다.
 // - public.resolve_solideo_employment(text, text): 비멤버의 자기 신고를 위해 고정 솔리데오 카탈로그의
 //   코드·표시명·UUID만 변환한다. 조직 입력·인원·권한은 없고 프로필 쓰기는 본인 RLS를 거친다.
+// - public.my_sol_org_ids(text[]): SOL RADAR 의 업무 역할(memberships.sol_role) 정책 도우미. 구성원·초대·회사 프로필·
+//   분석 요청·결정·감사 정책이 org_id in (select public.my_sol_org_ids(array['ADMIN'])) 처럼 부른다. my_org_ids() 와
+//   같은 이유로 security definer 이고(정책 안에서 memberships 를 다시 읽는 재귀), 로그인 역할만 실행하며, 부른 사람
+//   자신이 그 역할로 속한 조직의 id 만 돌려준다. 이유는 20261019000001 마이그레이션 주석에 있다.
 const ALLOWED_DEFINER_FUNCTIONS = new Set([
   "public.resolve_solideo_employment(text, text)",
+  "public.my_sol_org_ids(text[])",
   "public.is_admin()",
   "public.my_org_ids()",
   "public.my_owner_org_ids()",
