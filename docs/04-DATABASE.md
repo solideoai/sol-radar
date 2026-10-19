@@ -109,7 +109,7 @@ erDiagram
 
 Phase 1 조직·사용자 결정(마이그레이션 머리 주석의 "§3.1 결정 N"이 이 번호다):
 1. 개인 조직과 현재 조직: 위 `profiles` 행과 [[05-API-SPEC|05 API 명세]] §1 현재 조직([[16-DECISIONS|ADR-021]]).
-2. 구성원 관리 권한: `sol_role='ADMIN'` 기준(위 `memberships`·`invitations` 행, ADR-021).
+2. 구성원 관리 권한: `sol_role='ADMIN'` 기준(위 `memberships`·`invitations` 행, ADR-021). 사용자 요청으로 마지막 업무 ADMIN을 강등하거나 내보낼 수 없다(`last_admin`). 같은 조직 행을 잠가 동시 변경을 직렬화하고, 일괄 변경도 ADMIN을 0명으로 만들 수 없다. 계정 탈퇴는 JWT를 비우기 전에 `auth.users → profiles → organizations` 순서로 행을 잠그고 검사한다. 멤버십의 프로필 FK 잠금과 충돌시켜 검사 뒤 다른 세션이 새 조직에 가입하는 경로도 막는다. 혼자인 조직의 계정 탈퇴·조직 삭제와 JWT 없는 관리 작업·service role은 기존 관리 경로를 유지한다. 구현은 조정 세션(e8)이 배정한 새 마이그레이션 `20261019000014`다.
 3. 비활성화: 조직 ADMIN의 비활성화는 그 조직에서 내보내기다([[05-API-SPEC|05 API 명세]] §2 `DELETE /admin/users/:id`, [[09-SECURITY|09 보안]] 인증). 계정 정지(`profiles.status`)는 서비스 운영자만 `admin_set_user_status`로 한다.
 4. 로그인 감사: `audit_logs`의 `LOGIN`·`LOGOUT`을 남길 지점은 [[16-DECISIONS|16 ADR]] 미결정 14번이다.
 

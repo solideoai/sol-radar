@@ -641,6 +641,7 @@ const analysisFakes = {
   workers: [] as RecordedBullClient[],
   queues: [] as RecordedBullClient[],
   log: [] as string[],
+  documentJobs: [] as unknown[],
 };
 
 const fakeConnection = (label: string): FakeConnection => {
@@ -661,12 +662,13 @@ const fakeConnection = (label: string): FakeConnection => {
   };
 };
 
-const loadMainWithAnalysisFakes = async () => {
+const loadMainWithAnalysisFakes = async (pendingDocuments: object[] = []) => {
   vi.resetModules();
   analysisFakes.redis = [];
   analysisFakes.workers = [];
   analysisFakes.queues = [];
   analysisFakes.log = [];
+  analysisFakes.documentJobs = [];
   vi.doMock("bullmq", async (importOriginal) => {
     const original = await importOriginal<typeof import("bullmq")>();
     const record = (list: RecordedBullClient[], queueName: string, connection: unknown) => {
@@ -684,12 +686,15 @@ const loadMainWithAnalysisFakes = async () => {
     class Queue {
       readonly close: Mock<() => Promise<undefined>>;
       readonly on = vi.fn();
-      readonly add = vi.fn(async () => undefined);
+      readonly add: Mock<(...args: unknown[]) => Promise<void>>;
       readonly getJobState = vi.fn(async () => "unknown");
       readonly upsertJobScheduler = vi.fn(async () => undefined);
       readonly removeJobScheduler = vi.fn(async () => false);
       constructor(queueName: string, options: { connection?: unknown } = {}) {
         this.close = record(analysisFakes.queues, queueName, options.connection);
+        this.add = vi.fn(async (...args: unknown[]) => {
+          if (queueName === "documents") analysisFakes.documentJobs.push(args);
+        });
       }
     }
     return { ...original, Worker, Queue };
@@ -707,8 +712,11 @@ const loadMainWithAnalysisFakes = async () => {
   // service role 클라이언트는 진짜 supabase-js 로 만들되 fetch 만 빈 목록을 돌려주는 가짜로 바꾼다(복구 회차가 score_runs 를 읽는다).
   vi.doMock("@supabase/supabase-js", async (importOriginal) => {
     const original = await importOriginal<typeof import("@supabase/supabase-js")>();
-    const fakeFetch: typeof fetch = async () =>
-      new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+    const fakeFetch: typeof fetch = async (input) =>
+      new Response(
+        JSON.stringify(String(input).includes("/bid_documents?") ? pendingDocuments : []),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
     return {
       ...original,
       createClient: vi.fn((url: string, key: string) =>
@@ -854,6 +862,28 @@ describe("analysisWorkerRegistration (C5-B)", () => {
   });
 
   describe("기본 createWorker 와 함께", () => {
+    it("ingest 등록이 기동 시 저장된 PENDING 문서를 documents 큐로 복구한다", async () => {
+      const main = await loadMainWithAnalysisFakes([
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          bid_id: "00000000-0000-4000-8000-000000000002",
+          revision_id: "00000000-0000-4000-8000-000000000003",
+        },
+      ]);
+      opened.push(await startDefault(main, analysisEnv));
+      await vi.waitFor(() => {
+        expect(analysisFakes.documentJobs).toEqual([
+          [
+            "fetch",
+            {
+              bidId: "00000000-0000-4000-8000-000000000002",
+              revisionId: "00000000-0000-4000-8000-000000000003",
+            },
+            { jobId: "documents-00000000-0000-4000-8000-000000000003" },
+          ],
+        ]);
+      });
+    });
     const startDefault = (
       main: Awaited<ReturnType<typeof loadMainWithAnalysisFakes>>,
       workerEnvRecord: Record<string, string | undefined>,

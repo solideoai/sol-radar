@@ -55,6 +55,155 @@ const accessSnapshot = async (pglite) => ({
 const db = await createSupabaseDb();
 const asUser = (id, role) => actAs(db, id, role);
 
+describe("마지막 업무 ADMIN 보호", () => {
+  const orgId = "adc00000-0000-4000-8000-000000000001";
+  const prepare = async (t, secondAdmin = false) => {
+    const fresh = await migratedDb(t);
+    await fresh.query(
+      "insert into public.organizations (id,slug,name) values ($1,'admin-guard','관리자 보호')",
+      [orgId],
+    );
+    // owner 보호와 업무 ADMIN 보호를 독립적으로 검증한다.
+    for (const [index, role] of ["ADMIN", secondAdmin ? "ADMIN" : "VIEWER", "VIEWER"].entries()) {
+      await fresh.query(
+        "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,$3,$4)",
+        [orgId, users[index], index === 2 ? "owner" : "member", role],
+      );
+    }
+    await actAs(fresh, users[0]);
+    return fresh;
+  };
+  const lastAdmin = (error) => error.code === "P0001" && error.hint === "last_admin";
+
+  it("마지막 ADMIN은 자기 업무 역할을 내리지 못한다", async (t) => {
+    const fresh = await prepare(t);
+    await assert.rejects(
+      fresh.query(
+        "update public.memberships set sol_role='VIEWER' where org_id=$1 and user_id=$2",
+        [orgId, users[0]],
+      ),
+      lastAdmin,
+    );
+    assert.equal(
+      (
+        await fresh.query(
+          "select sol_role from public.memberships where org_id=$1 and user_id=$2",
+          [orgId, users[0]],
+        )
+      ).rows[0].sol_role,
+      "ADMIN",
+    );
+  });
+
+  it("다른 멤버가 남는 조직의 마지막 ADMIN은 스스로 나가지 못한다", async (t) => {
+    const fresh = await prepare(t);
+    await assert.rejects(
+      fresh.query("delete from public.memberships where org_id=$1 and user_id=$2", [
+        orgId,
+        users[0],
+      ]),
+      lastAdmin,
+    );
+  });
+
+  for (const operation of ["update", "delete"]) {
+    it(`ADMIN 둘을 한 문장으로 ${operation}해도 마지막 ADMIN을 없애지 못한다`, async (t) => {
+      const fresh = await prepare(t, true);
+      const sql =
+        operation === "update"
+          ? "update public.memberships set sol_role='VIEWER' where org_id=$1 and sol_role='ADMIN'"
+          : "delete from public.memberships where org_id=$1 and sol_role='ADMIN'";
+      await assert.rejects(fresh.query(sql, [orgId]), lastAdmin);
+      assert.equal(
+        (
+          await fresh.query(
+            "select count(*)::int n from public.memberships where org_id=$1 and sol_role='ADMIN'",
+            [orgId],
+          )
+        ).rows[0].n,
+        2,
+      );
+    });
+  }
+
+  it("다른 ADMIN이 있으면 자기 강등·탈퇴를 허용하고 남은 마지막 ADMIN은 보호한다", async (t) => {
+    const fresh = await prepare(t, true);
+    await fresh.query(
+      "update public.memberships set sol_role='VIEWER' where org_id=$1 and user_id=$2",
+      [orgId, users[0]],
+    );
+    await fresh.query("select public.delete_my_account()");
+    await actAs(fresh, users[1]);
+    await assert.rejects(
+      fresh.query(
+        "update public.memberships set sol_role='VIEWER' where org_id=$1 and user_id=$2",
+        [orgId, users[1]],
+      ),
+      lastAdmin,
+    );
+  });
+
+  it("계정 탈퇴가 JWT를 비우기 전에 마지막 ADMIN을 보호하고 계정·멤버십·JWT를 보존한다", async (t) => {
+    const fresh = await prepare(t);
+    await assert.rejects(fresh.query("select public.delete_my_account()"), lastAdmin);
+    assert.equal((await fresh.query("select auth.uid() id")).rows[0].id, users[0]);
+    assert.equal(
+      (
+        await fresh.query(
+          "select count(*)::int n from public.memberships where org_id=$1 and user_id=$2",
+          [orgId, users[0]],
+        )
+      ).rows[0].n,
+      1,
+    );
+    assert.equal(
+      (await fresh.query("select count(*)::int n from public.profiles where id=$1", [users[0]]))
+        .rows[0].n,
+      1,
+    );
+  });
+
+  it("다른 멤버에게 ADMIN을 넘기면 기존 ADMIN은 나갈 수 있다", async (t) => {
+    const fresh = await prepare(t);
+    await fresh.query(
+      "update public.memberships set sol_role='ADMIN' where org_id=$1 and user_id=$2",
+      [orgId, users[1]],
+    );
+    await fresh.query("delete from public.memberships where org_id=$1 and user_id=$2", [
+      orgId,
+      users[0],
+    ]);
+    await actAs(fresh, users[1]);
+    assert.equal(
+      (
+        await fresh.query(
+          "select count(*)::int n from public.memberships where org_id=$1 and sol_role='ADMIN'",
+          [orgId],
+        )
+      ).rows[0].n,
+      1,
+    );
+  });
+
+  it("혼자인 조직은 계정 탈퇴와 함께 지울 수 있다", async (t) => {
+    const fresh = await prepare(t);
+    await fresh.exec("reset role");
+    await fresh.query("select set_config('request.jwt.claims','',false)");
+    await fresh.query("delete from public.memberships where org_id=$1 and user_id<>$2", [
+      orgId,
+      users[0],
+    ]);
+    await fresh.query("update public.memberships set org_role='owner' where org_id=$1", [orgId]);
+    await actAs(fresh, users[0]);
+    await fresh.query("select public.delete_my_account()");
+    assert.equal(
+      (await fresh.query("select count(*)::int n from public.organizations where id=$1", [orgId]))
+        .rows[0].n,
+      0,
+    );
+  });
+});
+
 // 흉내 DB 의 PostgreSQL 버전. maintain 권한은 17 부터 있다.
 const pgVersion = (await db.query("select current_setting('server_version_num')::int as version"))
   .rows[0].version;
@@ -1144,8 +1293,9 @@ describe("조직·멤버십·초대 정책", () => {
   it("owner 둘을 한 문장으로 함께 내리거나 내보내도 owner 가 0명이 되지 않는다", async (t) => {
     const { pglite, acme } = await teamDb(t);
     await as(pglite, 0);
+    // ADMIN도 둘이어야 첫 삭제는 통과하고 마지막 owner 보호를 독립적으로 검증한다.
     await pglite.query(
-      "update public.memberships set org_role = 'owner' where org_id = $1 and user_id = $2",
+      "update public.memberships set org_role = 'owner', sol_role = 'ADMIN' where org_id = $1 and user_id = $2",
       [acme, users[1]],
     );
     await assert.rejects(
@@ -2679,8 +2829,9 @@ describe("조직·멤버십·초대 정책", () => {
     it("owner 가 둘인 팀은 한 owner 의 탈퇴를 막지 않는다 — 팀은 남은 owner 와 그대로다", async (t) => {
       const { pglite, acme } = await teamDb(t);
       await as(pglite, 0);
+      // 계정을 지우기 전에 남은 owner에게 업무 ADMIN도 인계한다.
       await pglite.query(
-        "update public.memberships set org_role = 'owner' where org_id = $1 and user_id = $2",
+        "update public.memberships set org_role = 'owner', sol_role = 'ADMIN' where org_id = $1 and user_id = $2",
         [acme, users[1]],
       );
       await deleteMe(pglite);

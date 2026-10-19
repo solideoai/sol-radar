@@ -298,7 +298,8 @@ export type MembershipChangeResult =
   | { status: "signed-out" }
   // 소유자가 아니거나 이미 없는 멤버다(정책이 걸러 바뀐 행이 없다).
   | { status: "forbidden" }
-  | { status: "last-owner" };
+  | { status: "last-owner" }
+  | { status: "last-admin" };
 
 export type InvitationChangeResult = { status: "done" } | { status: "signed-out" };
 

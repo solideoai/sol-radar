@@ -1,4 +1,6 @@
 import "server-only";
+export { createPendingDocumentFinder } from "./pending-documents.repo";
+export type { PendingDocument, PendingDocumentFinder } from "./pending-documents.repo";
 
 // ── 배럴: ingestion 도메인의 공개 API. 바깥(worker·seed)은 @/server/ingestion 만 부른다 ──
 // 테스트용 메모리 저장소(ingestion.repo.memory.ts)는 내보내지 않는다.

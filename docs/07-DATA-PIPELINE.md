@@ -436,6 +436,10 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 
 상세 승인 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md). JSON 4개·사진 200장(manifest READY 200, 사람 승인 2026-10-17)·`pnpm people:seed`·가입 폼은 구현됐다([[PROGRESS]]). 상위 부서가 확인되지 않은 29개 부서는 `parentId: null`로 남아 있고, 인력 배정 API는 기존대로 P1이다.
 
+## 문서 큐 등록 복구
+
+공고 저장과 함께 생성하는 `bid_documents.download_status='PENDING'` 행을 문서 처리의 영속 상태로 사용한다. 저장 뒤 `documents` 큐 등록에 실패하거나 worker가 중단되어도 이 행은 남는다. ingest worker는 기동 시와 60초마다 미처리 첨부를 ID 순 keyset 페이지(100행)로 읽고 revision별 `documents-<revisionId>` job을 등록한다. 같은 job ID로 등록하므로 대기·진행 중 작업은 중복 생성하지 않는다. 큐·DB 장애는 다음 회차에 재시도하며 첨부 상태를 완료로 바꾸지 않는다. 페이지 커서는 다음 회차로 이어 첫 페이지에 대기 중인 첨부가 많아도 뒤 페이지에 도달하고, 끝에 도달하면 처음부터 다시 훑는다. 복구기는 worker 종료 시 진행 중 회차를 마친 뒤 큐보다 먼저 멈춘다. 다운로드·파싱 소비자의 구현은 별도 범위다.
+
 ## 관련 문서
 
 - [[15-DATA-CONTRACTS|15 데이터 계약]] — `NormalizedBid`, `fieldState`, 수집 소스 registry

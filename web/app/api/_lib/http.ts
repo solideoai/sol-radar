@@ -20,6 +20,7 @@ export type ApiErrorCode =
   | "not_found"
   | "conflict"
   | "sole_owner"
+  | "sole_admin"
   | "last_identity"
   | "self"
   | "admin_target"
