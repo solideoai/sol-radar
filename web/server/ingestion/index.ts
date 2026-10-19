@@ -182,7 +182,7 @@ export type {
 
 // demo:reset 의 SEED 적재 진입점
 export { FIXTURE_ANCHOR_PARAM, SEED_ANCHOR_MISSING, runIngest } from "./ingestion.service";
-export type { IngestRunResult, RunIngestInput, SavedBidRevision } from "./ingestion.service";
+export type { IdFor, IngestRunResult, RunIngestInput, SavedBidRevision } from "./ingestion.service";
 
 // ── Stage 3: 나라장터 입찰공고 목록(OfficialApiConnector) ──
 export {
@@ -226,3 +226,30 @@ export {
   parseRecordedResponse,
 } from "./recorded-api";
 export type { RecordedResponse } from "./recorded-api";
+
+// ── Stage 6: 큐·수집 소스 registry ──
+export {
+  DOCUMENTS_JOB_NAME,
+  DOCUMENTS_QUEUE,
+  INGEST_JOB_NAME,
+  INGEST_QUEUE,
+  documentsJobDataSchema,
+  enqueueDocuments,
+  enqueueIngestRun,
+  ingestJobDataSchema,
+  toBullJobId,
+} from "./ingestion.queue";
+export type { DocumentsJobData, IngestJobData, JobQueue } from "./ingestion.queue";
+export {
+  APPROVAL_STATUSES,
+  SOURCE_REGISTRY_SCHEMA_VERSION,
+  callableSource,
+  loadSourceRegistry,
+  sourceRegistrySchema,
+} from "./source-registry";
+export type {
+  CallableSource,
+  CallableSourceResult,
+  SourceEntry,
+  SourceRegistry,
+} from "./source-registry";

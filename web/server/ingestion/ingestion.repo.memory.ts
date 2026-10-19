@@ -22,6 +22,13 @@ import type { BidEvent, FieldChange } from "./revision";
 // - ingest_runs: UNIQUE(job_key) → 같은 jobKey 의 run 을 돌려준다. params 는 처음 시작할 때 받은 값을 그대로 둔다
 //   (이어 가는 run 이 처음 정한 fixture anchor 를 다시 쓰게, C3 계약 Stage 5-B)
 // 계약 Stage 5-B 의 StartedRun.params·findLatestSeedAnchor 는 교차 타입으로 더해, 포트가 바뀌기 전에도 뒤에도 컴파일된다.
+//
+// saveRevision 은 RPC ingest_save_revision(C3 계약 6-1)의 거부 규칙을 흉내 낸다. 오류 메시지는 RPC 의 코드로 시작한다.
+// - revision 1 인데 같은 (source, notice_id) 가 이미 있다 → INGEST_BID_EXISTS
+// - revision > 1 인데 공고가 없다 → INGEST_BID_NOT_FOUND
+// - ids.bidId 를 줬는데 저장된 bid 의 id 와 다르다 → INGEST_BID_ID_MISMATCH
+// - 저장된 latest_revision 이 revision − 1 이 아니다 → INGEST_REVISION_CONFLICT
+// ids(6-2)를 주면 그 id 를 쓰고, 없으면 bid-N·rev-N 을 만든다. findLatestRunWindowEnd(6-2)도 교차 타입으로 더한다.
 
 export type MemoryBid = {
   bidId: string;
@@ -82,6 +89,21 @@ export type MemoryIngestionRepo = IngestionRepo & {
   startRun(input: StartRunInput): Promise<MemoryStartedRun>;
   /** source 의 SEED run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(시작 순서) run 의 params.anchor. ISO 가 아니면 null */
   findLatestSeedAnchor(source: "fixture"): Promise<Date | null>;
+  /** source 의 run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(시작 순서) run 의 params.window.to. ISO 가 아니면 null */
+  findLatestRunWindowEnd(source: "g2b"): Promise<Date | null>;
+};
+
+/** C3 계약 6-2 SaveRevisionInput.ids. 포트에 생기기 전에도 읽을 수 있게 따로 꺼낸다 */
+export type MemorySaveIds = { bidId?: string; revisionId?: string };
+
+const idsOf = (input: SaveRevisionInput): MemorySaveIds => {
+  const ids: unknown = "ids" in input ? input.ids : undefined;
+  if (typeof ids !== "object" || ids === null) return {};
+  const pick = (key: "bidId" | "revisionId"): string | undefined => {
+    const value: unknown = key in ids ? (ids as Record<string, unknown>)[key] : undefined;
+    return typeof value === "string" ? value : undefined;
+  };
+  return { bidId: pick("bidId"), revisionId: pick("revisionId") };
 };
 
 export const memoryBidKey = (source: string, noticeId: string): string => `${source}:${noticeId}`;
@@ -111,6 +133,17 @@ const isoDateOf = (value: unknown): Date | null =>
     : null;
 
 const FINISHED_SEED_STATUSES: ReadonlySet<IngestRunStatus> = new Set(["SUCCEEDED", "PARTIAL"]);
+
+// 수집 창 끝(params.window.to)은 ISO 8601(오프셋 포함)이면 받는다.
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/;
+const windowEndOf = (params: Record<string, unknown> | null): Date | null => {
+  const window: unknown = params?.window;
+  if (typeof window !== "object" || window === null || !("to" in window)) return null;
+  const to: unknown = window.to;
+  return typeof to === "string" && ISO_INSTANT.test(to) && !Number.isNaN(Date.parse(to))
+    ? new Date(Date.parse(to))
+    : null;
+};
 
 export function createMemoryIngestionRepo(): MemoryIngestionRepo {
   const state: MemoryIngestionState = {
@@ -161,6 +194,13 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       return latest ? isoDateOf(latest.input.params?.anchor) : null;
     },
 
+    async findLatestRunWindowEnd(source) {
+      const latest = [...state.runs.values()]
+        .filter((run) => run.input.source === source && FINISHED_SEED_STATUSES.has(run.status))
+        .at(-1);
+      return latest ? windowEndOf(latest.input.params) : null;
+    },
+
     async findLatestRevision(source, noticeId) {
       const bid = state.bids.get(memoryBidKey(source, noticeId));
       if (!bid) return null;
@@ -176,12 +216,23 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       };
     },
 
-    async saveRevision({ decision, rawPayload }) {
+    async saveRevision(input) {
+      const { decision, rawPayload } = input;
+      const ids = idsOf(input);
       const normalized = structuredClone(decision.bid);
       const key = memoryBidKey(normalized.source, normalized.noticeId);
       const existing = state.bids.get(key);
+      if (normalized.revision === 1 && existing) throw new Error(`INGEST_BID_EXISTS ${key}`);
+      if (normalized.revision > 1 && !existing) throw new Error(`INGEST_BID_NOT_FOUND ${key}`);
+      if (existing && ids.bidId !== undefined && ids.bidId !== existing.bidId) {
+        throw new Error(`INGEST_BID_ID_MISMATCH ${key}`);
+      }
+      if (existing && existing.latestRevision !== normalized.revision - 1) {
+        throw new Error(`INGEST_REVISION_CONFLICT ${key} r${normalized.revision}`);
+      }
       const bidId =
         existing?.bidId ??
+        ids.bidId ??
         (() => {
           counters.bid += 1;
           return `bid-${counters.bid}`;
@@ -194,8 +245,12 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
           `메모리 저장소: bid_revisions(bid_id, revision) 유일 제약 위반 ${key} r${normalized.revision}`,
         );
       }
-      counters.revision += 1;
-      const revisionId = `rev-${counters.revision}`;
+      const revisionId =
+        ids.revisionId ??
+        (() => {
+          counters.revision += 1;
+          return `rev-${counters.revision}`;
+        })();
       state.revisions.push({
         revisionId,
         bidId,

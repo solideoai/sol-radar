@@ -1746,6 +1746,10 @@ export type Database = {
         Args: { meta: Json }
         Returns: string
       }
+      ingest_save_revision: {
+        Args: { p: Json }
+        Returns: { bid_id: string; revision_id: string }[]
+      }
       is_active_user: {
         Args: never
         Returns: boolean

@@ -138,6 +138,7 @@ describe("runIngest — g2b 신규 공고", () => {
     });
 
     // 계약 5-D: checksum 은 저장한 revision 의 checksum, g2b 레코드의 fixtureId 는 null.
+    // 계약 6-2: attachmentCount 는 중복 제거한 첨부 url 수(noticeRow 는 ntceSpecDocUrl1 하나).
     const [stored] = memoryRevisionsOf(repo, "g2b-bid-notice", NOTICE_NO);
     expect(result.saved).toEqual([
       {
@@ -148,6 +149,7 @@ describe("runIngest — g2b 신규 공고", () => {
         reanalyze: true,
         checksum: stored?.checksum,
         fixtureId: null,
+        attachmentCount: 1,
       },
     ]);
   });
@@ -274,6 +276,7 @@ describe("runIngest — g2b 재수집·취소", () => {
     );
 
     // 계약 5-D: checksum 은 저장한 revision 2 의 checksum, g2b 레코드의 fixtureId 는 null.
+    // 계약 6-2: attachmentCount 는 중복 제거한 첨부 url 수(취소공고 행도 ntceSpecDocUrl1 하나).
     const [, cancelledRevision] = memoryRevisionsOf(repo, "g2b-bid-notice", NOTICE_NO);
     expect(second.saved).toEqual([
       {
@@ -284,6 +287,7 @@ describe("runIngest — g2b 재수집·취소", () => {
         reanalyze: false,
         checksum: cancelledRevision?.checksum,
         fixtureId: null,
+        attachmentCount: 1,
       },
     ]);
   });

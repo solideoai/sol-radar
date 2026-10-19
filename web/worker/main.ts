@@ -1,7 +1,9 @@
-import { Worker } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
+import { INGEST_JOB_NAME, INGEST_QUEUE } from "@/server/ingestion";
 import { readWorkerEnv, type WorkerEnv } from "@/worker/env";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
+import { processIngestJob, type IngestJobDeps } from "@/worker/ingest-queue";
 import { checkReadiness, createReadinessProbes } from "@/worker/readiness";
 import { SYSTEM_QUEUE, processSystemJob } from "@/worker/system-queue";
 
@@ -45,15 +47,60 @@ async function checkReadinessWithCodes(env: WorkerEnv): Promise<void> {
   }
 }
 
+// 오류 이름과 코드만 남긴다. message·job data 는 접속 문자열·요청자 id 를 담을 수 있다.
+function logWorkerErrors(worker: Worker): void {
+  worker.on("error", (error) => {
+    const code = errorCode(error);
+    console.error(code ? `worker 오류: ${error.name} ${code}` : `worker 오류: ${error.name}`);
+  });
+}
+
+export const G2B_SCHEDULER_ID = "g2b-scheduled";
+
+/** live 모드의 g2b 일정 실행(6-4). 같은 id 로 다시 부르면 간격만 바뀐다(upsert). 반복 job 의 data 는 고정이다. */
+export async function scheduleG2bIngest(
+  queue: Pick<Queue, "upsertJobScheduler">,
+  intervalMinutes: number,
+): Promise<void> {
+  await queue.upsertJobScheduler(
+    G2B_SCHEDULER_ID,
+    { every: intervalMinutes * 60_000 },
+    {
+      name: INGEST_JOB_NAME,
+      data: { source: "g2b", trigger: "SCHEDULED", jobKey: "g2b:SCHEDULED" },
+    },
+  );
+}
+
+/**
+ * ingest 큐 Worker(6-4). 저장소·connector·documents 큐·감사 기록은 deps 로 받는다.
+ * 기동(run)에 연결하는 것은 Supabase 저장소 구현(createSupabaseIngestionRepo, 6-2)이 들어온 뒤다.
+ */
+export async function createIngestWorker(
+  connection: IORedis,
+  deps: IngestJobDeps,
+  intervalMinutes: number,
+): Promise<{ close(): Promise<void> }> {
+  const worker = new Worker(INGEST_QUEUE, (job) => processIngestJob(job.data, deps), {
+    connection,
+  });
+  logWorkerErrors(worker);
+  const queue = new Queue(INGEST_QUEUE, { connection });
+  if (deps.runMode === "live") await scheduleG2bIngest(queue, intervalMinutes);
+  return {
+    async close() {
+      await worker.close();
+      await queue.close();
+    },
+  };
+}
+
 export const defaultWorkerDeps: WorkerDeps = {
   checkReadiness: checkReadinessWithCodes,
   createWorker: (env) => {
     const connection = new IORedis(env.redisUrl, { maxRetriesPerRequest: null });
     const worker = new Worker(SYSTEM_QUEUE, processSystemJob, { connection });
-    worker.on("error", (error) => {
-      const code = errorCode(error);
-      console.error(code ? `worker 오류: ${error.name} ${code}` : `worker 오류: ${error.name}`);
-    });
+    logWorkerErrors(worker);
     return {
       async close() {
         await worker.close();

@@ -4361,6 +4361,524 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
   });
 });
 
+// ────────────────────────────────────────────────────────────────
+// 수집 저장 함수 ingest_save_revision(p jsonb)(20261019000009) — 공고·revision·첨부·outbox 이벤트를 함수 하나(한 트랜잭션)로 쓴다.
+// 근거: C3 계약 Stage 6 › 6-1, docs/04-DATABASE.md §3.3·§3.6, docs/07-DATA-PIPELINE.md §5.
+// worker(service role)만 부른다. PGlite 에는 service_role 역할이 없어, 호출은 위 Phase 1 묶음처럼 화면 역할을 벗고
+// service_role claim 을 싣는 것으로 흉내 낸다. 실행 권한(grant)은 service_role 역할을 먼저 만든 DB 에서 따로 본다.
+// 모든 시험은 자기만 쓰는 새 DB 에서 돈다.
+// ────────────────────────────────────────────────────────────────
+describe("수집 저장 함수 — ingest_save_revision (C3 Stage 6)", () => {
+  const NOTICE_ID = "DEMO-2026-0101";
+  const BID = "b1d00000-0000-0000-0000-000000000101";
+  const OTHER_BID = "b1d00000-0000-0000-0000-000000000199";
+  const REV_1 = "be500000-0000-0000-0000-000000000101";
+  const REV_2 = "be500000-0000-0000-0000-000000000102";
+  const TABLES = ["bid_notices", "bid_revisions", "bid_documents", "outbox_events"];
+  const EMPTY = Object.fromEntries(TABLES.map((table) => [table, 0]));
+  const FUNCTION = "public.ingest_save_revision(jsonb)";
+  const DENIED = { code: "42501", message: /permission denied for function ingest_save_revision/ };
+
+  const NOTICE = {
+    source: "fixture",
+    notice_id: NOTICE_ID,
+    plan_ref: "PLAN-2026-0101",
+    pre_spec_ref: "PRE-2026-0101",
+    title: "클라우드 전환 컨설팅",
+    agency: "시험기관",
+    stage: "NOTICE",
+    status: "OPEN",
+    budget_krw: "1200000000",
+    published_at: "2026-10-19T00:00:00.000Z",
+    deadline_at: "2026-11-02T09:00:00.000Z",
+    source_url: "https://fixture.invalid/0101",
+    is_demo: true,
+  };
+  // original_url 순서로 둔다(읽을 때 그 순서로 정렬한다).
+  const DOCUMENTS = [
+    { name: "제안요청서.pdf", original_url: "https://fixture.invalid/0101/rfp.pdf" },
+    { name: "과업지시서.hwp", original_url: "https://fixture.invalid/0101/sow.hwp" },
+  ];
+  const eventTypeOf = (revision) => (revision === 1 ? "BID_CREATED" : "BID_CHANGED");
+  // 07 §5 의 멱등키 source+noticeId+revision+eventType.
+  const keyOf = (revision, source = NOTICE.source) =>
+    `${source}:${NOTICE_ID}:${revision}:${eventTypeOf(revision)}`;
+  const changedFieldsOf = (revision) => (revision === 1 ? [] : ["deadlineAt"]);
+
+  // 6-1 의 p. 차수마다 checksum·fetched_at·이벤트가 다르고, 시험마다 고칠 부분만 덮어쓴다.
+  const paramsOf = (
+    revision,
+    { ids = {}, notice = {}, rev = {}, documents = DOCUMENTS, event = {} } = {},
+  ) => ({
+    ...ids,
+    notice: { ...NOTICE, ...notice },
+    revision: {
+      revision,
+      amendment_no: revision === 1 ? null : String(revision - 1).padStart(2, "0"),
+      raw_payload: { fixtureId: "FX-01", noticeId: NOTICE_ID, revision },
+      normalized: { noticeId: NOTICE_ID, revision, title: notice.title ?? NOTICE.title },
+      checksum: `sum-0101-${revision}`,
+      changed_fields: changedFieldsOf(revision),
+      fetched_at: `2026-10-${18 + revision}T01:00:00.000Z`,
+      ...rev,
+    },
+    documents,
+    event: {
+      event_type: eventTypeOf(revision),
+      idempotency_key: keyOf(revision),
+      payload: {
+        source: NOTICE.source,
+        noticeId: NOTICE_ID,
+        revision,
+        kind: revision === 1 ? "CREATED" : "CHANGED",
+        changedFields: changedFieldsOf(revision),
+      },
+      ...event,
+    },
+  });
+
+  // worker 자리 — 화면 역할을 벗고 service_role claim 을 싣는다(Phase 1 묶음의 service_role 흉내와 같다).
+  const asServiceRole = async (pglite) => {
+    await pglite.exec("reset role");
+    await pglite.query("select set_config('request.jwt.claims', $1, false)", [
+      JSON.stringify({ role: "service_role" }),
+    ]);
+  };
+  // 지금 역할 그대로 부른다.
+  const call = async (pglite, p) =>
+    (
+      await pglite.query("select bid_id, revision_id from public.ingest_save_revision($1::jsonb)", [
+        JSON.stringify(p),
+      ])
+    ).rows;
+  const save = async (pglite, p) => {
+    await asServiceRole(pglite);
+    return call(pglite, p);
+  };
+  // 읽기는 화면 역할을 벗고 RLS 없이 본다.
+  const rowsOf = async (pglite, sql, params = []) => {
+    await pglite.exec("reset role");
+    return (await pglite.query(sql, params)).rows;
+  };
+  const countsOf = async (pglite) =>
+    (
+      await rowsOf(
+        pglite,
+        `select ${TABLES.map((table) => `(select count(*)::int from public.${table}) as ${table}`).join(", ")}`,
+      )
+    )[0];
+  const iso = (value) => (value === null ? null : value.toISOString());
+  const noticeRowsOf = async (pglite) =>
+    (
+      await rowsOf(
+        pglite,
+        `select id, source, notice_id, plan_ref, pre_spec_ref, title, agency, stage, status, budget_krw::text as budget_krw,
+           published_at, deadline_at, source_url, is_demo, latest_revision, content_hash, last_synced_at
+         from public.bid_notices order by source, notice_id`,
+      )
+    ).map((row) => ({
+      ...row,
+      published_at: iso(row.published_at),
+      deadline_at: iso(row.deadline_at),
+      last_synced_at: iso(row.last_synced_at),
+    }));
+  // 오류 시험의 "아무것도 바뀌지 않았다" 기준 — 네 표의 행 수와 공고 행 전체.
+  const snapshotOf = async (pglite) => ({
+    counts: await countsOf(pglite),
+    notices: await noticeRowsOf(pglite),
+  });
+
+  it("실행 권한은 service_role 에만 있다 — anon·authenticated·PUBLIC 은 없다", async (t) => {
+    // 실제 Supabase 에는 service_role 역할이 있다. 흉내 DB 에 없으면 마이그레이션 전에 만들어 같은 조건에서 grant 를 본다.
+    const fresh = await freshDb(t);
+    await fresh.exec(`
+      do $$ begin
+        if not exists (select 1 from pg_roles where rolname = 'service_role') then
+          create role service_role nologin;
+        end if;
+      end $$;
+    `);
+    await applyMigrations(fresh, migrations);
+    assert.deepEqual(
+      (
+        await fresh.query(
+          `select
+             exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') as public,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+             has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated,
+             has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role
+           from pg_proc p where p.oid = to_regprocedure($1)`,
+          [FUNCTION],
+        )
+      ).rows,
+      [{ public: false, anon: false, authenticated: false, service_role: true }],
+    );
+  });
+
+  it("함수는 security invoker 이고 search_path 를 빈 값으로 고정한다", async (t) => {
+    const pglite = await migratedDb(t);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select prosecdef, proconfig from pg_proc where oid = to_regprocedure($1)",
+        [FUNCTION],
+      ),
+      [{ prosecdef: false, proconfig: ['search_path=""'] }],
+    );
+  });
+
+  it("로그아웃한 사용자(anon)가 부르면 권한 오류이고 아무 행도 생기지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await actAs(pglite, null, "anon");
+    await assert.rejects(call(pglite, paramsOf(1)), DENIED);
+    assert.deepEqual(await countsOf(pglite), EMPTY);
+  });
+
+  it("로그인한 사용자(authenticated)는 운영자라도 부르면 권한 오류이고 아무 행도 생기지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await pglite.query("update public.profiles set is_admin = true where id = $1", [users[2]]);
+    for (const id of [users[0], users[2]]) {
+      await actAs(pglite, id);
+      await assert.rejects(call(pglite, paramsOf(1)), DENIED, id);
+    }
+    assert.deepEqual(await countsOf(pglite), EMPTY);
+  });
+
+  it("service_role 한 번 호출로 공고·revision·첨부 2개·outbox 이벤트를 함께 쓰고 그것을 잇는 (bid_id, revision_id) 한 행을 돌려준다", async (t) => {
+    const pglite = await migratedDb(t);
+    const returned = await save(pglite, paramsOf(1));
+    assert.equal(returned.length, 1);
+    const [{ bid_id: bidId, revision_id: revisionId }] = returned;
+    assert.deepEqual(await countsOf(pglite), {
+      bid_notices: 1,
+      bid_revisions: 1,
+      bid_documents: 2,
+      outbox_events: 1,
+    });
+    assert.deepEqual(await rowsOf(pglite, "select id from public.bid_notices"), [{ id: bidId }]);
+    assert.deepEqual(await rowsOf(pglite, "select id, bid_id from public.bid_revisions"), [
+      { id: revisionId, bid_id: bidId },
+    ]);
+    assert.deepEqual(
+      await rowsOf(pglite, "select distinct bid_id, revision_id from public.bid_documents"),
+      [{ bid_id: bidId, revision_id: revisionId }],
+    );
+    assert.deepEqual(await rowsOf(pglite, "select aggregate_id from public.outbox_events"), [
+      { aggregate_id: bidId },
+    ]);
+  });
+
+  it("revision 1 의 공고 행은 notice 필드를 그대로 담고 latest_revision 은 1, content_hash 는 checksum, last_synced_at 은 fetched_at 이다", async (t) => {
+    const pglite = await migratedDb(t);
+    const p = paramsOf(1);
+    const [{ bid_id: bidId }] = await save(pglite, p);
+    assert.deepEqual(await noticeRowsOf(pglite), [
+      {
+        id: bidId,
+        ...NOTICE,
+        latest_revision: 1,
+        content_hash: p.revision.checksum,
+        last_synced_at: p.revision.fetched_at,
+      },
+    ]);
+  });
+
+  it("notice 의 빈 값(plan_ref·pre_spec_ref·agency·budget_krw·published_at·deadline_at 이 null)은 null 로 저장한다", async (t) => {
+    const pglite = await migratedDb(t);
+    const blanks = {
+      plan_ref: null,
+      pre_spec_ref: null,
+      agency: null,
+      budget_krw: null,
+      published_at: null,
+      deadline_at: null,
+    };
+    const p = paramsOf(1, { notice: blanks });
+    const [{ bid_id: bidId }] = await save(pglite, p);
+    assert.deepEqual(await noticeRowsOf(pglite), [
+      {
+        id: bidId,
+        ...NOTICE,
+        ...blanks,
+        latest_revision: 1,
+        content_hash: p.revision.checksum,
+        last_synced_at: p.revision.fetched_at,
+      },
+    ]);
+  });
+
+  it("revision 행은 p.revision 의 차수·amendment_no·원본·정규화·checksum·changed_fields·fetched_at 을 그대로 담는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const p = paramsOf(2);
+    const [{ bid_id: bidId, revision_id: revisionId }] = await save(pglite, p);
+    const rows = await rowsOf(
+      pglite,
+      "select id, bid_id, revision, amendment_no, raw_payload, normalized, checksum, changed_fields, fetched_at from public.bid_revisions where revision = 2",
+    );
+    assert.deepEqual(
+      rows.map((row) => ({ ...row, fetched_at: iso(row.fetched_at) })),
+      [{ id: revisionId, bid_id: bidId, ...p.revision }],
+    );
+  });
+
+  it("첨부 2개는 그 revision 에 묶인 bid_documents 2행이 되고 download_status 는 PENDING 이다", async (t) => {
+    const pglite = await migratedDb(t);
+    const [{ bid_id: bidId, revision_id: revisionId }] = await save(pglite, paramsOf(1));
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select bid_id, revision_id, name, original_url, download_status from public.bid_documents order by original_url",
+      ),
+      DOCUMENTS.map((document) => ({
+        bid_id: bidId,
+        revision_id: revisionId,
+        ...document,
+        download_status: "PENDING",
+      })),
+    );
+  });
+
+  it("첨부가 없으면 bid_documents 행 없이 공고·revision·outbox 이벤트만 쓴다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1, { documents: [] }));
+    assert.deepEqual(await countsOf(pglite), {
+      bid_notices: 1,
+      bid_revisions: 1,
+      bid_documents: 0,
+      outbox_events: 1,
+    });
+  });
+
+  it("outbox 이벤트는 org_id null·aggregate_type bid_notice·aggregate_id 공고 id 로 event_type·payload·idempotency_key 를 그대로 담고 PENDING 이다", async (t) => {
+    const pglite = await migratedDb(t);
+    const p = paramsOf(1);
+    const [{ bid_id: bidId }] = await save(pglite, p);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key, status from public.outbox_events",
+      ),
+      [
+        {
+          org_id: null,
+          aggregate_type: "bid_notice",
+          aggregate_id: bidId,
+          ...p.event,
+          status: "PENDING",
+        },
+      ],
+    );
+  });
+
+  it("bid_id·revision_id 를 주면 그 id 로 저장하고 그대로 돌려준다 — revision 2 도 같은 bid_id 와 새 revision_id 로", async (t) => {
+    const pglite = await migratedDb(t);
+    assert.deepEqual(
+      await save(pglite, paramsOf(1, { ids: { bid_id: BID, revision_id: REV_1 } })),
+      [{ bid_id: BID, revision_id: REV_1 }],
+    );
+    assert.deepEqual(
+      await save(pglite, paramsOf(2, { ids: { bid_id: BID, revision_id: REV_2 } })),
+      [{ bid_id: BID, revision_id: REV_2 }],
+    );
+    assert.deepEqual(await rowsOf(pglite, "select id from public.bid_notices"), [{ id: BID }]);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select id, bid_id, revision from public.bid_revisions order by revision",
+      ),
+      [
+        { id: REV_1, bid_id: BID, revision: 1 },
+        { id: REV_2, bid_id: BID, revision: 2 },
+      ],
+    );
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select distinct bid_id, revision_id from public.bid_documents order by revision_id",
+      ),
+      [
+        { bid_id: BID, revision_id: REV_1 },
+        { bid_id: BID, revision_id: REV_2 },
+      ],
+    );
+  });
+
+  it("revision 2 는 같은 공고 행의 필드·latest_revision·content_hash·last_synced_at 을 갱신하고 revision 행이 2개가 된다", async (t) => {
+    const pglite = await migratedDb(t);
+    const [first] = await save(pglite, paramsOf(1));
+    const changed = {
+      title: "클라우드 전환 컨설팅(정정)",
+      agency: "시험기관 정보화담당관",
+      status: "AMENDED",
+      budget_krw: "1500000000",
+      published_at: "2026-10-20T00:00:00.000Z",
+      deadline_at: "2026-11-09T09:00:00.000Z",
+      source_url: "https://fixture.invalid/0101-01",
+    };
+    const p = paramsOf(2, { notice: changed });
+    const [second] = await save(pglite, p);
+    assert.equal(second.bid_id, first.bid_id);
+    assert.notEqual(second.revision_id, first.revision_id);
+    assert.deepEqual(await noticeRowsOf(pglite), [
+      {
+        id: first.bid_id,
+        ...NOTICE,
+        ...changed,
+        latest_revision: 2,
+        content_hash: p.revision.checksum,
+        last_synced_at: p.revision.fetched_at,
+      },
+    ]);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select id, revision, checksum from public.bid_revisions order by revision",
+      ),
+      [
+        { id: first.revision_id, revision: 1, checksum: "sum-0101-1" },
+        { id: second.revision_id, revision: 2, checksum: "sum-0101-2" },
+      ],
+    );
+  });
+
+  it("revision 2 는 (source, notice_id) 로 공고를 찾는다 — notice_id 가 같아도 source 가 다른 공고는 그대로다", async (t) => {
+    const pglite = await migratedDb(t);
+    const g2b = {
+      source: "g2b-bid-notice",
+      is_demo: false,
+      source_url: "https://www.g2b.go.kr/0101",
+    };
+    const [fixtureBid] = await save(pglite, paramsOf(1));
+    const [g2bBid] = await save(
+      pglite,
+      paramsOf(1, { notice: g2b, event: { idempotency_key: keyOf(1, g2b.source) } }),
+    );
+    assert.notEqual(g2bBid.bid_id, fixtureBid.bid_id);
+    const [second] = await save(
+      pglite,
+      paramsOf(2, {
+        notice: { ...g2b, title: "정정 공고" },
+        event: { idempotency_key: keyOf(2, g2b.source) },
+      }),
+    );
+    assert.equal(second.bid_id, g2bBid.bid_id);
+    assert.deepEqual(
+      (await noticeRowsOf(pglite)).map(({ id, source, title, latest_revision }) => ({
+        id,
+        source,
+        title,
+        latest_revision,
+      })),
+      [
+        { id: fixtureBid.bid_id, source: "fixture", title: NOTICE.title, latest_revision: 1 },
+        { id: g2bBid.bid_id, source: "g2b-bid-notice", title: "정정 공고", latest_revision: 2 },
+      ],
+    );
+  });
+
+  it("같은 idempotency_key 의 outbox 이벤트는 무시하지만 그 revision 은 저장한다 — 이벤트 행은 처음 것 하나 그대로다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const [second] = await save(pglite, paramsOf(2, { event: { idempotency_key: keyOf(1) } }));
+    assert.deepEqual(await countsOf(pglite), {
+      bid_notices: 1,
+      bid_revisions: 2,
+      bid_documents: 4,
+      outbox_events: 1,
+    });
+    assert.deepEqual(
+      await rowsOf(pglite, "select id from public.bid_revisions where revision = 2"),
+      [{ id: second.revision_id }],
+    );
+    assert.equal((await noticeRowsOf(pglite))[0].latest_revision, 2);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select event_type, idempotency_key, payload ->> 'revision' as revision from public.outbox_events",
+      ),
+      [{ event_type: "BID_CREATED", idempotency_key: keyOf(1), revision: "1" }],
+    );
+  });
+
+  it("같은 (source, notice_id) 에 revision 1 을 다시 주면 INGEST_BID_EXISTS 이고 덮어쓰지도 행을 늘리지도 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(
+      save(
+        pglite,
+        paramsOf(1, {
+          notice: { title: "다른 제목" },
+          rev: { checksum: "sum-other" },
+          event: { idempotency_key: `${keyOf(1)}-again` },
+        }),
+      ),
+      { message: "INGEST_BID_EXISTS" },
+    );
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("revision 2 인데 bid_id 가 저장된 공고와 다르면 INGEST_BID_ID_MISMATCH 이고 아무 행도 늘지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1, { ids: { bid_id: BID } }));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(save(pglite, paramsOf(2, { ids: { bid_id: OTHER_BID } })), {
+      message: "INGEST_BID_ID_MISMATCH",
+    });
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("latest_revision 이 1 인데 revision 3 을 주면 INGEST_REVISION_CONFLICT 이고 아무 행도 늘지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(save(pglite, paramsOf(3)), { message: "INGEST_REVISION_CONFLICT" });
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("이미 저장한 revision 2 를 다시 주면 INGEST_REVISION_CONFLICT 이고 아무 행도 늘지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    await save(pglite, paramsOf(2));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(save(pglite, paramsOf(2)), { message: "INGEST_REVISION_CONFLICT" });
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("저장된 적 없는 공고에 revision 2 를 주면 INGEST_BID_NOT_FOUND 이고 아무 행도 생기지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await assert.rejects(save(pglite, paramsOf(2)), { message: "INGEST_BID_NOT_FOUND" });
+    assert.deepEqual(await countsOf(pglite), EMPTY);
+  });
+
+  it("첨부 원소의 name 이 null 이면 NOT NULL 위반으로 실패하고 네 표 모두 롤백된다 — 행 수 0 그대로", async (t) => {
+    const pglite = await migratedDb(t);
+    await assert.rejects(
+      save(pglite, paramsOf(1, { documents: [DOCUMENTS[0], { ...DOCUMENTS[1], name: null }] })),
+      { code: "23502" },
+    );
+    assert.deepEqual(await countsOf(pglite), EMPTY);
+  });
+
+  it("revision 2 저장 중 첨부 name 이 null 이면 공고 갱신까지 되돌아간다 — 공고 행·네 표 행 수가 revision 1 그대로다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(
+      save(
+        pglite,
+        paramsOf(2, {
+          notice: { title: "클라우드 전환 컨설팅(정정)", status: "AMENDED" },
+          documents: [DOCUMENTS[0], { ...DOCUMENTS[1], name: null }],
+        }),
+      ),
+      { code: "23502" },
+    );
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+});
+
 describe("마이그레이션 재실행", () => {
   it("전체를 두 번 적용해도 실패하지 않고 RLS·권한·정책·트리거가 같다", async (t) => {
     const fresh = await freshDb(t);

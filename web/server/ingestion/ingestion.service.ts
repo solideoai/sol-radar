@@ -16,6 +16,7 @@ import type {
 } from "./ingestion.repo";
 import { normalizeFixtureRecord, type NormalizeOutcome } from "./normalize";
 import { normalizeG2bBidNotice } from "./normalize-g2b";
+import type { BidSource } from "./normalized-bid.model";
 import { redactSecrets, redactUrl } from "./redaction";
 import { decideRevision } from "./revision";
 import { fetchPageWithRetry, type RetryDeps } from "./retry";
@@ -37,7 +38,14 @@ export type RunIngestInput = {
   retry: RetryDeps;
   /** 기록 전에 가릴 값(서비스키) */
   secrets?: readonly string[];
+  /** 주면 저장할 bid·revision 의 id 를 정한다(demo:reset 의 결정적 id). 없으면 DB 가 만든다(6-2) */
+  idFor?: IdFor;
 };
+
+export type IdFor = (
+  kind: "bid" | "revision",
+  keys: { source: BidSource; noticeId: string; revision?: number },
+) => string;
 
 export type SavedBidRevision = {
   bidId: string;
@@ -49,6 +57,8 @@ export type SavedBidRevision = {
   checksum: string;
   /** fixture 레코드면 그 fixture 파일의 id, g2b 면 null(5-D) */
   fixtureId: string | null;
+  /** 저장한 revision 의 첨부 수. documents job 을 등록할지 정한다(6-2) */
+  attachmentCount: number;
 };
 
 export type IngestRunResult = {
@@ -165,7 +175,20 @@ async function ingestRecord(
     return counted(progress, "skippedDuplicate");
   }
 
-  const stored = await repo.saveRevision({ decision, rawPayload: rawPayloadOf(record) });
+  const { idFor } = context.input;
+  const { source, noticeId, revision } = decision.bid;
+  const ids =
+    idFor === undefined
+      ? undefined
+      : {
+          bidId: idFor("bid", { source, noticeId }),
+          revisionId: idFor("revision", { source, noticeId, revision }),
+        };
+  const stored = await repo.saveRevision({
+    decision,
+    rawPayload: rawPayloadOf(record),
+    ...(ids === undefined ? {} : { ids }),
+  });
   const counter = COUNTER_OF[decision.kind];
   return {
     summary: { ...progress.summary, [counter]: progress.summary[counter] + 1 },
@@ -179,6 +202,7 @@ async function ingestRecord(
         reanalyze: decision.reanalyze,
         checksum: decision.bid.checksum,
         fixtureId: fixtureIdOf(record),
+        attachmentCount: decision.bid.attachments.length,
       },
     ],
   };
