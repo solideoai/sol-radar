@@ -227,7 +227,25 @@ describe("TopbarStatus - 수집 신선도", () => {
     expect(item?.className).not.toContain("text-warning");
     expect(item?.className).not.toContain("text-destructive");
     await tabTo(item);
-    await expect.element(page.getByText(/KST · .* UTC · 적재 18 · 격리 2/)).toBeInTheDocument();
+    await expect.element(page.getByText(/KST · .* UTC · 적재 15 · 격리 2/)).toBeInTheDocument();
+  });
+
+  it("툴팁의 적재는 created 만 센다(changed 를 더하지 않는다)", async () => {
+    stubFetch({});
+    const host = render({
+      initialSummary: summaryOf({
+        lastIngestSummary: {
+          created: 19,
+          changed: 4,
+          cancelled: 0,
+          skippedDuplicate: 0,
+          quarantined: 1,
+          retried: 0,
+        },
+      }),
+    });
+    await tabTo(part(host, "freshness"));
+    await expect.element(page.getByText(/UTC · 적재 19 · 격리 1$/)).toBeInTheDocument();
   });
 
   it("60분 넘으면 수집 지연 · 2시간 전 이고 warning 이다", async () => {

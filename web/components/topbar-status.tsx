@@ -212,9 +212,7 @@ const describeFreshness = (
     lines.push(`${formatKst(lastIngestAt)} KST · ${utc} UTC`);
   }
   if (lastIngestSummary !== null)
-    lines.push(
-      `적재 ${lastIngestSummary.created + lastIngestSummary.changed} · 격리 ${lastIngestSummary.quarantined}`,
-    );
+    lines.push(`적재 ${lastIngestSummary.created} · 격리 ${lastIngestSummary.quarantined}`);
   if (failed) lines.push(CHECK_FAILED);
   const tip = lines.length > 0 ? lines.join(" · ") : null;
   if (lastIngestAt === null)
