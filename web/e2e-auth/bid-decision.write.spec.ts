@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   assertNoAxe,
   choose,
+  kevDistribution,
+  kevSection,
   localAdmin,
   readWorkContext,
   shot,
@@ -108,14 +110,19 @@ test("S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사�
   await expect(live).toHaveText(/^(분석 대기 중|분석 중)$/);
   await shotBothWidths(page, "bid-detail", "loading");
   await expect(page.locator('[data-slot="analysis-pending"]')).toBeVisible();
-  const releasedAt = Date.now();
   release();
 
-  // 10초 안에 완료: 화면이 결과를 그리고(router.refresh), 저장된 run 도 큐 등록에서 끝까지 10초 안이다.
-  await expect(rail).toContainText("72", { timeout: 10_000 });
-  expect(Date.now() - releasedAt).toBeLessThan(10_000);
-  await expect(band).toContainText("완료");
-  await expect(live).toHaveText("분석이 끝났습니다. SOL Score 72, 권고 WATCH");
+  // 10초 안에 완료(19 S4 2번). 붙잡아 둔 poll 을 놓은 뒤부터 잰다. 정확한 자리 두 곳에 10초 timeout 을 준다:
+  // 화면 낭독기 live 문구(끝난 순간 한 번 바뀐다)와 레일 SOL Score 게이지(router.refresh 로 서버가 다시 그린 값).
+  await expect(live).toHaveText("분석이 끝났습니다. SOL Score 72, 권고 WATCH", {
+    timeout: 10_000,
+  });
+  await expect(rail.getByRole("meter", { name: "SOL Score", exact: true })).toHaveAttribute(
+    "aria-valuenow",
+    "72",
+    { timeout: 10_000 },
+  );
+  await expect(band.getByText("완료", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => Reflect.get(window, "__c6SoftRefresh"))).toBe(true);
   const run = z
     .object({
@@ -139,6 +146,9 @@ test("S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사�
   expect(points).toEqual(["15.0", "18.3", "14.0", "15.0", "10.0"]);
   await expect(rail.getByText("사람 검토 권장", { exact: true })).toBeVisible();
   await expect(rail).toContainText(/권고\s*WATCH/);
+  // S4 4번: Kev 분포 BID 0.36 / WATCH 0.52 / NO-BID 0.12, 규칙 권고 WATCH 와 같다.
+  expect(await kevDistribution(page)).toEqual({ BID: 36, WATCH: 52, "NO-BID": 12 });
+  await expect(kevSection(page)).toContainText("규칙 권고와 같음");
   await page.unroute("**/api/v1/analyses/*");
 
   // 결정 기록: WATCH + 사유 + 담당자 = 나(이영업).

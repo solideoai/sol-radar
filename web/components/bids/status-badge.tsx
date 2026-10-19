@@ -124,7 +124,8 @@ function DemoBadge({
   if (!withTooltip)
     return <span className={cn(BADGE_BOX, dense && "gap-0.5 px-1", className)}>{chip}</span>;
   return (
-    <Tooltip>
+    // popup 을 배지가 든 랜드마크(상단바 header·본문 main) 안에 그린다(axe region, D1).
+    <Tooltip landmark>
       <TooltipTrigger
         render={<span tabIndex={0} />}
         className={cn(

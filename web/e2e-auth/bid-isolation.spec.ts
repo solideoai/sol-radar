@@ -1,6 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { z } from "zod";
 import {
   ISOLATION_EVIDENCE_PATH,
   assertNoAxe,
@@ -8,6 +7,7 @@ import {
   shot,
   storageOf,
   widthOf,
+  writeEvidenceJson,
 } from "./support/work-fixtures";
 
 // G5(11 §3)·S7(19): 공고는 공용이라 org-02 VIEWER 도 FX-01 상세를 200 으로 보지만, org-01 의 분석·자격·결정은 보이지 않는다.
@@ -31,38 +31,46 @@ test("G5 org-02 VIEWER 는 FX-01 상세를 200 으로 보되 분석 없음이고
   const url = `/api/v1/bids/${bids["FX-01"]}/qualification-checks`;
   const api = await page.request.get(url);
   expect(api.status()).toBe(404);
-  const body: unknown = await api.json();
-  expect(body).toMatchObject({ error: { code: "NOT_FOUND" } });
+  // 증거에는 받은 본문 글자를 그대로 남긴다(파싱해 다시 쓴 값이 아니다).
+  const rawBody = await api.text();
+  expect(JSON.parse(rawBody)).toMatchObject({
+    error: { code: "NOT_FOUND", details: { resource: "analysis" } },
+  });
 
-  const detail = await page.request.get(`/api/v1/bids/${bids["FX-01"]}`);
+  const detailUrl = `/api/v1/bids/${bids["FX-01"]}`;
+  const detail = await page.request.get(detailUrl);
   expect(detail.status()).toBe(200);
-  expect(await detail.json()).toMatchObject({ latestAnalysis: null });
+  const detailBody = z
+    .object({
+      latestAnalysis: z.unknown(),
+      latestReview: z.unknown(),
+      reviews: z.array(z.unknown()),
+    })
+    .parse(await detail.json());
+  expect(detailBody.latestAnalysis).toBeNull();
+  expect(detailBody.latestReview).toBeNull();
+  expect(detailBody.reviews).toEqual([]);
 
   // 두 폭이 같은 응답을 낸다. 1440 실행이 증거 파일을 쓴다.
-  if (width === 1440) {
-    mkdirSync(path.dirname(ISOLATION_EVIDENCE_PATH), { recursive: true });
-    writeFileSync(
-      ISOLATION_EVIDENCE_PATH,
-      `${JSON.stringify(
-        {
-          scenario: "S7 / G5 — org-02 VIEWER 가 org-01 분석이 있는 FX-01 의 자격 API 를 부른다",
-          account: "viewer@other.invalid (org-02, VIEWER)",
-          capturedAt: new Date().toISOString(),
-          request: { method: "GET", path: url, auth: "Supabase 세션 쿠키(브라우저 컨텍스트)" },
-          response: {
-            status: api.status(),
-            xRequestId: api.headers()["x-request-id"] ?? null,
-            body,
-          },
-          sameAccountDetail: {
-            path: `/api/v1/bids/${bids["FX-01"]}`,
-            status: detail.status(),
-            latestAnalysis: null,
-          },
-        },
-        null,
-        2,
-      )}\n`,
-    );
-  }
+  if (width === 1440)
+    await writeEvidenceJson(ISOLATION_EVIDENCE_PATH, {
+      scenario: "S7 / G5 — org-02 VIEWER 가 org-01 분석이 있는 FX-01 의 자격 API 를 부른다",
+      account: "viewer@other.invalid (org-02, VIEWER)",
+      capturedAt: new Date().toISOString(),
+      request: { method: "GET", path: url, auth: "Supabase 세션 쿠키(브라우저 컨텍스트)" },
+      response: {
+        status: api.status(),
+        contentType: api.headers()["content-type"] ?? null,
+        xRequestId: api.headers()["x-request-id"] ?? null,
+        rawBody,
+      },
+      // 같은 계정의 상세 응답에서 조직 소유 칸을 받은 그대로 옮긴다.
+      sameAccountDetail: {
+        path: detailUrl,
+        status: detail.status(),
+        latestAnalysis: detailBody.latestAnalysis,
+        latestReview: detailBody.latestReview,
+        reviews: detailBody.reviews,
+      },
+    });
 });

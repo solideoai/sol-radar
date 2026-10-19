@@ -117,3 +117,52 @@ describe("DemoBadge", () => {
       .toBeInTheDocument();
   });
 });
+
+// D1(Task 12): 열린 툴팁 popup 이 body 로 portal 되면 랜드마크 밖이라 axe region 위반이 난다.
+// DemoBadge 툴팁은 배지가 든 랜드마크(상단바 header·본문 main) 안에 그려야 한다.
+describe("DemoBadge 툴팁 랜드마크(D1)", () => {
+  const LANDMARK =
+    "header, main, nav, aside, footer, [role=banner], [role=main], [role=navigation], [role=complementary], [role=contentinfo], [role=region]";
+  const openPopup = () =>
+    document.querySelector<HTMLElement>('[data-slot="tooltip-content"][data-open]');
+
+  it.each([
+    ["header", "flex items-center gap-2"],
+    ["main", ""],
+  ] as const)(
+    "%s 안 배지의 popup 은 같은 랜드마크 안에 있고 배지는 움직이지 않는다",
+    async (tag, className) => {
+      const Landmark = tag;
+      render(
+        <Landmark className={className}>
+          <span>앞 글자</span>
+          <DemoBadge withTooltip />
+        </Landmark>,
+      );
+      await expect.element(page.getByText("DEMO")).toBeInTheDocument();
+      const trigger = document.querySelector<HTMLElement>('[data-slot="tooltip-trigger"]');
+      const before = trigger?.getBoundingClientRect();
+      await userEvent.tab();
+      expect(document.activeElement).toBe(trigger);
+      await expect
+        .element(page.getByText("이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다."))
+        .toBeVisible();
+      const popup = openPopup();
+      expect(popup?.closest(LANDMARK)?.tagName.toLowerCase()).toBe(tag);
+      // portal 상자가 flex 항목이 되어 배지를 밀지 않는다(display: contents).
+      const after = trigger?.getBoundingClientRect();
+      expect(after?.left).toBe(before?.left);
+      expect(after?.top).toBe(before?.top);
+    },
+  );
+
+  it("랜드마크 밖 배지는 지금처럼 body 로 portal 한다", async () => {
+    render(<DemoBadge withTooltip />);
+    await expect.element(page.getByText("DEMO")).toBeInTheDocument();
+    await userEvent.tab();
+    await expect
+      .element(page.getByText("이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다."))
+      .toBeVisible();
+    expect(openPopup()?.closest(LANDMARK)).toBeNull();
+  });
+});

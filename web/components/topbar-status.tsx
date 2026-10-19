@@ -134,7 +134,7 @@ function Indicator({
       </span>
     );
   return (
-    <Tooltip>
+    <Tooltip landmark>
       <TooltipTrigger
         render={<span tabIndex={0} />}
         data-slot="topbar-item"

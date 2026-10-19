@@ -10,7 +10,8 @@ import {
   evidenceLabel,
 } from "@/components/bids/evidence-drawer";
 import { useEvidenceStore, type EvidenceRef } from "@/components/bids/evidence-store";
-import { BID_DOCUMENTS } from "@/components/bids/test-data";
+import { QualificationChecklist } from "@/components/bids/qualification-checklist";
+import { BID_DOCUMENTS, FX01_VIEW } from "@/components/bids/test-data";
 
 // 근거 목록·첨부 상태·서랍의 위치 라벨과 하이라이트를 진짜 브라우저로 본다.
 
@@ -172,5 +173,76 @@ describe("본문 하이라이트", () => {
       return found!;
     });
     expect(mark.parentElement?.textContent).toBe("짧은 신고 업체 본문");
+  });
+});
+
+// E1(=D2, Task 12): 사전 분석이 저장한 근거에는 kind·page·apiField 가 없다. 필수자격 근거가 빈 "근거" 한 낱말로만 보였다.
+// Ruling 9 대로 본문 근거(documentId null)는 "공고 본문" 이고, 버튼에 위치와 인용 앞부분이 보이며, 누르면 서랍에 인용이 보인다.
+describe("저장된 모양의 필수자격 근거(E1)", () => {
+  const quote = "소프트웨어사업자 신고확인서를 보유한 업체";
+  const content = `입찰 참가 자격. ${quote}만 참가할 수 있다.`;
+  const stored = {
+    match: "NORMALIZED",
+    charStart: content.indexOf(quote),
+    charEnd: content.indexOf(quote) + quote.length,
+    fetchedAt: "2026-10-16T01:00:00Z",
+    documentId: null,
+    quotedText: quote,
+    revisionId: "rev-1",
+  } satisfies EvidenceRef;
+  const qualification = {
+    ...FX01_VIEW.qualification,
+    checks: [{ ...FX01_VIEW.qualification.checks[0]!, evidence: [stored] }],
+  };
+
+  it("위치 라벨은 공고 본문이다", () => {
+    expect(evidenceLabel(stored, BID_DOCUMENTS)).toBe("공고 본문");
+    expect(evidenceDetail(stored, BID_DOCUMENTS)).toBe(
+      `공고 본문 · 문자 ${stored.charStart}–${stored.charEnd}`,
+    );
+  });
+
+  it("근거 버튼에 위치와 인용이 보이고, 누르면 서랍에 인용과 본문 하이라이트가 보인다", async () => {
+    await page.viewport(1280, 800);
+    render(
+      <>
+        <QualificationChecklist
+          qualification={qualification}
+          onOpenEvidence={useEvidenceStore.getState().openWith}
+          documents={BID_DOCUMENTS}
+        />
+        <EvidenceDrawer content={content} sourceUrl="https://example.com/n" documents={[]} />
+      </>,
+    );
+    const button = page.getByRole("button", { name: `근거 공고 본문 · "${quote}"` });
+    await expect.element(button).toBeVisible();
+    await userEvent.click(button);
+    const dialog = page.getByRole("dialog");
+    await expect.element(dialog.getByRole("blockquote")).toHaveTextContent(quote);
+    await expect
+      .element(dialog.getByText(`공고 본문 · 문자 ${stored.charStart}–${stored.charEnd}`))
+      .toBeVisible();
+    const mark = await vi.waitFor(() => {
+      const found = document.querySelector("mark");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    expect(mark.textContent).toBe(quote);
+  });
+
+  it("긴 인용은 앞 30자와 …만 버튼에 보인다", async () => {
+    const long = "가".repeat(40);
+    render(
+      <QualificationChecklist
+        qualification={{
+          ...qualification,
+          checks: [{ ...qualification.checks[0]!, evidence: [{ ...stored, quotedText: long }] }],
+        }}
+        onOpenEvidence={() => {}}
+      />,
+    );
+    await expect
+      .element(page.getByRole("button", { name: `근거 공고 본문 · "${"가".repeat(30)}…"` }))
+      .toBeVisible();
   });
 });

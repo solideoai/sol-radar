@@ -2,13 +2,13 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { chromium, type FullConfig } from "@playwright/test";
-import { format, resolveConfig } from "prettier";
 import { z } from "zod";
 import {
   AXE_PARTS_DIR,
   AXE_REPORT_PATH,
   BID_FIXTURES,
   DEMO_ROLE_EMAIL,
+  WORK_COMMAND_ENV,
   WORK_CONTEXT_PATH,
   WORK_ROLES,
   axeScanSchema,
@@ -17,7 +17,9 @@ import {
   type LocalAdmin,
   type WorkContext,
   type WorkRole,
+  writeEvidenceJson,
 } from "./work-fixtures";
+import { isSameLocalSupabase } from "./supabase-target";
 
 // C6 업무 화면 E2E(pnpm -C web test:e2e:work)의 globalSetup. 공용 로컬 Supabase 위에 데모 상태를 처음부터 다시 만든다.
 // 순서는 ADR-030 B22 그대로다: (Compose 는 미리 떠 있다) → demo:reset → 모드 확인 → demo:preanalyze.
@@ -253,18 +255,12 @@ async function mergeAxeReport() {
   const report = {
     schemaVersion: "sol-axe-report/v0.1",
     generatedAt: new Date().toISOString(),
-    command: "pnpm -C web test:e2e:work",
+    lastCommand: fresh[0].command,
     axeVersion: fresh[0].axeVersion,
     totals: { scans: scans.length, violations, nodes },
     scans,
   };
-  // 저장소 Prettier 설정으로 맞춰 쓴다(루트 format:check 가 docs/evidence 도 본다).
-  const options = (await resolveConfig(AXE_REPORT_PATH)) ?? {};
-  mkdirSync(path.dirname(AXE_REPORT_PATH), { recursive: true });
-  writeFileSync(
-    AXE_REPORT_PATH,
-    await format(JSON.stringify(report), { ...options, filepath: AXE_REPORT_PATH }),
-  );
+  await writeEvidenceJson(AXE_REPORT_PATH, report);
 }
 
 export default async function workSetup(config: FullConfig) {
@@ -281,19 +277,7 @@ export default async function workSetup(config: FullConfig) {
     SUPABASE_SERVICE_ROLE_KEY: admin.serviceKey,
     SOL_RUN_MODE: "mock",
   };
-  const seedLine = run(
-    "pnpm demo:reset",
-    ["demo:reset", "--", "--env-file", seedEnvFile],
-    childEnv,
-    SEED_LINE,
-  );
-  await requireMockGateway(gatewayUrl);
-  const preanalyzeLine = run(
-    "pnpm demo:preanalyze",
-    ["demo:preanalyze"],
-    childEnv,
-    PREANALYZE_LINE,
-  );
+  const { seedLine, preanalyzeLine } = await restoreBaseline(childEnv, seedEnvFile, gatewayUrl);
 
   const context = await readContext(admin);
   await seedSalesNotifications(admin, context);
@@ -306,5 +290,65 @@ export default async function workSetup(config: FullConfig) {
 
   rmSync(AXE_PARTS_DIR, { recursive: true, force: true });
   mkdirSync(AXE_PARTS_DIR, { recursive: true });
-  return () => mergeAxeReport();
+  // 스캔마다 남길 실행 명령. globalSetup 에서 바꾼 env 는 작업자(시험)에게 넘어간다.
+  process.env[WORK_COMMAND_ENV] = commandLine();
+
+  // globalTeardown: axe 보고를 모은 뒤 공용 DB 를 기준선으로 되돌린다(시험이 만든 분석·결정·알림·취소를 지운다).
+  // 시험이 실패해도 돈다. 되돌리기에 실패하면 그 이유로 실행이 실패한다.
+  return async () => {
+    await mergeAxeReport();
+    await restoreBaseline(childEnv, seedEnvFile, gatewayUrl);
+  };
+}
+
+// ADR-030 B22 순서: demo:reset → 모드 확인(gateway mock) → demo:preanalyze(18/18). FX-02 는 미분석으로 남는다.
+async function restoreBaseline(env: NodeJS.ProcessEnv, seedEnvFile: string, gatewayUrl: string) {
+  const seedLine = run(
+    "pnpm demo:reset",
+    ["demo:reset", "--", "--env-file", seedEnvFile],
+    env,
+    SEED_LINE,
+  );
+  await requireMockGateway(gatewayUrl);
+  requireWorkerOnLocalSupabase(env);
+  const preanalyzeLine = run("pnpm demo:preanalyze", ["demo:preanalyze"], env, PREANALYZE_LINE);
+  return { seedLine, preanalyzeLine };
+}
+
+// demo:preanalyze 는 worker 컨테이너의 env 로 Supabase 에 쓴다. 그 주소가 이 시험의 로컬 Supabase 인지 먼저 본다.
+// 다르면(예: infra/.env 가 클라우드 주소) 사용자 확인 없이 클라우드 DB 에 쓰게 되므로 멈춘다. 주소 값은 찍지 않는다.
+function requireWorkerOnLocalSupabase(env: NodeJS.ProcessEnv) {
+  const statusUrl = env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const result = spawnSync(
+    "docker",
+    [
+      "compose",
+      "-f",
+      "infra/compose.yaml",
+      "exec",
+      "-T",
+      "worker",
+      "node",
+      "-e",
+      "process.stdout.write(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '')",
+    ],
+    { cwd: REPO_ROOT, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 },
+  );
+  if (result.status !== 0)
+    fail(
+      "worker 컨테이너의 Supabase 주소를 읽지 못했다. Compose worker 가 떠 있고 COMPOSE_PROJECT_NAME 이 맞는지 본다.",
+    );
+  if (!isSameLocalSupabase(result.stdout ?? "", statusUrl))
+    fail(
+      "worker 가 이 시험의 로컬 Supabase(supabase status) 가 아닌 곳을 가리킨다. 그대로 돌리면 사용자 확인 없이 다른 DB(클라우드)에 쓰므로 멈춘다. infra/.env 의 NEXT_PUBLIC_SUPABASE_URL 을 로컬로 맞춘다.",
+    );
+}
+
+// 이번 실행의 명령 줄: 스크립트 이름 + playwright 인자(설정 파일 인자는 스크립트에 들어 있어 뺀다). 비밀 값은 인자에 없다.
+function commandLine(): string {
+  const args = process.argv.slice(process.argv.indexOf("test") + 1);
+  const extra = args.filter(
+    (arg, index) => arg !== "-c" && args[index - 1] !== "-c" && !arg.startsWith("--config"),
+  );
+  return ["pnpm -C web test:e2e:work", ...extra].join(" ");
 }

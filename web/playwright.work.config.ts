@@ -6,6 +6,13 @@ import { defineConfig, devices } from "@playwright/test";
 // 그래서 로컬 Supabase·Compose(redis·ai-gateway mock·worker)와 웹 서버 env 가 필요하다(목록은 work-setup.ts 머리).
 // 공용 로컬 DB 를 다시 seed 하므로 verify·CI·test:e2e:auth 에는 넣지 않는다.
 //
+// globalSetup 이 돌려준 globalTeardown 은 끝에 axe 보고를 모으고 공용 DB 를 다시 기준선(demo:reset → demo:preanalyze 18/18)으로 되돌린다.
+//
+// 쓰기 프로젝트(work-write)는 두 읽기 프로젝트에 의존한다(dependencies). 읽기 시험이 하나라도 실패하면 쓰기 시험은
+// "did not run" 으로 건너뛰어진다 — 읽기 화면이 바뀐 데이터를 보지 않게 하려는 순서 보장이다. 읽기 실패와 상관없이
+// 쓰기 흐름만 확인하려면 의존을 끊고 그 프로젝트만 돌린다(globalSetup 이 처음부터 다시 seed 하므로 안전하다):
+//   pnpm -C web test:e2e:work --project=work-write --no-deps
+//
 // 포트는 3200 이다(test:e2e:auth 와 같다. 둘을 동시에 돌리지 않는다). 바꾸려면 E2E_PORT.
 const port = Number(process.env.E2E_PORT) || 3200;
 const hostname = "localhost";
@@ -36,6 +43,8 @@ export default defineConfig({
   // 시드의 날짜·D-n 은 서울 날짜로 센다. 브라우저도 서울에 둔다.
   use: { baseURL, trace: "retain-on-failure", locale: "ko-KR", timezoneId: "Asia/Seoul" },
   projects: [
+    // 보안 가드(L7)의 순수 함수 시험. 브라우저·데이터를 쓰지 않는다.
+    { name: "work-guard", testMatch: /work-guard\.spec\.ts$/ },
     { name: "work-1440", use: desktop(1440), testMatch: READ },
     { name: "work-1280", use: desktop(1280), testMatch: READ },
     {

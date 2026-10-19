@@ -324,7 +324,7 @@ function StatusCheckFailed({
 
 function ProfileBadge() {
   return (
-    <Tooltip>
+    <Tooltip landmark>
       <TooltipTrigger
         render={<span tabIndex={0} />}
         className={cn(CHIP, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
@@ -522,7 +522,11 @@ function AnalysisResult({
   return (
     <>
       <Section>
-        <QualificationChecklist qualification={analysis.qualification} onOpenEvidence={openWith} />
+        <QualificationChecklist
+          qualification={analysis.qualification}
+          onOpenEvidence={openWith}
+          documents={bid.documents}
+        />
       </Section>
       <Section>
         <ScoreFactors

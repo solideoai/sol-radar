@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { format, resolveConfig } from "prettier";
 import { z } from "zod";
 import { readLocalStatus } from "./local-status";
 import { readInstalledAxeSource } from "./people-fixtures";
@@ -43,6 +44,8 @@ export const AXE_REPORT_PATH = path.join(EVIDENCE_DIR, "axe-report.json");
 export const ISOLATION_EVIDENCE_PATH = path.join(EVIDENCE_DIR, "isolation-404.json");
 // 화면마다의 axe 결과. globalSetup 이 비우고, 끝에 axe-report.json 하나로 모은다(깃에서 빠진 test-results 아래).
 export const AXE_PARTS_DIR = path.join(WEB_ROOT, "test-results", "work-axe");
+// globalSetup 이 이번 실행의 명령 줄을 이 env 로 넘긴다. axe 스캔마다 남긴다.
+export const WORK_COMMAND_ENV = "C6_WORK_E2E_COMMAND";
 // 로그인 상태와 시험 맥락(공고·계정 id). 깃에서 뺀 e2e-auth/.auth/ 아래.
 export const WORK_CONTEXT_PATH = path.join(WEB_ROOT, "e2e-auth", ".auth", "work-context.json");
 export const storageOf = (role: WorkRole): string =>
@@ -107,6 +110,13 @@ export function localAdmin(): LocalAdmin {
 
 // ── 증거 ──
 
+/** 증거 JSON 을 저장소 Prettier 설정으로 맞춰 쓴다(루트 format:check 가 docs/evidence 도 본다). */
+export async function writeEvidenceJson(file: string, data: unknown) {
+  const options = (await resolveConfig(file)) ?? {};
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, await format(JSON.stringify(data), { ...options, filepath: file }));
+}
+
 const seoulDate = (now = new Date()) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(now).replaceAll("-", "");
 
@@ -146,6 +156,7 @@ export const axeScanSchema = z.object({
   project: z.string(),
   width: z.number().nullable(),
   scannedAt: z.string(),
+  command: z.string(),
   path: z.string(),
   axeVersion: z.string(),
   violations: z.array(violationSchema),
@@ -183,6 +194,7 @@ export async function assertNoAxe(page: Page, state: string) {
     path: new URL(page.url()).pathname + new URL(page.url()).search,
     axeVersion: parsed.axeVersion,
     scannedAt: new Date().toISOString(),
+    command: process.env[WORK_COMMAND_ENV] ?? "(명령 줄 없음: globalSetup 밖)",
     violations: parsed.violations.map((violation) => ({
       id: violation.id,
       impact: violation.impact ?? null,
@@ -234,6 +246,35 @@ export async function tableRows(table: Locator): Promise<Array<{ id: string; sco
 }
 
 export const topbar = (page: Page) => page.locator('[data-slot="topbar-status"]');
+
+// 공고 상세의 구역들(스펙 §5.4).
+export const decisionRail = (page: Page) =>
+  page.getByRole("complementary", { name: "참여 판단", exact: true });
+export const analysisBand = (page: Page) =>
+  page.locator("section", { has: page.locator("#analysis-band-title") });
+export const qualificationSection = (page: Page) =>
+  page.locator("section", { has: page.getByRole("heading", { level: 2, name: /^필수자격/ }) });
+export const kevSection = (page: Page) =>
+  page.locator("section", {
+    has: page.getByRole("heading", { level: 2, name: "Kev 참고 지표", exact: true }),
+  });
+
+/** 표에서 공고 id 로 행 하나를 찾는다(상세 링크는 ?list= 가 붙을 수 있다). */
+export const rowOf = (page: Page, table: Locator, id: string) =>
+  table.locator("tbody tr", { has: page.locator(`a[href^="/bids/${id}"]`) });
+
+/** Kev 선택지 분포(%, 반올림). 화면의 meter 세 개(aria-valuenow 0~1)를 읽는다. */
+export async function kevDistribution(page: Page): Promise<Record<string, number>> {
+  const options = ["BID", "WATCH", "NO-BID"] as const;
+  const values = await Promise.all(
+    options.map(async (option) => {
+      const meter = kevSection(page).getByRole("meter", { name: `${option} 선택지`, exact: true });
+      await expect(meter).toBeVisible();
+      return Math.round(Number(await meter.getAttribute("aria-valuenow")) * 100);
+    }),
+  );
+  return Object.fromEntries(options.map((option, index) => [option, values[index]]));
+}
 
 /**
  * 키보드 Tab 으로 locator 까지 초점을 옮긴다. 툴팁(Base UI)은 키보드 초점(focus-visible)에서 열리고
