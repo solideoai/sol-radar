@@ -141,8 +141,10 @@ export const toRunMode = (value) => {
 
 // ── 6. mock 추출(requirement_extractions) ─────────────────────
 //
-// fixtures/extractions/FX-xx.json 은 마지막 revision, FX-xx.rNN.json 은 앞선 revision 이다(07 §6.5). SEED 는 r1 만
-// 적재하므로 rNN 파일이 있으면 그것을, 없으면 FX-xx.json 을 r1 에 쓴다. 파일 안의 "FX-xx"·"FX-xx#NN" 은 UUID 로 바꾼다.
+// demo:reset 은 추출을 적재하지 않는다(demo-reset.mjs 머리말). 아래 도우미는 분석 저장 시험이 fixture 추출로
+// 캐시 행을 만들 때 test-harness 로 쓴다. gateway 의 인용 검증(03 §4.4)은 거치지 않는다.
+// fixtures/extractions/FX-xx.json 은 마지막 revision, FX-xx.rNN.json 은 앞선 revision 이다(07 §6.5). r1 행은
+// rNN 파일이 있으면 그것을, 없으면 FX-xx.json 을 쓴다. 파일 안의 "FX-xx"·"FX-xx#NN" 은 UUID 로 바꾼다.
 
 export const EXTRACTION_FILE = /^(FX-\d{2})(?:\.r(\d{2}))?\.json$/;
 
@@ -183,8 +185,8 @@ export const substituteExtractionIds = (extraction, { fixtureId, bidId, revision
   return { ...replacePlaceholders(extraction, replace), bidId };
 };
 
-// 첨부 파싱 실패(FX-05)는 PENDING_REVIEW(07 §6.3). 인용 검증 실패(FX-13)는 gateway 가 필드를 CONFLICTED 로 두는 일이라
-// 추출 행의 상태는 COMPLETED 다.
+// 첨부 파싱 실패(FX-05)는 PENDING_REVIEW(07 §6.3). 인용 검증 실패(FX-13)는 gateway 가 필드를 UNKNOWN +
+// note "CITATION_FAILED" 로 바꾸는 일(ADR-029 A1)이라 이 도우미는 반영하지 않고, 추출 행의 상태는 COMPLETED 다.
 export const extractionStatus = (extraction) =>
   (extraction.warnings ?? []).some((warning) =>
     String(warning).startsWith("ATTACHMENT_PARSE_FAILED"),
