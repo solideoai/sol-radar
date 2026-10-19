@@ -4,7 +4,7 @@
 """
 
 import math
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -67,7 +67,10 @@ class YesAnswer:
 
 @dataclass(frozen=True)
 class ScoreAnswer:
-    """score 질문의 답(03 §5.4): 0부터 센 평균 등급 index·등급 이름·등급별 확률·confidence. 넷 다 필수다."""
+    """score 질문의 답(03 §5.4): 0부터 센 평균 등급 index·등급 이름·등급별 확률·confidence.
+
+    score·probabilities·confidence 는 응답에 꼭 있어야 한다. 등급 이름(legend)은 질문 세트에서 온다(C5-A S9).
+    """
 
     score: float
     legend: dict[str, str]
@@ -120,11 +123,13 @@ def _number(value: Any, low: float | None = None, high: float | None = None) -> 
     return value
 
 
-def _probabilities(value: Any) -> dict[str, float]:
-    """각 값이 [0, 1] 이고 합이 1 ± 0.01 인 분포."""
+def _probabilities(value: Any, allowed_keys: Collection[str]) -> dict[str, float]:
+    """각 값이 [0, 1] 이고 합이 1 ± 0.01 인 분포. 키는 allowed_keys 의 부분집합이어야 한다(C5-A S9)."""
     if not isinstance(value, Mapping) or not value:
         raise WireFormatError("probabilities 가 객체가 아니다")
-    distribution = {str(k): _number(v, 0, 1) for k, v in value.items()}
+    if not all(isinstance(k, str) and k in allowed_keys for k in value):
+        raise WireFormatError("probabilities 키가 선택지·등급 밖이다")
+    distribution = {k: _number(v, 0, 1) for k, v in value.items()}
     if abs(sum(distribution.values()) - 1) > PROBABILITY_SUM_TOLERANCE:
         raise WireFormatError("probabilities 합이 1 이 아니다")
     return distribution
@@ -147,29 +152,33 @@ def _parse_answer(question: WireQuestion, raw: Any) -> Answer:
     if not isinstance(raw, Mapping):
         raise WireFormatError(f"질문 {question.qid}: 응답이 객체가 아니다")
     if question.kind == CHOICE:
+        options = question.criteria or {}
         choice = raw.get(CHOICE)
-        if not isinstance(choice, str) or choice not in (question.criteria or {}):
+        if not isinstance(choice, str) or choice not in options:
             raise WireFormatError(f"질문 {question.qid}: choice 가 선택지 밖이다")
         return ChoiceAnswer(
-            choice, _number(raw.get(CONFIDENCE), 0, 1), _probabilities(raw.get(PROBABILITIES))
+            choice,
+            _number(raw.get(CONFIDENCE), 0, 1),
+            _probabilities(raw.get(PROBABILITIES), options),
         )
     if question.kind == NOUL:
         return YesAnswer(_number(raw.get(NOUL), 0, 1))
-    legend = raw.get(LEGEND, score_legend(question))
-    if not isinstance(legend, Mapping):
-        raise WireFormatError(f"질문 {question.qid}: legend 가 객체가 아니다")
+    # score: 등급 이름은 질문 세트 것을 쓴다. 서버가 보낸 legend 는 값도 모양도 보지 않는다(C5-A S9).
+    # 응답 원문(wire)은 그대로 저장되므로 서버 legend 는 거기에만 남는다
+    legend = score_legend(question)
     if PROBABILITIES not in raw or CONFIDENCE not in raw:
         # score 답의 등급 분포·confidence 는 선택이 아니다(e8 판정 P2a)
         raise WireFormatError(f"질문 {question.qid}: score 답에 probabilities·confidence 가 없다")
     # score 는 0부터 센 평균 등급 index 라 [0, 등급 수 - 1](v0.1 fit 은 [0, 4])
     top_grade = max(len(question.criteria or []) - 1, 0)
     score = _number(raw.get(SCORE), 0, top_grade)
-    probabilities = _probabilities(raw.get(PROBABILITIES))
+    # 등급 키는 "0".."N-1" 표기만 받는다("00"·"+1"·"-0"·" 3"·"٣" 처럼 int() 가 읽어 주는 변형도 거절)
+    probabilities = _probabilities(raw.get(PROBABILITIES), legend.keys())
     if abs(score - _expected_grade(probabilities)) > SCORE_EXPECTED_GRADE_TOLERANCE:
         raise WireFormatError(f"질문 {question.qid}: score 가 등급 분포의 기대 등급과 다르다")
     return ScoreAnswer(
         score,
-        {str(k): str(v) for k, v in legend.items()},
+        legend,
         probabilities,
         _number(raw.get(CONFIDENCE), 0, 1),
     )

@@ -1,11 +1,12 @@
 """local 어댑터 기동 검사(local 명세 §1, L1~L3). 위반은 "키(사유)" 로 모아 기동을 거부한다(exit 78).
 
-1~5단계(설정·URL·질문 세트·레지스트리 항목)에 위반이 있으면 6단계(원격 GET /v1/models 대조)를 하지 않는다.
+1~5단계(설정·키 형식·URL·질문 세트·레지스트리 항목)에 위반이 있으면 6단계(원격 GET /v1/models 대조)를 하지 않는다.
 6단계는 응답이 있고 다를 때만 거부하고, 응답이 없으면(연결 실패·timeout·3xx·401·403·404·5xx) 기동한다.
-값(URL·키·해시)은 위반 요약·로그에 넣지 않는다.
+값(URL·호스트·키·해시)은 위반 요약·로그에 넣지 않는다.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 
 from pydantic import SecretStr
@@ -13,21 +14,25 @@ from pydantic import SecretStr
 from sol_ai.adapters import http
 from sol_ai.adapters.kev_local import LocalKev, check_kev_registry
 from sol_ai.adapters.qwen import LocalQwen, system_prompt
+from sol_ai.deadline import Deadline
 from sol_ai.errors import StartupRefused
 from sol_ai.paths import PROMPT_FILE, REGISTRY_FILE
 from sol_ai.question_sets import V0_1, V0_2, QuestionSet
 from sol_ai.registry import ModelRegistry
 from sol_ai.schema import ExtractionSchema
 from sol_ai.settings import Settings
+from sol_ai.strict_json import parse_json
 
 logger = logging.getLogger("sol_ai.local")
 
 # local Kev 어댑터가 답하는 질문 세트. 지원 여부는 파일이 있는지가 아니라 이 집합으로 판정한다
 SUPPORTED_QUESTION_SETS = frozenset({V0_1, V0_2})
 
-# 기동 대조 요청마다의 timeout(초)
+# 기동 대조 요청마다의 마감(초). 요청 처리의 마감(AI_TIMEOUT_MS·KEV_TIMEOUT_MS)과 무관하다
 REGISTRY_TIMEOUT_S = 5.0
 MODELS = "/v1/models"
+# 모델 서버 키는 출력 가능한 ASCII 만 받는다(C5-A S6). 공백·제어문자·CR/LF·한글은 Authorization 헤더를 깨거나 바꾼다
+API_KEY_FORMAT = re.compile(r"[\x21-\x7E]+")
 
 
 class LocalConfigError(StartupRefused):
@@ -40,15 +45,21 @@ def _given(value: str | None) -> str | None:
     return value if value else None
 
 
-def _secret_given(value: SecretStr | None) -> bool:
-    return value is not None and value.get_secret_value() != ""
+def _key_problem(value: SecretStr | None) -> str | None:
+    """키 위반 사유. 없음·빈 값은 MISSING, 출력 가능한 ASCII 밖 글자가 있으면 INVALID_FORMAT. 값은 돌려주지 않는다."""
+    secret = value.get_secret_value() if value is not None else ""
+    if secret == "":
+        return "MISSING"
+    if API_KEY_FORMAT.fullmatch(secret) is None:
+        return "INVALID_FORMAT"
+    return None
 
 
 def qwen_registry_match(reply: http.HttpReply, model: str) -> bool | None:
     """vLLM GET /v1/models: 200 이면 data[].id 에 모델이 있는지. 200 이 아니거나 읽을 수 없으면 None."""
     if reply.status != 200:
         return None
-    body = http.parse_json(reply.text)
+    body = parse_json(reply.text)
     if not isinstance(body, dict) or not isinstance(body.get("data"), list):
         return None
     return any(isinstance(m, dict) and m.get("id") == model for m in body["data"])
@@ -56,7 +67,7 @@ def qwen_registry_match(reply: http.HttpReply, model: str) -> bool | None:
 
 def _check_qwen_registry(endpoint: http.Endpoint, model: str) -> bool | None:
     try:
-        reply = http.call(endpoint, "GET", MODELS, timeout_s=REGISTRY_TIMEOUT_S)
+        reply = http.call(endpoint, "GET", MODELS, deadline=Deadline(REGISTRY_TIMEOUT_S))
     except http.TransportFailure as error:
         logger.warning("qwen /v1/models unreachable: %s", error)
         return None
@@ -87,20 +98,28 @@ def configure_local(
     # 1. 자동 대체는 구현하지 않는다(L3)
     if settings.AI_FALLBACK_TO_MOCK == "true":
         violations.append(("AI_FALLBACK_TO_MOCK", "NOT_IMPLEMENTED"))
-    # 2. 필수 설정(check:env 와 같은 집합. QWEN_API_KEY 는 선택)
+    # 2. 필수 설정(check:env 와 같은 집합. QWEN_API_KEY 도 필수다: 03 §3·09, C5-A S3)과 키 형식(S6)
     if qwen_url is None:
         violations.append(("QWEN_BASE_URL", "MISSING"))
     if kev_enabled and kev_url is None:
         violations.append(("KEV_BASE_URL", "MISSING"))
-    if kev_enabled and not _secret_given(settings.KEV_API_KEY):
-        violations.append(("KEV_API_KEY", "MISSING"))
-    # 3. URL 보안: https, 또는 루프백 http
+    keys = [("QWEN_API_KEY", settings.QWEN_API_KEY)]
+    if kev_enabled:
+        keys.append(("KEV_API_KEY", settings.KEV_API_KEY))
+    for key, secret in keys:
+        problem = _key_problem(secret)
+        if problem is not None:
+            violations.append((key, problem))
+    # 3. URL: https 또는 루프백 http(INSECURE_URL), 계정 정보 없음(URL_HAS_CREDENTIALS),
+    #    레지스트리 allowedHosts 또는 루프백(HOST_NOT_ALLOWED)
     for key, url in (
         ("QWEN_BASE_URL", qwen_url),
         ("KEV_BASE_URL", kev_url if kev_enabled else None),
     ):
-        if url is not None and not http.is_secure_url(url):
-            violations.append((key, "INSECURE_URL"))
+        if url is not None:
+            violations.extend(
+                (key, reason) for reason in http.url_problems(url, registry.allowed_hosts)
+            )
     # 4·5. 질문 세트·레지스트리 항목
     entry = registry.kev(settings.KEV_MODEL_ID)
     if kev_enabled:
@@ -128,7 +147,7 @@ def configure_local(
     kev = None
     if kev_enabled and kev_url is not None and entry is not None:
         kev_endpoint = http.Endpoint(kev_url, settings.KEV_API_KEY)
-        match = check_kev_registry(kev_endpoint, entry, REGISTRY_TIMEOUT_S)
+        match = check_kev_registry(kev_endpoint, entry, Deadline(REGISTRY_TIMEOUT_S))
         if match is False:
             violations.append(("KEV_MODEL_ID", "REGISTRY_MISMATCH"))
         kev = LocalKev(
@@ -136,7 +155,6 @@ def configure_local(
             entry=entry,
             model_id=settings.KEV_MODEL_ID,
             question_set=settings.KEV_QUESTION_SET,
-            timeout_s=settings.KEV_TIMEOUT_MS / 1000,
             registry_match=match,
         )
     if violations:
@@ -145,7 +163,6 @@ def configure_local(
     qwen = LocalQwen(
         endpoint=qwen_endpoint,
         model=qwen_model,
-        timeout_s=settings.AI_TIMEOUT_MS / 1000,
         system=system_prompt(PROMPT_FILE.read_bytes().decode("utf-8"), schema.text),
         schema=schema.schema,
         budget_tokens=settings.QWEN_CONTEXT_BUDGET_TOKENS,

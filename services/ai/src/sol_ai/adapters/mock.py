@@ -18,6 +18,7 @@ from sol_ai.adapters.base import (
     ModelUnavailable,
 )
 from sol_ai.contracts import ExtractRequest, KevRequest
+from sol_ai.deadline import Deadline
 from sol_ai.errors import StartupRefused
 from sol_ai.qualifications import QualificationDictionary
 from sol_ai.question_sets import (
@@ -127,8 +128,11 @@ class MockQwen:
         self.model_name: str | None = identity.name
         self.prompt_hash: str | None = identity.prompt_hash
 
-    def extract(self, request: ExtractRequest, retry_note: str | None = None) -> ModelOutput:
-        # 재시도(retry_note)여도 같은 fixture 를 돌려준다. 스키마 위반 fixture 는 다시 실패한다
+    def extract(
+        self, request: ExtractRequest, retry_note: str | None = None, *, deadline: Deadline
+    ) -> ModelOutput:
+        # 재시도(retry_note)여도 같은 fixture 를 돌려준다. 스키마 위반 fixture 는 다시 실패한다.
+        # 네트워크를 쓰지 않으므로 deadline 은 보지 않는다(mock 동작은 마감과 무관하다)
         if self._fault == FAULT_QWEN_ERROR:
             raise ExtractionFailed("fault injected: qwen_error")
         if self._fault == FAULT_QWEN_UNREACHABLE:
@@ -219,8 +223,8 @@ class MockKev:
         if self._fault in (FAULT_KEV_TIMEOUT, FAULT_KEV_UNREACHABLE):
             raise KevUnavailable(f"fault injected: {self._fault}")
 
-    def answer(self, wire_request: dict, request: KevRequest) -> KevReply:
-        # wire_request 는 실제 Kev 에 보낼 본문과 같다. mock 은 보내지 않는다
+    def answer(self, wire_request: dict, request: KevRequest, *, deadline: Deadline) -> KevReply:
+        # wire_request 는 실제 Kev 에 보낼 본문과 같다. mock 은 보내지 않는다(deadline 도 보지 않는다)
         path = fixture_file(self._root, "kev", request.fixtureId)
         if path is not None:
             try:

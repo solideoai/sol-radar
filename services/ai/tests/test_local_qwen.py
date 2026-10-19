@@ -93,10 +93,18 @@ def test_qwen_request_carries_bearer_key(make_client, local_models):
     assert headers.get("authorization") == f"Bearer {QWEN_KEY}"
 
 
-def test_qwen_request_without_key_has_no_authorization(make_client, local_models, monkeypatch):
+def test_qwen_without_key_is_refused_before_any_call(make_client, local_models, monkeypatch):
+    # C5-A S3: QWEN_API_KEY 는 local 필수다. 키 없이 기동하지 않으므로 키 없는 Qwen 요청이 나갈 수 없다
+    # (이전 시험은 키 없이 기동해 Authorization 없이 보내는 것을 기대했다)
+    from sol_ai.errors import StartupRefused
+
     monkeypatch.delenv("QWEN_API_KEY")
-    run_extract(make_client, local_models)
-    assert "authorization" not in local_models.qwen.calls("POST", COMPLETIONS)[0].headers
+    with pytest.raises(StartupRefused) as refused:
+        make_client(SOL_RUN_MODE="fixture")
+    assert ("QWEN_API_KEY(MISSING)" in refused.value.summary, local_models.qwen.requests) == (
+        True,
+        [],
+    )
 
 
 def test_qwen_request_inference_settings(make_client, local_models):

@@ -2,12 +2,16 @@
 
 표준 라이브러리 http.server + 스레드. 받은 요청(메서드·경로·헤더·본문)을 기록하고, 경로마다 정한 응답을 돌려준다.
 지연(delay)은 이벤트 대기로 흉내 내서 close() 가 기다리는 요청을 바로 풀어 준다(스레드가 남지 않는다).
-실제 회사 엔드포인트·외부 네트워크는 쓰지 않는다.
+HTTP/1.0 으로 답하므로 Content-Length 를 보내지 않으면 클라이언트는 연결이 닫힐 때까지 본문을 읽는다.
+실제 회사 엔드포인트·외부 네트워크는 쓰지 않는다. 기록용 프록시가 필요하면 서버 하나를 프록시 주소로 쓴다
+(프록시로 온 요청은 경로가 절대 URL 이라 경로 표에 없고, 404 로 답하되 기록은 남는다).
 """
 
 import json
 import socket
 import threading
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -21,6 +25,16 @@ class Reply:
     raw_body: bytes | None = None
     headers: dict = field(default_factory=dict)
     delay: float = 0.0
+    # Content-Length 헤더 값. None 이면 실제 본문 길이(흘려보내기면 보내지 않는다). send_length=False 면 보내지 않는다
+    content_length: int | None = None
+    send_length: bool = True
+    # 조금씩 흘려보내기: 헤더를 바로 보내고 drip 바이트를 drip_interval 초마다 보낸다. drip_for 초가 지나면 연결을 닫는다.
+    # 명세(C5-A S1)는 "끝없이" 보내지만, 고치기 전 코드가 시험을 끝없이 붙잡지 않게 상한을 둔다
+    drip: bytes | None = None
+    drip_interval: float = 0.1
+    drip_for: float = 4.0
+    # 헤더를 보낸 뒤, 본문을 보내기 전에 부른다(주입한 시계를 그 순간 옮기는 시험용). 서버 스레드에서 돈다
+    before_body: Callable[[], None] | None = None
 
     def body(self) -> bytes:
         if self.raw_body is not None:
@@ -56,16 +70,26 @@ class FakeModelServer:
                 reply = owner._take(self.command, self.path, headers, body)
                 if reply.delay:
                     owner._release.wait(reply.delay)
-                payload = reply.body()
+                dripping = reply.drip is not None
+                payload = b"" if dripping else reply.body()
                 self.send_response(reply.status)
                 self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(payload)))
+                declared = reply.content_length
+                if declared is None and not dripping:
+                    declared = len(payload)
+                if reply.send_length and declared is not None:
+                    self.send_header("Content-Length", str(declared))
                 for key, value in reply.headers.items():
                     self.send_header(key, value)
                 self.end_headers()
+                if reply.before_body is not None:
+                    reply.before_body()
                 try:
-                    self.wfile.write(payload)
-                except (BrokenPipeError, ConnectionResetError):
+                    if dripping:
+                        owner._drip(self.wfile, reply)
+                    else:
+                        self.wfile.write(payload)
+                except OSError:  # 클라이언트가 먼저 끊었다(BrokenPipe·ConnectionReset 등)
                     pass
 
             do_GET = _handle
@@ -112,6 +136,12 @@ class FakeModelServer:
                     return Reply(404, {"error": "not found"})
                 return queue.pop(0) if len(queue) > 1 else queue[0]
         return responder(recorded)
+
+    def _drip(self, wfile, reply: Reply) -> None:
+        stop = time.monotonic() + reply.drip_for
+        while time.monotonic() < stop and not self._release.is_set():
+            wfile.write(reply.drip)
+            self._release.wait(reply.drip_interval)
 
     def calls(self, method: str, path: str) -> list[Recorded]:
         with self._lock:

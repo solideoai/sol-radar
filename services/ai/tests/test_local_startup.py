@@ -140,10 +140,22 @@ def test_kev_settings_are_optional_when_kev_disabled():
     assert started(run_main(env)) == (0, False)
 
 
-def test_qwen_api_key_is_optional():
+@pytest.mark.parametrize("value", [None, ""], ids=["missing", "empty"])
+def test_qwen_api_key_is_required(value):
+    # C5-A S3: 03 §3·09 는 local 에서 QWEN_API_KEY 를 필수로 정한다(이전에는 선택으로 시험했다)
     env = env_for(closed_url(), closed_url())
+    if value is None:
+        del env["QWEN_API_KEY"]
+    else:
+        env["QWEN_API_KEY"] = value
+    assert refused_with(run_main(env), "QWEN_API_KEY(MISSING)") == (EX_CONFIG, True)
+
+
+def test_qwen_api_key_is_required_when_kev_disabled():
+    env = env_for(closed_url(), None, KEV_ENABLED="false")
     del env["QWEN_API_KEY"]
-    assert started(run_main(env)) == (0, False)
+    del env["KEV_API_KEY"]
+    assert refused_with(run_main(env), "QWEN_API_KEY(MISSING)") == (EX_CONFIG, True)
 
 
 def test_question_set_outside_supported_versions_is_refused():

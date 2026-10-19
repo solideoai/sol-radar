@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from fake_models import closed_url
-from support import KEV_KEY, extraction_fixture, run_main, write_fixture_dir
+from support import KEV_KEY, QWEN_KEY, extraction_fixture, run_main, write_fixture_dir
 
 RULES_FILE = Path(__file__).resolve().parents[3] / "infra" / "run-modes.json"
 EX_CONFIG = 78
@@ -145,6 +145,8 @@ def test_k13_fixture_mode_skips_fixture_model_check(tmp_path):
             "SOL_RUN_MODE": "fixture",
             "SOL_FIXTURES_DIR": str(root),
             "QWEN_BASE_URL": closed_url(),
+            # C5-A S3: local 은 QWEN_API_KEY 필수
+            "QWEN_API_KEY": QWEN_KEY,
             "KEV_BASE_URL": closed_url(),
             "KEV_API_KEY": KEV_KEY,
         }
