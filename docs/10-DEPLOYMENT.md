@@ -56,11 +56,7 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 
 - service role 키와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 절대 넣지 않는다([[09-SECURITY|09 보안]]). 서비스키는 worker의 `OfficialApiConnector`만 읽고, 소스마다 registry `serviceKeyEnv`가 가리키는 키 하나만 쓴다([[07-DATA-PIPELINE|07 수집]] §2.2). gateway에도 넘기지 않는다.
 - `pnpm check:env`는 세 파일의 placeholder를 세고, 실행 모드와 모순된 값(위 "실행 모드와 프로필")이 있으면 실패한다. Phase 0에서 구현했다(`scripts/check-env.mjs`). `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 셸에서 env 만 주어서는 검사되지 않는다.
-
-> [!note] 제안 — ADR-031
-> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-031]] C13).
-> - worker 행에 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(선택, 코드 기본 `30`분, 양의 정수만)를 올린다([[07-DATA-PIPELINE|07 수집]] §2·§2.2, main `9da17c4` `web/worker/ingest-queue.ts`). 지금 `compose.yaml`은 이 키를 worker에 넘기지 않아 컨테이너는 기본값을 쓴다. 바꾸려면 `compose.yaml`의 worker `environment`에 키를 더하는 일이 함께 필요하다.
-> - 멈춘 분석 복구 env 3개(`ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`)는 [[03-AI-PIPELINE|03]] §3 env 표 콜아웃(C12(e))에 올렸다. 같은 이유로 지금은 컨테이너에서 기본값이다.
+- worker의 선택 env `G2B_INGEST_INTERVAL_MINUTES`(일정 수집 주기, 기본 `30`분, 양의 정수, [[07-DATA-PIPELINE|07 수집]] §2.2)와 `ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(멈춘 분석 복구, [[03-AI-PIPELINE|03]] §3)는 지금 `compose.yaml`이 worker에 넘기지 않는다. 그래서 컨테이너에서는 코드 기본값이 쓰이고, 바꾸려면 `compose.yaml`의 worker `environment`에 키를 더해야 한다([[16-DECISIONS|ADR-031]] C12(e)·C13).
 
 **Phase 0 확정 사항**: 결정과 이유는 [[16-DECISIONS|ADR-024]] 상세 표가 정본이다(placeholder `CHANGE_ME`·`minioadmin` 금지·Redis 비밀번호 영숫자·MinIO 길이, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 실행 모드 규칙 원천 `infra/run-modes.json`과 빈 문자열은 미지정). 여기에는 운영에 필요한 것만 적는다.
 - gateway 이미지는 `AI_HOST=0.0.0.0`·`SOL_RUN_MODES_FILE=/app/infra/run-modes.json`을 이미지 ENV로 가지고, 저장소 루트를 빌드 컨텍스트로 쓴다(`context: ..`). Compose는 실행 모드 키를 `${VAR:-}`로 넘긴다.
@@ -103,7 +99,7 @@ G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 1512946
 ### seed
 seed 적용·재적용은 스크립트 `pnpm demo:reset`이다(Compose 서비스가 아니다). 루트 `.env.local`의 service role 키로 Supabase 프로젝트에 seed를 넣고, 다시 돌려도 같은 상태가 된다(멱등). 마이그레이션은 적용하지 않는다. 스키마 적용은 `pnpm db:push`(사용자 확인 뒤에만)이고, seed 전에 `pnpm db:verify`로 미적용 마이그레이션이 없는지 본다.
 
-적재 내용: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(Supabase Auth 계정 + `profiles` + `memberships`. `org-01`에 `sol_role` ADMIN/SALES/ANALYST/VIEWER 각 1, 그중 `admin@soltech.invalid`는 `org_role=owner`. `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 적재 + FX-12 1건 격리(title 누락 → `ingest_errors`)와 그 추출 fixture, 사전 리뷰 2건(FX-01 BID·FX-03 NO-BID), 부서·직급 카탈로그와 가상 인력 명부 200명·인력 기간 배정(`assignments`, 아래 "솔리데오 인력·사진 준비"). 사진 200장은 DB에 넣지 않고 READY 검증만 한다. 공고는 공용 데이터라 조직 소유가 없다. 계정 비밀번호는 `DEMO_SEED_PASSWORD`로만 정한다. 템플릿의 `pnpm db:seed`는 로컬 Supabase에서만 쓰는 시험 계정용이라 데모 seed로 쓰지 않는다. seed는 live로 수집한 공고(`is_demo=false`)를 지우지 않는다([[04-DATABASE|04 DB]] §6).
+적재 내용: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(Supabase Auth 계정 + `profiles` + `memberships`. `org-01`에 `sol_role` ADMIN/SALES/ANALYST/VIEWER 각 1, 그중 `admin@soltech.invalid`는 `org_role=owner`. `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 적재 + FX-12 1건 격리(title 누락 → `ingest_errors`), 사전 리뷰 2건(FX-01 BID·FX-03 NO-BID), 부서·직급 카탈로그와 가상 인력 명부 200명·인력 기간 배정(`assignments`, 아래 "솔리데오 인력·사진 준비"). 사진 200장은 DB에 넣지 않고 READY 검증만 한다. 추출(`requirement_extractions`)도 넣지 않는다. seed는 gateway 출력을 지어내지 않는다. 검증된 추출은 기동 절차 14번 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장한다(`fixtures/extractions/`는 gateway mock이 읽는 정본, [[16-DECISIONS|ADR-031]] C16). 공고는 공용 데이터라 조직 소유가 없다. 계정 비밀번호는 `DEMO_SEED_PASSWORD`로만 정한다. 템플릿의 `pnpm db:seed`는 로컬 Supabase에서만 쓰는 시험 계정용이라 데모 seed로 쓰지 않는다. seed는 live로 수집한 공고(`is_demo=false`)를 지우지 않는다([[04-DATABASE|04 DB]] §6).
 
 **`live` 모드의 seed**: `pnpm demo:reset`은 실행 모드와 무관하게 데모 조직·계정 5개·가상 회사 프로필·fixture 공고·사전 리뷰를 넣는다. `is_demo=true` 데이터만 지우고 다시 만들므로 live 공고는 그대로다([[04-DATABASE|04 DB]] §6). 목록 기본 필터는 실행 모드를 따르므로 `live` 모드에서는 fixture 공고가 기본 목록에 섞이지 않는다([[05-API-SPEC|05 API]] §3).
 
@@ -205,10 +201,10 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/mode
 - gateway는 파서가 들어가도 DB·MinIO·외부 네트워크에 접근하지 않는다. AGPL·GPL 후보(pyhwp·PyMuPDF·poppler 등)는 이미지에 넣지 않는다(03 §10.2).
 
 ## 데모 당일 기동 절차
-전제: D-1에 이미지 빌드·pull, `pnpm -C web build`, 마이그레이션 적용(`pnpm db:push`, 사용자 확인 뒤), 전체 리허설을 끝냈다 ([[12-ROADMAP|12 로드맵]]). 당일에는 스키마를 바꾸지 않는다. 증거는 `docs/evidence/demo-day/YYYYMMDD-HHMM/`에 저장한다([[11-TESTING|11 테스트]]). 어느 실행 모드로 시연할지는 [[19-DEMO-SCENARIO|19 데모 시나리오]]를 따른다. 아래 단계에서 **[live·fixture]** 표시는 `ai-local`일 때만 한다.
+전제: D-1에 이미지 빌드·pull, `pnpm -C web build`, 마이그레이션 적용(`pnpm db:push`, 사용자 확인 뒤), 전체 리허설을 끝냈다 ([[12-ROADMAP|12 로드맵]]). 당일에는 스키마를 바꾸지 않는다. 증거는 `docs/evidence/demo-day/YYYYMMDD-HHMM/`에 저장한다([[11-TESTING|11 테스트]]). 어느 실행 모드로 시연할지는 [[19-DEMO-SCENARIO|19 데모 시나리오]]를 따른다. 아래 단계에서 **[live·fixture]** 표시는 `ai-local`일 때만 한다. 순서의 뼈대는 Compose(4) → `pnpm demo:reset`(12) → 모드 확인·mock 복귀(13) → `pnpm demo:preanalyze`(14) → S2다. `pnpm demo:reset`은 사전 분석을 지우므로(직후 `score_runs` 0건, [[04-DATABASE|04 DB]] §6) 마지막 reset 뒤에 사전 분석을 만든다([[16-DECISIONS|ADR-031]] C12(f)).
 
 > [!warning] 데모 네트워크 의존
-> DB·Auth가 Supabase 클라우드 프로젝트라 1~12 모두 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 멈춘다. 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5가 정본이다(16 미결정 8번). 데모 장소의 네트워크는 미리 확인한다. `live`·`fixture`는 회사 GPU 추론 엔드포인트(HTTPS) 접속도 필요하다(ADR-025).
+> DB·Auth가 Supabase 클라우드 프로젝트라 1~15 모두 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 멈춘다. 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5가 정본이다(16 미결정 8번). 데모 장소의 네트워크는 미리 확인한다. `live`·`fixture`는 회사 GPU 추론 엔드포인트(HTTPS) 접속도 필요하다(ADR-025).
 
 1. Docker Desktop 실행, 인터넷 연결 확인. `docker info`가 Server 정보를 출력하면 통과.
 2. 실행 모드 확인과 env 준비: 시연 모드를 정하고 env 묶음을 고른다. `mock`은 `cp infra/env/demo.env.example infra/.env`, `live`·`fixture`는 `cp infra/env/ai-local.env.example infra/.env` 후 `SOL_RUN_MODE`를 맞춘다. placeholder를 실제 값으로 교체하고 `web/.env.local`과 루트 `.env.local`도 채운다(위 "env 파일 위치" 표). `pnpm check:env`가 "placeholder 0건"을 출력하고 모드 모순(예: `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)이 0건이면 통과. `infra/.env`의 `SOL_RUN_MODE` 줄을 `run-mode.txt`로 저장.
@@ -218,25 +214,23 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/mode
    - **[live·fixture]** ① 회사 측 모델 기동 완료 통보(P3)를 확인한다. ② 노트북에서 엔드포인트 접속을 확인한다(G1: `GET https://acropolissg.com/sol-radar/healthz` 200 + TLS 유효, `-k` 금지. 위 "회사 GPU 추론 엔드포인트"의 curl). ③ Kev `GET /v1/models`(Bearer)가 `jaredpalmer/kev-9b@v1.0`을, vLLM `GET /v1/models`가 `Qwen/Qwen3.5-9B`를 돌려주면 통과. 응답을 `endpoint-models.json`으로 저장. ④ `docker compose -f infra/compose.yaml up -d --build`(`mock`과 같은 명령). gateway가 레지스트리 불일치로 기동을 거부하면 중단한다(`runs/smoke`로 대체된 Kev일 수 있다).
    - 공통: `docker compose -f infra/compose.yaml ps`에서 기본 5개 서비스(redis·minio·qdrant·ai-gateway·worker) `healthy`. `ps` 출력을 `compose-ps.txt`로 저장.
 5. web 기동: `pnpm -C web start`(:3000). Compose `web`(선택)을 쓰면 4에서 함께 뜨고 `ps`에 `healthy`로 보인다.
-6. seed: `pnpm demo:reset` 마지막 줄이 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true` 형식인지 확인(사전 리뷰 2건은 FX-01, FX-03). 숫자가 다르면 중단. 이어서 실행 모드가 `mock`이고 gateway가 떠 있는지 확인한 뒤 `pnpm demo:preanalyze`로 S2용 사전 분석을 만든다. 대상은 18건(SEED 19건 − `FX-02`, `FX-18` 포함)이고 18건 모두 `COMPLETED`여야 한다([[19-DEMO-SCENARIO|19 데모 시나리오]] §3 5번, [[16-DECISIONS|ADR-030]] B22). 실행은 사용자 확인 뒤다.
+6. seed: `pnpm demo:reset` 마지막 줄이 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true` 형식인지 확인(사전 리뷰 2건은 FX-01, FX-03). 숫자가 다르면 중단. 사전 분석은 아직 하지 않는다. 7~11번 리허설 뒤 12번 초기화가 지우므로 14번에서 만든다.
 7. `curl -s http://localhost:3000/health/ready`: `status` ok, `checks.db`(Supabase)·`checks.redis`·`checks.storage`(MinIO) ok, `checks.ai`가 모드와 맞는지 본다(`mock` → `mock`, `live`·`fixture` → `local`). AI만 불가면 `status` degraded(HTTP 200)로 통과. db·redis·storage 중 하나라도 불가면 503 `status:"unavailable"`이므로 중단. 응답을 `health-ready.json`으로 저장. **[live·fixture]** gateway `GET /health`의 `runMode`가 2번에서 정한 모드이고 `kev.registryMatch=true`인지도 확인해 `gateway-health.json`으로 저장. 응답 형식은 [[05-API-SPEC|05 API]], `checks.ai` 의미는 [[14-OBSERVABILITY|14 관측성]].
 8. API 스모크: `org-01` 계정으로 Supabase Auth 비밀번호 로그인을 해 access token을 받는다(`supabase-js` `signInWithPassword` 또는 Auth REST `POST /auth/v1/token?grant_type=password`). `Authorization: Bearer <token>`으로 `GET /api/v1/bids` 19건(`live` 모드는 기본 필터가 `origin=live`라 fixture가 안 보이므로 `origin=demo`로 19건) → `POST /api/v1/bids/:id/analyses` 202 → poll이 10초 안에 `COMPLETED`(`mock` 기준, [[19-DEMO-SCENARIO|19 데모 시나리오]] S4·[[11-TESTING|11 테스트]] §5와 같은 값. 실모델 모드의 소요 시간은 리허설 실측값으로 판단). Bearer 요청은 CSRF 헤더 검사 대상이 아니다([[05-API-SPEC|05 API]]).
 9. 브라우저(폭 1440px, 줌 100%)에서 `/auth/login` → 머리말 "실행 모드: …"가 2번의 모드와 같은지, 우상단 `AI: mock`(또는 `live`·`fixture`면 `AI: local`, 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen/Qwen3.5-9B · jaredpalmer/kev-9b@v1.0")과 DEMO 배지 확인 → 목록 19건(`live`는 `origin=demo` 필터), 격리 1건(FX-12)은 관리자 수집 현황에만 표시 → 상세 1건이 자격·점수·근거·Kev 참고 지표 영역까지 렌더. 화면 캡처를 `run-mode-header.png`로 저장.
 10. 장애 대체 리허설 (아래 "장애 주입" 절): `docker compose -f infra/compose.yaml stop ai-gateway` → FX-01 재분석 → 상세에 `PARTIAL` 배너, 우상단 `AI: unavailable` → `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` 확인 → FX-01 재분석 `COMPLETED`. **[live·fixture]** 엔드포인트 미접속 리허설도 한다(C1 ③ G6과 같은 경로): 엔드포인트 접속을 끊는다(예: `QWEN_BASE_URL`·`KEV_BASE_URL`을 닿지 않는 주소로 바꿔 ai-gateway 재시작, 또는 노트북 방화벽으로 `acropolissg.com` 차단) → FX-01 재분석이 `PARTIAL`·`RULES_ONLY`(`QWEN_UNAVAILABLE` 또는 `KEV_UNAVAILABLE`)로 끝나고 mock 결과가 나오지 않는지 확인 → 원래 값으로 되돌려 ai-gateway를 재시작하고 4번 ②·③의 curl로 재접속을 확인 → FX-01 재분석 `COMPLETED`. 재접속 확인 소요 시간을 기록한다.
 11. 테넌트 격리 리허설: `org-02` VIEWER(`viewer@other.invalid`)로 Supabase Auth 로그인해 받은 access token을 `Authorization: Bearer`로 붙여 `GET /api/v1/bids/{FX-01 id}/qualification-checks` → `404 NOT_FOUND`(RLS가 `org-01` 행을 보여 주지 않는다). 공고 자체(`GET /api/v1/bids/{FX-01 id}`)는 공용이라 200. 404 응답을 `isolation-404.json`으로 저장. 절차는 [[19-DEMO-SCENARIO|19 데모 시나리오]] S7.
-12. 리허설로 생긴 리뷰·알림 초기화: `pnpm demo:reset` (멱등, DEMO 데이터 재생성). 브라우저 탭 1개만 남긴다. **[live·fixture]** 엔드포인트가 응답하는지 마지막으로 확인한다(4번 ②·③).
-
-> [!note] 제안 — ADR-031
-> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 1~12번이 정본이다([[16-DECISIONS|ADR-031]] C12(f)).
-> - 기동 순서: Compose → `pnpm demo:reset` → 모드 확인·mock 복귀 → `pnpm demo:preanalyze` → S2. `pnpm demo:preanalyze`는 `mock` 모드와 gateway가 필요하므로 `live`·`fixture` 확인 뒤에는 `mock`으로 되돌린 다음에 돈다.
-> - 이 절과 맞춰 볼 점: 지금은 6번에서 사전 분석을 하고, 그 뒤 10번 엔드포인트 리허설(`live`·`fixture`)과 12번 `pnpm demo:reset`이 온다. [[04-DATABASE|04 DB]] §6에 따르면 `pnpm demo:reset` 직후 `score_runs`는 0건이다. 그래서 12번 뒤에도 위 순서(mock 복귀 → `pnpm demo:preanalyze`)를 다시 밟아야 S2 기대값(분석 현황 완료 18)이 나온다. 단계 번호를 어떻게 바꿀지는 채택 때 정한다.
+12. 리허설로 생긴 리뷰·알림·분석 run 초기화: `pnpm demo:reset` (멱등, DEMO 데이터 재생성). 마지막 줄이 6번과 같은지 확인한다. 이 reset 뒤에는 `score_runs`가 0건이다.
+13. 모드 확인·mock 복귀: `infra/.env`의 `SOL_RUN_MODE`가 `mock`인지 본다. `live`·`fixture`로 리허설했으면 `mock`으로 바꾸고 worker·ai-gateway를 재시작한다. `ps`에서 ai-gateway `healthy`, `/health/ready`의 `checks.ai`가 `mock`이면 통과.
+14. 사전 분석: `pnpm demo:preanalyze`로 S2용 사전 분석을 만든다. 대상은 18건(SEED 19건 − `FX-02`, `FX-18` 포함)이고 18건 모두 `COMPLETED`여야 한다(`mock` 모드·gateway 필수, [[19-DEMO-SCENARIO|19 데모 시나리오]] §3 5번, [[16-DECISIONS|ADR-030]] B22, ADR-031 C12(f)). 실행은 사용자 확인 뒤다. 이 뒤로 `pnpm demo:reset`을 다시 돌렸으면 13·14번을 다시 한다.
+15. S2 준비: 브라우저 탭 1개만 남긴다. **[live·fixture]** 엔드포인트가 응답하는지 마지막으로 확인한다(4번 ②·③).
 
 > [!tip] 심사 포인트
 > 10번이 "AI가 죽어도 제품이 동작한다"의 증거다. 데모 중 실제로 ai-gateway를 내리고 PARTIAL 배너를 보여 준다. 실모델 모드에서는 엔드포인트에 닿지 않아도 mock으로 몰래 바뀌지 않고 실패 유형이 그대로 보인다.
 
 ## D-1 리허설 추가 항목 (ADR-020)
 
-위 1~12에 더해 D-1에 한다. 결과는 `docs/evidence/demo-day/rehearsal-log.md`에 날짜·소요 시간·실패 단계와 함께 적는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
+위 1~15에 더해 D-1에 한다. 결과는 `docs/evidence/demo-day/rehearsal-log.md`에 날짜·소요 시간·실패 단계와 함께 적는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
 - **세 모드 전환**: `live` → `fixture` → `mock` 순서로 env의 `SOL_RUN_MODE`를 바꾸고 worker·ai-gateway를 재시작한다. 모드마다 머리말 "실행 모드", 우상단 `AI: …`, 새로 적재되는 공고의 DEMO 배지, gateway `/health`의 `runMode`를 확인한다. 전환 소요 시간을 기록한다.
 - **모순 env 거부**: `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`, `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`(모든 모드, B11)로 `pnpm check:env`와 gateway가 기동을 거부하는지 본다.
 - **엔드포인트 미접속과 재접속 확인**: 기동 절차 10번의 엔드포인트 단계를 반복하고 재접속 확인(`GET /v1/models` curl) 소요 시간을 잰다. 회사 측이 런타임을 재시작했다고 알려 오면 gateway `/health`의 `kev.registryMatch`가 다시 `true`인지도 본다.

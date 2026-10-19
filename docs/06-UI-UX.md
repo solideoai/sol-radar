@@ -407,13 +407,9 @@ flowchart TD
 | 첨부 파싱 실패 | 근거 섹션에 danger 배지 "첨부 원문 확인" + 원문 링크(`FX-05`). 사유(`UNSUPPORTED_FORMAT`·`NO_TEXT_LAYER`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED` 등)를 툴팁으로 |
 | 첨부 다운로드 실패 | 근거 섹션에 danger 배지 `DOCUMENT_DOWNLOAD_FAILED` "첨부를 내려받지 못했습니다" + 원문 링크. 파싱 실패와 다른 배지 |
 | 부분 파싱 (`PARTIAL`) | 해당 첨부에 warning 배지 "일부만 읽음". 근거 없는 항목은 확인 필요 |
-| Qwen 미접속 / Kev 미접속 | 각각 다른 문구: Qwen 불가는 `PARTIAL` 배너(위), Kev 불가는 Kev 섹션 "사용 불가 (Kev 서버 미접속)" + `RULES_ONLY` |
+| Qwen 미접속 / Kev 사용 불가 | 각각 다른 문구: Qwen 불가는 `PARTIAL` 배너(위), Kev 불가(`KEV_UNAVAILABLE` = Kev 미접속·timeout + Kev 응답 형식 오류)는 Kev 섹션 "Kev 사용 불가" + `RULES_ONLY`. 원인을 "서버 미접속"으로 단정하지 않는다([[03-AI-PIPELINE\|03]] §8, [[16-DECISIONS\|ADR-031]] C6) |
 | mock 자동 대체 (`MOCK_FALLBACK`) | 상단 danger 배너 "모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)". `AI_FALLBACK_TO_MOCK=true`일 때만 생기고 `live` 모드에서는 생기지 않는다 |
 | 취소 | §5.5 |
-
-> [!note] 제안 — ADR-031
-> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-031]] C6).
-> - `KEV_UNAVAILABLE`의 뜻이 "Kev 미접속·timeout + Kev 응답 형식 오류"로 넓어진다. gateway가 응답했지만 쓸 수 없는 `/kev`(4xx·봉투 오류·wire 스키마 위반)도 `kev.enabled=false`·`KEV_UNAVAILABLE`·`COMPLETED`·`RULES_ONLY`다. 그래서 Kev 섹션 문구는 원인을 단정하는 "사용 불가 (Kev 서버 미접속)" 대신 "Kev 사용 불가"([[03-AI-PIPELINE|03]] §8 Kev 행의 화면 열과 같다)로 맞춘다.
 
 ## 7. 분석 상태와 polling
 
