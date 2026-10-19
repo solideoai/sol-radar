@@ -271,6 +271,8 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
       const documents = startDocumentsReconciler({
         finder: createPendingDocumentFinder(getSupabaseAdmin()),
         queue: documentsQueue,
+        // C6': mock·fixture 는 데모 공고만, live 는 실제 공고만 복구한다
+        isDemo: config.runMode !== "live",
         log: (line) => {
           console.log(line);
         },

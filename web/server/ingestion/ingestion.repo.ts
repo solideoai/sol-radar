@@ -148,7 +148,19 @@ export function createSupabaseIngestionRepo(
       const [saved] = data ?? [];
       if (!saved)
         throw new Error("수집 저장소: ingest_save_revision 이 저장한 행을 돌려주지 않았다");
-      return { bidId: saved.bid_id, revisionId: saved.revision_id };
+      // RPC 는 (bid_id, revision_id) 만 돌려준다. documents jobId(C1')에 쓸 created_at 은 저장한 행에서 따로 읽는다.
+      const created = await client
+        .from("bid_revisions")
+        .select("created_at")
+        .eq("id", saved.revision_id)
+        .eq("bid_id", saved.bid_id)
+        .single();
+      if (created.error) throw repoError("bid_revisions 조회", created.error);
+      return {
+        bidId: saved.bid_id,
+        revisionId: saved.revision_id,
+        revisionCreatedAt: created.data.created_at,
+      };
     },
 
     async recordError(runId, error) {
