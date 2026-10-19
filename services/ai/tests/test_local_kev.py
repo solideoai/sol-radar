@@ -224,6 +224,14 @@ def test_kev_nan_probability_disables_kev(make_client, local_models):
     assert disabled(result) == (False, "KEV_UNAVAILABLE", None, None, True)
 
 
+def test_kev_nan_in_unvalidated_field_disables_kev(make_client, local_models):
+    # usage 는 값 검사를 하지 않고 wire 로 그대로 넘긴다. 표준 JSON 밖 수(NaN)는 응답 읽기에서 막혀야 한다
+    raw = json.dumps(kev_answer()).replace('"input_tokens": 512', '"input_tokens": NaN').encode()
+    assert b"NaN" in raw  # 전제: NaN 토큰을 실제로 넣었다
+    result = run_kev(make_client, local_models, Reply(raw_body=raw))
+    assert disabled(result) == (False, "KEV_UNAVAILABLE", None, None, True)
+
+
 def test_kev_probabilities_within_tolerance_are_accepted(make_client, local_models):
     answer = _with(REC, {"BID": 0.705, "WATCH": 0.245, "NO_BID": 0.055})  # 합 1.005
     assert run_kev(make_client, local_models, answer_reply(answer))["kev"]["enabled"] is True

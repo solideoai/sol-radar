@@ -416,6 +416,19 @@ def test_kev_fixture_id_with_non_ascii_digits_uses_formula(
     assert kev_tuple(post(make_client(), request)["kev"]) == FORMULA_BID
 
 
+def test_mock_kev_fixture_with_nan_probability_is_unavailable(make_client, custom_fixtures):
+    # mock 은 fixture 파일을 표준 json 으로 읽어 NaN 이 들어온다. wire 값 검증(유한수·범위)이 막아야 한다
+    bad = kev_fixture("FX-02")
+    bad["responses"]["recommendation"]["probabilities"]["BID"] = float("nan")
+    formula_fixtures(custom_fixtures, {"FX-02": bad})
+    result = post(make_client(), kev_request("FX-02"))
+    assert (result["kev"]["enabled"], result["errorCode"], result["wire"]) == (
+        False,
+        "KEV_UNAVAILABLE",
+        None,
+    )
+
+
 # ---------------------------------------------------------------- Kev 생략 판정 순서(e8)
 # ko 거부(422) → KEV_ENABLED=false(errorCode null) → 장애 주입(KEV_UNAVAILABLE) → 인젝션 의심(INJECTION_SUSPECTED)
 
