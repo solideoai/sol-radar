@@ -25,7 +25,7 @@ updated: 2026-10-19
 |권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 템플릿 호환용이라 이 열에 쓰지 않는다. 구성원 관리도 `sol_role=ADMIN`이다(RLS 정책은 `20261019000001`, [[16-DECISIONS\|ADR-021]]). `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
 |목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
-|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. `POST /bids/:id/analyses`에 키가 없으면 서버가 UUID를 만든다([[16-DECISIONS\|ADR-030]] B20)|
+|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. `POST /bids/:id/analyses`에 키가 없으면 서버가 UUID를 만든다([[16-DECISIONS\|ADR-030]] B20). 분석의 저장 멱등 키는 `<org_id>:<requestId>`이고, requestId(`Idempotency-Key` 값 또는 서버가 만든 UUID)는 `^[A-Za-z0-9_-]{1,128}$`만 받는다. DB check `score_runs_idempotency_key_org_check`가 `<org_id>:`로 시작하는지 강제한다([[04-DATABASE\|04 DB]] §3.4, [[16-DECISIONS\|ADR-031]] C5)|
 |요청 ID|모든 응답에 `X-Request-Id`. 로그·감사·오류 본문에 같은 값|
 |속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `/admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 초과 `429` + `Retry-After`|
 |문서|계약의 원천은 zod 스키마다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성하고 개발 환경에서만 노출한다|
@@ -95,7 +95,7 @@ updated: 2026-10-19
 |---|---|---|---|---|
 |`q`|string|—|1~100자|제목·기관·공고번호 검색(trigram). 비어 있으면 전체|
 |`stage`|`PLAN\|PRE_SPEC\|NOTICE`, 반복 가능|전체|ENUM|단계 필터|
-|`status`|`OPEN\|AMENDED\|CANCELLED\|CLOSED`, 반복 가능|`OPEN,AMENDED`|ENUM|상태 필터. 명시하면 그 값만. 기본값은 취소 공고(`CANCELLED`)를 숨긴다. 화면 `/bids`의 상태 필터에는 "취소 포함" 선택지가 있고, 고르면 `CANCELLED`도 함께 읽어 그 행에 "취소됨"을 표시한다. 공고 상세(`GET /bids/:id`)는 상태와 상관없이 열린다([[16-DECISIONS\|ADR-029]] A7). 저장 상태는 `OPEN`·`AMENDED`·`CANCELLED`이고, `CLOSED`는 수집 정규화가 만들지 않고 조회할 때 `deadlineAt`으로 계산한다([[15-DATA-CONTRACTS\|15]] §3, [[16-DECISIONS\|ADR-030]] B14)|
+|`status`|`OPEN\|AMENDED\|CANCELLED\|CLOSED`, 반복 가능|`OPEN,AMENDED`|ENUM|상태 필터. 명시하면 그 값만. 기본값은 취소 공고(`CANCELLED`)를 숨긴다. 화면 `/bids`의 상태 필터에는 "취소 포함" 선택지가 있고, 고르면 `CANCELLED`도 함께 읽어 그 행에 "취소됨"을 표시한다. 공고 상세(`GET /bids/:id`)는 상태와 상관없이 열린다([[16-DECISIONS\|ADR-029]] A7). 저장 상태는 `OPEN`·`AMENDED`·`CANCELLED`이고, `CLOSED`는 수집 정규화가 만들지 않고 조회할 때 `deadlineAt`으로 계산한다([[15-DATA-CONTRACTS\|15]] §3, [[16-DECISIONS\|ADR-030]] B14). 기본값 `OPEN,AMENDED`는 이렇게 계산한 `CLOSED`(마감 지남)도 뺀다. "취소 포함"은 `CANCELLED`만 더하고 `CLOSED`는 더하지 않는다([[16-DECISIONS\|ADR-031]] C15)|
 |`agencies`|string, 반복 가능(`agencies=a&agencies=b`)|—|각 1~100자, 최대 10개|발주기관 정확 일치|
 |`budgetMin`, `budgetMax`|KRW 정수 문자열|—|`>= 0`, `min <= max`|예산 범위. 예산 `null`인 공고는 범위 필터에 걸리지 않고 제외된다|
 |`deadlineFrom`, `deadlineTo`|ISO8601|—|`from <= to`|마감 범위. 마감 `null`은 제외|
@@ -140,7 +140,7 @@ type ReviewFlag = "MODEL_RULE_DISAGREEMENT" | "KEV_MANDATORY_RISK" | "KEV_NEEDS_
   | "KEV_REQUIREMENT_DISAGREEMENT" | "KEV_DELIVERY_RISK" | "CITATION_FAILED"
   | "EXTRACTION_FAILED" | "EXTRACTION_LOW_CONFIDENCE" | "AI_UNAVAILABLE" | "QWEN_UNAVAILABLE" | "KEV_UNAVAILABLE"
   | "MOCK_FALLBACK" | "PARSE_UNSUPPORTED" | "DOCUMENT_DOWNLOAD_FAILED"
-  | "INSUFFICIENT_DATA" | "INJECTION_SUSPECTED" | "SCALE_LIMIT_EXCEEDED";    // 조건은 08 §5.3·§5.4
+  | "INSUFFICIENT_DATA" | "INJECTION_SUSPECTED" | "SCALE_LIMIT_EXCEEDED";    // 조건은 08 §5.3·§5.4. KEV_UNAVAILABLE = Kev 미접속·timeout + Kev 응답 형식 오류(§5, ADR-031 C6)
 type FactorKey = "skillMatch" | "pastPerformance" | "staffAvailability" | "scaleFit" | "strategicPreference";
 type MissingReason = "NO_REQUIREMENTS_EXTRACTED" | "PROFILE_TECHNOLOGIES_EMPTY" | "BID_DOMAIN_UNKNOWN" | "PROFILE_PROJECTS_EMPTY"
   | "REQUIRED_FTE_UNKNOWN" | "TEAM_EMPTY" | "BUDGET_UNKNOWN" | "PREFERENCES_NOT_SET";   // 요소가 missing인 사유(08 §4 표, ADR-029 A6 D16)
@@ -318,7 +318,7 @@ interface AnalysisResult {
 - 같은 입력 = (revision, 회사 프로필 revision, 알고리즘 버전). `force:false`이고 같은 입력의 run이 진행 중이면 `202 deduplicated:true`로 그 run을 돌려준다. `force:true`이고 진행 중이면 `409 ANALYSIS_IN_PROGRESS {analysisId}`.
 - 큐 등록에 실패하면 run을 `FAILED`(`errorCode=ENQUEUE_FAILED`)로 바꾸고 멱등 키를 풀어 `503`을 준다.
 - `Idempotency-Key`가 없으면 서버가 UUID를 만든다. `score_runs`의 멱등 키는 `<org_id>:<requestId>`다.
-- 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않는다), payload `{orgId, scoreRunId, idempotencyKey}`.
+- 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않아 `_`로 잇는다), payload `{orgId, scoreRunId, idempotencyKey}`. jobId와 저장 멱등 키 `<orgId>:<requestId>`는 다른 값이고 서로 바꿔 쓰지 않는다([[16-DECISIONS|ADR-031]] C14).
 
 ### 4.6 검토·알림·대시보드·수집
 
@@ -329,7 +329,7 @@ interface ReviewInput {
 }
 interface Review {
   id: string; bidId: string; revisionId: string; scoreRunId: string | null;
-  reviewer: { id: string; name: string; role: Role /* memberships.sol_role */ }; decision: Recommendation; reason: string; decidedAt: string;
+  reviewer: { id: string; name: string; role: Role | null /* memberships.sol_role. 결정한 사람이 조직을 떠나 멤버십이 없으면 null이고 화면은 역할 괄호를 빼고 이름만 보인다(ADR-031 C2) */ }; decision: Recommendation; reason: string; decidedAt: string;
   assignee: { id: string; name: string } | null;                 // bid_reviews.assignee_id
   systemRecommendationAtDecision: Recommendation | null;         // 결정 당시 시스템 권고. 불일치 통계용
   disagreementFlag: boolean;                                     // decision !== systemRecommendationAtDecision. bid_reviews.disagreement_flag
@@ -513,9 +513,12 @@ interface PeoplePage {
 |첨부 다운로드 불가|`BidDocument.downloadStatus=FAILED`, `reviewFlags`의 `DOCUMENT_DOWNLOAD_FAILED`, 관련 항목 `NEEDS_REVIEW`|
 |파싱 실패·부분 파싱·미지원 형식|`BidDocument.parseStatus`·`parseErrorCode`, `reviewFlags`의 `PARSE_UNSUPPORTED`, 관련 항목 `NEEDS_REVIEW`(`PARSE_UNSUPPORTED`)|
 |Qwen 서버 미접속|`reviewFlags`의 `QWEN_UNAVAILABLE`. 캐시된 추출이 없으면 `status=PARTIAL`|
-|Kev 서버 미접속|`reviewFlags`의 `KEV_UNAVAILABLE`, `kev.enabled=false`, `recommendationBasis=RULES_ONLY`|
-|gateway 미접속|`errorCode=AI_UNAVAILABLE`, `status=PARTIAL`(위 문단과 같다)|
+|Kev 서버 미접속·Kev 응답 형식 오류(gateway가 응답했지만 쓸 수 없는 `/kev`: 4xx·봉투 오류·wire 스키마 위반)|`reviewFlags`의 `KEV_UNAVAILABLE`, `kev.enabled=false`, `recommendationBasis=RULES_ONLY`, `status=COMPLETED`|
+|추출 응답 형식 오류(gateway가 응답했지만 쓸 수 없는 `/extract`)|`errorCode=EXTRACTION_FAILED`, `status=PARTIAL`|
+|gateway 미접속(전송 실패: 연결 거부·timeout·재시도 뒤 5xx·circuit open·시험 503)|`errorCode=AI_UNAVAILABLE`, `status=PARTIAL`(위 문단과 같다)|
 |mock 자동 대체(`AI_FALLBACK_TO_MOCK=true`일 때만)|`fallbackReason`, `model.provider="mock"`, `reviewFlags`의 `MOCK_FALLBACK`|
+
+분류 기준은 "gateway가 응답했는가"다. gateway에 닿지 못한 전송 실패만 `AI_UNAVAILABLE`이고, 응답했지만 쓸 수 없으면 `/kev`는 `KEV_UNAVAILABLE`, `/extract`는 `EXTRACTION_FAILED`다. 그래서 `KEV_UNAVAILABLE`은 "Kev 미접속·timeout + Kev 응답 형식 오류"를 뜻한다. 진단(zod issue 경로·코드, failure kind)은 worker 로그에만 남고 이 API와 DB에는 나오지 않는다([[16-DECISIONS|ADR-031]] C6).
 
 gateway 내부 오류 코드(예: 한국어 state를 허용하지 않을 때의 `KO_STATE_NOT_ALLOWED`)는 Compose 내부 계약이라 이 API로 나오지 않는다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 
