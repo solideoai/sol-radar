@@ -3,7 +3,9 @@
 #   docker compose -f infra/compose.yaml up -d --build
 # 프로필을 붙이지 않는다. 같은 5개 서비스가 뜬다.
 # 호스트 포트는 127.0.0.1 에만 열고, 충돌하면 *_HOST_PORT 로 바꾼다.
-name: sol-radar
+# 프로젝트 이름은 sol-radar 가 아니다. 로컬 Supabase CLI 가 supabase/config.toml 의 project_id(sol-radar)를
+# 같은 Compose 라벨로 쓰므로, 같은 이름이면 서로를 orphan 으로 보고 --remove-orphans 가 상대 컨테이너를 지운다.
+name: sol-radar-stack
 
 x-logging: &default-logging
   driver: json-file
