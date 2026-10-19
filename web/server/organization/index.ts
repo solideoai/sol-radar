@@ -19,6 +19,7 @@ export {
   renameTeam,
 } from "./organization.service";
 export { ORG_ROLE_LABELS, RESERVED_SLUGS } from "./organization.model";
+export type { MyBusinessAccess, SolRole } from "./business-access.model";
 export type {
   AcceptResult,
   CreateTeamResult,
