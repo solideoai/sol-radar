@@ -187,6 +187,8 @@ export type NotificationOutboxStore = {
   /** 공고명. 공고가 없으면 null. */
   readBidTitle(bidId: string): Promise<string | null>;
   isMember(orgId: string, userId: string): Promise<boolean>;
+  /** 활동 계정(profiles.status = 'active')인가. 정지 계정이거나 프로필이 없으면 false. */
+  isActive(userId: string): Promise<boolean>;
   /** 같은 idempotency_key 가 이미 있으면 아무것도 하지 않는다(on conflict do nothing). */
   insertNotification(row: NotificationRow): Promise<void>;
   markProcessed(event: OutboxEventRow, now: Date): Promise<void>;

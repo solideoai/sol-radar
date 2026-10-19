@@ -104,3 +104,27 @@ $ bash verify-slot.sh pnpm verify
   ℹ pass 668 · ℹ fail 0 · ✓ DB 타입 일치
   Test Files 146 passed · Tests 5223 passed
   2 rules passed, 0 errors · ✓ Compiled successfully · pytest 898 passed · exit 0
+
+## 보안 검토 후속(3e 검토 f70f8b4: 차단 0·중요 1·낮음 5)
+작성 2026-10-19T16:38:54Z · 근거: 3e 검토, e8 판정(번호 20261019000017, 정지 계정은 0건 PROCESSED)
+- 중요 1(000015 비어 있음): 3e·e8 몫이다. 병합 규칙에 따라 Codex 쪽 이름을 바꾼다. 이 브랜치에서 할 일은 없다.
+- 낮음 1: 회차는 각 이벤트를 처리하기 전에 shouldStop 을 묻는다. stop 은 최대 5초만 기다리고, 넘으면 notify.outbox.stop_timeout 한 줄을 남긴다. 대기 타이머는 끝나면 지운다.
+- 낮음 2
+  - 20261019000017_outbox_notify_due_index 부분 인덱스: (created_at, id) where status in (PENDING, FAILED) and event_type in (REVIEW_ASSIGNED, ANALYSIS_COMPLETE).
+  - 회차가 실패하면 다음 회차를 min(간격 × 2^n, 60초) 뒤로 늦춘다. 빈 회차는 늦추지 않는다.
+  - 실패 로그에 consecutiveFailures·nextDelayMs 를 싣는다.
+- 낮음 3: 저장 오류는 NotificationStoreError 다. 로그 errorName 이 "Error" 가 아니라 이 이름으로 남는다.
+- 낮음 4: 수신자의 profiles.status 가 active 가 아니거나 프로필 행이 없으면 알림 0건으로 PROCESSED 한다(SKIPPED_INACTIVE).
+- 낮음 5(env 정본 등록): e8 4차 묶음이 맡는다.
+- RED(test-server): web 62 failed / 925 passed, DB 인덱스 4 failed. 다른 파일 회귀는 없었다.
+- GREEN: server/notifications·worker 18 files / 987 통과, 인덱스 DB 4/4 통과.
+- 변형(메인 세션, 원복 확인)
+  - shouldStop 끊기 → 3 failed
+  - 늦추기 제거 → 6
+  - 대기 타이머 안 지우기 → 1
+  - 실패 수 초기화 제거 → 1
+  - 프로필 없음을 활동으로 보기 → 1
+$ bash verify-slot.sh pnpm verify
+  ℹ pass 672 · ℹ fail 0 · ✓ DB 타입 일치
+  Test Files 146 passed · Tests 5278 passed
+  2 rules passed, 0 errors · ✓ Compiled successfully · pytest 898 passed · exit 0 · worker:check 통과

@@ -13,16 +13,29 @@ import {
 // service role 은 RLS 를 거치지 않으므로 알림 행의 org_id·user_id 는 모델이 이벤트의 조직·수신자로 정하고,
 // 수신자가 그 조직의 멤버인지는 서비스가 isMember 로 먼저 확인한다(docs/13-NOTIFICATIONS.md).
 // 오류 message 에는 표·동작·코드만 싣는다(PostgREST message·details 에 값이 섞일 수 있다).
+// 던지는 오류는 모두 NotificationStoreError 다. 로그는 오류 이름만 싣으므로(docs/14-OBSERVABILITY.md) 이름으로 저장 오류임을 알린다.
 
 type Client = SupabaseClient<Database>;
 
 const OUTBOX_COLUMNS = "id, org_id, event_type, payload, status, attempts";
 const DUE_STATUSES: readonly OutboxEventRow["status"][] = ["PENDING", "FAILED"];
 
-/** "notifications store 오류: <표>.<동작> <code>". code 가 없으면 UNKNOWN 이다. */
-function storeError(table: string, action: string, error: { code?: string | null }): Error {
+/** 알림 outbox 저장 오류. message 는 "notifications store 오류: <표>.<동작> <code>" 이고 값은 싣지 않는다. */
+export class NotificationStoreError extends Error {
+  constructor(table: string, action: string, code: string) {
+    super(`notifications store 오류: ${table}.${action} ${code}`);
+    this.name = "NotificationStoreError";
+  }
+}
+
+/** PostgREST 오류를 NotificationStoreError 로 바꾼다. code 가 없으면 UNKNOWN 이다. */
+function storeError(
+  table: string,
+  action: string,
+  error: { code?: string | null },
+): NotificationStoreError {
   const code = typeof error.code === "string" && error.code !== "" ? error.code : "UNKNOWN";
-  return new Error(`notifications store 오류: ${table}.${action} ${code}`);
+  return new NotificationStoreError(table, action, code);
 }
 
 /** Date.toISOString 이 만드는 모양(밀리초·Z)이고 실제 있는 시각인가. 필터 값에 그대로 넣으므로 다른 모양은 받지 않는다. */
@@ -43,7 +56,7 @@ function toOutboxEventRow(row: {
   const status = DUE_STATUSES.find((candidate) => candidate === row.status);
   // 필터가 PENDING·FAILED 만 고르므로 다른 값은 질의가 틀렸다는 뜻이다.
   if (status === undefined) {
-    throw new Error("notifications store 오류: outbox_events.select UNEXPECTED_STATUS");
+    throw new NotificationStoreError("outbox_events", "select", "UNEXPECTED_STATUS");
   }
   return {
     id: row.id,
@@ -77,7 +90,7 @@ export function createNotificationOutboxStore(client: Client): NotificationOutbo
       const isValidInput =
         isIsoInstant(input.now) && Number.isInteger(input.limit) && input.limit >= 1;
       if (!isValidInput) {
-        throw new Error("notifications store 오류: outbox_events.select INVALID_INPUT");
+        throw new NotificationStoreError("outbox_events", "select", "INVALID_INPUT");
       }
       const due = await client
         .from("outbox_events")
@@ -106,6 +119,14 @@ export function createNotificationOutboxStore(client: Client): NotificationOutbo
         .maybeSingle();
       if (member.error) throw storeError("memberships", "select", member.error);
       return member.data !== null;
+    },
+
+    // 정지 계정에게는 알리지 않는다(docs/09-SECURITY.md "정지" — my_org_ids 처럼 활동 계정만 본다).
+    // 'active' 만 true 다. 'suspended' 이거나 행이 없으면(지운 계정) false 다.
+    async isActive(userId) {
+      const profile = await client.from("profiles").select("status").eq("id", userId).maybeSingle();
+      if (profile.error) throw storeError("profiles", "select", profile.error);
+      return profile.data?.status === "active";
     },
 
     // 병합 upsert 가 아니다. 다시 처리해도 처음 넣은 알림(sent_at 등)을 덮지 않는다.

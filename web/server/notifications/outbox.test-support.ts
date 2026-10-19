@@ -170,6 +170,7 @@ const isDue = (row: MemoryOutboxRow, now: string): boolean =>
 
 /**
  * 메모리 저장. fail 이 Error 를 돌려주면 그 호출이 그 오류로 실패한다(실패한 쓰기는 아무것도 바꾸지 않는다).
+ * isActive 는 inactive 에 없는 사용자면 true 다(docs/09-SECURITY.md "정지" — 정지 계정에게는 알리지 않는다).
  * notifications 는 idempotency_key 가 같으면 넣지 않고(on conflict do nothing) 오류도 내지 않는다.
  * markProcessed·markRetry 는 받은 이벤트의 id·status·attempts 가 지금 행과 같을 때만 바꾼다(아니면 0행, 오류 아님).
  */
@@ -180,6 +181,8 @@ export function createMemoryStore(
     bids?: Readonly<Record<string, string>>;
     /** [orgId, userId] 멤버십 */
     members?: readonly (readonly [string, string])[];
+    /** 정지(profiles.status = 'suspended') 계정의 userId. 없으면 모두 활동 계정이다(기존 시험은 그대로 SEND). */
+    inactive?: readonly string[];
     fail?: (call: StoreCall) => Error | undefined;
   } = {},
 ) {
@@ -192,6 +195,7 @@ export function createMemoryStore(
     [ORG_ID, ASSIGNEE_ID],
     [ORG_ID, REQUESTER_ID],
   ];
+  const inactive = options.inactive ?? [];
 
   const record = (method: StoreMethod, key: string): void => {
     const call = { method, key };
@@ -231,6 +235,10 @@ export function createMemoryStore(
     async isMember(orgId, userId) {
       record("isMember", `${orgId}:${userId}`);
       return members.some(([org, user]) => org === orgId && user === userId);
+    },
+    async isActive(userId) {
+      record("isActive", userId);
+      return !inactive.includes(userId);
     },
     async insertNotification(row: NotificationRow) {
       record("insertNotification", row.idempotency_key);

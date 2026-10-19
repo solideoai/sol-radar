@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   NOTIFY_EVENT_TYPES,
+  NotificationStoreError,
   createNotificationOutboxStore,
   toNotificationIntent,
   toNotificationRow,
@@ -40,6 +41,8 @@ import {
 // 요청(표·방법·select 열·필터·Prefer·본문)을 본다. 필터 흉내(memoryTable)로 어떤 행이 골라지고 바뀌는지도 본다.
 // 근거: docs/13-NOTIFICATIONS.md(worker 가 service role 로 발송·상태 전이, 두 단계 멱등, 상태 PENDING → PROCESSED·FAILED → DEAD).
 // outbox 상태 갱신은 compare-and-set 이다(id·status·attempts 가 읽은 값과 같을 때만). 0행이면 다른 처리자가 먼저 처리했다.
+// 저장이 던지는 오류는 모두 NotificationStoreError 다. 로그에는 오류 이름만 싣고 message 는 싣지 않으므로(docs/14-OBSERVABILITY.md)
+// 이름이 "Error" 가 아니라 저장 오류임을 알려야 한다. message 모양("notifications store 오류: <표>.<동작> <code>")은 그대로다.
 
 function only(calls: PostgrestCall[]): PostgrestCall {
   expect(calls).toHaveLength(1);
@@ -301,6 +304,52 @@ describe("isMember", () => {
   });
 });
 
+// ── isActive ──
+// 정지 계정에게는 알리지 않는다(docs/09-SECURITY.md "정지" — profiles.status = 'suspended' 면 조직 데이터가 닫힌다).
+// profiles.status 를 id 로 읽는다. 'active' 만 true 이고 'suspended' 이거나 행이 없으면 false 다.
+
+describe("isActive", () => {
+  const OTHER_USER_ID = "9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a";
+  const PROFILES: FakeRow[] = [
+    { id: ASSIGNEE_ID, status: "active", email: "assignee@example.invalid" },
+    { id: OTHER_USER_ID, status: "suspended", email: "suspended@example.invalid" },
+  ];
+
+  it("profiles 를 GET 한 번으로 id 로 읽고 status 열만 고른다", async () => {
+    const { store, fake } = storeWith(memoryTable("profiles", PROFILES).route);
+    await store.isActive(ASSIGNEE_ID);
+    expect(fake.sequence()).toEqual(["GET profiles"]);
+    const call = only(fake.callsTo("profiles", "GET"));
+    expect(eqValue(call, "id")).toBe(ASSIGNEE_ID);
+    expect(selectedColumns(call)).toEqual(["status"]);
+  });
+
+  it("status 가 active 면 true 다", async () => {
+    const { store } = storeWith(memoryTable("profiles", PROFILES).route);
+    await expect(store.isActive(ASSIGNEE_ID)).resolves.toBe(true);
+  });
+
+  it("status 가 suspended 면 false 다", async () => {
+    const { store } = storeWith(memoryTable("profiles", PROFILES).route);
+    await expect(store.isActive(OTHER_USER_ID)).resolves.toBe(false);
+  });
+
+  it("행이 없으면(지운 계정) false 다", async () => {
+    const { store } = storeWith(memoryTable("profiles", []).route);
+    await expect(store.isActive(ASSIGNEE_ID)).resolves.toBe(false);
+  });
+
+  it("질의 오류는 'notifications store 오류: profiles.select <code>' 의 NotificationStoreError 로 던지고 message 를 싣지 않는다", async () => {
+    const { store } = storeWith(on("GET", "profiles", postgrestError("42501")));
+    const error = await rejectionOf(store.isActive(ASSIGNEE_ID));
+    expect([error.name, error.message]).toEqual([
+      "NotificationStoreError",
+      "notifications store 오류: profiles.select 42501",
+    ]);
+    expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
+  });
+});
+
 // ── insertNotification ──
 
 describe("insertNotification", () => {
@@ -469,16 +518,19 @@ describe("compare-and-set · 메모리 행", () => {
 });
 
 describe("service role 경계", () => {
-  it("모든 요청은 outbox_events·bid_notices·memberships·notifications 네 표에만 간다", async () => {
+  // 정지 계정 확인(isActive)이 profiles 를 읽으므로 네 표에서 다섯 표가 됐다(docs/09-SECURITY.md "정지").
+  it("모든 요청은 outbox_events·bid_notices·memberships·profiles·notifications 다섯 표에만 간다", async () => {
     const { store, fake } = storeWith(
       routes(
         memoryTable("bid_notices", [{ id: BID_ID, title: BID_TITLE }]).route,
         memoryTable("memberships", [{ org_id: ORG_ID, user_id: ASSIGNEE_ID }]).route,
+        memoryTable("profiles", [{ id: ASSIGNEE_ID, status: "active" }]).route,
       ),
     );
     await store.findDue({ now: NOW_ISO, limit: 1 });
     await store.readBidTitle(BID_ID);
     await store.isMember(ORG_ID, ASSIGNEE_ID);
+    await store.isActive(ASSIGNEE_ID);
     await store.insertNotification(sendRow());
     await store.markProcessed(reviewAssignedEvent(), NOW);
     await store.markRetry(reviewAssignedEvent(), toRetryUpdate(0, NOW));
@@ -487,6 +539,110 @@ describe("service role 경계", () => {
       "memberships",
       "notifications",
       "outbox_events",
+      "profiles",
     ]);
   });
+});
+
+// ── NotificationStoreError ──
+// 저장의 모든 throw(PostgREST 오류·INVALID_INPUT·UNEXPECTED_STATUS)가 같은 이름의 오류다. message 모양은 그대로다.
+
+describe("NotificationStoreError — 저장 오류의 이름", () => {
+  const event = reviewAssignedEvent();
+  /** [이름표, 던지게 하는 호출, 그대로여야 하는 message] */
+  const CASES: readonly (readonly [string, () => Promise<unknown>, string])[] = [
+    [
+      "findDue 질의 오류",
+      () =>
+        storeWith(on("GET", "outbox_events", postgrestError("42501"))).store.findDue({
+          now: NOW_ISO,
+          limit: 1,
+        }),
+      "notifications store 오류: outbox_events.select 42501",
+    ],
+    [
+      "findDue 질의 오류에 code 가 없다",
+      () =>
+        storeWith(on("GET", "outbox_events", postgrestError(null))).store.findDue({
+          now: NOW_ISO,
+          limit: 1,
+        }),
+      "notifications store 오류: outbox_events.select UNKNOWN",
+    ],
+    [
+      "findDue 의 now 가 ISO 모양이 아니다(INVALID_INPUT)",
+      () => storeWith().store.findDue({ now: "2026-10-20", limit: 1 }),
+      "notifications store 오류: outbox_events.select INVALID_INPUT",
+    ],
+    [
+      "findDue 의 limit 이 0 이다(INVALID_INPUT)",
+      () => storeWith().store.findDue({ now: NOW_ISO, limit: 0 }),
+      "notifications store 오류: outbox_events.select INVALID_INPUT",
+    ],
+    [
+      "findDue 가 PENDING·FAILED 가 아닌 행을 받았다(UNEXPECTED_STATUS)",
+      () =>
+        storeWith(
+          on("GET", "outbox_events", { status: 200, body: [{ ...event, status: "PROCESSED" }] }),
+        ).store.findDue({ now: NOW_ISO, limit: 1 }),
+      "notifications store 오류: outbox_events.select UNEXPECTED_STATUS",
+    ],
+    [
+      "readBidTitle 질의 오류",
+      () => storeWith(on("GET", "bid_notices", postgrestError("42501"))).store.readBidTitle(BID_ID),
+      "notifications store 오류: bid_notices.select 42501",
+    ],
+    [
+      "isMember 질의 오류",
+      () =>
+        storeWith(on("GET", "memberships", postgrestError("42501"))).store.isMember(
+          ORG_ID,
+          ASSIGNEE_ID,
+        ),
+      "notifications store 오류: memberships.select 42501",
+    ],
+    [
+      "insertNotification 넣기 오류",
+      () =>
+        storeWith(on("POST", "notifications", postgrestError("23503"))).store.insertNotification(
+          sendRow(),
+        ),
+      "notifications store 오류: notifications.insert 23503",
+    ],
+    [
+      "markProcessed 갱신 오류",
+      () =>
+        storeWith(on("PATCH", "outbox_events", postgrestError("40001"))).store.markProcessed(
+          event,
+          NOW,
+        ),
+      "notifications store 오류: outbox_events.update 40001",
+    ],
+    [
+      "markRetry 갱신 오류",
+      () =>
+        storeWith(on("PATCH", "outbox_events", postgrestError("40001"))).store.markRetry(
+          event,
+          toRetryUpdate(0, NOW),
+        ),
+      "notifications store 오류: outbox_events.update 40001",
+    ],
+  ];
+
+  it.each(CASES)(
+    "%s — name 은 NotificationStoreError 이고 message 는 그대로다",
+    async (_label, act, message) => {
+      const error = await rejectionOf(act());
+      expect([error.name, error.message]).toEqual(["NotificationStoreError", message]);
+    },
+  );
+
+  it.each(CASES)(
+    "%s — NotificationStoreError 의 인스턴스다(배럴에서 내보낸 클래스)",
+    async (_label, act) => {
+      const error = await rejectionOf(act());
+      expect(typeof NotificationStoreError).toBe("function");
+      expect(error).toBeInstanceOf(NotificationStoreError);
+    },
+  );
 });

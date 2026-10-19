@@ -37,6 +37,7 @@ import {
 // 2) 알림 단계: notifications.idempotency_key = outboxEventId + userId + channel(UNIQUE). 같은 이벤트를 다시 처리해도 알림은 하나다.
 //    메모리 저장(UNIQUE 흉내)과, PGlite 의 실제 트리거·finish_score_run·notifications UNIQUE 둘 다로 본다.
 // 3) C7 소비자는 두 종(REVIEW_ASSIGNED·ANALYSIS_COMPLETE)만 고른다. 공고 이벤트(BID_CREATED·BID_CHANGED)는 PENDING 그대로다.
+// 4) 수신자가 정지 계정(profiles.status = 'suspended')이면 알리지 않고 PROCESSED 로 닫는다(docs/09-SECURITY.md "정지").
 
 const FIXTURES_DIR = fileURLToPath(new URL("../../../fixtures/", import.meta.url));
 // KST 2026-10-19 12:00(revision-diff.test 와 같은 기준)
@@ -214,6 +215,7 @@ describe("G2 — 실제 마이그레이션 위(PGlite)", () => {
   afterEach(async () => {
     await asAdminTask(db);
     await db.exec(`
+      update public.profiles set status = 'active' where status <> 'active';
       delete from public.notifications;
       delete from public.outbox_events;
       delete from public.bid_reviews;
@@ -466,6 +468,38 @@ describe("G2 — 실제 마이그레이션 위(PGlite)", () => {
       await resetOutboxToPending();
       await runBatch();
       expect(await countOf(db, "notifications")).toBe(1);
+    });
+
+    /** 정지는 운영자 몫이다. 여기서는 관리 작업으로 profiles.status 만 바꾸고, 바뀌었는지 먼저 확인한다(afterEach 가 되돌린다). */
+    async function suspend(userId: string): Promise<void> {
+      await asAdminTask(db);
+      const { rows } = await db.query<{ status: string }>(
+        "update public.profiles set status = 'suspended' where id = $1 returning status",
+        [userId],
+      );
+      if (rows[0]?.status !== "suspended") throw new Error("정지 준비 실패: profiles 행이 없다");
+    }
+
+    it("배정 대상이 정지 계정(profiles.status = 'suspended')이면 알림 0건으로 PROCESSED 다", async () => {
+      await assignReview(VIEWER);
+      // 배정 뒤에 정지됐다.
+      await suspend(VIEWER);
+      const summary = await runBatch();
+      expect(summary).toMatchObject({ checked: 1, sent: 0, skipped: 1 });
+      expect(await countOf(db, "notifications")).toBe(0);
+      expect((await outboxRows(db, "REVIEW_ASSIGNED")).map((row) => row.status)).toEqual([
+        "PROCESSED",
+      ]);
+    });
+
+    it("분석 요청자가 정지 계정이면 ANALYSIS_COMPLETE 알림도 0건으로 PROCESSED 다", async () => {
+      await finishRun("COMPLETED");
+      await suspend(ADMIN);
+      await runBatch();
+      expect(await countOf(db, "notifications")).toBe(0);
+      expect((await outboxRows(db, "ANALYSIS_COMPLETE")).map((row) => row.status)).toEqual([
+        "PROCESSED",
+      ]);
     });
 
     it("수신자가 이벤트 조직의 멤버가 아니면(다른 조직 사용자) 알림 0건으로 PROCESSED 다", async () => {

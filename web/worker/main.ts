@@ -300,7 +300,7 @@ export const analysisWorkerRegistration: WorkerRegistration = async (rawEnv) => 
 
 // 인앱 알림 outbox 주기 처리(C7, docs/13-NOTIFICATIONS.md). 1단계에서 폴링 간격을 읽는다(틀리면 Redis 연결 전에 멈춘다).
 // 2단계는 service role 저장으로 주기 처리를 시작한다. 큐가 아니라 outbox_events 표를 읽으므로 공유 Redis 연결은
-// 쓰지도 끊지도 않는다(공유 연결은 기본 createWorker 가 끊는다). close 는 타이머를 멈추고 진행 중 회차를 기다린다.
+// 쓰지도 끊지도 않는다(공유 연결은 기본 createWorker 가 끊는다). close 는 타이머를 멈추고 진행 중 회차를 최대 5초 기다린다.
 export const notifyWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   const settings = readNotifySettings(rawEnv);
   return async () => {

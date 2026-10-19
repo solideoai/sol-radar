@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { processOutboxBatch } from "@/server/notifications";
+import { createNotificationOutboxStore, processOutboxBatch } from "@/server/notifications";
 import {
   ASSIGNEE_ID,
   BID_ID,
@@ -17,8 +17,11 @@ import {
   RUN_ID,
   analysisCompleteEvent,
   createMemoryStore,
+  fakeSupabase,
   isoAfter,
   memoryRow,
+  on,
+  postgrestError,
   records,
   rejectionOf,
   reviewAssignedEvent,
@@ -29,7 +32,9 @@ import {
 
 // 알림 outbox 한 회차(docs/13-NOTIFICATIONS.md). 처리할 이벤트를 찾아 하나씩 순서대로:
 //   두 종이 아니거나 payload 가 틀리면 DEAD(재시도해도 같다), 수신자가 그 조직 멤버가 아니면 알림 없이 PROCESSED(혼입 방지),
+//   수신자가 정지 계정이면 알림 없이 PROCESSED(docs/09-SECURITY.md "정지" — my_org_ids 처럼 활동 계정만 본다),
 //   공고가 없으면 알림 없이 PROCESSED, 그 밖에는 알림 1건(같은 키면 무시) 뒤 PROCESSED. 저장 실패는 지수 재시도, 다섯 번째에 DEAD.
+// shouldStop(종료 신호)이 true 면 남은 이벤트를 건드리지 않고 회차를 끝낸다(worker stop 이 회차 전체를 기다리지 않게).
 // 저장은 메모리 흉내(notifications.idempotency_key UNIQUE·outbox compare-and-set)다. 시계·로그도 가짜다. DB·네트워크는 쓰지 않는다.
 
 const LIMIT = 7;
@@ -224,6 +229,69 @@ describe("processOutboxBatch · 수신자가 그 조직 멤버가 아니다", ()
   });
 });
 
+describe("processOutboxBatch · 수신자가 정지 계정이다", () => {
+  // 순서: isMember → (멤버면) isActive → (정지면) markProcessed. 공고명을 읽지 않고 알림도 넣지 않는다.
+  const inactive = [ASSIGNEE_ID];
+
+  it("알림 0건으로 PROCESSED 로 닫는다", async () => {
+    const s = await run({ events: [memoryRow(reviewAssignedEvent())], inactive });
+    expect([s.eventOf(EVENT_ID).status, s.notifications.length]).toEqual(["PROCESSED", 0]);
+  });
+
+  it("저장 호출은 findDue → isMember → isActive → markProcessed 다(공고명을 읽지 않고 알림을 넣지 않는다)", async () => {
+    const s = await run({ events: [memoryRow(reviewAssignedEvent())], inactive });
+    expect(s.calls.map((call) => call.method)).toEqual([
+      "findDue",
+      "isMember",
+      "isActive",
+      "markProcessed",
+    ]);
+  });
+
+  it.each([
+    ["REVIEW_ASSIGNED 는 배정 대상", reviewAssignedEvent(), ASSIGNEE_ID],
+    ["ANALYSIS_COMPLETE 는 분석 요청자", analysisCompleteEvent(), REQUESTER_ID],
+  ] as const)("isActive 는 수신자로 묻는다(%s)", async (_label, event, userId) => {
+    const s = await run({ events: [memoryRow(event)] });
+    expect(s.calls.filter((call) => call.method === "isActive")).toEqual([
+      { method: "isActive", key: userId },
+    ]);
+  });
+
+  it("멤버면 isActive 를 묻고, 멤버가 아니면 묻지 않는다", async () => {
+    const member = await run({ events: [memoryRow(reviewAssignedEvent())] });
+    const outsider = await run({ events: [memoryRow(reviewAssignedEvent())], members: [] });
+    expect(
+      [member, outsider].map((s) => s.calls.some((call) => call.method === "isActive")),
+    ).toEqual([true, false]);
+  });
+
+  it("로그 outcome 은 SKIPPED_INACTIVE 다", async () => {
+    const s = await run({ events: [memoryRow(reviewAssignedEvent())], inactive });
+    expect(eventLines(s.lines).map((line) => line.outcome)).toEqual(["SKIPPED_INACTIVE"]);
+  });
+
+  it("요약은 skipped 1 이다", async () => {
+    const s = await run({ events: [memoryRow(analysisCompleteEvent())], inactive: [REQUESTER_ID] });
+    expect(s.summary).toEqual({ checked: 1, sent: 0, skipped: 1, retried: 0, dead: 0 });
+  });
+
+  it("정지 계정이 아닌 다른 수신자의 이벤트는 그대로 알린다", async () => {
+    const s = await run({
+      events: [
+        memoryRow(reviewAssignedEvent(), { created_at: "2026-10-20T08:00:00.000Z" }),
+        memoryRow(analysisCompleteEvent("COMPLETED", { id: OTHER_EVENT_ID }), {
+          created_at: "2026-10-20T08:00:01.000Z",
+        }),
+      ],
+      inactive,
+    });
+    expect(s.notifications.map((row) => row.idempotency_key)).toEqual([
+      `${OTHER_EVENT_ID}:${REQUESTER_ID}:IN_APP`,
+    ]);
+  });
+});
+
 describe("processOutboxBatch · 공고가 없다", () => {
   it("알림을 넣지 않고 PROCESSED 로 닫고 skipped 로 센다", async () => {
     const s = await run({ events: [memoryRow(reviewAssignedEvent())], bids: {} });
@@ -275,6 +343,7 @@ describe("processOutboxBatch · INVALID 는 바로 DEAD", () => {
 describe("processOutboxBatch · 저장 실패는 재시도", () => {
   it.each([
     ["isMember", `${ORG_ID}:${ASSIGNEE_ID}`],
+    ["isActive", ASSIGNEE_ID],
     ["readBidTitle", BID_ID],
     ["insertNotification", `${EVENT_ID}:${ASSIGNEE_ID}:IN_APP`],
   ] as const)(
@@ -380,10 +449,12 @@ describe("processOutboxBatch · 순서", () => {
     expect(s.calls.map((call) => `${call.method} ${call.key}`)).toEqual([
       `findDue ${NOW_ISO}`,
       `isMember ${ORG_ID}:${ASSIGNEE_ID}`,
+      `isActive ${ASSIGNEE_ID}`,
       `readBidTitle ${BID_ID}`,
       `insertNotification ${EVENT_ID}:${ASSIGNEE_ID}:IN_APP`,
       `markProcessed ${EVENT_ID}`,
       `isMember ${ORG_ID}:${REQUESTER_ID}`,
+      `isActive ${REQUESTER_ID}`,
       `readBidTitle ${BID_ID}`,
       `insertNotification ${OTHER_EVENT_ID}:${REQUESTER_ID}:IN_APP`,
       `markProcessed ${OTHER_EVENT_ID}`,
@@ -466,6 +537,21 @@ describe("processOutboxBatch · 로그", () => {
     expect(s.lines.join("\n")).not.toContain("pw@db");
   });
 
+  it("저장이 NotificationStoreError 를 던지면 RETRY 줄의 errorName 은 NotificationStoreError 다", async () => {
+    // 실제 저장 구현(outbox.repo)이 PostgREST 오류에서 만든 오류를 그대로 던지게 한다.
+    const repo = createNotificationOutboxStore(
+      fakeSupabase(on("GET", "memberships", postgrestError("42501"))).client,
+    );
+    const storeError = await rejectionOf(repo.isMember(ORG_ID, ASSIGNEE_ID));
+    const s = await run({
+      events: [memoryRow(reviewAssignedEvent())],
+      fail: failOn("isMember", undefined, storeError),
+    });
+    expect(eventLines(s.lines)).toEqual([
+      expect.objectContaining({ outcome: "RETRY", errorName: "NotificationStoreError" }),
+    ]);
+  });
+
   it("이벤트 줄에는 event·outboxEventId·eventType·outcome·attempts·errorName 말고 다른 키가 없다", async () => {
     const s = await run({
       events: [
@@ -546,5 +632,130 @@ describe("processOutboxBatch · 로그", () => {
       expect(line).not.toContain("\n");
       expect(() => JSON.parse(line)).not.toThrow();
     }
+  });
+});
+
+describe("processOutboxBatch · shouldStop(종료 신호)", () => {
+  // worker stop 이 회차 전체를 기다리지 않게 이벤트마다 처리 전에 묻는다(docs/13-NOTIFICATIONS.md "pending polling").
+  // true 면 남은 이벤트는 PENDING·FAILED 그대로 두고(저장 호출·로그 없음) 다음 기동의 회차가 다시 고른다.
+  const THIRD_EVENT_ID = "6b5a4938-2716-4f05-b4d3-c2b1a0998877";
+  const threeEvents = (): MemoryOutboxRow[] => [
+    memoryRow(reviewAssignedEvent(), { created_at: "2026-10-20T08:00:00.000Z" }),
+    memoryRow(analysisCompleteEvent("COMPLETED", { id: OTHER_EVENT_ID }), {
+      created_at: "2026-10-20T08:00:01.000Z",
+    }),
+    memoryRow(reviewAssignedEvent({ id: THIRD_EVENT_ID, status: "FAILED", attempts: 1 }), {
+      created_at: "2026-10-20T08:00:02.000Z",
+      next_attempt_at: "2026-10-20T08:59:00.000Z",
+    }),
+  ];
+
+  async function runWith(memory: ReturnType<typeof createMemoryStore>, shouldStop: () => boolean) {
+    const lines: string[] = [];
+    const summary = await processOutboxBatch({
+      store: memory.store,
+      now: () => new Date(NOW.getTime()),
+      log: (line) => {
+        lines.push(line);
+      },
+      limit: LIMIT,
+      shouldStop,
+    });
+    return { lines, summary };
+  }
+
+  describe("처음부터 true", () => {
+    it("findDue 말고는 저장 호출이 없다", async () => {
+      const memory = createMemoryStore({ events: threeEvents() });
+      await runWith(memory, () => true);
+      expect(memory.calls.map((call) => call.method)).toEqual(["findDue"]);
+    });
+
+    it("로그 줄이 없다(요약 줄도 없다)", async () => {
+      const memory = createMemoryStore({ events: threeEvents() });
+      const { lines } = await runWith(memory, () => true);
+      expect(lines).toEqual([]);
+    });
+
+    it("요약은 checked 0 이다", async () => {
+      const memory = createMemoryStore({ events: threeEvents() });
+      const { summary } = await runWith(memory, () => true);
+      expect(summary).toEqual({ checked: 0, sent: 0, skipped: 0, retried: 0, dead: 0 });
+    });
+
+    it("이벤트는 PENDING·FAILED 와 attempts 그대로이고 알림은 0건이다", async () => {
+      const memory = createMemoryStore({ events: threeEvents() });
+      await runWith(memory, () => true);
+      expect(memory.events.map((row) => [row.id, row.status, row.attempts])).toEqual([
+        [EVENT_ID, "PENDING", 0],
+        [OTHER_EVENT_ID, "PENDING", 0],
+        [THIRD_EVENT_ID, "FAILED", 1],
+      ]);
+      expect(memory.notifications).toEqual([]);
+    });
+  });
+
+  describe("첫 이벤트를 끝낸 뒤 true(두 번째 이벤트 전)", () => {
+    /** 첫 이벤트가 PROCESSED 로 닫히면 그때부터 true 다(첫 이벤트를 처리하는 사이에 stop 이 왔다). */
+    const stopAfterFirst = (memory: ReturnType<typeof createMemoryStore>) => () =>
+      memory.eventOf(EVENT_ID).status === "PROCESSED";
+
+    it("첫 이벤트만 알리고 PROCESSED 로 닫는다. 둘째·셋째는 PENDING·FAILED 그대로다", async () => {
+      const memory = createMemoryStore({ events: threeEvents() });
+      await runWith(memory, stopAfterFirst(memory));
+      expect(memory.notifications.map((row) => row.idempotency_key)).toEqual([
+        `${EVENT_ID}:${ASSIGNEE_ID}:IN_APP`,
+      ]);
+      expect(memory.events.map((row) => [row.id, row.status, row.attempts])).toEqual([
+        [EVENT_ID, "PROCESSED", 0],
+        [OTHER_EVENT_ID, "PENDING", 0],
+        [THIRD_EVENT_ID, "FAILED", 1],
+      ]);
+    });
+
+    it("첫 이벤트를 닫은 뒤에는 저장 호출이 없다", async () => {
+      const memory = createMemoryStore({ events: threeEvents() });
+      await runWith(memory, stopAfterFirst(memory));
+      const closed = memory.calls.findIndex(
+        (call) => call.method === "markProcessed" && call.key === EVENT_ID,
+      );
+      expect(closed).toBeGreaterThan(0);
+      expect(memory.calls.slice(closed + 1)).toEqual([]);
+    });
+
+    it("로그는 첫 이벤트 줄과 checked 1 요약 줄뿐이다", async () => {
+      const memory = createMemoryStore({ events: threeEvents() });
+      const { lines } = await runWith(memory, stopAfterFirst(memory));
+      expect(records(lines)).toEqual([
+        {
+          event: "notify.outbox",
+          outboxEventId: EVENT_ID,
+          eventType: "REVIEW_ASSIGNED",
+          outcome: "SENT",
+        },
+        { event: "notify.outbox.summary", checked: 1, sent: 1, skipped: 0, retried: 0, dead: 0 },
+      ]);
+    });
+  });
+
+  it("false 면 세 이벤트를 모두 처리하고, 이벤트마다 그 이벤트의 첫 저장 호출 전에 묻는다", async () => {
+    // 저장 호출과 물음을 한 줄로 쌓아 순서를 본다.
+    const trace: string[] = [];
+    const memory = createMemoryStore({
+      events: threeEvents(),
+      fail: (call) => {
+        trace.push(call.method);
+        return undefined;
+      },
+    });
+    const { summary } = await runWith(memory, () => {
+      trace.push("shouldStop");
+      return false;
+    });
+    expect(summary).toMatchObject({ checked: 3, sent: 3 });
+    const firstCalls = trace.flatMap((entry, index) =>
+      entry === "isMember" ? [trace[index - 1]] : [],
+    );
+    expect(firstCalls).toEqual(["shouldStop", "shouldStop", "shouldStop"]);
   });
 });

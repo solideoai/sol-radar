@@ -22,8 +22,8 @@ export type {
   SendIntent,
 } from "./outbox.model";
 
-// 알림 outbox port 의 Supabase 구현. worker 가 service role 클라이언트를 넘긴다.
-export { createNotificationOutboxStore } from "./outbox.repo";
+// 알림 outbox port 의 Supabase 구현. worker 가 service role 클라이언트를 넘긴다. 저장이 던지는 오류는 모두 NotificationStoreError 다.
+export { NotificationStoreError, createNotificationOutboxStore } from "./outbox.repo";
 
 // 한 회차. 주기 실행(타이머)은 worker 의 몫이다.
 export { processOutboxBatch } from "./outbox.service";

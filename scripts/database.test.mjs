@@ -6235,6 +6235,108 @@ describe("분석 마감 함수 — finish_score_run (C5-B 보안 후속)", () =>
   });
 });
 
+// C7 알림 outbox 소비자의 부분 인덱스(20261019000017). 소비자가 없는 공고 이벤트(BID_*)의 PENDING 이 쌓여도
+// findDue(event_type 두 종·status PENDING|FAILED, 정렬 created_at·id)가 그 행을 훑지 않게 한다.
+// 근거: docs/13-NOTIFICATIONS.md "pending polling", docs/04-DATABASE.md §5(인덱스는 만드는 마이그레이션이 정본).
+// 이미 있는 000016 은 고치지 않고 새 파일로 더한다(append-only).
+describe("알림 outbox 부분 인덱스 — outbox_events_notify_due_idx (C7)", () => {
+  const INDEX = "outbox_events_notify_due_idx";
+  const VERSION = "20261019000017";
+  const indexRow = async (pglite) =>
+    (
+      await pglite.query(
+        `select t.relname as table_name, am.amname as method, i.indisunique as is_unique,
+                pg_get_expr(i.indpred, i.indrelid) as predicate,
+                array(select a.attname::text
+                        from unnest(i.indkey::int2[]) with ordinality as k(attnum, ord)
+                        join pg_attribute a on a.attrelid = i.indrelid and a.attnum = k.attnum
+                       order by k.ord) as columns
+           from pg_index i
+           join pg_class c on c.oid = i.indexrelid
+           join pg_namespace n on n.oid = c.relnamespace
+           join pg_class t on t.oid = i.indrelid
+           join pg_am am on am.oid = c.relam
+          where n.nspname = 'public' and c.relname = $1`,
+        [INDEX],
+      )
+    ).rows;
+  const migratedIndex = async (t) => {
+    const fresh = await freshDb(t);
+    await applyMigrations(fresh, migrations);
+    return { fresh, rows: await indexRow(fresh) };
+  };
+
+  it("pg_indexes 에 public.outbox_events 의 outbox_events_notify_due_idx 가 있다", async (t) => {
+    const { fresh } = await migratedIndex(t);
+    assert.deepEqual(
+      (
+        await fresh.query(
+          "select tablename from pg_indexes where schemaname = 'public' and indexname = $1",
+          [INDEX],
+        )
+      ).rows,
+      [{ tablename: "outbox_events" }],
+    );
+  });
+
+  it("btree 이고 unique 가 아니며 키 열은 (created_at, id) 순서다(findDue 의 정렬과 같다)", async (t) => {
+    const { rows } = await migratedIndex(t);
+    assert.deepEqual(
+      rows.map(({ table_name, method, is_unique, columns }) => ({
+        table_name,
+        method,
+        is_unique,
+        columns,
+      })),
+      [
+        {
+          table_name: "outbox_events",
+          method: "btree",
+          is_unique: false,
+          columns: ["created_at", "id"],
+        },
+      ],
+    );
+  });
+
+  it("WHERE 는 status PENDING·FAILED 이면서 event_type REVIEW_ASSIGNED·ANALYSIS_COMPLETE 인 행만 덮는다", async (t) => {
+    const { fresh, rows } = await migratedIndex(t);
+    assert.equal(rows.length, 1, `${INDEX} 가 없다`);
+    const [{ predicate }] = rows;
+    assert.ok(predicate, `${INDEX} 는 부분 인덱스(WHERE)여야 한다`);
+    // 카탈로그의 WHERE 식을 상태 4 × 종류 5 의 모든 조합에 그대로 적용해 덮는 조합을 고른다(글자 모양에 기대지 않는다).
+    const covered = (
+      await fresh.query(
+        `select status, event_type
+           from (values ('PENDING'), ('PROCESSED'), ('FAILED'), ('DEAD')) as s(status)
+          cross join (values ('BID_CREATED'), ('BID_CHANGED'), ('DEADLINE_APPROACHING'),
+                             ('ANALYSIS_COMPLETE'), ('REVIEW_ASSIGNED')) as e(event_type)
+          where ${predicate}
+          order by 1, 2`,
+      )
+    ).rows;
+    assert.deepEqual(covered, [
+      { status: "FAILED", event_type: "ANALYSIS_COMPLETE" },
+      { status: "FAILED", event_type: "REVIEW_ASSIGNED" },
+      { status: "PENDING", event_type: "ANALYSIS_COMPLETE" },
+      { status: "PENDING", event_type: "REVIEW_ASSIGNED" },
+    ]);
+  });
+
+  it(`인덱스는 ${VERSION} 마이그레이션이 만든다 — 그 앞까지 적용하면 없고, 그 파일을 적용하면 생긴다`, async (t) => {
+    const fresh = await freshDb(t);
+    const before = migrations.filter((migration) => migration.version < VERSION);
+    const target = migrations.filter((migration) => migration.version === VERSION);
+    await applyMigrations(fresh, before);
+    const absent = (await indexRow(fresh)).length;
+    await applyMigrations(fresh, target);
+    assert.deepEqual(
+      { absent, files: target.length, present: (await indexRow(fresh)).length },
+      { absent: 0, files: 1, present: 1 },
+    );
+  });
+});
+
 describe("마이그레이션 재실행", () => {
   it("전체를 두 번 적용해도 실패하지 않고 RLS·권한·정책·트리거가 같다", async (t) => {
     const fresh = await freshDb(t);
