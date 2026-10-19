@@ -15,7 +15,10 @@ function ScoreGauge({ score, reference = false }: ScoreGaugeProps) {
   const rounded = Math.round(score);
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="type-title tabular-nums text-foreground">{rounded}</span>
+      <span className="flex shrink-0 items-baseline gap-1">
+        <span className="type-title tabular-nums text-foreground">{rounded}</span>
+        <span className="type-label text-muted-foreground">/ 100</span>
+      </span>
       <MeterBar
         value={rounded}
         max={100}
