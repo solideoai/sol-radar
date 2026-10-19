@@ -22,3 +22,22 @@ export function readWorkerEnv(env: Record<string, string | undefined>): WorkerEn
     heartbeatFile: env.WORKER_HEARTBEAT_FILE?.trim() || DEFAULT_HEARTBEAT_FILE,
   };
 }
+
+// data.go.kr 포털은 일반 인증키를 Encoding 키(URL 인코딩된 값)로만 제공한다. env 에는 그 값을
+// 그대로 넣고, 여기서 decodeURIComponent 로 한 번 디코딩해 Decoding 키로 만든다. Connector 는
+// 이 반환값을 요청에 넣을 때 한 번만 URL 인코딩한다. Decoding 키(% 가 없는 원문)를 넣어도
+// 디코딩이 값을 바꾸지 않으므로 결과는 같다. 오류에는 env 이름만 싣고 값은 싣지 않는다.
+export function readG2bServiceKey(
+  env: Record<string, string | undefined>,
+  envName: string,
+): string {
+  const encoded = env[envName]?.trim();
+  if (!encoded) {
+    throw new Error(`worker env 누락: ${envName}`);
+  }
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    throw new Error(`worker env 형식 오류: ${envName} (URL 인코딩이 깨졌다)`);
+  }
+}
