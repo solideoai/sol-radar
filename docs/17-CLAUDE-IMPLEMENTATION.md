@@ -12,7 +12,7 @@ updated: 2026-10-19
 # 17. Claude Code 구현 운영 규칙
 
 ## 시작 명령
-Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 [[01-PRD|01 PRD]]~[[20-GLOSSARY|20 용어집]]과 [[21-MODEL-TRAINING|21 모델 학습]]·[[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]를 읽은 뒤 Phase 0부터 구현하라. [[12-ROADMAP|12 로드맵]] 해커톤 컷의 핵심 컷(Critical Path C0~C9)을 우선한다. **각 Phase마다 계획 → 코드 → 테스트 → 증거 저장 → 결과 보고 → 다음 단계**를 따르라. 문서와 실제 구현이 충돌하면 코드 전에 [[16-DECISIONS|16 ADR]]과 문서를 갱신하라. 열린 질문은 [[16-DECISIONS|16 ADR]] 미결정 표에 제안하라.
+Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 그 문서 표에 있는 설계 문서 전부를 읽은 뒤 Phase 0부터 구현하라. [[12-ROADMAP|12 로드맵]] 해커톤 컷의 핵심 컷(Critical Path C0~C9)을 우선한다. **각 Phase마다 계획 → 코드 → 테스트 → 증거 저장 → 결과 보고 → 다음 단계**를 따르라. 문서와 실제 구현이 충돌하면 코드 전에 [[16-DECISIONS|16 ADR]]과 문서를 갱신하라. 열린 질문은 [[16-DECISIONS|16 ADR]] 미결정 표에 제안하라.
 
 ## 절대 규칙
 - 스택은 [[16-DECISIONS|16 ADR]] ADR-017을 따른다. 화면·Route Handler(`/api/v1`)·서버 도메인은 Next.js(`web/`, `web/server/<도메인>`)로만 만든다. 다른 웹 프레임워크나 별도 API 서버·ORM을 들이지 않는다. Worker는 `web/worker` 진입점(BullMQ)이다. 해커톤 뒤 API·worker의 NestJS 전환은 ADR-028이고, 그 전에는 NestJS 코드를 만들지 않는다.

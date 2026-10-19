@@ -1,11 +1,11 @@
 ---
 title: "솔리데오 가상 인력 구현 계획 3 — DB·회원가입·필수 정보 보완"
-status: in-progress
+status: final
 tags:
   - sol-radar
   - plan
   - auth
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 
 # 솔리데오 DB·회원가입 Implementation Plan

@@ -9,7 +9,7 @@ updated: 2026-10-19
 
 # Claude Code — SOL RADAR 지침
 
-이 문서와 설계 문서(`docs/00-README.md` ~ `docs/22-FINETUNE-RUNBOOK.md`)가 저장소 지침의 정본이다. 루트 `CLAUDE.md`가 이 문서를 먼저 불러오고, 루트 `AGENTS.md`(출발 템플릿 규칙)와 부딪히면 이쪽을 따른다(`docs/16-DECISIONS.md` ADR-015). 템플릿의 Supabase(인증·DB·RLS·anon 키)와 `web/server/<도메인>` 구조 규칙은 설계와 같으므로 따른다(ADR-017).
+이 문서와 설계 문서([[00-README|00 인덱스]]의 문서 표에 있는 설계 문서 전부)가 저장소 지침의 정본이다. 루트 `CLAUDE.md`가 이 문서를 먼저 불러오고, 루트 `AGENTS.md`(출발 템플릿 규칙)와 부딪히면 이쪽을 따른다(`docs/16-DECISIONS.md` ADR-015). 템플릿의 Supabase(인증·DB·RLS·anon 키)와 `web/server/<도메인>` 구조 규칙은 설계와 같으므로 따른다(ADR-017).
 
 반드시 `docs/00-README.md`부터 읽고 `docs/17-CLAUDE-IMPLEMENTATION.md`에 따른다. 해커톤 범위와 데모 흐름은 `docs/18-HACKATHON.md`, `docs/19-DEMO-SCENARIO.md`, `docs/12-ROADMAP.md`의 해커톤 컷을 따른다.
 

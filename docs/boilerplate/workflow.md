@@ -31,7 +31,7 @@
 | 계획 | 클로드가 단계를 나누고 단계마다 고칠 파일과 완료 기준을 적습니다. 화면이 있으면 디자이너 에이전트가 디자인 스펙을 붙입니다 | **계획 승인** |
 | 구현 | 단계마다 구현하고 `/verify` 를 통과시킵니다. 서로 독립인 단계는 worktree 에이전트에 병렬로 맡길 수 있습니다 | 의존성 추가·DB 적용처럼 사람이 할 일 |
 | 검증 | 스펙 대조(`/spec-check`)·테스트·E2E·QA 를 구현과 다른 에이전트가 맡습니다 | DB·로그인이 필요한 검사에 env 값 제공 |
-| 검토·배포 | `/predeploy-review` 와 배포 점검(`test-deployment` 의 GO/NO-GO)을 거칩니다 | **병합·배포는 직접** |
+| 검토·배포 | `/predeploy-review` 와 데모 점검(`demo-verifier` 의 GO/NO-GO)을 거칩니다 | **병합·배포는 직접** |
 
 스펙이 이미 있으면 "이 스펙으로 계획부터"처럼 중간 단계에서 시작할 수 있습니다. 배포 뒤 문제가 생기면 `git revert` 로
 되돌리고 새 작업으로 고칩니다.
@@ -62,7 +62,7 @@
 - 설계: `web-designer`
 - 작은 일 구현: `frontend-developer` · `backend-developer`
 - 테스트: `test-server` — E2E: `e2e-web` · `e2e-admin` · `e2e-healer`(깨진 E2E 수리)
-- QA: `qa-web` · `qa-admin` — 배포 점검: `test-deployment`
+- QA: `qa-web` · `qa-admin` — 데모 점검: `demo-verifier`(템플릿의 `test-deployment` 는 지웠다)
 
 웹 화면을 직접 열어 보는 일(`qa-web`·`qa-admin`)은 `.mcp.json` 의 `playwright` 서버가 맡습니다. 버전을 고정해 두었고(`@playwright/mcp`),
 처음 쓸 때 Claude Code 가 승인을 묻고 `npx` 가 패키지를 받습니다(네트워크 필요). 브라우저는 창이 보이는 상태로 열립니다.

@@ -6,10 +6,13 @@ tags:
   - sol-radar
   - ui
   - hackathon
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 
 # 랜딩페이지 Implementation Plan — SOL RADAR 첫 화면
+
+> [!success] 보관 (2026-10-19)
+> 이 설계안은 정본에 반영됐다(근거: 커밋 `a82bc63`·`e2d5215`·`e68d39a`·`8c80724`·`e0969cf` 첫 화면을 SOL RADAR 랜딩으로 교체, `b39b26e` 스크롤 등장 효과, [[PROGRESS|진행 상황]] 작업 로그 2026-10-16 "화면" 행 2건, 증거 `evidence/landing/20261016-landing-*.png`·`test-report.txt`). 이후 [[2026-10-16-landing-redesign|랜딩 재설계]]로 대체됐다. 수정하지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
