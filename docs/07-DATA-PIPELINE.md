@@ -84,7 +84,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다.
 - 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다.
 - 공고·revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 한 번에(원자적으로) 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘겨 리허설마다 공고 id를 보존한다([[16-DECISIONS|ADR-030]] B18).
-- 변경 감지 뒤 하위 job은 outbox와 `documents` 큐만 Redis/BullMQ로 만든다. 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집 주기는 기본 30분이고 env로 바꾼다(B18).
+- 변경 감지 뒤 하위 job은 outbox와 `documents` 큐만 Redis/BullMQ로 만든다. 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집 주기는 기본 30분이고 env `G2B_INGEST_INTERVAL_MINUTES`로 바꾼다(B18, §2.2).
 
 > [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`)
 > worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `import "server-only"`인 `web/server` 모듈을 불러온다. 지금 처리하는 job과 종결 증거는 [[16-DECISIONS|16 ADR]] 미결정 9번이다.
@@ -136,6 +136,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
   - data.go.kr XML 오류 봉투의 `returnReasonCode`는 22 = `QUOTA_EXCEEDED`(위 처리), 30·31 = 키 오류(재시도하지 않는다)로 읽는다([[16-DECISIONS|ADR-030]] B17). 실측 표본이 없는 **미검증 가정**이다(16 미결정 1번).
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
 - 초당 30 tps(참고문서)를 넘지 않는다.
+- 일정 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(worker 전용, 선택): 기본 `30`(분)이고 양의 정수만 받는다. 틀리면 worker가 env 이름만 알리고 멈춘다(`web/worker/ingest-queue.ts`의 `DEFAULT_G2B_INGEST_INTERVAL_MINUTES`, main `9da17c4`). 지금 `infra/compose.yaml`은 이 env를 worker에 넘기지 않아 컨테이너에서는 기본값 30분이 쓰인다([[10-DEPLOYMENT|10 배포]] env 파일 위치 표, [[16-DECISIONS|ADR-031]] C13).
 
 ### 2.3 서비스키 없이 개발하기
 
@@ -314,7 +315,7 @@ fixture 한 건의 형태:
 | `FX-04` | NOTICE | 한국지능정보사회진흥원 데이터 거버넌스 체계 수립 컨설팅 | 한국지능정보사회진흥원 | 6억 | +12d | 첨부 없음. 본문에 자격 요건 문장 없음 | 자격 **NEEDS_REVIEW** → WATCH. 근거 인용 0건, 수주확률 문구 없음 | G4 | — |
 | `FX-05` | NOTICE | 국민건강보험공단 대국민 포털 재구축 | 국민건강보험공단 | 32억 | +20d | 첨부 HWP 파싱 실패(의도적으로 손상) | `parse_status=FAILED`, 추출 `PENDING_REVIEW`(`warnings`의 `ATTACHMENT_PARSE_FAILED:*`, [[03-AI-PIPELINE\|03]] §4.4, ADR-029 A2), 자격 NEEDS_REVIEW → WATCH. "첨부 원문 확인" 배지 | G4 변형 | — |
 | `FX-06` | NOTICE | 대전광역시 스마트시티 통합플랫폼 유지보수 | 대전광역시 | 9억 | +14d → r2 +28d | 기한변경 정정(`LIVE` 배치, `amendmentNo` 02) | **BID** (점수 78) 유지. revision 2, `BID_CHANGED` 알림 정확히 1건 | G2 | S5 변경 알림 |
-| `FX-07` | NOTICE | 한국도로공사 교통정보 데이터플랫폼 고도화 | 한국도로공사 | 18억 → r2 21.6억 | +18d | 정정: 예산 증액 + 요구기술 `Kubernetes` 추가(`LIVE`, `amendmentNo` 02) | r1 WATCH (68) → r2 **BID** (76). 재분석 1회, 알림 1건 | G2 변형 | S5 재분석으로 점수 변동 |
+| `FX-07` | NOTICE | 한국도로공사 교통정보 데이터플랫폼 고도화 | 한국도로공사 | 18억 → r2 21.6억 | +18d | 정정: 예산 증액 + 요구기술 `Kubernetes` 추가(`LIVE`, `amendmentNo` 02) | r1 WATCH (68) → r2 **BID** (77, 규칙 엔진 77.3). 재분석 1회(사람이 상세 [재분석]), 알림 1건 | G2 변형 | S5 재분석으로 점수 변동 |
 | `FX-08` | NOTICE | 충청북도 농업기술정보시스템 구축 | 충청북도 | 7억 | +16d | 취소 공고(`LIVE`에서 r2 `CANCELLED`) | 상태 `CANCELLED`, 재분석 없음, r1 검토 기록 보존, 알림 1건 | — | — |
 | `FX-09` | NOTICE | 서울특별시 공공데이터 개방 플랫폼 운영 | 서울특별시 | 11억 | +25d | `duplicate-delivery`: 동일 payload가 `SEED`와 `LIVE` 두 번 전달 | bid 1건, revision 1, 이벤트 0건 추가. WATCH | G1 | S5 중복 0건 |
 | `FX-10` | NOTICE | 강원특별자치도 관광정보시스템 재구축 (재공고) | 강원특별자치도 | 8억 | +14d | 차수 변경: `noticeId=DEMO-2026-0010`, `amendmentNo` `01` → `02`(유찰 후 재공고, `LIVE`) | 같은 bid의 revision 2, 재분석, 알림 1건. WATCH | G1 변형 | — |
@@ -324,12 +325,16 @@ fixture 한 건의 형태:
 | `FX-14` | NOTICE | 광주광역시 AI 행정 비서 시범사업 | 광주광역시 | 5억 | +2d (KST 18:00) | 마감 임박, 타임존 변환 | UTC 09:00 저장. 대시보드 "마감 임박" 카드, `DEADLINE_APPROACHING` 1건. WATCH (일정 감점) | — | S2 마감 임박 |
 | `FX-15` | NOTICE | 행정안전부 차세대 지방행정 공통기반 구축 | 행정안전부 | 80억 | +30d | 규모 초과(솔리데오 수행 상한 50억) | 규모 적합 0점 + `SCALE_LIMIT_EXCEEDED` 경고. WATCH (58) | — | — |
 | `FX-16` | NOTICE | 국방부 군 지휘통제체계 SW 유지보수 | 국방부 | 40억 | +20d | 비선호 분야(국방) + 방산업체 지정 필수 미충족. mock Kev도 `NO_BID 0.70` | **NO-BID** (자격). 규칙·Kev 일치 | G3 일치 사례 | — |
-| `FX-17` | PLAN | 과학기술정보통신부 2027년 AI 행정서비스 구축 발주계획 | 과학기술정보통신부 | 50억 (예정) | 없음 (2027-03 예정) | 발주계획 단계. `planRef=DEMO-PLAN-0042` | 자격 `NOT_APPLICABLE`, WATCH (조기 추적). StageTimeline 1단계 | — | — |
+| `FX-17` | PLAN | 과학기술정보통신부 2027년 AI 행정서비스 구축 발주계획 | 과학기술정보통신부 | 50억 (예정) | 없음 (2027-03 예정) | 발주계획 단계. `planRef=DEMO-PLAN-0042` | 자격 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`), WATCH (조기 추적). StageTimeline 1단계 | — | — |
 | `FX-18` | PRE_SPEC | 과학기술정보통신부 AI 행정서비스 구축 사전규격 | 과학기술정보통신부 | 48억 | 의견등록 +7d | `planRef=DEMO-PLAN-0042`로 `FX-17`과 연결 | 연결 확정(식별자). **BID** (82). StageTimeline 2단계 | — | — |
 | `FX-19` | PRE_SPEC | 세종특별자치시 행정정보 연계 플랫폼 사전규격 | 세종특별자치시 | 10억 | +7d | `planRef` 없음. `FX-01`과 제목 유사도만 높음 | "연결 후보"로만 표시, 자동 병합 없음. WATCH | — | — |
 | `FX-20` | PLAN | 경상남도 2027년 정보화사업 발주계획 | 경상남도 | 15억 (예정) | 없음 | `rate-limit-then-ok`: `SEED` 배치 안에서 429 두 번(`Retry-After: 2`) 후 200 | 지수 재시도 후 적재, `ingest_runs` 체크포인트 복구, `BID_CREATED` 1건. WATCH (조기 추적) | G7 | — |
 
 단계 분포: NOTICE 16, PLAN 2, PRE_SPEC 2. 기대 결과 분포(최종 revision 기준): BID 4, WATCH 10, NO-BID 2, 취소 1, 격리 1, 조기 추적 2.
+
+- 점수는 규칙 엔진 출력이다. `FX-07` r2는 77이다(엔진 77.3, 화면 77, [[16-DECISIONS|ADR-031]] C9). manifest `expected.designScore`는 fixture 담당이 같은 값으로 맞춘다.
+- `FX-17`은 자격 요건이 아직 없는 발주계획이라 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`이다. [[04-DATABASE|04 DB]] §3.4·[[08-SCORING|08 점수]] §5.1과 같다(ADR-031 C10).
+- 사전 분석 18건(`FX-02`·`FX-12` 제외)의 기대 플래그: `MODEL_RULE_DISAGREEMENT`는 `FX-03`에만 붙는다. `KEV_NEEDS_REVIEW`는 `FX-04`·`05`·`11`·`13`·`17`·`19`·`20`에 붙는다(§6.3 고정값 needsHumanReview 0.70 ≥ 임계 0.7, [[03-AI-PIPELINE|03]] §5.5, ADR-031 C11).
 
 ### 6.3 mock 추출·Kev fixture
 
@@ -347,7 +352,7 @@ fixture 한 건의 형태:
 | `FX-13` | `qualifications` 인용 1건의 `quotedText`가 원문에 없음 → 인용 검증 실패 | 해당 필드 `UNKNOWN` + `note="CITATION_FAILED"`, `warnings`에 `CITATION_FAILED:qualifications`, 근거 미표시(ADR-029 A1) |
 | 그 외 | 제목·본문에서 만든 단순 추출. 인용은 본문 문자열과 일치 | 회귀 |
 
-**`fixtures/kev/FX-xx.json`** — mock Kev 응답. 03 §5의 질문 4종(`recommendation` choice, `mandatoryRisk` noul, `needsHumanReview` noul, `fit` score 5등급)을 모두 채운다. `fit`의 wire `score`는 0부터 세는 index(0~4)다. 아래 표와 고정값의 `fit`은 화면 표시값(1~5)이고 파일에는 표시값 − 1을 쓴다(예: `FX-01` 표시 4.5 → wire 3.5). 질문 세트 `kev-qs/v0.1`, `provider="mock"`. **20건 전부 명시 파일로 제공한다**(격리되는 `FX-12`는 생략 가능). 특수 4건(`FX-01`·`02`·`03`·`16`)은 아래 표의 값, 나머지 16건은 다음 값을 파일에 고정값으로 기록한다: `recommendation`은 규칙 권고 선택지 0.60 / 나머지 0.25·0.15, `mandatoryRisk` 0.10, `needsHumanReview`는 자격 NEEDS_REVIEW면 0.70 아니면 0.20, `fit`은 화면 표시값 규칙 점수/20(wire는 그 값 − 1). 이렇게 하면 데모·골든에서 의도치 않은 `MODEL_RULE_DISAGREEMENT`가 생기지 않는다. 파일이 없을 때만 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.7 fallback 공식을 쓴다.
+**`fixtures/kev/FX-xx.json`** — mock Kev 응답. 03 §5의 질문 4종(`recommendation` choice, `mandatoryRisk` noul, `needsHumanReview` noul, `fit` score 5등급)을 모두 채운다. `fit`의 wire `score`는 0부터 세는 index(0~4)다. 아래 표와 고정값의 `fit`은 화면 표시값(1~5)이고 파일에는 표시값 − 1을 쓴다(예: `FX-01` 표시 4.5 → wire 3.5). 질문 세트 `kev-qs/v0.1`, `provider="mock"`. **명시 파일 20개로 제공한다**: `FX-01`~`FX-20`에서 격리되는 `FX-12`를 뺀 19건과 개정판 전용 `FX-07.r01.json`(r1, WATCH 0.60, fit 68/20)이다. mock은 fixtureId `FX-NN.rNN` 파일을 먼저 읽고 없으면 `FX-NN` 파일을 읽는다(§6.5). 특수 4건(`FX-01`·`02`·`03`·`16`)은 아래 표의 값이다. 나머지 16건은 설계 목표 점수가 아니라 **규칙 엔진 출력**(권고·자격·점수)에서 다음 값을 정해 파일에 고정값으로 기록하고, 골든이 바뀌면 다시 맞춘다([[16-DECISIONS|ADR-031]] C8): `recommendation`은 규칙 권고 선택지 0.60, BID–WATCH–NO_BID 순서에서 그와 이웃한 선택지 0.25, 나머지 0.15(WATCH 권고면 BID 0.25·NO_BID 0.15, NO_BID 권고면 WATCH 0.25·BID 0.15), `mandatoryRisk` 0.10, `needsHumanReview`는 자격 NEEDS_REVIEW면 0.70 아니면 0.20, `fit`은 화면 표시값 규칙 점수/20(wire는 그 값 − 1). `fit`의 wire 분포는 wire `score`가 정수가 아니면 floor·ceil 두 등급, 1~3 정수 s면 {s−1:0.2, s:0.6, s+1:0.2}, 0·4면 {s:1.0}이다. 이렇게 하면 데모·골든에서 의도치 않은 `MODEL_RULE_DISAGREEMENT`가 생기지 않는다. 파일이 없을 때만 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.7 fallback 공식을 쓴다.
 
 | ID | recommendation (BID/WATCH/NO_BID) | mandatoryRisk | needsHumanReview | fit (표시값) | 의도 |
 |---|---|---:|---:|---:|---|
@@ -392,8 +397,8 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - `budgetKrw`의 원문 텍스트("12억원" 같은 표기)는 manifest tags에 `budget-text`가 있는 fixture(`FX-13`)에서만 허용한다. 나머지는 숫자 문자열이다.
 
 **추출 파일 이름** (`fixtures/extractions/`)
-- `FX-xx.json`은 마지막 revision, `FX-xx.rNN.json`은 앞선 revision이다. 지금은 `FX-07.r01.json` 하나다. 그래서 추출은 19건(`FX-12` 격리 제외) + `FX-07` r1 = 20개 파일이다([[04-DATABASE|04 DB]] `requirement_extractions` 20과 맞는다).
-- 파일 안의 `bidId: "FX-xx"`·`revisionId: "FX-xx#NN"`은 seed가 UUID로 바꾸는 자리표시다. `rNN` 파일이 없는 revision은 seed·mock gateway가 `FX-xx.json`을 그 revision에 쓴다(예: `FX-06` r1).
+- `FX-xx.json`은 마지막 revision, `FX-xx.rNN.json`은 앞선 revision이다. 지금은 `FX-07.r01.json` 하나다. 그래서 추출은 19건(`FX-12` 격리 제외) + `FX-07` r1 = 20개 파일이다. 이 파일들은 gateway mock(`AI_PROVIDER=mock`)이 `/extract` 응답으로 읽는 정본이다. seed(`pnpm demo:reset`)는 이 파일을 `requirement_extractions`에 넣지 않는다(seed 직후 0행, seed는 gateway 출력을 지어내지 않는다). 검증된 추출은 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장하고, `FX-02`는 S4 라이브 분석 때 저장한다([[04-DATABASE|04 DB]] §6, [[16-DECISIONS|ADR-031]] C16).
+- 파일 안의 `bidId: "FX-xx"`·`revisionId: "FX-xx#NN"`은 자리표시다(실제 id는 DB의 UUID다). `rNN` 파일이 없는 revision은 mock gateway가 `FX-xx.json`을 그 revision에 쓴다(예: `FX-06` r1).
 - gateway에 보내는 fixture 식별자는 `FX-NN` 또는 `FX-NN.rNN`이다. worker는 늘 `FX-NN.rNN`을 보내고, mock gateway는 그 파일이 없으면 위 규칙대로 `FX-NN.json`으로 대체한다. 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절하고, 응답의 id는 요청 값으로 바꾼다([[03-AI-PIPELINE|03]] §2.1, [[16-DECISIONS|ADR-030]] B4).
 
 **mock Kev·골든 envelope**

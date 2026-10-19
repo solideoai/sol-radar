@@ -53,7 +53,7 @@ fixtures:
   - id: FX-07
     stage: NOTICE
     tags: [normal, G2, S5, r1-WATCH-68, budget-change, requirement-added]
-    expected: { outcome: BID, designScore: 76 }
+    expected: { outcome: BID, designScore: 77 }
   - id: FX-08
     stage: NOTICE
     tags: [normal, S5, cancelled]
