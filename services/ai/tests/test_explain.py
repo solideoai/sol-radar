@@ -117,6 +117,30 @@ def test_explanation_has_no_probability_phrases(make_client):
     assert FORBIDDEN.findall(post(make_client(), request)["text"]) == []
 
 
+def test_sentence_with_number_outside_input_is_replaced(make_client, monkeypatch):
+    """03 §6·§9 v0.2: 입력 밖 숫자가 든 문장은 버리고 "규칙 판정 결과를 확인하세요." 로 대체한다.
+
+    정상 요청으로는 템플릿이 입력 밖 숫자를 만들 수 없다(템플릿은 입력 값만 쓴다). 그래서 템플릿 문장
+    생성 함수(sol_ai.explain.template_sentences, 내부 이름)를 바꿔 입력 밖 숫자 문장을 넣고 HTTP 응답을 본다.
+    이름이 바뀌면 monkeypatch 가 AttributeError 로 실패한다(조용히 통과하지 않는다).
+    """
+    import sol_ai.explain as explain_module
+
+    original = explain_module.template_sentences
+    monkeypatch.setattr(
+        explain_module,
+        "template_sentences",
+        lambda request: [*original(request), "입력에 없는 숫자 12345 를 쓴 문장."],
+    )
+    request = explain_request()
+    assert "12345" not in number_set(request)  # 전제: 입력에 없는 숫자
+    result = post(make_client(), request)
+    assert "12345" not in result["text"]
+    assert "규칙 판정 결과를 확인하세요." in result["text"]
+    assert result["text"].endswith(FIXED_CLOSING)
+    assert (set(result["usedNumbers"]) <= number_set(request), result["fallback"]) == (True, True)
+
+
 def test_explain_is_deterministic(make_client):
     client = make_client()
     request = explain_request()
