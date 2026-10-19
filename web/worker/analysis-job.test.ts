@@ -64,6 +64,18 @@ const T2 = `${CALCULATION_DATE}T09:00:00.250Z`;
 const T3 = `${CALCULATION_DATE}T09:00:02.500Z`;
 const T4 = `${CALCULATION_DATE}T09:00:02.750Z`;
 
+/** 앞 시도가 쓴 started_at 을 PostgREST 가 돌려준 원문(마이크로초·오프셋). t0(T1)보다 이르다. */
+const EARLIER_STARTED_AT_RAW = `${CALCULATION_DATE}T08:58:00.123456+00:00`;
+
+/** PostgREST 가 timestamptz 를 돌려주는 모양("…+00:00", 소수 초는 있을 때만). */
+function toPostgrestTimestamp(iso: string): string {
+  const at = new Date(iso);
+  const base = at.toISOString().slice(0, 19);
+  const millis = at.getUTCMilliseconds();
+  const fraction = millis === 0 ? "" : `.${String(millis).padStart(3, "0").replace(/0+$/, "")}`;
+  return `${base}${fraction}+00:00`;
+}
+
 const jobData = () => ({
   orgId: ORG_ID,
   scoreRunId: SCORE_RUN_ID,
@@ -217,7 +229,8 @@ describe("createAnalysisProcessor · 정상(FX-01, 캐시 추출 + 3b mock gatew
     expect(sink.attempts).toHaveLength(1);
   });
 
-  it("markRunning 을 한 번, health 설정과 첫 now(t0)로 부른다", async () => {
+  // run 잡기는 compare-and-set 이다. loader 가 읽은 상태(QUEUED·started_at 없음)를 expected 로 넘긴다. 예전 기대에 expected 를 더했다.
+  it("markRunning 을 한 번, health 설정·첫 now(t0)·읽은 run 상태(expected)로 부른다", async () => {
     const { tracker } = await runJob();
     expect(tracker.running).toEqual([
       {
@@ -226,6 +239,7 @@ describe("createAnalysisProcessor · 정상(FX-01, 캐시 추출 + 3b mock gatew
         runMode: "mock",
         aiProvider: "mock",
         startedAt: T1,
+        expected: { status: "QUEUED", startedAt: null },
       },
     ]);
   });
@@ -946,8 +960,9 @@ describe("createAnalysisProcessor · 규칙 엔진 입력 오류(AnalysisInputEr
     expect(error).toHaveProperty("message", "ANALYSIS_INPUT_INVALID");
   });
 
-  // 보안 검토 후속: markRunning 뒤의 영구 실패라 이 시도의 시작 시각(t0=T1)을 attemptStartedAt 으로 넘긴다(예전 기대에 더했다).
-  it("markFailed 를 한 번 ANALYSIS_INPUT_INVALID·그때의 now·이 시도의 attemptStartedAt 으로 부른다", async () => {
+  // markRunning 뒤의 영구 실패라 이 시도가 잡은 상태(RUNNING·started_at=t0=T1)일 때만 닫는다.
+  // 예전 기대(attemptStartedAt: T1)는 run 닫기의 compare-and-set(expected)으로 바뀌었다.
+  it("markFailed 를 한 번 ANALYSIS_INPUT_INVALID·그때의 now·이 시도가 잡은 상태(expected RUNNING·T1)로 부른다", async () => {
     const { tracker } = await badProfile();
     // now: t0(T1) → runAnalysis 시작(T2) → 규칙 엔진이 던짐 → markFailed(T3)
     expect(tracker.failed).toEqual([
@@ -956,7 +971,7 @@ describe("createAnalysisProcessor · 규칙 엔진 입력 오류(AnalysisInputEr
         scoreRunId: SCORE_RUN_ID,
         errorCode: "ANALYSIS_INPUT_INVALID",
         finishedAt: T3,
-        attemptStartedAt: T1,
+        expected: { status: "RUNNING", startedAt: T1 },
       },
     ]);
   });
@@ -1046,8 +1061,9 @@ describe("createAnalysisProcessor · sink.save 실패(마지막 시도 → 영�
     expect(errorOf(settled)).toBe(error);
   });
 
-  // 보안 검토 후속: markRunning 뒤의 영구 실패라 이 시도의 시작 시각(t0=T1)을 attemptStartedAt 으로 넘긴다(예전 기대에 더했다).
-  it("markFailed 를 한 번 ANALYSIS_JOB_FAILED·그때의 now·이 시도의 attemptStartedAt 으로 부른다", async () => {
+  // markRunning 뒤의 영구 실패라 이 시도가 잡은 상태(RUNNING·started_at=t0=T1)일 때만 닫는다.
+  // 예전 기대(attemptStartedAt: T1)는 run 닫기의 compare-and-set(expected)으로 바뀌었다.
+  it("markFailed 를 한 번 ANALYSIS_JOB_FAILED·그때의 now·이 시도가 잡은 상태(expected RUNNING·T1)로 부른다", async () => {
     const { tracker } = await lastAttempt(saveError());
     // now: t0(T1) → runAnalysis 시작(T2)·끝(T3) → sink 실패 → markFailed(T4)
     expect(tracker.failed).toEqual([
@@ -1056,7 +1072,7 @@ describe("createAnalysisProcessor · sink.save 실패(마지막 시도 → 영�
         scoreRunId: SCORE_RUN_ID,
         errorCode: "ANALYSIS_JOB_FAILED",
         finishedAt: T4,
-        attemptStartedAt: T1,
+        expected: { status: "RUNNING", startedAt: T1 },
       },
     ]);
   });
@@ -1108,8 +1124,8 @@ describe("createAnalysisProcessor · sink.save 실패(마지막 시도 → 영�
 // ── 늦은 마감(sink NOT_RUNNING) → 영구 실패(C5-B 덧붙임) ──
 // finish_score_run 이 SCORE_RUN_NOT_RUNNING 으로 거절하면 sink 는 "analysis store 오류: score_runs.finish NOT_RUNNING" 을 던진다.
 // 다른 시도가 이미 끝냈거나 다시 잡은 run 이라 재시도해도 같은 거절이고 gateway 만 다시 부른다.
-// 그래서 시도 횟수와 상관없이 UnrecoverableError("ANALYSIS_RUN_SUPERSEDED") 로 바꿔 던지고, markFailed 는 이 시도의 attemptStartedAt 으로 한 번 부른다
-// (그 조건 때문에 다른 시도의 run 은 0행이다). 다른 sink 오류는 예전처럼 마지막 시도 전에는 BullMQ 재시도다.
+// 그래서 시도 횟수와 상관없이 UnrecoverableError("ANALYSIS_RUN_SUPERSEDED") 로 바꿔 던지고, markFailed 는 이 시도가 잡은 상태
+// (expected RUNNING·attemptStartedAt)로 한 번 부른다(그 조건 때문에 다른 시도의 run 은 0행이다). 다른 sink 오류는 예전처럼 마지막 시도 전에는 BullMQ 재시도다.
 
 const notRunningError = () => new Error("analysis store 오류: score_runs.finish NOT_RUNNING");
 
@@ -1127,7 +1143,7 @@ describe("createAnalysisProcessor · 늦은 마감(sink NOT_RUNNING) → 영구 
   );
 
   it.each([0, 1, 2])(
-    "attemptsMade %i → markFailed 를 한 번 ANALYSIS_RUN_SUPERSEDED·그때의 now·이 시도의 attemptStartedAt 으로 부른다",
+    "attemptsMade %i → markFailed 를 한 번 ANALYSIS_RUN_SUPERSEDED·그때의 now·이 시도가 잡은 상태(expected RUNNING·T1)로 부른다",
     async (attemptsMade) => {
       const { tracker } = await superseded(attemptsMade);
       // now: t0(T1) → runAnalysis 시작(T2) → 끝(T3) → sink 가 던짐 → markFailed(T4)
@@ -1137,15 +1153,15 @@ describe("createAnalysisProcessor · 늦은 마감(sink NOT_RUNNING) → 영구 
           scoreRunId: SCORE_RUN_ID,
           errorCode: "ANALYSIS_RUN_SUPERSEDED",
           finishedAt: T4,
-          attemptStartedAt: T1,
+          expected: { status: "RUNNING", startedAt: T1 },
         },
       ]);
     },
   );
 
-  it("markFailed 의 attemptStartedAt 은 markRunning 에 넘긴 startedAt 이다", async () => {
+  it("markFailed 의 expected.startedAt 은 markRunning 에 넘긴 startedAt 이다", async () => {
     const { tracker } = await superseded(0);
-    expect(tracker.failed.map((input) => input.attemptStartedAt)).toEqual([
+    expect(tracker.failed.map((input) => input.expected.startedAt)).toEqual([
       tracker.running[0]?.startedAt,
     ]);
   });
@@ -1193,7 +1209,9 @@ describe("createAnalysisProcessor · 늦은 마감(sink NOT_RUNNING) → 영구 
 });
 
 describe("createAnalysisProcessor · 대상 확인 뒤 다른 단계 실패", () => {
-  it("markRunning 이 마지막 시도에서 던지면 같은 오류를 던지고 markFailed 를 부른다", async () => {
+  // markRunning 이 성공하지 않았으면 이 시도가 잡은 run 이 없다. 읽은 상태(expected)가 그대로일 때만 닫는다.
+  // 예전 기대(조건 없이 QUEUED·RUNNING 닫기, attemptStartedAt 없음)는 run 닫기의 compare-and-set 으로 바뀌었다.
+  it("markRunning 이 마지막 시도에서 던지면 같은 오류를 던지고 markFailed 를 읽은 상태(expected QUEUED·null)로 부른다", async () => {
     const runningError = new Error("score_runs 갱신 실패");
     const { settled, tracker, sink } = await runJob(
       { tracker: { runningError } },
@@ -1207,19 +1225,23 @@ describe("createAnalysisProcessor · 대상 확인 뒤 다른 단계 실패", ()
         scoreRunId: SCORE_RUN_ID,
         errorCode: "ANALYSIS_JOB_FAILED",
         finishedAt: T2,
+        expected: { status: "QUEUED", startedAt: null },
       },
     ]);
     expect(sink.attempts).toHaveLength(0);
   });
 
-  // 보안 검토 후속: markRunning 이 성공하지 않았으면 이 시도가 잡은 run 이 없다. 시도 조건 없이(QUEUED·RUNNING) 닫는다.
-  it("markRunning 이 마지막 시도에서 던지면 markFailed 에 attemptStartedAt 을 넘기지 않는다", async () => {
+  it("RUNNING 으로 읽은 run 에서 markRunning 이 마지막 시도에 던지면 markFailed 의 expected 는 RUNNING·읽은 started_at 원문이다", async () => {
     const { tracker } = await runJob(
-      { tracker: { runningError: new Error("score_runs 갱신 실패") } },
+      {
+        load: () => loaded("FX-01", { status: "RUNNING", startedAt: EARLIER_STARTED_AT_RAW }),
+        tracker: { runningError: new Error("score_runs 갱신 실패") },
+      },
       { attemptsMade: 2 },
     );
-    expect(tracker.failed).toHaveLength(1);
-    expect(tracker.failed[0]?.attemptStartedAt).toBeUndefined();
+    expect(tracker.failed.map((input) => input.expected)).toEqual([
+      { status: "RUNNING", startedAt: EARLIER_STARTED_AT_RAW },
+    ]);
   });
 
   it("markRunning 이 마지막이 아닌 시도에서 던지면 markFailed 를 부르지 않는다", async () => {
@@ -1258,16 +1280,17 @@ describe("createAnalysisProcessor · 시도 식별자(attemptStartedAt)", () => 
     expect(record.meta.startedAt).toBe(T2);
   });
 
-  it("markRunning 뒤 sink 가 마지막 시도에서 실패하면 markFailed 의 attemptStartedAt 은 markRunning 의 startedAt 이다", async () => {
+  // markRunning 뒤의 영구 실패는 이 시도가 잡은 상태(expected RUNNING·markRunning 의 startedAt)로만 닫는다.
+  // 예전 기대(attemptStartedAt)는 run 닫기의 compare-and-set(expected)으로 바뀌었다. 다른 시도의 run 을 닫지 않는 뜻은 그대로다.
+  it("markRunning 뒤 sink 가 마지막 시도에서 실패하면 markFailed 의 expected 는 RUNNING·markRunning 의 startedAt 이다", async () => {
     const { tracker } = await runJob({ sinkErrors: [saveError()] }, { attemptsMade: 2 });
-    expect(tracker.failed.map((input) => input.attemptStartedAt)).toEqual([
-      tracker.running[0]?.startedAt,
+    expect(tracker.failed.map((input) => input.expected)).toEqual([
+      { status: "RUNNING", startedAt: tracker.running[0]?.startedAt },
     ]);
   });
 
   // C5-B 덧붙임(늦은 마감은 영구 실패): NOT_RUNNING 은 ANALYSIS_RUN_SUPERSEDED 로 닫는다. 예전 기대(ANALYSIS_JOB_FAILED)는 이 결정으로 바뀌었다.
-  // attemptStartedAt 조건(다른 시도의 run 을 닫지 않는다)은 그대로다.
-  it("markRunning 뒤 sink 가 NOT_RUNNING 으로 실패해도(다른 시도가 끝냈다) markFailed 는 이 시도의 attemptStartedAt 으로만 닫는다", async () => {
+  it("markRunning 뒤 sink 가 NOT_RUNNING 으로 실패해도(다른 시도가 끝냈다) markFailed 는 이 시도가 잡은 상태로만 닫는다", async () => {
     const notRunning = new Error("analysis store 오류: score_runs.finish NOT_RUNNING");
     const { tracker } = await runJob({ sinkErrors: [notRunning] }, { attemptsMade: 2 });
     expect(tracker.failed).toEqual([
@@ -1276,19 +1299,21 @@ describe("createAnalysisProcessor · 시도 식별자(attemptStartedAt)", () => 
         scoreRunId: SCORE_RUN_ID,
         errorCode: "ANALYSIS_RUN_SUPERSEDED",
         finishedAt: T4,
-        attemptStartedAt: T1,
+        expected: { status: "RUNNING", startedAt: T1 },
       },
     ]);
   });
 
-  it("규칙 엔진 입력 오류(markRunning 뒤)도 markFailed 에 이 시도의 attemptStartedAt 을 넘긴다", async () => {
+  it("규칙 엔진 입력 오류(markRunning 뒤)도 markFailed 의 expected 는 RUNNING·이 시도의 attemptStartedAt 이다", async () => {
     const { tracker } = await runJob({
       load: () =>
         withPatch(loaded(), (draft) => {
           draft.profile.revision = 0;
         }),
     });
-    expect(tracker.failed.map((input) => input.attemptStartedAt)).toEqual([T1]);
+    expect(tracker.failed.map((input) => input.expected)).toEqual([
+      { status: "RUNNING", startedAt: T1 },
+    ]);
   });
 
   it("재시도하면 시도마다 그 시도의 처리 시작 시각이 attemptStartedAt 이다", async () => {
@@ -1296,15 +1321,149 @@ describe("createAnalysisProcessor · 시도 식별자(attemptStartedAt)", () => 
     const T6 = `${CALCULATION_DATE}T09:05:00.250Z`;
     const T7 = `${CALCULATION_DATE}T09:05:02.500Z`;
     const T8 = `${CALCULATION_DATE}T09:05:02.750Z`;
+    // 두 번째 시도의 loader 는 앞 시도가 쓴 started_at 을 PostgREST 원문(+00:00)으로 읽는다.
     const harness = setup({
       sinkErrors: [saveError(), null],
       times: [T1, T2, T3, T4, T5, T6, T7, T8],
-      load: (index) => loaded("FX-01", { status: index === 0 ? "QUEUED" : "RUNNING" }),
+      load: (index) =>
+        index === 0
+          ? loaded("FX-01", { status: "QUEUED", startedAt: null })
+          : loaded("FX-01", { status: "RUNNING", startedAt: toPostgrestTimestamp(T1) }),
     });
     await settle(harness.processor(job({ attemptsMade: 0 })));
     await settle(harness.processor(job({ attemptsMade: 1 })));
     expect(harness.tracker.running.map((input) => input.startedAt)).toEqual([T1, T5]);
     expect(harness.sink.attempts.map((record) => record.attemptStartedAt)).toEqual([T1, T5]);
+  });
+
+  it("재시도하면 시도마다 그 시도가 읽은 상태를 markRunning 의 expected 로 넘긴다", async () => {
+    const T5 = `${CALCULATION_DATE}T09:05:00.000Z`;
+    const harness = setup({
+      sinkErrors: [saveError(), null],
+      times: [T1, T2, T3, T4, T5],
+      load: (index) =>
+        index === 0
+          ? loaded("FX-01", { status: "QUEUED", startedAt: null })
+          : loaded("FX-01", { status: "RUNNING", startedAt: toPostgrestTimestamp(T1) }),
+    });
+    await settle(harness.processor(job({ attemptsMade: 0 })));
+    await settle(harness.processor(job({ attemptsMade: 1 })));
+    expect(harness.tracker.running.map((input) => input.expected)).toEqual([
+      { status: "QUEUED", startedAt: null },
+      { status: "RUNNING", startedAt: toPostgrestTimestamp(T1) },
+    ]);
+  });
+});
+
+// ── run 잡기(compare-and-set) ──
+// started_at 은 nextAttemptStartedAt(t0, 읽은 started_at)이다. 앞 시도의 started_at 과 같은 밀리초에 다시 잡아도 값이 겹치지 않는다.
+// markRunning 이 0행(false)이면 그 사이 다른 시도가 잡았거나 끝낸 run 이다. gateway 를 부르지 않고 영구 실패(ANALYSIS_RUN_SUPERSEDED)다.
+// 진행 단계는 대상 확인(VERIFIED) 그대로라 markFailed 는 읽은 상태(expected)로 부르고, 상태가 바뀌었으므로 저장 쪽에서 0행이다.
+
+describe("createAnalysisProcessor · run 잡기 시도 식별자(nextAttemptStartedAt)", () => {
+  /** t0(T1)과 같은 밀리초 안의 앞 시도 started_at(마이크로초 원문). */
+  const SAME_MS_RAW = `${CALCULATION_DATE}T09:00:00.000456+00:00`;
+  const T1_PLUS_1MS = `${CALCULATION_DATE}T09:00:00.001Z`;
+  const sameMs = () => loaded("FX-01", { status: "RUNNING", startedAt: SAME_MS_RAW });
+
+  it("RUNNING 으로 읽었으면 markRunning 의 expected 는 RUNNING·읽은 started_at 원문 그대로다", async () => {
+    const { tracker } = await runJob({
+      load: () => loaded("FX-01", { status: "RUNNING", startedAt: EARLIER_STARTED_AT_RAW }),
+    });
+    expect(tracker.running.map((input) => input.expected)).toEqual([
+      { status: "RUNNING", startedAt: EARLIER_STARTED_AT_RAW },
+    ]);
+  });
+
+  it("앞 started_at 이 t0 와 같은 밀리초면 markRunning 의 startedAt 은 그보다 1ms 늦다", async () => {
+    const { tracker } = await runJob({ load: sameMs });
+    expect(tracker.running.map((input) => input.startedAt)).toEqual([T1_PLUS_1MS]);
+  });
+
+  it("그때 context·레코드의 attemptStartedAt 도 markRunning 에 넘긴 값(+1ms)이다", async () => {
+    const harness = await runJob({
+      routes: noCacheRoutes(),
+      load: () => loaded("FX-01", { status: "RUNNING", startedAt: SAME_MS_RAW, extraction: null }),
+    });
+    expect(harness.extraction.sources[0]?.attemptStartedAt).toBe(T1_PLUS_1MS);
+    expect(savedRecord(harness).attemptStartedAt).toBe(T1_PLUS_1MS);
+  });
+
+  it("그때 markRunning 뒤 영구 실패의 markFailed expected 는 RUNNING·그 값(+1ms)이다", async () => {
+    const { tracker } = await runJob(
+      { load: sameMs, sinkErrors: [saveError()] },
+      { attemptsMade: 2 },
+    );
+    expect(tracker.failed.map((input) => input.expected)).toEqual([
+      { status: "RUNNING", startedAt: T1_PLUS_1MS },
+    ]);
+  });
+});
+
+describe("createAnalysisProcessor · markRunning 이 0행(다른 시도가 먼저 잡았거나 끝냈다) → 영구 실패 ANALYSIS_RUN_SUPERSEDED", () => {
+  /** 캐시 추출이 없어 run 을 잡았다면 /extract·loadSource 를 불렀을 run. */
+  const lost = (attemptsMade = 0, load: LoadPlan = () => loaded("FX-01", { extraction: null })) =>
+    runJob({ routes: noCacheRoutes(), load, tracker: { runningClaimed: false } }, { attemptsMade });
+
+  it.each([0, 1, 2])(
+    'attemptsMade %i → UnrecoverableError("ANALYSIS_RUN_SUPERSEDED") 를 던진다',
+    async (attemptsMade) => {
+      const error = errorOf((await lost(attemptsMade)).settled);
+      expect(error).toBeInstanceOf(UnrecoverableError);
+      expect(error).toHaveProperty("message", "ANALYSIS_RUN_SUPERSEDED");
+    },
+  );
+
+  it("gateway /extract·/kev·/explain 을 부르지 않는다", async () => {
+    const { fake } = await lost();
+    expect([fake.count("/extract"), fake.count("/kev"), fake.count("/explain")]).toEqual([0, 0, 0]);
+  });
+
+  it("loadSource·추출 save·sink.save 를 부르지 않는다", async () => {
+    const { extraction, sink } = await lost();
+    expect([extraction.sources.length, extraction.saves.length, sink.attempts.length]).toEqual([
+      0, 0, 0,
+    ]);
+  });
+
+  it("port 호출 순서는 loader.load → markRunning → markFailed 다", async () => {
+    const { events } = await lost();
+    expect(events).toEqual(["loader.load", "tracker.markRunning", "tracker.markFailed"]);
+  });
+
+  it("markFailed 는 한 번, 읽은 상태(expected QUEUED·null)로 부른다(상태가 바뀌었으므로 0행이다)", async () => {
+    const { tracker } = await lost();
+    // now: t0(T1) → markRunning 0행 → markFailed(T2)
+    expect(tracker.failed).toEqual([
+      {
+        orgId: ORG_ID,
+        scoreRunId: SCORE_RUN_ID,
+        errorCode: "ANALYSIS_RUN_SUPERSEDED",
+        finishedAt: T2,
+        expected: { status: "QUEUED", startedAt: null },
+      },
+    ]);
+  });
+
+  it("RUNNING 으로 읽었으면 markFailed 의 expected 는 RUNNING·읽은 started_at 원문이다", async () => {
+    const { tracker } = await lost(0, () =>
+      loaded("FX-01", { status: "RUNNING", startedAt: EARLIER_STARTED_AT_RAW, extraction: null }),
+    );
+    expect(tracker.failed.map((input) => input.expected)).toEqual([
+      { status: "RUNNING", startedAt: EARLIER_STARTED_AT_RAW },
+    ]);
+  });
+
+  it("실패 로그는 errorCode ANALYSIS_RUN_SUPERSEDED·permanent true 다", async () => {
+    const { lines } = await lost();
+    expect(onlyLog(lines)).toMatchObject({
+      event: "analysis.failed",
+      requestId: REQUEST_ID,
+      orgId: ORG_ID,
+      scoreRunId: SCORE_RUN_ID,
+      errorCode: "ANALYSIS_RUN_SUPERSEDED",
+      permanent: true,
+    });
   });
 });
 

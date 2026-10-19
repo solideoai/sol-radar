@@ -129,6 +129,7 @@ async function reconcileRun(
   // 진행 중인 job 은 idempotencyKey 와 상관없이 그대로 둔다(처리 중인 run 을 FAILED 로 닫지 않는다).
   if (IN_FLIGHT_STATES.includes(state)) return { ok: true, jobState: state, action: "KEEP" };
 
+  // 찾은 상태(status·started_at 원문)가 그대로일 때만 닫는다. 찾은 뒤 worker 가 다시 잡은 run 은 0행이다.
   const markStale = async (): Promise<RunResult> => {
     try {
       await deps.tracker.markFailed({
@@ -136,6 +137,7 @@ async function reconcileRun(
         scoreRunId: run.scoreRunId,
         errorCode: STALE_RUN_ERROR,
         finishedAt,
+        expected: { status: run.status, startedAt: run.startedAt },
       });
       return { ok: true, jobState: state, action: "FAIL" };
     } catch (error) {
@@ -189,7 +191,7 @@ async function reconcileAndLog(
 }
 
 /**
- * 한 번 돈다. (queuedAt, id) 순 keyset 페이지를 이어 읽어(최대 MAX_PAGES) 앞 페이지가 모두 진행 중이어도 뒤 run 에 닿는다.
+ * 한 번 돈다. id 순 keyset 페이지를 이어 읽어(최대 MAX_PAGES) 앞 페이지가 모두 진행 중이어도 뒤 run 에 닿는다.
  * run 하나의 처리 실패는 그 run 만 건너뛰고(로그) 나머지를 계속한다. finder 실패는 던진다.
  */
 export async function reconcileOnce(deps: ReconcileDeps): Promise<ReconcileSummary> {
@@ -203,21 +205,18 @@ export async function reconcileOnce(deps: ReconcileDeps): Promise<ReconcileSumma
   };
   const finishedAt = new Date(now).toISOString();
 
-  // 커서가 밀리초라 같은 밀리초 안의 run 이 다음 페이지에 다시 나올 수 있다(finder 설명). 한 회차에서는 한 번만 처리한다.
-  const seen = new Set<string>();
   const actions: (ReconcileAction | null)[] = [];
   let after: StaleRunCursor | null = null;
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const runs = await deps.finder.findStaleRuns({ ...staleWindow, after });
     // 순서대로 하나씩 처리한다. 같은 회차 안에서 Redis·DB 에 몰아 보내지 않는다.
     for (const run of runs) {
-      if (seen.has(run.scoreRunId)) continue;
-      seen.add(run.scoreRunId);
       actions.push(await reconcileAndLog(deps, run, finishedAt));
     }
     const last = runs.at(-1);
     if (runs.length < batchLimit || last === undefined) break;
-    after = { queuedAt: last.queuedAt, id: last.scoreRunId };
+    // id 는 겹치지 않아 같은 run 이 다음 페이지에 다시 나오지 않는다.
+    after = { id: last.scoreRunId };
   }
 
   const count = (action: ReconcileAction) => actions.filter((item) => item === action).length;
