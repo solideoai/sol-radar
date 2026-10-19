@@ -302,12 +302,13 @@ export const toBidRows = ({ created, fetchedAt }) => {
     is_demo: true,
     last_synced_at: fetchedAt,
   }));
-  const revisions = created.map(({ bidId, revisionId, record, normalized }) => ({
+  const revisions = created.map(({ bidId, revisionId, fixtureId, record, normalized }) => ({
     id: revisionId,
     bid_id: bidId,
     revision: 1,
     amendment_no: normalized.amendmentNo ?? null,
-    raw_payload: record,
+    // fixtureId 는 분석 job 이 mock 재추출 때 fixture 를 고르는 키다(C3 수집도 같은 모양으로 저장한다). checksum 은 normalized 만 본다.
+    raw_payload: { fixtureId, ...record },
     normalized,
     checksum: normalized.checksum,
     changed_fields: [],

@@ -881,6 +881,15 @@ describe("PGlite 위에서 demo:reset", () => {
         .rows[0].title,
       "세종특별자치시 차세대 행정정보시스템 고도화 (가상)",
     );
+    // 분석 job 은 mock 재추출 때 raw_payload.fixtureId 로 fixture 를 고른다(C3 수집도 같은 모양).
+    assert.equal(
+      (
+        await db.query(
+          "select r.raw_payload->>'fixtureId' as fixture_id from public.bid_revisions r join public.bid_notices b on b.id = r.bid_id where b.notice_id = 'DEMO-2026-0001'",
+        )
+      ).rows[0].fixture_id,
+      "FX-01",
+    );
     assert.equal(await count(db, "select count(*) from public.bid_notices where not is_demo"), 1);
     assert.equal(
       await count(db, "select count(*) from public.bid_revisions where bid_id = $1", [LIVE_BID]),
