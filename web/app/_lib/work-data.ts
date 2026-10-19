@@ -3,9 +3,11 @@ import { cache } from "react";
 import {
   getDashboardSummary,
   listBids,
+  listNotifications,
   type BidListItem,
   type BidListOrigin,
   type BidListQuery,
+  type Notification,
   type Page,
 } from "@/server/bids";
 import { workDeps } from "@/app/_lib/work-deps";
@@ -20,6 +22,22 @@ export const loadDashboardSummary = cache((orgId: string, origin: BidListOrigin)
 export async function loadBidPage(orgId: string, query: BidListQuery): Promise<Page<BidListItem>> {
   const deps = workDeps();
   const result = await listBids(orgId, query, deps.cursorSecret, { repo: deps.bids });
+  if (!result.ok) throw new Error(result.message);
+  return result.data;
+}
+
+// 내 알림 첫 쪽(20건). GET /api/v1/notifications 와 같은 서비스다. 링크는 서비스가 앱 안 경로로 바꿔 준다.
+export async function loadNotificationPage(
+  userId: string,
+  unreadOnly: boolean,
+): Promise<Page<Notification>> {
+  const deps = workDeps();
+  const result = await listNotifications(
+    userId,
+    { cursor: null, limit: 20, unreadOnly },
+    deps.cursorSecret,
+    { repo: deps.notifications },
+  );
   if (!result.ok) throw new Error(result.message);
   return result.data;
 }
