@@ -31,7 +31,10 @@ const WEB_REQUIRED = [
   "REDIS_URL",
   "MINIO_ENDPOINT",
   "AI_GATEWAY_URL",
+  "API_CURSOR_SECRET",
 ];
+// 목록 HMAC 커서 키는 32자 이상이어야 한다(짧으면 서비스가 503 {component:"cursor"} 를 낸다).
+const CURSOR_SECRET_MIN_LENGTH = 32;
 // G2B 서비스키 4개 이름은 실행 모드 규칙(infra/run-modes.json)에서 가져온다.
 const WEB_FORBIDDEN = [
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -125,6 +128,10 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
   } else {
     for (const key of missingKeys(web, WEB_REQUIRED)) {
       problems.push({ file: WEB_FILE, key, code: "MISSING_KEY" });
+    }
+    const cursorSecret = web.API_CURSOR_SECRET;
+    if (cursorSecret && cursorSecret.length < CURSOR_SECRET_MIN_LENGTH) {
+      problems.push({ file: WEB_FILE, key: "API_CURSOR_SECRET", code: "INVALID_FORMAT" });
     }
     problems.push(...placeholderProblems(WEB_FILE, web));
   }

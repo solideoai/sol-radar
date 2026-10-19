@@ -23,6 +23,7 @@ const WEB_BASE = {
   REDIS_URL: "redis://redis:6379",
   MINIO_ENDPOINT: "http://minio:9000",
   AI_GATEWAY_URL: "http://ai-gateway:8000",
+  API_CURSOR_SECRET: "c".repeat(32),
 };
 
 const toEnvText = (values) =>
@@ -499,6 +500,34 @@ test("checkEnv: REDIS_PASSWORD 에 영숫자 외 문자가 있으면 INVALID_FOR
   });
   const hex = "0123456789abcdef".repeat(4);
   await withRoot({ infra: { ...INFRA_BASE, REDIS_PASSWORD: hex } }, async (root) => {
+    assert.equal((await checkEnv({ root })).ok, true);
+  });
+});
+
+test("checkEnv: web 에 API_CURSOR_SECRET 이 없으면 MISSING_KEY", async () => {
+  const { API_CURSOR_SECRET: _omitted, ...web } = WEB_BASE;
+  await withRoot({ web }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.map(({ file, key, code }) => [file, key, code]),
+      [["web/.env.local", "API_CURSOR_SECRET", "MISSING_KEY"]],
+    );
+  });
+});
+
+test("checkEnv: API_CURSOR_SECRET 이 32자 미만이면 INVALID_FORMAT, 값은 출력하지 않는다", async () => {
+  await withRoot({ web: { ...WEB_BASE, API_CURSOR_SECRET: "s".repeat(31) } }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.map(({ file, key, code }) => [file, key, code]),
+      [["web/.env.local", "API_CURSOR_SECRET", "INVALID_FORMAT"]],
+    );
+    assert.equal(result.counts.invalid, 1);
+    const cli = runCli(root);
+    assert.equal(cli.status, 1);
+    assert.ok(!(cli.stdout + cli.stderr).includes("s".repeat(31)));
+  });
+  await withRoot({ web: { ...WEB_BASE, API_CURSOR_SECRET: "s".repeat(32) } }, async (root) => {
     assert.equal((await checkEnv({ root })).ok, true);
   });
 });
