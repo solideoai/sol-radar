@@ -155,4 +155,10 @@ function AnalysisBanner({
   );
 }
 
-export { AnalysisBanner };
+// 분석 run 과 상관없이 AI gateway 가 끊겼을 때(상단바 AI: unavailable) 대시보드 카드 위에 두는 배너(스펙 §5.2).
+// 문구는 09 고정 AI 불가 배너 그대로다.
+function AiUnavailableNotice() {
+  return <BannerRow tone="warning" text={AI_UNAVAILABLE_TEXT} codes={[]} />;
+}
+
+export { AnalysisBanner, AiUnavailableNotice };

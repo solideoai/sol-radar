@@ -2,6 +2,11 @@
 
 import { FilterXIcon, SearchIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  startTransition as defaultStartTransition,
+  useOptimistic,
+  type TransitionStartFunction,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -14,12 +19,26 @@ import {
 } from "@/components/ui/select";
 
 // 스펙 §5.3 필터 막대. 값은 URL 쿼리가 정본이고 기본값은 주소에 적지 않는다.
-// 쿼리 키(q·stage·recommendation·decision·origin·sort)는 /bids 서버 화면과 같아야 한다.
+// 쿼리 키(q·stage·status·recommendation·decision·origin·sort)는 /bids 서버 화면과 같아야 한다.
 // 필터를 바꾸면 cursor 를 지운다(05 §3).
 
 const ALL = "all";
 const DEFAULT_SORT = "publishedAt:desc";
-const FILTER_KEYS = ["q", "stage", "recommendation", "decision", "origin", "sort"] as const;
+const FILTER_KEYS = [
+  "q",
+  "stage",
+  "status",
+  "recommendation",
+  "decision",
+  "origin",
+  "sort",
+] as const;
+type FilterKey = (typeof FILTER_KEYS)[number];
+
+// ADR-029 A7: 기본은 진행 중(OPEN·AMENDED)이라 키를 적지 않는다. "취소 포함"은 세 값을 모두 적는다.
+const ACTIVE = "active";
+const WITH_CANCELLED = "withCancelled";
+const WITH_CANCELLED_STATUS = ["OPEN", "AMENDED", "CANCELLED"] as const;
 
 type Origin = "demo" | "live";
 type Item = { value: string; label: string };
@@ -37,6 +56,10 @@ const RECOMMENDATION_ITEMS: Item[] = [
   { value: "NO_BID", label: "NO-BID" },
 ];
 const DECISION_ITEMS: Item[] = [...RECOMMENDATION_ITEMS, { value: "NONE", label: "미결정" }];
+const STATUS_ITEMS: Item[] = [
+  { value: ACTIVE, label: "진행 중 (기본)" },
+  { value: WITH_CANCELLED, label: "취소 포함" },
+];
 const SORT_ITEMS: Item[] = [
   { value: DEFAULT_SORT, label: "최근 공고 순" },
   { value: "score:desc", label: "점수 높은 순" },
@@ -55,38 +78,56 @@ const originItems = (defaultOrigin: Origin): Item[] =>
 const known = (items: Item[], value: string | null, fallback: string): string =>
   items.some((item) => item.value === value) && value !== null ? value : fallback;
 
-function BidFilters({ defaultOrigin }: { defaultOrigin: Origin }) {
+type BidFiltersProps = {
+  defaultOrigin: Origin;
+  /**
+   * 주소 이동을 감쌀 전환. 목록 화면이 넘기면 서버가 다시 읽는 동안 그 전환의 대기 상태로 표를 흐리게 한다.
+   * 없으면 React 의 startTransition 을 쓴다.
+   */
+  startTransition?: TransitionStartFunction;
+};
+
+function BidFilters({ defaultOrigin, startTransition = defaultStartTransition }: BidFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // 이동이 끝나 주소가 바뀌기 전까지도 고른 값을 바로 보인다(서버가 다시 읽는 동안 이전 값으로 튀지 않게).
+  const [search, setSearch] = useOptimistic(searchParams.toString());
+  const params = new URLSearchParams(search);
 
   const origins = originItems(defaultOrigin);
-  const q = searchParams.get("q") ?? "";
+  const q = params.get("q") ?? "";
   const current = {
-    stage: known(STAGE_ITEMS, searchParams.get("stage"), ALL),
-    recommendation: known(RECOMMENDATION_ITEMS, searchParams.get("recommendation"), ALL),
-    decision: known(DECISION_ITEMS, searchParams.get("decision"), ALL),
-    origin: known(origins, searchParams.get("origin"), defaultOrigin),
-    sort: known(SORT_ITEMS, searchParams.get("sort"), DEFAULT_SORT),
+    stage: known(STAGE_ITEMS, params.get("stage"), ALL),
+    status: params.getAll("status").includes("CANCELLED") ? WITH_CANCELLED : ACTIVE,
+    recommendation: known(RECOMMENDATION_ITEMS, params.get("recommendation"), ALL),
+    decision: known(DECISION_ITEMS, params.get("decision"), ALL),
+    origin: known(origins, params.get("origin"), defaultOrigin),
+    sort: known(SORT_ITEMS, params.get("sort"), DEFAULT_SORT),
   };
   const isDefault =
     q === "" &&
     current.stage === ALL &&
+    current.status === ACTIVE &&
     current.recommendation === ALL &&
     current.decision === ALL &&
     current.origin === defaultOrigin &&
     current.sort === DEFAULT_SORT;
 
   // 기본값은 키를 지운다. cursor 는 늘 지운다. 필터 밖의 다른 쿼리는 그대로 둔다.
-  const go = (changes: Partial<Record<(typeof FILTER_KEYS)[number], string | null>>) => {
-    const next = new URLSearchParams(searchParams.toString());
+  const go = (changes: Partial<Record<FilterKey, string | readonly string[] | null>>) => {
+    const next = new URLSearchParams(search);
     next.delete("cursor");
     for (const [key, value] of Object.entries(changes)) {
-      if (value === null || value === undefined) next.delete(key);
-      else next.set(key, value);
+      next.delete(key);
+      if (value === null || value === undefined) continue;
+      for (const item of typeof value === "string" ? [value] : value) next.append(key, item);
     }
     const query = next.toString();
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    startTransition(() => {
+      setSearch(query);
+      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    });
   };
   const pick = (key: "stage" | "recommendation" | "decision", value: string) =>
     go({ [key]: value === ALL ? null : value });
@@ -127,6 +168,15 @@ function BidFilters({ defaultOrigin }: { defaultOrigin: Origin }) {
         items={STAGE_ITEMS}
         value={current.stage}
         onChange={(value) => pick("stage", value)}
+      />
+      <FilterSelect
+        id="bid-filter-status"
+        label="상태"
+        items={STATUS_ITEMS}
+        value={current.status}
+        onChange={(value) =>
+          go({ status: value === WITH_CANCELLED ? WITH_CANCELLED_STATUS : null })
+        }
       />
       <FilterSelect
         id="bid-filter-recommendation"

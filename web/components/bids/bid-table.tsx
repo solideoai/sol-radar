@@ -60,20 +60,23 @@ const byKey = (key: ColumnKey): Column => {
 };
 
 // 대시보드 표 두 개의 열(§5.2). 발주기관은 카드 폭 @lg 이상에서만 보인다.
+// compact 표는 대시보드(글자 +3px, ADR-030 B25) 카드 안에만 놓인다. 폭은 그 글자 크기에서 가장 긴 값
+// (DEMO 칩·"SOL Score"·"NO-BID"·"WATCH"·D-n)이 Pretendard·시스템 글꼴 모두 8px 이상 남게 잡았다.
+// 첫·끝 칸은 카드 여백(24px)만큼 안쪽 여백을 주어 카드 제목과 글자 줄을 맞춘다.
 const COMPACT_COLUMNS = {
   recommended: [
-    { ...byKey("origin"), width: "w-20" },
+    { ...byKey("origin"), width: "w-[100px]" },
     { ...byKey("title"), width: undefined },
-    { ...byKey("agency"), width: "w-[120px]", className: "hidden @lg:table-cell" },
-    { ...byKey("score"), width: "w-20" },
-    { ...byKey("recommendation"), width: "w-[88px]" },
+    { ...byKey("agency"), width: "w-[140px]", className: "hidden @lg:table-cell" },
+    { ...byKey("score"), width: "w-28" },
+    { ...byKey("recommendation"), width: "w-[116px]" },
   ],
   deadline: [
-    { ...byKey("origin"), width: "w-20" },
+    { ...byKey("origin"), width: "w-[100px]" },
     { ...byKey("title"), width: undefined },
-    { ...byKey("deadline"), width: "w-[72px]" },
-    { ...byKey("recommendation"), width: "w-[88px]" },
-    { ...byKey("decision"), label: "결정", width: "w-[88px]" },
+    { ...byKey("deadline"), width: "w-22" },
+    { ...byKey("recommendation"), width: "w-26" },
+    { ...byKey("decision"), label: "결정", width: "w-[116px]" },
   ],
 } as const satisfies Record<string, Column[]>;
 
@@ -87,8 +90,10 @@ type BidTableProps = {
   compact?: boolean;
   /** compact 표의 열 묶음: 점수형(기본) 또는 마감형. */
   compactKind?: keyof typeof COMPACT_COLUMNS;
-  /** D-n 의 기준 시각. 서버가 넘기면 하이드레이션 차이가 없다. */
-  now?: Date;
+  /** D-n 의 기준 시각. 서버가 요청마다 한 번 만들어 내린다 — 부품이 만들면 서버·브라우저 값이 달라 하이드레이션이 어긋난다. */
+  now: Date;
+  /** 목록 조건(쿼리 문자열, cursor 없음). 있으면 상세 링크에 ?list= 로 붙여 상세의 "목록으로"가 같은 조건으로 돌아오게 한다. */
+  listQuery?: string;
   /** 필터가 바뀌어 서버가 다시 읽는 중이면 표를 흐리게 하고 aria-busy 를 켠다. */
   busy?: boolean;
   /** 표 아래 자리(더 보기 단추 등). */
@@ -112,16 +117,21 @@ function MutedLabel({ statusKey }: { statusKey: "NOT_ANALYZED" }) {
   );
 }
 
+const detailHref = (id: string, listQuery: string | undefined): string =>
+  listQuery ? `/bids/${id}?list=${encodeURIComponent(listQuery)}` : `/bids/${id}`;
+
 function Cell({
   column,
   item,
   now,
   compact,
+  listQuery,
 }: {
   column: Column;
   item: BidListItem;
   now: Date;
   compact: boolean;
+  listQuery: string | undefined;
 }) {
   const analysis = item.latestAnalysis;
   switch (column.key) {
@@ -139,26 +149,26 @@ function Cell({
         </div>
       );
     case "title":
+      // 경고 아이콘은 말줄임 상자 밖 형제다. 안에 두면 긴 제목에서 말줄임과 함께 잘려 보이지 않는다(P3).
       return (
-        <Link
-          href={`/bids/${item.id}`}
-          title={item.title}
-          className={cn(
-            compact ? "line-clamp-1" : "line-clamp-2",
-            "rounded-sm break-words whitespace-normal outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50",
-          )}
-        >
-          {item.title}
+        <div className="flex min-w-0 items-start gap-1">
+          <Link
+            href={detailHref(item.id, listQuery)}
+            title={item.title}
+            className={cn(
+              compact ? "line-clamp-1" : "line-clamp-2",
+              "min-w-0 rounded-sm break-words whitespace-normal outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50",
+            )}
+          >
+            {item.title}
+          </Link>
           {hasDocumentIssue(item) && (
-            <>
-              <FileWarningIcon
-                aria-hidden="true"
-                className="ml-1 inline size-3.5 align-text-bottom text-warning"
-              />
+            <span className="flex h-[1lh] shrink-0 items-center">
+              <FileWarningIcon aria-hidden="true" className="size-3.5 text-warning" />
               <span className="sr-only">첨부 원문 확인 필요</span>
-            </>
+            </span>
           )}
-        </Link>
+        </div>
       );
     case "agency":
       return item.agency === null ? (
@@ -216,18 +226,22 @@ function Cell({
   }
 }
 
+// compact 표의 첫·끝 칸: 기본 여백(12px, origin 은 6px) 대신 카드 여백 24px.
+const edgeClass = (compact: boolean, index: number, count: number): string | false =>
+  compact && (index === 0 ? "pl-6" : index === count - 1 && "pr-6");
+
 function BidTable({
   items,
   caption,
   compact = false,
   compactKind = "recommended",
   now,
+  listQuery,
   busy = false,
   footer,
   className,
 }: BidTableProps) {
   const columns: readonly Column[] = compact ? COMPACT_COLUMNS[compactKind] : FULL_COLUMNS;
-  const rowNow = now ?? new Date();
   const noteId = useId();
   return (
     <div aria-busy={busy || undefined} className={className}>
@@ -239,11 +253,16 @@ function BidTable({
           <caption className="sr-only">{caption}</caption>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              {columns.map((column) => (
+              {columns.map((column, index) => (
                 <TableHead
                   key={column.key}
                   scope="col"
-                  className={cn(column.width, column.numeric && "text-right", column.className)}
+                  className={cn(
+                    column.width,
+                    column.numeric && "text-right",
+                    column.className,
+                    edgeClass(compact, index, columns.length),
+                  )}
                 >
                   {column.label}
                 </TableHead>
@@ -253,18 +272,25 @@ function BidTable({
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.id} className="h-11">
-                {columns.map((column) => (
+                {columns.map((column, index) => (
                   <TableCell
                     key={column.key}
                     className={cn(
                       "type-body",
                       column.key === "title" ? "whitespace-normal" : "overflow-hidden",
-                      column.key === "origin" && "px-1.5",
+                      column.key === "origin" && "pr-1.5 pl-1.5",
                       column.numeric && "text-right tabular-nums",
                       column.className,
+                      edgeClass(compact, index, columns.length),
                     )}
                   >
-                    <Cell column={column} item={item} now={rowNow} compact={compact} />
+                    <Cell
+                      column={column}
+                      item={item}
+                      now={now}
+                      compact={compact}
+                      listQuery={listQuery}
+                    />
                   </TableCell>
                 ))}
               </TableRow>

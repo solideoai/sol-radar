@@ -10,6 +10,8 @@ import type { BidListItem } from "@/server/bids";
 // 목록 표와 필터 막대를 진짜 브라우저에 그린다. 화면 이동은 가짜로 바꾸고 주소(쿼리)만 잰다.
 const nav = vi.hoisted(() => ({
   search: "",
+  // true 면 push 를 기록만 하고 주소는 그대로 둔다(서버가 아직 답하지 않은 이동).
+  hold: false,
   listeners: new Set<() => void>(),
   push: vi.fn(),
 }));
@@ -24,6 +26,7 @@ vi.mock("next/navigation", async () => {
     useRouter: () => ({
       push: (href: string, options?: { scroll: boolean }) => {
         nav.push(href, options);
+        if (nav.hold) return;
         nav.search = href.includes("?") ? href.slice(href.indexOf("?") + 1) : "";
         nav.listeners.forEach((fn) => fn());
       },
@@ -51,6 +54,7 @@ vi.mock("next/link", () => ({
 const mounted: Root[] = [];
 beforeEach(() => {
   nav.search = "";
+  nav.hold = false;
   nav.push.mockClear();
 });
 afterEach(() => {
@@ -185,6 +189,59 @@ describe("BidTable", () => {
     expect(host.querySelectorAll("tbody td")[1].textContent).toContain("취소됨");
   });
 
+  // P3: 아이콘이 2줄 말줄임 상자 안에 있으면 긴 제목에서 잘려 보이지 않는다.
+  it.each([false, true])(
+    "첨부 경고 아이콘은 말줄임 상자 밖에 있고 긴 제목에서도 보인다 (compact %s)",
+    (compact) => {
+      const longWarned: BidListItem = {
+        ...byId("bid-long"),
+        documentsStatus: { ...byId("bid-long").documentsStatus, downloadFailed: 1 },
+      };
+      const host = render(
+        <BidTable items={[longWarned]} caption="공고 목록" now={NOW} compact={compact} />,
+      );
+      const cell = host.querySelector("tbody td:nth-child(" + (compact ? 2 : 3) + ")");
+      const clamp = cell?.querySelector('[class*="line-clamp"]') as HTMLElement;
+      const icon = cell?.querySelector("svg.lucide-file-warning") as SVGElement;
+      expect(clamp).not.toBeNull();
+      expect(icon).not.toBeNull();
+      expect(clamp.contains(icon)).toBe(false);
+      const box = icon.getBoundingClientRect();
+      const cellBox = (cell as HTMLElement).getBoundingClientRect();
+      expect(box.width).toBeGreaterThan(0);
+      expect(box.right).toBeLessThanOrEqual(cellBox.right);
+      expect(box.top).toBeGreaterThanOrEqual(cellBox.top);
+      expect(box.bottom).toBeLessThanOrEqual(cellBox.bottom);
+      expect(cell?.querySelector(".sr-only")?.textContent).toBe("첨부 원문 확인 필요");
+    },
+  );
+
+  it("listQuery 가 있으면 제목 링크에 목록 조건을 list 로 붙이고, 없으면 붙이지 않는다", () => {
+    const withList = render(
+      <BidTable
+        items={[byId("bid-fx-01")]}
+        caption="공고 목록"
+        now={NOW}
+        listQuery="sort=score%3Adesc"
+      />,
+    );
+    const href = withList.querySelector("tbody a")?.getAttribute("href") ?? "";
+    expect(href.startsWith("/bids/bid-fx-01?")).toBe(true);
+    expect(href.endsWith("?list=sort%3Dscore%253Adesc")).toBe(true);
+    const plain = render(<BidTable items={[byId("bid-fx-01")]} caption="공고 목록" now={NOW} />);
+    expect(plain.querySelector("tbody a")?.getAttribute("href")).toBe("/bids/bid-fx-01");
+  });
+
+  it.each([960, 1120])("%ipx 에서 표 머리 글자가 칸을 넘지 않는다", (width) => {
+    const host = render(<BidTable items={BID_LIST} caption="공고 목록" now={NOW} />, width);
+    const spilled = [...host.querySelectorAll("thead th")].filter(
+      (th) => th.scrollWidth > th.clientWidth,
+    );
+    expect(spilled.map((th) => `${th.textContent}:${th.scrollWidth}>${th.clientWidth}`)).toEqual(
+      [],
+    );
+  });
+
   it("표 이름과 DEMO 설명이 연결되고, 흐린 상태에서는 aria-busy 가 켜진다", () => {
     const host = render(<BidTable items={BID_LIST} caption="공고 목록" now={NOW} busy />);
     const table = host.querySelector("table") as HTMLElement;
@@ -247,12 +304,21 @@ const WIDEST: BidListItem = {
 
 // 제목 열은 line-clamp 로 줄이는 것이 의도라 뺀다. 나머지 셀은 overflow-hidden 이라 넘침이 가려지므로
 // scrollWidth 가 clientWidth 를 넘는지로 잘림을 잡는다. 기관은 truncate(말줄임)가 의도라 함께 뺀다.
-const clippedCells = (host: HTMLElement) =>
-  [...host.querySelectorAll("tbody td")].filter((td, i, all) => {
+// 표 머리 칸은 overflow 가 보이는 채라 넘친 글자가 옆 칸을 덮는다. 같은 방법으로 함께 잡는다.
+const clippedCells = (host: HTMLElement) => [
+  ...[...host.querySelectorAll("tbody td")].filter((td, i, all) => {
     const col = i % (all.length / host.querySelectorAll("tbody tr").length);
     const head = host.querySelectorAll("thead th")[col]?.textContent;
     return head !== "제목" && head !== "발주기관" && td.scrollWidth > td.clientWidth;
-  });
+  }),
+  ...[...host.querySelectorAll("thead th")].filter((th) => th.scrollWidth > th.clientWidth),
+];
+
+// 대시보드는 본문 글자를 +3px 키운다(ADR-030 B25). 대시보드 표는 그 범위 안에서 잰다.
+const renderDashboard = (node: React.ReactNode, width: number) => {
+  const host = render(<div data-type-scale="dashboard">{node}</div>, width);
+  return host;
+};
 
 describe("셀 잘림", () => {
   it.each([960, 1120])("10열 표는 %ipx 에서 가장 긴 값도 잘리지 않는다", (width) => {
@@ -265,18 +331,18 @@ describe("셀 잘림", () => {
     ).toEqual([]);
   });
 
-  // 대시보드 표 폭: 본문 960(1280, 사이드바 펼침)·1120(1440) 에서 간격 24 를 빼고 3fr:2fr.
-  // 960 -> (960-24)*3/5=561.6, *2/5=374.4 / 1120 -> (1120-24)*3/5=657.6, *2/5=438.4. 내림해 잡는다.
+  // 대시보드 표 폭(카드 테두리 2px 를 뺀 표 폭). 글자가 +3px 라 두 표를 늘 위아래로 쌓으므로 표 폭 = 본문 폭 - 2.
+  // 본문 960(1280·펼침)·1120(1440·펼침)·1216(1280·접힘)·1376(1440·접힘) -> 958·1118·1214·1374.
   it.each([
-    ["recommended", 561, true],
-    ["recommended", 374, false],
-    ["recommended", 657, true],
-    ["deadline", 374, null],
-    ["deadline", 438, null],
+    ["recommended", 958, true],
+    ["recommended", 1118, true],
+    ["recommended", 1374, true],
+    ["deadline", 958, null],
+    ["deadline", 1214, null],
   ] as const)(
-    "compact %s 표는 %ipx 에서 잘리지 않고 발주기관 열이 맞게 보인다",
+    "대시보드 compact %s 표는 %ipx(+3px 글자)에서 잘리지 않고 발주기관 열이 맞게 보인다",
     (kind, width, agencyShown) => {
-      const host = render(
+      const host = renderDashboard(
         <BidTable
           items={[WIDEST, ...BID_LIST]}
           caption="표"
@@ -286,6 +352,7 @@ describe("셀 잘림", () => {
         />,
         width,
       );
+      expect(getComputedStyle(host.querySelector("tbody td") as Element).fontSize).toBe("17px");
       expect(
         clippedCells(host).map((td) => `${td.textContent}:${td.scrollWidth}>${td.clientWidth}`),
       ).toEqual([]);
@@ -297,13 +364,30 @@ describe("셀 잘림", () => {
         );
         expect(agency && getComputedStyle(agency).display !== "none").toBe(agencyShown);
       }
+      // 가장 좁은 폭에서도 제목 칸이 공고 이름을 읽을 만큼 남는다.
+      const title = [...host.querySelectorAll("thead th")].find((th) => th.textContent === "제목");
+      expect(title?.getBoundingClientRect().width).toBeGreaterThanOrEqual(480);
     },
   );
 
+  it("대시보드 compact 표의 첫·끝 칸 글자는 카드 여백(24px)에 맞춘다", () => {
+    const host = renderDashboard(
+      <BidTable items={BID_LIST} caption="표" now={NOW} compact compactKind="deadline" />,
+      958,
+    );
+    const first = host.querySelector("thead th") as HTMLElement;
+    const last = host.querySelector("thead th:last-child") as HTMLElement;
+    expect(getComputedStyle(first).paddingLeft).toBe("24px");
+    expect(getComputedStyle(last).paddingRight).toBe("24px");
+    const firstCell = host.querySelector("tbody td") as HTMLElement;
+    expect(getComputedStyle(firstCell).paddingLeft).toBe("24px");
+  });
+
   it("compact 표의 제목은 1줄이라 모든 행의 높이가 같다", () => {
-    const host = render(<BidTable items={BID_LIST} caption="표" now={NOW} compact />, 561);
-    const heights = [...host.querySelectorAll("tbody tr")].map(
-      (tr) => tr.getBoundingClientRect().height,
+    const host = renderDashboard(<BidTable items={BID_LIST} caption="표" now={NOW} compact />, 958);
+    // +3px 글자에서는 칸마다 줄 상자가 0.5px 씩 어긋난다. 한 줄(25px) 차이를 잡는 시험이라 정수로 반올림해 비교한다.
+    const heights = [...host.querySelectorAll("tbody tr")].map((tr) =>
+      Math.round(tr.getBoundingClientRect().height),
     );
     expect(new Set(heights).size).toBe(1);
     const long = rowOf(host, "bid-long").querySelector("a") as HTMLElement;
@@ -365,12 +449,64 @@ describe("BidFilters", () => {
     expect(nav.push).toHaveBeenLastCalledWith("/bids", { scroll: false });
   });
 
-  it("필터 초기화는 여섯 키와 cursor 를 지운다", async () => {
+  it("필터 초기화는 일곱 키와 cursor 를 지운다", async () => {
     nav.search =
-      "q=a&stage=PLAN&recommendation=BID&decision=NONE&origin=all&sort=score%3Adesc&cursor=z";
+      "q=a&stage=PLAN&status=OPEN&status=AMENDED&status=CANCELLED&recommendation=BID&decision=NONE&origin=all&sort=score%3Adesc&cursor=z";
     render(<BidFilters defaultOrigin="demo" />);
     await page.getByRole("button", { name: "필터 초기화" }).click();
     expect(nav.push).toHaveBeenLastCalledWith("/bids", { scroll: false });
+  });
+
+  // ADR-029 A7: 기본은 진행 중(OPEN·AMENDED)이고 "취소 포함"은 CANCELLED 를 더한다.
+  it("상태를 취소 포함으로 고르면 status 세 값이 주소에 적히고, 기본으로 돌리면 status 키가 없다", async () => {
+    nav.search = "sort=score%3Adesc&cursor=c";
+    render(<BidFilters defaultOrigin="demo" />);
+    await expect
+      .element(page.getByRole("combobox", { name: "상태" }))
+      .toHaveTextContent("진행 중 (기본)");
+    await page.getByRole("combobox", { name: "상태" }).click();
+    await page.getByRole("option", { name: "취소 포함" }).click();
+    const params = new URL(nav.push.mock.lastCall?.[0] as string, "http://x").searchParams;
+    expect(params.getAll("status")).toEqual(["OPEN", "AMENDED", "CANCELLED"]);
+    expect(params.get("sort")).toBe("score:desc");
+    expect(params.has("cursor")).toBe(false);
+    await expect
+      .element(page.getByRole("combobox", { name: "상태" }))
+      .toHaveTextContent("취소 포함");
+    await expect.element(page.getByRole("button", { name: "필터 초기화" })).toBeVisible();
+    await page.getByRole("combobox", { name: "상태" }).click();
+    await page.getByRole("option", { name: "진행 중 (기본)" }).click();
+    const back = new URL(nav.push.mock.lastCall?.[0] as string, "http://x").searchParams;
+    expect(back.has("status")).toBe(false);
+    expect(back.get("sort")).toBe("score:desc");
+  });
+
+  it("주소에 취소 공고가 들어 있으면 상태 칸이 취소 포함을 보인다", async () => {
+    nav.search = "status=OPEN&status=AMENDED&status=CANCELLED";
+    render(<BidFilters defaultOrigin="demo" />);
+    await expect
+      .element(page.getByRole("combobox", { name: "상태" }))
+      .toHaveTextContent("취소 포함");
+  });
+
+  it("startTransition 을 받으면 주소 이동을 그 안에서 하고, 이동이 끝나기 전에도 고른 값을 보인다", async () => {
+    const React = await import("react");
+    nav.hold = true;
+    const gate = Promise.withResolvers<void>();
+    const wrapped = vi.fn((callback: () => void) =>
+      React.startTransition(async () => {
+        callback();
+        await gate.promise;
+      }),
+    );
+    render(<BidFilters defaultOrigin="demo" startTransition={wrapped} />);
+    await page.getByRole("combobox", { name: "권고" }).click();
+    await page.getByRole("option", { name: "WATCH" }).click();
+    expect(wrapped).toHaveBeenCalledTimes(1);
+    expect(nav.push).toHaveBeenLastCalledWith("/bids?recommendation=WATCH", { scroll: false });
+    expect(nav.search).toBe("");
+    await expect.element(page.getByRole("combobox", { name: "권고" })).toHaveTextContent("WATCH");
+    gate.resolve();
   });
 
   it("알 수 없는 쿼리 값은 기본으로 보고 초기화 단추를 띄우지 않는다", () => {
