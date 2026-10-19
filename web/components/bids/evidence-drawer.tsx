@@ -2,7 +2,7 @@
 
 import { FileWarningIcon, FileXIcon, TriangleAlertIcon } from "lucide-react";
 import { cn } from "cn";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -31,17 +31,31 @@ const rangeText = (ref: EvidenceRef): string | null =>
     ? `문자 ${ref.charStart}–${ref.charEnd}`
     : null;
 
-// 위치 글자. 문서 근거는 문서 이름·쪽·문자 범위, API 근거는 필드와 출처다.
-function locationOf(ref: EvidenceRef, documents: BidDocument[]): string {
-  if (ref.kind === "API_FIELD" || ref.apiField !== undefined) {
+const isApiRef = (ref: EvidenceRef) => ref.kind === "API_FIELD" || ref.apiField !== undefined;
+
+const documentNameOf = (ref: EvidenceRef, documents: BidDocument[]): string =>
+  ref.documentId === null
+    ? "공고 본문"
+    : (documents.find((doc) => doc.id === ref.documentId)?.name ?? "첨부");
+
+// 목록 행의 짧은 위치 라벨(Ruling 9). API 근거 → API {필드}, 쪽이 있으면 p.N, 없으면 본문 또는 문서 이름.
+function evidenceLabel(ref: EvidenceRef, documents: BidDocument[]): string {
+  if (isApiRef(ref)) return `API ${ref.apiField ?? ""}`.trim();
+  if (typeof ref.page === "number") return `p.${ref.page}`;
+  return documentNameOf(ref, documents);
+}
+
+// 서랍의 자세한 위치. 같은 분기를 쓰되 문서 이름·쪽·문자 범위, API 출처를 모두 보인다.
+function evidenceDetail(ref: EvidenceRef, documents: BidDocument[]): string {
+  if (isApiRef(ref)) {
     const source = ref.apiSource === undefined ? "" : ` (${ref.apiSource})`;
     return `공고 API 필드 ${ref.apiField ?? ""}${source}`;
   }
-  const name =
-    ref.documentId === null
-      ? "공고 본문"
-      : (documents.find((doc) => doc.id === ref.documentId)?.name ?? "첨부 문서");
-  return [name, typeof ref.page === "number" ? `p.${ref.page}` : null, rangeText(ref)]
+  return [
+    documentNameOf(ref, documents),
+    typeof ref.page === "number" ? `p.${ref.page}` : null,
+    rangeText(ref),
+  ]
     .filter((part) => part !== null)
     .join(" · ");
 }
@@ -87,7 +101,7 @@ function EvidenceItem({
         {evidenceRef.quotedText}
       </blockquote>
       <p className="type-caption text-muted-foreground [overflow-wrap:anywhere]">
-        {locationOf(evidenceRef, documents)}
+        {evidenceDetail(evidenceRef, documents)}
       </p>
       {evidenceRef.match !== undefined && (
         <p className="type-caption text-muted-foreground">{MATCH_LABEL[evidenceRef.match]}</p>
@@ -133,15 +147,14 @@ function EvidenceDrawer({ content, sourceUrl, documents }: DrawerProps) {
               />
             ))}
           </ul>
-          <Button
-            variant="link"
-            size="sm"
-            className="self-start"
-            nativeButton={false}
-            render={<a href={sourceUrl} target="_blank" rel="noopener noreferrer" />}
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(buttonVariants({ variant: "link", size: "sm" }), "self-start")}
           >
             원문 보기
-          </Button>
+          </a>
         </div>
       </SheetContent>
     </Sheet>
@@ -151,7 +164,15 @@ function EvidenceDrawer({ content, sourceUrl, documents }: DrawerProps) {
 const quoteHead = (text: string) => `"${text}"`;
 
 // 근거 인용 구역. 행마다 [열기]가 서랍을 연다(스펙 §5.4.8).
-function EvidenceList({ title, evidence }: { title: string; evidence: EvidenceRef[] }) {
+function EvidenceList({
+  title,
+  evidence,
+  documents = [],
+}: {
+  title: string;
+  evidence: EvidenceRef[];
+  documents?: BidDocument[];
+}) {
   const openWith = useEvidenceStore((state) => state.openWith);
   return (
     <section aria-labelledby="evidence-list-title" className="flex flex-col gap-2">
@@ -168,7 +189,7 @@ function EvidenceList({ title, evidence }: { title: string; evidence: EvidenceRe
               {quoteHead(ref.quotedText)}
             </span>
             <span className="shrink-0 type-caption text-muted-foreground">
-              {typeof ref.page === "number" ? `p.${ref.page}` : `API ${ref.apiField ?? ""}`}
+              {evidenceLabel(ref, documents)}
             </span>
             <Button
               variant="link"
@@ -242,15 +263,14 @@ function AttachmentRow({ doc, sourceUrl }: { doc: BidDocument; sourceUrl: string
           {doc.parseErrorCode !== null && (
             <p className="font-mono type-caption text-muted-foreground">{doc.parseErrorCode}</p>
           )}
-          <Button
-            variant="link"
-            size="sm"
-            className="self-start"
-            nativeButton={false}
-            render={<a href={sourceUrl} target="_blank" rel="noopener noreferrer" />}
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(buttonVariants({ variant: "link", size: "sm" }), "self-start")}
           >
             원문 보기
-          </Button>
+          </a>
         </div>
       )}
       {!failedDownload && doc.parseStatus === "PARTIAL" && (
@@ -286,4 +306,4 @@ function AttachmentStatus({
   );
 }
 
-export { AttachmentStatus, EvidenceDrawer, EvidenceList };
+export { AttachmentStatus, EvidenceDrawer, EvidenceList, evidenceDetail, evidenceLabel };

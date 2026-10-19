@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleAlertIcon } from "lucide-react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -225,6 +225,8 @@ function DecisionPanel({
     formState: { errors, isSubmitting },
   } = useForm<ReviewInputValues>({
     resolver: zodResolver(reviewInputSchema),
+    // 초점은 아래 onInvalid 가 옮긴다. 라디오는 RHF 가 초점을 줄 수 없어 직접 처리한다.
+    shouldFocusError: false,
     defaultValues: {
       decision: analysis?.recommendation ?? undefined,
       reason: "",
@@ -239,6 +241,15 @@ function DecisionPanel({
       : reasonError.type === "too_small" || reasonError.type === "invalid_type"
         ? REASON_TOO_SHORT
         : (reasonError.message ?? REASON_TOO_SHORT);
+
+  // 검증 실패 때 첫 오류 칸으로 초점을 옮긴다. 결정이 사유보다 앞이다.
+  const onInvalid = (invalid: FieldErrors<ReviewInputValues>) => {
+    if (invalid.decision !== undefined) {
+      document.querySelector<HTMLElement>('[data-slot="radio-group"] [role="radio"]')?.focus();
+    } else if (invalid.reason !== undefined) {
+      setFocus("reason");
+    }
+  };
 
   const submit = handleSubmit(async (values) => {
     setFormError(null);
@@ -273,7 +284,7 @@ function DecisionPanel({
         requestId: result.requestId,
       });
     }
-  });
+  }, onInvalid);
 
   const lockedReason = !canRecordReview
     ? "결정은 ADMIN·SALES 역할만 기록할 수 있습니다"

@@ -51,6 +51,7 @@ const panel = (props: PanelProps = {}) => (
 type Submit = React.ComponentProps<typeof DecisionPanel>["onSubmit"];
 const spy = () => vi.fn<Submit>(ok);
 
+const firstRadio = () => document.querySelector('[data-slot="radio-group"] [role="radio"]');
 const reasonBox = () => page.getByRole("textbox", { name: "사유" });
 
 describe("DecisionPanel 폼", () => {
@@ -162,6 +163,25 @@ describe("DecisionPanel 폼", () => {
     await userEvent.fill(reasonBox(), "담당자가 조직 밖인 경우입니다.");
     await userEvent.click(page.getByRole("button", { name: "결정 기록" }));
     await expect.element(page.getByText("이 조직 구성원이 아닙니다")).toBeVisible();
+    await vi.waitFor(() => expect(document.activeElement?.id).toBe("review-assignee"));
+  });
+
+  it("결정을 고르지 않고 제출하면 결정 오류를 보이고 초점이 첫 라디오에 간다", async () => {
+    const onSubmit = spy();
+    render(panel({ analysis: null, onSubmit }));
+    await userEvent.fill(reasonBox(), "결정은 고르지 않았지만 사유는 적었습니다.");
+    await userEvent.click(page.getByRole("button", { name: "결정 기록" }));
+    await expect.element(page.getByText("결정을 선택하세요")).toBeVisible();
+    await vi.waitFor(() => expect(document.activeElement).toBe(firstRadio()));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("결정과 사유 오류가 함께면 초점은 결정 쪽이다", async () => {
+    render(panel({ analysis: null }));
+    await userEvent.click(page.getByRole("button", { name: "결정 기록" }));
+    await expect.element(page.getByText("결정을 선택하세요")).toBeVisible();
+    await expect.element(page.getByText("사유를 10자 이상 적어 주세요")).toBeVisible();
+    await vi.waitFor(() => expect(document.activeElement).toBe(firstRadio()));
   });
 });
 

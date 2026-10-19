@@ -1,5 +1,6 @@
 import type {
   AnalysisView,
+  BidDocument,
   BidListItem,
   FactorKey,
   KevView,
@@ -450,3 +451,40 @@ export const NOTIFICATIONS: Notification[] = (
   readAt,
   createdAt: `2026-10-16T0${i}:00:00Z`,
 }));
+
+const makeDocument = (
+  overrides: Partial<BidDocument> & Pick<BidDocument, "id" | "name">,
+): BidDocument => ({
+  mimeType: "application/pdf",
+  sizeBytes: 120_000,
+  format: "PDF",
+  downloadStatus: "OK",
+  parseStatus: "PARSED",
+  downloadErrorCode: null,
+  pageCount: 12,
+  parseErrorCode: null,
+  downloadPath: null,
+  ...overrides,
+});
+
+// 첨부 상태 네 갈래: 내려받기 실패, 읽기 불가, 일부만 읽음, 정상.
+export const BID_DOCUMENTS: BidDocument[] = [
+  makeDocument({
+    id: "doc-down",
+    name: "제안요청서.pdf",
+    downloadStatus: "FAILED",
+    parseStatus: null,
+    downloadErrorCode: "HTTP_5XX",
+    pageCount: null,
+  }),
+  makeDocument({
+    id: "doc-unsupported",
+    name: "과업지시서.hwp",
+    format: "HWP",
+    parseStatus: "UNSUPPORTED",
+    parseErrorCode: "UNSUPPORTED_FORMAT",
+    pageCount: null,
+  }),
+  makeDocument({ id: "doc-partial", name: "평가기준.pdf", parseStatus: "PARTIAL", pageCount: 8 }),
+  makeDocument({ id: "doc-parsed", name: "공고문.pdf", pageCount: 5 }),
+];
