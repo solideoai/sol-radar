@@ -1,0 +1,49 @@
+# 정리: kill -- -<web pid group> ; docker compose -p sol-radar-c0verify -f infra/compose.yaml --env-file <scratch>/.env down -v | commit cfc534d | 2026-10-19 09:27:22 KST
+## web 종료: pid=68735 (next start, 내가 띄운 프로세스 그룹만)
+68735 68735 next-server (v16.4.0) 
+SIGTERM 전송
+web 프로세스 종료 확인 (2s)
+13000 free
+## compose down -v
+ Container sol-radar-c0verify-worker-1  Stopping
+ Container sol-radar-c0verify-qdrant-1  Stopping
+ Container sol-radar-c0verify-ai-gateway-1  Stopping
+ Container sol-radar-c0verify-minio-1  Stopping
+ Container sol-radar-c0verify-minio-1  Stopped
+ Container sol-radar-c0verify-minio-1  Removing
+ Container sol-radar-c0verify-minio-1  Removed
+ Container sol-radar-c0verify-qdrant-1  Stopped
+ Container sol-radar-c0verify-qdrant-1  Removing
+ Container sol-radar-c0verify-qdrant-1  Removed
+ Container sol-radar-c0verify-worker-1  Stopped
+ Container sol-radar-c0verify-worker-1  Removing
+ Container sol-radar-c0verify-worker-1  Removed
+ Container sol-radar-c0verify-redis-1  Stopping
+ Container sol-radar-c0verify-ai-gateway-1  Stopped
+ Container sol-radar-c0verify-ai-gateway-1  Removing
+ Container sol-radar-c0verify-ai-gateway-1  Removed
+ Container sol-radar-c0verify-redis-1  Stopped
+ Container sol-radar-c0verify-redis-1  Removing
+ Container sol-radar-c0verify-redis-1  Removed
+ Volume sol-radar-c0verify_qdrantdata  Removing
+ Volume sol-radar-c0verify_redisdata  Removing
+ Volume sol-radar-c0verify_miniodata  Removing
+ Network sol-radar-c0verify_default  Removing
+ Volume sol-radar-c0verify_redisdata  Removed
+ Volume sol-radar-c0verify_miniodata  Removed
+ Volume sol-radar-c0verify_qdrantdata  Removed
+ Network sol-radar-c0verify_default  Removed
+exit=0
+## 뒤처리 확인
+c0verify 컨테이너: 0
+c0verify 볼륨: 0
+c0verify 네트워크: 0
+실행 중 컨테이너 수: 25 (시작 시 25)
+로컬 Supabase kong: supabase_kong_sol-radar-people-read-20261018-qa5b0c Up 12 hours (healthy);supabase_kong_sol-radar Up 2 days (healthy);
+16380 free
+19000 free
+16333 free
+18000 free
+13000 free
+남긴 이미지(지우지 않음): sol-radar-c0verify-worker:latest sol-radar-c0verify-ai-gateway:latest 
+elapsed_seconds=3

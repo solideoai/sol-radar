@@ -1,0 +1,12 @@
+# COMPOSE_PROJECT_NAME=sol-radar-c0verify COMPOSE_ENV_FILES=<scratch>/.env WEB_URL=http://127.0.0.1:13000 REDIS_HOST_PORT=16380 REDIS_URL=redis://:***@127.0.0.1:16380 bash infra/smoke.sh | commit cfc534d | 2026-10-19 09:26:25 KST
+# smoke.sh 는 -p 인자를 받지 않지만(COMPOSE=(docker compose -f ...)) Compose 가 환경변수 COMPOSE_PROJECT_NAME(파일의 name: 보다 우선)·COMPOSE_ENV_FILES 를 읽어 격리 프로젝트를 가리킨다. 스크립트는 고치지 않았다.
+ok 1 서비스 5개 healthy
+ok 2 web live
+ok 3 web ready (db·redis·storage)
+ok 4 worker ping
+ Container sol-radar-c0verify-redis-1  Restarting
+ Container sol-radar-c0verify-redis-1  Started
+ok 5 redis 재시작 뒤 값 유지 (호스트 포트 16380)
+smoke 통과
+exit=0
+elapsed_seconds=16
