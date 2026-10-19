@@ -29,7 +29,7 @@ updated: 2026-10-19
 
 | 주장 | 어디서 확인 | 증거 파일 (예정) |
 |---|---|---|
-| 실제 나라장터 응답·첨부 다운로드·회사 GPU 터널·파서 후보 점검 결과(막힌 항목은 막힘으로) | P0-0, [[11-TESTING\|11 테스트]] §3.3 | `phase-0/external-deps.md`, `phase-0/parser-benchmark.md` |
+| 실제 나라장터 응답·첨부 다운로드·회사 GPU 추론 엔드포인트(HTTPS `/v1/models` 레지스트리 대조·지연 실측, [[16-DECISIONS\|ADR-025]])·파서 후보 점검 결과(막힌 항목은 막힘으로) | P0-0, [[11-TESTING\|11 테스트]] §3.3 | `phase-0/external-deps.md`, `phase-0/endpoint-check.md`, `phase-0/endpoint-models.json`, `phase-0/parser-benchmark.md` |
 | 조직 간 데이터 격리(다른 조직 자원 404) | G5 | `phase-1/test-isolation.txt`, `demo-day/*/isolation-404.json` |
 | 같은 공고 2회 수집에 중복 없음, 알림 정확히 1건 | G1·G2 | `phase-2/test-ingestion.txt`, `phase-6/test-notifications.txt` |
 | 실제 공고를 `live`로 수집하고 형식별 파싱 성공률을 쟀다 | P0-2·P0-3 | `phase-2/ingest-run-live-<일시>.json`, `phase-2/parse-success-rate.md` |

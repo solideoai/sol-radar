@@ -1,0 +1,2618 @@
+{
+  "schemaVersion": "sol-recorded/v0.1",
+  "serviceId": "15129394",
+  "registryKey": "g2b-bid-notice",
+  "operation": "getBidPblancListInfoPrtcptPsblRgn",
+  "params": {
+    "type": "json",
+    "pageNo": "1",
+    "numOfRows": "999",
+    "inqryDiv": "1",
+    "inqryBgnDt": "202610120900",
+    "inqryEndDt": "202610121011"
+  },
+  "fetchedAt": "2026-10-19T01:05:16.073Z",
+  "httpStatus": 200,
+  "envelope": "response",
+  "resultCode": "00",
+  "resultMsg": "정상",
+  "totalCount": 323,
+  "items": [
+    {
+      "bidNtceNo": "R26BK01764196",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:01:06",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전남광주통합특별시 목포시",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "전남광주통합특별시 여수시",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "전남광주통합특별시 순천시",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "전남광주통합특별시 나주시",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "전남광주통합특별시 광양시",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "전남광주통합특별시 담양군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "전남광주통합특별시 곡성군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "전남광주통합특별시 구례군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "전남광주통합특별시 고흥군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "10",
+      "prtcptPsblRgnNm": "전남광주통합특별시 보성군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "11",
+      "prtcptPsblRgnNm": "전남광주통합특별시 화순군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "12",
+      "prtcptPsblRgnNm": "전남광주통합특별시 장흥군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "13",
+      "prtcptPsblRgnNm": "전남광주통합특별시 강진군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "14",
+      "prtcptPsblRgnNm": "전남광주통합특별시 해남군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "15",
+      "prtcptPsblRgnNm": "전남광주통합특별시 영암군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "16",
+      "prtcptPsblRgnNm": "전남광주통합특별시 무안군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "17",
+      "prtcptPsblRgnNm": "전남광주통합특별시 함평군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "18",
+      "prtcptPsblRgnNm": "전남광주통합특별시 영광군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "19",
+      "prtcptPsblRgnNm": "전남광주통합특별시 장성군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "20",
+      "prtcptPsblRgnNm": "전남광주통합특별시 완도군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "21",
+      "prtcptPsblRgnNm": "전남광주통합특별시 진도군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763882",
+      "bidNtceOrd": "000",
+      "lmtSno": "22",
+      "prtcptPsblRgnNm": "전남광주통합특별시 신안군",
+      "rgstDt": "2026-10-12 09:02:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01761497",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "부산광역시",
+      "rgstDt": "2026-10-12 09:03:28",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01762663",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상남도",
+      "rgstDt": "2026-10-12 09:03:48",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763531",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:04:14",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01762900",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "강원특별자치도 동해시",
+      "rgstDt": "2026-10-12 09:04:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763541",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "세종특별자치시",
+      "rgstDt": "2026-10-12 09:04:53",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764099",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상남도 창원시",
+      "rgstDt": "2026-10-12 09:05:00",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764212",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:06:05",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764212",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도",
+      "rgstDt": "2026-10-12 09:06:05",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764179",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:06:11",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01757615",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "제주특별자치도",
+      "rgstDt": "2026-10-12 09:06:39",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01758883",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:07:06",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01751119",
+      "bidNtceOrd": "002",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:07:20",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01751119",
+      "bidNtceOrd": "002",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "인천광역시",
+      "rgstDt": "2026-10-12 09:07:20",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01751119",
+      "bidNtceOrd": "002",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:07:20",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01761094",
+      "bidNtceOrd": "001",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "인천광역시",
+      "rgstDt": "2026-10-12 09:07:57",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764223",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:08:03",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01754432",
+      "bidNtceOrd": "001",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 포항시",
+      "rgstDt": "2026-10-12 09:09:10",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764237",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상남도 고성군",
+      "rgstDt": "2026-10-12 09:09:32",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764071",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:10:22",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763037",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:10:43",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764227",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 경주시",
+      "rgstDt": "2026-10-12 09:12:43",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764211",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "부산광역시",
+      "rgstDt": "2026-10-12 09:13:20",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도 수원시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "경기도 수원시 장안구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "경기도 수원시 권선구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "경기도 수원시 팔달구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "경기도 수원시 영통구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "경기도 성남시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "경기도 성남시 수정구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "경기도 성남시 중원구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "경기도 성남시 분당구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "10",
+      "prtcptPsblRgnNm": "경기도 의정부시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "11",
+      "prtcptPsblRgnNm": "경기도 안양시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "12",
+      "prtcptPsblRgnNm": "경기도 안양시 만안구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "13",
+      "prtcptPsblRgnNm": "경기도 안양시 동안구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "14",
+      "prtcptPsblRgnNm": "경기도 부천시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "15",
+      "prtcptPsblRgnNm": "경기도 부천시 원미구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "16",
+      "prtcptPsblRgnNm": "경기도 부천시 소사구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "17",
+      "prtcptPsblRgnNm": "경기도 부천시 오정구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "18",
+      "prtcptPsblRgnNm": "경기도 광명시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "19",
+      "prtcptPsblRgnNm": "경기도 평택시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "20",
+      "prtcptPsblRgnNm": "경기도 동두천시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "21",
+      "prtcptPsblRgnNm": "경기도 안산시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "22",
+      "prtcptPsblRgnNm": "경기도 안산시 상록구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "23",
+      "prtcptPsblRgnNm": "경기도 안산시 단원구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "24",
+      "prtcptPsblRgnNm": "경기도 고양시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "25",
+      "prtcptPsblRgnNm": "경기도 고양시 덕양구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "26",
+      "prtcptPsblRgnNm": "경기도 고양시 일산동구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "27",
+      "prtcptPsblRgnNm": "경기도 고양시 일산서구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "28",
+      "prtcptPsblRgnNm": "경기도 과천시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "29",
+      "prtcptPsblRgnNm": "경기도 구리시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "30",
+      "prtcptPsblRgnNm": "경기도 남양주시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "31",
+      "prtcptPsblRgnNm": "경기도 오산시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "32",
+      "prtcptPsblRgnNm": "경기도 시흥시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "33",
+      "prtcptPsblRgnNm": "경기도 군포시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "34",
+      "prtcptPsblRgnNm": "경기도 의왕시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "35",
+      "prtcptPsblRgnNm": "경기도 하남시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "36",
+      "prtcptPsblRgnNm": "경기도 용인시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "37",
+      "prtcptPsblRgnNm": "경기도 용인시 처인구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "38",
+      "prtcptPsblRgnNm": "경기도 용인시 기흥구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "39",
+      "prtcptPsblRgnNm": "경기도 용인시 수지구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "40",
+      "prtcptPsblRgnNm": "경기도 파주시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "41",
+      "prtcptPsblRgnNm": "경기도 이천시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "42",
+      "prtcptPsblRgnNm": "경기도 안성시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "43",
+      "prtcptPsblRgnNm": "경기도 김포시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "44",
+      "prtcptPsblRgnNm": "경기도 화성시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "45",
+      "prtcptPsblRgnNm": "경기도 화성시 만세구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "46",
+      "prtcptPsblRgnNm": "경기도 화성시 효행구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "47",
+      "prtcptPsblRgnNm": "경기도 화성시 병점구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "48",
+      "prtcptPsblRgnNm": "경기도 화성시 동탄구",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "49",
+      "prtcptPsblRgnNm": "경기도 광주시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "50",
+      "prtcptPsblRgnNm": "경기도 양주시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "51",
+      "prtcptPsblRgnNm": "경기도 포천시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "52",
+      "prtcptPsblRgnNm": "경기도 여주시",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "53",
+      "prtcptPsblRgnNm": "경기도 연천군",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "54",
+      "prtcptPsblRgnNm": "경기도 가평군",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764247",
+      "bidNtceOrd": "000",
+      "lmtSno": "55",
+      "prtcptPsblRgnNm": "경기도 양평군",
+      "rgstDt": "2026-10-12 09:13:27",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01761909",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:15:12",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764257",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:15:38",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01762903",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "부산광역시",
+      "rgstDt": "2026-10-12 09:16:11",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01762049",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전남광주통합특별시 영암군",
+      "rgstDt": "2026-10-12 09:17:11",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764217",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청북도 청주시",
+      "rgstDt": "2026-10-12 09:19:18",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01760782",
+      "bidNtceOrd": "001",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:19:42",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01761303",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "울산광역시",
+      "rgstDt": "2026-10-12 09:20:08",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764248",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:21:08",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01762976",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "부산광역시",
+      "rgstDt": "2026-10-12 09:21:52",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763905",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:22:30",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01761140",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상남도 창원시",
+      "rgstDt": "2026-10-12 09:23:14",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764266",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "울산광역시",
+      "rgstDt": "2026-10-12 09:24:48",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764234",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청북도",
+      "rgstDt": "2026-10-12 09:25:17",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 포항시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "경상북도 포항시 남구",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "경상북도 포항시 북구",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "경상북도 경주시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "경상북도 김천시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "경상북도 안동시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "경상북도 구미시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "경상북도 영주시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "경상북도 영천시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "10",
+      "prtcptPsblRgnNm": "경상북도 상주시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "11",
+      "prtcptPsblRgnNm": "경상북도 문경시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "12",
+      "prtcptPsblRgnNm": "경상북도 경산시",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "13",
+      "prtcptPsblRgnNm": "경상북도 의성군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "14",
+      "prtcptPsblRgnNm": "경상북도 청송군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "15",
+      "prtcptPsblRgnNm": "경상북도 영양군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "16",
+      "prtcptPsblRgnNm": "경상북도 영덕군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "17",
+      "prtcptPsblRgnNm": "경상북도 청도군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "18",
+      "prtcptPsblRgnNm": "경상북도 고령군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "19",
+      "prtcptPsblRgnNm": "경상북도 성주군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "20",
+      "prtcptPsblRgnNm": "경상북도 칠곡군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "21",
+      "prtcptPsblRgnNm": "경상북도 예천군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "22",
+      "prtcptPsblRgnNm": "경상북도 봉화군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "23",
+      "prtcptPsblRgnNm": "경상북도 울진군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "000",
+      "lmtSno": "24",
+      "prtcptPsblRgnNm": "경상북도 울릉군",
+      "rgstDt": "2026-10-12 09:26:12",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01760094",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:27:22",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764255",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대전광역시",
+      "rgstDt": "2026-10-12 09:28:49",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764235",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전북특별자치도",
+      "rgstDt": "2026-10-12 09:28:57",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청남도 천안시",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "충청남도 천안시 동남구",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "충청남도 천안시 서북구",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "충청남도 공주시",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "충청남도 보령시",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "충청남도 아산시",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "충청남도 서산시",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "충청남도 논산시",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "충청남도 계룡시",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "10",
+      "prtcptPsblRgnNm": "충청남도 당진시",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "11",
+      "prtcptPsblRgnNm": "충청남도 금산군",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "12",
+      "prtcptPsblRgnNm": "충청남도 부여군",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "13",
+      "prtcptPsblRgnNm": "충청남도 서천군",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "14",
+      "prtcptPsblRgnNm": "충청남도 청양군",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "15",
+      "prtcptPsblRgnNm": "충청남도 홍성군",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "16",
+      "prtcptPsblRgnNm": "충청남도 예산군",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763930",
+      "bidNtceOrd": "000",
+      "lmtSno": "17",
+      "prtcptPsblRgnNm": "충청남도 태안군",
+      "rgstDt": "2026-10-12 09:30:14",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청남도 천안시",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "충청남도 천안시 동남구",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "충청남도 천안시 서북구",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "충청남도 공주시",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "충청남도 보령시",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "충청남도 아산시",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "충청남도 서산시",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "충청남도 논산시",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "충청남도 계룡시",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "10",
+      "prtcptPsblRgnNm": "충청남도 당진시",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "11",
+      "prtcptPsblRgnNm": "충청남도 금산군",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "12",
+      "prtcptPsblRgnNm": "충청남도 부여군",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "13",
+      "prtcptPsblRgnNm": "충청남도 서천군",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "14",
+      "prtcptPsblRgnNm": "충청남도 청양군",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "15",
+      "prtcptPsblRgnNm": "충청남도 홍성군",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "16",
+      "prtcptPsblRgnNm": "충청남도 예산군",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763934",
+      "bidNtceOrd": "000",
+      "lmtSno": "17",
+      "prtcptPsblRgnNm": "충청남도 태안군",
+      "rgstDt": "2026-10-12 09:30:40",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01762156",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:30:59",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763935",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청남도 서천군",
+      "rgstDt": "2026-10-12 09:31:20",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763937",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청남도 서천군",
+      "rgstDt": "2026-10-12 09:31:46",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763939",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청남도 서천군",
+      "rgstDt": "2026-10-12 09:32:11",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763940",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청남도 서천군",
+      "rgstDt": "2026-10-12 09:32:35",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전남광주통합특별시 목포시",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "전남광주통합특별시 여수시",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "전남광주통합특별시 순천시",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "전남광주통합특별시 나주시",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "전남광주통합특별시 광양시",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "전남광주통합특별시 담양군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "전남광주통합특별시 곡성군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "전남광주통합특별시 구례군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "전남광주통합특별시 고흥군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "10",
+      "prtcptPsblRgnNm": "전남광주통합특별시 보성군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "11",
+      "prtcptPsblRgnNm": "전남광주통합특별시 화순군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "12",
+      "prtcptPsblRgnNm": "전남광주통합특별시 장흥군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "13",
+      "prtcptPsblRgnNm": "전남광주통합특별시 강진군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "14",
+      "prtcptPsblRgnNm": "전남광주통합특별시 해남군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "15",
+      "prtcptPsblRgnNm": "전남광주통합특별시 영암군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "16",
+      "prtcptPsblRgnNm": "전남광주통합특별시 무안군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "17",
+      "prtcptPsblRgnNm": "전남광주통합특별시 함평군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "18",
+      "prtcptPsblRgnNm": "전남광주통합특별시 영광군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "19",
+      "prtcptPsblRgnNm": "전남광주통합특별시 장성군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "20",
+      "prtcptPsblRgnNm": "전남광주통합특별시 완도군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "21",
+      "prtcptPsblRgnNm": "전남광주통합특별시 진도군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763190",
+      "bidNtceOrd": "001",
+      "lmtSno": "22",
+      "prtcptPsblRgnNm": "전남광주통합특별시 신안군",
+      "rgstDt": "2026-10-12 09:32:54",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764214",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청남도",
+      "rgstDt": "2026-10-12 09:33:34",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "인천광역시 제물포구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "인천광역시 영종구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "인천광역시 미추홀구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "인천광역시 연수구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "인천광역시 남동구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "인천광역시 부평구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "인천광역시 계양구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "인천광역시 서해구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764273",
+      "bidNtceOrd": "000",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "인천광역시 검단구",
+      "rgstDt": "2026-10-12 09:33:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763767",
+      "bidNtceOrd": "001",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:34:16",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763767",
+      "bidNtceOrd": "001",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "경상북도",
+      "rgstDt": "2026-10-12 09:34:16",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01761205",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "부산광역시",
+      "rgstDt": "2026-10-12 09:34:19",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01762154",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "부산광역시",
+      "rgstDt": "2026-10-12 09:34:50",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01762154",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "울산광역시",
+      "rgstDt": "2026-10-12 09:34:50",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01762154",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "경상남도",
+      "rgstDt": "2026-10-12 09:34:50",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764261",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대전광역시",
+      "rgstDt": "2026-10-12 09:36:52",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01733094",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도",
+      "rgstDt": "2026-10-12 09:37:05",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764343",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전북특별자치도",
+      "rgstDt": "2026-10-12 09:38:28",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764309",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청북도",
+      "rgstDt": "2026-10-12 09:39:00",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01747675",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:39:36",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 포항시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "경상북도 포항시 남구",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "경상북도 포항시 북구",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "경상북도 경주시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "경상북도 김천시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "경상북도 안동시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "경상북도 구미시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "경상북도 영주시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "경상북도 영천시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "10",
+      "prtcptPsblRgnNm": "경상북도 상주시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "11",
+      "prtcptPsblRgnNm": "경상북도 문경시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "12",
+      "prtcptPsblRgnNm": "경상북도 경산시",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "13",
+      "prtcptPsblRgnNm": "경상북도 의성군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "14",
+      "prtcptPsblRgnNm": "경상북도 청송군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "15",
+      "prtcptPsblRgnNm": "경상북도 영양군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "16",
+      "prtcptPsblRgnNm": "경상북도 영덕군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "17",
+      "prtcptPsblRgnNm": "경상북도 청도군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "18",
+      "prtcptPsblRgnNm": "경상북도 고령군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "19",
+      "prtcptPsblRgnNm": "경상북도 성주군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "20",
+      "prtcptPsblRgnNm": "경상북도 칠곡군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "21",
+      "prtcptPsblRgnNm": "경상북도 예천군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "22",
+      "prtcptPsblRgnNm": "경상북도 봉화군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "23",
+      "prtcptPsblRgnNm": "경상북도 울진군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764224",
+      "bidNtceOrd": "001",
+      "lmtSno": "24",
+      "prtcptPsblRgnNm": "경상북도 울릉군",
+      "rgstDt": "2026-10-12 09:40:27",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764021",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청북도 제천시",
+      "rgstDt": "2026-10-12 09:41:15",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764329",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전북특별자치도 전주시",
+      "rgstDt": "2026-10-12 09:43:03",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01757657",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도 안산시",
+      "rgstDt": "2026-10-12 09:43:07",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764296",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:43:36",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764275",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:43:49",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764370",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:44:43",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764304",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상남도 양산시",
+      "rgstDt": "2026-10-12 09:45:43",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764206",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:45:49",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764206",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도",
+      "rgstDt": "2026-10-12 09:45:49",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764315",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청북도",
+      "rgstDt": "2026-10-12 09:46:09",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01755174",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 09:46:39",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01756744",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:46:51",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763987",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전북특별자치도 장수군",
+      "rgstDt": "2026-10-12 09:47:38",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764384",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "강원특별자치도",
+      "rgstDt": "2026-10-12 09:49:18",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01758116",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도 안산시",
+      "rgstDt": "2026-10-12 09:50:33",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01763988",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전북특별자치도 장수군",
+      "rgstDt": "2026-10-12 09:50:37",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01760281",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도 김포시",
+      "rgstDt": "2026-10-12 09:50:40",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764401",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대전광역시",
+      "rgstDt": "2026-10-12 09:50:57",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01760400",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도 김포시",
+      "rgstDt": "2026-10-12 09:51:09",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01760421",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도 김포시",
+      "rgstDt": "2026-10-12 09:51:37",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763417",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 문경시",
+      "rgstDt": "2026-10-12 09:52:28",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01760431",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도 김포시",
+      "rgstDt": "2026-10-12 09:52:44",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01763989",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전북특별자치도 장수군",
+      "rgstDt": "2026-10-12 09:52:45",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764203",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상남도",
+      "rgstDt": "2026-10-12 09:52:55",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763102",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상남도",
+      "rgstDt": "2026-10-12 09:54:07",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01757218",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:54:47",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01762877",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 경산시",
+      "rgstDt": "2026-10-12 09:55:00",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01762834",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:55:16",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764390",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 09:55:20",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764256",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도 남양주시",
+      "rgstDt": "2026-10-12 09:57:26",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764328",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 봉화군",
+      "rgstDt": "2026-10-12 09:59:10",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764086",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 포항시",
+      "rgstDt": "2026-10-12 09:59:19",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01758416",
+      "bidNtceOrd": "001",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 09:59:29",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01756613",
+      "bidNtceOrd": "001",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도",
+      "rgstDt": "2026-10-12 10:01:10",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01763466",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경상북도 문경시",
+      "rgstDt": "2026-10-12 10:01:20",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764436",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "서울특별시",
+      "rgstDt": "2026-10-12 10:01:21",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764436",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "인천광역시",
+      "rgstDt": "2026-10-12 10:01:21",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764436",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 10:01:21",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764313",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전남광주통합특별시",
+      "rgstDt": "2026-10-12 10:01:41",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764389",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전북특별자치도",
+      "rgstDt": "2026-10-12 10:02:48",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01760098",
+      "bidNtceOrd": "002",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "전남광주통합특별시 곡성군",
+      "rgstDt": "2026-10-12 10:03:03",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01760098",
+      "bidNtceOrd": "002",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전남광주통합특별시 구례군",
+      "rgstDt": "2026-10-12 10:03:03",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764421",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대구광역시",
+      "rgstDt": "2026-10-12 10:04:19",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01757286",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "경기도",
+      "rgstDt": "2026-10-12 10:04:59",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01764442",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전북특별자치도",
+      "rgstDt": "2026-10-12 10:05:10",
+      "bsnsDivNm": "공사"
+    },
+    {
+      "bidNtceNo": "R26BK01761015",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대전광역시",
+      "rgstDt": "2026-10-12 10:05:17",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "전남광주통합특별시 목포시",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "2",
+      "prtcptPsblRgnNm": "전남광주통합특별시 여수시",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "3",
+      "prtcptPsblRgnNm": "전남광주통합특별시 순천시",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "4",
+      "prtcptPsblRgnNm": "전남광주통합특별시 나주시",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "5",
+      "prtcptPsblRgnNm": "전남광주통합특별시 광양시",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "6",
+      "prtcptPsblRgnNm": "전남광주통합특별시 동구",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "7",
+      "prtcptPsblRgnNm": "전남광주통합특별시 서구",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "8",
+      "prtcptPsblRgnNm": "전남광주통합특별시 남구",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "9",
+      "prtcptPsblRgnNm": "전남광주통합특별시 북구",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "10",
+      "prtcptPsblRgnNm": "전남광주통합특별시 광산구",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "11",
+      "prtcptPsblRgnNm": "전남광주통합특별시 담양군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "12",
+      "prtcptPsblRgnNm": "전남광주통합특별시 곡성군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "13",
+      "prtcptPsblRgnNm": "전남광주통합특별시 구례군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "14",
+      "prtcptPsblRgnNm": "전남광주통합특별시 고흥군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "15",
+      "prtcptPsblRgnNm": "전남광주통합특별시 보성군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "16",
+      "prtcptPsblRgnNm": "전남광주통합특별시 화순군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "17",
+      "prtcptPsblRgnNm": "전남광주통합특별시 장흥군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "18",
+      "prtcptPsblRgnNm": "전남광주통합특별시 강진군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "19",
+      "prtcptPsblRgnNm": "전남광주통합특별시 해남군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "20",
+      "prtcptPsblRgnNm": "전남광주통합특별시 영암군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "21",
+      "prtcptPsblRgnNm": "전남광주통합특별시 무안군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "22",
+      "prtcptPsblRgnNm": "전남광주통합특별시 함평군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "23",
+      "prtcptPsblRgnNm": "전남광주통합특별시 영광군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "24",
+      "prtcptPsblRgnNm": "전남광주통합특별시 장성군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "25",
+      "prtcptPsblRgnNm": "전남광주통합특별시 완도군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "26",
+      "prtcptPsblRgnNm": "전남광주통합특별시 진도군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764399",
+      "bidNtceOrd": "000",
+      "lmtSno": "27",
+      "prtcptPsblRgnNm": "전남광주통합특별시 신안군",
+      "rgstDt": "2026-10-12 10:05:55",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01764425",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "울산광역시",
+      "rgstDt": "2026-10-12 10:07:54",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764463",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "강원특별자치도",
+      "rgstDt": "2026-10-12 10:08:03",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764478",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "충청남도 예산군",
+      "rgstDt": "2026-10-12 10:08:51",
+      "bsnsDivNm": "물품"
+    },
+    {
+      "bidNtceNo": "R26BK01764469",
+      "bidNtceOrd": "000",
+      "lmtSno": "1",
+      "prtcptPsblRgnNm": "대전광역시",
+      "rgstDt": "2026-10-12 10:11:42",
+      "bsnsDivNm": "용역"
+    }
+  ],
+  "masked": true,
+  "maskedFields": [
+    "ntceInsttOfclNm",
+    "exctvNm",
+    "crdtrNm",
+    "ntceInsttOfclTelNo",
+    "ntceInsttOfclEmailAdrs",
+    "dminsttOfclEmailAdrs"
+  ],
+  "maskedFieldsNote": "이 응답에는 담당자 필드가 없거나 비어 있음. 목록은 서비스 기준 마스킹 대상",
+  "rawSha256": "a6841a590157ae152be1714104b49114cab92b2aad9f3b568bef7321024078e0",
+  "note": "inqryDiv=1 2026-10-12 09:00~10:11 창"
+}

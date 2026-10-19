@@ -14,15 +14,15 @@ updated: 2026-10-19
 
 **2026-10-19 10:08 KST 기준 ① 공공 API(A1~A9)와 ② 첨부 다운로드(B1~B4)를 실행해 전부 통과했다. ③ GPU 서버·④ 첨부 파싱은 아직 실행하지 않았다(대기).** 호출 로그·마스킹 필드·첨부 표·설계 문서와 다른 점은 [[external-deps-api-20261019|API 호출 증거(2026-10-19)]]에 있다.
 
-보호 규칙: 서비스키 4개 값, GPU 서버 주소·계정, 터널 설정 값, vLLM·Kev API 키는 이 파일·로그·증거·요청 URL에 적지 않는다. 실제 응답을 저장할 때는 담당자 이름·전화·이메일을 마스킹하고 `serviceKey`가 든 URL은 남기지 않는다. 실제 RFP 원문은 저장소에 넣지 않는다.
+보호 규칙: 서비스키 4개 값, 모델 엔드포인트 인증 키(`QWEN_API_KEY`·`KEV_API_KEY`)와 `Authorization` 헤더 값은 이 파일·로그·증거·요청 URL에 적지 않는다. 실제 응답을 저장할 때는 담당자 이름·전화·이메일을 마스킹하고 `serviceKey`가 든 URL은 남기지 않는다. 실제 RFP 원문은 저장소에 넣지 않는다.
 
 ## 선행 조건 (사용자)
 
 | # | 조건 | 상태 |
 |---|---|---|
 | P1 | `infra/.env`에 `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`(포털 Encoding 키 그대로. worker 가 한 번 디코딩한다) 입력 | 통과 (2026-10-19. `infra/.env`에 네 이름 존재, 각 94자, 네 값 동일. `%XX`가 든 Encoding 키를 1회 디코드 뒤 1회 인코딩해 첫 호출부터 `resultCode "00"` — A1) |
-| P2 | 회사 GPU 서버 SSH 접속 정보, 허용된 자원 사용 범위(VRAM 한도·점유 가능 시간·기존 프로세스 보호 규칙) | 대기 |
-| P3 | 모델 기동(vLLM·`kev.serve`)·GPU 메모리 점유 명시 승인 | 대기 |
+| P2 | 회사가 엔드포인트 경로(라우터 기준 `/sol-radar/qwen`·`/sol-radar/kev`, `infra/gpu/README.md`)와 인증 방식(Bearer 키 외 회사 프록시 추가 인증 여부)을 알려 줌. 2026-10-19 기준 엔드포인트 제공 전([[16-DECISIONS\|ADR-025]]) | 대기 |
+| P3 | 회사 측 모델 기동(vLLM `Qwen/Qwen3.5-9B`·`kev.serve` Kev-9B@v1.0) 완료 통보. 우리 쪽 "모델 기동·GPU 점유 승인" 항목은 ADR-025로 폐기 | 대기 |
 
 ## ① data.go.kr 공식 API (읽기 전용 GET, 키만 있으면 안전)
 
@@ -69,18 +69,20 @@ updated: 2026-10-19
 | B3 | 받은 파일의 실제 형식(매직 바이트: PDF·HWP 5.0·HWPX·zip·기타) | 파일 서명 검사 | 통과 | 1건 `504B0304` + `mimetype`=`application/hwp+zip` + `Contents/content.hpf` → HWPX · 1건 `%PDF-1.6` → PDF · 1건 HWPX(같은 표식). 확장자와 내용 일치. hwpx의 `Content-Type`이 `octet-stream`이라 내용 판정 필수. HWP 5.0(OLE) 표본은 이번 3건에 없음 | 2026-10-19 |
 | B4 | 막혔을 때: 사유 코드(`AUTH_REQUIRED`·`HTTP_4XX`·`REDIRECT_BLOCKED`·`TOO_LARGE`…)와 보고 시각 | — | 통과(막힌 건 없음) | 사유 코드 발생 0건. 파일은 스크래치에만 두고 저장소에 넣지 않음 | 2026-10-19 |
 
-## ③ 회사 GPU 서버 A40×2 (읽기 전용 확인 → 기동은 P3 승인 뒤)
+## ③ 회사 GPU 추론 엔드포인트 (ADR-025, HTTPS `https://acropolissg.com/sol-radar`)
+
+회사 GPU 서버는 외부 접근이 안 돼 SSH·터널 항목(옛 G1~G8)은 폐기했다([[16-DECISIONS|ADR-025]]). 모델 기동·GPU 메모리 배분·`nvidia-smi` 실측은 회사 측 운영이다. 절차는 [C1 절차](../../plans/2026-10-19-c1-external-deps-procedure.md) §7·§8, 라우터 구성과 회사 nginx 요청 사항은 `infra/gpu/README.md`.
 
 | # | 확인할 것 | 방법 | 상태 | 결과 | 날짜 |
 |---|---|---|---|---|---|
-| G1 | SSH 연결 가능, 터널(`ssh -N -L 8001:127.0.0.1:8001 -L 8009:127.0.0.1:8009`) 허용 여부 | 접속만 | 대기 | — | — |
-| G2 | GPU 상태·여유 VRAM·기존 프로세스 점유(`nvidia-smi`), 읽기만 | 출력 저장(프로세스 소유자 이름은 마스킹) | 대기 | — | — |
-| G3 | Python 3.12/3.13·uv·CUDA 드라이버·디스크 여유(가중치 Qwen3.5-9B + Kev-9B) | 버전 확인 | 대기 | — | — |
-| G4 | 기존 AI 서비스·gateway 유무와 포트 충돌(8001·8009) | 포트 확인 | 대기 | — | — |
-| G5 | (P3 승인 뒤) vLLM `Qwen/Qwen3.5-9B` 기동, `--api-key`, `127.0.0.1:8001`, guided JSON 동작, `/v1/models` | 기동 로그 | 대기 | — | — |
-| G6 | (P3 승인 뒤) `kev.serve --run jaredpalmer/kev-9b@v1.0` 기동, `KEV_API_KEY`, `127.0.0.1:8009`, `/v1/models`의 `run`·`base`·`lora`·`temperature`(레지스트리 대조 필드 확인, 미검증 가정) | 기동 로그 | 대기 | — | — |
-| G7 | 실측: 모델별 `nvidia-smi` 최대 점유(Kev-9B 21.9 GB vs 약 17 GB), 가중치 다운로드 시간, 터널 포함 요청당 지연(Kev state 500 토큰 10회 p50·p95, Qwen 추출 1회), 실패 시 `PARTIAL` 경로 | [[03-AI-PIPELINE\|03]] §5.9 절차 | 대기 | — | — |
-| G8 | A40×2 메모리 배분 결정(모델당 GPU 1장 전제) → [[10-DEPLOYMENT\|10 배포]] GPU 메모리 배분 절 갱신 | — | 대기 | — | — |
+| G1 | 엔드포인트 HTTPS 접속: `GET /sol-radar/healthz` 200, TLS 인증서 유효(`-k` 금지), 인증 없는 `GET /sol-radar/kev/v1/models`는 401 또는 403 | curl. 키·`Authorization` 헤더는 로그에 남기지 않음 | 대기(선행 P2·P3) | — | — |
+| G2 | Qwen·Kev `GET /v1/models`(Bearer) 응답을 `endpoint-models.json`에 저장 → Kev `run`·`base`·`lora`·`temperature`와 vLLM 모델 id `Qwen/Qwen3.5-9B`를 `services/ai/models/registry.yaml`(C5에서 생성)과 대조 | 각 1회 | 대기 | — | — |
+| G3 | 지연 실측: Kev `/v1/systemone` 영어 state 약 500토큰 10회 p50·p95, vLLM 추출 1회 왕복 → `KEV_TIMEOUT_MS`·Qwen 타임아웃 권고값 | 절차 §7 | 대기 | — | — |
+| G4 | vLLM guided JSON 동작 1회 | 절차 §7 | 대기 | — | — |
+| G5 | 회사 제공 GPU 정보(모델·VRAM·점유·가중치 sha256)가 있으면 기록, 없으면 "회사 운영, 미제공" | 회사 전달 | 대기 | — | — |
+| G6 | 엔드포인트 차단(잘못된 URL 1회) 시 gateway가 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 기록하고 `PARTIAL`로 끝나는지 | C5 `local` 어댑터 뒤 | 대기(C5) | — | — |
+
+호출 예산: 이 점검 전체 Kev 20회·Qwen 5회 이하. 10-21 컷 규칙의 "GPU 정상"은 G2·G3 통과다.
 
 ## ④ 첨부 파싱 (실제 공고 1건 기준)
 
@@ -96,7 +98,7 @@ updated: 2026-10-19
 |---|---|---|---|
 | ① 공공 API 4종 | **통과**(A1~A9, 2026-10-19 09:58~10:08 KST) | — | 2026-10-19 (설계와 다른 점 8건: [[external-deps-api-20261019\|API 증거]] §10) |
 | ② 첨부 다운로드 | **통과**(B1~B4, 3건 모두 익명 GET 200) | — | 2026-10-19 |
-| ③ GPU 서버 | 대기(선행 P2, 기동은 P3) | — | — |
+| ③ 회사 GPU 추론 엔드포인트 | 대기(선행 P2·P3, 엔드포인트 제공 전. 옛 터널 항목은 ADR-025로 폐기) | — | — |
 | ④ 첨부 파싱 | 대기(②·C5 뒤) | — | — |
 
 10-21 저녁 컷 규칙([[12-ROADMAP|12 로드맵]])은 이 표의 ①·③ 상태로 정한다. 2026-10-19 기준 입력값 ①(A2·A3·B2) = **API 정상**. ③은 아직 대기.
@@ -108,4 +110,4 @@ updated: 2026-10-19
 - [[12-ROADMAP|12 로드맵]] — C1, 10-21 컷 규칙
 - [[16-DECISIONS|16 ADR]] — 미결정 1·3·16·17·19·20, ADR-022·023
 - [[07-DATA-PIPELINE|07 수집]] §2.2·§3.1
-- [[10-DEPLOYMENT|10 배포]] — 회사 GPU 서버 구성
+- [[10-DEPLOYMENT|10 배포]] — 회사 GPU 추론 엔드포인트, 모델 라우터
