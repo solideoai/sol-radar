@@ -4,6 +4,7 @@ import {
   createBidsRepo,
   createDashboardRepo,
   notificationRepo,
+  readCursorSecret,
   reviewRepo,
   type AnalysisQueue,
   type AnalysisRateLimiter,
@@ -36,7 +37,6 @@ export type WorkDeps = {
 export function workDeps(): WorkDeps {
   const runMode = currentRunMode();
   const redisUrl = process.env.REDIS_URL;
-  const cursorSecret = process.env.API_CURSOR_SECRET;
   return {
     bids: createBidsRepo({ runMode, algorithmVersion: ALGORITHM_VERSION }),
     reviews: reviewRepo,
@@ -54,7 +54,8 @@ export function workDeps(): WorkDeps {
     }),
     queue: createAnalysisQueue({ redisUrl }),
     limiter: createAnalysisRateLimiter({ redisUrl }),
-    cursorSecret: cursorSecret ? cursorSecret : null,
+    // 32자 미만·공백뿐이면 null → 커서 목록이 503 {component:"cursor"} 다(O9).
+    cursorSecret: readCursorSecret(process.env.API_CURSOR_SECRET),
     runMode,
     onInfraError: (component, error) => {
       console.error(
