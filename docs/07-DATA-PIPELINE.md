@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 07. 조달청 데이터 수집
@@ -430,6 +430,47 @@ fixture 한 건의 형태:
 | `LIVE` | `FX-06` r2, `FX-07` r2, `FX-08` r2(취소), `FX-09` 재전송, `FX-10` 02차 | 관리자 화면 "수동 수집" 또는 `POST /api/v1/admin/ingestion/runs` 본문 `{"source":"fixture","batch":"live"}`(API는 소문자, Route Handler의 zod 스키마가 `LIVE`로 바꾼다, [[05-API-SPEC\|05 API]]). 적재는 worker가 한다 | `{created:0, changed:3, cancelled:1, skippedDuplicate:1, quarantined:0, retried:0}` |
 
 `summary` 키는 [[04-DATABASE|04 DB]]의 `ingest_runs.summary`와 같다. `SEED`를 두 번 돌리면 두 번째는 `skippedDuplicate:19, quarantined:1`이어야 한다(멱등). seed는 공고 외에 조직 2(`org-01` 솔리데오, `org-02` 비교조직), 계정 5(Supabase Auth 사용자. org-01 4역할 + org-02 VIEWER, 역할은 `memberships.sol_role`), 프로필 revision 2, 사전 리뷰 2건(`FX-01` BID, `FX-03` NO-BID)을 함께 넣는다. 범위와 멱등 규칙은 [[04-DATABASE|04 DB]] §6, 계정 목록은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1, 기대 로그는 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`.
+
+### 6.5 Phase 0 구현 형태 (2026-10-19, `caf0abd`·`91655a9`·`f238a3f`)
+
+Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값을 바꾸지 않고, 구현이 정한 필드와 파일 이름 규칙만 더한다. 검증 명령은 `pnpm bids:check`(`scripts/bids/check.mjs`)다.
+
+**`fixtures/manifest.yaml`**
+
+|필드|내용|
+|---|---|
+|`schemaVersion`|`sol-fixtures/v1.0`|
+|`calculationDate`|`"2026-10-16"`. 골든 점수 계산 기준일|
+|`batches.SEED`|20건의 순서 (`FX-01`~`FX-20`)|
+|`batches.LIVE`|`FX-06`·`FX-07`·`FX-08`·`FX-09`·`FX-10`|
+|`fixtures[]`|`id`·`stage`·`tags`·`expected{outcome, designScore}`|
+
+- `expected.outcome` 값은 `BID`·`WATCH`·`NO_BID`·`CANCELLED`·`QUARANTINED`·`EARLY_TRACK`이다(현재 분포 BID 4·WATCH 10·NO_BID 2·CANCELLED 1·QUARANTINED 1·EARLY_TRACK 2 = 20).
+- `expected.designScore`는 6.2 표에 숫자가 있는 7건만 숫자이고 나머지는 `null`이다. 정확한 값은 Phase 4 골든이 정한다.
+
+**공고 레코드 추가 규칙** (`fixtures/bids/FX-xx.json`)
+- 레코드의 선택 필드 `status`: `OPEN`·`AMENDED`·`CANCELLED`·`CLOSED`([[15-DATA-CONTRACTS|15 데이터 계약]]). 지금은 `FX-08` r2만 `CANCELLED`다.
+- `budgetKrw`의 원문 텍스트("12억원" 같은 표기)는 manifest tags에 `budget-text`가 있는 fixture(`FX-13`)에서만 허용한다. 나머지는 숫자 문자열이다.
+
+**추출 파일 이름** (`fixtures/extractions/`)
+- `FX-xx.json`은 마지막 revision, `FX-xx.rNN.json`은 앞선 revision이다. 지금은 `FX-07.r01.json` 하나다. 그래서 추출은 19건(`FX-12` 격리 제외) + `FX-07` r1 = 20개 파일이다([[04-DATABASE|04 DB]] `requirement_extractions` 20과 맞는다).
+- 파일 안의 `bidId: "FX-xx"`·`revisionId: "FX-xx#NN"`은 seed가 UUID로 바꾸는 자리표시다. `rNN` 파일이 없는 revision은 seed·mock gateway가 `FX-xx.json`을 그 revision에 쓴다(예: `FX-06` r1).
+
+**mock Kev·골든 envelope**
+- mock Kev: `schemaVersion: "kev-mock/v0.1"`, `fixtureId`, `provider`, `questionSetVersion: "kev-qs/v0.1"`, `responses`, `usage`, `latency_ms`.
+- 골든: `schemaVersion: "sol-golden/v0.1"`, `fixtureId`, `calculationDate`, `factors[]`(요소별 `normalized`·`points`·`maxPoints`), `total`, `score`, `recommendation`, `reviewFlags`.
+
+**현재 범위** (Phase 0 시점)
+
+|파일 종류|지금|이후|
+|---|---|---|
+|`bids/`|20건|-|
+|`extractions/`|20개 파일 (19건 + `FX-07.r01`)|-|
+|`kev/`|4건 (`FX-01`·`02`·`03`·`16`)|나머지 16건은 Phase 4. 그 전까지는 [[03-AI-PIPELINE\|03]] §5.7 fallback 값|
+|`goldens/`|3건 (`FX-01`·`02`·`03`)|Phase 4 (골든 17건 확장)|
+|`docs/` 첨부 샘플|없음|Phase 2|
+
+`FX-20`은 07 §6.4대로 `SEED` 배치다([[19-DEMO-SCENARIO|19]]의 `LIVE` 표기와 어긋남은 [Phase 0 정본 불일치 목록](plans/2026-10-19-phase-0-doc-inconsistencies.md) 9번).
 
 ## 7. 개발·테스트
 

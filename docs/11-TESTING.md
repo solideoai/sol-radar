@@ -53,7 +53,7 @@ bash infra/smoke.sh                               # compose ps + health + 큐 �
 
 > [!warning] 미검증 가정
 > - 템플릿의 `pnpm -C web test:e2e:auth`는 로컬 Supabase(`pnpm db:start`)와 템플릿 시드 `scripts/db-seed.mjs`(로컬 전용)를 전제로 한다. SOL RADAR 데모 seed(`pnpm demo:reset`)와 Supabase 클라우드 개발 프로젝트에서 로그인 뒤 E2E를 어떻게 돌릴지는 Phase 1에서 정한다.
-> - `services/ai` pytest와 `infra/smoke.sh`는 아직 `verify.config.json`에 등록돼 있지 않다. Phase 0에서 등록하거나 CI 단계로 따로 둔다.
+> - `services/ai` pytest는 `verify.config.json`의 `ai` 프로젝트로 등록돼 `pnpm verify`가 돌린다(`uv` 필요, Phase 0). `infra/smoke.sh`는 Docker가 필요해 `pnpm verify` 밖에서 수동으로 돌린다. CI(GitHub Actions)의 `astral-sh/setup-uv` 단계는 계정 결제 한도로 아직 실행되지 못했다([[PROGRESS]]).
 
 CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌리고, 위 명령 중 어느 하나라도 실패하면 Phase 완료로 보고하지 않는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
 
@@ -108,7 +108,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 
 | ID | 자동 검증할 조건 | 테스트 파일 (예정) | 명령 | P0 |
 |---|---|---|---|---|
-| V2-01 | **실행 모드 모순 기동 거부.** `SOL_RUN_MODE`와 직접 준 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`가 모순되면 `pnpm check:env`와 gateway가 기동을 거부하고 모순된 키 이름을 알린다. 예: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`. 값을 조용히 바꾸지 않는다. 미지정이면 `mock`. 정상 세 모드 조합은 통과 | `scripts/check-env.test.mjs`, `services/ai/tests/test_run_mode.py` | `node --test scripts/check-env.test.mjs`, `pytest` | P0-1 |
+| V2-01 | **실행 모드 모순 기동 거부.** `SOL_RUN_MODE`와 직접 준 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`가 모순되면 `pnpm check:env`와 gateway가 기동을 거부하고 모순된 키 이름을 알린다. 예: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`. 값을 조용히 바꾸지 않는다. 미지정이면 `mock`. 정상 세 모드 조합은 통과. `pnpm check:env`는 `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 시험과 수동 확인은 파일(또는 `--root`로 가리킨 임시 트리)에 모순 값을 적어 한다 | `scripts/check-env.test.mjs`, `services/ai/tests/test_run_mode.py` (둘 다 Phase 0에서 작성됨) | `node --test scripts/check-env.test.mjs`, `pytest` | P0-1 |
 | V2-02 | **출처·모드 기록과 표시.** 분석마다 `score_runs.run_mode`(`LIVE`·`FIXTURE`·`MOCK`)·`ai_provider`·`qwen_model`·`kev_model`·`question_set_version`, 추출마다 `provider`·`model_name`, 수집마다 `ingest_runs.run_mode`·`source`가 저장된다. 화면: 머리말 "실행 모드", 분석 패널 "AI: mock" 또는 "AI: local · Qwen3.5-9B · Kev-9B v1.0", `is_demo` 공고의 `DEMO` 배지, 공고 목록 `origin=live\|demo\|all` 필터, 모든 모드의 "가상 회사 프로필로 분석" 배지 | `web/server/analysis/run-provenance.test.ts`, `web/server/bids/origin-filter.test.ts`, `web/e2e-auth/run-mode-badge.spec.ts` | `vitest server/analysis`, `vitest server/bids`, `e2e:auth` | P0-1, P0-7 |
 | V2-03 | **실패 유형 4종 구분.** 공공 API 실패(HTTP 오류·`resultCode` 비정상·에러코드 22·timeout) → `ingest_runs.status`·`ingest_errors`, 기존 공고 유지. 첨부 다운로드 불가(인증 요구·4xx·5xx·allowlist 밖 리다이렉트·크기 초과) → `download_status=FAILED` + 사유, 본문만 추출, `DOCUMENT_DOWNLOAD_FAILED`. 파싱 실패·부분 파싱 → `parse_status`·`parse_error_code`, `PARSE_UNSUPPORTED`. 모델 서버 미접속 → `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록(Qwen 불가: 캐시된 추출, 없으면 `UNKNOWN` → `PARTIAL` / Kev 불가: `RULES_ONLY`). 한 유형을 다른 유형의 코드로 기록하면 실패. gateway 미접속은 G6 | `web/server/ingestion/official-api-errors.test.ts`, `web/server/ingestion/attachment-fetcher.test.ts`, `web/server/analysis/failure-kinds.test.ts`, `services/ai/tests/test_model_unavailable.py` | `vitest server/ingestion`, `vitest server/analysis`, `pytest` | P0-2~P0-4, P0-6 |
 | V2-04 | **파싱 실패 내용을 AI가 추측하지 않는다.** 첨부가 `FAILED`·`UNSUPPORTED`인 공고에서 Qwen 입력에는 파싱된 텍스트만 들어가고 "첨부가 있었다"로 내용을 추정하게 하는 지시가 없다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`. Kev state에는 "RFP attachment could not be read; requirements may be incomplete" 한 줄만 들어가고, 읽지 못한 문서로 만든 Kev 질문은 0개. `/explain` 문장에 파싱 실패가 밝혀진다 | `services/ai/tests/test_parse_failure_no_guess.py`, `web/server/analysis/parse-failure.test.ts` | `pytest`, `vitest server/analysis` | P0-3, P0-4 |
@@ -155,7 +155,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 
 | Phase | 통과 조건 | 증거 |
 |---|---|---|
-| 0 | `docker compose -f infra/compose.yaml ps`에서 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 healthy(`postgres`·`api` 서비스는 없다). web의 `/health/live`·`/health/ready` 200, `checks.db` = Supabase 클라우드 프로젝트 연결 ok. worker가 `web/server` 도메인 코드를 불러 기동(`server-only` 실행 방식 `--conditions=react-server` 검증, [[16-DECISIONS\|16 ADR]] 미결정). `pnpm verify` 통과. `pnpm check:env` 실행 모드 모순 거부(V2-01), 서비스키 4개(`G2B_*_SERVICE_KEY`) placeholder 자리(서버 전용), GPU 호스트 `ai-local` 연결 방식(터널) 정리. P0-0 외부 의존성 점검 결과를 항목별로 기록(막힌 항목은 막힘으로, §3.3) | `phase-0/compose-ps.txt`, `phase-0/health-ready.json`, `phase-0/test-report.txt`, `phase-0/run-mode-check.txt`, `phase-0/external-deps.md` |
+| 0 | `docker compose -f infra/compose.yaml ps`에서 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 healthy(`postgres`·`api` 서비스는 없다). web의 `/health/live`·`/health/ready` 200, `checks.db` = Supabase 클라우드 프로젝트 연결 ok. worker가 `web/server` 도메인 코드를 불러 기동(`server-only` 실행 방식 `--conditions=react-server` 검증, [[16-DECISIONS\|16 ADR]] 미결정). `pnpm verify` 통과. `pnpm check:env` 실행 모드 모순 거부(V2-01), 서비스키 4개(`G2B_*_SERVICE_KEY`) placeholder 자리(서버 전용), GPU 호스트 `ai-local` 연결 방식(터널) 정리. P0-0 외부 의존성 점검 결과를 항목별로 기록(막힌 항목은 막힘으로, §3.3) | `phase-0/compose-ps.txt`, `phase-0/health-ready.json`, `phase-0/test-report.txt`, `phase-0/run-mode-check.txt`, `phase-0/worker-stop.txt`(`docker compose stop worker` ExitCode 0), `phase-0/health-ready-degraded.json`(gateway 정지 시 `status: degraded`·`checks.ai: unavailable`), `phase-0/external-deps.md`(P0-0 점검 대기) |
 | 1 | `pnpm test:db` 통과(SOL RADAR 표의 RLS·`sol_role` CHECK·조직 격리 정책 시험, 마이그레이션 재실행). ADR-020 저장 변경(새 표 `requirement_assessments`·`bid_structured_requirements`·`eval_runs` 포함)이 첫 SOL 마이그레이션에 들어가고 새 표마다 정책 시험이 있다. 클라우드 적용 `pnpm db:push`는 사용자 확인 뒤. seed(`pnpm demo:reset`) 2회 실행 멱등. G5 통과 | `phase-1/test-db.txt`, `phase-1/migrate.log`(`pnpm db:push` 출력), `phase-1/test-isolation.txt` |
 | 2 | G1·G2·G7·G10 + §3.1 ingestion 케이스 통과, `SEED` summary `{created:19, quarantined:1, retried:2}`. V2-03(공고·첨부 쪽)·V2-10·V2-11·V2-12, `OfficialApiConnector` 계약 시험, 사전규격·발주계획 단계 연결(P0-8). 서비스키·첨부 다운로드가 되면 live 수집 `ingest_runs` 요약(P0-2)과 실공고 형식별 파싱 성공률(P0-3) | `phase-2/test-ingestion.txt`, `phase-2/test-contracts.txt`, `phase-2/seed-summary.json`, `phase-2/ingest-run-live-<일시>.json`, `phase-2/parse-success-rate.md` |
 | 3 | E2E 로그인 → 목록 → 상세, axe 위반 0, G8. V2-02 화면 부분(실행 모드·출처·가상 회사 프로필 배지, `origin` 필터). NAV-01~NAV-09(§9, [[16-DECISIONS\|ADR-021]]) | `phase-3/e2e/*.png`, `phase-3/axe-report.json` |
@@ -208,7 +208,8 @@ docs/evidence/
   README.md                         # 주장 → 증거 파일 색인 (심사위원용, 아래 표)
   phase-0/  compose-ps.txt  health-ready.json  test-report.txt
             run-mode-check.txt             # V2-01 모드 모순 기동 거부 시험 출력
-            external-deps.md               # P0-0 외부 의존성 점검 (§3.3)
+            worker-stop.txt  health-ready-degraded.json   # worker 정상 종료 exit 0, AI 장애 리허설
+            external-deps.md               # P0-0 외부 의존성 점검 (§3.3, 전항목 대기)
   phase-1/  test-db.txt  migrate.log  test-isolation.txt  seed-summary.json
   phase-2/  test-ingestion.txt  ingest-run-FX-20.json
             ingest-run-live-<일시>.json    # P0-2 live 수집 요약 (담당자 개인정보 제외)

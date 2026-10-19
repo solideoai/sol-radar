@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 10. Docker Compose 배포·실행 프로필
@@ -50,12 +50,22 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 Comp
 
 |파일|읽는 쪽|담는 값 (요지)|
 |---|---|---|
-|`infra/.env`|`docker compose -f infra/compose.yaml`의 변수 치환. Compose는 `--project-directory`가 없으면 첫 `-f` 파일의 디렉터리(`infra/`)를 프로젝트 디렉터리로 삼고 거기서 `.env`를 찾는다(https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/, 2026-10-16 확인). 컨테이너에 넘기는 값은 `compose.yaml`의 `environment`·`env_file`이 정한다|`worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REDIS_URL`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL`, `SOL_RUN_MODE`, `DEMO_MODE`, `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`(서비스별 서비스키 4개, `live`만 필수, 서버 전용·로그 금지). `redis`·`minio`: 각 비밀번호. `ai-gateway`: `SOL_RUN_MODE`, `AI_*`·`QWEN_*`·`KEV_*`·`PARSER_*`·`HOSTED_*`|
-|`web/.env.local`|Next.js `web/`(템플릿 위치)|`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL`, `DEMO_MODE`, `API_CURSOR_SECRET`(목록 커서 HMAC 키, 32자 이상, [[05-API-SPEC\|05 API]] §3). **`SUPABASE_SERVICE_ROLE_KEY`와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 넣지 않는다**(요청 처리는 사용자 세션 + RLS, 공공 API 호출은 worker만)|
+|`infra/.env`|`docker compose -f infra/compose.yaml`의 변수 치환. Compose는 `--project-directory`가 없으면 첫 `-f` 파일의 디렉터리(`infra/`)를 프로젝트 디렉터리로 삼고 거기서 `.env`를 찾는다(https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/, 2026-10-16 확인). 컨테이너에 넘기는 값은 `compose.yaml`의 `environment`·`env_file`이 정한다|`worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REDIS_URL`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL`, `SOL_RUN_MODE`, `DEMO_MODE`, `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`(서비스별 서비스키 4개, `live`만 필수, 서버 전용·로그 금지). `worker` 선택: `WORKER_HEARTBEAT_FILE`(기본 `/tmp/sol-worker-heartbeat`). `redis`·`minio`: 각 비밀번호. `ai-gateway`: `SOL_RUN_MODE`, `AI_*`·`QWEN_*`(`QWEN_API_KEY` 포함)·`KEV_*`·`PARSER_*`·`HOSTED_*`. 호스트 포트 선택: `REDIS_HOST_PORT`(기본 6380)·`MINIO_HOST_PORT`(9000)·`QDRANT_HOST_PORT`(6333)·`AI_GATEWAY_HOST_PORT`(8000)|
+|`web/.env.local`|Next.js `web/`(템플릿 위치)|`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`, `MINIO_ENDPOINT`(`/health/ready` 의 `checks.storage` 확인용 끝점만. MinIO root 계정은 web 에 넣지 않는다), `AI_GATEWAY_URL`, `DEMO_MODE`, `API_CURSOR_SECRET`(목록 커서 HMAC 키, 32자 이상, [[05-API-SPEC\|05 API]] §3). **`SUPABASE_SERVICE_ROLE_KEY`와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 넣지 않는다**(요청 처리는 사용자 세션 + RLS, 공공 API 호출은 worker만)|
 |루트 `.env.local`|`pnpm db:push`·`pnpm db:verify`(템플릿 `scripts/db-push.sh`·`scripts/db-verify.sh`가 `SUPABASE_DB_URL`을 여기서 읽는다), `pnpm demo:reset`|`SUPABASE_DB_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DEMO_SEED_PASSWORD`|
 
 - service role 키와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 절대 넣지 않는다([[09-SECURITY|09 보안]]). 서비스키는 worker의 `OfficialApiConnector`만 읽고, 소스마다 registry `serviceKeyEnv`가 가리키는 키 하나만 쓴다([[07-DATA-PIPELINE|07 수집]] §2.2). gateway에도 넘기지 않는다.
-- `pnpm check:env`는 세 파일의 placeholder를 세고, 실행 모드와 모순된 값(위 "실행 모드와 프로필")이 있으면 실패한다. `pnpm check:env`·`pnpm demo:reset`은 아직 없다. Phase 0·1에서 만든다([[12-ROADMAP|12 로드맵]]).
+- `pnpm check:env`는 세 파일의 placeholder를 세고, 실행 모드와 모순된 값(위 "실행 모드와 프로필")이 있으면 실패한다. Phase 0에서 구현했다(`scripts/check-env.mjs`). `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 셸에서 env 만 주어서는 검사되지 않는다. `pnpm demo:reset`은 아직 없다. Phase 1에서 만든다([[12-ROADMAP|12 로드맵]]).
+
+**Phase 0 확정 사항** (구현 `88afb79`·`1b824c8`·`9b2bdf1`, 결정 ID는 [[16-DECISIONS|ADR-024]] 제안 참조):
+- placeholder 토큰은 `CHANGE_ME` 하나다. `minioadmin` 은 금지 값으로 검사한다.
+- `REDIS_PASSWORD` 는 영숫자만 쓴다(`openssl rand -hex 32`). `/`·`@`·`:`·`#`·`"`·`\` 가 들어가면 `REDIS_URL` 해석과 redis 설정이 깨진다. MinIO 사용자는 3자 이상, 비밀번호는 8자 이상이다.
+- 호스트 포트는 항상 `127.0.0.1` 에만 열고 `*_HOST_PORT` 로 바꿀 수 있다. redis 기본은 6380이다(호스트에 다른 redis 가 6379 를 쓰는 경우가 있어 사용자가 정했다).
+- Compose 프로젝트 이름은 `sol-radar-stack` 이다(`name:`). 로컬 Supabase CLI 가 `supabase/config.toml` 의 `project_id`(`sol-radar`)를 같은 Compose 라벨로 쓰므로 이름이 같으면 서로를 orphan 으로 보고 `--remove-orphans` 가 상대 컨테이너를 지울 수 있다.
+- gateway 이미지는 `AI_HOST=0.0.0.0` 과 `SOL_RUN_MODES_FILE=/app/infra/run-modes.json` 을 이미지 ENV 로 가진다. 실행 모드 규칙의 원천은 `infra/run-modes.json` 하나이고 Node(`scripts/run-mode.mjs`)와 Python(`services/ai`)이 같이 읽는다. 그래서 gateway 이미지는 저장소 루트를 빌드 컨텍스트로 쓴다(`context: ..`).
+- 실행 모드 키(`SOL_RUN_MODE`·`DEMO_MODE`·`AI_PROVIDER` 등)의 빈 문자열은 미지정으로 본다(모드 기본값을 쓴다). Compose 는 `${VAR:-}` 로 넘긴다.
+- `infra/smoke.sh` 는 `-p` 를 받지 않는다. 다른 프로젝트·env 로 격리해 돌리려면 Compose 환경변수 `COMPOSE_PROJECT_NAME`(파일의 `name:` 보다 우선)·`COMPOSE_ENV_FILES` 를 준다. `REDIS_URL` 은 호출한 셸이 준다(`redis://:<비밀번호>@127.0.0.1:6380`).
+- `pnpm verify` 는 `services/ai` 를 `ai` 프로젝트로 등록해 pytest 를 돌리므로 `uv` 가 있어야 한다.
 
 ### `ai-local` env 예시
 
@@ -166,18 +176,20 @@ Kev-9B 추론 메모리는 모델 카드 21.9 GB, README 약 17 GB로 문서마�
 |service|이미지|내부 포트|호스트 노출|상태 저장|프로필|
 |---|---|---:|---|---|---|
 |worker|`web/` 코드로 빌드, 진입점 `web/worker`|-|없음|없음|기본|
-|redis|`redis:8.8.3-alpine`|6379|`127.0.0.1:6379` (web을 호스트에서 띄울 때)|redisdata|기본|
-|qdrant|`qdrant/qdrant:v1.19.2-unprivileged`|6333|`127.0.0.1:6333` (같은 조건)|qdrantdata|기본|
-|minio|`cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8` (비root UID 65532)|9000|`127.0.0.1:9000` (같은 조건)|miniodata|기본|
-|ai-gateway|`services/ai/` 빌드|8000|`127.0.0.1:8000` (같은 조건)|model cache (선택)|기본 (`SOL_RUN_MODE`·`AI_PROVIDER`로 동작 결정)|
-|web|`web/` 빌드|3000|3000|없음|선택. 기본은 호스트에서 `pnpm -C web start`|
+|redis|`redis:8.8.3-alpine`|6379|`127.0.0.1:6380` (기본, `REDIS_HOST_PORT`로 변경. web을 호스트에서 띄울 때)|redisdata|기본|
+|qdrant|`qdrant/qdrant:v1.19.2-unprivileged`|6333|`127.0.0.1:6333` (`QDRANT_HOST_PORT`, 같은 조건)|qdrantdata|기본|
+|minio|`cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8` (비root UID 65532)|9000|`127.0.0.1:9000` (`MINIO_HOST_PORT`, 같은 조건)|miniodata|기본|
+|ai-gateway|`services/ai/` 빌드|8000|`127.0.0.1:8000` (`AI_GATEWAY_HOST_PORT`, 같은 조건)|model cache (선택)|기본 (`SOL_RUN_MODE`·`AI_PROVIDER`로 동작 결정)|
+|web|`web/` 빌드|3000|3000|없음|선택(Phase 0 Compose 에는 정의 없음). 기본은 호스트에서 `pnpm -C web start`|
 |kev|아래 Kev Dockerfile, `KEV_RUN=jaredpalmer/kev-9b@v1.0`|8009|회사 GPU 서버 `127.0.0.1:8009`만|model cache|`ai-local`(GPU 서버에서만)|
 |qwen-runtime|vLLM(이미지 태그 고정은 P0-0), `Qwen/Qwen3.5-9B`|8001|회사 GPU 서버 `127.0.0.1:8001`만|model cache|`ai-local`(GPU 서버에서만)|
 
 - `postgres`·`api`·`seed-demo` 서비스는 없다. DB·Auth는 Supabase, seed는 `pnpm demo:reset`이다.
 - MinIO는 Docker Hub `minio/minio`가 404라(2026-10-16 확인) Chainguard 이미지를 digest로 고정한다(비root 65532, 검증됨).
-- web을 호스트에서 띄우면 Next 서버가 redis·qdrant·minio·ai-gateway에 닿아야 하므로 이 네 서비스만 `127.0.0.1`에 포트를 연다(외부 인터페이스에는 열지 않는다). Compose `web`을 쓰면 호스트 노출은 필요 없다. 둘 중 무엇을 기본으로 할지는 Phase 0에서 확정한다.
+- web을 호스트에서 띄우면 Next 서버가 redis·qdrant·minio·ai-gateway에 닿아야 하므로 이 네 서비스만 `127.0.0.1`에 포트를 연다(외부 인터페이스에는 열지 않는다). Compose `web`을 쓰면 호스트 노출은 필요 없다. 기본은 호스트 실행(`pnpm -C web start`)으로 확정했다(Phase 0, [[16-DECISIONS|ADR-024]] D1 제안). Phase 0 `infra/compose.yaml` 에는 `web` 서비스가 없다.
 - HTTPS reverse proxy와 웹 배포처는 데모·배포 실행 환경 결정(미결정, ADR-017) 뒤에 정한다.
+- healthcheck(Phase 0 구현): `worker` 는 heartbeat 파일을 본다. worker 가 `WORKER_HEARTBEAT_FILE`(기본 `/tmp/sol-worker-heartbeat`)을 10초마다 갱신하고, healthcheck 는 파일 수정 시각이 30초 이내인지 판정한다([[16-DECISIONS|ADR-024]] D3 제안). `ai-gateway` 는 `GET /health` 200 이고 `start_period: 20s`(기동 4~8초). `minio`·`qdrant` 이미지에는 curl·wget 이 없어 bash `/dev/tcp` 로 `GET /minio/health/live`·`GET /readyz` 의 200 을 확인한다. `redis` 는 `redis-cli ping`(비밀번호는 `REDISCLI_AUTH` 로만 전달).
+- redis 비밀번호는 프로세스 인자·`docker inspect` 에 남지 않게 설정을 stdin 으로 넘기고, 컨테이너는 `setpriv` 로 `redis` 사용자로 내려 실행한다. worker 이미지의 CMD 는 pnpm 이 아니라 `node --conditions=react-server --import tsx worker/main.ts` 이고 Compose 는 `init: true` 다.
 
 ## 파서 런타임
 

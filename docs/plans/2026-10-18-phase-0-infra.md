@@ -1,11 +1,11 @@
 ---
 title: "Phase 0 구현 계획 — 실행 환경·실행 모드·AI gateway 골격·worker·health·공고 fixture"
-status: draft
+status: done
 tags:
   - sol-radar
   - plan
   - ops
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # Phase 0 실행 환경·공고 fixture Implementation Plan
@@ -28,7 +28,7 @@ updated: 2026-10-18
 - 실행 모드: `SOL_RUN_MODE=live|fixture|mock`, 미지정이면 `mock`. 모드가 기본값을 정한다: `live` → `DEMO_MODE=false`·`AI_PROVIDER=local`·`KEV_ENABLED=true`, `fixture` → `true`·`local`·`true`, `mock` → `true`·`mock`·`true`(mock adapter가 응답). 모순이면 기동 거부하고 **모순된 키 이름만** 알린다. 값을 조용히 바꾸지 않는다.
 - 비밀값(`SUPABASE_SERVICE_ROLE_KEY`·서비스키 4개 `G2B_*_SERVICE_KEY`(ADR-022)·`REDIS_PASSWORD`·`MINIO_ROOT_PASSWORD`·`KEV_API_KEY`·`HOSTED_API_KEY`)은 표준 출력·오류·로그·증거·`NEXT_PUBLIC_` 변수에 넣지 않는다. `web/.env.local`에는 `SUPABASE_SERVICE_ROLE_KEY`·`G2B_*_SERVICE_KEY`를 두지 않는다(10:54).
 - `.env*` 실제 파일은 사람이 만든다. 에이전트는 읽거나 출력하지 않는다. placeholder 토큰은 `CHANGE_ME` 하나로 통일하고, `minioadmin`은 금지 기본값으로 placeholder와 같게 센다(09:200).
-- 이미지 고정: `redis:8.8.3-alpine`, `qdrant/qdrant:v1.19.2-unprivileged`, `cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8`(비root 65532). 호스트 포트는 `127.0.0.1:6379`·`127.0.0.1:6333`·`127.0.0.1:9000`·`127.0.0.1:8000`만 연다. `0.0.0.0` 바인딩 금지.
+- 이미지 고정: `redis:8.8.3-alpine`, `qdrant/qdrant:v1.19.2-unprivileged`, `cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8`(비root 65532). 호스트 포트는 `127.0.0.1:6380`(기본, `REDIS_HOST_PORT`)·`127.0.0.1:6333`·`127.0.0.1:9000`·`127.0.0.1:8000`만 연다. `0.0.0.0` 바인딩 금지.
 - named volume: `redisdata`·`qdrantdata`·`miniodata`. 무한 재시작 대신 명확한 오류 출력(10:301).
 - fixture는 모두 가상이다. `isDemo: true`, URL은 `https://demo.sol-radar.invalid/notices/FX-xx`, 이메일은 `.invalid` 도메인만, 실명·전화·실존 기업 실적 0건. 날짜 필드는 `+Nd`/`-Nd` 상대 표기(ADR-014).
 - 웹 코드는 `web/node_modules/next/dist/docs/`의 Route Handler 안내를 먼저 읽는다. 도메인은 배럴(`@/server/<도메인>`)로만 부르고, `../` 대신 `@/`를 쓴다. `eslint-disable`·`any`·`@ts-ignore`·`.skip`·`.only` 금지.
@@ -319,7 +319,7 @@ updated: 2026-10-18
     - `qdrant`: 없음.
     - `ai-gateway`: `SOL_RUN_MODE`, `DEMO_MODE`, `AI_PROVIDER`, `AI_HOSTED_APPROVED`, `AI_FALLBACK_TO_MOCK`, `KEV_ENABLED`, `KEV_ALLOW_KO_STATE`. 빌드 `context: ..`, `dockerfile: services/ai/Dockerfile`. `extra_hosts: ["host.docker.internal:host-gateway"]`(ai-local 터널용). Supabase·G2B 키는 넘기지 않는다.
     - `worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `AI_GATEWAY_URL=http://ai-gateway:8000`, `SOL_RUN_MODE`, `DEMO_MODE`, 서비스키 4개 `G2B_*_SERVICE_KEY`(10:53, ADR-022). 빌드 `context: ../web`, `dockerfile: worker/Dockerfile`. `depends_on: redis: condition: service_healthy`.
-  - 포트: `127.0.0.1:6379:6379`, `127.0.0.1:9000:9000`, `127.0.0.1:6333:6333`, `127.0.0.1:8000:8000`. worker는 포트 없음.
+  - 포트: `127.0.0.1:6380:6379`(`REDIS_HOST_PORT` 기본), `127.0.0.1:9000:9000`, `127.0.0.1:6333:6333`, `127.0.0.1:8000:8000`. worker는 포트 없음.
   - volume: `redisdata:/data`, `miniodata:/data`, `qdrantdata:/qdrant/storage`.
   - restart: redis·minio·qdrant `unless-stopped`, ai-gateway·worker `on-failure:3`.
   - logging: 공통 `x-logging`(json-file, `max-size: 10m`, `max-file: "3"`).
@@ -458,7 +458,7 @@ fixtures:
 **Files:**
 - Create: `docs/evidence/phase-0/compose-ps.txt`, `health-ready.json`, `health-ready-degraded.json`, `test-report.txt`, `run-mode-check.txt`, `worker-conditions.txt`(Task 3), `smoke.txt`, `external-deps.md`
 
-- [ ] **Step 1: 사용자 준비 확인** — 사용자에게 `cp infra/env/demo.env.example infra/.env`, `web/.env.local`에 Supabase 클라우드 개발 프로젝트 값과 `REDIS_URL=redis://:<비밀번호>@127.0.0.1:6379`·`MINIO_ENDPOINT=http://127.0.0.1:9000`·`AI_GATEWAY_URL=http://127.0.0.1:8000`을 채우고 `SUPABASE_SERVICE_ROLE_KEY`가 `web/.env.local`에 있으면 빼 달라고 요청한다(D12).
+- [ ] **Step 1: 사용자 준비 확인** — 사용자에게 `cp infra/env/demo.env.example infra/.env`, `web/.env.local`에 Supabase 클라우드 개발 프로젝트 값과 `REDIS_URL=redis://:<비밀번호>@127.0.0.1:6380`·`MINIO_ENDPOINT=http://127.0.0.1:9000`·`AI_GATEWAY_URL=http://127.0.0.1:8000`을 채우고 `SUPABASE_SERVICE_ROLE_KEY`가 `web/.env.local`에 있으면 빼 달라고 요청한다(D12).
 - [ ] **Step 2: env 검사** — Run: `pnpm check:env` / Expected: `check:env 통과: 실행 모드 mock, placeholder 0건, 모드 모순 0건`. 이 출력과 `node --test scripts/check-env.test.mjs`·`uv run --project services/ai pytest tests/test_run_mode.py tests/test_startup.py` 출력을 `run-mode-check.txt`에 저장(첫 줄에 명령·커밋 해시).
 - [ ] **Step 3: 기동** — Run: `docker compose -f infra/compose.yaml --profile demo up -d --build` 후 `docker compose -f infra/compose.yaml ps` / Expected: 5개 `healthy`. 출력을 `compose-ps.txt`에 저장.
 - [ ] **Step 4: web·health** — Run: `pnpm -C web build && pnpm -C web start`(백그라운드) 후 `curl -s http://localhost:3000/health/ready` / Expected: 200, `checks.db/redis/storage = ok`, `checks.ai = mock`. `health-ready.json`에 저장.
@@ -495,6 +495,14 @@ fixtures:
 - `/health/ready`에 실행 모드 필드 없음(05:43) vs `RunModeIndicator`가 거기서 읽음(06:378). Phase 3 전에 정한다.
 - 04:373 `requirement_extractions` 20 vs 적재 19. 19:44 FX-20 LIVE vs 07 SEED. 19:128 S3 "입찰공고" 필터에 PRE_SPEC FX-18. 19:155 S5 알림에 FX-08 누락.
 - 03:137 "hosted 미승인 503"과 "기동 거부"의 모순.
+
+## 실행 결과 (2026-10-19)
+
+- 분담: 4세션이 worktree 로 나눠 맡았다. Task 1·2(실행 모드 규칙·AI gateway) `sol-radar-14`, Task 3·4(worker·web health) `sol-radar-83`, Task 6·7(공고 fixture) `sol-radar-02`, Task 5·병합·Task 8·9·최종 리뷰 `sol-radar-50`(조정).
+- main 병합: 코드 `1b824c8`(최종 `88afb79`까지), Compose 프로젝트 이름 변경 `9b2bdf1`, 보완 증거 `ce74f64`. C0 통합 검증 증거는 `evidence/phase-0/c0-integration-20261019.md`.
+- 검증: `pnpm verify` exit 0(vitest 927·pytest 28). C0 통합 검증 10항목 통과, 보완 검증 5항목(degraded 리허설·`stop worker` exit 0 포함) 통과. 증거 `evidence/phase-0/task8-gaps-20261019.md`.
+- 조정 기록(Ruling 1~33)은 `.superpowers/sdd/2026-10-18-phase-0-infra/progress.md`다. 다음 Phase 로 넘긴 minor 와 parked 항목도 거기 있다.
+- 남은 것: P0-0 외부 의존성 점검(`evidence/phase-0/external-deps.md` 대기), `checks.db` 의 Supabase 클라우드 검증(지금은 로컬 Supabase CLI 기준), GitHub Actions CI 미실행(계정 결제 한도). 계획이 정본에 맡긴 결정은 [[16-DECISIONS|ADR-024]] 제안으로, 정본 불일치는 [Phase 0 정본 불일치 목록](2026-10-19-phase-0-doc-inconsistencies.md)으로 올렸다.
 
 ## 관련 문서
 

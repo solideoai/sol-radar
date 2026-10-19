@@ -38,6 +38,7 @@ updated: 2026-10-19
 |ADR-022|data.go.kr 서비스키를 서비스마다 따로 둔다: env 4개(`G2B_BID_NOTICE_SERVICE_KEY` 15129394·`G2B_PRE_SPEC_SERVICE_KEY` 15129437·`G2B_ORDER_PLAN_SERVICE_KEY` 15129462·`G2B_INDUSTRY_MASTER_SERVICE_KEY` 15129467). 소스 registry의 `serviceKeyEnv`가 소스별 env 이름을 가리킨다. 단일 `G2B_SERVICE_KEY`는 쓰지 않는다|채택 (구현 일부: `infra/run-modes.json`·`pnpm check:env`가 네 키 이름을 `live` 필수로 검사한다(`15f5214`). registry `serviceKeyEnv`와 `OfficialApiConnector`는 Phase 2)|2026-10-18|사용자 결정(2026-10-18): 서비스 4개에 키를 각각 받았고 API마다 키를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있고, 호출 예산 카운터(`quota:{serviceId}:{YYYYMMDD}`)와 단위가 같다. ADR-020 승인 설계의 단일 키 표기를 대체한다. 상세는 아래 ADR-022·[[07-DATA-PIPELINE\|07 수집]] §2.2·[[15-DATA-CONTRACTS\|15 데이터 계약]] §8|
 |ADR-021|사이드바 정보 구조와 입찰 업무 확장: 데모 필수 화면(앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개)과 P1(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 편집), 조직 주소 없는 경로, 서비스 운영자 `/ops` 분리|채택 (설계 승인. 구현 일부 2026-10-17 main `42a4ead`: 부서 계층 `parent_id`·`kind`, `team_member_scoring` 분리, 가입 시 개인 조직 생성 중단, 업무 멤버십 0/1/복수로 현재 조직 판단. 앱 셸 N1·설정 N2·`/people`·`/org-chart`·`/admin/ingestion`·대시보드 카드·`/ops` 분리·P1은 미구현. **ADR-023으로 해커톤 범위 재배치: 데모 필수 화면이 확장 컷으로 이동, 설계는 불변**)|2026-10-16|사용자 승인 4차(2026-10-16). ADR-018·019를 개정하고 미결정 11·12번을 닫는다. 상세는 아래 ADR-021·[사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md)|
 |ADR-023|해커톤 데모 컷 재정의(3단): **핵심 컷**(S2·S3·S4·S-LIVE·S6·S7과 그에 필요한 Phase 0~6 기능) → **확장 컷**(S5 변경 감지, ADR-021 데모 필수 화면, P0-8, 전체 평가셋·P0-11) → **P1**(ADR-021 P1, 변경 없음). 실제 AI 추론 1건(S-LIVE) 필수, E3 대조 실험 필수(축소 규모), 10-21 외부 의존성 컷 규칙 4갈래, 네트워크 대체 경로 결정(미결정 8번 종결)|채택 (2026-10-19 사용자 승인, 구현 전)|2026-10-19|마감 2026-10-27, 공식 배점 실용성 30 + 완성도 25 = 55가 "실제 데이터로 돌아가고 흐름이 완결되는가". 2026-10-18 기준 "이 입찰에 들어가야 하는가" 코드가 0이라 Phase 0~7 전부를 데모 필수로 두면 완결이 불가능. ADR-020·021의 설계는 보존하고 우선순위·노출 범위만 바꾼다. 상세는 아래 ADR-023·[수상 전략·최소 데모 컷](plans/2026-10-18-hackathon-award-plan.md)|
+|ADR-024|Phase 0 실행 환경 결정: web 호스트 실행(Compose에 web 없음), worker 실행 명령·heartbeat health, hosted 승인 게이트, 서비스키 live 전용, mock `KEV_ENABLED=true`, 실행 모드 규칙 원천 `infra/run-modes.json`, 호스트 포트·Compose 프로젝트 이름, 비밀값 취급 규칙, fixture 범위(상세 D1~D15와 구현 시 정한 값은 아래 ADR-024 상세)|제안 (구현됨 `88afb79`·`1b824c8`·`9b2bdf1`, 사람 채택 전)|2026-10-19|계획 [Phase 0 계획](plans/2026-10-18-phase-0-infra.md) D1~D15를 사용자가 "1번으로 진행"(2026-10-18)으로 추천안 전제 확정, redis 호스트 포트 6380은 사용자 결정(2026-10-18). 구현 [[10-DEPLOYMENT\|10 배포]]·[[07-DATA-PIPELINE\|07 수집]] §6.5, 증거 `docs/evidence/phase-0/`|
 
 ### ADR-007 ~ 014 구현 결과
 - **ADR-007**: `web/`에 1280px 미만 breakpoint·결제 모듈·요금 화면 없음. UI 토큰·그리드는 1280~1920만 ([[06-UI-UX|06 UI]]). 17 절대 규칙으로 강제.
@@ -80,7 +81,7 @@ updated: 2026-10-19
 |6|한국어 검색 품질(Qdrant 임베딩과 PostgreSQL full text 병행)|미검증|-|데모 필수 아님. 키워드 검색 fallback이 기본|
 |7|초기 스코어 가중치와 결정 임계값(75/50), 조직별 판정 기준|미검증|-|[[08-SCORING\|08 스코어링]] worked example로 fixture 3건 일치 확인. 조직별 config versioning|
 |8|데모·배포 실행 환경: Supabase 클라우드 그대로 / 로컬 Supabase CLI(`pnpm db:start`) 대체 / 웹 배포처|결정 (ADR-023, 데모 부분)|2026-10-19|데모 기본은 Supabase 클라우드 + 정상 네트워크. 대체 경로 6종을 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5에 고정: 인터넷 실패 → 로컬 Supabase CLI(`pnpm db:start` + `pnpm demo:reset`, D-1 리허설), 공공 API 장애 → `fixture`, GPU 접속 실패 → `mock` 또는 사전 실행 run 조회, Supabase 클라우드 장애 → 로컬 CLI, 첨부 실패 → `DOCUMENT_DOWNLOAD_FAILED` 화면 그대로, 추론 시간 초과 → `PARTIAL`. 자동 fallback 없음, 화면에 모드·출처 표시, 발표에서 밝힌다. 웹 배포처는 여전히 미결정(해커톤은 노트북 1대) ([[10-DEPLOYMENT\|10 배포]])|
-|9|worker가 `server-only` 도메인 코드를 쓰는 실행 방식(`node --conditions=react-server` 또는 같은 효과의 방식)|검증됨|2026-10-18|`node --conditions=react-server --import tsx worker/main.ts --check`가 `worker modules loaded`로 끝나고, `--conditions` 없이는 `server-only`가 "This module cannot be imported from a Client Component module" 오류로 멈춘다. 증거 `docs/evidence/phase-0/worker-conditions.txt`, 커밋 `fa92254`. `web/worker/main.ts`가 BullMQ `system` 큐의 `ping` job을 처리한다. Compose worker entrypoint도 같은 명령 ([[02-ARCHITECTURE\|02 아키텍처]], [[10-DEPLOYMENT\|10 배포]])|
+|9|worker가 `server-only` 도메인 코드를 쓰는 실행 방식(`node --conditions=react-server` 또는 같은 효과의 방식)|검증됨|2026-10-18|`node --conditions=react-server --import tsx worker/main.ts --check`가 `worker modules loaded`로 끝나고, `--conditions` 없이는 `server-only`가 "This module cannot be imported from a Client Component module" 오류로 멈춘다. 증거 `docs/evidence/phase-0/worker-conditions.txt`, 커밋 `fa92254`. `web/worker/main.ts`가 BullMQ `system` 큐의 `ping` job을 처리한다. Compose worker 이미지 CMD도 같은 명령(`node` 직접, `init: true`). **종결 증거 (2026-10-19)**: ① 실제 큐 왕복 — C0 `smoke.sh` 4단계 `worker:ping` 42ms(`docs/evidence/phase-0/smoke.txt`, `c0-integration-20261019.md` 항목 7). ② Node 22 worker 이미지 안에서 `worker:check` 통과, 조건 없이는 `server-only` 실패(Task 5, 커밋 `d170aba`). ③ `docker compose stop worker` ExitCode 0·1초 미만(`docs/evidence/phase-0/worker-stop.txt`) ([[02-ARCHITECTURE\|02 아키텍처]], [[10-DEPLOYMENT\|10 배포]])|
 |10|Supabase Auth 세부 설정값(토큰 만료·refresh 재사용 탐지·로그인 시도 제한·비밀번호 정책)|미검증|-|Supabase 대시보드 설정으로 정하고 확인한다. 확인 전에는 값을 문서에 적지 않는다(지어내지 않는다) ([[09-SECURITY\|09 보안]])|
 |11|현재 조직 고르기: 템플릿 가입 트리거는 계정마다 개인 조직을 만들고 화면은 `/[slug]/…`로 조직을 고른다. 05 `Me`·06 경로(`/dashboard`·`/bids`)는 업무 조직 하나와 slug 없는 경로를 전제한다|결정 (ADR-021)|2026-10-16|조직 주소 없는 경로. 서버가 현재 조직을 정한다(업무 멤버십 0개 안내 / 1개 진입 / 2개 이상 지원 안 함). 조직 전환 UI 없음. 가입 시 개인 조직 생성 중단, 기존 개인 조직은 보존 ([[05-API-SPEC\|05 API]] §1)|
 |12|구성원 관리 권한 기준: 템플릿 RLS는 초대·역할 변경·내보내기를 `org_role=owner`만 허용, 05는 `sol_role=ADMIN`을 요구|결정 (ADR-021)|2026-10-16|구성원 관리는 `sol_role=ADMIN`. 템플릿 owner 기준 정책을 새 마이그레이션으로 바꾼다 ([[05-API-SPEC\|05 API]] §2)|
@@ -92,6 +93,7 @@ updated: 2026-10-19
 |18|공고 첨부 원문(공고문·제안요청서)의 저작권·재배포·학습 사용 권리|미검증|-|내부 분석·사내 학습에만 사용. 외부 공개·데이터셋 배포 전 법무 확인 ([[21-MODEL-TRAINING\|21 모델 학습]], [[09-SECURITY\|09 보안]])|
 |19|면허제한 오퍼레이션의 여러 행이 AND인지 OR인지|미검증|-|실제 응답 확인 전에는 여러 행이면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`) ([[08-SCORING\|08 점수]])|
 |20|문서 파서 형식별 선택(HWP·HWPX·PDF)|미결정|-|미결정 4번과 같은 절차. 실제 RFP 샘플 비교 결과로 형식마다 정하고 이 행을 갱신 ([[03-AI-PIPELINE\|03 AI 파이프라인]] §10)|
+|21|Phase 0 중 발견한 정본 불일치 목록 정리(26건)|제안|2026-10-19|[Phase 0 정본 불일치 목록](plans/2026-10-19-phase-0-doc-inconsistencies.md). 항목마다 사람이 어느 쪽이 맞는지 정한 뒤 해당 정본을 고친다. 구현은 항목별 "구현 방식" 열에 적었다. 일부는 Phase 4·5 골든 확정과 함께 정한다|
 
 검증 전에는 명세 가정으로 표시하고 기능 플래그·mock·fixture로 개발한다.
 
@@ -175,12 +177,44 @@ updated: 2026-10-19
 - **제출물**: 슬라이드·3분 영상·기술 자료 구조를 지금부터 병렬로 준비한다(`docs/submission/`). 미구현 화면을 완성품으로, 미검증 수치를 성과로 쓰지 않는다.
 - 영향 받은 문서: 01·11·12·17·18·19·21. 05는 `feat/people-read` 병합 뒤, 06·10은 후속.
 
+## ADR-024 상세 — Phase 0 실행 환경 결정
+
+상태는 **제안**이다. [Phase 0 계획](plans/2026-10-18-phase-0-infra.md)의 결정 D1~D15를 추천안으로 두고 구현했고(사용자 "1번으로 진행", 2026-10-18), 구현 중 정해진 값을 같이 적는다. 코드는 main `1b824c8`(최종 `88afb79`), Compose 프로젝트 이름 변경은 `9b2bdf1`이다. 채택·수정·폐기는 사람이 정한다. 결과 문서는 [[10-DEPLOYMENT|10 배포]]·[[07-DATA-PIPELINE|07 수집]] §6.5다.
+
+|ID|결정|구현 결과|
+|---|---|---|
+|D1|web은 호스트에서 `pnpm -C web start`로 띄운다. Compose에 `web` 서비스는 없다|`infra/compose.yaml`은 redis·minio·qdrant·ai-gateway·worker 5개|
+|D2|worker 실행은 `node --conditions=react-server --import tsx worker/main.ts`|이미지 CMD도 `node` 직접(pnpm 은 마지막 줄을 덮고 SIGTERM 전달이 불확실), Compose `init: true`|
+|D3|worker health는 heartbeat 파일|`WORKER_HEARTBEAT_FILE`(기본 `/tmp/sol-worker-heartbeat`), 10초마다 갱신, healthcheck가 30초 이내인지 판정|
+|D4|`AI_PROVIDER=hosted`는 `live`·`fixture`에서 `AI_HOSTED_APPROVED=true`일 때만|`infra/run-modes.json`과 gateway가 같이 거부. 정본 03 모드 표에는 hosted가 없어 보충한 규칙이다|
+|D5|서비스키 4개(ADR-022)는 `live`에서만 필수|demo env 예시에는 줄이 없고 ai-local 예시에 `CHANGE_ME`. worker의 빠진 키 알림은 Phase 2|
+|D6|mock 모드의 `KEV_ENABLED=true`(mock adapter가 응답)|10 프로필 표와 일치. 에이전트 정의·ADR-012 행과의 차이는 불일치 목록 4번|
+|D7|실행 모드 규칙 원천은 `infra/run-modes.json` 하나|Node `scripts/run-mode.mjs`와 Python `services/ai`가 같이 읽는다(판정 19,440 입력 불일치 0). gateway 이미지는 저장소 루트를 빌드 컨텍스트로 쓰고 `SOL_RUN_MODES_FILE`로 복사본을 가리킨다. 실행 모드 env의 빈 문자열은 미지정(모드 기본값)|
+|D8|`infra/compose.gpu.yaml`과 ai-local 실기동은 P0-0 때|Phase 0은 `infra/env/ai-local.env.example`과 터널 절차만|
+|D9|첨부 샘플 `fixtures/docs/`는 Phase 2|Phase 0 추출의 인용은 공고 본문만 가리킨다|
+|D10|mock Kev 4건·골든 3건|나머지 Kev 16건·골든 17건은 Phase 4|
+|D11|추출 fixture는 20개 파일(19건 + `FX-07.r01`)|계획은 19건이었으나 `FX-07` r1 추출을 더했다(04 `requirement_extractions` 20, 19 S5 사전 분석과 맞춤)|
+|D12|`FX-20`은 `SEED` 배치|19:44의 `LIVE` 표기는 불일치 목록 9번|
+|D13|CI는 `astral-sh/setup-uv`(SHA 고정) 단계|GitHub Actions는 계정 결제 한도로 시작되지 않아 실제 통과는 확인하지 못했다|
+|D14|lodestar `worker` 층(`worker/**` → domain·infra·shared)|`web/lodestar.config.ts`|
+|D15|템플릿 정리는 Phase 3 N1에서|Phase 0에서는 지우지 않는다(`/health`와 slug `health` 조직의 경로 겹침 포함)|
+|-|redis 호스트 포트 기본 6380|사용자 결정. 호스트에 다른 redis가 6379를 쓴다. 호스트 포트는 `REDIS_HOST_PORT`·`MINIO_HOST_PORT`·`QDRANT_HOST_PORT`·`AI_GATEWAY_HOST_PORT`로 바꿀 수 있고 항상 `127.0.0.1`에만 열린다|
+|-|Compose 프로젝트 이름 `sol-radar-stack`|로컬 Supabase CLI가 `supabase/config.toml`의 `project_id`(`sol-radar`)를 같은 Compose 라벨로 써서, 같은 이름이면 서로를 orphan으로 보고 `--remove-orphans`가 상대 컨테이너를 지울 수 있다(`9b2bdf1`)|
+|-|placeholder 토큰은 `CHANGE_ME` 하나, `minioadmin` 금지, Redis 비밀번호는 영숫자만|`pnpm check:env`가 검사. MinIO 사용자 3자 이상·비밀번호 8자 이상|
+|-|Redis 비밀번호는 argv·`docker inspect`에 남기지 않는다|`requirepass`는 stdin 설정으로, healthcheck·smoke는 `REDISCLI_AUTH`로 전달. redis는 `setpriv`로 `redis` 사용자로 내려 실행(root 실행 방지)|
+
+> [!warning] 미검증 가정
+> - `checks.db`는 로컬 Supabase CLI 스택 기준으로만 확인했다. Supabase 클라우드 프로젝트 연결은 확인하지 않았다.
+> - GitHub Actions CI(`setup-uv` 포함)는 결제 한도로 실행되지 못했다.
+> - ai-local 실기동·터널 경로(D8)와 Linux 호스트에서 worker·gateway가 호스트 터널에 닿는 방법은 P0-0에서 확인한다.
+
 ## 관련 문서
 - [[00-README|00 인덱스]]
 - [[01-PRD|01 PRD]]
 - [[02-ARCHITECTURE|02 아키텍처]]
 - [[03-AI-PIPELINE|03 AI 파이프라인]]
 - [[09-SECURITY|09 보안]]
+- [[07-DATA-PIPELINE|07 수집 파이프라인]]
 - [[10-DEPLOYMENT|10 배포]]
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]
 - [[21-MODEL-TRAINING|21 모델 학습]]

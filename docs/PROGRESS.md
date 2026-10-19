@@ -13,7 +13,8 @@ updated: 2026-10-19
 
 해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후, [[16-DECISIONS|ADR-023]])은 [[12-ROADMAP|12 로드맵]]을 따른다. 핵심 컷의 작업 단위는 아래 "핵심 컷 Critical Path" 절이다.
 
-- [ ] Phase 0 템플릿 정리/Compose(redis·minio·qdrant·ai-gateway·worker)/CI/Supabase 연결 — 코드는 main에 병합됨(다른 세션, `88afb79`·`1b824c8` 2026-10-19: `infra/compose.yaml`·env 예시·smoke, `services/ai` 골격·`/health`·모드 거부, web `/health/*`, mock 추출 19·Kev 4·골든 3 fixture). 앞서 `15f5214`·`fa92254`·`caf0abd`. 미완: 통합 기동 증거(`phase-0/compose-ps.txt`·`health-ready.json`·`run-mode-check.txt`, 이 폴더에 아직 없음), P0-0 외부 의존성 점검(C1, 체크리스트 `evidence/phase-0/external-deps.md` 전항목 대기), 17 보고 형식의 Phase 0 보고
+- [ ] Phase 0 템플릿 정리/Compose(redis·minio·qdrant·ai-gateway·worker)/CI/Supabase 연결 — 수용 기준([[11-TESTING|11 테스트]] §4)의 `checks.db` = Supabase 클라우드 확인이 남아 미완. 코드는 main에 병합됨(`1b824c8`, 최종 `88afb79`; Compose 프로젝트 이름 `9b2bdf1`; 2026-10-19): `infra/compose.yaml`·env 예시·smoke, `services/ai` 골격·`/health`·모드 거부, web `/health/*`, worker, 공고 fixture 20건·mock 추출 20(19건 + `FX-07.r01`)·Kev 4·골든 3. 통합 기동 증거는 `evidence/phase-0/`(C0 10항목·보완 5항목 통과). 설계 결정은 [[16-DECISIONS|ADR-024]] 제안, 정본 불일치는 [목록](plans/2026-10-19-phase-0-doc-inconsistencies.md)
+  - 남은 것: P0-0 외부 의존성 점검 대기(체크리스트 `evidence/phase-0/external-deps.md`, C1). `checks.db` 는 Supabase 클라우드로는 미검증(로컬 Supabase CLI 기준으로만 확인). CI(GitHub Actions)는 계정 결제 한도로 미실행.
 - [ ] Phase 1 Supabase migrations·RLS·`sol_role`/seed/Supabase Auth·RBAC — 일부 선행: 인력·가입 마이그레이션 4개(`20261016000001`~`04`)와 `pnpm people:seed`는 main에 있다(ADR-019·021, 클라우드 적용 전). `sol_role`·공고·분석·알림 표·`pnpm demo:reset`·클라우드 적용은 미완
 - [ ] Phase 2 ingestion/normalization (fixture 20건)
 - [ ] Phase 3 Next.js UI (데스크톱 전용)
@@ -26,7 +27,7 @@ updated: 2026-10-19
 
 정의와 일정은 [[12-ROADMAP|12 로드맵]] Critical Path 표, 근거는 [수상 전략 보고](plans/2026-10-18-hackathon-award-plan.md). 10-21 저녁 C1 결과로 S-LIVE 갈래를 정한다.
 
-- [ ] C0 Phase 0 마감: 코드 병합됨(`1b824c8`). 통합 기동 증거·Phase 0 보고 남음
+- [ ] C0 Phase 0 마감: 코드 병합됨(`1b824c8`), 통합 기동 증거 있음(`evidence/phase-0/c0-integration-20261019.md`·`task8-gaps-20261019.md`). 17 보고 형식의 Phase 0 보고 남음
 - [ ] C1 P0-0 외부 의존성: 체크리스트 [`evidence/phase-0/external-deps.md`](evidence/phase-0/external-deps.md) 전항목 대기. 선행: `infra/.env` 서비스키 4개, GPU 접속 정보·점유 범위, 모델 기동 승인
 - [ ] C2 Phase 1 DB·RLS·`sol_role`(`feat/people-read`의 `20261018000001` 위에)·`pnpm demo:reset`
 - [ ] C3 Phase 2 수집(fixture·live 1건·첨부·`/parse`)
@@ -140,6 +141,7 @@ updated: 2026-10-19
 | 2026-10-18 | 문서 | 심사 관점 문서 감사에서 찾은 내부 불일치 8건 수정. ① "구현 전" 낡은 서술을 2026-10-17 main `42a4ead` 기준 구현 상태로 교체(00·02·04 §3.5·06 §5.2.1·§5.2.2·07 §8·10·16 ADR-019 행·상세) ② 04 §7에 이미 있는 SOL 마이그레이션 4개와 남은 순서 명시 ③ 16 미결정 9번(worker `server-only`)을 검증됨으로 종결하고 02·04 §6·07·10·20의 같은 서술 갱신 ④ 19 §3 5번 사전 분석을 FX-02 제외 18건으로 고치고 S2 분석 현황 기대값·14 지표 #2 참조 정정 ⑤ 03 §5.6 Kev state 예시의 COMPANY 블록을 08 §6.1 프로필과 일치(20 FTE/27명, 중기업 확인서, ISMS-P·CSAP) ⑥ 10 기동 절차 8번 분석 완료 기준 5초 → 10초로 통일 ⑦ Phase 0·1 체크리스트에 진행 상태 주석 ⑧ 01 FR 표 번호순 정렬, `docs/evidence/README.md` 색인 신설 | `prettier --check`, 위키링크 대상 실재 확인. 코드 변경 없음 | 데모 계정 도메인 `soltech.invalid`와 회사명 불일치는 seed·ADR 결정이라 그대로 둠 |
 | 2026-10-18 | 문서 | 해커톤 제출 마감일(2026-10-27)과 공식 심사 기준·배점(실용성 30·사업적 창의성 25·완성도 25·확장 가능성 20)을 사용자 입력으로 확정. 18 머리 콜아웃·§4 표를 공식 기준 4항목으로 교체하고 배점이 정하는 우선순위 한 줄 추가, §10 체크, 12 콜아웃·우선순위 문장 갱신 | 위키링크 대상 실재 확인. 코드 변경 없음 | 발표일·발표 시간·해커톤 이름 미입력. 12 간트 역산 미반영 |
 | 2026-10-18 | 문서 | data.go.kr 서비스키를 서비스별 env 4개로 분리([[16-DECISIONS\|ADR-022]], 사용자 결정): `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, registry `serviceKeyEnv`, 에러코드 22는 그 서비스만 중단. 정본 02·05·07·09·10·11·12·15·16·17·19와 Phase 0 계획(D5·env 예시·check:env 시험) 반영 | `G2B_SERVICE_KEY` 잔존 검색: ADR-022와 승인 설계 문서(고치지 않음)만 남음 | 사용자가 4개 서비스 키 발급(값은 저장소 밖). 실제 응답은 P0-0. 15 §8의 "서비스키 발급 전이라 `NOT_REQUESTED`" 문구와 `approvalStatus`는 P0-0에서 갱신 |
+| 2026-10-19 | Phase 0 | Phase 0 Task 1~7 코드 main 병합(4세션 분담: 실행 모드·AI gateway / worker·web health / 공고 fixture / Compose·병합·조정). 실행 모드 규칙 원천 `infra/run-modes.json`, `pnpm check:env`, gateway 골격·모드 모순 기동 거부(exit 78), worker 진입점·heartbeat, web `/health/live`·`/health/ready`, Compose 5개 서비스·smoke, 공고 fixture 20건·manifest·검증기(`pnpm bids:check`), mock 추출 20·Kev 4·골든 3. 최종 리뷰 수정, Compose 프로젝트 이름 `sol-radar-stack`(`9b2bdf1`). 병합 커밋 `1b824c8`, 보완 증거 `ce74f64`. Task 9: 정본 반영 — [[16-DECISIONS\|ADR-024]] 제안·미결정 21번·미결정 9번 종결 증거, 10 배포 env·포트·healthcheck, 07 §6.5 fixture 형태, 11 증거 목록, evidence 색인, 계획 `done`, [정본 불일치 26건](plans/2026-10-19-phase-0-doc-inconsistencies.md) | `pnpm verify` exit 0(vitest 927·pytest 28, `evidence/phase-0/test-report.txt`). C0 통합 검증 10항목 통과(`c0-integration-20261019.md`). 보완 검증 5항목 통과: AI 장애 리허설 degraded→ok, `stop worker` ExitCode 0(`task8-gaps-20261019.md`) | P0-0 외부 의존성 점검 대기(`evidence/phase-0/external-deps.md`). `checks.db` Supabase 클라우드 미검증(로컬 Supabase CLI 기준). CI(GitHub Actions) 결제 한도로 미실행(`setup-uv` 단계 미확인). ADR-024·미결정 21번 사람 결정 전. 다음 Phase 로 넘긴 minor·parked 는 조정 ledger(`.superpowers/sdd/2026-10-18-phase-0-infra/progress.md`) |
 
 ## 관련 문서
 
