@@ -194,7 +194,7 @@ python -c "from transformers import AutoConfig; print(AutoConfig.from_pretrained
 
 **길이 제한(중요).** `kev.train`의 기본 학습 컨텍스트는 state 384 토큰이다(`kev/model.py` `MAX_STATE`). 우리 state 는 최대 6,000 토큰이다([[03-AI-PIPELINE|03]] §5.6). 그래서 `--max_state`를 반드시 준다. 그보다 긴 레코드는 학습에서 빠지고 로그에 `dropped N of M records that exceed the training context`가 찍힌다. **이 줄의 N이 0이 아니면 학습을 받아들이지 않고** F1 결과에 맞춰 state 를 줄이거나(질문을 나눠 state 를 짧게) `--max_state`를 늘린다.
 
-**번들**: `sol-dataset-{version}.tar` = `manifest.json`(버전·git commit·질문 세트·state 템플릿·마스킹 버전·분할별 개수·파일별 sha256·train 레코드 state 토큰 수 최대값) + `kev/train.en.jsonl`·`kev/dev.en.jsonl`·`kev/test.en.jsonl` + 이 문서의 해당 절. 만드는 명령은 [[21-MODEL-TRAINING|21]] §6(`pnpm dataset:build` → `sol_eval.export`).
+**번들**: `sol-dataset-{version}.tar` = `manifest.json`(버전·git commit·질문 세트·state 템플릿·마스킹 버전·분할별 개수·파일별 sha256·train 레코드 state 토큰 수 최대값) + `kev/train.en.jsonl`·`kev/dev.en.jsonl`·`kev/test.en.jsonl` + 이 문서의 해당 절. 만드는 명령은 [[21-MODEL-TRAINING|21]] §6(`pnpm dataset:build`(예정) → `sol_eval.export`).
 
 ### 4.2 F1 메모리 검증
 
