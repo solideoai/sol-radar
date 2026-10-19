@@ -164,11 +164,9 @@ export async function createIngestWorker(
     await closeQuietly([{ close: () => worker.close() }, { close: () => queue.close() }]);
     throw error;
   }
+  // closeAll 은 거꾸로 닫는다: worker → queue. worker 가 던져도 queue 를 닫고 처음 오류를 던진다.
   return {
-    async close() {
-      await worker.close();
-      await queue.close();
-    },
+    close: () => closeAll([{ close: () => queue.close() }, { close: () => worker.close() }]),
   };
 }
 
@@ -268,12 +266,8 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
         ingestJobDepsOf(config, documentsQueue),
         config.intervalMinutes,
       );
-      return {
-        async close() {
-          await ingest.close();
-          await closeDocuments.close();
-        },
-      };
+      // closeAll 은 거꾸로 닫는다: ingest(Worker·큐) → documents 큐. ingest 가 던져도 documents 큐를 닫는다.
+      return { close: () => closeAll([closeDocuments, ingest]) };
     } catch (error) {
       await closeQuietly([closeDocuments]);
       throw error;

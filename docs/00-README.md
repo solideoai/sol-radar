@@ -67,6 +67,7 @@ updated: 2026-10-19
 | 20 | [[20-GLOSSARY]] | 용어집 (단일 원천) |
 | 21 | [[21-MODEL-TRAINING]] | 평가셋(실제 공고 × 가상 기업)·평가 지표·오류 분석·Kev-9B LoRA 파인튜닝 전략(착수 판단·E4 비교. 실행 절차는 22)·모델 레지스트리 |
 | 22 | [[22-FINETUNE-RUNBOOK]] | 회사 GPU 파인튜닝 실행서: 모델 출처(Hugging Face·GitHub 리비전)·학습 환경·Kev·Qwen 학습 데이터 제작·학습·보정·병합·반입 명령 |
+| 23 | [[23-WEEKEND-FINETUNE]] | 주말(10-24~25) 회사 GPU 파인튜닝 계획: 엔드포인트(등록 location 하나, 학습본은 서버 안 오프라인 채점)·오픈 데이터 출처(나라장터 API × 가상 기업 구성 라벨·Kev 공개 replay)·Hugging Face 모델 선택·시간표·대체 경로 |
 | — | [[CLAUDE]] | Claude Code 지침 (루트 `CLAUDE.md`가 `@docs/CLAUDE.md`로 먼저 불러온다, ADR-015) |
 | — | [[PROGRESS]] | 진행 상황·작업 로그 (저장소 경로 `docs/PROGRESS.md`) |
 

@@ -47,7 +47,7 @@ import {
 } from "./demo/plan.mjs";
 import { createRestClient } from "./demo/rest-client.mjs";
 import { readPortraitState, validatePortraitAssets } from "./people/portraits.mjs";
-import { loadPeopleFixtures, orgUuid, seedSolideoPeople } from "./people/seed.mjs";
+import { catalogUuid, loadPeopleFixtures, orgUuid, seedSolideoPeople } from "./people/seed.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -170,6 +170,8 @@ const deleteOrgScopedRows = async (client, orgIds) => {
 };
 
 // Auth 계정: 이메일로 찾아 없으면 만들고, 있으면 비밀번호·메타데이터만 갱신한다(id 보존). profiles 행은 가입 트리거가 만든다.
+// 가입 트리거는 처음 만들 때만 신고(부서·직급)를 채운다. 그래서 이미 있는 계정도 신고 열을 카탈로그 id 로 다시 맞춘다
+// (예전 seed 로 신고 없이 만든 org-02 계정이 가입 정보 미완료로 남지 않게). 카탈로그는 앞 단계에서 넣었다.
 const seedAccounts = async (client, password) => {
   const existing = await client.auth.listUsers();
   const users = {};
@@ -184,7 +186,12 @@ const seedAccounts = async (client, password) => {
     await client.update(
       "profiles",
       { id: user.id },
-      { display_name: account.displayName, status: "active" },
+      {
+        display_name: account.displayName,
+        status: "active",
+        declared_department_id: catalogUuid(account.departmentCode),
+        declared_job_title_id: catalogUuid(account.jobTitleCode),
+      },
     );
     users[account.key] = { ...account, id: user.id, created: !found };
   }
