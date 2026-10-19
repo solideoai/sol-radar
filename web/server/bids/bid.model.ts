@@ -75,7 +75,8 @@ export type ServiceErrorCode =
   | "ANALYSIS_IN_PROGRESS"
   | "IDEMPOTENCY_KEY_REUSED"
   | "RATE_LIMITED"
-  | "INVALID_CURSOR";
+  | "INVALID_CURSOR"
+  | "SERVICE_UNAVAILABLE";
 
 export const pageInfoSchema = z.strictObject({
   cursor: z.string().nullable(),
