@@ -377,11 +377,12 @@ function checkKevResponses(fixtureId, responses, add) {
     add("KEV_FIT", fixtureId);
 }
 
-function checkKev(fixtureId, kev, add) {
+// fileKey 는 파일 이름(`FX-xx` 또는 앞선 개정의 `FX-xx.rNN`)이고, envelope 의 fixtureId 는 그것과 같다.
+function checkKev(fixtureId, kev, add, fileKey = fixtureId) {
   if (
     !isRecord(kev) ||
     kev.schemaVersion !== "kev-mock/v0.1" ||
-    kev.fixtureId !== fixtureId ||
+    kev.fixtureId !== fileKey ||
     kev.provider !== "mock" ||
     kev.questionSetVersion !== "kev-qs/v0.1" ||
     !isRecord(kev.usage) ||
@@ -481,7 +482,24 @@ function checkMockData(data, manifest, add) {
     if (id !== undefined && (!entries.has(id) || isQuarantined(id)))
       add("EXTRACTION_UNEXPECTED", id);
   }
-  for (const key of Object.keys(kev)) if (!IDS.includes(key)) add("KEV_SHAPE", key);
+  // 앞선 개정의 Kev 응답 `FX-xx.rNN` 은 추출과 같은 규칙이다: manifest 의 격리 아닌 FX 이고,
+  // 공고에 있는 마지막이 아닌 개정이며, 기본 파일 `FX-xx` 도 있어야 한다(mock 은 rNN 이 없으면 기본 파일을 쓴다).
+  for (const key of Object.keys(kev)) {
+    if (IDS.includes(key)) continue;
+    const [, id, revisionNo] = key.match(REVISION_KEY) ?? [];
+    if (id === undefined || !entries.has(id) || isQuarantined(id)) {
+      add("KEV_SHAPE", id ?? key);
+      continue;
+    }
+    const records = Array.isArray(bids[id]?.records) ? bids[id].records : [];
+    if (
+      revisionNo === records.at(-1)?.amendmentNo ||
+      !records.some((item) => item?.amendmentNo === revisionNo)
+    )
+      add("KEV_REVISION", id);
+    if (!has(kev, id)) add("KEV_MISSING", id);
+    checkKev(id, kev[key], add, key);
+  }
   for (const key of Object.keys(goldens)) if (!IDS.includes(key)) add("GOLDEN_SHAPE", key);
 }
 
