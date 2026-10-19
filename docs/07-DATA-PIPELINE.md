@@ -18,7 +18,7 @@ updated: 2026-10-19
 
 발주계획(`PLAN`), 사전규격(`PRE_SPEC`), 입찰공고(`NOTICE`)가 P0. 계약과정 통합공개·낙찰·계약정보는 후속이다. 낙찰 결과는 학습 목표로도 쓰지 않는다([[21-MODEL-TRAINING|21 모델 학습]]).
 
-해커톤 MVP는 `live` 모드의 실수집을 목표로 한다. 수집 대상은 입찰공고 중 **용역이면서 정보화사업(`infoBizYn='Y'`)** 인 공고다. 사전규격·발주계획은 단계 연결(§4)에 쓴다. fixture 20건은 `fixture`·`mock` 모드와 CI에서 그대로 쓴다(§1.2, §6).
+해커톤 MVP는 `live` 모드의 실수집을 목표로 한다. 수집 대상은 입찰공고 중 **용역이면서 정보화사업**인 공고다. 정보화사업은 `infoBizYn='Y'`이거나, 낙찰방법명 `sucsfbidMthdNm`에 "SW사업"이 있거나, 공공조달분류명 `pubPrcrmntClsfcNm`이 정보시스템·SW 분류인 공고다(§2.2, [[16-DECISIONS|ADR-029]] A4). 사전규격·발주계획은 단계 연결(§4)에 쓴다. fixture 20건은 `fixture`·`mock` 모드와 CI에서 그대로 쓴다(§1.2, §6).
 
 ```mermaid
 flowchart LR
@@ -29,7 +29,7 @@ flowchart LR
  E --> F[Idempotent upsert<br/>Supabase, service role]
  F --> G[Revision diff]
  G --> J[documents job<br/>첨부 다운로드 → /parse]
- J --> H[Analysis enqueue]
+ J -.->|해커톤 컷 밖| H[Analysis enqueue]
  G --> I[Notification outbox]
 ```
 
@@ -37,14 +37,14 @@ flowchart LR
 
 | 단계 | 서비스 (ID) | 기본 URL | 쓰는 오퍼레이션 | 해커톤 |
 |---|---|---|---|---|
-| `NOTICE` | 입찰공고정보서비스 (15129394) | `http://apis.data.go.kr/1230000/ad/BidPublicInfoService` | `getBidPblancListInfoServc`(용역 목록), `getBidPblancListInfoChgHstryServc`(변경이력), `getBidPblancListInfoLicenseLimit`(면허제한), `getBidPblancListInfoPrtcptPsblRgn`(참가가능지역), `getBidPblancListInfoEorderAtchFileInfo`(e발주 첨부·제안요청서) | P0 |
+| `NOTICE` | 입찰공고정보서비스 (15129394) | `https://apis.data.go.kr/1230000/ad/BidPublicInfoService` | `getBidPblancListInfoServc`(용역 목록), `getBidPblancListInfoChgHstryServc`(변경이력), `getBidPblancListInfoLicenseLimit`(면허제한), `getBidPblancListInfoPrtcptPsblRgn`(참가가능지역), `getBidPblancListInfoEorderAtchFileInfo`(e발주 첨부·제안요청서) | P0 |
 | `PRE_SPEC` | 사전규격정보서비스 (15129437) | `/1230000/ao/HrcspSsstndrdInfoService` | `getPublicPrcureThngInfoServc`(용역), `getPublicPrcureThngInfoServcPPSSrch`(`swBizObjYn` 필터) | P0 (P0-8) |
 | `PLAN` | 발주계획현황서비스 (15129462) | `/1230000/ao/OrderPlanSttusService` | `getOrderPlanSttusListServc` | P0 (P0-8) |
 | 코드 마스터 | 업종 및 근거법규 (15129467) | `/1230000/ao/IndstrytyBaseLawrgltInfoService` | `getIndstrytyBaseLawrgltInfoList`(전체 업종 코드·명·근거법) | P0 (한 번 받아 사전으로 저장) |
 | 단계 연결 보조 | 계약과정통합공개 (15129459) | — | `getCntrctProcssIntgOpenServc` | 후속 (평가셋 사업 묶기에 선택 사용) |
 | 후속 | 낙찰정보 (15129397), 계약정보 (15129427), 사용자정보 (15129466) | — | — | 해커톤 밖. 낙찰은 학습 목표 아님 |
 
-registry 키(`g2b-bid-notice` 등 9개)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다.
+registry 키(`g2b-bid-notice` 등 9개)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다. 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). registry 파일 `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 만들고, Connector는 endpoint를 생성자로 받는다.
 
 > [!success] 검증됨 (2026-10-16 명세 확인, 2026-10-19 실응답 확인)
 > 위 서비스 ID·기본 URL·오퍼레이션과 §2.2·§3.1의 요청 파라미터·응답 필드 이름은 각 서비스 페이지의 명세에서 확인했다. 무료이고 개발·운영 계정 모두 자동승인이며, 개발계정 호출 한도는 서비스마다 1,000이다(사용자정보·개방표준은 10,000). 2026-10-19에 서비스키로 네 서비스를 37회 실제 호출했고, 담당자 필드를 마스킹한 녹음 응답 14건을 `fixtures/recorded/<serviceId>/`에 저장했다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md)). 명세와 실제가 다른 점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8 콜아웃이 정본이다.
@@ -82,7 +82,9 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - worker는 `SUPABASE_SERVICE_ROLE_KEY`로 Supabase에 쓴다. 공고 표(`bid_notices`, `bid_revisions`, `bid_documents`)와 `ingest_runs`·`ingest_errors`·`outbox_events`는 화면 역할에 쓰기 권한이 없고 worker만 쓴다([[04-DATABASE|04 DB]] §3).
 - service role은 RLS를 무시한다. 공고는 공용 데이터라 `org_id`가 없다. 조직이 걸리는 행(수동 수집 감사 `INGEST_MANUAL`, 조직 사용자에게 가는 알림)은 job 데이터의 `orgId`를 직접 넣는다. 조직 표에 쓰는 worker 코드에는 테넌트 혼입 시험을 둔다.
 - 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다.
-- 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다. 변경 감지 뒤 분석 job 등록도 Redis/BullMQ로 한다.
+- 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다.
+- 공고·revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 한 번에(원자적으로) 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘겨 리허설마다 공고 id를 보존한다([[16-DECISIONS|ADR-030]] B18).
+- 변경 감지 뒤 하위 job은 outbox와 `documents` 큐만 Redis/BullMQ로 만든다. 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집 주기는 기본 30분이고 env로 바꾼다(B18).
 
 > [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`)
 > worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `import "server-only"`인 `web/server` 모듈을 불러온다. 지금 처리하는 job과 종결 증거는 [[16-DECISIONS|16 ADR]] 미결정 9번이다.
@@ -125,12 +127,13 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
   - 일정 실행(BullMQ repeatable job): 직전 성공 체크포인트 ~ 지금. 요청 한 번은 최대 1일 단위로 나눠 조회한다.
   - 수동 실행(`POST /api/v1/admin/ingestion/runs`의 `window`, [[05-API-SPEC|05 API]]): 최대 7일.
   - API가 허용하는 조회 기간 상한은 미확인이다(§1.1 콜아웃). 실측해서 나눠 조회하는 단위를 조정한다.
-- 정보화사업 필터: `infoBizYn`은 요청 파라미터가 아니다. 어느 오퍼레이션의 명세에도 없고, 요청에 넣어도 오류 없이 무시된다(2026-10-19 실호출). 그래서 응답의 `infoBizYn`으로 클라이언트 쪽에서 거른다. 7일 100건 표본에서 `Y`는 6건이고 약 93%가 빈값(`""`)이라 `Y`만 받으면 대부분을 놓친다. 1차 필터를 넓힐지(`sucsfbidMthdNm`의 "SW사업", `pubPrcrmntClsfcNm` 분류, 업종코드 필터 등)는 정하지 않았다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md) §10-4, 16 미결정 1번).
+- 정보화사업 필터: `infoBizYn`은 요청 파라미터가 아니다. 어느 오퍼레이션의 명세에도 없고, 요청에 넣어도 오류 없이 무시된다(2026-10-19 실호출). 그래서 응답의 `infoBizYn`으로 클라이언트 쪽에서 거른다. 7일 100건 표본에서 `Y`는 6건이고 약 93%가 빈값(`""`)이라 `Y`만 받으면 대부분을 놓친다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md) §10-4). 그래서 필터를 넓힌다([[16-DECISIONS|ADR-029]] A4): `infoBizYn='Y'` **또는** `sucsfbidMthdNm`에 "SW사업" 포함 **또는** `pubPrcrmntClsfcNm`이 정보시스템·SW 분류. 필터는 교체할 수 있는 순수 함수로 두고 기본값이 이 규칙이다. 업종코드 필터는 쓰지 않는다.
 - 보조 조회 3종(면허제한 `getBidPblancListInfoLicenseLimit`, 참가가능지역 `getBidPblancListInfoPrtcptPsblRgn`, e발주 첨부 `getBidPblancListInfoEorderAtchFileInfo`)은 **새 revision일 때만** 부른다. 세 오퍼레이션은 `inqryDiv`가 필수다. 공고 1건만 받으려면 `inqryDiv=2` + `bidNtceNo`(+기간)로 부른다. `inqryDiv=1`(기간)은 `bidNtceNo`를 무시하고 기간 안 전체(물품·공사·용역)를 돌려주고, `inqryDiv=3`은 오류 `07`(입력범위값 초과)이다(2026-10-19 실호출). 공고마다 1회 부를지, 수집 창과 같은 기간으로 받아 `bidNtceNo`+`bidNtceOrd`로 붙일지는 정하지 않았다(증거 §10-3).
 - 사전규격은 일정 실행, 발주계획은 하루 1회, 업종 코드 마스터는 수동으로 받아 사전으로 저장한다(키별 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8).
 - 호출 예산은 서비스마다 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST)로 따로 센다.
   - 한도의 90%에 닿으면 보조 조회를 멈춘다. 그 공고는 `확인 필요`(`NEEDS_REVIEW`, 정보 부족)로 남긴다.
   - 에러코드 22(일일 허용량 초과)를 받으면 그 서비스의 그날 호출을 멈춘다. 다른 서비스의 수집은 계속한다. 입찰공고정보서비스가 멈추면 목록과 보조 조회 3종이 함께 멈춘다.
+  - data.go.kr XML 오류 봉투의 `returnReasonCode`는 22 = `QUOTA_EXCEEDED`(위 처리), 30·31 = 키 오류(재시도하지 않는다)로 읽는다([[16-DECISIONS|ADR-030]] B17). 실측 표본이 없는 **미검증 가정**이다(16 미결정 1번).
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
 - 초당 30 tps(참고문서)를 넘지 않는다.
 
@@ -224,6 +227,7 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 - 같은 조건을 API 구조화 필드와 Qwen 추출이 둘 다 주면 **API 구조화 필드가 우선**이다(면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt`). 두 값이 다르면 그 필드를 `CONFLICTED`로 둔다([[15-DATA-CONTRACTS|15 데이터 계약]] §3·§4, [[08-SCORING|08 점수]] §5.1).
 - **개인정보**: 담당자 필드(이름·전화·이메일)는 `NormalizedBid`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관하고, 모델 입력과 데이터셋 내보내기에서도 뺀다([[09-SECURITY|09 보안]], [[21-MODEL-TRAINING|21 모델 학습]]).
 - 업종 코드는 업종 및 근거법규 마스터(15129467)를 받아 만든 사전으로 이름과 잇는다. 소프트웨어사업자 등 업종 코드의 실제 값은 마스터를 받아 확인한다(미확인).
+- 상태: `ntceKindNm` 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 값은 [[15-DATA-CONTRACTS|15]] §6 격리다([[16-DECISIONS|ADR-030]] B14).
 
 ## 4. 공고 이력 연결
 
@@ -243,6 +247,8 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 | 마감·예산·자격·첨부 변경 | +1 | `BID_CHANGED` 1건 | 큐 등록 |
 | 취소 | +1, `status=CANCELLED` | `BID_CHANGED` 1건 | 하지 않음. 기존 `score_runs`·`bid_reviews` 보존 |
 | 마감 72시간 이내 진입 | 없음 | `DEADLINE_APPROACHING` 1건 (하루 1회) | 없음 |
+
+"재분석" 열의 "큐 등록"은 설계다. 해커톤 컷에서는 수집이 분석 큐에 자동으로 넣지 않는다(§2, [[16-DECISIONS|ADR-030]] B18).
 
 ## 6. Fixture 20건 명세
 
@@ -306,7 +312,7 @@ fixture 한 건의 형태:
 | `FX-02` | NOTICE | 경기도교육청 통합 LMS 구축 | 경기도교육청 | 28억 | +10d | 신규·정상. 요구기술 6개 중 3개 보유, 마감 촉박 | **WATCH** (점수 72) | — | S4 라이브 분석 + 사람 결정 |
 | `FX-03` | NOTICE | 부산광역시 지능형 CCTV 통합관제센터 구축 | 부산광역시 | 45억 | +15d | 필수자격 미충족(정보통신공사업 등록). mock Kev는 `BID 0.55` 제시 | **NO-BID** (자격). 점수 68은 참고. `MODEL_RULE_DISAGREEMENT` 기록 | G3 | S3 "규칙이 Kev를 이긴다" |
 | `FX-04` | NOTICE | 한국지능정보사회진흥원 데이터 거버넌스 체계 수립 컨설팅 | 한국지능정보사회진흥원 | 6억 | +12d | 첨부 없음. 본문에 자격 요건 문장 없음 | 자격 **NEEDS_REVIEW** → WATCH. 근거 인용 0건, 수주확률 문구 없음 | G4 | — |
-| `FX-05` | NOTICE | 국민건강보험공단 대국민 포털 재구축 | 국민건강보험공단 | 32억 | +20d | 첨부 HWP 파싱 실패(의도적으로 손상) | `parse_status=FAILED`, 추출 `PENDING_REVIEW`, 자격 NEEDS_REVIEW → WATCH. "첨부 원문 확인" 배지 | G4 변형 | — |
+| `FX-05` | NOTICE | 국민건강보험공단 대국민 포털 재구축 | 국민건강보험공단 | 32억 | +20d | 첨부 HWP 파싱 실패(의도적으로 손상) | `parse_status=FAILED`, 추출 `PENDING_REVIEW`(`warnings`의 `ATTACHMENT_PARSE_FAILED:*`, [[03-AI-PIPELINE\|03]] §4.4, ADR-029 A2), 자격 NEEDS_REVIEW → WATCH. "첨부 원문 확인" 배지 | G4 변형 | — |
 | `FX-06` | NOTICE | 대전광역시 스마트시티 통합플랫폼 유지보수 | 대전광역시 | 9억 | +14d → r2 +28d | 기한변경 정정(`LIVE` 배치, `amendmentNo` 02) | **BID** (점수 78) 유지. revision 2, `BID_CHANGED` 알림 정확히 1건 | G2 | S5 변경 알림 |
 | `FX-07` | NOTICE | 한국도로공사 교통정보 데이터플랫폼 고도화 | 한국도로공사 | 18억 → r2 21.6억 | +18d | 정정: 예산 증액 + 요구기술 `Kubernetes` 추가(`LIVE`, `amendmentNo` 02) | r1 WATCH (68) → r2 **BID** (76). 재분석 1회, 알림 1건 | G2 변형 | S5 재분석으로 점수 변동 |
 | `FX-08` | NOTICE | 충청북도 농업기술정보시스템 구축 | 충청북도 | 7억 | +16d | 취소 공고(`LIVE`에서 r2 `CANCELLED`) | 상태 `CANCELLED`, 재분석 없음, r1 검토 기록 보존, 알림 1건 | — | — |
@@ -314,7 +320,7 @@ fixture 한 건의 형태:
 | `FX-10` | NOTICE | 강원특별자치도 관광정보시스템 재구축 (재공고) | 강원특별자치도 | 8억 | +14d | 차수 변경: `noticeId=DEMO-2026-0010`, `amendmentNo` `01` → `02`(유찰 후 재공고, `LIVE`) | 같은 bid의 revision 2, 재분석, 알림 1건. WATCH | G1 변형 | — |
 | `FX-11` | NOTICE | 인천광역시 민원 챗봇 고도화 | 인천광역시 | null | null | 예산·마감 누락 | 적재 OK. 규모 적합 `missingFactors` 기록(중립 7.5점), 마감 임박 집계 제외. WATCH | — | — |
 | `FX-12` | NOTICE | (제목 없음) | 경상북도 | 3억 | +10d | 필수 필드 `title` 누락 | 격리. `ingest_errors` 1건, 목록 미노출, 관리자 화면에 오류 1건 | — | S2 격리 1건 |
-| `FX-13` | NOTICE | 울산광역시 산업안전 모니터링 플랫폼 | 울산광역시 | `"1,500백만원"` | +19d | 금액 텍스트 정규화 + 추출 fixture에 원문과 불일치하는 인용 1건 | `budgetKrw="1500000000"`, 원본 문자열 보존. 인용 검증 실패 → 해당 필드 `CONFLICTED`, 근거 미표시, 자격 NEEDS_REVIEW. WATCH | — | — |
+| `FX-13` | NOTICE | 울산광역시 산업안전 모니터링 플랫폼 | 울산광역시 | `"1,500백만원"` | +19d | 금액 텍스트 정규화 + 추출 fixture에 원문과 불일치하는 인용 1건 | `budgetKrw="1500000000"`, 원본 문자열 보존. 인용 검증 실패 → 해당 필드(`qualifications`) `UNKNOWN` + `note="CITATION_FAILED"`, 실패 인용은 `match=FAILED`로 남고 화면에 보이지 않음, `warnings`에 `CITATION_FAILED:qualifications`, `reviewFlags`에 `CITATION_FAILED`(`CONFLICTED` 아님, ADR-029 A1), 자격 NEEDS_REVIEW. WATCH | — | — |
 | `FX-14` | NOTICE | 광주광역시 AI 행정 비서 시범사업 | 광주광역시 | 5억 | +2d (KST 18:00) | 마감 임박, 타임존 변환 | UTC 09:00 저장. 대시보드 "마감 임박" 카드, `DEADLINE_APPROACHING` 1건. WATCH (일정 감점) | — | S2 마감 임박 |
 | `FX-15` | NOTICE | 행정안전부 차세대 지방행정 공통기반 구축 | 행정안전부 | 80억 | +30d | 규모 초과(솔리데오 수행 상한 50억) | 규모 적합 0점 + `SCALE_LIMIT_EXCEEDED` 경고. WATCH (58) | — | — |
 | `FX-16` | NOTICE | 국방부 군 지휘통제체계 SW 유지보수 | 국방부 | 40억 | +20d | 비선호 분야(국방) + 방산업체 지정 필수 미충족. mock Kev도 `NO_BID 0.70` | **NO-BID** (자격). 규칙·Kev 일치 | G3 일치 사례 | — |
@@ -337,8 +343,8 @@ fixture 한 건의 형태:
 | `FX-02` | 요구기술 6 + 우대 2, 필요 인력 `UNKNOWN`, 인용 2건 | `fieldState=UNKNOWN` 처리 |
 | `FX-03` | 자격 문장 "정보통신공사업법에 따른 정보통신공사업 등록업체" 인용 포함 | NOT_SATISFIED 근거 |
 | `FX-04` | 첨부 없음 → 추출 결과 비어 있음, 인용 0건 | 근거 없음 → NEEDS_REVIEW |
-| `FX-05` | 첨부 파싱 실패 → 추출 `PENDING_REVIEW`, 본문 인용만 | 파싱 실패 경로 |
-| `FX-13` | 인용 1건의 `quotedText`가 원문에 없음 → 인용 검증 실패 | 해당 필드 `CONFLICTED`, 근거 미표시 |
+| `FX-05` | 첨부 파싱 실패 → `warnings`에 `ATTACHMENT_PARSE_FAILED:FX-05-rfp`, 추출 `PENDING_REVIEW`, 본문 인용만 | 파싱 실패 경로(ADR-029 A2) |
+| `FX-13` | `qualifications` 인용 1건의 `quotedText`가 원문에 없음 → 인용 검증 실패 | 해당 필드 `UNKNOWN` + `note="CITATION_FAILED"`, `warnings`에 `CITATION_FAILED:qualifications`, 근거 미표시(ADR-029 A1) |
 | 그 외 | 제목·본문에서 만든 단순 추출. 인용은 본문 문자열과 일치 | 회귀 |
 
 **`fixtures/kev/FX-xx.json`** — mock Kev 응답. 03 §5의 질문 4종(`recommendation` choice, `mandatoryRisk` noul, `needsHumanReview` noul, `fit` score 5등급)을 모두 채운다. `fit`의 wire `score`는 0부터 세는 index(0~4)다. 아래 표와 고정값의 `fit`은 화면 표시값(1~5)이고 파일에는 표시값 − 1을 쓴다(예: `FX-01` 표시 4.5 → wire 3.5). 질문 세트 `kev-qs/v0.1`, `provider="mock"`. **20건 전부 명시 파일로 제공한다**(격리되는 `FX-12`는 생략 가능). 특수 4건(`FX-01`·`02`·`03`·`16`)은 아래 표의 값, 나머지 16건은 다음 값을 파일에 고정값으로 기록한다: `recommendation`은 규칙 권고 선택지 0.60 / 나머지 0.25·0.15, `mandatoryRisk` 0.10, `needsHumanReview`는 자격 NEEDS_REVIEW면 0.70 아니면 0.20, `fit`은 화면 표시값 규칙 점수/20(wire는 그 값 − 1). 이렇게 하면 데모·골든에서 의도치 않은 `MODEL_RULE_DISAGREEMENT`가 생기지 않는다. 파일이 없을 때만 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.7 fallback 공식을 쓴다.
@@ -362,6 +368,8 @@ fixture 한 건의 형태:
 
 `summary` 키는 [[04-DATABASE|04 DB]]의 `ingest_runs.summary`와 같다. `SEED`를 두 번 돌리면 두 번째는 `skippedDuplicate:19, quarantined:1`이어야 한다(멱등). seed는 공고 외에 조직 2(`org-01` 솔리데오, `org-02` 비교조직), 계정 5(Supabase Auth 사용자. org-01 4역할 + org-02 VIEWER, 역할은 `memberships.sol_role`), 프로필 revision 2, 사전 리뷰 2건(`FX-01` BID, `FX-03` NO-BID)을 함께 넣는다. 범위와 멱등 규칙은 [[04-DATABASE|04 DB]] §6, 계정 목록은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1, 기대 로그는 [[10-DEPLOYMENT|10 배포]] 데모 당일 기동 절차 6번이다.
 
+`ingest_runs.status`는 `SEED`가 격리 1건이 있어 `PARTIAL`, `LIVE`가 `SUCCEEDED`, connector가 중간에 멈추면 `FAILED`다. `bid_revisions`는 seed 직후 19행, `LIVE` 배치의 새 revision 4건(`FX-06`·`FX-07`·`FX-08`·`FX-10`) 뒤 23행이다([[16-DECISIONS|ADR-030]] B15, [[04-DATABASE|04 DB]] §6).
+
 ### 6.5 Phase 0 구현 형태 (2026-10-19, `caf0abd`·`91655a9`·`f238a3f`)
 
 Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값을 바꾸지 않고, 구현이 정한 필드와 파일 이름 규칙만 더한다. 검증 명령은 `pnpm bids:check`(`scripts/bids/check.mjs`)다.
@@ -380,12 +388,13 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - `expected.designScore`는 6.2 표에 숫자가 있는 7건만 숫자이고 나머지는 `null`이다. 정확한 값은 Phase 4 골든이 정한다.
 
 **공고 레코드 추가 규칙** (`fixtures/bids/FX-xx.json`)
-- 레코드의 선택 필드 `status`: `OPEN`·`AMENDED`·`CANCELLED`·`CLOSED`([[15-DATA-CONTRACTS|15 데이터 계약]]). 지금은 `FX-08` r2만 `CANCELLED`다.
+- 레코드의 선택 필드 `status`: `OPEN`·`AMENDED`·`CANCELLED`·`CLOSED`([[15-DATA-CONTRACTS|15 데이터 계약]]). 지금은 `FX-08` r2만 `CANCELLED`다. 레코드에 `status`가 없고 revision이 2 이상이면 `AMENDED`로 정규화한다. `CLOSED`는 정규화가 만들지 않는다(§3.1, [[16-DECISIONS|ADR-030]] B14).
 - `budgetKrw`의 원문 텍스트("12억원" 같은 표기)는 manifest tags에 `budget-text`가 있는 fixture(`FX-13`)에서만 허용한다. 나머지는 숫자 문자열이다.
 
 **추출 파일 이름** (`fixtures/extractions/`)
 - `FX-xx.json`은 마지막 revision, `FX-xx.rNN.json`은 앞선 revision이다. 지금은 `FX-07.r01.json` 하나다. 그래서 추출은 19건(`FX-12` 격리 제외) + `FX-07` r1 = 20개 파일이다([[04-DATABASE|04 DB]] `requirement_extractions` 20과 맞는다).
 - 파일 안의 `bidId: "FX-xx"`·`revisionId: "FX-xx#NN"`은 seed가 UUID로 바꾸는 자리표시다. `rNN` 파일이 없는 revision은 seed·mock gateway가 `FX-xx.json`을 그 revision에 쓴다(예: `FX-06` r1).
+- gateway에 보내는 fixture 식별자는 `FX-NN` 또는 `FX-NN.rNN`이다. worker는 늘 `FX-NN.rNN`을 보내고, mock gateway는 그 파일이 없으면 위 규칙대로 `FX-NN.json`으로 대체한다. 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절하고, 응답의 id는 요청 값으로 바꾼다([[03-AI-PIPELINE|03]] §2.1, [[16-DECISIONS|ADR-030]] B4).
 
 **mock Kev·골든 envelope**
 - mock Kev: `schemaVersion: "kev-mock/v0.1"`, `fixtureId`, `provider`, `questionSetVersion: "kev-qs/v0.1"`, `responses`, `usage`, `latency_ms`.
