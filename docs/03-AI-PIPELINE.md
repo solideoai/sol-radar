@@ -76,7 +76,7 @@ Compose 내부 네트워크 전용 엔드포인트다([[02-ARCHITECTURE|02 아�
 |엔드포인트|호출자|단위|하는 일|v0.2|
 |---|---|---|---|---|
 |`POST /parse`|documents job(Worker), 새 revision의 첨부마다|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·MinIO 접근 없음. Worker가 텍스트를 MinIO에 쓰고 `bid_documents`에 상태를 기록|새로|
-|`POST /extract`|extract job(Worker), 새 revision마다|공고 revision(조직 무관)|chunk → Qdrant 색인 → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations` 반환. Worker가 `requirement_extractions`에 저장|확장|
+|`POST /extract`|extract job(Worker), 새 revision마다|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations` 반환. Worker가 `requirement_extractions`에 저장|확장|
 |`POST /kev`|analysis job(Worker)|조직 × revision × 프로필 revision|추출 `KNOWN` 값 + 프로필 요약으로 state 구성(§5.6·§5.11) → Kev 질문 세트 → `KevAssist` + `stateTrace`·`stateHash` 반환|확장|
 |`POST /explain`|analysis job(Worker)|조직 × revision × 프로필 revision|규칙 판정·점수 분해·인용·Kev 참고 요약 → 한국어 설명. 입력에 없는 숫자가 있으면 템플릿 문장으로 대체(§6)|새로|
 |`GET /health`|Worker(기동·주기), Route Handler `GET /api/v1/admin/ai/status`|—|실행 모드, Qwen 모델·프롬프트 해시, Kev 모델 id·레지스트리 일치, 질문 세트, 파서 목록|확장|
@@ -150,7 +150,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 - analysis job의 큐 jobId는 `analysis_<orgId>_<scoreRunId>`다(BullMQ가 jobId에 `:`를 금지해서 `_`로 잇는다). 저장 멱등 키 `<orgId>:<requestId>`와 다른 값이다([[05-API-SPEC|05]] §4.5, [[16-DECISIONS|ADR-031]] C14).
 - `/kev` 본문에 규칙 결과(자격 판정·점수·권고)를 넣지 않는다(§5.6). `/explain`에는 넣는다(설명 대상이다).
 
-`GET /health` 응답([[16-DECISIONS|ADR-030]] B9): `runMode`, `qwen: {model, promptHash} | null`, `kev: {modelId, registryMatch} | null`, `questionSets: string[]`, `parsers: {format, parserId}[]`. mock이면 `qwen`은 fixture 고정 값(`model:"fixture"`, fixture 공통 `promptHash`)이다. worker의 추출 재사용 키(revision, model_name, prompt_hash)가 사전 분석이 저장한 추출과 맞게 하려는 것이다. seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다, [[16-DECISIONS|ADR-031]] C16). Route Handler `GET /api/v1/admin/ai/status`·`/admin/ai/models`가 이 값을 읽는다([[05-API-SPEC|05 API]]).
+`GET /health` 응답([[16-DECISIONS|ADR-030]] B9): `status: "ok"`, `runMode`, `provider`(`mock` / `local` / `hosted`), `kevEnabled: boolean`(Kev 어댑터가 있으면 `true`), `qwen: {model, promptHash} | null`, `kev: {modelId, registryMatch} | null`, `questionSets: string[]`, `parsers: {format, parserId}[]`(gateway `services/ai/src/sol_ai/app.py`, worker 쪽 스키마 `web/server/analysis/gateway.model.ts`의 `healthResponseSchema`). mock이면 `qwen`은 fixture 고정 값(`model:"fixture"`, fixture 공통 `promptHash`)이다. worker의 추출 재사용 키(revision, model_name, prompt_hash)가 사전 분석이 저장한 추출과 맞게 하려는 것이다. seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다, [[16-DECISIONS|ADR-031]] C16). Route Handler `GET /api/v1/admin/ai/status`·`/admin/ai/models`가 이 값을 읽는다([[05-API-SPEC|05 API]]).
 
 ### 2.2 외부 의존성 인터페이스
 
@@ -192,7 +192,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`QWEN_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 엔드포인트 뒤 vLLM `--api-key`와 같은 값). `local`에서 필수(ADR-025). 서버 env(`infra/.env`)만, 로그 금지([[09-SECURITY\|09 보안]])|
 |`QWEN_MODEL`|모델 ID|(없음)|기본 후보 `Qwen/Qwen3.5-9B`(§3.2). 결과 메타데이터에 기록|
 |`QWEN_CONTEXT_BUDGET_TOKENS`|정수|`12000`|추출 1회 입력 상한. 초과 chunk는 Qdrant 순위로 자른다|
-|`EMBEDDING_MODEL`|모델 ID|(없음)|`mock`이면 키워드 검색으로 대체|
+|`EMBEDDING_MODEL`|모델 ID|(없음)|**미구현(해커톤 컷 밖)**. Qdrant 색인과 함께 코드가 읽지 않는다(2026-10-19 `services/ai/src`·`web/server`·`web/worker`에 0건). 설계: `mock`이면 키워드 검색으로 대체|
 |`KEV_ENABLED`|`true`/`false`|`true`|세 모드 모두 기본 `true`이고 `false`를 허용한다(`infra/run-modes.json`, [[16-DECISIONS\|ADR-029]] A5). `false`면 Kev 없이 `RULES_ONLY`이고 분석은 `COMPLETED`다(§9). `mock`에서 `true`면 mock adapter가 응답|
 |`KEV_BASE_URL`|URL|(없음)|Kev 서버 주소. 해커톤 `local` 값은 [[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시(ADR-025, §5.9). `mock`에서는 쓰지 않는다|
 |`KEV_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 엔드포인트 뒤 `kev.serve`의 `KEV_API_KEY`와 같은 값). `local`에서 필수(§5.9, ADR-025). 서버 env만, 로그 금지|
@@ -554,7 +554,7 @@ COMPANY (profile revision 2)
 
 ### 5.7 어댑터 계약
 
-`services/ai/adapters/kev.py`. `KevAdapterInput`은 `POST /kev` 본문(§2.1)과 같다.
+`services/ai/src/sol_ai/adapters/kev.py`. `KevAdapterInput`은 `POST /kev` 본문(§2.1)과 같다.
 
 ```ts
 // 입력 (내부 계약, Kev wire 형식 아님)
@@ -604,7 +604,7 @@ interface KevAssist {
 - 추출이 인젝션 의심이면 Kev를 부르지 않는다: `enabled=false`, `KevResponse.errorCode=INJECTION_SUSPECTED`, 분석 `COMPLETED`·`RULES_ONLY`(§2.1, [[16-DECISIONS|ADR-030]] B3).
 - mock adapter: fixture별 고정 응답 파일 `fixtures/kev/FX-xx.json`(wire 응답 형식 그대로)을 우선 읽는다. 예: FX-02는 `BID 0.36 / WATCH 0.52 / NO_BID 0.12`, `needsHumanReview 0.74`([[19-DEMO-SCENARIO|19 데모 시나리오]]·[[08-SCORING|08 점수]] 계산 예시와 같은 숫자). 파일이 없으면 공식(추출·프로필만으로 계산, 규칙 결과 없음): `mandatory=true`인 `qualifications[].code`가 프로필 `licenses`에 없으면 `NO_BID` 0.8, 필수 항목 중 `UNKNOWN`/`CONFLICTED`가 있으면 `WATCH` 0.7, 아니면 `BID` 0.6 중심의 고정 분포. 공식의 `fit`은 세 분기 모두 `{"0":0,"1":0.2,"2":0.6,"3":0.2,"4":0}`, `confidence` 0.6, `score` 2.0이다(§5.4, [[16-DECISIONS|ADR-031]] C7). 어느 쪽이든 `provider="mock"`이고 UI가 DEMO 배지로 보여 준다. mock adapter는 v0.1만 내므로 v0.2 필드는 null이다.
 - 테넌트 표기: 문서 예시의 `orgId: "org-01"`(솔리데오), `"org-02"`(비교 조직)는 seed `organizations.slug`다. 실제 API·DB 값은 UUID([[04-DATABASE|04 DB]] §6).
-- wire 형식은 README를 따르되 `services/ai/adapters/kev_wire.py` 한 곳에서만 다룬다. 필드명을 다른 곳에 하드코딩하지 않는다.
+- wire 형식은 README를 따르되 `services/ai/src/sol_ai/adapters/kev_wire.py` 한 곳에서만 다룬다. 필드명을 다른 곳에 하드코딩하지 않는다.
 
 ### 5.8 hosted 경로
 
@@ -804,7 +804,7 @@ interface ParseResult {
 ```
 
 - 표는 행마다 한 줄로 쓰고 셀 사이에 ` | `를 넣어 `text`에 직렬화한다. 셀마다 `charStart/charEnd`를 남겨서 표 안 문장도 인용 검증([[15-DATA-CONTRACTS|15 데이터 계약]] §5)을 그대로 통과할 수 있게 한다.
-- 어댑터는 `services/ai/parsers/{pdf,hwpx,hwp}/` 아래 후보마다 하나씩 둔다. 형식마다 사용할 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다(§3). 기본값은 §10.3 비교가 끝난 뒤 정한다.
+- 어댑터는 **예정**이다(아직 없다. `services/ai/src/sol_ai/parse.py`는 형식 판정과 미지원 응답만 한다). 만들 때 `services/ai/parsers/{pdf,hwpx,hwp}/` 아래 후보마다 하나씩 둔다. 형식마다 사용할 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다(§3). 기본값은 §10.3 비교가 끝난 뒤 정한다.
 - Python 밖 런타임이 필요한 후보는 gateway 안에서 상주 하위 프로세스로 부른다(Node·JVM). 이미지 크기와 기동 시간은 비교 표에 함께 적는다([[10-DEPLOYMENT|10 배포]] 파서 런타임). 하위 프로세스의 운영 방식(상주 워커 수, 재시작 정책)은 구현 때 정한다.
 - gateway는 지금처럼 DB·MinIO에 접근하지 않고, `/parse`는 네트워크도 쓰지 않는다. 형식은 확장자가 아니라 내용(매직 바이트)으로 판단한다.
 - 어댑터가 아직 정해지지 않은 형식과 모르는 형식은 `UNSUPPORTED` + `UNSUPPORTED_FORMAT`이고 `warnings`에 `PARSER_NOT_CONFIGURED:<fmt>`, `parserId`는 `"none"`이다. 50 MB를 넘으면 `UNSUPPORTED` + `TOO_LARGE`다([[16-DECISIONS|ADR-030]] B6).

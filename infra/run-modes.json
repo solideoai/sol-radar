@@ -18,14 +18,14 @@
       "DEMO_MODE": ["true"],
       "AI_PROVIDER": ["local", "hosted"],
       "KEV_ENABLED": ["true", "false"],
-      "forbidden": {},
+      "forbidden": { "AI_FALLBACK_TO_MOCK": "true" },
       "requiredSecrets": []
     },
     "mock": {
       "DEMO_MODE": ["true"],
       "AI_PROVIDER": ["mock"],
       "KEV_ENABLED": ["true", "false"],
-      "forbidden": {},
+      "forbidden": { "AI_FALLBACK_TO_MOCK": "true" },
       "requiredSecrets": []
     }
   },

@@ -1,14 +1,17 @@
 ---
 title: "솔리데오 가상 인력 구현 계획 2 — 정장 사진 200장"
-status: completed
+status: final
 tags:
   - sol-radar
   - plan
   - imagegen
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 
 # 솔리데오 정장 프로필 200장 Implementation Plan
+
+> [!success] 보관 (2026-10-19)
+> 이 설계안은 정본에 반영됐다(근거: [[PROGRESS|진행 상황]] 솔리데오 절 "imagegen 고유 정장 프로필 200장 생성·AI 품질 검사"·"사람 최종 승인·READY 200 전환" 항목, main 병합 `42a4ead`(2026-10-17), 증거 `evidence/people/20261016-portraits-review.json`·`20261017-portraits-approval.json`). 수정하지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 

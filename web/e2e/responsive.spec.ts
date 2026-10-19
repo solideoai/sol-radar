@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-// 공개 경로가 휴대폰(320px)부터 데스크톱까지 가로로 넘치지 않는지 본다.
-// 첫 화면(/)은 데스크톱 전용이라(docs/16-DECISIONS.md ADR-007) 여기서 재지 않는다.
-// 1280·1440·1920px 넘침은 landing.spec.ts 가 본다.
+// 공개 경로가 데스크톱 확인 폭(1280·1440px)에서 가로로 넘치지 않는지 본다.
+// 화면은 데스크톱 1280px 이상만 지원하고 모바일 폭은 확인하지 않는다(docs/16-DECISIONS.md ADR-007).
+// 첫 화면(/)은 여기서 재지 않는다. 1280·1440·1920px 넘침은 landing.spec.ts 가 본다.
 // 공개 경로를 새로 만들면 이 목록에 더한다.
 // 로그인이 필요한 경로(/[slug]/...·/teams/new·/invitations)는 로그인 없이 열어, 앱 틀 대신 나오는 안내 화면을 잰다.
 // 로그인 전에는 조직이 있는지 묻지 않고 안내부터 그리므로 조직 주소(slug)는 아무것이나 쓴다.
@@ -24,7 +24,7 @@ const PATHS = [
   "/admin",
   "/acme/route-that-does-not-exist",
 ];
-const WIDTHS = [320, 375, 768, 1280];
+const WIDTHS = [1280, 1440];
 
 PATHS.forEach((path) =>
   WIDTHS.forEach((width) =>

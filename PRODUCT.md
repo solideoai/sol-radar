@@ -27,7 +27,7 @@ web
 
 - 데스크톱 전용, 1280~1920px, 확인 폭 1440·1280px. 모바일 레이아웃·앱·결제는 영구 범위 외. → `docs/16-DECISIONS.md` ADR-007
 - 사용 회사는 솔리데오로 고정한다. 회사명·부서·직급만 실제이고 직원 200명·사진·자격·실적·재무는 가상이다. 공고는 가상 fixture 20건이고 화면에 DEMO 표시를 단다. → `docs/16-DECISIONS.md` ADR-019, `docs/18-HACKATHON.md` §7, `docs/19-DEMO-SCENARIO.md`
-- 2026-10-16 현재 제품 기능은 구현 전이다(Phase 0 전). 첫 화면은 계정 만들기·로그인만 실제로 동작한다. → `docs/PROGRESS.md`
+- 2026-10-19 기준: DB·RLS(C2)·수집(C3)·규칙 엔진(C4)·AI gateway mock(C5)이 main 에 병합됐고, 공고·분석 화면(C6)과 결정 기록·알림(C7)은 미구현이다. 첫 화면은 계정 만들기·로그인만 실제로 동작한다. 데모는 Compose mock 모드다. → `docs/PROGRESS.md`
 
 ## Capabilities and Constraints
 
