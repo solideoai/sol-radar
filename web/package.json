@@ -24,7 +24,8 @@
     "test:browser": "vitest run --config vitest.browser.config.ts",
     "worker": "node --conditions=react-server --import tsx worker/main.ts",
     "worker:check": "node --conditions=react-server --import tsx worker/main.ts --check",
-    "worker:ping": "node --conditions=react-server --import tsx worker/ping.ts"
+    "worker:ping": "node --conditions=react-server --import tsx worker/ping.ts",
+    "demo:preanalyze": "node --conditions=react-server --import tsx worker/demo-preanalyze.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
