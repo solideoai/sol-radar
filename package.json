@@ -22,7 +22,7 @@
     "db:seed": "node scripts/db-seed.mjs",
     "db:push": "bash scripts/db-push.sh",
     "db:verify": "bash scripts/db-verify.sh",
-    "demo:reset": "node scripts/demo-reset.mjs",
+    "demo:reset": "pnpm -C web exec node --conditions=react-server --import tsx ../scripts/demo-reset.mjs",
     "bids:check": "node scripts/bids/check.mjs",
     "people:seed": "node scripts/people/seed.mjs",
     "people:check": "node scripts/people/check.mjs",
