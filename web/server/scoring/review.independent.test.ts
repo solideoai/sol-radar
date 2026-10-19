@@ -734,7 +734,7 @@ describe("fixture 별 규칙에서 바로 따라오는 기대 (07 §6.2 · 08 §
     expect(result.recommendation).toBe("WATCH");
   });
 
-  it("FX-04: 자격 문장 미추출 → NEEDS_REVIEW(NOTICE_INFO_MISSING), 근거 0건, 권고 WATCH, Kev 없음 → RULES_ONLY", () => {
+  it("FX-04: 자격 문장 미추출 → NEEDS_REVIEW(NOTICE_INFO_MISSING), 근거 0건, 권고 WATCH, Kev 참고 → RULES_WITH_KEV_ASSIST", () => {
     const { result } = RESULTS.find((entry) => entry.label === "FX-04")!;
     expect(result.qualificationStatus).toBe("NEEDS_REVIEW");
     expect(result.qualificationChecks.map((check) => check.reasonCode)).toEqual([
@@ -742,7 +742,7 @@ describe("fixture 별 규칙에서 바로 따라오는 기대 (07 §6.2 · 08 §
     ]);
     expect(result.qualificationChecks.flatMap((check) => check.evidence)).toEqual([]);
     expect(result.recommendation).toBe("WATCH");
-    expect(result.recommendationBasis).toBe("RULES_ONLY");
+    expect(result.recommendationBasis).toBe("RULES_WITH_KEV_ASSIST");
     expect(result.explanation).toContain("정보 부족은 미충족이 아니며 사람이 확인합니다");
   });
 
@@ -769,7 +769,7 @@ describe("fixture 별 규칙에서 바로 따라오는 기대 (07 §6.2 · 08 §
       outcome: "NEEDS_REVIEW",
       reasonCode: "PARSE_UNSUPPORTED",
     });
-    expect(result.reviewFlags).toEqual(["PARSE_UNSUPPORTED"]);
+    expect(result.reviewFlags).toEqual(["PARSE_UNSUPPORTED", "KEV_NEEDS_REVIEW"]);
     expect(factorOf(result, "skillMatch").rawValue).toMatchObject({
       required: 2,
       matched: 2,
