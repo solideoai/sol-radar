@@ -11,6 +11,7 @@ import type {
 } from "@/server/bids";
 
 // 부품 시험과 스토리용 데이터. 숫자의 정본은 fixtures/goldens/FX-0n.json 과 fixtures/kev/FX-0n.json 이다.
+// fit.score 는 wire 값(0~4)이고 표시 n/5 는 부품이 floor+1 로 만든다.
 // 서버 모듈은 타입으로만 가져온다(클라이언트 번들에 server-only 가 들어가면 안 된다).
 
 const FETCHED_AT = "2026-10-16T00:00:00Z";
@@ -211,7 +212,7 @@ export const FX01_VIEW: AnalysisView = {
     probabilities: { BID: 0.71, WATCH: 0.24, NO_BID: 0.05 },
     mandatoryRisk: 0.05,
     needsHumanReview: 0.12,
-    fitScore: 4,
+    fitScore: 3.5,
   }),
 };
 
@@ -245,7 +246,7 @@ export const FX02_VIEW: AnalysisView = {
     probabilities: { BID: 0.36, WATCH: 0.52, NO_BID: 0.12 },
     mandatoryRisk: 0.1,
     needsHumanReview: 0.74,
-    fitScore: 3,
+    fitScore: 2.2,
   }),
 };
 
@@ -296,7 +297,7 @@ export const FX03_VIEW: AnalysisView = {
     probabilities: { BID: 0.55, WATCH: 0.3, NO_BID: 0.15 },
     mandatoryRisk: 0.85,
     needsHumanReview: 0.58,
-    fitScore: 2,
+    fitScore: 1.8,
   }),
 };
 

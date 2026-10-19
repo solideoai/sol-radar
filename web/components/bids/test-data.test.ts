@@ -51,6 +51,16 @@ describe.each(cases)("%s 뷰", (id, view) => {
   });
 });
 
+describe.each(cases)("%s Kev 적합도", (id, view) => {
+  it("fit.score 가 fixtures/kev 의 wire 값과 같다", () => {
+    const url = new URL(`../../../fixtures/kev/${id}.json`, import.meta.url);
+    const kev = JSON.parse(readFileSync(url, "utf8")) as {
+      responses: { fit: { score: number } };
+    };
+    expect(view.kev.fit?.score).toBe(kev.responses.fit.score);
+  });
+});
+
 describe("Kev 분포와 특성", () => {
   it("FX-01 은 0.71/0.24/0.05, v0.1, v0.2 필드 null, 항목 분포 1건 이상", () => {
     expect(FX01_VIEW.kev.enabled).toBe(true);
