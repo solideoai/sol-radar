@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - decision
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 16. 아키텍처 결정 기록 (ADR)
@@ -34,9 +34,10 @@ updated: 2026-10-18
 |ADR-017|아키텍처 전환: Next.js(`web/`, 화면·Route Handler·서버 도메인 `web/server/<도메인>`) + **Supabase(Postgres·RLS·Auth)**. NestJS·Prisma·자체 JWT 인증은 쓰지 않는다. Worker는 `web/worker` 진입점(같은 코드베이스의 별도 프로세스, BullMQ). MinIO·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose는 유지. 조직 데이터 열은 `org_id`, 업무 역할은 `memberships.sol_role`(ADMIN·SALES·ANALYST·VIEWER). service role 키는 worker·seed만. 개발 DB·Auth는 Supabase 클라우드 프로젝트(Pro)|채택|2026-10-16|사용자 결정(2026-10-16). 출발 템플릿(agentic-boilerplate)이 Next.js + Supabase(조직·역할·RLS·인증 견본, 정책 시험·타입 생성 게이트)라 그대로 쓰면 인증·격리를 새로 만들지 않는다. ADR-001·002를 대체한다([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
 |ADR-018|가입·로그인 방식: 공개 가입 + 초대. 누구나 이메일 + 비밀번호(`/auth/sign-up`) 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만들고, 업무 조직 합류는 초대 수락으로 한다. 간편 로그인 제공자 설정은 해커톤 안에서 하되 다른 기능을 모두 끝낸 뒤 한다(후순위)|채택 (ADR-021로 개정: 가입 시 개인 조직 생성 중단, 이미 있는 개인 조직은 보존)|2026-10-16|사용자 결정(2026-10-16). 랜딩의 시작하기가 이미 `/auth/sign-up`으로 가고, 버튼·콜백·계정 연결 코드가 템플릿에 있어 새로 만들 것이 없다. 미결정 13번을 닫는다 ([[09-SECURITY\|09 보안]], [[12-ROADMAP\|12 로드맵]])|
 |ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명(남녀 100/100)·고유 정장 사진 200장, 엑셀 팀명 합산·비례 배분·자연스러운 세 글자 가상 이름, 가입 부서·직급/직책 필수|채택 (데이터·DB·가입 구현됨, 2026-10-17 main `42a4ead`. 화면 `/people`·`/org-chart`와 클라우드 DB 적용은 미완. ADR-021로 개정: 인력 표를 운영 `team_members`와 점수 `team_member_scoring`으로 분리, 사람이 고르는 규칙 매칭 후보 표시 허용)|2026-10-16|사용자 인터뷰 및 저장 경로 최종 승인. 상세는 아래 ADR-019·[[07-DATA-PIPELINE\|07 데이터]]·[[06-UI-UX\|06 UI]]·[[PROGRESS]]|
-|ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 Open API 실수집·첨부 파싱, Qwen3.5-9B·Kev-9B 실추론(회사 GPU 서버), Kev `kev-qs/v0.2` 참고 지표(SOL Score 미반영), 평가셋·평가 체계, Kev-9B LoRA 는 오류 분석 뒤 후속|채택 (설계 승인. 구현 일부 2026-10-18: 실행 모드 규칙 `infra/run-modes.json`·`pnpm check:env`(`15f5214`), 공고 fixture 20건·검증기(`caf0abd`). 수집·파싱·실추론·평가는 Phase 1~7)|2026-10-16|사용자 결정(2026-10-16): "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP". ADR-004·008·012를 개정한다. 상세는 아래 ADR-020·[[21-MODEL-TRAINING\|21 모델 학습]]·[[03-AI-PIPELINE\|03 AI 파이프라인]]·[[07-DATA-PIPELINE\|07 수집]]. 승인 설계: [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)|
+|ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 Open API 실수집·첨부 파싱, Qwen3.5-9B·Kev-9B 실추론(회사 GPU 서버), Kev `kev-qs/v0.2` 참고 지표(SOL Score 미반영), 평가셋·평가 체계, Kev-9B LoRA 는 오류 분석 뒤 후속|채택 (설계 승인. 구현 일부 2026-10-18: 실행 모드 규칙 `infra/run-modes.json`·`pnpm check:env`(`15f5214`), 공고 fixture 20건·검증기(`caf0abd`). 수집·파싱·실추론·평가는 Phase 1~7. **ADR-023으로 해커톤 범위 재배치: live 실수집·실추론 1건·E3는 핵심 컷, P0-8·전체 평가셋·P0-11은 확장 컷. 설계는 불변**)|2026-10-16|사용자 결정(2026-10-16): "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP". ADR-004·008·012를 개정한다. 상세는 아래 ADR-020·[[21-MODEL-TRAINING\|21 모델 학습]]·[[03-AI-PIPELINE\|03 AI 파이프라인]]·[[07-DATA-PIPELINE\|07 수집]]. 승인 설계: [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)|
 |ADR-022|data.go.kr 서비스키를 서비스마다 따로 둔다: env 4개(`G2B_BID_NOTICE_SERVICE_KEY` 15129394·`G2B_PRE_SPEC_SERVICE_KEY` 15129437·`G2B_ORDER_PLAN_SERVICE_KEY` 15129462·`G2B_INDUSTRY_MASTER_SERVICE_KEY` 15129467). 소스 registry의 `serviceKeyEnv`가 소스별 env 이름을 가리킨다. 단일 `G2B_SERVICE_KEY`는 쓰지 않는다|채택 (구현 일부: `infra/run-modes.json`·`pnpm check:env`가 네 키 이름을 `live` 필수로 검사한다(`15f5214`). registry `serviceKeyEnv`와 `OfficialApiConnector`는 Phase 2)|2026-10-18|사용자 결정(2026-10-18): 서비스 4개에 키를 각각 받았고 API마다 키를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있고, 호출 예산 카운터(`quota:{serviceId}:{YYYYMMDD}`)와 단위가 같다. ADR-020 승인 설계의 단일 키 표기를 대체한다. 상세는 아래 ADR-022·[[07-DATA-PIPELINE\|07 수집]] §2.2·[[15-DATA-CONTRACTS\|15 데이터 계약]] §8|
-|ADR-021|사이드바 정보 구조와 입찰 업무 확장: 데모 필수 화면(앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개)과 P1(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 편집), 조직 주소 없는 경로, 서비스 운영자 `/ops` 분리|채택 (설계 승인. 구현 일부 2026-10-17 main `42a4ead`: 부서 계층 `parent_id`·`kind`, `team_member_scoring` 분리, 가입 시 개인 조직 생성 중단, 업무 멤버십 0/1/복수로 현재 조직 판단. 앱 셸 N1·설정 N2·`/people`·`/org-chart`·`/admin/ingestion`·대시보드 카드·`/ops` 분리·P1은 미구현)|2026-10-16|사용자 승인 4차(2026-10-16). ADR-018·019를 개정하고 미결정 11·12번을 닫는다. 상세는 아래 ADR-021·[사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md)|
+|ADR-021|사이드바 정보 구조와 입찰 업무 확장: 데모 필수 화면(앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개)과 P1(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 편집), 조직 주소 없는 경로, 서비스 운영자 `/ops` 분리|채택 (설계 승인. 구현 일부 2026-10-17 main `42a4ead`: 부서 계층 `parent_id`·`kind`, `team_member_scoring` 분리, 가입 시 개인 조직 생성 중단, 업무 멤버십 0/1/복수로 현재 조직 판단. 앱 셸 N1·설정 N2·`/people`·`/org-chart`·`/admin/ingestion`·대시보드 카드·`/ops` 분리·P1은 미구현. **ADR-023으로 해커톤 범위 재배치: 데모 필수 화면이 확장 컷으로 이동, 설계는 불변**)|2026-10-16|사용자 승인 4차(2026-10-16). ADR-018·019를 개정하고 미결정 11·12번을 닫는다. 상세는 아래 ADR-021·[사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md)|
+|ADR-023|해커톤 데모 컷 재정의(3단): **핵심 컷**(S2·S3·S4·S-LIVE·S6·S7과 그에 필요한 Phase 0~6 기능) → **확장 컷**(S5 변경 감지, ADR-021 데모 필수 화면, P0-8, 전체 평가셋·P0-11) → **P1**(ADR-021 P1, 변경 없음). 실제 AI 추론 1건(S-LIVE) 필수, E3 대조 실험 필수(축소 규모), 10-21 외부 의존성 컷 규칙 4갈래, 네트워크 대체 경로 결정(미결정 8번 종결)|채택 (2026-10-19 사용자 승인, 구현 전)|2026-10-19|마감 2026-10-27, 공식 배점 실용성 30 + 완성도 25 = 55가 "실제 데이터로 돌아가고 흐름이 완결되는가". 2026-10-18 기준 "이 입찰에 들어가야 하는가" 코드가 0이라 Phase 0~7 전부를 데모 필수로 두면 완결이 불가능. ADR-020·021의 설계는 보존하고 우선순위·노출 범위만 바꾼다. 상세는 아래 ADR-023·[수상 전략·최소 데모 컷](plans/2026-10-18-hackathon-award-plan.md)|
 
 ### ADR-007 ~ 014 구현 결과
 - **ADR-007**: `web/`에 1280px 미만 breakpoint·결제 모듈·요금 화면 없음. UI 토큰·그리드는 1280~1920만 ([[06-UI-UX|06 UI]]). 17 절대 규칙으로 강제.
@@ -78,7 +79,7 @@ updated: 2026-10-18
 |5|카카오 비즈메시지 발신 계약과 승인된 템플릿|미검증|-|해커톤 범위 밖. mock provider ([[13-NOTIFICATIONS\|13 알림]])|
 |6|한국어 검색 품질(Qdrant 임베딩과 PostgreSQL full text 병행)|미검증|-|데모 필수 아님. 키워드 검색 fallback이 기본|
 |7|초기 스코어 가중치와 결정 임계값(75/50), 조직별 판정 기준|미검증|-|[[08-SCORING\|08 스코어링]] worked example로 fixture 3건 일치 확인. 조직별 config versioning|
-|8|데모·배포 실행 환경: Supabase 클라우드 그대로 / 로컬 Supabase CLI(`pnpm db:start`) 대체 / 웹 배포처|미결정|-|개발은 Supabase 클라우드 프로젝트(사용자 Pro 구독, ADR-017). 사용자 원문: "일단 개발은 Supabase에 하고 추후에 Supabase Pro 구독 중이라 바꿀 거야." 클라우드면 데모 중 인터넷이 필요하다. 네트워크 장애 대체(로컬 CLI, 사전 녹화 영상)와 웹 배포처(Vercel 전제 여부 포함)를 사용자가 정한다 ([[10-DEPLOYMENT\|10 배포]], [[19-DEMO-SCENARIO\|19 데모 시나리오]])|
+|8|데모·배포 실행 환경: Supabase 클라우드 그대로 / 로컬 Supabase CLI(`pnpm db:start`) 대체 / 웹 배포처|결정 (ADR-023, 데모 부분)|2026-10-19|데모 기본은 Supabase 클라우드 + 정상 네트워크. 대체 경로 6종을 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5에 고정: 인터넷 실패 → 로컬 Supabase CLI(`pnpm db:start` + `pnpm demo:reset`, D-1 리허설), 공공 API 장애 → `fixture`, GPU 접속 실패 → `mock` 또는 사전 실행 run 조회, Supabase 클라우드 장애 → 로컬 CLI, 첨부 실패 → `DOCUMENT_DOWNLOAD_FAILED` 화면 그대로, 추론 시간 초과 → `PARTIAL`. 자동 fallback 없음, 화면에 모드·출처 표시, 발표에서 밝힌다. 웹 배포처는 여전히 미결정(해커톤은 노트북 1대) ([[10-DEPLOYMENT\|10 배포]])|
 |9|worker가 `server-only` 도메인 코드를 쓰는 실행 방식(`node --conditions=react-server` 또는 같은 효과의 방식)|검증됨|2026-10-18|`node --conditions=react-server --import tsx worker/main.ts --check`가 `worker modules loaded`로 끝나고, `--conditions` 없이는 `server-only`가 "This module cannot be imported from a Client Component module" 오류로 멈춘다. 증거 `docs/evidence/phase-0/worker-conditions.txt`, 커밋 `fa92254`. `web/worker/main.ts`가 BullMQ `system` 큐의 `ping` job을 처리한다. Compose worker entrypoint도 같은 명령 ([[02-ARCHITECTURE\|02 아키텍처]], [[10-DEPLOYMENT\|10 배포]])|
 |10|Supabase Auth 세부 설정값(토큰 만료·refresh 재사용 탐지·로그인 시도 제한·비밀번호 정책)|미검증|-|Supabase 대시보드 설정으로 정하고 확인한다. 확인 전에는 값을 문서에 적지 않는다(지어내지 않는다) ([[09-SECURITY\|09 보안]])|
 |11|현재 조직 고르기: 템플릿 가입 트리거는 계정마다 개인 조직을 만들고 화면은 `/[slug]/…`로 조직을 고른다. 05 `Me`·06 경로(`/dashboard`·`/bids`)는 업무 조직 하나와 slug 없는 경로를 전제한다|결정 (ADR-021)|2026-10-16|조직 주소 없는 경로. 서버가 현재 조직을 정한다(업무 멤버십 0개 안내 / 1개 진입 / 2개 이상 지원 안 함). 조직 전환 UI 없음. 가입 시 개인 조직 생성 중단, 기존 개인 조직은 보존 ([[05-API-SPEC\|05 API]] §1)|
@@ -155,6 +156,24 @@ updated: 2026-10-18
 - **값 형식**: data.go.kr Decoding 키(인코딩 전 원문)를 넣고 Connector가 URL 인코딩을 한 번만 한다. P0-0 실제 호출로 확인한다.
 - **비밀 보호**: 네 값을 모두 로그·오류 메시지·`ingest_errors`·응답 본문·증거에서 가린다(V2-11, [[11-TESTING|11 테스트]]). 네 값이 같아도 env는 나눈다.
 - 승인 설계 [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)는 고치지 않는다. 그 문서의 단일 `G2B_SERVICE_KEY` 표기는 이 ADR이 대체한다.
+
+## ADR-023 상세 — 해커톤 데모 컷 재정의
+
+2026-10-19 사용자 승인. 보고서는 [수상 전략·최소 데모 컷](plans/2026-10-18-hackathon-award-plan.md)이다. ADR-020·021의 기술 설계와 결정 이력은 그대로이고, 바뀌는 것은 **해커톤 기간의 우선순위와 데모 노출 범위**뿐이다. 이미 구현된 코드와 진행 중인 브랜치(`feat/people-read` 등)는 삭제·중단하지 않는다.
+
+- **근거**: 마감 2026-10-27. 공식 배점 실용성 30 + 완성도 25 = 55가 "실제 데이터로 돌아가고 흐름이 끊기지 않는가"다. 2026-10-18 기준 공고 스키마·수집·점수 엔진·AI gateway 엔드포인트·화면이 모두 설계만이라, Phase 0~7과 ADR-021 데모 필수 화면 전부를 데모 필수로 유지하면 완결된 흐름이 나오지 않는다.
+- **3단 컷**
+  - 핵심 컷(데모 필수): S2 대시보드, S3 FX-01 충족·근거·94 / FX-03 NO-BID·Kev 상충, S4 FX-02 분석·72·사람 결정·알림, **S-LIVE 실제 공고 1건 AI 분석 결과**, S6 `PARTIAL`, S7 격리 404. 필요한 기능은 [[12-ROADMAP|12 로드맵]] Critical Path C0~C9.
+  - 확장 컷(핵심 컷 green 뒤, 순서대로): S5 변경 감지 → `feat/people-read` 병합과 `/people`·`/org-chart` 노출 → `/admin/ingestion` → 설정 조직 탭 → P0-8 사전규격·발주계획 단계 연결 → 전체 평가셋(test 20·dev 10)·P0-11 학습셋 내보내기.
+  - P1(ADR-021 P1, 변경 없음): 관심 공고 → 분석 결과 비교 → 입찰 프로젝트 → 인력 배치 시뮬레이션 → 조직·인력 편집. 착수 게이트는 "핵심 컷 + 확장 컷 전부 green"으로 읽는다(기존 "데모 필수 전부 green"과 같은 뜻).
+  - 해커톤 이후: 기존 12 "해커톤 이후" 칸 그대로. 카카오 실발송, `/ops` 분리, 직원 편집, 인력 배치 저장은 해커톤 안에 두지 않는다.
+- **인력 데이터**: 명부 200·점수 계산 대상 27명·20 FTE는 보존하고 SOL Score `staffAvailability` 입력으로 쓴다. 조직도 화면 없이도 점수 입력은 동작해야 한다.
+- **S-LIVE**: 실제 나라장터 공고 1건을 `live` 모드로 사전 수집·파싱·추출·규칙·점수·Kev까지 돌린 run을 발표 중 `mock` 모드 앱에서 `origin=all`로 조회한다(분석마다 `run_mode`·모델을 기록하므로 표시가 그대로다, [[03-AI-PIPELINE|03]] §3.3). 발표 중 모드 전환·재시작은 하지 않는다. 실시간 추론을 못 했으면 같은 입력의 실행 로그 기반 녹화 영상을 쓰고 "녹화"라고 말한다. 녹화·fixture 결과를 live라고 표시하지 않는다.
+- **E3 필수**: [[21-MODEL-TRAINING|21 모델 학습]] §4.2의 E3(Qwen 분류 대조군)를 해커톤 축소 규모(fixture 20 + 실공고 5)로 필수 실행한다. 골든 94/72/68·가중치·Kev 미반영 구조는 결과와 무관하게 불변. 효과가 없으면 개선을 주장하지 않고 3안(유지·축소·제외)을 제안한다. 설계는 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md).
+- **10-21 컷 규칙**(저녁, C1 결과 기준. 핵심 기능 개발은 계속한다): API·GPU 모두 정상 → 실공고·실추론 유지 / API 정상·GPU 불가 → 실공고에 규칙만 `PARTIAL` / API 불가·GPU 정상 → 검증된 fixture로 실추론 시연 / 둘 다 불가 → fixture·mock 시연과 사전 확보한 검증 증거만. 어느 경우든 실행 모드와 출처를 화면·발표에 표시한다.
+- **네트워크 대체 경로**: 미결정 8번 참조. 자동 fallback·원본 위조 기능은 추가하지 않는다.
+- **제출물**: 슬라이드·3분 영상·기술 자료 구조를 지금부터 병렬로 준비한다(`docs/submission/`). 미구현 화면을 완성품으로, 미검증 수치를 성과로 쓰지 않는다.
+- 영향 받은 문서: 01·11·12·17·18·19·21. 05는 `feat/people-read` 병합 뒤, 06·10은 후속.
 
 ## 관련 문서
 - [[00-README|00 인덱스]]

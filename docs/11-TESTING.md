@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 11. 검증·테스트 전략
@@ -146,7 +146,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 모델 평가는 이 문서의 골든·V2 시험과 목적이 다르다. 골든은 통과/실패를 가르는 결정적 회귀이고, 평가는 실제 공고에서 모델이 얼마나 맞히는지를 재는 측정이다. 지표 정의·비교 대상·오류 분석 절차·수용 기준의 정본은 [[21-MODEL-TRAINING|21]] §4·§7이고 여기에는 요약만 둔다.
 
 - 평가셋: 실제 공고 × 가상 기업 원형 6개, test 20·dev 10 사업(사업 단위 분할), 사람 검수는 추출 정답 20건과 의미 대응 라벨 150건 이상.
-- 비교: E0(규칙만)·E1(Kev-9B@v1.0, 영어 state)·E2(같은 모델, 한국어 state)는 필수, E3(Qwen 분류 대조군)은 선택.
+- 비교: E0(규칙만)·E1(Kev-9B@v1.0, 영어 state)·E2(같은 모델, 한국어 state)·**E3(Qwen 분류 대조군)** 모두 필수. 해커톤에서는 축소 규모(fixture 20건 + 실공고 5건, ADR-023 X1)로 돌리고 전체 평가셋(test 20·dev 10 사업)은 확장 컷이다. 설계는 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md). 표본이 작아 신뢰구간이 넓다는 것을 리포트에 적는다.
 - 지표 영역: 추출, 분류, 보정, 일관성, 한국어/영어 차이, 성능. 표본이 작아 모든 지표에 부트스트랩 95% 신뢰구간과 표본 수를 함께 적는다.
 - 초기 목표(Macro-F1 0.80, 정보부족→미충족 혼동률 5%, 보정 후 ECE 0.08)에 못 미쳐도 자동으로 파인튜닝하지 않는다. 오류 분석으로 원인 단계를 가른 뒤 사람이 정한다.
 - 실행 위치는 회사 GPU 서버, 명령은 `uv run python -m sol_eval …`. `pnpm verify`·CI에는 넣지 않는다. 숫자 요약만 `docs/evidence/eval/`에 두고 실제 RFP 원문은 넣지 않는다.
@@ -164,6 +164,8 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 | 6 | 결정 기록 → 감사로그, 알림 1건 규칙, E2E 전체 | `phase-6/e2e/*.png`, `phase-6/test-notifications.txt` |
 | 7 | §5 데모 체크리스트 전 항목, 비밀값 로그 유출 0(`SUPABASE_SERVICE_ROLE_KEY`·서비스키 4개 `G2B_*_SERVICE_KEY` 포함), `pnpm verify`·`pnpm test:db`·E2E·pytest·smoke 전부 PASS. 세 모드(`live`·`fixture`·`mock`) 기동 리허설, 터널 단절 → `PARTIAL`·`RULES_ONLY` → 재연결 리허설 | `demo-day/<일시>/checklist.md`, `demo-day/<일시>/run-modes.md` |
 | 평가 트랙 | P0-9~P0-11. Phase 5 실추론이 동작한 뒤 시작해 Phase 6·7과 나란히 진행. 기준은 [[21-MODEL-TRAINING\|21 모델 학습]] §7(평가셋 v0.1 manifest·라벨 검증, E0·E1·E2 리포트와 오류 분석, 학습셋 번들 sha256, 메모리 검증 스크립트·절차) | `eval/`, `kev-train-feasibility.md`(회사 GPU 접근 뒤) |
+
+**ADR-023 핵심 컷과의 대응**(2026-10-19): 핵심 컷의 통과 조건은 Phase 0(C0·C1), Phase 1(C2), Phase 2 중 fixture 수집·revision·격리와 live 1건 수집·파싱(C3), Phase 3 중 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications` E2E·G8·V2-02(C6), Phase 4 전부(C4), Phase 5 중 G6·G9·V2-04·V2-07·V2-08·V2-13과 실추론 1건 증거(C5·C8), Phase 6(C7), Phase 7 중 §5 체크리스트·세 모드·대체 경로 리허설(C9), 평가 트랙 중 E0·E1·E2·E3 축소 규모 리포트(X1)다. NAV-01~NAV-09, S5(G2 변경 감지 화면), P0-8, 전체 평가셋·P0-11은 확장 컷이다([[12-ROADMAP\|12 로드맵]]).
 
 ## 5. 데모 당일 수용 체크리스트
 
@@ -185,7 +187,8 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 | 9 | S3 | 규칙 우선 | `FX-03` 열기 | 권고 `NO-BID`, 자격 1건 `미충족` + 근거 문장, 점수 68 "참고" 표시, Kev 섹션 `규칙 우선` 배지와 "Kev는 BID를 제시했지만…" 문구, "마지막 결정: NO-BID"(seed 리뷰) | — |
 | 10 | S4 | 라이브 분석 | `FX-02` → [분석 재실행] | 202 → `대기 중` → `분석 중` → `완료` 10초 이내. 점수 72, WATCH, 분해 15.0/18.3/14.0/15.0/10.0, Kev 36/52/12 | 60초 초과 시 새로고침, 사유 기록 |
 | 11 | S4 | 사람 결정 | `FX-02` 결정 패널에서 WATCH 유지 또는 BID 선택 + 사유 → [결정 기록] | "마지막 결정: … · 담당자 · 시각", 결정 패널 상단 "사람 검토 권장"(`KEV_NEEDS_REVIEW`). `bid_reviews` +1(총 3건), 감사로그 1건. `analyst@soltech.invalid`로 보면 패널 읽기 전용 | — |
-| 12 | S5 | 변경 수집 | `/admin/ingestion`(`admin@soltech.invalid`) → 수동 수집 `LIVE`(API `batch:"live"`). fixture의 live 배치이며 실행 모드 `live`와 다르다(`SOL_RUN_MODE=live`에서는 `409 RUN_MODE_MISMATCH`) | 🔔 증가. `FX-07` revision 2 → 재분석 68 → 76, 권고 WATCH → BID. `FX-06` diff 마감 +14 → +28, 알림 1건. `FX-09` 재전송으로 알림 추가 0. `FX-08` `취소됨`. summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보여 주고 다음 장면 |
+| 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 패널 `run_mode: LIVE`·"AI: local · Qwen3.5-9B · Kev-9B v1.0"·"가상 회사 프로필로 분석". 자격 3값 + 사유 코드, 점수 분해 5행, Kev `UNCALIBRATED` + 고지 문구, 근거 서랍 실제 첨부 인용. 10-21 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
+| 12 | S5 (확장 컷) | 변경 수집 | `/admin/ingestion`(`admin@soltech.invalid`) → 수동 수집 `LIVE`(API `batch:"live"`). fixture의 live 배치이며 실행 모드 `live`와 다르다(`SOL_RUN_MODE=live`에서는 `409 RUN_MODE_MISMATCH`). S5가 구현되지 않았으면 이 행은 "미구현"으로 적고 건너뛴다 | 🔔 증가. `FX-07` revision 2 → 재분석 68 → 76, 권고 WATCH → BID. `FX-06` diff 마감 +14 → +28, 알림 1건. `FX-09` 재전송으로 알림 추가 0. `FX-08` `취소됨`. summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보여 주고 다음 장면 |
 | 13 | S6 | 장애 대체 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` [분석 재실행] `force=true` | 1~2초 안에 `부분 완료 (규칙만)`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)", `recommendationBasis: RULES_ONLY`, Topbar `AI: unavailable`, `/health/ready` `status: degraded`. 점수 94·자격 3건 그대로 | 사전 녹화 영상 |
 | 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` → `FX-01` 재실행 | `완료`로 복귀, Topbar `AI: mock`, Kev 분포 다시 표시 | — |
 | 15 | S6 (리허설) | 터널 재연결 | 리허설에서만. `fixture` 모드로 전환 → 회사 GPU 서버 터널을 끊는다 → `FX-01` [분석 재실행] `force=true` → 터널 재연결 → 재분석 → `mock`으로 되돌리고 `pnpm demo:reset`으로 초기화(fixture 모드 분석 run이 S3 화면에 남지 않게) | 끊긴 동안: `PARTIAL`·`RULES_ONLY`, `reviewFlags`에 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`(gateway는 살아 있으므로 `AI_UNAVAILABLE`이 아니다), [[09-SECURITY\|09 보안]] PARTIAL 배너, mock 결과 0건, 점수·자격은 직전 run과 같다. 재연결 뒤: `qwen.healthy: true`·`kev.registryMatch: true`, 재분석 `완료`. 재연결 소요 시간을 `rehearsal-log.md`에 기록 | 재연결이 안 되면 시연은 `mock`만으로 하고 사실대로 말한다 |
@@ -288,7 +291,7 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 
 ## 9. 사이드바·업무 확장 수용 기준 (ADR-021, 후속 구현 시험)
 
-아래 시험은 구현 때 추가할 예정이며 현재 시험을 실행/통과했다는 뜻이 아니다. 데모 필수 NAV-01~NAV-09는 Phase 3 수용 기준(§4)에 들어간다. 근거는 [[16-DECISIONS|ADR-021]]이다.
+아래 시험은 구현 때 추가할 예정이며 현재 시험을 실행/통과했다는 뜻이 아니다. NAV-01~NAV-09는 [[16-DECISIONS|ADR-023]]으로 확장 컷(핵심 컷 green 뒤)이 됐다. 핵심 컷의 Phase 3 수용 기준(§4)에는 들어가지 않고 확장 컷 착수 때 Phase 3 기준에 더한다. 근거는 ADR-021이다.
 
 | ID | 자동 검증할 조건 |
 |---|---|

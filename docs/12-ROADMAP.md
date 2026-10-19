@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - ops
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 12. 구현 순서와 해커톤 컷
@@ -53,43 +53,88 @@ updated: 2026-10-18
 - **작업 순서는 Phase 순서**(위 Phase 표)다. 의존 관계 때문에 P0-5(Phase 4)·P0-8(Phase 2)이 P0-4·P0-6(Phase 5)보다 먼저 끝날 수 있다.
 - **P0 번호는 우선순위**다. 시간이 모자라면 큰 번호부터 잘라낼 후보로 보고하고 사용자가 정한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
 - P0-0은 서비스키·회사 GPU가 준비되는 즉시 한다. 그 전에는 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)와 fixture·mock으로 다른 Phase를 진행한다. P0-0 항목이 막히면 즉시 보고한다.
-- "데모 필수가 전부 green이기 전에는 있으면 좋음에 착수하지 않는다"(17)는 그대로다.
+- 착수 게이트는 ADR-023의 3단이다: 핵심 컷 green 전 확장 컷 금지, 핵심 + 확장 green 전 P1 금지(17).
+- P0 번호와 Critical Path C-ID의 대응은 위 Critical Path 표의 "Phase / P0" 열이다. P0-8·P0-9~P0-11은 확장 컷으로 옮겼다(ADR-023).
 
-## 해커톤 컷
+## 해커톤 컷 (ADR-023, 2026-10-19)
+
+[[16-DECISIONS|ADR-023]]으로 컷을 3단 + 이후로 다시 정했다. ADR-020·021의 설계는 그대로이고 우선순위와 데모 노출 범위만 바뀐다. 이전 2단 표(데모 필수 / 있으면 좋음)는 이 표로 대체한다.
+
 |구분|포함|이유|
 |---|---|---|
-|데모 필수|Phase 0~4 전부(ADR-019 솔리데오 고정·가상 명부 200명·서로 다른 정장 사진 200장·필수 가입 정보 포함). P0-0~P0-11 전부: live 실수집(나라장터 Open API, 첨부 다운로드·파싱), 실추론(회사 GPU 서버의 Qwen3.5-9B·Kev-9B@v1.0, 노트북 worker가 터널로 연결), 평가 트랙. Phase 5 전부(mock adapter(`AI_PROVIDER=mock`)·장애 대체(`PARTIAL`)·Qwen 실추출·Kev `kev-qs/v0.2` 참고 지표 UI 영역·`/explain`). Phase 6 중 사람 최종 결정 기록·인앱 알림(outbox). Phase 7 중 `.env.example`·`pnpm check:env`·healthcheck·DEMO 배지·`docs/evidence/` 수집·세 모드 기동 리허설. ADR-021 데모 필수 화면: 앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개(다섯 번째 '분석 현황')|ADR-020 사용자 결정. [[19-DEMO-SCENARIO\|19 데모 시나리오]]의 장면도 전부 여기서 나온다. fixture 20건과 mock은 CI·골든·장애 대체 경로로 유지한다|
-|있으면 좋음|**ADR-021 P1(이 칸 최상단, 순서대로)**: 관심 공고 → 분석 결과 비교 → 입찰 프로젝트(대시보드 다섯 번째 카드 교체 포함) → 인력 배치 시뮬레이션 → 조직·인력 ADMIN 편집. 착수 조건: Phase 0~7과 ADR-021 데모 필수 화면(앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개) 전부 완료 + 핵심 시험 통과([[11-TESTING]] §4 수용 기준, §5 데모 체크리스트 리허설, 골든 G1~G10, `pnpm verify`). 이 조건을 만족하기 전에는 시작하지 않는다. 이 작업 때문에 공고 수집·AI 분석·SOL Score·Kev·공식 API 연동을 미루거나 줄이지 않는다. E3 대조군(Qwen 프롬프트 분류, "Kev가 꼭 필요한가"를 판단). `/admin/ai/eval-runs` 화면. 계약과정통합공개로 사업 묶기 보강. Qdrant 의미 검색. Playwright 전체 E2E 녹화. 공고 revision diff 화면. 간편 로그인 제공자 설정(구글·카카오·네이버, ADR-018)은 이 칸에서도 맨 마지막으로, 다른 기능을 모두 끝낸 뒤 한다|"진짜 동작하나" 질문에 추가 증거. 데모 필수가 전부 녹색일 때만 착수|
-|해커톤 이후|Kev-9B LoRA: F1 메모리 검증 실행(회사 GPU에 접근하면 해커톤 중에도 하지만 완료 조건 아님)·F2 학습·F3 보정·반입([[21-MODEL-TRAINING\|21 모델 학습]] §5). τ·온도 정식 보정. `sol-v0.2.x`의 Kev 반영 검토. Qwen 파인튜닝. 낙찰·계약 수집. zip·스캔 PDF·혁신장터 RFP. Phase 5 `ai-hosted`. Phase 7 운영 심화(nginx TLS, 백업·복구 리허설, Sentry/Grafana). Phase 8 P1 전부(카카오 실발송, 경쟁사 통계, 인력 배치). P2. ADR-021 후속: 수주 전략·시장 분석, 입찰 일정, 개인 알림 수신 설정, ANALYST 검토 의견, 인력 후보 저장·배정 확정, 멀티 조직 지원(조직 전환 UI 포함)|외부 승인·비용·GPU 의존. 파인튜닝은 초기 목표 지표 미달만으로 시작하지 않고, 오류 분석에서 모델 판단 오류가 주된 원인일 때 사람이 정한다|
+|**핵심 컷**(데모 필수)|장면: S2 대시보드, S3 FX-01 충족·근거·94 / FX-03 NO-BID·Kev 상충, S4 FX-02 분석·72·사람 결정·알림, **S-LIVE 실제 공고 1건 AI 분석 결과**, S6 `PARTIAL`, S7 격리 404. 기능: Phase 0 마감(Compose·gateway 골격·health 병합), Phase 1(공고·프로필·분석·검토·알림·감사 표, RLS, `sol_role`, `pnpm demo:reset`), Phase 2 중 `FixtureConnector`·정규화·revision·격리·documents job·`OfficialApiConnector`(P0-2·P0-3 live 1건), Phase 4 전부(P0-5·P0-7 점수), Phase 5 중 `/extract`·`/kev`·`/explain`·`/parse`(검증 형식만)·mock adapter·`PARTIAL`·`local` 어댑터(P0-4·P0-6, 1건 실추론), Phase 6 결정 기록·인앱 알림 2종, Phase 3 중 앱 셸 최소(메뉴 3개·Topbar 지표)·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Phase 7 중 `check:env`·healthcheck·DEMO 배지·증거·세 모드 기동·대체 경로 리허설. 평가 중 **E3 대조 실험(축소 규모)**. 인력 200·27명·20 FTE는 점수 입력으로만 쓴다. 아래 Critical Path C0~C9·X1~X4|마감 2026-10-27, 배점 실용성 30 + 완성도 25. "이 입찰에 들어가야 하는가"가 끝까지 도는 것이 먼저다|
+|**확장 컷**(핵심 컷 전부 green 뒤, 이 순서)|S5 변경 감지(FX-06·07·09·10 LIVE 배치, revision diff, `BID_CHANGED`) → `feat/people-read` 병합과 `/people`·`/org-chart` 메뉴 노출 → `/admin/ingestion` 화면 → 설정 조직 탭 → ADR-021 앱 셸 나머지(N1 전체)·대시보드 카드 5개 완성 → P0-8 사전규격·발주계획 단계 연결 → 전체 평가셋(test 20·dev 10)·E0·E1·E2 전체 리포트·P0-11 학습셋 내보내기 → `/admin/ai/eval-runs`|핵심 컷을 해치지 않는 범위에서 "진짜 동작하나"의 추가 증거. 이미 구현된 코드는 보존한다|
+|**P1**(ADR-021 P1, 변경 없음)|관심 공고 → 분석 결과 비교 → 입찰 프로젝트(대시보드 다섯 번째 카드 교체 포함) → 인력 배치 시뮬레이션 → 조직·인력 ADMIN 편집. 그 뒤: 계약과정통합공개로 사업 묶기, Qdrant 의미 검색, Playwright 전체 E2E 녹화, 공고 revision diff 화면, 간편 로그인 제공자 설정(맨 마지막)|착수 게이트: **핵심 컷 + 확장 컷 전부 green**(11 §4·§5, 골든 G1~G10, `pnpm verify`). 그 전에는 시작하지 않는다|
+|해커톤 이후|Kev-9B LoRA: F1 메모리 검증 실행(회사 GPU에 접근하면 해커톤 중에도 하지만 완료 조건 아님)·F2 학습·F3 보정·반입([[21-MODEL-TRAINING\|21 모델 학습]] §5). τ·온도 정식 보정. `sol-v0.2.x`의 Kev 반영 검토. Qwen 파인튜닝. 낙찰·계약 수집. zip·스캔 PDF·혁신장터 RFP. Phase 5 `ai-hosted`. Phase 7 운영 심화(nginx TLS, 백업·복구 리허설, Sentry/Grafana). Phase 8 P1 전부(카카오 실발송, 경쟁사 통계, 인력 배치 저장·배정 확정). `/ops` 분리, 직원 편집. P2. ADR-021 후속: 수주 전략·시장 분석, 입찰 일정, 개인 알림 수신 설정, ANALYST 검토 의견, 멀티 조직 지원(조직 전환 UI 포함)|외부 승인·비용·GPU 의존. 파인튜닝은 초기 목표 지표 미달만으로 시작하지 않고, 오류 분석에서 모델 판단 오류가 주된 원인일 때 사람이 정한다|
 
-규칙: 데모 필수 항목이 하나라도 빨간불이면 "있으면 좋음"에 손대지 않는다. 범위를 더 줄여야 하면 선택지를 보고하고 사용자가 결정한다 ([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
+규칙: 핵심 컷 항목이 하나라도 빨간불이면 확장 컷에 손대지 않는다. 핵심 컷과 확장 컷이 모두 녹색이기 전에는 P1에 손대지 않는다. 범위를 더 줄여야 하면 선택지를 보고하고 사용자가 결정한다 ([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
+
+### Critical Path (ADR-023, 2026-10-19 승인)
+
+작업자 3~4명(에이전트) 병렬 전제. 상세(난이도·실패 위험·증거·테스트 기준)는 [수상 전략 보고](plans/2026-10-18-hackathon-award-plan.md) §4.
+
+|ID|작업|Phase / P0|선행|일정|
+|---|---|---|---|---|
+|C0|Phase 0 마감: `phase0/infra` 통합 기동(`--profile demo`) → 증거 → main 병합|0 / P0-1|없음|10-19|
+|C1|P0-0: ① API 4종 실제 GET(마스킹 저장) ② 첨부 3건 다운로드 ③ 회사 GPU A40×2 상태·vLLM·`kev.serve`·터널·VRAM·지연 ④ 파서 후보 비교 시작. 체크리스트 `docs/evidence/phase-0/external-deps.md`|0 / P0-0|사용자: `infra/.env` 서비스키 4개, GPU 접속·점유 범위. 모델 기동·GPU 점유는 명시 승인 뒤|10-19~20|
+|C2|Phase 1 DB·RLS·`sol_role`(`feat/people-read`의 `20261018000001` 위에)·`pnpm demo:reset`(people seed 흡수)|1|C0|10-19~21|
+|C3|Phase 2 수집: `FixtureConnector`·정규화·revision·격리·ingest job, documents job, `OfficialApiConnector`·`G2bAttachmentFetcher`|2 / P0-2·P0-3|C2, C1 ①|10-21~22|
+|C4|Phase 4 규칙 엔진(순수 함수)·골든 94/72/68·27명 입력|4 / P0-5·P0-7|없음(C2와 병렬)|10-19~20|
+|C5|Phase 5 gateway `/extract`·`/kev`·`/explain`·`/parse` mock → worker extract·analysis·`PARTIAL` → `local` 어댑터|5 / P0-4·P0-6|C0·C4, local은 C1 ③|10-20~22|
+|C6|Phase 3 화면: 앱 셸 최소·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Route Handler 9개|3 / P0-7|C2|10-21~23|
+|C7|Phase 6: 결정 기록 트리거·audit·outbox·인앱 알림 2종|6|C2·C6|10-23|
+|C8|S-LIVE: 실공고 1건 `live` E2E, 실행 로그·녹화|5 / P0-4·P0-6|C1·C3·C5·C6|10-23~24|
+|C9|리허설·대체 경로 6종·세 모드 전환·로컬 Supabase CLI 전환·체크리스트|7|C6·C7|10-24, 10-26|
+|X1|E3 대조 실험(축소 규모). 입력·설계는 C4·C5와 병렬로 준비|평가|C5 local, C1 ③|설계 10-19~, 실행 10-24~25|
+|X2|임팩트 예비 실험 n=3|—|C8|10-24~25|
+|X3|경쟁 서비스 비교(공개 페이지)|—|없음|10-19|
+|X4|제출물: 슬라이드·3분 영상·기술 자료. 구조는 지금부터 병렬, 완성은 C8·X1·X2 뒤|—|구조: 없음 / 완성: C8·X1·X2|구조 10-19~, 완성 10-25~26|
+|X5|확장 컷(위 표 순서)|—|핵심 컷 green|10-25 이후|
+
+병렬 순서: 10-19 C0‖C1‖C4‖X3‖X4 구조 → 10-20 C2‖C4‖C5‖C1 → 10-21 C2‖C3‖C5‖C6 → 10-22 C3‖C5‖C6 → 10-23 C6‖C7‖C8 → 10-24 C8‖C9‖X1‖X2 → 10-25 X4‖X1 → 10-26 C9·freeze·증거 → 10-27 제출.
+
+**10-21 컷 규칙**(저녁, C1 결과 기준. 이 시점은 외부 의존성 컷을 정하는 기준이고 핵심 기능 개발은 계속한다):
+
+|C1 결과|S-LIVE 장면|
+|---|---|
+|API 정상·GPU 정상|실제 공고·실제 추론 경로 유지|
+|API 정상·GPU 불가|실제 공고에 규칙 기반 `PARTIAL` 결과|
+|API 불가·GPU 정상|검증된 fixture 기반 실제 추론 시연|
+|API 불가·GPU 불가|fixture·mock 시연과 사전 확보한 실제 검증 증거만|
+
+어느 경우든 실행 모드와 출처를 화면에 표시한다. 실시간 추론을 못 했으면 녹화·fixture 결과를 live라고 표시하지 않는다.
 
 ## 데모 D-2 ~ D-day
 |시점|할 일|
 |---|---|
-|D-2|기능 freeze. fixture·seed 고정. 모델 레지스트리(`services/ai/models/registry.yaml`)·질문 세트·state 템플릿 버전 고정. 전체 테스트 green. `docs/evidence/` 갱신. 공공 API 오늘 호출량 확인(개발계정 서비스당 1,000건/일)|
-|D-1|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~12 리허설 2회 (재부팅 1회 포함). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 네트워크 없는 대체 경로(로컬 Supabase CLI `pnpm db:start`, 사전 녹화 영상)는 미결정([[16-DECISIONS\|16 ADR]]). 세 모드(`live`·`fixture`·`mock`) 기동 리허설 각 1회(모드 전환은 env 변경 + worker·ai-gateway 재시작). 회사 GPU 서버 터널 단절 → `PARTIAL`·`RULES_ONLY` → 재연결 리허설, 재연결 소요 시간 기록. live 리허설 호출 수가 일일 한도 안인지 확인|
-|D-day|기동 절차 1~12. 터널 연결과 `GET /api/v1/admin/ai/status`(Qwen healthy, Kev `registryMatch`) 확인. 시연 모드는 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §2.1(기본 `mock`), 장애 대체 순서는 `live` → `fixture` → `mock`. 리허설 후 `pnpm demo:reset`(seed 재실행, 멱등)으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
+|D-2 (10-25)|기능 freeze. fixture·seed 고정. 모델 레지스트리(`services/ai/models/registry.yaml`)·질문 세트·state 템플릿 버전 고정. 전체 테스트 green. `docs/evidence/` 갱신. 공공 API 오늘 호출량 확인(개발계정 서비스당 1,000건/일)|
+|D-1 (10-26)|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~12 리허설 2회 (재부팅 1회 포함). 로컬 Supabase CLI 전환 리허설([[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 네트워크 없는 대체 경로(로컬 Supabase CLI `pnpm db:start`, 사전 녹화 영상)는 미결정([[16-DECISIONS\|16 ADR]]). 세 모드(`live`·`fixture`·`mock`) 기동 리허설 각 1회(모드 전환은 env 변경 + worker·ai-gateway 재시작). 회사 GPU 서버 터널 단절 → `PARTIAL`·`RULES_ONLY` → 재연결 리허설, 재연결 소요 시간 기록. live 리허설 호출 수가 일일 한도 안인지 확인|
+|D-day (제출 10-27, 발표일 미입력)|기동 절차 1~12. 터널 연결과 `GET /api/v1/admin/ai/status`(Qwen healthy, Kev `registryMatch`) 확인. 시연 모드는 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §2.1(기본 `mock`), 장애 대체 순서는 `live` → `fixture` → `mock`. 리허설 후 `pnpm demo:reset`(seed 재실행, 멱등)으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
 
 ```mermaid
 gantt
- title SOL RADAR MVP: 완료 조건 기반 단계
+ title SOL RADAR 핵심 컷: 2026-10-27 제출에서 역산 (ADR-023)
  dateFormat YYYY-MM-DD
  section 기반
- Template Compose RunMode :a1, 2026-10-15, 3d
- External deps P0-0 :a0, 2026-10-15, 3d
- Supabase Auth RLS :a2, after a1, 3d
+ C0 Phase 0 마감 병합 :c0, 2026-10-19, 1d
+ C1 P0-0 외부 의존성 :c1, 2026-10-19, 2d
+ C2 DB RLS demo reset :c2, 2026-10-19, 3d
  section 핵심
- Ingestion live fixture parse :a3, after a2, 4d
- UI :a4, after a3, 4d
- Scoring rules :a5, after a4, 4d
- AI mock then Qwen Kev :a6, after a5, 4d
- Review Alerts :a7, after a6, 3d
- Release QA 3 modes tunnel :a8, after a7, 3d
- section 평가
- Eval track P0-9 to P0-11 :a9, after a6, 6d
+ C4 규칙 엔진 골든 :c4, 2026-10-19, 2d
+ C5 gateway mock then local :c5, 2026-10-20, 3d
+ C3 수집 fixture live :c3, 2026-10-21, 2d
+ C6 화면 4개 :c6, 2026-10-21, 3d
+ C7 결정 알림 :c7, 2026-10-23, 1d
+ C8 실공고 1건 E2E :c8, 2026-10-23, 2d
+ section 검증 제출
+ X1 E3 실험 :x1, 2026-10-24, 2d
+ X2 임팩트 n3 :x2, 2026-10-24, 2d
+ C9 리허설 대체 경로 :c9, 2026-10-24, 1d
+ X4 제출물 완성 :x4, 2026-10-25, 2d
+ C9 최종 리허설 freeze :c9b, 2026-10-26, 1d
+ 제출 :milestone, 2026-10-27, 0d
 ```
-위 간트 날짜는 **일정 산정 예시**로 약속된 실제 마감이 아니다. P0-0 막대는 서비스키·회사 GPU가 준비되는 시점에 따라 움직인다. 각 Phase 중간에 작업을 끊고 커밋하며 [[PROGRESS]]에 완료·남은 일·검증 결과를 기록한다.
+위 간트는 ADR-023 Critical Path의 제안 일정이다. C1 결과로 10-21 저녁에 한 번 재조정한다. X3 경쟁 비교와 X4 제출물 구조는 10-19부터 병렬이다. 각 작업 중간에 커밋하며 [[PROGRESS]]에 완료·남은 일·검증 결과를 기록한다.
 
 ## P1/P2 우선순위
 P1: 변경 알림(카카오 계약 승인), 경쟁사 공개 낙찰 통계, 가용 인력·중복 배치. P2: 발주 예측/확률 모델/ERP, 성능 검증 후 순차 릴리즈. 모두 해커톤 이후. 모델 학습 후속(Kev LoRA, Qwen 파인튜닝, Kev 점수 반영 검토)은 [[21-MODEL-TRAINING|21 모델 학습]]의 절차를 따른다.
