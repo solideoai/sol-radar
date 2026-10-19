@@ -35,8 +35,10 @@ export const DEMO_ORGS = [
 export const demoOrgIds = () => DEMO_ORGS.map((org) => orgUuid(org.code));
 
 // 19 §1 의 계정 다섯. admin@ 은 조직 관리(owner)와 업무 관리(ADMIN)를 함께 가진다(10 seed 절).
-// org-01 계정은 가입 신고(ADR-019)처럼 부서·직급 코드를 함께 적는다 — 가입 트리거가 카탈로그에서 찾으므로
-// 카탈로그를 계정보다 먼저 넣는다. org-02 계정은 솔리데오 소속이 아니라 신고 정보를 두지 않는다.
+// 계정은 가입 신고(ADR-019)처럼 부서·직급 코드를 함께 적는다 — 가입 트리거가 카탈로그에서 찾으므로
+// 카탈로그를 계정보다 먼저 넣는다. 신고가 없으면 가입 정보 미완료라 업무 API 가 403 PROFILE_INCOMPLETE 다(04 §3.5).
+// 신고 카탈로그는 솔리데오 고정이라(check_declared_employment) org-02 계정도 같은 카탈로그에서 고른다.
+// 값은 같은 VIEWER 인 org-01 viewer 와 같게 둔다.
 export const DEMO_ACCOUNTS = [
   {
     key: "admin",
@@ -85,8 +87,8 @@ export const DEMO_ACCOUNTS = [
     org: "org-02",
     orgRole: "member",
     solRole: "VIEWER",
-    departmentCode: null,
-    jobTitleCode: null,
+    departmentCode: "SOL-D035",
+    jobTitleCode: "SOL-J011",
   },
 ];
 
