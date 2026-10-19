@@ -198,7 +198,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | S7 격리 | `401 UNAUTHENTICATED` | access token 만료. S0 6의 명령으로 토큰을 다시 받아 호출한다 |
 | S-LIVE | live run이 없거나 `FAILED` | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면을 빼고 §3 `run-modes.md`의 실패 사유를 Q&A에서 말한다 |
 | S-LIVE | run이 `PARTIAL`·`RULES_ONLY`(엔드포인트 미접속·추출 실패) | 그 화면을 그대로 보여 주고 "실제 공고에 규칙만 적용한 결과"라고 말한다 |
-| 전 장면 (대체 경로 ①) | 인터넷 끊김으로 Supabase 접속 불가(로그인 실패, `/health/ready` `503`) | 로컬 Supabase CLI로 전환: `pnpm db:start` → `pnpm demo:reset` → web 재시작. 최종 리허설(10-24)에서 해 본 절차만 쓴다. 전환하면 "로컬 DB로 전환했다"고 말한다. live run은 로컬 DB에 없으므로 S-LIVE는 녹화로 |
+| 전 장면 (대체 경로 ①) | 인터넷 끊김으로 Supabase 접속 불가(로그인 실패, `/health/ready` `503`) | 로컬 Supabase CLI로 전환: `pnpm db:start` → `pnpm demo:reset` → 모드 확인(mock) → `pnpm demo:preanalyze` → web 재시작(`pnpm demo:reset`이 사전 분석을 지우므로 S2 "완료 18"을 지키려면 다시 돈다, [[16-DECISIONS\|ADR-031]] C12(f)). 최종 리허설(10-24)에서 해 본 절차만 쓴다. 전환하면 "로컬 DB로 전환했다"고 말한다. live run은 로컬 DB에 없으므로 S-LIVE는 녹화로 |
 | `live` 장면 (대체 경로 ②) | 공공 API 장애·일일 한도 초과 | `fixture` 모드로 전환. 위 "`live` 장면" 행과 같다 |
 | S-LIVE (대체 경로 ③) | 회사 GPU 추론 엔드포인트 접속 실패 | S0에서 실패했으면 외부 의존성 컷 규칙의 "GPU 불가" 갈래(규칙만 `PARTIAL` 또는 녹화·증거만). 발표 중 실패는 사전 run 조회라 영향 없음 |
 | 전 장면 (대체 경로 ④) | Supabase 클라우드 장애(인터넷은 정상) | 대체 경로 ①과 같다 |
@@ -219,7 +219,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [ ] live 리허설 호출 수가 공공 API 일일 한도(개발계정 서비스당 1,000건/일) 안인지 확인
 - [ ] 08 worked example 값과 S4 화면 값(72, 요소 분해, Kev 분포) 일치 확인
 - [ ] S-LIVE: `live` run 1건이 `mock` 모드 앱에서 `origin=all`로 열리고 분석 요약 띠에 "분석 실행 모드: live"·모델 식별자가 보이는지, `pnpm demo:reset` 뒤에도 남는지 확인. 녹화 영상(같은 입력·실행 로그)을 따로 준비
-- [ ] 대체 경로 ①: 로컬 Supabase CLI 전환(`pnpm db:start` → `pnpm demo:reset` → web 재시작) 소요 시간 실측, `rehearsal-log.md`에 기록
+- [ ] 대체 경로 ①: 로컬 Supabase CLI 전환(`pnpm db:start` → `pnpm demo:reset` → 모드 확인(mock) → `pnpm demo:preanalyze` → web 재시작) 소요 시간 실측, `rehearsal-log.md`에 기록
 
 ## 솔리데오 직원·사진 준비 체크 (ADR-019)
 
