@@ -60,7 +60,7 @@ const sample = async (request: APIRequestContext) => {
   return memberPageSchema.parse(await response.json()).items[0];
 };
 // Feature setup authenticates the real form, then uses document navigation.
-// This does not validate the separately failing automatic login redirect regression.
+// This does not validate the separately covered automatic login redirect regression.
 const fillLogin = async (page: Page, role: string) => {
   const account = fixture().accounts[role];
   await page.goto("/auth/login");
@@ -197,6 +197,59 @@ test.describe("[people-read-qa] independent access and denied-write integration"
       if (role === "incomplete") await expect(page).toHaveURL(/\/auth\/complete-profile(?:\?|$)/);
     });
   }
+
+  test("suspended: direct cookie-session SSR for both routes follows existing denial policy", async ({
+    page,
+  }) => {
+    // The owned suspended profile keeps a valid Auth access token. Exercise the real
+    // cookie/profile SSR guard, rather than assuming a403 document response or
+    // the OAuth-only ?link=suspended notice. Normal Auth95 covers admin banning.
+    await fillLogin(page, "suspended");
+    const observations: Array<{
+      path: string;
+      finalPath: string;
+      sessionCookiePresent: boolean;
+      apiStatus: number;
+      apiCode: string;
+    }> = [];
+    for (const path of ["/people", "/org-chart"]) {
+      const sessionCookiePresent = (await page.context().cookies()).some(({ name }) =>
+        /^sb-.+-auth-token(?:\.\d+)?$/.test(name),
+      );
+      expect(sessionCookiePresent).toBe(true);
+      const blocked = await page.request.get("/api/v1/team-members");
+      expect(blocked.status()).toBe(403);
+      const apiCode = errorSchema.parse(await blocked.json()).error.code;
+      expect(apiCode).toBe("ACCOUNT_DISABLED");
+      const apiStatus = blocked.status();
+      await blocked.dispose();
+
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/auth\/login$/);
+      await expect(
+        page.getByRole("heading", { level: 1, exact: true, name: "이용이 정지된 계정입니다" }),
+      ).toBeVisible();
+      await expect(page.getByRole("button", { exact: true, name: "로그아웃" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { exact: true, name: /^(조직·인력|조직도)$/ }),
+      ).toHaveCount(0);
+      await expect(page.getByRole("button", { name: / 상세 보기$/ })).toHaveCount(0);
+      await expect(page.getByRole("combobox", { name: "이름으로 찾기", exact: true })).toHaveCount(
+        0,
+      );
+      observations.push({
+        path,
+        finalPath: new URL(page.url()).pathname,
+        sessionCookiePresent,
+        apiStatus,
+        apiCode,
+      });
+    }
+    await test.info().attach("suspended-cookie-ssr-two-routes", {
+      body: JSON.stringify(observations),
+      contentType: "application/json",
+    });
+  });
 
   test("four roles have same direct RLS SELECT and other-org zero; anon cannot read tables", async ({
     request,
