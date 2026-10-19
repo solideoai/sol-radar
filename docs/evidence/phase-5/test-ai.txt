@@ -621,3 +621,56 @@ tests/test_startup.py::test_refusal_does_not_print_values PASSED         [100%]
 - local·hosted 실모델 경로: 이번 단계 범위 밖이고 사용자 승인이 필요하다. hosted 미승인 기동 거부는 기존 tests/test_startup.py 가 본다.
 - /parse 실제 파서: 어댑터가 아직 없어 UNSUPPORTED·PARSER_NOT_CONFIGURED 경로만 본다.
 - G6 의 worker 쪽 결과(PARTIAL·RULES_ONLY 저장, 배너)는 web/server 시험(test-server) 몫이다. 여기서는 gateway 응답만 본다.
+
+## 5. K5'·K13 추가분 (실행: (services/ai) uv run --frozen pytest -v -p no:cacheprovider · 커밋 a0f1101, 브랜치 c5/gateway-mock, 작업 트리 깨끗한 상태에서 실행)
+
+- pytest -v 요약: 536 passed, 1 warning in 29.12s (실패 0, 시간초과·신호로 끊긴 실행 없음)
+- 3d06523 대비 새로 생긴 시험 이름(통과, 49개, 파라미터는 묶어 개수 표시):
+  - tests/test_extraction_schema.py::test_fixture_model_block_has_eight_keys
+  - tests/test_extraction_schema.py::test_fixture_extractions_share_model_identity
+  - tests/test_extraction_schema.py::test_k13_mock_model_block_is_fixture_model_verbatim
+  - tests/test_extraction_schema.py::test_k13_every_fixture_model_block_is_returned_verbatim ×20
+  - tests/test_extraction_schema.py::test_k13_prompt_version_env_does_not_change_mock_model
+  - tests/test_extraction_schema.py::test_k5_fx07_r02_falls_back_to_base_fixture
+  - tests/test_extraction_schema.py::test_k5_fx01_r01_falls_back_to_base_fixture
+  - tests/test_extraction_schema.py::test_k5_revision_fallback_still_replaces_ids
+  - tests/test_extraction_schema.py::test_k5_revision_file_is_preferred_over_base
+  - tests/test_extraction_schema.py::test_invalid_fixture_id_fails_with_not_found ×3
+  - tests/test_health.py::test_k13_health_qwen_comes_from_fixture_model_block
+  - tests/test_kev_adapter.py::test_k5_kev_fx02_r01_falls_back_to_base_kev_file
+  - tests/test_kev_adapter.py::test_k5_kev_revision_without_any_file_uses_formula
+  - tests/test_kev_adapter.py::test_k5_kev_revision_file_is_preferred_over_base
+  - tests/test_kev_adapter.py::test_k5_kev_fixture_id_outside_format_uses_formula ×5
+  - tests/test_startup.py::test_k13_main_starts_mock_with_real_fixtures
+  - tests/test_startup.py::test_k13_mock_refuses_fixtures_with_different_model_identity ×3
+  - tests/test_startup.py::test_k13_mock_refuses_without_extraction_fixtures ×2
+  - tests/test_startup.py::test_k13_refusal_does_not_print_model_values
+  - tests/test_startup.py::test_k13_mock_allows_other_model_fields_to_differ
+  - tests/test_startup.py::test_k13_fixture_mode_skips_fixture_model_check
+- 3d06523 대비 바뀐 기존 시험(같은 이름 유지, K13 기대값 반영): tests/test_health.py::test_health_mock_mode, tests/test_health.py::test_health_reports_only_kev_off_when_kev_disabled, tests/test_extraction_schema.py::test_invalid_fixture_id_fails_with_not_found(경우 3개 추가). 이름이 바뀐 기존 시험: test_extract_model_block_is_filled_by_gateway → test_k13_mock_model_block_is_fixture_model_verbatim, test_prompt_version_env_changes_model_version_and_hash → test_k13_prompt_version_env_does_not_change_mock_model, test_revision_fixture_id_uses_kev_file_of_base_id → test_k5_kev_fx02_r01_falls_back_to_base_kev_file.
+
+### 5.1 변형 확인 표 (M41~)
+
+절차는 3절과 같다: 원본을 scratchpad 에 복사 → 한 곳만 바꿈 → 관련 시험 실행 → 원본 복구 → cmp. 변형마다 PYTHONPYCACHEPREFIX 를 따로 뒀다. -FAIL 은 변형 때문에 시험이 실패한(빨간불) 실행이다.
+
+| 번호 | 뒤집은 조건 | 파일:줄 (services/ai 기준) | 실행한 시험 | 실행 결과 | 빨간불 시험 | 복구 cmp |
+|---|---|---|---|---|---|---|
+| M41 | K5' rNN → 앞부분 FX-xx 대체 제거 | src/sol_ai/adapters/mock.py:54 | `tests/test_extraction_schema.py tests/test_kev_adapter.py -k 'k5'` | pytest-FAIL (4 failed, 10 passed, 295 deselected) | test_k5_fx07_r02_falls_back_to_base_fixture, test_k5_fx01_r01_falls_back_to_base_fixture, test_k5_revision_fallback_still_replaces_ids 외 1건 | same |
+| M42 | K5' 우선순위 뒤집기(앞부분 먼저) | src/sol_ai/adapters/mock.py:54 | `tests/test_extraction_schema.py tests/test_kev_adapter.py -k 'k5'` | pytest-FAIL (3 failed, 11 passed, 295 deselected) | test_k5_fx07_r01_reads_first_revision_fixture, test_k5_revision_file_is_preferred_over_base, test_k5_kev_revision_file_is_preferred_over_base | same |
+| M43 | K5' fixtureId 형식 정규식을 .* 로 | src/sol_ai/adapters/mock.py:27 | `tests/test_extraction_schema.py tests/test_kev_adapter.py -k 'fixture_id or escape or outside_format'` | pytest-FAIL (10 failed, 10 passed, 289 deselected) | test_invalid_fixture_id_fails_with_not_found[../extractions/FX-01], test_invalid_fixture_id_fails_with_not_found[FX-07.r001], test_invalid_fixture_id_fails_with_not_found[fx-01] 외 7건 | same |
+| M44 | K5' /kev 가 앞부분 FX-xx 만 씀 | src/sol_ai/adapters/mock.py:206 | `tests/test_kev_adapter.py -k 'k5'` | pytest-FAIL (4 failed, 4 passed, 76 deselected) | test_k5_kev_revision_file_is_preferred_over_base, test_k5_kev_fixture_id_outside_format_uses_formula[FX-02.r1], test_k5_kev_fixture_id_outside_format_uses_formula[FX-02.r001] 외 1건 | same |
+| M45 | K13 /extract 가 고정 블록 대신 계산 model | src/sol_ai/extraction.py:153 | `tests/test_extraction_schema.py -k 'k13'` | pytest-FAIL (22 failed, 203 deselected) | test_k13_mock_model_block_is_fixture_model_verbatim, test_k13_every_fixture_model_block_is_returned_verbatim[FX-01], test_k13_every_fixture_model_block_is_returned_verbatim[FX-02] 외 19건 | same |
+| M46 | K13 고정 model 블록 키 순서 바꿈 | src/sol_ai/extraction.py:279 | `tests/test_extraction_schema.py -k 'k13'` | pytest-FAIL (1 failed, 21 passed, 203 deselected) | test_k13_mock_model_block_is_fixture_model_verbatim | same |
+| M47 | K13 고정 model 블록 한 키 값 바꿈(latencyMs) | src/sol_ai/extraction.py:279 | `tests/test_extraction_schema.py -k 'k13'` | pytest-FAIL (22 failed, 203 deselected) | test_k13_mock_model_block_is_fixture_model_verbatim, test_k13_every_fixture_model_block_is_returned_verbatim[FX-01], test_k13_every_fixture_model_block_is_returned_verbatim[FX-02] 외 19건 | same |
+| M48 | K13 /health qwen.promptHash 를 계산 값으로 | src/sol_ai/app.py:135 | `tests/test_health.py` | pytest-FAIL (3 failed, 1 passed) | test_health_mock_mode, test_health_reports_only_kev_off_when_kev_disabled, test_k13_health_qwen_comes_from_fixture_model_block | same |
+| M49 | K13 기동 검사 MISMATCH 판정 끔 | src/sol_ai/adapters/mock.py:103 | `tests/test_startup.py -k 'k13'` | pytest-FAIL (4 failed, 5 passed, 5 deselected) | test_k13_mock_refuses_fixtures_with_different_model_identity[promptHash-0000000000000000000000000000000000000000000000000000000000000000], test_k13_mock_refuses_fixtures_with_different_model_identity[name-fixture-other], test_k13_mock_refuses_fixtures_with_different_model_identity[promptVersion-req-extract/v0.2] 외 1건 | same |
+| M50 | K13 기동 검사 MISSING 판정 끔 | src/sol_ai/adapters/mock.py:100 | `tests/test_startup.py -k 'k13'` | pytest-FAIL (2 failed, 7 passed, 5 deselected) | test_k13_mock_refuses_without_extraction_fixtures[empty_extractions_dir], test_k13_mock_refuses_without_extraction_fixtures[no_extractions_dir] | same |
+| M51 | K13 거부할 때 해시 값을 stderr 에 씀 | src/sol_ai/adapters/mock.py:104 | `tests/test_startup.py -k 'k13'` | pytest-FAIL (1 failed, 8 passed, 5 deselected) | test_k13_refusal_does_not_print_model_values | same |
+| M52 | K13 fixture 모드(local)에서도 기동 검사 | src/sol_ai/adapters/factory.py:41 | `tests/test_startup.py -k 'k13'` | pytest-FAIL (1 failed, 8 passed, 5 deselected) | test_k13_fixture_mode_skips_fixture_model_check | same |
+| M53 | __main__ 이 StartupRefused 를 잡지 않음 | src/sol_ai/__main__.py:19 | `tests/test_startup.py` | pytest-FAIL (11 failed, 3 passed) | test_refuses_live_with_mock_provider, test_refuses_unapproved_hosted, test_refuses_hosted_unless_approved_true[None] 외 8건 | same |
+| M54 | K13 /health qwen.model 을 상수 "fixture" 로 | src/sol_ai/adapters/mock.py:120 | `tests/test_health.py` | pytest-FAIL (1 failed, 3 passed) | test_k13_health_qwen_comes_from_fixture_model_block | same |
+| M55 | K13 mock model 에 AI_PROMPT_VERSION 이 섞임 | src/sol_ai/extraction.py:279 | `tests/test_extraction_schema.py -k 'k13'` | pytest-FAIL (1 failed, 21 passed, 203 deselected) | test_k13_prompt_version_env_does_not_change_mock_model | same |
+
+- 결과: 15건 중 빨간불 15건, 복구 후 cmp 같음 15건. 빨간불이 안 난 변형이 없어 이번에는 시험을 보강하지 않았다.
+- M53(__main__ 이 StartupRefused 를 잡지 않음)은 K13 거부뿐 아니라 V2-01 실행 모드 거부 시험(test_refuses_*)도 함께 빨간불이 된다(같은 except 경로).
+- 다루지 못한 것(이번 추가분): mock 캐시 키(fixture promptHash)와 현재 프롬프트·스키마 파일로 계산한 해시의 관계는 시험하지 않는다(K13, local 계산 값 시험은 local 어댑터 단계). 추출 fixture 의 provider·temperature·retries 차이, extractions/ 의 FX 형식 밖 파일, SOL_FIXTURES_DIR 경로 자체가 없을 때는 시험하지 않았다.
