@@ -93,3 +93,9 @@ export function formatPercent(p: number): string {
 export function formatSignal(p: number): string {
   return Number.isFinite(p) ? p.toFixed(2) : EMPTY;
 }
+
+// Kev 적합도 wire 값(0~4)을 표시 n/5(1~5)로 바꾼다. 08 §5.3: floor + 1, 범위 밖은 자른다.
+export function fitOutOfFive(score: number): number {
+  if (!Number.isFinite(score)) return 1;
+  return Math.min(5, Math.max(1, Math.floor(score) + 1));
+}

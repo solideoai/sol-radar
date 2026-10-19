@@ -3,6 +3,7 @@ import {
   dDay,
   formatKrwCompact,
   formatKrwFull,
+  fitOutOfFive,
   formatKst,
   formatPercent,
   formatPoints,
@@ -81,5 +82,16 @@ describe("숫자", () => {
       dDay("not-a-date", now)?.label ?? "",
     ].join("|");
     expect(out).not.toMatch(/NaN|Invalid/);
+  });
+});
+
+describe("Kev 적합도 n/5", () => {
+  it("경계를 floor+1 로 바꾸고 1~5 로 자른다", () => {
+    expect(fitOutOfFive(0)).toBe(1);
+    expect(fitOutOfFive(3.5)).toBe(4);
+    expect(fitOutOfFive(4)).toBe(5);
+    expect(fitOutOfFive(4.9)).toBe(5);
+    expect(fitOutOfFive(-1)).toBe(1);
+    expect(fitOutOfFive(9)).toBe(5);
   });
 });
