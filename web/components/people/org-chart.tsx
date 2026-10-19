@@ -174,9 +174,10 @@ export function OrgChart({
         </div>
       ) : (
         <div className="grid min-w-0 grid-cols-[300px_minmax(0,1fr)] items-start gap-6">
+          {/* 상단 막대·페이지 제목·요약과 아래 여백까지 확보해 긴 트리만 스크롤한다. */}
           <aside
             aria-label="부서 탐색"
-            className="sticky top-18 max-h-[calc(100dvh-6rem)] min-w-0 overflow-y-auto border-r border-border pr-4"
+            className="sticky top-18 max-h-[calc(100dvh-14rem)] min-w-0 overflow-y-auto border-r border-border pr-4"
           >
             <section aria-labelledby="org-divisions-heading" className="grid gap-3">
               <h2 id="org-divisions-heading" className="type-heading">
@@ -199,26 +200,29 @@ export function OrgChart({
               <h2
                 id="org-unassigned-heading"
                 aria-label={`상위 미지정 · ${chart.unassignedGroups.length + chart.unassignedTeams.length}개 부서 · ${chart.unassignedCount}명`}
-                className="type-heading"
+                className="relative rounded-lg type-heading hover:bg-muted"
               >
                 <Button
                   variant="ghost"
                   aria-label="상위 미지정"
+                  aria-describedby="org-unassigned-summary"
                   aria-expanded={disclosure.bundles.unassigned}
                   aria-controls="org-unassigned-content"
                   onClick={() => toggleBundle("unassigned")}
-                  className="h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-0 text-left whitespace-normal"
+                  className="h-auto min-h-10 min-w-0 justify-start gap-2 px-0 text-left whitespace-normal after:absolute after:inset-0 after:rounded-lg focus-visible:ring-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
                 >
                   {disclosure.bundles.unassigned ? (
                     <ChevronDownIcon aria-hidden />
                   ) : (
                     <ChevronRightIcon aria-hidden />
                   )}
-                  <span className="min-w-0 type-heading wrap-anywhere">
-                    상위 미지정 · {chart.unassignedGroups.length + chart.unassignedTeams.length}개
-                    부서 · {chart.unassignedCount}명
-                  </span>
+                  <span className="min-w-0 type-heading wrap-anywhere">상위 미지정</span>
                 </Button>
+                {" · "}
+                <span id="org-unassigned-summary">
+                  {chart.unassignedGroups.length + chart.unassignedTeams.length}개 부서 ·{" "}
+                  {chart.unassignedCount}명
+                </span>
               </h2>
               <div
                 id="org-unassigned-content"
@@ -324,34 +328,45 @@ export function OrgChart({
                 className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(176px,1fr))] gap-3"
               >
                 {members.map((person) => (
-                  <li key={person.id} className="min-w-0">
-                    <button
-                      id={`org-person-${person.id}`}
-                      type="button"
-                      data-person-id={person.id}
-                      data-highlighted={focusedPerson?.id === person.id ? "true" : undefined}
-                      aria-label={`${person.name} 상세 보기`}
-                      onClick={(event) => onSelect(person, event.currentTarget)}
-                      className="flex h-full w-full min-w-0 flex-col items-start gap-3 rounded-lg border border-border bg-card p-3 text-left shadow-xs outline-none hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50 data-highlighted:bg-brand-soft data-highlighted:ring-2 data-highlighted:ring-brand"
-                    >
-                      <PersonAvatar
-                        className="size-11 shrink-0"
-                        personId={person.personCode}
-                        portraitUrl={person.portraitUrl}
-                        name={person.name}
-                      />
-                      <span className="grid min-w-0 gap-1">
-                        <span className="type-body font-semibold wrap-anywhere">{person.name}</span>
-                        <span className="type-caption text-muted-foreground">
-                          {titleNames.get(person.jobTitleId) ?? "직급 정보 없음"}
-                        </span>
+                  <li
+                    key={person.id}
+                    data-person-id={person.id}
+                    data-highlighted={focusedPerson?.id === person.id ? "true" : undefined}
+                    className="relative flex h-full min-w-0 flex-col items-start gap-3 rounded-lg border border-border bg-card p-3 text-left shadow-xs hover:bg-muted/40 data-highlighted:bg-brand-soft data-highlighted:ring-2 data-highlighted:ring-brand"
+                  >
+                    <PersonAvatar
+                      className="size-11 shrink-0"
+                      personId={person.personCode}
+                      portraitUrl={person.portraitUrl}
+                      name={person.name}
+                    />
+                    <span className="grid min-w-0 gap-1">
+                      <button
+                        id={`org-person-${person.id}`}
+                        type="button"
+                        data-highlighted={focusedPerson?.id === person.id ? "true" : undefined}
+                        aria-label={`${person.name} 상세 보기`}
+                        aria-describedby={`org-person-${person.id}-title${person.scoringEligible ? ` org-person-${person.id}-scoring` : ""}`}
+                        onClick={(event) => onSelect(person, event.currentTarget)}
+                        className="text-left type-body font-semibold wrap-anywhere outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+                      >
+                        {person.name}
+                      </button>
+                      <span
+                        id={`org-person-${person.id}-title`}
+                        className="type-caption text-muted-foreground"
+                      >
+                        {titleNames.get(person.jobTitleId) ?? "직급 정보 없음"}
                       </span>
-                      {person.scoringEligible ? (
-                        <span className="rounded border border-border px-1.5 py-0.5 type-caption">
-                          점수 계산 대상
-                        </span>
-                      ) : null}
-                    </button>
+                    </span>
+                    {person.scoringEligible ? (
+                      <span
+                        id={`org-person-${person.id}-scoring`}
+                        className="rounded border border-border px-1.5 py-0.5 type-caption"
+                      >
+                        점수 계산 대상
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -384,30 +399,46 @@ function DepartmentNode({
   return (
     <li className="min-w-0">
       {isTeam ? (
-        <Button
-          variant="ghost"
-          aria-label={department.name}
-          aria-current={selectedTeamId === department.id ? "true" : undefined}
-          onClick={() => onSelectTeam(department.id)}
-          className="h-auto min-h-10 w-full min-w-0 justify-between gap-2 px-2 py-2 text-left whitespace-normal aria-current:bg-brand-soft aria-current:text-brand"
-        >
-          <span className="min-w-0 type-label wrap-anywhere">{department.name}</span>
-          <span className="shrink-0 type-caption">{node.memberCount}명</span>
-        </Button>
-      ) : node.children.length ? (
-        <>
+        <div className="relative">
           <Button
             variant="ghost"
             aria-label={department.name}
-            aria-expanded={isExpanded}
-            aria-controls={contentId}
-            onClick={() => onToggle(department.id)}
-            className="h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 text-left whitespace-normal"
+            aria-describedby={`${contentId}-count`}
+            aria-current={selectedTeamId === department.id ? "true" : undefined}
+            onClick={() => onSelectTeam(department.id)}
+            className="peer h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 pr-10 text-left whitespace-normal aria-current:bg-brand-soft aria-current:text-brand"
           >
-            {isExpanded ? <ChevronDownIcon aria-hidden /> : <ChevronRightIcon aria-hidden />}
-            <span className="min-w-0 flex-1 type-label wrap-anywhere">{department.name}</span>
-            <span className="shrink-0 type-caption">{node.memberCount}명</span>
+            <span className="min-w-0 type-label wrap-anywhere">{department.name}</span>
           </Button>
+          <span
+            id={`${contentId}-count`}
+            className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 type-caption peer-aria-current:text-brand"
+          >
+            {node.memberCount}명
+          </span>
+        </div>
+      ) : node.children.length ? (
+        <>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              aria-label={department.name}
+              aria-describedby={`${contentId}-count`}
+              aria-expanded={isExpanded}
+              aria-controls={contentId}
+              onClick={() => onToggle(department.id)}
+              className="h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 pr-10 text-left whitespace-normal"
+            >
+              {isExpanded ? <ChevronDownIcon aria-hidden /> : <ChevronRightIcon aria-hidden />}
+              <span className="min-w-0 flex-1 type-label wrap-anywhere">{department.name}</span>
+            </Button>
+            <span
+              id={`${contentId}-count`}
+              className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 type-caption"
+            >
+              {node.memberCount}명
+            </span>
+          </div>
           <ul
             id={contentId}
             hidden={!isExpanded}

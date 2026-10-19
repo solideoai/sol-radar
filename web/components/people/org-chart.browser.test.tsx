@@ -115,15 +115,121 @@ const data: PeopleDirectory = {
   })),
   summary: { totalCount: 200, scoringCount: 27 },
 };
-const render = (directory = data) => {
+const render = (directory = data, withHeader = false) => {
   const onSelect = vi.fn();
   const onRetry = vi.fn();
   const root = createRoot(document.body.appendChild(document.createElement("div")));
   mounted.push(root);
-  root.render(<OrgChart directory={directory} onSelect={onSelect} onRetry={onRetry} />);
+  root.render(
+    <>
+      {withHeader ? <header className="h-12 shrink-0 border-b border-border" /> : null}
+      <OrgChart directory={directory} onSelect={onSelect} onRetry={onRetry} />
+    </>,
+  );
   return { onSelect, onRetry };
 };
 describe("organization explorer", () => {
+  it.each([
+    ["자연 본부", "80명"],
+    ["자연 본부 직속팀", "80명"],
+    ["상위 미지정", "2개 부서 · 120명"],
+    ["나나 상세 보기", "수석 점수 계산 대상"],
+    ["직원028 상세 보기", "책임"],
+  ])("describes %s with visible metadata: %s", async (name, description) => {
+    render();
+    const button = page.getByRole("button", { name, exact: true });
+    await expect.element(button).toBeVisible();
+    await expect.element(button, { timeout: 1000 }).toHaveAccessibleDescription(description);
+  });
+  it("keeps person action names and visible scoring metadata with an accessible Avatar", async () => {
+    render();
+    const scoring = page.getByRole("button", { name: "나나 상세 보기", exact: true });
+    await expect.element(scoring).toHaveAccessibleName("나나 상세 보기");
+    const card = scoring.element().closest("li")!;
+    expect(card.textContent).toContain("수석");
+    expect(card.textContent).toContain("점수 계산 대상");
+    await expect
+      .element(page.getByRole("img", { name: "나나 프로필 사진 없음", exact: true }))
+      .toBeVisible();
+  });
+  it.each(["avatar", "title", "scoring"])(
+    "opens detail when clicking the card's %s outside its name",
+    async (area) => {
+      const { onSelect } = render();
+      const button = page.getByRole("button", { name: "나나 상세 보기", exact: true });
+      await expect.element(button).toBeVisible();
+      const container = button.element().closest("li")!;
+      const target =
+        area === "avatar"
+          ? container.querySelector('[data-slot="avatar"]')!
+          : [...container.querySelectorAll("span")].find(
+              (element) => element.textContent === (area === "title" ? "수석" : "점수 계산 대상"),
+            )!;
+      const bounds = container.getBoundingClientRect();
+      const hit = target.getBoundingClientRect();
+      // The visible metadata is covered by the real button's stretched hit area.
+      // Send a physical click at that point instead of requiring the metadata itself to receive it.
+      await userEvent.click(container, {
+        force: true,
+        position: { x: hit.x - bounds.x + hit.width / 2, y: hit.y - bounds.y + hit.height / 2 },
+      });
+      expect(onSelect).toHaveBeenCalledExactlyOnceWith(data.members[1], button.element());
+    },
+  );
+  it.each([1280, 1440])(
+    "keeps a long tree inside its pane at %ipx with a short selected team",
+    async (width) => {
+      await page.viewport(width, 1000);
+      document.body.style.paddingLeft = "256px";
+      render(
+        {
+          ...data,
+          members: data.members.slice(0, 5),
+          departments: [
+            ...data.departments,
+            ...Array.from({ length: 35 }, (_, index) => ({
+              id: `long-team-${index}`,
+              code: `u${index}`,
+              name: `상위 미지정 부서 탐색용 긴 이름의 팀 ${index + 1}`,
+              kind: "TEAM" as const,
+              parentId: null,
+              targetCount: null,
+              memberCount: 0,
+            })),
+          ],
+          summary: { totalCount: 5, scoringCount: 5 },
+        },
+        true,
+      );
+      const pane = page.getByRole("complementary", { name: "부서 탐색", exact: true });
+      await expect.element(pane).toBeVisible();
+      const element = pane.element();
+      const bounds = element.getBoundingClientRect();
+      console.info("org-tree-geometry", {
+        width,
+        viewportHeight: innerHeight,
+        top: bounds.top,
+        bottom: bounds.bottom,
+        paneClientHeight: element.clientHeight,
+        paneScrollHeight: element.scrollHeight,
+        documentHeight: document.documentElement.scrollHeight,
+      });
+      expect(bounds.width).toBe(300);
+      expect(bounds.top).toBeGreaterThan(150);
+      expect(bounds.bottom).toBeLessThanOrEqual(innerHeight - 24);
+      expect(element.scrollHeight).toBeGreaterThan(element.clientHeight);
+      expect(document.documentElement.scrollHeight).toBeLessThanOrEqual(innerHeight);
+      const documentTop = window.scrollY;
+      await pane.wheel({ delta: { y: 240 } });
+      await expect.poll(() => element.scrollTop).toBeGreaterThan(0);
+      expect(window.scrollY).toBe(documentTop);
+      element.scrollTop = element.scrollHeight;
+      const last = document.querySelector("#org-unassigned-teams")!.lastElementChild!;
+      expect(last.getBoundingClientRect().bottom).toBeLessThanOrEqual(bounds.bottom + 1);
+      expect(last.getBoundingClientRect().top).toBeGreaterThanOrEqual(bounds.top);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
+    },
+  );
   it("selects a real default team, counts unique people and exposes empty divisions without arrows", async () => {
     render();
     await expect.element(page.getByRole("heading", { name: "조직도", exact: true })).toBeVisible();
@@ -301,6 +407,9 @@ describe("organization explorer", () => {
     expect(location.search).toBe("?team=unknown");
     expect(onSelect).not.toHaveBeenCalled();
     await expect.element(card).toHaveAttribute("data-highlighted", "true");
+    const cardBounds = card.element().closest("[data-person-id]")!.getBoundingClientRect();
+    expect(cardBounds.top).toBeGreaterThanOrEqual(0);
+    expect(cardBounds.bottom).toBeLessThanOrEqual(innerHeight);
     await finder.fill("없는 이름");
     await expect.element(page.getByText("일치하는 이름이 없습니다", { exact: true })).toBeVisible();
     await userEvent.keyboard("{Escape}");
@@ -375,20 +484,23 @@ describe("organization explorer", () => {
     const avatar = document.querySelector('[data-person-id] [data-slot="avatar"]');
     expect(avatar?.getBoundingClientRect().width).toBe(44);
   });
-  it("opens the shared Drawer from a card by keyboard and returns focus on Escape", async () => {
-    vi.stubGlobal("fetch", fetchDetail);
-    fetchDetail.mockResolvedValue(Response.json({ ...data.members[1], scoring: null }));
-    const root = createRoot(document.body.appendChild(document.createElement("div")));
-    mounted.push(root);
-    root.render(<OrgChartDirectory directory={{ status: "ready", data }} />);
-    const card = page.getByRole("button", { name: "나나 상세 보기", exact: true });
-    await expect.element(card).toBeVisible();
-    card.element().focus();
-    await userEvent.keyboard("{Enter}");
-    await expect.element(page.getByRole("dialog", { name: "나나", exact: true })).toBeVisible();
-    await userEvent.keyboard("{Escape}");
-    await expect.element(card).toHaveFocus();
-  });
+  it.each(["{Enter}", " "])(
+    "opens the shared Drawer with %s and returns focus on Escape",
+    async (key) => {
+      vi.stubGlobal("fetch", fetchDetail);
+      fetchDetail.mockResolvedValue(Response.json({ ...data.members[1], scoring: null }));
+      const root = createRoot(document.body.appendChild(document.createElement("div")));
+      mounted.push(root);
+      root.render(<OrgChartDirectory directory={{ status: "ready", data }} />);
+      const card = page.getByRole("button", { name: "나나 상세 보기", exact: true });
+      await expect.element(card).toBeVisible();
+      card.element().focus();
+      await userEvent.keyboard(key);
+      await expect.element(page.getByRole("dialog", { name: "나나", exact: true })).toBeVisible();
+      await userEvent.keyboard("{Escape}");
+      await expect.element(card).toHaveFocus();
+    },
+  );
   it("shows recoverable directory errors with requestId but no partial counts", async () => {
     router.refresh.mockReset();
     const root = createRoot(document.body.appendChild(document.createElement("div")));
