@@ -174,7 +174,7 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/mode
 ## Compose 서비스
 |service|이미지|내부 포트|호스트 노출|상태 저장|프로필|
 |---|---|---:|---|---|---|
-|worker|`web/` 코드로 빌드, 진입점 `web/worker`|-|없음|없음|기본|
+|worker|`web/` 코드로 빌드, 진입점 `web/worker`|-|없음|`../fixtures`·`../infra/sources` 읽기 전용 바인드(컨테이너 `FIXTURES_DIR=/srv/sol-radar/fixtures`, `SOURCES_REGISTRY_FILE=/srv/sol-radar/infra/sources/registry.yaml`, C3 수집 입력)|기본|
 |redis|`redis:8.8.3-alpine`|6379|`127.0.0.1:6380` (기본, `REDIS_HOST_PORT`로 변경. web을 호스트에서 띄울 때)|redisdata|기본|
 |qdrant|`qdrant/qdrant:v1.19.2-unprivileged`|6333|`127.0.0.1:6333` (`QDRANT_HOST_PORT`, 같은 조건)|qdrantdata|기본|
 |minio|`cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8` (비root UID 65532)|9000|`127.0.0.1:9000` (`MINIO_HOST_PORT`, 같은 조건)|miniodata|기본|
