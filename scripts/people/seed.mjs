@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
 
 import { fileURLToPath } from "node:url";
+import { assignmentsOf, foldAssignmentsIntoAvailability } from "./availability.mjs";
 import { validateDepartmentHierarchy } from "./departments.mjs";
 import { isLocalUrl } from "../local-env.mjs";
 
@@ -103,6 +104,9 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
     })),
     "id",
   );
+  // 명부의 기존 사업 투입(assignments 7건)은 공고가 없어 assignments 표(bid_id not null)에 못 넣는다.
+  // 대신 availability 창에 접어 두면 점수 계산(availableFte)이 fixture 와 같은 가용 FTE 를 읽는다.
+  const priorAssignments = fixtures.people.assignments ?? [];
   await client.upsert(
     "team_member_scoring",
     fixtures.people.people
@@ -113,7 +117,10 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
         role: person.role,
         grade: person.grade,
         skills: person.skills,
-        availability: person.availability,
+        availability: foldAssignmentsIntoAvailability(
+          person.availability,
+          assignmentsOf(priorAssignments, person.personId),
+        ),
       })),
     "member_id",
   );

@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ui
   - hackathon
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 06. Next.js 화면 및 UX
@@ -71,27 +71,23 @@ flowchart TD
 
 ## 3. 디자인 토큰
 
-아래 표의 값이 토큰 값의 기준이다. 구현은 템플릿 방식을 따른다: 값을 `design/tokens.json`(디자인 토큰 정본)에 적고 `pnpm tokens`로 `web/app/globals.css`(`:root` CSS 변수 + Tailwind v4 `@theme`)를 생성한다. 생성물은 손으로 고치지 않고, 컴포넌트는 변수(또는 그 변수에 이어진 Tailwind 클래스)만 쓴다. 아래 `--color-*` 이름과 `tokens.json`의 의미 이름(shadcn 체계) 사이의 대응은 Phase 3에서 정한다. 라이트 테마만 P0, 다크는 P1.
+색·글꼴·글자 눈금·모서리의 값은 `design/tokens.json`이 정본이다. 이 문서는 값을 적지 않는다. `pnpm tokens`가 `web/app/globals.css`(`:root` CSS 변수 + Tailwind v4 `@theme`)를 만든다. 생성물은 손으로 고치지 않고, 컴포넌트는 변수(또는 그 변수에 이어진 Tailwind 클래스)만 쓴다. 색 이름은 shadcn 의미 체계를 따르고, 쓰임 규칙은 `tokens.json`의 `$comment`에 있다. 라이트 테마만 P0, 다크는 P1.
 
-### 3.1 색
+### 3.1 의미색 대응
 
-| 토큰 | 값 | 용도 |
+이 문서가 쓰는 의미색 이름과 `tokens.json` 색 이름의 대응이다.
+
+| 이 문서 | `tokens.json` | 쓰는 곳 |
 |---|---|---|
-| `--color-bg` | `#F7F8FA` | 페이지 배경 |
-| `--color-surface` | `#FFFFFF` | 카드·표·패널 |
-| `--color-border` | `#E3E6EB` | 구분선·표 테두리 |
-| `--color-text` | `#1A1D23` | 본문 |
-| `--color-text-muted` | `#5B6472` | 보조 텍스트·레이블 |
-| `--color-brand` | `#1F4FD8` | 주 버튼·링크·활성 탭 |
-| `--color-brand-soft` | `#E8EEFC` | 선택 행·활성 배경 |
-| `--color-success` | `#15803D` | BID, SATISFIED, 완료 |
-| `--color-warning` | `#B45309` | WATCH, NEEDS_REVIEW, PARTIAL, 신선도 경고 |
-| `--color-danger` | `#B91C1C` | NO-BID, NOT_SATISFIED, FAILED, 오류 |
-| `--color-info` | `#1D4ED8` | 진행 중(QUEUED·PROCESSING), 안내 |
-| `--color-neutral` | `#6B7280` | NOT_ANALYZED, CANCELLED, 미확인 |
-| `--color-demo` | `#7C3AED` | `DEMO` 배지 전용. 다른 의미에 쓰지 않음 |
+| success | `success` | BID, SATISFIED, 완료 |
+| warning | `warning` | WATCH, NEEDS_REVIEW, PARTIAL, 신선도 경고 |
+| danger | `destructive` | NO-BID, NOT_SATISFIED, FAILED, 오류 |
+| demo | `demo` | `DEMO` 배지 전용. 다른 의미에 쓰지 않음 |
+| brand | `brand` | 선택 표시. 주요 버튼은 `primary`, 포커스 링은 `ring` |
+| info | 없음 | 진행 중(QUEUED·RUNNING), 안내 |
+| neutral | 없음 | NOT_ANALYZED, CANCELLED, 미확인 |
 
-각 의미색은 `-soft`(배경용 연한 톤) 변형을 가진다. 텍스트 대비는 WCAG AA 4.5:1 이상을 목표로 하고, 구현 시 Playwright axe 검사로 확인한다(값을 바꾸면 검사도 다시).
+`info`·`neutral`, 사이드바 활성 배경 `brand-soft`(§4), 의미색의 연한 바탕 변형(`-soft`)은 `tokens.json`에 없다. 화면에 쓰기 전에 `tokens.json`에 더하거나 있는 토큰으로 바꾼다. 상태색은 글자·아이콘·테두리에만 쓰고 흰 바탕 위에 둔다(`$comment`). 텍스트 대비는 WCAG AA 4.5:1 이상을 목표로 하고, 구현 시 Playwright axe 검사로 확인한다(값을 바꾸면 검사도 다시).
 
 ### 3.2 상태 표기 (아이콘 + 텍스트 병기)
 
@@ -103,9 +99,9 @@ flowchart TD
 | 자격 SATISFIED | `충족` | `check-circle` | success |
 | 자격 NEEDS_REVIEW | `확인 필요` | `help-circle` | warning |
 | 자격 NOT_SATISFIED | `미충족` | `x-circle` | danger |
-| 자격 NOT_APPLICABLE | `해당 없음` | `minus-circle` | neutral |
+| 자격 NEEDS_REVIEW, 사유 `STAGE_NOT_APPLICABLE` | `확인 필요` · 사유 `해당 없음` | `help-circle` | warning |
 | 분석 NOT_ANALYZED | `미분석` | `circle-dashed` | neutral |
-| 분석 QUEUED / PROCESSING | `대기 중` / `분석 중` | `loader` (회전) | info |
+| 분석 QUEUED / RUNNING | `대기 중` / `분석 중` | `loader` (회전) | info |
 | 분석 COMPLETED | `완료` | `check` | success |
 | 분석 PARTIAL | `부분 완료 (규칙만)` | `alert-triangle` | warning |
 | 분석 FAILED | `실패` | `alert-octagon` | danger |
@@ -113,14 +109,15 @@ flowchart TD
 | 가상 데이터 | `DEMO` | `flask-conical` | demo |
 | Kev 의견 상이 | `규칙 우선` | `shield-check` | warning |
 
-### 3.3 타이포·간격·형태
+자격 판정은 `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW` 3값이다. 발주계획처럼 자격 요건이 없는 공고는 `NEEDS_REVIEW` + 사유 `STAGE_NOT_APPLICABLE`로 저장하므로([[04-DATABASE|04 DB]] §3.4), 판정은 `확인 필요`로, 사유는 `해당 없음`으로 적는다.
 
-| 토큰 | 값 |
+### 3.3 글자·간격·형태
+
+글꼴(`fonts`)·글자 눈금(`typography`, `type-<이름>` 클래스)·모서리(`radius`)는 `tokens.json`이 정본이다. 로그인 뒤 화면은 `title`·`heading`·`body`·`label`·`caption` 눈금만 쓴다(`$comment`). 식별자·금액은 `mono` 글꼴이다.
+
+| 항목 | 규칙 |
 |---|---|
-| 글꼴 | `Pretendard Variable`, 대체 `system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif`. 식별자·금액은 `ui-monospace` |
-| 크기/행간 | 페이지 제목 24/32 600, 섹션 제목 18/28 600, 본문 14/20 400, 보조 12/16 400, 큰 숫자(점수) 36/40 700 |
 | 간격 | 4px 기반: `4 8 12 16 24 32 48`. 섹션 간 32, 카드 내부 16~24, 표 셀 8×12 |
-| 모서리 | 배지 4, 카드·입력 8, 모달 12 |
 | 그림자 | 카드 없음(테두리만), 드로어·모달 `0 8px 24px rgba(0,0,0,.12)` |
 | 표 | 행 높이 44, 헤더 고정, 숫자 열 우측 정렬, 홀짝 배경 없음(hover만) |
 | 애니메이션 | 150ms ease-out. `prefers-reduced-motion`이면 회전 아이콘 제외 전부 끔 |
@@ -150,10 +147,9 @@ flowchart TD
 ```
 
 - 사이드바는 240px 고정, 접으면 64px(아이콘만). 묶음과 메뉴는 트리로 보인다(§4.1). 활성 항목은 `brand-soft` 배경 + 좌측 3px `brand` 바(트리 세로선 자리).
-- 사이드바 묶음은 업무·AI 분석·입찰 관리·조직·시스템이다. 그 아래 선으로 나눈 맨 아래 고정 칸에 조직도(`/org-chart`)가 있다. 구현과 검증이 끝난 메뉴만 보인다(노출 조건 5개는 [[16-DECISIONS|ADR-021]]). 메뉴 숨김은 권한이 아니며, 서버가 라우트마다 권한을 따로 검사한다. 미인증은 기존 인증 정책, 미출시 경로 404, 출시 경로에 권한 없음 403이다. 해커톤에는 조건을 채운 업무·조직·시스템 메뉴가 보인다. 그림의 "수집 관리"는 데이터 수집 관리(`/admin/ingestion`, ADMIN만)다. 사용자 메뉴: 설정, 서비스 운영(`/ops`, 운영자만), 로그아웃([[16-DECISIONS|ADR-021]]). Topbar의 회사 이름 "솔리데오"는 고정 표시이고 조직 전환 메뉴가 없다.
+- 사이드바 묶음은 업무·AI 분석·입찰 관리·조직·시스템이다. 그 아래 선으로 나눈 맨 아래 고정 칸에 조직도(`/org-chart`)가 있다. 구현과 검증이 끝난 메뉴만 보인다(노출 조건 5개는 [[16-DECISIONS|ADR-021]]). 메뉴 숨김은 권한이 아니며, 서버가 라우트마다 권한을 따로 검사한다. 미인증은 기존 인증 정책, 미출시 경로 404, 출시 경로에 권한 없음 403이다. 해커톤에는 조건을 채운 업무·조직·시스템 메뉴가 보인다. 그림의 "수집 관리"는 데이터 수집 관리(`/admin/ingestion`, ADMIN만)다. 사용자 메뉴: 설정, 서비스 운영(`/ops`, 운영자만. `/ops` 분리는 해커톤 이후, [[16-DECISIONS|ADR-023]]), 로그아웃([[16-DECISIONS|ADR-021]]). Topbar의 회사 이름 "솔리데오"는 고정 표시이고 조직 전환 메뉴가 없다.
 - Topbar 우측 순서는 고정: `RunModeIndicator` → `AiModeIndicator` → `DataFreshnessIndicator` → `NotificationBell` → 사용자 메뉴. `DEMO` 배지는 로고 바로 옆, 실행 모드가 `fixture`·`mock`일 때만(`live`에서는 숨긴다. 행 단위 `DEMO` 배지는 모드와 무관하게 `isDemo=true` 레코드에 붙는다).
-- `RunModeIndicator`는 `실행 모드: live | fixture | mock`을 표시한다([[16-DECISIONS|ADR-020]]). `live`는 중립 색, `fixture`·`mock`은 warning 색.
-- `AiModeIndicator`는 `AI: mock | local | hosted | unavailable` 네 값만 표시한다. 값은 `GET /health/ready`의 `checks.ai`([[14-OBSERVABILITY|14 관측성]])이며 gateway 불가면 `unavailable` + danger 색. 30초 간격 갱신.
+- Topbar 지표(`RunModeIndicator`·`AiModeIndicator`·`DataFreshnessIndicator`)의 값·색·갱신 주기는 §8이 정본이다.
 - 1280px에서 `/bids` 표의 기본 열이 가로 스크롤 없이 모두 보여야 한다(열 목록은 §5.3).
 - 1920px 이상은 콘텐츠를 1440에 가두고 좌우 여백으로 처리한다.
 
@@ -176,12 +172,12 @@ flowchart TD
 | AI 분석 | 인력 배치 시뮬레이션 | `/workforce` | `users-round` | P1 |
 | 입찰 관리 | 입찰 프로젝트 | `/projects` | `folder-kanban` | P1 |
 | 조직 | 회사 역량 | `/company` | `award` | 예 |
-| 조직 | 조직·인력 | `/people` | `users` | 예 |
-| 시스템 | 설정 | `/settings` | `settings` | 예 |
-| 시스템 | 데이터 수집 관리 | `/admin/ingestion` | `database` | 예 (ADMIN만) |
-| 맨 아래 고정 칸 | 조직도 | `/org-chart` | `network` | 예 |
+| 조직 | 조직·인력 | `/people` | `users` | 확장 컷 |
+| 시스템 | 설정 | `/settings` | `settings` | 예 (조직 탭은 확장 컷) |
+| 시스템 | 데이터 수집 관리 | `/admin/ingestion` | `database` | 확장 컷 (ADMIN만) |
+| 맨 아래 고정 칸 | 조직도 | `/org-chart` | `network` | 확장 컷 |
 
-아이콘 이름은 `web/`에 설치된 `lucide-react` 1.54.0에서 확인했다. React에서는 `LayoutDashboardIcon`처럼 `Icon` 접미사 이름으로 부른다.
+"해커톤 노출"의 확장 컷은 핵심 컷이 모두 green이 된 뒤 노출한다([[16-DECISIONS|ADR-023]], [[12-ROADMAP|12 로드맵]]). 아이콘 이름은 `web/`에 설치된 `lucide-react`에서 확인했다. React에서는 `LayoutDashboardIcon`처럼 `Icon` 접미사 이름으로 부른다.
 
 ## 5. 라우트별 명세
 
@@ -193,7 +189,7 @@ flowchart TD
 | 빈 상태 | 아이콘 + 한 줄 설명 + 다음 행동 버튼 1개 | 라우트별 §5.2~5.8 |
 | 오류 | 제목 "불러오지 못했습니다" + `requestId` + [다시 시도]. 원인 텍스트는 서버가 준 `error.message`만 | `error.tsx` |
 | 권한 없음 | 403: "이 화면을 볼 권한이 없습니다" + 현재 역할 표시 + [대시보드로]. 404: 공고·분석이 다른 조직 것이면 404로 통일([[09-SECURITY\|09 보안]]) | 라우트 가드 |
-| 신선도 경고 | 마지막 수집 성공이 60분 초과면 Topbar 지표가 warning 색 + "수집 지연" 텍스트 | `DataFreshnessIndicator` |
+| 신선도 경고 | §8 `DataFreshnessIndicator` | `DataFreshnessIndicator` |
 
 ### 5.2 `/auth/login`
 
@@ -299,7 +295,7 @@ flowchart TD
 
 ### 5.9.1 `/org-chart` (2026-10-18 사용자 결정, 구현 예정)
 
-사이드바 맨 아래 고정 칸의 "조직도"가 여는 화면이다(§4.1). 두 칸 탐색기로, 왼쪽은 부서 트리, 오른쪽은 고른 팀의 사진 카드다. 레이아웃 그림·상태표·결정 근거는 [조직도 설계](plans/2026-10-18-org-chart-sidebar-design.md) §5다. ADR-021 데모 필수 N4a(조직·인력 조회)에 속한다.
+사이드바 맨 아래 고정 칸의 "조직도"가 여는 화면이다(§4.1). 두 칸 탐색기로, 왼쪽은 부서 트리, 오른쪽은 고른 팀의 사진 카드다. 레이아웃 그림·상태표·결정 근거는 [조직도 설계](plans/2026-10-18-org-chart-sidebar-design.md) §5다. ADR-021 N4a(조직·인력 조회)에 속하고, 해커톤에서는 확장 컷이다([[16-DECISIONS|ADR-023]]).
 
 | 항목 | 내용 |
 |---|---|
@@ -324,13 +320,13 @@ flowchart TD
 
 회사 선호 설정은 `/company`가 맡는다. 개인 알림 수신 설정은 해커톤 이후다.
 
-### 5.11 현재 조직과 계정 상태 (ADR-021, 구현 예정)
+### 5.11 현재 조직과 계정 상태 (ADR-021, 구현됨)
 
-현재 조직은 서버가 정한다. 화면에 조직 전환 메뉴가 없다.
+현재 조직은 서버가 정한다(`@/server/organization`의 `getCurrentOrganization`). 화면에 조직 전환 메뉴가 없다. 0개·2개 이상일 때의 안내 화면은 `/auth/organization-state`다.
 
 | 업무 조직 멤버십 | 화면 |
 |---|---|
-| 0개 | 조직 초대 안내 화면. 받은 초대 목록 링크를 보인다(문구는 구현 때 정한다). 업무 화면은 열지 않는다 |
+| 0개 | 조직 초대 안내 화면 "조직 초대가 필요합니다". 받은 초대 목록(`/invitations`) 링크를 보인다. 업무 화면은 열지 않는다 |
 | 1개 | 그 조직으로 들어간다 |
 | 2개 이상 | "지원되지 않는 계정 상태입니다. 관리자에게 문의하세요". 업무 API는 `403 UNSUPPORTED_ACCOUNT_STATE` |
 
@@ -414,7 +410,7 @@ flowchart TD
 ## 7. 분석 상태와 polling
 
 ```text
-NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
+NOT_ANALYZED → QUEUED → RUNNING → COMPLETED
                                    → PARTIAL   (AI 불가, 규칙만)
                                    → FAILED    (규칙도 실패, 사유 코드)
 ```
@@ -429,11 +425,11 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 | 요소 | 위치 | 동작 |
 |---|---|---|
 | `DEMO` 배지 | Topbar 로고 옆, 목록 각 행, 상세 제목 앞, 로그인 카드 | 행·상세는 `isDemo=true` 레코드에, Topbar·로그인 카드는 실행 모드가 `fixture`·`mock`일 때 표시. 툴팁은 09 문구 그대로: "이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다." |
-| `RunModeIndicator` | Topbar | `실행 모드: live \| fixture \| mock`. `/health/ready` 응답의 실행 모드 값 |
+| `RunModeIndicator` | Topbar | `실행 모드: live \| fixture \| mock`([[16-DECISIONS\|ADR-020]]). `/health/ready` 응답의 실행 모드 값. `live`는 중립 색, `fixture`·`mock`은 warning 색 |
 | 가상 회사 프로필 배지 | 상세 상단 요약 | 모든 분석에 "가상 회사 프로필로 분석". 툴팁 "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다" |
 | 공고 출처 필터 | `/bids` 필터 바 | `origin=live\|demo\|all`(기본: `live` 모드 `live`, `fixture`·`mock` 모드 `demo`) |
-| `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable`. `/health/ready` `checks.ai` 값. `unavailable`이면 danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
-| `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("12분 전"). 60분 초과 warning, 수집 실패 시 danger + 관리자 링크 |
+| `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable` 네 값만. `/health/ready` `checks.ai` 값([[14-OBSERVABILITY\|14 관측성]]), 30초 간격 갱신. gateway 불가면 `unavailable` + danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
+| `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("12분 전"). 60분 초과면 warning 색 + "수집 지연" 텍스트, 수집 실패 시 danger + 관리자 링크 |
 | `AnalysisStatus` | 상세·목록 | §7 상태 + 실시간 polling |
 | AI 불가 배너 | 상세 상단, 대시보드 상단 | `analysis.status=PARTIAL` 또는 `/health/ready` `status: degraded`일 때. 문구는 09 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" + `recommendationBasis: RULES_ONLY` |
 | Kev 섹션 제목·고지 | Kev 섹션 | 섹션 이름은 "Kev 참고 지표", 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" Kev 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSetVersion`으로 치환. 둘 다 생략 금지 |
@@ -451,7 +447,7 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 | `QualificationChecklist` | 상세 | `checks[]`, 각 행 근거 링크 |
 | `EvidenceDrawer` | 상세 (우측 슬라이드) | `evidence`, 원문 하이라이트, 페이지·좌표, [원문 열기]. Esc로 닫힘 |
 | `KevOpinion` | 상세 | `probabilities`, `mandatoryRisk`, `needsHumanReview`, `fit`, `enabled`, `reviewFlags`, 09 고지 문구 |
-| `AiModeIndicator` | Topbar | `checks.ai` 값 4종, 30초 polling |
+| `AiModeIndicator` | Topbar | §8 |
 | `DecisionPanel` | 상세 우측 | `recommendation`, `lastReview`, 역할별 활성/읽기 전용 |
 | `AnalysisStatus` | 상세·목록 | §7 상태 머신 + polling |
 | `NotificationBell` | Topbar | 안 읽음 수, 드롭다운 5건, [모두 보기] |
@@ -475,11 +471,11 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 ## 11. 구현 메모
 
 - App Router. 서버 컴포넌트는 `web/server/<도메인>`의 service를 배럴(`@/server/<도메인>`)로 직접 불러 데이터를 읽는다(사용자 세션으로 DB를 불러 RLS 적용). 클라이언트 컴포넌트는 필터·폼·polling만 담당하고, polling(`pollUrl`)과 변경 요청은 `/api/v1` Route Handler(세션 쿠키 + `X-Requested-With: sol-radar`) 또는 Server Action으로 한다([[05-API-SPEC|05 API]] §1).
-- 인증은 Supabase Auth 세션 쿠키(`@supabase/ssr`)다. 이 쿠키는 HttpOnly가 아니므로 XSS 방어(CSP nonce, `dangerouslySetInnerHTML` 금지)를 지킨다([[09-SECURITY|09 보안]] 인증). Route Handler·Server Action은 인증·CSRF·zod 검증·오류 변환만 하고 업무 로직은 `web/server/<도메인>`에 둔다([[02-ARCHITECTURE|02 아키텍처]]).
+- 인증·CSRF·XSS 규칙은 [[09-SECURITY|09 보안]] 인증 절이 정본이다. Route Handler·Server Action의 처리 순서와 업무 로직 위치는 [[05-API-SPEC|05 API]] §7과 [[02-ARCHITECTURE|02 아키텍처]]다.
 - 클라이언트 상태는 zustand, 입력 검증은 zod를 쓴다([[16-DECISIONS|ADR-016]]). 여러 클라이언트 컴포넌트가 함께 쓰는 UI 상태(예: `EvidenceDrawer` 열림과 선택한 근거)만 zustand store에 둔다. 서버 데이터는 store에 복사하지 않고, `BidFilters` 필터 값은 URL 쿼리가 정본이라 store에 두지 않는다. 폼은 react-hook-form + zod로 검증하고, 같은 zod 스키마로 서버(Route Handler·Server Action)가 다시 검증한다([[05-API-SPEC|05 API]] §7).
 - 라우트마다 `loading.tsx`, `error.tsx`, `not-found.tsx`.
 - 금액은 서버에서 문자열로 받아 `Intl.NumberFormat('ko-KR')`로 표시. 시각은 UTC 저장값을 KST로 변환해 표시하고 툴팁에 UTC 원값.
-- 스타일 토큰은 템플릿 방식(`design/tokens.json` → `pnpm tokens` → `web/app/globals.css`, Tailwind v4)을 쓴다. 토큰 값은 §3 표를 기준으로 `design/tokens.json`에 적고, 색·글꼴·글자 눈금을 다른 곳에 직접 쓰지 않는다. Tailwind v4·Next.js 16 세부는 Phase 3 시작 시 설치된 버전 문서(`web/node_modules/next/dist/docs/` 등)를 읽고 따른다.
+- 스타일 토큰은 템플릿 방식(`design/tokens.json` → `pnpm tokens` → `web/app/globals.css`, Tailwind v4)을 쓴다. 토큰 값은 `design/tokens.json`이 정본이고(§3), 색·글꼴·글자 눈금을 다른 곳에 직접 쓰지 않는다. Tailwind v4·Next.js 16 세부는 Phase 3 시작 시 설치된 버전 문서(`web/node_modules/next/dist/docs/` 등)를 읽고 따른다.
 
 ## 12. 증거 스크린샷 상태명
 
@@ -491,9 +487,11 @@ NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED
 | `empty` | 빈 상태 (§5) | `bids-list`(필터 0건), `notifications`, `admin-ingestion`(실행 이력 0건) |
 | `loading` | skeleton | `bid-detail`(분석 polling 중) |
 | `error` | 오류 화면 + `requestId` | `bid-detail` |
-| `forbidden` | 403/404 | `admin-ingestion`(VIEWER), `bid-detail`(`org-02`), `settings-org`(VIEWER), `ops`(조직 ADMIN, 404) |
+| `forbidden` | 403/404 | `admin-ingestion`(VIEWER), `bid-detail`(`org-02`), `settings-org`(VIEWER) |
 | `partial` | AI 불가 배너 + `RULES_ONLY` | `bid-detail`(`FX-01`), `dashboard` |
 | `demo-badge` | `DEMO` 배지·툴팁 클로즈업 | `bids-list`, `login` |
+
+`admin-ingestion`·`people`·`org-chart`·`settings-org`는 확장 컷 화면이라 노출된 뒤에만 찍는다([[16-DECISIONS|ADR-023]]). `/ops`는 해커톤 이후라 찍지 않는다.
 
 예: `20261020-phase3-bid-detail-partial-1440.png`. 저장 위치와 목록은 [[11-TESTING|11 테스트]] §6.
 

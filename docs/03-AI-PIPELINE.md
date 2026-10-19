@@ -30,7 +30,7 @@ updated: 2026-10-19
 |Embedding + Qdrant|근거 문단 검색|chunk 텍스트|chunk id, 점수|없음|
 |사람|최종 참여 결정|화면|`bid_reviews`|**최종**|
 
-같은 조건을 API 구조화 필드와 Qwen 추출이 둘 다 주면 **API 구조화 필드가 우선**이다. 예: 면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt`. 두 값이 다르면 그 필드를 `CONFLICTED`로 둔다(§4.4 7단계 "메타데이터 대조"의 확장). 판정 근거는 `basis`(`API_FIELD` 또는 `EXTRACTION`)로 남긴다([[08-SCORING|08 점수]]).
+같은 조건을 API 구조화 필드와 Qwen 추출이 둘 다 주면 **API 구조화 필드가 우선**이고, 다르면 `CONFLICTED`다. 판정 규칙은 [[08-SCORING|08 점수]] §5.1, 근거 형식은 [[15-DATA-CONTRACTS|15 데이터 계약]] §3이 정본이다(gateway 쪽 대조는 §4.4 7단계).
 
 ## 2. 파이프라인 (v0.2)
 
@@ -128,7 +128,7 @@ interface ExplainRequest {
 interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boolean }   // fallback=true면 템플릿 문장
 ```
 
-**계약 세부 결정** (2026-10-16 메인 세션)
+**계약 세부 결정** (2026-10-16)
 - `translations`는 `ExtractResponse`의 최상위 필드다. `RequirementExtraction` 스키마(v0.1)는 바꾸지 않고, 저장은 별도 열 `requirement_extractions.translations`다([[04-DATABASE|04 DB]]).
 - `KevResponse.requirements`(요구사항 항목별 분포)와 `wire`(Kev 응답 원문)는 위 정의대로 둔다. Worker가 `requirement_assessments`와 `score_runs.kev_output`(§7)에 저장한다.
 - 면허·업종·지역 대조는 gateway가 아니라 규칙 엔진(`web/server/scoring`)이 한다. gateway는 판정하지 않는다.
@@ -146,11 +146,11 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 
 ### 2.2 외부 의존성 인터페이스
 
-서비스키나 회사 GPU 접속이 아직 없어도 나머지를 개발할 수 있게 외부 의존성을 인터페이스로 떼어 낸다([[16-DECISIONS|ADR-020]]).
+공공 API·첨부·회사 GPU에 접속하지 못해도 나머지를 개발할 수 있게 외부 의존성을 인터페이스로 떼어 낸다([[16-DECISIONS|ADR-020]]).
 
-|인터페이스|구현체|키·GPU 없이 개발하는 법|
+|인터페이스|구현체|외부 접속 없이 개발하는 법|
 |---|---|---|
-|`BidSourceConnector`([[07-DATA-PIPELINE\|07]] Connector)|`OfficialApiConnector`, `FixtureConnector`, `RecordedApiConnector`(저장한 실제 응답 재생)|공식 참고문서의 응답 예시로 계약 시험을 만든다(문서 예시라고 표시). 키를 받으면 실제 응답 3건으로 바꾼다|
+|`BidSourceConnector`([[07-DATA-PIPELINE\|07]] Connector)|`OfficialApiConnector`, `FixtureConnector`, `RecordedApiConnector`(저장한 실제 응답 재생)|녹음 응답(`fixtures/recorded/<serviceId>/`, 2026-10-19 C1 ① 실호출을 마스킹해 저장)으로 계약 시험을 만든다(C3)|
 |`AttachmentFetcher`|`G2bAttachmentFetcher`, `FixtureAttachmentFetcher`|fixture 첨부(PDF·HWPX·HWP 샘플)로 개발|
 |`DocumentParser`(§10)|형식별 어댑터|공개 샘플·fixture 문서|
 |`ModelClient`(gateway 안 Qwen·Kev 어댑터)|`mock`, `local`|mock과 wire 계약 시험. GPU 접속 뒤 `local` 연결|
@@ -180,18 +180,18 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`AI_GATEWAY_URL`|URL|`http://ai-gateway:8000`|Worker가 부르는 gateway|
 |`AI_TIMEOUT_MS`|정수|`60000`|Qwen 호출 1회 timeout|
 |`AI_PROMPT_VERSION`|문자열|`req-extract/v0.1`|프롬프트 템플릿 버전. 해시와 함께 저장|
-|`QWEN_BASE_URL`|URL|(없음)|`local`/`hosted`에서 Qwen runtime 주소. 해커톤 `local`은 회사 GPU 추론 엔드포인트 아래 경로 `https://acropolissg.com/sol-radar/qwen`(GPU 서버 안 모델 라우터 기준. 바깥 nginx 접두어 처리·실제 응답은 미확인. [[16-DECISIONS\|ADR-025]], [[10-DEPLOYMENT\|10 배포]])|
+|`QWEN_BASE_URL`|URL|(없음)|`local`/`hosted`에서 Qwen runtime 주소. 해커톤 `local` 값은 [[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시([[16-DECISIONS\|ADR-025]], §5.9)|
 |`QWEN_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 엔드포인트 뒤 vLLM `--api-key`와 같은 값). `local`에서 필수(ADR-025). 서버 env(`infra/.env`)만, 로그 금지([[09-SECURITY\|09 보안]])|
 |`QWEN_MODEL`|모델 ID|(없음)|기본 후보 `Qwen/Qwen3.5-9B`(§3.2). 결과 메타데이터에 기록|
 |`QWEN_CONTEXT_BUDGET_TOKENS`|정수|`12000`|추출 1회 입력 상한. 초과 chunk는 Qdrant 순위로 자른다|
 |`EMBEDDING_MODEL`|모델 ID|(없음)|`mock`이면 키워드 검색으로 대체|
 |`KEV_ENABLED`|`true`/`false`|모드가 정함|`live`·`fixture` → `true`. `false`면 Kev 없이 `RULES_ONLY`. `mock`에서는 mock adapter가 응답|
-|`KEV_BASE_URL`|URL|(없음)|Kev 서버 주소. 해커톤 `local`은 회사 GPU 추론 엔드포인트 아래 경로 `https://acropolissg.com/sol-radar/kev`(모델 라우터 기준, ADR-025). `mock`에서는 쓰지 않는다|
+|`KEV_BASE_URL`|URL|(없음)|Kev 서버 주소. 해커톤 `local` 값은 [[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시(ADR-025, §5.9). `mock`에서는 쓰지 않는다|
 |`KEV_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 엔드포인트 뒤 `kev.serve`의 `KEV_API_KEY`와 같은 값). `local`에서 필수(§5.9, ADR-025). 서버 env만, 로그 금지|
 |`KEV_MODEL_ID`|레지스트리 id|`kev-9b-v1.0`|`services/ai/models/registry.yaml` 항목 id(`kev-9b-v1.0` → `jaredpalmer/kev-9b@v1.0`). gateway가 기동할 때 Kev `GET /v1/models`와 대조하고 다르면 기동 거부(§11)|
 |`KEV_TIMEOUT_MS`|정수|`5000`|초과 시 Kev 없이 진행. v0.2 분할 요청마다 적용. 실추론 지연은 §5.9에서 실측해 조정|
 |`KEV_QUESTION_SET`|문자열|`kev-qs/v0.1`|질문 세트 버전. `mock` 모드·데모 S3는 v0.1(§5.5), `live`·`fixture` 실추론은 v0.2(§5.10)|
-|`KEV_ALLOW_KO_STATE`|`true`/`false`|`false`|`/kev`의 `stateLanguage="ko"` 허용. **평가(E2, [[21-MODEL-TRAINING\|21]]) 전용.** `false`면 ko 요청은 `422 KO_STATE_NOT_ALLOWED`. **`SOL_RUN_MODE=live`와 함께 쓸 수 없다(gateway 기동 거부).** 한국어 state 평가는 노트북에서 `sol_eval`이 `KEV_BASE_URL` 엔드포인트에 직접 붙거나, `SOL_RUN_MODE=fixture`로 띄운 평가용 gateway에서만 한다(§5.11, ADR-025)|
+|`KEV_ALLOW_KO_STATE`|`true`/`false`|`false`|`/kev`의 `stateLanguage="ko"` 허용. **평가(E2, [[21-MODEL-TRAINING\|21]]) 전용, §5.11.** `false`면 ko 요청은 `422 KO_STATE_NOT_ALLOWED`|
 |`PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`|어댑터 id|(비교 뒤 결정)|형식별 파서 어댑터(§10.1). 기본값은 실제 RFP 샘플 비교(§10.3) 뒤 정한다([[16-DECISIONS\|16 ADR]] 미결정 4·20번)|
 |`AI_HOSTED_APPROVED`|`true`/`false`|`false`|`hosted`는 비용이 든다. **사용자가 명시 승인해야 `true`**. `false`면 `hosted` 지정 시 기동 실패|
 |`HOSTED_API_BASE_URL`, `HOSTED_API_KEY`|URL, 비밀|(없음)|hosted 공급자. 키는 서버 env만|
@@ -211,7 +211,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 ### 3.2 Qwen 모델
 
 > [!warning] 미검증 가정
-> 기본 후보는 `Qwen/Qwen3.5-9B`이다([[16-DECISIONS|ADR-020]]). `Qwen/Qwen3.5-4B`와의 비교는 선택이다. 두 모델 모두 post-trained 릴리즈로 Hugging Face Hub에 있다(존재 확인 2026-10-16). 한국어 공고 추출 품질은 아직 재지 않았다. 런타임은 vLLM이다(guided JSON·logprob, [[16-DECISIONS|16 ADR]] 미결정 3번 부분 결정). 검증 방법: 평가셋 test의 추출 정답 20건으로 필드 state 정확도·값 일치·필수 항목 재현율·인용 정확도를 잰다([[21-MODEL-TRAINING|21 모델 학습]] §4.3 추출 행). fixture 20건과의 필드별 일치율은 회귀 확인으로 함께 본다. GPU 모델·VRAM·양자화 여부는 회사 운영이다([[16-DECISIONS|ADR-025]], 미결정 3번 이관). 회사가 Qwen을 FP8/AWQ 양자화로 올렸다고 알려 주면 추출 품질에 영향이 있을 수 있으므로 평가 리포트에 적는다([[10-DEPLOYMENT|10 배포]]). 구조화 출력(JSON 강제)은 엔드포인트 첫 호출(§5.9 G4)에서 확인한다.
+> 기본 후보는 `Qwen/Qwen3.5-9B`이다([[16-DECISIONS|ADR-020]]). `Qwen/Qwen3.5-4B`와의 비교는 선택이다. 두 모델 모두 post-trained 릴리즈로 Hugging Face Hub에 있다(존재 확인 2026-10-16). 한국어 공고 추출 품질은 아직 재지 않았다. 런타임은 vLLM이다(guided JSON·logprob, [[16-DECISIONS|16 ADR]] 미결정 3번 결정, ADR-020·025). 검증 방법: 평가셋 test의 추출 정답 20건으로 필드 state 정확도·값 일치·필수 항목 재현율·인용 정확도를 잰다([[21-MODEL-TRAINING|21 모델 학습]] §4.3 추출 행). fixture 20건과의 필드별 일치율은 회귀 확인으로 함께 본다. GPU 모델·VRAM·양자화 여부는 회사 운영이다([[16-DECISIONS|ADR-025]], 미결정 3번 이관). 회사가 Qwen을 FP8/AWQ 양자화로 올렸다고 알려 주면 추출 품질에 영향이 있을 수 있으므로 평가 리포트에 적는다([[10-DEPLOYMENT|10 배포]]). 구조화 출력(JSON 강제)은 엔드포인트 첫 호출(§5.9 G4)에서 확인한다.
 
 ### 3.3 출처·모드 기록과 화면 표시
 
@@ -383,6 +383,8 @@ JSON Schema:
 - `charOffset`을 주는 이유: 모델이 chunk 내 상대 위치를 내면 gateway가 절대 오프셋으로 환산한다. 환산 실패는 인용 검증(§4.4)이 잡는다.
 - 첨부는 `/parse`가 낸 텍스트만 넣는다. 다운로드·파싱에 실패한 첨부는 넣지 않고 `warnings += ATTACHMENT_PARSE_FAILED:{documentId}`만 남긴다. "첨부가 있었다"는 사실로 내용을 추정하게 하는 지시는 프롬프트에 넣지 않는다(§8).
 - 추론 설정: `temperature=0`, `top_p=1`, `max_tokens=4096`, 런타임이 지원하면 `seed=42`와 JSON Schema 기반 구조화 출력(guided decoding). 지원하지 않으면 텍스트 파싱 + 검증으로 대체.
+  - 비사고 모드(`chat_template_kwargs: {"enable_thinking": false}`)로 부른다. Qwen3.5는 기본이 사고(thinking) 모드라 답 앞에 `<think>…</think>`를 낸다(모델 카드 "Qwen3.5 models operate in thinking mode by default", 2026-10-19 확인). 추출 LoRA 학습 데이터도 같은 템플릿(LLaMA-Factory `qwen3_5_nothink`)을 쓴다([[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §5).
+  - 미검증: vLLM 엔드포인트에서 이 값과 guided JSON이 함께 동작하는지는 C1 ③ G4(§5.9)에서 확인한다. 2026-10-19 기준 gateway 코드(`c5/gateway-mock` 브랜치 `services/ai/src/sol_ai/extraction.py`)는 아직 이 값을 보내지 않는다.
 
 **재시도 정책**:
 
@@ -427,29 +429,27 @@ JSON Schema:
 
 ### 5.1 검증된 사실
 
-> [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev README 및 docs/model-cards/kev-4b.md)
+이 절이 Kev 사실의 정본이다. 다른 문서는 여기를 링크한다.
+
+> [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev README·docs/model-cards/kev-4b.md·kev-9b.md(main `1f04cfa`), https://huggingface.co/jaredpalmer/kev-9b. 리비전·학습 길이는 2026-10-19 재확인)
 > - Kev는 Qwen3.5/Qwen3.8 기반의 소형 결정 모델 패밀리다. Apache-2.0. 텍스트를 생성하지 않고 질문별 calibrated probability를 돌려준다.
-> - 모델 4종이 "Kev 1.0"으로 함께 릴리즈됐다. 각 Hub 리포에 `v1.0` 태그가 있어 `--run jaredpalmer/kev-4b@v1.0` 형식으로 가중치를 고정할 수 있다(README 명시). GitHub 릴리즈 태그는 `kev-1.0`.
+> - 모델 4종이 "Kev 1.0"으로 함께 릴리즈됐다. GitHub 릴리즈 태그는 `kev-1.0`이다. 각 Hub 리포에 `v1.0` 태그가 있어 `--run jaredpalmer/kev-4b@v1.0` 형식으로 가중치를 고정한다(README 명시). README quickstart는 태그 없이(`--run jaredpalmer/kev-4b`, 최신 가중치) 적혀 있다. `@v1`은 더 예전 버전이다. SOL RADAR는 `@v1.0`만 쓴다.
+> - `jaredpalmer/kev-9b` 리비전(2026-10-19 Hugging Face API): `v1.0` 태그의 파일은 `main`(`db029f08`)의 파일과 같다. `adapter_model.safetensors` sha256 `2b2a70cf4ef4440b…`, `head.pt` sha256 `8e1dab2c8e3664f6…`이고, Kev 1.0 릴리즈 문서의 가중치 리비전 `b5d8c18e`와 바이트가 같다. 백본은 `Qwen/Qwen3.5-9B-Base` 리비전 `68c46c4b3498877f3ef123c856ecfde50c39f404`다. GitHub `jaredpalmer/kev` main 최신은 여전히 `1f04cfa`(2026-10-15)다.
 > - 실행: Python 3.12/3.13 + uv, 소스 설치. `pip install kev`는 **무관한 ORM 패키지**다.
 > - API: `POST /v1/systemone`(TypeSafe System One 호환), 질문 타입 `noul`/`choice`/`score`. 보조 엔드포인트 `GET /v1/models`, `POST /v1/systemone/permute`(선택지 순서 바꿔 반복, `n_perm` 1~64), `POST /v1/systemone/separate`.
-> - 서버는 기본 `127.0.0.1` 바인딩, `--host 0.0.0.0`로 외부 허용. `KEV_API_KEY` 설정 시 `Authorization: Bearer`. state 65,536 토큰 초과는 422.
-> - `--device cpu|cuda|mps|auto` 플래그가 있다. 기본 `auto`는 CUDA → MPS → CPU 순으로 시도한다.
-> - **모델 카드 `Languages: English`. "languages other than English"는 잘 동작하지 않는 것으로 명시.** 한국어 입찰 도메인 성능은 측정된 적이 없다.
-
-> [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev main `1f04cfa` docs/model-cards/kev-9b.md, https://huggingface.co/jaredpalmer/kev-9b)
-> - Kev-9B 모델 카드는 `language: en`이다. 영어가 아닌 입력은 사용 범위 밖이다.
-> - 9B 학습 state 최대 7,552 토큰, 검증된 길이 8,192 토큰, 서빙 상한 65,536 토큰(넘으면 422).
-> - `jaredpalmer/kev-9b@v1.0` = `db029f08`. `@v1`은 더 예전 버전이다. SOL RADAR는 `@v1.0`만 쓴다.
-> - 추론 메모리는 모델 카드 21.9 GB, README 약 17 GB로 두 문서가 다르다.
-> - 학습·평가 도구(`kev.train`·`kev.benchmark`·`kev.compare`)는 [[21-MODEL-TRAINING|21 모델 학습]] §5.1.
+> - 서버는 기본 `127.0.0.1` 바인딩, `--host 0.0.0.0`로 외부 허용. `KEV_API_KEY` 설정 시 `Authorization: Bearer`. `--device cpu|cuda|mps|auto` 플래그가 있고, 기본 `auto`는 CUDA → MPS → CPU 순으로 시도한다.
+> - 언어: **모델 카드가 영어 전용이다**(Kev-4B `Languages: English`, Kev-9B `language: en`). 영어가 아닌 입력은 사용 범위 밖이다. 한국어 입찰 도메인 성능은 측정된 적이 없다.
+> - 길이: 9B 학습 state 최대 7,552 토큰, 검증된 길이 8,192 토큰, 서빙 상한 65,536 토큰(넘으면 422). `kev.train`의 기본 state 길이는 384 토큰(`kev/model.py` `MAX_STATE`)이고, 이보다 긴 레코드는 학습에서 빠진다. `--max_state`로 늘린다.
+> - 추론 메모리는 문서마다 값이 다르다(§5.2).
+> - 학습·평가 도구(`kev.train`·`kev.benchmark`·`kev.compare`)와 가중치 받는 법은 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §2.
 
 ### 5.2 모델 4종
 
 |모델|베이스|README 권장 환경|비고|
 |---|---|---|---|
-|Kev-0.8B|Qwen3.5-0.8B-Base|4 GB GPU, Apple Silicon|크기 우선. 노트북 CPU 경로 후보(§5.9, 선택)|
-|Kev-4B|Qwen3.5-4B-Base|L40S/H100, 32 GB Mac|README 권장 시작점. LoRA 메모리가 모자랄 때의 대안([[21-MODEL-TRAINING\|21]] §5.2)|
-|Kev-9B|Qwen3.5-9B-Base|L40S/H100, 32 GB Mac(예상)|**SOL RADAR 기본**([[16-DECISIONS\|ADR-020]]). `jaredpalmer/kev-9b@v1.0`. 추론 메모리는 문서마다 다르다(아래)|
+|Kev-0.8B|Qwen3.5-0.8B-Base|4 GB GPU, Apple Silicon|크기 우선|
+|Kev-4B|Qwen3.5-4B-Base|L40S/H100, 32 GB Mac|README 권장 시작점. LoRA 메모리가 모자랄 때의 대안([[22-FINETUNE-RUNBOOK\|22]] §4.2)|
+|Kev-9B|Qwen3.5-9B-Base|L40S/H100, 32 GB Mac(예상)|**SOL RADAR 기본**([[16-DECISIONS\|ADR-020]]). `jaredpalmer/kev-9b@v1.0`|
 |Kev-27B|Qwen3.8-27B(post-trained, 전체 가중치 51 GB)|80 GB GPU|범위 밖|
 
 README 공개 수치(held-out 데이터셋 자체 평가)는 영어 기준이며 독립 재현이 없다. 이 문서는 그 수치를 설계 근거로 쓰지 않는다. 성능은 평가셋으로 잰다([[21-MODEL-TRAINING|21 모델 학습]]).
@@ -459,16 +459,8 @@ README 공개 수치(held-out 데이터셋 자체 평가)는 영어 기준이며
 
 ### 5.3 실행 명령
 
-```bash
-git clone https://github.com/jaredpalmer/kev.git && cd kev
-uv sync --extra serve
-# README quickstart (태그 없음, 최신 가중치)
-uv run --extra serve python -m kev.serve --run jaredpalmer/kev-4b --port 8009
-# SOL RADAR 고정 버전 (ADR-020: Kev-9B, Hub 태그 v1.0 = db029f08. @v1 이 아니다)
-uv run --extra serve python -m kev.serve --run jaredpalmer/kev-9b@v1.0 --port 8009 --host 0.0.0.0
-```
+기동 명령의 정본은 [[10-DEPLOYMENT|10 배포]] "회사 GPU 추론 엔드포인트"다(`--run jaredpalmer/kev-9b@v1.0 --port 8009`, 호스트 `127.0.0.1`). 기동은 회사 측이 하고 우리는 하지 않는다([[16-DECISIONS|ADR-025]]).
 
-- 컨테이너는 두 번째 명령을 entrypoint로 쓴다. 이 명령과 컨테이너는 회사 GPU 서버용 참고 구성이고 기동은 회사 측이 한다. 우리가 기동하지 않는다([[16-DECISIONS|ADR-025]]). 바인딩·포트 공개는 회사 측 리버스 프록시(HTTPS 엔드포인트) 구성을 따른다. 컨테이너 설정은 [[10-DEPLOYMENT|10 배포]].
 - `score_runs.kev_model` 기록값은 `GET /v1/models` 응답의 체크포인트 정보로 채운다. 그 값이 레지스트리 `KEV_MODEL_ID` 항목과 같은지 gateway가 기동할 때 확인한다(§11).
 
 ### 5.4 Wire 형식 (README 기준)
@@ -535,6 +527,7 @@ COMPANY (profile revision 2)
 - 제외: 규칙 엔진의 자격 판정·SOL Score·권고. 규칙 결과를 넣지 않아야 Kev가 독립 신호가 된다(`MODEL_RULE_DISAGREEMENT`가 의미를 가진다). `/kev` 본문(§2.1)에도 넣지 않는다.
 - 기관명·회사명 등 고유명사는 영문 표기가 없으면 역할명으로 바꾼다(`(Korean public agency)`). 회사 기밀 수치는 프로필에 있는 범위만 쓴다.
 - 길이 상한 6,000 토큰(0.8B/4B/9B의 README "validated context" 8,192 이내). 초과하면 `pastPerformance` 목록부터 자른다.
+  - 학습셋도 같은 길이의 state를 쓰므로 `kev.train --max_state`를 그 이상으로 준다(기본 384 토큰이면 긴 레코드가 빠진다, §5.1, [[22-FINETUNE-RUNBOOK|22]] §4.3).
 - 첨부 다운로드·파싱에 실패했거나 `PARTIAL`이면 사실 한 줄만 넣는다(§8): `RFP attachment could not be read; requirements may be incomplete`.
 
 > [!warning] 미검증 가정
@@ -596,22 +589,19 @@ interface KevAssist {
 ### 5.8 hosted 경로
 
 > [!warning] 미검증 가정
-> README에는 Modal 배포 스크립트(`skills/kev-deploy`, L40S, idle 시 scale-to-zero, 비용 발생)가 있다. 이 세션이 2026-10-16에 OpenRouter 공개 모델 목록을 조회했을 때 `kev` 항목은 없었다. hosted 경로는 둘 다 **사용자 승인(`AI_HOSTED_APPROVED=true`) 전에는 구현·호출하지 않는다.** 검증 방법: 승인 후 Modal smoke 배포 1회로 응답 형식이 §5.4와 같은지 확인하고 비용을 기록한다.
+> README에는 Modal 배포 스크립트(`skills/kev-deploy`, L40S, idle 시 scale-to-zero, 비용 발생)가 있다. 2026-10-16 OpenRouter 공개 모델 목록에 `kev` 항목은 없었다. hosted 경로는 둘 다 **사용자 승인(`AI_HOSTED_APPROVED=true`) 전에는 구현·호출하지 않는다.** 검증 방법: 승인 후 Modal smoke 배포 1회로 응답 형식이 §5.4와 같은지 확인하고 비용을 기록한다.
 
 ### 5.9 실추론 위치와 검증 절차
 
-해커톤 기간의 실추론(Qwen3.5-9B·Kev-9B)은 **회사 GPU 서버**의 모델 런타임이 한다([[16-DECISIONS|ADR-020]]). 데모 노트북에는 GPU가 없다. 회사 GPU 서버는 외부에서 접근할 수 없으므로(SSH·VPN 터널 불가) 회사가 모델 런타임(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0)을 HTTPS 엔드포인트 **`https://acropolissg.com/sol-radar`** 아래로 제공하고, 노트북의 gateway가 HTTPS로 붙는다([[16-DECISIONS|ADR-025]], 2026-10-19). SSH 로컬 포트포워딩, GPU 서버 `127.0.0.1` 바인딩, 노트북 `host.docker.internal` 끝점 전제는 폐기했다.
+해커톤 기간의 실추론(Qwen3.5-9B·Kev-9B)은 **회사 GPU 서버**의 모델 런타임이 한다. 데모 노트북의 gateway가 회사가 제공하는 HTTPS 엔드포인트 **`https://acropolissg.com/sol-radar`** 아래 경로로 붙는다. 연결 방식·모델 라우터·env 값·운영 책임·데이터 경계·보안의 정본은 [[16-DECISIONS|ADR-025]] 상세와 [[10-DEPLOYMENT|10 배포]] "회사 GPU 추론 엔드포인트"다. 아키텍처(Worker → gateway → 모델)·실행 모드(§3)·`AI_PROVIDER=local`은 그대로다.
 
-- gateway는 노트북 Compose에 그대로 둔다. 아키텍처(Worker → gateway → 모델)와 실행 모드(§3)·`AI_PROVIDER=local`은 바뀌지 않는다.
-- env 이름은 그대로다: `QWEN_BASE_URL`·`KEV_BASE_URL`·`QWEN_API_KEY`·`KEV_API_KEY`(§3). 값은 엔드포인트 아래 경로와 Bearer 키다. 경로 `/qwen`·`/kev`는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)가 vLLM·`kev.serve`로 나누는 값이라 결정이다. 라우터 `/sol-radar/healthz`(인증 없음)는 접속 확인용이다. 인증은 라우터가 아니라 각 런타임이 한다. 남은 미확인은 바깥 nginx의 접두어 처리·회사 측 추가 인증 여부·실제 응답이다(아래 콜아웃, [[10-DEPLOYMENT|10 배포]]).
-- 운영 책임: 모델 런타임 기동·GPU 메모리 배분·가중치 sha256 대조·`nvidia-smi` 실측은 회사 측이 한다. 우리는 하지 않는다. 우리가 하는 검증은 gateway 기동 시 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`와 vLLM `GET /v1/models`의 모델 이름을 레지스트리와 대조하는 것(§11)과 지연 실측(아래 G3)이다. 구성은 [[10-DEPLOYMENT|10 배포]].
-- 회사 GPU로 보내는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. 엔드포인트는 공개 인터넷에 있으므로 TLS 인증서 검증을 끄지 않고 API 키를 쓴다([[09-SECURITY|09 보안]]).
-- GPU 없이 도는 모드는 `mock`이다. 엔드포인트에 접속하지 못하면 §8의 모델 서버 미접속 경로로 끝나고, 필요하면 사람이 `mock` 모드로 전환한다.
-- 평가: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(Kev 직접) 또는 평가용 gateway에 붙여 돌린다. LoRA 메모리 검증(`probe-train`)은 GPU 서버 셸이 필요하므로 회사 측 실행 요청 사항으로 남긴다(해커톤 완료 조건 아님, [[21-MODEL-TRAINING|21 모델 학습]]).
-- 클라우드 GPU 임대는 비용이 들어 hosted와 같은 사용자 승인 대상이다(ADR-010).
+- 우리가 하는 검증은 gateway 기동 시 레지스트리 대조(§11)와 지연 실측(아래 G3)이다. 모델 기동·GPU 메모리 배분·가중치 sha256 대조·`nvidia-smi` 실측은 회사 측이 한다.
+- 엔드포인트에 접속하지 못하면 §8의 모델 서버 미접속 경로로 끝난다. 필요하면 사람이 `mock` 모드로 전환한다.
+- 평가·학습: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(Kev 직접) 또는 평가용 gateway에 붙여 돌린다. LoRA 메모리 검증(`probe-train`)·학습(F2)·온도 보정은 GPU 서버 셸이 필요하므로 회사가 실행한다. 해커톤에는 X6로 요청하고 결과는 E4 비교로만 쓴다(데모 모델은 v1.0, [[16-DECISIONS|ADR-027]], [[21-MODEL-TRAINING|21 모델 학습]]). 회사에 넘기는 실행서는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다.
+- 노트북 CPU 경로(Kev-0.8B `--device cpu`)는 쓰지 않는다. GPU 접속 실패의 대체 경로는 `mock` 모드 또는 사전 실행 run 조회다([[16-DECISIONS|16 ADR]] 미결정 8번, ADR-023). Kev-0.8B의 CPU 지연·정확도는 재지 않았다.
 
 > [!warning] 미검증 가정 (2026-10-19)
-> 엔드포인트는 회사가 제공 예정이며 2026-10-19 기준 응답을 확인하지 않았다. 경로(`QWEN_BASE_URL=https://acropolissg.com/sol-radar/qwen`, `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev`)는 우리 모델 라우터 기준으로 결정했다. 미확인은 바깥(회사) nginx의 `/sol-radar` 접두어 처리(떼고 넘겨도 라우터가 받는다), 회사 측 추가 인증 여부(Bearer 키 외), 실제 응답·지연이다. 다르면 ADR-025 상세와 [[16-DECISIONS|16 ADR]] 미결정 17번을 갱신한다.
+> 엔드포인트 응답은 2026-10-19 기준 확인하지 않았다(16 미결정 17번). 경로(`/qwen`·`/kev`)는 우리 모델 라우터 기준으로 정했다. 남은 미확인(바깥 nginx 접두어 처리, 회사 측 추가 인증, 실제 응답·지연)은 [[10-DEPLOYMENT|10 배포]] 콜아웃과 ADR-025 상세에 있다. 다르면 ADR-025 상세와 미결정 17번을 갱신한다.
 >
 > 검증 절차(C1 ③. 선행 조건 P2 = 회사가 엔드포인트 경로·인증 방식을 알려 줌, P3 = 회사 측 모델 기동 완료 통보):
 > - G1 엔드포인트 HTTPS 접속: `GET https://acropolissg.com/sol-radar/healthz` 200 + TLS 유효(`-k` 금지).
@@ -620,19 +610,8 @@ interface KevAssist {
 > - G4 vLLM guided JSON 동작 확인(§3.2).
 > - G5 회사 제공 GPU 정보(모델·VRAM·점유)가 있으면 기록, 없으면 "회사 운영, 측정 불가".
 > - G6 엔드포인트 차단 시 `PARTIAL`·`RULES_ONLY` 경로 확인(§8).
-> - 이어서(이전 절차 3번 유지): fixture 20건의 영어 state에 대해 사람이 정한 기대 `recommendation`과 비교한 일치율, `/v1/systemone/permute`(`n_perm=6`)로 선택지 순서 민감도를 기록한다.
-> - 결과를 `docs/evidence/phase-0/external-deps.md`에 남기고 [[16-DECISIONS|16 ADR]] 미결정 2·3·17번에 반영한다. 10-21 컷 규칙([[16-DECISIONS|ADR-023]])의 "GPU 정상"은 G2·G3 통과다.
-
-**노트북 CPU 경로 (선택, 실추론 경로 아님)**
-
-> [!warning] 미검증 가정
-> README는 Kev-0.8B가 Apple Silicon(MLX)과 4 GB GPU에서 동작한다고 하고 `--device cpu` 플래그를 제공한다. GPU 없는 x86 노트북에서의 CPU 지연 시간과 정확도는 어디에도 측정값이 없다. 해커톤 실추론은 위 회사 GPU 추론 엔드포인트 경로이고, 이 경로에 의존하지 않는다.
->
-> 확인 절차(선택):
-> 1. 데모 노트북에서 `uv sync --extra serve` 후 `python -m kev.serve --run jaredpalmer/kev-0.8b@v1.0 --device cpu --port 8009` 기동. 가중치 다운로드 크기·시간 기록.
-> 2. §5.4 요청을 §5.6 state(약 500 토큰)로 10회 보내고 `latency_ms` 중앙값 기록. 10초 초과면 쓰지 않는다.
-> 3. fixture 20건 일치율과 `permute` 순서 민감도를 위와 같이 기록한다.
-> 4. 결과를 `docs/evidence/kev-cpu-check.md`에 남긴다.
+> - 이어서: fixture 20건의 영어 state에 대해 사람이 정한 기대 `recommendation`과 비교한 일치율, `/v1/systemone/permute`(`n_perm=6`)로 선택지 순서 민감도를 기록한다.
+> - 결과를 `docs/evidence/phase-0/external-deps.md`에 남기고 [[16-DECISIONS|16 ADR]] 미결정 2·3·17번에 반영한다. 외부 의존성 컷 규칙(10-20 저녁, [[16-DECISIONS|ADR-023·027]])의 "GPU 정상"은 G2·G3 통과다.
 
 ### 5.10 질문 세트 `kev-qs/v0.2`
 
@@ -650,13 +629,7 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
 |`risk.scopeAmbiguity`|`noul`|공고|범위·조건이 모호하거나 상충하는가|v0.1 `needsHumanReview`의 후속|
 |`mandatoryRisk`, `recommendation`, `needsHumanReview`, `fit`|v0.1 그대로|공고|§5.5|연속성·데모|
 
-**Kev 담당 항목**(`itemId`, 추출 필드 경로)
-- `requiredSkills[i]`: 기술별
-- `pastPerformance[i]`: 실적 요구의 "분야·유사성" 판단. 금액·건수·기간은 규칙 담당
-- `staffing[i]`: 역할·등급의 의미 대응. 인원 수는 규칙 담당
-- `qualifications[i]` 중 사전 코드가 없는 것(`code=null`)
-
-사전 코드가 있는 자격, API 구조화 필드, 숫자 조건은 규칙만 판정한다. 같은 항목에 Kev 질문을 붙이더라도 평가용 비교 지표로만 쓴다.
+**Kev 담당 항목**(`itemId`는 추출 필드 경로): `requiredSkills[i]`·`pastPerformance[i]`·`staffing[i]`, 사전 코드가 없는 `qualifications[i]`(`code=null`). 항목별 범위(규칙 담당과 나누는 선)의 정본은 [[08-SCORING|08 점수]] §5.1 "규칙 담당과 Kev 담당"이다. 규칙 담당 항목에 Kev 질문을 붙이더라도 평가용 비교 지표로만 쓴다.
 
 - `instructions`·`criteria` 원문(영어)은 `services/ai/kev/question-sets/v0.2.json`에 둔다. 한국어 평가용 번역본은 `v0.2.ko.json`이다. 바꾸면 버전을 올린다.
 - 요청 하나에 질문이 많으면 24개씩 나눠 보낸다(state는 같다). 묶음 방식은 구현 때 정한다. state는 6,000 토큰 이내로 한다(9B 검증된 길이 8,192 안, §5.1).
@@ -677,14 +650,7 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
 
 ### 5.12 근거 추적: `KevStateTrace`
 
-Kev는 인용을 만들지 못한다. 그래서 **state를 만들 때 줄마다 출처를 기록**한다. 타입 정의의 정본은 [[15-DATA-CONTRACTS|15 데이터 계약]] §2이고 API DTO는 [[05-API-SPEC|05 API]]가 같은 모양을 쓴다. 요지:
-
-- `KevStateTrace`: `stateHash`(sha256(state 텍스트)), `template`(`en.v0.2` 또는 `ko.v0.2`), `lines[]`. 줄마다 줄 번호·텍스트, 공고 인용 `noticeEvidence`(`EvidenceRef[]`, 추출 필드의 검증된 인용), 회사 증빙 `companyEvidence`(`CompanyEvidenceRef[]`), 그 줄이 다루는 요구사항 항목 `itemIds`.
-- `CompanyEvidenceRef`(새 타입): 프로필 revision, 종류(`LICENSE`·`INDUSTRY_CODE`·`TECHNOLOGY`·`PROJECT`·`STAFF`·`FINANCIAL`), 기록 키(예: `licenses[2]`, `past_projects[0]`), 회사 증빙 파일 id(MinIO, 있으면), 인용 텍스트(있으면).
-
-- 화면에서 Kev 질문 결과를 누르면 그 질문의 `itemIds`를 다룬 state 줄이 열린다. 각 줄의 공고 인용과 회사 증빙도 함께 보인다.
-- `KevStateTrace`는 `score_runs.kev_output`에 Kev 응답 원문과 함께 저장한다(§7).
-- 근거가 하나도 없는 줄(예: `(unknown)`)은 state에 들어가도 된다. 그 줄만으로 나온 판단은 `NEEDS_REVIEW` 쪽 근거로만 표시한다.
+Kev는 인용을 만들지 못한다. 그래서 **state를 만들 때 줄마다 출처를 기록**한다. `KevStateTrace`·`CompanyEvidenceRef`의 타입 정의와 규칙(근거 없는 줄, 화면에서 여는 법)의 정본은 [[15-DATA-CONTRACTS|15 데이터 계약]] §2.1이고, API DTO는 [[05-API-SPEC|05 API]]가 같은 모양을 쓴다. 저장은 `score_runs.kev_output`에 Kev 응답 원문과 함께 한다(§7).
 
 ### 5.13 표시와 플래그
 
@@ -713,7 +679,6 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 - mock 결과는 언제나 mock이라고 표시한다. 자동 대체가 일어나면 `MOCK_FALLBACK`과 배너로 밝힌다(§8).
 - 모델 출력(`kev_output`, 추출 원문)과 규칙 결과(`score`, `recommendation`)는 다른 컬럼에 저장하고 섞지 않는다.
 - 저장 메타데이터: 실행 모드, 모델 식별자·버전(Kev는 레지스트리 id와 `/v1/models` 체크포인트), 프롬프트 해시·버전, 질문 세트 버전, state 해시, 입력 스냅샷 해시, `temperature`, 처리 시간, 재시도 횟수, Kev `requestId`, 인용 검증 임계값, 인젝션 의심 여부, 파서 id.
-- UI 문구 고정: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다." `KevAssist.disclaimer`로 API가 내려 준다.
 - 프롬프트 인젝션: 문서 텍스트는 `<document>` 안의 데이터이며 시스템 프롬프트와 분리한다. 모델에 도구·파일·네트워크 권한이 없다. 출력은 스키마로 강제한다([[09-SECURITY|09 보안]]).
 - 설명 생성(`POST /explain`)은 규칙 결과·인용·Kev 참고 요약만 입력으로 받고, 입력에 없는 숫자·사실을 쓰면 폐기하고 템플릿 문장으로 대체한다(숫자 토큰이 입력 집합 밖이면 폐기, `fallback=true`). 파싱에 실패한 첨부가 있으면 문장에 반드시 밝힌다.
 
@@ -752,7 +717,7 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 |회사 GPU 추론 엔드포인트 미접속(TLS·인증 실패 포함, ADR-025)|gateway → Qwen·Kev 연결 거부·timeout·4xx/5xx|위 Qwen·Kev 미접속 행과 같다(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE` 따로)|위와 같다. 자동 mock 대체 없음. 필요하면 사람이 `mock` 모드로 전환(§3)|위와 같다|
 |레지스트리 불일치|gateway 기동 시 Kev `GET /v1/models` ↔ `KEV_MODEL_ID` 항목(§11)|기동 로그|gateway 기동 거부. `runs/smoke`로 조용히 대체된 Kev를 쓰지 않는다|`/health` 미응답 → 위 gateway 연결 불가 행|
 |Qdrant 다운|gateway health|`warnings += QDRANT_FALLBACK`|키워드 검색으로 chunk 선정|—|
-|추출은 성공, 인용 검증 대량 실패|§4.4 3단계|`EXTRACTION_LOW_CONFIDENCE`|`PENDING_REVIEW`|—|
+|추출은 성공, 인용 검증 대량 실패|§4.4 4단계(FAILED 비율 50% 초과 규칙은 [[15-DATA-CONTRACTS\|15]] §5.3)|`EXTRACTION_LOW_CONFIDENCE`|`PENDING_REVIEW`|—|
 |hosted 미승인 상태에서 `hosted` 지정|기동 시 env 검사|기동 로그|gateway 기동 거부. 조용히 mock으로 바꾸지 않는다|—|
 |모드와 모순된 env(예: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)|`pnpm check:env`, gateway 기동 시 검사|기동 로그|기동 거부. 조용히 바꾸지 않는다|—|
 
@@ -781,17 +746,7 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 - `AI_FAULT_INJECT=kev_timeout|qwen_error|qwen_unreachable|kev_unreachable|gateway_down` 각각에서 분석이 `PARTIAL` 또는 `RULES_ONLY`로 끝나고 오류가 사용자에게 보인다(골든 6). `qwen_error`는 `EXTRACTION_FAILED`, `qwen_unreachable`은 `QWEN_UNAVAILABLE`, `kev_unreachable`은 `KEV_UNAVAILABLE`, `gateway_down`은 `AI_UNAVAILABLE`로 서로 다른 코드가 기록된다.
 - 골든 수치(94/72/68)는 `mock` 모드에서만 단언한다.
 
-**v0.2 ([[16-DECISIONS|ADR-020]])**
-- 실행 모드: 모드와 모순된 env(`live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)에서 `pnpm check:env`와 gateway가 기동을 거부하는 시험이 있고, 세 모드의 기동 로그가 증거로 남는다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장된다.
-- 파싱: §10.6을 만족한다.
-- 추출: `local`에서 실공고 1건 E2E 로그와 인용 검증 통과율 증거가 있다. 숫자 토큰이 빠진 번역은 `translations`에 저장되지 않고 state에 `(untranslated)`로 나온다.
-- Kev: `kev-qs/v0.2` 실추론(en)의 응답 원문과 `stateTrace`가 저장된다. Kev 분포를 어떻게 바꿔도 자격 판정·점수·권고가 같다(규칙 불변 시험). `stateLanguage="ko"`인데 `KEV_ALLOW_KO_STATE=false`면 `422 KO_STATE_NOT_ALLOWED`다.
-- 레지스트리: Kev `/v1/models`의 `run`이 레지스트리 항목과 다르면(예: `runs/smoke`) gateway가 기동을 거부한다.
-- 설명: `/explain` 출력에 입력 밖 숫자가 있으면 `fallback=true`이고 템플릿 문장이 저장된다.
-- 실패 유형: 공공 API 실패·첨부 다운로드 불가·파싱 실패·Qwen 미접속·Kev 미접속·gateway 미접속이 각각 다른 코드로 기록되고 화면에 따로 보인다.
-- 추측 금지: 파싱 실패 fixture에서 Qwen 프롬프트에 첨부 추정 지시가 없고, Kev state에는 사실 한 줄만 있고, 첨부 의존 항목이 `NEEDS_REVIEW`(`PARSE_UNSUPPORTED`)이고, `/explain` 문장이 파싱 실패를 밝힌다.
-- 자동 대체: `AI_FALLBACK_TO_MOCK=false`(기본)에서는 Qwen 미접속이 `PARTIAL`로 끝나고 mock 결과가 나오지 않는다. `fixture` 모드에서 `true`로 켜고 Qwen을 끊으면 `ai_provider=MOCK`·`fallback_reason`·`MOCK_FALLBACK`·배너가 모두 나온다.
-- 표시: 고지 문구가 "…충족 확률·수주확률이 아닙니다."이고, 보정 상태 `UNCALIBRATED`가 보인다.
+**v0.2 ([[16-DECISIONS|ADR-020]])**: 시험 항목의 정본은 [[11-TESTING|11 테스트]] §3.2 V2-01~V2-13이다. 실행 모드 V2-01·V2-02, 실패 유형 V2-03(gateway 미접속은 G6), 추측 금지 V2-04, Kev 규칙 불변·고지 문구·`UNCALIBRATED` V2-06, 한국어 state·`(untranslated)` V2-07, 레지스트리 V2-08, mock 대체 V2-09, 파서 V2-10(그리고 §10.6), 설명 숫자 검사 V2-13이다. 실추론 증거(`local` 실공고 1건 E2E 로그·인용 검증 통과율, Kev `kev-qs/v0.2` 응답 원문·`stateTrace`)는 11 §4 Phase 5 행이다.
 
 ## 10. 문서 파싱 (`POST /parse`)
 
@@ -913,7 +868,7 @@ interface ParseResult {
   - `dataset`(버전·sha256), `questionSet`, `stateTemplate`, `reports`
 - 공개 모델도 항목으로 둔다. 기본 항목은 `kev-9b-v1.0` → `jaredpalmer/kev-9b@v1.0`이고 gateway env `KEV_MODEL_ID`로 고른다(§3).
 - **서빙 검증**
-  - Kev 컨테이너 entrypoint가 기동 전에 `head.pt`·어댑터의 sha256을 레지스트리와 대조한다([[10-DEPLOYMENT|10 배포]] Kev 컨테이너). 회사 GPU 서버용 참고 구성이라 실행은 회사 측이 한다(ADR-025).
+  - 회사 GPU 서버는 `kev.serve`를 호스트에 직접 띄운다(ADR-025). 그래서 회사가 기동 전에 가중치(`head.pt`·어댑터) sha256을 레지스트리 `weights_sha256`·`head_sha256`과 대조한다([[22-FINETUNE-RUNBOOK|22]] §2.2).
   - gateway는 기동할 때 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`가 레지스트리 `KEV_MODEL_ID` 항목과 같은지 확인하고, 다르면 기동을 거부한다.
   - `kev.serve`는 경로가 틀리면 오류 없이 `runs/smoke`로 대체하기 때문에 이 검사가 필요하다.
 - **호환성**: 레지스트리 항목의 `questionSet`·`stateTemplate`이 gateway 설정과 다르면 기동을 거부한다. 학습셋 state와 서빙 state는 같은 코드·같은 템플릿 버전으로 만든다(§5.11).
@@ -933,5 +888,6 @@ interface ParseResult {
 - [[09-SECURITY|09 보안]] — 책임 있는 AI, 프롬프트 인젝션
 - [[10-DEPLOYMENT|10 배포]] — 실행 모드·프로필, 회사 GPU 추론 엔드포인트(ADR-025), Kev/Qwen 참고 구성
 - [[11-TESTING|11 테스트]] — 골든 시나리오, AI 시험
-- [[16-DECISIONS|16 ADR]] — ADR-020, Kev·Qwen·파서 미결정 사항
+- [[16-DECISIONS|16 ADR]] — ADR-020·025·027, Kev·Qwen·파서 미결정 사항
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋·지표·오류 분석·파인튜닝·레지스트리 반입
+- [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] — Kev-9B·Qwen3.5-9B LoRA 실행서, 가중치 출처·sha256 확인

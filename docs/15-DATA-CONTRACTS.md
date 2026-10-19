@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -190,7 +190,7 @@ interface StructuredRequirement {
 - **API 구조화 필드 우선**: 같은 조건을 API 구조화 필드(`structuredQualifications`, 금액 `budgetKrw`, 마감 `deadlineAt`)와 Qwen 추출이 둘 다 주면 API 구조화 필드가 우선이다. 두 값이 다르면 그 필드를 `CONFLICTED`로 두고 사람이 본다(§4). 이때 API 쪽 근거는 `EvidenceRef(kind=API_FIELD)`로 남긴다(§2). 규칙 엔진의 판정 방식은 [[08-SCORING|08 점수]] §5.1.
 
 > [!warning] 미검증 가정
-> `structuredQualifications`의 원천 필드 이름은 data.go.kr 명세로 확인했고 실제 응답은 받아 보지 않았다. 여부 플래그 `indstrytyLmtYn`·`bidPrtcptLmtYn`을 어느 `kind`·필드에 담을지와, 면허제한이 여러 행일 때 AND/OR 중 무엇인지는 정하지 않았다([[16-DECISIONS|16 ADR]] 미결정 19번). 확인 전에는 면허제한이 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다. 검증 방법: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건으로 확인하고 이 절을 고친다.
+> `structuredQualifications`의 원천 필드는 2026-10-19 C1 ①에서 실제 응답으로 확인했다([C1 API 증거](evidence/phase-0/external-deps-api-20261019.md) §5·§10, 녹음 응답 `fixtures/recorded/15129394/`). 면허제한·참가가능지역 필드는 목록 응답에 없고 보조 조회에만 있다. 여부 플래그 `indstrytyLmtYn`·`bidPrtcptLmtYn`은 목록 응답에 있다. 남은 것은 두 가지다. 여부 플래그를 어느 `kind`·필드에 담을지 정하지 않았다. 면허제한이 여러 행일 때의 뜻도 미검증이다. 응답에 AND/OR 필드는 없고 `lmtGrpNo`(그룹)·`lmtSno`(일련번호)만 있으며, "그룹 안은 AND, 그룹끼리는 OR"로 읽히지만 확인하지 않았다([[16-DECISIONS|16 ADR]] 미결정 19번). 확인 전에는 면허제한이 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다.
 
 ## 4. `RequirementExtraction` 요약
 
@@ -205,8 +205,6 @@ interface StructuredRequirement {
 |`budgetKrw`|`ExtractedField<string>`|규모 적합성. `NormalizedBid.budgetKrw`와 다르면 `CONFLICTED`|
 |`deadlineAt`|`ExtractedField<string>`|마감 알림. `NormalizedBid.deadlineAt` 우선|
 |`restrictions[]`|`ExtractedField<string[]>`|지역·기업규모 제한 → 필수자격 후보. 참가가능지역·지역의무공동도급은 `structuredQualifications`가 있으면 그것이 우선|
-
-구조화 메타데이터(`NormalizedBid`의 `budgetKrw`·`deadlineAt`·`structuredQualifications`)와 추출값이 다르면 구조화 값이 우선하고, 추출 필드는 `CONFLICTED`로 남겨 사람이 본다(§3).
 
 ## 5. 인용 검증 알고리즘
 
@@ -226,7 +224,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 - 파싱에 실패했거나(`FAILED`·`UNSUPPORTED`) 다운로드하지 못한 첨부는 텍스트가 없다. 그 문서를 가리키는 인용은 검증을 통과할 수 없으므로 값은 `UNKNOWN`이 된다. 실패한 문서의 내용을 추측해 채우지 않는다([[07-DATA-PIPELINE|07 수집]] §2.6).
 - 데이터셋 내보내기의 개인정보 마스킹은 전화·이메일 패턴을 같은 길이의 문자로 바꾸므로 오프셋이 바뀌지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §3.6).
 
-**`ParseResult` 오프셋 규칙** ([[16-DECISIONS|ADR-020]], 2026-10-16 메인 세션 결정): `/parse`는 블록마다 위 `norm`을 적용한 뒤 직렬화해 `text`를 만든다. 그래서 `ParseResult.text`는 이미 정규화된 텍스트이고(`norm(text) = text`), `pages[].charOffset`·`blocks`·표 셀의 `charStart/charEnd`는 모두 이 텍스트 기준이다. 별도 변환 표는 두지 않는다. 표의 행 구분 줄바꿈은 3단계에서 공백이 되지만 셀 구분자 ` | `와 `blocks`의 셀 오프셋으로 구조를 유지한다. 원본 파일은 MinIO에 그대로 둔다.
+**`ParseResult` 오프셋 규칙** ([[16-DECISIONS|ADR-020]]): `/parse`는 블록마다 위 `norm`을 적용한 뒤 직렬화해 `text`를 만든다. 그래서 `ParseResult.text`는 이미 정규화된 텍스트이고(`norm(text) = text`), `pages[].charOffset`·`blocks`·표 셀의 `charStart/charEnd`는 모두 이 텍스트 기준이다. 별도 변환 표는 두지 않는다. 표의 행 구분 줄바꿈은 3단계에서 공백이 되지만 셀 구분자 ` | `와 `blocks`의 셀 오프셋으로 구조를 유지한다. 원본 파일은 MinIO에 그대로 둔다.
 
 ### 5.2 절차
 
@@ -282,13 +280,10 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |날짜 파싱 실패|`deadlineAt=null`, `original.deadline` 보존, 경고 `DATE_UNPARSED`|
 |마감이 공고일보다 이전|적재하되 `status` 그대로, 경고 `DATE_ORDER`|
 |본문 인코딩 깨짐(치환 문자 비율 > 5%)|`content` 보존, 경고 `ENCODING_DEGRADED`, 추출 상태 `PENDING_REVIEW`|
-|HWP/HWPX/PDF 텍스트 추출 실패|원본 다운로드는 유지(`bid_documents.parse_status=FAILED`), `error_code=ATTACHMENT_PARSE_FAILED`, 추출은 본문만으로 진행하고 `warnings`에 기록|
-|처리하지 않는 첨부 형식(스캔 PDF·zip·xlsx·암호 문서·배포용 HWP)|`parse_status=UNSUPPORTED` + `parse_error_code`(`NO_TEXT_LAYER`·`UNSUPPORTED_FORMAT`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED` 등). 부분 파싱은 `PARTIAL` + `parse_quality`([[07-DATA-PIPELINE\|07 수집]] §2.5). 추출은 본문만으로 진행|
-|첨부 다운로드 실패·거부(인증 요구, 4xx·5xx, allowlist 밖 리다이렉트, timeout, 50 MB 초과·MIME 위반, [[09-SECURITY\|09 보안]])|`bid_documents.download_status=FAILED` + `download_error_code`(50 MB 초과는 `TOO_LARGE`). `parse_status`는 NULL(파싱 시도 안 함). 정책상 거부는 `error_code=ATTACHMENT_REJECTED`. 추출은 본문만, `reviewFlags`에 `DOCUMENT_DOWNLOAD_FAILED`|
-|공공 API 오류(HTTP 오류, `resultCode` 비정상, 에러코드 22 일일 한도 초과, timeout)|그 창의 수집 중단, 기존 공고는 그대로. `ingest_runs.status`, `ingest_errors.result_code`에 `resultCode` 원문. 에러코드 22면 그날 수집 중단([[07-DATA-PIPELINE\|07 수집]] §2.2)|
-|공공 API 호출 예산 90% 도달|보조 조회 중단(오류 아님). 그 공고의 보조 조회 항목은 `NEEDS_REVIEW`(정보 부족)|
 |외부 API 429|Retry-After 후 재시도, `summary.retried` +1. 소진 시 `error_code=RATE_LIMITED`|
 |같은 checksum 재수집|적재 생략, `summary.skippedDuplicate` +1 (오류 아님)|
+
+첨부 다운로드·파싱 실패와 공공 API 오류·호출 예산(90% 도달 시 보조 조회 중단)의 처리는 [[07-DATA-PIPELINE|07 수집]] §2.2·§2.6과 [[03-AI-PIPELINE|03 AI 파이프라인]] §8·§10.5가 정본이다. 이때 `ingest_errors.error_code`는 파싱 실패면 `ATTACHMENT_PARSE_FAILED`, 정책상 다운로드 거부(allowlist·크기·MIME, [[09-SECURITY|09 보안]])면 `ATTACHMENT_REJECTED`다. 값 목록은 [[04-DATABASE|04 DB]] `ingest_errors`다.
 
 격리된 레코드는 삭제하지 않고 `ingest_errors.redacted_detail`에 PII 없는 요약만 남긴다. 공공 API 응답의 담당자 필드와 서비스키(`G2B_*_SERVICE_KEY` 4개, 요청 URL의 쿼리 파라미터 포함)는 `redacted_detail`·로그에 넣지 않는다. 재실행하면 같은 `job_key`로 멱등 처리한다. 수집 결과 집계는 `ingest_runs.summary = {created, changed, cancelled, skippedDuplicate, quarantined, retried}`이며 [[05-API-SPEC|05 API 명세]] `IngestionRun.summary`와 같다. 검증·격리와 `ingest_runs`·`ingest_errors` 쓰기는 수집 worker(`web/worker`)가 service role로 한다([[07-DATA-PIPELINE|07 수집]]).
 
@@ -312,42 +307,42 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |`provider`|조달청 / data.go.kr|—|
 |`serviceId`|`15129394`|data.go.kr 서비스 ID. 호출 예산 카운터 `quota:{serviceId}:{YYYYMMDD}`의 키([[07-DATA-PIPELINE\|07 수집]] §2.2)|
 |`serviceKeyEnv`|`G2B_BID_NOTICE_SERVICE_KEY`|그 소스가 쓰는 서비스키의 env **이름**(값이 아니다). 같은 data.go.kr 서비스의 소스는 같은 env를 쓴다. `OfficialApiConnector`는 이 env만 읽고 다른 서비스의 키로 대체하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.2, [[16-DECISIONS\|ADR-022]]). `g2b-attachment`·`fixture`는 비운다|
-|`approvalStatus`|`NOT_REQUESTED` / `PENDING` / `APPROVED`|활용신청 상태. 서비스키 발급 전이라 g2b 키는 모두 `NOT_REQUESTED`|
+|`approvalStatus`|`NOT_REQUESTED` / `PENDING` / `APPROVED`|활용신청 상태. data.go.kr 4개 서비스는 2026-10-18 서비스키를 받아 `APPROVED`다(2026-10-19 C1 ① 실호출 `resultCode 00`)|
 |`endpoint`|기본 URL + 오퍼레이션|data.go.kr 명세로 확인한 값(아래 표)|
-|`method`|`GET`|입찰공고정보서비스 참고문서 v1.2의 인터페이스 표준 "REST (GET)"(2026-10-16 확인). 나머지 서비스도 같은 표준으로 보고 P0-0 실제 호출로 확인한다|
+|`method`|`GET`|입찰공고정보서비스 참고문서 v1.2의 인터페이스 표준 "REST (GET)"(2026-10-16 확인). 2026-10-19 C1 ①에서 4개 서비스 모두 GET으로 실제 응답을 받았다|
 |`quota`|개발계정 1,000/일, 30 tps|일 한도는 명세로 확인. 30 tps는 참고문서 값. 부족하면 운영계정(자동승인)|
-|`fieldMapping`|원본 필드 → `NormalizedBid` 필드|초안은 [[07-DATA-PIPELINE\|07 수집]] §3.1. P0-0 실제 응답으로 확인한 뒤 확정|
+|`fieldMapping`|원본 필드 → `NormalizedBid` 필드|초안은 [[07-DATA-PIPELINE\|07 수집]] §3.1. C1 ① 실제 응답(설계와 다른 점은 [C1 API 증거](evidence/phase-0/external-deps-api-20261019.md) §10)으로 C3에서 확정|
 |`changeNoticeUrl`|—|명세 변경 공지|
 |`redistributionLimit`|API 데이터: 이용허락범위 제한 없음 / 첨부 원문: 미확인|첨부 원문의 저작권·재배포·학습 사용은 [[16-DECISIONS\|16 ADR]] 미결정 18번|
-|`sampleResponses`|경로 3건|테스트 응답 원본. P0-0에서 채운다. 저장소에는 담당자 필드를 빼거나 마스킹한 사본만 둔다([[09-SECURITY\|09 보안]])|
-|`lastVerifiedAt`|`2026-10-16`|검증일. 90일 지나면 경고. 지금 값은 명세 확인일이고 실제 응답 확인일이 아니다|
+|`sampleResponses`|`fixtures/recorded/<serviceId>/*.masked.json` 경로|C1 ①(2026-10-19)에서 받은 실제 응답의 녹음본(14파일). 저장소에는 담당자 필드를 마스킹한 사본만 둔다([[09-SECURITY\|09 보안]])|
+|`lastVerifiedAt`|`2026-10-19`|검증일. 90일 지나면 경고. C1 ① 실제 응답 확인일이다|
 
-등록할 소스(설계 확정값, 2026-10-16):
+등록할 소스(설계 확정값 2026-10-16, `approvalStatus` 2026-10-19 갱신):
 
 |`key`|서비스 (ID)|`endpoint` (기본 URL + 오퍼레이션)|호출 시점|`approvalStatus`|`serviceKeyEnv`|
 |---|---|---|---|---|---|
-|`g2b-bid-notice`|입찰공고정보서비스 (15129394)|`http://apis.data.go.kr/1230000/ad/BidPublicInfoService` + `getBidPblancListInfoServc`, `getBidPblancListInfoChgHstryServc`|일정 실행·수동 실행|`NOT_REQUESTED`|`G2B_BID_NOTICE_SERVICE_KEY`|
-|`g2b-bid-license-limit`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoLicenseLimit`|새 revision마다|`NOT_REQUESTED`|`G2B_BID_NOTICE_SERVICE_KEY`|
-|`g2b-bid-region`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoPrtcptPsblRgn`|새 revision마다|`NOT_REQUESTED`|`G2B_BID_NOTICE_SERVICE_KEY`|
-|`g2b-bid-eorder-attach`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoEorderAtchFileInfo`|새 revision마다|`NOT_REQUESTED`|`G2B_BID_NOTICE_SERVICE_KEY`|
-|`g2b-pre-spec`|사전규격정보서비스 (15129437)|`/1230000/ao/HrcspSsstndrdInfoService` + `getPublicPrcureThngInfoServc`|일정 실행|`NOT_REQUESTED`|`G2B_PRE_SPEC_SERVICE_KEY`|
-|`g2b-order-plan`|발주계획현황서비스 (15129462)|`/1230000/ao/OrderPlanSttusService` + `getOrderPlanSttusListServc`|하루 1회|`NOT_REQUESTED`|`G2B_ORDER_PLAN_SERVICE_KEY`|
-|`g2b-industry-master`|업종 및 근거법규 (15129467)|`/1230000/ao/IndstrytyBaseLawrgltInfoService` + `getIndstrytyBaseLawrgltInfoList`|수동(사전 갱신)|`NOT_REQUESTED`|`G2B_INDUSTRY_MASTER_SERVICE_KEY`|
+|`g2b-bid-notice`|입찰공고정보서비스 (15129394)|`http://apis.data.go.kr/1230000/ad/BidPublicInfoService` + `getBidPblancListInfoServc`, `getBidPblancListInfoChgHstryServc`|일정 실행·수동 실행|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-bid-license-limit`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoLicenseLimit`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-bid-region`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoPrtcptPsblRgn`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-bid-eorder-attach`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoEorderAtchFileInfo`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-pre-spec`|사전규격정보서비스 (15129437)|`/1230000/ao/HrcspSsstndrdInfoService` + `getPublicPrcureThngInfoServc`|일정 실행|`APPROVED`|`G2B_PRE_SPEC_SERVICE_KEY`|
+|`g2b-order-plan`|발주계획현황서비스 (15129462)|`/1230000/ao/OrderPlanSttusService` + `getOrderPlanSttusListServc`|하루 1회|`APPROVED`|`G2B_ORDER_PLAN_SERVICE_KEY`|
+|`g2b-industry-master`|업종 및 근거법규 (15129467)|`/1230000/ao/IndstrytyBaseLawrgltInfoService` + `getIndstrytyBaseLawrgltInfoList`|수동(사전 갱신)|`APPROVED`|`G2B_INDUSTRY_MASTER_SERVICE_KEY`|
 |`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job|`NOT_REQUESTED`|—|
 |`fixture`|fixture 20건(`FX-01`~`FX-20`)|— (네트워크 호출 없음)|seed·수동 수집|`APPROVED`|—|
 
 - 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
-- `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 다운로드에 로그인·세션이 필요한지 확인한 뒤(미결정 16번) `approvalStatus`와 `quota`의 뜻을 정한다.
+- `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 로그인·세션 없이 익명 GET으로 받아진다(C1 ② B2, 2026-10-19 공고 3건, 리다이렉트 0회). 남은 것은 이용약관상 자동 다운로드가 허용되는지다(미결정 16번). 그 확인 뒤 `approvalStatus`와 `quota`의 뜻을 정한다.
 
-> [!success] 검증됨 (2026-10-16, data.go.kr 서비스 페이지 Swagger·참고문서 — 명세 확인, 실제 응답 미수신)
-> 서비스 ID·기본 URL·오퍼레이션·개발계정 일 1,000 한도는 아래 서비스 페이지의 명세에서 확인했다. 서비스키로 실제 응답을 받아 본 것은 아니다.
+> [!success] 검증됨 (명세 2026-10-16, 실제 응답 2026-10-19 — data.go.kr 서비스 페이지 Swagger·참고문서, C1 ① 실호출)
+> 서비스 ID·기본 URL·오퍼레이션·개발계정 일 1,000 한도는 아래 서비스 페이지의 명세에서 확인했다. 2026-10-19 C1 ①에서 4개 서비스 모두 서비스키로 실제 응답(`resultCode 00`)을 받았고, 마스킹한 녹음 응답을 `fixtures/recorded/`에 두었다. 호출 로그와 설계와 다른 점 8건(키 형식, 오류 봉투, 보조 조회의 `inqryDiv=2`, `infoBizYn` 요청 필터 무시 등)은 [C1 API 증거](evidence/phase-0/external-deps-api-20261019.md)에 있다. 이 콜아웃이 data.go.kr 검증 사실의 정본이다.
 > - 입찰공고: https://www.data.go.kr/data/15129394/openapi.do
 > - 사전규격: https://www.data.go.kr/data/15129437/openapi.do
 > - 발주계획: https://www.data.go.kr/data/15129462/openapi.do
 > - 업종 및 근거법규: https://www.data.go.kr/data/15129467/openapi.do
 
 > [!warning] 미검증 가정
-> 실제 응답의 필드 값, 입찰공고 외 서비스의 `method`, 조회 기간 상한, `g2b-attachment` 다운로드에 로그인·세션이 필요한지는 확인하지 않았다. 지금 `APPROVED`는 `fixture` 소스뿐이고 g2b 키는 모두 `NOT_REQUESTED`다. 검증 방법: 서비스키 발급(사용자 작업) → ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건을 `sampleResponses`에 저장 → `fieldMapping`·`method`를 채우고 `approvalStatus=APPROVED`로 바꿈 → `OfficialApiConnector` 계약 시험 통과([[16-DECISIONS|16 ADR]] 미결정 1·16번).
+> 조회 기간 상한(8일까지만 확인), 키 오류 응답(`resultCode` 30·31·22)의 형식, 면허제한 여러 행의 뜻(§3), `g2b-attachment` 자동 다운로드의 약관상 허용 여부는 확인하지 않았다. `infra/sources/registry.yaml`은 아직 없다. 검증 방법: C3에서 녹음 응답으로 `fieldMapping`·`sampleResponses`를 채운 registry를 만들고 `OfficialApiConnector` 계약 시험을 통과시킨다([[16-DECISIONS|16 ADR]] 미결정 1·16번).
 
 ## 9. 수용 기준
 
