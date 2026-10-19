@@ -1,0 +1,99 @@
+# AI 장애 대체(PARTIAL) 증거 — C5-B worker 쪽 gateway 클라이언트
+브랜치: c5/analysis-client · base main 67877a1 · 작성 2026-10-19T01:55:38Z
+실행 모드: 단위 시험(가짜 fetch 주입). 실제 gateway·모델·네트워크 호출 없음(AI_PROVIDER=mock 전제).
+
+## 1단계: gateway 클라이언트·circuit breaker·PARTIAL 대체 판단 (web/server/analysis)
+근거: 03 §2.1·§3·§8, 02 장애 원칙, e8 계약 결정 K3'·K4·K5·K9·K10·K11
+
+$ pnpm -C web exec vitest run server/analysis --reporter=verbose
+ ✓ server/analysis/circuit-breaker.model.test.ts > circuit breaker 상수 > 연속 실패 3회에서 연다(02 장애 원칙)
+ ✓ server/analysis/circuit-breaker.model.test.ts > circuit breaker 상수 > 15초 뒤 half-open 으로 간다(02 장애 원칙)
+ ✓ server/analysis/circuit-breaker.model.test.ts > circuit breaker 상수 > 처음 상태는 실패 0회인 CLOSED
+ ✓ server/analysis/circuit-breaker.model.test.ts > admit > CLOSED 는 요청을 허용하고 상태를 바꾸지 않는다
+ ✓ server/analysis/circuit-breaker.model.test.ts > admit > OPEN 은 15초가 지나기 전(14.999초)에는 거부하고 상태를 바꾸지 않는다
+ ✓ server/analysis/circuit-breaker.model.test.ts > admit > OPEN 은 정확히 15초가 지나면 시험 요청을 허용하고 HALF_OPEN 으로 간다
+ ✓ server/analysis/circuit-breaker.model.test.ts > admit > OPEN 은 15초보다 오래 지나도 시험 요청을 허용하고 HALF_OPEN 으로 간다
+ ✓ server/analysis/circuit-breaker.model.test.ts > admit > HALF_OPEN 은 시험 요청이 나가 있으므로 추가 요청을 거부한다
+ ✓ server/analysis/circuit-breaker.model.test.ts > admit > half-open 으로 간 뒤 같은 시각의 다음 요청은 거부한다
+ ✓ server/analysis/circuit-breaker.model.test.ts > admit > 입력 상태를 바꾸지 않는다
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > CLOSED 에서 실패 2회는 아직 CLOSED 이고 실패 수 2
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > CLOSED 에서 연속 실패 3회째에 그 시각으로 OPEN 한다
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > CLOSED 에서 success 는 연속 실패 수를 0 으로 되돌린다
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > 중간에 success 가 끼면 실패 2회 + 2회로는 열리지 않는다(연속 실패만 센다)
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > HALF_OPEN 에서 success 는 실패 0회인 CLOSED
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > HALF_OPEN 에서 failure 는 새 시각으로 다시 OPEN
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > OPEN 에서 failure 는 새 시각으로 OPEN
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > OPEN 에서 success 는 실패 0회인 CLOSED
+ ✓ server/analysis/circuit-breaker.model.test.ts > record > 입력 상태를 바꾸지 않는다
+ ✓ server/analysis/circuit-breaker.model.test.ts > breaker 한 바퀴 > 3회 실패로 열리고 15초 뒤 시험 요청이 성공하면 다시 닫힌다
+ ✓ server/analysis/circuit-breaker.model.test.ts > breaker 한 바퀴 > 다시 열린 뒤에는 새 시각부터 15초를 다시 센다
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > COMPLETED 는 추출을 쓴다
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > PENDING_REVIEW 도 추출을 쓴다
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > FAILED 이고 errorCode 가 null 이면 EXTRACTION_FAILED
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > FAILED 이고 errorCode 가 QWEN_UNAVAILABLE 이면 QWEN_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > FAILED 이고 errorCode 가 EXTRACTION_FAILED 이면 EXTRACTION_FAILED
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > 호출 실패(연결 거부)는 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > 호출 실패(timeout)는 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > 호출 실패(5xx 재시도 소진)는 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > 호출 실패(503 AI_UNAVAILABLE)는 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > 호출 실패(4xx)는 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > 호출 실패(INVALID_RESPONSE)는 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > 호출 실패(CIRCUIT_OPEN)는 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toExtractionOutcome > gateway_down 주입(HTTP 503 AI_UNAVAILABLE, 재시도 뒤)도 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 호출 실패(연결 거부)는 GATEWAY_DOWN
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 호출 실패(timeout)는 GATEWAY_DOWN
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 호출 실패(5xx 재시도 소진)는 GATEWAY_DOWN
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 호출 실패(503 AI_UNAVAILABLE)는 GATEWAY_DOWN
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 호출 실패(4xx)는 GATEWAY_DOWN
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 호출 실패(INVALID_RESPONSE)는 GATEWAY_DOWN
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 호출 실패(CIRCUIT_OPEN)는 GATEWAY_DOWN
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 200 이고 kev.enabled=true 면 Kev 응답을 쓴다
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 200 이고 kev.enabled=true 면 errorCode 가 KEV_UNAVAILABLE 이어도 Kev 응답을 쓴다(설계 §6 결정 2)
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 200 이고 kev.enabled=false·errorCode KEV_UNAVAILABLE 이면 DISABLED 이고 kevUnavailable=true
+ ✓ server/analysis/fallback.model.test.ts > toKevOutcome > 200 이고 kev.enabled=false·errorCode null 이면 DISABLED 이고 kevUnavailable=false
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 호출 실패(연결 거부)는 규칙 엔진 템플릿(text null)으로 대체한다
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 호출 실패(timeout)는 규칙 엔진 템플릿(text null)으로 대체한다
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 호출 실패(5xx 재시도 소진)는 규칙 엔진 템플릿(text null)으로 대체한다
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 호출 실패(503 AI_UNAVAILABLE)는 규칙 엔진 템플릿(text null)으로 대체한다
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 호출 실패(4xx)는 규칙 엔진 템플릿(text null)으로 대체한다
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 호출 실패(INVALID_RESPONSE)는 규칙 엔진 템플릿(text null)으로 대체한다
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 호출 실패(CIRCUIT_OPEN)는 규칙 엔진 템플릿(text null)으로 대체한다
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 200 이고 fallback=true(mock 기본)면 gateway 가 낸 템플릿 문장을 쓴다
+ ✓ server/analysis/fallback.model.test.ts > toExplainOutcome > 200 이고 fallback=false 면 모델 문장과 쓴 숫자를 쓴다
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 아무 실패도 없으면 null
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 이번 run 추출과 Kev 를 모두 썼으면 null
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > Kev 가 KEV_UNAVAILABLE 로 DISABLED 여도 사유가 아니다
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > Kev 가 사용 안 함으로 DISABLED 여도 사유가 아니다
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 이번 run /extract 가 gateway 불가면 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 캐시 추출을 쓰고 /kev 가 GATEWAY_DOWN 이면 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 추출을 썼어도 /kev 가 GATEWAY_DOWN 이면 AI_UNAVAILABLE
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > gateway 불가가 이번 run 의 QWEN_UNAVAILABLE 보다 먼저다
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > gateway 불가가 이번 run 의 EXTRACTION_FAILED 보다 먼저다
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > gateway 불가가 캐시 행 실패 코드보다 먼저다(/kev GATEWAY_DOWN)
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > gateway 불가가 캐시 행 실패 코드보다 먼저다(/extract AI_UNAVAILABLE)
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 이번 run 추출이 QWEN_UNAVAILABLE 이면 그 코드
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 이번 run 추출이 EXTRACTION_FAILED 면 그 코드
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 이번 run 추출 실패 코드가 캐시 행 실패 코드보다 먼저다
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 이번 run 추출 실패에 Kev DISABLED 가 겹쳐도 추출 실패 코드
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 캐시 행이 QWEN_UNAVAILABLE 로 실패였으면 그 코드
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 캐시 행이 EXTRACTION_FAILED 로 실패였으면 그 코드
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 캐시 행 실패에 Kev DISABLED 가 겹쳐도 캐시 행 코드
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 캐시 행이 QWEN_UNAVAILABLE 이어도 이번 run 이 EXTRACTED 면 null
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 캐시 행이 EXTRACTION_FAILED 여도 이번 run 이 EXTRACTED 이고 Kev 를 썼으면 null
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 캐시 행이 실패여도 이번 run 이 EXTRACTED 이고 Kev 가 DISABLED 면 null
+ ✓ server/analysis/fallback.model.test.ts > pickAiUnavailableReason > 이번 run 이 EXTRACTED 이고 캐시 행이 실패여도 /kev GATEWAY_DOWN 이면 AI_UNAVAILABLE
+ Test Files  4 passed (4)
+      Tests  315 passed (315)
+
+$ pnpm -C web exec vitest run server/analysis (파일별 요약)
+ Test Files  4 passed (4)
+      Tests  315 passed (315)
+
+## 변형 확인(메인 세션, 실제 구현 대상)
+- isRetryable 에 UNREACHABLE 을 넣으면(연결 거부 재시도) → 13 failed / 302 passed
+- toKevOutcome 의 전송 실패를 DISABLED 로 바꾸면(K3' 위반: gateway 불가를 COMPLETED 로) → 7 failed / 308 passed
+- 두 변형 뒤 원본 복구, cmp 일치
+- test-server 의 참조 구현 변형 71건(52+19)도 모두 빨간불
+
+## pnpm verify (worktree 루트)
+exit 0 · web Vitest 63 files / 1242 tests passed · 루트 node --test 479 pass 0 fail · services/ai pytest 28 passed · next build 통과
