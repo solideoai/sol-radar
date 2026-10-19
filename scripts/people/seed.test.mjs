@@ -3,6 +3,7 @@ import { it } from "node:test";
 import { readFile } from "node:fs/promises";
 import { freshDb, migratedDb, migrations } from "../database-test-support.mjs";
 import { applyMigrations } from "../supabase-pglite.mjs";
+import { assignmentsOf, foldAssignmentsIntoAvailability } from "./availability.mjs";
 import { catalogUuid, orgUuid, personUuid, seedLocalPeople, seedSolideoPeople } from "./seed.mjs";
 
 const fixtures = Object.fromEntries(
@@ -58,6 +59,12 @@ const scoring = async (db) =>
       "select member_id,org_id,role,grade,skills,availability,created_at from public.team_member_scoring order by member_id",
     )
   ).rows;
+// seed 는 명부의 기존 투입(assignments)을 availability 에 접어 넣는다(availability.mjs). 투입 7명은 그 기간 fte 0.
+const foldedAvailability = (person) =>
+  foldAssignmentsIntoAvailability(
+    person.availability,
+    assignmentsOf(fixtures.people.assignments, person.personId),
+  );
 
 it("계층 카탈로그와 운영 200명·점수 27명을 두 번 넣어도 동일 UUID·값이며 Auth를 호출하지 않는다", async (t) => {
   assert.equal(personUuid("SOL-P0001"), "591e9ea0-0946-5534-89ea-5b4ad722a820");
@@ -138,10 +145,20 @@ it("계층 카탈로그와 운영 200명·점수 27명을 두 번 넣어도 동�
         role: person.role,
         grade: person.grade,
         skills: person.skills,
-        availability: person.availability,
+        availability: foldedAvailability(person),
       }))
       .sort((a, b) => a.member_id.localeCompare(b.member_id)),
   );
+  const busy = fixtures.people.assignments.map((row) => personUuid(row.personId));
+  assert.equal(new Set(busy).size, 7);
+  for (const row of scoresBefore)
+    assert.deepEqual(
+      row.availability,
+      busy.includes(row.member_id)
+        ? [{ startsAt: "2026-12-01", endsAt: "2027-07-01", fte: 0 }]
+        : [{ startsAt: "2026-12-01", endsAt: "2027-07-01", fte: 1 }],
+      row.member_id,
+    );
 });
 
 it("구 스키마의 실제 200행을 업그레이드하면서 eligible 27행의 모든 점수 값을 검증·backfill한다", async (t) => {
@@ -244,7 +261,17 @@ it("구 스키마의 실제 200행을 업그레이드하면서 eligible 27행의
   await seedSolideoPeople({ client, orgId, fixtures });
   await seedSolideoPeople({ client, orgId, fixtures });
   assert.deepEqual(await roster(db), before);
-  assert.deepEqual(await scoring(db), eligible);
+  // backfill 은 구 열의 원본 창을 옮기고, 그 뒤 seed 가 기존 투입을 접은 창으로 갱신한다(id·created_at 보존).
+  const byMemberId = new Map(
+    fixtures.people.people.map((person) => [personUuid(person.personId), person]),
+  );
+  assert.deepEqual(
+    await scoring(db),
+    eligible.map((row) => ({
+      ...row,
+      availability: foldedAvailability(byMemberId.get(row.member_id)),
+    })),
+  );
 });
 
 it("잘못된 계층은 두 seed 진입점 모두 조직을 포함한 쓰기 전에 거절한다", async (t) => {
