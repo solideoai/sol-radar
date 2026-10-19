@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test as base, expect, type APIRequestContext, type WorkerInfo } from "@playwright/test";
 import { z } from "zod";
 import { readLocalStatus } from "./local-status";
-import { SEED_ACCOUNTS, SOLIDEO_ORG_ID, type SeedRole } from "./seed";
+import { SEED_ACCOUNTS, SEED_TEAM, SOLIDEO_ORG_ID, type SeedRole } from "./seed";
 
 type Role = "VIEWER" | "ANALYST" | "SALES" | "ADMIN";
 type Account = {
@@ -145,11 +145,23 @@ async function preparePeople(worker: WorkerInfo, browserName: string) {
           `/rest/v1/memberships?select=user_id,org_id,org_role,sol_role&user_id=in.(${Object.values(ids).join(",")})&order=user_id.asc,org_id.asc`,
         ),
       );
+    // Normal seed business roles: the seed-team creator (owner) holds owner + ADMIN
+    // (team creator is ADMIN — 20261019000001 add_team_owner/backfill; scripts/db-seed.mjs
+    // inserts the same pair when it creates the team with the service key). Every other
+    // seed membership is VIEWER, and no seed account belongs to org01.
+    const [seedTeam] = z
+      .array(z.object({ id: z.uuid() }))
+      .length(1)
+      .parse(await call("GET", `/rest/v1/organizations?select=id&slug=eq.${SEED_TEAM.slug}`));
+    const seedSolRole = ({ user_id, org_id, org_role }: z.infer<typeof membershipSchema>) =>
+      user_id === ids.owner && org_id === seedTeam.id && org_role === "owner" ? "ADMIN" : "VIEWER";
     expect(
-      memberships.every(
-        ({ org_id, sol_role }) => org_id !== SOLIDEO_ORG_ID && sol_role === "VIEWER",
+      memberships.filter(
+        (membership) =>
+          membership.org_id === SOLIDEO_ORG_ID || membership.sol_role !== seedSolRole(membership),
       ),
-    ).toBe(true);
+      "Normal seed memberships must stay outside org01 with seed business roles",
+    ).toEqual([]);
     return { ids, cores, memberships };
   };
   const before = await snapshot();

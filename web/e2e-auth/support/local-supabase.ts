@@ -82,6 +82,27 @@ export const signInAs = async (role: SeedRole): Promise<SeedSession> => {
   return { userId: session.user.id, token: session.access_token };
 };
 
+const joinedProfilesSchema = z.array(
+  z.object({ id: z.string(), email: z.string(), created_at: z.string() }),
+);
+export type JoinedProfile = z.infer<typeof joinedProfilesSchema>[number];
+
+// 관리자 목록(/admin)의 가입일과 순서를 정하는 값(profiles.created_at)을 읽는다. 순서는 목록과 같은
+// "최근 가입 순, 같은 시각이면 id 순"이다. 운영자의 토큰으로 읽는다(정책 "운영자는 전체 프로필 읽기") —
+// 운영자가 아니면 RLS 가 자기 행만 돌려준다. emails 를 주면 그 계정만, limit 을 주면 앞에서 그만큼만 읽는다.
+export const readProfilesNewestFirst = async (
+  session: SeedSession,
+  { emails, limit }: { emails?: readonly string[]; limit?: number } = {},
+): Promise<JoinedProfile[]> => {
+  const query = new URLSearchParams({
+    select: "id,email,created_at",
+    order: "created_at.desc,id.asc",
+    ...(emails ? { email: `in.(${emails.map((email) => `"${email}"`).join(",")})` } : {}),
+    ...(limit === undefined ? {} : { limit: String(limit) }),
+  });
+  return joinedProfilesSchema.parse(await call("GET", `/rest/v1/profiles?${query}`, session));
+};
+
 export const orgIdOf = async (session: SeedSession, slug: string): Promise<string> => {
   const [org] = idRowsSchema
     .length(1)
