@@ -2,7 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { currentRunMode } from "@/app/_lib/run-mode";
 import { completionPath, organizationStatePath } from "@/app/auth/employment-routing";
-import type { BidListOrigin, RunMode } from "@/server/bids";
+import type { RunMode } from "@/server/bids";
 import { getMyBusinessAccess, type CurrentOrg, type SolRole } from "@/server/organization";
 import { getMyProfile } from "@/server/profile";
 
@@ -13,9 +13,6 @@ export type WorkContext = {
   runMode: RunMode;
   org: CurrentOrg;
 };
-
-// 공고 목록의 기본 출처. live 만 실제 공고를 보고, 나머지는 데모 공고를 본다(bid-query 의 기본값과 같다).
-export const originOf = (runMode: RunMode): BidListOrigin => (runMode === "live" ? "live" : "demo");
 
 // 업무 화면(대시보드·공고·알림)의 접근 가드. layout 은 화면 실행을 막지 못하므로 화면마다 다시 부른다.
 // 권한 자체는 RLS 가 정한다. 여기서는 로그인·가입 완료·업무 조직 하나를 확인해 맥락을 만든다.

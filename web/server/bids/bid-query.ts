@@ -80,7 +80,8 @@ function scalar(value: string | string[] | undefined): string | string[] | undef
   return value === "" ? undefined : value;
 }
 
-const defaultOrigin = (runMode: RunMode): BidListOrigin => (runMode === "live" ? "live" : "demo");
+export const defaultOrigin = (runMode: RunMode): BidListOrigin =>
+  runMode === "live" ? "live" : "demo";
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; issues: QueryIssue[] };
 

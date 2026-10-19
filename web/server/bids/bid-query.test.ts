@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cursorScope,
+  defaultOrigin,
   fingerprintOf,
   parseBidListQuery,
   parseNotificationQuery,
@@ -227,5 +228,13 @@ describe("parsePageQuery·parseNotificationQuery·parseOriginQuery", () => {
     });
     expect(parseOriginQuery({ isDemo: "true", origin: "live" }, "mock").ok).toBe(false);
     expect(parseOriginQuery({ origin: "bogus" }, "mock").ok).toBe(false);
+  });
+});
+
+describe("defaultOrigin", () => {
+  it("live 만 live, fixture·mock 은 demo 다", () => {
+    expect(defaultOrigin("live")).toBe("live");
+    expect(defaultOrigin("fixture")).toBe("demo");
+    expect(defaultOrigin("mock")).toBe("demo");
   });
 });

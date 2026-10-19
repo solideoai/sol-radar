@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { loadDashboardSummary } from "@/app/_lib/work-data";
 import { AppShell } from "@/components/app-shell";
+import { defaultOrigin } from "@/server/bids";
 import { getMyBusinessAccess, getMyWorkspace } from "@/server/organization";
 import { getMyProfile } from "@/server/profile";
 import { nameOf } from "@/server/shared";
-import { originOf } from "./work";
 import { currentRunMode } from "@/app/_lib/run-mode";
 
 // layout 은 화면 실행을 막지 못한다. 각 화면이 requireWork 로 다시 확인한다(work.ts).
@@ -20,7 +20,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
   if (workspace.status !== "ready") redirect("/auth/organization-state");
 
   const runMode = currentRunMode();
-  const summary = await loadDashboardSummary(business.current.id, originOf(runMode)).catch(
+  const summary = await loadDashboardSummary(business.current.id, defaultOrigin(runMode)).catch(
     () => null,
   );
   return (
