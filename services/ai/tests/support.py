@@ -4,7 +4,6 @@
 """
 
 import copy
-import hashlib
 import json
 import re
 from pathlib import Path
@@ -19,7 +18,6 @@ DICTIONARY_FILE = AI_ROOT / "dictionaries" / "qualification-codes.yaml"
 QUESTION_SET_FILE = AI_ROOT / "kev" / "question-sets" / "v0.1.json"
 SRC_DIR = AI_ROOT / "src" / "sol_ai"
 
-PROMPT_VERSION = "req-extract/v0.1"
 KEV_DISCLAIMER = "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."
 FIXED_CLOSING = "최종 참여 결정은 사람이 합니다."
 
@@ -113,13 +111,6 @@ def extract_request(
     if fixture_id is not None:
         request["fixtureId"] = fixture_id
     return request
-
-
-def expected_prompt_hash(version: str = PROMPT_VERSION) -> str:
-    """명세 §1-4: sha256(prompt 파일 전문 + "\\n" + schema 파일 전문 + "\\n" + AI_PROMPT_VERSION), 접두 없음."""
-    prompt = PROMPT_FILE.read_bytes().decode("utf-8")
-    schema = SCHEMA_FILE.read_bytes().decode("utf-8")
-    return hashlib.sha256(f"{prompt}\n{schema}\n{version}".encode()).hexdigest()
 
 
 def without_timings(payload: dict) -> dict:

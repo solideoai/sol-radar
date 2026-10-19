@@ -5,13 +5,14 @@ AI_FAULT_INJECT 는 이 어댑터만 흉내 낸다(K3).
 """
 
 import json
-import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from sol_ai.adapters import kev_wire
 from sol_ai.adapters.base import ExtractionFailed, KevUnavailable, ModelOutput, ModelUnavailable
 from sol_ai.contracts import ExtractRequest, KevRequest
+from sol_ai.errors import StartupRefused
 from sol_ai.qualifications import QualificationDictionary
 from sol_ai.question_sets import (
     Q_FIT,
@@ -21,9 +22,6 @@ from sol_ai.question_sets import (
     V0_1,
     QuestionSet,
 )
-from sol_ai.timeutil import parse_instant
-
-logger = logging.getLogger("sol_ai.mock")
 
 # K5: "FX-07" 또는 파일 stem "FX-07.r01". 이 형식 밖이면 파일을 열지 않는다(경로 조작 방지)
 FIXTURE_ID = re.compile(r"FX-\d{2}(?:\.r\d{2})?")
@@ -45,21 +43,82 @@ WARNING_FIXTURE_NOT_FOUND = "MOCK_FIXTURE_NOT_FOUND"
 
 
 def fixture_file(root: Path, kind: str, fixture_id: str | None) -> Path | None:
-    """fixtures/<kind>/<fixtureId>.json. 형식 밖 id 는 None(파일을 열지 않는다)."""
+    """fixtureId 로 고를 파일(K5'). 형식 밖 id 는 파일을 열지 않고 None.
+
+    "FX-xx.rNN" 이면 <kind>/FX-xx.rNN.json, 없으면 <kind>/FX-xx.json. "FX-xx" 면 <kind>/FX-xx.json.
+    고른 파일이 없으면 None(/extract 는 MOCK_FIXTURE_NOT_FOUND, /kev 는 03 §5.7 공식).
+    """
     if fixture_id is None or not FIXTURE_ID.fullmatch(fixture_id):
         return None
-    return root / kind / f"{fixture_id}.json"
+    base = fixture_id.split(".")[0]
+    candidates = [fixture_id, base] if fixture_id != base else [base]
+    return next(
+        (path for name in candidates if (path := root / kind / f"{name}.json").is_file()), None
+    )
+
+
+@dataclass(frozen=True)
+class ModelIdentity:
+    """추출 fixture 들의 공통 model.name·promptVersion·promptHash(seed 의 재사용 키와 같은 값, K13)."""
+
+    name: str
+    prompt_version: str
+    prompt_hash: str
+
+
+class FixtureConfigError(StartupRefused):
+    """mock 추출 fixture 디렉터리가 기동 조건을 못 맞춘다. summary 는 "SOL_FIXTURES_DIR(사유)" 뿐이다."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f"SOL_FIXTURES_DIR({reason})")
+
+
+def _model_identity(path: Path) -> ModelIdentity | None:
+    try:
+        model = json.loads(path.read_text(encoding="utf-8")).get("model")
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not isinstance(model, dict):
+        return None
+    values = (model.get("name"), model.get("promptVersion"), model.get("promptHash"))
+    if not all(isinstance(value, str) for value in values):
+        return None
+    return ModelIdentity(*values)
+
+
+def fixture_model_identity(root: Path) -> ModelIdentity:
+    """기동 검사(mock 만): extractions/ 의 FX 파일이 하나 이상이고 model 식별 값이 모두 같아야 한다.
+
+    없으면 MOCK_FIXTURES_MISSING, 다르거나 읽을 수 없으면 MOCK_FIXTURE_MODEL_MISMATCH 로 기동을 거부한다.
+    """
+    directory = root / "extractions"
+    paths = (
+        [p for p in sorted(directory.glob("*.json")) if FIXTURE_ID.fullmatch(p.stem)]
+        if directory.is_dir()
+        else []
+    )
+    if not paths:
+        raise FixtureConfigError("MOCK_FIXTURES_MISSING")
+    identities = {_model_identity(path) for path in paths}
+    if len(identities) != 1 or None in identities:
+        raise FixtureConfigError("MOCK_FIXTURE_MODEL_MISMATCH")
+    return identities.pop()
 
 
 class MockQwen:
-    """fixtures/extractions/<fixtureId>.json 을 모델 응답 원문으로 돌려준다."""
+    """fixtures/extractions/<fixtureId>.json 을 모델 응답 원문으로 돌려준다.
+
+    payload.model 은 fixture 의 model 블록을 그대로 쓴다(K13). AI_PROMPT_VERSION 은 mock 에 영향이 없다.
+    """
 
     provider = "mock"
-    model_name = "fixture"
 
     def __init__(self, fixtures_root: Path, fault: str | None) -> None:
+        identity = fixture_model_identity(fixtures_root)
         self._root = fixtures_root
         self._fault = fault
+        self.model_name: str | None = identity.name
+        self.prompt_hash: str | None = identity.prompt_hash
 
     def extract(self, request: ExtractRequest) -> ModelOutput:
         if self._fault == FAULT_QWEN_ERROR:
@@ -67,25 +126,16 @@ class MockQwen:
         if self._fault == FAULT_QWEN_UNREACHABLE:
             raise ModelUnavailable("fault injected: qwen_unreachable")
         path = fixture_file(self._root, "extractions", request.fixtureId)
-        if path is None or not path.is_file():
+        if path is None:
             raise ExtractionFailed("mock fixture not found", [WARNING_FIXTURE_NOT_FOUND])
         text = path.read_text(encoding="utf-8")
-        # 결정성: model 블록의 시각·지연은 실제 시각이 아니라 fixture 값을 쓴다
-        extracted_at, latency = _fixture_model_meta(text)
-        return ModelOutput(text, extracted_at, latency, retries=0)
-
-
-def _fixture_model_meta(text: str) -> tuple[str, int | float]:
-    try:
-        model = json.loads(text).get("model") or {}
-    except (ValueError, AttributeError) as error:
-        raise ExtractionFailed("mock fixture is not a JSON object") from error
-    extracted_at, latency = model.get("extractedAt"), model.get("latencyMs")
-    if not isinstance(extracted_at, str) or parse_instant(extracted_at) is None:
-        raise ExtractionFailed("mock fixture model.extractedAt missing")
-    if isinstance(latency, bool) or not isinstance(latency, int | float) or latency < 0:
-        raise ExtractionFailed("mock fixture model.latencyMs missing")
-    return extracted_at, latency
+        try:
+            model_block = json.loads(text).get("model")
+        except (ValueError, AttributeError) as error:
+            raise ExtractionFailed("mock fixture is not a JSON object") from error
+        if not isinstance(model_block, dict):
+            raise ExtractionFailed("mock fixture has no model block")
+        return ModelOutput(text, model_block=model_block)
 
 
 # ---------------------------------------------------------------- Kev
@@ -155,9 +205,6 @@ class MockKev:
             raise KevUnavailable(f"fault injected: {self._fault}")
         path = fixture_file(self._root, "kev", request.fixtureId)
         if path is not None:
-            # "FX-02.r01" 도 FX-02 의 Kev 파일을 쓴다(Kev fixture 는 revision 구분이 없다)
-            path = path.with_name(f"{request.fixtureId.split('.')[0]}.json")
-        if path is not None and path.is_file():
             try:
                 return kev_wire.wire_record(json.loads(path.read_text(encoding="utf-8")))
             except ValueError as error:

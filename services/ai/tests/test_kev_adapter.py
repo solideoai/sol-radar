@@ -252,7 +252,7 @@ def test_mock_answers_v0_1_even_when_v0_2_requested(make_client):
     )
 
 
-def test_revision_fixture_id_uses_kev_file_of_base_id(make_client):
+def test_k5_kev_fx02_r01_falls_back_to_base_kev_file(make_client):
     kev = post(make_client(), kev_request("FX-02.r01"))["kev"]
     assert kev_tuple(kev) == KEV_FIXTURE_CASES["FX-02"][:5]
 
@@ -298,6 +298,15 @@ def known_qualifications(*items: tuple) -> dict:
     }
 
 
+def formula_fixtures(custom_fixtures, kev: dict[str, dict] | None = None):
+    """kev/ 에 파일이 없거나 주어진 것만 있는 시험 디렉터리. extractions/ 에는 실제 FX-01 추출을 둔다.
+
+    mock 은 추출 fixture 가 하나도 없으면 기동을 거부한다(K13). 그 검사를 피하는 것이 아니라 실제와 같은
+    model 블록을 가진 추출 fixture 를 둬서 정상 디렉터리로 만든다.
+    """
+    return custom_fixtures({"FX-01": extraction_fixture("FX-01")}, kev)
+
+
 FORMULA_CASES = {
     "mandatory_code_not_held": (
         known_qualifications(("정보통신공사업 등록", "ICT_CONSTRUCTION", True)),
@@ -329,19 +338,19 @@ FORMULA_CASES = {
 @pytest.mark.parametrize("case", sorted(FORMULA_CASES))
 def test_kev_formula_without_fixture_file(make_client, custom_fixtures, case):
     qualifications, expected = FORMULA_CASES[case]
-    custom_fixtures()  # kev/ 가 빈 시험 디렉터리 → FX-05 파일 없음
+    formula_fixtures(custom_fixtures)  # kev/ 가 빈 시험 디렉터리 → FX-05 파일 없음
     request = kev_request("FX-05", extraction=formula_extraction(qualifications))
     assert kev_tuple(post(make_client(), request)["kev"]) == expected
 
 
 def test_kev_formula_fit_is_two_with_five_grade_legend(make_client, custom_fixtures):
-    custom_fixtures()
+    formula_fixtures(custom_fixtures)
     kev = post(make_client(), kev_request("FX-05"))["kev"]
     assert kev["fit"] == {"score": 2.0, "legend": LEGEND}
 
 
 def test_kev_formula_is_marked_mock(make_client, custom_fixtures):
-    custom_fixtures()
+    formula_fixtures(custom_fixtures)
     kev = post(make_client(), kev_request("FX-05"))["kev"]
     assert (kev["enabled"], kev["provider"], kev["questionSetVersion"]) == (
         True,
@@ -351,7 +360,7 @@ def test_kev_formula_is_marked_mock(make_client, custom_fixtures):
 
 
 def test_kev_formula_wire_has_fixture_shape(make_client, custom_fixtures):
-    custom_fixtures()
+    formula_fixtures(custom_fixtures)
     request = kev_request(
         "FX-05", extraction=formula_extraction(FORMULA_CASES["mandatory_code_not_held"][0])
     )
@@ -370,6 +379,34 @@ def test_kev_without_fixture_id_uses_formula(make_client):
         None, extraction=formula_extraction(FORMULA_CASES["mandatory_codes_held"][0])
     )
     assert "fixtureId" not in request
+    assert kev_tuple(post(make_client(), request)["kev"]) == FORMULA_BID
+
+
+# ---------------------------------------------------------------- K5' fixtureId 대체 규칙(/kev)
+
+
+def test_k5_kev_revision_without_any_file_uses_formula(make_client, custom_fixtures):
+    formula_fixtures(custom_fixtures)
+    # FX-05 추출은 qualifications UNKNOWN → 공식 WATCH 중심
+    assert kev_tuple(post(make_client(), kev_request("FX-05.r01"))["kev"]) == FORMULA_WATCH
+
+
+def test_k5_kev_revision_file_is_preferred_over_base(make_client, custom_fixtures):
+    formula_fixtures(
+        custom_fixtures, {"FX-02": kev_fixture("FX-02"), "FX-02.r01": kev_fixture("FX-16")}
+    )
+    kev = post(make_client(), kev_request("FX-02.r01"))["kev"]
+    assert kev_tuple(kev) == KEV_FIXTURE_CASES["FX-16"][:5]
+
+
+@pytest.mark.parametrize(
+    "fixture_id", ["../kev/FX-02", "FX-02.r1", "FX-2", "FX-02.r001", "FX-02.json"]
+)
+def test_k5_kev_fixture_id_outside_format_uses_formula(make_client, custom_fixtures, fixture_id):
+    formula_fixtures(custom_fixtures, {"FX-02": kev_fixture("FX-02")})
+    request = kev_request(
+        fixture_id, extraction=formula_extraction(FORMULA_CASES["mandatory_codes_held"][0])
+    )
     assert kev_tuple(post(make_client(), request)["kev"]) == FORMULA_BID
 
 

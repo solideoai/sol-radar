@@ -6,9 +6,12 @@
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
+
+from sol_ai.paths import QUALIFICATION_CODES_FILE
 
 _WHITESPACE = re.compile(r"\s+")
 MIN_CONTAINED_ALIAS = 4
@@ -62,3 +65,9 @@ class QualificationDictionary:
 
     def get(self, code: str | None) -> QualificationCode | None:
         return next((entry for entry in self.entries if entry.code == code), None)
+
+
+@lru_cache(maxsize=1)
+def default_dictionary() -> QualificationDictionary:
+    """저장소 사전 파일. 프로세스 안에서 한 번만 읽는다."""
+    return QualificationDictionary.load(QUALIFICATION_CODES_FILE)

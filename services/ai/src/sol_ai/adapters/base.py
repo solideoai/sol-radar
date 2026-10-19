@@ -29,18 +29,24 @@ class KevUnavailable(AdapterError):
 
 @dataclass(frozen=True)
 class ModelOutput:
-    """모델 응답 원문과 gateway 가 model 블록에 적을 메타데이터."""
+    """모델 응답 원문과 payload.model 에 쓸 값.
+
+    model_block 이 있으면 파이프라인은 그 블록을 그대로 쓴다(mock: fixture 의 model 블록, K13).
+    없으면 파이프라인이 공급자·프롬프트 해시와 아래 시각·지연·재시도로 model 블록을 만든다.
+    """
 
     text: str
-    extracted_at: str
-    latency: int | float
+    model_block: dict | None = None
+    extracted_at: str | None = None
+    latency: int | float | None = None
     retries: int = 0
 
 
 class QwenAdapter(Protocol):
     provider: str
-    # GET /health 의 qwen.model. None 이면 쓸 수 있는 Qwen 어댑터가 없다
+    # GET /health 의 qwen.model·qwen.promptHash. model_name 이 None 이면 쓸 수 있는 Qwen 어댑터가 없다
     model_name: str | None
+    prompt_hash: str | None
 
     def extract(self, request: ExtractRequest) -> ModelOutput: ...
 

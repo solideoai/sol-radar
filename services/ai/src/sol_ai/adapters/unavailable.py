@@ -15,6 +15,7 @@ def not_implemented_warning(provider: str) -> str:
 
 class UnavailableQwen:
     model_name = None
+    prompt_hash = None
 
     def __init__(self, provider: str) -> None:
         self.provider = provider

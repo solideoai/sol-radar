@@ -143,20 +143,24 @@ def _fill_gateway_values(
     output: ModelOutput,
     config: ExtractionConfig,
 ) -> dict:
-    """bidId·revisionId·evidence[].revisionId 는 요청 값(K5), model 블록은 gateway 가 채운다."""
+    """bidId·revisionId·evidence[].revisionId 는 요청 값(K5).
+
+    model 은 어댑터가 고정 블록을 주면 그것(스키마 정리·검증을 거친 값) 그대로, 아니면 gateway 가 채운다.
+    """
     payload = copy.deepcopy(extraction)
     payload["bidId"] = request.bidId
     payload["revisionId"] = request.revisionId
-    payload["model"] = {
-        "provider": qwen.provider,
-        "name": qwen.model_name,
-        "promptVersion": config.prompt_version,
-        "promptHash": config.prompt_hash,
-        "temperature": 0,
-        "extractedAt": output.extracted_at,
-        "latencyMs": output.latency,
-        "retries": output.retries,
-    }
+    if output.model_block is None:
+        payload["model"] = {
+            "provider": qwen.provider,
+            "name": qwen.model_name,
+            "promptVersion": config.prompt_version,
+            "promptHash": config.prompt_hash,
+            "temperature": 0,
+            "extractedAt": output.extracted_at,
+            "latencyMs": output.latency,
+            "retries": output.retries,
+        }
     for name in FIELDS:
         payload[name]["evidence"] = [
             _ordered_ref(ref, request.revisionId) for ref in payload[name]["evidence"]
@@ -270,6 +274,9 @@ def run_extraction(
     except ValueError:
         logger.warning("extract: model output is not JSON")
         return _failed(EXTRACTION_FAILED, input_flag, [], started)
+    if output.model_block is not None and isinstance(raw, dict):
+        # 어댑터가 준 고정 model 블록도 같은 스키마 정리·검증을 지난다
+        raw = {**raw, "model": output.model_block}
     extraction = config.schema.prune(raw)
     errors = config.schema.errors(extraction)
     if errors:

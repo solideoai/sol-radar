@@ -12,7 +12,6 @@ from support import (
     DICTIONARY_FILE,
     FIELDS,
     PROMPT_FILE,
-    PROMPT_VERSION,
     REVISION_ID,
     SCHEMA_FILE,
     WIN_PROBABILITY,
@@ -20,7 +19,6 @@ from support import (
     bid_meta,
     canonical,
     drop_none,
-    expected_prompt_hash,
     extract_request,
     extraction_fixture,
     load_json,
@@ -278,27 +276,49 @@ def test_extract_replaces_bid_and_revision_ids_with_request_values(make_client):
     )
 
 
-def test_extract_model_block_is_filled_by_gateway(make_client):
-    payload = post(make_client(), extract_request("FX-01"))["payload"]
-    assert payload["model"] == {
-        "provider": "mock",
-        "name": "fixture",
-        "promptVersion": PROMPT_VERSION,
-        "promptHash": expected_prompt_hash(),
-        "temperature": 0,
-        "extractedAt": "2026-10-16T09:00:00Z",
-        "latencyMs": 0,
-        "retries": 0,
+# K13: mock 이면 payload.model 은 fixture 의 model 블록을 값·키 순서 그대로 낸다(seed 의 재사용 키와 맞춘다).
+MODEL_KEYS = [
+    "provider",
+    "name",
+    "promptVersion",
+    "promptHash",
+    "temperature",
+    "extractedAt",
+    "latencyMs",
+    "retries",
+]
+
+
+def test_fixture_model_block_has_eight_keys():
+    # 전제(fixture): FX-01 model 블록이 8키다
+    assert list(extraction_fixture("FX-01")["model"]) == MODEL_KEYS
+
+
+def test_fixture_extractions_share_model_identity():
+    # 전제(fixture): 추출 fixture 20개의 model.name·promptVersion·promptHash 가 모두 같다
+    identities = {
+        (m["name"], m["promptVersion"], m["promptHash"])
+        for m in (extraction_fixture(fid)["model"] for fid in ALL_EXTRACTION_IDS)
     }
+    assert len(identities) == 1
 
 
-def test_prompt_version_env_changes_model_version_and_hash(make_client, monkeypatch):
+def test_k13_mock_model_block_is_fixture_model_verbatim(make_client):
+    payload = post(make_client(), extract_request("FX-01"))["payload"]
+    expected = extraction_fixture("FX-01")["model"]
+    assert (payload["model"], list(payload["model"])) == (expected, list(expected))
+
+
+@pytest.mark.parametrize("fixture_id", ALL_EXTRACTION_IDS)
+def test_k13_every_fixture_model_block_is_returned_verbatim(make_client, fixture_id):
+    payload = post(make_client(), extract_request(fixture_id))["payload"]
+    assert payload["model"] == extraction_fixture(fixture_id)["model"]
+
+
+def test_k13_prompt_version_env_does_not_change_mock_model(make_client, monkeypatch):
     monkeypatch.setenv("AI_PROMPT_VERSION", "req-extract/v0.1-test")
     model = post(make_client(), extract_request("FX-01"))["payload"]["model"]
-    assert (model["promptVersion"], model["promptHash"]) == (
-        "req-extract/v0.1-test",
-        expected_prompt_hash("req-extract/v0.1-test"),
-    )
+    assert model == extraction_fixture("FX-01")["model"]
 
 
 def test_extract_is_deterministic_except_timings(make_client):
@@ -384,6 +404,46 @@ def test_k5_fx07_reads_latest_revision_fixture(make_client):
         ["Hadoop", "Spark", "Kubernetes"],
         "2160000000",
     )
+
+
+# K5': worker 는 늘 FX-xx.rNN 을 보낸다. 그 파일이 있으면 그것, 없으면 앞부분 FX-xx 파일.
+def test_k5_fx07_r02_falls_back_to_base_fixture(make_client):
+    result = post(make_client(), extract_request("FX-07.r02"))
+    assert (result["status"], result["warnings"]) == ("COMPLETED", [])
+    payload = result["payload"]
+    assert (payload["requiredSkills"]["value"], payload["budgetKrw"]["value"]) == (
+        ["Hadoop", "Spark", "Kubernetes"],
+        "2160000000",
+    )
+
+
+def test_k5_fx01_r01_falls_back_to_base_fixture(make_client):
+    result = post(make_client(), extract_request("FX-01.r01"))
+    assert (result["status"], result["warnings"]) == ("COMPLETED", [])
+    assert (
+        result["payload"]["requiredSkills"]["value"]
+        == extraction_fixture("FX-01")["requiredSkills"]["value"]
+    )
+
+
+def test_k5_revision_fallback_still_replaces_ids(make_client):
+    result = post(make_client(), extract_request("FX-07.r02"))
+    assert result["status"] == "COMPLETED"
+    payload = result["payload"]
+    revisions = {ref["revisionId"] for field in FIELDS for ref in payload[field]["evidence"]}
+    assert (payload["bidId"], payload["revisionId"], revisions) == (
+        BID_ID,
+        REVISION_ID,
+        {REVISION_ID},
+    )
+
+
+def test_k5_revision_file_is_preferred_over_base(make_client, custom_fixtures):
+    revision = extraction_fixture("FX-01")
+    revision["domain"]["value"] = "민원 서비스"
+    custom_fixtures({"FX-01": extraction_fixture("FX-01"), "FX-01.r01": revision})
+    payload = post(make_client(), extract_request("FX-01.r01"))["payload"]
+    assert payload["domain"]["value"] == "민원 서비스"
 
 
 @pytest.mark.parametrize("fixture_id", ALL_EXTRACTION_IDS)
@@ -685,6 +745,9 @@ def test_schema_violation_fails_extraction(make_client, custom_fixtures, case):
     "fixture_id",
     [
         "../extractions/FX-01",
+        "FX-7.r1",
+        "FX-07.r001",
+        "FX-99.r01",
         "FX-1",
         "FX-001",
         "fx-01",

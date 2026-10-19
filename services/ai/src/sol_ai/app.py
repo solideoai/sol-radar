@@ -26,6 +26,7 @@ from sol_ai.contracts import (
     KevTimings,
     ParseResult,
 )
+from sol_ai.errors import StartupRefused
 from sol_ai.explain import explain
 from sol_ai.extraction import ExtractionConfig, run_extraction
 from sol_ai.guards import InjectionGuard
@@ -33,15 +34,13 @@ from sol_ai.parse import parse_document, parser_inventory, read_limited
 from sol_ai.paths import (
     INJECTION_PATTERNS_FILE,
     PROMPT_FILE,
-    QUALIFICATION_CODES_FILE,
     QUESTION_SETS_DIR,
-    SCHEMA_FILE,
     fixtures_dir,
 )
-from sol_ai.qualifications import QualificationDictionary
+from sol_ai.qualifications import default_dictionary
 from sol_ai.question_sets import load_question_sets
 from sol_ai.run_mode import load_rules, resolve_run_mode
-from sol_ai.schema import ExtractionSchema, prompt_hash
+from sol_ai.schema import default_schema, prompt_hash
 from sol_ai.settings import Settings
 
 logger = logging.getLogger("sol_ai")
@@ -49,12 +48,8 @@ logger = logging.getLogger("sol_ai")
 PARSER_SETTINGS = {"PDF": "PARSER_PDF", "HWPX": "PARSER_HWPX", "HWP": "PARSER_HWP"}
 
 
-class RunModeError(Exception):
+class RunModeError(StartupRefused):
     """실행 모드 위반. 메시지에는 키 이름과 reason 만 담는다."""
-
-    def __init__(self, summary: str) -> None:
-        super().__init__(summary)
-        self.summary = summary
 
 
 def format_violations(violations) -> str:
@@ -84,8 +79,8 @@ def _elapsed_ms(started: float) -> int:
 
 
 def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str, str]) -> Runtime:
-    schema = ExtractionSchema.load(SCHEMA_FILE)
-    dictionary = QualificationDictionary.load(QUALIFICATION_CODES_FILE)
+    schema = default_schema()
+    dictionary = default_dictionary()
     question_sets = load_question_sets(QUESTION_SETS_DIR)
     adapters = build_adapters(
         provider=effective["AI_PROVIDER"],
@@ -137,7 +132,7 @@ def create_app(settings: Settings) -> FastAPI:
             "provider": adapters.provider,
             "kevEnabled": kev is not None,
             "qwen": (
-                {"model": qwen.model_name, "promptHash": runtime.extraction.prompt_hash}
+                {"model": qwen.model_name, "promptHash": qwen.prompt_hash}
                 if qwen.model_name is not None
                 else None
             ),

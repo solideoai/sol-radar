@@ -70,6 +70,7 @@ class ExtractionSchema:
 
 @lru_cache(maxsize=1)
 def default_schema() -> ExtractionSchema:
+    """저장소 스키마 파일. 프로세스 안에서 한 번만 읽고 메타 스키마 검사를 한다(앱마다 다시 하지 않는다)."""
     return ExtractionSchema.load(SCHEMA_FILE)
 
 
