@@ -137,17 +137,24 @@ export function toBidDetail(parts: BidDetailParts): BidDetail {
   });
 }
 
+// 결정자가 탈퇴하면 reviewer_id 가 null 이 된다(on delete set null). 05 DTO 는 id 를 요구하므로 고정 값을 쓴다.
+export const DELETED_REVIEWER_ID = "deleted-user";
+const DELETED_REVIEWER_NAME = "탈퇴한 사용자";
+
 export function toReview(row: ReviewRow): Review {
   return reviewSchema.parse({
     id: row.id,
     bidId: row.bid_id,
     revisionId: row.revision_id,
     scoreRunId: row.score_run_id,
-    reviewer: {
-      id: row.reviewer_id,
-      name: nameOf(row.reviewer_display_name, row.reviewer_email),
-      role: row.reviewer_role,
-    },
+    reviewer:
+      row.reviewer_id === null
+        ? { id: DELETED_REVIEWER_ID, name: DELETED_REVIEWER_NAME, role: null }
+        : {
+            id: row.reviewer_id,
+            name: nameOf(row.reviewer_display_name, row.reviewer_email),
+            role: row.reviewer_role,
+          },
     decision: row.decision,
     reason: row.reason,
     decidedAt: row.decided_at,

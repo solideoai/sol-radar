@@ -84,7 +84,6 @@ function factorRows(g: Golden, patch: Partial<ScoreFactorRow> = {}): ScoreFactor
     factor: f.factor,
     raw_value: {},
     normalized: f.normalized,
-    // numeric 열은 문자열로 올 수 있다
     points: f.points,
     max_points: f.maxPoints,
     missing: false,
@@ -155,6 +154,7 @@ describe("toAnalysisViewFromRows", () => {
   });
 
   it("numeric 열이 문자열로 와도 숫자로 바꾼다", () => {
+    // numeric 열은 PostgREST 에서 문자열로 올 수 있다
     const g = golden("FX-03");
     const base = rows("FX-03");
     const factors = base.factors.map((f) => ({
@@ -216,14 +216,26 @@ describe("toAnalysisViewFromRows", () => {
         ...base.run,
         qwen_model: "qwen3",
         prompt_hash: null,
-        model_metadata: { promptVersion: "p1" },
+        model_metadata: {
+          provider: "mock",
+          qwen: { name: "qwen3", promptVersion: "p1", promptHash: "x" },
+        },
       },
     });
     expect(view.model.qwen).toEqual({ name: "qwen3", promptVersion: "p1", promptHash: "" });
     expect(view.model.kev).toBeNull();
+    const legacy = toAnalysisViewFromRows({
+      ...base,
+      run: { ...base.run, qwen_model: "qwen3", model_metadata: { promptVersion: "p0" } },
+    });
+    expect(legacy.model.qwen?.promptVersion).toBe("p0");
     const noMeta = toAnalysisViewFromRows({
       ...base,
-      run: { ...base.run, qwen_model: "qwen3", model_metadata: { promptVersion: 3 } },
+      run: {
+        ...base.run,
+        qwen_model: "qwen3",
+        model_metadata: { promptVersion: 3, qwen: { promptVersion: 4 } },
+      },
     });
     expect(noMeta.model.qwen?.promptVersion).toBe("");
   });
@@ -273,6 +285,114 @@ describe("toAnalysisViewFromRows", () => {
     expect(view.scoreBreakdown).toEqual([]);
     expect(view.missingFactors).toEqual([]);
     expect(view.evidence).toEqual([]);
+  });
+
+  it("kev_assist=null 이면 로그를 남기지 않는다", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    toAnalysisViewFromRows(rows("FX-01"));
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("writer 모양의 유효한 kev_assist(enabled=true)는 그대로 읽는다", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const base = rows("FX-01");
+    const kev = {
+      enabled: true,
+      provider: "mock",
+      model: "kev-mock",
+      questionSetVersion: "kev-qs/v0.2",
+      suggestedOption: "BID",
+      probabilities: { BID: 0.7, WATCH: 0.2, NO_BID: 0.1 },
+      confidence: 0.7,
+      mandatoryRisk: 0.1,
+      needsHumanReview: 0.2,
+      fit: null,
+      scores: null,
+      risks: null,
+      calibration: null,
+      stateTrace: null,
+      latencyMs: 12,
+      requestId: "req-1",
+      disclaimer: KEV_DISCLAIMER,
+    };
+    const view = toAnalysisViewFromRows({ ...base, run: { ...base.run, kev_assist: kev } });
+    expect(view.kev).toEqual(kev);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("PARTIAL run 도 점수 run 으로 읽는다", () => {
+    const base = rows("FX-01");
+    const view = toAnalysisViewFromRows({ ...base, run: { ...base.run, status: "PARTIAL" } });
+    expect(view.status).toBe("PARTIAL");
+    expect(view.solScore).toBe(94);
+    expect(view.scoreBreakdown).toHaveLength(5);
+  });
+
+  it("FAILED run 은 점수·분해를 비우고 오류 코드를 싣는다", () => {
+    const base = rows("FX-01");
+    const view = toAnalysisViewFromRows({
+      ...base,
+      run: {
+        ...base.run,
+        status: "FAILED",
+        score: null,
+        recommendation: null,
+        recommendation_basis: null,
+        error_code: "AI_UNAVAILABLE",
+      },
+    });
+    expect(view.solScore).toBeNull();
+    expect(view.errorCode).toBe("AI_UNAVAILABLE");
+    expect(view.qualification).toEqual({ status: "NEEDS_REVIEW", checks: [] });
+    expect(view.scoreBreakdown).toEqual([]);
+  });
+
+  it("점수 run 인데 check 행이 없으면 자격은 NEEDS_REVIEW 다", () => {
+    const view = toAnalysisViewFromRows({ ...rows("FX-01"), checks: [] });
+    expect(view.qualification).toEqual({ status: "NEEDS_REVIEW", checks: [] });
+  });
+
+  it("목록에 없는 factor 행은 버리고 로그를 남긴다", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const base = rows("FX-01");
+    const extra = { ...base.factors[0]!, id: "fx", factor: "mystery" };
+    const view = toAnalysisViewFromRows({ ...base, factors: [...base.factors, extra] });
+    expect(view.scoreBreakdown).toHaveLength(5);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith(
+      JSON.stringify({ event: "score_factor_unknown", factor: "mystery" }),
+    );
+  });
+
+  it("항목 Kev 분포가 일부 키만 있으면 null + 로그 1회, throw 하지 않는다", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const base = rows("FX-01");
+    const view = toAnalysisViewFromRows({
+      ...base,
+      assessments: [
+        {
+          id: "a9",
+          org_id: "org-1",
+          score_run_id: "run-1",
+          created_at: T0,
+          item_id: "qualifications[0]",
+          item_kind: "QUALIFICATION",
+          rule_status: "SATISFIED",
+          rule_reason: null,
+          basis: "EXTRACTION",
+          notice_evidence: [],
+          company_evidence: [],
+          kev_label: "SATISFIED",
+          kev_distribution: { qid: "q1", distribution: { SATISFIED: 0.9 } },
+          flags: [],
+        },
+      ],
+    });
+    expect(view.requirementAssessments[0]?.kev).toBeNull();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith(
+      JSON.stringify({ event: "kev_distribution_invalid", id: "a9" }),
+    );
   });
 
   it("항목 판정의 Kev 분포는 qid 가 있을 때만 싣는다", () => {

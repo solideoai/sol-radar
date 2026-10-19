@@ -5,8 +5,10 @@ import {
   KEV_DISCLAIMER,
   SOL_SCORE_DISCLAIMER,
   analysisViewSchema,
+  companyEvidenceRefSchema,
   evidenceRefSchema,
   kevViewSchema,
+  requirementAssessmentViewSchema,
 } from "./analysis-view.model";
 import type { AnalysisView, KevView, QualificationCheckView } from "./analysis-view.model";
 import { factorKeySchema } from "./bid.model";
@@ -28,11 +30,9 @@ export type AnalysisRows = {
 };
 
 const evidenceListSchema = z.array(evidenceRefSchema);
-const companyEvidenceListSchema = z.array(z.unknown());
-const kevDistributionSchema = z.object({
-  qid: z.string().min(1),
-  distribution: z.record(z.string(), z.number()),
-});
+const companyEvidenceListSchema = z.array(companyEvidenceRefSchema);
+// 항목별 Kev 값은 DTO 의 바깥 스키마로 읽는다. 저장 열은 {qid, distribution} + kev_label 이다.
+const assessmentKevSchema = requirementAssessmentViewSchema.shape.kev;
 
 type Evidence = z.infer<typeof evidenceRefSchema>;
 
@@ -105,12 +105,33 @@ function collectEvidence(lists: Evidence[][]): Evidence[] {
 const isScored = (run: ScoreRunRow): boolean =>
   run.status === "COMPLETED" || run.status === "PARTIAL";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+// C5-B writer 는 model_metadata 에 {provider, qwen:{promptVersion…}, …} 를 쓴다.
+// 순서: qwen.promptVersion -> 최상위 promptVersion -> "".
+function promptVersionOf(metadata: unknown): string {
+  if (!isRecord(metadata)) return "";
+  const nested = isRecord(metadata.qwen) ? metadata.qwen.promptVersion : undefined;
+  if (typeof nested === "string") return nested;
+  return typeof metadata.promptVersion === "string" ? metadata.promptVersion : "";
+}
+
+// 분포가 없거나 모양이 틀리면 null 이다. 틀린 경우 값은 싣지 않고 id 만 로그에 남긴다.
+function assessmentKevOf(row: RequirementAssessmentRow): z.infer<typeof assessmentKevSchema> {
+  if (row.kev_label === null || row.kev_distribution === null) return null;
+  const stored = row.kev_distribution;
+  const candidate = isRecord(stored)
+    ? { qid: stored.qid, distribution: stored.distribution, label: row.kev_label }
+    : stored;
+  const parsed = assessmentKevSchema.safeParse(candidate);
+  if (parsed.success) return parsed.data;
+  console.error(JSON.stringify({ event: "kev_distribution_invalid", id: row.id }));
+  return null;
+}
+
 function modelOf(run: ScoreRunRow): AnalysisView["model"] {
-  const metadata = run.model_metadata;
-  const promptVersion =
-    typeof metadata === "object" && metadata !== null && !Array.isArray(metadata)
-      ? metadata.promptVersion
-      : undefined;
+  const promptVersion = promptVersionOf(run.model_metadata);
   return {
     provider: run.ai_provider.toLowerCase() as AnalysisView["model"]["provider"],
     qwen:
@@ -118,7 +139,7 @@ function modelOf(run: ScoreRunRow): AnalysisView["model"] {
         ? null
         : {
             name: run.qwen_model,
-            promptVersion: typeof promptVersion === "string" ? promptVersion : "",
+            promptVersion,
             promptHash: run.prompt_hash ?? "",
           },
     kev:
@@ -146,13 +167,17 @@ export function toAnalysisViewFromRows(rows: AnalysisRows): AnalysisView {
         basis: row.basis as QualificationCheckView["basis"],
         evidence: evidenceListSchema.parse(row.evidence),
         profileEvidence: (row.profile_evidence ?? []) as QualificationCheckView["profileEvidence"],
-        companyEvidence: companyEvidenceListSchema.parse(
-          row.company_evidence,
-        ) as QualificationCheckView["companyEvidence"],
+        companyEvidence: companyEvidenceListSchema.parse(row.company_evidence),
         checkedAt: row.checked_at,
       }))
     : [];
 
+  const knownFactor = (name: string): boolean => factorKeySchema.options.some((k) => k === name);
+  for (const row of scored ? rows.factors : []) {
+    if (!knownFactor(row.factor)) {
+      console.error(JSON.stringify({ event: "score_factor_unknown", factor: row.factor }));
+    }
+  }
   const factorRows = scored
     ? factorKeySchema.options.flatMap((key) => rows.factors.filter((f) => f.factor === key))
     : [];
@@ -176,10 +201,7 @@ export function toAnalysisViewFromRows(rows: AnalysisRows): AnalysisView {
 
   const assessments = scored
     ? rows.assessments.map((row) => {
-        const kev =
-          row.kev_label !== null && row.kev_distribution !== null
-            ? kevDistributionSchema.safeParse(row.kev_distribution)
-            : null;
+        const kev = assessmentKevOf(row);
         return {
           itemId: row.item_id,
           itemKind: row.item_kind,
@@ -188,10 +210,7 @@ export function toAnalysisViewFromRows(rows: AnalysisRows): AnalysisView {
           basis: row.basis,
           noticeEvidence: evidenceListSchema.parse(row.notice_evidence),
           companyEvidence: companyEvidenceListSchema.parse(row.company_evidence),
-          kev:
-            kev !== null && kev.success
-              ? { qid: kev.data.qid, distribution: kev.data.distribution, label: row.kev_label }
-              : null,
+          kev,
           flags: row.flags,
         };
       })
@@ -215,9 +234,11 @@ export function toAnalysisViewFromRows(rows: AnalysisRows): AnalysisView {
     recommendation: scored ? run.recommendation : null,
     recommendationBasis: scored ? run.recommendation_basis : null,
     explanation: run.explanation,
-    qualification: scored
-      ? { status: qualificationStatusOf(checks, run.injection_suspected), checks }
-      : { status: "NEEDS_REVIEW", checks: [] },
+    // 점수 run 인데 check 행이 없으면 결측이다(C4 는 늘 1건 이상 만든다). 사람이 본다.
+    qualification:
+      scored && checks.length > 0
+        ? { status: qualificationStatusOf(checks, run.injection_suspected), checks }
+        : { status: "NEEDS_REVIEW", checks },
     requirementAssessments: assessments,
     scoreBreakdown,
     missingFactors,

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { toBidDetail, toBidListItem, toNotification, toReview } from "./bid-row.mapper";
+import {
+  DELETED_REVIEWER_ID,
+  toBidDetail,
+  toBidListItem,
+  toNotification,
+  toReview,
+} from "./bid-row.mapper";
 import type { BidListItemRow, NotificationRow, ReviewRow } from "./bid-row.mapper";
 
 const T0 = "2026-10-16T00:00:00Z";
@@ -148,6 +154,11 @@ describe("toReview", () => {
     expect(review.reviewer).toEqual({ id: "u1", name: "kim", role: null });
     expect(review.assignee).toBeNull();
     expect(review.disagreementFlag).toBe(true);
+  });
+
+  it("탈퇴해 reviewer_id 가 null 이면 고정 결정자로 옮기고 throw 하지 않는다", () => {
+    const review = toReview({ ...row, reviewer_id: null, reviewer_email: null });
+    expect(review.reviewer).toEqual({ id: DELETED_REVIEWER_ID, name: "탈퇴한 사용자", role: null });
   });
 
   it("담당자 이름을 옮긴다", () => {
