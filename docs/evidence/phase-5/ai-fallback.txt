@@ -378,3 +378,23 @@ $ pnpm -C web exec vitest run server/analysis (요약)
 
 ## pnpm verify (worktree 루트, 라운드 B 뒤)
 exit 0 · web Vitest 82 files / 2166 tests passed · 루트 node --test 559 pass 0 fail · lodestar 0 errors · next build 통과 · services/ai pytest 28 passed
+
+## 라운드 B2: 마이그레이션 20261019000010_score_run_display_fields (score_factors.missing_reason, score_runs.kev_assist)
+작성 2026-10-19T05:46:50Z · e8 배정 번호 000010. rule_path 는 C4 AnalysisResult 에 없어 넣지 않음(e8 승인)
+권한·정책 변경 없음: 표 단위 select 가 새 열에 그대로, score_runs insert 열 목록에 kev_assist 없음 → worker(service role)만 씀
+
+$ pnpm -C web exec vitest run server/analysis/analysis.db-path.test.ts --reporter=verbose (B2 시험 발췌)
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 전제 > FX-11 레코드(DB 경로)는 COMPLETED·Kev 꺼짐이고 missingFactors 가 scaleFit=BUDGET_UNKNOWN 하나다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > FX-01 COMPLETED: 마감한 run 의 kev_assist 를 다시 읽으면 result.kev 이고 suggestedOption BID·probabilities 가 fixtures/kev/FX-01.json 값이다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > FX-11 COMPLETED: 마감한 run 의 score_factors 를 다시 읽으면 scaleFit 만 missing_reason BUDGET_UNKNOWN 이고 나머지 네 요소는 null 이다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > Kev 를 쓰지 않은 run(FX-11 Kev 꺼짐·S6 Kev 장애)도 kev_assist 는 null 이 아니라 enabled=false 객체(disclaimer 포함)로 남는다
+
+## 변형 확인(B2): test-server 참조 구현 변형 15건 모두 빨간불(허용값 제거·check 무력화·grant insert/update 추가·kev_assist not null·json 타입·using(true) 정책·매핑 null·하드코딩·kevOutput 대입·생성 타입 변조 등)
+
+## pnpm verify (worktree 루트, B2 뒤)
+  ℹ tests 563
+  ℹ pass 563
+  ℹ fail 0
+  ✓ DB 타입 일치 — 정본 supabase/migrations
+        Tests  2177 passed (2177)
+exit 0 · 클라우드 적용(pnpm db:push)은 하지 않음 — 사용자 확인 뒤에만

@@ -424,6 +424,7 @@ export function toScoreRunResultUpdate(record: AnalysisRunRecord): Tables["score
     input_snapshot: toJson(record.input),
     input_snapshot_hash: result.inputSnapshotHash,
     kev_output: record.kevOutput === null ? null : toJson(record.kevOutput),
+    kev_assist: toJson(result.kev),
     model_metadata: toJson({ ...meta.model, explanationSource: meta.explanation.source }),
     qwen_model: meta.model.qwen?.name ?? null,
     prompt_hash: meta.model.qwen?.promptHash ?? null,
@@ -452,6 +453,7 @@ export function toScoreFactorRows(record: AnalysisRunRecord): Tables["score_fact
     points: factor.points,
     max_points: factor.maxPoints,
     missing: factor.missing,
+    missing_reason: factor.missingReason,
     evidence: toJson(factor.evidence),
     note: factor.note,
   }));

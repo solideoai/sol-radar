@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   ALGORITHM_VERSION,
+  KEV_DISCLAIMER,
   requirementExtractionSchema,
   type AnalysisResult,
   type FactorKey,
@@ -19,12 +20,14 @@ import {
 } from "./analysis-store.model";
 import {
   GOLDEN_IDS,
+  NO_BUDGET_ID,
   ORG_ID,
   contextFromLoaded,
   createMigratedDb,
   deleteRows,
   insertParentRows,
   insertRows,
+  kevOffRoutes,
   loaderRowsFor,
   seedBid,
   seedDocumentsFor,
@@ -41,6 +44,7 @@ import {
   fakeGateway,
   healthyRoutes,
   loadGolden,
+  loadKevResponses,
   refusedReply,
   withPatch,
   type GatewayRoutes,
@@ -55,6 +59,7 @@ const RUN_IDS: Record<string, string> = {
   "FX-01": "0e1d2c3b-4a59-4687-9a6b-5c4d3e2f1a01",
   "FX-02": "0e1d2c3b-4a59-4687-9a6b-5c4d3e2f1a02",
   "FX-03": "0e1d2c3b-4a59-4687-9a6b-5c4d3e2f1a03",
+  "FX-11": "0e1d2c3b-4a59-4687-9a6b-5c4d3e2f1a11",
   S6: "0e1d2c3b-4a59-4687-9a6b-5c4d3e2f1a06",
   FAILED: "0e1d2c3b-4a59-4687-9a6b-5c4d3e2f1a0f",
 };
@@ -64,7 +69,7 @@ const DOWN_ROUTES: GatewayRoutes = { "/kev": refusedReply, "/explain": refusedRe
 
 /** seed 행 → toLoadedContext → runAnalysis. 캐시 추출은 seed 의 mock 추출 행이고 첨부는 seed 의 PENDING 문서다. */
 async function dbPathRun(
-  id: GoldenId,
+  id: GoldenId | typeof NO_BUDGET_ID,
   runKey: string = id,
   routes: GatewayRoutes = healthyRoutes(id),
 ) {
@@ -283,6 +288,8 @@ const FX01 = dbRun("FX-01").record;
 const FX03 = dbRun("FX-03").record;
 const S6 = (await dbPathRun("FX-01", "S6", DOWN_ROUTES)).record;
 const FAILED_RUN = (await dbPathRun("FX-02", "FAILED")).record;
+// FX-11: 예산 미공개 공고. 골든 파일이 없어 점수는 단언하지 않는다. Kev fixture 가 없어 gateway 가 Kev 를 끈 응답을 준다.
+const FX11 = (await dbPathRun(NO_BUDGET_ID, NO_BUDGET_ID, kevOffRoutes())).record;
 
 describe("PGlite 쓰기 제약 · 전제", () => {
   it("S6 레코드는 PARTIAL·AI_UNAVAILABLE·Kev 없음이다", () => {
@@ -296,6 +303,12 @@ describe("PGlite 쓰기 제약 · 전제", () => {
       "NOT_SATISFIED",
     );
   });
+
+  it("FX-11 레코드(DB 경로)는 COMPLETED·Kev 꺼짐이고 missingFactors 가 scaleFit=BUDGET_UNKNOWN 하나다", () => {
+    expect(FX11.result.status).toBe("COMPLETED");
+    expect(FX11.result.kev.enabled).toBe(false);
+    expect(FX11.result.missingFactors).toEqual([{ factor: "scaleFit", reason: "BUDGET_UNKNOWN" }]);
+  });
 });
 
 describe("PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL", () => {
@@ -303,7 +316,7 @@ describe("PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL", () => {
 
   beforeAll(async () => {
     db = await createMigratedDb();
-    await insertParentRows(db, GOLDEN_IDS);
+    await insertParentRows(db, [...GOLDEN_IDS, NO_BUDGET_ID]);
   }, 120_000);
 
   afterEach(async () => {
@@ -375,6 +388,55 @@ describe("PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL", () => {
       kev_output: null,
     });
     expect(finished[0].review_flags).toContain("AI_UNAVAILABLE");
+  });
+
+  it("FX-01 COMPLETED: 마감한 run 의 kev_assist 를 다시 읽으면 result.kev 이고 suggestedOption BID·probabilities 가 fixtures/kev/FX-01.json 값이다", async () => {
+    await writeWholeRun(db, FX01);
+    const { recommendation } = loadKevResponses("FX-01");
+    const { rows } = await db.query<{ kev_assist: unknown }>(
+      "select kev_assist from public.score_runs where id = $1",
+      [FX01.scoreRunId],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kev_assist).toEqual(FX01.result.kev);
+    expect(rows[0].kev_assist).toMatchObject({
+      enabled: true,
+      suggestedOption: "BID",
+      probabilities: recommendation.probabilities,
+    });
+  });
+
+  it("FX-11 COMPLETED: 마감한 run 의 score_factors 를 다시 읽으면 scaleFit 만 missing_reason BUDGET_UNKNOWN 이고 나머지 네 요소는 null 이다", async () => {
+    const finished = await writeWholeRun(db, FX11);
+    expect(finished).toHaveLength(1);
+    const { rows } = await db.query<{ factor: string; missing_reason: string | null }>(
+      "select factor, missing_reason from public.score_factors where score_run_id = $1",
+      [FX11.scoreRunId],
+    );
+    expect(Object.fromEntries(rows.map((row) => [row.factor, row.missing_reason]))).toEqual({
+      skillMatch: null,
+      pastPerformance: null,
+      staffAvailability: null,
+      scaleFit: "BUDGET_UNKNOWN",
+      strategicPreference: null,
+    });
+  });
+
+  it("Kev 를 쓰지 않은 run(FX-11 Kev 꺼짐·S6 Kev 장애)도 kev_assist 는 null 이 아니라 enabled=false 객체(disclaimer 포함)로 남는다", async () => {
+    for (const record of [FX11, S6]) {
+      await writeWholeRun(db, record);
+      const { rows } = await db.query<{ kev_assist: unknown }>(
+        "select kev_assist from public.score_runs where id = $1",
+        [record.scoreRunId],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].kev_assist).toEqual(record.result.kev);
+      expect(rows[0].kev_assist).toMatchObject({
+        enabled: false,
+        probabilities: null,
+        disclaimer: KEV_DISCLAIMER,
+      });
+    }
   });
 
   it("markFailed: toFailedUpdate 로 FAILED·error_code·finished_at 갱신이 통과한다", async () => {

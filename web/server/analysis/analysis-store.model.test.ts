@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { companyProfileSchema } from "@/server/scoring";
-import type { Json } from "@/lib/database.types";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { KEV_DISCLAIMER, companyProfileSchema, type MissingReason } from "@/server/scoring";
+import type { Database, Json } from "@/lib/database.types";
 import { toExtractionRecord, type AnalysisRunRecord } from "./analysis.model";
 import { AnalysisInputError, runAnalysis } from "./analysis.service";
 import {
@@ -18,10 +18,12 @@ import {
   type RevisionDocumentText,
 } from "./analysis-store.model";
 import {
+  NO_BUDGET_ID,
   ORG_ID,
   SEED_ASSIGNMENTS,
   SEED_PROFILE,
   SEED_TEAM_SCORING,
+  kevOffRoutes,
   loaderRowsFor,
   seedBid,
   seedDocumentsFor,
@@ -38,6 +40,7 @@ import {
   jsonReply,
   explainBody,
   loadExtraction,
+  loadKevResponses,
   refusedReply,
   withPatch,
   type GatewayRoutes,
@@ -96,6 +99,8 @@ const S6_RECORD = await fixtureRecord("FX-01", {
   "/kev": refusedReply,
   "/explain": jsonReply(explainBody("미사용", true)),
 });
+// FX-11: 예산 미공개 공고. Kev fixture 가 없어 gateway 가 Kev 를 끈 응답을 준다(COMPLETED·kev.enabled=false).
+const FX11_RECORD = await fixtureRecord(NO_BUDGET_ID, kevOffRoutes());
 
 // ── 읽기: toLoadedContext ──
 
@@ -739,6 +744,7 @@ describe("toScoreRunResultUpdate", () => {
       input_snapshot: record.input,
       input_snapshot_hash: result.inputSnapshotHash,
       kev_output: record.kevOutput,
+      kev_assist: result.kev,
       model_metadata: { ...meta.model, explanationSource: meta.explanation.source },
       qwen_model: meta.model.qwen?.name,
       prompt_hash: meta.model.qwen?.promptHash,
@@ -803,6 +809,34 @@ describe("toScoreRunResultUpdate", () => {
     expect(update.question_set_version).toBeNull();
   });
 
+  it("kev_assist 는 result.kev(C4 KevAssist)다 — FX-01 은 enabled·suggestedOption BID·probabilities 가 fixtures/kev/FX-01.json 값이다", () => {
+    const { recommendation } = loadKevResponses("FX-01");
+    const update = toScoreRunResultUpdate(FX01_RECORD);
+    expect(update.kev_assist).toEqual(FX01_RECORD.result.kev);
+    expect(update.kev_assist).toMatchObject({
+      enabled: true,
+      suggestedOption: "BID",
+      probabilities: recommendation.probabilities,
+    });
+  });
+
+  it.each([
+    ["S6(Kev 장애·PARTIAL)", S6_RECORD],
+    ["FX-11(Kev 꺼짐·COMPLETED)", FX11_RECORD],
+  ])(
+    "%s 도 kev_assist 는 null 이 아니라 enabled=false 인 result.kev 객체(disclaimer 포함)다",
+    (_name, record) => {
+      const update = toScoreRunResultUpdate(record);
+      expect(update.kev_assist).toEqual(record.result.kev);
+      expect(update.kev_assist).toMatchObject({
+        enabled: false,
+        suggestedOption: null,
+        probabilities: null,
+        disclaimer: KEV_DISCLAIMER,
+      });
+    },
+  );
+
   it("meta.model.qwen 이 null 이면 qwen_model·prompt_hash 가 null 이다", () => {
     const record = withPatch(FX01_RECORD, (draft) => {
       draft.meta.model.qwen = null;
@@ -858,6 +892,7 @@ describe("toScoreFactorRows", () => {
         points: factor.points,
         max_points: factor.maxPoints,
         missing: factor.missing,
+        missing_reason: factor.missingReason,
         evidence: factor.evidence,
         note: factor.note,
       })),
@@ -866,6 +901,66 @@ describe("toScoreFactorRows", () => {
 
   it("다섯 요소 다섯 행이다", () => {
     expect(toScoreFactorRows(FX01_RECORD)).toHaveLength(5);
+  });
+
+  it("FX-11 은 COMPLETED 이고 missingFactors 가 scaleFit=BUDGET_UNKNOWN 하나다(전제)", () => {
+    expect(FX11_RECORD.result.status).toBe("COMPLETED");
+    expect(FX11_RECORD.result.missingFactors).toEqual([
+      { factor: "scaleFit", reason: "BUDGET_UNKNOWN" },
+    ]);
+  });
+
+  it("missing_reason 은 요소의 missingReason 이다 — FX-11 은 scaleFit 만 BUDGET_UNKNOWN 이고 나머지 네 요소는 null 이다", () => {
+    expect(
+      Object.fromEntries(
+        toScoreFactorRows(FX11_RECORD).map((row) => [row.factor, row.missing_reason]),
+      ),
+    ).toEqual({
+      skillMatch: null,
+      pastPerformance: null,
+      staffAvailability: null,
+      scaleFit: "BUDGET_UNKNOWN",
+      strategicPreference: null,
+    });
+  });
+
+  it("missing_reason 은 요소마다 C4 값을 바꾸지 않고 옮긴다(사유 다섯 개)", () => {
+    const reasons: MissingReason[] = [
+      "NO_REQUIREMENTS_EXTRACTED",
+      "PROFILE_PROJECTS_EMPTY",
+      "TEAM_EMPTY",
+      "BUDGET_UNKNOWN",
+      "PREFERENCES_NOT_SET",
+    ];
+    const record = withPatch(FX01_RECORD, (draft) => {
+      draft.result.factors = draft.result.factors.map((factor, index) => ({
+        ...factor,
+        missing: true,
+        missingReason: reasons[index] ?? null,
+      }));
+    });
+    expect(toScoreFactorRows(record).map((row) => row.missing_reason)).toEqual(reasons);
+  });
+});
+
+// ── 생성 타입: 화면 표시용 열(20261019000010) ──
+
+type GeneratedTables = Database["public"]["Tables"];
+
+describe("database.types · 화면 표시용 열", () => {
+  // 타입 단언이라 type-check(tsc)가 잡는다. Json 은 이미 null 을 품어서 kev_assist 의 null 허용은 타입으로 구분되지 않는다
+  // (그것은 scripts/database.test.mjs 의 열 시험 몫이다). 여기서는 열이 있고 JSON 열인지만 본다.
+  it("score_factors.missing_reason 은 string | null 이고 score_runs.kev_assist 는 Json 이다(Row·Insert·Update)", () => {
+    expectTypeOf<GeneratedTables["score_factors"]["Row"]["missing_reason"]>().toEqualTypeOf<
+      string | null
+    >();
+    expectTypeOf<GeneratedTables["score_factors"]["Insert"]["missing_reason"]>().toEqualTypeOf<
+      string | null | undefined
+    >();
+    expectTypeOf<GeneratedTables["score_runs"]["Row"]["kev_assist"]>().toEqualTypeOf<Json>();
+    expectTypeOf<GeneratedTables["score_runs"]["Update"]["kev_assist"]>().toEqualTypeOf<
+      Json | undefined
+    >();
   });
 });
 

@@ -30,7 +30,14 @@ import type { Database, Json } from "@/lib/database.types";
 import type { LoadedAnalysisContext } from "./analysis-job.model";
 import type { AnalysisContext } from "./analysis.model";
 import type { LoaderRows, RevisionDocumentText } from "./analysis-store.model";
-import { CALCULATION_DATE } from "./test-support";
+import {
+  CALCULATION_DATE,
+  MOCK_EXPLAIN_TEXT,
+  explainBody,
+  jsonReply,
+  kevDisabledBody,
+  type GatewayRoutes,
+} from "./test-support";
 
 type Tables = Database["public"]["Tables"];
 type Insert<T extends keyof Tables> = Tables[T]["Insert"];
@@ -47,6 +54,17 @@ export const OTHER_ORG_ID: string = orgUuid("org-02");
 
 export const GOLDEN_IDS = ["FX-01", "FX-02", "FX-03"] as const;
 export type GoldenId = (typeof GOLDEN_IDS)[number];
+
+/** 예산 미공개 공고(budgetKrw=null). 골든 파일·Kev fixture 가 없다. C4 결과는 COMPLETED·missingFactors=[scaleFit BUDGET_UNKNOWN]. */
+export const NO_BUDGET_ID = "FX-11";
+
+/** Kev fixture 가 없는 공고의 gateway: /kev 는 Kev 를 끈 응답(KEV_ENABLED=false, errorCode 없음), /explain 은 mock 템플릿. */
+export function kevOffRoutes(): GatewayRoutes {
+  return {
+    "/kev": jsonReply(kevDisabledBody(null)),
+    "/explain": jsonReply(explainBody(MOCK_EXPLAIN_TEXT, true)),
+  };
+}
 
 const [bidFixtures, extractionFixtures, companyFixture, peopleFixtures] = await Promise.all([
   loadDemoBidFixtures(REPO_ROOT),
