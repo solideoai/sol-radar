@@ -2,6 +2,7 @@ import { UnrecoverableError, Worker, type ConnectionOptions } from "bullmq";
 import {
   ANALYSIS_JOB,
   ANALYSIS_QUEUE,
+  FINISH_NOT_RUNNING_MESSAGE,
   AnalysisInputError,
   analysisJobDataSchema,
   analyzeAndSave,
@@ -13,6 +14,7 @@ import {
   type AnalysisContext,
   type AnalysisContextLoader,
   type AnalysisJobData,
+  type AnalysisRunDiagnostics,
   type AnalysisRunSink,
   type AnalysisRunTracker,
   type AnalysisSettings,
@@ -21,6 +23,7 @@ import {
   type LoadedAnalysisContext,
   type RunMode,
 } from "@/server/analysis";
+import { errorNameOf } from "@/worker/error-name";
 
 // ── analysis job: job 데이터 검증 → 처리 설정 → score_runs 대상 확인 → 분석·저장 → 로그 한 줄 ──
 // 다른 조직·다른 run 의 데이터를 섞지 않게 loader 가 읽은 행이 job 데이터와 같은지 확인한 뒤에만 쓴다.
@@ -64,6 +67,7 @@ const JOB_INVALID = "ANALYSIS_JOB_INVALID";
 const TARGET_NOT_FOUND = "ANALYSIS_TARGET_NOT_FOUND";
 const TARGET_MISMATCH = "ANALYSIS_TARGET_MISMATCH";
 const INPUT_INVALID = "ANALYSIS_INPUT_INVALID";
+const RUN_SUPERSEDED = "ANALYSIS_RUN_SUPERSEDED";
 const JOB_FAILED = "ANALYSIS_JOB_FAILED";
 
 /** 이 파일이 던지는 UnrecoverableError 의 message. 다른 곳이 던진 UnrecoverableError 의 message 는 값이 섞일 수 있어 코드로 쓰지 않는다. */
@@ -73,7 +77,12 @@ const OWN_CODES: ReadonlySet<string> = new Set([
   TARGET_NOT_FOUND,
   TARGET_MISMATCH,
   INPUT_INVALID,
+  RUN_SUPERSEDED,
 ]);
+
+// 결과 저장이 FINISH_NOT_RUNNING_MESSAGE(@/server/analysis)로 거절하면 다른 시도가 이미 끝냈거나 다시 잡은 run 이다.
+// 재시도해도 같은 거절이고 gateway 만 다시 부르므로 영구 실패로 바꾼다. message 가 정확히 그것일 때만이다
+// (NOT_FOUND 등 다른 거절·일시 오류는 예전처럼 재시도한다).
 
 type DoneStatus = Extract<LoadedAnalysisContext["status"], "COMPLETED" | "PARTIAL" | "FAILED">;
 
@@ -81,10 +90,14 @@ function isDone(status: LoadedAnalysisContext["status"]): status is DoneStatus {
   return status === "COMPLETED" || status === "PARTIAL" || status === "FAILED";
 }
 
-/** 실패 처리에 필요한 진행 단계. VERIFIED 뒤에만 score_runs 를 FAILED 로 바꾼다(그 전에는 남의 run 일 수 있다). */
+/**
+ * 실패 처리에 필요한 진행 단계. VERIFIED 뒤에만 score_runs 를 FAILED 로 바꾼다(그 전에는 남의 run 일 수 있다).
+ * RUNNING 은 markRunning 이 성공한 뒤다. 그때는 이 시도가 잡은 run(started_at = attemptStartedAt)만 닫는다(보안 검토 후속).
+ */
 type Progress =
   | { stage: "UNPARSED" }
-  | { stage: "PARSED" | "VERIFIED"; data: AnalysisJobData; requestId: string };
+  | { stage: "PARSED" | "VERIFIED"; data: AnalysisJobData; requestId: string }
+  | { stage: "RUNNING"; data: AnalysisJobData; requestId: string; attemptStartedAt: string };
 
 /** 데이터 오류는 값·경로를 싣지 않고 코드만 던진다. requestId 는 스키마가 형식을 보장한다. */
 function parseJobData(data: unknown): { data: AnalysisJobData; requestId: string } {
@@ -103,12 +116,16 @@ function isSameTarget(loaded: LoadedAnalysisContext, data: AnalysisJobData): boo
   );
 }
 
-/** loader 의 orgId·idempotencyKey·status 는 넣지 않는다. 조직은 대상 확인을 마친 job 데이터 값이다. */
+/**
+ * loader 의 orgId·idempotencyKey·status 는 넣지 않는다. 조직은 대상 확인을 마친 job 데이터 값이다.
+ * attemptStartedAt 은 markRunning 에 넘긴 startedAt 이다(시도 식별자).
+ */
 function toContext(
   loaded: LoadedAnalysisContext,
   data: AnalysisJobData,
   requestId: string,
   settings: AnalysisSettings,
+  attemptStartedAt: string,
 ): AnalysisContext {
   return {
     requestId,
@@ -126,13 +143,26 @@ function toContext(
     kev: settings.kev,
     documentIssues: loaded.documentIssues,
     queuedAt: loaded.queuedAt,
+    attemptStartedAt,
   };
 }
 
-/** 오류 이름. 클래스 이름 모양이 아니면(값이 섞였을 수 있다) "Error" 로 줄인다. */
-function errorNameOf(error: unknown): string {
-  if (!(error instanceof Error)) return "NonError";
-  return /^[A-Za-z0-9_]{1,60}$/.test(error.name) ? error.name : "Error";
+/** markRunning 뒤 결과 저장이 늦은 마감으로 거절됐는가. 그 전 단계의 오류는 이 시도가 잡은 run 이 없으므로 보지 않는다. */
+function isSupersededFinish(error: unknown, progress: Progress): boolean {
+  return (
+    progress.stage === "RUNNING" &&
+    error instanceof Error &&
+    error.message === FINISH_NOT_RUNNING_MESSAGE
+  );
+}
+
+/** 진단을 로그 필드로 옮긴다. 진단이 없는 쪽은 키를 넣지 않는다. 실패 종류와 "경로: 코드" 뿐이고 값·message 는 없다. */
+function diagnosticFields(diagnostics: AnalysisRunDiagnostics): Record<string, unknown> {
+  const { extract, kev } = diagnostics;
+  return {
+    ...(extract === null ? {} : { extractFailure: extract.failure, extractIssues: extract.issues }),
+    ...(kev === null ? {} : { kevFailure: kev.failure, kevIssues: kev.issues }),
+  };
 }
 
 function isPermanent(error: unknown, job: AnalysisJobLike): boolean {
@@ -165,8 +195,12 @@ export function createAnalysisProcessor(
     const permanent = isPermanent(error, job);
     const errorCode = permanent ? failureCodeOf(error) : null;
     const markFailedError =
-      errorCode !== null && progress.stage === "VERIFIED"
-        ? await markFailed(progress.data, errorCode)
+      errorCode !== null && (progress.stage === "VERIFIED" || progress.stage === "RUNNING")
+        ? await markFailed(
+            progress.data,
+            errorCode,
+            progress.stage === "RUNNING" ? progress.attemptStartedAt : null,
+          )
         : null;
     const ids =
       progress.stage === "UNPARSED"
@@ -193,14 +227,22 @@ export function createAnalysisProcessor(
     return error instanceof AnalysisInputError ? new UnrecoverableError(INPUT_INVALID) : error;
   }
 
-  /** markFailed 가 던지면 삼키지 않고 오류 이름을 돌려준다. 호출자는 원래 오류를 던진다. */
-  async function markFailed(data: AnalysisJobData, errorCode: string): Promise<string | null> {
+  /**
+   * markFailed 가 던지면 삼키지 않고 오류 이름을 돌려준다. 호출자는 원래 오류를 던진다.
+   * markRunning 뒤(RUNNING)면 이 시도의 attemptStartedAt 을 넘겨 다른 시도가 잡았거나 끝낸 run 을 닫지 않는다.
+   */
+  async function markFailed(
+    data: AnalysisJobData,
+    errorCode: string,
+    attemptStartedAt: string | null,
+  ): Promise<string | null> {
     try {
       await deps.tracker.markFailed({
         orgId: data.orgId,
         scoreRunId: data.scoreRunId,
         errorCode,
         finishedAt: deps.now().toISOString(),
+        ...(attemptStartedAt === null ? {} : { attemptStartedAt }),
       });
       return null;
     } catch (markError) {
@@ -244,16 +286,19 @@ export function createAnalysisProcessor(
         return { outcome: "SKIPPED", scoreRunStatus: loaded.status };
       }
 
-      // 분석 시작 시각은 runAnalysis 가 따로 잰다. score_runs.started_at 은 처리 시작 시각이다.
+      // 분석 시작 시각은 runAnalysis 가 따로 잰다. score_runs.started_at 은 처리 시작 시각이고 이 시도의 식별자다.
+      const attemptStartedAt = t0.toISOString();
       await deps.tracker.markRunning({
         orgId: data.orgId,
         scoreRunId: data.scoreRunId,
         runMode: settings.runMode,
         aiProvider: settings.aiProvider,
-        startedAt: t0.toISOString(),
+        startedAt: attemptStartedAt,
       });
+      progress = { stage: "RUNNING", data, requestId, attemptStartedAt };
 
-      const record = await analyzeAndSave(toContext(loaded, data, requestId, settings), {
+      const context = toContext(loaded, data, requestId, settings, attemptStartedAt);
+      const record = await analyzeAndSave(context, {
         gateway: deps.gateway,
         now: deps.now,
         extraction: deps.extraction,
@@ -272,6 +317,7 @@ export function createAnalysisProcessor(
           recommendationBasis,
           settingsSource: settings.source,
           runModeMismatch: settings.runModeMismatch,
+          ...diagnosticFields(record.diagnostics),
           elapsedMs: elapsedMs(t0, deps),
         }),
       );
@@ -283,7 +329,11 @@ export function createAnalysisProcessor(
         recommendationBasis,
       };
     } catch (error) {
-      throw await onFailure(error, job, progress, t0);
+      // 늦은 마감은 원래 오류(message 에 표·코드가 있다) 대신 코드만 담은 영구 실패로 바꾼다.
+      const failure = isSupersededFinish(error, progress)
+        ? new UnrecoverableError(RUN_SUPERSEDED)
+        : error;
+      throw await onFailure(failure, job, progress, t0);
     }
   };
 }
@@ -297,9 +347,9 @@ export function createAnalysisWorker(
     connection,
     concurrency: 1,
   });
-  // message 는 접속 문자열을 담을 수 있어 쓰지 않는다(main.ts 와 같은 원칙).
+  // message 는 접속 문자열을 담을 수 있어 쓰지 않고, 이름도 공용 규칙으로 거른다(main.ts 와 같은 원칙).
   worker.on("error", (error) => {
-    console.error(`analysis worker 오류: ${error.name}`);
+    console.error(`analysis worker 오류: ${errorNameOf(error)}`);
   });
   return { close: () => worker.close() };
 }

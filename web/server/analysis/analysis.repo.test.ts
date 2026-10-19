@@ -14,12 +14,9 @@ import { createAnalysisStores, createPreanalyzeStore } from "./analysis.repo";
 import {
   toExtractionRow,
   toFailedUpdate,
+  toFinishScoreRunPayload,
   toLoadedContext,
-  toQualificationCheckRows,
-  toRequirementAssessmentRows,
   toRunningUpdate,
-  toScoreFactorRows,
-  toScoreRunResultUpdate,
   type LoaderRows,
 } from "./analysis-store.model";
 import {
@@ -32,12 +29,16 @@ import {
   contextFromLoaded,
   eqValue,
   fakeSupabase,
+  filteredReply,
   inValues,
   loaderRoute,
   loaderRowsFor,
   postgrestError,
+  projectedReply,
   seedBid,
   selectedColumns,
+  toPostgrestTimestamp,
+  type FakeRow,
   type PostgrestCall,
   type PostgrestRoute,
 } from "./store.test-support";
@@ -400,56 +401,163 @@ describe("extraction.loadSource", () => {
   });
 });
 
+// 보안 후속 (d): 추출 행은 조직 표가 아니라 (revision_id, model_name, prompt_hash) 키로 여러 조직의 분석이 함께 쓴다(03 §2.1 재사용 키).
+// 같은 키의 행이 이미 있으면 덮지 않고(on conflict do nothing) 그 행을 쓴다. 저장 뒤 같은 키로 다시 읽어 id 를 돌려준다.
+// 예전 기대 "충돌 시 병합하는 upsert(merge-duplicates)" 와 "upsert 응답의 id" 는 이 결정으로 바뀌었다(병합은 남의 분석이 쓰는 행을 덮는다).
+
 describe("extraction.save", () => {
   const extraction = loadExtraction("FX-01");
   const record = toExtractionRecord(buildContext("FX-01"), extractBody(extraction), extraction);
+  const ROW = toExtractionRow(record);
   const SAVED_ID = "6b5a4c3d-2e1f-4a0b-9c8d-7e6f5a4b3c2d";
+  const EXISTING_ID = "7c6b5a4d-3e2f-4b1a-8d9c-0e1f2a3b4c5d";
+  const KEY_COLUMNS = ["revision_id", "model_name", "prompt_hash"] as const;
 
-  /** 저장한 행의 id 만 돌려준다(한 행 요청이면 객체, 아니면 배열). */
-  const savedReply: PostgrestRoute = (call) =>
-    call.method === "POST" && call.table === "requirement_extractions"
-      ? {
-          status: 201,
-          body: call.accept.includes("vnd.pgrst.object+json")
-            ? { id: SAVED_ID }
-            : [{ id: SAVED_ID }],
+  /** 먼저 저장된 같은 키의 추출(다른 조직의 분석이 만든 행). 값은 이번 record 와 다르다. */
+  const existingRow = (): FakeRow => ({
+    ...ROW,
+    id: EXISTING_ID,
+    payload: { marker: "먼저 저장된 추출" },
+    translations: { marker: "먼저 저장된 번역" },
+    latency_ms: 1,
+    created_at: "2026-10-16T08:00:00+00:00",
+  });
+
+  /**
+   * requirement_extractions 표 흉내. 키(revision_id, model_name, prompt_hash)가 유일하다.
+   * POST 는 Prefer resolution 대로 한다(merge-duplicates 는 덮고, ignore-duplicates 는 아무것도 하지 않고, 없으면 23505).
+   * GET 은 필터를 그대로 적용해 고른다(filteredReply).
+   */
+  function extractionTable(initial: FakeRow[] = []) {
+    const rows: FakeRow[] = initial.map((row) => ({ ...row }));
+    const sameKey = (a: FakeRow, b: FakeRow) =>
+      KEY_COLUMNS.every((column) => a[column] === b[column]);
+    const route: PostgrestRoute = (call) => {
+      if (call.table !== "requirement_extractions") return undefined;
+      if (call.method === "GET") return filteredReply(call, rows);
+      if (call.method !== "POST") return undefined;
+      const touched: FakeRow[] = [];
+      for (const body of bodyRows(call)) {
+        const existing = rows.find((row) => sameKey(row, body));
+        if (existing === undefined) {
+          const inserted = { id: SAVED_ID, created_at: "2026-10-16T09:00:00+00:00", ...body };
+          rows.push(inserted);
+          touched.push(inserted);
+        } else if (call.prefer.includes("resolution=merge-duplicates")) {
+          Object.assign(existing, body);
+          touched.push(existing);
+        } else if (!call.prefer.includes("resolution=ignore-duplicates")) {
+          return postgrestError("23505", 409);
         }
-      : undefined;
+      }
+      return call.prefer.includes("return=representation")
+        ? projectedReply(call, touched, 201)
+        : { status: 201 };
+    };
+    return { rows, route };
+  }
 
-  async function save(reply?: ReturnType<PostgrestRoute>) {
-    const fake = fakeSupabase(
-      reply === undefined ? savedReply : on("POST", "requirement_extractions", reply),
-    );
+  async function save(route: PostgrestRoute = extractionTable().route) {
+    const fake = fakeSupabase(route);
     const stores = createAnalysisStores(fake.client, fakeAttachments().reader);
     return { promise: stores.extraction.save(record), fake };
   }
 
-  it("requirement_extractions 에 (revision_id, model_name, prompt_hash) 충돌 시 병합하는 upsert 를 보낸다", async () => {
+  it("requirement_extractions 에 (revision_id, model_name, prompt_hash) 충돌 시 아무것도 하지 않는 upsert(resolution=ignore-duplicates)를 보낸다", async () => {
     const { promise, fake } = await save();
     await promise;
     const call = only(fake.callsTo("requirement_extractions", "POST"));
     expect(conflictColumns(call)).toEqual(["model_name", "prompt_hash", "revision_id"]);
-    expect(call.prefer).toContain("resolution=merge-duplicates");
+    expect(call.prefer).toContain("resolution=ignore-duplicates");
+  });
+
+  it("저장은 병합 upsert 가 아니다(resolution=merge-duplicates 가 없다)", async () => {
+    const { promise, fake } = await save();
+    await promise;
+    expect(only(fake.callsTo("requirement_extractions", "POST")).prefer).not.toContain(
+      "resolution=merge-duplicates",
+    );
   });
 
   it("upsert 행은 toExtractionRow(record) 다", async () => {
     const { promise, fake } = await save();
     await promise;
-    expect(bodyRows(only(fake.callsTo("requirement_extractions", "POST")))).toEqual([
-      toExtractionRow(record),
+    expect(bodyRows(only(fake.callsTo("requirement_extractions", "POST")))).toEqual([ROW]);
+  });
+
+  it("넣은 뒤 같은 키로 다시 읽는다(POST → GET)", async () => {
+    const { promise, fake } = await save();
+    await promise;
+    expect(fake.sequence()).toEqual([
+      "POST requirement_extractions",
+      "GET requirement_extractions",
     ]);
   });
 
-  it("id 만 돌려받아 { id } 로 돌려준다", async () => {
+  it("다시 읽기는 저장한 행의 revision_id·model_name·prompt_hash 로 거르고 id 만 고른다", async () => {
     const { promise, fake } = await save();
+    await promise;
+    const call = only(fake.callsTo("requirement_extractions", "GET"));
+    for (const column of KEY_COLUMNS) expect(eqValue(call, column)).toBe(String(ROW[column]));
+    expect(selectedColumns(call)).toEqual(["id"]);
+  });
+
+  it("새 키면 넣은 행의 id 를 { id } 로 돌려준다", async () => {
+    const table = extractionTable();
+    const { promise } = await save(table.route);
     await expect(promise).resolves.toEqual({ id: SAVED_ID });
-    expect(selectedColumns(only(fake.callsTo("requirement_extractions", "POST")))).toEqual(["id"]);
+    expect(table.rows.map((row) => row.id)).toEqual([SAVED_ID]);
+  });
+
+  it("같은 키의 행이 이미 있으면 그 행을 덮지 않는다(먼저 저장된 추출을 그대로 둔다)", async () => {
+    const table = extractionTable([existingRow()]);
+    const { promise } = await save(table.route);
+    await promise;
+    expect(table.rows).toEqual([existingRow()]);
+  });
+
+  it("같은 키의 행이 이미 있으면 그 행의 id 를 돌려준다", async () => {
+    const table = extractionTable([existingRow()]);
+    const { promise } = await save(table.route);
+    await expect(promise).resolves.toEqual({ id: EXISTING_ID });
+  });
+
+  it("다른 키의 행만 있으면 덮지 않고 새 행을 넣어 그 id 를 돌려준다", async () => {
+    const other: FakeRow = { ...existingRow(), prompt_hash: "0".repeat(64) };
+    const table = extractionTable([other]);
+    const { promise } = await save(table.route);
+    await expect(promise).resolves.toEqual({ id: SAVED_ID });
+    expect(table.rows[0]).toEqual(other);
+    expect(table.rows).toHaveLength(2);
+  });
+
+  it("다시 읽어도 행이 없으면 'analysis store 오류: requirement_extractions.select NOT_FOUND' 를 던진다", async () => {
+    // 넣기는 충돌로 아무것도 하지 않았는데 다시 읽을 때 행이 없다(그 사이 지워졌다).
+    const route: PostgrestRoute = (call) => {
+      if (call.table !== "requirement_extractions") return undefined;
+      if (call.method === "POST") return projectedReply(call, [], 201);
+      if (call.method === "GET") return filteredReply(call, []);
+      return undefined;
+    };
+    const { promise } = await save(route);
+    const error = await rejectionOf(promise);
+    expect(error.message).toBe("analysis store 오류: requirement_extractions.select NOT_FOUND");
   });
 
   it("upsert 오류면 analysis store 오류로 던지고 message 를 싣지 않는다", async () => {
-    const { promise } = await save(postgrestError("23514"));
+    const { promise } = await save(on("POST", "requirement_extractions", postgrestError("23514")));
     const error = await rejectionOf(promise);
     expect(error.message).toMatch(/^analysis store 오류: requirement_extractions\.\S+ 23514$/);
+    expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
+  });
+
+  it("다시 읽기 오류면 analysis store 오류로 던지고 message 를 싣지 않는다", async () => {
+    const table = extractionTable();
+    const { promise } = await save(
+      routes(on("GET", "requirement_extractions", postgrestError("42501")), table.route),
+    );
+    const error = await rejectionOf(promise);
+    expect(error.message).toMatch(/^analysis store 오류: requirement_extractions\.\S+ 42501$/);
     expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
   });
 });
@@ -511,6 +619,51 @@ describe("tracker", () => {
     await expect(store.tracker.markFailed(failed)).resolves.toBeUndefined();
   });
 
+  // 보안 검토 후속: markRunning 뒤의 영구 실패는 그 시도가 잡은 run 만 닫는다(attemptStartedAt = markRunning 의 startedAt).
+  // 없으면(복구·markRunning 전 실패) 지금처럼 QUEUED·RUNNING run 을 닫는다.
+  it("markFailed 에 attemptStartedAt 이 없으면 started_at 조건을 걸지 않는다", async () => {
+    const { stores: store, fake } = stores();
+    await store.tracker.markFailed(failed);
+    const call = only(fake.callsTo("score_runs", "PATCH"));
+    expect(call.params.getAll("started_at")).toEqual([]);
+  });
+
+  describe("markFailed · attemptStartedAt 이 있으면", () => {
+    const attempt = { ...failed, attemptStartedAt: "2026-10-16T09:00:00.000Z" };
+
+    it("score_runs 를 id·org_id·status=RUNNING·started_at=attemptStartedAt 조건으로 갱신한다", async () => {
+      const { stores: store, fake } = stores();
+      await store.tracker.markFailed(attempt);
+      const call = only(fake.callsTo("score_runs", "PATCH"));
+      expect(eqValue(call, "id")).toBe(RUN_ID);
+      expect(eqValue(call, "org_id")).toBe(ORG_ID);
+      expect(eqValue(call, "status")).toBe("RUNNING");
+      expect(eqValue(call, "started_at")).toBe("2026-10-16T09:00:00.000Z");
+    });
+
+    it("QUEUED 를 고르는 status in (QUEUED, RUNNING) 조건을 걸지 않는다", async () => {
+      const { stores: store, fake } = stores();
+      await store.tracker.markFailed(attempt);
+      const call = only(fake.callsTo("score_runs", "PATCH"));
+      expect(call.params.getAll("status")).toEqual(["eq.RUNNING"]);
+    });
+
+    it("본문은 attemptStartedAt 없이 toFailedUpdate 와 같다(FAILED·error_code·finished_at, started_at 은 바꾸지 않는다)", async () => {
+      const { stores: store, fake } = stores();
+      await store.tracker.markFailed(attempt);
+      expect(only(fake.callsTo("score_runs", "PATCH")).body).toEqual({
+        status: "FAILED",
+        error_code: "ANALYSIS_JOB_FAILED",
+        finished_at: "2026-10-16T09:00:05.000Z",
+      });
+    });
+
+    it("다른 시도가 잡았거나 끝난 run 이라 0행이 바뀌어도 던지지 않는다", async () => {
+      const { stores: store } = stores(on("PATCH", "score_runs", { status: 200, body: [] }));
+      await expect(store.tracker.markFailed(attempt)).resolves.toBeUndefined();
+    });
+  });
+
   it("갱신 오류면 analysis store 오류로 던진다", async () => {
     const { stores: store } = stores(on("PATCH", "score_runs", postgrestError("40001")));
     const error = await rejectionOf(store.tracker.markRunning(running));
@@ -518,207 +671,156 @@ describe("tracker", () => {
   });
 });
 
-// ── sink ──
+// ── sink(보안 검토 후속) ──
+// 결과 저장은 RPC finish_score_run(p) 한 번이다(20261019000011). 자식 3표·score_runs 마감을 한 트랜잭션으로 쓰고,
+// 그 run 이 RUNNING 이고 started_at 이 이 시도의 시작 시각일 때만 쓴다. 예전 기대(자식 3표 → score_runs 마감의 다섯·여섯 요청,
+// score_runs 마감이 0행이면 NOT_RUNNING)는 이 결정으로 바뀌었다. 거절은 DB 가 하고 sink 는 오류 코드만 옮긴다.
 
-const FINISHED: ReturnType<PostgrestRoute> = { status: 200, body: [{ id: RECORD.scoreRunId }] };
+const FINISH_RPC = "rpc/finish_score_run";
+const FINISHED: ReturnType<PostgrestRoute> = { status: 200, body: RECORD.scoreRunId };
 
 function sinkStores(route?: PostgrestRoute) {
-  const fake = fakeSupabase(
-    routes(route ?? (() => undefined), on("PATCH", "score_runs", FINISHED)),
-  );
+  const fake = fakeSupabase(routes(route ?? (() => undefined), on("POST", FINISH_RPC, FINISHED)));
   return { sink: createAnalysisStores(fake.client, fakeAttachments().reader).sink, fake };
 }
 
-describe("sink.save · 순서", () => {
-  it("score_factors → requirement_assessments 삭제·넣기 → qualification_checks 삭제·넣기 → score_runs 마감 순서로 쓴다", async () => {
-    const { sink, fake } = sinkStores();
-    await sink.save(RECORD);
-    expect(fake.sequence()).toEqual([
-      "POST score_factors",
-      "DELETE requirement_assessments",
-      "POST requirement_assessments",
-      "DELETE qualification_checks",
-      "POST qualification_checks",
-      "PATCH score_runs",
-    ]);
-  });
+/** PostgREST 가 plpgsql raise exception 을 돌려주는 모양(SQLSTATE P0001, message 가 곧 코드). */
+function raised(message: string): ReturnType<PostgrestRoute> {
+  return { status: 400, body: { code: "P0001", message, details: null, hint: null } };
+}
 
+describe("sink.save · finish_score_run 한 번", () => {
   it("FX-01 레코드에는 항목 판정·자격 판정이 있다(전제)", () => {
     expect(RECORD.result.requirementAssessments.length).toBeGreaterThan(0);
     expect(RECORD.result.qualificationChecks.length).toBeGreaterThan(0);
   });
-});
 
-describe("sink.save · 각 쓰기", () => {
-  async function saved() {
+  it("레코드의 attemptStartedAt 은 meta.startedAt 과 다르다(전제)", () => {
+    expect(RECORD.attemptStartedAt).toEqual(expect.any(String));
+    expect(RECORD.attemptStartedAt).not.toBe(RECORD.meta.startedAt);
+  });
+
+  it("POST /rpc/finish_score_run 한 번만 보낸다", async () => {
     const { sink, fake } = sinkStores();
     await sink.save(RECORD);
-    return fake;
-  }
-
-  it("score_factors 는 (score_run_id, factor) 충돌 시 병합하는 upsert 다", async () => {
-    const call = only((await saved()).callsTo("score_factors", "POST"));
-    expect(conflictColumns(call)).toEqual(["factor", "score_run_id"]);
-    expect(call.prefer).toContain("resolution=merge-duplicates");
+    expect(fake.sequence()).toEqual([`POST ${FINISH_RPC}`]);
   });
 
-  it("score_factors 행은 toScoreFactorRows(record) 다", async () => {
-    const call = only((await saved()).callsTo("score_factors", "POST"));
-    expect(bodyRows(call)).toEqual(toScoreFactorRows(RECORD));
+  it("자식 3표·score_runs 에 직접 쓰지 않는다(표 요청이 없다)", async () => {
+    const { sink, fake } = sinkStores();
+    await sink.save(RECORD);
+    for (const table of [
+      "score_factors",
+      "requirement_assessments",
+      "qualification_checks",
+      "score_runs",
+    ]) {
+      expect(fake.callsTo(table)).toEqual([]);
+    }
   });
 
-  // 재시도가 다른 추출로 항목을 줄이면 upsert 는 옛 항목 행을 남긴다. 그래서 그 run 의 행을 지우고 넣는다.
-  it("requirement_assessments 삭제는 score_run_id·org_id 조건이다", async () => {
-    const call = only((await saved()).callsTo("requirement_assessments", "DELETE"));
-    expect(eqValue(call, "score_run_id")).toBe(RECORD.scoreRunId);
-    expect(eqValue(call, "org_id")).toBe(RECORD.orgId);
+  it("본문은 { p: toFinishScoreRunPayload(record) } 다", async () => {
+    const { sink, fake } = sinkStores();
+    await sink.save(RECORD);
+    expect(only(fake.callsTo(FINISH_RPC, "POST")).body).toEqual({
+      p: toFinishScoreRunPayload(RECORD),
+    });
   });
 
-  it("requirement_assessments 넣기는 병합 upsert 가 아니다(지운 뒤 넣는다)", async () => {
-    const call = only((await saved()).callsTo("requirement_assessments", "POST"));
-    expect(call.prefer ?? "").not.toContain("resolution=merge-duplicates");
+  it("p 의 score_run_id·org_id·attempt_started_at 은 레코드의 scoreRunId·orgId·attemptStartedAt 이다", async () => {
+    const { sink, fake } = sinkStores();
+    await sink.save(RECORD);
+    expect(only(fake.callsTo(FINISH_RPC, "POST")).body).toMatchObject({
+      p: {
+        score_run_id: RECORD.scoreRunId,
+        org_id: RECORD.orgId,
+        attempt_started_at: RECORD.attemptStartedAt,
+      },
+    });
   });
 
-  it("requirement_assessments 행은 toRequirementAssessmentRows(record) 다", async () => {
-    const call = only((await saved()).callsTo("requirement_assessments", "POST"));
-    expect(bodyRows(call)).toEqual(toRequirementAssessmentRows(RECORD));
-  });
-
-  it("qualification_checks 삭제는 score_run_id·org_id 조건이다", async () => {
-    const call = only((await saved()).callsTo("qualification_checks", "DELETE"));
-    expect(eqValue(call, "score_run_id")).toBe(RECORD.scoreRunId);
-    expect(eqValue(call, "org_id")).toBe(RECORD.orgId);
-  });
-
-  it("qualification_checks 넣기 행은 toQualificationCheckRows(record) 다", async () => {
-    const call = only((await saved()).callsTo("qualification_checks", "POST"));
-    expect(bodyRows(call)).toEqual(toQualificationCheckRows(RECORD));
-  });
-
-  it("score_runs 마감은 id·org_id·status in (QUEUED, RUNNING) 조건이다", async () => {
-    const call = only((await saved()).callsTo("score_runs", "PATCH"));
-    expect(eqValue(call, "id")).toBe(RECORD.scoreRunId);
-    expect(eqValue(call, "org_id")).toBe(RECORD.orgId);
-    expect(inValues(call, "status")).toEqual(["QUEUED", "RUNNING"]);
-  });
-
-  it("score_runs 마감 본문은 toScoreRunResultUpdate(record) 이고 바뀐 행 id 를 돌려받는다", async () => {
-    const call = only((await saved()).callsTo("score_runs", "PATCH"));
-    expect(call.body).toEqual(toScoreRunResultUpdate(RECORD));
-    expect(call.prefer).toContain("return=representation");
-  });
-
-  it("넣는 자식 행은 모두 record.orgId 를 갖는다", async () => {
-    const posts = (await saved()).calls.filter((call) => call.method === "POST");
-    const rows = posts.flatMap(bodyRows);
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) expect(row.org_id).toBe(RECORD.orgId);
-  });
-
-  it("갱신·삭제 요청은 모두 org_id 조건이 있다", async () => {
-    const filtered = (await saved()).calls.filter(
-      (call) => call.method === "PATCH" || call.method === "DELETE",
+  it("p.run 에 started_at 이 없다(마감은 시도 시작 시각을 바꾸지 않는다)", async () => {
+    const { sink, fake } = sinkStores();
+    await sink.save(RECORD);
+    expect(JSON.stringify(only(fake.callsTo(FINISH_RPC, "POST")).body)).not.toContain(
+      '"started_at"',
     );
-    expect(filtered).toHaveLength(3);
-    for (const call of filtered) expect(eqValue(call, "org_id")).toBe(RECORD.orgId);
   });
-});
 
-describe("sink.save · 빈 행", () => {
-  it("항목 판정이 없으면 requirement_assessments 는 지우기만 하고 넣지 않는다", async () => {
+  it("항목 판정·자격 판정이 없어도 RPC 한 번이고 p.assessments·p.checks 는 빈 배열이다", async () => {
     const record = withPatch(RECORD, (draft) => {
       draft.result.requirementAssessments = [];
-    });
-    const { sink, fake } = sinkStores();
-    await sink.save(record);
-    expect(fake.callsTo("requirement_assessments").map((call) => call.method)).toEqual(["DELETE"]);
-  });
-
-  it("자격 판정이 없으면 qualification_checks 는 지우기만 하고 넣지 않는다", async () => {
-    const record = withPatch(RECORD, (draft) => {
       draft.result.qualificationChecks = [];
     });
     const { sink, fake } = sinkStores();
     await sink.save(record);
-    expect(fake.sequence()).toEqual([
-      "POST score_factors",
-      "DELETE requirement_assessments",
-      "POST requirement_assessments",
-      "DELETE qualification_checks",
-      "PATCH score_runs",
-    ]);
+    expect(fake.sequence()).toEqual([`POST ${FINISH_RPC}`]);
+    expect(only(fake.callsTo(FINISH_RPC, "POST")).body).toMatchObject({
+      p: { assessments: [], checks: [] },
+    });
+  });
+
+  it("RPC 가 성공하면 resolve 한다", async () => {
+    const { sink } = sinkStores();
+    await expect(sink.save(RECORD)).resolves.toBeUndefined();
   });
 });
 
-describe("sink.save · 중간 실패는 score_runs 를 마감하지 않는다", () => {
-  it.each<[string, string, string[]]>([
-    ["score_factors 넣기", "POST score_factors", ["POST score_factors"]],
-    [
-      "requirement_assessments 삭제",
-      "DELETE requirement_assessments",
-      ["POST score_factors", "DELETE requirement_assessments"],
-    ],
-    [
-      "requirement_assessments 넣기",
-      "POST requirement_assessments",
-      ["POST score_factors", "DELETE requirement_assessments", "POST requirement_assessments"],
-    ],
-    [
-      "qualification_checks 삭제",
-      "DELETE qualification_checks",
-      [
-        "POST score_factors",
-        "DELETE requirement_assessments",
-        "POST requirement_assessments",
-        "DELETE qualification_checks",
-      ],
-    ],
-    [
-      "qualification_checks 넣기",
-      "POST qualification_checks",
-      [
-        "POST score_factors",
-        "DELETE requirement_assessments",
-        "POST requirement_assessments",
-        "DELETE qualification_checks",
-        "POST qualification_checks",
-      ],
-    ],
-  ])("%s 가 실패하면 그 뒤 쓰기를 하지 않는다", async (_label, failing, expected) => {
-    const [method, table] = failing.split(" ");
-    const { sink, fake } = sinkStores(on(method, table, postgrestError("23503")));
-    await rejectionOf(sink.save(RECORD));
-    expect(fake.sequence()).toEqual(expected);
-  });
-
-  it("실패는 analysis store 오류로 던지고 message 를 싣지 않는다", async () => {
-    const { sink } = sinkStores(on("POST", "score_factors", postgrestError("23514")));
-    const error = await rejectionOf(sink.save(RECORD));
-    expect(error.message).toMatch(/^analysis store 오류: score_factors\.\S+ 23514$/);
-    expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
-  });
-
-  it("score_runs 마감이 0행이면 'analysis store 오류: score_runs.finish NOT_RUNNING' 을 던진다", async () => {
-    const { sink } = sinkStores(on("PATCH", "score_runs", { status: 200, body: [] }));
+describe("sink.save · finish_score_run 오류", () => {
+  it("SCORE_RUN_NOT_RUNNING 이면 'analysis store 오류: score_runs.finish NOT_RUNNING' 을 던진다", async () => {
+    const { sink } = sinkStores(on("POST", FINISH_RPC, raised("SCORE_RUN_NOT_RUNNING")));
     const error = await rejectionOf(sink.save(RECORD));
     expect(error.message).toBe("analysis store 오류: score_runs.finish NOT_RUNNING");
   });
 
-  it("score_runs 마감 오류면 analysis store 오류로 던진다", async () => {
-    const { sink } = sinkStores(on("PATCH", "score_runs", postgrestError("23514")));
+  it("SCORE_RUN_NOT_FOUND 면 'analysis store 오류: score_runs.finish NOT_FOUND' 를 던진다", async () => {
+    const { sink } = sinkStores(on("POST", FINISH_RPC, raised("SCORE_RUN_NOT_FOUND")));
     const error = await rejectionOf(sink.save(RECORD));
-    expect(error.message).toMatch(/^analysis store 오류: score_runs\.\S+ 23514$/);
+    expect(error.message).toBe("analysis store 오류: score_runs.finish NOT_FOUND");
+  });
+
+  it.each(["23514", "23503", "40001"])(
+    "그 밖의 오류(%s)는 'analysis store 오류: score_runs.finish <code>' 이고 message·details·hint 를 싣지 않는다",
+    async (code) => {
+      const { sink } = sinkStores(on("POST", FINISH_RPC, postgrestError(code)));
+      const error = await rejectionOf(sink.save(RECORD));
+      expect(error.message).toBe(`analysis store 오류: score_runs.finish ${code}`);
+      expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
+    },
+  );
+
+  it("알려진 코드가 아닌 raise(P0001)는 message 를 코드로 쓰지 않고 P0001 만 싣는다", async () => {
+    const { sink } = sinkStores(on("POST", FINISH_RPC, postgrestError("P0001")));
+    const error = await rejectionOf(sink.save(RECORD));
+    expect(error.message).toBe("analysis store 오류: score_runs.finish P0001");
+    expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
+  });
+
+  it("오류에 code 가 없으면 UNKNOWN 이다", async () => {
+    const { sink } = sinkStores(on("POST", FINISH_RPC, postgrestError(null, 500)));
+    const error = await rejectionOf(sink.save(RECORD));
+    expect(error.message).toBe("analysis store 오류: score_runs.finish UNKNOWN");
+  });
+
+  it("오류가 나도 다른 요청을 더 보내지 않는다(재시도·되돌리기는 DB 트랜잭션과 job 몫)", async () => {
+    const { sink, fake } = sinkStores(on("POST", FINISH_RPC, raised("SCORE_RUN_NOT_RUNNING")));
+    await rejectionOf(sink.save(RECORD));
+    expect(fake.sequence()).toEqual([`POST ${FINISH_RPC}`]);
   });
 });
 
 // ── staleRuns(멈춘 run 찾기, C5-B) ──
 // 복구는 운영 작업이라 조직 조건 없이 모든 조직의 QUEUED·RUNNING run 을 본다(service role). 처리할 때는 행의 org_id 를 쓴다.
 
+// 보안 후속 (g): 복구는 keyset 페이지로 읽는다. 입력에 after(앞 페이지 마지막 run 의 queuedAt·id, 첫 페이지는 null)가 더해지고,
+// StaleRun 에 queuedAt(ISO)이 더해지며, 정렬은 (queued_at, id) 다. 예전 기대(입력 세 값·열 네 개·queued_at 만 정렬·결과 네 값)는 이 결정으로 바뀌었다.
+
 describe("staleRuns.findStaleRuns · 질의", () => {
   const INPUT = {
     queuedBefore: "2026-10-16T08:50:00.000Z",
     runningBefore: "2026-10-16T08:40:00.000Z",
     limit: 7,
+    after: null,
   };
 
   async function find(input = INPUT) {
@@ -733,9 +835,11 @@ describe("staleRuns.findStaleRuns · 질의", () => {
     expect(fake.sequence()).toEqual(["GET score_runs"]);
   });
 
-  it("id·org_id·idempotency_key·status 열만 고른다", async () => {
+  it("id·org_id·idempotency_key·status·queued_at 열만 고른다", async () => {
     const call = only((await find()).callsTo("score_runs", "GET"));
-    expect(selectedColumns(call)).toEqual(["id", "org_id", "idempotency_key", "status"].toSorted());
+    expect(selectedColumns(call)).toEqual(
+      ["id", "org_id", "idempotency_key", "status", "queued_at"].toSorted(),
+    );
   });
 
   it("status in (QUEUED, RUNNING) 조건을 건다", async () => {
@@ -757,6 +861,7 @@ describe("staleRuns.findStaleRuns · 질의", () => {
           queuedBefore: "2026-01-02T03:04:05.678Z",
           runningBefore: "2025-12-31T23:59:59.999Z",
           limit: 1,
+          after: null,
         })
       ).callsTo("score_runs", "GET"),
     );
@@ -765,9 +870,9 @@ describe("staleRuns.findStaleRuns · 질의", () => {
     );
   });
 
-  it("queued_at 오름차순(오래된 순)으로 정렬한다", async () => {
+  it("(queued_at, id) 오름차순(오래된 순, 같은 시각이면 id 순)으로 정렬한다", async () => {
     const call = only((await find()).callsTo("score_runs", "GET"));
-    expect(call.params.get("order")).toBe("queued_at.asc");
+    expect(call.params.get("order")).toBe("queued_at.asc,id.asc");
   });
 
   it("limit 건까지만 읽는다", async () => {
@@ -791,6 +896,7 @@ describe("staleRuns.findStaleRuns · 결과", () => {
     queuedBefore: "2026-10-16T08:50:00.000Z",
     runningBefore: "2026-10-16T08:40:00.000Z",
     limit: 50,
+    after: null,
   };
   const OTHER_RUN_ID = "5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170";
 
@@ -800,7 +906,7 @@ describe("staleRuns.findStaleRuns · 결과", () => {
     return stores.staleRuns.findStaleRuns(INPUT);
   }
 
-  it("행을 { orgId, scoreRunId, idempotencyKey, status } 로 바꿔 받은 순서대로 돌려준다", async () => {
+  it("행을 { orgId, scoreRunId, idempotencyKey, status, queuedAt } 로 바꿔 받은 순서대로 돌려준다", async () => {
     const runs = await findWith({
       status: 200,
       body: [
@@ -809,14 +915,49 @@ describe("staleRuns.findStaleRuns · 결과", () => {
           org_id: ORG_ID,
           idempotency_key: `${ORG_ID}:req-1`,
           status: "QUEUED",
+          queued_at: "2026-10-16T08:30:00+00:00",
         },
-        { id: OTHER_RUN_ID, org_id: OTHER_ORG_ID, idempotency_key: null, status: "RUNNING" },
+        {
+          id: OTHER_RUN_ID,
+          org_id: OTHER_ORG_ID,
+          idempotency_key: null,
+          status: "RUNNING",
+          queued_at: "2026-10-16T08:31:02.5+00:00",
+        },
       ],
     });
     expect(runs).toEqual([
-      { orgId: ORG_ID, scoreRunId: RUN_ID, idempotencyKey: `${ORG_ID}:req-1`, status: "QUEUED" },
-      { orgId: OTHER_ORG_ID, scoreRunId: OTHER_RUN_ID, idempotencyKey: null, status: "RUNNING" },
+      {
+        orgId: ORG_ID,
+        scoreRunId: RUN_ID,
+        idempotencyKey: `${ORG_ID}:req-1`,
+        status: "QUEUED",
+        queuedAt: "2026-10-16T08:30:00.000Z",
+      },
+      {
+        orgId: OTHER_ORG_ID,
+        scoreRunId: OTHER_RUN_ID,
+        idempotencyKey: null,
+        status: "RUNNING",
+        queuedAt: "2026-10-16T08:31:02.500Z",
+      },
     ]);
+  });
+
+  it("queuedAt 은 PostgREST 의 timestamptz 를 Date.toISOString 모양(밀리초·Z)으로 바꾼 값이다", async () => {
+    const [run] = await findWith({
+      status: 200,
+      body: [
+        {
+          id: RUN_ID,
+          org_id: ORG_ID,
+          idempotency_key: `${ORG_ID}:req-1`,
+          status: "QUEUED",
+          queued_at: "2026-10-16T17:30:00+09:00",
+        },
+      ],
+    });
+    expect(run?.queuedAt).toBe("2026-10-16T08:30:00.000Z");
   });
 
   it("행이 없으면 빈 목록을 돌려준다", async () => {
@@ -829,6 +970,7 @@ describe("staleRuns.findStaleRuns · 질의 오류", () => {
     queuedBefore: "2026-10-16T08:50:00.000Z",
     runningBefore: "2026-10-16T08:40:00.000Z",
     limit: 50,
+    after: null,
   };
 
   function findWith(reply: ReturnType<PostgrestRoute>) {
@@ -854,6 +996,172 @@ describe("staleRuns.findStaleRuns · 질의 오류", () => {
   });
 });
 
+// 보안 후속 (g): keyset 페이지. 필터 문자열의 모양은 구현이 고른다(or 두 번·and 묶음 등). 시험은 메모리 score_runs 표에
+// 요청의 필터를 그대로 적용해(filteredReply) 어떤 행이 골라지는지만 본다.
+
+describe("staleRuns.findStaleRuns · keyset 페이지(after)", () => {
+  const QUEUED_BEFORE = "2026-10-16T08:50:00.000Z";
+  const RUNNING_BEFORE = "2026-10-16T08:40:00.000Z";
+  const runId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const at = (hhmm: string) => `2026-10-16T${hhmm}:00.000Z`;
+
+  type Cursor = { queuedAt: string; id: string };
+
+  /** score_runs 행(PostgREST 가 돌려주는 시각 모양). 조직은 번갈아 둔다. */
+  function runRow(n: number, status: string, queuedAt: string, startedAt: string | null = null) {
+    const orgId = n % 2 === 0 ? ORG_ID : OTHER_ORG_ID;
+    return {
+      id: runId(n),
+      org_id: orgId,
+      idempotency_key: `${orgId}:req-${n}`,
+      status,
+      queued_at: toPostgrestTimestamp(queuedAt),
+      started_at: startedAt === null ? null : toPostgrestTimestamp(startedAt),
+    };
+  }
+
+  // 멈춘 run: 1(08:20) · 2·3·4(08:30, 같은 시각) · 5(RUNNING, 08:36 시작) · 6(08:45). 나머지는 멈춘 run 이 아니다.
+  // 같은 시각의 2·3·4 를 id 순서가 아니게 넣어 정렬이 id 까지 보는지 드러낸다.
+  const TABLE: FakeRow[] = [
+    runRow(9, "QUEUED", at("08:55")),
+    runRow(4, "QUEUED", at("08:30")),
+    runRow(6, "QUEUED", at("08:45")),
+    runRow(7, "RUNNING", at("08:38"), at("08:45")),
+    runRow(2, "QUEUED", at("08:30")),
+    runRow(8, "COMPLETED", at("08:31")),
+    runRow(5, "RUNNING", at("08:35"), at("08:36")),
+    runRow(10, "RUNNING", at("08:10"), at("08:41")),
+    runRow(3, "QUEUED", at("08:30")),
+    runRow(11, "FAILED", at("08:05")),
+    runRow(1, "QUEUED", at("08:20")),
+  ];
+  const STALE_IDS = [1, 2, 3, 4, 5, 6].map(runId);
+
+  function finder() {
+    const fake = fakeSupabase((call) =>
+      call.method === "GET" && call.table === "score_runs" ? filteredReply(call, TABLE) : undefined,
+    );
+    const { staleRuns } = createAnalysisStores(fake.client, fakeAttachments().reader);
+    const page = (limit: number, after: Cursor | null) =>
+      staleRuns.findStaleRuns({
+        queuedBefore: QUEUED_BEFORE,
+        runningBefore: RUNNING_BEFORE,
+        limit,
+        after,
+      });
+    return { page, fake };
+  }
+
+  const idsOf = (runs: { scoreRunId: string }[]) => runs.map((run) => run.scoreRunId);
+
+  it("after 가 null 이면 멈춘 run 을 (queued_at, id) 순서로 돌려준다", async () => {
+    expect(idsOf(await finder().page(50, null))).toEqual(STALE_IDS);
+  });
+
+  it("after 가 null 이면 앞에서 limit 건만 돌려준다(같은 시각은 id 순)", async () => {
+    expect(idsOf(await finder().page(3, null))).toEqual([1, 2, 3].map(runId));
+  });
+
+  it.each<[string, Cursor, number[]]>([
+    ["after 보다 늦은 시각", { queuedAt: at("08:31"), id: runId(0) }, [5, 6]],
+    ["after 와 같은 시각이면 id 가 더 큰 것", { queuedAt: at("08:30"), id: runId(3) }, [4, 5, 6]],
+    ["after 와 같은 시각·같은 id 는 뺀 것", { queuedAt: at("08:30"), id: runId(2) }, [3, 4, 5, 6]],
+    [
+      "모든 run 보다 이른 after 면 전부",
+      { queuedAt: at("08:00"), id: runId(99) },
+      [1, 2, 3, 4, 5, 6],
+    ],
+    ["마지막 run 이 after 면 없음", { queuedAt: at("08:45"), id: runId(6) }, []],
+  ])(
+    "after 를 주면 (queued_at, id) 가 after 보다 큰 멈춘 run 만 돌려준다: %s",
+    async (_label, after, expected) => {
+      expect(idsOf(await finder().page(50, after))).toEqual(expected.map(runId));
+    },
+  );
+
+  it("after 를 주어도 멈춘 run 조건(QUEUED·RUNNING, 각 기준 시각)은 그대로 건다", async () => {
+    // 7(RUNNING, 08:45 시작)·9(08:55 QUEUED)·8(COMPLETED)는 after 뒤여도 멈춘 run 이 아니다.
+    const runs = await finder().page(50, { queuedAt: at("08:30"), id: runId(4) });
+    expect(idsOf(runs)).toEqual([5, 6].map(runId));
+  });
+
+  it("after 를 주어도 limit 건까지만 돌려준다", async () => {
+    const runs = await finder().page(2, { queuedAt: at("08:20"), id: runId(1) });
+    expect(idsOf(runs)).toEqual([2, 3].map(runId));
+  });
+
+  it("앞 페이지 마지막 run 의 queuedAt·id 를 after 로 넘기면 빠짐·겹침 없이 모든 멈춘 run 을 읽는다", async () => {
+    const { page } = finder();
+    const seen: string[] = [];
+    let after: Cursor | null = null;
+    // 행이 6개라 limit 2 면 세 페이지 뒤 빈 페이지다. 커서가 나아가지 않으면 같은 페이지를 되풀이한다.
+    for (let round = 0; round < 6; round += 1) {
+      const runs = await page(2, after);
+      if (runs.length === 0) break;
+      seen.push(...idsOf(runs));
+      const last = runs[runs.length - 1];
+      after = { queuedAt: last.queuedAt, id: last.scoreRunId };
+    }
+    expect(seen).toEqual(STALE_IDS);
+  });
+
+  it("after 를 주어도 score_runs 를 GET 한 번으로 읽고 org_id 조건을 걸지 않는다", async () => {
+    const { page, fake } = finder();
+    await page(50, { queuedAt: at("08:30"), id: runId(3) });
+    const call = only(fake.calls);
+    expect(`${call.method} ${call.table}`).toBe("GET score_runs");
+    expect(call.params.has("org_id")).toBe(false);
+  });
+});
+
+describe("staleRuns.findStaleRuns · 잘못된 after 는 필터에 넣지 않는다", () => {
+  const VALID: { queuedAt: string; id: string } = {
+    queuedAt: "2026-10-16T08:30:00.000Z",
+    id: "00000000-0000-4000-8000-000000000003",
+  };
+  const INJECTED = "status.eq.COMPLETED";
+
+  async function findWith(after: { queuedAt: string; id: string }) {
+    const fake = fakeSupabase();
+    const { staleRuns } = createAnalysisStores(fake.client, fakeAttachments().reader);
+    const promise = staleRuns.findStaleRuns({
+      queuedBefore: "2026-10-16T08:50:00.000Z",
+      runningBefore: "2026-10-16T08:40:00.000Z",
+      limit: 50,
+      after,
+    });
+    return { error: await rejectionOf(promise), fake };
+  }
+
+  const BAD: [string, { queuedAt: string; id: string }][] = [
+    ["queuedAt 이 빈 값", { ...VALID, queuedAt: "" }],
+    ["queuedAt 이 시각이 아님", { ...VALID, queuedAt: "not-a-date" }],
+    ["queuedAt 에 필터 조각", { ...VALID, queuedAt: `${VALID.queuedAt},${INJECTED}` }],
+    ["queuedAt 에 닫는 괄호", { ...VALID, queuedAt: `${VALID.queuedAt})` }],
+    ["id 가 빈 값", { ...VALID, id: "" }],
+    ["id 가 uuid 가 아님", { ...VALID, id: "not-a-uuid" }],
+    ["id 에 필터 조각", { ...VALID, id: `${VALID.id},${INJECTED}` }],
+    ["id 에 닫는 괄호", { ...VALID, id: `${VALID.id})` }],
+    ["id 에 16진수가 아닌 글자", { ...VALID, id: "00000000-0000-4000-8000-00000000000g" }],
+  ];
+
+  it.each(BAD)("%s 이면 analysis store 오류로 던진다", async (_label, after) => {
+    const { error } = await findWith(after);
+    expect(error.message).toMatch(/^analysis store 오류: score_runs\.\S+ \S+$/);
+  });
+
+  it.each(BAD)("%s 이면 score_runs 를 읽지 않는다", async (_label, after) => {
+    const { fake } = await findWith(after);
+    expect(fake.calls).toEqual([]);
+  });
+
+  it.each(BAD)("%s 이면 오류 message 에 받은 값을 싣지 않는다", async (_label, after) => {
+    const { error } = await findWith(after);
+    expect(error.message).not.toContain(INJECTED);
+    expect(error.message).not.toContain("not-a-");
+  });
+});
+
 // ── 배럴 ──
 
 describe("@/server/analysis 배럴 · 저장 port", () => {
@@ -871,6 +1179,7 @@ describe("@/server/analysis 배럴 · 저장 port", () => {
     "toScoreFactorRows",
     "toQualificationCheckRows",
     "toRequirementAssessmentRows",
+    "toFinishScoreRunPayload",
   ])("행 매핑 함수 %s 는 내보내지 않는다", (name) => {
     expect(Object.keys(analysisBarrel)).not.toContain(name);
   });

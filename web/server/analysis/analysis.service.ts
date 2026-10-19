@@ -19,8 +19,8 @@ import {
   toExtractRequest,
   toExtractionRecord,
   toIdempotencyKey,
+  readKevWire,
   toKevRequest,
-  toKevWire,
   toKstDate,
   toModelMeta,
   type AnalysisContext,
@@ -32,9 +32,11 @@ import {
 import {
   pickAiUnavailableReason,
   toExplainOutcome,
+  toFailureDiagnostic,
   toKevOutcome,
   type AiUnavailableReason,
   type ExtractionOutcome,
+  type FailureDiagnostic,
   type KevOutcome,
 } from "./fallback.model";
 import type { GatewayClient } from "./gateway.client";
@@ -43,6 +45,7 @@ import { toIssueList } from "./gateway.model";
 // ── 분석 흐름: 03 §2.1 analysis job ①~⑤. gateway·추출 저장·시계는 주입받는다 ──
 // AI 가 죽어도 규칙만으로 끝낸다(PARTIAL). score_runs 저장은 sink port 호출까지만 하고, 로그는 남기지 않는다(worker job 몫).
 // gateway 실패 상세(오류 메시지·주소)는 레코드에 싣지 않는다. 코드만 result.errorCode·플래그로 남는다.
+// 실패 종류와 issue 경로(값 없음)는 diagnostics 에 둔다. worker 로그만 읽고 DB 에는 넣지 않는다.
 
 /** 추출 port. 캐시를 쓸 수 없을 때만 부른다. Supabase·MinIO 구현은 C2 병합 뒤다. */
 export type ExtractionStore = {
@@ -80,11 +83,13 @@ type ExtractionStep = {
   translations: Record<string, string> | null;
   /** 쓴 추출의 requirement_extractions.id. 캐시를 썼으면 그 행, 다시 추출했으면 save 가 돌려준 값, 추출이 없으면 null. */
   extractionId: string | null;
+  /** /extract 를 불렀고 호출 실패·payload 스키마 위반이었을 때만 있다. */
+  diagnostic: FailureDiagnostic | null;
 };
 
 /**
  * ① 캐시 추출을 쓰고, 쓸 수 없으면 같은 job 안에서 /extract 를 부른다(e8 정정).
- * 성공 응답(COMPLETED·PENDING_REVIEW)만 저장한다. 200 FAILED·전송 실패·payload 스키마 위반은 저장하지 않는다(e8 판정 2).
+ * 성공 응답(COMPLETED·PENDING_REVIEW)만 저장한다. 200 FAILED·호출 실패·payload 스키마 위반은 저장하지 않는다(e8 판정 2).
  * loadSource·save 가 던지면 그대로 던진다(job 재시도 몫).
  */
 async function prepareExtraction(
@@ -100,6 +105,7 @@ async function prepareExtraction(
       outcome: null,
       translations: row.translations,
       extractionId: row.id,
+      diagnostic: null,
     };
   }
 
@@ -114,6 +120,7 @@ async function prepareExtraction(
       outcome: { kind: "EXTRACTED", response: reading.response },
       translations: reading.response.translations,
       extractionId: saved.id,
+      diagnostic: null,
     };
   }
   // 쓸 수 없던 캐시 행의 id 는 이 run 이 쓰지 않았으므로 남기지 않는다.
@@ -122,6 +129,7 @@ async function prepareExtraction(
     outcome: { kind: "UNAVAILABLE", reason: reading.reason },
     translations: null,
     extractionId: null,
+    diagnostic: reading.diagnostic,
   };
 }
 
@@ -131,9 +139,11 @@ type KevStep = {
   /** analyze 의 kev 입력. Kev 를 쓰지 않았으면 null 이다. */
   wire: KevMockResponse | null;
   output: KevOutput | null;
+  /** /kev 를 불렀고 호출 실패·wire 스키마 위반이었을 때만 있다. */
+  diagnostic: FailureDiagnostic | null;
 };
 
-const KEV_NOT_USED: KevStep = { outcome: null, wire: null, output: null };
+const KEV_NOT_USED: KevStep = { outcome: null, wire: null, output: null, diagnostic: null };
 
 /** ③ KEV_ENABLED 이고 추출이 있을 때만 /kev 를 부른다. 요청에 규칙 결과를 넣지 않는다(03 §5.6). */
 async function consultKev(
@@ -144,26 +154,34 @@ async function consultKev(
   if (!context.kev.enabled || step.extraction === null) return KEV_NOT_USED;
 
   const request = toKevRequest(context, step.extraction, step.translations);
-  const outcome = toKevOutcome(await deps.gateway.kev(request));
-  if (outcome.kind !== "USED") return { ...KEV_NOT_USED, outcome };
+  const result = await deps.gateway.kev(request);
+  const outcome = toKevOutcome(result);
+  if (outcome.kind !== "USED") {
+    const diagnostic = result.ok ? null : toFailureDiagnostic(result.failure);
+    return { ...KEV_NOT_USED, outcome, diagnostic };
+  }
 
   const { response } = outcome;
-  const wire = toKevWire(response);
-  // enabled=true 인데 쓸 수 있는 wire 가 없다. 1단계의 INVALID_RESPONSE 와 같이 gateway 불가로 본다.
-  // response.wire 비교는 toKevWire 가 이미 거른 경우라 타입을 좁히려는 것이다.
-  if (wire === null || response.wire === null) {
-    return { ...KEV_NOT_USED, outcome: { kind: "GATEWAY_DOWN" } };
+  const reading = readKevWire(response);
+  // enabled=true 인데 쓸 수 있는 wire 가 없다. gateway 는 응답했으므로 gateway 불가가 아니라 Kev 만 불가다(03 §8 :595).
+  if (!reading.ok) {
+    return {
+      ...KEV_NOT_USED,
+      outcome: { kind: "UNUSABLE", failure: "WIRE_INVALID" },
+      diagnostic: { failure: "WIRE_INVALID", issues: reading.issues },
+    };
   }
   return {
     outcome,
-    wire,
+    wire: reading.kevWire,
     output: {
-      questionSetVersion: wire.questionSetVersion,
-      wire: response.wire,
+      questionSetVersion: reading.kevWire.questionSetVersion,
+      wire: reading.wire,
       stateHash: response.stateHash,
       stateTrace: response.kev.stateTrace ?? null,
       requirements: response.requirements,
     },
+    diagnostic: null,
   };
 }
 
@@ -230,8 +248,9 @@ export async function runAnalysis(
   });
   const evidence = collectEvidence(result);
 
-  // ⑤ gateway 불가(AI_UNAVAILABLE)로 분류된 run 은 /explain 을 부르지 않는다. 죽은 gateway 에 timeout 만큼 더 기다리지 않게 한다.
-  // Kev 를 끈 run·Kev 만 불가한 run·추출만 실패한 run 은 gateway 가 살아 있으므로 부른다(K11). 실패해도 템플릿이고 status 는 그대로다.
+  // ⑤ gateway 불가(AI_UNAVAILABLE, 전송 실패)로 분류된 run 은 /explain 을 부르지 않는다. 죽은 gateway 에 timeout 만큼 더 기다리지 않게 한다.
+  // Kev 를 끈 run·Kev 만 불가한 run(응답했지만 쓸 수 없음 포함)·추출만 실패한 run 은 gateway 가 살아 있으므로 부른다(K11).
+  // 실패해도 템플릿이고 status 는 그대로다.
   const explainOutcome =
     aiUnavailableReason === "AI_UNAVAILABLE"
       ? null
@@ -257,6 +276,7 @@ export async function runAnalysis(
     extractionId: extractionStep.extractionId,
     requestId: context.requestId,
     idempotencyKey: toIdempotencyKey(context.orgId, context.requestId),
+    attemptStartedAt: context.attemptStartedAt,
     input,
     result,
     meta: {
@@ -272,6 +292,7 @@ export async function runAnalysis(
       explanation: chooseExplanation(explainOutcome, result),
     },
     kevOutput: kevStep.output,
+    diagnostics: { extract: extractionStep.diagnostic, kev: kevStep.diagnostic },
   };
 }
 

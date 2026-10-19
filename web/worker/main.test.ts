@@ -353,8 +353,9 @@ describe("startRegistered (C3 계약 8-4)", () => {
   const recorder = () => {
     const log: string[] = [];
     const received: unknown[] = [];
+    // failClose 면 close 가 `${name} 닫기 실패` 로 reject 한다(닫기를 시도한 기록은 남긴다).
     const starter =
-      (name: string, failStart = false): StartWorkers =>
+      (name: string, failStart = false, failClose = false): StartWorkers =>
       async (given) => {
         received.push(given);
         log.push(`start:${name}`);
@@ -362,6 +363,7 @@ describe("startRegistered (C3 계약 8-4)", () => {
         return {
           close: async () => {
             log.push(`close:${name}`);
+            if (failClose) throw new Error(`${name} 닫기 실패`);
           },
         };
       };
@@ -410,6 +412,55 @@ describe("startRegistered (C3 계약 8-4)", () => {
       "a 시작 실패",
     );
     expect(log).toEqual(["start:a"]);
+  });
+
+  // 낮음 (e): 돌려준 close 는 한 등록의 close 가 던져도 나머지를 모두 닫고, 끝에 첫 오류(닫는 순서로 처음)를 던진다.
+  it("close 중 한 등록의 close 가 던져도 나머지 등록을 거꾸로 모두 닫는다", async () => {
+    const { log, starter } = recorder();
+    const handle = await startRegistered(connection, [
+      starter("a"),
+      starter("b", false, true),
+      starter("c"),
+    ]);
+    await handle.close().catch(() => undefined);
+    expect(log.slice(3)).toEqual(["close:c", "close:b", "close:a"]);
+  });
+
+  it("close 중 한 등록의 close 가 던지면 나머지를 닫은 뒤 그 오류로 reject 한다", async () => {
+    const { log, starter } = recorder();
+    const handle = await startRegistered(connection, [
+      starter("a"),
+      starter("b", false, true),
+      starter("c"),
+    ]);
+    await expect(handle.close()).rejects.toThrow("b 닫기 실패");
+    expect(log.at(-1)).toBe("close:a");
+  });
+
+  it("close 중 두 등록이 던지면 모두 닫고 닫는 순서로 처음 던진 오류로 reject 한다", async () => {
+    const { log, starter } = recorder();
+    const handle = await startRegistered(connection, [
+      starter("a", false, true),
+      starter("b"),
+      starter("c", false, true),
+    ]);
+    await expect(handle.close()).rejects.toThrow("c 닫기 실패");
+    expect(log.slice(3)).toEqual(["close:c", "close:b", "close:a"]);
+  });
+
+  it("close 가 모두 성공하면 resolve 한다", async () => {
+    const { starter } = recorder();
+    const handle = await startRegistered(connection, [starter("a"), starter("b")]);
+    await expect(handle.close()).resolves.toBeUndefined();
+  });
+
+  // 시작 실패 정리는 닫는 중 오류를 버리고(원인 오류를 가리지 않는다) 나머지를 닫은 뒤 원래 시작 오류를 던진다.
+  it("시작 실패 정리 중 이미 시작한 등록의 close 가 던져도 나머지를 닫고 원래 시작 오류를 던진다", async () => {
+    const { log, starter } = recorder();
+    await expect(
+      startRegistered(connection, [starter("a"), starter("b", false, true), starter("c", true)]),
+    ).rejects.toThrow("c 시작 실패");
+    expect(log).toEqual(["start:a", "start:b", "start:c", "close:b", "close:a"]);
   });
 });
 

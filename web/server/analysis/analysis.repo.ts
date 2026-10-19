@@ -1,12 +1,14 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { FINISH_NOT_RUNNING_MESSAGE } from "./analysis-job.model";
 import type {
   AnalysisContextLoader,
   AnalysisRunTracker,
   ExtractionCacheKey,
   ScoreRunStatus,
   StaleRun,
+  StaleRunCursor,
   StaleRunFinder,
 } from "./analysis-job.model";
 import type { AnalysisRunRecord, ExtractionRecord } from "./analysis.model";
@@ -15,12 +17,9 @@ import {
   toExtractSource,
   toExtractionRow,
   toFailedUpdate,
+  toFinishScoreRunPayload,
   toLoadedContext,
-  toQualificationCheckRows,
-  toRequirementAssessmentRows,
   toRunningUpdate,
-  toScoreFactorRows,
-  toScoreRunResultUpdate,
   type AttachmentTextReader,
 } from "./analysis-store.model";
 import {
@@ -62,7 +61,7 @@ const PROFILE_COLUMNS =
   "revision, name, is_demo, technologies, technologies_complete, licenses, industry_codes, past_projects, financials, preferences";
 const TEAM_SCORING_COLUMNS = "member_id, role, grade, skills, availability";
 const ASSIGNMENT_COLUMNS = "member_id, starts_at, ends_at, allocation_percent";
-const STALE_RUN_COLUMNS = "id, org_id, idempotency_key, status";
+const STALE_RUN_COLUMNS = "id, org_id, idempotency_key, status, queued_at";
 
 /** "analysis store 오류: <표>.<동작> <code>". code 가 없으면 UNKNOWN 이다. */
 function storeError(table: string, action: string, error: { code?: string | null }): Error {
@@ -184,19 +183,37 @@ function createExtractionStore(client: Client, attachments: AttachmentTextReader
       );
     },
 
+    /**
+     * 추출 행은 조직 표가 아니라 (revision_id, model_name, prompt_hash) 키로 여러 조직의 분석이 함께 쓴다(03 §2.1 재사용 키).
+     * 같은 키의 행이 이미 있으면 덮지 않는다(on conflict do nothing). 병합 upsert 는 다른 조직의 분석이 쓰는 행을 덮는다.
+     * 넣었든 이미 있었든 같은 키로 다시 읽어 그 행의 id 를 돌려준다.
+     */
     async save(record: ExtractionRecord) {
+      const row = toExtractionRow(record);
+      const inserted = await client.from("requirement_extractions").upsert(row, {
+        onConflict: "revision_id,model_name,prompt_hash",
+        ignoreDuplicates: true,
+      });
+      if (inserted.error) throw storeError("requirement_extractions", "upsert", inserted.error);
+
       const saved = await client
         .from("requirement_extractions")
-        .upsert(toExtractionRow(record), { onConflict: "revision_id,model_name,prompt_hash" })
         .select("id")
-        .single();
-      if (saved.error) throw storeError("requirement_extractions", "upsert", saved.error);
+        .eq("revision_id", row.revision_id)
+        .eq("model_name", row.model_name)
+        .eq("prompt_hash", row.prompt_hash)
+        .maybeSingle();
+      if (saved.error) throw storeError("requirement_extractions", "select", saved.error);
+      // 넣기는 충돌로 아무것도 하지 않았는데 그 사이 행이 지워졌다.
+      if (saved.data === null) {
+        throw new Error("analysis store 오류: requirement_extractions.select NOT_FOUND");
+      }
       return { id: saved.data.id };
     },
   };
 }
 
-/** 바뀐 행 수는 보지 않는다. 이미 끝난 run 이면 0행이 맞다. */
+/** 바뀐 행 수는 보지 않는다. 이미 끝난 run·다른 시도가 잡은 run 이면 0행이 맞다. */
 function createTracker(client: Client): AnalysisRunTracker {
   return {
     async markRunning(input) {
@@ -209,74 +226,54 @@ function createTracker(client: Client): AnalysisRunTracker {
       if (updated.error) throw storeError("score_runs", "update", updated.error);
     },
 
+    /**
+     * attemptStartedAt 이 있으면 그 시도가 잡은 run(RUNNING·started_at 같음)만 닫는다. 늦게 실패한 시도가
+     * 다른 시도가 다시 잡은 run 을 FAILED 로 덮지 않게 한다. 없으면(복구·markRunning 전 실패) 끝나지 않은 run 을 닫는다.
+     */
     async markFailed(input) {
-      const updated = await client
+      const target = client
         .from("score_runs")
         .update(toFailedUpdate(input))
         .eq("id", input.scoreRunId)
-        .eq("org_id", input.orgId)
-        .in("status", ACTIVE_RUN_STATUSES);
+        .eq("org_id", input.orgId);
+      const { attemptStartedAt } = input;
+      const updated = await (attemptStartedAt === undefined
+        ? target.in("status", ACTIVE_RUN_STATUSES)
+        : target.eq("status", "RUNNING").eq("started_at", attemptStartedAt));
       if (updated.error) throw storeError("score_runs", "update", updated.error);
     },
   };
 }
 
+/** finish_score_run 이 raise 하는 거절(message 가 곧 코드). 이 둘만 코드로 옮기고 그 밖의 message 는 싣지 않는다. */
+const FINISH_REJECTIONS: ReadonlyMap<string, string> = new Map([
+  ["SCORE_RUN_NOT_RUNNING", "NOT_RUNNING"],
+  ["SCORE_RUN_NOT_FOUND", "NOT_FOUND"],
+]);
+
+function finishError(error: { code?: string | null; message?: string | null }): Error {
+  const rejection = FINISH_REJECTIONS.get(error.message ?? "");
+  if (rejection === undefined) return storeError("score_runs", "finish", error);
+  // NOT_RUNNING 은 worker 가 영구 실패로 가르는 message 라 공용 상수 그대로 쓴다.
+  return new Error(
+    rejection === "NOT_RUNNING"
+      ? FINISH_NOT_RUNNING_MESSAGE
+      : `analysis store 오류: score_runs.finish ${rejection}`,
+  );
+}
+
 /**
- * 자식 3표를 모두 쓴 뒤에 score_runs 를 마감한다(e8 판정 3). 중간에 실패하면 마감하지 않고 던진다.
- * run 이 RUNNING 으로 남아 재시도가 같은 행을 다시 쓴다(score_factors 는 요소가 늘 다섯이라 upsert,
- * requirement_assessments·qualification_checks 는 그 run 의 행을 지우고 넣는다).
+ * 결과 저장은 finish_score_run(p) 한 번이다(20261019000011). 함수가 한 트랜잭션으로 그 run 을 잠그고,
+ * RUNNING 이고 started_at 이 이 시도의 시작 시각일 때만 자식 3표(요소 upsert·나머지 지우고 넣기)와 마감을 쓴다.
+ * 이미 끝났거나 다른 시도가 잡은 run 이면 NOT_RUNNING 으로 거절하고 아무것도 바꾸지 않는다. 중간 실패는 통째로 되돌아간다.
  */
 function createSink(client: Client): AnalysisRunSink {
   return {
     async save(record: AnalysisRunRecord) {
-      const factors = await client
-        .from("score_factors")
-        .upsert(toScoreFactorRows(record), { onConflict: "score_run_id,factor" });
-      if (factors.error) throw storeError("score_factors", "upsert", factors.error);
-
-      // 재시도가 다른 추출로 항목을 줄이면 upsert 는 옛 항목 행을 남긴다. 그 run 의 행을 지우고 넣는다.
-      const removedAssessments = await client
-        .from("requirement_assessments")
-        .delete()
-        .eq("score_run_id", record.scoreRunId)
-        .eq("org_id", record.orgId);
-      if (removedAssessments.error) {
-        throw storeError("requirement_assessments", "delete", removedAssessments.error);
-      }
-
-      const assessmentRows = toRequirementAssessmentRows(record);
-      if (assessmentRows.length > 0) {
-        const assessments = await client.from("requirement_assessments").insert(assessmentRows);
-        if (assessments.error) {
-          throw storeError("requirement_assessments", "insert", assessments.error);
-        }
-      }
-
-      const removed = await client
-        .from("qualification_checks")
-        .delete()
-        .eq("score_run_id", record.scoreRunId)
-        .eq("org_id", record.orgId);
-      if (removed.error) throw storeError("qualification_checks", "delete", removed.error);
-
-      const checkRows = toQualificationCheckRows(record);
-      if (checkRows.length > 0) {
-        const checks = await client.from("qualification_checks").insert(checkRows);
-        if (checks.error) throw storeError("qualification_checks", "insert", checks.error);
-      }
-
-      const finished = await client
-        .from("score_runs")
-        .update(toScoreRunResultUpdate(record))
-        .eq("id", record.scoreRunId)
-        .eq("org_id", record.orgId)
-        .in("status", ACTIVE_RUN_STATUSES)
-        .select("id");
-      if (finished.error) throw storeError("score_runs", "finish", finished.error);
-      // 다른 시도가 이미 끝냈거나 FAILED 로 표시한 run 이다.
-      if (finished.data.length === 0) {
-        throw new Error("analysis store 오류: score_runs.finish NOT_RUNNING");
-      }
+      const finished = await client.rpc("finish_score_run", {
+        p: toFinishScoreRunPayload(record),
+      });
+      if (finished.error) throw finishError(finished.error);
     },
   };
 }
@@ -288,6 +285,13 @@ function isIsoInstant(value: string): boolean {
   return !Number.isNaN(time) && new Date(time).toISOString() === value;
 }
 
+/** 8-4-4-4-12 의 16진수 uuid. or 필터 문자열에 그대로 넣으므로 다른 모양은 받지 않는다. */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidCursor(after: StaleRunCursor | null): boolean {
+  return after === null || (isIsoInstant(after.queuedAt) && UUID_PATTERN.test(after.id));
+}
+
 const STALE_RUN_STATUSES: readonly StaleRun["status"][] = ["QUEUED", "RUNNING"];
 
 function toStaleRun(row: {
@@ -295,22 +299,32 @@ function toStaleRun(row: {
   org_id: string;
   idempotency_key: string | null;
   status: string;
+  queued_at: string;
 }): StaleRun {
   const status = STALE_RUN_STATUSES.find((candidate) => candidate === row.status);
   // status 필터가 QUEUED·RUNNING 만 고르므로 다른 값은 질의가 틀렸다는 뜻이다.
   if (status === undefined)
     throw new Error("analysis store 오류: score_runs.stale UNEXPECTED_STATUS");
+  // PostgREST 의 timestamptz("…+00:00", 마이크로초까지)를 Date.toISOString 모양으로 바꾼다. 밀리초 아래는 버려진다.
+  const queuedAt = new Date(row.queued_at);
+  if (Number.isNaN(queuedAt.getTime())) {
+    throw new Error("analysis store 오류: score_runs.stale INVALID_QUEUED_AT");
+  }
   return {
     orgId: row.org_id,
     scoreRunId: row.id,
     idempotencyKey: row.idempotency_key,
     status,
+    queuedAt: queuedAt.toISOString(),
   };
 }
 
 /**
  * 조직 조건을 걸지 않는다(복구는 운영 작업). 행마다 org_id 를 돌려주고 처리하는 쪽이 그 값을 쓴다.
- * QUEUED 는 queued_at, RUNNING 은 started_at 으로 멈췄는지 본다. 오래된 순으로 limit 건까지.
+ * QUEUED 는 queued_at, RUNNING 은 started_at 으로 멈췄는지 본다. (queued_at, id) 오름차순으로 limit 건까지.
+ * after 가 있으면 keyset 페이지로 (queued_at, id) > (after.queuedAt, after.id) 인 run 만 고른다.
+ * 커서 시각은 밀리초(Date.toISOString)이고 DB 는 마이크로초라, 커서와 같은 밀리초 안의 더 늦은 행은 다음 페이지에서 다시 나올 수 있다.
+ * 밀리초 아래를 버리므로(올리지 않으므로) 빠지는 행은 없다. 처리가 멱등이고(같은 jobId 는 무시되고 markFailed 는 0행) 한 회차의 페이지 수에 상한이 있어 받아들인다.
  */
 function createStaleRunFinder(client: Client): StaleRunFinder {
   return {
@@ -319,18 +333,27 @@ function createStaleRunFinder(client: Client): StaleRunFinder {
         isIsoInstant(input.queuedBefore) &&
         isIsoInstant(input.runningBefore) &&
         Number.isInteger(input.limit) &&
-        input.limit >= 1;
+        input.limit >= 1 &&
+        isValidCursor(input.after);
       if (!isValidInput) throw new Error("analysis store 오류: score_runs.stale INVALID_INPUT");
-      const runs = await client
+      const stale = client
         .from("score_runs")
         .select(STALE_RUN_COLUMNS)
         .in("status", ACTIVE_RUN_STATUSES)
         .or(
           `and(status.eq.QUEUED,queued_at.lt.${input.queuedBefore}),` +
             `and(status.eq.RUNNING,started_at.lt.${input.runningBefore})`,
-        )
-        .order("queued_at")
-        .limit(input.limit);
+        );
+      // or 를 두 번 걸면 PostgREST 는 둘 다 맞는 행만 고른다(AND).
+      const after = input.after;
+      const page =
+        after === null
+          ? stale
+          : stale.or(
+              `queued_at.gt.${after.queuedAt},` +
+                `and(queued_at.eq.${after.queuedAt},id.gt.${after.id})`,
+            );
+      const runs = await page.order("queued_at").order("id").limit(input.limit);
       if (runs.error) throw storeError("score_runs", "stale", runs.error);
       return runs.data.map(toStaleRun);
     },
