@@ -1,0 +1,10 @@
+
+> sol-radar@0.1.0 demo:reset /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e
+> pnpm -C web exec node --conditions=react-server --import tsx ../scripts/demo-reset.mjs -- --env-file /Users/leegwanghui/dev/hackathon/sol-radar-inputs/fx01-vertical-20261019/rerun-c2b12d3/private/seed.env --write-summary /Users/leegwanghui/dev/hackathon/sol-radar-inputs/fx01-vertical-20261019/rerun-c2b12d3/seed-result.json
+
+▶ 데모 seed (127.0.0.1:56621)
+  표 확인 완료. 조직·카탈로그·명부부터 넣습니다.
+  명부 200명·카탈로그 upsert. 데모 공고와 조직 소유 행을 지웁니다.
+  계정 5개(새로 만든 5). 회사 프로필·공고를 넣습니다.
+  공고 19건 적재, 1건 격리, 추출 19건. 사진을 검증합니다.
+seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true

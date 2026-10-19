@@ -1,0 +1,100 @@
+
+> sol-radar-web@0.1.0 test:e2e:auth /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> node ../scripts/db-seed.mjs && playwright test -c playwright.auth.config.ts fx01-flow.spec.ts --project\=chromium --workers\=1
+
+▶ 시드 넣기 (로컬 Supabase)
+✓ 시드를 넣었습니다. 비밀번호는 모두 [REDACTED]
+  소유자        seed-owner@example.test   (팀 /seed-team 의 owner)
+  멤버          seed-member@example.test  (팀의 member)
+  조직 밖 사람  seed-outsider@example.test (팀과 관계없음)
+  초대받은 사람 seed-invitee@example.test  (팀 초대를 받아 둔 상태)
+  운영자        seed-admin@example.test    (서비스 운영자, /admin. 팀 없음)
+[WebServer] (node:47439) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:47468) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 7 tests using 1 worker
+
+(node:47481) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [setup] › e2e-auth/auth.setup.ts:9:8 › 김소유(owner) 로 로그인해 상태를 저장한다 (1.4s)
+  ✓  2 [setup] › e2e-auth/auth.setup.ts:9:8 › 이멤버(member) 로 로그인해 상태를 저장한다 (558ms)
+  ✓  3 [setup] › e2e-auth/auth.setup.ts:9:8 › 박외부(outsider) 로 로그인해 상태를 저장한다 (868ms)
+  ✓  4 [setup] › e2e-auth/auth.setup.ts:9:8 › 최초대(invitee) 로 로그인해 상태를 저장한다 (1.2s)
+  ✓  5 [setup] › e2e-auth/auth.setup.ts:9:8 › 정운영(admin) 로 로그인해 상태를 저장한다 (875ms)
+(node:47572) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  6 [chromium] › e2e-auth/fx01-flow.spec.ts:77:5 › FX-01: 로그인부터 94점·근거 확인, WATCH 결정과 이력 보존까지 (5.8s)
+(node:47632) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  7 [chromium] › e2e-auth/fx01-flow.spec.ts:212:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 viewer에게는 404다 (1.6s)
+
+
+  1) [chromium] › e2e-auth/fx01-flow.spec.ts:77:5 › FX-01: 로그인부터 94점·근거 확인, WATCH 결정과 이력 보존까지 › S2: 대시보드 BID 권고에 FX-01 94점이 보인다 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('table', { name: 'BID 권고' }).getByRole('row').filter({ has: getByRole('link', { name: '세종특별자치시 차세대 행정정보시스템 고도화 (가상)', exact: true }) })
+    Expected: 1
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" getByRole('table', { name: 'BID 권고' }).getByRole('row').filter({ has: getByRole('link', { name: '세종특별자치시 차세대 행정정보시스템 고도화 (가상)', exact: true }) }) with timeout 5000ms
+      - waiting for getByRole('table', { name: 'BID 권고' }).getByRole('row').filter({ has: getByRole('link', { name: '세종특별자치시 차세대 행정정보시스템 고도화 (가상)', exact: true }) })
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      85 |         has: page.getByRole("link", { name: FX01_TITLE, exact: true }),
+      86 |       });
+    > 87 |     await expect(row).toHaveCount(1);
+         |                       ^
+      88 |     await expect(row.getByRole("cell", { name: "94", exact: true })).toBeVisible();
+      89 |     await expect(row.getByRole("cell", { name: "BID", exact: true })).toBeVisible();
+      90 |   });
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.spec.ts:87:23
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.spec.ts:78:3
+
+    Error Context: test-results/auth/fx01-flow-FX-01-로그인부터-94점·근거-확인-WATCH-결정과-이력-보존까지-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth/fx01-flow-FX-01-로그인부터-94점·근거-확인-WATCH-결정과-이력-보존까지-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/auth/fx01-flow-FX-01-로그인부터-94점·근거-확인-WATCH-결정과-이력-보존까지-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e-auth/fx01-flow.spec.ts:212:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 viewer에게는 404다 ──
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 404
+
+      218 |     salesToken,
+      219 |   );
+    > 220 |   expect(listResponse.status).toBe(200);
+          |                               ^
+      221 |   const list = z
+      222 |     .object({ items: z.array(z.object({ id: z.uuid(), title: z.string() })) })
+      223 |     .parse(await listResponse.json());
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.spec.ts:220:31
+
+    Error Context: test-results/auth/fx01-flow-S7-org-01-자격-3건은-조회되지만-다른-조직-viewer에게는-404다-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth/fx01-flow-S7-org-01-자격-3건은-조회되지만-다른-조직-viewer에게는-404다-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/auth/fx01-flow-S7-org-01-자격-3건은-조회되지만-다른-조직-viewer에게는-404다-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [chromium] › e2e-auth/fx01-flow.spec.ts:77:5 › FX-01: 로그인부터 94점·근거 확인, WATCH 결정과 이력 보존까지 ───────
+    [chromium] › e2e-auth/fx01-flow.spec.ts:212:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 viewer에게는 404다 ───
+  5 passed (15.5s)
+ ELIFECYCLE  Command failed with exit code 1.

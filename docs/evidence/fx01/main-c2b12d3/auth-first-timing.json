@@ -1,0 +1,147 @@
+[
+  {
+    "test": "auth.setup.ts-김소유-owner-로-로그인해-상태를-저장한다-setup",
+    "requests": [
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 599.31,
+        "failure": null
+      },
+      {
+        "method": "POST",
+        "host": "127.0.0.1:56621",
+        "path": "/auth/v1/token",
+        "status": 200,
+        "durationMs": 2972.7639999999997,
+        "failure": null
+      },
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 1340.908,
+        "failure": "net::ERR_ABORTED"
+      }
+    ]
+  },
+  {
+    "test": "auth.setup.ts-박외부-outsider-로-로그인해-상태를-저장한다-setup",
+    "requests": [
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 629.334,
+        "failure": null
+      },
+      {
+        "method": "POST",
+        "host": "127.0.0.1:56621",
+        "path": "/auth/v1/token",
+        "status": 200,
+        "durationMs": 4347.79,
+        "failure": null
+      },
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": -1,
+        "durationMs": -1,
+        "failure": null
+      }
+    ]
+  },
+  {
+    "test": "auth.setup.ts-이멤버-member-로-로그인해-상태를-저장한다-setup",
+    "requests": [
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 582.5550000000001,
+        "failure": null
+      },
+      {
+        "method": "POST",
+        "host": "127.0.0.1:56621",
+        "path": "/auth/v1/token",
+        "status": 200,
+        "durationMs": 3213.567,
+        "failure": null
+      },
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 1382.357,
+        "failure": null
+      }
+    ]
+  },
+  {
+    "test": "auth.setup.ts-정운영-admin-로-로그인해-상태를-저장한다-setup",
+    "requests": [
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 600.236,
+        "failure": null
+      },
+      {
+        "method": "POST",
+        "host": "127.0.0.1:56621",
+        "path": "/auth/v1/token",
+        "status": 200,
+        "durationMs": 2728,
+        "failure": null
+      },
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 1447.925,
+        "failure": "net::ERR_ABORTED"
+      }
+    ]
+  },
+  {
+    "test": "auth.setup.ts-최초대-invitee-로-로그인해-상태를-저장한다-setup",
+    "requests": [
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 640.1129999999999,
+        "failure": null
+      },
+      {
+        "method": "POST",
+        "host": "127.0.0.1:56621",
+        "path": "/auth/v1/token",
+        "status": 200,
+        "durationMs": 3485.403,
+        "failure": null
+      },
+      {
+        "method": "GET",
+        "host": "localhost:3301",
+        "path": "/auth/login",
+        "status": 200,
+        "durationMs": 1408.468,
+        "failure": null
+      }
+    ]
+  }
+]
