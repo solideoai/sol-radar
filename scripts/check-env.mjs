@@ -133,6 +133,14 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
     if (cursorSecret && cursorSecret.length < CURSOR_SECRET_MIN_LENGTH) {
       problems.push({ file: WEB_FILE, key: "API_CURSOR_SECRET", code: "INVALID_FORMAT" });
     }
+    // web 의 SOL_RUN_MODE(없으면 기본 mock)가 infra 모드와 다르면 화면과 worker 가 다른 모드로 돈다.
+    // infra 모드를 모를 때(UNKNOWN_MODE)는 이미 알렸으므로 비교하지 않는다.
+    const webMode = resolveRunMode({ SOL_RUN_MODE: web.SOL_RUN_MODE }, rules);
+    if (webMode.mode === null) {
+      problems.push({ file: WEB_FILE, key: "SOL_RUN_MODE", code: "UNKNOWN_MODE" });
+    } else if (resolved.mode !== null && webMode.mode !== resolved.mode) {
+      problems.push({ file: WEB_FILE, key: "SOL_RUN_MODE", code: "CONTRADICTS_MODE" });
+    }
     problems.push(...placeholderProblems(WEB_FILE, web));
   }
 

@@ -26,6 +26,9 @@ const WEB_BASE = {
   API_CURSOR_SECRET: "c".repeat(32),
 };
 
+// web 의 SOL_RUN_MODE 는 infra 모드와 같아야 한다(D2). 모드가 mock 이 아닌 시험은 이 web 을 쓴다.
+const webFor = (mode) => ({ ...WEB_BASE, SOL_RUN_MODE: mode });
+
 const toEnvText = (values) =>
   Object.entries(values)
     .map(([key, value]) => `${key}=${value}`)
@@ -263,18 +266,21 @@ test("checkEnv: live 인데 빠진 서비스키마다 MISSING_KEY, mock 은 통�
     KEV_API_KEY: "kev-fake-1",
     ...Object.fromEntries(G2B_KEYS.map((key) => [key, "g2b-fake-1"])),
   };
-  await withRoot({ infra: live }, async (root) => {
+  await withRoot({ infra: live, web: webFor("live") }, async (root) => {
     const result = await checkEnv({ root });
     assert.equal(result.mode, "live");
     assert.deepEqual(result.problems, []);
   });
-  await withRoot({ infra: { ...live, G2B_PRE_SPEC_SERVICE_KEY: "" } }, async (root) => {
-    const result = await checkEnv({ root });
-    assert.deepEqual(
-      result.problems.map((p) => [p.file, p.key, p.code]),
-      [["infra/.env", "G2B_PRE_SPEC_SERVICE_KEY", "MISSING_KEY"]],
-    );
-  });
+  await withRoot(
+    { infra: { ...live, G2B_PRE_SPEC_SERVICE_KEY: "" }, web: webFor("live") },
+    async (root) => {
+      const result = await checkEnv({ root });
+      assert.deepEqual(
+        result.problems.map((p) => [p.file, p.key, p.code]),
+        [["infra/.env", "G2B_PRE_SPEC_SERVICE_KEY", "MISSING_KEY"]],
+      );
+    },
+  );
   await withRoot({}, async (root) => {
     assert.equal((await checkEnv({ root })).ok, true);
   });
@@ -292,6 +298,42 @@ test("checkEnv: web/.env.local 의 서비스키 4종은 FORBIDDEN_KEY", async ()
       [...G2B_KEYS].sort(),
     );
   });
+});
+
+test("checkEnv: infra 가 fixture 인데 web 에 SOL_RUN_MODE 가 없으면 CONTRADICTS_MODE", async () => {
+  await withRoot(
+    { infra: { ...INFRA_BASE, SOL_RUN_MODE: "fixture", AI_PROVIDER: "local" } },
+    async (root) => {
+      const result = await checkEnv({ root });
+      assert.ok(
+        result.problems.some(
+          (p) =>
+            p.file === "web/.env.local" &&
+            p.key === "SOL_RUN_MODE" &&
+            p.code === "CONTRADICTS_MODE",
+        ),
+        JSON.stringify(result.problems),
+      );
+      assert.equal(result.counts.contradiction >= 1, true);
+    },
+  );
+});
+
+test("checkEnv: web SOL_RUN_MODE 가 infra 와 같으면 통과한다", async () => {
+  await withRoot(
+    {
+      infra: { ...INFRA_BASE, SOL_RUN_MODE: "fixture", AI_PROVIDER: "local" },
+      web: { ...WEB_BASE, SOL_RUN_MODE: "fixture" },
+    },
+    async (root) => {
+      const result = await checkEnv({ root });
+      assert.equal(
+        result.problems.some((p) => p.key === "SOL_RUN_MODE"),
+        false,
+        JSON.stringify(result.problems),
+      );
+    },
+  );
 });
 
 test("checkEnv: 알 수 없는 모드면 모드별 필수 키를 보지 않는다", async () => {
@@ -404,10 +446,10 @@ const FIXTURE_INFRA = {
 
 test("checkEnv: fixture 에서 KEV_API_KEY 가 빠지면 MISSING_KEY", async () => {
   const { KEV_API_KEY: _omitted, ...infra } = FIXTURE_INFRA;
-  await withRoot({ infra: FIXTURE_INFRA }, async (root) => {
+  await withRoot({ infra: FIXTURE_INFRA, web: webFor("fixture") }, async (root) => {
     assert.deepEqual((await checkEnv({ root })).problems, []);
   });
-  await withRoot({ infra }, async (root) => {
+  await withRoot({ infra, web: webFor("fixture") }, async (root) => {
     const result = await checkEnv({ root });
     assert.deepEqual(
       result.problems.map((p) => [p.file, p.key, p.code]),
@@ -418,7 +460,7 @@ test("checkEnv: fixture 에서 KEV_API_KEY 가 빠지면 MISSING_KEY", async () 
 
 test("checkEnv: 승인된 hosted 에서 HOSTED_API_* 가 빠지면 MISSING_KEY", async () => {
   const hosted = { ...FIXTURE_INFRA, AI_PROVIDER: "hosted", AI_HOSTED_APPROVED: "true" };
-  await withRoot({ infra: hosted }, async (root) => {
+  await withRoot({ infra: hosted, web: webFor("fixture") }, async (root) => {
     const result = await checkEnv({ root });
     assert.deepEqual(result.problems.map((p) => [p.key, p.code]).sort(), [
       ["HOSTED_API_BASE_URL", "MISSING_KEY"],
@@ -426,7 +468,7 @@ test("checkEnv: 승인된 hosted 에서 HOSTED_API_* 가 빠지면 MISSING_KEY",
     ]);
   });
   const full = { ...hosted, HOSTED_API_BASE_URL: "http://h.test", HOSTED_API_KEY: "h-fake-1" };
-  await withRoot({ infra: full }, async (root) => {
+  await withRoot({ infra: full, web: webFor("fixture") }, async (root) => {
     assert.deepEqual((await checkEnv({ root })).problems, []);
   });
 });

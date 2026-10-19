@@ -68,3 +68,19 @@ it("state continuation keeps supported business destinations without choosing an
     "/auth/organization-state?next=%2Falpha%2Ftasks%3Fq%3D1",
   );
 });
+
+it.each(["/bids", "/bids/6f1b7f0e-4a52-4c1e-9a43-0d2f6f6a9b11", "/notifications"])(
+  "업무 화면 %s 는 그대로 이어 간다",
+  (value) => {
+    expect(safeBusinessNext(value)).toBe(value);
+    expect(organizationStatePath(value)).toBe(
+      `/auth/organization-state?next=${encodeURIComponent(value)}`,
+    );
+  },
+);
+it.each(["/bids/../admin", "/bids/not-a-uuid", "/bids/6f1b7f0e-4a52-4c1e-9a43-0d2f6f6a9b11/x"])(
+  "업무 화면 모양이 아닌 %s 는 대시보드로 돌린다",
+  (value) => {
+    expect(safeBusinessNext(value)).toBe("/dashboard");
+  },
+);

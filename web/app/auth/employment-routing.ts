@@ -36,14 +36,14 @@ export function businessLayoutNext(value: string | null, slug: string): string {
     : `${prefix}dashboard`;
 }
 
+// 업무 화면(/dashboard·/bids·/bids/<uuid>·/notifications)과 템플릿 경로. 공고 상세는 UUID 한 단계만 받는다.
+const BUSINESS_PATH =
+  /^(?:\/(?:dashboard|memos|settings|bids|notifications)|\/bids\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\/[^/]+\/(?:dashboard|tasks|settings(?:\/(?:members|team))?))\/?$/i;
+
 export function safeBusinessNext(value: unknown): string {
   const path = safeEmploymentNext(value);
   const pathname = path.split("?")[0];
-  return /^(?:\/(?:dashboard|memos|settings)|\/[^/]+\/(?:dashboard|tasks|settings(?:\/(?:members|team))?))\/?$/.test(
-    pathname,
-  )
-    ? path
-    : "/dashboard";
+  return BUSINESS_PATH.test(pathname) ? path : "/dashboard";
 }
 export function organizationStatePath(next?: unknown): string {
   const path = safeBusinessNext(next);
