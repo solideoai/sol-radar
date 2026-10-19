@@ -6,6 +6,8 @@
 - timeout·미접속·형식 오류·값 범위 밖은 enabled=false, errorCode=KEV_UNAVAILABLE(K4). 분석은 실패하지 않는다.
 - kev-qs/v0.2: 공고 단위 11질문(파일 순서) + 담당 항목마다 req.<itemId>.status 를 24개씩 나눠 같은 state 로 보낸다.
   묶음 하나라도 실패하면 전체 KEV_UNAVAILABLE(부분 결과 없음). stateTrace 생성 실패는 null + warning 로그.
+- 시간: 요청 하나의 마감(deadline, 요청 시작 + KEV_TIMEOUT_MS)을 모든 묶음이 나눠 쓴다(C5-A S1). 마감이 지나면
+  KEV_UNAVAILABLE 이고 부분 결과를 내지 않는다.
 """
 
 import hashlib
@@ -25,6 +27,7 @@ from sol_ai.contracts import (
     RequirementDistribution,
     StateTraceLine,
 )
+from sol_ai.deadline import Deadline
 from sol_ai.kev_state import build_state
 from sol_ai.kev_state_v02 import StateDocument, StateTemplate, build_state_v02
 from sol_ai.qualifications import QualificationDictionary
@@ -183,7 +186,7 @@ class KevAdapter:
         version = requested if requested in supported else next(iter(supported), None)
         return self._question_sets.get(version) if version else None
 
-    def assess(self, request: KevRequest) -> KevOutcome:
+    def assess(self, request: KevRequest, *, deadline: Deadline) -> KevOutcome:
         if request.stateLanguage == "ko" and not self._allow_ko_state:
             raise KoStateNotAllowed
         if self._client is None:
@@ -200,13 +203,13 @@ class KevAdapter:
         if question_set is None:
             return unavailable
         if question_set.version == V0_2:
-            return self._assess_v02(request, question_set)
+            return self._assess_v02(request, question_set, deadline)
         state = build_state(request, request.stateLanguage, self._dictionary)
         wire_request = kev_wire.build_request(
             state, self._client.request_model, question_set.questions
         )
         try:
-            reply = self._client.answer(wire_request, request)
+            reply = self._client.answer(wire_request, request, deadline=deadline)
             assist = _assist(
                 kev_wire.parse_response(reply.body, question_set.questions),
                 self._client,
@@ -218,7 +221,9 @@ class KevAdapter:
         state_hash = hashlib.sha256(state.encode("utf-8")).hexdigest()
         return KevOutcome(assist, state_hash, [reply.body], None)
 
-    def _assess_v02(self, request: KevRequest, english: QuestionSet) -> KevOutcome:
+    def _assess_v02(
+        self, request: KevRequest, english: QuestionSet, deadline: Deadline
+    ) -> KevOutcome:
         unavailable = KevOutcome(disabled_assist(), None, None, KEV_UNAVAILABLE)
         language = request.stateLanguage
         template = self._templates.get(language)
@@ -241,7 +246,7 @@ class KevAdapter:
                 wire_request = kev_wire.build_request(
                     document.text, self._client.request_model, chunk
                 )
-                reply = self._client.answer(wire_request, request)
+                reply = self._client.answer(wire_request, request, deadline=deadline)
                 result = kev_wire.parse_response(reply.body, chunk)
                 replies.append(reply)
                 answers.update(result.answers)

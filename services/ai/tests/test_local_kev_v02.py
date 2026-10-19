@@ -5,6 +5,7 @@
 """
 
 import hashlib
+import time
 
 import pytest
 from fake_models import Reply
@@ -512,12 +513,22 @@ def test_v0_2_invalid_values_in_a_chunk_disable_everything(v02):
     )
 
 
-def test_v0_2_timeout_applies_per_chunk(v02, monkeypatch):
-    # 49 문항 → 묶음 3개. 묶음마다 0.8초, timeout 1.6초: 합계(2.4초)는 넘지만 묶음 하나는 넘지 않는다
+def test_v0_2_chunks_share_one_deadline(v02, monkeypatch):
+    # C5-A S1(e8 확정 2026-10-19): 마감은 요청 하나에 하나(요청 시작 + KEV_TIMEOUT_MS)이고 묶음 모두가 나눠 쓴다.
+    # 49 문항 → 묶음 3개, 묶음마다 0.8초, KEV_TIMEOUT_MS 1.6초. 묶음 하나는 넘지 않지만 합계(2.4초)는 넘으므로
+    # 부분 결과 없이 KEV_UNAVAILABLE 이고, 마감 + 여유 0.3초 안에 끝난다(고치기 전에는 2.4초 뒤 성공했다)
     monkeypatch.setenv("KEV_TIMEOUT_MS", "1600")
     v02.responder = KevResponder(delay=0.8)
-    result = v02.call(kev_request("FX-01", extraction=v02_extraction(skills=30)))
-    assert (len(v02.sent()), result["kev"]["enabled"]) == (3, True)
+    client = v02.client()
+    started = time.monotonic()
+    result = v02.call(kev_request("FX-01", extraction=v02_extraction(skills=30)), client=client)
+    elapsed = time.monotonic() - started
+    assert (
+        result["kev"]["enabled"],
+        result["errorCode"],
+        result["requirements"],
+        elapsed < 1.6 + 0.3,
+    ) == (False, "KEV_UNAVAILABLE", None, True)
 
 
 # ---------------------------------------------------------------- stateTrace(§5)

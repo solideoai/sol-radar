@@ -4,6 +4,9 @@ HTTP 200 은 "gateway 가 응답했다"는 뜻이다. 개별 실패는 본문 st
 200 이 아닌 본문은 {"errorCode","message"} 이고 422 KO_STATE_NOT_ALLOWED·503 AI_UNAVAILABLE 둘뿐이다(K9).
 요청 본문 형식 오류·크기 상한 초과는 FastAPI 기본 422 를 그대로 둔다. 실행 모드 위반과 local 기동 검사 위반은
 기동 거부(exit 78)다.
+
+/extract·/kev 는 요청마다 마감 하나(요청 시작 + AI_TIMEOUT_MS·KEV_TIMEOUT_MS)를 만들어 모델 호출 전체가 나눠 쓴다
+(C5-A S1). worker 는 /extract 를 AI_TIMEOUT_MS+5s, /kev 를 KEV_TIMEOUT_MS+2s 에 끊는다.
 """
 
 import logging
@@ -27,6 +30,7 @@ from sol_ai.contracts import (
     KevTimings,
     ParseResult,
 )
+from sol_ai.deadline import Deadline
 from sol_ai.errors import StartupRefused
 from sol_ai.explain import explain
 from sol_ai.extraction import ExtractionConfig, run_extraction
@@ -172,9 +176,10 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.post("/extract", response_model=ExtractResponse)
     def extract(body: ExtractRequest):
+        deadline = Deadline(settings.AI_TIMEOUT_MS / 1000)
         if adapters.gateway_down:
             return _gateway_down()
-        response = run_extraction(body, adapters.qwen, runtime.extraction)
+        response = run_extraction(body, adapters.qwen, runtime.extraction, deadline=deadline)
         logger.info(
             "extract requestId=%s provider=%s status=%s errorCode=%s ms=%d",
             log_id(body.requestId),
@@ -187,11 +192,12 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.post("/kev", response_model=KevResponse)
     def kev(body: KevRequest):
+        deadline = Deadline(settings.KEV_TIMEOUT_MS / 1000)
         if adapters.gateway_down:
             return _gateway_down()
         started = time.perf_counter()
         try:
-            outcome = runtime.kev.assess(body)
+            outcome = runtime.kev.assess(body, deadline=deadline)
         except KoStateNotAllowed:
             return _error(
                 422,

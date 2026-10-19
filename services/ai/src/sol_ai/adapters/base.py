@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from sol_ai.contracts import ExtractRequest, KevRequest
+from sol_ai.deadline import Deadline
 
 
 class AdapterError(Exception):
@@ -49,8 +50,13 @@ class QwenAdapter(Protocol):
     model_name: str | None
     prompt_hash: str | None
 
-    def extract(self, request: ExtractRequest, retry_note: str | None = None) -> ModelOutput:
-        """retry_note 가 있으면 재시도 호출이다(03 §4.3: user message 끝에 검증 오류 요약을 붙인다)."""
+    def extract(
+        self, request: ExtractRequest, retry_note: str | None = None, *, deadline: Deadline
+    ) -> ModelOutput:
+        """retry_note 가 있으면 재시도 호출이다(03 §4.3: user message 끝에 검증 오류 요약을 붙인다).
+
+        deadline 은 요청 하나의 마감이다. 첫 호출과 재시도가 같은 객체를 받는다(C5-A S1).
+        """
         ...
 
 
@@ -80,7 +86,9 @@ class KevClient(Protocol):
         """서버를 부르기 전 판정(mock 의 장애 주입). 실패면 KevUnavailable."""
         ...
 
-    def answer(self, wire_request: dict, request: KevRequest) -> KevReply: ...
+    def answer(self, wire_request: dict, request: KevRequest, *, deadline: Deadline) -> KevReply:
+        """deadline 은 요청 하나의 마감이다. 레지스트리 지연 대조와 v0.2 묶음 모두가 같은 객체를 받는다(C5-A S1)."""
+        ...
 
 
 @dataclass(frozen=True)
