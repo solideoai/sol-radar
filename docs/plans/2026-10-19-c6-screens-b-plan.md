@@ -61,7 +61,7 @@ e8의 지시(b-plan-brief)와 정본·코드 확인을 근거로 한 판단이�
    - `ingest_runs`는 ADMIN만 읽는다(20261019000006 "ADMIN 은 수집 run 읽기"). S2 발표 계정은 SALES라 수집 신선도가 안 보인다. 그래서 최신 run 한 건의 상태·요약만 주는 함수를 둔다.
    - "점수 높은 순"·권고·결정 필터는 조직별 최신 분석·결정과 공고를 함께 정렬해야 한다. supabase-js 질의로는 커서 정렬을 할 수 없어 `security_invoker` 뷰를 둔다.
    - 알림 읽음 처리는 마이그레이션이 필요 없다. `grant update (read_at)`와 "본인 알림 읽음 처리" 정책이 이미 있다(20261019000006 213·244~249행). 감사는 000007 6번 트리거가 남긴다.
-2. **멱등 키 보존**: 05 §1 "키 보존 24시간"을 하한으로 보고, 키는 그 run 행이 있는 동안 남긴다. 정리 job은 두지 않는다. 풀린 키와 24시간이 지난 키를 다시 쓰면 `409 IDEMPOTENCY_KEY_REUSED`다(결정됨 5).
+2. **멱등 키 보존**: 05 §1 "키 보존 24시간"을 하한으로 보고, 키는 그 run 행이 있는 동안 남긴다. 정리 job은 두지 않는다. 행에 남은 키(24시간이 지나도)를 같은 본문으로 다시 보내면 그 run을 재생하고, 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`다. 큐 등록 실패로 풀린 키(`ENQUEUE_FAILED`, `idempotency_key = null`)는 다시 쓸 수 있고 새 run을 만든다(ADR-030 B20, Review Focus 3, 결정됨 5).
 3. **producer 위치**: `web/app/_lib/analysis-queue.ts`(app 층)에 둔다. C5-B 배럴(`@/server/analysis`)이 큐 계약 상수(`ANALYSIS_QUEUE`·`ANALYSIS_JOB`·`ANALYSIS_JOB_OPTIONS`·`toAnalysisJobId`·`analysisJobDataSchema`)를 "Route Handler(C6)와 worker가 함께 쓴다"며 내보낸다. bids 도메인은 analysis를 런타임으로 부를 수 없어서, app 층이 `AnalysisQueue` 포트를 구현해 서비스에 주입한다.
 4. **Redis env는 `REDIS_URL`이다.** `web/.env.example` 61행과 `/health/ready`의 `probeRedis(process.env.REDIS_URL)`가 이미 같은 이름을 쓴다. worker도 `REDIS_URL`이다(`web/worker/env.ts`).
 5. **`serverExternalPackages: ["bullmq"]`를 둔다.** bullmq는 Next 기본 외부 목록에 없다(`serverExternalPackages.md`). bullmq 6.3.16의 `dist/cjs/postgres/`는 선택 의존 `pg`와 SQL 파일 읽기를 포함해서 번들하면 깨질 수 있다. ioredis는 health 경로가 이미 번들로 써서 그대로 둔다. `pnpm -C web build` 성공으로 확인한다.
@@ -676,7 +676,7 @@ return `${c}.${op}.${v},and(${c}.eq.${v},id.gt.${q(after.id)}),${c}.is.null`;
 2. **E2E 사전 분석 — 풀림.** `pnpm demo:preanalyze`가 C5-B에 들어왔다(`c5/analysis-client` `7d79e57`, 병합 기준점 `fdfe050`). `work-setup.ts`는 이 명령을 쓴다. 필요 조건은 mock 모드와 닿는 gateway이고, 순서는 B22 "Compose → `demo:reset` → 모드 확인 → `demo:preanalyze`"다. service role로 `score_runs`를 직접 넣지 않는다.
 3. **공유 로컬 Supabase — e8 판정 ①.** e8이 B3 실행 창을 잡는다. 실행 전에 병합 게이트(3e)와 다른 세션에 로컬 DB 사용 중지를 알리고, 끝나면 푼다.
 4. **Topbar 지표 범위 — e8 판정 ①.** C6 네 화면(`(work)` 틀)에만 둔다. people 틀은 스펙 §0 범위 밖이라 그대로 둔다.
-5. **멱등 키 보존 — e8 판정 ①.** 키는 행이 있는 동안 남기고(24시간 이상) 정리 job은 두지 않는다. 풀린 키를 다시 쓰면 409다.
+5. **멱등 키 보존 — e8 판정 ①.** 키는 행이 있는 동안 남기고(24시간 이상) 정리 job은 두지 않는다. 남은 키 + 다른 본문은 409다. 큐 등록 실패로 풀린 키는 다시 쓸 수 있다(새 run). 초안의 "풀린 키를 다시 쓰면 409"는 B20·Review Focus 3과 모순이라 고쳤다(Task 2 리뷰, 2026-10-19).
 6. **조직을 떠난 결정자의 역할 — 사용자 결정 ①.** `Review.reviewer.role`을 nullable로 넓히고 화면에서 역할 괄호를 뺀다. 05 DTO 변경은 e8이 다음 정본 반영 묶음에 넣는다.
 
 ## 관련 문서
