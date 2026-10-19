@@ -62,10 +62,12 @@ class YesAnswer:
 
 @dataclass(frozen=True)
 class ScoreAnswer:
+    """score 질문의 답(03 §5.4): 0부터 센 평균 등급 index·등급 이름·등급별 확률·confidence. 넷 다 필수다."""
+
     score: float
     legend: dict[str, str]
-    probabilities: dict[str, float] | None = None
-    confidence: float | None = None
+    probabilities: dict[str, float]
+    confidence: float
 
 
 Answer = ChoiceAnswer | YesAnswer | ScoreAnswer
@@ -116,6 +118,19 @@ def _probabilities(value: Any) -> dict[str, float]:
     return {str(k): _number(v) for k, v in value.items()}
 
 
+# 03 §5.4: score 는 "0부터 시작하는 평균 등급 index" 다. 같은 답의 등급 분포에서 구한 기대 등급
+# Σ int(등급)·p(등급) 과 이보다 크게 다르면 score 와 분포가 서로 맞지 않는 응답으로 보고 거절한다.
+# 0.05 는 fixture·Kev 응답의 소수 둘째 자리 반올림을 받아 주는 여유다(e8 판정 P2b).
+SCORE_EXPECTED_GRADE_TOLERANCE = 0.05
+
+
+def _expected_grade(probabilities: Mapping[str, float]) -> float:
+    try:
+        return sum(int(grade) * p for grade, p in probabilities.items())
+    except ValueError as error:
+        raise WireFormatError("score probabilities 의 등급 키가 정수가 아니다") from error
+
+
 def _parse_answer(question: WireQuestion, raw: Any) -> Answer:
     if not isinstance(raw, Mapping):
         raise WireFormatError(f"질문 {question.qid}: 응답이 객체가 아니다")
@@ -131,13 +146,18 @@ def _parse_answer(question: WireQuestion, raw: Any) -> Answer:
     legend = raw.get(LEGEND, score_legend(question))
     if not isinstance(legend, Mapping):
         raise WireFormatError(f"질문 {question.qid}: legend 가 객체가 아니다")
-    probabilities = raw.get(PROBABILITIES)
-    confidence = raw.get(CONFIDENCE)
+    if PROBABILITIES not in raw or CONFIDENCE not in raw:
+        # score 답의 등급 분포·confidence 는 선택이 아니다(e8 판정 P2a)
+        raise WireFormatError(f"질문 {question.qid}: score 답에 probabilities·confidence 가 없다")
+    score = _number(raw.get(SCORE))
+    probabilities = _probabilities(raw.get(PROBABILITIES))
+    if abs(score - _expected_grade(probabilities)) > SCORE_EXPECTED_GRADE_TOLERANCE:
+        raise WireFormatError(f"질문 {question.qid}: score 가 등급 분포의 기대 등급과 다르다")
     return ScoreAnswer(
-        _number(raw.get(SCORE)),
+        score,
         {str(k): str(v) for k, v in legend.items()},
-        None if probabilities is None else _probabilities(probabilities),
-        None if confidence is None else _number(confidence),
+        probabilities,
+        _number(raw.get(CONFIDENCE)),
     )
 
 
@@ -165,12 +185,12 @@ def _answer_body(question: WireQuestion, answer: Answer) -> dict[str, Any]:
         }
     if isinstance(answer, YesAnswer):
         return {NOUL: answer.probability}
-    body: dict[str, Any] = {SCORE: answer.score, LEGEND: dict(answer.legend)}
-    if answer.probabilities is not None:
-        body[PROBABILITIES] = dict(answer.probabilities)
-    if answer.confidence is not None:
-        body[CONFIDENCE] = answer.confidence
-    return body
+    return {
+        SCORE: answer.score,
+        LEGEND: dict(answer.legend),
+        PROBABILITIES: dict(answer.probabilities),
+        CONFIDENCE: answer.confidence,
+    }
 
 
 def build_response(
