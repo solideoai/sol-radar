@@ -49,6 +49,11 @@ export const STARTED_AT = `${CALCULATION_DATE}T09:00:00.000Z`;
 export const FINISHED_AT = `${CALCULATION_DATE}T09:00:02.500Z`;
 /** job 이 큐에 들어간 시각. runAnalysis 는 받은 값을 그대로 싣는다. */
 export const QUEUED_AT = `${CALCULATION_DATE}T08:59:30.000Z`;
+/**
+ * 이 시도의 시작 시각(보안 검토 후속, 시도 식별자). worker 가 markRunning 에 넘긴 startedAt 과 같은 값이고,
+ * runAnalysis 가 레코드로 옮겨 finish_score_run 의 attempt_started_at 이 된다. meta.startedAt(STARTED_AT)과 일부러 다르게 둔다.
+ */
+export const ATTEMPT_STARTED_AT = `${CALCULATION_DATE}T08:59:59.500Z`;
 
 type BidFixture = {
   fixtureId: string;
@@ -201,6 +206,7 @@ export function buildContext(
     kev: { enabled: true, questionSetVersion: "kev-qs/v0.1" },
     documentIssues: [],
     queuedAt: QUEUED_AT,
+    attemptStartedAt: ATTEMPT_STARTED_AT,
     ...overrides,
   };
 }
@@ -306,6 +312,59 @@ export function kevDisabledBody(errorCode: KevResponse["errorCode"]): KevRespons
     wire: null,
     timings: { kevMs: 3 },
     errorCode,
+  };
+}
+
+/**
+ * 3e 통합 결함 재현 본문. main c2b12d3 의 실제 demo:preanalyze 에서 fixtures/kev 파일이 없는 15건이 PARTIAL·AI_UNAVAILABLE 로 끝났다
+ * (gateway 는 모두 200). 3b mock 이 03 §5.7 공식 경로로 낸 /kev 200 본문이고, wire 의 fit 에 probabilities·confidence 가 빠졌다
+ * (services/ai 13fcb96 이 고친 결함). 봉투(1단계 kevResponseSchema)는 통과하고 kev-mock wire 스키마(fit 네 필드 필수)만 어긴다.
+ * 값은 공식 BID 분기(FORMULA_BID)와 FORMULA_FIT_SCORE 2.0, latency_ms 0(build_response 기본값)이다.
+ */
+export function kevFitDefectBody(): KevResponse {
+  const legend = { "0": "Very poor", "1": "Poor", "2": "Moderate", "3": "Good", "4": "Very good" };
+  const recommendation = {
+    choice: "BID",
+    confidence: 0.6,
+    probabilities: { BID: 0.6, WATCH: 0.3, NO_BID: 0.1 },
+  };
+  return {
+    kev: {
+      enabled: true,
+      provider: "mock",
+      model: "mock",
+      questionSetVersion: "kev-qs/v0.1",
+      suggestedOption: recommendation.choice,
+      probabilities: recommendation.probabilities,
+      confidence: recommendation.confidence,
+      mandatoryRisk: 0.1,
+      needsHumanReview: 0.2,
+      fit: { score: 2.0, legend },
+      scores: null,
+      risks: null,
+      calibration: null,
+      stateTrace: null,
+      latencyMs: KEV_MS,
+      requestId: null,
+      disclaimer: KEV_DISCLAIMER,
+    },
+    stateHash: STATE_HASH,
+    requirements: null,
+    wire: [
+      {
+        responses: {
+          recommendation,
+          mandatoryRisk: { noul: 0.1 },
+          needsHumanReview: { noul: 0.2 },
+          // 결함: score 답에 probabilities·confidence 가 없다(03 §5.4 는 네 필드 필수).
+          fit: { score: 2.0, legend },
+        },
+        usage: { input_tokens: 0, output_tokens: 0 },
+        latency_ms: 0,
+      },
+    ],
+    timings: { kevMs: KEV_MS },
+    errorCode: null,
   };
 }
 

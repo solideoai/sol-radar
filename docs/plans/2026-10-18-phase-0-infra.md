@@ -1,6 +1,6 @@
 ---
 title: "Phase 0 구현 계획 — 실행 환경·실행 모드·AI gateway 골격·worker·health·공고 fixture"
-status: done
+status: final
 tags:
   - sol-radar
   - plan
@@ -9,6 +9,9 @@ updated: 2026-10-19
 ---
 
 # Phase 0 실행 환경·공고 fixture Implementation Plan
+
+> [!success] 보관 (2026-10-19)
+> 이 설계안은 정본에 반영됐다(근거: main 병합 `1b824c8`, 최종 리뷰 반영 `88afb79`, Compose 프로젝트 이름 `9b2bdf1`, 정본 반영 `67877a1`, [[16-DECISIONS|16 ADR]] ADR-024 "제안(구현됨)", [[PROGRESS|진행 상황]] Phase 0 행·작업 로그 2026-10-19 "Phase 0" 행, 증거 `evidence/phase-0/c0-integration-20261019.md`). 수정하지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

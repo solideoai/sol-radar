@@ -484,3 +484,50 @@ $ pnpm -C web worker:check → worker modules loaded
 ## 실행하지 않은 것(사용자 확인 필요)
 - 클라우드 DB: pnpm db:push(20261019000010 포함), pnpm demo:reset, pnpm demo:preanalyze — 모두 클라우드 쓰기
 - Compose 실기동(worker 이미지 재빌드 포함), 실제 gateway·Redis·Supabase 경로
+
+## 보안 검토 후속 + 실패 분류 변경(main 219d273 병합 fa71ce9 위)
+작성 2026-10-19T10:56:10Z · 근거: security-auditor 지적(3e 전달), e8 판정(000011 배정, 1·2번·a·b·e, 분류 원칙), 3e 통합 결함(c2b12d3 실제 preanalyze 15건 PARTIAL), docs/03 :595·:727·:737
+- 0174b09: finish_score_run(한 트랜잭션·시도 식별자·service_role 만, 자격 판정 bid·revision 은 run 값), idempotency_key 조직 접두어 check(not valid), 복구 QUEUED+job 없음 → STALE_RUN, 분류(전송 실패만 AI_UNAVAILABLE / 응답했지만 쓸 수 없음 → KEV_UNAVAILABLE·EXTRACTION_FAILED), 진단 로그, 늦은 마감 ANALYSIS_RUN_SUPERSEDED, 낮음 c·d·e·f·g·h, 오류 이름 공용 검사
+- 이번 커밋: main(kev fixture 20건·추출 시드 제거) 병합 뒤 재현 시험 전제 갱신, NOT_RUNNING message 공용 상수, 주석의 저장소 밖 설계 절 참조 제거
+
+## 변형 확인
+- test-server 참조 구현: 낮음 20건, 중요 web 24·SQL 16건(39 빨간불, 1건은 시험이 두 결과 허용), 분류 23건 — 모두 빨간불
+- 메인 세션(실제 구현): reconcile QUEUED+unknown 규칙 제거 → 7 failed, kev UNUSABLE 을 GATEWAY_DOWN 으로 → 55 failed, 원복 cmp 일치
+- 메인 세션: 자격 판정 bid·revision 을 run 값으로 강제하는 DB 시험을 먼저 쓰고(RED 확인) 함수 수정
+
+$ bash verify-slot.sh pnpm verify (worktree 루트)
+  ℹ pass 635
+  ℹ fail 0
+  ✓ DB 타입 일치 — 정본 supabase/migrations
+   Test Files  136 passed (136)
+        Tests  4870 passed (4870)
+    2 rules passed, 0 errors, 0 warnings (100ms)
+  ✓ Compiled successfully in 1278ms
+  ======================== 629 passed, 1 warning in 7.26s ========================
+  exit 0 · worker:check: worker modules loaded
+- 실행하지 않음(사용자 확인 필요): pnpm db:push(000010·000011), demo:reset, demo:preanalyze, Compose 실기동. 000011 적용 전 확인 질의는 마이그레이션 주석 참고(접두어 없는 진행 중 run 0행)
+
+## 보안 검토 3차 후속(security-auditor 2차 검토, main cfe8f0a 위)
+작성 2026-10-19T13:12:39Z · 근거: security-auditor 2차 검토(3e 전달, 중요 1·낮음 7), e8 판정(번호 20261019000013, 000011 validate 는 사전 질의에서 행이 나온 경우에만, compare-and-set·ANALYSIS_RUN_SUPERSEDED 통일·id keyset·사전 분석 대상 확인·진단 경로 마스킹 동의)
+- 중요 1(000011 not valid 사전 확인): 코드 변경 없음. 상태와 무관한 사전 질의와 db:push 절차는 e8 정본 묶음(10 db:push 절)
+- 낮음 3·4·5: markRunning·markFailed 는 compare-and-set(읽은 status·started_at 원문). markRunning 0행 → UnrecoverableError(ANALYSIS_RUN_SUPERSEDED), gateway 0회. 시도 식별자 = max(now, 앞 started_at + 1ms). 복구 markFailed 도 찾은 상태 조건
+- 낮음 2: 복구 keyset 을 id 하나로(order id, id > after.id). 밀리초 커서·seen 없앰. 처리 순서는 오래된 순이 아님
+- 낮음 1: 사전 분석은 같은 키의 run 이 requested_by null·bid·revision·profile 일치일 때만 넣는다(아니면 CONFLICT → PREPARE_FAILED)
+- 낮음 6: toIssueList 경로 조각은 숫자·[A-Za-z0-9_]{1,40} 만, 그 밖은 *
+- 낮음 7: 20261019000013_finish_score_run_status — 마감 status 가 COMPLETED·PARTIAL 이 아니면 SCORE_RUN_INVALID_STATUS(자식 표 쓰기 전). sink 매핑 … finish INVALID_STATUS. db:types 생성물 변화 없음
+
+## 변형 확인(3차)
+- RED(test-server): web 125 failed / 2010 passed, DB 4 failed / 241 — 모두 새 시험·바꾼 기대
+- 메인 세션(실제 구현 변형, 원복 확인): markRunning false 무시 → 9 failed, markRunning 늘 true → 4, +1ms 제거 → 7, 경로 마스킹 제거 → 9, requested_by 조건 제거 → 3, 복구 expected.startedAt null 고정 → 15, 커서 gt → gte → 8
+
+$ bash verify-slot.sh pnpm verify (worktree 루트)
+  ℹ pass 645
+  ℹ fail 0
+  ✓ DB 타입 일치 — 정본 supabase/migrations
+   Test Files  136 passed (136)
+        Tests  4944 passed (4944)
+    2 rules passed, 0 errors, 0 warnings
+  ✓ Compiled successfully in 1295ms
+  ================== 894 passed, 1 warning in 137.98s ==================
+  exit 0 · worker:check: worker modules loaded
+- 실행하지 않음(사용자 확인 필요): pnpm db:push(000010·000011·000013), demo:reset, demo:preanalyze, Compose 실기동

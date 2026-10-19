@@ -28,7 +28,7 @@ updated: 2026-10-19
 |판정 라벨(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드|[[08-SCORING\|08 점수]] §5.1|규칙 엔진, Kev 어댑터|API, UI, 평가셋|
 |`AnalysisInput`|[[04-DATABASE\|04 DB]] `score_runs.input_snapshot`|worker(`web/worker`)|재현·백테스트|
 |`AnalysisResult`, `BidDetail` 등 API 응답·요청 스키마|[[05-API-SPEC\|05 API 명세]] §4|Route Handler(`web/app/api/v1`)|화면(`web/app`), 스크립트|
-|`EvalItem`(평가셋 정본 형식)|[[21-MODEL-TRAINING\|21 모델 학습]] §3.7|데이터셋 빌더(`pnpm dataset:build`)|평가 하네스, 학습셋 내보내기|
+|`EvalItem`(평가셋 정본 형식)|[[21-MODEL-TRAINING\|21 모델 학습]] §3.7|데이터셋 빌더(`pnpm dataset:build`, 예정)|평가 하네스, 학습셋 내보내기|
 |소스 registry|이 문서 §8|운영자|Connector|
 
 다른 문서가 정본인 계약(`ParseResult`·`RequirementExtraction`·판정 라벨·`EvalItem`)은 여기에 타입을 복사하지 않는다. 이 문서의 `EvidenceRef`·`CompanyEvidenceRef`를 그 계약들이 그대로 쓴다.
@@ -345,7 +345,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 > - 업종 및 근거법규: https://www.data.go.kr/data/15129467/openapi.do
 
 > [!warning] 미검증 가정
-> 조회 기간 상한(8일까지만 확인), 키 오류 응답(`resultCode` 30·31·22)의 형식, 면허제한 여러 행의 뜻(§3), `g2b-attachment` 자동 다운로드의 약관상 허용 여부는 확인하지 않았다. `infra/sources/registry.yaml`은 아직 없다. 검증 방법: C3에서 녹음 응답으로 `fieldMapping`·`sampleResponses`를 채운 registry를 만들고 `OfficialApiConnector` 계약 시험을 통과시킨다([[16-DECISIONS|16 ADR]] 미결정 1·16번).
+> 조회 기간 상한(8일까지만 확인), 키 오류 응답(`resultCode` 30·31·22)의 형식, 면허제한 여러 행의 뜻(§3), `g2b-attachment` 자동 다운로드의 약관상 허용 여부는 확인하지 않았다. `infra/sources/registry.yaml`(녹음 응답으로 채운 `fieldMapping`·`sampleResponses`)과 `OfficialApiConnector` 계약 시험(`web/server/ingestion/official-api-connector.test.ts`·`source-registry.test.ts`)은 있다([[16-DECISIONS|16 ADR]] 미결정 1·16번).
 
 ## 9. 수용 기준
 

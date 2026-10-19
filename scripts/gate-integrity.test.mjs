@@ -58,7 +58,7 @@ const quickOf = (names) => names.filter((name) => name !== "build");
 
 const ROOT_SCRIPTS = {
   // 큰따옴표다. 작은따옴표는 Windows 의 cmd.exe 가 따옴표로 보지 않는다
-  "format:check": 'prettier --check . "!web/**" "!mobile/**"',
+  "format:check": 'prettier --check . "!web/**"',
   // 큰따옴표 안의 glob 은 node 가 푼다. scripts/template/(템플릿 전용, 새 프로젝트에는 없다)의 시험까지 함께 돈다.
   test: 'node --test "scripts/**/*.test.mjs"',
   "check:tokens": "node scripts/tokens-gen.mjs --check",

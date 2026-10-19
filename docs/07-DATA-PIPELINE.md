@@ -136,7 +136,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
   - data.go.kr XML 오류 봉투의 `returnReasonCode`는 22 = `QUOTA_EXCEEDED`(위 처리), 30·31 = 키 오류(재시도하지 않는다)로 읽는다([[16-DECISIONS|ADR-030]] B17). 실측 표본이 없는 **미검증 가정**이다(16 미결정 1번).
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
 - 초당 30 tps(참고문서)를 넘지 않는다.
-- 일정 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(worker 전용, 선택): 기본 `30`(분)이고 양의 정수만 받는다. 틀리면 worker가 env 이름만 알리고 멈춘다(`web/worker/ingest-queue.ts`의 `DEFAULT_G2B_INGEST_INTERVAL_MINUTES`, main `9da17c4`). 지금 `infra/compose.yaml`은 이 env를 worker에 넘기지 않아 컨테이너에서는 기본값 30분이 쓰인다([[10-DEPLOYMENT|10 배포]] env 파일 위치 표, [[16-DECISIONS|ADR-031]] C13).
+- 일정 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(worker 전용, 선택): 기본 `30`(분)이고 양의 정수만 받는다. 틀리면 worker가 env 이름만 알리고 멈춘다(`web/worker/ingest-queue.ts`의 `DEFAULT_G2B_INGEST_INTERVAL_MINUTES`, main `9da17c4`). main `4895010`부터 `infra/compose.yaml`이 이 키를 worker `environment`에 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에서는 기본값 30분이 쓰인다([[10-DEPLOYMENT|10 배포]] env 파일 위치 표, [[16-DECISIONS|ADR-031]] C13).
 
 ### 2.3 서비스키 없이 개발하기
 
@@ -405,7 +405,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - mock Kev: `schemaVersion: "kev-mock/v0.1"`, `fixtureId`, `provider`, `questionSetVersion: "kev-qs/v0.1"`, `responses`, `usage`, `latency_ms`.
 - 골든: `schemaVersion: "sol-golden/v0.1"`, `fixtureId`, `calculationDate`, `factors[]`(요소별 `normalized`·`points`·`maxPoints`), `total`, `score`, `recommendation`, `reviewFlags`.
 
-**Phase 0 시점 범위**: 파일 종류별 건수(`bids/` 20, `extractions/` 20, `kev/` 4, `goldens/` 3, `docs/` 첨부 없음)와 이후 계획, `FX-20` 배치(`SEED`)는 [[16-DECISIONS|ADR-024]] D9~D12가 정본이다.
+**파일 건수**: 지금 `bids/` 20, `extractions/` 20, `kev/` 20(`FX-12` 격리 제외 19건 + `FX-07.r01`, main `ca3b878`), `goldens/` 3이고 `docs/` 첨부는 없다(2026-10-19 `fixtures/`를 세어 확인). Phase 0 시점에는 `kev/`가 4건이었다. Phase 0 범위와 이후 계획, `FX-20` 배치(`SEED`)는 [[16-DECISIONS|ADR-024]] D9~D12가 정본이다.
 
 ## 7. 개발·테스트
 
@@ -435,6 +435,10 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 사진은 imagegen 기본 내장 도구로 인물별 1개 작업씩 만든 서로 다른 가상 성인 정장 프로필 200장(남녀 100/100)이고, 생성은 끝났다(2026-10-17 사람 승인). 생성·복사·검수 절차는 아래 상세 승인 스펙이 정본이다.
 
 상세 승인 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md). JSON 4개·사진 200장(manifest READY 200, 사람 승인 2026-10-17)·`pnpm people:seed`·가입 폼은 구현됐다([[PROGRESS]]). 상위 부서가 확인되지 않은 29개 부서는 `parentId: null`로 남아 있고, 인력 배정 API는 기존대로 P1이다.
+
+## 문서 큐 등록 복구
+
+공고 저장과 함께 생성하는 `bid_documents.download_status='PENDING'` 행을 문서 처리의 영속 상태로 사용한다. 저장 뒤 `documents` 큐 등록에 실패하거나 worker가 중단되어도 이 행은 남는다. ingest worker는 기동 시와 60초마다 미처리 첨부를 ID 순 keyset 페이지(100행)로 읽고 revision별 `documents-<revisionId>` job을 등록한다. 같은 job ID로 등록하므로 대기·진행 중 작업은 중복 생성하지 않는다. 큐·DB 장애는 다음 회차에 재시도하며 첨부 상태를 완료로 바꾸지 않는다. 페이지 커서는 다음 회차로 이어 첫 페이지에 대기 중인 첨부가 많아도 뒤 페이지에 도달하고, 끝에 도달하면 처음부터 다시 훑는다. 복구기는 worker 종료 시 진행 중 회차를 마친 뒤 큐보다 먼저 멈춘다. 다운로드·파싱 소비자의 구현은 별도 범위다.
 
 ## 관련 문서
 

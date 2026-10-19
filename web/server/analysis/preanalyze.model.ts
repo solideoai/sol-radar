@@ -61,7 +61,10 @@ export type PreanalyzeStore = {
   listDemoBids(): Promise<DemoBidRow[]>;
   /** 그 revision 의 가장 최근 성공 추출 id. 없으면 null. */
   latestExtractionId(revisionId: string): Promise<string | null>;
-  /** idempotency_key 충돌이면 아무것도 바꾸지 않고(on conflict do nothing) 그 키의 run 을 다시 읽어 돌려준다. */
+  /**
+   * idempotency_key 충돌이면 아무것도 바꾸지 않고(on conflict do nothing) 그 키의 run 을 다시 읽어 돌려준다.
+   * 다시 읽은 run 이 이 사전 분석의 run 이 아니면(화면 사용자가 넣었거나 다른 입력) 돌려주지 않고 던진다.
+   */
   ensureQueuedRun(input: PreanalyzeRunInput): Promise<PreanalyzeRun>;
   /** 그 조직의 run 상태. 없는 id 는 돌려주지 않는다. */
   readStatuses(orgId: string, ids: readonly string[]): Promise<PreanalyzeRun[]>;

@@ -90,12 +90,13 @@ docker info >/dev/null # Docker Desktop 이 켜져 있는지 확인
 #### DB (30초)
 
 > **DB 는 나중에 붙여도 됩니다.** 지금은 없어도 화면이 뜹니다. 붙일 때는 둘 중 하나예요:
-> - **로컬** — 계정 없이 내 컴퓨터에서. Docker Desktop 을 켜고 Supabase CLI 를 설치한 뒤 `pnpm db:start` 를 돌리면 웹·앱 환경변수까지 채워집니다.
+> - **로컬** — 계정 없이 내 컴퓨터에서. Docker Desktop 을 켜고 Supabase CLI 를 설치한 뒤 `pnpm db:start` 를 돌리면 웹 환경변수까지 채워집니다.
 > - **클라우드** — supabase.com 무료 프로젝트. 실제로 배포할 때 씁니다.
 
 `pnpm db:start` 는 여기서 실행하지 않는다(환경변수 파일을 쓰는 명령이다). 사용자가 직접 돌리도록 알려만 준다.
 
-배포는 아직 자동이 아니다. Vercel 연결은 `/setup` 다음에 사람이 `docs/boilerplate/first-deployment.md`(첫 배포 안내)를 따라 한다.
+배포처는 미결정이다(`docs/16-DECISIONS.md` 미결정 8번). 데모는 Docker Compose 로 돌린다(`docs/10-DEPLOYMENT.md`).
+`docs/boilerplate/first-deployment.md`(Vercel)는 배포처가 정해질 때까지 보류 문서라 안내하지 않는다.
 그러니 여기서 "push만 하면 올라간다"고 말하지 않는다. 실제 로그인 검증은 별도다.
 
 ### 3단계: 다음 걸음 안내

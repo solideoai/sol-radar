@@ -267,10 +267,19 @@ export function readErrorCode(body: unknown): string | null {
 
 const MAX_ISSUES = 10;
 
+/** 경로에 그대로 실을 수 있는 이름 조각. 그 밖의 키(긴 이름·공백·점·한글·기호)는 받은 값일 수 있다. */
+const SAFE_PATH_SEGMENT = /^[A-Za-z0-9_]{1,40}$/;
+
+/** 경로 조각은 받은 객체의 키일 수 있다(record·느슨한 객체). 숫자와 안전한 이름만 싣고 그 밖은 '*' 로 바꾼다. */
+function toPathSegment(segment: PropertyKey): string {
+  if (typeof segment === "number") return String(segment);
+  return typeof segment === "string" && SAFE_PATH_SEGMENT.test(segment) ? segment : "*";
+}
+
 /** zod 오류를 "경로: 코드" 목록으로 바꾼다. 받은 값(공고 원문 등)은 싣지 않는다. */
 export function toIssueList(error: z.ZodError): string[] {
   return error.issues.slice(0, MAX_ISSUES).map((issue) => {
-    const path = issue.path.length > 0 ? issue.path.map(String).join(".") : "(root)";
+    const path = issue.path.length > 0 ? issue.path.map(toPathSegment).join(".") : "(root)";
     return `${path}: ${issue.code}`;
   });
 }

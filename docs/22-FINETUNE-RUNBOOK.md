@@ -194,7 +194,7 @@ python -c "from transformers import AutoConfig; print(AutoConfig.from_pretrained
 
 **길이 제한(중요).** `kev.train`의 기본 학습 컨텍스트는 state 384 토큰이다(`kev/model.py` `MAX_STATE`). 우리 state 는 최대 6,000 토큰이다([[03-AI-PIPELINE|03]] §5.6). 그래서 `--max_state`를 반드시 준다. 그보다 긴 레코드는 학습에서 빠지고 로그에 `dropped N of M records that exceed the training context`가 찍힌다. **이 줄의 N이 0이 아니면 학습을 받아들이지 않고** F1 결과에 맞춰 state 를 줄이거나(질문을 나눠 state 를 짧게) `--max_state`를 늘린다.
 
-**번들**: `sol-dataset-{version}.tar` = `manifest.json`(버전·git commit·질문 세트·state 템플릿·마스킹 버전·분할별 개수·파일별 sha256·train 레코드 state 토큰 수 최대값) + `kev/train.en.jsonl`·`kev/dev.en.jsonl`·`kev/test.en.jsonl` + 이 문서의 해당 절. 만드는 명령은 [[21-MODEL-TRAINING|21]] §6(`pnpm dataset:build` → `sol_eval.export`).
+**번들**: `sol-dataset-{version}.tar` = `manifest.json`(버전·git commit·질문 세트·state 템플릿·마스킹 버전·분할별 개수·파일별 sha256·train 레코드 state 토큰 수 최대값) + `kev/train.en.jsonl`·`kev/dev.en.jsonl`·`kev/test.en.jsonl` + 이 문서의 해당 절. 만드는 명령은 [[21-MODEL-TRAINING|21]] §6(`pnpm dataset:build`(예정) → `sol_eval.export`).
 
 ### 4.2 F1 메모리 검증
 
@@ -268,8 +268,8 @@ python /opt/kev/scripts/calibrate_checkpoint.py --run runs/kev-9b-sol-lora-v0.1 
 
 ```bash
 # test 채점: 학습본과 기준선
-python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e4-test
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test
+python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e4-test --rotations 6
+python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test --rotations 6
 # 짝 부트스트랩(데이터 해시가 같아야 한다)
 python -m kev.compare --candidate runs/e4-test --reference runs/e1-test
 # 망각 확인: 공개 decision-v7 development
@@ -277,17 +277,16 @@ python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --suite /opt/kev/evals/v
 python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --suite /opt/kev/evals/v7/decision-v7 --out runs/e1-regression
 ```
 
-- 우리 쪽 E4 리포트(21 §4.3 지표 전부, 정보부족→미충족 혼동률 포함)는 `sol_eval`이 평가 전용 `kev.serve`(`https://acropolissg.com/sol-radar/kev-lora`, ADR-027 10번)에 붙어 낸다. 실행 전에 `GET /v1/models`가 레지스트리 평가 전용 항목과 같은지 대조한다.
+- 우리 쪽 E4 리포트(21 §4.3 지표 전부, 정보부족→미충족 혼동률 포함)는 `sol_eval`이 위 출력 폴더 4개(`rows.json`·`predictions.jsonl`·`report.json`)를 통째로 돌려받아 **오프라인**으로 낸다(ADR-027 10번 개정, [[23-WEEKEND-FINETUNE|23]] §2.2 A안). 엔드포인트에 붙지 않는다. 실행 전에 `report.json`의 체크포인트 id와 test 파일 sha256이 번들 manifest와 같은지 대조한다. 순서 민감도는 `--rotations 6`으로 잰다. 요청당 지연은 E4에서 재지 않는다.
 - 받아들이는 기준(공식 kev-finetune 기준을 따른다): 망각 확인에서 정확도 하락이 약 2%p 이내, 보정 뒤 확신 오류율(p≥0.9 오답)이 기준선 이하, 평균 확신도가 정확도에서 몇 %p 안. 이 중 하나라도 어기면 결과는 보고하되 서빙 후보로 올리지 않는다.
 - "E4 가 E1 보다 낫다"는 Δ의 95% 신뢰구간이 0을 포함하지 않을 때만 말한다(ADR-027 2번).
 
-평가 전용 서빙(회사, X6e 동안만):
+학습본은 HTTPS 로 서빙하지 않는다(회사 nginx 는 `https://acropolissg.com/sol-radar` location 하나만 등록할 수 있다, ADR-027 10번 개정). 지연·`permute` 실측이 꼭 필요할 때만 B안(23 §2.2): 우리 `infra/gpu/model-router.conf`에 `/kev-lora/` → `127.0.0.1:8010` 블록을 더해 라우터 컨테이너만 다시 띄우고 아래를 띄운다. 회사 nginx 는 손대지 않는다.
 
 ```bash
+# B안일 때만
 KEV_API_KEY="$KEV_API_KEY" python -m kev.serve --run runs/kev-9b-sol-lora-v0.1 --host 127.0.0.1 --port 8010
 ```
-
-라우터 경로 `/sol-radar/kev-lora/`는 ADR-027 10번으로 정했고 `infra/gpu/model-router.conf`에는 아직 넣지 않았다. X6e 전에 넣는다.
 
 ### 4.5 돌려받을 것
 
@@ -449,7 +448,7 @@ vllm serve /data/models/qwen3.5-9b-sol-extract-v0.1 --served-model-name qwen3.5-
 1. GPU 모델·VRAM·장수, 학습에 쓸 수 있는 시간대.
 2. 학습과 데모 추론(vLLM Qwen, `kev.serve` v1.0)을 동시에 돌릴 수 있는지.
 3. GPU 서버에서 huggingface.co·github.com·pypi.org 로 나갈 수 있는지(없으면 §2.2 2안).
-4. X6e 동안 평가 전용 `kev.serve`(`127.0.0.1:8010`)를 하나 더 띄울 수 있는지와 라우터 경로 추가.
+4. 일요일(10-25)에 서버 안에서 채점 4회(`kev.benchmark` E4·E1 × test·regression)와 `kev.compare`를 돌리고 출력 폴더(`report.json`·`rows.json`·`predictions.jsonl`)를 보내 줄 수 있는지. 라우터·nginx 변경은 요청하지 않는다(23 §8).
 
 돌려받을 것: §4.5.
 
@@ -463,6 +462,7 @@ vllm serve /data/models/qwen3.5-9b-sol-extract-v0.1 --served-model-name qwen3.5-
 | `calibrate_checkpoint.py --allow-in-distribution`이 우리 dev 행을 받는지 | 미확인 | F1 때 20 step 체크포인트로(§4.4) |
 | Kev-9B 학습 시간(공식 H200 1장 2.6시간은 그 단계 데이터 기준) | 회사 GPU 미측정 | F2 |
 | `kev-suites` 출처별 재배포 조건 | 출처별 상이 | replay 는 회사 내부 학습에만 쓴다. 결과물을 공개하지 않는다 |
+| `kev.benchmark` 출력(`rows.json`·`predictions.jsonl`) 스키마가 `sol_eval` 입력으로 충분한지, `--rotations` 가 `permute n_perm=6` 과 같은 뜻인지 | 미확인 | F1 20 step 체크포인트의 dev 채점 출력(10-24, 23 §10) |
 | Qwen3.5-9B 를 LLaMA-Factory 0.9.5 로 텍스트만 LoRA SFT, 긴 `cutoff_len` 메모리 | 미실행 | §5.3 20 step |
 | vLLM 에서 Qwen3.5 LoRA 어댑터 직접 서빙 | 미확인(오류 없는 실패 보고 있음) | 쓰지 않고 병합본 서빙(§5.4) |
 | 지금 gateway 가 Qwen 을 비사고 모드로 부르는지 | 미확인 | C1 ③ G4([[03-AI-PIPELINE\|03]] §4.3) |

@@ -47,6 +47,17 @@ def test_v2_01_valid_combination_passes(rules, env):
             "AI_FALLBACK_TO_MOCK",
             "FORBIDDEN_IN_MODE",
         ),
+        # B11: 자동 대체는 미구현이라 어느 모드에서든 켜면 기동 거부(03 §3·§8, 10 배포)
+        (
+            {"SOL_RUN_MODE": "fixture", "AI_FALLBACK_TO_MOCK": "true"},
+            "AI_FALLBACK_TO_MOCK",
+            "FORBIDDEN_IN_MODE",
+        ),
+        (
+            {"SOL_RUN_MODE": "mock", "AI_FALLBACK_TO_MOCK": "true"},
+            "AI_FALLBACK_TO_MOCK",
+            "FORBIDDEN_IN_MODE",
+        ),
         (
             {"SOL_RUN_MODE": "live", "KEV_ALLOW_KO_STATE": "true"},
             "KEV_ALLOW_KO_STATE",
@@ -96,8 +107,9 @@ def test_v2_01_unknown_mode_has_null_mode_and_effective(rules):
     assert len(result.violations) == 1
 
 
-def test_v2_01_forbidden_key_only_on_exact_value(rules):
-    result = resolve_run_mode({"SOL_RUN_MODE": "live", "AI_FALLBACK_TO_MOCK": "false"}, rules)
+@pytest.mark.parametrize("mode", RUN_MODES)
+def test_v2_01_forbidden_key_only_on_exact_value(rules, mode):
+    result = resolve_run_mode({"SOL_RUN_MODE": mode, "AI_FALLBACK_TO_MOCK": "false"}, rules)
     assert result.violations == []
 
 

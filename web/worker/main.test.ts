@@ -138,15 +138,18 @@ type FakeQueue = {
   queueName: string;
   upsertJobScheduler: Mock<(...args: unknown[]) => Promise<undefined>>;
   removeJobScheduler: Mock<(...args: unknown[]) => Promise<boolean>>;
+  close: Mock<() => Promise<undefined>>;
 };
 type FakeRedis = { disconnect: Mock<() => void> };
 // log 는 닫는 순서를 본다(close:<큐 이름>, disconnect). failUpsert 는 live 시작 중 실패를 흉내 낸다.
+// failClose 에 "worker:<큐 이름>"·"queue:<큐 이름>" 을 넣으면 그 close 가 던진다.
 const bull = {
   workers: [] as FakeWorker[],
   queues: [] as FakeQueue[],
   redis: [] as FakeRedis[],
   log: [] as string[],
   failUpsert: false,
+  failClose: new Set<string>(),
 };
 
 const REGISTRY_FILE = fileURLToPath(new URL("../../infra/sources/registry.yaml", import.meta.url));
@@ -171,6 +174,7 @@ const loadMainWithFakes = async () => {
   bull.redis = [];
   bull.log = [];
   bull.failUpsert = false;
+  bull.failClose = new Set();
   vi.doMock("bullmq", () => {
     class Worker {
       readonly close: Mock<() => Promise<undefined>>;
@@ -178,6 +182,9 @@ const loadMainWithFakes = async () => {
       constructor(queueName: string) {
         this.close = vi.fn(async () => {
           bull.log.push(`close:${queueName}`);
+          if (bull.failClose.has(`worker:${queueName}`)) {
+            throw new Error(`${queueName} Worker 닫기 실패 흉내`);
+          }
           return undefined;
         });
         bull.workers.push({ queueName, close: this.close });
@@ -192,13 +199,20 @@ const loadMainWithFakes = async () => {
         async () => false,
       );
       readonly add = vi.fn(async () => undefined);
-      readonly close = vi.fn(async () => undefined);
+      readonly close: Mock<() => Promise<undefined>>;
       readonly on = vi.fn();
       constructor(queueName: string) {
+        this.close = vi.fn(async () => {
+          if (bull.failClose.has(`queue:${queueName}`)) {
+            throw new Error(`${queueName} 큐 닫기 실패 흉내`);
+          }
+          return undefined;
+        });
         bull.queues.push({
           queueName,
           upsertJobScheduler: this.upsertJobScheduler,
           removeJobScheduler: this.removeJobScheduler,
+          close: this.close,
         });
       }
     }
@@ -353,8 +367,9 @@ describe("startRegistered (C3 계약 8-4)", () => {
   const recorder = () => {
     const log: string[] = [];
     const received: unknown[] = [];
+    // failClose 면 close 가 `${name} 닫기 실패` 로 reject 한다(닫기를 시도한 기록은 남긴다).
     const starter =
-      (name: string, failStart = false): StartWorkers =>
+      (name: string, failStart = false, failClose = false): StartWorkers =>
       async (given) => {
         received.push(given);
         log.push(`start:${name}`);
@@ -362,6 +377,7 @@ describe("startRegistered (C3 계약 8-4)", () => {
         return {
           close: async () => {
             log.push(`close:${name}`);
+            if (failClose) throw new Error(`${name} 닫기 실패`);
           },
         };
       };
@@ -410,6 +426,55 @@ describe("startRegistered (C3 계약 8-4)", () => {
       "a 시작 실패",
     );
     expect(log).toEqual(["start:a"]);
+  });
+
+  // 낮음 (e): 돌려준 close 는 한 등록의 close 가 던져도 나머지를 모두 닫고, 끝에 첫 오류(닫는 순서로 처음)를 던진다.
+  it("close 중 한 등록의 close 가 던져도 나머지 등록을 거꾸로 모두 닫는다", async () => {
+    const { log, starter } = recorder();
+    const handle = await startRegistered(connection, [
+      starter("a"),
+      starter("b", false, true),
+      starter("c"),
+    ]);
+    await handle.close().catch(() => undefined);
+    expect(log.slice(3)).toEqual(["close:c", "close:b", "close:a"]);
+  });
+
+  it("close 중 한 등록의 close 가 던지면 나머지를 닫은 뒤 그 오류로 reject 한다", async () => {
+    const { log, starter } = recorder();
+    const handle = await startRegistered(connection, [
+      starter("a"),
+      starter("b", false, true),
+      starter("c"),
+    ]);
+    await expect(handle.close()).rejects.toThrow("b 닫기 실패");
+    expect(log.at(-1)).toBe("close:a");
+  });
+
+  it("close 중 두 등록이 던지면 모두 닫고 닫는 순서로 처음 던진 오류로 reject 한다", async () => {
+    const { log, starter } = recorder();
+    const handle = await startRegistered(connection, [
+      starter("a", false, true),
+      starter("b"),
+      starter("c", false, true),
+    ]);
+    await expect(handle.close()).rejects.toThrow("c 닫기 실패");
+    expect(log.slice(3)).toEqual(["close:c", "close:b", "close:a"]);
+  });
+
+  it("close 가 모두 성공하면 resolve 한다", async () => {
+    const { starter } = recorder();
+    const handle = await startRegistered(connection, [starter("a"), starter("b")]);
+    await expect(handle.close()).resolves.toBeUndefined();
+  });
+
+  // 시작 실패 정리는 닫는 중 오류를 버리고(원인 오류를 가리지 않는다) 나머지를 닫은 뒤 원래 시작 오류를 던진다.
+  it("시작 실패 정리 중 이미 시작한 등록의 close 가 던져도 나머지를 닫고 원래 시작 오류를 던진다", async () => {
+    const { log, starter } = recorder();
+    await expect(
+      startRegistered(connection, [starter("a"), starter("b", false, true), starter("c", true)]),
+    ).rejects.toThrow("c 시작 실패");
+    expect(log).toEqual(["start:a", "start:b", "start:c", "close:b", "close:a"]);
   });
 });
 
@@ -503,6 +568,41 @@ describe("기본 createWorker — 등록 1·2단계 (C3 계약 8-4)", () => {
     await expect(main.ingestWorkerRegistration(ingestEnv("LIVE"))).rejects.toThrow("SOL_RUN_MODE");
     expect(bull.workers).toEqual([]);
   });
+
+  // 2단계가 Supabase 관리자 클라이언트를 만들며 process.env 를 읽으므로 startDefault 처럼 둘 다에 넣는다.
+  const startIngestRegistration = async () => {
+    const workerEnv = ingestEnv("mock");
+    for (const [key, value] of Object.entries(workerEnv)) vi.stubEnv(key, value);
+    const main = await loadMainWithFakes();
+    const start = await main.ingestWorkerRegistration(workerEnv);
+    return start({} as unknown as IORedis);
+  };
+  const queueCloseCalls = () =>
+    bull.queues.map((queue) => [queue.queueName, queue.close.mock.calls.length]).sort();
+
+  it("ingest 등록 close: ingest Worker 가 던져도 ingest 큐·documents 큐를 닫고, 닫는 순서에서 처음 오류를 던진다", async () => {
+    const closable = await startIngestRegistration();
+    bull.failClose.add("worker:ingest");
+    bull.failClose.add("queue:documents");
+    await expect(closable.close()).rejects.toThrow("ingest Worker 닫기 실패 흉내");
+    expect(queueCloseCalls()).toEqual([
+      ["documents", 1],
+      ["ingest", 1],
+    ]);
+  });
+
+  it("ingest 등록 close: ingest 큐가 던져도 documents 큐를 닫고 그 오류를 던진다", async () => {
+    const closable = await startIngestRegistration();
+    bull.failClose.add("queue:ingest");
+    await expect(closable.close()).rejects.toThrow("ingest 큐 닫기 실패 흉내");
+    expect(
+      bull.workers.find((worker) => worker.queueName === "ingest")?.close.mock.calls,
+    ).toHaveLength(1);
+    expect(queueCloseCalls()).toEqual([
+      ["documents", 1],
+      ["ingest", 1],
+    ]);
+  });
 });
 
 // ── C5-B: analysis worker 등록. 1단계(설정 검증, Redis 연결 전) → 2단계(공유 연결을 duplicate 해 startAnalysisRuntime) ──
@@ -541,6 +641,9 @@ const analysisFakes = {
   workers: [] as RecordedBullClient[],
   queues: [] as RecordedBullClient[],
   log: [] as string[],
+  documentJobs: [] as unknown[],
+  /** 복구 회차가 보낸 bid_documents 조회 URL */
+  documentRequests: [] as URL[],
 };
 
 const fakeConnection = (label: string): FakeConnection => {
@@ -561,12 +664,14 @@ const fakeConnection = (label: string): FakeConnection => {
   };
 };
 
-const loadMainWithAnalysisFakes = async () => {
+const loadMainWithAnalysisFakes = async (pendingDocuments: object[] = []) => {
   vi.resetModules();
   analysisFakes.redis = [];
   analysisFakes.workers = [];
   analysisFakes.queues = [];
   analysisFakes.log = [];
+  analysisFakes.documentJobs = [];
+  analysisFakes.documentRequests = [];
   vi.doMock("bullmq", async (importOriginal) => {
     const original = await importOriginal<typeof import("bullmq")>();
     const record = (list: RecordedBullClient[], queueName: string, connection: unknown) => {
@@ -584,12 +689,15 @@ const loadMainWithAnalysisFakes = async () => {
     class Queue {
       readonly close: Mock<() => Promise<undefined>>;
       readonly on = vi.fn();
-      readonly add = vi.fn(async () => undefined);
+      readonly add: Mock<(...args: unknown[]) => Promise<void>>;
       readonly getJobState = vi.fn(async () => "unknown");
       readonly upsertJobScheduler = vi.fn(async () => undefined);
       readonly removeJobScheduler = vi.fn(async () => false);
       constructor(queueName: string, options: { connection?: unknown } = {}) {
         this.close = record(analysisFakes.queues, queueName, options.connection);
+        this.add = vi.fn(async (...args: unknown[]) => {
+          if (queueName === "documents") analysisFakes.documentJobs.push(args);
+        });
       }
     }
     return { ...original, Worker, Queue };
@@ -607,8 +715,14 @@ const loadMainWithAnalysisFakes = async () => {
   // service role 클라이언트는 진짜 supabase-js 로 만들되 fetch 만 빈 목록을 돌려주는 가짜로 바꾼다(복구 회차가 score_runs 를 읽는다).
   vi.doMock("@supabase/supabase-js", async (importOriginal) => {
     const original = await importOriginal<typeof import("@supabase/supabase-js")>();
-    const fakeFetch: typeof fetch = async () =>
-      new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+    const fakeFetch: typeof fetch = async (input) => {
+      const documents = String(input).includes("/bid_documents?");
+      if (documents) analysisFakes.documentRequests.push(new URL(String(input)));
+      return new Response(JSON.stringify(documents ? pendingDocuments : []), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
     return {
       ...original,
       createClient: vi.fn((url: string, key: string) =>
@@ -754,6 +868,54 @@ describe("analysisWorkerRegistration (C5-B)", () => {
   });
 
   describe("기본 createWorker 와 함께", () => {
+    it("ingest 등록이 기동 시 저장된 PENDING 문서를 documents 큐로 복구한다", async () => {
+      const main = await loadMainWithAnalysisFakes([
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          bid_id: "00000000-0000-4000-8000-000000000002",
+          revision_id: "00000000-0000-4000-8000-000000000003",
+          bid_notices: { is_demo: true },
+          bid_revisions: { created_at: "2026-10-19T03:04:05.123456+00:00" },
+        },
+      ]);
+      opened.push(await startDefault(main, analysisEnv));
+      await vi.waitFor(() => {
+        expect(analysisFakes.documentJobs).toEqual([
+          [
+            "fetch",
+            {
+              bidId: "00000000-0000-4000-8000-000000000002",
+              revisionId: "00000000-0000-4000-8000-000000000003",
+              revisionCreatedAt: "2026-10-19T03:04:05.123456+00:00",
+            },
+            {
+              // 1792379045123 = Date.UTC(2026, 9, 19, 3, 4, 5, 123)(C1')
+              jobId: "documents-00000000-0000-4000-8000-000000000003-1792379045123",
+              attempts: 3,
+              backoff: { type: "exponential", delay: 2000 },
+              removeOnComplete: { age: 86400 },
+              removeOnFail: { age: 604800 },
+            },
+          ],
+        ]);
+      });
+    });
+
+    // C6': mock·fixture 는 데모 공고만, live 는 실제 공고만 복구한다
+    it.each([
+      ["mock", "eq.true"],
+      ["fixture", "eq.true"],
+      ["live", "eq.false"],
+    ])("SOL_RUN_MODE=%s 기동의 복구 조회는 bid_notices.is_demo=%s 다", async (mode, expected) => {
+      const main = await loadMainWithAnalysisFakes();
+      opened.push(await startDefault(main, { ...analysisEnv, SOL_RUN_MODE: mode }));
+      await vi.waitFor(() => {
+        expect(analysisFakes.documentRequests.length).toBeGreaterThan(0);
+      });
+      expect(
+        analysisFakes.documentRequests.map((url) => url.searchParams.getAll("bid_notices.is_demo")),
+      ).toEqual(analysisFakes.documentRequests.map(() => [expected]));
+    });
     const startDefault = (
       main: Awaited<ReturnType<typeof loadMainWithAnalysisFakes>>,
       workerEnvRecord: Record<string, string | undefined>,

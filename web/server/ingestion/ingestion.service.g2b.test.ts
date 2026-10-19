@@ -144,6 +144,7 @@ describe("runIngest — g2b 신규 공고", () => {
       {
         bidId: expect.any(String),
         revisionId: expect.any(String),
+        revisionCreatedAt: stored?.createdAt,
         noticeId: NOTICE_NO,
         kind: "CREATED",
         reanalyze: true,
@@ -282,6 +283,7 @@ describe("runIngest — g2b 재수집·취소", () => {
       {
         bidId: expect.any(String),
         revisionId: expect.any(String),
+        revisionCreatedAt: cancelledRevision?.createdAt,
         noticeId: NOTICE_NO,
         kind: "CANCELLED",
         reanalyze: false,

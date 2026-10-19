@@ -1,3 +1,14 @@
+---
+title: "SOL RADAR 대시보드 메뉴 및 기능 확장 프롬프트 (사용자 계획서)"
+doc: "plan-sidebar-input"
+status: final
+tags:
+  - sol-radar
+  - product
+  - ui
+updated: 2026-10-19
+---
+
 # SOL RADAR 대시보드 메뉴 및 기능 확장 프롬프트
 
 ## 1. 역할 및 목표

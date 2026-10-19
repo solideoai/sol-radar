@@ -5,11 +5,13 @@ import {
   ANALYSIS_JOB_OPTIONS,
   ANALYSIS_QUEUE,
   analysisJobDataSchema,
+  nextAttemptStartedAt,
   readRunMode,
   requestIdOf,
   toAnalysisJobId,
   toAnalysisSettings,
   toFixtureStem,
+  type RunClaim,
 } from "./analysis-job.model";
 import {
   extractRequestSchema,
@@ -75,9 +77,11 @@ describe("analysisJobDataSchema · 받는 값", () => {
     expect(Object.keys(parsed).toSorted()).toEqual(["idempotencyKey", "orgId", "scoreRunId"]);
   });
 
-  it("idempotencyKey 는 300자까지 받는다", () => {
-    const key = `${ORG_ID}:${"r".repeat(300 - ORG_ID.length - 1)}`;
-    expect(key).toHaveLength(300);
+  // 낮음 (b): requestId 는 `^[A-Za-z0-9_-]{1,128}$` 라 키 전체는 uuid 36 + ':' + 128 = 165자까지다.
+  // 예전 기대("300자까지 받는다", requestId 263자)는 이 결정으로 바뀌었다.
+  it("idempotencyKey 는 requestId 128자(키 전체 165자)까지 받는다", () => {
+    const key = `${ORG_ID}:${"r".repeat(128)}`;
+    expect(key).toHaveLength(165);
     expect(analysisJobDataSchema.safeParse({ ...validData(), idempotencyKey: key }).success).toBe(
       true,
     );
@@ -148,6 +152,48 @@ describe("analysisJobDataSchema · 거부하는 값", () => {
 
   it("객체가 아니면 거부한다", () => {
     expect(analysisJobDataSchema.safeParse("analysis").success).toBe(false);
+  });
+});
+
+// ── requestId 형식(낮음 (b)) ──
+// C6 의 Idempotency-Key 는 UUID 이고 없으면 randomUUID 다(e8). demo:preanalyze 키는 `demo-pre-FX-01-r01` 모양이다.
+// `${orgId}:` 뒤 requestId 는 `^[A-Za-z0-9_-]{1,128}$` 이어야 한다. 로그·jobId·필터에 섞여도 줄·구분자를 깨지 않게 한다.
+
+describe("analysisJobDataSchema · requestId 형식", () => {
+  it.each<[string, string]>([
+    ["uuid(C6 randomUUID)", "7d9f5c2e-4b1a-4e8f-9c3d-2a6b8e0f1c4d"],
+    ["대문자 uuid", "7D9F5C2E-4B1A-4E8F-9C3D-2A6B8E0F1C4D"],
+    ["demo:preanalyze 키", "demo-pre-FX-01-r01"],
+    ["밑줄", "req_FX_01"],
+    ["한 글자", "r"],
+    ["128자", "a".repeat(128)],
+  ])("%s 는 받는다", (_label, requestId) => {
+    expect(issuePaths({ ...validData(), idempotencyKey: `${ORG_ID}:${requestId}` })).toEqual([]);
+  });
+
+  it.each<[string, string]>([
+    ["129자", "a".repeat(129)],
+    ["공백", "req FX-01"],
+    ["':'", "req:FX-01"],
+    ["한글", "요청-01"],
+    ["개행", "req\nFX-01"],
+    ["'.'", "req.FX-01"],
+    ["'/'", "req/FX-01"],
+    ["'%'", "req%3AFX-01"],
+  ])("%s 가 든 requestId 는 idempotencyKey 경로로 거부한다", (_label, requestId) => {
+    expect(issuePaths({ ...validData(), idempotencyKey: `${ORG_ID}:${requestId}` })).toEqual([
+      "idempotencyKey",
+    ]);
+  });
+
+  it("거부 issue 의 message 에 받은 requestId 를 싣지 않는다", () => {
+    const requestId = "SECRET 요청값";
+    const parsed = analysisJobDataSchema.safeParse({
+      ...validData(),
+      idempotencyKey: `${ORG_ID}:${requestId}`,
+    });
+    expect(parsed.success).toBe(false);
+    expect(JSON.stringify(parsed.error?.issues ?? [])).not.toContain("SECRET");
   });
 });
 
@@ -493,6 +539,57 @@ describe("toAnalysisSettings · /health 실패(어떤 kind 든 env 기준)", () 
   });
 });
 
+// ── 시도 식별자(nextAttemptStartedAt) ──
+// markRunning 이 쓸 started_at(시도 식별자)이다. 앞 시도의 started_at(PostgREST 원문, 마이크로초·오프셋 포함)보다 늘 크다.
+// 같은 밀리초에 두 시도가 같은 값을 갖지 않게 한다(compare-and-set 과 함께). 앞 값이 없으면 지금 시각이다.
+
+describe("nextAttemptStartedAt", () => {
+  const NOW = new Date("2026-10-16T09:00:00.250Z");
+
+  it("앞 started_at 이 null 이면 now.toISOString() 이다", () => {
+    expect(nextAttemptStartedAt(NOW, null)).toBe("2026-10-16T09:00:00.250Z");
+  });
+
+  it.each<[string, string, string]>([
+    ["과거(1분 전)", "2026-10-16T08:59:00.123456+00:00", "2026-10-16T09:00:00.250Z"],
+    ["1ms 전", "2026-10-16T09:00:00.249+00:00", "2026-10-16T09:00:00.250Z"],
+    ["같은 밀리초", "2026-10-16T09:00:00.25+00:00", "2026-10-16T09:00:00.251Z"],
+    [
+      "같은 밀리초의 마이크로초 원문",
+      "2026-10-16T09:00:00.250999+00:00",
+      "2026-10-16T09:00:00.251Z",
+    ],
+    ["같은 순간의 다른 오프셋 원문", "2026-10-16T18:00:00.25+09:00", "2026-10-16T09:00:00.251Z"],
+    ["미래(시계가 뒤처졌다)", "2026-10-16T09:00:05+00:00", "2026-10-16T09:00:05.001Z"],
+  ])("앞 started_at 이 %s 이면 max(now, 앞 값의 밀리초 + 1ms) 다", (_label, previous, expected) => {
+    expect(nextAttemptStartedAt(NOW, previous)).toBe(expected);
+  });
+
+  it.each([
+    "2026-10-16T08:59:00.123456+00:00",
+    "2026-10-16T09:00:00.25+00:00",
+    "2026-10-16T09:00:00.250999+00:00",
+    "2026-10-16T09:00:05+00:00",
+  ])("결과는 앞 started_at(%s)보다 늘 늦다", (previous) => {
+    expect(Date.parse(nextAttemptStartedAt(NOW, previous))).toBeGreaterThan(Date.parse(previous));
+  });
+
+  it("결과는 Date.toISOString 모양(밀리초·Z)이다", () => {
+    expect(nextAttemptStartedAt(NOW, "2026-10-16T09:00:00.250999+00:00")).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
+  });
+
+  it.each(["not-a-date", ""])(
+    "앞 started_at 을 시각으로 읽지 못하면(%j) 'analysis 오류: started_at INVALID' 를 던진다",
+    (previous) => {
+      expect(() => nextAttemptStartedAt(NOW, previous)).toThrowError(
+        /^analysis 오류: started_at INVALID$/,
+      );
+    },
+  );
+});
+
 // ── 배럴 ──
 
 describe("@/server/analysis 배럴", () => {
@@ -506,6 +603,7 @@ describe("@/server/analysis 배럴", () => {
     "toFixtureStem",
     "readRunMode",
     "toAnalysisSettings",
+    "nextAttemptStartedAt",
   ])("값 %s 를 내보낸다", (name) => {
     expect(Object.keys(analysisBarrel)).toContain(name);
   });
@@ -513,22 +611,94 @@ describe("@/server/analysis 배럴", () => {
   it("배럴의 toAnalysisSettings 는 analysis-job.model 의 것이다", () => {
     expect(analysisBarrel.toAnalysisSettings).toBe(toAnalysisSettings);
   });
+
+  it("배럴의 nextAttemptStartedAt 은 analysis-job.model 의 함수다(worker 가 배럴로 부른다)", () => {
+    expect(typeof nextAttemptStartedAt).toBe("function");
+    expect(Reflect.get(analysisBarrel, "nextAttemptStartedAt")).toBe(nextAttemptStartedAt);
+  });
+});
+
+// 시도 식별자(보안 검토 후속). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
+// run 잡기·닫기는 compare-and-set 이다. markRunning·markFailed 는 읽은 시점의 run 상태(expected: RunClaim)를 쓰기 조건으로 받는다.
+// 예전 기대(markFailed 의 선택 attemptStartedAt, markRunning 반환 void)는 이 결정으로 바뀌었다.
+describe("@/server/analysis 배럴 · 시도 식별자(타입)", () => {
+  it("AnalysisContext.attemptStartedAt 은 string 이다(markRunning 의 startedAt)", () => {
+    expectTypeOf<analysisBarrel.AnalysisContext["attemptStartedAt"]>().toEqualTypeOf<string>();
+  });
+
+  it("AnalysisRunRecord.attemptStartedAt 은 string 이다", () => {
+    expectTypeOf<analysisBarrel.AnalysisRunRecord["attemptStartedAt"]>().toEqualTypeOf<string>();
+  });
+
+  it("RunClaim 은 읽은 시점의 status(QUEUED·RUNNING)와 started_at 원문(null 가능)이다", () => {
+    expectTypeOf<RunClaim>().toEqualTypeOf<{
+      status: "QUEUED" | "RUNNING";
+      startedAt: string | null;
+    }>();
+  });
+
+  it("LoadedAnalysisContext.startedAt 은 score_runs.started_at 원문(string | null)이다", () => {
+    expectTypeOf<analysisBarrel.LoadedAnalysisContext["startedAt"]>().toEqualTypeOf<
+      string | null
+    >();
+  });
+
+  it("AnalysisRunTracker.markRunning 입력은 expected(RunClaim)를 필수로 받는다", () => {
+    expectTypeOf<Parameters<analysisBarrel.AnalysisRunTracker["markRunning"]>[0]>().toEqualTypeOf<{
+      orgId: string;
+      scoreRunId: string;
+      runMode: analysisBarrel.RunMode;
+      aiProvider: analysisBarrel.AiProvider;
+      startedAt: string;
+      expected: RunClaim;
+    }>();
+  });
+
+  it("AnalysisRunTracker.markRunning 은 잡았는지(boolean)를 돌려준다", () => {
+    expectTypeOf<analysisBarrel.AnalysisRunTracker["markRunning"]>().returns.toEqualTypeOf<
+      Promise<boolean>
+    >();
+  });
+
+  it("AnalysisRunTracker.markFailed 입력은 expected(RunClaim)를 필수로 받고 attemptStartedAt 은 없다", () => {
+    expectTypeOf<Parameters<analysisBarrel.AnalysisRunTracker["markFailed"]>[0]>().toEqualTypeOf<{
+      orgId: string;
+      scoreRunId: string;
+      errorCode: string;
+      finishedAt: string;
+      expected: RunClaim;
+    }>();
+  });
 });
 
 // 멈춘 run 찾기 port(C5-B). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
+// keyset 커서는 id 하나다. 예전 기대((queued_at, id) 커서와 StaleRun.queuedAt)는 밀리초 커서가 같은 run 을 다시 내던 문제로 바뀌었다.
+// StaleRun 은 markFailed 의 쓰기 조건으로 started_at 원문을 갖는다.
 describe("@/server/analysis 배럴 · 멈춘 run 찾기 port(타입)", () => {
-  it("StaleRun 은 orgId·scoreRunId·idempotencyKey(null 가능)·status(QUEUED·RUNNING) 다", () => {
+  it("StaleRun 은 orgId·scoreRunId·idempotencyKey(null 가능)·status(QUEUED·RUNNING)·startedAt(원문, null 가능)이다", () => {
     expectTypeOf<analysisBarrel.StaleRun>().toEqualTypeOf<{
       orgId: string;
       scoreRunId: string;
       idempotencyKey: string | null;
       status: "QUEUED" | "RUNNING";
+      startedAt: string | null;
     }>();
   });
 
-  it("StaleRunFinder.findStaleRuns 는 { queuedBefore, runningBefore, limit } 하나를 받는다", () => {
+  it("StaleRunCursor 는 { id } 다", () => {
+    expectTypeOf<analysisBarrel.StaleRunCursor>().toEqualTypeOf<{ id: string }>();
+  });
+
+  it("StaleRunFinder.findStaleRuns 는 { queuedBefore, runningBefore, limit, after } 하나를 받는다", () => {
     expectTypeOf<analysisBarrel.StaleRunFinder["findStaleRuns"]>().parameters.toEqualTypeOf<
-      [{ queuedBefore: string; runningBefore: string; limit: number }]
+      [
+        {
+          queuedBefore: string;
+          runningBefore: string;
+          limit: number;
+          after: { id: string } | null;
+        },
+      ]
     >();
   });
 

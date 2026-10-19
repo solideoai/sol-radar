@@ -11,6 +11,8 @@ export const membershipFailure = (
   switch (status) {
     case "last-owner":
       return "마지막 소유자라 할 수 없습니다. 다른 멤버를 소유자로 바꾼 뒤 다시 시도해 주세요.";
+    case "last-admin":
+      return "마지막 관리자라 할 수 없습니다. 다른 구성원에게 ADMIN 역할을 부여한 뒤 다시 시도해 주세요.";
     case "forbidden":
       return "소유자만 할 수 있습니다. 화면을 새로 고칩니다.";
     case "signed-out":

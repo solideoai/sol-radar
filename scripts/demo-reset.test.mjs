@@ -308,11 +308,11 @@ describe("사전 리뷰·배정·계정", () => {
         .map((department) => department.id),
     );
     const titles = new Set(peopleFixtures.jobTitles.jobTitles.map((title) => title.id));
-    for (const account of DEMO_ACCOUNTS.filter((entry) => entry.org === "org-01")) {
+    // org-02 계정도 신고가 있어야 가입 정보 완료다(04 §3.5). 없으면 S7 격리 장면이 404 대신 403 이 된다.
+    for (const account of DEMO_ACCOUNTS) {
       assert.ok(teams.has(account.departmentCode), account.email);
       assert.ok(titles.has(account.jobTitleCode), account.email);
     }
-    assert.equal(DEMO_ACCOUNTS.at(-1).departmentCode, null);
   });
 
   it("마지막 줄은 10 기동 절차 6 과 글자 그대로 같다", () => {
@@ -1075,6 +1075,10 @@ describe("PGlite 위에서 demo:reset", () => {
     await db.query(
       "update public.bid_notices set title = '바뀐 제목' where notice_id = 'DEMO-2026-0001'",
     );
+    // 예전 seed 가 신고 없이 만든 org-02 계정. 가입 트리거는 다시 돌지 않으므로 seed 가 신고를 다시 맞춰야 한다.
+    await db.query(
+      "update public.profiles set declared_department_id = null, declared_job_title_id = null where email = 'viewer@other.invalid'",
+    );
     const fx02 = before.bids.find((row) => row.notice_id === "DEMO-2026-0002");
     const [fx02Revision] = (
       await db.query("select id from public.bid_revisions where bid_id = $1", [fx02.id])
@@ -1220,6 +1224,22 @@ describe("PGlite 위에서 demo:reset", () => {
     ).rows;
     assert.equal(adminProfile.display_name, "김관리");
     assert.ok(adminProfile.declared_department_id && adminProfile.declared_job_title_id);
+    // 데모 계정 다섯 모두 가입 정보 완료다(부서·직급 신고가 솔리데오 카탈로그 행을 가리킨다). org-02 계정 포함(S7).
+    const declared = (
+      await db.query(
+        "select p.email, d.code as department_code, j.code as job_title_code from public.profiles p left join public.departments d on d.id = p.declared_department_id left join public.job_titles j on j.id = p.declared_job_title_id where p.email = any($1) order by p.email",
+        [DEMO_ACCOUNTS.map((account) => account.email)],
+      )
+    ).rows;
+    assert.deepEqual(
+      declared,
+      DEMO_ACCOUNTS.map(({ email, departmentCode, jobTitleCode }) => ({
+        email,
+        department_code: departmentCode,
+        job_title_code: jobTitleCode,
+      })).sort((a, b) => (a.email < b.email ? -1 : 1)),
+    );
+    assert.ok(declared.every((row) => row.department_code !== null && row.job_title_code !== null));
 
     // RLS: org-02 VIEWER 는 공용 공고 20건은 읽고, org-01 의 프로필·결정·명부·감사는 0행이다.
     const [outsider] = (

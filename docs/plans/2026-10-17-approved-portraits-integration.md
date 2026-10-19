@@ -1,13 +1,16 @@
 ---
 title: "승인된 프로필 사진과 직원 명부 통합 계획"
-status: completed
+status: final
 tags:
   - sol-radar
   - plan
-updated: 2026-10-17
+updated: 2026-10-19
 ---
 
 # 승인된 프로필 사진과 직원 명부 통합 Implementation Plan
+
+> [!success] 보관 (2026-10-19)
+> 이 설계안은 정본에 반영됐다(근거: 커밋 `a05217a` 승인 사진·공통 Avatar 통합, `42a4ead` b3ef → main 병합(2026-10-17), [[16-DECISIONS|16 ADR]] ADR-019 행 "데이터·DB·가입 구현됨", [[PROGRESS|진행 상황]] "b3ef → main 병합 및 재검증 (2026-10-17)" 절, 증거 `evidence/people/20261017-b3ef-main-merge.md`). 수정하지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans. 기존 세 계획의 완료 작업을 반복하지 않는다.
 

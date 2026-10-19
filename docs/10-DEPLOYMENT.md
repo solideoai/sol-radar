@@ -38,7 +38,7 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 |`ai-local`|**노트북**(기본 5개 서비스, gateway 포함) + **회사 GPU 추론 엔드포인트**(회사가 모델 런타임을 HTTPS로 제공, ADR-025). 클라우드 GPU 임대는 비용 승인 뒤만(ADR-010)|Qwen3.5-9B + Kev-9B@v1.0 실제 추론|노트북: 없음. 회사 GPU 서버(회사 운영): 모델 라우터 `model-router`(`infra/compose.gpu.yaml`) + 호스트에 직접 띄우는 vLLM·`kev.serve`|공통 env + `SOL_RUN_MODE=live` 또는 `fixture`, `AI_PROVIDER=local`, `KEV_ENABLED=true`(기본값, `false` 허용), `QWEN_BASE_URL`·`KEV_BASE_URL`(엔드포인트 아래 경로, 아래 env 예시), `QWEN_MODEL=Qwen/Qwen3.5-9B`, `KEV_MODEL_ID=kev-9b-v1.0`, `QWEN_API_KEY`·`KEV_API_KEY`, `AI_FALLBACK_TO_MOCK=false`. `live`면 worker에 서비스키 4개(`G2B_*_SERVICE_KEY`)|노트북: 엔드포인트 `GET /sol-radar/healthz`·`GET /v1/models` 확인 뒤 `docker compose -f infra/compose.yaml up -d --build`(아래 "회사 GPU 추론 엔드포인트"). 회사 GPU 서버 쪽은 회사가 띄운다: `docker compose -f infra/compose.gpu.yaml up -d`(라우터) + vLLM·`kev.serve` 호스트 기동(`infra/gpu/README.md`)|
 |`ai-hosted` (**미구현**)|GPU 없는 환경에서 실모델이 필요할 때|hosted API 호출. **미검증, 비용 발생, 사용자 승인 필요**|없음|설계: 공통 env + `AI_PROVIDER=hosted`, `AI_HOSTED_APPROVED=true`(승인 후만), `HOSTED_API_BASE_URL`, `HOSTED_API_KEY`(placeholder). 지금은 env 예시 파일(`infra/env/`에는 `demo`·`ai-local` 두 개뿐)이 없고 Compose가 `HOSTED_*`를 gateway에 넘기지 않는다. 구현된 것은 승인 게이트(`infra/run-modes.json`·`pnpm check:env`·gateway 기동 거부)뿐이다|없음(미구현)|
 
-- **공통 env**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`(공개 가능, 권한은 RLS가 정함), `SUPABASE_SERVICE_ROLE_KEY`(RLS를 무시하는 비밀. worker·seed 전용), `REDIS_URL`/`REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. `SUPABASE_DB_URL`은 마이그레이션 적용(`pnpm db:push`, 클라우드 DB를 바꾸므로 사용자 확인 뒤에만)과 상태 확인(`pnpm db:verify`)에만 쓴다. 자체 인증 서명 비밀이나 DB 컨테이너 비밀번호 변수는 없다(Auth·DB는 Supabase).
+- **공통 env**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`(공개 가능, 권한은 RLS가 정함. web 전용이라 `web/.env.local`에만 있고 Compose 쪽 `infra/.env`·`compose.yaml`에는 없다), `SUPABASE_SERVICE_ROLE_KEY`(RLS를 무시하는 비밀. worker·seed 전용), `REDIS_URL`/`REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. `SUPABASE_DB_URL`은 마이그레이션 적용(`pnpm db:push`, 클라우드 DB를 바꾸므로 사용자 확인 뒤에만)과 상태 확인(`pnpm db:verify`)에만 쓴다. 자체 인증 서명 비밀이나 DB 컨테이너 비밀번호 변수는 없다(Auth·DB는 Supabase).
 - env 전체 표(`SOL_RUN_MODE`, `AI_GATEWAY_URL`, `AI_TIMEOUT_MS`, `KEV_TIMEOUT_MS`, `KEV_QUESTION_SET`, `KEV_MODEL_ID`, `KEV_ALLOW_KO_STATE`, `AI_FALLBACK_TO_MOCK`, `PARSER_*`, `AI_PROMPT_VERSION` 등)는 [[03-AI-PIPELINE|03 AI 파이프라인]] §3이 원천이다. 여기 표는 프로필별로 달라지는 값만 적었다.
 - `DEMO_MODE=true`면 공식 API connector를 비활성화하고 `fixtures/`만 읽는다. 적재되는 공고는 `is_demo=true`. `DEMO_MODE`는 `SOL_RUN_MODE`에서 파생된다([[07-DATA-PIPELINE|07 수집]]).
 - 프로필 전환은 `infra/.env` 교체와 재기동만으로 끝난다. 코드 변경 없음 ([[16-DECISIONS|16 ADR]] ADR-008).
@@ -50,13 +50,13 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 
 |파일|읽는 쪽|담는 값 (요지)|
 |---|---|---|
-|`infra/.env`|`docker compose -f infra/compose.yaml`의 변수 치환. Compose는 `--project-directory`가 없으면 첫 `-f` 파일의 디렉터리(`infra/`)를 프로젝트 디렉터리로 삼고 거기서 `.env`를 찾는다(https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/, 2026-10-16 확인). 컨테이너에 넘기는 값은 `compose.yaml`의 `environment`가 정한다. 아래는 지금 `compose.yaml`이 넘기는 키만 적었다|`worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `SOL_RUN_MODE`, `DEMO_MODE`, `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`(서비스별 서비스키 4개, `live`만 필수, 서버 전용·로그 금지). worker의 `REDIS_URL`은 Compose가 `REDIS_PASSWORD`로 만들고 `AI_GATEWAY_URL`은 `http://ai-gateway:8000` 고정이다. `redis`·`minio`: 각 비밀번호. `ai-gateway`: `SOL_RUN_MODE`, `DEMO_MODE`, `AI_PROVIDER`, `AI_HOSTED_APPROVED`, `AI_FALLBACK_TO_MOCK`, `KEV_ENABLED`, `KEV_ALLOW_KO_STATE`, `QWEN_BASE_URL`·`QWEN_MODEL`·`QWEN_API_KEY`, `KEV_BASE_URL`·`KEV_MODEL_ID`·`KEV_QUESTION_SET`·`KEV_API_KEY`. 호스트 포트 선택: `REDIS_HOST_PORT`(기본 6380)·`MINIO_HOST_PORT`(9000)·`QDRANT_HOST_PORT`(6333)·`AI_GATEWAY_HOST_PORT`(8000)|
-|`web/.env.local`|Next.js `web/`(템플릿 위치)|`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`, `MINIO_ENDPOINT`(`/health/ready` 의 `checks.storage` 확인용 끝점만. MinIO root 계정은 web 에 넣지 않는다), `AI_GATEWAY_URL`, `DEMO_MODE`, `API_CURSOR_SECRET`(목록 커서 HMAC 키, 32자 이상, [[05-API-SPEC\|05 API]] §3), `SOL_RUN_MODE`(기본 `mock`. Topbar 실행 모드 표시와 `/bids`·`/dashboard/summary`의 `origin` 기본값에 쓴다. web env 예시와 `pnpm check:env`에 등록하고 구현은 C6 B단계, [[16-DECISIONS\|ADR-029]] A6 D2. `infra/.env`의 값과 같게 둔다). **`SUPABASE_SERVICE_ROLE_KEY`와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 넣지 않는다**(요청 처리는 사용자 세션 + RLS, 공공 API 호출은 worker만)|
+|`infra/.env`|`docker compose -f infra/compose.yaml`의 변수 치환. Compose는 `--project-directory`가 없으면 첫 `-f` 파일의 디렉터리(`infra/`)를 프로젝트 디렉터리로 삼고 거기서 `.env`를 찾는다(https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/, 2026-10-16 확인). 컨테이너에 넘기는 값은 `compose.yaml`의 `environment`가 정한다. 아래는 지금 `compose.yaml`이 넘기는 키만 적었다|`worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `SOL_RUN_MODE`, `DEMO_MODE`, `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`(서비스별 서비스키 4개, `live`만 필수, 서버 전용·로그 금지), 선택 `G2B_INGEST_INTERVAL_MINUTES`·`ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(아래). worker의 `REDIS_URL`은 Compose가 `REDIS_PASSWORD`로 만들고 `AI_GATEWAY_URL`은 `http://ai-gateway:8000` 고정이다. `redis`·`minio`: 각 비밀번호. `ai-gateway`: `SOL_RUN_MODE`, `DEMO_MODE`, `AI_PROVIDER`, `AI_HOSTED_APPROVED`, `AI_FALLBACK_TO_MOCK`, `KEV_ENABLED`, `KEV_ALLOW_KO_STATE`, `QWEN_BASE_URL`·`QWEN_MODEL`·`QWEN_API_KEY`, `KEV_BASE_URL`·`KEV_MODEL_ID`·`KEV_QUESTION_SET`·`KEV_API_KEY`. 호스트 포트 선택: `REDIS_HOST_PORT`(기본 6380)·`MINIO_HOST_PORT`(9000)·`QDRANT_HOST_PORT`(6333)·`AI_GATEWAY_HOST_PORT`(8000)|
+|`web/.env.local`|Next.js `web/`(템플릿 위치)|`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`(분석 요청 큐 등록과 속도 제한), `MINIO_ENDPOINT`(`/health/ready` 의 `checks.storage` 확인용 끝점만. MinIO root 계정은 web 에 넣지 않는다), `AI_GATEWAY_URL`, `API_CURSOR_SECRET`(목록 커서 HMAC 키, 32자 이상, [[05-API-SPEC\|05 API]] §3. 아니면 커서 목록 API가 503 `{component:"cursor"}`), `SOL_RUN_MODE`(없으면 `mock`. Topbar 실행 모드 표시와 `/bids`·`/dashboard/summary`의 `origin` 기본값에 쓴다. web env 예시와 `pnpm check:env`에 등록하고 구현은 C6 B단계, [[16-DECISIONS\|ADR-029]] A6 D2. `infra/.env`의 값과 같게 둔다. 다르면 `pnpm check:env`가 `CONTRADICTS_MODE`로 실패한다). `REDIS_URL`의 쓰임·`API_CURSOR_SECRET` 503·`SOL_RUN_MODE` 검사는 C6(브랜치 `c6/screens`) 병합 때부터다([[16-DECISIONS\|ADR-032]] D8). **`SUPABASE_SERVICE_ROLE_KEY`와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 넣지 않는다**(요청 처리는 사용자 세션 + RLS, 공공 API 호출은 worker만)|
 |루트 `.env.local`|`pnpm db:push`·`pnpm db:verify`(템플릿 `scripts/db-push.sh`·`scripts/db-verify.sh`가 `SUPABASE_DB_URL`을 여기서 읽는다), `pnpm demo:reset`|`SUPABASE_DB_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DEMO_SEED_PASSWORD`|
 
 - service role 키와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 절대 넣지 않는다([[09-SECURITY|09 보안]]). 서비스키는 worker의 `OfficialApiConnector`만 읽고, 소스마다 registry `serviceKeyEnv`가 가리키는 키 하나만 쓴다([[07-DATA-PIPELINE|07 수집]] §2.2). gateway에도 넘기지 않는다.
 - `pnpm check:env`는 세 파일의 placeholder를 세고, 실행 모드와 모순된 값(위 "실행 모드와 프로필")이 있으면 실패한다. Phase 0에서 구현했다(`scripts/check-env.mjs`). `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 셸에서 env 만 주어서는 검사되지 않는다.
-- worker의 선택 env `G2B_INGEST_INTERVAL_MINUTES`(일정 수집 주기, 기본 `30`분, 양의 정수, [[07-DATA-PIPELINE|07 수집]] §2.2)와 `ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(멈춘 분석 복구, [[03-AI-PIPELINE|03]] §3)는 지금 `compose.yaml`이 worker에 넘기지 않는다. 그래서 컨테이너에서는 코드 기본값이 쓰이고, 바꾸려면 `compose.yaml`의 worker `environment`에 키를 더해야 한다([[16-DECISIONS|ADR-031]] C12(e)·C13).
+- worker의 선택 env `G2B_INGEST_INTERVAL_MINUTES`(일정 수집 주기, 기본 `30`분, 양의 정수, [[07-DATA-PIPELINE|07 수집]] §2.2)와 `ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(멈춘 분석 복구, [[03-AI-PIPELINE|03]] §3)는 main `4895010`부터 `compose.yaml`이 worker `environment`에 키만 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에 변수가 없어 코드 기본값이 쓰인다(`compose.yaml` 주석, [[16-DECISIONS|ADR-031]] C12(e)·C13).
 
 **Phase 0 확정 사항**: 결정과 이유는 [[16-DECISIONS|ADR-024]] 상세 표가 정본이다(placeholder `CHANGE_ME`·`minioadmin` 금지·Redis 비밀번호 영숫자·MinIO 길이, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 실행 모드 규칙 원천 `infra/run-modes.json`과 빈 문자열은 미지정). 여기에는 운영에 필요한 것만 적는다.
 - gateway 이미지는 `AI_HOST=0.0.0.0`·`SOL_RUN_MODES_FILE=/app/infra/run-modes.json`을 이미지 ENV로 가지고, 저장소 루트를 빌드 컨텍스트로 쓴다(`context: ..`). Compose는 실행 모드 키를 `${VAR:-}`로 넘긴다.
@@ -81,9 +81,6 @@ QWEN_API_KEY=<placeholder>
 KEV_API_KEY=<placeholder>
 KEV_MODEL_ID=kev-9b-v1.0          # services/ai/models/registry.yaml 항목 → jaredpalmer/kev-9b@v1.0
 KEV_QUESTION_SET=kev-qs/v0.2
-PARSER_PDF=<비교 뒤 결정>
-PARSER_HWPX=<비교 뒤 결정>
-PARSER_HWP=<비교 뒤 결정>
 # data.go.kr 서비스키 — 서비스마다 하나씩(ADR-022). worker 전용, live 에서만 필수. 로그 금지
 # 값은 포털의 Encoding 키 그대로. worker 가 decodeURIComponent 로 한 번 디코딩해 Decoding 키로 쓴다(07 §2.2)
 G2B_BID_NOTICE_SERVICE_KEY=<placeholder>       # 입찰공고정보서비스 15129394
@@ -93,7 +90,7 @@ G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 1512946
 ```
 
 - gateway는 `QWEN_API_KEY`·`KEV_API_KEY`를 `Authorization: Bearer`로 보낸다(회사 엔드포인트 뒤 vLLM `--api-key`·`kev.serve` `KEV_API_KEY`와 같은 값). 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다(ADR-025, [[03-AI-PIPELINE|03 AI 파이프라인]] §3).
-- `PARSER_*` 기본값은 실제 RFP 샘플 비교(03 §10.3) 뒤 정한다.
+- `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`는 예정이라 env 예시 파일에 아직 없다. 기본값은 실제 RFP 샘플 비교(03 §10.3) 뒤 정한다.
 - `KEV_ENABLED=true`는 기본값이다. `false`로 두면 Kev 없이 규칙만으로 분석을 끝낸다(`RULES_ONLY`, 분석 `COMPLETED`). `live`·`fixture`·`mock` 모두 허용한다([[16-DECISIONS|ADR-029]] A5).
 
 ### seed
@@ -123,7 +120,7 @@ flowchart LR
   EP -- "location 하나" --> RT["model-router nginx<br/>127.0.0.1:8080 · infra/gpu"]
   RT -- "/sol-radar/qwen/*" --> Q["vLLM Qwen3.5-9B<br/>127.0.0.1:8001"]
   RT -- "/sol-radar/kev/*" --> K["kev.serve Kev-9B<br/>127.0.0.1:8009"]
-  RT -- "/sol-radar/kev-lora/* (E4 평가 전용)" --> KL["kev.serve Kev-9B+LoRA<br/>127.0.0.1:8010"]
+  RT -. "/sol-radar/kev-lora/* (B안 선택, 기본 없음)" .-> KL["kev.serve Kev-9B+LoRA<br/>127.0.0.1:8010 · 기본 띄우지 않음"]
  end
  G -- HTTPS · Bearer 키 --> EP
  E -. HTTPS · Bearer 키 .-> EP
@@ -131,7 +128,7 @@ flowchart LR
 
 - **gateway는 노트북 Compose에 그대로 둔다.** 아키텍처(Worker → gateway → 모델)와 실행 모드(`live`·`fixture`·`mock`)·`AI_PROVIDER=local`은 바뀌지 않는다. 모델 런타임(Qwen은 vLLM, Kev는 `kev.serve`)은 회사 GPU 서버에 있고 회사가 기동한다.
 - **env 이름은 그대로다**: `QWEN_BASE_URL`·`KEV_BASE_URL`·`QWEN_API_KEY`·`KEV_API_KEY`. 값은 엔드포인트 아래 경로와 Bearer 키다(위 env 예시). 경로 `/qwen`·`/kev`는 아래 모델 라우터가 정한 값이라 결정이다. 남은 미확인은 바깥 nginx의 접두어 처리·회사 측 추가 인증 여부·실제 응답이다(아래 콜아웃).
-- **모델 라우터(ADR-025 추가 결정 2026-10-19)**: 회사 nginx는 location 하나(`https://acropolissg.com/sol-radar`)만 등록할 수 있어, GPU 서버 안에 경로 분기용 nginx 라우터를 둔다. 설정은 `infra/gpu/model-router.conf`(`127.0.0.1:8080` 바인딩). `/sol-radar/qwen/<path>` → vLLM `127.0.0.1:8001/<path>`, `/sol-radar/kev/<path>` → `kev.serve` `127.0.0.1:8009/<path>`, E4 평가 기간에만 `/sol-radar/kev-lora/<path>` → 평가 전용 `kev.serve` `127.0.0.1:8010/<path>`([[16-DECISIONS|ADR-027]]). `kev-lora` 경로는 ADR-027로 정한 경로이고 X6e 전에 라우터에 더한다(**아직 미반영**: 지금 `infra/gpu/model-router.conf`에는 `qwen`·`kev` 두 경로만 있다). 데모 gateway는 `/kev`(v1.0)만 쓴다. 바깥 nginx가 `/sol-radar` 접두어를 떼고 넘겨도(`/qwen/…`·`/kev/…`) 같은 곳으로 간다. `/sol-radar/healthz`(인증 없음)는 라우터 자체 확인용으로 `200 ok`, 그 외 404. 인증은 라우터가 아니라 각 런타임이 한다(`Authorization` 헤더 통과, 로그에는 `$uri`만 기록해 키·쿼리를 남기지 않는다).
+- **모델 라우터(ADR-025 추가 결정 2026-10-19)**: 회사 nginx는 location 하나(`https://acropolissg.com/sol-radar`)만 등록할 수 있어, GPU 서버 안에 경로 분기용 nginx 라우터를 둔다. 설정은 `infra/gpu/model-router.conf`(`127.0.0.1:8080` 바인딩). `/sol-radar/qwen/<path>` → vLLM `127.0.0.1:8001/<path>`, `/sol-radar/kev/<path>` → `kev.serve` `127.0.0.1:8009/<path>`, 학습본(E4)은 HTTPS 로 서빙하지 않고 서버 안 오프라인 `kev.benchmark` 채점으로 평가한다([[16-DECISIONS|ADR-027]] 10번 개정, [[23-WEEKEND-FINETUNE|23]] §2.2). 그래서 `infra/gpu/model-router.conf`는 `qwen`·`kev` 두 경로가 전부이고 주말에도 바꾸지 않는다. 지연·`permute` 실측이 꼭 필요할 때만 B안으로 `/sol-radar/kev-lora/<path>` → `127.0.0.1:8010/<path>` 를 우리 라우터에 더한다(회사 nginx 는 그대로). 데모 gateway는 `/kev`(v1.0)만 쓴다. 바깥 nginx가 `/sol-radar` 접두어를 떼고 넘겨도(`/qwen/…`·`/kev/…`) 같은 곳으로 간다. `/sol-radar/healthz`(인증 없음)는 라우터 자체 확인용으로 `200 ok`, 그 외 404. 인증은 라우터가 아니라 각 런타임이 한다(`Authorization` 헤더 통과, 로그에는 `$uri`만 기록해 키·쿼리를 남기지 않는다).
 - **회사 GPU 서버에서 띄우는 것(회사 운영, 인수 문서 `infra/gpu/README.md`)**: 라우터는 `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, 서비스 `model-router` = `nginx:1.27-alpine`, `network_mode: host`, Linux 전용)로 띄우거나 호스트 nginx에 `model-router.conf`를 넣는다. vLLM·`kev.serve`는 아래 명령으로 호스트 `127.0.0.1:8001`·`127.0.0.1:8009`에 직접 띄운다(`--api-key`·`KEV_API_KEY` 필수). 두 런타임의 컨테이너 구성(kev·qwen-runtime)은 빌드 검증 전이라 `compose.gpu.yaml`에 넣지 않았다.
 - **회사 nginx에 요청할 설정**: `location /sol-radar/ { proxy_pass http://127.0.0.1:8080; }` + `Authorization` 헤더 통과, `proxy_read_timeout 300s`(기본 60s면 긴 RFP 추출이 504), `client_max_body_size 20m`(기본 1m면 첨부 본문을 담은 추출 요청이 413), `proxy_buffering off`. 전체 블록은 `infra/gpu/README.md`.
 - **운영 책임**: 모델 런타임 기동, GPU 메모리 배분, 가중치 sha256 대조, `nvidia-smi` 실측은 회사 측이 한다. 우리는 하지 않는다. 우리가 하는 검증은 gateway 기동 시 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`와 vLLM `GET /v1/models`의 모델 이름을 레지스트리(`services/ai/models/registry.yaml`)와 대조하는 것([[03-AI-PIPELINE|03 AI 파이프라인]] §11)과 지연 실측(03 §5.9 G3)이다.
@@ -264,6 +261,11 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/mode
 ## 운영
 - Compose 서비스: healthcheck, restart policy, log rotation, 비root 실행(MinIO UID 65532, qdrant `-unprivileged` 태그), 포트는 외부 인터페이스에 열지 않는다, 볼륨(redisdata·qdrantdata·miniodata) 백업 및 복구 리허설. 서비스 시작 시 Supabase·Redis readiness 확인, 무한 재시작 대신 명확한 오류 출력.
 - 마이그레이션 선행: 새 마이그레이션은 `supabase/migrations/`에 새 파일로만 더하고, `pnpm db:push`(클라우드 DB를 바꾸므로 사용자 확인 뒤에만)로 적용한 뒤 `pnpm db:verify`로 확인하고 나서 worker·web을 새 코드로 띄운다. 타입 생성물은 `pnpm db:types`.
+- 클라우드 `pnpm db:push` 전 멱등 키 사전 질의([[16-DECISIONS|ADR-032]] D3): 마이그레이션 `20261019000011`의 check `score_runs_idempotency_key_org_check`는 `NOT VALID`로 걸려 있다. push 전에 아래 질의를 돌리고 0행일 때만 적용한다.
+  - 질의: `select status, count(*) from public.score_runs where idempotency_key is not null and not starts_with(idempotency_key, org_id::text || ':') group by status;`
+  - 상태와 상관없이 확인한다. `score_runs`의 FK 두 개(`extraction_id`·`requested_by`)가 `on delete set null`이라, 끝난 행도 부모가 지워질 때 UPDATE되어 check 위반(23514)이 날 수 있다.
+  - 행이 나오면 정리한 뒤 `validate constraint`를 새 마이그레이션으로 둔다(번호는 조정 세션 e8이 배정한다). 0행이면 validate는 필요 없다. `NOT VALID`여도 새로 쓰는 행은 검사된다.
+  - 클라우드 `pnpm db:push`는 C6 마이그레이션(`20261019000012`)이 main에 들어온 뒤 한 번에 한다(병합 게이트 3e 권고).
 - DB 백업·복구는 Supabase가 관리한다. 플랜별 백업 주기·보존 기간·PITR 여부는 **미검증**이다. Supabase 대시보드에서 확인해 이 절에 기록한다.
 - HTTPS reverse proxy·웹 배포처는 미결정(ADR-017 미결정 표).
 - 운영 모델 교체(Kev LoRA 등)는 레지스트리 항목 추가 → 가중치 sha256 대조(회사)·gateway 대조 통과 → ADR 순서로 한다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).

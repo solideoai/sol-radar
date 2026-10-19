@@ -1,14 +1,17 @@
 ---
 title: "솔리데오 가상 인력 구현 계획 1 — 카탈로그·200명 명부"
-status: completed
+status: final
 tags:
   - sol-radar
   - plan
   - people
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 
 # 솔리데오 카탈로그·200명 명부 Implementation Plan
+
+> [!success] 보관 (2026-10-19)
+> 이 설계안은 정본에 반영됐다(근거: 커밋 `3354927` 조직도 카탈로그 추출, `b75e785` 가상 200명 명부 생성, `d0ad8ab` 명부·카탈로그 검증, main 병합 `42a4ead`(2026-10-17), [[PROGRESS|진행 상황]] 솔리데오 절 "카탈로그·명부 생성" 항목, 증거 `evidence/people/20261016-people-data.json`). 수정하지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

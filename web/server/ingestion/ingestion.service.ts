@@ -50,6 +50,8 @@ export type IdFor = (
 export type SavedBidRevision = {
   bidId: string;
   revisionId: string;
+  /** 저장한 revision 행의 created_at(DB timestamptz 문자열). documents jobId 를 만든다(C1') */
+  revisionCreatedAt: string;
   noticeId: string;
   kind: "CREATED" | "CHANGED" | "CANCELLED";
   reanalyze: boolean;
@@ -214,6 +216,7 @@ async function ingestRecord(
       {
         bidId: stored.bidId,
         revisionId: stored.revisionId,
+        revisionCreatedAt: stored.revisionCreatedAt,
         noticeId: decision.bid.noticeId,
         kind: decision.kind,
         reanalyze: decision.reanalyze,

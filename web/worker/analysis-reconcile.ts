@@ -6,11 +6,15 @@ import {
   type AnalysisJobData,
   type AnalysisRunTracker,
   type StaleRun,
+  type StaleRunCursor,
   type StaleRunFinder,
 } from "@/server/analysis";
+import { errorNameOf } from "@/worker/error-name";
 
 // ── 멈춘 run 복구: 오래 QUEUED·RUNNING 으로 남은 score_runs 를 찾아 job 상태로 판정한다(docs/02 "job 유실 없음") ──
-// job 이 Redis 에 없으면(worker 가 죽었거나 enqueue 가 빠졌다) 같은 jobId 로 다시 넣고,
+// RUNNING run 의 job 이 Redis 에 없으면(worker 가 죽었다) 같은 jobId 로 다시 넣는다. RUNNING 은 worker 만 쓴다.
+// QUEUED run 의 job 이 없으면 다시 넣지 않고 FAILED(STALE_RUN)로 닫는다. 화면 역할이 PostgREST 로 직접 넣은 QUEUED 행이
+// Route Handler 의 속도 제한을 건너 큐에 들어가지 않게 한다(C5-B 보안 후속 1). 정상 경로의 enqueue 실패는 C6 가 ENQUEUE_FAILED 로 닫는다.
 // 시도를 다 썼거나 처리가 끝난 job 이면 FAILED(STALE_RUN)로 닫는다. 진행 중인 job 은 건드리지 않는다.
 // 로그에는 식별자·상태·동작·오류 이름만 싣는다. idempotencyKey(requestId)·오류 message 는 싣지 않는다.
 
@@ -28,6 +32,8 @@ const INTERVAL_KEY = "ANALYSIS_RECONCILE_INTERVAL_MS";
 const DEFAULT_STALE_MS = 600_000;
 const DEFAULT_INTERVAL_MS = 60_000;
 const BATCH_LIMIT = 50;
+/** 한 회차가 이어 읽는 페이지 수 상한(batchLimit 50 이면 1000건). 넘는 run 은 다음 회차가 처음부터 다시 읽는다. */
+const MAX_PAGES = 20;
 const MIN_MS = 1;
 const MAX_MS = 3_600_000;
 const DECIMAL_INTEGER = /^[0-9]+$/;
@@ -100,10 +106,6 @@ const FINISHED_STATES: readonly string[] = ["failed", "completed"];
 
 const STALE_RUN_ERROR = "STALE_RUN";
 
-function errorNameOf(error: unknown): string {
-  return error instanceof Error ? error.name : "UnknownError";
-}
-
 type Step = "getJobState" | "add" | "markFailed";
 
 type RunResult =
@@ -127,6 +129,7 @@ async function reconcileRun(
   // 진행 중인 job 은 idempotencyKey 와 상관없이 그대로 둔다(처리 중인 run 을 FAILED 로 닫지 않는다).
   if (IN_FLIGHT_STATES.includes(state)) return { ok: true, jobState: state, action: "KEEP" };
 
+  // 찾은 상태(status·started_at 원문)가 그대로일 때만 닫는다. 찾은 뒤 worker 가 다시 잡은 run 은 0행이다.
   const markStale = async (): Promise<RunResult> => {
     try {
       await deps.tracker.markFailed({
@@ -134,6 +137,7 @@ async function reconcileRun(
         scoreRunId: run.scoreRunId,
         errorCode: STALE_RUN_ERROR,
         finishedAt,
+        expected: { status: run.status, startedAt: run.startedAt },
       });
       return { ok: true, jobState: state, action: "FAIL" };
     } catch (error) {
@@ -144,7 +148,10 @@ async function reconcileRun(
   if (FINISHED_STATES.includes(state)) return markStale();
   if (state !== "unknown") return { ok: true, jobState: state, action: "KEEP" };
 
-  // job 이 Redis 에 없다. 다시 넣을 데이터를 C6 와 같은 계약으로 만들 수 없으면 닫는다.
+  // job 이 Redis 에 없다. QUEUED 는 누가 넣었는지 모르므로(속도 제한 우회) 다시 넣지 않고 닫는다.
+  if (run.status === "QUEUED") return markStale();
+
+  // RUNNING 이다. 다시 넣을 데이터를 C6 와 같은 계약으로 만들 수 없으면 닫는다.
   const parsed = analysisJobDataSchema.safeParse({
     orgId: run.orgId,
     scoreRunId: run.scoreRunId,
@@ -159,42 +166,62 @@ async function reconcileRun(
   }
 }
 
-/** 한 번 돈다. run 하나의 처리 실패는 그 run 만 건너뛰고(로그) 나머지를 계속한다. finder 실패는 던진다. */
+/** run 하나를 처리하고 결과 줄을 남긴다. 실패하면 null 이다. */
+async function reconcileAndLog(
+  deps: ReconcileDeps,
+  run: StaleRun,
+  finishedAt: string,
+): Promise<ReconcileAction | null> {
+  const result = await reconcileRun(deps, run, finishedAt);
+  const base = { event: "analysis.reconcile", orgId: run.orgId, scoreRunId: run.scoreRunId };
+  if (result.ok) {
+    deps.log(JSON.stringify({ ...base, jobState: result.jobState, action: result.action }));
+    return result.action;
+  }
+  deps.log(
+    JSON.stringify({
+      ...base,
+      jobState: result.jobState,
+      action: "ERROR",
+      step: result.step,
+      errorName: result.errorName,
+    }),
+  );
+  return null;
+}
+
+/**
+ * 한 번 돈다. id 순 keyset 페이지를 이어 읽어(최대 MAX_PAGES) 앞 페이지가 모두 진행 중이어도 뒤 run 에 닿는다.
+ * run 하나의 처리 실패는 그 run 만 건너뛰고(로그) 나머지를 계속한다. finder 실패는 던진다.
+ */
 export async function reconcileOnce(deps: ReconcileDeps): Promise<ReconcileSummary> {
   const now = deps.now().getTime();
   const { staleQueuedMs, staleRunningMs, batchLimit } = deps.settings;
-  const runs = await deps.finder.findStaleRuns({
+  // 한 회차의 모든 페이지는 같은 기준 시각으로 읽는다.
+  const staleWindow = {
     queuedBefore: new Date(now - staleQueuedMs).toISOString(),
     runningBefore: new Date(now - staleRunningMs).toISOString(),
     limit: batchLimit,
-  });
+  };
   const finishedAt = new Date(now).toISOString();
 
-  // 순서대로 하나씩 처리한다. 같은 회차 안에서 Redis·DB 에 몰아 보내지 않는다.
   const actions: (ReconcileAction | null)[] = [];
-  for (const run of runs) {
-    const result = await reconcileRun(deps, run, finishedAt);
-    const base = { event: "analysis.reconcile", orgId: run.orgId, scoreRunId: run.scoreRunId };
-    if (result.ok) {
-      deps.log(JSON.stringify({ ...base, jobState: result.jobState, action: result.action }));
-      actions.push(result.action);
-    } else {
-      deps.log(
-        JSON.stringify({
-          ...base,
-          jobState: result.jobState,
-          action: "ERROR",
-          step: result.step,
-          errorName: result.errorName,
-        }),
-      );
-      actions.push(null);
+  let after: StaleRunCursor | null = null;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const runs = await deps.finder.findStaleRuns({ ...staleWindow, after });
+    // 순서대로 하나씩 처리한다. 같은 회차 안에서 Redis·DB 에 몰아 보내지 않는다.
+    for (const run of runs) {
+      actions.push(await reconcileAndLog(deps, run, finishedAt));
     }
+    const last = runs.at(-1);
+    if (runs.length < batchLimit || last === undefined) break;
+    // id 는 겹치지 않아 같은 run 이 다음 페이지에 다시 나오지 않는다.
+    after = { id: last.scoreRunId };
   }
 
   const count = (action: ReconcileAction) => actions.filter((item) => item === action).length;
   const summary: ReconcileSummary = {
-    checked: runs.length,
+    checked: actions.length,
     requeued: count("REQUEUE"),
     failed: count("FAIL"),
     inFlight: count("KEEP"),

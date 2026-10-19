@@ -84,8 +84,9 @@ E2E 브라우저 설치는 하지 않습니다. 브라우저가 없으면 E2E �
   `scripts/template/` 의 시험은 새 프로젝트로 복사하지 않습니다. 제품의 README·문서는 제품이 고쳐 쓰기 때문입니다.
 - **스크립트 단위 시험(템플릿 원본에만)** — `scripts/` 의 도구 하나하나를 시험하는 파일(doctor·토큰·색·DB 타입 생성기·가드 훅·배포 검사 등)과
   게이트를 임시 저장소에서 돌려 보는 시험(커밋 게이트·커밋 메시지·CI 필수 검사·CI 커밋 검사)도 `scripts/template/` 에 있어 새 프로젝트로 가지 않습니다.
-  새 프로젝트의 `pnpm test` 는 `scripts/` 바로 아래의 시험만 돕니다: DB 정책 시험(`scripts/database.test.mjs`), 게이트가 약해지지 않았는지 보는 시험(`scripts/gate-integrity.test.mjs`),
-  push 전 검사 시험(`scripts/pre-push.test.mjs`), 시드 시험(`scripts/db-seed.test.mjs`).
+  이 저장소의 `pnpm test`(`node --test "scripts/**/*.test.mjs"`)가 도는 시험은 2026-10-19 기준 18개입니다. `scripts/` 바로 아래 10개:
+  `check-commits`·`check-env`·`database`(DB 정책)·`db-seed`(시드)·`demo-bids`·`demo-people`·`demo-reset`·`gate-integrity`(게이트가 약해지지 않았는지)·`local-test-target`·`pre-push`(push 전 검사)의 `.test.mjs`.
+  `scripts/people/` 8개: `allocation`·`approved-portraits`·`availability`·`departments`·`names`·`portraits`·`seed`·`workbook`의 `.test.mjs`.
   새 프로젝트에서 `scripts/` 의 도구나 `.husky/` 의 게이트를 고칠 때는 그 시험을 템플릿 원본에서 가져와 함께 고칩니다.
 - **게이트 파일 편집 금지** — 클로드는 검증이 기대는 파일을 고치지 못합니다(`.claude/settings.json` 의 `deny`):
   `.husky/`, `.claude/settings*.json`·`.claude/hooks/`, `.github/`, `web/lodestar.config.*`. 검사를 고쳐 초록불을 만드는 길을 막기 위해서이고,

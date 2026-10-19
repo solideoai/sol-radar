@@ -7,6 +7,12 @@ import type { GatewayHealth, GatewayResult } from "./gateway.model";
 // 화면 쪽은 worker 를 import 할 수 없으므로 큐 이름·job 데이터·옵션·jobId 는 도메인에 둔다.
 // gateway·큐·DB 는 부르지 않는다. 읽기·상태 port 의 구현(Supabase)은 라운드 B 다.
 
+/**
+ * 결과 저장(finish_score_run)이 SCORE_RUN_NOT_RUNNING 으로 거절했을 때 저장 port 가 던지는 오류 message.
+ * 다른 시도가 이미 끝냈거나 다시 잡은 run 이다. 저장 port(analysis.repo)가 만들고 worker 가 이것으로 영구 실패를 가른다.
+ */
+export const FINISH_NOT_RUNNING_MESSAGE = "analysis store 오류: score_runs.finish NOT_RUNNING";
+
 export const ANALYSIS_QUEUE = "analysis";
 export const ANALYSIS_JOB = "analyze";
 
@@ -25,16 +31,29 @@ export function requestIdOf(data: { orgId: string; idempotencyKey: string }): st
 
 const uuid = z.uuid();
 
+/**
+ * requestId 형식(낮음 (b)). C6 Idempotency-Key(UUID·없으면 randomUUID)와 demo:preanalyze 키(`demo-pre-FX-01-r01`)가 맞는다.
+ * 로그·jobId·필터 문자열에 섞여도 줄·구분자를 깨지 않게 영문·숫자·`_`·`-` 128자까지만 받는다.
+ * 그래서 키 전체 길이 상한은 uuid 36 + ':' + 128 = 165자이고, 따로 max 를 두지 않는다(같은 거절이 두 번 나오지 않게).
+ */
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+function hasValidRequestId(data: { orgId: string; idempotencyKey: string }): boolean {
+  const requestId = requestIdOf(data);
+  return requestId !== null && REQUEST_ID_PATTERN.test(requestId);
+}
+
 /** job payload(e8 판정 1). 공고·프로필 값은 싣지 않는다. worker 는 scoreRunId 행을 읽어 입력을 모은다. */
 export const analysisJobDataSchema = z
-  .object({ orgId: uuid, scoreRunId: uuid, idempotencyKey: z.string().min(1).max(300) })
+  .object({ orgId: uuid, scoreRunId: uuid, idempotencyKey: z.string().min(1) })
   .superRefine((data, ctx) => {
     // 다른 조직 접두어의 키로 남의 run 을 가리키지 못하게 한다. 메시지에 값을 싣지 않는다.
-    if (requestIdOf(data) === null) {
+    if (!hasValidRequestId(data)) {
       ctx.addIssue({
         code: "custom",
         path: ["idempotencyKey"],
-        message: "idempotencyKey 는 `${orgId}:${requestId}` 형식이어야 한다",
+        message:
+          "idempotencyKey 는 `${orgId}:${requestId}` 형식이고 requestId 는 영문·숫자·_·- 128자 이하여야 한다",
       });
     }
   });
@@ -92,7 +111,28 @@ export type LoadedAnalysisContext = Pick<
   /** score_runs.idempotency_key */
   idempotencyKey: string | null;
   status: ScoreRunStatus;
+  /**
+   * score_runs.started_at 을 PostgREST 가 준 문자열 그대로(마이크로초·오프셋 포함). QUEUED 면 null 이다.
+   * run 잡기·닫기의 쓰기 조건이라 Date 로 바꾸지 않는다(바꾸면 마이크로초가 버려져 조건이 맞지 않는다).
+   */
+  startedAt: string | null;
 };
+
+/** 읽은 시점의 run 상태. markRunning·markFailed 가 쓰기 조건(compare-and-set)으로 건다. */
+export type RunClaim = { status: "QUEUED" | "RUNNING"; startedAt: string | null };
+
+/**
+ * markRunning 이 쓸 started_at(시도 식별자). 앞 시도의 started_at(원문)이 없으면 now 이고, 있으면
+ * max(now, 앞 값의 밀리초 + 1ms) 다. 새 식별자는 앞 식별자보다 늘 커서 같은 밀리초에 다시 잡아도 값이 겹치지 않는다.
+ * 앞 값은 마이크로초까지 올 수 있다. Date.parse 가 밀리초 아래를 버리므로 그 값 + 1ms 는 원문보다 늘 늦다.
+ */
+export function nextAttemptStartedAt(now: Date, previous: string | null): string {
+  if (previous === null) return now.toISOString();
+  const previousMs = Date.parse(previous);
+  // DB 의 timestamptz 원문이라 읽지 못하면 안 된다. 값은 싣지 않는다.
+  if (Number.isNaN(previousMs)) throw new Error("analysis 오류: started_at INVALID");
+  return new Date(Math.max(now.getTime(), previousMs + 1)).toISOString();
+}
 
 /** 캐시 추출 재사용 키의 모델 쪽(03 §2.1). gateway /health 의 qwen. 모르면 null(→ loader 는 그 revision 의 가장 최근 성공 행). */
 export type ExtractionCacheKey = { modelName: string; promptHash: string } | null;
@@ -105,20 +145,30 @@ export type AnalysisContextLoader = {
   ): Promise<LoadedAnalysisContext | null>;
 };
 
-/** score_runs 상태 port. 결과 저장(COMPLETED·PARTIAL)은 AnalysisRunSink 가 한다. */
+/**
+ * score_runs 상태 port. 결과 저장(COMPLETED·PARTIAL)은 AnalysisRunSink 가 한다.
+ * 잡기·닫기는 compare-and-set 이다. 읽은 시점의 상태(expected)가 그대로일 때만 바꾸고, 그 사이 다른 시도가 잡았거나 끝냈으면 0행이다.
+ */
 export type AnalysisRunTracker = {
+  /** 이 시도가 run 을 잡았으면(1행) true, 0행이면 false 다. */
   markRunning(input: {
     orgId: string;
     scoreRunId: string;
     runMode: RunMode;
     aiProvider: AiProvider;
     startedAt: string;
-  }): Promise<void>;
+    expected: RunClaim;
+  }): Promise<boolean>;
+  /**
+   * expected 상태의 run 만 닫는다. markRunning 뒤 영구 실패면 이 시도가 잡은 상태(RUNNING·이 시도의 started_at),
+   * 그 전이면 읽은 상태, 복구면 찾은 상태다. 0행은 오류가 아니다.
+   */
   markFailed(input: {
     orgId: string;
     scoreRunId: string;
     errorCode: string;
     finishedAt: string;
+    expected: RunClaim;
   }): Promise<void>;
 };
 
@@ -128,18 +178,25 @@ export type StaleRun = {
   scoreRunId: string;
   idempotencyKey: string | null;
   status: "QUEUED" | "RUNNING";
+  /** started_at 원문(QUEUED 면 null). 닫을 때 markFailed 의 쓰기 조건으로 쓴다. */
+  startedAt: string | null;
 };
+
+/** keyset 페이지 커서: 앞 페이지 마지막 run 의 id(scoreRunId). */
+export type StaleRunCursor = { id: string };
 
 /** 멈춘 run 찾기 port. 복구는 운영 작업이라 모든 조직을 본다. 처리할 때는 행의 orgId 를 그대로 쓴다. */
 export type StaleRunFinder = {
   /**
    * status=QUEUED 이고 queued_at < queuedBefore, 또는 status=RUNNING 이고 started_at < runningBefore 인 run.
-   * 오래된 순, 최대 limit 건. 두 시각은 Date.toISOString 결과만 받는다(값이 필터 문자열에 그대로 들어간다).
+   * id 오름차순, 최대 limit 건. after 가 있으면 id 가 after.id 보다 큰 run 만 고른다(첫 페이지는 null).
+   * 시각은 Date.toISOString 결과만, after.id 는 uuid 만 받는다(값이 필터 문자열에 그대로 들어간다).
    */
   findStaleRuns(input: {
     queuedBefore: string;
     runningBefore: string;
     limit: number;
+    after: StaleRunCursor | null;
   }): Promise<StaleRun[]>;
 };
 

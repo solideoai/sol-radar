@@ -85,7 +85,7 @@ describe("monthlyTotal", () => {
   DB 정책 시험(`scripts/database.test.mjs`)만 돌리려면 `pnpm test:db`.
 - DB 정책 시험은 PGlite 에 실제 마이그레이션을 적용한다. Supabase Auth HTTP 서비스 자체를 재현하지는 않는다. 흉내의 범위와 넓히는 법은 `database` 스킬에 있다.
 - 새 표의 정책을 만들었으면 "남의 행이 안 보인다"는 시험을 `scripts/database.test.mjs` 에 함께 더한다.
-- `pnpm -C web build && pnpm -C web test:e2e`: 프로덕션 서버의 첫 화면·404와 공개 경로의 가로 넘침(`e2e/responsive.spec.ts`)을 데스크톱(chromium) 프로젝트로 검사하고, 이어서 부품 레이아웃 시험(`test:browser`)을 돌린다. 첫 실행은 `pnpm -C web exec playwright install chromium`이 필요하다.
+- `pnpm -C web build && pnpm -C web test:e2e`: 프로덕션 서버의 첫 화면·404와 공개 경로의 가로 넘침(`e2e/responsive.spec.ts`, 1280·1440px. 새 공개 경로는 그 목록에 더한다)을 데스크톱(chromium) 프로젝트로 검사하고, 이어서 부품 레이아웃 시험(`test:browser`)을 돌린다. 첫 실행은 `pnpm -C web exec playwright install chromium`이 필요하다.
 - `pnpm -C web build && pnpm -C web test:e2e:auth`: 로그인 뒤 E2E(`web/e2e-auth/`, 설정 `web/playwright.auth.config.ts`). 로컬 Supabase 에 시드(`pnpm db:seed`)를 다시 넣고 시드 계정으로 로그인해 돈다.
   로컬 Supabase 가 있어야 해서 `verify`·커밋 게이트·CI 에는 없다. 로그인 뒤 화면을 바꿨으면 직접 돌린다. 시험은 한 번의 시드 위에서 서로의 단언을 깨지 않게 쓴다.
 - 화면에 시험용 경로를 만들지 않는다. 부품 하나의 레이아웃(위치·크기·스크롤)을 재야 하면 부품 옆에 `<부품>.browser.test.tsx` 를 둔다(`components/ui/dialog.browser.test.tsx`).
