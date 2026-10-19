@@ -14,7 +14,7 @@ updated: 2026-10-19
 > [!tip] 심사 포인트
 > "어떻게 검증했나"에 파일 단위로 답한다. 골든 시나리오 `G1`~`G8`과 계약 수용 기준 `G9`·`G10`은 각각 fixture ID·테스트 파일·실행 명령·증거 파일로 묶여 있고(§3), 데모 당일은 §5 체크리스트를 순서대로 통과한 기록이 `docs/evidence/`에 남는다(§6). 통과하지 못한 항목은 통과한 것처럼 적지 않는다. `S1`~`S7`은 [[19-DEMO-SCENARIO|19 데모 시나리오]]의 장면 번호다.
 >
-> 골든은 `SOL_RUN_MODE=mock`(`AI_PROVIDER=mock`) 회귀 시험으로만 단언한다. `live`·`fixture` 모드의 실모델 결과는 골든 대상이 아니고, 모델이 얼마나 맞히는지는 [[21-MODEL-TRAINING|21 모델 학습]]의 평가 체계가 잰다([[16-DECISIONS|ADR-020]], 이 문서 §3.4). 평가 비교 대상은 `E0`~`E4`(21 §4.2)로 부르며 데모 장면 번호 `S0`~`S7`과 다르다.
+> 골든을 단언하는 실행 모드는 §3에 정한다. 실모델이 얼마나 맞히는지는 [[21-MODEL-TRAINING|21 모델 학습]]의 평가 체계가 잰다(§3.4). 평가 비교 대상은 `E0`~`E4`(21 §4.2)로 부르며 데모 장면 번호 `S0`~`S7`과 다르다.
 
 ## 1. 자동 테스트 매트릭스
 
@@ -52,8 +52,8 @@ bash infra/smoke.sh                               # compose ps + health + 큐 �
 위 자동 시험은 모두 `SOL_RUN_MODE=mock`으로 돌고 실제 공공 API·회사 GPU 추론 엔드포인트를 부르지 않는다. 공공 API 응답은 저장한 응답을 재생하는 `RecordedApiConnector`로, 첨부는 `FixtureAttachmentFetcher`로, 모델은 mock `ModelClient`로 대신한다. 실제 외부 의존성 확인은 §3.3, 모델 측정은 §3.4에서 따로 한다.
 
 > [!warning] 미검증 가정
-> - 템플릿의 `pnpm -C web test:e2e:auth`는 로컬 Supabase(`pnpm db:start`)와 템플릿 시드 `scripts/db-seed.mjs`(로컬 전용)를 전제로 한다. SOL RADAR 데모 seed(`pnpm demo:reset`)와 Supabase 클라우드 개발 프로젝트에서 로그인 뒤 E2E를 어떻게 돌릴지는 Phase 1에서 정한다.
-> - `services/ai` pytest는 `verify.config.json`의 `ai` 프로젝트로 등록돼 `pnpm verify`가 돌린다(`uv` 필요, Phase 0). `infra/smoke.sh`는 Docker가 필요해 `pnpm verify` 밖에서 수동으로 돌린다. CI(GitHub Actions)의 `astral-sh/setup-uv` 단계는 계정 결제 한도로 아직 실행되지 못했다([[PROGRESS]]).
+> - 템플릿의 `pnpm -C web test:e2e:auth`는 로컬 Supabase(`pnpm db:start`)와 템플릿 시드 `scripts/db-seed.mjs`(로컬 전용)를 전제로 한다. SOL RADAR 데모 seed(`pnpm demo:reset`)와 Supabase 클라우드 개발 프로젝트에서 로그인 뒤 E2E를 어떻게 돌릴지는 C6에서 정한다(G5 `e2e-auth` 겹이 C6이다, [[PROGRESS]]).
+> - `services/ai` pytest는 `verify.config.json`의 `ai` 프로젝트로 등록돼 `pnpm verify`가 돌린다(`uv` 필요, Phase 0). `infra/smoke.sh`는 Docker가 필요해 `pnpm verify` 밖에서 수동으로 돌린다. CI(GitHub Actions)의 `astral-sh/setup-uv` 단계는 실행 확인 전이다([[PROGRESS]]).
 
 CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌리고, 위 명령 중 어느 하나라도 실패하면 Phase 완료로 보고하지 않는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
 
@@ -61,9 +61,9 @@ CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌�
 
 골든 G1~G10은 `SOL_RUN_MODE=mock`에서만 단언한다. `fixture` 모드는 같은 fixture를 쓰지만 실모델(Qwen3.5-9B·Kev-9B) 추출·분포가 mock과 다를 수 있으므로 골든 수치(`FX-01` 94·`FX-02` 72·`FX-03` 68, Kev 71/24/5·36/52/12)를 단언하지 않는다([[16-DECISIONS|ADR-020]]).
 
-fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 **예정**이며 Phase 1~6에서 만든다. 경로는 저장소 루트 기준이고, Vitest 서버 시험은 템플릿 관례대로 `.test.ts`, Playwright E2E는 `.spec.ts`다. 명령 열의 `vitest <경로>`는 `pnpm -C web exec vitest run <경로>`의 줄임, `e2e:auth`는 `pnpm -C web test:e2e:auth`의 줄임이다. 증거 열은 §6의 저장 위치.
+fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~6에서 만든다. 2026-10-19 기준 있는 파일은 G3·G4의 `web/server/scoring/*.test.ts`(C4)와 G5의 `scripts/database.test.mjs`(C2, RLS 정책 겹)이고, 나머지 경로는 **예정**이다. 경로는 저장소 루트 기준이고, Vitest 서버 시험은 템플릿 관례대로 `.test.ts`, Playwright E2E는 `.spec.ts`다. 명령 열의 `vitest <경로>`는 `pnpm -C web exec vitest run <경로>`의 줄임, `e2e:auth`는 `pnpm -C web test:e2e:auth`의 줄임이다. 증거 열은 §6의 저장 위치.
 
-| # | 시나리오 | fixture | 테스트 파일 (예정) | 명령 | 통과 기준 | 증거 |
+| # | 시나리오 | fixture | 테스트 파일 | 명령 | 통과 기준 | 증거 |
 |---|---|---|---|---|---|---|
 | G1 | 같은 공고 2회 수집 → bid 1건, revision 1, 이벤트 0 | `FX-09` (+`FX-10` 차수) | `web/server/ingestion/idempotent-upsert.test.ts` | `pnpm -C web exec vitest run server/ingestion` | `bid_notices` 1행, `bid_revisions` 1행, `notifications` 추가 0 | `phase-2/test-ingestion.txt` |
 | G2 | 마감일 변경 → revision diff 저장, 알림 정확히 1건 | `FX-06` (+`FX-07` 예산·요구사항) | `web/server/ingestion/revision-diff.test.ts`, `web/server/notifications/outbox-dedupe.test.ts` | 위와 동일 + `vitest server/notifications` | revision 2, diff에 `deadlineAt` 전/후, `BID_CHANGED` 1건, 재전송해도 1건 | `phase-2/test-ingestion.txt`, `phase-6/test-notifications.txt` |
@@ -73,7 +73,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 | G6 | Kev/Qwen 장애 → PARTIAL + 규칙만, 사용자에게 설명 | `FX-01` + 테스트 전용 장애 주입(`AI_FAULT_INJECT` 또는 장애 fixture) | `web/server/analysis/ai-fallback.test.ts`, `services/ai/tests/test_gateway_fallback.py`, `web/e2e-auth/partial-analysis.spec.ts` | `vitest server/analysis`, `pytest`, `e2e:auth` | `status=PARTIAL`, `recommendationBasis=RULES_ONLY`, `reviewFlags` 포함 `AI_UNAVAILABLE`, 점수·자격 존재, 배너 문구가 09 고지와 일치 | `phase-5/ai-fallback.txt`, `phase-5/e2e/partial.png` |
 | G7 | API 429 → 지수 재시도 후 성공, 체크포인트 복구 | `FX-20` | `web/server/ingestion/rate-limit-retry.test.ts` | `vitest server/ingestion` | 재시도 2회 로그, `Retry-After` 대기 준수, `ingest_runs.cursor` 복구, 적재 1건 | `phase-2/ingest-run-FX-20.json` |
 | G8 | 가상 DEMO 데이터는 가상 표시, 실제 모드와 혼동 없음 | 전체 (`FX-01` 대표) | `web/server/bids/demo-flag.test.ts`, `web/e2e-auth/demo-badge.spec.ts` | `vitest server/bids`, `e2e:auth` | 모든 응답 `isDemo=true`, 목록·상세·Topbar에 `DEMO` 배지, `DEMO_MODE=false`에서 fixture 미적재 | `phase-3/e2e/demo-badge.png` |
-| G9 | AI 파이프라인 수용 기준 전체 ([[03-AI-PIPELINE\|03 AI 파이프라인]] §9) | `fixtures/extractions/FX-01·02·03·04·05·13`, `fixtures/kev/*` | `services/ai/tests/test_extraction_schema.py`, `test_citation_verify.py`, `test_kev_adapter.py`, `test_gateway_fallback.py` | `pytest` | 03 §9의 각 항목 통과. 인용 검증 실패(`FX-13`) → `CONFLICTED`, 파싱 실패(`FX-05`) → `PENDING_REVIEW`, Kev 질문 4종 스키마 일치 | `phase-5/test-ai.txt` |
+| G9 | AI 파이프라인 수용 기준 전체 ([[03-AI-PIPELINE\|03 AI 파이프라인]] §9) | `fixtures/extractions/FX-01·02·03·04·05·13`, `fixtures/kev/*` | `services/ai/tests/test_extraction_schema.py`, `test_citation_verify.py`, `test_kev_adapter.py`, `test_gateway_fallback.py` | `pytest` | 03 §9의 각 항목 통과. 인용 검증 실패(`FX-13`) → 해당 필드 `UNKNOWN` + `note="CITATION_FAILED"`, 실패 인용 `match=FAILED`, `warnings`에 `CITATION_FAILED:qualifications`(`CONFLICTED` 아님, [[16-DECISIONS\|ADR-029]] A1). 파싱 실패(`FX-05`) → `warnings`의 `ATTACHMENT_PARSE_FAILED:*`로 추출 `PENDING_REVIEW`(A2). Kev 질문 4종 스키마 일치 | `phase-5/test-ai.txt` |
 | G10 | 데이터 계약 수용 기준 전체 ([[15-DATA-CONTRACTS\|15 데이터 계약]] §9) | `FX-11`, `FX-12`, `FX-13`, `FX-14` | `web/server/ingestion/normalized-bid.contract.test.ts`, `web/server/ingestion/evidence-ref.contract.test.ts` | `vitest contract` | 15 §9의 각 항목 통과. `NormalizedBid` 스키마, `fieldState` 4종, 원본·정규화 값 병기, null 대체 금지 | `phase-2/test-contracts.txt` |
 
 `web/e2e-auth/isolation.spec.ts`는 템플릿이 이미 가진 조직 화면 격리 시험이라 이름이 겹치지 않게 G5 E2E는 `bid-isolation.spec.ts`로 둔다.
@@ -82,19 +82,21 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 
 | 용도 | 방법 | 비고 |
 |---|---|---|
-| 자동 테스트(G6) | `AI_PROVIDER=mock` + `AI_FAULT_INJECT=kev_timeout\|qwen_error\|gateway_down\|qwen_unreachable\|kev_unreachable`(테스트 전용 env) 또는 mock 어댑터의 장애 fixture | 컨테이너 없이 Vitest·pytest에서 재현 |
+| 자동 테스트(G6) | `AI_PROVIDER=mock` + `AI_FAULT_INJECT=kev_timeout\|qwen_error\|gateway_down\|qwen_unreachable\|kev_unreachable`(테스트 전용 env, 5값) 또는 mock 어댑터의 장애 fixture. `gateway_down`이면 gateway의 `/extract`·`/kev`·`/explain`이 `503 {"errorCode":"AI_UNAVAILABLE","message"}`로 응답해 gateway 연결 불가를 흉내 낸다(시험 전용 예외, [[16-DECISIONS\|ADR-029]] A3) | 컨테이너 없이 Vitest·pytest에서 재현 |
 | 데모 S6 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` 재분석 → `docker compose -f infra/compose.yaml start ai-gateway` | 10이 확정. 데모에서는 이 방법만 쓴다 |
 
 `AI_FAULT_INJECT`의 값(`kev_timeout` / `qwen_error` / `gateway_down` / `qwen_unreachable` / `kev_unreachable`)과 "테스트 전용, 데모·운영 금지" 규칙은 [[03-AI-PIPELINE|03 AI 파이프라인]] §3 env 표가 원천이다.
 
 ### 3.1 골든 외 회귀 케이스
 
-| fixture | 검증 대상 | 테스트 파일 (예정) |
+2026-10-19 기준 있는 파일은 `web/server/scoring/`의 `missing-policy`·`scale-limit`·`worked-examples.golden`·`reproducibility` 시험(C4)이다. 나머지 경로는 예정이다.
+
+| fixture | 검증 대상 | 테스트 파일 |
 |---|---|---|
 | `FX-08` | 취소 → 재분석 없음, 검토 기록 보존, 버튼 비활성 | `web/server/ingestion/cancel.test.ts`, `web/e2e-auth/cancelled-bid.spec.ts` |
 | `FX-11` | 예산·마감 null → `missingFactors` 1건, 마감 집계 제외 | `web/server/scoring/missing-policy.test.ts`, `web/server/dashboard/deadline-summary.test.ts` |
 | `FX-12` | 필수 필드 누락 → 격리, 관리자 화면 노출 | `web/server/ingestion/quarantine.test.ts`, `web/e2e-auth/admin-ingestion.spec.ts` |
-| `FX-13` | 금액 텍스트 정규화, 원본 보존. 인용 검증 실패 → `CONFLICTED` | `web/server/ingestion/normalize-amount.test.ts`, `services/ai/tests/test_citation_verify.py` |
+| `FX-13` | 금액 텍스트 정규화, 원본 보존. 인용 검증 실패 → 해당 필드 `UNKNOWN` + `CITATION_FAILED`(`CONFLICTED` 아님, ADR-029 A1) | `web/server/ingestion/normalize-amount.test.ts`, `services/ai/tests/test_citation_verify.py` |
 | `FX-14` | KST→UTC, 마감 임박 카드, `DEADLINE_APPROACHING` 하루 1회 | `web/server/ingestion/normalize-date.test.ts`, `web/server/notifications/deadline.test.ts` |
 | `FX-15` | 수행 상한 초과 → `scaleFit` 0점 + `SCALE_LIMIT_EXCEEDED` | `web/server/scoring/scale-limit.test.ts` |
 | `FX-17`, `FX-18` | `planRef` 기반 단계 연결 | `web/server/ingestion/stage-link.test.ts` |
@@ -102,21 +104,21 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 | `FX-01`~`FX-03` | [[08-SCORING\|08 SOL Score]] §6 worked example 수치 일치 | `web/server/scoring/worked-examples.golden.test.ts` |
 | 전체 | 재현성: 같은 `input_snapshot_hash` + `algorithm_version` → 같은 `score`·같은 요소별 `points`(두 번 계산 byte-동일) | `web/server/scoring/reproducibility.test.ts` |
 
-### 3.2 실데이터·실행 모드 시험 (ADR-020, 예정)
+### 3.2 실데이터·실행 모드 시험 (ADR-020)
 
-[[16-DECISIONS|ADR-020]]의 파이프라인 v0.2(세 실행 모드, 나라장터 실수집·첨부 파싱, 실추론, Kev `kev-qs/v0.2`)에 필요한 시험이다. 골든과 구분해 `V2` 번호를 쓴다. 파일·명령은 구현 때 추가할 예정이며 지금 통과했다는 뜻이 아니다. 모두 `SOL_RUN_MODE=mock`이나 저장 응답·스텁으로 돌고 실제 네트워크를 쓰지 않는다. 장애 주입 값은 [[03-AI-PIPELINE|03 AI 파이프라인]] §3 env 표를 따른다. P0 번호는 [[12-ROADMAP|12 로드맵]]의 해커톤 우선순위다.
+[[16-DECISIONS|ADR-020]]의 파이프라인 v0.2(세 실행 모드, 나라장터 실수집·첨부 파싱, 실추론, Kev `kev-qs/v0.2`)에 필요한 시험이다. 골든과 구분해 `V2` 번호를 쓴다. 2026-10-19 기준 있는 파일은 V2-01(Phase 0)과 V2-05(C4)뿐이고, 나머지 파일·명령은 구현 때 추가한다. 표에 있다고 통과했다는 뜻이 아니다. 모두 `SOL_RUN_MODE=mock`이나 저장 응답·스텁으로 돌고 실제 네트워크를 쓰지 않는다. 장애 주입 값은 [[03-AI-PIPELINE|03 AI 파이프라인]] §3 env 표를 따른다. P0 번호는 [[12-ROADMAP|12 로드맵]]의 해커톤 우선순위다.
 
-| ID | 자동 검증할 조건 | 테스트 파일 (예정) | 명령 | P0 |
+| ID | 자동 검증할 조건 | 테스트 파일 | 명령 | P0 |
 |---|---|---|---|---|
 | V2-01 | **실행 모드 모순 기동 거부.** `SOL_RUN_MODE`와 직접 준 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`가 모순되면 `pnpm check:env`와 gateway가 기동을 거부하고 모순된 키 이름을 알린다. 예: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`. 값을 조용히 바꾸지 않는다. 미지정이면 `mock`. 정상 세 모드 조합은 통과. `pnpm check:env`는 `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 시험과 수동 확인은 파일(또는 `--root`로 가리킨 임시 트리)에 모순 값을 적어 한다 | `scripts/check-env.test.mjs`, `services/ai/tests/test_run_mode.py` (둘 다 Phase 0에서 작성됨) | `node --test scripts/check-env.test.mjs`, `pytest` | P0-1 |
-| V2-02 | **출처·모드 기록과 표시.** 분석마다 `score_runs.run_mode`(`LIVE`·`FIXTURE`·`MOCK`)·`ai_provider`·`qwen_model`·`kev_model`·`question_set_version`, 추출마다 `provider`·`model_name`, 수집마다 `ingest_runs.run_mode`·`source`가 저장된다. 화면: 머리말 "실행 모드", 분석 패널 "AI: mock" 또는 "AI: local · Qwen3.5-9B · Kev-9B v1.0", `is_demo` 공고의 `DEMO` 배지, 공고 목록 `origin=live\|demo\|all` 필터, 모든 모드의 "가상 회사 프로필로 분석" 배지 | `web/server/analysis/run-provenance.test.ts`, `web/server/bids/origin-filter.test.ts`, `web/e2e-auth/run-mode-badge.spec.ts` | `vitest server/analysis`, `vitest server/bids`, `e2e:auth` | P0-1, P0-7 |
+| V2-02 | **출처·모드 기록과 표시.** 분석마다 `score_runs.run_mode`(`LIVE`·`FIXTURE`·`MOCK`)·`ai_provider`·`qwen_model`·`kev_model`·`question_set_version`, 추출마다 `provider`·`model_name`, 수집마다 `ingest_runs.run_mode`·`source`가 저장된다. 화면: 머리말 "실행 모드", 분석 요약 띠 "분석 실행 모드: live\|fixture\|mock"과 "AI: mock" 또는 "AI: local · Qwen/Qwen3.5-9B · jaredpalmer/kev-9b@v1.0"(받은 모델 식별자 그대로, [[16-DECISIONS\|ADR-029]] A6 D12), `is_demo` 공고의 `DEMO` 배지, 공고 목록 `origin=live\|demo\|all` 필터, 모든 모드의 "가상 회사 프로필로 분석" 배지 | `web/server/analysis/run-provenance.test.ts`, `web/server/bids/origin-filter.test.ts`, `web/e2e-auth/run-mode-badge.spec.ts` | `vitest server/analysis`, `vitest server/bids`, `e2e:auth` | P0-1, P0-7 |
 | V2-03 | **실패 유형 4종 구분.** 공공 API 실패(HTTP 오류·`resultCode` 비정상·에러코드 22·timeout) → `ingest_runs.status`·`ingest_errors`, 기존 공고 유지. 첨부 다운로드 불가(인증 요구·4xx·5xx·allowlist 밖 리다이렉트·크기 초과) → `download_status=FAILED` + 사유, 본문만 추출, `DOCUMENT_DOWNLOAD_FAILED`. 파싱 실패·부분 파싱 → `parse_status`·`parse_error_code`, `PARSE_UNSUPPORTED`. 모델 서버 미접속 → `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록(Qwen 불가: 캐시된 추출, 없으면 `UNKNOWN` → `PARTIAL` / Kev 불가: `RULES_ONLY`). 한 유형을 다른 유형의 코드로 기록하면 실패. gateway 미접속은 G6 | `web/server/ingestion/official-api-errors.test.ts`, `web/server/ingestion/attachment-fetcher.test.ts`, `web/server/analysis/failure-kinds.test.ts`, `services/ai/tests/test_model_unavailable.py` | `vitest server/ingestion`, `vitest server/analysis`, `pytest` | P0-2~P0-4, P0-6 |
 | V2-04 | **파싱 실패 내용을 AI가 추측하지 않는다.** 첨부가 `FAILED`·`UNSUPPORTED`인 공고에서 Qwen 입력에는 파싱된 텍스트만 들어가고 "첨부가 있었다"로 내용을 추정하게 하는 지시가 없다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`. Kev state에는 "RFP attachment could not be read; requirements may be incomplete" 한 줄만 들어가고, 읽지 못한 문서로 만든 Kev 질문은 0개. `/explain` 문장에 파싱 실패가 밝혀진다 | `services/ai/tests/test_parse_failure_no_guess.py`, `web/server/analysis/parse-failure.test.ts` | `pytest`, `vitest server/analysis` | P0-3, P0-4 |
 | V2-05 | **정보 부족 ≠ 미충족.** 공고 쪽 `UNKNOWN`·`CONFLICTED` → `NEEDS_REVIEW` + `NOTICE_INFO_MISSING`·`NOTICE_CONFLICTED`. 회사 기록·증빙 없음 또는 `complete=false` → `NEEDS_REVIEW` + `COMPANY_EVIDENCE_MISSING`. 모든 `NOT_SATISFIED`에 공고 근거 1건 이상과 회사 쪽 명시적 부정 근거(`NOT_HELD`, 요구치 미만 수치, `complete=true` 목록에 없음) 1건 이상. API 구조화 필드가 추출보다 우선이고 두 값이 다르면 `CONFLICTED`. 면허제한이 여러 행이면 `AMBIGUOUS_MATCH` | `web/server/scoring/requirement-status.test.ts`, `web/server/scoring/structured-field-priority.test.ts` | `vitest server/scoring` | P0-5 |
-| V2-06 | **Kev v0.2는 규칙·점수·권고를 바꾸지 못한다.** 같은 입력에 Kev `kev-qs/v0.2` 응답을 극단값(모든 확률 1.0·0.0)·누락·오류로 바꿔도 규칙 판정·`qualification_checks`·점수·요소별 `points`·권고가 byte-동일. 바뀌는 것은 `reviewFlags`(`KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`, τ=0.70 "미보정")와 참고 지표뿐. 응답에 `KevAssist.disclaimer`와 보정 상태 `UNCALIBRATED`. "충족 확률"·"수주 확률"이 "아님" 없이 단독 등장 0회 | `web/server/scoring/kev-v02-no-override.test.ts`, `web/server/analysis/kev-flags.test.ts` | `vitest server/scoring`, `vitest server/analysis` | P0-6 |
+| V2-06 | **Kev v0.2는 규칙·점수·권고를 바꾸지 못한다.** 같은 입력에 Kev `kev-qs/v0.2` 응답을 극단값(모든 확률 1.0·0.0)·누락·오류로 바꿔도 규칙 판정·`qualification_checks`·점수·요소별 `points`·권고가 byte-동일. 바뀌는 것은 `reviewFlags`(`KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`, τ=0.70 "미보정")와 참고 지표뿐. 응답에 `KevAssist.disclaimer`와 보정 상태 `UNCALIBRATED`. "충족 확률"·"수주 확률"이 "아님" 없이 단독 등장 0회 | `web/server/scoring/kev-no-override.test.ts`(describe "G3·V2-06"), `web/server/analysis/kev-flags.test.ts` | `vitest server/scoring`, `vitest server/analysis` | P0-6 |
 | V2-07 | **한국어 state 운영 거부.** `/kev`에 `stateLanguage:"ko"`가 `KEV_ALLOW_KO_STATE=true` 없이 오면 `422 KO_STATE_NOT_ALLOWED`. `SOL_RUN_MODE=live`와 함께 쓰면 gateway가 기동을 거부한다. `en`·`ko` 템플릿의 줄 순서·항목 id·숫자가 같다. 운영 `en` state에 한글 0자(자유 텍스트는 `translations`, 숫자 보존에 실패한 값은 `(untranslated)`). 규칙 결과는 state에 0건 | `services/ai/tests/test_kev_state_language.py` | `pytest` | P0-6 |
-| V2-08 | **레지스트리 불일치 기동 거부.** Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`가 `services/ai/models/registry.yaml`의 `KEV_MODEL_ID` 항목과 다르면(예: `run`이 `runs/smoke`) gateway가 기동을 거부한다. 레지스트리의 `questionSet`·`stateTemplate`이 gateway 설정과 달라도 거부. Kev 컨테이너 entrypoint의 sha256 대조가 실패하면 기동하지 않는다. Kev는 스텁 서버로 대신한다 | `services/ai/tests/test_model_registry.py` | `pytest` | P0-6 |
-| V2-09 | **mock 대체는 명시한다.** 기본 `AI_FALLBACK_TO_MOCK=false`에서 모델 불가 → `PARTIAL`·`RULES_ONLY`이고 mock 결과 0건. `true`(`fixture` 모드)에서 실제로 대체되면 그 run의 `ai_provider=MOCK`, `fallback_reason`(`QWEN_UNAVAILABLE` 등), `reviewFlags`에 `MOCK_FALLBACK`, 배너 "모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)". `live`에서 켜면 기동 거부(V2-01). 공공 API가 실패해도 `FixtureConnector`로 바뀌지 않는다 | `web/server/analysis/mock-fallback.test.ts`, `services/ai/tests/test_mock_fallback.py`, `web/e2e-auth/mock-fallback.spec.ts` | `vitest server/analysis`, `pytest`, `e2e:auth` | P0-1 |
+| V2-08 | **레지스트리 불일치 기동 거부.** Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`가 `services/ai/models/registry.yaml`의 `KEV_MODEL_ID` 항목과 다르면(예: `run`이 `runs/smoke`) gateway가 기동을 거부한다. 레지스트리의 `questionSet`·`stateTemplate`이 gateway 설정과 달라도 거부. Kev는 스텁 서버로 대신한다. 가중치 sha256 대조는 회사가 기동 전에 한다(ADR-025, [[22-FINETUNE-RUNBOOK\|22]] §2.2)라 이 시험 범위 밖이다 | `services/ai/tests/test_model_registry.py` | `pytest` | P0-6 |
+| V2-09 | **mock 대체는 명시한다.** 기본 `AI_FALLBACK_TO_MOCK=false`에서 모델 불가 → `PARTIAL`·`RULES_ONLY`이고 mock 결과 0건. 해커톤 동안은 자동 대체를 구현하지 않아 `true`면 기동 거부다([[16-DECISIONS\|ADR-030]] B11). 아래 대체 동작 시험은 구현할 때 쓴다. `true`(`fixture` 모드)에서 실제로 대체되면 그 run의 `ai_provider=MOCK`, `fallback_reason`(`QWEN_UNAVAILABLE` 등), `reviewFlags`에 `MOCK_FALLBACK`, 배너 "모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)". `live`에서 켜면 기동 거부(V2-01). 공공 API가 실패해도 `FixtureConnector`로 바뀌지 않는다 | `web/server/analysis/mock-fallback.test.ts`, `services/ai/tests/test_mock_fallback.py`, `web/e2e-auth/mock-fallback.spec.ts` | `vitest server/analysis`, `pytest`, `e2e:auth` | P0-1 |
 | V2-10 | **파서 결과와 품질.** 형식별 `DocumentParser`: fixture PDF(텍스트 레이어)·HWPX·HWP 샘플 → `PARSED` + 페이지별 `charOffset`. 부분 파싱 → `PARTIAL` + 품질 신호. 스캔 PDF·zip·xlsx·암호 문서·배포용 HWP·50 MB 초과 → `UNSUPPORTED` + `errorCode`(`NO_TEXT_LAYER`·`UNSUPPORTED_FORMAT`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED`·`TOO_LARGE`·`CORRUPTED`). 형식은 확장자가 아니라 내용(매직 바이트)으로 판단. 파서 후보 비교와 실공고 파싱 성공률은 자동 시험이 아니라 측정이다(아래) | `services/ai/tests/test_parse.py` | `pytest` | P0-3 |
 | V2-11 | **공공 API 호출 예산과 서비스키 보호.** Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST)가 한도의 90%에 닿으면 보조 조회를 멈추고 그 공고는 `NEEDS_REVIEW`(정보 부족). 에러코드 22를 받으면 그 서비스의 그날 호출만 중단(다른 서비스는 계속). 초당 30 tps를 넘지 않는다. 서비스키 4개(`G2B_*_SERVICE_KEY`) 값이 각각 로그·오류 메시지·`ingest_errors`·응답 본문에 0회(쿼리 파라미터라 요청 URL도 가린다). 소스는 registry `serviceKeyEnv`의 키만 쓰고 다른 서비스의 키로 대체하지 않는다 | `web/server/ingestion/quota.test.ts`, `web/server/ingestion/service-key-redaction.test.ts` | `vitest server/ingestion` | P0-2 |
 | V2-12 | **첨부 다운로드 allowlist.** `https://www.g2b.go.kr`만 허용, 리다이렉트는 allowlist 안에서만, DNS 재확인 후 사설 IP 거부, timeout 30 s, 최대 50 MB([[09-SECURITY\|09 보안]] SSRF). 저장 키 `raw/bids/{bidId}/{revisionId}/{sha256}.{ext}` | `web/server/ingestion/attachment-fetcher.test.ts` | `vitest server/ingestion` | P0-3 |
@@ -136,7 +138,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 |---|---|---|
 | ① | data.go.kr 오퍼레이션별 실제 응답 3건 저장, 필드 매핑 확인 | 오퍼레이션·`resultCode`·확인한 필드. 저장한 응답은 담당자 이름·전화·이메일을 마스킹한 뒤 `RecordedApiConnector` 계약 시험에 쓴다(그 전의 시험 자료는 "문서 예시"라고 표시) |
 | ② | 공고 3건의 첨부 실제 다운로드 | 로그인·세션 필요 여부, HTTP 상태, 받은 형식. 막히면 본문·API 필드만으로 진행하고 `DOCUMENT_DOWNLOAD_FAILED` 표시([[16-DECISIONS\|16 ADR]] 미결정 16) |
-| ③ | 회사 GPU 추론 엔드포인트(`https://acropolissg.com/sol-radar`, [[16-DECISIONS\|ADR-025]])의 vLLM(Qwen3.5-9B)·`kev.serve`(Kev-9B@v1.0). G1 HTTPS 접속(TLS·인증) → G2 Qwen·Kev `GET /v1/models`·레지스트리 대조 → G3 지연 실측(Kev state 약 500토큰 10회 p50·p95, Qwen 추출 1회) → G4 vLLM guided JSON → G5 회사 제공 GPU 정보가 있으면 기록 → G6 엔드포인트 차단 시 `PARTIAL`. 선행: P2 회사가 경로·인증 방식 전달, P3 회사 측 모델 기동 완료 통보 | G1~G6 결과. `/v1/models` 응답·레지스트리 대조, 지연 p50·p95, guided JSON 결과. GPU 모델·VRAM·실측 추론 메모리는 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"(Kev-9B 문서 값 17 GB와 21.9 GB가 다르다). 미결정 3·17(회사 엔드포인트 경로·인증·응답 미검증) |
+| ③ | 회사 GPU 추론 엔드포인트(`https://acropolissg.com/sol-radar`)의 vLLM(Qwen3.5-9B)·`kev.serve`(Kev-9B@v1.0). 단계 G1~G6와 선행 조건 P2·P3는 [[16-DECISIONS\|ADR-025]] 상세 7번이 정본이다 | G1~G6 결과. `/v1/models` 응답·레지스트리 대조, 지연 p50·p95, guided JSON 결과. GPU 모델·VRAM·실측 추론 메모리는 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"(Kev-9B 문서 값 17 GB와 21.9 GB가 다르다). 미결정 3·17(회사 엔드포인트 경로·인증·응답 미검증) |
 | ④ | 실제 RFP 샘플로 파서 후보 비교 시작 | 후보·라이선스·샘플별 누락 관찰(§3.2 측정 항목) |
 
 서비스키 값, 엔드포인트 인증 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 적지 않는다. 준비되기 전에는 "대기(사유)"로 적고, 나머지 개발은 인터페이스(`RecordedApiConnector`·`FixtureAttachmentFetcher`·mock `ModelClient`)로 진행한다.
@@ -146,16 +148,16 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 모델 평가는 이 문서의 골든·V2 시험과 목적이 다르다. 골든은 통과/실패를 가르는 결정적 회귀이고, 평가는 실제 공고에서 모델이 얼마나 맞히는지를 재는 측정이다. 지표 정의·비교 대상·오류 분석 절차·수용 기준의 정본은 [[21-MODEL-TRAINING|21]] §4·§7이고 여기에는 요약만 둔다.
 
 - 평가셋: 실제 공고 × 가상 기업 원형 6개, test 20·dev 10 사업(사업 단위 분할), 사람 검수는 추출 정답 20건과 의미 대응 라벨 150건 이상.
-- 비교: E0(규칙만)·E1(Kev-9B@v1.0, 영어 state)·E2(같은 모델, 한국어 state)·**E3(Qwen 분류 대조군)** 모두 필수. 해커톤에서는 축소 규모(fixture 20건 + 실공고 5건, ADR-023 X1)로 돌리고 전체 평가셋(test 20·dev 10 사업)은 확장 컷이다. 설계는 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md). 표본이 작아 신뢰구간이 넓다는 것을 리포트에 적는다.
+- 비교: E0(규칙만)·E1(Kev-9B@v1.0, 영어 state)·E2(같은 모델, 한국어 state)·**E3(Qwen 분류 대조군)** 모두 필수. 해커톤에서는 축소 규모(fixture 20건 + 실공고 5건, ADR-023 X1)로 돌리고 전체 평가셋(test 20·dev 10 사업)은 X6(ADR-027)에서 만들어 E1·E4 비교에 쓴다. 설계는 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md). 표본이 작아 신뢰구간이 넓다는 것을 리포트에 적는다.
 - 지표 영역: 추출, 분류, 보정, 일관성, 한국어/영어 차이, 성능. 표본이 작아 모든 지표에 부트스트랩 95% 신뢰구간과 표본 수를 함께 적는다.
-- 초기 목표(Macro-F1 0.80, 정보부족→미충족 혼동률 5%, 보정 후 ECE 0.08)에 못 미쳐도 자동으로 파인튜닝하지 않는다. 오류 분석으로 원인 단계를 가른 뒤 사람이 정한다.
+- 초기 목표(Macro-F1 0.80, 정보부족→미충족 혼동률 5%, 보정 후 ECE 0.08)에 못 미쳐도 자동으로 파인튜닝하지 않는다. 오류 분석으로 원인 단계를 가른 뒤 사람이 정한다. 해커톤 X6의 Kev-9B LoRA는 사용자 결정으로 하는 E4 비교 실험이고(ADR-027), 운영 반영은 이 절차를 그대로 따른다.
 - 실행 위치는 노트북이고 회사 GPU 추론 엔드포인트(Kev는 `KEV_BASE_URL` 직접 또는 평가용 gateway, [[16-DECISIONS|ADR-025]])에 붙인다. 명령은 `uv run python -m sol_eval …`. `pnpm verify`·CI에는 넣지 않는다. 숫자 요약만 `docs/evidence/eval/`에 두고 실제 RFP 원문은 넣지 않는다.
 
 ## 4. 수용 기준 (Phase별)
 
 | Phase | 통과 조건 | 증거 |
 |---|---|---|
-| 0 | `docker compose -f infra/compose.yaml ps`에서 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 healthy(`postgres`·`api` 서비스는 없다). web의 `/health/live`·`/health/ready` 200, `checks.db` = Supabase 클라우드 프로젝트 연결 ok. worker가 `web/server` 도메인 코드를 불러 기동(`server-only` 실행 방식 `--conditions=react-server` 검증, [[16-DECISIONS\|16 ADR]] 미결정). `pnpm verify` 통과. `pnpm check:env` 실행 모드 모순 거부(V2-01), 서비스키 4개(`G2B_*_SERVICE_KEY`) placeholder 자리(서버 전용), 회사 GPU 추론 엔드포인트에 HTTPS로 붙는 `ai-local` 연결 방식([[16-DECISIONS\|ADR-025]]) 정리. P0-0 외부 의존성 점검 결과를 항목별로 기록(막힌 항목은 막힘으로, §3.3) | `phase-0/compose-ps.txt`, `phase-0/health-ready.json`, `phase-0/test-report.txt`, `phase-0/run-mode-check.txt`, `phase-0/worker-stop.txt`(`docker compose stop worker` ExitCode 0), `phase-0/health-ready-degraded.json`(gateway 정지 시 `status: degraded`·`checks.ai: unavailable`), `phase-0/external-deps.md`(P0-0 점검 대기) |
+| 0 | `docker compose -f infra/compose.yaml ps`에서 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 healthy(`postgres`·`api` 서비스는 없다). web의 `/health/live`·`/health/ready` 200, `checks.db` = Supabase 클라우드 프로젝트 연결 ok. worker가 `web/server` 도메인 코드를 불러 기동(`server-only` 실행 방식 `--conditions=react-server`, [[16-DECISIONS\|16 ADR]] 미결정 9 검증됨). `pnpm verify` 통과. `pnpm check:env` 실행 모드 모순 거부(V2-01), 서비스키 4개(`G2B_*_SERVICE_KEY`) placeholder 자리(서버 전용), 회사 GPU 추론 엔드포인트에 HTTPS로 붙는 `ai-local` 연결 방식([[16-DECISIONS\|ADR-025]]) 정리. P0-0 외부 의존성 점검 결과를 항목별로 기록(막힌 항목은 막힘으로, §3.3) | `phase-0/compose-ps.txt`, `phase-0/health-ready.json`, `phase-0/test-report.txt`, `phase-0/run-mode-check.txt`, `phase-0/worker-stop.txt`(`docker compose stop worker` ExitCode 0), `phase-0/health-ready-degraded.json`(gateway 정지 시 `status: degraded`·`checks.ai: unavailable`), `phase-0/external-deps.md`(P0-0 ①② 통과, ③④ 대기) |
 | 1 | `pnpm test:db` 통과(SOL RADAR 표의 RLS·`sol_role` CHECK·조직 격리 정책 시험, 마이그레이션 재실행). ADR-020 저장 변경(새 표 `requirement_assessments`·`bid_structured_requirements`·`eval_runs` 포함)이 첫 SOL 마이그레이션에 들어가고 새 표마다 정책 시험이 있다. 클라우드 적용 `pnpm db:push`는 사용자 확인 뒤. seed(`pnpm demo:reset`) 2회 실행 멱등. G5 통과 | `phase-1/test-db.txt`, `phase-1/migrate.log`(`pnpm db:push` 출력), `phase-1/test-isolation.txt` |
 | 2 | G1·G2·G7·G10 + §3.1 ingestion 케이스 통과, `SEED` summary `{created:19, quarantined:1, retried:2}`. V2-03(공고·첨부 쪽)·V2-10·V2-11·V2-12, `OfficialApiConnector` 계약 시험, 사전규격·발주계획 단계 연결(P0-8). 서비스키·첨부 다운로드가 되면 live 수집 `ingest_runs` 요약(P0-2)과 실공고 형식별 파싱 성공률(P0-3) | `phase-2/test-ingestion.txt`, `phase-2/test-contracts.txt`, `phase-2/seed-summary.json`, `phase-2/ingest-run-live-<일시>.json`, `phase-2/parse-success-rate.md` |
 | 3 | E2E 로그인 → 목록 → 상세, axe 위반 0, G8. V2-02 화면 부분(실행 모드·출처·가상 회사 프로필 배지, `origin` 필터). NAV-01~NAV-09(§9, [[16-DECISIONS\|ADR-021]]) | `phase-3/e2e/*.png`, `phase-3/axe-report.json` |
@@ -163,32 +165,32 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 | 5 | G6·G9, V2-04·V2-06~V2-09·V2-13, `SOL_RUN_MODE=mock` 전체 흐름(mock adapter 먼저). 실추론: Qwen `/extract` local의 인용 검증 통과율과 실공고 1건 E2E 로그(P0-4), Kev-9B@v1.0 `kev-qs/v0.2` 응답 원문·`stateTrace` 저장(P0-6). 실추론 증거가 없는 항목은 미검증으로 표시 | `phase-5/ai-fallback.txt`, `phase-5/test-ai.txt`, `phase-5/` 실추론 로그 |
 | 6 | 결정 기록 → 감사로그, 알림 1건 규칙, E2E 전체 | `phase-6/e2e/*.png`, `phase-6/test-notifications.txt` |
 | 7 | §5 데모 체크리스트 전 항목, 비밀값 로그 유출 0(`SUPABASE_SERVICE_ROLE_KEY`·서비스키 4개 `G2B_*_SERVICE_KEY` 포함), `pnpm verify`·`pnpm test:db`·E2E·pytest·smoke 전부 PASS. 세 모드(`live`·`fixture`·`mock`) 기동 리허설, 엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속 확인(`GET /v1/models`) 리허설 | `demo-day/<일시>/checklist.md`, `demo-day/<일시>/run-modes.md` |
-| 평가 트랙 | P0-9~P0-11. Phase 5 실추론이 동작한 뒤 시작해 Phase 6·7과 나란히 진행. 기준은 [[21-MODEL-TRAINING\|21 모델 학습]] §7(평가셋 v0.1 manifest·라벨 검증, E0·E1·E2 리포트와 오류 분석, 학습셋 번들 sha256, 메모리 검증 스크립트·절차) | `eval/`, `kev-train-feasibility.md`(회사 측 실행 뒤) |
+| 평가 트랙 | P0-9~P0-11. 평가셋 라벨은 10-19부터, 학습셋 번들은 Phase 5 `local`이 동작한 뒤. P0-9·P0-11과 Kev-9B LoRA 학습(F1·F2·F3, 회사 측 실행)은 X6([[16-DECISIONS\|ADR-027]]). 기준은 [[21-MODEL-TRAINING\|21 모델 학습]] §7(평가셋 v0.1 manifest·라벨 검증, E0·E1·E2 리포트와 오류 분석, 학습셋 번들 sha256, 메모리 검증 스크립트·절차) | `eval/`, `kev-train-feasibility.md`(회사 측 실행 뒤) |
 
-**ADR-023 핵심 컷과의 대응**(2026-10-19): 핵심 컷의 통과 조건은 Phase 0(C0·C1), Phase 1(C2), Phase 2 중 fixture 수집·revision·격리와 live 1건 수집·파싱(C3), Phase 3 중 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications` E2E·G8·V2-02(C6), Phase 4 전부(C4), Phase 5 중 G6·G9·V2-04·V2-07·V2-08·V2-13과 실추론 1건 증거(C5·C8), Phase 6(C7), Phase 7 중 §5 체크리스트·세 모드·대체 경로 리허설(C9), 평가 트랙 중 E0·E1·E2·E3 축소 규모 리포트(X1)다. NAV-01~NAV-09, S5(G2 변경 감지 화면), P0-8, 전체 평가셋·P0-11은 확장 컷이다([[12-ROADMAP\|12 로드맵]]).
+**ADR-023 핵심 컷과의 대응**(2026-10-19): 핵심 컷의 통과 조건은 Phase 0(C0·C1), Phase 1(C2), Phase 2 중 fixture 수집·revision·격리와 live 1건 수집·파싱(C3), Phase 3 중 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications` E2E·G8·V2-02(C6), Phase 4 전부(C4), Phase 5 중 G6·G9·V2-04·V2-07·V2-08·V2-13과 실추론 1건 증거(C5·C8), Phase 6(C7), Phase 7 중 §5 체크리스트·세 모드·대체 경로 리허설(C9), 평가 트랙 중 E0·E1·E2·E3 축소 규모 리포트(X1)다. NAV-01~NAV-09, S5(G2 변경 감지 화면), P0-8은 확장 컷이다. 전체 평가셋·P0-11·E4는 X6(ADR-027)이고 핵심 컷 통과 조건에 들어가지 않는다([[12-ROADMAP\|12 로드맵]]).
 
 ## 5. 데모 당일 수용 체크리스트
 
-데모 시작 전 한 번, 리허설 때 한 번 통과시킨다. 결과는 `docs/evidence/demo-day/YYYYMMDD-HHMM/checklist.md`에 ✅/❌와 스크린샷 이름으로 기록한다. 장면 번호는 [[19-DEMO-SCENARIO|19 데모 시나리오]]와 같다: `S0` 사전 준비(§3), `S1` 문제 슬라이드(조작 없음, 체크리스트 대상 아님), `S2`~`S7` 클릭 경로(§4). 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). 비밀번호는 `.env.example`의 `DEMO_SEED_PASSWORD` placeholder만 두고 실제 값은 seed 시 입력한다.
+데모 시작 전 한 번, 리허설 때 한 번 통과시킨다. 결과는 `docs/evidence/demo-day/YYYYMMDD-HHMM/checklist.md`에 ✅/❌와 스크린샷 이름으로 기록한다. 장면 번호는 [[19-DEMO-SCENARIO|19 데모 시나리오]]와 같다: `S0` 사전 준비(§3), `S1` 문제 슬라이드(조작 없음, 체크리스트 대상 아님), `S2`~`S7` 클릭 경로(§4). 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). 비밀번호는 루트 `.env.local`의 `DEMO_SEED_PASSWORD`(`pnpm demo:reset`이 읽는다, [[10-DEPLOYMENT|10 배포]])에만 두고 문서·저장소에 실제 값을 쓰지 않는다.
 
 시연 기본 모드는 `mock`이다. 아래 기대 수치(94·72·68, Kev 71/24/5·36/52/12 등)는 `mock` 모드 기준이다([[19-DEMO-SCENARIO|19 데모 시나리오]] §2.1). `live`·`fixture` 모드는 S0에서 기동만 확인하고(4번), 시연 중 장애 대체 순서는 `live` → `fixture` → `mock`이다. 모드 전환은 env를 바꾸고 worker·ai-gateway를 재시작해서 한다. 자동 대체는 하지 않는다.
 
 | # | 장면 | 단계 | 행동 | 기대 화면·응답 | 실패 시 대체 |
 |---|---|---|---|---|---|
-| 0 | S0 | 환경 | env에 `SOL_RUN_MODE=mock`(이 값이 `DEMO_MODE=true`·`AI_PROVIDER=mock`의 기본값을 정한다), `AI_FALLBACK_TO_MOCK=false`, 기본 비밀값 아님 확인. `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`·`SUPABASE_SERVICE_ROLE_KEY`·서비스키 4개(`G2B_*_SERVICE_KEY`)가 채워져 있고 모드 모순이 없는지 `pnpm check:env`로 확인(값은 출력하지 않는다). 인터넷 연결(Supabase 클라우드 프로젝트 접속). 포트 3000 비어 있음 | — | 포트 충돌 프로세스 종료. 네트워크 불가면 2번의 대체로 |
+| 0 | S0 | 환경 | env에 `SOL_RUN_MODE=mock`(이 값이 `DEMO_MODE=true`·`AI_PROVIDER=mock`의 기본값을 정한다), `AI_FALLBACK_TO_MOCK=false`, 기본 비밀값 아님 확인. `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`·`SUPABASE_SERVICE_ROLE_KEY`가 채워져 있고 모드 모순이 없는지 `pnpm check:env`로 확인(값은 출력하지 않는다). 인터넷 연결(Supabase 클라우드 프로젝트 접속). 포트 3000 비어 있음 | — | 포트 충돌 프로세스 종료. 네트워크 불가면 2번의 대체로 |
 | 1 | S0 | 엔드포인트 | 회사 GPU 추론 엔드포인트(`QWEN_BASE_URL`·`KEV_BASE_URL`, HTTPS + API 키, [[16-DECISIONS\|ADR-025]]) 접속을 확인한다(방식은 [[10-DEPLOYMENT\|10 배포]]) | 노트북에서 `GET /v1/models`로 vLLM·`kev.serve` 응답과 레지스트리 대조 | 엔드포인트 미접속이면 `live`·`fixture`를 빼고 `mock`만으로 진행하고 사실대로 말한다 |
-| 2 | S0 | 기동 | `docker compose -f infra/compose.yaml --profile demo up -d --build` 후 `docker compose -f infra/compose.yaml ps` | `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 `healthy`. web `GET /health/ready` 200, `checks.db: ok`(Supabase 연결), `checks.ai: mock` | 1회 재기동. `checks.db` 불가(503)면 네트워크·Supabase 프로젝트 상태 확인. 그래도 실패면 사전 녹화 영상(네트워크 없는 대체 경로는 미결정, [[16-DECISIONS\|16 ADR]]) |
+| 2 | S0 | 기동 | `docker compose -f infra/compose.yaml up -d --build` 후 `docker compose -f infra/compose.yaml ps` | `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 `healthy`. web `GET /health/ready` 200, `checks.db: ok`(Supabase 연결), `checks.ai: mock` | 1회 재기동. `checks.db` 불가(503)면 네트워크·Supabase 프로젝트 상태 확인. 그래도 실패면 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로 ①(로컬 Supabase CLI), 그것도 안 되면 사전 녹화 영상 |
 | 3 | S0 | seed | `pnpm demo:reset` (스크립트. service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`. `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`. `GET /api/v1/bids` 총 19건. `bid_reviews` 2건(`FX-01` BID, `FX-03` NO-BID). 조직·인력 편집(ADR-021 P1)이 생긴 뒤에는 점수 계산 대상 27명이 모두 재직(`ACTIVE`)인지 확인 | seed 재실행(멱등) |
-| 4 | S0 | 세 모드 | `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순으로 바꾸며 worker·ai-gateway 재시작. 모드마다 `GET /api/v1/admin/ai/status`(ADMIN)와 머리말 확인. 마지막은 `mock` | 각 모드에서 기동 거부 없음, 머리말 "실행 모드: live\|fixture\|mock", `runMode` 일치. `live`·`fixture`는 `qwen.healthy: true`, `kev.registryMatch: true`. `live`에서 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)이 리허설·시연 예상 호출 수보다 넉넉하다. 결과를 `run-modes.md`에 기록 | 기동 거부면 거부 메시지의 모순 키를 고친다. 실패한 모드는 시연에서 빼고 기록한다. 한도 부족이면 `live` 장면을 빼거나 `fixture`로. live 공고가 DB에 남아 6·7번 수치가 달라지면 기록한다([[19-DEMO-SCENARIO\|19]] §2.1 결정 필요) |
+| 4 | S0 | 세 모드 | `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순으로 바꾸며 worker·ai-gateway 재시작. `live`에만 서비스키 4개(`G2B_*_SERVICE_KEY`)가 필요하다([[16-DECISIONS\|ADR-024]] D5). 모드마다 `GET /api/v1/admin/ai/status`(ADMIN)와 머리말 확인. 마지막은 `mock` | 각 모드에서 기동 거부 없음, 머리말 "실행 모드: live\|fixture\|mock", `runMode` 일치. `live`·`fixture`는 `qwen.healthy: true`, `kev.registryMatch: true`. `live`에서 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)이 리허설·시연 예상 호출 수보다 넉넉하다. 결과를 `run-modes.md`에 기록 | 기동 거부면 거부 메시지의 모순 키를 고친다. 실패한 모드는 시연에서 빼고 기록한다. 한도 부족이면 `live` 장면을 빼거나 `fixture`로. live 공고가 DB에 남아 6·7번 수치가 달라지면 기록한다([[19-DEMO-SCENARIO\|19]] §2.1 결정 필요) |
 | 5 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login`(Supabase Auth) | `/dashboard` 이동. Topbar에 "실행 모드: mock"·`DEMO` 배지·`AI: mock`·수집 시각·🔔 | `admin@soltech.invalid`로 대체 |
 | 6 | S2 | 대시보드 | — | BID 권고 3건(`FX-01` 94, `FX-18` 82, `FX-06` 78), 마감 임박 카드에 `FX-14`(D-2), 수집 카드에 "격리 1건"(`FX-12`), 최근 변경 목록 | 숫자 불일치는 기록만 하고 진행 |
 | 7 | S2 | 목록 | `/bids`, 단계 NOTICE 필터, 점수 내림차순 | `FX-01` 최상단 94, `FX-12` 미노출, 모든 행 `DEMO` 칩, 1280px에서 가로 스크롤 없음 | — |
 | 8 | S3 | 상세 BID | `FX-01` 열기 | 자격 3건 `충족`, 점수 94, 분해 5행(24.0/25.0/20.0/15.0/10.0), Kev 71/24/5 + 09 고지 문구, 분석 패널 "AI: mock"·"가상 회사 프로필로 분석" 배지, 근거 3건 → 드로어에 원문 하이라이트, 결정 패널 "마지막 결정: BID"(seed 리뷰) | 드로어 실패 시 원문 링크 새 탭 |
 | 9 | S3 | 규칙 우선 | `FX-03` 열기 | 권고 `NO-BID`, 자격 1건 `미충족` + 근거 문장, 점수 68 "참고" 표시, Kev 섹션 `규칙 우선` 배지와 "Kev는 BID를 제시했지만…" 문구, "마지막 결정: NO-BID"(seed 리뷰) | — |
 | 10 | S4 | 라이브 분석 | `FX-02` → [분석 재실행] | 202 → `대기 중` → `분석 중` → `완료` 10초 이내. 점수 72, WATCH, 분해 15.0/18.3/14.0/15.0/10.0, Kev 36/52/12 | 60초 초과 시 새로고침, 사유 기록 |
-| 11 | S4 | 사람 결정 | `FX-02` 결정 패널에서 WATCH 유지 또는 BID 선택 + 사유 → [결정 기록] | "마지막 결정: … · 담당자 · 시각", 결정 패널 상단 "사람 검토 권장"(`KEV_NEEDS_REVIEW`). `bid_reviews` +1(총 3건), 감사로그 1건. `analyst@soltech.invalid`로 보면 패널 읽기 전용 | — |
-| 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 패널 `run_mode: LIVE`·"AI: local · Qwen3.5-9B · Kev-9B v1.0"·"가상 회사 프로필로 분석". 자격 3값 + 사유 코드, 점수 분해 5행, Kev `UNCALIBRATED` + 고지 문구, 근거 서랍 실제 첨부 인용. 10-21 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
-| 12 | S5 (확장 컷) | 변경 수집 | `/admin/ingestion`(`admin@soltech.invalid`) → 수동 수집 `LIVE`(API `batch:"live"`). fixture의 live 배치이며 실행 모드 `live`와 다르다(`SOL_RUN_MODE=live`에서는 `409 RUN_MODE_MISMATCH`). S5가 구현되지 않았으면 이 행은 "미구현"으로 적고 건너뛴다 | 🔔 증가. `FX-07` revision 2 → 재분석 68 → 76, 권고 WATCH → BID. `FX-06` diff 마감 +14 → +28, 알림 1건. `FX-09` 재전송으로 알림 추가 0. `FX-08` `취소됨`. summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보여 주고 다음 장면 |
+| 11 | S4 | 사람 결정 | `FX-02` 결정 패널에서 WATCH 유지 또는 BID 선택 + 사유 + 담당자에 발표자 자신(`sales@soltech.invalid`) 지정 → [결정 기록] | "마지막 결정: … · 담당자 · 시각", 결정 패널 상단 "사람 검토 권장"(`KEV_NEEDS_REVIEW`). `bid_reviews` +1(총 3건), 감사로그 1건. Topbar 알림 벨에 `REVIEW_ASSIGNED`가 들어 있다. 분석 요청자에게 가는 `ANALYSIS_COMPLETE`도 올 수 있어 벨은 1~2건이다([[16-DECISIONS\|ADR-029]] A6 D5). `analyst@soltech.invalid`로 보면 패널 읽기 전용 | — |
+| 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen/Qwen3.5-9B · jaredpalmer/kev-9b@v1.0"(받은 모델 식별자, ADR-029 A6 D12)·"가상 회사 프로필로 분석". Topbar는 `실행 모드: mock` 그대로다. 자격 3값 + 사유 코드, 점수 분해 5행, Kev `UNCALIBRATED` + 고지 문구, 근거 서랍 실제 첨부 인용. 외부 의존성 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
+| 12 | S5 (확장 컷) | 변경 수집 | `/admin/ingestion`(`admin@soltech.invalid`) → 수동 수집 `LIVE`(API `batch:"live"`). fixture의 live 배치이며 실행 모드 `live`와 다르다(`SOL_RUN_MODE=live`에서는 `409 RUN_MODE_MISMATCH`). S5가 구현되지 않았으면 이 행은 "미구현"으로 적고 건너뛴다 | 🔔 증가. `FX-07` revision 2 → 재분석 68 → 76, 권고 WATCH → BID. `FX-06` diff 마감 +14 → +28, 알림 1건. `FX-09` 재전송으로 알림 추가 0. `FX-08` `취소됨`(목록에서는 상태 필터 "취소 포함"을 골라야 보이고, 상세는 언제나 열린다, [[16-DECISIONS\|ADR-029]] A7). summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보여 주고 다음 장면 |
 | 13 | S6 | 장애 대체 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` [분석 재실행] `force=true` | 1~2초 안에 `부분 완료 (규칙만)`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)", `recommendationBasis: RULES_ONLY`, Topbar `AI: unavailable`, `/health/ready` `status: degraded`. 점수 94·자격 3건 그대로 | 사전 녹화 영상 |
 | 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` → `FX-01` 재실행 | `완료`로 복귀, Topbar `AI: mock`, Kev 분포 다시 표시 | — |
 | 15 | S6 (리허설) | 엔드포인트 재접속 확인 | 리허설에서만. `fixture` 모드로 전환 → 회사 GPU 추론 엔드포인트를 노트북 쪽에서 차단한다(방식은 [[10-DEPLOYMENT\|10 배포]] 장애 주입 절) → `FX-01` [분석 재실행] `force=true` → 차단 해제 → 재접속 확인(`GET /v1/models`) → 재분석 → `mock`으로 되돌리고 `pnpm demo:reset`으로 초기화(fixture 모드 분석 run이 S3 화면에 남지 않게) | 끊긴 동안: `PARTIAL`·`RULES_ONLY`, `reviewFlags`에 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`(gateway는 살아 있으므로 `AI_UNAVAILABLE`이 아니다), [[09-SECURITY\|09 보안]] PARTIAL 배너, mock 결과 0건, 점수·자격은 직전 run과 같다. 재접속 뒤: `qwen.healthy: true`·`kev.registryMatch: true`, 재분석 `완료`. 재접속 확인 소요 시간을 `rehearsal-log.md`에 기록 | 재접속이 안 되면 시연은 `mock`만으로 하고 사실대로 말한다 |
@@ -200,16 +202,13 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일 경로는 *
 
 ## 6. 심사용 증거 산출물 (`docs/evidence/`)
 
-> [!todo]
-> 저장 위치와 파일명 규칙은 제안이다. [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]의 "해커톤 모드" 절과 같은 규칙을 쓰도록 17 담당 세션에 제안함.
-
 ```text
 docs/evidence/
   README.md                         # 주장 → 증거 파일 색인 (심사위원용, 아래 표)
   phase-0/  compose-ps.txt  health-ready.json  test-report.txt
             run-mode-check.txt             # V2-01 모드 모순 기동 거부 시험 출력
             worker-stop.txt  health-ready-degraded.json   # worker 정상 종료 exit 0, AI 장애 리허설
-            external-deps.md               # P0-0 외부 의존성 점검 (§3.3, 전항목 대기)
+            external-deps.md               # P0-0 외부 의존성 점검 (§3.3, ①② 통과·③④ 대기)
   phase-1/  test-db.txt  migrate.log  test-isolation.txt  seed-summary.json
   phase-2/  test-ingestion.txt  ingest-run-FX-20.json
             ingest-run-live-<일시>.json    # P0-2 live 수집 요약 (담당자 개인정보 제외)
@@ -220,14 +219,14 @@ docs/evidence/
             (실추론 로그)                  # P0-4 인용 검증 통과율·실공고 1건 E2E, P0-6 Kev 응답·stateTrace 표본
   phase-6/  test-notifications.txt  e2e/*.png
   eval/                                    # E0·E1·E2 리포트 숫자 요약·오류 분석 요약 (21 §4, RFP 원문 금지)
-  kev-train-feasibility.md                 # LoRA 메모리 검증 결과 (21 §5.2, 회사 측 실행 뒤)
+  kev-train-feasibility.md                 # LoRA 메모리 검증 결과 (22 §4.2, 회사 측 실행 뒤)
   demo-day/ rehearsal-log.md               # 17: 매일 리허설 날짜·소요 시간·실패 단계·엔드포인트 재접속 확인 소요 시간
   demo-day/ YYYYMMDD-HHMM/  checklist.md  run-modes.md  screenshots/*.png  isolation-404.json  compose-ps.txt
 ```
 
 규칙:
 
-- 테스트 출력은 명령 전체 stdout을 그대로 저장한다(요약 금지). 첫 줄에 실행 명령과 커밋 해시(git 도입 후) 또는 날짜.
+- 테스트 출력은 명령 전체 stdout을 그대로 저장한다(요약 금지). 첫 줄에 실행 명령과 커밋 해시 또는 날짜.
 - 스크린샷 파일명은 [[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]]과 동일: `YYYYMMDD-phaseN-<route>-<state>-<width>.png`. `state`는 `loaded | empty | loading | error | forbidden | partial | demo-badge`([[06-UI-UX\|06 UI]] §12), `width`는 1440·1280. 데모 당일 촬영은 `phaseN` 자리에 `demo`를 쓴다. 예: `20261020-phase3-bid-detail-partial-1440.png`, `20261020-demo-bid-detail-partial-1440.png`.
 - 커버리지는 요약만(`coverage-summary.txt`). 전체 HTML은 저장하지 않는다.
 - 실패한 실행도 저장한다. 파일명 끝에 `-FAIL`. 다음 실행에서 통과하면 둘 다 남긴다.
@@ -242,7 +241,7 @@ docs/evidence/
 | 같은 입력이면 같은 점수 | [[08-SCORING\|08 SOL Score]] §6 | `phase-4/goldens-report.txt` |
 | 규칙이 Kev를 뒤집지 못한다 | G3 | `phase-4/goldens-report.txt`, `demo-day/*/screenshots/*-demo-bid-detail-loaded-1440.png`(FX-03) |
 | AI 없이도 완결된다 | G6 | `phase-5/ai-fallback.txt`, `*-demo-bid-detail-partial-1440.png` |
-| 조직 간 데이터 격리 | G5 | `phase-1/test-isolation.txt`, `demo-day/*/isolation-404.json` |
+| 조직 간 데이터 격리 | G5 | `phase-1/test-db.txt`(RLS 정책 시험), `demo-day/*/isolation-404.json` |
 | 중복 수집·중복 알림 없음 | G1, G2 | `phase-2/test-ingestion.txt`, `phase-6/test-notifications.txt` |
 | 가상 데이터를 가상이라고 표시 | G8 | `phase-3/e2e/demo-badge.png` |
 | 자동 시험은 실제 외부 API·모델을 호출하지 않는다 | §2, 07 §2 | `phase-2/test-ingestion.txt`의 네트워크 호출 0 assert |
@@ -252,17 +251,17 @@ docs/evidence/
 | Kev는 점수·자격·권고를 바꾸지 못한다 | G3, V2-06 | `phase-4/goldens-report.txt` |
 | mock 결과를 실제 모델 결과처럼 보이지 않는다 | V2-02, V2-09 | `phase-5/ai-fallback.txt`, `phase-3/e2e/*.png` |
 | 모델 성능을 숫자로 잰다(한국어/영어 비교 포함) | §3.4, [[21-MODEL-TRAINING\|21 모델 학습]] §4 | `eval/` |
-| 보유 GPU에서 LoRA 학습이 가능한지 잰다 | [[21-MODEL-TRAINING\|21 모델 학습]] §5.2 | `kev-train-feasibility.md`(회사 측 실행 뒤) |
+| 보유 GPU에서 LoRA 학습이 가능한지 잰다 | [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]] §4.2 | `kev-train-feasibility.md`(회사 측 실행 뒤) |
 
 ## 7. MVP 완료 조건
 
 `pnpm verify`(서식·타입·린트·단위)·`pnpm test:db`·E2E·pytest·smoke 모두 PASS. fixture 기반 시연 플로우(§5) 100% 통과. API 비밀 로그 유출 없음. 수집 중복 없음. 모든 스코어에 근거·`algorithm_version`·프로필 revision 존재. 사람 최종 결정이 `bid_reviews`와 감사로그에 기록. 성능 목표는 실측치를 기록하고 비현실적인 수치를 성공으로 주장하지 않는다.
 
-ADR-020 이후 해커톤 MVP는 실제 나라장터 수집과 회사 GPU 추론 엔드포인트의 실추론(Qwen3.5-9B·Kev-9B@v1.0, [[16-DECISIONS|ADR-025]])까지 포함한다. 데모 필수 P0-0~P0-11의 완료 기준은 [[12-ROADMAP|12 로드맵]] 해커톤 컷, 평가 트랙의 기준은 [[21-MODEL-TRAINING|21 모델 학습]] §7이다. 세 실행 모드 기동 리허설을 통과해야 한다. 실모델 경로는 증거(로그·리포트)가 있는 항목만 검증됨으로 적고, 없는 항목은 **미검증**으로 표시한다. hosted 경로는 사용자 승인 전에는 쓰지 않으므로 해커톤 범위에서 미검증이다. Kev-9B LoRA 학습은 완료 조건이 아니다.
+ADR-020 이후 해커톤 MVP는 실제 나라장터 수집과 회사 GPU 추론 엔드포인트의 실추론(Qwen3.5-9B·Kev-9B@v1.0, [[16-DECISIONS|ADR-025]])까지 포함한다. 데모 필수 P0-0~P0-11의 완료 기준은 [[12-ROADMAP|12 로드맵]] 해커톤 컷, 평가 트랙의 기준은 [[21-MODEL-TRAINING|21 모델 학습]] §7이다. 세 실행 모드 기동 리허설을 통과해야 한다. 실모델 경로는 증거(로그·리포트)가 있는 항목만 검증됨으로 적고, 없는 항목은 **미검증**으로 표시한다. hosted 경로는 사용자 승인 전에는 쓰지 않으므로 해커톤 범위에서 미검증이다. Kev-9B LoRA는 X6(ADR-027)이다. 우리 쪽 산출물(평가셋·학습셋 번들·학습 요청서·E4 하네스)은 완료 조건이다. 회사 측 학습 결과는 받으면 E4로 보고하고, 받지 못하면 미실행으로 적는다.
 
 ## 8. 솔리데오 인력·가입 수용 기준 (ADR-019)
 
-기존 골든 G1~G10과 구분해 PPL 번호를 사용한다. 명부·카탈로그, DB/RLS·가입/보완 가드와 순수 인력 계산 회귀는 구현되었다. 기존 계획의 독립 코드 QA는 verify·공개130·브라우저89·인증92 및 실제 로컬 seed/1440·1280 검사를 통과했다. 이후 ADR-021의 가입·인력 저장 정합화도 별도 환경에서 검증했다(아래 §9.1). 사진은 2026-10-17 사람 APPROVED200/READY200·원본 대조 release·실제 Next 접근 검증을 통과했다. 전체 점수 파이프라인과 전체 ADR-021 후속 범위는 남아 있으며 아래 기준 전체를 통과했다는 뜻이 아니다. [통합 검증 기록](evidence/people/20261016-people-integration.md)에 실행과 미실행을 구분한다.
+기존 골든 G1~G10과 구분해 PPL 번호를 사용한다. 명부·카탈로그, DB/RLS·가입/보완 가드와 순수 인력 계산 회귀는 구현되었다. 기존 계획의 독립 코드 QA는 verify·E2E(공개·브라우저·인증)와 실제 로컬 seed·1440·1280 검사를 통과했다(실행 수는 아래 통합 검증 기록). 이후 ADR-021의 가입·인력 저장 정합화도 별도 환경에서 검증했다(아래 §9.1). 사진은 2026-10-17 사람 APPROVED200/READY200·원본 대조 release·실제 Next 접근 검증을 통과했다. 전체 점수 파이프라인과 전체 ADR-021 후속 범위는 남아 있으며 아래 기준 전체를 통과했다는 뜻이 아니다. [통합 검증 기록](evidence/people/20261016-people-integration.md)에 실행과 미실행을 구분한다.
 
 | ID | 자동 검증할 조건 | 위치 / 명령 |
 |---|---|---|
@@ -282,11 +281,11 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 | `pnpm people:check -- --input /절대경로/people.xlsx` | fixture 검사 + 원본 해시·250행(팀 가중치 175 + 제외 75)·미분류/범위·정확한 팀명/직급 가중치·ID/명부 재현·정규화 원본 이름 일치 0. 성공 시 `sourceComparison: "passed"`. 원본 누락은 `SOURCE_REQUIRED` 실패 |
 | `pnpm people:check:release -- --input /절대경로/people.xlsx` | 원본 필수 대조 + READY 200·고유 경로/해시 200·생성 metadata·PNG 파일/정사각형/실제 SHA-256 검사. PLANNED는 `PORTRAITS_INCOMPLETE` 실패 |
 
-사진 전 데이터 단계에서는 앞의 두 명령과 `pnpm verify`가 통과해야 한다. release 검사는 사진 미완료로 반드시 실패해야 하며 데이터 단계 검증을 위해 READY 요건을 낮추지 않는다. 사진 후에는 release 검사와 별도의 정장·서로 다른 얼굴·품질 사람 검수까지 통과해야 PPL-03 완료다. 이미지 해시가 다르다는 사실만으로 서로 다른 얼굴을 보장하지 않는다. PPL-07의 순수 snapshot/FTE 및 별도 worked-example 요소 회귀는 실제 점수 파이프라인의94/72/68 골든 시험을 대신하지 않는다. 기간은 반개구간이며 개인별 최소 잔여 용량을 합산하는 보수적인 보장 FTE다. 시간 평균이나 직원 교대 최적화가 아니다. 전체 pipeline 골든은 Phase4에 남긴다.
+데이터 단계에서는 앞의 두 명령과 `pnpm verify`가 통과해야 한다. release 검사의 READY 요건은 낮추지 않는다. 사진은 2026-10-17 사람 승인으로 READY 200이 됐다(§10). 사진 뒤에는 release 검사와 별도의 정장·서로 다른 얼굴·품질 사람 검수까지 통과해야 PPL-03 완료다. 이미지 해시가 다르다는 사실만으로 서로 다른 얼굴을 보장하지 않는다. PPL-07의 순수 snapshot/FTE 및 별도 worked-example 요소 회귀는 실제 점수 파이프라인의94/72/68 골든 시험을 대신하지 않는다. 기간은 반개구간이며 개인별 최소 잔여 용량을 합산하는 보수적인 보장 FTE다. 시간 평균이나 직원 교대 최적화가 아니다. 전체 pipeline 골든은 Phase4에 남긴다.
 
 원본이 없는 CI 초록불은 로컬 원본 대조 완료가 아니다. 검증 결과는 오류 코드와 안전한 인물 ID만 출력하며 원본 이름·제외 집합·경로·연락처를 출력하지 않는다. 로컬 원본 통과 증거는 [20261016-people-data.json](evidence/people/20261016-people-data.json)에 건수·입력 해시·이름 출처·AI 검토 결과로 남긴다. 사람의 이름/얼굴 검수 승인을 수행한 것처럼 기록하지 않는다. 이미지 생성은 시험·CI에서 호출하지 않는다.
 
-### 배분 가중치 제외 검사 (추가 인터뷰)
+### 배분 가중치 제외 검사
 
 명시된 팀 구역과 사용자 승인 비팀 제외 구역이 원본 인력 행을 중복 없이 모두 분류해야 한다. 제외 구역의 이름도 원본 이름 제외 집합에 포함한다. 팀 범위·제외 범위에 동시에 걸리거나 어디에도 없는 행은 실패한다. 이 분류 검사와 200명 목표 배분 검사를 함께 수행한다.
 

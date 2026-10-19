@@ -10,12 +10,12 @@ updated: 2026-10-19
 
 # 실제 AI 검증 증거 목록
 
-"실제 데이터·실제 모델로 돌았다"는 주장을 받칠 증거다. 2026-10-19 기준 **전부 없음·예정**이다. 파일 경로는 [[11-TESTING|11 테스트]] §6과 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 증거 규칙을 따른다. 담당 작업 ID는 [수상 전략 계획](../plans/2026-10-18-hackathon-award-plan.md) §4의 C1·C5·C8이다. 증거가 생기면 상태를 "있음(날짜)"으로 바꾸고 `docs/evidence/README.md` 색인에도 넣는다.
+"실제 데이터·실제 모델로 돌았다"는 주장을 받칠 증거다. 2026-10-19 기준 1·2번(C1 ①②)만 있고 나머지는 없음·예정이다. 파일 경로는 [[11-TESTING|11 테스트]] §6과 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 증거 규칙을 따른다. 담당 작업 ID는 [수상 전략 계획](../plans/2026-10-18-hackathon-award-plan.md) §4의 C1·C5·C8이다. 증거가 생기면 상태를 "있음(날짜)"으로 바꾸고 `docs/evidence/README.md` 색인에도 넣는다.
 
 | # | 증거 항목 | 무엇을 증명하나 | 예정 파일 경로 | 상태 | 담당 |
 |---|---|---|---|---|---|
-| 1 | 실제 API 응답 3건(오퍼레이션별, 담당자 이름·전화·이메일 마스킹, 서비스키 든 URL 제외) | 입찰공고 · 사전규격 · 발주계획 · 업종 마스터 4개 서비스의 실제 응답 스키마와 명세 일치 여부 | `docs/evidence/phase-0/external-deps.md` ①, `fixtures/recorded/<service>/<operation>-<n>.masked.json` | 없음 · 예정 | C1 ① |
-| 2 | 첨부 3건 다운로드 결과(HTTP 상태 · 형식 · 크기 · 로그인 요구 여부) | g2b 첨부 자동 다운로드 가능 여부(16 미결정 16번) | `docs/evidence/phase-0/external-deps.md` ② | 없음 · 예정 | C1 ② |
+| 1 | 실제 API 응답 3건(오퍼레이션별, 담당자 이름·전화·이메일 마스킹, 서비스키 든 URL 제외) | 입찰공고 · 사전규격 · 발주계획 · 업종 마스터 4개 서비스의 실제 응답 스키마와 명세 일치 여부 | `docs/evidence/phase-0/external-deps.md` ①, `fixtures/recorded/<service>/<operation>-<n>.masked.json` | 있음(2026-10-19): A1~A9 통과, 마스킹 응답 14파일, [API 호출 증거](../evidence/phase-0/external-deps-api-20261019.md) | C1 ① |
+| 2 | 첨부 3건 다운로드 결과(HTTP 상태 · 형식 · 크기 · 로그인 요구 여부) | g2b 첨부 자동 다운로드 가능 여부(16 미결정 16번) | `docs/evidence/phase-0/external-deps.md` ② | 있음(2026-10-19): B1~B4 통과, 3건 익명 GET 200(HWPX·PDF·HWPX) | C1 ② |
 | 3 | 회사 GPU 추론 엔드포인트 `GET /v1/models` 응답(Kev · vLLM, 비밀 없음 확인), 레지스트리 대조, Kev 요청 10회 `latency_ms` p50 · p95와 HTTPS 왕복 p50 · p95, Qwen 1회 왕복, 회사 제공 GPU 정보(있으면) | 회사 GPU 추론 엔드포인트(HTTPS)에서 Qwen3.5-9B · Kev-9B@v1.0이 실제로 서빙되고 레지스트리와 일치. VRAM · 가중치는 회사 운영이라 직접 측정하지 않는다([[16-DECISIONS\|ADR-025]]) | `docs/evidence/phase-0/endpoint-check.md`(G1~G6 결과, 지연 표), `docs/evidence/phase-0/endpoint-models.json`, `docs/evidence/phase-0/external-deps.md` ③, 데모 당일 재확인 `docs/evidence/demo-day/<일시>/endpoint-models.json` | 없음 · 예정 | C1 ③ |
 | 4 | 파서 후보 비교표(형식별 재현율 · 누락 · 라이선스) | 어떤 형식을 "지원"으로 표시할 수 있나 | `docs/evidence/phase-0/parser-benchmark.md`, `docs/evidence/phase-2/parse-success-rate.md` | 없음 · 예정 | C1 ④ · C3 |
 | 5 | Qwen 실추출 인용 검증 통과율(필드별 EXACT · NORMALIZED · FUZZY · FAILED 비율) | 추출값이 원문에 근거한다 | `docs/evidence/phase-5/extraction-citations-<일시>.md` | 없음 · 예정 | C5 |

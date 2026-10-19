@@ -5,17 +5,17 @@ status: draft
 tags:
   - sol-radar
   - ops
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 14. 관측성·운영
 
 ## 로그/메트릭
-구조적 JSON 로그에 `requestId`, `jobId`, `orgId`(내부 pseudonymous, DB 열 `org_id`), `bidId`, `elapsedMs`; 토큰(Supabase access token·refresh token)/`SUPABASE_SERVICE_ROLE_KEY`/원문/비밀번호 로깅 금지. 로그는 Next 서버(`web/`)·worker(`web/worker`)·AI gateway가 같은 필드 이름으로 남긴다. 지표: 수집 마지막 성공 시각, 호출 실패/429 비율, 지연, 큐 적체, 분석 실패/재시도/timeout, GPU VRAM(`ai-local`만), 추천 분포, 사람 판정과 AI 차이, 알림 중복.
+구조적 JSON 로그에 `requestId`, `jobId`, `orgId`(내부 pseudonymous, DB 열 `org_id`), `bidId`, `elapsedMs`; 토큰(Supabase access token·refresh token)/`SUPABASE_SERVICE_ROLE_KEY`/원문/비밀번호 로깅 금지. 로그는 Next 서버(`web/`)·worker(`web/worker`)·AI gateway가 같은 필드 이름으로 남긴다. 지표: 수집 마지막 성공 시각, 호출 실패/429 비율, 지연, 큐 적체, 분석 실패/재시도/timeout, 추천 분포, 사람 판정과 AI 차이, 알림 중복. GPU VRAM은 회사 GPU 서버를 회사가 운영하므로 우리가 재지 않는다. 회사가 주는 값이 있으면 기록만 한다([[16-DECISIONS|ADR-025]], [[10-DEPLOYMENT|10 배포]] GPU 메모리 배분).
 
 ## 데모 관리자 화면 지표 (5개)
 이 화면은 데이터 수집 관리 `/admin/ingestion`이고 [[16-DECISIONS|ADR-021]]로 데모 필수다(화면 명세는 [[06-UI-UX|06 UI]] §5.8).
-데모에서 보여주는 관리자 화면은 아래 5개만 다룬다. 나머지 지표는 metrics endpoint로만 제공한다. 관리자 화면은 `memberships.sol_role=ADMIN` 사용자의 세션으로 읽고, 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 그 조직 행만 보여 준다. 화면 역할에 직접 열지 않는 표(예: `outbox_events`)를 어떻게 집계해 보여 줄지는 Phase 1 정책 설계에서 정한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
+데모에서 보여주는 관리자 화면은 아래 5개만 다룬다. 나머지 지표는 metrics endpoint로만 제공한다. 관리자 화면은 `memberships.sol_role=ADMIN` 사용자의 세션으로 읽고, 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 그 조직 행만 보여 준다. `outbox_events`는 화면 역할에 권한·정책이 하나도 없다(마이그레이션 `20261019000006`). 남은 미정은 5번 지표의 적체 건수를 화면에 어떻게 집계해 보여 줄지뿐이다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
 
 |#|지표|원천|범위|데모에서 보이는 값|
 |---|---|---|---|---|
@@ -34,7 +34,7 @@ updated: 2026-10-18
   - AI만 불가 → HTTP 200, `status: "degraded"`, `checks.ai: "unavailable"`. AI는 선택 의존성이다.
   - 모두 정상 → HTTP 200, `status: "ok"`.
   - 같은 `checks.ai` 값이 화면 우상단 `AI: …` 표시에 쓰인다 ([[06-UI-UX|06 UI]]).
-- worker(`web/worker`)는 HTTP 엔드포인트가 없다. 상태는 Compose healthcheck로 본다(방식은 Phase 0에서 정한다, [[10-DEPLOYMENT|10 배포]]).
+- worker(`web/worker`)는 HTTP 엔드포인트가 없다. 상태는 Compose healthcheck로 본다. worker가 heartbeat 파일(`WORKER_HEARTBEAT_FILE`, 기본 `/tmp/sol-worker-heartbeat`)을 10초마다 갱신하고, healthcheck는 수정 시각이 30초 이내인지 판정한다([[16-DECISIONS|ADR-024]] D3, [[10-DEPLOYMENT|10 배포]]).
 - 관리자 화면: 위 5개 지표 + 오류 원인(민감정보 제거).
 
 ## 장애 대응
