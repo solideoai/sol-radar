@@ -483,6 +483,76 @@ describe("REST 클라이언트", () => {
     });
   });
 
+  // C3 8-2: demo:reset 은 지우기 전에 RPC 가 있는지 본다. PostgREST 는 없는 함수에 404·PGRST202 를 준다.
+  it("functionExists 는 POST /rest/v1/rpc/<이름> 에 probeArgs 를 본문으로 보내고(키는 헤더에만) 200 이면 true 다", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => ({ status: 200, body: "[]" }));
+    const client = createRestClient({
+      apiUrl: "http://127.0.0.1:59321/",
+      serviceKey: TEST_KEY,
+      fetchImpl,
+    });
+    assert.equal(
+      typeof client.functionExists,
+      "function",
+      "REST 클라이언트에 functionExists 가 없다",
+    );
+    assert.equal(await client.functionExists("ingest_save_revision", { p: {} }), true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, "POST");
+    assert.equal(calls[0].url.href, "http://127.0.0.1:59321/rest/v1/rpc/ingest_save_revision");
+    assert.deepEqual(JSON.parse(calls[0].body), { p: {} });
+    assert.equal(calls[0].headers.apikey, TEST_KEY);
+    assert.equal(calls[0].headers.Authorization, `Bearer ${TEST_KEY}`);
+    assert.ok(!calls[0].body.includes(TEST_KEY));
+  });
+
+  it("functionExists 는 404·PGRST202(함수 없음)면 false, 함수가 거절한 400·P0001 이나 코드가 다른 404 면 true 다", async () => {
+    const RESPONSES = {
+      "/rest/v1/rpc/missing": {
+        status: 404,
+        body: '{"code":"PGRST202","message":"Could not find the function public.missing(p) in the schema cache"}',
+      },
+      "/rest/v1/rpc/refuses": {
+        status: 400,
+        body: '{"code":"P0001","message":"INGEST_BID_NOT_FOUND"}',
+      },
+      "/rest/v1/rpc/other404": {
+        status: 404,
+        body: '{"code":"PGRST205","message":"not found"}',
+      },
+    };
+    const { fetchImpl } = fakeFetch(({ url }) => RESPONSES[url.pathname]);
+    const client = createRestClient({
+      apiUrl: "http://127.0.0.1:59321",
+      serviceKey: TEST_KEY,
+      fetchImpl,
+    });
+    assert.equal(
+      typeof client.functionExists,
+      "function",
+      "REST 클라이언트에 functionExists 가 없다",
+    );
+    assert.equal(await client.functionExists("missing", { p: {} }), false);
+    assert.equal(await client.functionExists("refuses", { p: {} }), true);
+    assert.equal(await client.functionExists("other404", { p: {} }), true);
+  });
+
+  it("functionExists 는 네트워크 오류(fetch 가 던짐)를 삼키지 않고 던진다", async () => {
+    const client = createRestClient({
+      apiUrl: "http://127.0.0.1:59321",
+      serviceKey: TEST_KEY,
+      fetchImpl: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+    assert.equal(
+      typeof client.functionExists,
+      "function",
+      "REST 클라이언트에 functionExists 가 없다",
+    );
+    await assert.rejects(client.functionExists("ingest_save_revision", { p: {} }), /fetch failed/);
+  });
+
   it("표가 없으면(404) tableExists 가 false 이고, 사용자 목록은 쪽을 넘긴다", async () => {
     const page = (count, offset) =>
       Array.from({ length: count }, (_, index) => ({
@@ -560,6 +630,13 @@ const sqlClient = (db) => {
     async tableExists(table) {
       return (
         (await db.query("select to_regclass($1) as oid", [`public.${table}`])).rows[0].oid !== null
+      );
+    },
+    // C3 8-2. REST 는 probeArgs 를 본문으로 실제로 부르지만, SQL 은 서명(jsonb 하나)으로 찾는다 — probeArgs 는 쓰지 않는다.
+    async functionExists(name) {
+      return (
+        (await db.query("select to_regprocedure($1) as oid", [`public.${name}(jsonb)`])).rows[0]
+          .oid !== null
       );
     },
     async select(table, { columns = "*", filters = {} } = {}) {
@@ -1369,5 +1446,109 @@ describe("공고 적재 주입 — ingestBids (C3 6-5)", () => {
     ]);
     assert.deepEqual(result.ingestRun, { id: returned.ingestRunId, summary: returned.summary });
     assert.deepEqual(result.bids, returned.bids);
+  });
+});
+
+// ── 함수 확인 — demo:reset 은 지우기 전에 RPC 가 있는지 본다 (C3 8-2) ──────
+//
+// 마이그레이션 20261019000009 가 빠진 프로젝트에서 seed 가 데모 공고를 다 지운 뒤에야 공고 적재에서 멈추면 데모가 빈다.
+// 그래서 표 확인(assertTables)과 함께, 어떤 쓰기·지우기보다 먼저 ingest_save_revision 이 있는지 확인한다.
+
+// seedDemo 가 부른 client 메서드를 순서대로 적는다. 동작은 감싼 client 그대로다.
+const WRITE_METHODS = new Set([
+  "insert",
+  "upsert",
+  "update",
+  "delete",
+  "auth.createUser",
+  "auth.updateUser",
+]);
+const recordingClient = (client) => {
+  const calls = [];
+  const wrap = (method, fn) => {
+    const recorded = async (...args) => {
+      calls.push({ method, args });
+      return fn(...args);
+    };
+    return recorded;
+  };
+  const methods = (target, prefix) =>
+    Object.fromEntries(
+      Object.entries(target)
+        .filter(([, value]) => typeof value === "function")
+        .map(([name, fn]) => [name, wrap(`${prefix}${name}`, fn)]),
+    );
+  return { calls, client: { ...methods(client, ""), auth: methods(client.auth, "auth.") } };
+};
+const writesOf = (calls) => calls.filter(({ method }) => WRITE_METHODS.has(method));
+
+// seed 가 쓰거나 지우는 표 전부와 auth.users 의 행 수·내용 지문. 한 행이라도 지워지거나 바뀌면 달라진다.
+const fingerprint = async (db) => {
+  const tables = [...REQUIRED_TABLES.map((table) => `public.${table}`), "auth.users"];
+  const result = {};
+  for (const table of tables)
+    result[table] = (
+      await db.query(
+        `select count(*)::int as count, md5(coalesce(string_agg(t::text, '|' order by t::text), '')) as hash from ${table} t`,
+      )
+    ).rows[0];
+  return result;
+};
+
+describe("함수 확인 — ingest_save_revision (C3 8-2)", () => {
+  const seed = (db, client, ingestBids = fakeIngestBids(db)) =>
+    seedDemo({
+      client,
+      fixtures,
+      password: "demo-password-1234",
+      anchor: ANCHOR,
+      portraits: readyPortraits,
+      ingestBids,
+    });
+
+  it("ingest_save_revision 이 없는 DB 에서 seedDemo 는 '함수가 없습니다: ingest_save_revision' 으로 멈추고 데모 공고·조직·명부 행을 하나도 쓰거나 지우지 않는다", async (t) => {
+    const db = await migratedDb(t);
+    await insertLiveBid(db);
+    // 지난 리허설의 데모 상태(공고·조직·명부·계정·결정)를 먼저 만든 뒤 함수를 없앤다(000009 가 빠진 DB 와 같다).
+    await seed(db, sqlClient(db));
+    await db.exec("drop function public.ingest_save_revision(jsonb)");
+    const before = await fingerprint(db);
+    assert.equal(before["public.bid_notices"].count, 20);
+    assert.equal(before["public.organizations"].count, 2);
+    assert.equal(before["public.team_members"].count, 200);
+
+    const { client, calls } = recordingClient(sqlClient(db));
+    const seen = { inputs: [], results: [] };
+    await assert.rejects(seed(db, client, fakeIngestBids(db, seen)), (error) => {
+      assert.match(error.message, /함수가 없습니다: ingest_save_revision/);
+      assert.match(error.message, /20261019000009/);
+      return true;
+    });
+    assert.deepEqual(writesOf(calls), []);
+    assert.equal(seen.inputs.length, 0);
+    assert.deepEqual(await fingerprint(db), before);
+  });
+
+  it("seedDemo 는 어떤 쓰기·지우기보다 먼저 functionExists('ingest_save_revision', { p: {} }) 로 확인하고, 함수가 있으면 끝까지 돈다", async (t) => {
+    const db = await migratedDb(t);
+    const { client, calls } = recordingClient(sqlClient(db));
+    const result = await seed(db, client);
+    assert.equal(result.line, EXPECTED_LINE);
+    assert.equal(result.ok, true);
+    const probe = calls.findIndex(({ method }) => method === "functionExists");
+    assert.ok(probe >= 0, "seedDemo 가 functionExists 를 부르지 않았다");
+    assert.deepEqual(calls[probe].args, ["ingest_save_revision", { p: {} }]);
+    const firstWrite = calls.findIndex(({ method }) => WRITE_METHODS.has(method));
+    assert.ok(firstWrite > probe, `첫 쓰기(${calls[firstWrite]?.method})가 함수 확인보다 먼저다`);
+  });
+
+  it("확인 호출과 같은 인자 p = {} 로 함수를 불러도 INGEST_BID_NOT_FOUND 로 거절되고 네 표에 행이 생기지 않는다", async (t) => {
+    const db = await migratedDb(t);
+    await assert.rejects(
+      db.query("select * from public.ingest_save_revision($1)", [JSON.stringify({})]),
+      { message: "INGEST_BID_NOT_FOUND" },
+    );
+    for (const table of ["bid_notices", "bid_revisions", "bid_documents", "outbox_events"])
+      assert.equal(await count(db, `select count(*) from public.${table}`), 0, table);
   });
 });

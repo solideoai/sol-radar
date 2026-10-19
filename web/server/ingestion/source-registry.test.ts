@@ -178,6 +178,42 @@ describe("loadSourceRegistry — serviceKeyEnv 이름 제한(7-4)", () => {
   });
 });
 
+// 계약 8-3: endpoint.baseUrl 은 https URL 만(서비스키가 쿼리로 나가므로 평문 http 금지). endpoint 가 null 인 소스는 그대로 둔다
+describe("loadSourceRegistry — endpoint.baseUrl 은 https 만(8-3)", () => {
+  const HTTP_BASE_URL = "http://apis.data.go.kr/1230000/ad/BidPublicInfoService";
+  const withBaseUrl = (baseUrl: string) =>
+    registryDoc([
+      bidNoticeEntry({ endpoint: { baseUrl, operations: ["getBidPblancListInfoServc"] } }),
+    ]);
+
+  it.each([
+    ["http", HTTP_BASE_URL],
+    ["ftp", "ftp://apis.data.go.kr/1230000/ad/BidPublicInfoService"],
+    ["URL 이 아님", "apis.data.go.kr/1230000/ad/BidPublicInfoService"],
+  ])("baseUrl 이 %s 면 reject 한다", async (_label, baseUrl) => {
+    await expect(loadSourceRegistry(writeRegistry(withBaseUrl(baseUrl)))).rejects.toThrow();
+  });
+
+  it("http baseUrl 거부 메시지에 그 URL 을 넣지 않는다", async () => {
+    const message = await rejectionMessage(writeRegistry(withBaseUrl(HTTP_BASE_URL)));
+
+    expect(message).not.toContain("apis.data.go.kr");
+  });
+
+  it("https baseUrl 은 읽는다", async () => {
+    const baseUrl = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService";
+    const registry = await loadSourceRegistry(writeRegistry(withBaseUrl(baseUrl)));
+
+    expect(registry.sources[0]?.endpoint?.baseUrl).toBe(baseUrl);
+  });
+
+  it("endpoint 가 null 인 fixture 소스는 읽는다", async () => {
+    const registry = await loadSourceRegistry(writeRegistry(registryDoc([FIXTURE_ENTRY])));
+
+    expect(registry.sources[0]?.endpoint).toBeNull();
+  });
+});
+
 describe("callableSource", () => {
   it("승인·endpoint·fieldMapping·serviceKeyEnv 가 모두 있으면 부를 수 있는 소스를 돌려준다", () => {
     expect(callableSource(registryOf(bidNoticeEntry()), "g2b-bid-notice")).toEqual({
@@ -335,6 +371,15 @@ describe("infra/sources/registry.yaml", () => {
     const [attachment] = await entriesOf(["g2b-attachment"]);
 
     expect(attachment?.approvalStatus).toBe("APPROVED");
+  });
+
+  it("모든 endpoint.baseUrl 은 https 다(8-3)", async () => {
+    const baseUrls = (await realRegistry()).sources.flatMap((source) =>
+      source.endpoint ? [source.endpoint.baseUrl] : [],
+    );
+
+    expect(baseUrls.length).toBeGreaterThan(0);
+    expect(baseUrls.filter((baseUrl) => new URL(baseUrl).protocol !== "https:")).toEqual([]);
   });
 
   it("registry 파일에 서비스키 값이 없다(env 이름만 둔다)", () => {

@@ -75,6 +75,11 @@ export const REQUIRED_TABLES = [
   "audit_logs",
 ];
 
+// seed 가 부르는 RPC. probe 는 확인 호출의 인자다 — p = {} 는 함수가 쓰기 전에 INGEST_BID_NOT_FOUND 로 거절해 행이 생기지 않는다.
+export const REQUIRED_FUNCTIONS = [
+  { name: "ingest_save_revision", probe: { p: {} }, migration: "20261019000009" },
+];
+
 // 데모 조직 두 곳의 조직 소유 행. 지우는 순서는 FK 를 따른다(score_runs 가 먼저, 결정은 run 을 가리킨다).
 const ORG_SCOPED_TABLES = [
   "score_runs",
@@ -119,12 +124,20 @@ export const validatePortraits = async ({ root = ROOT } = {}) => {
 
 // ── seed ───────────────────────────────────────────────────────
 
+// 어떤 쓰기·지우기보다 먼저 본다. 공고 적재 RPC 가 없는 프로젝트에서 데모 공고를 다 지운 뒤에야 멈추면 데모가 빈다(C3 8-2).
 const assertTables = async (client) => {
   const missing = [];
   for (const table of REQUIRED_TABLES) if (!(await client.tableExists(table))) missing.push(table);
   if (missing.length > 0)
     throw new Error(
       `표가 없습니다: ${missing.join(", ")}. 마이그레이션이 적용되지 않았습니다 — pnpm db:verify 로 확인하고 pnpm db:push(사용자 확인 뒤)로 적용하세요.`,
+    );
+  const missingFunctions = [];
+  for (const fn of REQUIRED_FUNCTIONS)
+    if (!(await client.functionExists(fn.name, fn.probe))) missingFunctions.push(fn);
+  if (missingFunctions.length > 0)
+    throw new Error(
+      `함수가 없습니다: ${missingFunctions.map((fn) => fn.name).join(", ")}. 마이그레이션 ${missingFunctions.map((fn) => fn.migration).join(", ")} 가 적용되지 않았습니다 — pnpm db:verify 로 확인하고 pnpm db:push(사용자 확인 뒤)로 적용하세요.`,
     );
 };
 

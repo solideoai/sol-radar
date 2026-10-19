@@ -22,7 +22,8 @@ const sourceEntrySchema = z.strictObject({
   approvalStatus: z.enum(APPROVAL_STATUSES),
   endpoint: z
     .strictObject({
-      baseUrl: z.url({ protocol: /^https?$/ }),
+      // 8-3: 서비스키가 쿼리로 나가므로 평문 http 엔드포인트는 등록하지 않는다.
+      baseUrl: z.url({ protocol: /^https$/ }),
       operations: z.array(z.string().min(1)),
     })
     .nullable(),

@@ -29,7 +29,12 @@ import { checkReadiness, createReadinessProbes } from "@/worker/readiness";
 import { SYSTEM_QUEUE, processSystemJob } from "@/worker/system-queue";
 
 type Env = Record<string, string | undefined>;
-type Closable = { close(): Promise<void> };
+
+export type Closable = { close(): Promise<void> };
+/** 2단계: 받은 Redis 연결로 Worker·Queue 를 만든다 */
+export type StartWorkers = (connection: IORedis) => Promise<Closable>;
+/** 1단계(Redis 전): env·설정을 읽고 검증한다. 틀리면 던진다. 2단계 시작 함수를 돌려준다 */
+export type WorkerRegistration = (rawEnv: Env) => Promise<StartWorkers>;
 
 export type WorkerDeps = {
   checkReadiness: (env: WorkerEnv) => Promise<void>;
@@ -99,19 +104,44 @@ export async function scheduleG2bIngest(
   );
 }
 
+/**
+ * 8-1: live 면 g2b 반복 일정을 걸고, 아니면 지운다(없어도 오류 아님). Redis 가 appendonly·named volume 이라 live 때 건
+ * 일정이 남으면 fixture 대체 중에도 30분마다 RUN_MODE_MISMATCH 로 실패한 run 이 쌓인다.
+ */
+export async function syncG2bSchedule(
+  queue: Pick<Queue, "upsertJobScheduler" | "removeJobScheduler">,
+  runMode: RunMode,
+  intervalMinutes: number,
+): Promise<void> {
+  if (runMode === "live") await scheduleG2bIngest(queue, intervalMinutes);
+  else await queue.removeJobScheduler(G2B_SCHEDULER_ID);
+}
+
+// 시작이 실패했을 때 이미 만든 것을 닫는다. 원인 오류를 가리지 않으려고 닫는 중의 오류는 버린다.
+const closeQuietly = async (closables: readonly Closable[]): Promise<void> => {
+  for (const closable of [...closables].reverse()) {
+    await closable.close().catch(() => undefined);
+  }
+};
+
 /** ingest 큐 Worker(6-4). 저장소·connector·documents 큐·감사 기록은 deps 로 받는다. */
 export async function createIngestWorker(
   connection: IORedis,
   deps: IngestJobDeps,
   intervalMinutes: number,
-): Promise<{ close(): Promise<void> }> {
+): Promise<Closable> {
   const worker = new Worker(INGEST_QUEUE, (job) => processIngestJob(job.data, deps), {
     connection,
   });
   logErrors(worker, "ingest worker");
   const queue = new Queue(INGEST_QUEUE, { connection });
   logErrors(queue, "ingest queue");
-  if (deps.runMode === "live") await scheduleG2bIngest(queue, intervalMinutes);
+  try {
+    await syncG2bSchedule(queue, deps.runMode, intervalMinutes);
+  } catch (error) {
+    await closeQuietly([{ close: () => worker.close() }, { close: () => queue.close() }]);
+    throw error;
+  }
   return {
     async close() {
       await worker.close();
@@ -195,29 +225,84 @@ function ingestJobDepsOf(config: IngestConfig, documentsQueue: JobQueue): Ingest
   };
 }
 
+// ── worker 등록(8-4). 새 worker(분석 등)는 등록 함수 하나를 WORKER_REGISTRATIONS 에 더해 붙인다 ──
+
+export const systemWorkerRegistration: WorkerRegistration = async () => async (connection) => {
+  const worker = new Worker(SYSTEM_QUEUE, processSystemJob, { connection });
+  logErrors(worker, "worker");
+  return { close: () => worker.close() };
+};
+
+// 1단계에서 실행 모드·간격·registry·서비스키를 읽는다. 틀리면 Redis 연결을 만들기 전에 기동을 멈춘다.
+export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
+  const config = await readIngestConfig(rawEnv);
+  return async (connection) => {
+    const documentsQueue = new Queue(DOCUMENTS_QUEUE, { connection });
+    logErrors(documentsQueue, "documents queue");
+    const closeDocuments: Closable = { close: () => documentsQueue.close() };
+    try {
+      const ingest = await createIngestWorker(
+        connection,
+        ingestJobDepsOf(config, documentsQueue),
+        config.intervalMinutes,
+      );
+      return {
+        async close() {
+          await ingest.close();
+          await closeDocuments.close();
+        },
+      };
+    } catch (error) {
+      await closeQuietly([closeDocuments]);
+      throw error;
+    }
+  };
+};
+
+export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
+  systemWorkerRegistration,
+  ingestWorkerRegistration,
+];
+
+/** 등록 순서대로 시작한다. 하나가 던지면 이미 시작한 것을 거꾸로 닫고 다시 던진다. close 도 거꾸로 닫는다 */
+export async function startRegistered(
+  connection: IORedis,
+  starts: readonly StartWorkers[],
+): Promise<Closable> {
+  const started: Closable[] = [];
+  for (const start of starts) {
+    try {
+      started.push(await start(connection));
+    } catch (error) {
+      await closeQuietly(started);
+      throw error;
+    }
+  }
+  return {
+    async close() {
+      for (const closable of [...started].reverse()) await closable.close();
+    },
+  };
+}
+
 export const defaultWorkerDeps: WorkerDeps = {
   checkReadiness: checkReadinessWithCodes,
   createWorker: async (env, rawEnv) => {
-    // env·registry·서비스키를 먼저 읽는다. 틀렸으면 Redis 연결을 만들기 전에 기동을 멈춘다.
-    const config = await readIngestConfig(rawEnv);
+    // 1단계: 모든 등록의 설정 검증이 통과해야 Redis 에 연결한다.
+    const starts = await Promise.all(WORKER_REGISTRATIONS.map((register) => register(rawEnv)));
     const connection = new IORedis(env.redisUrl, { maxRetriesPerRequest: null });
-    const systemWorker = new Worker(SYSTEM_QUEUE, processSystemJob, { connection });
-    logErrors(systemWorker, "worker");
-    const documentsQueue = new Queue(DOCUMENTS_QUEUE, { connection });
-    logErrors(documentsQueue, "documents queue");
-    const ingest = await createIngestWorker(
-      connection,
-      ingestJobDepsOf(config, documentsQueue),
-      config.intervalMinutes,
-    );
-    return {
-      async close() {
-        await ingest.close();
-        await systemWorker.close();
-        await documentsQueue.close();
-        connection.disconnect();
-      },
-    };
+    try {
+      const workers = await startRegistered(connection, starts);
+      return {
+        async close() {
+          await workers.close();
+          connection.disconnect();
+        },
+      };
+    } catch (error) {
+      connection.disconnect();
+      throw error;
+    }
   },
   startHeartbeat: (file) => startHeartbeat(file),
 };

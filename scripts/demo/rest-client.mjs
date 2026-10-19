@@ -3,7 +3,7 @@
 // 템플릿 db-seed.mjs 의 호출 방식을 따른다. 키는 요청 헤더에만 싣고 오류·로그에 넣지 않는다. 오류에는 상태 코드와
 // 서버가 준 짧은 사유(code·message·hint)만 담는다 — details 는 요청 본문을 되돌려 줄 수 있어 싣지 않는다.
 //
-// 같은 모양(select·insert·upsert·delete·tableExists·auth)을 시험이 PGlite 위에 SQL 로 구현해 같은 seed 코드를 돌린다.
+// 같은 모양(select·insert·upsert·delete·tableExists·functionExists·auth)을 시험이 PGlite 위에 SQL 로 구현해 같은 seed 코드를 돌린다.
 
 const PAGE_SIZE = 1000;
 const JWT_PATTERN = /eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}/g;
@@ -88,6 +88,17 @@ export const createRestClient = ({ apiUrl, serviceKey, fetchImpl = globalThis.fe
         return true;
       } catch (error) {
         if (error instanceof RestError && error.status === 404) return false;
+        throw error;
+      }
+    },
+    // RPC 가 있는지 probeArgs 로 실제로 불러 본다. PostgREST 는 없는 함수에 404·PGRST202 를 준다.
+    // 함수가 인자를 거절한 오류(400 등)나 성공은 "있다" 이다. 네트워크 오류는 삼키지 않는다.
+    async functionExists(name, probeArgs) {
+      try {
+        await call("POST", `/rest/v1/rpc/${encodeURIComponent(name)}`, { body: probeArgs });
+        return true;
+      } catch (error) {
+        if (error instanceof RestError) return !(error.status === 404 && error.code === "PGRST202");
         throw error;
       }
     },
