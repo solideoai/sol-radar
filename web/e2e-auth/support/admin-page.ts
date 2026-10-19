@@ -1,13 +1,51 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import { escapeRegExp } from "./seed";
+import { readProfilesNewestFirst, signInAs } from "./local-supabase";
+import { escapeRegExp, SEED_ACCOUNTS, SEED_ROLES, type SeedRole } from "./seed";
 
 // 관리자 사용자 목록(/admin)을 읽는 도구. admin.spec.ts(읽기)와 admin-status.write.spec.ts(정지·해제)가 같은 방법으로 줄을 본다.
 
-// 계정은 시험 직전(시드)이나 시험 안에서 만든다. 가입일은 오늘(서울)이다 — 만든 뒤 서울 자정을 넘기면 하루 밀린다.
-export const today = new Intl.DateTimeFormat("ko-KR", {
-  dateStyle: "medium",
-  timeZone: "Asia/Seoul",
-}).format(new Date());
+const seoulDate = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeZone: "Asia/Seoul" });
+
+/** 가입 시각(profiles.created_at)을 목록이 적는 서울 날짜로 바꾼다. 예: "2026. 10. 16." */
+export const joinedDateOf = (createdAt: string | Date): string =>
+  seoulDate.format(new Date(createdAt));
+
+// 시험 안에서 만든 계정의 가입일은 오늘(서울)이다 — 만든 뒤 서울 자정을 넘기면 하루 밀린다.
+export const today = joinedDateOf(new Date());
+
+const seedRoleOf = (email: string): SeedRole => {
+  const role = SEED_ROLES.find((candidate) => SEED_ACCOUNTS[candidate].email === email);
+  if (!role) throw new Error(`시드 계정이 아닙니다: ${email}`);
+  return role;
+};
+
+export type SeedListing = {
+  /** 목록의 "최근 가입 순"으로 놓은 시드 계정. */
+  newestFirst: SeedRole[];
+  /** 그 시드 계정의 가입일(목록이 적는 서울 날짜). */
+  joinedOf: (role: SeedRole) => string;
+};
+
+/**
+ * 시드 계정의 가입일과 순서를 DB(profiles.created_at)에서 읽는다. 시드(scripts/db-seed.mjs)는 다시 돌려도 계정을 보존하므로
+ * 가입일은 시드를 넣은 날이 아니라 계정을 처음 만든 날이고, 데모 계정(pnpm demo:reset)처럼 시드 뒤에 가입한 사람이 있을 수 있다.
+ * 그래서 날짜·순서를 시험에 정해 두지 않는다. 다섯 계정이 한 번씩 있어야 한다 — 아니면 시드가 덜 들어간 것이다.
+ */
+export const readSeedListing = async (): Promise<SeedListing> => {
+  const rows = await readProfilesNewestFirst(await signInAs("admin"), {
+    emails: SEED_ROLES.map((role) => SEED_ACCOUNTS[role].email),
+  });
+  const newestFirst = rows.map(({ email }) => seedRoleOf(email));
+  expect([...newestFirst].sort(), "시드 계정 다섯이 한 번씩 있어야 한다").toEqual(
+    [...SEED_ROLES].sort(),
+  );
+  const joinedOf = (role: SeedRole): string => {
+    const row = rows.find(({ email }) => email === SEED_ACCOUNTS[role].email);
+    if (!row) throw new Error(`시드 계정의 프로필이 없습니다: ${role}`);
+    return joinedDateOf(row.created_at);
+  };
+  return { newestFirst, joinedOf };
+};
 
 export const usersTable = (page: Page) => page.getByRole("table", { name: "사용자 목록" });
 
@@ -29,6 +67,8 @@ export type ListedUser = {
   isMe?: boolean;
   isAdmin?: boolean;
   suspended?: boolean;
+  /** 목록이 적을 가입일. 없으면 오늘이다(시험 안에서 만든 계정). 시드 계정은 readSeedListing 으로 읽은 날을 준다. */
+  joined?: string;
 };
 
 // 칸마다의 글자. 숨긴 칸·줄도 글자는 있다(어느 폭에서 보이는지는 폭 시험이 본다).
@@ -38,12 +78,14 @@ export type ListedUser = {
 const cellTextsOf = (user: ListedUser) => {
   const type = user.isAdmin ? "운영자" : "회원";
   const canChange = !user.isMe && !user.isAdmin;
+  const joined = user.joined ?? today;
   return {
     user:
       `${escapeRegExp(user.name)}${user.isMe ? "\\(나\\)" : ""}${user.suspended ? "정지" : ""}` +
-      `${escapeRegExp(user.email)}${type} · 가입 ${escapeRegExp(today)}`,
+      `${escapeRegExp(user.email)}${type} · 가입 ${escapeRegExp(joined)}`,
     type,
     status: user.suspended ? "정지" : "정상",
+    joined,
     action: canChange ? (user.suspended ? "해제" : "정지") : "",
   };
 };
@@ -52,7 +94,7 @@ const cellTextsOf = (user: ListedUser) => {
 export const rowText = (user: ListedUser): RegExp => {
   const cells = cellTextsOf(user);
   return new RegExp(
-    `${cells.user}${cells.type}${cells.status}${escapeRegExp(today)}${cells.action}$`,
+    `${cells.user}${cells.type}${cells.status}${escapeRegExp(cells.joined)}${cells.action}$`,
   );
 };
 
@@ -63,7 +105,7 @@ export const expectRowCells = async (row: Locator, user: ListedUser) => {
     new RegExp(`${cells.user}$`),
     cells.type,
     cells.status,
-    today,
+    cells.joined,
     cells.action,
   ]);
   const buttons = cells.action === "" ? 0 : 1;
