@@ -41,3 +41,5 @@ export type {
   RenameTeamResult,
   TeamField,
 } from "./organization.model";
+export { getMyBusinessAccess } from "./business-access.service";
+export type { MyBusinessAccess, SolRole } from "./business-access.model";

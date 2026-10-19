@@ -5712,6 +5712,334 @@ describe("솔리데오 카탈로그·가입 신고", () => {
     );
     return fresh;
   };
+  describe("people business roles", () => {
+    // JWT 없는 관리 작업으로 멤버십 전체를 읽는다 — 화면 역할의 시도가 실제로 아무것도 바꾸지 않았는지 정책을 거치지 않고 본다.
+    const membershipsOf = async (fresh) => {
+      await fresh.exec("reset role");
+      await fresh.query("select set_config('request.jwt.claims', '', false)");
+      return (
+        await fresh.query(
+          "select org_id,user_id,org_role,sol_role from public.memberships order by org_id,user_id",
+        )
+      ).rows;
+    };
+    // 20261018000001 하나의 계약만 본다. 바로 다음 20261019000001(C2)은 팀 owner 에게 ADMIN 을 채우고 구성원 정책을
+    // ADMIN 기준으로 바꾸므로(정책·열 권한·트리거가 달라진다) 적용 범위를 그 앞에서 끊는다. C2 의 채우기는 다음 시험이 본다.
+    it("upgrades existing memberships with VIEWER while preserving all prior policies and grants", async (t) => {
+      const fresh = await freshDb(t);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version < "20261018000001"),
+      );
+      for (const [i, id] of users.entries())
+        await fresh.query("insert into auth.users values ($1,$2)", [
+          id,
+          `user${i}@example.invalid`,
+        ]);
+      await fresh.query(
+        "insert into public.organizations(id,slug,name) values ($1,'role-upgrade','업무 역할')",
+        [solideo],
+      );
+      await fresh.query(
+        "insert into public.memberships(org_id,user_id,org_role) values ($1,$2,'owner'),($1,$3,'member')",
+        [solideo, users[0], users[1]],
+      );
+      const before = await accessSnapshot(fresh);
+      await applyMigrations(
+        fresh,
+        migrations.filter(
+          (migration) =>
+            migration.version >= "20261018000001" && migration.version < "20261019000001",
+        ),
+      );
+      assert.deepEqual(
+        (await fresh.query("select org_role,sol_role from public.memberships order by org_role"))
+          .rows,
+        [
+          { org_role: "member", sol_role: "VIEWER" },
+          { org_role: "owner", sol_role: "VIEWER" },
+        ],
+      );
+      const after = await accessSnapshot(fresh);
+      assert.deepEqual(after.policies, before.policies);
+      assert.deepEqual(after.grants, before.grants);
+      assert.deepEqual(
+        after.columnGrants.filter((grant) => grant.column_name !== "sol_role"),
+        before.columnGrants,
+      );
+      // 새 열은 읽기만 열린다 — 넣기·고치기 열 권한은 거둔다(20261018000001 8행).
+      assert.deepEqual(
+        after.columnGrants.filter((grant) => grant.column_name === "sol_role"),
+        [
+          {
+            table_name: "memberships",
+            column_name: "sol_role",
+            grantee: "authenticated",
+            privilege_type: "SELECT",
+          },
+        ],
+      );
+      assert.deepEqual(after.triggers, before.triggers);
+    });
+    // 20261019000001 3절(85~90행): 구성원 관리가 ADMIN 기준이 되므로, ADMIN 이 한 명도 없는 팀 조직은 owner 를 ADMIN 으로
+    // 한 번 채운다. member·개인 조직(personal_owner_id 가 있는 조직)의 owner·이미 ADMIN 이 있는 팀의 owner 는 그대로다.
+    it("20261019000001 backfills ADMIN only for the owner of a team organization that has no ADMIN", async (t) => {
+      const fresh = await freshDb(t);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version < "20261019000001"),
+      );
+      for (const [i, id] of users.entries())
+        await fresh.query("insert into auth.users values ($1,$2)", [
+          id,
+          `user${i}@example.invalid`,
+        ]);
+      await fresh.query(
+        "insert into public.organizations(id,slug,name) values ($1,'team-a','ADMIN 없는 팀'),($2,'team-b','ADMIN 있는 팀')",
+        [solideo, other],
+      );
+      await fresh.query(
+        "insert into public.memberships(org_id,user_id,org_role) values ($1,$3,'owner'),($1,$4,'member'),($2,$4,'owner'),($2,$3,'member')",
+        [solideo, other, users[0], users[1]],
+      );
+      // team-b 는 owner 가 아닌 ADMIN 이 이미 있다. user2 는 이전 가입 흐름의 개인 조직 주인(owner)이다.
+      await fresh.query(
+        "update public.memberships set sol_role='ADMIN' where org_id=$1 and user_id=$2",
+        [other, users[0]],
+      );
+      await fresh.query("select public.create_personal_org($1)", [users[2]]);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version >= "20261019000001"),
+      );
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "select case when o.personal_owner_id is null then o.slug else 'personal' end as org, m.user_id, m.org_role, m.sol_role from public.memberships m join public.organizations o on o.id = m.org_id order by 1, 2",
+          )
+        ).rows,
+        [
+          { org: "personal", user_id: users[2], org_role: "owner", sol_role: "VIEWER" },
+          { org: "team-a", user_id: users[0], org_role: "owner", sol_role: "ADMIN" },
+          { org: "team-a", user_id: users[1], org_role: "member", sol_role: "VIEWER" },
+          { org: "team-b", user_id: users[0], org_role: "member", sol_role: "ADMIN" },
+          { org: "team-b", user_id: users[1], org_role: "owner", sol_role: "VIEWER" },
+        ],
+      );
+    });
+    it("defaults every existing owner/member to VIEWER without granting business ADMIN", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.memberships set org_role='owner' where user_id=$1", [
+        users[0],
+      ]);
+      assert.deepEqual(
+        (await fresh.query("select org_role,sol_role from public.memberships order by org_role"))
+          .rows,
+        [
+          { org_role: "member", sol_role: "VIEWER" },
+          { org_role: "owner", sol_role: "VIEWER" },
+        ],
+      );
+      for (const value of [null, "owner", "admin", "SUPER_ADMIN", ""]) {
+        await assert.rejects(
+          fresh.query("update public.memberships set sol_role=$1 where user_id=$2", [
+            value,
+            users[0],
+          ]),
+          /not-null constraint|check constraint/,
+        );
+      }
+    });
+    // 업무 역할과 상관없이 같은 경계: 카탈로그 3표는 자기 조직 것만 읽고 아무도 쓰지 못한다. 다른 조직에는 멤버십을
+    // 넣지도(sol_role 열 권한이 없다) 고치지도(읽히지 않으니 0행) 못한다 — ADMIN 이라도 그 조직의 ADMIN 일 뿐이다.
+    const assertCatalogReadOnlyAndIsolated = async (fresh) => {
+      for (const table of ["departments", "job_titles", "team_members"]) {
+        assert.equal(
+          (await fresh.query(`select * from public.${table} where org_id=$1`, [solideo])).rows
+            .length,
+          1,
+        );
+        assert.deepEqual(
+          (await fresh.query(`select * from public.${table} where org_id=$1`, [other])).rows,
+          [],
+        );
+        for (const sql of [
+          `insert into public.${table} (org_id) values ($1)`,
+          `update public.${table} set org_id=$1`,
+          `delete from public.${table} where org_id=$1`,
+        ])
+          await assert.rejects(fresh.query(sql, [solideo]), /permission denied/);
+      }
+      await assert.rejects(
+        fresh.query(
+          "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'member','ADMIN')",
+          [other, users[0]],
+        ),
+        /permission denied/,
+      );
+      for (const set of ["sol_role='ADMIN'", "org_role='owner'"])
+        assert.deepEqual(
+          (
+            await fresh.query(
+              `update public.memberships set ${set} where org_id=$1 returning user_id`,
+              [other],
+            )
+          ).rows,
+          [],
+          set,
+        );
+    };
+    // 20261019000001(ADR-021): sol_role 의 update 열 권한은 다시 열렸지만 "ADMIN 은 역할 변경" 정책이 ADMIN 이 아닌
+    // 사람의 update 대상에 멤버십 행을 넣지 않는다. 그래서 자기 승격(sol_role·org_role)은 오류가 아니라 0행이고 값이 그대로다.
+    // ADMIN 이 아닌 사람의 sol_role 변경을 42501 로 거절하는 두 번째 잠금(protect_sol_role)은 "업무 역할 보호 트리거" 시험이 본다.
+    for (const role of ["VIEWER", "ANALYST", "SALES"]) {
+      it(`${role} can read its catalog but cannot write people or promote itself`, async (t) => {
+        const fresh = await setup(t);
+        await fresh.query("update public.memberships set sol_role=$1 where user_id=$2", [
+          role,
+          users[0],
+        ]);
+        await actAs(fresh, users[0]);
+        assert.deepEqual(
+          (
+            await fresh.query(
+              "select sol_role from public.memberships where org_id=$1 and user_id=$2",
+              [solideo, users[0]],
+            )
+          ).rows,
+          [{ sol_role: role }],
+        );
+        await assertCatalogReadOnlyAndIsolated(fresh);
+        for (const set of ["sol_role='ADMIN'", "org_role='owner'"])
+          assert.deepEqual(
+            (
+              await fresh.query(
+                `update public.memberships set ${set} where org_id=$1 and user_id=$2 returning user_id`,
+                [solideo, users[0]],
+              )
+            ).rows,
+            [],
+            set,
+          );
+        assert.deepEqual(await membershipsOf(fresh), [
+          { org_id: other, user_id: users[1], org_role: "member", sol_role: "VIEWER" },
+          { org_id: solideo, user_id: users[0], org_role: "member", sol_role: role },
+        ]);
+      });
+    }
+    // ADMIN 은 자기 조직의 역할(org_role·sol_role)을 바꾸는 사람이다(docs/04-DATABASE.md §3.1 memberships 행, 09 RBAC).
+    // 그 허용은 아래 org_role 시험과 "업무 역할 변경은 그 조직의 ADMIN 만 한다" 시험이 본다. 여기서는 ADMIN 에게도 닫힌 것 —
+    // 카탈로그 쓰기, 다른 조직 멤버십, sol_role 을 직접 적은 멤버십 넣기(초대 수락 트리거만 채운다) — 을 본다.
+    it("ADMIN can read its catalog but cannot write people, reach another organization, or insert a sol_role directly", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.memberships set sol_role='ADMIN' where user_id=$1", [
+        users[0],
+      ]);
+      await actAs(fresh, users[0]);
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "select sol_role from public.memberships where org_id=$1 and user_id=$2",
+            [solideo, users[0]],
+          )
+        ).rows,
+        [{ sol_role: "ADMIN" }],
+      );
+      await assertCatalogReadOnlyAndIsolated(fresh);
+      await assert.rejects(
+        fresh.query(
+          "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'member','VIEWER')",
+          [solideo, users[2]],
+        ),
+        /permission denied/,
+      );
+      assert.deepEqual(await membershipsOf(fresh), [
+        { org_id: other, user_id: users[1], org_role: "member", sol_role: "VIEWER" },
+        { org_id: solideo, user_id: users[0], org_role: "member", sol_role: "ADMIN" },
+      ]);
+    });
+    // 20261019000001(ADR-021): 역할 변경의 기준은 org_role 이 아니라 sol_role='ADMIN' 이다. owner 라도 ADMIN 이 아니면
+    // 아무 역할도 바꾸지 못하고(0행), owner 가 아닌 ADMIN 이 같은 조직 구성원의 org_role 을 바꾼다. 두 역할은 서로를
+    // 끌고 가지 않는다 — owner 가 된 사람의 sol_role 은 VIEWER 그대로이고, ADMIN 은 그 조직에서만 ADMIN 이다.
+    it("an owner without ADMIN cannot change roles, while a member with ADMIN changes org_role and sol_role stays", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.memberships set org_role='owner' where org_id=$1", [
+        solideo,
+      ]);
+      await fresh.query(
+        "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'member','ADMIN'),($1,$3,'member','VIEWER')",
+        [solideo, users[1], users[2]],
+      );
+      await actAs(fresh, users[0]);
+      for (const [set, userId] of [
+        ["org_role='owner'", users[2]],
+        ["sol_role='ANALYST'", users[2]],
+        ["org_role='member'", users[1]],
+        ["sol_role='VIEWER'", users[1]],
+        ["sol_role='ADMIN'", users[0]],
+      ])
+        assert.deepEqual(
+          (
+            await fresh.query(
+              `update public.memberships set ${set} where org_id=$1 and user_id=$2 returning user_id`,
+              [solideo, userId],
+            )
+          ).rows,
+          [],
+          `${set} ${userId}`,
+        );
+      await assert.rejects(
+        fresh.query(
+          "insert into public.memberships(org_id,user_id,org_role,sol_role) values ($1,$2,'member','ADMIN')",
+          [solideo, users[2]],
+        ),
+        /permission denied/,
+      );
+      await actAs(fresh, users[1]);
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "update public.memberships set org_role='owner' where org_id=$1 and user_id=$2 returning org_role,sol_role",
+            [solideo, users[2]],
+          )
+        ).rows,
+        [{ org_role: "owner", sol_role: "VIEWER" }],
+      );
+      // user1 은 other 에서는 VIEWER 다 — solideo 의 ADMIN 이 other 의 자기 역할을 올리지 못한다.
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "update public.memberships set sol_role='ADMIN' where org_id=$1 and user_id=$2 returning user_id",
+            [other, users[1]],
+          )
+        ).rows,
+        [],
+      );
+      assert.deepEqual(await membershipsOf(fresh), [
+        { org_id: other, user_id: users[1], org_role: "member", sol_role: "VIEWER" },
+        { org_id: solideo, user_id: users[0], org_role: "owner", sol_role: "VIEWER" },
+        { org_id: solideo, user_id: users[1], org_role: "member", sol_role: "ADMIN" },
+        { org_id: solideo, user_id: users[2], org_role: "owner", sol_role: "VIEWER" },
+      ]);
+    });
+    it("other-organization users and platform admins cannot read the roster; anonymous is denied", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.profiles set is_admin=true where id=$1", [users[2]]);
+      for (const userId of [users[1], users[2]]) {
+        await actAs(fresh, userId);
+        for (const table of ["departments", "job_titles", "team_members", "memberships"]) {
+          assert.deepEqual(
+            (await fresh.query(`select * from public.${table} where org_id=$1`, [solideo])).rows,
+            [],
+          );
+        }
+      }
+      await actAs(fresh, null, "anon");
+      for (const table of ["departments", "job_titles", "team_members", "memberships"]) {
+        await assert.rejects(fresh.query(`select * from public.${table}`), /permission denied/);
+      }
+    });
+  });
   const resolve = (fresh, dept = "SOL-D001", job = "SOL-J007") =>
     fresh.query("select * from public.resolve_solideo_employment($1,$2)", [dept, job]);
   it("회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다", async (t) => {
