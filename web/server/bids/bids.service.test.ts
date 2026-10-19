@@ -38,7 +38,7 @@ function fake(overrides: Partial<BidsRepo> = {}): Fake {
     resolveAnalysisInput: async () => input,
     createAnalysisRun: async (run) => {
       created.push(run);
-      return { id: `run${created.length}`, status: "QUEUED" };
+      return { created: { id: `run${created.length}`, status: "QUEUED" } };
     },
     findIdempotency: async () => null,
     markRunFailed: async () => undefined,
@@ -174,7 +174,7 @@ describe("requestAnalysis", () => {
     const f = fake({
       createAnalysisRun: async () => {
         order.push("create");
-        return { id: "run1", status: "QUEUED" };
+        return { created: { id: "run1", status: "QUEUED" } };
       },
     });
     f.enqueue.mockImplementation(async () => {
@@ -197,7 +197,155 @@ describe("requestAnalysis", () => {
   });
 });
 
+describe("같은 입력 판정 (04 §5, 05 §4.5)", () => {
+  it("중복 판정에 입력 전체를 넘긴다", async () => {
+    const running = vi.fn(async () => null);
+    const done = vi.fn(async () => null);
+    const f = fake({ findRunningAnalysis: running, findCompletedSameInput: done });
+    await request(f, { force: false }, "k1");
+    expect(running).toHaveBeenCalledWith("org1", "b1", input);
+    expect(done).toHaveBeenCalledWith("org1", "b1", input);
+  });
+
+  it("공고 revision 이 바뀌면 예전 완료 run 을 돌려주지 않고 새 run 을 만든다", async () => {
+    const f = fake({
+      findCompletedSameInput: async (_org, _bid, wanted) =>
+        wanted.revisionId === "rev1" ? { id: "old", status: "COMPLETED" } : null,
+      resolveAnalysisInput: async () => ({ ...input, revisionId: "rev2" }),
+    });
+    const result = await request(f, { force: false }, "k1");
+    expect(result).toMatchObject({ ok: true, data: { analysisId: "run1", deduplicated: false } });
+    expect(f.enqueue).toHaveBeenCalledTimes(1);
+  });
+
+  it("force:false 에 같은 입력이 진행 중이면 202 deduplicated 이고 새 행도 큐도 없다", async () => {
+    const f = fake({ findRunningAnalysis: async () => ({ id: "run0", status: "RUNNING" }) });
+    const result = await request(f, { force: false }, "k1");
+    expect(result).toEqual({
+      ok: true,
+      status: 202,
+      data: {
+        analysisId: "run0",
+        status: "RUNNING",
+        deduplicated: true,
+        pollUrl: "/api/v1/analyses/run0",
+      },
+    });
+    expect(f.created).toHaveLength(0);
+    expect(f.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("force:true 에 같은 입력이 진행 중이면 409 이고 details.analysisId 가 있다", async () => {
+    const f = fake({ findRunningAnalysis: async () => ({ id: "run0", status: "QUEUED" }) });
+    const result = await request(f, { force: true }, "k1");
+    expect(result).toMatchObject({
+      ok: false,
+      status: 409,
+      code: "ANALYSIS_IN_PROGRESS",
+      details: { analysisId: "run0" },
+    });
+  });
+});
+
+describe("동시 요청 충돌", () => {
+  it("ACTIVE_INPUT 충돌 + force:false 는 202 deduplicated 다", async () => {
+    const f = fake({
+      createAnalysisRun: async () => ({
+        conflict: "ACTIVE_INPUT",
+        run: { id: "run9", status: "QUEUED" },
+      }),
+    });
+    const result = await request(f, { force: false }, "k1");
+    expect(result).toMatchObject({
+      ok: true,
+      status: 202,
+      data: { analysisId: "run9", deduplicated: true },
+    });
+    expect(f.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("ACTIVE_INPUT 충돌 + force:true 는 409 ANALYSIS_IN_PROGRESS 다", async () => {
+    const f = fake({
+      createAnalysisRun: async () => ({
+        conflict: "ACTIVE_INPUT",
+        run: { id: "run9", status: "RUNNING" },
+      }),
+    });
+    const result = await request(f, { force: true }, "k1");
+    expect(result).toMatchObject({
+      ok: false,
+      status: 409,
+      code: "ANALYSIS_IN_PROGRESS",
+      details: { analysisId: "run9" },
+    });
+  });
+
+  it("IDEMPOTENCY_KEY 충돌 + 같은 본문이면 첫 응답을 재생한다", async () => {
+    const probe = fake();
+    await request(probe, { force: true }, "k1");
+    const hash = probe.created[0]?.requestHash ?? "";
+    let calls = 0;
+    const f = fake({
+      findIdempotency: async () => {
+        calls += 1;
+        return calls === 1 ? null : { requestHash: hash, run: { id: "run9", status: "QUEUED" } };
+      },
+      createAnalysisRun: async () => ({
+        conflict: "IDEMPOTENCY_KEY",
+        run: { id: "run9", status: "QUEUED" },
+      }),
+    });
+    const result = await request(f, { force: true }, "k1");
+    expect(result).toMatchObject({
+      ok: true,
+      status: 202,
+      data: { analysisId: "run9", deduplicated: false },
+    });
+    expect(f.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("IDEMPOTENCY_KEY 충돌 + 다른 본문이면 409 IDEMPOTENCY_KEY_REUSED 다", async () => {
+    let calls = 0;
+    const f = fake({
+      findIdempotency: async () => {
+        calls += 1;
+        return calls === 1 ? null : { requestHash: "other", run: { id: "run9", status: "QUEUED" } };
+      },
+      createAnalysisRun: async () => ({
+        conflict: "IDEMPOTENCY_KEY",
+        run: { id: "run9", status: "QUEUED" },
+      }),
+    });
+    const result = await request(f, { force: true }, "k1");
+    expect(result).toMatchObject({ ok: false, status: 409, code: "IDEMPOTENCY_KEY_REUSED" });
+  });
+});
+
 describe("enqueue 실패", () => {
+  it("503 뒤 같은 키로 재시도하면 새 run 을 만들고 enqueue 한다", async () => {
+    const keys = new Map<string, { requestHash: string; run: RunRef }>();
+    let seq = 0;
+    const f = fake({
+      findIdempotency: async (_org, key) => keys.get(key) ?? null,
+      createAnalysisRun: async (run) => {
+        seq += 1;
+        const ref: RunRef = { id: `run${seq}`, status: "QUEUED" };
+        keys.set(run.idempotencyKey, { requestHash: run.requestHash, run: ref });
+        return { created: ref };
+      },
+      // 포트 계약: 실패 표시는 그 run 의 idempotency_key 를 푼다
+      markRunFailed: async (_org, id) => {
+        for (const [key, value] of keys) if (value.run.id === id) keys.delete(key);
+      },
+    });
+    f.enqueue.mockRejectedValueOnce(new Error("redis down"));
+    const first = await request(f, { force: true }, "k1");
+    expect(first).toMatchObject({ ok: false, status: 503 });
+    const retry = await request(f, { force: true }, "k1");
+    expect(retry).toMatchObject({ ok: true, status: 202, data: { analysisId: "run2" } });
+    expect(f.enqueue).toHaveBeenCalledTimes(2);
+  });
+
   it("큐가 던지면 run 을 FAILED 로 표시하고 503 을 돌려준다", async () => {
     const markRunFailed = vi.fn(async () => undefined);
     const f = fake({ markRunFailed });
@@ -224,7 +372,7 @@ describe("enqueue 실패", () => {
       createAnalysisRun: async () => {
         seq += 1;
         active.add(`run${seq}`);
-        return { id: `run${seq}`, status: "QUEUED" };
+        return { created: { id: `run${seq}`, status: "QUEUED" } };
       },
       markRunFailed: async (_org, id) => {
         active.delete(id);

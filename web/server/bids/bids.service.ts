@@ -6,7 +6,7 @@ import type { AnalysisView } from "./analysis-view.model";
 import { signCursor, verifyCursor, fingerprintOf, type BidListQuery } from "./bid-query";
 import type { BidDetail } from "./bid-detail.model";
 import type { AnalysisStatus, BidListItem, Page, ServiceErrorCode } from "./bid.model";
-import type { AnalysisQueue, BidsRepo, ListAfter } from "./bids.repo";
+import type { AnalysisQueue, BidsRepo, ListAfter, RunRef } from "./bids.repo";
 
 // 공고·분석 서비스. 예상한 실패는 결과로 돌려주고, HTTP 로 옮기는 일은 Route Handler(B1)가 한다.
 
@@ -99,50 +99,37 @@ export async function requestAnalysis(
   const storedKey = `${ctx.orgId}:${idempotencyKey ?? randomUUID()}`;
   const requestHash = requestHashOf(bidId, profileRevision, force);
 
+  // 같은 키 재생: 같은 본문이면 첫 응답, 다른 본문이면 409.
+  const replay = (earlier: {
+    requestHash: string;
+    run: RunRef;
+  }): ServiceResult<AnalysisAccepted> =>
+    earlier.requestHash !== requestHash
+      ? fail(409, "IDEMPOTENCY_KEY_REUSED", "같은 키로 다른 요청을 보냈습니다")
+      : accepted(earlier.run, false);
+  // 같은 입력이 진행 중: force:false 는 그 run 을 돌려주고, force:true 는 409 다(05 §5).
+  const active = (run: RunRef): ServiceResult<AnalysisAccepted> =>
+    force
+      ? fail(409, "ANALYSIS_IN_PROGRESS", "같은 입력의 분석이 진행 중입니다", {
+          analysisId: run.id,
+        })
+      : accepted(run, true);
+
   if (idempotencyKey !== null) {
     const earlier = await repo.findIdempotency(ctx.orgId, storedKey);
-    if (earlier !== null) {
-      if (earlier.requestHash !== requestHash) {
-        return fail(409, "IDEMPOTENCY_KEY_REUSED", "같은 키로 다른 요청을 보냈습니다");
-      }
-      return {
-        ok: true,
-        status: 202,
-        data: {
-          analysisId: earlier.run.id,
-          status: earlier.run.status,
-          deduplicated: false,
-          pollUrl: pollUrlOf(earlier.run.id),
-        },
-      };
-    }
+    if (earlier !== null) return replay(earlier);
   }
 
-  const running = await repo.findRunningAnalysis(ctx.orgId, bidId);
-  if (running !== null) {
-    return fail(409, "ANALYSIS_IN_PROGRESS", "이 공고의 분석이 진행 중입니다", {
-      analysisId: running.id,
-    });
-  }
+  const running = await repo.findRunningAnalysis(ctx.orgId, bidId, analysisInput);
+  if (running !== null) return active(running);
 
   if (!force) {
-    const done = await repo.findCompletedSameInput(ctx.orgId, bidId, analysisInput.profileRevision);
-    if (done !== null) {
-      return {
-        ok: true,
-        status: 202,
-        data: {
-          analysisId: done.id,
-          status: done.status,
-          deduplicated: true,
-          pollUrl: pollUrlOf(done.id),
-        },
-      };
-    }
+    const done = await repo.findCompletedSameInput(ctx.orgId, bidId, analysisInput);
+    if (done !== null) return accepted(done, true);
   }
 
   // 큐에 넣기 전에 QUEUED 행을 먼저 남긴다. worker 가 이 행을 읽는다.
-  const run = await repo.createAnalysisRun({
+  const created = await repo.createAnalysisRun({
     ...analysisInput,
     orgId: ctx.orgId,
     bidId,
@@ -150,6 +137,16 @@ export async function requestAnalysis(
     idempotencyKey: storedKey,
     requestHash,
   });
+  if ("conflict" in created) {
+    // 동시 요청이 먼저 들어갔다. 위 분기와 같게 처리한다.
+    if (created.conflict === "ACTIVE_INPUT") return active(created.run);
+    const earlier = await repo.findIdempotency(ctx.orgId, storedKey);
+    if (earlier === null) {
+      return fail(409, "IDEMPOTENCY_KEY_REUSED", "같은 키의 요청을 확인할 수 없습니다");
+    }
+    return replay(earlier);
+  }
+  const run = created.created;
   try {
     await queue.enqueue({ orgId: ctx.orgId, scoreRunId: run.id, idempotencyKey: storedKey });
   } catch {
@@ -157,17 +154,14 @@ export async function requestAnalysis(
     await repo.markRunFailed(ctx.orgId, run.id, "ENQUEUE_FAILED");
     return fail(503, "SERVICE_UNAVAILABLE", "분석 큐에 넣지 못했습니다", { component: "queue" });
   }
-  return {
-    ok: true,
-    status: 202,
-    data: {
-      analysisId: run.id,
-      status: run.status,
-      deduplicated: false,
-      pollUrl: pollUrlOf(run.id),
-    },
-  };
+  return accepted(run, false);
 }
+
+const accepted = (run: RunRef, deduplicated: boolean): ServiceResult<AnalysisAccepted> => ({
+  ok: true,
+  status: 202,
+  data: { analysisId: run.id, status: run.status, deduplicated, pollUrl: pollUrlOf(run.id) },
+});
 
 // ── 조회 ──
 

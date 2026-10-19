@@ -35,19 +35,21 @@ export type CreateAnalysisRun = AnalysisInput & {
 };
 
 export type RunRef = { id: string; status: AnalysisStatus };
+export type CreateRunResult =
+  { created: RunRef } | { conflict: "ACTIVE_INPUT" | "IDEMPOTENCY_KEY"; run: RunRef };
 
 export interface BidsRepo {
   listBids(orgId: string, query: BidListQuery, after: ListAfter): Promise<PagedRows<BidListItem>>;
   getBid(orgId: string, id: string): Promise<BidDetail | null>;
   listAnalyses(orgId: string, bidId: string, after: ListAfter): Promise<PagedRows<AnalysisView>>;
   getAnalysis(orgId: string, id: string): Promise<AnalysisView | null>;
-  // 이 공고의 QUEUED·RUNNING run
-  findRunningAnalysis(orgId: string, bidId: string): Promise<RunRef | null>;
-  // 같은 입력(revision·프로필·알고리즘)의 완료(COMPLETED·PARTIAL) run
+  // 같은 입력(공고 revision·프로필 revision·알고리즘, 04 §5 부분 UNIQUE)의 QUEUED·RUNNING run
+  findRunningAnalysis(orgId: string, bidId: string, input: AnalysisInput): Promise<RunRef | null>;
+  // 같은 입력의 완료(COMPLETED·PARTIAL) run 중 최신
   findCompletedSameInput(
     orgId: string,
     bidId: string,
-    profileRevision: number,
+    input: AnalysisInput,
   ): Promise<RunRef | null>;
   // 분석 입력(최신 revision·추출 캐시·알고리즘 버전). 프로필 revision 이 없으면 null
   resolveAnalysisInput(
@@ -56,8 +58,11 @@ export interface BidsRepo {
     profileRevision: number | undefined,
   ): Promise<AnalysisInput | null>;
   // QUEUED 행을 만든다. run_mode·ai_provider 는 worker 가 덮어쓴다.
-  createAnalysisRun(input: CreateAnalysisRun): Promise<RunRef>;
-  // 큐에 넣지 못한 run 을 FAILED 로 표시한다(active 부분 UNIQUE 인덱스를 풀어 준다)
+  // UNIQUE 충돌(동시 요청)은 던지지 않고 conflict 로 돌려준다. run 은 이미 있는 쪽이다.
+  createAnalysisRun(input: CreateAnalysisRun): Promise<CreateRunResult>;
+  // 큐에 넣지 못한 run 을 FAILED 로 표시한다. 두 가지를 한다.
+  // ① active 부분 UNIQUE 인덱스에서 빠진다. ② 그 run 의 idempotency_key 를 null 로 풀어,
+  // 같은 Idempotency-Key 재시도가 FAILED run 을 재생하지 않고 새 run 을 만들게 한다(접수 실패는 재생 대상이 아니다).
   markRunFailed(orgId: string, scoreRunId: string, errorCode: string): Promise<void>;
   // 저장 멱등 키로 처음 요청을 찾는다
   findIdempotency(orgId: string, key: string): Promise<{ requestHash: string; run: RunRef } | null>;
