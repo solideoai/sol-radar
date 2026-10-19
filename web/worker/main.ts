@@ -1,6 +1,7 @@
 import path from "node:path";
 import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
+import { readGatewayConfig, readRunMode as readAnalysisRunMode } from "@/server/analysis";
 import {
   DOCUMENTS_QUEUE,
   INGEST_JOB_NAME,
@@ -16,6 +17,8 @@ import {
   type JobQueue,
 } from "@/server/ingestion";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { readReconcileSettings } from "@/worker/analysis-reconcile";
+import { startAnalysisRuntime } from "@/worker/analysis-runtime";
 import { readG2bServiceKey, readWorkerEnv, type WorkerEnv } from "@/worker/env";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
 import {
@@ -259,9 +262,20 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   };
 };
 
+// 1단계에서 복구 주기·gateway·실행 모드를 읽는다(오류는 키 이름만 싣는다). 틀리면 Redis 연결을 만들기 전에 기동을 멈춘다.
+// 2단계의 runtime 은 공유 연결을 duplicate 한 자기 연결을 쓰고 close 때 그것만 끊는다. 공유 연결은 기본 createWorker 가 끊는다.
+export const analysisWorkerRegistration: WorkerRegistration = async (rawEnv) => {
+  readReconcileSettings(rawEnv);
+  readGatewayConfig(rawEnv);
+  readAnalysisRunMode(rawEnv);
+  return async (connection) =>
+    startAnalysisRuntime(rawEnv, { connection: () => connection.duplicate() });
+};
+
 export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
   systemWorkerRegistration,
   ingestWorkerRegistration,
+  analysisWorkerRegistration,
 ];
 
 /** 등록 순서대로 시작한다. 하나가 던지면 이미 시작한 것을 거꾸로 닫고 다시 던진다. close 도 거꾸로 닫는다 */

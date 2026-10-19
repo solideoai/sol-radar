@@ -4359,6 +4359,223 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
       ],
     );
   });
+
+  // 20261019000010: 화면(C6)이 DB 에서 분석을 다시 읽을 때 쓰는 두 열. score_factors.missing_reason 은 C4 ScoreFactor.missingReason,
+  // score_runs.kev_assist 는 C4 AnalysisResult.kev(KevAssist)다. 쓰기는 worker(service role)만 하고 권한·정책은 바꾸지 않는다.
+  describe("화면 표시용 저장 열(20261019000010) — score_factors.missing_reason·score_runs.kev_assist", () => {
+    // C4 MissingReason(web/server/scoring/analysis-result.model.ts) 8값.
+    const MISSING_REASONS = [
+      "NO_REQUIREMENTS_EXTRACTED",
+      "PROFILE_TECHNOLOGIES_EMPTY",
+      "BID_DOMAIN_UNKNOWN",
+      "PROFILE_PROJECTS_EMPTY",
+      "REQUIRED_FTE_UNKNOWN",
+      "TEAM_EMPTY",
+      "BUDGET_UNKNOWN",
+      "PREFERENCES_NOT_SET",
+    ];
+    // C4 KevAssist 모양의 값. 값 형식은 앱 zod·시험이 지키고 DB 는 jsonb 로 그대로 둔다.
+    const kevAssist = (suggestedOption, probabilities) => ({
+      enabled: true,
+      provider: "mock",
+      model: "mock",
+      questionSetVersion: "kev-qs/v0.1",
+      suggestedOption,
+      probabilities,
+      confidence: probabilities[suggestedOption],
+      mandatoryRisk: 0.05,
+      needsHumanReview: 0.12,
+      fit: { score: 3.5, legend: { 0: "Very poor", 4: "Very good" } },
+      scores: null,
+      risks: null,
+      calibration: null,
+      stateTrace: null,
+      latencyMs: 37,
+      requestId: null,
+      disclaimer: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.",
+    });
+    const KEV1 = kevAssist("BID", { BID: 0.71, WATCH: 0.24, NO_BID: 0.05 });
+    const KEV2 = kevAssist("WATCH", { BID: 0.2, WATCH: 0.7, NO_BID: 0.1 });
+    const NEW_COLUMNS = "(('score_factors', 'missing_reason'), ('score_runs', 'kev_assist'))";
+
+    it("score_factors.missing_reason 은 null 허용 text, score_runs.kev_assist 는 null 허용 jsonb 이고 기본값이 없어 두 열 없이 넣은 행은 null 이다", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select table_name, column_name, data_type, is_nullable, column_default from information_schema.columns
+           where table_schema = 'public' and (table_name, column_name) in ${NEW_COLUMNS} order by 1, 2`,
+        ),
+        [
+          {
+            table_name: "score_factors",
+            column_name: "missing_reason",
+            data_type: "text",
+            is_nullable: "YES",
+            column_default: null,
+          },
+          {
+            table_name: "score_runs",
+            column_name: "kev_assist",
+            data_type: "jsonb",
+            is_nullable: "YES",
+            column_default: null,
+          },
+        ],
+      );
+      // seed 는 두 열 없이 넣었다(마이그레이션 전에 쌓인 행과 같다).
+      assert.deepEqual(
+        await rowsOf(pglite, "select missing_reason from public.score_factors order by org_id"),
+        [{ missing_reason: null }, { missing_reason: null }],
+      );
+      assert.deepEqual(
+        await rowsOf(pglite, "select kev_assist from public.score_runs order by org_id"),
+        [{ kev_assist: null }, { kev_assist: null }],
+      );
+    });
+
+    it("missing_reason 은 C4 MissingReason 8값과 null 만 받는다 — 모르는 값·소문자·빈 문자열·뒤 공백은 관리 작업이 넣어도 23514(score_factors_missing_reason_check)다", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      const setReason = async (reason) =>
+        rowsOf(
+          pglite,
+          "update public.score_factors set missing_reason = $1 where score_run_id = $2 returning missing_reason",
+          [reason, RUN1],
+        );
+      for (const reason of MISSING_REASONS)
+        assert.deepEqual(await setReason(reason), [{ missing_reason: reason }], reason);
+      assert.deepEqual(await setReason(null), [{ missing_reason: null }], "null");
+      for (const reason of ["WIN_PROBABILITY_UNKNOWN", "budget_unknown", "", "BUDGET_UNKNOWN "]) {
+        await assert.rejects(setReason(reason), { code: "23514" }, JSON.stringify(reason));
+        await rejectsWith(
+          setReason(reason),
+          "score_factors_missing_reason_check",
+          JSON.stringify(reason),
+        );
+      }
+      // worker 의 넣기 경로(요소 행 insert)도 같은 제약이다.
+      const insertFactor = (factor, reason) =>
+        rowsOf(
+          pglite,
+          "insert into public.score_factors (score_run_id, org_id, factor, points, max_points, missing, missing_reason) values ($1, $2, $3, 0, 15, true, $4) returning missing_reason",
+          [RUN1, ORG1, factor, reason],
+        );
+      assert.deepEqual(await insertFactor("scaleFit", "BUDGET_UNKNOWN"), [
+        { missing_reason: "BUDGET_UNKNOWN" },
+      ]);
+      await rejectsWith(
+        insertFactor("strategicPreference", "NOT_A_REASON"),
+        "score_factors_missing_reason_check",
+      );
+    });
+
+    it("org-01 의 네 역할은 자기 조직 run 의 kev_assist·요소의 missing_reason 을 읽고 org-02 행은 0행이다 — org-02 VIEWER 는 org-01 것을, 비멤버 운영자는 둘 다 0행으로 보고 로그아웃은 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      for (const [run, kev, reason] of [
+        [RUN1, KEV1, "BUDGET_UNKNOWN"],
+        [RUN2, KEV2, "TEAM_EMPTY"],
+      ]) {
+        await pglite.query("update public.score_runs set kev_assist = $1 where id = $2", [
+          JSON.stringify(kev),
+          run,
+        ]);
+        await pglite.query(
+          "update public.score_factors set missing_reason = $1 where score_run_id = $2",
+          [reason, run],
+        );
+      }
+      const runsSeen = () =>
+        rowsOf(pglite, "select id, kev_assist from public.score_runs order by id");
+      const factorsSeen = () =>
+        rowsOf(
+          pglite,
+          "select score_run_id, missing_reason from public.score_factors order by score_run_id",
+        );
+      for (const who of ["admin", "sales", "analyst", "viewer"]) {
+        await as(pglite, who);
+        assert.deepEqual(await runsSeen(), [{ id: RUN1, kev_assist: KEV1 }], `${who} score_runs`);
+        assert.deepEqual(
+          await factorsSeen(),
+          [{ score_run_id: RUN1, missing_reason: "BUDGET_UNKNOWN" }],
+          `${who} score_factors`,
+        );
+      }
+      await as(pglite, "outsider");
+      assert.deepEqual(await runsSeen(), [{ id: RUN2, kev_assist: KEV2 }], "outsider score_runs");
+      assert.deepEqual(
+        await factorsSeen(),
+        [{ score_run_id: RUN2, missing_reason: "TEAM_EMPTY" }],
+        "outsider score_factors",
+      );
+      await as(pglite, "operator");
+      assert.deepEqual(await runsSeen(), [], "operator score_runs");
+      assert.deepEqual(await factorsSeen(), [], "operator score_factors");
+      await asAnon(pglite);
+      await assert.rejects(runsSeen(), PERMISSION, "anon score_runs");
+      await assert.rejects(factorsSeen(), PERMISSION, "anon score_factors");
+    });
+
+    it("두 열은 worker 만 쓴다 — 분석 요청 insert 에 kev_assist 를 넣으면 권한 오류이고 열 목록 그대로의 요청은 QUEUED·kev_assist null 로 들어가며, ADMIN 도 두 열을 고치거나 넣지 못하고 화면 역할의 열 권한은 authenticated 의 SELECT 뿐이다", async (t) => {
+      const pglite = await solDb(t);
+      for (const who of ["admin", "sales", "analyst"]) {
+        await as(pglite, who);
+        await assert.rejects(
+          requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.9", { kev_assist: JSON.stringify(KEV1) }),
+          /permission denied for table score_runs/,
+          who,
+        );
+      }
+      await as(pglite, "sales");
+      const [{ id }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.9");
+      assert.deepEqual(
+        await rowsOf(pglite, "select status, kev_assist from public.score_runs where id = $1", [
+          id,
+        ]),
+        [{ status: "QUEUED", kev_assist: null }],
+      );
+      await as(pglite, "admin");
+      for (const sql of [
+        "update public.score_runs set kev_assist = '{}'::jsonb",
+        "update public.score_factors set missing_reason = 'BUDGET_UNKNOWN'",
+      ])
+        await assert.rejects(pglite.query(sql), PERMISSION, sql);
+      await assert.rejects(
+        pglite.query(
+          "insert into public.score_factors (score_run_id, org_id, factor, points, max_points, missing_reason) values ($1, $2, 'scaleFit', 0, 15, 'BUDGET_UNKNOWN')",
+          [RUN1, ORG1],
+        ),
+        PERMISSION,
+        "score_factors insert",
+      );
+      // 표 단위 SELECT 가 새 열에도 걸리고, 열 단위 넣기·고치기 권한은 없다. anon 에는 아무것도 없다.
+      // information_schema 는 지금 역할이 받은 권한만 보여 주므로 관리 역할로 돌아가 읽는다.
+      await asWorker(pglite);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select table_name, column_name, grantee, privilege_type from information_schema.column_privileges
+           where table_schema = 'public' and grantee in ('anon', 'authenticated') and (table_name, column_name) in ${NEW_COLUMNS}
+           order by 1, 2, 3, 4`,
+        ),
+        [
+          {
+            table_name: "score_factors",
+            column_name: "missing_reason",
+            grantee: "authenticated",
+            privilege_type: "SELECT",
+          },
+          {
+            table_name: "score_runs",
+            column_name: "kev_assist",
+            grantee: "authenticated",
+            privilege_type: "SELECT",
+          },
+        ],
+      );
+    });
+  });
 });
 
 // ────────────────────────────────────────────────────────────────
