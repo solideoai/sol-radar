@@ -238,7 +238,7 @@ updated: 2026-10-19
 
 - **결정**(사용자 2026-10-19, 추천안 채택): `organizations` insert 정책 "팀 만들기"를 `with check (personal_owner_id is null and public.is_admin())`로 바꾼다(`supabase/migrations/20261019000008_team_creation_operator_only.sql`). 정지된 운영자는 `is_admin()`이 false라 만들지 못한다. 열 권한(`slug`·`name`), `add_team_owner`(만든 사람 owner+ADMIN, ADR-021), 개인 조직 금지 검사는 그대로다.
 - **이유**: 04 §3.6의 운영 표(`ingest_runs`·`ingest_errors`·`eval_runs`)는 조직 데이터가 아니라 "어느 조직에서든 ADMIN"이 읽는다. 템플릿처럼 누구나 팀을 만들면 가입만 한 사람이 자기 팀의 ADMIN이 되어 운영 표를 읽는다. 업무 조직 합류는 초대로만 하므로(ADR-018·021) 일반 회원이 팀을 만들 이유가 없다. 대안(운영 표 읽기를 `is_demo` 조직 ADMIN으로 좁히기, 위험 수용)보다 단순하고 되돌리기 쉽다.
-- **영향**: 템플릿 "팀 만들기" 화면(`/teams/new`)은 운영자가 아니면 RLS 거절을 받는다. 해커톤 화면 범위에 없으니 메뉴에서 빼거나 안내만 한다(C6에서 정한다). 템플릿 로컬 seed(`scripts/db-seed.mjs`)처럼 사용자 토큰으로 팀을 만드는 경로는 막히므로 `pnpm demo:reset`은 service role로 조직을 만든다. 로그인 뒤 E2E(`web/e2e-auth`)의 팀 만들기 시나리오는 운영자 계정으로 바꾼다(확장 컷·P1).
+- **영향**: 템플릿 "팀 만들기" 화면(`/teams/new`)은 운영자가 아니면 RLS 거절을 받는다. 해커톤 화면 범위에 없으니 메뉴에서 빼거나 안내만 한다(C6에서 정한다). 템플릿 로컬 seed(`scripts/db-seed.mjs`)처럼 사용자 토큰으로 팀을 만드는 경로는 막히므로 `pnpm demo:reset`은 service role로 조직을 만들고, `pnpm db:seed`도 시드 팀을 관리 키로 만든 뒤 소유자 멤버십(owner+ADMIN)을 직접 넣는다(빈 DB에서 RLS 403이 나던 결함을 2026-10-19에 고침, 회귀 시험 `scripts/db-seed.test.mjs`). 로그인 뒤 E2E(`web/e2e-auth`)의 팀 만들기 시나리오는 운영자 계정으로 바꾼다(확장 컷·P1).
 - **되돌리기**: 새 마이그레이션으로 정책을 템플릿 본문(`with check (personal_owner_id is null)`)으로 다시 만든다.
 - **검증**: C2 2단계 정책 시험 — 일반 회원 팀 insert 거절, 운영자 통과(owner+ADMIN), 정지된 운영자 거절, 마이그레이션 재실행 스냅샷 유지([[11-TESTING|11 테스트]] §4 Phase 1).
 
