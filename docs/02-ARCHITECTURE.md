@@ -62,6 +62,7 @@ flowchart TB
 ```text
 web/                      # Next.js 16 App Router — 화면 + Route Handler(/api/v1) + 서버 도메인
 web/server/<도메인>/       #   model·repo·service·index(배럴), import "server-only". 예: bids, ingestion, scoring, analysis, review, notifications, company-profile, health
+web/app/(app)/(work)/      #   업무 화면 묶음 — 조직 주소 없는 /dashboard·/bids·/bids/[id]·/notifications(ADR-029 A6 D1). 템플릿 /[slug]/… 화면은 확장 컷에서 정리(D30)
 web/app/api/v1/**/route.ts#   외부 계약(05 API) — 경로는 /api/v1/... 그대로
 web/app/health/{live,ready}/route.ts  # 헬스체크 /health/live, /health/ready
 web/worker/               # BullMQ 소비자 진입점(ingest·documents·extract·analysis job, outbox 처리). web/server 도메인 코드를 같이 쓴다(같은 코드베이스의 별도 프로세스)
