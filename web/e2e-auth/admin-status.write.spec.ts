@@ -23,6 +23,7 @@ import {
   expectRowCells,
   userRowOf,
 } from "./support/admin-page";
+import { BUSINESS_DASHBOARD } from "./support/account-page";
 import { signInAs } from "./support/local-supabase";
 import { SEED_ACCOUNTS, SEED_ROLES, authFileOf, uniqueTag } from "./support/seed";
 
@@ -55,7 +56,8 @@ test.use({ storageState: authFileOf("admin") });
 
 const NON_ADMIN_ROLES = SEED_ROLES.filter((role) => role !== "admin");
 const SUSPENDED_NOTICE = "정지된 계정이라 로그인할 수 없습니다. 운영자에게 문의해 주세요.";
-const DASHBOARD = /\/[^/]+\/dashboard$/;
+// 다시 로그인한 뒤 첫 화면은 업무 첫 화면(/dashboard)이다.
+const DASHBOARD = BUSINESS_DASHBOARD;
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 

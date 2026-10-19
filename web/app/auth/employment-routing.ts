@@ -26,6 +26,8 @@ export async function afterEmploymentAuthentication(next: string): Promise<strin
   return me.status === "ready" && !me.profile.profileComplete ? completionPath(next) : next;
 }
 
+// 템플릿 조직 화면(/{slug}/…)에서 보완·조직 상태 뒤 돌아올 곳. 현재 조직의 템플릿 화면이 아니면(없거나 잘못되면)
+// 로그인·초대 수락과 같은 업무 첫 화면(/dashboard)이다(Ruling 16). 템플릿 경로 자체는 남긴다(D30).
 export function businessLayoutNext(value: string | null, slug: string): string {
   const path = safeEmploymentNext(value);
   const prefix = `/${encodeURIComponent(slug)}/`;
@@ -33,7 +35,7 @@ export function businessLayoutNext(value: string | null, slug: string): string {
   return pathname.startsWith(prefix) &&
     /^(?:dashboard|tasks|settings(?:\/(?:members|team))?)\/?$/.test(pathname.slice(prefix.length))
     ? path
-    : `${prefix}dashboard`;
+    : "/dashboard";
 }
 
 // 업무 화면(/dashboard·/bids·/bids/<uuid>·/notifications)과 템플릿 경로. 공고 상세는 UUID 한 단계만 받는다.

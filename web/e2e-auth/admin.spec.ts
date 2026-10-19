@@ -11,6 +11,7 @@ import {
   userRows,
   usersTable,
 } from "./support/admin-page";
+import { BUSINESS_DASHBOARD } from "./support/account-page";
 import { SEED_ACCOUNTS, SEED_ROLES, type SeedRole, authFileOf } from "./support/seed";
 
 // 관리자 화면(/admin) — 시드 운영자(정운영)는 사용자 목록·검색·쪽을 보고, 운영자가 아닌 시드 계정과 로그아웃한 사람에게는 404 다.
@@ -252,7 +253,7 @@ for (const role of NON_ADMIN_ROLES) {
         await expect(page.getByRole("link", { name: "관리자", exact: true })).toHaveCount(0);
         return;
       }
-      await expect(page).toHaveURL(/\/seed-team\/dashboard$/);
+      await expect(page).toHaveURL(BUSINESS_DASHBOARD);
       await page.getByRole("button", { name: "사용자 메뉴" }).click();
       const menu = page.getByRole("menu");
       await expect(menu.getByRole("menuitem", { name: "설정" })).toBeVisible();

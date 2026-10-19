@@ -6,6 +6,7 @@ import {
   signInByApi,
 } from "./support/account-admin";
 import {
+  BUSINESS_DASHBOARD,
   signInThroughForm,
   signInWithoutOrganization,
   horizontalOverflow,
@@ -60,7 +61,13 @@ for (const width of [1440, 1280])
       expect(await horizontalOverflow(page)).toBe(0);
       await page.getByRole("link", { name: "받은 초대 보기" }).click();
       await page.getByRole("button", { name: `수락 ${first.name} 초대`, exact: true }).click();
-      await expect(page).toHaveURL(new RegExp(`/${first.slug}/dashboard$`));
+      // 수락 뒤 첫 화면은 업무 첫 화면(/dashboard)이고 첫 조직으로 그린다(Ruling 16).
+      await expect(page).toHaveURL(BUSINESS_DASHBOARD);
+      await expect(
+        page.getByRole("complementary", { name: "앱 사이드바" }).getByText(first.name, {
+          exact: true,
+        }),
+      ).toBeVisible();
       await page.goto("/invitations");
       await page.getByRole("button", { name: `수락 ${second.name} 초대`, exact: true }).click();
       await expect(

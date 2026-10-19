@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
 import { SEED_ACCOUNTS, SEED_PASSWORD, SEED_EMPLOYMENT } from "./support/seed";
-import { horizontalOverflow, signInThroughForm } from "./support/account-page";
+import { BUSINESS_DASHBOARD, horizontalOverflow, signInThroughForm } from "./support/account-page";
 
 // Read stage: no seed profile/account/membership mutations. Actual Auth creation,
 // completion and confirmation belong to chromium-write below.
@@ -59,7 +59,7 @@ test.describe("기존 완성 계정", () => {
       employment: SEED_EMPLOYMENT,
     });
     await page.goto("/auth/complete-profile");
-    await expect(page).toHaveURL(/\/seed-team\/dashboard$/);
+    await expect(page).toHaveURL(BUSINESS_DASHBOARD);
     await expect(page.getByRole("heading", { level: 1, name: "대시보드" })).toBeVisible();
   });
 });

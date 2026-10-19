@@ -32,14 +32,27 @@ it.each([
 ])("현재 조직의 업무 경로 %s를 유지한다", (path) => {
   expect(businessLayoutNext(path, "alpha")).toBe(path);
 });
+// Ruling 16: 보완·조직 상태 뒤 기본 이동은 로그인·초대 수락과 같은 업무 첫 화면(/dashboard)이다.
+// 템플릿 /{slug}/dashboard 경로는 남지만(D30), 갈 곳이 없을 때 기본값으로 쓰지 않는다.
 it.each([
+  null,
+  "",
   "/other/tasks",
   "https://evil.test",
   "/auth/callback?code=secret",
   "/alpha/../other/tasks",
   "/alpha/not-a-page",
-])("잘못 전달된 %s는 현재 조직 대시보드로", (path) => {
-  expect(businessLayoutNext(path, "alpha")).toBe("/alpha/dashboard");
+])("없거나 잘못 전달된 %s는 업무 첫 화면(/dashboard)으로", (path) => {
+  expect(businessLayoutNext(path, "alpha")).toBe("/dashboard");
+});
+it("현재 조직의 템플릿 대시보드를 직접 가리키면 그대로 둔다", () => {
+  expect(businessLayoutNext("/alpha/dashboard", "alpha")).toBe("/alpha/dashboard");
+});
+it("갈 곳 없이 보완하면 보완 뒤 업무 첫 화면으로 간다", () => {
+  expect(completionPath(businessLayoutNext(null, "alpha"))).toBe(
+    "/auth/complete-profile?next=%2Fdashboard",
+  );
+  expect(organizationStatePath(businessLayoutNext(null, "alpha"))).toBe("/auth/organization-state");
 });
 
 it.each([
