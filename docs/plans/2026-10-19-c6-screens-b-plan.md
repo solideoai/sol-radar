@@ -618,7 +618,7 @@ return `${c}.${op}.${v},and(${c}.eq.${v},id.gt.${q(after.id)}),${c}.is.null`;
     - `request.get` `/api/v1/bids/{FX-01}/qualification-checks`가 404다. 응답을 `docs/evidence/phase-3/isolation-404.json`으로 저장한다(06 §12 S7).
   - `work-screens.spec.ts`
     - S2 값(11 #6~#9): 대시보드 BID 3, 분석 완료 18, 수집 `적재 19 · 격리 1`, BID 표 첫 세 행 FX-01 94·FX-18 82·FX-06 78.
-    - 단계 `입찰공고` + `점수 높은 순`이면 첫 행이 FX-01이다. 결정 `NO-BID` 필터면 FX-03이 보인다.
+    - 권고 `BID` + `점수 높은 순`이면 첫 세 행이 FX-01 94·FX-18 82·FX-06 78이다(19 S3 1번, 사용자 결정 2026-10-19 — 단계 `입찰공고` 필터가 아니다). 결정 `NO-BID` 필터면 FX-03이 보인다.
     - "취소 포함"을 고를 때만 취소 공고가 보인다.
     - 글자 크기: `/dashboard` h1 `33px`·본문 `17px`, `/bids` h1 `30px`, 사이드바 메뉴 `16px`.
     - 네 화면 모두 `document.documentElement.scrollWidth <= clientWidth`다.
