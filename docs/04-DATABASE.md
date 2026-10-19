@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -91,7 +91,7 @@ erDiagram
 |---|---|---|---|
 |`auth.users`|Supabase Auth 관리. 이메일, 비밀번호 해시, 세션·refresh token(`auth.sessions`, `auth.refresh_tokens`), 로그인 차단(`banned_until`)|SOL RADAR 마이그레이션은 이 표를 만들거나 고치지 않는다|화면 역할은 접근하지 않는다(`auth` 스키마는 생성 타입·화면 대상이 아니다)|
 |`profiles`|`id` UUID PK = `auth.users.id`(on delete cascade), `email`(가입 정보 사본), `display_name` nullable, `avatar_url` nullable, **`declared_department_id` UUID nullable FK departments(ON DELETE SET NULL), `declared_job_title_id` UUID nullable FK job_titles(ON DELETE SET NULL)**(가입 신고 정보, 아래 ADR-019), `is_admin` boolean default false(서비스 운영자), `status` text default `active`, `created_at`, `updated_at`|`status` ∈ `active`·`suspended`(check). `display_name` 1~40자. 행은 가입 트리거 `handle_new_user`가 만든다. 가입 트리거의 개인 조직 생성은 새 마이그레이션으로 중단하고, 이미 있는 개인 조직은 보존한다([[16-DECISIONS\|ADR-021]])|읽기: 본인, 같은 조직 멤버, 운영자(`is_admin()`). 쓰기: 본인의 `display_name`과 검증된 가입 신고 부서·직급만. 신고 값은 멤버십·업무 권한과 별개다. `is_admin`·`status`는 화면 역할이 못 바꾼다(권한 + 보호 트리거). 정지는 운영자 함수 `admin_set_user_status`|
-|`organizations`|`id` UUID PK, `slug` text, `name` text, `personal_owner_id` nullable(개인 조직의 주인, 팀 조직이면 null), `created_at`, **`is_demo` boolean default false**(SOL RADAR가 새 마이그레이션으로 더한다)|`slug` UNIQUE, `^[a-z0-9-]{3,32}$`, 예약어 제외. `name` 1~40자|읽기: 멤버, 받은 초대가 있는 사람. 쓰기: 템플릿 정책 그대로(팀 만들기, owner의 이름 변경·삭제). `is_demo`는 화면 역할 쓰기 권한이 없다(seed만)|
+|`organizations`|`id` UUID PK, `slug` text, `name` text, `personal_owner_id` nullable(개인 조직의 주인, 팀 조직이면 null), `created_at`, **`is_demo` boolean default false**(SOL RADAR가 새 마이그레이션으로 더한다)|`slug` UNIQUE, `^[a-z0-9-]{3,32}$`, 예약어 제외. `name` 1~40자|읽기: 멤버, 받은 초대가 있는 사람. 쓰기: 팀 만들기는 서비스 운영자(`profiles.is_admin`)만([[16-DECISIONS\|ADR-026]], `20261019000008`), owner의 이름 변경·삭제는 템플릿 정책 그대로. `is_demo`는 화면 역할 쓰기 권한이 없다(seed만)|
 |`memberships`|`org_id` FK, `user_id` FK profiles, `org_role` text default `member`, **`sol_role` text default `VIEWER`**(새 열), `created_at`|PK(`org_id`,`user_id`). `org_role` ∈ `owner`·`member`, `sol_role` ∈ `ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check)|읽기: 같은 조직 멤버. 쓰기: 템플릿 정책(초대 수락, owner의 `org_role` 변경·내보내기, 스스로 나가기). `sol_role` 변경은 그 조직의 역할 `ADMIN`만(아래). 구성원 관리 정책은 새 마이그레이션에서 `sol_role='ADMIN'` 기준으로 바꾼다([[16-DECISIONS\|ADR-021]])|
 |`invitations`|`id`, `org_id` FK, `email`(소문자), `org_role` text default `member`, **`sol_role` text default `VIEWER`**(새 열), `invited_by` FK profiles, `expires_at`(기본 7일), `created_at`|UNIQUE(`org_id`,`email`). `org_role`·`sol_role` check는 `memberships`와 같다|템플릿 정책: owner가 읽기·만들기·갱신·취소, 받은 사람이 읽기·거절·수락. 수락하면 초대의 `sol_role`이 멤버십으로 옮겨진다(초대 수락 정책을 새 마이그레이션에서 교체). owner 기준 정책은 `sol_role='ADMIN'` 기준으로 바꾼다([[16-DECISIONS\|ADR-021]])|
 |`activities`|템플릿 그대로: `org_id`, `actor_id`, `kind`, `target_user_id`, `target_name`, `old_role`, `new_role`, `task_title`, `created_at`|`kind` check(템플릿)|읽기: 조직 전원. 쓰기: 트리거만. 멤버 합류·역할 변경·초대 피드다. SOL RADAR의 업무 감사는 `audit_logs`(§3.6)가 맡는다|

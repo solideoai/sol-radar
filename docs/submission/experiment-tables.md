@@ -34,7 +34,7 @@ updated: 2026-10-19
 | 규칙 결과와 상충(`MODEL_RULE_DISAGREEMENT`) 건수 | — | | | | | — |
 
 채운 뒤 적을 것:
-- 데이터셋 버전 · git commit · 질문 세트(`kev-qs/v0.1`·`v0.2`) · state 템플릿 버전 · 모델 식별자(`jaredpalmer/kev-9b@v1.0` = `db029f08`, `Qwen/Qwen3.5-9B`) · 온도 · 실행 일시 · 실행 위치(회사 GPU 서버).
+- 데이터셋 버전 · git commit · 질문 세트(`kev-qs/v0.1`·`v0.2`) · state 템플릿 버전 · 모델 식별자(`jaredpalmer/kev-9b@v1.0` = `db029f08`, `Qwen/Qwen3.5-9B`) · 온도 · 실행 일시 · 실행 위치(노트북 `sol_eval` → 회사 GPU 추론 엔드포인트 HTTPS, [[16-DECISIONS|ADR-025]]).
 - 채우지 못한 칸의 이유.
 - E1 오류 분석 요약(원인 코드 `PARSE` · `EXTRACTION` · `TRANSLATION` · `STATE` · `RULE` · `LABEL` · `MODEL` 건수).
 - 결론 후보 셋 중 하나: Kev를 보조 위험 신호 탐지기로 유지 / 역할 축소 / 규칙 + Qwen을 기본 경로로. 근거는 위 표만.

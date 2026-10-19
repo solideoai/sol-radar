@@ -82,7 +82,7 @@ updated: 2026-10-19
 ### 3.3 왜 지금인가
 
 - 공공조달 규모가 매년 커지고(§2.1) 디지털 전환·AX 사업 공고가 늘어 SI 기업의 검토 부담이 커진다.
-- 소형 오픈 가중치 결정 모델(Kev, Apache-2.0)과 오픈 LLM(Qwen)으로 **회사 GPU 서버에서** 회사 기밀을 외부 모델 API에 보내지 않고 돌릴 수 있게 되었다. 해커톤 실추론은 데모 노트북의 gateway가 터널로 회사 GPU 서버에 붙는다(모델 추론 기준. 개발 DB는 Supabase 클라우드다, §7).
+- 소형 오픈 가중치 결정 모델(Kev, Apache-2.0)과 오픈 LLM(Qwen)으로 **회사 GPU 서버에서** 회사 기밀을 외부 모델 API에 보내지 않고 돌릴 수 있게 되었다. 해커톤 실추론은 데모 노트북의 gateway가 회사가 HTTPS로 제공하는 GPU 추론 엔드포인트에 붙는다([[16-DECISIONS|ADR-025]]. 모델 추론 기준. 개발 DB는 Supabase 클라우드다, §7).
 - 공공데이터포털의 나라장터 Open API(무료, 자동승인)로 공고를 수집할 수 있다. 서비스 ID·오퍼레이션·필드 이름은 공식 명세로 확인했고([[16-DECISIONS|16 ADR]] 미결정 1), 서비스키로 받은 실제 응답은 P0-0에서 확인한다([[07-DATA-PIPELINE|07 수집]]). 첨부 원문(공고문·제안요청서)의 저작권·재배포 조건은 미확인이다.
 
 ## 4. 심사 기준 매핑 (공식 기준, 2026-10-18 확정)
@@ -129,7 +129,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 
 - 기본 시연 모드는 `mock`이고 위 수치(94·72·68, Kev 분포)는 mock 기준이다([[19-DEMO-SCENARIO|19 데모 시나리오]] §2.1).
 - S-LIVE는 S0에서 `live` 모드로 사전 실행한 run을 `mock` 모드 앱에서 조회한다. 분석마다 `run_mode`·모델이 기록되므로 표시가 그대로다([[03-AI-PIPELINE|03]] §3.3). 발표 중 모드 전환·재시작은 하지 않는다. 10-21 컷 규칙([[12-ROADMAP|12 로드맵]])에 따라 이 장면은 실공고·실추론 / 실공고·규칙만 `PARTIAL` / fixture·실추론 / 녹화·증거만 중 하나가 되고, 어느 쪽인지 말로 밝힌다. 녹화를 실시간이라고 말하지 않는다.
-- 회사 GPU 서버 터널이 끊겨 S-LIVE run이 `PARTIAL`·`RULES_ONLY`면 그 화면을 그대로 보여 주고 4:15 장애 대체 설명으로 잇는다.
+- 회사 GPU 추론 엔드포인트에 닿지 않아 S-LIVE run이 `PARTIAL`·`RULES_ONLY`면 그 화면을 그대로 보여 주고 4:15 장애 대체 설명으로 잇는다.
 
 ## 7. 정직성 표: 데모에서 실제인 것과 mock인 것
 
@@ -140,10 +140,10 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 공고 데이터 | **실제 나라장터 공고**(입찰공고 용역 중 정보화사업, `is_demo=false`) | **가상 fixture 20건**(`DEMO` 배지) | **가상 fixture 20건**(`DEMO` 배지) | 두 종류가 같은 DB에 함께 있을 수 있어 출처(`source`)·`DEMO` 배지·목록 `origin` 필터로 구분한다. 서비스키로 받은 실제 응답 확인은 P0-0이다([[07-DATA-PIPELINE]]) |
 | 첨부(RFP)·파싱 | 실제 첨부를 allowlist(`www.g2b.go.kr`)로 내려받아 파싱 | fixture 첨부 샘플 | fixture 첨부 샘플 | 처리할 수 없는 형식·다운로드 실패는 `PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`와 `확인 필요`로 표시하고 AI가 내용을 추측하지 않는다. g2b 첨부 자동 다운로드 가능 여부는 미검증([[16-DECISIONS]] 미결정 16) |
 | 회사 프로필 | **가상 솔리데오** | **가상 솔리데오** | **가상 솔리데오** | 회사명·부서/직급은 솔리데오, 직원 200명·사진·자격·실적·재무는 가상 데모 설정(ADR-019). live 분석도 "실제 공고 × 가상 회사 프로필"이며 분석 화면에 "가상 회사 프로필로 분석" 배지가 붙는다 |
-| Qwen 요구조건 추출·설명 | **회사 GPU 서버의 Qwen3.5-9B 실추론** | **회사 GPU 서버의 Qwen3.5-9B 실추론** | **고정 응답**(사전 작성 추출) | 실추론은 데모 노트북의 gateway가 터널로 회사 GPU 서버에 붙는다. 분석 패널에 "AI: local · Qwen3.5-9B · Kev-9B v1.0" 또는 "AI: mock" |
-| Kev | **회사 GPU 서버의 Kev-9B@v1.0 실추론**(`kev-qs/v0.2`, 영어 state) | **회사 GPU 서버의 Kev-9B@v1.0 실추론** | **고정 응답**(`fixtures/kev/FX-xx.json`, `kev-qs/v0.1`) | **참고 지표이며 점수·자격·권고에 반영하지 않는다.** 확률은 선택지에 대한 모델 분포이고 충족 확률·수주확률이 아니다. 우리 도메인 보정 전이라 `UNCALIBRATED`로 표시. 한국어 입력 성능은 E1·E2로 잰다(§8 2번) |
+| Qwen 요구조건 추출·설명 | **회사 GPU 추론 엔드포인트의 Qwen3.5-9B 실추론** | **회사 GPU 추론 엔드포인트의 Qwen3.5-9B 실추론** | **고정 응답**(사전 작성 추출) | 실추론은 데모 노트북의 gateway가 HTTPS로 회사 GPU 추론 엔드포인트에 붙는다(ADR-025). 분석 패널에 "AI: local · Qwen3.5-9B · Kev-9B v1.0" 또는 "AI: mock" |
+| Kev | **회사 GPU 추론 엔드포인트의 Kev-9B@v1.0 실추론**(`kev-qs/v0.2`, 영어 state) | **회사 GPU 추론 엔드포인트의 Kev-9B@v1.0 실추론** | **고정 응답**(`fixtures/kev/FX-xx.json`, `kev-qs/v0.1`) | **참고 지표이며 점수·자격·권고에 반영하지 않는다.** 확률은 선택지에 대한 모델 분포이고 충족 확률·수주확률이 아니다. 우리 도메인 보정 전이라 `UNCALIBRATED`로 표시. 한국어 입력 성능은 E1·E2로 잰다(§8 2번) |
 | mock 대체 | 금지(켜면 기동 거부) | `AI_FALLBACK_TO_MOCK=true`일 때만. 대체되면 `MOCK_FALLBACK` 플래그와 "실제 모델 결과 아님" 배너 | 해당 없음(처음부터 mock) | 기본은 자동 대체 없음. 모델이 안 되면 `PARTIAL`·`RULES_ONLY`로 끝낸다 |
-| 네트워크 의존 | 인터넷(Supabase) + 공공 API + 회사 GPU 서버 터널 | 인터넷(Supabase) + 회사 GPU 서버 터널 | 인터넷(Supabase)만 | DB·인증이 Supabase 클라우드라 회장 회선이 끊기면 모든 모드에서 로그인·조회가 멈춘다. 그 대체 경로는 미결정이다. 터널·공공 API가 끊겼을 때의 대응은 §9 |
+| 네트워크 의존 | 인터넷(Supabase) + 공공 API + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase) + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase)만 | DB·인증이 Supabase 클라우드라 회장 회선이 끊기면 모든 모드에서 로그인·조회가 멈춘다. 그 대체 경로는 미결정이다. 엔드포인트·공공 API가 끊겼을 때의 대응은 §9 |
 
 | 영역 (모드와 무관) | 데모 상태 | 설명 |
 |---|---|---|
@@ -167,12 +167,12 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 3. **"왜 Qwen과 Kev를 둘 다 쓰나?"** 역할이 다르다. Qwen은 비정형 공고문에서 구조화된 요구조건과 근거 span을 뽑고 한국어 설명을 만든다. Kev는 정형화된 상태를 읽고 빠르고 일관된 보조 판단을 준다. 둘 다 없어도 규칙 엔진만으로 결과가 나온다.
 4. **"실제 데이터인가?"** `live` 모드는 나라장터 Open API로 실제 입찰공고(용역 중 정보화사업)와 첨부를 수집해 분석한다. 화면 머리말에 실행 모드가 보이고, 공고마다 출처와 `DEMO` 배지로 실제·가상을 구분한다. 회사 프로필은 모든 모드에서 가상 솔리데오라 live 분석은 "실제 공고 × 가상 회사 프로필"이다. 발표 본편 장면은 같은 수치를 재현하려고 `mock` 모드의 가상 fixture로 진행한다(§7, [[19-DEMO-SCENARIO]] §2.1). 실제 응답·첨부 다운로드 확인 결과는 `docs/evidence/phase-0/external-deps.md`에 있다. 그 파일이 없거나 막힌 항목이 있으면 그대로 말한다. 엔드포인트는 공식 명세로 확인해 `registry.yaml`에 등록한 것만 부르고 지어내지 않는다.
 5. **"HWP 첨부는 어떻게 하나?"** 형식별 파서(`DocumentParser`)로 PDF(텍스트 레이어)·HWPX·HWP를 파싱한다. HWP 파서는 오픈소스 후보의 라이선스와 추출 품질(본문·표·금액·자격 조건·요구사항 누락)을 실제 RFP 샘플로 비교한 뒤 정한다([[16-DECISIONS]] 미결정 4). 스캔 PDF·zip·암호 문서처럼 처리할 수 없는 첨부는 `PARSE_UNSUPPORTED`와 "첨부 원문 확인"으로 표시하고, 읽지 못한 내용을 AI가 추측해 채우지 않는다. 원문 다운로드는 유지하고 AI 추출은 `PENDING_REVIEW`로 표시한다. 실공고 형식별 파싱 성공률을 증거로 낸다(P0-3).
-6. **"GPU 없으면 못 쓰나?"** `mock` 모드는 GPU 없이 고정 AI 응답으로 전 기능이 돈다. `live`·`fixture` 모드의 실추론은 회사 GPU 서버(`ai-local`: Qwen3.5-9B는 vLLM, Kev-9B는 `kev.serve`)에서 돌고, 데모 노트북의 gateway가 터널로 붙는다. 모델 런타임은 GPU 서버의 `127.0.0.1`에만 바인딩해 외부 포트를 열지 않는다 ([[10-DEPLOYMENT]]).
+6. **"GPU 없으면 못 쓰나?"** `mock` 모드는 GPU 없이 고정 AI 응답으로 전 기능이 돈다. `live`·`fixture` 모드의 실추론은 회사 GPU 서버(Qwen3.5-9B는 vLLM, Kev-9B는 `kev.serve`)에서 돌고, 데모 노트북의 gateway(`ai-local`)가 회사가 HTTPS로 제공하는 GPU 추론 엔드포인트 `https://acropolissg.com/sol-radar`에 API 키로 붙는다. GPU 서버 자체는 외부에서 접근할 수 없고 모델 런타임 기동·GPU 배분은 회사가 운영한다 ([[10-DEPLOYMENT]], [[16-DECISIONS|ADR-025]]).
 7. **"기존 입찰 정보 서비스와 뭐가 다른가?"** 수집·알림은 기존 서비스도 한다. 우리는 **우리 회사 프로필 기준 자격 판정과 설명 가능한 점수, 사람 결정 기록**까지 간다 (§3.2 D1·D2·D4).
 8. **"AI가 틀리면?"** 근거 없는 인용은 무효 처리하고, 저신뢰·모순은 `NEEDS_REVIEW`로 사람에게 넘긴다. 사람 판정과 AI 차이를 지표로 추적한다 ([[14-OBSERVABILITY]]). 얼마나 틀리는지는 실제 공고 평가셋으로 잰다. 특히 정보 부족을 미충족으로 잘못 판정하는 비율을 따로 보고, 오답은 원인 단계(파싱·추출·번역·state·규칙·라벨·모델)로 나눠 고친다 ([[21-MODEL-TRAINING]]).
 9. **"보안은?"** 테넌트 격리는 Supabase RLS(`org_id`, 다른 조직 자원은 `404`)와 정책 시험으로 강제한다. 인증은 Supabase Auth이고, 토큰 만료·refresh 회전·로그인 시도 제한·비밀번호 정책은 Supabase Auth 설정으로 다룬다(구체 값은 대시보드에서 정하고 확인할 항목, 미검증). 쿠키 인증의 상태 변경 요청은 `X-Requested-With` 헤더 검사(CSRF), XSS는 CSP nonce, RLS를 무시하는 service role 키는 worker·seed 전용이고 브라우저·`NEXT_PUBLIC_` 변수·로그에 넣지 않는다. 그 밖에 SSRF allowlist, 외부 문서는 불신 데이터로 처리, 로그 마스킹 ([[09-SECURITY]]).
 10. **"왜 Supabase인가?"** 출발 템플릿(agentic-boilerplate)이 이미 Next.js + Supabase로 조직·역할·초대·RLS·인증 견본과 정책 시험(PGlite)·타입 생성(`pnpm db:types`) 게이트를 갖추고 있다. 그대로 쓰면 인증과 조직 격리를 새로 만들지 않고, 해커톤 시간을 자격 판정·점수·근거에 쓴다. Supabase가 맡는 것은 DB와 인증뿐이고 첨부 원본(MinIO), 임베딩 검색(Qdrant), 작업 큐(Redis + BullMQ), AI gateway(Qwen·Kev)는 그대로다 ([[16-DECISIONS]] ADR-017).
-11. **"데모 중 네트워크가 끊기면?"** 개발 DB와 인증이 Supabase 클라우드라 인터넷이 끊기면 로그인과 조회가 멈춘다. 오프라인 시연은 약속하지 않는다. 대체 경로(로컬 Supabase CLI `pnpm db:start`로 전환, 사전 녹화 영상)는 아직 정하지 않았다([[16-DECISIONS]] 미결정 표). AI 장애는 별개로, AI gateway를 꺼도 규칙만으로 `PARTIAL` 결과가 나오는 것을 시연한다(§6 4:15). `live`·`fixture` 모드는 회사 GPU 서버 터널도 필요하다. 터널이 끊기면 규칙만으로 `PARTIAL`·`RULES_ONLY` 결과가 나오고 이를 숨기지 않으며, 필요하면 `mock` 모드로 바꿔 이어 간다.
+11. **"데모 중 네트워크가 끊기면?"** 개발 DB와 인증이 Supabase 클라우드라 인터넷이 끊기면 로그인과 조회가 멈춘다. 오프라인 시연은 약속하지 않는다. 대체 경로(로컬 Supabase CLI `pnpm db:start`로 전환, 사전 녹화 영상)는 아직 정하지 않았다([[16-DECISIONS]] 미결정 표). AI 장애는 별개로, AI gateway를 꺼도 규칙만으로 `PARTIAL` 결과가 나오는 것을 시연한다(§6 4:15). `live`·`fixture` 모드는 회사 GPU 추론 엔드포인트(HTTPS) 접속도 필요하다. 엔드포인트에 닿지 않으면 규칙만으로 `PARTIAL`·`RULES_ONLY` 결과가 나오고 이를 숨기지 않으며, 필요하면 `mock` 모드로 바꿔 이어 간다.
 12. **"해커톤 이후 계획은?"** 평가셋 확대(test 40 사업 이상) → 오류 분석에서 모델 판단 오류가 주된 원인이면 회사 GPU에서 Kev-9B LoRA → Kev의 점수 반영은 평가 기준 통과 뒤 새 알고리즘 버전(`sol-v0.2.x`)과 ADR로 → 데모 기업 파일럿 → P1(경쟁사 통계·인력 배치) 순서 ([[12-ROADMAP]], [[21-MODEL-TRAINING]]).
 13. **"파인튜닝했나?"** 하지 않았다. 해커톤 범위는 Kev-9B 베이스라인 추론, 한국어/영어 비교, 평가셋·평가 하네스, 회사 GPU용 학습셋 내보내기까지다. 초기 목표(Macro-F1 0.80, 정보부족→미충족 혼동률 5%, 보정 후 ECE 0.08)에 못 미쳐도 그것만으로 학습을 시작하지 않는다. 오류 분석에서 모델 자체의 판단 오류가 주된 원인일 때 사람이 정한다 ([[21-MODEL-TRAINING]] §4.4).
 
@@ -180,9 +180,9 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 
 | 리스크 | 대응 | 담당 |
 |---|---|---|
-| 회장 네트워크 불안 | `mock` 모드의 AI는 외부 호출이 없다. `live`·`fixture` 모드는 회사 GPU 서버 터널이 필요하다(아래 행). DB·Auth는 Supabase 클라우드라 인터넷이 필요하다. 발표 전 회선과 Supabase 프로젝트 접속(`/health/ready`의 `checks.db`)을 확인한다. 끊겼을 때 대체 경로(로컬 Supabase CLI `pnpm db:start`, 사전 녹화 영상)는 미결정 ([[16-DECISIONS]] 미결정 표) | 조작자 |
+| 회장 네트워크 불안 | `mock` 모드의 AI는 외부 호출이 없다. `live`·`fixture` 모드는 회사 GPU 추론 엔드포인트 접속이 필요하다(아래 행). DB·Auth는 Supabase 클라우드라 인터넷이 필요하다. 발표 전 회선과 Supabase 프로젝트 접속(`/health/ready`의 `checks.db`)을 확인한다. 끊겼을 때 대체 경로(로컬 Supabase CLI `pnpm db:start`, 사전 녹화 영상)는 미결정 ([[16-DECISIONS]] 미결정 표) | 조작자 |
 | 분석 지연 | 데모 공고 3건은 분석 결과를 미리 생성해 둔다. 라이브 분석은 1건만. 실추론(`live`·`fixture`) 지연은 실측 전이라 mock보다 길 수 있다고 보고 리허설에서 잰다 | 조작자 |
-| 회사 GPU 서버 터널 단절 | `live`·`fixture` 실추론이 멈춘다. gateway가 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 기록하고 `PARTIAL`·`RULES_ONLY` 결과를 내므로 그 화면을 그대로 보여 준다. 재연결을 한 번 시도하고, 안 되면 `mock` 모드로 전환(env 변경 + worker·ai-gateway 재시작)하고 바꿨다고 말한다. D-1에 재연결을 리허설한다([[12-ROADMAP]]) | 조작자 |
+| 회사 GPU 추론 엔드포인트 미접속 | `live`·`fixture` 실추론이 멈춘다. gateway가 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 기록하고 `PARTIAL`·`RULES_ONLY` 결과를 내므로 그 화면을 그대로 보여 준다. 재접속 확인(`GET /v1/models`)을 한 번 시도하고, 안 되면 `mock` 모드로 전환(env 변경 + worker·ai-gateway 재시작)하고 바꿨다고 말한다. D-1에 재접속 확인을 리허설한다([[12-ROADMAP]]) | 조작자 |
 | 공공 API 일일 한도·장애 | 개발계정은 서비스당 1,000건/일이다. 한도의 90%에서 보조 조회를 멈추고, 에러코드 22를 받으면 그날 수집을 멈춘다. 리허설·시연 호출 수를 미리 계산하고, 막히면 `fixture` 모드로 전환한다 | 조작자 |
 | 첨부 다운로드 불가 | g2b 첨부 자동 다운로드 가능 여부는 미검증(P0-0). 안 되면 공고 본문·API 필드만으로 분석하고 `DOCUMENT_DOWNLOAD_FAILED`와 관련 자격 `확인 필요`를 그대로 보여 준다 | 조작자 |
 | 모드 표시 혼동 | 모드를 바꿀 때마다 머리말 "실행 모드"와 분석 패널의 AI 표시를 확인한다. mock 결과를 실모델 결과처럼 말하지 않는다 | 발표자 |
@@ -199,7 +199,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 항목 | 파일 | 상태 | 심사 기준 | 충족 확인 |
 |---|---|---|---|---|
 | 저장소 링크(README가 [[00-README\|00 인덱스]] 역할, 기동 절차는 [[10-DEPLOYMENT\|10 배포]]) | `README.md`, `docs/00-README.md` | 있음 | 완성도·확장성 | 미확인 |
-| 아키텍처 다이어그램: Next.js(`web/`) + Supabase + Compose + AI gateway + 회사 GPU 서버 A40×2(Qwen·Kev, 터널)([[02-ARCHITECTURE]], ADR-017·020) + 데이터 흐름 | `docs/submission/architecture.md` | 초안 | 확장성·실용성 | 미확인 |
+| 아키텍처 다이어그램: Next.js(`web/`) + Supabase + Compose + AI gateway + 회사 GPU 추론 엔드포인트(Qwen·Kev, HTTPS)([[02-ARCHITECTURE]], ADR-017·020·025) + 데이터 흐름 | `docs/submission/architecture.md` | 초안 | 확장성·실용성 | 미확인 |
 | 발표 슬라이드(§1 → §2 → §3.2 → 데모 → §7 → 이후 계획) | `docs/submission/slides-outline.md` → 슬라이드 파일 | 구조 초안 | 4항목 전부 | 미확인 |
 | 데모 영상 3분(백업·제출용) | `docs/submission/video-storyboard.md` → 영상 파일 | 스토리보드 초안 | 완성도·실용성 | 미확인 |
 | 실제 AI 검증 증거 목록 | `docs/submission/evidence-list.md`, `docs/evidence/README.md` | 목록만(증거 없음·예정) | 실용성 | 미확인 |
