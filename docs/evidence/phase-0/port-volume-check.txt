@@ -1,0 +1,31 @@
+# docker volume ls | grep c0verify ; docker ps 포트 목록(호스트 포트 중복 검사) | commit cfc534d | 2026-10-19 09:27:04 KST
+## 컨테이너 수: 전체 30 (기존 25 + c0verify 5)
+## volumes (c0verify)
+sol-radar-c0verify_miniodata
+sol-radar-c0verify_qdrantdata
+sol-radar-c0verify_redisdata
+## 기존 sol-radar 볼륨(건드리지 않음)
+(없음)
+## 전체 호스트 published 포트와 중복 여부
+80	k8s-control-plane
+443	k8s-control-plane
+10255	easykube-control-plane
+16333	sol-radar-c0verify-qdrant-1
+16380	sol-radar-c0verify-redis-1
+18000	sol-radar-c0verify-ai-gateway-1
+19000	sol-radar-c0verify-minio-1
+54321	supabase_kong_sol-radar
+54322	supabase_db_sol-radar
+54323	supabase_studio_sol-radar
+54324	supabase_inbucket_sol-radar
+54325	supabase_inbucket_sol-radar
+56421	supabase_kong_sol-radar-people-read-20261018-qa5b0c
+56422	supabase_db_sol-radar-people-read-20261018-qa5b0c
+56423	supabase_studio_sol-radar-people-read-20261018-qa5b0c
+56424	supabase_inbucket_sol-radar-people-read-20261018-qa5b0c
+56425	supabase_inbucket_sol-radar-people-read-20261018-qa5b0c
+56426	supabase_inbucket_sol-radar-people-read-20261018-qa5b0c
+57135	k8s-control-plane
+63547	easykube-control-plane
+## 중복 호스트 포트:
+(위 줄이 없으면 중복 0)

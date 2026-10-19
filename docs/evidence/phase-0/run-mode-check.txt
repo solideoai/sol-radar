@@ -1,0 +1,26 @@
+# (1) docker compose -p sol-radar-c0verify -f infra/compose.yaml --env-file <scratch>/.env run --rm -T --no-deps -e SOL_RUN_MODE=live -e AI_PROVIDER=mock ai-gateway | commit cfc534d | 2026-10-19 09:25:11 KST
+기동 거부: DEMO_MODE(CONTRADICTS_MODE), AI_PROVIDER(CONTRADICTS_MODE)
+exit=78  (기대 78 = EX_CONFIG)
+
+# (2) 같은 방식, SOL_RUN_MODE=live DEMO_MODE=false AI_PROVIDER=mock (DEMO_MODE 모순은 없애고 AI_PROVIDER 만 모순)
+기동 거부: AI_PROVIDER(CONTRADICTS_MODE)
+exit=78  (기대 78)
+
+# (3) 호스트: node scripts/check-env.mjs --root <scratch>/envroot
+#     pnpm check:env 는 process.env 가 아니라 infra/.env·web/.env.local 파일만 읽는다(scripts/check-env.mjs). 그래서 SOL_RUN_MODE=live AI_PROVIDER=mock 을 셸 env 로 주는 대신,
+#     스크래치 트리 infra/.env(예시 파일 + 더미 값, SOL_RUN_MODE=live AI_PROVIDER=mock)를 --root 로 검사했다. 저장소의 infra/.env 는 만들지 않았다.
+FAIL infra/.env DEMO_MODE CONTRADICTS_MODE
+FAIL infra/.env AI_PROVIDER CONTRADICTS_MODE
+FAIL infra/.env G2B_BID_NOTICE_SERVICE_KEY MISSING_KEY
+FAIL infra/.env G2B_PRE_SPEC_SERVICE_KEY MISSING_KEY
+FAIL infra/.env G2B_ORDER_PLAN_SERVICE_KEY MISSING_KEY
+FAIL infra/.env G2B_INDUSTRY_MASTER_SERVICE_KEY MISSING_KEY
+FAIL infra/.env QWEN_BASE_URL MISSING_KEY
+FAIL infra/.env KEV_BASE_URL MISSING_KEY
+FAIL infra/.env KEV_API_KEY MISSING_KEY
+check:env 실패: 실행 모드 live, placeholder 0건, 모드 모순 2건, 누락 7건, 금지 0건
+exit=1  (기대 1)
+
+# (4) 비교: 모순 없는 트리(SOL_RUN_MODE=mock AI_PROVIDER=mock, 더미 값)
+check:env 통과: 실행 모드 mock, placeholder 0건, 모드 모순 0건
+exit=0  (기대 0)

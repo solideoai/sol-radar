@@ -1,0 +1,2 @@
+# docker compose -p sol-radar-c0verify ... logs --tail 20 worker | commit cfc534d | 2026-10-19 09:24:02 KST
+worker-1  | worker started
