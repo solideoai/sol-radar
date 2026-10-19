@@ -252,7 +252,7 @@ hf download Qwen/Qwen3.5-4B-Base --revision 1001bb4d826a52d1f399e183466143f4da7b
 
 저장 경로는 둘 중 하나다. 주말 전 확실한 쪽은 2안이다.
 
-1. **C3 live 수집**(`OfficialApiConnector` → Supabase `bid_notices` `is_demo=false`) → `pnpm dataset:build` 가 DB 에서 읽는다. 보조 조회 3종·documents job 이 main 에 아직 없다(C3 남은 일).
+1. **C3 live 수집**(`OfficialApiConnector` → Supabase `bid_notices` `is_demo=false`) → `pnpm dataset:build`(예정) 가 DB 에서 읽는다. 보조 조회 3종·documents job 이 main 에 아직 없다(C3 남은 일).
 2. **녹음 스크립트**: C1 ① 과 같은 방식으로 마스킹한 응답 JSON 을 `fixtures/recorded/train/<serviceId>/<operation>.<date>.pN.masked.json` 에 저장하고, 빌더가 DB 없이 이 파일을 읽는다. 담당자 필드 10개 마스킹과 `serviceKey` 제거 규칙은 `docs/evidence/phase-0/external-deps-api-20261019.md` 를 따른다. 저장소에는 넣지 않고(`.gitignore`) 번들에만 넣는다.
 
 ### 4.4 레코드 구성: 두 갈래

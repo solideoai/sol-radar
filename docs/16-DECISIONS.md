@@ -46,6 +46,7 @@ updated: 2026-10-19
 |ADR-029|Critical Path 1차 분담 중 사용자가 정한 계약·범위 7건(A1~A7): `FX-13` 인용 검증 실패 처리, `FX-05` `PENDING_REVIEW` 조건, `AI_FAULT_INJECT` 5값과 `gateway_down` 시험 전용 503, 정보화사업 수집 필터 확대, `KEV_ENABLED=false` 세 모드 허용(기본 `true`), C6 화면 스펙 D1~D30 추천안 일괄 승인, 목록 기본 상태 필터와 취소 공고 표시. 상세는 아래 ADR-029 상세|채택 (2026-10-19 사용자 결정)|2026-10-19|사용자 결정(2026-10-19, 조정 세션 sol-radar-e8 기록). [Phase 0 정본 불일치 목록](plans/2026-10-19-phase-0-doc-inconsistencies.md) #1(b)·#2(a)·#3(a)·#4·#7을 닫는다. 반영 문서 [[03-AI-PIPELINE\|03]]·[[05-API-SPEC\|05]]·[[06-UI-UX\|06]]·[[07-DATA-PIPELINE\|07]]·[[10-DEPLOYMENT\|10]]·[[11-TESTING\|11]]·[[19-DEMO-SCENARIO\|19]]·[[20-GLOSSARY\|20]]|
 |ADR-030|Critical Path 1차 분담 조정 세션(sol-radar-e8)이 레인 사이 계약으로 정한 26건(B1~B26): gateway 전송 실패·오류 분류, `KevResponse.errorCode`, fixtureId 형식, `/kev`·`/explain`·`/parse`·`/health` 형태, 기동 거부 조건, 추출 경고 코드, `seq`, 공고 상태 매핑, ingest run 상태, registry URL, data.go.kr 오류 봉투, 원자 저장 RPC, 인력 기간 배정 접기, 분석 요청 멱등·큐 계약, 멈춘 분석 복구, 사전 분석 명령, 알림 링크 검증, 설명 출처, 대시보드·사이드바 글자 +3px. 처음에는 제안으로 올려 해당 절에 콜아웃만 달았고, 같은 날 사용자가 일괄 채택해 정본 본문으로 옮겼다|채택 (2026-10-19 사용자 결정)|2026-10-19|조정 기록부의 판정(K1~K13·C3-1~3 등)과 사용자 일괄 채택(2026-10-19). 항목별 근거는 아래 ADR-030 상세|
 |ADR-031|정본 반영 2차(조정 세션 sol-radar-e8) 16건(C1~C16). 사용자 결정 4건(C1~C3·C16): 사이드바 글자 +3px 기준 정정, `Review.reviewer.role` null 허용, S3 목록 절차의 필터를 권고 `BID`로, `pnpm demo:reset`의 추출 seed 제거. e8 판정 12건(C4~C15): 멈춘 분석 복구 축소, 결과 저장 RPC·멱등 키 check, worker 실패 분류, Kev score 답 필수 필드, mock Kev 고정값 규칙, `FX-07` r2 77점, `FX-17` 자격 표기, 사전 분석 기대 플래그, C5-B 후보, 수집 주기 env, 분석 jobId, 목록 `CLOSED`·S5 재분석. C1~C3은 먼저 채택해 본문에 반영했다. C4~C15는 처음에 해당 절에 제안 콜아웃으로 달았고, 같은 날 사용자가 일괄 채택해 본문으로 옮기고 콜아웃은 지웠다|채택 (2026-10-19 사용자 결정, 일괄)|2026-10-19|사용자 결정(2026-10-19, 조정 세션 sol-radar-e8 전달)과 e8 판정. 항목별 근거는 아래 ADR-031 상세|
+|ADR-032|정본 반영 3차(조정 세션 sol-radar-e8). e8 판정 9건(D1~D9): gateway 요청 하나의 마감 시계(`KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`), 모델 레지스트리 `allowedHosts`, 클라우드 `pnpm db:push` 전 멱등 키 접두어 사전 질의, ADR-030 B1 주석, 분석 실패 코드·복구, 계정이 지워진 결정자 표시, `requirement_assessments.kev_distribution` 모양, web env 3개, `KEV_UNAVAILABLE` 화면 라벨 확인. 해당 절에 `제안 — ADR-032` 콜아웃만 달았다. 함께 main에 이미 들어간 코드·마이그레이션·fixture와 다른 정본 문장을 사실 정정 F1~F5로 본문에서 고쳤다|D1~D9 제안 (사람 채택 전). F1~F5는 결정이 아니라 사실 정정이다|2026-10-19|조정 세션 sol-radar-e8의 정본 반영 3차 지시(7d·3e 전달 포함). 항목별 근거는 아래 ADR-032 상세|
 
 ### ADR-007 ~ 014 구현 결과
 - **ADR-007**: `web/`에 1280px 미만 breakpoint·결제 모듈·요금 화면 없음. UI 토큰·그리드는 1280~1920만 ([[06-UI-UX|06 UI]]). 17 절대 규칙으로 강제.
@@ -311,7 +312,7 @@ A6 중 정본에 반영한 항목:
 
 |#|결정|반영 위치|근거 (누가·언제·무엇을 보고)|
 |---|---|---|---|
-|B1|worker → gateway `/kev` 전송 실패(연결 거부·timeout·5xx 소진·circuit open·503 주입)는 `AI_UNAVAILABLE` → `PARTIAL`·`RULES_ONLY`다. `KEV_UNAVAILABLE`(분석 `COMPLETED`)은 gateway가 200 + `errorCode`를 줄 때만이다|03 §8|e8 판정 K3'(2026-10-19). C5-B(sol-radar-b3)가 03 §8 표와 §9를 근거로 정정을 요청|
+|B1|worker → gateway `/kev` 전송 실패(연결 거부·timeout·5xx 소진·circuit open·503 주입)는 `AI_UNAVAILABLE` → `PARTIAL`·`RULES_ONLY`다. `KEV_UNAVAILABLE`(분석 `COMPLETED`)은 gateway가 200 + `errorCode`를 줄 때만이다. (주석, 제안 — ADR-032 D4: 둘째 문장은 ADR-031 C6로 넓어졌다. gateway가 응답했지만 쓸 수 없는 `/kev`(4xx·봉투 오류·wire 스키마 위반)도 `KEV_UNAVAILABLE`이다)|03 §8|e8 판정 K3'(2026-10-19). C5-B(sol-radar-b3)가 03 §8 표와 §9를 근거로 정정을 요청|
 |B2|`KEV_ENABLED=false`에서 gateway가 죽으면 `/explain` 전송 실패는 템플릿 문장으로 대체하고 `PARTIAL` 사유가 아니다. `AI_UNAVAILABLE`은 `/extract`·`/kev` 전송 실패만이다|03 §8|e8 판정 K11. b3가 정본 빈틈으로 보고|
 |B3|`KevResponse` 최상위에 `errorCode: "KEV_UNAVAILABLE" \| "INJECTION_SUSPECTED" \| null`. 인젝션이 의심되면 Kev 호출을 생략한다(`kev.enabled=false`, 분석은 `COMPLETED`·`RULES_ONLY`)|03 §2.1·§5.7|e8 판정 K4·K4'. K4'는 security-auditor의 인젝션 가드 지적 뒤 3b 보안 처리안을 승인한 것|
 |B4|fixtureId는 `FX-NN` 또는 `FX-NN.rNN`이다. worker는 늘 `.rNN`을 보내고, gateway mock은 그 파일이 없으면 `FX-NN`으로 대체한다. 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절한다. 응답 id는 요청 값으로 바꾼다|03 §2.1, 07 §6.5|e8 판정 K5·K5'(b3 제안 승인). ASCII 조건은 security-auditor 지적(`\d`)|
@@ -372,6 +373,33 @@ A6 중 정본에 반영한 항목:
 구현 상태는 이 ADR이 판정하지 않는다. C7(main `9da17c4`)과 C12(e)·C13의 코드 기본값(main `9da17c4`)은 main에 있다. C4·C5는 C5-B 마이그레이션 `20261019000011`(main 병합 전), C8·C9의 fixture 값은 fixture 담당 브랜치, C16의 seed 변경은 ee 브랜치 `fix/demo-extraction-seed`(main 병합 전)의 일이다.
 
 하지 않은 것: 04 `requirement_extractions.status`의 `FAILED` 의미 정리(ADR-030 B10)는 마이그레이션과 묶여 있어 이번 묶음에 넣지 않았다.
+
+## ADR-032 상세 — 정본 반영 3차 (D1~D9, 사실 정정 F1~F5)
+
+조정 세션 sol-radar-e8이 main `8f33caa`(C5-A local 어댑터·C5-B 보안 후속·7d 점검 정리·ADR-027 개정이 들어간 뒤) 기준으로 정리했다. 근거 출처는 ADR-029~031과 같은 조정 기록부다(커밋되지 않는 작업 파일). 상태는 항목마다 다르다.
+- D1~D9는 **제안**이다(e8 판정, 사람 채택 전). 근거 문서의 해당 절에 `제안 — ADR-032` 콜아웃만 달았고 본문 숫자·문장은 바꾸지 않았다. 채택은 사람이 한다. 채택되면 콜아웃 내용을 본문으로 옮기고 콜아웃은 지운다.
+- F1~F5는 결정이 아니라 사실 정정이다. main에 이미 들어간 코드·마이그레이션·fixture·병합 상태와 정본이 달라 본문을 바로 고쳤다. 여기에는 목록만 남긴다.
+
+|#|결정|반영 위치|상태|근거 (누가·언제·무엇을 보고)|
+|---|---|---|---|---|
+|D1|`KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`는 요청 하나의 단조 시계 마감이다("분할 요청마다"·"Qwen 호출 1회"가 아니다). `/kev`는 레지스트리 대조와 모든 묶음을 `KEV_TIMEOUT_MS` 안에 끝내고, 넘으면 `KEV_UNAVAILABLE`이다. `/extract`는 첫 호출과 재시도를 `AI_TIMEOUT_MS` 안에 끝낸다. 호출이 시간을 넘기면 `QWEN_UNAVAILABLE`, 재시도할 시간이 없으면 `EXTRACTION_FAILED`다. 기본값 `5000`이 v0.2 묶음 2개를 담는지는 실측이 없어 C1 ③ G3에서 다시 본다|[[03-AI-PIPELINE\|03]] §3 env 표 아래|제안|e8 판정(3b C5-A 보안 후속, 브랜치 `c5/gateway-hardening`, main 미병합). worker 시간 제한(KEV+2초·AI+5초)이 gateway 실제 소요보다 커야 ADR-031 C6 분류가 성립한다|
+|D2|모델 레지스트리에 `allowedHosts`를 둔다. 호스트 이름이 정확히 같아야 하고 하위 도메인은 안 된다. 루프백은 시험용으로 허용한다. 목록 밖이면 기동 거부(`HOST_NOT_ALLOWED`). 값은 `acropolissg.com`이다|03 §11, [[09-SECURITY\|09]] 회사 GPU 추론 엔드포인트 연결|제안|e8 판정(3b, 브랜치 `c5/gateway-hardening`, main 미병합). 값은 ADR-025 엔드포인트·`infra/env/ai-local.env.example`의 호스트와 같다|
+|D3|클라우드 `pnpm db:push` 전 사전 질의: `20261019000011`의 check `score_runs_idempotency_key_org_check`는 `NOT VALID`다. 조직 접두어 없는 `idempotency_key` 행을 상태와 상관없이 세어 0행일 때만 push한다. 행이 있으면 정리한 뒤 `validate constraint`를 새 마이그레이션(번호는 e8 배정)으로 둔다. 0행이면 validate는 필요 없다. 클라우드 push는 C6(`20261019000012`)가 main에 들어온 뒤 한 번에 한다|[[10-DEPLOYMENT\|10]] 운영|제안|e8 판정(b3 C5-B 보안 후속, 병합 `cfe8f0a` 때 security-auditor가 "db:push 전 접두어 없는 행 0 확인 필요"). 상태 무관 이유: `score_runs`의 FK 두 개(`extraction_id`·`requested_by`)가 on delete set null이라 끝난 행도 UPDATE되어 23514가 난다. push 시점은 3e 권고|
+|D4|ADR-030 B1 둘째 문장("`KEV_UNAVAILABLE`은 200 + `errorCode`일 때만")에 "ADR-031 C6로 넓어짐(응답했지만 쓸 수 없는 `/kev`도 `KEV_UNAVAILABLE`)" 주석을 단다|이 문서 ADR-030 B1 행|제안|e8 판정. ADR-031 C6(채택)이 넓힌 뜻이 B1 문장에는 없었다|
+|D5|분석 실패 코드·복구. `ANALYSIS_RUN_SUPERSEDED`(영구 실패)는 늦게 온 마감(finish `SCORE_RUN_NOT_RUNNING`)과 run 잡기 실패(markRunning 0행, compare-and-set) 두 경우에 나온다. `finish_score_run`의 거절 코드는 `SCORE_RUN_NOT_FOUND`·`SCORE_RUN_NOT_RUNNING`·`SCORE_RUN_INVALID_STATUS`이고 마감 status는 `COMPLETED`·`PARTIAL`만이다. 시도 식별자는 `started_at = max(now, 앞 started_at + 1ms)`. 멈춘 run 복구는 id keyset으로 읽고 처리 순서는 오래된 순이 아니다. 진단 failure 이름 8개는 로그에만 남기고, 경로 조각이 숫자나 `[A-Za-z0-9_]{1,40}`가 아니면 `*`로 바꾼다|03 §7·§8|제안|b3 C5-B 보안 2·3차(main `8f33caa`, 마이그레이션 `20261019000013`)와 e8 판정. 거절 코드·마감 status는 04 §3.4·§7에 사실 정정(F2·F3)으로도 들어갔다|
+|D6|계정이 지워진 결정자: `bid_reviews.reviewer_id`는 on delete set null이다. C6는 null 결정자를 센티널 `{ id: "deleted-user", name: "탈퇴한 사용자", role: null }`로 내보낸다(05 DTO 불변). 대안은 `reviewer.id`를 nullable로 바꾸는 것이다|[[05-API-SPEC\|05]] §4.6 끝|제안(선택지 2개, 사람이 고른다)|e8 판정(C6, 브랜치 `c6/screens` `web/server/bids/bid-row.mapper.ts`, main 미병합)|
+|D7|`requirement_assessments.kev_distribution`의 모양은 `{qid, distribution, label}`이다. 05 `RequirementAssessment.kev`, gateway 응답 `{itemId, qid, distribution, label}`과 같다. 지금 C5-B는 null을 쓰고 v0.2에서 채운다|[[04-DATABASE\|04]] §3.4|제안|e8 판정. `web/server/analysis/analysis-store.model.ts`(null)·`services/ai/src/sol_ai/contracts.py` `RequirementDistribution` 확인|
+|D8|web env 표에 더한다: `SOL_RUN_MODE`(없으면 `mock`, infra 모드와 다르면 check-env `CONTRADICTS_MODE`, ADR-029 A6 D2), `API_CURSOR_SECRET`(32자 이상, 아니면 목록 API 503 `{component:"cursor"}`), web `REDIS_URL`(분석 요청 큐·속도 제한). C6 병합 때부터다|10 env 파일 위치 표 아래|제안|e8 판정(7d 후보). C6 브랜치 `scripts/check-env.mjs`·`web/app/_lib/work-deps.ts`·`analysis-queue.ts`·`rate-limit.ts`|
+|D9|`KEV_UNAVAILABLE`의 화면 문구는 "Kev 사용 불가"다(ADR-031 C6, 03 §8). 06에 "Kev 서버 미접속" 라벨이 남아 있으면 콜아웃한다|[[06-UI-UX\|06]] §6(확인만)|제안. 확인 결과 06에는 그 라벨이 없어 콜아웃을 달지 않았다|e8 판정. 06 §6 상태별 변형 표가 이미 "Kev 사용 불가"다. "Kev 서버 미접속"은 05 §5 실패 유형 표의 유형 이름과 C6 설계서(브랜치 `c6/screens`)에만 남아 있다|
+
+사실 정정(본문 반영, 목록만):
+- F1 [[04-DATABASE|04]] §3.4·§4: `score_factors.missing_reason`(check 8값, null 허용)·`score_runs.kev_assist` 열과 열 설명, 값 집합 `missing_reason` 행. DB check 값 집합 수를 32→33개(P1 뒤 35→36개)로. 근거 `20261019000010`(main `c2b12d3`).
+- F2 04 §7: 마이그레이션 `20261019000009`~`20261019000013` 목록. `20261019000012`는 브랜치 `c6/screens`에만 있어 "C6 병합 때 main에 들어온다"고 적었다. 근거는 main 파일 머리 주석(`d933c9e`·`c2b12d3`·`cfe8f0a`·`8f33caa`).
+- F3 04: §3.4 `finish_score_run` 줄의 "main 병합 전"을 병합 커밋으로 고치고 `20261019000013`(`SCORE_RUN_INVALID_STATUS`)을 더했다. §3.1 정책 이름을 "ADMIN 은 역할 변경"으로, owner 정책 설명을 `20261019000001`이 "owner 는 역할 변경"을 지운 사실로 고쳤다. `pnpm eval:publish`를 "(예정)"으로 적었다(§1·§3.7·§6). 같은 표기를 03 §7("main 병합 전")·05 §2(`eval:publish`)·22 §4.1·23 §4.3(`dataset:build`)에도 맞췄다. 두 스크립트는 루트·web `package.json`에 없다.
+- F4 [[07-DATA-PIPELINE|07]] §6.5: fixture 파일 건수를 지금 값(`kev/` 20·`extractions/` 20·`goldens/` 3)으로. `fixtures/`를 세어 확인했다.
+- F5 [[PROGRESS]]: Phase 5·C5 줄의 "`local` 어댑터 main 미병합"을 main `b4a23fc`·`cfe8f0a`·`8f33caa` 병합으로, kev fixture 행의 추출 시드 제거 "진행 중"을 main `219d273` 병합으로 고쳤다. ADR-025 행이 깨진 링크라고 적은 `SIDEBAR-PLAN…` 링크 모양 표기와 "미커밋"을 고쳤다(대상 `plans/SIDEBAR-PLAN.md`는 있다). 같은 표기를 인용한 Critical Path 1차 분담 행도 링크 모양을 뺐다.
+
+구현 상태는 이 ADR이 판정하지 않는다. D5는 main `8f33caa`에 있다. D1·D2는 3b 브랜치 `c5/gateway-hardening`, D6·D8은 C6 브랜치 `c6/screens`의 일이고 main 병합 전이다. D3은 클라우드 `pnpm db:push`(사용자 확인 뒤) 때 할 일이다.
 
 ## 관련 문서
 - [[00-README|00 인덱스]]

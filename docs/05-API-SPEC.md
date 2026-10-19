@@ -85,7 +85,7 @@ updated: 2026-10-19
 
 범위 밖(이번 해커톤에서 만들지 않음): 인력 배치 저장·배정 확정 API(해커톤 이후), 카카오 발송 설정, 경쟁사 분석, 알림 모두 읽음·알림 유형 필터(API가 없고 핵심 컷 화면에서도 뺀다, [[16-DECISIONS|ADR-029]] A6 D7). 인력 배치 시뮬레이션 조회(`GET /workforce/simulation`)는 P1이다([[16-DECISIONS|ADR-021]]).
 
-[[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·Kev v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
+[[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·Kev v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`(예정)가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
 
 [[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`. "P1, ADR-021" 행은 [[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단이며 데모 필수가 모두 끝난 뒤 만든다.
 
@@ -426,6 +426,12 @@ interface EvalRunReport extends EvalRunSummary {
 ```
 
 `IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE|07 수집]] §2.2)는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
+
+> [!note] 제안 — ADR-032
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-032]] D6).
+> - 결정한 사람의 계정이 지워지면 `bid_reviews.reviewer_id`는 null이 된다(on delete set null, [[04-DATABASE|04 DB]] §3.4). 지금 `Review.reviewer`는 이 경우를 나타낼 수 없다.
+> - C6(브랜치 `c6/screens`, main 미병합)는 null 결정자를 센티널 `{ id: "deleted-user", name: "탈퇴한 사용자", role: null }`로 내보낸다. 위 DTO는 바꾸지 않는다.
+> - 사람이 고를 것: ① 위 센티널을 05에 적는다(DTO 불변, C6 구현 그대로). ② `reviewer.id`를 `string | null`로 바꾼다(DTO 변경, C6 수정 필요).
 
 ### 4.7 조직·인력 (ADR-021)
 

@@ -211,6 +211,15 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 
 - `ANALYSIS_*` 3개의 기본값·범위는 `web/worker/analysis-reconcile.ts`(main `9da17c4`)와 같다. 지금 `infra/compose.yaml`은 이 셋을 worker에 넘기지 않아 컨테이너에서는 기본값이 쓰인다.
 
+> [!note] 제안 — ADR-032
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-032]] D1).
+> - `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`는 "분할 요청마다"·"Qwen 호출 1회"가 아니라 요청 하나의 단조 시계 마감이다.
+> - `/kev`는 레지스트리 대조와 모든 묶음(§5.10 분할 요청)을 `KEV_TIMEOUT_MS` 안에 끝낸다. 넘으면 `KEV_UNAVAILABLE`이다.
+> - `/extract`는 첫 호출과 재시도를 `AI_TIMEOUT_MS` 안에 끝낸다. 호출이 시간을 넘기면 `QWEN_UNAVAILABLE`, 재시도할 시간이 남지 않으면 `EXTRACTION_FAILED`다.
+> - 이유: worker 쪽 시간 제한(`KEV_TIMEOUT_MS`+2초·`AI_TIMEOUT_MS`+5초)이 gateway의 실제 소요보다 커야 [[16-DECISIONS|ADR-031]] C6 분류(gateway가 응답했는가)가 성립한다.
+> - 기본값 `5000`이 v0.2 묶음 2개를 담는지는 실측이 없다. C1 ③ G3 지연 실측(§5.9) 때 기본값을 다시 본다.
+> - 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다.
+
 ### 3.1 모드별 동작 (`AI_PROVIDER`)
 
 |모드|Qwen 추출|Qwen 설명(`/explain`)|Kev|임베딩|용도|
@@ -722,7 +731,13 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 
 테이블 정의와 RLS 정책은 [[04-DATABASE|04 DB]]. 위 표들은 Worker가 service role로 Supabase에 쓴다. `requirement_extractions`·`bid_documents`는 공용 공고 데이터라 `authenticated`는 읽기만 하고, `score_runs`·`requirement_assessments`는 `org_id`로 조직마다 나뉜다.
 
-분석 결과 저장은 RPC `finish_score_run(p jsonb)` 하나로 한다(service_role만 실행). 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 마감하고, 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. 멱등 키 check와 requestId 형식은 [[04-DATABASE|04 DB]] §3.4·[[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 구현은 C5-B 마이그레이션 `20261019000011`, main 병합 전).
+분석 결과 저장은 RPC `finish_score_run(p jsonb)` 하나로 한다(service_role만 실행). 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 마감하고, 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. 멱등 키 check와 requestId 형식은 [[04-DATABASE|04 DB]] §3.4·[[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 구현은 C5-B 마이그레이션 `20261019000011`, main `cfe8f0a`).
+
+> [!note] 제안 — ADR-032
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-032]] D5. 구현은 main `8f33caa`에 들어갔다).
+> - `finish_score_run(p jsonb)`(service_role만)의 거절 코드는 `SCORE_RUN_NOT_FOUND`·`SCORE_RUN_NOT_RUNNING`·`SCORE_RUN_INVALID_STATUS`다. 마감 status는 `COMPLETED`·`PARTIAL`만 받는다(마이그레이션 `20261019000013`).
+> - `ANALYSIS_RUN_SUPERSEDED`(영구 실패)는 두 경우에 나온다. 늦게 온 마감(finish가 `SCORE_RUN_NOT_RUNNING`)과 run 잡기 실패(markRunning이 0행, compare-and-set)다.
+> - 시도 식별자는 `started_at = max(now, 앞 started_at + 1ms)`다. 같은 run을 다시 잡아도 시각이 겹치지 않는다.
 
 ## 8. 장애와 대체
 
@@ -749,6 +764,12 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 - gateway `/health`를 읽지 못하면(gateway 정지) worker는 그 revision의 가장 최근 성공 추출을 모델 이름·프롬프트 해시와 상관없이 쓴다. S6에서 "점수·자격이 직전 run과 같다"(§9)를 지키려는 것이다([[16-DECISIONS|ADR-030]] B10).
 - worker의 실패 분류 기준은 "gateway가 응답했는가"다([[16-DECISIONS|ADR-031]] C6). 전송 실패(연결 거부·timeout·재시도 뒤 5xx·circuit open·시험 503)만 `AI_UNAVAILABLE`(`PARTIAL`)이다. gateway가 응답했지만 쓸 수 없는 `/kev`는 Kev 행(`KEV_UNAVAILABLE`, `COMPLETED`·`RULES_ONLY`), 쓸 수 없는 `/extract`는 `EXTRACTION_FAILED`(`PARTIAL`)다. 진단(zod issue 경로·코드, failure kind)은 worker 로그에만 남기고 값과 DB에는 남기지 않는다.
 - 분석 요청 화면 경로에서 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 닫고 멱등 키를 푼다([[05-API-SPEC|05]] §4.5, ADR-031 C4).
+
+> [!note] 제안 — ADR-032
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-032]] D5. 구현은 main `8f33caa`에 들어갔다). 실패 코드와 마감 규칙은 §7 콜아웃에 있다.
+> - 멈춘 run 복구는 대상을 id keyset으로 읽는다. 처리 순서는 오래된 순이 아니다.
+> - 진단 failure 이름은 worker 로그에만 남긴다: `HTTP_4XX`·`HTTP_5XX`·`UNREACHABLE`·`TIMEOUT`·`CIRCUIT_OPEN`·`INVALID_RESPONSE`·`WIRE_INVALID`·`PAYLOAD_INVALID`.
+> - 로그에 남기는 경로 조각은 숫자이거나 `[A-Za-z0-9_]{1,40}`일 때만 그대로 쓰고, 아니면 `*`로 바꾼다.
 
 **실패한 단계의 내용을 AI가 추측해 채우지 않는다.**
 - Qwen에는 파싱된 텍스트만 들어간다. "첨부가 있었다"는 사실로 내용을 추정하게 하는 지시를 프롬프트에 넣지 않는다(§4.3).
@@ -906,6 +927,13 @@ interface ParseResult {
 - **호환성**: 레지스트리 항목의 `questionSet`·`stateTemplate`이 gateway 설정과 다르면 기동을 거부한다. 학습셋 state와 서빙 state는 같은 코드·같은 템플릿 버전으로 만든다(§5.11).
 - 검증 결과는 `GET /health`의 `kev{modelId, registryMatch}`로 보이고(Kev를 쓰지 않는 설정이면 `null`, §2.1), 관리자 화면이 `GET /api/v1/admin/ai/status`·`/admin/ai/models`로 읽는다([[05-API-SPEC|05 API]]).
 - 운영 모델 교체는 ADR로 정한다. 기존 `score_runs`는 덮어쓰지 않는다.
+
+> [!note] 제안 — ADR-032
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-032]] D2).
+> - 레지스트리 최상위에 `allowedHosts`를 둔다. `local` 모델 서버 URL(`QWEN_BASE_URL`·`KEV_BASE_URL`)의 호스트가 가질 수 있는 이름 목록이다. 값은 `acropolissg.com` 하나다.
+> - 호스트 이름이 목록의 값과 정확히 같아야 한다. 하위 도메인은 받지 않는다. 루프백은 시험용으로 허용한다.
+> - 목록 밖이면 gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). [[09-SECURITY|09 보안]] "회사 GPU 추론 엔드포인트 연결"의 "gateway는 거기에만 붙는다"를 이 목록으로 강제한다.
+> - 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다.
 
 > [!warning] 미검증 가정
 > `/v1/models` 응답의 필드 이름(`run`·`base`·`lora`·`temperature`)과 경로 오류 시 `runs/smoke` 대체 동작은 승인 설계(§15.4) 기준이다. 회사 엔드포인트의 실제 응답(C1 ③ G2, §5.9)으로 확인하고, 다르면 이 절과 레지스트리 대조 필드를 고친다.

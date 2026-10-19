@@ -217,6 +217,12 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
 
+> [!note] 제안 — ADR-032
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-032]] D2).
+> - 위 "gateway는 거기에만 붙는다"를 호스트 허용 목록으로 강제한다. 모델 레지스트리(`services/ai/models/registry.yaml`)의 `allowedHosts` 값은 `acropolissg.com` 하나다([[03-AI-PIPELINE|03]] §11).
+> - `QWEN_BASE_URL`·`KEV_BASE_URL`의 호스트가 목록의 값과 정확히 같지 않으면(하위 도메인 포함) gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). 루프백은 시험용으로 허용한다.
+> - 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다.
+
 ### 회사 GPU로 가는 데이터
 - 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
 - 회사 GPU 서버는 Hugging Face·GitHub에서 공개 가중치·코드를 받기만 한다(쓰기 없음). 외부망이 없으면 다른 기계에서 받아 반입한다([[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §2.2).

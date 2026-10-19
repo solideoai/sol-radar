@@ -405,7 +405,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - mock Kev: `schemaVersion: "kev-mock/v0.1"`, `fixtureId`, `provider`, `questionSetVersion: "kev-qs/v0.1"`, `responses`, `usage`, `latency_ms`.
 - 골든: `schemaVersion: "sol-golden/v0.1"`, `fixtureId`, `calculationDate`, `factors[]`(요소별 `normalized`·`points`·`maxPoints`), `total`, `score`, `recommendation`, `reviewFlags`.
 
-**Phase 0 시점 범위**: 파일 종류별 건수(`bids/` 20, `extractions/` 20, `kev/` 4, `goldens/` 3, `docs/` 첨부 없음)와 이후 계획, `FX-20` 배치(`SEED`)는 [[16-DECISIONS|ADR-024]] D9~D12가 정본이다.
+**파일 건수**: 지금 `bids/` 20, `extractions/` 20, `kev/` 20(`FX-12` 격리 제외 19건 + `FX-07.r01`, main `ca3b878`), `goldens/` 3이고 `docs/` 첨부는 없다(2026-10-19 `fixtures/`를 세어 확인). Phase 0 시점에는 `kev/`가 4건이었다. Phase 0 범위와 이후 계획, `FX-20` 배치(`SEED`)는 [[16-DECISIONS|ADR-024]] D9~D12가 정본이다.
 
 ## 7. 개발·테스트
 

@@ -58,6 +58,12 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 - `pnpm check:env`는 세 파일의 placeholder를 세고, 실행 모드와 모순된 값(위 "실행 모드와 프로필")이 있으면 실패한다. Phase 0에서 구현했다(`scripts/check-env.mjs`). `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 셸에서 env 만 주어서는 검사되지 않는다.
 - worker의 선택 env `G2B_INGEST_INTERVAL_MINUTES`(일정 수집 주기, 기본 `30`분, 양의 정수, [[07-DATA-PIPELINE|07 수집]] §2.2)와 `ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(멈춘 분석 복구, [[03-AI-PIPELINE|03]] §3)는 지금 `compose.yaml`이 worker에 넘기지 않는다. 그래서 컨테이너에서는 코드 기본값이 쓰이고, 바꾸려면 `compose.yaml`의 worker `environment`에 키를 더해야 한다([[16-DECISIONS|ADR-031]] C12(e)·C13).
 
+> [!note] 제안 — ADR-032
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-032]] D8). 아래는 C6(브랜치 `c6/screens`, main 미병합)가 쓰는 web env이고, C6 병합 때부터 적용된다.
+> - `SOL_RUN_MODE`: 없으면 `mock`이다. `infra/.env`의 모드와 다르면 `pnpm check:env`가 `CONTRADICTS_MODE`로 실패한다(ADR-029 A6 D2).
+> - `API_CURSOR_SECRET`: 32자 이상이어야 한다. 아니면 커서 목록 API가 503 `{component:"cursor"}`를 낸다.
+> - web의 `REDIS_URL`: 분석 요청 큐 등록과 속도 제한에 쓴다.
+
 **Phase 0 확정 사항**: 결정과 이유는 [[16-DECISIONS|ADR-024]] 상세 표가 정본이다(placeholder `CHANGE_ME`·`minioadmin` 금지·Redis 비밀번호 영숫자·MinIO 길이, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 실행 모드 규칙 원천 `infra/run-modes.json`과 빈 문자열은 미지정). 여기에는 운영에 필요한 것만 적는다.
 - gateway 이미지는 `AI_HOST=0.0.0.0`·`SOL_RUN_MODES_FILE=/app/infra/run-modes.json`을 이미지 ENV로 가지고, 저장소 루트를 빌드 컨텍스트로 쓴다(`context: ..`). Compose는 실행 모드 키를 `${VAR:-}`로 넘긴다.
 - `infra/smoke.sh` 는 `-p` 를 받지 않는다. 다른 프로젝트·env 로 격리해 돌리려면 Compose 환경변수 `COMPOSE_PROJECT_NAME`(파일의 `name:` 보다 우선)·`COMPOSE_ENV_FILES` 를 준다. `REDIS_URL` 은 호출한 셸이 준다(`redis://:<비밀번호>@127.0.0.1:6380`).
@@ -264,6 +270,14 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/mode
 - DB 백업·복구는 Supabase가 관리한다. 플랜별 백업 주기·보존 기간·PITR 여부는 **미검증**이다. Supabase 대시보드에서 확인해 이 절에 기록한다.
 - HTTPS reverse proxy·웹 배포처는 미결정(ADR-017 미결정 표).
 - 운영 모델 교체(Kev LoRA 등)는 레지스트리 항목 추가 → 가중치 sha256 대조(회사)·gateway 대조 통과 → ADR 순서로 한다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).
+
+> [!note] 제안 — ADR-032
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-032]] D3).
+> - 마이그레이션 `20261019000011`의 check `score_runs_idempotency_key_org_check`는 `NOT VALID`로 걸려 있다. 클라우드에 `pnpm db:push`하기 전에 아래 질의를 돌리고, 0행일 때만 적용한다.
+>   `select status, count(*) from public.score_runs where idempotency_key is not null and not starts_with(idempotency_key, org_id::text || ':') group by status;`
+> - 상태와 상관없이 확인한다. `score_runs`의 FK 두 개가 `on delete set null`이라, 끝난 행도 부모가 지워질 때 UPDATE되어 check 위반(23514)이 날 수 있다.
+> - 행이 나오면 정리한 뒤 `validate constraint`를 새 마이그레이션으로 둔다(번호는 e8이 배정한다). 0행이면 validate는 필요 없다. `NOT VALID`여도 새로 쓰는 행은 검사된다.
+> - 클라우드 `pnpm db:push`는 C6 마이그레이션(`20261019000012`)이 main에 들어온 뒤 한 번에 한다(병합 게이트 3e 권고).
 
 ## 솔리데오 인력·사진 준비 (ADR-019)
 
