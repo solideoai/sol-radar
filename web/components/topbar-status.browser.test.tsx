@@ -358,6 +358,27 @@ describe("TopbarStatus - 알림 벨", () => {
     expect(document.querySelectorAll('[role="menu"] [data-part="unread-dot"]')).toHaveLength(2);
   });
 
+  it("이상 항목(모르는 type·link 없음)이 섞여도 나머지를 그리고 오류가 없다", async () => {
+    const [good, other] = NOTIFICATIONS;
+    stubFetch({
+      notifications: () =>
+        json({
+          items: [
+            { ...good, type: "NEW_UNKNOWN_TYPE" },
+            { ...other, id: "broken", payload: { title: "깨진 항목" } },
+            other,
+          ],
+          pageInfo: { cursor: null, nextCursor: null, hasNext: false },
+        }),
+    });
+    const host = render();
+    await userEvent.click(part(host, "bell")!.querySelector("button")!);
+    await expect.element(page.getByText("분석 완료").first()).toBeInTheDocument();
+    expect(document.querySelectorAll('[role="menu"] a[href^="/bids"]')).toHaveLength(2);
+    expect(document.body.textContent).not.toContain("깨진 항목");
+    expect(document.body.textContent).not.toContain("알림을 불러오지 못했습니다");
+  });
+
   it("0건이면 알림이 없습니다 를 보인다", async () => {
     stubFetch({});
     const host = render();

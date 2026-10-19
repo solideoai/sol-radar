@@ -120,7 +120,7 @@ function DemoBadge({
       <span>{EXTRA_STATUS_LABEL.DEMO}</span>
     </>
   );
-  // dense: 64px 출처 열 같은 좁은 칸용. 안쪽 여백과 간격만 줄이고 아이콘·글자·색은 그대로다.
+  // dense: 80px 출처 열 같은 좁은 칸용. 안쪽 여백과 간격만 줄이고 아이콘·글자·색은 그대로다.
   if (!withTooltip)
     return <span className={cn(BADGE_BOX, dense && "gap-0.5 px-1", className)}>{chip}</span>;
   return (

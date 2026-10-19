@@ -257,8 +257,12 @@ const readNotifications = async (): Promise<Notification[]> => {
   if (!res.ok) throw new Error(`notifications ${res.status}`);
   const body: unknown = await res.json();
   if (!isRecord(body) || !Array.isArray(body.items)) throw new Error("알림 응답 모양이 다르다");
-  // 서버 Route Handler 가 zod 로 검증한 Page<Notification> 이다.
-  return (body.items as Notification[]).slice(0, LIST_LIMIT);
+  // 서버 Route Handler 가 zod 로 검증한 Page<Notification> 이다. 그래도 이동 주소가 글자가 아닌 행은 건너뛰어 앱 셸이 오류 경계로 넘어가지 않게 한다.
+  const items = body.items.filter(
+    (item): item is Notification =>
+      isRecord(item) && isRecord(item.payload) && typeof item.payload.link === "string",
+  );
+  return items.slice(0, LIST_LIMIT);
 };
 
 function NotificationBell({
@@ -327,7 +331,8 @@ function BellList({ list, now }: { list: ListState; now: Date }) {
   return (
     <>
       {list.items.map((item) => {
-        const Icon = NOTIFICATION_ICON[item.type];
+        // 모르는 type 이면 기본 벨 아이콘과 type 글자를 쓴다.
+        const Icon = NOTIFICATION_ICON[item.type] ?? BellIcon;
         return (
           // 이동 주소는 서버가 앱 안 경로로 걸러 준 payload.link 를 그대로 쓴다(걸러내는 규칙은 서버 한 곳에만 둔다).
           <DropdownMenuLinkItem
@@ -338,7 +343,7 @@ function BellList({ list, now }: { list: ListState; now: Date }) {
             <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="type-label text-foreground">
-                {NOTIFICATION_TYPE_LABEL[item.type]}
+                {NOTIFICATION_TYPE_LABEL[item.type] ?? "알림"}
               </span>
               <span className="truncate type-caption text-muted-foreground">
                 {item.payload.title}

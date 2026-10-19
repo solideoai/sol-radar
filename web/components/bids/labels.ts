@@ -24,6 +24,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type {
   AnalysisStatus,
+  AnalysisView,
   BidStage,
   FactorKey,
   KevView,
@@ -223,3 +224,25 @@ export const FLAG_ICON = {
   INSUFFICIENT_DATA: FLAG_NEUTRAL,
   SCALE_LIMIT_EXCEEDED: FLAG_NEUTRAL,
 } as const satisfies Record<ReviewFlag, { icon: LucideIcon; className: string }>;
+
+// 08 §5.2 결정 정책의 규칙 경로(C4 RulePath)를 Kev 불일치 문장의 사유로 옮긴다.
+// 저장소가 rulePath 를 주면 그것을 쓰고, 없으면 자격 상태로 정한다. 둘 다 점수 쪽이면 "SOL Score 기준"이다.
+const RULE_PATH_REASON: Record<string, string> = {
+  MANDATORY_NOT_SATISFIED: "필수자격 미충족",
+  QUALIFICATION_NEEDS_REVIEW: "자격 확인 필요",
+  MISSING_FACTORS: "미확인 요소 2개 이상",
+  SCORE_BID: "SOL Score 기준",
+  SCORE_WATCH: "SOL Score 기준",
+  SCORE_NO_BID: "SOL Score 기준",
+};
+
+export function ruleReasonOf(
+  view: Pick<AnalysisView, "qualification">,
+  rulePath?: string | null,
+): string {
+  const byPath = rulePath ? RULE_PATH_REASON[rulePath] : undefined;
+  if (byPath !== undefined) return byPath;
+  if (view.qualification.status === "NOT_SATISFIED") return "필수자격 미충족";
+  if (view.qualification.status === "NEEDS_REVIEW") return "자격 확인 필요";
+  return "SOL Score 기준";
+}

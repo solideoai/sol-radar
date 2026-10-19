@@ -42,7 +42,7 @@ function FactorRow({
           value={factor.points}
           max={factor.maxPoints}
           label={label}
-          valueText={`${formatPoints(factor.points)}점 / ${factor.maxPoints}점`}
+          valueText={`${formatPoints(factor.points)}점 / ${factor.maxPoints}점${factor.missing ? " (미확인)" : ""}`}
           tone={factor.missing ? "missing" : "brand"}
         />
         <span className="text-right type-label tabular-nums text-foreground">

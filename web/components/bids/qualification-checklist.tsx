@@ -101,9 +101,11 @@ function CheckRow({
           )}
         </div>
       )}
-      {needsReview && check.evidence.length === 0 && (
-        <p className="type-label text-foreground">{INSUFFICIENT_DATA_TEXT}</p>
-      )}
+      {needsReview &&
+        check.reasonCode !== "STAGE_NOT_APPLICABLE" &&
+        check.evidence.length === 0 && (
+          <p className="type-label text-foreground">{INSUFFICIENT_DATA_TEXT}</p>
+        )}
     </li>
   );
 }

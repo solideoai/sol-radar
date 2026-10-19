@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { AnalysisBanner } from "@/components/bids/analysis-banner";
 import { AnalysisStatus } from "@/components/bids/analysis-status";
-import { FACTOR_ORDER, MISSING_REASON_LABEL } from "@/components/bids/labels";
+import { FACTOR_ORDER, MISSING_REASON_LABEL, ruleReasonOf } from "@/components/bids/labels";
 import { KevOpinion } from "@/components/bids/kev-opinion";
 import { QualificationChecklist } from "@/components/bids/qualification-checklist";
 import { ScoreFactors } from "@/components/bids/score-factors";
@@ -129,6 +129,7 @@ describe("ScoreFactors", () => {
     expect(text(host)).toContain(MISSING_REASON_LABEL.BID_DOMAIN_UNKNOWN);
     const missingMeter = host.querySelectorAll('[role="meter"]')[4];
     expect(missingMeter?.firstElementChild?.className).toContain("bg-muted-foreground/40");
+    expect(missingMeter?.getAttribute("aria-valuetext")).toBe("0.0점 / 10점 (미확인)");
   });
 
   it("참고 점수면 꼬리표와 설명을 보인다", () => {
@@ -236,6 +237,22 @@ describe("QualificationChecklist", () => {
     expect(text(host)).toContain("NOTICE_INFO_MISSING");
   });
 
+  it("해당 없음(STAGE_NOT_APPLICABLE) 행은 INSUFFICIENT_DATA 문장 없이 해당 없음만 보인다", () => {
+    const notApplicable: AnalysisView["qualification"] = {
+      status: "NEEDS_REVIEW",
+      checks: [
+        {
+          ...noEvidenceView.checks[0]!,
+          reasonCode: "STAGE_NOT_APPLICABLE",
+          reason: "발주계획 단계라 자격 요건이 없습니다",
+        },
+      ],
+    };
+    const host = render(<QualificationChecklist qualification={notApplicable} />);
+    expect(text(host)).toContain("해당 없음");
+    expect(text(host)).not.toContain("INSUFFICIENT_DATA로 표시합니다");
+  });
+
   it("근거 버튼은 제목과 근거 목록으로 핸들러를 부른다", async () => {
     const onOpenEvidence = vi.fn();
     render(
@@ -292,6 +309,27 @@ describe("KevOpinion", () => {
     expect(text(host)).toContain(
       "Kev는 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다",
     );
+    expect(text(host)).not.toContain("규칙 권고와 같음");
+  });
+
+  it("ruleReasonOf(FX03_VIEW) 로 06 고정 문장이 그대로 나온다", () => {
+    const host = render(kevOpinion(FX03_VIEW, ruleReasonOf(FX03_VIEW)));
+    expect(text(host)).toContain(
+      "Kev는 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다",
+    );
+  });
+
+  it("규칙 권고가 없으면 '규칙 권고와 같음'을 쓰지 않는다", () => {
+    const host = render(
+      <KevOpinion
+        kev={FX01_VIEW.kev}
+        reviewFlags={[]}
+        recommendation={null}
+        ruleReason={null}
+        errorCode={null}
+      />,
+    );
+    expect(text(host)).toContain("Kev 선택지: BID");
     expect(text(host)).not.toContain("규칙 권고와 같음");
   });
 

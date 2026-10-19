@@ -111,7 +111,9 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
               </p>
             </>
           ) : (
-            <p className="type-label text-muted-foreground">규칙 권고와 같음</p>
+            recommendation !== null && (
+              <p className="type-label text-muted-foreground">규칙 권고와 같음</p>
+            )
           )}
         </div>
       )}

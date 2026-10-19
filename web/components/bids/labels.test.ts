@@ -16,6 +16,7 @@ import {
   REVIEW_FLAG_LABEL,
   STAGE_LABEL,
   STATUS_ICON,
+  ruleReasonOf,
 } from "./labels";
 
 describe("라벨 표", () => {
@@ -89,5 +90,25 @@ describe("플래그 표", () => {
       const recommended = (REVIEW_RECOMMENDED_FLAGS as readonly string[]).includes(flag);
       expect(className).toBe(recommended ? "text-warning" : "text-muted-foreground");
     }
+  });
+});
+
+describe("ruleReasonOf", () => {
+  const withStatus = (status: "SATISFIED" | "NOT_SATISFIED" | "NEEDS_REVIEW") =>
+    ({ qualification: { status, checks: [] } }) as Parameters<typeof ruleReasonOf>[0];
+  it("자격 상태로 사유를 정한다", () => {
+    expect(ruleReasonOf(withStatus("NOT_SATISFIED"))).toBe("필수자격 미충족");
+    expect(ruleReasonOf(withStatus("NEEDS_REVIEW"))).toBe("자격 확인 필요");
+    expect(ruleReasonOf(withStatus("SATISFIED"))).toBe("SOL Score 기준");
+  });
+  it("rulePath 가 있으면 우선한다", () => {
+    const v = withStatus("SATISFIED");
+    expect(ruleReasonOf(v, "MANDATORY_NOT_SATISFIED")).toBe("필수자격 미충족");
+    expect(ruleReasonOf(v, "QUALIFICATION_NEEDS_REVIEW")).toBe("자격 확인 필요");
+    expect(ruleReasonOf(v, "MISSING_FACTORS")).toBe("미확인 요소 2개 이상");
+    for (const path of ["SCORE_BID", "SCORE_WATCH", "SCORE_NO_BID"])
+      expect(ruleReasonOf(v, path)).toBe("SOL Score 기준");
+    expect(ruleReasonOf(withStatus("NOT_SATISFIED"), "알 수 없는 값")).toBe("필수자격 미충족");
+    expect(ruleReasonOf(withStatus("NOT_SATISFIED"), null)).toBe("필수자격 미충족");
   });
 });
