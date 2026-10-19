@@ -72,6 +72,19 @@ export const canRecordReview = (role: SolRole): boolean => REVIEW_ROLES.includes
 export const REQUEST_ANALYSIS_ROLES = ANALYSIS_ROLES;
 export const RECORD_REVIEW_ROLES = REVIEW_ROLES;
 
+// 요청 본문 상한(보안 L5). Content-Length 와 실제로 읽은 바이트를 둘 다 본다.
+export const MAX_BODY_BYTES = 16 * 1024;
+// 요청 본문을 읽은 결과. 상한을 넘으면 ok:false 다. 읽기는 app 층(Route Handler)이 맡는다.
+export type BodyRead = { ok: true; value: unknown } | { ok: false };
+// 늦게 읽는 본문. declaredTooLarge 는 Content-Length 만 보고 정한다(본문을 읽지 않는다).
+export type LazyBody = { declaredTooLarge: boolean; read: () => Promise<BodyRead> };
+
+// 상한을 넘은 본문. 새 오류 코드를 만들지 않고 05 의 VALIDATION_ERROR 로 낸다(Ruling 17).
+export const bodyTooLarge = (): ServiceFailure =>
+  fail(400, "VALIDATION_ERROR", "본문이 너무 큽니다", {
+    issues: [{ path: "body", message: `본문은 ${MAX_BODY_BYTES / 1024}KB 이하여야 합니다` }],
+  });
+
 export const issuesOf = (error: z.ZodError) =>
   error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message }));
 
@@ -107,11 +120,12 @@ function reportInfraError(deps: AnalysisDeps, component: "queue" | "redis", erro
   }
 }
 
-// 분석 요청: 권한 → 키 형식 → 속도 제한 → 본문 → 공고 → 입력 → 멱등 → 진행 중 → 중복 → QUEUED 행 → 큐.
+// 분석 요청: 권한 → 키 형식 → 선언된 본문 크기 → 속도 제한 → 본문 읽기 → 공고 → 입력 → 멱등 → 진행 중 → 중복
+// → QUEUED 행 → 큐. 본문은 속도 제한을 지난 뒤에 읽는다. 선언만으로 큰 본문은 속도 제한 횟수를 쓰지 않는다(L5).
 export async function requestAnalysis(
   ctx: AnalysisContext,
   bidId: string,
-  input: unknown,
+  body: LazyBody,
   idempotencyKey: string | null,
   deps: AnalysisDeps,
 ): Promise<ServiceResult<AnalysisAccepted>> {
@@ -124,6 +138,7 @@ export async function requestAnalysis(
       issues: [{ path: "Idempotency-Key", message: "UUID 여야 합니다" }],
     });
   }
+  if (body.declaredTooLarge) return bodyTooLarge();
   let limit: Awaited<ReturnType<AnalysisRateLimiter["hit"]>>;
   try {
     limit = await limiter.hit(ctx.orgId);
@@ -138,7 +153,9 @@ export async function requestAnalysis(
       retryAfterSeconds: limit.retryAfterSeconds,
     });
   }
-  const parsed = analysisRequestSchema.safeParse(input ?? {});
+  const read = await body.read();
+  if (!read.ok) return bodyTooLarge();
+  const parsed = analysisRequestSchema.safeParse(read.value ?? {});
   if (!parsed.success) {
     return fail(400, "VALIDATION_ERROR", "요청 본문이 올바르지 않습니다", {
       issues: issuesOf(parsed.error),
@@ -146,8 +163,10 @@ export async function requestAnalysis(
   }
   const { profileRevision, force } = parsed.data;
 
-  const bid = await repo.getBid(ctx.orgId, bidId);
-  if (bid === null) return fail(404, "NOT_FOUND", "공고를 찾을 수 없습니다", { resource: "bid" });
+  // 있는지만 본다. 상세 전체(getBid)는 읽지 않는다(M2).
+  if (!(await repo.bidExists(ctx.orgId, bidId))) {
+    return fail(404, "NOT_FOUND", "공고를 찾을 수 없습니다", { resource: "bid" });
+  }
 
   const analysisInput = await repo.resolveAnalysisInput(ctx.orgId, bidId, profileRevision);
   if (analysisInput === null) {
@@ -213,10 +232,11 @@ export async function requestAnalysis(
   try {
     await queue.enqueue({ orgId: ctx.orgId, scoreRunId: run.id, idempotencyKey: storedKey });
   } catch (error) {
+    // 원인 로그를 먼저 남긴다. reportInfraError 는 던지지 않으므로 아래 정리를 막지 못한다(M1).
+    reportInfraError(deps, "queue", error);
     // QUEUED 행이 남으면 같은 입력의 다음 요청이 active 인덱스에 막힌다. FAILED 로 풀어 준다.
     // markRunFailed 가 던지면 전파한다. run 은 QUEUED 로 남고 b3 복구가 10분 뒤 STALE_RUN 으로 닫는다.
     await repo.markRunFailed(ctx.orgId, run.id, "ENQUEUE_FAILED");
-    reportInfraError(deps, "queue", error);
     return fail(503, "SERVICE_UNAVAILABLE", "분석 큐에 넣지 못했습니다", { component: "queue" });
   }
   return accepted(run, false);
@@ -230,8 +250,8 @@ const accepted = (run: RunRef, deduplicated: boolean): ServiceResult<AnalysisAcc
 
 // ── 조회 ──
 
-// 커서 페이지 공통 흐름: 비밀 검사 → 커서 검증 → 조회 → 다음 커서 서명.
-// fetch 가 ServiceFailure 를 돌려주면(예: 공고 없음) 그대로 낸다.
+// 커서 페이지 공통 흐름: 비밀 검사 → 커서 검증(범위·24시간) → 조회 → 다음 커서 서명.
+// scope 에는 조직(알림은 사람도)이 들어 있다. fetch 가 ServiceFailure 를 돌려주면(예: 공고 없음) 그대로 낸다.
 export async function paginate<T>(
   scope: string,
   query: PageQuery,
@@ -241,7 +261,7 @@ export async function paginate<T>(
   if (cursorSecret === null) return cursorUnavailable();
   let after: ListAfter = null;
   if (query.cursor !== null) {
-    const verified = verifyCursor(query.cursor, scope, cursorSecret);
+    const verified = verifyCursor(query.cursor, scope, cursorSecret, Date.now());
     if (!verified.ok) return fail(400, "INVALID_CURSOR", "커서가 올바르지 않습니다");
     after = verified.payload;
   }
@@ -249,7 +269,7 @@ export async function paginate<T>(
   if ("ok" in rows) return rows;
   const nextCursor =
     rows.hasNext && rows.last !== null
-      ? signCursor({ ...rows.last, queryFingerprint: scope }, cursorSecret)
+      ? signCursor({ ...rows.last, queryFingerprint: scope, issuedAt: Date.now() }, cursorSecret)
       : null;
   return {
     ok: true,
@@ -267,9 +287,18 @@ export function listBids(
   cursorSecret: string | null,
   deps: { repo: BidsRepo },
 ): Promise<ServiceResult<Page<BidListItem>>> {
-  return paginate(fingerprintOf(query), query, cursorSecret, (after) =>
+  return paginate(fingerprintOf(orgId, query), query, cursorSecret, (after) =>
     deps.repo.listBids(orgId, query, after),
   );
+}
+
+// listBids 와 같은 조건의 전체 건수. 대시보드 "BID 권고" 카드가 BID 표와 같은 정의로 센다(M4).
+export function countBids(
+  orgId: string,
+  query: BidListQuery,
+  deps: { repo: BidsRepo },
+): Promise<number> {
+  return deps.repo.countBids(orgId, query);
 }
 
 export async function getBid(
@@ -295,7 +324,7 @@ export async function getAnalysis(
   return { ok: true, status: 200, data: analysis };
 }
 
-// GET /bids/:id/analyses. 커서는 공고마다 따로 묶는다.
+// GET /bids/:id/analyses. 커서는 조직·공고마다 따로 묶는다.
 export function listBidAnalyses(
   orgId: string,
   bidId: string,
@@ -303,7 +332,7 @@ export function listBidAnalyses(
   cursorSecret: string | null,
   deps: { repo: BidsRepo },
 ): Promise<ServiceResult<Page<AnalysisView>>> {
-  return paginate(cursorScope("analyses", [bidId]), query, cursorSecret, async (after) => {
+  return paginate(cursorScope("analyses", [orgId, bidId]), query, cursorSecret, async (after) => {
     if (!(await deps.repo.bidExists(orgId, bidId))) {
       return fail(404, "NOT_FOUND", "공고를 찾을 수 없습니다", { resource: "bid" });
     }

@@ -617,3 +617,24 @@ test("checkEnv: API_CURSOR_SECRET 이 32자 미만이면 INVALID_FORMAT, 값은 
     assert.equal((await checkEnv({ root })).ok, true);
   });
 });
+
+// M7: 런타임(readCursorSecret)은 앞뒤 공백을 뗀 뒤 32자를 잰다. check:env 도 같게 잰다.
+test("checkEnv: API_CURSOR_SECRET 은 앞뒤 공백을 뗀 길이로 잰다(공백만 32자 이상이면 INVALID_FORMAT)", async () => {
+  for (const value of [" ".repeat(40), `   ${"s".repeat(31)}   `]) {
+    // 따옴표로 감싸야 env 파서가 공백을 남긴다.
+    await withRoot({ web: { ...WEB_BASE, API_CURSOR_SECRET: `"${value}"` } }, async (root) => {
+      const result = await checkEnv({ root });
+      assert.deepEqual(
+        result.problems.map(({ file, key, code }) => [file, key, code]),
+        [["web/.env.local", "API_CURSOR_SECRET", "INVALID_FORMAT"]],
+        JSON.stringify(value),
+      );
+    });
+  }
+  await withRoot(
+    { web: { ...WEB_BASE, API_CURSOR_SECRET: `"  ${"s".repeat(32)}  "` } },
+    async (root) => {
+      assert.equal((await checkEnv({ root })).ok, true);
+    },
+  );
+});

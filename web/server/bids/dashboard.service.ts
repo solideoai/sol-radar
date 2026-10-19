@@ -6,7 +6,7 @@ import type {
   DashboardRepo,
   DashboardReviewRow,
 } from "./bids.repo";
-import type { DashboardSummary } from "./dashboard.model";
+import type { DashboardSummary, StatusSummary } from "./dashboard.model";
 
 // 05 §4.6 DashboardSummary 집계. 정의는 C6 스펙 D10·D11 이다.
 // D10: 권고는 공고별 최신 분석 1건 기준. D11: 검토 대기는 최신 분석이 있으나 사람 결정이 없는 공고 수.
@@ -118,5 +118,18 @@ export async function getDashboardSummary(
     reviews: { pending, byDecision, disagreementWithSystem },
     upcoming,
     unreadNotifications: source.unreadNotifications,
+  };
+}
+
+// 업무 틀(layout) 상단바용 가벼운 요약(M3). 공고 전체 집계와 AI 프로브를 부르지 않는다.
+// AI 상태는 상단바가 마운트 때 /health/ready 로 읽는다.
+export async function getStatusSummary(
+  origin: "live" | "demo" | "all",
+  deps: { repo: DashboardRepo },
+): Promise<StatusSummary> {
+  const status = await deps.repo.loadStatus(origin);
+  return {
+    dataFreshness: { ...status.dataFreshness, isDemo: origin === "demo" },
+    unreadNotifications: status.unreadNotifications,
   };
 }

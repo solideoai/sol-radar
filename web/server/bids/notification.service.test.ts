@@ -32,7 +32,7 @@ describe("listNotifications", () => {
       make("2", "/bids/abc"),
       make("3", "//e.example"),
     ]);
-    const result = await listNotifications("u1", query, "secret", { repo });
+    const result = await listNotifications("org1", "u1", query, "secret", { repo });
     expect(result.ok && result.data.items.map((item) => item.payload.link)).toEqual([
       "/bids/bid-1",
       "/bids/abc",
@@ -41,7 +41,7 @@ describe("listNotifications", () => {
   });
 
   it("다음 쪽이 있으면 서명한 커서를 낸다", async () => {
-    const result = await listNotifications("u1", query, "secret", {
+    const result = await listNotifications("org1", "u1", query, "secret", {
       repo: repoOf([make("1", "/bids/a")], true),
     });
     expect(result.ok && result.data.pageInfo.hasNext).toBe(true);
@@ -49,18 +49,19 @@ describe("listNotifications", () => {
   });
 
   it("변조된 커서는 400 INVALID_CURSOR 다", async () => {
-    const result = await listNotifications("u1", { ...query, cursor: "x.y" }, "secret", {
+    const result = await listNotifications("org1", "u1", { ...query, cursor: "x.y" }, "secret", {
       repo: repoOf([]),
     });
     expect(result).toMatchObject({ ok: false, status: 400, code: "INVALID_CURSOR" });
   });
 
   it("unreadOnly 가 바뀐 커서는 거절한다", async () => {
-    const first = await listNotifications("u1", query, "secret", {
+    const first = await listNotifications("org1", "u1", query, "secret", {
       repo: repoOf([make("1", "/bids/a")], true),
     });
     const cursor = first.ok ? first.data.pageInfo.nextCursor : null;
     const result = await listNotifications(
+      "org1",
       "u1",
       { unreadOnly: true, cursor, limit: 20 },
       "secret",
@@ -74,12 +75,13 @@ describe("listNotifications", () => {
 
 describe("listNotifications 커서 범위", () => {
   it("unreadOnly true 로 발급한 커서를 false 로 검증하면 INVALID_CURSOR 다", async () => {
-    const first = await listNotifications("u1", { ...query, unreadOnly: true }, "secret", {
+    const first = await listNotifications("org1", "u1", { ...query, unreadOnly: true }, "secret", {
       repo: repoOf([make("1", "/bids/a")], true),
     });
     const cursor = first.ok ? first.data.pageInfo.nextCursor : null;
     expect(cursor).not.toBeNull();
     const result = await listNotifications(
+      "org1",
       "u1",
       { ...query, unreadOnly: false, cursor },
       "secret",
@@ -91,9 +93,38 @@ describe("listNotifications 커서 범위", () => {
   });
 });
 
+// 보안 L3: 알림 커서는 발급한 조직·사람에게만 쓴다.
+describe("listNotifications 커서 주인", () => {
+  it.each([
+    ["다른 조직", "org2", "u1"],
+    ["다른 사람", "org1", "u2"],
+  ])("%s 이 발급받은 커서는 INVALID_CURSOR 다", async (_name, orgId, userId) => {
+    const first = await listNotifications("org1", "u1", query, "secret", {
+      repo: repoOf([make("1", "/bids/a")], true),
+    });
+    const cursor = first.ok ? first.data.pageInfo.nextCursor : null;
+    expect(cursor).toEqual(expect.any(String));
+    const result = await listNotifications(orgId, userId, { ...query, cursor }, "secret", {
+      repo: repoOf([]),
+    });
+    expect(result).toMatchObject({ ok: false, status: 400, code: "INVALID_CURSOR" });
+  });
+
+  it("같은 조직·사람이면 다음 쪽을 읽는다", async () => {
+    const first = await listNotifications("org1", "u1", query, "secret", {
+      repo: repoOf([make("1", "/bids/a")], true),
+    });
+    const cursor = first.ok ? first.data.pageInfo.nextCursor : null;
+    const result = await listNotifications("org1", "u1", { ...query, cursor }, "secret", {
+      repo: repoOf([]),
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe("listNotifications 커서 비밀", () => {
   it("비밀이 null 이면 503 cursor 다", async () => {
-    const result = await listNotifications("u1", query, null, { repo: repoOf([]) });
+    const result = await listNotifications("org1", "u1", query, null, { repo: repoOf([]) });
     expect(result).toMatchObject({
       ok: false,
       status: 503,

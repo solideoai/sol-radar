@@ -5,10 +5,7 @@ import { AppPage } from "@/components/app-page";
 import { loadNotificationPage } from "@/app/_lib/work-data";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { NotificationList } from "./notification-list";
-
-export const NOTIFICATIONS_TITLE = "알림";
-export const NOTIFICATIONS_DESCRIPTION =
-  "결정 담당으로 지정되거나 분석이 끝나면 여기에 표시됩니다.";
+import { NOTIFICATIONS_DESCRIPTION, NOTIFICATIONS_TITLE } from "./notifications-copy";
 
 export const metadata: Metadata = { title: NOTIFICATIONS_TITLE };
 
@@ -20,10 +17,12 @@ export default async function NotificationsPage({ searchParams }: PageProps<"/no
   await connection();
   const raw = await searchParams;
   const unreadOnly = raw.unread === "1";
-  const { userId } = await requireWork(unreadOnly ? "/notifications?unread=1" : "/notifications");
+  const { orgId, userId } = await requireWork(
+    unreadOnly ? "/notifications?unread=1" : "/notifications",
+  );
   // 상대 시각의 기준. 요청마다 한 번 만들어 내린다(하이드레이션 차이 없음).
   const now = new Date();
-  const first = await loadNotificationPage(userId, unreadOnly);
+  const first = await loadNotificationPage(orgId, userId, unreadOnly);
   return (
     <AppPage title={NOTIFICATIONS_TITLE} description={NOTIFICATIONS_DESCRIPTION}>
       <nav aria-label="알림 보기" className="border-b border-border">

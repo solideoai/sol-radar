@@ -1,5 +1,7 @@
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  CURSOR_TTL_MS,
   cursorScope,
   defaultOrigin,
   fingerprintOf,
@@ -14,6 +16,8 @@ import {
 } from "./bid-query";
 
 const SECRET = "test-secret";
+const ORG = "org-1";
+const NOW = Date.parse("2026-10-20T00:00:00Z");
 
 function parsed(query: Parameters<typeof parseBidListQuery>[0]): BidListQuery {
   const result = parseBidListQuery(query, "mock");
@@ -76,41 +80,70 @@ describe("cursor", () => {
   const payload = {
     sortValue: "2026-10-01T00:00:00Z",
     id: "b1",
-    queryFingerprint: fingerprintOf(query),
+    queryFingerprint: fingerprintOf(ORG, query),
+    issuedAt: NOW,
   };
+  const invalid = { ok: false, code: "INVALID_CURSOR" };
 
   it("같은 쿼리로 검증하면 통과한다", () => {
     const cursor = signCursor(payload, SECRET);
-    const result = verifyCursor(cursor, fingerprintOf(query), SECRET);
+    const result = verifyCursor(cursor, fingerprintOf(ORG, query), SECRET, NOW);
     expect(result).toEqual({ ok: true, payload });
   });
 
   it("한 글자를 바꾸면 INVALID_CURSOR 다", () => {
     const cursor = signCursor(payload, SECRET);
     const tampered = `${cursor.slice(0, 5)}${cursor[5] === "A" ? "B" : "A"}${cursor.slice(6)}`;
-    expect(verifyCursor(tampered, fingerprintOf(query), SECRET)).toEqual({
-      ok: false,
-      code: "INVALID_CURSOR",
-    });
-    expect(verifyCursor("garbage", fingerprintOf(query), SECRET).ok).toBe(false);
+    expect(verifyCursor(tampered, fingerprintOf(ORG, query), SECRET, NOW)).toEqual(invalid);
+    expect(verifyCursor("garbage", fingerprintOf(ORG, query), SECRET, NOW).ok).toBe(false);
   });
 
   it("다른 비밀로 서명한 커서는 거절한다", () => {
-    expect(verifyCursor(signCursor(payload, "other"), fingerprintOf(query), SECRET).ok).toBe(false);
+    expect(
+      verifyCursor(signCursor(payload, "other"), fingerprintOf(ORG, query), SECRET, NOW).ok,
+    ).toBe(false);
   });
 
   it("필터가 바뀐 쿼리로 검증하면 INVALID_CURSOR 다", () => {
     const cursor = signCursor(payload, SECRET);
     const changed = parsed({ stage: "PLAN" });
-    expect(verifyCursor(cursor, fingerprintOf(changed), SECRET)).toEqual({
-      ok: false,
-      code: "INVALID_CURSOR",
-    });
+    expect(verifyCursor(cursor, fingerprintOf(ORG, changed), SECRET, NOW)).toEqual(invalid);
   });
 
   it("limit·cursor 가 바뀌어도 지문은 같다", () => {
     const other = parsed({ stage: "NOTICE", limit: "50" });
-    expect(fingerprintOf(other)).toBe(fingerprintOf(query));
+    expect(fingerprintOf(ORG, other)).toBe(fingerprintOf(ORG, query));
+  });
+
+  // 보안 L3: 다른 조직에서 받은 커서를 이 조직 목록에 쓰지 못한다(05 :478 people 커서와 같은 규칙).
+  it("다른 조직의 지문으로 검증하면 INVALID_CURSOR 다", () => {
+    expect(fingerprintOf("org-2", query)).not.toBe(fingerprintOf(ORG, query));
+    const cursor = signCursor(payload, SECRET);
+    expect(verifyCursor(cursor, fingerprintOf("org-2", query), SECRET, NOW)).toEqual(invalid);
+  });
+
+  it("발급 뒤 24시간이 되면 INVALID_CURSOR 다", () => {
+    const cursor = signCursor(payload, SECRET);
+    const fingerprint = fingerprintOf(ORG, query);
+    expect(verifyCursor(cursor, fingerprint, SECRET, NOW + CURSOR_TTL_MS - 1).ok).toBe(true);
+    expect(verifyCursor(cursor, fingerprint, SECRET, NOW + CURSOR_TTL_MS)).toEqual(invalid);
+  });
+
+  it("발급 시각이 지금보다 뒤면 INVALID_CURSOR 다", () => {
+    const cursor = signCursor(payload, SECRET);
+    expect(verifyCursor(cursor, fingerprintOf(ORG, query), SECRET, NOW - 1)).toEqual(invalid);
+  });
+
+  it("발급 시각이 없는 서명 커서는 INVALID_CURSOR 다", () => {
+    // 서명은 맞고 본문에 issuedAt 만 없다(L3 이전에 발급한 커서와 같은 모양).
+    const legacy = {
+      sortValue: payload.sortValue,
+      id: payload.id,
+      queryFingerprint: payload.queryFingerprint,
+    };
+    const body = Buffer.from(JSON.stringify(legacy), "utf8").toString("base64url");
+    const legacyCursor = `${body}.${createHmac("sha256", SECRET).update(body).digest("base64url")}`;
+    expect(verifyCursor(legacyCursor, fingerprintOf(ORG, query), SECRET, NOW)).toEqual(invalid);
   });
 });
 
@@ -157,17 +190,17 @@ describe("status·deadline 파라미터 (O8)", () => {
   it("status·deadlineFrom·deadlineTo 가 바뀐 쿼리로 검증한 커서는 INVALID_CURSOR 다", () => {
     const base = parsed({ deadlineFrom: "2026-10-01T00:00:00Z" });
     const cursor = signCursor(
-      { sortValue: "x", id: "b1", queryFingerprint: fingerprintOf(base) },
+      { sortValue: "x", id: "b1", queryFingerprint: fingerprintOf(ORG, base), issuedAt: NOW },
       SECRET,
     );
-    expect(verifyCursor(cursor, fingerprintOf(base), SECRET).ok).toBe(true);
+    expect(verifyCursor(cursor, fingerprintOf(ORG, base), SECRET, NOW).ok).toBe(true);
     const invalid = { ok: false, code: "INVALID_CURSOR" };
     for (const changed of [
       parsed({ deadlineFrom: "2026-10-01T00:00:00Z", status: "CANCELLED" }),
       parsed({ deadlineFrom: "2026-10-01T00:00:00Z", deadlineTo: "2026-12-01T00:00:00Z" }),
       parsed({ deadlineFrom: "2026-10-02T00:00:00Z" }),
     ]) {
-      expect(verifyCursor(cursor, fingerprintOf(changed), SECRET)).toEqual(invalid);
+      expect(verifyCursor(cursor, fingerprintOf(ORG, changed), SECRET, NOW)).toEqual(invalid);
     }
   });
 });

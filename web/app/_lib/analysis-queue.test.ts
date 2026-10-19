@@ -123,4 +123,20 @@ describe("describeQueueError", () => {
   it("Error 가 아닌 값도 문자열로 만든다", () => {
     expect(describeQueueError("redis://user:secret@h")).not.toContain("secret");
   });
+  // 보안 L4: 비밀 안에 @·/ 가 있어도 스킴 뒤부터 마지막 @ 까지 가린다.
+  it.each([
+    ["redis://:p@ss@host:6379", ["p@ss", "ss@"]],
+    ["redis://u:pa/ss@host:6379", ["pa/ss", "u:pa"]],
+    ["rediss://user:a@b/c@d@host", ["a@b", "b/c", "c@d"]],
+  ])("%s 의 비밀을 모두 가린다", (url, secrets) => {
+    const text = describeQueueError(new Error(`connect ECONNREFUSED ${url} failed`));
+    for (const secret of secrets) expect(text).not.toContain(secret);
+    expect(text).toContain("//***@host");
+    expect(text).toContain(" failed");
+  });
+  it("접속 정보가 없는 메시지는 그대로다", () => {
+    expect(describeQueueError(new Error("connect ECONNREFUSED 127.0.0.1:6379"))).toBe(
+      "connect ECONNREFUSED 127.0.0.1:6379",
+    );
+  });
 });

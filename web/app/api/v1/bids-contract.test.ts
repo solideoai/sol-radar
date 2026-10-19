@@ -115,6 +115,7 @@ const emptyPage = async () => ({ items: [], hasNext: false, last: null });
 function fakeBids(): BidsRepo {
   return {
     listBids: vi.fn(emptyPage),
+    countBids: vi.fn(async () => 0),
     getBid: vi.fn(async () => BID),
     bidExists: vi.fn(async () => true),
     listAnalyses: vi.fn(emptyPage),
@@ -161,7 +162,14 @@ function install(overrides: Overrides = {}): WorkDeps {
     bids: { ...fakeBids(), ...bids },
     reviews: { ...fakeReviews(), ...reviews },
     notifications: { ...fakeNotifications(), ...notifications },
-    dashboard: { load: vi.fn(async () => DASHBOARD_SOURCE), ...dashboard },
+    dashboard: {
+      load: vi.fn(async () => DASHBOARD_SOURCE),
+      loadStatus: vi.fn(async () => ({
+        dataFreshness: DASHBOARD_SOURCE.dataFreshness,
+        unreadNotifications: DASHBOARD_SOURCE.unreadNotifications,
+      })),
+      ...dashboard,
+    },
     queue: { enqueue: vi.fn(async () => undefined) },
     limiter: { hit: vi.fn(async () => ({ allowed: true as const })) },
     cursorSecret: SECRET,
@@ -633,6 +641,64 @@ describe("업무 Route Handler 계약", () => {
       const error = await errorOf(await send(endpoint), 403, "FORBIDDEN");
       expect(error.details.reason).toBe("ORGANIZATION_REQUIRED");
     }
+    expect(backendCalls(d)).toBe(0);
+  });
+
+  // 보안 L5: POST 본문 상한 16KB. 새 오류 코드 없이 400 VALIDATION_ERROR, issues path "body".
+  const bodyTooLarge = async (response: Response) => {
+    const error = await errorOf(response, 400, "VALIDATION_ERROR");
+    expect(error.message).toBe("본문이 너무 큽니다");
+    expect(error.details.issues).toEqual([{ path: "body", message: expect.any(String) }]);
+  };
+  const OVER_LIMIT = `"${"x".repeat(16 * 1024)}"`;
+
+  it("16. Content-Length 가 16KB 를 넘는 분석 요청은 400 body 이고 속도 제한 횟수를 쓰지 않는다", async () => {
+    const d = install();
+    await bodyTooLarge(
+      await send(POST_ANALYSES, {
+        rawBody: OVER_LIMIT,
+        headers: { "Idempotency-Key": KEY, "Content-Length": String(OVER_LIMIT.length) },
+      }),
+    );
+    expect(d.limiter.hit).not.toHaveBeenCalled();
+    expect(backendCalls(d)).toBe(0);
+  });
+
+  it("16. Content-Length 없이 16KB 를 넘게 읽힌 분석 요청도 400 body 이고 run 을 만들지 않는다", async () => {
+    const d = install();
+    await bodyTooLarge(await send(POST_ANALYSES, { rawBody: OVER_LIMIT }));
+    // 길이를 미리 알 수 없어 본문은 속도 제한 뒤에 읽는다. 그 뒤로는 저장소·큐를 부르지 않는다.
+    expect(d.limiter.hit).toHaveBeenCalledTimes(1);
+    expect(d.bids.bidExists).not.toHaveBeenCalled();
+    expect(d.bids.createAnalysisRun).not.toHaveBeenCalled();
+  });
+
+  it("16. VIEWER 는 큰 본문이어도 403 FORBIDDEN 이다(권한이 먼저)", async () => {
+    const d = install();
+    await errorOf(
+      await send(POST_ANALYSES, {
+        user: FAKE_USERS.viewer,
+        rawBody: OVER_LIMIT,
+        headers: { "Content-Length": String(OVER_LIMIT.length) },
+      }),
+      403,
+      "FORBIDDEN",
+    );
+    expect(backendCalls(d)).toBe(0);
+  });
+
+  it("16. 결정 기록도 16KB 를 넘으면 400 body 이고 저장하지 않는다", async () => {
+    const d = install();
+    const reason = "가".repeat(6000);
+    const rawBody = JSON.stringify({ decision: "BID", reason });
+    await bodyTooLarge(await send(POST_REVIEWS, { rawBody }));
+    await bodyTooLarge(
+      await send(POST_REVIEWS, {
+        rawBody: "{}",
+        headers: { "Content-Length": String(16 * 1024 + 1) },
+      }),
+    );
+    expect(d.reviews.createReview).not.toHaveBeenCalled();
     expect(backendCalls(d)).toBe(0);
   });
 

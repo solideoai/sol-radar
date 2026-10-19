@@ -106,6 +106,7 @@ function orgScopedBids(): BidsRepo {
           } as unknown as BidDetail)
         : null,
     ),
+    countBids: notUsed,
     bidExists: vi.fn(async (_orgId: string, bidId: string) => bidId === FX01),
     listAnalyses: vi.fn(async (orgId: string, bidId: string) => ({
       items: runsOf(orgId, bidId),
@@ -146,7 +147,7 @@ function install(): WorkDeps {
     bids: orgScopedBids(),
     reviews: orgScopedReviews(),
     notifications: { list: notUsed, markRead: notUsed },
-    dashboard: { load: notUsed },
+    dashboard: { load: notUsed, loadStatus: notUsed },
     queue: { enqueue: notUsed },
     limiter: { hit: notUsed },
     cursorSecret: SECRET,

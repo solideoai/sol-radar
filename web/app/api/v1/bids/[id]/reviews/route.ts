@@ -1,7 +1,7 @@
 import { serviceResponse } from "@/app/api/v1/_lib/http";
 import { businessRoute, pathNotFound, readJsonBody } from "@/app/api/v1/_lib/work-route";
 import { workDeps } from "@/app/_lib/work-deps";
-import { isUuid, listReviews, recordReview } from "@/server/bids";
+import { bodyTooLarge, isUuid, listReviews, recordReview } from "@/server/bids";
 
 // 05 §2 GET /bids/:id/reviews — 이 조직의 결정 이력. 다른 조직의 결정은 보이지 않아 [] 다(11 G5).
 export async function GET(
@@ -16,6 +16,7 @@ export async function GET(
 }
 
 // 05 §2 POST /bids/:id/reviews — 사람 최종 결정 기록(201). 권한(ADMIN·SALES)·사유·담당자는 서비스가 본다.
+// 본문이 16KB 를 넘으면 저장소를 부르지 않고 400 이다(보안 L5).
 export async function POST(
   request: Request,
   context: RouteContext<"/api/v1/bids/[id]/reviews">,
@@ -23,8 +24,8 @@ export async function POST(
   return businessRoute(request, async (ctx) => {
     const { id } = await context.params;
     if (!isUuid(id)) return pathNotFound("bid");
-    return serviceResponse(
-      await recordReview(ctx, id, await readJsonBody(request), { repo: workDeps().reviews }),
-    );
+    const body = await readJsonBody(request);
+    if (!body.ok) return serviceResponse(bodyTooLarge());
+    return serviceResponse(await recordReview(ctx, id, body.value, { repo: workDeps().reviews }));
   });
 }

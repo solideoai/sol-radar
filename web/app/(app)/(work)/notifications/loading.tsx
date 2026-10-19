@@ -1,13 +1,13 @@
 import { AppPage } from "@/components/app-page";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NOTIFICATIONS_DESCRIPTION, NOTIFICATIONS_TITLE } from "./notifications-copy";
 
 // 스펙 §5.5 로딩: 링크 줄 + 행 6개 뼈대. 화면과 같은 틀·폭이라 그려질 때 자리가 튀지 않는다.
-// 제목·설명 글자는 page.tsx 와 같은 값이어야 하나, 페이지 모듈을 끌어오지 않으려고 같은 문장을 둔다.
 export default function Loading() {
   const pulse = "motion-reduce:animate-none";
   return (
-    <AppPage title="알림" description="결정 담당으로 지정되거나 분석이 끝나면 여기에 표시됩니다.">
+    <AppPage title={NOTIFICATIONS_TITLE} description={NOTIFICATIONS_DESCRIPTION}>
       {/* 본문 랜드마크(main)는 AppPage 가 그린다. 읽는 중 알림은 안쪽 요소가 맡는다. */}
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">알림을 불러오는 중…</span>

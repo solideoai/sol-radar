@@ -10,7 +10,7 @@ export async function GET(request: Request): Promise<Response> {
     if (!query.ok) return invalidQuery(query.issues);
     const deps = workDeps();
     return serviceResponse(
-      await listNotifications(ctx.userId, query.value, deps.cursorSecret, {
+      await listNotifications(ctx.orgId, ctx.userId, query.value, deps.cursorSecret, {
         repo: deps.notifications,
       }),
     );

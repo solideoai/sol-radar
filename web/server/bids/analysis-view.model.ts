@@ -1,11 +1,5 @@
 import "server-only";
 import { z } from "zod";
-import type {
-  AnalysisResult as ScoringResult,
-  KevAssist as ScoringKev,
-  QualificationCheck as ScoringCheck,
-  ScoreFactor as ScoringFactor,
-} from "@/server/scoring";
 import {
   analysisStatusSchema,
   factorKeySchema,
@@ -19,7 +13,6 @@ import {
   reviewFlagSchema,
   runModeSchema,
 } from "./bid.model";
-import type { ReviewFlag } from "./bid.model";
 
 // 05 §4.5 AnalysisResult 를 화면용으로 옮긴 DTO. D16 변경 세 가지를 더한다.
 // ① missingFactors 가 {factor, reason}[] ② ScoreFactor.missingReason ③ profileEvidence.type 에 INDUSTRY_CODE.
@@ -208,76 +201,3 @@ export type ScoreFactorView = z.infer<typeof scoreFactorViewSchema>;
 export type QualificationCheckView = z.infer<typeof qualificationCheckViewSchema>;
 export type KevView = z.infer<typeof kevViewSchema>;
 export type RequirementAssessmentView = z.infer<typeof requirementAssessmentViewSchema>;
-
-// b3 가 만드는 AnalysisRunRecord.meta 와 같은 이름·모양. C4 가 내지 않는 식별·시각·모델 정보다.
-export type AnalysisRunMeta = {
-  id: string;
-  bidId: string;
-  revisionId: string;
-  revision: number;
-  profileRevision: number;
-  runMode: AnalysisView["runMode"];
-  status: AnalysisView["status"];
-  model: AnalysisView["model"];
-  fallbackReason: AnalysisView["fallbackReason"];
-  evidence: AnalysisView["evidence"];
-  errorCode: string | null;
-  queuedAt: string;
-  startedAt: string | null;
-  finishedAt: string | null;
-  checkedAt: string;
-  // C4 가 내지 않는 플래그(CITATION_FAILED·KEV_UNAVAILABLE 등). 분석 흐름이 덧붙인다.
-  extraReviewFlags: ReviewFlag[];
-  explanation: { text: string; source: "MODEL" | "TEMPLATE" };
-};
-
-function toFactorView(factor: ScoringFactor): ScoreFactorView {
-  return { ...factor };
-}
-
-function toCheckView(check: ScoringCheck, checkedAt: string): QualificationCheckView {
-  return { ...check, checkedAt };
-}
-
-function toKevView(kev: ScoringKev): KevView {
-  return { ...kev };
-}
-
-// C4 → 05 이름 대응(스펙 §7): score→solScore, factors→scoreBreakdown,
-// qualificationStatus+qualificationChecks→qualification{status,checks}(행마다 checkedAt).
-export function toAnalysisView(result: ScoringResult, meta: AnalysisRunMeta): AnalysisView {
-  const reviewFlags: ReviewFlag[] = [
-    ...new Set<ReviewFlag>([...result.reviewFlags, ...meta.extraReviewFlags]),
-  ];
-  return {
-    id: meta.id,
-    bidId: meta.bidId,
-    revisionId: meta.revisionId,
-    revision: meta.revision,
-    profileRevision: meta.profileRevision,
-    runMode: meta.runMode,
-    status: meta.status,
-    solScore: result.score,
-    recommendation: result.recommendation,
-    recommendationBasis: result.recommendationBasis,
-    explanation: meta.explanation.text,
-    qualification: {
-      status: result.qualificationStatus,
-      checks: result.qualificationChecks.map((check) => toCheckView(check, meta.checkedAt)),
-    },
-    requirementAssessments: result.requirementAssessments.map((a) => ({ ...a })),
-    scoreBreakdown: result.factors.map(toFactorView),
-    missingFactors: result.missingFactors.map(({ factor, reason }) => ({ factor, reason })),
-    reviewFlags,
-    injectionSuspected: result.injectionSuspected,
-    kev: toKevView(result.kev),
-    fallbackReason: meta.fallbackReason,
-    evidence: meta.evidence,
-    model: meta.model,
-    errorCode: meta.errorCode,
-    queuedAt: meta.queuedAt,
-    startedAt: meta.startedAt,
-    finishedAt: meta.finishedAt,
-    disclaimer: result.disclaimer,
-  };
-}

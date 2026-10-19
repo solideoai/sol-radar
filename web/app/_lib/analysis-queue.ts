@@ -18,9 +18,10 @@ const DEFAULT_TIMEOUT_MS = 3000;
 const NO_REDIS_URL = "REDIS_URL 이 설정되지 않았습니다";
 
 // 접속 문자열의 `//사용자:비밀@` 를 가린다(09 비밀 로그 금지). 로그에는 이 값만 쓴다.
+// 비밀에 @·/ 가 들어 있을 수 있어 스킴 뒤(//)부터 공백 없이 이어진 마지막 @ 까지 가린다(보안 L4).
 export function describeQueueError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  return message.replace(/\/\/[^/@\s]*@/g, "//***@");
+  return message.replace(/\/\/\S*@/g, "//***@");
 }
 
 // 캐시가 다루는 Queue 의 최소 모양(시험에서 가짜로 바꾼다).

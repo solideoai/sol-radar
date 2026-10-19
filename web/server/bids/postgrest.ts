@@ -18,17 +18,20 @@ export function likePattern(q: string): string {
   return `*${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}*`;
 }
 
-// 키셋 다음 쪽 조건. 정렬 열은 nulls last, 같은 값은 id 오름차순이다. `.or(…)` 로 붙인다.
+// 키셋 다음 쪽 조건. 정렬 열은 nulls last, 같은 값은 id 순서(기본 오름차순)다. `.or(…)` 로 붙인다.
+// idDirection 은 질의의 id 정렬과 같아야 한다.
 export function keysetFilter(
   column: string,
   direction: "asc" | "desc",
   after: CursorPayload,
+  idDirection: "asc" | "desc" = "asc",
 ): string {
   const q = quoteValue;
-  if (after.sortValue === null) return `and(${column}.is.null,id.gt.${q(after.id)})`;
+  const idOp = idDirection === "desc" ? "lt" : "gt";
+  if (after.sortValue === null) return `and(${column}.is.null,id.${idOp}.${q(after.id)})`;
   const op = direction === "desc" ? "lt" : "gt";
   const v = q(String(after.sortValue));
-  return `${column}.${op}.${v},and(${column}.eq.${v},id.gt.${q(after.id)}),${column}.is.null`;
+  return `${column}.${op}.${v},and(${column}.eq.${v},id.${idOp}.${q(after.id)}),${column}.is.null`;
 }
 
 const UNIQUE_VIOLATION = "23505";

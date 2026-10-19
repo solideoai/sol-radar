@@ -216,16 +216,22 @@ export function parseOriginQuery(
 
 // ── 커서 ──
 
+// 커서는 발급 뒤 24시간까지만 쓴다. people 커서(05 :478)와 같은 규칙이다(보안 L3).
+export const CURSOR_TTL_MS = 24 * 60 * 60 * 1000;
+
 export const cursorPayloadSchema = z.strictObject({
   sortValue: z.union([z.string(), z.number()]).nullable(),
   id: z.string().min(1),
   queryFingerprint: z.string().min(1),
+  // 발급 시각(epoch ms). 24시간이 지났거나 지금보다 뒤면 거절한다.
+  issuedAt: z.number().int().nonnegative(),
 });
 export type CursorPayload = z.infer<typeof cursorPayloadSchema>;
 
 export type CursorKind = "bids" | "analyses" | "notifications";
 
 // 커서가 묶이는 범위의 지문. 종류가 달라지면 같은 값이어도 지문이 다르다.
+// parts 에는 조직(알림은 사람도)을 넣는다. 다른 조직·사람이 받은 커서를 쓰지 못하게 한다(보안 L3).
 export function cursorScope(kind: CursorKind, parts: readonly unknown[]): string {
   return createHash("sha256")
     .update(JSON.stringify([kind, ...parts]))
@@ -233,9 +239,10 @@ export function cursorScope(kind: CursorKind, parts: readonly unknown[]): string
     .slice(0, 32);
 }
 
-// 커서와 페이지 크기를 뺀 필터·정렬의 지문. 이것이 바뀌면 커서를 버린다.
-export function fingerprintOf(query: BidListQuery): string {
+// 조직과, 커서와 페이지 크기를 뺀 필터·정렬의 지문. 이것이 바뀌면 커서를 버린다.
+export function fingerprintOf(orgId: string, query: BidListQuery): string {
   return cursorScope("bids", [
+    orgId,
     query.q,
     [...query.stage].sort(),
     [...query.status].sort(),
@@ -266,6 +273,7 @@ export function verifyCursor(
   cursor: string,
   fingerprint: string,
   secret: string,
+  now: number,
 ): { ok: true; payload: CursorPayload } | { ok: false; code: "INVALID_CURSOR" } {
   const invalid = { ok: false, code: "INVALID_CURSOR" } as const;
   const parts = cursor.split(".");
@@ -283,5 +291,7 @@ export function verifyCursor(
   }
   const payload = cursorPayloadSchema.safeParse(json);
   if (!payload.success || payload.data.queryFingerprint !== fingerprint) return invalid;
+  const { issuedAt } = payload.data;
+  if (issuedAt > now || now - issuedAt >= CURSOR_TTL_MS) return invalid;
   return { ok: true, payload: payload.data };
 }

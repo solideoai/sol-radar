@@ -129,8 +129,9 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
     for (const key of missingKeys(web, WEB_REQUIRED)) {
       problems.push({ file: WEB_FILE, key, code: "MISSING_KEY" });
     }
+    // 런타임(readCursorSecret)처럼 앞뒤 공백을 뗀 길이로 잰다. 공백뿐이면 0자다(M7).
     const cursorSecret = web.API_CURSOR_SECRET;
-    if (cursorSecret && cursorSecret.length < CURSOR_SECRET_MIN_LENGTH) {
+    if (cursorSecret && cursorSecret.trim().length < CURSOR_SECRET_MIN_LENGTH) {
       problems.push({ file: WEB_FILE, key: "API_CURSOR_SECRET", code: "INVALID_FORMAT" });
     }
     // web 의 SOL_RUN_MODE(없으면 기본 mock)가 infra 모드와 다르면 화면과 worker 가 다른 모드로 돈다.

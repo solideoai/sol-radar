@@ -59,3 +59,6 @@ export const dashboardSummarySchema = z.strictObject({
   unreadNotifications: count,
 });
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>;
+
+// 업무 틀 상단바용 요약(수집 신선도·안 읽은 알림 수). DashboardSummary 의 두 칸과 같은 모양이다(M3).
+export type StatusSummary = Pick<DashboardSummary, "dataFreshness" | "unreadNotifications">;

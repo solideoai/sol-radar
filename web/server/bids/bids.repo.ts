@@ -43,6 +43,8 @@ export type CreateRunResult =
 
 export interface BidsRepo {
   listBids(orgId: string, query: BidListQuery, after: ListAfter): Promise<PagedRows<BidListItem>>;
+  // listBids 와 같은 조건(커서·정렬·페이지 크기 제외)의 전체 건수
+  countBids(orgId: string, query: BidListQuery): Promise<number>;
   getBid(orgId: string, id: string): Promise<BidDetail | null>;
   // 공고가 있는지(다른 조직의 자원이 아니라 공고 자체). 공고는 모든 조직이 같이 본다.
   bidExists(orgId: string, bidId: string): Promise<boolean>;
@@ -174,6 +176,11 @@ export type DashboardSource = {
   unreadNotifications: number;
 };
 
+// 업무 틀(layout) 상단바가 쓰는 두 값. 공고 집계·AI 상태 없이 읽는다(M3).
+export type DashboardStatusSource = Pick<DashboardSource, "dataFreshness" | "unreadNotifications">;
+
 export interface DashboardRepo {
   load(orgId: string, origin: "live" | "demo" | "all"): Promise<DashboardSource>;
+  // 수집 신선도와 안 읽은 알림 수만 읽는다. AI 프로브를 부르지 않는다.
+  loadStatus(origin: "live" | "demo" | "all"): Promise<DashboardStatusSource>;
 }

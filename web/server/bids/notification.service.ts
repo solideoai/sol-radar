@@ -12,14 +12,15 @@ const withSafeLink = (n: Notification): Notification => ({
 });
 
 export function listNotifications(
+  orgId: string,
   userId: string,
   query: PageQuery & { unreadOnly: boolean },
   cursorSecret: string | null,
   deps: { repo: NotificationRepo },
 ): Promise<ServiceResult<Page<Notification>>> {
-  // 필터(unreadOnly)가 다른 커서는 쓰지 못한다.
+  // 다른 조직·사람이 받은 커서, 필터(unreadOnly)가 다른 커서는 쓰지 못한다(보안 L3).
   return paginate(
-    cursorScope("notifications", [query.unreadOnly]),
+    cursorScope("notifications", [orgId, userId, query.unreadOnly]),
     query,
     cursorSecret,
     async (after) => {

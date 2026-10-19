@@ -169,7 +169,12 @@ describe("listBids", () => {
 
   it("커서가 있으면 정렬 열의 키셋 필터를 or 로 붙인다", async () => {
     fakeDb.on("bid_list_items", fakeDb.rows([]));
-    const after = { sortValue: "2026-12-01T00:00:00+00:00", id: BID, queryFingerprint: "fp" };
+    const after = {
+      sortValue: "2026-12-01T00:00:00+00:00",
+      id: BID,
+      queryFingerprint: "fp",
+      issuedAt: 0,
+    };
     await repo.listBids(ORG, query({ sort: "deadlineAt:asc" }), after);
     expect(callsOf(only("bid_list_items"), "or")).toEqual([
       [keysetFilter("deadline_at", "asc", after)],
@@ -210,6 +215,51 @@ describe("listBids", () => {
   it("DB 오류는 빈 목록으로 바꾸지 않고 던진다", async () => {
     fakeDb.on("bid_list_items", { error: new Error("db down") });
     await expect(repo.listBids(ORG, query(), null)).rejects.toThrow("db down");
+  });
+});
+
+// M4: 대시보드 "BID 권고" 카드는 BID 표와 같은 조건(같은 BidListQuery)의 건수다. 필터는 listBids 와 같은 길을 쓴다.
+describe("countBids", () => {
+  const filters = query({
+    stage: ["NOTICE"],
+    deadlineFrom: "2026-10-01T00:00:00+09:00",
+    deadlineTo: "2026-10-31T00:00:00+09:00",
+    recommendation: ["BID"],
+    decision: ["NONE"],
+    q: "a,b",
+    origin: "demo",
+    limit: 5,
+  });
+
+  it("listBids 와 같은 필터를 걸고 행 없이 head count 만 읽는다", async () => {
+    fakeDb.on("bid_list_items", { data: null, count: 3 });
+    expect(await repo.countBids(ORG, filters)).toBe(3);
+    const counted = only("bid_list_items");
+    expect(callsOf(counted, "select")).toEqual([["*", { count: "exact", head: true }]]);
+    expect(callsOf(counted, "order")).toEqual([]);
+    expect(callsOf(counted, "limit")).toEqual([]);
+
+    fakeDb.reset();
+    fakeDb.on("bid_list_items", fakeDb.rows([]));
+    await repo.listBids(ORG, filters, null);
+    const listed = only("bid_list_items");
+    for (const method of ["in", "eq", "or", "gte", "lte"]) {
+      expect(callsOf(counted, method), method).toEqual(callsOf(listed, method));
+    }
+    expect(callsOf(counted, "in")).toEqual([
+      ["status", ["OPEN", "AMENDED"]],
+      ["stage", ["NOTICE"]],
+      ["scored_recommendation", ["BID"]],
+    ]);
+    expect(callsOf(counted, "eq")).toEqual([["is_demo", true]]);
+  });
+
+  it("count 가 없으면 0 이고, DB 오류는 던진다", async () => {
+    fakeDb.on("bid_list_items", { data: null, count: null });
+    expect(await repo.countBids(ORG, query())).toBe(0);
+    fakeDb.reset();
+    fakeDb.on("bid_list_items", { error: new Error("db down") });
+    await expect(repo.countBids(ORG, query())).rejects.toThrow("db down");
   });
 });
 
@@ -588,7 +638,7 @@ describe("분석 읽기", () => {
     ]);
   });
 
-  it("listAnalyses 는 created_at 내림차순·id 오름차순 키셋이다", async () => {
+  it("listAnalyses 는 created_at 내림차순·id 내림차순 키셋이다(최신 run 조회·뷰와 같은 동률 순서, M11)", async () => {
     fakeDb.on(
       "score_runs",
       fakeDb.rows([
@@ -602,14 +652,19 @@ describe("분석 읽기", () => {
         }),
       ]),
     );
-    const after = { sortValue: "2026-10-04T00:00:00+00:00", id: "z", queryFingerprint: "fp" };
+    const after = {
+      sortValue: "2026-10-04T00:00:00+00:00",
+      id: "z",
+      queryFingerprint: "fp",
+      issuedAt: 0,
+    };
     const page = await repo.listAnalyses(ORG, BID, 1, after);
     const q = only("score_runs");
     expect(callsOf(q, "order")).toEqual([
       ["created_at", { ascending: false, nullsFirst: false }],
-      ["id", { ascending: true }],
+      ["id", { ascending: false }],
     ]);
-    expect(callsOf(q, "or")).toEqual([[keysetFilter("created_at", "desc", after)]]);
+    expect(callsOf(q, "or")).toEqual([[keysetFilter("created_at", "desc", after, "desc")]]);
     expect(callsOf(q, "limit")).toEqual([[2]]);
     expect(page.hasNext).toBe(true);
     expect(page.last).toEqual({

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { factorKeySchema } from "./bid.model";
-import { KEV_DISCLAIMER } from "./analysis-view.model";
+import { KEV_DISCLAIMER, analysisViewSchema } from "./analysis-view.model";
 import type { QualificationCheckView } from "./analysis-view.model";
 import { qualificationStatusOf, toAnalysisViewFromRows } from "./analysis-row.mapper";
 import type {
@@ -135,6 +135,17 @@ afterEach(() => vi.restoreAllMocks());
 const dist = { SATISFIED: 0.9, NOT_SATISFIED: 0.05, NEEDS_REVIEW: 0.05 };
 
 describe("toAnalysisViewFromRows", () => {
+  // M6: AnalysisView 를 만드는 길은 저장 행 변환 하나다(Ruling 13). C4 결과 변환(toAnalysisView)은 없다.
+  it("배럴은 C4 결과 변환을 내보내지 않는다", async () => {
+    expect("toAnalysisView" in (await import("./index"))).toBe(false);
+  });
+
+  it("만든 뷰는 스키마를 통과하고, 점수 범위를 벗어나면 스키마가 거절한다", () => {
+    const view = toAnalysisViewFromRows(rows("FX-01"));
+    expect(analysisViewSchema.parse(view).solScore).toBe(94);
+    expect(analysisViewSchema.safeParse({ ...view, solScore: 101 }).success).toBe(false);
+  });
+
   it("FX-01: 점수·요소 순서·자격 상태를 골든과 맞춘다", () => {
     const view = toAnalysisViewFromRows(rows("FX-01"));
     expect(view.solScore).toBe(94);

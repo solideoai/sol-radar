@@ -75,7 +75,7 @@ describe("list", () => {
 
   it("안 읽은 것만이면 read_at is null, 커서가 있으면 키셋 필터를 붙인다", async () => {
     fakeDb.on("notifications", fakeDb.rows([]));
-    const after = { sortValue: T0, id: "n-9", queryFingerprint: "fp" };
+    const after = { sortValue: T0, id: "n-9", queryFingerprint: "fp", issuedAt: 0 };
     await notificationRepo.list(USER, { unreadOnly: true, limit: 5 }, after);
     const q = only("notifications");
     expect(callsOf(q, "is")).toEqual([["read_at", null]]);

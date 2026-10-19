@@ -178,3 +178,46 @@ describe("dashboard.load", () => {
     await expect(repo.load(ORG, "all")).rejects.toThrow("db down");
   });
 });
+
+// M3: 업무 틀(layout)의 상단바는 신선도·안 읽은 수만 읽는다. 공고 전체 집계와 AI 프로브를 부르지 않는다.
+describe("dashboard.loadStatus", () => {
+  it("수집 신선도와 안 읽은 수만 읽고, 공고·AI 상태는 읽지 않는다", async () => {
+    const aiStatus = vi.fn(async () => AI);
+    const light = createDashboardRepo({ aiStatus });
+    fakeDb.on("rpc:latest_ingest_run", {
+      data: [
+        {
+          status: "SUCCEEDED",
+          started_at: "2026-10-19T00:00:00+00:00",
+          finished_at: "2026-10-19T00:01:00+00:00",
+          summary,
+        },
+      ],
+    });
+    fakeDb.on("notifications", { data: null, count: 4 });
+    const status = await light.loadStatus("demo");
+    expect(status).toEqual({
+      dataFreshness: {
+        lastIngestAt: "2026-10-19T00:01:00+00:00",
+        lastIngestStatus: "SUCCEEDED",
+        lastIngestSummary: summary,
+      },
+      unreadNotifications: 4,
+    });
+    expect(aiStatus).not.toHaveBeenCalled();
+    expect(fakeDb.queries("bid_notices")).toHaveLength(0);
+    expect(only("rpc:latest_ingest_run").calls[0]).toEqual({
+      method: "rpc",
+      args: ["latest_ingest_run", { p_origin: "demo" }],
+    });
+    const q = only("notifications");
+    expect(callsOf(q, "select")).toEqual([["id", { count: "exact", head: true }]]);
+    expect(callsOf(q, "is")).toEqual([["read_at", null]]);
+  });
+
+  it("DB 오류는 던진다", async () => {
+    fakeDb.on("rpc:latest_ingest_run", { error: new Error("rpc down") });
+    fakeDb.on("notifications", { count: 0 });
+    await expect(repo.loadStatus("live")).rejects.toThrow("rpc down");
+  });
+});

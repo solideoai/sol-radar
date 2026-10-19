@@ -7,7 +7,7 @@ import type {
   DashboardSource,
 } from "./bids.repo";
 import { dashboardSummarySchema } from "./dashboard.model";
-import { getDashboardSummary } from "./dashboard.service";
+import { getDashboardSummary, getStatusSummary } from "./dashboard.service";
 
 const NOW = new Date("2026-10-19T00:00:00Z");
 
@@ -41,8 +41,11 @@ const source = (bids: DashboardBidRow[]): DashboardSource => ({
   ai: { provider: "mock", kevEnabled: true, lastGatewayCheckAt: null, healthy: true },
   unreadNotifications: 3,
 });
+const noStatus = async (): Promise<never> => {
+  throw new Error("요약 시험은 loadStatus 를 부르지 않는다");
+};
 const summaryOf = (bids: DashboardBidRow[], origin: "live" | "demo" | "all" = "demo") => {
-  const repo: DashboardRepo = { load: async () => source(bids) };
+  const repo: DashboardRepo = { load: async () => source(bids), loadStatus: noStatus };
   return getDashboardSummary("org1", origin, { repo }, NOW);
 };
 
@@ -165,4 +168,35 @@ describe("getDashboardSummary", () => {
     expect(dashboardSummarySchema.safeParse(demo).success).toBe(true);
     expect((await summaryOf([], "live")).dataFreshness.isDemo).toBe(false);
   });
+});
+
+// M3: 업무 틀의 상단바용 가벼운 요약. 전체 집계(load)를 부르지 않는다.
+describe("getStatusSummary", () => {
+  const freshness = {
+    lastIngestAt: "2026-10-19T00:01:00Z",
+    lastIngestStatus: "SUCCEEDED" as const,
+    lastIngestSummary: null,
+  };
+  const repoOf = (load: DashboardRepo["load"]): DashboardRepo => ({
+    load,
+    loadStatus: async () => ({ dataFreshness: freshness, unreadNotifications: 5 }),
+  });
+
+  it.each([
+    ["demo", true],
+    ["live", false],
+    ["all", false],
+  ] as const)(
+    "%s 출처면 신선도에 isDemo=%s 를 붙이고 안 읽은 수를 싣는다",
+    async (origin, isDemo) => {
+      const status = await getStatusSummary(origin, { repo: repoOf(noStatus) });
+      expect(status).toEqual({
+        dataFreshness: { ...freshness, isDemo },
+        unreadNotifications: 5,
+      });
+      expect(dashboardSummarySchema.shape.dataFreshness.parse(status.dataFreshness)).toEqual(
+        status.dataFreshness,
+      );
+    },
+  );
 });

@@ -2,9 +2,9 @@ import { serviceResponse } from "@/app/api/v1/_lib/http";
 import {
   businessRoute,
   invalidQuery,
+  lazyJsonBody,
   pathNotFound,
   rawQueryOf,
-  readJsonBody,
 } from "@/app/api/v1/_lib/work-route";
 import { workDeps } from "@/app/_lib/work-deps";
 import { isUuid, listBidAnalyses, parsePageQuery, requestAnalysis } from "@/server/bids";
@@ -28,6 +28,7 @@ export async function GET(
 
 // 05 §2·§5 POST /bids/:id/analyses — 분석 요청(202). 권한·멱등·속도 제한·큐 등록은 서비스가 정한다.
 // Idempotency-Key 헤더가 없으면 null 을 넘기고, 서버가 키를 만든다.
+// 본문은 서비스가 권한·키·속도 제한을 본 뒤에 읽는다(16KB 상한, 보안 L5).
 export async function POST(
   request: Request,
   context: RouteContext<"/api/v1/bids/[id]/analyses">,
@@ -40,7 +41,7 @@ export async function POST(
       await requestAnalysis(
         ctx,
         id,
-        await readJsonBody(request),
+        lazyJsonBody(request),
         request.headers.get("Idempotency-Key"),
         {
           repo: deps.bids,

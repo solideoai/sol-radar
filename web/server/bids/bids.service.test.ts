@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
-import { signCursor, fingerprintOf, parseBidListQuery } from "./bid-query";
+import { CURSOR_TTL_MS, signCursor, fingerprintOf, parseBidListQuery } from "./bid-query";
 import type { BidDetail } from "./bid-detail.model";
 import type {
   AnalysisQueue,
@@ -9,6 +9,7 @@ import type {
   RunRef,
 } from "./bids.repo";
 import {
+  countBids,
   getAnalysis,
   getBid,
   getQualificationChecks,
@@ -16,6 +17,7 @@ import {
   listBids,
   requestAnalysis,
   type AnalysisContext,
+  type LazyBody,
 } from "./bids.service";
 import type { AnalysisView } from "./analysis-view.model";
 
@@ -45,6 +47,7 @@ function fake(overrides: Partial<BidsRepo> = {}): Fake {
   const enqueue = vi.fn(async () => undefined);
   const repo: BidsRepo = {
     listBids: async () => ({ items: [], hasNext: false, last: null }),
+    countBids: async () => 0,
     getBid: async () => ({ id: "b1" }) as unknown as BidDetail,
     bidExists: async () => true,
     getLatestScoredAnalysis: async () => null,
@@ -66,13 +69,22 @@ function fake(overrides: Partial<BidsRepo> = {}): Fake {
   return { repo, queue: { enqueue }, created, enqueue, hit, onInfraError, limiter: { hit } };
 }
 
-const request = (f: Fake, body: unknown, key: string | null, role = ctx.role) =>
+// 상한 안의 본문. 읽기는 Route Handler 가 맡고 서비스는 늦게 읽는 함수만 받는다(L5).
+const bodyOf = (value: unknown): LazyBody => ({
+  declaredTooLarge: false,
+  read: async () => ({ ok: true, value }),
+});
+
+const requestWith = (f: Fake, body: LazyBody, key: string | null, role = ctx.role) =>
   requestAnalysis({ ...ctx, role }, "b1", body, key, {
     repo: f.repo,
     queue: f.queue,
     limiter: f.limiter,
     onInfraError: f.onInfraError,
   });
+
+const request = (f: Fake, body: unknown, key: string | null, role = ctx.role) =>
+  requestWith(f, bodyOf(body), key, role);
 
 describe("requestAnalysis", () => {
   it("VIEWER 는 403 FORBIDDEN 이다", async () => {
@@ -82,10 +94,28 @@ describe("requestAnalysis", () => {
     expect(f.enqueue).not.toHaveBeenCalled();
   });
 
-  it("다른 조직 공고는 404 NOT_FOUND 다", async () => {
-    const f = fake({ getBid: async () => null });
+  // M2: 존재 확인은 상세 전체(getBid)가 아니라 bidExists 로 한다.
+  it("없는 공고는 404 NOT_FOUND 이고 상세를 읽지 않는다", async () => {
+    const getBidSpy = vi.fn(async () => ({ id: "b1" }) as unknown as BidDetail);
+    const existsSpy = vi.fn(async () => false);
+    const f = fake({ getBid: getBidSpy, bidExists: existsSpy });
     const result = await request(f, {}, KEY);
-    expect(result).toMatchObject({ ok: false, status: 404, code: "NOT_FOUND" });
+    expect(result).toMatchObject({
+      ok: false,
+      status: 404,
+      code: "NOT_FOUND",
+      details: { resource: "bid" },
+    });
+    expect(existsSpy).toHaveBeenCalledWith("org1", "b1");
+    expect(getBidSpy).not.toHaveBeenCalled();
+    expect(f.created).toHaveLength(0);
+  });
+
+  it("있는 공고면 상세를 읽지 않고 접수한다", async () => {
+    const getBidSpy = vi.fn(async () => ({ id: "b1" }) as unknown as BidDetail);
+    const f = fake({ getBid: getBidSpy });
+    expect(await request(f, {}, KEY)).toMatchObject({ ok: true, status: 202 });
+    expect(getBidSpy).not.toHaveBeenCalled();
   });
 
   it("본문이 틀리면 400 VALIDATION_ERROR 다", async () => {
@@ -268,8 +298,8 @@ describe("요청 사전 검사 (O10)", () => {
   });
 
   it("limiter 가 막으면 429 RATE_LIMITED 이고 retryAfterSeconds 를 담고 repo 를 부르지 않는다", async () => {
-    const getBidSpy = vi.fn(async () => ({ id: "b1" }) as unknown as BidDetail);
-    const f = fake({ getBid: getBidSpy });
+    const getBidSpy = vi.fn(async () => true);
+    const f = fake({ bidExists: getBidSpy });
     f.hit.mockResolvedValueOnce({ allowed: false, retryAfterSeconds: 17 });
     const result = await request(f, {}, KEY);
     expect(result).toMatchObject({
@@ -284,8 +314,8 @@ describe("요청 사전 검사 (O10)", () => {
   });
 
   it("limiter 가 던지면 원인을 onInfraError(redis) 로 1회 넘기고 503 redis 다", async () => {
-    const getBidSpy = vi.fn(async () => ({ id: "b1" }) as unknown as BidDetail);
-    const f = fake({ getBid: getBidSpy });
+    const getBidSpy = vi.fn(async () => true);
+    const f = fake({ bidExists: getBidSpy });
     const cause = new Error("redis down");
     f.hit.mockRejectedValueOnce(cause);
     const result = await request(f, {}, KEY);
@@ -299,6 +329,61 @@ describe("요청 사전 검사 (O10)", () => {
       details: { component: "redis" },
     });
     expect(f.enqueue).not.toHaveBeenCalled();
+  });
+});
+
+// 보안 L5: 본문 상한 16KB. 선언된 길이(Content-Length)는 속도 제한 전에, 실제 길이는 읽을 때 본다.
+describe("본문 상한 (L5)", () => {
+  const TOO_LARGE = {
+    ok: false,
+    status: 400,
+    code: "VALIDATION_ERROR",
+    message: "본문이 너무 큽니다",
+    details: { issues: [{ path: "body", message: expect.any(String) }] },
+  };
+
+  it("Content-Length 가 상한을 넘으면 400 body 이고 limiter 횟수를 쓰지 않으며 본문을 읽지 않는다", async () => {
+    const f = fake();
+    const read = vi.fn(async () => ({ ok: true as const, value: {} }));
+    const result = await requestWith(f, { declaredTooLarge: true, read }, KEY);
+    expect(result).toMatchObject(TOO_LARGE);
+    expect(f.hit).not.toHaveBeenCalled();
+    expect(read).not.toHaveBeenCalled();
+    expect(f.created).toHaveLength(0);
+  });
+
+  it("권한·키 형식 검사가 본문 크기보다 먼저다", async () => {
+    const big = { declaredTooLarge: true, read: vi.fn() };
+    expect(await requestWith(fake(), big, KEY, "VIEWER")).toMatchObject({ status: 403 });
+    const keyed = await requestWith(fake(), big, "abc");
+    expect(keyed).toMatchObject({
+      status: 400,
+      details: { issues: [{ path: "Idempotency-Key" }] },
+    });
+    expect(big.read).not.toHaveBeenCalled();
+  });
+
+  it("본문은 속도 제한을 지난 뒤에 읽는다", async () => {
+    const f = fake();
+    f.hit.mockResolvedValueOnce({ allowed: false, retryAfterSeconds: 3 });
+    const read = vi.fn(async () => ({ ok: true as const, value: {} }));
+    const result = await requestWith(f, { declaredTooLarge: false, read }, KEY);
+    expect(result).toMatchObject({ status: 429 });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("읽어 보니 상한을 넘으면 400 body 이고 공고·run 을 건드리지 않는다", async () => {
+    const getBidSpy = vi.fn(async () => true);
+    const f = fake({ bidExists: getBidSpy });
+    const result = await requestWith(
+      f,
+      { declaredTooLarge: false, read: async () => ({ ok: false }) },
+      KEY,
+    );
+    expect(result).toMatchObject(TOO_LARGE);
+    expect(f.hit).toHaveBeenCalledTimes(1);
+    expect(getBidSpy).not.toHaveBeenCalled();
+    expect(f.created).toHaveLength(0);
   });
 });
 
@@ -509,7 +594,8 @@ describe("enqueue 실패", () => {
     expect(markRunFailed).toHaveBeenCalledTimes(1);
   });
 
-  it("markRunFailed 를 먼저 부르고 그다음 콜백을 부른다", async () => {
+  // M1: 원인 로그(reportInfraError, 이미 try 로 감쌌다)를 먼저 남긴다. markRunFailed 가 던져도 Redis 원인이 남는다.
+  it("콜백을 먼저 부르고 그다음 markRunFailed 를 부른다", async () => {
     const order: string[] = [];
     const f = fake({
       markRunFailed: async () => {
@@ -521,7 +607,20 @@ describe("enqueue 실패", () => {
       order.push("report");
     });
     await request(f, { force: true }, KEY);
-    expect(order).toEqual(["mark", "report"]);
+    expect(order).toEqual(["report", "mark"]);
+  });
+
+  it("markRunFailed 가 던져도 onInfraError(queue) 는 원인과 함께 1회 불린다", async () => {
+    const cause = new Error("redis down");
+    const f = fake({
+      markRunFailed: async () => {
+        throw new Error("db down");
+      },
+    });
+    f.enqueue.mockRejectedValueOnce(cause);
+    await expect(request(f, { force: true }, KEY)).rejects.toThrow("db down");
+    expect(f.onInfraError).toHaveBeenCalledTimes(1);
+    expect(f.onInfraError).toHaveBeenCalledWith("queue", cause);
   });
 
   it("실패한 run 은 active 로 세지 않아 같은 입력의 다음 요청이 새 run 을 만든다", async () => {
@@ -594,7 +693,12 @@ describe("조회", () => {
   it("listBids 는 유효한 커서의 위치를 repo 에 넘긴다", async () => {
     const base = parseBidListQuery({}, "mock");
     if (!base.ok) throw new Error("쿼리 오류");
-    const payload = { sortValue: "x", id: "b1", queryFingerprint: fingerprintOf(base.value) };
+    const payload = {
+      sortValue: "x",
+      id: "b1",
+      queryFingerprint: fingerprintOf("org1", base.value),
+      issuedAt: Date.now(),
+    };
     const cursor = signCursor(payload, secret);
     const withCursor = parseBidListQuery({ cursor }, "mock");
     if (!withCursor.ok) throw new Error("쿼리 오류");
@@ -602,6 +706,49 @@ describe("조회", () => {
     const f = fake({ listBids: listSpy });
     await listBids("org1", withCursor.value, secret, { repo: f.repo });
     expect(listSpy).toHaveBeenCalledWith("org1", withCursor.value, payload);
+  });
+
+  // 보안 L3: 커서는 발급한 조직·24시간 안에서만 쓴다. 어기면 repo 를 부르지 않고 400 이다.
+  describe("listBids 커서 범위(L3)", () => {
+    const pageWithCursor = (orgId: string, issuedAt: number) => {
+      const base = parseBidListQuery({}, "mock");
+      if (!base.ok) throw new Error("쿼리 오류");
+      const cursor = signCursor(
+        { sortValue: "x", id: "b1", queryFingerprint: fingerprintOf(orgId, base.value), issuedAt },
+        secret,
+      );
+      const withCursor = parseBidListQuery({ cursor }, "mock");
+      if (!withCursor.ok) throw new Error("쿼리 오류");
+      return withCursor.value;
+    };
+
+    it.each([
+      ["다른 조직에서 발급한 커서", () => pageWithCursor("org2", Date.now())],
+      ["24시간이 지난 커서", () => pageWithCursor("org1", Date.now() - CURSOR_TTL_MS - 1000)],
+      ["발급 시각이 미래인 커서", () => pageWithCursor("org1", Date.now() + 60_000)],
+    ])("%s 는 400 INVALID_CURSOR 이고 repo 를 부르지 않는다", async (_name, queryOf) => {
+      const listSpy = vi.fn(async () => ({ items: [], hasNext: false, last: null }));
+      const result = await listBids("org1", queryOf(), secret, {
+        repo: fake({ listBids: listSpy }).repo,
+      });
+      expect(result).toMatchObject({ ok: false, status: 400, code: "INVALID_CURSOR" });
+      expect(listSpy).not.toHaveBeenCalled();
+    });
+
+    it("다음 쪽 커서에 발급 시각을 싣는다", async () => {
+      const query = parseBidListQuery({}, "mock");
+      if (!query.ok) throw new Error("쿼리 오류");
+      const before = Date.now();
+      const result = await listBids("org1", query.value, secret, {
+        repo: fake({
+          listBids: async () => ({ items: [], hasNext: true, last: { sortValue: "v", id: "b9" } }),
+        }).repo,
+      });
+      const cursor = result.ok ? result.data.pageInfo.nextCursor : null;
+      const body = JSON.parse(Buffer.from(cursor?.split(".")[0] ?? "", "base64url").toString());
+      expect(body.issuedAt).toBeGreaterThanOrEqual(before);
+      expect(body.issuedAt).toBeLessThanOrEqual(Date.now());
+    });
   });
 
   it("listBids 는 비밀이 null 이면 503 cursor 다", async () => {
@@ -614,6 +761,18 @@ describe("조회", () => {
       code: "SERVICE_UNAVAILABLE",
       details: { component: "cursor" },
     });
+  });
+});
+
+describe("countBids", () => {
+  it("조직과 목록 조건을 그대로 repo 에 넘겨 건수를 돌려준다(M4)", async () => {
+    const query = parseBidListQuery({ recommendation: "BID" }, "mock");
+    if (!query.ok) throw new Error("쿼리 오류");
+    const countSpy = vi.fn(async () => 3);
+    expect(await countBids("org1", query.value, { repo: fake({ countBids: countSpy }).repo })).toBe(
+      3,
+    );
+    expect(countSpy).toHaveBeenCalledWith("org1", query.value);
   });
 });
 
@@ -649,6 +808,19 @@ describe("listBidAnalyses", () => {
       10,
       expect.objectContaining({ id: "a9" }),
     );
+  });
+
+  it("다른 조직에서 발급한 커서는 INVALID_CURSOR 다(L3)", async () => {
+    const f = fake({
+      listAnalyses: async () => ({ items: [], hasNext: true, last: { sortValue: "x", id: "a9" } }),
+    });
+    const first = await listBidAnalyses("org1", "b1", page, "s", { repo: f.repo });
+    const cursor = first.ok ? first.data.pageInfo.nextCursor : null;
+    expect(cursor).toEqual(expect.any(String));
+    const other = await listBidAnalyses("org2", "b1", { cursor, limit: 10 }, "s", {
+      repo: f.repo,
+    });
+    expect(other).toMatchObject({ ok: false, status: 400, code: "INVALID_CURSOR" });
   });
 
   it("다른 공고에서 발급한 커서는 INVALID_CURSOR 다", async () => {

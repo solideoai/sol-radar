@@ -7,6 +7,7 @@ const after = (sortValue: string | number | null, id: string) => ({
   sortValue,
   id,
   queryFingerprint: "fp",
+  issuedAt: 0,
 });
 
 describe("quoteValue", () => {
@@ -59,6 +60,18 @@ describe("keysetFilter", () => {
       'deadline_at.gt."2026-10-20T09:00:00+00:00",and(deadline_at.eq."2026-10-20T09:00:00+00:00",id.gt."id-1"),deadline_at.is.null',
     );
     expect(topLevelParts(filter)).toHaveLength(3);
+  });
+
+  // M11: 분석 이력은 최신 run 조회·뷰와 같게 같은 시각이면 id 내림차순이다.
+  it("id 내림차순이면 같은 값과 null 꼬리에서 id 앞(lt)을 본다", () => {
+    expect(
+      keysetFilter("created_at", "desc", after("2026-10-03T00:00:00+00:00", "x"), "desc"),
+    ).toBe(
+      'created_at.lt."2026-10-03T00:00:00+00:00",and(created_at.eq."2026-10-03T00:00:00+00:00",id.lt."x"),created_at.is.null',
+    );
+    expect(keysetFilter("created_at", "desc", after(null, "x"), "desc")).toBe(
+      'and(created_at.is.null,id.lt."x")',
+    );
   });
 
   it("커서 id 에 예약 문자가 있어도 조건 수가 바뀌지 않는다", () => {

@@ -64,13 +64,10 @@ function decisionFilter(decisions: BidListQuery["decision"]): string {
   return parts.join(",");
 }
 
-async function listBidRows(
-  db: Db,
-  query: BidListQuery,
-  after: ListAfter,
-  spec: SortSpec,
-): Promise<BidListItemRow[]> {
-  const base = db.from("bid_list_items").select("*").in("status", query.status);
+// 목록 조건(커서·정렬·페이지 크기 제외). 목록과 건수(countBids)가 같은 길을 써서 정의가 갈라지지 않는다(M4).
+// countOnly 를 주면 행 없이 건수만 읽는다(head + count exact).
+function filteredBids(db: Db, query: BidListQuery, countOnly?: { count: "exact"; head: true }) {
+  const base = db.from("bid_list_items").select("*", countOnly).in("status", query.status);
   const byOrigin = query.origin === "all" ? base : base.eq("is_demo", query.origin === "demo");
   const byStage = query.stage.length === 0 ? byOrigin : byOrigin.in("stage", query.stage);
   const byText = query.q === null ? byStage : byStage.or(searchFilter(query.q));
@@ -81,12 +78,20 @@ async function listBidRows(
     query.recommendation.length === 0
       ? byTo
       : byTo.in("scored_recommendation", query.recommendation);
-  const byDecision =
-    query.decision.length === 0
-      ? byRecommendation
-      : byRecommendation.or(decisionFilter(query.decision));
+  return query.decision.length === 0
+    ? byRecommendation
+    : byRecommendation.or(decisionFilter(query.decision));
+}
+
+async function listBidRows(
+  db: Db,
+  query: BidListQuery,
+  after: ListAfter,
+  spec: SortSpec,
+): Promise<BidListItemRow[]> {
+  const filtered = filteredBids(db, query);
   const paged =
-    after === null ? byDecision : byDecision.or(keysetFilter(spec.column, spec.direction, after));
+    after === null ? filtered : filtered.or(keysetFilter(spec.column, spec.direction, after));
   const { data, error } = await paged
     .order(spec.column, { ascending: spec.direction === "asc", nullsFirst: false })
     .order("id", { ascending: true })
@@ -304,6 +309,16 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
       }));
     },
 
+    // 행은 읽지 않고 listBids 와 같은 조건의 건수만 센다.
+    async countBids(_orgId, query) {
+      const { count, error } = await filteredBids(await getSupabase(), query, {
+        count: "exact",
+        head: true,
+      });
+      if (error) throw error;
+      return count ?? 0;
+    },
+
     // 뷰 한 줄(+ bid_notices 의 사전규격 번호)·revision 목록·이 조직의 최신 run·결정을 함께 읽고,
     // 공고의 latest_revision 에 딸린 본문·첨부·구조화 자격·추출을 이어서 함께 읽는다.
     async getBid(orgId, id) {
@@ -343,7 +358,8 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
       return bidExistsIn(await getSupabase(), bidId);
     },
 
-    // 분석 이력: created_at 내림차순(nulls last), 같은 시각은 id 오름차순 키셋.
+    // 분석 이력: created_at 내림차순(nulls last), 같은 시각은 id 내림차순 키셋.
+    // 동률 순서는 최신 run 조회(latestAnalysis)·뷰와 같다. 이력 첫 줄이 "최신"과 어긋나지 않는다(M11).
     async listAnalyses(orgId, bidId, limit, after) {
       const db = await getSupabase();
       const base = db
@@ -351,10 +367,11 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
         .select(ANALYSIS_SELECT)
         .eq("org_id", orgId)
         .eq("bid_id", bidId);
-      const paged = after === null ? base : base.or(keysetFilter("created_at", "desc", after));
+      const paged =
+        after === null ? base : base.or(keysetFilter("created_at", "desc", after, "desc"));
       const { data, error } = await paged
         .order("created_at", { ascending: false, nullsFirst: false })
-        .order("id", { ascending: true })
+        .order("id", { ascending: false })
         .limit(limit + 1);
       if (error) throw error;
       return pageOf(data, limit, toAnalysis, (row) => ({ sortValue: row.created_at, id: row.id }));

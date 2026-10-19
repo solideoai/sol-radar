@@ -8,7 +8,7 @@ import {
   effectiveStatus,
   recommendationSchema,
 } from "./bid.model";
-import type { DashboardRepo, DashboardSource } from "./bids.repo";
+import type { DashboardRepo, DashboardSource, DashboardStatusSource } from "./bids.repo";
 
 // 대시보드 원천. 공고에 이 조직의 분석·결정을 붙여 읽고, 수집 신선도·안 읽은 알림 수·AI 상태를 함께 모은다.
 // 집계(최신 1건 고르기·세기)는 서비스(getDashboardSummary)가 한다.
@@ -48,6 +48,19 @@ function freshnessOf(rows: unknown[]): DashboardSource["dataFreshness"] {
   };
 }
 
+type Db = Awaited<ReturnType<typeof getSupabase>>;
+
+// 상단바 두 값(수집 신선도·안 읽은 알림 수). 대시보드 전체 읽기와 업무 틀이 함께 쓴다.
+async function readStatus(db: Db, origin: "live" | "demo" | "all"): Promise<DashboardStatusSource> {
+  const [ingest, unread] = await Promise.all([
+    db.rpc("latest_ingest_run", { p_origin: origin }),
+    db.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+  ]);
+  if (ingest.error) throw ingest.error;
+  if (unread.error) throw unread.error;
+  return { dataFreshness: freshnessOf(ingest.data ?? []), unreadNotifications: unread.count ?? 0 };
+}
+
 export function createDashboardRepo(config: {
   aiStatus: () => Promise<DashboardSource["ai"]>;
 }): DashboardRepo {
@@ -60,15 +73,12 @@ export function createDashboardRepo(config: {
         .eq("score_runs.org_id", orgId)
         .eq("bid_reviews.org_id", orgId);
       const bidsQuery = origin === "all" ? base : base.eq("is_demo", origin === "demo");
-      const [bids, ingest, unread, ai] = await Promise.all([
+      const [bids, status, ai] = await Promise.all([
         bidsQuery,
-        db.rpc("latest_ingest_run", { p_origin: origin }),
-        db.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+        readStatus(db, origin),
         config.aiStatus(),
       ]);
       if (bids.error) throw bids.error;
-      if (ingest.error) throw ingest.error;
-      if (unread.error) throw unread.error;
       const now = new Date();
       return {
         bids: bids.data.map((bid) => ({
@@ -91,10 +101,14 @@ export function createDashboardRepo(config: {
             decidedAt: review.decided_at,
           })),
         })),
-        dataFreshness: freshnessOf(ingest.data ?? []),
+        dataFreshness: status.dataFreshness,
         ai,
-        unreadNotifications: unread.count ?? 0,
+        unreadNotifications: status.unreadNotifications,
       };
+    },
+
+    async loadStatus(origin) {
+      return readStatus(await getSupabase(), origin);
     },
   };
 }
