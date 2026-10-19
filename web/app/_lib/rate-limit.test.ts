@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAnalysisRateLimiter } from "./rate-limit";
+
+afterEach(() => vi.useRealTimers());
 
 function memoryCounter() {
   const counts = new Map<string, number>();
@@ -48,5 +50,17 @@ describe("createAnalysisRateLimiter", () => {
   it("Redis 주소도 counter 도 없으면 던진다", async () => {
     const limiter = createAnalysisRateLimiter({ redisUrl: undefined });
     await expect(limiter.hit("org")).rejects.toThrow();
+  });
+
+  it("counter 가 제한 시간을 넘기면 거부한다", async () => {
+    vi.useFakeTimers();
+    const limiter = createAnalysisRateLimiter({
+      redisUrl: "redis://h",
+      timeoutMs: 3000,
+      counter: () => new Promise<number>((resolve) => setTimeout(() => resolve(1), 5000)),
+    });
+    const result = expect(limiter.hit("org")).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(3000);
+    await result;
   });
 });

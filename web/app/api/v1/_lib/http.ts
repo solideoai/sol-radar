@@ -25,6 +25,8 @@ const responseHeaders = (requestId: string) => ({
   "Cache-Control": "no-store",
   "X-Request-Id": requestId,
 });
+const dbUnavailable = (): Response =>
+  apiError(503, "SERVICE_UNAVAILABLE", "DB가 연결되지 않았습니다.", { component: "db" });
 export const json = (body: unknown, status = 200): Response =>
   Response.json(body, { status, headers: responseHeaders(crypto.randomUUID()) });
 export function apiError(
@@ -37,7 +39,7 @@ export function apiError(
   const requestId = crypto.randomUUID();
   return Response.json(
     { error: { code, message, details, requestId } },
-    { status, headers: { ...responseHeaders(requestId), ...headers } },
+    { status, headers: { ...headers, ...responseHeaders(requestId) } },
   );
 }
 
@@ -86,13 +88,7 @@ export async function requireUser(request: Request): Promise<Guarded> {
   // Presence, not successful parsing: a malformed Authorization must never fall back to a cookie.
   const hasAuthorization = request.headers.has("Authorization");
   const auth = await authenticate(hasAuthorization ? "bearer" : "request");
-  if (auth.status === "no-database")
-    return {
-      ok: false,
-      response: apiError(503, "SERVICE_UNAVAILABLE", "DB가 연결되지 않았습니다.", {
-        component: "db",
-      }),
-    };
+  if (auth.status === "no-database") return { ok: false, response: dbUnavailable() };
   if (auth.status === "unauthenticated")
     return { ok: false, response: apiError(401, "UNAUTHENTICATED", "로그인이 필요합니다.") };
   if (auth.status === "suspended")
@@ -118,7 +114,7 @@ export function employmentResponse(result: EmploymentResult): Response {
     case "missing":
       return apiError(404, "NOT_FOUND", "프로필이 없습니다.", { resource: "profile" });
     case "no-database":
-      return apiError(503, "SERVICE_UNAVAILABLE", "DB가 연결되지 않았습니다.", { component: "db" });
+      return dbUnavailable();
     case "invalid":
       return apiError(400, "VALIDATION_ERROR", "가입 정보를 확인하세요.", {
         issues: Object.entries(result.fields).map(([path, message]) => ({ path, message })),
@@ -163,9 +159,7 @@ export async function requireBusinessUser(
   const reject = (response: Response) => ({ ok: false as const, response });
   switch (access.status) {
     case "no-database":
-      return reject(
-        apiError(503, "SERVICE_UNAVAILABLE", "DB가 연결되지 않았습니다.", { component: "db" }),
-      );
+      return reject(dbUnavailable());
     case "signed-out":
       return reject(apiError(401, "UNAUTHENTICATED", "로그인이 필요합니다."));
     case "no-org":

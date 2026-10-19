@@ -1,5 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
-import { createAnalysisQueue, describeQueueError } from "./analysis-queue";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  createAnalysisQueue,
+  createQueueCache,
+  describeQueueError,
+  type QueueHandle,
+} from "./analysis-queue";
+
+afterEach(() => vi.useRealTimers());
 
 const orgId = "11111111-1111-4111-8111-111111111111";
 const scoreRunId = "22222222-2222-4222-8222-222222222222";
@@ -30,14 +37,80 @@ describe("createAnalysisQueue", () => {
   });
 
   it("등록이 제한 시간을 넘기면 거부한다", async () => {
+    vi.useFakeTimers();
     const addJob = vi.fn(() => new Promise<unknown>((resolve) => setTimeout(resolve, 5000)));
     const queue = createAnalysisQueue({ redisUrl: "redis://h:6379", addJob, timeoutMs: 50 });
-    await expect(queue.enqueue(job)).rejects.toThrow();
+    const result = expect(queue.enqueue(job)).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(50);
+    await result;
   });
 
   it("Redis 주소가 없으면 거부한다", async () => {
     const queue = createAnalysisQueue({ redisUrl: undefined });
     await expect(queue.enqueue(job)).rejects.toThrow();
+  });
+});
+
+function fakeQueues(addResults: Array<"ok" | "fail">) {
+  const created: Array<
+    QueueHandle & { add: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }
+  > = [];
+  const factory = vi.fn((): QueueHandle => {
+    const result = addResults[created.length] ?? "ok";
+    const handle = {
+      add: vi.fn(() =>
+        result === "ok" ? Promise.resolve(undefined) : Promise.reject(new Error("redis down")),
+      ),
+      close: vi.fn(async () => {}),
+    };
+    created.push(handle);
+    return handle;
+  });
+  return { created, factory };
+}
+
+describe("Queue 재사용", () => {
+  it("enqueue 를 여러 번, createAnalysisQueue 를 두 번 불러도 Queue 는 한 번만 만든다", async () => {
+    const { created, factory } = fakeQueues(["ok"]);
+    const queueCache = createQueueCache(factory);
+    const first = createAnalysisQueue({ redisUrl: "redis://h:6379", queueCache });
+    const second = createAnalysisQueue({ redisUrl: "redis://h:6379", queueCache });
+    await first.enqueue(job);
+    await second.enqueue(job);
+    expect(factory).toHaveBeenCalledTimes(1);
+    expect(created[0]?.add).toHaveBeenCalledTimes(2);
+    expect(created[0]?.close).not.toHaveBeenCalled();
+  });
+
+  it("등록이 실패하면 그 Queue 를 닫고 버려 다음 호출이 새로 만든다", async () => {
+    const { created, factory } = fakeQueues(["fail", "ok"]);
+    const queue = createAnalysisQueue({
+      redisUrl: "redis://h:6379",
+      queueCache: createQueueCache(factory),
+    });
+    await expect(queue.enqueue(job)).rejects.toThrow("redis down");
+    expect(created[0]?.close).toHaveBeenCalledTimes(1);
+    await queue.enqueue(job);
+    expect(factory).toHaveBeenCalledTimes(2);
+    expect(created[1]?.add).toHaveBeenCalledTimes(1);
+  });
+
+  it("제한 시간을 넘긴 등록도 Queue 를 버린다", async () => {
+    vi.useFakeTimers();
+    const hang: QueueHandle = {
+      add: () => new Promise(() => {}),
+      close: vi.fn(async () => {}),
+    };
+    const factory = vi.fn(() => hang);
+    const queue = createAnalysisQueue({
+      redisUrl: "redis://h:6379",
+      timeoutMs: 50,
+      queueCache: createQueueCache(factory),
+    });
+    const result = expect(queue.enqueue(job)).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(50);
+    await result;
+    expect(hang.close).toHaveBeenCalledTimes(1);
   });
 });
 
