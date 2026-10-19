@@ -25,7 +25,7 @@ updated: 2026-10-19
 |권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 템플릿 호환용이라 이 열에 쓰지 않는다. 구성원 관리도 `sol_role=ADMIN`이다(RLS 정책은 `20261019000001`, [[16-DECISIONS\|ADR-021]]). `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
 |목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
-|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간|
+|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. `POST /bids/:id/analyses`에 키가 없으면 서버가 UUID를 만든다([[16-DECISIONS\|ADR-030]] B20)|
 |요청 ID|모든 응답에 `X-Request-Id`. 로그·감사·오류 본문에 같은 값|
 |속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `/admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 초과 `429` + `Retry-After`|
 |문서|계약의 원천은 zod 스키마다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성하고 개발 환경에서만 노출한다|
@@ -48,7 +48,7 @@ updated: 2026-10-19
 |GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|현재 프로필(최신 revision)|`CompanyProfile`|
 |GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 이력|`CompanyProfileSummary[]`|
 |PUT|`/company-profile`|`ADMIN`|새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
-|POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기)|`AnalysisRequest` → `202 AnalysisAccepted`|
+|POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기). 중복·큐 계약은 §4.5|`AnalysisRequest` → `202 AnalysisAccepted`|
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
 |GET|`/bids/:id/qualification-checks`|`ADMIN, SALES, ANALYST, VIEWER`|최신 분석의 자격 판정(항목마다 사유 코드·회사 근거·값 출처)|`QualificationCheck[]`|
@@ -88,16 +88,13 @@ updated: 2026-10-19
 
 [[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`. "P1, ADR-021" 행은 [[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단이며 데모 필수가 모두 끝난 뒤 만든다.
 
-> [!note] 제안 — ADR-030
-> B20 `POST /bids/:id/analyses`의 중복·큐 계약을 정한다. 상세는 §4.5 콜아웃([[16-DECISIONS|ADR-030]]).
-
 ## 3. `GET /bids` 쿼리 파라미터
 
 |파라미터|타입|기본|검증|의미|
 |---|---|---|---|---|
 |`q`|string|—|1~100자|제목·기관·공고번호 검색(trigram). 비어 있으면 전체|
 |`stage`|`PLAN\|PRE_SPEC\|NOTICE`, 반복 가능|전체|ENUM|단계 필터|
-|`status`|`OPEN\|AMENDED\|CANCELLED\|CLOSED`, 반복 가능|`OPEN,AMENDED`|ENUM|상태 필터. 명시하면 그 값만|
+|`status`|`OPEN\|AMENDED\|CANCELLED\|CLOSED`, 반복 가능|`OPEN,AMENDED`|ENUM|상태 필터. 명시하면 그 값만. 기본값은 취소 공고(`CANCELLED`)를 숨긴다. 화면 `/bids`의 상태 필터에는 "취소 포함" 선택지가 있고, 고르면 `CANCELLED`도 함께 읽어 그 행에 "취소됨"을 표시한다. 공고 상세(`GET /bids/:id`)는 상태와 상관없이 열린다([[16-DECISIONS\|ADR-029]] A7). 저장 상태는 `OPEN`·`AMENDED`·`CANCELLED`이고, `CLOSED`는 수집 정규화가 만들지 않고 조회할 때 `deadlineAt`으로 계산한다([[15-DATA-CONTRACTS\|15]] §3, [[16-DECISIONS\|ADR-030]] B14)|
 |`agencies`|string, 반복 가능(`agencies=a&agencies=b`)|—|각 1~100자, 최대 10개|발주기관 정확 일치|
 |`budgetMin`, `budgetMax`|KRW 정수 문자열|—|`>= 0`, `min <= max`|예산 범위. 예산 `null`인 공고는 범위 필터에 걸리지 않고 제외된다|
 |`deadlineFrom`, `deadlineTo`|ISO8601|—|`from <= to`|마감 범위. 마감 `null`은 제외|
@@ -113,9 +110,6 @@ updated: 2026-10-19
 |`watched`|`me`|—|ENUM|본인 관심 공고만(P1, [[16-DECISIONS\|ADR-021]])|
 
 커서는 `(sort 키 값, id)`를 base64url로 인코딩하고 HMAC(키: 서버 전용 env `API_CURSOR_SECRET`, [[10-DEPLOYMENT|10 배포]])을 붙인다. 필터·정렬이 바뀌면 커서를 버리고 처음부터 요청한다.
-
-> [!note] 제안 — ADR-030
-> B14 `CLOSED`는 수집 정규화가 만들지 않고 조회할 때 `deadlineAt`으로 계산한다(저장 상태는 `OPEN`·`AMENDED`·`CANCELLED`). 그래서 `status` 필터와 기본값 `OPEN,AMENDED`가 마감 지난 공고를 어떻게 다룰지는 채택할 때 함께 정한다([[15-DATA-CONTRACTS|15]] §3, [[16-DECISIONS|ADR-030]]).
 
 ## 4. DTO
 
@@ -247,16 +241,13 @@ interface CompanyProfile {
   preferences: { agencies: string[]; agencyTypes: string[]; domains: string[]; excludedDomains: string[]; excludedKeywords: string[] } | null;  // agencyTypes 예: "교육청"; excludedDomains 예: "국방"
   effectiveAt: string; createdBy: { id: string; name: string }; createdAt: string; note: string | null;
 }
-type CompanyProfileSummary = Pick<CompanyProfile, "id" | "revision" | "effectiveAt" | "createdBy" | "createdAt" | "note">;
+type CompanyProfileSummary = Pick<CompanyProfile, "id" | "revision" | "effectiveAt" | "createdBy" | "createdAt" | "note">;   // revision 목록 요약. gateway /kev의 profileSummary(03 §5.7, CompanyProfile 전체 + 선택 staffAvailability)와 이름만 같고 다른 것이다(ADR-030 B5)
 interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "orgId" | "revision" | "isDemo" | "createdBy" | "createdAt"> {
   baseRevision: number;            // 현재 최신 revision. 다르면 409 PROFILE_REVISION_CONFLICT
 }
 ```
 
 명시적 부정 필드(`licenses[].status`, `industryCodes[].status`, `technologiesComplete`)가 있는 이유: 자격 판정의 미충족(`NOT_SATISFIED`)에는 회사 쪽 명시적 부정 근거가 필요하다. 목록에 없다는 사실만으로는 미충족이 아니라 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다([[08-SCORING|08 점수]] §5.1). `isDemo`는 입력에서 받지 않는다. 서버가 `true`로 저장하고, 실제 회사 자료를 넣는 경로는 별도 ADR과 [[09-SECURITY|09 보안]] 개정 전에는 없다.
-
-> [!note] 제안 — ADR-030
-> B5 gateway `/kev`의 `profileSummary`([[03-AI-PIPELINE|03]] §5.7)는 이 절의 `CompanyProfile` 전체 + 선택 `staffAvailability`다. 위 `CompanyProfileSummary`(revision 목록용 요약)와 이름만 같고 모양이 다르다. 채택할 때 어느 쪽 이름을 바꿀지 정한다([[16-DECISIONS|ADR-030]]).
 
 ### 4.5 분석
 
@@ -265,8 +256,8 @@ interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "orgId" | "rev
 ```ts
 interface AnalysisRequest {
   profileRevision?: number;        // 생략 시 최신
-  force?: boolean;                 // true: 같은 입력(revision·프로필·알고리즘)에 완료된 run이 있어도 새 run 생성. 이전 run은 보존.
-                                   // false(기본): 같은 입력의 완료 run이 있으면 그 run을 돌려준다(deduplicated=true)
+  force?: boolean;                 // true: 같은 입력(revision·프로필·알고리즘)에 완료된 run이 있어도 새 run 생성. 이전 run은 보존. 진행 중 run이 있으면 409 ANALYSIS_IN_PROGRESS
+                                   // false(기본): 같은 입력의 완료 run 또는 진행 중 run이 있으면 그 run을 돌려준다(202, deduplicated=true)
 }
 interface AnalysisAccepted { analysisId: string; status: AnalysisStatus; deduplicated: boolean; pollUrl: string }
 
@@ -322,12 +313,11 @@ interface AnalysisResult {
 }
 ```
 
-> [!note] 제안 — ADR-030
-> B20 분석 요청 계약([[16-DECISIONS|ADR-030]]):
-> - 같은 입력 = (revision, 회사 프로필 revision, 알고리즘 버전). `force:false`이고 같은 입력의 run이 진행 중이면 `202 deduplicated:true`로 그 run을 돌려준다. `force:true`이고 진행 중이면 `409 ANALYSIS_IN_PROGRESS {analysisId}`.
-> - 큐 등록에 실패하면 run을 `FAILED`(`errorCode=ENQUEUE_FAILED`)로 바꾸고 멱등 키를 풀어 `503`을 준다.
-> - `Idempotency-Key`가 없으면 서버가 UUID를 만든다. `score_runs`의 멱등 키는 `<org_id>:<requestId>`다.
-> - 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않는다), payload `{orgId, scoreRunId, idempotencyKey}`.
+분석 요청 계약([[16-DECISIONS|ADR-030]] B20):
+- 같은 입력 = (revision, 회사 프로필 revision, 알고리즘 버전). `force:false`이고 같은 입력의 run이 진행 중이면 `202 deduplicated:true`로 그 run을 돌려준다. `force:true`이고 진행 중이면 `409 ANALYSIS_IN_PROGRESS {analysisId}`.
+- 큐 등록에 실패하면 run을 `FAILED`(`errorCode=ENQUEUE_FAILED`)로 바꾸고 멱등 키를 풀어 `503`을 준다.
+- `Idempotency-Key`가 없으면 서버가 UUID를 만든다. `score_runs`의 멱등 키는 `<org_id>:<requestId>`다.
+- 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않는다), payload `{orgId, scoreRunId, idempotencyKey}`.
 
 ### 4.6 검토·알림·대시보드·수집
 
@@ -346,7 +336,7 @@ interface Review {
 interface Notification {
   id: string; type: "BID_CREATED" | "BID_CHANGED" | "DEADLINE_APPROACHING" | "ANALYSIS_COMPLETE" | "REVIEW_ASSIGNED";
   channel: "IN_APP" | "KAKAO"; status: "PENDING" | "SENT" | "FAILED" | "DEAD";
-  payload: { bidId: string; title: string; message: string; link: string; changedFields?: string[] };
+  payload: { bidId: string; title: string; message: string; link: string; changedFields?: string[] };   // link는 앱 안 경로만. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 /bids/{bidId}로 바꾼다(열린 리다이렉트 방지, ADR-030 B23)
   readAt: string | null; createdAt: string;
 }
 interface DashboardSummary {
@@ -436,9 +426,6 @@ interface EvalRunReport extends EvalRunSummary {
 
 `IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE|07 수집]] §2.2)는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
 
-> [!note] 제안 — ADR-030
-> B23 `Notification.payload.link`의 열린 리다이렉트 방지는 서버(알림 목록 서비스)가 맡는다. 앱 안 경로만 내려 보내고, 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[13-NOTIFICATIONS|13 알림]], [[09-SECURITY|09 보안]], [[16-DECISIONS|ADR-030]]).
-
 ### 4.7 조직·인력 (ADR-021, 구현 예정)
 
 가상 직원 명부를 읽는 DTO다. 연락처 필드는 없다([[09-SECURITY|09 보안]] 솔리데오 명부 절).
@@ -487,14 +474,11 @@ interface TeamMemberDetail extends TeamMemberListItem {
 |422|`HOSTED_NOT_APPROVED`|`AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=false`. `/admin/ai/status`에서만|—|
 |429|`RATE_LIMITED`|속도 제한(Redis로 세는 §1의 API 제한)|`Retry-After` 헤더|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
-|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음|`{component:"queue"\|"db"\|"storage"}`|
+|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20)|`{component:"queue"\|"db"\|"storage"}`|
 
 로그인 실패·시도 제한·토큰 갱신 실패는 이 API가 아니라 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
 
 `AI_UNAVAILABLE`, `EXTRACTION_FAILED`는 HTTP 오류가 아니다. 분석은 비동기이므로 AI 장애는 `AnalysisResult.status=PARTIAL` + `errorCode`로 나타난다. API가 503을 내는 경우는 요청 자체를 큐에 넣지 못할 때뿐이다.
-
-> [!note] 제안 — ADR-030
-> B20: 분석 요청의 큐 등록 실패는 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 `503`을 준다. 같은 입력 진행 중의 `force:false`는 `409`가 아니라 `202 deduplicated:true`다. 상세는 §4.5 콜아웃([[16-DECISIONS|ADR-030]]).
 
 [[16-DECISIONS|ADR-020]]의 실패 유형도 HTTP 오류가 아니다. 유형마다 따로 기록하고 따로 보여 주며, 한 유형을 다른 유형으로 뭉뚱그리지 않는다.
 
@@ -662,7 +646,7 @@ live 수집 결과의 건수는 실제 공고에 따라 달라지므로 예시�
 - 모든 DTO·쿼리·본문은 zod 스키마 하나에서 검증과 타입(`z.infer`)을 얻는다. 화면 폼(react-hook-form)도 같은 스키마를 쓴다. 손으로 두 번 쓰지 않는다.
 - 요청 처리 경로의 DB 호출은 사용자 세션(anon 키 + 사용자 토큰)으로만 한다. 조직 범위는 RLS(`org_id in (select public.my_org_ids())`)가 강제하므로 코드가 조건을 빠뜨려도 다른 조직 행은 보이지 않고 404가 된다. 쓰기 권한도 RLS 정책으로 한 번 더 막고, 정책 시험은 `scripts/database.test.mjs`(`pnpm test:db`)에 둔다. `SUPABASE_SERVICE_ROLE_KEY`는 Route Handler에서 쓰지 않는다(worker·seed만, [[09-SECURITY|09 보안]]).
 - worker(`web/worker`)는 service role이라 RLS를 거치지 않는다. 조직 데이터를 쓸 때 `org_id`를 직접 지정하고, 테넌트 혼입을 막는 시험을 둔다.
-- `POST /bids/:id/analyses`의 중복 방지는 [[04-DATABASE|04 DB]]의 부분 UNIQUE 인덱스와 `Idempotency-Key` 둘로 한다. `force=false`에서 같은 입력의 완료 run이 있으면 새 job을 만들지 않고 `deduplicated:true`로 그 run을 돌려준다.
+- `POST /bids/:id/analyses`의 중복 방지는 [[04-DATABASE|04 DB]]의 부분 UNIQUE 인덱스와 `Idempotency-Key` 둘로 한다. `force=false`에서 같은 입력의 완료 run이나 진행 중 run이 있으면 새 job을 만들지 않고 `deduplicated:true`로 그 run을 돌려준다(§4.5 분석 요청 계약).
 - `POST /bids/:id/reviews`는 한 트랜잭션 안에서 `bid_reviews` insert + `audit_logs` insert를 쓰고, `assigneeUserId`가 있을 때만 `REVIEW_ASSIGNED` outbox(수신자 = 담당자, idempotency `reviewId+assigneeUserId+REVIEW_ASSIGNED`)를 함께 쓴다. supabase-js 질의 빌더는 여러 문장을 한 트랜잭션으로 묶지 못하므로, 이런 쓰기는 `supabase/migrations`의 DB 함수로 만들고 `rpc`로 부른다.
 - 응답에 Kev 값이 있을 때마다 `disclaimer` 문자열("Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.")을 내려 보내고, UI는 그 문자열을 그대로 보여 준다. Kev 값(v0.1 분포, v0.2 `scores`·`risks`, 항목별 `requirementAssessments[].kev`)은 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 둔다. 충족 확률·낙찰 확률·수주확률로 읽힐 표현을 쓰지 않는다([[16-DECISIONS|ADR-020]]).
 - 실행 모드는 서버가 env `SOL_RUN_MODE`로 정한다. 요청으로 바꿀 수 없다. 소스·모드가 맞지 않는 요청은 조용히 고치지 않고 `409 RUN_MODE_MISMATCH`로 거절한다.

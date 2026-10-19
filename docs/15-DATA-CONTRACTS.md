@@ -187,15 +187,12 @@ interface StructuredRequirement {
 
 - live 공고의 원본 필드 → `NormalizedBid` 매핑은 [[07-DATA-PIPELINE|07 수집]] §3.1이다.
 - **개인정보**: 공공 API 응답의 담당자 필드(이름·전화·이메일)는 `NormalizedBid`·`StructuredRequirement.value`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
+- **`seq`**: `StructuredRequirement`에는 `seq`가 없다. 수집(Connector)은 `seq` 없이 내고 `structuredQualifications`의 순서를 결정적으로(안정 정렬) 만든다. 분석 쪽 변환이 배열 index(0부터)로 `seq`([[04-DATABASE|04 DB]] `bid_structured_requirements.seq`)를 채운다([[16-DECISIONS|ADR-030]] B13).
+- **`status` 매핑**: 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 원본 값은 §6 격리다. fixture 레코드에 `status`가 없고 revision ≥ 2면 `AMENDED`다([[07-DATA-PIPELINE|07 수집]] §3.1·§6.5, [[16-DECISIONS|ADR-030]] B14). 목록의 기본 상태 필터와 취소 공고 표시는 [[05-API-SPEC|05 API]] §3이다.
 - **API 구조화 필드 우선**: 같은 조건을 API 구조화 필드(`structuredQualifications`, 금액 `budgetKrw`, 마감 `deadlineAt`)와 Qwen 추출이 둘 다 주면 API 구조화 필드가 우선이다. 두 값이 다르면 그 필드를 `CONFLICTED`로 두고 사람이 본다(§4). 이때 API 쪽 근거는 `EvidenceRef(kind=API_FIELD)`로 남긴다(§2). 규칙 엔진의 판정 방식은 [[08-SCORING|08 점수]] §5.1.
 
 > [!warning] 미검증 가정
 > `structuredQualifications`의 원천 필드는 2026-10-19 C1 ①에서 실제 응답으로 확인했다([C1 API 증거](evidence/phase-0/external-deps-api-20261019.md) §5·§10, 녹음 응답 `fixtures/recorded/15129394/`). 면허제한·참가가능지역 필드는 목록 응답에 없고 보조 조회에만 있다. 여부 플래그 `indstrytyLmtYn`·`bidPrtcptLmtYn`은 목록 응답에 있다. 남은 것은 두 가지다. 여부 플래그를 어느 `kind`·필드에 담을지 정하지 않았다. 면허제한이 여러 행일 때의 뜻도 미검증이다. 응답에 AND/OR 필드는 없고 `lmtGrpNo`(그룹)·`lmtSno`(일련번호)만 있으며, "그룹 안은 AND, 그룹끼리는 OR"로 읽히지만 확인하지 않았다([[16-DECISIONS|16 ADR]] 미결정 19번). 확인 전에는 면허제한이 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다.
-
-> [!note] 제안 — ADR-030
-> 조정 결정([[16-DECISIONS|ADR-030]]):
-> - B13 `StructuredRequirement`에는 `seq`가 없다. 수집(Connector)은 이 절대로 `seq` 없이 내고, `structuredQualifications`의 순서를 결정적으로(안정 정렬) 만든다. 분석 쪽 변환이 배열 index(0부터)로 `seq`를 채운다.
-> - B14 `status` 매핑: 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 원본 값은 §6 격리다. fixture 레코드에 `status`가 없고 revision ≥ 2면 `AMENDED`다([[07-DATA-PIPELINE|07 수집]] §3.1·§6.5, [[05-API-SPEC|05 API]] §3 `status` 기본 필터와 함께 정한다).
 
 ## 4. `RequirementExtraction` 요약
 
@@ -326,7 +323,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 
 |`key`|서비스 (ID)|`endpoint` (기본 URL + 오퍼레이션)|호출 시점|`approvalStatus`|`serviceKeyEnv`|
 |---|---|---|---|---|---|
-|`g2b-bid-notice`|입찰공고정보서비스 (15129394)|`http://apis.data.go.kr/1230000/ad/BidPublicInfoService` + `getBidPblancListInfoServc`, `getBidPblancListInfoChgHstryServc`|일정 실행·수동 실행|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
+|`g2b-bid-notice`|입찰공고정보서비스 (15129394)|`https://apis.data.go.kr/1230000/ad/BidPublicInfoService` + `getBidPblancListInfoServc`, `getBidPblancListInfoChgHstryServc`|일정 실행·수동 실행|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
 |`g2b-bid-license-limit`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoLicenseLimit`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
 |`g2b-bid-region`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoPrtcptPsblRgn`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
 |`g2b-bid-eorder-attach`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoEorderAtchFileInfo`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
@@ -336,11 +333,9 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job|`NOT_REQUESTED`|—|
 |`fixture`|fixture 20건(`FX-01`~`FX-20`)|— (네트워크 호출 없음)|seed·수동 수집|`APPROVED`|—|
 
-- 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
+- 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
+- `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 만든다. Connector는 endpoint를 생성자로 받아 registry 로딩과 떼어 둔다(B16).
 - `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 로그인·세션 없이 익명 GET으로 받아진다(C1 ② B2, 2026-10-19 공고 3건, 리다이렉트 0회). 남은 것은 이용약관상 자동 다운로드가 허용되는지다(미결정 16번). 그 확인 뒤 `approvalStatus`와 `quota`의 뜻을 정한다.
-
-> [!note] 제안 — ADR-030
-> B16 위 표의 기본 URL을 `https://apis.data.go.kr`로 바꾼다. 서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다. `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 새로 만들고, Connector는 endpoint를 생성자로 받아 registry 로딩과 떼어 둔다([[07-DATA-PIPELINE|07 수집]] §1.1, [[16-DECISIONS|ADR-030]]).
 
 > [!success] 검증됨 (명세 2026-10-16, 실제 응답 2026-10-19 — data.go.kr 서비스 페이지 Swagger·참고문서, C1 ① 실호출)
 > 서비스 ID·기본 URL·오퍼레이션·개발계정 일 1,000 한도는 아래 서비스 페이지의 명세에서 확인했다. 2026-10-19 C1 ①에서 4개 서비스 모두 서비스키로 실제 응답(`resultCode 00`)을 받았고, 마스킹한 녹음 응답을 `fixtures/recorded/`에 두었다. 호출 로그와 설계와 다른 점 8건(키 형식, 오류 봉투, 보조 조회의 `inqryDiv=2`, `infoBizYn` 요청 필터 무시 등)은 [C1 API 증거](evidence/phase-0/external-deps-api-20261019.md)에 있다. 이 콜아웃이 data.go.kr 검증 사실의 정본이다.

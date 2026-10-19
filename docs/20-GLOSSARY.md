@@ -172,7 +172,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | API 구조화 필드 | 면허제한·참가가능지역·금액·마감처럼 공공 API가 필드로 주는 조건. 같은 조건이면 Qwen 추출보다 우선 | [[08-SCORING]] |
 | `DocumentParser` | HWP·HWPX·PDF 형식별 파서 어댑터 인터페이스. 결과는 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED`. 계약 정본은 03 §10 | [[03-AI-PIPELINE]] |
 | 실패 유형 | 공공 API 실패·첨부 다운로드 불가·파싱 실패·모델 서버 미접속(Qwen·Kev 따로). 서로 섞지 않고 따로 기록·표시 | [[03-AI-PIPELINE]] |
-| `MOCK_FALLBACK` | `AI_FALLBACK_TO_MOCK=true`(live 금지)일 때 실제 모델 대신 mock 결과를 낸 run의 플래그. 화면에 "실제 모델 결과 아님" 배너 | [[03-AI-PIPELINE]] |
+| `MOCK_FALLBACK` | `AI_FALLBACK_TO_MOCK=true`(live 금지)일 때 실제 모델 대신 mock 결과를 낸 run의 플래그. 화면에 "실제 모델 결과 아님" 배너. 해커톤 동안은 자동 대체를 구현하지 않아 `true`면 기동 거부다([[16-DECISIONS\|ADR-030]] B11) | [[03-AI-PIPELINE]] |
 | 참고 지표 | Kev 결과를 보여 주는 화면 영역. SOL Score·자격·권고에 반영하지 않는다 | [[08-SCORING]] |
 | `kev-qs/v0.2` | Kev 질문 세트 v0.2. 요구사항별 `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`, `techFit`, `perfRelevance`, `risk.*`. v0.1과 함께 쓴다 | [[03-AI-PIPELINE]] |
 | 사유 코드 | `NEEDS_REVIEW`의 이유. `NOTICE_INFO_MISSING`·`NOTICE_CONFLICTED`·`COMPANY_EVIDENCE_MISSING`·`AMBIGUOUS_MATCH`·`PARSE_UNSUPPORTED`·`STAGE_NOT_APPLICABLE` | [[08-SCORING]] |

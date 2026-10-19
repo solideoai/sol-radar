@@ -35,7 +35,7 @@ Kev·Qwen 을 부르는 유일한 컴포넌트를 구현한다. mock 이든 실�
   - HTTP 200 은 "gateway 가 응답했다"는 뜻이다. 추출·Kev 실패는 본문 `status`·`errorCode`·`kev.enabled` 로 표현한다.
   - `mock` 은 모델 호출만 고정 응답으로 바꾼다. `fixtures/extractions/FX-xx.json` 도 스키마·인용 검증을 **실제로** 통과시켜 반환한다. Kev mock 은 `fixtures/kev/FX-xx.json`(wire 형식 그대로), 파일이 없을 때만 §5.7 공식.
   - Kev 입력은 어댑터가 만든 **영어 템플릿 state** 만. 한국어 원문·자유 텍스트·규칙 결과(자격·점수·권고)를 넣지 않는다. 질문 세트는 코드에 고정한다.
-  - Kev wire 필드명은 `kev_wire.py` 한 곳에서만 다룬다. `KEV_ENABLED` 기본 `false`. Kev 는 `pip install kev` 가 아니라 소스 설치다(10 Kev 컨테이너 주의).
+  - Kev wire 필드명은 `kev_wire.py` 한 곳에서만 다룬다. `KEV_ENABLED` 는 세 모드 모두 `true`·`false` 허용, 기본 `true`(ADR-029 A5). Kev 는 `pip install kev` 가 아니라 소스 설치다(10 Kev 컨테이너 주의).
   - `AI_PROVIDER=hosted` 인데 `AI_HOSTED_APPROVED` 가 `true` 가 아니면 기동을 거부한다. 조용히 mock 으로 바꾸지 않는다.
     hosted 클라이언트 코드는 사용자 승인(`docs/PROGRESS.md` 승인 기록) 전에 구현·호출하지 않는다.
   - `AI_FAULT_INJECT`(`kev_timeout`·`qwen_error`·`qwen_unreachable`·`kev_unreachable`·`gateway_down`, 03 §3 정본 5값)는 `AI_PROVIDER=mock` 에서만 유효한 테스트 전용 값이다. `gateway_down` 이면 `/extract`·`/kev`·`/explain` 이 `503 {"errorCode":"AI_UNAVAILABLE","message"}` 로 응답한다(시험 전용 예외, ADR-029 A3).

@@ -29,7 +29,7 @@ flowchart LR
  E --> F[Idempotent upsert<br/>Supabase, service role]
  F --> G[Revision diff]
  G --> J[documents job<br/>첨부 다운로드 → /parse]
- J --> H[Analysis enqueue]
+ J -.->|해커톤 컷 밖| H[Analysis enqueue]
  G --> I[Notification outbox]
 ```
 
@@ -37,17 +37,14 @@ flowchart LR
 
 | 단계 | 서비스 (ID) | 기본 URL | 쓰는 오퍼레이션 | 해커톤 |
 |---|---|---|---|---|
-| `NOTICE` | 입찰공고정보서비스 (15129394) | `http://apis.data.go.kr/1230000/ad/BidPublicInfoService` | `getBidPblancListInfoServc`(용역 목록), `getBidPblancListInfoChgHstryServc`(변경이력), `getBidPblancListInfoLicenseLimit`(면허제한), `getBidPblancListInfoPrtcptPsblRgn`(참가가능지역), `getBidPblancListInfoEorderAtchFileInfo`(e발주 첨부·제안요청서) | P0 |
+| `NOTICE` | 입찰공고정보서비스 (15129394) | `https://apis.data.go.kr/1230000/ad/BidPublicInfoService` | `getBidPblancListInfoServc`(용역 목록), `getBidPblancListInfoChgHstryServc`(변경이력), `getBidPblancListInfoLicenseLimit`(면허제한), `getBidPblancListInfoPrtcptPsblRgn`(참가가능지역), `getBidPblancListInfoEorderAtchFileInfo`(e발주 첨부·제안요청서) | P0 |
 | `PRE_SPEC` | 사전규격정보서비스 (15129437) | `/1230000/ao/HrcspSsstndrdInfoService` | `getPublicPrcureThngInfoServc`(용역), `getPublicPrcureThngInfoServcPPSSrch`(`swBizObjYn` 필터) | P0 (P0-8) |
 | `PLAN` | 발주계획현황서비스 (15129462) | `/1230000/ao/OrderPlanSttusService` | `getOrderPlanSttusListServc` | P0 (P0-8) |
 | 코드 마스터 | 업종 및 근거법규 (15129467) | `/1230000/ao/IndstrytyBaseLawrgltInfoService` | `getIndstrytyBaseLawrgltInfoList`(전체 업종 코드·명·근거법) | P0 (한 번 받아 사전으로 저장) |
 | 단계 연결 보조 | 계약과정통합공개 (15129459) | — | `getCntrctProcssIntgOpenServc` | 후속 (평가셋 사업 묶기에 선택 사용) |
 | 후속 | 낙찰정보 (15129397), 계약정보 (15129427), 사용자정보 (15129466) | — | — | 해커톤 밖. 낙찰은 학습 목표 아님 |
 
-registry 키(`g2b-bid-notice` 등 9개)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다.
-
-> [!note] 제안 — ADR-030
-> B16 registry 기본 URL은 `https://apis.data.go.kr`이다(위 표의 `http://`를 바꾼다). 서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다. `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 새로 만들고, Connector는 endpoint를 생성자로 받는다([[15-DATA-CONTRACTS|15]] §8, [[16-DECISIONS|ADR-030]]).
+registry 키(`g2b-bid-notice` 등 9개)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다. 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). registry 파일 `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 만들고, Connector는 endpoint를 생성자로 받는다.
 
 > [!success] 검증됨 (2026-10-16 명세 확인, 2026-10-19 실응답 확인)
 > 위 서비스 ID·기본 URL·오퍼레이션과 §2.2·§3.1의 요청 파라미터·응답 필드 이름은 각 서비스 페이지의 명세에서 확인했다. 무료이고 개발·운영 계정 모두 자동승인이며, 개발계정 호출 한도는 서비스마다 1,000이다(사용자정보·개방표준은 10,000). 2026-10-19에 서비스키로 네 서비스를 37회 실제 호출했고, 담당자 필드를 마스킹한 녹음 응답 14건을 `fixtures/recorded/<serviceId>/`에 저장했다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md)). 명세와 실제가 다른 점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8 콜아웃이 정본이다.
@@ -85,10 +82,9 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - worker는 `SUPABASE_SERVICE_ROLE_KEY`로 Supabase에 쓴다. 공고 표(`bid_notices`, `bid_revisions`, `bid_documents`)와 `ingest_runs`·`ingest_errors`·`outbox_events`는 화면 역할에 쓰기 권한이 없고 worker만 쓴다([[04-DATABASE|04 DB]] §3).
 - service role은 RLS를 무시한다. 공고는 공용 데이터라 `org_id`가 없다. 조직이 걸리는 행(수동 수집 감사 `INGEST_MANUAL`, 조직 사용자에게 가는 알림)은 job 데이터의 `orgId`를 직접 넣는다. 조직 표에 쓰는 worker 코드에는 테넌트 혼입 시험을 둔다.
 - 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다.
-- 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다. 변경 감지 뒤 분석 job 등록도 Redis/BullMQ로 한다.
-
-> [!note] 제안 — ADR-030
-> B18 수집 저장과 하위 job([[16-DECISIONS|ADR-030]]): 공고·revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 한 번에(원자적으로) 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘겨 리허설마다 공고 id를 보존한다. 변경 감지 뒤 하위 job은 outbox와 `documents` 큐만 만든다. 새 공고 자동 분석은 해커톤 컷에 없다(위 흐름도의 "Analysis enqueue"는 해커톤 컷에서 만들지 않는다. §5 표의 변경 시 "큐 등록"과 S5 재분석의 관계는 채택할 때 정한다). live 일정 수집 주기는 이 문서 값을 따르고, 값이 없으면 30분(env)이다.
+- 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다.
+- 공고·revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 한 번에(원자적으로) 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘겨 리허설마다 공고 id를 보존한다([[16-DECISIONS|ADR-030]] B18).
+- 변경 감지 뒤 하위 job은 outbox와 `documents` 큐만 Redis/BullMQ로 만든다. 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집 주기는 기본 30분이고 env로 바꾼다(B18).
 
 > [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`)
 > worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `import "server-only"`인 `web/server` 모듈을 불러온다. 지금 처리하는 job과 종결 증거는 [[16-DECISIONS|16 ADR]] 미결정 9번이다.
@@ -137,11 +133,9 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 호출 예산은 서비스마다 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST)로 따로 센다.
   - 한도의 90%에 닿으면 보조 조회를 멈춘다. 그 공고는 `확인 필요`(`NEEDS_REVIEW`, 정보 부족)로 남긴다.
   - 에러코드 22(일일 허용량 초과)를 받으면 그 서비스의 그날 호출을 멈춘다. 다른 서비스의 수집은 계속한다. 입찰공고정보서비스가 멈추면 목록과 보조 조회 3종이 함께 멈춘다.
+  - data.go.kr XML 오류 봉투의 `returnReasonCode`는 22 = `QUOTA_EXCEEDED`(위 처리), 30·31 = 키 오류(재시도하지 않는다)로 읽는다([[16-DECISIONS|ADR-030]] B17). 실측 표본이 없는 **미검증 가정**이다(16 미결정 1번).
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
 - 초당 30 tps(참고문서)를 넘지 않는다.
-
-> [!note] 제안 — ADR-030
-> B17 data.go.kr XML 오류 봉투의 `returnReasonCode` 처리([[16-DECISIONS|ADR-030]]): 22 = `QUOTA_EXCEEDED`(그 서비스의 그날 호출을 멈춘다), 30·31 = 키 오류(재시도하지 않는다). 실측 표본이 없어 **미검증 가정**이다(16 미결정 1번의 "키 오류 응답 형식").
 
 ### 2.3 서비스키 없이 개발하기
 
@@ -233,9 +227,7 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 - 같은 조건을 API 구조화 필드와 Qwen 추출이 둘 다 주면 **API 구조화 필드가 우선**이다(면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt`). 두 값이 다르면 그 필드를 `CONFLICTED`로 둔다([[15-DATA-CONTRACTS|15 데이터 계약]] §3·§4, [[08-SCORING|08 점수]] §5.1).
 - **개인정보**: 담당자 필드(이름·전화·이메일)는 `NormalizedBid`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관하고, 모델 입력과 데이터셋 내보내기에서도 뺀다([[09-SECURITY|09 보안]], [[21-MODEL-TRAINING|21 모델 학습]]).
 - 업종 코드는 업종 및 근거법규 마스터(15129467)를 받아 만든 사전으로 이름과 잇는다. 소프트웨어사업자 등 업종 코드의 실제 값은 마스터를 받아 확인한다(미확인).
-
-> [!note] 제안 — ADR-030
-> B14 공고 상태 매핑([[16-DECISIONS|ADR-030]]): `ntceKindNm` 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 값은 [[15-DATA-CONTRACTS|15]] §6 격리다.
+- 상태: `ntceKindNm` 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 값은 [[15-DATA-CONTRACTS|15]] §6 격리다([[16-DECISIONS|ADR-030]] B14).
 
 ## 4. 공고 이력 연결
 
@@ -243,9 +235,6 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 - 계획 → 사전규격 → 공고 연결은 **공개 식별자**가 우선이다. fixture는 `planRef`(예 `DEMO-PLAN-0042`, `FX-17` ↔ `FX-18`)로 잇는다. live는 입찰공고의 `orderPlanUntyNo`(`planRef`)·`bfSpecRgstNo`(`preSpecRef`)와 사전규격·발주계획 응답의 `bidNtceNoList`로 잇는다. 식별자로 이어지지 않으면 제목 유사도만으로 자동 병합하지 않고 "연결 후보"로만 표시한다(`FX-19`).
 - 단계는 누락·역전 가능성이 있으므로 선형 진행을 강제하지 않는다.
 - 외부 공고 링크의 재확인 가능성과 provenance(`fetchedAt`, `rawPayload` 해시)를 기록한다.
-
-> [!note] 제안 — ADR-030
-> B18: revision 저장은 RPC `ingest_save_revision`으로 원자적으로 하고, `demo:reset`은 결정적 id를 넘긴다. 상세는 §2 콜아웃([[16-DECISIONS|ADR-030]]).
 
 ## 5. 변경 감지
 
@@ -258,6 +247,8 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 | 마감·예산·자격·첨부 변경 | +1 | `BID_CHANGED` 1건 | 큐 등록 |
 | 취소 | +1, `status=CANCELLED` | `BID_CHANGED` 1건 | 하지 않음. 기존 `score_runs`·`bid_reviews` 보존 |
 | 마감 72시간 이내 진입 | 없음 | `DEADLINE_APPROACHING` 1건 (하루 1회) | 없음 |
+
+"재분석" 열의 "큐 등록"은 설계다. 해커톤 컷에서는 수집이 분석 큐에 자동으로 넣지 않는다(§2, [[16-DECISIONS|ADR-030]] B18).
 
 ## 6. Fixture 20건 명세
 
@@ -377,8 +368,7 @@ fixture 한 건의 형태:
 
 `summary` 키는 [[04-DATABASE|04 DB]]의 `ingest_runs.summary`와 같다. `SEED`를 두 번 돌리면 두 번째는 `skippedDuplicate:19, quarantined:1`이어야 한다(멱등). seed는 공고 외에 조직 2(`org-01` 솔리데오, `org-02` 비교조직), 계정 5(Supabase Auth 사용자. org-01 4역할 + org-02 VIEWER, 역할은 `memberships.sol_role`), 프로필 revision 2, 사전 리뷰 2건(`FX-01` BID, `FX-03` NO-BID)을 함께 넣는다. 범위와 멱등 규칙은 [[04-DATABASE|04 DB]] §6, 계정 목록은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1, 기대 로그는 [[10-DEPLOYMENT|10 배포]] 데모 당일 기동 절차 6번이다.
 
-> [!note] 제안 — ADR-030
-> B15 ingest run 상태([[16-DECISIONS|ADR-030]]): `SEED`는 격리 1건이 있어 `ingest_runs.status=PARTIAL`, `LIVE`는 `SUCCEEDED`, connector가 중간에 멈추면 `FAILED`다. revision 수는 seed 직후 `bid_revisions` 19, `LIVE` 배치의 새 revision 4건(`FX-06`·`FX-07`·`FX-08`·`FX-10`) 뒤 23이다([[04-DATABASE|04 DB]] §6).
+`ingest_runs.status`는 `SEED`가 격리 1건이 있어 `PARTIAL`, `LIVE`가 `SUCCEEDED`, connector가 중간에 멈추면 `FAILED`다. `bid_revisions`는 seed 직후 19행, `LIVE` 배치의 새 revision 4건(`FX-06`·`FX-07`·`FX-08`·`FX-10`) 뒤 23행이다([[16-DECISIONS|ADR-030]] B15, [[04-DATABASE|04 DB]] §6).
 
 ### 6.5 Phase 0 구현 형태 (2026-10-19, `caf0abd`·`91655a9`·`f238a3f`)
 
@@ -398,17 +388,13 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - `expected.designScore`는 6.2 표에 숫자가 있는 7건만 숫자이고 나머지는 `null`이다. 정확한 값은 Phase 4 골든이 정한다.
 
 **공고 레코드 추가 규칙** (`fixtures/bids/FX-xx.json`)
-- 레코드의 선택 필드 `status`: `OPEN`·`AMENDED`·`CANCELLED`·`CLOSED`([[15-DATA-CONTRACTS|15 데이터 계약]]). 지금은 `FX-08` r2만 `CANCELLED`다.
+- 레코드의 선택 필드 `status`: `OPEN`·`AMENDED`·`CANCELLED`·`CLOSED`([[15-DATA-CONTRACTS|15 데이터 계약]]). 지금은 `FX-08` r2만 `CANCELLED`다. 레코드에 `status`가 없고 revision이 2 이상이면 `AMENDED`로 정규화한다. `CLOSED`는 정규화가 만들지 않는다(§3.1, [[16-DECISIONS|ADR-030]] B14).
 - `budgetKrw`의 원문 텍스트("12억원" 같은 표기)는 manifest tags에 `budget-text`가 있는 fixture(`FX-13`)에서만 허용한다. 나머지는 숫자 문자열이다.
 
 **추출 파일 이름** (`fixtures/extractions/`)
 - `FX-xx.json`은 마지막 revision, `FX-xx.rNN.json`은 앞선 revision이다. 지금은 `FX-07.r01.json` 하나다. 그래서 추출은 19건(`FX-12` 격리 제외) + `FX-07` r1 = 20개 파일이다([[04-DATABASE|04 DB]] `requirement_extractions` 20과 맞는다).
 - 파일 안의 `bidId: "FX-xx"`·`revisionId: "FX-xx#NN"`은 seed가 UUID로 바꾸는 자리표시다. `rNN` 파일이 없는 revision은 seed·mock gateway가 `FX-xx.json`을 그 revision에 쓴다(예: `FX-06` r1).
-
-> [!note] 제안 — ADR-030
-> 조정 결정([[16-DECISIONS|ADR-030]]):
-> - B4 fixture 식별자는 `FX-NN` 또는 `FX-NN.rNN`이다. worker는 gateway에 늘 `FX-NN.rNN`을 보내고, mock gateway는 그 파일이 없으면 `FX-NN.json`으로 대체한다(위 "rNN 파일이 없는 revision" 규칙과 같다). 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절하고, 응답의 id는 요청 값으로 바꾼다.
-> - B14 레코드에 `status`가 없고 revision이 2 이상이면 `AMENDED`로 정규화한다. `CLOSED`는 정규화가 만들지 않는다(§3.1 콜아웃).
+- gateway에 보내는 fixture 식별자는 `FX-NN` 또는 `FX-NN.rNN`이다. worker는 늘 `FX-NN.rNN`을 보내고, mock gateway는 그 파일이 없으면 위 규칙대로 `FX-NN.json`으로 대체한다. 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절하고, 응답의 id는 요청 값으로 바꾼다([[03-AI-PIPELINE|03]] §2.1, [[16-DECISIONS|ADR-030]] B4).
 
 **mock Kev·골든 envelope**
 - mock Kev: `schemaVersion: "kev-mock/v0.1"`, `fixtureId`, `provider`, `questionSetVersion: "kev-qs/v0.1"`, `responses`, `usage`, `latency_ms`.

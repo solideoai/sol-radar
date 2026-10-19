@@ -288,7 +288,7 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 | 미보유 자격 (`licenses`, `status: NOT_HELD`) | 정보통신공사업 등록, 방산업체 지정, ISMS-P, CSAP. 보유하지 않음을 프로필에 명시적으로 기록한다(§5.1). 이 기록이 있어야 `FX-03`이 `NOT_SATISFIED`가 된다 |
 | 프로필 구분 | `isDemo=true`(가상 프로필, 모든 실행 모드 공통) |
 | 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 200, 단일 사업 수행 상한 `maxContractKrw` 50억 |
-| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 명부 200명. 그 안의 점수 계산 대상 하위 집합(`scoringEligible=true`)은 PM 2, PL 4, 개발 18, 데이터·AI 3의 27명. 나머지 173명은 계산 대상에서 제외. 2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외) |
+| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 명부 200명. 그 안의 점수 계산 대상 하위 집합(`scoringEligible=true`)은 PM 2, PL 4, 개발 18, 데이터·AI 3의 27명. 나머지 173명은 계산 대상에서 제외. 2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외). 기존 사업 투입 7명은 `assignments`가 아니라 `team_member_scoring.availability`의 해당 기간 fte를 낮춘 가용 창으로 들어간다(창을 나누고 덧붙이지 않는다. `assignments`는 데모 2건만, main `3e181b7`, [[16-DECISIONS\|ADR-030]] B19) |
 | 선호 (`preferences`) | `agencies: []`, `agencyTypes: [지자체, 교육청]`, `domains: [데이터 플랫폼, AX, 민원, 교육]`, `excludedDomains: [국방]`, `excludedKeywords: [무기체계]` |
 | 기술 목록 완결 (`technologiesComplete`) | `true`. 요구 기술이 `technologies`(별칭 포함)에 없으면 `requirement_assessments` 기술 항목이 `NOT_SATISFIED`가 된다(§5.1, `web/server/scoring/requirement-assessment.ts`). 점수·권고(94/72/68, BID/WATCH/NO-BID)에는 영향이 없다 |
 | 업종 코드 (`industryCodes`) | 빈 목록 `[]`. 공고가 업종 코드를 요구하면 그 항목은 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다 |
@@ -302,9 +302,6 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 세 실적 모두 완료 3년 이내라 최근성 계수는 1.0이다. 최대 실적 금액은 28억.
 
 프로필 값의 데이터 파일은 `fixtures/company/solideo-profile.json`(revision 2)이다. `technologiesComplete`·`industryCodes` 값도 이 파일에서 왔다(`e22de09`).
-
-> [!note] 제안 — ADR-030
-> B19 위 "2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외)"의 "기존 배정"은 `assignments` 행이 아니라 `team_member_scoring.availability`에 접어 넣는다. 기존 사업 투입 7명은 해당 기간 fte를 낮춘 가용 창으로 나누고(덧붙이지 않는다), `assignments`는 데모 2건만이다. 이렇게 seed한 DB 경로에서도 `FX-01`·`FX-02`·`FX-03` 기간 가용은 20 FTE다(main `3e181b7`, [[04-DATABASE|04 DB]] §6, [[16-DECISIONS|ADR-030]]).
 
 ### 6.2 Example A — `FX-01` → BID
 
@@ -372,8 +369,7 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 
 [[16-DECISIONS|ADR-020]]으로 더해지는 것: `score_runs.run_mode`(실행 모드)·`kev_calibration`(τ 보정 상태)·`fallback_reason`(mock 자동 대체 원인), `score_runs.kev_output`에 Kev 응답 원문과 `KevStateTrace`, 요구사항 항목마다 `requirement_assessments` 1행(규칙 판정·사유·`basis`·양쪽 근거·Kev 분포·라벨·플래그), `qualification_checks`의 `reason_code`·`company_evidence`·`basis`([[04-DATABASE|04 DB]] §3.4). `kev-qs/v0.2` run의 `kev_output`에는 v0.2 질문 출력(24개씩 나눈 요청이면 응답 전부)도 들어간다([[03-AI-PIPELINE|03 AI 파이프라인]] §7).
 
-> [!note] 제안 — ADR-030
-> B24 규칙 엔진 출력의 `explanation`에는 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않는다. 화면에 보이는 설명은 분석 메타의 `explanation`(gateway `/explain` 문장 또는 템플릿 문장)이다([[03-AI-PIPELINE|03 AI 파이프라인]] §2.1, [[16-DECISIONS|ADR-030]]).
+규칙 엔진 출력의 `explanation`에는 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않는다. 화면에 보이는 설명은 분석 메타의 `explanation`(gateway `/explain` 문장 또는 템플릿 문장)이다([[03-AI-PIPELINE|03 AI 파이프라인]] §2.1, [[16-DECISIONS|ADR-030]] B24).
 
 ## 8. 검증
 

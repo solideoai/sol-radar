@@ -84,9 +84,7 @@ updated: 2026-10-19
 |비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키는 서비스마다 하나씩 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, [[16-DECISIONS\|ADR-022]])이고 모두 worker 전용 서버 env다. 로그 마스킹은 네 값을 모두 가린다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 추론 엔드포인트의 `QWEN_API_KEY`·`KEV_API_KEY`는 gateway의 서버 env(`infra/.env`)에만 둔다([[16-DECISIONS\|ADR-025]])|
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
-
-> [!note] 제안 — ADR-030
-> B23 알림 `payload.link`의 열린 리다이렉트를 막는다. 알림 목록 서비스(서버)가 앱 안 경로만 내려 보내고, 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC|05 API]] §4.6, [[13-NOTIFICATIONS|13 알림]], [[16-DECISIONS|ADR-030]]).
+|열린 리다이렉트|알림 `payload.link`는 앱 안 경로만 쓴다. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC\|05 API]] §4.6, [[13-NOTIFICATIONS\|13 알림]], [[16-DECISIONS\|ADR-030]] B23)|
 
 ## 책임 있는 AI
 ### 원칙
@@ -201,15 +199,12 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
   - 공개 값: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. anon 키는 브라우저 번들에 들어가도록 설계된 공개 키이고 권한은 RLS가 정한다.
   - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
   - redis·minio는 `demo` 프로필에서도 기본 비밀값(`minioadmin` 등)을 쓰지 않는다.
-- `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다.
+- `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
 - 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "Compose 서비스" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
 - seed 데모 계정(목록·역할은 [[04-DATABASE|04 DB]] §6)은 `.invalid` TLD라 실제 메일이 가지 않는다. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
 - 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 MinIO(Compose)에 둔다. 웹 배포처만 미결정이다([[16-DECISIONS|16 ADR]] 미결정 8번). 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
 - OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
-
-> [!note] 제안 — ADR-030
-> B11 `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`는 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`). `AI_FALLBACK_TO_MOCK`은 아직 구현하지 않았으므로 `true`면 켜면 기동을 거부한다(원래 `live`만 거부)([[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[10-DEPLOYMENT|10 배포]], [[16-DECISIONS|ADR-030]]).
 
 ## 실데이터와 회사 GPU 서버 (ADR-020)
 
