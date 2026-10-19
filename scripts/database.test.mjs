@@ -5739,6 +5739,48 @@ describe("분석 마감 함수 — finish_score_run (C5-B 보안 후속)", () =>
     assert.deepEqual(await snapshotOf(pglite), before);
   });
 
+  // 마감 status 는 COMPLETED·PARTIAL 만이다. 실패 닫기(FAILED)는 markFailed 의 몫이고, RUNNING·QUEUED 로 되돌리거나 status 없이
+  // (지금 값 RUNNING 그대로) 결과만 쓰는 마감은 끝나지 않은 run 에 결과를 남긴다. 자식 표를 쓰기 전에 거절하고 아무것도 바꾸지 않는다.
+  // 거절 코드는 SCORE_RUN_INVALID_STATUS(raise exception, 메시지가 곧 코드)다. FAILED 값은 마감 열 check 를 모두 지켜 status 만 거절 이유가 되게 한다.
+  const INVALID_STATUS = { message: "SCORE_RUN_INVALID_STATUS" };
+  const withoutStatus = (p) => ({
+    ...p,
+    run: Object.fromEntries(Object.entries(p.run).filter(([key]) => key !== "status")),
+  });
+  for (const [label, payload] of [
+    [
+      "FAILED",
+      () => payloadOf(RUN, { result: { status: "FAILED", error_code: "ANALYSIS_JOB_FAILED" } }),
+    ],
+    ["RUNNING", () => payloadOf(RUN, { result: { status: "RUNNING" } })],
+    ["QUEUED", () => payloadOf(RUN, { result: { status: "QUEUED" } })],
+    ["없음(지금 값 RUNNING 그대로)", () => withoutStatus(payloadOf(RUN))],
+  ]) {
+    it(`p.run.status 가 ${label} 이면 SCORE_RUN_INVALID_STATUS 이고 자식 3표·score_runs 가 그대로다`, async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await insertEarlierChildren(pglite, RUN);
+      const before = await snapshotOf(pglite);
+      await assert.rejects(finish(pglite, payload()), INVALID_STATUS);
+      assert.deepEqual(await snapshotOf(pglite), before);
+    });
+  }
+
+  for (const [status, result] of [
+    ["COMPLETED", {}],
+    [
+      "PARTIAL",
+      { status: "PARTIAL", error_code: "AI_UNAVAILABLE", review_flags: ["AI_UNAVAILABLE"] },
+    ],
+  ]) {
+    it(`p.run.status 가 ${status} 이면 지금처럼 마감하고 그 run id 를 돌려준다`, async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      assert.deepEqual(await finish(pglite, payloadOf(RUN, { result })), [{ id: RUN }]);
+      assert.equal((await resultOf(pglite, RUN)).status, status);
+    });
+  }
+
   // 낮음 (a): idempotency_key 는 null 이거나 `<org_id>:` 로 시작한다. 다른 조직의 접두어로 남의 run 을 가리키는 키를 DB 가 막는다.
   describe("score_runs.idempotency_key 조직 접두어 check", () => {
     // 진행 중 run 은 같은 입력에 하나뿐이라 넣을 때마다 알고리즘 버전을 바꾼다.

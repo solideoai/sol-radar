@@ -359,6 +359,11 @@ export type SeedRun = {
   queuedAt: string;
   status?: string;
   idempotencyKey?: string | null;
+  /**
+   * score_runs.started_at 을 PostgREST 가 준 원문 그대로(마이크로초·오프셋 포함). 없으면 null(QUEUED).
+   * loader 는 이 값을 바꾸지 않고 startedAt 으로 넘긴다(compare-and-set 의 쓰기 조건).
+   */
+  startedAt?: string | null;
 };
 
 /** loader 가 org-01 의 그 fixture run 에서 읽을 행 전부(seed 와 같은 값). documents 는 첨부 port 의 몫이다. */
@@ -379,6 +384,7 @@ export function loaderRowsFor(
       idempotency_key: run.idempotencyKey === undefined ? null : run.idempotencyKey,
       status: run.status ?? "QUEUED",
       queued_at: toPostgrestTimestamp(run.queuedAt),
+      started_at: run.startedAt ?? null,
     },
     revision: {
       id: bid.revision.id,

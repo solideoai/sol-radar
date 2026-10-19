@@ -44,8 +44,11 @@ const requestIdFor = (scoreRunId: string) => `req-SECRETVALUE-${scoreRunId.slice
 const keyFor = (orgId: string, scoreRunId: string) => `${orgId}:${requestIdFor(scoreRunId)}`;
 const jobIdFor = (orgId: string, scoreRunId: string) => `analysis_${orgId}_${scoreRunId}`;
 
-/** 보안 후속 (g): StaleRun 은 keyset 커서에 쓰는 queuedAt(ISO)을 갖는다. */
-const QUEUED_AT_ISO = "2026-10-16T08:00:00.000Z";
+/**
+ * StaleRun 은 markFailed 의 쓰기 조건으로 started_at 원문(startedAt)을 갖는다. RUNNING run 의 기본값이다(QUEUED 는 null).
+ * 예전에는 keyset 커서에 쓰는 queuedAt(ISO)을 가졌다. 커서가 id 하나로 바뀌어 없어졌다.
+ */
+const RUNNING_STARTED_AT_RAW = "2026-10-16T08:10:00.123456+00:00";
 
 /**
  * 기본은 RUNNING 이다. C5-B 보안 후속 1: job 이 Redis 에 없을 때(unknown) 다시 넣는 것은 RUNNING run 뿐이고(RUNNING 은 worker 만 쓴다),
@@ -54,12 +57,13 @@ const QUEUED_AT_ISO = "2026-10-16T08:00:00.000Z";
  */
 function staleRun(scoreRunId: string, overrides: Partial<StaleRun> = {}): StaleRun {
   const orgId = overrides.orgId ?? ORG_ID;
+  const status = overrides.status ?? "RUNNING";
   return {
     orgId,
     scoreRunId,
     idempotencyKey: keyFor(orgId, scoreRunId),
-    status: "RUNNING",
-    queuedAt: QUEUED_AT_ISO,
+    status,
+    startedAt: status === "RUNNING" ? RUNNING_STARTED_AT_RAW : null,
     ...overrides,
   };
 }
@@ -97,6 +101,7 @@ function fakeTracker(failFor: ReadonlyMap<string, Error> = new Map()) {
   const tracker: AnalysisRunTracker = {
     markRunning: async (input) => {
       running.push(input);
+      return true;
     },
     markFailed: async (input) => {
       failed.push(input);
@@ -183,11 +188,21 @@ const decision = (s: ReturnType<typeof setup>) => ({
   failed: s.tracker.failed,
 });
 
-const staleFailure = (orgId: string, scoreRunId: string): MarkFailedInput => ({
+/**
+ * 복구가 닫을 때의 markFailed 입력. 찾은 run 의 상태(status·startedAt)를 쓰기 조건(expected)으로 건다 — 찾은 뒤 worker 가
+ * 잡은 run 을 닫지 않는다. status 는 staleRun 의 기본값(RUNNING·RUNNING_STARTED_AT_RAW, QUEUED 면 started_at null)을 따른다.
+ * 예전 기대(조건 없이 QUEUED·RUNNING 닫기)는 run 닫기의 compare-and-set 으로 바뀌었다.
+ */
+const staleFailure = (
+  orgId: string,
+  scoreRunId: string,
+  status: StaleRun["status"] = "RUNNING",
+): MarkFailedInput => ({
   orgId,
   scoreRunId,
   errorCode: "STALE_RUN",
   finishedAt: NOW_ISO,
+  expected: { status, startedAt: status === "RUNNING" ? RUNNING_STARTED_AT_RAW : null },
 });
 
 // ── readReconcileSettings ──
@@ -379,7 +394,7 @@ describe("reconcileOnce · QUEUED run 의 job 이 Redis 에 없으면(unknown) �
   it("다시 넣지 않고 FAILED(STALE_RUN, finishedAt=now)로 닫는다", async () => {
     const s = setup({ runs: [staleRun(RUN_A, { status: "QUEUED" })] });
     await reconcileOnce(s.deps);
-    expect(decision(s)).toEqual({ adds: [], failed: [staleFailure(ORG_ID, RUN_A)] });
+    expect(decision(s)).toEqual({ adds: [], failed: [staleFailure(ORG_ID, RUN_A, "QUEUED")] });
   });
 
   it("화면 역할이 직접 넣은 QUEUED run 은 idempotencyKey 가 C6 형식(`<orgId>:<uuid>`)이어도 다시 넣지 않는다", async () => {
@@ -390,7 +405,7 @@ describe("reconcileOnce · QUEUED run 의 job 이 Redis 에 없으면(unknown) �
     const s = setup({ runs: [direct] });
     await reconcileOnce(s.deps);
     expect(s.queue.adds).toEqual([]);
-    expect(s.tracker.failed).toEqual([staleFailure(ORG_ID, RUN_A)]);
+    expect(s.tracker.failed).toEqual([staleFailure(ORG_ID, RUN_A, "QUEUED")]);
   });
 
   it("job 상태는 물어본다(진행 중이면 그대로 두려고)", async () => {
@@ -399,17 +414,22 @@ describe("reconcileOnce · QUEUED run 의 job 이 Redis 에 없으면(unknown) �
     expect(s.queue.asked).toEqual([jobIdFor(ORG_ID, RUN_A)]);
   });
 
-  it("markFailed 에 attemptStartedAt 을 넘기지 않는다(복구는 QUEUED·RUNNING 조건으로 닫는다)", async () => {
+  // 예전 기대(attemptStartedAt 없이 QUEUED·RUNNING 조건으로 닫기)는 찾은 상태를 쓰기 조건으로 거는 것으로 바뀌었다.
+  it("markFailed 의 expected 는 찾은 run 의 상태(QUEUED·started_at null)다", async () => {
     const s = setup({ runs: [staleRun(RUN_A, { status: "QUEUED" })] });
     await reconcileOnce(s.deps);
-    expect(s.tracker.failed).toHaveLength(1);
-    expect(s.tracker.failed[0]?.attemptStartedAt).toBeUndefined();
+    expect(s.tracker.failed.map((input) => input.expected)).toEqual([
+      { status: "QUEUED", startedAt: null },
+    ]);
   });
 
   it("다른 조직의 QUEUED run 은 그 행의 orgId 로 닫는다", async () => {
     const s = setup({ runs: [staleRun(RUN_A, { orgId: OTHER_ORG_ID, status: "QUEUED" })] });
     await reconcileOnce(s.deps);
-    expect(decision(s)).toEqual({ adds: [], failed: [staleFailure(OTHER_ORG_ID, RUN_A)] });
+    expect(decision(s)).toEqual({
+      adds: [],
+      failed: [staleFailure(OTHER_ORG_ID, RUN_A, "QUEUED")],
+    });
   });
 
   it("로그 줄은 jobState unknown·action FAIL 이다", async () => {
@@ -457,7 +477,7 @@ describe("reconcileOnce · QUEUED run 의 job 이 Redis 에 없으면(unknown) �
         states: { [jobIdFor(ORG_ID, RUN_A)]: state },
       });
       await reconcileOnce(s.deps);
-      expect(decision(s)).toEqual({ adds: [], failed: [staleFailure(ORG_ID, RUN_A)] });
+      expect(decision(s)).toEqual({ adds: [], failed: [staleFailure(ORG_ID, RUN_A, "QUEUED")] });
     },
   );
 });
@@ -482,6 +502,51 @@ describe("reconcileOnce · 시도를 다 썼거나(failed) 처리가 끝난(comp
     });
     await reconcileOnce(s.deps);
     expect(s.tracker.failed).toEqual([staleFailure(OTHER_ORG_ID, RUN_A)]);
+  });
+});
+
+// 복구가 run 을 찾은 뒤 닫기 전에 worker 가 그 run 을 다시 잡을 수 있다. 닫기는 찾은 상태(status·started_at 원문)가 그대로일 때만이다.
+describe("reconcileOnce · 닫기의 쓰기 조건은 찾은 run 의 상태다", () => {
+  const RAW_A = "2026-10-16T08:11:11.111111+00:00";
+  const RAW_B = "2026-10-16T17:22:22.222222+09:00";
+
+  it("끝난 job 의 RUNNING run 은 expected 가 RUNNING·그 run 의 started_at 원문이다", async () => {
+    const s = setup({
+      runs: [staleRun(RUN_A, { startedAt: RAW_A })],
+      states: { [jobIdFor(ORG_ID, RUN_A)]: "completed" },
+    });
+    await reconcileOnce(s.deps);
+    expect(s.tracker.failed.map((input) => input.expected)).toEqual([
+      { status: "RUNNING", startedAt: RAW_A },
+    ]);
+  });
+
+  it("job 데이터를 만들 수 없는 RUNNING run 도 expected 가 그 run 의 status·started_at 원문이다", async () => {
+    const s = setup({ runs: [staleRun(RUN_A, { idempotencyKey: null, startedAt: RAW_B })] });
+    await reconcileOnce(s.deps);
+    expect(s.tracker.failed.map((input) => input.expected)).toEqual([
+      { status: "RUNNING", startedAt: RAW_B },
+    ]);
+  });
+
+  it("run 마다 자기 상태를 쓴다(앞 run 의 값을 이어 쓰지 않는다)", async () => {
+    const s = setup({
+      runs: [
+        staleRun(RUN_A, { startedAt: RAW_A }),
+        staleRun(RUN_B, { status: "QUEUED" }),
+        staleRun(RUN_C, { startedAt: RAW_B }),
+      ],
+      states: {
+        [jobIdFor(ORG_ID, RUN_A)]: "failed",
+        [jobIdFor(ORG_ID, RUN_C)]: "failed",
+      },
+    });
+    await reconcileOnce(s.deps);
+    expect(s.tracker.failed.map((input) => [input.scoreRunId, input.expected] as const)).toEqual([
+      [RUN_A, { status: "RUNNING", startedAt: RAW_A }],
+      [RUN_B, { status: "QUEUED", startedAt: null }],
+      [RUN_C, { status: "RUNNING", startedAt: RAW_B }],
+    ]);
   });
 });
 
@@ -657,10 +722,11 @@ describe("reconcileOnce · finder 실패", () => {
   });
 });
 
-// ── reconcileOnce · keyset 페이지(보안 후속 (g)) ──
+// ── reconcileOnce · keyset 페이지 ──
 // 예전에는 회차마다 오래된 순 batchLimit 건만 봤다. 그 건이 모두 진행 중(KEEP)이면 그 뒤 run 은 영원히 보지 못했다.
-// 이제 한 회차에서 (queuedAt, id) 순 페이지를 이어 읽는다. 첫 페이지 after 는 null, 다음 페이지 after 는 앞 페이지 마지막 run 의
-// { queuedAt, id } 다. 한 회차는 최대 20 페이지(batchLimit 50 이면 1000건)까지 읽는다.
+// 그래서 한 회차에서 id 순 페이지를 이어 읽는다. 첫 페이지 after 는 null, 다음 페이지 after 는 앞 페이지 마지막 run 의 { id } 다.
+// 한 회차는 최대 20 페이지(batchLimit 50 이면 1000건)까지 읽는다. 예전 기대((queuedAt, id) 커서와 같은 밀리초의 run 을 거르던
+// seen 집합)는 id 커서로 바뀌었다. id 커서는 같은 run 을 다시 내지 않으므로 회차 안의 중복 거르기가 필요 없다.
 
 const PAGE_LIMIT = 50;
 const MAX_PAGES = 20;
@@ -669,33 +735,33 @@ const PAGED_SETTINGS: ReconcileSettings = { ...SETTINGS, batchLimit: PAGE_LIMIT 
 /** n 번째 run 의 id(uuid). 순서가 id 글자 순서와 같다. */
 const pagedRunId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
-/** n 번째 run. 다섯 개씩 같은 queuedAt 을 써서 같은 시각이면 id 로 나뉘는지 드러낸다. */
 function pagedRun(n: number, overrides: Partial<StaleRun> = {}): StaleRun {
-  const queuedAt = new Date(Date.parse("2026-10-16T07:00:00.000Z") + Math.floor(n / 5) * 1000);
-  return staleRun(pagedRunId(n), { queuedAt: queuedAt.toISOString(), ...overrides });
+  return staleRun(pagedRunId(n), overrides);
 }
 
-type Cursor = { queuedAt: string; id: string };
+type Cursor = { id: string };
 
-const isAfter = (run: StaleRun, after: Cursor): boolean => {
-  const left = Date.parse(run.queuedAt);
-  const right = Date.parse(after.queuedAt);
-  return left > right || (left === right && run.scoreRunId > after.id);
-};
+/** 가짜 finder 가 받은 커서가 port 계약({ id } 하나)인지. 다른 키가 섞이면 계약 위반이다. */
+function assertIdCursor(after: unknown): asserts after is Cursor | null {
+  if (after === null) return;
+  const isIdOnly =
+    typeof after === "object" &&
+    Object.keys(after).join(",") === "id" &&
+    typeof Reflect.get(after, "id") === "string";
+  if (!isIdOnly) throw new Error("가짜 finder: after 는 { id } 하나여야 한다");
+}
 
 /**
- * keyset 페이지 finder 흉내. (queuedAt, id) 순으로 정렬해 after 다음부터 limit 건을 돌려준다.
- * 커서를 잘못 넘기면(앞 페이지 처음 run·id 만 등) 같은 run 을 다시 받거나 뒤 run 에 닿지 못한다.
+ * keyset 페이지 finder 흉내. id 순으로 정렬해 after.id 다음부터 limit 건을 돌려준다.
+ * 커서를 잘못 넘기면(앞 페이지 처음 run 등) 같은 run 을 다시 받거나 뒤 run 에 닿지 못한다.
+ * strictCursor 면 커서가 port 계약({ id } 하나)이 아닐 때 던진다.
  */
-function keysetFinder(all: StaleRun[]) {
-  const sorted = all.toSorted((a, b) => {
-    const byTime = Date.parse(a.queuedAt) - Date.parse(b.queuedAt);
-    if (byTime !== 0) return byTime;
-    return a.scoreRunId < b.scoreRunId ? -1 : 1;
-  });
+function keysetFinder(all: StaleRun[], options: { strictCursor?: boolean } = {}) {
+  const sorted = all.toSorted((a, b) => (a.scoreRunId < b.scoreRunId ? -1 : 1));
   return async (_index: number, input: FinderInput): Promise<StaleRun[]> => {
     const after = input.after;
-    const rest = after ? sorted.filter((run) => isAfter(run, after)) : sorted;
+    if (options.strictCursor) assertIdCursor(after);
+    const rest = after === null ? sorted : sorted.filter((run) => run.scoreRunId > after.id);
     return rest.slice(0, input.limit).map((run) => ({ ...run }));
   };
 }
@@ -752,11 +818,14 @@ describe("reconcileOnce · keyset 페이지", () => {
     expect(s.finder.calls[0]?.after).toBeNull();
   });
 
-  it("다음 페이지의 after 는 앞 페이지 마지막 run 의 queuedAt·id 다", async () => {
-    const s = setup51();
+  it("다음 페이지의 after 는 앞 페이지 마지막 run 의 { id } 하나다", async () => {
+    const s = setup({
+      finder: async (index) => (index === 0 ? FIRST_PAGE : []),
+      settings: PAGED_SETTINGS,
+    });
     await reconcileOnce(s.deps);
     const last = FIRST_PAGE[FIRST_PAGE.length - 1];
-    expect(s.finder.calls[1]?.after).toEqual({ queuedAt: last.queuedAt, id: last.scoreRunId });
+    expect(s.finder.calls[1]?.after).toStrictEqual({ id: last.scoreRunId });
   });
 
   it("한 회차의 모든 페이지는 같은 queuedBefore·runningBefore·limit 으로 읽는다", async () => {
@@ -791,6 +860,22 @@ describe("reconcileOnce · keyset 페이지", () => {
     const s = setup51();
     await reconcileOnce(s.deps);
     expect(new Set(s.queue.asked).size).toBe(s.queue.asked.length);
+  });
+
+  // 예전에는 같은 밀리초의 run 이 다음 페이지에 다시 나와 seen 으로 걸렀다. id 커서면 다시 나오지 않는다.
+  it("run 60건은 id 커서로 두 페이지(50·10)에 걸쳐 한 번씩 처리한다", async () => {
+    const runs = Array.from({ length: 60 }, (_, n) => pagedRun(60 - n)); // id 역순으로 준다
+    const s = setup({
+      finder: keysetFinder(runs, { strictCursor: true }),
+      states: activeStates(runs),
+      settings: PAGED_SETTINGS,
+    });
+    const summary = await reconcileOnce(s.deps);
+    expect(s.finder.calls).toHaveLength(2);
+    expect(s.queue.asked).toEqual(
+      Array.from({ length: 60 }, (_, n) => jobIdFor(ORG_ID, pagedRunId(n + 1))),
+    );
+    expect(summary).toEqual({ checked: 60, requeued: 0, failed: 0, inFlight: 60 });
   });
 
   it("요약은 모든 페이지의 run 을 센다(checked 51·inFlight 50·requeued 1)", async () => {

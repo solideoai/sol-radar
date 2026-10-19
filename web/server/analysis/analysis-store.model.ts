@@ -25,6 +25,7 @@ import type {
 } from "./analysis.model";
 import { AnalysisInputError } from "./analysis.service";
 import { toIssueList } from "./gateway.model";
+import type { PreanalyzeRunInput } from "./preanalyze.model";
 
 // ── 저장 port 의 행 매핑: DB 행 ↔ 분석 도메인 값의 순수 규칙 (03 §7) ──
 // supabase-js·DB 는 부르지 않는다(analysis.repo 몫). JSONB 는 scoring 배럴의 zod 로 검증하고,
@@ -55,6 +56,7 @@ export type LoaderRows = {
     | "idempotency_key"
     | "status"
     | "queued_at"
+    | "started_at"
   >;
   revision: Pick<
     Row<"bid_revisions">,
@@ -310,6 +312,8 @@ export function toLoadedContext(rows: LoaderRows): LoadedAnalysisContext {
     companyProfileId: scoreRun.company_profile_id,
     idempotencyKey: scoreRun.idempotency_key,
     status: toScoreRunStatus(scoreRun.status),
+    // 쓰기 조건(compare-and-set)이라 PostgREST 원문 그대로 둔다.
+    startedAt: scoreRun.started_at,
     queuedAt,
     fixtureId: toFixtureStem(rawFixtureIdOf(revision.raw_payload), revision.revision),
     bid: toBidSummary(rows, documentIssues.length > 0),
@@ -338,6 +342,27 @@ export function toExtractSource(
         : [{ documentId: document.documentId, text: document.text, pages: document.pages }],
     ),
   };
+}
+
+// ── 사전 분석: 다시 읽은 run 이 이 사전 분석이 넣은 run 인가 ──
+
+/**
+ * 사전 분석은 requested_by 없이 run 을 넣는다. 같은 멱등 키의 run 을 화면 사용자가 먼저 넣었거나(requested_by 있음)
+ * 다른 공고·revision·프로필의 run 이면 사전 분석의 run 이 아니다. 상태는 보지 않는다(끝난 run 이어도 같은 입력이면 그 run 이다).
+ */
+export function isOwnPreanalyzeRun(
+  row: Pick<
+    Row<"score_runs">,
+    "id" | "status" | "requested_by" | "bid_id" | "revision_id" | "company_profile_id"
+  >,
+  input: Pick<PreanalyzeRunInput, "bidId" | "revisionId" | "companyProfileId">,
+): boolean {
+  return (
+    row.requested_by === null &&
+    row.bid_id === input.bidId &&
+    row.revision_id === input.revisionId &&
+    row.company_profile_id === input.companyProfileId
+  );
 }
 
 // ── 쓰기 ──
