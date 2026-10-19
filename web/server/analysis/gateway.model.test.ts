@@ -206,7 +206,7 @@ describe("readGatewayConfig", () => {
     },
   );
 
-  // ── 설계 §6 결정 4 ──
+  // ── readGatewayConfig 경계 ──
 
   it("AI_TIMEOUT_MS 의 앞뒤 공백은 지우고 읽는다", () => {
     expect(readGatewayConfig({ AI_TIMEOUT_MS: " 60000 " }).extractTimeoutMs).toBe(65_000);
@@ -610,7 +610,7 @@ describe("classifyFetchError", () => {
     expect(classifyFetchError(error)).toEqual({ kind: "UNREACHABLE", code: "ENOTFOUND" });
   });
 
-  // ── 설계 §6 결정 3: cause.code → error.code, 형식에 맞는 첫 값 ──
+  // ── cause.code → error.code, 형식에 맞는 첫 값 ──
 
   it("cause.code 와 error.code 가 둘 다 맞으면 cause.code 를 쓴다", () => {
     const error = Object.assign(
@@ -820,7 +820,7 @@ describe("toIssueList", () => {
     expect(result.error && toIssueList(result.error)).toHaveLength(10);
   });
 
-  it("배열 색인이 든 경로도 '.' 로 잇는다(설계 §6 결정 5)", () => {
+  it("배열 색인이 든 경로도 '.' 로 잇는다", () => {
     const result = z
       .object({ items: z.array(z.object({ id: z.string() })) })
       .safeParse({ items: [{ id: "ok" }, { id: 1 }] });

@@ -165,9 +165,19 @@ export function withPatch<T>(value: T, patch: (draft: T) => void): T {
 
 // ── 입력 만들기 ──
 
+/** fixture 캐시 행의 requirement_extractions.id. 저장 port 가 돌려주는 id(SAVED_EXTRACTION_ID)와 겹치지 않는다. */
+export function cachedExtractionId(id: string): string {
+  return `extraction-cached-${id}`;
+}
+
 /** fixture 추출을 담은 유효한 캐시 행(requirement_extractions 한 행). */
 export function cachedRow(id: string): CachedExtraction {
-  return { status: "COMPLETED", payload: loadExtraction(id), errorCode: null, translations: null };
+  return {
+    id: cachedExtractionId(id),
+    status: "COMPLETED",
+    payload: loadExtraction(id),
+    translations: null,
+  };
 }
 
 /** fixture 하나의 analysis job 입력. 캐시 추출이 있고 Kev 가 켜진 isDemo 공고다. */
@@ -178,7 +188,9 @@ export function buildContext(
   return {
     requestId: `req-${id}`,
     orgId: "org-solideo-demo",
+    scoreRunId: `run-${id}`,
     bidId: `bid-${id}`,
+    companyProfileId: "profile-solideo-demo",
     fixtureId: id,
     bid: loadBid(id),
     extraction: cachedRow(id),
@@ -411,9 +423,12 @@ export function clock(...isoTimes: string[]): () => Date {
   };
 }
 
-/** loadSource·save 호출을 남기는 가짜 추출 저장. */
+/** 가짜 추출 저장이 save 마다 돌려주는 requirement_extractions.id(기본값). 캐시 행 id 와 겹치지 않는다. */
+export const SAVED_EXTRACTION_ID = "extraction-saved-1";
+
+/** loadSource·save 호출을 남기는 가짜 추출 저장. save 는 savedId(기본 SAVED_EXTRACTION_ID)를 돌려준다. */
 export function fakeExtractionStore(
-  options: { source?: ExtractSource; loadError?: Error; saveError?: Error } = {},
+  options: { source?: ExtractSource; loadError?: Error; saveError?: Error; savedId?: string } = {},
 ) {
   const loads: AnalysisContext[] = [];
   const saves: ExtractionRecord[] = [];
@@ -426,6 +441,7 @@ export function fakeExtractionStore(
     save: async (record) => {
       saves.push(record);
       if (options.saveError) throw options.saveError;
+      return { id: options.savedId ?? SAVED_EXTRACTION_ID };
     },
   };
   return { store, loads, saves };

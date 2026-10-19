@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   analyze,
   structuredRequirementSchema,
@@ -15,14 +15,17 @@ import {
   readExtractResult,
   toExplainRequest,
   toExtractRequest,
+  toExtractionRecord,
   toKevRequest,
   toKevWire,
   toIdempotencyKey,
   toKstDate,
   toModelMeta,
   withStructuredSeq,
+  type AnalysisContext,
   type CachedExtraction,
   type DocumentIssue,
+  type ExtractionRecord,
   type ExtraReviewFlag,
 } from "./analysis.model";
 import type { KevOutcome } from "./fallback.model";
@@ -34,9 +37,11 @@ import {
   type KevResponse,
 } from "./gateway.model";
 import {
+  EXTRACT_MS,
   KEV_MS,
   buildAnalysisInput,
   buildContext,
+  cachedExtractionId,
   cachedRow,
   evidence,
   extractBody,
@@ -51,7 +56,7 @@ import {
   withPatch,
 } from "./test-support";
 
-// 분석 오케스트레이션의 순수 규칙(c5b 2단계 설계 §1). 저장·네트워크·시각에 닿지 않는다.
+// 분석 오케스트레이션의 순수 규칙. 저장·네트워크·시각에 닿지 않는다.
 // C4 결과(AnalysisResult)는 실제 analyze 로 만든다. 흉내 낸 결과로 C4 계약을 가정하지 않는다.
 
 const RULE_RESULT_KEYS = [
@@ -240,27 +245,30 @@ describe("toKstDate · 시각 → KST 날짜(config.today)", () => {
 
 describe("readCachedExtraction · 캐시 행 → 쓸 수 있는 추출(못 쓰면 null = 다시 추출)", () => {
   const row = (overrides: Partial<CachedExtraction>): CachedExtraction => ({
+    id: cachedExtractionId("FX-01"),
     status: "COMPLETED",
     payload: loadExtraction("FX-01"),
-    errorCode: null,
     translations: null,
     ...overrides,
+  });
+
+  it("캐시 행 타입은 id·status·payload·translations 이고 errorCode 가 없다(타입 시험)", () => {
+    expectTypeOf<keyof CachedExtraction>().toEqualTypeOf<
+      "id" | "status" | "payload" | "translations"
+    >();
+    expectTypeOf<CachedExtraction["id"]>().toEqualTypeOf<string>();
   });
 
   it("캐시 행이 없으면 null 이다", () => {
     expect(readCachedExtraction(null)).toBeNull();
   });
 
-  it("FAILED 행은 QWEN_UNAVAILABLE 이어도 없는 것으로 보고 null 이다", () => {
-    expect(
-      readCachedExtraction(row({ status: "FAILED", payload: null, errorCode: "QWEN_UNAVAILABLE" })),
-    ).toBeNull();
+  it("FAILED 행(payload null)은 없는 것으로 보고 null 이다", () => {
+    expect(readCachedExtraction(row({ status: "FAILED", payload: null }))).toBeNull();
   });
 
   it("FAILED 행은 payload 가 유효해도 쓰지 않는다", () => {
-    expect(
-      readCachedExtraction(row({ status: "FAILED", errorCode: "EXTRACTION_FAILED" })),
-    ).toBeNull();
+    expect(readCachedExtraction(row({ status: "FAILED" }))).toBeNull();
   });
 
   it("COMPLETED 이고 payload 가 스키마를 통과하면 그 추출을 돌려준다", () => {
@@ -364,6 +372,153 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
       });
     },
   );
+});
+
+// ── 추출 저장 레코드 ──
+
+describe("toExtractionRecord · /extract 성공 응답 → requirement_extractions 저장 레코드(성공 행만)", () => {
+  /** 출처를 가르려고 세 번째 인자(검증한 추출)만 바꾼다. 응답 payload 는 fixture 원본 그대로다. */
+  const record = (
+    patchExtraction: (draft: RequirementExtraction) => void,
+    responseOverrides: Partial<Omit<ExtractResponse, "payload">> = {},
+    context: AnalysisContext = buildContext("FX-01"),
+  ): ExtractionRecord =>
+    toExtractionRecord(
+      context,
+      extractBody(loadExtraction("FX-01"), responseOverrides),
+      extractionWith(patchExtraction),
+    );
+
+  it("FX-01 COMPLETED 응답이면 설계의 13필드를 채운다", () => {
+    const extraction = loadExtraction("FX-01");
+    const expected: ExtractionRecord = {
+      bidId: "bid-FX-01",
+      revisionId: "FX-01#01",
+      provider: extraction.model.provider,
+      modelName: extraction.model.name,
+      promptVersion: extraction.model.promptVersion,
+      promptHash: extraction.model.promptHash,
+      schemaVersion: "requirement-extraction/v0.1",
+      status: "COMPLETED",
+      payload: extraction,
+      translations: null,
+      warnings: [],
+      latencyMs: EXTRACT_MS,
+      retries: extraction.model.retries,
+    };
+    expect(toExtractionRecord(buildContext("FX-01"), extractBody(extraction), extraction)).toEqual(
+      expected,
+    );
+  });
+
+  it("레코드 키는 설계의 13개뿐이다(requestId·errorCode·injectionSuspected·extractMs 는 없다)", () => {
+    expect(Object.keys(record(() => {})).toSorted()).toEqual(
+      [
+        "bidId",
+        "revisionId",
+        "provider",
+        "modelName",
+        "promptVersion",
+        "promptHash",
+        "schemaVersion",
+        "status",
+        "payload",
+        "translations",
+        "warnings",
+        "latencyMs",
+        "retries",
+      ].toSorted(),
+    );
+  });
+
+  it.each(["COMPLETED", "PENDING_REVIEW"] as const)("status 는 응답의 status(%s)다", (status) => {
+    expect(record(() => {}, { status }).status).toBe(status);
+  });
+
+  it("bidId 는 추출의 bidId 가 아니라 context.bidId 다", () => {
+    expect(record(() => {}).bidId).toBe("bid-FX-01");
+  });
+
+  it("revisionId 는 추출의 revisionId 가 아니라 bid.revisionId 다", () => {
+    const result = record((draft) => {
+      draft.revisionId = "FX-01#99";
+    });
+    expect(result.revisionId).toBe("FX-01#01");
+  });
+
+  it("provider 는 context.aiProvider 가 아니라 추출의 model.provider 다", () => {
+    const result = record(
+      (draft) => {
+        draft.model.provider = "hosted";
+      },
+      {},
+      buildContext("FX-01", { aiProvider: "local" }),
+    );
+    expect(result.provider).toBe("hosted");
+  });
+
+  it("modelName·promptVersion·promptHash·retries 는 응답 payload 가 아니라 세 번째 인자(검증한 추출)의 model 이다", () => {
+    const result = record((draft) => {
+      draft.model.name = "qwen-test-model";
+      draft.model.promptVersion = "req-extract/v9";
+      draft.model.promptHash = "f".repeat(64);
+      draft.model.retries = 1;
+    });
+    expect(result).toMatchObject({
+      modelName: "qwen-test-model",
+      promptVersion: "req-extract/v9",
+      promptHash: "f".repeat(64),
+      retries: 1,
+    });
+  });
+
+  it("schemaVersion 은 추출의 schemaVersion 이다", () => {
+    expect(record(() => {}).schemaVersion).toBe("requirement-extraction/v0.1");
+  });
+
+  it("payload 는 응답의 payload 가 아니라 세 번째 인자(검증한 추출)다", () => {
+    const patch = (draft: RequirementExtraction) => {
+      draft.summary.value = "검증한 추출의 요약";
+    };
+    expect(record(patch).payload).toEqual(extractionWith(patch));
+  });
+
+  it("latencyMs 는 추출의 model.latencyMs 가 아니라 응답의 timings.extractMs 다", () => {
+    const result = record((draft) => {
+      draft.model.latencyMs = 999;
+    });
+    expect(result.latencyMs).toBe(EXTRACT_MS);
+  });
+
+  it("warnings 는 추출의 warnings 가 아니라 응답의 warnings 다", () => {
+    const result = record(
+      (draft) => {
+        draft.warnings = ["EXTRACTION_LOW_CONFIDENCE"];
+      },
+      { warnings: ["ATTACHMENT_PARSE_FAILED:FX-01-rfp"] },
+    );
+    expect(result.warnings).toEqual(["ATTACHMENT_PARSE_FAILED:FX-01-rfp"]);
+  });
+
+  it("translations 는 캐시 행의 값이 아니라 응답의 translations 다", () => {
+    const context = buildContext("FX-01", {
+      extraction: { ...cachedRow("FX-01"), translations: { summary: "stale cached summary" } },
+    });
+    const result = record(() => {}, { translations: { summary: "fresh summary" } }, context);
+    expect(result.translations).toEqual({ summary: "fresh summary" });
+  });
+
+  it("응답의 translations 가 null 이면 캐시 행에 값이 있어도 null 이다", () => {
+    const context = buildContext("FX-01", {
+      extraction: { ...cachedRow("FX-01"), translations: { summary: "stale cached summary" } },
+    });
+    expect(record(() => {}, { translations: null }, context).translations).toBeNull();
+  });
+
+  it("세 번째 인자는 null 을 받지 않고 status 는 성공 두 값뿐이다(타입 시험)", () => {
+    expectTypeOf(toExtractionRecord).parameter(2).toEqualTypeOf<RequirementExtraction>();
+    expectTypeOf<ExtractionRecord["status"]>().toEqualTypeOf<"COMPLETED" | "PENDING_REVIEW">();
+  });
 });
 
 describe("toExtractRequest · /extract 요청(03 §2.1 ExtractRequest)", () => {

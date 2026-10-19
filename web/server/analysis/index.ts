@@ -49,3 +49,25 @@ export type {
   KevRequest,
   RunMode,
 } from "./analysis.model";
+
+// analysis 큐 계약·처리 설정. Route Handler(C6)와 worker 가 함께 쓴다.
+export {
+  ANALYSIS_JOB,
+  ANALYSIS_JOB_OPTIONS,
+  ANALYSIS_QUEUE,
+  analysisJobDataSchema,
+  readRunMode,
+  requestIdOf,
+  toAnalysisJobId,
+  toAnalysisSettings,
+  toFixtureStem,
+} from "./analysis-job.model";
+export type {
+  AnalysisContextLoader,
+  AnalysisJobData,
+  AnalysisRunTracker,
+  AnalysisSettings,
+  ExtractionCacheKey,
+  LoadedAnalysisContext,
+  ScoreRunStatus,
+} from "./analysis-job.model";

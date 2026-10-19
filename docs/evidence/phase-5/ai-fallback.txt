@@ -249,3 +249,64 @@ $ pnpm -C web exec vitest run server/analysis (요약)
 
 ## pnpm verify (worktree 루트, 2단계 뒤)
 exit 0 · web Vitest 77 files / 1675 tests passed · 루트 node --test 492 pass 0 fail · lodestar 0 errors · next build 통과 · services/ai pytest 28 passed
+
+## 라운드 A: 2단계 계약 수정(C2 반영) + worker analysis job (web/server/analysis/analysis-job.model.ts, web/worker/analysis-job.ts)
+작성 2026-10-19T04:21:10Z · main 병합 82bea1b(C2 스키마 48b20a5) 위
+근거: 03 §2·§2.1·§3.3, 02 장애 원칙(큐 재시도·DLQ), 14 로그 필드, e8 판정(job payload {orgId,scoreRunId,idempotencyKey}, FAILED 추출 미저장, 대상 확인·건너뜀·FAILED 표시, /health 기준 설정, jobId analysis_<orgId>_<scoreRunId>, K5' fixture stem)
+
+$ pnpm -C web exec vitest run worker/analysis-job.test.ts --reporter=verbose (S6·장애·대상 확인 발췌)
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 정상(FX-01, 캐시 추출 + 3b mock gateway) > markFailed 는 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · gateway 가 모든 요청을 연결 거부(S6) > job 은 던지지 않고 PARTIAL·AI_UNAVAILABLE·RULES_ONLY 로 끝난다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · gateway 가 모든 요청을 연결 거부(S6) > health 실패라 loader 에 cacheKey null 을 넘긴다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · gateway 가 모든 요청을 연결 거부(S6) > markRunning 은 env 기준 설정(fixture·local)으로 부른다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · gateway 가 모든 요청을 연결 거부(S6) > PARTIAL 레코드를 sink 에 한 번 저장하고 markFailed 는 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · gateway 가 모든 요청을 연결 거부(S6) > /kev 를 한 번 보내고 /explain 은 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · gateway 가 모든 요청을 연결 거부(S6) > 로그 settingsSource 는 ENV, runModeMismatch 는 false, status 는 PARTIAL 이다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · gateway 가 모든 요청을 연결 거부(S6) > 로그에 연결 오류의 내부 주소를 싣지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 없음(loader null) > UnrecoverableError("ANALYSIS_TARGET_NOT_FOUND") 를 던진다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 없음(loader null) > markRunning·markFailed·sink.save 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 없음(loader null) > 마지막 시도여도 markFailed 를 부르지 않는다(남의 run 일 수 있다)
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > orgId 가 다르면 UnrecoverableError("ANALYSIS_TARGET_MISMATCH") 를 던진다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > scoreRunId 가 다르면 UnrecoverableError("ANALYSIS_TARGET_MISMATCH") 를 던진다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > idempotencyKey 가 다르면 UnrecoverableError("ANALYSIS_TARGET_MISMATCH") 를 던진다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > orgId 가 다르면 markRunning·markFailed·sink.save 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > scoreRunId 가 다르면 markRunning·markFailed·sink.save 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > idempotencyKey 가 다르면 markRunning·markFailed·sink.save 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > orgId 가 다르면 마지막 시도여도 markFailed 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > scoreRunId 가 다르면 마지막 시도여도 markFailed 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 대상 불일치(다른 조직·다른 run 을 섞지 않는다) > idempotencyKey 가 다르면 마지막 시도여도 markFailed 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · job 이름 오류 > UnrecoverableError("ANALYSIS_JOB_UNKNOWN") 를 던진다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · job 데이터 오류 > orgId 가 uuid 가 아님 → UnrecoverableError("ANALYSIS_JOB_INVALID")(값·경로를 싣지 않는다)
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · job 데이터 오류 > scoreRunId 없음 → UnrecoverableError("ANALYSIS_JOB_INVALID")(값·경로를 싣지 않는다)
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · job 데이터 오류 > idempotencyKey 가 다른 조직 접두어 → UnrecoverableError("ANALYSIS_JOB_INVALID")(값·경로를 싣지 않는다)
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · job 데이터 오류 > null → UnrecoverableError("ANALYSIS_JOB_INVALID")(값·경로를 싣지 않는다)
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · job 데이터 오류 > 문자열 → UnrecoverableError("ANALYSIS_JOB_INVALID")(값·경로를 싣지 않는다)
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · job 데이터 오류 > 마지막 시도여도 markFailed 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > COMPLETED → SKIPPED 와 그 상태를 돌려준다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > PARTIAL → SKIPPED 와 그 상태를 돌려준다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > FAILED → SKIPPED 와 그 상태를 돌려준다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > COMPLETED → markRunning·markFailed·sink.save 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > PARTIAL → markRunning·markFailed·sink.save 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > FAILED → markRunning·markFailed·sink.save 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > COMPLETED → /kev·/explain·/extract 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > PARTIAL → /kev·/explain·/extract 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > FAILED → /kev·/explain·/extract 를 부르지 않는다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > 건너뜀 로그 필드는 8개다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 이미 끝난 run 은 건너뛴다 > RUNNING(앞 시도가 죽음)은 건너뛰지 않고 분석한다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 규칙 엔진 입력 오류(AnalysisInputError) > 첫 시도여도 UnrecoverableError("ANALYSIS_INPUT_INVALID") 로 바꿔 던진다
+ ✓ worker/analysis-job.test.ts > createAnalysisProcessor · 규칙 엔진 입력 오류(AnalysisInputError) > markFailed 를 한 번 ANALYSIS_INPUT_INVALID·그때의 now 로 부른다
+
+$ pnpm -C web exec vitest run server/analysis worker (요약)
+ Test Files  14 passed (14)
+      Tests  859 passed (859)
+
+$ node --conditions=react-server --import tsx -e "import('./worker/analysis-job.ts')" (web/)
+analysis job module loaded
+
+## 변형 확인(라운드 A)
+- test-server 참조 구현 변형 47건(2b 20 + job 27) 모두 빨간불, 원복 cmp 일치
+- 메인 세션(실제 구현): 조직 대상 확인 제거 → 3 failed / 113 passed, 대상 확인 전 markFailed 허용 → 10 failed / 106 passed, 원복 cmp 일치
+
+## pnpm verify (worktree 루트, 라운드 A 뒤)
+exit 0 · web Vitest 79 files / 1919 tests passed · 루트 node --test 549 pass 0 fail(약 1181초, C2 PGlite 정책 시험) · lodestar 0 errors · next build 통과 · services/ai pytest 28 passed
+main.ts 등록: 하지 않음(e8 판정 6 — 읽기 port 구현 뒤)

@@ -28,11 +28,15 @@ export type RunMode = "live" | "fixture" | "mock";
 export type AiProvider = "mock" | "local" | "hosted";
 export type KevQuestionSetVersion = "kev-qs/v0.1" | "kev-qs/v0.2";
 
-/** requirement_extractions 한 행 가운데 분석이 읽는 것. payload 는 JSONB 라 여기서 검증한다. */
+/**
+ * requirement_extractions 한 행 가운데 분석이 읽는 것. payload 는 JSONB 라 여기서 검증한다.
+ * 실패 코드는 읽지 않는다. FAILED 행은 어차피 다시 추출한다.
+ */
 export type CachedExtraction = {
+  /** requirement_extractions.id. 이 캐시를 쓴 run 의 score_runs.extraction_id 가 된다. */
+  id: string;
   status: "COMPLETED" | "PENDING_REVIEW" | "FAILED";
   payload: unknown;
-  errorCode: "EXTRACTION_FAILED" | "QWEN_UNAVAILABLE" | null;
   translations: Record<string, string> | null;
 };
 
@@ -47,7 +51,11 @@ export type DocumentIssue = {
 export type AnalysisContext = {
   requestId: string;
   orgId: string;
+  /** C6 가 enqueue 전에 QUEUED 로 넣은 score_runs 행의 id(e8 판정 1). */
+  scoreRunId: string;
   bidId: string;
+  /** score_runs.company_profile_id. loader 가 돌려준다. */
+  companyProfileId: string;
   /** isDemo 공고의 "FX-07" 또는 "FX-07.r01"(K5). live 면 null. */
   fixtureId: string | null;
   /** C4 형식의 공고 요약. */
@@ -102,9 +110,18 @@ export type KevOutput = {
 /** score_runs 에 넘길 저장 직전 값. 열 매핑은 저장 port(C2 repo) 몫이다. */
 export type AnalysisRunRecord = {
   orgId: string;
+  /** = context.scoreRunId. 저장 port 가 이 행을 결과로 채운다. */
+  scoreRunId: string;
   bidId: string;
   /** = bid.revisionId */
   revisionId: string;
+  /** = context.companyProfileId */
+  companyProfileId: string;
+  /**
+   * score_runs.extraction_id. 캐시를 썼으면 그 행의 id, 다시 추출해 저장했으면 저장 port 가 돌려준 id,
+   * 쓸 수 있는 추출이 없으면 null 이다.
+   */
+  extractionId: string | null;
   requestId: string;
   /** score_runs.idempotency_key(전역 UNIQUE) = toIdempotencyKey(orgId, requestId) */
   idempotencyKey: string;
@@ -152,7 +169,7 @@ export function readCachedExtraction(
 
 export type ExtractReading =
   | { kind: "EXTRACTED"; extraction: RequirementExtraction; response: ExtractResponse }
-  // response 는 200 FAILED 일 때만 있다(FAILED 행 저장용). 전송 실패·payload 스키마 위반이면 null 이라 저장하지 않는다.
+  // response 는 200 FAILED 일 때만 있고, 전송 실패·payload 스키마 위반이면 null 이다. 어느 쪽도 저장하지 않는다(e8 판정 2).
   | { kind: "UNAVAILABLE"; reason: AiUnavailableReason; response: ExtractResponse | null };
 
 /** /extract 결과 → 쓸 수 있는 추출 또는 PARTIAL 사유. 1단계 toExtractionOutcome 뒤 payload 를 scoring 스키마로 검증한다. */
@@ -173,38 +190,58 @@ export function readExtractResult(result: GatewayResult<ExtractResponse>): Extra
 /** NormalizedBid.content + /parse 텍스트(파싱 실패 첨부는 뺀다). 읽기는 추출 저장 port 가 한다. */
 export type ExtractSource = { body: string; attachments: ExtractRequest["attachments"] };
 
-/** requirement_extractions 에 넘길 값. 재사용 키·열 매핑은 C2 repo 몫이다. */
+/**
+ * requirement_extractions 에 넘길 값. 성공 행(COMPLETED·PENDING_REVIEW)만 저장한다(e8 판정 2).
+ * 재사용 키(revision_id, model_name, prompt_hash) upsert·열 매핑(provider 대문자 등)은 저장 port 몫이다.
+ */
 export type ExtractionRecord = {
   bidId: string;
+  /** = bid.revisionId */
   revisionId: string;
-  requestId: string;
-  status: ExtractResponse["status"];
-  /** FAILED 면 null. */
-  payload: RequirementExtraction | null;
+  /** 아래 넷과 retries 는 검증한 추출의 model 에서 온다. */
+  provider: AiProvider;
+  modelName: string;
+  promptVersion: string;
+  promptHash: string;
+  schemaVersion: string;
+  status: "COMPLETED" | "PENDING_REVIEW";
+  /** 검증한 추출 */
+  payload: RequirementExtraction;
   translations: Record<string, string> | null;
-  errorCode: ExtractResponse["errorCode"];
-  injectionSuspected: boolean;
+  /** = response.warnings */
   warnings: string[];
-  extractMs: number;
+  /** = response.timings.extractMs */
+  latencyMs: number;
+  retries: number;
 };
 
-/** /extract 200 응답 → 추출 저장 레코드(§5.3). 응답 값은 그대로 옮기고 payload 만 검증한 추출(FAILED 면 null)로 둔다. */
+/**
+ * /extract 200 성공 응답 → 추출 저장 레코드(e8 판정: 성공 행만 저장). 모델 정보·payload 는 검증한 추출에서, 상태·번역·경고·지연은 응답에서 옮긴다.
+ * FAILED 응답은 저장하지 않으므로 받으면 던진다. 호출자가 EXTRACTED 일 때만 부른다.
+ */
 export function toExtractionRecord(
   context: AnalysisContext,
   response: ExtractResponse,
-  payload: RequirementExtraction | null,
+  extraction: RequirementExtraction,
 ): ExtractionRecord {
+  if (response.status === "FAILED") {
+    throw new Error("toExtractionRecord: FAILED 응답은 저장하지 않는다");
+  }
+  const { model } = extraction;
   return {
     bidId: context.bidId,
     revisionId: context.bid.revisionId,
-    requestId: context.requestId,
+    provider: model.provider,
+    modelName: model.name,
+    promptVersion: model.promptVersion,
+    promptHash: model.promptHash,
+    schemaVersion: extraction.schemaVersion,
     status: response.status,
-    payload,
+    payload: extraction,
     translations: response.translations,
-    errorCode: response.errorCode,
-    injectionSuspected: response.injectionSuspected,
     warnings: response.warnings,
-    extractMs: response.timings.extractMs,
+    latencyMs: response.timings.extractMs,
+    retries: model.retries,
   };
 }
 
@@ -258,7 +295,7 @@ export type KevRequest = {
 const ATTACHMENT_PARSE_FAILED_PREFIX = "ATTACHMENT_PARSE_FAILED:";
 
 /**
- * translations 는 호출자가 고른다(§5.2). 이번 run 에 다시 추출했으면 그 응답의 값(null 이어도 그대로),
+ * translations 는 호출자가 고른다. 이번 run 에 다시 추출했으면 그 응답의 값(null 이어도 그대로),
  * 캐시를 썼으면 캐시 행의 값이다. 쓸 수 없던 캐시 행의 번역은 오래된 값이라 쓰지 않는다.
  */
 export function toKevRequest(

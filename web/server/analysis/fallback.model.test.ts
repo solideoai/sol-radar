@@ -145,7 +145,7 @@ describe("toKevOutcome", () => {
     expect(toKevOutcome(ok(enabledKev))).toEqual({ kind: "USED", response: enabledKev });
   });
 
-  it("200 이고 kev.enabled=true 면 errorCode 가 KEV_UNAVAILABLE 이어도 Kev 응답을 쓴다(설계 §6 결정 2)", () => {
+  it("200 이고 kev.enabled=true 면 errorCode 가 KEV_UNAVAILABLE 이어도 Kev 응답을 쓴다", () => {
     const partial: KevResponse = { ...enabledKev, errorCode: "KEV_UNAVAILABLE" };
     expect(toKevOutcome(ok(partial))).toEqual({ kind: "USED", response: partial });
   });
@@ -341,7 +341,7 @@ describe("pickAiUnavailableReason", () => {
       kev: kevDisabled(true),
       expected: "QWEN_UNAVAILABLE",
     },
-    // 설계 §6 결정 1: 캐시 행 코드는 이번 run 에 /extract 를 부르지 않았을 때만 본다
+    // 캐시 행 코드는 이번 run 에 /extract 를 부르지 않았을 때만 본다
     {
       name: "캐시 행이 QWEN_UNAVAILABLE 이어도 이번 run 이 EXTRACTED 면 null",
       extraction: extracted,

@@ -47,7 +47,8 @@ import { toIssueList } from "./gateway.model";
 /** 추출 port. 캐시를 쓸 수 없을 때만 부른다. Supabase·MinIO 구현은 C2 병합 뒤다. */
 export type ExtractionStore = {
   loadSource(context: AnalysisContext): Promise<ExtractSource>;
-  save(record: ExtractionRecord): Promise<void>;
+  /** 성공 추출만 받는다. 저장한 requirement_extractions.id 를 돌려준다(score_runs.extraction_id). */
+  save(record: ExtractionRecord): Promise<{ id: string }>;
 };
 
 export type AnalysisDeps = {
@@ -75,44 +76,52 @@ type ExtractionStep = {
   extraction: RequirementExtraction | null;
   /** 이번 run 에 /extract 를 불렀을 때만 있다. 캐시를 썼으면 null 이다. */
   outcome: ExtractionOutcome | null;
-  /** /kev 에 실을 번역. 다시 추출했으면 그 응답의 값, 캐시를 썼으면 캐시 행의 값(§5.2). */
+  /** /kev 에 실을 번역. 다시 추출했으면 그 응답의 값, 캐시를 썼으면 캐시 행의 값이다. */
   translations: Record<string, string> | null;
+  /** 쓴 추출의 requirement_extractions.id. 캐시를 썼으면 그 행, 다시 추출했으면 save 가 돌려준 값, 추출이 없으면 null. */
+  extractionId: string | null;
 };
 
 /**
  * ① 캐시 추출을 쓰고, 쓸 수 없으면 같은 job 안에서 /extract 를 부른다(e8 정정).
- * 200 응답만 저장한다. 전송 실패·payload 스키마 위반은 저장하지 않는다. loadSource·save 가 던지면 그대로 던진다(job 재시도 몫).
+ * 성공 응답(COMPLETED·PENDING_REVIEW)만 저장한다. 200 FAILED·전송 실패·payload 스키마 위반은 저장하지 않는다(e8 판정 2).
+ * loadSource·save 가 던지면 그대로 던진다(job 재시도 몫).
  */
 async function prepareExtraction(
   context: AnalysisContext,
   deps: AnalysisDeps,
 ): Promise<ExtractionStep> {
-  const cached = readCachedExtraction(context.extraction);
-  if (cached !== null) {
+  const row = context.extraction;
+  const cached = readCachedExtraction(row);
+  // readCachedExtraction(null) 은 늘 null 이다. row 비교는 row.id 를 읽으려고 타입을 좁히는 것이다.
+  if (row !== null && cached !== null) {
     return {
       extraction: cached,
       outcome: null,
-      translations: context.extraction?.translations ?? null,
+      translations: row.translations,
+      extractionId: row.id,
     };
   }
 
   const source = await deps.extraction.loadSource(context);
   const reading = readExtractResult(await deps.gateway.extract(toExtractRequest(context, source)));
   if (reading.kind === "EXTRACTED") {
-    await deps.extraction.save(toExtractionRecord(context, reading.response, reading.extraction));
+    const saved = await deps.extraction.save(
+      toExtractionRecord(context, reading.response, reading.extraction),
+    );
     return {
       extraction: reading.extraction,
       outcome: { kind: "EXTRACTED", response: reading.response },
       translations: reading.response.translations,
+      extractionId: saved.id,
     };
   }
-  if (reading.response !== null) {
-    await deps.extraction.save(toExtractionRecord(context, reading.response, null));
-  }
+  // 쓸 수 없던 캐시 행의 id 는 이 run 이 쓰지 않았으므로 남기지 않는다.
   return {
     extraction: null,
     outcome: { kind: "UNAVAILABLE", reason: reading.reason },
     translations: null,
+    extractionId: null,
   };
 }
 
@@ -241,8 +250,11 @@ export async function runAnalysis(
 
   return {
     orgId: context.orgId,
+    scoreRunId: context.scoreRunId,
     bidId: context.bidId,
     revisionId: context.bid.revisionId,
+    companyProfileId: context.companyProfileId,
+    extractionId: extractionStep.extractionId,
     requestId: context.requestId,
     idempotencyKey: toIdempotencyKey(context.orgId, context.requestId),
     input,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import * as analysisBarrel from "@/server/analysis";
 import {
   ANALYSIS_INPUT_SCHEMA_VERSION,
@@ -19,6 +19,7 @@ import {
   analyzeAndSave,
   runAnalysis,
   type AnalysisRunSink,
+  type ExtractionStore,
 } from "./analysis.service";
 import {
   CALCULATION_DATE,
@@ -32,6 +33,8 @@ import {
   STATE_HASH,
   buildContext,
   buildDeps,
+  cachedExtractionId,
+  cachedRow,
   clock,
   explainBody,
   extractBody,
@@ -56,7 +59,7 @@ import {
   type GatewayRoutes,
 } from "./test-support";
 
-// 03 §2.1 analysis job ①~⑤ 의 흐름(c5b 2단계 설계 §2·§4). 저장은 port 호출까지만 본다.
+// 03 §2.1 analysis job ①~⑤ 의 흐름. 저장은 port 호출까지만 본다.
 // gateway 는 실제 createGatewayClient 에 가짜 fetch 를 넣은 것이다. 1단계 timeout·재시도·breaker 를 그대로 거친다.
 // 골든 숫자는 fixtures/goldens 에서 읽는다. 시계는 CALCULATION_DATE 의 KST 18:00 으로 고정한다.
 
@@ -131,7 +134,12 @@ function citationFailedContext(kind: "warning" | "note"): AnalysisContext {
   });
   return buildContext("FX-13", {
     bid: { ...loadBid("FX-13"), budgetKrw: normalizedBudget },
-    extraction: { status: "COMPLETED", payload, errorCode: null, translations: null },
+    extraction: {
+      id: cachedExtractionId("FX-13"),
+      status: "COMPLETED",
+      payload,
+      translations: null,
+    },
     kev: { enabled: false, questionSetVersion: "kev-qs/v0.1" },
   });
 }
@@ -191,13 +199,16 @@ describe("runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev)", (
 // ── 레코드 모양 ──
 
 describe("runAnalysis · 저장 직전 레코드(e8 C6)", () => {
-  it("레코드 키는 orgId·bidId·revisionId·requestId·idempotencyKey·input·result·meta·kevOutput 이다", async () => {
+  it("레코드 키는 orgId·scoreRunId·bidId·revisionId·companyProfileId·extractionId·requestId·idempotencyKey·input·result·meta·kevOutput 이다", async () => {
     const { record } = await run(buildContext("FX-01"));
     expect(Object.keys(record).toSorted()).toEqual(
       [
         "orgId",
+        "scoreRunId",
         "bidId",
         "revisionId",
+        "companyProfileId",
+        "extractionId",
         "requestId",
         "idempotencyKey",
         "input",
@@ -206,6 +217,22 @@ describe("runAnalysis · 저장 직전 레코드(e8 C6)", () => {
         "kevOutput",
       ].toSorted(),
     );
+  });
+
+  it("scoreRunId·companyProfileId 는 context 값이다", async () => {
+    const context = buildContext("FX-01", {
+      scoreRunId: "run-from-context",
+      companyProfileId: "profile-from-context",
+    });
+    const { record } = await run(context);
+    expect(record).toMatchObject({
+      scoreRunId: "run-from-context",
+      companyProfileId: "profile-from-context",
+    });
+  });
+
+  it("extractionId 는 string | null 이다(타입 시험)", () => {
+    expectTypeOf<AnalysisRunRecord["extractionId"]>().toEqualTypeOf<string | null>();
   });
 
   it("식별자는 context 에서, revisionId 는 bid.revisionId 에서 온다", async () => {
@@ -372,9 +399,9 @@ describe("runAnalysis · /kev 요청 translations(§5-2)", () => {
     const translations = { summary: "Sejong City is recruiting bidders." };
     const context = buildContext("FX-01", {
       extraction: {
+        id: cachedExtractionId("FX-01"),
         status: "COMPLETED",
         payload: loadExtraction("FX-01"),
-        errorCode: null,
         translations,
       },
     });
@@ -394,9 +421,9 @@ describe("runAnalysis · /kev 요청 translations(§5-2)", () => {
   it("쓸 수 없는 캐시를 다시 추출하면 캐시 행의 translations 가 아니라 /extract 응답 값(null)을 보낸다", async () => {
     const context = buildContext("FX-01", {
       extraction: {
+        id: cachedExtractionId("FX-01"),
         status: "COMPLETED",
         payload: invalidPayload(),
-        errorCode: null,
         translations: { summary: "stale cached summary" },
       },
     });
@@ -712,9 +739,9 @@ describe("runAnalysis · 캐시가 유효하면 다시 추출하지 않는다", 
   it("PENDING_REVIEW 캐시도 유효하면 loadSource·/extract·save 를 하나도 부르지 않는다", async () => {
     const context = buildContext("FX-01", {
       extraction: {
+        id: cachedExtractionId("FX-01"),
         status: "PENDING_REVIEW",
         payload: loadExtraction("FX-01"),
-        errorCode: null,
         translations: null,
       },
     });
@@ -759,19 +786,23 @@ describe("runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추
 
   it("200 COMPLETED 면 추출 레코드(payload 포함)를 save 에 한 번 넘긴다", async () => {
     const translations = { summary: "Sejong City is recruiting bidders." };
-    const reply = jsonReply(extractBody(loadExtraction("FX-01"), { translations }));
+    const extraction = loadExtraction("FX-01");
+    const reply = jsonReply(extractBody(extraction, { translations }));
     const { store } = await run(noCache(), { routes: withExtract(reply) });
     const expected: ExtractionRecord = {
       bidId: "bid-FX-01",
       revisionId: "FX-01#01",
-      requestId: "req-FX-01",
+      provider: extraction.model.provider,
+      modelName: extraction.model.name,
+      promptVersion: extraction.model.promptVersion,
+      promptHash: extraction.model.promptHash,
+      schemaVersion: extraction.schemaVersion,
       status: "COMPLETED",
-      payload: loadExtraction("FX-01"),
+      payload: extraction,
       translations,
-      errorCode: null,
-      injectionSuspected: false,
       warnings: [],
-      extractMs: EXTRACT_MS,
+      latencyMs: EXTRACT_MS,
+      retries: extraction.model.retries,
     };
     expect(store.saves).toEqual([expected]);
   });
@@ -815,12 +846,12 @@ describe("runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추
 describe("runAnalysis · 쓸 수 없는 캐시도 없는 것으로 보고 다시 추출한다", () => {
   const extracted = () => withExtract(jsonReply(extractBody(loadExtraction("FX-01"))));
 
-  it("캐시 FAILED(QWEN_UNAVAILABLE)면 /extract 를 다시 부르고 COMPLETED 가 된다", async () => {
+  it("캐시 FAILED 행이면 /extract 를 다시 부르고 COMPLETED 가 된다", async () => {
     const context = buildContext("FX-01", {
       extraction: {
+        id: cachedExtractionId("FX-01"),
         status: "FAILED",
         payload: null,
-        errorCode: "QWEN_UNAVAILABLE",
         translations: null,
       },
     });
@@ -832,9 +863,9 @@ describe("runAnalysis · 쓸 수 없는 캐시도 없는 것으로 보고 다시
   it("캐시 payload 가 스키마 위반이면 /extract 를 다시 부르고 COMPLETED 가 된다", async () => {
     const context = buildContext("FX-01", {
       extraction: {
+        id: cachedExtractionId("FX-01"),
         status: "COMPLETED",
         payload: invalidPayload(),
-        errorCode: null,
         translations: null,
       },
     });
@@ -894,23 +925,15 @@ describe("runAnalysis · /extract 실패만 PARTIAL 이다", () => {
     expect(record.result.reviewFlags).toContain("QWEN_UNAVAILABLE");
   });
 
-  it("200 FAILED·QWEN_UNAVAILABLE → FAILED 행(payload null)을 save 에 한 번 넘긴다", async () => {
-    const reply = jsonReply(extractFailedBody("QWEN_UNAVAILABLE"));
-    const { store } = await run(noCache(), { routes: withExtract(reply) });
-    const expected: ExtractionRecord = {
-      bidId: "bid-FX-01",
-      revisionId: "FX-01#01",
-      requestId: "req-FX-01",
-      status: "FAILED",
-      payload: null,
-      translations: null,
-      errorCode: "QWEN_UNAVAILABLE",
-      injectionSuspected: false,
-      warnings: [],
-      extractMs: EXTRACT_MS,
-    };
-    expect(store.saves).toEqual([expected]);
-  });
+  it.each(["QWEN_UNAVAILABLE", "EXTRACTION_FAILED", null] as const)(
+    "200 FAILED·errorCode %s → 추출을 저장하지 않는다(save 0회, e8 판정 2)",
+    async (errorCode) => {
+      const reply = jsonReply(extractFailedBody(errorCode));
+      const { store } = await run(noCache(), { routes: withExtract(reply) });
+      expect(store.loads).toHaveLength(1);
+      expect(store.saves).toHaveLength(0);
+    },
+  );
 
   it("200 FAILED → /kev 는 부르지 않고 gateway 는 살아 있으니 /explain 은 부른다", async () => {
     const reply = jsonReply(extractFailedBody("QWEN_UNAVAILABLE"));
@@ -919,12 +942,10 @@ describe("runAnalysis · /extract 실패만 PARTIAL 이다", () => {
     expect(fake.count("/explain")).toBe(1);
   });
 
-  it("200 FAILED·errorCode null → PARTIAL·EXTRACTION_FAILED 이고 FAILED 행을 errorCode 그대로(null) 저장한다", async () => {
+  it("200 FAILED·errorCode null → PARTIAL·EXTRACTION_FAILED 이다", async () => {
     const reply = jsonReply(extractFailedBody(null));
-    const { record, store } = await run(noCache(), { routes: withExtract(reply) });
-    expect(record.result.errorCode).toBe("EXTRACTION_FAILED");
-    expect(store.saves).toHaveLength(1);
-    expect(store.saves[0]).toMatchObject({ status: "FAILED", payload: null, errorCode: null });
+    const { record } = await run(noCache(), { routes: withExtract(reply) });
+    expect(record.result).toMatchObject({ status: "PARTIAL", errorCode: "EXTRACTION_FAILED" });
   });
 
   it("200 COMPLETED 인데 payload 가 스키마 위반 → PARTIAL·EXTRACTION_FAILED 이다", async () => {
@@ -964,11 +985,7 @@ describe("runAnalysis · /extract 실패만 PARTIAL 이다", () => {
     );
     const { store } = await run(noCache(), { routes: withExtract(reply) });
     expect(store.saves).toHaveLength(1);
-    expect(store.saves[0]).toMatchObject({
-      status: "PENDING_REVIEW",
-      payload,
-      injectionSuspected: true,
-    });
+    expect(store.saves[0]).toMatchObject({ status: "PENDING_REVIEW", payload });
   });
 
   it("loadSource 가 던지면 그 오류를 그대로 던지고 /extract 는 부르지 않는다", async () => {
@@ -989,6 +1006,98 @@ describe("runAnalysis · /extract 실패만 PARTIAL 이다", () => {
       saveError,
     );
   });
+});
+
+// ── 레코드의 extractionId(score_runs.extraction_id) ──
+
+describe("runAnalysis · extractionId 는 캐시 id·save 가 돌려준 id·null 가운데 하나다", () => {
+  const SAVED_ID = "extraction-saved-from-store";
+  const extracted = () => withExtract(jsonReply(extractBody(loadExtraction("FX-01"))));
+  /** 쓸 수 없는 캐시 행 두 가지. id 가 있어도 쓰지 않았으므로 extractionId 가 되면 안 된다. */
+  const unusableCaches: [string, AnalysisContext["extraction"]][] = [
+    ["FAILED 행", { ...cachedRow("FX-01"), status: "FAILED", payload: null }],
+    ["payload 스키마 위반 행", { ...cachedRow("FX-01"), payload: invalidPayload() }],
+  ];
+
+  it("ExtractionStore.save 는 저장한 행의 { id } 를 돌려준다(타입 시험)", () => {
+    expectTypeOf<ReturnType<ExtractionStore["save"]>>().toEqualTypeOf<Promise<{ id: string }>>();
+  });
+
+  it("유효한 캐시를 쓰면 context.extraction.id 다", async () => {
+    const { record } = await run(buildContext("FX-01"));
+    expect(record.extractionId).toBe(cachedExtractionId("FX-01"));
+  });
+
+  it("유효한 PENDING_REVIEW 캐시를 써도 그 캐시 id 다", async () => {
+    const context = buildContext("FX-01", {
+      extraction: {
+        ...cachedRow("FX-01"),
+        id: "extraction-cached-pending",
+        status: "PENDING_REVIEW",
+      },
+    });
+    const { record } = await run(context);
+    expect(record.extractionId).toBe("extraction-cached-pending");
+  });
+
+  it("캐시 행이 없어 다시 추출해 저장하면 save 가 돌려준 id 다", async () => {
+    const { record } = await run(buildContext("FX-01", { extraction: null }), {
+      routes: extracted(),
+      store: { savedId: SAVED_ID },
+    });
+    expect(record.extractionId).toBe(SAVED_ID);
+  });
+
+  it("200 PENDING_REVIEW 로 다시 추출해 저장해도 save 가 돌려준 id 다", async () => {
+    const reply = jsonReply(extractBody(loadExtraction("FX-01"), { status: "PENDING_REVIEW" }));
+    const { record } = await run(buildContext("FX-01", { extraction: null }), {
+      routes: withExtract(reply),
+      store: { savedId: SAVED_ID },
+    });
+    expect(record.extractionId).toBe(SAVED_ID);
+  });
+
+  it.each(unusableCaches)(
+    "쓸 수 없는 캐시(%s)를 다시 추출해 저장하면 캐시 id 가 아니라 save 가 돌려준 id 다",
+    async (_name, extraction) => {
+      const { record } = await run(buildContext("FX-01", { extraction }), {
+        routes: extracted(),
+        store: { savedId: SAVED_ID },
+      });
+      expect(record.extractionId).toBe(SAVED_ID);
+    },
+  );
+
+  it("캐시 행이 없고 /extract 가 연결 거부면 null 이다", async () => {
+    const { record } = await run(buildContext("FX-01", { extraction: null }), {
+      routes: withExtract(refusedReply),
+    });
+    expect(record.extractionId).toBeNull();
+  });
+
+  it("캐시 행이 없고 /extract 가 200 FAILED 면(저장하지 않음) null 이다", async () => {
+    const { record } = await run(buildContext("FX-01", { extraction: null }), {
+      routes: withExtract(jsonReply(extractFailedBody("QWEN_UNAVAILABLE"))),
+    });
+    expect(record.extractionId).toBeNull();
+  });
+
+  it("캐시 행이 없고 /extract payload 가 스키마 위반이면(저장하지 않음) null 이다", async () => {
+    const { record } = await run(buildContext("FX-01", { extraction: null }), {
+      routes: withExtract(jsonReply(extractBody(invalidPayload()))),
+    });
+    expect(record.extractionId).toBeNull();
+  });
+
+  it.each(unusableCaches)(
+    "쓸 수 없는 캐시(%s)가 있고 /extract 도 실패하면 캐시 id 가 아니라 null 이다",
+    async (_name, extraction) => {
+      const { record } = await run(buildContext("FX-01", { extraction }), {
+        routes: withExtract(jsonReply(extractFailedBody("QWEN_UNAVAILABLE"))),
+      });
+      expect(record.extractionId).toBeNull();
+    },
+  );
 });
 
 // ── /explain ──
@@ -1215,7 +1324,7 @@ describe("analyzeAndSave · runAnalysis 뒤 sink.save", () => {
 
 // ── 배럴 ──
 
-describe("@/server/analysis 배럴(설계 §3)", () => {
+describe("@/server/analysis 배럴", () => {
   it.each([
     "runAnalysis",
     "analyzeAndSave",
