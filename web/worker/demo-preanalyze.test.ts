@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -374,13 +375,14 @@ describe("runPreanalyze · gateway 확인", () => {
     },
   );
 
+  // 보안 후속 (c): 줄은 runMode 와 provider 를 함께 싣는다(둘 다 enum 값). 예전 줄 `(runMode=<값>)` 은 이 결정으로 바뀌었다.
   it.each(["fixture", "live"] as const)(
-    "runMode=%s 면 exit 2 와 'mock 모드가 아니다' 줄을 돌려준다",
+    "runMode=%s 면 exit 2 와 runMode·provider 를 담은 'mock 모드가 아니다' 줄을 돌려준다",
     async (runMode) => {
       const r = await run({ health: healthOk({ runMode, provider: "local" }) });
       expect(r.result).toEqual({
         exitCode: 2,
-        line: `preanalyze: mock 모드가 아니다(runMode=${runMode}) — 사전 분석은 mock 에서만 한다`,
+        line: `preanalyze: mock 모드가 아니다(runMode=${runMode}, provider=local) — 사전 분석은 mock 에서만 한다`,
       });
     },
   );
@@ -393,6 +395,45 @@ describe("runPreanalyze · gateway 확인", () => {
       expect(r.adds).toEqual([]);
     },
   );
+
+  // 보안 후속 (c): runMode=mock 인데 provider 가 local·hosted 인 설정 모순이면 실모델을 부를 수 있어 멈춘다.
+  it.each(["local", "hosted"] as const)(
+    "runMode=mock 이어도 provider=%s 면 exit 2 와 두 값을 담은 'mock 모드가 아니다' 줄을 돌려준다",
+    async (provider) => {
+      const r = await run({ health: healthOk({ runMode: "mock", provider }) });
+      expect(r.result).toEqual({
+        exitCode: 2,
+        line: `preanalyze: mock 모드가 아니다(runMode=mock, provider=${provider}) — 사전 분석은 mock 에서만 한다`,
+      });
+    },
+  );
+
+  it.each(["local", "hosted"] as const)(
+    "runMode=mock 이어도 provider=%s 면 store·queue 를 부르지 않는다",
+    async (provider) => {
+      const r = await run({ health: healthOk({ runMode: "mock", provider }) });
+      expect(r.storeCalls).toEqual([]);
+      expect(r.adds).toEqual([]);
+    },
+  );
+
+  it("runMode=mock 이어도 provider=hosted 면 마지막 줄 하나만 찍는다(다른 줄 없이 멈춘다)", async () => {
+    const r = await run({ health: healthOk({ runMode: "mock", provider: "hosted" }) });
+    expect(transcriptOf(r.lines, r.result.line)).toEqual([r.result.line]);
+  });
+
+  it("provider=mock 이어도 runMode=live 면 exit 2 이고 줄에 두 값을 싣는다", async () => {
+    const r = await run({ health: healthOk({ runMode: "live", provider: "mock" }) });
+    expect(r.result).toEqual({
+      exitCode: 2,
+      line: "preanalyze: mock 모드가 아니다(runMode=live, provider=mock) — 사전 분석은 mock 에서만 한다",
+    });
+  });
+
+  it("runMode=mock·provider=mock 이면 멈추지 않고 데모 조직을 읽는다", async () => {
+    const r = await run({ health: healthOk({ runMode: "mock", provider: "mock" }) });
+    expect(r.storeCalls[0]).toBe("findDemoOrg");
+  });
 
   it("health 는 한 번 부른다", async () => {
     const r = await run();
@@ -869,5 +910,24 @@ describe("runPreanalyze · 로그", () => {
       expect(line).not.toMatch(/\b94\b/);
       expect(line).not.toContain("explanation");
     }
+  });
+});
+
+// ── 실패 줄의 오류 이름(오류 이름 공용화, 보안 후속 낮음 h 의 남은 곳) ──
+// 실패 줄("멈췄다(…)"·"analysis queue 오류 …"·"queue 닫기 실패 …")은 main 이 찍는다. main 은 IORedis·Queue·service role 을
+// 직접 만들고 내보내지 않아 시험이 부를 수 없다. 그래서 그 줄의 이름을 만드는 곳(errorLabel)이 공용 errorNameOf 를 쓰고
+// error.name 을 거르지 않은 채 싣지 않는지 소스로 본다. 이름 규칙(개행·61자·값 → "Error", Error 아님 → "NonError")은 error-name.test.ts 가 본다.
+
+describe("demo-preanalyze · 실패 줄의 오류 이름은 공용 errorNameOf 로 거른다", () => {
+  const source = readFileSync(new URL("./demo-preanalyze.ts", import.meta.url), "utf8");
+
+  it("errorNameOf 를 @/worker/error-name 에서 가져다 쓴다", () => {
+    expect(source).toMatch(
+      /import\s*\{[^}]*\berrorNameOf\b[^}]*\}\s*from\s*"(@\/worker|\.)\/error-name"/,
+    );
+  });
+
+  it("error.name 을 거르지 않은 채 쓰지 않는다", () => {
+    expect(source).not.toMatch(/\berror\.name\b/);
   });
 });

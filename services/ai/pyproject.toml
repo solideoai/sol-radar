@@ -5,6 +5,7 @@ description = "SOL RADAR AI gateway (Phase 0 골격)"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.144.0",
+    "httpx>=0.28.1",
     "jsonschema>=4.26.0",
     "pydantic-settings>=2.16.0",
     "pyyaml>=6.0.3",

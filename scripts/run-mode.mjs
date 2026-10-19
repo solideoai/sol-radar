@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 
 const RULES_URL = new URL("../infra/run-modes.json", import.meta.url);
 const CHECKED_KEYS = ["DEMO_MODE", "AI_PROVIDER", "KEV_ENABLED"];
+// M2(보안 점검): 한국어 state(평가 전용)는 hosted 공급자와 함께 쓸 수 없다. 모든 모드에 같은 판정이라 규칙 파일 밖에 둔다
+const KO_STATE_KEY = "KEV_ALLOW_KO_STATE";
+const KO_STATE_ON = "true";
 
 /** 기본 규칙 파일(infra/run-modes.json)을 읽는다. */
 export const loadRunModeRules = () => JSON.parse(readFileSync(RULES_URL, "utf8"));
@@ -11,7 +14,7 @@ const given = (value) => (value === undefined || value === "" ? undefined : valu
 
 /**
  * env 로 실행 모드를 판정한다. 판정 순서:
- * SOL_RUN_MODE → DEMO_MODE → AI_PROVIDER → KEV_ENABLED → forbidden → hosted 승인.
+ * SOL_RUN_MODE → DEMO_MODE → AI_PROVIDER → KEV_ENABLED → forbidden → hosted + 한국어 state(M2) → hosted 승인.
  * 값 비교는 정확히 같은 문자열이다(대소문자·공백을 고치지 않는다).
  */
 export function resolveRunMode(env, rules = loadRunModeRules()) {
@@ -41,6 +44,10 @@ export function resolveRunMode(env, rules = loadRunModeRules()) {
   }
 
   const approval = rules.hostedApproval;
+  if (effective.AI_PROVIDER === approval.provider && given(env[KO_STATE_KEY]) === KO_STATE_ON) {
+    violations.push({ key: KO_STATE_KEY, reason: "FORBIDDEN_WITH_HOSTED" });
+  }
+
   const hostedAllowed = spec.AI_PROVIDER.includes(approval.provider);
   if (
     effective.AI_PROVIDER === approval.provider &&

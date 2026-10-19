@@ -8,6 +8,7 @@ import {
   toExtractSource,
   toExtractionRow,
   toFailedUpdate,
+  toFinishScoreRunPayload,
   toLoadedContext,
   toQualificationCheckRows,
   toRequirementAssessmentRows,
@@ -30,7 +31,9 @@ import {
   toPostgrestTimestamp,
 } from "./store.test-support";
 import {
+  ATTEMPT_STARTED_AT,
   QUEUED_AT,
+  STARTED_AT,
   buildContext,
   buildDeps,
   extractBody,
@@ -99,7 +102,7 @@ const S6_RECORD = await fixtureRecord("FX-01", {
   "/kev": refusedReply,
   "/explain": jsonReply(explainBody("미사용", true)),
 });
-// FX-11: 예산 미공개 공고. Kev fixture 가 없어 gateway 가 Kev 를 끈 응답을 준다(COMPLETED·kev.enabled=false).
+// FX-11: 예산 미공개 공고. KEV_ENABLED=false 시나리오다(kevOffRoutes 로 gateway 가 Kev 를 끈 응답을 준다, COMPLETED·kev.enabled=false).
 const FX11_RECORD = await fixtureRecord(NO_BUDGET_ID, kevOffRoutes());
 
 // ── 읽기: toLoadedContext ──
@@ -753,11 +756,48 @@ describe("toScoreRunResultUpdate", () => {
       run_mode: "MOCK",
       ai_provider: "MOCK",
       extraction_id: record.extractionId,
-      started_at: meta.startedAt,
+      // 보안 검토 후속: 마감은 시도 시작 시각(started_at)을 바꾸지 않는다. 예전 기대(started_at: meta.startedAt)는 이 결정으로 뺐다.
       finished_at: meta.finishedAt,
       kev_calibration: null,
       fallback_reason: null,
     });
+  });
+
+  it("started_at 열이 없다 — started_at 은 markRunning 이 쓴 시도 시작 시각이고 마감이 바꾸지 않는다(보안 검토 후속)", () => {
+    for (const record of [FX01_RECORD, FX03_RECORD, S6_RECORD, FX11_RECORD]) {
+      expect(Object.keys(toScoreRunResultUpdate(record))).not.toContain("started_at");
+    }
+  });
+
+  it("마감 열은 24개다(결과·모델·실행 정보·finished_at, started_at 제외)", () => {
+    expect(Object.keys(toScoreRunResultUpdate(FX01_RECORD)).toSorted()).toEqual(
+      [
+        "status",
+        "score",
+        "recommendation",
+        "recommendation_basis",
+        "error_code",
+        "injection_suspected",
+        "explanation",
+        "review_flags",
+        "missing_factors",
+        "input_snapshot",
+        "input_snapshot_hash",
+        "kev_output",
+        "kev_assist",
+        "model_metadata",
+        "qwen_model",
+        "prompt_hash",
+        "kev_model",
+        "question_set_version",
+        "run_mode",
+        "ai_provider",
+        "extraction_id",
+        "finished_at",
+        "kev_calibration",
+        "fallback_reason",
+      ].toSorted(),
+    );
   });
 
   it("FX-01 의 qwen_model·prompt_hash·kev_model·question_set_version 이 비어 있지 않다(전제)", () => {
@@ -877,6 +917,93 @@ describe("toScoreRunResultUpdate", () => {
   );
 });
 
+// ── 쓰기: 결과 저장 RPC 의 p(보안 검토 후속) ──
+// sink 는 finish_score_run(p) 를 한 번 부른다. p 는 저장 매핑 함수 넷의 출력과 run·조직·시도 식별자다(매핑 규칙은 그대로).
+
+describe("toFinishScoreRunPayload", () => {
+  it("FX-01: { score_run_id, org_id, attempt_started_at, run, factors, assessments, checks } 이고 각 값은 레코드와 저장 매핑 함수의 출력이다", () => {
+    const record = FX01_RECORD;
+    expect(toFinishScoreRunPayload(record)).toEqual({
+      score_run_id: record.scoreRunId,
+      org_id: record.orgId,
+      attempt_started_at: record.attemptStartedAt,
+      run: toScoreRunResultUpdate(record),
+      factors: toScoreFactorRows(record),
+      assessments: toRequirementAssessmentRows(record),
+      checks: toQualificationCheckRows(record),
+    });
+  });
+
+  it("키는 일곱 개뿐이다", () => {
+    expect(Object.keys(toFinishScoreRunPayload(FX01_RECORD)).toSorted()).toEqual(
+      [
+        "score_run_id",
+        "org_id",
+        "attempt_started_at",
+        "run",
+        "factors",
+        "assessments",
+        "checks",
+      ].toSorted(),
+    );
+  });
+
+  it("attempt_started_at 은 context.attemptStartedAt 이다(runAnalysis 가 옮긴 값, meta.startedAt 이 아니다)", () => {
+    const payload = toFinishScoreRunPayload(FX01_RECORD);
+    expect(payload.attempt_started_at).toBe(ATTEMPT_STARTED_AT);
+    expect(FX01_RECORD.meta.startedAt).toBe(STARTED_AT);
+    expect(payload.attempt_started_at).not.toBe(FX01_RECORD.meta.startedAt);
+  });
+
+  it("score_run_id·org_id·attempt_started_at 은 레코드 값을 그대로 옮긴다", () => {
+    const record = withPatch(FX03_RECORD, (draft) => {
+      draft.scoreRunId = "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d";
+      draft.orgId = "1b2c3d4e-5f60-4718-8a9b-0c1d2e3f4a5b";
+      draft.attemptStartedAt = "2026-10-16T09:00:00.123Z";
+    });
+    expect(toFinishScoreRunPayload(record)).toMatchObject({
+      score_run_id: "9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d",
+      org_id: "1b2c3d4e-5f60-4718-8a9b-0c1d2e3f4a5b",
+      attempt_started_at: "2026-10-16T09:00:00.123Z",
+    });
+  });
+
+  it("run 에 started_at 이 없다", () => {
+    expect(Object.keys(toFinishScoreRunPayload(FX01_RECORD).run)).not.toContain("started_at");
+  });
+
+  it.each([
+    ["FX-03(NO_BID)", FX03_RECORD],
+    ["S6(PARTIAL·Kev 없음)", S6_RECORD],
+    ["FX-11(Kev 꺼짐)", FX11_RECORD],
+  ])("%s 도 run·factors·assessments·checks 가 저장 매핑 함수의 출력이다", (_name, record) => {
+    expect(toFinishScoreRunPayload(record)).toMatchObject({
+      run: toScoreRunResultUpdate(record),
+      factors: toScoreFactorRows(record),
+      assessments: toRequirementAssessmentRows(record),
+      checks: toQualificationCheckRows(record),
+    });
+  });
+
+  it("항목 판정·자격 판정이 없으면 assessments·checks 는 빈 배열이다(키를 빼지 않는다)", () => {
+    const record = withPatch(FX01_RECORD, (draft) => {
+      draft.result.requirementAssessments = [];
+      draft.result.qualificationChecks = [];
+    });
+    const payload = toFinishScoreRunPayload(record);
+    expect(payload.assessments).toEqual([]);
+    expect(payload.checks).toEqual([]);
+    expect(payload.factors).toHaveLength(5);
+  });
+
+  it("JSON 으로 한 번 오가도 같다(undefined·Date 가 없어 RPC 본문으로 그대로 간다)", () => {
+    for (const record of [FX01_RECORD, FX03_RECORD, S6_RECORD, FX11_RECORD]) {
+      const payload = toFinishScoreRunPayload(record);
+      expect(JSON.parse(JSON.stringify(payload))).toStrictEqual(payload);
+    }
+  });
+});
+
 // ── 쓰기: 자식 3표 ──
 
 describe("toScoreFactorRows", () => {
@@ -961,6 +1088,17 @@ describe("database.types · 화면 표시용 열", () => {
     expectTypeOf<GeneratedTables["score_runs"]["Update"]["kev_assist"]>().toEqualTypeOf<
       Json | undefined
     >();
+  });
+});
+
+// ── 생성 타입: 결과 저장 RPC(20261019000011, pnpm db:types) ──
+
+describe("database.types · finish_score_run", () => {
+  // 타입 단언이라 type-check(tsc)가 잡는다. 마이그레이션 뒤 db:types 를 다시 만들지 않으면 빨갛다.
+  it("Functions.finish_score_run 은 { p: Json } 을 받아 run id(string)를 돌려준다", () => {
+    type FinishScoreRun = Database["public"]["Functions"]["finish_score_run"];
+    expectTypeOf<FinishScoreRun["Args"]>().toEqualTypeOf<{ p: Json }>();
+    expectTypeOf<FinishScoreRun["Returns"]>().toEqualTypeOf<string>();
   });
 });
 

@@ -133,14 +133,17 @@ def test_g6_kev_timeout_is_recorded_as_kev_unavailable(make_client, monkeypatch)
 
 
 @pytest.mark.parametrize("fault", FAULTS)
-def test_g6_fault_injection_does_not_break_health_in_fixture_mode(make_client, monkeypatch, fault):
+def test_g6_fault_injection_does_not_break_health_in_fixture_mode(
+    make_client, monkeypatch, local_models, fault
+):
     client = faulty_client(make_client, monkeypatch, fault, SOL_RUN_MODE="fixture")
     response = client.get("/health")
     assert (response.status_code, response.json()["provider"]) == (200, "local")
 
 
-def test_g6_gateway_down_is_ignored_outside_mock(make_client, monkeypatch):
-    # local 어댑터는 이번 단계 범위 밖이라 /extract 결과 자체는 단언하지 않는다. 주입 응답(503 AI_UNAVAILABLE)이 아님만 본다.
+def test_g6_gateway_down_is_ignored_outside_mock(make_client, monkeypatch, local_models):
+    # fixture 모드(local)는 가짜 vLLM·Kev(127.0.0.1)로 연다. /extract 결과 자체는 단언하지 않고
+    # 주입 응답(503 AI_UNAVAILABLE)이 아님만 본다.
     client = faulty_client(
         make_client,
         monkeypatch,
@@ -153,7 +156,7 @@ def test_g6_gateway_down_is_ignored_outside_mock(make_client, monkeypatch):
     assert injected is False
 
 
-def test_g6_parse_is_unaffected_by_fault_in_fixture_mode(make_client, monkeypatch):
+def test_g6_parse_is_unaffected_by_fault_in_fixture_mode(make_client, monkeypatch, local_models):
     client = faulty_client(make_client, monkeypatch, "gateway_down", SOL_RUN_MODE="fixture")
     response = client.post("/parse", content=PDF_BYTES, headers=PARSE_HEADERS)
     assert (response.status_code, response.json()["format"]) == (200, "PDF")

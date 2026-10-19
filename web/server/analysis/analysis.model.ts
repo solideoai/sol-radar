@@ -14,11 +14,19 @@ import {
 } from "@/server/scoring";
 import {
   toExtractionOutcome,
+  toFailureDiagnostic,
   type AiUnavailableReason,
   type ExplainOutcome,
+  type FailureDiagnostic,
   type KevOutcome,
 } from "./fallback.model";
-import type { ExtractRequest, ExtractResponse, GatewayResult, KevResponse } from "./gateway.model";
+import {
+  toIssueList,
+  type ExtractRequest,
+  type ExtractResponse,
+  type GatewayResult,
+  type KevResponse,
+} from "./gateway.model";
 
 // ── 분석 오케스트레이션 모델: analysis job 의 입력 변환·요청 조립·플래그·메타의 순수 규칙 (03 §2.1·§5.6·§5.7·§7, 05 §4) ──
 // 규칙 계산은 scoring 의 analyze 가 한다. 여기서는 그 입력을 만들고 결과(AnalysisResult)는 읽기만 한다.
@@ -71,6 +79,11 @@ export type AnalysisContext = {
   documentIssues: DocumentIssue[];
   /** ISO8601 UTC. job 이 큐에 들어간 시각. */
   queuedAt: string;
+  /**
+   * ISO8601 UTC. 이 시도의 식별자 = worker 가 markRunning 에 넘긴 startedAt(score_runs.started_at).
+   * 결과 저장(finish_score_run)이 이 값으로 그 시도가 잡은 run 인지 확인한다(보안 검토 후속).
+   */
+  attemptStartedAt: string;
 };
 
 /** C4 ReviewFlag 에 없는 파이프라인 플래그. */
@@ -107,6 +120,16 @@ export type KevOutput = {
   requirements: KevResponse["requirements"];
 };
 
+/**
+ * 이번 run 에 /extract·/kev 가 왜 쓸 수 없었는지(C5-B 실패 분류). 그 호출이 정상이었거나 부르지 않았으면 null 이다.
+ * 200 이 정상 실패 본문(FAILED·enabled=false)을 낸 경우도 null 이다. 그 코드는 result.errorCode·extraReviewFlags 가 말한다.
+ * worker 로그에만 싣는다. 저장 port 는 이 값을 DB 에 넣지 않는다(input_snapshot·meta 와 다른 칸).
+ */
+export type AnalysisRunDiagnostics = {
+  extract: FailureDiagnostic | null;
+  kev: FailureDiagnostic | null;
+};
+
 /** score_runs 에 넘길 저장 직전 값. 열 매핑은 저장 port(C2 repo) 몫이다. */
 export type AnalysisRunRecord = {
   orgId: string;
@@ -125,12 +148,16 @@ export type AnalysisRunRecord = {
   requestId: string;
   /** score_runs.idempotency_key(전역 UNIQUE) = toIdempotencyKey(orgId, requestId) */
   idempotencyKey: string;
+  /** = context.attemptStartedAt. 결과 저장은 started_at 이 이 값인 RUNNING run 만 마감한다. meta.startedAt(분석 시작)과 다르다. */
+  attemptStartedAt: string;
   /** score_runs.input_snapshot. analyze 에 넣은 값 그대로. */
   input: AnalysisInput;
   /** C4 계산 결과 그대로. 고치지 않는다. */
   result: AnalysisResult;
   meta: AnalysisRunMeta;
   kevOutput: KevOutput | null;
+  /** 실패 진단. DB 매핑 밖이다(worker 로그용). */
+  diagnostics: AnalysisRunDiagnostics;
 };
 
 // ── 입력 변환 ──
@@ -169,21 +196,38 @@ export function readCachedExtraction(
 
 export type ExtractReading =
   | { kind: "EXTRACTED"; extraction: RequirementExtraction; response: ExtractResponse }
-  // response 는 200 FAILED 일 때만 있고, 전송 실패·payload 스키마 위반이면 null 이다. 어느 쪽도 저장하지 않는다(e8 판정 2).
-  | { kind: "UNAVAILABLE"; reason: AiUnavailableReason; response: ExtractResponse | null };
+  // response 는 200 FAILED 일 때만 있고, 호출 실패·payload 스키마 위반이면 null 이다. 어느 쪽도 저장하지 않는다(e8 판정 2).
+  // diagnostic 은 호출 실패·payload 스키마 위반일 때만 있다. 200 FAILED 는 gateway 가 낸 코드(reason)가 이유라 null 이다.
+  | {
+      kind: "UNAVAILABLE";
+      reason: AiUnavailableReason;
+      response: ExtractResponse | null;
+      diagnostic: FailureDiagnostic | null;
+    };
 
 /** /extract 결과 → 쓸 수 있는 추출 또는 PARTIAL 사유. 1단계 toExtractionOutcome 뒤 payload 를 scoring 스키마로 검증한다. */
 export function readExtractResult(result: GatewayResult<ExtractResponse>): ExtractReading {
   const outcome = toExtractionOutcome(result);
   if (outcome.kind === "UNAVAILABLE") {
-    return {
-      kind: "UNAVAILABLE",
-      reason: outcome.reason,
-      response: result.ok ? result.value : null,
-    };
+    return result.ok
+      ? { kind: "UNAVAILABLE", reason: outcome.reason, response: result.value, diagnostic: null }
+      : {
+          kind: "UNAVAILABLE",
+          reason: outcome.reason,
+          response: null,
+          diagnostic: toFailureDiagnostic(result.failure),
+        };
   }
   const parsed = requirementExtractionSchema.safeParse(outcome.response.payload);
-  if (!parsed.success) return { kind: "UNAVAILABLE", reason: "EXTRACTION_FAILED", response: null };
+  if (!parsed.success) {
+    // gateway 가 응답했으므로 추출 실패다. issue 에는 경로·코드만 있고 payload 값(공고 원문)은 없다.
+    return {
+      kind: "UNAVAILABLE",
+      reason: "EXTRACTION_FAILED",
+      response: null,
+      diagnostic: { failure: "PAYLOAD_INVALID", issues: toIssueList(parsed.error) },
+    };
+  }
   return { kind: "EXTRACTED", extraction: parsed.data, response: outcome.response };
 }
 
@@ -328,21 +372,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** wire 원소들의 responses 를 순서대로 펼쳐 합친다(분할 호출, 03 §5.10). 같은 질문이 겹치면 나중 원소가 이긴다. */
-function mergeWireResponses(wire: unknown[]): Record<string, unknown> | null {
-  const parts = wire.flatMap((element) =>
-    isRecord(element) && isRecord(element.responses) ? [element.responses] : [],
-  );
-  // 원소 하나라도 responses 객체가 아니면 응답 전체를 쓰지 않는다.
-  if (parts.length === 0 || parts.length !== wire.length) return null;
-  return Object.fromEntries(parts.flatMap((part) => Object.entries(part)));
+type WireElement = { responses: Record<string, unknown> };
+
+function isWireElement(element: unknown): element is WireElement {
+  return isRecord(element) && isRecord(element.responses);
 }
 
-/** gateway /kev 응답 → C4 analyze 의 kev 입력(wire 형식, kevMockResponseSchema). 못 만들면 null. */
-export function toKevWire(response: KevResponse): KevMockResponse | null {
-  if (response.wire === null) return null;
-  const responses = mergeWireResponses(response.wire);
-  if (responses === null) return null;
+type WireMerge = { ok: true; responses: Record<string, unknown> } | { ok: false; issues: string[] };
+
+/**
+ * wire 원소들의 responses 를 순서대로 펼쳐 합친다(분할 호출, 03 §5.10). 같은 질문이 겹치면 나중 원소가 이긴다.
+ * 원소 하나라도 responses 객체가 아니면 응답 전체를 쓰지 않는다. 그때 issue 는 처음 어긋난 원소의 경로 하나다.
+ */
+function mergeWireResponses(wire: unknown[]): WireMerge {
+  if (wire.length === 0) return { ok: false, issues: ["wire: too_small"] };
+  const badIndex = wire.findIndex((element) => !isWireElement(element));
+  if (badIndex !== -1) return { ok: false, issues: [`wire.${badIndex}.responses: invalid_type`] };
+  const parts = wire.filter(isWireElement).map((element) => element.responses);
+  return { ok: true, responses: Object.fromEntries(parts.flatMap((part) => Object.entries(part))) };
+}
+
+/** wire 읽기 결과. 쓸 수 있으면 analyze 입력과 원래 wire(kev_output 저장용)를, 못 쓰면 issue 목록("경로: 코드")을 돌려준다. */
+export type KevWireReading =
+  { ok: true; kevWire: KevMockResponse; wire: unknown[] } | { ok: false; issues: string[] };
+
+/** gateway /kev 응답 → C4 analyze 의 kev 입력(wire 형식, kevMockResponseSchema). 못 쓰면 이유를 issue 로 돌려준다(값은 싣지 않는다). */
+export function readKevWire(response: KevResponse): KevWireReading {
+  if (response.wire === null) return { ok: false, issues: ["wire: invalid_type"] };
+  const merged = mergeWireResponses(response.wire);
+  if (!merged.ok) return merged;
   // kev 안쪽은 1단계에서 봉투만 검증했다(looseObject). 값의 형식은 여기서 scoring 스키마에 맡긴다.
   const { kev } = response;
   const parsed = kevMockResponseSchema.safeParse({
@@ -350,10 +408,18 @@ export function toKevWire(response: KevResponse): KevMockResponse | null {
     model: kev.model ?? null,
     questionSetVersion: kev.questionSetVersion,
     requestId: kev.requestId ?? null,
-    responses,
+    responses: merged.responses,
     latency_ms: response.timings.kevMs,
   });
-  return parsed.success ? parsed.data : null;
+  return parsed.success
+    ? { ok: true, kevWire: parsed.data, wire: response.wire }
+    : { ok: false, issues: toIssueList(parsed.error) };
+}
+
+/** gateway /kev 응답 → C4 analyze 의 kev 입력. 못 만들면 null. 이유가 필요하면 readKevWire 를 쓴다. */
+export function toKevWire(response: KevResponse): KevMockResponse | null {
+  const reading = readKevWire(response);
+  return reading.ok ? reading.kevWire : null;
 }
 
 // ── 결과 읽기 ──
@@ -426,8 +492,12 @@ export function extraReviewFlags(input: {
       "EXTRACTION_LOW_CONFIDENCE",
       extraction?.warnings.includes("EXTRACTION_LOW_CONFIDENCE") ?? false,
     ],
+    // Kev 만 불가(200 KEV_UNAVAILABLE)와 gateway 가 응답했지만 쓸 수 없음(UNUSABLE)은 같은 플래그다.
     // gateway 불가(GATEWAY_DOWN)는 C4 의 AI_UNAVAILABLE 몫이라 여기서 내지 않는다.
-    ["KEV_UNAVAILABLE", kev?.kind === "DISABLED" && kev.kevUnavailable],
+    [
+      "KEV_UNAVAILABLE",
+      (kev?.kind === "DISABLED" && kev.kevUnavailable) || kev?.kind === "UNUSABLE",
+    ],
   ];
   return candidates
     .filter(([flag, raised]) => raised && !resultFlags.includes(flag))

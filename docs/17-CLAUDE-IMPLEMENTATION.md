@@ -83,7 +83,7 @@ docs/evidence/
 - evidence 파일은 커밋 대상. Phase당 10MB 이하(PNG 압축).
 
 ### 데모 리허설
-Phase 6 완료 후부터 [[10-DEPLOYMENT|10 배포]] 기동 절차 1~12를 매일 1회 실행하고 `docs/evidence/demo-day/rehearsal-log.md`에 날짜·소요 시간·실패 단계를 기록한다. 리허설 항목(세 실행 모드 기동, 엔드포인트 미접속 → 재접속 확인과 소요 시간, 공공 API 일일 호출 한도, 로컬 Supabase CLI 전환)은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §6 체크리스트를 따른다.
+Phase 6 완료 후부터 [[10-DEPLOYMENT|10 배포]] 기동 절차 1~15를 매일 1회 실행하고 `docs/evidence/demo-day/rehearsal-log.md`에 날짜·소요 시간·실패 단계를 기록한다. 리허설 항목(세 실행 모드 기동, 엔드포인트 미접속 → 재접속 확인과 소요 시간, 공공 API 일일 호출 한도, 로컬 Supabase CLI 전환)은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §6 체크리스트를 따른다.
 
 ## 각 Phase 결과 보고 형식
 ```text

@@ -21,6 +21,7 @@ import {
   type AnalysisRunSink,
   type ExtractionStore,
 } from "./analysis.service";
+import type { KevResponse } from "./gateway.model";
 import {
   CALCULATION_DATE,
   EXTRACT_MS,
@@ -28,6 +29,7 @@ import {
   KEV_MS,
   LEAKY_ADDRESS,
   MOCK_EXPLAIN_TEXT,
+  ATTEMPT_STARTED_AT,
   QUEUED_AT,
   STARTED_AT,
   STATE_HASH,
@@ -45,6 +47,7 @@ import {
   jsonReply,
   keysDeep,
   kevDisabledBody,
+  kevFitDefectBody,
   kevUsedBody,
   loadBid,
   loadExtraction,
@@ -57,6 +60,7 @@ import {
   timeoutReply,
   withPatch,
   type GatewayRoutes,
+  type Reply,
 } from "./test-support";
 
 // 03 §2.1 analysis job ①~⑤ 의 흐름. 저장은 port 호출까지만 본다.
@@ -199,12 +203,15 @@ describe("runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev)", (
 // ── 레코드 모양 ──
 
 describe("runAnalysis · 저장 직전 레코드(e8 C6)", () => {
-  it("레코드 키는 orgId·scoreRunId·bidId·revisionId·companyProfileId·extractionId·requestId·idempotencyKey·input·result·meta·kevOutput 이다", async () => {
+  // 보안 검토 후속: 레코드에 시도 식별자(attemptStartedAt)가 더해졌다. 예전 기대(12개)는 이 결정으로 바뀌었다.
+  // C5-B 실패 분류(설계 2): 진단(diagnostics, DB 매핑 밖·worker 로그용)이 더해져 14개다. 예전 기대(13개)는 이 결정으로 바뀌었다.
+  it("레코드 키는 orgId·scoreRunId·bidId·revisionId·companyProfileId·extractionId·requestId·idempotencyKey·attemptStartedAt·input·result·meta·kevOutput·diagnostics 이다", async () => {
     const { record } = await run(buildContext("FX-01"));
     expect(Object.keys(record).toSorted()).toEqual(
       [
         "orgId",
         "scoreRunId",
+        "attemptStartedAt",
         "bidId",
         "revisionId",
         "companyProfileId",
@@ -215,8 +222,21 @@ describe("runAnalysis · 저장 직전 레코드(e8 C6)", () => {
         "result",
         "meta",
         "kevOutput",
+        "diagnostics",
       ].toSorted(),
     );
+  });
+
+  it("attemptStartedAt 은 context.attemptStartedAt 그대로다(runAnalysis 가 잰 meta.startedAt 이 아니다)", async () => {
+    const { record } = await run(buildContext("FX-01"));
+    expect(record.attemptStartedAt).toBe(ATTEMPT_STARTED_AT);
+    expect(record.meta.startedAt).toBe(STARTED_AT);
+  });
+
+  it("attemptStartedAt 은 시도마다 context 가 준 값을 따른다", async () => {
+    const attemptStartedAt = "2026-10-16T09:10:00.000Z";
+    const { record } = await run(buildContext("FX-01", { attemptStartedAt }));
+    expect(record.attemptStartedAt).toBe(attemptStartedAt);
   });
 
   it("scoreRunId·companyProfileId 는 context 값이다", async () => {
@@ -602,9 +622,12 @@ describe("골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부", () => {
   });
 });
 
-// ── /kev 의 다른 장애 ──
+// ── /kev 전송 실패 ──
+// C5-B 실패 분류(e8 승인, ADR-030 B1, docs/03 §8 :727·:737): AI_UNAVAILABLE 은 /extract·/kev 전송 실패만이다.
+// 예전 이 묶음은 4xx·봉투 위반(INVALID_RESPONSE)·wire 위반까지 gateway 불가(PARTIAL)로 봤다.
+// 그 넷은 이 결정으로 아래 "응답했지만 쓸 수 없음" 묶음으로 옮겼다(기대가 PARTIAL·AI_UNAVAILABLE 에서 COMPLETED·RULES_ONLY 로 바뀌었다).
 
-describe("runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE·PARTIAL)다", () => {
+describe("runAnalysis · /kev 전송 실패는 gateway 불가(AI_UNAVAILABLE·PARTIAL)다", () => {
   it("timeout 은 한 번 재시도해 /kev 요청이 2번이고 PARTIAL·AI_UNAVAILABLE 이다", async () => {
     const { record, fake } = await run(buildContext("FX-01"), { routes: withKev(timeoutReply) });
     expect(fake.count("/kev")).toBe(2);
@@ -619,17 +642,12 @@ describe("runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE
     expect(fake.count("/explain")).toBe(0);
   });
 
-  it("4xx 응답도 쓸 수 있는 Kev 가 없어 PARTIAL·AI_UNAVAILABLE 이다", async () => {
-    const reply = jsonReply({ errorCode: "KO_STATE_NOT_ALLOWED", message: "x" }, 422);
-    const { record } = await run(buildContext("FX-01"), { routes: withKev(reply) });
-    expect(record.result.errorCode).toBe("AI_UNAVAILABLE");
-  });
-
-  it("200 이지만 봉투가 계약에 맞지 않으면 PARTIAL·AI_UNAVAILABLE 이다", async () => {
-    const { record } = await run(buildContext("FX-01"), {
-      routes: withKev(jsonReply({ kev: "x" })),
-    });
-    expect(record.result.errorCode).toBe("AI_UNAVAILABLE");
+  it("500 재시도 소진도 PARTIAL·AI_UNAVAILABLE 이고 /explain 을 부르지 않는다", async () => {
+    const reply = jsonReply({ errorCode: null }, 500);
+    const { record, fake } = await run(buildContext("FX-01"), { routes: withKev(reply) });
+    expect(fake.count("/kev")).toBe(2);
+    expect(record.result).toMatchObject({ status: "PARTIAL", errorCode: "AI_UNAVAILABLE" });
+    expect(fake.count("/explain")).toBe(0);
   });
 
   it("breaker 가 열려 있으면 /kev 를 보내지 않고 PARTIAL·AI_UNAVAILABLE 이며 /explain 도 부르지 않는다", async () => {
@@ -642,25 +660,138 @@ describe("runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE
     expect(fake.count("/explain")).toBe(0);
     expect(record.result.errorCode).toBe("AI_UNAVAILABLE");
   });
+});
 
-  it("kev.enabled=true 인데 wire 가 null 이면 쓸 Kev 가 없어 PARTIAL·AI_UNAVAILABLE 이고 /explain 을 부르지 않는다", async () => {
-    const body = withPatch(kevUsedBody(loadKevResponses("FX-01")), (draft) => {
-      draft.wire = null;
-    });
-    const { record, fake } = await run(buildContext("FX-01"), { routes: withKev(jsonReply(body)) });
-    expect(record.result).toMatchObject({ status: "PARTIAL", errorCode: "AI_UNAVAILABLE" });
-    expect(fake.count("/explain")).toBe(0);
-  });
+// ── /kev 가 응답했지만 쓸 수 없음 → KEV 불가 ──
+// docs/03 :595 "Kev timeout·오류 → enabled=false, RULES_ONLY, 분석은 실패하지 않는다", :719 "한 유형의 실패를 다른 유형으로 뭉뚱그리지 않는다".
+// gateway 는 살아서 답했으므로 kev 입력 null·KEV_UNAVAILABLE 플래그·COMPLETED·RULES_ONLY 이고 /explain 을 부른다.
+// 결과는 Kev 만 불가(200 + enabled=false + KEV_UNAVAILABLE)인 run 과 같아야 한다.
 
-  it("kev.enabled=true 인데 wire responses 가 kev-mock 스키마를 어기면 PARTIAL 이고 kevOutput 은 null 이다", async () => {
-    const responses = loadKevResponses("FX-01");
-    const body = withPatch(kevUsedBody(responses), (draft) => {
-      draft.wire = [{ responses: { ...responses, mandatoryRisk: { noul: 1.5 } } }];
-    });
-    const { record } = await run(buildContext("FX-01"), { routes: withKev(jsonReply(body)) });
-    expect(record.result.status).toBe("PARTIAL");
-    expect(record.kevOutput).toBeNull();
+/** 3b mock 본문에서 wire 를 바꾼 /kev 200 답. */
+function kevWireReply(wire: KevResponse["wire"]): Reply {
+  const body = withPatch(kevUsedBody(loadKevResponses("FX-01")), (draft) => {
+    draft.wire = wire;
   });
+  return jsonReply(body);
+}
+
+const FX01_RESPONSES = loadKevResponses("FX-01");
+
+/** [설명, diagnostics.kev.failure, /kev 답] */
+const KEV_ANSWERED_UNUSABLE: [string, string, Reply][] = [
+  [
+    "422 KO_STATE_NOT_ALLOWED",
+    "HTTP_4XX",
+    jsonReply({ errorCode: "KO_STATE_NOT_ALLOWED", message: "x" }, 422),
+  ],
+  ["404 NOT_ROUTED", "HTTP_4XX", jsonReply({ errorCode: "NOT_ROUTED" }, 404)],
+  ["200 봉투 위반", "INVALID_RESPONSE", jsonReply({ kev: "x" })],
+  [
+    "200 JSON 아님",
+    "INVALID_RESPONSE",
+    () => Promise.resolve(new Response("not json", { status: 200 })),
+  ],
+  ["enabled=true 인데 wire null", "WIRE_INVALID", kevWireReply(null)],
+  [
+    "wire responses 스키마 위반(mandatoryRisk.noul 1.5)",
+    "WIRE_INVALID",
+    kevWireReply([{ responses: { ...FX01_RESPONSES, mandatoryRisk: { noul: 1.5 } } }]),
+  ],
+  [
+    "3b mock fit 결함(probabilities·confidence 누락)",
+    "WIRE_INVALID",
+    jsonReply(kevFitDefectBody()),
+  ],
+];
+
+describe("runAnalysis · /kev 가 응답했지만 쓸 수 없음 → KEV 불가(COMPLETED·RULES_ONLY·KEV_UNAVAILABLE)", () => {
+  const unusable = (reply: Reply) => run(buildContext("FX-01"), { routes: withKev(reply) });
+  const kevOnlyDown = () =>
+    run(buildContext("FX-01"), { routes: withKev(jsonReply(kevDisabledBody("KEV_UNAVAILABLE"))) });
+
+  it.each(KEV_ANSWERED_UNUSABLE)(
+    "%s(%s) → COMPLETED·RULES_ONLY·errorCode null·Kev 비활성이다(PARTIAL·AI_UNAVAILABLE 이 아니다)",
+    async (_label, _failure, reply) => {
+      const { record } = await unusable(reply);
+      expect(record.result).toMatchObject({
+        status: "COMPLETED",
+        errorCode: null,
+        recommendationBasis: "RULES_ONLY",
+        kev: { enabled: false },
+      });
+      expect(record.result.reviewFlags).not.toContain("AI_UNAVAILABLE");
+    },
+  );
+
+  it.each(KEV_ANSWERED_UNUSABLE)(
+    "%s(%s) → meta.extraReviewFlags 가 KEV_UNAVAILABLE 이다",
+    async (_label, _failure, reply) => {
+      const { record } = await unusable(reply);
+      expect(record.meta.extraReviewFlags).toEqual(["KEV_UNAVAILABLE"]);
+    },
+  );
+
+  it.each(KEV_ANSWERED_UNUSABLE)(
+    "%s(%s) → input.kev 는 null 이고 input 에 aiUnavailableReason 키가 없다",
+    async (_label, _failure, reply) => {
+      const { record } = await unusable(reply);
+      expect(record.input.kev).toBeNull();
+      expect(Object.keys(record.input)).not.toContain("aiUnavailableReason");
+    },
+  );
+
+  it.each(KEV_ANSWERED_UNUSABLE)(
+    "%s(%s) → kevOutput·meta.model.kev 는 null, meta.errorCode 는 null 이다",
+    async (_label, _failure, reply) => {
+      const { record } = await unusable(reply);
+      expect(record.kevOutput).toBeNull();
+      expect(record.meta.model.kev).toBeNull();
+      expect(record.meta.errorCode).toBeNull();
+    },
+  );
+
+  it.each(KEV_ANSWERED_UNUSABLE)(
+    "%s(%s) → /kev 는 재시도하지 않아 1번이고 /explain 을 한 번 부르며 요청에 KEV_UNAVAILABLE·kevSummary null 을 싣는다",
+    async (_label, _failure, reply) => {
+      const { fake } = await unusable(reply);
+      expect(fake.count("/kev")).toBe(1);
+      expect(fake.count("/explain")).toBe(1);
+      expect(fake.bodyOf("/explain")).toMatchObject({
+        scoreBreakdown: { reviewFlags: expect.arrayContaining(["KEV_UNAVAILABLE"]) },
+        kevSummary: null,
+      });
+    },
+  );
+
+  it.each(KEV_ANSWERED_UNUSABLE)(
+    "%s(%s) → result 는 Kev 만 불가(200 KEV_UNAVAILABLE)인 run 과 깊게 같다",
+    async (_label, _failure, reply) => {
+      const kevOnly = await kevOnlyDown();
+      const { record } = await unusable(reply);
+      expect(record.result).toEqual(kevOnly.record.result);
+      expect(record.meta.extraReviewFlags).toEqual(kevOnly.record.meta.extraReviewFlags);
+    },
+  );
+
+  it.each(KEV_ANSWERED_UNUSABLE)(
+    "%s(%s) → score·qualificationStatus·qualificationChecks 가 정상 run 과 같다",
+    async (_label, _failure, reply) => {
+      const normal = await run(buildContext("FX-01"));
+      const { record } = await unusable(reply);
+      expect(record.result.score).toBe(normal.record.result.score);
+      expect(record.result.qualificationStatus).toBe(normal.record.result.qualificationStatus);
+      expect(record.result.qualificationChecks).toEqual(normal.record.result.qualificationChecks);
+    },
+  );
+
+  it.each(KEV_ANSWERED_UNUSABLE)(
+    "%s → diagnostics.kev.failure 는 %s 이고 diagnostics.extract 는 null(캐시 추출)이다",
+    async (_label, failure, reply) => {
+      const { record } = await unusable(reply);
+      expect(record.diagnostics.kev?.failure).toBe(failure);
+      expect(record.diagnostics.extract).toBeNull();
+    },
+  );
 });
 
 // ── Kev 만 불가·Kev 끔 ──
@@ -922,11 +1053,13 @@ describe("runAnalysis · /extract 실패만 PARTIAL 이다", () => {
     expect(record.meta.explanation.source).toBe("TEMPLATE");
   });
 
-  it("422 → AI_UNAVAILABLE 로 분류된 run 이라 /explain 을 부르지 않는다(§5-5)", async () => {
+  // 예전 기대(422 → AI_UNAVAILABLE·/explain 0회, §5-5)는 C5-B 실패 분류로 바뀌었다(docs/03 :737 "AI_UNAVAILABLE 은 전송 실패만").
+  // gateway 가 422 로 응답했으니 추출 실패이고, 살아 있는 gateway 에 /explain 을 부른다. 다른 응답 실패는 아래 묶음이 본다.
+  it("422 → gateway 가 응답했으니 PARTIAL·EXTRACTION_FAILED 이고 /explain 을 한 번 부른다", async () => {
     const reply = jsonReply({ detail: [{ loc: ["body"], msg: "x", type: "missing" }] }, 422);
     const { record, fake } = await run(noCache(), { routes: withExtract(reply) });
-    expect(record.result.errorCode).toBe("AI_UNAVAILABLE");
-    expect(fake.count("/explain")).toBe(0);
+    expect(record.result).toMatchObject({ status: "PARTIAL", errorCode: "EXTRACTION_FAILED" });
+    expect(fake.count("/explain")).toBe(1);
   });
 
   it("연결 거부 → 레코드에 실패 상세를 싣지 않는다", async () => {
@@ -1031,6 +1164,351 @@ describe("runAnalysis · /extract 실패만 PARTIAL 이다", () => {
     await expect(runAnalysis(noCache(), buildDeps(fake.gateway, store.store))).rejects.toBe(
       saveError,
     );
+  });
+});
+
+// ── 진단(diagnostics): 실패 종류와 issue 목록(경로·코드). DB 에 넣지 않고 worker 로그만 쓴다 ──
+// C5-B 설계 2: failure 는 응답했지만 쓸 수 없음(HTTP_4XX·INVALID_RESPONSE·WIRE_INVALID) 또는 전송 실패 kind
+// (UNREACHABLE·TIMEOUT·HTTP_5XX·CIRCUIT_OPEN), issues 는 zod toIssueList("경로: 코드", 최대 10, 값 없음). 정상이면 null.
+// 3e 처럼 gateway 가 200 을 냈는데 분석이 틀어진 경우 원인(어느 필드가 계약을 어겼나)을 로그로 바로 찾게 하려는 것이다.
+
+/** issue 한 줄의 모양: "경로: 코드". 값(공고 원문·숫자)이 들어갈 자리가 없다. */
+const ISSUE_LINE = /^[A-Za-z0-9_.()]+: [a-z_]+$/;
+
+describe("runAnalysis · 진단(diagnostics)", () => {
+  const noCache = () => buildContext("FX-01", { extraction: null });
+
+  it("레코드에 diagnostics 가 있고 키는 extract·kev 다", async () => {
+    const { record } = await run(buildContext("FX-01"));
+    expect(Object.keys(record.diagnostics).toSorted()).toEqual(["extract", "kev"]);
+  });
+
+  it("정상 run(캐시 추출 + 3b mock /kev)은 extract·kev 모두 null 이다", async () => {
+    const { record } = await run(buildContext("FX-01"));
+    expect(record.diagnostics).toEqual({ extract: null, kev: null });
+  });
+
+  it("캐시 없이 /extract 200 COMPLETED 로 다시 추출한 정상 run 도 모두 null 이다", async () => {
+    const reply = jsonReply(extractBody(loadExtraction("FX-01")));
+    const { record } = await run(noCache(), { routes: withExtract(reply) });
+    expect(record.diagnostics).toEqual({ extract: null, kev: null });
+  });
+
+  it("KEV_ENABLED=false 라 /kev 를 부르지 않았으면 kev 는 null 이다", async () => {
+    const context = buildContext("FX-01", {
+      kev: { enabled: false, questionSetVersion: "kev-qs/v0.1" },
+    });
+    const { record } = await run(context);
+    expect(record.diagnostics.kev).toBeNull();
+  });
+
+  it("meta 에 진단을 싣지 않는다(meta 키는 e8 C6 의 10개 그대로, DB 매핑 밖)", async () => {
+    const { record } = await run(buildContext("FX-01"), {
+      routes: withKev(jsonReply(kevFitDefectBody())),
+    });
+    expect(Object.keys(record.meta)).not.toContain("diagnostics");
+    expect(JSON.stringify(record.meta)).not.toContain("responses.fit");
+  });
+
+  // ── /kev ──
+
+  it("/kev 3b mock fit 결함 → kev 는 WIRE_INVALID 이고 issues 는 fit 의 빠진 두 경로다", async () => {
+    const { record } = await run(buildContext("FX-01"), {
+      routes: withKev(jsonReply(kevFitDefectBody())),
+    });
+    expect(record.diagnostics.kev).toEqual({
+      failure: "WIRE_INVALID",
+      issues: [
+        "responses.fit.probabilities: invalid_type",
+        "responses.fit.confidence: invalid_type",
+      ],
+    });
+  });
+
+  it("/kev wire 의 확률이 범위 밖(1.5)이면 kev issues 는 그 경로 하나다", async () => {
+    const responses = loadKevResponses("FX-01");
+    const { record } = await run(buildContext("FX-01"), {
+      routes: withKev(
+        kevWireReply([{ responses: { ...responses, mandatoryRisk: { noul: 1.5 } } }]),
+      ),
+    });
+    expect(record.diagnostics.kev).toEqual({
+      failure: "WIRE_INVALID",
+      issues: ["responses.mandatoryRisk.noul: too_big"],
+    });
+  });
+
+  it("/kev 422 → kev 는 HTTP_4XX 이고 issues 는 비었다(오류 본문의 message 를 싣지 않는다)", async () => {
+    const reply = jsonReply(
+      { errorCode: "KO_STATE_NOT_ALLOWED", message: "SECRET-원문-문장" },
+      422,
+    );
+    const { record } = await run(buildContext("FX-01"), { routes: withKev(reply) });
+    expect(record.diagnostics.kev).toEqual({ failure: "HTTP_4XX", issues: [] });
+    expect(JSON.stringify(record)).not.toContain("SECRET");
+  });
+
+  it("/kev 200 봉투 위반 → kev 는 INVALID_RESPONSE 이고 issues 는 1단계 봉투 검증의 경로·코드다", async () => {
+    const { record } = await run(buildContext("FX-01"), {
+      routes: withKev(jsonReply({ kev: "x" })),
+    });
+    expect(record.diagnostics.kev?.failure).toBe("INVALID_RESPONSE");
+    expect(record.diagnostics.kev?.issues).toContain("kev: invalid_type");
+  });
+
+  it("/kev 200 이 JSON 이 아니면 kev issues 는 1단계의 '(root): invalid_json' 그대로다", async () => {
+    const reply: Reply = () => Promise.resolve(new Response("not json", { status: 200 }));
+    const { record } = await run(buildContext("FX-01"), { routes: withKev(reply) });
+    expect(record.diagnostics.kev).toEqual({
+      failure: "INVALID_RESPONSE",
+      issues: ["(root): invalid_json"],
+    });
+  });
+
+  /** [설명, kev.failure, /kev 답] */
+  const kevTransport: [string, string, Reply][] = [
+    ["연결 거부", "UNREACHABLE", refusedReply],
+    ["timeout", "TIMEOUT", timeoutReply],
+    ["503 AI_UNAVAILABLE", "HTTP_5XX", jsonReply({ errorCode: "AI_UNAVAILABLE" }, 503)],
+    ["500", "HTTP_5XX", jsonReply({ errorCode: null }, 500)],
+  ];
+
+  it.each(kevTransport)(
+    "/kev 전송 실패(%s) → kev 는 %s 이고 issues 는 비었다",
+    async (_label, failure, reply) => {
+      const { record } = await run(buildContext("FX-01"), { routes: withKev(reply) });
+      expect(record.diagnostics).toEqual({ extract: null, kev: { failure, issues: [] } });
+    },
+  );
+
+  it("breaker 가 열려 /kev 를 보내지 않았으면 kev 는 CIRCUIT_OPEN 이다", async () => {
+    const fake = fakeGateway({ "/health": refusedReply, ...healthyRoutes("FX-01") });
+    for (let attempt = 0; attempt < 3; attempt += 1) await fake.gateway.health();
+    const store = fakeExtractionStore();
+    const record = await runAnalysis(buildContext("FX-01"), buildDeps(fake.gateway, store.store));
+    expect(record.diagnostics.kev).toEqual({ failure: "CIRCUIT_OPEN", issues: [] });
+  });
+
+  it("/kev 연결 거부 진단에 오류 코드 문자열·내부 주소를 싣지 않는다", async () => {
+    const { record } = await run(buildContext("FX-01"), { routes: withKev(refusedReply) });
+    const text = JSON.stringify(record.diagnostics);
+    expect(text).not.toContain("ECONNREFUSED");
+    expect(text).not.toContain(LEAKY_ADDRESS);
+  });
+
+  it("/kev wire 에 틀린 값이 있어도 issues 에는 경로·코드만 있고 값은 없다", async () => {
+    const secret = "SECRET-원문-값";
+    const responses = loadKevResponses("FX-01");
+    const reply = kevWireReply([
+      {
+        responses: {
+          ...responses,
+          recommendation: { ...responses.recommendation, choice: secret },
+        },
+      },
+    ]);
+    const { record } = await run(buildContext("FX-01"), { routes: withKev(reply) });
+    expect(record.diagnostics.kev?.issues).toEqual([
+      "responses.recommendation.choice: invalid_value",
+    ]);
+    expect(JSON.stringify(record.diagnostics)).not.toContain(secret);
+  });
+
+  it("/kev wire 위반이 10개를 넘어도 issues 는 10개까지다", async () => {
+    const reply = kevWireReply([
+      {
+        responses: {
+          recommendation: {
+            choice: 1,
+            confidence: "x",
+            probabilities: { BID: "a", WATCH: "b", NO_BID: "c" },
+          },
+          mandatoryRisk: { noul: "x" },
+          needsHumanReview: { noul: "x" },
+          fit: { score: "x", legend: 1, probabilities: 1, confidence: "x" },
+        },
+      },
+    ]);
+    const { record } = await run(buildContext("FX-01"), { routes: withKev(reply) });
+    expect(record.diagnostics.kev?.failure).toBe("WIRE_INVALID");
+    expect(record.diagnostics.kev?.issues).toHaveLength(10);
+    for (const issue of record.diagnostics.kev?.issues ?? []) expect(issue).toMatch(ISSUE_LINE);
+  });
+
+  // ── /extract ──
+
+  it("/extract 422 → extract 는 HTTP_4XX 이고 issues 는 비었으며 kev 는 null(부르지 않음)이다", async () => {
+    const reply = jsonReply({ detail: [{ loc: ["body"], msg: "x", type: "missing" }] }, 422);
+    const { record } = await run(noCache(), { routes: withExtract(reply) });
+    expect(record.diagnostics).toEqual({ extract: { failure: "HTTP_4XX", issues: [] }, kev: null });
+  });
+
+  it("/extract 200 봉투 위반 → extract 는 INVALID_RESPONSE 이고 issues 는 1단계 봉투 검증의 경로·코드다", async () => {
+    const { record } = await run(noCache(), { routes: withExtract(jsonReply({ status: "x" })) });
+    expect(record.diagnostics.extract?.failure).toBe("INVALID_RESPONSE");
+    expect(record.diagnostics.extract?.issues).toContain("status: invalid_value");
+  });
+
+  it("/extract 200 COMPLETED 인데 payload 가 스키마 위반이면 extract issues 는 그 경로이고 값을 싣지 않는다", async () => {
+    const secret = "SECRET-예산-12억";
+    const payload = withPatch(loadExtraction("FX-01"), (draft) => {
+      draft.budgetKrw.value = secret;
+    });
+    const { record } = await run(noCache(), {
+      routes: withExtract(jsonReply(extractBody(payload))),
+    });
+    // payload 위반의 failure 이름은 설계가 정하지 않았다. issue 경로만 본다.
+    expect(
+      record.diagnostics.extract?.issues.some((issue) => issue.startsWith("budgetKrw.value:")),
+    ).toBe(true);
+    expect(record.diagnostics.extract?.issues.every((issue) => ISSUE_LINE.test(issue))).toBe(true);
+    expect(JSON.stringify(record.diagnostics)).not.toContain(secret);
+  });
+
+  /** [설명, extract.failure, /extract 답] */
+  const extractTransport: [string, string, Reply][] = [
+    ["연결 거부", "UNREACHABLE", refusedReply],
+    ["timeout", "TIMEOUT", timeoutReply],
+    ["503 AI_UNAVAILABLE", "HTTP_5XX", jsonReply({ errorCode: "AI_UNAVAILABLE" }, 503)],
+  ];
+
+  it.each(extractTransport)(
+    "/extract 전송 실패(%s) → extract 는 %s 이고 issues 는 비었으며 kev 는 null 이다",
+    async (_label, failure, reply) => {
+      const { record } = await run(noCache(), { routes: withExtract(reply) });
+      expect(record.diagnostics).toEqual({ extract: { failure, issues: [] }, kev: null });
+    },
+  );
+});
+
+// ── /extract 가 응답했지만 쓸 수 없음 → EXTRACTION_FAILED ──
+// C5-B 실패 분류: 예전에는 4xx·봉투 위반을 gateway 불가(AI_UNAVAILABLE)로 보고 /explain 을 건너뛰었다.
+// 이 결정으로 gateway 가 응답했으면 추출 실패(EXTRACTION_FAILED, PARTIAL)이고 /explain 을 부른다(payload 스키마 위반과 같은 줄).
+
+/** [설명, /extract 답] */
+const EXTRACT_ANSWERED_UNUSABLE: [string, Reply][] = [
+  [
+    "422 요청 형식 오류",
+    jsonReply({ detail: [{ loc: ["body"], msg: "x", type: "missing" }] }, 422),
+  ],
+  ["404 NOT_ROUTED", jsonReply({ errorCode: "NOT_ROUTED" }, 404)],
+  ["200 봉투 위반", jsonReply({ status: "x" })],
+  ["200 JSON 아님", () => Promise.resolve(new Response("not json", { status: 200 }))],
+];
+
+describe("runAnalysis · /extract 가 응답했지만 쓸 수 없음 → PARTIAL·EXTRACTION_FAILED", () => {
+  const noCache = () => buildContext("FX-01", { extraction: null });
+  const answered = (reply: Reply) => run(noCache(), { routes: withExtract(reply) });
+
+  it.each(EXTRACT_ANSWERED_UNUSABLE)(
+    "%s → PARTIAL·EXTRACTION_FAILED 이고 input.aiUnavailableReason 도 EXTRACTION_FAILED 다",
+    async (_label, reply) => {
+      const { record } = await answered(reply);
+      expect(record.result).toMatchObject({ status: "PARTIAL", errorCode: "EXTRACTION_FAILED" });
+      expect(record.input.aiUnavailableReason).toBe("EXTRACTION_FAILED");
+      expect(record.result.reviewFlags).not.toContain("AI_UNAVAILABLE");
+    },
+  );
+
+  it.each(EXTRACT_ANSWERED_UNUSABLE)(
+    "%s → input.extraction·extractionId 는 null 이고 save·/kev 는 부르지 않는다",
+    async (_label, reply) => {
+      const { record, fake, store } = await answered(reply);
+      expect(record.input.extraction).toBeNull();
+      expect(record.extractionId).toBeNull();
+      expect(store.saves).toHaveLength(0);
+      expect(fake.count("/kev")).toBe(0);
+    },
+  );
+
+  it.each(EXTRACT_ANSWERED_UNUSABLE)(
+    "%s → /extract 는 재시도하지 않아 1번이고 gateway 가 살아 있으니 /explain 을 한 번 부른다",
+    async (_label, reply) => {
+      const { fake } = await answered(reply);
+      expect(fake.count("/extract")).toBe(1);
+      expect(fake.count("/explain")).toBe(1);
+    },
+  );
+
+  it.each(EXTRACT_ANSWERED_UNUSABLE)(
+    "%s → result 는 payload 스키마 위반 run 과 깊게 같다(같은 EXTRACTION_FAILED)",
+    async (_label, reply) => {
+      const payloadInvalid = await answered(jsonReply(extractBody(invalidPayload())));
+      const { record } = await answered(reply);
+      expect(record.result).toEqual(payloadInvalid.record.result);
+    },
+  );
+});
+
+// ── 3e 통합 결함 재현 ──
+// main c2b12d3 의 실제 demo:preanalyze 에서 fixtures/kev 파일이 없는 15건이 PARTIAL·AI_UNAVAILABLE 로 끝났다(gateway 는 모두 200).
+// 3b mock 이 공식 경로로 낸 /kev 본문의 fit 에 probabilities·confidence 가 빠져 worker 의 wire 검증이 거절한 것이다
+// (결함은 services/ai 13fcb96 이 고쳤다). gateway 가 응답했으므로 분석은 KEV 불가(COMPLETED·RULES_ONLY)여야 한다.
+
+/**
+ * 3e 의 15건: main c2b12d3 실행 때 fixtures/kev 가 없어 3b mock 의 공식 경로를 탄 공고다(FX-02 는 사전 분석 대상이 아니다).
+ * 뒤에 fixtures/kev 가 20건으로 늘었다(ee b40fac8). 그래서 지금 gateway 는 이 공고들에 fixture 를 쓰지만,
+ * 이 시험은 가짜 gateway 가 결함 본문(kevFitDefectBody)을 직접 주므로 fixture 유무와 상관없이 그 결함을 재현한다.
+ */
+const DEFECT_RUN_IDS = [
+  "FX-04",
+  "FX-05",
+  "FX-06",
+  "FX-07",
+  "FX-08",
+  "FX-09",
+  "FX-10",
+  "FX-11",
+  "FX-13",
+  "FX-14",
+  "FX-15",
+  "FX-17",
+  "FX-18",
+  "FX-19",
+  "FX-20",
+] as const;
+
+/** FX-13 공고 예산은 금액 텍스트라 C4 입력 계약이 거절한다. 정규화는 수집 도메인 몫이라 추출의 환산값을 넣는다(citationFailedContext 와 같다). */
+function preanalyzeContext(id: string): AnalysisContext {
+  if (id !== "FX-13") return buildContext(id);
+  return buildContext(id, {
+    bid: { ...loadBid(id), budgetKrw: loadExtraction(id).budgetKrw.value },
+  });
+}
+
+describe("3e 통합 결함 재현 · 3b mock fit 결함 본문은 KEV 불가다(PARTIAL·AI_UNAVAILABLE 이 아니다)", () => {
+  it("재현 대상은 3e 실행에서 PARTIAL 이던 15건이다", () => {
+    expect(DEFECT_RUN_IDS).toHaveLength(15);
+    expect(DEFECT_RUN_IDS).not.toContain("FX-02");
+  });
+
+  it.each(DEFECT_RUN_IDS)(
+    "%s → COMPLETED·RULES_ONLY·errorCode null 이고 KEV_UNAVAILABLE 을 달며 AI_UNAVAILABLE 은 없다",
+    async (id) => {
+      const { record } = await run(preanalyzeContext(id), {
+        routes: withKev(jsonReply(kevFitDefectBody())),
+      });
+      expect({
+        status: record.result.status,
+        errorCode: record.result.errorCode,
+        recommendationBasis: record.result.recommendationBasis,
+        aiUnavailable: record.result.reviewFlags.includes("AI_UNAVAILABLE"),
+        kevUnavailable: record.meta.extraReviewFlags.includes("KEV_UNAVAILABLE"),
+      }).toEqual({
+        status: "COMPLETED",
+        errorCode: null,
+        recommendationBasis: "RULES_ONLY",
+        aiUnavailable: false,
+        kevUnavailable: true,
+      });
+    },
+  );
+
+  it.each(DEFECT_RUN_IDS)("%s → /explain 을 한 번 부른다", async (id) => {
+    const { fake } = await run(preanalyzeContext(id), {
+      routes: withKev(jsonReply(kevFitDefectBody())),
+    });
+    expect(fake.count("/explain")).toBe(1);
   });
 });
 

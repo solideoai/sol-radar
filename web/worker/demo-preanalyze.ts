@@ -20,6 +20,7 @@ import {
   type RunState,
 } from "@/server/analysis";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { errorNameOf } from "@/worker/error-name";
 import { errorCode } from "@/worker/main";
 
 // ── 사전 분석 CLI(`pnpm demo:preanalyze`, C5-B) ──
@@ -168,12 +169,13 @@ export async function runPreanalyze(deps: PreanalyzeDeps): Promise<PreanalyzeRes
 
   const health = await deps.gateway.health();
   if (!health.ok) return end(1, GATEWAY_DOWN_LINE);
-  // runMode 는 enum 값이라 줄에 실어도 된다.
-  const { runMode } = health.value;
-  if (runMode !== "mock") {
+  // runMode·provider 는 enum 값이라 줄에 실어도 된다.
+  // runMode=mock 인데 provider 가 local·hosted 인 설정 모순이면 실모델을 부를 수 있어 둘 다 본다(보안 후속 c).
+  const { runMode, provider } = health.value;
+  if (runMode !== "mock" || provider !== "mock") {
     return end(
       2,
-      `preanalyze: mock 모드가 아니다(runMode=${runMode}) — 사전 분석은 mock 에서만 한다`,
+      `preanalyze: mock 모드가 아니다(runMode=${runMode}, provider=${provider}) — 사전 분석은 mock 에서만 한다`,
     );
   }
 
@@ -209,8 +211,9 @@ export async function runPreanalyze(deps: PreanalyzeDeps): Promise<PreanalyzeRes
 
 // ── 실행 ──
 
+/** 실패 줄의 오류 이름(+ 코드). 이름은 공용 규칙으로 거른다. message 는 싣지 않는다. */
 function errorLabel(error: unknown): string {
-  const name = error instanceof Error ? error.name : "UnknownError";
+  const name = errorNameOf(error);
   const code = errorCode(error);
   return code === null ? name : `${name} ${code}`;
 }

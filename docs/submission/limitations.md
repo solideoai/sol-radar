@@ -73,7 +73,7 @@ updated: 2026-10-19
 
 | 장애 | 대체 | 화면에 보이는 것 |
 |---|---|---|
-| 인터넷 연결 실패 | 로컬 Supabase CLI(`pnpm db:start`) + `pnpm demo:reset`, 리허설로 확인 | 실행 모드 그대로, 데이터 출처 로컬 |
+| 인터넷 연결 실패 | 로컬 Supabase CLI: `pnpm db:start` → `pnpm demo:reset` → 모드 확인(mock) → `pnpm demo:preanalyze` → web 재시작(reset이 사전 분석을 지운다), 리허설로 확인 | 실행 모드 그대로, 데이터 출처 로컬 |
 | 공공 API 장애·일일 한도 | `fixture` 모드로 전환(env + 재시작) | "실행 모드: fixture", `DEMO` 배지 |
 | 회사 GPU 추론 엔드포인트 미접속(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`) | `mock` 모드로 전환하거나 사전 완료 run 조회. 재접속 확인은 `GET /v1/models` | "AI: mock" 또는 저장된 run의 `run_mode` |
 | Supabase 클라우드 장애 | 로컬 CLI 전환 | 위와 같음 |

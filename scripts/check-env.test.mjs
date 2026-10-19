@@ -141,6 +141,50 @@ test("resolveRunMode: KEV_ENABLED 대소문자·공백 변형은 모순", () => 
   }
 });
 
+// M2: AI_PROVIDER 실효값 hosted 와 KEV_ALLOW_KO_STATE=true 는 모든 모드에서 함께 쓸 수 없다.
+// 판정 순서는 forbidden 다음, hosted 승인 앞. Python(services/ai/tests/test_run_mode.py)과 같은 입력·기대값.
+test("resolveRunMode: M2 fixture 의 hosted + 한국어 state 는 FORBIDDEN_WITH_HOSTED", () => {
+  const result = resolveRunMode({
+    SOL_RUN_MODE: "fixture",
+    AI_PROVIDER: "hosted",
+    AI_HOSTED_APPROVED: "true",
+    KEV_ALLOW_KO_STATE: "true",
+  });
+  assert.deepEqual(result.violations, [
+    { key: "KEV_ALLOW_KO_STATE", reason: "FORBIDDEN_WITH_HOSTED" },
+  ]);
+});
+
+test("resolveRunMode: M2 live 는 모드 금지 → hosted 금지 → 승인 순서", () => {
+  const result = resolveRunMode({
+    SOL_RUN_MODE: "live",
+    AI_PROVIDER: "hosted",
+    KEV_ALLOW_KO_STATE: "true",
+  });
+  assert.deepEqual(result.violations, [
+    { key: "KEV_ALLOW_KO_STATE", reason: "FORBIDDEN_IN_MODE" },
+    { key: "KEV_ALLOW_KO_STATE", reason: "FORBIDDEN_WITH_HOSTED" },
+    { key: "AI_HOSTED_APPROVED", reason: "HOSTED_NOT_APPROVED" },
+  ]);
+});
+
+test("resolveRunMode: M2 mock 에 hosted 값 + 한국어 state", () => {
+  const result = resolveRunMode({
+    SOL_RUN_MODE: "mock",
+    AI_PROVIDER: "hosted",
+    KEV_ALLOW_KO_STATE: "true",
+  });
+  assert.deepEqual(result.violations, [
+    { key: "AI_PROVIDER", reason: "CONTRADICTS_MODE" },
+    { key: "KEV_ALLOW_KO_STATE", reason: "FORBIDDEN_WITH_HOSTED" },
+  ]);
+});
+
+test("resolveRunMode: M2 fixture 의 local + 한국어 state 는 위반 없음", () => {
+  const result = resolveRunMode({ SOL_RUN_MODE: "fixture", KEV_ALLOW_KO_STATE: "true" });
+  assert.deepEqual(result.violations, []);
+});
+
 test("resolveRunMode: 알 수 없는 모드는 mode·effective 가 null", () => {
   const result = resolveRunMode({ SOL_RUN_MODE: "LIVE", AI_PROVIDER: "mock" });
   assert.equal(result.mode, null);
