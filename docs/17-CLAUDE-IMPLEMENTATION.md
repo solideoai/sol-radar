@@ -15,7 +15,7 @@ updated: 2026-10-19
 Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 [[01-PRD|01 PRD]]~[[20-GLOSSARY|20 용어집]]과 [[21-MODEL-TRAINING|21 모델 학습]]을 읽은 뒤 Phase 0부터 구현하라. [[12-ROADMAP|12 로드맵]] 해커톤 컷의 "데모 필수"를 우선한다. **각 Phase마다 계획 → 코드 → 테스트 → 증거 저장 → 결과 보고 → 다음 단계**를 따르라. 문서와 실제 구현이 충돌하면 코드 전에 [[16-DECISIONS|16 ADR]]과 문서를 갱신하라.
 
 ## 절대 규칙
-- 스택은 [[16-DECISIONS|16 ADR]] ADR-017을 따른다. 화면·Route Handler(`/api/v1`)·서버 도메인은 Next.js(`web/`, `web/server/<도메인>`)로만 만든다. 다른 웹 프레임워크나 별도 API 서버·ORM을 들이지 않는다. Worker는 `web/worker` 진입점(BullMQ)이다.
+- 스택은 [[16-DECISIONS|16 ADR]] ADR-017을 따른다. 화면·Route Handler(`/api/v1`)·서버 도메인은 Next.js(`web/`, `web/server/<도메인>`)로만 만든다. 다른 웹 프레임워크나 별도 API 서버·ORM을 들이지 않는다. Worker는 `web/worker` 진입점(BullMQ)이다. 해커톤 뒤 API·worker의 NestJS 전환은 ADR-028이고, 그 전에는 NestJS 코드를 만들지 않는다.
 - DB와 Auth만 Supabase(Postgres·RLS·Auth)다. 첨부 원본은 Supabase Storage가 아니라 MinIO(ADR-005), 작업 큐는 Supabase Queues가 아니라 Redis/BullMQ, 벡터 검색은 pgvector가 아니라 Qdrant를 쓴다.
 - service role 키(`SUPABASE_SERVICE_ROLE_KEY`, RLS 무시)는 worker와 seed 스크립트(서버 전용)만 쓴다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 쿠키 또는 Bearer 토큰)으로 DB를 부르고 권한은 RLS가 정한다. service role 키를 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다 ([[09-SECURITY|09 보안]]).
 - 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 조직 데이터는 `org_id` + `org_id in (select public.my_org_ids())`, 업무 역할은 `memberships.sol_role`. 마이그레이션은 `supabase/migrations/`에 새 파일로만 쌓고(이미 있는 파일 수정 금지), 클라우드 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.

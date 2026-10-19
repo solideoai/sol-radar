@@ -1,0 +1,66 @@
+명령: pnpm demo:reset -- --env-file <scratchpad>/demo-reset.env --fixtures-root <main 저장소> --write-summary docs/evidence/phase-1/seed-summary.json (2회) · 기준 커밋 654c6b1 (worktree-agent-a8b71562d35660bda, 마이그레이션 20261018000001~20261019000008 미커밋 상태) · 시각 2026-10-19 11:23 KST · 비밀(service role 키·anon 키·DEMO_SEED_PASSWORD)은 env 파일에만 두고 출력에서 마스킹
+
+## 대상: 전용 격리 Supabase 스택(공유 sol-radar 543xx·다른 세션 people-read 565xx 스택 미접촉)
+- supabase start --workdir <scratchpad>/sb-demo-reset --exclude imgproxy,studio,postgres-meta,logflare,vector,supavisor,realtime,storage-api,edge-runtime
+- project_id sol-radar-demo-reset-20261019-c2 · API http://127.0.0.1:59321 · DB 59322 · shadow 59320 · Mailpit 59324/59325/59326 · 적용 마이그레이션 21개(이 worktree 의 supabase/migrations 전부, 20261019000008_team_creation_operator_only.sql 포함)
+- fixtures: 공고·명부는 worktree, 추출(fixtures/extractions)·회사 프로필(fixtures/company)은 worktree 기준 커밋에 없어 main 저장소(읽기 전용)의 파일을 --fixtures-root 로 읽음
+- SOL_RUN_MODE=mock
+
+## 실행 기록(검증 드라이버 출력)
+
+$ pnpm demo:reset -- --env-file <scratch>/demo-reset.env --fixtures-root <main> --write-summary docs/evidence/phase-1/seed-summary.json   # 1회
+  > sol-radar@0.1.0 demo:reset /Users/leegwanghui/dev/hackathon/sol-radar/.claude/worktrees/agent-a8b71562d35660bda
+  > node scripts/demo-reset.mjs -- --env-file /private/tmp/claude-501/-Users-leegwanghui-dev-hackathon-sol-radar/510edbb4-a09a-401c-861e-89b891a2e5c1/scratchpad/demo-reset.env --fixtures-root /Users/leegwanghui/dev/hackathon/sol-radar --write-summary /Users/leegwanghui/dev/hackathon/sol-radar/.claude/worktrees/agent-a8b71562d35660bda/docs/evidence/phase-1/seed-summary.json
+  
+  ▶ 데모 seed (127.0.0.1:59321)
+    표 확인 완료. 조직·카탈로그·명부부터 넣습니다.
+    명부 200명·카탈로그 upsert. 데모 공고와 조직 소유 행을 지웁니다.
+    계정 5개(새로 만든 5). 회사 프로필·공고를 넣습니다.
+    공고 19건 적재, 1건 격리, 추출 19건. 사진을 검증합니다.
+  seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true
+  exit=0
+
+1회 뒤: people=200 bids=19 users=5 profiles=3
+live 공고 1건(is_demo=false)·명부 밖 직원 SOL-P9999·FX-01 제목 변경을 넣었다.
+
+$ pnpm demo:reset -- --env-file <scratch>/demo-reset.env --fixtures-root <main> --write-summary docs/evidence/phase-1/seed-summary.json   # 2회
+  > sol-radar@0.1.0 demo:reset /Users/leegwanghui/dev/hackathon/sol-radar/.claude/worktrees/agent-a8b71562d35660bda
+  > node scripts/demo-reset.mjs -- --env-file /private/tmp/claude-501/-Users-leegwanghui-dev-hackathon-sol-radar/510edbb4-a09a-401c-861e-89b891a2e5c1/scratchpad/demo-reset.env --fixtures-root /Users/leegwanghui/dev/hackathon/sol-radar --write-summary /Users/leegwanghui/dev/hackathon/sol-radar/.claude/worktrees/agent-a8b71562d35660bda/docs/evidence/phase-1/seed-summary.json
+  
+  ▶ 데모 seed (127.0.0.1:59321)
+    표 확인 완료. 조직·카탈로그·명부부터 넣습니다.
+    명부 200명·카탈로그 upsert. 데모 공고와 조직 소유 행을 지웁니다.
+    계정 5개(새로 만든 0). 회사 프로필·공고를 넣습니다.
+    공고 19건 적재, 1건 격리, 추출 19건. 사진을 검증합니다.
+  seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true
+  exit=0
+
+2회 뒤 비교:
+  마지막 줄 1회 == 2회: true
+  team_members 200 id·created_at 보존: true (200건)
+  bid_notices 19 id 보존: true
+  Auth 5계정 id 보존: true (admin@soltech.invalid, analyst@soltech.invalid, sales@soltech.invalid, viewer@other.invalid, viewer@soltech.invalid)
+  company_profiles id 보존: true (org-02#1, org-01#1, org-01#2)
+  live 공고 보존: true (revision 1건)
+  명부 밖 직원 제거: true
+  FX-01 제목 복원: 세종특별자치시 차세대 행정정보시스템 고도화 (가상)
+  ingest_runs: [{"source":"fixture","batch":"SEED","status":"PARTIAL","run_mode":"MOCK","summary":{"changed":0,"created":19,"retried":2,"cancelled":0,"quarantined":1,"skippedDuplicate":0}}]
+  ingest_errors: [{"error_code":"MISSING_REQUIRED_FIELD","redacted_detail":"FX-12 DEMO-2026-0012: 필수 필드 누락(title)"}]
+  bid_reviews: [{"decision":"BID","system_recommendation":"BID","disagreement_flag":false},{"decision":"NO_BID","system_recommendation":"NO_BID","disagreement_flag":false}]
+  requirement_extractions: 19건, bid_documents: 18건(PENDING), assignments: 2건
+  audit_logs(action 별): [["PROFILE_CREATE_REVISION",3],["REVIEW_DECIDE",2],["SEED",2]]
+
+RLS (viewer@other.invalid, org-02 VIEWER 로그인):
+  company_profiles 전체: 1행 → org-02#1
+  company_profiles org-01: 0행
+  bid_reviews: 0행, team_members: 0행, audit_logs: 0행
+  bid_notices(공용): 20행 (데모 19 + live 1)
+  ingest_runs(ADMIN 전용): 0행
+
+## Docker 무접촉 근거
+- 시작 전 컨테이너 40개 / 볼륨 84개 목록을 저장하고, 기동 중 새로 생긴 것은 supabase_{auth,db,inbucket,kong,rest}_sol-radar-demo-reset-20261019-c2 5개와 CLI 임시 컨테이너 1개, 볼륨 supabase_db_sol-radar-demo-reset-20261019-c2 1개뿐
+- supabase stop --workdir <scratchpad>/sb-demo-reset --no-backup 뒤 컨테이너·볼륨 목록이 시작 전과 동일(추가 0·소실 0). 기존 supabase_*sol-radar* 컨테이너 15개 그대로 실행 중
+
+## 시험
+- node --test scripts/demo-reset.test.mjs: tests 30 · pass 30 · fail 0 (순수 계획 · HTTP mock · PGlite 전체 마이그레이션 위 seed 2회·RLS)
+- pnpm verify:quick (2026-10-19): format:check 통과 → pnpm test: tests 464 · pass 463 · fail 1. 실패 1건은 scripts/database.test.mjs 의 정책 성능 검사("정책의 auth.uid()·is_admin() 은 (select …) 처럼 감싼다")로, 20261019000008_team_creation_operator_only.sql 의 organizations "팀 만들기" 정책이 public.is_admin() 을 감싸지 않은 것이 원인(이 작업 범위 밖, 보고). 그 뒤 단계(check:tokens·check:colors·check:db-types·web quick)는 실행되지 않음

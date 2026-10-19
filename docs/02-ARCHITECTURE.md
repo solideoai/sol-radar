@@ -12,6 +12,10 @@ updated: 2026-10-19
 # 02. 시스템 아키텍처
 
 ## 경계
+
+> [!note] 해커톤 뒤 전환 예정 ([[16-DECISIONS|ADR-028]])
+> 해커톤 제출(2026-10-27) 뒤 `/api/v1` Route Handler와 worker를 NestJS 앱으로 옮기고, Next.js는 화면만 맡는다. Supabase(Postgres·RLS·Auth)와 나머지 구성은 그대로다. 아래는 해커톤 동안의 현재 구조다.
+
 - Next.js (`web/`, :3000): 화면(App Router, server components), Route Handler(`/api/v1/**`, 헬스체크 `/health/live`·`/health/ready`), 서버 도메인 `web/server/<도메인>/`(model·repo·service·index 배럴, `import "server-only"`). 요청 처리 경로는 사용자 세션(anon 키 + 로그인 쿠키, 스크립트는 `Authorization: Bearer <Supabase access token>`)으로 Supabase를 부르고, 권한은 DB의 RLS가 정한다. 분석·수동 수집 요청은 BullMQ job으로 넣는다(producer). 외부 API 계약의 단일 원천은 zod 스키마(`web/server/<도메인>/*.model.ts`, [[16-DECISIONS|16 ADR]] ADR-016·017).
 - Supabase (클라우드 프로젝트, Compose 밖): **Postgres + RLS**(정형 데이터·점수·감사 이력, 조직 격리)와 **Auth**(이메일+비밀번호·간편 로그인, 공개 가입 + 초대로 조직 합류, ADR-018)만 맡는다. 스키마·RLS·함수는 `supabase/migrations/*.sql`(append-only), 타입은 생성물 `web/lib/database.types.ts`(`pnpm db:types`). Supabase Storage·pgvector·Supabase Queues는 쓰지 않는다.
 - Worker (`web/worker/`, 별도 Node(TypeScript) 프로세스): BullMQ consumer(ingest job·documents job·extract job·analysis job·outbox 처리). `live` 모드에서 나라장터 Open API(data.go.kr)를 부르고 첨부를 `www.g2b.go.kr` allowlist로 내려받는 유일한 컴포넌트다(서비스별 서비스키 4개 `G2B_*_SERVICE_KEY`는 worker env에만, [[07-DATA-PIPELINE|07 수집]] §2.2, [[16-DECISIONS|ADR-022]]). 같은 코드베이스의 `web/server` 도메인 코드를 같이 쓴다. Supabase는 service role 키(`SUPABASE_SERVICE_ROLE_KEY`)로 부르므로 RLS를 거치지 않는다. 그래서 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다([[09-SECURITY|09 보안]]).

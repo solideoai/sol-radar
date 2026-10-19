@@ -2,6 +2,7 @@
 
 이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` ~ `docs/20-GLOSSARY.md`)다.
 기술 스택은 Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen·Kev) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017).
+해커톤 뒤에는 API·worker 를 NestJS 로 옮긴다(ADR-028). 그 전에는 위 스택 그대로다.
 모바일(1280px 미만 레이아웃·`mobile/` Expo 앱)과 결제·구독은 만들지 않는다. 화면은 데스크톱 1280px 이상이다(`docs/16-DECISIONS.md` ADR-007).
 이 파일의 나머지는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히면 설계 문서를 따른다.
 아래의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조 규칙은 설계와 일치하므로 따른다(ADR-017). Vercel 배포(배포처 미결정)는 템플릿 기준이다.
