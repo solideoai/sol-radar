@@ -1,0 +1,470 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sol-radar:schema:requirement-extraction:v0.1",
+  "title": "RequirementExtraction",
+  "description": "Qwen 추출 결과(docs/03 §4.1, 공통 타입 docs/15 §2). model·qualifications[].code·injectionSuspected·warnings·evidence[].match 는 gateway 가 채운다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "bidId",
+    "revisionId",
+    "summary",
+    "projectType",
+    "domain",
+    "requiredSkills",
+    "preferredSkills",
+    "qualifications",
+    "pastPerformance",
+    "staffing",
+    "budgetKrw",
+    "deadlineAt",
+    "contractMethod",
+    "restrictions",
+    "submission",
+    "injectionSuspected",
+    "warnings"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "requirement-extraction/v0.1"
+    },
+    "bidId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revisionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "$ref": "#/$defs/ModelInfo"
+    },
+    "summary": {
+      "$ref": "#/$defs/StringField"
+    },
+    "projectType": {
+      "$ref": "#/$defs/ProjectTypeField"
+    },
+    "domain": {
+      "$ref": "#/$defs/StringField"
+    },
+    "requiredSkills": {
+      "$ref": "#/$defs/StringListField"
+    },
+    "preferredSkills": {
+      "$ref": "#/$defs/StringListField"
+    },
+    "qualifications": {
+      "$ref": "#/$defs/QualificationListField"
+    },
+    "pastPerformance": {
+      "$ref": "#/$defs/PastPerformanceListField"
+    },
+    "staffing": {
+      "$ref": "#/$defs/StaffingListField"
+    },
+    "budgetKrw": {
+      "$ref": "#/$defs/KrwField"
+    },
+    "deadlineAt": {
+      "$ref": "#/$defs/DateTimeField"
+    },
+    "contractMethod": {
+      "$ref": "#/$defs/StringField"
+    },
+    "restrictions": {
+      "$ref": "#/$defs/StringListField"
+    },
+    "submission": {
+      "$ref": "#/$defs/StringField"
+    },
+    "injectionSuspected": {
+      "type": "boolean"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "FieldState": {
+      "enum": ["KNOWN", "UNKNOWN", "NOT_APPLICABLE", "CONFLICTED"]
+    },
+    "CitationMatch": {
+      "enum": ["EXACT", "NORMALIZED", "FUZZY", "FAILED"]
+    },
+    "EvidenceRef": {
+      "type": "object",
+      "description": "docs/15 §2. 오프셋은 norm(문서 전체) 기준 [charStart, charEnd).",
+      "additionalProperties": false,
+      "required": ["documentId", "quotedText"],
+      "properties": {
+        "kind": {
+          "enum": ["TEXT", "API_FIELD"]
+        },
+        "documentId": {
+          "type": ["string", "null"]
+        },
+        "revisionId": {
+          "type": "string"
+        },
+        "page": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "charStart": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "charEnd": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "apiField": {
+          "type": "string"
+        },
+        "apiSource": {
+          "type": "string"
+        },
+        "quotedText": {
+          "type": "string"
+        },
+        "sourceUrl": {
+          "type": "string"
+        },
+        "fetchedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "match": {
+          "$ref": "#/$defs/CitationMatch"
+        }
+      }
+    },
+    "ModelInfo": {
+      "type": "object",
+      "description": "gateway 가 채운다. 모델 출력이 아니다.",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "name",
+        "promptVersion",
+        "promptHash",
+        "temperature",
+        "extractedAt",
+        "latencyMs",
+        "retries"
+      ],
+      "properties": {
+        "provider": {
+          "enum": ["mock", "local", "hosted"]
+        },
+        "name": {
+          "type": "string"
+        },
+        "promptVersion": {
+          "type": "string"
+        },
+        "promptHash": {
+          "type": "string"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0
+        },
+        "extractedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "latencyMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "QualificationRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "mandatory"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": ["LICENSE", "CERTIFICATION", "REGISTRATION", "OTHER"]
+        },
+        "mandatory": {
+          "type": "boolean"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "code": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "PastPerformanceRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "mandatory"],
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "minAmountKrw": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "minCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "withinYears": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mandatory": {
+          "type": "boolean"
+        }
+      }
+    },
+    "StaffingRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "mandatory"],
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "minCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "grade": {
+          "type": "string"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "mandatory": {
+          "type": "boolean"
+        }
+      }
+    },
+    "StringField": {
+      "type": "object",
+      "description": "ExtractedField<string>",
+      "additionalProperties": false,
+      "required": ["value", "state", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["string", "null"]
+        },
+        "state": {
+          "$ref": "#/$defs/FieldState"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "ProjectTypeField": {
+      "type": "object",
+      "description": "ExtractedField<SI|AX|MAINTENANCE|CONSULTING|OTHER>",
+      "additionalProperties": false,
+      "required": ["value", "state", "evidence"],
+      "properties": {
+        "value": {
+          "enum": ["SI", "AX", "MAINTENANCE", "CONSULTING", "OTHER", null]
+        },
+        "state": {
+          "$ref": "#/$defs/FieldState"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "StringListField": {
+      "type": "object",
+      "description": "ExtractedField<string[]>",
+      "additionalProperties": false,
+      "required": ["value", "state", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "string"
+          }
+        },
+        "state": {
+          "$ref": "#/$defs/FieldState"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "QualificationListField": {
+      "type": "object",
+      "description": "ExtractedField<QualificationRequirement[]>",
+      "additionalProperties": false,
+      "required": ["value", "state", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["array", "null"],
+          "items": {
+            "$ref": "#/$defs/QualificationRequirement"
+          }
+        },
+        "state": {
+          "$ref": "#/$defs/FieldState"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "PastPerformanceListField": {
+      "type": "object",
+      "description": "ExtractedField<PastPerformanceRequirement[]>",
+      "additionalProperties": false,
+      "required": ["value", "state", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["array", "null"],
+          "items": {
+            "$ref": "#/$defs/PastPerformanceRequirement"
+          }
+        },
+        "state": {
+          "$ref": "#/$defs/FieldState"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "StaffingListField": {
+      "type": "object",
+      "description": "ExtractedField<StaffingRequirement[]>",
+      "additionalProperties": false,
+      "required": ["value", "state", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["array", "null"],
+          "items": {
+            "$ref": "#/$defs/StaffingRequirement"
+          }
+        },
+        "state": {
+          "$ref": "#/$defs/FieldState"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "KrwField": {
+      "type": "object",
+      "description": "ExtractedField<string>. KRW 정수 문자열",
+      "additionalProperties": false,
+      "required": ["value", "state", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]+$"
+        },
+        "state": {
+          "$ref": "#/$defs/FieldState"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "DateTimeField": {
+      "type": "object",
+      "description": "ExtractedField<string>. ISO8601 date-time(오프셋 포함). gateway 가 UTC Z 로 정규화한다",
+      "additionalProperties": false,
+      "required": ["value", "state", "evidence"],
+      "properties": {
+        "value": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "state": {
+          "$ref": "#/$defs/FieldState"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    }
+  }
+}

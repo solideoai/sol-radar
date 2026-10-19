@@ -1,0 +1,25 @@
+# 프롬프트 인젝션 탐지 패턴(docs/03 §4.4 1·5단계, docs/09 프롬프트 인젝션 대응).
+# norm(docs/15 §5.1) 한 텍스트에 대소문자 무시로 대조한다. 텍스트는 바꾸지 않는다.
+# 휴리스틱이다. 통과가 안전을 보장하지 않는다. 방어의 본체는 "문서는 데이터, 출력은 스키마, 모델에 권한 없음"이다.
+# fixtures/bids 공고 20건 content 는 하나도 걸리지 않아야 한다(오탐 금지, tests/test_injection.py).
+version: injection-patterns/v0.1
+
+# 입력(공고 본문·첨부 텍스트)과 출력(추출 값·note)에 함께 쓰는 지시문 패턴
+patterns:
+  - id: ko-ignore-previous-instructions
+    regex: 이전\s*(?:의\s*)?(?:모든\s*)?지시(?:사항|문)?\s*(?:을|를|은|는)?\s*무시
+  - id: en-ignore-previous-instructions
+    regex: \b(?:ignore|disregard)\s+(?:all\s+)?(?:the\s+)?(?:previous|prior|above)\s+instructions?\b
+  - id: en-system-prompt
+    regex: \bsystem\s*prompt\b
+  - id: ko-system-prompt
+    regex: 시스템\s*프롬프트
+  - id: ko-judge-notice-fit
+    regex: 이\s*공고를\s*(?:적합|참여)\s*(?:으로|로)?\s*(?:판정|평가|분류|표시)
+  - id: ko-mark-all-satisfied
+    regex: 모든\s*(?:자격|요건|요구\s*사항|조건)\s*(?:을|를|이|은)?\s*(?:충족|만족)\s*(?:으로|한\s*것으로)?\s*(?:표시|판정|처리|간주)
+
+# 출력 전용: restrictions·qualifications 에 근거(evidence=[]) 없이 값으로 나온 완화 문구
+relaxation:
+  - id: ko-requirement-none
+    regex: (?:자격|요건|제한|조건)\s*(?:사항|요건|조건)?\s*(?:이|은|는)?\s*(?:없음|없다|없습니다)

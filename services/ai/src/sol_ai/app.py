@@ -1,9 +1,52 @@
-"""FastAPI 앱. Phase 0 은 GET /health 만 연다."""
+"""FastAPI 앱. /health·/parse·/extract·/kev·/explain(docs/03 §2.1).
 
-from fastapi import FastAPI
+HTTP 200 은 "gateway 가 응답했다"는 뜻이다. 개별 실패는 본문 status·errorCode·kev.enabled·fallback 으로 낸다.
+200 이 아닌 본문은 {"errorCode","message"} 이고 422 KO_STATE_NOT_ALLOWED·503 AI_UNAVAILABLE 둘뿐이다(K9).
+요청 본문 형식 오류는 FastAPI 기본 422 를 그대로 둔다. 실행 모드 위반은 기동 거부(exit 78)다.
+"""
 
+import logging
+import time
+from dataclasses import dataclass
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from sol_ai.adapters.base import Adapters
+from sol_ai.adapters.factory import build_adapters
+from sol_ai.adapters.kev import KevAdapter, KoStateNotAllowed
+from sol_ai.contracts import (
+    ErrorBody,
+    ExplainRequest,
+    ExplainResponse,
+    ExtractRequest,
+    ExtractResponse,
+    KevRequest,
+    KevResponse,
+    KevTimings,
+    ParseResult,
+)
+from sol_ai.explain import explain
+from sol_ai.extraction import ExtractionConfig, run_extraction
+from sol_ai.guards import InjectionGuard
+from sol_ai.parse import parse_document, parser_inventory, read_limited
+from sol_ai.paths import (
+    INJECTION_PATTERNS_FILE,
+    PROMPT_FILE,
+    QUALIFICATION_CODES_FILE,
+    QUESTION_SETS_DIR,
+    SCHEMA_FILE,
+    fixtures_dir,
+)
+from sol_ai.qualifications import QualificationDictionary
+from sol_ai.question_sets import load_question_sets
 from sol_ai.run_mode import load_rules, resolve_run_mode
+from sol_ai.schema import ExtractionSchema, prompt_hash
 from sol_ai.settings import Settings
+
+logger = logging.getLogger("sol_ai")
+
+PARSER_SETTINGS = {"PDF": "PARSER_PDF", "HWPX": "PARSER_HWPX", "HWP": "PARSER_HWP"}
 
 
 class RunModeError(Exception):
@@ -18,26 +61,162 @@ def format_violations(violations) -> str:
     return ", ".join(f"{v.key}({v.reason})" for v in violations)
 
 
+@dataclass(frozen=True)
+class Runtime:
+    run_mode: str | None
+    adapters: Adapters
+    extraction: ExtractionConfig
+    kev: KevAdapter
+
+
+def _error(status: int, code: str, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status, content=ErrorBody(errorCode=code, message=message).model_dump()
+    )
+
+
+def _gateway_down() -> JSONResponse:
+    return _error(503, "AI_UNAVAILABLE", "AI gateway is unavailable (fault injected: gateway_down)")
+
+
+def _elapsed_ms(started: float) -> int:
+    return int((time.perf_counter() - started) * 1000)
+
+
+def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str, str]) -> Runtime:
+    schema = ExtractionSchema.load(SCHEMA_FILE)
+    dictionary = QualificationDictionary.load(QUALIFICATION_CODES_FILE)
+    question_sets = load_question_sets(QUESTION_SETS_DIR)
+    adapters = build_adapters(
+        provider=effective["AI_PROVIDER"],
+        kev_enabled=effective["KEV_ENABLED"] == "true",
+        fault=settings.AI_FAULT_INJECT or None,
+        fixtures_root=fixtures_dir(settings.SOL_FIXTURES_DIR),
+        dictionary=dictionary,
+        question_sets=question_sets,
+    )
+    for fmt, key in PARSER_SETTINGS.items():
+        if getattr(settings, key):
+            # 어댑터 id 를 받아도 등록된 파서 어댑터가 없다. 미설정과 같게 처리한다(03 §10.3 비교 전)
+            logger.warning(
+                "%s 어댑터가 아직 없어 %s 은 PARSER_NOT_CONFIGURED 로 응답한다", key, fmt
+            )
+    extraction = ExtractionConfig(
+        schema=schema,
+        guard=InjectionGuard.load(INJECTION_PATTERNS_FILE),
+        dictionary=dictionary,
+        prompt_version=settings.AI_PROMPT_VERSION,
+        prompt_hash=prompt_hash(PROMPT_FILE, schema.text, settings.AI_PROMPT_VERSION),
+        fuzzy_min_ratio=settings.CITATION_FUZZY_MIN_RATIO,
+    )
+    kev = KevAdapter(
+        adapters.kev,
+        question_sets,
+        dictionary,
+        allow_ko_state=settings.KEV_ALLOW_KO_STATE == "true",
+    )
+    return Runtime(run_mode, adapters, extraction, kev)
+
+
 def create_app(settings: Settings) -> FastAPI:
     rules = load_rules()
     result = resolve_run_mode(settings.as_env(rules), rules)
     if result.violations:
         raise RunModeError(format_violations(result.violations))
-    effective = result.effective or {}
+    runtime = build_runtime(settings, result.mode, result.effective or {})
+    adapters = runtime.adapters
     app = FastAPI(title="SOL RADAR AI gateway")
 
     @app.get("/health")
     def health() -> dict:
-        # qwen·kev·questionSets·parsers 는 03:145 필드 자리다. Phase 2·5 에서 채운다.
+        qwen = adapters.qwen
+        kev = adapters.kev
         return {
             "status": "ok",
-            "runMode": result.mode,
-            "provider": effective["AI_PROVIDER"],
-            "kevEnabled": effective["KEV_ENABLED"] == "true",
-            "qwen": None,
-            "kev": None,
-            "questionSets": [],
-            "parsers": [],
+            "runMode": runtime.run_mode,
+            "provider": adapters.provider,
+            "kevEnabled": kev is not None,
+            "qwen": (
+                {"model": qwen.model_name, "promptHash": runtime.extraction.prompt_hash}
+                if qwen.model_name is not None
+                else None
+            ),
+            "kev": (
+                {"modelId": kev.model_id, "registryMatch": kev.registry_match}
+                if kev is not None and kev.model_id is not None
+                else None
+            ),
+            "questionSets": list(kev.question_sets) if kev is not None else [],
+            "parsers": parser_inventory(),
         }
+
+    @app.post("/parse", response_model=ParseResult)
+    async def parse(request: Request) -> ParseResult:
+        started = time.perf_counter()
+        data, too_large = await read_limited(request.stream())
+        parsed = parse_document(data, too_large)
+        logger.info(
+            "parse requestId=%s format=%s status=%s errorCode=%s ms=%d",
+            request.headers.get("x-request-id"),
+            parsed.format,
+            parsed.status,
+            parsed.errorCode,
+            _elapsed_ms(started),
+        )
+        return parsed
+
+    @app.post("/extract", response_model=ExtractResponse)
+    def extract(body: ExtractRequest):
+        if adapters.gateway_down:
+            return _gateway_down()
+        response = run_extraction(body, adapters.qwen, runtime.extraction)
+        logger.info(
+            "extract requestId=%s provider=%s status=%s errorCode=%s ms=%d",
+            body.requestId,
+            adapters.provider,
+            response.status,
+            response.errorCode,
+            response.timings.extractMs,
+        )
+        return response
+
+    @app.post("/kev", response_model=KevResponse)
+    def kev(body: KevRequest):
+        if adapters.gateway_down:
+            return _gateway_down()
+        started = time.perf_counter()
+        try:
+            outcome = runtime.kev.assess(body)
+        except KoStateNotAllowed:
+            return _error(
+                422,
+                "KO_STATE_NOT_ALLOWED",
+                'stateLanguage "ko" requires KEV_ALLOW_KO_STATE=true (evaluation only)',
+            )
+        response = KevResponse(
+            kev=outcome.kev,
+            stateHash=outcome.state_hash,
+            requirements=None,
+            wire=outcome.wire,
+            errorCode=outcome.error_code,
+            timings=KevTimings(kevMs=_elapsed_ms(started)),
+        )
+        logger.info(
+            "kev requestId=%s provider=%s enabled=%s errorCode=%s ms=%d",
+            body.requestId,
+            adapters.provider,
+            outcome.kev.enabled,
+            outcome.error_code,
+            response.timings.kevMs,
+        )
+        return response
+
+    @app.post("/explain", response_model=ExplainResponse)
+    async def explain_endpoint(body: ExplainRequest, request: Request):
+        if adapters.gateway_down:
+            return _gateway_down()
+        response = explain(body, await request.json())
+        logger.info("explain requestId=%s fallback=%s", body.requestId, response.fallback)
+        return response
 
     return app
