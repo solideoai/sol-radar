@@ -141,6 +141,23 @@ export function getSupabaseAnon(): SupabaseClient<Database> {
 }
 
 /**
+ * ⚠️ RLS를 우회한다. 받은 주소·키로 관리자 연결을 새로 만든다(모듈 변수에 담지 않는다).
+ * process.env 가 아니라 파일에서 읽은 값을 쓰는 곳(demo:reset)이 부른다. 오류에는 받은 값을 싣지 않는다.
+ */
+export function createSupabaseAdminClient(input: {
+  url: string;
+  serviceRoleKey: string;
+}): SupabaseClient<Database> {
+  if (input.url.trim() === "") throw new Error("관리자 연결의 Supabase 주소가 비어 있습니다.");
+  if (input.serviceRoleKey.trim() === "") {
+    throw new Error("관리자 연결의 service role 키가 비어 있습니다.");
+  }
+  return createClient<Database>(input.url, input.serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/**
  * ⚠️ RLS를 우회한다. 관리 작업(배치·마이그레이션 보조)에만, 꼭 필요할 때만 쓴다.
  * 어드민 화면도 쓰지 않는다. 운영자 판단은 profiles.is_admin 과 관리자 정책으로 DB가 한다 —
  * 우회하면 "누가 운영자인가"를 코드가 판단하고, 그 판단이 틀리면 막을 방법이 없다.

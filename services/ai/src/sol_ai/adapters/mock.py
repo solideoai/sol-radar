@@ -154,7 +154,10 @@ class MockQwen:
 FORMULA_NO_BID = ({"BID": 0.05, "WATCH": 0.15, "NO_BID": 0.80}, 0.80, 0.30)
 FORMULA_WATCH = ({"BID": 0.15, "WATCH": 0.70, "NO_BID": 0.15}, 0.50, 0.70)
 FORMULA_BID = ({"BID": 0.60, "WATCH": 0.30, "NO_BID": 0.10}, 0.10, 0.20)
+# fit(score 질문)은 세 분기 모두 같은 "보통" 중심 분포다. score 는 이 분포의 기대 등급(0·0 + 1·0.2 + 2·0.6 + 3·0.2 + 4·0)
 FORMULA_FIT_SCORE = 2.0
+FORMULA_FIT_PROBABILITIES = {"0": 0, "1": 0.2, "2": 0.6, "3": 0.2, "4": 0}
+FORMULA_FIT_CONFIDENCE = 0.6
 
 
 def formula_case(request: KevRequest, dictionary: QualificationDictionary) -> tuple:
@@ -182,7 +185,10 @@ def formula_answers(
         Q_MANDATORY_RISK: kev_wire.YesAnswer(mandatory_risk),
         Q_NEEDS_HUMAN_REVIEW: kev_wire.YesAnswer(needs_review),
         Q_FIT: kev_wire.ScoreAnswer(
-            FORMULA_FIT_SCORE, kev_wire.score_legend(question_set.questions[Q_FIT])
+            FORMULA_FIT_SCORE,
+            kev_wire.score_legend(question_set.questions[Q_FIT]),
+            dict(FORMULA_FIT_PROBABILITIES),
+            FORMULA_FIT_CONFIDENCE,
         ),
     }
 

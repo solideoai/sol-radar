@@ -10,6 +10,7 @@ import re
 
 import pytest
 from support import (
+    FIXTURES_DIR,
     HANGUL,
     KEV_ASSIST_KEYS,
     KEV_DISCLAIMER,
@@ -20,6 +21,7 @@ from support import (
     extraction_fixture,
     kev_fixture,
     kev_request,
+    load_json,
     question_set_questions,
     text_ref,
     without_timings,
@@ -362,6 +364,136 @@ def test_kev_formula_wire_has_fixture_shape(make_client, custom_fixtures):
         wire[0]["responses"]["recommendation"]["choice"],
         wire[0]["responses"]["recommendation"]["probabilities"],
     ) == ("NO_BID", FORMULA_NO_BID[1])
+
+
+# ---------------------------------------------------------------- 공식 fit 결함(3e demo:preanalyze, e8 P1·P2)
+# 03 §5.4: score 답 = score(0부터 센 평균 등급 index)·legend·probabilities·confidence.
+# 공식 경로가 probabilities·confidence 를 빠뜨려 worker 가 거절했다(PARTIAL·AI_UNAVAILABLE).
+
+KEV_FIXTURE_FILES = sorted(p.name for p in (FIXTURES_DIR / "kev").glob("*.json"))
+WIRE_ENVELOPE_KEYS = {"schemaVersion", "fixtureId", "provider", "questionSetVersion"}
+FORMULA_FIT = {
+    "score": 2.0,
+    "legend": LEGEND,
+    "probabilities": {"0": 0, "1": 0.2, "2": 0.6, "3": 0.2, "4": 0},
+    "confidence": 0.6,
+}
+# 세 분기: 필수 자격 미보유 → NO_BID 중심, 코드 없는 필수 자격 → WATCH 중심, 그 밖 → BID 중심
+FORMULA_BRANCHES = {
+    "no_bid": ("mandatory_code_not_held", "NO_BID"),
+    "watch": ("mandatory_code_null", "WATCH"),
+    "bid": ("mandatory_codes_held", "BID"),
+}
+
+
+def formula_wire(make_client, custom_fixtures, case: str = "mandatory_codes_held") -> dict:
+    formula_fixtures(custom_fixtures)  # kev/ 가 빈 시험 디렉터리 → FX-05 는 공식 경로
+    request = kev_request("FX-05", extraction=formula_extraction(FORMULA_CASES[case][0]))
+    result = post(make_client(), request)
+    assert result["kev"]["enabled"] is True
+    return result["wire"][0]
+
+
+def expected_grade(probabilities: dict) -> float:
+    return sum(int(grade) * p for grade, p in probabilities.items())
+
+
+def test_kev_fixture_files_exist():
+    assert KEV_FIXTURE_FILES != []
+
+
+@pytest.mark.parametrize("file_name", KEV_FIXTURE_FILES)
+def test_formula_wire_question_keys_match_kev_fixture(make_client, custom_fixtures, file_name):
+    fixture = load_json(FIXTURES_DIR / "kev" / file_name)
+    wire = formula_wire(make_client, custom_fixtures)
+    assert {qid: set(answer) for qid, answer in wire["responses"].items()} == {
+        qid: set(answer) for qid, answer in fixture["responses"].items()
+    }
+
+
+@pytest.mark.parametrize("file_name", KEV_FIXTURE_FILES)
+def test_formula_wire_top_level_keys_match_kev_fixture(make_client, custom_fixtures, file_name):
+    fixture = load_json(FIXTURES_DIR / "kev" / file_name)
+    wire = formula_wire(make_client, custom_fixtures)
+    assert set(wire) == set(fixture) - WIRE_ENVELOPE_KEYS
+
+
+@pytest.mark.parametrize("branch", sorted(FORMULA_BRANCHES))
+def test_formula_fit_has_full_score_answer_in_every_branch(make_client, custom_fixtures, branch):
+    case, option = FORMULA_BRANCHES[branch]
+    wire = formula_wire(make_client, custom_fixtures, case)
+    assert wire["responses"]["recommendation"]["choice"] == option  # 전제: 그 분기다
+    assert wire["responses"]["fit"] == FORMULA_FIT
+
+
+@pytest.mark.parametrize("branch", sorted(FORMULA_BRANCHES))
+def test_formula_fit_score_is_expected_grade_of_its_distribution(
+    make_client, custom_fixtures, branch
+):
+    fit = formula_wire(make_client, custom_fixtures, FORMULA_BRANCHES[branch][0])["responses"][
+        "fit"
+    ]
+    assert "probabilities" in fit
+    probabilities = fit["probabilities"]
+    assert abs(sum(probabilities.values()) - 1) < 1e-9
+    assert abs(expected_grade(probabilities) - fit["score"]) < 1e-9
+
+
+def broken_fit_fixture(change) -> dict:
+    fixture = kev_fixture("FX-02")
+    change(fixture["responses"]["fit"])
+    return fixture
+
+
+def post_kev_file(make_client, custom_fixtures, fixture: dict) -> dict:
+    formula_fixtures(custom_fixtures, {"FX-02": fixture})
+    return post(make_client(), kev_request("FX-02"))
+
+
+def unavailable(result: dict) -> tuple:
+    return (result["kev"]["enabled"], result["errorCode"], result["stateHash"], result["wire"])
+
+
+@pytest.mark.parametrize("missing", ["probabilities", "confidence"])
+def test_score_answer_without_distribution_field_is_rejected(make_client, custom_fixtures, missing):
+    # P2a: score 답에 probabilities·confidence 가 없으면 wire 형식 오류. mock 은 파싱 실패를 KEV_UNAVAILABLE 로 낸다
+    result = post_kev_file(
+        make_client, custom_fixtures, broken_fit_fixture(lambda fit: fit.pop(missing))
+    )
+    assert unavailable(result) == (False, "KEV_UNAVAILABLE", None, None)
+
+
+@pytest.mark.parametrize(
+    ("offset", "accepted"), [(0.06, False), (-0.06, False), (0.04, True), (-0.04, True)]
+)
+def test_score_must_match_expected_grade_within_tolerance(
+    make_client, custom_fixtures, offset, accepted
+):
+    # P2b: FX-02 fit 분포의 기대 등급은 2.2. |score - 기대 등급| > 0.05 면 거절
+    fixture = kev_fixture("FX-02")
+    grade = expected_grade(fixture["responses"]["fit"]["probabilities"])
+    assert abs(grade - 2.2) < 1e-9  # 전제
+    fixture["responses"]["fit"]["score"] = round(grade + offset, 4)
+    result = post_kev_file(make_client, custom_fixtures, fixture)
+    if accepted:
+        assert (result["kev"]["enabled"], result["kev"]["fit"]["score"]) == (
+            True,
+            round(grade + offset, 4),
+        )
+    else:
+        assert unavailable(result) == (False, "KEV_UNAVAILABLE", None, None)
+
+
+@pytest.mark.parametrize("file_name", KEV_FIXTURE_FILES)
+def test_every_kev_fixture_file_passes_wire_parser(make_client, file_name):
+    result = post(make_client(), kev_request(file_name.removesuffix(".json")))
+    assert (result["kev"]["enabled"], result["errorCode"]) == (True, None)
+
+
+@pytest.mark.parametrize("file_name", KEV_FIXTURE_FILES)
+def test_every_kev_fixture_fit_score_is_its_expected_grade(file_name):
+    fit = load_json(FIXTURES_DIR / "kev" / file_name)["responses"]["fit"]
+    assert abs(expected_grade(fit["probabilities"]) - fit["score"]) <= 0.05
 
 
 def test_kev_without_fixture_id_uses_formula(make_client):

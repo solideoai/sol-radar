@@ -56,6 +56,12 @@ NOUL = {
     "risk.scopeAmbiguity": 0.3,
 }
 SCORE = {"fit": 3.5, "techFit": 3.0, "perfRelevance": 2.0}
+# 03 §5.4 score 답: score = 분포의 기대 등급 Σ i·p_i(P2b, 차이 0.05 이하), 분포 합 1, confidence = 최대 확률
+SCORE_DISTRIBUTION = {
+    "fit": {"0": 0, "1": 0, "2": 0, "3": 0.5, "4": 0.5},  # 3.5
+    "techFit": {"0": 0, "1": 0, "2": 0.2, "3": 0.6, "4": 0.2},  # 3.0
+    "perfRelevance": {"0": 0, "1": 0.2, "2": 0.6, "3": 0.2, "4": 0},  # 2.0
+}
 DEFAULT_REQ = {"SATISFIED": 0.6, "NOT_SATISFIED": 0.1, "NEEDS_REVIEW": 0.3}
 
 
@@ -79,12 +85,12 @@ class KevResponder:
             return kev_fixture("FX-01")["responses"]["recommendation"]
         if question["type"] == "noul":
             return {"noul": NOUL[qid]}
-        probabilities = {"0": 0, "1": 0, "2": 0.5, "3": 0.5, "4": 0}
+        probabilities = SCORE_DISTRIBUTION[qid]
         return {
             "score": SCORE[qid],
             "legend": LEGEND,
-            "probabilities": probabilities,
-            "confidence": 0.5,
+            "probabilities": dict(probabilities),
+            "confidence": max(probabilities.values()),
         }
 
     def __call__(self, recorded) -> Reply:
@@ -100,6 +106,13 @@ class KevResponder:
         self.replies.append(reply)
         headers = {"x-typesafe-request-id": f"req-typesafe-{self.calls}"}
         return Reply(json_body=reply, headers=headers, delay=self.delay)
+
+
+def test_fake_score_answers_follow_03_5_4_shape():
+    # 전제(가짜 서버): 단언하는 score 가 그 분포의 기대 등급이고 분포 합이 1 이다
+    for qid, probabilities in SCORE_DISTRIBUTION.items():
+        grade = sum(int(g) * p for g, p in probabilities.items())
+        assert (round(grade, 9), round(sum(probabilities.values()), 9)) == (SCORE[qid], 1.0)
 
 
 def ref(quote: str, match: str = "NORMALIZED") -> dict:
