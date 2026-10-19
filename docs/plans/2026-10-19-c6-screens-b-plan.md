@@ -16,7 +16,7 @@ updated: 2026-10-19
 
 **Goal:** A단계 부품·서비스 규칙 위에 Supabase 저장소·분석 큐 producer·Route Handler 10개(B1), 업무 화면 네 개와 앱 셸(B2), 로그인 뒤 E2E·axe·1440/1280 증거(B3)를 붙여 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`가 실제 데이터로 동작하게 한다.
 
-**Architecture:** 화면의 첫 그리기는 서버 컴포넌트가 `@/server/bids` 서비스를 직접 부르고, Route Handler는 같은 서비스를 감싼다(스펙 §6). 저장소 구현은 bids 도메인 안(`*.supabase.ts`)에 두고 사용자 세션 + RLS로만 읽고 쓴다. 다른 도메인(scoring·analysis·health)과 Redis(BullMQ·ioredis)를 잇는 일은 app 층의 `web/app/_lib/work-deps.ts` 한 곳이 맡는다. lodestar가 도메인 → 도메인 런타임 호출을 막기 때문이다(`web/lodestar.config.ts` domain `canImport: ["infra","shared"]`). 목록 정렬·필터는 새 마이그레이션 `20261019000011`의 `security_invoker` 뷰가 맡는다.
+**Architecture:** 화면의 첫 그리기는 서버 컴포넌트가 `@/server/bids` 서비스를 직접 부르고, Route Handler는 같은 서비스를 감싼다(스펙 §6). 저장소 구현은 bids 도메인 안(`*.supabase.ts`)에 두고 사용자 세션 + RLS로만 읽고 쓴다. 다른 도메인(scoring·analysis·health)과 Redis(BullMQ·ioredis)를 잇는 일은 app 층의 `web/app/_lib/work-deps.ts` 한 곳이 맡는다. lodestar가 도메인 → 도메인 런타임 호출을 막기 때문이다(`web/lodestar.config.ts` domain `canImport: ["infra","shared"]`). 목록 정렬·필터는 새 마이그레이션 `20261019000012`의 `security_invoker` 뷰가 맡는다.
 
 **Tech Stack:** Next.js 16.4.1 · React 19 · Tailwind v4 · Supabase(supabase-js·RLS) · BullMQ 6.3.16 · ioredis 6 · zod 4 · zustand · Vitest(node·browser) · PGlite(`pnpm test:db`) · Playwright 1.64 · axe-core(eslint-plugin-jsx-a11y 경유, people-read 관례)
 
@@ -33,7 +33,7 @@ updated: 2026-10-19
 - `web/server/<도메인>/` 파일은 `import "server-only";`로 시작한다. 바깥에서는 배럴(`@/server/<도메인>`)로만 부른다. `../` 대신 `@/`. `eslint-disable`·`any`·`@ts-ignore`·`.only`·`.skip` 금지.
 - 도메인은 다른 도메인을 런타임으로 부르지 않는다(타입 전용은 된다). scoring·analysis·health·organization을 잇는 일은 app 층(`web/app/**`)이 한다.
 - `web/server/analysis/**`·`scoring/**`·`ingestion/**`·`people/**`는 고치지 않는다. 예외: `web/server/health`에 `getAiState()` 하나를 더한다(Task 5).
-- 마이그레이션은 새 파일 `supabase/migrations/20261019000011_c6_screen_reads.sql` 하나만 만든다(e8 배정). 기존 파일은 고치지 않는다. `web/lib/database.types.ts`는 `pnpm db:types`로 만들어 같은 커밋에 넣는다. `pnpm db:push`는 하지 않는다.
+- 마이그레이션은 새 파일 `supabase/migrations/20261019000012_c6_screen_reads.sql` 하나만 만든다(e8 배정). 000011은 b3의 C5-B 보안 후속이다(`finish_score_run`, `score_runs_idempotency_key_org_check`: 키는 `<org_id>:`로 시작). C6 DB 시험의 멱등 키도 이 형식을 쓴다. 기존 파일은 고치지 않는다. `web/lib/database.types.ts`는 `pnpm db:types`로 만들어 같은 커밋에 넣는다. `pnpm db:push`는 하지 않는다.
 - web 요청 경로는 anon 키 + 사용자 세션만 쓴다. service role은 E2E 지원 코드(로컬 Supabase, people-read 관례)에서만 쓴다.
 - 정본(`docs/00~22`)과 `docs/PROGRESS.md`는 고치지 않는다(e8 몫). 증거는 `docs/evidence/phase-3/`에 둔다.
 - 고정 값: 오류 봉투 `{error:{code,message,details,requestId}}` + `X-Request-Id`, CSRF 헤더 `X-Requested-With: sol-radar`, `Idempotency-Key`는 UUID, 분석 요청 조직당 30회/분(초과 `429` + `Retry-After`), `API_CURSOR_SECRET` 32자 이상(아니면 `503 {component:"cursor"}`), 큐 `analysis`·job `analyze`·jobId `analysis_<orgId>_<scoreRunId>`, 저장 멱등 키 `<orgId>:<Idempotency-Key>`(ADR-030 B20).
@@ -55,7 +55,7 @@ updated: 2026-10-19
 
 e8의 지시(b-plan-brief)와 정본·코드 확인을 근거로 한 판단이다.
 
-1. **새 마이그레이션 `20261019000011`이 필요하다.** 네 가지 이유가 있다.
+1. **새 마이그레이션 `20261019000012`이 필요하다.** 네 가지 이유가 있다.
    - `score_runs`에 요청 지문 열이 없다(04 §3.4). 같은 키 + 다른 본문 `409`(05 §1)를 지키려면 `request_hash` 열과 insert 열 권한이 필요하다. `OBLIGATION(B1)` 102행이다.
    - 화면 역할은 `score_runs`를 update할 수 없다(20261019000004 §5: "상태 전이와 결과 열은 worker만"). 그런데 B20은 "큐 등록 실패 → FAILED(`ENQUEUE_FAILED`) + 멱등 키 해제"를 요구한다. 그래서 요청자 본인의 QUEUED run만 푸는 좁은 `security definer` 함수를 둔다.
    - `ingest_runs`는 ADMIN만 읽는다(20261019000006 "ADMIN 은 수집 run 읽기"). S2 발표 계정은 SALES라 수집 신선도가 안 보인다. 그래서 최신 run 한 건의 상태·요약만 주는 함수를 둔다.
@@ -72,7 +72,7 @@ e8의 지시(b-plan-brief)와 정본·코드 확인을 근거로 한 판단이�
 
 | 파일 | 맡는 것 | Task |
 |---|---|---|
-| `supabase/migrations/20261019000011_c6_screen_reads.sql` | `request_hash`, `release_unqueued_score_run`, `latest_ingest_run`, `bid_list_items` 뷰 | 1 |
+| `supabase/migrations/20261019000012_c6_screen_reads.sql` | `request_hash`, `release_unqueued_score_run`, `latest_ingest_run`, `bid_list_items` 뷰 | 1 |
 | `scripts/database.test.mjs`, `web/lib/database.types.ts`(생성) | 정책 시험, 타입 | 1 |
 | `web/server/bids/bid-query.ts`·`bid.model.ts`·`bids.repo.ts`·`*.service.ts`·`review.model.ts` | 쿼리·커서·포트·서비스 계약 보강 | 2 |
 | `web/server/bids/analysis-row.mapper.ts`·`bid-row.mapper.ts` | 저장 행 → 05 DTO | 3 |
@@ -107,10 +107,10 @@ e8의 지시(b-plan-brief)와 정본·코드 확인을 근거로 한 판단이�
 
 ---
 
-### Task 1: 마이그레이션 `20261019000011` — 화면 읽기·분석 요청 보조
+### Task 1: 마이그레이션 `20261019000012` — 화면 읽기·분석 요청 보조
 
 **Files:**
-- Create: `supabase/migrations/20261019000011_c6_screen_reads.sql`
+- Create: `supabase/migrations/20261019000012_c6_screen_reads.sql`
 - Modify: `scripts/database.test.mjs`(Phase 1 묶음 안, C5-B의 "화면 표시용 저장 열(20261019000010)" 묶음 다음)
 - Modify(생성): `web/lib/database.types.ts`
 
@@ -128,7 +128,7 @@ e8의 지시(b-plan-brief)와 정본·코드 확인을 근거로 한 판단이�
     - 최신 revision 첨부 집계: `docs_total, docs_pending`(download `PENDING` 또는 download `OK` + parse `null`·`PENDING`)`, docs_parsed, docs_partial, docs_unsupported, docs_failed`(parse `FAILED`)`, docs_download_failed`
   - `revoke all on public.bid_list_items from anon, public`, `grant select … to authenticated`
 
-- [ ] **Step 1: 실패하는 DB 시험을 쓴다.** 새 `describe("C6 화면 읽기·분석 요청 보조 (20261019000011)")`. Phase 1 묶음의 `as`·`asWorker`·`rowsOf`·`ORG1`·`BID1`·`REV1`·`PROFILE1`·`RUN1` 시드를 쓴다.
+- [ ] **Step 1: 실패하는 DB 시험을 쓴다.** 새 `describe("C6 화면 읽기·분석 요청 보조 (20261019000012)")`. Phase 1 묶음의 `as`·`asWorker`·`rowsOf`·`ORG1`·`BID1`·`REV1`·`PROFILE1`·`RUN1` 시드를 쓴다.
   - `sales`가 `request_hash`를 넣은 QUEUED run을 만들 수 있다. `update score_runs set request_hash=…`는 `42501`이다.
   - 같은 입력의 두 번째 QUEUED insert는 `23505`이고 메시지에 `score_runs_active_input_key`가 있다. 같은 `idempotency_key`의 두 번째 insert는 `23505`이고 메시지에 `score_runs_idempotency_key_key`가 있다(의무 O7a의 DB 쪽).
   - `sales`가 자기 QUEUED run에 `release_unqueued_score_run`을 부르면 `true`다. 행은 `FAILED`·`ENQUEUE_FAILED`·`idempotency_key is null`·`finished_at is not null`이다. 그 뒤 같은 키로 새 QUEUED run을 넣을 수 있다(O4·O7b).
@@ -491,6 +491,7 @@ return `${c}.${op}.${v},and(${c}.eq.${v},id.gt.${q(after.id)}),${c}.is.null`;
 **Files:**
 - Create: `web/app/(app)/(work)/bids/[id]/page.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `bid-detail-view.tsx`, `use-analysis-run.ts`, `submit-review.ts`, `assessment-labels.ts`
 - Modify: `web/components/bids/kev-opinion.tsx`(`notRecorded?: boolean`), `score-factors.tsx`(missing + 사유 null → "사유 기록 없음"), `labels.ts`(`kevRecordMissing`), `decision-panel.tsx`(역할 null이면 괄호 생략)
+- 문구 변경(e8 판정, 2026-10-19): `KEV_UNAVAILABLE`은 이제 "Kev 미접속"과 "Kev 응답 형식 오류"를 둘 다 뜻한다(b3 분류 변경, 03 :595·:727). 그래서 플래그 라벨과 KevOpinion "Kev 미접속" 줄의 "Kev 서버 미접속"을 "Kev 사용 불가"로 바꾼다. `analysis-display.browser.test.tsx`에 단언을 더한다.
 - Test: `use-analysis-run.browser.test.tsx`, `submit-review.test.ts`, `assessment-labels.test.ts`, `bid-detail-view.browser.test.tsx`(모두 같은 폴더), `web/components/bids/analysis-display.browser.test.tsx`(더함)
 
 **Interfaces:**
