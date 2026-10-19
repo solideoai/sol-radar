@@ -22,7 +22,7 @@ import { analyze } from "./analyze";
 import { decideRecommendation, mergeKev } from "./decision";
 import { clamp, round1, solScore, type FactorOutcome } from "./factors";
 import { canonicalJson, snapshotHash } from "./snapshot-hash";
-import { buildInput, loadBid, loadExtraction, withPatch } from "./test-support";
+import { buildInput, loadBid, loadExtraction, loadKev, withPatch } from "./test-support";
 
 // 독립 검증(test-server). 구현 보고를 믿지 않고 정본(08 §3~§6, 11 §3 G4·V2-05·V2-06, 04 §4 review_flag, 17 절대 규칙)에서
 // 출발해 기존 시험이 빠뜨린 자리를 본다. 기존 시험 파일은 고치지 않는다.
@@ -234,7 +234,14 @@ const FIXTURE_CASES: Case[] = [
     label: `${id} r2`,
     input: buildInput(id, { bid: loadBid(id, 1) }),
   })),
-  { label: "FX-07 r1", input: buildInput("FX-07", { extraction: loadExtraction("FX-07.r01") }) },
+  // r1 변형은 r01 추출과 r01 Kev(kev/FX-07.r01.json)를 짝짓는다. FX-07.json 은 r2 의 Kev 다.
+  {
+    label: "FX-07 r1",
+    input: buildInput("FX-07", {
+      extraction: loadExtraction("FX-07.r01"),
+      kev: loadKev("FX-07.r01"),
+    }),
+  },
 ];
 
 function kevOf(choice: Recommendation, mandatoryRisk: number, needsHumanReview: number) {
@@ -734,7 +741,7 @@ describe("fixture 별 규칙에서 바로 따라오는 기대 (07 §6.2 · 08 §
     expect(result.recommendation).toBe("WATCH");
   });
 
-  it("FX-04: 자격 문장 미추출 → NEEDS_REVIEW(NOTICE_INFO_MISSING), 근거 0건, 권고 WATCH, Kev 없음 → RULES_ONLY", () => {
+  it("FX-04: 자격 문장 미추출 → NEEDS_REVIEW(NOTICE_INFO_MISSING), 근거 0건, 권고 WATCH, Kev 참고 → RULES_WITH_KEV_ASSIST", () => {
     const { result } = RESULTS.find((entry) => entry.label === "FX-04")!;
     expect(result.qualificationStatus).toBe("NEEDS_REVIEW");
     expect(result.qualificationChecks.map((check) => check.reasonCode)).toEqual([
@@ -742,7 +749,7 @@ describe("fixture 별 규칙에서 바로 따라오는 기대 (07 §6.2 · 08 §
     ]);
     expect(result.qualificationChecks.flatMap((check) => check.evidence)).toEqual([]);
     expect(result.recommendation).toBe("WATCH");
-    expect(result.recommendationBasis).toBe("RULES_ONLY");
+    expect(result.recommendationBasis).toBe("RULES_WITH_KEV_ASSIST");
     expect(result.explanation).toContain("정보 부족은 미충족이 아니며 사람이 확인합니다");
   });
 
@@ -769,13 +776,23 @@ describe("fixture 별 규칙에서 바로 따라오는 기대 (07 §6.2 · 08 §
       outcome: "NEEDS_REVIEW",
       reasonCode: "PARSE_UNSUPPORTED",
     });
-    expect(result.reviewFlags).toEqual(["PARSE_UNSUPPORTED"]);
+    expect(result.reviewFlags).toEqual(["PARSE_UNSUPPORTED", "KEV_NEEDS_REVIEW"]);
     expect(factorOf(result, "skillMatch").rawValue).toMatchObject({
       required: 2,
       matched: 2,
       preferred: 0,
     });
     expect(result.recommendation).toBe("WATCH");
+  });
+
+  it("FX-07 r1: r01 추출·r01 Kev 짝 → 규칙 WATCH(68)와 Kev WATCH 일치, MODEL_RULE_DISAGREEMENT 없음", () => {
+    const { input, result } = RESULTS.find((entry) => entry.label === "FX-07 r1")!;
+    expect(input.kev?.fixtureId).toBe("FX-07.r01");
+    expect(result.score).toBe(68);
+    expect(result.recommendation).toBe("WATCH");
+    expect(result.recommendationBasis).toBe("RULES_WITH_KEV_ASSIST");
+    expect(result.kev.suggestedOption).toBe("WATCH");
+    expect(result.reviewFlags).not.toContain("MODEL_RULE_DISAGREEMENT");
   });
 });
 
