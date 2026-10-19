@@ -31,7 +31,7 @@ updated: 2026-10-19
 |ADR-014|fixture 날짜는 상대 표기(예: `+21d`), seed 시 KST 18:00 기준 절대값으로 변환|채택|2026-10-16|a3 제안. 데모 날짜가 바뀌어도 마감 D-3·D-1 장면이 유지된다 ([[07-DATA-PIPELINE\|07 수집 파이프라인]])|
 |ADR-015|저장소 지침 우선순위: `docs/CLAUDE.md`와 설계 문서(00~20)가 출발 템플릿(agentic-boilerplate)의 `AGENTS.md`·`docs/boilerplate/`·`.claude/` 스킬보다 우선. 루트 `CLAUDE.md`가 `@docs/CLAUDE.md`를 먼저 불러온다|채택|2026-10-16|사용자 결정. 저장소가 Supabase·Expo 템플릿에서 시작했다. ADR-017 이후 템플릿의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>` 구조 규칙은 설계와 일치하므로 따른다. 여전히 따르지 않는 것: Expo(`mobile/`, 이미 삭제, ADR-007), Vercel·EAS 배포 전제(미결정, 아래 미결정 8번). 템플릿 견본 도메인 정리 범위는 Phase 0에서 정한다 ([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
 |ADR-016|웹 클라이언트 공유 상태는 zustand, 입력 검증 스키마는 zod(4.x). Next.js 앱 `web/`에 설치(zustand 5.0.15, zod 4.6.5). 외부 API 계약(`/api/v1` Route Handler)의 DTO도 같은 zod 스키마(`web/server/<도메인>/*.model.ts`)가 단일 원천이고, worker(`web/worker`)도 같은 스키마를 쓴다|채택|2026-10-16|사용자 결정. zod는 DTO 단일 원천([[05-API-SPEC\|05 API]] §7)과 같은 라이브러리라 화면·Route Handler·worker가 스키마 표현을 공유한다. zustand는 여러 클라이언트 컴포넌트가 함께 쓰는 UI 상태만 담고, 서버 데이터와 URL 쿼리 필터는 담지 않는다 ([[06-UI-UX\|06 UI]] §11)|
-|ADR-017|아키텍처 전환: Next.js(`web/`, 화면·Route Handler·서버 도메인 `web/server/<도메인>`) + **Supabase(Postgres·RLS·Auth)**. NestJS·Prisma·자체 JWT 인증은 쓰지 않는다. Worker는 `web/worker` 진입점(같은 코드베이스의 별도 프로세스, BullMQ). MinIO·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose는 유지. 조직 데이터 열은 `org_id`, 업무 역할은 `memberships.sol_role`(ADMIN·SALES·ANALYST·VIEWER). service role 키는 worker·seed만. 개발 DB·Auth는 Supabase 클라우드 프로젝트(Pro)|채택|2026-10-16|사용자 결정(2026-10-16). 출발 템플릿(agentic-boilerplate)이 Next.js + Supabase(조직·역할·RLS·인증 견본, 정책 시험·타입 생성 게이트)라 그대로 쓰면 인증·격리를 새로 만들지 않는다. ADR-001·002를 대체한다([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
+|ADR-017|아키텍처 전환: Next.js(`web/`, 화면·Route Handler·서버 도메인 `web/server/<도메인>`) + **Supabase(Postgres·RLS·Auth)**. NestJS·Prisma·자체 JWT 인증은 쓰지 않는다. Worker는 `web/worker` 진입점(같은 코드베이스의 별도 프로세스, BullMQ). MinIO·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose는 유지. 조직 데이터 열은 `org_id`, 업무 역할은 `memberships.sol_role`(ADMIN·SALES·ANALYST·VIEWER). service role 키는 worker·seed만. 개발 DB·Auth는 Supabase 클라우드 프로젝트(Pro)|채택 (해커톤 동안 유지. ADR-028로 해커톤 뒤 API·worker는 NestJS로 옮긴다)|2026-10-16|사용자 결정(2026-10-16). 출발 템플릿(agentic-boilerplate)이 Next.js + Supabase(조직·역할·RLS·인증 견본, 정책 시험·타입 생성 게이트)라 그대로 쓰면 인증·격리를 새로 만들지 않는다. ADR-001·002를 대체한다([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
 |ADR-018|가입·로그인 방식: 공개 가입 + 초대. 누구나 이메일 + 비밀번호(`/auth/sign-up`) 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만들고, 업무 조직 합류는 초대 수락으로 한다. 간편 로그인 제공자 설정은 해커톤 안에서 하되 다른 기능을 모두 끝낸 뒤 한다(후순위)|채택 (ADR-021로 개정: 가입 시 개인 조직 생성 중단, 이미 있는 개인 조직은 보존)|2026-10-16|사용자 결정(2026-10-16). 랜딩의 시작하기가 이미 `/auth/sign-up`으로 가고, 버튼·콜백·계정 연결 코드가 템플릿에 있어 새로 만들 것이 없다. 미결정 13번을 닫는다 ([[09-SECURITY\|09 보안]], [[12-ROADMAP\|12 로드맵]])|
 |ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명(남녀 100/100)·고유 정장 사진 200장, 엑셀 팀명 합산·비례 배분·자연스러운 세 글자 가상 이름, 가입 부서·직급/직책 필수|채택 (데이터·DB·가입 구현됨, 2026-10-17 main `42a4ead`. 화면 `/people`·`/org-chart`와 클라우드 DB 적용은 미완. ADR-021로 개정: 인력 표를 운영 `team_members`와 점수 `team_member_scoring`으로 분리, 사람이 고르는 규칙 매칭 후보 표시 허용)|2026-10-16|사용자 인터뷰 및 저장 경로 최종 승인. 상세는 아래 ADR-019·[[07-DATA-PIPELINE\|07 데이터]]·[[06-UI-UX\|06 UI]]·[[PROGRESS]]|
 |ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 Open API 실수집·첨부 파싱, Qwen3.5-9B·Kev-9B 실추론(회사 GPU 서버), Kev `kev-qs/v0.2` 참고 지표(SOL Score 미반영), 평가셋·평가 체계, Kev-9B LoRA 는 오류 분석 뒤 후속|채택 (설계 승인. 구현 일부 2026-10-18: 실행 모드 규칙 `infra/run-modes.json`·`pnpm check:env`(`15f5214`), 공고 fixture 20건·검증기(`caf0abd`). 수집·파싱·실추론·평가는 Phase 1~7. **ADR-023으로 해커톤 범위 재배치: live 실수집·실추론 1건·E3는 핵심 컷, P0-8·전체 평가셋·P0-11은 확장 컷. 설계는 불변**)|2026-10-16|사용자 결정(2026-10-16): "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP". ADR-004·008·012를 개정한다. 상세는 아래 ADR-020·[[21-MODEL-TRAINING\|21 모델 학습]]·[[03-AI-PIPELINE\|03 AI 파이프라인]]·[[07-DATA-PIPELINE\|07 수집]]. 승인 설계: [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)|
@@ -39,6 +39,9 @@ updated: 2026-10-19
 |ADR-021|사이드바 정보 구조와 입찰 업무 확장: 데모 필수 화면(앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개)과 P1(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 편집), 조직 주소 없는 경로, 서비스 운영자 `/ops` 분리|채택 (설계 승인. 구현 일부 2026-10-17 main `42a4ead`: 부서 계층 `parent_id`·`kind`, `team_member_scoring` 분리, 가입 시 개인 조직 생성 중단, 업무 멤버십 0/1/복수로 현재 조직 판단. 앱 셸 N1·설정 N2·`/people`·`/org-chart`·`/admin/ingestion`·대시보드 카드·`/ops` 분리·P1은 미구현. **ADR-023으로 해커톤 범위 재배치: 데모 필수 화면이 확장 컷으로 이동, 설계는 불변**)|2026-10-16|사용자 승인 4차(2026-10-16). ADR-018·019를 개정하고 미결정 11·12번을 닫는다. 상세는 아래 ADR-021·[사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md)|
 |ADR-023|해커톤 데모 컷 재정의(3단): **핵심 컷**(S2·S3·S4·S-LIVE·S6·S7과 그에 필요한 Phase 0~6 기능) → **확장 컷**(S5 변경 감지, ADR-021 데모 필수 화면, P0-8, 전체 평가셋·P0-11) → **P1**(ADR-021 P1, 변경 없음). 실제 AI 추론 1건(S-LIVE) 필수, E3 대조 실험 필수(축소 규모), 10-21 외부 의존성 컷 규칙 4갈래, 네트워크 대체 경로 결정(미결정 8번 종결)|채택 (2026-10-19 사용자 승인, 구현 전)|2026-10-19|마감 2026-10-27, 공식 배점 실용성 30 + 완성도 25 = 55가 "실제 데이터로 돌아가고 흐름이 완결되는가". 2026-10-18 기준 "이 입찰에 들어가야 하는가" 코드가 0이라 Phase 0~7 전부를 데모 필수로 두면 완결이 불가능. ADR-020·021의 설계는 보존하고 우선순위·노출 범위만 바꾼다. 상세는 아래 ADR-023·[수상 전략·최소 데모 컷](plans/2026-10-18-hackathon-award-plan.md)|
 |ADR-024|Phase 0 실행 환경 결정: web 호스트 실행(Compose에 web 없음), worker 실행 명령·heartbeat health, hosted 승인 게이트, 서비스키 live 전용, mock `KEV_ENABLED=true`, 실행 모드 규칙 원천 `infra/run-modes.json`, 호스트 포트·Compose 프로젝트 이름, 비밀값 취급 규칙, fixture 범위(상세 D1~D15와 구현 시 정한 값은 아래 ADR-024 상세)|제안 (구현됨 `88afb79`·`1b824c8`·`9b2bdf1`, 사람 채택 전)|2026-10-19|계획 [Phase 0 계획](plans/2026-10-18-phase-0-infra.md) D1~D15를 사용자가 "1번으로 진행"(2026-10-18)으로 추천안 전제 확정, redis 호스트 포트 6380은 사용자 결정(2026-10-18). 구현 [[10-DEPLOYMENT\|10 배포]]·[[07-DATA-PIPELINE\|07 수집]] §6.5, 증거 `docs/evidence/phase-0/`|
+|ADR-025|회사 GPU 추론 엔드포인트 — HTTPS 제공(터널 폐기). 회사 GPU 서버는 외부 접근 불가(SSH·VPN 터널 불가). 회사가 모델 런타임(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0)을 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 제공하고, 데모 노트북의 ai-gateway가 HTTPS로 붙는다. SSH 로컬 포트포워딩·GPU 서버 `127.0.0.1` 바인딩·노트북 `host.docker.internal` 끝점 전제는 폐기. env 이름(`QWEN_BASE_URL`·`KEV_BASE_URL`·`QWEN_API_KEY`·`KEV_API_KEY`)·아키텍처(Worker → gateway → 모델)·실행 모드·`AI_PROVIDER=local`·장애 처리·데이터 경계는 불변. 모델 기동·GPU 메모리 배분·가중치 sha256·`nvidia-smi`는 회사 운영. 회사 nginx는 location 하나만 등록하므로 GPU 서버 안에 경로 분기용 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`, `infra/compose.gpu.yaml`)를 둔다|채택 (사용자 결정 2026-10-19 + 라우터 추가 결정 2026-10-19. 엔드포인트는 회사가 제공 예정이며 2026-10-19 기준 응답 미확인. 경로는 라우터 기준으로 결정, 바깥 nginx 접두어 처리·추가 인증은 미확인)|2026-10-19|사용자 결정(2026-10-19): "회사 GPU 서버는 외부 접근 불가. 회사가 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar`로 모델 런타임을 제공한다". ADR-020 실추론 위치의 연결 방식만 바꾼다. 상세는 아래 ADR-025 ([[10-DEPLOYMENT\|10 배포]], [[03-AI-PIPELINE\|03 AI 파이프라인]] §5.9, [[02-ARCHITECTURE\|02 아키텍처]], [[09-SECURITY\|09 보안]])|
+|ADR-026|팀(조직) 만들기는 서비스 운영자(`profiles.is_admin`)만 한다. 템플릿 "팀 만들기" 정책(authenticated 누구나)을 `is_admin()`으로 좁힌다(`20261019000008_team_creation_operator_only.sql`). 업무 조직 합류는 초대로만(ADR-018·021), 데모 조직 2개는 `pnpm demo:reset`이 service role로 만든다|채택 (2026-10-19 사용자 결정. 마이그레이션은 C2 worktree, main 병합 전)|2026-10-19|C2 1단계가 팀을 만든 사람에게 owner+ADMIN을 주고(ADR-021), [[04-DATABASE\|04 DB]] §3.6의 운영 표(`ingest_runs`·`ingest_errors`·`eval_runs`) 읽기 정책이 "어느 조직에서든 ADMIN"이라, 팀 만들기가 열려 있으면 가입만 한 사람이 팀을 만들어 운영 표를 읽는다. 대안(운영 표 읽기를 `is_demo` 조직 ADMIN으로 좁히기, 위험 수용)보다 단순하고 되돌리기 쉽다. 상세는 아래 ADR-026|
+|ADR-028|해커톤 뒤 API·worker를 NestJS로 옮긴다: `/api/v1` Route Handler와 worker(BullMQ 소비자)를 NestJS 앱으로 옮기고 Next.js(`web/`)는 화면만 맡는다. Supabase(Postgres·RLS·Auth)·MinIO·Qdrant·Redis/BullMQ·AI gateway·Docker Compose는 그대로, Prisma·자체 JWT는 여전히 쓰지 않는다. 해커톤(제출 2026-10-27) 동안은 ADR-017 구조로 구현한다|채택 (2026-10-19 사용자 결정, 해커톤 뒤 착수)|2026-10-19|사용자 결정(원문: "서버는 Nest.js인데 Next.js로 되어 있어"). 선택: 범위는 API·worker만, 시점은 해커톤 뒤. 마감까지 8일이고 C3·C5 서버 작업이 Next.js 구조 위에 있어 지금 옮기면 핵심 컷 일정이 깨진다|
 
 ### ADR-007 ~ 014 구현 결과
 - **ADR-007**: `web/`에 1280px 미만 breakpoint·결제 모듈·요금 화면 없음. UI 토큰·그리드는 1280~1920만 ([[06-UI-UX|06 UI]]). 17 절대 규칙으로 강제.
@@ -75,7 +78,7 @@ updated: 2026-10-19
 |---|---|---|---|---|
 |1|data.go.kr 사용 API별 서비스키·트래픽·페이지네이션·실제 응답 스키마|부분 검증|2026-10-16|**검증됨**(data.go.kr 서비스 페이지 Swagger·참고문서): 입찰공고정보서비스 15129394(`/1230000/ad/BidPublicInfoService`), 사전규격 15129437, 발주계획 15129462, 업종 및 근거법규 15129467의 오퍼레이션·요청 파라미터·응답 필드 이름, 무료·자동승인, 개발계정 1,000(사용자정보·개방표준 10,000), JSON/XML, 이용허락범위 제한 없음. **미검증**: 서비스키로 받은 실제 응답, 조회 기간 상한, `infoBizYn` 요청 필터 가능 여부, 면허제한 여러 행의 의미. **2026-10-18**: 사용자가 4개 서비스의 서비스키를 받았다(값은 저장소 밖). 서비스별 env로 나눈다(ADR-022). 다음: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건 저장 ([[07-DATA-PIPELINE\|07 수집 파이프라인]], [[15-DATA-CONTRACTS\|15 데이터 계약]])|
 |2|Kev v1.0 체크포인트 가용성·추론 API·라이선스·메모리·한국어 성능|부분 검증|2026-10-16|**검증됨** (https://github.com/jaredpalmer/kev README 및 docs/model-cards/kev-4b.md): 체크포인트 4종(0.8B/4B/9B/27B) 공개, Hub 태그 `v1.0`로 가중치 고정(`--run jaredpalmer/kev-4b@v1.0`, README 명시), GitHub 태그 `kev-1.0`, API `POST /v1/systemone`(noul/choice/score) + `GET /v1/models`, Apache-2.0, Python 3.12/3.13 + uv 소스 설치, `--device cpu\|cuda\|mps\|auto`. 모델 카드 `Languages: English`, 영어 외 언어는 잘 동작하지 않음. **미검증**: 한국어 → 영어 state 변환의 효과(ADR-012), VRAM 요구량, Kev-0.8B CPU 실행, 자체 보고 수치의 독립 재현. hosted 공급자 존재·포맷·가격은 전부 미확인. 다음: [[03-AI-PIPELINE\|03 AI 파이프라인]] §5.9 절차로 `ai-local`에서 fixture 20건 측정. **2026-10-16 추가 검증**(main `1f04cfa`): `kev.train`(LoRA·full FT, QLoRA 없음, `--init_from`), `kev.benchmark`, `kev.compare`, Kev-9B@v1.0 = `db029f08`, 9B 추론 메모리는 모델 카드 21.9 GB·README 약 17 GB로 불일치. ADR-020으로 기본 모델을 Kev-9B로 바꾸고 한국어 성능은 평가셋 E2로 측정 ([[21-MODEL-TRAINING\|21 모델 학습]])|
-|3|Qwen 런타임(vLLM 등) 선택 및 GPU 메모리 분배|부분 결정|2026-10-16|ADR-020: 해커톤 실추론은 회사 GPU 서버, Qwen 런타임은 vLLM(guided JSON·logprob). **미결정**: GPU 모델·VRAM 확인 후 메모리 배분(48 GB 이상 1장이면 동시 적재, 24 GB 2장이면 모델당 1장, 24 GB 1장이면 Qwen FP8/AWQ). P0-0에서 확인 ([[10-DEPLOYMENT\|10 배포]])|
+|3|Qwen 런타임(vLLM 등) 선택 및 GPU 메모리 분배|결정 (ADR-020·025. vLLM guided JSON 동작은 C1 ③ G4 미검증)|2026-10-19|ADR-020: 해커톤 실추론은 회사 GPU 서버, Qwen 런타임은 vLLM(guided JSON·logprob). **2026-10-19 ADR-025**: GPU 메모리 배분(동시 적재·GPU 장수·양자화)은 회사 측 결정으로 이관했다. 우리 쪽 남은 결정은 없다. 회사가 알려 주는 GPU 모델·VRAM·점유 값이 있으면 C1 ③ G5로 기록하고, 없으면 "회사 운영, 측정 불가"로 남긴다 ([[10-DEPLOYMENT\|10 배포]] GPU 메모리 배분)|
 |4|HWP/HWPX parser 라이브러리·라이선스·안전성|진행 (ADR-020)|2026-10-16|형식별 `DocumentParser` 인터페이스(HWP·HWPX·PDF)를 두고, 오픈소스 후보의 라이선스와 추출 품질(본문·표·금액·자격 조건·요구사항 누락)을 실제 RFP 샘플로 비교한 뒤 형식마다 정한다. 후보·절차는 [[03-AI-PIPELINE\|03 AI 파이프라인]] §10(요약은 [[07-DATA-PIPELINE\|07 수집]] §2.5). 결정 전까지 처리할 수 없는 첨부는 `PARSE_UNSUPPORTED` → 확인 필요|
 |5|카카오 비즈메시지 발신 계약과 승인된 템플릿|미검증|-|해커톤 범위 밖. mock provider ([[13-NOTIFICATIONS\|13 알림]])|
 |6|한국어 검색 품질(Qdrant 임베딩과 PostgreSQL full text 병행)|미검증|-|데모 필수 아님. 키워드 검색 fallback이 기본|
@@ -89,7 +92,7 @@ updated: 2026-10-19
 |14|로그인·로그아웃 감사 기록 지점: 로그인은 브라우저가 Supabase Auth에 직접 한다|미결정|-|`audit_logs`의 `LOGIN`·`LOGOUT`을 남길 곳(Supabase Auth Hook 등)을 정하거나 기록 대상에서 뺀다 ([[04-DATABASE\|04 DB]] §3.6)|
 |15|`pg_trgm` 확장을 Supabase와 PGlite 양쪽에서 켤 수 있는지|미검증|-|PGlite에서 안 되면 정책 시험·타입 생성 게이트가 깨진다. Phase 1 첫 마이그레이션 전에 확인 ([[04-DATABASE\|04 DB]] §5)|
 |16|g2b 첨부 자동 다운로드 가능 여부(로그인·세션 요구, 이용약관상 제한)|미검증|-|ADR-020 P0-0에서 공고 3건의 첨부를 실제로 받아 본다. 막히면 본문·API 필드만으로 진행하고 `DOCUMENT_DOWNLOAD_FAILED`를 표시하며 사용자에게 보고(RFP 파싱은 MVP 핵심) ([[07-DATA-PIPELINE\|07 수집 파이프라인]])|
-|17|회사 GPU 서버 접속(터널 허용 여부)·GPU 모델·VRAM·공유 여부|미검증|-|ADR-020 P0-0에서 확인. 모델 런타임은 GPU 서버 `127.0.0.1` 바인딩 + 터널. 막히면 사용자 보고 ([[10-DEPLOYMENT\|10 배포]])|
+|17|회사 GPU 추론 엔드포인트의 경로·인증 방식·`/v1/models` 응답·지연|미검증|2026-10-19|ADR-025로 재정의(이전 항목 "터널 허용 여부·GPU 모델·VRAM·공유 여부"는 터널 폐기와 함께 종결. GPU 사양·배분은 회사 운영으로 이관, 3번). **결정(라우터 기준, 2026-10-19 추가 결정)**: `QWEN_BASE_URL=https://acropolissg.com/sol-radar/qwen`, `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev` — GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`)가 정한 경로. 인증은 각 런타임의 Bearer 키(`QWEN_API_KEY`·`KEV_API_KEY`). **남은 미확인**: 바깥(회사) nginx의 `/sol-radar` 접두어 처리(떼고 넘겨도 라우터가 받게 했다), 회사 측 추가 인증 여부, 실제 응답·지연. 2026-10-19 기준 엔드포인트 응답 미확인. 다음: 선행 조건 P2(회사가 경로·인증 방식 통보)·P3(회사 측 모델 기동 완료 통보) 뒤 C1 ③ G1~G6([[03-AI-PIPELINE\|03 AI 파이프라인]] §5.9)로 확인하고 이 행과 ADR-025 상세를 갱신. 막히면 사용자 보고 ([[10-DEPLOYMENT\|10 배포]])|
 |18|공고 첨부 원문(공고문·제안요청서)의 저작권·재배포·학습 사용 권리|미검증|-|내부 분석·사내 학습에만 사용. 외부 공개·데이터셋 배포 전 법무 확인 ([[21-MODEL-TRAINING\|21 모델 학습]], [[09-SECURITY\|09 보안]])|
 |19|면허제한 오퍼레이션의 여러 행이 AND인지 OR인지|미검증|-|실제 응답 확인 전에는 여러 행이면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`) ([[08-SCORING\|08 점수]])|
 |20|문서 파서 형식별 선택(HWP·HWPX·PDF)|미결정|-|미결정 4번과 같은 절차. 실제 RFP 샘플 비교 결과로 형식마다 정하고 이 행을 갱신 ([[03-AI-PIPELINE\|03 AI 파이프라인]] §10)|
@@ -120,7 +123,7 @@ updated: 2026-10-19
 - **모델 역할**: Qwen3.5-9B = 구조화 추출·영어 표기·근거 설명(`/explain`). Kev-9B@v1.0 = 요구사항별 충족/미충족/확인 필요, 기술 적합성, 실적 연관성, 수행 리스크(`kev-qs/v0.2`, v0.1 유지). 규칙 엔진 = 명시 조건. SOL Score = `sol-v0.1.0` 그대로. **Kev 확률은 점수 입력이 아니며** 참고 지표와 `reviewFlags`로만 표시한다. 점수 반영은 평가셋 검증 뒤 `sol-v0.2.x`와 새 ADR로 정한다 ([[08-SCORING|08]]).
 - **근거 추적**: 공고 쪽 `EvidenceRef`에 회사 쪽 `CompanyEvidenceRef`를 더하고, Kev state 줄마다 출처를 기록하는 `KevStateTrace`를 저장한다 ([[15-DATA-CONTRACTS|15]]).
 - **라벨**: `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW` + 사유 코드. 미충족에는 공고·회사 양쪽 근거가 필요하고, 정보 부족은 미충족이 아니다 ([[08-SCORING|08]]).
-- **실추론 위치**: 회사 GPU 서버(vLLM + `kev.serve`, `127.0.0.1` 바인딩)에 노트북 gateway가 터널로 연결한다. 클라우드 GPU 임대는 ADR-010과 같은 비용 승인 대상이다 ([[10-DEPLOYMENT|10]]).
+- **실추론 위치**: 회사 GPU 서버(vLLM + `kev.serve`, `127.0.0.1` 바인딩)에 노트북 gateway가 터널로 연결한다. 클라우드 GPU 임대는 ADR-010과 같은 비용 승인 대상이다 ([[10-DEPLOYMENT|10]]). **ADR-025(2026-10-19)로 연결 방식 변경(터널 → HTTPS 엔드포인트)**: 회사 GPU 서버는 외부 접근 불가라 터널·`127.0.0.1` 바인딩 전제를 폐기하고, 회사가 제공하는 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar`에 gateway가 붙는다. 실추론이 회사 GPU 서버에서 돈다는 점과 비용 승인 규칙은 그대로다(아래 ADR-025 상세).
 - **평가·파인튜닝**: 평가셋은 실제 공고 × 가상 기업 원형 6개, test 20·dev 10 사업, 사업 단위 분할. 지표·오류 분석·내보내기·LoRA 메모리 검증은 [[21-MODEL-TRAINING|21 모델 학습]]. 초기 목표(Macro-F1 0.80, 정보부족→미충족 혼동률 5%, 보정 후 ECE 0.08)에 미달해도 자동으로 파인튜닝하지 않는다. 오류 분석에서 모델 판단 오류가 주된 원인일 때 사람이 결정한다. Kev-9B LoRA는 해커톤 완료 조건이 아니다. 실제 낙찰 결과는 학습 목표로 쓰지 않는다.
 - **모델 버전**: `services/ai/models/registry.yaml` + sha256 + 기동 시 `/v1/models` 대조. 불일치면 gateway 기동 거부(`kev.serve`가 경로 오류를 `runs/smoke`로 조용히 대체하기 때문).
 - **해커톤 순서**: P0-0 외부 의존성 조기 점검(실제 API 응답·첨부 다운로드·GPU 터널·파서 비교) → P0-1~P0-11을 Phase 0~7에 배치([[12-ROADMAP|12 로드맵]]). 서비스키·GPU가 준비되기 전에는 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)로 나머지를 진행한다.
@@ -155,7 +158,7 @@ updated: 2026-10-19
 - **읽는 쪽**: worker의 `OfficialApiConnector`만 읽는다. web·gateway·`NEXT_PUBLIC_` 변수·`web/.env.local`·루트 `.env.local`에는 두지 않는다.
 - **빠졌을 때**: `live`에서 4개 모두 필수다. `pnpm check:env`는 빠진 키마다 그 이름으로 `MISSING_KEY`를 낸다. worker는 기동할 때 빠진 env 이름을 알리고 멈춘다. 다른 서비스의 키로 대신 부르지 않는다. `fixture`·`mock`에는 필요 없다.
 - **호출 예산**: 서비스마다 따로 센다. 에러코드 22를 받으면 그 서비스의 그날 호출만 멈추고, 다른 서비스의 수집은 계속한다 ([[07-DATA-PIPELINE|07 수집]] §2.2).
-- **값 형식**: data.go.kr Decoding 키(인코딩 전 원문)를 넣고 Connector가 URL 인코딩을 한 번만 한다. P0-0 실제 호출로 확인한다.
+- **값 형식**: 포털이 Encoding 키(URL 인코딩된 값)만 제공하므로(2026-10-19 사용자 확인) env에는 Encoding 키를 그대로 넣는다. worker의 `readG2bServiceKey`(`web/worker/env.ts`)가 `decodeURIComponent`로 한 번 디코딩해 Decoding 키로 만들고, Connector가 그 값을 URL 인코딩 한 번만 한다. Decoding 키를 넣어도 결과는 같다. P0-0 실제 호출로 확인한다. 2026-10-18 채택 당시의 "Decoding 키를 넣는다"를 대체한다.
 - **비밀 보호**: 네 값을 모두 로그·오류 메시지·`ingest_errors`·응답 본문·증거에서 가린다(V2-11, [[11-TESTING|11 테스트]]). 네 값이 같아도 env는 나눈다.
 - 승인 설계 [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)는 고치지 않는다. 그 문서의 단일 `G2B_SERVICE_KEY` 표기는 이 ADR이 대체한다.
 
@@ -190,7 +193,7 @@ updated: 2026-10-19
 |D5|서비스키 4개(ADR-022)는 `live`에서만 필수|demo env 예시에는 줄이 없고 ai-local 예시에 `CHANGE_ME`. worker의 빠진 키 알림은 Phase 2|
 |D6|mock 모드의 `KEV_ENABLED=true`(mock adapter가 응답)|10 프로필 표와 일치. 에이전트 정의·ADR-012 행과의 차이는 불일치 목록 4번|
 |D7|실행 모드 규칙 원천은 `infra/run-modes.json` 하나|Node `scripts/run-mode.mjs`와 Python `services/ai`가 같이 읽는다(판정 19,440 입력 불일치 0). gateway 이미지는 저장소 루트를 빌드 컨텍스트로 쓰고 `SOL_RUN_MODES_FILE`로 복사본을 가리킨다. 실행 모드 env의 빈 문자열은 미지정(모드 기본값)|
-|D8|`infra/compose.gpu.yaml`과 ai-local 실기동은 P0-0 때|Phase 0은 `infra/env/ai-local.env.example`과 터널 절차만|
+|D8|`infra/compose.gpu.yaml`과 ai-local 실기동은 P0-0 때|Phase 0은 `infra/env/ai-local.env.example`과 터널 절차만(2026-10-19 ADR-025로 터널 전제를 폐기. `compose.gpu.yaml`은 회사 GPU 서버용 참고 구성으로 남고, ai-local 실기동은 회사 엔드포인트 접속 확인으로 바뀐다)|
 |D9|첨부 샘플 `fixtures/docs/`는 Phase 2|Phase 0 추출의 인용은 공고 본문만 가리킨다|
 |D10|mock Kev 4건·골든 3건|나머지 Kev 16건·골든 17건은 Phase 4|
 |D11|추출 fixture는 20개 파일(19건 + `FX-07.r01`)|계획은 19건이었으나 `FX-07` r1 추출을 더했다(04 `requirement_extractions` 20, 19 S5 사전 분석과 맞춤)|
@@ -206,12 +209,55 @@ updated: 2026-10-19
 > [!warning] 미검증 가정
 > - `checks.db`는 로컬 Supabase CLI 스택 기준으로만 확인했다. Supabase 클라우드 프로젝트 연결은 확인하지 않았다.
 > - GitHub Actions CI(`setup-uv` 포함)는 결제 한도로 실행되지 못했다.
-> - ai-local 실기동·터널 경로(D8)와 Linux 호스트에서 worker·gateway가 호스트 터널에 닿는 방법은 P0-0에서 확인한다.
+> - ai-local 실기동(D8)은 ADR-025로 터널 전제를 폐기했다. 노트북 gateway 컨테이너에서 회사 HTTPS 엔드포인트로 나가는 경로와 `/v1/models` 응답은 C1 ③ G1·G2에서 확인한다.
+
+## ADR-025 상세 — 회사 GPU 추론 엔드포인트
+
+상태는 **채택**이다(사용자 결정 2026-10-19). 엔드포인트는 회사가 제공 예정이며 2026-10-19 기준 응답을 아직 확인하지 않았다. ADR-020의 "실추론 위치" 중 연결 방식만 바꾸고, 아키텍처·실행 모드·장애 처리·데이터 경계는 그대로다. 반영 문서는 [[10-DEPLOYMENT|10 배포]]·[[03-AI-PIPELINE|03 AI 파이프라인]] §5.9·[[02-ARCHITECTURE|02 아키텍처]]·[[09-SECURITY|09 보안]]이다.
+
+1. **연결 방식**: 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). 회사가 모델 런타임(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0)을 HTTPS 엔드포인트 **`https://acropolissg.com/sol-radar`** 아래로 제공한다. 데모 노트북의 ai-gateway는 이 엔드포인트에 HTTPS로 붙는다. SSH 로컬 포트포워딩, GPU 서버 `127.0.0.1:8001`·`127.0.0.1:8009` 바인딩, 노트북 `host.docker.internal` 끝점 전제는 폐기한다. 아키텍처(Worker → gateway → 모델)와 실행 모드(`live`·`fixture`·`mock`)·`AI_PROVIDER=local`은 그대로다.
+2. **env**: 이름은 유지한다 — `QWEN_BASE_URL`·`KEV_BASE_URL`·`QWEN_API_KEY`·`KEV_API_KEY`. 값은 엔드포인트 아래 경로다. vLLM과 `kev.serve`가 각각 `/v1/models`를 가지므로 경로를 나눈다 — `QWEN_BASE_URL=https://acropolissg.com/sol-radar/qwen`, `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev`. 이 경로는 아래 2-1의 모델 라우터가 정하므로 **결정(라우터 기준)**이다(처음엔 가정이었다, 2026-10-19 추가 결정). 남은 미확인은 바깥 nginx의 접두어 처리·회사 측 추가 인증 여부(Bearer 키 외)·실제 응답이고, 회사가 알려 주는 값이 다르면 그때 이 절을 갱신한다.
+   - **2-1. 모델 라우터(추가 결정 2026-10-19)**: 회사 nginx는 location 하나(`https://acropolissg.com/sol-radar`)만 등록할 수 있어, GPU 서버 안에 경로 분기용 nginx 라우터를 둔다. 설정은 `infra/gpu/model-router.conf`(`127.0.0.1:8080` 바인딩). `/sol-radar/qwen/<path>` → vLLM `127.0.0.1:8001/<path>`, `/sol-radar/kev/<path>` → `kev.serve` `127.0.0.1:8009/<path>`. 바깥 nginx가 `/sol-radar` 접두어를 떼고 넘겨도(`/qwen/…`·`/kev/…`) 같은 곳으로 간다. `/sol-radar/healthz`(인증 없음)는 라우터 자체 확인용으로 `200 ok`, 그 외 404. 인증은 라우터가 아니라 각 런타임이 한다(`Authorization` 헤더 통과, 로그에는 `$uri`만 기록).
+   - **2-2. 실행**: `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, 서비스 `model-router` = `nginx:1.27-alpine`, `network_mode: host`, Linux 전용). vLLM·`kev.serve`는 [[10-DEPLOYMENT|10 배포]]의 명령으로 호스트 `127.0.0.1:8001`·`127.0.0.1:8009`에 직접 띄운다. 두 런타임의 컨테이너 구성(kev·qwen-runtime)은 빌드 검증 전이라 `compose.gpu.yaml`에 넣지 않았다. 10의 "샘플 GPU override 방향"은 참고 스케치다.
+   - **2-3. 회사 nginx에 요청할 설정**: `location /sol-radar/ { proxy_pass http://127.0.0.1:8080; }` + `Authorization` 헤더 통과, `proxy_read_timeout 300s`(기본 60s면 긴 RFP 추출이 504), `client_max_body_size 20m`(기본 1m면 413), `proxy_buffering off`. 인수 문서는 `infra/gpu/README.md`.
+   - 검증(2026-10-19): `docker run --rm -v "$PWD/infra/gpu/model-router.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t` 통과, `docker compose -f infra/compose.gpu.yaml config --quiet` 통과. 실제 GPU 서버 기동은 미실행.
+3. **운영 책임**: 모델 런타임 기동·GPU 메모리 배분·가중치 sha256 대조·`nvidia-smi` 실측은 회사 측이 한다. 우리는 하지 않는다. 우리가 하는 검증은 gateway 기동 시 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`와 vLLM `GET /v1/models`의 모델 이름을 레지스트리(`services/ai/models/registry.yaml`)와 대조하는 것([[03-AI-PIPELINE|03]] §11, 그대로)과 지연 실측이다. VRAM·가중치 다운로드 시간은 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"로 남긴다. `infra/compose.gpu.yaml`(모델 라우터)·`infra/gpu/`·Kev Dockerfile 스케치·vLLM 기동 명령은 회사 GPU 서버용 **참고 구성**으로 남기되 우리가 기동하지 않는다. 사용자 승인 항목이던 "모델 기동·GPU 점유 승인"은 회사 운영이라 더 이상 필요 없다.
+4. **장애 처리**: 문서의 "터널 단절"은 "엔드포인트 미접속"으로 바꾼다. 처리는 같다 — gateway가 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 자동 mock 대체 없음, 필요하면 사람이 `mock`으로 전환. "터널 재연결 리허설"은 "엔드포인트 재접속 확인(`GET /v1/models` curl)"으로 바꾼다.
+5. **보안**: 엔드포인트는 공개 인터넷에 있으므로 TLS 필수(인증서 검증을 끄지 않는다), API 키(`QWEN_API_KEY`·`KEV_API_KEY`) 필수, 키는 `infra/.env`에만 둔다. 회사 GPU로 가는 데이터 경계(실제 공고의 개인정보 마스킹 + 가상 회사 프로필만, Supabase 키·사용자 정보 없음)는 그대로다. 엔드포인트 URL은 비밀이 아니라 문서에 적어도 되지만 키 값은 적지 않는다([[09-SECURITY|09 보안]]).
+6. **평가·학습([[21-MODEL-TRAINING|21]])**: `sol_eval`은 노트북에서 엔드포인트(Kev 직접 또는 평가용 gateway)에 붙여 돌린다. "GPU 서버에서 `sol_eval`이 `kev.serve`에 직접 붙는" 경로는 "노트북에서 `KEV_BASE_URL` 엔드포인트에 직접 붙는"으로 바꾼다. LoRA 메모리 검증(F1 `probe-train`)은 GPU 서버 셸이 필요하므로 회사 측 실행 요청 사항으로 남긴다(해커톤 완료 조건이 아닌 것은 그대로).
+7. **C1 ③ 재정의**: G1 엔드포인트 HTTPS 접속(`GET /sol-radar/healthz` 200 + TLS 유효, `-k` 금지) → G2 Qwen·Kev `GET /v1/models` 응답과 레지스트리 대조 → G3 지연 실측(Kev state 약 500토큰 10회 p50·p95, Qwen 추출 1회, 왕복 포함) → G4 vLLM guided JSON 동작 → G5 회사 제공 GPU 정보(모델·VRAM·점유)가 있으면 기록 → G6 엔드포인트 차단 시 `PARTIAL` 경로 확인. 선행 조건: P2 = 회사가 엔드포인트 경로·인증 방식을 알려 줌, P3 = 회사 측 모델 기동 완료 통보. 10-21 컷 규칙(ADR-023)의 "GPU 정상" = G2·G3 통과.
+8. **미결정 갱신**: 17번은 "회사 엔드포인트 경로·인증·`/v1/models` 응답·지연" 미검증으로 재정의한다. 3번의 GPU 메모리 배분은 회사 측 결정으로 이관하고 우리 쪽 남은 결정은 없음으로 적는다.
+
+> [!warning] 미검증 가정 (2026-10-19)
+> - 엔드포인트 응답 미확인. 경로(`/qwen`·`/kev`)는 우리 라우터 기준으로 정했고, 바깥 nginx의 접두어 처리·회사 측 추가 인증 여부(Bearer 키 외)·실제 응답은 미확인이다. 회사가 알려 주는 값이 다르면 바꾼다.
+> - 노트북 `ai-gateway` 컨테이너에서 공개 인터넷 HTTPS로 나가는 경로(데모 장소 회선·프록시)는 C1 ③ G1에서 확인한다.
+
+## ADR-026 상세 — 팀 만들기는 서비스 운영자만
+
+- **결정**(사용자 2026-10-19, 추천안 채택): `organizations` insert 정책 "팀 만들기"를 `with check (personal_owner_id is null and public.is_admin())`로 바꾼다(`supabase/migrations/20261019000008_team_creation_operator_only.sql`). 정지된 운영자는 `is_admin()`이 false라 만들지 못한다. 열 권한(`slug`·`name`), `add_team_owner`(만든 사람 owner+ADMIN, ADR-021), 개인 조직 금지 검사는 그대로다.
+- **이유**: 04 §3.6의 운영 표(`ingest_runs`·`ingest_errors`·`eval_runs`)는 조직 데이터가 아니라 "어느 조직에서든 ADMIN"이 읽는다. 템플릿처럼 누구나 팀을 만들면 가입만 한 사람이 자기 팀의 ADMIN이 되어 운영 표를 읽는다. 업무 조직 합류는 초대로만 하므로(ADR-018·021) 일반 회원이 팀을 만들 이유가 없다.
+- **영향**: 템플릿 "팀 만들기" 화면(`/teams/new`)은 운영자가 아니면 RLS 거절을 받는다. 해커톤 화면 범위에 없으니 메뉴에서 빼거나 안내만 한다(C6에서 정한다). 템플릿 로컬 seed(`scripts/db-seed.mjs`)처럼 사용자 토큰으로 팀을 만드는 경로는 막히므로 `pnpm demo:reset`은 service role로 조직을 만든다. 로그인 뒤 E2E(`web/e2e-auth`)의 팀 만들기 시나리오는 운영자 계정으로 바꾼다(확장 컷·P1).
+- **되돌리기**: 새 마이그레이션으로 정책을 템플릿 본문(`with check (personal_owner_id is null)`)으로 다시 만든다.
+- **검증**: C2 2단계 정책 시험 — 일반 회원 팀 insert 거절, 운영자 통과(owner+ADMIN), 정지된 운영자 거절, 마이그레이션 재실행 스냅샷 유지([[11-TESTING|11 테스트]] §4 Phase 1).
+
+## ADR-028 상세 — 해커톤 뒤 API·worker NestJS 전환
+
+상태는 **채택**이다(사용자 결정 2026-10-19). 착수는 해커톤 제출(2026-10-27) 뒤다. 그 전까지는 ADR-017과 그 구현 결과 절이 현재 구조의 정본이다.
+
+- **바뀌는 것**: `/api/v1/**` Route Handler와 헬스체크, 서버 도메인의 repo·service, worker(`web/worker`, BullMQ 소비자)를 NestJS 앱으로 옮긴다. Next.js(`web/`)는 화면만 맡는다. ADR-017의 "NestJS는 쓰지 않는다"는 이 범위에서만 바뀐다.
+- **바뀌지 않는 것**: Supabase(Postgres·RLS·Auth), 조직 격리(`org_id` + RLS), `memberships.sol_role`, append-only 마이그레이션·정책 시험(`pnpm test:db`)·타입 생성, service role은 worker·seed만, MinIO·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose, `/api/v1` 경로와 DTO 계약([[05-API-SPEC|05 API]]). Prisma·자체 JWT 인증은 쓰지 않는다(ADR-002 폐기 그대로).
+- **인증·권한(목표)**: NestJS는 요청의 Supabase access token(`Authorization: Bearer`)을 검증하고, 요청마다 그 토큰으로 Supabase 클라이언트를 만들어 RLS가 권한을 정하게 한다. 요청 처리 경로의 기본 통로는 anon 키 + 사용자 토큰이고, service role 키는 쓰지 않는다.
+- **해커톤 동안**: NestJS 코드·의존성을 만들지 않는다. 현재 구조를 설명하는 문서(02·04·05·07·10·11·17·20, `.claude` 에이전트·스킬, `docs/boilerplate/`)는 Next.js 기준 그대로 둔다.
+- **착수 때 할 일**: 목표 구조 스펙(앱 위치 초안은 루트 `api/`로 `web/`처럼 독립 설치, 모듈 구조, 화면이 데이터를 NestJS로 읽을지 Supabase를 직접 부를지) → 사용자 승인 → `verify.config.json`에 새 프로젝트와 계층 규칙 등록 → Compose `api` 서비스 → 도메인별 이전(시험 먼저) → 문서 갱신(ADR-017 구현 결과 절, 위 문서들, `CLAUDE.md`·`AGENTS.md`·`docs/CLAUDE.md`) → CI(`.github/`는 에이전트 편집 금지라 사람이 고친다).
+- **남은 결정**: NestJS 버전과 모듈 구조, worker를 NestJS 앱의 별도 진입점으로 둘지 별도 앱으로 둘지, 화면의 데이터 경로. 착수 스펙에서 정한다.
+- **되돌리기**: 착수 전이면 이 ADR을 폐기하면 된다.
 
 ## 관련 문서
 - [[00-README|00 인덱스]]
 - [[01-PRD|01 PRD]]
 - [[02-ARCHITECTURE|02 아키텍처]]
+- [[05-API-SPEC|05 API]]
+- [[12-ROADMAP|12 로드맵]]
 - [[03-AI-PIPELINE|03 AI 파이프라인]]
 - [[09-SECURITY|09 보안]]
 - [[07-DATA-PIPELINE|07 수집 파이프라인]]

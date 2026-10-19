@@ -20,7 +20,7 @@ updated: 2026-10-19
 | 단계 | 내용 | 해커톤 |
 |---|---|---|
 | F0 | Kev-9B 베이스라인 추론, 한국어/영어 입력 비교, 평가셋 구축, 평가·비교 하네스, 학습셋 내보내기, LoRA 메모리 검증 스크립트 | **완료 조건** |
-| F1 | 회사 GPU 에서 LoRA 메모리 검증 실행 | 회사 GPU 접근 시(완료 조건 아님) |
+| F1 | 회사 GPU 에서 LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행 요청 사항, [[16-DECISIONS\|ADR-025]]) | 회사 측 실행 뒤(완료 조건 아님) |
 | F2 | Kev-9B LoRA 학습 | 후속. §4.4 판단 뒤에만 |
 | F3 | 온도 보정·평가·반입·운영 모델 교체 | 후속. ADR |
 | — | Qwen 파인튜닝 | 조건부(§5.6) |
@@ -139,7 +139,7 @@ interface EvalItem {
 
 ### 4.1 하네스
 
-- 위치: `services/ai/eval/`(Python, `uv run python -m sol_eval …`). 회사 GPU 서버에서 모델에 직접 붙거나 gateway URL 에 붙여 돌린다.
+- 위치: `services/ai/eval/`(Python, `uv run python -m sol_eval …`). 노트북에서 회사 GPU 추론 엔드포인트(Kev 는 `KEV_BASE_URL` 직접, 또는 평가용 gateway URL)에 붙여 돌린다([[16-DECISIONS|ADR-025]]).
 - 결과: `report.json`·`report.md`. 숫자 요약만 `docs/evidence/eval/` 에 둔다. 실제 RFP 원문은 증거 폴더에 넣지 않는다.
 - Kev 지표는 `kev.benchmark --data` 를 감싸서 낸다(acc·nll·brier·ece·selective 등, 보정 전후). 체크포인트 비교는 `kev.compare --candidate --reference`(같은 데이터 해시끼리 짝지은 부트스트랩)로 한다.
 
@@ -283,7 +283,7 @@ uv run python -m kev.train \
 
 ### 5.5 실행 위치와 데이터 경계
 
-- 평가 하네스와 F1·F2 는 회사 GPU 서버에서 돌린다(해커톤 실추론과 같은 서버, [[10-DEPLOYMENT|10 배포]]).
+- 평가 하네스(`sol_eval`)는 노트북에서 회사 GPU 추론 엔드포인트에 붙여 돌리고, F1·F2 는 GPU 서버 셸이 필요해 회사 측이 돌린다(해커톤 실추론과 같은 GPU, [[10-DEPLOYMENT|10 배포]], [[16-DECISIONS|ADR-025]]).
 - 회사 GPU 로 가는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다.
 - 첨부 원문의 저작권·재배포 조건은 미확인이다. 내부 분석과 사내 학습에만 쓰고, 외부 공개·배포 전에 법무를 확인한다.
 
@@ -299,22 +299,22 @@ uv run python -m kev.train \
 | `uv run python -m sol_eval.export --version … --out sol-dataset-v0.1.tar` | `services/ai` | `EvalItem` → Kev JSONL(en·ko)·Qwen SFT JSONL·manifest |
 | `uv run python -m sol_eval.labels check <file>` | `services/ai` | 사람 라벨 파일 검증 |
 | `uv run python -m sol_eval.run --system E1 --split test --kev-url … --gateway-url …` | `services/ai` | 평가 실행 → `report.json`·`report.md` |
-| `uv run python -m sol_eval.probe-train …` | `services/ai`(회사 GPU) | §5.2 메모리 격자 실행 → 결과 표 |
+| `uv run python -m sol_eval.probe-train …` | `services/ai`(회사 GPU, 회사 측 실행) | §5.2 메모리 격자 실행 → 결과 표 |
 | `pnpm eval:publish <report.json>` | 루트 스크립트 | 요약을 `eval_runs` 에 저장. 웹은 `GET /api/v1/admin/ai/eval-runs` 로 읽기만([[05-API-SPEC\|05 API]]) |
 
 ## 7. 수용 기준 (해커톤 F0)
 
 - 데이터셋 v0.1: test 20·dev 10 사업, 원형 6개, manifest·라벨 검증 통과, 사업 단위 분할 누수 0건(클러스터 교차 검사).
 - 평가: E0·E1·E2·E3 리포트와 E1 오류 분석이 `docs/evidence/eval/` 에 있다. 핵심 컷(ADR-023)은 축소판(§3.5) 기준이고, E1 과 E3 의 차이는 점추정이 아니라 부트스트랩 95% 신뢰구간으로 판정한다. 효과가 확인되지 않으면 개선을 주장하지 않고 3안을 제안한다.
-- 내보내기: 번들 sha256 기록, Kev JSONL 이 `kev.benchmark --data` 로 읽힌다(회사 GPU 에서 확인).
-- 메모리 검증 스크립트와 절차가 있다. 실행 결과는 회사 GPU 접근 뒤 `docs/evidence/kev-train-feasibility.md` 에 남긴다.
+- 내보내기: 번들 sha256 기록, Kev JSONL 이 `kev.benchmark --data` 로 읽힌다(회사 측 실행에서 확인).
+- 메모리 검증 스크립트와 절차가 있다. 실행 결과는 회사 측 실행 뒤 `docs/evidence/kev-train-feasibility.md` 에 남긴다.
 
 ## 8. 미확인
 
 | 항목 | 상태 | 확인 방법 |
 |---|---|---|
 | Kev 의 한국어 성능 | 미측정 | E2 |
-| Kev-9B 추론 메모리(모델 카드 21.9 GB vs README 약 17 GB) | 문서 불일치 | 회사 GPU 첫 기동에서 실측 |
+| Kev-9B 추론 메모리(모델 카드 21.9 GB vs README 약 17 GB) | 문서 불일치 | 회사 측 기동 시 회사가 주는 실측값으로 기록, 없으면 "회사 운영, 측정 불가" |
 | bf16 backbone 의 LoRA 메모리 절감 효과 | 추정 | §5.2 |
 | 공개 레시피 suite 의 `--replay` 사용 가능 여부 | 미확인 | F1 |
 | Kev 추론의 결정성(같은 입력 같은 분포) | 가정 | §4.5 재실행 비교 |
@@ -329,4 +329,4 @@ uv run python -m kev.train \
 - [[11-TESTING|11 테스트]] — 시스템 시험·골든·증거
 - [[15-DATA-CONTRACTS|15 데이터 계약]] — `EvidenceRef`, `CompanyEvidenceRef`, 인용 검증
 - [[16-DECISIONS|16 ADR]] — ADR-020, ADR-010, ADR-012
-- [[10-DEPLOYMENT|10 배포]] — 회사 GPU 서버·터널·Kev 컨테이너
+- [[10-DEPLOYMENT|10 배포]] — 회사 GPU 추론 엔드포인트 연결·Kev 런타임

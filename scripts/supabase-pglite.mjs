@@ -11,6 +11,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
+import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
 import { collectMigrations } from "./migrations.mjs";
 
 export const mimicSupabase = async (pglite) => {
@@ -34,7 +35,9 @@ export const mimicSupabase = async (pglite) => {
     create function auth.uid() returns uuid language sql stable as $$
       select (auth.jwt()->>'sub')::uuid;
     $$;
-    grant usage on schema public, auth to anon, authenticated;
+    -- Supabase 는 확장을 public 이 아니라 extensions 스키마에 깔고 화면 역할에 usage 를 준다(database 스킬).
+    create schema extensions;
+    grant usage on schema public, auth, extensions to anon, authenticated;
     -- Supabase 처럼 public 의 새 표·함수·시퀀스에 화면 역할의 권한이 전부(all) 기본으로 붙게 한다.
     -- 마이그레이션이 거둔 권한만 빠진다. 출처(초기화 SQL·그 SQL 을 postgres 역할로 돌리는 스크립트·문서):
     --   https://github.com/supabase/postgres/blob/develop/migrations/db/init-scripts/00000000000000-initial-schema.sql
@@ -57,7 +60,9 @@ export const mimicSupabase = async (pglite) => {
 };
 
 // 흉내를 깐 빈 DB. 닫는 것은 부른 쪽 몫이다.
-export const createSupabaseDb = () => mimicSupabase(new PGlite());
+// pg_trgm 은 공고 제목·기관의 trigram 인덱스(20261019000002)가 쓴다. Supabase 가 제공하는 확장이라 여기서도 싣는다 —
+// 마이그레이션은 확장이 있을 때만 깔고 인덱스를 만들므로, 싣지 않은 PGlite 에서도 깨지지는 않지만 그 경로는 검증되지 않는다.
+export const createSupabaseDb = () => mimicSupabase(new PGlite({ extensions: { pg_trgm } }));
 
 // 웹에서 들어온 요청처럼 JWT claim 을 싣고 화면 역할로 바꾼다.
 // email 은 Supabase 토큰의 email 클레임이다. 초대 정책처럼 로그인 이메일을 읽는 정책을 시험할 때 넘긴다.

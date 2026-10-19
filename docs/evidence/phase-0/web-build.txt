@@ -1,0 +1,65 @@
+# pnpm -C web build | commit cfc534d | 2026-10-19 09:24:09 KST
+
+> sol-radar-web@0.1.0 build /Users/leegwanghui/dev/hackathon/sol-radar/web
+> next build
+
+▲ Next.js 16.4.0 (Turbopack)
+- Environments: .env.local
+✓ Running next.config.ts took 82ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 14.5s
+  Running TypeScript ...
+  Finished TypeScript in 12.8s ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/25) ...
+  Generating static pages using 10 workers (6/25) 
+  Generating static pages using 10 workers (12/25) 
+  Generating static pages using 10 workers (18/25) 
+✓ Generating static pages using 10 workers (25/25) in 757ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /[slug]
+├ ƒ /[slug]/dashboard
+├ ƒ /[slug]/settings
+├ ƒ /[slug]/settings/members
+├ ƒ /[slug]/settings/team
+├ ƒ /[slug]/tasks
+├ ƒ /admin
+├ ƒ /api/admin/users/[id]/status
+├ ƒ /api/auth/identities/[id]
+├ ƒ /api/auth/logout-all
+├ ƒ /api/auth/me
+├ ƒ /api/auth/providers
+├ ƒ /api/users/me
+├ ƒ /api/v1/me/employment
+├ ƒ /api/v1/signup-options
+├ ƒ /auth/account
+├ ƒ /auth/callback
+├ ƒ /auth/complete-profile
+├ ƒ /auth/confirm
+├ ƒ /auth/login
+├ ƒ /auth/organization-state
+├ ƒ /auth/password
+├ ƒ /auth/reset
+├ ƒ /auth/sign-up
+├ ƒ /dashboard
+├ ƒ /health/live
+├ ƒ /health/ready
+├ ○ /icon.svg
+├ ƒ /invitations
+├ ƒ /memos
+├ ƒ /settings
+└ ƒ /teams/new
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+exit=0
+elapsed_seconds=33

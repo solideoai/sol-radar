@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "sol-recorded/v0.1",
+  "serviceId": "15129394",
+  "registryKey": "g2b-bid-notice",
+  "operation": "getBidPblancListInfoLicenseLimit",
+  "params": {
+    "type": "json",
+    "pageNo": "1",
+    "numOfRows": "10",
+    "inqryDiv": "2",
+    "inqryBgnDt": "202610120000",
+    "inqryEndDt": "202610192359",
+    "bidNtceNo": "R26BK01756112",
+    "bidNtceOrd": "000"
+  },
+  "fetchedAt": "2026-10-19T01:05:12.188Z",
+  "httpStatus": 200,
+  "envelope": "response",
+  "resultCode": "00",
+  "resultMsg": "정상",
+  "totalCount": 4,
+  "items": [
+    {
+      "bidNtceNo": "R26BK01756112",
+      "bidNtceOrd": "000",
+      "lmtGrpNo": "2",
+      "lmtSno": "3",
+      "lcnsLmtNm": "정보통신공사업/0036",
+      "permsnIndstrytyList": "",
+      "indstrytyMfrcFldList": "",
+      "rgstDt": "2026-10-12 09:00:22",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01756112",
+      "bidNtceOrd": "000",
+      "lmtGrpNo": "1",
+      "lmtSno": "1",
+      "lcnsLmtNm": "정보통신공사업/0036",
+      "permsnIndstrytyList": "",
+      "indstrytyMfrcFldList": "",
+      "rgstDt": "2026-10-12 09:00:22",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01756112",
+      "bidNtceOrd": "000",
+      "lmtGrpNo": "2",
+      "lmtSno": "4",
+      "lcnsLmtNm": "소프트웨어사업자(패키지소프트웨어개발.공급사업)/1426",
+      "permsnIndstrytyList": "",
+      "indstrytyMfrcFldList": "",
+      "rgstDt": "2026-10-12 09:00:22",
+      "bsnsDivNm": "용역"
+    },
+    {
+      "bidNtceNo": "R26BK01756112",
+      "bidNtceOrd": "000",
+      "lmtGrpNo": "1",
+      "lmtSno": "2",
+      "lcnsLmtNm": "소프트웨어사업자(컴퓨터관련서비스사업)/1468",
+      "permsnIndstrytyList": "",
+      "indstrytyMfrcFldList": "",
+      "rgstDt": "2026-10-12 09:00:22",
+      "bsnsDivNm": "용역"
+    }
+  ],
+  "masked": true,
+  "maskedFields": [
+    "ntceInsttOfclNm",
+    "exctvNm",
+    "crdtrNm",
+    "ntceInsttOfclTelNo",
+    "ntceInsttOfclEmailAdrs",
+    "dminsttOfclEmailAdrs"
+  ],
+  "maskedFieldsNote": "이 응답에는 담당자 필드가 없거나 비어 있음. 목록은 서비스 기준 마스킹 대상",
+  "rawSha256": "0bd125814f70d4b1aa995056a608708d16092f3c9922ef9a61e28101639fb302",
+  "note": "inqryDiv=2 + bidNtceNo 공고 1건 조회(R26BK01756112)"
+}

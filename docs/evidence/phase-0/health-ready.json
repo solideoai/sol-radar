@@ -1,0 +1,1 @@
+{ "status": "ok", "checks": { "db": "ok", "redis": "ok", "storage": "ok", "ai": "mock" } }

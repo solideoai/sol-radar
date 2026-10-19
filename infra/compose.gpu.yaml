@@ -1,0 +1,22 @@
+# SOL RADAR 회사 GPU 서버용 참고 구성 (ADR-025). 노트북 Compose(compose.yaml)와 합치지 않는다.
+#   회사 GPU 서버에서:  docker compose -f infra/compose.gpu.yaml up -d
+#
+# 여기에는 모델 라우터만 있다. vLLM(Qwen3.5-9B, 127.0.0.1:8001)과 kev.serve(Kev-9B@v1.0, 127.0.0.1:8009)는
+# docs/10-DEPLOYMENT.md 의 명령으로 호스트에 직접 띄운다. 두 런타임의 컨테이너 구성은 빌드 검증 전이라 넣지 않았다.
+# 회사 nginx 는 https://acropolissg.com/sol-radar 를 http://127.0.0.1:8080 으로 넘긴다(infra/gpu/README.md).
+name: sol-radar-gpu
+
+services:
+  model-router:
+    image: nginx:1.27-alpine
+    # 호스트 127.0.0.1 에 묶인 vLLM·kev.serve 에 닿고 127.0.0.1:8080 으로만 듣는다. Linux 전용(macOS Docker Desktop 은 host 네트워크가 없다)
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./gpu/model-router.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

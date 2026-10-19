@@ -22,6 +22,7 @@
     "db:seed": "node scripts/db-seed.mjs",
     "db:push": "bash scripts/db-push.sh",
     "db:verify": "bash scripts/db-verify.sh",
+    "demo:reset": "node scripts/demo-reset.mjs",
     "bids:check": "node scripts/bids/check.mjs",
     "people:seed": "node scripts/people/seed.mjs",
     "people:check": "node scripts/people/check.mjs",
@@ -34,11 +35,11 @@
     "verify:quick": "node scripts/verify.mjs --quick"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite": "^0.5.10",
     "exceljs": "4.4.0",
     "husky": "^9",
     "pg": "^8.23.0",
-    "prettier": "3.9.9",
+    "prettier": "3.9.10",
     "typescript": "^6",
     "yaml": "^2.9.1"
   }

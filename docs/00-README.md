@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - moc
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # SOL RADAR — 구현 문서 인덱스
@@ -37,12 +37,12 @@ updated: 2026-10-18
 
 1. 문서 번호 순서로 읽되 01~05의 계약부터 확정한다. 미결정 사항은 [[16-DECISIONS|16 ADR]]에 기록한다.
 2. 코드는 `web/`(화면·Route Handler `web/app/api/v1`·서버 도메인 `web/server/<도메인>`), `web/worker/`(BullMQ 소비자), `supabase/migrations/`(스키마·RLS, append-only), `services/ai/`, `infra/`, `fixtures/`에 둔다. 외부 API 계약은 zod 스키마(`web/server/<도메인>/*.model.ts`)를 단일 원천으로 사용한다([[16-DECISIONS|ADR-016·017]]).
-3. MVP의 end-to-end 세로 기능은 **실제 공고 수집 → 첨부 파싱 → Qwen 추출 → 자격 검증 → Kev 참고 지표 → SOL Score → BID/WATCH/NO-BID → 대시보드 → 알림 이벤트**다. 첫 단계는 외부 의존성(실제 API 응답·첨부 다운로드·회사 GPU 터널) 조기 점검이다([[12-ROADMAP|12 로드맵]]).
+3. MVP의 end-to-end 세로 기능은 **실제 공고 수집 → 첨부 파싱 → Qwen 추출 → 자격 검증 → Kev 참고 지표 → SOL Score → BID/WATCH/NO-BID → 대시보드 → 알림 이벤트**다. 첫 단계는 외부 의존성(실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속) 조기 점검이다([[12-ROADMAP|12 로드맵]]).
 4. 공식 API 접근 실패, 모델 오프라인, 파일 없음에서도 데모가 가능하도록 `SOL_RUN_MODE=fixture|mock`을 제공한다. 데모 데이터는 실데이터처럼 표시하지 않는다.
 5. 정확하지 않은 수주확률, 평가위원 점수, 미래 발주예측은 만들어내지 않는다. 근거 미확보 시 `INSUFFICIENT_DATA`로 표시한다.
 6. 각 단계에서 테스트·lint·typecheck를 통과시킨 후 다음 단계로 진행한다. [[CLAUDE]]를 실행 지침으로 사용한다.
 7. 결제·구독·모바일 레이아웃 코드는 작성하지 않는다. 화면은 데스크톱 1280px 이상 기준이다 ([[16-DECISIONS|ADR-007]]).
-8. 유료 외부 모델 API(hosted)와 클라우드 GPU 임대는 사용자 승인 전에 쓰지 않는다. CI·테스트 기본은 `SOL_RUN_MODE=mock`(`AI_PROVIDER=mock`)이고, 실추론은 회사 GPU 서버의 `ai-local`이다.
+8. 유료 외부 모델 API(hosted)와 클라우드 GPU 임대는 사용자 승인 전에 쓰지 않는다. CI·테스트 기본은 `SOL_RUN_MODE=mock`(`AI_PROVIDER=mock`)이고, 실추론은 회사가 HTTPS로 제공하는 GPU 추론 엔드포인트에 붙는 `ai-local`이다([[16-DECISIONS|ADR-025]]).
 
 ## 문서
 

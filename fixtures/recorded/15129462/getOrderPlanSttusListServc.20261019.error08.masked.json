@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "sol-recorded/v0.1",
+  "serviceId": "15129462",
+  "registryKey": "g2b-order-plan",
+  "operation": "getOrderPlanSttusListServc",
+  "params": {
+    "type": "json",
+    "pageNo": "1",
+    "numOfRows": "10",
+    "inqryDiv": "1",
+    "inqryBgnDt": "202610180000",
+    "inqryEndDt": "202610192359"
+  },
+  "fetchedAt": "2026-10-19T01:00:05.609Z",
+  "httpStatus": 200,
+  "envelope": "nkoneps.com.response.ResponseError",
+  "resultCode": "08",
+  "resultMsg": "필수값 입력 에러",
+  "totalCount": null,
+  "items": [],
+  "masked": true,
+  "maskedFields": ["ofclNm", "telNo"],
+  "maskedFieldsNote": "이 응답에는 담당자 필드가 없거나 비어 있음. 목록은 서비스 기준 마스킹 대상",
+  "rawSha256": "1bfde9ddd47dd4cba1c54336d99ffc3cd3309a0b996e18a749f961adf8887b52",
+  "note": "inqryDiv=1 + inqryBgnDt/EndDt 만 준 첫 시도의 오류 응답(필수값 입력 에러)"
+}

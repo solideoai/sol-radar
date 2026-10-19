@@ -30,7 +30,7 @@ skills:
 
 - **정본**: `docs/CLAUDE.md`, `docs/16-DECISIONS.md` ADR-017(구현 결과 절 포함), `docs/17-CLAUDE-IMPLEMENTATION.md` 절대 규칙.
   `architecture`·`database`·`conventions` 스킬은 이미 실려 있다(도메인 계층·배럴·RLS·마이그레이션 규칙).
-- **문서 전환 중**: ADR-017 로 NestJS·Prisma 를 버렸다. 02·04·05·07·13·15 에 `organization_id`·Prisma·NestJS·`apps/api` 표현이 남아 있으면 `docs/20-GLOSSARY.md` "바뀐 용어" 표로 바꿔 읽고, 문서끼리 다르면 ADR-017 이 이긴다.
+- **문서 전환 중**: ADR-017 로 NestJS·Prisma 를 버렸다. 02·04·05·07·13·15 에 `organization_id`·Prisma·NestJS·`apps/api` 표현이 남아 있으면 `docs/20-GLOSSARY.md` "바뀐 용어" 표로 바꿔 읽고, 문서끼리 다르면 ADR-017 이 이긴다. 해커톤 뒤 worker 는 NestJS 로 옮긴다(ADR-028). 그 전에는 `web/worker` 구조로 구현한다.
 - **원천 문서**: `docs/07-DATA-PIPELINE.md`(§2 connector 계약, §3 정규화, §4 이력 연결, §5 변경 감지, §6.4 배치, §7 개발·테스트),
   `docs/15-DATA-CONTRACTS.md`(§3 `NormalizedBid`, §6 검증·격리, §7 시점 일치, §8 registry), `docs/03-AI-PIPELINE.md`(§2·§2.1 gateway 계약, §3 env, §7 저장 항목, §8 장애),
   `docs/02-ARCHITECTURE.md`(흐름, 장애 원칙 표), `docs/13-NOTIFICATIONS.md`(이벤트·멱등키), ADR-011·014.
