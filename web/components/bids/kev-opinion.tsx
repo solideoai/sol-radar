@@ -288,8 +288,12 @@ function KevOpinion(props: KevOpinionProps) {
         <Fallback errorCode={errorCode}>사용 불가</Fallback>
       ) : reviewFlags.includes("KEV_UNAVAILABLE") ? (
         <div className="flex flex-col gap-1">
-          {/* KEV_UNAVAILABLE 은 미접속과 응답 형식 오류를 함께 뜻한다(ADR-031 C6·ADR-032 D9). */}
-          <p className="type-body text-foreground">사용 불가 (Kev 사용 불가)</p>
+          {/* KEV_UNAVAILABLE 은 미접속과 응답 형식 오류를 함께 뜻한다(ADR-031 C6·ADR-032 D9).
+              상태 줄은 "사용 불가" 하나로 두고, 사유는 그 아래 문장으로 쓴다(e8 Ruling 11). */}
+          <p className="type-body text-foreground">사용 불가</p>
+          <p className="type-label text-muted-foreground">
+            Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다.
+          </p>
           <p className="font-mono type-caption text-muted-foreground">
             recommendationBasis: RULES_ONLY
           </p>

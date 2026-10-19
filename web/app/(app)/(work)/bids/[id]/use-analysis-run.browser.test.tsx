@@ -158,7 +158,7 @@ describe("useAnalysisRun 요청", () => {
     posts.push(offline, offline);
     await start(false);
     expect(postCalls()).toHaveLength(2);
-    expect(state()).toMatchObject({ phase: "error", code: "NETWORK_ERROR" });
+    expect(state()).toMatchObject({ phase: "error", stage: "request", code: "NETWORK_ERROR" });
   });
 
   it("클릭마다 새 키를 만든다", async () => {
@@ -194,6 +194,7 @@ describe("useAnalysisRun 요청", () => {
     await start(false);
     expect(state()).toEqual({
       phase: "error",
+      stage: "request",
       code: "FORBIDDEN",
       message: "서버 문장",
       requestId: "req-1",
@@ -310,7 +311,8 @@ describe("useAnalysisRun polling", () => {
     poll = () => failure(401, "UNAUTHENTICATED");
     await start(false);
     await advance(2_000);
-    expect(state()).toMatchObject({ phase: "error", code: "UNAUTHENTICATED" });
+    // 요청(POST)이 아니라 상태 확인(GET) 실패다. 화면은 "분석 상태를 확인하지 못했습니다"로 구분한다.
+    expect(state()).toMatchObject({ phase: "error", stage: "status", code: "UNAUTHENTICATED" });
     await advance(60_000);
     expect(pollCalls()).toHaveLength(1);
   });
@@ -321,7 +323,7 @@ describe("useAnalysisRun polling", () => {
     poll = () => reply(404, null);
     await start(false);
     await advance(2_000);
-    expect(state()).toMatchObject({ phase: "error", code: "NOT_FOUND" });
+    expect(state()).toMatchObject({ phase: "error", stage: "status", code: "NOT_FOUND" });
     await advance(30_000);
     expect(pollCalls()).toHaveLength(1);
   });

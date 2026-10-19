@@ -375,7 +375,13 @@ describe("KevOpinion", () => {
       />,
     );
     // ADR-031 C6·ADR-032 D9: 이 플래그는 미접속과 응답 형식 오류를 함께 뜻하므로 "서버 미접속"이라 쓰지 않는다.
-    expect(text(host)).toContain("사용 불가 (Kev 사용 불가)");
+    // 상태 줄은 "사용 불가" 하나이고, 사유는 그 아래 문장으로 둔다(e8 Ruling 11, 같은 말 되풀이 금지).
+    const lines = Array.from(host.querySelectorAll("p")).map((p) => p.textContent);
+    expect(lines).toContain("사용 불가");
+    expect(lines.indexOf("Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다.")).toBe(
+      lines.indexOf("사용 불가") + 1,
+    );
+    expect(text(host)).not.toContain("(Kev 사용 불가)");
     expect(text(host)).not.toContain("서버 미접속");
     expect(text(host)).toContain("Kev 없이 규칙만으로 판정했습니다.");
   });
@@ -411,7 +417,7 @@ describe("KevOpinion", () => {
         notRecorded
       />,
     );
-    expect(text(host)).toContain("사용 불가 (Kev 사용 불가)");
+    expect(text(host)).toContain("Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다.");
     expect(text(host)).not.toContain("기록 없음");
   });
 

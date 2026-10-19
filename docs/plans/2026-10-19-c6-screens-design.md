@@ -484,7 +484,7 @@ FX-03처럼 필수자격 미충족으로 NO-BID면 구역 제목 옆에 `참고 
 | 지연 | polling 5분 초과 | "분석이 지연되고 있습니다." warning | [새로고침] |
 | 취소 공고 | `status=CANCELLED` | "이 공고는 취소되었습니다. 기존 분석·결정 기록은 보존됩니다", 중립(`border-border`) | — |
 
-Qwen 불가와 Kev 불가는 문구가 다르다(06 §6): Qwen 불가(→ PARTIAL)는 위 AI 불가 배너, Kev만 불가는 배너 없이 Kev 구역 "사용 불가 (Kev 사용 불가)". `KEV_UNAVAILABLE`은 Kev 미접속과 Kev 응답 형식 오류를 함께 뜻하므로 "서버 미접속"이라 쓰지 않는다(ADR-031 C6·ADR-032 D9).
+Qwen 불가와 Kev 불가는 문구가 다르다(06 §6): Qwen 불가(→ PARTIAL)는 위 AI 불가 배너, Kev만 불가는 배너 없이 Kev 구역 "사용 불가" + 그 아래 사유 문장 "Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다.". `KEV_UNAVAILABLE`은 Kev 미접속과 Kev 응답 형식 오류를 함께 뜻하므로 "서버 미접속"이라 쓰지 않는다(ADR-031 C6·ADR-032 D9). 상태 줄에 같은 말을 되풀이하지 않는다(e8 Ruling 11).
 
 #### 5.4.7 Kev 참고 지표 (`KevOpinion`)
 
@@ -521,7 +521,7 @@ C4 타입은 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)를 `nul
 |---|---|---|---|
 | v0.1 정상 | mock | 위 v0.1 | — |
 | v0.2 정상 | live·fixture | v0.1 + v0.2 | 항목별 분포 펼치기 |
-| Kev 사용 불가(미접속·응답 형식 오류) | `kev.enabled=false` + `KEV_UNAVAILABLE` | "사용 불가 (Kev 사용 불가)" + `recommendationBasis: RULES_ONLY` + 고지 3줄 대신 "Kev 없이 규칙만으로 판정했습니다." | — |
+| Kev 사용 불가(미접속·응답 형식 오류) | `kev.enabled=false` + `KEV_UNAVAILABLE` | "사용 불가" + 사유 "Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다." + `recommendationBasis: RULES_ONLY` + 고지 3줄 대신 "Kev 없이 규칙만으로 판정했습니다." | — |
 | AI 불가 | `PARTIAL` + `AI_UNAVAILABLE` | "사용 불가" (S6) | — |
 | Kev 꺼짐 | `kev.enabled=false`, 플래그 없음 | "사용 안 함" | — |
 | 분석 없음 | 미분석 | 구역 자체를 그리지 않는다(빈 구역 대신 ⑤~⑦을 한 빈 상태로 묶는다, §5.4.11) | 분석 실행 |

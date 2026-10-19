@@ -43,7 +43,15 @@ export type RunState =
   | { phase: "idle"; finished?: FinishedRun }
   | { phase: "requesting" }
   | { phase: "polling"; status: ActiveStatus; delayed: boolean }
-  | { phase: "error"; code: string; message: string; requestId?: string };
+  | {
+      phase: "error";
+      // request: 분석 요청(POST)이 실패했다. status: 요청은 받아졌는데 진행 상태 확인(GET)이 실패했다.
+      // 화면은 둘을 다른 제목으로 보인다. status 면 분석은 서버에서 계속 돌고 있을 수 있다.
+      stage: "request" | "status";
+      code: string;
+      message: string;
+      requestId?: string;
+    };
 
 export const DEDUPLICATED_TOAST = "같은 입력으로 끝난 분석을 보여 줍니다";
 
@@ -126,10 +134,15 @@ export function useAnalysisRun(
   }, []);
 
   const fail = useCallback(
-    (ticket: Ticket, failure: Pick<ApiFailure, "code" | "message" | "requestId">) => {
+    (
+      ticket: Ticket,
+      stage: "request" | "status",
+      failure: Pick<ApiFailure, "code" | "message" | "requestId">,
+    ) => {
       release(ticket);
       setState({
         phase: "error",
+        stage,
         code: failure.code,
         message: failure.message,
         ...(failure.requestId === undefined ? {} : { requestId: failure.requestId }),
@@ -182,7 +195,7 @@ export function useAnalysisRun(
         const body = await readJson(response);
         if (ticket.cancelled) return;
         if (STOP_STATUSES.includes(response.status)) {
-          fail(ticket, failureOf(response, body));
+          fail(ticket, "status", failureOf(response, body));
           return;
         }
         if (!response.ok) continue;
@@ -234,7 +247,7 @@ export function useAnalysisRun(
       }
       if (ticket.cancelled) return;
       if (response === null) {
-        fail(ticket, { code: NETWORK_ERROR, message: NETWORK_MESSAGE });
+        fail(ticket, "request", { code: NETWORK_ERROR, message: NETWORK_MESSAGE });
         return;
       }
       const body = await readJson(response);
@@ -262,7 +275,7 @@ export function useAnalysisRun(
         follow(ticket, pollUrlOf(running), "QUEUED");
         return;
       }
-      fail(ticket, failure);
+      fail(ticket, "request", failure);
     },
     [bidId, fail, finish, follow],
   );
@@ -275,7 +288,7 @@ export function useAnalysisRun(
     void poll(ticket, pollUrlOf(activeId), Date.now());
   }, [activeId, resumeKey, poll]);
 
-  // 지연 배너의 [새로고침]: 지금 읽기를 멈추고 서버가 다시 그리게 한다. 아직 진행 중이면 위 effect 가 다시 읽기 시작한다.
+  // 지연 배너·상태 확인 실패의 [새로고침]: 지금 읽기를 멈추고 서버가 다시 그리게 한다. 아직 진행 중이면 위 effect 가 다시 읽기 시작한다.
   const refresh = useCallback(() => {
     cancel();
     startTransition(() => {

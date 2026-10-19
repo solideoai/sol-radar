@@ -5,6 +5,7 @@ import {
   CircleDashedIcon,
   ExternalLinkIcon,
   LoaderCircleIcon,
+  OctagonAlertIcon,
   RefreshCwIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -28,6 +29,7 @@ import {
 } from "@/components/bids/labels";
 import { QualificationChecklist } from "@/components/bids/qualification-checklist";
 import { ScoreFactors } from "@/components/bids/score-factors";
+import { SourceLink } from "@/components/bids/source-link";
 import { StageTimeline } from "@/components/bids/stage-timeline";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
 import { refreshTopbarStatus } from "@/components/topbar-status";
@@ -232,16 +234,14 @@ function HeaderActions({
   return (
     <div className="flex max-w-sm flex-col items-end gap-2">
       <div className="flex flex-wrap justify-end gap-2">
-        <a
+        <SourceLink
           href={bid.sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="원문 보기 (새 탭)"
+          ariaLabel="원문 보기 (새 탭)"
           className={cn(buttonVariants({ variant: "outline" }))}
         >
           <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />
           원문 보기
-        </a>
+        </SourceLink>
         {/* 이 화면의 default 버튼은 하나다. 결과가 없으면 분석, 있으면 결정 기록(스펙 §5.4.9). */}
         <Button
           type="button"
@@ -268,19 +268,56 @@ function HeaderActions({
           {ANALYZE_ROLE_HINT}
         </p>
       )}
-      {state.phase === "error" && (
+      {/* 요청(POST) 실패만 버튼 곁에 둔다. 상태 확인(GET) 실패는 본문의 StatusCheckFailed 가 보인다. */}
+      {state.phase === "error" && state.stage === "request" && (
         <div
           role="alert"
           className="flex flex-col gap-0.5 rounded-lg border border-destructive p-3 type-label text-destructive"
         >
           <p>분석을 요청하지 못했습니다</p>
           <p className="wrap-anywhere text-foreground">{state.message}</p>
-          <p className="font-mono type-caption wrap-anywhere">
-            {state.code}
-            {state.requestId !== undefined && ` · ${state.requestId}`}
-          </p>
+          <ErrorCode code={state.code} requestId={state.requestId} />
         </div>
       )}
+    </div>
+  );
+}
+
+function ErrorCode({ code, requestId }: { code: string; requestId?: string }) {
+  return (
+    <p className="font-mono type-caption wrap-anywhere">
+      {code}
+      {requestId !== undefined && ` · ${requestId}`}
+    </p>
+  );
+}
+
+// 분석은 요청됐는데 진행 상태를 읽지 못했다(poll 401·403·404). 분석이 실패한 것이 아니므로 결과 없음으로 보이지 않고,
+// 다시 읽게 한다. [새로고침]은 서버가 다시 그리게 하고, 아직 진행 중이면 이어 읽기를 다시 시작한다.
+function StatusCheckFailed({
+  failure,
+  onRefresh,
+}: {
+  failure: Extract<RunState, { phase: "error" }>;
+  onRefresh: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-start gap-x-3 gap-y-1 rounded-lg border border-destructive bg-background p-4"
+    >
+      <OctagonAlertIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-destructive" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 type-label text-foreground">
+        <p className="type-body">분석 상태를 확인하지 못했습니다</p>
+        <p className="wrap-anywhere">{failure.message}</p>
+        <div className="text-muted-foreground">
+          <ErrorCode code={failure.code} requestId={failure.requestId} />
+        </div>
+      </div>
+      <Button type="button" variant="outline" size="sm" onClick={onRefresh}>
+        <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
+        새로고침
+      </Button>
     </div>
   );
 }
@@ -561,6 +598,10 @@ export function BidDetailView({
         ? { status: serverActive.status, delayed: false }
         : null;
   const busy = state.phase === "requesting" || (polling !== null && !polling.delayed);
+  // 진행 중 표시. 훅이 읽기를 멈췄어도(상태 확인 실패) 서버가 진행 중이라고 준 run 은 빈 결과로 떨어뜨리지 않는다.
+  const progress: PollingView | null =
+    polling ?? (serverActive === null ? null : { status: serverActive.status, delayed: false });
+  const statusFailure = state.phase === "error" && state.stage === "status" ? state : null;
   const cancelled = bid.status === "CANCELLED";
   const scored = isScored(latest) ? latest : null;
   // 결정은 점수 run 에 묶는다. 최신 run 이 진행 중·실패면 직전 점수 run 이다(§5.4.10).
@@ -612,9 +653,12 @@ export function BidDetailView({
         </p>
         <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6">
           <div data-slot="bid-detail-main" className="flex min-w-0 flex-col gap-6">
-            <AnalysisBand bid={bid} latest={latest} polling={polling} history={history} />
+            <AnalysisBand bid={bid} latest={latest} polling={progress} history={history} />
+            {statusFailure !== null && (
+              <StatusCheckFailed failure={statusFailure} onRefresh={run.refresh} />
+            )}
             <AnalysisBanner
-              analysis={polling === null ? latest : null}
+              analysis={progress === null ? latest : null}
               bidStatus={bid.status}
               delayed={polling?.delayed ?? false}
               onReanalyze={reanalyze}
@@ -633,7 +677,7 @@ export function BidDetailView({
                 latestRevision={bid.latestRevision}
               />
             </section>
-            {polling !== null ? (
+            {progress !== null ? (
               <AnalysisSkeleton />
             ) : latest === null ? (
               <NoResult title="아직 분석하지 않았습니다" bid={bid} />
@@ -657,7 +701,7 @@ export function BidDetailView({
               canRecordReview={canDecide}
               bidStatus={bid.status}
               onSubmit={onSubmitReview}
-              pending={polling !== null}
+              pending={progress !== null}
             />
           </div>
         </div>

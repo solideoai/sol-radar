@@ -13,6 +13,7 @@ import {
 import { useEvidenceStore, type EvidenceRef } from "@/components/bids/evidence-store";
 import { formatKst } from "@/components/bids/format";
 import { REVIEW_FLAG_LABEL } from "@/components/bids/labels";
+import { SourceLink } from "@/components/bids/source-link";
 import type { BidDocument } from "@/server/bids";
 
 // 근거 인용 목록·첨부 상태·근거 서랍(스펙 §5.4.8). 열림 상태는 evidence-store 하나를 함께 쓴다.
@@ -147,14 +148,12 @@ function EvidenceDrawer({ content, sourceUrl, documents }: DrawerProps) {
               />
             ))}
           </ul>
-          <a
+          <SourceLink
             href={sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
             className={cn(buttonVariants({ variant: "link", size: "sm" }), "self-start")}
           >
             원문 보기
-          </a>
+          </SourceLink>
         </div>
       </SheetContent>
     </Sheet>
@@ -264,14 +263,12 @@ function AttachmentRow({ doc, sourceUrl }: { doc: BidDocument; sourceUrl: string
           {doc.parseErrorCode !== null && (
             <p className="font-mono type-caption text-muted-foreground">{doc.parseErrorCode}</p>
           )}
-          <a
+          <SourceLink
             href={sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
             className={cn(buttonVariants({ variant: "link", size: "sm" }), "self-start")}
           >
             원문 보기
-          </a>
+          </SourceLink>
         </div>
       )}
       {!failedDownload && doc.parseStatus === "PARTIAL" && (

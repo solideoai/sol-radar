@@ -213,6 +213,19 @@ describe("BidDetailView 상단 요약(스펙 §5.4.1)", () => {
     expect(text(host)).toContain("실제 공고 × 가상 회사 프로필");
   });
 
+  it("원문 주소가 http·https 가 아니면(javascript:) 링크를 하나도 그리지 않고 글자로만 보인다", async () => {
+    const unsafe = "javascript:alert(1)";
+    const { host } = render({
+      bid: detail({ sourceUrl: unsafe, latestAnalysis: FX01_VIEW }),
+    });
+    // 근거 서랍의 [원문 보기]도 같은 판정을 쓴다.
+    await userEvent.click(page.getByRole("button", { name: "근거 p.3" }).first());
+    await expect.element(page.getByRole("dialog")).toBeVisible();
+    expect(document.querySelectorAll('a[href^="javascript"]')).toHaveLength(0);
+    expect(page.getByRole("link", { name: /원문 보기/ }).elements()).toHaveLength(0);
+    expect(text(host)).toContain(`원문 주소 ${unsafe}`);
+  });
+
   it("첨부 다운로드 링크를 그리지 않는다(라우트가 없어 죽은 링크가 된다)", () => {
     const withPath = BID_DOCUMENTS.map((doc) => ({
       ...doc,
@@ -407,6 +420,38 @@ describe("BidDetailView 분석 실행(스펙 §5.4.2 흐름)", () => {
     // 결정 폼은 지난 분석 기준으로 쓸 수 있다(§5.4.10).
     await expect.element(decisionButton()).toBeEnabled();
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ force: true });
+  });
+
+  it("서버가 진행 중이라고 준 run 의 poll 이 404 면 빈 결과로 떨어지지 않고 상태 확인 실패와 [새로고침]을 보인다", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "NOT_FOUND",
+            message: "분석을 찾을 수 없습니다",
+            details: {},
+            requestId: "req-404",
+          },
+        }),
+        { status: 404 },
+      ),
+    );
+    const running: AnalysisView = { ...FX02_VIEW, id: "run-active", status: "RUNNING" };
+    const { host } = render({
+      bid: detail({ latestAnalysis: running }),
+      previousScored: FX02_VIEW,
+    });
+    const alert = page.getByRole("alert");
+    await vi.waitFor(() => expect(alert.elements()).toHaveLength(1), { timeout: 5_000 });
+    await expect.element(alert).toHaveTextContent("분석 상태를 확인하지 못했습니다");
+    await expect.element(alert).toHaveTextContent("NOT_FOUND · req-404");
+    expect(text(host)).not.toContain("분석 결과가 없습니다");
+    expect(text(host)).not.toContain("분석을 요청하지 못했습니다");
+    // 진행 중 표시(띠의 상태·본문 자리)는 그대로다.
+    expect(host.querySelector('[data-slot="analysis-pending"]')).not.toBeNull();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/analyses/run-active");
+    await userEvent.click(alert.getByRole("button", { name: "새로고침" }));
+    expect(spies.refresh).toHaveBeenCalledTimes(1);
   });
 
   it("분석 요청이 실패하면 버튼 곁에 오류 코드와 요청 ID 를 보인다", async () => {
