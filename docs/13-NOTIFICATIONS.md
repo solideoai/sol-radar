@@ -55,6 +55,9 @@ sequenceDiagram
 - 재전송 시 provider idempotency 지원 여부 확인.
 - 데모 수용 기준: 골든 시나리오 `G2`(마감일 변경 → 알림 1건, 중복 0건)가 [[11-TESTING|11 테스트]]에서 green.
 
+> [!note] 제안 — ADR-030
+> B23 `notifications.payload.link`의 열린 리다이렉트를 막으려고 알림 목록 서비스(서버)가 앱 안 경로만 내려 보내고, 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC|05 API]] §4.6, [[09-SECURITY|09 보안]], [[16-DECISIONS|ADR-030]]).
+
 ## 관련 문서
 - [[01-PRD|01 PRD]]
 - [[04-DATABASE|04 DB]]

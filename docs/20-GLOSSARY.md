@@ -43,7 +43,7 @@ updated: 2026-10-19
 | BID / WATCH / NO-BID | 참여 / 관망·추가 검토 / 불참 | [[08-SCORING]] |
 | `MODEL_RULE_DISAGREEMENT` | Kev 참고 지표(`recommendation`)와 규칙 판정이 상충할 때 발생. 사람 검토 필수 | [[08-SCORING]] |
 | `INSUFFICIENT_DATA` | 근거가 없어 값을 표시하지 않는 상태. 임의 값으로 채우지 않는다 | [[00-README]] |
-| 분석 상태 | `NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED / PARTIAL / FAILED`. `PARTIAL`은 AI 없이 규칙만으로 완결한 결과 | [[06-UI-UX]] |
+| 분석 상태 | `QUEUED → RUNNING → COMPLETED / PARTIAL / FAILED`. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`(화면 `미분석`). `PARTIAL`은 AI 없이 규칙만으로 완결한 결과([[16-DECISIONS\|ADR-029]] A6 D17) | [[06-UI-UX]] |
 | 골든셋 / 골든 시나리오 | 기대 결과가 사람에 의해 확정된 테스트 입력. 회귀 기준 | [[11-TESTING]] |
 | precision@K | 추천 상위 K개 중 실제 적합 공고 비율 | [[01-PRD]] |
 | 백테스트 / 시점 일치 | 과거 데이터로 검증할 때 의사결정 시점 이후 정보(낙찰 결과 등)를 쓰지 않는 원칙 | [[15-DATA-CONTRACTS]] |
@@ -64,7 +64,7 @@ updated: 2026-10-19
 | 프롬프트 인젝션 | 외부 문서 안의 지시문이 모델을 조종하려는 공격. 외부 문서는 데이터로만 취급 | [[09-SECURITY]] |
 | HITL (Human-in-the-loop) | 사람이 반드시 개입하는 지점. 최종 결정, `NEEDS_REVIEW`, `MODEL_RULE_DISAGREEMENT` | [[09-SECURITY]] |
 | `AI_PROVIDER` | `mock` / `local` / `hosted`. 데모 기본은 `mock` | [[03-AI-PIPELINE]], [[10-DEPLOYMENT]] |
-| `KEV_ENABLED` | Kev 사용 플래그. 기본값은 실행 모드가 정한다(`live`·`fixture` → 실모델, `mock` → mock adapter, 모두 `true`). `false`면 Kev 없이 `RULES_ONLY` | [[03-AI-PIPELINE]] |
+| `KEV_ENABLED` | Kev 사용 플래그. 세 실행 모드 모두 기본 `true`(`live`·`fixture` → 실모델, `mock` → mock adapter)이고 `false`도 허용한다. `false`면 Kev 없이 `RULES_ONLY`, 분석은 `COMPLETED`([[16-DECISIONS\|ADR-029]] A5) | [[03-AI-PIPELINE]] |
 
 ## 데이터·플랫폼
 
@@ -168,7 +168,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 용어 | 뜻 | 원천 |
 |---|---|---|
 | 실행 모드 (`SOL_RUN_MODE`) | `live`(나라장터 Open API + 실제 AI), `fixture`(fixture 20건 + 실제 AI), `mock`(fixture 20건 + mock AI). 분석마다 `score_runs.run_mode`로 기록 | [[03-AI-PIPELINE]] |
-| 정보화사업 (`infoBizYn`) | 입찰공고 응답의 정보화사업 여부. `Y`인 용역 공고만 수집 | [[07-DATA-PIPELINE]] |
+| 정보화사업 (`infoBizYn`) | 입찰공고 응답의 정보화사업 여부. 빈값이 많아 수집 필터는 `infoBizYn='Y'` 또는 `sucsfbidMthdNm`에 "SW사업" 또는 `pubPrcrmntClsfcNm` 정보시스템·SW 분류인 용역 공고로 넓혔다([[16-DECISIONS\|ADR-029]] A4) | [[07-DATA-PIPELINE]] |
 | API 구조화 필드 | 면허제한·참가가능지역·금액·마감처럼 공공 API가 필드로 주는 조건. 같은 조건이면 Qwen 추출보다 우선 | [[08-SCORING]] |
 | `DocumentParser` | HWP·HWPX·PDF 형식별 파서 어댑터 인터페이스. 결과는 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED`. 계약 정본은 03 §10 | [[03-AI-PIPELINE]] |
 | 실패 유형 | 공공 API 실패·첨부 다운로드 불가·파싱 실패·모델 서버 미접속(Qwen·Kev 따로). 서로 섞지 않고 따로 기록·표시 | [[03-AI-PIPELINE]] |

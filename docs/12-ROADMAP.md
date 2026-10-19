@@ -84,7 +84,7 @@ updated: 2026-10-19
 |C3|Phase 2 수집: `FixtureConnector`·정규화·revision·격리·ingest job, documents job, `OfficialApiConnector`·`G2bAttachmentFetcher`|2 / P0-2·P0-3|C2, C1 ①|10-19~20|
 |C4|Phase 4 규칙 엔진(순수 함수)·골든 94/72/68·27명 입력|4 / P0-5·P0-7|없음(C2와 병렬)|10-19|
 |C5|Phase 5 gateway `/extract`·`/kev`·`/explain`·`/parse` mock → worker extract·analysis·`PARTIAL` → `local` 어댑터|5 / P0-4·P0-6|C0·C4, local은 C1 ③|10-19~20|
-|C6|Phase 3 화면: 앱 셸 최소·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Route Handler 9개|3 / P0-7|C2|10-19~21|
+|C6|Phase 3 화면: 앱 셸 최소·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Route Handler 10개(9개 + 알림 읽음 처리 `PATCH /notifications/:id/read`, [[16-DECISIONS\|ADR-029]] A6 D8)|3 / P0-7|C2|10-19~21|
 |C7|Phase 6: 결정 기록 트리거·audit·outbox·인앱 알림 2종|6|C2·C6|10-21|
 |C8|S-LIVE: 실공고 1건 `live` E2E, 실행 로그·녹화|5 / P0-4·P0-6|C1·C3·C5·C6|10-21~22|
 |C9|리허설·대체 경로 6종·세 모드 전환·로컬 Supabase CLI 전환·체크리스트|7|C6·C7|10-22, 10-24|
@@ -94,6 +94,9 @@ updated: 2026-10-19
 |X4|제출물: 슬라이드·3분 영상·기술 자료. 구조는 지금부터 병렬, 완성은 C8·X1·X2 뒤|—|구조: 없음 / 완성: C8·X1·X2|구조 10-19~, 완성 10-23~24, E4 반영 10-26|
 |X5|확장 컷(위 표 순서)|—|핵심 컷 green|10-23 이후|
 |X6|Kev-9B LoRA 파인튜닝 트랙([[16-DECISIONS\|ADR-027]]): X6a 평가셋 v0.1(P0-9) → X6b 학습셋 번들·학습 요청서(P0-11) → X6c F1(회사) → X6d F2(회사) → X6e F3 보정·E4 평가 → X6f 제출물 반영. 데모 모델은 Kev-9B@v1.0 그대로. 실행 절차는 [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]]|평가 / P0-9·P0-11|C3 live·첨부, C5 `local`, C1 ③, 회사 실행|10-19~26|
+
+> [!note] 제안 — ADR-030
+> B18 C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]]): revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`)으로 원자적으로 하고, 하위 job은 outbox와 `documents` 큐만 만든다. **새 공고 자동 분석은 핵심 컷에 없다**. live 일정 수집 주기는 [[07-DATA-PIPELINE|07 수집]] 값을 따르고 없으면 30분(env)이다.
 
 병렬 순서: 10-19 C0‖C1‖C2‖C3‖C4 보고‖C5‖C6‖X4 구조‖X6a → 10-20 C1 ③‖C2‖C3‖C5‖C6‖X6a·X6b, 저녁 외부 의존성 컷 → 10-21 C6‖C7‖C8‖X6a·X6b(회사 전달)‖X6c → 10-22 C8‖C9 1차‖X1‖X2‖X6c·X6d → 10-23 X1‖X2‖X4 완성‖X6d, 기능 freeze → 10-24 C9 최종 리허설‖X4 완성 → 10-25 X6e → 10-26 X6f·제출물 마감·예비 → 10-27 제출.
 

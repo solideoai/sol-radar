@@ -342,6 +342,11 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`notifications`|0|데모 중 이벤트로 생성|
 |`audit_logs`|seed 작업분|seed 자체도 `actor_id=null`, `action=SEED`로 남긴다|
 
+> [!note] 제안 — ADR-030
+> 조정 결정([[16-DECISIONS|ADR-030]]):
+> - B15 `bid_revisions`는 seed 직후 19행(공고 19건의 r1), `LIVE` 배치의 새 revision 4건(`FX-06`·`FX-07`·`FX-08`·`FX-10`) 뒤 23행이다(위 표의 "20 + 정정 건수"를 바꾼다). SEED 수집 run은 격리 1건이 있어 `ingest_runs.status=PARTIAL`이다([[07-DATA-PIPELINE|07 수집]] §6.4).
+> - B19 기존 사업에 투입된 가상 인력 7명은 `assignments`가 아니라 `team_member_scoring.availability`의 해당 기간 fte를 낮춰 표현한다(가용 창을 나누고, 덧붙이지 않는다). `assignments`는 데모 2건만이다. `FX-01`·`FX-02`·`FX-03` 기간의 가용 인력은 20 FTE다(main `3e181b7`, [[08-SCORING|08 점수]] §6.1).
+
 SEED 배치 공고는 공고 적재 함수 하나(`scripts/demo/bid-notices.mjs`의 `seedBidNotices`)로 넣는다. 수집 코드(`web/server/ingestion`, `FixtureConnector`)가 main에 들어오기 전까지는 07 §6.4·15 §3 규칙을 `scripts/demo/plan.mjs`의 순수 함수로 직접 계산한다. 들어오면 스크립트가 `FixtureConnector`의 `runIngest({ source: "fixture", batch: "SEED" })`를 직접 부르도록 바꾼다(파일 머리 주석). `server-only` 모듈을 Node 프로세스에서 쓰는 실행 방식은 `node --conditions=react-server --import tsx`로 검증됐다([[16-DECISIONS|16 ADR]] 미결정 9번).
 
 seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/database.test.mjs`)에서 "두 번 돌려도 건수가 같다"와 "`org-02` 사용자가 `org-01` 행을 읽지 못한다"를 확인한다([[11-TESTING|11 테스트]] G5).

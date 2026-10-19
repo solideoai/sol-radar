@@ -56,7 +56,7 @@ updated: 2026-10-19
 |POST|`/bids/:id/reviews`|`ADMIN, SALES`|사람 최종 결정 기록|`ReviewInput` → `201 Review`|
 |GET|`/dashboard/summary`|`ADMIN, SALES, ANALYST, VIEWER`|대시보드 요약. `origin` 쿼리를 받고 기본값은 `/bids`와 같다(실행 모드를 따름)|`?origin` → `DashboardSummary`|
 |GET|`/notifications`|auth|내 알림 목록|`?unreadOnly&cursor&limit` → `Page<Notification>`|
-|PATCH|`/notifications/:id/read`|auth(본인)|읽음 처리|`200 Notification`. 남의 알림은 `404`|
+|PATCH|`/notifications/:id/read`|auth(본인)|읽음 처리. 핵심 컷 Route Handler 10번째([[16-DECISIONS\|ADR-029]] A6 D8)|`200 Notification`. 남의 알림은 `404`|
 |GET|`/departments`|`ADMIN, SALES, ANALYST, VIEWER`|조직도 트리([[16-DECISIONS\|ADR-021]]). 상위 없는 부서는 `parentId:null`. 부서마다 `memberCount`(하위 팀 재직 인원 합, 직원 ID 중복 제거)와 `targetCount`(팀만, 본부·그룹은 null)|`Department[]`(§4.7)|
 |GET|`/team-members`|`ADMIN, SALES, ANALYST, VIEWER`|가상 직원 명부(ADR-021). 사진 경로(없으면 null)와 점수 계산 대상 여부. 연락처 없음|`?q&departmentId&jobTitleId&scoring&cursor` → `Page<TeamMemberListItem>`(§4.7)|
 |GET|`/team-members/:id`|`ADMIN, SALES, ANALYST, VIEWER`|개인 상세(ADR-021). 점수 계산 대상이면 직무·등급·스킬·가용성|`TeamMemberDetail`(§4.7)|
@@ -82,11 +82,14 @@ updated: 2026-10-19
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
-범위 밖(이번 해커톤에서 만들지 않음): 인력 배치 저장·배정 확정 API(해커톤 이후), 카카오 발송 설정, 경쟁사 분석. 인력 배치 시뮬레이션 조회(`GET /workforce/simulation`)는 P1이다([[16-DECISIONS|ADR-021]]).
+범위 밖(이번 해커톤에서 만들지 않음): 인력 배치 저장·배정 확정 API(해커톤 이후), 카카오 발송 설정, 경쟁사 분석, 알림 모두 읽음·알림 유형 필터(API가 없고 핵심 컷 화면에서도 뺀다, [[16-DECISIONS|ADR-029]] A6 D7). 인력 배치 시뮬레이션 조회(`GET /workforce/simulation`)는 P1이다([[16-DECISIONS|ADR-021]]).
 
 [[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·Kev v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
 
 [[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`. "P1, ADR-021" 행은 [[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단이며 데모 필수가 모두 끝난 뒤 만든다.
+
+> [!note] 제안 — ADR-030
+> B20 `POST /bids/:id/analyses`의 중복·큐 계약을 정한다. 상세는 §4.5 콜아웃([[16-DECISIONS|ADR-030]]).
 
 ## 3. `GET /bids` 쿼리 파라미터
 
@@ -110,6 +113,9 @@ updated: 2026-10-19
 |`watched`|`me`|—|ENUM|본인 관심 공고만(P1, [[16-DECISIONS\|ADR-021]])|
 
 커서는 `(sort 키 값, id)`를 base64url로 인코딩하고 HMAC(키: 서버 전용 env `API_CURSOR_SECRET`, [[10-DEPLOYMENT|10 배포]])을 붙인다. 필터·정렬이 바뀌면 커서를 버리고 처음부터 요청한다.
+
+> [!note] 제안 — ADR-030
+> B14 `CLOSED`는 수집 정규화가 만들지 않고 조회할 때 `deadlineAt`으로 계산한다(저장 상태는 `OPEN`·`AMENDED`·`CANCELLED`). 그래서 `status` 필터와 기본값 `OPEN,AMENDED`가 마감 지난 공고를 어떻게 다룰지는 채택할 때 함께 정한다([[15-DATA-CONTRACTS|15]] §3, [[16-DECISIONS|ADR-030]]).
 
 ## 4. DTO
 
@@ -141,6 +147,8 @@ type ReviewFlag = "MODEL_RULE_DISAGREEMENT" | "KEV_MANDATORY_RISK" | "KEV_NEEDS_
   | "MOCK_FALLBACK" | "PARSE_UNSUPPORTED" | "DOCUMENT_DOWNLOAD_FAILED"
   | "INSUFFICIENT_DATA" | "INJECTION_SUSPECTED" | "SCALE_LIMIT_EXCEEDED";    // 조건은 08 §5.3·§5.4
 type FactorKey = "skillMatch" | "pastPerformance" | "staffAvailability" | "scaleFit" | "strategicPreference";
+type MissingReason = "NO_REQUIREMENTS_EXTRACTED" | "PROFILE_TECHNOLOGIES_EMPTY" | "BID_DOMAIN_UNKNOWN" | "PROFILE_PROJECTS_EMPTY"
+  | "REQUIRED_FTE_UNKNOWN" | "TEAM_EMPTY" | "BUDGET_UNKNOWN" | "PREFERENCES_NOT_SET";   // 요소가 missing인 사유(08 §4 표, ADR-029 A6 D16)
 type RunMode = "live" | "fixture" | "mock";        // env SOL_RUN_MODE와 같은 소문자. DB는 대문자(04 run_mode)
 type BidOrigin = "live" | "demo";                  // is_demo=false → live, true → demo
 // CompanyEvidenceRef(회사 쪽 근거)는 15 §2.1 정본
@@ -247,7 +255,12 @@ interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "orgId" | "rev
 
 명시적 부정 필드(`licenses[].status`, `industryCodes[].status`, `technologiesComplete`)가 있는 이유: 자격 판정의 미충족(`NOT_SATISFIED`)에는 회사 쪽 명시적 부정 근거가 필요하다. 목록에 없다는 사실만으로는 미충족이 아니라 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다([[08-SCORING|08 점수]] §5.1). `isDemo`는 입력에서 받지 않는다. 서버가 `true`로 저장하고, 실제 회사 자료를 넣는 경로는 별도 ADR과 [[09-SECURITY|09 보안]] 개정 전에는 없다.
 
+> [!note] 제안 — ADR-030
+> B5 gateway `/kev`의 `profileSummary`([[03-AI-PIPELINE|03]] §5.7)는 이 절의 `CompanyProfile` 전체 + 선택 `staffAvailability`다. 위 `CompanyProfileSummary`(revision 목록용 요약)와 이름만 같고 모양이 다르다. 채택할 때 어느 쪽 이름을 바꿀지 정한다([[16-DECISIONS|ADR-030]]).
+
 ### 4.5 분석
+
+분석 결과는 규칙 엔진(`web/server/scoring`) 출력을 파이프라인이 저장·변환해 만든다. 이름이 다른 곳은 API가 이 문서의 이름을 쓴다(`score` → `solScore`, `factors` → `scoreBreakdown`, `qualificationStatus`·`qualificationChecks` → `qualification`). `missingFactors`의 모양(`{factor, reason}`), `ScoreFactor.missingReason`, `profileEvidence[].type`의 `INDUSTRY_CODE`는 규칙 엔진을 따른다([[16-DECISIONS|ADR-029]] A6 D16).
 
 ```ts
 interface AnalysisRequest {
@@ -259,7 +272,8 @@ interface AnalysisAccepted { analysisId: string; status: AnalysisStatus; dedupli
 
 interface ScoreFactor {
   factor: FactorKey; rawValue: unknown; normalized: number | null; points: number; maxPoints: number;
-  missing: boolean; evidence: EvidenceRef[]; note: string | null;
+  missing: boolean; missingReason: MissingReason | null;   // missing=true일 때만 값이 있다(화면의 "미확인" 사유)
+  evidence: EvidenceRef[]; note: string | null;
 }
 interface QualificationCheck {
   id: string; requirementCode: string | null; requirementName: string; mandatory: boolean;
@@ -267,7 +281,7 @@ interface QualificationCheck {
   reasonCode: NeedsReviewReason | null;                          // outcome=NEEDS_REVIEW일 때만 값이 있다
   basis: RequirementBasis;                                       // 공고 쪽 값이 API 구조화 필드에서 왔는지, Qwen 추출에서 왔는지
   evidence: EvidenceRef[];                                       // 공고 쪽 근거
-  profileEvidence: { type: "LICENSE" | "PAST_PROJECT" | "TECHNOLOGY" | "FINANCIAL"; ref: string; label: string }[];  // 프로필 쪽 근거(표시용 요약)
+  profileEvidence: { type: "LICENSE" | "INDUSTRY_CODE" | "PAST_PROJECT" | "TECHNOLOGY" | "FINANCIAL"; ref: string; label: string }[];  // 프로필 쪽 근거(표시용 요약). INDUSTRY_CODE 예: FX-03 정보통신공사업
   companyEvidence: CompanyEvidenceRef[];                         // 회사 쪽 근거(추적용). NOT_SATISFIED면 명시적 부정 근거가 1개 이상
   checkedAt: string;
 }
@@ -294,7 +308,7 @@ interface AnalysisResult {
   qualification: { status: QualificationOutcome; checks: QualificationCheck[] };
   requirementAssessments: RequirementAssessment[];               // 항목별 규칙 판정·사유·양쪽 근거·Kev 참고 분포·플래그
   scoreBreakdown: ScoreFactor[];
-  missingFactors: FactorKey[];
+  missingFactors: { factor: FactorKey; reason: MissingReason }[];   // ADR-029 A6 D16
   reviewFlags: ReviewFlag[];
   injectionSuspected: boolean;                                   // 추출 단계 지시문 패턴 탐지. true면 자격 종합은 NEEDS_REVIEW
   kev: KevAssist;                                                // 03 §5.7 정본. kev-qs/v0.1 run(mock 모드·데모 S3)이면 v0.2 필드(scores·risks·calibration·stateTrace)가 null, enabled=false면 값은 null. 화면 "모델 참고 지표 (점수 미반영)" 영역에만 표시
@@ -307,6 +321,13 @@ interface AnalysisResult {
   disclaimer: "SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다.";
 }
 ```
+
+> [!note] 제안 — ADR-030
+> B20 분석 요청 계약([[16-DECISIONS|ADR-030]]):
+> - 같은 입력 = (revision, 회사 프로필 revision, 알고리즘 버전). `force:false`이고 같은 입력의 run이 진행 중이면 `202 deduplicated:true`로 그 run을 돌려준다. `force:true`이고 진행 중이면 `409 ANALYSIS_IN_PROGRESS {analysisId}`.
+> - 큐 등록에 실패하면 run을 `FAILED`(`errorCode=ENQUEUE_FAILED`)로 바꾸고 멱등 키를 풀어 `503`을 준다.
+> - `Idempotency-Key`가 없으면 서버가 UUID를 만든다. `score_runs`의 멱등 키는 `<org_id>:<requestId>`다.
+> - 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않는다), payload `{orgId, scoreRunId, idempotencyKey}`.
 
 ### 4.6 검토·알림·대시보드·수집
 
@@ -336,10 +357,14 @@ interface DashboardSummary {
   };
   ai: { provider: "mock" | "local" | "hosted"; kevEnabled: boolean; lastGatewayCheckAt: string | null; healthy: boolean };
   bids: { total: number; byStage: Record<BidStage, number>; byStatus: Record<BidStatus, number>; deadlineWithin7Days: number };
-  analyses: { total: number; byRecommendation: Record<Recommendation, number>; partial: number; withReviewFlags: number;
+  analyses: { total: number;
+    byRecommendation: Record<Recommendation, number>;   // 공고별 최신 분석 1건 기준. force 재분석으로 이중 집계하지 않는다(ADR-029 A6 D10)
+    partial: number; withReviewFlags: number;
     latestByStatus: { completed: number; partial: number; failed: number } };  // ADR-021 분석 현황 카드. 공고별 최신 score_runs 1건 기준, QUEUED·RUNNING 제외, origin 필터를 따른다
-  reviews: { pending: number; byDecision: Record<Recommendation, number>; disagreementWithSystem: number };
+  reviews: { pending: number;     // 최신 분석이 있고 사람 결정이 없는 공고 수(ADR-029 A6 D11)
+    byDecision: Record<Recommendation, number>; disagreementWithSystem: number };
   upcoming: { bidId: string; title: string; deadlineAt: string; recommendation: Recommendation | null; decision: Recommendation | null }[];  // 마감 임박 10건
+  recentChanges: { bidId: string; title: string; revision: number; changedFields: string[]; changedAt: string }[];  // 최근 revision 변경 10건(06 §5.3 ④, ADR-029 A6 D9)
   unreadNotifications: number;
 }
 interface IngestionRunInput {
@@ -411,6 +436,9 @@ interface EvalRunReport extends EvalRunSummary {
 
 `IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE|07 수집]] §2.2)는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
 
+> [!note] 제안 — ADR-030
+> B23 `Notification.payload.link`의 열린 리다이렉트 방지는 서버(알림 목록 서비스)가 맡는다. 앱 안 경로만 내려 보내고, 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[13-NOTIFICATIONS|13 알림]], [[09-SECURITY|09 보안]], [[16-DECISIONS|ADR-030]]).
+
 ### 4.7 조직·인력 (ADR-021, 구현 예정)
 
 가상 직원 명부를 읽는 DTO다. 연락처 필드는 없다([[09-SECURITY|09 보안]] 솔리데오 명부 절).
@@ -464,6 +492,9 @@ interface TeamMemberDetail extends TeamMemberListItem {
 로그인 실패·시도 제한·토큰 갱신 실패는 이 API가 아니라 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
 
 `AI_UNAVAILABLE`, `EXTRACTION_FAILED`는 HTTP 오류가 아니다. 분석은 비동기이므로 AI 장애는 `AnalysisResult.status=PARTIAL` + `errorCode`로 나타난다. API가 503을 내는 경우는 요청 자체를 큐에 넣지 못할 때뿐이다.
+
+> [!note] 제안 — ADR-030
+> B20: 분석 요청의 큐 등록 실패는 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 `503`을 준다. 같은 입력 진행 중의 `force:false`는 `409`가 아니라 `202 deduplicated:true`다. 상세는 §4.5 콜아웃([[16-DECISIONS|ADR-030]]).
 
 [[16-DECISIONS|ADR-020]]의 실패 유형도 HTTP 오류가 아니다. 유형마다 따로 기록하고 따로 보여 주며, 한 유형을 다른 유형으로 뭉뚱그리지 않는다.
 
@@ -548,11 +579,11 @@ GET /api/v1/analyses/7d2c...
  ]},
  "requirementAssessments":[],
  "scoreBreakdown":[
-   {"factor":"skillMatch","rawValue":{"required":6,"matched":3,"matchedNames":["Java","Spring Boot","PostgreSQL"],"missingNames":["Vue.js","SCORM","WebRTC"],"preferred":2,"preferredMatched":1},"normalized":0.5,"points":15.0,"maxPoints":30,"missing":false,"evidence":[],"note":null},
-   {"factor":"pastPerformance","rawValue":{"similarProjects":2},"normalized":0.732,"points":18.3,"maxPoints":25,"missing":false,"evidence":[],"note":null},
-   {"factor":"staffAvailability","rawValue":{"availableRatio":1.0,"scheduleFactor":0.7},"normalized":0.7,"points":14.0,"maxPoints":20,"missing":false,"evidence":[],"note":"마감 촉박 일정 계수 0.7"},
-   {"factor":"scaleFit","rawValue":{"budgetKrw":"450000000","maxContractKrw":"5000000000","largestPastKrw":"2800000000"},"normalized":1.0,"points":15.0,"maxPoints":15,"missing":false,"evidence":[],"note":null},
-   {"factor":"strategicPreference","rawValue":{"agencyTypeMatch":true,"domainMatch":true},"normalized":1.0,"points":10.0,"maxPoints":10,"missing":false,"evidence":[],"note":"교육 분야·교육청 선호 일치"}
+   {"factor":"skillMatch","rawValue":{"required":6,"matched":3,"matchedNames":["Java","Spring Boot","PostgreSQL"],"missingNames":["Vue.js","SCORM","WebRTC"],"preferred":2,"preferredMatched":1},"normalized":0.5,"points":15.0,"maxPoints":30,"missing":false,"missingReason":null,"evidence":[],"note":null},
+   {"factor":"pastPerformance","rawValue":{"similarProjects":2},"normalized":0.732,"points":18.3,"maxPoints":25,"missing":false,"missingReason":null,"evidence":[],"note":null},
+   {"factor":"staffAvailability","rawValue":{"availableRatio":1.0,"scheduleFactor":0.7},"normalized":0.7,"points":14.0,"maxPoints":20,"missing":false,"missingReason":null,"evidence":[],"note":"마감 촉박 일정 계수 0.7"},
+   {"factor":"scaleFit","rawValue":{"budgetKrw":"450000000","maxContractKrw":"5000000000","largestPastKrw":"2800000000"},"normalized":1.0,"points":15.0,"maxPoints":15,"missing":false,"missingReason":null,"evidence":[],"note":null},
+   {"factor":"strategicPreference","rawValue":{"agencyTypeMatch":true,"domainMatch":true},"normalized":1.0,"points":10.0,"maxPoints":10,"missing":false,"missingReason":null,"evidence":[],"note":"교육 분야·교육청 선호 일치"}
  ],
  "missingFactors":[],
  "reviewFlags":["KEV_NEEDS_REVIEW"],

@@ -35,7 +35,7 @@ AI gateway 의 약속(스키마·인용·인젝션·Kev 입력 제한·장애 �
   - Kev state: 한글 문자 0개, 규칙 결과(자격·점수·권고) 필드 0개, 질문 4종(`recommendation` choice, `mandatoryRisk` noul, `needsHumanReview` noul, `fit` score)이 `kev-qs/v0.1` 과 일치.
   - Kev wire 필드명이 `kev_wire.py` 밖에 하드코딩돼 있지 않은지.
   - `KEV_ENABLED=false`·Kev timeout → `kev.enabled=false`, 나머지 null, HTTP 200.
-  - `AI_FAULT_INJECT=kev_timeout|qwen_error|gateway_down` 각각의 응답. `AI_PROVIDER=mock` 이 아닐 때는 무시되는지.
+  - `AI_FAULT_INJECT=kev_timeout|qwen_error|qwen_unreachable|kev_unreachable|gateway_down`(03 §3 정본 5값) 각각의 응답. `gateway_down` 은 `/extract`·`/kev`·`/explain` 이 `503 {"errorCode":"AI_UNAVAILABLE","message"}`(ADR-029 A3). `AI_PROVIDER=mock` 이 아닐 때는 무시되는지.
   - `AI_PROVIDER=hosted` + `AI_HOSTED_APPROVED` 미설정·`false` → 기동 거부(조용히 mock 으로 바뀌지 않음).
   - mock 결정성: 같은 요청 두 번 → byte-동일 응답(시각·요청 ID 같은 비결정 필드는 계약이 정한 것만 예외).
   - `disclaimer` 문자열이 03 §5.7 과 정확히 같은지, 응답 어디에도 "수주 확률"이 단독으로 나오지 않는지(G4).

@@ -192,6 +192,11 @@ interface StructuredRequirement {
 > [!warning] 미검증 가정
 > `structuredQualifications`의 원천 필드는 2026-10-19 C1 ①에서 실제 응답으로 확인했다([C1 API 증거](evidence/phase-0/external-deps-api-20261019.md) §5·§10, 녹음 응답 `fixtures/recorded/15129394/`). 면허제한·참가가능지역 필드는 목록 응답에 없고 보조 조회에만 있다. 여부 플래그 `indstrytyLmtYn`·`bidPrtcptLmtYn`은 목록 응답에 있다. 남은 것은 두 가지다. 여부 플래그를 어느 `kind`·필드에 담을지 정하지 않았다. 면허제한이 여러 행일 때의 뜻도 미검증이다. 응답에 AND/OR 필드는 없고 `lmtGrpNo`(그룹)·`lmtSno`(일련번호)만 있으며, "그룹 안은 AND, 그룹끼리는 OR"로 읽히지만 확인하지 않았다([[16-DECISIONS|16 ADR]] 미결정 19번). 확인 전에는 면허제한이 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다.
 
+> [!note] 제안 — ADR-030
+> 조정 결정([[16-DECISIONS|ADR-030]]):
+> - B13 `StructuredRequirement`에는 `seq`가 없다. 수집(Connector)은 이 절대로 `seq` 없이 내고, `structuredQualifications`의 순서를 결정적으로(안정 정렬) 만든다. 분석 쪽 변환이 배열 index(0부터)로 `seq`를 채운다.
+> - B14 `status` 매핑: 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 원본 값은 §6 격리다. fixture 레코드에 `status`가 없고 revision ≥ 2면 `AMENDED`다([[07-DATA-PIPELINE|07 수집]] §3.1·§6.5, [[05-API-SPEC|05 API]] §3 `status` 기본 필터와 함께 정한다).
+
 ## 4. `RequirementExtraction` 요약
 
 전체 스키마와 예시는 [[03-AI-PIPELINE|03 AI 파이프라인]] §4.1. 여기서는 규칙 엔진이 읽는 필드만 적는다.
@@ -333,6 +338,9 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 
 - 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
 - `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 로그인·세션 없이 익명 GET으로 받아진다(C1 ② B2, 2026-10-19 공고 3건, 리다이렉트 0회). 남은 것은 이용약관상 자동 다운로드가 허용되는지다(미결정 16번). 그 확인 뒤 `approvalStatus`와 `quota`의 뜻을 정한다.
+
+> [!note] 제안 — ADR-030
+> B16 위 표의 기본 URL을 `https://apis.data.go.kr`로 바꾼다. 서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다. `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 새로 만들고, Connector는 endpoint를 생성자로 받아 registry 로딩과 떼어 둔다([[07-DATA-PIPELINE|07 수집]] §1.1, [[16-DECISIONS|ADR-030]]).
 
 > [!success] 검증됨 (명세 2026-10-16, 실제 응답 2026-10-19 — data.go.kr 서비스 페이지 Swagger·참고문서, C1 ① 실호출)
 > 서비스 ID·기본 URL·오퍼레이션·개발계정 일 1,000 한도는 아래 서비스 페이지의 명세에서 확인했다. 2026-10-19 C1 ①에서 4개 서비스 모두 서비스키로 실제 응답(`resultCode 00`)을 받았고, 마스킹한 녹음 응답을 `fixtures/recorded/`에 두었다. 호출 로그와 설계와 다른 점 8건(키 형식, 오류 봉투, 보조 조회의 `inqryDiv=2`, `infoBizYn` 요청 필터 무시 등)은 [C1 API 증거](evidence/phase-0/external-deps-api-20261019.md)에 있다. 이 콜아웃이 data.go.kr 검증 사실의 정본이다.

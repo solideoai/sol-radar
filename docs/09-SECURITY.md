@@ -85,6 +85,9 @@ updated: 2026-10-19
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
 
+> [!note] 제안 — ADR-030
+> B23 알림 `payload.link`의 열린 리다이렉트를 막는다. 알림 목록 서비스(서버)가 앱 안 경로만 내려 보내고, 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC|05 API]] §4.6, [[13-NOTIFICATIONS|13 알림]], [[16-DECISIONS|ADR-030]]).
+
 ## 책임 있는 AI
 ### 원칙
 1. 규칙 엔진이 최종이다. 자격 판정과 SOL Score는 결정적 규칙으로만 계산한다.
@@ -204,6 +207,9 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 MinIO(Compose)에 둔다. 웹 배포처만 미결정이다([[16-DECISIONS|16 ADR]] 미결정 8번). 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
 - OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
+
+> [!note] 제안 — ADR-030
+> B11 `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`는 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`). `AI_FALLBACK_TO_MOCK`은 아직 구현하지 않았으므로 `true`면 켜면 기동을 거부한다(원래 `live`만 거부)([[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[10-DEPLOYMENT|10 배포]], [[16-DECISIONS|ADR-030]]).
 
 ## 실데이터와 회사 GPU 서버 (ADR-020)
 

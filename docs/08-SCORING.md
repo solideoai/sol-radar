@@ -303,6 +303,9 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 
 프로필 값의 데이터 파일은 `fixtures/company/solideo-profile.json`(revision 2)이다. `technologiesComplete`·`industryCodes` 값도 이 파일에서 왔다(`e22de09`).
 
+> [!note] 제안 — ADR-030
+> B19 위 "2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외)"의 "기존 배정"은 `assignments` 행이 아니라 `team_member_scoring.availability`에 접어 넣는다. 기존 사업 투입 7명은 해당 기간 fte를 낮춘 가용 창으로 나누고(덧붙이지 않는다), `assignments`는 데모 2건만이다. 이렇게 seed한 DB 경로에서도 `FX-01`·`FX-02`·`FX-03` 기간 가용은 20 FTE다(main `3e181b7`, [[04-DATABASE|04 DB]] §6, [[16-DECISIONS|ADR-030]]).
+
 ### 6.2 Example A — `FX-01` → BID
 
 공고: 세종특별자치시 차세대 행정정보시스템 고도화, 분야 민원, 예산 12억, 마감 +21일(영업일 15), 기간 8개월. 추출: 필수 Java·Spring Boot·PostgreSQL·전자정부 표준프레임워크·Kubernetes, 우대 Elasticsearch·Kafka, 필요 인력 PM 1 + PL 1 + 개발 10 = 12 FTE. 자격: 소프트웨어사업자, 직접생산확인, 중소기업 제한경쟁 → 모두 `SATISFIED`.
@@ -368,6 +371,9 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 `score_runs` 1건 + `score_factors` 5건(`factor` 값은 05 `FactorKey`: `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference`). 각 factor 행은 `raw_value`(위 표의 raw 열에 해당하는 JSON), `points`, `max_points`, `evidence`(매칭된 기술 목록, 선택된 실적 ID, FTE 계산 근거, `EvidenceRef` 배열)를 가진다. `score_runs.model_metadata`에 Kev 모델 식별자·`prompt_hash`·처리 시간, Kev 질문 4종의 출력(wire 응답 원문)은 `score_runs.kev_output`에, `review_flags[]`·`missing_factors[]`는 04의 전용 열에, `input_snapshot`에는 `AnalysisInput`(입력 전체)과 `input_snapshot_hash`를 넣는다. API 응답 형태는 [[05-API-SPEC|05 API]]의 `AnalysisResult`.
 
 [[16-DECISIONS|ADR-020]]으로 더해지는 것: `score_runs.run_mode`(실행 모드)·`kev_calibration`(τ 보정 상태)·`fallback_reason`(mock 자동 대체 원인), `score_runs.kev_output`에 Kev 응답 원문과 `KevStateTrace`, 요구사항 항목마다 `requirement_assessments` 1행(규칙 판정·사유·`basis`·양쪽 근거·Kev 분포·라벨·플래그), `qualification_checks`의 `reason_code`·`company_evidence`·`basis`([[04-DATABASE|04 DB]] §3.4). `kev-qs/v0.2` run의 `kev_output`에는 v0.2 질문 출력(24개씩 나눈 요청이면 응답 전부)도 들어간다([[03-AI-PIPELINE|03 AI 파이프라인]] §7).
+
+> [!note] 제안 — ADR-030
+> B24 규칙 엔진 출력의 `explanation`에는 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않는다. 화면에 보이는 설명은 분석 메타의 `explanation`(gateway `/explain` 문장 또는 템플릿 문장)이다([[03-AI-PIPELINE|03 AI 파이프라인]] §2.1, [[16-DECISIONS|ADR-030]]).
 
 ## 8. 검증
 

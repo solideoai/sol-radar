@@ -67,7 +67,7 @@ flowchart TD
  R -.->|BID 결정| P
 ```
 
-점선은 [[16-DECISIONS|ADR-021]] P1 화면이다. 구현과 검증 전에는 메뉴에 없다(§4). 조직도(`/org-chart`)는 핵심 업무가 아니어서 묶음 밖, 사이드바 맨 아래 고정 칸에 둔다(§4.1, 2026-10-18 사용자 결정).
+점선은 [[16-DECISIONS|ADR-021]] P1 화면이다. 구현과 검증 전에는 메뉴에 없다(§4). 업무 화면 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`는 조직 주소가 없는 경로이고 `web/app/(app)/(work)/` 경로 묶음에 둔다. 그 묶음의 레이아웃이 서버에서 현재 업무 조직을 정해 앱 틀을 그린다. 템플릿의 조직 주소 경로(`/{slug}/tasks`·`/{slug}/dashboard` 등)는 핵심 컷에서 그대로 두고 확장 컷(N1)에서 정리한다([[16-DECISIONS|ADR-029]] A6 D1·D30). 조직도(`/org-chart`)는 핵심 업무가 아니어서 묶음 밖, 사이드바 맨 아래 고정 칸에 둔다(§4.1, 2026-10-18 사용자 결정).
 
 ## 3. 디자인 토큰
 
@@ -84,10 +84,11 @@ flowchart TD
 | danger | `destructive` | NO-BID, NOT_SATISFIED, FAILED, 오류 |
 | demo | `demo` | `DEMO` 배지 전용. 다른 의미에 쓰지 않음 |
 | brand | `brand` | 선택 표시. 주요 버튼은 `primary`, 포커스 링은 `ring` |
-| info | 없음 | 진행 중(QUEUED·RUNNING), 안내 |
-| neutral | 없음 | NOT_ANALYZED, CANCELLED, 미확인 |
+| info | 없음 → `muted-foreground` + 회전 아이콘 | 진행 중(QUEUED·RUNNING), 안내 |
+| neutral | 없음 → `muted-foreground` | 분석 없음, CANCELLED, 미확인 |
+| 바탕·카드 | `background`(흰색)·`card` | 화면 바탕은 흰색이고 구역은 가는 선(`border`)으로 나눈다 |
 
-`info`·`neutral`, 사이드바 활성 배경 `brand-soft`(§4), 의미색의 연한 바탕 변형(`-soft`)은 `tokens.json`에 없다. 화면에 쓰기 전에 `tokens.json`에 더하거나 있는 토큰으로 바꾼다. 상태색은 글자·아이콘·테두리에만 쓰고 흰 바탕 위에 둔다(`$comment`). 텍스트 대비는 WCAG AA 4.5:1 이상을 목표로 하고, 구현 시 Playwright axe 검사로 확인한다(값을 바꾸면 검사도 다시).
+`info`·`neutral`, 사이드바 활성 배경 `brand-soft`, 의미색의 연한 바탕 변형(`-soft`)은 `tokens.json`에 없다. 새 토큰을 더하지 않고 있는 토큰으로 바꾼다: `info`·`neutral`은 `muted-foreground`, 사이드바 활성은 `sidebar-accent`, 표 hover는 `bg-muted/50`, 연한 바탕 채움은 쓰지 않는다. danger 값도 `destructive`를 따른다([[16-DECISIONS|ADR-029]] A6 D15). 상태색은 글자·아이콘·테두리에만 쓰고 흰 바탕 위에 둔다(`$comment`). 텍스트 대비는 WCAG AA 4.5:1 이상을 목표로 하고, 구현 시 Playwright axe 검사로 확인한다(값을 바꾸면 검사도 다시).
 
 ### 3.2 상태 표기 (아이콘 + 텍스트 병기)
 
@@ -100,7 +101,7 @@ flowchart TD
 | 자격 NEEDS_REVIEW | `확인 필요` | `help-circle` | warning |
 | 자격 NOT_SATISFIED | `미충족` | `x-circle` | danger |
 | 자격 NEEDS_REVIEW, 사유 `STAGE_NOT_APPLICABLE` | `확인 필요` · 사유 `해당 없음` | `help-circle` | warning |
-| 분석 NOT_ANALYZED | `미분석` | `circle-dashed` | neutral |
+| 분석 없음(`latestAnalysis=null`) | `미분석` | `circle-dashed` | neutral |
 | 분석 QUEUED / RUNNING | `대기 중` / `분석 중` | `loader` (회전) | info |
 | 분석 COMPLETED | `완료` | `check` | success |
 | 분석 PARTIAL | `부분 완료 (규칙만)` | `alert-triangle` | warning |
@@ -113,7 +114,7 @@ flowchart TD
 
 ### 3.3 글자·간격·형태
 
-글꼴(`fonts`)·글자 눈금(`typography`, `type-<이름>` 클래스)·모서리(`radius`)는 `tokens.json`이 정본이다. 로그인 뒤 화면은 `title`·`heading`·`body`·`label`·`caption` 눈금만 쓴다(`$comment`). 식별자·금액은 `mono` 글꼴이다.
+글꼴(`fonts`)·글자 눈금(`typography`, `type-<이름>` 클래스)·모서리(`radius`)는 `tokens.json`이 정본이다. 로그인 뒤 화면은 `title`·`heading`·`body`·`label`·`caption` 눈금만 쓴다(`$comment`). 화면 제목(h1)은 `type-title`(30/36), 구역 제목은 `type-heading`, 상세의 큰 점수(94 등)도 새 눈금 없이 `type-title` + `tabular-nums`다([[16-DECISIONS|ADR-029]] A6 D14·D15). 식별자·금액은 `mono` 글꼴이다.
 
 | 항목 | 규칙 |
 |---|---|
@@ -122,14 +123,17 @@ flowchart TD
 | 표 | 행 높이 44, 헤더 고정, 숫자 열 우측 정렬, 홀짝 배경 없음(hover만) |
 | 애니메이션 | 150ms ease-out. `prefers-reduced-motion`이면 회전 아이콘 제외 전부 끔 |
 
+> [!note] 제안 — ADR-030
+> B25 `/dashboard` 본문(`AppPage` 안)만 글자 눈금을 +3px 키운다([[16-DECISIONS|ADR-030]]). body 14→17, label 13→16, caption 12→15, heading 16→19, title 30→33, 줄 높이도 각각 +3px이고 굵기·자간은 그대로다. 사이드바·Topbar·다른 화면은 그대로다. 값의 정본은 `design/tokens.json`의 대시보드 범위 변형이고 `pnpm tokens`가 범위 CSS를 만든다. design-system 스킬의 디자인 규칙 3번("같은 역할의 글자는 어느 화면에서나 같은 크기")의 예외가 된다. 사용자 선택을 세션 sol-radar-54가 전달했다(2026-10-19). 구현은 C6 B단계다.
+
 ## 4. 레이아웃 그리드
 
 ```text
 ┌─ Topbar ──────────────────────────────────────────────────────────────────────────────────┐
-│ SOL RADAR [DEMO] 솔리데오 │ 실행 모드: mock │ AI: mock │ 수집 12분 전 ● │ 🔔 3 │ 사용자 ▾ │
+│ SOL RADAR 솔리데오 │ [DEMO] 실행 모드: mock │ AI: mock │ 수집 12분 전 ● │ 🔔 3 │ 사용자 ▾ │
 ├──────────┬────────────────────────────────────────────────────────────────────────────────┤
 │ Sidebar  │ Content (max 1440, padding 24, 12-col grid, gutter 24)                         │
-│ 240px    │                                                                                │
+│ 256px    │                                                                                │
 │▾ 업무    │  페이지 제목 ─────────────────────────── [주요 액션]                           │
 ││대시보드 │  ┌────────────────────────────────┬─────────────────────┐                      │
 ││입찰 공고│  │ 주 영역 8col                   │ 우측 레일 4col      │                      │
@@ -146,9 +150,9 @@ flowchart TD
 └──────────┴────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- 사이드바는 240px 고정, 접으면 64px(아이콘만). 묶음과 메뉴는 트리로 보인다(§4.1). 활성 항목은 `brand-soft` 배경 + 좌측 3px `brand` 바(트리 세로선 자리).
+- 사이드바는 256px 고정(템플릿 `Sidebar` 폭 `16rem`, [[16-DECISIONS|ADR-029]] A6 D15). 핵심 컷 앱 셸은 템플릿대로 접으면 통째로 숨는다. 아이콘만 남기는 64px 접힘은 N1 앱 셸(확장 컷)에서 만든다. 묶음과 메뉴는 트리로 보인다(§4.1). 활성 항목은 `sidebar-accent` 배경 + 좌측 3px `brand` 바(트리 세로선 자리).
 - 사이드바 묶음은 업무·AI 분석·입찰 관리·조직·시스템이다. 그 아래 선으로 나눈 맨 아래 고정 칸에 조직도(`/org-chart`)가 있다. 구현과 검증이 끝난 메뉴만 보인다(노출 조건 5개는 [[16-DECISIONS|ADR-021]]). 메뉴 숨김은 권한이 아니며, 서버가 라우트마다 권한을 따로 검사한다. 미인증은 기존 인증 정책, 미출시 경로 404, 출시 경로에 권한 없음 403이다. 해커톤에는 조건을 채운 업무·조직·시스템 메뉴가 보인다. 그림의 "수집 관리"는 데이터 수집 관리(`/admin/ingestion`, ADMIN만)다. 사용자 메뉴: 설정, 서비스 운영(`/ops`, 운영자만. `/ops` 분리는 해커톤 이후, [[16-DECISIONS|ADR-023]]), 로그아웃([[16-DECISIONS|ADR-021]]). Topbar의 회사 이름 "솔리데오"는 고정 표시이고 조직 전환 메뉴가 없다.
-- Topbar 우측 순서는 고정: `RunModeIndicator` → `AiModeIndicator` → `DataFreshnessIndicator` → `NotificationBell` → 사용자 메뉴. `DEMO` 배지는 로고 바로 옆, 실행 모드가 `fixture`·`mock`일 때만(`live`에서는 숨긴다. 행 단위 `DEMO` 배지는 모드와 무관하게 `isDemo=true` 레코드에 붙는다).
+- Topbar 우측 순서는 고정: `DemoBadge` → `RunModeIndicator` → `AiModeIndicator` → `DataFreshnessIndicator` → `NotificationBell` → 사용자 메뉴. `DEMO` 배지는 실행 모드 바로 앞에 두고, 실행 모드가 `fixture`·`mock`일 때만 보인다(`live`에서는 숨긴다). 템플릿 사이드바는 접으면 숨어서 로고 옆 배지가 사라지므로 Topbar에 둔다([[16-DECISIONS|ADR-029]] A6 D3). 행 단위 `DEMO` 배지는 모드와 무관하게 `isDemo=true` 레코드에 붙는다.
 - Topbar 지표(`RunModeIndicator`·`AiModeIndicator`·`DataFreshnessIndicator`)의 값·색·갱신 주기는 §8이 정본이다.
 - 1280px에서 `/bids` 표의 기본 열이 가로 스크롤 없이 모두 보여야 한다(열 목록은 §5.3).
 - 1920px 이상은 콘텐츠를 1440에 가두고 좌우 여백으로 처리한다.
@@ -161,6 +165,9 @@ flowchart TD
 - **메뉴**: 묶음 화살표 아래 1px 세로선(`border`) 안쪽으로 들여 쓴다. 아이콘 16px + 글자 14px. 링크이며 지금 화면이면 `aria-current="page"`다. 아이콘은 장식(`aria-hidden`)이고 이름은 항상 글자로 보인다.
 - **맨 아래 고정 칸**: 위쪽 1px 선으로 메뉴 영역과 나눈다. 묶음 없이 조직도 메뉴 하나다. 메뉴 영역이 길어지면 메뉴 영역만 스크롤되고 고정 칸 자리는 바뀌지 않는다. 사이드바 바닥에 사용자 메뉴가 있으면 그 바로 위다. `/org-chart`가 노출 조건을 채우기 전에는 고정 칸 전체를 숨긴다.
 - **접은 상태(64px)**: 묶음 줄을 숨기고 메뉴 아이콘만 세로로 놓는다. 묶음 사이와 고정 칸 위에 짧은 1px 선을 긋는다. 마우스를 올리거나 키보드 초점이 오면 메뉴 이름 툴팁이 뜨고, 링크에는 `aria-label`로 이름을 준다.
+
+> [!note] 제안 — ADR-030
+> B26 앱 틀 사이드바 전체(조직 표시·메뉴·묶음 줄·맨 아래 사용자 칸)의 글자를 모든 화면에서 +3px 키운다([[16-DECISIONS|ADR-030]]). 위 "아이콘 16px + 글자 14px"의 글자를 17px로 바꾸는 제안이고, 항목 높이(32px)가 늘 수 있다. 방식은 B25(§3.3 콜아웃)와 같은 `design/tokens.json` 범위 변형이다. 사용자 원문 "사이드 바 글씨도 작은데 같이 올려"(세션 sol-radar-54가 전달, 2026-10-19).
 
 | 묶음 | 메뉴 | 경로 | 아이콘 (lucide) | 해커톤 노출 |
 |---|---|---|---|---|
@@ -220,7 +227,7 @@ flowchart TD
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | ① 요약 카드 5개(한 줄): BID 권고 N건, 검토 대기 N건, 마감 임박(7일) N건, 수집 카드(마지막 수집 시각 + "적재 N · 격리 N", 값은 `DashboardSummary.dataFreshness.lastIngestSummary`), 분석 현황(공고별 최신 분석 1건 기준 완료·부분·실패 건수, 중복 실행 이중 집계 없음, 값은 `DashboardSummary.analyses.latestByStatus`). 다섯 번째 슬롯은 입찰 프로젝트([[16-DECISIONS\|ADR-021]] P1)가 들어오면 "진행 중 입찰 프로젝트"로 바꾼다. ② "BID 권고" 표(상위 5, 점수순). ③ "마감 임박" 표(마감순). ④ 최근 변경(revision 이벤트 10건) |
+| 섹션 | ① 요약 카드 5개(한 줄): BID 권고 N건(공고별 최신 분석 1건 기준), 검토 대기 N건(최신 분석이 있고 사람 결정이 없는 공고 수. 두 정의는 [[16-DECISIONS\|ADR-029]] A6 D10·D11), 마감 임박(7일) N건, 수집 카드(마지막 수집 시각 + "적재 N · 격리 N", 값은 `DashboardSummary.dataFreshness.lastIngestSummary`), 분석 현황(공고별 최신 분석 1건 기준 완료·부분·실패 건수, 중복 실행 이중 집계 없음, 값은 `DashboardSummary.analyses.latestByStatus`). 다섯 번째 슬롯은 입찰 프로젝트([[16-DECISIONS\|ADR-021]] P1)가 들어오면 "진행 중 입찰 프로젝트"로 바꾼다. ② "BID 권고" 표(상위 5, 점수순). ③ "마감 임박" 표(마감순). ④ 최근 변경(revision 이벤트 10건) |
 | 주요 액션 | 각 행 클릭 → `/bids/[id]`. "전체 보기" → `/bids?decision=…` 필터 적용 링크 |
 | 빈 상태 | 공고 0건: "아직 수집된 공고가 없습니다" + [수집 실행](ADMIN만) 또는 "관리자에게 요청". 권고 0건: "BID 권고 공고가 없습니다". 분석 0건: 분석 현황 카드에 0을 보이고 "아직 분석한 공고가 없습니다" |
 | 로딩 | 카드 5개 + 표 skeleton |
@@ -232,7 +239,7 @@ flowchart TD
 | 항목 | 내용 |
 |---|---|
 | 섹션 | ① `BidFilters`(상단 고정): 검색어, 단계(PLAN/PRE_SPEC/NOTICE), 상태(활성/취소), 발주기관, 예산 범위, 마감 기간, 점수 하한, 권고(BID/WATCH/NO-BID), 결정 여부. ② `BidTable` ③ 커서 페이지네이션 [더 보기] |
-| 기본 열 (1280px에서 전부 표시) | `DEMO`칩 · 단계 · 제목(2줄 말줄임) · 발주기관 · 예산 · 마감(D-n) · SOL Score · 권고 · 분석 상태 · 최종 결정 |
+| 기본 열 (1280px에서 전부 표시) | 출처(`DEMO`칩 또는 `나라장터`, 폭 80px) · 단계 · 제목(2줄 말줄임) · 발주기관 · 예산 · 마감(D-n) · SOL Score · 권고 · 분석 상태 · 최종 결정. 예산은 줄인 표기(`12억`·`21.6억`)이고 전체 금액은 `title`과 스크린리더 글자로 준다. 출처 열은 64px에서 `DEMO` 칩이 잘려 80px로 정했다(1280px·사이드바 펼침에서 제목 열 184px) ([[16-DECISIONS\|ADR-029]] A6 D19) |
 | 주요 액션 | 행 클릭 → 상세. 필터는 URL 쿼리에 동기화(공유 가능). 정렬: 점수·마감·수집일 |
 | 빈 상태 | 필터 결과 0건: "조건에 맞는 공고가 없습니다" + [필터 초기화]. 전체 0건: 대시보드와 동일 |
 | 로딩 | 표 10행 skeleton. 필터 변경 시 표만 갱신 |
@@ -250,7 +257,7 @@ flowchart TD
 | 로딩 | 상단 요약은 서버 렌더, 분석 결과는 polling 중 skeleton + `AnalysisStatus` |
 | 오류 | 분석 FAILED: 사유 + [재실행]. 403/404는 §5.1 |
 | 취소 공고 | 상단에 `취소됨` 배지 + "이 공고는 취소되었습니다. 기존 분석·결정 기록은 보존됩니다". 분석·결정 버튼 비활성(`FX-08`) |
-| 권한 | 읽기 모든 역할. VIEWER·ANALYST는 결정 패널이 읽기 전용 + "SALES 이상만 결정할 수 있습니다" |
+| 권한 | 읽기 모든 역할. VIEWER·ANALYST는 결정 패널이 읽기 전용 + "ADMIN·SALES 역할만 결정할 수 있습니다"(`sol_role`은 순서 관계가 아니라 허용 역할 목록이다, [[09-SECURITY\|09 보안]], [[16-DECISIONS\|ADR-029]] A6 D22) |
 
 ### 5.6 `/company`
 
@@ -266,8 +273,8 @@ flowchart TD
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | 목록(최신순): 유형 아이콘, 제목, 공고명, 시각, 읽음 여부. 필터: 전체/안 읽음/유형 |
-| 주요 액션 | 행 클릭 → 읽음 처리 + 공고 상세. [모두 읽음] |
+| 섹션 | 목록(최신순): 유형 아이콘, 제목, 공고명, 시각, 읽음 여부. 필터: 전체/안 읽음. 유형 필터는 핵심 컷에서 뺀다(API 없음, [[16-DECISIONS\|ADR-029]] A6 D7) |
+| 주요 액션 | 행 클릭 → 읽음 처리(`PATCH /notifications/:id/read`) + 공고 상세. [모두 읽음]은 핵심 컷에서 뺀다(API 없음, D7) |
 | 빈 상태 | "알림이 없습니다. 공고가 바뀌면 여기에 표시됩니다" |
 | 로딩/오류 | §5.1 |
 | 권한 | 본인 알림만. 해커톤 범위는 in-app만, 카카오는 mock([[13-NOTIFICATIONS\|13 알림]]) |
@@ -345,7 +352,7 @@ flowchart TD
 
 ```text
 ┌─ Topbar ──────────────────────────────────────────────────────────────────────────────┐
-│ SOL RADAR [DEMO]  솔리데오  실행 모드: mock  AI: mock  수집 12분 전 ●  🔔 3  김영업 ▾    │
+│ SOL RADAR  솔리데오  [DEMO] 실행 모드: mock  AI: mock  수집 12분 전 ●  🔔 3  김영업 ▾    │
 ├─ Sidebar ─┬─ Content ──────────────────────────────────────────────────────────────────┤
 │▾ 업무     │ ← 공고 목록                                                                │
 ││대시보드  │ [DEMO] [NOTICE] 세종특별자치시 차세대 행정정보시스템 고도화 (가상)            │
@@ -410,7 +417,7 @@ flowchart TD
 ## 7. 분석 상태와 polling
 
 ```text
-NOT_ANALYZED → QUEUED → RUNNING → COMPLETED
+(분석 없음) → QUEUED → RUNNING → COMPLETED
                                    → PARTIAL   (AI 불가, 규칙만)
                                    → FAILED    (규칙도 실패, 사유 코드)
 ```
@@ -418,21 +425,23 @@ NOT_ANALYZED → QUEUED → RUNNING → COMPLETED
 - [분석 실행] → `POST /bids/:id/analyses` 202 → `pollUrl`을 2초 간격으로 60초, 이후 5초 간격으로 최대 5분. 종료 상태(`COMPLETED|PARTIAL|FAILED`)에서 중단.
 - 5분 초과: "분석이 지연되고 있습니다" + [새로고침]. 자동 polling 중단(큐 적체 시 브라우저 부하 방지).
 - 상태 변화는 `aria-live="polite"` 영역으로 읽어 준다.
+- 상태 이름은 [[05-API-SPEC|05 API]]의 값(`QUEUED`·`RUNNING`·`COMPLETED`·`PARTIAL`·`FAILED`)을 쓴다. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`이고 화면 글자는 `미분석`이다([[16-DECISIONS|ADR-029]] A6 D17).
 - 분석 결과에는 항상 `createdAt`, `algorithmVersion`, 프로필 revision, Kev 모델 식별자(또는 `mock`)를 표시한다.
+- 분석 출처는 상세의 분석 요약 띠에 "분석 실행 모드: live|fixture|mock"과 "AI: local · {qwen 모델 식별자} · {kev 모델 식별자}"(또는 "AI: mock")로 보인다. Topbar의 "실행 모드"(앱의 지금 모드)와 구분하려고 "분석"을 붙인다. 모델 이름은 받은 식별자 그대로 쓰고(예 `Qwen/Qwen3.5-9B`·`jaredpalmer/kev-9b@v1.0`) 표시 이름 대응표는 만들지 않는다. S-LIVE에서는 Topbar `실행 모드: mock`과 `분석 실행 모드: live`가 함께 보이는 것이 정상이다([[16-DECISIONS|ADR-029]] A6 D12).
 
 ## 8. 데모 친화 요소
 
 | 요소 | 위치 | 동작 |
 |---|---|---|
-| `DEMO` 배지 | Topbar 로고 옆, 목록 각 행, 상세 제목 앞, 로그인 카드 | 행·상세는 `isDemo=true` 레코드에, Topbar·로그인 카드는 실행 모드가 `fixture`·`mock`일 때 표시. 툴팁은 09 문구 그대로: "이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다." |
-| `RunModeIndicator` | Topbar | `실행 모드: live \| fixture \| mock`([[16-DECISIONS\|ADR-020]]). `/health/ready` 응답의 실행 모드 값. `live`는 중립 색, `fixture`·`mock`은 warning 색 |
+| `DEMO` 배지 | Topbar 실행 모드 바로 앞(D3), 목록 각 행, 상세 제목 앞, 로그인 카드 | 행·상세는 `isDemo=true` 레코드에, Topbar·로그인 카드는 실행 모드가 `fixture`·`mock`일 때 표시. 툴팁은 09 문구 그대로: "이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다." |
+| `RunModeIndicator` | Topbar | `실행 모드: live \| fixture \| mock`([[16-DECISIONS\|ADR-020]]). web 서버가 env `SOL_RUN_MODE`(기본 `mock`)를 읽어 서버 렌더로 넘긴다. `/health/ready`에는 실행 모드 값이 없다([[10-DEPLOYMENT\|10 배포]], [[16-DECISIONS\|ADR-029]] A6 D2). `live`는 중립 색, `fixture`·`mock`은 warning 색 |
 | 가상 회사 프로필 배지 | 상세 상단 요약 | 모든 분석에 "가상 회사 프로필로 분석". 툴팁 "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다" |
 | 공고 출처 필터 | `/bids` 필터 바 | `origin=live\|demo\|all`(기본: `live` 모드 `live`, `fixture`·`mock` 모드 `demo`) |
-| `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable` 네 값만. `/health/ready` `checks.ai` 값([[14-OBSERVABILITY\|14 관측성]]), 30초 간격 갱신. gateway 불가면 `unavailable` + danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
+| `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable` 네 값만. `/health/ready` `checks.ai` 값([[14-OBSERVABILITY\|14 관측성]]), 30초 간격 갱신에 더해 창이 초점을 얻을 때와 분석 polling이 `PARTIAL`·`FAILED`로 끝날 때 바로 한 번 더 읽는다(S6 "1~2초 안에 `AI: unavailable`", [[16-DECISIONS\|ADR-029]] A6 D4). gateway 불가면 `unavailable` + danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
 | `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("12분 전"). 60분 초과면 warning 색 + "수집 지연" 텍스트, 수집 실패 시 danger + 관리자 링크 |
 | `AnalysisStatus` | 상세·목록 | §7 상태 + 실시간 polling |
 | AI 불가 배너 | 상세 상단, 대시보드 상단 | `analysis.status=PARTIAL` 또는 `/health/ready` `status: degraded`일 때. 문구는 09 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" + `recommendationBasis: RULES_ONLY` |
-| Kev 섹션 제목·고지 | Kev 섹션 | 섹션 이름은 "Kev 참고 지표", 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" Kev 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSetVersion`으로 치환. 둘 다 생략 금지 |
+| Kev 섹션 제목·고지 | Kev 섹션 | 섹션 이름은 "Kev 참고 지표"이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"(03·05·08·09의 영역 이름)를 함께 보인다([[16-DECISIONS\|ADR-029]] A6 D13). 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" Kev 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSetVersion`으로 치환. 둘 다 생략 금지 |
 | 변경 diff | 상세 단계 이력 → revision 클릭 | 예산·마감·자격·첨부 변경 전/후 나란히(`FX-06`, `FX-07`) |
 
 ## 9. 컴포넌트
@@ -487,11 +496,11 @@ NOT_ANALYZED → QUEUED → RUNNING → COMPLETED
 | `empty` | 빈 상태 (§5) | `bids-list`(필터 0건), `notifications`, `admin-ingestion`(실행 이력 0건) |
 | `loading` | skeleton | `bid-detail`(분석 polling 중) |
 | `error` | 오류 화면 + `requestId` | `bid-detail` |
-| `forbidden` | 403/404 | `admin-ingestion`(VIEWER), `bid-detail`(`org-02`), `settings-org`(VIEWER) |
+| `forbidden` | 403/404 | `admin-ingestion`(VIEWER), `settings-org`(VIEWER) |
 | `partial` | AI 불가 배너 + `RULES_ONLY` | `bid-detail`(`FX-01`), `dashboard` |
 | `demo-badge` | `DEMO` 배지·툴팁 클로즈업 | `bids-list`, `login` |
 
-`admin-ingestion`·`people`·`org-chart`·`settings-org`는 확장 컷 화면이라 노출된 뒤에만 찍는다([[16-DECISIONS|ADR-023]]). `/ops`는 해커톤 이후라 찍지 않는다.
+S7(`org-02`)의 화면 증거는 `forbidden`이 아니다. 공고는 공용이라 `org-02`의 상세는 `200`이고 분석·자격·검토가 비어 보인다. 그래서 `bid-detail`(`org-02`)의 "분석 없음" 상태를 `loaded`로 찍고, `GET /api/v1/bids/{FX-01}/qualification-checks`의 `404` 응답을 함께 캡처한다([[16-DECISIONS|ADR-029]] A6 D18). `admin-ingestion`·`people`·`org-chart`·`settings-org`는 확장 컷 화면이라 노출된 뒤에만 찍는다([[16-DECISIONS|ADR-023]]). `/ops`는 해커톤 이후라 찍지 않는다.
 
 예: `20261020-phase3-bid-detail-partial-1440.png`. 저장 위치와 목록은 [[11-TESTING|11 테스트]] §6.
 

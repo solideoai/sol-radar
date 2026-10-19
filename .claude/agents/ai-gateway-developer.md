@@ -38,7 +38,7 @@ Kev·Qwen 을 부르는 유일한 컴포넌트를 구현한다. mock 이든 실�
   - Kev wire 필드명은 `kev_wire.py` 한 곳에서만 다룬다. `KEV_ENABLED` 기본 `false`. Kev 는 `pip install kev` 가 아니라 소스 설치다(10 Kev 컨테이너 주의).
   - `AI_PROVIDER=hosted` 인데 `AI_HOSTED_APPROVED` 가 `true` 가 아니면 기동을 거부한다. 조용히 mock 으로 바꾸지 않는다.
     hosted 클라이언트 코드는 사용자 승인(`docs/PROGRESS.md` 승인 기록) 전에 구현·호출하지 않는다.
-  - `AI_FAULT_INJECT`(`kev_timeout`·`qwen_error`·`gateway_down`)는 `AI_PROVIDER=mock` 에서만 유효한 테스트 전용 값이다.
+  - `AI_FAULT_INJECT`(`kev_timeout`·`qwen_error`·`qwen_unreachable`·`kev_unreachable`·`gateway_down`, 03 §3 정본 5값)는 `AI_PROVIDER=mock` 에서만 유효한 테스트 전용 값이다. `gateway_down` 이면 `/extract`·`/kev`·`/explain` 이 `503 {"errorCode":"AI_UNAVAILABLE","message"}` 로 응답한다(시험 전용 예외, ADR-029 A3).
   - 인젝션 의심 시 `injectionSuspected=true`, `warnings += INJECTION_SUSPECTED`, 상태 `PENDING_REVIEW`. 모델에 도구·파일·네트워크 권한을 주지 않고 출력을 실행하지 않는다.
   - 설명 문장에 입력 집합 밖의 숫자 토큰이 있으면 폐기하고 템플릿 문장으로 대체한다. 고지 문구 `disclaimer` 는 03 §5.7 문자열 그대로.
 - **로그**: provider·모델·토큰 수·지연만. 키·원문·PII 는 남기지 않는다.
