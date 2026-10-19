@@ -1,54 +1,69 @@
-C6 B단계(Task 12, B3) 검증 증거 — 로그인 뒤 E2E·axe·1440/1280 스크린샷 (fix round 1(b) 재실행)
-브랜치: c6/screens 72905e0(fix round 1(a): D1 툴팁 랜드마크·E1 근거 위치 표시·E2E 단언 보강) + 이 커밋의 증거
+C6 B단계(Task 12, B3) 검증 증거 — 최종 실행(final run)
+브랜치: c6/screens 386d266(C6 최종 수정: 커서 org/user·issuedAt, POST 본문 16KB 상한, 알림 링크 정규화, 업무 틀 가벼운 상단바 읽기,
+  대시보드 BID 카드 = 표 정의, 로그인·초대·가입 보완 뒤 첫 화면 /dashboard, 템플릿 e2e-auth 기대값 갱신) + 이 커밋의 증거
 작업 폴더: sol-radar-worktrees/c6-screens
-실행 환경: 공용 로컬 Supabase 127.0.0.1:54321(e8·3e 가 잡아 준 단독 사용 창. 000016·000017(C7)이 이미 적용된 상태,
-  이 브랜치에서는 마이그레이션 명령을 돌리지 않았다), 격리 Compose 프로젝트 sol-radar-c6e2e
-  (redis 16480 · minio 19100 · qdrant 16433 · ai-gateway mock 18100 · worker), 웹 next start :3200(Playwright webServer),
-  SOL_RUN_MODE=mock, AI_PROVIDER=mock. 유료 API 호출 없음.
-  worker·gateway 이미지는 1차 실행(약 1시간 전)에 이 worktree 로 만든 것을 다시 썼다(--no-build). Docker 디스크가 차서
-  다시 빌드하면 ENOSPC 였다. 그 뒤 web/server·web/worker·services/ai·lockfile 은 바뀌지 않았다(git diff bf47de9..72905e0 확인).
-  웹 빌드(.next)는 72905e0 의 제품 코드보다 나중(02:16:53)에 pnpm verify 가 만든 것이다.
+실행 환경: 공용 로컬 Supabase 127.0.0.1:54321(e8·3e 가 잡아 준 단독 사용 창. 000016·000017(C7) 적용 상태, 이 브랜치에서는
+  마이그레이션 명령을 돌리지 않았다), 격리 Compose 프로젝트 sol-radar-c6e2e(redis 16480 · minio 19100 · qdrant 16433 ·
+  ai-gateway mock 18100 · worker), 웹 next start :3200(Playwright webServer), SOL_RUN_MODE=mock, AI_PROVIDER=mock. 유료 API 호출 없음.
+  Compose 다시 빌드는 Docker 디스크가 차서 ERR_PNPM_ENOSPC(worker pnpm install)였다. 다른 세션 이미지·캐시는 지우지 않고,
+  이 worktree 로 만든 기존 이미지(sol-radar-c6e2e-worker·-ai-gateway)를 --no-build 로 띄웠다.
+  그 뒤 web/worker·services/ai·web/server/analysis·web/server/ingestion·web/server/supabase·supabase·infra·web/package.json·
+  web/pnpm-lock.yaml 은 바뀌지 않았다(git diff 00254e8..386d266, worker 는 server/bids 를 부르지 않는다).
+  웹은 슬롯으로 다시 빌드했다: pnpm -C web build 03:21:16~03:21:22 KST, exit 0(Compiled successfully).
+  웹 env(API_CURSOR_SECRET 48자 임의·REDIS_URL·AI_GATEWAY_URL·MINIO_ENDPOINT·SOL_RUN_MODE=mock)는 C6·템플릿 두 실행의
+  webServer 에 같은 셸 env 로 들어갔다.
 무거운 명령은 모두 공용 verify-slot.sh 로 감쌌다. 시간 초과로 끊긴 실행은 없다.
 비밀 값 없음.
 
-1) pnpm -C web test:e2e:work (전체: work-guard + 읽기 2폭 + 쓰기)
-  시작 2026-10-20 02:23:16 KST
-  끝   2026-10-20 02:24:08 KST
+1) pnpm -C web test:e2e:work (C6: work-guard + 읽기 1440·1280 + 쓰기)
+  시작 2026-10-20 03:21:34 KST
+  끝   2026-10-20 03:22:41 KST
   globalSetup: demo:reset → mock 확인 → worker Supabase 로컬 가드(L7) → demo:preanalyze 18/18
-  요약: 33 passed (51.0s), 실패·건너뜀 0
+  요약: 33 passed (1.1m), 실패·건너뜀 0
   exit code: 0
   globalTeardown: axe 보고 합치기 → 기준선 복구(demo:reset → demo:preanalyze 18/18). 끝난 뒤 service role 로 다시 셈:
     score_runs COMPLETED 18, FX-02 run 0, notifications 0, bid_reviews 2, 데모 공고 19건 모두 OPEN
 
 2) axe (docs/evidence/phase-3/axe-report.json, axe-core 4.14.0)
-  totals: scans 22, violations 0, nodes 0
-  스캔마다 command("pnpm -C web test:e2e:work")와 scannedAt 을 남겼다.
+  totals: scans 22, violations 0, nodes 0. 스캔마다 command("pnpm -C web test:e2e:work")와 scannedAt.
 
-3) pnpm verify (fix round 1(a), 같은 코드)
-  시작 2026-10-20 02:13:28 KST
-  끝   2026-10-20 02:19:12 KST
-  루트 node --test: tests 673, pass 673, fail 0
-  web vitest: Test Files 177 passed (177), Tests 5412 passed (5412)
-  lodestar: 2 rules passed, 0 errors, 0 warnings
-  next build: Compiled successfully
-  services/ai pytest: 898 passed, 1 warning
-  exit code: 0
-  남은 경고: StarletteDeprecationWarning(httpx 와 starlette.testclient). pytest 경고 1건.
+3) 템플릿 로그인 E2E pnpm -C web test:e2e:auth (playwright.auth.config.ts, 시드 scripts/db-seed.mjs, 같은 웹 env)
+  3-a) 전체 실행
+    시작 2026-10-20 03:23:23 KST, 끝 03:23:55 KST
+    요약: 8 failed, 67 did not run, 50 passed (28.4s). exit code: 1
+    실패 8건은 모두 admin.spec.ts "운영자(정운영)" 묶음이다(아래 분류 B). chromium 이 실패해 chromium-write(67건)는 의존으로 돌지 않았다.
+    --grep-invert 로 B 를 빼고 다시 돌려 보았지만 Playwright 는 의존 프로젝트(chromium)에 grep 을 적용하지 않아 결과가 같았다
+    (03:26:50~03:27:20, 03:27:30~03:27:58 KST, 둘 다 8 failed · 67 did not run · 50 passed).
+  3-b) 쓰기 단계만: pnpm -C web test:e2e:auth --project=setup --project=chromium-write --no-deps --workers=1
+    (setup 이 새 로그인 상태를 만든 뒤 한 작업자로 차례로 돈다)
+    시작 2026-10-20 03:28:21 KST, 끝 03:29:57 KST
+    요약: 23 failed, 30 did not run, 19 passed (1.5m). exit code: 1
+    참고: 앞서 setup 없이(--project=chromium-write --no-deps, 03:24:30~03:25:05) 돌린 실행은 지난 로그인 상태를 다시 써서
+    team-settings-isolation 2건이 세션 없음(AuthSessionMissingError, /[slug]/settings → listIdentities)으로 더 실패했다.
+    새 로그인 상태로 돈 3-b 에서는 통과했으므로 그 2건은 실행 방법 탓이고 결함으로 세지 않는다.
+  분류(이 브랜치가 깬 것: 없음)
+    A. 이미 있던 것(main) — 21건. 시험 지원 코드 web/e2e-auth/support/account-admin.ts createOwnedTeam·createTeamWithMember 가
+       일반 사용자 토큰으로 POST /rest/v1/organizations 를 부른다. main 의 마이그레이션 20261019000008_team_creation_operator_only
+       (ADR-026, 팀 만들기는 운영자만)가 이를 RLS 로 막는다: 403 42501 "new row violates row-level security policy for table organizations".
+       이 브랜치는 그 지원 코드와 마이그레이션을 바꾸지 않았다(git diff a955a41..386d266).
+       해당: admin-status.write 2(:95·:184), invitation-mail.write 2, organization-state.write 3, paging.write 1(+1 미실행),
+       settings-account.write 7, signup-employment.write 1, team-settings-isolation.write 4, team-settings.write 1
+    B. 환경(공용 DB 상태) + 시험 가정 — admin.spec 8건 + admin-status.write :216 1건.
+       시험은 시드 계정의 가입일이 "오늘(서울)"이고 시드 운영자가 전체 목록 맨 위(가장 최근 가입)라고 가정한다(support/admin-page.ts 6행).
+       공용 DB 의 시드 계정은 2026-10-16 에 만들어졌고(db-seed 는 있는 계정을 보존한다), 데모 계정(.invalid)이 그 뒤에 가입했다.
+       화면은 받은 가입일(2026. 10. 16.)과 최근 가입 순(viewer@other.invalid 맨 위)을 그대로 보인다. 제품 결함이 아니다.
+    C. 이미 있던 것(main) — people.write(people-read-cases) 1건 + 그 파일의 뒤 14건 미실행.
+       people-fixtures.ts 152행은 시드 계정의 멤버십이 모두 솔리데오 밖 VIEWER 라고 가정한다. main 의 db-seed.mjs 312행은 시드 팀 소유자를
+       sol_role ADMIN 으로 넣는다(seed-owner·seed-team·owner·ADMIN). 두 main 파일이 서로 맞지 않는다. 이 브랜치는 둘 다 바꾸지 않았다.
+    그 밖의 미실행은 위 실패 뒤의 serial 묶음이다.
+  이 브랜치가 바꾼 템플릿 기대값(첫 화면 /dashboard)은 통과했다: auth.setup 5건(소유자·멤버가 /dashboard 의 h1 "대시보드"에
+    착지 — 이 화면은 공고 목록을 읽으므로 API_CURSOR_SECRET 등 웹 env 가 그 서버에 들어갔음을 함께 보인다), org-switcher,
+    signup-employment, invitation.write 등.
+  템플릿 실행 전후 공용 DB 수(service role, 계정·조직·멤버십·시드 팀 작업·초대·명부·분석·결정·알림·정지·운영자)를 비교했다.
+    auth 실행 뒤와 마지막 기준선 복구 뒤 모두 실행 전과 같다.
 
-4) pnpm -C web test:browser (fix round 1(a), 같은 코드)
-  시작 2026-10-20 02:13:07 KST
-  끝   2026-10-20 02:13:20 KST
-  Test Files 32 passed (32), Tests 429 passed (429)
-  exit code: 0
-  첫 실행(02:12:08)은 people 파일 1건(person-drawer 초점 복귀)이 15초 시간 초과로 실패했다. 이번 변경과 무관한 파일이고
-  그 파일만 3번 다시 돌려 10/10 이었다. 통과로 적지 않고 전체를 다시 돌린 결과가 위 줄이다.
-  남은 경고: Loaded vitest@4.1.11 and @vitest/browser@4.1.12. Running mixed versions is not supported. 의존성은 바꾸지 않았다.
-
-5) pnpm test:db (1차 실행, 그 뒤 마이그레이션·DB 시험 변경 없음)
-  시작 2026-10-20 01:26:54 KST
-  끝   2026-10-20 01:30:25 KST
-  tests 259, pass 259, fail 0
-  exit code: 0
+4) 이번 final run 에서 돌리지 않은 것: pnpm verify·pnpm test:db·pnpm -C web test:browser
+  (마지막 확인은 fix round 1(a) 72905e0 기준: verify exit 0 · test:browser 429 · test:db 259. 386d266 의 확인은 제어자 쪽 몫이다)
 
 찍지 않은 상태
   - partial(bid-detail FX-01·dashboard, AI 불가 + RULES_ONLY): S6·G6 은 Phase 5 라 이번 범위 밖이다.
@@ -57,12 +72,9 @@ C6 B단계(Task 12, B3) 검증 증거 — 로그인 뒤 E2E·axe·1440/1280 스�
 
 증거
   - 스크린샷 22장: docs/evidence/phase-3/e2e/20261020-phase3-*.png(화면 크기 그대로). 11개 상태 × 1440·1280.
-    bids-list-demo-badge, dashboard-loaded, bids-list-loaded, bids-list-empty, bid-detail-loaded, bid-detail-evidence-open,
-    bid-detail-org02-loaded, notifications-loaded, notifications-empty, bid-detail-loading, bid-detail-error
-  - S7: docs/evidence/phase-3/isolation-404.json(org-02 VIEWER, qualification-checks 404 NOT_FOUND 원문, 같은 계정 상세의
-    latestAnalysis·latestReview null, reviews [])
+  - S7: docs/evidence/phase-3/isolation-404.json(org-02 VIEWER, qualification-checks 404 원문, 같은 계정 상세의 받은 값)
 
 환경 메모
-  - 데모 계정 비밀번호는 쓰지 않았다. 로그인 상태는 로컬 service role 로 magiclink 토큰을 만들고 앱 /auth/confirm 으로 세션을 받았다.
-  - 마감 임박(7일) 카드 값은 seed 의 상대 마감일과 실행 시각에 따라 바뀌어 단언하지 않는다. FX-01 D-21 은 seed 와 시험이
-    같은 서울 날짜일 때 고정이라 단언한다.
+  - 데모 계정 비밀번호는 쓰지 않았다. C6 로그인 상태는 로컬 service role 로 magiclink 토큰을 만들고 앱 /auth/confirm 으로 받았다.
+    템플릿 E2E 는 그 설정대로 시드 비밀번호로 로그인한다(로컬 전용 값).
+  - 마감 임박(7일) 카드 값은 seed 의 상대 마감일과 실행 시각에 따라 바뀌어 단언하지 않는다.

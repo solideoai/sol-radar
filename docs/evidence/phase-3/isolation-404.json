@@ -1,7 +1,7 @@
 {
   "scenario": "S7 / G5 — org-02 VIEWER 가 org-01 분석이 있는 FX-01 의 자격 API 를 부른다",
   "account": "viewer@other.invalid (org-02, VIEWER)",
-  "capturedAt": "2026-10-19T17:23:31.363Z",
+  "capturedAt": "2026-10-19T18:21:53.978Z",
   "request": {
     "method": "GET",
     "path": "/api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163/qualification-checks",
@@ -10,8 +10,8 @@
   "response": {
     "status": 404,
     "contentType": "application/json",
-    "xRequestId": "ded10042-d85e-48da-93bb-b505e1ae5b17",
-    "rawBody": "{\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"분석을 찾을 수 없습니다\",\"details\":{\"resource\":\"analysis\"},\"requestId\":\"ded10042-d85e-48da-93bb-b505e1ae5b17\"}}"
+    "xRequestId": "eae44e71-7a5b-4d21-a4e8-ab27d2008c10",
+    "rawBody": "{\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"분석을 찾을 수 없습니다\",\"details\":{\"resource\":\"analysis\"},\"requestId\":\"eae44e71-7a5b-4d21-a4e8-ab27d2008c10\"}}"
   },
   "sameAccountDetail": {
     "path": "/api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
