@@ -6012,6 +6012,227 @@ describe("분석 마감 함수 — finish_score_run (C5-B 보안 후속)", () =>
       );
     });
   });
+
+  // ──────────────────────────────────────────────────────────────
+  // C7 인앱 알림 producer — finish_score_run 이 마감과 같은 트랜잭션에 ANALYSIS_COMPLETE outbox 를 쓴다(20261019000016).
+  // 근거: docs/13-NOTIFICATIONS.md(ANALYSIS_COMPLETE 는 score_run COMPLETED·PARTIAL, 수신자는 분석 요청자; 데이터 변경과 outbox 를
+  // 한 트랜잭션에; 두 단계 멱등), docs/04-DATABASE.md §1·§3.6. 키는 `<scoreRunId>:<requestedBy>:ANALYSIS_COMPLETE` 이고
+  // 같은 키가 이미 있으면 on conflict do nothing 으로 흡수한다. 요청자(requested_by)가 없는 run(seed·사전 분석)은 알릴 사람이 없어 쓰지 않는다.
+  // 거절(SCORE_RUN_NOT_FOUND·NOT_RUNNING·INVALID_STATUS)이면 아무것도 쓰지 않는다. outbox 는 화면 역할이 못 읽으므로 관리 작업으로 본다.
+  // ──────────────────────────────────────────────────────────────
+  describe("ANALYSIS_COMPLETE outbox (C7)", () => {
+    const keyOf = (run, requester = ADMIN) => `${run}:${requester}:ANALYSIS_COMPLETE`;
+    // 화면에서 들어온 분석 요청처럼 요청자를 채운다(C6 insert 는 requested_by 기본값 auth.uid()).
+    const setRequester = async (pglite, run, requester = ADMIN) => {
+      await asWorker(pglite);
+      await pglite.query("update public.score_runs set requested_by = $2 where id = $1", [
+        run,
+        requester,
+      ]);
+    };
+    const outboxOf = async (pglite) =>
+      rowsOf(
+        pglite,
+        `select org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key, status, attempts, next_attempt_at
+         from public.outbox_events where event_type = 'ANALYSIS_COMPLETE' order by created_at, id`,
+      );
+    const PARTIAL = {
+      status: "PARTIAL",
+      error_code: "AI_UNAVAILABLE",
+      review_flags: ["AI_UNAVAILABLE"],
+    };
+
+    it("요청자가 있는 run 을 COMPLETED 로 마감하면 ANALYSIS_COMPLETE outbox 1건을 org_id·aggregate·payload·키 그대로 PENDING 으로 쓴다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN));
+      assert.deepEqual(await outboxOf(pglite), [
+        {
+          org_id: ORG1,
+          aggregate_type: "score_run",
+          aggregate_id: RUN,
+          event_type: "ANALYSIS_COMPLETE",
+          payload: {
+            scoreRunId: RUN,
+            bidId: BID,
+            orgId: ORG1,
+            requestedBy: ADMIN,
+            status: "COMPLETED",
+          },
+          idempotency_key: keyOf(RUN),
+          status: "PENDING",
+          attempts: 0,
+          next_attempt_at: null,
+        },
+      ]);
+    });
+
+    it("PARTIAL 로 마감하면 payload.status 가 PARTIAL 이다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN, { result: PARTIAL }));
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => [row.payload.status, row.idempotency_key]),
+        [["PARTIAL", keyOf(RUN)]],
+      );
+    });
+
+    it("outbox 의 payload 키는 scoreRunId·bidId·orgId·requestedBy·status 다섯 개뿐이다(결과·점수·스냅샷을 싣지 않는다)", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN));
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => Object.keys(row.payload).toSorted()),
+        [["bidId", "orgId", "requestedBy", "scoreRunId", "status"]],
+      );
+    });
+
+    it("다른 조직의 run 을 마감하면 그 run 의 조직(org_id)으로 쓴다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, ORG2_RUN, { org: ORG2 });
+      await setRequester(pglite, ORG2_RUN, OPERATOR);
+      await finish(pglite, payloadOf(ORG2_RUN, { org: ORG2 }));
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => [row.org_id, row.payload.orgId, row.idempotency_key]),
+        [[ORG2, ORG2, keyOf(ORG2_RUN, OPERATOR)]],
+      );
+    });
+
+    it("요청자가 없는 run(requested_by null)은 마감해도 outbox 를 쓰지 않는다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      assert.deepEqual(await finish(pglite, payloadOf(RUN)), [{ id: RUN }]);
+      assert.deepEqual(await outboxOf(pglite), []);
+    });
+
+    for (const [label, prepare, payload, rejected] of [
+      [
+        "끝난 run(COMPLETED) — SCORE_RUN_NOT_RUNNING",
+        (pglite) => insertRun(pglite, RUN, { status: "COMPLETED" }),
+        () => payloadOf(RUN),
+        NOT_RUNNING,
+      ],
+      [
+        "QUEUED run — SCORE_RUN_NOT_RUNNING",
+        (pglite) => insertRun(pglite, RUN, { status: "QUEUED", startedAt: null }),
+        () => payloadOf(RUN),
+        NOT_RUNNING,
+      ],
+      [
+        "다른 시도 — SCORE_RUN_NOT_RUNNING",
+        (pglite) => insertRun(pglite, RUN, { startedAt: OTHER_ATTEMPT }),
+        () => payloadOf(RUN),
+        NOT_RUNNING,
+      ],
+      [
+        "마감 status FAILED — SCORE_RUN_INVALID_STATUS",
+        (pglite) => insertRun(pglite, RUN),
+        () => payloadOf(RUN, { result: { status: "FAILED", error_code: "ANALYSIS_JOB_FAILED" } }),
+        { message: "SCORE_RUN_INVALID_STATUS" },
+      ],
+      [
+        "다른 조직의 p.org_id — SCORE_RUN_NOT_FOUND",
+        (pglite) => insertRun(pglite, RUN),
+        () => payloadOf(RUN, { org: ORG2 }),
+        NOT_FOUND,
+      ],
+      [
+        "마감 열 check 위반(COMPLETED 인데 입력 스냅샷 없음) — 23514",
+        (pglite) => insertRun(pglite, RUN),
+        () => payloadOf(RUN, { result: { input_snapshot: null } }),
+        { code: "23514" },
+      ],
+    ]) {
+      it(`거절되면(${label}) 요청자가 있어도 outbox 를 쓰지 않는다`, async (t) => {
+        const pglite = await finishDb(t);
+        await prepare(pglite);
+        await setRequester(pglite, RUN);
+        await assert.rejects(finish(pglite, payload()), rejected);
+        assert.deepEqual(await outboxOf(pglite), []);
+      });
+    }
+
+    it("같은 시도로 두 번 부르면 두 번째는 거절되고 outbox 는 첫 마감의 1건 그대로다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN));
+      await assert.rejects(finish(pglite, payloadOf(RUN, { result: PARTIAL })), NOT_RUNNING);
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => [row.payload.status, row.idempotency_key]),
+        [["COMPLETED", keyOf(RUN)]],
+      );
+    });
+
+    it("같은 키의 outbox 행이 이미 있으면 마감은 성공하고 그 행이 그대로 1건이다(on conflict do nothing)", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await asWorker(pglite);
+      await pglite.query(
+        "insert into public.outbox_events (org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key) values ($1, 'score_run', $2, 'ANALYSIS_COMPLETE', $3, $4)",
+        [ORG1, RUN, JSON.stringify({ marker: "먼저 쓴 이벤트" }), keyOf(RUN)],
+      );
+      assert.deepEqual(await finish(pglite, payloadOf(RUN)), [{ id: RUN }]);
+      assert.equal((await resultOf(pglite, RUN)).status, "COMPLETED");
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => [row.payload, row.idempotency_key]),
+        [[{ marker: "먼저 쓴 이벤트" }, keyOf(RUN)]],
+      );
+    });
+
+    it("같은 조직의 다른 run 마감은 그 run 의 키로 따로 1건씩이다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await insertRun(pglite, SIBLING);
+      await setRequester(pglite, RUN);
+      await setRequester(pglite, SIBLING);
+      await finish(pglite, payloadOf(RUN));
+      await finish(pglite, payloadOf(SIBLING));
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => row.idempotency_key).toSorted(),
+        [keyOf(RUN), keyOf(SIBLING)].toSorted(),
+      );
+    });
+
+    // 알림 단계 멱등(docs/13): notifications.idempotency_key = outboxEventId + userId + channel 은 UNIQUE 다.
+    // worker 는 같은 키를 on conflict do nothing 으로 넣어 같은 이벤트를 다시 처리해도 알림을 늘리지 않는다.
+    it("notifications 에 같은 idempotency_key 를 두 번 on conflict do nothing 으로 넣으면 1건이고 처음 행이 그대로다", async (t) => {
+      const pglite = await finishDb(t);
+      await asWorker(pglite);
+      const key = `${RUN}:${ADMIN}:IN_APP`;
+      const insert = (title) =>
+        pglite.query(
+          `insert into public.notifications (org_id, user_id, type, channel, status, sent_at, idempotency_key, payload)
+           values ($1, $2, 'ANALYSIS_COMPLETE', 'IN_APP', 'SENT', now(), $3, $4)
+           on conflict (idempotency_key) do nothing returning id`,
+          [
+            ORG1,
+            ADMIN,
+            key,
+            JSON.stringify({
+              bidId: BID,
+              title,
+              message: "분석이 끝났습니다.",
+              link: `/bids/${BID}`,
+            }),
+          ],
+        );
+      assert.equal((await insert("처음")).rows.length, 1);
+      assert.equal((await insert("다시")).rows.length, 0);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select payload ->> 'title' as title from public.notifications where idempotency_key = $1",
+          [key],
+        ),
+        [{ title: "처음" }],
+      );
+    });
+  });
 });
 
 describe("마이그레이션 재실행", () => {

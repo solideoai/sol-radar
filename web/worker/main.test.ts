@@ -10,6 +10,7 @@ import {
   defaultWorkerDeps,
   errorCode,
   ingestWorkerRegistration,
+  notifyWorkerRegistration,
   startRegistered,
   startWorker,
   systemWorkerRegistration,
@@ -609,12 +610,25 @@ describe("기본 createWorker — 등록 1·2단계 (C3 계약 8-4)", () => {
 // 새 주입 지점 없이 실제 analysisWorkerRegistration·startAnalysisRuntime 을 돌린다. BullMQ Worker·Queue, ioredis,
 // supabase-js 의 fetch 만 가짜다. 위 묶음과 같은 이유로 vi.doMock + 동적 import 를 이 묶음에만 건다.
 // 실제 Redis·Supabase·AI gateway 는 부르지 않는다(전역 fetch 도 막는다).
+// C7 이 notify 등록을 끝에 더해 analysis 는 더 이상 마지막이 아니다. 예전 기대(analysis 가 마지막, 등록 3개)는
+// "새 worker 는 등록 함수 하나를 WORKER_REGISTRATIONS 에 더해 붙인다"(main.ts 8-4)는 규칙대로 notify 를 끝에 더한 목록으로 바뀌었다.
 describe("WORKER_REGISTRATIONS — analysis 등록 (C5-B)", () => {
-  it("system·ingest 를 그 순서로 두고 마지막에 analysisWorkerRegistration 을 담는다", () => {
+  it("system·ingest 를 그 순서로 두고 그 뒤에 analysisWorkerRegistration 을 담는다", () => {
+    expect(WORKER_REGISTRATIONS.slice(0, 3)).toStrictEqual([
+      systemWorkerRegistration,
+      ingestWorkerRegistration,
+      analysisWorkerRegistration,
+    ]);
+  });
+});
+
+describe("WORKER_REGISTRATIONS — notify 등록 (C7)", () => {
+  it("system·ingest·analysis 를 그 순서로 두고 마지막에 notifyWorkerRegistration 을 담는다", () => {
     expect(WORKER_REGISTRATIONS).toStrictEqual([
       systemWorkerRegistration,
       ingestWorkerRegistration,
       analysisWorkerRegistration,
+      notifyWorkerRegistration,
     ]);
   });
 });
@@ -642,6 +656,8 @@ const analysisFakes = {
   queues: [] as RecordedBullClient[],
   log: [] as string[],
   documentJobs: [] as unknown[],
+  /** service role 클라이언트가 보낸 PostgREST 요청의 "방법 경로"(C7 notify 등록이 outbox 를 읽는지 본다). */
+  requests: [] as string[],
 };
 
 const fakeConnection = (label: string): FakeConnection => {
@@ -669,6 +685,7 @@ const loadMainWithAnalysisFakes = async (pendingDocuments: object[] = []) => {
   analysisFakes.queues = [];
   analysisFakes.log = [];
   analysisFakes.documentJobs = [];
+  analysisFakes.requests = [];
   vi.doMock("bullmq", async (importOriginal) => {
     const original = await importOriginal<typeof import("bullmq")>();
     const record = (list: RecordedBullClient[], queueName: string, connection: unknown) => {
@@ -712,11 +729,14 @@ const loadMainWithAnalysisFakes = async (pendingDocuments: object[] = []) => {
   // service role 클라이언트는 진짜 supabase-js 로 만들되 fetch 만 빈 목록을 돌려주는 가짜로 바꾼다(복구 회차가 score_runs 를 읽는다).
   vi.doMock("@supabase/supabase-js", async (importOriginal) => {
     const original = await importOriginal<typeof import("@supabase/supabase-js")>();
-    const fakeFetch: typeof fetch = async (input) =>
-      new Response(
+    const fakeFetch: typeof fetch = async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      analysisFakes.requests.push(`${(init?.method ?? "GET").toUpperCase()} ${url.pathname}`);
+      return new Response(
         JSON.stringify(String(input).includes("/bid_documents?") ? pendingDocuments : []),
         { status: 200, headers: { "content-type": "application/json" } },
       );
+    };
     return {
       ...original,
       createClient: vi.fn((url: string, key: string) =>
@@ -925,6 +945,174 @@ describe("analysisWorkerRegistration (C5-B)", () => {
         ...(shared?.duplicates ?? []).map((copy) => `disconnect:${copy.label}`),
         `disconnect:${shared?.label}`,
       ]);
+    });
+  });
+});
+
+// ── C7: 인앱 알림 outbox 주기 처리 등록. 1단계(NOTIFY_POLL_INTERVAL_MS 검증, Redis 연결 전) → 2단계(service role 저장으로 startNotifier) ──
+// 알림 처리는 Redis 를 쓰지 않는다(Worker·Queue·연결 복제 없음). 위 C5-B 묶음과 같은 가짜(BullMQ·ioredis·supabase-js 의 fetch)를 쓴다.
+// 실제 Redis·Supabase 는 부르지 않는다(전역 fetch 도 막는다). 주기 처리 자체의 규칙은 notify-outbox.test.ts 가 본다.
+describe("notifyWorkerRegistration (C7)", () => {
+  const NOTIFY_KEY = "NOTIFY_POLL_INTERVAL_MS";
+  const OUTBOX_READ = "GET /rest/v1/outbox_events";
+  const opened: Closable[] = [];
+  const outboxReads = () => analysisFakes.requests.filter((request) => request === OUTBOX_READ);
+
+  beforeEach(() => {
+    for (const [key, value] of Object.entries(analysisEnv)) vi.stubEnv(key, value);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("시험은 네트워크에 붙지 않는다");
+      }),
+    );
+    // 복구·알림 회차의 로그를 숨긴다.
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+  });
+
+  afterEach(async () => {
+    for (const closable of opened.splice(0)) await closable.close();
+    vi.useRealTimers();
+    vi.doUnmock("bullmq");
+    vi.doUnmock("ioredis");
+    vi.doUnmock("@supabase/supabase-js");
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  describe("1단계(연결 전 설정 검증)", () => {
+    it.each([["SECRETVALUE-5150"], ["SECRETVALUE"]])(
+      "NOTIFY_POLL_INTERVAL_MS 가 %s 이면 그 키 이름만 담아 던진다(값은 싣지 않는다)",
+      async (value) => {
+        const main = await loadMainWithAnalysisFakes();
+        const error = await rejectionOf(
+          main.notifyWorkerRegistration({ ...analysisEnv, [NOTIFY_KEY]: value }),
+        );
+        const message = error instanceof Error ? error.message : "";
+        expect(message).toContain(NOTIFY_KEY);
+        expect(message).not.toContain("SECRETVALUE");
+      },
+    );
+
+    it("NOTIFY_POLL_INTERVAL_MS 가 범위 밖(499)이면 던진다", async () => {
+      const main = await loadMainWithAnalysisFakes();
+      await expect(
+        main.notifyWorkerRegistration({ ...analysisEnv, [NOTIFY_KEY]: "499" }),
+      ).rejects.toThrow(NOTIFY_KEY);
+    });
+
+    it("설정이 맞으면 Worker·Queue·연결을 만들지 않고 outbox 도 읽지 않은 채 2단계 시작 함수를 돌려준다", async () => {
+      const main = await loadMainWithAnalysisFakes();
+      const start = await main.notifyWorkerRegistration(analysisEnv);
+      expect(start).toBeTypeOf("function");
+      expect([
+        analysisFakes.redis,
+        analysisFakes.workers,
+        analysisFakes.queues,
+        outboxReads(),
+      ]).toEqual([[], [], [], []]);
+    });
+  });
+
+  describe("2단계(service role 저장으로 주기 처리 시작)", () => {
+    const startNotify = async (workerEnv: Record<string, string | undefined> = analysisEnv) => {
+      const main = await loadMainWithAnalysisFakes();
+      const shared = fakeConnection("공유");
+      const start = await main.notifyWorkerRegistration(workerEnv);
+      const closable = await start(shared as unknown as IORedis);
+      opened.push(closable);
+      return { shared, closable };
+    };
+
+    it("시작하면 service role 클라이언트로 outbox_events 를 읽는다(기동 때 한 번)", async () => {
+      await startNotify();
+      await vi.waitFor(() => {
+        expect(outboxReads()).toHaveLength(1);
+      });
+    });
+
+    it("공유 Redis 연결을 쓰지 않는다(duplicate 하지 않고 Worker·Queue 를 만들지 않는다)", async () => {
+      const { shared } = await startNotify();
+      await vi.waitFor(() => {
+        expect(outboxReads()).toHaveLength(1);
+      });
+      expect(shared.duplicate).not.toHaveBeenCalled();
+      expect([analysisFakes.workers, analysisFakes.queues]).toEqual([[], []]);
+    });
+
+    it("NOTIFY_POLL_INTERVAL_MS 마다 다시 읽고, close 뒤에는 다시 읽지 않는다", async () => {
+      // 주기 타이머만 가짜로 둔다. supabase-js 의 응답 읽기는 진짜 타이머·microtask 로 돈다.
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      const { closable } = await startNotify({ ...analysisEnv, [NOTIFY_KEY]: "500" });
+      await vi.waitFor(() => {
+        expect(outboxReads()).toHaveLength(1);
+      });
+      vi.advanceTimersByTime(500);
+      await vi.waitFor(() => {
+        expect(outboxReads()).toHaveLength(2);
+      });
+      await closable.close();
+      vi.advanceTimersByTime(5_000);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(outboxReads()).toHaveLength(2);
+    });
+
+    it("close 는 공유 연결을 disconnect·quit 하지 않는다", async () => {
+      const { shared, closable } = await startNotify();
+      await closable.close();
+      expect(shared.disconnect).not.toHaveBeenCalled();
+      expect(shared.quit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("기본 createWorker 와 함께", () => {
+    const startDefault = (
+      main: Awaited<ReturnType<typeof loadMainWithAnalysisFakes>>,
+      workerEnvRecord: Record<string, string | undefined>,
+    ) =>
+      main.startWorker(workerEnvRecord, {
+        ...main.defaultWorkerDeps,
+        checkReadiness: async () => undefined,
+        startHeartbeat: () => ({ stop: () => undefined }),
+      });
+
+    it("NOTIFY_POLL_INTERVAL_MS 가 틀리면 Redis 연결·Worker 를 만들기 전에 기동을 멈춘다", async () => {
+      const main = await loadMainWithAnalysisFakes();
+      await expect(
+        startDefault(main, { ...analysisEnv, [NOTIFY_KEY]: "SECRETVALUE" }),
+      ).rejects.toThrow(NOTIFY_KEY);
+      expect(analysisFakes.redis).toEqual([]);
+      expect(analysisFakes.workers).toEqual([]);
+    });
+
+    it("system·ingest·analysis Worker 와 함께 알림 outbox 주기 처리를 시작한다(Worker 는 더 만들지 않는다)", async () => {
+      const main = await loadMainWithAnalysisFakes();
+      opened.push(await startDefault(main, analysisEnv));
+      await vi.waitFor(() => {
+        expect(outboxReads().length).toBeGreaterThan(0);
+      });
+      expect(analysisFakes.workers.map((worker) => worker.queueName).toSorted()).toEqual([
+        "analysis",
+        "ingest",
+        "system",
+      ]);
+    });
+
+    it("close 뒤에는 outbox_events 를 다시 읽지 않고 공유 연결은 한 번만 끊는다", async () => {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      const main = await loadMainWithAnalysisFakes();
+      const handle = await startDefault(main, { ...analysisEnv, [NOTIFY_KEY]: "500" });
+      await vi.waitFor(() => {
+        expect(outboxReads()).toHaveLength(1);
+      });
+      await handle.close();
+      vi.advanceTimersByTime(5_000);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(outboxReads()).toHaveLength(1);
+      const shared = analysisFakes.redis[0];
+      expect(shared?.disconnect).toHaveBeenCalledOnce();
     });
   });
 });
