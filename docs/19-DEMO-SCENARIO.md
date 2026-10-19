@@ -75,12 +75,12 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | `fixture` | fixture 20건 | 회사 GPU 추론 엔드포인트(HTTPS)의 Qwen3.5-9B·Kev-9B 실추론 | S0 기동 확인. 공공 API가 안 될 때의 대체 |
 | `live` | 실제 나라장터 공고 | 회사 GPU 추론 엔드포인트(HTTPS)의 Qwen3.5-9B·Kev-9B 실추론 | S0 기동 확인. S-LIVE용 사전 run(§3 4번) |
 
-- 화면 표시: 머리말 "실행 모드: mock", fixture 공고의 `DEMO` 배지, 분석 패널 "AI: mock" 또는 "AI: local · Qwen3.5-9B · Kev-9B v1.0", 모든 모드의 "가상 회사 프로필로 분석" 배지. 분석마다 그때의 모드가 기록되므로 모드를 바꿔도 지난 분석의 표시는 그대로다.
+- 화면 표시: 머리말 "실행 모드: mock", fixture 공고의 `DEMO` 배지, 상세의 분석 요약 띠 "분석 실행 모드: mock|fixture|live"와 "AI: mock" 또는 "AI: local · Qwen/Qwen3.5-9B · jaredpalmer/kev-9b@v1.0"(받은 모델 식별자 그대로, [[16-DECISIONS|ADR-029]] A6 D12), 모든 모드의 "가상 회사 프로필로 분석" 배지. 분석마다 그때의 모드가 기록되므로 모드를 바꿔도 지난 분석의 표시는 그대로다.
 - `fixture`·`live` 모드의 실모델 결과는 mock과 다를 수 있다. S3 "규칙이 Kev를 이긴다"는 mock Kev의 v0.1 `recommendation`(FX-03 BID 0.55)에 기대므로 `mock` 모드에서만 보장된다.
 - 장애 대체 순서는 `live` → `fixture` → `mock`이다. 모드 전환은 env(`SOL_RUN_MODE`)를 바꾸고 worker·ai-gateway를 재시작해서 한다. 자동으로 바뀌지 않고(`AI_FALLBACK_TO_MOCK` 기본 `false`, `live`에서는 켤 수 없다), 바꿨으면 청중에게 말한다.
 - 회사 GPU 추론 엔드포인트([[16-DECISIONS|ADR-025]])에 닿지 않으면 `live`·`fixture` 분석은 `PARTIAL`·`RULES_ONLY`로 끝난다. 숨기지 않고 S6처럼 보여 준다(§4 S6 엔드포인트 미접속).
 - S5의 "live 배치"는 fixture의 두 번째 배치(`batch:"live"`)이며 실행 모드 `live`와 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH`라 S5는 `fixture`·`mock` 모드에서만 된다.
-- **S-LIVE는 발표 중 모드 전환 없이 한다**([[16-DECISIONS|ADR-023]]). S0에서 `live` 모드로 실공고 1건을 수집·파싱·분석해 둔 run을, `mock` 모드로 돌아온 앱에서 `/bids?origin=all`로 연다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장되므로 분석 패널은 "run_mode: LIVE · AI: local · Qwen3.5-9B · Kev-9B v1.0"을 그대로 보인다. `pnpm demo:reset`은 `is_demo=true`만 지우므로 이 run은 남는다. 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]]) 4갈래 중 어느 것으로 시연하는지 §3 `run-modes.md`에 적고 발표에서 말한다. 녹화·fixture 결과를 live라고 말하지 않는다.
+- **S-LIVE는 발표 중 모드 전환 없이 한다**([[16-DECISIONS|ADR-023]]). S0에서 `live` 모드로 실공고 1건을 수집·파싱·분석해 둔 run을, `mock` 모드로 돌아온 앱에서 `/bids?origin=all`로 연다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장되므로 분석 요약 띠는 "분석 실행 모드: live"와 "AI: local · Qwen/Qwen3.5-9B · jaredpalmer/kev-9b@v1.0"을 그대로 보인다(머리말은 "실행 모드: mock"). `pnpm demo:reset`은 `is_demo=true`만 지우므로 이 run은 남는다. 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]]) 4갈래 중 어느 것으로 시연하는지 §3 `run-modes.md`에 적고 발표에서 말한다. 녹화·fixture 결과를 live라고 말하지 않는다.
 
 **live 공고가 데모 DB에 남는 경우** (2026-10-16)
 - `live` 모드로 수집한 실제 공고(`is_demo=false`)는 같은 DB에 남는다. `pnpm demo:reset`은 fixture 공고·데모 계정·프로필·사전 리뷰만 처음 상태로 되돌리고 live 공고와 그 분석은 지우지 않는다(실데이터를 시연 준비 때문에 잃지 않게 하려는 것).
@@ -97,7 +97,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 2. `docker compose -f infra/compose.yaml up -d --build`로 redis·minio·qdrant·ai-gateway·worker를 띄운다. DB 컨테이너는 없다(DB는 Supabase). web도 Compose 서비스가 아니라 호스트에서 `pnpm -C web start`로 띄운다([[10-DEPLOYMENT|10 배포]] 기동 절차 5). `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 확인한다. `checks.db`는 Supabase(Postgres) 연결이다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]].
 3. `pnpm demo:reset`으로 seed를 적용한다(Compose 서비스가 아니라 스크립트. service role 키로 Supabase 프로젝트에 조직·계정·구성원·프로필·fixture를 적재, 멱등). 출력 마지막 줄(§1)과 `--write-summary <경로>` JSON의 `ingestRun.summary`(SEED 배치, `ingest_runs` 행과 같다)가 `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}`인지 확인한다 (격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번). `/admin/ingestion` 화면(확장 컷)이 있으면 같은 값을 거기서도 본다.
 4. **세 모드 확인**: `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순서로 바꾸며 worker·ai-gateway를 재시작한다. 모드마다 기동 거부가 없는지, 머리말 "실행 모드"와 `GET /api/v1/admin/ai/status`(admin@soltech.invalid)의 `runMode`가 맞는지, `live`·`fixture`에서는 `qwen.healthy`·`kev.registryMatch`가 `true`인지 본다. `live`에서는 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)을 확인한다. 실패한 모드는 시연에서 빼고 기록한다. **`live`에 있는 동안 S-LIVE용 실공고 1건의 수집·파싱·분석(C8)을 실행하고 공고번호·`score_runs` id·상태(`COMPLETED`/`PARTIAL`)·외부 의존성 컷 규칙의 갈래를 `run-modes.md`에 적는다.** 마지막은 `mock`으로 두고 2의 `/health/ready`(`checks.ai:"mock"`)를 다시 확인한다. 결과는 `docs/evidence/demo-day/<일시>/run-modes.md`에 남긴다([[11-TESTING|11 테스트]] §5).
-5. `mock` 모드에서 **FX-02를 뺀 적재 공고 18건을 전부 미리 분석**해 둔다(FX-12는 격리라 공고가 없다). S2 대시보드의 BID 권고 3건(FX-01·FX-18·FX-06), 목록 상단 순서(94·82·78), 분석 현황 카드 "완료 18", [[14-OBSERVABILITY|14 관측성]] 지표 #2·#3이 이 사전 분석 건수에 기댄다. **FX-02는 `NOT_ANALYZED`로 남겨** S4에서 라이브 분석한다. FX-06·FX-07의 r1 분석도 이때 들어가고 S5에서 r2 재분석이 보인다.
+5. `mock` 모드에서 **FX-02를 뺀 적재 공고 18건을 전부 미리 분석**해 둔다(FX-12는 격리라 공고가 없다). S2 대시보드의 BID 권고 3건(FX-01·FX-18·FX-06), 목록 상단 순서(94·82·78), 분석 현황 카드 "완료 18", [[14-OBSERVABILITY|14 관측성]] 지표 #2·#3이 이 사전 분석 건수에 기댄다. **FX-02는 분석 없음(`latestAnalysis=null`, 화면 `미분석`)으로 남겨** S4에서 라이브 분석한다. FX-06·FX-07의 r1 분석도 이때 들어가고 S5에서 r2 재분석이 보인다. 사전 분석은 별도 명령 `pnpm demo:preanalyze`가 한다(대상 18건, `mock` 모드·gateway 필수, 18건 모두 `COMPLETED`, 순서는 Compose → `pnpm demo:reset` → 모드 확인 → `pnpm demo:preanalyze` → S2, [[10-DEPLOYMENT|10 배포]] 기동 절차 6번, [[16-DECISIONS|ADR-030]] B22). 실행은 사용자 확인 뒤다.
 6. 창 A(브라우저): `http://localhost:3000/auth/login` 화면에서 sales@soltech.invalid로 로그인한다(Supabase Auth). 창 B(터미널): viewer@other.invalid(`org-02`)의 Supabase access token을 받아 둔다. 비밀번호는 환경 변수 `DEMO_SEED_PASSWORD`에서 읽고 명령에 직접 쓰지 않는다.
 
    ```bash
@@ -136,17 +136,17 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 
 ### S4 라이브 분석과 사람 결정 (2:15~3:30)
 
-1. 목록에서 **FX-02** 클릭. 상태 `NOT_ANALYZED`.
-2. "분석 요청" 클릭 → `QUEUED → PROCESSING → COMPLETED` 전이가 10초 안에 보인다(mock). 응답은 `202` + `pollUrl`.
+1. 목록에서 **FX-02** 클릭. 상태 `미분석`(분석 없음).
+2. "분석 요청" 클릭 → `QUEUED → RUNNING → COMPLETED`(화면 `대기 중 → 분석 중 → 완료`) 전이가 10초 안에 보인다(mock). 응답은 `202` + `pollUrl`.
 3. 점수 게이지 72와 5개 요소 분해(값은 [[08-SCORING|08]] worked example B와 동일해야 한다). `missingFactors`가 있으면 표시된다.
 4. Kev 패널: BID 0.36 / WATCH 0.52 / NO_BID 0.12, 규칙 권고 WATCH와 일치. 말할 것: "점수 50~75 구간은 사람 검토."
-5. 결정 패널: 결정 `WATCH`, 사유 "요구기술 3개(Vue.js·SCORM·WebRTC) 미보유, 협력사 확보 후 재검토", 담당자 지정 → 저장.
-6. 보여야 하는 것: 결정 이력 1건(결정자·시각·사유), 알림 벨 `REVIEW_ASSIGNED` 1건.
+5. 결정 패널: 결정 `WATCH`, 사유 "요구기술 3개(Vue.js·SCORM·WebRTC) 미보유, 협력사 확보 후 재검토", 담당자에 발표자 자신(sales@soltech.invalid) 지정 → 저장. `REVIEW_ASSIGNED`는 담당자에게만 가므로 발표자를 담당자로 둔다.
+6. 보여야 하는 것: 결정 이력 1건(결정자·시각·사유), 알림 벨에 `REVIEW_ASSIGNED` 포함. 분석 요청자에게 가는 `ANALYSIS_COMPLETE`도 올 수 있어 벨은 1~2건이다([[16-DECISIONS|ADR-029]] A6 D5).
 
 ### S-LIVE 실제 공고 (3:30~4:15, ADR-023)
 
 1. `/bids` 필터 출처 `all`(또는 `?origin=all`). 실제 공고 1건(`DEMO` 배지 없음, 출처 `g2b-bid-notice`)을 연다. 공고번호는 S0 4번의 `run-modes.md`와 같아야 한다.
-2. 보여야 하는 것: 상단 요약에 실제 발주기관·예산·마감·원문 링크(실제 나라장터 URL), "가상 회사 프로필로 분석" 배지. 분석 패널에 `run_mode: LIVE`, "AI: local · Qwen3.5-9B · Kev-9B v1.0", 분석 시각. 자격 체크리스트는 3값 + 사유 코드(`NEEDS_REVIEW`가 많아도 그대로), 점수 분해 5행, Kev 참고 지표(`UNCALIBRATED`, 고지 문구), 근거 서랍에 실제 첨부 인용(페이지·문자 위치). 첨부를 못 읽었으면 `DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED` 배지를 그대로 보인다.
+2. 보여야 하는 것: 상단 요약에 실제 발주기관·예산·마감·원문 링크(실제 나라장터 URL), "가상 회사 프로필로 분석" 배지. 분석 요약 띠에 "분석 실행 모드: live", "AI: local · Qwen/Qwen3.5-9B · jaredpalmer/kev-9b@v1.0", 분석 시각(머리말은 "실행 모드: mock" 그대로). 자격 체크리스트는 3값 + 사유 코드(`NEEDS_REVIEW`가 많아도 그대로), 점수 분해 5행, Kev 참고 지표(`UNCALIBRATED`, 고지 문구), 근거 서랍에 실제 첨부 인용(페이지·문자 위치). 첨부를 못 읽었으면 `DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED` 배지를 그대로 보인다.
 3. 말할 것: "지금까지는 가상 공고였다. 이 건은 실제 공고를 회사가 제공한 GPU 추론 엔드포인트에서 추론한 결과다. 머리말은 mock이지만 이 분석은 live 모드에서 돌린 것이고 화면이 그 사실을 기록한다. 회사 프로필은 가상이다." 외부 의존성 컷 규칙으로 규칙만 `PARTIAL`이거나 fixture 실추론이거나 녹화면 그 말을 그대로 한다.
 4. 보이지 않으면: 녹화 영상(같은 입력·실행 로그 기반)으로 대체하고 "녹화"라고 말한다. 실시간 추론으로 포장하지 않는다.
 
@@ -184,7 +184,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 
 | 장면 | 실패 양상 | 대응 |
 |---|---|---|
-| S4 분석 | `PROCESSING`에서 멈춤 | 미리 분석된 FX-01·FX-03으로 점수·자격 설명을 이어 간다. 라이브 분석은 S6 재분석에서 다시 시도 |
+| S4 분석 | `RUNNING`(분석 중)에서 멈춤 | 미리 분석된 FX-01·FX-03으로 점수·자격 설명을 이어 간다. 라이브 분석은 S6 재분석에서 다시 시도 |
 | S4 저장 | 결정 저장 실패 | 오류 코드와 `requestId`를 그대로 보여 주고 "오류를 숨기지 않는 설계"로 설명. 백업 영상 해당 구간 |
 | S5 수집 | 변경이 감지되지 않음 | 생략하고 S6으로. Q&A에서 [[07-DATA-PIPELINE\|07]] 변경 감지 설계로 답 |
 | S6 장애 | `PARTIAL`이 아니라 `FAILED` | `FAILED` 상태와 재시도 버튼을 보여 주고 "상태를 그대로 노출"로 설명 |
@@ -216,7 +216,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [ ] 회사 GPU 추론 엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속 확인(`GET /v1/models`), 소요 시간을 `rehearsal-log.md`에 기록. 끝나면 `pnpm demo:reset`
 - [ ] live 리허설 호출 수가 공공 API 일일 한도(개발계정 서비스당 1,000건/일) 안인지 확인
 - [ ] 08 worked example 값과 S4 화면 값(72, 요소 분해, Kev 분포) 일치 확인
-- [ ] S-LIVE: `live` run 1건이 `mock` 모드 앱에서 `origin=all`로 열리고 분석 패널에 `run_mode: LIVE`·모델 이름이 보이는지, `pnpm demo:reset` 뒤에도 남는지 확인. 녹화 영상(같은 입력·실행 로그)을 따로 준비
+- [ ] S-LIVE: `live` run 1건이 `mock` 모드 앱에서 `origin=all`로 열리고 분석 요약 띠에 "분석 실행 모드: live"·모델 식별자가 보이는지, `pnpm demo:reset` 뒤에도 남는지 확인. 녹화 영상(같은 입력·실행 로그)을 따로 준비
 - [ ] 대체 경로 ①: 로컬 Supabase CLI 전환(`pnpm db:start` → `pnpm demo:reset` → web 재시작) 소요 시간 실측, `rehearsal-log.md`에 기록
 
 ## 솔리데오 직원·사진 준비 체크 (ADR-019)

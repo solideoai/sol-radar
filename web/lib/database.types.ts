@@ -1333,6 +1333,7 @@ export type Database = {
           id: string
           max_points: number
           missing: boolean
+          missing_reason: string | null
           normalized: number | null
           note: string | null
           org_id: string
@@ -1346,6 +1347,7 @@ export type Database = {
           id?: string
           max_points: number
           missing?: boolean
+          missing_reason?: string | null
           normalized?: number | null
           note?: string | null
           org_id: string
@@ -1359,6 +1361,7 @@ export type Database = {
           id?: string
           max_points?: number
           missing?: boolean
+          missing_reason?: string | null
           normalized?: number | null
           note?: string | null
           org_id?: string
@@ -1400,6 +1403,7 @@ export type Database = {
           injection_suspected: boolean
           input_snapshot: Json | null
           input_snapshot_hash: string | null
+          kev_assist: Json | null
           kev_calibration: string | null
           kev_model: string | null
           kev_output: Json | null
@@ -1437,6 +1441,7 @@ export type Database = {
           injection_suspected?: boolean
           input_snapshot?: Json | null
           input_snapshot_hash?: string | null
+          kev_assist?: Json | null
           kev_calibration?: string | null
           kev_model?: string | null
           kev_output?: Json | null
@@ -1474,6 +1479,7 @@ export type Database = {
           injection_suspected?: boolean
           input_snapshot?: Json | null
           input_snapshot_hash?: string | null
+          kev_assist?: Json | null
           kev_calibration?: string | null
           kev_model?: string | null
           kev_output?: Json | null
@@ -1745,6 +1751,10 @@ export type Database = {
       display_name_from_metadata: {
         Args: { meta: Json }
         Returns: string
+      }
+      ingest_save_revision: {
+        Args: { p: Json }
+        Returns: { bid_id: string; revision_id: string }[]
       }
       is_active_user: {
         Args: never

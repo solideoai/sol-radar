@@ -328,17 +328,17 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`memberships`|5|`org-01`: `admin@soltech.invalid` = `owner` + `ADMIN`, `sales@`·`analyst@`·`viewer@soltech.invalid` = `member` + 각 `sol_role`. `org-02`: `viewer@other.invalid` = `member` + `VIEWER`|
 |`company_profiles`|2|revision 1(초기), revision 2(기술·실적 추가). 데모에서 revision 차이를 보여 준다. 둘 다 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
 |`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재. `source=fixture`|
-|`bid_revisions`|20 + 정정 건수|정정·기한변경·취소 fixture는 `batch=LIVE` 수집에서 revision 2를 얻는다. 정확한 수는 07 표 기준|
+|`bid_revisions`|19 (`LIVE` 뒤 23)|seed 직후는 공고 19건의 r1. 정정·기한변경·취소 fixture(`FX-06`·`FX-07`·`FX-08`·`FX-10`)는 `batch=LIVE` 수집에서 revision 2를 얻어 23이 된다([[16-DECISIONS\|ADR-030]] B15)|
 |`bid_documents`|07 표 기준|첨부가 있는 fixture만(`download_status=OK`). 파싱 실패 케이스(`parse_status` `UNSUPPORTED` 또는 `FAILED`) 1건 이상 포함|
 |`bid_structured_requirements`|07 표 기준|API 구조화 자격 필드를 담은 fixture만|
 |`requirement_extractions`|20|`fixtures/extractions/FX-xx.json`(mock 추출). 인용 검증 실패 케이스 1건 이상 포함|
-|`score_runs` / `requirement_assessments`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 사전 분석을 돌려 채운다|
+|`score_runs` / `requirement_assessments`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 `pnpm demo:preanalyze`로 18건을 사전 분석해 채운다([[16-DECISIONS\|ADR-030]] B22)|
 |`eval_runs`|0|seed 대상이 아니다. `pnpm eval:publish`가 채운다|
 |`bid_reviews`|2|`FX-01` BID, `FX-03` NO-BID(사전 기록). `FX-02` WATCH는 데모 S4에서 라이브로 기록한다([[19-DEMO-SCENARIO\|19 데모 시나리오]])|
 |`departments` / `job_titles`|승인 fixture 기준|같은 팀명 합산·총 배정 200, 직급/직책 12개. 계정 seed 전에 적재. 상위 본부·그룹 행도 넣는다(`target_count` 없음, 배분 대상은 팀만, [[16-DECISIONS\|ADR-021]])|
 |`team_members`|200|남성 100·여성 100, 고유 세 글자 가상 이름·고유 정장 사진. 점수 계산 대상은 이 중 27명, 가용 20 FTE([[08-SCORING\|08 점수]])|
 |`team_member_scoring`|27|점수 계산 대상 27명의 직무·등급·스킬·가용성. 명부 JSON 한 파일에서 seed가 나눠 넣고, `team_members`와 같은 직원 ID로 잇는다(ADR-021)|
-|`assignments`|2|기간 충돌 데모용 1건 포함|
+|`assignments`|2|기간 충돌 데모용 1건 포함. 기존 사업에 투입된 가상 인력 7명은 이 표가 아니라 `team_member_scoring.availability`의 해당 기간 fte를 낮춰 표현한다(가용 창을 나누고 덧붙이지 않는다). 그래서 `FX-01`·`FX-02`·`FX-03` 기간의 가용 인력은 20 FTE다(main `3e181b7`, [[16-DECISIONS\|ADR-030]] B19)|
 |`notifications`|0|데모 중 이벤트로 생성|
 |`audit_logs`|seed 작업분|seed 자체도 `actor_id=null`, `action=SEED`로 남긴다|
 

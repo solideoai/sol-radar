@@ -1,27 +1,18 @@
-// demo/bid-notices.mjs — fixture 공고 SEED 배치를 Supabase 에 넣는다(공고·revision·첨부·수집 run·격리) + mock 추출.
+// demo/bid-notices.mjs — 데모 공고의 정리·fixture 읽기와 mock 추출 적재.
 //
-// seedBidNotices 가 "공고 적재 함수 하나"다(04 §6). C3 수집 파이프라인이 병합되면 demo-reset.mjs 는 이 함수 호출을
-// FixtureConnector 의 runIngest({ source: "fixture", batch: "SEED" }) 로 바꾸고, 돌려주는 모양
-// ({ bids: [{ fixtureId, bidId, revisionId, checksum }], quarantined, summary, ingestRunId }) 만 맞추면 된다.
-// 그때까지는 07 §6.4·15 §3 의 규칙(상대 날짜 → anchor 기준 KST 18:00, checksum = canonical JSON sha256)을
-// scripts/demo/plan.mjs 의 순수 함수로 직접 계산한다.
+// 공고 SEED 적재(공고·revision·첨부·outbox·수집 run·격리)는 C3 수집 도메인의 seedFixtureBids 가 한다(C3 6-5).
+// demo-reset.mjs 가 그것을 ingestBids 로 주입받아 부르고, 돌려받은 { bids, quarantined, summary, ingestRunId } 를 쓴다.
 //
-// seedRequirementExtractions 는 수집이 아니라 extract job 의 결과(mock)라 따로 둔다 — C3 가 바뀌어도 남는다.
+// seedRequirementExtractions 는 수집이 아니라 extract job 의 결과(mock)라 따로 둔다.
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { loadBidFixtures, validateBidFixtures } from "../bids/check.mjs";
-import {
-  extractionFileFor,
-  indexExtractionFiles,
-  planSeedBatch,
-  toBidRows,
-  toExtractionRow,
-  toIngestRows,
-} from "./plan.mjs";
+import { extractionFileFor, indexExtractionFiles, toExtractionRow } from "./plan.mjs";
 
 // ── fixture 읽기 ───────────────────────────────────────────────
 
 // fixtures/bids + manifest. 잘못된 fixture 는 조용히 건너뛰지 않고 멈춘다(07 §7).
+// 적재는 seedFixtureBids 가 같은 파일을 다시 읽어 한다. 여기서는 무엇이든 지우기 전에 fixture 가 맞는지 먼저 본다.
 export const loadDemoBidFixtures = async (root) => {
   const fixtures = await loadBidFixtures({ root });
   const result = validateBidFixtures(fixtures);
@@ -65,44 +56,21 @@ export const loadCompanyProfileFixture = async (root) => {
 // ── 적재 ───────────────────────────────────────────────────────
 
 // 데모 공고(is_demo=true)만 지운다. live 공고(is_demo=false)는 손대지 않는다(04 §6). 하위 표는 FK cascade.
-// fixture 출처의 수집 run 도 모두 데모 데이터라 함께 지운다(ingest_errors 는 cascade).
+// 공고 이벤트(outbox, 6-5 보충 2)는 FK 가 없어 먼저 지운다. id·멱등키가 결정적이라 지난 리허설의 이벤트가 남으면
+// 다음 SEED·LIVE 의 이벤트가 on conflict do nothing 에 막혀 변경 알림이 나오지 않는다. live 공고·검토 이벤트는 그대로 둔다.
+// fixture 출처의 수집 run 도 모두 데모 데이터라 함께 지운다(ingest_errors 는 cascade). 같은 jobKey 로 새 run 이 열린다.
 export const deleteDemoBids = async (client) => {
+  const demoBids = await client.select("bid_notices", {
+    columns: "id",
+    filters: { is_demo: true },
+  });
+  if (demoBids.length > 0)
+    await client.delete("outbox_events", {
+      aggregate_type: "bid_notice",
+      aggregate_id: { in: demoBids.map((bid) => bid.id) },
+    });
   await client.delete("bid_notices", { is_demo: true });
   await client.delete("ingest_runs", { source: "fixture" });
-};
-
-export const seedBidNotices = async (
-  client,
-  { fixtures, anchor, runMode, now = () => new Date() },
-) => {
-  const plan = planSeedBatch(fixtures, { anchor });
-  const { notices, revisions, documents } = toBidRows(plan);
-  await client.insert("bid_notices", notices);
-  await client.insert("bid_revisions", revisions);
-  await client.insert("bid_documents", documents);
-  const { run, errors } = toIngestRows({
-    summary: plan.summary,
-    quarantined: plan.quarantined,
-    fetchedAt: plan.fetchedAt,
-    finishedAt: now().toISOString(),
-    runMode,
-    order: fixtures.manifest.batches.SEED,
-    anchor: plan.fetchedAt,
-  });
-  await client.insert("ingest_runs", [run]);
-  await client.insert("ingest_errors", errors);
-  return {
-    bids: plan.created.map(({ fixtureId, bidId, revisionId, normalized }) => ({
-      fixtureId,
-      bidId,
-      revisionId,
-      noticeId: normalized.noticeId,
-      checksum: normalized.checksum,
-    })),
-    quarantined: plan.quarantined,
-    summary: plan.summary,
-    ingestRunId: run.id,
-  };
 };
 
 // 적재된 공고(r1)마다 mock 추출 한 행. 파일이 없는 공고는 오류다(19건 모두 파일이 있어야 한다, 07 §6.5).

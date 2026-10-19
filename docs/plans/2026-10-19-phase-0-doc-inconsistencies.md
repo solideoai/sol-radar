@@ -20,13 +20,13 @@ Phase 0 구현([[16-DECISIONS|16 ADR]] ADR-024 제안)을 하면서 정본 문�
 
 |#|내용|근거 위치|제안 (사람이 고른다)|결정 필요|구현 방식|
 |---|---|---|---|---|---|
-|1|`FX-13` 인용 검증 실패 결과가 문서마다 다르다. `CONFLICTED`와, `UNKNOWN` + `CITATION_FAILED`|07:375·399, 11:76·97 vs 03:771, 15:255|(a) `CONFLICTED`로 통일 (b) `UNKNOWN` + `CITATION_FAILED`로 통일. 03·15가 필드 상태 enum의 원천이라 (b)를 먼저 검토|예 (Phase 5 gateway 전)|fixture 추출 `FX-13`은 원문에 없는 인용을 그대로 담고 manifest tags에 `citation-mismatch-1`을 둔다. 결과 상태는 gateway가 정하므로 fixture에는 상태 이름이 없다|
-|2|`FX-05` 추출이 `PENDING_REVIEW`가 되는 근거가 03 §4.4 조건에 없다|07:375·399 (FX-05), 03 §4.4|(a) 03 §4.4에 "첨부 파싱 실패 → `PENDING_REVIEW`" 조건 추가 (b) 07·11에서 `PENDING_REVIEW` 표기를 `UNKNOWN`으로|예 (Phase 5 전)|`FX-05` 추출은 필드를 `UNKNOWN`으로 두고 `warnings`에 `ATTACHMENT_PARSE_FAILED:FX-05-rfp`를 적는다. `PENDING_REVIEW` 값은 쓰지 않았다|
-|3|`AI_FAULT_INJECT` 허용 값이 5개와 3개로 다르다|03:199 (5개) vs 에이전트 정의 `ai-gateway-developer`·`test-ai` (3개)|(a) 5개로 에이전트 정의 갱신 (b) 정본을 3개로 축소. 10·11도 5개를 쓰므로 (a)가 변경이 적다|예 (Phase 5 전)|Phase 0 gateway에는 `/extract`·`/kev`가 없어 장애 주입을 구현하지 않았다|
-|4|`KEV_ENABLED` 기본값. `false`와 demo `true`|ADR-012 행·에이전트 정의 vs 10:37|(a) mock에서도 `true`(mock adapter가 응답)로 정본 통일 (b) `false`로 바꾸고 10 표 수정|예|D6: mock 모드 `KEV_ENABLED=true`. `infra/run-modes.json`의 mock 규칙과 demo env 예시가 같다|
+|1|`FX-13` 인용 검증 실패 결과가 문서마다 다르다. `CONFLICTED`와, `UNKNOWN` + `CITATION_FAILED`|07:375·399, 11:76·97 vs 03:771, 15:255|(a) `CONFLICTED`로 통일 (b) `UNKNOWN` + `CITATION_FAILED`로 통일. 03·15가 필드 상태 enum의 원천이라 (b)를 먼저 검토|해결 — ADR-029 (A1, (b) 선택)|fixture 추출 `FX-13`은 원문에 없는 인용을 그대로 담고 manifest tags에 `citation-mismatch-1`을 둔다. 결과 상태는 gateway가 정하므로 fixture에는 상태 이름이 없다|
+|2|`FX-05` 추출이 `PENDING_REVIEW`가 되는 근거가 03 §4.4 조건에 없다|07:375·399 (FX-05), 03 §4.4|(a) 03 §4.4에 "첨부 파싱 실패 → `PENDING_REVIEW`" 조건 추가 (b) 07·11에서 `PENDING_REVIEW` 표기를 `UNKNOWN`으로|해결 — ADR-029 (A2, (a) 선택)|`FX-05` 추출은 필드를 `UNKNOWN`으로 두고 `warnings`에 `ATTACHMENT_PARSE_FAILED:FX-05-rfp`를 적는다. `PENDING_REVIEW` 값은 쓰지 않았다|
+|3|`AI_FAULT_INJECT` 허용 값이 5개와 3개로 다르다|03:199 (5개) vs 에이전트 정의 `ai-gateway-developer`·`test-ai` (3개)|(a) 5개로 에이전트 정의 갱신 (b) 정본을 3개로 축소. 10·11도 5개를 쓰므로 (a)가 변경이 적다|해결 — ADR-029 (A3, (a) 선택)|Phase 0 gateway에는 `/extract`·`/kev`가 없어 장애 주입을 구현하지 않았다|
+|4|`KEV_ENABLED` 기본값. `false`와 demo `true`|ADR-012 행·에이전트 정의 vs 10:37|(a) mock에서도 `true`(mock adapter가 응답)로 정본 통일 (b) `false`로 바꾸고 10 표 수정|해결 — ADR-029 (A5, 기본 `true`·세 모드 `false` 허용)|D6: mock 모드 `KEV_ENABLED=true`. `infra/run-modes.json`의 mock 규칙과 demo env 예시가 같다|
 |5|`G2B_*` 서비스키가 mock에서 필요한지|11:176 (S0 체크리스트) vs 10:27·53·81|`live`에서만 필수로 11 S0 문구 수정 (ADR-022와 맞춤)|아니오 (제안대로 정리)|D5: demo env 예시에 `G2B_*` 줄이 없고 `live`에서만 필수. Compose worker는 `${KEY:-}`로 넘긴다|
 |6|`infra-developer` 정의가 `production` 프로필·`kev-4b` 태그·`infra/nginx/`를 말한다|`.claude/agents/infra-developer.md` vs 10 (프로필 3단, Kev-9B `@v1.0`, reverse proxy 미결정)|에이전트 정의를 10에 맞춘다 (`production`·nginx 제거, 태그 `kev-1.0`/`kev-9b@v1.0`)|아니오 (정의 수정은 `.claude/` 담당)|Phase 0은 프로필을 쓰지 않는 단일 `compose.yaml`이고 nginx·production은 만들지 않았다|
-|7|`/health/ready`에 실행 모드 필드가 없다. 그런데 `RunModeIndicator`가 거기서 읽는다|05:43 vs 06:378|(a) 05 응답에 `runMode` 추가 (b) 06 표시기가 gateway `/health`나 다른 응답에서 읽도록 변경|예 (Phase 3 전)|web `/health/ready` 응답은 `status`·`checks`(`db`·`redis`·`storage`·`ai`)만 담는다. gateway `/health`가 `runMode`·`provider`·`kevEnabled`를 돌려준다|
+|7|`/health/ready`에 실행 모드 필드가 없다. 그런데 `RunModeIndicator`가 거기서 읽는다|05:43 vs 06:378|(a) 05 응답에 `runMode` 추가 (b) 06 표시기가 gateway `/health`나 다른 응답에서 읽도록 변경|해결 — ADR-029 A6(D2: web 서버가 env `SOL_RUN_MODE`를 읽는다)|web `/health/ready` 응답은 `status`·`checks`(`db`·`redis`·`storage`·`ai`)만 담는다. gateway `/health`가 `runMode`·`provider`·`kevEnabled`를 돌려준다|
 |8|`requirement_extractions` 20건|04:373|**해소**. 추출 fixture가 19건 + `FX-07` r1 = 20개라 04의 20과 맞는다 (Ruling 17)|아니오 (해소)|`FX-07.r01.json` 추가|
 |9|`FX-20` 배치. `LIVE`와 `SEED`|19:44 vs 07:382·418|07(`SEED`, 429 두 번 뒤 적재)을 따르고 19:44를 고친다|예 (19 수정)|D12: manifest에서 `SEED`, 검증기도 `SEED` 기준|
 |10|19 S3 "입찰공고" 필터 결과에 `PRE_SPEC`인 `FX-18`이 들어가고, 전체 분석 후에는 정렬 "`FX-01` > `FX-18` > `FX-06`"이 성립하지 않는다|19:128|S3 필터를 "권고 BID"로 바꾸고 정렬 문구를 실제 점수 순서로 맞춘다|예 (19 수정)|fixture는 `FX-18`을 `PRE_SPEC` 단계로 두고 08 식 82점으로 계산했다. 화면 필터는 Phase 3|
@@ -52,9 +52,9 @@ Phase 0 구현([[16-DECISIONS|16 ADR]] ADR-024 제안)을 하면서 정본 문�
 점수와 데모 장면에 영향이 있는 항목을 먼저 본다.
 
 1. 25번: S2 "BID 권고 3건"을 지킬지 "BID 4건"을 받아들일지. 지금은 fixture를 조정해 3건을 지켰다.
-2. 1·2·12번: Phase 5 gateway를 구현하기 전에 인용 실패·파싱 실패·hosted 미승인 처리를 정한다.
+2. 1·2·12번: Phase 5 gateway를 구현하기 전에 인용 실패·파싱 실패·hosted 미승인 처리를 정한다. 1·2번은 ADR-029로 해결했다. 12번의 구현 방식(기동 거부, 요청 단계 503 없음)은 ADR-030 B8로 채택됐다.
 3. 13·14·18번: Phase 4 골든이 확정하지만, 허용 오차(±1)를 정본에 적을지 정한다.
-4. 7번: Phase 3 화면 전에 실행 모드 표시기의 읽는 곳을 정한다.
+4. 7번: Phase 3 화면 전에 실행 모드 표시기의 읽는 곳을 정한다. ADR-029 A6 D2로 해결했다.
 
 ## 관련 문서
 

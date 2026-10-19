@@ -26,7 +26,7 @@ updated: 2026-10-19
 |ADR-009|설계 문서는 Obsidian vault로 관리. YAML frontmatter, 위키링크, `## 관련 문서`, 콜아웃 규약|채택|2026-10-16|사람 심사위원 열람성·그래프 뷰. AI 심사가 주장→근거 위치를 따라갈 수 있다 ([[00-README\|00 인덱스]])|
 |ADR-010|hosted 모델 API(공급자 미정) 호출은 사용자 명시 승인 후에만. 승인은 env `AI_HOSTED_APPROVED=true`로 표현. 기본 `false`|채택|2026-10-16|비용 발생. 승인 없는 과금 금지. `AI_PROVIDER=hosted`는 env로만 켜고 CI·테스트에서 금지 ([[03-AI-PIPELINE\|03 AI 파이프라인]] §3, [[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
 |ADR-011|요구조건 추출은 공고 **revision 단위**(조직 무관)로 1회 실행해 `requirement_extractions`에 저장·재사용. 자격 판정·점수·Kev는 **조직 × revision × 프로필 revision** 단위로 `score_runs`|채택|2026-10-16|추출은 공고 원문만 보므로 조직과 무관. 비용·지연 절감, 조직별 결과는 분리 ([[03-AI-PIPELINE\|03 AI 파이프라인]] §2, [[04-DATABASE\|04 DB]] §3.3·§3.4)|
-|ADR-012|Kev 입력은 어댑터가 만든 **영어 템플릿 state**만. 한국어 원문 전체를 Kev에 넣지 않는다. Kev는 `review_flags` 추가만 가능|채택 (효과 미검증, ADR-020으로 개정: 운영은 영어 템플릿 유지, 같은 구조의 한국어 템플릿 state는 평가 전용 `KEV_ALLOW_KO_STATE=true`에서만. 참고 지표 표시 허용. 한국어 운영 사용은 평가 결과로 재검토)|2026-10-16|모델 카드 `Languages: English`, 영어 외 언어는 잘 동작하지 않는다고 명시 (2026-10-16, https://github.com/jaredpalmer/kev/blob/1f04cfa/docs/model-cards/kev-4b.md). 변환 효과는 미검증이라 `KEV_ENABLED` 기본 `false`(현재 `infra/run-modes.json`은 세 모드 모두 `true`, ADR-024 D6) ([[03-AI-PIPELINE\|03 AI 파이프라인]] §5.6, [[09-SECURITY\|09 보안]])|
+|ADR-012|Kev 입력은 어댑터가 만든 **영어 템플릿 state**만. 한국어 원문 전체를 Kev에 넣지 않는다. Kev는 `review_flags` 추가만 가능|채택 (효과 미검증, ADR-020으로 개정: 운영은 영어 템플릿 유지, 같은 구조의 한국어 템플릿 state는 평가 전용 `KEV_ALLOW_KO_STATE=true`에서만. 참고 지표 표시 허용. 한국어 운영 사용은 평가 결과로 재검토)|2026-10-16|모델 카드 `Languages: English`, 영어 외 언어는 잘 동작하지 않는다고 명시 (2026-10-16, https://github.com/jaredpalmer/kev/blob/1f04cfa/docs/model-cards/kev-4b.md). 변환 효과는 미검증이라 처음에는 `KEV_ENABLED` 기본을 `false`로 정했다. 지금 기본은 `true`이고 세 실행 모드 모두 `false`를 허용한다(`infra/run-modes.json`, ADR-024 D6·ADR-029 A5) ([[03-AI-PIPELINE\|03 AI 파이프라인]] §5.6, [[09-SECURITY\|09 보안]])|
 |ADR-013|골든 시나리오는 `G1`~`G10`, 데모 장면은 `S0`~`S7` 번호 규약. 테스트·fixture·데모 문서가 같은 ID로 서로 참조|채택|2026-10-16|11·19·07 간 교차 참조를 ID로 고정해 심사 중 "어디서 검증했나"에 바로 답한다 ([[11-TESTING\|11 테스트]], [[19-DEMO-SCENARIO\|19 데모 시나리오]])|
 |ADR-014|fixture 날짜는 상대 표기(예: `+21d`), seed 시 KST 18:00 기준 절대값으로 변환|채택|2026-10-16|데모 날짜가 바뀌어도 마감 D-3·D-1 장면이 유지된다 ([[07-DATA-PIPELINE\|07 수집 파이프라인]])|
 |ADR-015|저장소 지침 우선순위: `docs/CLAUDE.md`와 설계 문서(00~20)가 출발 템플릿(agentic-boilerplate)의 `AGENTS.md`·`docs/boilerplate/`·`.claude/` 스킬보다 우선. 루트 `CLAUDE.md`가 `@docs/CLAUDE.md`를 먼저 불러온다|채택|2026-10-16|사용자 결정. 저장소가 Supabase·Expo 템플릿에서 시작했다. ADR-017 이후 템플릿의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>` 구조 규칙은 설계와 일치하므로 따른다. 여전히 따르지 않는 것: Expo(`mobile/`, 이미 삭제, ADR-007), Vercel·EAS 배포 전제(미결정, 아래 미결정 8번). 템플릿 견본 도메인 정리는 Phase 3 N1에서 한다(아래 ADR-024 D15) ([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
@@ -43,10 +43,12 @@ updated: 2026-10-19
 |ADR-026|팀(조직) 만들기는 서비스 운영자(`profiles.is_admin`)만 한다. 템플릿 "팀 만들기" 정책(authenticated 누구나)을 `is_admin()`으로 좁힌다(`20261019000008_team_creation_operator_only.sql`). 업무 조직 합류는 초대로만(ADR-018·021), 데모 조직 2개는 `pnpm demo:reset`이 service role로 만든다|채택 (2026-10-19 사용자 결정. 마이그레이션 main 병합 `48b20a5`)|2026-10-19|팀 만들기가 열려 있으면 가입만 한 사람이 자기 팀 ADMIN이 되어 운영 표를 읽는다. 상세는 아래 ADR-026|
 |ADR-027|Kev-9B LoRA 파인튜닝을 해커톤 안에서 비교 실험으로 하고(X6), 핵심 컷 일정을 2일 당긴다. 평가셋 v0.1(P0-9)·학습셋 번들(P0-11)을 확장 컷에서 X6로 올린다. F1·F2·F3은 회사가 실행하고(ADR-025), E4를 E1과 같은 test 분할에서 비교한다. 데모·S-LIVE 모델은 Kev-9B@v1.0 그대로, Qwen 파인튜닝은 범위 밖 그대로. Critical Path 각 작업 −2일(10-19 이전으로는 못 당김), 외부 의존성 컷 10-21 → 10-20 저녁, 기능 freeze 10-25 → 10-23, 최종 리허설 10-26 → 10-24, 제출 10-27 그대로|채택 (2026-10-19 사용자 결정, 구현 전)|2026-10-19|사용자 원문: "파인튜닝도 해야해서 일정 이틀씩 당겨야 해". 선택: Kev-9B LoRA만, 결과는 비교로 제출(목표 미달·회사 미실행이면 v1.0 유지). E4 서빙은 평가 전용 `kev.serve` + `/sol-radar/kev-lora/`, 사람 라벨은 사용자가 직접. [변경안](plans/2026-10-19-finetune-schedule-pull.md)|
 |ADR-028|해커톤 뒤 API·worker를 NestJS로 옮긴다: `/api/v1` Route Handler와 worker(BullMQ 소비자)를 NestJS 앱으로 옮기고 Next.js(`web/`)는 화면만 맡는다. Supabase(Postgres·RLS·Auth)·MinIO·Qdrant·Redis/BullMQ·AI gateway·Docker Compose는 그대로, Prisma·자체 JWT는 여전히 쓰지 않는다. 해커톤(제출 2026-10-27) 동안은 ADR-017 구조로 구현한다|채택 (2026-10-19 사용자 결정, 해커톤 뒤 착수)|2026-10-19|사용자 결정. 지금 옮기면 핵심 컷 일정이 깨져 해커톤 뒤로 미룬다. 상세는 아래 ADR-028|
+|ADR-029|Critical Path 1차 분담 중 사용자가 정한 계약·범위 7건(A1~A7): `FX-13` 인용 검증 실패 처리, `FX-05` `PENDING_REVIEW` 조건, `AI_FAULT_INJECT` 5값과 `gateway_down` 시험 전용 503, 정보화사업 수집 필터 확대, `KEV_ENABLED=false` 세 모드 허용(기본 `true`), C6 화면 스펙 D1~D30 추천안 일괄 승인, 목록 기본 상태 필터와 취소 공고 표시. 상세는 아래 ADR-029 상세|채택 (2026-10-19 사용자 결정)|2026-10-19|사용자 결정(2026-10-19, 조정 세션 sol-radar-e8 기록). [Phase 0 정본 불일치 목록](plans/2026-10-19-phase-0-doc-inconsistencies.md) #1(b)·#2(a)·#3(a)·#4·#7을 닫는다. 반영 문서 [[03-AI-PIPELINE\|03]]·[[05-API-SPEC\|05]]·[[06-UI-UX\|06]]·[[07-DATA-PIPELINE\|07]]·[[10-DEPLOYMENT\|10]]·[[11-TESTING\|11]]·[[19-DEMO-SCENARIO\|19]]·[[20-GLOSSARY\|20]]|
+|ADR-030|Critical Path 1차 분담 조정 세션(sol-radar-e8)이 레인 사이 계약으로 정한 26건(B1~B26): gateway 전송 실패·오류 분류, `KevResponse.errorCode`, fixtureId 형식, `/kev`·`/explain`·`/parse`·`/health` 형태, 기동 거부 조건, 추출 경고 코드, `seq`, 공고 상태 매핑, ingest run 상태, registry URL, data.go.kr 오류 봉투, 원자 저장 RPC, 인력 기간 배정 접기, 분석 요청 멱등·큐 계약, 멈춘 분석 복구, 사전 분석 명령, 알림 링크 검증, 설명 출처, 대시보드·사이드바 글자 +3px. 처음에는 제안으로 올려 해당 절에 콜아웃만 달았고, 같은 날 사용자가 일괄 채택해 정본 본문으로 옮겼다|채택 (2026-10-19 사용자 결정)|2026-10-19|조정 기록부의 판정(K1~K13·C3-1~3 등)과 사용자 일괄 채택(2026-10-19). 항목별 근거는 아래 ADR-030 상세|
 
 ### ADR-007 ~ 014 구현 결과
 - **ADR-007**: `web/`에 1280px 미만 breakpoint·결제 모듈·요금 화면 없음. UI 토큰·그리드는 1280~1920만 ([[06-UI-UX|06 UI]]). 17 절대 규칙으로 강제.
-- **ADR-008**: `infra/env/demo.env.example` 기본값 `SOL_RUN_MODE=mock`(→ `AI_PROVIDER=mock`, `KEV_ENABLED=true`로 mock adapter가 응답, `DEMO_MODE=true`, ADR-020). mock adapter는 `services/ai/adapters/mock.py`, fixture ID별 고정 응답. 프로필 전환에 코드 변경 없음.
+- **ADR-008**: `infra/env/demo.env.example` 기본값 `SOL_RUN_MODE=mock`(→ `AI_PROVIDER=mock`, `KEV_ENABLED=true`로 mock adapter가 응답, `DEMO_MODE=true`, ADR-020). `KEV_ENABLED`는 기본값이 `true`일 뿐이고 세 모드 모두 `false`를 허용한다(ADR-029 A5). mock adapter는 `services/ai/adapters/mock.py`, fixture ID별 고정 응답. 프로필 전환에 코드 변경 없음.
 - **ADR-009**: 모든 md에 frontmatter. 파일 이름 변경 금지(링크가 파일명 기준). 00이 MOC. 저장소의 `docs/` 폴더가 이 vault.
 - **ADR-010**: `AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=false`면 gateway가 기동을 거부한다(조용히 mock으로 바꾸지 않는다). Route Handler `GET /api/v1/admin/ai/status`는 `422 HOSTED_NOT_APPROVED`. 호출 시 provider·모델·토큰 수를 로그에 기록(키는 기록 금지). 승인 기록은 [[PROGRESS]] 작업 로그에 남긴다.
 - **ADR-011**: extract job(`web/worker`, ADR-020 이후 ingest → documents → extract 순서)이 `/extract`를 호출하고 `requirement_extractions`에 UNIQUE(`revision_id`, `model_name`, `prompt_hash`)로 저장. analysis job은 이것을 읽어 `/kev`와 규칙 엔진을 돈다 ([[02-ARCHITECTURE|02 아키텍처]] 흐름).
@@ -77,7 +79,7 @@ updated: 2026-10-19
 ## 반드시 검증할 미결정 사항
 |#|항목|상태|검증일|근거 / 다음 행동|
 |---|---|---|---|---|
-|1|data.go.kr 사용 API별 서비스키·트래픽·페이지네이션·실제 응답 스키마|부분 검증|2026-10-19|**검증됨**(data.go.kr 서비스 페이지 Swagger·참고문서, 2026-10-16): 입찰공고정보서비스 15129394(`/1230000/ad/BidPublicInfoService`), 사전규격 15129437, 발주계획 15129462, 업종 및 근거법규 15129467의 오퍼레이션·요청 파라미터·응답 필드 이름, 무료·자동승인, 개발계정 1,000(사용자정보·개방표준 10,000), JSON/XML, 이용허락범위 제한 없음. 서비스키는 서비스별 env 4개(ADR-022, 값은 저장소 밖). **검증됨**(C1 실호출, 2026-10-19, 4 서비스 37회): 오퍼레이션별 실제 응답(마스킹 14건 `fixtures/recorded/`), `infoBizYn`은 요청 파라미터로 주면 무시돼 클라이언트 필터만 가능, 보조 조회는 `inqryDiv` 필수, 구조화 자격 필드는 보조 조회에만 있다. **미검증**: 조회 기간 상한(8일까지만 확인), 면허제한 여러 행의 의미(19번), 키 오류 응답(resultCode 30·31·22) 형식. 증거 [API 호출 증거](evidence/phase-0/external-deps-api-20261019.md) ([[07-DATA-PIPELINE\|07 수집 파이프라인]], [[15-DATA-CONTRACTS\|15 데이터 계약]])|
+|1|data.go.kr 사용 API별 서비스키·트래픽·페이지네이션·실제 응답 스키마|부분 검증|2026-10-19|**검증됨**(data.go.kr 서비스 페이지 Swagger·참고문서, 2026-10-16): 입찰공고정보서비스 15129394(`/1230000/ad/BidPublicInfoService`), 사전규격 15129437, 발주계획 15129462, 업종 및 근거법규 15129467의 오퍼레이션·요청 파라미터·응답 필드 이름, 무료·자동승인, 개발계정 1,000(사용자정보·개방표준 10,000), JSON/XML, 이용허락범위 제한 없음. 서비스키는 서비스별 env 4개(ADR-022, 값은 저장소 밖). **검증됨**(C1 실호출, 2026-10-19, 4 서비스 37회): 오퍼레이션별 실제 응답(마스킹 14건 `fixtures/recorded/`), `infoBizYn`은 요청 파라미터로 주면 무시돼 클라이언트 필터만 가능(빈값이 많아 필터를 넓힌다, ADR-029 A4), 보조 조회는 `inqryDiv` 필수, 구조화 자격 필드는 보조 조회에만 있다. **미검증**: 조회 기간 상한(8일까지만 확인), 면허제한 여러 행의 의미(19번), 키 오류 응답(resultCode 30·31·22) 형식. 증거 [API 호출 증거](evidence/phase-0/external-deps-api-20261019.md) ([[07-DATA-PIPELINE\|07 수집 파이프라인]], [[15-DATA-CONTRACTS\|15 데이터 계약]])|
 |2|Kev v1.0 체크포인트 가용성·추론 API·라이선스·메모리·한국어 성능|부분 검증|2026-10-16|**검증됨** (https://github.com/jaredpalmer/kev README 및 https://github.com/jaredpalmer/kev/blob/1f04cfa/docs/model-cards/kev-4b.md): 체크포인트 4종(0.8B/4B/9B/27B) 공개, Hub 태그 `v1.0`로 가중치 고정(`--run jaredpalmer/kev-4b@v1.0`, README 명시), GitHub 태그 `kev-1.0`, API `POST /v1/systemone`(noul/choice/score) + `GET /v1/models`, Apache-2.0, Python 3.12/3.13 + uv 소스 설치, `--device cpu\|cuda\|mps\|auto`. 모델 카드 `Languages: English`, 영어 외 언어는 잘 동작하지 않음. **미검증**: 한국어 → 영어 state 변환의 효과(ADR-012), VRAM 요구량, Kev-0.8B CPU 실행, 자체 보고 수치의 독립 재현. hosted 공급자 존재·포맷·가격은 전부 미확인. 다음: [[03-AI-PIPELINE\|03 AI 파이프라인]] §5.9 절차로 `ai-local`에서 fixture 20건 측정. **2026-10-16 추가 검증**(main `1f04cfa`): `kev.train`(LoRA·full FT, QLoRA 없음, `--init_from`), `kev.benchmark`, `kev.compare`, Kev-9B@v1.0 = `db029f08`, 9B 추론 메모리는 모델 카드 21.9 GB·README 약 17 GB로 불일치. ADR-020으로 기본 모델을 Kev-9B로 바꾸고 한국어 성능은 평가셋 E2로 측정 ([[21-MODEL-TRAINING\|21 모델 학습]])|
 |3|Qwen 런타임(vLLM 등) 선택 및 GPU 메모리 분배|결정 (ADR-020·025. vLLM guided JSON 동작은 C1 ③ G4 미검증)|2026-10-19|ADR-020: 해커톤 실추론은 회사 GPU 서버, Qwen 런타임은 vLLM(guided JSON·logprob). **2026-10-19 ADR-025**: GPU 메모리 배분(동시 적재·GPU 장수·양자화)은 회사 측 결정으로 이관했다. 우리 쪽 남은 결정은 없다. 회사가 알려 주는 GPU 모델·VRAM·점유 값이 있으면 C1 ③ G5로 기록하고, 없으면 "회사 운영, 측정 불가"로 남긴다 ([[10-DEPLOYMENT\|10 배포]] GPU 메모리 배분)|
 |4|HWP/HWPX parser 라이브러리·라이선스·안전성|진행 (ADR-020)|2026-10-16|형식별 `DocumentParser` 인터페이스(HWP·HWPX·PDF)를 두고, 오픈소스 후보의 라이선스와 추출 품질(본문·표·금액·자격 조건·요구사항 누락)을 실제 RFP 샘플로 비교한 뒤 형식마다 정한다. 후보·절차는 [[03-AI-PIPELINE\|03 AI 파이프라인]] §10(요약은 [[07-DATA-PIPELINE\|07 수집]] §2.5). 결정 전까지 처리할 수 없는 첨부는 `PARSE_UNSUPPORTED` → 확인 필요|
@@ -97,7 +99,7 @@ updated: 2026-10-19
 |18|공고 첨부 원문(공고문·제안요청서)의 저작권·재배포·학습 사용 권리|미검증|-|내부 분석·사내 학습에만 사용. 외부 공개·데이터셋 배포 전 법무 확인 ([[21-MODEL-TRAINING\|21 모델 학습]], [[09-SECURITY\|09 보안]])|
 |19|면허제한 오퍼레이션의 여러 행이 AND인지 OR인지|미검증|-|실제 응답 확인 전에는 여러 행이면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`) ([[08-SCORING\|08 점수]])|
 |20|문서 파서 형식별 선택(HWP·HWPX·PDF)|미결정|-|미결정 4번과 같은 절차. 실제 RFP 샘플 비교 결과로 형식마다 정하고 이 행을 갱신 ([[03-AI-PIPELINE\|03 AI 파이프라인]] §10)|
-|21|Phase 0 중 발견한 정본 불일치 목록 정리(26건)|제안|2026-10-19|[Phase 0 정본 불일치 목록](plans/2026-10-19-phase-0-doc-inconsistencies.md). 항목마다 사람이 어느 쪽이 맞는지 정한 뒤 해당 정본을 고친다. 구현은 항목별 "구현 방식" 열에 적었다. 일부는 Phase 4·5 골든 확정과 함께 정한다|
+|21|Phase 0 중 발견한 정본 불일치 목록 정리(26건)|제안|2026-10-19|[Phase 0 정본 불일치 목록](plans/2026-10-19-phase-0-doc-inconsistencies.md). 항목마다 사람이 어느 쪽이 맞는지 정한 뒤 해당 정본을 고친다. 구현은 항목별 "구현 방식" 열에 적었다. 일부는 Phase 4·5 골든 확정과 함께 정한다. #1·#2·#3·#4·#7은 ADR-029(2026-10-19 사용자 결정, #7은 A6 D2)로 해결했다|
 |22|회사 GPU에서 Kev-9B LoRA 학습(F1·F2·F3) 실행 가능 여부·시간대·추론과 동시 점유·평가 전용 `kev.serve`(`127.0.0.1:8010`) 추가 기동|미검증|2026-10-19|ADR-027. C1 P2·P3 요청과 함께 회사에 묻는다. 회사 GPU 서버의 외부망(Hugging Face·GitHub·PyPI) 사용 가능 여부도 함께 묻는다([[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]] §2.2). 답이 오기 전 X6c~X6e 일정은 가정이다. E4 서빙 방식은 결정됐다(ADR-027 10번). 남은 것은 회사가 메모리와 시간대를 확보할 수 있는지다|
 
 검증 전에는 명세 가정으로 표시하고 기능 플래그·mock·fixture로 개발한다.
@@ -120,7 +122,7 @@ updated: 2026-10-19
 
 - **실행 모드**: `SOL_RUN_MODE=live|fixture|mock`(기본 `mock`). `live` = 나라장터 Open API + 실제 AI, `fixture` = fixture 20건 + 실제 AI, `mock` = fixture 20건 + mock AI. 모드와 모순된 env는 기동 거부. 데이터 출처(`source`·`is_demo`)와 분석 모드(`score_runs.run_mode`·`ai_provider`·모델 이름)를 기록하고 화면에 표시한다. 골든은 `mock` 모드에서만 단언한다 ([[03-AI-PIPELINE|03]], [[10-DEPLOYMENT|10]]).
 - **회사 프로필**: 모든 모드에서 가상 솔리데오 프로필(`is_demo=true`)이다. live 분석은 "실제 공고 × 가상 회사 프로필"이고 화면에 배지를 붙인다(ADR-019, [[09-SECURITY|09 보안]]).
-- **수집**: 입찰공고정보서비스(용역, `infoBizYn=Y` 정보화사업)·면허제한·참가가능지역·e발주 첨부, 사전규격, 발주계획, 업종 코드 마스터. 첨부는 `www.g2b.go.kr` allowlist로 내려받고, 형식별 `DocumentParser`로 파싱한다. 같은 조건이면 API 구조화 필드가 Qwen 추출보다 우선이고, 다르면 `CONFLICTED`다 ([[07-DATA-PIPELINE|07]], [[15-DATA-CONTRACTS|15]]).
+- **수집**: 입찰공고정보서비스(용역, `infoBizYn=Y` 정보화사업. 2026-10-19 ADR-029 A4로 정보화사업 필터를 넓혔다)·면허제한·참가가능지역·e발주 첨부, 사전규격, 발주계획, 업종 코드 마스터. 첨부는 `www.g2b.go.kr` allowlist로 내려받고, 형식별 `DocumentParser`로 파싱한다. 같은 조건이면 API 구조화 필드가 Qwen 추출보다 우선이고, 다르면 `CONFLICTED`다 ([[07-DATA-PIPELINE|07]], [[15-DATA-CONTRACTS|15]]).
 - **실패 유형**: 공공 API 실패·첨부 다운로드 불가·파싱 실패·모델 서버 미접속(Qwen·Kev 따로)을 구분해 기록·표시한다. 실패한 단계의 내용을 AI가 추측해 채우지 않는다. mock 자동 대체는 기본 금지이고, `AI_FALLBACK_TO_MOCK=true`(live 금지)로 켰을 때만 `MOCK_FALLBACK`과 배너로 명시한다.
 - **모델 역할**: Qwen3.5-9B = 구조화 추출·영어 표기·근거 설명(`/explain`). Kev-9B@v1.0 = 요구사항별 충족/미충족/확인 필요, 기술 적합성, 실적 연관성, 수행 리스크(`kev-qs/v0.2`, v0.1 유지). 규칙 엔진 = 명시 조건. SOL Score = `sol-v0.1.0` 그대로. **Kev 확률은 점수 입력이 아니며** 참고 지표와 `reviewFlags`로만 표시한다. 점수 반영은 평가셋 검증 뒤 `sol-v0.2.x`와 새 ADR로 정한다 ([[08-SCORING|08]]).
 - **근거 추적**: 공고 쪽 `EvidenceRef`에 회사 쪽 `CompanyEvidenceRef`를 더하고, Kev state 줄마다 출처를 기록하는 `KevStateTrace`를 저장한다 ([[15-DATA-CONTRACTS|15]]).
@@ -193,7 +195,7 @@ updated: 2026-10-19
 |D3|worker health는 heartbeat 파일|`WORKER_HEARTBEAT_FILE`(기본 `/tmp/sol-worker-heartbeat`), 10초마다 갱신, healthcheck가 30초 이내인지 판정|
 |D4|`AI_PROVIDER=hosted`는 `live`·`fixture`에서 `AI_HOSTED_APPROVED=true`일 때만|`infra/run-modes.json`과 gateway가 같이 거부. 정본 03 모드 표에는 hosted가 없어 보충한 규칙이다|
 |D5|서비스키 4개(ADR-022)는 `live`에서만 필수|demo env 예시에는 줄이 없고 ai-local 예시에 `CHANGE_ME`. worker의 빠진 키 알림은 Phase 2|
-|D6|mock 모드의 `KEV_ENABLED=true`(mock adapter가 응답)|10 프로필 표와 일치. 에이전트 정의·ADR-012 행과의 차이는 불일치 목록 4번|
+|D6|mock 모드의 `KEV_ENABLED=true`(mock adapter가 응답)|10 프로필 표와 일치. 기본값이 `true`이고, 세 모드 모두 `false`도 허용한다(`infra/run-modes.json` main `daf07a6`). 불일치 목록 4번은 ADR-029 A5로 해결|
 |D7|실행 모드 규칙 원천은 `infra/run-modes.json` 하나|Node `scripts/run-mode.mjs`와 Python `services/ai`가 같이 읽는다(판정 19,440 입력 불일치 0). gateway 이미지는 저장소 루트를 빌드 컨텍스트로 쓰고 `SOL_RUN_MODES_FILE`로 복사본을 가리킨다. 실행 모드 env의 빈 문자열은 미지정(모드 기본값)|
 |D8|`infra/compose.gpu.yaml`과 ai-local 실기동은 P0-0 때|Phase 0은 `infra/env/ai-local.env.example`과 터널 절차만(2026-10-19 ADR-025로 터널 전제를 폐기. `compose.gpu.yaml`은 회사 GPU 서버용 참고 구성으로 남고, ai-local 실기동은 회사 엔드포인트 접속 확인으로 바뀐다)|
 |D9|첨부 샘플 `fixtures/docs/`는 Phase 2|Phase 0 추출의 인용은 공고 본문만 가리킨다|
@@ -238,7 +240,7 @@ updated: 2026-10-19
 
 - **결정**(사용자 2026-10-19, 추천안 채택): `organizations` insert 정책 "팀 만들기"를 `with check (personal_owner_id is null and public.is_admin())`로 바꾼다(`supabase/migrations/20261019000008_team_creation_operator_only.sql`). 정지된 운영자는 `is_admin()`이 false라 만들지 못한다. 열 권한(`slug`·`name`), `add_team_owner`(만든 사람 owner+ADMIN, ADR-021), 개인 조직 금지 검사는 그대로다.
 - **이유**: 04 §3.6의 운영 표(`ingest_runs`·`ingest_errors`·`eval_runs`)는 조직 데이터가 아니라 "어느 조직에서든 ADMIN"이 읽는다. 템플릿처럼 누구나 팀을 만들면 가입만 한 사람이 자기 팀의 ADMIN이 되어 운영 표를 읽는다. 업무 조직 합류는 초대로만 하므로(ADR-018·021) 일반 회원이 팀을 만들 이유가 없다. 대안(운영 표 읽기를 `is_demo` 조직 ADMIN으로 좁히기, 위험 수용)보다 단순하고 되돌리기 쉽다.
-- **영향**: 템플릿 "팀 만들기" 화면(`/teams/new`)은 운영자가 아니면 RLS 거절을 받는다. 해커톤 화면 범위에 없으니 메뉴에서 빼거나 안내만 한다(C6에서 정한다). 템플릿 로컬 seed(`scripts/db-seed.mjs`)처럼 사용자 토큰으로 팀을 만드는 경로는 막히므로 `pnpm demo:reset`은 service role로 조직을 만든다. 로그인 뒤 E2E(`web/e2e-auth`)의 팀 만들기 시나리오는 운영자 계정으로 바꾼다(확장 컷·P1).
+- **영향**: 템플릿 "팀 만들기" 화면(`/teams/new`)은 운영자가 아니면 RLS 거절을 받는다. 해커톤 화면 범위에 없으니 메뉴에서 빼거나 안내만 한다(C6에서 정한다). 템플릿 로컬 seed(`scripts/db-seed.mjs`)처럼 사용자 토큰으로 팀을 만드는 경로는 막히므로 `pnpm demo:reset`은 service role로 조직을 만들고, `pnpm db:seed`도 시드 팀을 관리 키로 만든 뒤 소유자 멤버십(owner+ADMIN)을 직접 넣는다(빈 DB에서 RLS 403이 나던 결함을 2026-10-19에 고침, 회귀 시험 `scripts/db-seed.test.mjs`). 로그인 뒤 E2E(`web/e2e-auth`)의 팀 만들기 시나리오는 운영자 계정으로 바꾼다(확장 컷·P1).
 - **되돌리기**: 새 마이그레이션으로 정책을 템플릿 본문(`with check (personal_owner_id is null)`)으로 다시 만든다.
 - **검증**: C2 2단계 정책 시험 — 일반 회원 팀 insert 거절, 운영자 통과(owner+ADMIN), 정지된 운영자 거절, 마이그레이션 재실행 스냅샷 유지([[11-TESTING|11 테스트]] §4 Phase 1).
 
@@ -279,12 +281,75 @@ updated: 2026-10-19
 - **남은 결정**: NestJS 버전과 모듈 구조, worker를 NestJS 앱의 별도 진입점으로 둘지 별도 앱으로 둘지, 화면의 데이터 경로. 착수 스펙에서 정한다.
 - **되돌리기**: 착수 전이면 이 ADR을 폐기하면 된다.
 
+## ADR-029 상세 — Critical Path 1차 분담의 사용자 결정 (A1~A7)
+
+상태는 **채택**이다(사용자 결정 2026-10-19). 조정 세션 sol-radar-e8이 핵심 컷 레인(C3 수집, C5 gateway·분석 클라이언트, C6 화면)을 나누면서 정본 불일치와 계약 빈틈을 사용자에게 물었고, 사용자가 추천안을 골랐다. 같은 날 사용자가 정본 반영을 승인했다. 근거 출처는 조정 기록부 `.superpowers/sdd/2026-10-19-critical-path-wave1/progress.md`(커밋되지 않는 작업 파일)이고, 아래 근거 열의 K·C 번호는 그 기록부의 판정 번호다.
+
+|#|결정|정본 반영 위치|근거 (누가·언제·무엇을 보고)|
+|---|---|---|---|
+|A1|인용 검증으로 유효 근거가 0개가 된 필드(`FX-13`)는 `UNKNOWN` + `note="CITATION_FAILED"`다. 실패한 인용은 `match=FAILED`로 `evidence`에 남기고 화면에는 보이지 않는다. 추출 `warnings`에 `CITATION_FAILED:<field>`(`FX-13`은 `qualifications`), 분석 `reviewFlags`에 `CITATION_FAILED`. `CONFLICTED`가 아니다([[15-DATA-CONTRACTS\|15]] §2: `CONFLICTED`는 서로 다른 값의 근거가 2개 이상일 때)|03 §4.4·§9, 07 §6.2·§6.3, 11 §3 G9·§3.1. 15 §5.3은 원래 같은 규칙이라 고치지 않았다|사용자, 2026-10-19. 불일치 목록 #1에서 (b)를 골랐다(K1). 03·15가 필드 상태의 원천이라는 목록의 제안을 보고 정했다|
+|A2|추출 `warnings`에 `ATTACHMENT_PARSE_FAILED:*`가 있거나 FAILED 인용 비율이 50%를 넘으면 `ExtractResponse.status=PENDING_REVIEW`다. 실패 문서 목록 같은 새 필드는 두지 않는다|03 §2.1·§4.4(9단계, 경고 표), 07 §6.2·§6.3 `FX-05`. 15 §5.3의 50% 규칙과 같다|사용자, 2026-10-19. 불일치 #2에서 (a)를 골랐다(K2)|
+|A3|`AI_FAULT_INJECT` 값은 정본 5개(`kev_timeout`·`qwen_error`·`qwen_unreachable`·`kev_unreachable`·`gateway_down`)다. `gateway_down`은 `AI_PROVIDER=mock` + 주입일 때만 `/extract`·`/kev`·`/explain`이 `503 {"errorCode":"AI_UNAVAILABLE","message"}`를 내 gateway 연결 불가를 흉내 낸다(시험 전용 예외)|03 §2.1(200이 아닌 경우)·§3 env 표, 11 §3 장애 주입 표, `.claude/agents/ai-gateway-developer.md`·`test-ai.md`의 값 목록 줄|사용자, 2026-10-19. 불일치 #3에서 (a)를 골랐다(K3). 10·11이 이미 5개를 써서 고칠 곳이 적다는 목록의 제안을 보고 정했다|
+|A4|정보화사업 수집 필터를 넓힌다: `infoBizYn='Y'` 또는 `sucsfbidMthdNm`에 "SW사업" 포함 또는 `pubPrcrmntClsfcNm`이 정보시스템·SW 분류. 교체할 수 있는 순수 함수로 둔다|07 §1·§2.2, 03 §2 흐름도·§10.5 "정보화사업이 아닌 공고" 행, [[20-GLOSSARY\|20 용어집]]|사용자, 2026-10-19 "조건을 넓힌다"(C3-1). 7일 100건 표본에서 `infoBizYn` 빈값이 약 93%였다는 실측([API 호출 증거](evidence/phase-0/external-deps-api-20261019.md) §10-4)을 보고 정했다|
+|A5|`KEV_ENABLED=false`를 세 실행 모드 모두 허용하고 기본값은 `true`다(`infra/run-modes.json`, main `daf07a6`). 그래서 03 §9의 "`KEV_ENABLED=false`와 Kev timeout 두 경우 모두 `COMPLETED`/`RULES_ONLY`"가 실제 설정으로 성립한다|03 §3, 10 실행 모드·프로필 표, 20 용어집, 이 문서 ADR-008·012 행과 ADR-024 D6|사용자, 2026-10-19 "`KEV_ENABLED=false` 허용, 기본 `true`"(기록부). 불일치 #4를 닫는다. 설정 파일은 C5-A 레인(sol-radar-3b)이 `KEV_ENABLED` 줄만 고쳤다(`3a813dd`, main `daf07a6`에 병합)|
+|A6|C6 화면 스펙의 결정 항목 D1~D30을 모두 추천안(①)대로 승인한다. 스펙은 `docs/plans/2026-10-19-c6-screens-design.md`(브랜치 `c6/screens` `d43e471`, main 병합 전)다. 정본에 들어가는 항목은 아래 목록이다|아래 목록|사용자, 2026-10-19 "D1~D30 추천안 일괄 승인"(C6-D). D1의 옛 리다이렉트 파일 삭제와 D20의 `feat/people-read` 공용 변경 3건 가져오기도 포함한다|
+|A7|공고 목록(`/bids`)의 기본 상태 필터는 [[05-API-SPEC\|05]] §3대로 `OPEN`·`AMENDED`이고 취소 공고는 숨긴다. 상태 필터에 "취소 포함" 선택지를 두고, 고르면 목록에 "취소됨"을 표시한다. 공고 상세는 상태와 상관없이 언제나 열린다. S2·S3의 19건 기대값은 바뀌지 않는다|05 §3 `status` 행, 06 §5.4 목록 필터·§5.5 취소 공고 행. C6 핵심 컷 목록에도 이 선택지를 둔다|사용자, 2026-10-19(조정 세션 sol-radar-e8 전달). ADR-030 B14를 채택할 때 남은 한 가지(05 §3 기본값은 취소 공고를 숨기는데 C6 스펙 §5.3은 목록에 "취소됨"을 보인다)를 보고 정했다|
+
+A6 중 정본에 반영한 항목:
+- [[05-API-SPEC|05 API]]: D16 `AnalysisResult` DTO의 `missingFactors: {factor, reason}[]`, `ScoreFactor.missingReason`, `profileEvidence[].type`의 `INDUSTRY_CODE`(§4.1·§4.5). D10 `analyses.byRecommendation`은 공고별 최신 분석 1건 기준, D11 `reviews.pending`은 최신 분석이 있고 사람 결정이 없는 공고 수, D9 `DashboardSummary.recentChanges`(§4.6). D8 `PATCH /notifications/:id/read`를 핵심 컷 Route Handler 10번째로(§2, [[12-ROADMAP|12 로드맵]] C6 행). D7 알림 모두 읽음·유형 필터는 핵심 컷에서 뺀다(06 §5.7).
+- [[06-UI-UX|06 UI]]: D15 §3 토큰 대응(바탕 흰색 `background`, danger = `destructive`, `info`·`neutral`·`-soft`는 있는 토큰으로 대신, 사이드바 256px, 화면 제목 `type-title` 30/36). D14 큰 점수 `type-title`. D3 `DEMO` 배지는 Topbar 실행 모드 바로 앞. D4 AI 지표는 30초 주기 + 창 초점·분석 종료 때 즉시. D17 상태 이름(`RUNNING`, 분석 없음 = `latestAnalysis=null`). D12 분석 출처 "분석 실행 모드: live" + 받은 모델 식별자 그대로(03·11·18·19 문구도 맞춤). D13 Kev 구역 제목 "Kev 참고 지표" + 꼬리 글자 "모델 참고 지표 (점수 미반영)". D22 결정 권한 문구 "ADMIN·SALES 역할만". D18 §12 S7 스크린샷 행. D19 목록 예산 줄인 표기와 출처 열 80px(스펙의 64px에서 `DEMO` 칩이 잘린다는 조정 판정으로 넓혔다. 1280px·사이드바 펼침에서 제목 열 184px). D2 `RunModeIndicator` 값 출처(§8).
+- [[10-DEPLOYMENT|10 배포]]: D2 web 서버 env `SOL_RUN_MODE`(기본 `mock`)를 web env 예시와 `pnpm check:env`에 등록한다. 구현은 C6 B단계다.
+- [[11-TESTING|11 테스트]]·[[18-HACKATHON|18 해커톤]]·[[19-DEMO-SCENARIO|19 데모 시나리오]]: D5 S4 알림 벨 기대값(발표자를 담당자로 지정, 벨에 `REVIEW_ASSIGNED` 포함, 분석 요청자에게 가는 `ANALYSIS_COMPLETE`도 올 수 있다).
+- 06·[[02-ARCHITECTURE|02 아키텍처]]: D1 업무 화면은 조직 주소 없는 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`이고 `web/app/(app)/(work)/` 경로 묶음에 둔다. D30 템플릿 `/{slug}/tasks`·`/{slug}/dashboard`는 이번에 그대로 두고 확장 컷(N1)에서 정리한다.
+- 나머지 D항목(D6 담당자 목록, D20 브랜치 공용 변경, D21 결정 라디오 기본값, D23 근거 하이라이트 범위, D24 첨부 원문 열기, D25 1280px 미만 안내, D28 발주계획 자격 표시, D29 알림 제목, D-오류)은 화면 구현 규칙이라 C6 스펙에만 둔다.
+
+## ADR-030 상세 — Critical Path 1차 분담의 조정 결정 (B1~B26)
+
+상태는 **채택**이다(2026-10-19 사용자 결정, 일괄). 조정 세션 sol-radar-e8이 병렬 레인 사이의 계약 빈틈을 메우려고 정했고, 처음에는 제안으로 올려 각 절에 콜아웃만 달았다. 같은 날 사용자가 B1~B26을 일괄 채택해 콜아웃 내용을 아래 "반영 위치"의 정본 본문으로 옮기고 콜아웃은 지웠다. B14 가운데 목록 기본 상태 필터와 취소 공고 표시는 사용자가 따로 정했다(ADR-029 A7). 근거 출처는 ADR-029와 같은 조정 기록부다. B25·B26은 사용자 선택을 세션 sol-radar-54가 전달한 것이다.
+
+|#|결정|반영 위치|근거 (누가·언제·무엇을 보고)|
+|---|---|---|---|
+|B1|worker → gateway `/kev` 전송 실패(연결 거부·timeout·5xx 소진·circuit open·503 주입)는 `AI_UNAVAILABLE` → `PARTIAL`·`RULES_ONLY`다. `KEV_UNAVAILABLE`(분석 `COMPLETED`)은 gateway가 200 + `errorCode`를 줄 때만이다|03 §8|e8 판정 K3'(2026-10-19). C5-B(sol-radar-b3)가 03 §8 표와 §9를 근거로 정정을 요청|
+|B2|`KEV_ENABLED=false`에서 gateway가 죽으면 `/explain` 전송 실패는 템플릿 문장으로 대체하고 `PARTIAL` 사유가 아니다. `AI_UNAVAILABLE`은 `/extract`·`/kev` 전송 실패만이다|03 §8|e8 판정 K11. b3가 정본 빈틈으로 보고|
+|B3|`KevResponse` 최상위에 `errorCode: "KEV_UNAVAILABLE" \| "INJECTION_SUSPECTED" \| null`. 인젝션이 의심되면 Kev 호출을 생략한다(`kev.enabled=false`, 분석은 `COMPLETED`·`RULES_ONLY`)|03 §2.1·§5.7|e8 판정 K4·K4'. K4'는 security-auditor의 인젝션 가드 지적 뒤 3b 보안 처리안을 승인한 것|
+|B4|fixtureId는 `FX-NN` 또는 `FX-NN.rNN`이다. worker는 늘 `.rNN`을 보내고, gateway mock은 그 파일이 없으면 `FX-NN`으로 대체한다. 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절한다. 응답 id는 요청 값으로 바꾼다|03 §2.1, 07 §6.5|e8 판정 K5·K5'(b3 제안 승인). ASCII 조건은 security-auditor 지적(`\d`)|
+|B5|`/kev`의 `profileSummary`는 회사 프로필 전체 + 선택 `staffAvailability`다. 05의 `CompanyProfileSummary`(revision 목록용)와 이름이 겹친다. 이름은 바꾸지 않고 두 곳에 서로 다른 것이라고 적었다|03 §5.7, 05 §4.4|e8 판정 K6|
+|B6|`/parse` 어댑터 미설정 응답: 형식은 매직 바이트로 판정, 50 MB 초과는 `TOO_LARGE`, 모르는 형식·어댑터 미설정은 `UNSUPPORTED_FORMAT` + `warnings`의 `PARSER_NOT_CONFIGURED:<fmt>`, `parserId "none"`|03 §10.1·§10.5|e8 판정 K7(C5-A sol-radar-3b 제안 승인)|
+|B7|`/explain` 요청은 최상위가 03 이름이고 안쪽은 규칙 엔진 `AnalysisResult` 이름이다. mock 응답은 `fallback=true`(템플릿)다|03 §2.1|e8 판정 K8, 3b의 mock 값 통보|
+|B8|200이 아닌 응답 본문은 `{errorCode, message}`다. 대상은 422 `KO_STATE_NOT_ALLOWED`와 ADR-029 A3의 시험 전용 503뿐이다. hosted 미승인은 기동 거부(exit 78)이고 요청 단계 503은 없다(불일치 #12의 구현 방식)|03 §2.1|e8 판정 K9|
+|B9|`/health`: `qwen {model, promptHash} \| null`, `kev {modelId, registryMatch} \| null`, `questionSets: string[]`, `parsers: {format, parserId}[]`. mock이면 qwen은 fixture 고정 값(`model:"fixture"`, fixture 공통 `promptHash`)이다. worker의 추출 캐시 키(revision, model_name, prompt_hash)가 seed와 맞게 하려는 것이다|03 §2.1·§11|e8 판정 K10·K13(3b 구현)|
+|B10|`/health`를 읽지 못하면(gateway 정지) worker는 그 revision의 가장 최근 성공 추출을 키와 상관없이 쓴다. S6에서 "점수·자격이 직전 run과 같다"를 지키려는 것이다. FAILED 추출은 저장하지 않는다|03 §7·§8|b3의 S6 규칙(03 §8·§9를 보고), e8 판정(FAILED 추출 미저장)|
+|B11|`AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`는 모든 모드에서 기동 거부(`KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`). `AI_FALLBACK_TO_MOCK`은 미구현이라 켜면 기동 거부|03 §3·§5.11, [[09-SECURITY\|09]], [[10-DEPLOYMENT\|10]]|e8 판정. security-auditor가 `c5/gateway-mock` 검토에서 hosted + 한국어 state를 지적한 뒤, local 어댑터 판정 L3|
+|B12|03 §4.4 `STATE_FIXED`의 뜻을 넓힌다(KNOWN이 아닌 필드의 non-null 값을 null로 고칠 때도). `KevAssist.questionSetVersion` null 허용. 추출 경고 코드 `MOCK_FIXTURE_NOT_FOUND`·`ADAPTER_NOT_IMPLEMENTED`·`EXTRACTION_LOW_CONFIDENCE`(`CITATION_FAILED:<field>`는 ADR-029 A1로 본문에 넣었다)|03 §4.4·§5.7|3b의 정본 반영 요청을 e8이 반영 목록에 올림|
+|B13|`StructuredRequirement`의 `seq`: 수집은 15 §3대로 seq 없이 내고 순서는 결정적(안정 정렬)으로 한다. 분석 변환이 배열 index(0부터)로 seq를 채운다|[[15-DATA-CONTRACTS\|15]] §3|e8 판정 K12|
+|B14|공고 상태: 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 값은 15 §6 격리. fixture 레코드에 `status`가 없고 revision ≥ 2면 `AMENDED`. 목록 기본 상태 필터와 취소 공고 표시는 ADR-029 A7|15 §3, 07 §3.1·§6.5, 05 §3|e8 판정 C3-3(checksum이 시간에 따라 바뀌지 않게), C3·seed 경계 판정(sol-radar-ee·2f)|
+|B15|ingest run 상태: SEED(격리 1건)는 `PARTIAL`, LIVE는 `SUCCEEDED`, connector 중단은 `FAILED`. seed 직후 `bid_revisions` 19, LIVE 배치 4건 뒤 23|07 §6.4, 04 §6|e8 판정(C3 sol-radar-ee 중간 보고)|
+|B16|registry 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리로 가고, 실측도 https). `infra/sources/registry.yaml`은 C3 worker 연결 단계에서 만든다. Connector는 endpoint를 생성자로 받는다|15 §8, 07 §1.1|e8 판정. C1 실호출(sol-radar-2f)이 https였다|
+|B17|data.go.kr XML 오류 봉투: `returnReasonCode` 22 = `QUOTA_EXCEEDED`(그 서비스의 그날 호출 중단), 30·31 = 키 오류(재시도 없음). 실측 표본이 없어 미검증 가정이다|07 §2.2|e8 판정(ee 제안)|
+|B18|ingest 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 원자적으로 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘긴다. 하위 job은 outbox와 `documents` 큐만 만든다. 새 공고 자동 분석은 해커톤 컷에 없다. live 수집 주기는 07 값(없으면 30분, env)|07 §2·§4, [[12-ROADMAP\|12]]|e8 판정(ee Stage 6, 2f의 리허설 간 id 보존 요구)|
+|B19|기존 사업 투입 7명은 `team_member_scoring.availability`의 해당 기간 fte를 낮춰 표현한다(창을 나누고 덧붙이지 않는다). `assignments`는 데모 2건만. FX-01·02·03 기간 가용 20 FTE(main `3e181b7`)|[[04-DATABASE\|04]] §6, [[08-SCORING\|08]] §6.1|e8 판정(b3가 인력 가용성 공백을 제기, 선택지 2). 2f가 main `3e181b7`로 구현|
+|B20|분석 요청 계약: 같은 입력 = (revision, 회사 프로필, 알고리즘 버전). `force:false` + 같은 입력 진행 중 → `202 deduplicated:true`(그 run). `force:true` + 진행 중 → `409 ANALYSIS_IN_PROGRESS {analysisId}`. 큐 등록에 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 풀어 503. `Idempotency-Key`가 없으면 서버가 UUID를 만든다. 큐 `analysis`, job `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ는 `:` 금지), payload `{orgId, scoreRunId, idempotencyKey}`. `score_runs` 멱등 키는 `<org_id>:<requestId>`|[[05-API-SPEC\|05]] §2·§4.5·§5|e8 판정(C6 B1 계약 고정, b3 큐 계약, 2f 멱등 키 회신)|
+|B21|멈춘 분석 복구: 오래된 `QUEUED`·`RUNNING` run(기본 10분, env)은 job이 없으면 같은 jobId로 다시 넣고, 시도를 다 썼으면 `STALE_RUN`으로 실패 처리한다|03 §8|e8 제안, b3 수용(Codex 브랜치의 analysis-reconcile 아이디어)|
+|B22|데모 사전 분석은 별도 명령 `pnpm demo:preanalyze`. 대상 18건(SEED 19 − FX-02, FX-18 포함), mock·gateway 필수, 18건 모두 `COMPLETED`. 기동 순서: Compose → `pnpm demo:reset` → 모드 확인 → `pnpm demo:preanalyze` → S2|10 기동 절차, [[19-DEMO-SCENARIO\|19]] §3 5번|e8 판정(b3 제안 승인). 실행은 사용자 확인 뒤|
+|B23|알림 `payload.link`의 열린 리다이렉트 방지는 서버(알림 목록 서비스)가 맡는다. 앱 안 경로만 허용하고, 그 밖이면 `/bids/{bidId}`로 바꾼다|05 §4.6, [[13-NOTIFICATIONS\|13]], 09|조정 세션 e8(정본 반영 지시서). 기록부에 따로 적힌 판정 줄은 없다|
+|B24|규칙 엔진의 `explanation`에는 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않는다. 화면 설명은 `meta.explanation`(gateway `/explain` 문장 또는 템플릿)이다|08 §7, 03 §2.1|e8의 반영 목록 후보, b3 2단계 출력(`meta.explanation{text,source}`) 승인|
+|B25|`/dashboard` 본문(`AppPage` 안)만 글자 눈금 +3px(body 14→17, label 13→16, caption 12→15, heading 16→19, title 30→33, 줄 높이 +3px, 굵기·자간 그대로). 사이드바·Topbar·다른 화면은 그대로다. 정본은 `design/tokens.json`의 대시보드 범위 변형이고 `pnpm tokens`가 범위 CSS를 만든다. design-system 스킬의 디자인 규칙 3번("같은 역할의 글자는 어느 화면에서나 같은 크기")의 예외다. 구현은 C6 B단계|[[06-UI-UX\|06]] §3.3|사용자 선택(세션 sol-radar-54가 전달, 2026-10-19)|
+|B26|앱 틀 사이드바 전체(조직 표시·메뉴·묶음 줄·맨 아래 사용자 칸)의 글자 +3px, 모든 화면 공통. B25와 같은 방식(tokens.json 범위 변형). 06 §4.1의 "아이콘 16px + 글자 14px"의 글자를 17px로 고친다. 항목 높이는 글자에 맞춰 늘 수 있다(C6 B2에서 확정)|06 §4.1|사용자 원문 "사이드 바 글씨도 작은데 같이 올려"(세션 sol-radar-54가 전달, 2026-10-19)|
+
+구현 상태는 이 ADR이 판정하지 않는다. main `daf07a6`의 gateway mock 코드에서 확인한 것만 적는다(2026-10-19): 200이 아닌 본문 `{errorCode, message}`와 `gateway_down` 503(B8·ADR-029 A3), `/health`의 `registryMatch`·`questionSets`(B9), `/parse`의 `PARSER_NOT_CONFIGURED:<fmt>`(B6), `/explain` mock `fallback=true`(B7)는 들어가 있다. `KevResponse.errorCode`는 `KEV_UNAVAILABLE`만 있고(B3 일부), fixtureId 형식 검사는 ASCII 숫자 제한 전이다(B4 일부). 나머지는 각 레인 브랜치(main 병합 전)의 일이다.
+
+결정 경과: B5의 이름 겹침은 이름을 바꾸지 않고 03 §5.7·05 §4.4에 서로 다르다고 적었다. B17은 채택했지만 실측 표본이 없어 07 §2.2에 미검증 가정으로 표시한다. B25·B26은 design-system 스킬의 디자인 규칙 3번 예외로 06에 적었다(스킬 파일은 고치지 않았다).
+
 ## 관련 문서
 - [[00-README|00 인덱스]]
 - [[01-PRD|01 PRD]]
 - [[02-ARCHITECTURE|02 아키텍처]]
 - [[05-API-SPEC|05 API]]
+- [[06-UI-UX|06 UI]]
+- [[11-TESTING|11 테스트]]
 - [[12-ROADMAP|12 로드맵]]
+- [[15-DATA-CONTRACTS|15 데이터 계약]]
+- [[19-DEMO-SCENARIO|19 데모 시나리오]]
 - [[03-AI-PIPELINE|03 AI 파이프라인]]
 - [[09-SECURITY|09 보안]]
 - [[07-DATA-PIPELINE|07 수집 파이프라인]]

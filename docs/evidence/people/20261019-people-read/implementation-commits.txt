@@ -1,0 +1,14 @@
+baae529fd3a09f106a3fbeda9cf89442d698aa8f docs: 조직 인력 조회 구현 계획 기록
+8cc7cf43128c0a45146062fb0f487f48581ee76d feat: 조직 인력 조회 업무 역할 기반 추가
+419acfac5d37f8b0cf66b6e50db9e9e33417f8d0 feat: 조직 인력 조회 API 추가
+99d122e95463dd468294268389a18d19946afdfe feat: 조직 인력 조회 화면 추가
+73f08eef3cfd9f8a3d824700ca42359aa6849a5d test: 조직 인력 조회 독립 검증 추가
+c178b7711154865a5ca043f7f5f76d0f655ea6c3 fix: 인력 검색 초기화 상태 정리
+13cf75f64707593ccb174764415b330cadb75513 feat: 독립 조직도 탐색 화면 추가
+b37c0e568f15dbc5fd90ad06bc1abe5f722fc696 fix: 미지정 조직 묶음 펼침 추가
+176471d11dde8d8f593052a294659c8d3fa0a827 test: 독립 조직도 실연동 검증 보강
+1f9c748abb2c010449f627ca7d177232d74d444b test: 인력 조회 검증의 초점 관측 보완
+a0face8548e9ef6791b8e1e4cd0502490443c259 fix: 사이드바 접근성과 검색 강조 만료 보완
+f579a2a6b27fb0ab05650179aba6609a5fb07182 test: 정지 계정 인력 화면 접근 검증 추가
+cc5c45bdd8e6e27627e745d0f33f04aaf9918a4f fix: 조직도 버튼 설명과 트리 스크롤 보완
+cd4a91c673fcd411a31e8f86086a5bb429918fde fix: 조직도 요약 클릭 영역 유지

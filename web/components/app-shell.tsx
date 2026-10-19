@@ -6,8 +6,10 @@ import {
   ListChecksIcon,
   LogOutIcon,
   MailIcon,
+  NetworkIcon,
   SettingsIcon,
   ShieldCheckIcon,
+  UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -46,6 +48,7 @@ import type { CurrentOrg, OrgSummary } from "@/server/organization";
 // 화면을 더하면 여기에 한 줄 더한다 — 사이드바 항목과 위 막대의 화면 이름이 같이 생긴다.
 const NAV = [
   { path: "dashboard", label: "대시보드", icon: LayoutDashboardIcon },
+  { path: "people", label: "조직·인력", icon: UsersIcon },
   { path: "tasks", label: "작업", icon: ListChecksIcon },
   { path: "settings", label: "설정", icon: SettingsIcon },
 ] as const;
@@ -101,7 +104,7 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
   const base = `/${workspace.current.slug}`;
 
   return (
-    <Sidebar>
+    <Sidebar role="complementary" aria-label="앱 사이드바">
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
           <OrgMark name={workspace.current.name} />
@@ -127,7 +130,7 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
           <nav aria-label="주요 메뉴">
             <SidebarMenu className="gap-0.5">
               {NAV.map((item) => {
-                const href = `${base}/${item.path}`;
+                const href = item.path === "people" ? "/people" : `${base}/${item.path}`;
                 const isActive = isCurrent(pathname, href);
                 return (
                   <SidebarMenuItem key={item.path}>
@@ -152,6 +155,26 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        <Separator />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              isActive={isCurrent(pathname, "/org-chart")}
+              tooltip="조직도"
+              render={
+                <Link
+                  href="/org-chart"
+                  aria-label="조직도"
+                  aria-current={isCurrent(pathname, "/org-chart") ? "page" : undefined}
+                  onClick={closeDrawer}
+                />
+              }
+            >
+              <NetworkIcon aria-hidden />
+              <span>조직도</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <UserMenu user={user} settingsHref={`${base}/settings`} onNavigate={closeDrawer} />
       </SidebarFooter>
     </Sidebar>
@@ -255,7 +278,12 @@ function UserMenu({
 function AppTopBar({ current }: { current: CurrentOrg }) {
   const pathname = usePathname();
   const { state } = useSidebar();
-  const screen = NAV.find((item) => isCurrent(pathname, `/${current.slug}/${item.path}`));
+  const screen =
+    pathname === "/org-chart"
+      ? { label: "조직도" }
+      : NAV.find((item) =>
+          isCurrent(pathname, item.path === "people" ? "/people" : `/${current.slug}/${item.path}`),
+        );
 
   return (
     // 높이를 고정하지 않는다. 글자를 키우면 막대도 커진다.

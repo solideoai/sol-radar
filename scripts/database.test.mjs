@@ -4359,6 +4359,741 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
       ],
     );
   });
+
+  // 20261019000010: 화면(C6)이 DB 에서 분석을 다시 읽을 때 쓰는 두 열. score_factors.missing_reason 은 C4 ScoreFactor.missingReason,
+  // score_runs.kev_assist 는 C4 AnalysisResult.kev(KevAssist)다. 쓰기는 worker(service role)만 하고 권한·정책은 바꾸지 않는다.
+  describe("화면 표시용 저장 열(20261019000010) — score_factors.missing_reason·score_runs.kev_assist", () => {
+    // C4 MissingReason(web/server/scoring/analysis-result.model.ts) 8값.
+    const MISSING_REASONS = [
+      "NO_REQUIREMENTS_EXTRACTED",
+      "PROFILE_TECHNOLOGIES_EMPTY",
+      "BID_DOMAIN_UNKNOWN",
+      "PROFILE_PROJECTS_EMPTY",
+      "REQUIRED_FTE_UNKNOWN",
+      "TEAM_EMPTY",
+      "BUDGET_UNKNOWN",
+      "PREFERENCES_NOT_SET",
+    ];
+    // C4 KevAssist 모양의 값. 값 형식은 앱 zod·시험이 지키고 DB 는 jsonb 로 그대로 둔다.
+    const kevAssist = (suggestedOption, probabilities) => ({
+      enabled: true,
+      provider: "mock",
+      model: "mock",
+      questionSetVersion: "kev-qs/v0.1",
+      suggestedOption,
+      probabilities,
+      confidence: probabilities[suggestedOption],
+      mandatoryRisk: 0.05,
+      needsHumanReview: 0.12,
+      fit: { score: 3.5, legend: { 0: "Very poor", 4: "Very good" } },
+      scores: null,
+      risks: null,
+      calibration: null,
+      stateTrace: null,
+      latencyMs: 37,
+      requestId: null,
+      disclaimer: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.",
+    });
+    const KEV1 = kevAssist("BID", { BID: 0.71, WATCH: 0.24, NO_BID: 0.05 });
+    const KEV2 = kevAssist("WATCH", { BID: 0.2, WATCH: 0.7, NO_BID: 0.1 });
+    const NEW_COLUMNS = "(('score_factors', 'missing_reason'), ('score_runs', 'kev_assist'))";
+
+    it("score_factors.missing_reason 은 null 허용 text, score_runs.kev_assist 는 null 허용 jsonb 이고 기본값이 없어 두 열 없이 넣은 행은 null 이다", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select table_name, column_name, data_type, is_nullable, column_default from information_schema.columns
+           where table_schema = 'public' and (table_name, column_name) in ${NEW_COLUMNS} order by 1, 2`,
+        ),
+        [
+          {
+            table_name: "score_factors",
+            column_name: "missing_reason",
+            data_type: "text",
+            is_nullable: "YES",
+            column_default: null,
+          },
+          {
+            table_name: "score_runs",
+            column_name: "kev_assist",
+            data_type: "jsonb",
+            is_nullable: "YES",
+            column_default: null,
+          },
+        ],
+      );
+      // seed 는 두 열 없이 넣었다(마이그레이션 전에 쌓인 행과 같다).
+      assert.deepEqual(
+        await rowsOf(pglite, "select missing_reason from public.score_factors order by org_id"),
+        [{ missing_reason: null }, { missing_reason: null }],
+      );
+      assert.deepEqual(
+        await rowsOf(pglite, "select kev_assist from public.score_runs order by org_id"),
+        [{ kev_assist: null }, { kev_assist: null }],
+      );
+    });
+
+    it("missing_reason 은 C4 MissingReason 8값과 null 만 받는다 — 모르는 값·소문자·빈 문자열·뒤 공백은 관리 작업이 넣어도 23514(score_factors_missing_reason_check)다", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      const setReason = async (reason) =>
+        rowsOf(
+          pglite,
+          "update public.score_factors set missing_reason = $1 where score_run_id = $2 returning missing_reason",
+          [reason, RUN1],
+        );
+      for (const reason of MISSING_REASONS)
+        assert.deepEqual(await setReason(reason), [{ missing_reason: reason }], reason);
+      assert.deepEqual(await setReason(null), [{ missing_reason: null }], "null");
+      for (const reason of ["WIN_PROBABILITY_UNKNOWN", "budget_unknown", "", "BUDGET_UNKNOWN "]) {
+        await assert.rejects(setReason(reason), { code: "23514" }, JSON.stringify(reason));
+        await rejectsWith(
+          setReason(reason),
+          "score_factors_missing_reason_check",
+          JSON.stringify(reason),
+        );
+      }
+      // worker 의 넣기 경로(요소 행 insert)도 같은 제약이다.
+      const insertFactor = (factor, reason) =>
+        rowsOf(
+          pglite,
+          "insert into public.score_factors (score_run_id, org_id, factor, points, max_points, missing, missing_reason) values ($1, $2, $3, 0, 15, true, $4) returning missing_reason",
+          [RUN1, ORG1, factor, reason],
+        );
+      assert.deepEqual(await insertFactor("scaleFit", "BUDGET_UNKNOWN"), [
+        { missing_reason: "BUDGET_UNKNOWN" },
+      ]);
+      await rejectsWith(
+        insertFactor("strategicPreference", "NOT_A_REASON"),
+        "score_factors_missing_reason_check",
+      );
+    });
+
+    it("org-01 의 네 역할은 자기 조직 run 의 kev_assist·요소의 missing_reason 을 읽고 org-02 행은 0행이다 — org-02 VIEWER 는 org-01 것을, 비멤버 운영자는 둘 다 0행으로 보고 로그아웃은 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      for (const [run, kev, reason] of [
+        [RUN1, KEV1, "BUDGET_UNKNOWN"],
+        [RUN2, KEV2, "TEAM_EMPTY"],
+      ]) {
+        await pglite.query("update public.score_runs set kev_assist = $1 where id = $2", [
+          JSON.stringify(kev),
+          run,
+        ]);
+        await pglite.query(
+          "update public.score_factors set missing_reason = $1 where score_run_id = $2",
+          [reason, run],
+        );
+      }
+      const runsSeen = () =>
+        rowsOf(pglite, "select id, kev_assist from public.score_runs order by id");
+      const factorsSeen = () =>
+        rowsOf(
+          pglite,
+          "select score_run_id, missing_reason from public.score_factors order by score_run_id",
+        );
+      for (const who of ["admin", "sales", "analyst", "viewer"]) {
+        await as(pglite, who);
+        assert.deepEqual(await runsSeen(), [{ id: RUN1, kev_assist: KEV1 }], `${who} score_runs`);
+        assert.deepEqual(
+          await factorsSeen(),
+          [{ score_run_id: RUN1, missing_reason: "BUDGET_UNKNOWN" }],
+          `${who} score_factors`,
+        );
+      }
+      await as(pglite, "outsider");
+      assert.deepEqual(await runsSeen(), [{ id: RUN2, kev_assist: KEV2 }], "outsider score_runs");
+      assert.deepEqual(
+        await factorsSeen(),
+        [{ score_run_id: RUN2, missing_reason: "TEAM_EMPTY" }],
+        "outsider score_factors",
+      );
+      await as(pglite, "operator");
+      assert.deepEqual(await runsSeen(), [], "operator score_runs");
+      assert.deepEqual(await factorsSeen(), [], "operator score_factors");
+      await asAnon(pglite);
+      await assert.rejects(runsSeen(), PERMISSION, "anon score_runs");
+      await assert.rejects(factorsSeen(), PERMISSION, "anon score_factors");
+    });
+
+    it("두 열은 worker 만 쓴다 — 분석 요청 insert 에 kev_assist 를 넣으면 권한 오류이고 열 목록 그대로의 요청은 QUEUED·kev_assist null 로 들어가며, ADMIN 도 두 열을 고치거나 넣지 못하고 화면 역할의 열 권한은 authenticated 의 SELECT 뿐이다", async (t) => {
+      const pglite = await solDb(t);
+      for (const who of ["admin", "sales", "analyst"]) {
+        await as(pglite, who);
+        await assert.rejects(
+          requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.9", { kev_assist: JSON.stringify(KEV1) }),
+          /permission denied for table score_runs/,
+          who,
+        );
+      }
+      await as(pglite, "sales");
+      const [{ id }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.9");
+      assert.deepEqual(
+        await rowsOf(pglite, "select status, kev_assist from public.score_runs where id = $1", [
+          id,
+        ]),
+        [{ status: "QUEUED", kev_assist: null }],
+      );
+      await as(pglite, "admin");
+      for (const sql of [
+        "update public.score_runs set kev_assist = '{}'::jsonb",
+        "update public.score_factors set missing_reason = 'BUDGET_UNKNOWN'",
+      ])
+        await assert.rejects(pglite.query(sql), PERMISSION, sql);
+      await assert.rejects(
+        pglite.query(
+          "insert into public.score_factors (score_run_id, org_id, factor, points, max_points, missing_reason) values ($1, $2, 'scaleFit', 0, 15, 'BUDGET_UNKNOWN')",
+          [RUN1, ORG1],
+        ),
+        PERMISSION,
+        "score_factors insert",
+      );
+      // 표 단위 SELECT 가 새 열에도 걸리고, 열 단위 넣기·고치기 권한은 없다. anon 에는 아무것도 없다.
+      // information_schema 는 지금 역할이 받은 권한만 보여 주므로 관리 역할로 돌아가 읽는다.
+      await asWorker(pglite);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select table_name, column_name, grantee, privilege_type from information_schema.column_privileges
+           where table_schema = 'public' and grantee in ('anon', 'authenticated') and (table_name, column_name) in ${NEW_COLUMNS}
+           order by 1, 2, 3, 4`,
+        ),
+        [
+          {
+            table_name: "score_factors",
+            column_name: "missing_reason",
+            grantee: "authenticated",
+            privilege_type: "SELECT",
+          },
+          {
+            table_name: "score_runs",
+            column_name: "kev_assist",
+            grantee: "authenticated",
+            privilege_type: "SELECT",
+          },
+        ],
+      );
+    });
+  });
+});
+
+// ────────────────────────────────────────────────────────────────
+// 수집 저장 함수 ingest_save_revision(p jsonb)(20261019000009) — 공고·revision·첨부·outbox 이벤트를 함수 하나(한 트랜잭션)로 쓴다.
+// 근거: C3 계약 Stage 6 › 6-1, docs/04-DATABASE.md §3.3·§3.6, docs/07-DATA-PIPELINE.md §5.
+// worker(service role)만 부른다. PGlite 에는 service_role 역할이 없어, 호출은 위 Phase 1 묶음처럼 화면 역할을 벗고
+// service_role claim 을 싣는 것으로 흉내 낸다. 실행 권한(grant)은 service_role 역할을 먼저 만든 DB 에서 따로 본다.
+// 모든 시험은 자기만 쓰는 새 DB 에서 돈다.
+// ────────────────────────────────────────────────────────────────
+describe("수집 저장 함수 — ingest_save_revision (C3 Stage 6)", () => {
+  const NOTICE_ID = "DEMO-2026-0101";
+  const BID = "b1d00000-0000-0000-0000-000000000101";
+  const OTHER_BID = "b1d00000-0000-0000-0000-000000000199";
+  const REV_1 = "be500000-0000-0000-0000-000000000101";
+  const REV_2 = "be500000-0000-0000-0000-000000000102";
+  const TABLES = ["bid_notices", "bid_revisions", "bid_documents", "outbox_events"];
+  const EMPTY = Object.fromEntries(TABLES.map((table) => [table, 0]));
+  const FUNCTION = "public.ingest_save_revision(jsonb)";
+  const DENIED = { code: "42501", message: /permission denied for function ingest_save_revision/ };
+
+  const NOTICE = {
+    source: "fixture",
+    notice_id: NOTICE_ID,
+    plan_ref: "PLAN-2026-0101",
+    pre_spec_ref: "PRE-2026-0101",
+    title: "클라우드 전환 컨설팅",
+    agency: "시험기관",
+    stage: "NOTICE",
+    status: "OPEN",
+    budget_krw: "1200000000",
+    published_at: "2026-10-19T00:00:00.000Z",
+    deadline_at: "2026-11-02T09:00:00.000Z",
+    source_url: "https://fixture.invalid/0101",
+    is_demo: true,
+  };
+  // original_url 순서로 둔다(읽을 때 그 순서로 정렬한다).
+  const DOCUMENTS = [
+    { name: "제안요청서.pdf", original_url: "https://fixture.invalid/0101/rfp.pdf" },
+    { name: "과업지시서.hwp", original_url: "https://fixture.invalid/0101/sow.hwp" },
+  ];
+  const eventTypeOf = (revision) => (revision === 1 ? "BID_CREATED" : "BID_CHANGED");
+  // 07 §5 의 멱등키 source+noticeId+revision+eventType.
+  const keyOf = (revision, source = NOTICE.source) =>
+    `${source}:${NOTICE_ID}:${revision}:${eventTypeOf(revision)}`;
+  const changedFieldsOf = (revision) => (revision === 1 ? [] : ["deadlineAt"]);
+
+  // 6-1 의 p. 차수마다 checksum·fetched_at·이벤트가 다르고, 시험마다 고칠 부분만 덮어쓴다.
+  const paramsOf = (
+    revision,
+    { ids = {}, notice = {}, rev = {}, documents = DOCUMENTS, event = {} } = {},
+  ) => ({
+    ...ids,
+    notice: { ...NOTICE, ...notice },
+    revision: {
+      revision,
+      amendment_no: revision === 1 ? null : String(revision - 1).padStart(2, "0"),
+      raw_payload: { fixtureId: "FX-01", noticeId: NOTICE_ID, revision },
+      normalized: { noticeId: NOTICE_ID, revision, title: notice.title ?? NOTICE.title },
+      checksum: `sum-0101-${revision}`,
+      changed_fields: changedFieldsOf(revision),
+      fetched_at: `2026-10-${18 + revision}T01:00:00.000Z`,
+      ...rev,
+    },
+    documents,
+    event: {
+      event_type: eventTypeOf(revision),
+      idempotency_key: keyOf(revision),
+      payload: {
+        source: NOTICE.source,
+        noticeId: NOTICE_ID,
+        revision,
+        kind: revision === 1 ? "CREATED" : "CHANGED",
+        changedFields: changedFieldsOf(revision),
+      },
+      ...event,
+    },
+  });
+
+  // worker 자리 — 화면 역할을 벗고 service_role claim 을 싣는다(Phase 1 묶음의 service_role 흉내와 같다).
+  const asServiceRole = async (pglite) => {
+    await pglite.exec("reset role");
+    await pglite.query("select set_config('request.jwt.claims', $1, false)", [
+      JSON.stringify({ role: "service_role" }),
+    ]);
+  };
+  // 지금 역할 그대로 부른다.
+  const call = async (pglite, p) =>
+    (
+      await pglite.query("select bid_id, revision_id from public.ingest_save_revision($1::jsonb)", [
+        JSON.stringify(p),
+      ])
+    ).rows;
+  const save = async (pglite, p) => {
+    await asServiceRole(pglite);
+    return call(pglite, p);
+  };
+  // 읽기는 화면 역할을 벗고 RLS 없이 본다.
+  const rowsOf = async (pglite, sql, params = []) => {
+    await pglite.exec("reset role");
+    return (await pglite.query(sql, params)).rows;
+  };
+  const countsOf = async (pglite) =>
+    (
+      await rowsOf(
+        pglite,
+        `select ${TABLES.map((table) => `(select count(*)::int from public.${table}) as ${table}`).join(", ")}`,
+      )
+    )[0];
+  const iso = (value) => (value === null ? null : value.toISOString());
+  const noticeRowsOf = async (pglite) =>
+    (
+      await rowsOf(
+        pglite,
+        `select id, source, notice_id, plan_ref, pre_spec_ref, title, agency, stage, status, budget_krw::text as budget_krw,
+           published_at, deadline_at, source_url, is_demo, latest_revision, content_hash, last_synced_at
+         from public.bid_notices order by source, notice_id`,
+      )
+    ).map((row) => ({
+      ...row,
+      published_at: iso(row.published_at),
+      deadline_at: iso(row.deadline_at),
+      last_synced_at: iso(row.last_synced_at),
+    }));
+  // 오류 시험의 "아무것도 바뀌지 않았다" 기준 — 네 표의 행 수와 공고 행 전체.
+  const snapshotOf = async (pglite) => ({
+    counts: await countsOf(pglite),
+    notices: await noticeRowsOf(pglite),
+  });
+
+  it("실행 권한은 service_role 에만 있다 — anon·authenticated·PUBLIC 은 없다", async (t) => {
+    // 실제 Supabase 에는 service_role 역할이 있다. 흉내 DB 에 없으면 마이그레이션 전에 만들어 같은 조건에서 grant 를 본다.
+    const fresh = await freshDb(t);
+    await fresh.exec(`
+      do $$ begin
+        if not exists (select 1 from pg_roles where rolname = 'service_role') then
+          create role service_role nologin;
+        end if;
+      end $$;
+    `);
+    await applyMigrations(fresh, migrations);
+    assert.deepEqual(
+      (
+        await fresh.query(
+          `select
+             exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') as public,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+             has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated,
+             has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role
+           from pg_proc p where p.oid = to_regprocedure($1)`,
+          [FUNCTION],
+        )
+      ).rows,
+      [{ public: false, anon: false, authenticated: false, service_role: true }],
+    );
+  });
+
+  it("함수는 security invoker 이고 search_path 를 빈 값으로 고정한다", async (t) => {
+    const pglite = await migratedDb(t);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select prosecdef, proconfig from pg_proc where oid = to_regprocedure($1)",
+        [FUNCTION],
+      ),
+      [{ prosecdef: false, proconfig: ['search_path=""'] }],
+    );
+  });
+
+  it("로그아웃한 사용자(anon)가 부르면 권한 오류이고 아무 행도 생기지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await actAs(pglite, null, "anon");
+    await assert.rejects(call(pglite, paramsOf(1)), DENIED);
+    assert.deepEqual(await countsOf(pglite), EMPTY);
+  });
+
+  it("로그인한 사용자(authenticated)는 운영자라도 부르면 권한 오류이고 아무 행도 생기지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await pglite.query("update public.profiles set is_admin = true where id = $1", [users[2]]);
+    for (const id of [users[0], users[2]]) {
+      await actAs(pglite, id);
+      await assert.rejects(call(pglite, paramsOf(1)), DENIED, id);
+    }
+    assert.deepEqual(await countsOf(pglite), EMPTY);
+  });
+
+  it("service_role 한 번 호출로 공고·revision·첨부 2개·outbox 이벤트를 함께 쓰고 그것을 잇는 (bid_id, revision_id) 한 행을 돌려준다", async (t) => {
+    const pglite = await migratedDb(t);
+    const returned = await save(pglite, paramsOf(1));
+    assert.equal(returned.length, 1);
+    const [{ bid_id: bidId, revision_id: revisionId }] = returned;
+    assert.deepEqual(await countsOf(pglite), {
+      bid_notices: 1,
+      bid_revisions: 1,
+      bid_documents: 2,
+      outbox_events: 1,
+    });
+    assert.deepEqual(await rowsOf(pglite, "select id from public.bid_notices"), [{ id: bidId }]);
+    assert.deepEqual(await rowsOf(pglite, "select id, bid_id from public.bid_revisions"), [
+      { id: revisionId, bid_id: bidId },
+    ]);
+    assert.deepEqual(
+      await rowsOf(pglite, "select distinct bid_id, revision_id from public.bid_documents"),
+      [{ bid_id: bidId, revision_id: revisionId }],
+    );
+    assert.deepEqual(await rowsOf(pglite, "select aggregate_id from public.outbox_events"), [
+      { aggregate_id: bidId },
+    ]);
+  });
+
+  it("revision 1 의 공고 행은 notice 필드를 그대로 담고 latest_revision 은 1, content_hash 는 checksum, last_synced_at 은 fetched_at 이다", async (t) => {
+    const pglite = await migratedDb(t);
+    const p = paramsOf(1);
+    const [{ bid_id: bidId }] = await save(pglite, p);
+    assert.deepEqual(await noticeRowsOf(pglite), [
+      {
+        id: bidId,
+        ...NOTICE,
+        latest_revision: 1,
+        content_hash: p.revision.checksum,
+        last_synced_at: p.revision.fetched_at,
+      },
+    ]);
+  });
+
+  it("notice 의 빈 값(plan_ref·pre_spec_ref·agency·budget_krw·published_at·deadline_at 이 null)은 null 로 저장한다", async (t) => {
+    const pglite = await migratedDb(t);
+    const blanks = {
+      plan_ref: null,
+      pre_spec_ref: null,
+      agency: null,
+      budget_krw: null,
+      published_at: null,
+      deadline_at: null,
+    };
+    const p = paramsOf(1, { notice: blanks });
+    const [{ bid_id: bidId }] = await save(pglite, p);
+    assert.deepEqual(await noticeRowsOf(pglite), [
+      {
+        id: bidId,
+        ...NOTICE,
+        ...blanks,
+        latest_revision: 1,
+        content_hash: p.revision.checksum,
+        last_synced_at: p.revision.fetched_at,
+      },
+    ]);
+  });
+
+  it("revision 행은 p.revision 의 차수·amendment_no·원본·정규화·checksum·changed_fields·fetched_at 을 그대로 담는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const p = paramsOf(2);
+    const [{ bid_id: bidId, revision_id: revisionId }] = await save(pglite, p);
+    const rows = await rowsOf(
+      pglite,
+      "select id, bid_id, revision, amendment_no, raw_payload, normalized, checksum, changed_fields, fetched_at from public.bid_revisions where revision = 2",
+    );
+    assert.deepEqual(
+      rows.map((row) => ({ ...row, fetched_at: iso(row.fetched_at) })),
+      [{ id: revisionId, bid_id: bidId, ...p.revision }],
+    );
+  });
+
+  it("첨부 2개는 그 revision 에 묶인 bid_documents 2행이 되고 download_status 는 PENDING 이다", async (t) => {
+    const pglite = await migratedDb(t);
+    const [{ bid_id: bidId, revision_id: revisionId }] = await save(pglite, paramsOf(1));
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select bid_id, revision_id, name, original_url, download_status from public.bid_documents order by original_url",
+      ),
+      DOCUMENTS.map((document) => ({
+        bid_id: bidId,
+        revision_id: revisionId,
+        ...document,
+        download_status: "PENDING",
+      })),
+    );
+  });
+
+  it("첨부가 없으면 bid_documents 행 없이 공고·revision·outbox 이벤트만 쓴다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1, { documents: [] }));
+    assert.deepEqual(await countsOf(pglite), {
+      bid_notices: 1,
+      bid_revisions: 1,
+      bid_documents: 0,
+      outbox_events: 1,
+    });
+  });
+
+  it("outbox 이벤트는 org_id null·aggregate_type bid_notice·aggregate_id 공고 id 로 event_type·payload·idempotency_key 를 그대로 담고 PENDING 이다", async (t) => {
+    const pglite = await migratedDb(t);
+    const p = paramsOf(1);
+    const [{ bid_id: bidId }] = await save(pglite, p);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key, status from public.outbox_events",
+      ),
+      [
+        {
+          org_id: null,
+          aggregate_type: "bid_notice",
+          aggregate_id: bidId,
+          ...p.event,
+          status: "PENDING",
+        },
+      ],
+    );
+  });
+
+  it("bid_id·revision_id 를 주면 그 id 로 저장하고 그대로 돌려준다 — revision 2 도 같은 bid_id 와 새 revision_id 로", async (t) => {
+    const pglite = await migratedDb(t);
+    assert.deepEqual(
+      await save(pglite, paramsOf(1, { ids: { bid_id: BID, revision_id: REV_1 } })),
+      [{ bid_id: BID, revision_id: REV_1 }],
+    );
+    assert.deepEqual(
+      await save(pglite, paramsOf(2, { ids: { bid_id: BID, revision_id: REV_2 } })),
+      [{ bid_id: BID, revision_id: REV_2 }],
+    );
+    assert.deepEqual(await rowsOf(pglite, "select id from public.bid_notices"), [{ id: BID }]);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select id, bid_id, revision from public.bid_revisions order by revision",
+      ),
+      [
+        { id: REV_1, bid_id: BID, revision: 1 },
+        { id: REV_2, bid_id: BID, revision: 2 },
+      ],
+    );
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select distinct bid_id, revision_id from public.bid_documents order by revision_id",
+      ),
+      [
+        { bid_id: BID, revision_id: REV_1 },
+        { bid_id: BID, revision_id: REV_2 },
+      ],
+    );
+  });
+
+  it("revision 2 는 같은 공고 행의 필드·latest_revision·content_hash·last_synced_at 을 갱신하고 revision 행이 2개가 된다", async (t) => {
+    const pglite = await migratedDb(t);
+    const [first] = await save(pglite, paramsOf(1));
+    const changed = {
+      title: "클라우드 전환 컨설팅(정정)",
+      agency: "시험기관 정보화담당관",
+      status: "AMENDED",
+      budget_krw: "1500000000",
+      published_at: "2026-10-20T00:00:00.000Z",
+      deadline_at: "2026-11-09T09:00:00.000Z",
+      source_url: "https://fixture.invalid/0101-01",
+    };
+    const p = paramsOf(2, { notice: changed });
+    const [second] = await save(pglite, p);
+    assert.equal(second.bid_id, first.bid_id);
+    assert.notEqual(second.revision_id, first.revision_id);
+    assert.deepEqual(await noticeRowsOf(pglite), [
+      {
+        id: first.bid_id,
+        ...NOTICE,
+        ...changed,
+        latest_revision: 2,
+        content_hash: p.revision.checksum,
+        last_synced_at: p.revision.fetched_at,
+      },
+    ]);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select id, revision, checksum from public.bid_revisions order by revision",
+      ),
+      [
+        { id: first.revision_id, revision: 1, checksum: "sum-0101-1" },
+        { id: second.revision_id, revision: 2, checksum: "sum-0101-2" },
+      ],
+    );
+  });
+
+  it("revision 2 는 (source, notice_id) 로 공고를 찾는다 — notice_id 가 같아도 source 가 다른 공고는 그대로다", async (t) => {
+    const pglite = await migratedDb(t);
+    const g2b = {
+      source: "g2b-bid-notice",
+      is_demo: false,
+      source_url: "https://www.g2b.go.kr/0101",
+    };
+    const [fixtureBid] = await save(pglite, paramsOf(1));
+    const [g2bBid] = await save(
+      pglite,
+      paramsOf(1, { notice: g2b, event: { idempotency_key: keyOf(1, g2b.source) } }),
+    );
+    assert.notEqual(g2bBid.bid_id, fixtureBid.bid_id);
+    const [second] = await save(
+      pglite,
+      paramsOf(2, {
+        notice: { ...g2b, title: "정정 공고" },
+        event: { idempotency_key: keyOf(2, g2b.source) },
+      }),
+    );
+    assert.equal(second.bid_id, g2bBid.bid_id);
+    assert.deepEqual(
+      (await noticeRowsOf(pglite)).map(({ id, source, title, latest_revision }) => ({
+        id,
+        source,
+        title,
+        latest_revision,
+      })),
+      [
+        { id: fixtureBid.bid_id, source: "fixture", title: NOTICE.title, latest_revision: 1 },
+        { id: g2bBid.bid_id, source: "g2b-bid-notice", title: "정정 공고", latest_revision: 2 },
+      ],
+    );
+  });
+
+  it("같은 idempotency_key 의 outbox 이벤트는 무시하지만 그 revision 은 저장한다 — 이벤트 행은 처음 것 하나 그대로다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const [second] = await save(pglite, paramsOf(2, { event: { idempotency_key: keyOf(1) } }));
+    assert.deepEqual(await countsOf(pglite), {
+      bid_notices: 1,
+      bid_revisions: 2,
+      bid_documents: 4,
+      outbox_events: 1,
+    });
+    assert.deepEqual(
+      await rowsOf(pglite, "select id from public.bid_revisions where revision = 2"),
+      [{ id: second.revision_id }],
+    );
+    assert.equal((await noticeRowsOf(pglite))[0].latest_revision, 2);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select event_type, idempotency_key, payload ->> 'revision' as revision from public.outbox_events",
+      ),
+      [{ event_type: "BID_CREATED", idempotency_key: keyOf(1), revision: "1" }],
+    );
+  });
+
+  it("같은 (source, notice_id) 에 revision 1 을 다시 주면 INGEST_BID_EXISTS 이고 덮어쓰지도 행을 늘리지도 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(
+      save(
+        pglite,
+        paramsOf(1, {
+          notice: { title: "다른 제목" },
+          rev: { checksum: "sum-other" },
+          event: { idempotency_key: `${keyOf(1)}-again` },
+        }),
+      ),
+      { message: "INGEST_BID_EXISTS" },
+    );
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("revision 2 인데 bid_id 가 저장된 공고와 다르면 INGEST_BID_ID_MISMATCH 이고 아무 행도 늘지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1, { ids: { bid_id: BID } }));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(save(pglite, paramsOf(2, { ids: { bid_id: OTHER_BID } })), {
+      message: "INGEST_BID_ID_MISMATCH",
+    });
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("latest_revision 이 1 인데 revision 3 을 주면 INGEST_REVISION_CONFLICT 이고 아무 행도 늘지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(save(pglite, paramsOf(3)), { message: "INGEST_REVISION_CONFLICT" });
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("이미 저장한 revision 2 를 다시 주면 INGEST_REVISION_CONFLICT 이고 아무 행도 늘지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    await save(pglite, paramsOf(2));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(save(pglite, paramsOf(2)), { message: "INGEST_REVISION_CONFLICT" });
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("저장된 적 없는 공고에 revision 2 를 주면 INGEST_BID_NOT_FOUND 이고 아무 행도 생기지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await assert.rejects(save(pglite, paramsOf(2)), { message: "INGEST_BID_NOT_FOUND" });
+    assert.deepEqual(await countsOf(pglite), EMPTY);
+  });
+
+  it("첨부 원소의 name 이 null 이면 NOT NULL 위반으로 실패하고 네 표 모두 롤백된다 — 행 수 0 그대로", async (t) => {
+    const pglite = await migratedDb(t);
+    await assert.rejects(
+      save(pglite, paramsOf(1, { documents: [DOCUMENTS[0], { ...DOCUMENTS[1], name: null }] })),
+      { code: "23502" },
+    );
+    assert.deepEqual(await countsOf(pglite), EMPTY);
+  });
+
+  it("revision 2 저장 중 첨부 name 이 null 이면 공고 갱신까지 되돌아간다 — 공고 행·네 표 행 수가 revision 1 그대로다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, paramsOf(1));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(
+      save(
+        pglite,
+        paramsOf(2, {
+          notice: { title: "클라우드 전환 컨설팅(정정)", status: "AMENDED" },
+          documents: [DOCUMENTS[0], { ...DOCUMENTS[1], name: null }],
+        }),
+      ),
+      { code: "23502" },
+    );
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
 });
 
 describe("마이그레이션 재실행", () => {
@@ -4977,6 +5712,334 @@ describe("솔리데오 카탈로그·가입 신고", () => {
     );
     return fresh;
   };
+  describe("people business roles", () => {
+    // JWT 없는 관리 작업으로 멤버십 전체를 읽는다 — 화면 역할의 시도가 실제로 아무것도 바꾸지 않았는지 정책을 거치지 않고 본다.
+    const membershipsOf = async (fresh) => {
+      await fresh.exec("reset role");
+      await fresh.query("select set_config('request.jwt.claims', '', false)");
+      return (
+        await fresh.query(
+          "select org_id,user_id,org_role,sol_role from public.memberships order by org_id,user_id",
+        )
+      ).rows;
+    };
+    // 20261018000001 하나의 계약만 본다. 바로 다음 20261019000001(C2)은 팀 owner 에게 ADMIN 을 채우고 구성원 정책을
+    // ADMIN 기준으로 바꾸므로(정책·열 권한·트리거가 달라진다) 적용 범위를 그 앞에서 끊는다. C2 의 채우기는 다음 시험이 본다.
+    it("upgrades existing memberships with VIEWER while preserving all prior policies and grants", async (t) => {
+      const fresh = await freshDb(t);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version < "20261018000001"),
+      );
+      for (const [i, id] of users.entries())
+        await fresh.query("insert into auth.users values ($1,$2)", [
+          id,
+          `user${i}@example.invalid`,
+        ]);
+      await fresh.query(
+        "insert into public.organizations(id,slug,name) values ($1,'role-upgrade','업무 역할')",
+        [solideo],
+      );
+      await fresh.query(
+        "insert into public.memberships(org_id,user_id,org_role) values ($1,$2,'owner'),($1,$3,'member')",
+        [solideo, users[0], users[1]],
+      );
+      const before = await accessSnapshot(fresh);
+      await applyMigrations(
+        fresh,
+        migrations.filter(
+          (migration) =>
+            migration.version >= "20261018000001" && migration.version < "20261019000001",
+        ),
+      );
+      assert.deepEqual(
+        (await fresh.query("select org_role,sol_role from public.memberships order by org_role"))
+          .rows,
+        [
+          { org_role: "member", sol_role: "VIEWER" },
+          { org_role: "owner", sol_role: "VIEWER" },
+        ],
+      );
+      const after = await accessSnapshot(fresh);
+      assert.deepEqual(after.policies, before.policies);
+      assert.deepEqual(after.grants, before.grants);
+      assert.deepEqual(
+        after.columnGrants.filter((grant) => grant.column_name !== "sol_role"),
+        before.columnGrants,
+      );
+      // 새 열은 읽기만 열린다 — 넣기·고치기 열 권한은 거둔다(20261018000001 8행).
+      assert.deepEqual(
+        after.columnGrants.filter((grant) => grant.column_name === "sol_role"),
+        [
+          {
+            table_name: "memberships",
+            column_name: "sol_role",
+            grantee: "authenticated",
+            privilege_type: "SELECT",
+          },
+        ],
+      );
+      assert.deepEqual(after.triggers, before.triggers);
+    });
+    // 20261019000001 3절(85~90행): 구성원 관리가 ADMIN 기준이 되므로, ADMIN 이 한 명도 없는 팀 조직은 owner 를 ADMIN 으로
+    // 한 번 채운다. member·개인 조직(personal_owner_id 가 있는 조직)의 owner·이미 ADMIN 이 있는 팀의 owner 는 그대로다.
+    it("20261019000001 backfills ADMIN only for the owner of a team organization that has no ADMIN", async (t) => {
+      const fresh = await freshDb(t);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version < "20261019000001"),
+      );
+      for (const [i, id] of users.entries())
+        await fresh.query("insert into auth.users values ($1,$2)", [
+          id,
+          `user${i}@example.invalid`,
+        ]);
+      await fresh.query(
+        "insert into public.organizations(id,slug,name) values ($1,'team-a','ADMIN 없는 팀'),($2,'team-b','ADMIN 있는 팀')",
+        [solideo, other],
+      );
+      await fresh.query(
+        "insert into public.memberships(org_id,user_id,org_role) values ($1,$3,'owner'),($1,$4,'member'),($2,$4,'owner'),($2,$3,'member')",
+        [solideo, other, users[0], users[1]],
+      );
+      // team-b 는 owner 가 아닌 ADMIN 이 이미 있다. user2 는 이전 가입 흐름의 개인 조직 주인(owner)이다.
+      await fresh.query(
+        "update public.memberships set sol_role='ADMIN' where org_id=$1 and user_id=$2",
+        [other, users[0]],
+      );
+      await fresh.query("select public.create_personal_org($1)", [users[2]]);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version >= "20261019000001"),
+      );
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "select case when o.personal_owner_id is null then o.slug else 'personal' end as org, m.user_id, m.org_role, m.sol_role from public.memberships m join public.organizations o on o.id = m.org_id order by 1, 2",
+          )
+        ).rows,
+        [
+          { org: "personal", user_id: users[2], org_role: "owner", sol_role: "VIEWER" },
+          { org: "team-a", user_id: users[0], org_role: "owner", sol_role: "ADMIN" },
+          { org: "team-a", user_id: users[1], org_role: "member", sol_role: "VIEWER" },
+          { org: "team-b", user_id: users[0], org_role: "member", sol_role: "ADMIN" },
+          { org: "team-b", user_id: users[1], org_role: "owner", sol_role: "VIEWER" },
+        ],
+      );
+    });
+    it("defaults every existing owner/member to VIEWER without granting business ADMIN", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.memberships set org_role='owner' where user_id=$1", [
+        users[0],
+      ]);
+      assert.deepEqual(
+        (await fresh.query("select org_role,sol_role from public.memberships order by org_role"))
+          .rows,
+        [
+          { org_role: "member", sol_role: "VIEWER" },
+          { org_role: "owner", sol_role: "VIEWER" },
+        ],
+      );
+      for (const value of [null, "owner", "admin", "SUPER_ADMIN", ""]) {
+        await assert.rejects(
+          fresh.query("update public.memberships set sol_role=$1 where user_id=$2", [
+            value,
+            users[0],
+          ]),
+          /not-null constraint|check constraint/,
+        );
+      }
+    });
+    // 업무 역할과 상관없이 같은 경계: 카탈로그 3표는 자기 조직 것만 읽고 아무도 쓰지 못한다. 다른 조직에는 멤버십을
+    // 넣지도(sol_role 열 권한이 없다) 고치지도(읽히지 않으니 0행) 못한다 — ADMIN 이라도 그 조직의 ADMIN 일 뿐이다.
+    const assertCatalogReadOnlyAndIsolated = async (fresh) => {
+      for (const table of ["departments", "job_titles", "team_members"]) {
+        assert.equal(
+          (await fresh.query(`select * from public.${table} where org_id=$1`, [solideo])).rows
+            .length,
+          1,
+        );
+        assert.deepEqual(
+          (await fresh.query(`select * from public.${table} where org_id=$1`, [other])).rows,
+          [],
+        );
+        for (const sql of [
+          `insert into public.${table} (org_id) values ($1)`,
+          `update public.${table} set org_id=$1`,
+          `delete from public.${table} where org_id=$1`,
+        ])
+          await assert.rejects(fresh.query(sql, [solideo]), /permission denied/);
+      }
+      await assert.rejects(
+        fresh.query(
+          "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'member','ADMIN')",
+          [other, users[0]],
+        ),
+        /permission denied/,
+      );
+      for (const set of ["sol_role='ADMIN'", "org_role='owner'"])
+        assert.deepEqual(
+          (
+            await fresh.query(
+              `update public.memberships set ${set} where org_id=$1 returning user_id`,
+              [other],
+            )
+          ).rows,
+          [],
+          set,
+        );
+    };
+    // 20261019000001(ADR-021): sol_role 의 update 열 권한은 다시 열렸지만 "ADMIN 은 역할 변경" 정책이 ADMIN 이 아닌
+    // 사람의 update 대상에 멤버십 행을 넣지 않는다. 그래서 자기 승격(sol_role·org_role)은 오류가 아니라 0행이고 값이 그대로다.
+    // ADMIN 이 아닌 사람의 sol_role 변경을 42501 로 거절하는 두 번째 잠금(protect_sol_role)은 "업무 역할 보호 트리거" 시험이 본다.
+    for (const role of ["VIEWER", "ANALYST", "SALES"]) {
+      it(`${role} can read its catalog but cannot write people or promote itself`, async (t) => {
+        const fresh = await setup(t);
+        await fresh.query("update public.memberships set sol_role=$1 where user_id=$2", [
+          role,
+          users[0],
+        ]);
+        await actAs(fresh, users[0]);
+        assert.deepEqual(
+          (
+            await fresh.query(
+              "select sol_role from public.memberships where org_id=$1 and user_id=$2",
+              [solideo, users[0]],
+            )
+          ).rows,
+          [{ sol_role: role }],
+        );
+        await assertCatalogReadOnlyAndIsolated(fresh);
+        for (const set of ["sol_role='ADMIN'", "org_role='owner'"])
+          assert.deepEqual(
+            (
+              await fresh.query(
+                `update public.memberships set ${set} where org_id=$1 and user_id=$2 returning user_id`,
+                [solideo, users[0]],
+              )
+            ).rows,
+            [],
+            set,
+          );
+        assert.deepEqual(await membershipsOf(fresh), [
+          { org_id: other, user_id: users[1], org_role: "member", sol_role: "VIEWER" },
+          { org_id: solideo, user_id: users[0], org_role: "member", sol_role: role },
+        ]);
+      });
+    }
+    // ADMIN 은 자기 조직의 역할(org_role·sol_role)을 바꾸는 사람이다(docs/04-DATABASE.md §3.1 memberships 행, 09 RBAC).
+    // 그 허용은 아래 org_role 시험과 "업무 역할 변경은 그 조직의 ADMIN 만 한다" 시험이 본다. 여기서는 ADMIN 에게도 닫힌 것 —
+    // 카탈로그 쓰기, 다른 조직 멤버십, sol_role 을 직접 적은 멤버십 넣기(초대 수락 트리거만 채운다) — 을 본다.
+    it("ADMIN can read its catalog but cannot write people, reach another organization, or insert a sol_role directly", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.memberships set sol_role='ADMIN' where user_id=$1", [
+        users[0],
+      ]);
+      await actAs(fresh, users[0]);
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "select sol_role from public.memberships where org_id=$1 and user_id=$2",
+            [solideo, users[0]],
+          )
+        ).rows,
+        [{ sol_role: "ADMIN" }],
+      );
+      await assertCatalogReadOnlyAndIsolated(fresh);
+      await assert.rejects(
+        fresh.query(
+          "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'member','VIEWER')",
+          [solideo, users[2]],
+        ),
+        /permission denied/,
+      );
+      assert.deepEqual(await membershipsOf(fresh), [
+        { org_id: other, user_id: users[1], org_role: "member", sol_role: "VIEWER" },
+        { org_id: solideo, user_id: users[0], org_role: "member", sol_role: "ADMIN" },
+      ]);
+    });
+    // 20261019000001(ADR-021): 역할 변경의 기준은 org_role 이 아니라 sol_role='ADMIN' 이다. owner 라도 ADMIN 이 아니면
+    // 아무 역할도 바꾸지 못하고(0행), owner 가 아닌 ADMIN 이 같은 조직 구성원의 org_role 을 바꾼다. 두 역할은 서로를
+    // 끌고 가지 않는다 — owner 가 된 사람의 sol_role 은 VIEWER 그대로이고, ADMIN 은 그 조직에서만 ADMIN 이다.
+    it("an owner without ADMIN cannot change roles, while a member with ADMIN changes org_role and sol_role stays", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.memberships set org_role='owner' where org_id=$1", [
+        solideo,
+      ]);
+      await fresh.query(
+        "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'member','ADMIN'),($1,$3,'member','VIEWER')",
+        [solideo, users[1], users[2]],
+      );
+      await actAs(fresh, users[0]);
+      for (const [set, userId] of [
+        ["org_role='owner'", users[2]],
+        ["sol_role='ANALYST'", users[2]],
+        ["org_role='member'", users[1]],
+        ["sol_role='VIEWER'", users[1]],
+        ["sol_role='ADMIN'", users[0]],
+      ])
+        assert.deepEqual(
+          (
+            await fresh.query(
+              `update public.memberships set ${set} where org_id=$1 and user_id=$2 returning user_id`,
+              [solideo, userId],
+            )
+          ).rows,
+          [],
+          `${set} ${userId}`,
+        );
+      await assert.rejects(
+        fresh.query(
+          "insert into public.memberships(org_id,user_id,org_role,sol_role) values ($1,$2,'member','ADMIN')",
+          [solideo, users[2]],
+        ),
+        /permission denied/,
+      );
+      await actAs(fresh, users[1]);
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "update public.memberships set org_role='owner' where org_id=$1 and user_id=$2 returning org_role,sol_role",
+            [solideo, users[2]],
+          )
+        ).rows,
+        [{ org_role: "owner", sol_role: "VIEWER" }],
+      );
+      // user1 은 other 에서는 VIEWER 다 — solideo 의 ADMIN 이 other 의 자기 역할을 올리지 못한다.
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "update public.memberships set sol_role='ADMIN' where org_id=$1 and user_id=$2 returning user_id",
+            [other, users[1]],
+          )
+        ).rows,
+        [],
+      );
+      assert.deepEqual(await membershipsOf(fresh), [
+        { org_id: other, user_id: users[1], org_role: "member", sol_role: "VIEWER" },
+        { org_id: solideo, user_id: users[0], org_role: "owner", sol_role: "VIEWER" },
+        { org_id: solideo, user_id: users[1], org_role: "member", sol_role: "ADMIN" },
+        { org_id: solideo, user_id: users[2], org_role: "owner", sol_role: "VIEWER" },
+      ]);
+    });
+    it("other-organization users and platform admins cannot read the roster; anonymous is denied", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.profiles set is_admin=true where id=$1", [users[2]]);
+      for (const userId of [users[1], users[2]]) {
+        await actAs(fresh, userId);
+        for (const table of ["departments", "job_titles", "team_members", "memberships"]) {
+          assert.deepEqual(
+            (await fresh.query(`select * from public.${table} where org_id=$1`, [solideo])).rows,
+            [],
+          );
+        }
+      }
+      await actAs(fresh, null, "anon");
+      for (const table of ["departments", "job_titles", "team_members", "memberships"]) {
+        await assert.rejects(fresh.query(`select * from public.${table}`), /permission denied/);
+      }
+    });
+  });
   const resolve = (fresh, dept = "SOL-D001", job = "SOL-J007") =>
     fresh.query("select * from public.resolve_solideo_employment($1,$2)", [dept, job]);
   it("회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다", async (t) => {
