@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { formatKst } from "@/components/bids/format";
 import {
@@ -55,6 +56,8 @@ type DecisionPanelProps = {
   canRecordReview: boolean;
   bidStatus: BidStatus;
   onSubmit: (input: ReviewInputValues) => Promise<SubmitResult>;
+  // 새 분석을 기다리는 중(polling)이면 권고·점수 자리를 skeleton 으로 바꾼다. 폼과 이력은 지난 분석 기준 그대로다(§5.4.10).
+  pending?: boolean;
 };
 
 const REASON_TOO_SHORT = "사유를 10자 이상 적어 주세요";
@@ -90,6 +93,36 @@ function RecommendationLine({ analysis }: { analysis: AnalysisView | null }) {
   );
 }
 
+// 플래그 배지 + 코드(스펙 §5.4.9 "배지 옆에 코드를 type-caption font-mono 로"). 레일 320px 에서
+// "규칙 우선(Kev 의견 상이) MODEL_RULE_DISAGREEMENT" 처럼 한 덩어리로 두면 넘쳐서, 코드는 배지 밖에 두고 자리가 없으면 다음 줄로 꺾는다.
+function FlagItem({ flag }: { flag: ReviewFlag }) {
+  return (
+    <li className="flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+      <StatusBadge kind="flag" value={flag} />
+      <span className="min-w-0 font-mono type-caption text-muted-foreground wrap-anywhere">
+        {flag}
+      </span>
+    </li>
+  );
+}
+
+// 권고 줄과 점수 게이지 자리. 읽는 동안 높이가 튀지 않게 같은 크기로 둔다. 상태 안내는 화면의 live 영역 한 곳이 맡는다.
+function RailTopSkeleton() {
+  const pulse = "motion-reduce:animate-none";
+  return (
+    <div data-slot="decision-pending" aria-hidden="true" className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className={cn("h-5 w-8", pulse)} />
+        <Skeleton className={cn("h-6 w-20", pulse)} />
+      </div>
+      <div className="flex items-center gap-3">
+        <Skeleton className={cn("h-9 w-20", pulse)} />
+        <Skeleton className={cn("h-2 flex-1", pulse)} />
+      </div>
+    </div>
+  );
+}
+
 function ReviewNeeded({ analysis }: { analysis: AnalysisView }) {
   const flags = analysis.reviewFlags.filter(isReviewRecommended);
   const qualificationReview = analysis.qualification.status === "NEEDS_REVIEW";
@@ -107,9 +140,7 @@ function ReviewNeeded({ analysis }: { analysis: AnalysisView }) {
           </li>
         )}
         {flags.map((flag) => (
-          <li key={flag}>
-            <StatusBadge kind="flag" value={flag} showCode />
-          </li>
+          <FlagItem key={flag} flag={flag} />
         ))}
       </ul>
     </div>
@@ -178,7 +209,10 @@ function ReviewHistory({ reviews }: { reviews: Review[] }) {
                 <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 type-caption text-muted-foreground">
                   <StatusBadge kind="decision" value={review.decision} variant="inline" />
                   <span>
-                    · {review.reviewer.name}({review.reviewer.role}) · {formatKst(review.decidedAt)}
+                    · {review.reviewer.name}
+                    {/* 조직을 떠난 사람(탈퇴한 사용자)은 역할을 알 수 없어 괄호를 그리지 않는다. */}
+                    {review.reviewer.role !== null && `(${review.reviewer.role})`} ·{" "}
+                    {formatKst(review.decidedAt)}
                   </span>
                 </div>
                 <ReasonText text={review.reason} />
@@ -207,6 +241,7 @@ function DecisionPanel({
   canRecordReview,
   bidStatus,
   onSubmit,
+  pending = false,
 }: DecisionPanelProps) {
   const cancelled = bidStatus === "CANCELLED";
   const locked = !canRecordReview || cancelled;
@@ -299,26 +334,32 @@ function DecisionPanel({
           <h2 id="decision-title" className="font-heading type-heading text-foreground">
             참여 판단
           </h2>
-          <RecommendationLine analysis={analysis} />
-          <ScoreGauge
-            score={analysis?.solScore ?? null}
-            reference={analysis?.qualification.status === "NOT_SATISFIED"}
-          />
-          {analysis !== null && (
+          {pending ? (
+            <RailTopSkeleton />
+          ) : (
+            <>
+              <RecommendationLine analysis={analysis} />
+              <ScoreGauge
+                score={analysis?.solScore ?? null}
+                reference={analysis?.qualification.status === "NOT_SATISFIED"}
+              />
+            </>
+          )}
+          {!pending && analysis !== null && (
             <p className="type-caption text-muted-foreground">{analysis.disclaimer}</p>
           )}
-          {analysis !== null && <ReviewNeeded analysis={analysis} />}
-          {analysis !== null && analysis.reviewFlags.some((flag) => !isReviewRecommended(flag)) && (
-            <ul className="flex flex-wrap gap-1.5">
-              {analysis.reviewFlags
-                .filter((flag) => !isReviewRecommended(flag))
-                .map((flag) => (
-                  <li key={flag}>
-                    <StatusBadge kind="flag" value={flag} showCode />
-                  </li>
-                ))}
-            </ul>
-          )}
+          {!pending && analysis !== null && <ReviewNeeded analysis={analysis} />}
+          {!pending &&
+            analysis !== null &&
+            analysis.reviewFlags.some((flag) => !isReviewRecommended(flag)) && (
+              <ul className="flex flex-wrap gap-1.5">
+                {analysis.reviewFlags
+                  .filter((flag) => !isReviewRecommended(flag))
+                  .map((flag) => (
+                    <FlagItem key={flag} flag={flag} />
+                  ))}
+              </ul>
+            )}
         </div>
         <Separator />
         <form

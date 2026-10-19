@@ -157,7 +157,8 @@ export const REVIEW_FLAG_LABEL = {
   EXTRACTION_LOW_CONFIDENCE: "추출 신뢰 낮음",
   AI_UNAVAILABLE: "AI 사용 불가",
   QWEN_UNAVAILABLE: "Qwen 서버 미접속",
-  KEV_UNAVAILABLE: "Kev 서버 미접속",
+  // 미접속과 응답 형식 오류를 함께 뜻한다(ADR-031 C6·ADR-032 D9). 그래서 "서버 미접속"이라 쓰지 않는다.
+  KEV_UNAVAILABLE: "Kev 사용 불가",
   MOCK_FALLBACK: "Mock 대체 결과",
   PARSE_UNSUPPORTED: "첨부 원문 확인",
   DOCUMENT_DOWNLOAD_FAILED: "첨부 원문 확인(내려받기 실패)",
@@ -245,4 +246,16 @@ export function ruleReasonOf(
   if (view.qualification.status === "NOT_SATISFIED") return "필수자격 미충족";
   if (view.qualification.status === "NEEDS_REVIEW") return "자격 확인 필요";
   return "SOL Score 기준";
+}
+
+// 판단 7: 저장 행의 kev_assist 가 null 이면 kev.enabled=false 로 옮겨진다. 이 run 이 Kev 모델을 썼는데(model.kev)
+// Kev 불가 플래그가 없으면 꺼진 것이 아니라 기록이 없는 것이다. 화면은 "사용 안 함" 대신 "기록 없음"이라고 쓴다.
+export function kevRecordMissing(
+  view: Pick<AnalysisView, "kev" | "model" | "reviewFlags">,
+): boolean {
+  return (
+    !view.kev.enabled &&
+    view.model.kev !== null &&
+    !view.reviewFlags.some((flag) => flag === "KEV_UNAVAILABLE" || flag === "AI_UNAVAILABLE")
+  );
 }

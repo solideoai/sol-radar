@@ -1,0 +1,668 @@
+"use client";
+
+import {
+  ArrowLeftIcon,
+  CircleDashedIcon,
+  ExternalLinkIcon,
+  LoaderCircleIcon,
+  RefreshCwIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { toast } from "sonner";
+import { cn } from "cn";
+import { AppPage } from "@/components/app-page";
+import { AnalysisBanner } from "@/components/bids/analysis-banner";
+import { AnalysisStatus } from "@/components/bids/analysis-status";
+import { DecisionPanel, type ReviewInputValues } from "@/components/bids/decision-panel";
+import { AttachmentStatus, EvidenceDrawer, EvidenceList } from "@/components/bids/evidence-drawer";
+import { useEvidenceStore } from "@/components/bids/evidence-store";
+import { dDay, formatKrwFull, formatKst } from "@/components/bids/format";
+import { KevOpinion } from "@/components/bids/kev-opinion";
+import {
+  kevRecordMissing,
+  RECOMMENDATION_LABEL,
+  ruleReasonOf,
+  STAGE_LABEL,
+} from "@/components/bids/labels";
+import { QualificationChecklist } from "@/components/bids/qualification-checklist";
+import { ScoreFactors } from "@/components/bids/score-factors";
+import { StageTimeline } from "@/components/bids/stage-timeline";
+import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
+import { refreshTopbarStatus } from "@/components/topbar-status";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type {
+  AnalysisStatus as AnalysisStatusValue,
+  AnalysisView,
+  BidDetail,
+  BidDocument,
+  Recommendation,
+  RunMode,
+} from "@/server/bids";
+import { EmptyState } from "@/app/(app)/(work)/empty-state";
+import { DETAIL_CONTENT_CLASS } from "./detail-copy";
+import { recheckTopbarAfterReview, submitReview } from "./submit-review";
+import { useAnalysisRun, type ActiveRun, type RunState } from "./use-analysis-run";
+
+// /bids/[id] 본문(스펙 §5.4). 정보 위계는 06 §6 순서로 고정이다:
+// ① 상단 요약 → ② 분석 요약 띠(+배너) → ③ 단계 이력 → ④ 필수자격 → ⑤ SOL Score 분해 → ⑥ Kev 참고 지표 → ⑦ 근거 인용.
+// 오른쪽 레일은 결정 패널이다. 분석 실행 상태를 머리(버튼)와 본문(skeleton)이 함께 써서 한 클라이언트 부품으로 그린다.
+
+/** 화면에 내려보내는 공고. 본문 근거 하이라이트에 쓰는 content 는 싣고, 화면이 쓰지 않는 큰 칸은 뺀다. */
+export type DetailBid = Omit<
+  BidDetail,
+  "extraction" | "original" | "structuredQualifications" | "revisions"
+>;
+
+/** 분석 이력 한 줄(§5.4.2: 시각·상태·점수·권고·분석 실행 모드, 목록만). */
+export type AnalysisHistoryRow = {
+  id: string;
+  status: AnalysisStatusValue;
+  at: string;
+  solScore: number | null;
+  recommendation: Recommendation | null;
+  runMode: RunMode;
+  errorCode: string | null;
+};
+
+type BidDetailViewProps = {
+  bid: DetailBid;
+  /** 최신 run 이 점수 run(COMPLETED·PARTIAL)이 아닐 때 결정 패널이 쓸 직전 점수 run(§5.4.10). */
+  previousScored: AnalysisView | null;
+  /** 분석 이력 첫 쪽. 읽지 못했으면 null. */
+  history: { items: AnalysisHistoryRow[]; hasMore: boolean } | null;
+  /** Kev 항목별 분포의 itemId → 추출 문구(서버가 BidDetail.extraction 에서 풀었다). */
+  assessmentLabels: Record<string, string>;
+  members: { id: string; name: string }[];
+  currentUserId: string;
+  canAnalyze: boolean;
+  canDecide: boolean;
+  /** "← 공고 목록"이 돌아갈 주소. 목록에서 왔으면 그 조건을 보존한다. */
+  backHref: string;
+  /** 서버가 요청마다 한 번 만든 시각(ISO). D-n 의 기준이다(하이드레이션 차이 없음). */
+  now: string;
+};
+
+// 09 고정
+const PROFILE_BADGE = "가상 회사 프로필로 분석";
+// 06 §8
+const PROFILE_TOOLTIP = "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다";
+const ANALYZE_ROLE_HINT = "분석 요청은 ADMIN·SALES·ANALYST 역할만 할 수 있습니다";
+const REVIEW_SAVED = "결정을 기록했습니다";
+
+const SOURCE_LABEL: Record<string, string> = {
+  "g2b-bid-notice": "나라장터 입찰공고",
+  "g2b-pre-spec": "나라장터 사전규격",
+  "g2b-order-plan": "나라장터 발주계획",
+};
+
+const CHIP =
+  "inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption text-foreground";
+const TEXT_LINK = "rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+const PULSE = "motion-reduce:animate-none";
+
+const isScored = (analysis: AnalysisView | null): analysis is AnalysisView =>
+  analysis !== null && (analysis.status === "COMPLETED" || analysis.status === "PARTIAL");
+
+const activeOf = (analysis: AnalysisView | null): ActiveRun | null =>
+  analysis !== null && (analysis.status === "QUEUED" || analysis.status === "RUNNING")
+    ? { id: analysis.id, status: analysis.status }
+    : null;
+
+// 스펙 §5.4.1: demo 는 "출처 fixture", live 는 "출처 나라장터 입찰공고 (g2b-bid-notice)". 모르는 출처는 식별자 그대로다.
+const sourceText = (source: string): string => {
+  const label = SOURCE_LABEL[source];
+  return label === undefined ? source : `${label} (${source})`;
+};
+
+type PollingView = { status: "QUEUED" | "RUNNING"; delayed: boolean };
+
+// 상태 전이를 화면 낭독기에 한 곳에서 읽는다(스펙 §5.4.2 2번).
+function liveMessageOf(state: RunState, polling: PollingView | null): string {
+  if (state.phase === "requesting") return "분석 요청 중…";
+  if (polling !== null) {
+    if (polling.delayed) return "분석이 지연되고 있습니다.";
+    return polling.status === "QUEUED" ? "분석 대기 중" : "분석 중";
+  }
+  if (state.phase !== "idle" || state.finished === undefined) return "";
+  const { status, solScore, recommendation } = state.finished;
+  if (status === "FAILED") return "분석에 실패했습니다.";
+  const parts = [
+    solScore === null ? null : `SOL Score ${Math.round(solScore)}`,
+    recommendation === null ? null : `권고 ${RECOMMENDATION_LABEL[recommendation]}`,
+  ].filter((part) => part !== null);
+  return parts.length === 0 ? "분석이 끝났습니다." : `분석이 끝났습니다. ${parts.join(", ")}`;
+}
+
+function Dot() {
+  return (
+    <span aria-hidden="true" className="text-muted-foreground">
+      ·
+    </span>
+  );
+}
+
+// ① 제목 위: 뒤로 링크와 배지 줄(DEMO·단계·취소·출처).
+function DetailEyebrow({ bid, backHref }: { bid: DetailBid; backHref: string }) {
+  return (
+    <div className="mb-3 flex flex-col items-start gap-2">
+      <Link
+        href={backHref}
+        className={cn(
+          "inline-flex items-center gap-1 type-label text-muted-foreground hover:text-foreground",
+          TEXT_LINK,
+        )}
+      >
+        <ArrowLeftIcon aria-hidden="true" className="size-4 shrink-0" />
+        공고 목록
+      </Link>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {bid.isDemo && <DemoBadge withTooltip />}
+        <span className={CHIP}>{STAGE_LABEL[bid.stage]}</span>
+        <StatusBadge kind="bidStatus" value={bid.status} />
+        <span className="type-caption text-muted-foreground wrap-anywhere">
+          출처 {sourceText(bid.source)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ① 요약 두 줄: 발주기관·예산·마감 / 공고번호·revision·수집 시각.
+function SummaryLines({ bid, now }: { bid: DetailBid; now: Date }) {
+  const due = dDay(bid.deadlineAt, now);
+  return (
+    <>
+      <span className="block">
+        발주기관 {bid.agency ?? "—"} · 예산{" "}
+        <span className="tabular-nums">{formatKrwFull(bid.budgetKrw)}</span>
+        {bid.budgetKrw === null && <span className="sr-only">미공개</span>} · 마감{" "}
+        {bid.deadlineAt === null ? (
+          "—"
+        ) : (
+          <time dateTime={bid.deadlineAt} title={`UTC ${bid.deadlineAt}`} className="tabular-nums">
+            {formatKst(bid.deadlineAt)}
+            {due !== null && ` (${due.label})`}
+          </time>
+        )}
+      </span>
+      <span className="block">
+        공고번호 <span className="font-mono">{bid.noticeId}</span> · revision {bid.latestRevision} ·
+        수집{" "}
+        <time
+          dateTime={bid.lastSyncedAt}
+          title={`UTC ${bid.lastSyncedAt}`}
+          className="tabular-nums"
+        >
+          {formatKst(bid.lastSyncedAt)} KST
+        </time>
+      </span>
+    </>
+  );
+}
+
+function HeaderActions({
+  bid,
+  state,
+  busy,
+  hasResult,
+  hasAnalysis,
+  canAnalyze,
+  onAnalyze,
+}: {
+  bid: DetailBid;
+  state: RunState;
+  busy: boolean;
+  hasResult: boolean;
+  hasAnalysis: boolean;
+  canAnalyze: boolean;
+  onAnalyze: () => void;
+}) {
+  const requesting = state.phase === "requesting";
+  const label = requesting
+    ? "분석 요청 중…"
+    : busy
+      ? "분석 중…"
+      : hasAnalysis
+        ? "재분석"
+        : "분석 실행";
+  return (
+    <div className="flex max-w-sm flex-col items-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
+        <a
+          href={bid.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="원문 보기 (새 탭)"
+          className={cn(buttonVariants({ variant: "outline" }))}
+        >
+          <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />
+          원문 보기
+        </a>
+        {/* 이 화면의 default 버튼은 하나다. 결과가 없으면 분석, 있으면 결정 기록(스펙 §5.4.9). */}
+        <Button
+          type="button"
+          variant={hasResult ? "outline" : "default"}
+          disabled={!canAnalyze || bid.status === "CANCELLED" || busy}
+          aria-describedby={canAnalyze ? undefined : "analyze-role-hint"}
+          onClick={onAnalyze}
+        >
+          {busy ? (
+            <LoaderCircleIcon
+              data-icon="inline-start"
+              aria-hidden="true"
+              className="animate-spin motion-reduce:animate-none"
+            />
+          ) : (
+            hasAnalysis && <RefreshCwIcon data-icon="inline-start" aria-hidden="true" />
+          )}
+          {label}
+        </Button>
+      </div>
+      {!canAnalyze && (
+        // 비활성 버튼은 초점을 받지 않아 툴팁 대신 보이는 글자로 이유를 둔다(§5.4.10).
+        <p id="analyze-role-hint" className="text-right type-label text-muted-foreground">
+          {ANALYZE_ROLE_HINT}
+        </p>
+      )}
+      {state.phase === "error" && (
+        <div
+          role="alert"
+          className="flex flex-col gap-0.5 rounded-lg border border-destructive p-3 type-label text-destructive"
+        >
+          <p>분석을 요청하지 못했습니다</p>
+          <p className="wrap-anywhere text-foreground">{state.message}</p>
+          <p className="font-mono type-caption wrap-anywhere">
+            {state.code}
+            {state.requestId !== undefined && ` · ${state.requestId}`}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProfileBadge() {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<span tabIndex={0} />}
+        className={cn(CHIP, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
+      >
+        {PROFILE_BADGE}
+      </TooltipTrigger>
+      <TooltipContent>{PROFILE_TOOLTIP}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function aiText(model: AnalysisView["model"]): string {
+  if (model.provider === "mock") return "AI: mock";
+  // 모델 이름은 받은 식별자 그대로 보인다(스펙 D12).
+  return [`AI: ${model.provider}`, model.qwen?.name, model.kev?.model]
+    .filter((part) => part !== undefined)
+    .join(" · ");
+}
+
+function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
+  return (
+    <table className="mt-2 w-full text-left type-caption">
+      <caption className="sr-only">분석 이력</caption>
+      <thead className="text-muted-foreground">
+        <tr>
+          <th scope="col" className="py-1 pr-3 font-normal">
+            시각
+          </th>
+          <th scope="col" className="py-1 pr-3 font-normal">
+            상태
+          </th>
+          <th scope="col" className="py-1 pr-3 text-right font-normal">
+            점수
+          </th>
+          <th scope="col" className="py-1 pr-3 font-normal">
+            권고
+          </th>
+          <th scope="col" className="py-1 font-normal">
+            분석 실행 모드
+          </th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-border text-foreground">
+        {rows.map((row) => (
+          <tr key={row.id} className="align-top">
+            <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">
+              <time dateTime={row.at} title={`UTC ${row.at}`}>
+                {formatKst(row.at)}
+              </time>
+            </td>
+            <td className="py-1.5 pr-3">
+              <StatusBadge kind="analysis" value={row.status} short variant="inline" />
+              {row.errorCode !== null && (
+                <span className="block font-mono text-muted-foreground wrap-anywhere">
+                  {row.errorCode}
+                </span>
+              )}
+            </td>
+            <td className="py-1.5 pr-3 text-right tabular-nums">
+              {row.solScore === null ? "—" : Math.round(row.solScore)}
+            </td>
+            <td className="py-1.5 pr-3">
+              {row.recommendation === null ? (
+                "—"
+              ) : (
+                <StatusBadge kind="recommendation" value={row.recommendation} variant="inline" />
+              )}
+            </td>
+            <td className="py-1.5">{row.runMode}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// ② 분석 요약 띠: 상태·끝난 시각·분석 실행 모드·AI / 가상 회사 프로필·알고리즘·프로필 rev / 분석 이력.
+function AnalysisBand({
+  bid,
+  latest,
+  polling,
+  history,
+}: {
+  bid: DetailBid;
+  latest: AnalysisView | null;
+  polling: PollingView | null;
+  history: BidDetailViewProps["history"];
+}) {
+  // polling 중에는 새 run 의 상태만 보인다. 지난 run 의 모드·모델을 새 결과처럼 보이지 않게 한다.
+  const shown = polling === null ? latest : null;
+  const historyRows = history?.items ?? [];
+  return (
+    <section
+      aria-labelledby="analysis-band-title"
+      className="flex flex-col gap-2 rounded-lg border border-border p-4"
+    >
+      <h2 id="analysis-band-title" className="sr-only">
+        분석 요약
+      </h2>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 type-label text-foreground">
+        {polling !== null ? (
+          <AnalysisStatus status={polling.status} />
+        ) : (
+          <AnalysisStatus
+            status={latest?.status ?? null}
+            at={latest === null ? undefined : (latest.finishedAt ?? latest.queuedAt)}
+          />
+        )}
+        {shown !== null && (
+          <>
+            <Dot />
+            <span>분석 실행 모드: {shown.runMode}</span>
+            <Dot />
+            <span className="min-w-0 wrap-anywhere">{aiText(shown.model)}</span>
+          </>
+        )}
+      </div>
+      {shown !== null && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <ProfileBadge />
+          {!bid.isDemo && (
+            <span className="type-caption text-muted-foreground">실제 공고 × 가상 회사 프로필</span>
+          )}
+          <span className="type-caption text-muted-foreground wrap-anywhere">
+            알고리즘 {shown.model.algorithmVersion} · 프로필 rev {shown.profileRevision}
+          </span>
+        </div>
+      )}
+      {historyRows.length >= 2 && (
+        <details className="group">
+          {/* 기본 펼침 표시(▶)를 숨기고 스펙의 ▾ 하나만 둔다. 펼치면 뒤집는다. */}
+          <summary
+            className={cn(
+              "w-fit cursor-pointer list-none type-label text-foreground [&::-webkit-details-marker]:hidden",
+              TEXT_LINK,
+            )}
+          >
+            {/* 첫 쪽(최근 20건)만 읽는다. 더 있으면 "최근"을 붙여 전체 수가 아님을 밝힌다. */}
+            분석 이력 {history?.hasMore ? "최근 " : ""}
+            {historyRows.length}건{" "}
+            <span aria-hidden="true" className="inline-block group-open:rotate-180">
+              ▾
+            </span>
+          </summary>
+          <HistoryTable rows={historyRows} />
+        </details>
+      )}
+      {history === null && latest !== null && (
+        <p className="type-caption text-muted-foreground">분석 이력을 불러오지 못했습니다</p>
+      )}
+    </section>
+  );
+}
+
+// ④~⑦ 구역 하나. 구역은 가는 선으로 나눈다(design-system 방향 1).
+function Section({ children }: { children: React.ReactNode }) {
+  return <div className="min-w-0 border-t border-border pt-6">{children}</div>;
+}
+
+// polling 중 ④~⑦ 자리. 실제 구역과 비슷한 높이로 두어 결과가 오면 덜 튄다. 상태 안내는 live 영역이 맡는다.
+function AnalysisSkeleton() {
+  return (
+    <div data-slot="analysis-pending" aria-hidden="true" className="flex flex-col gap-6">
+      {[3, 5, 4, 3].map((rows, section) => (
+        <div key={section} className="flex flex-col gap-3 border-t border-border pt-6">
+          <Skeleton className={cn("h-6 w-40", PULSE)} />
+          {Array.from({ length: rows }, (_, row) => (
+            <Skeleton key={row} className={cn("h-5 w-full", PULSE)} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Attachments({ documents, sourceUrl }: { documents: BidDocument[]; sourceUrl: string }) {
+  if (documents.length === 0) return null;
+  return <AttachmentStatus documents={documents} sourceUrl={sourceUrl} />;
+}
+
+function AnalysisResult({
+  analysis,
+  bid,
+  assessmentLabels,
+}: {
+  analysis: AnalysisView;
+  bid: DetailBid;
+  assessmentLabels: Record<string, string>;
+}) {
+  const openWith = useEvidenceStore((store) => store.openWith);
+  const assessments = analysis.requirementAssessments.map((assessment) => ({
+    assessment,
+    label: assessmentLabels[assessment.itemId] ?? assessment.itemId,
+  }));
+  return (
+    <>
+      <Section>
+        <QualificationChecklist qualification={analysis.qualification} onOpenEvidence={openWith} />
+      </Section>
+      <Section>
+        <ScoreFactors
+          factors={analysis.scoreBreakdown}
+          reviewFlags={analysis.reviewFlags}
+          explanation={analysis.explanation}
+          algorithmVersion={analysis.model.algorithmVersion}
+          profileRevision={analysis.profileRevision}
+          reference={analysis.qualification.status === "NOT_SATISFIED"}
+          onOpenEvidence={openWith}
+        />
+      </Section>
+      <Section>
+        <KevOpinion
+          kev={analysis.kev}
+          reviewFlags={analysis.reviewFlags}
+          recommendation={analysis.recommendation}
+          ruleReason={ruleReasonOf(analysis)}
+          errorCode={analysis.errorCode}
+          notRecorded={kevRecordMissing(analysis)}
+          assessments={assessments}
+        />
+      </Section>
+      <Section>
+        <div className="flex flex-col gap-6">
+          <EvidenceList title="근거 인용" evidence={analysis.evidence} documents={bid.documents} />
+          <Attachments documents={bid.documents} sourceUrl={bid.sourceUrl} />
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function NoResult({ title, bid }: { title: string; bid: DetailBid }) {
+  return (
+    <>
+      <Section>
+        <EmptyState icon={CircleDashedIcon} title={title} />
+      </Section>
+      {bid.documents.length > 0 && (
+        <Section>
+          <Attachments documents={bid.documents} sourceUrl={bid.sourceUrl} />
+        </Section>
+      )}
+    </>
+  );
+}
+
+export function BidDetailView({
+  bid,
+  previousScored,
+  history,
+  assessmentLabels,
+  members,
+  currentUserId,
+  canAnalyze,
+  canDecide,
+  backHref,
+  now,
+}: BidDetailViewProps) {
+  const router = useRouter();
+  const at = useMemo(() => new Date(now), [now]);
+  const latest = bid.latestAnalysis;
+  const run = useAnalysisRun(bid.id, { active: activeOf(latest) });
+  const { state } = run;
+
+  // 서버가 진행 중인 run 을 그렸는데 훅이 아직 첫 응답을 받지 않았으면(새로고침 직후) 그 상태를 그대로 보인다.
+  const serverActive = activeOf(latest);
+  const polling: PollingView | null =
+    state.phase === "polling"
+      ? { status: state.status, delayed: state.delayed }
+      : state.phase === "idle" && serverActive !== null
+        ? { status: serverActive.status, delayed: false }
+        : null;
+  const busy = state.phase === "requesting" || (polling !== null && !polling.delayed);
+  const cancelled = bid.status === "CANCELLED";
+  const scored = isScored(latest) ? latest : null;
+  // 결정은 점수 run 에 묶는다. 최신 run 이 진행 중·실패면 직전 점수 run 이다(§5.4.10).
+  const decisionAnalysis = scored ?? previousScored;
+  const reanalyze = canAnalyze && !cancelled ? () => void run.start(true) : undefined;
+
+  // 결정 기록 뒤 상단바 두 번째 읽기(5초 뒤). 화면을 떠나면 취소한다.
+  const recheck = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    const box = recheck;
+    return () => box.current?.();
+  }, []);
+
+  const onSubmitReview = useCallback(
+    async (input: ReviewInputValues) => {
+      const result = await submitReview(bid.id, input);
+      if (result.ok) {
+        toast(REVIEW_SAVED);
+        router.refresh();
+        recheck.current?.();
+        recheck.current = recheckTopbarAfterReview(refreshTopbarStatus);
+      }
+      return result;
+    },
+    [bid.id, router],
+  );
+
+  return (
+    <>
+      <AppPage
+        eyebrow={<DetailEyebrow bid={bid} backHref={backHref} />}
+        title={bid.title}
+        description={<SummaryLines bid={bid} now={at} />}
+        actions={
+          <HeaderActions
+            bid={bid}
+            state={state}
+            busy={busy}
+            hasResult={decisionAnalysis !== null}
+            hasAnalysis={latest !== null}
+            canAnalyze={canAnalyze}
+            onAnalyze={() => void run.start(latest !== null)}
+          />
+        }
+        contentClassName={DETAIL_CONTENT_CLASS}
+      >
+        <p data-slot="analysis-live" role="status" aria-live="polite" className="sr-only">
+          {liveMessageOf(state, polling)}
+        </p>
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6">
+          <div data-slot="bid-detail-main" className="flex min-w-0 flex-col gap-6">
+            <AnalysisBand bid={bid} latest={latest} polling={polling} history={history} />
+            <AnalysisBanner
+              analysis={polling === null ? latest : null}
+              bidStatus={bid.status}
+              delayed={polling?.delayed ?? false}
+              onReanalyze={reanalyze}
+              onRefresh={run.refresh}
+            />
+            <section
+              aria-labelledby="stage-history-title"
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-6"
+            >
+              <h2 id="stage-history-title" className="type-heading text-foreground">
+                단계 이력
+              </h2>
+              <StageTimeline
+                stage={bid.stage}
+                stageLinks={bid.stageLinks}
+                latestRevision={bid.latestRevision}
+              />
+            </section>
+            {polling !== null ? (
+              <AnalysisSkeleton />
+            ) : latest === null ? (
+              <NoResult title="아직 분석하지 않았습니다" bid={bid} />
+            ) : scored === null ? (
+              <NoResult title="분석 결과가 없습니다" bid={bid} />
+            ) : (
+              <AnalysisResult analysis={scored} bid={bid} assessmentLabels={assessmentLabels} />
+            )}
+          </div>
+          <div
+            data-slot="bid-detail-rail"
+            className="sticky top-18 max-h-[calc(100dvh-5.5rem)] min-w-0 overflow-y-auto"
+          >
+            {/* 새 분석이면 라디오 기본값(시스템 권고)도 새로 잡는다(P2). */}
+            <DecisionPanel
+              key={decisionAnalysis?.id ?? "none"}
+              analysis={decisionAnalysis}
+              reviews={bid.reviews}
+              members={members}
+              currentUserId={currentUserId}
+              canRecordReview={canDecide}
+              bidStatus={bid.status}
+              onSubmit={onSubmitReview}
+              pending={polling !== null}
+            />
+          </div>
+        </div>
+      </AppPage>
+      <EvidenceDrawer content={bid.content} sourceUrl={bid.sourceUrl} documents={bid.documents} />
+    </>
+  );
+}

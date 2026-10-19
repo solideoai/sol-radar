@@ -484,7 +484,7 @@ FX-03처럼 필수자격 미충족으로 NO-BID면 구역 제목 옆에 `참고 
 | 지연 | polling 5분 초과 | "분석이 지연되고 있습니다." warning | [새로고침] |
 | 취소 공고 | `status=CANCELLED` | "이 공고는 취소되었습니다. 기존 분석·결정 기록은 보존됩니다", 중립(`border-border`) | — |
 
-Qwen 불가와 Kev 불가는 문구가 다르다(06 §6): Qwen 불가(→ PARTIAL)는 위 AI 불가 배너, Kev만 불가는 배너 없이 Kev 구역 "사용 불가 (Kev 서버 미접속)".
+Qwen 불가와 Kev 불가는 문구가 다르다(06 §6): Qwen 불가(→ PARTIAL)는 위 AI 불가 배너, Kev만 불가는 배너 없이 Kev 구역 "사용 불가 (Kev 사용 불가)". `KEV_UNAVAILABLE`은 Kev 미접속과 Kev 응답 형식 오류를 함께 뜻하므로 "서버 미접속"이라 쓰지 않는다(ADR-031 C6·ADR-032 D9).
 
 #### 5.4.7 Kev 참고 지표 (`KevOpinion`)
 
@@ -521,7 +521,7 @@ C4 타입은 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)를 `nul
 |---|---|---|---|
 | v0.1 정상 | mock | 위 v0.1 | — |
 | v0.2 정상 | live·fixture | v0.1 + v0.2 | 항목별 분포 펼치기 |
-| Kev 미접속 | `kev.enabled=false` + `KEV_UNAVAILABLE` | "사용 불가 (Kev 서버 미접속)" + `recommendationBasis: RULES_ONLY` + 고지 3줄 대신 "Kev 없이 규칙만으로 판정했습니다." | — |
+| Kev 사용 불가(미접속·응답 형식 오류) | `kev.enabled=false` + `KEV_UNAVAILABLE` | "사용 불가 (Kev 사용 불가)" + `recommendationBasis: RULES_ONLY` + 고지 3줄 대신 "Kev 없이 규칙만으로 판정했습니다." | — |
 | AI 불가 | `PARTIAL` + `AI_UNAVAILABLE` | "사용 불가" (S6) | — |
 | Kev 꺼짐 | `kev.enabled=false`, 플래그 없음 | "사용 안 함" | — |
 | 분석 없음 | 미분석 | 구역 자체를 그리지 않는다(빈 구역 대신 ⑤~⑦을 한 빈 상태로 묶는다, §5.4.11) | 분석 실행 |
@@ -566,7 +566,7 @@ C4 타입은 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)를 `nul
 | 7 | 최종 결정 폼 | `FieldSet` + `FieldLegend` "최종 결정". 선택 3개(BID / WATCH / NO-BID) 라디오 — 06 와이어프레임대로 시스템 권고를 미리 고른다(D21). 사유 `Textarea`(최소 80px, 10~2000자, 글자 수 `n / 2000`). 담당자 `Select`(기본 = 나, D6). [결정 기록](default, 전체 폭) | `ReviewInput.decision`·`reason`·`assigneeUserId`·`scoreRunId`(= 최신 분석 id) |
 | 8 | 결정 이력 | `h3` "결정 이력". 최신 위: `{결정 아이콘·글자} · {reviewer.name}({reviewer.role}) · {decidedAt}` / 사유(3줄 말줄임 + 펼치기) / `담당 {assignee.name}` / 권고와 다르면 `권고와 다름`(중립 배지). 맨 위 줄은 "마지막 결정: BID · 김영업 · 시각"(11 #8·#11) | `Review[]` |
 
-플래그 라벨(초안, 05 `ReviewFlag` 17개 전부): `MODEL_RULE_DISAGREEMENT` 규칙 우선(Kev 의견 상이) · `KEV_MANDATORY_RISK` Kev 필수자격 위험 신호 · `KEV_NEEDS_REVIEW` Kev 사람 검토 신호 · `KEV_REQUIREMENT_DISAGREEMENT` 항목 판정 상이(Kev) · `KEV_DELIVERY_RISK` 수행 리스크 신호(Kev) · `CITATION_FAILED` 인용 대조 실패 · `EXTRACTION_FAILED` 추출 실패 · `EXTRACTION_LOW_CONFIDENCE` 추출 신뢰 낮음 · `AI_UNAVAILABLE` AI 사용 불가 · `QWEN_UNAVAILABLE` Qwen 서버 미접속 · `KEV_UNAVAILABLE` Kev 서버 미접속 · `MOCK_FALLBACK` Mock 대체 결과 · `PARSE_UNSUPPORTED` 첨부 원문 확인 · `DOCUMENT_DOWNLOAD_FAILED` 첨부 원문 확인(내려받기 실패) · `INSUFFICIENT_DATA` 근거 부족 · `INJECTION_SUSPECTED` 문서 지시문 의심 · `SCALE_LIMIT_EXCEEDED` 수행 상한 초과. 배지 옆에 코드를 `type-caption font-mono`로 함께 둔다.
+플래그 라벨(초안, 05 `ReviewFlag` 17개 전부): `MODEL_RULE_DISAGREEMENT` 규칙 우선(Kev 의견 상이) · `KEV_MANDATORY_RISK` Kev 필수자격 위험 신호 · `KEV_NEEDS_REVIEW` Kev 사람 검토 신호 · `KEV_REQUIREMENT_DISAGREEMENT` 항목 판정 상이(Kev) · `KEV_DELIVERY_RISK` 수행 리스크 신호(Kev) · `CITATION_FAILED` 인용 대조 실패 · `EXTRACTION_FAILED` 추출 실패 · `EXTRACTION_LOW_CONFIDENCE` 추출 신뢰 낮음 · `AI_UNAVAILABLE` AI 사용 불가 · `QWEN_UNAVAILABLE` Qwen 서버 미접속 · `KEV_UNAVAILABLE` Kev 사용 불가 · `MOCK_FALLBACK` Mock 대체 결과 · `PARSE_UNSUPPORTED` 첨부 원문 확인 · `DOCUMENT_DOWNLOAD_FAILED` 첨부 원문 확인(내려받기 실패) · `INSUFFICIENT_DATA` 근거 부족 · `INJECTION_SUSPECTED` 문서 지시문 의심 · `SCALE_LIMIT_EXCEEDED` 수행 상한 초과. 배지 옆에 코드를 `type-caption font-mono`로 함께 둔다.
 
 **결정 기록 흐름**: `POST /api/v1/bids/{id}/reviews`(`X-Requested-With`) → `201` → 토스트 "결정을 기록했습니다" → `router.refresh()`(결정 이력·목록의 최종 결정 갱신) → 벨 수 즉시 + 5초 뒤 다시 읽기. 폼은 react-hook-form + zod(서버와 같은 스키마, 06 §11).
 

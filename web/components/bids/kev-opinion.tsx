@@ -16,6 +16,8 @@ type KevOpinionProps = {
   errorCode: string | null;
   // 항목 라벨은 화면이 extraction 의 itemId 경로로 풀어 넘긴다. 부품은 경로 조회를 하지 않는다.
   assessments?: { assessment: RequirementAssessmentView; label: string }[];
+  // Kev 를 썼는데 저장된 Kev 결과가 없는 run(kevRecordMissing). 꺼진 것과 구분해 "기록 없음"이라고 쓴다.
+  notRecorded?: boolean;
 };
 
 const SIGNAL_THRESHOLD = 0.7;
@@ -158,8 +160,12 @@ function AssessmentTable({
 }) {
   return (
     <details className="group">
-      <summary className="cursor-pointer rounded-sm type-label text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-        항목별 분포 {assessments.length}건 <span aria-hidden="true">▾</span>
+      {/* 기본 펼침 표시(▶)를 숨기고 ▾ 하나만 둔다. 펼치면 뒤집는다. */}
+      <summary className="w-fit cursor-pointer list-none rounded-sm type-label text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+        항목별 분포 {assessments.length}건{" "}
+        <span aria-hidden="true" className="inline-block group-open:rotate-180">
+          ▾
+        </span>
       </summary>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full min-w-0 text-left type-caption">
@@ -265,7 +271,7 @@ function V02({ kev, assessments }: { kev: KevView; assessments?: KevOpinionProps
 }
 
 function KevOpinion(props: KevOpinionProps) {
-  const { kev, reviewFlags, errorCode } = props;
+  const { kev, reviewFlags, errorCode, notRecorded = false } = props;
   const headingId = useId();
   const unavailableFlag = reviewFlags.includes("AI_UNAVAILABLE");
   return (
@@ -282,12 +288,15 @@ function KevOpinion(props: KevOpinionProps) {
         <Fallback errorCode={errorCode}>사용 불가</Fallback>
       ) : reviewFlags.includes("KEV_UNAVAILABLE") ? (
         <div className="flex flex-col gap-1">
-          <p className="type-body text-foreground">사용 불가 (Kev 서버 미접속)</p>
+          {/* KEV_UNAVAILABLE 은 미접속과 응답 형식 오류를 함께 뜻한다(ADR-031 C6·ADR-032 D9). */}
+          <p className="type-body text-foreground">사용 불가 (Kev 사용 불가)</p>
           <p className="font-mono type-caption text-muted-foreground">
             recommendationBasis: RULES_ONLY
           </p>
           <p className="type-label text-muted-foreground">Kev 없이 규칙만으로 판정했습니다.</p>
         </div>
+      ) : notRecorded ? (
+        <Fallback errorCode={null}>기록 없음</Fallback>
       ) : (
         <Fallback errorCode={null}>사용 안 함</Fallback>
       )}

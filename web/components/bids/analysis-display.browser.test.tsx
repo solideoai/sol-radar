@@ -10,6 +10,7 @@ import { QualificationChecklist } from "@/components/bids/qualification-checklis
 import { ScoreFactors } from "@/components/bids/score-factors";
 import { ScoreGauge } from "@/components/bids/score-gauge";
 import { StageTimeline } from "@/components/bids/stage-timeline";
+import { StatusBadge } from "@/components/bids/status-badge";
 import { FX01_PARTIAL_VIEW, FX01_VIEW, FX02_VIEW, FX03_VIEW } from "@/components/bids/test-data";
 import type { AnalysisView, KevView, RequirementAssessmentView } from "@/server/bids";
 
@@ -130,6 +131,29 @@ describe("ScoreFactors", () => {
     const missingMeter = host.querySelectorAll('[role="meter"]')[4];
     expect(missingMeter?.firstElementChild?.className).toContain("bg-muted-foreground/40");
     expect(missingMeter?.getAttribute("aria-valuetext")).toBe("0.0점 / 10점 (미확인)");
+  });
+
+  it("missing 인데 사유가 기록되지 않은 행은 '사유 기록 없음'을 보인다(판단 7)", () => {
+    const factors = factorsOf(FX02_VIEW).map((factor) =>
+      factor.factor === "scaleFit"
+        ? { ...factor, missing: true, missingReason: null, points: 0 }
+        : factor,
+    );
+    const host = render(
+      <ScoreFactors
+        factors={factors}
+        reviewFlags={[]}
+        explanation={null}
+        algorithmVersion="sol-v0.1.0"
+        profileRevision={2}
+      />,
+    );
+    const rows = Array.from(host.querySelectorAll("li"));
+    const scaleRow = rows.find((row) => row.textContent?.startsWith("규모 적합성"));
+    expect(scaleRow?.textContent).toContain("미확인");
+    expect(scaleRow?.textContent).toContain("사유 기록 없음");
+    // 사유가 있는 행이나 missing 이 아닌 행에는 붙지 않는다.
+    expect(text(host).match(/사유 기록 없음/g)).toHaveLength(1);
   });
 
   it("참고 점수면 꼬리표와 설명을 보인다", () => {
@@ -340,7 +364,7 @@ describe("KevOpinion", () => {
     expect(host.querySelectorAll('[role="meter"]')).toHaveLength(0);
   });
 
-  it("Kev 서버 미접속은 규칙만 판정 문장을 보인다", () => {
+  it("KEV_UNAVAILABLE(미접속·응답 형식 오류)은 'Kev 사용 불가'와 규칙만 판정 문장을 보인다", () => {
     const host = render(
       <KevOpinion
         kev={FX01_PARTIAL_VIEW.kev}
@@ -350,8 +374,45 @@ describe("KevOpinion", () => {
         errorCode={null}
       />,
     );
-    expect(text(host)).toContain("사용 불가 (Kev 서버 미접속)");
+    // ADR-031 C6·ADR-032 D9: 이 플래그는 미접속과 응답 형식 오류를 함께 뜻하므로 "서버 미접속"이라 쓰지 않는다.
+    expect(text(host)).toContain("사용 불가 (Kev 사용 불가)");
+    expect(text(host)).not.toContain("서버 미접속");
     expect(text(host)).toContain("Kev 없이 규칙만으로 판정했습니다.");
+  });
+
+  it("KEV_UNAVAILABLE 플래그 배지도 'Kev 사용 불가'다", () => {
+    const host = render(<StatusBadge kind="flag" value="KEV_UNAVAILABLE" showCode />);
+    expect(text(host)).toBe("Kev 사용 불가KEV_UNAVAILABLE");
+  });
+
+  it("notRecorded 면 '기록 없음'을 보이고 '사용 안 함'은 없다", () => {
+    const host = render(
+      <KevOpinion
+        kev={FX01_PARTIAL_VIEW.kev}
+        reviewFlags={[]}
+        recommendation="BID"
+        ruleReason={null}
+        errorCode={null}
+        notRecorded
+      />,
+    );
+    expect(text(host)).toContain("기록 없음");
+    expect(text(host)).not.toContain("사용 안 함");
+  });
+
+  it("notRecorded 여도 Kev 불가 플래그가 있으면 불가 문장이 우선한다", () => {
+    const host = render(
+      <KevOpinion
+        kev={FX01_PARTIAL_VIEW.kev}
+        reviewFlags={["KEV_UNAVAILABLE"]}
+        recommendation="BID"
+        ruleReason={null}
+        errorCode={null}
+        notRecorded
+      />,
+    );
+    expect(text(host)).toContain("사용 불가 (Kev 사용 불가)");
+    expect(text(host)).not.toContain("기록 없음");
   });
 
   it("꺼져 있고 플래그가 없으면 사용 안 함이다", () => {
@@ -487,6 +548,20 @@ describe("AnalysisBanner", () => {
     );
     expect(status?.textContent).toContain("AI_UNAVAILABLE");
     expect(status?.textContent).toContain("RULES_ONLY");
+  });
+
+  it("늦은 마감 실패(ANALYSIS_RUN_SUPERSEDED)는 일반 실패 문장과 코드 글꼴의 코드를 보인다", () => {
+    const host = render(
+      <AnalysisBanner
+        analysis={{ ...FX01_VIEW, status: "FAILED", errorCode: "ANALYSIS_RUN_SUPERSEDED" }}
+        bidStatus="OPEN"
+      />,
+    );
+    expect(text(host)).toContain("분석에 실패했습니다.");
+    const code = Array.from(host.querySelectorAll(".font-mono span")).find(
+      (el) => el.textContent === "ANALYSIS_RUN_SUPERSEDED",
+    );
+    expect(code).toBeDefined();
   });
 
   it("취소 공고는 취소 문장을 보인다", () => {

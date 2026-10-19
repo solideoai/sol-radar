@@ -540,10 +540,9 @@ describe("getBid", () => {
     expect(callsOf(only("bid_documents"), "eq")).toEqual(
       expect.arrayContaining([["revision_id", "r2"]]),
     );
-    expect(detail?.documents.map((d) => d.downloadPath)).toEqual([
-      `/api/v1/bids/${BID}/documents/d1/download`,
-      null,
-    ]);
+    // 첨부 내려받기 라우트는 핵심 컷에 없다(스펙 D24). 받은 첨부라도 경로를 내지 않아 화면에 죽은 링크가 생기지 않는다.
+    expect(detail?.documents.map((d) => d.downloadStatus)).toEqual(["OK", "FAILED"]);
+    expect(detail?.documents.map((d) => d.downloadPath)).toEqual([null, null]);
     // 쓸 수 있는 추출(COMPLETED·PENDING_REVIEW) 중 최신을 싣는다
     expect(detail?.extractionStatus).toBe("PENDING_REVIEW");
     expect(detail?.extraction).toEqual({ requiredSkills: [] });

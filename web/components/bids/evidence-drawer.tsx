@@ -219,7 +219,8 @@ function AttachmentBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption",
+        // self-start: 세로 flex 안에서 배지가 줄 폭으로 늘어나지 않게 한다.
+        "inline-flex h-5 shrink-0 items-center gap-1 self-start whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption",
         tone === "destructive" ? "text-destructive" : "text-warning",
       )}
     >

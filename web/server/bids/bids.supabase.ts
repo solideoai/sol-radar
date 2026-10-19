@@ -202,22 +202,20 @@ const toRevisionSummary = (row: {
   changedFields: row.changed_fields,
 });
 
-// 다운로드 경로는 받은 첨부에만 둔다(05 §4.3).
-const toDocument = (
-  bidId: string,
-  row: {
-    id: string;
-    name: string;
-    mime_type: string | null;
-    size_bytes: number | null;
-    format: string | null;
-    download_status: string;
-    parse_status: string | null;
-    download_error_code: string | null;
-    page_count: number | null;
-    parse_error_code: string | null;
-  },
-): BidDocument =>
+// 05 §4.3 은 받은 첨부에 다운로드 경로를 둔다. 하지만 내려받기 라우트(/bids/:id/documents/:docId/download)는
+// 핵심 컷의 Route Handler 9개에 없다(스펙 D24). 없는 주소를 내보내면 화면에 죽은 링크가 생기므로 라우트가 생길 때까지 null 이다.
+const toDocument = (row: {
+  id: string;
+  name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  format: string | null;
+  download_status: string;
+  parse_status: string | null;
+  download_error_code: string | null;
+  page_count: number | null;
+  parse_error_code: string | null;
+}): BidDocument =>
   bidDocumentSchema.parse({
     id: row.id,
     name: row.name,
@@ -229,8 +227,7 @@ const toDocument = (
     downloadErrorCode: row.download_error_code,
     pageCount: row.page_count,
     parseErrorCode: row.parse_error_code,
-    downloadPath:
-      row.download_status === "OK" ? `/api/v1/bids/${bidId}/documents/${row.id}/download` : null,
+    downloadPath: null,
   });
 
 const toStructured = (row: {
@@ -289,7 +286,7 @@ async function readRevisionParts(db: Db, bidId: string, revisionId: string) {
   if (extractions.error) throw extractions.error;
   return {
     latestRevisionBody: body.data.normalized,
-    documents: documents.data.map((row) => toDocument(bidId, row)),
+    documents: documents.data.map(toDocument),
     structured: structured.data.map(toStructured),
     extraction: pickExtraction(extractions.data),
   };

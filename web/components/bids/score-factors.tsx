@@ -57,11 +57,12 @@ function FactorRow({
                 <CircleHelpIcon aria-hidden="true" className="size-3.5 shrink-0" />
                 미확인
               </span>
-              {factor.missingReason !== null && (
-                <span className="type-caption text-muted-foreground">
-                  {MISSING_REASON_LABEL[factor.missingReason]}
-                </span>
-              )}
+              {/* 사유 열이 없던 때의 저장 행은 사유가 null 이다(판단 7). 지어내지 않고 기록이 없다고 쓴다. */}
+              <span className="type-caption text-muted-foreground">
+                {factor.missingReason === null
+                  ? "사유 기록 없음"
+                  : MISSING_REASON_LABEL[factor.missingReason]}
+              </span>
             </>
           )}
           {scaleLimitExceeded && <StatusBadge kind="flag" value="SCALE_LIMIT_EXCEEDED" />}

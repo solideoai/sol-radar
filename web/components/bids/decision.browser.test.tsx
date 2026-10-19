@@ -206,6 +206,23 @@ describe("DecisionPanel 표시", () => {
     await expect.element(page.getByText("참고", { exact: true })).toBeVisible();
   });
 
+  it("긴 플래그 라벨과 코드(규칙 우선 MODEL_RULE_DISAGREEMENT)도 320px 레일을 넘지 않는다", async () => {
+    const host = render(
+      panel({
+        analysis: {
+          ...FX03_VIEW,
+          reviewFlags: ["MODEL_RULE_DISAGREEMENT", "DOCUMENT_DOWNLOAD_FAILED", "MOCK_FALLBACK"],
+        },
+      }),
+    );
+    await expect.element(page.getByText("MODEL_RULE_DISAGREEMENT")).toBeVisible();
+    const right = host.getBoundingClientRect().right;
+    const outside = Array.from(host.querySelectorAll<HTMLElement>("*")).filter(
+      (el) => !el.closest(".sr-only") && el.getBoundingClientRect().right > right + 0.5,
+    );
+    expect(outside.map((el) => el.outerHTML.slice(0, 80))).toEqual([]);
+  });
+
   it("결정 이력: 마지막 결정 줄과 담당자를 보인다", async () => {
     render(panel());
     await expect.element(page.getByRole("heading", { name: "결정 이력" })).toBeVisible();
@@ -235,6 +252,29 @@ describe("DecisionPanel 표시", () => {
     await expect.element(page.getByRole("button", { name: "접기" })).toBeVisible();
     expect(reasonLine.scrollHeight).toBeLessThanOrEqual(reasonLine.clientHeight + 1);
     expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth);
+  });
+
+  it("결정한 사람의 역할을 모르면(탈퇴한 사용자) 괄호를 그리지 않는다", async () => {
+    const deleted: Review = {
+      ...REVIEWS_FX01[0]!,
+      id: "review-deleted",
+      reviewer: { id: "deleted-user", name: "탈퇴한 사용자", role: null },
+      decidedAt: "2026-10-15T01:00:00Z",
+    };
+    const host = render(panel({ reviews: [deleted, ...REVIEWS_FX01] }));
+    await expect.element(page.getByText("· 탈퇴한 사용자 ·", { exact: false })).toBeVisible();
+    expect(host.textContent).not.toContain("탈퇴한 사용자()");
+    expect(host.textContent).not.toContain("()");
+    expect(host.textContent).toContain("김영업(SALES)");
+  });
+
+  it("pending 이면 권고·점수 자리를 skeleton 으로 바꾸고 폼과 이력은 그대로 둔다", async () => {
+    const host = render(panel({ pending: true }));
+    expect(host.querySelector('[data-slot="decision-pending"]')).not.toBeNull();
+    expect(page.getByRole("meter").elements()).toHaveLength(0);
+    expect(page.getByText(FX01_VIEW.disclaimer).elements()).toHaveLength(0);
+    await expect.element(page.getByRole("button", { name: "결정 기록" })).toBeEnabled();
+    await expect.element(page.getByRole("heading", { name: "결정 이력" })).toBeVisible();
   });
 
   it("짧은 사유에는 펼치기가 없다", async () => {

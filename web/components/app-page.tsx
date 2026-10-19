@@ -1,6 +1,7 @@
 import { cn } from "cn";
 // 본문 랜드마크(main#main-content)는 여기서 그린다 — 앱 틀(app-shell)은 그리지 않는다.
 export function AppPage({
+  eyebrow,
   title,
   description,
   actions,
@@ -8,7 +9,10 @@ export function AppPage({
   contentClassName,
   typeScale,
 }: {
-  title: string;
+  // 제목 위 한 줄(뒤로 링크·배지 등). 공고 상세처럼 제목 앞에 맥락이 필요한 화면만 쓴다.
+  eyebrow?: React.ReactNode;
+  // 읽는 중(loading)에는 skeleton 을 넣을 수 있게 글자 외의 내용도 받는다.
+  title: React.ReactNode;
   description?: React.ReactNode;
   // 주요 버튼(default)은 화면에 하나만 둔다.
   actions?: React.ReactNode;
@@ -28,7 +32,9 @@ export function AppPage({
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           {/* min-w-0 이 없으면 긴 제목이 버튼을 밀어 좁은 폭에서 가로로 넘친다. */}
           <div className="min-w-0">
-            <h1 className="type-title text-foreground">{title}</h1>
+            {eyebrow}
+            {/* 띄어쓰기 없는 긴 제목(공고명 등)도 꺾여 단 폭을 넘지 않게 한다. */}
+            <h1 className="type-title wrap-anywhere text-foreground">{title}</h1>
             {description ? (
               // break-keep 이라 띄어쓰기 없는 긴 이름(팀 이름 40자)이 꺾이지 않아 좁은 폭에서 넘친다. 그런 낱말만 꺾는다.
               <p className="mt-1 type-body wrap-anywhere text-muted-foreground">{description}</p>

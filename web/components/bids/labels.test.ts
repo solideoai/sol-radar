@@ -16,8 +16,10 @@ import {
   REVIEW_FLAG_LABEL,
   STAGE_LABEL,
   STATUS_ICON,
+  kevRecordMissing,
   ruleReasonOf,
 } from "./labels";
+import { FX01_PARTIAL_VIEW, FX01_VIEW, FX02_VIEW } from "./test-data";
 
 describe("라벨 표", () => {
   it("플래그 17개, missing 사유 8개, 사유 6개, 요소 5개", () => {
@@ -110,5 +112,32 @@ describe("ruleReasonOf", () => {
       expect(ruleReasonOf(v, path)).toBe("SOL Score 기준");
     expect(ruleReasonOf(withStatus("NOT_SATISFIED"), "알 수 없는 값")).toBe("필수자격 미충족");
     expect(ruleReasonOf(withStatus("NOT_SATISFIED"), null)).toBe("필수자격 미충족");
+  });
+});
+
+describe("kevRecordMissing(판단 7)", () => {
+  // kev_assist 가 null 인 저장 행은 kev.enabled=false 로 옮겨진다. 모델은 Kev 를 썼는데 불가 플래그가 없으면 기록이 없는 것이다.
+  const unrecorded = { ...FX02_VIEW, reviewFlags: [], kev: FX01_PARTIAL_VIEW.kev };
+  it("Kev 가 꺼져 있고 모델 Kev 정보가 있고 불가 플래그가 없으면 true 다", () => {
+    expect(kevRecordMissing(unrecorded)).toBe(true);
+  });
+  it("Kev 가 켜져 있으면 false 다", () => {
+    expect(kevRecordMissing(FX01_VIEW)).toBe(false);
+  });
+  it("모델 Kev 정보가 없으면(Kev 를 쓰지 않은 run) false 다", () => {
+    expect(kevRecordMissing({ ...unrecorded, model: { ...unrecorded.model, kev: null } })).toBe(
+      false,
+    );
+  });
+  it("KEV_UNAVAILABLE·AI_UNAVAILABLE 이 있으면 false 다", () => {
+    expect(kevRecordMissing({ ...unrecorded, reviewFlags: ["KEV_UNAVAILABLE"] })).toBe(false);
+    expect(kevRecordMissing({ ...unrecorded, reviewFlags: ["AI_UNAVAILABLE"] })).toBe(false);
+    expect(kevRecordMissing({ ...unrecorded, reviewFlags: ["KEV_NEEDS_REVIEW"] })).toBe(true);
+  });
+});
+
+describe("KEV_UNAVAILABLE 라벨(ADR-031 C6·ADR-032 D9)", () => {
+  it("미접속과 응답 형식 오류를 함께 뜻하므로 'Kev 사용 불가'다", () => {
+    expect(REVIEW_FLAG_LABEL.KEV_UNAVAILABLE).toBe("Kev 사용 불가");
   });
 });
