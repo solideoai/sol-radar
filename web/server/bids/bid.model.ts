@@ -218,10 +218,10 @@ export const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
 
 // ADR-030 B14: CLOSED 는 저장하지 않고 조회할 때 마감으로 계산한다. 뷰 bid_list_items 와 같은 규칙이다.
 export function effectiveStatus(
-  status: z.infer<typeof bidStatusSchema>,
+  status: BidStatus,
   deadlineAt: string | null,
   now: Date,
-): z.infer<typeof bidStatusSchema> {
+): BidStatus {
   if (status !== "OPEN" && status !== "AMENDED") return status;
   if (deadlineAt === null) return status;
   return Date.parse(deadlineAt) < now.getTime() ? "CLOSED" : status;

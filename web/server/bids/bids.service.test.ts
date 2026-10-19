@@ -36,7 +36,7 @@ type Fake = {
   created: CreateAnalysisRun[];
   enqueue: ReturnType<typeof vi.fn>;
   hit: ReturnType<typeof vi.fn>;
-  onQueueError: Mock<(error: unknown) => void>;
+  onInfraError: Mock<(component: "queue" | "redis", error: unknown) => void>;
   limiter: AnalysisRateLimiter;
 };
 
@@ -62,8 +62,8 @@ function fake(overrides: Partial<BidsRepo> = {}): Fake {
     ...overrides,
   };
   const hit = vi.fn(async (): ReturnType<AnalysisRateLimiter["hit"]> => ({ allowed: true }));
-  const onQueueError = vi.fn<(error: unknown) => void>();
-  return { repo, queue: { enqueue }, created, enqueue, hit, onQueueError, limiter: { hit } };
+  const onInfraError = vi.fn<(component: "queue" | "redis", error: unknown) => void>();
+  return { repo, queue: { enqueue }, created, enqueue, hit, onInfraError, limiter: { hit } };
 }
 
 const request = (f: Fake, body: unknown, key: string | null, role = ctx.role) =>
@@ -71,7 +71,7 @@ const request = (f: Fake, body: unknown, key: string | null, role = ctx.role) =>
     repo: f.repo,
     queue: f.queue,
     limiter: f.limiter,
-    onQueueError: f.onQueueError,
+    onInfraError: f.onInfraError,
   });
 
 describe("requestAnalysis", () => {
@@ -214,6 +214,20 @@ describe("requestAnalysis", () => {
     expect(f.created[0]?.idempotencyKey).toMatch(/^org1:[0-9a-f-]{36}$/);
   });
 
+  it("대문자 키와 소문자 키는 같은 저장 키가 된다", async () => {
+    const lookups: string[] = [];
+    const f = fake({
+      findIdempotency: async (_org, key) => {
+        lookups.push(key);
+        return null;
+      },
+    });
+    await request(f, {}, KEY.toUpperCase());
+    await request(f, {}, KEY);
+    expect(f.created.map((run) => run.idempotencyKey)).toEqual([`org1:${KEY}`, `org1:${KEY}`]);
+    expect(lookups).toEqual([`org1:${KEY}`, `org1:${KEY}`]);
+  });
+
   it("본문이 없어도 기본값(force:false)으로 받는다", async () => {
     const f = fake();
     const result = await request(f, undefined, KEY2);
@@ -240,6 +254,19 @@ describe("요청 사전 검사 (O10)", () => {
     expect(result).toMatchObject({ ok: false, status: 403 });
   });
 
+  it("VIEWER 요청은 limiter 를 부르지 않는다", async () => {
+    const f = fake();
+    await request(f, {}, KEY, "VIEWER");
+    expect(f.hit).not.toHaveBeenCalled();
+  });
+
+  it("limiter 가 본문 검증보다 먼저다 (잘못된 본문 + 제한 초과 → 429)", async () => {
+    const f = fake();
+    f.hit.mockResolvedValueOnce({ allowed: false, retryAfterSeconds: 3 });
+    const result = await request(f, { force: "yes" }, KEY);
+    expect(result).toMatchObject({ ok: false, status: 429, code: "RATE_LIMITED" });
+  });
+
   it("limiter 가 막으면 429 RATE_LIMITED 이고 retryAfterSeconds 를 담고 repo 를 부르지 않는다", async () => {
     const getBidSpy = vi.fn(async () => ({ id: "b1" }) as unknown as BidDetail);
     const f = fake({ getBid: getBidSpy });
@@ -256,10 +283,15 @@ describe("요청 사전 검사 (O10)", () => {
     expect(f.enqueue).not.toHaveBeenCalled();
   });
 
-  it("limiter 가 던지면 503 redis 다", async () => {
-    const f = fake();
-    f.hit.mockRejectedValueOnce(new Error("redis down"));
+  it("limiter 가 던지면 원인을 onInfraError(redis) 로 1회 넘기고 503 redis 다", async () => {
+    const getBidSpy = vi.fn(async () => ({ id: "b1" }) as unknown as BidDetail);
+    const f = fake({ getBid: getBidSpy });
+    const cause = new Error("redis down");
+    f.hit.mockRejectedValueOnce(cause);
     const result = await request(f, {}, KEY);
+    expect(f.onInfraError).toHaveBeenCalledTimes(1);
+    expect(f.onInfraError).toHaveBeenCalledWith("redis", cause);
+    expect(getBidSpy).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       ok: false,
       status: 503,
@@ -453,16 +485,43 @@ describe("enqueue 실패", () => {
     expect(markRunFailed).toHaveBeenCalledWith("org1", "run1", "ENQUEUE_FAILED");
   });
 
-  it("큐 오류 원인을 onQueueError 로 1회 넘기고 markRunFailed 를 1회 부른다 (O12)", async () => {
+  it("큐 오류 원인을 onInfraError 로(queue) 1회 넘기고 markRunFailed 를 1회 부른다 (O12)", async () => {
     const markRunFailed = vi.fn(async () => undefined);
     const f = fake({ markRunFailed });
     const cause = new Error("redis down");
     f.enqueue.mockRejectedValueOnce(cause);
     await request(f, { force: true }, KEY);
-    expect(f.onQueueError).toHaveBeenCalledTimes(1);
-    expect(f.onQueueError).toHaveBeenCalledWith(cause);
+    expect(f.onInfraError).toHaveBeenCalledTimes(1);
+    expect(f.onInfraError).toHaveBeenCalledWith("queue", cause);
     expect(markRunFailed).toHaveBeenCalledTimes(1);
     expect(markRunFailed).toHaveBeenCalledWith("org1", "run1", "ENQUEUE_FAILED");
+  });
+
+  it("콜백이 던져도 markRunFailed 가 불리고 503 이다", async () => {
+    const markRunFailed = vi.fn(async () => undefined);
+    const f = fake({ markRunFailed });
+    f.enqueue.mockRejectedValueOnce(new Error("redis down"));
+    f.onInfraError.mockImplementationOnce(() => {
+      throw new Error("log failed");
+    });
+    const result = await request(f, { force: true }, KEY);
+    expect(result).toMatchObject({ ok: false, status: 503, details: { component: "queue" } });
+    expect(markRunFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("markRunFailed 를 먼저 부르고 그다음 콜백을 부른다", async () => {
+    const order: string[] = [];
+    const f = fake({
+      markRunFailed: async () => {
+        order.push("mark");
+      },
+    });
+    f.enqueue.mockRejectedValueOnce(new Error("redis down"));
+    f.onInfraError.mockImplementationOnce(() => {
+      order.push("report");
+    });
+    await request(f, { force: true }, KEY);
+    expect(order).toEqual(["mark", "report"]);
   });
 
   it("실패한 run 은 active 로 세지 않아 같은 입력의 다음 요청이 새 run 을 만든다", async () => {
