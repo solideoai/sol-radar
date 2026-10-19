@@ -138,6 +138,8 @@ class ProfileLicense(OpenModel):
 
 class ProfileProject(OpenModel):
     amountKrw: KrwString
+    # 회사 증빙 파일 id(있으면). KevStateTrace 의 CompanyEvidenceRef.documentId 로 옮긴다
+    evidenceRef: str | None = None
 
 
 class ProfileFinancials(OpenModel):
@@ -201,6 +203,64 @@ class FitScore(BaseModel):
     legend: dict[str, str]
 
 
+class KevScores(BaseModel):
+    """v0.2 score 질문 5등급. SOL Score 에 더하지 않는다."""
+
+    techFit: FitScore
+    perfRelevance: FitScore
+
+
+class KevRisk(BaseModel):
+    qid: Literal[
+        "risk.schedule", "risk.staffing", "risk.scale", "risk.techGap", "risk.scopeAmbiguity"
+    ]
+    probability: float
+    # probability ≥ τ → KEV_DELIVERY_RISK(플래그는 Worker 가 단다)
+    overThreshold: bool
+
+
+class KevCalibration(BaseModel):
+    status: Literal["UNCALIBRATED", "CALIBRATED"]
+    datasetVersion: str | None
+    threshold: float
+    thresholdsVersion: str
+
+
+class CompanyEvidenceRef(BaseModel):
+    """15 §2.1. 회사 프로필 revision 의 기록 하나(또는 회사 증빙 파일)."""
+
+    profileRevision: int
+    kind: Literal["LICENSE", "INDUSTRY_CODE", "TECHNOLOGY", "PROJECT", "STAFF", "FINANCIAL"]
+    recordKey: str
+    documentId: str | None
+    quotedText: str | None
+
+
+class StateTraceLine(BaseModel):
+    lineNo: int
+    text: str
+    noticeEvidence: list[dict[str, Any]]
+    companyEvidence: list[CompanyEvidenceRef]
+    itemIds: list[str]
+
+
+class KevStateTrace(BaseModel):
+    """15 §2.1·03 §5.12. state 를 만들 때 줄마다 남긴 출처."""
+
+    stateHash: str
+    template: Literal["en.v0.2", "ko.v0.2"]
+    lines: list[StateTraceLine]
+
+
+class RequirementDistribution(BaseModel):
+    """03 §2.1 KevResponse.requirements 원소. Kev 담당 항목 하나의 분포(참고 지표)."""
+
+    itemId: str
+    qid: str
+    distribution: dict[str, float]
+    label: Literal["SATISFIED", "NOT_SATISFIED", "NEEDS_REVIEW"]
+
+
 class KevAssist(BaseModel):
     """03 §5.7. enabled=false 면 disclaimer 밖은 모두 null 이다. v0.2 필드는 v0.1 run 에서 null."""
 
@@ -214,10 +274,11 @@ class KevAssist(BaseModel):
     mandatoryRisk: float | None = None
     needsHumanReview: float | None = None
     fit: FitScore | None = None
-    scores: None = None
-    risks: None = None
-    calibration: None = None
-    stateTrace: None = None
+    # v0.2 필드(kev-qs/v0.1 run 에서는 null)
+    scores: KevScores | None = None
+    risks: list[KevRisk] | None = None
+    calibration: KevCalibration | None = None
+    stateTrace: KevStateTrace | None = None
     latencyMs: int | float | None = None
     requestId: str | None = None
     disclaimer: Literal["Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."] = (
@@ -232,7 +293,8 @@ class KevTimings(BaseModel):
 class KevResponse(BaseModel):
     kev: KevAssist
     stateHash: str | None
-    requirements: None = None
+    # v0.2 Kev 담당 항목별 분포. v0.1 run·Kev 실패면 null
+    requirements: list[RequirementDistribution] | None = None
     wire: list[dict[str, Any]] | None
     # KEV_UNAVAILABLE: 미접속·timeout·오류(K4). INJECTION_SUSPECTED: 추출이 인젝션 의심이라 Kev 를 부르지 않았다(K4')
     errorCode: Literal["KEV_UNAVAILABLE", "INJECTION_SUSPECTED"] | None

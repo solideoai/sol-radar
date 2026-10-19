@@ -31,18 +31,22 @@ from sol_ai.errors import StartupRefused
 from sol_ai.explain import explain
 from sol_ai.extraction import ExtractionConfig, run_extraction
 from sol_ai.guards import InjectionGuard
+from sol_ai.kev_state_v02 import load_state_templates
 from sol_ai.logsafe import log_id
 from sol_ai.parse import parse_document, parser_inventory, read_limited
 from sol_ai.paths import (
     INJECTION_PATTERNS_FILE,
     PROMPT_FILE,
     QUESTION_SETS_DIR,
+    STATE_TEMPLATES_DIR,
+    THRESHOLDS_FILE,
 )
 from sol_ai.qualifications import default_dictionary
 from sol_ai.question_sets import load_question_sets
 from sol_ai.run_mode import load_rules, resolve_run_mode
 from sol_ai.schema import default_schema, prompt_hash
 from sol_ai.settings import Settings
+from sol_ai.thresholds import Thresholds
 
 logger = logging.getLogger("sol_ai")
 
@@ -112,6 +116,9 @@ def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str,
         question_sets,
         dictionary,
         allow_ko_state=settings.KEV_ALLOW_KO_STATE == "true",
+        korean_question_sets=load_question_sets(QUESTION_SETS_DIR, language="ko"),
+        state_templates=load_state_templates(STATE_TEMPLATES_DIR),
+        thresholds=Thresholds.load(THRESHOLDS_FILE),
     )
     return Runtime(run_mode, adapters, extraction, kev)
 
@@ -194,7 +201,7 @@ def create_app(settings: Settings) -> FastAPI:
         response = KevResponse(
             kev=outcome.kev,
             stateHash=outcome.state_hash,
-            requirements=None,
+            requirements=outcome.requirements,
             wire=outcome.wire,
             errorCode=outcome.error_code,
             timings=KevTimings(kevMs=_elapsed_ms(started)),

@@ -43,6 +43,7 @@ class FakeModelServer:
     def __init__(self, port: int = 0) -> None:
         self.requests: list[Recorded] = []
         self._routes: dict[tuple[str, str], list[Reply]] = {}
+        self._responders: dict = {}
         self._release = threading.Event()
         self._lock = threading.Lock()
         owner = self
@@ -89,16 +90,28 @@ class FakeModelServer:
     def route(self, method: str, path: str, *replies: Reply) -> "FakeModelServer":
         """경로의 응답 차례. 마지막 응답은 그 뒤 호출에도 계속 쓴다."""
         with self._lock:
+            self._responders.pop((method, path), None)
             self._routes[(method, path)] = list(replies)
         return self
 
-    def _take(self, method: str, path: str, headers: dict, body: bytes) -> Reply:
+    def respond_with(self, method: str, path: str, responder) -> "FakeModelServer":
+        """받은 요청(Recorded)으로 응답을 만드는 함수를 둔다(질문 수가 요청마다 다른 Kev v0.2 묶음용)."""
         with self._lock:
-            self.requests.append(Recorded(method, path, headers, body))
+            self._routes.pop((method, path), None)
+            self._responders[(method, path)] = responder
+        return self
+
+    def _take(self, method: str, path: str, headers: dict, body: bytes) -> Reply:
+        recorded = Recorded(method, path, headers, body)
+        with self._lock:
+            self.requests.append(recorded)
+            responder = self._responders.get((method, path))
             queue = self._routes.get((method, path))
-            if not queue:
-                return Reply(404, {"error": "not found"})
-            return queue.pop(0) if len(queue) > 1 else queue[0]
+            if responder is None:
+                if not queue:
+                    return Reply(404, {"error": "not found"})
+                return queue.pop(0) if len(queue) > 1 else queue[0]
+        return responder(recorded)
 
     def calls(self, method: str, path: str) -> list[Recorded]:
         with self._lock:

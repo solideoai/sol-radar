@@ -1,0 +1,7 @@
+{
+  "version": "kev-thresholds/v0.1",
+  "status": "UNCALIBRATED",
+  "threshold": 0.7,
+  "datasetVersion": null,
+  "source": "docs/03-AI-PIPELINE.md §5.13: τ 는 처음 0.70(미보정). 베이스라인 평가 뒤 dev 분할로 다시 정하고 버전을 올린다"
+}

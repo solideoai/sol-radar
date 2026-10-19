@@ -146,12 +146,18 @@ def test_qwen_api_key_is_optional():
     assert started(run_main(env)) == (0, False)
 
 
-def test_question_set_v0_2_is_not_available_yet():
-    result = run_main(env_for(closed_url(), closed_url(), KEV_QUESTION_SET="kev-qs/v0.2"))
+def test_question_set_outside_supported_versions_is_refused():
+    # 지원 집합(kev-qs/v0.1·v0.2) 밖 버전은 파일이 없어 기동 거부(초안 단계의 "미지원 → 거부" 의도를 이어 간다)
+    result = run_main(env_for(closed_url(), closed_url(), KEV_QUESTION_SET="kev-qs/v0.9"))
     assert refused_with(result, "KEV_QUESTION_SET(QUESTION_SET_NOT_AVAILABLE)") == (
         EX_CONFIG,
         True,
     )
+
+
+def test_question_set_v0_2_is_supported():
+    result = run_main(env_for(closed_url(), closed_url(), KEV_QUESTION_SET="kev-qs/v0.2"))
+    assert started(result) == (0, False)
 
 
 def test_unknown_kev_model_id_is_not_in_registry():

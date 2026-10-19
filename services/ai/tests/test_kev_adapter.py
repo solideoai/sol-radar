@@ -429,6 +429,18 @@ def test_mock_kev_fixture_with_nan_probability_is_unavailable(make_client, custo
     )
 
 
+# v0.2 를 더해도 v0.1 state 는 바뀌면 안 된다(v0.2 명세 §2). 85a30c6 의 값을 고정한다
+V0_1_STATE_HASH = {
+    "FX-01": "98033b7b134d6e0eefdad5809777ff203e93293a24b66154a43abdf68596b14a",
+    "FX-03": "b4866e81439c073ec27296e3d6f4ac9652fbeb8f0de4e19f1eb8342b3c62445c",
+}
+
+
+@pytest.mark.parametrize("fixture_id", sorted(V0_1_STATE_HASH))
+def test_v0_1_state_hash_is_pinned(make_client, fixture_id):
+    assert post(make_client(), kev_request(fixture_id))["stateHash"] == V0_1_STATE_HASH[fixture_id]
+
+
 # ---------------------------------------------------------------- Kev 생략 판정 순서(e8)
 # ko 거부(422) → KEV_ENABLED=false(errorCode null) → 장애 주입(KEV_UNAVAILABLE) → 인젝션 의심(INJECTION_SUSPECTED)
 

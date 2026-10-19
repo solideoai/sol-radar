@@ -28,16 +28,16 @@ V0_1_TYPES = {
 }
 # kev-qs/v0.2(03 §5.10): v0.1 네 질문 + 항목별 상태(틀) + 공고 단위 점수·리스크
 Q_REQUIREMENT_STATUS = "req.{itemId}.status"
+ITEM_PLACEHOLDER = "{itemId}"
+SCORE_QIDS = ("techFit", "perfRelevance")
+# 03 §5.10 표 순서
+RISK_QIDS = ("risk.schedule", "risk.staffing", "risk.scale", "risk.techGap", "risk.scopeAmbiguity")
+REQUIREMENT_LABELS = ("SATISFIED", "NOT_SATISFIED", "NEEDS_REVIEW")
 V0_2_TYPES = {
     **V0_1_TYPES,
     Q_REQUIREMENT_STATUS: kev_wire.CHOICE,
-    "techFit": kev_wire.SCORE,
-    "perfRelevance": kev_wire.SCORE,
-    "risk.schedule": kev_wire.NOUL,
-    "risk.staffing": kev_wire.NOUL,
-    "risk.scale": kev_wire.NOUL,
-    "risk.techGap": kev_wire.NOUL,
-    "risk.scopeAmbiguity": kev_wire.NOUL,
+    **dict.fromkeys(SCORE_QIDS, kev_wire.SCORE),
+    **dict.fromkeys(RISK_QIDS, kev_wire.NOUL),
 }
 # 파일에 있으면 질문 id·type 이 이 표와 같아야 한다
 EXPECTED_TYPES = {V0_1: V0_1_TYPES, V0_2: V0_2_TYPES}
@@ -48,6 +48,24 @@ class QuestionSet:
     version: str
     questions: dict[str, kev_wire.WireQuestion]
     language: str = LANGUAGE_EN
+
+    def notice_questions(self) -> dict[str, kev_wire.WireQuestion]:
+        """공고 단위 질문(파일 순서에서 항목 틀 req.{itemId}.status 만 뺀 것)."""
+        return {q: v for q, v in self.questions.items() if q != Q_REQUIREMENT_STATUS}
+
+    def item_question(self, item_id: str) -> kev_wire.WireQuestion:
+        """항목 틀을 펼친 질문 req.<itemId>.status. instructions 의 {itemId} 를 항목 경로로 바꾼다."""
+        template = self.questions[Q_REQUIREMENT_STATUS]
+        return kev_wire.WireQuestion(
+            requirement_qid(item_id),
+            template.kind,
+            template.instructions.replace(ITEM_PLACEHOLDER, item_id),
+            template.criteria,
+        )
+
+
+def requirement_qid(item_id: str) -> str:
+    return Q_REQUIREMENT_STATUS.replace(ITEM_PLACEHOLDER, item_id)
 
 
 def load_question_sets(directory: Path, language: str = LANGUAGE_EN) -> dict[str, QuestionSet]:

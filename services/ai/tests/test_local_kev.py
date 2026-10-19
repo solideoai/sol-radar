@@ -327,3 +327,9 @@ def test_injection_suspected_extraction_skips_kev_call(make_client, local_models
     result = run_kev(make_client, local_models, request=kev_request("FX-01", extraction=extraction))
     assert disabled(result) == (False, "INJECTION_SUSPECTED", None, None, True)
     assert sent(local_models.kev) == []
+
+
+def test_local_v0_1_state_hash_is_pinned(make_client, local_models):
+    # 같은 빌더라 mock 과 같은 값(tests/test_kev_adapter.py V0_1_STATE_HASH)이다
+    result = run_kev(make_client, local_models, request=kev_request("FX-01"))
+    assert result["stateHash"] == "98033b7b134d6e0eefdad5809777ff203e93293a24b66154a43abdf68596b14a"

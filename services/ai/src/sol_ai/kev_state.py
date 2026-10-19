@@ -172,16 +172,23 @@ def _krw(value: str | int) -> str:
     return f"{int(value):,}"
 
 
-class _Builder:
+class StateBuilder:
+    """v0.1 state 줄을 만든다. v0.2 빌더(kev_state_v02)가 같은 값 표기를 물려받는다."""
+
     def __init__(
-        self, request: KevRequest, language: str, dictionary: QualificationDictionary
+        self,
+        request: KevRequest,
+        language: str,
+        dictionary: QualificationDictionary,
+        labels: Labels | None = None,
     ) -> None:
         self.extraction = request.extraction
         self.profile: ProfileSummary = request.profileSummary
         self.translations = request.translations or {}
         self.request = request
         self.english = language == "en"
-        self.labels = EN if self.english else KO
+        # v0.1 은 코드의 EN·KO 라벨, v0.2 는 템플릿 파일(kev/state-templates)의 라벨
+        self.labels = labels if labels is not None else (EN if self.english else KO)
         self.dictionary = dictionary
 
     # ------------------------------------------------------------ 값 표기
@@ -273,24 +280,26 @@ class _Builder:
             items.append(f"{description} ({'; '.join(parts)})")
         return items
 
-    def staffing(self) -> str:
-        def render(items: list[dict]) -> str:
-            rendered = []
-            for index, item in enumerate(items):
-                role = self.text(item["role"], f"staffing[{index}].role")
-                count = f" x{item['minCount']}" if item.get("minCount") is not None else ""
-                parts = []
-                if item.get("grade") is not None:
-                    grade = self.text(item["grade"], f"staffing[{index}].grade")
-                    parts.append(self.labels.grade.format(value=grade))
-                if item.get("condition") is not None:
-                    condition = self.text(item["condition"], f"staffing[{index}].condition")
-                    parts.append(self.labels.condition.format(value=condition))
-                parts.append(self.mandatory(item["mandatory"]))
-                rendered.append(f"{role}{count} ({'; '.join(parts)})")
-            return self.joined(rendered, "; ")
+    def staffing_item(self, index: int, item: dict) -> str:
+        role = self.text(item["role"], f"staffing[{index}].role")
+        count = f" x{item['minCount']}" if item.get("minCount") is not None else ""
+        parts = []
+        if item.get("grade") is not None:
+            grade = self.text(item["grade"], f"staffing[{index}].grade")
+            parts.append(self.labels.grade.format(value=grade))
+        if item.get("condition") is not None:
+            condition = self.text(item["condition"], f"staffing[{index}].condition")
+            parts.append(self.labels.condition.format(value=condition))
+        parts.append(self.mandatory(item["mandatory"]))
+        return f"{role}{count} ({'; '.join(parts)})"
 
-        return self.field("staffing", render)
+    def staffing(self) -> str:
+        return self.field(
+            "staffing",
+            lambda items: self.joined(
+                [self.staffing_item(i, item) for i, item in enumerate(items)], "; "
+            ),
+        )
 
     def notice_lines(self, past_performance: str) -> list[str]:
         lab = self.labels
@@ -408,7 +417,7 @@ def _too_long(state: str) -> bool:
 
 def build_state(request: KevRequest, language: str, dictionary: QualificationDictionary) -> str:
     """state 텍스트. 6,000 토큰(근사)을 넘으면 past performance 줄부터 줄인다(03 §5.6)."""
-    builder = _Builder(request, language, dictionary)
+    builder = StateBuilder(request, language, dictionary)
     items = builder.past_performance_items()
 
     def past_performance(keep: int) -> str:
