@@ -427,11 +427,7 @@ interface EvalRunReport extends EvalRunSummary {
 
 `IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE|07 수집]] §2.2)는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
 
-> [!note] 제안 — ADR-032
-> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-032]] D6).
-> - 결정한 사람의 계정이 지워지면 `bid_reviews.reviewer_id`는 null이 된다(on delete set null, [[04-DATABASE|04 DB]] §3.4). 지금 `Review.reviewer`는 이 경우를 나타낼 수 없다.
-> - C6(브랜치 `c6/screens`, main 미병합)는 null 결정자를 센티널 `{ id: "deleted-user", name: "탈퇴한 사용자", role: null }`로 내보낸다. 위 DTO는 바꾸지 않는다.
-> - 사람이 고를 것: ① 위 센티널을 05에 적는다(DTO 불변, C6 구현 그대로). ② `reviewer.id`를 `string | null`로 바꾼다(DTO 변경, C6 수정 필요).
+`Review.reviewer`와 계정 삭제: 결정한 사람의 계정이 지워지면 `bid_reviews.reviewer_id`는 null이 된다(on delete set null, [[04-DATABASE|04 DB]] §3.4). 계정이 삭제된 결정자는 `{ id: "deleted-user", name: "탈퇴한 사용자", role: null }`로 내보낸다. DTO 타입은 바꾸지 않는다([[16-DECISIONS|ADR-032]] D6, 사용자 결정 2026-10-19. 구현은 C6 브랜치 `c6/screens`).
 
 ### 4.7 조직·인력 (ADR-021)
 

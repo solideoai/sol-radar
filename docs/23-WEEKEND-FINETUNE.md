@@ -257,7 +257,7 @@ hf download Qwen/Qwen3.5-4B-Base --revision 1001bb4d826a52d1f399e183466143f4da7b
 
 ### 4.4 레코드 구성: 두 갈래
 
-한 레코드는 state 하나 + 질문 여러 개다(22 §4.1). 질문 문구는 `services/ai/kev/question-sets/v0.2.json` 원문, state 는 `services/ai/kev/state-templates/en.v0.2.txt` 와 **서빙과 같은 빌더**로 만든다(둘 다 `c5/gateway-mock` 브랜치에 있다. main 병합 전이면 그 브랜치에서 가져온다).
+한 레코드는 state 하나 + 질문 여러 개다(22 §4.1). 질문 문구는 `services/ai/kev/question-sets/v0.2.json` 원문, state 는 `services/ai/kev/state-templates/en.v0.2.txt` 와 **서빙과 같은 빌더**로 만든다(둘 다 main 에 있다. 질문 세트 `85a30c6`, state 템플릿 `51ad173`, main 병합 `b4a23fc`. 질문 세트 status 는 "초안 — 사용자 검토 전"이다).
 
 **갈래 ① 구조화 필드만(엔드포인트·파서 없이 된다. 주말 기본)**
 
