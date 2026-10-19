@@ -1075,6 +1075,10 @@ describe("PGlite 위에서 demo:reset", () => {
     await db.query(
       "update public.bid_notices set title = '바뀐 제목' where notice_id = 'DEMO-2026-0001'",
     );
+    // 예전 seed 가 신고 없이 만든 org-02 계정. 가입 트리거는 다시 돌지 않으므로 seed 가 신고를 다시 맞춰야 한다.
+    await db.query(
+      "update public.profiles set declared_department_id = null, declared_job_title_id = null where email = 'viewer@other.invalid'",
+    );
     const fx02 = before.bids.find((row) => row.notice_id === "DEMO-2026-0002");
     const [fx02Revision] = (
       await db.query("select id from public.bid_revisions where bid_id = $1", [fx02.id])
