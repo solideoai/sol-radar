@@ -97,3 +97,155 @@ $ pnpm -C web exec vitest run server/analysis (파일별 요약)
 
 ## pnpm verify (worktree 루트)
 exit 0 · web Vitest 63 files / 1242 tests passed · 루트 node --test 479 pass 0 fail · services/ai pytest 28 passed · next build 통과
+
+## 2단계: 분석 오케스트레이션 (web/server/analysis/analysis.{model,service}.ts)
+작성 2026-10-19T03:08:24Z · main 병합 9d27a80(C4 e22de09) 위
+근거: 03 §2.1 ①~⑤·§5.6·§7·§8, e8 정정(캐시 없으면 같은 job 안에서 /extract), K1·K3'·K6·K8·K11·K12, C2 idempotency_key
+가짜 gateway = 실제 createGatewayClient + 가짜 fetch(3b mock 응답 모양). 골든 수치는 fixtures/goldens 에서 읽어 비교.
+
+$ pnpm -C web exec vitest run server/analysis/analysis.service.test.ts --reporter=verbose
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-01: score·recommendation 이 fixtures/goldens/FX-01.json 과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-01: 요소별 normalized·points·maxPoints 가 골든과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-01: reviewFlags 가 골든과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-01: COMPLETED·RULES_WITH_KEV_ASSIST·errorCode null·extraReviewFlags [] 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-01: /kev·/explain 을 한 번씩 부르고 /extract·loadSource·save 는 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-02: score·recommendation 이 fixtures/goldens/FX-02.json 과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-02: 요소별 normalized·points·maxPoints 가 골든과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-02: reviewFlags 가 골든과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-02: COMPLETED·RULES_WITH_KEV_ASSIST·errorCode null·extraReviewFlags [] 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-02: /kev·/explain 을 한 번씩 부르고 /extract·loadSource·save 는 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-03: score·recommendation 이 fixtures/goldens/FX-03.json 과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-03: 요소별 normalized·points·maxPoints 가 골든과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-03: reviewFlags 가 골든과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-03: COMPLETED·RULES_WITH_KEV_ASSIST·errorCode null·extraReviewFlags [] 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev) > FX-03: /kev·/explain 을 한 번씩 부르고 /extract·loadSource·save 는 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > 레코드 키는 orgId·bidId·revisionId·requestId·idempotencyKey·input·result·meta·kevOutput 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > 식별자는 context 에서, revisionId 는 bid.revisionId 에서 온다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > idempotencyKey 는 toIdempotencyKey(context.orgId, context.requestId) 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > idempotencyKey 는 조직 접두어가 붙은 "org-solideo-demo:req-FX-01" 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > input 은 캐시 추출·3b mock wire·고정 임계값·KST 기준일로 조립한 analyze 입력이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > AI 불가 사유가 없으면 input 에 aiUnavailableReason 키를 넣지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > inputSnapshotHash 는 독립적으로 조립한 입력의 해시와 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > result 는 같은 input 으로 analyze 를 직접 부른 결과와 깊게 같다(파이프라인이 고치지 않는다)
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > meta 키는 e8 C6 의 10개다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > meta.model 은 provider·캐시 추출의 qwen·3b mock 의 kev·algorithmVersion 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > meta.model.provider 는 context.aiProvider 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > meta.runMode 는 context.runMode 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > meta.fallbackReason 은 null 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > meta.errorCode 는 result.errorCode 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > meta.evidence 는 결과에서 모은 근거(collectEvidence)다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > queuedAt 은 context 값, startedAt 은 첫 now(), finishedAt 은 두 번째 now() 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > config.today 는 startedAt 의 KST 날짜다: UTC 14:59:59 → 같은 날
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > config.today 는 startedAt 의 KST 날짜다: UTC 15:00:00 → 다음 날
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > Kev 를 쓴 run 의 kevOutput 은 질문 세트·gateway wire·stateHash·stateTrace·requirements 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > kevOutput 은 gateway 의 kev.stateTrace·requirements 를 그대로 싣는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 저장 직전 레코드(e8 C6) > gateway 가 kev.stateTrace 를 주지 않으면 kevOutput.stateTrace 는 null 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 요청 translations(§5-2) > 캐시를 쓰면 /kev translations 는 context.extraction.translations 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 요청 translations(§5-2) > 캐시 행이 없어 다시 추출하면 /kev translations 는 /extract 응답의 translations 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 요청 translations(§5-2) > 쓸 수 없는 캐시를 다시 추출하면 캐시 행의 translations 가 아니라 /extract 응답 값(null)을 보낸다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 요청 본문 > 어느 깊이에도 규칙 결과 키(score·recommendation·qualificationChecks·qualificationStatus·reviewFlags·factors)가 없다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 요청 본문 > stateLanguage='en', profileSummary.staffAvailability=null 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 요청 본문 > requestId·fixtureId·추출을 싣는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 요청 본문 > fixtureId 가 null(live)이면 fixtureId 키가 없다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 요청 본문 > 첨부 문제(documentIssues)가 있으면 attachmentsIncomplete=true 로 보낸다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /explain 요청 본문(K8) > 요청 키는 K8 의 6개다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /explain 요청 본문(K8) > 규칙 결과(자격 판정·점수 분해·Kev 요약)를 C4 값 그대로 싣는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /explain 요청 본문(K8) > documentIssues 를 그대로 싣는다
+ ✓ server/analysis/analysis.service.test.ts > 골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부 > PARTIAL·AI_UNAVAILABLE·RULES_ONLY·Kev 비활성이다
+ ✓ server/analysis/analysis.service.test.ts > 골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부 > reviewFlags 에 AI_UNAVAILABLE 이 있다
+ ✓ server/analysis/analysis.service.test.ts > 골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부 > score·qualificationStatus·qualificationChecks 가 정상 run 과 같다
+ ✓ server/analysis/analysis.service.test.ts > 골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부 > 연결 거부는 재시도하지 않아 /kev 요청은 1번이고 /explain 은 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > 골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부 > 설명은 C4 템플릿이다(source=TEMPLATE)
+ ✓ server/analysis/analysis.service.test.ts > 골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부 > kevOutput·meta.model.kev 는 null, meta.errorCode 는 AI_UNAVAILABLE 이다
+ ✓ server/analysis/analysis.service.test.ts > 골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부 > input.aiUnavailableReason 은 AI_UNAVAILABLE, input.kev 는 null 이다
+ ✓ server/analysis/analysis.service.test.ts > 골든 6(S6) · 같은 FX-01 에서 /kev 연결 거부 > 레코드에 실패 상세(오류 코드 문자열·내부 주소)를 싣지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE·PARTIAL)다 > timeout 은 한 번 재시도해 /kev 요청이 2번이고 PARTIAL·AI_UNAVAILABLE 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE·PARTIAL)다 > 503 AI_UNAVAILABLE(장애 주입)은 재시도 뒤 PARTIAL·AI_UNAVAILABLE 이고 /explain 을 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE·PARTIAL)다 > 4xx 응답도 쓸 수 있는 Kev 가 없어 PARTIAL·AI_UNAVAILABLE 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE·PARTIAL)다 > 200 이지만 봉투가 계약에 맞지 않으면 PARTIAL·AI_UNAVAILABLE 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE·PARTIAL)다 > breaker 가 열려 있으면 /kev 를 보내지 않고 PARTIAL·AI_UNAVAILABLE 이며 /explain 도 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE·PARTIAL)다 > kev.enabled=true 인데 wire 가 null 이면 쓸 Kev 가 없어 PARTIAL·AI_UNAVAILABLE 이고 /explain 을 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /kev 의 다른 장애도 gateway 불가(AI_UNAVAILABLE·PARTIAL)다 > kev.enabled=true 인데 wire responses 가 kev-mock 스키마를 어기면 PARTIAL 이고 kevOutput 은 null 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · Kev 만 불가(200 + enabled=false + KEV_UNAVAILABLE) > COMPLETED·RULES_ONLY·errorCode null 이다(PARTIAL 사유가 아니다)
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · Kev 만 불가(200 + enabled=false + KEV_UNAVAILABLE) > meta.extraReviewFlags 가 KEV_UNAVAILABLE 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · Kev 만 불가(200 + enabled=false + KEV_UNAVAILABLE) > /explain 을 부르고 요청 reviewFlags 에 KEV_UNAVAILABLE 을 싣는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · Kev 만 불가(200 + enabled=false + KEV_UNAVAILABLE) > kevOutput 은 null 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · gateway 가 Kev 를 쓰지 않는다고 답함(200 + enabled=false + errorCode null) > COMPLETED·RULES_ONLY 이고 extraReviewFlags 는 비었다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · KEV_ENABLED=false > /kev 를 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · KEV_ENABLED=false > /explain 은 부른다(K11)
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · KEV_ENABLED=false > COMPLETED·RULES_ONLY 이고 input.kev·kevOutput·meta.model.kev 는 null 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시가 유효하면 다시 추출하지 않는다 > PENDING_REVIEW 캐시도 유효하면 loadSource·/extract·save 를 하나도 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추출한다(e8 정정) > loadSource 를 그 context 로 한 번 부른다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추출한다(e8 정정) > /extract 를 한 번 부르고 본문은 03 §2.1 ExtractRequest 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추출한다(e8 정정) > 200 COMPLETED 면 추출 레코드(payload 포함)를 save 에 한 번 넘긴다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추출한다(e8 정정) > 다시 추출한 값으로 분석해 COMPLETED 이고 /kev 를 부른다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추출한다(e8 정정) > score·recommendation 이 같은 fixture 의 캐시 run 과 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추출한다(e8 정정) > input.extraction 은 다시 추출한 값이고 aiUnavailableReason 키는 없다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추출한다(e8 정정) > meta.model.qwen 은 다시 추출한 값의 모델 정보다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 캐시 행이 없으면 같은 job 안에서 다시 추출한다(e8 정정) > fixtureId 가 null(live)이면 /extract 본문에 fixtureId 키가 없다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 쓸 수 없는 캐시도 없는 것으로 보고 다시 추출한다 > 캐시 FAILED(QWEN_UNAVAILABLE)면 /extract 를 다시 부르고 COMPLETED 가 된다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 쓸 수 없는 캐시도 없는 것으로 보고 다시 추출한다 > 캐시 payload 가 스키마 위반이면 /extract 를 다시 부르고 COMPLETED 가 된다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 연결 거부 → PARTIAL·AI_UNAVAILABLE 이고 input.extraction 은 null 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 연결 거부 → save·/kev 를 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 연결 거부 → 죽은 gateway 로 보고 /explain 도 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 422 → AI_UNAVAILABLE 로 분류된 run 이라 /explain 을 부르지 않는다(§5-5)
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 연결 거부 → 레코드에 실패 상세를 싣지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > timeout → 한 번 재시도해 /extract 요청이 2번이고 PARTIAL·AI_UNAVAILABLE, save·/explain 없음
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 200 FAILED·QWEN_UNAVAILABLE → PARTIAL·QWEN_UNAVAILABLE 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 200 FAILED·QWEN_UNAVAILABLE → FAILED 행(payload null)을 save 에 한 번 넘긴다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 200 FAILED → /kev 는 부르지 않고 gateway 는 살아 있으니 /explain 은 부른다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 200 FAILED·errorCode null → PARTIAL·EXTRACTION_FAILED 이고 FAILED 행을 errorCode 그대로(null) 저장한다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 200 COMPLETED 인데 payload 가 스키마 위반 → PARTIAL·EXTRACTION_FAILED 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 200 COMPLETED 인데 payload 가 스키마 위반 → save·/kev 는 부르지 않고 /explain 은 부른다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 200 PENDING_REVIEW(인젝션 의심) → 그 추출로 분석해 INJECTION_SUSPECTED 를 내고 /kev 를 부른다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 200 PENDING_REVIEW → PENDING_REVIEW 행을 save 에 한 번 넘긴다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > loadSource 가 던지면 그 오류를 그대로 던지고 /extract 는 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /extract 실패만 PARTIAL 이다 > 추출 save 가 던지면 그 오류를 그대로 던진다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /explain 결과와 설명 문장(K3·K11) > fallback=false 면 모델 문장이고 source=MODEL 이다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /explain 결과와 설명 문장(K3·K11) > fallback=true 면 gateway 문장이 아니라 C4 result.explanation 이고 source=TEMPLATE 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /explain 결과와 설명 문장(K3·K11) > /explain 5xx 는 재시도 뒤 템플릿이고 status 는 COMPLETED 그대로다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · /explain 결과와 설명 문장(K3·K11) > /explain 연결 거부는 result 를 바꾸지 않는다(정상 run 과 깊게 같다)
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · K1 인용 검증 실패(FX-13 복사본) > 경고 CITATION_FAILED:qualifications 가 있으면 meta.extraReviewFlags 가 CITATION_FAILED 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · K1 인용 검증 실패(FX-13 복사본) > 필드 note 가 CITATION_FAILED 면 meta.extraReviewFlags 가 CITATION_FAILED 다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · K1 인용 검증 실패(FX-13 복사본) > C4 result.reviewFlags 에는 CITATION_FAILED 를 넣지 않는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · K1 인용 검증 실패(FX-13 복사본) > /explain 요청 reviewFlags 에는 CITATION_FAILED 를 싣는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · Kev 분포를 바꿔도 규칙 결과는 같다(03 §5.5) > FX-01 에 NO_BID 0.9·필수위험 0.9 를 줘도 score·recommendation·자격·요소가 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · Kev 분포를 바꿔도 규칙 결과는 같다(03 §5.5) > FX-03(골든 NO-BID)에 BID 0.9 를 줘도 권고는 골든 그대로다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 재현성 > 같은 context·같은 가짜 gateway·같은 now 면 inputSnapshotHash 가 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 재현성 > 같은 조건이면 레코드 전체가 깊게 같다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 규칙 엔진 입력이 계약에 맞지 않으면 AnalysisInputError > profile.revision=0 이면 AnalysisInputError 를 던진다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 규칙 엔진 입력이 계약에 맞지 않으면 AnalysisInputError > AnalysisInputError 는 Error 이고 issues 에 틀린 경로를 싣는다
+ ✓ server/analysis/analysis.service.test.ts > runAnalysis · 규칙 엔진 입력이 계약에 맞지 않으면 AnalysisInputError > 오류 message·issues 에 틀린 값을 싣지 않는다
+ ✓ server/analysis/analysis.service.test.ts > analyzeAndSave · runAnalysis 뒤 sink.save > runAnalysis 결과를 sink.save 에 한 번 넘기고 그 레코드를 돌려준다
+ ✓ server/analysis/analysis.service.test.ts > analyzeAndSave · runAnalysis 뒤 sink.save > sink.save 가 던지면 그 오류를 그대로 던진다
+ ✓ server/analysis/analysis.service.test.ts > analyzeAndSave · runAnalysis 뒤 sink.save > 분석이 입력 오류로 실패하면 sink.save 를 부르지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 값 runAnalysis 를 내보낸다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 값 analyzeAndSave 를 내보낸다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 값 AnalysisInputError 를 내보낸다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 값 withStructuredSeq 를 내보낸다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 값 toKstDate 를 내보낸다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 값 toIdempotencyKey 를 내보낸다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 readCachedExtraction 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 readExtractResult 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 toExtractRequest 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 toKevRequest 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 toKevWire 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 collectEvidence 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 extraReviewFlags 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 toExplainRequest 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 chooseExplanation 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 내부 순수 함수 toModelMeta 는 내보내지 않는다
+ ✓ server/analysis/analysis.service.test.ts > @/server/analysis 배럴(설계 §3) > 배럴의 runAnalysis 는 analysis.service 의 runAnalysis 다
+ Test Files  1 passed (1)
+      Tests  132 passed (132)
+
+$ pnpm -C web exec vitest run server/analysis (요약)
+ Test Files  6 passed (6)
+      Tests  584 passed (584)
+
+## 변형 확인(2단계)
+- test-server 참조 구현 변형 64건(55+9) 모두 빨간불, 원복 cmp 일치
+- 메인 세션(실제 구현): /explain 생략 조건 제거 → 6 failed / 578 passed, KEV_ENABLED 무시 → 3 failed / 581 passed, 원복 cmp 일치
+
+## pnpm verify (worktree 루트, 2단계 뒤)
+exit 0 · web Vitest 77 files / 1675 tests passed · 루트 node --test 492 pass 0 fail · lodestar 0 errors · next build 통과 · services/ai pytest 28 passed

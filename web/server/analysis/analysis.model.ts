@@ -1,0 +1,483 @@
+import "server-only";
+import {
+  kevMockResponseSchema,
+  requirementExtractionSchema,
+  type AnalysisInput,
+  type AnalysisResult,
+  type CompanyProfile,
+  type EvidenceRef,
+  type KevMockResponse,
+  type NormalizedBidSummary,
+  type RequirementExtraction,
+  type ScoringTeamInput,
+  type StructuredRequirement,
+} from "@/server/scoring";
+import {
+  toExtractionOutcome,
+  type AiUnavailableReason,
+  type ExplainOutcome,
+  type KevOutcome,
+} from "./fallback.model";
+import type { ExtractRequest, ExtractResponse, GatewayResult, KevResponse } from "./gateway.model";
+
+// ── 분석 오케스트레이션 모델: analysis job 의 입력 변환·요청 조립·플래그·메타의 순수 규칙 (03 §2.1·§5.6·§5.7·§7, 05 §4) ──
+// 규칙 계산은 scoring 의 analyze 가 한다. 여기서는 그 입력을 만들고 결과(AnalysisResult)는 읽기만 한다.
+// 파이프라인이 더하는 값(플래그·근거·설명·모델 정보)은 결과에 섞지 않고 meta 에 따로 둔다(e8 C6).
+
+export type RunMode = "live" | "fixture" | "mock";
+export type AiProvider = "mock" | "local" | "hosted";
+export type KevQuestionSetVersion = "kev-qs/v0.1" | "kev-qs/v0.2";
+
+/** requirement_extractions 한 행 가운데 분석이 읽는 것. payload 는 JSONB 라 여기서 검증한다. */
+export type CachedExtraction = {
+  status: "COMPLETED" | "PENDING_REVIEW" | "FAILED";
+  payload: unknown;
+  errorCode: "EXTRACTION_FAILED" | "QWEN_UNAVAILABLE" | null;
+  translations: Record<string, string> | null;
+};
+
+export type DocumentIssue = {
+  documentId: string;
+  downloadStatus: string;
+  parseStatus: string;
+  errorCode: string | null;
+};
+
+/** analysis job 하나의 입력. 조직 × revision × 프로필 revision 단위(03 §2). 읽기는 호출자(worker job·repo)가 한다. */
+export type AnalysisContext = {
+  requestId: string;
+  orgId: string;
+  bidId: string;
+  /** isDemo 공고의 "FX-07" 또는 "FX-07.r01"(K5). live 면 null. */
+  fixtureId: string | null;
+  /** C4 형식의 공고 요약. */
+  bid: NormalizedBidSummary;
+  /** 캐시 행이 없으면 null. */
+  extraction: CachedExtraction | null;
+  profile: CompanyProfile;
+  team: ScoringTeamInput;
+  runMode: RunMode;
+  aiProvider: AiProvider;
+  kev: { enabled: boolean; questionSetVersion: KevQuestionSetVersion };
+  /** 실패·부분 파싱 첨부. 없으면 []. */
+  documentIssues: DocumentIssue[];
+  /** ISO8601 UTC. job 이 큐에 들어간 시각. */
+  queuedAt: string;
+};
+
+/** C4 ReviewFlag 에 없는 파이프라인 플래그. */
+export type ExtraReviewFlag = "CITATION_FAILED" | "EXTRACTION_LOW_CONFIDENCE" | "KEV_UNAVAILABLE";
+
+export type AnalysisRunMeta = {
+  runMode: RunMode;
+  model: {
+    provider: AiProvider;
+    qwen: { name: string; promptVersion: string; promptHash: string } | null;
+    kev: { model: string; questionSetVersion: KevQuestionSetVersion } | null;
+    algorithmVersion: string;
+  };
+  /** 03 §8 mock 자동 대체 사유. gateway 계약에 이를 알리는 필드가 아직 없어 늘 null 이다. */
+  fallbackReason: null;
+  evidence: EvidenceRef[];
+  /** = result.errorCode */
+  errorCode: string | null;
+  queuedAt: string;
+  startedAt: string;
+  finishedAt: string;
+  /** C4 reviewFlags 에 없는 것만, 중복 없이. */
+  extraReviewFlags: ExtraReviewFlag[];
+  explanation: { text: string; source: "MODEL" | "TEMPLATE" };
+};
+
+/** score_runs.kev_output(03 §7). Kev 를 쓰지 않은 run 은 null 이다. */
+export type KevOutput = {
+  questionSetVersion: KevQuestionSetVersion;
+  wire: unknown[];
+  stateHash: string | null;
+  /** gateway kev.stateTrace(v0.1 은 null). */
+  stateTrace: unknown;
+  requirements: KevResponse["requirements"];
+};
+
+/** score_runs 에 넘길 저장 직전 값. 열 매핑은 저장 port(C2 repo) 몫이다. */
+export type AnalysisRunRecord = {
+  orgId: string;
+  bidId: string;
+  /** = bid.revisionId */
+  revisionId: string;
+  requestId: string;
+  /** score_runs.idempotency_key(전역 UNIQUE) = toIdempotencyKey(orgId, requestId) */
+  idempotencyKey: string;
+  /** score_runs.input_snapshot. analyze 에 넣은 값 그대로. */
+  input: AnalysisInput;
+  /** C4 계산 결과 그대로. 고치지 않는다. */
+  result: AnalysisResult;
+  meta: AnalysisRunMeta;
+  kevOutput: KevOutput | null;
+};
+
+// ── 입력 변환 ──
+
+/** K12: 구조화 자격 행에 배열 index 로 seq 를 채운다. 입력 순서를 바꾸지 않는다. */
+export function withStructuredSeq(
+  rows: Omit<StructuredRequirement, "seq">[],
+): StructuredRequirement[] {
+  return rows.map((row, seq) => ({ ...row, seq }));
+}
+
+/** score_runs.idempotency_key. 조직 접두어를 붙여 (org_id, requestId) 쌍과 같은 효과를 낸다. 저장 port 가 on conflict 로 upsert 한다. */
+export function toIdempotencyKey(orgId: string, requestId: string): string {
+  return `${orgId}:${requestId}`;
+}
+
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/** 시각 → KST 날짜 "YYYY-MM-DD"(config.today). KST 는 일광절약시간이 없어 +9시간의 UTC 날짜가 곧 KST 날짜다. 프로세스 시간대를 읽지 않는다. */
+export function toKstDate(at: Date): string {
+  return new Date(at.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+// ── 추출 ──
+
+/** 캐시 행 → 쓸 수 있는 추출. 못 쓰면 null(= 같은 job 안에서 /extract 를 다시 부른다, e8 정정). */
+export function readCachedExtraction(
+  cached: CachedExtraction | null,
+): RequirementExtraction | null {
+  // FAILED 행은 없는 것으로 본다. payload 가 남아 있어도 쓰지 않는다.
+  if (cached === null || cached.status === "FAILED") return null;
+  // 스키마를 통과하지 못한 값은 고쳐 살리지 않고 다시 추출한다.
+  const parsed = requirementExtractionSchema.safeParse(cached.payload);
+  return parsed.success ? parsed.data : null;
+}
+
+export type ExtractReading =
+  | { kind: "EXTRACTED"; extraction: RequirementExtraction; response: ExtractResponse }
+  // response 는 200 FAILED 일 때만 있다(FAILED 행 저장용). 전송 실패·payload 스키마 위반이면 null 이라 저장하지 않는다.
+  | { kind: "UNAVAILABLE"; reason: AiUnavailableReason; response: ExtractResponse | null };
+
+/** /extract 결과 → 쓸 수 있는 추출 또는 PARTIAL 사유. 1단계 toExtractionOutcome 뒤 payload 를 scoring 스키마로 검증한다. */
+export function readExtractResult(result: GatewayResult<ExtractResponse>): ExtractReading {
+  const outcome = toExtractionOutcome(result);
+  if (outcome.kind === "UNAVAILABLE") {
+    return {
+      kind: "UNAVAILABLE",
+      reason: outcome.reason,
+      response: result.ok ? result.value : null,
+    };
+  }
+  const parsed = requirementExtractionSchema.safeParse(outcome.response.payload);
+  if (!parsed.success) return { kind: "UNAVAILABLE", reason: "EXTRACTION_FAILED", response: null };
+  return { kind: "EXTRACTED", extraction: parsed.data, response: outcome.response };
+}
+
+/** NormalizedBid.content + /parse 텍스트(파싱 실패 첨부는 뺀다). 읽기는 추출 저장 port 가 한다. */
+export type ExtractSource = { body: string; attachments: ExtractRequest["attachments"] };
+
+/** requirement_extractions 에 넘길 값. 재사용 키·열 매핑은 C2 repo 몫이다. */
+export type ExtractionRecord = {
+  bidId: string;
+  revisionId: string;
+  requestId: string;
+  status: ExtractResponse["status"];
+  /** FAILED 면 null. */
+  payload: RequirementExtraction | null;
+  translations: Record<string, string> | null;
+  errorCode: ExtractResponse["errorCode"];
+  injectionSuspected: boolean;
+  warnings: string[];
+  extractMs: number;
+};
+
+/** /extract 200 응답 → 추출 저장 레코드(§5.3). 응답 값은 그대로 옮기고 payload 만 검증한 추출(FAILED 면 null)로 둔다. */
+export function toExtractionRecord(
+  context: AnalysisContext,
+  response: ExtractResponse,
+  payload: RequirementExtraction | null,
+): ExtractionRecord {
+  return {
+    bidId: context.bidId,
+    revisionId: context.bid.revisionId,
+    requestId: context.requestId,
+    status: response.status,
+    payload,
+    translations: response.translations,
+    errorCode: response.errorCode,
+    injectionSuspected: response.injectionSuspected,
+    warnings: response.warnings,
+    extractMs: response.timings.extractMs,
+  };
+}
+
+/** live 공고(fixtureId=null)는 키 자체를 넣지 않는다. mock 어댑터가 키 유무로 fixture 를 고른다. */
+function fixtureIdField(fixtureId: string | null): { fixtureId?: string } {
+  return fixtureId === null ? {} : { fixtureId };
+}
+
+/** /extract 요청(03 §2.1 ExtractRequest). */
+export function toExtractRequest(context: AnalysisContext, source: ExtractSource): ExtractRequest {
+  const { bid } = context;
+  return {
+    requestId: context.requestId,
+    bidId: context.bidId,
+    revisionId: bid.revisionId,
+    ...fixtureIdField(context.fixtureId),
+    meta: {
+      stage: bid.stage,
+      agency: bid.agency,
+      budgetKrw: bid.budgetKrw,
+      deadlineAt: bid.deadlineAt,
+    },
+    body: source.body,
+    attachments: source.attachments,
+  };
+}
+
+// ── Kev ──
+
+/** /kev 요청(03 §5.7 KevAdapterInput + K6). 규칙 결과(자격·점수·권고)를 넣지 않는다(03 §5.6). */
+export type KevRequest = {
+  requestId: string;
+  /** context.fixtureId 가 null 이면 키를 넣지 않는다. */
+  fixtureId?: string;
+  bidId: string;
+  orgId: string;
+  /** bid.revisionId */
+  revisionId: string;
+  /** profile.revision */
+  profileRevision: number;
+  extraction: RequirementExtraction;
+  translations: Record<string, string> | null;
+  /** 인력 가용(K6)은 아직 채우지 않는다. */
+  profileSummary: CompanyProfile & { staffAvailability: null };
+  attachmentsIncomplete: boolean;
+  questionSetVersion: KevQuestionSetVersion;
+  /** 운영은 영어 state 만 보낸다(03 §5.11). */
+  stateLanguage: "en";
+};
+
+const ATTACHMENT_PARSE_FAILED_PREFIX = "ATTACHMENT_PARSE_FAILED:";
+
+/**
+ * translations 는 호출자가 고른다(§5.2). 이번 run 에 다시 추출했으면 그 응답의 값(null 이어도 그대로),
+ * 캐시를 썼으면 캐시 행의 값이다. 쓸 수 없던 캐시 행의 번역은 오래된 값이라 쓰지 않는다.
+ */
+export function toKevRequest(
+  context: AnalysisContext,
+  extraction: RequirementExtraction,
+  translations: Record<string, string> | null,
+): KevRequest {
+  const { bid } = context;
+  const attachmentsIncomplete =
+    bid.attachmentsIncomplete === true ||
+    extraction.warnings.some((warning) => warning.startsWith(ATTACHMENT_PARSE_FAILED_PREFIX)) ||
+    context.documentIssues.length > 0;
+  return {
+    requestId: context.requestId,
+    ...fixtureIdField(context.fixtureId),
+    bidId: context.bidId,
+    orgId: context.orgId,
+    revisionId: bid.revisionId,
+    profileRevision: context.profile.revision,
+    extraction,
+    translations,
+    profileSummary: { ...context.profile, staffAvailability: null },
+    attachmentsIncomplete,
+    questionSetVersion: context.kev.questionSetVersion,
+    stateLanguage: "en",
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** wire 원소들의 responses 를 순서대로 펼쳐 합친다(분할 호출, 03 §5.10). 같은 질문이 겹치면 나중 원소가 이긴다. */
+function mergeWireResponses(wire: unknown[]): Record<string, unknown> | null {
+  const parts = wire.flatMap((element) =>
+    isRecord(element) && isRecord(element.responses) ? [element.responses] : [],
+  );
+  // 원소 하나라도 responses 객체가 아니면 응답 전체를 쓰지 않는다.
+  if (parts.length === 0 || parts.length !== wire.length) return null;
+  return Object.fromEntries(parts.flatMap((part) => Object.entries(part)));
+}
+
+/** gateway /kev 응답 → C4 analyze 의 kev 입력(wire 형식, kevMockResponseSchema). 못 만들면 null. */
+export function toKevWire(response: KevResponse): KevMockResponse | null {
+  if (response.wire === null) return null;
+  const responses = mergeWireResponses(response.wire);
+  if (responses === null) return null;
+  // kev 안쪽은 1단계에서 봉투만 검증했다(looseObject). 값의 형식은 여기서 scoring 스키마에 맡긴다.
+  const { kev } = response;
+  const parsed = kevMockResponseSchema.safeParse({
+    provider: kev.provider,
+    model: kev.model ?? null,
+    questionSetVersion: kev.questionSetVersion,
+    requestId: kev.requestId ?? null,
+    responses,
+    latency_ms: response.timings.kevMs,
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+// ── 결과 읽기 ──
+
+/** 같은 근거 판정 키. 없는 것(undefined)과 null 은 같게 본다. */
+function evidenceKey(ref: EvidenceRef): string {
+  return JSON.stringify([
+    ref.kind ?? "TEXT",
+    ref.documentId,
+    ref.revisionId,
+    ref.page ?? null,
+    ref.charStart ?? null,
+    ref.charEnd ?? null,
+    ref.apiField ?? null,
+    ref.quotedText,
+  ]);
+}
+
+/** 결과에 쓰인 공고 쪽 근거를 모은다. 자격 검사 → 요소 순서이고, match=FAILED 를 먼저 뺀 뒤 같은 근거는 처음 것 하나만 남긴다. */
+export function collectEvidence(result: AnalysisResult): EvidenceRef[] {
+  const candidates = [
+    ...result.qualificationChecks.flatMap((check) => check.evidence),
+    ...result.factors.flatMap((factor) => factor.evidence),
+  ].filter((ref) => ref.match !== "FAILED");
+  const firstByKey = new Map<string, EvidenceRef>();
+  for (const ref of candidates) {
+    const key = evidenceKey(ref);
+    if (!firstByKey.has(key)) firstByKey.set(key, ref);
+  }
+  return [...firstByKey.values()];
+}
+
+/** K1 인용 검증 실패를 표시하는 추출 필드. */
+const EXTRACTED_FIELD_KEYS = [
+  "summary",
+  "projectType",
+  "domain",
+  "requiredSkills",
+  "preferredSkills",
+  "qualifications",
+  "pastPerformance",
+  "staffing",
+  "budgetKrw",
+  "deadlineAt",
+  "contractMethod",
+  "restrictions",
+  "submission",
+] as const satisfies readonly (keyof RequirementExtraction)[];
+
+const CITATION_FAILED = "CITATION_FAILED";
+
+function hasCitationFailure(extraction: RequirementExtraction): boolean {
+  const inWarnings = extraction.warnings.some(
+    (warning) => warning === CITATION_FAILED || warning.startsWith(`${CITATION_FAILED}:`),
+  );
+  return inWarnings || EXTRACTED_FIELD_KEYS.some((key) => extraction[key].note === CITATION_FAILED);
+}
+
+/** C4 reviewFlags 에 없는 파이프라인 플래그. 순서는 CITATION_FAILED → EXTRACTION_LOW_CONFIDENCE → KEV_UNAVAILABLE. */
+export function extraReviewFlags(input: {
+  extraction: RequirementExtraction | null;
+  kev: KevOutcome | null;
+  resultFlags: readonly string[];
+}): ExtraReviewFlag[] {
+  const { extraction, kev, resultFlags } = input;
+  const candidates: [ExtraReviewFlag, boolean][] = [
+    ["CITATION_FAILED", extraction !== null && hasCitationFailure(extraction)],
+    // 3b 통보: 인용 검증이 대량으로 실패하면 gateway 가 이 경고를 낸다(03 §8).
+    [
+      "EXTRACTION_LOW_CONFIDENCE",
+      extraction?.warnings.includes("EXTRACTION_LOW_CONFIDENCE") ?? false,
+    ],
+    // gateway 불가(GATEWAY_DOWN)는 C4 의 AI_UNAVAILABLE 몫이라 여기서 내지 않는다.
+    ["KEV_UNAVAILABLE", kev?.kind === "DISABLED" && kev.kevUnavailable],
+  ];
+  return candidates
+    .filter(([flag, raised]) => raised && !resultFlags.includes(flag))
+    .map(([flag]) => flag);
+}
+
+// ── 설명 ──
+
+/** /explain 요청(K8). 설명 대상이므로 규칙 결과를 넣는다(03 §2.1). 안쪽 이름은 C4 그대로다. */
+export type ExplainRequest = {
+  requestId: string;
+  qualificationChecks: AnalysisResult["qualificationChecks"];
+  scoreBreakdown: {
+    score: number;
+    factors: AnalysisResult["factors"];
+    recommendation: AnalysisResult["recommendation"];
+    recommendationBasis: AnalysisResult["recommendationBasis"];
+    /** result.reviewFlags 뒤에 파이프라인 플래그(중복 없이). */
+    reviewFlags: string[];
+    missingFactors: AnalysisResult["missingFactors"];
+  };
+  evidence: EvidenceRef[];
+  /** result.kev.enabled 가 false 면 null. */
+  kevSummary: AnalysisResult["kev"] | null;
+  documentIssues: DocumentIssue[];
+};
+
+export function toExplainRequest(input: {
+  requestId: string;
+  result: AnalysisResult;
+  extraFlags: ExtraReviewFlag[];
+  evidence: EvidenceRef[];
+  documentIssues: DocumentIssue[];
+}): ExplainRequest {
+  const { result } = input;
+  return {
+    requestId: input.requestId,
+    qualificationChecks: result.qualificationChecks,
+    scoreBreakdown: {
+      score: result.score,
+      factors: result.factors,
+      recommendation: result.recommendation,
+      recommendationBasis: result.recommendationBasis,
+      reviewFlags: [...new Set<string>([...result.reviewFlags, ...input.extraFlags])],
+      missingFactors: result.missingFactors,
+    },
+    evidence: input.evidence,
+    kevSummary: result.kev.enabled ? result.kev : null,
+    documentIssues: input.documentIssues,
+  };
+}
+
+/** 설명 문장. 모델 문장(fallback=false)만 모델 것으로 쓰고, 그 밖에는 C4 템플릿이다(K3). gateway 의 템플릿 문장은 쓰지 않는다. */
+export function chooseExplanation(
+  outcome: ExplainOutcome | null,
+  result: AnalysisResult,
+): AnalysisRunMeta["explanation"] {
+  return outcome?.kind === "MODEL_TEXT"
+    ? { text: outcome.text, source: "MODEL" }
+    : { text: result.explanation, source: "TEMPLATE" };
+}
+
+// ── 메타 ──
+
+/** 메타의 model 칸(05 AnalysisResult.model). */
+export function toModelMeta(input: {
+  aiProvider: AiProvider;
+  extraction: RequirementExtraction | null;
+  result: AnalysisResult;
+}): AnalysisRunMeta["model"] {
+  const { aiProvider, extraction, result } = input;
+  const { model, questionSetVersion } = result.kev;
+  return {
+    provider: aiProvider,
+    qwen:
+      extraction === null
+        ? null
+        : {
+            name: extraction.model.name,
+            promptVersion: extraction.model.promptVersion,
+            promptHash: extraction.model.promptHash,
+          },
+    // fixture wire 처럼 model 이 없으면 무엇을 썼는지 말할 수 없으므로 null 이다.
+    kev:
+      result.kev.enabled && model !== null && questionSetVersion !== null
+        ? { model, questionSetVersion }
+        : null,
+    algorithmVersion: result.algorithmVersion,
+  };
+}
