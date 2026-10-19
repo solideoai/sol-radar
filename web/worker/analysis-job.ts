@@ -288,7 +288,7 @@ export function createAnalysisProcessor(
   };
 }
 
-/** BullMQ Worker. concurrency 1(Qwen·Kev 가 GPU 하나를 함께 쓴다, 03 §5.9). main.ts 등록은 읽기 port 구현 뒤다. */
+/** BullMQ Worker. concurrency 1(Qwen·Kev 가 GPU 하나를 함께 쓴다, 03 §5.9). main.ts 의 analysisWorkerRegistration 이 analysis-runtime 으로 띄운다. */
 export function createAnalysisWorker(
   connection: ConnectionOptions,
   deps: AnalysisJobDeps,

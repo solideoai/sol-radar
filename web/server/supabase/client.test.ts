@@ -438,3 +438,75 @@ describe("unlinkAuthIdentity", () => {
     await expect(unlinkAuthIdentity("user-token", IDENTITY)).rejects.toThrow("fetch failed");
   });
 });
+
+// 6-6: demo:reset 이 파일에서 읽은 env 로 관리자 연결을 만든다. 모듈 변수에 담지 않는다(getSupabaseAdmin 캐시와 따로).
+describe("createSupabaseAdminClient", () => {
+  const INPUT = { url: "https://demo-reset.supabase.co", serviceRoleKey: "service-role-from-file" };
+
+  it("받은 url·serviceRoleKey 로 세션을 저장·갱신하지 않는 클라이언트를 만든다", async () => {
+    const { createSupabaseAdminClient } = await import("./client");
+    expect(createSupabaseAdminClient(INPUT)).toBeDefined();
+    expect(createClient).toHaveBeenCalledWith(
+      "https://demo-reset.supabase.co",
+      "service-role-from-file",
+      expect.objectContaining({
+        auth: expect.objectContaining({ persistSession: false, autoRefreshToken: false }),
+      }),
+    );
+  });
+
+  it("process.env 의 주소·키가 아니라 받은 값을 쓴다", async () => {
+    const { createSupabaseAdminClient } = await import("./client");
+    createSupabaseAdminClient(INPUT);
+    const [url, key] = createClient.mock.calls[0] ?? [];
+    expect([url, key]).not.toContain("https://test.supabase.co");
+    expect([url, key]).not.toContain("admin-test-key");
+  });
+
+  it("두 번 부르면 다른 클라이언트다(모듈 변수에 담지 않는다)", async () => {
+    const { createSupabaseAdminClient } = await import("./client");
+    const first = createSupabaseAdminClient(INPUT);
+    const second = createSupabaseAdminClient(INPUT);
+    expect(first).not.toBe(second);
+    expect(createClient).toHaveBeenCalledTimes(2);
+  });
+
+  it("getSupabaseAdmin 의 캐시와 섞이지 않는다(getSupabaseAdmin 은 env 키를 그대로 쓴다)", async () => {
+    const { createSupabaseAdminClient, getSupabaseAdmin } = await import("./client");
+    const fromFile = createSupabaseAdminClient(INPUT);
+    const fromEnv = getSupabaseAdmin();
+    expect(fromEnv).not.toBe(fromFile);
+    expect(createClient.mock.calls.at(-1)?.[1]).toBe("admin-test-key");
+  });
+
+  it.each([
+    ["빈 url", { url: "", serviceRoleKey: "service-role-SECRET-value" }],
+    ["빈 키", { url: "https://SECRET-host.supabase.co", serviceRoleKey: "" }],
+  ])("%s 면 Error 를 던지고 메시지에 받은 값이 없다", async (_name, input) => {
+    const { createSupabaseAdminClient } = await import("./client");
+    // 함수가 없어서 난 TypeError 를 "값 없는 오류"로 잘못 세지 않게 먼저 확인한다.
+    expect(createSupabaseAdminClient).toBeTypeOf("function");
+    const message = (() => {
+      try {
+        createSupabaseAdminClient(input);
+        return "던지지 않았다";
+      } catch (error) {
+        return error instanceof Error ? error.message : "Error 가 아니다";
+      }
+    })();
+    expect(message).not.toBe("던지지 않았다");
+    expect(message).not.toBe("Error 가 아니다");
+    expect(message).not.toContain("SECRET");
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it("배럴(@/server/supabase)로 공개한다", async () => {
+    const barrel = await import("./index");
+    expect(typeof barrel.createSupabaseAdminClient).toBe("function");
+  });
+
+  it("생성된 Database 타입이 붙은 클라이언트를 돌려준다", async () => {
+    const { createSupabaseAdminClient } = await import("./client");
+    expectTypeOf(createSupabaseAdminClient).returns.toEqualTypeOf<SupabaseClient<Database>>();
+  });
+});

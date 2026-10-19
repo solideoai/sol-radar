@@ -1,12 +1,7 @@
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { loadDemoBidFixtures } from "@test-harness/demo-bid-notices.mjs";
-import {
-  companyProfileUuid,
-  demoUuid,
-  planSeedBatch,
-  toBidRows,
-} from "@test-harness/demo-plan.mjs";
+import { companyProfileUuid, demoIdFor, demoUuid } from "@test-harness/demo-plan.mjs";
 import { orgUuid } from "@test-harness/people-seed.mjs";
 import {
   ANALYSIS_JOB,
@@ -19,12 +14,19 @@ import {
   type PreanalyzeStore,
   type ScoreRunStatus,
 } from "@/server/analysis";
+import {
+  EMPTY_INGEST_SUMMARY,
+  seedFixtureBids,
+  type IngestionRepo,
+  type SaveRevisionInput,
+} from "@/server/ingestion";
 import { CALCULATION_DATE, healthBody } from "@/worker/analysis-job.test-support";
 import { runPreanalyze, type PreanalyzeDeps } from "@/worker/demo-preanalyze";
 
 // 사전 분석 CLI(`pnpm demo:preanalyze`, C5-B). 19 §3 사전 준비 5번의 "FX-02를 뺀 적재 공고 18건"을
 // mock 모드에서 분석 job 으로 넣고 끝날 때까지 기다린다. gateway·store·queue·시계·sleep·로그는 가짜다.
-// Redis·Supabase·Compose·네트워크는 쓰지 않는다. 공고 행은 데모 seed 의 행 계획 함수로 만든다(대상 목록을 박지 않는다).
+// Redis·Supabase·Compose·네트워크는 쓰지 않는다. 공고 행은 demo:reset 과 같은 C3 공고 적재(seedFixtureBids,
+// idFor=demoIdFor)에 기록용 저장소를 넣어 받는다(대상 목록을 박지 않는다).
 
 // 19 §3 5번: FX-02 는 미분석으로 남겨 S4 에서 라이브 분석한다. FX-12 는 격리라 적재 공고가 없다.
 const LIVE_ANALYSIS_FIXTURE = "FX-02";
@@ -35,8 +37,6 @@ const S2_BID_FIXTURES = ["FX-01", "FX-18", "FX-06"];
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const SEED_ANCHOR = new Date(`${CALCULATION_DATE}T18:00:00+09:00`);
-const seedPlan = planSeedBatch(await loadDemoBidFixtures(REPO_ROOT), { anchor: SEED_ANCHOR });
-const seedTables = toBidRows(seedPlan);
 
 type DemoBidRow = Awaited<ReturnType<PreanalyzeStore["listDemoBids"]>>[number];
 type EnsureInput = Parameters<PreanalyzeStore["ensureQueuedRun"]>[0];
@@ -44,13 +44,81 @@ type SeedBid = { fixtureId: string; bidId: string; revisionId: string };
 type SeedNotice = { id: string; latest_revision: number };
 type SeedRevision = { id: string; bid_id: string; revision: number; raw_payload: unknown };
 
-const SEEDED: SeedBid[] = seedPlan.created.map(({ fixtureId, bidId, revisionId }: SeedBid) => ({
+/**
+ * 기록용 수집 저장소. saveRevision 입력을 RPC ingest_save_revision 이 revision 1 에서 쓰는 공고(latest_revision 1)·
+ * revision(raw_payload 는 JSON) 행 가운데 사전 분석이 읽는 열만 쌓는다. SEED(revision 1)만 흉내 낸다.
+ */
+function recordingIngestionRepo(): {
+  repo: IngestionRepo;
+  notices: SeedNotice[];
+  revisions: SeedRevision[];
+} {
+  const notices: SeedNotice[] = [];
+  const revisions: SeedRevision[] = [];
+  const save = ({ decision, rawPayload, ids }: SaveRevisionInput) => {
+    const { bid } = decision;
+    if (bid.revision !== 1)
+      throw new Error(`기록용 저장소는 revision 1 만 쌓는다: ${bid.noticeId}`);
+    // demo:reset 은 idFor 를 넘겨 id 를 정한다. 없으면 DB 가 만드는 값이라 seed 와 같은 id 를 낼 수 없다.
+    const bidId = ids?.bidId;
+    const revisionId = ids?.revisionId;
+    if (bidId === undefined || revisionId === undefined) {
+      throw new Error(`idFor 없이 저장하려 했다: ${bid.noticeId}`);
+    }
+    if (notices.some((notice) => notice.id === bidId)) throw new Error("INGEST_BID_EXISTS");
+    notices.push({ id: bidId, latest_revision: 1 });
+    revisions.push({
+      id: revisionId,
+      bid_id: bidId,
+      revision: bid.revision,
+      raw_payload: JSON.parse(JSON.stringify(rawPayload)),
+    });
+    return { bidId, revisionId };
+  };
+  const repo: IngestionRepo = {
+    startRun: async (input) => ({
+      runId: demoUuid("test-ingest-run", input.jobKey),
+      status: "RUNNING",
+      cursor: null,
+      summary: { ...EMPTY_INGEST_SUMMARY },
+      params: input.params,
+    }),
+    findLatestRevision: async () => null,
+    findLatestSeedAnchor: async () => null,
+    findLatestRunWindowEnd: async () => null,
+    saveRevision: async (input) => save(input),
+    recordError: async () => undefined,
+    saveCheckpoint: async () => undefined,
+    finishRun: async () => undefined,
+  };
+  return { repo, notices, revisions };
+}
+
+/** demo:reset 의 공고 적재(createDefaultIngestBids)와 같은 호출. fetchedAt 은 결정적이도록 seed 시각으로 고정한다. */
+async function recordFixtureSeed() {
+  const { repo, notices, revisions } = recordingIngestionRepo();
+  const result = await seedFixtureBids({
+    repo,
+    fixturesDir: path.join(REPO_ROOT, "fixtures"),
+    anchor: SEED_ANCHOR,
+    runMode: "MOCK",
+    // demo:reset 이 넘기는 demoIdFor 그대로. plan.mjs 는 JS 라 revision 을 필수로 추론해 키를 풀어 넘긴다.
+    idFor: (kind, { source, noticeId, revision }) =>
+      demoIdFor(kind, { source, noticeId, revision }),
+    now: () => SEED_ANCHOR,
+  });
+  if (result.status === "FAILED") throw new Error("seed 공고 적재가 FAILED 로 끝났다");
+  return { bids: result.bids, notices, revisions };
+}
+
+const fixtureSeed = await recordFixtureSeed();
+const SEEDED: SeedBid[] = fixtureSeed.bids.map(({ fixtureId, bidId, revisionId }) => ({
   fixtureId,
   bidId,
   revisionId,
 }));
-const notices: SeedNotice[] = seedTables.notices;
-const revisions: SeedRevision[] = seedTables.revisions;
+const notices: SeedNotice[] = fixtureSeed.notices;
+const revisions: SeedRevision[] = fixtureSeed.revisions;
 
 /** seed 와 같은 데모 공고 행(listDemoBids 가 돌려줄 모양). */
 function seedBidRows(): DemoBidRow[] {

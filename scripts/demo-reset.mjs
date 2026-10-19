@@ -2,6 +2,9 @@
 // demo-reset.mjs — SOL RADAR 데모 seed. Supabase 프로젝트에 service role 로 데모 데이터를 넣고, 다시 돌리면 같은 상태로 만든다.
 //
 //   pnpm demo:reset                                   루트 .env.local 의 값으로 적재
+//
+// 공고 SEED 는 C3 수집 도메인(web/server/ingestion seedFixtureBids, TypeScript)이 적재한다. 그래서 루트 package.json 의
+// demo:reset 은 web 의 tsx 로 이 파일을 돌린다(pnpm -C web exec node --conditions=react-server --import tsx …).
 //   pnpm demo:reset -- --env-file <path>              다른 env 파일(격리 시험용)
 //   pnpm demo:reset -- --fixtures-root <dir>          fixtures/ 를 다른 저장소 경로에서 읽는다
 //   pnpm demo:reset -- --write-summary <path>         마지막 줄과 같은 내용을 JSON 으로 저장(증거용)
@@ -23,7 +26,6 @@ import {
   loadCompanyProfileFixture,
   loadDemoBidFixtures,
   loadExtractionFixtures,
-  seedBidNotices,
   seedRequirementExtractions,
 } from "./demo/bid-notices.mjs";
 import {
@@ -31,6 +33,7 @@ import {
   DEMO_ORGS,
   EXPECTED_COUNTS,
   accountMetadata,
+  demoIdFor,
   demoOrgIds,
   formatSummaryLine,
   planCompanyProfiles,
@@ -72,6 +75,11 @@ export const REQUIRED_TABLES = [
   "audit_logs",
 ];
 
+// seed 가 부르는 RPC. probe 는 확인 호출의 인자다 — p = {} 는 함수가 쓰기 전에 INGEST_BID_NOT_FOUND 로 거절해 행이 생기지 않는다.
+export const REQUIRED_FUNCTIONS = [
+  { name: "ingest_save_revision", probe: { p: {} }, migration: "20261019000009" },
+];
+
 // 데모 조직 두 곳의 조직 소유 행. 지우는 순서는 FK 를 따른다(score_runs 가 먼저, 결정은 run 을 가리킨다).
 const ORG_SCOPED_TABLES = [
   "score_runs",
@@ -86,14 +94,15 @@ const ORG_SCOPED_TABLES = [
 
 // ── fixture ────────────────────────────────────────────────────
 
+// 공고 fixture(fixtures/bids)는 seedFixtureBids 가 직접 읽는다. 여기서는 무엇이든 지우기 전에 검증만 한다.
 export const loadDemoFixtures = async ({ fixturesRoot = ROOT } = {}) => {
-  const [bids, extractions, company, people] = await Promise.all([
+  const [, extractions, company, people] = await Promise.all([
     loadDemoBidFixtures(fixturesRoot),
     loadExtractionFixtures(fixturesRoot),
     loadCompanyProfileFixture(fixturesRoot),
     loadPeopleFixtures(),
   ]);
-  return { bids, extractions, company, people };
+  return { extractions, company, people };
 };
 
 // 사진 200장: manifest READY + 사람 검수 PASS + 파일 해시 일치(10 "파일 이름만 200개 있다고 성공 처리하지 않는다").
@@ -115,12 +124,20 @@ export const validatePortraits = async ({ root = ROOT } = {}) => {
 
 // ── seed ───────────────────────────────────────────────────────
 
+// 어떤 쓰기·지우기보다 먼저 본다. 공고 적재 RPC 가 없는 프로젝트에서 데모 공고를 다 지운 뒤에야 멈추면 데모가 빈다(C3 8-2).
 const assertTables = async (client) => {
   const missing = [];
   for (const table of REQUIRED_TABLES) if (!(await client.tableExists(table))) missing.push(table);
   if (missing.length > 0)
     throw new Error(
       `표가 없습니다: ${missing.join(", ")}. 마이그레이션이 적용되지 않았습니다 — pnpm db:verify 로 확인하고 pnpm db:push(사용자 확인 뒤)로 적용하세요.`,
+    );
+  const missingFunctions = [];
+  for (const fn of REQUIRED_FUNCTIONS)
+    if (!(await client.functionExists(fn.name, fn.probe))) missingFunctions.push(fn);
+  if (missingFunctions.length > 0)
+    throw new Error(
+      `함수가 없습니다: ${missingFunctions.map((fn) => fn.name).join(", ")}. 마이그레이션 ${missingFunctions.map((fn) => fn.migration).join(", ")} 가 적용되지 않았습니다 — pnpm db:verify 로 확인하고 pnpm db:push(사용자 확인 뒤)로 적용하세요.`,
     );
 };
 
@@ -217,6 +234,8 @@ const readCounts = async (client, { users, ingestRunId }) => {
   };
 };
 
+// ingestBids({ anchor, runMode, idFor }) → { bids, quarantined, summary, ingestRunId } — 공고 SEED 적재(C3 6-5 보충).
+// CLI 는 createDefaultIngestBids(C3 seedFixtureBids), 시험은 RPC 를 SQL 로 부르는 가짜를 넘긴다.
 export const seedDemo = async ({
   client,
   fixtures,
@@ -225,7 +244,12 @@ export const seedDemo = async ({
   runMode = "MOCK",
   portraits = validatePortraits,
   log = () => {},
+  ingestBids,
 }) => {
+  if (typeof ingestBids !== "function")
+    throw new Error(
+      "ingestBids(공고 적재 함수)가 필요합니다 — CLI 는 createDefaultIngestBids 를 씁니다",
+    );
   const orgIds = demoOrgIds();
   await assertTables(client);
   log("표 확인 완료. 조직·카탈로그·명부부터 넣습니다.");
@@ -247,7 +271,8 @@ export const seedDemo = async ({
       createdBy: { "org-01": users.admin.id, "org-02": users.outsider.id },
     }),
   );
-  const ingest = await seedBidNotices(client, { fixtures: fixtures.bids, anchor, runMode });
+  // 공고·revision id 는 demoIdFor(고정 UUID)라 다시 돌려도 같다. 추출·리뷰·배정이 그 id 를 가리킨다.
+  const ingest = await ingestBids({ anchor, runMode, idFor: demoIdFor });
   const extracted = await seedRequirementExtractions(client, {
     bids: ingest.bids,
     extractions: fixtures.extractions,
@@ -291,6 +316,45 @@ export const seedDemo = async ({
       orgRole,
       solRole,
     })),
+  };
+};
+
+// ── 공고 적재 기본값(CLI 전용) ─────────────────────────────────
+//
+// C3 수집 도메인은 TypeScript 라 tsx 아래에서만 불러올 수 있다. 시험(node --test)은 이 함수를 쓰지 않는다.
+const INGESTION_MODULE = new URL("../web/server/ingestion/index.ts", import.meta.url);
+const SUPABASE_MODULE = new URL("../web/server/supabase/index.ts", import.meta.url);
+
+// 모듈을 먼저 불러 둔다. tsx·경로 별칭이 안 풀리면 아무것도 지우기 전에 멈춘다.
+export const loadIngestModules = async () => {
+  const [ingestion, supabase] = await Promise.all([
+    import(INGESTION_MODULE.href),
+    import(SUPABASE_MODULE.href),
+  ]);
+  return { ingestion, supabase };
+};
+
+// root 는 fixtures/ 를 읽을 저장소 경로, env 는 resolveSeedEnv 의 값이다. modules 를 주지 않으면 여기서 불러온다.
+export const createDefaultIngestBids = async ({ root, env, modules }) => {
+  const { ingestion, supabase } = modules ?? (await loadIngestModules());
+  const client = supabase.createSupabaseAdminClient({
+    url: env.apiUrl,
+    serviceRoleKey: env.serviceKey,
+  });
+  return async ({ anchor, runMode, idFor }) => {
+    const result = await ingestion.seedFixtureBids({
+      repo: ingestion.createSupabaseIngestionRepo(client),
+      fixturesDir: path.join(root, "fixtures"),
+      anchor,
+      runMode,
+      idFor,
+    });
+    return {
+      bids: result.bids,
+      quarantined: result.quarantined,
+      summary: result.summary,
+      ingestRunId: result.ingestRunId,
+    };
   };
 };
 
@@ -344,13 +408,13 @@ const summaryJson = (result) => ({
 
 const main = async (argv) => {
   const options = parseArgs(argv);
+  const modules = await loadIngestModules();
   const env = resolveSeedEnv({
     fileValues: await readEnvFile(path.resolve(ROOT, options.envFile ?? ".env.local")),
     processEnv: process.env,
   });
-  const fixtures = await loadDemoFixtures({
-    fixturesRoot: options.fixturesRoot ? path.resolve(options.fixturesRoot) : ROOT,
-  });
+  const fixturesRoot = options.fixturesRoot ? path.resolve(options.fixturesRoot) : ROOT;
+  const fixtures = await loadDemoFixtures({ fixturesRoot });
   console.log(`▶ 데모 seed (${new URL(env.apiUrl).host})`);
   const result = await seedDemo({
     client: createRestClient({ apiUrl: env.apiUrl, serviceKey: env.serviceKey }),
@@ -358,6 +422,7 @@ const main = async (argv) => {
     password: env.password,
     runMode: toRunMode(process.env.SOL_RUN_MODE),
     log: (line) => console.log(`  ${line}`),
+    ingestBids: await createDefaultIngestBids({ root: fixturesRoot, env, modules }),
   });
   if (options.writeSummary)
     await writeFile(

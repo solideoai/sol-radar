@@ -1,23 +1,24 @@
 // 시험 전용 도우미(라운드 B 저장 port). 제품 코드가 import 하지 않는다.
-// 1. 데모 seed 의 행 계획 함수(scripts/demo/plan.mjs·bid-notices.mjs·people/seed.mjs)로 org-01 의 실제 seed 행을 만든다.
-//    seed 와 같은 함수를 부르므로 DB 경로(loader 가 읽을 행)가 seed 와 어긋나면 시험이 빨개진다. 숫자를 시험에 박지 않는다.
+// 1. 데모 seed 와 같은 함수로 org-01 의 실제 seed 행을 만든다. 공고·revision·첨부는 demo:reset 이 부르는 C3 공고 적재
+//    (seedFixtureBids, idFor=demoIdFor)에 기록용 저장소를 넣어 받고, 나머지는 seed 의 행 계획 함수(scripts/demo/plan.mjs·
+//    bid-notices.mjs·people/seed.mjs)로 만든다. DB 경로(loader 가 읽을 행)가 seed 와 어긋나면 시험이 빨개진다. 숫자를 시험에 박지 않는다.
 // 2. 실제 supabase-js 클라이언트에 가짜 fetch 를 넣어 PostgREST 요청(표·방법·필터·Prefer·본문)을 기록하고 정해 둔 답을 준다.
 //    타입이 붙은 진짜 클라이언트라 단언(as) 없이 repo 에 넘긴다. 실제 네트워크는 부르지 않는다.
 // 3. PGlite(scripts/supabase-pglite.mjs)에 실제 마이그레이션을 올리고 행을 SQL 로 넣는 작은 도우미.
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import {
   loadCompanyProfileFixture,
-  loadDemoBidFixtures,
   loadExtractionFixtures,
 } from "@test-harness/demo-bid-notices.mjs";
 import {
+  demoIdFor,
+  demoUuid,
   extractionFileFor,
   planCompanyProfiles,
-  planSeedBatch,
   toAssignmentRows,
-  toBidRows,
   toExtractionRow as toSeedExtractionRow,
 } from "@test-harness/demo-plan.mjs";
 import { loadPeopleFixtures, orgUuid, seedSolideoPeople } from "@test-harness/people-seed.mjs";
@@ -27,6 +28,13 @@ import {
   loadMigrations,
 } from "@test-harness/supabase-pglite.mjs";
 import type { Database, Json } from "@/lib/database.types";
+import {
+  EMPTY_INGEST_SUMMARY,
+  seedFixtureBids,
+  type IngestionRepo,
+  type SaveRevisionInput,
+  type StoredRevision,
+} from "@/server/ingestion";
 import type { LoadedAnalysisContext } from "./analysis-job.model";
 import type { AnalysisContext } from "./analysis.model";
 import type { LoaderRows, RevisionDocumentText } from "./analysis-store.model";
@@ -66,20 +74,160 @@ export function kevOffRoutes(): GatewayRoutes {
   };
 }
 
-const [bidFixtures, extractionFixtures, companyFixture, peopleFixtures] = await Promise.all([
-  loadDemoBidFixtures(REPO_ROOT),
+const [extractionFixtures, companyFixture, peopleFixtures] = await Promise.all([
   loadExtractionFixtures(REPO_ROOT),
   loadCompanyProfileFixture(REPO_ROOT),
   loadPeopleFixtures(),
 ]);
 
-const seedPlan = planSeedBatch(bidFixtures, { anchor: SEED_ANCHOR });
-const seedBidRows = toBidRows(seedPlan);
+export type SeedNoticeRow = Insert<"bid_notices"> & {
+  id: string;
+  source: string;
+  title: string;
+  is_demo: boolean;
+  latest_revision: number;
+};
+export type SeedRevisionRow = {
+  id: string;
+  bid_id: string;
+  revision: number;
+  amendment_no: string | null;
+  raw_payload: Json;
+  normalized: Json;
+  checksum: string;
+  changed_fields: string[];
+  fetched_at: string;
+};
+export type SeedDocumentRow = Insert<"bid_documents"> & { id: string };
+export type SeedBidTables = {
+  notices: SeedNoticeRow[];
+  revisions: SeedRevisionRow[];
+  documents: SeedDocumentRow[];
+};
 
-type SeededBid = { fixtureId: string; bidId: string; revisionId: string };
-const seededBids: SeededBid[] = seedPlan.created.map(
-  ({ fixtureId, bidId, revisionId }: SeededBid) => ({ fixtureId, bidId, revisionId }),
+// RPC 로 보내는 값은 JSON 이다(ingestion.store toSaveRevisionParams). 한 번 왕복해 undefined 키를 빼고 입력과 객체를 나눈다.
+const jsonCopy = (value: unknown): Json => JSON.parse(JSON.stringify(value));
+
+/**
+ * 기록용 수집 저장소. saveRevision 입력을 RPC ingest_save_revision(20261019000009)이 revision 1 에서 쓰는 행 그대로 쌓는다:
+ * 공고(latest_revision 1·content_hash=checksum·last_synced_at=fetchedAt), revision(raw_payload·normalized 는 JSON),
+ * 첨부(name·original_url, download_status 기본값 PENDING). outbox 이벤트는 분석이 읽지 않아 쌓지 않는다.
+ * SEED 만 흉내 낸다: revision 2 이상이나 이미 있는 공고(INGEST_BID_EXISTS)는 던진다.
+ */
+function recordingIngestionRepo(): { repo: IngestionRepo; tables: SeedBidTables } {
+  const tables: SeedBidTables = { notices: [], revisions: [], documents: [] };
+  const latest = new Map<string, StoredRevision>();
+  const save = ({ decision, rawPayload, ids }: SaveRevisionInput) => {
+    const { bid } = decision;
+    const key = `${bid.source}:${bid.noticeId}`;
+    if (bid.revision !== 1) throw new Error(`기록용 저장소는 revision 1 만 쌓는다: ${key}`);
+    if (latest.has(key)) throw new Error("INGEST_BID_EXISTS");
+    // demo:reset 은 idFor 를 넘겨 id 를 정한다. 없으면 DB 가 만드는 값이라 seed 와 같은 id 를 낼 수 없다.
+    const bidId = ids?.bidId;
+    const revisionId = ids?.revisionId;
+    if (bidId === undefined || revisionId === undefined) {
+      throw new Error(`idFor 없이 저장하려 했다: ${key}`);
+    }
+    tables.notices.push({
+      id: bidId,
+      source: bid.source,
+      notice_id: bid.noticeId,
+      plan_ref: bid.planRef ?? null,
+      pre_spec_ref: bid.preSpecRef ?? null,
+      title: bid.title,
+      agency: bid.agency,
+      stage: bid.stage,
+      status: bid.status,
+      // numeric 열이다. RPC 가 KRW 정수 문자열을 numeric 으로 바꾸고, PostgREST 는 숫자로 돌려준다.
+      budget_krw: bid.budgetKrw === null ? null : Number(bid.budgetKrw),
+      published_at: bid.noticeDate,
+      deadline_at: bid.deadlineAt,
+      source_url: bid.sourceUrl,
+      is_demo: bid.isDemo,
+      latest_revision: 1,
+      content_hash: bid.checksum,
+      last_synced_at: bid.fetchedAt,
+    });
+    tables.revisions.push({
+      id: revisionId,
+      bid_id: bidId,
+      revision: bid.revision,
+      amendment_no: bid.amendmentNo ?? null,
+      raw_payload: jsonCopy(rawPayload),
+      normalized: jsonCopy(bid),
+      checksum: bid.checksum,
+      changed_fields: decision.changes.map(({ field }) => field),
+      fetched_at: bid.fetchedAt,
+    });
+    // RPC 는 첨부 id 를 gen_random_uuid() 로 만든다. 시험은 값에 기대지 않고, 결정적이도록 revision·순번에서 만든다.
+    tables.documents.push(
+      ...bid.attachments.map(({ name, url }, index) => ({
+        id: demoUuid("test-document", revisionId, index),
+        bid_id: bidId,
+        revision_id: revisionId,
+        name,
+        original_url: url,
+        download_status: "PENDING",
+      })),
+    );
+    latest.set(key, {
+      bidId,
+      revision: bid.revision,
+      checksum: bid.checksum,
+      normalized: bid,
+    });
+    return { bidId, revisionId };
+  };
+  const repo: IngestionRepo = {
+    startRun: async (input) => ({
+      runId: demoUuid("test-ingest-run", input.jobKey),
+      status: "RUNNING",
+      cursor: null,
+      summary: { ...EMPTY_INGEST_SUMMARY },
+      params: input.params,
+    }),
+    findLatestRevision: async (source, noticeId) => latest.get(`${source}:${noticeId}`) ?? null,
+    findLatestSeedAnchor: async () => null,
+    findLatestRunWindowEnd: async () => null,
+    saveRevision: async (input) => save(input),
+    recordError: async () => undefined,
+    saveCheckpoint: async () => undefined,
+    finishRun: async () => undefined,
+  };
+  return { repo, tables };
+}
+
+/**
+ * demo:reset 의 공고 적재(scripts/demo-reset.mjs createDefaultIngestBids)와 같은 호출. 저장소만 기록용이다.
+ * fetchedAt 은 demo:reset 에서는 실행 시각이지만, 시험은 결정적이도록 seed 시각으로 고정한다.
+ */
+async function recordFixtureSeed() {
+  const { repo, tables } = recordingIngestionRepo();
+  const result = await seedFixtureBids({
+    repo,
+    fixturesDir: path.join(REPO_ROOT, "fixtures"),
+    anchor: SEED_ANCHOR,
+    runMode: "MOCK",
+    // demo:reset 이 넘기는 demoIdFor 그대로. plan.mjs 는 JS 라 revision 을 필수로 추론해 키를 풀어 넘긴다.
+    idFor: (kind, { source, noticeId, revision }) =>
+      demoIdFor(kind, { source, noticeId, revision }),
+    now: () => SEED_ANCHOR,
+  });
+  if (result.status === "FAILED") throw new Error("seed 공고 적재가 FAILED 로 끝났다");
+  return { bids: result.bids, tables };
+}
+
+const fixtureSeed = await recordFixtureSeed();
+
+/** seed 가 넣는 bid_notices·bid_revisions·bid_documents 행(적재 순서). 고치지 말고 복사해 쓴다. */
+export const SEED_BID_TABLES: Readonly<SeedBidTables> = fixtureSeed.tables;
+
+export type SeededBid = { fixtureId: string; bidId: string; revisionId: string };
+/** seed 가 적재한 공고(manifest SEED 순서, 격리된 FX-12 는 없다). */
+export const SEEDED_BIDS: readonly SeededBid[] = fixtureSeed.bids.map(
+  ({ fixtureId, bidId, revisionId }) => ({ fixtureId, bidId, revisionId }),
 );
+const seededBids = SEEDED_BIDS;
 
 type SeedProfileRow = Insert<"company_profiles"> & { id: string; org_id: string; revision: number };
 const seedProfiles: SeedProfileRow[] = planCompanyProfiles({
@@ -133,19 +281,6 @@ async function recordTeamScoringSeed(): Promise<SeedTeamScoringRow[]> {
 /** seed 순서(명부 순서) 그대로. loader 는 member_id 순으로 읽지만 toLoadedContext 도 정렬해야 한다. */
 export const SEED_TEAM_SCORING: SeedTeamScoringRow[] = await recordTeamScoringSeed();
 
-type SeedNoticeRow = Insert<"bid_notices"> & { id: string };
-type SeedRevisionRow = {
-  id: string;
-  bid_id: string;
-  revision: number;
-  amendment_no: string | null;
-  raw_payload: Json;
-  normalized: Json;
-  checksum: string;
-  changed_fields: string[];
-  fetched_at: string;
-};
-type SeedDocumentRow = Insert<"bid_documents"> & { id: string };
 type SeedExtractionRow = Insert<"requirement_extractions"> & {
   id: string;
   status: string;
@@ -165,9 +300,7 @@ export type SeedBid = {
 export function seedBid(fixtureId: string): SeedBid {
   const created = seededBids.find((bid) => bid.fixtureId === fixtureId);
   if (!created) throw new Error(`seed 에 적재되지 않은 fixture: ${fixtureId}`);
-  const notices: SeedNoticeRow[] = seedBidRows.notices;
-  const revisions: SeedRevisionRow[] = seedBidRows.revisions;
-  const documents: SeedDocumentRow[] = seedBidRows.documents;
+  const { notices, revisions, documents } = SEED_BID_TABLES;
   const notice = notices.find((row) => row.id === created.bidId);
   const revision = revisions.find((row) => row.id === created.revisionId);
   if (!notice || !revision) throw new Error(`seed 공고 행이 없다: ${fixtureId}`);

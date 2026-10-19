@@ -1,30 +1,22 @@
 // 시험 전용 도우미(사전 분석 C5-B, `pnpm demo:preanalyze`). 제품 코드가 import 하지 않는다.
-// 1. 데모 seed 의 행 계획 함수(scripts/demo/plan.mjs)로 seed 가 넣는 bid_notices·bid_revisions 행을 만들고
-//    store.listDemoBids 가 돌려줄 모양(DemoBidRow)으로 잇는다. 대상 목록을 시험에 박지 않고 seed 계획에서 얻는다.
+// 1. seed 가 넣는 bid_notices·bid_revisions 행(store.test-support 가 demo:reset 과 같은 C3 공고 적재로 받은 행)을
+//    store.listDemoBids 가 돌려줄 모양(DemoBidRow)으로 잇는다. 대상 목록을 시험에 박지 않고 seed 적재 결과에서 얻는다.
 // 2. 가짜 PostgREST(store.test-support) 위에서 bid_notices·bid_revisions 읽기에 답하는 라우트.
 //    질의 모양(두 표를 따로 읽기·임베드)을 시험이 정하지 않도록 eq·neq·in·is 필터와 임베드(!inner 포함)를 흉내 낸다.
 //    모르는 연산자면 FAKE_UNSUPPORTED_FILTER 오류로 답해 시험이 조용히 통과하지 않게 한다.
-import { fileURLToPath } from "node:url";
-import { loadDemoBidFixtures } from "@test-harness/demo-bid-notices.mjs";
-import { bidUuid, planSeedBatch, revisionUuid, toBidRows } from "@test-harness/demo-plan.mjs";
+import { bidUuid, revisionUuid } from "@test-harness/demo-plan.mjs";
 import type { DemoBidRow, PreanalyzeTarget } from "./preanalyze.model";
 import {
-  SEED_ANCHOR,
+  SEEDED_BIDS,
+  SEED_BID_TABLES,
   postgrestError,
   type PostgrestCall,
   type PostgrestReply,
   type PostgrestRoute,
 } from "./store.test-support";
 
-const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
-
-const seedPlan = planSeedBatch(await loadDemoBidFixtures(REPO_ROOT), { anchor: SEED_ANCHOR });
-const seedRows = toBidRows(seedPlan);
-
-type SeedCreated = { fixtureId: string; bidId: string; revisionId: string };
-const seeded: SeedCreated[] = seedPlan.created.map(
-  ({ fixtureId, bidId, revisionId }: SeedCreated) => ({ fixtureId, bidId, revisionId }),
-);
+const seedRows = SEED_BID_TABLES;
+const seeded = SEEDED_BIDS;
 
 /** seed 가 적재한 공고의 fixtureId(manifest SEED 순서, FX-12 는 격리라 없다). */
 export const SEEDED_FIXTURE_IDS: readonly string[] = seeded.map((bid) => bid.fixtureId);

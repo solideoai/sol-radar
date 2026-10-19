@@ -1,9 +1,11 @@
 // 데모 seed(scripts/demo-reset.mjs)의 시험. 실행: 루트에서 `pnpm test` 또는 `node --test scripts/demo-reset.test.mjs`
 //
 // 세 층으로 본다.
-//   1. 순수 계획(scripts/demo/plan.mjs): 상대 날짜·금액·checksum·SEED 집계·프로필·리뷰·마지막 줄.
+//   1. 순수 계획(scripts/demo/plan.mjs): 추출·프로필·리뷰·배정·마지막 줄·공고 id(demoIdFor).
+//      공고 정규화(상대 날짜·금액·checksum·NormalizedBid)와 SEED 집계는 C3 수집 도메인(web/server/ingestion)의 vitest 가 본다.
 //   2. HTTP 클라이언트(scripts/demo/rest-client.mjs): fetch 를 가짜로 바꿔 헤더·필터·upsert·오류 가림을 본다.
 //   3. 전체 seed 를 PGlite(실제 마이그레이션·트리거·RLS) 위에서 두 번 돌려 멱등·ID 보존·live 공고 보존·조직 격리를 본다.
+//      공고 적재(ingestBids)는 실제 RPC public.ingest_save_revision 을 SQL 로 부르는 가짜로 주입한다(C3 6-5).
 // 실제 Supabase 스택에서의 실행은 docs/evidence/phase-1/demo-reset.txt 가 증거다.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -13,31 +15,26 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
+import { loadBidFixtures } from "./bids/check.mjs";
 import { migratedDb } from "./database-test-support.mjs";
-import { loadDemoBidFixtures, seedBidNotices } from "./demo/bid-notices.mjs";
+import * as demoPlan from "./demo/plan.mjs";
 import {
   DEMO_ACCOUNTS,
   DEMO_ASSIGNMENTS,
   DEMO_REVIEWS,
   EXPECTED_COUNTS,
-  canonicalJson,
-  checksumOf,
+  bidUuid,
   demoOrgIds,
   extractionFileFor,
   extractionStatus,
   formatSummaryLine,
   indexExtractionFiles,
-  missingRequiredFields,
-  normalizeFixtureRecord,
-  parseBudgetKrw,
   planCompanyProfiles,
-  planSeedBatch,
-  resolveRelativeDate,
   resolveSeedEnv,
+  revisionUuid,
   seoulMidnight,
   substituteExtractionIds,
   toAssignmentRows,
-  toBidRows,
   toReviewRows,
   toRunMode,
 } from "./demo/plan.mjs";
@@ -56,7 +53,14 @@ const TEST_KEY = "test-admin-key-not-real";
 // 오류 가림 시험용, 토큰처럼 보이는 문자열을 실행 중에 만든다(파일에 토큰 모양을 적지 않는다).
 const TOKEN_LIKE = ["eyJ" + "a".repeat(24), "b".repeat(24), "c".repeat(24)].join(".");
 
-const bidFixtures = await loadDemoBidFixtures(ROOT);
+// 공고 id 규칙(C3 6-5 보충). plan.mjs 에 demoIdFor 가 생기기 전에도 파일 전체가 깨지지 않게 이름공간으로 읽는다.
+const demoIdFor = (kind, keys) => {
+  assert.equal(typeof demoPlan.demoIdFor, "function", "scripts/demo/plan.mjs 에 demoIdFor 가 없다");
+  return demoPlan.demoIdFor(kind, keys);
+};
+
+// 공고 fixture(manifest + fixtures/bids). seedDemo 는 더 받지 않고, 가짜 ingestBids 와 mock 추출 fixture 만 쓴다.
+const bidFixtures = await loadBidFixtures({ root: ROOT });
 const peopleFixtures = await loadPeopleFixtures();
 
 // 08 §6.1 의 값을 줄인 revision 2 프로필. 저장소의 fixtures/company 와 같은 모양이다.
@@ -152,8 +156,8 @@ const extractionFixtures = (() => {
   return { index: indexExtractionFiles(Object.keys(files)), files };
 })();
 
+// seedDemo 의 fixture. 공고(fixtures.bids)는 넣지 않는다 — 공고는 ingestBids 가 읽는다(C3 6-5 보충).
 const fixtures = {
-  bids: bidFixtures,
   extractions: extractionFixtures,
   company: companyProfile,
   people: peopleFixtures,
@@ -161,157 +165,12 @@ const fixtures = {
 
 // ── 1. 순수 계획 ───────────────────────────────────────────────
 
-describe("상대 날짜", () => {
-  it("anchor 의 서울 날짜에 n 일을 더해 KST 18:00 = UTC 09:00 으로 바꾼다(FX-14 규칙)", () => {
-    assert.equal(resolveRelativeDate("+2d", ANCHOR), "2026-10-21T09:00:00.000Z");
-    assert.equal(resolveRelativeDate("-3d", ANCHOR), "2026-10-16T09:00:00.000Z");
-    assert.equal(resolveRelativeDate("+21d", ANCHOR), "2026-11-09T09:00:00.000Z");
-    assert.equal(resolveRelativeDate(null, ANCHOR), null);
-  });
-
-  it("서울 자정 전후로 기준 날짜가 갈린다(UTC 날짜가 아니다)", () => {
-    assert.equal(
-      resolveRelativeDate("+0d", seoul("2026-10-19T23:30:00")),
-      "2026-10-19T09:00:00.000Z",
-    );
-    assert.equal(
-      resolveRelativeDate("+0d", seoul("2026-10-20T00:30:00")),
-      "2026-10-20T09:00:00.000Z",
-    );
-  });
-
-  it("상대 표기가 아니면 멈춘다", () => {
-    assert.throws(() => resolveRelativeDate("2026-10-20", ANCHOR), /상대 날짜 표기가 아닙니다/);
-  });
-});
-
-describe("금액 정규화", () => {
-  it("단위 표기를 KRW 정수 문자열로 환산하고 원문 환산 사실을 남긴다", () => {
-    assert.deepEqual(parseBudgetKrw("1,500백만원"), {
-      value: "1500000000",
-      note: 'budgetKrw 를 원문 "1,500백만원" 에서 환산',
-    });
-    assert.equal(parseBudgetKrw("21.6억").value, "2160000000");
-    assert.equal(parseBudgetKrw("12억원").value, "1200000000");
-    assert.equal(parseBudgetKrw("1.5천원").value, "1500");
-    assert.deepEqual(parseBudgetKrw("1200000000"), { value: "1200000000", note: null });
-    assert.deepEqual(parseBudgetKrw(null), { value: null, note: null });
-  });
-
-  it("정수로 떨어지지 않거나 단위를 모르면 null 과 BUDGET_UNPARSED 다", () => {
-    assert.deepEqual(parseBudgetKrw("0.3원"), { value: null, note: "BUDGET_UNPARSED:0.3원" });
-    assert.deepEqual(parseBudgetKrw("약 3억"), { value: null, note: "BUDGET_UNPARSED:약 3억" });
-  });
-});
-
-describe("checksum", () => {
-  it("canonical JSON 은 키 순서와 무관하고 undefined 를 뺀다", () => {
-    assert.equal(
-      canonicalJson({ b: [{ z: 1, a: undefined, y: [2, 1] }], a: null }),
-      '{"a":null,"b":[{"y":[2,1],"z":1}]}',
-    );
-  });
-
-  it("fetchedAt·checksum 을 뺀 canonical JSON 의 sha256 이다(15 §3)", () => {
-    const bid = { title: "a", noticeId: "n", fetchedAt: "2026-01-01T00:00:00Z", checksum: "x" };
-    const expected = createHash("sha256").update('{"noticeId":"n","title":"a"}').digest("hex");
-    assert.equal(checksumOf(bid), expected);
-    assert.equal(checksumOf({ ...bid, fetchedAt: "2027-01-01T00:00:00Z" }), expected);
-    assert.notEqual(checksumOf({ ...bid, title: "b" }), expected);
-  });
-});
-
-describe("NormalizedBid", () => {
-  const record = bidFixtures.bids["FX-13"].records[0];
-  const normalized = normalizeFixtureRecord({
-    record,
-    revision: 1,
-    anchor: ANCHOR,
-    fetchedAt: ANCHOR.toISOString(),
-  });
-
-  it("fixture 레코드를 15 §3 모양으로 바꾼다(status 기본 OPEN, null 선택 필드는 뺀다, 원문 보존)", () => {
-    assert.equal(normalized.schemaVersion, "normalized-bid/v0.2");
-    assert.equal(normalized.source, "fixture");
-    assert.equal(normalized.status, "OPEN");
-    assert.equal(normalized.budgetKrw, "1500000000");
-    assert.equal(normalized.deadlineAt, "2026-11-07T09:00:00.000Z");
-    assert.ok(!("planRef" in normalized));
-    assert.equal(normalized.amendmentNo, "01");
-    assert.deepEqual(normalized.attachments, [
-      { name: "제안요청서.pdf", url: "https://demo.sol-radar.invalid/fixtures/docs/FX-13-rfp.pdf" },
-    ]);
-    assert.deepEqual(normalized.structuredQualifications, []);
-    assert.equal(normalized.original.budget, "1,500백만원");
-    assert.equal(normalized.original.noticeNo, "DEMO-2026-0013-01");
-    assert.ok(normalized.normalizationNotes.some((note) => note.includes("1,500백만원")));
-    assert.equal(normalized.isDemo, true);
-    assert.equal(normalized.checksum, checksumOf(normalized));
-  });
-
-  it("필수 필드가 비면 격리 대상이다(FX-12 title)", () => {
-    assert.deepEqual(missingRequiredFields(bidFixtures.bids["FX-12"].records[0]), ["title"]);
-    assert.deepEqual(missingRequiredFields(record), []);
-    assert.deepEqual(missingRequiredFields({ ...record, title: "  " }), ["title"]);
-  });
-});
-
-describe("SEED 배치 계획", () => {
-  const plan = planSeedBatch(bidFixtures, { anchor: ANCHOR });
-
-  it("07 §6.4 집계 {created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2} 와 FX-12 격리", () => {
-    assert.deepEqual(plan.summary, {
-      created: 19,
-      changed: 0,
-      cancelled: 0,
-      skippedDuplicate: 0,
-      quarantined: 1,
-      retried: 2,
-    });
-    assert.deepEqual(plan.quarantined, [
-      { fixtureId: "FX-12", noticeId: "DEMO-2026-0012", missing: ["title"] },
-    ]);
-    assert.deepEqual(
-      plan.created.map((entry) => entry.fixtureId),
-      bidFixtures.manifest.batches.SEED.filter((id) => id !== "FX-12"),
-    );
-    assert.ok(plan.created.every((entry) => entry.normalized.revision === 1));
-  });
-
-  it("id·checksum 은 같은 anchor 면 같고, anchor 가 다르면 날짜가 든 checksum 만 바뀐다", () => {
-    const again = planSeedBatch(bidFixtures, { anchor: new Date(ANCHOR) });
-    const keys = ({ created }) =>
-      created.map(({ bidId, revisionId, normalized }) => [bidId, revisionId, normalized.checksum]);
-    assert.deepEqual(keys(again), keys(plan));
-    const later = planSeedBatch(bidFixtures, { anchor: seoul("2026-10-25T09:00:00") });
-    assert.deepEqual(
-      later.created.map(({ bidId }) => bidId),
-      plan.created.map(({ bidId }) => bidId),
-    );
-    assert.notEqual(later.created[0].normalized.checksum, plan.created[0].normalized.checksum);
-  });
-
-  it("행 묶음마다 키가 같고(PostgREST 일괄 insert), 첨부는 다운로드 전(PENDING) 상태로만 적는다", () => {
-    const { notices, revisions, documents } = toBidRows(plan);
-    for (const rows of [notices, revisions, documents]) {
-      const keys = Object.keys(rows[0]).join(",");
-      assert.ok(rows.every((row) => Object.keys(row).join(",") === keys));
-    }
-    assert.equal(notices.length, 19);
-    assert.ok(notices.every((row) => row.is_demo === true && row.latest_revision === 1));
-    // FX-04 는 첨부가 없다(07 §6.2).
-    assert.equal(documents.length, 18);
-    assert.ok(
-      documents.every((row) => row.download_status === "PENDING" && !("parse_status" in row)),
-    );
-    const fx11 = notices.find((row) => row.notice_id === "DEMO-2026-0011");
-    assert.equal(fx11.budget_krw, null);
-    assert.equal(fx11.deadline_at, null);
-    const fx17 = notices.find((row) => row.notice_id === "DEMO-2026-0017");
-    assert.equal(fx17.plan_ref, "DEMO-PLAN-0042");
-    assert.equal(fx17.stage, "PLAN");
-  });
-});
+// 2f 의 공고 정규화·SEED 계획 묶음은 C3 수집 도메인(web/server/ingestion)의 vitest 가 대신한다(C3 6-5).
+// "상대 날짜" → normalize-date.test.ts
+// "금액 정규화" → normalize-amount.test.ts
+// "checksum" → checksum.test.ts
+// "NormalizedBid" → normalized-bid.contract.test.ts
+// "SEED 배치 계획" → ingestion.service.test.ts · ingestion.service.ids.test.ts · seed-fixture-bids.test.ts
 
 describe("mock 추출 fixture", () => {
   it("FX-xx.rNN.json 은 그 revision, FX-xx.json 은 나머지 revision 에 쓴다(07 §6.5)", () => {
@@ -624,6 +483,76 @@ describe("REST 클라이언트", () => {
     });
   });
 
+  // C3 8-2: demo:reset 은 지우기 전에 RPC 가 있는지 본다. PostgREST 는 없는 함수에 404·PGRST202 를 준다.
+  it("functionExists 는 POST /rest/v1/rpc/<이름> 에 probeArgs 를 본문으로 보내고(키는 헤더에만) 200 이면 true 다", async () => {
+    const { calls, fetchImpl } = fakeFetch(() => ({ status: 200, body: "[]" }));
+    const client = createRestClient({
+      apiUrl: "http://127.0.0.1:59321/",
+      serviceKey: TEST_KEY,
+      fetchImpl,
+    });
+    assert.equal(
+      typeof client.functionExists,
+      "function",
+      "REST 클라이언트에 functionExists 가 없다",
+    );
+    assert.equal(await client.functionExists("ingest_save_revision", { p: {} }), true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, "POST");
+    assert.equal(calls[0].url.href, "http://127.0.0.1:59321/rest/v1/rpc/ingest_save_revision");
+    assert.deepEqual(JSON.parse(calls[0].body), { p: {} });
+    assert.equal(calls[0].headers.apikey, TEST_KEY);
+    assert.equal(calls[0].headers.Authorization, `Bearer ${TEST_KEY}`);
+    assert.ok(!calls[0].body.includes(TEST_KEY));
+  });
+
+  it("functionExists 는 404·PGRST202(함수 없음)면 false, 함수가 거절한 400·P0001 이나 코드가 다른 404 면 true 다", async () => {
+    const RESPONSES = {
+      "/rest/v1/rpc/missing": {
+        status: 404,
+        body: '{"code":"PGRST202","message":"Could not find the function public.missing(p) in the schema cache"}',
+      },
+      "/rest/v1/rpc/refuses": {
+        status: 400,
+        body: '{"code":"P0001","message":"INGEST_BID_NOT_FOUND"}',
+      },
+      "/rest/v1/rpc/other404": {
+        status: 404,
+        body: '{"code":"PGRST205","message":"not found"}',
+      },
+    };
+    const { fetchImpl } = fakeFetch(({ url }) => RESPONSES[url.pathname]);
+    const client = createRestClient({
+      apiUrl: "http://127.0.0.1:59321",
+      serviceKey: TEST_KEY,
+      fetchImpl,
+    });
+    assert.equal(
+      typeof client.functionExists,
+      "function",
+      "REST 클라이언트에 functionExists 가 없다",
+    );
+    assert.equal(await client.functionExists("missing", { p: {} }), false);
+    assert.equal(await client.functionExists("refuses", { p: {} }), true);
+    assert.equal(await client.functionExists("other404", { p: {} }), true);
+  });
+
+  it("functionExists 는 네트워크 오류(fetch 가 던짐)를 삼키지 않고 던진다", async () => {
+    const client = createRestClient({
+      apiUrl: "http://127.0.0.1:59321",
+      serviceKey: TEST_KEY,
+      fetchImpl: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+    assert.equal(
+      typeof client.functionExists,
+      "function",
+      "REST 클라이언트에 functionExists 가 없다",
+    );
+    await assert.rejects(client.functionExists("ingest_save_revision", { p: {} }), /fetch failed/);
+  });
+
   it("표가 없으면(404) tableExists 가 false 이고, 사용자 목록은 쪽을 넘긴다", async () => {
     const page = (count, offset) =>
       Array.from({ length: count }, (_, index) => ({
@@ -701,6 +630,13 @@ const sqlClient = (db) => {
     async tableExists(table) {
       return (
         (await db.query("select to_regclass($1) as oid", [`public.${table}`])).rows[0].oid !== null
+      );
+    },
+    // C3 8-2. REST 는 probeArgs 를 본문으로 실제로 부르지만, SQL 은 서명(jsonb 하나)으로 찾는다 — probeArgs 는 쓰지 않는다.
+    async functionExists(name) {
+      return (
+        (await db.query("select to_regprocedure($1) as oid", [`public.${name}(jsonb)`])).rows[0]
+          .oid !== null
       );
     },
     async select(table, { columns = "*", filters = {} } = {}) {
@@ -959,6 +895,123 @@ const SEED_SUMMARY = {
   retried: 2,
 };
 
+// ── 공고 적재 가짜(ingestBids) ─────────────────────────────────
+//
+// seedDemo 는 공고 적재를 ingestBids 로 주입받는다(C3 6-5 보충). 기본값(C3 seedFixtureBids)은 TypeScript 라 root
+// node --test 가 부르지 못한다. 그래서 SEED 레코드 19건(FX-12 제외)을 간단한 p 로 만들어 실제 RPC
+// public.ingest_save_revision 을 SQL 로 부른다 — 공고·revision·첨부(PENDING)·outbox 이벤트는 RPC 가 쓴다.
+// 정규화는 다시 구현하지 않는다(날짜·금액은 null, checksum 은 레코드의 sha256). 정규화 값은 C3 vitest 가 본다.
+// 목적은 나머지 seed(추출·리뷰·배정·감사·집계)와 "두 번 돌려도 공고 id 가 같다" 를 PGlite 위에서 계속 보는 것이다.
+const SEED_RECORDS = bidFixtures.manifest.batches.SEED.flatMap((fixtureId) =>
+  bidFixtures.bids[fixtureId].records
+    .filter((record) => record.ingestBatch === "SEED")
+    .map((record) => ({ fixtureId, record })),
+);
+// 필수 필드(title)가 빈 레코드는 격리된다 — SEED 에서는 FX-12 하나다(07 §6.4).
+const isQuarantined = ({ record }) => String(record.title ?? "").trim() === "";
+const SEED_BIDS = SEED_RECORDS.filter((entry) => !isQuarantined(entry));
+
+const saveParamsOf = ({ fixtureId, record }, { idFor, fetchedAt }) => {
+  const keys = { source: "fixture", noticeId: record.noticeId };
+  return {
+    bid_id: idFor("bid", keys),
+    revision_id: idFor("revision", { ...keys, revision: 1 }),
+    notice: {
+      source: "fixture",
+      notice_id: record.noticeId,
+      plan_ref: record.planRef ?? null,
+      pre_spec_ref: record.preSpecRef ?? null,
+      title: record.title,
+      agency: record.agency ?? null,
+      stage: record.stage,
+      status: record.status ?? "OPEN",
+      budget_krw: null,
+      published_at: null,
+      deadline_at: null,
+      source_url: record.sourceUrl,
+      is_demo: true,
+    },
+    revision: {
+      revision: 1,
+      amendment_no: record.amendmentNo ?? null,
+      raw_payload: { fixtureId, ...record },
+      normalized: { source: "fixture", noticeId: record.noticeId, title: record.title },
+      checksum: createHash("sha256").update(JSON.stringify(record)).digest("hex"),
+      changed_fields: [],
+      fetched_at: fetchedAt,
+    },
+    documents: (record.attachments ?? []).map((attachment) => ({
+      name: attachment.name,
+      original_url: `https://demo.sol-radar.invalid/${attachment.objectKey ?? attachment.name}`,
+    })),
+    event: {
+      event_type: "BID_CREATED",
+      idempotency_key: `fixture:${record.noticeId}:1:BID_CREATED`,
+      payload: {
+        source: "fixture",
+        noticeId: record.noticeId,
+        revision: 1,
+        kind: "CREATED",
+        changedFields: [],
+      },
+    },
+  };
+};
+
+// 받은 입력({ anchor, runMode, idFor })과 돌려준 결과를 seen 에 쌓고, 계약 모양 { bids, quarantined, summary, ingestRunId } 를 돌려준다.
+const fakeIngestBids = (db, seen = { inputs: [], results: [] }) => {
+  const ingestBids = async (input) => {
+    seen.inputs.push(input);
+    const fetchedAt = input.anchor.toISOString();
+    const bids = [];
+    for (const entry of SEED_BIDS) {
+      const p = saveParamsOf(entry, { idFor: input.idFor, fetchedAt });
+      const [saved] = (
+        await db.query("select * from public.ingest_save_revision($1)", [JSON.stringify(p)])
+      ).rows;
+      bids.push({
+        fixtureId: entry.fixtureId,
+        bidId: saved.bid_id,
+        revisionId: saved.revision_id,
+        noticeId: entry.record.noticeId,
+        checksum: p.revision.checksum,
+      });
+    }
+    const quarantined = SEED_RECORDS.filter(isQuarantined).map(({ fixtureId }) => ({
+      fixtureId,
+      sourceKey: "fixture",
+      errorCode: "MISSING_REQUIRED_FIELD",
+    }));
+    const [run] = (
+      await db.query(
+        `insert into public.ingest_runs (source, run_mode, job_key, trigger, batch, params, status, summary, finished_at)
+         values ('fixture', $1, 'fixture:SEED:demo-reset', 'DEMO', 'SEED', $2, 'PARTIAL', $3, now()) returning id`,
+        [
+          input.runMode,
+          JSON.stringify({ fixtures: bidFixtures.manifest.batches.SEED, anchor: fetchedAt }),
+          JSON.stringify(SEED_SUMMARY),
+        ],
+      )
+    ).rows;
+    for (const { fixtureId, sourceKey, errorCode } of quarantined)
+      await db.query(
+        "insert into public.ingest_errors (ingest_run_id, source_key, error_code, redacted_detail) values ($1, $2, $3, $4)",
+        [run.id, sourceKey, errorCode, `${fixtureId}: 필수 필드 누락(title)`],
+      );
+    const result = { bids, quarantined, summary: SEED_SUMMARY, ingestRunId: run.id };
+    seen.results.push(result);
+    return result;
+  };
+  return ingestBids;
+};
+
+// demoIdFor 로 기대하는 SEED 공고 19건의 id(공고 번호순, snapshot 의 bids 와 같은 모양).
+const expectedSeedBids = () =>
+  SEED_BIDS.map(({ record }) => ({
+    id: demoIdFor("bid", { source: "fixture", noticeId: record.noticeId }),
+    notice_id: record.noticeId,
+  })).toSorted((left, right) => (left.notice_id < right.notice_id ? -1 : 1));
+
 describe("PGlite 위에서 demo:reset", () => {
   it("두 번 돌려도 마지막 줄·ID 가 같고, live 공고는 남고, org-02 사용자는 org-01 행을 못 본다", async (t) => {
     const db = await migratedDb(t);
@@ -973,6 +1026,7 @@ describe("PGlite 위에서 demo:reset", () => {
         password: "demo-password-1234",
         anchor: ANCHOR,
         portraits: readyPortraits,
+        ingestBids: fakeIngestBids(db),
       });
     const first = await run();
     assert.equal(first.line, EXPECTED_LINE);
@@ -983,6 +1037,19 @@ describe("PGlite 위에서 demo:reset", () => {
     const before = await snapshot(db);
     assert.equal(before.people.length, 200);
     assert.equal(before.users.length, 3 + 5); // migratedDb 의 가입자 3 + 데모 계정 5
+    // 공고·revision id 는 demoIdFor 규칙(2f bidUuid·revisionUuid)이다 — seedDemo 가 그 idFor 를 넘겼다.
+    assert.deepEqual(before.bids, expectedSeedBids());
+    assert.deepEqual(
+      (
+        await db.query(
+          "select r.id, b.notice_id from public.bid_revisions r join public.bid_notices b on b.id = r.bid_id where b.is_demo order by b.notice_id",
+        )
+      ).rows,
+      expectedSeedBids().map(({ notice_id }) => ({
+        id: demoIdFor("revision", { source: "fixture", noticeId: notice_id, revision: 1 }),
+        notice_id,
+      })),
+    );
 
     // 인력 단계: 명부의 기존 투입 7건은 공고가 없어 assignments 표(bid_id not null)에 못 넣고 availability 에 접힌다
     // (people/availability.mjs). 투입 7명은 그 기간 fte 0, 나머지 20명은 fixture 그대로다.
@@ -1063,15 +1130,7 @@ describe("PGlite 위에서 demo:reset", () => {
         .rows[0].title,
       "세종특별자치시 차세대 행정정보시스템 고도화 (가상)",
     );
-    // 분석 job 은 mock 재추출 때 raw_payload.fixtureId 로 fixture 를 고른다(C3 수집도 같은 모양).
-    assert.equal(
-      (
-        await db.query(
-          "select r.raw_payload->>'fixtureId' as fixture_id from public.bid_revisions r join public.bid_notices b on b.id = r.bid_id where b.notice_id = 'DEMO-2026-0001'",
-        )
-      ).rows[0].fixture_id,
-      "FX-01",
-    );
+    // raw_payload.fixtureId(분석 job 의 mock 재추출 키)는 C3 수집이 쓴다 — C3 vitest(5-F)가 본다.
     assert.equal(await count(db, "select count(*) from public.bid_notices where not is_demo"), 1);
     assert.equal(
       await count(db, "select count(*) from public.bid_revisions where bid_id = $1", [LIVE_BID]),
@@ -1080,22 +1139,15 @@ describe("PGlite 위에서 demo:reset", () => {
     assert.equal(await count(db, "select count(*) from public.bid_notices"), 20);
 
     // 수집 run·격리·추출·첨부·결정·배정·감사.
-    const [ingestRun] = (await db.query("select * from public.ingest_runs")).rows;
-    assert.equal(ingestRun.source, "fixture");
-    assert.equal(ingestRun.batch, "SEED");
-    assert.equal(ingestRun.status, "PARTIAL");
-    assert.equal(ingestRun.run_mode, "MOCK");
-    assert.deepEqual(ingestRun.summary, SEED_SUMMARY);
-    // C3 runIngest SEED 계약: LIVE 배치가 최근 SEED run 의 params.anchor(ISO UTC, seed 시각)를 읽는다.
-    assert.equal(ingestRun.params.anchor, new Date(ingestRun.started_at).toISOString());
-    const errors = (await db.query("select error_code, redacted_detail from public.ingest_errors"))
-      .rows;
-    assert.deepEqual(errors, [
-      {
-        error_code: "MISSING_REQUIRED_FIELD",
-        redacted_detail: "FX-12 DEMO-2026-0012: 필수 필드 누락(title)",
-      },
+    // 두 번째 실행 전에 fixture run 을 지워(ingest_errors 는 cascade) ingestBids 가 새로 쓴 run 하나만 남는다.
+    // run 의 상태·params.anchor·격리 사유 문구는 C3 seedFixtureBids 가 정한다(C3 vitest). 여기서는 seedDemo 가 받은 run id 를 본다.
+    assert.deepEqual((await db.query("select id from public.ingest_runs")).rows, [
+      { id: second.ingestRun.id },
     ]);
+    assert.deepEqual(
+      (await db.query("select ingest_run_id, error_code from public.ingest_errors")).rows,
+      [{ ingest_run_id: second.ingestRun.id, error_code: "MISSING_REQUIRED_FIELD" }],
+    );
     assert.equal(
       await count(
         db,
@@ -1149,7 +1201,16 @@ describe("PGlite 위에서 demo:reset", () => {
       },
     ]);
     assert.equal(await count(db, "select count(*) from public.assignments"), 2);
-    assert.equal(await count(db, "select count(*) from public.outbox_events"), 0);
+    // 공고 이벤트(BID_CREATED, org_id null)는 RPC 가 쓰고, 같은 멱등키로 다시 오면 무시한다 — 두 번 돌려도 19건이다.
+    // 시드 결정에는 담당자가 없어 REVIEW_ASSIGNED 이벤트는 없다.
+    assert.deepEqual(
+      (
+        await db.query(
+          "select aggregate_type, event_type, org_id, count(*)::int as count from public.outbox_events group by 1, 2, 3",
+        )
+      ).rows,
+      [{ aggregate_type: "bid_notice", event_type: "BID_CREATED", org_id: null, count: 19 }],
+    );
     const audits = (
       await db.query(
         "select action, count(*)::int as count from public.audit_logs group by action order by action",
@@ -1160,16 +1221,7 @@ describe("PGlite 위에서 demo:reset", () => {
       { action: "REVIEW_DECIDE", count: 2 },
       { action: "SEED", count: 2 },
     ]);
-    const [fx14] = (
-      await db.query(
-        "select deadline_at from public.bid_notices where notice_id = 'DEMO-2026-0014'",
-      )
-    ).rows;
-    assert.equal(new Date(fx14.deadline_at).toISOString(), "2026-10-21T09:00:00.000Z");
-    const [fx13] = (
-      await db.query("select budget_krw from public.bid_notices where notice_id = 'DEMO-2026-0013'")
-    ).rows;
-    assert.equal(String(fx13.budget_krw), "1500000000");
+    // 정규화 값(FX-14 마감 KST 18:00·FX-13 금액 환산)은 C3 normalize-date·normalize-amount 가 본다(가짜는 null 로 둔다).
     const memberships = (
       await db.query(
         "select o.slug, p.email, m.org_role, m.sol_role from public.memberships m join public.organizations o on o.id = m.org_id join public.profiles p on p.id = m.user_id where o.is_demo order by o.slug, p.email",
@@ -1212,6 +1264,72 @@ describe("PGlite 위에서 demo:reset", () => {
     await db.exec("reset role");
   });
 
+  // 6-5 보충 2: 멱등키가 결정적이라 지난 리허설의 이벤트가 남으면 다음 리허설의 SEED·LIVE 이벤트가
+  // on conflict do nothing 에 막혀 S5 변경 알림이 안 나온다. 리셋은 데모 공고(is_demo)의 bid_notice 이벤트만 지운다.
+  it("두 번째 실행은 지난 실행의 데모 공고 outbox 이벤트(LIVE BID_CHANGED 포함)를 지우고, live 공고·bid_review 이벤트는 남긴다 — 데모 BID_CREATED 는 19건", async (t) => {
+    const db = await migratedDb(t);
+    const client = sqlClient(db);
+    await insertLiveBid(db);
+    const run = () =>
+      seedDemo({
+        client,
+        fixtures,
+        password: "demo-password-1234",
+        anchor: ANCHOR,
+        portraits: readyPortraits,
+        ingestBids: fakeIngestBids(db),
+      });
+    await run();
+
+    // 지난 리허설의 흔적: 데모 공고 FX-06 의 LIVE 변경 이벤트, live 공고의 이벤트, 데모 밖 조직의 검토 배정 이벤트.
+    const fx06 = demoIdFor("bid", { source: "fixture", noticeId: "DEMO-2026-0006" });
+    const liveOrg = randomUUID();
+    await db.query(
+      "insert into public.organizations (id, slug, name, is_demo) values ($1, 'live-team', '실사용 조직', false)",
+      [liveOrg],
+    );
+    const KEPT = {
+      live: "g2b-bid-notice:R25BK00000001:1:BID_CREATED",
+      review: `${randomUUID()}:${randomUUID()}:REVIEW_ASSIGNED`,
+    };
+    const STALE = "fixture:DEMO-2026-0006:2:BID_CHANGED";
+    await db.query(
+      `insert into public.outbox_events (org_id, aggregate_type, aggregate_id, event_type, idempotency_key) values
+         (null, 'bid_notice', $1, 'BID_CHANGED', $2),
+         (null, 'bid_notice', $3, 'BID_CREATED', $4),
+         ($5, 'bid_review', $6, 'REVIEW_ASSIGNED', $7)`,
+      [fx06, STALE, LIVE_BID, KEPT.live, liveOrg, randomUUID(), KEPT.review],
+    );
+
+    await run();
+    assert.equal(
+      await count(db, "select count(*) from public.outbox_events where idempotency_key = $1", [
+        STALE,
+      ]),
+      0,
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select aggregate_type, idempotency_key from public.outbox_events where idempotency_key in ($1, $2) order by aggregate_type",
+          [KEPT.live, KEPT.review],
+        )
+      ).rows,
+      [
+        { aggregate_type: "bid_notice", idempotency_key: KEPT.live },
+        { aggregate_type: "bid_review", idempotency_key: KEPT.review },
+      ],
+    );
+    assert.equal(
+      await count(
+        db,
+        "select count(*) from public.outbox_events where aggregate_type = 'bid_notice' and event_type = 'BID_CREATED' and aggregate_id in (select id from public.bid_notices where is_demo)",
+      ),
+      19,
+    );
+    assert.equal(await count(db, "select count(*) from public.outbox_events"), 19 + 2);
+  });
+
   it("C4 availableFte: DB 에서 읽은 팀과 fixture 팀의 가용 FTE 가 FX-01·02·03 기간마다 같다(20 FTE, 투입 7명은 0)", async (t) => {
     const db = await migratedDb(t);
     await seedDemo({
@@ -1220,6 +1338,7 @@ describe("PGlite 위에서 demo:reset", () => {
       password: "demo-password-1234",
       anchor: ANCHOR,
       portraits: readyPortraits,
+      ingestBids: fakeIngestBids(db),
     });
     const teams = { db: await teamFromDb(db), fixture: teamFromFixture() };
     assert.equal(teams.db.people.length, 27);
@@ -1256,26 +1375,180 @@ describe("PGlite 위에서 demo:reset", () => {
       );
     }
   });
+});
 
-  it("공고 적재 함수만 따로 불러도 같은 집계와 id 를 돌려준다(C3 가 바꿀 지점)", async (t) => {
+// ── 공고 적재 주입(ingestBids) — C3 6-5 보충 ───────────────────
+//
+// seedDemo 는 공고 적재를 직접 하지 않고 ingestBids 에 맡긴다. 넘기는 것은 anchor·runMode·idFor(= demoIdFor)이고,
+// 돌려받은 bids·quarantined·summary·ingestRunId 를 그대로 쓴다.
+describe("공고 적재 주입 — ingestBids (C3 6-5)", () => {
+  // 2f 의 고정 UUID 규칙. 공고는 (source, noticeId), revision 은 차수까지 넣는다.
+  const KEYS = [
+    { source: "fixture", noticeId: "DEMO-2026-0001" },
+    { source: "fixture", noticeId: "DEMO-2026-0007" },
+    { source: "g2b-bid-notice", noticeId: "R25BK00000001" },
+  ];
+
+  it("demoIdFor 는 공고면 bidUuid(source, noticeId), revision 이면 revisionUuid(source, noticeId, revision) 와 같은 값이다", () => {
+    for (const keys of KEYS) {
+      assert.equal(demoIdFor("bid", keys), bidUuid(keys.source, keys.noticeId));
+      // 공고 id 는 차수와 무관하다.
+      assert.equal(demoIdFor("bid", { ...keys, revision: 3 }), bidUuid(keys.source, keys.noticeId));
+      for (const revision of [1, 2])
+        assert.equal(
+          demoIdFor("revision", { ...keys, revision }),
+          revisionUuid(keys.source, keys.noticeId, revision),
+        );
+    }
+  });
+
+  it("seedDemo 는 ingestBids 를 한 번 부르고 anchor·runMode·idFor(demoIdFor 와 같은 값)를 넘긴다", async (t) => {
     const db = await migratedDb(t);
-    const client = sqlClient(db);
-    const result = await seedBidNotices(client, {
-      fixtures: bidFixtures,
+    const seen = { inputs: [], results: [] };
+    await seedDemo({
+      client: sqlClient(db),
+      fixtures,
+      password: "demo-password-1234",
       anchor: ANCHOR,
       runMode: "FIXTURE",
+      portraits: readyPortraits,
+      ingestBids: fakeIngestBids(db, seen),
     });
-    assert.equal(result.bids.length, 19);
-    assert.equal(result.quarantined.length, 1);
-    assert.deepEqual(result.summary, SEED_SUMMARY);
-    assert.equal(
-      (await db.query("select run_mode from public.ingest_runs")).rows[0].run_mode,
-      "FIXTURE",
+    assert.equal(seen.inputs.length, 1);
+    const [input] = seen.inputs;
+    assert.equal(input.anchor.toISOString(), ANCHOR.toISOString());
+    assert.equal(input.runMode, "FIXTURE");
+    assert.equal(typeof input.idFor, "function");
+    for (const keys of KEYS) {
+      assert.equal(input.idFor("bid", keys), demoIdFor("bid", keys));
+      assert.equal(
+        input.idFor("revision", { ...keys, revision: 2 }),
+        demoIdFor("revision", { ...keys, revision: 2 }),
+      );
+    }
+  });
+
+  it("seedDemo 의 반환 quarantined·ingestRun·bids 는 ingestBids 가 돌려준 것이다", async (t) => {
+    const db = await migratedDb(t);
+    const seen = { inputs: [], results: [] };
+    const result = await seedDemo({
+      client: sqlClient(db),
+      fixtures,
+      password: "demo-password-1234",
+      anchor: ANCHOR,
+      portraits: readyPortraits,
+      ingestBids: fakeIngestBids(db, seen),
+    });
+    const [returned] = seen.results;
+    assert.deepEqual(result.quarantined, returned.quarantined);
+    assert.deepEqual(result.quarantined, [
+      { fixtureId: "FX-12", sourceKey: "fixture", errorCode: "MISSING_REQUIRED_FIELD" },
+    ]);
+    assert.deepEqual(result.ingestRun, { id: returned.ingestRunId, summary: returned.summary });
+    assert.deepEqual(result.bids, returned.bids);
+  });
+});
+
+// ── 함수 확인 — demo:reset 은 지우기 전에 RPC 가 있는지 본다 (C3 8-2) ──────
+//
+// 마이그레이션 20261019000009 가 빠진 프로젝트에서 seed 가 데모 공고를 다 지운 뒤에야 공고 적재에서 멈추면 데모가 빈다.
+// 그래서 표 확인(assertTables)과 함께, 어떤 쓰기·지우기보다 먼저 ingest_save_revision 이 있는지 확인한다.
+
+// seedDemo 가 부른 client 메서드를 순서대로 적는다. 동작은 감싼 client 그대로다.
+const WRITE_METHODS = new Set([
+  "insert",
+  "upsert",
+  "update",
+  "delete",
+  "auth.createUser",
+  "auth.updateUser",
+]);
+const recordingClient = (client) => {
+  const calls = [];
+  const wrap = (method, fn) => {
+    const recorded = async (...args) => {
+      calls.push({ method, args });
+      return fn(...args);
+    };
+    return recorded;
+  };
+  const methods = (target, prefix) =>
+    Object.fromEntries(
+      Object.entries(target)
+        .filter(([, value]) => typeof value === "function")
+        .map(([name, fn]) => [name, wrap(`${prefix}${name}`, fn)]),
     );
-    assert.equal(
-      result.bids[0].bidId,
-      planSeedBatch(bidFixtures, { anchor: ANCHOR }).created[0].bidId,
+  return { calls, client: { ...methods(client, ""), auth: methods(client.auth, "auth.") } };
+};
+const writesOf = (calls) => calls.filter(({ method }) => WRITE_METHODS.has(method));
+
+// seed 가 쓰거나 지우는 표 전부와 auth.users 의 행 수·내용 지문. 한 행이라도 지워지거나 바뀌면 달라진다.
+const fingerprint = async (db) => {
+  const tables = [...REQUIRED_TABLES.map((table) => `public.${table}`), "auth.users"];
+  const result = {};
+  for (const table of tables)
+    result[table] = (
+      await db.query(
+        `select count(*)::int as count, md5(coalesce(string_agg(t::text, '|' order by t::text), '')) as hash from ${table} t`,
+      )
+    ).rows[0];
+  return result;
+};
+
+describe("함수 확인 — ingest_save_revision (C3 8-2)", () => {
+  const seed = (db, client, ingestBids = fakeIngestBids(db)) =>
+    seedDemo({
+      client,
+      fixtures,
+      password: "demo-password-1234",
+      anchor: ANCHOR,
+      portraits: readyPortraits,
+      ingestBids,
+    });
+
+  it("ingest_save_revision 이 없는 DB 에서 seedDemo 는 '함수가 없습니다: ingest_save_revision' 으로 멈추고 데모 공고·조직·명부 행을 하나도 쓰거나 지우지 않는다", async (t) => {
+    const db = await migratedDb(t);
+    await insertLiveBid(db);
+    // 지난 리허설의 데모 상태(공고·조직·명부·계정·결정)를 먼저 만든 뒤 함수를 없앤다(000009 가 빠진 DB 와 같다).
+    await seed(db, sqlClient(db));
+    await db.exec("drop function public.ingest_save_revision(jsonb)");
+    const before = await fingerprint(db);
+    assert.equal(before["public.bid_notices"].count, 20);
+    assert.equal(before["public.organizations"].count, 2);
+    assert.equal(before["public.team_members"].count, 200);
+
+    const { client, calls } = recordingClient(sqlClient(db));
+    const seen = { inputs: [], results: [] };
+    await assert.rejects(seed(db, client, fakeIngestBids(db, seen)), (error) => {
+      assert.match(error.message, /함수가 없습니다: ingest_save_revision/);
+      assert.match(error.message, /20261019000009/);
+      return true;
+    });
+    assert.deepEqual(writesOf(calls), []);
+    assert.equal(seen.inputs.length, 0);
+    assert.deepEqual(await fingerprint(db), before);
+  });
+
+  it("seedDemo 는 어떤 쓰기·지우기보다 먼저 functionExists('ingest_save_revision', { p: {} }) 로 확인하고, 함수가 있으면 끝까지 돈다", async (t) => {
+    const db = await migratedDb(t);
+    const { client, calls } = recordingClient(sqlClient(db));
+    const result = await seed(db, client);
+    assert.equal(result.line, EXPECTED_LINE);
+    assert.equal(result.ok, true);
+    const probe = calls.findIndex(({ method }) => method === "functionExists");
+    assert.ok(probe >= 0, "seedDemo 가 functionExists 를 부르지 않았다");
+    assert.deepEqual(calls[probe].args, ["ingest_save_revision", { p: {} }]);
+    const firstWrite = calls.findIndex(({ method }) => WRITE_METHODS.has(method));
+    assert.ok(firstWrite > probe, `첫 쓰기(${calls[firstWrite]?.method})가 함수 확인보다 먼저다`);
+  });
+
+  it("확인 호출과 같은 인자 p = {} 로 함수를 불러도 INGEST_BID_NOT_FOUND 로 거절되고 네 표에 행이 생기지 않는다", async (t) => {
+    const db = await migratedDb(t);
+    await assert.rejects(
+      db.query("select * from public.ingest_save_revision($1)", [JSON.stringify({})]),
+      { message: "INGEST_BID_NOT_FOUND" },
     );
-    assert.equal(await count(db, "select count(*) from public.bid_notices"), 19);
+    for (const table of ["bid_notices", "bid_revisions", "bid_documents", "outbox_events"])
+      assert.equal(await count(db, `select count(*) from public.${table}`), 0, table);
   });
 });

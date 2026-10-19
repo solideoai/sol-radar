@@ -1,0 +1,191 @@
+# 수집 소스 registry (docs/15-DATA-CONTRACTS.md §8, ADR-020). OfficialApiConnector 는 여기 등록한 엔드포인트만 부른다.
+# 승인 전·endpoint 없음·fieldMapping 비어 있음·서비스키 env 없음인 소스는 부르지 않는다(source-registry.ts callableSource).
+# 실측 근거: docs/evidence/phase-0/external-deps-api-20261019.md (2f, 2026-10-19). data.go.kr 4서비스 모두 https 로 200 을 받았다.
+# 서비스키는 값이 아니라 env 이름만 둔다(07 §2.2, ADR-022). sampleResponses 는 담당자 필드를 가린 녹음 사본이다.
+schemaVersion: sol-sources/v0.1
+sources:
+  - key: g2b-bid-notice
+    displayName: 나라장터 입찰공고정보서비스
+    provider: 조달청 / data.go.kr
+    serviceId: "15129394"
+    serviceKeyEnv: G2B_BID_NOTICE_SERVICE_KEY
+    approvalStatus: APPROVED
+    endpoint:
+      baseUrl: https://apis.data.go.kr/1230000/ad/BidPublicInfoService
+      operations: [getBidPblancListInfoServc, getBidPblancListInfoChgHstryServc]
+    method: GET
+    quota: { daily: 1000, tps: 30 }
+    # 07 §3.1 표. 원본 필드 → NormalizedBid 필드. 구현은 normalize-g2b.ts
+    fieldMapping:
+      bidNtceNo: noticeId
+      bidNtceOrd: amendmentNo
+      bidNtceNm: title
+      dminsttNm: agency
+      asignBdgtAmt: budgetKrw
+      presmptPrce: budgetKrw (asignBdgtAmt 가 비었을 때)
+      bidNtceDt: noticeDate
+      bidClseDt: deadlineAt
+      bidNtceDtlUrl: sourceUrl
+      bidNtceUrl: sourceUrl (bidNtceDtlUrl 이 비었을 때)
+      ntceKindNm: status (등록·재공고 OPEN, 변경 AMENDED, 취소 CANCELLED)
+      orderPlanUntyNo: planRef
+      bfSpecRgstNo: preSpecRef
+      ntceSpecDocUrl1~10: attachments[].url
+      ntceSpecFileNm1~10: attachments[].name
+    changeNoticeUrl: null
+    redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
+    sampleResponses:
+      - fixtures/recorded/15129394/getBidPblancListInfoServc.20261019.masked.json
+      - fixtures/recorded/15129394/getBidPblancListInfoServc.20261019.7d-p1.masked.json
+      - fixtures/recorded/15129394/getBidPblancListInfoServc.20261019.error07.masked.json
+      - fixtures/recorded/15129394/getBidPblancListInfoChgHstryServc.20261019.masked.json
+    lastVerifiedAt: "2026-10-19"
+
+  # 보조 조회 3종은 아직 구현하지 않았다(fieldMapping 비어 있음 → 부르지 않는다).
+  - key: g2b-bid-license-limit
+    displayName: 나라장터 입찰공고정보서비스(면허제한)
+    provider: 조달청 / data.go.kr
+    serviceId: "15129394"
+    serviceKeyEnv: G2B_BID_NOTICE_SERVICE_KEY
+    approvalStatus: APPROVED
+    endpoint:
+      baseUrl: https://apis.data.go.kr/1230000/ad/BidPublicInfoService
+      operations: [getBidPblancListInfoLicenseLimit]
+    method: GET
+    quota: { daily: 1000, tps: 30 }
+    fieldMapping: {}
+    changeNoticeUrl: null
+    redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
+    sampleResponses:
+      - fixtures/recorded/15129394/getBidPblancListInfoLicenseLimit.20261019.masked.json
+      - fixtures/recorded/15129394/getBidPblancListInfoLicenseLimit.20261019.window.masked.json
+    lastVerifiedAt: "2026-10-19"
+
+  - key: g2b-bid-region
+    displayName: 나라장터 입찰공고정보서비스(참가가능지역)
+    provider: 조달청 / data.go.kr
+    serviceId: "15129394"
+    serviceKeyEnv: G2B_BID_NOTICE_SERVICE_KEY
+    approvalStatus: APPROVED
+    endpoint:
+      baseUrl: https://apis.data.go.kr/1230000/ad/BidPublicInfoService
+      operations: [getBidPblancListInfoPrtcptPsblRgn]
+    method: GET
+    quota: { daily: 1000, tps: 30 }
+    fieldMapping: {}
+    changeNoticeUrl: null
+    redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
+    sampleResponses:
+      - fixtures/recorded/15129394/getBidPblancListInfoPrtcptPsblRgn.20261019.masked.json
+    lastVerifiedAt: "2026-10-19"
+
+  - key: g2b-bid-eorder-attach
+    displayName: 나라장터 입찰공고정보서비스(e발주 첨부)
+    provider: 조달청 / data.go.kr
+    serviceId: "15129394"
+    serviceKeyEnv: G2B_BID_NOTICE_SERVICE_KEY
+    approvalStatus: APPROVED
+    endpoint:
+      baseUrl: https://apis.data.go.kr/1230000/ad/BidPublicInfoService
+      operations: [getBidPblancListInfoEorderAtchFileInfo]
+    method: GET
+    quota: { daily: 1000, tps: 30 }
+    fieldMapping: {}
+    changeNoticeUrl: null
+    redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
+    sampleResponses:
+      - fixtures/recorded/15129394/getBidPblancListInfoEorderAtchFileInfo.20261019.masked.json
+    lastVerifiedAt: "2026-10-19"
+
+  - key: g2b-pre-spec
+    displayName: 나라장터 사전규격정보서비스
+    provider: 조달청 / data.go.kr
+    serviceId: "15129437"
+    serviceKeyEnv: G2B_PRE_SPEC_SERVICE_KEY
+    approvalStatus: APPROVED
+    endpoint:
+      baseUrl: https://apis.data.go.kr/1230000/ao/HrcspSsstndrdInfoService
+      operations: [getPublicPrcureThngInfoServc]
+    method: GET
+    quota: { daily: 1000, tps: 30 }
+    fieldMapping: {}
+    changeNoticeUrl: null
+    redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
+    sampleResponses:
+      - fixtures/recorded/15129437/getPublicPrcureThngInfoServc.20261019.masked.json
+    lastVerifiedAt: "2026-10-19"
+
+  - key: g2b-order-plan
+    displayName: 나라장터 발주계획현황서비스
+    provider: 조달청 / data.go.kr
+    serviceId: "15129462"
+    serviceKeyEnv: G2B_ORDER_PLAN_SERVICE_KEY
+    approvalStatus: APPROVED
+    endpoint:
+      baseUrl: https://apis.data.go.kr/1230000/ao/OrderPlanSttusService
+      operations: [getOrderPlanSttusListServc]
+    method: GET
+    quota: { daily: 1000, tps: 30 }
+    fieldMapping: {}
+    changeNoticeUrl: null
+    redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
+    sampleResponses:
+      - fixtures/recorded/15129462/getOrderPlanSttusListServc.20261019.masked.json
+      - fixtures/recorded/15129462/getOrderPlanSttusListServc.20261019.error08.masked.json
+    lastVerifiedAt: "2026-10-19"
+
+  - key: g2b-industry-master
+    displayName: 나라장터 업종 및 근거법규
+    provider: 조달청 / data.go.kr
+    serviceId: "15129467"
+    serviceKeyEnv: G2B_INDUSTRY_MASTER_SERVICE_KEY
+    approvalStatus: APPROVED
+    endpoint:
+      baseUrl: https://apis.data.go.kr/1230000/ao/IndstrytyBaseLawrgltInfoService
+      operations: [getIndstrytyBaseLawrgltInfoList]
+    method: GET
+    quota: { daily: 1000, tps: 30 }
+    fieldMapping: {}
+    changeNoticeUrl: null
+    redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
+    sampleResponses:
+      - fixtures/recorded/15129467/getIndstrytyBaseLawrgltInfoList.20261019.p1.masked.json
+      - fixtures/recorded/15129467/getIndstrytyBaseLawrgltInfoList.20261019.p2.masked.json
+      - fixtures/recorded/15129467/getIndstrytyBaseLawrgltInfoList.20261019.p3.masked.json
+    lastVerifiedAt: "2026-10-19"
+
+  # data.go.kr 서비스가 아니다. 2f 에서 로그인·세션 없이 익명 GET 200 을 3건 받았다(미결정 16번의 기술 부분).
+  # 나라장터 이용약관상 자동 다운로드 허용 여부는 확인하지 않았다(미결정 16·18번의 법적 부분).
+  - key: g2b-attachment
+    displayName: 나라장터 첨부 다운로드
+    provider: 조달청 나라장터
+    serviceId: null
+    serviceKeyEnv: null
+    approvalStatus: APPROVED
+    endpoint:
+      baseUrl: https://www.g2b.go.kr
+      operations:
+        - /pn/pnp/pnpe/UntyAtchFile/downloadFile.do
+        - /pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do
+    method: GET
+    quota: null
+    fieldMapping: {}
+    changeNoticeUrl: null
+    redistributionLimit: "첨부 원문: 저작권·재배포·학습 사용 미확인(미결정 18번), 이용약관 미확인"
+    sampleResponses: []
+    lastVerifiedAt: "2026-10-19"
+
+  - key: fixture
+    displayName: fixture 20건(FX-01~FX-20)
+    provider: SOL RADAR(가상 데이터)
+    serviceId: null
+    serviceKeyEnv: null
+    approvalStatus: APPROVED
+    endpoint: null
+    method: GET
+    quota: null
+    fieldMapping: {}
+    changeNoticeUrl: null
+    redistributionLimit: 가상 데이터(isDemo)
+    sampleResponses: []
+    lastVerifiedAt: "2026-10-19"

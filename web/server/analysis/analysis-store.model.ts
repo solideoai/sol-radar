@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { Database, Json } from "@/lib/database.types";
+import type { AttachmentTextReader, RevisionDocumentText } from "@/server/ingestion";
 import {
   companyProfileSchema,
   normalizedBidSummarySchema,
@@ -32,23 +33,9 @@ import { toIssueList } from "./gateway.model";
 type Tables = Database["public"]["Tables"];
 type Row<Name extends keyof Tables> = Tables[Name]["Row"];
 
-// ── 첨부 텍스트 port(C3 documents job 이 구현한다. 그쪽 배럴에 들어오면 import 를 바꾼다) ──
+// ── 첨부 텍스트 port. 타입의 정본은 ingestion 배럴(C3 attachment.model)이다. 이 파일을 부르는 쪽을 위해 다시 내보낸다 ──
 
-export type RevisionDocumentText = {
-  documentId: string;
-  name: string;
-  downloadStatus: "PENDING" | "OK" | "FAILED";
-  downloadErrorCode: string | null;
-  parseStatus: "PENDING" | "PARSED" | "PARTIAL" | "UNSUPPORTED" | "FAILED" | null;
-  parseErrorCode: string | null;
-  /** PARSED·PARTIAL 일 때만 있다. */
-  text: string | null;
-  pages: { page: number; charOffset: number }[];
-};
-
-export type AttachmentTextReader = {
-  readRevisionDocuments(revisionId: string): Promise<RevisionDocumentText[]>;
-};
+export type { AttachmentTextReader, RevisionDocumentText };
 
 /** C3 documents job 구현 전까지 쓰는 빈 구현. 첨부가 없는 것으로 본다(mock·fixture 는 fixtureId 추출이라 영향 없음). */
 export const EMPTY_ATTACHMENT_READER: AttachmentTextReader = Object.freeze({
