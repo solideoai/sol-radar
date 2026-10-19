@@ -13,7 +13,9 @@
   - 쓰기는 WRITE_CHUNK_BYTES 조각마다 남은 시간을 다시 준다. 조각 하나 안에서 send 가 여러 번 나뉘면(요청 본문을
     느리게 읽는 서버) 그 send 들은 조각 시작 때의 timeout 을 같이 쓴다.
   - 본문은 조각마다 마감을 다시 본다(앞 조각을 받은 뒤 마감이 지났으면 더 읽지 않는다).
-- 응답 본문은 압축을 푼 뒤 MAX_RESPONSE_BYTES 까지만 받는다(S8). Content-Length 가 넘으면 본문을 읽지 않는다.
+- 응답 본문은 압축을 푼 뒤 상한(max_bytes, 기본 MAX_RESPONSE_BYTES)까지만 받는다(S8). Content-Length 가 넘으면
+  본문을 읽지 않는다. 스트림·압축 해제 누적이 넘는 순간 멈춘다. 상한과 같으면 읽는다. 호출자가 상한을 더 낮게 줄 수
+  있다(Kev 는 1 MiB, R6).
   본문은 언제나 UTF-8 로 읽는다(RFC 8259 §8.1, R4). charset 매개변수는 보지 않는다.
 - TLS 인증서 검증과 호스트 이름 검사는 켜져 있다(ssl_context). 끄는 경로를 두지 않는다(ADR-025).
 - 프록시·netrc·인증서 경로 같은 환경 변수는 읽지 않는다(trust_env=False·ssl_context, S7). 연결 경로는 설정 URL 하나뿐이다.
@@ -39,7 +41,7 @@ from sol_ai.deadline import Deadline
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
-# 응답 본문 상한(압축을 푼 바이트, S8)
+# 응답 본문 기본 상한(압축을 푼 바이트, S8). call 의 max_bytes 기본값이다
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 # 압축은 gzip·deflate 만 받는다(풀린 크기를 조각마다 셀 수 있는 것만). 그 밖의 인코딩은 요청하지 않는다
 ACCEPT_ENCODING = "gzip, deflate"
@@ -303,18 +305,19 @@ _HTTPCORE_ERRORS = (
 
 
 class _BodyReader:
-    """응답 본문을 조각마다 받아 압축을 풀고 크기를 센다. 상한을 넘는 순간 ResponseTooLarge."""
+    """응답 본문을 조각마다 받아 압축을 풀고 크기를 센다. 상한(max_bytes)을 넘는 순간 ResponseTooLarge."""
 
-    def __init__(self, content_encoding: str | None) -> None:
+    def __init__(self, content_encoding: str | None, max_bytes: int) -> None:
         codings = [c.strip().lower() for c in (content_encoding or "").split(",")]
         codings = [c for c in codings if c and c != "identity"]
         if len(codings) > 1 or (codings and codings[0] not in _ZLIB_ENCODINGS):
             raise TransportFailure(UNSUPPORTED_CONTENT_ENCODING)
         self._zlib = zlib.decompressobj(_ZLIB_AUTO_HEADER) if codings else None
+        self._max_bytes = max_bytes
         self._body = bytearray()
 
     def _append(self, data: bytes) -> None:
-        if len(self._body) + len(data) > MAX_RESPONSE_BYTES:
+        if len(self._body) + len(data) > self._max_bytes:
             raise TransportFailure(RESPONSE_TOO_LARGE)
         self._body.extend(data)
 
@@ -327,7 +330,7 @@ class _BodyReader:
             while data and not self._zlib.eof:
                 # 한 번에 풀 크기를 남은 상한 + 1 로 묶는다(압축 폭탄이 메모리를 먼저 채우지 못하게).
                 # max_length 0 은 무제한이라 쓰지 않는다(남은 상한 + 1 은 언제나 1 이상이다)
-                self._append(self._zlib.decompress(data, MAX_RESPONSE_BYTES - len(self._body) + 1))
+                self._append(self._zlib.decompress(data, self._max_bytes - len(self._body) + 1))
                 data = self._zlib.unconsumed_tail
         except zlib.error:
             raise TransportFailure(DECODING_ERROR) from None
@@ -348,11 +351,11 @@ def _declared_length(response: httpx.Response) -> int | None:
         return None
 
 
-def _read_body(response: httpx.Response, deadline: Deadline) -> bytes:
+def _read_body(response: httpx.Response, deadline: Deadline, max_bytes: int) -> bytes:
     declared = _declared_length(response)
-    if declared is not None and declared > MAX_RESPONSE_BYTES:
+    if declared is not None and declared > max_bytes:
         raise TransportFailure(RESPONSE_TOO_LARGE)
-    reader = _BodyReader(response.headers.get("content-encoding"))
+    reader = _BodyReader(response.headers.get("content-encoding"), max_bytes)
     if deadline.expired():
         raise TransportFailure(DEADLINE_EXCEEDED)
     for raw in response.iter_raw():
@@ -370,7 +373,9 @@ def call(
     *,
     deadline: Deadline,
     json_body: Any = None,
+    max_bytes: int = MAX_RESPONSE_BYTES,
 ) -> HttpReply:
+    """요청 하나를 보내고 응답 본문을 max_bytes(압축을 푼 바이트)까지 읽는다. 못 받으면 TransportFailure."""
     remaining = deadline.remaining()
     if remaining <= 0:
         raise TransportFailure(DEADLINE_EXCEEDED)
@@ -390,7 +395,7 @@ def call(
                 headers={**endpoint.headers(), "Accept-Encoding": ACCEPT_ENCODING},
             ) as response,
         ):
-            body = _read_body(response, deadline)
+            body = _read_body(response, deadline, max_bytes)
             # 본문은 언제나 UTF-8 로 읽는다(RFC 8259 §8.1, R4). charset 매개변수는 보지 않는다
             text = body.decode("utf-8", errors="replace")
             return HttpReply(response.status_code, text, response.headers)

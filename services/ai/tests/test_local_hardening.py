@@ -71,6 +71,8 @@ QUESTION_SETS_DIR = AI_ROOT / "kev" / "question-sets"
 STOP_BEFORE_REMOTE = {"QWEN_MODEL": "Qwen/Qwen3.5-4B"}
 STOPPED = "QWEN_MODEL(NOT_IN_REGISTRY)"
 MAX_BYTES = 4 * 1024 * 1024
+# Kev 응답 상한(C5-A 3차 R6, kev_local.KEV_MAX_RESPONSE_BYTES). Qwen 은 MAX_BYTES 그대로다
+KEV_MAX_BYTES = 1 * 1024 * 1024
 
 
 def refusal(make_client, monkeypatch, **env: str | None) -> str:
@@ -470,7 +472,9 @@ def test_kev_reply_over_limit_is_kev_unavailable(make_client, local_models):
 
 
 def test_kev_reply_at_limit_is_read(make_client, local_models):
-    result = run_kev(make_client, local_models, Reply(raw_body=padded(kev_answer(), MAX_BYTES)))
+    # R6: Kev 의 상한은 1 MiB 다(4 MiB 는 이제 상한을 넘는다. 경계 시험은 test_local_hardening3 에도 있다)
+    reply = Reply(raw_body=padded(kev_answer(), KEV_MAX_BYTES))
+    result = run_kev(make_client, local_models, reply)
     assert (result["kev"]["enabled"], result["errorCode"]) == (True, None)
 
 
