@@ -19,6 +19,7 @@ import {
 import {
   LEAKY_ERROR_TEXT,
   ORG_ID,
+  OTHER_ORG_ID,
   bodyRows,
   conflictColumns,
   contextFromLoaded,
@@ -690,6 +691,149 @@ describe("sink.save · 중간 실패는 score_runs 를 마감하지 않는다", 
   });
 });
 
+// ── staleRuns(멈춘 run 찾기, C5-B) ──
+// 복구는 운영 작업이라 조직 조건 없이 모든 조직의 QUEUED·RUNNING run 을 본다(service role). 처리할 때는 행의 org_id 를 쓴다.
+
+describe("staleRuns.findStaleRuns · 질의", () => {
+  const INPUT = {
+    queuedBefore: "2026-10-16T08:50:00.000Z",
+    runningBefore: "2026-10-16T08:40:00.000Z",
+    limit: 7,
+  };
+
+  async function find(input = INPUT) {
+    const fake = fakeSupabase();
+    const stores = createAnalysisStores(fake.client, fakeAttachments().reader);
+    await stores.staleRuns.findStaleRuns(input);
+    return fake;
+  }
+
+  it("score_runs 를 GET 한 번으로 읽는다", async () => {
+    const fake = await find();
+    expect(fake.sequence()).toEqual(["GET score_runs"]);
+  });
+
+  it("id·org_id·idempotency_key·status 열만 고른다", async () => {
+    const call = only((await find()).callsTo("score_runs", "GET"));
+    expect(selectedColumns(call)).toEqual(["id", "org_id", "idempotency_key", "status"].toSorted());
+  });
+
+  it("status in (QUEUED, RUNNING) 조건을 건다", async () => {
+    const call = only((await find()).callsTo("score_runs", "GET"));
+    expect(inValues(call, "status")).toEqual(["QUEUED", "RUNNING"]);
+  });
+
+  it("or 조건은 QUEUED 는 queued_at, RUNNING 은 started_at 을 각 기준 시각과 lt 로 비교한다", async () => {
+    const call = only((await find()).callsTo("score_runs", "GET"));
+    expect(call.params.get("or")).toBe(
+      "(and(status.eq.QUEUED,queued_at.lt.2026-10-16T08:50:00.000Z),and(status.eq.RUNNING,started_at.lt.2026-10-16T08:40:00.000Z))",
+    );
+  });
+
+  it("or 조건에 받은 기준 시각을 그대로 넣는다", async () => {
+    const call = only(
+      (
+        await find({
+          queuedBefore: "2026-01-02T03:04:05.678Z",
+          runningBefore: "2025-12-31T23:59:59.999Z",
+          limit: 1,
+        })
+      ).callsTo("score_runs", "GET"),
+    );
+    expect(call.params.get("or")).toBe(
+      "(and(status.eq.QUEUED,queued_at.lt.2026-01-02T03:04:05.678Z),and(status.eq.RUNNING,started_at.lt.2025-12-31T23:59:59.999Z))",
+    );
+  });
+
+  it("queued_at 오름차순(오래된 순)으로 정렬한다", async () => {
+    const call = only((await find()).callsTo("score_runs", "GET"));
+    expect(call.params.get("order")).toBe("queued_at.asc");
+  });
+
+  it("limit 건까지만 읽는다", async () => {
+    const call = only((await find()).callsTo("score_runs", "GET"));
+    expect(call.params.get("limit")).toBe("7");
+  });
+
+  it("org_id 조건을 걸지 않는다(모든 조직의 멈춘 run 을 본다)", async () => {
+    const call = only((await find()).callsTo("score_runs", "GET"));
+    expect(call.params.has("org_id")).toBe(false);
+  });
+
+  it("id 조건을 걸지 않는다", async () => {
+    const call = only((await find()).callsTo("score_runs", "GET"));
+    expect(call.params.has("id")).toBe(false);
+  });
+});
+
+describe("staleRuns.findStaleRuns · 결과", () => {
+  const INPUT = {
+    queuedBefore: "2026-10-16T08:50:00.000Z",
+    runningBefore: "2026-10-16T08:40:00.000Z",
+    limit: 50,
+  };
+  const OTHER_RUN_ID = "5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170";
+
+  async function findWith(reply: ReturnType<PostgrestRoute>) {
+    const fake = fakeSupabase(on("GET", "score_runs", reply));
+    const stores = createAnalysisStores(fake.client, fakeAttachments().reader);
+    return stores.staleRuns.findStaleRuns(INPUT);
+  }
+
+  it("행을 { orgId, scoreRunId, idempotencyKey, status } 로 바꿔 받은 순서대로 돌려준다", async () => {
+    const runs = await findWith({
+      status: 200,
+      body: [
+        {
+          id: RUN_ID,
+          org_id: ORG_ID,
+          idempotency_key: `${ORG_ID}:req-1`,
+          status: "QUEUED",
+        },
+        { id: OTHER_RUN_ID, org_id: OTHER_ORG_ID, idempotency_key: null, status: "RUNNING" },
+      ],
+    });
+    expect(runs).toEqual([
+      { orgId: ORG_ID, scoreRunId: RUN_ID, idempotencyKey: `${ORG_ID}:req-1`, status: "QUEUED" },
+      { orgId: OTHER_ORG_ID, scoreRunId: OTHER_RUN_ID, idempotencyKey: null, status: "RUNNING" },
+    ]);
+  });
+
+  it("행이 없으면 빈 목록을 돌려준다", async () => {
+    await expect(findWith({ status: 200, body: [] })).resolves.toEqual([]);
+  });
+});
+
+describe("staleRuns.findStaleRuns · 질의 오류", () => {
+  const INPUT = {
+    queuedBefore: "2026-10-16T08:50:00.000Z",
+    runningBefore: "2026-10-16T08:40:00.000Z",
+    limit: 50,
+  };
+
+  function findWith(reply: ReturnType<PostgrestRoute>) {
+    const fake = fakeSupabase(on("GET", "score_runs", reply));
+    return createAnalysisStores(fake.client, fakeAttachments().reader).staleRuns.findStaleRuns(
+      INPUT,
+    );
+  }
+
+  it("질의 오류는 'analysis store 오류: score_runs.<동작> <code>' 로 던진다", async () => {
+    const error = await rejectionOf(findWith(postgrestError("42501")));
+    expect(error.message).toMatch(/^analysis store 오류: score_runs\.\S+ 42501$/);
+  });
+
+  it("오류 message 에 PostgREST 의 message·details·hint 를 싣지 않는다", async () => {
+    const error = await rejectionOf(findWith(postgrestError("42501")));
+    expect(error.message).not.toContain(LEAKY_ERROR_TEXT);
+  });
+
+  it("PostgREST 오류에 code 가 없으면 UNKNOWN 이다", async () => {
+    const error = await rejectionOf(findWith(postgrestError(null)));
+    expect(error.message).toMatch(/^analysis store 오류: score_runs\.\S+ UNKNOWN$/);
+  });
+});
+
 // ── 배럴 ──
 
 describe("@/server/analysis 배럴 · 저장 port", () => {
@@ -715,12 +859,20 @@ describe("@/server/analysis 배럴 · 저장 port", () => {
     expect(analysisBarrel.createAnalysisStores).toBe(createAnalysisStores);
   });
 
-  it("AnalysisStores 는 loader·tracker·extraction·sink 네 port 다", () => {
+  // 등록 단계에서 멈춘 run 찾기(staleRuns)가 더해져 다섯 port 다.
+  it("AnalysisStores 는 loader·tracker·extraction·sink·staleRuns 다섯 port 다", () => {
     expectTypeOf<AnalysisStores>().toEqualTypeOf<{
       loader: analysisBarrel.AnalysisContextLoader;
       tracker: analysisBarrel.AnalysisRunTracker;
       extraction: analysisBarrel.ExtractionStore;
       sink: analysisBarrel.AnalysisRunSink;
+      staleRuns: analysisBarrel.StaleRunFinder;
     }>();
+  });
+});
+
+describe("@/server/analysis 배럴 · 멈춘 run 찾기 port", () => {
+  it("AnalysisStores.staleRuns 는 StaleRunFinder 다", () => {
+    expectTypeOf<AnalysisStores["staleRuns"]>().toEqualTypeOf<analysisBarrel.StaleRunFinder>();
   });
 });

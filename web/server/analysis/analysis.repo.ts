@@ -6,6 +6,8 @@ import type {
   AnalysisRunTracker,
   ExtractionCacheKey,
   ScoreRunStatus,
+  StaleRun,
+  StaleRunFinder,
 } from "./analysis-job.model";
 import type { AnalysisRunRecord, ExtractionRecord } from "./analysis.model";
 import type { AnalysisRunSink, ExtractionStore } from "./analysis.service";
@@ -22,7 +24,7 @@ import {
   type AttachmentTextReader,
 } from "./analysis-store.model";
 
-// ── 저장: 분석 port 네 개의 Supabase 구현. supabase-js 호출만 두고 규칙은 analysis-store.model 에 둔다 ──
+// ── 저장: 분석 port 네 개와 멈춘 run 찾기 port 의 Supabase 구현. supabase-js 호출만 두고 규칙은 analysis-store.model 에 둔다 ──
 // worker 가 service role 클라이언트(getSupabaseAdmin)를 넘긴다. service role 은 RLS 를 거치지 않으므로
 // 조직 표(score_runs·company_profiles·team_member_scoring·assignments·자식 3표)의 모든 질의·쓰기에 org_id 를 직접 건다.
 // 오류는 일반 Error 라 job 이 재시도한다. message 에는 표·동작·코드만 싣는다(PostgREST message·details 에 값이 섞일 수 있다).
@@ -32,6 +34,8 @@ export type AnalysisStores = {
   tracker: AnalysisRunTracker;
   extraction: ExtractionStore;
   sink: AnalysisRunSink;
+  /** 멈춘 run 복구(worker)가 쓴다. 모든 조직의 행을 본다. */
+  staleRuns: StaleRunFinder;
 };
 
 type Client = SupabaseClient<Database>;
@@ -50,6 +54,7 @@ const PROFILE_COLUMNS =
   "revision, name, is_demo, technologies, technologies_complete, licenses, industry_codes, past_projects, financials, preferences";
 const TEAM_SCORING_COLUMNS = "member_id, role, grade, skills, availability";
 const ASSIGNMENT_COLUMNS = "member_id, starts_at, ends_at, allocation_percent";
+const STALE_RUN_COLUMNS = "id, org_id, idempotency_key, status";
 
 /** "analysis store 오류: <표>.<동작> <code>". code 가 없으면 UNKNOWN 이다. */
 function storeError(table: string, action: string, error: { code?: string | null }): Error {
@@ -268,7 +273,63 @@ function createSink(client: Client): AnalysisRunSink {
   };
 }
 
-/** service role 클라이언트로 네 port 를 만든다. 클라이언트는 받기만 하고 모듈에 담아 두지 않는다. */
+/** Date.toISOString 모양(밀리초·Z)이고 그 값으로 되돌아오는 시각인지. or 필터 문자열에 그대로 넣으므로 다른 모양은 받지 않는다. */
+function isIsoInstant(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
+  const time = new Date(value).getTime();
+  return !Number.isNaN(time) && new Date(time).toISOString() === value;
+}
+
+const STALE_RUN_STATUSES: readonly StaleRun["status"][] = ["QUEUED", "RUNNING"];
+
+function toStaleRun(row: {
+  id: string;
+  org_id: string;
+  idempotency_key: string | null;
+  status: string;
+}): StaleRun {
+  const status = STALE_RUN_STATUSES.find((candidate) => candidate === row.status);
+  // status 필터가 QUEUED·RUNNING 만 고르므로 다른 값은 질의가 틀렸다는 뜻이다.
+  if (status === undefined)
+    throw new Error("analysis store 오류: score_runs.stale UNEXPECTED_STATUS");
+  return {
+    orgId: row.org_id,
+    scoreRunId: row.id,
+    idempotencyKey: row.idempotency_key,
+    status,
+  };
+}
+
+/**
+ * 조직 조건을 걸지 않는다(복구는 운영 작업). 행마다 org_id 를 돌려주고 처리하는 쪽이 그 값을 쓴다.
+ * QUEUED 는 queued_at, RUNNING 은 started_at 으로 멈췄는지 본다. 오래된 순으로 limit 건까지.
+ */
+function createStaleRunFinder(client: Client): StaleRunFinder {
+  return {
+    async findStaleRuns(input) {
+      const isValidInput =
+        isIsoInstant(input.queuedBefore) &&
+        isIsoInstant(input.runningBefore) &&
+        Number.isInteger(input.limit) &&
+        input.limit >= 1;
+      if (!isValidInput) throw new Error("analysis store 오류: score_runs.stale INVALID_INPUT");
+      const runs = await client
+        .from("score_runs")
+        .select(STALE_RUN_COLUMNS)
+        .in("status", ACTIVE_RUN_STATUSES)
+        .or(
+          `and(status.eq.QUEUED,queued_at.lt.${input.queuedBefore}),` +
+            `and(status.eq.RUNNING,started_at.lt.${input.runningBefore})`,
+        )
+        .order("queued_at")
+        .limit(input.limit);
+      if (runs.error) throw storeError("score_runs", "stale", runs.error);
+      return runs.data.map(toStaleRun);
+    },
+  };
+}
+
+/** service role 클라이언트로 네 port 와 멈춘 run 찾기 port 를 만든다. 클라이언트는 받기만 하고 모듈에 담아 두지 않는다. */
 export function createAnalysisStores(
   client: SupabaseClient<Database>,
   attachments: AttachmentTextReader,
@@ -278,5 +339,6 @@ export function createAnalysisStores(
     tracker: createTracker(client),
     extraction: createExtractionStore(client, attachments),
     sink: createSink(client),
+    staleRuns: createStaleRunFinder(client),
   };
 }

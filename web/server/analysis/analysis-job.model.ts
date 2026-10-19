@@ -122,6 +122,27 @@ export type AnalysisRunTracker = {
   }): Promise<void>;
 };
 
+/** 오래 QUEUED·RUNNING 으로 남은 score_runs 행(멈춘 run 복구, docs/02 "job 유실 없음"). */
+export type StaleRun = {
+  orgId: string;
+  scoreRunId: string;
+  idempotencyKey: string | null;
+  status: "QUEUED" | "RUNNING";
+};
+
+/** 멈춘 run 찾기 port. 복구는 운영 작업이라 모든 조직을 본다. 처리할 때는 행의 orgId 를 그대로 쓴다. */
+export type StaleRunFinder = {
+  /**
+   * status=QUEUED 이고 queued_at < queuedBefore, 또는 status=RUNNING 이고 started_at < runningBefore 인 run.
+   * 오래된 순, 최대 limit 건. 두 시각은 Date.toISOString 결과만 받는다(값이 필터 문자열에 그대로 들어간다).
+   */
+  findStaleRuns(input: {
+    queuedBefore: string;
+    runningBefore: string;
+    limit: number;
+  }): Promise<StaleRun[]>;
+};
+
 // ── 처리 설정(gateway /health 가 기준, 실패하면 env) ──
 
 export type AnalysisSettings = {

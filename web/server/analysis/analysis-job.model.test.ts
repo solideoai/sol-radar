@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import * as analysisBarrel from "@/server/analysis";
 import {
   ANALYSIS_JOB,
@@ -512,5 +512,33 @@ describe("@/server/analysis 배럴", () => {
 
   it("배럴의 toAnalysisSettings 는 analysis-job.model 의 것이다", () => {
     expect(analysisBarrel.toAnalysisSettings).toBe(toAnalysisSettings);
+  });
+});
+
+// 멈춘 run 찾기 port(C5-B). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
+describe("@/server/analysis 배럴 · 멈춘 run 찾기 port(타입)", () => {
+  it("StaleRun 은 orgId·scoreRunId·idempotencyKey(null 가능)·status(QUEUED·RUNNING) 다", () => {
+    expectTypeOf<analysisBarrel.StaleRun>().toEqualTypeOf<{
+      orgId: string;
+      scoreRunId: string;
+      idempotencyKey: string | null;
+      status: "QUEUED" | "RUNNING";
+    }>();
+  });
+
+  it("StaleRunFinder.findStaleRuns 는 { queuedBefore, runningBefore, limit } 하나를 받는다", () => {
+    expectTypeOf<analysisBarrel.StaleRunFinder["findStaleRuns"]>().parameters.toEqualTypeOf<
+      [{ queuedBefore: string; runningBefore: string; limit: number }]
+    >();
+  });
+
+  it("StaleRunFinder.findStaleRuns 는 StaleRun 목록을 돌려준다", () => {
+    expectTypeOf<analysisBarrel.StaleRunFinder["findStaleRuns"]>().returns.toEqualTypeOf<
+      Promise<analysisBarrel.StaleRun[]>
+    >();
+  });
+
+  it("StaleRunFinder 는 findStaleRuns 하나만 가진다", () => {
+    expectTypeOf<keyof analysisBarrel.StaleRunFinder>().toEqualTypeOf<"findStaleRuns">();
   });
 });

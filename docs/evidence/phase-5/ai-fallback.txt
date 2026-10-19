@@ -398,3 +398,43 @@ $ pnpm -C web exec vitest run server/analysis/analysis.db-path.test.ts --reporte
   ✓ DB 타입 일치 — 정본 supabase/migrations
         Tests  2177 passed (2177)
 exit 0 · 클라우드 적용(pnpm db:push)은 하지 않음 — 사용자 확인 뒤에만
+
+## 등록 단계(일부): analysis 런타임·멈춘 run 복구 (web/worker/analysis-runtime.ts, analysis-reconcile.ts, staleRuns port)
+작성 2026-10-19T06:36:42Z · main a680480 병합(2129e32) 위
+근거: e8 제안(멈춘 run 복구, ANALYSIS_STALE_QUEUED_MS·ANALYSIS_STALE_RUNNING_MS 기본 10분, ANALYSIS_RECONCILE_INTERVAL_MS 60초), 02 장애 원칙(job 유실 없음), 03 §8
+main.ts 연결은 이 커밋에 넣지 않음: 3e 병합 게이트 안내(C3 의 WORKER_REGISTRATIONS 구조와 충돌 방지). C3 병합 뒤 등록 하나로 붙인다.
+  → 연결을 넣은 상태의 검증도 통과했다: pnpm verify exit 0 · 루트 567 · web 84 files / 2349 · build · pytest 536
+
+$ pnpm -C web exec vitest run worker/analysis-reconcile.test.ts --reporter=verbose (판정 표 발췌)
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 읽기 > ANALYSIS_STALE_RUNNING_MS 값은 staleRunningMs 에만 쓴다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 읽기 > ANALYSIS_STALE_RUNNING_MS 의 앞뒤 공백을 지운다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 읽기 > ANALYSIS_STALE_RUNNING_MS 의 하한 1 을 받는다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 읽기 > ANALYSIS_STALE_RUNNING_MS 의 상한 3600000 을 받는다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=0 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=3600001 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=-1 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=1.5 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=1e3 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=0x10 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=abc 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=60s 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS=1_000 이면 'worker env 오류: <키 이름>' 으로 던진다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS 오류 message 에 값을 싣지 않는다
+ ✓ worker/analysis-reconcile.test.ts > readReconcileSettings · 틀린 값 > ANALYSIS_STALE_RUNNING_MS 의 범위 밖 숫자도 message 에 싣지 않는다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · job 이 Redis 에 없으면(unknown) 다시 넣는다 > job 이름은 ANALYSIS_JOB 이다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · job 이 Redis 에 없으면(unknown) 다시 넣는다 > job 데이터는 { orgId, scoreRunId, idempotencyKey } 뿐이다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · job 이 Redis 에 없으면(unknown) 다시 넣는다 > 옵션은 ANALYSIS_JOB_OPTIONS 에 jobId 를 더한 것이다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · job 이 Redis 에 없으면(unknown) 다시 넣는다 > FAILED 로 닫지 않는다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · job 이 Redis 에 없으면(unknown) 다시 넣는다 > RUNNING 으로 멈춘 run 도 job 이 없으면 다시 넣는다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · job 이 Redis 에 없으면(unknown) 다시 넣는다 > 조직이 다른 run 은 각 행의 orgId 로 넣는다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · 시도를 다 썼거나(failed) 처리가 끝난(completed) job > failed 이면 다시 넣지 않고 FAILED(STALE_RUN, finishedAt=now)로 닫는다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · 시도를 다 썼거나(failed) 처리가 끝난(completed) job > completed 이면 다시 넣지 않고 FAILED(STALE_RUN, finishedAt=now)로 닫는다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · 시도를 다 썼거나(failed) 처리가 끝난(completed) job > 다른 조직의 run 은 그 행의 orgId 로 닫는다
+ ✓ worker/analysis-reconcile.test.ts > reconcileOnce · 다시 넣을 job 데이터를 만들 수 없는 run > idempotencyKey 가 null 이면 다시 넣지 않고 FAILED(STALE_RUN)로 닫는다
+
+$ node --conditions=react-server --import tsx -e "import('./worker/analysis-runtime.ts')" (web/)
+analysis runtime module loaded
+
+## 변형 확인(등록 단계)
+- test-server 참조 구현 변형: 사용량 한도로 중단(참조 사본에서만, worktree 무영향)
+- 메인 세션(실제 구현): completed 를 FAIL 대상에서 뺌 → 3 failed / 117 passed, 진행 중 상태 KEEP 제거 → 3 failed / 117 passed, 원복 cmp 일치
