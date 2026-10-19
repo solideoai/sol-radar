@@ -3,6 +3,7 @@ import {
   ANALYSIS_STATUS_LABEL,
   EXTRA_STATUS_LABEL,
   FACTOR_LABEL,
+  FLAG_ICON,
   FACTOR_ORDER,
   KEV_RISK_LABEL,
   MISSING_REASON_LABEL,
@@ -11,6 +12,7 @@ import {
   NOTIFICATION_TYPE_LABEL,
   QUALIFICATION_LABEL,
   RECOMMENDATION_LABEL,
+  REVIEW_RECOMMENDED_FLAGS,
   REVIEW_FLAG_LABEL,
   STAGE_LABEL,
   STATUS_ICON,
@@ -66,5 +68,26 @@ describe("라벨 표", () => {
       KEV_RISK_LABEL,
     ]);
     expect(all).not.toMatch(/수주\s?확률|낙찰\s?확률/);
+  });
+});
+
+describe("플래그 표", () => {
+  it("사람 검토 권장 플래그는 정확히 5개다", () => {
+    expect([...REVIEW_RECOMMENDED_FLAGS].sort()).toEqual(
+      [
+        "INJECTION_SUSPECTED",
+        "KEV_MANDATORY_RISK",
+        "KEV_NEEDS_REVIEW",
+        "KEV_REQUIREMENT_DISAGREEMENT",
+        "MODEL_RULE_DISAGREEMENT",
+      ].sort(),
+    );
+  });
+  it("아이콘 표는 17개 키를 가지고 권장만 warning 이다", () => {
+    expect(Object.keys(FLAG_ICON).sort()).toEqual(Object.keys(REVIEW_FLAG_LABEL).sort());
+    for (const [flag, { className }] of Object.entries(FLAG_ICON)) {
+      const recommended = (REVIEW_RECOMMENDED_FLAGS as readonly string[]).includes(flag);
+      expect(className).toBe(recommended ? "text-warning" : "text-muted-foreground");
+    }
   });
 });

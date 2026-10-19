@@ -3,6 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   ANALYSIS_STATUS_LABEL,
   EXTRA_STATUS_LABEL,
+  FLAG_ICON,
   QUALIFICATION_LABEL,
   RECOMMENDATION_LABEL,
   REVIEW_FLAG_LABEL,
@@ -32,7 +33,7 @@ type StatusBadgeProps = { variant?: BadgeVariant; showCode?: boolean } & (
   | { kind: "bidStatus"; value: BidStatus }
 );
 
-type Resolved = { key: StatusKey; label: string; code?: string };
+type Resolved = { key: StatusKey | ReviewFlag; label: string; code?: string };
 
 // 권고와 같은 표를 쓰는 결정은 값이 없으면 미결정이다. 취소 외의 공고 상태는 배지를 그리지 않는다.
 const resolve = (props: StatusBadgeProps): Resolved | null => {
@@ -62,7 +63,7 @@ const resolve = (props: StatusBadgeProps): Resolved | null => {
       };
     case "flag":
       return {
-        key: props.value === "MODEL_RULE_DISAGREEMENT" ? "RULE_FIRST" : "PARTIAL",
+        key: props.value,
         label: REVIEW_FLAG_LABEL[props.value],
         code: props.value,
       };
@@ -81,7 +82,8 @@ function StatusBadge(props: StatusBadgeProps) {
   const resolved = resolve(props);
   if (resolved === null) return null;
   const { variant = "badge", showCode = false } = props;
-  const { icon: Icon, className } = STATUS_ICON[resolved.key];
+  const { icon: Icon, className } =
+    props.kind === "flag" ? FLAG_ICON[props.value] : STATUS_ICON[resolved.key as StatusKey];
   const code = showCode ? resolved.code : undefined;
   return (
     <span className={cn(variant === "badge" ? BADGE_BOX : INLINE_BOX, className)}>

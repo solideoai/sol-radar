@@ -2,6 +2,7 @@ import {
   BanIcon,
   CalendarClockIcon,
   CheckIcon,
+  CircleAlertIcon,
   CircleArrowUpIcon,
   CircleCheckIcon,
   CircleDashedIcon,
@@ -12,6 +13,7 @@ import {
   FilePenIcon,
   FilePlusIcon,
   FlaskConicalIcon,
+  InfoIcon,
   LoaderCircleIcon,
   OctagonAlertIcon,
   OctagonXIcon,
@@ -188,3 +190,36 @@ export const NOTIFICATION_ICON = {
   BID_CREATED: FilePlusIcon,
   DEADLINE_APPROACHING: CalendarClockIcon,
 } as const satisfies Record<NotificationType, LucideIcon>;
+
+// §5.4.9 사람 검토 권장 플래그 5개. 나머지 12개는 중립 배지로 그린다.
+export const REVIEW_RECOMMENDED_FLAGS = [
+  "MODEL_RULE_DISAGREEMENT",
+  "KEV_MANDATORY_RISK",
+  "KEV_NEEDS_REVIEW",
+  "KEV_REQUIREMENT_DISAGREEMENT",
+  "INJECTION_SUSPECTED",
+] as const satisfies readonly ReviewFlag[];
+
+const FLAG_REVIEW = { icon: CircleAlertIcon, className: "text-warning" } as const;
+const FLAG_NEUTRAL = { icon: InfoIcon, className: "text-muted-foreground" } as const;
+
+// 플래그 전용 아이콘·색. 규칙 우선은 §3.3 표와 같다. TriangleAlertIcon 은 분석 PARTIAL 용이라 쓰지 않는다.
+export const FLAG_ICON = {
+  MODEL_RULE_DISAGREEMENT: STATUS_ICON.RULE_FIRST,
+  KEV_MANDATORY_RISK: FLAG_REVIEW,
+  KEV_NEEDS_REVIEW: FLAG_REVIEW,
+  KEV_REQUIREMENT_DISAGREEMENT: FLAG_REVIEW,
+  INJECTION_SUSPECTED: FLAG_REVIEW,
+  KEV_DELIVERY_RISK: FLAG_NEUTRAL,
+  CITATION_FAILED: FLAG_NEUTRAL,
+  EXTRACTION_FAILED: FLAG_NEUTRAL,
+  EXTRACTION_LOW_CONFIDENCE: FLAG_NEUTRAL,
+  AI_UNAVAILABLE: FLAG_NEUTRAL,
+  QWEN_UNAVAILABLE: FLAG_NEUTRAL,
+  KEV_UNAVAILABLE: FLAG_NEUTRAL,
+  MOCK_FALLBACK: FLAG_NEUTRAL,
+  PARSE_UNSUPPORTED: FLAG_NEUTRAL,
+  DOCUMENT_DOWNLOAD_FAILED: FLAG_NEUTRAL,
+  INSUFFICIENT_DATA: FLAG_NEUTRAL,
+  SCALE_LIMIT_EXCEEDED: FLAG_NEUTRAL,
+} as const satisfies Record<ReviewFlag, { icon: LucideIcon; className: string }>;

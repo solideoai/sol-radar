@@ -69,6 +69,26 @@ describe("StatusBadge", () => {
     await expect.element(page.getByText("CITATION_FAILED")).toBeInTheDocument();
   });
 
+  it("플래그는 검토 권장이 warning, 중립이 muted 이고 둘 다 경고 삼각형이 아니다", async () => {
+    const host = render(
+      <>
+        <StatusBadge kind="flag" value="CITATION_FAILED" />
+        <StatusBadge kind="flag" value="KEV_NEEDS_REVIEW" />
+      </>,
+    );
+    await expect.element(page.getByText("인용 대조 실패")).toBeInTheDocument();
+    const [neutral, recommended] = Array.from(host.children) as HTMLElement[];
+    expect(neutral.className).toContain("text-muted-foreground");
+    expect(recommended.className).toContain("text-warning");
+    for (const badge of [neutral, recommended]) {
+      expect(badge.querySelector("svg.lucide-triangle-alert")).toBeNull();
+      expect(badge.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
+    }
+    expect(neutral.querySelector("svg")?.getAttribute("class")).not.toBe(
+      recommended.querySelector("svg")?.getAttribute("class"),
+    );
+  });
+
   it("진행 중이 아닌 공고 상태는 아무것도 그리지 않는다", () => {
     const host = render(<StatusBadge kind="bidStatus" value="OPEN" />);
     expect(host.childElementCount).toBe(0);
@@ -79,7 +99,10 @@ describe("DemoBadge", () => {
   it("툴팁 없이도 DEMO 칩은 초점을 받지 않는다", async () => {
     const host = render(<DemoBadge />);
     await expect.element(page.getByText("DEMO")).toBeInTheDocument();
-    expect((host.firstElementChild as HTMLElement).tabIndex).toBe(-1);
+    const chip = host.firstElementChild as HTMLElement;
+    expect(chip.tabIndex).toBe(-1);
+    await userEvent.tab();
+    expect(document.activeElement).not.toBe(chip);
   });
 
   it("withTooltip 은 초점을 받고 초점이 오면 09 고정 문구를 보인다", async () => {
