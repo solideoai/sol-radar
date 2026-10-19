@@ -1,0 +1,190 @@
+import {
+  BanIcon,
+  CalendarClockIcon,
+  CheckIcon,
+  CircleArrowUpIcon,
+  CircleCheckIcon,
+  CircleDashedIcon,
+  CircleHelpIcon,
+  CircleMinusIcon,
+  CircleXIcon,
+  EyeIcon,
+  FilePenIcon,
+  FilePlusIcon,
+  FlaskConicalIcon,
+  LoaderCircleIcon,
+  OctagonAlertIcon,
+  OctagonXIcon,
+  ShieldCheckIcon,
+  TriangleAlertIcon,
+  UserCheckIcon,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type {
+  AnalysisStatus,
+  BidStage,
+  FactorKey,
+  KevView,
+  MissingReason,
+  NeedsReviewReason,
+  Notification,
+  QualificationOutcome,
+  Recommendation,
+  ReviewFlag,
+} from "@/server/bids";
+
+// 라벨 글자의 정본은 docs/plans/2026-10-19-c6-screens-design.md 다.
+// 클라이언트 부품도 쓰므로 @/server/bids 는 타입으로만 가져온다.
+
+// §3.3
+export const RECOMMENDATION_LABEL = {
+  BID: "BID",
+  WATCH: "WATCH",
+  NO_BID: "NO-BID",
+} as const satisfies Record<Recommendation, string>;
+
+// §3.3 (자격)
+export const QUALIFICATION_LABEL = {
+  SATISFIED: "충족",
+  NEEDS_REVIEW: "확인 필요",
+  NOT_SATISFIED: "미충족",
+} as const satisfies Record<QualificationOutcome, string>;
+
+// §3.3 (분석). 표 칸에서는 short 를 쓴다.
+export const ANALYSIS_STATUS_LABEL = {
+  QUEUED: { long: "대기 중", short: "대기 중" },
+  RUNNING: { long: "분석 중", short: "분석 중" },
+  COMPLETED: { long: "완료", short: "완료" },
+  PARTIAL: { long: "부분 완료 (규칙만)", short: "부분 완료" },
+  FAILED: { long: "실패", short: "실패" },
+} as const satisfies Record<AnalysisStatus, { long: string; short: string }>;
+
+// §3.3 중 위 표에 없는 상태 글자
+export const EXTRA_STATUS_LABEL = {
+  NOT_APPLICABLE: "해당 없음",
+  NOT_ANALYZED: "미분석",
+  CANCELLED: "취소됨",
+  DEMO: "DEMO",
+  RULE_FIRST: "규칙 우선",
+  UNDECIDED: "미결정",
+} as const satisfies Record<string, string>;
+
+export type StatusKey =
+  Recommendation | QualificationOutcome | AnalysisStatus | keyof typeof EXTRA_STATUS_LABEL;
+
+// §3.3. 색은 글자·아이콘에만 쓴다(바탕 채움 없음). UNDECIDED 는 아이콘이 없다.
+export const STATUS_ICON = {
+  BID: { icon: CircleArrowUpIcon, className: "text-success" },
+  WATCH: { icon: EyeIcon, className: "text-warning" },
+  NO_BID: { icon: OctagonXIcon, className: "text-destructive" },
+  SATISFIED: { icon: CircleCheckIcon, className: "text-success" },
+  NEEDS_REVIEW: { icon: CircleHelpIcon, className: "text-warning" },
+  NOT_SATISFIED: { icon: CircleXIcon, className: "text-destructive" },
+  NOT_APPLICABLE: { icon: CircleMinusIcon, className: "text-muted-foreground" },
+  NOT_ANALYZED: { icon: CircleDashedIcon, className: "text-muted-foreground" },
+  QUEUED: { icon: LoaderCircleIcon, className: "text-muted-foreground" },
+  RUNNING: { icon: LoaderCircleIcon, className: "text-muted-foreground" },
+  COMPLETED: { icon: CheckIcon, className: "text-success" },
+  PARTIAL: { icon: TriangleAlertIcon, className: "text-warning" },
+  FAILED: { icon: OctagonAlertIcon, className: "text-destructive" },
+  CANCELLED: { icon: BanIcon, className: "text-muted-foreground" },
+  DEMO: { icon: FlaskConicalIcon, className: "text-demo border-demo" },
+  RULE_FIRST: { icon: ShieldCheckIcon, className: "text-warning" },
+  UNDECIDED: { icon: null, className: "text-muted-foreground" },
+} as const satisfies Record<StatusKey, { icon: LucideIcon | null; className: string }>;
+
+// §5.4.4
+export const NEEDS_REVIEW_REASON_LABEL = {
+  NOTICE_INFO_MISSING: "공고에서 요구를 찾지 못함",
+  NOTICE_CONFLICTED: "공고 값이 서로 다름",
+  COMPANY_EVIDENCE_MISSING: "회사 증빙 없음",
+  AMBIGUOUS_MATCH: "대응 불확실",
+  PARSE_UNSUPPORTED: "첨부를 읽지 못함",
+  STAGE_NOT_APPLICABLE: "발주계획 단계(자격 요건 없음)",
+} as const satisfies Record<NeedsReviewReason, string>;
+
+// §5.4.5 요소 라벨. 순서는 점수표(08 §2) 순이다.
+export const FACTOR_LABEL = {
+  skillMatch: "기술 스택 적합",
+  pastPerformance: "유사 수행 실적",
+  staffAvailability: "인력 가용성",
+  scaleFit: "규모 적합성",
+  strategicPreference: "전략적 선호",
+} as const satisfies Record<FactorKey, string>;
+
+export const FACTOR_ORDER = [
+  "skillMatch",
+  "pastPerformance",
+  "staffAvailability",
+  "scaleFit",
+  "strategicPreference",
+] as const satisfies readonly FactorKey[];
+
+// §5.4.5 missing 사유 라벨
+export const MISSING_REASON_LABEL = {
+  NO_REQUIREMENTS_EXTRACTED: "공고에서 요구기술을 찾지 못함",
+  PROFILE_TECHNOLOGIES_EMPTY: "회사 기술 목록 없음",
+  BID_DOMAIN_UNKNOWN: "사업 분야 미확인",
+  PROFILE_PROJECTS_EMPTY: "회사 실적 없음",
+  REQUIRED_FTE_UNKNOWN: "필요 인력 미확인",
+  TEAM_EMPTY: "점수 계산 대상 인력 없음",
+  BUDGET_UNKNOWN: "예산 미공개",
+  PREFERENCES_NOT_SET: "선호 설정 없음",
+} as const satisfies Record<MissingReason, string>;
+
+// §5.4.7 수행 리스크 라벨
+type KevRiskQid = NonNullable<KevView["risks"]>[number]["qid"];
+export const KEV_RISK_LABEL = {
+  "risk.schedule": "일정",
+  "risk.staffing": "인력",
+  "risk.scale": "규모",
+  "risk.techGap": "기술 격차",
+  "risk.scopeAmbiguity": "범위 모호",
+} as const satisfies Record<KevRiskQid, string>;
+
+// §5.4.9 플래그 라벨 17개. 배지 옆에 코드를 함께 둔다.
+export const REVIEW_FLAG_LABEL = {
+  MODEL_RULE_DISAGREEMENT: "규칙 우선(Kev 의견 상이)",
+  KEV_MANDATORY_RISK: "Kev 필수자격 위험 신호",
+  KEV_NEEDS_REVIEW: "Kev 사람 검토 신호",
+  KEV_REQUIREMENT_DISAGREEMENT: "항목 판정 상이(Kev)",
+  KEV_DELIVERY_RISK: "수행 리스크 신호(Kev)",
+  CITATION_FAILED: "인용 대조 실패",
+  EXTRACTION_FAILED: "추출 실패",
+  EXTRACTION_LOW_CONFIDENCE: "추출 신뢰 낮음",
+  AI_UNAVAILABLE: "AI 사용 불가",
+  QWEN_UNAVAILABLE: "Qwen 서버 미접속",
+  KEV_UNAVAILABLE: "Kev 서버 미접속",
+  MOCK_FALLBACK: "Mock 대체 결과",
+  PARSE_UNSUPPORTED: "첨부 원문 확인",
+  DOCUMENT_DOWNLOAD_FAILED: "첨부 원문 확인(내려받기 실패)",
+  INSUFFICIENT_DATA: "근거 부족",
+  INJECTION_SUSPECTED: "문서 지시문 의심",
+  SCALE_LIMIT_EXCEEDED: "수행 상한 초과",
+} as const satisfies Record<ReviewFlag, string>;
+
+// 상세 단계 이력(§5.4.3)
+export const STAGE_LABEL = {
+  PLAN: "발주계획",
+  PRE_SPEC: "사전규격",
+  NOTICE: "입찰공고",
+} as const satisfies Record<BidStage, string>;
+
+type NotificationType = Notification["type"];
+
+// §5.5
+export const NOTIFICATION_TYPE_LABEL = {
+  REVIEW_ASSIGNED: "결정 담당 지정",
+  ANALYSIS_COMPLETE: "분석 완료",
+  BID_CHANGED: "공고 변경",
+  BID_CREATED: "새 공고",
+  DEADLINE_APPROACHING: "마감 임박",
+} as const satisfies Record<NotificationType, string>;
+
+export const NOTIFICATION_ICON = {
+  REVIEW_ASSIGNED: UserCheckIcon,
+  ANALYSIS_COMPLETE: CircleCheckIcon,
+  BID_CHANGED: FilePenIcon,
+  BID_CREATED: FilePlusIcon,
+  DEADLINE_APPROACHING: CalendarClockIcon,
+} as const satisfies Record<NotificationType, LucideIcon>;
