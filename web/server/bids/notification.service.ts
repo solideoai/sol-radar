@@ -1,8 +1,7 @@
 import "server-only";
-import { createHash } from "node:crypto";
-import { fingerprintOf, signCursor, verifyCursor, type BidListQuery } from "./bid-query";
+import { cursorScope, signCursor, verifyCursor, type PageQuery } from "./bid-query";
 import type { Page } from "./bid.model";
-import { fail, type ServiceResult } from "./bids.service";
+import { cursorUnavailable, fail, type ServiceResult } from "./bids.service";
 import type { ListAfter, NotificationRepo } from "./bids.repo";
 import { safeNotificationLink, type Notification } from "./notification.model";
 
@@ -12,25 +11,15 @@ const withSafeLink = (n: Notification): Notification => ({
   payload: { ...n.payload, link: safeNotificationLink(n) },
 });
 
-// 커서 서명·검증은 공고 목록과 같은 함수를 쓴다. 필터 지문은 unreadOnly 마다 다른 q 로 만든다.
-const scopeOf = (unreadOnly: boolean): BidListQuery => ({
-  q: createHash("sha256").update(`notifications:${unreadOnly}`).digest("hex").slice(0, 16),
-  stage: [],
-  recommendation: [],
-  decision: [],
-  origin: "all",
-  sort: "publishedAt:desc",
-  cursor: null,
-  limit: 20,
-});
-
 export async function listNotifications(
   userId: string,
-  query: { unreadOnly: boolean; cursor: string | null; limit: number },
-  cursorSecret: string,
+  query: PageQuery & { unreadOnly: boolean },
+  cursorSecret: string | null,
   deps: { repo: NotificationRepo },
 ): Promise<ServiceResult<Page<Notification>>> {
-  const scope = scopeOf(query.unreadOnly);
+  if (cursorSecret === null) return cursorUnavailable();
+  // 필터(unreadOnly)가 다른 커서는 쓰지 못한다.
+  const scope = cursorScope("notifications", [query.unreadOnly]);
   let after: ListAfter = null;
   if (query.cursor !== null) {
     const verified = verifyCursor(query.cursor, scope, cursorSecret);
@@ -44,7 +33,7 @@ export async function listNotifications(
   );
   const nextCursor =
     rows.hasNext && rows.last !== null
-      ? signCursor({ ...rows.last, queryFingerprint: fingerprintOf(scope) }, cursorSecret)
+      ? signCursor({ ...rows.last, queryFingerprint: scope }, cursorSecret)
       : null;
   return {
     ok: true,

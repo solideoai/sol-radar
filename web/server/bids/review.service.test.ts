@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CreateReview, ReviewRepo, ReviewTarget } from "./bids.repo";
-import { recordReview } from "./review.service";
+import { listReviews, recordReview } from "./review.service";
 import type { Review } from "./review.model";
 
 const ctx = { orgId: "org1", userId: "u1", role: "SALES" as const };
@@ -15,6 +15,7 @@ function fake(overrides: Partial<ReviewRepo> = {}) {
   const repo: ReviewRepo = {
     getReviewTarget: async () => target,
     isOrgMember: async () => true,
+    listReviews: async () => [],
     createReview: async (input) => {
       created.push(input);
       return {
@@ -122,5 +123,27 @@ describe("recordReview", () => {
     const f = fake({ getReviewTarget: spy });
     await recordReview(ctx, "b1", { decision: "WATCH", reason, scoreRunId: "run0" }, f);
     expect(spy).toHaveBeenCalledWith("org1", "b1", "run0");
+  });
+});
+
+describe("listReviews", () => {
+  it("공고가 없으면(repo null) 404 bid 다", async () => {
+    const f = fake({ listReviews: async () => null });
+    const result = await listReviews("org1", "b1", { repo: f.repo });
+    expect(result).toMatchObject({
+      ok: false,
+      status: 404,
+      code: "NOT_FOUND",
+      details: { resource: "bid" },
+    });
+  });
+
+  it("결정이 없으면 200 [] 이다", async () => {
+    const f = fake({ listReviews: async () => [] });
+    expect(await listReviews("org1", "b1", { repo: f.repo })).toEqual({
+      ok: true,
+      status: 200,
+      data: [],
+    });
   });
 });

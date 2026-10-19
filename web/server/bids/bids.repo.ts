@@ -18,6 +18,8 @@ export type PagedRows<T> = {
 };
 
 export type AnalysisInput = {
+  // 중복 판정은 입력 전체로 한다(04 §5 부분 UNIQUE 는 company_profile_id 를 쓴다).
+  companyProfileId: string;
   profileRevision: number;
   revisionId: string;
   extractionId: string | null;
@@ -35,13 +37,23 @@ export type CreateAnalysisRun = AnalysisInput & {
 };
 
 export type RunRef = { id: string; status: AnalysisStatus };
+// IDEMPOTENCY_KEY 충돌은 run 을 싣지 않는다. 서비스가 findIdempotency 로 첫 요청을 다시 찾는다.
 export type CreateRunResult =
-  { created: RunRef } | { conflict: "ACTIVE_INPUT" | "IDEMPOTENCY_KEY"; run: RunRef };
+  { created: RunRef } | { conflict: "ACTIVE_INPUT"; run: RunRef } | { conflict: "IDEMPOTENCY_KEY" };
 
 export interface BidsRepo {
   listBids(orgId: string, query: BidListQuery, after: ListAfter): Promise<PagedRows<BidListItem>>;
   getBid(orgId: string, id: string): Promise<BidDetail | null>;
-  listAnalyses(orgId: string, bidId: string, after: ListAfter): Promise<PagedRows<AnalysisView>>;
+  // 공고가 있는지(다른 조직의 자원이 아니라 공고 자체). 공고는 모든 조직이 같이 본다.
+  bidExists(orgId: string, bidId: string): Promise<boolean>;
+  listAnalyses(
+    orgId: string,
+    bidId: string,
+    limit: number,
+    after: ListAfter,
+  ): Promise<PagedRows<AnalysisView>>;
+  // 이 조직의 최신 점수 run(COMPLETED·PARTIAL). 없으면 null
+  getLatestScoredAnalysis(orgId: string, bidId: string): Promise<AnalysisView | null>;
   getAnalysis(orgId: string, id: string): Promise<AnalysisView | null>;
   // 같은 입력(공고 revision·프로필 revision·알고리즘, 04 §5 부분 UNIQUE)의 QUEUED·RUNNING run
   findRunningAnalysis(orgId: string, bidId: string, input: AnalysisInput): Promise<RunRef | null>;
@@ -73,6 +85,11 @@ export interface AnalysisQueue {
   enqueue(job: { orgId: string; scoreRunId: string; idempotencyKey: string }): Promise<void>;
 }
 
+// 분석 요청 속도 제한 포트(조직당 30회/분). 구현은 app 층(Redis)이 맡는다.
+export interface AnalysisRateLimiter {
+  hit(orgId: string): Promise<{ allowed: true } | { allowed: false; retryAfterSeconds: number }>;
+}
+
 export type ReviewTarget = {
   revisionId: string;
   // scoreRunId 를 주면 그 run, 없으면 공고의 최신 분석. 없으면 null
@@ -95,6 +112,8 @@ export type CreateReview = {
 export interface ReviewRepo {
   // 공고가 없으면 null
   getReviewTarget(orgId: string, bidId: string, scoreRunId?: string): Promise<ReviewTarget | null>;
+  // 공고의 결정 이력(이 조직 것만). 공고가 없으면 null, 결정이 없거나 다른 조직이면 []
+  listReviews(orgId: string, bidId: string): Promise<Review[] | null>;
   // 같은 조직 구성원인지
   isOrgMember(orgId: string, userId: string): Promise<boolean>;
   // bid_reviews + audit_logs (+ REVIEW_ASSIGNED outbox) 를 한 트랜잭션으로 쓴다

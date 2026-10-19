@@ -3,10 +3,24 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { SolRole } from "@/server/organization";
 import type { AnalysisView } from "./analysis-view.model";
-import { signCursor, verifyCursor, fingerprintOf, type BidListQuery } from "./bid-query";
+import {
+  cursorScope,
+  fingerprintOf,
+  signCursor,
+  verifyCursor,
+  type BidListQuery,
+  type PageQuery,
+} from "./bid-query";
 import type { BidDetail } from "./bid-detail.model";
-import type { AnalysisStatus, BidListItem, Page, ServiceErrorCode } from "./bid.model";
-import type { AnalysisQueue, BidsRepo, ListAfter, RunRef } from "./bids.repo";
+import {
+  isUuid,
+  type AnalysisStatus,
+  type BidListItem,
+  type Page,
+  type ServiceErrorCode,
+} from "./bid.model";
+import type { QualificationCheckView } from "./analysis-view.model";
+import type { AnalysisQueue, AnalysisRateLimiter, BidsRepo, ListAfter, RunRef } from "./bids.repo";
 
 // 공고·분석 서비스. 예상한 실패는 결과로 돌려주고, HTTP 로 옮기는 일은 Route Handler(B1)가 한다.
 
@@ -31,6 +45,10 @@ export function fail(
     ? { ok: false, status, code, message }
     : { ok: false, status, code, message, details };
 }
+
+// 커서 비밀(API_CURSOR_SECRET)이 없거나 짧으면 목록을 내지 않는다.
+export const cursorUnavailable = (): ServiceFailure =>
+  fail(503, "SERVICE_UNAVAILABLE", "커서 서명 설정이 올바르지 않습니다", { component: "cursor" });
 
 export type AnalysisContext = { orgId: string; userId: string; role: SolRole };
 export type AnalysisAccepted = {
@@ -65,17 +83,43 @@ function requestHashOf(bidId: string, profileRevision: number | undefined, force
     .digest("hex");
 }
 
-// 분석 요청: 권한 → 본문 → 공고 → 입력 → 멱등 → 진행 중 → 중복 → QUEUED 행 → 큐.
+export type AnalysisDeps = {
+  repo: BidsRepo;
+  queue: AnalysisQueue;
+  limiter: AnalysisRateLimiter;
+  // 큐 등록 실패의 원인을 로그로 남기는 곳(Route Handler 가 넘긴다). 응답에는 싣지 않는다.
+  onQueueError: (error: unknown) => void;
+};
+
+// 분석 요청: 권한 → 키 형식 → 속도 제한 → 본문 → 공고 → 입력 → 멱등 → 진행 중 → 중복 → QUEUED 행 → 큐.
 export async function requestAnalysis(
   ctx: AnalysisContext,
   bidId: string,
   input: unknown,
   idempotencyKey: string | null,
-  deps: { repo: BidsRepo; queue: AnalysisQueue },
+  deps: AnalysisDeps,
 ): Promise<ServiceResult<AnalysisAccepted>> {
-  const { repo, queue } = deps;
+  const { repo, queue, limiter } = deps;
   if (!canRequestAnalysis(ctx.role)) {
     return fail(403, "FORBIDDEN", "분석을 요청할 권한이 없습니다", { required: ANALYSIS_ROLES });
+  }
+  if (idempotencyKey !== null && !isUuid(idempotencyKey)) {
+    return fail(400, "VALIDATION_ERROR", "Idempotency-Key 는 UUID 여야 합니다", {
+      issues: [{ path: "Idempotency-Key", message: "UUID 여야 합니다" }],
+    });
+  }
+  let limit: Awaited<ReturnType<AnalysisRateLimiter["hit"]>>;
+  try {
+    limit = await limiter.hit(ctx.orgId);
+  } catch {
+    return fail(503, "SERVICE_UNAVAILABLE", "속도 제한 저장소에 연결하지 못했습니다", {
+      component: "redis",
+    });
+  }
+  if (!limit.allowed) {
+    return fail(429, "RATE_LIMITED", "분석 요청이 너무 많습니다", {
+      retryAfterSeconds: limit.retryAfterSeconds,
+    });
   }
   const parsed = analysisRequestSchema.safeParse(input ?? {});
   if (!parsed.success) {
@@ -140,6 +184,7 @@ export async function requestAnalysis(
   if ("conflict" in created) {
     // 동시 요청이 먼저 들어갔다. 위 분기와 같게 처리한다.
     if (created.conflict === "ACTIVE_INPUT") return active(created.run);
+    // 같은 키로 먼저 들어간 요청을 다시 찾는다. 못 찾으면 키만 쓰인 것이라 재생할 수 없다.
     const earlier = await repo.findIdempotency(ctx.orgId, storedKey);
     if (earlier === null) {
       return fail(409, "IDEMPOTENCY_KEY_REUSED", "같은 키의 요청을 확인할 수 없습니다");
@@ -149,7 +194,8 @@ export async function requestAnalysis(
   const run = created.created;
   try {
     await queue.enqueue({ orgId: ctx.orgId, scoreRunId: run.id, idempotencyKey: storedKey });
-  } catch {
+  } catch (error) {
+    deps.onQueueError(error);
     // QUEUED 행이 남으면 같은 입력의 다음 요청이 active 인덱스에 막힌다. FAILED 로 풀어 준다.
     await repo.markRunFailed(ctx.orgId, run.id, "ENQUEUE_FAILED");
     return fail(503, "SERVICE_UNAVAILABLE", "분석 큐에 넣지 못했습니다", { component: "queue" });
@@ -168,12 +214,13 @@ const accepted = (run: RunRef, deduplicated: boolean): ServiceResult<AnalysisAcc
 export async function listBids(
   orgId: string,
   query: BidListQuery,
-  cursorSecret: string,
+  cursorSecret: string | null,
   deps: { repo: BidsRepo },
 ): Promise<ServiceResult<Page<BidListItem>>> {
+  if (cursorSecret === null) return cursorUnavailable();
   let after: ListAfter = null;
   if (query.cursor !== null) {
-    const verified = verifyCursor(query.cursor, query, cursorSecret);
+    const verified = verifyCursor(query.cursor, fingerprintOf(query), cursorSecret);
     if (!verified.ok) return fail(400, "INVALID_CURSOR", "커서가 올바르지 않습니다");
     after = verified.payload;
   }
@@ -213,4 +260,54 @@ export async function getAnalysis(
     return fail(404, "NOT_FOUND", "분석을 찾을 수 없습니다", { resource: "analysis" });
   }
   return { ok: true, status: 200, data: analysis };
+}
+
+// GET /bids/:id/analyses. 커서는 공고마다 따로 묶는다.
+export async function listBidAnalyses(
+  orgId: string,
+  bidId: string,
+  query: PageQuery,
+  cursorSecret: string | null,
+  deps: { repo: BidsRepo },
+): Promise<ServiceResult<Page<AnalysisView>>> {
+  if (cursorSecret === null) return cursorUnavailable();
+  const scope = cursorScope("analyses", [bidId]);
+  let after: ListAfter = null;
+  if (query.cursor !== null) {
+    const verified = verifyCursor(query.cursor, scope, cursorSecret);
+    if (!verified.ok) return fail(400, "INVALID_CURSOR", "커서가 올바르지 않습니다");
+    after = verified.payload;
+  }
+  if (!(await deps.repo.bidExists(orgId, bidId))) {
+    return fail(404, "NOT_FOUND", "공고를 찾을 수 없습니다", { resource: "bid" });
+  }
+  const rows = await deps.repo.listAnalyses(orgId, bidId, query.limit, after);
+  const nextCursor =
+    rows.hasNext && rows.last !== null
+      ? signCursor({ ...rows.last, queryFingerprint: scope }, cursorSecret)
+      : null;
+  return {
+    ok: true,
+    status: 200,
+    data: {
+      items: rows.items,
+      pageInfo: { cursor: query.cursor, nextCursor, hasNext: nextCursor !== null },
+    },
+  };
+}
+
+// GET /bids/:id/qualification-checks. 이 조직의 최신 점수 run 에 저장된 행을 그대로 낸다(11 G5).
+export async function getQualificationChecks(
+  orgId: string,
+  bidId: string,
+  deps: { repo: BidsRepo },
+): Promise<ServiceResult<QualificationCheckView[]>> {
+  if (!(await deps.repo.bidExists(orgId, bidId))) {
+    return fail(404, "NOT_FOUND", "공고를 찾을 수 없습니다", { resource: "bid" });
+  }
+  const analysis = await deps.repo.getLatestScoredAnalysis(orgId, bidId);
+  if (analysis === null) {
+    return fail(404, "NOT_FOUND", "분석을 찾을 수 없습니다", { resource: "analysis" });
+  }
+  return { ok: true, status: 200, data: analysis.qualification.checks };
 }

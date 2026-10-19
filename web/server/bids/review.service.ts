@@ -57,3 +57,16 @@ export async function recordReview(
   });
   return { ok: true, status: 201, data: review };
 }
+
+// GET /bids/:id/reviews. 공고가 없으면 404, 다른 조직의 결정은 보이지 않으므로 200 [] 다(11 G5).
+export async function listReviews(
+  orgId: string,
+  bidId: string,
+  deps: { repo: ReviewRepo },
+): Promise<ServiceResult<Review[]>> {
+  const reviews = await deps.repo.listReviews(orgId, bidId);
+  if (reviews === null) {
+    return fail(404, "NOT_FOUND", "공고를 찾을 수 없습니다", { resource: "bid" });
+  }
+  return { ok: true, status: 200, data: reviews };
+}

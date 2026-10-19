@@ -12,7 +12,12 @@ export const reviewSchema = z.strictObject({
   bidId: z.string().min(1),
   revisionId: z.string().min(1),
   scoreRunId: z.string().nullable(),
-  reviewer: z.strictObject({ id: z.string().min(1), name: z.string(), role: roleSchema }),
+  reviewer: z.strictObject({
+    id: z.string().min(1),
+    name: z.string(),
+    // 결정한 사람이 조직을 떠나면 역할을 알 수 없다.
+    role: roleSchema.nullable(),
+  }),
   decision: recommendationSchema,
   reason: z.string(),
   decidedAt: z.string().min(1),

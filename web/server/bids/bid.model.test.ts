@@ -1,7 +1,15 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { z } from "zod";
 import type { SolRole } from "@/server/organization";
-import { bidListItemSchema, reviewFlagSchema, reviewInputSchema, roleSchema } from "./index";
+import {
+  bidListItemSchema,
+  effectiveStatus,
+  isUuid,
+  reviewFlagSchema,
+  reviewInputSchema,
+  reviewSchema,
+  roleSchema,
+} from "./index";
 
 const listItem = {
   id: "b1",
@@ -71,5 +79,50 @@ describe("bid.model", () => {
   it("roleSchema 는 organization 의 SolRole 과 같은 타입이다", () => {
     expectTypeOf<z.infer<typeof roleSchema>>().toEqualTypeOf<SolRole>();
     expect(roleSchema.options).toEqual(["ADMIN", "SALES", "ANALYST", "VIEWER"]);
+  });
+  it("reviewer.role 은 조직을 떠난 검토자라면 null 이다", () => {
+    const review = {
+      id: "r1",
+      bidId: "b1",
+      revisionId: "rev1",
+      scoreRunId: null,
+      reviewer: { id: "u1", name: "퇴사자", role: null },
+      decision: "BID",
+      reason: "사유",
+      decidedAt: "2026-10-19T00:00:00Z",
+      assignee: null,
+      systemRecommendationAtDecision: null,
+      disagreementFlag: false,
+    };
+    expect(reviewSchema.safeParse(review).success).toBe(true);
+    expect(
+      reviewSchema.safeParse({ ...review, reviewer: { id: "u1", name: "x", role: "BOSS" } })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("isUuid", () => {
+  it("UUID 만 통과한다", () => {
+    expect(isUuid("3f2b8c1e-9d4a-4b6e-8a1c-2d5e7f9a0b3c")).toBe(true);
+    expect(isUuid("abc")).toBe(false);
+    expect(isUuid("")).toBe(false);
+    expect(isUuid("3f2b8c1e-9d4a-4b6e-8a1c-2d5e7f9a0b3c-x")).toBe(false);
+  });
+});
+
+describe("effectiveStatus (B14)", () => {
+  const now = new Date("2026-10-19T00:00:00Z");
+  it("마감이 지난 OPEN·AMENDED 는 CLOSED 다", () => {
+    expect(effectiveStatus("OPEN", "2026-10-18T23:59:59Z", now)).toBe("CLOSED");
+    expect(effectiveStatus("AMENDED", "2026-10-01T00:00:00Z", now)).toBe("CLOSED");
+  });
+  it("마감 전이거나 마감이 없으면 저장 값이다", () => {
+    expect(effectiveStatus("OPEN", "2026-10-19T00:00:00Z", now)).toBe("OPEN");
+    expect(effectiveStatus("AMENDED", "2026-11-01T00:00:00Z", now)).toBe("AMENDED");
+    expect(effectiveStatus("OPEN", null, now)).toBe("OPEN");
+  });
+  it("CANCELLED 는 마감이 지나도 CANCELLED 다", () => {
+    expect(effectiveStatus("CANCELLED", "2026-10-01T00:00:00Z", now)).toBe("CANCELLED");
   });
 });

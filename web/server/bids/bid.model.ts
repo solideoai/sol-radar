@@ -213,6 +213,20 @@ export const bidOriginalSchema = z.strictObject({
   status: z.string().optional(),
 });
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (value: string): boolean => UUID_PATTERN.test(value);
+
+// ADR-030 B14: CLOSED 는 저장하지 않고 조회할 때 마감으로 계산한다. 뷰 bid_list_items 와 같은 규칙이다.
+export function effectiveStatus(
+  status: z.infer<typeof bidStatusSchema>,
+  deadlineAt: string | null,
+  now: Date,
+): z.infer<typeof bidStatusSchema> {
+  if (status !== "OPEN" && status !== "AMENDED") return status;
+  if (deadlineAt === null) return status;
+  return Date.parse(deadlineAt) < now.getTime() ? "CLOSED" : status;
+}
+
 export type BidStage = z.infer<typeof bidStageSchema>;
 export type BidStatus = z.infer<typeof bidStatusSchema>;
 export type Recommendation = z.infer<typeof recommendationSchema>;

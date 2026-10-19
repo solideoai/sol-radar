@@ -72,6 +72,37 @@ describe("listNotifications", () => {
   });
 });
 
+describe("listNotifications 커서 범위", () => {
+  it("unreadOnly true 로 발급한 커서를 false 로 검증하면 INVALID_CURSOR 다", async () => {
+    const first = await listNotifications("u1", { ...query, unreadOnly: true }, "secret", {
+      repo: repoOf([make("1", "/bids/a")], true),
+    });
+    const cursor = first.ok ? first.data.pageInfo.nextCursor : null;
+    expect(cursor).not.toBeNull();
+    const result = await listNotifications(
+      "u1",
+      { ...query, unreadOnly: false, cursor },
+      "secret",
+      {
+        repo: repoOf([]),
+      },
+    );
+    expect(result).toMatchObject({ ok: false, code: "INVALID_CURSOR" });
+  });
+});
+
+describe("listNotifications 커서 비밀", () => {
+  it("비밀이 null 이면 503 cursor 다", async () => {
+    const result = await listNotifications("u1", query, null, { repo: repoOf([]) });
+    expect(result).toMatchObject({
+      ok: false,
+      status: 503,
+      code: "SERVICE_UNAVAILABLE",
+      details: { component: "cursor" },
+    });
+  });
+});
+
 describe("markNotificationRead", () => {
   it("남의 알림은 404 다", async () => {
     const result = await markNotificationRead("u1", "none", { repo: repoOf([]) });

@@ -3,8 +3,10 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import {
   bidStageSchema,
+  bidStatusSchema,
   recommendationSchema,
   type BidStage,
+  type BidStatus,
   type Recommendation,
   type RunMode,
 } from "./bid.model";
@@ -22,10 +24,16 @@ export const BID_SORTS = [
 export type BidSort = (typeof BID_SORTS)[number];
 export type BidListOrigin = "live" | "demo" | "all";
 export type DecisionFilter = Recommendation | "NONE";
+// 05 §3: 기본은 진행 중인 공고(OPEN·AMENDED)다. "취소 포함"은 CANCELLED 를 더한다(ADR-029 A7).
+export const DEFAULT_BID_STATUS: readonly BidStatus[] = ["OPEN", "AMENDED"];
 
 export type BidListQuery = {
   q: string | null;
   stage: BidStage[];
+  status: BidStatus[];
+  // ISO8601 offset 문자열. from <= to
+  deadlineFrom: string | null;
+  deadlineTo: string | null;
   recommendation: Recommendation[];
   decision: DecisionFilter[];
   origin: BidListOrigin;
@@ -35,19 +43,30 @@ export type BidListQuery = {
 };
 
 export type QueryIssue = { path: string; message: string };
+export type PageQuery = { cursor: string | null; limit: number };
 export type RawQuery = Readonly<Record<string, string | string[] | undefined>>;
 
 const decisionSchema = z.union([recommendationSchema, z.literal("NONE")]);
+const isoOffset = z.iso.datetime({ offset: true, message: "offset 이 있는 ISO8601 이어야 합니다" });
+const limitSchema = z.coerce
+  .number()
+  .int()
+  .min(1, "1 이상이어야 합니다")
+  .max(100, "100 이하입니다");
+const originSchema = z.enum(["live", "demo", "all"]);
 const parsedSchema = z.strictObject({
   q: z.string().min(1, "검색어는 1자 이상입니다").max(100, "검색어는 100자 이하입니다").optional(),
   stage: z.array(bidStageSchema),
+  status: z.array(bidStatusSchema),
+  deadlineFrom: isoOffset.optional(),
+  deadlineTo: isoOffset.optional(),
   recommendation: z.array(recommendationSchema),
   decision: z.array(decisionSchema),
-  origin: z.enum(["live", "demo", "all"]).optional(),
+  origin: originSchema.optional(),
   isDemo: z.enum(["true", "false"]).optional(),
   sort: z.enum(BID_SORTS),
   cursor: z.string().min(1).optional(),
-  limit: z.coerce.number().int().min(1, "1 이상이어야 합니다").max(100, "100 이하입니다"),
+  limit: limitSchema,
 });
 
 function repeated(value: string | string[] | undefined): string[] {
@@ -63,13 +82,39 @@ function scalar(value: string | string[] | undefined): string | string[] | undef
 
 const defaultOrigin = (runMode: RunMode): BidListOrigin => (runMode === "live" ? "live" : "demo");
 
-export function parseBidListQuery(
-  query: RawQuery,
+export type ParseResult<T> = { ok: true; value: T } | { ok: false; issues: QueryIssue[] };
+
+// 반복 파라미터의 항목 번호는 클라이언트에게 뜻이 없으므로 파라미터 이름까지만 낸다.
+const issuesOf = (error: z.ZodError): QueryIssue[] =>
+  error.issues.map((issue) => ({
+    path: issue.path.filter((part) => typeof part === "string").join("."),
+    message: issue.message,
+  }));
+
+// origin 과 옛 isDemo 를 하나로 합친다. 둘의 뜻이 다르면 isDemo 의 실패다.
+function resolveOrigin(
+  origin: BidListOrigin | undefined,
+  isDemo: "true" | "false" | undefined,
   runMode: RunMode,
-): { ok: true; value: BidListQuery } | { ok: false; issues: QueryIssue[] } {
+): ParseResult<BidListOrigin> {
+  if (isDemo === undefined) return { ok: true, value: origin ?? defaultOrigin(runMode) };
+  const fromIsDemo: BidListOrigin = isDemo === "true" ? "demo" : "live";
+  if (origin !== undefined && origin !== fromIsDemo) {
+    return {
+      ok: false,
+      issues: [{ path: "isDemo", message: "isDemo 와 origin 의 뜻이 다릅니다" }],
+    };
+  }
+  return { ok: true, value: fromIsDemo };
+}
+
+export function parseBidListQuery(query: RawQuery, runMode: RunMode): ParseResult<BidListQuery> {
   const result = parsedSchema.safeParse({
     q: scalar(query.q),
     stage: repeated(query.stage),
+    status: repeated(query.status),
+    deadlineFrom: scalar(query.deadlineFrom),
+    deadlineTo: scalar(query.deadlineTo),
     recommendation: repeated(query.recommendation),
     decision: repeated(query.decision),
     origin: scalar(query.origin),
@@ -78,39 +123,94 @@ export function parseBidListQuery(
     cursor: scalar(query.cursor),
     limit: scalar(query.limit) ?? "20",
   });
-  if (!result.success) {
+  if (!result.success) return { ok: false, issues: issuesOf(result.error) };
+  const parsed = result.data;
+  const origin = resolveOrigin(parsed.origin, parsed.isDemo, runMode);
+  if (!origin.ok) return origin;
+  const { deadlineFrom, deadlineTo } = parsed;
+  if (
+    deadlineFrom !== undefined &&
+    deadlineTo !== undefined &&
+    Date.parse(deadlineFrom) > Date.parse(deadlineTo)
+  ) {
     return {
       ok: false,
-      issues: result.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
+      issues: [
+        { path: "deadlineFrom", message: "deadlineFrom 은 deadlineTo 보다 늦을 수 없습니다" },
+      ],
     };
-  }
-  const parsed = result.data;
-  if (parsed.isDemo !== undefined) {
-    const fromIsDemo: BidListOrigin = parsed.isDemo === "true" ? "demo" : "live";
-    if (parsed.origin !== undefined && parsed.origin !== fromIsDemo) {
-      return {
-        ok: false,
-        issues: [{ path: "isDemo", message: "isDemo 와 origin 의 뜻이 다릅니다" }],
-      };
-    }
-    parsed.origin = fromIsDemo;
   }
   return {
     ok: true,
     value: {
       q: parsed.q ?? null,
       stage: parsed.stage,
+      status: parsed.status.length > 0 ? parsed.status : [...DEFAULT_BID_STATUS],
+      deadlineFrom: deadlineFrom ?? null,
+      deadlineTo: deadlineTo ?? null,
       recommendation: parsed.recommendation,
       decision: parsed.decision,
-      origin: parsed.origin ?? defaultOrigin(runMode),
+      origin: origin.value,
       sort: parsed.sort,
       cursor: parsed.cursor ?? null,
       limit: parsed.limit,
     },
   };
+}
+
+const pageSchema = z.strictObject({
+  cursor: z.string().min(1).optional(),
+  limit: limitSchema,
+});
+
+// 커서 페이지 쪽 공통 쿼리(분석 이력).
+export function parsePageQuery(query: RawQuery): ParseResult<PageQuery> {
+  const result = pageSchema.safeParse({
+    cursor: scalar(query.cursor),
+    limit: scalar(query.limit) ?? "20",
+  });
+  if (!result.success) return { ok: false, issues: issuesOf(result.error) };
+  return { ok: true, value: { cursor: result.data.cursor ?? null, limit: result.data.limit } };
+}
+
+const notificationSchema = pageSchema.extend({ unreadOnly: z.enum(["true", "false"]) });
+
+export function parseNotificationQuery(
+  query: RawQuery,
+): ParseResult<PageQuery & { unreadOnly: boolean }> {
+  const result = notificationSchema.safeParse({
+    cursor: scalar(query.cursor),
+    limit: scalar(query.limit) ?? "20",
+    unreadOnly: scalar(query.unreadOnly) ?? "false",
+  });
+  if (!result.success) return { ok: false, issues: issuesOf(result.error) };
+  return {
+    ok: true,
+    value: {
+      cursor: result.data.cursor ?? null,
+      limit: result.data.limit,
+      unreadOnly: result.data.unreadOnly === "true",
+    },
+  };
+}
+
+const originOnlySchema = z.strictObject({
+  origin: originSchema.optional(),
+  isDemo: z.enum(["true", "false"]).optional(),
+});
+
+// 대시보드처럼 origin 만 받는 쿼리.
+export function parseOriginQuery(
+  query: RawQuery,
+  runMode: RunMode,
+): ParseResult<{ origin: BidListOrigin }> {
+  const result = originOnlySchema.safeParse({
+    origin: scalar(query.origin),
+    isDemo: scalar(query.isDemo),
+  });
+  if (!result.success) return { ok: false, issues: issuesOf(result.error) };
+  const origin = resolveOrigin(result.data.origin, result.data.isDemo, runMode);
+  return origin.ok ? { ok: true, value: { origin: origin.value } } : origin;
 }
 
 // ── 커서 ──
@@ -122,17 +222,35 @@ export const cursorPayloadSchema = z.strictObject({
 });
 export type CursorPayload = z.infer<typeof cursorPayloadSchema>;
 
+export type CursorKind = "bids" | "analyses" | "notifications";
+
+// 커서가 묶이는 범위의 지문. 종류가 달라지면 같은 값이어도 지문이 다르다.
+export function cursorScope(kind: CursorKind, parts: readonly unknown[]): string {
+  return createHash("sha256")
+    .update(JSON.stringify([kind, ...parts]))
+    .digest("hex")
+    .slice(0, 32);
+}
+
 // 커서와 페이지 크기를 뺀 필터·정렬의 지문. 이것이 바뀌면 커서를 버린다.
 export function fingerprintOf(query: BidListQuery): string {
-  const key = JSON.stringify([
+  return cursorScope("bids", [
     query.q,
     [...query.stage].sort(),
+    [...query.status].sort(),
+    query.deadlineFrom,
+    query.deadlineTo,
     [...query.recommendation].sort(),
     [...query.decision].sort(),
     query.origin,
     query.sort,
   ]);
-  return createHash("sha256").update(key).digest("hex").slice(0, 32);
+}
+
+// API_CURSOR_SECRET 를 읽는다. 공백을 뗀 뒤 32자 미만이면 쓰지 않는다(null → 서비스가 503).
+export function readCursorSecret(value: string | undefined): string | null {
+  const secret = value?.trim() ?? "";
+  return secret.length >= 32 ? secret : null;
 }
 
 const sign = (body: string, secret: string) =>
@@ -145,7 +263,7 @@ export function signCursor(payload: CursorPayload, secret: string): string {
 
 export function verifyCursor(
   cursor: string,
-  query: BidListQuery,
+  fingerprint: string,
   secret: string,
 ): { ok: true; payload: CursorPayload } | { ok: false; code: "INVALID_CURSOR" } {
   const invalid = { ok: false, code: "INVALID_CURSOR" } as const;
@@ -163,6 +281,6 @@ export function verifyCursor(
     return invalid;
   }
   const payload = cursorPayloadSchema.safeParse(json);
-  if (!payload.success || payload.data.queryFingerprint !== fingerprintOf(query)) return invalid;
+  if (!payload.success || payload.data.queryFingerprint !== fingerprint) return invalid;
   return { ok: true, payload: payload.data };
 }
