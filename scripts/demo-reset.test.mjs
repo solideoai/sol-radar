@@ -59,7 +59,7 @@ const demoIdFor = (kind, keys) => {
   return demoPlan.demoIdFor(kind, keys);
 };
 
-// 공고 fixture(manifest + fixtures/bids). seedDemo 는 더 받지 않고, 가짜 ingestBids 와 mock 추출 fixture 만 쓴다.
+// 공고 fixture(manifest + fixtures/bids). seedDemo 는 더 받지 않고, 가짜 ingestBids 만 쓴다.
 const bidFixtures = await loadBidFixtures({ root: ROOT });
 const peopleFixtures = await loadPeopleFixtures();
 
@@ -109,7 +109,7 @@ const companyProfile = {
   },
 };
 
-// mock 추출 fixture 의 최소 모양(03 §4.1 envelope). FX-07 은 r01 파일을 따로 두고, FX-05 는 첨부 파싱 실패 경고를 둔다.
+// mock 추출 fixture 의 최소 모양(03 §4.1 envelope). plan.mjs 의 추출 도우미 시험에 쓴다(seed 는 추출을 넣지 않는다).
 const extractionFor = (fixtureId, revision, warnings = []) => {
   const revisionId = `${fixtureId}#${String(revision).padStart(2, "0")}`;
   return {
@@ -142,23 +142,8 @@ const extractionFor = (fixtureId, revision, warnings = []) => {
   };
 };
 
-const extractionFixtures = (() => {
-  const files = {};
-  for (const fixtureId of bidFixtures.manifest.batches.SEED) {
-    if (fixtureId === "FX-12") continue;
-    files[`${fixtureId}.json`] = extractionFor(
-      fixtureId,
-      fixtureId === "FX-07" ? 2 : 1,
-      fixtureId === "FX-05" ? ["ATTACHMENT_PARSE_FAILED:FX-05-rfp"] : [],
-    );
-  }
-  files["FX-07.r01.json"] = extractionFor("FX-07", 1);
-  return { index: indexExtractionFiles(Object.keys(files)), files };
-})();
-
 // seedDemo 의 fixture. 공고(fixtures.bids)는 넣지 않는다 — 공고는 ingestBids 가 읽는다(C3 6-5 보충).
 const fixtures = {
-  extractions: extractionFixtures,
   company: companyProfile,
   people: peopleFixtures,
 };
@@ -901,7 +886,7 @@ const SEED_SUMMARY = {
 // node --test 가 부르지 못한다. 그래서 SEED 레코드 19건(FX-12 제외)을 간단한 p 로 만들어 실제 RPC
 // public.ingest_save_revision 을 SQL 로 부른다 — 공고·revision·첨부(PENDING)·outbox 이벤트는 RPC 가 쓴다.
 // 정규화는 다시 구현하지 않는다(날짜·금액은 null, checksum 은 레코드의 sha256). 정규화 값은 C3 vitest 가 본다.
-// 목적은 나머지 seed(추출·리뷰·배정·감사·집계)와 "두 번 돌려도 공고 id 가 같다" 를 PGlite 위에서 계속 보는 것이다.
+// 목적은 나머지 seed(리뷰·배정·감사·집계), 추출을 넣지 않는 것, "두 번 돌려도 공고 id 가 같다" 를 PGlite 위에서 계속 보는 것이다.
 const SEED_RECORDS = bidFixtures.manifest.batches.SEED.flatMap((fixtureId) =>
   bidFixtures.bids[fixtureId].records
     .filter((record) => record.ingestBatch === "SEED")
@@ -1033,7 +1018,8 @@ describe("PGlite 위에서 demo:reset", () => {
     assert.equal(first.ok, true);
     assert.deepEqual(first.mismatches, []);
     assert.deepEqual(first.ingestRun.summary, SEED_SUMMARY);
-    assert.equal(first.extractions, 19);
+    // 추출은 넣지 않는다. fixture 원본이 캐시가 되면 worker 가 /extract(인용 검증)를 건너뛴다 — FX-13 이 KNOWN 으로 남는다.
+    assert.equal(await count(db, "select count(*) from public.requirement_extractions"), 0);
     const before = await snapshot(db);
     assert.equal(before.people.length, 200);
     assert.equal(before.users.length, 3 + 5); // migratedDb 의 가입자 3 + 데모 계정 5
@@ -1096,6 +1082,11 @@ describe("PGlite 위에서 demo:reset", () => {
     await db.query(
       "insert into public.bid_reviews (org_id, bid_id, revision_id, reviewer_id, decision, reason) values ($1, $2, $3, $4, 'WATCH', '데모 중 라이브로 기록한 결정이다')",
       [orgUuid("org-01"), fx02.id, fx02Revision.id, admin.id],
+    );
+    // 지난 리허설의 사전 분석(demo:preanalyze)이 gateway 를 거쳐 저장한 추출.
+    await db.query(
+      "insert into public.requirement_extractions (bid_id, revision_id, provider, model_name, prompt_version, prompt_hash, schema_version, status) values ($1, $2, 'MOCK', 'mock', 'req-extract/v0.1', 'hash', 'requirement-extraction/v0.1', 'COMPLETED')",
+      [fx02.id, fx02Revision.id],
     );
 
     const second = await run();
@@ -1164,21 +1155,8 @@ describe("PGlite 위에서 demo:reset", () => {
       0,
     );
     assert.equal(await count(db, "select count(*) from public.bid_structured_requirements"), 0);
-    const extractions = (
-      await db.query(
-        "select e.status, e.provider, e.payload, n.notice_id from public.requirement_extractions e join public.bid_notices n on n.id = e.bid_id",
-      )
-    ).rows;
-    assert.equal(extractions.length, 19);
-    assert.ok(extractions.every((row) => row.provider === "MOCK"));
-    assert.equal(
-      extractions.find((row) => row.notice_id === "DEMO-2026-0005").status,
-      "PENDING_REVIEW",
-    );
-    const fx07 = extractions.find((row) => row.notice_id === "DEMO-2026-0007");
-    assert.equal(fx07.status, "COMPLETED");
-    assert.ok(!JSON.stringify(fx07.payload).includes("FX-07#"));
-    assert.match(fx07.payload.revisionId, /^[0-9a-f-]{36}$/);
+    // 지난 리허설의 추출은 데모 공고와 함께 지워졌고(FK cascade), seed 는 새로 넣지 않는다.
+    assert.equal(await count(db, "select count(*) from public.requirement_extractions"), 0);
     const reviews = (
       await db.query(
         "select n.notice_id, r.decision, r.system_recommendation, r.disagreement_flag, p.email from public.bid_reviews r join public.bid_notices n on n.id = r.bid_id join public.profiles p on p.id = r.reviewer_id order by n.notice_id",
