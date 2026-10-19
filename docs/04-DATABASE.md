@@ -90,24 +90,16 @@ erDiagram
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
 |`auth.users`|Supabase Auth 관리. 이메일, 비밀번호 해시, 세션·refresh token(`auth.sessions`, `auth.refresh_tokens`), 로그인 차단(`banned_until`)|SOL RADAR 마이그레이션은 이 표를 만들거나 고치지 않는다|화면 역할은 접근하지 않는다(`auth` 스키마는 생성 타입·화면 대상이 아니다)|
-|`profiles`|`id` UUID PK = `auth.users.id`(on delete cascade), `email`(가입 정보 사본), `display_name` nullable, `avatar_url` nullable, **`declared_department_id` UUID nullable FK departments(ON DELETE SET NULL), `declared_job_title_id` UUID nullable FK job_titles(ON DELETE SET NULL)**(가입 신고 정보, 아래 ADR-019), `is_admin` boolean default false(서비스 운영자), `status` text default `active`, `created_at`, `updated_at`|`status` ∈ `active`·`suspended`(check). `display_name` 1~40자. 행은 가입 트리거 `handle_new_user`가 만든다. 가입 트리거의 개인 조직 생성은 새 마이그레이션으로 중단하고, 이미 있는 개인 조직은 보존한다([[16-DECISIONS\|ADR-021]])|읽기: 본인, 같은 조직 멤버, 운영자(`is_admin()`). 쓰기: 본인의 `display_name`과 검증된 가입 신고 부서·직급만. 신고 값은 멤버십·업무 권한과 별개다. `is_admin`·`status`는 화면 역할이 못 바꾼다(권한 + 보호 트리거). 정지는 운영자 함수 `admin_set_user_status`|
-|`organizations`|`id` UUID PK, `slug` text, `name` text, `personal_owner_id` nullable(개인 조직의 주인, 팀 조직이면 null), `created_at`, **`is_demo` boolean default false**(SOL RADAR가 새 마이그레이션으로 더한다)|`slug` UNIQUE, `^[a-z0-9-]{3,32}$`, 예약어 제외. `name` 1~40자|읽기: 멤버, 받은 초대가 있는 사람. 쓰기: 팀 만들기는 서비스 운영자(`profiles.is_admin`)만([[16-DECISIONS\|ADR-026]], `20261019000008`), owner의 이름 변경·삭제는 템플릿 정책 그대로. `is_demo`는 화면 역할 쓰기 권한이 없다(seed만)|
-|`memberships`|`org_id` FK, `user_id` FK profiles, `org_role` text default `member`, **`sol_role` text default `VIEWER`**(새 열), `created_at`|PK(`org_id`,`user_id`). `org_role` ∈ `owner`·`member`, `sol_role` ∈ `ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check)|읽기: 같은 조직 멤버. 쓰기: 템플릿 정책(초대 수락, owner의 `org_role` 변경·내보내기, 스스로 나가기). `sol_role` 변경은 그 조직의 역할 `ADMIN`만(아래). 구성원 관리 정책은 새 마이그레이션에서 `sol_role='ADMIN'` 기준으로 바꾼다([[16-DECISIONS\|ADR-021]])|
-|`invitations`|`id`, `org_id` FK, `email`(소문자), `org_role` text default `member`, **`sol_role` text default `VIEWER`**(새 열), `invited_by` FK profiles, `expires_at`(기본 7일), `created_at`|UNIQUE(`org_id`,`email`). `org_role`·`sol_role` check는 `memberships`와 같다|템플릿 정책: owner가 읽기·만들기·갱신·취소, 받은 사람이 읽기·거절·수락. 수락하면 초대의 `sol_role`이 멤버십으로 옮겨진다(초대 수락 정책을 새 마이그레이션에서 교체). owner 기준 정책은 `sol_role='ADMIN'` 기준으로 바꾼다([[16-DECISIONS\|ADR-021]])|
+|`profiles`|`id` UUID PK = `auth.users.id`(on delete cascade), `email`(가입 정보 사본), `display_name` nullable, `avatar_url` nullable, **`declared_department_id` UUID nullable FK departments(ON DELETE SET NULL), `declared_job_title_id` UUID nullable FK job_titles(ON DELETE SET NULL)**(가입 신고 정보, 아래 ADR-019), `is_admin` boolean default false(서비스 운영자), `status` text default `active`, `created_at`, `updated_at`|`status` ∈ `active`·`suspended`(check). `display_name` 1~40자. 행은 가입 트리거 `handle_new_user`가 만든다. 가입 트리거는 개인 조직을 만들지 않는다(`20261016000004`부터). 이미 있는 개인 조직은 보존한다([[16-DECISIONS\|ADR-021]])|읽기: 본인, 같은 조직 멤버, 운영자(`is_admin()`). 쓰기: 본인의 `display_name`과 검증된 가입 신고 부서·직급만. 신고 값은 멤버십·업무 권한과 별개다. `is_admin`·`status`는 화면 역할이 못 바꾼다(권한 + 보호 트리거). 정지는 운영자 함수 `admin_set_user_status`|
+|`organizations`|`id` UUID PK, `slug` text, `name` text, `personal_owner_id` nullable(개인 조직의 주인, 팀 조직이면 null), `created_at`, **`is_demo` boolean default false**(SOL RADAR가 더한 열, `20261016000001`)|`slug` UNIQUE, `^[a-z0-9-]{3,32}$`, 예약어 제외. `name` 1~40자|읽기: 멤버, 받은 초대가 있는 사람. 쓰기: 팀 만들기는 서비스 운영자(`profiles.is_admin`)만([[16-DECISIONS\|ADR-026]], `20261019000008`), owner의 이름 변경·삭제는 템플릿 정책 그대로. `is_demo`는 화면 역할 쓰기 권한이 없다(seed만)|
+|`memberships`|`org_id` FK, `user_id` FK profiles, `org_role` text default `member`, **`sol_role` text default `VIEWER`**(새 열, `20261018000001`), `created_at`|PK(`org_id`,`user_id`). `org_role` ∈ `owner`·`member`, `sol_role` ∈ `ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check)|읽기: 같은 조직 멤버. 쓰기: 초대 수락, 역할(`org_role`·`sol_role`) 변경과 내보내기는 그 조직의 역할 `ADMIN`, 스스로 나가기. `20261019000001`이 템플릿의 owner 기준 정책을 `sol_role='ADMIN'` 기준으로 바꿨다([[16-DECISIONS\|ADR-021]]). `sol_role` 변경 잠금은 아래|
+|`invitations`|`id`, `org_id` FK, `email`(소문자), `org_role` text default `member`, **`sol_role` text default `VIEWER`**(새 열, `20261019000001`), `invited_by` FK profiles, `expires_at`(기본 7일), `created_at`|UNIQUE(`org_id`,`email`). `org_role`·`sol_role` check는 `memberships`와 같다|그 조직의 역할 `ADMIN`이 읽기·만들기·갱신·취소, 받은 사람이 읽기·거절·수락. 수락하면 초대의 `sol_role`이 멤버십으로 옮겨진다(초대 수락 트리거·정책). `20261019000001`이 템플릿의 owner 기준 정책을 바꾼 것이다([[16-DECISIONS\|ADR-021]])|
 |`activities`|템플릿 그대로: `org_id`, `actor_id`, `kind`, `target_user_id`, `target_name`, `old_role`, `new_role`, `task_title`, `created_at`|`kind` check(템플릿)|읽기: 조직 전원. 쓰기: 트리거만. 멤버 합류·역할 변경·초대 피드다. SOL RADAR의 업무 감사는 `audit_logs`(§3.6)가 맡는다|
 |`tasks`|템플릿 그대로(`20261014000004_tasks_and_activity.sql`: `title`, `description`, `status`, `due_date`, `assignee_id` 등). P1: `bid_project_id` nullable 열, (`bid_project_id`,`org_id`) → `bid_projects(id, org_id)` 복합 FK([[16-DECISIONS\|ADR-021]])|템플릿 그대로|템플릿 정책(조직 구성원 쓰기). P1: `bid_project_id`가 있는 행(입찰 프로젝트 체크리스트)은 SALES·ADMIN만 쓰는 제한 정책. 담당자는 로그인 계정|
 
 **없는 것**: `users`·`refresh_tokens` 표, 비밀번호 해시·계정 잠금·마지막 로그인 열. 로그인·세션·토큰·잠금은 Supabase Auth(`auth.users`, `auth.sessions`, `auth.refresh_tokens`)가 맡는다. 계정 비활성화는 `disabled_at` 대신 템플릿 `profiles.status = 'suspended'`를 쓴다(템플릿 `20261015000001_account_status_and_deletion.sql`). 정지하면 로그인이 막히고 세션이 끊기며, `my_org_ids()`가 빈 목록을 돌려줘 조직 데이터가 모두 닫힌다.
 
-역할은 세 가지이고 서로 다르다.
-
-|열|값|쓰임|
-|---|---|---|
-|`profiles.is_admin`|boolean|서비스 운영자. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다|
-|`memberships.org_role`|`owner`·`member`|템플릿 호환용. 구성원 관리(초대·역할 변경·내보내기)는 `sol_role=ADMIN`이 본다([[16-DECISIONS\|ADR-021]])|
-|`memberships.sol_role`|`ADMIN`·`SALES`·`ANALYST`·`VIEWER`|업무 권한. [[05-API-SPEC\|05 API 명세]] 권한 열과 [[09-SECURITY\|09 보안]] RBAC가 이 값을 본다|
-
-데모 `admin@soltech.invalid`는 `org_role=owner` + `sol_role=ADMIN`이다.
+역할은 세 가지이고 서로 다르다(`profiles.is_admin`, `memberships.org_role`, `memberships.sol_role`). 열 정의는 위 표다. 쓰임과 권한 규칙은 [[09-SECURITY|09 보안]] RBAC가 정본이다. 데모 계정의 역할은 §6 표다.
 
 정책 도우미 함수:
 - 템플릿 함수를 그대로 쓴다: `public.my_org_ids()`(내 조직), `public.my_owner_org_ids()`(내가 owner인 조직), `public.is_admin()`(서비스 운영자), `public.is_active_user()`(활동 중 회원). 넷 다 정지된 사용자에게는 빈 목록 또는 false를 돌려준다.
@@ -115,11 +107,11 @@ erDiagram
 
 `sol_role` 변경 잠금: `authenticated`에 `memberships.sol_role` 열의 update 권한을 주고, 정책 "ADMIN은 업무 역할 변경"(`org_id in (select public.my_sol_org_ids(array['ADMIN']))`)으로 연다. 템플릿의 owner 정책도 같은 표의 update를 열기 때문에 정책만으로는 owner가 `sol_role`을 바꿀 수 있다. 그래서 보호 트리거 `protect_sol_role`을 둔다. 템플릿 `protect_is_admin`과 같은 기준으로, JWT가 있는 요청 중 그 조직 ADMIN이 아닌 사람의 `sol_role` 변경을 거절하고 service role·관리 작업은 통과시킨다.
 
-> [!todo] Phase 1에서 정할 것 (조직·사용자)
-> 1. **개인 조직**: 템플릿 가입 트리거는 계정마다 개인 조직(`personal_owner_id`)과 owner 멤버십을 만든다. SOL RADAR 조직(솔리데오·비교 조직)은 팀 조직(`personal_owner_id is null`)이다. 트리거를 유지하면 계정마다 멤버십이 둘이 된다. 유지할지, 새 마이그레이션으로 끌지 정하고, 세션의 "현재 조직" 선택 규칙([[05-API-SPEC|05 API 명세]] `Me.organization`)을 같이 정한다. → **결정됨([[16-DECISIONS|ADR-021]])**: 가입 시 개인 조직 생성을 새 마이그레이션으로 중단하고, 이미 있는 개인 조직은 보존한다. 현재 조직은 서버가 업무 멤버십으로 정한다([[05-API-SPEC|05 API 명세]] §1).
-> 2. **초대·구성원 관리 권한**: 템플릿 정책은 `org_role=owner`를 본다. 05는 `sol_role=ADMIN`을 요구한다. 정책을 ADMIN 기준으로 바꿀지, ADMIN에게 owner를 함께 줄지 정한다. 데모 계정은 둘 다 가져서 동작은 같다. → **결정됨([[16-DECISIONS|ADR-021]])**: 정책을 `sol_role='ADMIN'` 기준으로 바꾼다.
-> 3. **비활성화**: 템플릿에서 `profiles.status`(계정 정지)는 서비스 운영자(`is_admin`)만 `admin_set_user_status`로 바꾼다. 05 `PATCH /admin/users/:id`의 조직 ADMIN 비활성화를 구성원 내보내기로 할지, 운영자 정지로 넘길지 정한다.
-> 4. **로그인 감사**: 로그인은 브라우저가 Supabase Auth로 직접 한다(템플릿 `web/app/auth/login/sign-in-form.tsx`). `audit_logs`의 `LOGIN`·`LOGOUT`을 남길 지점(로그인 직후 서버 호출, 또는 Supabase Auth 쪽 로그 사용)을 정한다(미검증).
+Phase 1 조직·사용자 결정(마이그레이션 머리 주석의 "§3.1 결정 N"이 이 번호다):
+1. 개인 조직과 현재 조직: 위 `profiles` 행과 [[05-API-SPEC|05 API 명세]] §1 현재 조직([[16-DECISIONS|ADR-021]]).
+2. 구성원 관리 권한: `sol_role='ADMIN'` 기준(위 `memberships`·`invitations` 행, ADR-021).
+3. 비활성화: 조직 ADMIN의 비활성화는 그 조직에서 내보내기다([[05-API-SPEC|05 API 명세]] §2 `DELETE /admin/users/:id`, [[09-SECURITY|09 보안]] 인증). 계정 정지(`profiles.status`)는 서비스 운영자만 `admin_set_user_status`로 한다.
+4. 로그인 감사: `audit_logs`의 `LOGIN`·`LOGOUT`을 남길 지점은 [[16-DECISIONS|16 ADR]] 미결정 14번이다.
 
 ### 3.2 회사 프로필
 
@@ -127,7 +119,7 @@ erDiagram
 |---|---|---|---|
 |`company_profiles`|`id`, `org_id` FK, `revision` int, `name`, `technologies` JSONB, **`technologies_complete` boolean NOT NULL default false**, `licenses` JSONB, **`industry_codes` JSONB**, `past_projects` JSONB, `financials` JSONB nullable, `preferences` JSONB nullable, **`is_demo` boolean NOT NULL default true**, `effective_at`, `created_by` FK profiles(기본값 `auth.uid()`, on delete set null), `note` text, `created_at`|UNIQUE(`org_id`,`revision`), UNIQUE(`id`,`org_id`)(복합 FK 대상). 행은 불변, 수정은 새 revision|읽기: 조직 전원. 쓰기: insert만 역할 `ADMIN`(`PUT /company-profile`), `created_by = auth.uid()`. update·delete 권한 없음. `revision`은 서버가 최신 + 1로 넣고, 동시 요청이 겹치면 UNIQUE가 거절한다. `is_demo`는 화면 역할의 insert 열 권한에서 빼서 기본값 `true`만 들어간다|
 
-굵게 쓴 세 열은 [[16-DECISIONS|ADR-020]]으로 더한 것이다(첫 SOL 마이그레이션에 처음부터 넣는다, §7).
+굵게 쓴 열 설명([[16-DECISIONS|ADR-020]]):
 
 - `is_demo`: 모든 실행 모드에서 회사 프로필은 가상 솔리데오 프로필이다(§1). 화면은 이 값으로 "가상 회사 프로필로 분석" 배지를 붙인다. `false`인 행을 만드는 경로는 별도 ADR과 [[09-SECURITY|09 보안]] 개정 전에는 두지 않는다.
 - **명시적 부정 기록**: 자격 판정에서 `NOT_SATISFIED`(미충족)는 공고 쪽 근거와 회사 쪽 **명시적 부정 근거**가 둘 다 있어야 한다. 정보가 없다는 사실만으로는 미충족이 되지 않고 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다([[08-SCORING|08 점수]] §5.1). 그래서 프로필이 "없다"를 적을 수 있어야 한다.
@@ -151,7 +143,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 
 괄호 안 이름(`bid_stage` 등)은 §4의 값 집합이다. 열 타입은 `text`이고 값은 check 제약으로 묶는다.
 
-[[16-DECISIONS|ADR-020]]으로 더한 열의 뜻:
+열 설명([[16-DECISIONS|ADR-020]]):
 - `bid_notices.pre_spec_ref`: 사전규격 등록번호(`bfSpecRgstNo`). `plan_ref`(발주계획 `orderPlanUntyNo`)와 함께 단계를 잇는다.
 - `bid_documents`: 다운로드와 파싱을 따로 기록한다. 한 유형의 실패를 다른 유형으로 뭉뚱그리지 않는다([[03-AI-PIPELINE|03 AI 파이프라인]] 실패 유형, [[16-DECISIONS|ADR-020]]).
   - `download_status`: `PENDING` → `OK` 또는 `FAILED`. `FAILED`면 `download_error_code`에 사유(`AUTH_REQUIRED`·`HTTP_4XX`·`HTTP_5XX`·`REDIRECT_BLOCKED`·`HOST_NOT_ALLOWED`·`TOO_LARGE`·`TIMEOUT`, 값 집합 check 없이 text)를 적고 파일 열은 비운다. 이때 분석은 본문만으로 추출하고, 첨부에 의존하는 항목은 `NEEDS_REVIEW`가 된다.
@@ -183,29 +175,27 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 
 `factor` 값은 `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference` 다섯 개로 [[08-SCORING|08 점수]]의 요소 순서와 같다. `score_runs`의 `ai_provider`·`qwen_model`·`kev_model`·`question_set_version`·`prompt_hash`·`input_snapshot_hash`·`injection_suspected`는 [[09-SECURITY|09 보안]] 감사 필드 표와 이름이 같은 평문 컬럼이며, `model_metadata` JSONB와 중복 저장한다(조회·감사용). `input_snapshot_hash = sha256(canonical input_snapshot)`. `score_runs.input_snapshot`은 `{schemaVersion:"analysis-input/v0.1", bid: NormalizedBid 요약, extractionId, profile: CompanyProfile 스냅샷, team:{members, assignments, asOf}, config:{algorithmVersion, thresholds}}`. `team.members`는 계산에 쓴 하위 27명의 personId·직무·기술등급·스킬·가용성이고 `team.assignments`는 해당 기간 배정 스냅샷, `team.asOf`는 고정 계산 기준 시각이다. 이름·성별·사진은 점수 입력에 넣지 않는다. 200명 명부가 바뀌어도 당시 계산을 재현할 수 있어야 한다. `score_factors.org_id`는 RLS를 다른 조직 표와 같은 식 하나로 쓰려고 둔다. 값은 부모 `score_runs.org_id`와 같아야 하고 복합 FK가 이를 강제한다.
 
-[[16-DECISIONS|ADR-020]]으로 더한 열과 표:
+열 설명([[16-DECISIONS|ADR-020]]):
 - `score_runs.run_mode`: 그 분석을 돌린 실행 모드. `kev_calibration`: Kev 임계값의 보정 상태(`UNCALIBRATED`가 기본, Kev를 쓰지 않은 run은 null). `fallback_reason`: `AI_FALLBACK_TO_MOCK=true`에서 mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`). 자동 대체는 기본으로 꺼져 있고 `live` 모드에서는 켤 수 없다.
 - `score_runs.kev_output`: Kev 응답 원문과 함께 `KevStateTrace`(state 줄마다의 공고 인용·회사 증빙, `stateHash`)를 담는다([[03-AI-PIPELINE|03 AI 파이프라인]]). Kev는 인용을 만들지 못하므로 근거 추적은 이 trace로 한다.
 - `qualification_checks`: `reason_code`는 `NEEDS_REVIEW`의 사유, `basis`는 공고 쪽 값이 API 구조화 필드(`API_FIELD`)에서 왔는지 Qwen 추출(`EXTRACTION`)에서 왔는지다. `company_evidence`는 회사 쪽 근거를 `CompanyEvidenceRef`(프로필 revision·종류·레코드 키·증빙 파일·인용, [[15-DATA-CONTRACTS|15 데이터 계약]])로 남긴다. 기존 `profile_evidence`(`{type, ref, label}` 표시용)는 그대로 둔다.
 - `requirement_assessments`: 요구사항 항목(기술·실적·인력·자격)마다 규칙 판정·사유·양쪽 근거와 Kev 분포·라벨·플래그를 한 행에 둔다. `item_id`는 추출 필드 경로(예: `requiredSkills[2]`, `qualifications[0]`)다. `kev_distribution`·`kev_label`은 참고 지표이고 `rule_status`·점수·권고를 바꾸지 않는다([[08-SCORING|08 점수]] §5.4).
 - 미충족(`NOT_SATISFIED`)에는 공고 쪽 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 한다. 이 규칙은 규칙 엔진과 zod 스키마, 단위 시험이 강제한다(JSONB 내부라 DB check로 걸지 않는다, §1).
-- `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)를 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장할지, 값 집합에 `NOT_APPLICABLE`을 더할지는 구현자가 정한다(ADR-020). 결정 경로에서 둘을 같게 다루는 것은 바뀌지 않는다.
+- `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)는 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장한다(`web/server/scoring/qualification.ts`). 값 집합은 3값 그대로이고, 결정 경로에서는 다른 `NEEDS_REVIEW`와 같게 다룬다.
 
-### 3.5 부서·직급 카탈로그와 인력 (ADR-019, 마이그레이션 4개로 구현됨)
+### 3.5 부서·직급 카탈로그와 인력 (ADR-019)
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
 |`departments`|`id` UUID PK, `org_id` FK, `code` text, `name` text, `source_count` int, `target_count` int nullable, `is_demo`, `created_at`. [[16-DECISIONS\|ADR-021]]: `parent_id` UUID nullable(상위 부서, 같은 org 복합 FK 자기 참조), `kind` text nullable(`DIVISION`·`GROUP`·`TEAM`)|UNIQUE(`org_id`,`code`), UNIQUE(`org_id`,`name`), UNIQUE(`id`,`org_id`). `target_count >= 1`은 팀(`kind`가 `TEAM`이거나 null)에만 건다. 본부·그룹은 `target_count`가 null인 것이 정상이다. 직원 소속(`team_members.department_id`)은 팀만. 순환·없는 `parent_id`·자기 참조·깊이 3 초과는 seed 전 데이터 검증에서 오류로 잡는다|읽기: 조직 전원. 쓰기: seed만. 공개 가입 옵션은 DB 표를 직접 열지 않고 승인 fixture의 ID·표시명만 반환. 가입 선택 목록은 팀만이다|
 |`job_titles`|`id` UUID PK, `org_id` FK, `code` text, `label` text, `sort_order` int, `created_at`|UNIQUE(`org_id`,`code`), UNIQUE(`org_id`,`label`), UNIQUE(`id`,`org_id`)|`departments`와 같음|
-|`team_members`|운영 정보만([[16-DECISIONS\|ADR-021]]): `id` UUID PK, `org_id` FK, `person_code` text, `name`, `gender` text, `department_id` FK, `job_title_id` FK, `portrait_path` text, `is_demo`, `created_at`, `updated_at`. 점수 계산 속성은 아래 `team_member_scoring`에 둔다. P1: `employment_status` text(`ACTIVE`·`LEFT`, 기본 `ACTIVE`)|UNIQUE(`id`,`org_id`), UNIQUE(`org_id`,`person_code`), UNIQUE(`org_id`,`name`). 부서·직급은 같은 org 복합 FK. 가상 seed 이름은 한글 세 글자, gender는 MALE/FEMALE|읽기: 조직 전원. 쓰기: seed(service role)만. 로그인 계정 자동 생성 없음. 인력 배정 API/화면은 P1. 조회 화면 `/people`은 데모 필수(ADR-021). P1: ADMIN 쓰기 정책(추가·부서/직급 이동·퇴사 처리), 변경마다 `audit_logs`|
+|`team_members`|운영 정보만([[16-DECISIONS\|ADR-021]]): `id` UUID PK, `org_id` FK, `person_code` text, `name`, `gender` text, `department_id` FK, `job_title_id` FK, `portrait_path` text, `is_demo`, `created_at`, `updated_at`. 점수 계산 속성은 아래 `team_member_scoring`에 둔다. P1: `employment_status` text(`ACTIVE`·`LEFT`, 기본 `ACTIVE`)|UNIQUE(`id`,`org_id`), UNIQUE(`org_id`,`person_code`), UNIQUE(`org_id`,`name`). 부서·직급은 같은 org 복합 FK. 가상 seed 이름은 한글 세 글자, gender는 MALE/FEMALE|읽기: 조직 전원. 쓰기: seed(service role)만. 로그인 계정 자동 생성 없음. 인력 배정 API/화면은 P1. 조회 화면 `/people`(ADR-021)은 해커톤 확장 컷이다([[16-DECISIONS\|ADR-023]]). P1: ADMIN 쓰기 정책(추가·부서/직급 이동·퇴사 처리), 변경마다 `audit_logs`|
 |`team_member_scoring`|[[16-DECISIONS\|ADR-021]]: `member_id` UUID PK, `org_id` FK, `role` text, `grade` text nullable, `skills` JSONB, `availability` JSONB, `created_at`|(`member_id`,`org_id`) → `team_members(id, org_id)` 복합 FK. `member_id` = `team_members.id`(같은 직원 식별자). 행이 있는 27명이 점수 계산 대상(`scoringEligible`)|읽기: 조직 전원. 쓰기: seed(service role)만. 화면 역할에 쓰기 권한을 주지 않는다. 퇴사 처리(P1)는 `team_members`만 바꾸고 이 행은 지우지 않는다|
 |`assignments`|`id`, `org_id` FK, `bid_id` FK, `member_id` FK, `starts_at`, `ends_at`, `allocation_percent` smallint, `created_at`|`allocation_percent BETWEEN 0 AND 100`, `ends_at > starts_at`. (`member_id`,`org_id`) → `team_members(id, org_id)`|`team_members`와 같다|
 
 `team_member_scoring.role`은 직무(PM·개발 등), `grade`는 기술등급, `team_members.job_title_id`는 엑셀의 직급/직책이다. 셋은 `memberships.sol_role` 및 `org_role`과 다르다. 가상 명부 정본과 정확히 200명 seed, 27명 점수 계산 대상·가용 20 FTE의 관계는 [[07-DATA-PIPELINE]]·[[08-SCORING]]을 따른다. `portrait_path`는 가상 인물 전용 `/demo/people/<personId>.png`다. `profiles.avatar_url`의 HTTPS 제약을 완화해 상대경로를 넣지 않는다. 운영 정보(`team_members`)와 점수 계산 속성(`team_member_scoring`)을 나누는 이유는 골든 보호다([[16-DECISIONS|ADR-021]]): 골든 시험은 DB가 아니라 고정 입력(정본 JSON의 27명 + 고정 `team.asOf`)으로 순수 함수를 계산하고, 저장된 `score_runs`는 입력 스냅샷이라 운영 편집 뒤에도 바뀌지 않는다. 명부 JSON은 한 파일이고 seed가 두 표로 나눠 넣는다.
 
-구현 상태: `departments`·`job_titles`·`team_members`·`team_member_scoring`·`profiles` 신고 열·가입 트리거는 `20261016000001`~`04`에 있다(§7). `assignments`는 아직 없다.
-
-가입 신고 정보: 이메일 가입의 Auth 메타데이터 `department_code`·`job_title_code`를 새 가입 트리거가 카탈로그와 대조해 위 두 `profiles` FK로 옮긴다. 다른 회사 카탈로그·존재하지 않는 값은 거절한다. 직접 Auth 가입·OAuth·기존 사용자 때문에 null은 허용하지만, 서버가 이름·두 값의 유효성을 확인한 `profileComplete=true` 전에는 업무 화면/API를 허용하지 않는다. 자기 신고 값 저장만 본인 RLS로 열고 권한 열은 계속 잠근다. 이름·부서가 같아도 `team_members`와 자동 연결하지 않는다. 신고 FK는 `ON DELETE SET NULL`이다. 데모 카탈로그가 삭제되면 비데모 계정 자체는 보존하고 신고 값만 null로 바뀌며, 다음 업무 진입에서 정보 보완을 요구한다. seed가 새 카탈로그·신고 정보를 만들어도 조직 합류·권한은 자동 부여하지 않는다. 카탈로그를 Auth 계정 seed보다 먼저 넣고, org-02 시험 계정의 솔리데오 신고 정보도 org-01 접근 권한을 만들지 않는지 시험한다.
+가입 신고 정보: 이메일 가입의 Auth 메타데이터 `department_code`·`job_title_code`를 가입 트리거가 카탈로그와 대조해 위 두 `profiles` FK로 옮긴다. 다른 회사 카탈로그·존재하지 않는 값은 거절한다. 직접 Auth 가입·OAuth·기존 사용자 때문에 FK는 null을 허용한다. 보완 전 업무 화면·API 차단(`profileComplete`)과 본인 신고 정보 API는 [[05-API-SPEC|05 API 명세]] §8이 정본이다. DB는 자기 신고 값 저장만 본인 RLS로 열고 권한 열은 계속 잠근다. 이름·부서가 같아도 `team_members`와 자동 연결하지 않는다. 신고 FK는 `ON DELETE SET NULL`이다. 데모 카탈로그가 삭제되면 비데모 계정 자체는 보존하고 신고 값만 null로 바뀐다. seed가 새 카탈로그·신고 정보를 만들어도 조직 합류·권한은 자동 부여하지 않는다. 카탈로그를 Auth 계정 seed보다 먼저 넣고, org-02 시험 계정의 솔리데오 신고 정보도 org-01 접근 권한을 만들지 않는지 시험한다.
 
 ### 3.6 수집·알림·감사
 
@@ -221,19 +211,19 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 
 |action|쓰는 곳|
 |---|---|
-|`LOGIN`, `LOGOUT`|미정(§3.1 Phase 1 결정 4)|
+|`LOGIN`, `LOGOUT`|미정([[16-DECISIONS\|16 ADR]] 미결정 14번)|
 |`PROFILE_CREATE_REVISION`|`company_profiles` insert 트리거|
 |`ANALYSIS_REQUEST`|`score_runs` insert 트리거|
 |`REVIEW_DECIDE`|`bid_reviews` insert 트리거|
 |`USER_INVITE`|`invitations` insert 트리거|
-|`USER_DISABLE`|비활성화 경로가 정해지면 그 경로(§3.1 Phase 1 결정 3)|
+|`USER_DISABLE`|조직에서 내보내기(`DELETE /admin/users/:id`, §3.1 결정 3). 이 행을 쓰는 트리거·함수는 아직 없다|
 |`INGEST_MANUAL`|worker. 요청자(`actor_id`)와 요청자의 조직(`org_id`)은 job 데이터로 받는다|
 |`NOTIFICATION_READ`|`notifications.read_at` update 트리거|
 |`SEED`|`pnpm demo:reset`(`actor_id=null`)|
 
 템플릿 `activities`는 조직 피드(멤버·초대)이고 화면이 읽는다. `audit_logs`는 업무 감사이고 ADMIN만 읽는다. 둘을 합치지 않는다.
 
-수집 run의 [[16-DECISIONS|ADR-020]] 열:
+수집 run 열 설명([[16-DECISIONS|ADR-020]]):
 - `ingest_runs.source`: 요청한 소스(`fixture`·`g2b`, [[05-API-SPEC|05 API 명세]] `IngestionRunInput.source`). `g2b` run 하나가 여러 registry 키(입찰공고·면허제한·참가지역·e발주 첨부·사전규격·발주계획)를 부르므로, 키별 오류는 `ingest_errors.source_key`에 registry 키로 남긴다([[15-DATA-CONTRACTS|15 데이터 계약]] §8).
 - `ingest_runs.run_mode`: 수집 당시 실행 모드. `quota_used`: 이 run이 쓴 공공 API 호출 수(fixture는 0). 일일 호출 예산 자체는 Redis 카운터가 센다([[07-DATA-PIPELINE|07 수집]]).
 - 공공 API 실패(HTTP 오류, `resultCode` 비정상, 일일 한도 초과, timeout)는 `ingest_runs.status`와 `ingest_errors`(`error_code`·`result_code`)에 기록한다. 기존 공고는 그대로 둔다. `error_code`는 우선 `API_HTTP_ERROR`(HTTP 오류)·`API_RESULT_CODE`(`resultCode` 비정상, 원래 코드는 `result_code`)·`API_QUOTA_EXCEEDED`(에러코드 22)·`API_TIMEOUT`을 쓰고, P0-0에서 실제 응답을 확인한 뒤 세분한다.
@@ -264,7 +254,7 @@ PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 �
 
 생성 타입(`web/lib/database.types.ts`)에서 이 열들은 `string`으로 나온다. 값 union은 zod 스키마(`web/server/<도메인>/*.model.ts`)가 정의하며, 값은 이 표와 같아야 한다. 값은 API에 그대로 노출된다.
 
-DB check로 거는 값 집합은 32개(ADR-021 P1 표가 생기면 35개)이고, `field_state`는 JSON 안의 값이다. 이 중 12개(`bid_source`부터 `eval_split`까지의 묶음)와 `document_parse_status`·`review_flag`의 바뀐 값은 [[16-DECISIONS|ADR-020]]에서 왔다. 그 뒤의 `department_kind`는 [[16-DECISIONS|ADR-021]](해커톤), `employment_status`·`bid_project_status`·`bid_project_result`는 ADR-021 P1이다.
+DB check로 거는 값 집합은 32개(ADR-021 P1 표가 생기면 35개)이고, `field_state`는 JSON 안의 값이다. `employment_status`·`bid_project_status`·`bid_project_result`는 [[16-DECISIONS|ADR-021]] P1 표·열의 값이라 P1 마이그레이션 전에는 DB에 없다.
 
 |값 집합|값|사용 컬럼|비고|
 |---|---|---|---|
@@ -307,54 +297,23 @@ DB check로 거는 값 집합은 32개(ADR-021 P1 표가 생기면 35개)이고,
 
 ## 5. 인덱스·제약
 
-인덱스:
-- `bid_notices(stage, status, published_at DESC)`, `bid_notices(deadline_at)`, `bid_notices(is_demo)`, `bid_notices` 제목·기관 trigram 인덱스(`pg_trgm`). 한국어 검색 품질은 별도 측정([[16-DECISIONS|16 ADR]] 6번).
-- `bid_notices(source)`(공고 목록 `origin` 필터는 `is_demo` 인덱스를 쓴다).
-- `bid_revisions(bid_id, revision DESC)`, `bid_documents(revision_id)`, `bid_documents(download_status, parse_status)`(documents job 재시도 대상 찾기), `bid_structured_requirements(revision_id)`.
-- `requirement_extractions(revision_id, created_at DESC)`.
-- `score_runs(org_id, bid_id, created_at DESC)`, `score_runs(org_id, status)`.
-- `requirement_assessments(org_id, score_run_id)`.
-- `eval_runs(dataset_version, system_id, split)`, `eval_runs(created_at DESC)`.
-- **부분 UNIQUE**: `score_runs(org_id, bid_id, revision_id, company_profile_id, algorithm_version) WHERE status IN ('QUEUED','RUNNING')`. 같은 입력의 진행 중 job을 하나로 묶는다. 완료된 run은 이력으로 여러 개 허용.
-- `qualification_checks(score_run_id)`, `score_factors(score_run_id)`.
-- `bid_reviews(org_id, bid_id, decided_at DESC)`.
-- `notifications(user_id, read_at NULLS FIRST, created_at DESC)`, `outbox_events(status, next_attempt_at)`.
-- `audit_logs(org_id, created_at DESC)`, `audit_logs(target_type, target_id)`.
-- [[16-DECISIONS|ADR-021]]: `departments(org_id, parent_id)`(조직도 트리, 자기 참조). P1: `bid_watches(org_id, bid_id)`(관심 인원 수 집계).
-- 정책이 거르는 `org_id`를 조직 표 인덱스의 앞에 둔다(템플릿 `tasks`·`activities` 인덱스와 같다). 계정이 지워질 때 외래 키가 찾는 열(`requested_by`, `reviewer_id`, `actor_id`, `created_by`)에도 인덱스를 둔다.
+인덱스·UNIQUE·외래 키·CHECK의 목록은 `supabase/migrations/`가 정본이다. 표를 만드는 파일이 그 표의 인덱스·제약을 함께 만들고, 이유를 주석으로 적는다. 표마다의 제약 뜻은 §3 표의 "제약" 칸, 값 집합 check는 §4다. 이 절은 원칙만 둔다.
 
-UNIQUE:
-- `organizations(slug)`, `memberships(org_id, user_id)`(PK), `invitations(org_id, email)` — 템플릿.
-- `bid_notices(source, notice_id)`, `bid_revisions(bid_id, revision)`, `bid_documents(revision_id, sha256)`(다운로드 전·실패 행은 `sha256`이 null이라 걸리지 않는다), `bid_structured_requirements(revision_id, kind, seq)`, `requirement_extractions(revision_id, model_name, prompt_hash)`.
-- `company_profiles(org_id, revision)`, `score_runs(idempotency_key)`, `score_factors(score_run_id, factor)`, `requirement_assessments(score_run_id, item_id)`.
-- `ingest_runs(job_key)`, `ingest_runs(idempotency_key)`, `outbox_events(idempotency_key)`, `notifications(idempotency_key)`.
-- 복합 FK 대상: `company_profiles(id, org_id)`, `score_runs(id, org_id)`, `team_members(id, org_id)`, `departments(id, org_id)`, `job_titles(id, org_id)`. P1: `bid_projects(id, org_id)`([[16-DECISIONS|ADR-021]]).
-
-복합 외래 키(테넌트 혼입 방지): worker는 service role로 RLS 없이 쓴다. 그래서 자식 행의 `org_id`가 부모와 다르면 DB가 거절하게 한다. 템플릿 `tasks_assignee_fkey`(`(org_id, assignee_id) → memberships`)와 같은 방식이다.
-- `score_runs(company_profile_id, org_id)` → `company_profiles(id, org_id)`
-- `score_factors`·`qualification_checks`·`requirement_assessments`·`bid_reviews`의 `(score_run_id, org_id)` → `score_runs(id, org_id)`
-- `bid_reviews(org_id, assignee_id)` → `memberships(org_id, user_id)` on delete set null (`assignee_id`)
-- `notifications(org_id, user_id)` → `memberships(org_id, user_id)` on delete cascade
-- `assignments(member_id, org_id)` → `team_members(id, org_id)`
-- `team_member_scoring(member_id, org_id)` → `team_members(id, org_id)`, `departments(parent_id, org_id)` → `departments(id, org_id)`([[16-DECISIONS|ADR-021]])
-- P1: `tasks(bid_project_id, org_id)` → `bid_projects(id, org_id)`
-
-CHECK: `score BETWEEN 0 AND 100`, `budget_krw >= 0`, `allocation_percent BETWEEN 0 AND 100`, `ends_at > starts_at`, `0 <= points <= max_points`, §4의 값 집합 32개(ADR-021 P1 뒤 35개), `departments`의 팀 한정 `target_count >= 1`, 템플릿 check(`org_role`, `status`, `slug`, `name`, `display_name` 등).
-
-ADR-020으로 더한 CHECK(§3.3·§3.4):
-- `bid_documents`: `download_status <> 'OK' or (object_key is not null and sha256 is not null and size_bytes is not null)`, `parse_status not in ('UNSUPPORTED','FAILED') or parse_error_code is not null`.
-- `qualification_checks`: `(outcome = 'NEEDS_REVIEW') = (reason_code is not null)`.
-- `requirement_assessments`: `(rule_status = 'NEEDS_REVIEW') = (rule_reason is not null)`.
-- `score_runs`: `fallback_reason is null or (ai_provider = 'MOCK' and run_mode <> 'LIVE' and 'MOCK_FALLBACK' = any(review_flags))`.
+- **`org_id`를 앞에**: 정책이 거르는 `org_id`를 조직 표 인덱스의 앞에 둔다(템플릿 `tasks`·`activities` 인덱스와 같다). 계정이 지워질 때 외래 키가 찾는 열(`requested_by`, `reviewer_id`, `actor_id`, `created_by`)에도 인덱스를 둔다.
+- **부분 UNIQUE**: `score_runs(org_id, bid_id, revision_id, company_profile_id, algorithm_version) WHERE status IN ('QUEUED','RUNNING')`. 같은 입력의 진행 중 job을 하나로 묶는다. 완료된 run은 이력으로 여러 개 허용한다([[05-API-SPEC|05 API 명세]] §7 중복 방지).
+- **null이 걸리지 않는 UNIQUE**: `bid_documents(revision_id, sha256)`는 다운로드 전·실패 행(`sha256` null)에 걸리지 않는다.
+- **검색**: 공고 제목·기관은 `pg_trgm` trigram 인덱스다. 한국어 검색 품질은 따로 잰다([[16-DECISIONS|16 ADR]] 6번).
+- **복합 외래 키(테넌트 혼입 방지)**: worker는 service role로 RLS 없이 쓴다. 그래서 자식 행의 `org_id`가 부모와 다르면 DB가 거절하게 한다. 부모 표에 UNIQUE(`id`,`org_id`)를 두고 자식이 (`<부모>_id`,`org_id`)로 가리킨다. 템플릿 `tasks_assignee_fkey`(`(org_id, assignee_id) → memberships`)와 같은 방식이다.
+- **P1 표**(아직 마이그레이션 없음): 관심 인원 수 집계용 `bid_watches(org_id, bid_id)` 인덱스, `bid_projects` UNIQUE(`id`,`org_id`)와 `tasks(bid_project_id, org_id)` 복합 외래 키(§3.1·§3.8).
 
 soft-delete는 쓰지 않는다. 계정 정지는 `profiles.status`, 탈퇴는 즉시 삭제(템플릿 `delete_my_account`)다. 계정이 지워지면 이력 열(`requested_by`, `reviewer_id`, `actor_id`, `created_by`)은 비우고 행은 남긴다(on delete set null). 프로필·검토·점수는 append-only. 개인정보 보존 정책은 [[09-SECURITY|09 보안]].
 
 > [!warning] 미검증 가정
-> `pg_trgm` 확장을 Supabase 프로젝트와 PGlite 양쪽에서 켤 수 있는지 확인하지 않았다. 정책 시험(`pnpm test:db`)과 타입 생성(`pnpm db:types`)은 마이그레이션을 PGlite에 적용하므로 PGlite에서 실패하면 게이트가 깨진다. 검증 방법: Phase 1에서 `create extension if not exists pg_trgm`을 담은 마이그레이션으로 `pnpm test:db`·`pnpm check:db-types`를 돌리고 Supabase 대시보드 확장 목록을 확인한다. 안 되면 trigram 인덱스를 빼고 [[16-DECISIONS|16 ADR]]에 기록한다.
+> `pg_trgm` 확장을 Supabase 클라우드 프로젝트에서 켤 수 있는지는 확인하지 않았다(`pnpm db:push` 전). PGlite 쪽은 확인했다. `scripts/supabase-pglite.mjs`가 `pg_trgm`을 싣고, 정책 시험 `pnpm test:db`가 통과한다(168/168, `docs/evidence/phase-1/test-db.txt`). 마이그레이션 `20261019000002`는 확장을 깔 수 없는 서버에서는 trigram 인덱스만 건너뛴다. 검증 방법: `db:push` 뒤 Supabase 대시보드 확장 목록과 `bid_notices_title_trgm_idx` 인덱스를 확인한다.
 
 ## 6. 데모 seed 범위
 
-seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**이다(Phase 1에 `scripts/` 아래 만든다). `fixtures/`를 읽어 Supabase 프로젝트(개발은 클라우드)에 넣는다.
+seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scripts/demo-reset.mjs`)이다. `fixtures/`를 읽어 Supabase 프로젝트(개발은 클라우드)에 넣는다.
 
 - 키: `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`(서버 전용). 키 값은 출력하지 않는다.
 - 계정 5개는 Supabase Auth 관리 API(`POST /auth/v1/admin/users`, `email_confirm: true`)로 만든다. 템플릿 `scripts/db-seed.mjs`와 같은 방법이다. 비밀번호는 `.env.example`의 `DEMO_SEED_PASSWORD`로만 지정하고, 문서와 저장소에 실제 값을 쓰지 않는다. `profiles` 행은 가입 트리거가 만든다.
@@ -364,7 +323,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**이다
 
 |테이블|건수|내용|
 |---|---:|---|
-|`organizations`|2|`org-01` = 사용자 회사 "솔리데오"의 가상 데모 조직(공공 SI 중견 설정, 프로필 상세는 [[08-SCORING\|08 점수]]·[[19-DEMO-SCENARIO\|19 데모 시나리오]]). `org-02` = 비교 조직(테넌트 격리 시연용, 프로필 1개). 값은 `slug`이며 `id`는 seed가 고정 UUID로 만든다. 둘 다 팀 조직(`personal_owner_id is null`)이다. 가입 트리거가 만드는 개인 조직은 이 건수에 들지 않는다(§3.1 Phase 1 결정 1)|
+|`organizations`|2|`org-01` = 사용자 회사 "솔리데오"의 가상 데모 조직(공공 SI 중견 설정, 프로필 상세는 [[08-SCORING\|08 점수]]·[[19-DEMO-SCENARIO\|19 데모 시나리오]]). `org-02` = 비교 조직(테넌트 격리 시연용, 프로필 1개). 값은 `slug`이며 `id`는 seed가 고정 UUID로 만든다. 둘 다 팀 조직(`personal_owner_id is null`)이다|
 |`auth.users` / `profiles`|5|`org-01`에 역할당 1명(4), `org-02`에 VIEWER 1명(`viewer@other.invalid`, [[19-DEMO-SCENARIO\|19 데모 시나리오]] S7 격리 시연)|
 |`memberships`|5|`org-01`: `admin@soltech.invalid` = `owner` + `ADMIN`, `sales@`·`analyst@`·`viewer@soltech.invalid` = `member` + 각 `sol_role`. `org-02`: `viewer@other.invalid` = `member` + `VIEWER`|
 |`company_profiles`|2|revision 1(초기), revision 2(기술·실적 추가). 데모에서 revision 차이를 보여 준다. 둘 다 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
@@ -383,7 +342,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**이다
 |`notifications`|0|데모 중 이벤트로 생성|
 |`audit_logs`|seed 작업분|seed 자체도 `actor_id=null`, `action=SEED`로 남긴다|
 
-SEED 배치 공고는 worker와 같은 수집 코드(`web/server/ingestion`, `FixtureConnector`)로 적재한다. 스크립트가 그 코드를 직접 부를지 worker 큐에 넣고 기다릴지는 Phase 1에서 정한다. `server-only` 모듈을 Node 프로세스에서 쓰는 실행 방식은 `node --conditions=react-server --import tsx`로 검증됐다([[16-DECISIONS|16 ADR]] 미결정 9번).
+SEED 배치 공고는 공고 적재 함수 하나(`scripts/demo/bid-notices.mjs`의 `seedBidNotices`)로 넣는다. 수집 코드(`web/server/ingestion`, `FixtureConnector`)가 main에 들어오기 전까지는 07 §6.4·15 §3 규칙을 `scripts/demo/plan.mjs`의 순수 함수로 직접 계산한다. 들어오면 스크립트가 `FixtureConnector`의 `runIngest({ source: "fixture", batch: "SEED" })`를 직접 부르도록 바꾼다(파일 머리 주석). `server-only` 모듈을 Node 프로세스에서 쓰는 실행 방식은 `node --conditions=react-server --import tsx`로 검증됐다([[16-DECISIONS|16 ADR]] 미결정 9번).
 
 seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/database.test.mjs`)에서 "두 번 돌려도 건수가 같다"와 "`org-02` 사용자가 `org-01` 행을 읽지 못한다"를 확인한다([[11-TESTING|11 테스트]] G5).
 
@@ -391,26 +350,21 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 
 템플릿 마이그레이션(`20261013000001_init.sql` ~ `20261015000002_team_settings.sql`)은 그대로 둔다. SOL RADAR 스키마는 그 뒤에 새 파일로 쌓는다. 파일 이름은 템플릿 형식(`<YYYYMMDD><6자리 순번>_<이름>.sql`)을 따르고, 마지막 템플릿 파일보다 뒤 순번을 쓴다. 표를 만드는 파일 안에서 RLS 켜기, 권한 회수·부여, 정책까지 함께 쓴다(표는 만드는 즉시 잠근다).
 
-1. 템플릿 확장: `organizations.is_demo`, `memberships.sol_role`, `invitations.sol_role`, 초대 수락 정책 교체(`sol_role` 옮기기), `my_sol_org_ids()`, `protect_sol_role` 트리거.
-2. `bid_notices`, `bid_revisions`, `bid_documents`, `bid_structured_requirements`, `requirement_extractions`.
-3. `company_profiles`.
-4. `score_runs`, `score_factors`, `qualification_checks`, `requirement_assessments`.
-5. `departments`, `job_titles`, `profiles` 가입 신고 열·검증 트리거, `bid_reviews`, `team_members`, `team_member_scoring`(ADR-021), `assignments`. `profiles`에 추가하는 FK는 카탈로그 표를 만든 뒤 같은 새 migration에서 건다.
-6. `ingest_runs`, `ingest_errors`, `outbox_events`, `notifications`, `audit_logs`, `eval_runs`.
-7. 감사·outbox 트리거, 인덱스·부분 UNIQUE.
+적용 순서와 파일별 내용은 `supabase/migrations/`가 정본이다(파일 이름 순서가 적용 순서다). SOL 마이그레이션 머리 주석의 "04 §7 순서 N"은 설계 때 정한 아래 묶음 번호다.
 
-[[16-DECISIONS|ADR-020]]의 저장 변경(`bid_notices.pre_spec_ref`·`source` 값, `bid_documents` 다운로드·파싱 열, `bid_structured_requirements`, `requirement_extractions.translations`, `company_profiles`의 `is_demo`·`industry_codes`·`licenses[].status`·`technologies_complete`, `score_runs`의 `run_mode`·`kev_calibration`·`fallback_reason`, `requirement_assessments`, `qualification_checks`의 `reason_code`·`company_evidence`·`basis`, `ingest_runs`의 `run_mode`·`quota_used`, `eval_runs`, `review_flag` 값 7개)은 **기존 표를 고치는 마이그레이션이 아니다.** 공고·회사 프로필·분석·수집·알림·감사 표(순서 2·3·4·6·7)의 마이그레이션은 아직 없으므로 그 첫 마이그레이션에 처음부터 넣는다. 이 문서의 표 정의가 먼저이고, 마이그레이션은 이 정의를 따른다.
+|순서|묶음|파일|
+|---|---|---|
+|1|템플릿 확장(`organizations.is_demo`, `memberships.sol_role`, `invitations.sol_role`, 초대 수락 정책 교체, `my_sol_org_ids()`, `protect_sol_role`)|`20261016000001`(`is_demo`), `20261018000001`(`memberships.sol_role`), `20261019000001`(나머지)|
+|2|공고 다섯 표|`20261019000002`|
+|3|`company_profiles`|`20261019000003`|
+|4|분석 결과 네 표|`20261019000004`|
+|5|부서·직급·인력(가입 신고 열·트리거 포함), `bid_reviews`, `assignments`|`20261016000001`~`20261016000004`, `20261019000005`|
+|6|수집·outbox·알림·감사·평가 표|`20261019000006`|
+|7|감사·outbox 트리거|`20261019000007`|
 
-이미 있는 SOL 마이그레이션(2026-10-17 main `42a4ead`, 클라우드 적용 전):
-- `20261016000001_solideo_people_signup.sql`: `organizations.is_demo`, `departments`·`job_titles`·`team_members`(읽기 정책), `profiles.declared_department_id`·`declared_job_title_id`와 검증 트리거, `resolve_solideo_employment()`, `handle_new_user()` 교체.
-- `20261016000002_declared_employment_cascade.sql`: 신고 FK 검증 함수 보완.
-- `20261016000003_adr021_people_catalog.sql`: `departments.kind`·`parent_id`와 계층 검증 트리거, `team_members.updated_at`, `team_member_scoring`(읽기 정책).
-- `20261016000004_adr021_signup_bootstrap.sql`: 가입 시 개인 조직 생성 중단, 신고 소속 TEAM 한정.
+`20261019000008`은 팀 만들기를 서비스 운영자만 하게 좁힌다([[16-DECISIONS|ADR-026]]). ADR-021 P1 표·열(§3.1 `tasks.bid_project_id`, §3.5 `employment_status`·ADMIN 쓰기 정책, §3.8)은 P1 착수 때 새 파일로 만든다.
 
-그래서 순서 1 중 `organizations.is_demo`와 순서 5 중 인력 네 표는 끝났고, 순서 1의 `memberships.sol_role`·`invitations.sol_role`·`my_sol_org_ids()`·`protect_sol_role`·초대 수락 정책 교체와 순서 5의 `bid_reviews`·`assignments`는 남았다. 인력 네 표의 정책은 지금 템플릿 `my_org_ids()` 기준 읽기뿐이라 `sol_role`이 없어도 동작하고, ADR-021 P1의 ADMIN 편집 정책은 순서 1 뒤에 새 파일로 더한다. 새 표(`bid_structured_requirements`, `requirement_assessments`, `eval_runs`)마다 RLS 정책 시험을 `scripts/database.test.mjs`에 더한다.
-
-[[16-DECISIONS|ADR-021]]의 해커톤 저장 변경(`departments.parent_id`·`kind`와 팀 한정 `target_count` check, `team_member_scoring` 분리, 가입 트리거의 개인 조직 생성 중단, 구성원·초대 정책의 `sol_role='ADMIN'` 기준 교체)은 Phase 1 SOL 마이그레이션에 넣는다. 이미 만든 마이그레이션 파일은 고치지 않고 새 파일로 바꾼다. P1 변경(`bid_watches`·`bid_projects`·`bid_project_events`(§3.8), `tasks.bid_project_id`와 제한 정책, `team_members.employment_status`와 ADMIN 쓰기 정책)은 P1 착수 때 따로 새 마이그레이션으로 만든다. 새 표마다 정책 시험을 더한다.
-8. 템플릿 견본 정리: `tasks`와 그 함수·트리거(`task_dashboard_stats`, 작업 활동 기록)는 지우지 않는다. ADR-021 P1 입찰 프로젝트 체크리스트로 재사용하고(`bid_project_id` 열은 P1 마이그레이션), 사이드바의 "작업" 메뉴만 뺀다([[16-DECISIONS|ADR-021]]). `memos`는 템플릿 `20261014000004_tasks_and_activity.sql`이 이미 지웠다.
+템플릿 견본 정리: `tasks`와 그 함수·트리거(`task_dashboard_stats`, 작업 활동 기록)는 지우지 않는다. ADR-021 P1 입찰 프로젝트 체크리스트로 재사용하고(`bid_project_id` 열은 P1 마이그레이션), 사이드바의 "작업" 메뉴만 뺀다([[16-DECISIONS|ADR-021]]). `memos`는 템플릿 `20261014000004_tasks_and_activity.sql`이 이미 지웠다.
 
 파일마다 지킬 것:
 - 파일 머리 주석에 담은 것과 되돌리는 방법을 적는다. 되돌리기는 새 마이그레이션으로 한다(이미 적용한 파일은 고치지 않는다).
