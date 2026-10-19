@@ -69,6 +69,7 @@ const render = (overrides: Partial<ViewProps> = {}, width = 960) => {
   const props: ViewProps = {
     summary: SUMMARY,
     recommended: BID_LIST.slice(0, 3),
+    recommendedTotal: 3,
     deadline: BID_LIST.slice(1, 3),
     now: NOW,
     showIngestHint: false,
@@ -94,6 +95,19 @@ describe("DashboardView", () => {
       ["수집", "12분 전", "적재 19 · 격리 1"],
       ["분석 현황", "18", "부분 0 · 실패 0"],
     ]);
+  });
+
+  // M4: "BID 권고" 카드는 아래 BID 표·전체 보기와 같은 정의(진행 중 공고의 최신 점수 권고 BID)의 건수다.
+  // 요약의 byRecommendation(모든 상태·최신 끝난 분석 기준)과 다를 수 있어 카드는 그 값을 쓰지 않는다.
+  it("BID 권고 카드는 표와 같은 조건의 건수를 보인다", () => {
+    const host = render({
+      summary: {
+        ...SUMMARY,
+        analyses: { ...SUMMARY.analyses, byRecommendation: { BID: 5, WATCH: 7, NO_BID: 6 } },
+      },
+      recommendedTotal: 4,
+    });
+    expect(cardValues(host)[0]).toEqual(["BID 권고", "4"]);
   });
 
   it("마지막 수집이 실패면 수집 카드 값이 실패이고 위험 색이다", () => {

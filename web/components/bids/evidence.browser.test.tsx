@@ -132,6 +132,37 @@ describe("AttachmentStatus", () => {
   });
 });
 
+// 보안 Info I1: 서랍 폭은 1280 미만 breakpoint 없이 정한다. 지원 폭(1280·1440)에서 480px 이다.
+describe("근거 서랍 폭", () => {
+  it.each([1280, 1440])("%ipx 에서 서랍은 480px 이고 화면 오른쪽 끝에 붙는다", async (width) => {
+    await page.viewport(width, 800);
+    render(<EvidenceDrawer content="본문" sourceUrl="https://example.com/n" documents={[]} />);
+    useEvidenceStore.getState().openWith({ title: "x", evidence: [{ ...body }] });
+    const dialog = page.getByRole("dialog");
+    await expect.element(dialog).toBeVisible();
+    // 열리는 움직임(translate)이 끝난 뒤의 자리를 잰다.
+    await vi.waitFor(() => {
+      const rect = dialog.element().getBoundingClientRect();
+      expect(rect.width).toBe(480);
+      expect(rect.right).toBe(width);
+    });
+  });
+
+  it("서랍 클래스에 1280 미만 breakpoint 변형이 없다", async () => {
+    await page.viewport(1280, 800);
+    render(<EvidenceDrawer content="본문" sourceUrl="https://example.com/n" documents={[]} />);
+    useEvidenceStore.getState().openWith({ title: "x", evidence: [{ ...body }] });
+    const dialog = page.getByRole("dialog");
+    await expect.element(dialog).toBeVisible();
+    const own = ["data-[side=right]:w-[480px]", "data-[side=right]:max-w-full"];
+    expect(own.every((name) => dialog.element().classList.contains(name))).toBe(true);
+    const narrow = [...dialog.element().classList].filter((name) =>
+      /(^|:)(sm|md|lg):.*480/.test(name),
+    );
+    expect(narrow).toEqual([]);
+  });
+});
+
 describe("본문 하이라이트", () => {
   it("앞뒤 200자를 자르면 양쪽에 …를 붙이고 mark 는 인용 부분이다", async () => {
     await page.viewport(1280, 800);

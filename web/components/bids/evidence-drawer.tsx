@@ -129,9 +129,11 @@ function EvidenceDrawer({ content, sourceUrl, documents }: DrawerProps) {
   const close = useEvidenceStore((state) => state.close);
   return (
     <Sheet open={open} onOpenChange={(next) => !next && close()}>
+      {/* Sheet 기본값의 sm:max-w-sm(384px)을 1280 미만 breakpoint 없이 덮는다. 지원 폭(1280 이상, D25)에서 480px 이다.
+          xl(80rem=1280px)을 쓴다. min-[1280px] 같은 임의 값은 Tailwind 가 sm 보다 앞에 두어 sm 에 진다. */}
       <SheetContent
         side="right"
-        className="data-[side=right]:w-[480px] data-[side=right]:max-w-full data-[side=right]:sm:max-w-[480px]"
+        className="data-[side=right]:w-[480px] data-[side=right]:max-w-full data-[side=right]:xl:max-w-[480px]"
       >
         <SheetHeader className="pr-12">
           <SheetTitle>근거</SheetTitle>

@@ -22,6 +22,8 @@ export const DASHBOARD_DESCRIPTION = "실행 모드와 수집 현황, 검토가 
 type DashboardViewProps = {
   summary: DashboardSummary;
   recommended: BidListItem[];
+  /** BID 표와 같은 조건(진행 중 공고의 최신 점수 권고 BID)의 전체 건수. "BID 권고" 카드 값이다(M4). */
+  recommendedTotal: number;
   deadline: BidListItem[];
   /** 서버가 요청마다 한 번 만든 시각. 상대 시각·D-n 의 기준이다. */
   now: Date;
@@ -48,7 +50,15 @@ function ingestCard(freshness: DashboardSummary["dataFreshness"], now: Date): In
   };
 }
 
-function SummaryCards({ summary, now }: { summary: DashboardSummary; now: Date }) {
+function SummaryCards({
+  summary,
+  recommendedTotal,
+  now,
+}: {
+  summary: DashboardSummary;
+  recommendedTotal: number;
+  now: Date;
+}) {
   const { analyses, reviews, bids, dataFreshness } = summary;
   const { completed, partial, failed } = analyses.latestByStatus;
   const ingest = ingestCard(dataFreshness, now);
@@ -60,7 +70,8 @@ function SummaryCards({ summary, now }: { summary: DashboardSummary; now: Date }
       {/* 본문 960(1280·펼침)·1120(1440·펼침) 모두 @4xl 이상이라 다섯 칸 한 줄이다. 카드는 링크가 아니다. */}
       <div className="@container">
         <div className="grid grid-cols-3 gap-4 @4xl:grid-cols-5">
-          <StatCard label="BID 권고" value={String(analyses.byRecommendation.BID)} />
+          {/* 아래 BID 표·전체 보기와 같은 정의다. 요약의 byRecommendation(모든 상태·최신 끝난 분석)과 다를 수 있다. */}
+          <StatCard label="BID 권고" value={String(recommendedTotal)} />
           <StatCard label="검토 대기" value={String(reviews.pending)} />
           <StatCard label="마감 임박 (7일)" value={String(bids.deadlineWithin7Days)} />
           <StatCard label="수집" value={ingest.value} tone={ingest.tone} hint={ingest.hint} />
@@ -134,6 +145,7 @@ const listHref = (params: Record<string, string>): string =>
 export function DashboardView({
   summary,
   recommended,
+  recommendedTotal,
   deadline,
   now,
   showIngestHint,
@@ -141,7 +153,7 @@ export function DashboardView({
   return (
     <>
       <DashboardAiBanner />
-      <SummaryCards summary={summary} now={now} />
+      <SummaryCards summary={summary} recommendedTotal={recommendedTotal} now={now} />
       {summary.bids.total === 0 ? (
         <EmptyState
           icon={InboxIcon}

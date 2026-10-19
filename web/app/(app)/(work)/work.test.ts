@@ -11,7 +11,7 @@ vi.mock("@/server/organization", () => ({
   getMyBusinessAccess: business,
   getMyWorkspace: workspace,
 }));
-vi.mock("@/app/_lib/work-data", () => ({ loadDashboardSummary: summary }));
+vi.mock("@/app/_lib/work-data", () => ({ loadStatusSummary: summary }));
 vi.mock("next/server", () => ({ connection: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("next/navigation", () => ({
@@ -119,7 +119,7 @@ describe("requireWork", () => {
 describe("(work) layout", () => {
   it("셸에 실행 모드와 첫 요약을 싣는다", async () => {
     const result = await WorkLayout({ children: "본문" });
-    expect(summary).toHaveBeenCalledWith("org-1", "demo");
+    expect(summary).toHaveBeenCalledWith("demo");
     expect(result.props.status).toEqual({
       runMode: "mock",
       initialSummary: { dataFreshness: { status: "NEVER" }, unreadNotifications: 3 },
@@ -129,10 +129,13 @@ describe("(work) layout", () => {
   });
 
   it("요약이 실패해도 셸은 남긴다", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     summary.mockRejectedValue(new Error("down"));
     const result = await WorkLayout({ children: "본문" });
     expect(result.props.status.initialSummary).toBeNull();
     expect(result.props.children).toBe("본문");
+    expect(logged).toHaveBeenCalledTimes(1);
+    logged.mockRestore();
   });
 
   it("로그아웃이면 로그인으로 보낸다", async () => {
