@@ -17,12 +17,24 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY services/ai/src ./src
 RUN uv sync --frozen --no-dev
 
+# 데이터 파일(03 §4.1·§4.3·§4.4·§5.5). 코드는 services/ai 기준 상대 경로로 읽는다(sol_ai.paths)
+COPY services/ai/schemas ./schemas
+COPY services/ai/prompts ./prompts
+COPY services/ai/guards ./guards
+COPY services/ai/dictionaries ./dictionaries
+COPY services/ai/kev ./kev
+
+# mock 고정 응답(AI_PROVIDER=mock). 추출·Kev fixture 만 넣는다
+COPY fixtures/extractions /app/fixtures/extractions
+COPY fixtures/kev /app/fixtures/kev
+
 # 실행 모드 규칙 원천(Node 와 공유)
 COPY infra/run-modes.json /app/infra/run-modes.json
 
 # venv 의 python 이 PATH 에서 먼저 잡혀야 healthcheck 의 `python -c` 가 의존성을 쓴다
 ENV PATH="/app/services/ai/.venv/bin:$PATH" \
     SOL_RUN_MODES_FILE=/app/infra/run-modes.json \
+    SOL_FIXTURES_DIR=/app/fixtures \
     AI_HOST=0.0.0.0
 
 RUN useradd --system --uid 10001 --no-create-home sol
