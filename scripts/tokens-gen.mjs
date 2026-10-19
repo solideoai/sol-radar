@@ -54,6 +54,22 @@ const typeUtility = ([name, { size, lineHeight, weight, tracking = tokens.tracki
     "}",
   ].join("\n");
 
+// 글자 범위 변형(typographyScales)은 [data-type-scale="<범위>"] 안의 type-<눈금> 크기·줄 높이만 바꾼다. 굵기·자간은 기본 눈금 그대로다.
+// 선택자 명시도가 (0,2,0) 이라 최상위 @utility type-*(0,1,0)를 이긴다.
+const typeScaleRules = ([scaleName, entries]) =>
+  Object.entries(entries).map(([name, { size, lineHeight }]) =>
+    [
+      `  [data-type-scale="${scaleName}"] .type-${name} {`,
+      `    font-size: ${size / 16}rem;`,
+      `    line-height: calc(${lineHeight} / ${size});`,
+      "  }",
+    ].join("\n"),
+  );
+const typeScalesCss = () => {
+  const rules = Object.entries(tokens.typographyScales ?? {}).flatMap(typeScaleRules);
+  return rules.length === 0 ? "" : `\n@layer utilities {\n${rules.join("\n")}\n}\n`;
+};
+
 // --color-*: initial — Tailwind 기본 팔레트(bg-red-500·text-white 등)를 지운다. 정본에 없는 색은 클래스로도 못 쓴다.
 // @custom-variant dark — dark: 는 .dark 클래스 아래에서만 켠다. 지금 토큰은 라이트뿐이라,
 //   OS 다크 모드가 컴포넌트의 dark: 스타일만 반쯤 켜는 일을 막는다.
@@ -86,7 +102,7 @@ ${themeFonts}
 }
 
 ${Object.entries(tokens.typography).map(typeUtility).join("\n\n")}
-
+${typeScalesCss()}
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -163,15 +179,61 @@ const typeScaleProblems = (key, scale) => {
   });
 };
 
+// 범위 변형(typographyScales)은 typography 에 있는 눈금 이름만 쓰고 size·lineHeight 만 적는다. 범위 이름은 소문자·하이픈이다.
+// 굵기·자간을 적으면 거절한다 — 범위는 크기만 바꾸고 나머지는 기본 눈금을 따른다.
+const scaleNamePattern = /^[a-z][a-z-]*$/;
+const scaleKeys = ["size", "lineHeight"];
+const typeScalesProblems = (scales, base) => {
+  if (scales === undefined) return [];
+  if (!isRecord(scales)) {
+    return [
+      'typographyScales 값이 객체가 아닙니다 — { "dashboard": { "body": { "size": 17, "lineHeight": 25 } } } 처럼 적으세요.',
+    ];
+  }
+  return Object.entries(scales).flatMap(([scaleName, entries]) => {
+    const where = `typographyScales.${scaleName}`;
+    const nameProblems = scaleNamePattern.test(scaleName)
+      ? []
+      : [`${where} 범위 이름은 소문자와 하이픈만 쓸 수 있습니다 — "dashboard" 처럼 적으세요.`];
+    if (!isRecord(entries)) {
+      return [...nameProblems, ...typeScaleProblems(where, entries)];
+    }
+    const unknownProblems = Object.keys(entries)
+      .filter((name) => !(name in base))
+      .map(
+        (name) =>
+          `${where}.${name} 는 typography 에 없는 눈금입니다 — ${Object.keys(base).join("·")} 중에서 고르세요.`,
+      );
+    // 기본 검사가 모르는 키(오타)를 이미 짚는다. 여기서는 기본에서는 되지만 범위에서는 안 되는 weight·tracking 만 더한다.
+    const stray = Object.entries(entries).flatMap(([name, entry]) =>
+      isRecord(entry)
+        ? Object.keys(entry)
+            .filter((field) => typeKeys.includes(field) && !scaleKeys.includes(field))
+            .map(
+              (field) =>
+                `${where}.${name}.${field} 는 범위에서 쓸 수 없는 키입니다 — ${scaleKeys.join("·")} 만 씁니다(굵기·자간은 기본 눈금을 따릅니다).`,
+            )
+        : [],
+    );
+    return [...nameProblems, ...unknownProblems, ...typeScaleProblems(where, entries), ...stray];
+  });
+};
+
 // web/ 에 package.json 이 없으면 생성물을 만들지도 검사하지도 않는다.
 const hasApp = (rel) => existsSync(join(root, rel.split("/")[0], "package.json"));
 
 // 글자 눈금은 생성·검사 모두에서 먼저 확인한다. 어긋나면 아무것도 쓰지 않고 멈춘다.
 const typeProblems = hasApp("web")
-  ? [...typeScaleProblems("typography", tokens.typography), ...trackingProblems(tokens.tracking)]
+  ? [
+      ...typeScaleProblems("typography", tokens.typography),
+      ...typeScalesProblems(tokens.typographyScales, tokens.typography),
+      ...trackingProblems(tokens.tracking),
+    ]
   : [];
 if (typeProblems.length > 0) {
-  console.error("❌ design/tokens.json 의 글자 눈금(typography·tracking)이 어긋납니다:");
+  console.error(
+    "❌ design/tokens.json 의 글자 눈금(typography·typographyScales·tracking)이 어긋납니다:",
+  );
   typeProblems.forEach((problem) => console.error(`   ${problem}`));
   console.error(
     "   type-<이름> 클래스는 typography 에서 나옵니다. 크기·줄 높이는 px 숫자, 자간은 em 길이입니다.",

@@ -6,6 +6,7 @@ export function AppPage({
   actions,
   children,
   contentClassName,
+  typeScale,
 }: {
   title: string;
   description?: React.ReactNode;
@@ -13,9 +14,16 @@ export function AppPage({
   actions?: React.ReactNode;
   children: React.ReactNode;
   contentClassName?: string;
+  // 글자 범위 변형(design/tokens.json typographyScales). /dashboard 본문만 "dashboard" 로 키운다(ADR-030 B25).
+  typeScale?: "dashboard";
 }) {
   return (
-    <main id="main-content" tabIndex={-1} className="flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      data-type-scale={typeScale}
+      className="flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8"
+    >
       <div className={cn("mx-auto flex w-full max-w-5xl flex-col gap-6", contentClassName)}>
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           {/* min-w-0 이 없으면 긴 제목이 버튼을 밀어 좁은 폭에서 가로로 넘친다. */}

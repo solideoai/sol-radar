@@ -1,14 +1,16 @@
 "use client";
 
 import {
+  BellIcon,
   ChevronsUpDownIcon,
+  FileTextIcon,
   LayoutDashboardIcon,
-  ListChecksIcon,
   LogOutIcon,
   MailIcon,
   NetworkIcon,
   SettingsIcon,
   ShieldCheckIcon,
+  TriangleAlertIcon,
   UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,6 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TopbarStatus, useTopbarStore, type TopbarStatusProps } from "@/components/topbar-status";
 import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
@@ -46,11 +49,12 @@ import { initialOf } from "@/lib/utils";
 import type { CurrentOrg, OrgSummary } from "@/server/organization";
 
 // 화면을 더하면 여기에 한 줄 더한다 — 사이드바 항목과 위 막대의 화면 이름이 같이 생긴다.
+// 주소는 조직 슬러그 없는 절대 경로다(D30). 템플릿의 작업·설정 줄은 뺐다 — 설정은 사용자 메뉴에 있다.
 const NAV = [
-  { path: "dashboard", label: "대시보드", icon: LayoutDashboardIcon },
-  { path: "people", label: "조직·인력", icon: UsersIcon },
-  { path: "tasks", label: "작업", icon: ListChecksIcon },
-  { path: "settings", label: "설정", icon: SettingsIcon },
+  { href: "/dashboard", label: "대시보드", icon: LayoutDashboardIcon },
+  { href: "/bids", label: "입찰 공고", icon: FileTextIcon },
+  { href: "/notifications", label: "알림", icon: BellIcon },
+  { href: "/people", label: "조직·인력", icon: UsersIcon },
 ] as const;
 
 const isCurrent = (pathname: string, href: string) =>
@@ -76,11 +80,14 @@ export function AppShell({
   user,
   workspace,
   defaultSidebarOpen,
+  status,
   children,
 }: {
   user: AppShellUser;
   workspace: AppShellWorkspace;
   defaultSidebarOpen: boolean;
+  // 있으면 위 막대 오른쪽에 상태 묶음(DEMO·실행 모드·AI·수집·알림)을 그린다.
+  status?: TopbarStatusProps;
   children: React.ReactNode;
 }) {
   return (
@@ -89,7 +96,15 @@ export function AppShell({
       <AppSidebar user={user} workspace={workspace} />
       {/* min-w-0 이 없으면 넓은 표·긴 글이 이 단을 밀어 화면이 가로로 넘친다. */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppTopBar current={workspace.current} />
+        <AppTopBar current={workspace.current} status={status} />
+        {/* 1280 미만은 지원하지 않는다(D25). 레이아웃을 바꾸지 않고 한 줄로 알린다. */}
+        <p
+          data-slot="narrow-notice"
+          className="flex items-center gap-2 border-b border-border bg-background px-4 py-2 type-label text-warning min-[1280px]:hidden"
+        >
+          <TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
+          데스크톱 화면에서 이용하세요
+        </p>
         {children}
       </div>
     </SidebarProvider>
@@ -102,9 +117,10 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
   // 서랍(좁은 폭)을 닫지 않으면 옮겨 간 화면을 서랍이 가린다.
   const closeDrawer = () => setOpenMobile(false);
   const base = `/${workspace.current.slug}`;
+  const unread = useTopbarStore((s) => s.summary?.unreadNotifications);
 
   return (
-    <Sidebar role="complementary" aria-label="앱 사이드바">
+    <Sidebar role="complementary" aria-label="앱 사이드바" data-type-scale="sidebar">
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
           <OrgMark name={workspace.current.name} />
@@ -130,10 +146,10 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
           <nav aria-label="주요 메뉴">
             <SidebarMenu className="gap-0.5">
               {NAV.map((item) => {
-                const href = item.path === "people" ? "/people" : `${base}/${item.path}`;
+                const { href } = item;
                 const isActive = isCurrent(pathname, href);
                 return (
-                  <SidebarMenuItem key={item.path}>
+                  <SidebarMenuItem key={href}>
                     <SidebarMenuButton
                       isActive={isActive}
                       render={
@@ -147,6 +163,12 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
                       <item.icon />
                       <span>{item.label}</span>
                     </SidebarMenuButton>
+                    {href === "/notifications" && unread !== undefined && unread >= 1 ? (
+                      <SidebarMenuBadge className="tabular-nums">
+                        {unread}
+                        <span className="sr-only">건</span>
+                      </SidebarMenuBadge>
+                    ) : null}
                   </SidebarMenuItem>
                 );
               })}
@@ -275,15 +297,13 @@ function UserMenu({
   );
 }
 
-function AppTopBar({ current }: { current: CurrentOrg }) {
+function AppTopBar({ current, status }: { current: CurrentOrg; status?: TopbarStatusProps }) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const screen =
     pathname === "/org-chart"
       ? { label: "조직도" }
-      : NAV.find((item) =>
-          isCurrent(pathname, item.path === "people" ? "/people" : `/${current.slug}/${item.path}`),
-        );
+      : NAV.find((item) => isCurrent(pathname, item.href));
 
   return (
     // 높이를 고정하지 않는다. 글자를 키우면 막대도 커진다.
@@ -311,6 +331,11 @@ function AppTopBar({ current }: { current: CurrentOrg }) {
             <span className="shrink-0 font-medium text-foreground">{screen.label}</span>
           </p>
         </>
+      ) : null}
+      {status ? (
+        <div className="ml-auto flex min-w-0 items-center">
+          <TopbarStatus {...status} />
+        </div>
       ) : null}
     </header>
   );

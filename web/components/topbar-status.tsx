@@ -331,7 +331,7 @@ function BellList({ list, now }: { list: ListState; now: Date }) {
   return (
     <>
       {list.items.map((item) => {
-        // 모르는 type 이면 기본 벨 아이콘과 type 글자를 쓴다.
+        // 모르는 type 이면 기본 벨 아이콘과 '알림' 글자를 쓴다.
         const Icon = NOTIFICATION_ICON[item.type] ?? BellIcon;
         return (
           // 이동 주소는 서버가 앱 안 경로로 걸러 준 payload.link 를 그대로 쓴다(걸러내는 규칙은 서버 한 곳에만 둔다).
@@ -370,6 +370,8 @@ function BellList({ list, now }: { list: ListState; now: Date }) {
 }
 
 // ── 묶음 ──
+export type TopbarStatusProps = Parameters<typeof TopbarStatus>[0];
+
 export function TopbarStatus({
   runMode,
   initialSummary,
