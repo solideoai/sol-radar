@@ -69,6 +69,18 @@ export function formatKst(iso: string): string {
   return `${f.year}-${f.month}-${f.day} ${f.hour}:${f.minute}`;
 }
 
+const kstShort = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: TIME_ZONE,
+  month: "numeric",
+  day: "numeric",
+});
+
+// 표 칸용 짧은 날짜 `11. 6.`(서울 날짜).
+export function formatKstShort(iso: string): string {
+  const at = new Date(iso);
+  return Number.isNaN(at.getTime()) ? EMPTY : kstShort.format(at);
+}
+
 export function formatRelative(iso: string, now: Date): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return EMPTY;

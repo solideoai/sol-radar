@@ -5,6 +5,7 @@ import {
   formatKrwFull,
   fitOutOfFive,
   formatKst,
+  formatKstShort,
   formatPercent,
   formatPoints,
   formatRelative,
@@ -47,6 +48,11 @@ describe("마감", () => {
 describe("시각", () => {
   it("KST 로 보인다", () => {
     expect(formatKst("2026-11-06T09:00:00Z")).toBe("2026-11-06 18:00");
+  });
+  it("표 칸용 짧은 날짜는 서울 날짜다", () => {
+    expect(formatKstShort("2026-11-06T09:00:00Z")).toBe("11. 6.");
+    expect(formatKstShort("2026-11-06T16:00:00Z")).toBe("11. 7.");
+    expect(formatKstShort("nope")).toBe("—");
   });
   it("상대 시각", () => {
     expect(formatRelative("2026-10-16T00:00:00Z", new Date("2026-10-16T00:12:00Z"))).toBe(
