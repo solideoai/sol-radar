@@ -137,6 +137,11 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
 - 초당 30 tps(참고문서)를 넘지 않는다.
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-031]] C13).
+> - §2의 "live 일정 수집 주기는 기본 30분이고 env로 바꾼다"의 env를 위 env 표 옆에 올린다: `G2B_INGEST_INTERVAL_MINUTES`(worker 전용, 선택). 코드 기본값은 `30`(분)이고 양의 정수만 받는다. 틀리면 worker가 env 이름만 알리고 멈춘다(main `9da17c4` `web/worker/ingest-queue.ts`의 `DEFAULT_G2B_INGEST_INTERVAL_MINUTES`).
+> - 지금 `infra/compose.yaml`은 이 env를 worker에 넘기지 않아 컨테이너에서는 기본값 30분이 쓰인다([[10-DEPLOYMENT|10 배포]] env 파일 위치 표).
+
 ### 2.3 서비스키 없이 개발하기
 
 - `OfficialApiConnector`의 응답 해석 시험은 `fixtures/recorded/<serviceId>/`의 녹음 응답(2026-10-19 실호출, 마스킹)을 네트워크 없이 재생해 만든다. 경로는 registry `sampleResponses`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)에 적는다.
@@ -331,6 +336,12 @@ fixture 한 건의 형태:
 
 단계 분포: NOTICE 16, PLAN 2, PRE_SPEC 2. 기대 결과 분포(최종 revision 기준): BID 4, WATCH 10, NO-BID 2, 취소 1, 격리 1, 조기 추적 2.
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-031]] C9·C10·C11).
+> - C9 `FX-07` r2 점수는 76이 아니라 77이다(규칙 엔진 77.3, 화면 77). manifest `expected.designScore`는 fixture 담당(ee)이 고친다.
+> - C10 `FX-17`의 자격 표기 `NOT_APPLICABLE`은 엔진 결과대로 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`)다. [[04-DATABASE|04 DB]] §3.4·[[08-SCORING|08 점수]] §5.1과 같은 값이다.
+> - C11 사전 분석 18건의 기대 플래그(fixtures/kev 20건 기준): `MODEL_RULE_DISAGREEMENT`는 `FX-03`에만 붙는다. `KEV_NEEDS_REVIEW`는 `FX-04`·`05`·`11`·`13`·`17`·`19`·`20`에 붙는다(§6.3 고정값의 needsHumanReview 0.70 ≥ 임계 0.7, [[03-AI-PIPELINE|03]] §5.5).
+
 ### 6.3 mock 추출·Kev fixture
 
 `AI_PROVIDER=mock`일 때 AI gateway는 모델을 부르지 않고 아래 두 파일을 읽는다. 스키마는 [[03-AI-PIPELINE|03 AI 파이프라인]]이 단일 원천이고, 값은 이 절이 원천이다.
@@ -358,6 +369,14 @@ fixture 한 건의 형태:
 
 > [!warning] 미검증 가정
 > 위 분포는 데모용 고정값이다. 실제 Kev 출력이 아니며, Kev 한국어 성능은 미검증이다([[03-AI-PIPELINE|03 AI 파이프라인]]). 화면에는 항상 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"으로 표시한다.
+
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 `fixtures/kev` 문단이 정본이다([[16-DECISIONS|ADR-031]] C8). fixture 담당(ee)이 브랜치 `fixtures/kev-complete`에서 구현 중이다.
+> - 나머지 16건 고정값의 `fit`·`needsHumanReview`·권고는 설계 목표 점수가 아니라 **규칙 엔진 출력**에서 정한다. 골든이 바뀌면 다시 맞춘다.
+> - `recommendation`의 "나머지 0.25·0.15": BID–WATCH–NO_BID 순서에서 규칙 권고와 이웃한 선택지가 0.25다. WATCH 권고면 BID 0.25다. NO_BID 권고면 WATCH 0.25·BID 0.15다.
+> - `fit` 분포: 값이 정수가 아니면 floor·ceil 두 등급에 나눈다. 1~3 정수 s면 {s−1:0.2, s:0.6, s+1:0.2}, 0·4면 {s:1.0}이다.
+> - 개정판 전용 파일 `FX-07.r01.json`(WATCH 0.60, fit 68/20)을 둔다. mock은 fixtureId `FX-NN.rNN` 파일을 먼저 읽고 없으면 `FX-NN` 파일을 읽는다(§6.5).
+> - `FX-12`는 파일을 두지 않는다(격리).
 
 ### 6.4 배치와 데모 조작
 

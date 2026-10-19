@@ -30,6 +30,10 @@ updated: 2026-10-19
 |속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `/admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 초과 `429` + `Retry-After`|
 |문서|계약의 원천은 zod 스키마다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성하고 개발 환경에서만 노출한다|
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 "멱등" 행이 정본이다([[16-DECISIONS|ADR-031]] C5).
+> - 분석 요청의 저장 멱등 키 `<org_id>:<requestId>`에서 requestId(`Idempotency-Key` 값, 없으면 서버가 만든 UUID)는 `^[A-Za-z0-9_-]{1,128}$`만 받는다. DB check `score_runs_idempotency_key_org_check`가 멱등 키가 `<org_id>:`로 시작하는지 강제한다([[04-DATABASE|04 DB]] §3.4). C5-B(sol-radar-b3)가 마이그레이션 `20261019000011`로 구현 중이다(main 병합 전).
+
 ## 2. 엔드포인트
 
 |Method|Path|권한|기능|요청 → 응답|
@@ -111,6 +115,10 @@ updated: 2026-10-19
 |`watched`|`me`|—|ENUM|본인 관심 공고만(P1, [[16-DECISIONS\|ADR-021]])|
 
 커서는 `(sort 키 값, id)`를 base64url로 인코딩하고 HMAC(키: 서버 전용 env `API_CURSOR_SECRET`, [[10-DEPLOYMENT|10 배포]])을 붙인다. 필터·정렬이 바뀌면 커서를 버리고 처음부터 요청한다.
+
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 `status` 행이 정본이다([[16-DECISIONS|ADR-031]] C15).
+> - 목록 기본 상태 필터 `OPEN,AMENDED`는 조회할 때 계산한 `CLOSED`(마감 지남)를 뺀다. "취소 포함" 필터는 `CANCELLED`만 더하고 `CLOSED`는 더하지 않는다([[16-DECISIONS|ADR-029]] A7, ADR-030 B14).
 
 ## 4. DTO
 
@@ -320,6 +328,10 @@ interface AnalysisResult {
 - `Idempotency-Key`가 없으면 서버가 UUID를 만든다. `score_runs`의 멱등 키는 `<org_id>:<requestId>`다.
 - 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않는다), payload `{orgId, scoreRunId, idempotencyKey}`.
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 목록이 정본이다([[16-DECISIONS|ADR-031]] C14).
+> - 큐 jobId `analysis_<orgId>_<scoreRunId>`와 저장 멱등 키 `<orgId>:<requestId>`는 다른 값이다. jobId는 BullMQ가 `:`를 금지해서 `_`로 잇고, 멱등 키는 `:`로 잇는다. 둘을 서로 바꿔 쓰지 않는다.
+
 ### 4.6 검토·알림·대시보드·수집
 
 ```ts
@@ -329,7 +341,7 @@ interface ReviewInput {
 }
 interface Review {
   id: string; bidId: string; revisionId: string; scoreRunId: string | null;
-  reviewer: { id: string; name: string; role: Role /* memberships.sol_role */ }; decision: Recommendation; reason: string; decidedAt: string;
+  reviewer: { id: string; name: string; role: Role | null /* memberships.sol_role. 결정한 사람이 조직을 떠나 멤버십이 없으면 null이고 화면은 역할 괄호를 빼고 이름만 보인다(ADR-031 C2) */ }; decision: Recommendation; reason: string; decidedAt: string;
   assignee: { id: string; name: string } | null;                 // bid_reviews.assignee_id
   systemRecommendationAtDecision: Recommendation | null;         // 결정 당시 시스템 권고. 불일치 통계용
   disagreementFlag: boolean;                                     // decision !== systemRecommendationAtDecision. bid_reviews.disagreement_flag
@@ -516,6 +528,12 @@ interface PeoplePage {
 |Kev 서버 미접속|`reviewFlags`의 `KEV_UNAVAILABLE`, `kev.enabled=false`, `recommendationBasis=RULES_ONLY`|
 |gateway 미접속|`errorCode=AI_UNAVAILABLE`, `status=PARTIAL`(위 문단과 같다)|
 |mock 자동 대체(`AI_FALLBACK_TO_MOCK=true`일 때만)|`fallbackReason`, `model.provider="mock"`, `reviewFlags`의 `MOCK_FALLBACK`|
+
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표와 §4.1 `ReviewFlag`가 정본이다([[16-DECISIONS|ADR-031]] C6).
+> - 분류 기준은 "gateway가 응답했는가"다. gateway 전송 실패(연결 거부·timeout·재시도 뒤 5xx·circuit open·시험 503)만 `AI_UNAVAILABLE`(`PARTIAL`)이다.
+> - gateway가 응답했지만 쓸 수 없는 `/kev`(4xx·봉투 오류·wire 스키마 위반)도 `reviewFlags`의 `KEV_UNAVAILABLE`, `kev.enabled=false`, `COMPLETED`·`RULES_ONLY`다. 그래서 `KEV_UNAVAILABLE`은 "Kev 미접속·timeout + Kev 응답 형식 오류"를 뜻하고, 위 "Kev 서버 미접속" 행의 이름보다 넓다.
+> - gateway가 응답했지만 쓸 수 없는 `/extract`는 `EXTRACTION_FAILED`(`PARTIAL`)다. 진단(zod issue 경로·코드, failure kind)은 worker 로그에만 남고 이 API와 DB에는 나오지 않는다.
 
 gateway 내부 오류 코드(예: 한국어 state를 허용하지 않을 때의 `KO_STATE_NOT_ALLOWED`)는 Compose 내부 계약이라 이 API로 나오지 않는다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 

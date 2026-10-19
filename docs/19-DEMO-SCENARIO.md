@@ -62,6 +62,12 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | Q&A 예비 | FX-17 → FX-18 과기정통부 AI 행정서비스 (발주계획 → 사전규격) | PLAN → PRE_SPEC | 식별자 `DEMO-PLAN-0042`로 연결 | PLAN은 `NOT_APPLICABLE` | 82 (PRE_SPEC) | WATCH → BID, StageTimeline 2단계 | — |
 | Q&A 예비 | FX-19 세종 행정정보 연계 플랫폼 사전규격 | PRE_SPEC | 식별자 없음, FX-01과 제목만 유사 | — | — | "연결 후보"만 표시, 자동 병합 없음 | — |
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-031]] C9·C10·C11).
+> - C9 S5 FX-07 행의 기대 점수는 "68 → 76"이 아니라 "68 → 77"이다(규칙 엔진 77.3, 화면 77).
+> - C10 FX-17 행의 기대 자격 "PLAN은 `NOT_APPLICABLE`"은 엔진 결과대로 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`, 화면 `확인 필요` · 사유 `해당 없음`)다.
+> - C11 §3 5번 사전 분석 18건의 기대 플래그: `MODEL_RULE_DISAGREEMENT`는 FX-03에만 붙는다. `KEV_NEEDS_REVIEW`는 FX-04·05·11·13·17·19·20에 붙는다(mock Kev needsHumanReview 0.70 ≥ 임계 0.7). 위 표의 Q&A 예비 FX-04·FX-05 행도 이 플래그 대상이다.
+
 > [!tip] 심사 포인트
 > 세 결과(BID / WATCH / NO-BID)가 모두 한 번씩 나온다. 핵심은 **FX-03**: mock Kev가 BID 0.55를 내도 정보통신공사업 미충족이 규칙에서 `NOT_SATISFIED`라 NO-BID로 고정되고 `MODEL_RULE_DISAGREEMENT`가 기록된다. 이 한 장면이 "정직한 AI"(D3)와 "규칙이 최종"(D5)을 동시에 보여 준다. 사람 결정 기록(D4)은 FX-02에서 보여 준다.
 
@@ -98,6 +104,11 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 3. `pnpm demo:reset`으로 seed를 적용한다(Compose 서비스가 아니라 스크립트. service role 키로 Supabase 프로젝트에 조직·계정·구성원·프로필·fixture를 적재, 멱등). 출력 마지막 줄(§1)과 `--write-summary <경로>` JSON의 `ingestRun.summary`(SEED 배치, `ingest_runs` 행과 같다)가 `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}`인지 확인한다 (격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번). `/admin/ingestion` 화면(확장 컷)이 있으면 같은 값을 거기서도 본다.
 4. **세 모드 확인**: `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순서로 바꾸며 worker·ai-gateway를 재시작한다. 모드마다 기동 거부가 없는지, 머리말 "실행 모드"와 `GET /api/v1/admin/ai/status`(admin@soltech.invalid)의 `runMode`가 맞는지, `live`·`fixture`에서는 `qwen.healthy`·`kev.registryMatch`가 `true`인지 본다. `live`에서는 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)을 확인한다. 실패한 모드는 시연에서 빼고 기록한다. **`live`에 있는 동안 S-LIVE용 실공고 1건의 수집·파싱·분석(C8)을 실행하고 공고번호·`score_runs` id·상태(`COMPLETED`/`PARTIAL`)·외부 의존성 컷 규칙의 갈래를 `run-modes.md`에 적는다.** 마지막은 `mock`으로 두고 2의 `/health/ready`(`checks.ai:"mock"`)를 다시 확인한다. 결과는 `docs/evidence/demo-day/<일시>/run-modes.md`에 남긴다([[11-TESTING|11 테스트]] §5).
 5. `mock` 모드에서 **FX-02를 뺀 적재 공고 18건을 전부 미리 분석**해 둔다(FX-12는 격리라 공고가 없다). S2 대시보드의 BID 권고 3건(FX-01·FX-18·FX-06), 목록 상단 순서(94·82·78), 분석 현황 카드 "완료 18", [[14-OBSERVABILITY|14 관측성]] 지표 #2·#3이 이 사전 분석 건수에 기댄다. **FX-02는 분석 없음(`latestAnalysis=null`, 화면 `미분석`)으로 남겨** S4에서 라이브 분석한다. FX-06·FX-07의 r1 분석도 이때 들어가고 S5에서 r2 재분석이 보인다. 사전 분석은 별도 명령 `pnpm demo:preanalyze`가 한다(대상 18건, `mock` 모드·gateway 필수, 18건 모두 `COMPLETED`, 순서는 Compose → `pnpm demo:reset` → 모드 확인 → `pnpm demo:preanalyze` → S2, [[10-DEPLOYMENT|10 배포]] 기동 절차 6번, [[16-DECISIONS|ADR-030]] B22). 실행은 사용자 확인 뒤다.
+
+   > [!note] 제안 — ADR-031
+   > 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 5번이 정본이다([[16-DECISIONS|ADR-031]] C12(f)).
+   > - 순서는 Compose → `pnpm demo:reset` → 모드 확인·**mock 복귀** → `pnpm demo:preanalyze` → S2다. 4번에서 `live`·`fixture`를 확인한 뒤 `mock`으로 돌아온 다음에 사전 분석을 돈다. 10 기동 절차와의 단계 번호 정리는 [[10-DEPLOYMENT|10 배포]] 기동 절차 콜아웃.
+
 6. 창 A(브라우저): `http://localhost:3000/auth/login` 화면에서 sales@soltech.invalid로 로그인한다(Supabase Auth). 창 B(터미널): viewer@other.invalid(`org-02`)의 Supabase access token을 받아 둔다. 비밀번호는 환경 변수 `DEMO_SEED_PASSWORD`에서 읽고 명령에 직접 쓰지 않는다.
 
    ```bash
@@ -127,7 +138,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 
 ### S3 자격 판정과 규칙 우선 (1:00~2:15)
 
-1. `/bids`에서 필터: 단계 `입찰공고`, 정렬 `점수 내림차순`. 상단에 FX-01(94, BID), FX-18(82), FX-06(78) 순으로 보인다.
+1. `/bids`에서 필터: 권고 `BID`, 정렬 `점수 내림차순`. 상단에 FX-01(94, BID), FX-18(82), FX-06(78) 순으로 보인다. 단계 `입찰공고` 필터는 사전규격인 FX-18을 빼므로 쓰지 않는다([[16-DECISIONS|ADR-031]] C3).
 2. **FX-01** 클릭 → `/bids/[id]`. 상단: 세종특별자치시, 12억, D-21, 단계 타임라인, 원문 링크, `revision 1`, 상태 `COMPLETED`. 분석 패널에 "AI: mock"과 "가상 회사 프로필로 분석" 배지.
 3. 자격 체크리스트 3건 모두 `SATISFIED`. 한 건의 근거 열기 → `EvidenceDrawer`: RFP 인용 구절·페이지·문자 위치. 말할 것: "AI가 만든 인용이 아니라 원문과 대조된 인용. 대조에 실패하면 무효."
 4. 뒤로 → 필터에서 결정 `NO-BID` 선택 → **FX-03** 클릭.
@@ -155,6 +166,12 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 1. admin@soltech.invalid로 전환(또는 미리 로그인한 탭) → `/admin/ingestion` → "수동 수집 실행", 배치 `live`. 이 배치는 fixture의 두 번째 배치이며 실행 모드 `live`가 아니다(§2.1).
 2. 보여야 하는 것: 수집 결과 `{created:0, changed:3, cancelled:1, skippedDuplicate:1, quarantined:0, retried:0}` = 변경 3(FX-06, FX-07, FX-10), 취소 1(FX-08), 중복 skip 1(FX-09).
 3. **FX-07** → `/bids/[id]/revisions`: 예산 18억 → 21.6억, 요구기술에 Kubernetes 추가가 diff로 하이라이트. 재분석 결과 68 → 76, 권고 WATCH → BID.
+
+   > [!note] 제안 — ADR-031
+   > 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 3번이 정본이다([[16-DECISIONS|ADR-031]] C9·C15).
+   > - C15 수집은 분석을 자동으로 넣지 않는다(ADR-030 B18). 그래서 FX-07 r2 재분석은 사람이 상세 화면에서 [재분석]을 눌러야 보인다. 3번 앞에 "FX-07 상세 → [재분석]" 단계를 넣는다(§3 5번의 "S5에서 r2 재분석이 보인다"도 같다).
+   > - C9 재분석 점수는 "68 → 76"이 아니라 "68 → 77"이다(규칙 엔진 77.3, 화면 77).
+
 4. 알림 벨: `BID_CHANGED`가 FX-06, FX-07, FX-10에 각 1건, FX-09는 0건. 말할 것: "같은 수집을 다시 돌려도 알림이 늘지 않는다."
 
 ### S6 장애 대체 (4:15~4:45)

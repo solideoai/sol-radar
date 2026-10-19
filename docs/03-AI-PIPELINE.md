@@ -151,6 +151,11 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 
 `GET /health` 응답([[16-DECISIONS|ADR-030]] B9): `runMode`, `qwen: {model, promptHash} | null`, `kev: {modelId, registryMatch} | null`, `questionSets: string[]`, `parsers: {format, parserId}[]`. mock이면 `qwen`은 fixture 고정 값(`model:"fixture"`, fixture 공통 `promptHash`)이다. worker의 추출 재사용 키(revision, model_name, prompt_hash)가 seed와 맞게 하려는 것이다. Route Handler `GET /api/v1/admin/ai/status`·`/admin/ai/models`가 이 값을 읽는다([[05-API-SPEC|05 API]]).
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-031]] C12·C14).
+> - C12(c) 알려진 한계: 화면에 보이는 설명 문장(`/explain` 문장 또는 템플릿)에도 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않는다. `ExplainRequest`에 `reviewFlags`가 없고 mock은 늘 템플릿이다.
+> - C14 analysis job의 큐 jobId는 `analysis_<orgId>_<scoreRunId>`다(BullMQ가 jobId에 `:`를 금지해서 `_`로 잇는다). 저장 멱등 키 `<orgId>:<requestId>`와 다른 값이다([[05-API-SPEC|05]] §4.5).
+
 ### 2.2 외부 의존성 인터페이스
 
 공공 API·첨부·회사 GPU에 접속하지 못해도 나머지를 개발할 수 있게 외부 의존성을 인터페이스로 떼어 낸다([[16-DECISIONS|ADR-020]]).
@@ -204,6 +209,14 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`HOSTED_API_BASE_URL`, `HOSTED_API_KEY`|URL, 비밀|(없음)|hosted 공급자. 키는 서버 env만|
 |`CITATION_FUZZY_MIN_RATIO`|0~1|`0.92`|인용 검증 임계값([[15-DATA-CONTRACTS\|15 데이터 계약]] §5)|
 |`AI_FAULT_INJECT`|`kev_timeout` / `qwen_error` / `qwen_unreachable` / `kev_unreachable` / `gateway_down` / (없음)|(없음)|**테스트(G6) 전용, 데모·운영 금지**([[11-TESTING\|11 테스트]]). `AI_PROVIDER=mock`에서만 유효하며 mock adapter가 해당 실패를 흉내 낸다. `qwen_error` = 추출 실패(`EXTRACTION_FAILED`), `qwen_unreachable` = Qwen 미접속(`QWEN_UNAVAILABLE`), `kev_unreachable` = Kev 미접속(`KEV_UNAVAILABLE`), `kev_timeout` = Kev 시간 초과, `gateway_down` = gateway 연결 불가(`AI_UNAVAILABLE`. `/extract`·`/kev`·`/explain`이 `503 {"errorCode":"AI_UNAVAILABLE","message"}`로 응답하는 시험 전용 예외, §2.1, [[16-DECISIONS\|ADR-029]] A3). 데모 S6는 `docker compose stop ai-gateway`로 시연한다([[10-DEPLOYMENT\|10 배포]])|
+
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-031]] C12(e)).
+> - 멈춘 분석 복구(§8)의 worker env 3개를 이 표에 올린다. 모두 선택값이고, 값은 1~3600000 사이 10진 정수(ms)만 받는다. 틀리면 worker가 키 이름만 알리고 기동을 멈춘다(main `9da17c4` `web/worker/analysis-reconcile.ts`).
+>   - `ANALYSIS_STALE_QUEUED_MS`: 기본 `600000`. 이보다 오래된 `QUEUED` run을 멈춘 것으로 본다
+>   - `ANALYSIS_STALE_RUNNING_MS`: 기본 `600000`. 이보다 오래된 `RUNNING` run을 멈춘 것으로 본다
+>   - `ANALYSIS_RECONCILE_INTERVAL_MS`: 기본 `60000`. 복구 검사 주기
+> - 지금 `infra/compose.yaml`은 이 셋을 worker에 넘기지 않아 컨테이너에서는 기본값이 쓰인다.
 
 ### 3.1 모드별 동작 (`AI_PROVIDER`)
 
@@ -493,6 +506,12 @@ README 공개 수치(held-out 데이터셋 자체 평가)는 영어 기준이며
 
 응답 필드(타입별): `choice` → `choice`, `confidence`, `probabilities`; `noul` → `noul`(yes 확률); `score` → `score`(0부터 시작하는 평균 등급 index), `legend`, `probabilities`, `confidence`. 공통 `usage`, `latency_ms`, 헤더 `x-typesafe-request-id`. 어댑터는 응답 원문을 Worker에 돌려주고 Worker가 `score_runs.kev_output`에 그대로 저장한다. v0.2는 질문이 많으면 같은 state로 24개씩 나눠 보낸다(§5.10).
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-031]] C7).
+> - `score` 질문의 응답은 `score`·`legend`·`probabilities`·`confidence`를 모두 가진다. 하나라도 없으면 형식 오류다.
+> - `score`는 등급 분포의 기대 등급(Σ i·p_i)이다. 같은 응답의 분포에서 구한 값과 0.05를 넘게 다르면 형식 오류다. `confidence`는 분포의 최대 확률이다.
+> - 이 검사는 3b가 `kev_wire.py`에 구현해 main `9da17c4`(`13fcb96`)에 들어갔다.
+
 ### 5.5 질문 세트 `kev-qs/v0.1`
 
 |id|type|instructions (영어, 원문)|criteria|결과 사용처|규칙과 다를 때|
@@ -597,6 +616,11 @@ interface KevAssist {
 - mock adapter: fixture별 고정 응답 파일 `fixtures/kev/FX-xx.json`(wire 응답 형식 그대로)을 우선 읽는다. 예: FX-02는 `BID 0.36 / WATCH 0.52 / NO_BID 0.12`, `needsHumanReview 0.74`([[19-DEMO-SCENARIO|19 데모 시나리오]]·[[08-SCORING|08 점수]] 계산 예시와 같은 숫자). 파일이 없으면 공식(추출·프로필만으로 계산, 규칙 결과 없음): `mandatory=true`인 `qualifications[].code`가 프로필 `licenses`에 없으면 `NO_BID` 0.8, 필수 항목 중 `UNKNOWN`/`CONFLICTED`가 있으면 `WATCH` 0.7, 아니면 `BID` 0.6 중심의 고정 분포. 어느 쪽이든 `provider="mock"`이고 UI가 DEMO 배지로 보여 준다. mock adapter는 v0.1만 내므로 v0.2 필드는 null이다.
 - 테넌트 표기: 문서 예시의 `orgId: "org-01"`(솔리데오), `"org-02"`(비교 조직)는 seed `organizations.slug`다. 실제 API·DB 값은 UUID([[04-DATABASE|04 DB]] §6).
 - wire 형식은 README를 따르되 `services/ai/adapters/kev_wire.py` 한 곳에서만 다룬다. 필드명을 다른 곳에 하드코딩하지 않는다.
+
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-031]] C6·C7).
+> - C6 위 "timeout/오류" 줄의 오류는 gateway가 응답했지만 쓸 수 없는 `/kev`(4xx·봉투 오류·wire 스키마 위반)까지 포함한다. 이때도 `kev.enabled=false`·`KEV_UNAVAILABLE` 플래그·분석 `COMPLETED`·`RULES_ONLY`다. 그래서 `KEV_UNAVAILABLE`은 "Kev 미접속·timeout + Kev 응답 형식 오류"를 뜻한다. gateway에 닿지 못한 전송 실패는 이 줄이 아니라 §8의 `AI_UNAVAILABLE`이다.
+> - C7 위 mock 공식(파일이 없을 때)의 `fit`은 세 분기(`NO_BID`·`WATCH`·`BID`) 모두 `{"0":0,"1":0.2,"2":0.6,"3":0.2,"4":0}`, `confidence` 0.6, `score` 2.0이다(main `9da17c4`에 구현됨, §5.4 콜아웃).
 
 ### 5.8 hosted 경로
 
@@ -714,6 +738,11 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 
 테이블 정의와 RLS 정책은 [[04-DATABASE|04 DB]]. 위 표들은 Worker가 service role로 Supabase에 쓴다. `requirement_extractions`·`bid_documents`는 공용 공고 데이터라 `authenticated`는 읽기만 하고, `score_runs`·`requirement_assessments`는 `org_id`로 조직마다 나뉜다.
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 본문이 정본이다([[16-DECISIONS|ADR-031]] C5·C12).
+> - C5 분석 결과 저장은 RPC `finish_score_run(p jsonb)` 하나로 한다(service_role만 실행). 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 마감하고, 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. 멱등 키 check와 requestId 형식은 [[04-DATABASE|04 DB]] §3.4·[[05-API-SPEC|05]] §1 콜아웃. C5-B(sol-radar-b3)가 마이그레이션 `20261019000011`로 구현 중이다(main 병합 전).
+> - C12(a) 알려진 한계: `score_runs.fallback_reason`은 지금 늘 null이다. gateway 계약에 mock 자동 대체를 알리는 필드가 없기 때문이다(`AI_FALLBACK_TO_MOCK`도 아직 구현하지 않아 켜면 기동 거부, §3).
+
 ## 8. 장애와 대체
 
 실패는 유형마다 따로 기록하고 따로 보여 준다. 한 유형의 실패를 다른 유형으로 뭉뚱그리지 않는다([[16-DECISIONS|ADR-020]]).
@@ -736,6 +765,15 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 
 - `/explain` 전송 실패는 템플릿 문장으로 대체하고 `PARTIAL` 사유가 아니다. `KEV_ENABLED=false`에서 gateway가 죽어도 그렇다. `AI_UNAVAILABLE`은 `/extract`·`/kev` 전송 실패만이다([[16-DECISIONS|ADR-030]] B2).
 - gateway `/health`를 읽지 못하면(gateway 정지) worker는 그 revision의 가장 최근 성공 추출을 모델 이름·프롬프트 해시와 상관없이 쓴다. S6에서 "점수·자격이 직전 run과 같다"(§9)를 지키려는 것이다([[16-DECISIONS|ADR-030]] B10).
+
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표와 목록이 정본이다([[16-DECISIONS|ADR-031]] C4·C6).
+> - C4 "멈춘 분석" 행(B21)을 줄인다. 큐에 job이 없는 run 중 `RUNNING`은 같은 jobId로 다시 넣고, `QUEUED`는 다시 넣지 않고 `FAILED`(`STALE_RUN`)로 닫는다. 사용자가 PostgREST로 직접 넣은 `QUEUED` run이 속도 제한([[05-API-SPEC|05]] §1)을 우회하는 통로가 되기 때문이다(security-auditor 지적). 화면 경로는 enqueue가 실패하면 `FAILED`(`ENQUEUE_FAILED`)로 닫고 멱등 키를 푼다(05 §4.5). C5-B(sol-radar-b3)가 마이그레이션 `20261019000011`로 구현 중이다(main 병합 전).
+> - C6 worker의 실패 분류 기준은 "gateway가 응답했는가"다.
+>   - 전송 실패(연결 거부·timeout·재시도 뒤 5xx·circuit open·시험 503)만 "AI gateway 연결 불가" 행의 `AI_UNAVAILABLE`(`PARTIAL`)이다.
+>   - gateway가 응답했지만 쓸 수 없는 `/kev`(4xx·봉투 오류·wire 스키마 위반)는 "Kev 미접속/timeout" 행과 같게 `kev.enabled=false`·`KEV_UNAVAILABLE` 플래그·`COMPLETED`·`RULES_ONLY`다. 그래서 `KEV_UNAVAILABLE`의 뜻이 "Kev 미접속·timeout + Kev 응답 형식 오류"로 넓어진다. 화면 문구는 그 행의 "Kev 사용 불가" 그대로다.
+>   - gateway가 응답했지만 쓸 수 없는 `/extract`는 `EXTRACTION_FAILED`(`PARTIAL`)다.
+>   - 진단(zod issue 경로·코드, failure kind)은 worker 로그에만 남기고 값과 DB에는 남기지 않는다.
 
 **실패한 단계의 내용을 AI가 추측해 채우지 않는다.**
 - Qwen에는 파싱된 텍스트만 들어간다. "첨부가 있었다"는 사실로 내용을 추정하게 하는 지시를 프롬프트에 넣지 않는다(§4.3).

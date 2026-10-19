@@ -183,6 +183,11 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 - 미충족(`NOT_SATISFIED`)에는 공고 쪽 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 한다. 이 규칙은 규칙 엔진과 zod 스키마, 단위 시험이 강제한다(JSONB 내부라 DB check로 걸지 않는다, §1).
 - `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)는 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장한다(`web/server/scoring/qualification.ts`). 값 집합은 3값 그대로이고, 결정 경로에서는 다른 `NEEDS_REVIEW`와 같게 다룬다.
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표와 설명이 정본이다([[16-DECISIONS|ADR-031]] C5·C12(d)).
+> - C5 `score_runs`의 결과 열과 상태 전이는 RPC `finish_score_run(p jsonb)` 하나로 쓴다(service_role만 실행). 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 마감하고, 아니면 `SCORE_RUN_NOT_RUNNING`이다. check `score_runs_idempotency_key_org_check`로 `idempotency_key`가 `<org_id>:`로 시작하는지 강제한다. requestId 형식(`^[A-Za-z0-9_-]{1,128}$`)은 [[05-API-SPEC|05]] §1 콜아웃. C5-B(sol-radar-b3)가 마이그레이션 `20261019000011`로 구현 중이다(main 병합 전).
+> - C12(d) 후보: `qualification_checks`에 (`score_run_id`, 항목) UNIQUE를 둘지 정한다. 항목을 가리킬 열은 아직 정하지 않았다(지금 표에는 항목 id 열이 없고 `requirement_code`는 null일 수 있다).
+
 ### 3.5 부서·직급 카탈로그와 인력 (ADR-019)
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|

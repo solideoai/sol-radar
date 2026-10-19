@@ -184,7 +184,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 | 4 | S0 | 세 모드 | `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순으로 바꾸며 worker·ai-gateway 재시작. `live`에만 서비스키 4개(`G2B_*_SERVICE_KEY`)가 필요하다([[16-DECISIONS\|ADR-024]] D5). 모드마다 `GET /api/v1/admin/ai/status`(ADMIN)와 머리말 확인. 마지막은 `mock` | 각 모드에서 기동 거부 없음, 머리말 "실행 모드: live\|fixture\|mock", `runMode` 일치. `live`·`fixture`는 `qwen.healthy: true`, `kev.registryMatch: true`. `live`에서 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)이 리허설·시연 예상 호출 수보다 넉넉하다. 결과를 `run-modes.md`에 기록 | 기동 거부면 거부 메시지의 모순 키를 고친다. 실패한 모드는 시연에서 빼고 기록한다. 한도 부족이면 `live` 장면을 빼거나 `fixture`로. live 공고가 DB에 남아 6·7번 수치가 달라지면 기록한다([[19-DEMO-SCENARIO\|19]] §2.1 결정 필요) |
 | 5 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login`(Supabase Auth) | `/dashboard` 이동. Topbar에 "실행 모드: mock"·`DEMO` 배지·`AI: mock`·수집 시각·🔔 | `admin@soltech.invalid`로 대체 |
 | 6 | S2 | 대시보드 | — | BID 권고 3건(`FX-01` 94, `FX-18` 82, `FX-06` 78), 마감 임박 카드에 `FX-14`(D-2), 수집 카드에 "격리 1건"(`FX-12`), 최근 변경 목록 | 숫자 불일치는 기록만 하고 진행 |
-| 7 | S2 | 목록 | `/bids`, 단계 NOTICE 필터, 점수 내림차순 | `FX-01` 최상단 94, `FX-12` 미노출, 모든 행 `DEMO` 칩, 1280px에서 가로 스크롤 없음 | — |
+| 7 | S2 | 목록 | `/bids`, 권고 `BID` 필터, 점수 내림차순([[16-DECISIONS\|ADR-031]] C3. 단계 NOTICE 필터는 사전규격 `FX-18`을 뺀다) | `FX-01` 최상단 94, `FX-12` 미노출, 모든 행 `DEMO` 칩, 1280px에서 가로 스크롤 없음 | — |
 | 8 | S3 | 상세 BID | `FX-01` 열기 | 자격 3건 `충족`, 점수 94, 분해 5행(24.0/25.0/20.0/15.0/10.0), Kev 71/24/5 + 09 고지 문구, 분석 패널 "AI: mock"·"가상 회사 프로필로 분석" 배지, 근거 3건 → 드로어에 원문 하이라이트, 결정 패널 "마지막 결정: BID"(seed 리뷰) | 드로어 실패 시 원문 링크 새 탭 |
 | 9 | S3 | 규칙 우선 | `FX-03` 열기 | 권고 `NO-BID`, 자격 1건 `미충족` + 근거 문장, 점수 68 "참고" 표시, Kev 섹션 `규칙 우선` 배지와 "Kev는 BID를 제시했지만…" 문구, "마지막 결정: NO-BID"(seed 리뷰) | — |
 | 10 | S4 | 라이브 분석 | `FX-02` → [분석 재실행] | 202 → `대기 중` → `분석 중` → `완료` 10초 이내. 점수 72, WATCH, 분해 15.0/18.3/14.0/15.0/10.0, Kev 36/52/12 | 60초 초과 시 새로고침, 사유 기록 |
@@ -197,6 +197,12 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 | 16 | S7 | 격리 | `viewer@other.invalid`(`org-02`)로 로그인해 받은 Supabase access token을 `Authorization: Bearer`로 붙여 `GET /api/v1/bids/{FX-01}/qualification-checks`, `GET /api/v1/analyses/{org-01 분석 id}` | 둘 다 404([[09-SECURITY\|09 보안]] IDOR 정책, RLS로 행이 안 보여 404). 화면에서는 `FX-01` 공고 본문은 보이되 점수·자격·검토 없음 | API 응답 JSON으로 대체 시연 |
 | 17 | S7 | 관리자 | `/admin/ingestion` | `SEED` run에 격리 1건(`FX-12`, 사유 `title` 누락), `FX-20` 재시도 로그 2회 + `Retry-After` 대기 | — |
 | 18 | 마감 | 증거 | 각 단계 스크린샷 저장 | `demo-day/<일시>/screenshots/` 15장 이상 | — |
+
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-031]] C9·C11·C15).
+> - C9 12번 `FX-07` 재분석 점수는 "68 → 76"이 아니라 "68 → 77"이다(규칙 엔진 77.3, 화면 77).
+> - C15 12번: 수집은 분석을 자동으로 넣지 않는다(ADR-030 B18). `FX-07` r2 재분석은 사람이 상세 화면에서 [재분석]을 눌러야 보이므로 행동 열에 그 단계를 넣는다.
+> - C11 S0 사전 분석([[19-DEMO-SCENARIO|19]] §3 5번) 18건의 기대 플래그: `MODEL_RULE_DISAGREEMENT`는 `FX-03`에만(9번), `KEV_NEEDS_REVIEW`는 `FX-04`·`05`·`11`·`13`·`17`·`19`·`20`에 붙는다(mock Kev needsHumanReview 0.70 ≥ 임계 0.7). 11번의 `FX-02` `KEV_NEEDS_REVIEW`(0.74)는 S4 라이브 분석 결과라 이 18건과 별개다.
 
 체크리스트에서 ❌가 하나라도 있으면 그 항목은 데모에서 "미구현"으로 말한다. 통과한 척하지 않는다.
 

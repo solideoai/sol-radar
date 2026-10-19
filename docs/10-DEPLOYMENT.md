@@ -57,6 +57,11 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 - service role 키와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 절대 넣지 않는다([[09-SECURITY|09 보안]]). 서비스키는 worker의 `OfficialApiConnector`만 읽고, 소스마다 registry `serviceKeyEnv`가 가리키는 키 하나만 쓴다([[07-DATA-PIPELINE|07 수집]] §2.2). gateway에도 넘기지 않는다.
 - `pnpm check:env`는 세 파일의 placeholder를 세고, 실행 모드와 모순된 값(위 "실행 모드와 프로필")이 있으면 실패한다. Phase 0에서 구현했다(`scripts/check-env.mjs`). `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 셸에서 env 만 주어서는 검사되지 않는다.
 
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 표가 정본이다([[16-DECISIONS|ADR-031]] C13).
+> - worker 행에 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(선택, 코드 기본 `30`분, 양의 정수만)를 올린다([[07-DATA-PIPELINE|07 수집]] §2·§2.2, main `9da17c4` `web/worker/ingest-queue.ts`). 지금 `compose.yaml`은 이 키를 worker에 넘기지 않아 컨테이너는 기본값을 쓴다. 바꾸려면 `compose.yaml`의 worker `environment`에 키를 더하는 일이 함께 필요하다.
+> - 멈춘 분석 복구 env 3개(`ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`)는 [[03-AI-PIPELINE|03]] §3 env 표 콜아웃(C12(e))에 올렸다. 같은 이유로 지금은 컨테이너에서 기본값이다.
+
 **Phase 0 확정 사항**: 결정과 이유는 [[16-DECISIONS|ADR-024]] 상세 표가 정본이다(placeholder `CHANGE_ME`·`minioadmin` 금지·Redis 비밀번호 영숫자·MinIO 길이, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 실행 모드 규칙 원천 `infra/run-modes.json`과 빈 문자열은 미지정). 여기에는 운영에 필요한 것만 적는다.
 - gateway 이미지는 `AI_HOST=0.0.0.0`·`SOL_RUN_MODES_FILE=/app/infra/run-modes.json`을 이미지 ENV로 가지고, 저장소 루트를 빌드 컨텍스트로 쓴다(`context: ..`). Compose는 실행 모드 키를 `${VAR:-}`로 넘긴다.
 - `infra/smoke.sh` 는 `-p` 를 받지 않는다. 다른 프로젝트·env 로 격리해 돌리려면 Compose 환경변수 `COMPOSE_PROJECT_NAME`(파일의 `name:` 보다 우선)·`COMPOSE_ENV_FILES` 를 준다. `REDIS_URL` 은 호출한 셸이 준다(`redis://:<비밀번호>@127.0.0.1:6380`).
@@ -220,6 +225,11 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/mode
 10. 장애 대체 리허설 (아래 "장애 주입" 절): `docker compose -f infra/compose.yaml stop ai-gateway` → FX-01 재분석 → 상세에 `PARTIAL` 배너, 우상단 `AI: unavailable` → `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` 확인 → FX-01 재분석 `COMPLETED`. **[live·fixture]** 엔드포인트 미접속 리허설도 한다(C1 ③ G6과 같은 경로): 엔드포인트 접속을 끊는다(예: `QWEN_BASE_URL`·`KEV_BASE_URL`을 닿지 않는 주소로 바꿔 ai-gateway 재시작, 또는 노트북 방화벽으로 `acropolissg.com` 차단) → FX-01 재분석이 `PARTIAL`·`RULES_ONLY`(`QWEN_UNAVAILABLE` 또는 `KEV_UNAVAILABLE`)로 끝나고 mock 결과가 나오지 않는지 확인 → 원래 값으로 되돌려 ai-gateway를 재시작하고 4번 ②·③의 curl로 재접속을 확인 → FX-01 재분석 `COMPLETED`. 재접속 확인 소요 시간을 기록한다.
 11. 테넌트 격리 리허설: `org-02` VIEWER(`viewer@other.invalid`)로 Supabase Auth 로그인해 받은 access token을 `Authorization: Bearer`로 붙여 `GET /api/v1/bids/{FX-01 id}/qualification-checks` → `404 NOT_FOUND`(RLS가 `org-01` 행을 보여 주지 않는다). 공고 자체(`GET /api/v1/bids/{FX-01 id}`)는 공용이라 200. 404 응답을 `isolation-404.json`으로 저장. 절차는 [[19-DEMO-SCENARIO|19 데모 시나리오]] S7.
 12. 리허설로 생긴 리뷰·알림 초기화: `pnpm demo:reset` (멱등, DEMO 데이터 재생성). 브라우저 탭 1개만 남긴다. **[live·fixture]** 엔드포인트가 응답하는지 마지막으로 확인한다(4번 ②·③).
+
+> [!note] 제안 — ADR-031
+> 조정 세션 sol-radar-e8의 판정이다. 사람이 채택하기 전까지 위 1~12번이 정본이다([[16-DECISIONS|ADR-031]] C12(f)).
+> - 기동 순서: Compose → `pnpm demo:reset` → 모드 확인·mock 복귀 → `pnpm demo:preanalyze` → S2. `pnpm demo:preanalyze`는 `mock` 모드와 gateway가 필요하므로 `live`·`fixture` 확인 뒤에는 `mock`으로 되돌린 다음에 돈다.
+> - 이 절과 맞춰 볼 점: 지금은 6번에서 사전 분석을 하고, 그 뒤 10번 엔드포인트 리허설(`live`·`fixture`)과 12번 `pnpm demo:reset`이 온다. [[04-DATABASE|04 DB]] §6에 따르면 `pnpm demo:reset` 직후 `score_runs`는 0건이다. 그래서 12번 뒤에도 위 순서(mock 복귀 → `pnpm demo:preanalyze`)를 다시 밟아야 S2 기대값(분석 현황 완료 18)이 나온다. 단계 번호를 어떻게 바꿀지는 채택 때 정한다.
 
 > [!tip] 심사 포인트
 > 10번이 "AI가 죽어도 제품이 동작한다"의 증거다. 데모 중 실제로 ai-gateway를 내리고 PARTIAL 배너를 보여 준다. 실모델 모드에서는 엔드포인트에 닿지 않아도 mock으로 몰래 바뀌지 않고 실패 유형이 그대로 보인다.
