@@ -134,7 +134,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 이전 표현 | 지금 쓰는 표현 | 주 문서 |
 |---|---|---|
 | `organization_id` / `organizationId` | `org_id` / `orgId` | [[04-DATABASE]] |
-| NestJS API·Worker | Route Handler(`web/app/api/v1`)·서버 도메인(`web/server`)·worker 진입점(`web/worker`) | [[02-ARCHITECTURE]] |
+| NestJS API·Worker | Route Handler(`web/app/api/v1`)·서버 도메인(`web/server`)·worker 진입점(`web/worker`). 해커톤 뒤 API·worker는 다시 NestJS로 옮긴다(ADR-028) | [[02-ARCHITECTURE]] |
 | Prisma schema·migration | `supabase/migrations/*.sql` + 생성 타입 `web/lib/database.types.ts` | [[04-DATABASE]] |
 | 자체 JWT 쿠키(`sol_access`·`sol_refresh`)·refresh 회전 구현 | Supabase Auth 세션 쿠키(`@supabase/ssr`)·Supabase Auth 설정 | [[09-SECURITY]] |
 | `users` 표·비밀번호 해시·계정 잠금 열 | `auth.users`(Supabase Auth) + `profiles`(계정 상태 `status`) | [[04-DATABASE]] |
