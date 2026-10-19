@@ -68,6 +68,27 @@ def test_v2_01_contradiction_names_key(rules, env, key, reason):
     assert pairs(resolve_run_mode(env, rules)) == [(key, reason)]
 
 
+RUN_MODES = ("live", "fixture", "mock")
+
+
+@pytest.mark.parametrize("mode", RUN_MODES)
+def test_v2_01_every_mode_allows_kev_disabled(rules, mode):
+    result = resolve_run_mode({"SOL_RUN_MODE": mode, "KEV_ENABLED": "false"}, rules)
+    assert (result.violations, result.effective["KEV_ENABLED"]) == ([], "false")
+
+
+@pytest.mark.parametrize("mode", RUN_MODES)
+def test_v2_01_unset_kev_enabled_is_true(rules, mode):
+    assert resolve_run_mode({"SOL_RUN_MODE": mode}, rules).effective["KEV_ENABLED"] == "true"
+
+
+@pytest.mark.parametrize("value", ["False", " false"])
+@pytest.mark.parametrize("mode", RUN_MODES)
+def test_v2_01_kev_enabled_case_or_space_variant_contradicts(rules, mode, value):
+    result = resolve_run_mode({"SOL_RUN_MODE": mode, "KEV_ENABLED": value}, rules)
+    assert pairs(result) == [("KEV_ENABLED", "CONTRADICTS_MODE")]
+
+
 def test_v2_01_unknown_mode_has_null_mode_and_effective(rules):
     result = resolve_run_mode({"SOL_RUN_MODE": "LIVE", "AI_PROVIDER": "mock"}, rules)
     assert result.mode is None
@@ -86,7 +107,7 @@ def test_v2_01_multiple_violations_in_decision_order(rules):
             "SOL_RUN_MODE": "live",
             "DEMO_MODE": "true",
             "AI_PROVIDER": "mock",
-            "KEV_ENABLED": "false",
+            "KEV_ENABLED": "off",
             "KEV_ALLOW_KO_STATE": "true",
             "AI_FALLBACK_TO_MOCK": "true",
         },

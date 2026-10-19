@@ -10,7 +10,7 @@ import { readLocalStatus } from "./local-test-target.mjs";
 //
 // 데이터는 그 사람으로 로그인해 넣는다(anon 키 + 그 사람의 토큰). RLS 를 거치고, 활동 기록에 행위자가 남는다.
 // 관리 키(service_role)는 카탈로그·명부 upsert, 시험 계정 생성·갱신, 시드 작업·초대 갱신, 날짜를 옮기는 일,
-// 운영자(profiles.is_admin)를 켜는 일에만 쓴다. is_admin 은 화면 역할이 바꾸지 못한다(권한과 protect_is_admin 트리거 — 관리 키는 통과시킨다).
+// 운영자(profiles.is_admin)를 켜는 일, 시드 팀 만들기(팀 만들기는 운영자만이라 — ADR-026)에만 쓴다. is_admin 은 화면 역할이 바꾸지 못한다(권한과 protect_is_admin 트리거 — 관리 키는 통과시킨다).
 // 키 값은 화면에 찍지 않는다. 비밀번호는 로컬 시험 계정용이라 출력한다.
 //
 // 계정·팀·대시보드 수치는 로그인 E2E(web/e2e-auth/support/seed.ts 와 dashboard·tasks-view·admin 시험)에 옮겨 적혀 있다. 바꾸면 같이 고친다.
@@ -293,15 +293,23 @@ export const seed = async ({ apiUrl, anonKey, serviceKey, now = new Date() }) =>
   }
 
   // 기존 템플릿 팀은 그대로 두고 시드가 소유하는 작업·초대 상태만 갱신한다.
+  // 팀 만들기는 운영자만 할 수 있다(ADR-026, 20261019000008). seed-owner 는 운영자가 아니므로 관리 키로 만들고,
+  // JWT 없는 관리 작업에는 add_team_owner 가 멤버십을 만들지 않으니 소유자 멤버십(owner + ADMIN)도 직접 넣는다.
+  // 있는지도 관리 키로 본다 — 소유자가 아직 멤버가 아니면 RLS 가 팀을 숨겨 중복 생성(slug UNIQUE 위반)으로 끝난다.
   const [existingTeam] = await call(
     "GET",
     `/rest/v1/organizations?select=id&slug=eq.${SEED_TEAM.slug}`,
-    owner.as,
+    { apiKey: serviceKey },
   );
   if (!existingTeam) {
-    await call("POST", "/rest/v1/organizations", {
-      ...owner.as,
+    const [createdTeam] = await call("POST", "/rest/v1/organizations", {
+      apiKey: serviceKey,
       body: SEED_TEAM,
+      prefer: "return=representation",
+    });
+    await call("POST", "/rest/v1/memberships", {
+      apiKey: serviceKey,
+      body: { org_id: createdTeam.id, user_id: owner.id, org_role: "owner", sol_role: "ADMIN" },
       prefer: "return=minimal",
     });
   }

@@ -62,20 +62,21 @@ flowchart TB
 ```text
 web/                      # Next.js 16 App Router — 화면 + Route Handler(/api/v1) + 서버 도메인
 web/server/<도메인>/       #   model·repo·service·index(배럴), import "server-only". 예: bids, ingestion, scoring, analysis, review, notifications, company-profile, health
+web/app/(app)/(work)/      #   업무 화면 묶음 — 조직 주소 없는 /dashboard·/bids·/bids/[id]·/notifications(ADR-029 A6 D1). 템플릿 /[slug]/… 화면은 확장 컷에서 정리(D30)
 web/app/api/v1/**/route.ts#   외부 계약(05 API) — 경로는 /api/v1/... 그대로
 web/app/health/{live,ready}/route.ts  # 헬스체크 /health/live, /health/ready
-web/worker/               # BullMQ 소비자 진입점(ingest job·analysis job). web/server 도메인 코드를 같이 쓴다(같은 코드베이스의 별도 프로세스)
+web/worker/               # BullMQ 소비자 진입점(ingest·documents·extract·analysis job, outbox 처리). web/server 도메인 코드를 같이 쓴다(같은 코드베이스의 별도 프로세스)
 supabase/migrations/      # 스키마·RLS·함수(append-only, 이미 있는 파일은 고치지 않는다)
 services/ai/              # Python AI gateway (FastAPI :8000), adapters/mock.py·kev.py·qwen.py
-infra/compose.yaml        # redis, minio, qdrant, ai-gateway, worker (+ web 은 선택). 프로필 demo / ai-local / ai-hosted
+infra/compose.yaml        # redis, minio, qdrant, ai-gateway, worker 5개. web 은 호스트 실행(Compose 에 없음). 실행 프로필은 env 묶음(infra/env/)
 fixtures/                 # FX-01 ~ FX-20
 scripts/                  # 검증·seed(템플릿 scripts 재사용: db-seed, db-push, db-types, database.test 등)
 design/tokens.json        # 디자인 토큰 정본 → web/app/globals.css 생성(pnpm tokens)
 docs/                     # 이 vault, docs/evidence/
 ```
-- [[16-DECISIONS|ADR-021]]로 더하는 서버 도메인: `people`(조직·인력 조회, 데모 필수), `ops`(템플릿 `admin`의 새 이름, 서비스 운영자 전용). P1: `watchlist`·`projects`·`workforce`.
+- [[16-DECISIONS|ADR-021]]로 더하는 서버 도메인: `people`(조직·인력 조회, 확장 컷 [[16-DECISIONS|ADR-023]]), `ops`(템플릿 `admin`의 새 이름, 서비스 운영자 전용). P1: `watchlist`·`projects`·`workforce`.
 - pnpm workspace·`apps/`·`packages/`는 만들지 않는다. 출발 템플릿처럼 `web/`은 독립 설치한다(`pnpm -C web …`).
-- 프로필별 env 예시(`infra/env/*.env.example`)와 `ai-local` GPU override(`infra/compose.gpu.yaml`)는 [[10-DEPLOYMENT|10 배포]]에서 다룬다.
+- 프로필별 env 예시(`infra/env/*.env.example`)와 회사 GPU 서버용 참고 구성(`infra/compose.gpu.yaml`, 모델 라우터만, [[16-DECISIONS|ADR-025]])은 [[10-DEPLOYMENT|10 배포]]에서 다룬다.
 
 ## 서비스 책임과 데이터 소유
 공고/회사/검토 정보의 단일 기록원은 **Supabase Postgres**다. 조직 소유 데이터는 `org_id`를 갖고 RLS(`org_id in (select public.my_org_ids())`)로 거른다. 공고처럼 조직 소유가 없는 공용 데이터는 로그인 사용자(`authenticated`)에게 읽기만 열고, 쓰기는 worker(service role)만 한다. 다른 조직 자원은 RLS로 행이 보이지 않아 `404`가 된다([[09-SECURITY|09 보안]]). Qdrant는 재생성 가능한 파생 인덱스. MinIO는 원본 바이트 저장, Supabase Postgres에 키·해시·접근 권한 기록. 점수 재계산은 비동기 job이며 결과에는 알고리즘 버전·프롬프트 해시·모델 식별자를 남긴다. Kev 출력은 규칙 점수와 별도 컬럼에 저장한다 ([[04-DATABASE|04 DB]]).
@@ -160,14 +161,14 @@ flowchart TB
  AI -. AI_PROVIDER=local · HTTPS 엔드포인트 .-> RT
  AI -. AI_PROVIDER=hosted, 사용자 승인 후 .-> OR
 ```
-- 노트북에서는 Compose 서비스(redis·minio·qdrant·ai-gateway·worker)와 web이 돈다. web은 호스트에서 `pnpm -C web start`로 띄우거나 Compose `web` 서비스(선택)로 띄운다([[10-DEPLOYMENT|10 배포]]). DB·Auth는 노트북 밖 Supabase 클라우드 프로젝트다.
+- 노트북에서는 Compose 서비스(redis·minio·qdrant·ai-gateway·worker)와 web이 돈다. web은 호스트에서 `pnpm -C web start`로 띄운다. `infra/compose.yaml`에 `web` 서비스는 없다([[16-DECISIONS|ADR-024]] D1, [[10-DEPLOYMENT|10 배포]]). DB·Auth는 노트북 밖 Supabase 클라우드 프로젝트다.
 - 실행 모드([[16-DECISIONS|ADR-020]]): `live` = 공공 API + 회사 GPU 실추론(해커톤 MVP 목표), `fixture` = fixture 20건 + 회사 GPU 실추론(공공 API 장애 대체), `mock` = fixture 20건 + mock AI(모델 장애 대체·CI·골든). 장애 대체 순서는 `live` → `fixture` → `mock`이고, 모드 전환은 env 교체와 worker·gateway 재시작으로 한다. 자동으로 바꾸지 않는다.
 - 현재 실행 모드와 `AI_PROVIDER` 값은 `/health/ready`의 `checks.ai`와 화면 우상단 표시(`실행 모드` + `AI: mock | local | hosted`)로 노출된다. gateway가 불가하면 `AI: unavailable`. 심사위원이 지금 보는 것이 실데이터·실모델인지 항상 알 수 있다.
 - mock 응답은 fixture ID별로 고정된 결정적 값이다. 같은 입력에 같은 출력이 나와야 골든 테스트가 성립하므로 골든은 `mock` 모드에서만 단언한다.
 - 회사 GPU 서버는 외부 접근 불가이고, 회사가 모델 런타임을 HTTPS 엔드포인트(`https://acropolissg.com/sol-radar` 아래)로 제공한다. gateway는 TLS 검증을 켠 채 API 키(`QWEN_API_KEY`·`KEV_API_KEY`)로 붙는다([[16-DECISIONS|ADR-025]]). 회사 nginx는 location 하나만 두고, GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`)가 `/sol-radar/qwen`·`/sol-radar/kev`를 vLLM·`kev.serve`로 나눈다. 엔드포인트에 접속하지 못하면 gateway가 Qwen·Kev 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모델 기동·GPU 배분은 회사 운영이다. 프로필 정의는 [[10-DEPLOYMENT|10 배포]].
 
-> [!warning] 데모 네트워크 의존 (미결정)
-> 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 중 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로(로컬 Supabase CLI `pnpm db:start`로 대체, 사전 녹화 영상)와 데모·배포 실행 환경의 최종안은 **미결정**이다([[16-DECISIONS|16 ADR]] ADR-017, 미결정 표).
+> [!warning] 데모 네트워크 의존
+> 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 중 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다([[16-DECISIONS|ADR-023]], 미결정 8번). 웹 배포처는 아직 미결정이다.
 
 ## 장애 원칙
 |장애|감지|사용자에게 보이는 것|데이터 영향|
@@ -186,11 +187,11 @@ flowchart TB
 
 네트워크 호출은 모두 timeout 및 circuit breaker 적용. 장애 상태 노출 방식은 [[06-UI-UX|06 UI]], 지표는 [[14-OBSERVABILITY|14 관측성]].
 
-## 솔리데오 인력·가입 카탈로그 (ADR-019, 데이터·DB·가입 구현됨)
+## 솔리데오 인력·가입 경계 (ADR-019)
 
-사용 회사는 솔리데오 하나이며 `org-02`는 RLS 격리 시험 전용이다. 부서를 별도 테넌트(`organizations`)로 만들지 않는다. 부서·직급 카탈로그와 200명 가상 인력 정본은 `fixtures/people/solideo.*.json`, 공개 가상 사진은 `web/public/demo/people/<personId>.png`다. 공고 첨부의 MinIO 사설 저장과 구분한다. 이름·사진·직급 선택으로 Auth 계정·멤버십·권한을 자동 생성하지 않는다. 인력은 `team_members`(운영)와 `team_member_scoring`(점수 계산 속성, seed 전용)로 나눈다([[16-DECISIONS|ADR-021]]).
+사용 회사는 솔리데오 하나이며 `org-02`는 RLS 격리 시험 전용이다. 부서를 별도 테넌트(`organizations`)로 만들지 않는다. 이름·사진·직급 선택으로 Auth 계정·멤버십·권한을 자동 생성하지 않는다. 공개 가상 사진(`web/public/demo/people/<personId>.png`)은 정적 공개 자산이고, 공고 첨부는 MinIO 사설 저장이다. 둘을 섞지 않는다([[09-SECURITY|09 보안]]).
 
-가입 카탈로그는 Next의 `GET /api/v1/signup-options`가 허용된 ID·표시명만 공개한다. Supabase Auth 메타데이터에서 검증한 가입 신고 정보는 `profiles`로 옮기고, OAuth·기존 미완료 계정은 `/auth/complete-profile`에서 본인 정보만 보완한다. 업무 화면뿐 아니라 업무 API도 완료 여부를 확인한다. 데이터 필드는 [[04-DATABASE]], API는 [[05-API-SPEC]], 생성·배분은 [[07-DATA-PIPELINE]]이 정의한다. 구현 상태는 [[00-README|00 인덱스]] 솔리데오 절과 [[PROGRESS]]를 따른다. `/people`·`/org-chart` 화면은 미구현이다.
+명부 정본(`fixtures/people/solideo.*.json`)과 생성·배분은 [[07-DATA-PIPELINE]], 표(`team_members`·`team_member_scoring`, [[16-DECISIONS|ADR-021]])와 가입 신고 열은 [[04-DATABASE]], 가입 API(`GET /api/v1/signup-options`·`GET·PATCH /api/v1/me/employment`)와 `/auth/complete-profile` 보완 규칙은 [[05-API-SPEC]] §8이 정의한다. 구현 상태는 [[PROGRESS]]를 따른다.
 
 ## 관련 문서
 - [[01-PRD|01 PRD]]

@@ -1,0 +1,32 @@
+{
+  "version": "kev-qs/v0.1",
+  "source": "docs/03-AI-PIPELINE.md §5.5. 문자열을 바꾸면 버전을 올린다.",
+  "questions": {
+    "recommendation": {
+      "type": "choice",
+      "instructions": "Given the company profile and the notice requirements, which action should the sales team take?",
+      "criteria": {
+        "BID": "Requirements are met and the fit is strong",
+        "WATCH": "Promising but something must be confirmed first",
+        "NO_BID": "A mandatory requirement is unmet or the fit is poor"
+      }
+    },
+    "mandatoryRisk": {
+      "type": "noul",
+      "instructions": "Is there a mandatory qualification, license or past-performance requirement that this company probably does not satisfy?",
+      "criteria": {
+        "true": "At least one mandatory item is likely unmet or unverifiable",
+        "false": "All mandatory items appear satisfied"
+      }
+    },
+    "needsHumanReview": {
+      "type": "noul",
+      "instructions": "Does this notice contain ambiguity, conflicting figures or unusual conditions that a human should check before deciding?"
+    },
+    "fit": {
+      "type": "score",
+      "instructions": "How well does this company's capability match this notice overall?",
+      "criteria": ["Very poor", "Poor", "Moderate", "Good", "Very good"]
+    }
+  }
+}

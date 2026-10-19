@@ -10,7 +10,7 @@ updated: 2026-10-19
 
 # SOL RADAR — 구현 문서 인덱스
 
-> 최종 아키텍처: Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen, Kev) + Docker Compose ([[16-DECISIONS|ADR-017]]).
+> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen, Kev) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
 
 ## 10줄 요약
 
@@ -35,14 +35,11 @@ updated: 2026-10-19
 
 ## 구현 규칙
 
-1. 문서 번호 순서로 읽되 01~05의 계약부터 확정한다. 미결정 사항은 [[16-DECISIONS|16 ADR]]에 기록한다.
-2. 코드는 `web/`(화면·Route Handler `web/app/api/v1`·서버 도메인 `web/server/<도메인>`), `web/worker/`(BullMQ 소비자), `supabase/migrations/`(스키마·RLS, append-only), `services/ai/`, `infra/`, `fixtures/`에 둔다. 외부 API 계약은 zod 스키마(`web/server/<도메인>/*.model.ts`)를 단일 원천으로 사용한다([[16-DECISIONS|ADR-016·017]]).
-3. MVP의 end-to-end 세로 기능은 **실제 공고 수집 → 첨부 파싱 → Qwen 추출 → 자격 검증 → Kev 참고 지표 → SOL Score → BID/WATCH/NO-BID → 대시보드 → 알림 이벤트**다. 첫 단계는 외부 의존성(실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속) 조기 점검이다([[12-ROADMAP|12 로드맵]]).
-4. 공식 API 접근 실패, 모델 오프라인, 파일 없음에서도 데모가 가능하도록 `SOL_RUN_MODE=fixture|mock`을 제공한다. 데모 데이터는 실데이터처럼 표시하지 않는다.
-5. 정확하지 않은 수주확률, 평가위원 점수, 미래 발주예측은 만들어내지 않는다. 근거 미확보 시 `INSUFFICIENT_DATA`로 표시한다.
-6. 각 단계에서 테스트·lint·typecheck를 통과시킨 후 다음 단계로 진행한다. [[CLAUDE]]를 실행 지침으로 사용한다.
-7. 결제·구독·모바일 레이아웃 코드는 작성하지 않는다. 화면은 데스크톱 1280px 이상 기준이다 ([[16-DECISIONS|ADR-007]]).
-8. 유료 외부 모델 API(hosted)와 클라우드 GPU 임대는 사용자 승인 전에 쓰지 않는다. CI·테스트 기본은 `SOL_RUN_MODE=mock`(`AI_PROVIDER=mock`)이고, 실추론은 회사가 HTTPS로 제공하는 GPU 추론 엔드포인트에 붙는 `ai-local`이다([[16-DECISIONS|ADR-025]]).
+절대 규칙(스택·코드 위치·RLS·결제·모바일 금지·hosted 모델과 클라우드 GPU 승인·실행 모드와 mock 표시·DEMO 표시)과 해커톤 우선순위, 단계마다 계획 → 코드 → 테스트 → 증거 → 보고 순서는 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]이 정본이다. 실행 지침은 [[CLAUDE]], 폴더 구조는 [[02-ARCHITECTURE|02 아키텍처]] monorepo 절이다. 아래는 17에 없는 원칙만 둔다.
+
+1. 01~05의 계약부터 확정한다. 미결정 사항은 [[16-DECISIONS|16 ADR]]에 기록한다.
+2. MVP의 end-to-end 세로 기능은 **실제 공고 수집 → 첨부 파싱 → Qwen 추출 → 자격 검증 → Kev 참고 지표 → SOL Score → BID/WATCH/NO-BID → 대시보드 → 알림 이벤트**다. 첫 단계는 외부 의존성(실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속) 조기 점검이다([[12-ROADMAP|12 로드맵]]).
+3. 정확하지 않은 수주확률, 평가위원 점수, 미래 발주예측은 만들어내지 않는다. 근거 미확보 시 `INSUFFICIENT_DATA`로 표시한다.
 
 ## 문서
 
@@ -59,7 +56,7 @@ updated: 2026-10-19
 | 09 | [[09-SECURITY]] | 인증(Supabase Auth)·RLS·RBAC 표(`sol_role`)·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
 | 10 | [[10-DEPLOYMENT]] | Docker Compose(redis·minio·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
-| 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(데모 필수 / 있으면 좋음 / 이후)·D-2~D-day |
+| 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path·D-day까지 일정 |
 | 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오 P1(mock) |
 | 14 | [[14-OBSERVABILITY]] | 모니터링·운영·데모 지표 |
 | 15 | [[15-DATA-CONTRACTS]] | `EvidenceRef`·`FieldState`·`NormalizedBid` 정식 정의 / 인용 검증 알고리즘 / 격리 규칙 / registry 키 |
@@ -68,7 +65,8 @@ updated: 2026-10-19
 | 18 | [[18-HACKATHON]] | 피치·차별점·심사 기준 매핑·데모 스크립트·Q&A·정직성 표 |
 | 19 | [[19-DEMO-SCENARIO]] | 데모 기업·fixture 스토리·클릭 경로·장애 대체 시연 |
 | 20 | [[20-GLOSSARY]] | 용어집 (단일 원천) |
-| 21 | [[21-MODEL-TRAINING]] | 평가셋(실제 공고 × 가상 기업)·평가 지표·오류 분석·Kev-9B LoRA 파인튜닝 전략·모델 레지스트리 |
+| 21 | [[21-MODEL-TRAINING]] | 평가셋(실제 공고 × 가상 기업)·평가 지표·오류 분석·Kev-9B LoRA 파인튜닝 전략(착수 판단·E4 비교. 실행 절차는 22)·모델 레지스트리 |
+| 22 | [[22-FINETUNE-RUNBOOK]] | 회사 GPU 파인튜닝 실행서: 모델 출처(Hugging Face·GitHub 리비전)·학습 환경·Kev·Qwen 학습 데이터 제작·학습·보정·병합·반입 명령 |
 | — | [[CLAUDE]] | Claude Code 지침 (루트 `CLAUDE.md`가 `@docs/CLAUDE.md`로 먼저 불러온다, ADR-015) |
 | — | [[PROGRESS]] | 진행 상황·작업 로그 (저장소 경로 `docs/PROGRESS.md`) |
 
@@ -89,7 +87,7 @@ updated: 2026-10-19
 | 분석은 재현 가능한 키로 식별된다 | [[04-DATABASE]] `score_runs`(revision_id, company_profile_id, algorithm_version, prompt_hash, input_snapshot) | `pnpm test:db` (제약·정책 시험, PGlite) |
 | Kev는 보수적 방향으로만 영향을 준다 | [[03-AI-PIPELINE]] §5.5 질문별 사용처·규칙 충돌 처리 | G3, AI pytest adapter |
 | Kev는 실재하는 Apache-2.0 모델이다. 영어 모델이며 한국어 성능은 미검증이다 | 아래 §출처, [[16-DECISIONS]] 미결정 2번, [[03-AI-PIPELINE]] §5.6 영어 템플릿 | 2026-10-16 README·모델 카드 확인. 한국어/영어 비교는 평가셋 E1·E2([[21-MODEL-TRAINING]]) |
-| 외부 API 필드를 지어내지 않았다 | [[07-DATA-PIPELINE]] registry 절, [[16-DECISIONS]] 미결정 1번 | data.go.kr 명세 확인(2026-10-16), 실제 응답 3건은 P0-0에서 저장 |
+| 외부 API 필드를 지어내지 않았다 | [[07-DATA-PIPELINE]] registry 절, [[16-DECISIONS]] 미결정 1번 | data.go.kr 명세 확인(2026-10-16), 실응답 확인(2026-10-19 C1, `fixtures/recorded/`, `docs/evidence/phase-0/external-deps-api-20261019.md`. 설계 가정과 다른 점은 같은 문서 §10) |
 | 모델 성능 주장은 평가셋 숫자로만 한다 | [[21-MODEL-TRAINING]] 지표·신뢰구간·오류 분석 | `docs/evidence/eval/` 리포트 |
 | 파싱에 실패한 내용을 AI가 추측해 채우지 않는다 | [[03-AI-PIPELINE]] 장애와 대체, [[15-DATA-CONTRACTS]] 인용 검증 | 파싱 실패 fixture 시험([[11-TESTING]]) |
 
@@ -107,13 +105,13 @@ updated: 2026-10-19
 > [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev)
 > Kev는 Jared Palmer가 공개한 Apache-2.0 소형 결정 모델이다. Qwen3.5 기반 Kev-0.8B / 4B(권장) / 9B, Qwen3.8 기반 Kev-27B가 "Kev 1.0"으로 함께 릴리즈되었다(GitHub 태그 `kev-1.0`, Hub 태그 `v1.0`). 서버 실행은 `uv run --extra serve python -m kev.serve --run jaredpalmer/kev-4b@v1.0 --port 8009` (README: `@v1.0`은 항상 같은 가중치를 로드. quickstart는 태그 없이 적혀 있다). API는 TypeSafe System One 호환 `POST /v1/systemone`, 질문 타입 `noul` / `choice` / `score`. `pip install kev`는 무관한 패키지이므로 소스에서 설치한다. 모델 카드(`docs/model-cards/kev-4b.md`)는 `Languages: English`이며 영어 외 언어는 잘 동작하지 않는다고 명시한다. 따라서 한국어 입찰 도메인 성능은 미검증이고, 입력은 영어 템플릿 state로 변환해 전달한다([[03-AI-PIPELINE]] §5.6). 호스팅 제공처(OpenRouter 등) 가용성은 확인되지 않았다(2026-10-16 페이지 404).
 
-- 조달청 데이터: https://www.data.go.kr/ — 입찰공고정보서비스(15129394)·사전규격(15129437)·발주계획(15129462)·업종 및 근거법규(15129467)의 오퍼레이션·필드 이름은 2026-10-16 서비스 페이지 명세로 확인했다. 서비스키로 받은 실제 응답은 아직 없다(P0-0, [[16-DECISIONS]] 미결정 1번).
-- Kev 학습·평가 도구(`kev.train`·`kev.benchmark`·`kev.compare`, `--init_from`)는 2026-10-16 저장소 main `1f04cfa`에서 확인했다([[21-MODEL-TRAINING]] §5.1). 기본 모델은 Kev-9B@v1.0이다(ADR-020).
+- 조달청 데이터: https://www.data.go.kr/ — 입찰공고정보서비스(15129394)·사전규격(15129437)·발주계획(15129462)·업종 및 근거법규(15129467)의 오퍼레이션·필드 이름은 2026-10-16 서비스 페이지 명세로 확인했다. 서비스키로 받은 실제 응답은 2026-10-19 C1 ①(공공 API A1~A9)·②(첨부 B1~B4)에서 확인했다. 마스킹한 응답 14건은 `fixtures/recorded/`, 호출 기록과 설계 가정과 다른 점 8건은 `docs/evidence/phase-0/external-deps-api-20261019.md`에 있다([[16-DECISIONS]] 미결정 1번).
+- Kev 학습·평가 도구(`kev.train`·`kev.benchmark`·`kev.compare`, `--init_from`)는 2026-10-16 저장소 main `1f04cfa`에서 확인했다([[22-FINETUNE-RUNBOOK]] §2). 기본 모델은 Kev-9B@v1.0이다(ADR-020).
 - 현재 문서는 구현용 설계안이다. 외부 API 필드/호출 한도, 모델 성능, 카카오 발송 조건은 검증 전 확정 사실로 취급하지 않는다. 검증 상태는 [[16-DECISIONS|16 ADR]]에 날짜와 함께 기록한다.
 
 ## 솔리데오 가상 인력·가입 결정
 
-ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·남녀 100/100·고유 정장 사진 200장·가입 부서/직급 필수 선택을 설계했다. 원본 실명은 재사용하지 않는다. 이름·사진 경로와 생성/검증 규칙은 [[07-DATA-PIPELINE]], 가입 화면은 [[06-UI-UX]], 검증은 [[11-TESTING]] PPL-01~07, [승인 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)에 있다. 구현 상태(2026-10-17, main `42a4ead`): 명부·카탈로그 JSON 4개(`fixtures/people/`), 승인 사진 200장(`web/public/demo/people/`), 마이그레이션 4개(`20261016000001`~`04`: 카탈로그·`team_members`·`team_member_scoring`·`profiles` 가입 신고 열·가입 트리거), 가입 폼 부서·직급 필수와 `/auth/complete-profile` 보완, `pnpm people:seed`가 main에 있다. 미구현: `/people`·`/org-chart` 화면, `pnpm demo:reset` 통합, 클라우드 DB 적용(`pnpm db:push`), 상위 부서가 확인되지 않은 29개 부서의 `parentId`([[PROGRESS]]).
+ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·남녀 100/100·고유 정장 사진 200장·가입 부서/직급 필수 선택을 설계했다. 원본 실명은 재사용하지 않는다. 이름·사진 경로와 생성/검증 규칙은 [[07-DATA-PIPELINE]], 가입 화면은 [[06-UI-UX]], 검증은 [[11-TESTING]] PPL-01~07, [승인 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md)에 있다. 구현 상태와 남은 일은 [[PROGRESS]]의 솔리데오 절을 따른다.
 
 ## 관련 문서
 
@@ -122,4 +120,5 @@ ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·�
 - [[16-DECISIONS|16 ADR]]
 - [[20-GLOSSARY|20 용어집]]
 - [[21-MODEL-TRAINING|21 모델 학습]]
+- [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]
 - [[PROGRESS|진행 상황]]
