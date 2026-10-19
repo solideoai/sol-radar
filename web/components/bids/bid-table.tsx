@@ -40,7 +40,8 @@ type Column = {
 
 // 열 폭은 셀 안쪽 여백을 포함한 숫자다(64·72·가변·120·80·72·80·88·96·88). 제목만 가변이다.
 const FULL_COLUMNS: Column[] = [
-  { key: "origin", label: "출처", width: "w-16" },
+  // 스펙은 64px 이지만 DEMO 칩(아이콘+글자, 약 68px)이 들어가지 않아 80px 로 넓힌다. 제목 열이 16px 줄어든다.
+  { key: "origin", label: "출처", width: "w-20" },
   { key: "stage", label: "단계", width: "w-[72px]" },
   { key: "title", label: "제목" },
   { key: "agency", label: "발주기관", width: "w-[120px]" },
@@ -61,14 +62,14 @@ const byKey = (key: ColumnKey): Column => {
 // 대시보드 표 두 개의 열(§5.2). 발주기관은 카드 폭 @lg 이상에서만 보인다.
 const COMPACT_COLUMNS = {
   recommended: [
-    { ...byKey("origin"), width: "w-14" },
+    { ...byKey("origin"), width: "w-20" },
     { ...byKey("title"), width: undefined },
     { ...byKey("agency"), width: "w-[120px]", className: "hidden @lg:table-cell" },
     { ...byKey("score"), width: "w-20" },
     { ...byKey("recommendation"), width: "w-[88px]" },
   ],
   deadline: [
-    { ...byKey("origin"), width: "w-14" },
+    { ...byKey("origin"), width: "w-20" },
     { ...byKey("title"), width: undefined },
     { ...byKey("deadline"), width: "w-[72px]" },
     { ...byKey("recommendation"), width: "w-[88px]" },
@@ -111,12 +112,22 @@ function MutedLabel({ statusKey }: { statusKey: "NOT_ANALYZED" }) {
   );
 }
 
-function Cell({ column, item, now }: { column: Column; item: BidListItem; now: Date }) {
+function Cell({
+  column,
+  item,
+  now,
+  compact,
+}: {
+  column: Column;
+  item: BidListItem;
+  now: Date;
+  compact: boolean;
+}) {
   const analysis = item.latestAnalysis;
   switch (column.key) {
     case "origin":
       return item.isDemo ? (
-        <DemoBadge />
+        <DemoBadge dense />
       ) : (
         <span className="type-caption text-muted-foreground">나라장터</span>
       );
@@ -132,7 +143,10 @@ function Cell({ column, item, now }: { column: Column; item: BidListItem; now: D
         <Link
           href={`/bids/${item.id}`}
           title={item.title}
-          className="line-clamp-2 rounded-sm break-words whitespace-normal outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          className={cn(
+            compact ? "line-clamp-1" : "line-clamp-2",
+            "rounded-sm break-words whitespace-normal outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50",
+          )}
         >
           {item.title}
           {hasDocumentIssue(item) && (
@@ -245,11 +259,12 @@ function BidTable({
                     className={cn(
                       "type-body",
                       column.key === "title" ? "whitespace-normal" : "overflow-hidden",
+                      column.key === "origin" && "px-1.5",
                       column.numeric && "text-right tabular-nums",
                       column.className,
                     )}
                   >
-                    <Cell column={column} item={item} now={rowNow} />
+                    <Cell column={column} item={item} now={rowNow} compact={compact} />
                   </TableCell>
                 ))}
               </TableRow>

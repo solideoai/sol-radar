@@ -106,7 +106,13 @@ function StatusBadge(props: StatusBadgeProps) {
 // 09 고정 문구. 바꾸지 않는다.
 const DEMO_TOOLTIP = "이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다.";
 
-function DemoBadge({ withTooltip = false }: { withTooltip?: boolean }) {
+function DemoBadge({
+  withTooltip = false,
+  dense = false,
+}: {
+  withTooltip?: boolean;
+  dense?: boolean;
+}) {
   const { icon: Icon, className } = STATUS_ICON.DEMO;
   const chip = (
     <>
@@ -114,7 +120,9 @@ function DemoBadge({ withTooltip = false }: { withTooltip?: boolean }) {
       <span>{EXTRA_STATUS_LABEL.DEMO}</span>
     </>
   );
-  if (!withTooltip) return <span className={cn(BADGE_BOX, className)}>{chip}</span>;
+  // dense: 64px 출처 열 같은 좁은 칸용. 안쪽 여백과 간격만 줄이고 아이콘·글자·색은 그대로다.
+  if (!withTooltip)
+    return <span className={cn(BADGE_BOX, dense && "gap-0.5 px-1", className)}>{chip}</span>;
   return (
     <Tooltip>
       <TooltipTrigger

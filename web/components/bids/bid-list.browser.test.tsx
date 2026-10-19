@@ -102,9 +102,9 @@ describe("BidTable", () => {
     const widths = [...host.querySelectorAll("thead th")].map(
       (th) => th.getBoundingClientRect().width,
     );
-    expect(widths.slice(0, 2)).toEqual([64, 72]);
+    expect(widths.slice(0, 2)).toEqual([80, 72]); // 스펙 64 -> 80: DEMO 칩이 64 에 들어가지 않는다
     expect(widths.slice(3)).toEqual([120, 80, 72, 80, 88, 96, 88]);
-    expect(widths[2]).toBeCloseTo(width - 760, 0);
+    expect(widths[2]).toBeCloseTo(width - 776, 0);
   });
 
   it("120자 제목은 2줄에서 말줄임이고 title 에 전체가 있다", () => {
@@ -225,6 +225,91 @@ describe("BidTable", () => {
       "권고",
       "결정",
     ]);
+  });
+});
+
+// 가장 긴 값 조합: 단계 "입찰공고"+"취소됨", 결정 NO-BID, 분석 "부분 완료", 권고 WATCH, 예산·점수·마감 최대 자릿수.
+const WIDEST: BidListItem = {
+  ...byId("bid-fx-02"),
+  id: "bid-widest",
+  status: "CANCELLED",
+  agency: "한국지능정보사회진흥원 아주 긴 기관 이름",
+  budgetKrw: "99999999999",
+  deadlineAt: "2026-12-31T09:00:00Z",
+  latestAnalysis: {
+    ...(byId("bid-fx-02").latestAnalysis as NonNullable<BidListItem["latestAnalysis"]>),
+    status: "PARTIAL",
+    solScore: 100,
+    recommendation: "WATCH",
+  },
+  latestReview: { decision: "NO_BID", decidedAt: "2026-10-16T02:00:00Z", reviewerName: "김영업" },
+};
+
+// 제목 열은 line-clamp 로 줄이는 것이 의도라 뺀다. 나머지 셀은 overflow-hidden 이라 넘침이 가려지므로
+// scrollWidth 가 clientWidth 를 넘는지로 잘림을 잡는다. 기관은 truncate(말줄임)가 의도라 함께 뺀다.
+const clippedCells = (host: HTMLElement) =>
+  [...host.querySelectorAll("tbody td")].filter((td, i, all) => {
+    const col = i % (all.length / host.querySelectorAll("tbody tr").length);
+    const head = host.querySelectorAll("thead th")[col]?.textContent;
+    return head !== "제목" && head !== "발주기관" && td.scrollWidth > td.clientWidth;
+  });
+
+describe("셀 잘림", () => {
+  it.each([960, 1120])("10열 표는 %ipx 에서 가장 긴 값도 잘리지 않는다", (width) => {
+    const host = render(
+      <BidTable items={[WIDEST, ...BID_LIST]} caption="공고 목록" now={NOW} />,
+      width,
+    );
+    expect(
+      clippedCells(host).map((td) => `${td.textContent}:${td.scrollWidth}>${td.clientWidth}`),
+    ).toEqual([]);
+  });
+
+  // 대시보드 표 폭: 본문 960(1280, 사이드바 펼침)·1120(1440) 에서 간격 24 를 빼고 3fr:2fr.
+  // 960 -> (960-24)*3/5=561.6, *2/5=374.4 / 1120 -> (1120-24)*3/5=657.6, *2/5=438.4. 내림해 잡는다.
+  it.each([
+    ["recommended", 561, true],
+    ["recommended", 374, false],
+    ["recommended", 657, true],
+    ["deadline", 374, null],
+    ["deadline", 438, null],
+  ] as const)(
+    "compact %s 표는 %ipx 에서 잘리지 않고 발주기관 열이 맞게 보인다",
+    (kind, width, agencyShown) => {
+      const host = render(
+        <BidTable
+          items={[WIDEST, ...BID_LIST]}
+          caption="표"
+          now={NOW}
+          compact
+          compactKind={kind}
+        />,
+        width,
+      );
+      expect(
+        clippedCells(host).map((td) => `${td.textContent}:${td.scrollWidth}>${td.clientWidth}`),
+      ).toEqual([]);
+      const table = host.querySelector("table") as HTMLElement;
+      expect(table.scrollWidth).toBeLessThanOrEqual(host.clientWidth);
+      if (agencyShown !== null) {
+        const agency = [...host.querySelectorAll("thead th")].find(
+          (th) => th.textContent === "발주기관",
+        );
+        expect(agency && getComputedStyle(agency).display !== "none").toBe(agencyShown);
+      }
+    },
+  );
+
+  it("compact 표의 제목은 1줄이라 모든 행의 높이가 같다", () => {
+    const host = render(<BidTable items={BID_LIST} caption="표" now={NOW} compact />, 561);
+    const heights = [...host.querySelectorAll("tbody tr")].map(
+      (tr) => tr.getBoundingClientRect().height,
+    );
+    expect(new Set(heights).size).toBe(1);
+    const long = rowOf(host, "bid-long").querySelector("a") as HTMLElement;
+    expect(long.clientHeight).toBeLessThanOrEqual(
+      parseFloat(getComputedStyle(long).lineHeight) + 1,
+    );
   });
 });
 
