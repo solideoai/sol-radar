@@ -129,8 +129,9 @@ export const kevResponseSchema = z.object({
     .nullable(),
   wire: z.array(z.unknown()).nullable(),
   timings: z.object({ kevMs: z.number().nonnegative() }),
-  // 필수 필드다. enabled=false 이고 null 이면 "Kev 사용 안 함", KEV_UNAVAILABLE 이면 Kev 만 불가.
-  errorCode: z.enum(["KEV_UNAVAILABLE"]).nullable(),
+  // 필수 필드다. enabled=false 이고 null 이면 "Kev 사용 안 함", KEV_UNAVAILABLE 이면 Kev 만 불가,
+  // INJECTION_SUSPECTED 면 추출에 인젝션 의심이 있어 gateway 가 Kev 를 부르지 않았다(Kev 장애가 아니다).
+  errorCode: z.enum(["KEV_UNAVAILABLE", "INJECTION_SUSPECTED"]).nullable(),
 });
 
 export const explainResponseSchema = z.object({

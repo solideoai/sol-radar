@@ -422,6 +422,11 @@ describe("kevResponseSchema", () => {
     expect(kevResponseSchema.safeParse(body).success).toBe(true);
   });
 
+  it("인젝션 의심으로 Kev 를 부르지 않은 본문(errorCode INJECTION_SUSPECTED)을 통과시킨다", () => {
+    const body = { ...disabledKev, errorCode: "INJECTION_SUSPECTED" };
+    expect(kevResponseSchema.safeParse(body).success).toBe(true);
+  });
+
   it("errorCode 필드가 없으면 거부한다", () => {
     expect(kevResponseSchema.safeParse(omit(disabledKev, "errorCode")).success).toBe(false);
   });

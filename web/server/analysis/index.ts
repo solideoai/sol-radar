@@ -71,3 +71,9 @@ export type {
   LoadedAnalysisContext,
   ScoreRunStatus,
 } from "./analysis-job.model";
+
+// 분석 port 네 개의 Supabase 구현. worker 가 service role 클라이언트와 첨부 port 를 넘긴다. 행 매핑 함수는 내보내지 않는다.
+export { createAnalysisStores } from "./analysis.repo";
+export type { AnalysisStores } from "./analysis.repo";
+export { EMPTY_ATTACHMENT_READER } from "./analysis-store.model";
+export type { AttachmentTextReader, RevisionDocumentText } from "./analysis-store.model";

@@ -163,6 +163,13 @@ describe("toKevOutcome", () => {
       kevUnavailable: false,
     });
   });
+
+  it("200 이고 kev.enabled=false·errorCode INJECTION_SUSPECTED 면 Kev 장애가 아니라 kevUnavailable=false", () => {
+    expect(toKevOutcome(ok(disabledKev("INJECTION_SUSPECTED")))).toEqual({
+      kind: "DISABLED",
+      kevUnavailable: false,
+    });
+  });
 });
 
 describe("toExplainOutcome", () => {

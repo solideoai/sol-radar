@@ -280,7 +280,7 @@ export function kevUsedBody(responses: KevMockResponse["responses"]): KevRespons
 }
 
 /** 3b 통보 /kev(KEV_ENABLED=false 또는 Kev 장애): enabled=false, 나머지 null. 장애면 errorCode=KEV_UNAVAILABLE. */
-export function kevDisabledBody(errorCode: "KEV_UNAVAILABLE" | null): KevResponse {
+export function kevDisabledBody(errorCode: KevResponse["errorCode"]): KevResponse {
   return {
     kev: {
       enabled: false,

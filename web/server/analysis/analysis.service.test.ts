@@ -698,6 +698,32 @@ describe("runAnalysis · Kev 만 불가(200 + enabled=false + KEV_UNAVAILABLE)",
   });
 });
 
+describe("runAnalysis · 인젝션 의심이라 gateway 가 Kev 를 부르지 않음(200 + enabled=false + INJECTION_SUSPECTED)", () => {
+  const injectionSkipped = () =>
+    run(buildContext("FX-01"), {
+      routes: withKev(jsonReply(kevDisabledBody("INJECTION_SUSPECTED"))),
+    });
+
+  it("COMPLETED·RULES_ONLY·errorCode null 이다(gateway 불가가 아니다)", async () => {
+    const { record } = await injectionSkipped();
+    expect(record.result).toMatchObject({
+      status: "COMPLETED",
+      recommendationBasis: "RULES_ONLY",
+      errorCode: null,
+    });
+  });
+
+  it("Kev 장애가 아니므로 KEV_UNAVAILABLE 플래그를 달지 않는다", async () => {
+    const { record } = await injectionSkipped();
+    expect(record.meta.extraReviewFlags).not.toContain("KEV_UNAVAILABLE");
+  });
+
+  it("/explain 은 부른다", async () => {
+    const { fake } = await injectionSkipped();
+    expect(fake.count("/explain")).toBe(1);
+  });
+});
+
 describe("runAnalysis · gateway 가 Kev 를 쓰지 않는다고 답함(200 + enabled=false + errorCode null)", () => {
   it("COMPLETED·RULES_ONLY 이고 extraReviewFlags 는 비었다", async () => {
     const { record } = await run(buildContext("FX-01"), {

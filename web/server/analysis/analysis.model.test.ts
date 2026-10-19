@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
 import {
   analyze,
   structuredRequirementSchema,
@@ -1222,5 +1223,27 @@ describe("toModelMeta · meta.model(05 AnalysisResult.model)", () => {
     expect(toModelMeta({ aiProvider: "mock", extraction, result }).algorithmVersion).toBe(
       result.algorithmVersion,
     );
+  });
+});
+
+describe("readCachedExtraction · gateway /kev 계약", () => {
+  // gateway 는 /kev 요청의 extraction 을 services/ai/schemas/requirement-extraction.v0.1.json(additionalProperties:false)로
+  // 검증한다. worker 는 scoring 스키마로 파싱한 값을 보내므로, 파싱이 값을 바꾸거나 더하면 422 → GATEWAY_DOWN → PARTIAL 이 된다.
+  const dir = new URL("../../../fixtures/extractions/", import.meta.url);
+  const files = readdirSync(dir).filter((name) => name.endsWith(".json"));
+
+  it("fixture 추출 파일이 있다", () => {
+    expect(files.length).toBeGreaterThan(0);
+  });
+
+  it.each(files)("%s 는 파싱 뒤에도 원본과 깊게 같다(필드를 지우거나 바꾸지 않는다)", (name) => {
+    const raw: unknown = JSON.parse(readFileSync(new URL(name, dir), "utf8"));
+    const parsed = readCachedExtraction({
+      id: `extraction-${name}`,
+      status: "COMPLETED",
+      payload: raw,
+      translations: null,
+    });
+    expect(parsed).toStrictEqual(raw);
   });
 });

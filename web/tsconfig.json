@@ -20,7 +20,11 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@test-harness/local-test-target.mjs": ["../scripts/local-test-target.mjs"]
+      "@test-harness/local-test-target.mjs": ["../scripts/local-test-target.mjs"],
+      "@test-harness/supabase-pglite.mjs": ["../scripts/supabase-pglite.mjs"],
+      "@test-harness/demo-plan.mjs": ["../scripts/demo/plan.mjs"],
+      "@test-harness/demo-bid-notices.mjs": ["../scripts/demo/bid-notices.mjs"],
+      "@test-harness/people-seed.mjs": ["../scripts/people/seed.mjs"]
     }
   },
   "include": [

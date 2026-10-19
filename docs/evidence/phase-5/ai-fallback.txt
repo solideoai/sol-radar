@@ -310,3 +310,71 @@ analysis job module loaded
 ## pnpm verify (worktree 루트, 라운드 A 뒤)
 exit 0 · web Vitest 79 files / 1919 tests passed · 루트 node --test 549 pass 0 fail(약 1181초, C2 PGlite 정책 시험) · lodestar 0 errors · next build 통과 · services/ai pytest 28 passed
 main.ts 등록: 하지 않음(e8 판정 6 — 읽기 port 구현 뒤)
+
+## 라운드 B: Supabase 저장·읽기 port (web/server/analysis/analysis-store.model.ts, analysis.repo.ts)
+작성 2026-10-19T05:21:52Z · main 병합 2aba485(seed fixtureId cd8e867, 인력 접기 3e181b7) 위
+근거: supabase/migrations 20261019000002~5·20261016000003, 03 §2.1·§7, e8 판정(자식 3표 뒤 마감, 성공 추출만 upsert, cacheKey null 이면 최근 성공 행, fixtureId 는 raw_payload 만)
+service role 쓰기는 모든 조직 표 질의·쓰기에 org_id 를 직접 건다. 오류 메시지에는 표·동작·코드만.
+
+$ pnpm -C web exec vitest run server/analysis/analysis.db-path.test.ts --reporter=verbose (DB 경로 골든·PGlite 제약)
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: score·recommendation 이 fixtures/goldens/FX-01.json 과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: staffAvailability points 가 골든과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: 요소별 normalized·points·maxPoints 가 골든과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: reviewFlags 가 골든과 같다(seed 의 PENDING 첨부가 PARSE_UNSUPPORTED 를 만들지 않는다)
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: DB 팀(접힌 availability + 데모 배정 2건)의 가용 FTE 가 fixture 팀과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: COMPLETED·RULES_WITH_KEV_ASSIST 다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: seed 추출 행을 캐시로 써서 /extract 를 부르지 않고 extractionId 가 그 행 id 다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: /kev 요청의 fixtureId 는 raw_payload.fixtureId 의 revision stem(FX-01.r01)이다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-01: 레코드의 org·run·bid·revision·프로필 id 는 seed 행 값이다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: score·recommendation 이 fixtures/goldens/FX-02.json 과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: staffAvailability points 가 골든과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: 요소별 normalized·points·maxPoints 가 골든과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: reviewFlags 가 골든과 같다(seed 의 PENDING 첨부가 PARSE_UNSUPPORTED 를 만들지 않는다)
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: DB 팀(접힌 availability + 데모 배정 2건)의 가용 FTE 가 fixture 팀과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: COMPLETED·RULES_WITH_KEV_ASSIST 다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: seed 추출 행을 캐시로 써서 /extract 를 부르지 않고 extractionId 가 그 행 id 다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: /kev 요청의 fixtureId 는 raw_payload.fixtureId 의 revision stem(FX-02.r01)이다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-02: 레코드의 org·run·bid·revision·프로필 id 는 seed 행 값이다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: score·recommendation 이 fixtures/goldens/FX-03.json 과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: staffAvailability points 가 골든과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: 요소별 normalized·points·maxPoints 가 골든과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: reviewFlags 가 골든과 같다(seed 의 PENDING 첨부가 PARSE_UNSUPPORTED 를 만들지 않는다)
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: DB 팀(접힌 availability + 데모 배정 2건)의 가용 FTE 가 fixture 팀과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: COMPLETED·RULES_WITH_KEV_ASSIST 다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: seed 추출 행을 캐시로 써서 /extract 를 부르지 않고 extractionId 가 그 행 id 다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: /kev 요청의 fixtureId 는 raw_payload.fixtureId 의 revision stem(FX-03.r01)이다
+ ✓ server/analysis/analysis.db-path.test.ts > DB 경로 골든 · seed 행 → toLoadedContext → runAnalysis > FX-03: 레코드의 org·run·bid·revision·프로필 id 는 seed 행 값이다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 전제 > S6 레코드는 PARTIAL·AI_UNAVAILABLE·Kev 없음이다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 전제 > FX-03 레코드에 NOT_SATISFIED 자격 판정이 있다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > QUEUED run 을 toRunningUpdate 로 RUNNING 으로 바꾸면 run_mode·ai_provider check 를 통과한다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > FX-01 COMPLETED: 자식 3표 → score_runs 마감이 check·FK 위반 없이 한 행을 마감한다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > FX-01 COMPLETED: 마감한 run 은 COMPLETED·골든 점수·권고·입력 스냅샷·seed 추출 id 를 갖는다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > FX-01 COMPLETED: score_factors 다섯 행과 requirement_assessments·qualification_checks 행이 들어간다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > FX-03 NO_BID: 마감이 check·FK 위반 없이 끝나고 권고가 골든(NO_BID)이다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > FX-03 NO_BID: NOT_SATISFIED 자격 행은 reason_code 가 null 로 들어간다(needs_review check)
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > S6 PARTIAL: review_flags(AI_UNAVAILABLE)·kev_output null 로 PARTIAL 마감이 통과한다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > markFailed: toFailedUpdate 로 FAILED·error_code·finished_at 갱신이 통과한다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > 재시도: 자식 3표를 두 번 써도(factors upsert·나머지 지우고 넣기) 행 수가 한 번 쓴 것과 같다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > 재시도가 항목을 줄이면 옛 항목 판정 행이 남지 않는다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > 이미 마감한 run 을 다시 마감하면 status 조건 때문에 0행이다(sink 의 NOT_RUNNING)
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > 추출 쓰기: DB 경로 추출 레코드를 (revision_id, model_name, prompt_hash) 로 upsert 하면 seed 추출 행 id 가 돌아온다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > 시험대 확인: 결과 갱신에서 input_snapshot 을 빼면 finished snapshot check 가 거절한다
+ ✓ server/analysis/analysis.db-path.test.ts > PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL > 시험대 확인: review_flags 에 집합 밖 값을 넣으면 review_flags check 가 거절한다
+ Test Files  1 passed (1)
+      Tests  43 passed (43)
+
+$ pnpm -C web exec vitest run server/analysis (요약)
+ Test Files  10 passed (10)
+      Tests  959 passed (959)
+
+## 계약 대조(정적, gateway 실행 없음): main daf07a6 services/ai/src/sol_ai/contracts.py 와 web zod·요청 조립 일치
+- /kev extraction 은 gateway JSON Schema(additionalProperties:false)로 검증된다 → scoring 스키마 파싱이 fixture 20건 모두 손실 없음을 시험으로 고정(변형: warnings 추가 → 20 failed)
+- K4'(KevResponse.errorCode INJECTION_SUSPECTED): 수용, INJECTION_SUSPECTED 는 DISABLED·kevUnavailable=false → COMPLETED·RULES_ONLY, KEV_UNAVAILABLE 미부착
+
+## 변형 확인(라운드 B)
+- test-server 참조 구현 변형 37건 모두 빨간불(org_id 필터 제거 6종·PENDING 을 문제 문서로·sink 순서·cacheKey 무시·NOT_RUNNING 검사 제거 등)
+- pipeline-developer 실제 구현 변형 3건 빨간불(assignments org_id 제거 2 failed, PENDING 문제 6 failed, 마감 0행 검사 제거 1 failed)
+- 메인 세션: requirement_assessments 를 upsert → 그 run 의 행 delete·insert 로 바꿈(재시도가 항목을 줄이면 옛 행이 남던 결함). 시험 먼저 10 failed → 수정 뒤 통과
+
+## pnpm verify (worktree 루트, 라운드 B 뒤)
+exit 0 · web Vitest 82 files / 2166 tests passed · 루트 node --test 559 pass 0 fail · lodestar 0 errors · next build 통과 · services/ai pytest 28 passed
