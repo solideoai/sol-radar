@@ -71,6 +71,55 @@ describe("redactSecrets", () => {
   });
 });
 
+// 7-6(security-auditor): 서버가 퍼센트 인코딩을 소문자 16진(%2b)으로 되돌려 줘도 가린다.
+// 원문 키도 대소문자 무관으로 찾는다(과하게 가려도 해가 없다는 계약).
+describe("redactSecrets — 대소문자 무관 (7-6)", () => {
+  // 시험용 가짜 키. encodeURIComponent 1회 = ab%2Bc%2Fd%3D, 2회 = ab%252Bc%252Fd%253D
+  const KEY = "ab+c/d=";
+
+  it("인코딩 1회형을 소문자 16진으로 쓴 ab%2bc%2fd%3d 를 가린다", () => {
+    expect(redactSecrets("serviceKey=ab%2bc%2fd%3d", [KEY])).toBe("serviceKey=[REDACTED]");
+  });
+
+  it("인코딩 2회형을 소문자 16진으로 쓴 ab%252bc%252fd%253d 를 가린다", () => {
+    expect(redactSecrets("url=ab%252bc%252fd%253d", [KEY])).toBe("url=[REDACTED]");
+  });
+
+  it("16진 대소문자가 섞인 인코딩형도 가린다", () => {
+    expect(redactSecrets("serviceKey=ab%2Bc%2fd%3D", [KEY])).toBe("serviceKey=[REDACTED]");
+  });
+
+  it("인코딩형 전체를 대문자로 바꿔도 가린다", () => {
+    expect(redactSecrets("serviceKey=AB%2BC%2FD%3D", [KEY])).toBe("serviceKey=[REDACTED]");
+  });
+
+  it("원문의 대소문자를 바꾼 형태도 가린다", () => {
+    expect(redactSecrets("키=AB+C/D= 실패", [KEY])).toBe("키=[REDACTED] 실패");
+  });
+
+  it("대소문자가 다른 형태가 여러 번 나오면 모두 가린다", () => {
+    expect(redactSecrets("ab%2bc%2fd%3d | AB+c/D= | ab%252Bc%252fd%253D", [KEY])).toBe(
+      "[REDACTED] | [REDACTED] | [REDACTED]",
+    );
+  });
+
+  it("가린 키 옆의 다른 텍스트는 그대로 둔다", () => {
+    expect(redactSecrets("serviceKey=ab%2bc%2fd%3d&pageNo=1&type=json", [KEY])).toBe(
+      "serviceKey=[REDACTED]&pageNo=1&type=json",
+    );
+  });
+
+  it("키의 일부만 같은 텍스트는 대소문자가 같아도 가리지 않는다", () => {
+    expect(redactSecrets("AB+C 와 ab%2bc 는 키가 아니다", [KEY])).toBe(
+      "AB+C 와 ab%2bc 는 키가 아니다",
+    );
+  });
+
+  it("대소문자 무관으로 찾아도 정규식 특수문자는 글자 그대로만 가린다", () => {
+    expect(redactSecrets("AXC A.B*C", ["a.b*c"])).toBe("AXC [REDACTED]");
+  });
+});
+
 describe("redactUrl — URL 로 읽히는 경우", () => {
   const url = `${ENDPOINT}?serviceKey=${ENCODED_ONCE}&type=json&numOfRows=10&pageNo=1`;
 

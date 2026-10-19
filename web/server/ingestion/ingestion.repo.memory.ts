@@ -28,7 +28,7 @@ import type { BidEvent, FieldChange } from "./revision";
 // - revision > 1 인데 공고가 없다 → INGEST_BID_NOT_FOUND
 // - ids.bidId 를 줬는데 저장된 bid 의 id 와 다르다 → INGEST_BID_ID_MISMATCH
 // - 저장된 latest_revision 이 revision − 1 이 아니다 → INGEST_REVISION_CONFLICT
-// ids(6-2)를 주면 그 id 를 쓰고, 없으면 bid-N·rev-N 을 만든다. findLatestRunWindowEnd(6-2)도 교차 타입으로 더한다.
+// ids(6-2)를 주면 그 id 를 쓰고, 없으면 bid-N·rev-N 을 만든다. findLatestRunWindowEnd(6-2, 7-1 에서 trigger 추가)도 교차 타입으로 더한다.
 
 export type MemoryBid = {
   bidId: string;
@@ -89,8 +89,11 @@ export type MemoryIngestionRepo = IngestionRepo & {
   startRun(input: StartRunInput): Promise<MemoryStartedRun>;
   /** source 의 SEED run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(시작 순서) run 의 params.anchor. ISO 가 아니면 null */
   findLatestSeedAnchor(source: "fixture"): Promise<Date | null>;
-  /** source 의 run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(시작 순서) run 의 params.window.to. ISO 가 아니면 null */
-  findLatestRunWindowEnd(source: "g2b"): Promise<Date | null>;
+  /**
+   * source·trigger 가 같은 run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(시작 순서) run 의 params.window.to. ISO 가 아니면 null.
+   * 7-1: 일정 수집 창은 SCHEDULED run 만 잇는다(MANUAL 의 미래 창이 일정 수집을 건너뛰게 하지 않는다)
+   */
+  findLatestRunWindowEnd(source: "g2b", trigger: "SCHEDULED"): Promise<Date | null>;
 };
 
 /** C3 계약 6-2 SaveRevisionInput.ids. 포트에 생기기 전에도 읽을 수 있게 따로 꺼낸다 */
@@ -194,9 +197,15 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       return latest ? isoDateOf(latest.input.params?.anchor) : null;
     },
 
-    async findLatestRunWindowEnd(source) {
+    // trigger 는 7-1 의 포트에서 필수다. 포트가 바뀌기 전의 한 인자 호출도 컴파일되게 선택으로 받되, 주면 그 trigger 만 본다.
+    async findLatestRunWindowEnd(source: "g2b", trigger?: "SCHEDULED") {
       const latest = [...state.runs.values()]
-        .filter((run) => run.input.source === source && FINISHED_SEED_STATUSES.has(run.status))
+        .filter(
+          (run) =>
+            run.input.source === source &&
+            (trigger === undefined || run.input.trigger === trigger) &&
+            FINISHED_SEED_STATUSES.has(run.status),
+        )
         .at(-1);
       return latest ? windowEndOf(latest.input.params) : null;
     },

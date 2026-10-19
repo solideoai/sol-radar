@@ -29,7 +29,7 @@ const baseJobShape = {
 };
 
 // fixture 는 batch 필수·window 금지, g2b 는 batch 금지(05). 판별 유니온의 strict 객체라 반대쪽 키는 모르는 키로 거부된다.
-export const ingestJobDataSchema = z.discriminatedUnion("source", [
+const jobDataUnion = z.discriminatedUnion("source", [
   z.strictObject({
     source: z.literal("fixture"),
     batch: z.enum(["SEED", "LIVE"]),
@@ -42,7 +42,30 @@ export const ingestJobDataSchema = z.discriminatedUnion("source", [
     ...baseJobShape,
   }),
 ]);
+
+// 7-5: 수동 수집은 누가·어느 조직이 시켰는지 감사에 남아야 한다. 둘 중 하나라도 없으면 받지 않는다.
+const hasManualRequester = (data: z.infer<typeof jobDataUnion>): boolean =>
+  data.trigger !== "MANUAL" || (data.orgId !== undefined && data.requestedBy !== undefined);
+
+/** 시각과 무관한 검사만 한다. 큐에 넣거나 처리할 때는 ingestJobDataSchemaAt(now) 를 쓴다. */
+export const ingestJobDataSchema = jobDataUnion.refine(hasManualRequester, {
+  error: "MANUAL 수집은 orgId·requestedBy 가 필요하다",
+  path: ["requestedBy"],
+});
 export type IngestJobData = z.infer<typeof ingestJobDataSchema>;
+
+/** window.to 가 지금보다 이만큼 넘게 미래면 받지 않는다(서버 시계 차이만 허용한다, 7-1). */
+export const INGEST_WINDOW_FUTURE_TOLERANCE_MS = 5 * 60_000;
+
+// 7-1: 미래 창을 받으면 아직 올라오지 않은 공고 구간을 "수집함"으로 남겨 다음 수집이 그 구간을 건너뛸 수 있다.
+export const ingestJobDataSchemaAt = (now: Date) =>
+  ingestJobDataSchema.refine(
+    (data) =>
+      data.source !== "g2b" ||
+      data.window === undefined ||
+      Date.parse(data.window.to) <= now.getTime() + INGEST_WINDOW_FUTURE_TOLERANCE_MS,
+    { error: "window.to 가 지금보다 5분 넘게 미래다", path: ["window", "to"] },
+  );
 
 /** BullMQ Queue 중 쓰는 부분. 시험은 가짜를 넘긴다. */
 export type JobQueue = {
@@ -59,8 +82,12 @@ export function toBullJobId(key: string): string {
 
 // 같은 jobKey 는 같은 BullMQ jobId 라 큐 쪽에서도 두 번 들어가지 않는다(ingest_runs.job_key UNIQUE 와 같은 멱등).
 // data 의 jobKey 는 원래 값 그대로 둔다. ingest_runs.job_key 는 그 값이다.
-export async function enqueueIngestRun(queue: JobQueue, data: IngestJobData): Promise<void> {
-  const parsed = ingestJobDataSchema.parse(data);
+export async function enqueueIngestRun(
+  queue: JobQueue,
+  data: IngestJobData,
+  now: Date = new Date(),
+): Promise<void> {
+  const parsed = ingestJobDataSchemaAt(now).parse(data);
   await queue.add(INGEST_JOB_NAME, parsed, { jobId: toBullJobId(parsed.jobKey) });
 }
 

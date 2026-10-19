@@ -26,7 +26,8 @@ export function redactSecrets(text: string, secrets: readonly string[]): string 
   ].sort((left, right) => right.length - left.length);
   if (forms.length === 0) return text;
   // 한 번의 치환으로 가린다. 형태마다 따로 바꾸면 이미 넣은 [REDACTED] 안을 다시 건드릴 수 있다.
-  const pattern = new RegExp(forms.map(escapeRegex).join("|"), "g");
+  // 7-6: 서버가 퍼센트 인코딩을 소문자 16진(%2b)으로 되돌려 줄 수 있어 대소문자를 가리지 않는다(과하게 가려도 해가 없다).
+  const pattern = new RegExp(forms.map(escapeRegex).join("|"), "gi");
   return text.replace(pattern, REDACTED);
 }
 

@@ -16,6 +16,7 @@ import { runIngest } from "./ingestion.service";
 import {
   fetchPageWithRetry,
   RETRY_BASE_DELAY_MS,
+  RETRY_AFTER_MAX_MS,
   RETRY_JITTER_MAX_MS,
   RETRY_MAX_RETRIES,
   retryDelayMs,
@@ -314,6 +315,103 @@ describe("fetchPageWithRetry — 재시도", () => {
     expect(result.retried).toBe(1);
     expect(result.attempts).toEqual([{ attempt: 1, failureKind: "TIMEOUT", waitMs: 1000 }]);
     expect(inputs).toHaveLength(2);
+  });
+});
+
+// 7-2(security-auditor 낮음): 서버가 터무니없이 긴 Retry-After 를 주면 worker 가 그만큼 묶인다. 상한을 넘으면 기다리지 않는다.
+describe("fetchPageWithRetry — Retry-After 상한(C3 계약 7-2)", () => {
+  const rateLimited = (retryAfterSec: number): ConnectorFailure => ({
+    kind: "RATE_LIMITED",
+    status: 429,
+    retryAfterSec,
+    detail: "429",
+  });
+
+  it("Retry-After 상한은 60초(60000ms)다", () => {
+    expect(RETRY_AFTER_MAX_MS).toBe(60_000);
+  });
+
+  it("Retry-After 61초면 기다리지 않고 그 실패를 바로 돌려준다(retried 0, attempts 빈 배열)", async () => {
+    const { connector } = scripted([fail(rateLimited(61)), OK_PAGE]);
+    const { retry } = deps();
+    await expect(fetchPageWithRetry(connector, INPUT, retry)).resolves.toEqual({
+      outcome: fail(rateLimited(61)),
+      retried: 0,
+      attempts: [],
+    });
+  });
+
+  it("Retry-After 61초면 sleep 을 부르지 않고 connector 도 다시 부르지 않는다", async () => {
+    const { connector, inputs } = scripted([fail(rateLimited(61)), OK_PAGE]);
+    const { sleep, retry } = deps();
+    await fetchPageWithRetry(connector, INPUT, retry);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(inputs).toHaveLength(1);
+  });
+
+  it("Retry-After 가 상한을 크게 넘어도(3600초) 기다리지 않는다", async () => {
+    const { connector } = scripted([fail(rateLimited(3600)), OK_PAGE]);
+    const { sleep, retry } = deps();
+    const result = await fetchPageWithRetry(connector, INPUT, retry);
+    expect(result.outcome).toEqual(fail(rateLimited(3600)));
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("Retry-After 정확히 60초는 상한 안이라 60000ms 기다린 뒤 다시 부른다", async () => {
+    const { connector, inputs } = scripted([fail(rateLimited(60)), OK_PAGE]);
+    const { sleep, retry } = deps();
+    const result = await fetchPageWithRetry(connector, INPUT, retry);
+    expect(sleptMs(sleep)).toEqual([60_000]);
+    expect(inputs).toHaveLength(2);
+    expect(result).toEqual({
+      outcome: OK_PAGE,
+      retried: 1,
+      attempts: [{ attempt: 1, failureKind: "RATE_LIMITED", waitMs: 60_000 }],
+    });
+  });
+
+  it("앞서 기다린 뒤 상한을 넘는 Retry-After 가 오면 그때 멈춘다(그때까지의 retried·attempts 는 남는다)", async () => {
+    const { connector, inputs } = scripted([fail(rateLimited(2)), fail(rateLimited(61)), OK_PAGE]);
+    const { sleep, retry } = deps();
+    const result = await fetchPageWithRetry(connector, INPUT, retry);
+    expect(result).toEqual({
+      outcome: fail(rateLimited(61)),
+      retried: 1,
+      attempts: [{ attempt: 1, failureKind: "RATE_LIMITED", waitMs: 2000 }],
+    });
+    expect(sleptMs(sleep)).toEqual([2000]);
+    expect(inputs).toHaveLength(2);
+  });
+
+  it("상한은 Retry-After 에만 건다: Retry-After 없는 429 는 지금처럼 지수 backoff 로 재시도한다", async () => {
+    const { connector } = scripted([fail(RATE_LIMITED_NO_HEADER), OK_PAGE]);
+    const { sleep, retry } = deps();
+    await fetchPageWithRetry(connector, INPUT, retry);
+    expect(sleptMs(sleep)).toEqual([1000]);
+  });
+
+  it("상한을 넘는 Retry-After 로 끝난 수집은 RATE_LIMITED 로 기록하고 FAILED, retried 0 이다", async () => {
+    const repo = createMemoryIngestionRepo();
+    const { connector } = scripted([fail(rateLimited(120))]);
+    const { sleep, retry } = deps();
+    const result = await runIngest({
+      connector,
+      repo,
+      run: {
+        source: "g2b",
+        runMode: "LIVE",
+        jobKey: "g2b:retry-after-cap",
+        trigger: "MANUAL",
+        batch: null,
+        params: { window: { from: "2026-10-18T15:00:00.000Z", to: "2026-10-19T15:00:00.000Z" } },
+      },
+      now: () => NOW,
+      retry,
+    });
+    expect(result.status).toBe("FAILED");
+    expect(result.summary.retried).toBe(0);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(repo.state.errors.map((error) => error.errorCode)).toEqual(["RATE_LIMITED"]);
   });
 });
 

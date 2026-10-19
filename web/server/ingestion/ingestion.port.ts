@@ -76,8 +76,11 @@ export type IngestionRepo = {
   findLatestRevision(source: BidSource, noticeId: string): Promise<StoredRevision | null>;
   /** source 의 SEED run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(started_at) run 의 params.anchor. ISO 가 아니면 null */
   findLatestSeedAnchor(source: "fixture"): Promise<Date | null>;
-  /** source 의 run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(started_at) run 의 params.window.to. ISO 가 아니면 null */
-  findLatestRunWindowEnd(source: "g2b"): Promise<Date | null>;
+  /**
+   * source·trigger 가 같은 run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(started_at) run 의 params.window.to. ISO 가 아니면 null.
+   * 7-1: 일정 수집 창은 SCHEDULED run 만 잇는다. MANUAL 의 미래 창이 일정 수집을 건너뛰게 하지 않는다
+   */
+  findLatestRunWindowEnd(source: "g2b", trigger: "SCHEDULED"): Promise<Date | null>;
   /** bid_notices upsert + bid_revisions insert + outbox(event.idempotencyKey) 를 한 트랜잭션으로 */
   saveRevision(input: SaveRevisionInput): Promise<SavedRevision>;
   recordError(runId: string, error: IngestErrorInput): Promise<void>;

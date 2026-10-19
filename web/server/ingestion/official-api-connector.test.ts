@@ -75,7 +75,7 @@ const jsonResponse = (body: unknown, headers: Record<string, string> = {}) =>
     headers: { "content-type": "application/json", ...headers },
   });
 
-type FetchCall = { url: string; signal: AbortSignal };
+type FetchCall = { url: string; signal: AbortSignal; redirect: string | undefined };
 
 // 받은 요청을 기록하고 정해 둔 응답을 돌려주는 가짜 fetch. 응답은 부를 때마다 새로 만든다.
 const recordingFetch = (
@@ -83,7 +83,7 @@ const recordingFetch = (
 ) => {
   const calls: FetchCall[] = [];
   const fetch: FetchLike = async (url, init) => {
-    calls.push({ url, signal: init.signal });
+    calls.push({ url, signal: init.signal, redirect: init.redirect });
     return respond(url);
   };
   return { calls, fetch };
@@ -462,5 +462,145 @@ describe("OfficialApiConnector — 네트워크", () => {
     await connectorWith(fetch).fetchPage(inputAt(null));
 
     expect([calls.length, globalFetch.mock.calls.length]).toEqual([1, 0]);
+  });
+});
+
+// 계약 7-3: 공공 API 리다이렉트 금지·응답 크기 상한(G2B_RESPONSE_MAX_BYTES = 20 MiB, UTF-8 바이트 기준)
+describe("OfficialApiConnector — 리다이렉트·응답 크기(7-3)", () => {
+  const MAX_BYTES = 20 * 1024 * 1024;
+  const encode = (value: unknown): Uint8Array => new TextEncoder().encode(JSON.stringify(value));
+
+  // 읽을 때만 pull 이 불리는 본문(highWaterMark 0). pull 횟수로 본문을 읽었는지 본다(cancel 은 pull 을 부르지 않는다).
+  const streamResponse = (bytes: Uint8Array, headers: Record<string, string> = {}) => {
+    const reads = { pulls: 0 };
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          reads.pulls += 1;
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const response = new Response(body, {
+      status: 200,
+      headers: { "content-type": "application/json", ...headers },
+    });
+    return { response, reads };
+  };
+
+  // 글자 수는 상한보다 작지만 UTF-8 바이트(한글 3바이트)는 상한을 넘는 정상 봉투
+  const oversizedEnvelope = () =>
+    encode(okEnvelope([{ ...PUBLIC_Y, bidNtceNm: "가".repeat(Math.ceil(MAX_BYTES / 3) + 1) }], 1));
+  // UTF-8 바이트가 상한과 정확히 같은 정상 봉투
+  const exactlyMaxEnvelope = () => {
+    const baseBytes = encode(okEnvelope([{ ...PUBLIC_Y, bidNtceNm: "" }], 1)).length;
+    return encode(okEnvelope([{ ...PUBLIC_Y, bidNtceNm: "a".repeat(MAX_BYTES - baseBytes) }], 1));
+  };
+
+  const failureOf = (outcome: FetchPageOutcome) => {
+    if (outcome.ok) throw new Error("실패를 기대했는데 성공했다");
+    return outcome.failure;
+  };
+
+  it("fetch 에 redirect: 'error' 를 넘긴다", async () => {
+    const { calls, fetch } = recordingFetch();
+
+    await connectorWith(fetch).fetchPage(inputAt(null));
+
+    expect(calls[0]?.redirect).toBe("error");
+  });
+
+  it("리다이렉트로 fetch 가 던지면 status 없는 HTTP_ERROR 다", async () => {
+    // redirect: "error" 면 fetch 가 3xx 에서 던진다. 옵션 없이 따라가면 다른 곳의 정상 응답을 받게 된다.
+    const fetch: FetchLike = async (_url, init) => {
+      if (init.redirect === "error") {
+        throw new TypeError("fetch failed", { cause: new Error("unexpected redirect") });
+      }
+      return jsonResponse(okEnvelope([withContact(PUBLIC_Y)], 1));
+    };
+
+    const failure = failureOf(await connectorWith(fetch).fetchPage(inputAt(null)));
+
+    expect([failure.kind, failure.status]).toEqual(["HTTP_ERROR", undefined]);
+  });
+
+  it("content-length 가 상한을 넘으면 본문을 읽지 않는다", async () => {
+    const { response, reads } = streamResponse(encode(okEnvelope([], 0)), {
+      "content-length": String(MAX_BYTES + 1),
+    });
+
+    await connectorWith(async () => response).fetchPage(inputAt(null));
+
+    expect(reads.pulls).toBe(0);
+  });
+
+  it("content-length 가 상한을 넘으면 status 를 담은 HTTP_ERROR 다", async () => {
+    const { response } = streamResponse(encode(okEnvelope([], 0)), {
+      "content-length": String(MAX_BYTES + 1),
+    });
+
+    const failure = failureOf(await connectorWith(async () => response).fetchPage(inputAt(null)));
+
+    expect([failure.kind, failure.status]).toEqual(["HTTP_ERROR", 200]);
+  });
+
+  it("content-length 가 상한과 같으면 읽어서 처리한다(경계)", async () => {
+    const { response } = streamResponse(encode(okEnvelope([withContact(PUBLIC_Y)], 1)), {
+      "content-length": String(MAX_BYTES),
+    });
+
+    const outcome = await connectorWith(async () => response).fetchPage(inputAt(null));
+
+    expect(outcome.ok).toBe(true);
+  });
+
+  it("content-length 없이 읽은 본문의 UTF-8 바이트가 상한을 넘으면 HTTP_ERROR 다", async () => {
+    const { response } = streamResponse(oversizedEnvelope());
+
+    const failure = failureOf(await connectorWith(async () => response).fetchPage(inputAt(null)));
+
+    expect([failure.kind, failure.status]).toEqual(["HTTP_ERROR", 200]);
+  });
+
+  it("읽은 본문의 UTF-8 바이트가 상한과 같으면 처리한다(경계)", async () => {
+    const { response } = streamResponse(exactlyMaxEnvelope());
+
+    const outcome = await connectorWith(async () => response).fetchPage(inputAt(null));
+
+    expect(outcome.ok).toBe(true);
+  });
+
+  const SIZE_FAILURES: [string, () => Response][] = [
+    [
+      "content-length 초과",
+      () =>
+        streamResponse(encode(okEnvelope([], 0)), { "content-length": String(MAX_BYTES + 1) })
+          .response,
+    ],
+    ["읽은 본문 초과", () => streamResponse(oversizedEnvelope()).response],
+  ];
+
+  it.each(SIZE_FAILURES)(
+    "%s 의 detail 은 '응답이 너무 크다' 를 담는다",
+    async (_label, respond) => {
+      const failure = failureOf(
+        await connectorWith(async () => respond()).fetchPage(inputAt(null)),
+      );
+
+      expect(failure.detail).toContain("응답이 너무 크다");
+    },
+  );
+
+  it.each(SIZE_FAILURES)("%s 실패 결과에 서비스키·URL 이 없다", async (_label, respond) => {
+    const json = JSON.stringify(
+      await connectorWith(async () => respond()).fetchPage(inputAt(null)),
+    );
+
+    for (const form of SECRET_FORMS) expect(json).not.toContain(form);
+    expect(json).not.toContain("TESTKEY");
+    expect(json).not.toMatch(/servicekey/i);
+    expect(json).not.toContain("apis.data.go.kr");
   });
 });

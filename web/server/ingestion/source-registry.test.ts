@@ -140,6 +140,44 @@ describe("loadSourceRegistry", () => {
   });
 });
 
+// 계약 7-4: serviceKeyEnv 는 ^G2B_[A-Z0-9_]+_SERVICE_KEY$ 또는 null. 다른 비밀(service role 키 등)의 env 이름을 받지 않는다
+describe("loadSourceRegistry — serviceKeyEnv 이름 제한(7-4)", () => {
+  it.each([
+    ["service role 키", "SUPABASE_SERVICE_ROLE_KEY"],
+    ["_SERVICE_KEY 로 끝나지 않음", "G2B_FOO"],
+    ["소문자", "g2b_bid_notice_service_key"],
+    ["G2B_ 로 시작하지 않음", "OTHER_BID_NOTICE_SERVICE_KEY"],
+  ])("serviceKeyEnv 가 %s(%s)면 reject 한다", async (_label, env) => {
+    const path = writeRegistry(registryDoc([bidNoticeEntry({ serviceKeyEnv: env })]));
+
+    await expect(loadSourceRegistry(path)).rejects.toThrow();
+  });
+
+  it.each([
+    "G2B_BID_NOTICE_SERVICE_KEY",
+    "G2B_PRE_SPEC_SERVICE_KEY",
+    "G2B_INDUSTRY_MASTER_SERVICE_KEY",
+  ])("serviceKeyEnv %s 는 읽는다", async (env) => {
+    const path = writeRegistry(registryDoc([bidNoticeEntry({ serviceKeyEnv: env })]));
+
+    expect((await loadSourceRegistry(path)).sources[0]?.serviceKeyEnv).toBe(env);
+  });
+
+  it("serviceKeyEnv 가 null 이면 읽는다", async () => {
+    const path = writeRegistry(registryDoc([FIXTURE_ENTRY]));
+
+    expect((await loadSourceRegistry(path)).sources[0]?.serviceKeyEnv).toBeNull();
+  });
+
+  it("거부 메시지에 받은 env 이름을 넣지 않는다", async () => {
+    const path = writeRegistry(
+      registryDoc([bidNoticeEntry({ serviceKeyEnv: "SUPABASE_SERVICE_ROLE_KEY" })]),
+    );
+
+    expect(await rejectionMessage(path)).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+  });
+});
+
 describe("callableSource", () => {
   it("승인·endpoint·fieldMapping·serviceKeyEnv 가 모두 있으면 부를 수 있는 소스를 돌려준다", () => {
     expect(callableSource(registryOf(bidNoticeEntry()), "g2b-bid-notice")).toEqual({

@@ -176,4 +176,21 @@ describe("stripContactFields", () => {
     expect(stripped).toEqual(PUBLIC_FIELDS);
     expect(stripped).not.toBe(item);
   });
+
+  // 계약 7-8: 목록 9개에 더해, 키가 Ofcl 을 포함하거나 TelNo·FaxNo·EmailAdrs·HpNo 로 끝나면 뺀다(대소문자 그대로)
+  it.each(["newOfclNm", "dminsttOfclTelNo", "ofclFaxNo", "xxxHpNo", "yyyEmailAdrs"])(
+    "목록에 없어도 이름 규칙에 맞는 담당자 필드(%s)는 뺀다",
+    (key) => {
+      expect(stripContactFields({ ...PUBLIC_FIELDS, [key]: "가짜담당자-값" })).toEqual(
+        PUBLIC_FIELDS,
+      );
+    },
+  );
+
+  it.each(["dminsttNm", "ntceInsttNm", "bidNtceNm", "rgnDutyJntcontrctRt"])(
+    "이름 규칙에 걸리지 않는 공고 필드(%s)는 남긴다",
+    (key) => {
+      expect(stripContactFields({ [key]: "가상 값" })).toEqual({ [key]: "가상 값" });
+    },
+  );
 });

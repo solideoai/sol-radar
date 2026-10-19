@@ -122,6 +122,9 @@ function isPublicIpv6(ip: string): boolean {
     (h[0] & 0xffc0) === 0xfe80 || // fe80::/10 링크 로컬
     (h[0] & 0xff00) === 0xff00 || // ff00::/8 멀티캐스트
     (h[0] === 0x2001 && h[1] === 0x0db8) || // 2001:db8::/32 문서용
+    // 7-7: 터널 대역은 안에 IPv4(사설일 수 있다)를 싣고 다른 경로로 나간다. 통째로 막는다.
+    h[0] === 0x2002 || // 2002::/16 6to4
+    (h[0] === 0x2001 && h[1] === 0x0000) || // 2001::/32 Teredo
     (h[0] === 0x0064 && h[1] === 0xff9b && h.slice(2, 6).every((group) => group === 0)) || // 64:ff9b::/96
     (h[0] === 0x0100 && h.slice(1, 4).every((group) => group === 0)); // 100::/64 폐기용
   return !isNonPublic;

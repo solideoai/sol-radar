@@ -19,6 +19,7 @@ import {
   G2B_DEFAULT_ROWS,
   G2B_GATEWAY_KEY_ERROR_CODES,
   G2B_MAX_ROWS,
+  G2B_RESPONSE_MAX_BYTES,
   looksLikeXml,
   parseG2bEnvelope,
   parseG2bGatewayError,
@@ -30,7 +31,11 @@ import { redactSecrets, redactUrl } from "./redaction";
 
 // ── OfficialApiConnector: 나라장터 입찰공고 목록(15129394 getBidPblancListInfoServc) ──
 // fetch·서비스키는 주입받는다(env 를 읽지 않는다). 서비스키가 쿼리로 나가므로 요청 URL 은 어디에도 남기지 않는다.
-export type FetchLike = (url: string, init: { signal: AbortSignal }) => Promise<Response>;
+// redirect "error": 공공 API 는 리다이렉트하지 않는다. 따라가면 서비스키가 실린 요청이 다른 곳으로 간다(7-3).
+export type FetchLike = (
+  url: string,
+  init: { signal: AbortSignal; redirect?: "error" },
+) => Promise<Response>;
 
 export type OfficialApiConnectorOptions = {
   endpoint: string;
@@ -124,6 +129,33 @@ const failed = (fields: Omit<ConnectorFailure, "detail">, detail: string): Faile
 
 const timedOut = (): Failed => failed({ kind: "TIMEOUT" }, "응답 시간 초과");
 
+const tooLarge = (status: number): Failed =>
+  failed({ kind: "HTTP_ERROR", status }, `응답이 너무 크다(HTTP ${status})`);
+
+const exceedsDeclaredLength = (contentLength: string | null): boolean =>
+  contentLength !== null &&
+  NON_NEGATIVE_INTEGER.test(contentLength.trim()) &&
+  Number(contentLength.trim()) > G2B_RESPONSE_MAX_BYTES;
+
+// 본문을 조각으로 받아 UTF-8 바이트를 센다. 상한을 넘으면 읽기를 끊고 null 을 돌려준다.
+async function readBoundedText(response: Response, maxBytes: number): Promise<string | null> {
+  if (response.body === null) return "";
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
 function gatewayFailureKind(code: string): ConnectorFailureKind {
   if (isDailyLimitExceeded(code)) return "QUOTA_EXCEEDED";
   if (GATEWAY_KEY_ERROR_CODES.has(code)) return "SERVICE_KEY_INVALID";
@@ -162,7 +194,10 @@ export function createOfficialApiConnector(
   async function request(slice: G2bWindowSlice, pageNo: number): Promise<RequestResult> {
     const url = buildG2bListUrl({ endpoint, serviceKey, pageNo, numOfRows, slice });
     try {
-      const response = await options.fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      const response = await options.fetch(url, {
+        signal: AbortSignal.timeout(timeoutMs),
+        redirect: "error",
+      });
       return { ok: true, response };
     } catch (error) {
       return isTimeoutError(error)
@@ -172,15 +207,17 @@ export function createOfficialApiConnector(
   }
 
   // 게이트웨이 키 오류는 2xx 가 아닌 상태로도 오므로 상태와 상관없이 본문을 읽는다. 받는 중에도 timeout 이 날 수 있다.
+  // 7-3: 상한을 넘는 본문은 끝까지 받지 않는다. 받은 바이트가 넘는 순간 읽기를 멈춘다.
   async function readText(response: Response): Promise<TextResult> {
     const status = response.status;
-    return response.text().then(
-      (text): TextResult => ({ ok: true, text }),
-      (error: unknown): TextResult =>
-        isTimeoutError(error)
-          ? timedOut()
-          : failed({ kind: "HTTP_ERROR", status }, `응답 본문을 읽지 못했다(HTTP ${status})`),
-    );
+    try {
+      const text = await readBoundedText(response, G2B_RESPONSE_MAX_BYTES);
+      return text === null ? tooLarge(status) : { ok: true, text };
+    } catch (error) {
+      return isTimeoutError(error)
+        ? timedOut()
+        : failed({ kind: "HTTP_ERROR", status }, `응답 본문을 읽지 못했다(HTTP ${status})`);
+    }
   }
 
   // 5-A 분류: 코드 22 → 일일 한도, 30·31 → 키 오류, 그 밖 → 결과 코드. 코드를 못 읽으면 HTTP 오류다.
@@ -226,6 +263,11 @@ export function createOfficialApiConnector(
       );
     }
 
+    // 선언한 크기가 상한을 넘으면 본문을 읽지 않는다.
+    if (exceedsDeclaredLength(response.headers.get("content-length"))) {
+      await discardBody(response);
+      return tooLarge(status);
+    }
     const read = await readText(response);
     if (!read.ok) return read;
     // Content-Type 은 믿지 않는다. 키 오류 XML 이 application/json 으로 올 수도 있다.

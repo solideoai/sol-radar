@@ -9,6 +9,8 @@ export const G2B_DEFAULT_ROWS = 100;
 // 07 §2.2: 요청 한 번의 조회 기간은 최대 1일이다.
 export const G2B_WINDOW_MAX_MS = 24 * 60 * 60 * 1000;
 export const G2B_API_HOST = "apis.data.go.kr";
+/** 목록 응답 본문 상한(UTF-8 바이트, 7-3). 999행 페이지도 수 MB 라 넉넉하다 */
+export const G2B_RESPONSE_MAX_BYTES = 20 * 1024 * 1024;
 
 // 2f 실측 응답에서 마스킹한 담당자 필드. 공고 원본(rawPayload)에도 넣지 않는다(15 §3 개인정보).
 export const G2B_CONTACT_FIELDS = [
@@ -24,9 +26,15 @@ export const G2B_CONTACT_FIELDS = [
 ] as const;
 
 const CONTACT_FIELD_SET: ReadonlySet<string> = new Set(G2B_CONTACT_FIELDS);
+// 7-8: 목록에 없는 새 담당자 필드도 이름 규칙으로 뺀다. 나라장터는 담당자(ofcl)·전화·팩스·메일·휴대폰을 이 접미사로 쓴다.
+const CONTACT_NAME_PART = "Ofcl";
+const CONTACT_NAME_SUFFIX = /(TelNo|FaxNo|EmailAdrs|HpNo)$/;
+
+const isContactField = (key: string): boolean =>
+  CONTACT_FIELD_SET.has(key) || key.includes(CONTACT_NAME_PART) || CONTACT_NAME_SUFFIX.test(key);
 
 export function stripContactFields(item: G2bItem): G2bItem {
-  return Object.fromEntries(Object.entries(item).filter(([key]) => !CONTACT_FIELD_SET.has(key)));
+  return Object.fromEntries(Object.entries(item).filter(([key]) => !isContactField(key)));
 }
 
 export type G2bEnvelope =

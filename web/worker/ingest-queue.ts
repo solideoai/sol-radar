@@ -1,5 +1,5 @@
 import {
-  ingestJobDataSchema,
+  ingestJobDataSchemaAt,
   runIngest,
   type BidSourceConnector,
   type DocumentsJobData,
@@ -74,8 +74,9 @@ const acceptsSource = (mode: RunMode, source: IngestJobData["source"]): boolean 
 const floorToMinute = (at: Date): Date =>
   new Date(Math.floor(at.getTime() / MINUTE_MS) * MINUTE_MS);
 
-function parseJobData(data: unknown): IngestJobData {
-  const parsed = ingestJobDataSchema.safeParse(data);
+// 7-1: window.to 가 지금보다 5분 넘게 미래인 job 도 여기서 거른다(큐에 넣은 뒤 시간이 지나 처리돼도 같은 규칙).
+function parseJobData(data: unknown, now: Date): IngestJobData {
+  const parsed = ingestJobDataSchemaAt(now).safeParse(data);
   if (!parsed.success) {
     // job data 의 값은 오류에 싣지 않는다(요청자 id 등). 경로만 남긴다.
     const paths = [...new Set(parsed.error.issues.map(({ path }) => path.map(String).join(".")))];
@@ -85,13 +86,14 @@ function parseJobData(data: unknown): IngestJobData {
 }
 
 // 6-4 보충: window 가 없으면 트리거와 상관없이 직전 성공 창 끝 ~ 지금(분 내림). 없으면 지금 − 1일부터.
+// 7-1: 직전 창은 SCHEDULED run 의 것만 본다. MANUAL 의 창(미래일 수 있다)을 이으면 일정 수집이 구간을 건너뛴다.
 async function g2bWindowOf(
   data: Extract<IngestJobData, { source: "g2b" }>,
   deps: IngestJobDeps,
 ): Promise<{ from: string; to: string }> {
   if (data.window !== undefined) return data.window;
   const to = floorToMinute(deps.now());
-  const lastEnd = await deps.repo.findLatestRunWindowEnd("g2b");
+  const lastEnd = await deps.repo.findLatestRunWindowEnd("g2b", "SCHEDULED");
   const from = lastEnd ?? new Date(to.getTime() - DEFAULT_G2B_LOOKBACK_MS);
   return { from: from.toISOString(), to: to.toISOString() };
 }
@@ -118,16 +120,52 @@ async function runInputOf(data: IngestJobData, deps: IngestJobDeps): Promise<Sta
   };
 }
 
-// 모드가 받지 않는 source 는 run 을 열어 사유를 남기고 FAILED 로 닫는다. connector 는 만들지 않는다.
-async function rejectRunMode(run: StartRunInput, deps: IngestJobDeps): Promise<IngestRunResult> {
+type RejectReason = { sourceKey: string; errorCode: string; detail: string };
+
+// 모드가 받지 않는 source(RUN_MODE_MISMATCH)·거꾸로 된 기본 창(WINDOW_INVALID)이 그 사유다.
+function rejectReasonOf(run: StartRunInput, mode: RunMode): RejectReason | null {
+  if (!acceptsSource(mode, run.source)) {
+    return {
+      sourceKey: `${run.source}:mode`,
+      errorCode: "RUN_MODE_MISMATCH",
+      detail: `실행 모드 ${mode} 에서 ${run.source} 수집을 받지 않는다`,
+    };
+  }
+  const window = run.source === "g2b" ? windowOfParams(run.params) : null;
+  if (window !== null && Date.parse(window.from) >= Date.parse(window.to)) {
+    return {
+      sourceKey: "g2b:window",
+      errorCode: "WINDOW_INVALID",
+      detail: "수집 창의 시작이 끝보다 늦다",
+    };
+  }
+  return null;
+}
+
+const windowOfParams = (
+  params: Record<string, unknown> | null,
+): { from: string; to: string } | null => {
+  const window = params?.window;
+  if (typeof window !== "object" || window === null) return null;
+  const from = "from" in window ? window.from : null;
+  const to = "to" in window ? window.to : null;
+  return typeof from === "string" && typeof to === "string" ? { from, to } : null;
+};
+
+// 받을 수 없는 job 은 run 을 열어 사유를 남기고 FAILED 로 닫는다. connector 는 만들지 않는다.
+async function rejectRun(
+  run: StartRunInput,
+  reason: RejectReason,
+  deps: IngestJobDeps,
+): Promise<IngestRunResult> {
   const started = await deps.repo.startRun(run);
   const isFinished = started.status === "SUCCEEDED" || started.status === "PARTIAL";
   if (!isFinished) {
     await deps.repo.recordError(started.runId, {
-      sourceKey: `${run.source}:mode`,
-      errorCode: "RUN_MODE_MISMATCH",
+      sourceKey: reason.sourceKey,
+      errorCode: reason.errorCode,
       resultCode: null,
-      redactedDetail: `실행 모드 ${deps.runMode} 에서 ${run.source} 수집을 받지 않는다`,
+      redactedDetail: reason.detail,
     });
     await deps.repo.finishRun(started.runId, { status: "FAILED", summary: started.summary });
   }
@@ -152,20 +190,22 @@ export async function processIngestJob(
   data: unknown,
   deps: IngestJobDeps,
 ): Promise<IngestRunResult> {
-  const job = parseJobData(data);
+  const job = parseJobData(data, deps.now());
   const run = await runInputOf(job, deps);
+  const reason = rejectReasonOf(run, deps.runMode);
 
-  const result = acceptsSource(deps.runMode, job.source)
-    ? await runIngest({
-        connector: await connectorFor(job, deps),
-        repo: deps.repo,
-        run,
-        now: deps.now,
-        retry: deps.retry,
-        secrets: deps.secrets,
-        ...(deps.idFor === undefined ? {} : { idFor: deps.idFor }),
-      })
-    : await rejectRunMode(run, deps);
+  const result =
+    reason === null
+      ? await runIngest({
+          connector: await connectorFor(job, deps),
+          repo: deps.repo,
+          run,
+          now: deps.now,
+          retry: deps.retry,
+          secrets: deps.secrets,
+          ...(deps.idFor === undefined ? {} : { idFor: deps.idFor }),
+        })
+      : await rejectRun(run, reason, deps);
 
   // 첨부가 있는 revision 만 documents job 을 건다. 차례로 넣어 실패한 지점을 알 수 있게 한다.
   for (const saved of result.saved) {
@@ -174,7 +214,7 @@ export async function processIngestJob(
     }
   }
 
-  // 수동 수집은 누가 시작했는지 조직 감사 기록에 남긴다(어긋난 모드로 거절한 요청도 남긴다).
+  // 수동 수집은 누가 시작했는지 조직 감사 기록에 남긴다(거절한 요청도 남긴다). 7-5 로 MANUAL 은 둘 다 있다.
   if (job.trigger === "MANUAL" && job.orgId !== undefined) {
     await deps.recordManualAudit({
       orgId: job.orgId,

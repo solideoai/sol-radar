@@ -122,6 +122,7 @@ export {
 } from "./fixture-connector";
 
 export {
+  RETRY_AFTER_MAX_MS,
   RETRY_BASE_DELAY_MS,
   RETRY_JITTER_MAX_MS,
   RETRY_MAX_RETRIES,
@@ -206,6 +207,7 @@ export {
   G2B_DEFAULT_ROWS,
   G2B_GATEWAY_KEY_ERROR_CODES,
   G2B_MAX_ROWS,
+  G2B_RESPONSE_MAX_BYTES,
   G2B_WINDOW_MAX_MS,
   looksLikeXml,
   parseG2bEnvelope,
@@ -249,7 +251,9 @@ export {
   documentsJobDataSchema,
   enqueueDocuments,
   enqueueIngestRun,
+  INGEST_WINDOW_FUTURE_TOLERANCE_MS,
   ingestJobDataSchema,
+  ingestJobDataSchemaAt,
   toBullJobId,
 } from "./ingestion.queue";
 export type { DocumentsJobData, IngestJobData, JobQueue } from "./ingestion.queue";

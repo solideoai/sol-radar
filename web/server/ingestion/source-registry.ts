@@ -13,10 +13,11 @@ const sourceEntrySchema = z.strictObject({
   displayName: z.string().min(1),
   provider: z.string().min(1),
   serviceId: z.string().min(1).nullable(),
-  // env 이름만 둔다. 서비스키 값은 registry 에 두지 않는다(07 §2.2, ADR-022)
+  // env 이름만 둔다. 서비스키 값은 registry 에 두지 않는다(07 §2.2, ADR-022).
+  // 7-4: 나라장터 서비스키 이름만 받는다. 다른 비밀(SUPABASE_SERVICE_ROLE_KEY 등)을 읽어 요청 URL 에 싣지 못하게 한다.
   serviceKeyEnv: z
     .string()
-    .regex(/^[A-Z][A-Z0-9_]*$/)
+    .regex(/^G2B_[A-Z0-9_]+_SERVICE_KEY$/)
     .nullable(),
   approvalStatus: z.enum(APPROVAL_STATUSES),
   endpoint: z

@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json, Tables } from "@/lib/database.types";
 import type { FixtureBatch } from "./fixture.model";
-import type { IngestionRepo, IngestRunSource, StartedRun } from "./ingestion.port";
+import type { IngestionRepo, IngestRunSource, IngestTrigger, StartedRun } from "./ingestion.port";
 import {
   anchorOfParams,
   dbErrorCodeOf,
@@ -77,14 +77,15 @@ export function createSupabaseIngestionRepo(
 
   const latestFinishedParams = async (
     source: IngestRunSource,
-    batch: FixtureBatch | null,
+    filter: { batch: FixtureBatch } | { trigger: IngestTrigger },
   ): Promise<Json | null> => {
     const base = client
       .from("ingest_runs")
       .select("params")
       .eq("source", source)
       .in("status", [...FINISHED_RUN_STATUSES]);
-    const query = batch === null ? base : base.eq("batch", batch);
+    const query =
+      "batch" in filter ? base.eq("batch", filter.batch) : base.eq("trigger", filter.trigger);
     const { data, error } = await query
       .order("started_at", { ascending: false })
       .limit(1)
@@ -132,11 +133,11 @@ export function createSupabaseIngestionRepo(
     },
 
     async findLatestSeedAnchor(source) {
-      return anchorOfParams(await latestFinishedParams(source, "SEED"));
+      return anchorOfParams(await latestFinishedParams(source, { batch: "SEED" }));
     },
 
-    async findLatestRunWindowEnd(source) {
-      return windowEndOfParams(await latestFinishedParams(source, null));
+    async findLatestRunWindowEnd(source, trigger) {
+      return windowEndOfParams(await latestFinishedParams(source, { trigger }));
     },
 
     async saveRevision(input) {

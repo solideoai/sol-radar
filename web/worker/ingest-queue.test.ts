@@ -12,6 +12,7 @@ import {
   type IngestErrorInput,
   type IngestRunStatus,
   type IngestSummary,
+  type IngestTrigger,
   type SavedRevision,
   type SaveRevisionInput,
   type StartedRun,
@@ -28,7 +29,7 @@ import {
   type RunMode,
 } from "@/worker/ingest-queue";
 
-// ingest job 처리(C3 계약 6-4, 05 IngestionRunInput·RUN_MODE_MISMATCH, 07 §2.2 수집 창).
+// ingest job 처리(C3 계약 6-4·7-1·7-5, 05 IngestionRunInput·RUN_MODE_MISMATCH, 07 §2.2 수집 창).
 // 저장은 이 파일의 가짜 저장소(IngestionRepo 포트), fixture 는 실제 FixtureConnector, g2b 는 받은 창을 기록하는 가짜 connector 다.
 // 메모리 저장소(ingestion.repo.memory)는 배럴 밖이라 worker 층에서 부르지 않는다(도메인 딥 import 금지).
 
@@ -41,7 +42,12 @@ const NOW_FLOORED = "2026-10-19T09:37:00.000Z";
 // 분 경계 시각(now − 1일 대체값을 내림 여부와 상관없이 하나로 정하려고)
 const NOW_ON_MINUTE = new Date("2026-10-19T09:37:00.000Z");
 const LAST_G2B_WINDOW_END = new Date("2026-10-19T09:00:00.000Z");
-const MANUAL_WINDOW = { from: "2026-10-18T15:00:00.000Z", to: "2026-10-19T15:00:00.000Z" };
+// 수동 창은 now 이전(7-1: window.to ≤ now + 5분)
+const MANUAL_WINDOW = { from: "2026-10-18T09:00:00.000Z", to: "2026-10-19T09:00:00.000Z" };
+const FIVE_MINUTES_MS = 5 * 60_000;
+const isoAfter = (base: Date, ms: number): string => new Date(base.getTime() + ms).toISOString();
+// 앞선 SCHEDULED run 하나(창 끝 LAST_G2B_WINDOW_END)
+const PREVIOUS_SCHEDULED = [{ trigger: "SCHEDULED" as const, windowTo: LAST_G2B_WINDOW_END }];
 
 const FIXTURE_SEED = {
   source: "fixture",
@@ -78,8 +84,33 @@ beforeAll(async () => {
   manifest = await loadFixtureManifest(FIXTURES_DIR);
 });
 
+type PreviousRun = { trigger: IngestTrigger; windowTo: Date };
+type RunRecord = {
+  runId: string;
+  source: string;
+  trigger: IngestTrigger;
+  status: IngestRunStatus;
+  windowTo: string | null;
+};
+
+const windowToOf = (params: Record<string, unknown> | null): string | null => {
+  const window = params?.window;
+  if (typeof window !== "object" || window === null) return null;
+  const to = (window as Record<string, unknown>).to;
+  return typeof to === "string" ? to : null;
+};
+
 // IngestionRepo 포트를 따르는 가짜 저장소. 실제 Supabase 는 부르지 않는다.
-const createFakeRepo = (lastG2bWindowEnd: Date | null = null) => {
+// findLatestRunWindowEnd 는 SUCCEEDED·PARTIAL g2b run 의 window.to 중 가장 나중 것이다.
+// trigger 를 주면 그 trigger 로만 거르고, 주지 않으면 모든 trigger 를 본다(7-1 이전 포트의 뜻).
+const createFakeRepo = (previousRuns: readonly PreviousRun[] = []) => {
+  const history: RunRecord[] = previousRuns.map((run, index) => ({
+    runId: `previous-${index}`,
+    source: "g2b",
+    trigger: run.trigger,
+    status: "SUCCEEDED",
+    windowTo: run.windowTo.toISOString(),
+  }));
   const starts: StartRunInput[] = [];
   const errors: (IngestErrorInput & { runId: string })[] = [];
   const finishes: { runId: string; status: IngestRunStatus; summary: IngestSummary }[] = [];
@@ -91,8 +122,16 @@ const createFakeRepo = (lastG2bWindowEnd: Date | null = null) => {
     counter += 1;
     return `00000000-0000-4000-8000-${String(counter).padStart(12, "0")}`;
   };
-  const findLatestRunWindowEnd = vi.fn(async (source: "g2b") =>
-    source === "g2b" ? lastG2bWindowEnd : null,
+  const findLatestRunWindowEnd = vi.fn(
+    async (source: "g2b", trigger?: IngestTrigger): Promise<Date | null> => {
+      const last = history
+        .filter((run) => run.source === source)
+        .filter((run) => run.status === "SUCCEEDED" || run.status === "PARTIAL")
+        .filter((run) => trigger === undefined || run.trigger === trigger)
+        .filter((run) => run.windowTo !== null)
+        .at(-1);
+      return last?.windowTo ? new Date(last.windowTo) : null;
+    },
   );
 
   const repo = {
@@ -108,6 +147,13 @@ const createFakeRepo = (lastG2bWindowEnd: Date | null = null) => {
         params: input.params,
       };
       runs.set(input.jobKey, run);
+      history.push({
+        runId: run.runId,
+        source: input.source,
+        trigger: input.trigger,
+        status: "RUNNING",
+        windowTo: windowToOf(input.params),
+      });
       return run;
     },
     async findLatestRevision(source: BidSource, noticeId: string): Promise<StoredRevision | null> {
@@ -138,6 +184,7 @@ const createFakeRepo = (lastG2bWindowEnd: Date | null = null) => {
       result: { status: IngestRunStatus; summary: IngestSummary },
     ): Promise<void> {
       finishes.push({ runId, ...result });
+      for (const run of history) if (run.runId === runId) run.status = result.status;
     },
   };
   return { repo, starts, errors, finishes, findLatestRunWindowEnd };
@@ -145,9 +192,9 @@ const createFakeRepo = (lastG2bWindowEnd: Date | null = null) => {
 
 const createDeps = (
   runMode: RunMode,
-  options: { now?: Date; lastG2bWindowEnd?: Date | null } = {},
+  options: { now?: Date; previousRuns?: readonly PreviousRun[] } = {},
 ) => {
-  const fake = createFakeRepo(options.lastG2bWindowEnd ?? null);
+  const fake = createFakeRepo(options.previousRuns ?? []);
   const g2bInputs: FetchPageInput[] = [];
   const g2bConnector: BidSourceConnector = {
     source: "g2b",
@@ -377,8 +424,8 @@ describe("processIngestJob — 실행 모드와 source 가 어긋날 때", () =>
 });
 
 describe("processIngestJob — live 모드 g2b 일정 실행(window 없음)", () => {
-  it("from 은 저장소의 마지막 g2b 창 끝, to 는 now 를 분 단위로 내린 값이다", async () => {
-    const { deps, g2bInputs } = createDeps("live", { lastG2bWindowEnd: LAST_G2B_WINDOW_END });
+  it("from 은 앞선 SCHEDULED 창 끝, to 는 now 를 분 단위로 내린 값이다", async () => {
+    const { deps, g2bInputs } = createDeps("live", { previousRuns: PREVIOUS_SCHEDULED });
 
     await processIngestJob(G2B_SCHEDULED, deps);
 
@@ -387,18 +434,33 @@ describe("processIngestJob — live 모드 g2b 일정 실행(window 없음)", ()
     ]);
   });
 
-  it("마지막 창 끝을 g2b 소스로 묻는다", async () => {
+  it("마지막 창 끝을 g2b·SCHEDULED 기준으로 묻는다(7-1)", async () => {
     const { deps, findLatestRunWindowEnd } = createDeps("live", {
-      lastG2bWindowEnd: LAST_G2B_WINDOW_END,
+      previousRuns: PREVIOUS_SCHEDULED,
     });
 
     await processIngestJob(G2B_SCHEDULED, deps);
 
-    expect(findLatestRunWindowEnd.mock.calls).toEqual([["g2b"]]);
+    expect(findLatestRunWindowEnd.mock.calls).toEqual([["g2b", "SCHEDULED"]]);
+  });
+
+  it("앞선 MANUAL 의 미래 창이 있어도 SCHEDULED 창은 앞선 SCHEDULED 끝부터다(7-1)", async () => {
+    const { deps, g2bInputs } = createDeps("live", {
+      previousRuns: [
+        { trigger: "SCHEDULED", windowTo: LAST_G2B_WINDOW_END },
+        { trigger: "MANUAL", windowTo: new Date(isoAfter(NOW, 4 * 60_000)) },
+      ],
+    });
+
+    await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect(g2bInputs.map(({ from, to }) => ({ from, to }))).toEqual([
+      { from: LAST_G2B_WINDOW_END.toISOString(), to: NOW_FLOORED },
+    ]);
   });
 
   it("마지막 창이 없으면 from 은 now − 1일이다", async () => {
-    const { deps, g2bInputs } = createDeps("live", { now: NOW_ON_MINUTE, lastG2bWindowEnd: null });
+    const { deps, g2bInputs } = createDeps("live", { now: NOW_ON_MINUTE, previousRuns: [] });
 
     await processIngestJob(G2B_SCHEDULED, deps);
 
@@ -408,7 +470,7 @@ describe("processIngestJob — live 모드 g2b 일정 실행(window 없음)", ()
   });
 
   it("jobKey 는 data.jobKey 대신 g2b:SCHEDULED:<to ISO> 다", async () => {
-    const { deps, starts } = createDeps("live", { lastG2bWindowEnd: LAST_G2B_WINDOW_END });
+    const { deps, starts } = createDeps("live", { previousRuns: PREVIOUS_SCHEDULED });
 
     await processIngestJob(G2B_SCHEDULED, deps);
 
@@ -416,7 +478,7 @@ describe("processIngestJob — live 모드 g2b 일정 실행(window 없음)", ()
   });
 
   it("params 에 정한 window 와 stages ['NOTICE'] 를 남긴다", async () => {
-    const { deps, starts } = createDeps("live", { lastG2bWindowEnd: LAST_G2B_WINDOW_END });
+    const { deps, starts } = createDeps("live", { previousRuns: PREVIOUS_SCHEDULED });
 
     await processIngestJob(G2B_SCHEDULED, deps);
 
@@ -427,7 +489,7 @@ describe("processIngestJob — live 모드 g2b 일정 실행(window 없음)", ()
   });
 
   it("startRun 에 runMode LIVE·trigger SCHEDULED·batch null 을 넘긴다", async () => {
-    const { deps, starts } = createDeps("live", { lastG2bWindowEnd: LAST_G2B_WINDOW_END });
+    const { deps, starts } = createDeps("live", { previousRuns: PREVIOUS_SCHEDULED });
 
     await processIngestJob(G2B_SCHEDULED, deps);
 
@@ -446,9 +508,102 @@ describe("processIngestJob — live 모드 g2b 일정 실행(window 없음)", ()
 
     expect([createG2bConnector.mock.calls.length, createFixture.mock.calls.length]).toEqual([1, 0]);
   });
+
+  it("SCHEDULED 는 orgId 가 없어 수동 수집 감사를 남기지 않는다", async () => {
+    const { deps, recordManualAudit } = createDeps("live", { previousRuns: PREVIOUS_SCHEDULED });
+
+    await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect(recordManualAudit).not.toHaveBeenCalled();
+  });
+});
+
+// 7-1: 직전 SCHEDULED 창 끝이 지금(분 내림)과 같거나 뒤면 기본 창의 from ≥ to 다
+describe("processIngestJob — 기본 창이 거꾸로일 때(WINDOW_INVALID)", () => {
+  const INVALID_ENDS: [string, Date][] = [
+    ["직전 창 끝 = 지금(분 내림)", new Date(NOW_FLOORED)],
+    ["직전 창 끝이 지금보다 10분 뒤", new Date(isoAfter(NOW, 10 * 60_000))],
+  ];
+  const depsWithEnd = (windowTo: Date) =>
+    createDeps("live", { previousRuns: [{ trigger: "SCHEDULED", windowTo }] });
+
+  it.each(INVALID_ENDS)(
+    "%s 면 g2b:window 에 WINDOW_INVALID 를 한 건 기록한다",
+    async (_label, end) => {
+      const { deps, errors } = depsWithEnd(end);
+
+      await processIngestJob(G2B_SCHEDULED, deps);
+
+      expect(errors.map((error) => [error.sourceKey, error.errorCode])).toEqual([
+        ["g2b:window", "WINDOW_INVALID"],
+      ]);
+    },
+  );
+
+  it.each(INVALID_ENDS)("%s 면 run 을 열고 FAILED 로 닫는다", async (_label, end) => {
+    const { deps, starts, finishes } = depsWithEnd(end);
+
+    const result = await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect([result.status, starts.length, finishes.map((finish) => finish.status)]).toEqual([
+      "FAILED",
+      1,
+      ["FAILED"],
+    ]);
+  });
+
+  it.each(INVALID_ENDS)("%s 면 connector 를 부르지 않는다", async (_label, end) => {
+    const { deps, g2bInputs } = depsWithEnd(end);
+
+    await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect(g2bInputs).toEqual([]);
+  });
 });
 
 describe("processIngestJob — live 모드 g2b 수동 실행", () => {
+  it("window 를 생략한 MANUAL 도 SCHEDULED 기준 기본 창을 쓴다(7-1)", async () => {
+    const { deps, g2bInputs } = createDeps("live", {
+      previousRuns: [
+        { trigger: "SCHEDULED", windowTo: LAST_G2B_WINDOW_END },
+        { trigger: "MANUAL", windowTo: new Date("2026-10-19T09:20:00.000Z") },
+      ],
+    });
+    const { window: _window, ...manualWithoutWindow } = G2B_MANUAL;
+    void _window;
+
+    await processIngestJob(manualWithoutWindow, deps);
+
+    expect(g2bInputs.map(({ from, to }) => ({ from, to }))).toEqual([
+      { from: LAST_G2B_WINDOW_END.toISOString(), to: NOW_FLOORED },
+    ]);
+  });
+
+  it("window.to 가 now + 5분이면 받는다(7-1 경계)", async () => {
+    const { deps, g2bInputs } = createDeps("live");
+    const window = { from: MANUAL_WINDOW.from, to: isoAfter(NOW, FIVE_MINUTES_MS) };
+
+    await processIngestJob({ ...G2B_MANUAL, window }, deps);
+
+    expect(g2bInputs.map(({ from, to }) => ({ from, to }))).toEqual([window]);
+  });
+
+  it("window.to 가 now + 5분을 넘으면 던진다(7-1)", async () => {
+    const { deps } = createDeps("live");
+    const window = { from: MANUAL_WINDOW.from, to: isoAfter(NOW, FIVE_MINUTES_MS + 1) };
+
+    await expect(processIngestJob({ ...G2B_MANUAL, window }, deps)).rejects.toThrow();
+  });
+
+  it("window.to 가 now + 5분을 넘으면 run 을 열지 않는다", async () => {
+    const { deps, starts } = createDeps("live");
+    const window = { from: MANUAL_WINDOW.from, to: isoAfter(NOW, FIVE_MINUTES_MS + 1) };
+
+    await processIngestJob({ ...G2B_MANUAL, window }, deps).catch(() => undefined);
+
+    expect(starts).toEqual([]);
+  });
+
   it("data.window 를 그대로 connector 에 넘긴다", async () => {
     const { deps, g2bInputs } = createDeps("live");
 
@@ -481,24 +636,31 @@ describe("processIngestJob — live 모드 g2b 수동 실행", () => {
     ]);
   });
 
-  it("requestedBy 가 없으면 감사의 actorId 는 null 이다", async () => {
-    const { deps, recordManualAudit } = createDeps("live");
+  // 7-5: MANUAL 은 orgId·requestedBy 둘 다 필수라 감사의 actorId 가 늘 있다
+  it("MANUAL 에 requestedBy 가 없으면 던진다(7-5)", async () => {
+    const { deps } = createDeps("live");
     const { requestedBy: _requestedBy, ...withoutRequester } = G2B_MANUAL;
     void _requestedBy;
 
-    await processIngestJob(withoutRequester, deps);
-
-    expect(recordManualAudit.mock.calls[0]?.[0]?.actorId).toBeNull();
+    await expect(processIngestJob(withoutRequester, deps)).rejects.toThrow();
   });
 
-  it("orgId 가 없으면 감사를 남기지 않는다", async () => {
-    const { deps, recordManualAudit } = createDeps("live");
+  it("MANUAL 에 orgId 가 없으면 던진다(7-5)", async () => {
+    const { deps } = createDeps("live");
     const { orgId: _orgId, ...withoutOrg } = G2B_MANUAL;
     void _orgId;
 
-    await processIngestJob(withoutOrg, deps);
+    await expect(processIngestJob(withoutOrg, deps)).rejects.toThrow();
+  });
 
-    expect(recordManualAudit).not.toHaveBeenCalled();
+  it("MANUAL 에 orgId 가 없으면 run 을 열지 않고 감사도 남기지 않는다", async () => {
+    const { deps, starts, recordManualAudit } = createDeps("live");
+    const { orgId: _orgId, ...withoutOrg } = G2B_MANUAL;
+    void _orgId;
+
+    await processIngestJob(withoutOrg, deps).catch(() => undefined);
+
+    expect([starts.length, recordManualAudit.mock.calls.length]).toEqual([0, 0]);
   });
 });
 

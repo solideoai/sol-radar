@@ -12,6 +12,8 @@ import {
 export const RETRY_BASE_DELAY_MS = 1000;
 export const RETRY_MAX_RETRIES = 3;
 export const RETRY_JITTER_MAX_MS = 250;
+/** 서버가 정한 Retry-After 가 이보다 길면 기다리지 않는다. worker 가 한 job 에 오래 묶이지 않게 한다(7-2). */
+export const RETRY_AFTER_MAX_MS = 60_000;
 
 export type RetryDeps = { sleep: (ms: number) => Promise<void>; random: () => number };
 export type RetryAttemptLog = {
@@ -37,6 +39,9 @@ export function retryDelayMs(
   return RETRY_BASE_DELAY_MS * 2 ** retryIndex + Math.floor(random() * RETRY_JITTER_MAX_MS);
 }
 
+const isServerRequestedWait = (failure: ConnectorFailure): boolean =>
+  failure.kind === "RATE_LIMITED" && failure.retryAfterSec !== undefined;
+
 export async function fetchPageWithRetry(
   connector: BidSourceConnector,
   input: FetchPageInput,
@@ -50,6 +55,10 @@ export async function fetchPageWithRetry(
       return { outcome, retried, attempts };
     }
     const waitMs = retryDelayMs(outcome.failure, retried, deps.random);
+    // 터무니없이 긴 Retry-After 는 기다리지 않고 그 실패를 돌려준다. 다음 일정 수집이나 같은 jobKey 재실행이 잇는다.
+    if (isServerRequestedWait(outcome.failure) && waitMs > RETRY_AFTER_MAX_MS) {
+      return { outcome, retried, attempts };
+    }
     // 기다린 실패만 남긴다. 포기한 마지막 실패는 outcome 이 말한다.
     attempts.push({ attempt, failureKind: outcome.failure.kind, waitMs });
     await deps.sleep(waitMs);
