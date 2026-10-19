@@ -152,6 +152,84 @@ describe("organization explorer", () => {
       .element(page.getByRole("img", { name: "나나 프로필 사진 없음", exact: true }))
       .toBeVisible();
   });
+  it.each([1280, 1440])(
+    "toggles the unknown bundle by pressing its visible summary count at %ipx",
+    async (width) => {
+      await page.viewport(width, 1000);
+      document.body.style.paddingLeft = "256px";
+      render(data, true);
+      const summary = page.getByRole("button", { name: "상위 미지정", exact: true });
+      await expect.element(summary).toBeVisible();
+      await expect.element(summary).toHaveAccessibleDescription("2개 부서 · 120명");
+      const button = summary.element();
+      const heading = button.closest("h2")!;
+      const metadata = document.getElementById("org-unassigned-summary")!;
+      for (const expanded of ["false", "true"]) {
+        const labelBounds = button.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(metadata);
+        const textBounds = [...range.getClientRects()].find((rect) => {
+          const x = rect.x + rect.width / 2;
+          const y = rect.y + rect.height / 2;
+          return x > labelBounds.right || x < labelBounds.left || y > labelBounds.bottom;
+        });
+        expect(textBounds).toBeDefined();
+        const point = {
+          x: textBounds!.x + textBounds!.width / 2,
+          y: textBounds!.y + textBounds!.height / 2,
+        };
+        const bounds = heading.getBoundingClientRect();
+        const receipt: Record<string, unknown> = {
+          width,
+          desiredExpanded: expanded,
+          point,
+          labelBounds: labelBounds.toJSON(),
+          headingBounds: bounds.toJSON(),
+        };
+        const pressed = new Promise<void>((resolve) => {
+          heading.addEventListener(
+            "mousedown",
+            () => {
+              // Observe the held physical press after the shared Button's CSS transition settles.
+              window.setTimeout(() => {
+                const style = getComputedStyle(button);
+                const after = getComputedStyle(button, "::after");
+                receipt.held = {
+                  active: button.matches(":active"),
+                  translate: style.translate,
+                  buttonBounds: button.getBoundingClientRect().toJSON(),
+                  afterWidth: after.width,
+                  afterHeight: after.height,
+                  hitIsButton: document.elementFromPoint(point.x, point.y) === button,
+                };
+                resolve();
+              }, 200);
+            },
+            { once: true },
+          );
+        });
+        heading.addEventListener(
+          "mouseup",
+          (event) => {
+            receipt.releasedOnButton = event.target === button;
+          },
+          { once: true },
+        );
+        await userEvent.click(heading, {
+          force: true,
+          delay: 300,
+          position: { x: point.x - bounds.x, y: point.y - bounds.y },
+        });
+        await pressed;
+        console.info("org-unknown-summary-physical-press", receipt);
+        await expect.element(summary, { timeout: 1000 }).toHaveAttribute("aria-expanded", expanded);
+        expect(receipt.held).toMatchObject({ active: true, hitIsButton: true });
+        expect(receipt.releasedOnButton).toBe(true);
+        await expect.element(summary).toHaveAccessibleName("상위 미지정");
+        await expect.element(summary).toHaveAccessibleDescription("2개 부서 · 120명");
+      }
+    },
+  );
   it.each(["avatar", "title", "scoring"])(
     "opens detail when clicking the card's %s outside its name",
     async (area) => {

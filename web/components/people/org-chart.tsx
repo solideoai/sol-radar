@@ -209,7 +209,7 @@ export function OrgChart({
                   aria-expanded={disclosure.bundles.unassigned}
                   aria-controls="org-unassigned-content"
                   onClick={() => toggleBundle("unassigned")}
-                  className="h-auto min-h-10 min-w-0 justify-start gap-2 px-0 text-left whitespace-normal after:absolute after:inset-0 after:rounded-lg focus-visible:ring-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+                  className="h-auto min-h-10 min-w-0 justify-start gap-2 px-0 text-left whitespace-normal after:absolute after:inset-0 after:rounded-lg focus-visible:ring-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50 active:not-aria-[haspopup]:translate-none"
                 >
                   {disclosure.bundles.unassigned ? (
                     <ChevronDownIcon aria-hidden />
