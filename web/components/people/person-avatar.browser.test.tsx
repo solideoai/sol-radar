@@ -26,44 +26,52 @@ describe("PersonAvatar", () => {
   });
 
   it.each([undefined, "SOL-P0201"])(
-    "uses a neutral accessible person icon for absent or unknown ID: %s",
+    "uses name initials for absent or unknown ID: %s",
     async (personId) => {
       render(<PersonAvatar personId={personId} name="직원" />);
       await expect
         .element(page.getByRole("img", { name: "직원 프로필 사진 없음", exact: true }))
         .toBeVisible();
       expect(document.querySelector("img")).toBeNull();
-      expect(document.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+      expect(document.querySelector('[data-slot="avatar-fallback"]')?.textContent).toBe("직");
     },
   );
 
-  it("shows the neutral fallback when the image cannot be decoded", async () => {
-    // A real browser request receives invalid PNG bytes; Avatar handles the resulting image error.
-    const originalImage = window.Image;
-    let hasImageError = false;
-    window.Image = class extends originalImage {
-      constructor() {
-        super();
-        this.addEventListener("error", () => {
-          hasImageError = true;
-        });
-      }
-      set src(value: string) {
-        super.src = value.includes("/demo/people/") ? "data:image/png;base64,aW52YWxpZA==" : value;
-      }
-      get src() {
-        return super.src;
-      }
-    };
-    try {
-      render(<PersonAvatar personId="SOL-P0200" name="직원" />);
-      await expect
-        .element(page.getByRole("img", { name: "직원 프로필 사진 없음", exact: true }))
-        .toBeVisible();
-      await expect.poll(() => hasImageError).toBe(true);
-      expect(document.querySelector("img")).toBeNull();
-    } finally {
-      window.Image = originalImage;
-    }
+  it("honors explicit null portrait URL", async () => {
+    render(<PersonAvatar personId="SOL-P0001" portraitUrl={null} name="김민준" />);
+    await expect
+      .element(page.getByRole("img", { name: "김민준 프로필 사진 없음", exact: true }))
+      .toBeVisible();
+    expect(document.querySelector("img")).toBeNull();
+    expect(document.querySelector('[data-slot="avatar-fallback"]')?.textContent).toBe("김");
+  });
+  it("shows initials after a real image decode failure", async () => {
+    render(<PersonAvatar personId="SOL-P0200" name="이서준" />);
+    await expect.poll(() => document.querySelector("img")).not.toBeNull();
+    const img = document.querySelector("img");
+    if (!img) throw new Error("image missing");
+    img.src = "data:image/png;base64,aW52YWxpZA==";
+    await expect
+      .element(page.getByRole("img", { name: "이서준 프로필 사진 없음", exact: true }))
+      .toBeVisible();
+    expect(document.querySelector('[data-slot="avatar-fallback"]')?.textContent).toBe("이");
+  });
+  it("uses native lazy loading offscreen rather than BaseUI eager preloader", async () => {
+    render(
+      <div style={{ marginTop: 15000 }}>
+        <PersonAvatar personId="SOL-P0199" name="박서연" />
+      </div>,
+    );
+    await expect.poll(() => document.querySelector("img")).not.toBeNull();
+    const img = document.querySelector("img");
+    if (!img) throw new Error("image missing");
+    expect(img.loading).toBe("lazy");
+    expect(img.decoding).toBe("async");
+    expect(img.naturalWidth).toBe(0);
+    img.scrollIntoView();
+    await expect
+      .element(page.getByRole("img", { name: "박서연 프로필 사진", exact: true }))
+      .toBeVisible();
+    await expect.poll(() => img.naturalWidth).toBeGreaterThan(0);
   });
 });

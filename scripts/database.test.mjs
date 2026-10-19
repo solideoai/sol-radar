@@ -3541,6 +3541,179 @@ describe("솔리데오 카탈로그·가입 신고", () => {
     );
     return fresh;
   };
+  describe("people business roles", () => {
+    it("upgrades existing memberships with VIEWER while preserving all prior policies and grants", async (t) => {
+      const fresh = await freshDb(t);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version < "20261018000001"),
+      );
+      for (const [i, id] of users.entries())
+        await fresh.query("insert into auth.users values ($1,$2)", [
+          id,
+          `user${i}@example.invalid`,
+        ]);
+      await fresh.query(
+        "insert into public.organizations(id,slug,name) values ($1,'role-upgrade','업무 역할')",
+        [solideo],
+      );
+      await fresh.query(
+        "insert into public.memberships(org_id,user_id,org_role) values ($1,$2,'owner'),($1,$3,'member')",
+        [solideo, users[0], users[1]],
+      );
+      const before = await accessSnapshot(fresh);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version >= "20261018000001"),
+      );
+      assert.deepEqual(
+        (await fresh.query("select org_role,sol_role from public.memberships order by org_role"))
+          .rows,
+        [
+          { org_role: "member", sol_role: "VIEWER" },
+          { org_role: "owner", sol_role: "VIEWER" },
+        ],
+      );
+      const after = await accessSnapshot(fresh);
+      assert.deepEqual(after.policies, before.policies);
+      assert.deepEqual(after.grants, before.grants);
+      assert.deepEqual(
+        after.columnGrants.filter((grant) => grant.column_name !== "sol_role"),
+        before.columnGrants,
+      );
+      assert.deepEqual(after.triggers, before.triggers);
+    });
+    it("defaults every existing owner/member to VIEWER without granting business ADMIN", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.memberships set org_role='owner' where user_id=$1", [
+        users[0],
+      ]);
+      assert.deepEqual(
+        (await fresh.query("select org_role,sol_role from public.memberships order by org_role"))
+          .rows,
+        [
+          { org_role: "member", sol_role: "VIEWER" },
+          { org_role: "owner", sol_role: "VIEWER" },
+        ],
+      );
+      for (const value of [null, "owner", "admin", "SUPER_ADMIN", ""]) {
+        await assert.rejects(
+          fresh.query("update public.memberships set sol_role=$1 where user_id=$2", [
+            value,
+            users[0],
+          ]),
+          /not-null constraint|check constraint/,
+        );
+      }
+    });
+    for (const role of ["VIEWER", "ANALYST", "SALES", "ADMIN"]) {
+      it(`${role} can read its catalog but cannot write people or promote itself`, async (t) => {
+        const fresh = await setup(t);
+        await fresh.query("update public.memberships set sol_role=$1 where user_id=$2", [
+          role,
+          users[0],
+        ]);
+        await actAs(fresh, users[0]);
+        assert.deepEqual(
+          (
+            await fresh.query(
+              "select sol_role from public.memberships where org_id=$1 and user_id=$2",
+              [solideo, users[0]],
+            )
+          ).rows,
+          [{ sol_role: role }],
+        );
+        for (const table of ["departments", "job_titles", "team_members"]) {
+          assert.equal(
+            (await fresh.query(`select * from public.${table} where org_id=$1`, [solideo])).rows
+              .length,
+            1,
+          );
+          assert.deepEqual(
+            (await fresh.query(`select * from public.${table} where org_id=$1`, [other])).rows,
+            [],
+          );
+          for (const sql of [
+            `insert into public.${table} (org_id) values ($1)`,
+            `update public.${table} set org_id=$1`,
+            `delete from public.${table} where org_id=$1`,
+          ])
+            await assert.rejects(fresh.query(sql, [solideo]), /permission denied/);
+        }
+        await assert.rejects(
+          fresh.query(
+            "update public.memberships set sol_role='ADMIN' where org_id=$1 and user_id=$2",
+            [solideo, users[0]],
+          ),
+          /permission denied/,
+        );
+        await assert.rejects(
+          fresh.query(
+            "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'member','ADMIN')",
+            [other, users[0]],
+          ),
+          /permission denied/,
+        );
+        assert.deepEqual(
+          (
+            await fresh.query(
+              "update public.memberships set org_role='owner' where org_id=$1 and user_id=$2 returning user_id",
+              [solideo, users[0]],
+            )
+          ).rows,
+          [],
+        );
+      });
+    }
+    it("owner can change org_role while sol_role remains read-only VIEWER", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.memberships set org_role='owner' where org_id=$1", [
+        solideo,
+      ]);
+      await fresh.query(
+        "insert into public.memberships (org_id,user_id,org_role) values ($1,$2,'member')",
+        [solideo, users[1]],
+      );
+      await actAs(fresh, users[0]);
+      assert.deepEqual(
+        (
+          await fresh.query(
+            "update public.memberships set org_role='owner' where org_id=$1 and user_id=$2 returning org_role,sol_role",
+            [solideo, users[1]],
+          )
+        ).rows,
+        [{ org_role: "owner", sol_role: "VIEWER" }],
+      );
+      await assert.rejects(
+        fresh.query("update public.memberships set sol_role='ADMIN' where org_id=$1", [solideo]),
+        /permission denied/,
+      );
+      await assert.rejects(
+        fresh.query(
+          "insert into public.memberships(org_id,user_id,org_role,sol_role) values ($1,$2,'member','ADMIN')",
+          [solideo, users[2]],
+        ),
+        /permission denied/,
+      );
+    });
+    it("other-organization users and platform admins cannot read the roster; anonymous is denied", async (t) => {
+      const fresh = await setup(t);
+      await fresh.query("update public.profiles set is_admin=true where id=$1", [users[2]]);
+      for (const userId of [users[1], users[2]]) {
+        await actAs(fresh, userId);
+        for (const table of ["departments", "job_titles", "team_members", "memberships"]) {
+          assert.deepEqual(
+            (await fresh.query(`select * from public.${table} where org_id=$1`, [solideo])).rows,
+            [],
+          );
+        }
+      }
+      await actAs(fresh, null, "anon");
+      for (const table of ["departments", "job_titles", "team_members", "memberships"]) {
+        await assert.rejects(fresh.query(`select * from public.${table}`), /permission denied/);
+      }
+    });
+  });
   const resolve = (fresh, dept = "SOL-D001", job = "SOL-J007") =>
     fresh.query("select * from public.resolve_solideo_employment($1,$2)", [dept, job]);
   it("회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다", async (t) => {
@@ -4117,7 +4290,10 @@ it("ADR021 가입 변경은 이전 개인 조직·소유권·작업을 그대로
     users[1],
   ]);
   assert.deepEqual((await fresh.query("select * from public.organizations")).rows, organizations);
-  assert.deepEqual((await fresh.query("select * from public.memberships")).rows, memberships);
+  assert.deepEqual(
+    (await fresh.query("select * from public.memberships")).rows,
+    memberships.map((membership) => ({ ...membership, sol_role: "VIEWER" })),
+  );
   assert.deepEqual((await fresh.query("select * from public.tasks")).rows, tasks);
   assert.deepEqual(
     (await fresh.query("select id from public.profiles order by id")).rows,
