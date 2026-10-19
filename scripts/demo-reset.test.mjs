@@ -6,7 +6,11 @@
 //   3. 전체 seed 를 PGlite(실제 마이그레이션·트리거·RLS) 위에서 두 번 돌려 멱등·ID 보존·live 공고 보존·조직 격리를 본다.
 // 실제 Supabase 스택에서의 실행은 docs/evidence/phase-1/demo-reset.txt 가 증거다.
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { migratedDb } from "./database-test-support.mjs";
@@ -30,6 +34,7 @@ import {
   planSeedBatch,
   resolveRelativeDate,
   resolveSeedEnv,
+  seoulMidnight,
   substituteExtractionIds,
   toAssignmentRows,
   toBidRows,
@@ -783,6 +788,168 @@ const snapshot = async (db) => ({
 });
 
 const count = async (db, sql, params = []) => Number((await db.query(sql, params)).rows[0].count);
+// personId → team_member_scoring.availability(JSONB). seed 가 기존 투입을 접어 넣은 결과를 본다.
+const scoringAvailability = async (db) =>
+  new Map(
+    (
+      await db.query(
+        "select m.person_code, s.availability from public.team_member_scoring s join public.team_members m on m.id = s.member_id where s.org_id = $1",
+        [orgUuid("org-01")],
+      )
+    ).rows.map((row) => [row.person_code, row.availability]),
+  );
+
+// ── C4 가용 FTE 비교 ───────────────────────────────────────────
+//
+// DB 경로(접힌 availability + assignments 표 2건)와 fixture 경로(원본 availability + 명부 투입 7건 + 데모 2건)를
+// 같은 ScoringTeam 모양으로 만들어 C4 `availableFte` 에 넣는다. C4 는 TypeScript 라 web/node_modules 의 tsx 로
+// 자식 프로세스(scripts/demo/available-fte.mjs)에서 부른다. web 의존성이 없는 환경(CI 공통 job)에서는 같은 규칙을
+// 옮긴 아래 오라클로 계산한다 — 그때는 C4 함수 직접 호출이 아니며 t.diagnostic 으로 남긴다.
+
+const TSX_LOADER = path.join(ROOT, "web/node_modules/tsx/dist/loader.mjs");
+const C4_BRIDGE = fileURLToPath(new URL("./demo/available-fte.mjs", import.meta.url));
+// C4 defaultProjectPeriod(마감일 KST + 1개월을 다음 달 1일로 올림, 6개월) 을 골든 계산일 2026-10-16 기준으로 푼 값.
+// C4 경로는 이 값을 다시 계산해 대조하고, 오라클 경로는 이 값을 그대로 쓴다.
+const EXPECTED_PERIODS = {
+  "FX-01": { startsAt: "2027-01-01", endsAt: "2027-07-01" },
+  "FX-02": { startsAt: "2026-12-01", endsAt: "2027-06-01" },
+  "FX-03": { startsAt: "2026-12-01", endsAt: "2027-06-01" },
+};
+
+const c4Bridge = (payload) => {
+  const result = spawnSync(
+    process.execPath,
+    ["--conditions=react-server", "--import", TSX_LOADER, C4_BRIDGE],
+    { cwd: ROOT, input: JSON.stringify(payload), encoding: "utf8" },
+  );
+  if (result.status !== 0) throw new Error(`C4 다리 실패(${result.status}): ${result.stderr}`);
+  return JSON.parse(result.stdout);
+};
+
+// C4 함수 직접 호출 아님 — scoring.model.ts `availableFte` 의 규칙을 그대로 옮긴 오라클.
+// 시점마다 가용 = 덮는 창의 fte 최댓값, 배정 = 덮는 배정 비율의 합, 잔여 = max(0, 가용 − 배정). 사람마다 요청 기간의 잔여 최솟값을 더한다.
+// 구간은 반개구간 [start, end) 이고 경계는 Date.parse 다.
+const oracleAvailableFte = (team, period) => {
+  const instant = (value) => Date.parse(value);
+  const requested = { start: instant(period.startsAt), end: instant(period.endsAt) };
+  return team.members.reduce((total, member) => {
+    const windows = member.availability.map((window) => ({
+      start: instant(window.startsAt),
+      end: instant(window.endsAt),
+      amount: window.fte,
+    }));
+    const assigned = team.assignments
+      .filter((assignment) => assignment.personId === member.personId)
+      .map((assignment) => ({
+        start: instant(assignment.startsAt),
+        end: instant(assignment.endsAt),
+        amount: assignment.allocationPercent / 100,
+      }));
+    const boundaries = [
+      ...new Set([
+        requested.start,
+        requested.end,
+        ...[...windows, ...assigned]
+          .flatMap((window) => [window.start, window.end])
+          .filter((boundary) => boundary > requested.start && boundary < requested.end),
+      ]),
+    ].toSorted((left, right) => left - right);
+    const residuals = boundaries.slice(0, -1).map((at) => {
+      const available = Math.max(
+        0,
+        ...windows
+          .filter((window) => window.start <= at && at < window.end)
+          .map((window) => window.amount),
+      );
+      const allocated = assigned
+        .filter((window) => window.start <= at && at < window.end)
+        .reduce((sum, window) => sum + window.amount, 0);
+      return Math.max(0, available - allocated);
+    });
+    return total + Math.min(...residuals);
+  }, 0);
+};
+const oracleBridge = ({ teams }) => {
+  const totals = {};
+  const members = {};
+  for (const [key, { people, assignments }] of Object.entries(teams)) {
+    const eligible = people.filter((person) => person.scoringEligible);
+    const ids = new Set(eligible.map((person) => person.personId));
+    const team = {
+      members: eligible,
+      assignments: assignments.filter((assignment) => ids.has(assignment.personId)),
+    };
+    totals[key] = {};
+    members[key] = {};
+    for (const [fixtureId, period] of Object.entries(EXPECTED_PERIODS)) {
+      totals[key][fixtureId] = oracleAvailableFte(team, period);
+      members[key][fixtureId] = Object.fromEntries(
+        team.members.map((member) => [
+          member.personId,
+          oracleAvailableFte({ ...team, members: [member] }, period),
+        ]),
+      );
+    }
+  }
+  return { periods: EXPECTED_PERIODS, totals, members };
+};
+
+const deadlineSpecs = async () =>
+  Object.fromEntries(
+    await Promise.all(
+      Object.keys(EXPECTED_PERIODS).map(async (fixtureId) => [
+        fixtureId,
+        JSON.parse(await readFile(path.join(ROOT, "fixtures/bids", `${fixtureId}.json`), "utf8"))
+          .records[0].deadlineAt,
+      ]),
+    ),
+  );
+
+// DB 가 저장한 그대로의 팀: team_member_scoring(접힌 availability) + assignments 표(데모 2건).
+const teamFromDb = async (db) => {
+  const orgId = orgUuid("org-01");
+  const people = (
+    await db.query(
+      "select m.person_code, s.role, s.grade, s.skills, s.availability from public.team_member_scoring s join public.team_members m on m.id = s.member_id where s.org_id = $1 order by m.person_code",
+      [orgId],
+    )
+  ).rows.map((row) => ({
+    personId: row.person_code,
+    scoringEligible: true,
+    role: row.role,
+    grade: row.grade,
+    skills: row.skills,
+    availability: row.availability,
+  }));
+  const assignments = (
+    await db.query(
+      "select m.person_code, a.starts_at, a.ends_at, a.allocation_percent from public.assignments a join public.team_members m on m.id = a.member_id where a.org_id = $1 order by m.person_code",
+      [orgId],
+    )
+  ).rows.map((row) => ({
+    personId: row.person_code,
+    startsAt: new Date(row.starts_at).toISOString(),
+    endsAt: new Date(row.ends_at).toISOString(),
+    allocationPercent: row.allocation_percent,
+  }));
+  return { people, assignments, asOf: peopleFixtures.people.asOf };
+};
+
+// fixture 그대로의 팀: 원본 availability + 명부 투입 7건 + 데모 배정 2건(DB 와 같은 KST 자정 시각).
+const teamFromFixture = () => ({
+  people: peopleFixtures.people.people,
+  assignments: [
+    ...peopleFixtures.people.assignments,
+    ...DEMO_ASSIGNMENTS.map(({ personId, startsAt, endsAt, allocationPercent }) => ({
+      personId,
+      startsAt: seoulMidnight(startsAt),
+      endsAt: seoulMidnight(endsAt),
+      allocationPercent,
+    })),
+  ],
+  asOf: peopleFixtures.people.asOf,
+});
+
 const SEED_SUMMARY = {
   created: 19,
   changed: 0,
@@ -816,6 +983,21 @@ describe("PGlite 위에서 demo:reset", () => {
     const before = await snapshot(db);
     assert.equal(before.people.length, 200);
     assert.equal(before.users.length, 3 + 5); // migratedDb 의 가입자 3 + 데모 계정 5
+
+    // 인력 단계: 명부의 기존 투입 7건은 공고가 없어 assignments 표(bid_id not null)에 못 넣고 availability 에 접힌다
+    // (people/availability.mjs). 투입 7명은 그 기간 fte 0, 나머지 20명은 fixture 그대로다.
+    const folded = await scoringAvailability(db);
+    assert.equal(folded.size, 27);
+    const prior = new Map(peopleFixtures.people.assignments.map((row) => [row.personId, row]));
+    assert.equal(prior.size, 7);
+    for (const person of peopleFixtures.people.people.filter((row) => row.scoringEligible)) {
+      const busy = prior.get(person.personId);
+      assert.deepEqual(
+        folded.get(person.personId),
+        busy ? [{ startsAt: busy.startsAt, endsAt: busy.endsAt, fte: 0 }] : person.availability,
+        person.personId,
+      );
+    }
 
     // 데모 중 생긴 흔적: 명부 밖 직원, seed 밖 구성원, 알림, 추가 결정, 공고 제목 변경.
     const [admin] = (
@@ -880,6 +1062,15 @@ describe("PGlite 위에서 demo:reset", () => {
       (await db.query("select title from public.bid_notices where notice_id = 'DEMO-2026-0001'"))
         .rows[0].title,
       "세종특별자치시 차세대 행정정보시스템 고도화 (가상)",
+    );
+    // 분석 job 은 mock 재추출 때 raw_payload.fixtureId 로 fixture 를 고른다(C3 수집도 같은 모양).
+    assert.equal(
+      (
+        await db.query(
+          "select r.raw_payload->>'fixtureId' as fixture_id from public.bid_revisions r join public.bid_notices b on b.id = r.bid_id where b.notice_id = 'DEMO-2026-0001'",
+        )
+      ).rows[0].fixture_id,
+      "FX-01",
     );
     assert.equal(await count(db, "select count(*) from public.bid_notices where not is_demo"), 1);
     assert.equal(
@@ -1019,6 +1210,51 @@ describe("PGlite 위에서 demo:reset", () => {
     assert.equal(await count(db, "select count(*) from public.audit_logs"), 0);
     assert.equal(await count(db, "select count(*) from public.bid_notices"), 20);
     await db.exec("reset role");
+  });
+
+  it("C4 availableFte: DB 에서 읽은 팀과 fixture 팀의 가용 FTE 가 FX-01·02·03 기간마다 같다(20 FTE, 투입 7명은 0)", async (t) => {
+    const db = await migratedDb(t);
+    await seedDemo({
+      client: sqlClient(db),
+      fixtures,
+      password: "demo-password-1234",
+      anchor: ANCHOR,
+      portraits: readyPortraits,
+    });
+    const teams = { db: await teamFromDb(db), fixture: teamFromFixture() };
+    assert.equal(teams.db.people.length, 27);
+    assert.equal(teams.db.assignments.length, 2);
+    assert.equal(teams.fixture.assignments.length, 9);
+    // DB 경로에는 명부 투입 7건이 assignments 로 없다 — 접힌 availability 만으로 같은 답이 나와야 한다.
+    assert.deepEqual(
+      teams.db.assignments.map((row) => row.personId),
+      DEMO_ASSIGNMENTS.map((row) => row.personId).toSorted(),
+    );
+
+    const usesC4 = existsSync(TSX_LOADER);
+    t.diagnostic(
+      usesC4
+        ? "C4 scoring.model.ts availableFte 를 tsx 자식 프로세스로 직접 호출"
+        : "C4 함수 직접 호출 아님: web/node_modules/tsx 가 없어 오라클로 계산",
+    );
+    const result = usesC4
+      ? c4Bridge({ deadlines: await deadlineSpecs(), teams })
+      : oracleBridge({ teams });
+    assert.deepEqual(result.periods, EXPECTED_PERIODS);
+
+    const busy = peopleFixtures.people.assignments.map((row) => row.personId);
+    for (const fixtureId of Object.keys(EXPECTED_PERIODS)) {
+      assert.equal(result.totals.db[fixtureId], 20, `${fixtureId} DB 팀 가용 합`);
+      assert.equal(result.totals.fixture[fixtureId], 20, `${fixtureId} fixture 팀 가용 합`);
+      assert.deepEqual(result.members.db[fixtureId], result.members.fixture[fixtureId], fixtureId);
+      for (const personId of busy)
+        assert.equal(result.members.db[fixtureId][personId], 0, `${fixtureId} ${personId}`);
+      assert.equal(
+        Object.values(result.members.db[fixtureId]).filter((fte) => fte === 1).length,
+        20,
+        `${fixtureId} 가용 1 FTE 인원`,
+      );
+    }
   });
 
   it("공고 적재 함수만 따로 불러도 같은 집계와 id 를 돌려준다(C3 가 바꿀 지점)", async (t) => {
