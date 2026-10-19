@@ -4,8 +4,12 @@
 """
 
 import copy
+import hashlib
 import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 AI_ROOT = Path(__file__).resolve().parents[1]  # services/ai
@@ -16,8 +20,17 @@ SCHEMA_FILE = AI_ROOT / "schemas" / "requirement-extraction.v0.1.json"
 PROMPT_FILE = AI_ROOT / "prompts" / "req-extract.v0.1.md"
 DICTIONARY_FILE = AI_ROOT / "dictionaries" / "qualification-codes.yaml"
 QUESTION_SET_FILE = AI_ROOT / "kev" / "question-sets" / "v0.1.json"
+REGISTRY_FILE = AI_ROOT / "models" / "registry.yaml"
+RULES_FILE = REPO_ROOT / "infra" / "run-modes.json"
 SRC_DIR = AI_ROOT / "src" / "sol_ai"
 
+PROMPT_VERSION = "req-extract/v0.1"
+# local 어댑터 시험(가짜 모델 서버). 키는 가짜 값이다
+QWEN_RUN = "Qwen/Qwen3.5-9B"
+KEV_RUN = "jaredpalmer/kev-9b@v1.0"
+KEV_MODEL_ID = "kev-9b-v1.0"
+QWEN_KEY = "qwen-test-key-0001"
+KEV_KEY = "kev-test-key-0002"
 KEV_DISCLAIMER = "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."
 FIXED_CLOSING = "최종 참여 결정은 사람이 합니다."
 
@@ -111,6 +124,55 @@ def extract_request(
     if fixture_id is not None:
         request["fixtureId"] = fixture_id
     return request
+
+
+def expected_prompt_hash(version: str = PROMPT_VERSION) -> str:
+    """local 의 promptHash(03 §4.3·명세 local §3): sha256(prompt 전문 + "\\n" + schema 전문 + "\\n" + 버전)."""
+    prompt = PROMPT_FILE.read_bytes().decode("utf-8")
+    schema = SCHEMA_FILE.read_bytes().decode("utf-8")
+    return hashlib.sha256(f"{prompt}\n{schema}\n{version}".encode()).hexdigest()
+
+
+def question_set_questions() -> dict:
+    """kev/question-sets/v0.1.json 의 질문을 id → 질문으로 읽는다.
+
+    명세는 내용(03 §5.5 원문)만 정하고 파일 모양은 정하지 않았다. 03 §5.4 wire 처럼 {id: 질문} 이거나
+    {"questions": {id: 질문}} / {"questions": [{"id": ..}]} 를 받는다.
+    """
+    data = load_json(QUESTION_SET_FILE)
+    questions = data.get("questions", data)
+    if isinstance(questions, list):
+        return {q["id"]: {k: v for k, v in q.items() if k != "id"} for q in questions}
+    return questions
+
+
+# 부모 환경에서 섞이면 안 되는 접두사·이름(기동 시험 subprocess 용)
+LEAKY_PREFIXES = ("SOL_", "AI_", "KEV_", "HOSTED_", "QWEN_", "PARSER_")
+LEAKY_NAMES = {"DEMO_MODE", "CITATION_FUZZY_MIN_RATIO"}
+# 기동 검사를 통과하면 서버를 띄우지 않게 uvicorn.run 만 비우고 sol_ai.__main__.main 을 그대로 부른다
+RUN_MAIN = (
+    "import sys, uvicorn; uvicorn.run = lambda *args, **kwargs: None; "
+    "from sol_ai.__main__ import main; sys.exit(main())"
+)
+
+
+def run_main(extra: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """python -c RUN_MAIN. 통과면 exit 0, 거부면 exit 78·stderr "기동 거부: 키(사유)". 포트를 열지 않는다."""
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(LEAKY_PREFIXES) and k not in LEAKY_NAMES
+    }
+    env["SOL_RUN_MODES_FILE"] = str(RULES_FILE)
+    env.update(extra)
+    return subprocess.run(
+        [sys.executable, "-c", RUN_MAIN],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
 
 
 def without_timings(payload: dict) -> dict:

@@ -781,6 +781,19 @@ def test_absent_fixture_id_fails_with_not_found(make_client):
     )
 
 
+# K5 정규식은 ASCII 숫자만(security-auditor Low). 같은 이름의 파일을 실제로 둬서 열지 않음을 본다.
+NON_ASCII_DIGIT_IDS = {"arabic_indic": "FX-\u0660\u0661", "fullwidth": "FX-\uff10\uff11"}
+
+
+@pytest.mark.parametrize("case", sorted(NON_ASCII_DIGIT_IDS))
+def test_fixture_id_with_non_ascii_digits_is_not_opened(make_client, custom_fixtures, case):
+    fixture_id = NON_ASCII_DIGIT_IDS[case]
+    custom_fixtures({"FX-01": extraction_fixture("FX-01"), fixture_id: extraction_fixture("FX-01")})
+    request = extract_request(fixture_id, body=bid_body("FX-01"), meta=bid_meta("FX-01"))
+    result = post(make_client(), request)
+    assert (result["status"], result["warnings"]) == ("FAILED", ["MOCK_FIXTURE_NOT_FOUND"])
+
+
 def test_fixture_id_cannot_escape_fixture_directory(make_client, custom_fixtures):
     root = custom_fixtures({"FX-01": extraction_fixture("FX-01")})
     # 경로 조작이 통하면 읽힐 유효한 추출 파일을 디렉터리 밖에 둔다

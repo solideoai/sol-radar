@@ -127,3 +127,39 @@ def test_v2_01_multiple_violations_in_decision_order(rules):
         ("DEMO_MODE", "CONTRADICTS_MODE"),
         ("AI_HOSTED_APPROVED", "HOSTED_NOT_APPROVED"),
     ]
+
+
+# M2: AI_PROVIDER 실효값 hosted 와 KEV_ALLOW_KO_STATE=true 는 모든 모드에서 함께 쓸 수 없다.
+# 판정 순서는 forbidden 다음, hosted 승인 앞. Node(scripts/check-env.test.mjs)와 같은 입력·기대값.
+
+
+def test_m2_hosted_with_korean_state_is_forbidden_in_fixture(rules):
+    env = {
+        "SOL_RUN_MODE": "fixture",
+        "AI_PROVIDER": "hosted",
+        "AI_HOSTED_APPROVED": "true",
+        "KEV_ALLOW_KO_STATE": "true",
+    }
+    assert pairs(resolve_run_mode(env, rules)) == [("KEV_ALLOW_KO_STATE", "FORBIDDEN_WITH_HOSTED")]
+
+
+def test_m2_live_reports_mode_forbidden_then_hosted_forbidden_then_approval(rules):
+    env = {"SOL_RUN_MODE": "live", "AI_PROVIDER": "hosted", "KEV_ALLOW_KO_STATE": "true"}
+    assert pairs(resolve_run_mode(env, rules)) == [
+        ("KEV_ALLOW_KO_STATE", "FORBIDDEN_IN_MODE"),
+        ("KEV_ALLOW_KO_STATE", "FORBIDDEN_WITH_HOSTED"),
+        ("AI_HOSTED_APPROVED", "HOSTED_NOT_APPROVED"),
+    ]
+
+
+def test_m2_mock_with_hosted_value_and_korean_state(rules):
+    env = {"SOL_RUN_MODE": "mock", "AI_PROVIDER": "hosted", "KEV_ALLOW_KO_STATE": "true"}
+    assert pairs(resolve_run_mode(env, rules)) == [
+        ("AI_PROVIDER", "CONTRADICTS_MODE"),
+        ("KEV_ALLOW_KO_STATE", "FORBIDDEN_WITH_HOSTED"),
+    ]
+
+
+def test_m2_local_with_korean_state_is_allowed_in_fixture(rules):
+    env = {"SOL_RUN_MODE": "fixture", "KEV_ALLOW_KO_STATE": "true"}
+    assert resolve_run_mode(env, rules).violations == []

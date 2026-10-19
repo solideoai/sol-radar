@@ -1,0 +1,49 @@
+# Kev state 템플릿 en.v0.2 (docs/03 §5.6·§5.11). 운영 state 는 이 영어판뿐이다.
+# 형식: 한 줄에 "키 = 값". {이름} 자리에 값이 들어간다. 키 집합·줄 순서·항목 id·숫자 위치는 ko.v0.2.txt 와 같다.
+# 값의 글자를 바꾸면 state 가 바뀌어 학습 데이터와 어긋난다(train/serve skew). 바꾸면 템플릿 버전을 올린다.
+notice = NOTICE
+agency = agency
+agency_value = (Korean public agency)
+project_type = project type
+budget = budget (KRW)
+deadline = deadline
+required_skills = required skills
+preferred_skills = preferred skills
+mandatory_qualifications = mandatory qualifications
+optional_qualifications = optional qualifications
+past_performance_required = past performance required
+staffing_required = staffing required
+restrictions = restrictions
+attachments_incomplete = RFP attachment could not be read; requirements may be incomplete
+company = COMPANY (profile revision {revision})
+technologies = technologies
+held = registrations/certifications held
+not_held = not held
+past_performance = past performance
+cap = single-project cap
+staff = staff availability
+staff_period = staff availability ({start} to {end})
+staff_value = {fte} FTE available out of {eligible} scoring-eligible staff
+financial = financial
+financial_value = annual revenue {revenue}, employees {employees}
+projects = {count} projects
+amounts = amounts KRW {amounts}
+largest = largest {amount} KRW
+krw = {amount} KRW
+unknown = (unknown)
+conflicted = (conflicted)
+none = none stated
+mandatory = mandatory
+optional = optional
+min_count = >={count} projects
+min_amount = >={amount} KRW
+within_years = within {years} years
+grade = grade {value}
+condition = condition {value}
+omitted = ({count} more omitted)
+# Kev 담당 항목 줄(03 §5.10). 질문 req.<itemId>.status 의 [<itemId>] 표시와 같다
+item_line = - [{itemId}] {label}: {value}
+item_required_skill = required skill
+item_past_performance = past performance requirement
+item_staffing = staffing requirement
+item_qualification = qualification

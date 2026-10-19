@@ -4,7 +4,7 @@ V2-01 의미(상태·실행 모드·공급자·Kev 사용 여부)는 그대로 �
 K13: mock 의 qwen 은 추출 fixture 공통 model 블록의 name·promptHash 다(seed 재사용 키와 같게).
 """
 
-from support import extraction_fixture
+from support import KEV_MODEL_ID, QWEN_RUN, expected_prompt_hash, extraction_fixture
 
 
 def fixture_qwen() -> dict:
@@ -42,14 +42,14 @@ def test_health_reports_only_kev_off_when_kev_disabled(make_client, monkeypatch)
     )
 
 
-def test_health_fixture_mode_does_not_invent_adapter_info(make_client):
-    # local 어댑터는 이번 단계 범위 밖. qwen·kev 를 지어내지 않고 null 로 둔다(명세 §5).
+def test_health_fixture_mode_reports_local_adapters(make_client, local_models):
+    # local 어댑터 단계(local 명세 §5): fixture 모드는 가짜 vLLM·Kev(127.0.0.1)로 열고 계산 값·대조 결과를 보인다
     body = make_client(SOL_RUN_MODE="fixture").get("/health").json()
     assert (body["runMode"], body["provider"], body["qwen"], body["kev"]) == (
         "fixture",
         "local",
-        None,
-        None,
+        {"model": QWEN_RUN, "promptHash": expected_prompt_hash()},
+        {"modelId": KEV_MODEL_ID, "registryMatch": True},
     )
 
 

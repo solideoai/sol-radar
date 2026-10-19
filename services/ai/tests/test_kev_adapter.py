@@ -15,7 +15,6 @@ from support import (
     KEV_ASSIST_KEYS,
     KEV_DISCLAIMER,
     LEGEND,
-    QUESTION_SET_FILE,
     SRC_DIR,
     WIN_PROBABILITY,
     canonical,
@@ -23,6 +22,7 @@ from support import (
     kev_fixture,
     kev_request,
     load_json,
+    question_set_questions,
     text_ref,
     without_timings,
 )
@@ -102,16 +102,7 @@ def kev_tuple(kev: dict) -> tuple:
 
 
 def question_set() -> dict:
-    """kev/question-sets/v0.1.json 의 질문을 id → 질문으로 읽는다.
-
-    명세는 내용(03 §5.5 원문)만 정하고 파일 모양은 정하지 않았다. 03 §5.4 wire 처럼 {id: 질문} 이거나
-    {"questions": {id: 질문}} / {"questions": [{"id": ..}]} 를 받는다.
-    """
-    data = load_json(QUESTION_SET_FILE)
-    questions = data.get("questions", data)
-    if isinstance(questions, list):
-        return {q["id"]: {k: v for k, v in q.items() if k != "id"} for q in questions}
-    return questions
+    return question_set_questions()
 
 
 def test_question_set_has_exactly_four_questions():
@@ -539,6 +530,94 @@ def test_k5_kev_fixture_id_outside_format_uses_formula(make_client, custom_fixtu
         fixture_id, extraction=formula_extraction(FORMULA_CASES["mandatory_codes_held"][0])
     )
     assert kev_tuple(post(make_client(), request)["kev"]) == FORMULA_BID
+
+
+@pytest.mark.parametrize(
+    "fixture_id", ["FX-\u0660\u0662", "FX-\uff10\uff12"], ids=["arabic_indic", "fullwidth"]
+)
+def test_kev_fixture_id_with_non_ascii_digits_uses_formula(
+    make_client, custom_fixtures, fixture_id
+):
+    # 같은 이름의 kev 파일(FX-02 값)을 실제로 둔다. 열면 FX-02 값, 안 열면 공식
+    formula_fixtures(
+        custom_fixtures, {"FX-02": kev_fixture("FX-02"), fixture_id: kev_fixture("FX-02")}
+    )
+    request = kev_request(
+        fixture_id, extraction=formula_extraction(FORMULA_CASES["mandatory_codes_held"][0])
+    )
+    assert kev_tuple(post(make_client(), request)["kev"]) == FORMULA_BID
+
+
+def test_mock_kev_fixture_with_nan_probability_is_unavailable(make_client, custom_fixtures):
+    # mock 은 fixture 파일을 표준 json 으로 읽어 NaN 이 들어온다. wire 값 검증(유한수·범위)이 막아야 한다
+    bad = kev_fixture("FX-02")
+    bad["responses"]["recommendation"]["probabilities"]["BID"] = float("nan")
+    formula_fixtures(custom_fixtures, {"FX-02": bad})
+    result = post(make_client(), kev_request("FX-02"))
+    assert (result["kev"]["enabled"], result["errorCode"], result["wire"]) == (
+        False,
+        "KEV_UNAVAILABLE",
+        None,
+    )
+
+
+# v0.2 를 더해도 v0.1 state 는 바뀌면 안 된다(v0.2 명세 §2). 85a30c6 의 값을 고정한다
+V0_1_STATE_HASH = {
+    "FX-01": "98033b7b134d6e0eefdad5809777ff203e93293a24b66154a43abdf68596b14a",
+    "FX-03": "b4866e81439c073ec27296e3d6f4ac9652fbeb8f0de4e19f1eb8342b3c62445c",
+}
+
+
+@pytest.mark.parametrize("fixture_id", sorted(V0_1_STATE_HASH))
+def test_v0_1_state_hash_is_pinned(make_client, fixture_id):
+    assert post(make_client(), kev_request(fixture_id))["stateHash"] == V0_1_STATE_HASH[fixture_id]
+
+
+# ---------------------------------------------------------------- Kev 생략 판정 순서(e8)
+# ko 거부(422) → KEV_ENABLED=false(errorCode null) → 장애 주입(KEV_UNAVAILABLE) → 인젝션 의심(INJECTION_SUSPECTED)
+
+
+def injected_extraction() -> dict:
+    extraction = extraction_fixture("FX-01")
+    extraction["injectionSuspected"] = True
+    return extraction
+
+
+def skipped(result: dict) -> tuple:
+    rest = {k: v for k, v in result["kev"].items() if k not in ("enabled", "disclaimer")}
+    return (
+        result["kev"]["enabled"],
+        result["errorCode"],
+        result["stateHash"],
+        result["wire"],
+        rest == dict.fromkeys(KEV_ASSIST_KEYS - {"enabled", "disclaimer"}),
+    )
+
+
+def test_injection_suspected_extraction_skips_kev_in_mock(make_client):
+    request = kev_request("FX-01", extraction=injected_extraction())
+    assert skipped(post(make_client(), request)) == (False, "INJECTION_SUSPECTED", None, None, True)
+
+
+def test_kev_fault_wins_over_injection_suspected(make_client, monkeypatch):
+    monkeypatch.setenv("AI_FAULT_INJECT", "kev_timeout")
+    request = kev_request("FX-01", extraction=injected_extraction())
+    assert skipped(post(make_client(), request))[1] == "KEV_UNAVAILABLE"
+
+
+def test_kev_disabled_wins_over_fault_and_injection(make_client, monkeypatch):
+    monkeypatch.setenv("KEV_ENABLED", "false")
+    monkeypatch.setenv("AI_FAULT_INJECT", "kev_timeout")
+    request = kev_request("FX-01", extraction=injected_extraction())
+    assert skipped(post(make_client(), request)) == (False, None, None, None, True)
+
+
+def test_korean_state_refusal_comes_before_every_skip(make_client, monkeypatch):
+    monkeypatch.setenv("KEV_ENABLED", "false")
+    monkeypatch.setenv("AI_FAULT_INJECT", "kev_timeout")
+    request = kev_request("FX-01", extraction=injected_extraction(), stateLanguage="ko")
+    response = make_client().post("/kev", json=request)
+    assert (response.status_code, response.json()["errorCode"]) == (422, "KO_STATE_NOT_ALLOWED")
 
 
 # ---------------------------------------------------------------- state 내용(한글 0자·규칙 결과 0개)
