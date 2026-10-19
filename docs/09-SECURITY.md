@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -42,9 +42,9 @@ updated: 2026-10-18
 |---|---|---|---|
 |업무 역할|`memberships.sol_role`|`ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check 제약, 기본 `VIEWER`)|아래 표와 [[05-API-SPEC\|05 API]]의 권한 열|
 |조직 역할|`memberships.org_role`(템플릿)|`owner`·`member`|템플릿 호환용. 구성원 관리는 업무 역할 `ADMIN`([[16-DECISIONS\|ADR-021]])|
-|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다. 화면 `/ops`, API `/api/ops/*`. 조직 ADMIN 화면(`/admin/*`)에 들어오지 않고, 조직 ADMIN도 `/ops`는 404([[16-DECISIONS\|ADR-021]])|
+|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다. 화면 `/ops`, API `/api/ops/*`. 조직 ADMIN 화면(`/admin/*`)에 들어오지 않고, 조직 ADMIN도 `/ops`는 404([[16-DECISIONS\|ADR-021]]). 팀(조직) 만들기는 운영자만 한다([[16-DECISIONS\|ADR-026]])|
 
-데모 `admin@soltech.invalid`는 `org_role=owner` + `sol_role=ADMIN`이다.
+데모 계정의 역할 배정은 [[04-DATABASE|04 DB]] §6이다.
 
 업무 역할의 순서(`ADMIN > SALES > ANALYST > VIEWER`)가 모든 자원에 그대로 적용되는 것은 아니다. 리소스별 정책을 쓰고, 문서·코드에서는 허용 역할을 나열한다.
 
@@ -54,7 +54,7 @@ updated: 2026-10-18
 |분석 실행 요청 (`POST /bids/:id/analyses`)|ADMIN, SALES, ANALYST|
 |사람 최종 결정 기록 (`POST /bids/:id/reviews`)|ADMIN, SALES|
 |회사 프로필 개정 (`PUT /company-profile`)|ADMIN|
-|사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿의 owner 기준 정책을 `sol_role=ADMIN` 기준으로 바꾼다, [[16-DECISIONS\|ADR-021]])|
+|사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿의 owner 기준 정책을 `sol_role=ADMIN` 기준으로 바꿨다, `20261019000001`, [[16-DECISIONS\|ADR-021]])|
 |수동 수집 실행·수집 결과 조회|ADMIN|
 |본인 알림 조회·읽음 처리|모든 인증 사용자. 남의 알림은 `404`|
 |조직·인력 조회(`/people`, ADR-021)|ADMIN, SALES, ANALYST, VIEWER|
@@ -75,15 +75,16 @@ updated: 2026-10-18
 |IDOR|공고(`bid_notices`, `bid_revisions`, `bid_documents`, `requirement_extractions`)는 공용(`authenticated` 읽기만). 점수·검토·프로필·인력·알림은 `org_id` + RLS로 조직별 격리, 다른 조직 자원은 `404 NOT_FOUND`. 검증은 G5(RLS 정책 시험 + Route Handler 시험 + E2E, [[11-TESTING\|11 테스트]])|
 |RLS 설정 오류|anon 키는 공개 값이라 RLS가 빠지거나 정책이 넓으면 브라우저에서 바로 데이터가 읽힌다. 표는 만들자마자 `enable row level security`, 필요한 권한·정책만 연다. 조직 격리·역할별 쓰기·공고 읽기 전용을 `scripts/database.test.mjs`(PGlite, `pnpm test:db`) 정책 시험으로 고정한다. 마이그레이션은 새 파일로만 쌓는다(append-only)|
 |service role 키 유출|`SUPABASE_SERVICE_ROLE_KEY`는 RLS를 무시한다. worker와 seed 스크립트(`pnpm demo:reset`)만 서버 전용 env로 쓰고, Next 요청 처리 경로에서는 쓰지 않는다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지에 넣지 않는다(템플릿 커밋 게이트·훅이 비밀 키를 코드·공개 변수에 넣는 일을 막는다). worker는 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다. 유출이 의심되면 Supabase 대시보드에서 키를 교체한다(절차 미검증)|
-|CSRF|쿠키 인증의 상태 변경 요청에 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. 쿠키 SameSite=Lax와 이중 방어, CORS는 열지 않는다. Bearer 요청은 제외|
-|XSS|CSP nonce(템플릿 `web/proxy.ts`·`web/server/csp`), `dangerouslySetInnerHTML` 금지, 외부 텍스트는 텍스트로만 렌더링. 세션 쿠키가 HttpOnly가 아니라서 XSS는 곧 세션 탈취다|
+|CSRF|위 인증 절의 **CSRF** 항목과 세션 쿠키 표(SameSite=Lax)|
+|XSS|위 인증 절의 **XSS** 항목. 세션 쿠키가 HttpOnly가 아니라서 XSS는 곧 세션 탈취다|
 |SQL injection|supabase-js 질의 빌더(값은 파라미터로 전달). SQL은 마이그레이션·DB 함수에만 두고 문자열을 이어 붙여 만들지 않는다. DB 함수는 `search_path`를 고정한다(템플릿 `20261013000002_function_search_path.sql`)|
 |SSRF|첨부 다운로드(worker의 `G2bAttachmentFetcher`)는 `https://www.g2b.go.kr`만 허용한다(allowlist. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트). 리다이렉트는 같은 allowlist 안에서만 따르고, 연결 전에 DNS를 다시 확인해 사설 IP로 풀리면 거부한다. timeout 30 s, 최대 50 MB(넘으면 받지 않는다), 형식은 확장자가 아니라 매직 바이트로 판정한다. 공공 API는 `infra/sources/registry.yaml`에 등록한 data.go.kr 엔드포인트만 부른다([[15-DATA-CONTRACTS\|15 데이터 계약]] §8). gateway(`/parse`)는 네트워크·MinIO에 접근하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.4)|
 |LLM prompt injection|아래 "책임 있는 AI" 절|
 |문서 악성코드|MIME/sniff(매직 바이트), 확장자/크기 제한(50 MB), 격리 처리, 필요한 경우 AV 스캔. 파서는 gateway 안에서만 돌고 네트워크 권한이 없다|
-|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키는 서비스마다 하나씩 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, [[16-DECISIONS\|ADR-022]])이고 모두 worker 전용 서버 env다. 로그 마스킹은 네 값을 모두 가린다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 서버의 vLLM `--api-key` 값과 `KEV_API_KEY`는 GPU 서버와 gateway의 서버 env에만 둔다|
+|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키는 서비스마다 하나씩 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, [[16-DECISIONS\|ADR-022]])이고 모두 worker 전용 서버 env다. 로그 마스킹은 네 값을 모두 가린다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 추론 엔드포인트의 `QWEN_API_KEY`·`KEV_API_KEY`는 gateway의 서버 env(`infra/.env`)에만 둔다([[16-DECISIONS\|ADR-025]])|
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
+|열린 리다이렉트|알림 `payload.link`는 앱 안 경로만 쓴다. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC\|05 API]] §4.6, [[13-NOTIFICATIONS\|13 알림]], [[16-DECISIONS\|ADR-030]] B23)|
 
 ## 책임 있는 AI
 ### 원칙
@@ -196,13 +197,12 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - `.env.example`류 파일에는 placeholder만 둔다. 기동 전 `pnpm check:env`가 placeholder를 감지하면 중단.
 - env 구분:
   - 공개 값: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. anon 키는 브라우저 번들에 들어가도록 설계된 공개 키이고 권한은 RLS가 정한다.
-  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `KEV_API_KEY`와 vLLM `--api-key` 값(회사 GPU 서버의 모델 런타임 인증).
+  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
   - redis·minio는 `demo` 프로필에서도 기본 비밀값(`minioadmin` 등)을 쓰지 않는다.
-- `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다.
-- 호스트 포트: web 3000만 연다. API(`/api/v1`)와 헬스체크(`/health/*`)도 web이 응답하며 별도 api 서비스는 없다. redis/qdrant/minio/ai-gateway/kev는 Compose 내부 네트워크에 두고, web을 Compose 밖에서 띄우느라 호스트에 열어야 하는 포트도 `127.0.0.1`에만 바인딩한다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고 터널로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
-- 데모 노트북은 127.0.0.1 바인딩. 공용 Wi-Fi에서 0.0.0.0 바인딩 금지.
-- seed 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). `.invalid` TLD라 실제 메일 발송 불가. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
-- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 MinIO(Compose)에 둔다. 데모·배포 실행 환경의 최종안은 미결정이다([[16-DECISIONS|16 ADR]] 미결정 표).
+- `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
+- 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "Compose 서비스" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
+- seed 데모 계정(목록·역할은 [[04-DATABASE|04 DB]] §6)은 `.invalid` TLD라 실제 메일이 가지 않는다. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
+- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 MinIO(Compose)에 둔다. 웹 배포처만 미결정이다([[16-DECISIONS|16 ADR]] 미결정 8번). 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
 - OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
 
@@ -210,16 +210,17 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.5-9B·Kev-9B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020]]). 이 절은 그때 지킬 경계를 정한다.
 
-### 회사 GPU 서버 연결
-- gateway는 노트북 Compose에 그대로 둔다. 회사 GPU 서버에는 모델 런타임(Qwen은 vLLM, Kev는 `kev.serve`)만 올린다. Worker → gateway → 모델 구조는 바뀌지 않는다.
-- 모델 런타임은 GPU 서버의 `127.0.0.1`에만 바인딩하고 외부 포트를 열지 않는다. gateway는 터널(SSH 로컬 포트포워딩 등, 회사망 정책에 맞춘다)로만 닿는다. `QWEN_BASE_URL`·`KEV_BASE_URL`은 터널의 로컬 끝점을 가리킨다.
-- vLLM `--api-key`와 `KEV_API_KEY`를 설정한다. 키 값은 서버 env에만 두고 문서·로그·커밋·스크린샷에 남기지 않는다.
-- 회사망이 터널·외부 접속을 허용하는지, GPU 모델·VRAM·공유 여부는 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, ADR-020 P0-0에서 확인).
+### 회사 GPU 추론 엔드포인트 연결 (ADR-025)
+- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen은 vLLM, Kev는 `kev.serve`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
+- 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). 회사가 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 모델 런타임을 제공하고, gateway는 거기에만 붙는다. `QWEN_BASE_URL`·`KEV_BASE_URL`은 엔드포인트 아래 경로(`/qwen`·`/kev`)다. 경로는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)가 나누고, 인증은 라우터가 아니라 각 런타임(vLLM `--api-key`, `kev.serve` `KEV_API_KEY`)이 한다([[16-DECISIONS|ADR-025]]). 라우터는 `Authorization` 헤더를 통과시키고 로그에 `$uri`만 남겨 키·쿼리를 기록하지 않는다. `/sol-radar/healthz`는 인증 없음·비밀 없음의 접속 확인용이다. 터널 전제는 폐기했다.
+- 엔드포인트는 공개 인터넷에 있다. TLS 필수이고 인증서 검증을 끄지 않는다(`curl -k`, `verify=False` 금지). API 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 필수이고 `infra/.env`에만 둔다. 키 값은 문서·로그·커밋·스크린샷·증거에 남기지 않는다. 엔드포인트 URL은 비밀이 아니다. 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다.
+- 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
 
 ### 회사 GPU로 가는 데이터
 - 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
-- 평가 하네스·LoRA 메모리 검증도 GPU 서버에서 돈다. 회사 GPU에서 돌려받는 것은 체크포인트·리포트·모델 카드이고 데이터셋 원문은 돌려받지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).
+- 회사 GPU 서버는 Hugging Face·GitHub에서 공개 가중치·코드를 받기만 한다(쓰기 없음). 외부망이 없으면 다른 기계에서 받아 반입한다([[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §2.2).
+- 평가 하네스(`sol_eval`)는 노트북에서 엔드포인트에 붙여 돌린다. LoRA 메모리 검증(`probe-train`)·학습(F2)·보정은 GPU 서버 셸이 필요해 회사가 실행한다(ADR-025·027). 실행 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다. 회사 GPU에서 돌려받는 것은 체크포인트·리포트·모델 카드이고 데이터셋 원문은 돌려받지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).
 
 ### 공공 API 응답의 개인정보
 - 입찰공고 응답에는 담당자 이름·전화·이메일이 있다.
@@ -259,3 +260,4 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - [[15-DATA-CONTRACTS|15 데이터 계약]]
 - [[16-DECISIONS|16 ADR]]
 - [[21-MODEL-TRAINING|21 모델 학습]]
+- [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]

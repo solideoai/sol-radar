@@ -36,7 +36,7 @@ Compose 로 띄우는 서비스와 환경 변수, 기동 검사 스크립트를 
   - 호스트에 노출하는 포트는 web 3000 하나(Route Handler 가 `/api/v1` 을 함께 낸다). redis·minio·qdrant·ai-gateway·kev 는 Compose 내부 네트워크. 노출 포트는 `127.0.0.1` 바인딩.
   - `.env.example`·`infra/env/*.env.example` 에는 placeholder 만. 기본 비밀값(`minioadmin` 등) 금지. `pnpm check:env` 는 placeholder 가 남아 있으면 0 이 아닌 코드로 멈춘다.
   - `SUPABASE_SERVICE_ROLE_KEY` 는 worker·seed 서비스에만 넘긴다. web 컨테이너의 브라우저 번들·`NEXT_PUBLIC_` 변수에 들어가지 않게 한다.
-  - `demo` 기본값: `DEMO_MODE=true`, `AI_PROVIDER=mock`, `KEV_ENABLED=false`, `AI_HOSTED_APPROVED=false`. `AI_FAULT_INJECT` 는 env 예시에 넣지 않는다(테스트 전용).
+  - `demo` 기본값: `DEMO_MODE=true`, `AI_PROVIDER=mock`, `KEV_ENABLED=true`(세 모드 모두 `true`·`false` 허용, 기본 `true`, ADR-029 A5), `AI_HOSTED_APPROVED=false`. `AI_FAULT_INJECT` 는 env 예시에 넣지 않는다(테스트 전용).
   - 이미지 버전 고정, 비root 실행, healthcheck, restart policy, 로그 회전, named volume(`redisdata`·`miniodata`·`qdrantdata`).
 - **Kev 컨테이너**: 소스 설치(`pip install kev` 아님), `--run jaredpalmer/kev-4b@v1.0 --port 8009 --host 0.0.0.0`, healthcheck `GET /v1/models`. 10 의 Dockerfile 은 빌드 검증 전 스케치다. GPU 없는 노트북에서는 빌드·기동을 확인할 수 없으니 "미검증"으로 적는다.
 - **편집 금지·약화 금지**: `.husky/`·`.github/`·`.claude/settings*.json`·`.claude/hooks/`·`web/lodestar.config.*` 는 고치지 않는다(CI 를 바꿔야 하면 바꿀 내용을 보고). `verify.config.json`·`package.json`·`scripts/` 는 검사를 빼거나 약하게 만들지 않는다. 새 스택 등록은 된다.

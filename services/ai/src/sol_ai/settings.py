@@ -22,6 +22,22 @@ class Settings(BaseSettings):
     AI_HOSTED_APPROVED: str | None = None
     AI_HOST: str = "127.0.0.1"
 
+    # 아래는 gateway 동작 키(docs/03 §3). 실행 모드 판정에는 쓰지 않는다.
+    # 테스트(G6) 전용 장애 주입. AI_PROVIDER=mock 에서만 유효하다(K3).
+    AI_FAULT_INJECT: str | None = None
+    # "true" 일 때만 /kev 의 stateLanguage="ko" 를 받는다. 미지정은 "false" 와 같다.
+    KEV_ALLOW_KO_STATE: str | None = None
+    CITATION_FUZZY_MIN_RATIO: float = 0.92
+    AI_PROMPT_VERSION: str = "req-extract/v0.1"
+    # 실추론 Kev 어댑터가 쓸 질문 세트 버전. mock 은 kev-qs/v0.1 만 답한다(docs/03 §5.7).
+    KEV_QUESTION_SET: str = "kev-qs/v0.1"
+    QWEN_MODEL: str | None = None
+    PARSER_PDF: str | None = None
+    PARSER_HWPX: str | None = None
+    PARSER_HWP: str | None = None
+    # mock 이 읽는 fixture 디렉터리(extractions/·kev/ 를 담는다). 없으면 저장소 루트 fixtures/.
+    SOL_FIXTURES_DIR: str | None = None
+
     def as_env(self, rules: dict) -> dict[str, str]:
         """판정용 env. 규칙 파일이 가리키는 키만, 프로세스 환경 + 생성자 값 순으로 모은다."""
         keys = rule_env_keys(rules)

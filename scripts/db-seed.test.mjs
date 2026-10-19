@@ -216,6 +216,83 @@ for (const hasPersonal of [true, false]) {
   });
 }
 
+it("빈 DB(시드 팀 없음): 팀은 관리 키로 만들고 소유자 멤버십을 직접 넣는다 — ADR-026 으로 팀 만들기가 운영자만이라 소유자 토큰이면 RLS 403 이다", async (t) => {
+  const { seed, SEED_TEAM } = await import("./db-seed.mjs");
+  const calls = [];
+  const existing = Object.values(SEED_ACCOUNTS).map((account, index) => ({
+    id: `00000000-0000-0000-0000-00000000000${index + 1}`,
+    email: account.email,
+  }));
+  const [owner] = existing;
+  let teamCreated = false;
+  t.mock.method(globalThis, "fetch", async (url, init) => {
+    const path = new URL(url).pathname;
+    const body = init.body ? JSON.parse(init.body) : null;
+    calls.push({ path, method: init.method, body, authorization: init.headers.Authorization });
+    let data = null;
+    if (path === "/auth/v1/admin/users" && init.method === "GET") data = { users: existing };
+    else if (path.startsWith("/auth/v1/admin/users/") && init.method === "PUT")
+      data = existing.find((user) => path.endsWith(user.id));
+    else if (path === "/auth/v1/token") data = { access_token: "local-test-token" };
+    else if (path === "/rest/v1/profiles" && init.method === "PATCH") data = [{ is_admin: true }];
+    else if (path === "/rest/v1/organizations" && init.method === "POST") {
+      // 운영자가 아닌 사람의 토큰이면 정책 "팀 만들기"(20261019000008)가 거절한다.
+      if (init.headers.Authorization !== "Bearer local-test-service")
+        return new Response(JSON.stringify({ message: "new row violates row-level security" }), {
+          status: 403,
+        });
+      // 명부 seed 의 데모 조직 upsert(org-01·org-02, 배열 본문)는 시드 팀이 아니다.
+      if (!Array.isArray(body) && body.slug === SEED_TEAM.slug) {
+        teamCreated = true;
+        data = [{ id: "template-team", slug: SEED_TEAM.slug }];
+      } else data = Array.isArray(body) ? body : [body];
+    } else if (path === "/rest/v1/organizations" && init.method === "GET")
+      data =
+        url.includes("personal_owner_id") || !teamCreated
+          ? []
+          : [{ id: "template-team", slug: SEED_TEAM.slug }];
+    else if (path === "/rest/v1/memberships" && init.method === "GET")
+      data = teamCreated ? [{ org_id: "template-team", user_id: owner.id }] : [];
+    else if (path === "/rest/v1/tasks" && init.method === "POST") data = [{ id: "task-id" }];
+    return new Response(JSON.stringify(data), { status: 200 });
+  });
+  await seed({
+    apiUrl: "http://127.0.0.1:54321",
+    anonKey: "local-test-anon",
+    serviceKey: "local-test-service",
+  });
+  const teamPosts = calls.filter(
+    (call) =>
+      call.path === "/rest/v1/organizations" &&
+      call.method === "POST" &&
+      !Array.isArray(call.body) &&
+      call.body.slug === SEED_TEAM.slug,
+  );
+  assert.equal(teamPosts.length, 1);
+  assert.equal(teamPosts[0].authorization, "Bearer local-test-service");
+  assert.deepEqual(teamPosts[0].body, SEED_TEAM);
+  const ownerMembership = calls.find(
+    (call) => call.path === "/rest/v1/memberships" && call.method === "POST",
+  );
+  assert.deepEqual(ownerMembership?.body, {
+    org_id: "template-team",
+    user_id: owner.id,
+    org_role: "owner",
+    sol_role: "ADMIN",
+  });
+  assert.equal(ownerMembership.authorization, "Bearer local-test-service");
+  assert.ok(calls.findIndex((call) => call === ownerMembership) > calls.indexOf(teamPosts[0]));
+  // 팀을 만든 뒤의 작업·초대는 여전히 소유자 토큰으로 간다(활동 기록의 행위자).
+  assert.ok(
+    calls.some(
+      (call) =>
+        call.path === "/rest/v1/tasks" &&
+        call.method === "POST" &&
+        call.authorization === "Bearer local-test-token",
+    ),
+  );
+});
+
 for (const sharedWithNonSeed of [false, true]) {
   it(
     sharedWithNonSeed

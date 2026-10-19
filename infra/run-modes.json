@@ -5,7 +5,7 @@
     "live": {
       "DEMO_MODE": ["false"],
       "AI_PROVIDER": ["local", "hosted"],
-      "KEV_ENABLED": ["true"],
+      "KEV_ENABLED": ["true", "false"],
       "forbidden": { "AI_FALLBACK_TO_MOCK": "true", "KEV_ALLOW_KO_STATE": "true" },
       "requiredSecrets": [
         "G2B_BID_NOTICE_SERVICE_KEY",
@@ -17,14 +17,14 @@
     "fixture": {
       "DEMO_MODE": ["true"],
       "AI_PROVIDER": ["local", "hosted"],
-      "KEV_ENABLED": ["true"],
+      "KEV_ENABLED": ["true", "false"],
       "forbidden": {},
       "requiredSecrets": []
     },
     "mock": {
       "DEMO_MODE": ["true"],
       "AI_PROVIDER": ["mock"],
-      "KEV_ENABLED": ["true"],
+      "KEV_ENABLED": ["true", "false"],
       "forbidden": {},
       "requiredSecrets": []
     }

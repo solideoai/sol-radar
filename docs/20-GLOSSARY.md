@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - glossary
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 20. 용어집
@@ -43,7 +43,7 @@ updated: 2026-10-18
 | BID / WATCH / NO-BID | 참여 / 관망·추가 검토 / 불참 | [[08-SCORING]] |
 | `MODEL_RULE_DISAGREEMENT` | Kev 참고 지표(`recommendation`)와 규칙 판정이 상충할 때 발생. 사람 검토 필수 | [[08-SCORING]] |
 | `INSUFFICIENT_DATA` | 근거가 없어 값을 표시하지 않는 상태. 임의 값으로 채우지 않는다 | [[00-README]] |
-| 분석 상태 | `NOT_ANALYZED → QUEUED → PROCESSING → COMPLETED / PARTIAL / FAILED`. `PARTIAL`은 AI 없이 규칙만으로 완결한 결과 | [[06-UI-UX]] |
+| 분석 상태 | `QUEUED → RUNNING → COMPLETED / PARTIAL / FAILED`. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`(화면 `미분석`). `PARTIAL`은 AI 없이 규칙만으로 완결한 결과([[16-DECISIONS\|ADR-029]] A6 D17) | [[06-UI-UX]] |
 | 골든셋 / 골든 시나리오 | 기대 결과가 사람에 의해 확정된 테스트 입력. 회귀 기준 | [[11-TESTING]] |
 | precision@K | 추천 상위 K개 중 실제 적합 공고 비율 | [[01-PRD]] |
 | 백테스트 / 시점 일치 | 과거 데이터로 검증할 때 의사결정 시점 이후 정보(낙찰 결과 등)를 쓰지 않는 원칙 | [[15-DATA-CONTRACTS]] |
@@ -64,7 +64,7 @@ updated: 2026-10-18
 | 프롬프트 인젝션 | 외부 문서 안의 지시문이 모델을 조종하려는 공격. 외부 문서는 데이터로만 취급 | [[09-SECURITY]] |
 | HITL (Human-in-the-loop) | 사람이 반드시 개입하는 지점. 최종 결정, `NEEDS_REVIEW`, `MODEL_RULE_DISAGREEMENT` | [[09-SECURITY]] |
 | `AI_PROVIDER` | `mock` / `local` / `hosted`. 데모 기본은 `mock` | [[03-AI-PIPELINE]], [[10-DEPLOYMENT]] |
-| `KEV_ENABLED` | Kev 사용 플래그. 기본값은 실행 모드가 정한다(`live`·`fixture` → 실모델, `mock` → mock adapter, 모두 `true`). `false`면 Kev 없이 `RULES_ONLY` | [[03-AI-PIPELINE]] |
+| `KEV_ENABLED` | Kev 사용 플래그. 세 실행 모드 모두 기본 `true`(`live`·`fixture` → 실모델, `mock` → mock adapter)이고 `false`도 허용한다. `false`면 Kev 없이 `RULES_ONLY`, 분석은 `COMPLETED`([[16-DECISIONS\|ADR-029]] A5) | [[03-AI-PIPELINE]] |
 
 ## 데이터·플랫폼
 
@@ -91,7 +91,7 @@ updated: 2026-10-18
 
 | 용어 | 정의 | 주 문서 |
 |---|---|---|
-| Supabase | DB(Postgres)와 인증(Auth)을 맡는 관리형 서비스. SOL RADAR는 이 둘만 쓴다. Storage·pgvector·Queues는 쓰지 않는다(첨부는 MinIO, 검색은 Qdrant, 큐는 Redis/BullMQ). 개발은 Supabase 클라우드 프로젝트. 데모·배포 실행 환경은 미결정 | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
+| Supabase | DB(Postgres)와 인증(Auth)을 맡는 관리형 서비스. SOL RADAR는 이 둘만 쓴다. Storage·pgvector·Queues는 쓰지 않는다(첨부는 MinIO, 검색은 Qdrant, 큐는 Redis/BullMQ). 개발·데모 기본은 Supabase 클라우드 프로젝트. 웹 배포처는 미결정(데모 대체 경로는 [[19-DEMO-SCENARIO\|19]] §5) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
 | Supabase Auth | 이메일 + 비밀번호·간편 로그인, 공개 가입(업무 조직 합류는 초대), 토큰 발급·갱신을 맡는 Supabase 인증 기능. 사용자 원본은 `auth.users`. 자체 로그인·토큰 엔드포인트는 두지 않는다. 토큰 만료·로그인 제한 같은 세부 값은 대시보드 설정이고 미검증 | [[09-SECURITY]] |
 | 간편 로그인 | 구글·카카오·네이버 계정으로 가입·로그인하는 방식. Supabase Auth 제공자로 받는다(구글·카카오는 기본 제공자, 네이버는 사용자 정의 OIDC `custom:naver`). 버튼은 `NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`로 켜고, 제공자 설정은 해커톤 후순위다 | [[16-DECISIONS]] |
 | Route Handler | Next.js App Router의 서버 HTTP 핸들러(`web/app/api/v1/**/route.ts`). 외부 API 계약 `/api/v1/...`과 헬스체크 `/health/live`·`/health/ready`를 낸다 | [[05-API-SPEC]] |
@@ -102,8 +102,8 @@ updated: 2026-10-18
 | 마이그레이션 (`supabase/migrations/`) | 스키마·RLS 정책·DB 함수를 담는 SQL 파일. 새 파일로만 쌓는다(append-only). 클라우드 적용은 `pnpm db:push`(사용자 확인 뒤에만) | [[04-DATABASE]] |
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |
 | 정책 시험 (PGlite) | `scripts/database.test.mjs`를 `node --test` + PGlite로 돌려 RLS·권한·제약·seed 멱등을 본다(`pnpm test:db`) | [[11-TESTING]] |
-| `pnpm demo:reset` | 데모 seed 스크립트. service role로 Supabase 프로젝트에 조직 2·계정 5·fixture를 `is_demo=true`로 멱등 적재한다 | [[10-DEPLOYMENT]], [[19-DEMO-SCENARIO]] |
-| Compose 서비스 | `infra/compose.yaml`의 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`). DB는 Supabase라 Compose에 없다. 프로필 `demo` / `ai-local` / `ai-hosted` | [[10-DEPLOYMENT]] |
+| `pnpm demo:reset` | 데모 seed 스크립트. service role로 Supabase 프로젝트에 데모 데이터를 `is_demo=true`로 멱등 적재한다. 적재 내용(조직·계정·공고 fixture·명부 200·사진 검증·사전 리뷰)은 [[10-DEPLOYMENT]] seed 절 | [[10-DEPLOYMENT]], [[19-DEMO-SCENARIO]] |
+| Compose 서비스 | `infra/compose.yaml`의 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다 | [[10-DEPLOYMENT]] |
 
 ## 권한·보안
 
@@ -134,7 +134,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 이전 표현 | 지금 쓰는 표현 | 주 문서 |
 |---|---|---|
 | `organization_id` / `organizationId` | `org_id` / `orgId` | [[04-DATABASE]] |
-| NestJS API·Worker | Route Handler(`web/app/api/v1`)·서버 도메인(`web/server`)·worker 진입점(`web/worker`) | [[02-ARCHITECTURE]] |
+| NestJS API·Worker | Route Handler(`web/app/api/v1`)·서버 도메인(`web/server`)·worker 진입점(`web/worker`). 해커톤 뒤 API·worker는 다시 NestJS로 옮긴다(ADR-028) | [[02-ARCHITECTURE]] |
 | Prisma schema·migration | `supabase/migrations/*.sql` + 생성 타입 `web/lib/database.types.ts` | [[04-DATABASE]] |
 | 자체 JWT 쿠키(`sol_access`·`sol_refresh`)·refresh 회전 구현 | Supabase Auth 세션 쿠키(`@supabase/ssr`)·Supabase Auth 설정 | [[09-SECURITY]] |
 | `users` 표·비밀번호 해시·계정 잠금 열 | `auth.users`(Supabase Auth) + `profiles`(계정 상태 `status`) | [[04-DATABASE]] |
@@ -149,7 +149,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | ADR | Architecture Decision Record. 결정·상태·날짜·근거 기록 | [[16-DECISIONS]] |
 | MOC | Map of Content. Obsidian에서 허브 역할을 하는 문서. 이 vault는 [[00-README]] | [[00-README]] |
 | 콜아웃 | `> [!warning] 미검증 가정`, `> [!success] 검증됨`, `> [!todo]`, `> [!tip] 심사 포인트` | [[00-README]] |
-| 해커톤 컷 | 데모 필수 / 있으면 좋음 / 해커톤 이후로 나눈 범위 | [[12-ROADMAP]] |
+| 해커톤 컷 | [[16-DECISIONS\|ADR-023]] 3단 범위: 핵심 컷(데모 필수) / 확장 컷 / P1(ADR-021 P1). 파인튜닝 트랙 X6은 핵심 컷과 나란히 돈다(ADR-027) | [[12-ROADMAP]] |
 | `docs/evidence/` | 테스트 리포트·스크린샷·기동 로그를 두는 증거 폴더 | [[11-TESTING]], [[17-CLAUDE-IMPLEMENTATION]] |
 
 ## 솔리데오 인력·가입 용어 (ADR-019)
@@ -168,11 +168,11 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 용어 | 뜻 | 원천 |
 |---|---|---|
 | 실행 모드 (`SOL_RUN_MODE`) | `live`(나라장터 Open API + 실제 AI), `fixture`(fixture 20건 + 실제 AI), `mock`(fixture 20건 + mock AI). 분석마다 `score_runs.run_mode`로 기록 | [[03-AI-PIPELINE]] |
-| 정보화사업 (`infoBizYn`) | 입찰공고 응답의 정보화사업 여부. `Y`인 용역 공고만 수집 | [[07-DATA-PIPELINE]] |
+| 정보화사업 (`infoBizYn`) | 입찰공고 응답의 정보화사업 여부. 빈값이 많아 수집 필터는 `infoBizYn='Y'` 또는 `sucsfbidMthdNm`에 "SW사업" 또는 `pubPrcrmntClsfcNm` 정보시스템·SW 분류인 용역 공고로 넓혔다([[16-DECISIONS\|ADR-029]] A4) | [[07-DATA-PIPELINE]] |
 | API 구조화 필드 | 면허제한·참가가능지역·금액·마감처럼 공공 API가 필드로 주는 조건. 같은 조건이면 Qwen 추출보다 우선 | [[08-SCORING]] |
 | `DocumentParser` | HWP·HWPX·PDF 형식별 파서 어댑터 인터페이스. 결과는 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED`. 계약 정본은 03 §10 | [[03-AI-PIPELINE]] |
 | 실패 유형 | 공공 API 실패·첨부 다운로드 불가·파싱 실패·모델 서버 미접속(Qwen·Kev 따로). 서로 섞지 않고 따로 기록·표시 | [[03-AI-PIPELINE]] |
-| `MOCK_FALLBACK` | `AI_FALLBACK_TO_MOCK=true`(live 금지)일 때 실제 모델 대신 mock 결과를 낸 run의 플래그. 화면에 "실제 모델 결과 아님" 배너 | [[03-AI-PIPELINE]] |
+| `MOCK_FALLBACK` | `AI_FALLBACK_TO_MOCK=true`(live 금지)일 때 실제 모델 대신 mock 결과를 낸 run의 플래그. 화면에 "실제 모델 결과 아님" 배너. 해커톤 동안은 자동 대체를 구현하지 않아 `true`면 기동 거부다([[16-DECISIONS\|ADR-030]] B11) | [[03-AI-PIPELINE]] |
 | 참고 지표 | Kev 결과를 보여 주는 화면 영역. SOL Score·자격·권고에 반영하지 않는다 | [[08-SCORING]] |
 | `kev-qs/v0.2` | Kev 질문 세트 v0.2. 요구사항별 `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`, `techFit`, `perfRelevance`, `risk.*`. v0.1과 함께 쓴다 | [[03-AI-PIPELINE]] |
 | 사유 코드 | `NEEDS_REVIEW`의 이유. `NOTICE_INFO_MISSING`·`NOTICE_CONFLICTED`·`COMPANY_EVIDENCE_MISSING`·`AMBIGUOUS_MATCH`·`PARSE_UNSUPPORTED`·`STAGE_NOT_APPLICABLE` | [[08-SCORING]] |
@@ -185,9 +185,11 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 대조 변형 | 같은 공고에 대해 기업 기록만 바꿔 충족·미충족·정보 부족 사례를 만든 가상 기업 | [[21-MODEL-TRAINING]] |
 | 라벨 출처 | `CONSTRUCTED`(변형으로 정해짐), `HUMAN`(사람 검수 확정), `RULE_SILVER`(규칙 계산, 학습셋 전용) | [[21-MODEL-TRAINING]] |
 | 오류 원인 코드 | 오답의 원인 단계. `PARSE`·`EXTRACTION`·`TRANSLATION`·`STATE`·`RULE`·`LABEL`·`MODEL`. `MODEL`이 주된 원인일 때만 파인튜닝 검토 | [[21-MODEL-TRAINING]] |
-| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어, E2 Kev-9B 한국어, E3 Qwen 분류(선택), E4 Kev-9B+LoRA(후속). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
+| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어, E2 Kev-9B 한국어, E3 Qwen 분류(필수, 축소 규모), E4 Kev-9B+LoRA(해커톤 X6 비교 실험, ADR-027). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
+| EX0·EX1 | Qwen3.5-9B 추출 LoRA 전(EX0, 원본)·후(EX1, 병합본) 비교. 조건부이고 해커톤에는 하지 않는다(착수 조건 실행서 §5.1, 평가 §5.5) | [[22-FINETUNE-RUNBOOK]] |
+| 파인튜닝 실행서 | 회사 GPU 서버에서 Kev-9B LoRA(X6)를 **어떻게** 돌리는지 적은 절차서. 모델·자료 출처와 가중치 sha256 확인, 학습 환경, F1~F3, 회사에 넘기는 학습 요청서를 담는다. Qwen3.5-9B LoRA SFT는 방법만 담는다. 무엇을 왜 학습하는지는 [[21-MODEL-TRAINING\|21]] | [[22-FINETUNE-RUNBOOK]] |
 | fixture 배치 `live` vs 실행 모드 `live` | fixture 두 번째 배치(`batch:"live"`, 데모 S5 변경분)와 실제 공공 API 실행 모드(`SOL_RUN_MODE=live`)는 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH` | [[19-DEMO-SCENARIO]] |
-| P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 터널·파서 비교 | [[12-ROADMAP]] |
+| P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속·파서 비교 | [[12-ROADMAP]] |
 
 ## 사이드바·업무 확장 용어 (ADR-021)
 
@@ -203,7 +205,15 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 관심 공고 | 사용자가 본인용으로 표시한 공고(P1). 조직에는 공고별 관심 인원 수만 보인다 | [[05-API-SPEC]] |
 | 입찰 프로젝트 | BID 결정 뒤 제안 준비·제출·결과 확인을 관리하는 단위(P1). 사람 결정의 정본은 여전히 `bid_reviews`다 | [[04-DATABASE]] |
 | 체크리스트 | 입찰 프로젝트에 묶인 작업. 템플릿 `tasks`에 `bid_project_id`를 더해 쓴다(P1) | [[04-DATABASE]] |
-| ADR-021 P1 | [[12-ROADMAP]] "있으면 좋음" 최상단에 둔 해커톤 기간 기능. [[01-PRD]]의 P1(해커톤 이후)과 다르다 | [[16-DECISIONS]] |
+| ADR-021 P1 | [[12-ROADMAP]] 해커톤 컷의 P1 단(ADR-023)에 둔 해커톤 기간 기능. [[01-PRD]]의 P1(해커톤 이후)과 다르다 | [[16-DECISIONS]] |
+
+## 회사 GPU 추론 엔드포인트 용어 (ADR-025)
+
+| 용어 | 뜻 | 원천 |
+|---|---|---|
+| 회사 GPU 추론 엔드포인트 | 회사가 HTTPS로 제공하는 모델 런타임 접속점 `https://acropolissg.com/sol-radar`. ai-gateway가 그 아래 경로(`/qwen`·`/kev`, GPU 서버 안 모델 라우터 기준으로 결정)와 Bearer 키로 붙는다. 연결 방식·운영 책임·미확인 항목은 ADR-025 상세 | [[16-DECISIONS\|ADR-025]], [[10-DEPLOYMENT]] |
+| 엔드포인트 미접속 | `live`·`fixture`에서 gateway는 살아 있는데 회사 GPU 추론 엔드포인트에 닿지 않는 상태(옛 표현 "터널 단절"). `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. mock 결과로 몰래 바꾸지 않고, 필요하면 사람이 `mock` 모드로 전환 | [[19-DEMO-SCENARIO]], [[03-AI-PIPELINE]] |
+| 엔드포인트 재접속 확인 | 미접속 뒤 `GET /v1/models`로 Qwen·Kev 응답과 레지스트리 대조를 다시 확인하는 것(옛 표현 "터널 재연결"). 리허설에서 소요 시간을 `rehearsal-log.md`에 적는다 | [[11-TESTING]] |
 
 ## 관련 문서
 
@@ -215,3 +225,4 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 - [[16-DECISIONS|16 ADR]]
 - [[09-SECURITY|09 보안]]
 - [[21-MODEL-TRAINING|21 모델 학습]]
+- [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]

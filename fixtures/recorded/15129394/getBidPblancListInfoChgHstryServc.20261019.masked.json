@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "sol-recorded/v0.1",
+  "serviceId": "15129394",
+  "registryKey": "g2b-bid-notice",
+  "operation": "getBidPblancListInfoChgHstryServc",
+  "params": {
+    "type": "json",
+    "pageNo": "1",
+    "numOfRows": "10",
+    "inqryDiv": "1",
+    "inqryBgnDt": "202610180000",
+    "inqryEndDt": "202610192359"
+  },
+  "fetchedAt": "2026-10-19T01:00:01.614Z",
+  "httpStatus": 200,
+  "envelope": "response",
+  "resultCode": "00",
+  "resultMsg": "정상",
+  "totalCount": 0,
+  "items": [],
+  "masked": true,
+  "maskedFields": [
+    "ntceInsttOfclNm",
+    "exctvNm",
+    "crdtrNm",
+    "ntceInsttOfclTelNo",
+    "ntceInsttOfclEmailAdrs",
+    "dminsttOfclEmailAdrs"
+  ],
+  "maskedFieldsNote": "이 응답에는 담당자 필드가 없거나 비어 있음. 목록은 서비스 기준 마스킹 대상",
+  "rawSha256": "8247b4cb9cf1be9799bea74ca5e655b80e9a27cb567814c30a8e7f561e8848af",
+  "note": "최근 1일 변경이력, 0건"
+}

@@ -111,6 +111,35 @@ test("resolveRunMode: 모순은 키 이름으로 알린다", () => {
   }
 });
 
+const RUN_MODES = ["live", "fixture", "mock"];
+
+test("resolveRunMode: 세 모드 모두 KEV_ENABLED=false 를 허용한다", () => {
+  for (const mode of RUN_MODES) {
+    const result = resolveRunMode({ SOL_RUN_MODE: mode, KEV_ENABLED: "false" });
+    assert.deepEqual(result.violations, [], mode);
+    assert.equal(result.effective.KEV_ENABLED, "false", mode);
+  }
+});
+
+test("resolveRunMode: KEV_ENABLED 미지정이면 세 모드 모두 true", () => {
+  for (const mode of RUN_MODES) {
+    assert.equal(resolveRunMode({ SOL_RUN_MODE: mode }).effective.KEV_ENABLED, "true", mode);
+  }
+});
+
+test("resolveRunMode: KEV_ENABLED 대소문자·공백 변형은 모순", () => {
+  for (const mode of RUN_MODES) {
+    for (const value of ["False", " false"]) {
+      const env = { SOL_RUN_MODE: mode, KEV_ENABLED: value };
+      assert.deepEqual(
+        resolveRunMode(env).violations,
+        [{ key: "KEV_ENABLED", reason: "CONTRADICTS_MODE" }],
+        JSON.stringify(env),
+      );
+    }
+  }
+});
+
 test("resolveRunMode: 알 수 없는 모드는 mode·effective 가 null", () => {
   const result = resolveRunMode({ SOL_RUN_MODE: "LIVE", AI_PROVIDER: "mock" });
   assert.equal(result.mode, null);
@@ -298,7 +327,7 @@ test("resolveRunMode: 위반 여러 건은 판정 순서대로 나온다", () =>
     SOL_RUN_MODE: "live",
     DEMO_MODE: "true",
     AI_PROVIDER: "mock",
-    KEV_ENABLED: "false",
+    KEV_ENABLED: "off",
     KEV_ALLOW_KO_STATE: "true",
     AI_FALLBACK_TO_MOCK: "true",
   });

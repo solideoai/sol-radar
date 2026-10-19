@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -18,22 +18,17 @@ updated: 2026-10-18
 |---|---|
 |기본 경로|`/api/v1`. Next.js Route Handler(`web/app/api/v1/**/route.ts`)로 구현하고, §2 표의 경로는 `/api/v1` 뒤에 붙는다(예: `/me` = `/api/v1/me`). 헬스체크만 `/health/live`, `/health/ready`이며 같은 Next 앱의 라우트(`web/app/health/{live,ready}/route.ts`)다. 별도 API 서버는 없다|
 |표현|JSON camelCase. 시각 ISO8601 UTC(`2026-10-16T02:00:00Z`). ID는 UUID. 금액은 KRW 정수 **문자열**(`"450000000"`)|
-|인증|Supabase Auth 세션. 브라우저는 `@supabase/ssr`가 관리하는 세션 쿠키(HttpOnly 아님, 이유는 [[09-SECURITY\|09 보안]] 인증), 스크립트·시연(S7 격리 시연, 스모크)은 `Authorization: Bearer <Supabase access token>`. 서버는 둘 다 Supabase로 서명·만료를 검증하고, DB는 그 사용자 권한(anon 키 + 사용자 토큰)으로 불러 RLS가 적용된다. 로그인·로그아웃·토큰 갱신 엔드포인트는 이 API에 없다(§2 아래 참고)|
+|인증|Supabase Auth 세션. 브라우저는 `@supabase/ssr`가 관리하는 세션 쿠키(HttpOnly 아님, 이유는 [[09-SECURITY\|09 보안]] 인증), 스크립트·시연(S7 격리 시연, 스모크)은 `Authorization: Bearer <Supabase access token>`. 서버는 둘 다 Supabase로 서명·만료를 검증하고, DB는 그 사용자 권한(anon 키 + 사용자 토큰)으로 불러 RLS가 적용된다. 로그인·세션 갱신은 §2 표 아래 문단|
 |CSRF|쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수. 없으면 `403 CSRF_REJECTED`. `Authorization: Bearer` 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다|
 |테넌트|`orgId`는 서버가 세션 사용자의 멤버십(`memberships`)에서 정한다. 요청 본문·쿼리의 조직 ID는 무시한다. 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 거르므로 다른 조직 자원은 행이 보이지 않아 `403`이 아니라 `404`|
-|현재 조직|서버가 세션 사용자의 업무 멤버십(`organizations.personal_owner_id is null`인 조직)으로 정한다. 요청 본문·쿼리·헤더로 조직 ID를 받지 않는다. 업무 멤버십이 0개면 업무 API를 열지 않고, 2개 이상이면 `403 UNSUPPORTED_ACCOUNT_STATE`([[16-DECISIONS\|ADR-021]])|
-|권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 템플릿 호환용이라 이 열에 쓰지 않는다. 구성원 관리도 `sol_role=ADMIN`이다([[16-DECISIONS\|ADR-021]]). `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
+|현재 조직|서버가 세션 사용자의 업무 멤버십(`organizations.personal_owner_id is null`인 조직)으로 정한다. 요청 본문·쿼리·헤더로 조직 ID를 받지 않는다. 업무 멤버십이 0개면 업무 API를 열지 않고(화면은 조직 초대 안내), 2개 이상이면 `403 UNSUPPORTED_ACCOUNT_STATE`. 경로에 조직 주소가 없고 조직 전환 UI도 없다. 개인 조직은 업무 멤버십 수에 들지 않는다([[16-DECISIONS\|ADR-021]])|
+|권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 템플릿 호환용이라 이 열에 쓰지 않는다. 구성원 관리도 `sol_role=ADMIN`이다(RLS 정책은 `20261019000001`, [[16-DECISIONS\|ADR-021]]). `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
 |목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
-|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간|
+|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. `POST /bids/:id/analyses`에 키가 없으면 서버가 UUID를 만든다([[16-DECISIONS\|ADR-030]] B20)|
 |요청 ID|모든 응답에 `X-Request-Id`. 로그·감사·오류 본문에 같은 값|
 |속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `/admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 초과 `429` + `Retry-After`|
 |문서|계약의 원천은 zod 스키마다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성하고 개발 환경에서만 노출한다|
-
-> [!success] 결정됨 (ADR-021) — 현재 조직을 고르는 방법
-> 템플릿은 가입할 때 개인 조직을 하나 만들고(`public.create_personal_org`), 화면의 현재 조직을 주소의 slug(`web/app/(app)/[slug]/`)로 고른다. 그래서 한 사용자가 멤버십을 여러 개 가질 수 있다. 이 API는 "세션 사용자의 업무 조직 하나"를 전제한다. 업무 조직을 정하는 규칙(SOL RADAR 조직 멤버십 하나로 제한 / 개인 조직 생성 끄기 / 요청에 slug 받기 등)은 Phase 1에서 정한다. 어느 쪽이든 요청에 실린 조직 값은 그대로 믿지 않고 멤버십으로 확인한다.
->
-> **결정(2026-10-16, [[16-DECISIONS|ADR-021]])**: 조직 주소 없는 경로(`/dashboard`·`/bids`)를 쓰고 서버가 업무 멤버십으로 현재 조직을 정한다. 0개면 조직 초대 안내, 1개면 그 조직, 2개 이상이면 `403 UNSUPPORTED_ACCOUNT_STATE`다. 조직 전환 UI는 없다. 가입 시 개인 조직 생성은 새 마이그레이션으로 멈추고, 이미 있는 개인 조직은 지우지 않는다(업무 멤버십 수에 들지 않는다).
 
 ## 2. 엔드포인트
 
@@ -53,7 +48,7 @@ updated: 2026-10-18
 |GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|현재 프로필(최신 revision)|`CompanyProfile`|
 |GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 이력|`CompanyProfileSummary[]`|
 |PUT|`/company-profile`|`ADMIN`|새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
-|POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기)|`AnalysisRequest` → `202 AnalysisAccepted`|
+|POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기). 중복·큐 계약은 §4.5|`AnalysisRequest` → `202 AnalysisAccepted`|
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
 |GET|`/bids/:id/qualification-checks`|`ADMIN, SALES, ANALYST, VIEWER`|최신 분석의 자격 판정(항목마다 사유 코드·회사 근거·값 출처)|`QualificationCheck[]`|
@@ -61,8 +56,9 @@ updated: 2026-10-18
 |POST|`/bids/:id/reviews`|`ADMIN, SALES`|사람 최종 결정 기록|`ReviewInput` → `201 Review`|
 |GET|`/dashboard/summary`|`ADMIN, SALES, ANALYST, VIEWER`|대시보드 요약. `origin` 쿼리를 받고 기본값은 `/bids`와 같다(실행 모드를 따름)|`?origin` → `DashboardSummary`|
 |GET|`/notifications`|auth|내 알림 목록|`?unreadOnly&cursor&limit` → `Page<Notification>`|
-|PATCH|`/notifications/:id/read`|auth(본인)|읽음 처리|`200 Notification`. 남의 알림은 `404`|
+|PATCH|`/notifications/:id/read`|auth(본인)|읽음 처리. 핵심 컷 Route Handler 10번째([[16-DECISIONS\|ADR-029]] A6 D8)|`200 Notification`. 남의 알림은 `404`|
 |GET|`/departments`|`ADMIN, SALES, ANALYST, VIEWER`|조직도 트리([[16-DECISIONS\|ADR-021]]). 상위 없는 부서는 `parentId:null`. 부서마다 `memberCount`(하위 팀 재직 인원 합, 직원 ID 중복 제거)와 `targetCount`(팀만, 본부·그룹은 null)|`Department[]`(§4.7)|
+|GET|`/job-titles`|`ADMIN, SALES, ANALYST, VIEWER`|현재 조직 직급 카탈로그. UUID와 표시 코드 분리|`{id:string,code:string,label:string}[]`(§4.7)|
 |GET|`/team-members`|`ADMIN, SALES, ANALYST, VIEWER`|가상 직원 명부(ADR-021). 사진 경로(없으면 null)와 점수 계산 대상 여부. 연락처 없음|`?q&departmentId&jobTitleId&scoring&cursor` → `Page<TeamMemberListItem>`(§4.7)|
 |GET|`/team-members/:id`|`ADMIN, SALES, ANALYST, VIEWER`|개인 상세(ADR-021). 점수 계산 대상이면 직무·등급·스킬·가용성|`TeamMemberDetail`(§4.7)|
 |PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|P1 착수 때 zod 계약으로 정한다|
@@ -87,12 +83,7 @@ updated: 2026-10-18
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
-> [!success] 결정됨 (ADR-021) — 구성원 관리 권한의 기준
-> 템플릿의 RLS 정책은 초대·역할 변경·내보내기를 `org_role = 'owner'`(`public.my_owner_org_ids()`)에게만 연다. 이 API의 권한은 `sol_role = ADMIN`이다. 데모 `admin@soltech.invalid`는 `org_role=owner` + `sol_role=ADMIN`이라 데모 흐름은 영향이 없다. owner가 아닌 ADMIN을 어떻게 다룰지(정책을 `sol_role` 기준으로 새 마이그레이션에서 바꾸기 / ADMIN 부여 시 owner도 함께 부여)와 `sol_role` 열의 쓰기 권한·정책은 Phase 1에서 정한다([[04-DATABASE|04 DB]]).
->
-> **결정(2026-10-16, [[16-DECISIONS|ADR-021]])**: 구성원 관리(초대·업무 역할 변경·내보내기)는 `sol_role=ADMIN`이다. 템플릿의 owner 기준 정책을 새 마이그레이션에서 `sol_role='ADMIN'` 기준으로 바꾸고 정책 시험을 갱신한다. `org_role`은 템플릿 호환용으로 남는다.
-
-범위 밖(이번 해커톤에서 만들지 않음): 인력 배치 저장·배정 확정 API(해커톤 이후), 카카오 발송 설정, 경쟁사 분석. 인력 배치 시뮬레이션 조회(`GET /workforce/simulation`)는 P1이다([[16-DECISIONS|ADR-021]]).
+범위 밖(이번 해커톤에서 만들지 않음): 인력 배치 저장·배정 확정 API(해커톤 이후), 카카오 발송 설정, 경쟁사 분석, 알림 모두 읽음·알림 유형 필터(API가 없고 핵심 컷 화면에서도 뺀다, [[16-DECISIONS|ADR-029]] A6 D7). 인력 배치 시뮬레이션 조회(`GET /workforce/simulation`)는 P1이다([[16-DECISIONS|ADR-021]]).
 
 [[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·Kev v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
 
@@ -104,7 +95,7 @@ updated: 2026-10-18
 |---|---|---|---|---|
 |`q`|string|—|1~100자|제목·기관·공고번호 검색(trigram). 비어 있으면 전체|
 |`stage`|`PLAN\|PRE_SPEC\|NOTICE`, 반복 가능|전체|ENUM|단계 필터|
-|`status`|`OPEN\|AMENDED\|CANCELLED\|CLOSED`, 반복 가능|`OPEN,AMENDED`|ENUM|상태 필터. 명시하면 그 값만|
+|`status`|`OPEN\|AMENDED\|CANCELLED\|CLOSED`, 반복 가능|`OPEN,AMENDED`|ENUM|상태 필터. 명시하면 그 값만. 기본값은 취소 공고(`CANCELLED`)를 숨긴다. 화면 `/bids`의 상태 필터에는 "취소 포함" 선택지가 있고, 고르면 `CANCELLED`도 함께 읽어 그 행에 "취소됨"을 표시한다. 공고 상세(`GET /bids/:id`)는 상태와 상관없이 열린다([[16-DECISIONS\|ADR-029]] A7). 저장 상태는 `OPEN`·`AMENDED`·`CANCELLED`이고, `CLOSED`는 수집 정규화가 만들지 않고 조회할 때 `deadlineAt`으로 계산한다([[15-DATA-CONTRACTS\|15]] §3, [[16-DECISIONS\|ADR-030]] B14)|
 |`agencies`|string, 반복 가능(`agencies=a&agencies=b`)|—|각 1~100자, 최대 10개|발주기관 정확 일치|
 |`budgetMin`, `budgetMax`|KRW 정수 문자열|—|`>= 0`, `min <= max`|예산 범위. 예산 `null`인 공고는 범위 필터에 걸리지 않고 제외된다|
 |`deadlineFrom`, `deadlineTo`|ISO8601|—|`from <= to`|마감 범위. 마감 `null`은 제외|
@@ -123,7 +114,7 @@ updated: 2026-10-18
 
 ## 4. DTO
 
-실제 소스는 `web/server/<도메인>/*.model.ts`의 zod 스키마이고, TS 타입은 `z.infer`로 얻는다([[16-DECISIONS|16 ADR]] ADR-016). 아래는 같은 내용을 TS 인터페이스로 적은 것이다. `EvidenceRef`, `FieldState`, `ExtractedField`, `NormalizedBid`, `CompanyEvidenceRef`는 [[15-DATA-CONTRACTS|15 데이터 계약]], `RequirementExtraction`·`KevAssist`·`KevStateTrace`는 [[03-AI-PIPELINE|03 AI 파이프라인]]과 같다. [[16-DECISIONS|ADR-020]]으로 더한 타입·필드는 아래에 함께 적었다(§4.1 `CompanyEvidenceRef`, §4.5 `KevAssist` v0.2 확장·`KevStateTrace`). 03·15와 다르면 03·15를 맞춘다.
+실제 소스는 `web/server/<도메인>/*.model.ts`의 zod 스키마이고, TS 타입은 `z.infer`로 얻는다([[16-DECISIONS|16 ADR]] ADR-016). 아래는 같은 내용을 TS 인터페이스로 적은 것이다. 아래에 다시 적지 않는 타입의 정본: `EvidenceRef`, `FieldState`, `ExtractedField`, `NormalizedBid`는 [[15-DATA-CONTRACTS|15 데이터 계약]], `CompanyEvidenceRef`·`KevStateTrace`는 15 §2.1, `RequirementExtraction`·`KevAssist`(v0.2 필드 포함)는 [[03-AI-PIPELINE|03 AI 파이프라인]](`KevAssist`는 §5.7)이다.
 
 ### 4.1 공통
 
@@ -151,20 +142,16 @@ type ReviewFlag = "MODEL_RULE_DISAGREEMENT" | "KEV_MANDATORY_RISK" | "KEV_NEEDS_
   | "MOCK_FALLBACK" | "PARSE_UNSUPPORTED" | "DOCUMENT_DOWNLOAD_FAILED"
   | "INSUFFICIENT_DATA" | "INJECTION_SUSPECTED" | "SCALE_LIMIT_EXCEEDED";    // 조건은 08 §5.3·§5.4
 type FactorKey = "skillMatch" | "pastPerformance" | "staffAvailability" | "scaleFit" | "strategicPreference";
+type MissingReason = "NO_REQUIREMENTS_EXTRACTED" | "PROFILE_TECHNOLOGIES_EMPTY" | "BID_DOMAIN_UNKNOWN" | "PROFILE_PROJECTS_EMPTY"
+  | "REQUIRED_FTE_UNKNOWN" | "TEAM_EMPTY" | "BUDGET_UNKNOWN" | "PREFERENCES_NOT_SET";   // 요소가 missing인 사유(08 §4 표, ADR-029 A6 D16)
 type RunMode = "live" | "fixture" | "mock";        // env SOL_RUN_MODE와 같은 소문자. DB는 대문자(04 run_mode)
 type BidOrigin = "live" | "demo";                  // is_demo=false → live, true → demo
-interface CompanyEvidenceRef {                     // 회사 쪽 근거(15). 프로필 레코드나 회사 증빙 파일을 가리킨다
-  profileRevision: number;
-  kind: "LICENSE" | "INDUSTRY_CODE" | "TECHNOLOGY" | "PROJECT" | "STAFF" | "FINANCIAL";
-  recordKey: string;                               // 예: "licenses[2]", "past_projects[0]"
-  documentId: string | null;                       // 회사 증빙 파일(MinIO)이 있으면
-  quotedText: string | null;
-}
+// CompanyEvidenceRef(회사 쪽 근거)는 15 §2.1 정본
 ```
 
 ### 4.2 인증·사용자
 
-로그인 입력·토큰 DTO는 없다. 로그인은 Supabase Auth가 받는다(§6.1).
+로그인 입력·토큰 DTO는 없다(§2 표 아래 문단).
 
 ```ts
 interface Me {
@@ -185,7 +172,7 @@ interface User {                   // 조직 구성원 = memberships + profiles
   joinedAt: string;                // memberships.created_at
 }
 interface InviteInput { email: string; solRole: Role }   // 수락하면 이 업무 역할로 구성원이 된다
-interface Invitation {             // 템플릿 invitations 행. solRole을 담을 열(sol_role)은 Phase 1 마이그레이션에서 더한다
+interface Invitation {             // 템플릿 invitations 행 + sol_role 열
   id: string; email: string; orgRole: OrgRole; solRole: Role;
   invitedBy: { id: string; name: string } | null; expiresAt: string; createdAt: string;
 }
@@ -255,7 +242,7 @@ interface CompanyProfile {
   preferences: { agencies: string[]; agencyTypes: string[]; domains: string[]; excludedDomains: string[]; excludedKeywords: string[] } | null;  // agencyTypes 예: "교육청"; excludedDomains 예: "국방"
   effectiveAt: string; createdBy: { id: string; name: string }; createdAt: string; note: string | null;
 }
-type CompanyProfileSummary = Pick<CompanyProfile, "id" | "revision" | "effectiveAt" | "createdBy" | "createdAt" | "note">;
+type CompanyProfileSummary = Pick<CompanyProfile, "id" | "revision" | "effectiveAt" | "createdBy" | "createdAt" | "note">;   // revision 목록 요약. gateway /kev의 profileSummary(03 §5.7, CompanyProfile 전체 + 선택 staffAvailability)와 이름만 같고 다른 것이다(ADR-030 B5)
 interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "orgId" | "revision" | "isDemo" | "createdBy" | "createdAt"> {
   baseRevision: number;            // 현재 최신 revision. 다르면 409 PROFILE_REVISION_CONFLICT
 }
@@ -265,17 +252,20 @@ interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "orgId" | "rev
 
 ### 4.5 분석
 
+분석 결과는 규칙 엔진(`web/server/scoring`) 출력을 파이프라인이 저장·변환해 만든다. 이름이 다른 곳은 API가 이 문서의 이름을 쓴다(`score` → `solScore`, `factors` → `scoreBreakdown`, `qualificationStatus`·`qualificationChecks` → `qualification`). `missingFactors`의 모양(`{factor, reason}`), `ScoreFactor.missingReason`, `profileEvidence[].type`의 `INDUSTRY_CODE`는 규칙 엔진을 따른다([[16-DECISIONS|ADR-029]] A6 D16).
+
 ```ts
 interface AnalysisRequest {
   profileRevision?: number;        // 생략 시 최신
-  force?: boolean;                 // true: 같은 입력(revision·프로필·알고리즘)에 완료된 run이 있어도 새 run 생성. 이전 run은 보존.
-                                   // false(기본): 같은 입력의 완료 run이 있으면 그 run을 돌려준다(deduplicated=true)
+  force?: boolean;                 // true: 같은 입력(revision·프로필·알고리즘)에 완료된 run이 있어도 새 run 생성. 이전 run은 보존. 진행 중 run이 있으면 409 ANALYSIS_IN_PROGRESS
+                                   // false(기본): 같은 입력의 완료 run 또는 진행 중 run이 있으면 그 run을 돌려준다(202, deduplicated=true)
 }
 interface AnalysisAccepted { analysisId: string; status: AnalysisStatus; deduplicated: boolean; pollUrl: string }
 
 interface ScoreFactor {
   factor: FactorKey; rawValue: unknown; normalized: number | null; points: number; maxPoints: number;
-  missing: boolean; evidence: EvidenceRef[]; note: string | null;
+  missing: boolean; missingReason: MissingReason | null;   // missing=true일 때만 값이 있다(화면의 "미확인" 사유)
+  evidence: EvidenceRef[]; note: string | null;
 }
 interface QualificationCheck {
   id: string; requirementCode: string | null; requirementName: string; mandatory: boolean;
@@ -283,7 +273,7 @@ interface QualificationCheck {
   reasonCode: NeedsReviewReason | null;                          // outcome=NEEDS_REVIEW일 때만 값이 있다
   basis: RequirementBasis;                                       // 공고 쪽 값이 API 구조화 필드에서 왔는지, Qwen 추출에서 왔는지
   evidence: EvidenceRef[];                                       // 공고 쪽 근거
-  profileEvidence: { type: "LICENSE" | "PAST_PROJECT" | "TECHNOLOGY" | "FINANCIAL"; ref: string; label: string }[];  // 프로필 쪽 근거(표시용 요약)
+  profileEvidence: { type: "LICENSE" | "INDUSTRY_CODE" | "PAST_PROJECT" | "TECHNOLOGY" | "FINANCIAL"; ref: string; label: string }[];  // 프로필 쪽 근거(표시용 요약). INDUSTRY_CODE 예: FX-03 정보통신공사업
   companyEvidence: CompanyEvidenceRef[];                         // 회사 쪽 근거(추적용). NOT_SATISFIED면 명시적 부정 근거가 1개 이상
   checkedAt: string;
 }
@@ -299,31 +289,6 @@ interface RequirementAssessment {                                // 요구사항
   } | null;
   flags: ReviewFlag[];                                           // 예: KEV_REQUIREMENT_DISAGREEMENT, PARSE_UNSUPPORTED
 }
-// KevAssist(03 §5.7)에 ADR-020(kev-qs/v0.2)이 더하거나 바꾸는 필드.
-// kev-qs/v0.1 run(mock 모드·데모 S3)에서는 scores·risks·calibration·stateTrace가 null이다.
-// questionSetVersion은 03과 같은 두 값이다. disclaimer 문구는 ADR-020 개정 문구다.
-interface KevAssistV02Fields {
-  questionSetVersion: "kev-qs/v0.1" | "kev-qs/v0.2";
-  scores: {                                                      // score 질문 5등급. SOL Score의 skillMatch·pastPerformance에 더하지 않는다
-    techFit: { score: number; legend: Record<string, string> };
-    perfRelevance: { score: number; legend: Record<string, string> };
-  } | null;
-  risks: { qid: "risk.schedule" | "risk.staffing" | "risk.scale" | "risk.techGap" | "risk.scopeAmbiguity";
-           probability: number; overThreshold: boolean }[] | null;   // overThreshold = probability ≥ τ → KEV_DELIVERY_RISK
-  calibration: {
-    status: "UNCALIBRATED" | "CALIBRATED";                       // 04 score_runs.kev_calibration
-    datasetVersion: string | null;                               // CALIBRATED일 때 보정에 쓴 데이터셋 버전
-    threshold: number;                                           // τ. 처음 0.70(미보정)
-    thresholdsVersion: string;                                   // services/ai/kev/thresholds.v0.x.json 버전
-  } | null;
-  stateTrace: KevStateTrace | null;                              // 15 §2.1 정본. state 줄마다의 공고 인용·회사 증빙
-  disclaimer: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.";
-}
-interface KevStateTrace {                                        // 15 §2.1 정본(여기는 사본). Kev는 인용을 만들지 못하므로 state를 만들 때 줄마다 출처를 기록한다
-  stateHash: string;                                             // sha256(state 텍스트)
-  template: "en.v0.2" | "ko.v0.2";                               // 운영은 en만. ko는 평가 전용
-  lines: { lineNo: number; text: string; noticeEvidence: EvidenceRef[]; companyEvidence: CompanyEvidenceRef[]; itemIds: string[] }[];
-}
 interface AnalysisResult {
   id: string; bidId: string; revisionId: string; revision: number; profileRevision: number;
   runMode: RunMode;                                              // 이 분석을 돌린 실행 모드(04 score_runs.run_mode)
@@ -335,10 +300,10 @@ interface AnalysisResult {
   qualification: { status: QualificationOutcome; checks: QualificationCheck[] };
   requirementAssessments: RequirementAssessment[];               // 항목별 규칙 판정·사유·양쪽 근거·Kev 참고 분포·플래그
   scoreBreakdown: ScoreFactor[];
-  missingFactors: FactorKey[];
+  missingFactors: { factor: FactorKey; reason: MissingReason }[];   // ADR-029 A6 D16
   reviewFlags: ReviewFlag[];
   injectionSuspected: boolean;                                   // 추출 단계 지시문 패턴 탐지. true면 자격 종합은 NEEDS_REVIEW
-  kev: Omit<KevAssist, "questionSetVersion" | "disclaimer"> & KevAssistV02Fields;  // 03 §5.7 + 위 v0.2 필드. enabled=false면 값은 null. 화면 "모델 참고 지표 (점수 미반영)" 영역에만 표시
+  kev: KevAssist;                                                // 03 §5.7 정본. kev-qs/v0.1 run(mock 모드·데모 S3)이면 v0.2 필드(scores·risks·calibration·stateTrace)가 null, enabled=false면 값은 null. 화면 "모델 참고 지표 (점수 미반영)" 영역에만 표시
   fallbackReason: "QWEN_UNAVAILABLE" | "KEV_UNAVAILABLE" | null; // mock 자동 대체가 일어났을 때만. 이때 model.provider="mock", reviewFlags에 MOCK_FALLBACK, 화면 배너
   evidence: EvidenceRef[];                                       // 검증 통과한 인용만(match != FAILED)
   model: { provider: "mock" | "local" | "hosted"; qwen: { name: string; promptVersion: string; promptHash: string } | null;
@@ -348,6 +313,12 @@ interface AnalysisResult {
   disclaimer: "SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다.";
 }
 ```
+
+분석 요청 계약([[16-DECISIONS|ADR-030]] B20):
+- 같은 입력 = (revision, 회사 프로필 revision, 알고리즘 버전). `force:false`이고 같은 입력의 run이 진행 중이면 `202 deduplicated:true`로 그 run을 돌려준다. `force:true`이고 진행 중이면 `409 ANALYSIS_IN_PROGRESS {analysisId}`.
+- 큐 등록에 실패하면 run을 `FAILED`(`errorCode=ENQUEUE_FAILED`)로 바꾸고 멱등 키를 풀어 `503`을 준다.
+- `Idempotency-Key`가 없으면 서버가 UUID를 만든다. `score_runs`의 멱등 키는 `<org_id>:<requestId>`다.
+- 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않는다), payload `{orgId, scoreRunId, idempotencyKey}`.
 
 ### 4.6 검토·알림·대시보드·수집
 
@@ -366,7 +337,7 @@ interface Review {
 interface Notification {
   id: string; type: "BID_CREATED" | "BID_CHANGED" | "DEADLINE_APPROACHING" | "ANALYSIS_COMPLETE" | "REVIEW_ASSIGNED";
   channel: "IN_APP" | "KAKAO"; status: "PENDING" | "SENT" | "FAILED" | "DEAD";
-  payload: { bidId: string; title: string; message: string; link: string; changedFields?: string[] };
+  payload: { bidId: string; title: string; message: string; link: string; changedFields?: string[] };   // link는 앱 안 경로만. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 /bids/{bidId}로 바꾼다(열린 리다이렉트 방지, ADR-030 B23)
   readAt: string | null; createdAt: string;
 }
 interface DashboardSummary {
@@ -377,10 +348,14 @@ interface DashboardSummary {
   };
   ai: { provider: "mock" | "local" | "hosted"; kevEnabled: boolean; lastGatewayCheckAt: string | null; healthy: boolean };
   bids: { total: number; byStage: Record<BidStage, number>; byStatus: Record<BidStatus, number>; deadlineWithin7Days: number };
-  analyses: { total: number; byRecommendation: Record<Recommendation, number>; partial: number; withReviewFlags: number;
+  analyses: { total: number;
+    byRecommendation: Record<Recommendation, number>;   // 공고별 최신 분석 1건 기준. force 재분석으로 이중 집계하지 않는다(ADR-029 A6 D10)
+    partial: number; withReviewFlags: number;
     latestByStatus: { completed: number; partial: number; failed: number } };  // ADR-021 분석 현황 카드. 공고별 최신 score_runs 1건 기준, QUEUED·RUNNING 제외, origin 필터를 따른다
-  reviews: { pending: number; byDecision: Record<Recommendation, number>; disagreementWithSystem: number };
+  reviews: { pending: number;     // 최신 분석이 있고 사람 결정이 없는 공고 수(ADR-029 A6 D11)
+    byDecision: Record<Recommendation, number>; disagreementWithSystem: number };
   upcoming: { bidId: string; title: string; deadlineAt: string; recommendation: Recommendation | null; decision: Recommendation | null }[];  // 마감 임박 10건
+  recentChanges: { bidId: string; title: string; revision: number; changedFields: string[]; changedAt: string }[];  // 최근 revision 변경 10건(06 §5.3 ④, ADR-029 A6 D9)
   unreadNotifications: number;
 }
 interface IngestionRunInput {
@@ -452,13 +427,13 @@ interface EvalRunReport extends EvalRunSummary {
 
 `IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE|07 수집]] §2.2)는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
 
-### 4.7 조직·인력 (ADR-021, 구현 예정)
+### 4.7 조직·인력 (ADR-021)
 
 가상 직원 명부를 읽는 DTO다. 연락처 필드는 없다([[09-SECURITY|09 보안]] 솔리데오 명부 절).
 
 ```ts
 interface Department {
-  id: string; name: string;
+  id: string; code: string; name: string;
   kind: "DIVISION" | "GROUP" | "TEAM" | null;   // 본부·그룹·팀. 없으면 null
   parentId: string | null;                      // 상위 부서. null이면 화면에서 "상위 미지정"
   targetCount: number | null;                   // 팀만. 본부·그룹은 null(오류 아님)
@@ -475,6 +450,30 @@ interface TeamMemberDetail extends TeamMemberListItem {
   scoring: { role: string; grade: string | null; skills: unknown[]; availability: unknown[] } | null;  // 점수 계산 대상만. 원소 형태는 SOL Score 입력 `AnalysisInput.team.members`(15)·`TeamAvailability`(08 §3.3)와 같은 zod 스키마를 쓴다. 조직 구성원 누구나 읽는다(RLS로 다른 조직 0행)
 }
 ```
+
+### 4.7.1 인력 조회 계약 보완
+
+네 GET 경로는 쿠키·Bearer 인증, 활성 계정, 가입 정보 완료, 현재 업무 조직 하나와 네 업무 역할을 각각 확인한다. Authorization 헤더가 있으면 유효하지 않은 Bearer를 쿠키로 대체하지 않는다. 업무 조직이 없으면 `403 FORBIDDEN`, `details={reason:"ORGANIZATION_REQUIRED",organizationStatePath:"/auth/organization-state"}`다. 두 개 이상은 `403 UNSUPPORTED_ACCOUNT_STATE`, 역할 없음은 `403 FORBIDDEN`이다. 조직 ID 헤더는 조직 선택에 쓰지 않으며 `orgId` 쿼리는 `400 VALIDATION_ERROR`다. 현재 스키마에는 `employment_status`가 없으며 현재 명부 전체를 재직 인원으로 조회한다.
+
+`Department.id`·`TeamMemberListItem.id`·`departmentId`·`jobTitleId`와 `JobTitle.id`는 DB UUID다. 표시 코드는 `Department.code=SOL-Dxxx`, `JobTitle.code=SOL-Jxxx`, `personCode=SOL-Pxxxx`다. `GET /job-titles`는 `{id,code,label}[]`를 직급 순서로 반환한다. 본부의 `parentId:null`은 정상 루트이고, 그룹·팀의 null은 상위 미지정이다. `memberCount`는 전체 명부의 하위 직원 ID 중복을 제거해 계산한다.
+
+`GET /team-members`는 `q`(trim, 최대 40자), `departmentId`(팀 UUID), `jobTitleId`(UUID), `scoring=1|0`, `cursor`, `limit`(기본 20, 1~100)을 받는다. 알 수 없는 조건·중복 조건·잘못된 값은 `400 VALIDATION_ERROR`, 현재 조직에서 찾을 수 없는 부서·직급은 `404 NOT_FOUND`, 상위 본부·그룹 필터는 `400 VALIDATION_ERROR`다. 다른 세 경로는 쿼리 조건을 받지 않는다. 상세 경로 ID 형식은 UUID이며 잘못된 형식은 400, 현재 조직에 없거나 다른 조직의 직원은 404다.
+
+```ts
+interface PeoplePage {
+  items: TeamMemberListItem[];
+  pageInfo: {
+    cursor: string | null; nextCursor: string | null;
+    previousCursor: string | null; hasNext: boolean; startIndex: number;
+  };
+  totalCount: number; // 필터 결과 전체 수
+  summary: { totalCount: number; scoringCount: number }; // 필터 전 현재 조직 전체
+}
+```
+
+정렬은 `personCode ASC, id ASC`로 고정한다. `startIndex`는 0부터 시작한다. 이전 페이지는 `startIndex>0`일 때 제공하며, 첫 페이지로 돌아가는 `previousCursor:null`은 cursor 쿼리를 제거하라는 뜻이다. 그 외 이전 커서는 해당 페이지 앞 직원의 키를 담는다. 필터 변경 때 cursor를 제거한다. 조직도는 페이지의 20명이 아닌 전체 명부를 쓴다. 목록에는 `scoring` 상세 속성이 없으며, 상세에는 점수 행이 없는 직원도 `scoring:null`로 보존한다. 연락처·계정 연결 필드는 반환하지 않는다.
+
+커서는 버전·마지막 `personCode`/UUID·현재 orgId·정규화 필터/limit·발급시각을 base64url로 인코딩하고 HMAC-SHA256으로 서명한다. 서버 전용 `API_CURSOR_SECRET`은 32자 이상이며 기본값이나 다른 키로 대체하지 않는다. 발급 후 24시간 이상, 미래 발급시각, 조직·필터 불일치, 변조·잘못된 인코딩은 `400 INVALID_CURSOR`다. 서명은 `timingSafeEqual`로 비교한다. 키 미설정·길이 부족은 `503 SERVICE_UNAVAILABLE`, `details={component:"cursor"}`다. 사진은 해당 `personCode`와 정확히 일치하는 `/demo/people/<personCode>.png`만 공개하며 없거나 안전하지 않은 경로는 `portraitUrl:null`이다.
 
 ## 5. 오류 코드
 
@@ -500,9 +499,9 @@ interface TeamMemberDetail extends TeamMemberListItem {
 |422|`HOSTED_NOT_APPROVED`|`AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=false`. `/admin/ai/status`에서만|—|
 |429|`RATE_LIMITED`|속도 제한(Redis로 세는 §1의 API 제한)|`Retry-After` 헤더|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
-|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음|`{component:"queue"\|"db"\|"storage"}`|
+|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20)|`{component:"queue"\|"db"\|"storage"}`|
 
-`TOKEN_EXPIRED`·`INVALID_CREDENTIALS`·`REFRESH_TOKEN_INVALID`·`ACCOUNT_LOCKED`는 이 API가 내지 않는다. 로그인 실패·시도 제한·토큰 갱신 실패는 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
+로그인 실패·시도 제한·토큰 갱신 실패는 이 API가 아니라 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
 
 `AI_UNAVAILABLE`, `EXTRACTION_FAILED`는 HTTP 오류가 아니다. 분석은 비동기이므로 AI 장애는 `AnalysisResult.status=PARTIAL` + `errorCode`로 나타난다. API가 503을 내는 경우는 요청 자체를 큐에 넣지 못할 때뿐이다.
 
@@ -526,7 +525,7 @@ gateway 내부 오류 코드(예: 한국어 state를 허용하지 않을 때의 
 
 ### 6.1 로그인 (Supabase Auth, 이 API 밖)
 
-로그인은 자체 엔드포인트가 아니라 Supabase Auth가 받는다. 화면은 템플릿 `/auth/login`이고, 브라우저 Supabase 클라이언트가 Supabase Auth에 직접 로그인한다.
+화면은 템플릿 `/auth/login`이고, 브라우저 Supabase 클라이언트가 Supabase Auth에 직접 로그인한다(§2 표 아래 문단).
 
 ```ts
 // web/app/auth/login/sign-in-form.tsx (템플릿)
@@ -553,7 +552,7 @@ GET /api/v1/me
  "sessionExpiresAt":"2026-10-16T02:15:00Z"}
 ```
 
-seed 계정 규약: `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(org-01), `viewer@other.invalid`(org-02, 격리 시연). `admin@soltech.invalid`는 `orgRole=owner` + `solRole=ADMIN`이다. 계정은 `pnpm demo:reset`(service role로 Supabase 프로젝트에 seed)이 만들고, 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`(`.env.example`에는 placeholder만)다.
+seed 계정 목록·역할·비밀번호 규칙은 [[04-DATABASE|04 DB]] §6이다.
 
 ### 6.2 분석 요청
 
@@ -589,11 +588,11 @@ GET /api/v1/analyses/7d2c...
  ]},
  "requirementAssessments":[],
  "scoreBreakdown":[
-   {"factor":"skillMatch","rawValue":{"required":6,"matched":3,"matchedNames":["Java","Spring Boot","PostgreSQL"],"missingNames":["Vue.js","SCORM","WebRTC"],"preferred":2,"preferredMatched":1},"normalized":0.5,"points":15.0,"maxPoints":30,"missing":false,"evidence":[],"note":null},
-   {"factor":"pastPerformance","rawValue":{"similarProjects":2},"normalized":0.732,"points":18.3,"maxPoints":25,"missing":false,"evidence":[],"note":null},
-   {"factor":"staffAvailability","rawValue":{"availableRatio":1.0,"scheduleFactor":0.7},"normalized":0.7,"points":14.0,"maxPoints":20,"missing":false,"evidence":[],"note":"마감 촉박 일정 계수 0.7"},
-   {"factor":"scaleFit","rawValue":{"budgetKrw":"450000000","maxContractKrw":"5000000000","largestPastKrw":"2800000000"},"normalized":1.0,"points":15.0,"maxPoints":15,"missing":false,"evidence":[],"note":null},
-   {"factor":"strategicPreference","rawValue":{"agencyTypeMatch":true,"domainMatch":true},"normalized":1.0,"points":10.0,"maxPoints":10,"missing":false,"evidence":[],"note":"교육 분야·교육청 선호 일치"}
+   {"factor":"skillMatch","rawValue":{"required":6,"matched":3,"matchedNames":["Java","Spring Boot","PostgreSQL"],"missingNames":["Vue.js","SCORM","WebRTC"],"preferred":2,"preferredMatched":1},"normalized":0.5,"points":15.0,"maxPoints":30,"missing":false,"missingReason":null,"evidence":[],"note":null},
+   {"factor":"pastPerformance","rawValue":{"similarProjects":2},"normalized":0.732,"points":18.3,"maxPoints":25,"missing":false,"missingReason":null,"evidence":[],"note":null},
+   {"factor":"staffAvailability","rawValue":{"availableRatio":1.0,"scheduleFactor":0.7},"normalized":0.7,"points":14.0,"maxPoints":20,"missing":false,"missingReason":null,"evidence":[],"note":"마감 촉박 일정 계수 0.7"},
+   {"factor":"scaleFit","rawValue":{"budgetKrw":"450000000","maxContractKrw":"5000000000","largestPastKrw":"2800000000"},"normalized":1.0,"points":15.0,"maxPoints":15,"missing":false,"missingReason":null,"evidence":[],"note":null},
+   {"factor":"strategicPreference","rawValue":{"agencyTypeMatch":true,"domainMatch":true},"normalized":1.0,"points":10.0,"maxPoints":10,"missing":false,"missingReason":null,"evidence":[],"note":"교육 분야·교육청 선호 일치"}
  ],
  "missingFactors":[],
  "reviewFlags":["KEV_NEEDS_REVIEW"],
@@ -672,18 +671,18 @@ live 수집 결과의 건수는 실제 공고에 따라 달라지므로 예시�
 - 모든 DTO·쿼리·본문은 zod 스키마 하나에서 검증과 타입(`z.infer`)을 얻는다. 화면 폼(react-hook-form)도 같은 스키마를 쓴다. 손으로 두 번 쓰지 않는다.
 - 요청 처리 경로의 DB 호출은 사용자 세션(anon 키 + 사용자 토큰)으로만 한다. 조직 범위는 RLS(`org_id in (select public.my_org_ids())`)가 강제하므로 코드가 조건을 빠뜨려도 다른 조직 행은 보이지 않고 404가 된다. 쓰기 권한도 RLS 정책으로 한 번 더 막고, 정책 시험은 `scripts/database.test.mjs`(`pnpm test:db`)에 둔다. `SUPABASE_SERVICE_ROLE_KEY`는 Route Handler에서 쓰지 않는다(worker·seed만, [[09-SECURITY|09 보안]]).
 - worker(`web/worker`)는 service role이라 RLS를 거치지 않는다. 조직 데이터를 쓸 때 `org_id`를 직접 지정하고, 테넌트 혼입을 막는 시험을 둔다.
-- `POST /bids/:id/analyses`의 중복 방지는 [[04-DATABASE|04 DB]]의 부분 UNIQUE 인덱스와 `Idempotency-Key` 둘로 한다. `force=false`에서 같은 입력의 완료 run이 있으면 새 job을 만들지 않고 `deduplicated:true`로 그 run을 돌려준다.
+- `POST /bids/:id/analyses`의 중복 방지는 [[04-DATABASE|04 DB]]의 부분 UNIQUE 인덱스와 `Idempotency-Key` 둘로 한다. `force=false`에서 같은 입력의 완료 run이나 진행 중 run이 있으면 새 job을 만들지 않고 `deduplicated:true`로 그 run을 돌려준다(§4.5 분석 요청 계약).
 - `POST /bids/:id/reviews`는 한 트랜잭션 안에서 `bid_reviews` insert + `audit_logs` insert를 쓰고, `assigneeUserId`가 있을 때만 `REVIEW_ASSIGNED` outbox(수신자 = 담당자, idempotency `reviewId+assigneeUserId+REVIEW_ASSIGNED`)를 함께 쓴다. supabase-js 질의 빌더는 여러 문장을 한 트랜잭션으로 묶지 못하므로, 이런 쓰기는 `supabase/migrations`의 DB 함수로 만들고 `rpc`로 부른다.
 - 응답에 Kev 값이 있을 때마다 `disclaimer` 문자열("Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.")을 내려 보내고, UI는 그 문자열을 그대로 보여 준다. Kev 값(v0.1 분포, v0.2 `scores`·`risks`, 항목별 `requirementAssessments[].kev`)은 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 둔다. 충족 확률·낙찰 확률·수주확률로 읽힐 표현을 쓰지 않는다([[16-DECISIONS|ADR-020]]).
 - 실행 모드는 서버가 env `SOL_RUN_MODE`로 정한다. 요청으로 바꿀 수 없다. 소스·모드가 맞지 않는 요청은 조용히 고치지 않고 `409 RUN_MODE_MISMATCH`로 거절한다.
 - live 공고 응답(`BidDetail.original`, `structuredQualifications` 등)에는 나라장터 응답의 담당자 필드(이름·전화·이메일)를 넣지 않는다. 이 필드는 정규화 단계에서 이미 빠진다([[07-DATA-PIPELINE|07 수집]], [[09-SECURITY|09 보안]]).
 - `/admin/ai/models`·`/admin/ai/status`의 레지스트리 값은 gateway `/health`에서 읽는다. Route Handler가 Kev·Qwen 서버를 직접 부르지 않는다.
 - 계약 변경은 zod 스키마 diff와 Route Handler 계약 시험으로 PR에서 보이게 한다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성한다.
-- 템플릿의 `/api/auth/*`·`/api/users/me`·`/api/admin/users/[id]/status`는 템플릿 기능(로그인 수단 연결·운영자 정지 등)이며 이 계약(`/api/v1`) 밖이다. 남길지는 Phase 0 템플릿 정리에서 정한다. 템플릿 운영자 API는 [[16-DECISIONS|ADR-021]]로 `/api/ops/users/:id/status`로 옮기고 `profiles.is_admin`만 부른다. 조직 ADMIN의 `/api/v1/admin/*`와 다르다. 조직 ADMIN은 `/ops`에 들어가지 못한다(404).
+- 템플릿의 `/api/auth/*`·`/api/users/me`·`/api/admin/users/[id]/status`는 템플릿 기능(로그인 수단 연결·운영자 정지 등)이며 이 계약(`/api/v1`) 밖이다. Phase 0에서는 지우지 않았고, 정리는 N1 앱 셸 작업에서 같은 경로를 다시 짤 때 한다([Phase 0 인프라 계획](plans/2026-10-18-phase-0-infra.md) D15). 템플릿 운영자 API를 `/api/ops/users/:id/status`로 옮기는 `/ops` 분리([[16-DECISIONS|ADR-021]])는 해커톤 이후다([[16-DECISIONS|ADR-023]]). 옮긴 뒤에도 `profiles.is_admin`만 부른다. 조직 ADMIN의 `/api/v1/admin/*`와 다르다. 조직 ADMIN은 `/ops`에 들어가지 못한다(404).
 
 ## 8. 솔리데오 가입 정보 계약 (ADR-019, 구현됨: `GET /api/v1/signup-options`, `GET·PATCH /api/v1/me/employment`)
 
-회원가입·로그인 자체는 계속 Supabase Auth다. 자체 비밀번호/토큰 API를 추가하지 않는다. 아래 타입은 외부 계약 설명이며 구현 시 `web/server/profile` 등 해당 도메인의 zod 스키마에서 타입을 얻는다.
+가입·로그인 자체는 §2 표 아래 문단과 같고, 이 절은 가입 신고 정보만 다룬다. 아래 타입은 외부 계약 설명이며 구현 시 `web/server/profile` 등 해당 도메인의 zod 스키마에서 타입을 얻는다.
 
 ```ts
 interface OptionItem { id: string; label: string } // 승인 fixture의 안정적인 코드

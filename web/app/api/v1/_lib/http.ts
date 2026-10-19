@@ -1,4 +1,5 @@
 import "server-only";
+import type { PeopleResult } from "@/server/people";
 import { toServerErrorRecord } from "@/server/shared";
 import { authenticate, type AuthUser } from "@/server/auth";
 import { getMyEmployment, type EmploymentResult } from "@/server/profile";
@@ -121,4 +122,15 @@ export async function requireCompleteUser(request: Request): Promise<Guarded> {
           completionPath: "/auth/complete-profile",
         }),
       };
+}
+
+export function peopleResponse<T>(result: PeopleResult<T>): Response {
+  return result.status === "ready"
+    ? json(result.data)
+    : apiError(
+        result.error.httpStatus,
+        result.error.code,
+        result.error.message,
+        result.error.details,
+      );
 }

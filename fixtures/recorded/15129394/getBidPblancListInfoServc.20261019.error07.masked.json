@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "sol-recorded/v0.1",
+  "serviceId": "15129394",
+  "registryKey": "g2b-bid-notice",
+  "operation": "getBidPblancListInfoServc",
+  "params": {
+    "type": "json",
+    "pageNo": "1",
+    "numOfRows": "10",
+    "inqryDiv": "9",
+    "inqryBgnDt": "202610180000",
+    "inqryEndDt": "202610192359"
+  },
+  "fetchedAt": "2026-10-19T01:00:02.946Z",
+  "httpStatus": 200,
+  "envelope": "nkoneps.com.response.ResponseError",
+  "resultCode": "07",
+  "resultMsg": "입력범위값 초과 에러",
+  "totalCount": null,
+  "items": [],
+  "masked": true,
+  "maskedFields": [
+    "ntceInsttOfclNm",
+    "exctvNm",
+    "crdtrNm",
+    "ntceInsttOfclTelNo",
+    "ntceInsttOfclEmailAdrs",
+    "dminsttOfclEmailAdrs"
+  ],
+  "maskedFieldsNote": "이 응답에는 담당자 필드가 없거나 비어 있음. 목록은 서비스 기준 마스킹 대상",
+  "rawSha256": "8715db67fd320c531e91723988ff60fef8d3c81bc3fca8674393e840dbf0548c",
+  "note": "inqryDiv=9 오류 응답 형식 표본(A8)"
+}

@@ -14,8 +14,8 @@ updated: 2026-10-19
 해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후, [[16-DECISIONS|ADR-023]])은 [[12-ROADMAP|12 로드맵]]을 따른다. 핵심 컷의 작업 단위는 아래 "핵심 컷 Critical Path" 절이다.
 
 - [ ] Phase 0 템플릿 정리/Compose(redis·minio·qdrant·ai-gateway·worker)/CI/Supabase 연결 — 수용 기준([[11-TESTING|11 테스트]] §4)의 `checks.db` = Supabase 클라우드 확인이 남아 미완. 코드는 main에 병합됨(`1b824c8`, 최종 `88afb79`; Compose 프로젝트 이름 `9b2bdf1`; 2026-10-19): `infra/compose.yaml`·env 예시·smoke, `services/ai` 골격·`/health`·모드 거부, web `/health/*`, worker, 공고 fixture 20건·mock 추출 20(19건 + `FX-07.r01`)·Kev 4·골든 3. 통합 기동 증거는 `evidence/phase-0/`(C0 10항목·보완 5항목 통과). 설계 결정은 [[16-DECISIONS|ADR-024]] 제안, 정본 불일치는 [목록](plans/2026-10-19-phase-0-doc-inconsistencies.md)
-  - 남은 것: P0-0 외부 의존성 점검 대기(체크리스트 `evidence/phase-0/external-deps.md`, C1). `checks.db` 는 Supabase 클라우드로는 미검증(로컬 Supabase CLI 기준으로만 확인). CI(GitHub Actions)는 계정 결제 한도로 미실행.
-- [ ] Phase 1 Supabase migrations·RLS·`sol_role`/seed/Supabase Auth·RBAC — 일부 선행: 인력·가입 마이그레이션 4개(`20261016000001`~`04`)와 `pnpm people:seed`는 main에 있다(ADR-019·021, 클라우드 적용 전). `sol_role`·공고·분석·알림 표·`pnpm demo:reset`·클라우드 적용은 미완
+  - 남은 것: P0-0은 아래 C1. `checks.db` 는 Supabase 클라우드로는 미검증(로컬 Supabase CLI 기준으로만 확인). CI(GitHub Actions)는 계정 결제 한도로 미실행.
+- [ ] Phase 1 Supabase migrations·RLS·`sol_role`/seed/Supabase Auth·RBAC — 스키마·RLS·`sol_role`·`pnpm demo:reset`은 C2로 main에 있다(`48b20a5`). 남은 것: 클라우드 적용 `pnpm db:push`(사용자 확인 뒤)
 - [ ] Phase 2 ingestion/normalization (fixture 20건)
 - [ ] Phase 3 Next.js UI (데스크톱 전용)
 - [ ] Phase 4 eligibility/SOL Score
@@ -23,13 +23,13 @@ updated: 2026-10-19
 - [ ] Phase 6 review/notifications (인앱)
 - [ ] Phase 7 QA/deployment (demo 프로필)
 
-## 핵심 컷 Critical Path (ADR-023, 2026-10-19 승인)
+## 핵심 컷 Critical Path (ADR-023, 2026-10-19 승인 · 일정 ADR-027)
 
-정의와 일정은 [[12-ROADMAP|12 로드맵]] Critical Path 표, 근거는 [수상 전략 보고](plans/2026-10-18-hackathon-award-plan.md). 10-21 저녁 C1 결과로 S-LIVE 갈래를 정한다.
+정의와 일정은 [[12-ROADMAP|12 로드맵]] Critical Path 표, 근거는 [수상 전략 보고](plans/2026-10-18-hackathon-award-plan.md). 10-20 저녁(ADR-027) C1 결과로 S-LIVE 갈래를 정한다(외부 의존성 컷 규칙).
 
 - [ ] C0 Phase 0 마감: 코드 병합됨(`1b824c8`), 통합 기동 증거 있음(`evidence/phase-0/c0-integration-20261019.md`·`task8-gaps-20261019.md`). 17 보고 형식의 Phase 0 보고 남음
-- [ ] C1 P0-0 외부 의존성: 체크리스트 [`evidence/phase-0/external-deps.md`](evidence/phase-0/external-deps.md) 전항목 대기. 선행: `infra/.env` 서비스키 4개, GPU 접속 정보·점유 범위, 모델 기동 승인
-- [ ] C2 Phase 1 DB·RLS·`sol_role`(`feat/people-read`의 `20261018000001` 위에)·`pnpm demo:reset`
+- [ ] C1 P0-0 외부 의존성: ①②  통과(2026-10-19, A1~A9·B1~B4, [`evidence/phase-0/external-deps.md`](evidence/phase-0/external-deps.md)·[API 증거](evidence/phase-0/external-deps-api-20261019.md), 녹음 응답 14건 `fixtures/recorded/`). 컷 규칙 입력 ① = API 정상. ③ 회사 GPU 추론 엔드포인트([[16-DECISIONS|ADR-025]], G1~G6) 대기: 선행 P2(경로·인증 전달)·P3(회사 측 기동 통보). ④ 파서 후보 비교 미착수
+- [x] C2 Phase 1 DB·RLS·`sol_role`·`pnpm demo:reset` — main 병합 `48b20a5`(2026-10-19, 브랜치 커밋 `d187d61`): 마이그레이션 `20261018000001`(feat/people-read 복사)·`20261019000001`~`08`(ADR-026 팀 만들기 운영자만 포함), 생성 타입, 정책 시험 168/168(`pnpm test:db`), `pnpm demo:reset` 시험 30 + 전용 격리 Supabase 2회 실행(멱등·ID·live 보존·RLS). 남은 것: 클라우드 적용 `pnpm db:push`(사용자 확인 뒤), G5 둘째·셋째 겹(Route Handler 404·`e2e-auth`)은 C6, 공고 적재를 C3 `runIngest SEED`로 교체(C3 병합 뒤)
 - [ ] C3 Phase 2 수집(fixture·live 1건·첨부·`/parse`)
 - [ ] C4 Phase 4 규칙 엔진·골든 94/72/68·27명 입력
 - [ ] C5 Phase 5 gateway `/extract`·`/kev`·`/explain`·`/parse` mock → `local`
@@ -41,21 +41,8 @@ updated: 2026-10-19
 - [ ] X2 임팩트 예비 실험 n=3 (01 성공 측정 "예비 검증 결과" 열)
 - [x] X3 경쟁 서비스 비교: `evidence/competitors/2026-10-19-competitors.md`, 18 §3.2.1 (2026-10-19)
 - [ ] X4 제출물: 구조 초안 7개 `docs/submission/` 작성됨(2026-10-19). 슬라이드·영상·기술 자료 완성은 C8·X1·X2 뒤
-- [ ] X5 확장 컷(핵심 컷 green 뒤): S5 → `feat/people-read` 병합·`/people`·`/org-chart` 노출 → `/admin/ingestion` → 설정 조직 탭 → P0-8 → 전체 평가셋·P0-11
-
-## 문서 개선 (2026-10-16, 해커톤 심사 관점 감사)
-
-심사(사람 5인 + Claude Fable 5.1) 관점에서 격차 20건을 찾아 4개 세션이 파일을 나눠 수정했다. 격차 목록과 배정은 세션 핸드오프 문서에 있고, 결과는 아래 로그에 적는다.
-
-- [x] 해커톤 전략 문서 신설 ([[18-HACKATHON]])
-- [x] 용어집 신설 ([[20-GLOSSARY]])
-- [x] 인덱스를 MOC로 전환, 주장·근거 표 추가 ([[00-README]])
-- [x] 데모 시나리오 신설, 07 fixture ID(FX-01~20)와 대조 ([[19-DEMO-SCENARIO]])
-- [x] 03/04/05/15 계약 구체화 (Qwen `RequirementExtraction` 스키마·프롬프트, Kev 질문 세트 `kev-qs/v0.1`, gateway `POST /extract`·`POST /kev`, ENUM 19종, DTO·오류 코드, 인용 검증 알고리즘) — 세션 c6
-- [x] 06/07/08/11 데모 표면 (데스크톱 화면 명세·토큰·와이어프레임, fixture `FX-01`~`FX-20`·mock 추출·mock Kev, SOL테크 프로필·worked example 3건, 골든 `G1`~`G10` 매핑·데모 체크리스트) — 세션 a3
-- [x] 01/02/09/10/12/13/14/16/17 제품 정의·운영·ADR (모바일·결제 제외, 차별점·가설 지표, 책임 있는 AI·고지 문구, `demo`/`ai-local`/`ai-hosted` 프로필·기동 12단계·장애 주입, 해커톤 컷, ADR-007~014) — 세션 5d
-- [x] 전 문서 frontmatter·위키링크·관련 문서 절 적용, 깨진 링크 0건, 표 안 파이프 이스케이프 0건, 용어·숫자 교차 검사(FX-02 72점 분해, Kev 분포, seed 집계, 계정 5개, `@v1.0`) 통과
-- [x] 해커톤 공식 심사 기준·마감일 입력 ([[18-HACKATHON]] §4, [[12-ROADMAP]]) — 2026-10-18, 마감 2026-10-27, 실용성 30·창의성 25·완성도 25·확장성 20
+- [ ] X5 확장 컷(핵심 컷 green 뒤): S5 → `feat/people-read` 병합·`/people`·`/org-chart` 노출 → `/admin/ingestion` → 설정 조직 탭 → P0-8 → E0·E2·E3 전체 평가셋(test 20) 리포트
+- [ ] X6 Kev-9B LoRA 파인튜닝 트랙([[16-DECISIONS|ADR-027]]): X6a 평가셋 v0.1 → X6b 학습셋 번들·학습 요청서 → X6c F1(회사) → X6d F2(회사) → X6e F3·E4 → X6f 제출물 반영. 실행 절차 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]. 회사 GPU 학습 가능 여부·외부망 미확인(16 미결정 22)
 
 ## 솔리데오 인력·가입 정보 (ADR-019)
 
@@ -64,7 +51,7 @@ updated: 2026-10-19
 - [x] 구현 계획 초안·자체 검토: [명부·카탈로그](plans/2026-10-16-solideo-people-data.md), [정장 사진 200장](plans/2026-10-16-solideo-people-portraits.md), [DB·가입·검증](plans/2026-10-16-solideo-people-signup.md). 사용자가 에이전트 분담·작업별 독립 검토 방식으로 실행을 승인했다. 구현 진행 중이며 전체 완료를 뜻하지 않는다.
 - [x] 조직도 추출·부서/직급 카탈로그: 원본 250행을 배분 가중치 175행·비팀 구역 제외 75행으로 분류, 정확한 표시명 38개·직급 12개. 미분류·중복·원본 이름 유출 0, 작업별 독립 검토 통과.
 - [x] `fixtures/people/solideo.{departments,job-titles,people,portraits}.json` 및 최소 공개 가입 카탈로그 생성·원본 대조. 가상 200명·남녀 100/100·계산 대상 27명·가용 20 FTE 보존, 데이터 단계 `pnpm verify` 및 명부·카탈로그 작업별 독립 검토 통과.
-- [x] imagegen 고유 정장 프로필200장 생성·AI 품질 검사 완료(별도9663 worktree, 남녀100/100, GENERATED200).
+- [x] imagegen 고유 정장 프로필200장 생성·AI 품질 검사 완료(남녀100/100, GENERATED200).
 - [x] 위200명 이름·얼굴의 실제 사람 최종 승인·READY200 전환·코드 worktree 통합·release 검사. 승인 snapshot과 원본 PNG SHA-256 200개를 재대조했고 기존 AI 검수는 별도 보존했다.
 - [x] 카탈로그·가입 신고 필드·가상 인력 seed/RLS migration 및 생성 타입. Task1/2 독립 리뷰 통과; 실제 로컬 최종 재검증은 별도.
 - [x] 가입 폼·프로필 보완·업무 화면/Server Action 가드·계정 관리 호환 구현 및 Task3 독립 리뷰 통과. 현재 v1 업무 REST 엔드포인트는 없으며 재사용 API 가드 계약만 단위 검증.
@@ -80,10 +67,10 @@ updated: 2026-10-19
 
 - [x] 설계 승인: [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)(사용자 결정 U1~U15, 메인 세션 결정 M1~M23).
 - [x] 정본 반영: 00~12·15~20, 새 문서 [[21-MODEL-TRAINING]], [[16-DECISIONS|ADR-020]](ADR-004·008·012 개정, 미결정 1·2·3·4 갱신, 16~20 추가).
-- [ ] P0-0 외부 의존성 조기 점검: data.go.kr 서비스키 발급(사용자 작업)·오퍼레이션별 실제 응답 3건, 공고 3건 첨부 실제 다운로드, 회사 GPU 터널·vLLM·`kev.serve` 기동·VRAM, 실제 RFP 샘플로 파서 후보 비교.
+- [ ] P0-0 외부 의존성 조기 점검: ① data.go.kr 4 서비스 실제 응답·② 첨부 3건 다운로드는 통과(2026-10-19, C1). ③ 회사 GPU 추론 엔드포인트(ADR-025) `/v1/models`·지연 실측은 엔드포인트 제공 대기, ④ 실제 RFP 샘플 파서 후보 비교 미착수.
 - [ ] P0-1~P0-8 실데이터 파이프라인(실행 모드 3종, 나라장터 수집, 첨부·파싱, Qwen 실추출, 규칙, Kev-9B v0.2 참고 지표, 점수·설명·대시보드, 사전규격·발주계획).
-- [ ] P0-9~P0-11 평가 트랙(평가셋 test 20·dev 10 사업, E0·E1·E2 리포트와 오류 분석, 학습셋 번들·LoRA 메모리 검증 스크립트).
-- 해커톤 이후: Kev-9B LoRA(F1~F3, 오류 분석에서 모델 판단 오류가 주된 원인일 때), `sol-v0.2.x` Kev 반영 검토, Qwen 파인튜닝(조건부).
+- [ ] P0-9~P0-11 평가 트랙(평가셋 test 20·dev 10 사업, E0·E1·E2 리포트와 오류 분석, 학습셋 번들·LoRA 메모리 검증 스크립트). P0-9·P0-11은 X6(ADR-027).
+- 해커톤 이후: Kev-9B LoRA 운영 반영(오류 분석에서 모델 판단 오류가 주된 원인일 때. 학습·E4 비교는 해커톤 X6, ADR-027), `sol-v0.2.x` Kev 반영 검토, Qwen 파인튜닝(조건부).
 
 ## 사이드바·업무 확장 (ADR-021)
 
@@ -91,16 +78,10 @@ updated: 2026-10-19
 - [x] 정본 반영(기준 커밋 `22b788e`): 12·16·06·05·04·01·11·19·09·02·20·08·13·07·14·10, [솔리데오 인력 스펙](../polaris/specs/planned/2026-10-16-solideo-people-signup.md). [[16-DECISIONS|ADR-021]] 채택(설계 승인, 구현 전), ADR-018·019 개정, 미결정 11·12번 종결. 부록 B 보완 G1~G19는 설계 문서 §8.
 - [ ] 데모 필수 N1 앱 셸: 사이드바 정보 구조(구현·검증된 메뉴만), 조직 주소 없는 경로·서버 조직 결정, 사용자 메뉴, `/ops` 분리.
 - [ ] 데모 필수 N2 설정: 개인 탭, 조직 탭(ADMIN).
-- [ ] 데모 필수 N4a 조직·인력 조회(`/people`): 200명 조직도·명부·개인 상세·사진.
+- [ ] 데모 필수 N4a 조직·인력 조회(`/people`·`/org-chart`): 격리 브랜치에서 명부·독립 조직도·PersonDrawer·사진 구현 및 기능 검증. 기존 인증 E2E 4건 실패 해소·전체 수용·main 병합은 대기([2026-10-19 결과](evidence/people/20261019-people-read.md)).
 - [ ] 데모 필수 N8 데이터 수집 관리(`/admin/ingestion`).
 - [ ] 데모 필수 N9 대시보드 카드 5개(다섯 번째 "분석 현황").
 - [ ] P1(데모 필수 완료·핵심 시험 통과 뒤, 이 순서): N3 관심 공고 → N5 분석 결과 비교 → N6 입찰 프로젝트 → N7 인력 배치 시뮬레이션 → N4b 조직·인력 편집.
-
-> 2026-10-16 ADR-021 동기화 당시 기록(아래 후속 구현/통합 QA로 해소):
->
-> 남은 일: Codex 가입 작업(`5ece7c0`, main 미병합)의 마이그레이션은 동기화 전 04를 따라 `team_members` 한 표·`target_count` 필수·부서 계층 없음·개인 조직 생성 유지다. 새 마이그레이션으로 ADR-021에 맞춰야 한다(설계 문서 §8 G17). 명부 JSON에는 부서 계층(설계 문서 부록 A)이 아직 없다.
-
-현재는 추가 migration00003/00004와 계층 카탈로그·운영/평가 분리·신규 가입 profile만 생성 정책이 b3ef에 구현·검증됐다. 공유 DB에는 적용하지 않았다. [최신 통합 결과](evidence/people/20261017-portraits-integration.md).
 
 ## hosted 모델 API 사용 승인 기록
 
@@ -143,6 +124,14 @@ updated: 2026-10-19
 | 2026-10-18 | 문서 | data.go.kr 서비스키를 서비스별 env 4개로 분리([[16-DECISIONS\|ADR-022]], 사용자 결정): `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, registry `serviceKeyEnv`, 에러코드 22는 그 서비스만 중단. 정본 02·05·07·09·10·11·12·15·16·17·19와 Phase 0 계획(D5·env 예시·check:env 시험) 반영 | `G2B_SERVICE_KEY` 잔존 검색: ADR-022와 승인 설계 문서(고치지 않음)만 남음 | 사용자가 4개 서비스 키 발급(값은 저장소 밖). 실제 응답은 P0-0. 15 §8의 "서비스키 발급 전이라 `NOT_REQUESTED`" 문구와 `approvalStatus`는 P0-0에서 갱신 |
 | 2026-10-19 | Phase 0 | Phase 0 Task 1~7 코드 main 병합(4세션 분담: 실행 모드·AI gateway / worker·web health / 공고 fixture / Compose·병합·조정). 실행 모드 규칙 원천 `infra/run-modes.json`, `pnpm check:env`, gateway 골격·모드 모순 기동 거부(exit 78), worker 진입점·heartbeat, web `/health/live`·`/health/ready`, Compose 5개 서비스·smoke, 공고 fixture 20건·manifest·검증기(`pnpm bids:check`), mock 추출 20·Kev 4·골든 3. 최종 리뷰 수정, Compose 프로젝트 이름 `sol-radar-stack`(`9b2bdf1`). 병합 커밋 `1b824c8`, 보완 증거 `ce74f64`. Task 9: 정본 반영 — [[16-DECISIONS\|ADR-024]] 제안·미결정 21번·미결정 9번 종결 증거, 10 배포 env·포트·healthcheck, 07 §6.5 fixture 형태, 11 증거 목록, evidence 색인, 계획 `done`, [정본 불일치 26건](plans/2026-10-19-phase-0-doc-inconsistencies.md) | `pnpm verify` exit 0(vitest 927·pytest 28, `evidence/phase-0/test-report.txt`). C0 통합 검증 10항목 통과(`c0-integration-20261019.md`). 보완 검증 5항목 통과: AI 장애 리허설 degraded→ok, `stop worker` ExitCode 0(`task8-gaps-20261019.md`) | P0-0 외부 의존성 점검 대기(`evidence/phase-0/external-deps.md`). `checks.db` Supabase 클라우드 미검증(로컬 Supabase CLI 기준). CI(GitHub Actions) 결제 한도로 미실행(`setup-uv` 단계 미확인). ADR-024·미결정 21번 사람 결정 전. 다음 Phase 로 넘긴 minor·parked 는 조정 ledger(`.superpowers/sdd/2026-10-18-phase-0-infra/progress.md`) |
 | 2026-10-19 | worker | data.go.kr 서비스키 값 형식 변경(사용자 결정): 포털이 Encoding 키만 제공하므로 env에는 Encoding 키를 그대로 넣고, worker `readG2bServiceKey`(`web/worker/env.ts`)가 `decodeURIComponent`로 한 번 디코딩해 Decoding 키로 쓴다. 오류에는 env 이름만 싣는다. 07 §2.2·10 env 예시·16 ADR-022 값 형식·`infra/env/ai-local.env.example`·`evidence/phase-0/external-deps.md` P1 갱신 | 새 시험 6개(`web/worker/env.test.ts`, RED 6 실패 → GREEN 10/10), `pnpm -C web verify:quick` 통과(Vitest 1024/1024·lodestar·토큰·색), 문서 `prettier --check` 통과 | `OfficialApiConnector`(Phase 2)가 이 함수를 쓰도록 연결 필요. `plans/2026-10-19-c1-external-deps-procedure.md`의 "Decoding 키" 서술은 다른 세션의 미커밋 파일이라 손대지 않음. `infra/.env` 값은 읽지 않음(설정 거부). 커밋 안 함 |
+| 2026-10-19 | Phase 0 C1 | P0-0 ①②(에이전트 실행, 메인 세션 재검증): data.go.kr 4 서비스 실호출 37회(목록·변경이력·면허제한·참가지역·e발주 첨부·사전규격·발주계획·업종 전체 2,916행), 마스킹 응답 14건 `fixtures/recorded/<serviceId>/`(`sol-recorded/v0.1`), 첨부 3건 `www.g2b.go.kr` 익명 GET 200(HWPX·PDF·HWPX). 실측이 설계와 다른 점 8건(Encoding 키 1회 디코드, 오류 봉투 `nkoneps.com.response.ResponseError`, 보조 조회 `inqryDiv=2` 단건, `infoBizYn` 필터 무시, `bidClseDt` 빈값 19/100, 마스킹 필드 10개, 발주계획 `orderBgnYm`·`orderEndYm`, `numOfRows` 최대 999) | `serviceKey`·이메일·전화 grep 0건, `params` 키 0, `pnpm format:check` 통과. 호출 사용 15129394 28회 | ③ 엔드포인트 대기, ④ 미착수. 07 §3.1·15 §8·ADR-022 "Decoding 키" 문구 갱신 필요([API 증거](evidence/phase-0/external-deps-api-20261019.md) §10). 미커밋 |
+| 2026-10-19 | 문서·infra | ADR-025 회사 GPU 추론 엔드포인트(사용자 결정: GPU 서버 외부 접근 불가 → `https://acropolissg.com/sol-radar` HTTPS 제공, 터널·`127.0.0.1` 바인딩·`host.docker.internal` 전제 폐기, 회사 nginx location 1개 뒤 GPU 서버 안 모델 라우터로 `/qwen`·`/kev` 분기). docs-keeper 3조 분담: 정본 16(ADR-025 행·상세, 미결정 3·17)·10·03·02·09·11·12·17·19·18·21·07·01·00·20, `submission/` 5개, `evidence/README.md`, C1 절차 §7·§8(G1~G6), E3 설계, `external-deps.md` ③·P2·P3. 새 파일 `infra/gpu/model-router.conf`·`infra/gpu/README.md`(회사 nginx 요청 설정)·`infra/compose.gpu.yaml`(`model-router`), `infra/env/ai-local.env.example` URL 2줄, `infra/compose.yaml` 주석 | `nginx -t`·`docker compose config` 통과, check-env 시험 29/29, 루트 `pnpm format:check` 통과, 위키링크 실재 검사. GPU 서버 실기동 미실행 | 경로 `/qwen`·`/kev`는 라우터 기준 결정, 바깥 nginx 접두어 처리·회사 추가 인증·실제 응답·지연 미확인(미결정 17). 승인 설계·계획 문서(2026-10-16 AI 파이프라인, 2026-10-18 award plan·phase-0-infra)는 이력으로 보존. `16-DECISIONS.md:132` `[[SIDEBAR-PLAN…]]` 깨진 링크는 기존 문제. 미커밋 |
+| 2026-10-19 | Phase 1 C2 | 1단계(backend-developer, 격리 worktree, 기준 `654c6b1`): `supabase/migrations/20261018000001_people_business_roles.sql`(feat/people-read 바이트 복사) + `20261019000001_sol_roles_and_policies`(`invitations.sol_role`·`my_sol_org_ids(text[])`·ADMIN 기준 구성원/초대 정책 6개·`apply_invitation_sol_role`·`protect_sol_role` 42501·`add_team_owner` owner+ADMIN) / `02_bid_notices`(5표, `pg_trgm` 있을 때만 `extensions` 스키마) / `03_company_profiles` / `04_score_runs`(4표, 부분 UNIQUE `score_runs_active_input_key`, 복합 FK `(revision_id, bid_id)`) / `05_bid_reviews_assignments`(`prepare_bid_review` 권고 복사·`disagreement_flag`) / `06_ingest_outbox_notifications_audit`(6표, `outbox_events` 화면 권한 0) / `07_audit_outbox_triggers`. `scripts/db-verify.mjs` 허용 목록, `scripts/supabase-pglite.mjs` `pg_trgm` 적재, `database.test.mjs` 템플릿 전제 단언 4곳 갱신, `web/lib/database.types.ts` 생성(+1230/-15). 결정 13건·정본 불일치 4건은 에이전트 보고서(ADR-021 ADMIN 기준 채택, 04 §3.4 트리거 채택, `feat/people-read` 주석과 달리 ADMIN의 `sol_role` update 허용) | 메인 세션 재검증: `pnpm test:db` 141/141, `pnpm check:db-types` 일치, `pnpm format:check` 통과, worktree 기준↔main 변경 파일 겹침 0. 에이전트: `pnpm verify` 빌드 포함 녹색. 증거 `evidence/phase-1/test-db.txt` | 미커밋·미병합(병합 시 dependabot 3건 동반). `feat/people-read`의 `sol_role` 읽기 전용 시험은 병합 뒤 실패 예정(ADR-021 기준으로 고쳐야 함). 보안 결정 ADR-026(팀 만들기 운영자만, `20261019000008`)으로 종결. 클라우드 적용·`migrate.log` 없음. 2단계 진행 중 |
+| 2026-10-19 | Phase 1 C2 | 2단계·병합. ADR-026 마이그레이션 `20261019000008_team_creation_operator_only.sql`(`with check (personal_owner_id is null and (select public.is_admin()))`, 처음 `is_admin()`을 안 감싸 `slowPolicies` 시험 1건 실패 → 수정). test-server: 새 describe 25 it + ADR-026 2 it, `createTeamAs` 도우미로 기존 팀 생성 경로 3곳 교체(단언 약화 없음), 변형 19종 전부 빨간불 확인. backend-developer: `scripts/demo-reset.mjs`·`scripts/demo/{plan,bid-notices,rest-client}.mjs`·`scripts/demo-reset.test.mjs`(30), `package.json` `demo:reset`, 공고 적재 `seedBidNotices` 한 함수 분리, SEED run `params.anchor` 저장(C3 계약). 전용 격리 Supabase(`sol-radar-demo-reset-20261019-c2`, 593xx 포트) 2회 실행 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`, 2회 뒤 명부 200 id·Auth 5 id·공고 UUID 보존, live 공고 보존, org-02 VIEWER 로그인으로 org-01 프로필 0행. 브랜치 커밋 `d187d61` → main 병합 `48b20a5`(충돌 0) | `pnpm test:db` 168/168, `pnpm verify:quick` 통과(루트 464·web 898), 메인 세션 재실행 demo-reset 시험 30/30·비밀 grep 0·격리 스택 잔존 0, 커밋 게이트 통과. 증거 `evidence/phase-1/test-db.txt`·`test-db-FAIL.txt`(수정 전 보관)·`demo-reset.txt`·`seed-summary.json` | 클라우드 `pnpm db:push` 미실행(`migrate.log` 없음). 정본 불일치: 04 §6 `bid_documents` OK·파싱 실패 1건은 `fixtures/docs/` 없어 PENDING, `requirement_extractions` seed 시점 19, org-02 빈 revision 1 추가(`company_profiles` 3행), `assignments` 2건(명부 배정 7건은 `bid_id not null`이라 못 넣음), 04 §3.4 `prepare_bid_review`는 같은 공고까지 검사, seed가 service role로 넣으면 `actor_id=null` 감사가 `SEED` 외에 남음. `fixtures/extractions`·`fixtures/company`는 worktree 기준에 없어 main을 읽었음(병합 뒤 기본 경로). `feat/people-read`의 `sol_role` 읽기 전용 시험은 main 기준 실패 예정 |
+| 2026-10-19 | Phase 1 C2 후속 | 다른 세션(C3·C5) 요청 2건. ① `cd8e867` seed 공고 revision `raw_payload`에 `fixtureId` 저장(분석 job의 mock 재추출 키, checksum은 `normalized`만 봐서 영향 없음). ② `3e181b7` 명부 fixture의 기존 사업 투입 7건(SOL-P0012·P0034·P0049·P0086·P0123·P0160·P0197, 2026-12-01~2027-07-01 100%)을 `team_member_scoring.availability` 창에 접어 넣음(`scripts/people/availability.mjs`, 겹치는 구간만 쪼개 `fte = max(0, fte − 비율/100)`, `assignments` 표는 데모 2건 유지, 스키마 불변). DB 경로에서 골든 20 FTE 재현 | ① demo-reset 시험 30/30. ② 접기 9·명부 seed 5·PGlite demo:reset 31, FX-01·02·03 기간 DB 팀 = fixture 팀 = 20 FTE(C4 `availableFte` tsx 직접 호출, CI는 오라클), `verify:quick` 통과, 증거 `evidence/phase-1/people-availability.txt` | 결정적 공고 UUID(uuid v5)에 기대는 시험 3곳 목록을 C3 세션에 전달(runIngest 결정적 id 옵션 권고). C3 병합 뒤 공고 적재 교체는 ee 세션 몫 |
+| 2026-10-19 | 문서 | ADR-028 "해커톤 뒤 API·worker NestJS 전환" 채택(사용자 결정: 범위는 API·worker만, 화면은 Next.js, DB·Auth는 Supabase 유지, 시점은 해커톤 뒤). 16(ADR-028 행·상세, ADR-017 상태), 12(해커톤 이후 행), 02(전환 예정 콜아웃), 17·20, `docs/CLAUDE.md`·`CLAUDE.md`·`AGENTS.md`, `.claude/agents/backend-developer.md`·`pipeline-developer.md`에 한 줄씩. 현재 구조를 설명하는 문서와 코드는 Next.js 그대로 | 위키링크 대상 실재 확인. 코드 변경 없음 | 착수 스펙(앱 위치·모듈 구조·화면 데이터 경로·worker 위치)은 해커톤 뒤 |
+| 2026-10-19 | 문서 | ① 정본 정리: 읽기 전용 감사 4건(03·08·15·21 / 00·01·02·12·17·18·19·CLAUDE·PROGRESS / 04·05·06·09 / 07·10·11·13·14·16·20)으로 낡은 구현 상태·폐기 전제(Compose 프로필·web 서비스·터널·미결정 8번)·문서 간 중복(03↔07·10·15, 05↔15, 06 토큰 값 표↔`tokens.json`)·세션 잡담·깨진 참조를 찾고, 파일별 작업자 6명이 저장소와 대조해 확인된 것만 반영(건너뛴 것은 사람 결정 몫). ② ADR-027 "Kev-9B LoRA 해커톤 파인튜닝·일정 2일 당김" 정본 반영(사용자 승인): 16(행·상세·미결정 22), 12(Critical Path −2일·X6·freeze 10-23·간트), 01·03·09·10·11·17·18·19·20·21, 제출물 5개, E3 설계 §9, 컷 규칙 이름 "외부 의존성 컷 규칙". ③ 새 문서 [[22-FINETUNE-RUNBOOK]]: 모델 출처(Hugging Face·GitHub 리비전·sha256, 2026-10-19 API 확인), 학습 환경(Kev·LLaMA-Factory venv 분리), Kev 학습 데이터(질문별 라벨 출처·길이 제한 `--max_state`), F1~F3 명령, Qwen3.5-9B LoRA SFT(조건부)·병합·vLLM 서빙, 회사 요청서. 21 §5.1~5.3 상세를 22로 옮김 | 위키링크·상대 링크·frontmatter·표 파이프 검사(새 오류 0, 남은 것은 기존 plans 문서), `10-21 컷`·`--profile` 잔존 grep 0, `pnpm verify:quick` 통과(루트 559·웹 1091·AI 28, 다른 세션 미커밋 scripts 변경 포함 트리) | `infra/gpu/model-router.conf`의 `/sol-radar/kev-lora/` 경로 미반영(X6e 전). `feat/people-read` 병합 뒤 11 꼬리(§9.1·§10·관련 문서 위치)·PROGRESS 꼬리 절·05 `/departments` 컷 표기 정리. 루트 `CLAUDE.md`·`AGENTS.md`의 "00~20" 범위. gateway 가 Qwen 비사고 모드를 아직 안 보냄(C5). 사람 결정: 08 §5.1 기술 `NOT_SATISFIED` 사전 조건과 `requirement-assessment.ts` 차이, 06 1280px 미만 안내(`desktop-notice.tsx`)와 17 규칙, 19 S2 카드 5개 컷, 03 §10.5·20 `infoBizYn` 필터(실응답에서 무시됨) |
+| 2026-10-19 | 문서 (Critical Path 1차 분담) | 정본 반영(브랜치 `docs/sync-wave1`, base `daf07a6`). ADR-029 채택(사용자 결정 A1~A7): `FX-13` 인용 실패 = `UNKNOWN` + `CITATION_FAILED`(CONFLICTED 아님), `FX-05` `ATTACHMENT_PARSE_FAILED` → `PENDING_REVIEW`, `AI_FAULT_INJECT` 5값과 `gateway_down` 시험 전용 503, 정보화사업 필터 확대, `KEV_ENABLED=false` 세 모드 허용(기본 `true`), C6 스펙 D1~D30 추천안 승인, 목록 기본 상태 필터(`OPEN`·`AMENDED`, "취소 포함" 선택지)를 02·03·05·06·07·10·11·12·16·18·19·20 본문에 반영. **ADR-030 채택 반영**: 조정 결정 B1~B26은 1차 커밋 `24b4a85`에서 콜아웃으로 달았다가 같은 날 사용자 일괄 채택으로 03·04·05·06·07·08·09·10·11·12·13·15·19·20 본문에 옮기고 콜아웃을 지웠다(2차 커밋). 불일치 목록 #1~#4·#7 "해결 — ADR-029". 에이전트 정의: `ai-gateway-developer.md`·`test-ai.md`의 `AI_FAULT_INJECT` 값 목록, `test-ai.md`의 `FX-13` 기대값, `ai-gateway-developer.md`·`infra-developer.md`의 `KEV_ENABLED` 기본값 | `pnpm format:check` 통과(루트 `.prettierignore`가 `**/*.md`를 빼므로 md 서식은 검사 대상이 아니다). 일회용 스크립트로 고친 md 21개의 위키링크 대상 실재·표 안 `\|` 이스케이프·고친 표 행의 열 수·frontmatter `updated: 2026-10-19`·`## 관련 문서` 확인(새 문제 0. PROGRESS 128행의 기존 깨진 링크 `[[SIDEBAR-PLAN…]]` 1건은 손대지 않았다) | 06 §4의 사용자 메뉴 위치(C6 스펙은 사이드바 바닥), `ai-gateway-developer.md` 74행 제목 "장애 주입 3종"은 그대로다. B10(FAILED 추출 미저장)에 맞춰 04 `requirement_extractions.status`의 `FAILED` 값과 05 `extractionStatus` `FAILED`의 뜻 정리가 남았다. C6 스펙(브랜치 `c6/screens`)의 목록 필터 6개에 "취소 포함"을 더하는 일은 C6 담당이다 |
 
 ## 관련 문서
 
@@ -196,3 +185,13 @@ Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영20
 이 병합 코드에서 새 verify 루트350·웹881·프로덕션 빌드, 인증95, 공개138·브라우저108, 실제Next200 URL/MIME/승인 SHA/decode, 가입1440/1280·별도DB200/27/48/12/Auth5·seedID 보존 검증을 통과했다. 공개 첫 시도는 Vite 의존성 최적화 중 import실패/중단(exit130)했고 같은 코드·설정으로 한 번 재실행해 통과했다. 외부 UI probe 선택자 오류와 UI만 재검증한 기록도 보존했다. 기존 증거의 SHA 귀속은 바꾸지 않는다.
 
 9663 전용3커밋은 병합하지 않았고 b3ef/9663 전체 추적 파일·HEAD·clean 상태를 보존했다. 전용 컨테이너7개/생성세션5개만 정리해 기존22개를 유지했다. 공유 DB migration·운영 데이터 변경·push·배포·추가 기능 구현은 하지 않았다. 부모29건·제품 조직도/직원 목록/상세·전체G1~G10·기존score_runs 불변·전체N1/N2 및 외부OAuth는 미검증이다. 위의 이전 “main 병합 승인 대기”는 당시 기록이며 이번 승인/병합으로 종료한다. [최종 병합 보고·다음 Phase 권장 순서](evidence/people/20261017-b3ef-main-merge.md).
+
+## 조직·인력 조회와 독립 조직도 구현·검증 (2026-10-18~19)
+
+승인 기준 main `89b2b5e`에서 분리한 `5b0c/feat/people-read`에 업무 역할 4종, 현재 조직·RLS 기반 조회 API, `/people` 명부, 별도 `/org-chart`, 공통 PersonDrawer·Avatar와 사이드바 하단 조직도 링크를 구현했다. `/people`의 조직도 탭은 제거하고 `view` 쿼리를 무시한다. 직원·사진 200명과 승인 SHA, 평가 27명·일반 173명, 본부 6·그룹 4·팀 38, 목표 합 200을 보존했다. 부모 미확정 29개는 null로 유지해 상위 미지정으로 표시하며 실제 38팀에 직원 200명이 각자 한 번 포함되는 것을 확인했다.
+
+최종 제품 커밋 `cd4a91c`에서 새 `pnpm verify`(루트 358·웹 998·프로덕션 빌드), 컴포넌트 브라우저 167건과 기존 실패 인력 E2E 4건을 통과했다. 고유 인력 시나리오 30건의 최신 결과는 이전 `f579a2a` 26 PASS와 최종 코드 4 PASS를 합한 것이며 한 번의 새 전체 실행으로 표시하지 않는다. 1440·1280 실제 스크롤·가로 넘침·서랍·axe 검증과 화면 8장을 보존했다. 독립 범위 리뷰 및 증거 감사도 수행했다.
+
+**기존 인증·가입 E2E의 최신 결과는 91 PASS / 4 FAIL이다.** 공개 138건·실제 사진 200장·권한/RLS·커서 결과는 변경 없는 `f579a2a` 실행을 출처와 함께 재사용했다. 가입 실패 원인은 미확정이며 전체 회귀·수용·병합 준비 완료로 표시하지 않는다. 전체 G1~G10·기존 score_runs 불변·외부 OAuth·최신 main 결합은 이번 검증에 포함하지 않았다. 위의 이전 “조직도·명부·상세 미구현”은 당시 기록이며 현재 조회 기능 구현으로 대체한다. 부모 관계 29건의 사실 확인은 여전히 미완료지만 미지정 상태의 화면 지원은 검증했다.
+
+제품 변경 14커밋·66파일과 검증 문서 커밋을 구분한다. `docs/06-UI-UX.md`·`docs/20-GLOSSARY.md`, main 및 다른 worktree는 수정하지 않았다. 9663 추가 병합·공유 DB 적용·push·배포도 하지 않았다. 전용 QA 자원 정리, 최종 HEAD 비교·예상 충돌과 공유 DB 적용 전 준비는 [최종 구현·검증 보고](evidence/people/20261019-people-read.md)에 기록한다.

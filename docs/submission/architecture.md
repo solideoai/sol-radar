@@ -34,9 +34,9 @@ flowchart TB
   G2B["data.go.kr Open API<br/>입찰공고 · 사전규격 · 발주계획 · 업종 마스터"]
   ATT["www.g2b.go.kr 첨부<br/>allowlist · 50 MB · 30 s"]
  end
- subgraph gpu[회사 GPU 서버 · A40 × 2 · 127.0.0.1 바인딩]
-  QW["vLLM · Qwen3.5-9B :8001"]
-  KV["kev.serve · Kev-9B@v1.0 :8009"]
+ subgraph gpu["회사 GPU 추론 엔드포인트 · HTTPS<br/>acropolissg.com/sol-radar (회사 제공, 응답 확인 전)"]
+  QW["vLLM · Qwen3.5-9B<br/>/qwen (경로 가정)"]
+  KV["kev.serve · Kev-9B@v1.0<br/>/kev (경로 가정)"]
  end
  B -- 로그인 --> SA
  W -- 세션 검증 --> SA
@@ -44,14 +44,14 @@ flowchart TB
  WK -- service role · org_id 지정 --> PG
  WK -. SOL_RUN_MODE=live .-> G2B
  WK -. SOL_RUN_MODE=live .-> ATT
- AI -. AI_PROVIDER=local · SSH 터널 .-> QW
- AI -. AI_PROVIDER=local · SSH 터널 .-> KV
+ AI -. AI_PROVIDER=local · HTTPS + API 키 .-> QW
+ AI -. AI_PROVIDER=local · HTTPS + API 키 .-> KV
 ```
 
 - 모델을 부르는 컴포넌트는 AI gateway 하나다. web과 worker는 Qwen·Kev에 직접 닿지 않는다.
 - DB·Auth는 Supabase 클라우드(Compose 밖)라 데모 중 인터넷이 필요하다. 대체 경로는 `limitations.md`.
-- 회사 GPU 서버의 모델 런타임은 `127.0.0.1`에만 바인딩하고 SSH 로컬 포트포워딩으로만 닿는다. 서버로 가는 데이터는 실제 공고(개인정보 마스킹)와 가상 회사 프로필뿐이다.
-- A40 2장 배분은 P0-0 ③에서 실측 뒤 정한다([[10-DEPLOYMENT|10 배포]] GPU 메모리 배분).
+- 회사 GPU 서버는 외부에서 접근할 수 없다. 회사가 모델 런타임(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0)을 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 제공하고, 노트북의 AI gateway가 TLS·API 키로 붙는다([[16-DECISIONS|ADR-025]], 사용자 결정 2026-10-19). `QWEN_BASE_URL`·`KEV_BASE_URL`의 하위 경로 `/qwen`·`/kev`와 인증 방식은 회사 확인 전 **가정**이다. 엔드포인트는 회사가 제공 예정이며 2026-10-19 기준 응답을 아직 확인하지 않았다. 엔드포인트로 가는 데이터는 실제 공고(개인정보 마스킹)와 가상 회사 프로필뿐이다.
+- GPU 하드웨어(모델·장수·VRAM)와 모델 기동·메모리 배분은 회사 측 운영이다. 하드웨어 표기는 회사 제공 정보 확인 전이라 적지 않는다. 우리 쪽 점검은 `GET /v1/models` 레지스트리 대조와 지연 실측뿐이다(P0-0 ③ G1~G6, [[10-DEPLOYMENT|10 배포]]).
 
 ## (b) 데이터 흐름
 
@@ -87,7 +87,7 @@ flowchart TD
 
 | `SOL_RUN_MODE` | 공고 | AI | 회사 프로필 | 화면 표시 | 쓰는 곳 |
 |---|---|---|---|---|---|
-| `live` | data.go.kr 실제 공고(`is_demo=false`), 첨부 실제 다운로드 | 회사 GPU 서버 Qwen3.5-9B · Kev-9B@v1.0 실추론(`AI_PROVIDER=local`) | 가상 솔리데오(`is_demo=true`) | 머리말 "실행 모드: live", 분석 패널 "AI: local · Qwen3.5-9B · Kev-9B v1.0", "가상 회사 프로필로 분석" | S-LIVE 1건, 해커톤 MVP 목표 |
+| `live` | data.go.kr 실제 공고(`is_demo=false`), 첨부 실제 다운로드 | 회사 GPU 추론 엔드포인트(HTTPS) Qwen3.5-9B · Kev-9B@v1.0 실추론(`AI_PROVIDER=local`) | 가상 솔리데오(`is_demo=true`) | 머리말 "실행 모드: live", 분석 패널 "AI: local · Qwen3.5-9B · Kev-9B v1.0", "가상 회사 프로필로 분석" | S-LIVE 1건, 해커톤 MVP 목표 |
 | `fixture` | fixture 20건(`is_demo=true`, `DEMO` 배지) | 실추론 그대로 | 가상 솔리데오 | "실행 모드: fixture", "AI: local" | 공공 API 장애 시 대체, 한국어 state 평가(E2) |
 | `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`, `fixtures/extractions`·`fixtures/kev`) | 가상 솔리데오 | "실행 모드: mock", "AI: mock" | 발표 본편 S2~S7, CI, 골든 94/72/68 |
 
@@ -99,5 +99,5 @@ flowchart TD
 
 - [[02-ARCHITECTURE|02 아키텍처]] — 경계 · AI 호출 경로 · 장애 원칙
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — §2 파이프라인, §3 실행 모드, §8 장애와 대체
-- [[10-DEPLOYMENT|10 배포]] — 프로필 · 회사 GPU 서버 구성
-- [[16-DECISIONS|16 ADR]] — ADR-017 · ADR-020
+- [[10-DEPLOYMENT|10 배포]] — 프로필 · 회사 GPU 추론 엔드포인트 구성
+- [[16-DECISIONS|16 ADR]] — ADR-017 · ADR-020 · ADR-025

@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 
 # 08. SOL Score 및 참여 권고
@@ -20,11 +20,11 @@ SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이�
 
 알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.1.0` 하나다. 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(§6.1).
 
-추출 스키마에 없어서 규칙 쪽이 만드는 파생값 두 개:
+추출값을 그대로 쓰지 않고 규칙 쪽이 만드는 파생값 두 개:
 
 | 파생값 | 출처 | 규칙 |
 |---|---|---|
-| `bid.domain` | `extraction.domain`(03에 `ExtractedField<string>`으로 추가 예정)이 `KNOWN`이면 그 값. 아니면 제목 + `extraction.summary`를 `web/server/scoring/domain-keywords.yaml`로 분류 | 값 집합: `민원`, `데이터 플랫폼`, `교육`, `AX`, `스마트시티`, `국방`, `기타`. 키워드 예: 민원·행정정보 → `민원`, 데이터 플랫폼·데이터허브 → `데이터 플랫폼`, LMS·교육 → `교육`, AI·챗봇·지능형 → `AX`, CCTV·관제·스마트시티 → `스마트시티`, 국방·군 → `국방`. 어느 것도 안 맞으면 `UNKNOWN`(§4 missing) |
+| `bid.domain` | `extraction.domain`([[03-AI-PIPELINE\|03]] §4.1)이 `KNOWN`이면 그 값을 아래 값 집합으로 맞춘다. 아니면 제목 + `extraction.summary`를 키워드 표로 분류 | 값 집합: `민원`, `데이터 플랫폼`, `교육`, `AX`, `스마트시티`, `국방`, `기타`. 키워드 표와 동률 규칙의 정본은 `web/server/scoring/domain-keywords.ts`(`DOMAIN_KEYWORDS`, TS 상수)다. 어느 것도 안 맞으면 `UNKNOWN`(§4 missing) |
 | `requiredFte` | `extraction.staffing`이 `KNOWN`이면 `Σ staffing[].minCount`(없는 항목은 1) | `UNKNOWN`이면 §3.3 `FTE_BY_BUDGET` 예산 구간 표 |
 
 > [!warning] 미검증 가정
@@ -97,7 +97,7 @@ function staffAvailability(bid: Bid, extraction: RequirementExtraction, team: Te
   const requiredFte = fteFromStaffing(extraction.staffing) ?? fteByBudget(bid.budgetKrw); // staffing KNOWN이면 Σ minCount. 둘 다 없으면 MISSING (§4)
   if (requiredFte === null) return MISSING;
   const period      = bid.projectPeriod ?? defaultPeriod(bid);                 // 기간 미상: 마감 +1개월부터 6개월
-  const available   = team.availableFte(period); // scoringEligible=true인 가상 계산 대상만 전달. 전체 명부 인원수와 구분                               // assignments 겹침 제외한 FTE 합
+  const available   = team.availableFte(period);                           // assignments 겹침 제외한 FTE 합. scoringEligible=true인 가상 계산 대상만 전달(전체 명부 인원수와 구분)
   // ADR-021: team_member_scoring 행이 있는 인력만 전달. P1 이후 재직 상태가 LEFT인 인력은 입력에서 빠진다(계산식 변화 아님, sol-v0.1.0 유지)
   const ratio       = Math.min(1, available / requiredFte);
   const bizDays     = bid.deadlineAt ? businessDaysBetween(today, bid.deadlineAt) : null;
@@ -164,7 +164,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 
 ### 5.1 자격 판정
 
-각 필수 항목은 `SATISFIED`, `NOT_SATISFIED`, `NEEDS_REVIEW` 중 하나다. 자격 요건 문장이 추출되지 않았거나(`FX-04`) 회사 증빙이 빠져 있으면 `NEEDS_REVIEW`. 발주계획 단계처럼 자격 요건이 아직 없는 공고는 `NOT_APPLICABLE`로 기록하고 결정 경로에서는 `NEEDS_REVIEW`와 같게 다룬다(`FX-17`). 법적 자격을 자동으로 확정하지 않는다. 각 항목에는 공고 쪽 근거(`EvidenceRef`)와 회사 쪽 근거(면허·증명서 레코드)를 함께 남긴다.
+각 필수 항목은 `SATISFIED`, `NOT_SATISFIED`, `NEEDS_REVIEW` 중 하나다. 자격 요건 문장이 추출되지 않았거나(`FX-04`) 회사 증빙이 빠져 있으면 `NEEDS_REVIEW`. 발주계획 단계처럼 자격 요건이 아직 없는 공고는 `NEEDS_REVIEW` + 사유 코드 `STAGE_NOT_APPLICABLE`로 기록한다(`FX-17`, 아래). 법적 자격을 자동으로 확정하지 않는다. 각 항목에는 공고 쪽 근거(`EvidenceRef`)와 회사 쪽 근거(면허·증명서 레코드)를 함께 남긴다.
 
 #### 판정 라벨 (3값 + 사유 코드, ADR-020)
 
@@ -191,7 +191,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 - **미충족에는 양쪽 근거가 필요하다.** 공고 쪽 근거(`EvidenceRef`)와 회사 쪽 명시적 부정 근거(`CompanyEvidenceRef`)가 둘 다 없으면 `NOT_SATISFIED`를 내지 않는다.
 - **정보 부족은 미충족이 아니다.** 공고든 회사든 정보가 없으면 언제나 `NEEDS_REVIEW`다. 이 구분이 무너지면(정보 부족 → 미충족) 실패로 본다. 단위 시험으로 고정한다(§8).
 - 회사 프로필은 "없다"를 기록할 수 있어야 한다: `licenses[].status`·`industryCodes[].status`(`HELD`/`NOT_HELD`), `technologiesComplete`([[05-API-SPEC|05 API]] `CompanyProfile`, [[04-DATABASE|04 DB]] §3.2).
-- 지금의 `NOT_APPLICABLE`(`FX-17`)을 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 옮길지, 저장 값으로 남길지는 구현자가 정한다. 결정 경로에서 둘을 같게 다루는 것은 바뀌지 않는다.
+- 발주계획(`stage=PLAN`, `FX-17`)과 추출 상태 `NOT_APPLICABLE`인 자격 항목은 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장한다. 판정 값 집합(3값)을 늘리지 않고, 결정 경로에서 확인 필요와 같게 다룬다(`web/server/scoring/qualification.ts`, [[04-DATABASE|04 DB]] §3.4).
 
 #### 규칙 담당과 Kev 담당
 
@@ -208,7 +208,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 같은 조건을 공고 API의 구조화 필드와 Qwen 추출이 둘 다 주면 **API 구조화 필드가 우선**이다. 예: 면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt`. 두 값이 다르면 그 조건을 `CONFLICTED`로 두고 `NEEDS_REVIEW`(`NOTICE_CONFLICTED`)로 판정한다. 판정 행에는 공고 쪽 값의 출처를 `basis`(`API_FIELD`·`EXTRACTION`)로 남긴다. 업종 코드는 나라장터 업종 마스터(업종 및 근거법규 서비스)에서 받은 사전으로 맞춘다. [[03-AI-PIPELINE|03 AI 파이프라인]] §4.4 7단계 "메타데이터 대조"를 넓힌 것이다.
 
 > [!warning] 미검증 가정
-> API 필드 이름은 data.go.kr 서비스 페이지 명세로 확인했고(2026-10-16), 서비스키로 실제 응답을 받아 본 것은 아니다. 면허제한이 여러 행일 때 AND/OR 중 무엇인지, 소프트웨어사업자 등 업종 코드의 실제 값도 확인하지 않았다. 확인 전에는 면허제한 여러 행을 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다. 검증 방법: ADR-020 P0-0에서 실제 응답 3건을 저장하고 업종 마스터를 받아 사전을 만든다([[07-DATA-PIPELINE|07 수집]]).
+> 2026-10-19 C1 ①에서 서비스키로 실제 응답을 받았다([C1 API 증거](evidence/phase-0/external-deps-api-20261019.md), 녹음 응답 `fixtures/recorded/`). 업종 코드는 업종 마스터 응답으로 확인했다: 소프트웨어사업자 `1468`(컴퓨터관련서비스사업)·`1426`(패키지소프트웨어개발.공급사업), 정보통신공사업 `0036`. 면허제한 `lcnsLmtNm`은 "이름/코드" 문자열이다. 남은 미검증은 면허제한이 여러 행일 때의 뜻이다. 응답에 AND/OR 필드는 없고 `lmtGrpNo`(그룹)·`lmtSno`(일련번호)만 있다. "그룹 안은 AND, 그룹끼리는 OR"로 읽히지만 확인하지 않았다. 확인 전에는 면허제한 여러 행을 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다([[16-DECISIONS|16 ADR]] 미결정 19번).
 
 ### 5.2 결정 정책 v0.1
 
@@ -231,14 +231,11 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 
 ### 5.3 Kev 처리 (`kev-qs/v0.1`)
 
-Kev 질문 세트 `kev-qs/v0.1`은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5의 4종이다. 어느 것도 규칙 판정이나 점수를 바꾸지 못한다. `kev-qs/v0.2`(§5.4)는 이 4종을 그대로 포함하고 질문을 더한다. mock 모드와 데모 S3("규칙이 Kev를 이긴다")는 v0.1 `recommendation`을 계속 쓴다([[16-DECISIONS|ADR-020]]).
+Kev 질문 세트 `kev-qs/v0.1`은 4종(`recommendation`·`mandatoryRisk`·`needsHumanReview`·`fit`)이다. 질문 정의·임계값(0.70)·플래그(`MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW`)의 정본은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.5다. 어느 것도 규칙 판정이나 점수를 바꾸지 못한다. `kev-qs/v0.2`(§5.4)는 이 4종을 그대로 포함하고 질문을 더한다. mock 모드와 데모 S3("규칙이 Kev를 이긴다")는 v0.1 `recommendation`을 계속 쓴다([[16-DECISIONS|ADR-020]]).
 
-| 질문 | 타입 | 결과에서 쓰는 방식 |
-|---|---|---|
-| `recommendation` | choice BID/WATCH/NO_BID | 규칙 권고와 비교해 일치/상충 표시(아래 표). `kev.suggestedOption`에 저장 |
-| `mandatoryRisk` | noul | ≥ 0.70이고 규칙이 모든 자격을 `SATISFIED`로 봤으면 `reviewFlags += KEV_MANDATORY_RISK` + "사람 검토 권장". 자격 결과는 바꾸지 않음 |
-| `needsHumanReview` | noul | ≥ 0.70이면 `reviewFlags += KEV_NEEDS_REVIEW` + 결정 패널 상단 "사람 검토 권장". 권고 불변 |
-| `fit` | score 5등급(wire `score`는 0부터 세는 index 0~4) | Kev 섹션에 "적합도 의견 n/5"(n = index + 1)로만 표시. SOL Score에 합산하지 않음 |
+점수·결정 쪽에서 정하는 표시는 둘이다.
+- `KEV_MANDATORY_RISK`가 붙으면 "사람 검토 권장"을, `KEV_NEEDS_REVIEW`가 붙으면 결정 패널 상단에 "사람 검토 권장"을 띄운다. 자격 결과와 권고는 바꾸지 않는다.
+- `fit`(wire `score`는 0부터 세는 index 0~4)은 Kev 섹션에 "적합도 의견 n/5"(n = index + 1)로만 보인다. SOL Score에 합산하지 않는다.
 
 `recommendation` 분포는 설명 가능한 보조 의견으로만 쓴다. 규칙상 NO-BID·확인 필요를 BID로 승격할 수 없다.
 
@@ -253,38 +250,18 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 
 ### 5.4 Kev v0.2 참고 지표와 플래그 (`kev-qs/v0.2`, ADR-020)
 
-`live`·`fixture` 모드는 Kev-9B에 `kev-qs/v0.2`를 묻는다. v0.1 4종(§5.3)에 아래 질문이 더해진다(질문 정의·state 구성은 [[03-AI-PIPELINE|03 AI 파이프라인]]).
+`live`·`fixture` 모드는 Kev-9B에 `kev-qs/v0.2`를 묻는다. v0.1 4종(§5.3)에 `req.{itemId}.status`·`techFit`·`perfRelevance`·`risk.*` 5종이 더해진다. 질문 정의는 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.10, 플래그 `KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`의 조건은 03 §5.13이 정본이다. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다. 점수 쪽에서 지키는 것은 다음이다.
 
-| 질문 | 타입 | 단위 | 결과에서 쓰는 방식 |
-|---|---|---|---|
-| `req.{itemId}.status` | choice `SATISFIED`/`NOT_SATISFIED`/`NEEDS_REVIEW` | Kev 담당 항목(§5.1) | 항목별 참고 분포. 규칙 판정과 비교해 `KEV_REQUIREMENT_DISAGREEMENT` |
-| `techFit` | score 5등급 | 공고 | "모델 참고 지표"에 표시만. `skillMatch`에 더하지 않음 |
-| `perfRelevance` | score 5등급 | 공고 | 표시만. `pastPerformance`에 더하지 않음 |
-| `risk.schedule`·`risk.staffing`·`risk.scale`·`risk.techGap`·`risk.scopeAmbiguity` | noul | 공고 | `KEV_DELIVERY_RISK`. 어떤 리스크인지는 `kev.risks` |
-
-Kev v0.2의 플래그 처리. 어느 플래그도 규칙 판정·점수·권고를 바꾸지 않는다.
-
-| 조건 | 플래그 | 바뀌는 것 |
-|---|---|---|
-| 규칙이 `SATISFIED`인데 Kev `P(NOT_SATISFIED) ≥ τ`, 또는 규칙이 `NOT_SATISFIED`인데 Kev `P(SATISFIED) ≥ τ` | `KEV_REQUIREMENT_DISAGREEMENT` | 없음. 해당 항목 행과 `reviewFlags`에 표시, 사람 검토 권장 |
-| `risk.*` 중 하나라도 `≥ τ` | `KEV_DELIVERY_RISK` | 없음. "모델 참고 지표"의 리스크 목록에 표시 |
-| 규칙이 `NEEDS_REVIEW`인 항목 | (플래그 없음) | 없음. Kev 분포는 참고 지표로만 보인다 |
-
+- `techFit`·`perfRelevance`는 "모델 참고 지표"에 표시만 한다. `skillMatch`·`pastPerformance`에 더하지 않는다.
+- `req.{itemId}.status`는 Kev 담당 항목(§5.1)에 묻는다. `KEV_REQUIREMENT_DISAGREEMENT`는 규칙이 `SATISFIED`·`NOT_SATISFIED`인 항목에서만 생기고, 해당 항목 행과 `reviewFlags`에 보인다. 규칙이 `NEEDS_REVIEW`인 항목에는 플래그를 달지 않고 Kev 분포를 참고 지표로만 보인다.
+- `KEV_DELIVERY_RISK`는 "모델 참고 지표"의 리스크 목록에 보인다. 어떤 리스크인지는 `kev.risks`다.
 - **τ = 0.70, 미보정**(`kev_calibration=UNCALIBRATED`)으로 시작한다. 베이스라인 평가 뒤 dev 분할로 다시 정하고, 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다([[21-MODEL-TRAINING|21 모델 학습]]). 화면에 보정 상태를 함께 보인다.
 - v0.1 질문의 임계값(`mandatoryRisk`·`needsHumanReview` 0.70, §5.3)과 처리 표는 그대로다.
 - Kev 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 고지 문구는 "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."이고 API가 `KevAssist.disclaimer`로 내려 준다([[05-API-SPEC|05 API]]).
 - Kev가 결과를 냈으면 `recommendationBasis=RULES_WITH_KEV_ASSIST`, Kev가 없으면(비활성·장애) `RULES_ONLY`다(§5.3 표와 같다).
 - Kev 출력이 할 수 있는 일은 `review_flags` 추가와 참고 지표 표시뿐이다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 절대 규칙).
 
-같은 run에 붙을 수 있는 다른 새 플래그(파이프라인 실패 유형). 이것들도 점수 계산식을 바꾸지 않는다. 입력이 비면 §4 missing 정책과 §5.1 `NEEDS_REVIEW`가 그대로 적용될 뿐이다.
-
-| 플래그 | 조건 | 결과 |
-|---|---|---|
-| `DOCUMENT_DOWNLOAD_FAILED` | 첨부 다운로드 실패 | 본문만으로 추출. 첨부에 의존하는 항목은 `NEEDS_REVIEW`(`PARSE_UNSUPPORTED`) |
-| `PARSE_UNSUPPORTED` | 첨부 파싱 실패·부분 파싱·미지원 형식 | 위와 같다. 읽지 못한 내용을 AI가 추측해 채우지 않는다 |
-| `QWEN_UNAVAILABLE` | Qwen 서버 미접속 | 캐시된 추출을 쓴다. 없으면 모든 필드 `UNKNOWN` → `PARTIAL` |
-| `KEV_UNAVAILABLE` | Kev 서버 미접속 | `kev.enabled=false`, `RULES_ONLY` |
-| `MOCK_FALLBACK` | `AI_FALLBACK_TO_MOCK=true`에서 mock 자동 대체가 실제로 일어남(`live`에서는 켤 수 없다) | `ai_provider=MOCK`, `fallback_reason` 기록, 화면 배너 "모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)" |
+같은 run에 붙을 수 있는 파이프라인 실패 플래그(`DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED`·`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`·`MOCK_FALLBACK`)의 조건과 처리는 [[03-AI-PIPELINE|03 AI 파이프라인]] §8이 정본이다(첨부 쪽 플래그는 §5.13에도 있다). 이것들도 점수 계산식을 바꾸지 않는다. 입력이 비면 §4 missing 정책과 §5.1 `NEEDS_REVIEW`가 그대로 적용될 뿐이다.
 
 ### 5.5 Kev를 점수에 반영하려면
 
@@ -311,8 +288,10 @@ Kev v0.2의 플래그 처리. 어느 플래그도 규칙 판정·점수·권고�
 | 미보유 자격 (`licenses`, `status: NOT_HELD`) | 정보통신공사업 등록, 방산업체 지정, ISMS-P, CSAP. 보유하지 않음을 프로필에 명시적으로 기록한다(§5.1). 이 기록이 있어야 `FX-03`이 `NOT_SATISFIED`가 된다 |
 | 프로필 구분 | `isDemo=true`(가상 프로필, 모든 실행 모드 공통) |
 | 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 200, 단일 사업 수행 상한 `maxContractKrw` 50억 |
-| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 명부 200명. 그 안의 점수 계산 대상 하위 집합(`scoringEligible=true`)은 PM 2, PL 4, 개발 18, 데이터·AI 3의 27명. 나머지 173명은 계산 대상에서 제외. 2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외) |
+| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 명부 200명. 그 안의 점수 계산 대상 하위 집합(`scoringEligible=true`)은 PM 2, PL 4, 개발 18, 데이터·AI 3의 27명. 나머지 173명은 계산 대상에서 제외. 2026-12~2027-06 구간 가용 20 FTE(기존 배정 제외). 기존 사업 투입 7명은 `assignments`가 아니라 `team_member_scoring.availability`의 해당 기간 fte를 낮춘 가용 창으로 들어간다(창을 나누고 덧붙이지 않는다. `assignments`는 데모 2건만, main `3e181b7`, [[16-DECISIONS\|ADR-030]] B19) |
 | 선호 (`preferences`) | `agencies: []`, `agencyTypes: [지자체, 교육청]`, `domains: [데이터 플랫폼, AX, 민원, 교육]`, `excludedDomains: [국방]`, `excludedKeywords: [무기체계]` |
+| 기술 목록 완결 (`technologiesComplete`) | `true`. 요구 기술이 `technologies`(별칭 포함)에 없으면 `requirement_assessments` 기술 항목이 `NOT_SATISFIED`가 된다(§5.1, `web/server/scoring/requirement-assessment.ts`). 점수·권고(94/72/68, BID/WATCH/NO-BID)에는 영향이 없다 |
+| 업종 코드 (`industryCodes`) | 빈 목록 `[]`. 공고가 업종 코드를 요구하면 그 항목은 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다 |
 
 | 실적 ID | 사업명 (가상) | 분야 | 금액 | 완료 | 증빙 |
 |---|---|---|---:|---|---|
@@ -322,8 +301,7 @@ Kev v0.2의 플래그 처리. 어느 플래그도 규칙 판정·점수·권고�
 
 세 실적 모두 완료 3년 이내라 최근성 계수는 1.0이다. 최대 실적 금액은 28억.
 
-> [!todo] 정할 것 — seed의 `technologiesComplete`·`industryCodes`
-> 솔리데오 seed 프로필의 `technologiesComplete` 값과 `industryCodes` 목록은 아직 정하지 않았다. 둘 다 §6의 점수·권고(94/72/68, BID/WATCH/NO-BID)에는 영향이 없다. 바뀌는 것은 `requirement_assessments`의 기술 항목 판정(`NOT_SATISFIED` 또는 `NEEDS_REVIEW`/`COMPANY_EVIDENCE_MISSING`)뿐이다. 값을 정하면 이 표와 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1에 함께 적는다.
+프로필 값의 데이터 파일은 `fixtures/company/solideo-profile.json`(revision 2)이다. `technologiesComplete`·`industryCodes` 값도 이 파일에서 왔다(`e22de09`).
 
 ### 6.2 Example A — `FX-01` → BID
 
@@ -367,7 +345,7 @@ Kev v0.2의 플래그 처리. 어느 플래그도 규칙 판정·점수·권고�
 | `pastPerformance` | P2: 분야 0, 금액 28/45 = 0.622, 최근성 1.0, 증빙 1.0 → 0 + 0.187 + 0.3 = 0.487. P1 0.38, P3 0.32. 최대 | **0.487** | 12.2 |
 | `staffAvailability` | 예산 구간 20~50억 = 20 FTE, 가용 20 → 1.0, 영업일 11 → 1.0 | **1.00** | 20.0 |
 | `scaleFit` | 45억 / 28억 = 1.61 → 0.6, 상한 50억 이내 | **0.60** | 9.0 |
-| `strategicPreference` | 제외 키워드 없음. 분야 스마트시티 ∉ domains → 0.5, 부산광역시 → 유형 지자체 ∈ agencies → 1.0 | 0.3 + 0.4 = **0.70** | 7.0 |
+| `strategicPreference` | 제외 키워드 없음. 분야 스마트시티 ∉ domains → 0.5, 부산광역시 → 유형 지자체 ∈ agencyTypes → 1.0 | 0.3 + 0.4 = **0.70** | 7.0 |
 | 합계 | | | **68.2 → 68** |
 
 결정 경로: **필수자격 명확히 미충족 → NO-BID**. 점수 68은 참고용으로만 표시한다. Kev(mock): BID 0.55 / WATCH 0.30 / NO_BID 0.15 → 상충. 처리: 권고는 NO-BID 유지, `reviewFlags:["MODEL_RULE_DISAGREEMENT"]`, 상세 화면에 "Kev는 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다" 배너, 사람 검토 항목에 올림. 골든 시나리오 G3([[11-TESTING|11 테스트]]).
@@ -387,17 +365,18 @@ Kev v0.2의 플래그 처리. 어느 플래그도 규칙 판정·점수·권고�
 
 ## 7. 저장 형식
 
-`score_runs` 1건 + `score_factors` 5건(`factor` 값은 05 `FactorKey`: `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference`). 각 factor 행은 `raw_value`(위 표의 raw 열에 해당하는 JSON), `points`, `max_points`, `evidence`(매칭된 기술 목록, 선택된 실적 ID, FTE 계산 근거, `EvidenceRef` 배열)를 가진다. `score_runs.model_metadata`에 Kev 모델 식별자·질문 4종의 출력·`prompt_hash`·처리 시간, `review_flags[]`·`missing_factors[]`는 04의 전용 열에, `input_snapshot`에는 `AnalysisInput`(입력 전체)과 `input_snapshot_hash`를 넣는다. API 응답 형태는 [[05-API-SPEC|05 API]]의 `AnalysisResult`.
+`score_runs` 1건 + `score_factors` 5건(`factor` 값은 05 `FactorKey`: `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference`). 각 factor 행은 `raw_value`(위 표의 raw 열에 해당하는 JSON), `points`, `max_points`, `evidence`(매칭된 기술 목록, 선택된 실적 ID, FTE 계산 근거, `EvidenceRef` 배열)를 가진다. `score_runs.model_metadata`에 Kev 모델 식별자·`prompt_hash`·처리 시간, Kev 질문 4종의 출력(wire 응답 원문)은 `score_runs.kev_output`에, `review_flags[]`·`missing_factors[]`는 04의 전용 열에, `input_snapshot`에는 `AnalysisInput`(입력 전체)과 `input_snapshot_hash`를 넣는다. API 응답 형태는 [[05-API-SPEC|05 API]]의 `AnalysisResult`.
 
-[[16-DECISIONS|ADR-020]]으로 더해지는 것: `score_runs.run_mode`(실행 모드)·`kev_calibration`(τ 보정 상태)·`fallback_reason`(mock 자동 대체 원인), `score_runs.kev_output`에 Kev 응답 원문과 `KevStateTrace`, 요구사항 항목마다 `requirement_assessments` 1행(규칙 판정·사유·`basis`·양쪽 근거·Kev 분포·라벨·플래그), `qualification_checks`의 `reason_code`·`company_evidence`·`basis`([[04-DATABASE|04 DB]] §3.4). `kev-qs/v0.2` run의 `model_metadata`에는 v0.2 질문 출력도 들어간다.
+[[16-DECISIONS|ADR-020]]으로 더해지는 것: `score_runs.run_mode`(실행 모드)·`kev_calibration`(τ 보정 상태)·`fallback_reason`(mock 자동 대체 원인), `score_runs.kev_output`에 Kev 응답 원문과 `KevStateTrace`, 요구사항 항목마다 `requirement_assessments` 1행(규칙 판정·사유·`basis`·양쪽 근거·Kev 분포·라벨·플래그), `qualification_checks`의 `reason_code`·`company_evidence`·`basis`([[04-DATABASE|04 DB]] §3.4). `kev-qs/v0.2` run의 `kev_output`에는 v0.2 질문 출력(24개씩 나눈 요청이면 응답 전부)도 들어간다([[03-AI-PIPELINE|03 AI 파이프라인]] §7).
+
+규칙 엔진 출력의 `explanation`에는 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않는다. 화면에 보이는 설명은 분석 메타의 `explanation`(gateway `/explain` 문장 또는 템플릿 문장)이다([[03-AI-PIPELINE|03 AI 파이프라인]] §2.1, [[16-DECISIONS|ADR-030]] B24).
 
 ## 8. 검증
 
-- 골든셋: `fixtures/goldens/FX-xx.json`에 요소별 points와 최종 권고를 고정하고 규칙 단위 테스트(Vitest, `web/server/scoring/*.test.ts`) 100% 통과.
+- 골든셋: `fixtures/goldens/FX-xx.json`에 요소별 points와 최종 권고를 고정하고 규칙 단위 테스트(Vitest, `web/server/scoring/*.test.ts`) 100% 통과. 단언은 `mock` 모드에서만 한다(§1).
 - 재현성: 같은 `input_snapshot_hash` + `algorithm_version`이면 같은 `score`와 같은 요소별 `points`. 두 번 계산해 byte-동일.
 - 요소별 missing 정책 테스트(§4 표의 행마다 1개).
 - Kev 승격 금지 테스트(`FX-03`, `FX-16`). 골든 시나리오 G3.
-- 골든은 `mock` 실행 모드에서만 단언한다(§1). `fixture`·`live` 모드 결과에는 골든 수치를 요구하지 않는다.
 - 판정 라벨 테스트(§5.1, ADR-020 P0-5): 정보 부족 → `NEEDS_REVIEW`이지 `NOT_SATISFIED`가 아님(공고 `UNKNOWN`, 회사 기록 없음, `technologiesComplete=false`, 첨부 미파싱 각각), `NOT_SATISFIED`는 양쪽 근거가 있을 때만, `NEEDS_REVIEW`에는 사유 코드가 반드시 있음.
 - API 구조화 필드 우선 테스트(§5.1): API 필드와 추출이 같으면 `basis=API_FIELD`, 다르면 `CONFLICTED` → `NEEDS_REVIEW`(`NOTICE_CONFLICTED`), 면허제한 여러 행 → `AMBIGUOUS_MATCH`.
 - Kev v0.2 규칙 불변 테스트(§5.4, ADR-020 P0-6): Kev 분포를 극단값으로 바꿔도 규칙 판정·요소 points·SOL Score·권고가 byte-동일하고 `reviewFlags`만 달라진다.

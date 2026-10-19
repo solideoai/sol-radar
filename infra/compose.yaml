@@ -113,7 +113,7 @@ services:
       KEV_MODEL_ID: ${KEV_MODEL_ID:-}
       KEV_QUESTION_SET: ${KEV_QUESTION_SET:-}
       KEV_API_KEY: ${KEV_API_KEY:-}
-    # ai-local 터널(호스트의 SSH -L)에 닿기 위한 호스트 별칭
+    # 호스트에서 띄운 서비스(예: 로컬 Supabase CLI)에 닿기 위한 호스트 별칭. 모델 엔드포인트는 HTTPS 라 이 별칭을 쓰지 않는다(ADR-025)
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -151,6 +151,14 @@ services:
       G2B_PRE_SPEC_SERVICE_KEY: ${G2B_PRE_SPEC_SERVICE_KEY:-}
       G2B_ORDER_PLAN_SERVICE_KEY: ${G2B_ORDER_PLAN_SERVICE_KEY:-}
       G2B_INDUSTRY_MASTER_SERVICE_KEY: ${G2B_INDUSTRY_MASTER_SERVICE_KEY:-}
+      # 수집 worker 입력(C3). 이미지 컨텍스트가 web/ 라 fixture·소스 registry 는 저장소에서 읽기 전용으로 붙인다.
+      # 컨테이너 안 경로는 여기서 고정한다(infra/.env 로 바꾸지 않는다). 호스트에서 직접 돌릴 때는 코드 기본값(저장소 경로)을 쓴다.
+      FIXTURES_DIR: /srv/sol-radar/fixtures
+      SOURCES_REGISTRY_FILE: /srv/sol-radar/infra/sources/registry.yaml
+    volumes:
+      - ../fixtures:/srv/sol-radar/fixtures:ro
+      # infra/sources/registry.yaml 은 C3 병합 때 들어온다. 폴더가 없으면 Compose 가 빈 폴더를 만들고 live 모드는 registry 가 없어 기동을 거부한다.
+      - ../infra/sources:/srv/sol-radar/infra/sources:ro
     depends_on:
       redis:
         condition: service_healthy
