@@ -164,7 +164,8 @@ export {
 } from "./attachment-allowlist";
 export { createFixtureAttachmentFetcher } from "./fixture-attachment-fetcher";
 
-export { EMPTY_INGEST_SUMMARY } from "./ingestion.repo";
+export { EMPTY_INGEST_SUMMARY } from "./ingestion.port";
+export { createSupabaseIngestAudit, createSupabaseIngestionRepo } from "./ingestion.repo";
 export type {
   IngestErrorInput,
   IngestionRepo,
@@ -178,11 +179,23 @@ export type {
   SaveRevisionInput,
   StartedRun,
   StartRunInput,
-} from "./ingestion.repo";
+} from "./ingestion.port";
 
-// demo:reset 의 SEED 적재 진입점
 export { FIXTURE_ANCHOR_PARAM, SEED_ANCHOR_MISSING, runIngest } from "./ingestion.service";
-export type { IdFor, IngestRunResult, RunIngestInput, SavedBidRevision } from "./ingestion.service";
+export type {
+  IdFor,
+  IngestRunResult,
+  QuarantinedRecord,
+  RunIngestInput,
+  SavedBidRevision,
+} from "./ingestion.service";
+// demo:reset 의 공고 SEED 적재 진입점(6-5)
+export { DEMO_RESET_SEED_JOB_KEY, seedFixtureBids } from "./seed-fixture-bids";
+export type {
+  SeedFixtureBid,
+  SeedFixtureBidsInput,
+  SeedFixtureBidsResult,
+} from "./seed-fixture-bids";
 
 // ── Stage 3: 나라장터 입찰공고 목록(OfficialApiConnector) ──
 export {

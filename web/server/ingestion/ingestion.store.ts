@@ -1,11 +1,14 @@
 import "server-only";
-import type { Json, Tables } from "@/lib/database.types";
+import { z } from "zod";
+import type { Json, Tables, TablesInsert } from "@/lib/database.types";
 import type {
+  IngestErrorInput,
   IngestRunStatus,
   IngestSummary,
   SaveRevisionInput,
   StartedRun,
-} from "./ingestion.repo";
+  StartRunInput,
+} from "./ingestion.port";
 import { normalizedBidSchema } from "./normalized-bid.model";
 import type { StoredRevision } from "./revision";
 
@@ -130,3 +133,86 @@ export function toStartedRun(row: Tables<"ingest_runs">): StartedRun {
     params: isPlainObject(row.params) ? row.params : null,
   };
 }
+
+const EMPTY_SUMMARY: IngestSummary = {
+  created: 0,
+  changed: 0,
+  cancelled: 0,
+  skippedDuplicate: 0,
+  quarantined: 0,
+  retried: 0,
+};
+
+/** startRun 이 새로 넣는 ingest_runs 행. 상태는 RUNNING, 집계는 0 에서 시작한다. */
+export function toIngestRunInsert(input: StartRunInput): TablesInsert<"ingest_runs"> {
+  return {
+    source: input.source,
+    run_mode: input.runMode,
+    job_key: input.jobKey,
+    trigger: input.trigger,
+    batch: input.batch,
+    params: input.params === null ? null : jsonCopy(input.params),
+    requested_by: input.requestedBy ?? null,
+    idempotency_key: input.idempotencyKey ?? null,
+    status: "RUNNING",
+    summary: jsonCopy(EMPTY_SUMMARY),
+  };
+}
+
+export const toSummaryJson = (summary: IngestSummary): Json => jsonCopy(summary);
+
+export const toIngestErrorInsert = (
+  runId: string,
+  error: IngestErrorInput,
+): TablesInsert<"ingest_errors"> => ({
+  ingest_run_id: runId,
+  source_key: error.sourceKey,
+  error_code: error.errorCode,
+  result_code: error.resultCode,
+  redacted_detail: error.redactedDetail,
+});
+
+const isoInstantSchema = z.iso.datetime({ offset: true });
+
+const isoInstantOf = (value: unknown): Date | null =>
+  typeof value === "string" && isoInstantSchema.safeParse(value).success
+    ? new Date(Date.parse(value))
+    : null;
+
+/** SEED run 의 params.anchor(5-B). ISO 시각이 아니면 null 이다. */
+export const anchorOfParams = (params: Json | null): Date | null =>
+  isPlainObject(params) ? isoInstantOf(params.anchor) : null;
+
+/** g2b run 의 params.window.to(6-2). ISO 시각이 아니면 null 이다. */
+export const windowEndOfParams = (params: Json | null): Date | null => {
+  const window = isPlainObject(params) ? params.window : null;
+  return isPlainObject(window) ? isoInstantOf(window.to) : null;
+};
+
+/** 수동 수집 감사 한 줄(6-6). 조직 소유 감사라 org_id 가 있어야 한다. */
+export const toManualAuditInsert = (input: {
+  orgId: string;
+  actorId: string | null;
+  runId: string;
+}): TablesInsert<"audit_logs"> => ({
+  org_id: input.orgId,
+  actor_id: input.actorId,
+  action: "INGEST_MANUAL",
+  target_type: "ingest_run",
+  target_id: input.runId,
+  before_after: {},
+});
+
+const RPC_ERROR_CODE = /^INGEST_[A-Z_]+$/;
+
+/**
+ * DB 오류 → 기록할 수 있는 코드. RPC 의 거절은 메시지가 곧 코드(INGEST_BID_EXISTS 등)이고, 그 밖은 SQLSTATE 만 쓴다.
+ * 메시지·details 는 행 값을 담을 수 있어 싣지 않는다.
+ */
+export const dbErrorCodeOf = (error: { code?: string; message?: string }): string => {
+  const message = error.message?.trim() ?? "";
+  if (RPC_ERROR_CODE.test(message)) return message;
+  return typeof error.code === "string" && /^[A-Z0-9_]{1,40}$/.test(error.code)
+    ? error.code
+    : "UNKNOWN";
+};

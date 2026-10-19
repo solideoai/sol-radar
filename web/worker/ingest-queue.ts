@@ -136,6 +136,7 @@ async function rejectRunMode(run: StartRunInput, deps: IngestJobDeps): Promise<I
     status: isFinished ? started.status : "FAILED",
     summary: started.summary,
     saved: [],
+    quarantined: [],
     resumedFromCursor: isFinished ? null : started.cursor,
     alreadyFinished: isFinished,
   };

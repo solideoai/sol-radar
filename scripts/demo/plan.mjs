@@ -1,11 +1,10 @@
 // demo/plan.mjs — 데모 seed(pnpm demo:reset)의 순수 계획. 디스크·네트워크·시각을 모른다.
 //
-// 정본: docs/04-DATABASE.md §6(seed 범위·멱등), docs/07-DATA-PIPELINE.md §6(fixture·상대 날짜·SEED 집계),
-// docs/15-DATA-CONTRACTS.md §3(NormalizedBid·checksum), docs/08-SCORING.md §6.1(회사 프로필),
+// 정본: docs/04-DATABASE.md §6(seed 범위·멱등), docs/08-SCORING.md §6.1(회사 프로필),
 // docs/19-DEMO-SCENARIO.md §1(계정)·§3(사전 리뷰), docs/10-DEPLOYMENT.md 기동 절차 6(마지막 줄 형식).
 //
-// 여기 함수는 모두 같은 입력에 같은 출력을 낸다. 실제로 넣는 일은 scripts/demo/bid-notices.mjs(공고)와
-// scripts/demo-reset.mjs(나머지)가 한다. 시험은 scripts/demo-reset.test.mjs.
+// 여기 함수는 모두 같은 입력에 같은 출력을 낸다. 공고 적재는 C3 수집 도메인(seedFixtureBids)이, 나머지 적재는
+// scripts/demo-reset.mjs·scripts/demo/bid-notices.mjs 가 한다. 시험은 scripts/demo-reset.test.mjs.
 import { createHash } from "node:crypto";
 import { orgUuid, personUuid } from "../people/seed.mjs";
 
@@ -101,11 +100,10 @@ export const accountMetadata = (account) => ({
 
 // ── 3. 날짜 ────────────────────────────────────────────────────
 //
-// fixture 의 날짜는 "+21d"·"-3d" 같은 상대 표기다. anchor(seed 시각)의 서울 날짜에 n 일을 더하고,
-// 시각 없는 날짜는 KST 18:00 으로 간주해 UTC 로 저장한다(07 §3·§6.1). 그래서 "+2d" 는 늘 UTC 09:00 이다.
+// 회사 프로필·배정의 유효 시각은 서울 날짜의 0시다. 공고의 상대 날짜(+Nd → KST 18:00)는 C3 수집 도메인
+// (web/server/ingestion normalize-date)이 푼다.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RELATIVE_DATE = /^([+-])(\d+)d$/;
 
 export const seoulDate = (at) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(at);
@@ -115,221 +113,23 @@ export const addDays = (date, days) => {
   return new Date(Date.UTC(year, month - 1, day) + days * DAY_MS).toISOString().slice(0, 10);
 };
 
-export const resolveRelativeDate = (text, anchor) => {
-  if (text === null || text === undefined) return null;
-  const match = RELATIVE_DATE.exec(text);
-  if (!match) throw new Error(`상대 날짜 표기가 아닙니다: ${text}`);
-  const days = (match[1] === "-" ? -1 : 1) * Number(match[2]);
-  return new Date(`${addDays(seoulDate(anchor), days)}T18:00:00+09:00`).toISOString();
-};
-
 // 서울 날짜(YYYY-MM-DD)의 0시를 UTC ISO 로. 배정·프로필 유효 시각에 쓴다.
 export const seoulMidnight = (date) => new Date(`${date}T00:00:00+09:00`).toISOString();
 
-// ── 4. 금액 ────────────────────────────────────────────────────
+// ── 4. 공고 id ─────────────────────────────────────────────────
 //
-// "1,500백만원"·"21.6억" 같은 원문을 KRW 정수 문자열로 바꾼다(07 §3 금액 정규화). 환산이 정수로 떨어지지 않거나
-// 단위를 모르면 null 과 경고(BUDGET_UNPARSED)를 돌려주고 원문은 original 에 남긴다(15 §6).
-
-const BUDGET_UNITS = [
-  ["백만원", 1_000_000n],
-  ["천원", 1_000n],
-  ["억원", 100_000_000n],
-  ["억", 100_000_000n],
-  ["원", 1n],
-];
-const BUDGET_TEXT = /^([\d,]+(?:\.\d+)?)\s*(백만원|천원|억원|억|원)$/;
-
-export const parseBudgetKrw = (text) => {
-  if (text === null || text === undefined) return { value: null, note: null };
-  const trimmed = String(text).trim();
-  if (/^\d+$/.test(trimmed)) return { value: trimmed, note: null };
-  const match = BUDGET_TEXT.exec(trimmed);
-  if (!match) return { value: null, note: `BUDGET_UNPARSED:${trimmed}` };
-  const [whole, fraction = ""] = match[1].replaceAll(",", "").split(".");
-  const unit = BUDGET_UNITS.find(([name]) => name === match[2])[1];
-  const scaled = BigInt(`${whole}${fraction}`) * unit;
-  const scale = 10n ** BigInt(fraction.length);
-  if (scaled % scale !== 0n) return { value: null, note: `BUDGET_UNPARSED:${trimmed}` };
-  return { value: (scaled / scale).toString(), note: `budgetKrw 를 원문 "${trimmed}" 에서 환산` };
-};
-
-// ── 5. NormalizedBid 와 checksum ───────────────────────────────
-
-// 키를 정렬하고 공백 없이, undefined 는 빼고 직렬화한다. 같은 내용이면 어디서 만들어도 같은 문자열이다.
-const sortKeys = (value) =>
-  Array.isArray(value)
-    ? value.map(sortKeys)
-    : value !== null && typeof value === "object"
-      ? Object.fromEntries(
-          Object.keys(value)
-            .filter((key) => value[key] !== undefined)
-            .sort()
-            .map((key) => [key, sortKeys(value[key])]),
-        )
-      : value;
-
-export const canonicalJson = (value) => JSON.stringify(sortKeys(value));
-
-// 15 §3: checksum = sha256(canonical JSON, fetchedAt·checksum 제외).
-export const checksumOf = (bid) => {
-  const { fetchedAt: _fetchedAt, checksum: _checksum, ...rest } = bid;
-  return createHash("sha256").update(canonicalJson(rest)).digest("hex");
-};
-
-// 15 §3 의 필수 필드 가운데 fixture 레코드가 채워야 하는 것. 비면 격리한다(source·fetchedAt 은 seed 가 채운다).
-const REQUIRED_RECORD_FIELDS = ["noticeId", "title", "sourceUrl", "stage"];
-const isText = (value) => typeof value === "string" && value.trim() !== "";
-
-export const missingRequiredFields = (record) =>
-  REQUIRED_RECORD_FIELDS.filter((field) => !isText(record?.[field]));
-
-const ATTACHMENT_HOST = "https://demo.sol-radar.invalid/";
-
-// fixture 첨부는 MinIO objectKey 만 있다. NormalizedBid 의 url 은 같은 예약 도메인 아래 그 키로 둔다(열리지 않는다).
-export const attachmentUrl = (attachment) =>
-  `${ATTACHMENT_HOST}${String(attachment.objectKey ?? attachment.name).replace(/^\/+/, "")}`;
-
-export const normalizeFixtureRecord = ({ record, revision, anchor, fetchedAt }) => {
-  const budget = parseBudgetKrw(record.budgetKrw ?? null);
-  const notes = [];
-  if (record.noticeDate || record.deadlineAt) notes.push("시각 없는 날짜를 KST 18:00 으로 간주");
-  if (budget.note) notes.push(budget.note);
-  const bid = {
-    schemaVersion: "normalized-bid/v0.2",
-    source: "fixture",
-    noticeId: record.noticeId,
-    revision,
-    ...(record.amendmentNo ? { amendmentNo: record.amendmentNo } : {}),
-    ...(record.planRef ? { planRef: record.planRef } : {}),
-    stage: record.stage,
-    status: record.status ?? (revision === 1 ? "OPEN" : "AMENDED"),
-    title: record.title,
-    agency: record.agency ?? null,
-    budgetKrw: budget.value,
-    noticeDate: resolveRelativeDate(record.noticeDate ?? null, anchor),
-    deadlineAt: resolveRelativeDate(record.deadlineAt ?? null, anchor),
-    sourceUrl: record.sourceUrl,
-    content: record.content ?? "",
-    attachments: (record.attachments ?? []).map((attachment) => ({
-      name: attachment.name,
-      url: attachmentUrl(attachment),
-    })),
-    structuredQualifications: [],
-    original: {
-      noticeNo: `${record.noticeId}-${record.amendmentNo}`,
-      budget: record.budgetKrw ?? undefined,
-      noticeDate: record.noticeDate ?? undefined,
-      deadline: record.deadlineAt ?? undefined,
-      stage: record.stage,
-      status: record.status,
-    },
-    ...(notes.length ? { normalizationNotes: notes } : {}),
-    isDemo: true,
-    fetchedAt,
-  };
-  return { ...bid, checksum: checksumOf(bid) };
-};
-
-// ── 6. SEED 배치 계획 ───────────────────────────────────────────
-//
-// manifest.batches.SEED 순서대로 SEED 레코드(각 fixture 의 r1)를 적재 계획으로 바꾼다. 필수 필드가 빈 레코드는
-// 격리(ingest_errors)하고, rate-limit-then-ok 는 429 두 번 뒤 성공이므로 retried 2 로 센다(07 §6.4).
-// 기대 집계: {created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}.
-
-export const RATE_LIMIT_RETRIES = 2;
+// 공고 적재(정규화·checksum·SEED 집계)는 C3 seedFixtureBids 가 한다(C3 6-5). 여기서는 다시 돌려도 같은 공고·revision 이
+// 같은 id 를 갖게 하는 규칙만 둔다. demo:reset 이 seedFixtureBids 의 idFor 로 넘긴다.
 
 export const bidUuid = (source, noticeId) => demoUuid("bid", source, noticeId);
 export const revisionUuid = (source, noticeId, revision) =>
   demoUuid("revision", source, noticeId, revision);
 
-export const planSeedBatch = ({ manifest, bids }, { anchor }) => {
-  const fetchedAt = anchor.toISOString();
-  const summary = {
-    created: 0,
-    changed: 0,
-    cancelled: 0,
-    skippedDuplicate: 0,
-    quarantined: 0,
-    retried: 0,
-  };
-  const created = [];
-  const quarantined = [];
-  for (const fixtureId of manifest.batches.SEED) {
-    const fixture = bids[fixtureId];
-    if (!fixture) throw new Error(`manifest 의 SEED 배치에 있는 fixture 가 없습니다: ${fixtureId}`);
-    if (fixture.connectorBehavior === "rate-limit-then-ok") summary.retried += RATE_LIMIT_RETRIES;
-    for (const record of fixture.records.filter((entry) => entry.ingestBatch === "SEED")) {
-      const missing = missingRequiredFields(record);
-      if (missing.length > 0) {
-        quarantined.push({ fixtureId, noticeId: record.noticeId ?? null, missing });
-        summary.quarantined += 1;
-        continue;
-      }
-      const normalized = normalizeFixtureRecord({ record, revision: 1, anchor, fetchedAt });
-      created.push({
-        fixtureId,
-        record,
-        normalized,
-        bidId: bidUuid(normalized.source, normalized.noticeId),
-        revisionId: revisionUuid(normalized.source, normalized.noticeId, 1),
-      });
-      summary.created += 1;
-    }
-  }
-  return { created, quarantined, summary, fetchedAt };
-};
+/** C3 IdFor 와 같은 모양. 공고 id 는 차수와 무관하고 revision id 는 차수까지 넣는다. */
+export const demoIdFor = (kind, { source, noticeId, revision }) =>
+  kind === "bid" ? bidUuid(source, noticeId) : revisionUuid(source, noticeId, revision);
 
-// 계획 → 공고 다섯 표에 넣을 행. 한 번에 넣는 행은 같은 키를 가져야 한다(PostgREST 일괄 insert 규칙).
-export const toBidRows = ({ created, fetchedAt }) => {
-  const notices = created.map(({ bidId, normalized }) => ({
-    id: bidId,
-    source: normalized.source,
-    notice_id: normalized.noticeId,
-    plan_ref: normalized.planRef ?? null,
-    pre_spec_ref: normalized.preSpecRef ?? null,
-    title: normalized.title,
-    agency: normalized.agency,
-    stage: normalized.stage,
-    status: normalized.status,
-    budget_krw: normalized.budgetKrw,
-    published_at: normalized.noticeDate,
-    deadline_at: normalized.deadlineAt,
-    source_url: normalized.sourceUrl,
-    latest_revision: 1,
-    // 04 는 content_hash 의 계산식을 정하지 않았다. 최신 revision 의 checksum 으로 둔다(C3 수집 코드가 정하면 따른다).
-    content_hash: normalized.checksum,
-    is_demo: true,
-    last_synced_at: fetchedAt,
-  }));
-  const revisions = created.map(({ bidId, revisionId, fixtureId, record, normalized }) => ({
-    id: revisionId,
-    bid_id: bidId,
-    revision: 1,
-    amendment_no: normalized.amendmentNo ?? null,
-    // fixtureId 는 분석 job 이 mock 재추출 때 fixture 를 고르는 키다(C3 수집도 같은 모양으로 저장한다). checksum 은 normalized 만 본다.
-    raw_payload: { fixtureId, ...record },
-    normalized,
-    checksum: normalized.checksum,
-    changed_fields: [],
-    fetched_at: fetchedAt,
-  }));
-  // 첨부 파일(fixtures/docs/)은 아직 없다(07 §6.5 Phase 2). 다운로드 전 상태(PENDING, 파싱 없음)로만 적는다 —
-  // sha256·크기를 지어내면 download_status=OK 의 check 를 속이는 가짜 완료가 된다.
-  const documents = created.flatMap(({ bidId, revisionId, normalized }) =>
-    normalized.attachments.map((attachment, index) => ({
-      id: demoUuid("document", normalized.source, normalized.noticeId, 1, index),
-      bid_id: bidId,
-      revision_id: revisionId,
-      name: attachment.name,
-      original_url: attachment.url,
-      download_status: "PENDING",
-    })),
-  );
-  return { notices, revisions, documents };
-};
-
-// ── 7. 수집 run 과 격리 ────────────────────────────────────────
+// ── 5. 실행 모드 ───────────────────────────────────────────────
 
 const RUN_MODES = { live: "LIVE", fixture: "FIXTURE", mock: "MOCK" };
 
@@ -339,49 +139,7 @@ export const toRunMode = (value) => {
   return mode;
 };
 
-export const SEED_JOB_KEY = "fixture:SEED:demo-reset";
-
-export const toIngestRows = ({
-  summary,
-  quarantined,
-  fetchedAt,
-  finishedAt,
-  runMode,
-  order,
-  anchor,
-}) => {
-  const runId = demoUuid("ingest_run", "fixture", "SEED");
-  const run = {
-    id: runId,
-    source: "fixture",
-    run_mode: runMode,
-    job_key: SEED_JOB_KEY,
-    trigger: "DEMO",
-    batch: "SEED",
-    // anchor 는 C3 runIngest SEED 계약과 같다: LIVE 배치가 최근 SEED run 의 params.anchor 를 써야 FX-09 중복 감지가 맞는다.
-    params: { fixtures: order, anchor },
-    cursor: null,
-    status: summary.quarantined > 0 ? "PARTIAL" : "SUCCEEDED",
-    summary,
-    quota_used: 0,
-    requested_by: null,
-    idempotency_key: SEED_JOB_KEY,
-    started_at: fetchedAt,
-    finished_at: finishedAt,
-  };
-  // redacted_detail 에는 담당자 정보·키가 없는 요약만 남긴다(15 §6).
-  const errors = quarantined.map(({ fixtureId, noticeId, missing }) => ({
-    id: demoUuid("ingest_error", "fixture", "SEED", fixtureId),
-    ingest_run_id: runId,
-    source_key: "fixture",
-    error_code: "MISSING_REQUIRED_FIELD",
-    result_code: null,
-    redacted_detail: `${fixtureId} ${noticeId ?? "(noticeId 없음)"}: 필수 필드 누락(${missing.join(", ")})`,
-  }));
-  return { run, errors };
-};
-
-// ── 8. mock 추출(requirement_extractions) ─────────────────────
+// ── 6. mock 추출(requirement_extractions) ─────────────────────
 //
 // fixtures/extractions/FX-xx.json 은 마지막 revision, FX-xx.rNN.json 은 앞선 revision 이다(07 §6.5). SEED 는 r1 만
 // 적재하므로 rNN 파일이 있으면 그것을, 없으면 FX-xx.json 을 r1 에 쓴다. 파일 안의 "FX-xx"·"FX-xx#NN" 은 UUID 로 바꾼다.
@@ -459,7 +217,7 @@ export const toExtractionRow = ({ fixtureId, bidId, revisionId, revision, extrac
   };
 };
 
-// ── 9. 회사 프로필 ─────────────────────────────────────────────
+// ── 7. 회사 프로필 ─────────────────────────────────────────────
 //
 // fixtures/company/solideo-profile.json 이 revision 2(08 §6.1 단일 원천)다. revision 1 은 "초기 등록" — 전자정부
 // 세대 기술 4개와 2024년 실적 2건만 있고 기술 목록이 완전하지 않다(technologiesComplete=false). 데모는 두 revision
@@ -526,7 +284,7 @@ export const planCompanyProfiles = ({ profile, anchor, createdBy }) => {
   return [revision1, revision2, isolation];
 };
 
-// ── 10. 사전 리뷰·배정·감사 ────────────────────────────────────
+// ── 8. 사전 리뷰·배정·감사 ────────────────────────────────────
 
 // 19 §3: FX-01 BID, FX-03 NO-BID 를 seed 가 미리 기록한다(FX-02 WATCH 는 S4 에서 라이브로). score_run 없이
 // system_recommendation 을 직접 적고(트리거가 그대로 쓴다), 사유는 10~2000자 check 를 지킨다.
@@ -617,7 +375,7 @@ export const toSeedAuditRows = ({ counts, summary, anchor }) =>
     request_id: null,
   }));
 
-// ── 11. 마지막 줄 ──────────────────────────────────────────────
+// ── 9. 마지막 줄 ──────────────────────────────────────────────
 //
 // 10 기동 절차 6 이 글자 그대로 비교한다. 순서·이름을 바꾸지 않는다.
 
@@ -637,7 +395,7 @@ export const EXPECTED_COUNTS = {
   reviews: 2,
 };
 
-// ── 12. 환경 변수 ──────────────────────────────────────────────
+// ── 10. 환경 변수 ──────────────────────────────────────────────
 //
 // 루트 .env.local 의 세 값. 셸 환경이 파일보다 우선한다(dotenv 와 같다). 값은 어디에도 출력하지 않는다.
 

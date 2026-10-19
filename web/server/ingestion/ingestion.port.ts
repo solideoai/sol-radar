@@ -1,0 +1,92 @@
+import "server-only";
+import type { FixtureBatch } from "./fixture.model";
+import type { BidSource } from "./normalized-bid.model";
+import type { ChangeDecision, StoredRevision } from "./revision";
+
+// ── 수집 저장 포트. 수집 흐름(service)이 기대하는 저장 동작만 적는다 ──
+// 구현은 ingestion.repo.ts(Supabase)와 시험용 ingestion.repo.memory.ts 다. 행 ↔ 포트 변환은 ingestion.store.ts(순수)에 둔다.
+// 재시도에 안전해야 하므로 구현은 DB 유일 제약(04)에 기댄다: ingest_runs(job_key)·bid_notices(source, notice_id)·
+// bid_revisions(bid_id, revision)·outbox(idempotency_key, on conflict do nothing).
+export type IngestRunSource = "fixture" | "g2b";
+export type IngestRunMode = "LIVE" | "FIXTURE" | "MOCK";
+export type IngestTrigger = "SCHEDULED" | "MANUAL" | "DEMO";
+// 04 §4 ingest_status. PARTIAL = 끝까지 처리했지만 일부 레코드를 격리했다.
+export type IngestRunStatus = "RUNNING" | "SUCCEEDED" | "PARTIAL" | "FAILED";
+
+export type IngestSummary = {
+  created: number;
+  changed: number;
+  cancelled: number;
+  skippedDuplicate: number;
+  quarantined: number;
+  retried: number;
+};
+
+export const EMPTY_INGEST_SUMMARY: Readonly<IngestSummary> = Object.freeze({
+  created: 0,
+  changed: 0,
+  cancelled: 0,
+  skippedDuplicate: 0,
+  quarantined: 0,
+  retried: 0,
+});
+
+export type StartRunInput = {
+  source: IngestRunSource;
+  runMode: IngestRunMode;
+  jobKey: string;
+  trigger: IngestTrigger;
+  batch: FixtureBatch | null;
+  params: Record<string, unknown> | null;
+  /** 수동 수집을 요청한 사용자(auth.users id). 일정·데모 실행은 없다 */
+  requestedBy?: string | null;
+  /** 수동 수집 요청의 Idempotency-Key(05) */
+  idempotencyKey?: string | null;
+};
+
+/** 같은 jobKey 의 run 이 이미 있으면 새로 만들지 않고 그것을 돌려준다(재실행 멱등). */
+export type StartedRun = {
+  runId: string;
+  status: IngestRunStatus;
+  cursor: string | null;
+  summary: IngestSummary;
+  /** 처음 시작할 때 저장한 params. 이어 가는 run 이 처음 정한 fixture anchor 를 다시 쓴다(5-B) */
+  params: Record<string, unknown> | null;
+};
+
+export type IngestErrorInput = {
+  sourceKey: string;
+  errorCode: string;
+  resultCode: string | null;
+  redactedDetail: string;
+};
+
+// 중복·이전 차수(STALE)는 저장하지 않는다.
+export type SavedRevisionDecision = Exclude<ChangeDecision, { kind: "DUPLICATE" | "STALE" }>;
+export type SaveRevisionInput = {
+  decision: SavedRevisionDecision;
+  rawPayload: Record<string, unknown>;
+  /** 주면 그 id 로 저장한다(demo:reset 의 결정적 id). 없으면 DB 가 만든다(6-2) */
+  ids?: { bidId?: string; revisionId?: string };
+};
+export type SavedRevision = { bidId: string; revisionId: string };
+
+export type IngestionRepo = {
+  startRun(input: StartRunInput): Promise<StartedRun>;
+  findLatestRevision(source: BidSource, noticeId: string): Promise<StoredRevision | null>;
+  /** source 의 SEED run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(started_at) run 의 params.anchor. ISO 가 아니면 null */
+  findLatestSeedAnchor(source: "fixture"): Promise<Date | null>;
+  /** source 의 run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(started_at) run 의 params.window.to. ISO 가 아니면 null */
+  findLatestRunWindowEnd(source: "g2b"): Promise<Date | null>;
+  /** bid_notices upsert + bid_revisions insert + outbox(event.idempotencyKey) 를 한 트랜잭션으로 */
+  saveRevision(input: SaveRevisionInput): Promise<SavedRevision>;
+  recordError(runId: string, error: IngestErrorInput): Promise<void>;
+  saveCheckpoint(
+    runId: string,
+    checkpoint: { cursor: string | null; summary: IngestSummary },
+  ): Promise<void>;
+  finishRun(
+    runId: string,
+    result: { status: IngestRunStatus; summary: IngestSummary },
+  ): Promise<void>;
+};

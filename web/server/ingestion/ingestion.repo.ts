@@ -1,93 +1,188 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Json, Tables } from "@/lib/database.types";
 import type { FixtureBatch } from "./fixture.model";
-import type { BidSource } from "./normalized-bid.model";
-import type { ChangeDecision, StoredRevision } from "./revision";
+import type { IngestionRepo, IngestRunSource, StartedRun } from "./ingestion.port";
+import {
+  anchorOfParams,
+  dbErrorCodeOf,
+  toIngestErrorInsert,
+  toIngestRunInsert,
+  toManualAuditInsert,
+  toSaveRevisionParams,
+  toStartedRun,
+  toStoredRevision,
+  toSummaryJson,
+  windowEndOfParams,
+} from "./ingestion.store";
 
-// ── 수집 저장 포트. 수집 흐름(service)이 기대하는 저장 동작만 적는다 ──
-// Supabase 구현(createSupabaseIngestionRepo, service role)은 RPC ingest_save_revision(6-1) 타입이 database.types.ts 에 들어온 뒤
-// 이 파일에 붙인다. 행 ↔ 포트 변환 규칙은 ingestion.store.ts(순수)에 둔다.
-// 재시도에 안전해야 하므로 구현은 DB 유일 제약(04)에 기댄다: ingest_runs(job_key)·bid_notices(source, notice_id)·
-// bid_revisions(bid_id, revision)·outbox(idempotency_key, on conflict do nothing).
-export type IngestRunSource = "fixture" | "g2b";
-export type IngestRunMode = "LIVE" | "FIXTURE" | "MOCK";
-export type IngestTrigger = "SCHEDULED" | "MANUAL" | "DEMO";
-// 04 §4 ingest_status. PARTIAL = 끝까지 처리했지만 일부 레코드를 격리했다.
-export type IngestRunStatus = "RUNNING" | "SUCCEEDED" | "PARTIAL" | "FAILED";
+// 포트 타입은 ingestion.port.ts 에 있다. 구현(이 파일)·변환(store)이 서로를 import 하지 않게 나눴다.
+export { EMPTY_INGEST_SUMMARY } from "./ingestion.port";
+export type {
+  IngestRunSource,
+  IngestRunMode,
+  IngestTrigger,
+  IngestRunStatus,
+  IngestSummary,
+  StartRunInput,
+  StartedRun,
+  IngestErrorInput,
+  SavedRevisionDecision,
+  SaveRevisionInput,
+  SavedRevision,
+  IngestionRepo,
+} from "./ingestion.port";
 
-export type IngestSummary = {
-  created: number;
-  changed: number;
-  cancelled: number;
-  skippedDuplicate: number;
-  quarantined: number;
-  retried: number;
-};
+// ── Supabase 구현(service role). worker·demo:reset 이 관리자 연결을 넘긴다 ──
+// RLS 를 무시하는 연결이라 쓰는 표는 공용 수집 표(ingest_*·bid_*·outbox)와 조직을 명시한 감사 한 줄뿐이다.
+// 오류에는 표 이름과 코드만 싣는다. PostgREST 의 message·details 는 행 값을 담을 수 있다.
+type AdminClient = SupabaseClient<Database>;
+type DbError = { code?: string; message?: string };
 
-export const EMPTY_INGEST_SUMMARY: Readonly<IngestSummary> = Object.freeze({
-  created: 0,
-  changed: 0,
-  cancelled: 0,
-  skippedDuplicate: 0,
-  quarantined: 0,
-  retried: 0,
-});
+const UNIQUE_VIOLATION = "23505";
+const FINISHED_RUN_STATUSES = ["SUCCEEDED", "PARTIAL"] as const;
 
-export type StartRunInput = {
-  source: IngestRunSource;
-  runMode: IngestRunMode;
-  jobKey: string;
-  trigger: IngestTrigger;
-  batch: FixtureBatch | null;
-  params: Record<string, unknown> | null;
-  /** 수동 수집을 요청한 사용자(auth.users id). 일정·데모 실행은 없다 */
-  requestedBy?: string | null;
-  /** 수동 수집 요청의 Idempotency-Key(05) */
-  idempotencyKey?: string | null;
-};
+const repoError = (target: string, error: DbError): Error =>
+  new Error(`수집 저장소: ${target} 실패 (${dbErrorCodeOf(error)})`);
 
-/** 같은 jobKey 의 run 이 이미 있으면 새로 만들지 않고 그것을 돌려준다(재실행 멱등). */
-export type StartedRun = {
-  runId: string;
-  status: IngestRunStatus;
-  cursor: string | null;
-  summary: IngestSummary;
-  /** 처음 시작할 때 저장한 params. 이어 가는 run 이 처음 정한 fixture anchor 를 다시 쓴다(5-B) */
-  params: Record<string, unknown> | null;
-};
+export function createSupabaseIngestionRepo(
+  client: AdminClient,
+  options: { now?: () => Date } = {},
+): IngestionRepo {
+  const now = options.now ?? (() => new Date());
 
-export type IngestErrorInput = {
-  sourceKey: string;
-  errorCode: string;
-  resultCode: string | null;
-  redactedDetail: string;
-};
+  const findRun = async (jobKey: string): Promise<Tables<"ingest_runs"> | null> => {
+    const { data, error } = await client
+      .from("ingest_runs")
+      .select("*")
+      .eq("job_key", jobKey)
+      .maybeSingle();
+    if (error) throw repoError("ingest_runs 조회", error);
+    return data;
+  };
 
-// 중복·이전 차수(STALE)는 저장하지 않는다.
-export type SavedRevisionDecision = Exclude<ChangeDecision, { kind: "DUPLICATE" | "STALE" }>;
-export type SaveRevisionInput = {
-  decision: SavedRevisionDecision;
-  rawPayload: Record<string, unknown>;
-  /** 주면 그 id 로 저장한다(demo:reset 의 결정적 id). 없으면 DB 가 만든다(6-2) */
-  ids?: { bidId?: string; revisionId?: string };
-};
-export type SavedRevision = { bidId: string; revisionId: string };
+  // 끝나지 않은(RUNNING·FAILED) run 은 다시 RUNNING 으로 열어 저장된 cursor 부터 잇는다. 끝난 run 은 그대로 돌려준다.
+  const reopen = async (row: Tables<"ingest_runs">): Promise<StartedRun> => {
+    const started = toStartedRun(row);
+    if (started.status === "SUCCEEDED" || started.status === "PARTIAL") return started;
+    const { data, error } = await client
+      .from("ingest_runs")
+      .update({ status: "RUNNING", finished_at: null })
+      .eq("id", row.id)
+      .select("*")
+      .single();
+    if (error) throw repoError("ingest_runs 재개", error);
+    return toStartedRun(data);
+  };
 
-export type IngestionRepo = {
-  startRun(input: StartRunInput): Promise<StartedRun>;
-  findLatestRevision(source: BidSource, noticeId: string): Promise<StoredRevision | null>;
-  /** source 의 SEED run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(started_at) run 의 params.anchor. ISO 가 아니면 null */
-  findLatestSeedAnchor(source: "fixture"): Promise<Date | null>;
-  /** source 의 run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(started_at) run 의 params.window.to. ISO 가 아니면 null */
-  findLatestRunWindowEnd(source: "g2b"): Promise<Date | null>;
-  /** bid_notices upsert + bid_revisions insert + outbox(event.idempotencyKey) 를 한 트랜잭션으로 */
-  saveRevision(input: SaveRevisionInput): Promise<SavedRevision>;
-  recordError(runId: string, error: IngestErrorInput): Promise<void>;
-  saveCheckpoint(
-    runId: string,
-    checkpoint: { cursor: string | null; summary: IngestSummary },
-  ): Promise<void>;
-  finishRun(
-    runId: string,
-    result: { status: IngestRunStatus; summary: IngestSummary },
-  ): Promise<void>;
-};
+  const latestFinishedParams = async (
+    source: IngestRunSource,
+    batch: FixtureBatch | null,
+  ): Promise<Json | null> => {
+    const base = client
+      .from("ingest_runs")
+      .select("params")
+      .eq("source", source)
+      .in("status", [...FINISHED_RUN_STATUSES]);
+    const query = batch === null ? base : base.eq("batch", batch);
+    const { data, error } = await query
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw repoError("ingest_runs 조회", error);
+    return data?.params ?? null;
+  };
+
+  return {
+    async startRun(input) {
+      const existing = await findRun(input.jobKey);
+      if (existing) return reopen(existing);
+      const { data, error } = await client
+        .from("ingest_runs")
+        .insert(toIngestRunInsert(input))
+        .select("*")
+        .single();
+      if (!error) return toStartedRun(data);
+      // 같은 jobKey 를 두 worker 가 동시에 열면 하나만 들어간다. 진 쪽은 들어간 run 을 이어 받는다.
+      if (error.code === UNIQUE_VIOLATION) {
+        const raced = await findRun(input.jobKey);
+        if (raced) return reopen(raced);
+      }
+      throw repoError("ingest_runs 추가", error);
+    },
+
+    async findLatestRevision(source, noticeId) {
+      const notice = await client
+        .from("bid_notices")
+        .select("id")
+        .eq("source", source)
+        .eq("notice_id", noticeId)
+        .maybeSingle();
+      if (notice.error) throw repoError("bid_notices 조회", notice.error);
+      if (!notice.data) return null;
+      const revision = await client
+        .from("bid_revisions")
+        .select("bid_id, revision, checksum, normalized")
+        .eq("bid_id", notice.data.id)
+        .order("revision", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (revision.error) throw repoError("bid_revisions 조회", revision.error);
+      return revision.data ? toStoredRevision(revision.data) : null;
+    },
+
+    async findLatestSeedAnchor(source) {
+      return anchorOfParams(await latestFinishedParams(source, "SEED"));
+    },
+
+    async findLatestRunWindowEnd(source) {
+      return windowEndOfParams(await latestFinishedParams(source, null));
+    },
+
+    async saveRevision(input) {
+      const { data, error } = await client.rpc("ingest_save_revision", {
+        p: toSaveRevisionParams(input),
+      });
+      if (error) throw repoError("ingest_save_revision", error);
+      const [saved] = data ?? [];
+      if (!saved)
+        throw new Error("수집 저장소: ingest_save_revision 이 저장한 행을 돌려주지 않았다");
+      return { bidId: saved.bid_id, revisionId: saved.revision_id };
+    },
+
+    async recordError(runId, error) {
+      const result = await client.from("ingest_errors").insert(toIngestErrorInsert(runId, error));
+      if (result.error) throw repoError("ingest_errors 추가", result.error);
+    },
+
+    async saveCheckpoint(runId, checkpoint) {
+      const { error } = await client
+        .from("ingest_runs")
+        .update({ cursor: checkpoint.cursor, summary: toSummaryJson(checkpoint.summary) })
+        .eq("id", runId);
+      if (error) throw repoError("ingest_runs 체크포인트", error);
+    },
+
+    async finishRun(runId, result) {
+      const { error } = await client
+        .from("ingest_runs")
+        .update({
+          status: result.status,
+          summary: toSummaryJson(result.summary),
+          finished_at: now().toISOString(),
+        })
+        .eq("id", runId);
+      if (error) throw repoError("ingest_runs 종료", error);
+    },
+  };
+}
+
+/** 수동 수집 감사(6-6). audit_logs 에 조직·요청자·run 을 남긴다. */
+export function createSupabaseIngestAudit(
+  client: AdminClient,
+): (input: { orgId: string; actorId: string | null; runId: string }) => Promise<void> {
+  return async (input) => {
+    const { error } = await client.from("audit_logs").insert(toManualAuditInsert(input));
+    if (error) throw repoError("audit_logs 추가", error);
+  };
+}

@@ -590,7 +590,8 @@ describe("runIngest — connector 실패 (07 §2.6, 15 §6: 그 창의 수집 �
       await repo.finishRun(started.runId, { status, summary });
       const { connector, inputs } = constant(onePage([]));
       const rerun = await ingest(repo, "done-1", "SEED", { connector });
-      expect(rerun).toEqual({
+      // 6-5 에서 IngestRunResult 에 quarantined 가 더해진다(가산). 그 값은 ingestion.service.quarantined.test.ts 가 본다.
+      expect(rerun).toMatchObject({
         runId: started.runId,
         status,
         summary,

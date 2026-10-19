@@ -13,7 +13,7 @@ import type {
   IngestSummary,
   StartedRun,
   StartRunInput,
-} from "./ingestion.repo";
+} from "./ingestion.port";
 import { normalizeFixtureRecord, type NormalizeOutcome } from "./normalize";
 import { normalizeG2bBidNotice } from "./normalize-g2b";
 import type { BidSource } from "./normalized-bid.model";
@@ -61,11 +61,15 @@ export type SavedBidRevision = {
   attachmentCount: number;
 };
 
+/** 이번 실행에서 격리한 레코드 하나. 경고(적재는 함)·connector 실패·anchor 없음은 레코드 격리가 아니다(6-5) */
+export type QuarantinedRecord = { sourceKey: string; errorCode: string; fixtureId: string | null };
+
 export type IngestRunResult = {
   runId: string;
   status: IngestRunStatus;
   summary: IngestSummary;
   saved: SavedBidRevision[];
+  quarantined: QuarantinedRecord[];
   resumedFromCursor: string | null;
   alreadyFinished: boolean;
 };
@@ -83,7 +87,11 @@ type RunContext = {
   redact: (text: string) => string;
 };
 
-type PageResult = { summary: IngestSummary; saved: SavedBidRevision[] };
+type PageResult = {
+  summary: IngestSummary;
+  saved: SavedBidRevision[];
+  quarantined: QuarantinedRecord[];
+};
 
 const FINISHED_STATUSES: ReadonlySet<IngestRunStatus> = new Set(["SUCCEEDED", "PARTIAL"]);
 const isoInstantSchema = z.iso.datetime();
@@ -162,7 +170,15 @@ async function ingestRecord(
   const outcome = normalizeRecord(record, now(), context.anchor);
   if (!outcome.ok) {
     await recordIssue(context, outcome.issue);
-    return counted(progress, "quarantined");
+    const quarantined: QuarantinedRecord = {
+      sourceKey: outcome.issue.sourceKey,
+      errorCode: outcome.issue.code,
+      fixtureId: fixtureIdOf(record),
+    };
+    return {
+      ...counted(progress, "quarantined"),
+      quarantined: [...progress.quarantined, quarantined],
+    };
   }
   // 경고는 기록만 하고 적재는 계속한다(15 §6).
   for (const warning of outcome.warnings) await recordIssue(context, warning);
@@ -191,6 +207,7 @@ async function ingestRecord(
   });
   const counter = COUNTER_OF[decision.kind];
   return {
+    ...progress,
     summary: { ...progress.summary, [counter]: progress.summary[counter] + 1 },
     saved: [
       ...progress.saved,
@@ -242,6 +259,7 @@ const finishedResult = (started: StartedRun): IngestRunResult => ({
   status: started.status,
   summary: started.summary,
   saved: [],
+  quarantined: [],
   resumedFromCursor: null,
   alreadyFinished: true,
 });
@@ -263,6 +281,7 @@ async function failMissingAnchor(
     status: "FAILED",
     summary: started.summary,
     saved: [],
+    quarantined: [],
     resumedFromCursor: started.cursor,
     alreadyFinished: false,
   };
@@ -276,12 +295,13 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
     status,
     summary: result.summary,
     saved: result.saved,
+    quarantined: result.quarantined,
     resumedFromCursor: started.cursor,
     alreadyFinished: false,
   });
 
   let cursor = started.cursor;
-  let progress: PageResult = { summary: { ...started.summary }, saved: [] };
+  let progress: PageResult = { summary: { ...started.summary }, saved: [], quarantined: [] };
   for (;;) {
     const { outcome, retried } = await fetchPageWithRetry(connector, { from, to, cursor }, retry);
     progress = {

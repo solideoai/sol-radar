@@ -2,6 +2,7 @@ import "server-only";
 
 // ── 배럴: 인프라(데이터베이스 접속)의 공개 API ──
 export {
+  createSupabaseAdminClient,
   getAuthClaims,
   getAuthContext,
   getSupabase,
