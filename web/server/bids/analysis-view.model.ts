@@ -98,8 +98,9 @@ export const requirementAssessmentViewSchema = z.strictObject({
   flags: z.array(reviewFlagSchema),
 });
 
-const KEV_DISCLAIMER = "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.";
-const SOL_SCORE_DISCLAIMER =
+export const KEV_DISCLAIMER =
+  "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.";
+export const SOL_SCORE_DISCLAIMER =
   "SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다.";
 
 const legendFit = z.strictObject({
