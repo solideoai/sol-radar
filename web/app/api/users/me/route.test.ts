@@ -180,6 +180,12 @@ describe("PATCH /api/users/me", () => {
 });
 
 describe("DELETE /api/users/me", () => {
+  it("마지막 업무 ADMIN이면 409 sole_admin과 안내를 돌려준다", async () => {
+    domain.deleteMyAccount.mockResolvedValue({ status: "sole-admin" });
+    const response = await DELETE();
+    expect(response.status).toBe(409);
+    expect(await errorOf(response)).toMatchObject({ code: "sole_admin" });
+  });
   it("탈퇴하면 본문 없이 204 다", async () => {
     const response = await DELETE();
     expect(response.status).toBe(204);

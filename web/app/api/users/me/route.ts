@@ -62,5 +62,11 @@ export async function DELETE() {
         "sole_owner",
         "다른 멤버가 있는 팀의 유일한 owner 입니다. owner 를 넘기거나 팀을 나간 뒤 탈퇴하세요.",
       );
+    case "sole-admin":
+      return apiError(
+        409,
+        "sole_admin",
+        "조직의 마지막 ADMIN입니다. 다른 구성원에게 ADMIN 역할을 부여한 뒤 탈퇴하세요.",
+      );
   }
 }

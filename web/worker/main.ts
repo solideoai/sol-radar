@@ -9,6 +9,7 @@ import {
   callableSource,
   createFixtureConnector,
   createOfficialApiConnector,
+  createPendingDocumentFinder,
   createSupabaseIngestAudit,
   createSupabaseIngestionRepo,
   enqueueDocuments,
@@ -21,6 +22,7 @@ import { readReconcileSettings } from "@/worker/analysis-reconcile";
 import { startAnalysisRuntime } from "@/worker/analysis-runtime";
 import { readG2bServiceKey, readWorkerEnv, type WorkerEnv } from "@/worker/env";
 import { errorNameOf } from "@/worker/error-name";
+import { startDocumentsReconciler } from "@/worker/documents-reconcile";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
 import {
   processIngestJob,
@@ -266,8 +268,15 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
         ingestJobDepsOf(config, documentsQueue),
         config.intervalMinutes,
       );
-      // closeAll 은 거꾸로 닫는다: ingest(Worker·큐) → documents 큐. ingest 가 던져도 documents 큐를 닫는다.
-      return { close: () => closeAll([closeDocuments, ingest]) };
+      const documents = startDocumentsReconciler({
+        finder: createPendingDocumentFinder(getSupabaseAdmin()),
+        queue: documentsQueue,
+        log: (line) => {
+          console.log(line);
+        },
+      });
+      // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐.
+      return { close: () => closeAll([closeDocuments, ingest, { close: () => documents.stop() }]) };
     } catch (error) {
       await closeQuietly([closeDocuments]);
       throw error;

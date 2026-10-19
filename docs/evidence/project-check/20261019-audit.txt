@@ -1,0 +1,76 @@
+SOL RADAR 프로젝트 점검 — 2026-10-19
+
+대상: HEAD cfe8f0a 및 작업 폴더. 시작 시 존재한 미커밋 변경은 보존.
+방법: 설계·코드 대조, 전체 pnpm verify, 실제 함수 호출 및 격리 PGlite 재현.
+프로덕션 코드·마이그레이션·환경 변수·공유 DB는 변경하지 않음.
+
+확인된 결함
+
+1. [P1] 수집 저장 뒤 documents 큐 등록 실패가 복구되지 않는다.
+   위치: web/worker/ingest-queue.ts:197-215,
+         web/server/ingestion/ingestion.service.ts:255-265,325-352.
+   원인: runIngest가 run을 SUCCEEDED/PARTIAL로 마감한 뒤 documents를 enqueue한다.
+         enqueue가 실패해 같은 jobKey로 재시도하면 finishedResult의 saved=[]가 반환된다.
+         다른 수집 run도 이미 저장한 revision을 중복으로 보므로 복구를 보장하지 않는다.
+   재현: 실제 FixtureConnector(SEED)·MemoryIngestionRepo·processIngestJob를 사용하고,
+         첫 enqueueDocuments 호출에만 Redis 장애를 주입한 다음 동일 job을 재실행했다.
+   출력:
+     {"firstAttempt":"simulated Redis outage","storedRunStatus":"PARTIAL","storedRevisions":19}
+     {"retryStatus":"PARTIAL","alreadyFinished":true,"savedOnRetry":0,"enqueueAttempts":1,"delivered":0}
+   영향: 저장된 공고 19건 중 첨부가 있는 18건의 문서 작업이 모두 등록되지 않는다.
+   권장: 저장과 함께 지속성 있는 문서 처리 의무를 기록하고, 멱등 dispatcher/복구기로 전달한다.
+         현재 outbox 기반 수집 이벤트와 연결하거나 미처리 documents를 재조회할 수 있다.
+   시험 공백: web/worker/ingest-queue.test.ts의 documents 단언은 성공 호출을 검증한다.
+              enqueue 실패 후 동일 job 재시도 및 미등록 revision 회복을 회귀 시험으로 추가해야 한다.
+
+2. [P1] 마지막 업무 ADMIN을 내릴 수 있어 조직 관리 권한이 사라진다.
+   위치: supabase/migrations/20261019000001_sol_roles_and_policies.sql:105-121,243-267.
+   원인: protect_sol_role은 변경자가 ADMIN인지 확인하지만 ADMIN 최소 1명은 보장하지 않는다.
+         기존 마지막 owner 보호는 org_role만 보므로 sol_role 강등을 막지 않는다.
+   재현: 새 메모리 PGlite에 전체 migrations를 적용하고 owner+ADMIN 한 명인 조직을 만들었다.
+         authenticated 본인 권한으로 sol_role=VIEWER로 바꾼 뒤 ADMIN으로 복구를 시도했다.
+   출력:
+     {"lastAdminDemotion":[{"sol_role":"VIEWER"}],"selfRecoveryRows":0,"adminOrgIds":[]}
+   영향: 초대·구성원 관리·업무 역할 변경이 조직 내에서 불가능해진다.
+   권장: 새 append-only migration으로 마지막 ADMIN 강등/제거를 보호한다.
+         동시 변경·일괄 변경·탈퇴 경로를 함께 확인해야 한다.
+
+3. [P2] 멤버 관리 화면 권한과 DB 정책이 서로 다른 역할을 사용한다.
+   위치: web/server/organization/organization.service.ts:93,
+         web/server/organization/organization.model.ts:23,70-74,
+         web/app/(app)/[slug]/settings/members/page.tsx:34-55.
+   원인: DB는 sol_role=ADMIN을 사용하지만 getMembersPage는 myRole=owner로 canManage를 결정한다.
+         CurrentOrg에도 sol_role이 없고 초대·역할 선택 UI는 org_role만 다룬다.
+   재현: 실제 getMembersPage에 읽기 repo를 주입해 두 조합을 호출했다.
+   출력:
+     {"orgRole":"member","solRole":"ADMIN","canManage":false}
+     {"orgRole":"owner","solRole":"VIEWER","canManage":true}
+   영향: member+ADMIN은 관리 UI에 접근하지 못하고 owner+VIEWER는 실패할 관리 버튼을 본다.
+         DB의 RLS 우회가 아니라 사용자 흐름과 정책의 불일치다.
+   권장: 업무 관리 판단과 UI를 sol_role로 통일하고 org_role의 owner 보호는 별도로 유지한다.
+   시험 불일치: organization.service.test.ts:215,260-261도 owner이면 관리 가능하다고 단언한다.
+                ADMIN/member·VIEWER/owner 조합을 포함해 설계의 업무 역할 기준을 검증해야 한다.
+
+미구현·미검증 경계 (결함과 구분)
+
+- 실제 첨부 경로: web/worker/main.ts의 등록은 system·ingest·analysis뿐이며 documents 소비자가 없다.
+  web/worker/analysis-runtime.ts:90은 EMPTY_ATTACHMENT_READER를 사용한다.
+  web/server/analysis/analysis-store.model.ts:40-43은 항상 []를 반환하므로 실제 RFP 텍스트가 분석에 전달되지 않는다.
+- 공고·분석·최종 검토·알림용 제품 API/화면(C6·C7)이 아직 없고 대시보드는 기존 tasks 집계다.
+  정본 docs/PROGRESS.md의 C6·C7 미완료와 일치한다.
+- 회사 GPU 추론·실공고 live E2E·모델 평가·인증 회귀는 이번 점검의 검증 결과에 포함하지 않는다.
+  실제 외부 API·GPU·hosted 모델을 호출하지 않았고 seed/reset도 실행하지 않았다.
+
+검증 결과
+
+- 첫 pnpm verify: exit 1. 루트 639건 중 634 PASS / 5 FAIL.
+  실패 5건은 scripts/pre-push.test.mjs의 로컬 서버 listen EPERM(샌드박스 포트 제한)이었다.
+  원본: 20261019-verify-sandbox.txt.
+- 동일 pnpm verify를 승인된 제한 밖 실행으로 재검증: exit 0.
+  루트 639/639, 웹 Vitest 136파일·4870/4870, AI pytest 894/894.
+  공통 서식·토큰·색·DB 타입 검사, 웹 서식·타입·린트·린트 가드·구조·빌드,
+  AI ruff check·format 검사도 통과했다.
+  AI 의존성에서 Starlette TestClient의 httpx 사용 중단 예정 경고 1건이 있었다.
+  원본: 20261019-verify.txt.
+- 위 재현 3건은 기존 시험 통과와 별개로 확인한 결함이며 이번 점검에서는 수정하지 않았다.
+- 공개/인증 E2E·브라우저 화면 검사·Docker 실기동·공유 DB·실제 GPU·실공고 live E2E는 미실행.

@@ -122,7 +122,7 @@ describe("deleteMyAccount", () => {
     expect(repo.deleteAccount).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["sole-owner", "suspended"] as const)(
+  it.each(["sole-owner", "sole-admin", "suspended"] as const)(
     "DB 가 %s 로 거절하면 그 이유를 그대로 돌려준다",
     async (refusal) => {
       const repo = fakeRepo({ deleteAccount: vi.fn(async () => refusal) });
