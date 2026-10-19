@@ -184,3 +184,11 @@ Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영20
 이 병합 코드에서 새 verify 루트350·웹881·프로덕션 빌드, 인증95, 공개138·브라우저108, 실제Next200 URL/MIME/승인 SHA/decode, 가입1440/1280·별도DB200/27/48/12/Auth5·seedID 보존 검증을 통과했다. 공개 첫 시도는 Vite 의존성 최적화 중 import실패/중단(exit130)했고 같은 코드·설정으로 한 번 재실행해 통과했다. 외부 UI probe 선택자 오류와 UI만 재검증한 기록도 보존했다. 기존 증거의 SHA 귀속은 바꾸지 않는다.
 
 9663 전용3커밋은 병합하지 않았고 b3ef/9663 전체 추적 파일·HEAD·clean 상태를 보존했다. 전용 컨테이너7개/생성세션5개만 정리해 기존22개를 유지했다. 공유 DB migration·운영 데이터 변경·push·배포·추가 기능 구현은 하지 않았다. 부모29건·제품 조직도/직원 목록/상세·전체G1~G10·기존score_runs 불변·전체N1/N2 및 외부OAuth는 미검증이다. 위의 이전 “main 병합 승인 대기”는 당시 기록이며 이번 승인/병합으로 종료한다. [최종 병합 보고·다음 Phase 권장 순서](evidence/people/20261017-b3ef-main-merge.md).
+
+## FX-01 흐름 Playwright 시험 — 통합 전 RED (2026-10-19)
+
+사용자 결정에 따라 DB 저장·worker 중복 구현을 채택하지 않고, 기존 `feat/fx01-vertical`/e5d9의 스테이징을 그대로 보존했다. main `daf07a6`에서 별도 worktree `sol-radar-worktrees/fx01-e2e`·브랜치 `test/fx01-flow`를 만들었다. 전용 Supabase DB56622만 main 마이그레이션21개로 재생성했으며, 버린 capacity_baselines·execution_state 표와 기존 계정·공고가 없는 것을 확인한 뒤 seed 공존을 검사했다. 공유 DB와 다른 worktree는 변경하지 않았다.
+
+`web/e2e-auth/fx01-flow.spec.ts`에 데모 SALES 로그인→대시보드 BID94→목록→상세 자격3·요소24/25/20/15/10·Kev71/24/5→근거 서랍→WATCH 기록·이력+1과 독립 조직 격리 시험을 추가했다. 같은 조직 자격200 대조군 없이 일반404가 격리 성공으로 처리되지 않는다. 화면·API·앱·seed·패키지 스크립트·정본00~22·SQL은 수정하지 않았다.
+
+실제 Playwright2건 모두 RED: 대시보드의 FX-01 BID 행 없음, 공고 목록 API404. 상세·결정·외부 조직 자격404 본 단언은 미도달이다. 두 seed의 계정10명과 데모 자료는 함께 남지만, 표준 `test:e2e:auth`는 템플릿 db-seed의 팀 생성 RLS403으로 runner 전에 막힌다. 독립 리뷰 통과, 새 전체 `pnpm verify` 루트562·웹1091·프로덕션 빌드·AI536 통과. E2E RED와 verify 범위의 통과를 구분하며 전체G1~G10·실모델 완료를 주장하지 않는다. [재생성·seed·실행 근거와 통합 뒤 절차](evidence/fx01/20261019-fx01-e2e.md). main 병합·push·배포는 하지 않았다.
