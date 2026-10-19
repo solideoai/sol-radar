@@ -1752,6 +1752,10 @@ export type Database = {
         Args: { meta: Json }
         Returns: string
       }
+      finish_score_run: {
+        Args: { p: Json }
+        Returns: string
+      }
       ingest_save_revision: {
         Args: { p: Json }
         Returns: { bid_id: string; revision_id: string }[]

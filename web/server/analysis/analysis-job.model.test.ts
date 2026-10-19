@@ -75,9 +75,11 @@ describe("analysisJobDataSchema · 받는 값", () => {
     expect(Object.keys(parsed).toSorted()).toEqual(["idempotencyKey", "orgId", "scoreRunId"]);
   });
 
-  it("idempotencyKey 는 300자까지 받는다", () => {
-    const key = `${ORG_ID}:${"r".repeat(300 - ORG_ID.length - 1)}`;
-    expect(key).toHaveLength(300);
+  // 낮음 (b): requestId 는 `^[A-Za-z0-9_-]{1,128}$` 라 키 전체는 uuid 36 + ':' + 128 = 165자까지다.
+  // 예전 기대("300자까지 받는다", requestId 263자)는 이 결정으로 바뀌었다.
+  it("idempotencyKey 는 requestId 128자(키 전체 165자)까지 받는다", () => {
+    const key = `${ORG_ID}:${"r".repeat(128)}`;
+    expect(key).toHaveLength(165);
     expect(analysisJobDataSchema.safeParse({ ...validData(), idempotencyKey: key }).success).toBe(
       true,
     );
@@ -148,6 +150,48 @@ describe("analysisJobDataSchema · 거부하는 값", () => {
 
   it("객체가 아니면 거부한다", () => {
     expect(analysisJobDataSchema.safeParse("analysis").success).toBe(false);
+  });
+});
+
+// ── requestId 형식(낮음 (b)) ──
+// C6 의 Idempotency-Key 는 UUID 이고 없으면 randomUUID 다(e8). demo:preanalyze 키는 `demo-pre-FX-01-r01` 모양이다.
+// `${orgId}:` 뒤 requestId 는 `^[A-Za-z0-9_-]{1,128}$` 이어야 한다. 로그·jobId·필터에 섞여도 줄·구분자를 깨지 않게 한다.
+
+describe("analysisJobDataSchema · requestId 형식", () => {
+  it.each<[string, string]>([
+    ["uuid(C6 randomUUID)", "7d9f5c2e-4b1a-4e8f-9c3d-2a6b8e0f1c4d"],
+    ["대문자 uuid", "7D9F5C2E-4B1A-4E8F-9C3D-2A6B8E0F1C4D"],
+    ["demo:preanalyze 키", "demo-pre-FX-01-r01"],
+    ["밑줄", "req_FX_01"],
+    ["한 글자", "r"],
+    ["128자", "a".repeat(128)],
+  ])("%s 는 받는다", (_label, requestId) => {
+    expect(issuePaths({ ...validData(), idempotencyKey: `${ORG_ID}:${requestId}` })).toEqual([]);
+  });
+
+  it.each<[string, string]>([
+    ["129자", "a".repeat(129)],
+    ["공백", "req FX-01"],
+    ["':'", "req:FX-01"],
+    ["한글", "요청-01"],
+    ["개행", "req\nFX-01"],
+    ["'.'", "req.FX-01"],
+    ["'/'", "req/FX-01"],
+    ["'%'", "req%3AFX-01"],
+  ])("%s 가 든 requestId 는 idempotencyKey 경로로 거부한다", (_label, requestId) => {
+    expect(issuePaths({ ...validData(), idempotencyKey: `${ORG_ID}:${requestId}` })).toEqual([
+      "idempotencyKey",
+    ]);
+  });
+
+  it("거부 issue 의 message 에 받은 requestId 를 싣지 않는다", () => {
+    const requestId = "SECRET 요청값";
+    const parsed = analysisJobDataSchema.safeParse({
+      ...validData(),
+      idempotencyKey: `${ORG_ID}:${requestId}`,
+    });
+    expect(parsed.success).toBe(false);
+    expect(JSON.stringify(parsed.error?.issues ?? [])).not.toContain("SECRET");
   });
 });
 
@@ -515,20 +559,50 @@ describe("@/server/analysis 배럴", () => {
   });
 });
 
+// 시도 식별자(C5-B 보안 후속 2.1). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
+describe("@/server/analysis 배럴 · 시도 식별자(타입)", () => {
+  it("AnalysisContext.attemptStartedAt 은 string 이다(markRunning 의 startedAt)", () => {
+    expectTypeOf<analysisBarrel.AnalysisContext["attemptStartedAt"]>().toEqualTypeOf<string>();
+  });
+
+  it("AnalysisRunRecord.attemptStartedAt 은 string 이다", () => {
+    expectTypeOf<analysisBarrel.AnalysisRunRecord["attemptStartedAt"]>().toEqualTypeOf<string>();
+  });
+
+  it("AnalysisRunTracker.markFailed 입력은 attemptStartedAt 을 선택으로 받는다", () => {
+    expectTypeOf<Parameters<analysisBarrel.AnalysisRunTracker["markFailed"]>[0]>().toEqualTypeOf<{
+      orgId: string;
+      scoreRunId: string;
+      errorCode: string;
+      finishedAt: string;
+      attemptStartedAt?: string;
+    }>();
+  });
+});
+
 // 멈춘 run 찾기 port(C5-B). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
+// 보안 후속 (g): keyset 페이지로 StaleRun 에 queuedAt(ISO)이, 입력에 after(앞 페이지 마지막 run 의 queuedAt·id, 첫 페이지는 null)가 더해졌다.
 describe("@/server/analysis 배럴 · 멈춘 run 찾기 port(타입)", () => {
-  it("StaleRun 은 orgId·scoreRunId·idempotencyKey(null 가능)·status(QUEUED·RUNNING) 다", () => {
+  it("StaleRun 은 orgId·scoreRunId·idempotencyKey(null 가능)·status(QUEUED·RUNNING)·queuedAt 이다", () => {
     expectTypeOf<analysisBarrel.StaleRun>().toEqualTypeOf<{
       orgId: string;
       scoreRunId: string;
       idempotencyKey: string | null;
       status: "QUEUED" | "RUNNING";
+      queuedAt: string;
     }>();
   });
 
-  it("StaleRunFinder.findStaleRuns 는 { queuedBefore, runningBefore, limit } 하나를 받는다", () => {
+  it("StaleRunFinder.findStaleRuns 는 { queuedBefore, runningBefore, limit, after } 하나를 받는다", () => {
     expectTypeOf<analysisBarrel.StaleRunFinder["findStaleRuns"]>().parameters.toEqualTypeOf<
-      [{ queuedBefore: string; runningBefore: string; limit: number }]
+      [
+        {
+          queuedBefore: string;
+          runningBefore: string;
+          limit: number;
+          after: { queuedAt: string; id: string } | null;
+        },
+      ]
     >();
   });
 

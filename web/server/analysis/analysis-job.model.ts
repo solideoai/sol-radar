@@ -25,16 +25,29 @@ export function requestIdOf(data: { orgId: string; idempotencyKey: string }): st
 
 const uuid = z.uuid();
 
+/**
+ * requestId 형식(낮음 (b)). C6 Idempotency-Key(UUID·없으면 randomUUID)와 demo:preanalyze 키(`demo-pre-FX-01-r01`)가 맞는다.
+ * 로그·jobId·필터 문자열에 섞여도 줄·구분자를 깨지 않게 영문·숫자·`_`·`-` 128자까지만 받는다.
+ * 그래서 키 전체 길이 상한은 uuid 36 + ':' + 128 = 165자이고, 따로 max 를 두지 않는다(같은 거절이 두 번 나오지 않게).
+ */
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+function hasValidRequestId(data: { orgId: string; idempotencyKey: string }): boolean {
+  const requestId = requestIdOf(data);
+  return requestId !== null && REQUEST_ID_PATTERN.test(requestId);
+}
+
 /** job payload(e8 판정 1). 공고·프로필 값은 싣지 않는다. worker 는 scoreRunId 행을 읽어 입력을 모은다. */
 export const analysisJobDataSchema = z
-  .object({ orgId: uuid, scoreRunId: uuid, idempotencyKey: z.string().min(1).max(300) })
+  .object({ orgId: uuid, scoreRunId: uuid, idempotencyKey: z.string().min(1) })
   .superRefine((data, ctx) => {
     // 다른 조직 접두어의 키로 남의 run 을 가리키지 못하게 한다. 메시지에 값을 싣지 않는다.
-    if (requestIdOf(data) === null) {
+    if (!hasValidRequestId(data)) {
       ctx.addIssue({
         code: "custom",
         path: ["idempotencyKey"],
-        message: "idempotencyKey 는 `${orgId}:${requestId}` 형식이어야 한다",
+        message:
+          "idempotencyKey 는 `${orgId}:${requestId}` 형식이고 requestId 는 영문·숫자·_·- 128자 이하여야 한다",
       });
     }
   });
@@ -114,11 +127,16 @@ export type AnalysisRunTracker = {
     aiProvider: AiProvider;
     startedAt: string;
   }): Promise<void>;
+  /**
+   * attemptStartedAt 이 있으면 그 시도가 잡은 run(status=RUNNING, started_at=attemptStartedAt)만 닫는다(markRunning 뒤 영구 실패).
+   * 없으면 끝나지 않은 run(QUEUED·RUNNING)을 닫는다(복구·markRunning 전 실패). C5-B 보안 후속 2.1.
+   */
   markFailed(input: {
     orgId: string;
     scoreRunId: string;
     errorCode: string;
     finishedAt: string;
+    attemptStartedAt?: string;
   }): Promise<void>;
 };
 
@@ -128,18 +146,25 @@ export type StaleRun = {
   scoreRunId: string;
   idempotencyKey: string | null;
   status: "QUEUED" | "RUNNING";
+  /** queued_at 을 Date.toISOString 모양(밀리초·Z)으로 바꾼 값. 다음 페이지 커서에 쓴다. */
+  queuedAt: string;
 };
+
+/** keyset 페이지 커서: 앞 페이지 마지막 run 의 queuedAt·id(scoreRunId). */
+export type StaleRunCursor = { queuedAt: string; id: string };
 
 /** 멈춘 run 찾기 port. 복구는 운영 작업이라 모든 조직을 본다. 처리할 때는 행의 orgId 를 그대로 쓴다. */
 export type StaleRunFinder = {
   /**
    * status=QUEUED 이고 queued_at < queuedBefore, 또는 status=RUNNING 이고 started_at < runningBefore 인 run.
-   * 오래된 순, 최대 limit 건. 두 시각은 Date.toISOString 결과만 받는다(값이 필터 문자열에 그대로 들어간다).
+   * (queued_at, id) 오름차순, 최대 limit 건. after 가 있으면 (queued_at, id) 가 after 보다 큰 run 만 고른다(첫 페이지는 null).
+   * 시각은 Date.toISOString 결과만, after.id 는 uuid 만 받는다(값이 필터 문자열에 그대로 들어간다).
    */
   findStaleRuns(input: {
     queuedBefore: string;
     runningBefore: string;
     limit: number;
+    after: StaleRunCursor | null;
   }): Promise<StaleRun[]>;
 };
 

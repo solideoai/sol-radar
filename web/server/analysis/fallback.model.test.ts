@@ -25,16 +25,38 @@ const failed = <T>(failure: GatewayFailure, attempts = 1): GatewayResult<T> => (
   attempts,
 });
 
-/** gateway 호출 실패의 모든 종류(03 §8 "worker → gateway 오류" 행). */
-const failures: [string, GatewayFailure][] = [
+// C5-B 실패 분류(e8 승인, ADR-030 B1, docs/03 §8 :727·:728·:737): "gateway 가 응답했는가"로 나눈다.
+// 예전에는 호출 실패 7종을 모두 gateway 불가로 봤다. 이 결정으로 4xx·INVALID_RESPONSE 는 "응답했지만 쓸 수 없음"으로 옮겼다.
+
+/** 전송 실패: gateway 가 응답하지 않았다(1단계 isAvailabilityFailure + CIRCUIT_OPEN). → AI_UNAVAILABLE·GATEWAY_DOWN. */
+const transportFailures: [string, GatewayFailure][] = [
   ["연결 거부", { kind: "UNREACHABLE", code: "ECONNREFUSED" }],
   ["timeout", { kind: "TIMEOUT" }],
-  ["5xx 재시도 소진", { kind: "HTTP_ERROR", httpStatus: 500, errorCode: null }],
-  ["503 AI_UNAVAILABLE", { kind: "HTTP_ERROR", httpStatus: 503, errorCode: "AI_UNAVAILABLE" }],
-  ["4xx", { kind: "HTTP_ERROR", httpStatus: 422, errorCode: "KO_STATE_NOT_ALLOWED" }],
-  ["INVALID_RESPONSE", { kind: "INVALID_RESPONSE", issues: ["status: invalid_value"] }],
+  ["5xx 재시도 소진(500)", { kind: "HTTP_ERROR", httpStatus: 500, errorCode: null }],
+  [
+    "503 AI_UNAVAILABLE(장애 주입)",
+    { kind: "HTTP_ERROR", httpStatus: 503, errorCode: "AI_UNAVAILABLE" },
+  ],
+  ["5xx 경계(599)", { kind: "HTTP_ERROR", httpStatus: 599, errorCode: null }],
   ["CIRCUIT_OPEN", { kind: "CIRCUIT_OPEN" }],
 ];
+
+/** 응답했지만 쓸 수 없음: gateway 는 살아서 답했다(4xx·봉투 형식 위반). → /extract EXTRACTION_FAILED, /kev KEV 불가. */
+const answeredFailures: [string, GatewayFailure][] = [
+  ["4xx 경계(400)", { kind: "HTTP_ERROR", httpStatus: 400, errorCode: null }],
+  ["404", { kind: "HTTP_ERROR", httpStatus: 404, errorCode: "NOT_ROUTED" }],
+  [
+    "422 KO_STATE_NOT_ALLOWED",
+    { kind: "HTTP_ERROR", httpStatus: 422, errorCode: "KO_STATE_NOT_ALLOWED" },
+  ],
+  ["422 요청 형식 오류(errorCode 없음)", { kind: "HTTP_ERROR", httpStatus: 422, errorCode: null }],
+  ["4xx 경계(499)", { kind: "HTTP_ERROR", httpStatus: 499, errorCode: null }],
+  ["INVALID_RESPONSE", { kind: "INVALID_RESPONSE", issues: ["status: invalid_value"] }],
+  ["INVALID_RESPONSE(JSON 아님)", { kind: "INVALID_RESPONSE", issues: ["(root): invalid_json"] }],
+];
+
+/** gateway 호출 실패의 모든 종류(03 §8 "worker → gateway 오류" 행). /explain 은 종류와 상관없이 템플릿이다. */
+const failures: [string, GatewayFailure][] = [...transportFailures, ...answeredFailures];
 
 // ── 정상 본문 ──
 
@@ -120,10 +142,32 @@ describe("toExtractionOutcome", () => {
     });
   });
 
-  it.each(failures)("호출 실패(%s)는 AI_UNAVAILABLE", (_label, failure) => {
+  it.each(transportFailures)("전송 실패(%s)는 AI_UNAVAILABLE", (_label, failure) => {
     expect(toExtractionOutcome(failed(failure))).toEqual({
       kind: "UNAVAILABLE",
       reason: "AI_UNAVAILABLE",
+    });
+  });
+
+  // 예전 기대(AI_UNAVAILABLE)는 C5-B 실패 분류로 바뀌었다: gateway 가 응답했으면 추출 실패다(docs/03 :737 "AI_UNAVAILABLE 은 전송 실패만").
+  it.each(answeredFailures)(
+    "응답했지만 쓸 수 없음(%s)은 AI_UNAVAILABLE 이 아니라 EXTRACTION_FAILED",
+    (_label, failure) => {
+      expect(toExtractionOutcome(failed(failure))).toEqual({
+        kind: "UNAVAILABLE",
+        reason: "EXTRACTION_FAILED",
+      });
+    },
+  );
+
+  it("재시도한 뒤의 4xx(attempts 2)도 응답한 것이라 EXTRACTION_FAILED", () => {
+    const result = failed<ExtractResponse>(
+      { kind: "HTTP_ERROR", httpStatus: 422, errorCode: null },
+      2,
+    );
+    expect(toExtractionOutcome(result)).toEqual({
+      kind: "UNAVAILABLE",
+      reason: "EXTRACTION_FAILED",
     });
   });
 
@@ -137,9 +181,25 @@ describe("toExtractionOutcome", () => {
 });
 
 describe("toKevOutcome", () => {
-  it.each(failures)("호출 실패(%s)는 GATEWAY_DOWN", (_label, failure) => {
+  it.each(transportFailures)("전송 실패(%s)는 GATEWAY_DOWN", (_label, failure) => {
     expect(toKevOutcome(failed(failure))).toEqual({ kind: "GATEWAY_DOWN" });
   });
+
+  // 예전 기대(GATEWAY_DOWN)는 C5-B 실패 분류로 바뀌었다: gateway 가 응답했으면 Kev 만 못 쓴다(docs/03 :595 "Kev 오류 → enabled=false·RULES_ONLY").
+  // KEV 불가를 새 kind 로 둘지 DISABLED 에 실을지는 구현이 고른다. 여기서는 동작만 본다(사유는 아래 "gateway 가 응답했는가" describe, KEV_UNAVAILABLE 플래그는 analysis.model 시험).
+  it.each(answeredFailures)(
+    "응답했지만 쓸 수 없음(%s)은 GATEWAY_DOWN 이 아니다",
+    (_label, failure) => {
+      expect(toKevOutcome(failed(failure)).kind).not.toBe("GATEWAY_DOWN");
+    },
+  );
+
+  it.each(answeredFailures)(
+    "응답했지만 쓸 수 없음(%s)은 Kev 응답을 쓰지 않는다(USED 가 아니다)",
+    (_label, failure) => {
+      expect(toKevOutcome(failed(failure)).kind).not.toBe("USED");
+    },
+  );
 
   it("200 이고 kev.enabled=true 면 Kev 응답을 쓴다", () => {
     expect(toKevOutcome(ok(enabledKev))).toEqual({ kind: "USED", response: enabledKev });
@@ -384,4 +444,84 @@ describe("pickAiUnavailableReason", () => {
       expect(pickAiUnavailableReason({ extraction, cachedExtractionFailed, kev })).toBe(expected);
     });
   }
+});
+
+// ── C5-B 실패 분류: 1단계 결과에서 사유까지 이어 본다(새 kind 이름에 기대지 않는다) ──
+
+describe("pickAiUnavailableReason · gateway 가 응답했는가로 사유를 나눈다", () => {
+  const extracted: ExtractionOutcome = { kind: "EXTRACTED", response: completedExtract };
+
+  it.each(answeredFailures)(
+    "추출을 썼고 /kev 가 응답했지만 쓸 수 없음(%s)이면 사유가 없다(null, COMPLETED 가능)",
+    (_label, failure) => {
+      const kev = toKevOutcome(failed(failure));
+      expect(
+        pickAiUnavailableReason({ extraction: extracted, cachedExtractionFailed: null, kev }),
+      ).toBeNull();
+    },
+  );
+
+  it.each(answeredFailures)(
+    "캐시 추출을 쓰고 /kev 가 응답했지만 쓸 수 없음(%s)이어도 사유가 없다",
+    (_label, failure) => {
+      const kev = toKevOutcome(failed(failure));
+      expect(
+        pickAiUnavailableReason({ extraction: null, cachedExtractionFailed: null, kev }),
+      ).toBeNull();
+    },
+  );
+
+  it.each(answeredFailures)(
+    "캐시 행 실패 코드가 있고 /kev 가 응답했지만 쓸 수 없음(%s)이면 캐시 행 코드다(AI_UNAVAILABLE 이 아니다)",
+    (_label, failure) => {
+      const kev = toKevOutcome(failed(failure));
+      expect(
+        pickAiUnavailableReason({
+          extraction: null,
+          cachedExtractionFailed: "QWEN_UNAVAILABLE",
+          kev,
+        }),
+      ).toBe("QWEN_UNAVAILABLE");
+    },
+  );
+
+  it.each(transportFailures)(
+    "추출을 썼고 /kev 가 전송 실패(%s)면 AI_UNAVAILABLE",
+    (_label, failure) => {
+      const kev = toKevOutcome(failed(failure));
+      expect(
+        pickAiUnavailableReason({ extraction: extracted, cachedExtractionFailed: null, kev }),
+      ).toBe("AI_UNAVAILABLE");
+    },
+  );
+
+  it.each(answeredFailures)(
+    "/extract 가 응답했지만 쓸 수 없음(%s)이면 EXTRACTION_FAILED",
+    (_label, failure) => {
+      const extraction = toExtractionOutcome(failed<ExtractResponse>(failure));
+      expect(pickAiUnavailableReason({ extraction, cachedExtractionFailed: null, kev: null })).toBe(
+        "EXTRACTION_FAILED",
+      );
+    },
+  );
+
+  it.each(transportFailures)("/extract 가 전송 실패(%s)면 AI_UNAVAILABLE", (_label, failure) => {
+    const extraction = toExtractionOutcome(failed<ExtractResponse>(failure));
+    expect(pickAiUnavailableReason({ extraction, cachedExtractionFailed: null, kev: null })).toBe(
+      "AI_UNAVAILABLE",
+    );
+  });
+
+  it("/extract 가 응답했지만 쓸 수 없음(422)이어도 캐시 행 코드보다 이번 run 의 EXTRACTION_FAILED 가 먼저다", () => {
+    const extraction = toExtractionOutcome(
+      failed<ExtractResponse>({ kind: "HTTP_ERROR", httpStatus: 422, errorCode: null }),
+    );
+    expect(
+      pickAiUnavailableReason({
+        extraction,
+        cachedExtractionFailed: "QWEN_UNAVAILABLE",
+        kev: null,
+      }),
+    ).toBe("EXTRACTION_FAILED");
+  });
 });

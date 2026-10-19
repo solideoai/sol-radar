@@ -395,7 +395,10 @@ function unique<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
 }
 
-/** score_runs 결과 열(03 §7). 규칙 결과(result)와 모델 출력(kev_output)·파이프라인 값(meta)을 다른 열에 둔다. */
+/**
+ * score_runs 마감 열(03 §7). 규칙 결과(result)와 모델 출력(kev_output)·파이프라인 값(meta)을 다른 열에 둔다.
+ * started_at 은 넣지 않는다. markRunning 이 쓴 시도 시작 시각(시도 식별자)이라 마감이 바꾸지 않는다(C5-B 보안 후속 2.1).
+ */
 export function toScoreRunResultUpdate(record: AnalysisRunRecord): Tables["score_runs"]["Update"] {
   const { result, meta } = record;
   return {
@@ -420,7 +423,6 @@ export function toScoreRunResultUpdate(record: AnalysisRunRecord): Tables["score
     run_mode: toColumnCase(meta.runMode),
     ai_provider: toColumnCase(meta.model.provider),
     extraction_id: record.extractionId,
-    started_at: meta.startedAt,
     finished_at: meta.finishedAt,
     // 보정·자동 대체는 아직 없다(03 §8). 늘 null 이다.
     kev_calibration: null,
@@ -485,4 +487,32 @@ export function toRequirementAssessmentRows(
     kev_label: null,
     flags: assessment.flags,
   }));
+}
+
+/** finish_score_run(p) 의 p(20261019000011). 열 이름은 저장 매핑 함수의 출력 그대로다. */
+export type FinishScoreRunPayload = {
+  score_run_id: string;
+  org_id: string;
+  /** 이 시도의 started_at. 함수가 run 의 started_at 과 같은지 본다. */
+  attempt_started_at: string;
+  run: Tables["score_runs"]["Update"];
+  factors: Tables["score_factors"]["Insert"][];
+  assessments: Tables["requirement_assessments"]["Insert"][];
+  checks: Tables["qualification_checks"]["Insert"][];
+};
+
+/**
+ * 결과 저장 RPC 본문(C5-B 보안 후속 2.3). 자식 3표와 마감을 함수 하나가 한 트랜잭션으로 쓴다.
+ * 그 run 이 RUNNING 이고 started_at 이 attempt_started_at 일 때만 쓰고, 아니면 DB 가 거절한다(끝난 run 을 덮지 않는다).
+ */
+export function toFinishScoreRunPayload(record: AnalysisRunRecord): FinishScoreRunPayload {
+  return {
+    score_run_id: record.scoreRunId,
+    org_id: record.orgId,
+    attempt_started_at: record.attemptStartedAt,
+    run: toScoreRunResultUpdate(record),
+    factors: toScoreFactorRows(record),
+    assessments: toRequirementAssessmentRows(record),
+    checks: toQualificationCheckRows(record),
+  };
 }

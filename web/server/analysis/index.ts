@@ -24,9 +24,12 @@ export {
 } from "./fallback.model";
 export type {
   AiUnavailableReason,
+  DiagnosticFailure,
   ExplainOutcome,
   ExtractionOutcome,
+  FailureDiagnostic,
   KevOutcome,
+  KevUnusableFailure,
 } from "./fallback.model";
 
 // 분석 오케스트레이션(03 §2.1 ②~⑤). 요청 조립·플래그 같은 내부 순수 함수는 내보내지 않는다.
@@ -36,6 +39,7 @@ export { toIdempotencyKey, toKstDate, withStructuredSeq } from "./analysis.model
 export type {
   AiProvider,
   AnalysisContext,
+  AnalysisRunDiagnostics,
   AnalysisRunMeta,
   AnalysisRunRecord,
   CachedExtraction,
@@ -71,6 +75,7 @@ export type {
   LoadedAnalysisContext,
   ScoreRunStatus,
   StaleRun,
+  StaleRunCursor,
   StaleRunFinder,
 } from "./analysis-job.model";
 
