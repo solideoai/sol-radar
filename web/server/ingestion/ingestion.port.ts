@@ -69,7 +69,12 @@ export type SaveRevisionInput = {
   /** 주면 그 id 로 저장한다(demo:reset 의 결정적 id). 없으면 DB 가 만든다(6-2) */
   ids?: { bidId?: string; revisionId?: string };
 };
-export type SavedRevision = { bidId: string; revisionId: string };
+export type SavedRevision = {
+  bidId: string;
+  revisionId: string;
+  /** 저장한 bid_revisions 행의 created_at(DB timestamptz 문자열). documents jobId 를 만든다(C1') */
+  revisionCreatedAt: string;
+};
 
 export type IngestionRepo = {
   startRun(input: StartRunInput): Promise<StartedRun>;

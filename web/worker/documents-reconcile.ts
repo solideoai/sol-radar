@@ -4,6 +4,8 @@ import { errorNameOf } from "@/worker/error-name";
 type DocumentsReconcileDeps = {
   finder: PendingDocumentFinder;
   queue: JobQueue;
+  /** 실행 모드 범위(C6'). mock·fixture 는 true(데모 공고만), live 는 false(실제 공고만) */
+  isDemo: boolean;
   log: (line: string) => void;
 };
 
@@ -15,7 +17,11 @@ export async function reconcileDocumentsOnce(
   deps: DocumentsReconcileDeps,
   after: string | null = null,
 ) {
-  const documents = await deps.finder.findPendingDocuments({ after, limit: BATCH_LIMIT });
+  const documents = await deps.finder.findPendingDocuments({
+    after,
+    limit: BATCH_LIMIT,
+    isDemo: deps.isDemo,
+  });
   const seen = new Set<string>();
   let queued = 0;
   let failed = 0;
@@ -26,6 +32,7 @@ export async function reconcileDocumentsOnce(
       await enqueueDocuments(deps.queue, {
         bidId: document.bidId,
         revisionId: document.revisionId,
+        revisionCreatedAt: document.revisionCreatedAt,
       });
       queued += 1;
     } catch (error) {

@@ -29,6 +29,7 @@ import type { BidEvent, FieldChange } from "./revision";
 // - ids.bidId 를 줬는데 저장된 bid 의 id 와 다르다 → INGEST_BID_ID_MISMATCH
 // - 저장된 latest_revision 이 revision − 1 이 아니다 → INGEST_REVISION_CONFLICT
 // ids(6-2)를 주면 그 id 를 쓰고, 없으면 bid-N·rev-N 을 만든다. findLatestRunWindowEnd(6-2, 7-1 에서 trigger 추가)도 교차 타입으로 더한다.
+// revision 의 created_at(C1')은 저장 순번으로 정한다(memoryRevisionCreatedAt). 같은 순서로 저장하면 같은 값이다.
 
 export type MemoryBid = {
   bidId: string;
@@ -48,6 +49,8 @@ export type MemoryRevision = {
   reanalyze: boolean;
   normalized: NormalizedBid;
   rawPayload: Record<string, unknown>;
+  /** bid_revisions.created_at 흉내(PostgREST timestamptz 모양) */
+  createdAt: string;
 };
 
 export type MemoryOutboxEvent = BidEvent & { bidId: string; revisionId: string };
@@ -111,6 +114,15 @@ const idsOf = (input: SaveRevisionInput): MemorySaveIds => {
 
 export const memoryBidKey = (source: string, noticeId: string): string => `${source}:${noticeId}`;
 
+const MEMORY_REVISION_CREATED_BASE_MS = Date.UTC(2026, 0, 1);
+
+/**
+ * n 번째로 저장한 revision 의 created_at. 기준 시각에서 n 초 뒤다.
+ * PostgREST 가 timestamptz 를 돌려주는 모양(마이크로초 소수·"+00:00")으로 내, 큐 입구 검증이 그 형식을 받는지 함께 시험되게 한다.
+ */
+export const memoryRevisionCreatedAt = (sequence: number): string =>
+  `${new Date(MEMORY_REVISION_CREATED_BASE_MS + sequence * 1000).toISOString().slice(0, 19)}.123456+00:00`;
+
 const zeroSummary = (): IngestSummary => ({
   created: 0,
   changed: 0,
@@ -158,7 +170,8 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
     checkpoints: [],
     finishes: [],
   };
-  const counters = { run: 0, bid: 0, revision: 0 };
+  // saved 는 ids 로 id 를 정해도 늘어난다(created_at 순번)
+  const counters = { run: 0, bid: 0, revision: 0, saved: 0 };
 
   const requireRun = (runId: string): MemoryRun => {
     const run = [...state.runs.values()].find((candidate) => candidate.runId === runId);
@@ -260,6 +273,8 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
           counters.revision += 1;
           return `rev-${counters.revision}`;
         })();
+      counters.saved += 1;
+      const createdAt = memoryRevisionCreatedAt(counters.saved);
       state.revisions.push({
         revisionId,
         bidId,
@@ -270,6 +285,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         reanalyze: decision.reanalyze,
         normalized,
         rawPayload: structuredClone(rawPayload),
+        createdAt,
       });
       state.bids.set(key, {
         bidId,
@@ -282,7 +298,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         (event) => event.idempotencyKey === decision.event.idempotencyKey,
       );
       if (!duplicateEvent) state.outbox.push({ ...decision.event, bidId, revisionId });
-      return { bidId, revisionId };
+      return { bidId, revisionId, revisionCreatedAt: createdAt };
     },
 
     async recordError(runId, error) {
