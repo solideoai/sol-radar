@@ -137,6 +137,8 @@ describe("runIngest — g2b 신규 공고", () => {
       jobKey: "g2b:1",
     });
 
+    // 계약 5-D: checksum 은 저장한 revision 의 checksum, g2b 레코드의 fixtureId 는 null.
+    const [stored] = memoryRevisionsOf(repo, "g2b-bid-notice", NOTICE_NO);
     expect(result.saved).toEqual([
       {
         bidId: expect.any(String),
@@ -144,6 +146,8 @@ describe("runIngest — g2b 신규 공고", () => {
         noticeId: NOTICE_NO,
         kind: "CREATED",
         reanalyze: true,
+        checksum: stored?.checksum,
+        fixtureId: null,
       },
     ]);
   });
@@ -269,6 +273,8 @@ describe("runIngest — g2b 재수집·취소", () => {
       { jobKey: "g2b:2", now: LATER_NOW },
     );
 
+    // 계약 5-D: checksum 은 저장한 revision 2 의 checksum, g2b 레코드의 fixtureId 는 null.
+    const [, cancelledRevision] = memoryRevisionsOf(repo, "g2b-bid-notice", NOTICE_NO);
     expect(second.saved).toEqual([
       {
         bidId: expect.any(String),
@@ -276,6 +282,8 @@ describe("runIngest — g2b 재수집·취소", () => {
         noticeId: NOTICE_NO,
         kind: "CANCELLED",
         reanalyze: false,
+        checksum: cancelledRevision?.checksum,
+        fixtureId: null,
       },
     ]);
   });

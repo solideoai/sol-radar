@@ -4,6 +4,7 @@ import {
   CONNECTOR_TIMEOUT_MS,
   type BidSourceConnector,
   type ConnectorFailure,
+  type ConnectorFailureKind,
   type FetchPageInput,
   type FetchPageOutcome,
   type G2bItem,
@@ -16,9 +17,13 @@ import {
   G2B_API_HOST,
   G2B_BID_NOTICE_LIST_OPERATION,
   G2B_DEFAULT_ROWS,
+  G2B_GATEWAY_KEY_ERROR_CODES,
   G2B_MAX_ROWS,
+  looksLikeXml,
   parseG2bEnvelope,
+  parseG2bGatewayError,
   stripContactFields,
+  type G2bEnvelope,
 } from "./g2b.model";
 import { isDailyLimitExceeded } from "./quota";
 import { redactSecrets, redactUrl } from "./redaction";
@@ -37,6 +42,7 @@ export type OfficialApiConnectorOptions = {
 };
 
 const OPERATION = G2B_BID_NOTICE_LIST_OPERATION;
+const GATEWAY_KEY_ERROR_CODES: ReadonlySet<string> = new Set(G2B_GATEWAY_KEY_ERROR_CODES);
 const CURSOR_PATTERN = /^(\d+):(\d+)$/;
 const NON_NEGATIVE_INTEGER = /^\d+$/;
 const isoInstantSchema = z.iso.datetime({ offset: true });
@@ -48,7 +54,7 @@ const emptyPage = (): FetchPageOutcome => ({
 type PageCursor = { sliceIndex: number; pageNo: number };
 type Failed = { ok: false; failure: ConnectorFailure };
 type RequestResult = { ok: true; response: Response } | Failed;
-type JsonResult = { ok: true; body: unknown } | Failed;
+type TextResult = { ok: true; text: string } | Failed;
 
 // 생성 오류 메시지에 받은 값을 넣지 않는다. endpoint·키가 로그로 새지 않게 한다.
 function validateEndpoint(endpoint: string): string {
@@ -118,7 +124,13 @@ const failed = (fields: Omit<ConnectorFailure, "detail">, detail: string): Faile
 
 const timedOut = (): Failed => failed({ kind: "TIMEOUT" }, "응답 시간 초과");
 
-// 실패 응답의 본문은 쓰지 않는다. 연결을 돌려주려고 버리며, 버리다 난 오류는 결과에 영향이 없다.
+function gatewayFailureKind(code: string): ConnectorFailureKind {
+  if (isDailyLimitExceeded(code)) return "QUOTA_EXCEEDED";
+  if (GATEWAY_KEY_ERROR_CODES.has(code)) return "SERVICE_KEY_INVALID";
+  return "RESULT_CODE";
+}
+
+// 429 응답의 본문은 쓰지 않는다. 연결을 돌려주려고 버리며, 버리다 난 오류는 결과에 영향이 없다.
 async function discardBody(response: Response): Promise<void> {
   await response.body?.cancel().catch(() => undefined);
 }
@@ -159,20 +171,37 @@ export function createOfficialApiConnector(
     }
   }
 
-  async function readJson(response: Response): Promise<JsonResult> {
+  // 게이트웨이 키 오류는 2xx 가 아닌 상태로도 오므로 상태와 상관없이 본문을 읽는다. 받는 중에도 timeout 이 날 수 있다.
+  async function readText(response: Response): Promise<TextResult> {
     const status = response.status;
-    const text = await response.text().then(
-      (body) => ({ ok: true as const, body }),
-      (error: unknown) => ({ ok: false as const, error }),
+    return response.text().then(
+      (text): TextResult => ({ ok: true, text }),
+      (error: unknown): TextResult =>
+        isTimeoutError(error)
+          ? timedOut()
+          : failed({ kind: "HTTP_ERROR", status }, `응답 본문을 읽지 못했다(HTTP ${status})`),
     );
-    // 본문을 받는 중에도 timeout 이 날 수 있다.
-    if (!text.ok) {
-      return isTimeoutError(text.error)
-        ? timedOut()
-        : failed({ kind: "HTTP_ERROR", status }, `응답 본문을 읽지 못했다(HTTP ${status})`);
+  }
+
+  // 5-A 분류: 코드 22 → 일일 한도, 30·31 → 키 오류, 그 밖 → 결과 코드. 코드를 못 읽으면 HTTP 오류다.
+  function gatewayFailure(text: string, status: number): Failed {
+    const gateway = parseG2bGatewayError(text);
+    if (gateway === null) {
+      return failed(
+        { kind: "HTTP_ERROR", status },
+        `게이트웨이 응답을 해석하지 못했다(HTTP ${status})`,
+      );
     }
+    const code = gateway.returnReasonCode;
+    const kind = gatewayFailureKind(code);
+    // authMsg 형식에 맞는 키가 되돌아올 수도 있어 키를 한 번 더 가린다.
+    const authMsg = gateway.returnAuthMsg === null ? "" : ` ${redact(gateway.returnAuthMsg)}`;
+    return failed({ kind, resultCode: code }, `게이트웨이 resultCode ${code}${authMsg}`);
+  }
+
+  function envelopeOutcome(text: string, status: number): G2bEnvelope | Failed {
     try {
-      return { ok: true, body: JSON.parse(text.body) };
+      return parseG2bEnvelope(JSON.parse(text));
     } catch {
       return failed({ kind: "HTTP_ERROR", status }, `응답 본문이 JSON 이 아니다(HTTP ${status})`);
     }
@@ -196,14 +225,15 @@ export function createOfficialApiConnector(
         "호출 한도 초과(HTTP 429)",
       );
     }
-    if (!response.ok) {
-      await discardBody(response);
-      return failed({ kind: "HTTP_ERROR", status }, `HTTP ${status}`);
-    }
 
-    const read = await readJson(response);
+    const read = await readText(response);
     if (!read.ok) return read;
-    const envelope = parseG2bEnvelope(read.body);
+    // Content-Type 은 믿지 않는다. 키 오류 XML 이 application/json 으로 올 수도 있다.
+    if (looksLikeXml(read.text)) return gatewayFailure(read.text, status);
+    if (!response.ok) return failed({ kind: "HTTP_ERROR", status }, `HTTP ${status}`);
+
+    const envelope = envelopeOutcome(read.text, status);
+    if ("failure" in envelope) return envelope;
     if (!envelope.ok && envelope.kind === "MALFORMED") {
       return failed({ kind: "HTTP_ERROR", status }, `응답 형식이 봉투가 아니다(HTTP ${status})`);
     }

@@ -195,9 +195,20 @@ describe("runIngest — SEED summary (07 §6.4)", () => {
     ]);
   });
 
-  it("startRun 에 받은 run 입력을 그대로 넘긴다", async () => {
+  // params 는 Stage 5-B 부터 fixture anchor 가 더해진다. 그 단언은 ingestion.service.anchor.test.ts 가 맡는다.
+  it("startRun 에 받은 run 입력(source·runMode·jobKey·trigger·batch)을 그대로 넘긴다", async () => {
     const { repo } = await seed();
-    expect(repo.state.runs.get("seed-1")?.input).toEqual(fixtureRun("seed-1", "SEED"));
+    const identity = (input: StartRunInput | undefined) =>
+      input && {
+        source: input.source,
+        runMode: input.runMode,
+        jobKey: input.jobKey,
+        trigger: input.trigger,
+        batch: input.batch,
+      };
+    expect(identity(repo.state.runs.get("seed-1")?.input)).toEqual(
+      identity(fixtureRun("seed-1", "SEED")),
+    );
   });
 });
 
@@ -372,10 +383,69 @@ describe("runIngest — saved 와 재분석(07 §5)", () => {
     expect(fx08?.revisionId).toBe(stored?.revisionId);
   });
 
-  it("rawPayload 로 fixture 레코드 원문을 넘긴다", async () => {
+  // 5-F: fixture rawPayload 는 레코드 원문에 fixture 파일의 id 를 최상위 키로 더한 것이다.
+  it("rawPayload 로 fixture 레코드 원문(+ fixtureId)을 넘긴다", async () => {
     const { repo } = await seed();
     const fx01 = memoryRevisionsOf(repo, "fixture", "DEMO-2026-0001")[0];
-    expect(fx01?.rawPayload).toEqual(await readFixtureRecord("FX-01", "SEED"));
+    expect(fx01?.rawPayload).toEqual({
+      fixtureId: "FX-01",
+      ...(await readFixtureRecord("FX-01", "SEED")),
+    });
+  });
+
+  // 5-C: 레코드에 status 가 없는 fixture 는 revision ≥ 2 에서 AMENDED, 레코드 status 가 있으면 그 값.
+  it("LIVE 의 r2 status 는 FX-06·07·10 AMENDED, FX-08 CANCELLED 다", async () => {
+    const { repo } = await seedThenLive();
+    const r2StatusOf = (noticeId: string) =>
+      memoryRevisionsOf(repo, "fixture", noticeId).find((revision) => revision.revision === 2)
+        ?.normalized.status;
+    expect(
+      ["DEMO-2026-0006", "DEMO-2026-0007", "DEMO-2026-0008", "DEMO-2026-0010"].map(r2StatusOf),
+    ).toEqual(["AMENDED", "AMENDED", "CANCELLED", "AMENDED"]);
+  });
+});
+
+// 5-D: demo:reset 이 saved 를 { bids: saved, … } 로 감싼다. 각 항목에 checksum·fixtureId 가 있어야 한다.
+describe("runIngest — saved 의 checksum·fixtureId (C3 계약 5-D)", () => {
+  const SEED_SAVED_IDS = Array.from(
+    { length: 20 },
+    (_, index) => `FX-${String(index + 1).padStart(2, "0")}`,
+  ).filter((id) => id !== "FX-12");
+
+  it("SEED saved 의 fixtureId 는 FX-12 를 뺀 19건을 manifest 순서로 담는다", async () => {
+    const { result } = await seed();
+    expect(result.saved.map((saved) => saved.fixtureId)).toEqual(SEED_SAVED_IDS);
+  });
+
+  it("LIVE saved 의 fixtureId 는 FX-06·07·08·10 이다(FX-09 중복 없음)", async () => {
+    const { live } = await seedThenLive();
+    expect(live.saved.map((saved) => saved.fixtureId)).toEqual([
+      "FX-06",
+      "FX-07",
+      "FX-08",
+      "FX-10",
+    ]);
+  });
+
+  it("saved 의 checksum 은 모두 소문자 16진 64자리다", async () => {
+    const { result } = await seed();
+    expect(result.saved.every((saved) => /^[0-9a-f]{64}$/.test(saved.checksum))).toBe(true);
+  });
+
+  it("saved 의 checksum 은 저장소에 남은 그 revision 의 checksum 과 같다", async () => {
+    const { repo, live } = await seedThenLive();
+    const storedChecksumOf = (revisionId: string) =>
+      repo.state.revisions.find((revision) => revision.revisionId === revisionId)?.checksum;
+    expect(live.saved.map((saved) => saved.checksum)).toEqual(
+      live.saved.map((saved) => storedChecksumOf(saved.revisionId)),
+    );
+  });
+
+  it("SEED saved 의 checksum 도 저장소의 revision checksum 과 같다", async () => {
+    const { repo, result } = await seed();
+    expect(result.saved.map((saved) => saved.checksum)).toEqual(
+      repo.state.revisions.map((revision) => revision.checksum),
+    );
   });
 });
 

@@ -204,7 +204,8 @@ describe("필드 매핑 — FX-01", () => {
     expect(draftOf("FX-01").status).toBe("OPEN");
   });
 
-  it("정정 revision(FX-06 r2) 이라고 status 를 AMENDED 로 바꾸지 않는다", () => {
+  // 정규화는 revision 을 모른다. AMENDED 는 revision 확정 때 statusForRevision 이 정한다(계약 5-C).
+  it("정규화는 정정 레코드(FX-06 r2)도 status 를 OPEN 으로 낸다", () => {
     expect(draftOf("FX-06", "LIVE").status).toBe("OPEN");
   });
 

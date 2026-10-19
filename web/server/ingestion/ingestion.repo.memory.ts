@@ -19,7 +19,9 @@ import type { BidEvent, FieldChange } from "./revision";
 // - bid_notices: UNIQUE(source, notice_id) → bids 는 `${source}:${noticeId}` 로 한 행
 // - bid_revisions: UNIQUE(bid_id, revision) → 같은 revision 을 두 번 넣으면 던진다
 // - outbox_events: UNIQUE(idempotency_key) → on conflict do nothing(조용히 무시)
-// - ingest_runs: UNIQUE(job_key) → 같은 jobKey 의 run 을 돌려준다
+// - ingest_runs: UNIQUE(job_key) → 같은 jobKey 의 run 을 돌려준다. params 는 처음 시작할 때 받은 값을 그대로 둔다
+//   (이어 가는 run 이 처음 정한 fixture anchor 를 다시 쓰게, C3 계약 Stage 5-B)
+// 계약 Stage 5-B 의 StartedRun.params·findLatestSeedAnchor 는 교차 타입으로 더해, 포트가 바뀌기 전에도 뒤에도 컴파일된다.
 
 export type MemoryBid = {
   bidId: string;
@@ -73,7 +75,14 @@ export type MemoryIngestionState = {
   finishes: MemoryFinish[];
 };
 
-export type MemoryIngestionRepo = IngestionRepo & { readonly state: MemoryIngestionState };
+export type MemoryStartedRun = StartedRun & { params: Record<string, unknown> | null };
+
+export type MemoryIngestionRepo = IngestionRepo & {
+  readonly state: MemoryIngestionState;
+  startRun(input: StartRunInput): Promise<MemoryStartedRun>;
+  /** source 의 SEED run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(시작 순서) run 의 params.anchor. ISO 가 아니면 null */
+  findLatestSeedAnchor(source: "fixture"): Promise<Date | null>;
+};
 
 export const memoryBidKey = (source: string, noticeId: string): string => `${source}:${noticeId}`;
 
@@ -86,12 +95,22 @@ const zeroSummary = (): IngestSummary => ({
   retried: 0,
 });
 
-const toStartedRun = (run: MemoryRun): StartedRun => ({
+const toStartedRun = (run: MemoryRun): MemoryStartedRun => ({
   runId: run.runId,
   status: run.status,
   cursor: run.cursor,
   summary: { ...run.summary },
+  params: structuredClone(run.input.params),
 });
+
+// Date.prototype.toISOString() 형식만 받는다(서비스가 그 형식으로 쓴다).
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const isoDateOf = (value: unknown): Date | null =>
+  typeof value === "string" && ISO_UTC.test(value) && !Number.isNaN(Date.parse(value))
+    ? new Date(value)
+    : null;
+
+const FINISHED_SEED_STATUSES: ReadonlySet<IngestRunStatus> = new Set(["SUCCEEDED", "PARTIAL"]);
 
 export function createMemoryIngestionRepo(): MemoryIngestionRepo {
   const state: MemoryIngestionState = {
@@ -127,6 +146,19 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       };
       state.runs.set(input.jobKey, run);
       return toStartedRun(run);
+    },
+
+    // runs 는 Map 이라 넣은 순서(= 시작 순서)를 지킨다. 같은 jobKey 를 다시 시작해도 순서는 처음 그대로다.
+    async findLatestSeedAnchor(source) {
+      const latest = [...state.runs.values()]
+        .filter(
+          (run) =>
+            run.input.source === source &&
+            run.input.batch === "SEED" &&
+            FINISHED_SEED_STATUSES.has(run.status),
+        )
+        .at(-1);
+      return latest ? isoDateOf(latest.input.params?.anchor) : null;
     },
 
     async findLatestRevision(source, noticeId) {

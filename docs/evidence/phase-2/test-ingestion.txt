@@ -1,23 +1,26 @@
 # C3 수집 도메인 시험 (web/server/ingestion)
-일시: 2026-10-19 11:51 KST
-브랜치: c3/ingestion-core (base main 67877a1, 커밋 전 작업 트리)
-모드: SOL_RUN_MODE 미지정(mock). 외부 네트워크 호출 없음(fetch 주입·fixture·임시 폴더만)
+일시: 2026-10-19 12:35 KST
+브랜치: c3/ingestion-core (ffbdac3 Stage 1~3, cef039e main 병합, 이 증거와 함께 Stage 4·5 커밋)
+모드: SOL_RUN_MODE 미지정(mock). 외부 네트워크 호출 없음(fetch 주입·fixture·녹음 파일·임시 폴더만)
 
 ## 1. 수집 시험
 $ pnpm -C web exec vitest run server/ingestion
- Test Files  24 passed (24)
-      Tests  1110 passed (1110)
+ Test Files  29 passed (29)
+      Tests  1369 passed (1369)
 파일별:
   attachment-fetcher.test.ts: 210/210 passed
-  cancel.test.ts: 12/12 passed
+  cancel.test.ts: 14/14 passed
   checksum.test.ts: 21/21 passed
   fixture-connector.test.ts: 51/51 passed
+  fixture-status.test.ts: 10/10 passed
   g2b-envelope.test.ts: 25/25 passed
   g2b-filter.test.ts: 22/22 passed
+  g2b-gateway-error.test.ts: 56/56 passed
   g2b-request.test.ts: 24/24 passed
   idempotent-upsert.test.ts: 25/25 passed
+  ingestion.service.anchor.test.ts: 40/40 passed
   ingestion.service.g2b.test.ts: 23/23 passed
-  ingestion.service.test.ts: 62/62 passed
+  ingestion.service.test.ts: 68/68 passed
   normalize-amount.test.ts: 41/41 passed
   normalize-date.test.ts: 64/64 passed
   normalize-g2b.test.ts: 84/84 passed
@@ -28,9 +31,11 @@ $ pnpm -C web exec vitest run server/ingestion
   quarantine.test.ts: 53/53 passed
   quota.test.ts: 29/29 passed
   rate-limit-retry.test.ts: 58/58 passed
-  revision-diff.test.ts: 32/32 passed
+  recorded-api.test.ts: 111/111 passed
+  revision-diff.test.ts: 37/37 passed
   service-key-redaction.test.ts: 26/26 passed
   stage-link.test.ts: 34/34 passed
+  stale-amendment.test.ts: 29/29 passed
   text-normalize.test.ts: 12/12 passed
 
 ## 2. 골든·회귀 ↔ 시험 파일 (docs/11-TESTING.md)
@@ -38,20 +43,23 @@ $ pnpm -C web exec vitest run server/ingestion
 - G2 수집 쪽 마감·예산 변경 → revision 2·diff 전/후·BID_CHANGED 1건 (FX-06, FX-07): revision-diff.test.ts (알림 outbox 중복 제거는 C7 몫)
 - G7 429 두 번 → Retry-After 2s 대기 2회·적재 1건·체크포인트 복구 (FX-20): rate-limit-retry.test.ts
 - G10 NormalizedBid 계약 (FX-11·12·13·14): normalized-bid.contract.test.ts, quarantine.test.ts, normalize-amount.test.ts, normalize-date.test.ts (evidence-ref.contract.test.ts 는 C3 범위 밖, 미작성)
-- 07 §6.4 summary: SEED {created:19,changed:0,cancelled:0,skippedDuplicate:0,quarantined:1,retried:2} → status PARTIAL(04 §4 일부 격리), LIVE {created:0,changed:3,cancelled:1,skippedDuplicate:1,quarantined:0,retried:0} → SUCCEEDED: ingestion.service.test.ts
+- 07 §6.4 summary: SEED {created:19,changed:0,cancelled:0,skippedDuplicate:0,quarantined:1,retried:2} → status PARTIAL(04 §4 일부 격리), LIVE {created:0,changed:3,cancelled:1,skippedDuplicate:1,quarantined:0,retried:0} → SUCCEEDED, bid_revisions 23(19 + LIVE 4): ingestion.service.test.ts
+- fixture status: 레코드에 status 가 없으면 revision 1 OPEN·revision ≥ 2 AMENDED(FX-06·07·10 r2), FX-08 r2 CANCELLED (e8 판정 B-1): fixture-status.test.ts, revision-diff.test.ts, cancel.test.ts
+- 늦게 온 이전 차수(실측 목록의 000·001 동시 수신) → STALE, 새 revision 없음: stale-amendment.test.ts, recorded-api.test.ts(7일 녹음 재수집 skippedDuplicate 15)
 - §3.1 FX-08 취소 cancel.test.ts · FX-12 격리 quarantine.test.ts · FX-13 금액 normalize-amount.test.ts · FX-14 KST→UTC normalize-date.test.ts · FX-17/18/19 단계 연결 stage-link.test.ts
-- V2-03 공공 API 실패 구분: official-api-errors.test.ts · V2-11 순수 부분(키 가림·호출 예산 키·90%·코드 22): service-key-redaction.test.ts, quota.test.ts, official-api-errors.test.ts · V2-12 첨부 allowlist: attachment-fetcher.test.ts
-- 15 §7 시점 일치: point-in-time.test.ts
+- V2-03 공공 API 실패 구분: official-api-errors.test.ts, g2b-gateway-error.test.ts · V2-11 순수 부분(키 가림·호출 예산 키·90%·코드 22): service-key-redaction.test.ts, quota.test.ts, official-api-errors.test.ts · V2-12 첨부 allowlist: attachment-fetcher.test.ts
+- 녹음 응답 재생(RecordedApiConnector, fixtures/recorded 14파일, 실제 응답 마스킹본): recorded-api.test.ts
+- fixture 날짜 기준(anchor) 보관·재사용: ingestion.service.anchor.test.ts · 15 §7 시점 일치: point-in-time.test.ts
 
 ## 3. 전체 검증
 $ pnpm verify  → exit 0
-- 루트 node --test: tests 479 · pass 479 · fail 0 · skipped 0
-- web vitest: Test Files 83 passed (83) · Tests 2037 passed (2037)
+- 루트 node --test: tests 492 · pass 492 · fail 0 · skipped 0
+- web vitest: Test Files 100 passed (100) · Tests 2460 passed (2460)
 - web format:check·type-check·lint·check:lint-guards·lodestar·check:tokens·check:colors·build 통과
-- services/ai pytest 28 passed
+- services/ai pytest 통과
 
 ## 4. 통과로 적지 않은 것
-- Supabase 저장 구현(IngestionRepo 의 실제 쓰기)·ingest job BullMQ 등록: 미구현(C2 병합 뒤). 서비스 시험은 메모리 저장소(ingestion.repo.memory.ts)로만 돌았다
-- RecordedApiConnector(녹음 응답 재생) 시험: main 병합 뒤 추가 예정
-- 보조 조회 3종(structuredQualifications)·G2bAttachmentFetcher 네트워크 부분·Redis 호출 예산 카운터: 미구현
+- data.go.kr 공통 XML 오류 봉투(returnReasonCode 22·30·31) 분류: 미검증 가정(실측 표본 없음). 구성한 표본으로만 시험했다(g2b-gateway-error.test.ts)
+- Supabase 저장 구현(IngestionRepo 의 실제 쓰기)·ingest job BullMQ 등록·infra/sources/registry.yaml·demo:reset 교체: 미구현(C2 병합 뒤 worker 연결 단계). 서비스 시험은 메모리 저장소(ingestion.repo.memory.ts)로만 돌았다
+- 보조 조회 3종(structuredQualifications)·G2bAttachmentFetcher 네트워크 부분·documents job·AttachmentTextReader 구현·Redis 호출 예산 카운터: 미구현(타입·순수 부분만)
 - fixtures/docs/ 첨부 샘플이 없어 FixtureAttachmentFetcher 는 임시 폴더 파일로만 시험했다(실제 fixture 첨부는 NOT_FOUND)

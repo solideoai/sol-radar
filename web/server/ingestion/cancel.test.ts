@@ -9,6 +9,7 @@ import type { NormalizedBidDraft } from "./normalized-bid.model";
 import { decideRevision, type ChangeDecision, type StoredRevision } from "./revision";
 
 // 07 §5 취소 행, 11 §3.1 FX-08: 취소는 revision +1·status CANCELLED·BID_CHANGED 1건·재분석 없음.
+// 계약 5-C: 레코드에 status 가 있으면(FX-08 r2) revision 이 올라도 그 값을 쓴다. 없으면 revision ≥ 2 는 AMENDED.
 const FIXTURES_DIR = fileURLToPath(new URL("../../../fixtures/", import.meta.url));
 const CONTEXT = {
   fetchedAt: new Date("2026-10-19T03:05:00.000Z"),
@@ -33,7 +34,7 @@ const storedAt = (draft: NormalizedBidDraft, revision: number): StoredRevision =
   return { bidId: "bid-fx08", revision, checksum: bid.checksum, normalized: bid };
 };
 const saved = (decision: ChangeDecision) => {
-  if (decision.kind === "DUPLICATE") throw new Error("변경이 DUPLICATE 로 판정됐다");
+  if (!("bid" in decision)) throw new Error(`변경이 ${decision.kind} 로 판정됐다`);
   return decision;
 };
 const cancelFx08 = () => decideRevision(storedAt(draftOf("SEED"), 1), draftOf("LIVE"));
@@ -105,9 +106,31 @@ describe("이미 CANCELLED 인 공고의 재변경", () => {
     });
   });
 
-  it("CANCELLED 에서 OPEN 으로 돌아오면 CHANGED 이고 재분석한다", () => {
-    const decision = saved(afterCancel({ status: "OPEN" }));
-    expect([decision.kind, decision.reanalyze]).toEqual(["CHANGED", true]);
+  it("레코드 status 가 OPEN 으로 돌아오면 CHANGED 이고 재분석한다", () => {
+    const live = draftOf("LIVE");
+    const decision = saved(
+      afterCancel({ status: "OPEN", original: { ...live.original, status: "OPEN" } }),
+    );
+    expect([decision.kind, decision.bid.status, decision.reanalyze]).toEqual([
+      "CHANGED",
+      "OPEN",
+      true,
+    ]);
+  });
+
+  it("취소 뒤 status 없는 레코드가 오면 CHANGED 이고 재분석한다", () => {
+    const decision = saved(afterCancel({ ...draftOf("SEED"), amendmentNo: "03" }));
+    expect([decision.kind, decision.bid.revision, decision.reanalyze]).toEqual([
+      "CHANGED",
+      3,
+      true,
+    ]);
+  });
+
+  it("취소 뒤 status 없는 레코드의 revision 3 은 AMENDED 다", () => {
+    expect(saved(afterCancel({ ...draftOf("SEED"), amendmentNo: "03" })).bid.status).toBe(
+      "AMENDED",
+    );
   });
 });
 

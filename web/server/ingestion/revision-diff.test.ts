@@ -15,6 +15,7 @@ import {
 } from "./revision";
 
 // G2 의 수집 쪽(07 §4·§5): revision diff·이벤트 멱등키·동일 payload 재수신.
+// 계약 5-C(e8 판정 B-1): 레코드에 status 가 없는 fixture 공고는 revision ≥ 2 로 확정할 때 AMENDED 다.
 const FIXTURES_DIR = fileURLToPath(new URL("../../../fixtures/", import.meta.url));
 // KST 2026-10-19 12:00
 const ANCHOR = new Date("2026-10-19T03:00:00.000Z");
@@ -40,7 +41,7 @@ const draftOf = (
   return outcome.draft;
 };
 const store = (bidId: string, decision: ChangeDecision): StoredRevision => {
-  if (decision.kind === "DUPLICATE") throw new Error("저장할 revision 이 없다");
+  if (!("bid" in decision)) throw new Error(`저장할 revision 이 없다: ${decision.kind}`);
   return {
     bidId,
     revision: decision.bid.revision,
@@ -48,12 +49,18 @@ const store = (bidId: string, decision: ChangeDecision): StoredRevision => {
     normalized: decision.bid,
   };
 };
-const storedAt = (bidId: string, draft: NormalizedBidDraft, revision: number): StoredRevision => {
-  const bid = finalizeRevision(draft, revision);
+// 저장소에 이미 있는 revision. status 는 그 revision 을 확정할 때의 값을 직접 준다(5-C).
+const storedAt = (
+  bidId: string,
+  draft: NormalizedBidDraft,
+  revision: number,
+  status: NormalizedBidDraft["status"] = draft.status,
+): StoredRevision => {
+  const bid = finalizeRevision({ ...draft, status }, revision);
   return { bidId, revision, checksum: bid.checksum, normalized: bid };
 };
 const changed = (decision: ChangeDecision) => {
-  if (decision.kind === "DUPLICATE") throw new Error("변경이 DUPLICATE 로 판정됐다");
+  if (!("bid" in decision)) throw new Error(`변경이 ${decision.kind} 로 판정됐다`);
   return decision;
 };
 const fields = (decision: ChangeDecision) => changed(decision).changes.map(({ field }) => field);
@@ -105,7 +112,19 @@ describe("G2 — FX-06 마감 변경", () => {
   });
 
   it("r2 의 diff 는 바뀐 추적 필드만 TRACKED_FIELDS 순서로 담는다", () => {
-    expect(fields(fx06().next)).toEqual(["amendmentNo", "deadlineAt", "content"]);
+    expect(fields(fx06().next)).toEqual(["amendmentNo", "status", "deadlineAt", "content"]);
+  });
+
+  it("레코드에 status 가 없는 r2 의 bid.status 는 AMENDED 다", () => {
+    expect(changed(fx06().next).bid.status).toBe("AMENDED");
+  });
+
+  it("r2 의 diff 에 status OPEN → AMENDED 가 있다", () => {
+    expect(changed(fx06().next).changes.find(({ field }) => field === "status")).toStrictEqual({
+      field: "status",
+      before: "OPEN",
+      after: "AMENDED",
+    });
   });
 
   it("r2 는 BID_CHANGED 이벤트 1건을 source:noticeId:revision:type 멱등키로 만든다", () => {
@@ -119,9 +138,9 @@ describe("G2 — FX-06 마감 변경", () => {
     expect(changed(fx06().next).reanalyze).toBe(true);
   });
 
-  it("r2 의 bid 는 finalizeRevision(r2, 2) 와 같다", () => {
+  it("r2 의 bid 는 status 만 AMENDED 로 바꾼 r2 를 revision 2 로 확정한 것과 같다", () => {
     const { r2, next } = fx06();
-    expect(changed(next).bid).toStrictEqual(finalizeRevision(r2, 2));
+    expect(changed(next).bid).toStrictEqual(finalizeRevision({ ...r2, status: "AMENDED" }, 2));
   });
 
   it("같은 r2 를 다시 받으면 fetchedAt 이 달라도 DUPLICATE·revision 2 이고 이벤트가 없다", () => {
@@ -162,8 +181,12 @@ describe("G2 — FX-07 예산·요구사항 변경", () => {
     });
   });
 
-  it("diff 필드는 amendmentNo·budgetKrw·content 다", () => {
-    expect(fields(fx07().next)).toEqual(["amendmentNo", "budgetKrw", "content"]);
+  it("diff 필드는 amendmentNo·status·budgetKrw·content 다", () => {
+    expect(fields(fx07().next)).toEqual(["amendmentNo", "status", "budgetKrw", "content"]);
+  });
+
+  it("레코드에 status 가 없는 r2 의 bid.status 는 AMENDED 다", () => {
+    expect(changed(fx07().next).bid.status).toBe("AMENDED");
   });
 
   it("CHANGED·revision 2·BID_CHANGED·재분석이다", () => {
@@ -211,11 +234,19 @@ describe("G1 — FX-10 차수 01→02", () => {
   it("이벤트 멱등키는 같은 noticeId 의 revision 2 다", () => {
     expect(changed(fx10()).event.idempotencyKey).toBe("fixture:DEMO-2026-0010:2:BID_CHANGED");
   });
+
+  it("02차의 bid.status 는 AMENDED 다", () => {
+    expect(changed(fx10()).bid.status).toBe("AMENDED");
+  });
+
+  it("diff 필드는 amendmentNo·status·content 다", () => {
+    expect(fields(fx10())).toEqual(["amendmentNo", "status", "content"]);
+  });
 });
 
 describe("decideRevision", () => {
   it("다음 revision 은 previous.revision + 1 이다", () => {
-    const previous = storedAt("bid-fx06", draftOf("FX-06", "SEED"), 3);
+    const previous = storedAt("bid-fx06", draftOf("FX-06", "SEED"), 3, "AMENDED");
     const decision = changed(decideRevision(previous, draftOf("FX-06", "LIVE")));
     expect([decision.bid.revision, decision.event.idempotencyKey]).toEqual([
       4,
@@ -223,9 +254,10 @@ describe("decideRevision", () => {
     ]);
   });
 
-  it("중복 판정은 previous.revision 으로 확정한 checksum 과 비교한다", () => {
+  it("중복 판정은 status 규칙을 적용해 previous.revision 으로 확정한 checksum 과 비교한다", () => {
+    // 레코드 status 가 없는 draft 의 revision 3 은 AMENDED 로 저장돼 있다(5-C)
     const draft = draftOf("FX-06", "SEED");
-    expect(decideRevision(storedAt("bid-fx06", draft, 3), draft)).toStrictEqual({
+    expect(decideRevision(storedAt("bid-fx06", draft, 3, "AMENDED"), draft)).toStrictEqual({
       kind: "DUPLICATE",
       revision: 3,
     });

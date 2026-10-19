@@ -46,6 +46,8 @@ export type StartedRun = {
   status: IngestRunStatus;
   cursor: string | null;
   summary: IngestSummary;
+  /** 처음 시작할 때 저장한 params. 이어 가는 run 이 처음 정한 fixture anchor 를 다시 쓴다(5-B) */
+  params: Record<string, unknown> | null;
 };
 
 export type IngestErrorInput = {
@@ -55,7 +57,8 @@ export type IngestErrorInput = {
   redactedDetail: string;
 };
 
-export type SavedRevisionDecision = Exclude<ChangeDecision, { kind: "DUPLICATE" }>;
+// 중복·이전 차수(STALE)는 저장하지 않는다.
+export type SavedRevisionDecision = Exclude<ChangeDecision, { kind: "DUPLICATE" | "STALE" }>;
 export type SaveRevisionInput = {
   decision: SavedRevisionDecision;
   rawPayload: Record<string, unknown>;
@@ -65,6 +68,8 @@ export type SavedRevision = { bidId: string; revisionId: string };
 export type IngestionRepo = {
   startRun(input: StartRunInput): Promise<StartedRun>;
   findLatestRevision(source: BidSource, noticeId: string): Promise<StoredRevision | null>;
+  /** source 의 SEED run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(started_at) run 의 params.anchor. ISO 가 아니면 null */
+  findLatestSeedAnchor(source: "fixture"): Promise<Date | null>;
   /** bid_notices upsert + bid_revisions insert + outbox(event.idempotencyKey) 를 한 트랜잭션으로 */
   saveRevision(input: SaveRevisionInput): Promise<SavedRevision>;
   recordError(runId: string, error: IngestErrorInput): Promise<void>;

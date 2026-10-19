@@ -75,3 +75,21 @@ export function attachmentObjectKey(input: {
   }
   return `raw/bids/${input.bidId}/${input.revisionId}/${input.sha256}.${DOCUMENT_FORMAT_EXT[input.format]}`;
 }
+
+// ── 첨부 텍스트 읽기 port(5-G). 분석 쪽이 revision 의 첨부 텍스트를 읽는 자리다. 구현은 documents job 단계에서 붙인다 ──
+export type RevisionDocumentText = {
+  documentId: string;
+  name: string;
+  downloadStatus: "PENDING" | "OK" | "FAILED";
+  downloadErrorCode: string | null;
+  parseStatus: "PENDING" | "PARSED" | "PARTIAL" | "UNSUPPORTED" | "FAILED" | null;
+  parseErrorCode: string | null;
+  /** PARSED·PARTIAL 일 때만 있다. 파싱하지 못한 문서의 내용을 추측해 채우지 않는다(15 §5.1) */
+  text: string | null;
+  /** 03 ParseResult.pages */
+  pages: { page: number; charOffset: number }[];
+};
+
+export type AttachmentTextReader = {
+  readRevisionDocuments(revisionId: string): Promise<RevisionDocumentText[]>;
+};

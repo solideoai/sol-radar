@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import {
   ingestErrorCodeOf,
   type BidSourceConnector,
@@ -10,6 +11,7 @@ import type {
   IngestionRepo,
   IngestRunStatus,
   IngestSummary,
+  StartedRun,
   StartRunInput,
 } from "./ingestion.repo";
 import { normalizeFixtureRecord, type NormalizeOutcome } from "./normalize";
@@ -25,8 +27,11 @@ export type RunIngestInput = {
   connector: BidSourceConnector;
   repo: IngestionRepo;
   run: StartRunInput;
-  /** fixture 상대 날짜(+Nd)의 기준. SEED·LIVE 가 같은 값을 써야 FX-09 가 중복으로 잡힌다. g2b 는 쓰지 않는다 */
-  anchor: Date;
+  /**
+   * fixture 상대 날짜(+Nd)의 기준. 주지 않으면 run.params.anchor → SEED 는 now() → LIVE 는 가장 최근 SEED 의 anchor(5-B).
+   * SEED·LIVE 가 같은 값을 써야 FX-09 가 중복으로 잡힌다. g2b run 은 쓰지 않는다
+   */
+  anchor?: Date;
   /** fetchedAt */
   now: () => Date;
   retry: RetryDeps;
@@ -40,6 +45,10 @@ export type SavedBidRevision = {
   noticeId: string;
   kind: "CREATED" | "CHANGED" | "CANCELLED";
   reanalyze: boolean;
+  /** 저장한 revision 의 checksum(5-D) */
+  checksum: string;
+  /** fixture 레코드면 그 fixture 파일의 id, g2b 면 null(5-D) */
+  fixtureId: string | null;
 };
 
 export type IngestRunResult = {
@@ -51,17 +60,30 @@ export type IngestRunResult = {
   alreadyFinished: boolean;
 };
 
+/** ingest_runs.params 에서 fixture 날짜 기준을 담는 키 */
+export const FIXTURE_ANCHOR_PARAM = "anchor";
+/** SEED run 이 없어 LIVE 배치의 날짜 기준을 정하지 못했을 때의 ingest_errors.error_code */
+export const SEED_ANCHOR_MISSING = "SEED_ANCHOR_MISSING";
+
 type RunContext = {
   input: RunIngestInput;
   runId: string;
+  /** fixture 레코드에만 쓴다. g2b run 에서는 input.anchor 를 그대로 둔다 */
+  anchor: Date | null;
   redact: (text: string) => string;
 };
 
 type PageResult = { summary: IngestSummary; saved: SavedBidRevision[] };
 
 const FINISHED_STATUSES: ReadonlySet<IngestRunStatus> = new Set(["SUCCEEDED", "PARTIAL"]);
+const isoInstantSchema = z.iso.datetime();
 
 const stringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null);
+
+const isoInstantOf = (value: unknown): Date | null =>
+  typeof value === "string" && isoInstantSchema.safeParse(value).success
+    ? new Date(Date.parse(value))
+    : null;
 
 function windowOf(params: Record<string, unknown> | null): {
   from: string | null;
@@ -75,15 +97,33 @@ function windowOf(params: Record<string, unknown> | null): {
   };
 }
 
-function normalizeRecord(record: SourceRecord, fetchedAt: Date, anchor: Date): NormalizeOutcome {
-  return record.kind === "fixture"
-    ? normalizeFixtureRecord(record.record, { fetchedAt, anchor })
-    : normalizeG2bBidNotice(record.item, { fetchedAt });
+// 5-B 1단계: 직접 준 값 → run.params → SEED 는 지금 → LIVE 는 가장 최근에 끝난 SEED 의 값.
+async function anchorCandidate(input: RunIngestInput): Promise<Date | null> {
+  if (input.anchor !== undefined) return input.anchor;
+  const fromParams = isoInstantOf(input.run.params?.[FIXTURE_ANCHOR_PARAM]);
+  if (fromParams !== null) return fromParams;
+  if (input.run.batch === "SEED") return input.now();
+  if (input.run.batch === "LIVE") return input.repo.findLatestSeedAnchor("fixture");
+  return null;
 }
 
-// g2b 행은 connector 가 이미 담당자 필드를 뺐다.
+function normalizeRecord(
+  record: SourceRecord,
+  fetchedAt: Date,
+  anchor: Date | null,
+): NormalizeOutcome {
+  if (record.kind === "g2b-bid-notice") return normalizeG2bBidNotice(record.item, { fetchedAt });
+  // fixture run 은 anchor 가 없으면 connector 를 부르기 전에 멈춘다. 여기 닿으면 g2b run 에 fixture 레코드가 섞인 프로그램 오류다.
+  if (anchor === null) throw new Error("runIngest: fixture 레코드의 날짜 기준(anchor)이 없다");
+  return normalizeFixtureRecord(record.record, { fetchedAt, anchor });
+}
+
+// 5-F: b3 가 raw_payload->>'fixtureId' 로 mock 추출 파일을 고른다. g2b 행은 connector 가 이미 담당자 필드를 뺐다.
 const rawPayloadOf = (record: SourceRecord): Record<string, unknown> =>
-  record.kind === "fixture" ? record.record : record.item;
+  record.kind === "fixture" ? { fixtureId: record.fixtureId, ...record.record } : record.item;
+
+const fixtureIdOf = (record: SourceRecord): string | null =>
+  record.kind === "fixture" ? record.fixtureId : null;
 
 const recordIssue = (context: RunContext, issue: IngestIssue): Promise<void> =>
   context.input.repo.recordError(context.runId, {
@@ -95,19 +135,24 @@ const recordIssue = (context: RunContext, issue: IngestIssue): Promise<void> =>
 
 const COUNTER_OF = { CREATED: "created", CHANGED: "changed", CANCELLED: "cancelled" } as const;
 
+const counted = (
+  progress: PageResult,
+  counter: "quarantined" | "skippedDuplicate",
+): PageResult => ({
+  ...progress,
+  summary: { ...progress.summary, [counter]: progress.summary[counter] + 1 },
+});
+
 async function ingestRecord(
   context: RunContext,
   record: SourceRecord,
   progress: PageResult,
 ): Promise<PageResult> {
-  const { repo, now, anchor } = context.input;
-  const outcome = normalizeRecord(record, now(), anchor);
+  const { repo, now } = context.input;
+  const outcome = normalizeRecord(record, now(), context.anchor);
   if (!outcome.ok) {
     await recordIssue(context, outcome.issue);
-    return {
-      ...progress,
-      summary: { ...progress.summary, quarantined: progress.summary.quarantined + 1 },
-    };
+    return counted(progress, "quarantined");
   }
   // 경고는 기록만 하고 적재는 계속한다(15 §6).
   for (const warning of outcome.warnings) await recordIssue(context, warning);
@@ -115,11 +160,9 @@ async function ingestRecord(
   const { draft } = outcome;
   const previous = await repo.findLatestRevision(draft.source, draft.noticeId);
   const decision = decideRevision(previous, draft);
-  if (decision.kind === "DUPLICATE") {
-    return {
-      ...progress,
-      summary: { ...progress.summary, skippedDuplicate: progress.summary.skippedDuplicate + 1 },
-    };
+  // 이전 차수(STALE)는 이미 더 새 차수가 있는 공고의 재수신이라 중복과 같이 센다(summary 키를 늘리지 않는다, 5-E).
+  if (decision.kind === "DUPLICATE" || decision.kind === "STALE") {
+    return counted(progress, "skippedDuplicate");
   }
 
   const stored = await repo.saveRevision({ decision, rawPayload: rawPayloadOf(record) });
@@ -134,6 +177,8 @@ async function ingestRecord(
         noticeId: decision.bid.noticeId,
         kind: decision.kind,
         reanalyze: decision.reanalyze,
+        checksum: decision.bid.checksum,
+        fixtureId: fixtureIdOf(record),
       },
     ],
   };
@@ -144,7 +189,7 @@ async function ingestPage(
   page: FetchedPage,
   start: PageResult,
 ): Promise<PageResult> {
-  // 같은 페이지 안의 같은 공고(경계 겹침)가 앞 레코드의 저장을 보고 중복으로 걸러져야 해서 차례로 처리한다.
+  // 같은 페이지 안의 같은 공고(경계 겹침·000/001)가 앞 레코드의 저장을 보고 걸러져야 해서 차례로 처리한다.
   let progress = start;
   for (const record of page.records) progress = await ingestRecord(context, record, progress);
   return progress;
@@ -168,34 +213,46 @@ async function failRun(
   await repo.finishRun(context.runId, { status: "FAILED", summary });
 }
 
-export async function runIngest(input: RunIngestInput): Promise<IngestRunResult> {
-  const { connector, repo, run, retry } = input;
-  const started = await repo.startRun(run);
-  if (FINISHED_STATUSES.has(started.status)) {
-    return {
-      runId: started.runId,
-      status: started.status,
-      summary: started.summary,
-      saved: [],
-      resumedFromCursor: null,
-      alreadyFinished: true,
-    };
-  }
+const finishedResult = (started: StartedRun): IngestRunResult => ({
+  runId: started.runId,
+  status: started.status,
+  summary: started.summary,
+  saved: [],
+  resumedFromCursor: null,
+  alreadyFinished: true,
+});
 
-  const secrets = input.secrets ?? [];
-  const context: RunContext = {
-    input,
+// 5-B 5단계: 날짜 기준이 없으면 fixture 날짜를 지어낼 수 없다. connector 를 부르지 않고 FAILED 로 끝낸다(seed 먼저).
+async function failMissingAnchor(
+  repo: IngestionRepo,
+  started: StartedRun,
+): Promise<IngestRunResult> {
+  await repo.recordError(started.runId, {
+    sourceKey: "fixture:anchor",
+    errorCode: SEED_ANCHOR_MISSING,
+    resultCode: null,
+    redactedDetail: "SEED run 이 없어 LIVE 배치의 날짜 기준이 없다",
+  });
+  await repo.finishRun(started.runId, { status: "FAILED", summary: started.summary });
+  return {
     runId: started.runId,
-    redact: (text) => redactSecrets(redactUrl(text), secrets),
+    status: "FAILED",
+    summary: started.summary,
+    saved: [],
+    resumedFromCursor: started.cursor,
+    alreadyFinished: false,
   };
+}
+
+async function pullPages(context: RunContext, started: StartedRun): Promise<IngestRunResult> {
+  const { connector, repo, run, retry } = context.input;
   const { from, to } = windowOf(run.params);
-  const resumedFromCursor = started.cursor;
   const finish = (status: IngestRunStatus, result: PageResult): IngestRunResult => ({
     runId: started.runId,
     status,
     summary: result.summary,
     saved: result.saved,
-    resumedFromCursor,
+    resumedFromCursor: started.cursor,
     alreadyFinished: false,
   });
 
@@ -225,4 +282,33 @@ export async function runIngest(input: RunIngestInput): Promise<IngestRunResult>
   const status = progress.summary.quarantined > 0 ? "PARTIAL" : "SUCCEEDED";
   await repo.finishRun(started.runId, { status, summary: progress.summary });
   return finish(status, progress);
+}
+
+export async function runIngest(input: RunIngestInput): Promise<IngestRunResult> {
+  const { repo, run } = input;
+  const secrets = input.secrets ?? [];
+  const redact = (text: string): string => redactSecrets(redactUrl(text), secrets);
+
+  if (run.source !== "fixture") {
+    const started = await repo.startRun(run);
+    if (FINISHED_STATUSES.has(started.status)) return finishedResult(started);
+    return pullPages(
+      { input, runId: started.runId, anchor: input.anchor ?? null, redact },
+      started,
+    );
+  }
+
+  // 5-B: 정한 anchor 를 params 에 남겨 LIVE 와 이어 가는 run 이 같은 날짜 기준을 쓰게 한다.
+  const candidate = await anchorCandidate(input);
+  const params =
+    candidate === null
+      ? run.params
+      : { ...run.params, [FIXTURE_ANCHOR_PARAM]: candidate.toISOString() };
+  const started = await repo.startRun({ ...run, params });
+  if (FINISHED_STATUSES.has(started.status)) return finishedResult(started);
+
+  // 이어 가는 run 은 처음 정한 anchor 를 쓴다. 그사이 다른 SEED 가 돌았어도 날짜가 바뀌지 않는다.
+  const anchor = isoInstantOf(started.params?.[FIXTURE_ANCHOR_PARAM]) ?? candidate;
+  if (anchor === null) return failMissingAnchor(repo, started);
+  return pullPages({ input, runId: started.runId, anchor, redact }, started);
 }

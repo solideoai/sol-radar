@@ -32,6 +32,8 @@ export const CONNECTOR_FAILURE_KINDS = [
   "QUOTA_EXCEEDED",
   "TIMEOUT",
   "FIXTURE_INVALID",
+  // data.go.kr 게이트웨이가 키를 거부했다(등록 안 됨·기한 만료). 다시 불러도 같아 재시도하지 않는다(5-A)
+  "SERVICE_KEY_INVALID",
 ] as const;
 export type ConnectorFailureKind = (typeof CONNECTOR_FAILURE_KINDS)[number];
 
@@ -76,6 +78,7 @@ const INGEST_ERROR_CODE: Readonly<Record<ConnectorFailureKind, string>> = {
   QUOTA_EXCEEDED: "API_QUOTA_EXCEEDED",
   TIMEOUT: "API_TIMEOUT",
   FIXTURE_INVALID: "SCHEMA_INVALID",
+  SERVICE_KEY_INVALID: "API_SERVICE_KEY_INVALID",
 };
 
 export function ingestErrorCodeOf(failure: ConnectorFailure): string {

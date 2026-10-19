@@ -90,3 +90,31 @@ export function parseG2bEnvelope(body: unknown): G2bEnvelope {
   if (header.resultCode.trim() !== SUCCESS_RESULT_CODE) return resultCodeEnvelope(header);
   return bodyEnvelope(body.response.body);
 }
+
+// ── data.go.kr 공통 XML 오류 봉투(게이트웨이 오류, 5-A) ──
+// 미검증 가정: 실측 표본이 없어 계약이 구성한 모양(<OpenAPI_ServiceResponse><cmmMsgHeader>…)을 따른다.
+// 키 오류는 type=json 을 보내도 XML 로 오고 Content-Type 도 믿을 수 없어 본문 첫 글자로 판정한다.
+export const G2B_GATEWAY_KEY_ERROR_CODES = ["30", "31"] as const; // 30 등록되지 않은 키, 31 기한 만료
+
+export type G2bGatewayError = { returnReasonCode: string; returnAuthMsg: string | null };
+
+const LEADING_WHITESPACE = /^[\s﻿]+/;
+const REASON_CODE = /<returnReasonCode>([^<]*)<\/returnReasonCode>/;
+const AUTH_MSG = /<returnAuthMsg>([^<]*)<\/returnAuthMsg>/;
+// authMsg 는 고정된 오류 이름(SERVICE_KEY_IS_NOT_REGISTERED_ERROR 등)일 때만 쓴다. 되돌아온 키·URL 이 섞인 값은 버린다.
+const AUTH_MSG_FORMAT = /^[A-Z0-9_]+$/;
+
+export function looksLikeXml(text: string): boolean {
+  return text.replace(LEADING_WHITESPACE, "").startsWith("<");
+}
+
+export function parseG2bGatewayError(text: string): G2bGatewayError | null {
+  if (!looksLikeXml(text)) return null;
+  const code = REASON_CODE.exec(text)?.[1]?.trim();
+  if (code === undefined || !/^\d+$/.test(code)) return null;
+  const authMsg = AUTH_MSG.exec(text)?.[1]?.trim();
+  return {
+    returnReasonCode: code,
+    returnAuthMsg: authMsg !== undefined && AUTH_MSG_FORMAT.test(authMsg) ? authMsg : null,
+  };
+}

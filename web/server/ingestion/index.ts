@@ -65,7 +65,13 @@ export type {
 export { normalizeFixtureRecord } from "./normalize";
 export type { NormalizeContext, NormalizeOutcome } from "./normalize";
 
-export { TRACKED_FIELDS, decideRevision, diffRevisions } from "./revision";
+export {
+  TRACKED_FIELDS,
+  decideRevision,
+  diffRevisions,
+  isOlderAmendment,
+  statusForRevision,
+} from "./revision";
 export type {
   BidEvent,
   BidEventType,
@@ -139,8 +145,10 @@ export type {
   AttachmentFetcher,
   AttachmentFetchResult,
   AttachmentRef,
+  AttachmentTextReader,
   DocumentFormat,
   DownloadErrorCode,
+  RevisionDocumentText,
 } from "./attachment.model";
 export { detectDocumentFormat } from "./document-format";
 export {
@@ -173,7 +181,7 @@ export type {
 } from "./ingestion.repo";
 
 // demo:reset 의 SEED 적재 진입점
-export { runIngest } from "./ingestion.service";
+export { FIXTURE_ANCHOR_PARAM, SEED_ANCHOR_MISSING, runIngest } from "./ingestion.service";
 export type { IngestRunResult, RunIngestInput, SavedBidRevision } from "./ingestion.service";
 
 // ── Stage 3: 나라장터 입찰공고 목록(OfficialApiConnector) ──
@@ -183,12 +191,15 @@ export {
   G2B_BID_NOTICE_SERVICE_ID,
   G2B_CONTACT_FIELDS,
   G2B_DEFAULT_ROWS,
+  G2B_GATEWAY_KEY_ERROR_CODES,
   G2B_MAX_ROWS,
   G2B_WINDOW_MAX_MS,
+  looksLikeXml,
   parseG2bEnvelope,
+  parseG2bGatewayError,
   stripContactFields,
 } from "./g2b.model";
-export type { G2bEnvelope } from "./g2b.model";
+export type { G2bEnvelope, G2bGatewayError } from "./g2b.model";
 export { buildG2bListUrl, formatG2bDateTime, splitG2bWindow } from "./g2b-request";
 export type { G2bWindowSlice } from "./g2b-request";
 export {
@@ -205,3 +216,13 @@ export {
 } from "./normalize-g2b";
 export { createOfficialApiConnector } from "./official-api-connector";
 export type { FetchLike, OfficialApiConnectorOptions } from "./official-api-connector";
+
+// ── Stage 4: 녹음 응답 재생(시험·개발 스크립트 전용. worker 의 실행 모드 선택에는 넣지 않는다) ──
+export {
+  RECORDED_REPLAY_SERVICE_KEY,
+  RECORDED_SCHEMA_VERSION,
+  createRecordedApiConnector,
+  loadRecordedResponse,
+  parseRecordedResponse,
+} from "./recorded-api";
+export type { RecordedResponse } from "./recorded-api";
