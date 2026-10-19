@@ -1,0 +1,48 @@
+# 명령: web 종료 + docker compose -p sol-radar-t8gaps down -v + 이미지 sol-radar-t8gaps-* 삭제 | main cfc534d | 2026-10-19 09:42:18 KST
+web listen pid: 8478 (pnpm wrapper pid 8475)
+23000 반납
+--- down -v
+ Container sol-radar-t8gaps-ai-gateway-1  Stopping
+ Container sol-radar-t8gaps-worker-1  Stopping
+ Container sol-radar-t8gaps-qdrant-1  Stopping
+ Container sol-radar-t8gaps-minio-1  Stopping
+ Container sol-radar-t8gaps-worker-1  Stopped
+ Container sol-radar-t8gaps-worker-1  Removing
+ Container sol-radar-t8gaps-minio-1  Stopped
+ Container sol-radar-t8gaps-minio-1  Removing
+ Container sol-radar-t8gaps-worker-1  Removed
+ Container sol-radar-t8gaps-redis-1  Stopping
+ Container sol-radar-t8gaps-minio-1  Removed
+ Container sol-radar-t8gaps-qdrant-1  Stopped
+ Container sol-radar-t8gaps-qdrant-1  Removing
+ Container sol-radar-t8gaps-qdrant-1  Removed
+ Container sol-radar-t8gaps-redis-1  Stopped
+ Container sol-radar-t8gaps-redis-1  Removing
+ Container sol-radar-t8gaps-redis-1  Removed
+ Container sol-radar-t8gaps-ai-gateway-1  Stopped
+ Container sol-radar-t8gaps-ai-gateway-1  Removing
+ Container sol-radar-t8gaps-ai-gateway-1  Removed
+ Volume sol-radar-t8gaps_qdrantdata  Removing
+ Volume sol-radar-t8gaps_miniodata  Removing
+ Volume sol-radar-t8gaps_redisdata  Removing
+ Network sol-radar-t8gaps_default  Removing
+ Volume sol-radar-t8gaps_miniodata  Removed
+ Volume sol-radar-t8gaps_qdrantdata  Removed
+ Volume sol-radar-t8gaps_redisdata  Removed
+ Network sol-radar-t8gaps_default  Removed
+exit=0
+--- images
+sol-radar-t8gaps-worker:latest
+sol-radar-t8gaps-ai-gateway:latest
+Untagged: sol-radar-t8gaps-worker:latest
+Deleted: sha256:dea1d22e78e4c42206ccba256a3b090b721d9aa0cdc2758485581dfd6632c902
+Untagged: sol-radar-t8gaps-ai-gateway:latest
+Deleted: sha256:b3686b8f89627e90608594bb69f59b056911cfa851c80225feb243e8ca862164
+--- 전후 비교
+컨테이너 전       40 후       40
+컨테이너 이름·이미지 목록 동일
+볼륨 전       84 후       84
+볼륨 목록 동일
+이미지 목록 동일
+포트 5개 반납 확인
+ls: /private/tmp/claude-501/-Users-leegwanghui-dev-hackathon-sol-radar/fcc8f268-1c76-4e4e-ad32-25b0494ae611/scratchpad/t8gaps/env: No such file or directory

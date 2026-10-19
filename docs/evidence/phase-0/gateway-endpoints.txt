@@ -1,0 +1,5 @@
+# curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:18000/extract ; same for /kev ; GET /openapi.json paths | commit cfc534d | 2026-10-19 09:23:25 KST
+POST /extract -> 404
+POST /kev -> 404
+GET /openapi.json paths -> /health
+판정: /extract·/kev 미구현(C5). Phase 0 gateway 는 GET /health 만 연다(services/ai/src/sol_ai/app.py).

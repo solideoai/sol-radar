@@ -18,7 +18,7 @@ if (problems.length > 0) {
       `   지금 첫 줄: "${header}"`,
       "",
       `   형식: <타입>: <작업 내용>  또는  <타입>(<범위>): <작업 내용>   (콜론 뒤 정확히 한 칸, 첫 줄 ${MAX_HEADER_LENGTH}자 이내)`,
-      "   예시: feat: 로그인 화면 추가 · fix(mobile): 결제일 계산 오류 수정 · chore: 의존성 정리",
+      "   예시: feat: 로그인 화면 추가 · fix(web): 마감일 계산 오류 수정 · chore: 의존성 정리",
       "   타입:",
       ...typeGuide,
     ].join("\n"),

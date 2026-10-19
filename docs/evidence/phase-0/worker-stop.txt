@@ -1,0 +1,13 @@
+# 명령: docker compose -p sol-radar-t8gaps stop worker; docker inspect -f '{{.State.ExitCode}}' | 커밋 main cfc534d (Phase 0 코드 88afb79) | 2026-10-19 09:39 KST | 비밀값 *** 마스킹
+# dc stop worker -t default; inspect
+2026-10-19 09:39:01 KST
+ Container sol-radar-t8gaps-worker-1  Stopping
+ Container sol-radar-t8gaps-worker-1  Stopped
+stop elapsed: 0s
+ExitCode: 0
+Status=exited OOMKilled=false Error=
+--- logs tail 15
+worker started
+
+# 재기동 뒤
+worker healthy (start worker 이후 30초 안에), /health/ready 200 ok

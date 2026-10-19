@@ -1,0 +1,15 @@
+# docker compose -p sol-radar-c0verify -f infra/compose.yaml --env-file <scratch>/.env ps --format '{{.Service}} {{.Health}} {{.Ports}}' | commit cfc534d | 2026-10-19 09:23:25 KST
+ai-gateway healthy 127.0.0.1:18000->8000/tcp
+minio healthy 127.0.0.1:19000->9000/tcp
+qdrant healthy 6334/tcp, 127.0.0.1:16333->6333/tcp
+redis healthy 127.0.0.1:16380->6379/tcp
+worker healthy 
+exit=0
+
+## ps (전체)
+NAME                              IMAGE                                                                                              COMMAND                   SERVICE      CREATED          STATUS                    PORTS
+sol-radar-c0verify-ai-gateway-1   sol-radar-c0verify-ai-gateway                                                                      "python -m sol_ai"        ai-gateway   50 seconds ago   Up 49 seconds (healthy)   127.0.0.1:18000->8000/tcp
+sol-radar-c0verify-minio-1        cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8   "/usr/bin/minio serv…"   minio        50 seconds ago   Up 49 seconds (healthy)   127.0.0.1:19000->9000/tcp
+sol-radar-c0verify-qdrant-1       qdrant/qdrant:v1.19.2-unprivileged                                                                 "./entrypoint.sh"         qdrant       50 seconds ago   Up 49 seconds (healthy)   6334/tcp, 127.0.0.1:16333->6333/tcp
+sol-radar-c0verify-redis-1        redis:8.8.3-alpine                                                                                 "docker-entrypoint.s…"   redis        50 seconds ago   Up 49 seconds (healthy)   127.0.0.1:16380->6379/tcp
+sol-radar-c0verify-worker-1       sol-radar-c0verify-worker                                                                          "docker-entrypoint.s…"   worker       50 seconds ago   Up 37 seconds (healthy)   

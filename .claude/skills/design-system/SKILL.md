@@ -1,11 +1,11 @@
 ---
 name: design-system
-description: 화면을 만들거나 고칠 때 따르는 디자인 시스템 규칙. 색·글꼴·글자 눈금은 design/tokens.json 정본에서만 오고, 웹 CSS와 앱 theme 는 거기서 생성된다. UI 작업 시 항상 적용.
+description: 화면을 만들거나 고칠 때 따르는 디자인 시스템 규칙. 색·글꼴·글자 눈금은 design/tokens.json 정본에서만 오고, 웹 CSS 는 거기서 생성된다. UI 작업 시 항상 적용.
 ---
 
 # 화면 만들 때 규칙 — 디자인 시스템 잠금
 
-## 방향 — 웹은 SaaS 제품형, 앱은 Toss 식
+## 방향 — SaaS 제품형
 
 웹(`web/`)은 조밀하고 가는 선으로 나눈 제품 화면이다.
 
@@ -18,9 +18,7 @@ description: 화면을 만들거나 고칠 때 따르는 디자인 시스템 규
 7. **아이콘은 `lucide-react`, 16px.** 글자 없이 아이콘만 둔 버튼에는 이름(`aria-label`)을 단다.
 8. **장식하지 않는다.** 그라데이션, 알약 배지 머리글, 색 원 번호, 문장 속 색 강조, 지어낸 수치·후기·로고, 동작하지 않는 버튼을 넣지 않는다.
 
-앱(`mobile/`)은 Toss 식이다. 회색 바탕 위 흰 카드, 큰 제목(`typography.title`), 버튼 54·입력칸 52·카드 여백 20 이고 채움 버튼은 `colors.brand` 다.
-
-글자 크기는 아래 눈금에서 고른다. 웹은 `type-<이름>` 클래스, 앱은 `typography.<이름>` 이고, 한 요소에 둘을 겹치지 않는다(폭이나 부품 크기 변형으로 바꾸는 `md:type-display`·`group-data-[size=sm]/card:type-body` 는 된다).
+글자 크기는 아래 눈금에서 고른다. `type-<이름>` 클래스를 쓰고, 한 요소에 눈금 클래스 둘을 겹치지 않는다(폭이나 부품 크기 변형으로 바꾸는 `md:type-display`·`group-data-[size=sm]/card:type-body` 는 된다).
 `text-<이름>` 으로 만들지 않은 것은 `cn` 이 낯선 `text-*` 를 색으로 보고 색 클래스와 합쳐 지울 수 있어서다.
 
 | 웹 이름 | 크기/줄 높이(px) | 굵기 | 쓰임 |
@@ -40,16 +38,14 @@ description: 화면을 만들거나 고칠 때 따르는 디자인 시스템 규
 | `caption` | 12/16 | — | 날짜·배지 |
 | `wordmark` | 20/20 | 800 | 첫 화면 전용: 로고 글자 |
 
-앱 눈금은 따로다(`tokens.json` 의 `nativeTypography`): display 36/46, title 26/35, heading 20/29(셋 다 700), body 16/26, label 15/22, caption 13/20.
 
 ## 토큰 정본
 
-색·글꼴·글자 눈금·자간을 적는 곳은 **`design/tokens.json` 하나**다. 웹의 CSS 와 앱의 theme 는
+색·글꼴·글자 눈금·자간을 적는 곳은 **`design/tokens.json` 하나**다. 웹의 CSS 는
 거기서 **만들어진다**. 두 곳에 적으면 반드시 어긋나기 때문에, 적는 곳을 하나로 줄인 것이다.
 
 ```
 design/tokens.json  ──pnpm tokens──▶  web/app/globals.css
-                                  └▶  mobile/theme/tokens.ts
 ```
 
 ## 반드시
@@ -64,21 +60,11 @@ design/tokens.json  ──pnpm tokens──▶  web/app/globals.css
   네이버 짝(흰 글자/#03A94D)은 대비가 3.09:1 이라 대비 검사에서 예외다 — 대신 가이드 값 그대로인지를 검사한다. 예외는 사람이 정한다(이 짝은 2026-10-15 사용자 결정).
   회사 로고는 브랜드 색 그대로인 정적 파일(`web/public/google.svg`·`kakao.svg`·`naver.svg`)이다.
 - 웹에서는 토큰 Tailwind 클래스(`bg-primary`·`text-muted-foreground`), CSS 에서는 `var(--이름)`(`var(--primary)`).
-- 앱에서는 `colors.이름` (`@/theme/tokens`). 하이픈 이름은 camelCase 로 바뀐다: `colors.mutedForeground`.
-  채움 버튼·커서·스피너는 `colors.brand`(그 위 글자는 `colors.brandForeground`)다. `colors.primary` 는 남색이다.
-- 글자 눈금도 둘로 나뉜다. `typography` 는 웹 눈금(`type-<이름>`)이고 `nativeTypography` 는 앱 눈금이다(앱 생성물의 이름은 그대로 `typography`).
-  두 눈금의 이름과 값은 달라도 된다. 항목에 `tracking` 이 없으면 전역 `tracking` 을 쓴다.
-- 글꼴은 `var(--font-sans)` / `var(--font-mono)`, 앱은 `fonts.sans` / `fonts.mono`.
-  지정하지 않고 기본값에 맡기지 않는다. 앱은 헤더(`Stack` 의 `headerTitleStyle`·`headerBackTitleStyle`)까지 지정한다.
+- 글자 눈금은 `typography`(`type-<이름>`)에 적는다. 항목에 `tracking` 이 없으면 전역 `tracking` 을 쓴다.
+- 글꼴은 `var(--font-sans)` / `var(--font-mono)`. 지정하지 않고 기본값에 맡기지 않는다.
 - 웹 글꼴은 Pretendard 다. 불러오는 자리는 `web/app/layout.tsx` 와 `global-error.tsx` 이고, 못 받으면 `fonts.sans` 의 뒤 후보(시스템 한글 글꼴)로 보인다.
-  앱은 시스템 글꼴이다.
-- 글꼴 정본은 `tokens.json` 안에서 둘로 나뉜다. `fonts` 는 웹 CSS 글꼴 목록(쉼표로 후보를 잇는다)이고,
-  `nativeFonts` 는 앱 글꼴로 `fonts` 의 키마다 `{ "ios": 이름, "android": 이름 }` 을 하나씩 둔다.
-  React Native 의 `fontFamily` 는 이름 하나만 받아서, CSS 목록을 넣으면 오류 없이 기본 글꼴로 나오기 때문이다.
-  - 앱에서는 `fonts.sans` 를 그대로 쓴다. 생성물이 `Platform.select` 로 플랫폼마다 이름 하나를 이미 골라 두었다(타입은 `string`). 화면에서 `Platform.select` 를 다시 쓰지 않는다.
-  - 글꼴 키를 더하거나 빼면 `fonts`·`nativeFonts` 를 같이 고친다. 빠뜨리면 `pnpm tokens`·`check:tokens` 가 `nativeFonts.sans.android` 처럼 자리를 짚어 실패하고, 생성물은 쓰지 않는다.
-  - 커스텀 글꼴(expo-font 로 불러온 것)은 `nativeFonts` 에 불러온 이름 하나를 적는다.
-- 버튼·입력창·카드 같은 반복 부품은 각 폴더의 `components/` 것을 재사용한다.
+- 글꼴 정본은 `tokens.json` 의 `fonts`(웹 CSS 글꼴 목록, 쉼표로 후보를 잇는다)다.
+- 버튼·입력창·카드 같은 반복 부품은 `web/components/` 것을 재사용한다.
 - 새 부품·새 토큰이 필요하면 만들기 전에 먼저 물어본다.
 
 ## 웹 부품 — shadcn (`web/components/ui/`)
@@ -128,22 +114,24 @@ sidebar(딸려 온 sheet·tooltip)·avatar·table.
 - 화면 안의 하위 메뉴(설정의 "계정"·"멤버")는 `SettingsNav`(`web/app/(app)/[slug]/settings/`)의 모양을 따른다. 링크 줄(`border-b`) 아래 지금 화면에만 2px 밑줄 막대(`foreground`)를 긋는다.
   경로 이동이라 ARIA 탭(`role="tablist"`)이 아니라 링크 + `aria-current="page"` 이고, Tabs 부품을 쓰지 않는다. 사이드바 `NAV` 에는 더하지 않는다.
 
-## 반응형 (웹)
+## 화면 폭 — 데스크톱 전용
 
-- 최소 폭은 **320px** 이다. 어느 폭에서도 가로로 넘치지 않는다. 가로 스크롤이 생기면 결함이다.
-- 모바일 우선으로 쓴다. 접두 없는 클래스가 휴대폰 모양이고, 넓은 화면은 `sm:` → `md:` → `lg:` 로 덧붙인다.
+- 최소 폭 1280px, 기준 설계 폭 1440px 이고 1280~1920px 구간만 유동 레이아웃이다(`docs/06-UI-UX.md` §1, ADR-007).
+  모바일·태블릿 레이아웃(1280px 미만 breakpoint)은 만들지 않는다. 1280px 미만에서는 가로 스크롤을 허용하고 "데스크톱 화면에서 이용하세요" 안내만 띄운다.
+- 화면은 1440px·1280px 두 폭에서 확인한다. 1280px 에서 가로로 넘치면 결함이다.
 - 오버레이(대화상자·메뉴)는 화면 안에 들어오고, 넘치는 내용은 그 안에서 스크롤한다. 열리면 바깥 스크롤이 잠겨서
   화면 밖으로 나간 부분에는 닿을 수 없다. `dialog`(높이 `100dvh` 안 + 내부 스크롤)·`dropdown-menu`(`--available-height`)가
   이미 그렇게 되어 있으니 높이 제한을 지우지 않는다. shadcn 으로 새 오버레이를 넣으면 같은 기준으로 확인한다(원본 `dialog` 에는 높이 제한이 없었다).
-- 입력칸 글자는 좁은 폭에서 16px, `md` 부터 14px 이다(`input`·`textarea` 부품이 그렇다). 좁은 폭에서 더 작으면 iOS 가 초점을 줄 때 화면을 확대한다.
-- 앱 틀의 사이드바는 768px 미만에서 서랍으로 열린다. 틀 안의 칸 수는 화면 폭(`md:`)이 아니라 단의 폭(`@container` 와 `@2xl:` 같은 변형)으로 정한다.
+- 입력칸 글자는 14px 이다(`input`·`textarea` 부품의 `md:type-body`).
+- 틀 안의 칸 수는 화면 폭(`md:`)이 아니라 단의 폭(`@container` 와 `@2xl:` 같은 변형)으로 정한다.
   사이드바를 접고 펴면 같은 화면 폭에서도 단의 폭이 달라진다.
-- 새 경로를 만들면 `web/e2e/responsive.spec.ts` 의 경로 목록에 더한다. 320·375·768·1280px 에서 가로 넘침을 검사한다.
+- 템플릿에서 온 화면(인증·조직·작업·관리자)에는 좁은 폭 레이아웃과 `web/e2e/responsive.spec.ts` 의 320·375·768·1280px 넘침 검사가 남아 있다.
+  새 화면은 이 목록에 더하지 않고 1280·1440px 에서 넘침을 본다(본보기: 첫 화면의 `web/e2e/landing.spec.ts`).
 - 부품 레이아웃은 `pnpm -C web test:browser`(`*.browser.test.tsx`)가 진짜 브라우저로 잰다. 오버레이 부품을 고치면 같이 돌린다.
 
 ## 절대 금지
 
-- **생성물을 직접 고치기.** `web/app/globals.css`·`mobile/theme/tokens.ts` 는 다음 `pnpm tokens`
+- **생성물을 직접 고치기.** `web/app/globals.css` 는 다음 `pnpm tokens`
   에서 덮인다. 손으로 고친 생성물은 `check:tokens` 가 검증·커밋 게이트·CI 에서 잡는다.
 - 화면 코드에 색을 직접 적기(`#fff`·`#RRGGBBAA`·`rgba(...)`·`hsl(...)`·`oklch(...)` 등). `scripts/check-colors.sh` 가
   커밋 게이트와 CI 에서 막는다. 앵커는 `href="#이름"` 이나 `"/경로#이름"` 처럼 링크로, SVG 요소 참조는 `url(#이름)` 으로 적으면 색으로 보지 않는다.
@@ -151,8 +139,8 @@ sidebar(딸려 온 sheet·tooltip)·avatar·table.
   이런 클래스는 색이 빠진다. `scripts/check-colors.sh` 가 웹 코드에서 이 클래스를 찾아 커밋 게이트와 CI 에서 막는다
   (변형 접두 `hover:`·`dark:`, 투명도 `/50`, `!` 도 포함). 토큰 클래스로 바꾼다: `bg-black/10` → `bg-foreground/10`,
   `text-white` → `text-primary-foreground`, `bg-red-500` → `bg-destructive`. `tokens.json` 에 같은 이름(예: `white`)을 두면 토큰 클래스라서 통과한다.
-- 색 검사는 `web/`·`mobile/` 아래 소스 전부(`.ts`·`.tsx`·`.js`·`.jsx`·`.mjs`·`.css`)를 본다. 새 폴더(`web/features` 등)도 등록 없이 본다.
-  빼는 것은 의존성·빌드 폴더, 생성물(`globals.css`·`theme/tokens.ts`·`database.types.ts`), 프로젝트 바로 아래 도구 설정(`*.config.*`),
+- 색 검사는 `web/` 아래 소스 전부(`.ts`·`.tsx`·`.js`·`.jsx`·`.mjs`·`.css`)를 본다. 새 폴더(`web/features` 등)도 등록 없이 본다.
+  빼는 것은 의존성·빌드 폴더, 생성물(`globals.css`·`database.types.ts`), 프로젝트 바로 아래 도구 설정(`*.config.*`),
   시험 파일(`*.test.*`·`*.spec.*`·`e2e/`)뿐이다. 안쪽의 `web/lib/theme.config.ts` 같은 파일은 화면 코드로 본다.
 - 다크 모드 클래스(`dark:`)에 기대기. 지금 토큰은 라이트뿐이라 `dark:` 는 `.dark` 클래스 아래에서만 켜지게 잠가 두었다.
 - 그라데이션 배경.

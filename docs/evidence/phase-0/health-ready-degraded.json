@@ -1,0 +1,4 @@
+{
+  "status": "degraded",
+  "checks": { "db": "ok", "redis": "ok", "storage": "ok", "ai": "unavailable" }
+}

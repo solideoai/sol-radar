@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 
 # 07. 조달청 데이터 수집
@@ -75,7 +75,7 @@ registry 키(`g2b-bid-notice` 등 8개)와 호출 시점은 [[15-DATA-CONTRACTS|
 
 ## 2. Connector 계약
 
-Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage({from,to,cursor}) -> {records,nextCursor,rateLimitInfo}`다. 요청 timeout 15s, 오류 시 지수 backoff + jitter(1s·2s·4s, 최대 3회), 429는 `Retry-After` 헤더를 존중한다. 일정 실행은 BullMQ repeatable scheduler로 구성하되 `job_key`로 중복 예약을 막는다. data.go.kr 서비스키 `G2B_SERVICE_KEY`는 worker 전용 서버 env이고 로그·오류 메시지·`ingest_errors`에 남기지 않는다. 쿼리 파라미터로 가므로 요청 URL도 기록 전에 가린다([[09-SECURITY|09 보안]]).
+Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage({from,to,cursor}) -> {records,nextCursor,rateLimitInfo}`다. 요청 timeout 15s, 오류 시 지수 backoff + jitter(1s·2s·4s, 최대 3회), 429는 `Retry-After` 헤더를 존중한다. 일정 실행은 BullMQ repeatable scheduler로 구성하되 `job_key`로 중복 예약을 막는다. data.go.kr 서비스키 4개(`G2B_*_SERVICE_KEY`, §2.2)는 worker 전용 서버 env이고 로그·오류 메시지·`ingest_errors`에 남기지 않는다. 쿼리 파라미터로 가므로 요청 URL도 기록 전에 가린다([[09-SECURITY|09 보안]]).
 
 실행 위치와 DB 쓰기:
 - 수집 job(ingest job)은 **`web/worker`**가 돌린다. BullMQ 소비자이고, 같은 코드베이스의 별도 Node(TypeScript) 프로세스다. Connector·정규화·변경 감지 코드는 `web/server/ingestion`에 두고 worker가 import한다.
@@ -84,16 +84,16 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다.
 - 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다. 변경 감지 뒤 분석 job 등록도 Redis/BullMQ로 한다.
 
-> [!warning] 미검증 가정
-> `web/server` 모듈은 `import "server-only"`로 시작한다. 그래서 worker는 `node --conditions=react-server`(또는 같은 효과의 실행 방식)로 띄워야 한다고 본다. 이 방식은 아직 확인하지 않았다. 검증 방법: Phase 0에서 worker 진입점이 `web/server/ingestion`을 import해 fixture 1건을 적재하는지 확인하고 [[16-DECISIONS|16 ADR]] 미결정 표를 갱신한다.
+> [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`)
+> worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `import "server-only"`인 `web/server` 모듈을 불러온다. 지금은 `system` 큐의 `ping` job까지이고, `web/server/ingestion`을 import해 fixture 1건을 적재하는 것은 Phase 2에서 같은 방식으로 한다([[16-DECISIONS|16 ADR]] 미결정 9번).
 
 ### 2.1 인터페이스와 구현체
 
-외부 의존성은 인터페이스로 떼어 낸다. 서비스키나 회사 GPU가 아직 없어도 나머지를 개발할 수 있게 하려는 것이다([[16-DECISIONS|ADR-020]]). 같은 인터페이스로 fixture 경로와 live 경로를 함께 만든다.
+외부 의존성은 인터페이스로 떼어 낸다. 서비스키나 회사 GPU 추론 엔드포인트가 아직 없어도 나머지를 개발할 수 있게 하려는 것이다([[16-DECISIONS|ADR-020]]). 같은 인터페이스로 fixture 경로와 live 경로를 함께 만든다.
 
 | 인터페이스 | 구현체 | 조건 | 동작 |
 |---|---|---|---|
-| `BidSourceConnector` | `OfficialApiConnector` | `SOL_RUN_MODE=live` + registry 항목([[15-DATA-CONTRACTS\|15]] §8) + `G2B_SERVICE_KEY` | data.go.kr 실제 HTTP 호출(§2.2) |
+| `BidSourceConnector` | `OfficialApiConnector` | `SOL_RUN_MODE=live` + registry 항목([[15-DATA-CONTRACTS\|15]] §8) + 그 소스의 서비스키(registry `serviceKeyEnv`, §2.2) | data.go.kr 실제 HTTP 호출(§2.2) |
 | | `FixtureConnector` | `SOL_RUN_MODE=fixture` 또는 `mock` | `fixtures/manifest.yaml` 순서대로 페이지 반환, 네트워크 호출 없음 |
 | | `RecordedApiConnector` | 시험·개발 | 저장한 실제 응답을 재생한다(서비스키 발급 전에는 공식 참고문서의 응답 예시, §2.3). 네트워크 호출 없음 |
 | `AttachmentFetcher` | `G2bAttachmentFetcher` | `live` | `www.g2b.go.kr` allowlist 다운로드(§2.4) |
@@ -101,11 +101,22 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 | `DocumentParser` | 형식별 어댑터 | 모든 모드 | gateway `POST /parse` 안에서 동작(§2.5) |
 
 - 세 실행 모드는 `RecordedApiConnector`를 고르지 않는다. `OfficialApiConnector`의 응답 해석(정규화·오류 처리)을 네트워크 없이 시험하는 데 쓴다.
-- `OfficialApiConnector`는 registry 항목이나 `G2B_SERVICE_KEY`가 없으면 기동할 때 명확한 오류로 멈춘다. 다른 Connector로 조용히 바꾸지 않는다.
+- `OfficialApiConnector`는 registry 항목이나 서비스키 4개 중 하나라도 없으면 기동할 때 빠진 env 이름을 알리고 멈춘다(값은 출력하지 않는다). 다른 Connector로 조용히 바꾸지 않고, 다른 서비스의 키를 대신 쓰지 않는다.
 
 ### 2.2 나라장터 요청 규칙
 
-- 공통 파라미터: `serviceKey`(env `G2B_SERVICE_KEY`, 서버 전용·로그 금지), `type=json`, `pageNo`, `numOfRows=100`.
+서비스키는 data.go.kr 서비스마다 따로 둔다([[16-DECISIONS|ADR-022]]). 소스마다 registry `serviceKeyEnv`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)가 env 이름을 가리키고, `OfficialApiConnector`는 그 env만 읽는다.
+
+| 서비스 (ID) | env | 쓰는 registry 키 |
+|---|---|---|
+| 입찰공고정보서비스 (15129394) | `G2B_BID_NOTICE_SERVICE_KEY` | `g2b-bid-notice`·`g2b-bid-license-limit`·`g2b-bid-region`·`g2b-bid-eorder-attach` |
+| 사전규격정보서비스 (15129437) | `G2B_PRE_SPEC_SERVICE_KEY` | `g2b-pre-spec` |
+| 발주계획현황서비스 (15129462) | `G2B_ORDER_PLAN_SERVICE_KEY` | `g2b-order-plan` |
+| 업종 및 근거법규 (15129467) | `G2B_INDUSTRY_MASTER_SERVICE_KEY` | `g2b-industry-master` |
+
+- 네 env는 worker의 `infra/.env`에만 둔다([[10-DEPLOYMENT|10 배포]] env 표). 네 값이 같아도 env를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있게 하기 위해서다.
+- 값은 data.go.kr 포털이 제공하는 일반 인증키의 Encoding 키(URL 인코딩된 값)를 그대로 넣는다(2026-10-19 사용자 확인: 포털은 Encoding 키만 제공). worker의 `readG2bServiceKey`(`web/worker/env.ts`)가 `decodeURIComponent`로 한 번 디코딩해 Decoding 키로 만들고, Connector는 요청을 만들 때 그 값을 한 번만 URL 인코딩한다. Decoding 키(`%`가 없는 원문)를 넣어도 디코딩이 값을 바꾸지 않아 결과는 같다. 실제 호출 확인은 P0-0이다.
+- 공통 파라미터: `serviceKey`(그 서비스의 env 값, 서버 전용·로그 금지), `type=json`, `pageNo`, `numOfRows=100`.
 - 공고 목록 조회(`getBidPblancListInfoServc`)
   - 신규: `inqryDiv=1`(등록일시)
   - 정정·취소: `inqryDiv=3`(변경일시)
@@ -117,9 +128,9 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 정보화사업 필터: 응답의 `infoBizYn='Y'`로 클라이언트 쪽에서 거른다. 요청 파라미터로 거를 수 있는지는 미확인이다. 그 밖의 보조 필터(키워드)를 쓸지는 구현자가 정한다.
 - 보조 조회 3종(면허제한 `getBidPblancListInfoLicenseLimit`, 참가가능지역 `getBidPblancListInfoPrtcptPsblRgn`, e발주 첨부 `getBidPblancListInfoEorderAtchFileInfo`)은 `bidNtceNo`+`bidNtceOrd`로 공고마다 1회씩, **새 revision일 때만** 부른다.
 - 사전규격은 일정 실행, 발주계획은 하루 1회, 업종 코드 마스터는 수동으로 받아 사전으로 저장한다(키별 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8).
-- 호출 예산은 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST)로 센다.
+- 호출 예산은 서비스마다 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST)로 따로 센다.
   - 한도의 90%에 닿으면 보조 조회를 멈춘다. 그 공고는 `확인 필요`(`NEEDS_REVIEW`, 정보 부족)로 남긴다.
-  - 에러코드 22(일일 허용량 초과)를 받으면 그날 수집을 멈춘다.
+  - 에러코드 22(일일 허용량 초과)를 받으면 그 서비스의 그날 호출을 멈춘다. 다른 서비스의 수집은 계속한다. 입찰공고정보서비스가 멈추면 목록과 보조 조회 3종이 함께 멈춘다.
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
 - timeout 15 s, 지수 backoff, `Retry-After` 존중은 위 Connector 계약 그대로다. 초당 30 tps(참고문서)를 넘지 않는다.
 
@@ -128,7 +139,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 서비스키 발급 전: 공식 참고문서의 응답 예시로 `OfficialApiConnector` 계약 시험을 만든다. 시험 데이터와 시험 이름에 "공식 참고문서 예시"라고 표시하고, 실제 응답이라고 쓰지 않는다.
 - 서비스키 발급 뒤(ADR-020 P0-0·P0-2): 오퍼레이션별 실제 응답 3건으로 바꾸고 `RecordedApiConnector`로 재생한다. 경로는 registry `sampleResponses`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)에 적는다.
 - 실제 응답에는 담당자 이름·전화·이메일이 있다. 저장소에 두는 사본은 담당자 필드를 빼거나 마스킹하고, 서비스키가 든 요청 URL은 남기지 않는다. 원본은 사설 MinIO에만 둔다([[09-SECURITY|09 보안]], [[11-TESTING|11 테스트]]).
-- 회사 GPU가 없을 때의 AI 쪽 개발(mock과 wire 계약 시험)은 [[03-AI-PIPELINE|03 AI 파이프라인]].
+- 회사 GPU 추론 엔드포인트가 없을 때의 AI 쪽 개발(mock과 wire 계약 시험)은 [[03-AI-PIPELINE|03 AI 파이프라인]].
 
 ### 2.4 첨부 다운로드 (`AttachmentFetcher`)
 
@@ -420,15 +431,56 @@ fixture 한 건의 형태:
 
 `summary` 키는 [[04-DATABASE|04 DB]]의 `ingest_runs.summary`와 같다. `SEED`를 두 번 돌리면 두 번째는 `skippedDuplicate:19, quarantined:1`이어야 한다(멱등). seed는 공고 외에 조직 2(`org-01` 솔리데오, `org-02` 비교조직), 계정 5(Supabase Auth 사용자. org-01 4역할 + org-02 VIEWER, 역할은 `memberships.sol_role`), 프로필 revision 2, 사전 리뷰 2건(`FX-01` BID, `FX-03` NO-BID)을 함께 넣는다. 범위와 멱등 규칙은 [[04-DATABASE|04 DB]] §6, 계정 목록은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1, 기대 로그는 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`.
 
+### 6.5 Phase 0 구현 형태 (2026-10-19, `caf0abd`·`91655a9`·`f238a3f`)
+
+Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값을 바꾸지 않고, 구현이 정한 필드와 파일 이름 규칙만 더한다. 검증 명령은 `pnpm bids:check`(`scripts/bids/check.mjs`)다.
+
+**`fixtures/manifest.yaml`**
+
+|필드|내용|
+|---|---|
+|`schemaVersion`|`sol-fixtures/v1.0`|
+|`calculationDate`|`"2026-10-16"`. 골든 점수 계산 기준일|
+|`batches.SEED`|20건의 순서 (`FX-01`~`FX-20`)|
+|`batches.LIVE`|`FX-06`·`FX-07`·`FX-08`·`FX-09`·`FX-10`|
+|`fixtures[]`|`id`·`stage`·`tags`·`expected{outcome, designScore}`|
+
+- `expected.outcome` 값은 `BID`·`WATCH`·`NO_BID`·`CANCELLED`·`QUARANTINED`·`EARLY_TRACK`이다(현재 분포 BID 4·WATCH 10·NO_BID 2·CANCELLED 1·QUARANTINED 1·EARLY_TRACK 2 = 20).
+- `expected.designScore`는 6.2 표에 숫자가 있는 7건만 숫자이고 나머지는 `null`이다. 정확한 값은 Phase 4 골든이 정한다.
+
+**공고 레코드 추가 규칙** (`fixtures/bids/FX-xx.json`)
+- 레코드의 선택 필드 `status`: `OPEN`·`AMENDED`·`CANCELLED`·`CLOSED`([[15-DATA-CONTRACTS|15 데이터 계약]]). 지금은 `FX-08` r2만 `CANCELLED`다.
+- `budgetKrw`의 원문 텍스트("12억원" 같은 표기)는 manifest tags에 `budget-text`가 있는 fixture(`FX-13`)에서만 허용한다. 나머지는 숫자 문자열이다.
+
+**추출 파일 이름** (`fixtures/extractions/`)
+- `FX-xx.json`은 마지막 revision, `FX-xx.rNN.json`은 앞선 revision이다. 지금은 `FX-07.r01.json` 하나다. 그래서 추출은 19건(`FX-12` 격리 제외) + `FX-07` r1 = 20개 파일이다([[04-DATABASE|04 DB]] `requirement_extractions` 20과 맞는다).
+- 파일 안의 `bidId: "FX-xx"`·`revisionId: "FX-xx#NN"`은 seed가 UUID로 바꾸는 자리표시다. `rNN` 파일이 없는 revision은 seed·mock gateway가 `FX-xx.json`을 그 revision에 쓴다(예: `FX-06` r1).
+
+**mock Kev·골든 envelope**
+- mock Kev: `schemaVersion: "kev-mock/v0.1"`, `fixtureId`, `provider`, `questionSetVersion: "kev-qs/v0.1"`, `responses`, `usage`, `latency_ms`.
+- 골든: `schemaVersion: "sol-golden/v0.1"`, `fixtureId`, `calculationDate`, `factors[]`(요소별 `normalized`·`points`·`maxPoints`), `total`, `score`, `recommendation`, `reviewFlags`.
+
+**현재 범위** (Phase 0 시점)
+
+|파일 종류|지금|이후|
+|---|---|---|
+|`bids/`|20건|-|
+|`extractions/`|20개 파일 (19건 + `FX-07.r01`)|-|
+|`kev/`|4건 (`FX-01`·`02`·`03`·`16`)|나머지 16건은 Phase 4. 그 전까지는 [[03-AI-PIPELINE\|03]] §5.7 fallback 값|
+|`goldens/`|3건 (`FX-01`·`02`·`03`)|Phase 4 (골든 17건 확장)|
+|`docs/` 첨부 샘플|없음|Phase 2|
+
+`FX-20`은 07 §6.4대로 `SEED` 배치다([[19-DEMO-SCENARIO|19]]의 `LIVE` 표기와 어긋남은 [Phase 0 정본 불일치 목록](plans/2026-10-19-phase-0-doc-inconsistencies.md) 9번).
+
 ## 7. 개발·테스트
 
 - `SOL_RUN_MODE=mock`(기본)·`fixture`에서는 조달청 외부 API를 호출하지 않는다. `FixtureConnector`가 같은 인터페이스를 구현한다. `DEMO_MODE`는 호환을 위해 남기되 값은 실행 모드에서 파생된다(`live` → `false`, `fixture`·`mock` → `true`). 직접 준 값이 모드와 모순되면 기동을 거부한다(§1.2). DB는 Supabase 프로젝트(개발은 클라우드)라 수집 결과를 쓰려면 Supabase에 닿아야 한다.
 - CI의 수집 시험은 `FixtureConnector`·`RecordedApiConnector`로 돈다. 실제 data.go.kr 호출과 실제 첨부 다운로드는 CI에 없다(§2.3).
 - fixture 로더는 `fixtures/manifest.yaml`의 JSON Schema 검증을 통과해야 기동한다. 잘못된 fixture는 조용히 건너뛰지 않고 기동 실패로 드러낸다.
 - 단위 테스트는 fixture ID로 입력을 고른다. 수집 파이프라인 시험은 Vitest로 `web/server/ingestion/*.test.ts`, worker 진입점 시험은 `web/worker/*.test.ts`에 둔다(`pnpm -C web test`). 공고·수집 표의 쓰기 권한(화면 역할은 쓰기 불가) 시험은 `scripts/database.test.mjs`(`pnpm test:db`)에 둔다. 골든 시나리오 ↔ fixture ↔ 테스트 파일 매핑은 [[11-TESTING|11 테스트]] §3.
-- `live` 모드는 registry 항목([[15-DATA-CONTRACTS|15 데이터 계약]] §8)과 `G2B_SERVICE_KEY`가 있어야 기동한다. 없으면 `OfficialApiConnector`가 기동 시 명확한 오류로 멈춘다(§2.1).
+- `live` 모드는 registry 항목([[15-DATA-CONTRACTS|15 데이터 계약]] §8)과 서비스키 4개(§2.2)가 모두 있어야 기동한다. 없으면 `OfficialApiConnector`가 기동 시 명확한 오류로 멈춘다(§2.1).
 
-## 8. 솔리데오 가상 직원 fixture (ADR-019, 구현 예정)
+## 8. 솔리데오 가상 직원 fixture (ADR-019, 구현됨)
 
 공고 `FX-01`~`FX-20`과 별도의 인력 데이터다. 원본은 저장소 밖 `/Users/leegwanghui/dev/hackathon/sol-radar-inputs/people.xlsx`이며 읽기 전용이다. 팀명과 이름 오른쪽 직급/직책만 구조의 근거로 사용한다. 원본 이름·연락처·주소·실제 인물 사진은 적재하거나 저장소로 복사하지 않는다.
 
@@ -448,7 +500,7 @@ fixture 한 건의 형태:
 
 imagegen 스킬의 기본 내장 도구로 인물별 1개 작업씩 생성한다. 남녀 각 100개 작업, 총 200개의 다른 가상 성인 얼굴·정장·정사각형 프로필이다. 콜라주·사진 재사용은 완료로 인정하지 않는다. 결과를 Codex 기본 생성 캐시에서 위 프로젝트 경로로 복사하고 manifest의 READY·고유 경로·고유 해시 200건 및 사람의 얼굴 중복 검수를 확인한다. CLI/API 모드로 전환하려면 별도 선택을 받는다.
 
-상세 승인 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md). 해당 JSON·사진·seed·폼은 아직 생성/구현 전이며, 인력 배정 API는 기존대로 P1이다.
+상세 승인 스펙: [솔리데오 인력·가입](../polaris/specs/planned/2026-10-16-solideo-people-signup.md). JSON 4개·사진 200장(manifest READY 200, 사람 승인 2026-10-17)·`pnpm people:seed`·가입 폼은 구현됐다([[PROGRESS]]). 상위 부서가 확인되지 않은 29개 부서는 `parentId: null`로 남아 있고, 인력 배정 API는 기존대로 P1이다.
 
 ## 관련 문서
 

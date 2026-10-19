@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -81,7 +81,7 @@ updated: 2026-10-16
 |SSRF|첨부 다운로드(worker의 `G2bAttachmentFetcher`)는 `https://www.g2b.go.kr`만 허용한다(allowlist. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트). 리다이렉트는 같은 allowlist 안에서만 따르고, 연결 전에 DNS를 다시 확인해 사설 IP로 풀리면 거부한다. timeout 30 s, 최대 50 MB(넘으면 받지 않는다), 형식은 확장자가 아니라 매직 바이트로 판정한다. 공공 API는 `infra/sources/registry.yaml`에 등록한 data.go.kr 엔드포인트만 부른다([[15-DATA-CONTRACTS\|15 데이터 계약]] §8). gateway(`/parse`)는 네트워크·MinIO에 접근하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.4)|
 |LLM prompt injection|아래 "책임 있는 AI" 절|
 |문서 악성코드|MIME/sniff(매직 바이트), 확장자/크기 제한(50 MB), 격리 처리, 필요한 경우 AV 스캔. 파서는 gateway 안에서만 돌고 네트워크 권한이 없다|
-|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키 `G2B_SERVICE_KEY`는 worker 전용 서버 env다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 서버의 vLLM `--api-key` 값과 `KEV_API_KEY`는 GPU 서버와 gateway의 서버 env에만 둔다|
+|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키는 서비스마다 하나씩 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, [[16-DECISIONS\|ADR-022]])이고 모두 worker 전용 서버 env다. 로그 마스킹은 네 값을 모두 가린다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 서버의 vLLM `--api-key` 값과 `KEV_API_KEY`는 GPU 서버와 gateway의 서버 env에만 둔다|
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
 
@@ -196,7 +196,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - `.env.example`류 파일에는 placeholder만 둔다. 기동 전 `pnpm check:env`가 placeholder를 감지하면 중단.
 - env 구분:
   - 공개 값: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. anon 키는 브라우저 번들에 들어가도록 설계된 공개 키이고 권한은 RLS가 정한다.
-  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_SERVICE_KEY`(data.go.kr 서비스키, worker 전용), `KEV_API_KEY`와 vLLM `--api-key` 값(회사 GPU 서버의 모델 런타임 인증).
+  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `KEV_API_KEY`와 vLLM `--api-key` 값(회사 GPU 서버의 모델 런타임 인증).
   - redis·minio는 `demo` 프로필에서도 기본 비밀값(`minioadmin` 등)을 쓰지 않는다.
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다.
 - 호스트 포트: web 3000만 연다. API(`/api/v1`)와 헬스체크(`/health/*`)도 web이 응답하며 별도 api 서비스는 없다. redis/qdrant/minio/ai-gateway/kev는 Compose 내부 네트워크에 두고, web을 Compose 밖에서 띄우느라 호스트에 열어야 하는 포트도 `127.0.0.1`에만 바인딩한다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고 터널로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).

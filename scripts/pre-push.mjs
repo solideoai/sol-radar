@@ -47,8 +47,6 @@ const LOG_TAIL = 40;
 export const PLACEHOLDER_ENV = {
   NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.supabase.co",
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-anon-key-not-a-secret",
-  EXPO_PUBLIC_SUPABASE_URL: "https://ci-placeholder.supabase.co",
-  EXPO_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-anon-key-not-a-secret",
 };
 
 // git 이 표준 입력으로 넘기는 줄: <로컬 참조> <로컬 SHA> <원격 참조> <원격 SHA>.

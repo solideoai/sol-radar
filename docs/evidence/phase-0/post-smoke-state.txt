@@ -1,0 +1,21 @@
+# smoke 뒤(redis 재시작 뒤) 상태: compose ps · worker logs --tail 5 · curl /health/ready | commit cfc534d | 2026-10-19 09:27:02 KST
+5개 healthy (대기 1x2s)
+ai-gateway healthy
+minio healthy
+qdrant healthy
+redis healthy
+worker healthy
+## worker logs --tail 5
+worker-1  | worker started
+worker-1  | worker 오류: Error ECONNREFUSED
+worker-1  | worker 오류: Error ECONNREFUSED
+## GET /health/ready
+{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"mock"}}
+http_code=200
+## worker:ping 재확인(호스트, REDIS_URL 은 node 런처가 줌)
+
+> sol-radar-web@0.1.0 worker:ping /Users/leegwanghui/dev/hackathon/sol-radar/web
+> node --conditions=react-server --import tsx worker/ping.ts
+
+queue round-trip ok 42ms
+exit=0

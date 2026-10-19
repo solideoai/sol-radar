@@ -50,8 +50,13 @@ it.each([1440, 1280])(
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(width);
     await page.getByRole("combobox", { name: "부서 (필수)" }).click();
     await page.getByRole("option", { name: longLabel.trim() }).click();
+    // 팝업이 닫히는 애니메이션이 끝난 뒤의 화면을 잰다. 도는 동안은 닫히는 옵션도 보여서 결과가 실행 속도에 따라 바뀐다.
+    await Promise.allSettled(document.getAnimations().map((animation) => animation.finished));
     expect(host.scrollWidth).toBe(host.clientWidth);
-    await expect.element(page.getByText(longLabel.trim(), { exact: true }).last()).toBeVisible();
+    // 닫힌 팝업은 body 끝에 남아 같은 글자의 숨은 옵션을 갖는다. 그래서 폼 안(선택칸·그 아래 설명)에서만 찾는다.
+    const shown = page.elementLocator(host).getByText(longLabel.trim(), { exact: true });
+    expect(shown.elements()).toHaveLength(2);
+    await expect.element(shown.last()).toBeVisible();
     await page.getByRole("combobox", { name: "부서 (필수)" }).click();
     await userEvent.keyboard("{Escape}");
     await expect.element(page.getByRole("combobox", { name: "부서 (필수)" })).toHaveFocus();

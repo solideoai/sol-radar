@@ -13,12 +13,12 @@ description: Supabase로 데이터를 저장하고 접근 권한을 RLS 정책�
 `service_role` 키는 RLS 를 통째로 무시한다. 그 키로 다니면 "남의 데이터를 막는 일"이 전부
 코드의 책임이 되고, 코드가 한 군데라도 틀리면 막을 방법이 없다.
 
-anon 키로 다니면 정책이 DB 안에서 지켜진다. 웹에서 들어오든 앱에서 들어오든, 화면을 잘못
+anon 키로 다니면 정책이 DB 안에서 지켜진다. 브라우저에서 들어오든 서버에서 들어오든, 화면을 잘못
 만들었든 상관없이 같은 답이 나온다.
 
 | 키 | 어디에 | RLS |
 |---|---|---|
-| anon | 웹 브라우저 `getSupabaseBrowser()`(`web/lib/supabase-browser.ts`) · 웹 서버 `await getSupabase()`(`web/server/supabase`) · 앱 `supabase`(`mobile/lib/supabase.ts`) | 적용된다 (기본 통로) |
+| anon | 웹 브라우저 `getSupabaseBrowser()`(`web/lib/supabase-browser.ts`) · 웹 서버 `await getSupabase()`(`web/server/supabase`) | 적용된다 (기본 통로) |
 | service_role | `getSupabaseAdmin()` | **무시한다.** 관리 작업에만, 꼭 필요할 때만 |
 
 ⚠️ 어드민 화면을 만들 때도 `service_role` 을 쓰지 않는다. 운영자 판단은 `profiles.is_admin` 과
@@ -34,23 +34,20 @@ anon 키로 다니면 정책이 DB 안에서 지켜진다. 웹에서 들어오�
 Windows 는 scoop — CLI 가 없으면 `pnpm db:start` 가 OS 별 설치법을 출력한다). 저장소 의존성이 아니라 직접 설치한다.
 
 ```bash
-pnpm db:start              # 켜기 → 새 마이그레이션 적용 → web/.env.local·mobile/.env 에 주소·anon 키 기록
-pnpm db:start --host <IP>  # 앱(mobile/.env)에 적을 PC 의 LAN IP 를 직접 고른다
+pnpm db:start              # 켜기 → 새 마이그레이션 적용 → web/.env.local 에 주소·anon 키 기록
 pnpm db:stop               # 끄기. 데이터는 Docker 볼륨에 남는다
 ```
 
 - 첫 실행은 Docker 이미지를 받느라 몇 분 걸린다. 설정은 `supabase/config.toml`(바꾼 값만 적고 나머지는 CLI 기본값).
   이 템플릿으로 프로젝트를 여럿 만들면 `project_id` 를 프로젝트마다 바꾼다.
 - env 파일은 URL·anon 키 두 줄만 고치고 다른 줄은 둔다. 파일이 없으면 `.env.example` 을 바탕으로 만든다.
-  키 값은 화면에 찍지 않는다. 값이 바뀌면 켜 둔 개발 서버를 다시 켠다(앱은 `pnpm -C mobile start --clear`).
+  키 값은 화면에 찍지 않는다. 값이 바뀌면 켜 둔 개발 서버를 다시 켠다.
 - 포트: API `54321` · DB `54322` · Studio `54323`(표·데이터·SQL 편집기) · 메일함 `54324`. 주소는 `db:start` 가 끝에 출력한다.
 - 로컬에서는 메일(매직 링크·비밀번호 재설정 등)이 실제로 나가지 않고 **메일함**으로 온다. 링크도 거기서 누른다.
   가입도 확인 메일의 링크를 열어야 끝난다(`supabase/config.toml` 의 `enable_confirmations` — 클라우드 기본값과 같게 켜 뒀다).
 - **클라우드 값 보호**: 그 파일의 URL 에 이미 클라우드 주소가 있으면 덮지 않고 건너뛰며 실패한다.
-  로컬로 바꾸려면 그 파일을 같은 폴더의 `.env.cloud.local` 로 옮기고 다시 돌린다(웹·앱이 읽지 않는 이름이라 보관만 된다).
-- **앱에는 `127.0.0.1` 대신 PC 의 LAN IP** 가 들어간다(폰에서 `127.0.0.1` 은 폰 자신이다). 폰과 PC 가 같은 와이파이여야
-  하고, IP 가 바뀌면 `pnpm db:start` 를 다시 돌린다. 자동으로 고른 IP 가 틀리거나 못 찾으면 `--host` 로 지정한다.
-- ⚠️ `web/.env.development.local`·`mobile/.env.local` 에 클라우드 값이 있으면 Next·Expo 가 그쪽을 먼저 읽는다.
+  로컬로 바꾸려면 그 파일을 같은 폴더의 `.env.cloud.local` 로 옮기고 다시 돌린다(웹이 읽지 않는 이름이라 보관만 된다).
+- ⚠️ `web/.env.development.local` 에 클라우드 값이 있으면 Next 가 그쪽을 먼저 읽는다.
   `db:start` 는 그 파일들을 보지 않으므로, 성공했다고 나와도 화면은 클라우드에 붙는다. 로컬로 쓰려면 그 파일을 `.env.cloud.local` 로 옮긴다.
 
 ### 1-B. 클라우드 (supabase.com, 무료)
@@ -62,13 +59,13 @@ pnpm db:stop               # 끄기. 데이터는 Docker 볼륨에 남는다
 
 ## 2. 환경변수
 
-클라우드면 각 폴더의 `.env.example` 을 보고 세 파일(루트 `.env.local`·`web/.env.local`·`mobile/.env`)을 만든다. 값은 **그 값을 읽는 프로그램의 폴더**에 둔다.
-파일마다 넣는 변수와 읽는 쪽은 `docs/boilerplate/database.md` 의 "환경변수 파일 세 개" 표가 정본이다.
+클라우드면 각 폴더의 `.env.example` 을 보고 두 파일(루트 `.env.local`·`web/.env.local`)을 만든다. 값은 **그 값을 읽는 프로그램의 폴더**에 둔다.
+파일마다 넣는 변수와 읽는 쪽은 `docs/boilerplate/database.md` 의 "환경변수 파일 두 개" 표가 정본이다.
 
-로컬(1-A)이면 `pnpm db:start` 가 웹·앱 두 파일의 URL·anon 키만 채운다(`SUPABASE_SERVICE_ROLE_KEY` 는 적지 않는다).
+로컬(1-A)이면 `pnpm db:start` 가 `web/.env.local` 의 URL·anon 키만 채운다(`SUPABASE_SERVICE_ROLE_KEY` 는 적지 않는다).
 루트 `.env.local` 은 클라우드 전용이다 — `db:push`·`db:verify` 는 TLS 인증서를 검사해서 로컬 DB 에 붙지 않는다.
 
-`NEXT_PUBLIC_`·`EXPO_PUBLIC_` 로 시작하는 값은 브라우저·앱 번들에 그대로 박힌다.
+`NEXT_PUBLIC_` 로 시작하는 값은 브라우저 번들에 그대로 박힌다.
 anon 키는 그래도 된다(정책이 지킨다). **service_role 키는 절대 안 된다.** 접두어 없는 이름으로
 `web/.env.local` 에 두면 서버 코드만 읽고 번들에는 들어가지 않는다.
 
@@ -219,7 +216,7 @@ const { data, error } = await supabase.from("things").select("*");
 표·열 이름과 결과 행의 타입은 손으로 적지 않고 마이그레이션에서 만든다. 디자인 토큰과 같은 '정본 → 생성물' 방식이다.
 
 ```bash
-pnpm db:types        # web/lib/database.types.ts · mobile/lib/database.types.ts 를 다시 만든다
+pnpm db:types        # web/lib/database.types.ts 를 다시 만든다
 pnpm check:db-types  # 생성물이 마이그레이션과 어긋나면 실패 (커밋 게이트·CI 가 돈다)
 ```
 
@@ -228,9 +225,8 @@ pnpm check:db-types  # 생성물이 마이그레이션과 어긋나면 실패 (�
 - 생성물은 손으로 고치지 않는다. 타입이 틀렸다면 새 마이그레이션으로 스키마를 바로잡고 다시 생성한다.
 - 실제 DB·Docker·Supabase CLI 없이 PGlite 에 마이그레이션을 적용해 만든다. 그래서 `db:push` 전에도 돈다.
   모양은 `supabase gen types typescript` 출력과 같다(`Database`·`Tables<"표">`·`TablesInsert`·`TablesUpdate`·`Enums`).
-- web·mobile 중 `package.json` 이 있는 폴더에만 만든다.
 
-코드에서는 이미 타입이 붙은 클라이언트(`getSupabaseBrowser()`·`await getSupabase()`·앱 `supabase`)를 쓴다.
+코드에서는 이미 타입이 붙은 클라이언트(`getSupabaseBrowser()`·`await getSupabase()`)를 쓴다.
 없는 표·열 이름은 컴파일에서 걸리고, `select` 결과에 행 타입이 붙는다.
 
 ```ts
@@ -253,7 +249,6 @@ is not available`). 그때는 흉내를 그 파일 한 곳에서 넓힌다(PGlit
 - 웹: 로그인·로그아웃은 클라이언트 컴포넌트에서 `getSupabaseBrowser().auth.*` 로 한다. 세션은 쿠키에
   남고, `web/proxy.ts` 가 요청마다 만료된 토큰을 갱신한다. 서버에서 누가 로그인했는지는
   `(await getSupabase()).auth.getClaims()` 로 본다(`getSession()` 은 서버에서 믿지 않는다).
-- 앱: `supabase.auth.*` 로 한다. 세션은 기기 저장소(AsyncStorage)에 남아 앱을 다시 켜도 유지된다.
 - 화면을 가리는 것(로그인 안 하면 이동)은 편의일 뿐이다. 데이터를 지키는 것은 RLS 정책이다.
 - 견본의 코드 자리(도메인·화면)는 `architecture` 스킬의 "서버 코드라면", 화면별 동작은 `docs/boilerplate/database.md` 의 로그인·조직·작업·활동 견본에 있다.
   여기에는 DB 쪽 본보기만 적는다. 로그인 견본은 가입 → 이메일·비밀번호 로그인 → 본인 `profiles` 읽기 → 로그아웃을 실제로 한다.
@@ -289,5 +284,5 @@ where id = (select id from auth.users where email = '<운영자 이메일>');
 
 ## 7. 배포에도 환경변수 넣기
 
-배포 서비스(Vercel·EAS)에 넣을 값과 자리는 `docs/boilerplate/first-deployment.md` 가 정본이다. 하나만 기억한다 — Vercel 운영의 `SUPABASE_DB_URL` 에는
+배포 서비스(Vercel)에 넣을 값과 자리는 `docs/boilerplate/first-deployment.md` 가 정본이다. 하나만 기억한다 — Vercel 운영의 `SUPABASE_DB_URL` 에는
 루트 `.env.local` 의 값(DDL 권한)을 넣지 않고, 배포 검사만 하는 읽기 전용 역할의 연결 문자열을 넣는다(같은 문서의 "배포 검사 전용 DB 역할").

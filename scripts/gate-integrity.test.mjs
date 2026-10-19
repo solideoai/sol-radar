@@ -6,7 +6,7 @@
 // 내용을 비우거나, 인자로 범위를 좁히는 것이다. 그래서 목록은 최소 집합으로, 각 검사의 본문은 그대로 고정한다.
 // 에이전트 세션이 직접 고치는 길은 .claude/settings.json 의 편집 금지(deny)가 막고, 그 목록도 여기서 고정한다.
 //
-// 웹·앱 중 한쪽만 쓰는 복사본은 디스크에 <폴더>/package.json(설정의 marker)이 없을 때만 그 폴더를 건너뛴다.
+// 앱 폴더(web)는 디스크에 <폴더>/package.json(설정의 marker)이 없을 때만 건너뛴다.
 // verify.config.json 에서 프로젝트를 지우는 것만으로 검사가 꺼지면 안 되므로 건너뛰기 판정에 설정을 쓰지 않는다.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -49,22 +49,12 @@ const APP_SCRIPTS = {
     "check:colors": "bash ../scripts/check-colors.sh",
     build: "next build",
   },
-  mobile: {
-    "format:check": APP_FORMAT_CHECK,
-    "type-check": "tsc --noEmit",
-    lint: "eslint .",
-    test: "jest --runInBand",
-    "check:tokens": "node ../scripts/tokens-gen.mjs --check",
-    "check:colors": "bash ../scripts/check-colors.sh",
-    "check:expo": "node ../scripts/check-expo.mjs",
-    build: "expo export --platform ios --platform android",
-  },
 };
 const APPS = Object.fromEntries(
   Object.entries(APP_SCRIPTS).map(([dir, scripts]) => [dir, Object.keys(scripts)]),
 );
-// verify:quick(커밋 게이트)은 느린 빌드·네트워크가 필요한 Expo 점검만 뺀 같은 집합이다.
-const quickOf = (names) => names.filter((name) => !["build", "check:expo"].includes(name));
+// verify:quick(커밋 게이트)은 느린 빌드만 뺀 같은 집합이다.
+const quickOf = (names) => names.filter((name) => name !== "build");
 
 const ROOT_SCRIPTS = {
   // 큰따옴표다. 작은따옴표는 Windows 의 cmd.exe 가 따옴표로 보지 않는다
@@ -89,7 +79,7 @@ const GUARDED_TOOLS = ["Bash", "Edit", "Write"];
 
 // 에이전트가 고치지 못하게 .claude/settings.json 의 permissions.deny 에 있어야 하는 게이트 파일(더 있는 것은 허용).
 // .claude/ 에서 편집 금지는 settings·hooks 만 막는다. .claude/skills·commands·agents 는 지침이라 세션이 고칠 수 있게
-// 열어 둔다. Edit(/web/…)·Edit(/mobile/…) 은 그 폴더가 디스크에 있을 때만 요구한다(아래 appOf).
+// 열어 둔다. Edit(/web/…) 은 그 폴더가 디스크에 있을 때만 요구한다(아래 appOf).
 // 막는 것은 금지 자체(settings·hooks)와 다른 검사가 약화를 잡지 못하는 파일(.husky·.github·lodestar 설정)뿐이다.
 // package.json·verify.config.json·eslint 설정·scripts/ 는 세션이 고칠 수 있다. 약화는 이 시험의 본문 고정,
 // check:lint-guards, 커밋 게이트의 `pnpm test`, 커밋된 diff 검토가 잡는다.
@@ -183,8 +173,8 @@ const settingsProblems = (settings) => [
   ).map((tool) => `PreToolUse 훅이 ${tool} 에서 guard.sh 를 부르지 않습니다`),
 ];
 
-// Edit(/web/…)·Edit(/mobile/…) 은 그 앱 폴더 몫이다.
-const appOf = (rule) => /^Edit\(\/(web|mobile)\//.exec(rule)?.[1];
+// Edit(/web/…) 은 그 앱 폴더 몫이다.
+const appOf = (rule) => /^Edit\(\/(web)\//.exec(rule)?.[1];
 // 규칙은 글자 그대로 본다. `/` 를 빼거나 Edit 를 Read 로 바꾸면 막는 범위가 달라진다.
 // apps: 디스크에 있는 앱 폴더. 없는 폴더의 규칙은 요구하지 않는다.
 const denyProblems = (settings, apps) => {
@@ -331,7 +321,7 @@ Object.entries(APPS).forEach(([dir, names]) => {
       assert.deepEqual(chainProblems(scripts().verify, names), []);
     });
 
-    it("verify:quick 이 빌드·Expo 점검을 뺀 같은 집합을 && 로만 잇는다", () => {
+    it("verify:quick 이 빌드를 뺀 같은 집합을 && 로만 잇는다", () => {
       assert.deepEqual(chainProblems(scripts()["verify:quick"], quickOf(names)), []);
     });
 
@@ -425,8 +415,6 @@ describe("판정의 가까운 변형", () => {
       ["web", { "type-check": "tsc --noEmit -p tsconfig.empty.json" }],
       ["web", { "format:check": "prettier --check app" }],
       ["web", { build: "next build --no-lint" }],
-      ["mobile", { test: "jest --runInBand nothing" }],
-      ["mobile", { lint: "eslint app/x.ts" }],
     ].forEach(([dir, change]) =>
       assert.ok(
         toolProblems({ ...APP_SCRIPTS[dir], ...change }, APP_SCRIPTS[dir]).length > 0,
@@ -468,7 +456,7 @@ describe("판정의 가까운 변형", () => {
     assert.deepEqual(projectProblems(config([project]), "web"), []);
     [
       [],
-      [{ ...project, directory: "mobile" }],
+      [{ ...project, directory: "web-old" }],
       [{ ...project, marker: "missing.json" }],
       [{ ...project, verify: { command: "pnpm", args: ["verify:quick"] } }],
       [{ ...project, quick: { command: "true", args: [] } }],
@@ -511,11 +499,11 @@ describe("판정의 가까운 변형", () => {
 
   it("편집 금지: 규칙을 빼거나 바꾸면 잡고, 더하는 것과 없는 앱 폴더의 규칙이 빠진 것은 허용한다", () => {
     const settings = (deny) => ({ permissions: { deny } });
-    const apps = ["web", "mobile"];
+    const apps = ["web"];
     const webRules = DENY_EDITS.filter((rule) => appOf(rule) === "web");
     const without = (rules) => DENY_EDITS.filter((rule) => !rules.includes(rule));
     assert.deepEqual(denyProblems(settings(["Bash(sudo *)", ...DENY_EDITS]), apps), []);
-    assert.deepEqual(denyProblems(settings(without(webRules)), ["mobile"]), []);
+    assert.deepEqual(denyProblems(settings(without(webRules)), []), []);
     assert.equal(denyProblems(settings(without(webRules)), apps).length, webRules.length);
     assert.deepEqual(denyProblems(settings(without(["Edit(/.github/**)"])), apps), [
       "permissions.deny 에 Edit(/.github/**) 이 없습니다",
@@ -684,9 +672,9 @@ describe("편집 금지는 스테이징본을 본다", () => {
 
   it("디스크에 없는 앱 폴더의 규칙은 요구하지 않는다", (t) => {
     const webRules = DENY_EDITS.filter((rule) => appOf(rule) === "web");
-    const mobileOnly = sandbox(t, ["mobile"]);
-    mobileOnly.save(without(webRules));
-    assert.deepEqual(mobileOnly.problems(), []);
+    const noApp = sandbox(t, []);
+    noApp.save(without(webRules));
+    assert.deepEqual(noApp.problems(), []);
     const webOnly = sandbox(t, ["web"]);
     webOnly.save(without(webRules));
     assert.equal(webOnly.problems().length, webRules.length);

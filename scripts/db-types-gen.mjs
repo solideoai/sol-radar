@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// db-types-gen.mjs — supabase/migrations 에서 웹·앱의 DB 타입(lib/database.types.ts)을 만든다.
+// db-types-gen.mjs — supabase/migrations 에서 웹의 DB 타입(web/lib/database.types.ts)을 만든다.
 //
 //   pnpm db:types         생성
 //   pnpm check:db-types   생성물이 마이그레이션과 어긋나는지만 검사 (게이트·CI용, --check)
@@ -509,11 +509,8 @@ export const generateTypes = async (migrationsDir) => {
 
 // ── 4. 실행 ──────────────────────────────────────────────────────
 
-// 웹·앱 중 한쪽만 쓰는 프로젝트도 있다. package.json 이 없는 폴더의 생성물은 만들지도 검사하지도 않는다.
-const OUTPUTS = [
-  ["web", "web/lib/database.types.ts"],
-  ["mobile", "mobile/lib/database.types.ts"],
-];
+// web/ 에 package.json 이 없으면 생성물을 만들지도 검사하지도 않는다.
+const OUTPUTS = [["web", "web/lib/database.types.ts"]];
 
 const optionValue = (args, name) => {
   const at = args.indexOf(name);
@@ -532,7 +529,7 @@ const run = async (args) => {
   );
 
   if (targets.length === 0) {
-    console.log("- web/·mobile/ 이 없어 DB 타입 생성을 건너뜁니다");
+    console.log("- web/ 이 없어 DB 타입 생성을 건너뜁니다");
     return 0;
   }
   if (!existsSync(migrationsDir)) {

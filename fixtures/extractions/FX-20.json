@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "requirement-extraction/v0.1",
+  "bidId": "FX-20",
+  "revisionId": "FX-20#01",
+  "model": {
+    "provider": "mock",
+    "name": "fixture",
+    "promptVersion": "req-extract/v0.1",
+    "promptHash": "e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e",
+    "temperature": 0,
+    "extractedAt": "2026-10-16T09:00:00Z",
+    "latencyMs": 0,
+    "retries": 0
+  },
+  "summary": {
+    "value": "경상남도가 2027년 정보화사업을 발주할 계획이다.",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-20#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "경상남도가 2027년 정보화사업을 발주할 계획이다"
+      }
+    ]
+  },
+  "projectType": {
+    "value": "OTHER",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-20#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "경상남도가 2027년 정보화사업을 발주할 계획이다"
+      }
+    ]
+  },
+  "domain": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "requiredSkills": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "preferredSkills": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "qualifications": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "pastPerformance": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "staffing": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "budgetKrw": {
+    "value": "1500000000",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-20#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "예정 사업예산은 15억원"
+      }
+    ],
+    "note": "15억원 → 1500000000원 환산"
+  },
+  "deadlineAt": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "contractMethod": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "restrictions": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "submission": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "injectionSuspected": false,
+  "warnings": []
+}

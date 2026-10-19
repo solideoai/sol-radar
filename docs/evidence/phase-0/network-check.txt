@@ -1,0 +1,7 @@
+# docker compose -p sol-radar-c0verify ... exec -T worker node -e '<fetch http://ai-gateway:8000/health; ioredis ping via REDIS_URL>' | commit cfc534d | 2026-10-19 09:24:00 KST
+worker -> http://ai-gateway:8000/health status=200 provider=mock runMode=mock
+worker -> redis:6379 ping=PONG (auth via REDIS_URL, 값 미출력)
+worker -> http://minio:9000/minio/health/live status=200
+worker -> http://qdrant:6333/readyz status=200
+worker NEXT_PUBLIC_SUPABASE_URL host=host.docker.internal:54321 (로컬 CLI 스택)
+exit=0

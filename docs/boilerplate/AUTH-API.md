@@ -1,6 +1,6 @@
 # 인증·회원 API
 
-앱(모바일)·다른 서비스가 부르는 HTTP 주소입니다. 웹 화면은 이 주소 대신 서버 함수를 씁니다. 코드는 `web/app/api/`.
+다른 서비스가 부르는 HTTP 주소입니다. 웹 화면은 이 주소 대신 서버 함수를 씁니다. 코드는 `web/app/api/`.
 
 ## 인증
 
@@ -9,7 +9,7 @@
 - 서버는 서명(JWKS)·만료·발급자(`iss` = `NEXT_PUBLIC_SUPABASE_URL` + `/auth/v1`)·대상(`aud` = `authenticated`)·역할(`role` = `authenticated`)을 확인합니다.
 - 역할(`role`)·상태(`status`)는 토큰이 아니라 요청마다 DB(`profiles`)에서 읽습니다. 정지되면 다음 요청부터 403 입니다.
 - 토큰 갱신은 토큰을 가진 쪽(supabase-js)이 합니다. 서버는 토큰을 저장하지 않습니다.
-- 다른 출처의 브라우저 호출(CORS)은 열지 않았습니다. 앱(네이티브)은 CORS 와 상관없습니다.
+- 다른 출처의 브라우저 호출(CORS)은 열지 않았습니다.
 
 ## 오류
 
@@ -59,7 +59,7 @@
 로그인 수단 하나를 해제합니다. `id` 는 `GET /api/auth/me` 의 `identities[].id`.
 마지막 하나면 409 `last_identity`, 내 것이 아니거나 없으면 404.
 
-연결(추가)은 API 가 아니라 클라이언트의 `supabase.auth.linkIdentity({ provider })` 입니다 — 제공자 로그인 화면을 거쳐야 해서 브라우저·앱이 직접 엽니다.
+연결(추가)은 API 가 아니라 클라이언트의 `supabase.auth.linkIdentity({ provider })` 입니다 — 제공자 로그인 화면을 거쳐야 해서 브라우저가 직접 엽니다.
 
 ### `GET /api/users/me`
 

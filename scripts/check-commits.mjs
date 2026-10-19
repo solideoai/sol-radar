@@ -6,6 +6,7 @@
 // scripts/commit-message.mjs 에서 그대로 가져오고 다시 쓰지 않는다. 다른 점은 둘이다.
 //   - 저장된 메시지를 본다. 훅이 받는 저장 전 원문과 달리 '#' 줄도 메시지다.
 //   - PR 제목은 git 이 만들지 않는다. 그래서 git 이 만드는 메시지 예외 가운데 되돌리기만 남긴다.
+//   - Dependabot 이 만든 커밋은 규칙 밖이다(아래 DEPENDABOT_EMAIL). PR 제목은 사람 몫이라 그대로 본다.
 //
 // 값은 환경변수로 받는다. PR 제목은 PR 을 연 사람이 정하는 값이라 워크플로의 run 에 직접 넣지 않는다.
 //   EVENT_NAME  pull_request | push
@@ -60,6 +61,15 @@ export const prTitleProblems = (title) => {
     : findProblems(asStored(title));
 };
 
+// Dependabot 이 만든 커밋. 제목("bump the web group across 1 directory with 12 updates")은 봇이 쓰고,
+// .github/dependabot.yml 의 commit-message 는 접두어(build·ci)만 정하므로 사람이 50자 규칙을 맞출 길이 없다.
+// git 이 만드는 메시지(병합·되돌리기)와 같은 이유 — 사람이 쓴 게 아니다 — 로 규칙 밖에 둔다.
+// 사람이 정하는 PR 제목은 그대로 검사한다. squash 병합 뒤 main 에 남는 제목은 PR 제목이다.
+// 작성자 이메일로 가른다. GitHub 이 봇에 주는 noreply 주소는 `<id>+dependabot[bot]@users.noreply.github.com` 이다.
+const DEPENDABOT_EMAIL = /^(\d+\+)?dependabot\[bot\]@users\.noreply\.github\.com$/;
+
+export const isDependabot = (authorEmail = "") => DEPENDABOT_EMAIL.test(authorEmail.trim());
+
 const short = (sha) => (SHA.test(sha) ? sha.slice(0, 7) : sha);
 
 // 커밋 도중(게이트 시험 등)에 불려도 git 이 넘긴 GIT_* 값이 다른 저장소를 가리키지 않게 걷어낸다
@@ -74,6 +84,7 @@ const git = (root, args) =>
 const hasCommit = (root, sha) => git(root, ["cat-file", "-e", `${sha}^{commit}`]).status === 0;
 
 // 범위의 커밋을 오래된 것부터 돌려준다. label 은 무엇을 봤는지 사람이 읽는 설명이다.
+// 레코드는 "SHA\n작성자 이메일\n메시지" 다. 작성자는 Dependabot 예외(isDependabot)를 가르는 데 쓴다.
 export function commitsInRange(root, base, head) {
   if (!hasCommit(root, head)) throw new Error(`검사할 커밋 ${short(head)} 이 이력에 없습니다.`);
   const newBranch = NO_BASE.test(base);
@@ -83,17 +94,15 @@ export function commitsInRange(root, base, head) {
         "어느 커밋이 새로 들어왔는지 알 수 없어 실패로 둡니다.",
     );
   const range = newBranch ? head : `${base}..${head}`;
-  const result = git(root, ["log", "-z", "--format=%H%n%B", range, "--"]);
+  const result = git(root, ["log", "-z", "--format=%H%n%ae%n%B", range, "--"]);
   if (result.status !== 0) throw new Error(result.stderr.trim() || "git log 실패");
   const commits = result.stdout
     .split("\0")
     .map((record) => record.replace(/^\n/, ""))
     .filter(Boolean)
     .map((record) => {
-      const newline = record.indexOf("\n");
-      return newline === -1
-        ? { sha: record, message: "" }
-        : { sha: record.slice(0, newline), message: record.slice(newline + 1) };
+      const [sha = "", author = "", ...body] = record.split("\n");
+      return { sha, author, message: body.join("\n") };
     })
     .reverse();
   return {
@@ -104,9 +113,10 @@ export function commitsInRange(root, base, head) {
   };
 }
 
-// 커밋·PR 제목마다 어긋난 이유. 빈 배열이면 통과다.
+// 커밋·PR 제목마다 어긋난 이유. 빈 배열이면 통과다. Dependabot 커밋은 보지 않는다.
 export const messageProblems = ({ commits, prTitle }) => [
-  ...commits.flatMap(({ sha, message }) => {
+  ...commits.flatMap(({ sha, author, message }) => {
+    if (isDependabot(author)) return [];
     const problems = findProblems(asStored(withoutPrNumber(message)));
     return problems.length ? [{ what: `${short(sha)} "${headerOf(message)}"`, problems }] : [];
   }),
@@ -155,8 +165,11 @@ export function main(
     return 1;
   }
 
+  const bots = range.commits.filter(({ author }) => isDependabot(author)).length;
   const checked = [
-    `커밋 ${range.commits.length}개${range.commits.length ? "" : "(새 커밋 없음)"}`,
+    `커밋 ${range.commits.length}개${range.commits.length ? "" : "(새 커밋 없음)"}${
+      bots ? `(Dependabot ${bots}개는 규칙 밖)` : ""
+    }`,
     ...(prTitle === undefined ? [] : ["PR 제목"]),
   ].join(" + ");
   log(`커밋 메시지 검사: ${range.label} — ${checked}`);

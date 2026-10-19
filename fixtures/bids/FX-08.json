@@ -1,0 +1,49 @@
+{
+  "fixtureId": "FX-08",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0008",
+      "planRef": null,
+      "title": "충청북도 농업기술정보시스템 구축 (가상)",
+      "agency": "충청북도",
+      "budgetKrw": "700000000",
+      "noticeDate": "-5d",
+      "deadlineAt": "+16d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-08",
+      "content": "충청북도가 농업기술정보시스템 구축 사업의 제안사를 모집한다. 사업예산은 7억원이다. 필수 기술은 Java, Spring Boot, Oracle, Nexacro 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-08-rfp.pdf"
+        }
+      ]
+    },
+    {
+      "amendmentNo": "02",
+      "ingestBatch": "LIVE",
+      "noticeId": "DEMO-2026-0008",
+      "planRef": null,
+      "title": "충청북도 농업기술정보시스템 구축 (가상)",
+      "agency": "충청북도",
+      "budgetKrw": "700000000",
+      "noticeDate": "-5d",
+      "deadlineAt": "+16d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-08",
+      "content": "충청북도가 농업기술정보시스템 구축 사업의 제안사를 모집한다. 사업예산은 7억원이다. 필수 기술은 Java, Spring Boot, Oracle, Nexacro 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다. 취소공고: 본 공고는 취소한다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-08-rfp.pdf"
+        }
+      ],
+      "status": "CANCELLED"
+    }
+  ]
+}

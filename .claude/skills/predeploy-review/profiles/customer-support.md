@@ -12,7 +12,7 @@
 ## 파일 필터
 
 - `**/*.tsx` (사용자 대면 컴포넌트)
-- `web/app/**/page.tsx`, `web/app/**/error.tsx`, `web/app/**/not-found.tsx`, `mobile/app/**`
+- `web/app/**/page.tsx`, `web/app/**/error.tsx`, `web/app/**/not-found.tsx`
 - `**/*.md` (도움말, FAQ 등)
 
 ## 참조 기준

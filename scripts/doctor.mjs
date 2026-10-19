@@ -13,7 +13,7 @@
 // - 커밋 게이트가 켜져 있는가 (scripts/git-hooks.mjs 의 탐침 — 설치기와 같은 기준)
 // - husky 가 원본 훅보다 먼저 실행하는 사용자 파일(init.sh)이 없는가 (경로만 본다. 내용은 읽지 않는다)
 // - 생성물이 정본과 맞는가 (tokens-gen·db-types-gen 의 --check. DB 타입은 PGlite 메모리 DB 만 쓴다)
-// Supabase 설정·env 파일·실제 DB 는 보지 않는다. 설정이 없어도 웹·앱 시작 화면은 열린다.
+// Supabase 설정·env 파일·실제 DB 는 보지 않는다. 설정이 없어도 웹 시작 화면은 열린다.
 //
 // 종료: 0 통과(경고 포함) · 1 선행 조건·생성물·훅 문제 · 2 잘못된 인자
 // --json: { version: 1, ok, checks: [{ id, status: "passed"|"warning"|"failed"|"skipped", message, remedy? }] }
@@ -586,7 +586,7 @@ const collectChecks = ({ root, env, nodeVersion, run }) => {
     ...GENERATORS.map((generator) => checkGenerator(root, env, run, generator)),
     skipped(
       "database",
-      "Supabase 설정·env 파일·실제 DB 는 검사하지 않습니다. 설정이 없어도 웹·앱 시작 화면은 열립니다.",
+      "Supabase 설정·env 파일·실제 DB 는 검사하지 않습니다. 설정이 없어도 웹 시작 화면은 열립니다.",
     ),
   ];
 };

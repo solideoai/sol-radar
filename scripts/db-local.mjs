@@ -1,21 +1,19 @@
 #!/usr/bin/env node
 // db-local.mjs — 클라우드 계정 없이 로컬 Supabase(Docker + Supabase CLI)를 켜고 끈다.
 //
-//   pnpm db:start              켜고, 마이그레이션을 적용하고, 웹·앱 env 파일에 주소·anon 키를 적는다
-//   pnpm db:start --host <IP>  앱(mobile/.env)에 적을 PC 주소를 직접 고른다 (폰이 닿는 LAN IP)
+//   pnpm db:start              켜고, 마이그레이션을 적용하고, 웹 env 파일에 주소·anon 키를 적는다
 //   pnpm db:stop               끈다. 데이터는 Docker 볼륨에 남는다
 //
 // start 는 처음 켤 때만 마이그레이션을 적용한다. 이미 켜진 DB 에 새 마이그레이션 파일이 생겼으면
 // start 는 아무것도 하지 않으므로 migration up 으로 따라잡는다. 이력 표는 db-push.mjs 와 같은
 // supabase_migrations.schema_migrations 다. DB 를 비우는 명령은 쓰지 않는다.
 //
-// 적는 곳은 web/.env.local·mobile/.env 의 Supabase 두 값과, 웹의 초대 메일을 로컬 메일함으로 보내는 값
+// 적는 곳은 web/.env.local 의 Supabase 두 값과, 웹의 초대 메일을 로컬 메일함으로 보내는 값
 // (SMTP_HOST·SMTP_PORT·MAIL_FROM·SITE_URL, 메일 설정이 비어 있을 때만)이다. 루트 .env.local 은 건드리지 않는다 —
 // db:push·db:verify 는 TLS 인증서를 검사해서 로컬 DB 에 붙지 않는다(둘은 늘 클라우드용이다).
 // 무엇을 적을지는 local-env.mjs 의 순수 함수가 정한다. 키 값은 화면에 찍지 않는다.
 import { spawnCommandSync } from "./command.mjs";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { networkInterfaces } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -24,7 +22,6 @@ import {
   localMailUpdates,
   parseDbLocalArgs,
   parseStatusEnv,
-  pickLanIp,
   planEnvFile,
   unsetMailUpdates,
 } from "./local-env.mjs";
@@ -32,8 +29,7 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const USAGE = `사용법:
-  pnpm db:start              로컬 Supabase 를 켜고 웹·앱 env 파일에 주소·anon 키를 적습니다
-  pnpm db:start --host <IP>  앱(mobile/.env)에 적을 PC 의 LAN IP 를 직접 고릅니다
+  pnpm db:start              로컬 Supabase 를 켜고 웹 env 파일에 주소·anon 키를 적습니다
   pnpm db:stop               로컬 Supabase 를 끕니다 (데이터는 남습니다)`;
 
 const INSTALL_GUIDE = `❌ Supabase CLI 가 없습니다. 로컬 Supabase 는 Supabase CLI 와 Docker Desktop 으로 돕니다.
@@ -45,7 +41,7 @@ const INSTALL_GUIDE = `❌ Supabase CLI 가 없습니다. 로컬 Supabase 는 Su
         Linux    https://supabase.com/docs/guides/local-development/cli/getting-started
    3. 다시 실행합니다: pnpm db:start`;
 
-// 웹·앱 중 한쪽만 쓰는 프로젝트도 있다. package.json 이 없는 폴더의 env 파일은 만들지 않는다.
+// web/ 에 package.json 이 없으면 env 파일을 만들지 않는다.
 const TARGETS = [
   {
     name: "web",
@@ -53,13 +49,6 @@ const TARGETS = [
     file: "web/.env.local",
     example: "web/.env.example",
     urlKey: "NEXT_PUBLIC_SUPABASE_URL",
-  },
-  {
-    name: "mobile",
-    label: "앱",
-    file: "mobile/.env",
-    example: "mobile/.env.example",
-    urlKey: "EXPO_PUBLIC_SUPABASE_URL",
   },
 ];
 
@@ -129,14 +118,12 @@ const printSkipped = (skipped) => {
   skipped.forEach((plan) =>
     console.error(`     mv ${plan.file} ${join(dirname(plan.file), ".env.cloud.local")}`),
   );
-  console.error(
-    "   .env.cloud.local 은 웹·앱이 읽지 않는 이름이라 클라우드 값을 보관만 해 둡니다.",
-  );
+  console.error("   .env.cloud.local 은 웹이 읽지 않는 이름이라 클라우드 값을 보관만 해 둡니다.");
 };
 
 // ── 명령 ─────────────────────────────────────────────────────
 
-const start = (host) => {
+const start = () => {
   console.log("▶ 로컬 Supabase 시작 (처음에는 Docker 이미지를 받느라 몇 분 걸립니다)");
   if (supabase(["start"]).status !== 0) {
     console.error(
@@ -165,9 +152,7 @@ const start = (host) => {
   const status = parseStatusEnv(statusRun.stdout);
 
   const targets = TARGETS.filter((target) => existsSync(join(root, target.name, "package.json")));
-  const usesMobile = targets.some((target) => target.name === "mobile");
-  const mobileHost = host ?? (usesMobile ? pickLanIp(networkInterfaces()) : null);
-  const updates = localEnvUpdates(status, mobileHost);
+  const updates = localEnvUpdates(status);
   // SMTP 포트·웹 주소의 정본은 supabase/config.toml 이다. 메일함 SMTP 를 열지 않았으면 빈 목록이다.
   const mailUpdates = localMailUpdates(status, localMailSettings(readText("supabase/config.toml")));
 
@@ -190,18 +175,12 @@ const start = (host) => {
     .forEach((plan) => writeFileSync(join(root, plan.file), plan.text, "utf8"));
 
   console.log("✓ 로컬 Supabase 가 켜졌습니다");
-  if (targets.length === 0) console.log("  web/·mobile/ 이 없어 env 파일은 적지 않았습니다");
+  if (targets.length === 0) console.log("  web/ 이 없어 env 파일은 적지 않았습니다");
   printSummary(plans);
   printMail(plans, mailUpdates);
   printLinks(status);
-  if (usesMobile && !mobileHost)
-    console.warn(
-      "⚠️  PC 의 LAN IP 를 찾지 못해 mobile/.env 에 127.0.0.1 을 적었습니다. 시뮬레이터는 되지만 폰은 닿지 않습니다 — pnpm db:start --host <PC 의 IP> 로 다시 실행하세요.",
-    );
   if (plans.some((plan) => plan.action === "write"))
-    console.log(
-      "  env 파일이 바뀌었습니다. 켜 둔 개발 서버를 다시 시작하세요: 웹 pnpm -C web dev · 앱 pnpm -C mobile start --clear (Expo 는 캐시를 지워야 새 값을 읽습니다)",
-    );
+    console.log("  env 파일이 바뀌었습니다. 켜 둔 개발 서버를 다시 시작하세요: pnpm -C web dev");
 
   const skipped = plans.filter((plan) => plan.action === "skip");
   if (skipped.length === 0) return 0;
@@ -232,7 +211,7 @@ const run = (argv) => {
   const args = parseArgs(argv);
   if (!args) return 2;
   if (!hasCli()) return 1;
-  return args.command === "start" ? start(args.host) : stop();
+  return args.command === "start" ? start() : stop();
 };
 
 try {

@@ -1,6 +1,6 @@
 // 명령 실행 — 셸 없이 실행 파일과 인자 배열을 그대로 넘긴다. macOS·Linux 에서는 child_process 와 같다.
 //
-// Windows 에서는 pnpm·claude·expo-doctor 가 실행 파일이 아니라 .cmd 래퍼다. Node 는 셸 없이 .cmd 를 찾지도
+// Windows 에서는 pnpm·claude 같은 명령이 실행 파일이 아니라 .cmd 래퍼다. Node 는 셸 없이 .cmd 를 찾지도
 // 실행하지도 못하므로(ENOENT·EINVAL) PATH·PATHEXT 로 실제 파일을 찾고, .cmd·.bat 이면 cmd.exe 에 인자를
 // 이스케이프해 넘긴다(cross-spawn 과 같은 규칙). 공백·따옴표·JSON·% 는 그대로 전달되지만 cmd.exe 는
 // 줄바꿈이 든 인자와 8191자를 넘는 명령 줄을 넘기지 못한다. 여러 줄 값(프롬프트 등)은 표준 입력으로 넘긴다.

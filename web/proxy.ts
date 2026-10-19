@@ -32,9 +32,11 @@ export const config = {
   // /api/* 는 각 Route Handler가 인증한다(기존 API는 Bearer 전용, v1은 쿠키/Bearer). JSON 응답에는 HTML CSP가 필요 없다.
   // API는 이 페이지용 프록시를 거치지 않는다. 정적 파일·이미지도 제외한다.
   // api 뒤에 / 나 끝을 붙인다 — 조직 주소는 apiary 처럼 api 로 시작할 수 있다(api 자체는 예약어).
+  // /health/* (live·ready)는 로그인 없이 외부 감시(Compose healthcheck·smoke)가 부른다. 토큰 갱신·CSP 가 필요 없고,
+  // 의존성이 죽었을 때 프록시의 Supabase 호출이 상태 검사를 막으면 안 된다. api 와 같이 health 뒤에도 / 나 끝을 붙인다(healthy-team 은 조직 주소다).
   // 문서가 권하는 prefetch 제외(missing: next-router-prefetch)는 두지 않는다. prefetch 도 서버 렌더라 여기서 토큰을
   // 갱신하지 않으면 서버 컴포넌트가 갱신한 토큰을 쿠키에 쓰지 못해 다음 요청에서 로그아웃될 수 있다.
   matcher: [
-    "/((?!api(?:/|$)|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api(?:/|$)|health(?:/|$)|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

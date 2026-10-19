@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - ops
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 14. 관측성·운영
@@ -20,7 +20,7 @@ updated: 2026-10-16
 |#|지표|원천|범위|데모에서 보이는 값|
 |---|---|---|---|---|
 |1|소스별 마지막 수집 성공 시각·상태|`ingest_runs` 소스별 최근 1건 (`status`, `finished_at`, `summary`)|공용 (조직 무관, `org_id` 없음)|소스 `fixture`, 기동 직후 시각, 상태 성공, `summary.quarantined=1`(FX-12, `ingest_errors` 1건). 목록 화면 신선도 배너와 같은 값|
-|2|분석 상태 분포 (최근 24시간)|`score_runs.status` group by|`score_runs.org_id`|`COMPLETED` 건수가 사전 분석 건수([[10-DEPLOYMENT\|10 배포]] 기동 절차에서 돌린 수)와 일치, 장애 리허설 후 `PARTIAL` 1건|
+|2|분석 상태 분포 (최근 24시간)|`score_runs.status` group by|`score_runs.org_id`|`COMPLETED` 건수가 사전 분석 건수([[19-DEMO-SCENARIO\|19 데모 시나리오]] §3 5번, FX-02를 뺀 18건)와 일치, 장애 리허설 후 `PARTIAL` 1건|
 |3|권고 분포|`score_runs.recommendation`|`score_runs.org_id`|BID / WATCH / NO-BID 건수가 fixture 기대 라벨([[07-DATA-PIPELINE\|07 수집 파이프라인]])과 일치|
 |4|사람 결정 vs 권고 불일치율|`bid_reviews.decision` vs 해당 `score_runs.recommendation`. `score_runs.review_flags`의 `MODEL_RULE_DISAGREEMENT` 건수 별도|`bid_reviews.org_id`|리뷰 기록 직후 갱신. 책임 있는 AI 모니터링 지표 ([[09-SECURITY\|09 보안]])|
 |5|알림 outbox 적체·중복|`outbox_events.status=PENDING` 건수, `notifications` idempotency 위반 시도 수|`notifications.org_id`. `outbox_events.org_id`는 nullable(공고 이벤트는 공용)|적체 0, 중복 0|

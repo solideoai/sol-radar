@@ -18,10 +18,10 @@
 
 ## 큰 일: 스펙과 계획부터
 
-여러 단계·여러 영역(웹 화면·서버·DB·앱)에 걸치는 일입니다.
+여러 단계·여러 영역(웹 화면·서버·DB)에 걸치는 일입니다.
 
 ```
-> /interview 팀원 초대와 권한 관리 (웹 화면 + DB + 앱)
+> /interview 팀원 초대와 권한 관리 (웹 화면 + DB)
 ```
 
 | 단계 | 일어나는 일 | 내가 할 일 |
@@ -59,10 +59,10 @@
 
 `.claude/agents/` 에 역할별 에이전트가 있습니다. 큰 일의 설계·검증 단계에서 부르고, 직접 일을 맡겨도 됩니다.
 
-- 설계: `web-designer` · `mobile-designer`
+- 설계: `web-designer`
 - 작은 일 구현: `frontend-developer` · `backend-developer`
-- 테스트: `test-server` · `test-mobile` — E2E: `e2e-web` · `e2e-admin` · `e2e-mobile` · `e2e-healer`(깨진 E2E 수리)
-- QA: `qa-web` · `qa-admin` · `qa-mobile` · `qa-mobile-device` — 배포 점검: `test-deployment`
+- 테스트: `test-server` — E2E: `e2e-web` · `e2e-admin` · `e2e-healer`(깨진 E2E 수리)
+- QA: `qa-web` · `qa-admin` — 배포 점검: `test-deployment`
 
 웹 화면을 직접 열어 보는 일(`qa-web`·`qa-admin`)은 `.mcp.json` 의 `playwright` 서버가 맡습니다. 버전을 고정해 두었고(`@playwright/mcp`),
 처음 쓸 때 Claude Code 가 승인을 묻고 `npx` 가 패키지를 받습니다(네트워크 필요). 브라우저는 창이 보이는 상태로 열립니다.
@@ -75,17 +75,15 @@
 | 하고 싶은 것 | 명령 |
 |---|---|
 | 설치 상태 점검 (읽기 전용) | `pnpm run doctor` (기계 JSON: `pnpm --silent run doctor --json`) |
-| 새 프로젝트 폴더 만들기 (템플릿 원본에만) | `pnpm bootstrap <새 경로> --name <이름>` (`--mode web\|mobile\|both`, `--dry-run`) |
-| 전체 검증 (공통 검사 + 웹·앱 각각 서식·타입·린트·테스트·빌드) | `pnpm verify` |
-| 빌드(앱은 Expo 점검도)를 뺀 빠른 검증 | `pnpm verify:quick` |
+| 전체 검증 (공통 검사 + 등록된 프로젝트의 서식·타입·린트·테스트·빌드) | `pnpm verify` |
+| 빌드를 뺀 빠른 검증 | `pnpm verify:quick` |
 | 루트 스크립트·커밋 게이트 시험 | `pnpm test` |
-| 템플릿 스모크 (템플릿 원본에만. 새 프로젝트를 임시 폴더에 만들어 설치·verify·E2E·첫 커밋까지, 오래 걸림) | `pnpm smoke:template` (`--mode web\|mobile\|both`) |
 | DB 정책 시험만 | `pnpm test:db` |
-| 루트 파일 서식 맞추기 (웹·앱은 각 폴더에서) | `pnpm format` |
+| 루트 파일 서식 맞추기 (웹은 `web` 폴더에서) | `pnpm format` |
 | 토큰 생성물 다시 만들기 | `pnpm tokens` |
 | DB 타입 생성물 다시 만들기 | `pnpm db:types` |
 | 생성물·색·서식 검사만 (고치지 않음) | `pnpm check:tokens` · `pnpm check:colors` · `pnpm check:db-types` · `pnpm format:check` |
-| 로컬 DB 켜기 (새 마이그레이션 적용, 웹·앱 env 기록) | `pnpm db:start` (폰이 닿을 PC 주소를 직접 고르려면 `--host <IP>`) |
+| 로컬 DB 켜기 (새 마이그레이션 적용, 웹 env 기록) | `pnpm db:start` |
 | 로컬 DB 끄기 (데이터는 남습니다) | `pnpm db:stop` |
 | 로컬 DB 에 시험 계정·데이터 넣기 (다시 돌리면 처음 상태로, 로컬 전용) | `pnpm db:seed` |
 | 클라우드 DB 에 마이그레이션 적용 (**운영 DB 를 바꿉니다**) | `pnpm db:push` |
@@ -106,19 +104,6 @@
 
 시험마다 무엇을 보는지는 `testing` 스킬(`.claude/skills/testing/SKILL.md`)에 있습니다.
 
-### 앱 — `pnpm -C mobile <명령>`
-
-| 명령 | 하는 일 |
-|---|---|
-| `start` | Expo 개발 서버 (`ios`·`android` 는 시뮬레이터로) |
-| `verify` | 서식 → 타입 → 린트 → 테스트 → 토큰 → 색 → Expo 점검 → iOS·Android JS 번들 |
-| `check:expo` | Expo 점검(expo-doctor). `app.json` 스키마와 SDK 권장 버전을 봅니다. Expo API 연결이 필요해 커밋 게이트에서는 돌지 않습니다 |
-| `test` | Jest |
-| `format` | 서식 맞추기 |
-
-Expo 점검이 버전 불일치로 실패하면 `pnpm -C mobile exec expo install --fix` 로 맞추고 `package.json`·`pnpm-lock.yaml` 을 함께 커밋합니다.
-새 패치가 나왔는지는 `pnpm -C mobile exec expo install --check` 로 봅니다. 실패 메시지별 뜻은 `verify` 스킬(`.claude/skills/verify/SKILL.md`)에 있습니다.
-
-의존성 갱신 PR(Dependabot)과 템플릿 스모크가 언제 도는지는 [구조가 막아 주는 것들](guardrails.md#ci)에 있습니다.
+의존성 갱신 PR(Dependabot)이 언제 도는지는 [구조가 막아 주는 것들](guardrails.md#ci)에 있습니다.
 
 패키지는 쓰는 폴더 안에서 추가합니다(`pnpm -C web add <패키지>`). 루트에 넣지 않습니다.

@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-03",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0003",
+      "planRef": null,
+      "title": "부산광역시 지능형 CCTV 통합관제센터 구축 (가상)",
+      "agency": "부산광역시",
+      "budgetKrw": "4500000000",
+      "noticeDate": "-3d",
+      "deadlineAt": "+15d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-03",
+      "content": "부산광역시가 지능형 CCTV 통합관제센터 구축 사업의 제안사를 모집한다. 사업 분야는 스마트시티이며 사업예산은 45억원이다. 필수 기술은 Java, Spring Boot, PostgreSQL, 영상분석 AI, Kubernetes, VMS 연동이다. 참가 자격은 다음과 같다. 첫째, 소프트웨어사업자 신고확인서를 보유한 업체. 둘째, 정보통신공사업법에 따른 정보통신공사업 등록업체.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-03-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

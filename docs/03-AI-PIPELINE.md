@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - pipeline
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 03. AI 파이프라인: Qwen + Kev
@@ -520,13 +520,13 @@ NOTICE
 - restrictions: none stated
 
 COMPANY (profile revision 2)
-- technologies: Java/Spring, Next.js, NestJS, PostgreSQL, Kubernetes, eGov framework, RAG/LLM
-- registrations/certifications held: software business registration, direct production certificate (software), ISO 27001, CMMI Level 3
-- not held: information-communication construction license, defense contractor designation
-- past performance: 3 public-sector projects in 3 years (1,200,000,000 / 2,800,000,000 / 300,000,000 KRW), largest 2,800,000,000 KRW
+- technologies: Java/Spring Boot, eGov standard framework, NestJS, Next.js, PostgreSQL, Kubernetes, RAG/LLM
+- registrations/certifications held: software business registration, direct production certificate (software), SME confirmation (medium enterprise), ISO 27001, CMMI Level 3
+- not held: information-communication construction license, defense contractor designation, ISMS-P, CSAP
+- past performance: 3 public-sector projects completed within 3 years (1,200,000,000 / 2,800,000,000 / 300,000,000 KRW), largest 2,800,000,000 KRW
 - single-project cap: 5,000,000,000 KRW
-- staff availability next 6 months: 62% of engineers available
-- financial: annual revenue 18,000,000,000 KRW
+- staff availability (2026-12 to 2027-06): 20 FTE available out of 27 scoring-eligible staff
+- financial: annual revenue 18,000,000,000 KRW, employees 200
 ```
 
 위 COMPANY 값은 데모 기업 솔리데오 프로필 revision 2([[19-DEMO-SCENARIO|19 데모 시나리오]] §1, [[08-SCORING|08 점수]])와 같다.

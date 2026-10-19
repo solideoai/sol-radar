@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-16",
+  "isDemo": true,
+  "stage": "NOTICE",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0016",
+      "planRef": null,
+      "title": "국방부 군 지휘통제체계 SW 유지보수 (가상)",
+      "agency": "국방부",
+      "budgetKrw": "4000000000",
+      "noticeDate": "-4d",
+      "deadlineAt": "+20d",
+      "stage": "NOTICE",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-16",
+      "content": "국방부가 군 지휘통제체계 SW 유지보수 사업의 수행사를 모집한다. 사업 분야는 국방이며 사업예산은 40억원이다. 필수 기술은 Java, Spring Boot 이다. 참가 자격은 방산업체 지정을 받은 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-16-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

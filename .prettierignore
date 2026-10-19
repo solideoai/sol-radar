@@ -1,11 +1,11 @@
-# Prettier 무시 목록 — 루트·web·mobile 세 곳이 이 파일 하나를 함께 쓴다.
+# Prettier 무시 목록 — 루트·web 두 곳이 이 파일 하나를 함께 쓴다.
 #
 # Prettier 는 실행한 폴더의 .gitignore·.prettierignore 만 읽는다(web/ 에서 돌리면 이 파일을 못 본다).
-# 그래서 web·mobile 의 format 스크립트는 --ignore-path ../.gitignore --ignore-path ../.prettierignore 로
+# 그래서 web 의 format 스크립트는 --ignore-path ../.gitignore --ignore-path ../.prettierignore 로
 # 이 파일을 직접 가리킨다. 이렇게 넘긴 파일의 패턴은 실행 폴더가 아니라 이 파일이 있는 폴더(저장소 루트)
 # 기준으로 맞춰진다. 그러니 특정 파일은 루트 기준 경로로 적는다(예: /web/app/globals.css).
 #
-# 루트의 format 은 web/·mobile/ 을 빼고 돈다(package.json 의 '!web/**' '!mobile/**'). 두 폴더는 각자 검사한다.
+# 루트의 format 은 web/ 을 빼고 돈다(package.json 의 '!web/**'). web/ 은 따로 검사한다.
 
 # 의존성·빌드·테스트 산출물 — .gitignore 에도 있지만 .gitignore 를 읽지 않는 편집기 확장을 위해 다시 적는다
 node_modules/
@@ -13,15 +13,15 @@ node_modules/
 out/
 build/
 dist/
-.expo/
 # coverage 는 폴더 위치를 고정한다. 깊이를 가리지 않으면 web/app/coverage/ 같은 화면 경로까지 조용히 빠진다.
 /coverage/
 /web/coverage/
-/mobile/coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
 next-env.d.ts
+# Python gateway 의 가상환경 — uv 가 만든다
+/services/ai/.venv/
 
 # 락파일은 pnpm 이 쓴다
 pnpm-lock.yaml
@@ -31,9 +31,7 @@ pnpm-lock.yaml
 
 # 생성물 — 생성 스크립트의 출력이 정본이다. 손으로도 Prettier 로도 고치지 않는다(pnpm tokens·pnpm db:types)
 /web/app/globals.css
-/mobile/theme/tokens.ts
 /web/lib/database.types.ts
-/mobile/lib/database.types.ts
 
 # 미션·스펙(/spec 과 Polaris 가 쓴다)
 /polaris/

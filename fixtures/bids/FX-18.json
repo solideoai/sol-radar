@@ -1,0 +1,28 @@
+{
+  "fixtureId": "FX-18",
+  "isDemo": true,
+  "stage": "PRE_SPEC",
+  "connectorBehavior": "normal",
+  "records": [
+    {
+      "amendmentNo": "01",
+      "ingestBatch": "SEED",
+      "noticeId": "DEMO-2026-0018",
+      "planRef": "DEMO-PLAN-0042",
+      "title": "과학기술정보통신부 AI 행정서비스 구축 사전규격 (가상)",
+      "agency": "과학기술정보통신부",
+      "budgetKrw": "4800000000",
+      "noticeDate": "-2d",
+      "deadlineAt": "+7d",
+      "stage": "PRE_SPEC",
+      "sourceUrl": "https://demo.sol-radar.invalid/notices/FX-18",
+      "content": "과학기술정보통신부가 AI 행정서비스 구축 사업의 사전규격을 공개하고 의견을 받는다. 사업 분야는 데이터 플랫폼이며 사업예산은 48억원이다. 의견 등록은 공개일부터 7일간 받는다. 필수 기술은 Java, Spring Boot, PostgreSQL 이다. 우대 기술은 NestJS, Next.js, RAG/LLM 적용, 전자정부 표준프레임워크, Redis 이다. 참가 자격은 소프트웨어사업자 신고확인서를 보유한 업체이다.",
+      "attachments": [
+        {
+          "name": "제안요청서.pdf",
+          "objectKey": "fixtures/docs/FX-18-rfp.pdf"
+        }
+      ]
+    }
+  ]
+}

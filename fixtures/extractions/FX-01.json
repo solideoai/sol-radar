@@ -1,0 +1,198 @@
+{
+  "schemaVersion": "requirement-extraction/v0.1",
+  "bidId": "FX-01",
+  "revisionId": "FX-01#01",
+  "model": {
+    "provider": "mock",
+    "name": "fixture",
+    "promptVersion": "req-extract/v0.1",
+    "promptHash": "e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e",
+    "temperature": 0,
+    "extractedAt": "2026-10-16T09:00:00Z",
+    "latencyMs": 0,
+    "retries": 0
+  },
+  "summary": {
+    "value": "세종특별자치시가 차세대 행정정보시스템 고도화 사업의 제안사를 모집한다.",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "세종특별자치시가 차세대 행정정보시스템 고도화 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "projectType": {
+    "value": "SI",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "세종특별자치시가 차세대 행정정보시스템 고도화 사업의 제안사를 모집한다"
+      }
+    ]
+  },
+  "domain": {
+    "value": "민원",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업 분야는 민원"
+      }
+    ]
+  },
+  "requiredSkills": {
+    "value": ["Java", "Spring Boot", "PostgreSQL", "전자정부 표준프레임워크", "Kubernetes"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "필수 기술은 Java, Spring Boot, PostgreSQL, 전자정부 표준프레임워크, Kubernetes 이다"
+      }
+    ],
+    "note": "[0],[1],[2],[3],[4]→evidence[0]"
+  },
+  "preferredSkills": {
+    "value": ["Elasticsearch", "Kafka"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "우대 기술은 Elasticsearch, Kafka 이다"
+      }
+    ],
+    "note": "[0],[1]→evidence[0]"
+  },
+  "qualifications": {
+    "value": [
+      {
+        "name": "소프트웨어사업자 신고확인서",
+        "kind": "REGISTRATION",
+        "mandatory": true,
+        "code": null
+      },
+      {
+        "name": "소프트웨어 직접생산확인증명서",
+        "kind": "CERTIFICATION",
+        "mandatory": true,
+        "code": null
+      },
+      {
+        "name": "중소기업확인서",
+        "kind": "CERTIFICATION",
+        "mandatory": true,
+        "code": null
+      }
+    ],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "소프트웨어사업자 신고확인서를 보유한 업체"
+      },
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "소프트웨어 직접생산확인증명서를 보유한 업체"
+      },
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "중소기업 제한경쟁 입찰이며 중소기업확인서를 보유한 업체"
+      }
+    ],
+    "note": "[0]→evidence[0], [1]→evidence[1], [2]→evidence[2]"
+  },
+  "pastPerformance": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "staffing": {
+    "value": [
+      {
+        "role": "PM",
+        "minCount": 1,
+        "mandatory": false
+      },
+      {
+        "role": "PL",
+        "minCount": 1,
+        "mandatory": false
+      },
+      {
+        "role": "개발",
+        "minCount": 10,
+        "mandatory": false
+      }
+    ],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "PM 1명, PL 1명, 개발 10명으로 합계 12명"
+      }
+    ],
+    "note": "[0],[1],[2]→evidence[0]"
+  },
+  "budgetKrw": {
+    "value": "1200000000",
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "사업예산은 12억원"
+      }
+    ],
+    "note": "12억원 → 1200000000원 환산"
+  },
+  "deadlineAt": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "contractMethod": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "restrictions": {
+    "value": ["중소기업 제한경쟁"],
+    "state": "KNOWN",
+    "evidence": [
+      {
+        "documentId": null,
+        "revisionId": "FX-01#01",
+        "fetchedAt": "2026-10-16T09:00:00Z",
+        "quotedText": "중소기업 제한경쟁 입찰"
+      }
+    ],
+    "note": "[0]→evidence[0]"
+  },
+  "submission": {
+    "value": null,
+    "state": "UNKNOWN",
+    "evidence": []
+  },
+  "injectionSuspected": false,
+  "warnings": []
+}

@@ -10,16 +10,12 @@ build/
 dist/
 /coverage
 
-# Expo
-.expo/
+# 서명 키·인증서
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-# 네이티브 폴더는 생성물이다 (prebuild). 필요해지면 이 두 줄을 지운다.
-ios/
-android/
 
 # 환경변수 (.env.example 만 커밋한다)
 .env

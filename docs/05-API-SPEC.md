@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-16
+updated: 2026-10-18
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -451,7 +451,7 @@ interface EvalRunReport extends EvalRunSummary {
 }
 ```
 
-`IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 `G2B_SERVICE_KEY`는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
+`IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE|07 수집]] §2.2)는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
 
 ### 4.7 조직·인력 (ADR-021)
 
@@ -706,7 +706,7 @@ live 수집 결과의 건수는 실제 공고에 따라 달라지므로 예시�
 - 계약 변경은 zod 스키마 diff와 Route Handler 계약 시험으로 PR에서 보이게 한다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성한다.
 - 템플릿의 `/api/auth/*`·`/api/users/me`·`/api/admin/users/[id]/status`는 템플릿 기능(로그인 수단 연결·운영자 정지 등)이며 이 계약(`/api/v1`) 밖이다. 남길지는 Phase 0 템플릿 정리에서 정한다. 템플릿 운영자 API는 [[16-DECISIONS|ADR-021]]로 `/api/ops/users/:id/status`로 옮기고 `profiles.is_admin`만 부른다. 조직 ADMIN의 `/api/v1/admin/*`와 다르다. 조직 ADMIN은 `/ops`에 들어가지 못한다(404).
 
-## 8. 솔리데오 가입 정보 계약 (ADR-019, 구현 예정)
+## 8. 솔리데오 가입 정보 계약 (ADR-019, 구현됨: `GET /api/v1/signup-options`, `GET·PATCH /api/v1/me/employment`)
 
 회원가입·로그인 자체는 계속 Supabase Auth다. 자체 비밀번호/토큰 API를 추가하지 않는다. 아래 타입은 외부 계약 설명이며 구현 시 `web/server/profile` 등 해당 도메인의 zod 스키마에서 타입을 얻는다.
 

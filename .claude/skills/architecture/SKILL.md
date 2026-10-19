@@ -21,7 +21,7 @@ description: 코드 구조와 아키텍처 의사결정 가이드. 어디에 코
 
 ## 2. 코드는 어디에 두나 (폴더 구조)
 
-`web/`(Next.js)과 `mobile/`(Expo)은 각자 독립된 프로젝트다. 둘이 나눠 쓰는 것은 `supabase/`(스키마)와 `design/tokens.json`(색·글꼴·글자 눈금)뿐이다.
+`web/`(Next.js)은 루트와 따로 설치하는 독립 프로젝트다. 루트에서 가져다 쓰는 것은 `supabase/`(스키마)와 `design/tokens.json`(색·글꼴·글자 눈금)이다.
 
 ```
 web/
@@ -36,18 +36,13 @@ web/
   server/<도메인>/          # 도메인 로직과 저장 — 아래 "서버 코드라면"
   server/supabase/          # 서버 쪽 DB 접속(인프라). 도메인이 부른다
   server/shared/            # 도메인 여럿이 같이 쓰는 순수 함수(이름 규칙 nameOf 등). 아무것도 import 하지 않는다
-mobile/
-  app/                      # 화면(Expo Router)
-  components/               # 재사용 UI 조각 (button·text-field·card·screen·state-view·message. 두 번째 쓰일 때 만든다)
-  lib/                      # 로직·앱용 Supabase 클라이언트(lib/supabase.ts)
-  theme/tokens.ts           # design/tokens.json 에서 생성된다. 손으로 고치지 않는다
 ```
 
 **배치 원칙: 코드는 자신이 다루는 관심사를 소유한 곳에 둔다.**
-- 도메인 규칙·계산·변환 → `web/server/<도메인>/`(웹), `mobile/lib/`(앱)
+- 도메인 규칙·계산·변환 → `web/server/<도메인>/`
 - 화면 없이 브라우저에서도 쓰는 작은 도구 → `web/lib/` (도메인 로직은 두지 않는다 — `server/shared` 밖을 import 할 수 없다)
-- 보이는 것 → `web/components/`·`mobile/components/`
-- 라우트(`web/app/`·`mobile/app/`)는 조립만. 로직을 라우트에 욱여넣지 않는다.
+- 보이는 것 → `web/components/`
+- 라우트(`web/app/`)는 조립만. 로직을 라우트에 욱여넣지 않는다.
 
 **의존 방향(한 방향으로만, 웹은 `web/lodestar.config.ts` 가 커밋에서 강제):**
 
@@ -62,19 +57,17 @@ mobile/
 
 - 도메인은 배럴 `@/server/<도메인>` 으로만 부른다. 도메인·infra 파일은 `import "server-only"` 로 시작하므로 클라이언트 컴포넌트(`"use client"`)에서는
   부를 수 없다 — 서버 컴포넌트에서 받아 props 로 넘기거나 서버 함수를 쓴다. (`server/shared` 는 `web/lib/` 도 부르는 자리라 브라우저에서도 돌 수 있게 둔다.)
-- 앱(`mobile/`)도 같은 결이다: `app/`(화면) → `components/` → `lib/`(로직). 앱에는 서버 코드를 두지 않는다.
 - 거꾸로(로직이 화면을 import) 가지 않는다. 그래야 안 엉킨다.
 
 ## 3. 자주 하는 결정 — 레시피
 
 **데이터를 저장해야 하나?**
-1. 한 기기 안에서만 남으면 되는 값(화면 설정·작성 중인 입력·최근 본 것) → 웹 `localStorage`, 앱 `AsyncStorage`
-   (`@react-native-async-storage/async-storage`, 이미 설치돼 있다). 서버·DB 가 필요 없다.
-2. 여러 기기·여러 사람·웹과 앱이 함께 봐야 하는 값 → **Supabase 표**. `supabase/migrations/` 에 새 파일로 만들고 RLS 정책으로 잠근다(`database` 스킬).
+1. 한 브라우저 안에서만 남으면 되는 값(화면 설정·작성 중인 입력·최근 본 것) → `localStorage`. 서버·DB 가 필요 없다.
+2. 여러 기기·여러 사람이 함께 봐야 하는 값 → **Supabase 표**. `supabase/migrations/` 에 새 파일로 만들고 RLS 정책으로 잠근다(`database` 스킬).
    이 프로젝트는 처음부터 Supabase 를 쓴다. **다른 DB 를 새로 들이지 않는다.**
 
 **서버가 필요한가? (클라이언트 vs 서버)**
-- 데이터 읽기·쓰기만이면 서버가 필요 없다. 화면에서 Supabase 를 직접 부르고(`getSupabaseBrowser()`·앱 `supabase`), 권한은 RLS 정책이 지킨다.
+- 데이터 읽기·쓰기만이면 서버가 필요 없다. 화면에서 Supabase 를 직접 부르고(`getSupabaseBrowser()`), 권한은 RLS 정책이 지킨다.
   계산·검증이 얽히면 `web/server/<도메인>` 을 거친다(`database` 스킬 5절).
 - 비밀키(외부 API 키·`service_role`)를 써야 하거나 남의 눈에 로직을 숨겨야 하면 서버에서 한다. Next 16 에서는 두 자리다
   (근거: `web/node_modules/next/dist/docs/01-app/01-getting-started/07-mutating-data.md`·`15-route-handlers.md`):
@@ -86,13 +79,12 @@ mobile/
 
 **컴포넌트를 쪼갤 때**
 - 한 파일이 화면에서 "두 가지 이상의 일"을 하면 분리.
-- 같은 UI가 두 번 반복되면 그 프로젝트의 `components/`(`web/components/`·`mobile/components/`)로 추출.
+- 같은 UI가 두 번 반복되면 `web/components/`로 추출.
 - 너무 일찍 쪼개지 않는다 — 두 번째 등장할 때 추출(성급한 추상화 금지).
 
 **새 기능을 추가할 때**
 - 먼저 만들 범위를 한 줄로 좁힌다(스펙이 있으면 그것을 근거로).
 - 저장이 필요하면 `supabase/migrations/` 새 파일 → 로직은 `web/server/<도메인>/` → UI 는 `web/components/` → 화면은 `web/app/`.
-  앱이면 `mobile/lib/` → `mobile/components/` → `mobile/app/`.
 - 한 번에 하나씩, 매번 `/verify`. 여러 단계·여러 영역에 걸치면 스펙과 계획부터 세워 단계로 나눈다(`AGENTS.md` 표준 흐름).
 
 ## 4. 같은 문제 두 번 겪지 않기
@@ -104,7 +96,7 @@ mobile/
 
 ## 서버 코드라면
 저장·외부연동이 필요한 웹 서버 코드는 `web/server/<도메인>/` 아래 도메인별로 둔다. **견본은 `web/server/profile/`** 이다
-(로그인 견본 — 화면 `web/app/auth/`(로그인·가입·재설정)·`web/app/(app)/[slug]/settings/`(프로필), 앱 `mobile/app/account.tsx`·`mobile/lib/profile.ts`). 새 도메인은 이것을 따라 짓는다.
+(로그인 견본 — 화면 `web/app/auth/`(로그인·가입·재설정)·`web/app/(app)/[slug]/settings/`(프로필)). 새 도메인은 이것을 따라 짓는다.
 여러 행을 다루는 데이터 표(조직의 행 여러 개 — 거르기·정렬·쪽, 추가·편집·상태 바꾸기·삭제)는 **`web/server/task/`** 를 따른다(화면 `web/app/(app)/[slug]/tasks/`).
 URL 쿼리는 모델의 `parseTaskListQuery` 가 조건으로 바꾸고(잘못된 값은 기본값), 쪽은 서버에서 나눈다(`TASK_PAGE_SIZE`).
 요약 수치는 목록을 읽어 앱에서 세지 않는다: DB 집계 함수 `task_dashboard_stats` 하나 → 모델의 순수 함수 `toTaskDashboard` → `getTaskDashboard`(서비스) → 화면 `web/app/(app)/[slug]/dashboard/`. 화면은 세지 않고 조립만 한다.
