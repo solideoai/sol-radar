@@ -4343,7 +4343,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
           "technologies_complete",
         ]),
         ...columns("notifications", "UPDATE", ["read_at"]),
-        // 상태·결과·요청자·시각은 worker 가 채운다.
+        // 상태·결과·요청자·시각은 worker 가 채운다. request_hash 는 20261019000012 가 더한 요청 지문이다.
         ...columns("score_runs", "INSERT", [
           "ai_provider",
           "algorithm_version",
@@ -4353,6 +4353,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
           "idempotency_key",
           "org_id",
           "profile_revision",
+          "request_hash",
           "revision_id",
           "run_mode",
         ]),
@@ -4571,6 +4572,565 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
             column_name: "kev_assist",
             grantee: "authenticated",
             privilege_type: "SELECT",
+          },
+        ],
+      );
+    });
+  });
+
+  // 20261019000012: 화면(C6)의 읽기·분석 요청 보조. score_runs.request_hash(같은 키 + 다른 본문 409 의 지문),
+  // release_unqueued_score_run(큐 등록 실패 → 요청자 본인의 QUEUED run 을 FAILED 로 풀고 멱등 키를 비운다),
+  // latest_ingest_run(업무 역할이 있는 사용자의 수집 신선도 한 줄), 뷰 bid_list_items(공고 + 조직의 최신 분석·결정 +
+  // 최신 revision 첨부 집계, security_invoker). 멱등 키는 <org_id>:<uuid> 형식이다(20261019000011 의 조직 접두 check 와 맞춘다).
+  describe("C6 화면 읽기·분석 요청 보조 (20261019000012)", () => {
+    const KEY1 = `${ORG1}:5a1e0000-0000-4000-8000-000000000001`;
+    const KEY2 = `${ORG1}:5a1e0000-0000-4000-8000-000000000002`;
+    const KEY_ORG2 = `${ORG2}:5a1e0000-0000-4000-8000-000000000003`;
+    const HASH1 = "a".repeat(64);
+    const HASH2 = "b".repeat(64);
+    const MISSING_RUN = "a0000000-0000-0000-0000-0000000000ff";
+    const functionDenied = (name) => ({
+      code: "42501",
+      message: new RegExp(`permission denied for function ${name}`),
+    });
+
+    const release = (pglite, id) =>
+      rowsOf(pglite, "select public.release_unqueued_score_run($1) as released", [id]);
+    const latestIngest = (pglite, origin) =>
+      rowsOf(pglite, "select * from public.latest_ingest_run($1)", [origin]);
+    // 화면이 읽는 열. 시각·금액(numeric)은 따로 본다.
+    const LIST_COLUMNS = [
+      "id",
+      "status",
+      "budget_krw_text",
+      "latest_run_id",
+      "latest_run_status",
+      "latest_run_score",
+      "latest_run_recommendation",
+      "latest_run_basis",
+      "latest_run_flags",
+      "scored_score",
+      "scored_recommendation",
+      "latest_decision",
+      "latest_reviewer_display_name",
+      "latest_reviewer_email",
+      "docs_total",
+      "docs_pending",
+      "docs_parsed",
+      "docs_partial",
+      "docs_unsupported",
+      "docs_failed",
+      "docs_download_failed",
+    ];
+    const listOf = (pglite) =>
+      rowsOf(pglite, `select ${LIST_COLUMNS.join(", ")} from public.bid_list_items order by id`);
+    const NO_DOCS = {
+      docs_total: 0,
+      docs_pending: 0,
+      docs_parsed: 0,
+      docs_partial: 0,
+      docs_unsupported: 0,
+      docs_failed: 0,
+      docs_download_failed: 0,
+    };
+    const NO_ORG_DATA = {
+      latest_run_id: null,
+      latest_run_status: null,
+      latest_run_score: null,
+      latest_run_recommendation: null,
+      latest_run_basis: null,
+      latest_run_flags: null,
+      scored_score: null,
+      scored_recommendation: null,
+      latest_decision: null,
+      latest_reviewer_display_name: null,
+      latest_reviewer_email: null,
+    };
+    // seed 의 BID1·BID2 공고 열(마감 없음 → 저장 상태 그대로). BID1 에는 최신 revision 의 PENDING 첨부가 하나 있다.
+    const BID1_ROW = {
+      id: BID1,
+      status: "OPEN",
+      budget_krw_text: "1200000000",
+      ...NO_DOCS,
+      docs_total: 1,
+      docs_pending: 1,
+    };
+    const BID2_ROW = { id: BID2, status: "OPEN", budget_krw_text: "800000000", ...NO_DOCS };
+    // 완료 run(RUN1·RUN2 seed) 의 열.
+    const completedRun = (run) => ({
+      latest_run_id: run,
+      latest_run_status: "COMPLETED",
+      latest_run_score: 82,
+      latest_run_recommendation: "BID",
+      latest_run_basis: "RULES_ONLY",
+      latest_run_flags: [],
+      scored_score: 82,
+      scored_recommendation: "BID",
+    });
+
+    it("분석 요청은 request_hash(null 허용 text, 기본값 없음)를 함께 넣고, 넣은 뒤에는 ADMIN·SALES 도 고치지 못한다(42501)", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select data_type, is_nullable, column_default from information_schema.columns
+           where table_schema = 'public' and table_name = 'score_runs' and column_name = 'request_hash'`,
+        ),
+        [{ data_type: "text", is_nullable: "YES", column_default: null }],
+      );
+      await as(pglite, "sales");
+      const [{ id, status, requested_by }] = await requestRun(
+        pglite,
+        ORG1,
+        PROFILE1,
+        "sol-v0.2.0",
+        { idempotency_key: KEY1, request_hash: HASH1 },
+      );
+      assert.deepEqual({ status, requested_by }, { status: "QUEUED", requested_by: WHO.sales });
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select idempotency_key, request_hash from public.score_runs where id = $1",
+          [id],
+        ),
+        [{ idempotency_key: KEY1, request_hash: HASH1 }],
+      );
+      for (const who of ["sales", "admin"]) {
+        await as(pglite, who);
+        await assert.rejects(
+          pglite.query("update public.score_runs set request_hash = $1 where id = $2", [HASH2, id]),
+          { code: "42501", message: /permission denied for table score_runs/ },
+          who,
+        );
+      }
+      // seed run 은 request_hash 없이 넣었다(마이그레이션 전에 쌓인 행과 같다).
+      await asWorker(pglite);
+      assert.deepEqual(
+        await rowsOf(pglite, "select request_hash from public.score_runs where id = any($1)", [
+          [RUN1, RUN2],
+        ]),
+        [{ request_hash: null }, { request_hash: null }],
+      );
+    });
+
+    it("같은 입력의 두 번째 QUEUED 요청은 23505(score_runs_active_input_key), 같은 멱등 키의 두 번째 요청은 다른 입력·다른 요청자라도 23505(score_runs_idempotency_key_key)다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+        request_hash: HASH1,
+      });
+      await assert.rejects(
+        requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+          idempotency_key: KEY2,
+          request_hash: HASH1,
+        }),
+        { code: "23505", message: /score_runs_active_input_key/ },
+        "같은 입력",
+      );
+      for (const who of ["sales", "analyst"]) {
+        await as(pglite, who);
+        await assert.rejects(
+          requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.1", {
+            idempotency_key: KEY1,
+            request_hash: HASH2,
+          }),
+          { code: "23505", message: /score_runs_idempotency_key_key/ },
+          `${who} 같은 키`,
+        );
+      }
+    });
+
+    it("요청자는 자기 QUEUED run 을 release_unqueued_score_run 으로 푼다 — true 이고 FAILED·ENQUEUE_FAILED·멱등 키 null·finished_at 만 바뀌며, 두 번째 호출은 false, 같은 키·같은 입력의 새 QUEUED run 은 들어간다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      const [{ id }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+        request_hash: HASH1,
+      });
+      assert.deepEqual(await release(pglite, id), [{ released: true }]);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select status, error_code, idempotency_key, request_hash, requested_by, started_at, score,
+             finished_at is not null as finished
+           from public.score_runs where id = $1`,
+          [id],
+        ),
+        [
+          {
+            status: "FAILED",
+            error_code: "ENQUEUE_FAILED",
+            idempotency_key: null,
+            request_hash: HASH1,
+            requested_by: WHO.sales,
+            started_at: null,
+            score: null,
+            finished: true,
+          },
+        ],
+      );
+      assert.deepEqual(await release(pglite, id), [{ released: false }], "두 번째 호출");
+      const [again] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+        request_hash: HASH1,
+      });
+      assert.notEqual(again.id, id);
+      assert.equal(again.status, "QUEUED");
+    });
+
+    it("남의 run·RUNNING run·업무 역할이 VIEWER 인 요청자·org-02 사용자·없는 run 은 false 이고 행이 그대로다 — 로그아웃은 실행 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      const [{ id: queued }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+      });
+      const [{ id: running }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.1", {
+        idempotency_key: KEY2,
+      });
+      await asWorker(pglite);
+      await pglite.query(
+        "update public.score_runs set status = 'RUNNING', started_at = now() where id = $1",
+        [running],
+      );
+      // org-02 VIEWER 가 요청자로 적힌 QUEUED run(관리 작업으로 넣는다). 요청자라도 업무 역할이 VIEWER 라 풀지 못한다.
+      const [{ id: viewerRun }] = await rowsOf(
+        pglite,
+        `insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version,
+           run_mode, ai_provider, idempotency_key, requested_by)
+         values ($1, $2, $3, $4, 1, 'sol-v0.2.0', 'MOCK', 'MOCK', $5, $6) returning id`,
+        [ORG2, BID1, REV1, PROFILE2, KEY_ORG2, WHO.outsider],
+      );
+      const snapshot = () =>
+        rowsOf(
+          pglite,
+          "select id, status, error_code, idempotency_key, started_at, finished_at from public.score_runs order by id",
+        );
+      const before = await snapshot();
+      for (const [who, id, why] of [
+        ["analyst", queued, "같은 조직의 남의 run"],
+        ["admin", queued, "ADMIN 도 남의 run 은 못 푼다"],
+        ["sales", running, "RUNNING"],
+        ["outsider", queued, "다른 조직"],
+        ["outsider", viewerRun, "요청자지만 VIEWER"],
+        ["viewer", queued, "VIEWER"],
+        ["operator", queued, "비멤버 운영자"],
+        ["sales", MISSING_RUN, "없는 run"],
+      ]) {
+        await as(pglite, who);
+        assert.deepEqual(await release(pglite, id), [{ released: false }], `${who}: ${why}`);
+      }
+      await asAnon(pglite);
+      await assert.rejects(release(pglite, queued), functionDenied("release_unqueued_score_run"));
+      await asWorker(pglite);
+      assert.deepEqual(await snapshot(), before);
+    });
+
+    it("latest_ingest_run 은 업무 역할이 있는 사용자(다른 조직 포함)에게 출처별 최신 수집 run 한 줄의 상태·시각·요약만 준다 — demo 는 fixture, live 는 g2b, all 은 전부이고, 조직 없는 사용자는 0행, 로그아웃은 실행 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      const SUMMARY = {
+        created: 19,
+        changed: 0,
+        cancelled: 0,
+        skippedDuplicate: 0,
+        quarantined: 1,
+        retried: 0,
+      };
+      await pglite.query(
+        "update public.ingest_runs set summary = $1, started_at = now() - interval '2 hours' where id = $2",
+        [JSON.stringify(SUMMARY), INGEST1],
+      );
+      // 더 오래된 fixture run. 최신 한 줄에 나오지 않는다.
+      await pglite.query(
+        `insert into public.ingest_runs (source, run_mode, job_key, trigger, batch, status, summary, started_at, finished_at)
+         values ('fixture', 'MOCK', 'ingest:fixture:old', 'DEMO', 'SEED', 'SUCCEEDED', '{"created":1}',
+           now() - interval '1 day', now() - interval '1 day')`,
+      );
+      const runOf = async (where) =>
+        (
+          await rowsOf(
+            pglite,
+            `select status, started_at, finished_at, summary from public.ingest_runs where ${where}`,
+          )
+        )[0];
+      const demoRun = await runOf(`id = '${INGEST1}'`);
+      assert.deepEqual(demoRun.summary, SUMMARY);
+      const MEMBERS = ["admin", "sales", "analyst", "viewer", "outsider"];
+      for (const who of MEMBERS) {
+        await as(pglite, who);
+        const rows = await latestIngest(pglite, "demo");
+        assert.deepEqual(rows, [demoRun], `${who} demo`);
+        assert.deepEqual(
+          Object.keys(rows[0]),
+          ["status", "started_at", "finished_at", "summary"],
+          `${who} 열`,
+        );
+        assert.deepEqual(
+          await latestIngest(pglite, "live"),
+          [],
+          `${who} live 는 fixture 를 주지 않는다`,
+        );
+        assert.deepEqual(await latestIngest(pglite, "all"), [demoRun], `${who} all`);
+      }
+
+      // g2b run 이 생기면 live 는 그것을, all 은 가장 최근 것을 준다. demo 는 그대로 fixture 다.
+      await asWorker(pglite);
+      await pglite.query(
+        `insert into public.ingest_runs (source, run_mode, job_key, trigger, status, summary, quota_used, started_at)
+         values ('g2b', 'LIVE', 'ingest:g2b:1', 'SCHEDULED', 'RUNNING', '{"created":3}', 3, now() - interval '1 hour')`,
+      );
+      const liveRun = await runOf("source = 'g2b'");
+      for (const who of MEMBERS) {
+        await as(pglite, who);
+        assert.deepEqual(await latestIngest(pglite, "live"), [liveRun], `${who} live`);
+        assert.deepEqual(await latestIngest(pglite, "all"), [liveRun], `${who} all`);
+        assert.deepEqual(await latestIngest(pglite, "demo"), [demoRun], `${who} demo`);
+        assert.deepEqual(await latestIngest(pglite, "unknown"), [], `${who} 모르는 출처`);
+      }
+
+      for (const who of ["invitee", "operator"]) {
+        await as(pglite, who);
+        for (const origin of ["demo", "live", "all"])
+          assert.deepEqual(await latestIngest(pglite, origin), [], `${who} ${origin}`);
+      }
+      await asAnon(pglite);
+      await assert.rejects(latestIngest(pglite, "demo"), functionDenied("latest_ingest_run"));
+    });
+
+    it("bid_list_items 의 열 이름·타입은 화면 계약 그대로이고, 화면 역할 권한은 authenticated 의 SELECT 하나다 — 로그아웃은 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(
+        (
+          await rowsOf(
+            pglite,
+            `select column_name, data_type from information_schema.columns
+             where table_schema = 'public' and table_name = 'bid_list_items' order by ordinal_position`,
+          )
+        ).map(({ column_name, data_type }) => `${column_name} ${data_type}`),
+        [
+          "id uuid",
+          "source text",
+          "notice_id text",
+          "title text",
+          "agency text",
+          "stage text",
+          "budget_krw numeric",
+          "budget_krw_text text",
+          "published_at timestamp with time zone",
+          "deadline_at timestamp with time zone",
+          "latest_revision integer",
+          "plan_ref text",
+          "is_demo boolean",
+          "source_url text",
+          "last_synced_at timestamp with time zone",
+          "status text",
+          "latest_run_id uuid",
+          "latest_run_status text",
+          "latest_run_score smallint",
+          "latest_run_recommendation text",
+          "latest_run_basis text",
+          "latest_run_flags ARRAY",
+          "latest_run_created_at timestamp with time zone",
+          "scored_score smallint",
+          "scored_recommendation text",
+          "latest_decision text",
+          "latest_decided_at timestamp with time zone",
+          "latest_reviewer_display_name text",
+          "latest_reviewer_email text",
+          "docs_total integer",
+          "docs_pending integer",
+          "docs_parsed integer",
+          "docs_partial integer",
+          "docs_unsupported integer",
+          "docs_failed integer",
+          "docs_download_failed integer",
+        ],
+      );
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select grantee, privilege_type from information_schema.role_table_grants
+           where table_schema = 'public' and table_name = 'bid_list_items' and grantee in ('anon', 'authenticated', 'PUBLIC')
+           order by 1, 2`,
+        ),
+        [{ grantee: "authenticated", privilege_type: "SELECT" }],
+      );
+      await asAnon(pglite);
+      await assert.rejects(
+        rowsOf(pglite, "select id from public.bid_list_items"),
+        /permission denied for view bid_list_items/,
+      );
+    });
+
+    it("bid_list_items — org-01 VIEWER 는 BID1 의 최신 run RUN1·점수·결정을 보고, 새 QUEUED run 이 생기면 최신 run 은 그것이지만 점수는 마지막 완료 run 의 것이며, 최신 결정은 검토자 이름·이메일과 함께 나온다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "viewer");
+      assert.deepEqual(await listOf(pglite), [
+        { ...BID1_ROW, ...NO_ORG_DATA, ...completedRun(RUN1), latest_decision: "BID" },
+        { ...BID2_ROW, ...NO_ORG_DATA },
+      ]);
+
+      await as(pglite, "sales");
+      const [{ id: queued }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+      });
+      await decide(pglite, { decision: "WATCH", reason: "새 분석을 기다리며 지켜본다" });
+      await asWorker(pglite);
+      const [reviewer] = await rowsOf(
+        pglite,
+        "select display_name, email from public.profiles where id = $1",
+        [WHO.sales],
+      );
+      assert.equal(reviewer.email, EMAIL.sales);
+      for (const who of ["admin", "sales", "analyst", "viewer"]) {
+        await as(pglite, who);
+        const [bid1] = await listOf(pglite);
+        assert.deepEqual(
+          bid1,
+          {
+            ...BID1_ROW,
+            latest_run_id: queued,
+            latest_run_status: "QUEUED",
+            latest_run_score: null,
+            latest_run_recommendation: null,
+            latest_run_basis: null,
+            latest_run_flags: [],
+            scored_score: 82,
+            scored_recommendation: "BID",
+            latest_decision: "WATCH",
+            latest_reviewer_display_name: reviewer.display_name,
+            latest_reviewer_email: reviewer.email,
+          },
+          who,
+        );
+      }
+    });
+
+    it("bid_list_items 는 security_invoker 다 — org-02 VIEWER 는 공고를 모두 보지만 org-01 의 run·결정은 보지 않고(자기 조직 것만), 비멤버 운영자는 조직 열이 모두 비어 있다", async (t) => {
+      const pglite = await solDb(t);
+      // org-01 만 BID2 를 분석·결정한다.
+      await as(pglite, "sales");
+      const [{ id: bid2Run }] = await rowsOf(
+        pglite,
+        `insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version,
+           run_mode, ai_provider, idempotency_key)
+         values ($1, $2, $3, $4, 1, 'sol-v0.1.0', 'MOCK', 'MOCK', $5) returning id`,
+        [ORG1, BID2, REV2, PROFILE1, KEY1],
+      );
+      await decide(pglite, { bid_id: BID2, revision_id: REV2, decision: "NO_BID" });
+
+      await as(pglite, "viewer");
+      const [, bid2] = await listOf(pglite);
+      assert.equal(bid2.latest_run_id, bid2Run);
+      assert.equal(bid2.latest_decision, "NO_BID");
+
+      // BID1 은 두 조직이 모두 분석·결정했다(seed). org-02 는 RUN2·WATCH 를, org-01 은 RUN1·BID 를 본다.
+      await as(pglite, "outsider");
+      assert.deepEqual(await listOf(pglite), [
+        { ...BID1_ROW, ...NO_ORG_DATA, ...completedRun(RUN2), latest_decision: "WATCH" },
+        { ...BID2_ROW, ...NO_ORG_DATA },
+      ]);
+      await as(pglite, "operator");
+      assert.deepEqual(await listOf(pglite), [
+        { ...BID1_ROW, ...NO_ORG_DATA },
+        { ...BID2_ROW, ...NO_ORG_DATA },
+      ]);
+    });
+
+    it("bid_list_items 의 status 는 OPEN·AMENDED 이고 마감이 지났으면 CLOSED, 아니면 저장 값이다(B14) — 마감 없음·남은 마감·CANCELLED 는 그대로다", async (t) => {
+      const pglite = await solDb(t);
+      const statusOf = async (stored, deadline) => {
+        await asWorker(pglite);
+        await pglite.query(
+          `update public.bid_notices set status = $1, deadline_at = now() + $2::interval where id = $3`,
+          [stored, deadline, BID2],
+        );
+        await as(pglite, "viewer");
+        return (
+          await rowsOf(pglite, "select status from public.bid_list_items where id = $1", [BID2])
+        )[0].status;
+      };
+      for (const [stored, deadline, expected] of [
+        ["OPEN", "-1 minute", "CLOSED"],
+        ["AMENDED", "-1 day", "CLOSED"],
+        ["OPEN", "1 day", "OPEN"],
+        ["AMENDED", "1 day", "AMENDED"],
+        ["CANCELLED", "-1 day", "CANCELLED"],
+        ["CLOSED", "1 day", "CLOSED"],
+      ])
+        assert.equal(await statusOf(stored, deadline), expected, `${stored} ${deadline}`);
+      // 마감이 없으면 저장 값 그대로다(BID1).
+      assert.deepEqual(
+        await rowsOf(pglite, "select status from public.bid_list_items where id = $1", [BID1]),
+        [{ status: "OPEN" }],
+      );
+      // CLOSED 는 조회할 때만 계산한다. 저장 값은 OPEN 그대로다.
+      assert.equal(await statusOf("OPEN", "-1 minute"), "CLOSED");
+      await asWorker(pglite);
+      assert.deepEqual(
+        await rowsOf(pglite, "select status from public.bid_notices where id = $1", [BID2]),
+        [{ status: "OPEN" }],
+      );
+    });
+
+    it("bid_list_items 의 첨부 집계는 최신 revision 의 첨부만 센다 — 대기(다운로드 PENDING 또는 OK + 파싱 null·PENDING)·PARSED·PARTIAL·UNSUPPORTED·파싱 FAILED·다운로드 FAILED", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      const REV1_2 = "be500000-0000-0000-0000-000000000011";
+      await pglite.query(
+        "insert into public.bid_revisions (id, bid_id, revision, raw_payload, normalized, checksum) values ($1, $2, 2, '{}', '{}', 'sum-0001-2')",
+        [REV1_2, BID1],
+      );
+      await pglite.query("update public.bid_notices set latest_revision = 2 where id = $1", [BID1]);
+      const documents = [
+        ["PENDING", null, null, null],
+        ["OK", null, null, null],
+        ["OK", "PENDING", null, null],
+        ["OK", "PARSED", null, null],
+        ["OK", "PARTIAL", null, null],
+        ["OK", "UNSUPPORTED", "UNSUPPORTED_FORMAT", null],
+        ["OK", "FAILED", "PARSER_ERROR", null],
+        ["FAILED", null, null, "HTTP_5XX"],
+      ];
+      for (const [i, [download, parse, parseError, downloadError]] of documents.entries()) {
+        const ok = download === "OK";
+        await pglite.query(
+          `insert into public.bid_documents (bid_id, revision_id, name, original_url, download_status, download_error_code,
+             object_key, sha256, size_bytes, parse_status, parse_error_code)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [
+            BID1,
+            REV1_2,
+            `첨부-${i}.pdf`,
+            `https://www.g2b.go.kr/doc/r2-${i}`,
+            download,
+            downloadError,
+            ok ? `bids/${BID1}/r2-${i}` : null,
+            ok ? `sha-r2-${i}` : null,
+            ok ? 1024 : null,
+            parse,
+            parseError,
+          ],
+        );
+      }
+      await as(pglite, "viewer");
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select docs_total, docs_pending, docs_parsed, docs_partial, docs_unsupported, docs_failed, docs_download_failed
+           from public.bid_list_items where id = $1`,
+          [BID1],
+        ),
+        [
+          {
+            docs_total: 8,
+            docs_pending: 3,
+            docs_parsed: 1,
+            docs_partial: 1,
+            docs_unsupported: 1,
+            docs_failed: 1,
+            docs_download_failed: 1,
           },
         ],
       );

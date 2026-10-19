@@ -263,9 +263,17 @@ const bypassesQuery = `
 //   분석 요청·결정·감사 정책이 org_id in (select public.my_sol_org_ids(array['ADMIN'])) 처럼 부른다. my_org_ids() 와
 //   같은 이유로 security definer 이고(정책 안에서 memberships 를 다시 읽는 재귀), 로그인 역할만 실행하며, 부른 사람
 //   자신이 그 역할로 속한 조직의 id 만 돌려준다. 이유는 20261019000001 마이그레이션 주석에 있다.
+// - public.release_unqueued_score_run(uuid): 큐 등록에 실패한 분석 요청을 FAILED(ENQUEUE_FAILED)로 바꾸고 멱등 키를 푼다
+//   (ADR-030 B20). 화면 역할에는 score_runs 의 update 권한이 없어 security definer 다. 로그인 역할만 실행하고, 바꾸는 행은
+//   부른 사람(auth.uid())이 요청자이고 그 조직에서 ADMIN·SALES·ANALYST 인 QUEUED run 하나다. 이유는 20261019000012 주석에 있다.
+// - public.latest_ingest_run(text): 업무 역할이 있는 사용자에게 최신 수집 run 한 건의 status·started_at·finished_at·summary 만
+//   준다. ingest_runs 는 ADMIN 만 읽는 운영 표라 security definer 다. 로그인 역할만 실행하고, 업무 역할이 없으면 0행이며
+//   다른 열과 수집 오류는 내주지 않는다. 이유는 20261019000012 마이그레이션 주석에 있다.
 const ALLOWED_DEFINER_FUNCTIONS = new Set([
   "public.resolve_solideo_employment(text, text)",
   "public.my_sol_org_ids(text[])",
+  "public.release_unqueued_score_run(uuid)",
+  "public.latest_ingest_run(text)",
   "public.is_admin()",
   "public.my_org_ids()",
   "public.my_owner_org_ids()",
