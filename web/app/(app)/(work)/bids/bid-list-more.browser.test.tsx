@@ -1,4 +1,4 @@
-import { use, useEffect, useState } from "react";
+import { startTransition, use, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -186,14 +186,21 @@ describe("BidListMore", () => {
 
   it("400 INVALID_CURSOR 면 목록이 바뀌었다고 알리고 [처음부터 보기]로 같은 조건의 첫 쪽으로 간다", async () => {
     fetchMock.mockResolvedValueOnce(errorBody(400, "INVALID_CURSOR"));
-    const host = more();
+    const transition = vi.fn((callback: () => void) => startTransition(callback));
+    const host = more({ startTransition: transition });
     await page.getByRole("button", { name: "더 보기" }).click();
     await expect.element(page.getByText("목록이 바뀌었습니다")).toBeVisible();
     expect(page.getByText("더 불러오지 못했습니다").query()).toBeNull();
     expect(rowCount(host)).toBe(2);
-    await page.getByRole("button", { name: "처음부터 보기" }).click();
+    // 단추는 같은 자리의 같은 단추라 누른 초점이 사라지지 않는다.
+    const restart = page.getByRole("button", { name: "처음부터 보기" });
+    expect(document.activeElement).toBe(restart.element());
+    await restart.click();
+    // 이동은 전환 안에서 한 번만 한다(같은 주소면 refresh 를 따로 보내지 않는다).
+    expect(transition).toHaveBeenCalledTimes(1);
+    expect(nav.push).toHaveBeenCalledTimes(1);
     expect(nav.push.mock.lastCall?.[0]).toBe("/bids?sort=score%3Adesc");
-    expect(nav.refresh).toHaveBeenCalledTimes(1);
+    expect(nav.refresh).not.toHaveBeenCalled();
   });
 
   it("조건이 없을 때 [처음부터 보기]는 /bids 로 간다", async () => {
@@ -214,7 +221,10 @@ describe("BidListMore", () => {
     await page.getByRole("button", { name: "더 보기" }).click();
     await expect.element(page.getByText("더 불러오지 못했습니다")).toBeVisible();
     expect(rowCount(host)).toBe(2);
-    await page.getByRole("button", { name: "다시 시도" }).click();
+    // 실패해도 초점은 같은 단추([다시 시도])에 남는다.
+    const retry = page.getByRole("button", { name: "다시 시도" });
+    expect(document.activeElement).toBe(retry.element());
+    await retry.click();
     await expect.poll(() => rowCount(host)).toBe(4);
     expect(fetchMock.mock.calls.map(urlOf)).toEqual([
       "/api/v1/bids?sort=score%3Adesc&cursor=c1",
@@ -240,8 +250,10 @@ describe("BidListMore", () => {
     await expect.element(page.getByRole("status")).toHaveTextContent("공고 0건 표시");
   });
 
-  it("서버가 새 첫 쪽을 주면 붙인 행과 오류를 버리고 새 쪽부터 보인다", async () => {
-    fetchMock.mockResolvedValueOnce(okPage(MORE, null));
+  it("서버가 새 첫 쪽을 주면 붙인 행과 실패 알림을 버리고 새 쪽부터 보인다", async () => {
+    fetchMock
+      .mockResolvedValueOnce(okPage(MORE, "c2"))
+      .mockResolvedValueOnce(errorBody(500, "INTERNAL_ERROR"));
     const host = document.body.appendChild(document.createElement("div"));
     host.style.width = "960px";
     const root = createRoot(host);
@@ -261,8 +273,63 @@ describe("BidListMore", () => {
     draw(FIRST, "c1");
     await page.getByRole("button", { name: "더 보기" }).click();
     await expect.poll(() => rowCount(host)).toBe(4);
+    await page.getByRole("button", { name: "더 보기" }).click();
+    await expect.element(page.getByText("더 불러오지 못했습니다")).toBeVisible();
     draw([BID_LIST[4]], null);
     await expect.poll(() => rowCount(host)).toBe(1);
+    expect(page.getByText("더 불러오지 못했습니다").query()).toBeNull();
+    expect(page.getByRole("button", { name: "다시 시도" }).query()).toBeNull();
+  });
+
+  // 첫 쪽이 바뀌는 렌더(전환)가 화면에 붙은 뒤, 정리 effect(abort)가 돌기 전에 옛 응답이 오는 경우.
+  // 그 응답은 새 첫 쪽에 붙지 않아야 한다.
+  it("첫 쪽이 바뀐 뒤 늦게 온 옛 응답은 새 목록에 붙지 않는다", async () => {
+    const late = Promise.withResolvers<Response>();
+    fetchMock.mockReturnValueOnce(late.promise);
+    const host = document.body.appendChild(document.createElement("div"));
+    host.style.width = "960px";
+    const root = createRoot(host);
+    mounted.push(root);
+    const view = (items: BidListItem[], cursor: string | null, extra?: React.ReactNode) => (
+      <>
+        <BidListMore
+          initialItems={items}
+          initialNextCursor={cursor}
+          query=""
+          now={NOW}
+          empty={null}
+        />
+        {extra}
+      </>
+    );
+    flushSync(() => root.render(view(FIRST, "c1")));
+    await page.getByRole("button", { name: "더 보기" }).click();
+    await expect.element(page.getByRole("button", { name: "불러오는 중…" })).toBeVisible();
+    // 옛 응답은 마이크로태스크만으로 끝나게 만든다(실제 Response 의 본문 읽기는 다른 태스크로 넘어갈 수 있다).
+    const body = { items: MORE, pageInfo: { cursor: "c1", nextCursor: null, hasNext: false } };
+    const settleOld = () =>
+      late.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
+    function ResolveDuringRender() {
+      settleOld();
+      return null;
+    }
+    startTransition(() => root.render(view([BID_LIST[4]], null, <ResolveDuringRender />)));
+    await expect.poll(() => rowCount(host)).toBe(1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(rowCount(host)).toBe(1);
+    expect(host.querySelector('a[href="/bids/bid-more-1"]')).toBeNull();
+  });
+
+  it("화면을 떠나면 진행 중인 요청을 abort 한다", async () => {
+    const pending = Promise.withResolvers<Response>();
+    fetchMock.mockReturnValueOnce(pending.promise);
+    more();
+    await page.getByRole("button", { name: "더 보기" }).click();
+    const signal = fetchMock.mock.lastCall?.[1]?.signal;
+    expect(signal?.aborted).toBe(false);
+    mounted.splice(0).forEach((root) => root.unmount());
+    expect(signal?.aborted).toBe(true);
+    pending.resolve(okPage(MORE, null));
   });
 });
 

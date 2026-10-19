@@ -65,6 +65,7 @@ export function BidListView({
           now={now}
           busy={isNavigating}
           empty={empty}
+          startTransition={startTransition}
         />
       </div>
     </>

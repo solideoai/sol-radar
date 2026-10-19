@@ -226,6 +226,10 @@ function Cell({
   }
 }
 
+// 숫자 열(예산·SOL Score)은 오른쪽 정렬이고 좌우 여백을 8px 로 줄인다. 80px 칸에서 Pretendard 13px "SOL Score"
+// 머리 글자(약 62px)가 기본 여백(12px)으로는 내용 폭(56px)을 넘는다. 머리와 몸통 여백이 같아야 오른쪽 끝이 맞는다.
+const NUMERIC_CELL = "px-2 text-right";
+
 // compact 표의 첫·끝 칸: 기본 여백(12px, origin 은 6px) 대신 카드 여백 24px.
 const edgeClass = (compact: boolean, index: number, count: number): string | false =>
   compact && (index === 0 ? "pl-6" : index === count - 1 && "pr-6");
@@ -259,7 +263,7 @@ function BidTable({
                   scope="col"
                   className={cn(
                     column.width,
-                    column.numeric && "text-right",
+                    column.numeric && NUMERIC_CELL,
                     column.className,
                     edgeClass(compact, index, columns.length),
                   )}
@@ -279,7 +283,7 @@ function BidTable({
                       "type-body",
                       column.key === "title" ? "whitespace-normal" : "overflow-hidden",
                       column.key === "origin" && "pr-1.5 pl-1.5",
-                      column.numeric && "text-right tabular-nums",
+                      column.numeric && `${NUMERIC_CELL} tabular-nums`,
                       column.className,
                       edgeClass(compact, index, columns.length),
                     )}

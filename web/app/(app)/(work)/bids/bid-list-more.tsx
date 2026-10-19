@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef } from "react";
+import {
+  startTransition as defaultStartTransition,
+  useEffect,
+  useMemo,
+  useRef,
+  type TransitionStartFunction,
+} from "react";
 import { BidTable } from "@/components/bids/bid-table";
 import type { BidListItem } from "@/server/bids";
 import { LoadMoreFooter, useLoadMore } from "@/app/(app)/(work)/load-more";
@@ -20,6 +26,8 @@ type BidListMoreProps = {
   busy?: boolean;
   /** 0건일 때 표 자리에 그릴 빈 상태. */
   empty: React.ReactNode;
+  /** [처음부터 보기] 이동을 감쌀 전환. 목록 화면이 넘기면 다시 읽는 동안 표가 흐려진다. */
+  startTransition?: TransitionStartFunction;
 };
 
 export function BidListMore({
@@ -29,6 +37,7 @@ export function BidListMore({
   now,
   busy = false,
   empty,
+  startTransition = defaultStartTransition,
 }: BidListMoreProps) {
   const router = useRouter();
   const at = useMemo(() => new Date(now), [now]);
@@ -46,11 +55,9 @@ export function BidListMore({
     rows?.[appendedFrom]?.querySelector<HTMLElement>("a")?.focus();
   }, [appendedFrom, items.length]);
 
-  // 커서가 무효면 이어 읽을 수 없다. 같은 조건의 첫 쪽을 서버에서 다시 읽는다(같은 주소여도 refresh 로 새로 읽는다).
-  const restart = () => {
-    router.push(query ? `/bids?${query}` : "/bids");
-    router.refresh();
-  };
+  // 커서가 무효면 이어 읽을 수 없다. 같은 조건의 첫 쪽으로 이동해 서버가 다시 읽게 한다.
+  // 동적 화면이라 같은 주소로의 이동도 서버에서 새로 읽는다(Next 16 클라이언트 캐시의 동적 유지 시간 0). 새 첫 쪽이 오면 붙인 행은 버려진다.
+  const restart = () => startTransition(() => router.push(query ? `/bids?${query}` : "/bids"));
 
   return (
     <>
