@@ -281,6 +281,25 @@ def test_v0_2_items_exclude_coded_qualifications_and_non_known_fields(v02):
     assert items == [f"req.{i}.status" for i in expected]
 
 
+def test_v0_2_notice_questions_follow_question_set_file_order(v02):
+    # 명세는 공고 질문 11개 사이의 순서를 정하지 않았다. 학습 데이터(ADR-027)와 같은 파일을 쓰므로
+    # 재현성을 위해 질문 세트 파일 순서(항목 틀 req.{itemId}.status 를 뺀 순서)로 고정한다
+    v02.call()
+    file_order = [q for q in load_json(EN_FILE)["questions"] if q != REQ]
+    assert sent_qids(v02)[:11] == file_order
+
+
+def test_v0_2_non_known_field_values_are_not_items(v02):
+    # KNOWN 이 아닌 필드는 값이 남아 있어도 담당 항목이 아니다(줄도 질문도 없다)
+    ext = v02_extraction()
+    ext["staffing"]["state"] = "UNKNOWN"
+    ext["pastPerformance"]["state"] = "NOT_APPLICABLE"
+    v02.call(kev_request("FX-01", extraction=ext))
+    state = state_of(v02)
+    items = [q for q in sent_qids(v02) if q.startswith(("req.staffing", "req.pastPerformance"))]
+    assert (items, "[staffing[" in state, "[pastPerformance[" in state) == ([], False, False)
+
+
 def test_v0_2_env_question_set_wins_over_request_version(v02):
     request = kev_request("FX-01", extraction=v02_extraction(), questionSetVersion="kev-qs/v0.1")
     assert v02.call(request)["kev"]["questionSetVersion"] == V0_2
@@ -421,6 +440,16 @@ def test_v0_2_requirement_label_is_conservative_on_ties(v02, distribution, label
 
 def test_v0_2_wire_is_chunk_replies_in_order(v02):
     assert v02.call()["wire"] == v02.responder.replies
+
+
+def test_v0_2_request_id_comes_from_first_chunk(v02):
+    # 묶음이 여럿이면 첫 묶음의 x-typesafe-request-id 를 쓴다(구현 결정, 51ad173)
+    assert v02.call()["kev"]["requestId"] == "req-typesafe-1"
+
+
+def test_v0_2_latency_is_sum_of_chunk_latencies(v02):
+    # 묶음마다 latency_ms 101·102 → 합 203(구현 결정, 51ad173)
+    assert v02.call()["kev"]["latencyMs"] == 101 + 102
 
 
 def test_v0_2_error_code_is_null(v02):
