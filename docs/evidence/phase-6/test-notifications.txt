@@ -97,3 +97,10 @@ $ bash verify-slot.sh pnpm verify (worktree 루트)
 - NOTIFY_POLL_INTERVAL_MS 를 정본 env 표에 넣는 일은 e8 이 맡는다.
 - 마이그레이션 번호: Codex 후속 000015 가 아직 main 에 없다. 병합할 때 번호가 main 최대보다 커야 하고, 아니면 다음 빈 번호로 이름을 바꾼다(e8 규칙).
 - C6 E2E(S4 벨 2건)를 실제 생성 경로로 바꿀지는 C6 와 C7 이 병합된 뒤 정한다.
+
+## main a955a41(documents 큐 계약) 병합 뒤
+- 충돌: web/worker/main.test.ts 한 곳이다. 가짜 fetch 의 요청 기록(C7 requests)과 bid_documents URL 기록(main documentRequests)을 둘 다 살렸다. main.ts 는 자동 병합됐다.
+$ bash verify-slot.sh pnpm verify
+  ℹ pass 668 · ℹ fail 0 · ✓ DB 타입 일치
+  Test Files 146 passed · Tests 5223 passed
+  2 rules passed, 0 errors · ✓ Compiled successfully · pytest 898 passed · exit 0

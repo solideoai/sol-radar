@@ -658,6 +658,8 @@ const analysisFakes = {
   documentJobs: [] as unknown[],
   /** service role 클라이언트가 보낸 PostgREST 요청의 "방법 경로"(C7 notify 등록이 outbox 를 읽는지 본다). */
   requests: [] as string[],
+  /** 복구 회차가 보낸 bid_documents 조회 URL */
+  documentRequests: [] as URL[],
 };
 
 const fakeConnection = (label: string): FakeConnection => {
@@ -686,6 +688,7 @@ const loadMainWithAnalysisFakes = async (pendingDocuments: object[] = []) => {
   analysisFakes.log = [];
   analysisFakes.documentJobs = [];
   analysisFakes.requests = [];
+  analysisFakes.documentRequests = [];
   vi.doMock("bullmq", async (importOriginal) => {
     const original = await importOriginal<typeof import("bullmq")>();
     const record = (list: RecordedBullClient[], queueName: string, connection: unknown) => {
@@ -732,10 +735,12 @@ const loadMainWithAnalysisFakes = async (pendingDocuments: object[] = []) => {
     const fakeFetch: typeof fetch = async (input, init) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       analysisFakes.requests.push(`${(init?.method ?? "GET").toUpperCase()} ${url.pathname}`);
-      return new Response(
-        JSON.stringify(String(input).includes("/bid_documents?") ? pendingDocuments : []),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
+      const documents = String(input).includes("/bid_documents?");
+      if (documents) analysisFakes.documentRequests.push(new URL(String(input)));
+      return new Response(JSON.stringify(documents ? pendingDocuments : []), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     };
     return {
       ...original,
@@ -888,6 +893,8 @@ describe("analysisWorkerRegistration (C5-B)", () => {
           id: "00000000-0000-4000-8000-000000000001",
           bid_id: "00000000-0000-4000-8000-000000000002",
           revision_id: "00000000-0000-4000-8000-000000000003",
+          bid_notices: { is_demo: true },
+          bid_revisions: { created_at: "2026-10-19T03:04:05.123456+00:00" },
         },
       ]);
       opened.push(await startDefault(main, analysisEnv));
@@ -898,11 +905,35 @@ describe("analysisWorkerRegistration (C5-B)", () => {
             {
               bidId: "00000000-0000-4000-8000-000000000002",
               revisionId: "00000000-0000-4000-8000-000000000003",
+              revisionCreatedAt: "2026-10-19T03:04:05.123456+00:00",
             },
-            { jobId: "documents-00000000-0000-4000-8000-000000000003" },
+            {
+              // 1792379045123 = Date.UTC(2026, 9, 19, 3, 4, 5, 123)(C1')
+              jobId: "documents-00000000-0000-4000-8000-000000000003-1792379045123",
+              attempts: 3,
+              backoff: { type: "exponential", delay: 2000 },
+              removeOnComplete: { age: 86400 },
+              removeOnFail: { age: 604800 },
+            },
           ],
         ]);
       });
+    });
+
+    // C6': mock·fixture 는 데모 공고만, live 는 실제 공고만 복구한다
+    it.each([
+      ["mock", "eq.true"],
+      ["fixture", "eq.true"],
+      ["live", "eq.false"],
+    ])("SOL_RUN_MODE=%s 기동의 복구 조회는 bid_notices.is_demo=%s 다", async (mode, expected) => {
+      const main = await loadMainWithAnalysisFakes();
+      opened.push(await startDefault(main, { ...analysisEnv, SOL_RUN_MODE: mode }));
+      await vi.waitFor(() => {
+        expect(analysisFakes.documentRequests.length).toBeGreaterThan(0);
+      });
+      expect(
+        analysisFakes.documentRequests.map((url) => url.searchParams.getAll("bid_notices.is_demo")),
+      ).toEqual(analysisFakes.documentRequests.map(() => [expected]));
     });
     const startDefault = (
       main: Awaited<ReturnType<typeof loadMainWithAnalysisFakes>>,

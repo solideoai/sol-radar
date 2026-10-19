@@ -177,7 +177,7 @@ function recordingIngestionRepo(): { repo: IngestionRepo; tables: SeedBidTables 
       checksum: bid.checksum,
       normalized: bid,
     });
-    return { bidId, revisionId };
+    return { bidId, revisionId, revisionCreatedAt: "2026-01-01T00:00:00.000000+00:00" };
   };
   const repo: IngestionRepo = {
     startRun: async (input) => ({

@@ -210,7 +210,11 @@ export async function processIngestJob(
   // 첨부가 있는 revision 만 documents job 을 건다. 차례로 넣어 실패한 지점을 알 수 있게 한다.
   for (const saved of result.saved) {
     if (saved.attachmentCount > 0) {
-      await deps.enqueueDocuments({ bidId: saved.bidId, revisionId: saved.revisionId });
+      await deps.enqueueDocuments({
+        bidId: saved.bidId,
+        revisionId: saved.revisionId,
+        revisionCreatedAt: saved.revisionCreatedAt,
+      });
     }
   }
 
