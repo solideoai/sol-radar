@@ -427,7 +427,7 @@ export function loaderRowsFor(
 
 /**
  * worker 처리기 9단계처럼 loader 값에 요청·처리 설정을 더한다(3b mock /health 와 같은 설정: mock·Kev 켜짐·v0.1).
- * attemptStartedAt 은 worker 가 markRunning 에 넘긴 이 시도의 시작 시각이다(C5-B 보안 후속 2.1).
+ * attemptStartedAt 은 worker 가 markRunning 에 넘긴 이 시도의 시작 시각이다(보안 검토 후속).
  */
 export function contextFromLoaded(
   loaded: LoadedAnalysisContext,

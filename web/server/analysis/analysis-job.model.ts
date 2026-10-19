@@ -7,6 +7,12 @@ import type { GatewayHealth, GatewayResult } from "./gateway.model";
 // 화면 쪽은 worker 를 import 할 수 없으므로 큐 이름·job 데이터·옵션·jobId 는 도메인에 둔다.
 // gateway·큐·DB 는 부르지 않는다. 읽기·상태 port 의 구현(Supabase)은 라운드 B 다.
 
+/**
+ * 결과 저장(finish_score_run)이 SCORE_RUN_NOT_RUNNING 으로 거절했을 때 저장 port 가 던지는 오류 message.
+ * 다른 시도가 이미 끝냈거나 다시 잡은 run 이다. 저장 port(analysis.repo)가 만들고 worker 가 이것으로 영구 실패를 가른다.
+ */
+export const FINISH_NOT_RUNNING_MESSAGE = "analysis store 오류: score_runs.finish NOT_RUNNING";
+
 export const ANALYSIS_QUEUE = "analysis";
 export const ANALYSIS_JOB = "analyze";
 
@@ -129,7 +135,7 @@ export type AnalysisRunTracker = {
   }): Promise<void>;
   /**
    * attemptStartedAt 이 있으면 그 시도가 잡은 run(status=RUNNING, started_at=attemptStartedAt)만 닫는다(markRunning 뒤 영구 실패).
-   * 없으면 끝나지 않은 run(QUEUED·RUNNING)을 닫는다(복구·markRunning 전 실패). C5-B 보안 후속 2.1.
+   * 없으면 끝나지 않은 run(QUEUED·RUNNING)을 닫는다(복구·markRunning 전 실패). 보안 검토 후속.
    */
   markFailed(input: {
     orgId: string;

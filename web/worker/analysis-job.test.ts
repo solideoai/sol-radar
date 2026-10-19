@@ -575,7 +575,7 @@ describe("createAnalysisProcessor · AnalysisContext 조립(캐시 없음 → lo
     return context;
   }
 
-  // C5-B 보안 후속 2.1: 시도 식별자(attemptStartedAt)가 더해져 16개다. 예전 기대(15개)는 이 결정으로 바뀌었다.
+  // 보안 검토 후속: 시도 식별자(attemptStartedAt)가 더해져 16개다. 예전 기대(15개)는 이 결정으로 바뀌었다.
   it("context 키는 AnalysisContext 의 16개뿐이다(loader 의 status·idempotencyKey 는 넣지 않는다)", async () => {
     expect(Object.keys(await contextOf()).toSorted()).toEqual(
       [
@@ -946,7 +946,7 @@ describe("createAnalysisProcessor · 규칙 엔진 입력 오류(AnalysisInputEr
     expect(error).toHaveProperty("message", "ANALYSIS_INPUT_INVALID");
   });
 
-  // C5-B 보안 후속 2.1: markRunning 뒤의 영구 실패라 이 시도의 시작 시각(t0=T1)을 attemptStartedAt 으로 넘긴다(예전 기대에 더했다).
+  // 보안 검토 후속: markRunning 뒤의 영구 실패라 이 시도의 시작 시각(t0=T1)을 attemptStartedAt 으로 넘긴다(예전 기대에 더했다).
   it("markFailed 를 한 번 ANALYSIS_INPUT_INVALID·그때의 now·이 시도의 attemptStartedAt 으로 부른다", async () => {
     const { tracker } = await badProfile();
     // now: t0(T1) → runAnalysis 시작(T2) → 규칙 엔진이 던짐 → markFailed(T3)
@@ -1046,7 +1046,7 @@ describe("createAnalysisProcessor · sink.save 실패(마지막 시도 → 영�
     expect(errorOf(settled)).toBe(error);
   });
 
-  // C5-B 보안 후속 2.1: markRunning 뒤의 영구 실패라 이 시도의 시작 시각(t0=T1)을 attemptStartedAt 으로 넘긴다(예전 기대에 더했다).
+  // 보안 검토 후속: markRunning 뒤의 영구 실패라 이 시도의 시작 시각(t0=T1)을 attemptStartedAt 으로 넘긴다(예전 기대에 더했다).
   it("markFailed 를 한 번 ANALYSIS_JOB_FAILED·그때의 now·이 시도의 attemptStartedAt 으로 부른다", async () => {
     const { tracker } = await lastAttempt(saveError());
     // now: t0(T1) → runAnalysis 시작(T2)·끝(T3) → sink 실패 → markFailed(T4)
@@ -1212,7 +1212,7 @@ describe("createAnalysisProcessor · 대상 확인 뒤 다른 단계 실패", ()
     expect(sink.attempts).toHaveLength(0);
   });
 
-  // C5-B 보안 후속 2.1: markRunning 이 성공하지 않았으면 이 시도가 잡은 run 이 없다. 시도 조건 없이(QUEUED·RUNNING) 닫는다.
+  // 보안 검토 후속: markRunning 이 성공하지 않았으면 이 시도가 잡은 run 이 없다. 시도 조건 없이(QUEUED·RUNNING) 닫는다.
   it("markRunning 이 마지막 시도에서 던지면 markFailed 에 attemptStartedAt 을 넘기지 않는다", async () => {
     const { tracker } = await runJob(
       { tracker: { runningError: new Error("score_runs 갱신 실패") } },
@@ -1235,7 +1235,7 @@ describe("createAnalysisProcessor · 대상 확인 뒤 다른 단계 실패", ()
   });
 });
 
-// ── 시도 식별자(C5-B 보안 후속 2.1) ──
+// ── 시도 식별자(보안 검토 후속) ──
 // 시도 식별자 = markRunning 이 쓴 started_at(처리 시작 시각 t0). context·레코드에 실려 finish_score_run 의 attempt_started_at 이 되고,
 // markRunning 뒤의 영구 실패는 markFailed 에도 넘겨 그 시도가 잡은 run 만 닫는다. 늦게 끝난 시도가 다른 시도의 run 을 덮지 않게 한다.
 

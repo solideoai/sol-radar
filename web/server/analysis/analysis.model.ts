@@ -81,7 +81,7 @@ export type AnalysisContext = {
   queuedAt: string;
   /**
    * ISO8601 UTC. 이 시도의 식별자 = worker 가 markRunning 에 넘긴 startedAt(score_runs.started_at).
-   * 결과 저장(finish_score_run)이 이 값으로 그 시도가 잡은 run 인지 확인한다(C5-B 보안 후속 2.1).
+   * 결과 저장(finish_score_run)이 이 값으로 그 시도가 잡은 run 인지 확인한다(보안 검토 후속).
    */
   attemptStartedAt: string;
 };

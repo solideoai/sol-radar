@@ -52,7 +52,6 @@ import {
   loadBid,
   loadExtraction,
   loadGolden,
-  loadKevFixture,
   loadKevResponses,
   loadProfile,
   loadTeam,
@@ -204,7 +203,7 @@ describe("runAnalysis · 골든(FX-01·02·03, 캐시 추출 + 3b mock /kev)", (
 // ── 레코드 모양 ──
 
 describe("runAnalysis · 저장 직전 레코드(e8 C6)", () => {
-  // C5-B 보안 후속 2.1: 레코드에 시도 식별자(attemptStartedAt)가 더해졌다. 예전 기대(12개)는 이 결정으로 바뀌었다.
+  // 보안 검토 후속: 레코드에 시도 식별자(attemptStartedAt)가 더해졌다. 예전 기대(12개)는 이 결정으로 바뀌었다.
   // C5-B 실패 분류(설계 2): 진단(diagnostics, DB 매핑 밖·worker 로그용)이 더해져 14개다. 예전 기대(13개)는 이 결정으로 바뀌었다.
   it("레코드 키는 orgId·scoreRunId·bidId·revisionId·companyProfileId·extractionId·requestId·idempotencyKey·attemptStartedAt·input·result·meta·kevOutput·diagnostics 이다", async () => {
     const { record } = await run(buildContext("FX-01"));
@@ -1446,8 +1445,12 @@ describe("runAnalysis · /extract 가 응답했지만 쓸 수 없음 → PARTIAL
 // 3b mock 이 공식 경로로 낸 /kev 본문의 fit 에 probabilities·confidence 가 빠져 worker 의 wire 검증이 거절한 것이다
 // (결함은 services/ai 13fcb96 이 고쳤다). gateway 가 응답했으므로 분석은 KEV 불가(COMPLETED·RULES_ONLY)여야 한다.
 
-/** 3e 의 15건: fixtures/extractions 가 있고 fixtures/kev 가 없는 공고(FX-02 는 사전 분석 대상이 아니고 kev 파일도 있다). */
-const NO_KEV_FIXTURE_IDS = [
+/**
+ * 3e 의 15건: main c2b12d3 실행 때 fixtures/kev 가 없어 3b mock 의 공식 경로를 탄 공고다(FX-02 는 사전 분석 대상이 아니다).
+ * 뒤에 fixtures/kev 가 20건으로 늘었다(ee b40fac8). 그래서 지금 gateway 는 이 공고들에 fixture 를 쓰지만,
+ * 이 시험은 가짜 gateway 가 결함 본문(kevFitDefectBody)을 직접 주므로 fixture 유무와 상관없이 그 결함을 재현한다.
+ */
+const DEFECT_RUN_IDS = [
   "FX-04",
   "FX-05",
   "FX-06",
@@ -1474,12 +1477,12 @@ function preanalyzeContext(id: string): AnalysisContext {
 }
 
 describe("3e 통합 결함 재현 · 3b mock fit 결함 본문은 KEV 불가다(PARTIAL·AI_UNAVAILABLE 이 아니다)", () => {
-  it("재현 대상은 15건이고 모두 fixtures/kev 파일이 없다", () => {
-    expect(NO_KEV_FIXTURE_IDS).toHaveLength(15);
-    expect(NO_KEV_FIXTURE_IDS.filter((id) => loadKevFixture(id) !== null)).toEqual([]);
+  it("재현 대상은 3e 실행에서 PARTIAL 이던 15건이다", () => {
+    expect(DEFECT_RUN_IDS).toHaveLength(15);
+    expect(DEFECT_RUN_IDS).not.toContain("FX-02");
   });
 
-  it.each(NO_KEV_FIXTURE_IDS)(
+  it.each(DEFECT_RUN_IDS)(
     "%s → COMPLETED·RULES_ONLY·errorCode null 이고 KEV_UNAVAILABLE 을 달며 AI_UNAVAILABLE 은 없다",
     async (id) => {
       const { record } = await run(preanalyzeContext(id), {
@@ -1501,7 +1504,7 @@ describe("3e 통합 결함 재현 · 3b mock fit 결함 본문은 KEV 불가다(
     },
   );
 
-  it.each(NO_KEV_FIXTURE_IDS)("%s → /explain 을 한 번 부른다", async (id) => {
+  it.each(DEFECT_RUN_IDS)("%s → /explain 을 한 번 부른다", async (id) => {
     const { fake } = await run(preanalyzeContext(id), {
       routes: withKev(jsonReply(kevFitDefectBody())),
     });

@@ -5101,7 +5101,7 @@ describe("수집 저장 함수 — ingest_save_revision (C3 Stage 6)", () => {
 
 // ────────────────────────────────────────────────────────────────
 // 분석 마감 함수 finish_score_run(p jsonb)와 score_runs.idempotency_key 조직 접두어 check(20261019000011) — C5-B 보안 후속.
-// 근거: C5-B 보안 후속 설계 §2(e8 판정: 번호 20261019000011·finish_score_run RPC·키 형식 `<orgId>:<Idempotency-Key>`),
+// 근거: C5-B 보안 검토 후속(e8 판정: 번호 20261019000011·finish_score_run RPC·키 형식 `<orgId>:<Idempotency-Key>`),
 // docs/04-DATABASE.md §1(여러 표를 한 번에 쓰는 일은 한 트랜잭션에)·§3.4. 선례는 위 ingest_save_revision(20261019000009)이다.
 // worker 의 sink 가 자식 3표(score_factors·requirement_assessments·qualification_checks)와 score_runs 마감을 함수 한 번으로 쓴다.
 // 그 조직의 그 run 이 RUNNING 이고 started_at 이 이 시도의 시작 시각(attempt_started_at)일 때만 쓴다. 늦게 끝난 시도가 이미 끝난

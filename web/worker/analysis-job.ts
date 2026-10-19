@@ -2,6 +2,7 @@ import { UnrecoverableError, Worker, type ConnectionOptions } from "bullmq";
 import {
   ANALYSIS_JOB,
   ANALYSIS_QUEUE,
+  FINISH_NOT_RUNNING_MESSAGE,
   AnalysisInputError,
   analysisJobDataSchema,
   analyzeAndSave,
@@ -79,12 +80,9 @@ const OWN_CODES: ReadonlySet<string> = new Set([
   RUN_SUPERSEDED,
 ]);
 
-/**
- * 결과 저장(finish_score_run)이 SCORE_RUN_NOT_RUNNING 으로 거절했을 때 sink(analysis.repo)가 던지는 message.
- * 다른 시도가 이미 끝냈거나 다시 잡은 run 이다. 재시도해도 같은 거절이고 gateway 만 다시 부르므로 영구 실패로 바꾼다.
- * message 가 정확히 이것일 때만이다(NOT_FOUND 등 다른 거절·일시 오류는 예전처럼 재시도한다).
- */
-const FINISH_NOT_RUNNING_MESSAGE = "analysis store 오류: score_runs.finish NOT_RUNNING";
+// 결과 저장이 FINISH_NOT_RUNNING_MESSAGE(@/server/analysis)로 거절하면 다른 시도가 이미 끝냈거나 다시 잡은 run 이다.
+// 재시도해도 같은 거절이고 gateway 만 다시 부르므로 영구 실패로 바꾼다. message 가 정확히 그것일 때만이다
+// (NOT_FOUND 등 다른 거절·일시 오류는 예전처럼 재시도한다).
 
 type DoneStatus = Extract<LoadedAnalysisContext["status"], "COMPLETED" | "PARTIAL" | "FAILED">;
 
@@ -94,7 +92,7 @@ function isDone(status: LoadedAnalysisContext["status"]): status is DoneStatus {
 
 /**
  * 실패 처리에 필요한 진행 단계. VERIFIED 뒤에만 score_runs 를 FAILED 로 바꾼다(그 전에는 남의 run 일 수 있다).
- * RUNNING 은 markRunning 이 성공한 뒤다. 그때는 이 시도가 잡은 run(started_at = attemptStartedAt)만 닫는다(C5-B 보안 후속 2.1).
+ * RUNNING 은 markRunning 이 성공한 뒤다. 그때는 이 시도가 잡은 run(started_at = attemptStartedAt)만 닫는다(보안 검토 후속).
  */
 type Progress =
   | { stage: "UNPARSED" }

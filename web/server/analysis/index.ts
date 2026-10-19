@@ -59,6 +59,7 @@ export {
   ANALYSIS_JOB,
   ANALYSIS_JOB_OPTIONS,
   ANALYSIS_QUEUE,
+  FINISH_NOT_RUNNING_MESSAGE,
   analysisJobDataSchema,
   readRunMode,
   requestIdOf,

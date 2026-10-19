@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { FINISH_NOT_RUNNING_MESSAGE } from "./analysis-job.model";
 import type {
   AnalysisContextLoader,
   AnalysisRunTracker,
@@ -252,13 +253,17 @@ const FINISH_REJECTIONS: ReadonlyMap<string, string> = new Map([
 
 function finishError(error: { code?: string | null; message?: string | null }): Error {
   const rejection = FINISH_REJECTIONS.get(error.message ?? "");
-  return rejection === undefined
-    ? storeError("score_runs", "finish", error)
-    : new Error(`analysis store 오류: score_runs.finish ${rejection}`);
+  if (rejection === undefined) return storeError("score_runs", "finish", error);
+  // NOT_RUNNING 은 worker 가 영구 실패로 가르는 message 라 공용 상수 그대로 쓴다.
+  return new Error(
+    rejection === "NOT_RUNNING"
+      ? FINISH_NOT_RUNNING_MESSAGE
+      : `analysis store 오류: score_runs.finish ${rejection}`,
+  );
 }
 
 /**
- * 결과 저장은 finish_score_run(p) 한 번이다(20261019000011, C5-B 보안 후속 2.3). 함수가 한 트랜잭션으로 그 run 을 잠그고,
+ * 결과 저장은 finish_score_run(p) 한 번이다(20261019000011). 함수가 한 트랜잭션으로 그 run 을 잠그고,
  * RUNNING 이고 started_at 이 이 시도의 시작 시각일 때만 자식 3표(요소 upsert·나머지 지우고 넣기)와 마감을 쓴다.
  * 이미 끝났거나 다른 시도가 잡은 run 이면 NOT_RUNNING 으로 거절하고 아무것도 바꾸지 않는다. 중간 실패는 통째로 되돌아간다.
  */

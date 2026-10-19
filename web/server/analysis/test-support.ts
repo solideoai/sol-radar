@@ -50,7 +50,7 @@ export const FINISHED_AT = `${CALCULATION_DATE}T09:00:02.500Z`;
 /** job 이 큐에 들어간 시각. runAnalysis 는 받은 값을 그대로 싣는다. */
 export const QUEUED_AT = `${CALCULATION_DATE}T08:59:30.000Z`;
 /**
- * 이 시도의 시작 시각(C5-B 보안 후속 2.1, 시도 식별자). worker 가 markRunning 에 넘긴 startedAt 과 같은 값이고,
+ * 이 시도의 시작 시각(보안 검토 후속, 시도 식별자). worker 가 markRunning 에 넘긴 startedAt 과 같은 값이고,
  * runAnalysis 가 레코드로 옮겨 finish_score_run 의 attempt_started_at 이 된다. meta.startedAt(STARTED_AT)과 일부러 다르게 둔다.
  */
 export const ATTEMPT_STARTED_AT = `${CALCULATION_DATE}T08:59:59.500Z`;

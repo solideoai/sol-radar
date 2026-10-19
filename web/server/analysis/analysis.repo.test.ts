@@ -619,7 +619,7 @@ describe("tracker", () => {
     await expect(store.tracker.markFailed(failed)).resolves.toBeUndefined();
   });
 
-  // C5-B 보안 후속 2.1: markRunning 뒤의 영구 실패는 그 시도가 잡은 run 만 닫는다(attemptStartedAt = markRunning 의 startedAt).
+  // 보안 검토 후속: markRunning 뒤의 영구 실패는 그 시도가 잡은 run 만 닫는다(attemptStartedAt = markRunning 의 startedAt).
   // 없으면(복구·markRunning 전 실패) 지금처럼 QUEUED·RUNNING run 을 닫는다.
   it("markFailed 에 attemptStartedAt 이 없으면 started_at 조건을 걸지 않는다", async () => {
     const { stores: store, fake } = stores();
@@ -671,7 +671,7 @@ describe("tracker", () => {
   });
 });
 
-// ── sink(C5-B 보안 후속 2.3) ──
+// ── sink(보안 검토 후속) ──
 // 결과 저장은 RPC finish_score_run(p) 한 번이다(20261019000011). 자식 3표·score_runs 마감을 한 트랜잭션으로 쓰고,
 // 그 run 이 RUNNING 이고 started_at 이 이 시도의 시작 시각일 때만 쓴다. 예전 기대(자식 3표 → score_runs 마감의 다섯·여섯 요청,
 // score_runs 마감이 0행이면 NOT_RUNNING)는 이 결정으로 바뀌었다. 거절은 DB 가 하고 sink 는 오류 코드만 옮긴다.

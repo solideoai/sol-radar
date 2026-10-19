@@ -397,7 +397,7 @@ function unique<T>(values: readonly T[]): T[] {
 
 /**
  * score_runs 마감 열(03 §7). 규칙 결과(result)와 모델 출력(kev_output)·파이프라인 값(meta)을 다른 열에 둔다.
- * started_at 은 넣지 않는다. markRunning 이 쓴 시도 시작 시각(시도 식별자)이라 마감이 바꾸지 않는다(C5-B 보안 후속 2.1).
+ * started_at 은 넣지 않는다. markRunning 이 쓴 시도 시작 시각(시도 식별자)이라 마감이 바꾸지 않는다(보안 검토 후속).
  */
 export function toScoreRunResultUpdate(record: AnalysisRunRecord): Tables["score_runs"]["Update"] {
   const { result, meta } = record;
@@ -502,7 +502,7 @@ export type FinishScoreRunPayload = {
 };
 
 /**
- * 결과 저장 RPC 본문(C5-B 보안 후속 2.3). 자식 3표와 마감을 함수 하나가 한 트랜잭션으로 쓴다.
+ * 결과 저장 RPC 본문(보안 검토 후속). 자식 3표와 마감을 함수 하나가 한 트랜잭션으로 쓴다.
  * 그 run 이 RUNNING 이고 started_at 이 attempt_started_at 일 때만 쓰고, 아니면 DB 가 거절한다(끝난 run 을 덮지 않는다).
  */
 export function toFinishScoreRunPayload(record: AnalysisRunRecord): FinishScoreRunPayload {

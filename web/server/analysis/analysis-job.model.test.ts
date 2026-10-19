@@ -559,7 +559,7 @@ describe("@/server/analysis 배럴", () => {
   });
 });
 
-// 시도 식별자(C5-B 보안 후속 2.1). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
+// 시도 식별자(보안 검토 후속). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
 describe("@/server/analysis 배럴 · 시도 식별자(타입)", () => {
   it("AnalysisContext.attemptStartedAt 은 string 이다(markRunning 의 startedAt)", () => {
     expectTypeOf<analysisBarrel.AnalysisContext["attemptStartedAt"]>().toEqualTypeOf<string>();

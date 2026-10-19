@@ -756,14 +756,14 @@ describe("toScoreRunResultUpdate", () => {
       run_mode: "MOCK",
       ai_provider: "MOCK",
       extraction_id: record.extractionId,
-      // C5-B 보안 후속 2.1: 마감은 시도 시작 시각(started_at)을 바꾸지 않는다. 예전 기대(started_at: meta.startedAt)는 이 결정으로 뺐다.
+      // 보안 검토 후속: 마감은 시도 시작 시각(started_at)을 바꾸지 않는다. 예전 기대(started_at: meta.startedAt)는 이 결정으로 뺐다.
       finished_at: meta.finishedAt,
       kev_calibration: null,
       fallback_reason: null,
     });
   });
 
-  it("started_at 열이 없다 — started_at 은 markRunning 이 쓴 시도 시작 시각이고 마감이 바꾸지 않는다(C5-B 보안 후속 2.1)", () => {
+  it("started_at 열이 없다 — started_at 은 markRunning 이 쓴 시도 시작 시각이고 마감이 바꾸지 않는다(보안 검토 후속)", () => {
     for (const record of [FX01_RECORD, FX03_RECORD, S6_RECORD, FX11_RECORD]) {
       expect(Object.keys(toScoreRunResultUpdate(record))).not.toContain("started_at");
     }
@@ -917,7 +917,7 @@ describe("toScoreRunResultUpdate", () => {
   );
 });
 
-// ── 쓰기: 결과 저장 RPC 의 p(C5-B 보안 후속 2.3) ──
+// ── 쓰기: 결과 저장 RPC 의 p(보안 검토 후속) ──
 // sink 는 finish_score_run(p) 를 한 번 부른다. p 는 저장 매핑 함수 넷의 출력과 run·조직·시도 식별자다(매핑 규칙은 그대로).
 
 describe("toFinishScoreRunPayload", () => {
