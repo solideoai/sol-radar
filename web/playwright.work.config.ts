@@ -1,0 +1,56 @@
+import { defineConfig, devices } from "@playwright/test";
+
+// C6 업무 화면(/dashboard·/bids·/bids/[id]·/notifications) 로그인 뒤 E2E — 실제 로컬 스택 위에서 돈다.
+// 실행: `pnpm -C web test:e2e:work`. 빌드(`pnpm -C web build`)가 먼저 있어야 한다.
+// globalSetup(e2e-auth/support/work-setup.ts)이 데모 상태를 다시 만든다: demo:reset → 모드 확인 → demo:preanalyze(18건).
+// 그래서 로컬 Supabase·Compose(redis·ai-gateway mock·worker)와 웹 서버 env 가 필요하다(목록은 work-setup.ts 머리).
+// 공용 로컬 DB 를 다시 seed 하므로 verify·CI·test:e2e:auth 에는 넣지 않는다.
+//
+// 포트는 3200 이다(test:e2e:auth 와 같다. 둘을 동시에 돌리지 않는다). 바꾸려면 E2E_PORT.
+const port = Number(process.env.E2E_PORT) || 3200;
+const hostname = "localhost";
+const baseURL = `http://${hostname}:${port}`;
+
+// 화면 상태·스크린샷 spec 은 1440×900·1280×800 두 폭에서 한 번씩 돈다(06 §12). 데이터를 읽기만 한다.
+const READ = /(demo-badge|run-mode-badge|no-evidence|bid-isolation|work-screens)\.spec\.ts$/;
+// 데이터를 바꾸는 spec(분석 실행·결정 기록·알림 읽음·취소 공고). 읽기 spec 이 모두 끝난 뒤 한 작업자로 차례로 돈다.
+// 두 폭 증거는 시험 안에서 폭을 바꿔 찍는다(같은 데이터 상태를 두 번 만들 수 없어서).
+const WRITE = /(bid-decision|notifications)\.write\.spec\.ts$/;
+
+const desktop = (width: 1440 | 1280) => ({
+  ...devices["Desktop Chrome"],
+  viewport: width === 1440 ? { width: 1440, height: 900 } : { width: 1280, height: 800 },
+});
+
+export default defineConfig({
+  // Shared Node tooling uses native ESM (including import.meta for checkout-root cwd).
+  build: { external: ["**/scripts/local-test-target.mjs"] },
+  testDir: "./e2e-auth",
+  globalSetup: "./e2e-auth/support/work-setup.ts",
+  outputDir: "test-results/work",
+  forbidOnly: Boolean(process.env.CI),
+  retries: 0,
+  // 공용 기계라 작업자를 둘로 묶는다(무거운 검증 2개 규칙과 별개로 브라우저 수를 줄인다).
+  workers: 2,
+  reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report/work" }]],
+  // 시드의 날짜·D-n 은 서울 날짜로 센다. 브라우저도 서울에 둔다.
+  use: { baseURL, trace: "retain-on-failure", locale: "ko-KR", timezoneId: "Asia/Seoul" },
+  projects: [
+    { name: "work-1440", use: desktop(1440), testMatch: READ },
+    { name: "work-1280", use: desktop(1280), testMatch: READ },
+    {
+      name: "work-write",
+      use: desktop(1440),
+      testMatch: WRITE,
+      dependencies: ["work-1440", "work-1280"],
+      fullyParallel: false,
+      workers: 1,
+    },
+  ],
+  webServer: {
+    command: `pnpm start --hostname ${hostname} --port ${port}`,
+    url: `${baseURL}/health/live`,
+    reuseExistingServer: false,
+    timeout: 60_000,
+  },
+});

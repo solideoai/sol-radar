@@ -1,0 +1,67 @@
+C6 B단계(Task 12, B3) 검증 증거 — 로그인 뒤 E2E·axe·1440/1280 스크린샷
+브랜치: c6/screens (af0424d, main a955a41 병합 뒤) + 이 커밋의 E2E 파일
+작업 폴더: sol-radar-worktrees/c6-screens
+실행 환경: 공용 로컬 Supabase 127.0.0.1:54321(마이그레이션 000001~000014, e8·3e 가 잡아 준 단독 사용 창),
+  격리 Compose 프로젝트 sol-radar-c6e2e(redis 16480 · minio 19100 · qdrant 16433 · ai-gateway mock 18100 · worker 이 브랜치 코드),
+  웹 next start :3200(Playwright webServer), SOL_RUN_MODE=mock, AI_PROVIDER=mock. 유료 API 호출 없음.
+무거운 명령은 모두 공용 verify-slot.sh 로 감쌌다. 시간 초과로 끊긴 실행은 없다.
+비밀 값 없음.
+
+1) pnpm -C web test:e2e:work (전체: 읽기 2폭 + 쓰기)
+  시작 2026-10-20 01:39:40 KST
+  끝   2026-10-20 01:40:10 KST
+  globalSetup: demo:reset 마지막 줄 "seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true"
+               demo:preanalyze 마지막 줄 "preanalyze: targets=18 completed=18 partial=0 failed=0"
+  요약: 2 failed, 4 did not run, 22 passed (28.3s)
+  exit code: 1
+  실패 2건(같은 원인, 제품 결함 D1): demo-badge.spec.ts G8 [work-1440]·[work-1280]
+    — 기능 단언은 모두 통과했고, DEMO 툴팁이 열린 상태(bids-list-demo-badge)의 axe 가 region(moderate) 1건을 낸다.
+    "All page content should be contained by landmarks", target #_r_1_ (Base UI 툴팁 포털, body 바로 아래 랜드마크 밖).
+    추정 위치: web/components/ui/tooltip.tsx 29~47행(TooltipPrimitive.Portal → body).
+  did not run 4건: work-write 프로젝트(읽기 프로젝트에 의존). 아래 2)로 따로 돌렸다.
+
+2) pnpm -C web test:e2e:work --project=work-write --no-deps (쓰기 흐름만, globalSetup 으로 다시 seed)
+  시작 2026-10-20 01:40:20 KST
+  끝   2026-10-20 01:40:49 KST
+  요약: 4 passed (28.0s)
+  exit code: 0
+  S3 취소 포함 · S4 FX-02 분석 실행 → 완료 72 → WATCH 결정 → 저장 실패 · 알림 바깥 링크(O1)·안 읽음 빈 상태 · [처음부터 보기] 재조회
+
+3) axe (docs/evidence/phase-3/axe-report.json, axe-core 4.14.0)
+  totals: scans 20, violations 2, nodes 2
+  위반 2건 = 1) 의 D1(bids-list-demo-badge 1440·1280, region). 나머지 18 상태는 0건.
+
+4) pnpm verify (worktree 루트)
+  시작 2026-10-20 01:40:56 KST
+  끝   2026-10-20 01:47:24 KST
+  루트 node --test: tests 673, pass 673, fail 0
+  web vitest: Test Files 177 passed (177), Tests 5412 passed (5412)
+  lodestar: 2 rules passed, 0 errors, 0 warnings
+  next build: Compiled successfully
+  services/ai pytest: 898 passed, 1 warning
+  exit code: 0
+  남은 경고: StarletteDeprecationWarning(httpx 와 starlette.testclient). pytest 경고 1건.
+
+5) pnpm test:db
+  시작 2026-10-20 01:26:54 KST
+  끝   2026-10-20 01:30:25 KST
+  tests 259, pass 259, fail 0
+  exit code: 0
+
+6) pnpm -C web test:browser
+  시작 2026-10-20 01:38:44 KST
+  끝   2026-10-20 01:39:01 KST
+  Test Files 32 passed (32), Tests 423 passed (423)
+  exit code: 0
+  남은 경고: Loaded vitest@4.1.11 and @vitest/browser@4.1.12. Running mixed versions is not supported. 의존성은 바꾸지 않았다.
+
+찍지 않은 상태
+  - partial(bid-detail FX-01·dashboard, AI 불가 + RULES_ONLY): S6·G6 은 Phase 5 라 이번 범위 밖이다.
+  - "Kev 사용 불가" 문구: 이번 시나리오(mock, KEV_ENABLED=true)는 그 상태에 닿지 않아 단언하지 않았다(미시험).
+  - forbidden(admin-ingestion·settings-org): 확장 컷 화면이라 C6 범위 밖이다.
+
+환경 메모
+  - 데모 계정 비밀번호는 쓰지 않았다. 로그인 상태는 로컬 service role 로 magiclink 토큰을 만들고 앱 /auth/confirm 으로 세션을 받았다.
+  - 마감 임박(7일) 카드는 1 이었다. seed 의 상대 마감일과 실행 시각(01:3x KST)에 따라 바뀌는 값이라 단언하지 않았다.
+  - 스크린샷 20장: docs/evidence/phase-3/e2e/20261020-phase3-*.png(화면 크기 그대로, fullPage 아님).
+  - S7 증거: docs/evidence/phase-3/isolation-404.json(org-02 VIEWER, qualification-checks 404 NOT_FOUND).

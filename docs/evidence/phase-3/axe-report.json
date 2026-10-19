@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "sol-axe-report/v0.1",
+  "generatedAt": "2026-10-19T16:40:49.743Z",
+  "command": "pnpm -C web test:e2e:work",
+  "axeVersion": "4.14.0",
+  "totals": { "scans": 20, "violations": 2, "nodes": 2 },
+  "scans": [
+    {
+      "state": "bid-detail-loaded",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:09.106Z",
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-org02-loaded",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:39:59.045Z",
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bids-list-demo-badge",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:00.221Z",
+      "path": "/bids",
+      "axeVersion": "4.14.0",
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "nodes": [
+            {
+              "target": ["#_r_1_"],
+              "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "state": "bids-list-empty",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:07.893Z",
+      "path": "/bids?q=%EC%A1%B4%EC%9E%AC%ED%95%98%EC%A7%80%EC%95%8A%EB%8A%94%EA%B3%B5%EA%B3%A0zz",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bids-list-loaded",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:05.972Z",
+      "path": "/bids",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "dashboard-loaded",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:05.057Z",
+      "path": "/dashboard",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "notifications-loaded",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:09.912Z",
+      "path": "/notifications",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-loaded",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:40:02.460Z",
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-org02-loaded",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:39:54.598Z",
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bids-list-demo-badge",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:39:54.876Z",
+      "path": "/bids",
+      "axeVersion": "4.14.0",
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "nodes": [
+            {
+              "target": ["#_r_1_"],
+              "failureSummary": "Fix any of the following:\n  Some page content is not contained by landmarks"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "state": "bids-list-empty",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:40:01.147Z",
+      "path": "/bids?q=%EC%A1%B4%EC%9E%AC%ED%95%98%EC%A7%80%EC%95%8A%EB%8A%94%EA%B3%B5%EA%B3%A0zz",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bids-list-loaded",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:39:58.513Z",
+      "path": "/bids",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "dashboard-loaded",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:39:57.704Z",
+      "path": "/dashboard",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "notifications-loaded",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:40:03.484Z",
+      "path": "/notifications",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-error-1280",
+      "project": "work-write",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:46.202Z",
+      "path": "/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-error-1440",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:40:45.943Z",
+      "path": "/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-loading-1280",
+      "project": "work-write",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:36.563Z",
+      "path": "/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-loading-1440",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:40:36.443Z",
+      "path": "/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "notifications-empty-1280",
+      "project": "work-write",
+      "width": 1280,
+      "scannedAt": "2026-10-19T16:40:47.680Z",
+      "path": "/notifications?unread=1",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "notifications-empty-1440",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-19T16:40:47.576Z",
+      "path": "/notifications?unread=1",
+      "axeVersion": "4.14.0",
+      "violations": []
+    }
+  ]
+}
