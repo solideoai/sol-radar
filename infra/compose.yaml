@@ -113,7 +113,7 @@ services:
       KEV_MODEL_ID: ${KEV_MODEL_ID:-}
       KEV_QUESTION_SET: ${KEV_QUESTION_SET:-}
       KEV_API_KEY: ${KEV_API_KEY:-}
-    # ai-local 터널(호스트의 SSH -L)에 닿기 위한 호스트 별칭
+    # 호스트에서 띄운 서비스(예: 로컬 Supabase CLI)에 닿기 위한 호스트 별칭. 모델 엔드포인트는 HTTPS 라 이 별칭을 쓰지 않는다(ADR-025)
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
