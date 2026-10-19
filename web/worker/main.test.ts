@@ -138,15 +138,18 @@ type FakeQueue = {
   queueName: string;
   upsertJobScheduler: Mock<(...args: unknown[]) => Promise<undefined>>;
   removeJobScheduler: Mock<(...args: unknown[]) => Promise<boolean>>;
+  close: Mock<() => Promise<undefined>>;
 };
 type FakeRedis = { disconnect: Mock<() => void> };
 // log 는 닫는 순서를 본다(close:<큐 이름>, disconnect). failUpsert 는 live 시작 중 실패를 흉내 낸다.
+// failClose 에 "worker:<큐 이름>"·"queue:<큐 이름>" 을 넣으면 그 close 가 던진다.
 const bull = {
   workers: [] as FakeWorker[],
   queues: [] as FakeQueue[],
   redis: [] as FakeRedis[],
   log: [] as string[],
   failUpsert: false,
+  failClose: new Set<string>(),
 };
 
 const REGISTRY_FILE = fileURLToPath(new URL("../../infra/sources/registry.yaml", import.meta.url));
@@ -171,6 +174,7 @@ const loadMainWithFakes = async () => {
   bull.redis = [];
   bull.log = [];
   bull.failUpsert = false;
+  bull.failClose = new Set();
   vi.doMock("bullmq", () => {
     class Worker {
       readonly close: Mock<() => Promise<undefined>>;
@@ -178,6 +182,9 @@ const loadMainWithFakes = async () => {
       constructor(queueName: string) {
         this.close = vi.fn(async () => {
           bull.log.push(`close:${queueName}`);
+          if (bull.failClose.has(`worker:${queueName}`)) {
+            throw new Error(`${queueName} Worker 닫기 실패 흉내`);
+          }
           return undefined;
         });
         bull.workers.push({ queueName, close: this.close });
@@ -192,13 +199,20 @@ const loadMainWithFakes = async () => {
         async () => false,
       );
       readonly add = vi.fn(async () => undefined);
-      readonly close = vi.fn(async () => undefined);
+      readonly close: Mock<() => Promise<undefined>>;
       readonly on = vi.fn();
       constructor(queueName: string) {
+        this.close = vi.fn(async () => {
+          if (bull.failClose.has(`queue:${queueName}`)) {
+            throw new Error(`${queueName} 큐 닫기 실패 흉내`);
+          }
+          return undefined;
+        });
         bull.queues.push({
           queueName,
           upsertJobScheduler: this.upsertJobScheduler,
           removeJobScheduler: this.removeJobScheduler,
+          close: this.close,
         });
       }
     }
@@ -553,6 +567,41 @@ describe("기본 createWorker — 등록 1·2단계 (C3 계약 8-4)", () => {
     const main = await loadMainWithFakes();
     await expect(main.ingestWorkerRegistration(ingestEnv("LIVE"))).rejects.toThrow("SOL_RUN_MODE");
     expect(bull.workers).toEqual([]);
+  });
+
+  // 2단계가 Supabase 관리자 클라이언트를 만들며 process.env 를 읽으므로 startDefault 처럼 둘 다에 넣는다.
+  const startIngestRegistration = async () => {
+    const workerEnv = ingestEnv("mock");
+    for (const [key, value] of Object.entries(workerEnv)) vi.stubEnv(key, value);
+    const main = await loadMainWithFakes();
+    const start = await main.ingestWorkerRegistration(workerEnv);
+    return start({} as unknown as IORedis);
+  };
+  const queueCloseCalls = () =>
+    bull.queues.map((queue) => [queue.queueName, queue.close.mock.calls.length]).sort();
+
+  it("ingest 등록 close: ingest Worker 가 던져도 ingest 큐·documents 큐를 닫고, 닫는 순서에서 처음 오류를 던진다", async () => {
+    const closable = await startIngestRegistration();
+    bull.failClose.add("worker:ingest");
+    bull.failClose.add("queue:documents");
+    await expect(closable.close()).rejects.toThrow("ingest Worker 닫기 실패 흉내");
+    expect(queueCloseCalls()).toEqual([
+      ["documents", 1],
+      ["ingest", 1],
+    ]);
+  });
+
+  it("ingest 등록 close: ingest 큐가 던져도 documents 큐를 닫고 그 오류를 던진다", async () => {
+    const closable = await startIngestRegistration();
+    bull.failClose.add("queue:ingest");
+    await expect(closable.close()).rejects.toThrow("ingest 큐 닫기 실패 흉내");
+    expect(
+      bull.workers.find((worker) => worker.queueName === "ingest")?.close.mock.calls,
+    ).toHaveLength(1);
+    expect(queueCloseCalls()).toEqual([
+      ["documents", 1],
+      ["ingest", 1],
+    ]);
   });
 });
 
