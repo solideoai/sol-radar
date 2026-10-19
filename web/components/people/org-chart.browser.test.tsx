@@ -306,6 +306,34 @@ describe("organization explorer", () => {
     await userEvent.keyboard("{Escape}");
     await expect.element(finder).toHaveAttribute("aria-expanded", "false");
   });
+  it("expires finder intent while away so returning does not repeat highlight or steal navigation focus", async () => {
+    const { onSelect } = render();
+    const finder = page.getByRole("combobox", { name: "이름으로 찾기", exact: true });
+    await finder.fill("직원200");
+    await userEvent.keyboard("{ArrowDown}");
+    const pickedAt = performance.now();
+    await userEvent.keyboard("{Enter}");
+    const card = page.getByRole("button", { name: "직원200 상세 보기", exact: true });
+    await expect.element(card).toHaveFocus();
+    await expect.element(card).toHaveAttribute("data-highlighted", "true");
+    await page.getByRole("button", { name: "자연 본부 직속팀", exact: true }).click();
+    await expect
+      .element(
+        page.getByRole("heading", { name: "자연 본부 직속팀 · 80명 · 목표 80명", exact: true }),
+      )
+      .toBeVisible();
+    expect(performance.now() - pickedAt).toBeLessThan(1600);
+    // Wait past the product's1600ms lifetime while the searched card is not rendered.
+    await new Promise((resolve) => window.setTimeout(resolve, 1700));
+    const returnTeam = page.getByRole("button", { name: "미확인 팀", exact: true });
+    await returnTeam.click();
+    await expect
+      .element(page.getByRole("heading", { name: "미확인 팀 · 120명", exact: true }))
+      .toBeVisible();
+    expect(card.element().getAttribute("data-highlighted")).not.toBe("true");
+    expect(document.activeElement).toBe(returnTeam.element());
+    expect(onSelect).not.toHaveBeenCalled();
+  });
   it("restores a valid team on initial load and browser history", async () => {
     originalReplace(null, "", "/org-chart?team=unknown");
     render();

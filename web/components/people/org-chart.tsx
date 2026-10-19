@@ -86,12 +86,15 @@ export function OrgChart({
   }, [teamId, query, requestedTeam]);
   useEffect(() => {
     if (!focusedPerson) return;
+    const timer = window.setTimeout(() => setFocusedPerson(null), 1600);
+    return () => window.clearTimeout(timer);
+  }, [focusedPerson]);
+  useEffect(() => {
+    if (!focusedPerson) return;
     const card = document.getElementById(`org-person-${focusedPerson.id}`);
     if (!card) return;
     card.focus();
     card.scrollIntoView({ block: "nearest" });
-    const timer = window.setTimeout(() => setFocusedPerson(null), 1600);
-    return () => window.clearTimeout(timer);
   }, [focusedPerson, teamId]);
   const selectTeam = (id: string) => {
     const params = new URLSearchParams(query);

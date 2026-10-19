@@ -104,7 +104,7 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
   const base = `/${workspace.current.slug}`;
 
   return (
-    <Sidebar>
+    <Sidebar role="complementary" aria-label="앱 사이드바">
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
           <OrgMark name={workspace.current.name} />

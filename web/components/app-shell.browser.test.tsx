@@ -45,6 +45,15 @@ describe("people navigation", () => {
           <main>본문</main>
         </AppShell>,
       );
+      const sidebar = page.getByRole("complementary", { name: "앱 사이드바", exact: true });
+      await expect.element(sidebar.getByText("솔리데오", { exact: true })).toBeVisible();
+      await expect
+        .element(sidebar.getByRole("navigation", { name: "주요 메뉴", exact: true }))
+        .toBeVisible();
+      await expect.element(sidebar.getByRole("button", { name: /사용자 메뉴/ })).toBeVisible();
+      await expect
+        .element(sidebar.getByRole("link", { name: "조직도", exact: true }))
+        .toHaveAttribute("href", "/org-chart");
       const people = page.getByRole("link", { name: "조직·인력", exact: true });
       await expect.element(people).toBeVisible();
       await expect.element(people).toHaveAttribute("href", "/people");
