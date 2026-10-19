@@ -13,3 +13,8 @@ export * from "./bids.service";
 export * from "./review.service";
 export * from "./notification.service";
 export * from "./dashboard.service";
+export { keysetFilter, likePattern, quoteValue, uniqueViolation } from "./postgrest";
+export { createBidsRepo } from "./bids.supabase";
+export { reviewRepo } from "./review.supabase";
+export { notificationRepo } from "./notification.supabase";
+export { createDashboardRepo } from "./dashboard.supabase";
