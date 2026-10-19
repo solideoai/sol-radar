@@ -1,0 +1,186 @@
+{
+  "schemaVersion": "sol-recorded/v0.1",
+  "serviceId": "15129394",
+  "registryKey": "g2b-bid-notice",
+  "operation": "getBidPblancListInfoEorderAtchFileInfo",
+  "params": {
+    "type": "json",
+    "pageNo": "1",
+    "numOfRows": "999",
+    "inqryDiv": "1",
+    "inqryBgnDt": "202610120900",
+    "inqryEndDt": "202610121011"
+  },
+  "fetchedAt": "2026-10-19T01:05:16.194Z",
+  "httpStatus": 200,
+  "envelope": "response",
+  "resultCode": "00",
+  "resultMsg": "정상",
+  "totalCount": 19,
+  "items": [
+    {
+      "bidNtceNo": "R26BK01756112",
+      "bidNtceOrd": "000",
+      "atchSno": "26",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "2027년 시뮬레이션시스템 유지관리 용역 제안요청서(수정).hwpx",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058399&rfpOrd=000&rfpUntyAtchFileNo=26"
+    },
+    {
+      "bidNtceNo": "R26BK01756112",
+      "bidNtceOrd": "000",
+      "atchSno": "31",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058399&rfpOrd=000&rfpUntyAtchFileNo=31"
+    },
+    {
+      "bidNtceNo": "R26BK01756112",
+      "bidNtceOrd": "000",
+      "atchSno": "30",
+      "eorderDocDivNm": "기타문서",
+      "eorderAtchFileNm": "2027년 시뮬레이션시스템 유지관리 용역 산출내역서.hwpx",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058399&rfpOrd=000&rfpUntyAtchFileNo=30"
+    },
+    {
+      "bidNtceNo": "R26BK01758084",
+      "bidNtceOrd": "000",
+      "atchSno": "5",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "4. 제안요청서_2027년 결핵통합관리시스템 유지관리사업_수정완료.hwpx",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058746&rfpOrd=000&rfpUntyAtchFileNo=5"
+    },
+    {
+      "bidNtceNo": "R26BK01754854",
+      "bidNtceOrd": "000",
+      "atchSno": "12",
+      "eorderDocDivNm": "기타문서",
+      "eorderAtchFileNm": "(긴급입찰 사유서) 수산정보통합시스템 운영·유지관리(2027~2028).pdf",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058801&rfpOrd=000&rfpUntyAtchFileNo=12"
+    },
+    {
+      "bidNtceNo": "R26BK01754854",
+      "bidNtceOrd": "000",
+      "atchSno": "10",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "(제안요청서) 수산정보통합시스템 운영·유지관리(2027~2028)_사전협의 반영.hwpx",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058801&rfpOrd=000&rfpUntyAtchFileNo=10"
+    },
+    {
+      "bidNtceNo": "R26BK01754921",
+      "bidNtceOrd": "000",
+      "atchSno": "9",
+      "eorderDocDivNm": "기타문서",
+      "eorderAtchFileNm": "(긴급입찰 사유서) 낚시어선 승선자·낚시시설 안전점검 관리시스템 운영·유지관리(2027~2028).pdf",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058803&rfpOrd=000&rfpUntyAtchFileNo=9"
+    },
+    {
+      "bidNtceNo": "R26BK01754921",
+      "bidNtceOrd": "000",
+      "atchSno": "7",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "(제안요청서) 낚시어선 승선자·낚시시설 안전점검 관리시스템 운영·유지관리(2027~2028)_사전협의 반영(수정).hwpx",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058803&rfpOrd=000&rfpUntyAtchFileNo=7"
+    },
+    {
+      "bidNtceNo": "R26BK01757449",
+      "bidNtceOrd": "000",
+      "atchSno": "5",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "[제안요청서(2027년 교통정보센터 및 교통신호제어기 유지보수 용역).hwpx",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058949&rfpOrd=000&rfpUntyAtchFileNo=5"
+    },
+    {
+      "bidNtceNo": "R26BK01757449",
+      "bidNtceOrd": "000",
+      "atchSno": "9",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058949&rfpOrd=000&rfpUntyAtchFileNo=9"
+    },
+    {
+      "bidNtceNo": "R26BK01757449",
+      "bidNtceOrd": "000",
+      "atchSno": "8",
+      "eorderDocDivNm": "기타문서",
+      "eorderAtchFileNm": "[붙임1] 사업계획서(2027년 교통정보센터 및 교통신호제어기 유지보수 용역).pdf",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00058949&rfpOrd=000&rfpUntyAtchFileNo=8"
+    },
+    {
+      "bidNtceNo": "R26BK01761008",
+      "bidNtceOrd": "000",
+      "atchSno": "3",
+      "eorderDocDivNm": "기타문서",
+      "eorderAtchFileNm": "(붙임3)_긴급입찰사유서.hwp",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00059180&rfpOrd=000&rfpUntyAtchFileNo=3"
+    },
+    {
+      "bidNtceNo": "R26BK01761008",
+      "bidNtceOrd": "000",
+      "atchSno": "1",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "(붙임1)_(제안요청서)_전라남도 CO경보차단기 지원사업(20260929).hwp",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00059180&rfpOrd=000&rfpUntyAtchFileNo=1"
+    },
+    {
+      "bidNtceNo": "R26BK01763500",
+      "bidNtceOrd": "000",
+      "atchSno": "7",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "4. 제안요청서_최종(수정).hwpx",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00059468&rfpOrd=000&rfpUntyAtchFileNo=7"
+    },
+    {
+      "bidNtceNo": "R26BK01763077",
+      "bidNtceOrd": "000",
+      "atchSno": "5",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "제안요청서(제9회 지선 선거방송토론 백서 제작 및 배송).hwp",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00059807&rfpOrd=000&rfpUntyAtchFileNo=5"
+    },
+    {
+      "bidNtceNo": "R26BK01764145",
+      "bidNtceOrd": "000",
+      "atchSno": "5",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "★2. 제안요청서_영화바위_음악감독_영화적순간_최종.hwp",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00060185&rfpOrd=000&rfpUntyAtchFileNo=5"
+    },
+    {
+      "bidNtceNo": "R26BK01764147",
+      "bidNtceOrd": "000",
+      "atchSno": "5",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "★2. 제안요청서_영화바위_편집_영화적순간.hwp",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00060186&rfpOrd=000&rfpUntyAtchFileNo=5"
+    },
+    {
+      "bidNtceNo": "R26BK01764157",
+      "bidNtceOrd": "000",
+      "atchSno": "1",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "★2. 제안요청서_영화바위_사운드믹싱_영화적순간.hwp",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00060187&rfpOrd=000&rfpUntyAtchFileNo=1"
+    },
+    {
+      "bidNtceNo": "R26BK01764196",
+      "bidNtceOrd": "000",
+      "atchSno": "1",
+      "eorderDocDivNm": "제안요청서",
+      "eorderAtchFileNm": "한국뇌연구원 2026 회계연도 회계교육(컨설팅) 및 결산 지원 용역 제안요청서.hwp",
+      "eorderAtchFileUrl": "https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00060190&rfpOrd=000&rfpUntyAtchFileNo=1"
+    }
+  ],
+  "masked": true,
+  "maskedFields": [
+    "ntceInsttOfclNm",
+    "exctvNm",
+    "crdtrNm",
+    "ntceInsttOfclTelNo",
+    "ntceInsttOfclEmailAdrs",
+    "dminsttOfclEmailAdrs"
+  ],
+  "maskedFieldsNote": "이 응답에는 담당자 필드가 없거나 비어 있음. 목록은 서비스 기준 마스킹 대상",
+  "rawSha256": "ae70d65dcacf091c02ad6bb855a4d1e27dfca6e38f17e9ad29e6dbdf4631ca05",
+  "note": "inqryDiv=1 2026-10-12 09:00~10:11 창. 공고 3건의 제안요청서 행 포함"
+}

@@ -1,0 +1,18 @@
+# pnpm -C web build (호스트) → next start -p 13000 -H 127.0.0.1 with REDIS_URL=redis://:***@127.0.0.1:16380 MINIO_ENDPOINT=http://127.0.0.1:19000 AI_GATEWAY_URL=http://127.0.0.1:18000 ; curl -s http://127.0.0.1:13000/health/live ; curl -s http://127.0.0.1:13000/health/ready | commit cfc534d | 2026-10-19 09:25:55 KST
+# web build: exit=0, elapsed_seconds=33 ; checks.db 는 web/.env.local 의 Supabase(내용 미열람)를 본다
+## GET /health/live
+{"status":"ok"}
+http_code=200
+## GET /health/ready
+{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"mock"}}
+http_code=200
+## GET /health/ready (2회차, 캐시 없음 확인)
+
+http_code=200 cache-control={"x-content-type-options":["nosniff"],
+"referrer-policy":["strict-origin-when-cross-origin"],
+"x-frame-options":["DENY"],
+"permissions-policy":["camera=(), microphone=(), geolocation=(), browsing-topics=()"],
+"vary":["rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch"],
+"cache-control":["no-store"],
+"content-type":["application/json"],
+"da

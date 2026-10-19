@@ -1,0 +1,56 @@
+# node scripts/bids/check.mjs ; find fixtures/{extractions,kev,goldens} -type f | wc -l | commit cfc534d | 2026-10-19 09:23:08 KST
+{"ok":true,"errors":[]}
+exit=0
+
+## 파일 수
+fixtures/extractions: 20 files
+  fixtures/extractions/FX-01.json
+  fixtures/extractions/FX-02.json
+  fixtures/extractions/FX-03.json
+  fixtures/extractions/FX-04.json
+  fixtures/extractions/FX-05.json
+  fixtures/extractions/FX-06.json
+  fixtures/extractions/FX-07.json
+  fixtures/extractions/FX-07.r01.json
+  fixtures/extractions/FX-08.json
+  fixtures/extractions/FX-09.json
+  fixtures/extractions/FX-10.json
+  fixtures/extractions/FX-11.json
+  fixtures/extractions/FX-13.json
+  fixtures/extractions/FX-14.json
+  fixtures/extractions/FX-15.json
+  fixtures/extractions/FX-16.json
+  fixtures/extractions/FX-17.json
+  fixtures/extractions/FX-18.json
+  fixtures/extractions/FX-19.json
+  fixtures/extractions/FX-20.json
+fixtures/kev: 4 files
+  fixtures/kev/FX-01.json
+  fixtures/kev/FX-02.json
+  fixtures/kev/FX-03.json
+  fixtures/kev/FX-16.json
+fixtures/goldens: 3 files
+  fixtures/goldens/FX-01.json
+  fixtures/goldens/FX-02.json
+  fixtures/goldens/FX-03.json
+fixtures/bids: 20 files
+  fixtures/bids/FX-01.json
+  fixtures/bids/FX-02.json
+  fixtures/bids/FX-03.json
+  fixtures/bids/FX-04.json
+  fixtures/bids/FX-05.json
+  fixtures/bids/FX-06.json
+  fixtures/bids/FX-07.json
+  fixtures/bids/FX-08.json
+  fixtures/bids/FX-09.json
+  fixtures/bids/FX-10.json
+  fixtures/bids/FX-11.json
+  fixtures/bids/FX-12.json
+  fixtures/bids/FX-13.json
+  fixtures/bids/FX-14.json
+  fixtures/bids/FX-15.json
+  fixtures/bids/FX-16.json
+  fixtures/bids/FX-17.json
+  fixtures/bids/FX-18.json
+  fixtures/bids/FX-19.json
+  fixtures/bids/FX-20.json

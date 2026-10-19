@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - architecture
   - pipeline
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 02. 시스템 아키텍처
@@ -27,8 +27,8 @@ updated: 2026-10-18
 |Worker `web/worker` (documents job)|AI gateway|HTTP `POST /parse` (바이트 본문)|첨부 1건 단위. worker가 MinIO에서 읽은 바이트를 보내고 결과 텍스트를 MinIO에 쓴다. gateway는 MinIO에 접근하지 않는다|
 |Worker `web/worker` (extract job)|AI gateway|HTTP `POST /extract` (Compose 내부 네트워크)|공고 **revision 단위**, 조직 무관. 결과(+ 영어 표기 `translations`)는 `requirement_extractions`에 저장해 모든 조직이 재사용. timeout은 `AI_TIMEOUT_MS`(기본 60000) + 5초|
 |Worker `web/worker` (analysis job)|AI gateway|HTTP `POST /kev`, `POST /explain`|**조직 × revision × 프로필 revision** 단위. 추출 결과 + 프로필 요약 + 질문 세트 `kev-qs/v0.1`·`v0.2`를 보낸다. timeout은 `KEV_TIMEOUT_MS`(기본 5000) + 2초. circuit breaker는 Worker가 가진다|
-|AI gateway|Kev model server :8009|HTTP `POST /v1/systemone` (TypeSafe System One 호환), `KEV_API_KEY` 설정 시 Bearer|`AI_PROVIDER=local`일 때(기본값은 실행 모드가 정한다). 해커톤은 회사 GPU 서버의 Kev-9B@v1.0에 터널로 연결. 기동 시 모델 레지스트리와 `/v1/models` 대조. `mock`은 gateway 안에서 `fixtures/kev/FX-xx.json` 고정 응답|
-|AI gateway|Qwen runtime|vLLM(OpenAI 호환, guided JSON) — 회사 GPU 서버, 터널|`AI_PROVIDER=local` 또는 `hosted`([[10-DEPLOYMENT\|10 배포]])|
+|AI gateway|Kev model server(`kev.serve`)|HTTP(S) `POST /v1/systemone` (TypeSafe System One 호환), `KEV_API_KEY` Bearer|`AI_PROVIDER=local`일 때(기본값은 실행 모드가 정한다). 해커톤은 회사가 제공하는 HTTPS 엔드포인트(`https://acropolissg.com/sol-radar` 아래, [[16-DECISIONS\|ADR-025]])의 Kev-9B@v1.0에 연결. 기동 시 모델 레지스트리와 `/v1/models` 대조. `mock`은 gateway 안에서 `fixtures/kev/FX-xx.json` 고정 응답|
+|AI gateway|Qwen runtime|vLLM(OpenAI 호환, guided JSON) — 회사 GPU 추론 엔드포인트, HTTPS + `QWEN_API_KEY` Bearer(ADR-025)|`AI_PROVIDER=local` 또는 `hosted`([[10-DEPLOYMENT\|10 배포]])|
 |Worker `web/worker` (ingest job)|data.go.kr Open API|HTTPS GET, `serviceKey`(서비스마다 다른 키)|`live` 모드만. 입찰공고·사전규격·발주계획·업종 코드. 호출 예산은 Redis 카운터([[07-DATA-PIPELINE\|07 수집]])|
 |Worker `web/worker` (documents job)|g2b 첨부 다운로드|HTTPS GET, `www.g2b.go.kr` allowlist|DNS 재검증·사설 IP 거부·30 s·50 MB([[09-SECURITY\|09 보안]])|
 |AI gateway|Qdrant|HTTP/gRPC|근거 chunk 적재·검색|
@@ -47,7 +47,7 @@ flowchart TB
  N --> QD[("Qdrant")]
  R --> WORK["Worker web/worker"]
  WORK --> AI["AI gateway FastAPI :8000"]
- AI --> KEV["Kev model server :8009"]
+ AI --> KEV["Kev model server"]
  AI --> QW["Qwen runtime"]
  AI --> QD
  WORK -- service role --> PG
@@ -139,9 +139,10 @@ flowchart TB
   G2B["data.go.kr Open API"]
   ATT["www.g2b.go.kr 첨부"]
  end
- subgraph gpu[회사 GPU 서버 · profile ai-local · 127.0.0.1 바인딩]
-  KEV["kev.serve Kev-9B :8009"]
-  QW["vLLM Qwen3.5-9B :8001"]
+ subgraph gpu[회사 GPU 서버 · 회사 운영 · HTTPS 엔드포인트 acropolissg.com/sol-radar]
+  RT["model-router nginx · infra/gpu"]
+  RT -- /sol-radar/kev --> KEV["kev.serve Kev-9B"]
+  RT -- /sol-radar/qwen --> QW["vLLM Qwen3.5-9B"]
  end
  subgraph hosted[선택 · profile ai-hosted · 미검증 · 비용]
   OR["hosted API"]
@@ -152,15 +153,14 @@ flowchart TB
  WK -- service role --> PG
  WK -. SOL_RUN_MODE=live .-> G2B
  WK -. SOL_RUN_MODE=live .-> ATT
- AI -. AI_PROVIDER=local · SSH 터널 .-> KEV
- AI -. AI_PROVIDER=local · SSH 터널 .-> QW
+ AI -. AI_PROVIDER=local · HTTPS 엔드포인트 .-> RT
  AI -. AI_PROVIDER=hosted, 사용자 승인 후 .-> OR
 ```
 - 노트북에서는 Compose 서비스(redis·minio·qdrant·ai-gateway·worker)와 web이 돈다. web은 호스트에서 `pnpm -C web start`로 띄우거나 Compose `web` 서비스(선택)로 띄운다([[10-DEPLOYMENT|10 배포]]). DB·Auth는 노트북 밖 Supabase 클라우드 프로젝트다.
 - 실행 모드([[16-DECISIONS|ADR-020]]): `live` = 공공 API + 회사 GPU 실추론(해커톤 MVP 목표), `fixture` = fixture 20건 + 회사 GPU 실추론(공공 API 장애 대체), `mock` = fixture 20건 + mock AI(모델 장애 대체·CI·골든). 장애 대체 순서는 `live` → `fixture` → `mock`이고, 모드 전환은 env 교체와 worker·gateway 재시작으로 한다. 자동으로 바꾸지 않는다.
 - 현재 실행 모드와 `AI_PROVIDER` 값은 `/health/ready`의 `checks.ai`와 화면 우상단 표시(`실행 모드` + `AI: mock | local | hosted`)로 노출된다. gateway가 불가하면 `AI: unavailable`. 심사위원이 지금 보는 것이 실데이터·실모델인지 항상 알 수 있다.
 - mock 응답은 fixture ID별로 고정된 결정적 값이다. 같은 입력에 같은 출력이 나와야 골든 테스트가 성립하므로 골든은 `mock` 모드에서만 단언한다.
-- 회사 GPU 서버의 모델 런타임은 `127.0.0.1`에만 바인딩하고 터널로만 닿는다. 터널이 끊기면 gateway가 Qwen·Kev 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 프로필 정의는 [[10-DEPLOYMENT|10 배포]].
+- 회사 GPU 서버는 외부 접근 불가이고, 회사가 모델 런타임을 HTTPS 엔드포인트(`https://acropolissg.com/sol-radar` 아래)로 제공한다. gateway는 TLS 검증을 켠 채 API 키(`QWEN_API_KEY`·`KEV_API_KEY`)로 붙는다([[16-DECISIONS|ADR-025]]). 회사 nginx는 location 하나만 두고, GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`)가 `/sol-radar/qwen`·`/sol-radar/kev`를 vLLM·`kev.serve`로 나눈다. 엔드포인트에 접속하지 못하면 gateway가 Qwen·Kev 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모델 기동·GPU 배분은 회사 운영이다. 프로필 정의는 [[10-DEPLOYMENT|10 배포]].
 
 > [!warning] 데모 네트워크 의존 (미결정)
 > 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 중 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로(로컬 Supabase CLI `pnpm db:start`로 대체, 사전 녹화 영상)와 데모·배포 실행 환경의 최종안은 **미결정**이다([[16-DECISIONS|16 ADR]] ADR-017, 미결정 표).
@@ -174,7 +174,7 @@ flowchart TB
 |조달청 공식 API 불가·429·일일 한도(에러코드 22)|connector 지수 백오프 재시도, 체크포인트 유지, 한도 도달 시 그날 수집 중단|목록 상단 신선도 배너 "마지막 동기화 HH:MM", 관리자 수집 화면 "공공 API 오류: {코드}", 기존 공고 유지|`ingest_runs`·`ingest_errors`에 코드 기록. 신규 공고 지연, 손실 없음. fixture로 자동 대체하지 않는다|
 |첨부 다운로드 불가 (인증 요구·4xx·5xx·allowlist 밖 리다이렉트·50 MB 초과)|documents job|`DOCUMENT_DOWNLOAD_FAILED` 배지, "첨부 원문 확인"|`bid_documents.download_status=FAILED`. 본문만으로 추출, 첨부에 의존하는 항목은 `NEEDS_REVIEW`([[07-DATA-PIPELINE\|07 수집]])|
 |파싱 실패·부분 파싱 (미지원 형식·배포용·암호·스캔 PDF·품질 신호 미달)|gateway `/parse` 결과|`PARSE_UNSUPPORTED` 또는 "일부만 읽음" 배지와 사유|`bid_documents.parse_status`. 빠진 내용을 AI가 추측해 채우지 않는다([[03-AI-PIPELINE\|03 AI 파이프라인]])|
-|회사 GPU 터널 단절·모델 서버 미접속|gateway → Qwen·Kev 연결 실패, 레지스트리 불일치|Qwen 불가: "AI 분석 불가 → 규칙만", Kev 불가: Kev 영역 "사용 불가"|`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`를 따로 기록. mock 자동 대체는 기본 금지이고, `AI_FALLBACK_TO_MOCK=true`(live 금지)일 때만 `MOCK_FALLBACK`과 배너로 표시|
+|회사 GPU 추론 엔드포인트 미접속·모델 서버 미접속(ADR-025)|gateway → Qwen·Kev 연결 실패(TLS·인증 실패 포함), 레지스트리 불일치|Qwen 불가: "AI 분석 불가 → 규칙만", Kev 불가: Kev 영역 "사용 불가"|`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`를 따로 기록. mock 자동 대체는 기본 금지이고, `AI_FALLBACK_TO_MOCK=true`(live 금지)일 때만 `MOCK_FALLBACK`과 배너로 표시|
 |Redis/큐 장애|BullMQ 연결 오류, `/health/ready` 503|분석 요청 시 `503 SERVICE_UNAVAILABLE` (`component: queue`), 기존 결과 조회 가능|job 유실 없음 (재시도·DLQ)|
 |Qdrant 불가|gateway 검색 호출 실패|키워드 검색으로 대체, "의미 검색 비활성" 표시|근거 인용은 문자열 매칭 경로로 유지|
 |Supabase(Postgres) 불가·네트워크 끊김|Supabase 연결 오류·timeout, `/health/ready` `checks.db` 불가 → 503 `status:"unavailable"`|조회·쓰기 요청에 `503 SERVICE_UNAVAILABLE` (`component: db`)과 명확한 오류 메시지. Supabase Auth도 같은 클라우드 프로젝트라 로그인·세션 갱신도 실패한다|쓰기 불가, 복구 후 재시도. Redis에 들어간 job은 남아 재시도된다|

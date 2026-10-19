@@ -1,0 +1,2 @@
+# docker compose -p sol-radar-c0verify -f infra/compose.yaml --env-file <scratch>/.env config --quiet | commit cfc534d | 2026-10-19 09:22:25 KST
+exit=0

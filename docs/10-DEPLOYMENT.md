@@ -14,28 +14,28 @@ updated: 2026-10-19
 ## 원칙
 DB·Auth는 Compose 밖의 **Supabase 클라우드 프로젝트**다(개발 환경, [[16-DECISIONS|16 ADR]] ADR-017). Compose는 그 둘레의 서비스만 띄운다: `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`, 그리고 선택으로 `web`. 데모·배포 실행 환경의 최종안(클라우드 그대로 / 로컬 Supabase CLI 대체 / 웹 배포처)은 **미결정**이다(16 미결정 표).
 
-Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 Compose `--profile`과 env 묶음(`infra/env/<profile>.env.example` → `infra/.env`)의 조합이다. Redis·Qdrant·MinIO는 named volume. 이미지는 각각 버전(태그 또는 digest)을 고정한다. GPU가 없으면 `demo` 프로필로 구동한다. GPU 호스트는 NVIDIA Container Toolkit 설치 후 `nvidia-smi` 확인.
+Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 Compose `--profile`과 env 묶음(`infra/env/<profile>.env.example` → `infra/.env`)의 조합이다. Redis·Qdrant·MinIO는 named volume. 이미지는 각각 버전(태그 또는 digest)을 고정한다. GPU가 없으면 `demo` 프로필로 구동한다. 모델 런타임이 도는 회사 GPU 서버는 회사가 운영한다([[16-DECISIONS|ADR-025]]). NVIDIA Container Toolkit·`nvidia-smi` 확인은 회사 측 몫이다.
 
-실행 모드 `SOL_RUN_MODE=live|fixture|mock`([[16-DECISIONS|ADR-020]], [[03-AI-PIPELINE|03 AI 파이프라인]] §3)은 **데이터 출처와 AI 공급자**를 정하고, 프로필은 **어느 서비스를 어디에 띄우고 어떤 env 묶음을 쓰는지**를 정한다. 해커톤 실추론의 모델 런타임(Qwen·Kev)은 노트북 Compose 밖, **회사 GPU 서버**에 있다(아래 "회사 GPU 서버 구성").
+실행 모드 `SOL_RUN_MODE=live|fixture|mock`([[16-DECISIONS|ADR-020]], [[03-AI-PIPELINE|03 AI 파이프라인]] §3)은 **데이터 출처와 AI 공급자**를 정하고, 프로필은 **어느 서비스를 어디에 띄우고 어떤 env 묶음을 쓰는지**를 정한다. 해커톤 실추론의 모델 런타임(Qwen·Kev)은 노트북 Compose 밖, **회사 GPU 서버**에 있고, 회사가 제공하는 HTTPS 엔드포인트로 붙는다([[16-DECISIONS|ADR-025]], 아래 "회사 GPU 추론 엔드포인트").
 
 ## 실행 모드와 프로필
 
 |`SOL_RUN_MODE`|프로필|모델 런타임 위치|공고|추가로 필요한 것|
 |---|---|---|---|---|
 |`mock`(기본)|`demo`|없음(gateway의 mock adapter)|fixture 20건(`is_demo=true`)|없음. GPU·서비스키 없이 돈다. CI·골든·모델 장애 시 시연|
-|`fixture`|`ai-local`|회사 GPU 서버(vLLM Qwen3.5-9B, `kev.serve` Kev-9B)|fixture 20건(`is_demo=true`)|SSH 터널, `KEV_API_KEY`, vLLM 키. 공공 API 장애 시 시연. 한국어 state 평가용 gateway도 이 모드로만 띄운다|
-|`live`|`ai-local`|회사 GPU 서버|data.go.kr 실공고(`is_demo=false`)|위 + worker의 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE\|07 수집]] §2.2). `KEV_ALLOW_KO_STATE=true`와 함께 쓸 수 없다(gateway 기동 거부)|
+|`fixture`|`ai-local`|회사 GPU 추론 엔드포인트(vLLM Qwen3.5-9B, `kev.serve` Kev-9B. HTTPS, ADR-025)|fixture 20건(`is_demo=true`)|엔드포인트 접속(TLS), `QWEN_API_KEY`·`KEV_API_KEY`. 공공 API 장애 시 시연. 한국어 state 평가용 gateway도 이 모드로만 띄운다|
+|`live`|`ai-local`|회사 GPU 추론 엔드포인트(위와 같다)|data.go.kr 실공고(`is_demo=false`)|위 + worker의 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE\|07 수집]] §2.2). `KEV_ALLOW_KO_STATE=true`와 함께 쓸 수 없다(gateway 기동 거부)|
 
 - 모드가 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`의 기본값을 정한다(`live` → `DEMO_MODE=false`·`AI_PROVIDER=local`·`KEV_ENABLED=true`, `fixture` → `true`·`local`·`true`, `mock` → `true`·`mock`·mock adapter). 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. 예: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`.
 - 모드 전환은 env를 바꾸고 worker·ai-gateway를 재시작해서 한다. 시연 중 장애 대체 순서는 `live` → `fixture` → `mock`이고 사람이 전환한다. 자동 대체(`AI_FALLBACK_TO_MOCK`)는 기본 `false`이고 `live`에서는 켤 수 없다([[03-AI-PIPELINE|03]] §8).
-- 한국어 state 평가(E2, [[21-MODEL-TRAINING|21 모델 학습]])는 회사 GPU 서버에서 `sol_eval`이 `kev.serve`에 직접 붙거나, `SOL_RUN_MODE=fixture` + `KEV_ALLOW_KO_STATE=true`로 띄운 평가용 gateway에서만 한다. 데모용 gateway에는 켜지 않는다.
+- 한국어 state 평가(E2, [[21-MODEL-TRAINING|21 모델 학습]])는 노트북에서 `sol_eval`이 `KEV_BASE_URL` 엔드포인트에 직접 붙거나, `SOL_RUN_MODE=fixture` + `KEV_ALLOW_KO_STATE=true`로 띄운 평가용 gateway에서만 한다(ADR-025). 데모용 gateway에는 켜지 않는다.
 - 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(ADR-019). live 분석은 "실제 공고 × 가상 회사 프로필"이다.
 
 ## 실행 프로필 3단
 |프로필|대상 환경|AI 동작|추가 서비스|필수 env (요지)|기동 명령|
 |---|---|---|---|---|---|
 |`demo`|노트북 1대, GPU 없음, Docker Desktop, **인터넷 연결(Supabase 클라우드)**|`AI_PROVIDER=mock`: gateway가 fixture 기반 결정적 응답|없음 (seed는 Compose 서비스가 아니라 스크립트 `pnpm demo:reset`)|공통 env + `SOL_RUN_MODE=mock`, `DEMO_MODE=true`, `AI_PROVIDER=mock`, `KEV_ENABLED=true`(mock adapter가 응답), `AI_HOSTED_APPROVED=false`, `DEMO_SEED_PASSWORD`(seed 전용)|`docker compose -f infra/compose.yaml --profile demo up -d --build`|
-|`ai-local`|**노트북**(기본 5개 서비스, gateway 포함) + **회사 GPU 서버**(모델 런타임만). 클라우드 GPU 임대는 비용 승인 뒤만(ADR-010)|Qwen3.5-9B + Kev-9B@v1.0 실제 추론|노트북: 없음. GPU 서버: `kev`, `qwen-runtime`|공통 env + `SOL_RUN_MODE=live` 또는 `fixture`, `AI_PROVIDER=local`, `KEV_ENABLED=true`, `QWEN_BASE_URL`·`KEV_BASE_URL`(터널의 로컬 끝점), `QWEN_MODEL=Qwen/Qwen3.5-9B`, `KEV_MODEL_ID=kev-9b-v1.0`, `KEV_API_KEY`, `AI_FALLBACK_TO_MOCK=false`. `live`면 worker에 서비스키 4개(`G2B_*_SERVICE_KEY`). kev 컨테이너는 `KEV_RUN=jaredpalmer/kev-9b@v1.0`|GPU 서버: `docker compose -f infra/compose.yaml -f infra/compose.gpu.yaml --profile ai-local up -d kev qwen-runtime`. 노트북: SSH 터널 연결 뒤 `docker compose -f infra/compose.yaml up -d --build`(아래 "회사 GPU 서버 구성")|
+|`ai-local`|**노트북**(기본 5개 서비스, gateway 포함) + **회사 GPU 추론 엔드포인트**(회사가 모델 런타임을 HTTPS로 제공, ADR-025). 클라우드 GPU 임대는 비용 승인 뒤만(ADR-010)|Qwen3.5-9B + Kev-9B@v1.0 실제 추론|노트북: 없음. 회사 GPU 서버(회사 운영): 모델 라우터 `model-router`(`infra/compose.gpu.yaml`) + 호스트에 직접 띄우는 vLLM·`kev.serve`|공통 env + `SOL_RUN_MODE=live` 또는 `fixture`, `AI_PROVIDER=local`, `KEV_ENABLED=true`, `QWEN_BASE_URL`·`KEV_BASE_URL`(엔드포인트 아래 경로, 아래 env 예시), `QWEN_MODEL=Qwen/Qwen3.5-9B`, `KEV_MODEL_ID=kev-9b-v1.0`, `QWEN_API_KEY`·`KEV_API_KEY`, `AI_FALLBACK_TO_MOCK=false`. `live`면 worker에 서비스키 4개(`G2B_*_SERVICE_KEY`). Kev 컨테이너 스케치의 `KEV_RUN=jaredpalmer/kev-9b@v1.0`은 `compose.gpu.yaml` 미포함|노트북: 엔드포인트 `GET /sol-radar/healthz`·`GET /v1/models` 확인 뒤 `docker compose -f infra/compose.yaml up -d --build`(아래 "회사 GPU 추론 엔드포인트"). 회사 GPU 서버 쪽은 회사가 띄운다: `docker compose -f infra/compose.gpu.yaml up -d`(라우터) + vLLM·`kev.serve` 호스트 기동(`infra/gpu/README.md`)|
 |`ai-hosted`|GPU 없는 환경에서 실모델이 필요할 때|hosted API 호출. **미검증, 비용 발생, 사용자 승인 필요**|없음|공통 env + `AI_PROVIDER=hosted`, `AI_HOSTED_APPROVED=true`(승인 후만), `HOSTED_API_BASE_URL`, `HOSTED_API_KEY`(placeholder)|`docker compose -f infra/compose.yaml --profile ai-hosted up -d --build`|
 
 - **공통 env**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`(공개 가능, 권한은 RLS가 정함), `SUPABASE_SERVICE_ROLE_KEY`(RLS를 무시하는 비밀. worker·seed 전용), `REDIS_URL`/`REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. `SUPABASE_DB_URL`은 마이그레이션 적용(`pnpm db:push`, 클라우드 DB를 바꾸므로 사용자 확인 뒤에만)과 상태 확인(`pnpm db:verify`)에만 쓴다. 자체 인증 서명 비밀이나 DB 컨테이너 비밀번호 변수는 없다(Auth·DB는 Supabase).
@@ -43,7 +43,7 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 Comp
 - `DEMO_MODE=true`면 공식 API connector를 비활성화하고 `fixtures/`만 읽는다. 적재되는 공고는 `is_demo=true`. `DEMO_MODE`는 `SOL_RUN_MODE`에서 파생된다([[07-DATA-PIPELINE|07 수집]]).
 - 프로필 전환은 env 파일 교체 + 프로필 플래그만으로 끝난다. 코드 변경 없음 ([[16-DECISIONS|16 ADR]] ADR-008).
 - `ai-hosted`는 사용자 명시 승인 후 `AI_HOSTED_APPROVED=true`로만 켠다 (ADR-010). 승인 플래그 없이 `hosted`를 지정하면 gateway가 기동을 거부한다. CI·테스트에서는 항상 `mock`.
-- 노트북에서 `--profile ai-local`을 주면 `kev`·`qwen-runtime`까지 띄우려 한다. 그래서 노트북은 프로필 플래그 없이 기본 서비스만 띄우고 `ai-local` env 묶음을 쓴다. 프로필 이름을 노트북용·GPU 서버용으로 나눌지는 Phase 0에서 정한다(ADR-020 P0-1, [[12-ROADMAP|12 로드맵]]).
+- `infra/compose.yaml`에는 `kev`·`qwen-runtime` 서비스가 없다(Phase 0 구현). 노트북은 프로필 플래그 없이 기본 서비스만 띄우고 `ai-local` env 묶음을 쓴다. 회사 GPU 서버용 구성은 프로필이 아니라 별도 파일 `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, 모델 라우터만)로 나눴다(ADR-025. ADR-020 P0-1의 "프로필 이름을 나눌지"는 이렇게 닫혔다).
 
 ### env 파일 위치
 세 파일 모두 깃에서 제외한다. 값은 `.env.example`·`infra/env/*.env.example`의 키 이름을 보고 채운다.
@@ -78,9 +78,9 @@ AI_PROVIDER=local
 KEV_ENABLED=true
 AI_FALLBACK_TO_MOCK=false         # live 에서 true 면 기동 거부
 KEV_ALLOW_KO_STATE=false          # live 에서 true 면 기동 거부. 평가용 fixture gateway 에서만 true
-QWEN_BASE_URL=<터널 로컬 끝점, 예: http://host.docker.internal:8001>
+QWEN_BASE_URL=https://acropolissg.com/sol-radar/qwen   # 회사 엔드포인트 아래 경로. /qwen 은 GPU 서버 안 모델 라우터가 정한 값(ADR-025)
 QWEN_MODEL=Qwen/Qwen3.5-9B
-KEV_BASE_URL=<터널 로컬 끝점, 예: http://host.docker.internal:8009>
+KEV_BASE_URL=https://acropolissg.com/sol-radar/kev     # /kev 도 라우터 기준. 바깥 nginx 가 접두어를 떼도 라우터가 받는다. TLS 검증을 끄지 않는다
 QWEN_API_KEY=<placeholder>
 KEV_API_KEY=<placeholder>
 KEV_MODEL_ID=kev-9b-v1.0          # services/ai/models/registry.yaml 항목 → jaredpalmer/kev-9b@v1.0
@@ -89,14 +89,14 @@ PARSER_PDF=<비교 뒤 결정>
 PARSER_HWPX=<비교 뒤 결정>
 PARSER_HWP=<비교 뒤 결정>
 # data.go.kr 서비스키 — 서비스마다 하나씩(ADR-022). worker 전용, live 에서만 필수. 로그 금지
-# 값은 Decoding 키(인코딩 전 원문)
+# 값은 포털의 Encoding 키 그대로. worker 가 decodeURIComponent 로 한 번 디코딩해 Decoding 키로 쓴다(07 §2.2)
 G2B_BID_NOTICE_SERVICE_KEY=<placeholder>       # 입찰공고정보서비스 15129394
 G2B_PRE_SPEC_SERVICE_KEY=<placeholder>         # 사전규격정보서비스 15129437
 G2B_ORDER_PLAN_SERVICE_KEY=<placeholder>       # 발주계획현황서비스 15129462
 G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 15129467
 ```
 
-- gateway는 vLLM `--api-key`와 같은 값을 `QWEN_API_KEY`로 보낸다([[03-AI-PIPELINE|03 AI 파이프라인]] §3).
+- gateway는 `QWEN_API_KEY`·`KEV_API_KEY`를 `Authorization: Bearer`로 보낸다(회사 엔드포인트 뒤 vLLM `--api-key`·`kev.serve` `KEV_API_KEY`와 같은 값). 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다(ADR-025, [[03-AI-PIPELINE|03 AI 파이프라인]] §3).
 - `PARSER_*` 기본값은 실제 RFP 샘플 비교(03 §10.3) 뒤 정한다.
 
 ### seed
@@ -109,68 +109,73 @@ seed 적용·재적용은 스크립트 `pnpm demo:reset`이다(Compose 서비스
 > [!warning] 미검증 가정
 > - `ai-hosted`: hosted 공급자, 요청·응답 포맷, 가격 모두 미확인. Kev README의 Modal 배포 스크립트도 비용이 든다. 승인(`AI_HOSTED_APPROVED=true`) 전에는 구현·호출하지 않는다. 검증 방법은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.8.
 > - Kev-0.8B의 CPU 실행 가능성은 미검증. 데모는 이것에 의존하지 않는다. 확인 절차는 03 §5.9.
-> - Qwen 런타임은 vLLM이다(16 미결정 3번 부분 결정). GPU 메모리 배분은 회사 GPU 모델·VRAM을 확인한 뒤 정한다(아래 "GPU 메모리 배분").
+> - Qwen 런타임은 vLLM이다(16 미결정 3번). GPU 메모리 배분은 회사 측 결정이다(ADR-025, 아래 "GPU 메모리 배분"). vLLM guided JSON 동작은 C1 ③ G4에서 확인한다.
 
 worker 실행 방식은 검증됐다: `node --conditions=react-server --import tsx worker/main.ts`(2026-10-18, [[16-DECISIONS|16 ADR]] 미결정 9번). Compose worker 이미지의 entrypoint도 이 명령이다.
 
-## 회사 GPU 서버 구성 (해커톤 실추론)
+## 회사 GPU 추론 엔드포인트 (해커톤 실추론)
 
-해커톤 기간의 실추론(Qwen3.5-9B·Kev-9B)과 평가 실행은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020]]). 노트북 worker·gateway가 터널로 연결한다.
+해커톤 기간의 실추론(Qwen3.5-9B·Kev-9B)은 회사 GPU 서버의 모델 런타임이 한다([[16-DECISIONS|ADR-020]]). 회사 GPU 서버는 외부에서 접근할 수 없으므로(SSH·VPN 터널 불가) 회사가 모델 런타임을 HTTPS 엔드포인트 **`https://acropolissg.com/sol-radar`** 아래로 제공하고, 노트북 Compose의 ai-gateway가 HTTPS로 붙는다([[16-DECISIONS|ADR-025]], 2026-10-19). SSH 로컬 포트포워딩, GPU 서버 `127.0.0.1` 바인딩, 노트북 `host.docker.internal` 끝점 전제는 폐기했다.
 
 ```mermaid
 flowchart LR
  subgraph LAPTOP[데모 노트북 · Compose]
   W[worker] --> G[ai-gateway :8000]
+  E[sol_eval · 평가]
  end
- subgraph GPU[회사 GPU 서버 · ai-local]
-  Q[vLLM Qwen3.5-9B :8001<br/>127.0.0.1 바인딩]
-  K[kev.serve Kev-9B :8009<br/>127.0.0.1 바인딩]
-  E[sol_eval · probe-train]
+ subgraph GPU[회사 GPU 서버 · 회사 운영 · 외부 접근 불가]
+  EP["회사 nginx · HTTPS<br/>acropolissg.com/sol-radar"]
+  EP -- "location 하나" --> RT["model-router nginx<br/>127.0.0.1:8080 · infra/gpu"]
+  RT -- "/sol-radar/qwen/*" --> Q["vLLM Qwen3.5-9B<br/>127.0.0.1:8001"]
+  RT -- "/sol-radar/kev/*" --> K["kev.serve Kev-9B<br/>127.0.0.1:8009"]
  end
- G -- SSH 로컬 포트포워딩 --> Q
- G -- SSH 로컬 포트포워딩 --> K
+ G -- HTTPS · Bearer 키 --> EP
+ E -. HTTPS · Bearer 키 .-> EP
 ```
 
-- **gateway는 노트북 Compose에 그대로 둔다.** 회사 GPU 서버에는 모델 런타임만 올린다: Qwen은 vLLM(:8001), Kev는 `kev.serve`(:8009). 아키텍처(Worker → gateway → 모델)는 바뀌지 않는다.
-- 두 런타임은 GPU 서버의 `127.0.0.1`에만 바인딩하고 외부 포트를 열지 않는다. 컨테이너로 띄우면 컨테이너 안은 `--host 0.0.0.0`, 호스트 포트는 `127.0.0.1:8001`·`127.0.0.1:8009`로만 publish한다.
-- 인증: Kev는 `KEV_API_KEY`로 기동해 `Authorization: Bearer`를 요구하게 하고, vLLM은 `--api-key`로 기동한다. 두 키는 GPU 서버와 노트북 `infra/.env`에만 두고 커밋하지 않는다.
-- `QWEN_BASE_URL`·`KEV_BASE_URL`은 터널의 로컬 끝점을 가리킨다. 터널 방식(SSH 포워딩, 회사 VPN 등)은 회사망 정책에 맞춘다.
-- 평가 하네스(`sol_eval`)와 LoRA 메모리 검증(`probe-train`)은 GPU 서버에서 직접 돌린다([[21-MODEL-TRAINING|21 모델 학습]]).
-- 회사 GPU로 보내는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다.
+- **gateway는 노트북 Compose에 그대로 둔다.** 아키텍처(Worker → gateway → 모델)와 실행 모드(`live`·`fixture`·`mock`)·`AI_PROVIDER=local`은 바뀌지 않는다. 모델 런타임(Qwen은 vLLM, Kev는 `kev.serve`)은 회사 GPU 서버에 있고 회사가 기동한다.
+- **env 이름은 그대로다**: `QWEN_BASE_URL`·`KEV_BASE_URL`·`QWEN_API_KEY`·`KEV_API_KEY`. 값은 엔드포인트 아래 경로와 Bearer 키다(위 env 예시). 경로 `/qwen`·`/kev`는 아래 모델 라우터가 정한 값이라 결정이다. 남은 미확인은 바깥 nginx의 접두어 처리·회사 측 추가 인증 여부·실제 응답이다(아래 콜아웃).
+- **모델 라우터(ADR-025 추가 결정 2026-10-19)**: 회사 nginx는 location 하나(`https://acropolissg.com/sol-radar`)만 등록할 수 있어, GPU 서버 안에 경로 분기용 nginx 라우터를 둔다. 설정은 `infra/gpu/model-router.conf`(`127.0.0.1:8080` 바인딩). `/sol-radar/qwen/<path>` → vLLM `127.0.0.1:8001/<path>`, `/sol-radar/kev/<path>` → `kev.serve` `127.0.0.1:8009/<path>`. 바깥 nginx가 `/sol-radar` 접두어를 떼고 넘겨도(`/qwen/…`·`/kev/…`) 같은 곳으로 간다. `/sol-radar/healthz`(인증 없음)는 라우터 자체 확인용으로 `200 ok`, 그 외 404. 인증은 라우터가 아니라 각 런타임이 한다(`Authorization` 헤더 통과, 로그에는 `$uri`만 기록해 키·쿼리를 남기지 않는다).
+- **회사 GPU 서버에서 띄우는 것(회사 운영, 인수 문서 `infra/gpu/README.md`)**: 라우터는 `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, 서비스 `model-router` = `nginx:1.27-alpine`, `network_mode: host`, Linux 전용)로 띄우거나 호스트 nginx에 `model-router.conf`를 넣는다. vLLM·`kev.serve`는 아래 명령으로 호스트 `127.0.0.1:8001`·`127.0.0.1:8009`에 직접 띄운다(`--api-key`·`KEV_API_KEY` 필수). 두 런타임의 컨테이너 구성(kev·qwen-runtime)은 빌드 검증 전이라 `compose.gpu.yaml`에 넣지 않았다.
+- **회사 nginx에 요청할 설정**: `location /sol-radar/ { proxy_pass http://127.0.0.1:8080; }` + `Authorization` 헤더 통과, `proxy_read_timeout 300s`(기본 60s면 긴 RFP 추출이 504), `client_max_body_size 20m`(기본 1m면 첨부 본문을 담은 추출 요청이 413), `proxy_buffering off`. 전체 블록은 `infra/gpu/README.md`.
+- **운영 책임**: 모델 런타임 기동, GPU 메모리 배분, 가중치 sha256 대조, `nvidia-smi` 실측은 회사 측이 한다. 우리는 하지 않는다. 우리가 하는 검증은 gateway 기동 시 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`와 vLLM `GET /v1/models`의 모델 이름을 레지스트리(`services/ai/models/registry.yaml`)와 대조하는 것([[03-AI-PIPELINE|03 AI 파이프라인]] §11)과 지연 실측(03 §5.9 G3)이다. 사용자 승인 항목이던 "모델 기동·GPU 점유 승인"은 회사 운영이라 더 이상 필요 없다.
+- **참고 구성**: `infra/compose.gpu.yaml`·`infra/gpu/`, 아래 Kev 컨테이너 Dockerfile 스케치, vLLM·`kev.serve` 기동 명령은 회사 GPU 서버용 참고 구성으로 남긴다. 우리가 기동하지 않는다. 검증(2026-10-19): `docker run --rm -v "$PWD/infra/gpu/model-router.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t` 통과, `docker compose -f infra/compose.gpu.yaml config --quiet` 통과. 실제 GPU 서버 기동은 미실행.
+- **보안**: 엔드포인트는 공개 인터넷에 있으므로 TLS 필수(인증서 검증을 끄지 않는다), API 키 필수, 키는 `infra/.env`에만 둔다. 엔드포인트 URL은 비밀이 아니라 문서에 적지만 키 값은 적지 않는다. 회사 GPU로 가는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다([[09-SECURITY|09 보안]]).
+- **평가**: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(Kev 직접) 또는 평가용 gateway에 붙여 돌린다. LoRA 메모리 검증(`probe-train`)은 GPU 서버 셸이 필요하므로 회사 측 실행 요청 사항으로 남긴다(해커톤 완료 조건 아님, [[21-MODEL-TRAINING|21 모델 학습]]).
 - 클라우드 GPU 임대는 비용이 들어 hosted와 같은 사용자 승인 대상이다(ADR-010). 승인 전에는 임대하지 않는다.
 
-연결 예시(스케치, Phase 0 P0-0 ③에서 확인):
+회사 GPU 서버의 모델 런타임 기동 명령(회사 측이 실행하는 참고 구성. 키 값은 셸 변수로만):
 
 ```bash
-# GPU 서버: 모델 런타임 (127.0.0.1 바인딩. 컨테이너면 compose.gpu.yaml 의 kev·qwen-runtime)
-vllm serve Qwen/Qwen3.5-9B --host 127.0.0.1 --port 8001 --api-key <vLLM 키> --gpu-memory-utilization <비율>
-KEV_API_KEY=<Kev 키> uv run --extra serve python -m kev.serve --run jaredpalmer/kev-9b@v1.0 --port 8009
-
-# 노트북: GPU 서버의 127.0.0.1:8001·8009 를 노트북 127.0.0.1 로 가져온다
-ssh -N -L 8001:127.0.0.1:8001 -L 8009:127.0.0.1:8009 <user>@<gpu-host>
-
-# 노트북: 터널 확인
-curl -s -H "Authorization: Bearer <Kev 키>" http://127.0.0.1:8009/v1/models
-curl -s -H "Authorization: Bearer <vLLM 키>" http://127.0.0.1:8001/v1/models
+# GPU 서버(회사 운영): 호스트 127.0.0.1 에 직접 띄운다. 라우터(127.0.0.1:8080)가 /sol-radar/qwen·/sol-radar/kev 로 나눈다
+vllm serve Qwen/Qwen3.5-9B --host 127.0.0.1 --port 8001 --api-key "$QWEN_API_KEY" --gpu-memory-utilization <비율>
+KEV_API_KEY="$KEV_API_KEY" uv run --extra serve python -m kev.serve --run jaredpalmer/kev-9b@v1.0 --port 8009
+docker compose -f infra/compose.gpu.yaml up -d        # model-router (Linux, host 네트워크)
 ```
 
-> [!warning] 미검증 가정
-> - 회사망의 터널·외부 접속 허용 여부, GPU 모델·VRAM·공유 여부는 확인하지 않았다(16 미결정 17번). 막히면 사용자에게 보고한다.
-> - 노트북의 `ai-gateway` 컨테이너가 호스트(노트북)의 터널 끝점에 닿는 방법(Docker Desktop `host.docker.internal`, 또는 터널을 컨테이너로 띄우기)은 Phase 0에서 확인한다.
-> - vLLM 버전의 Qwen3.5-9B 지원과 guided JSON·logprob 동작은 첫 기동에서 확인하고 이미지 태그를 고정한다.
+연결 확인(노트북, C1 ③ G1·G2. 키 값은 env 변수 참조만 쓴다):
+
+```bash
+# G1: 라우터 healthz 200 + TLS 유효. 인증서 검증을 끄지 않는다(-k 금지)
+curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/healthz
+# G2: 모델 확인 (경로 /qwen·/kev 는 라우터 기준, ADR-025)
+curl -sS --fail -H "Authorization: Bearer $KEV_API_KEY"  "$KEV_BASE_URL/v1/models"
+curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/models"
+```
+
+> [!warning] 미검증 가정 (2026-10-19)
+> - 엔드포인트는 회사가 제공 예정이며 2026-10-19 기준 응답을 확인하지 않았다(16 미결정 17번). 선행 조건은 P2(회사가 경로·인증 방식 통보)·P3(회사 측 모델 기동 완료 통보)다.
+> - 경로 분리(`/qwen`·`/kev`)는 우리 모델 라우터가 정한 값이라 결정이다. 남은 미확인: 바깥(회사) nginx가 `/sol-radar` 접두어를 떼고 넘기는지(떼도 라우터가 받는다), 회사 측 추가 인증 여부(Bearer 키 외), 실제 응답. 다르면 ADR-025 상세를 갱신한다.
+> - 노트북 `ai-gateway` 컨테이너에서 공개 인터넷 HTTPS로 나가는 경로(데모 장소 회선·프록시)는 C1 ③ G1에서 확인한다.
+> - vLLM 버전의 Qwen3.5-9B 지원과 guided JSON·logprob 동작은 C1 ③ G4에서 확인한다. 이미지 태그 고정은 회사 측 참고 구성 항목이다.
 
 ### GPU 메모리 배분
 
-GPU 모델을 확인한 뒤 정한다(16 미결정 3번).
-- 48 GB 이상 1장: 두 모델을 함께 올린다. vLLM `--gpu-memory-utilization`으로 Qwen 몫을 제한한다.
-- 24 GB급 2장: 모델마다 GPU를 하나씩 쓴다.
-- 24 GB 1장: Qwen을 FP8/AWQ 양자화로 올리고 Kev와 메모리를 나눈다. 양자화는 추출 품질에 영향을 줄 수 있어 평가 리포트에 적는다.
-
-Kev-9B 추론 메모리는 모델 카드 21.9 GB, README 약 17 GB로 문서마다 다르다. 첫 기동에서 `nvidia-smi` 최대 점유를 실측해 `docs/evidence/phase-0/external-deps.md`에 기록하고 위 배분을 확정한다.
+회사 측 결정이다([[16-DECISIONS|ADR-025]], 16 미결정 3번 이관). 모델 동시 적재·GPU 장수·양자화 여부는 회사가 정하고, 우리 쪽에 남은 결정은 없다. 회사가 알려 주는 GPU 모델·VRAM·점유 값이 있으면 `docs/evidence/phase-0/external-deps.md`(C1 ③ G5)에 적고, 없으면 "회사 운영, 측정 불가"로 남긴다. 회사가 Qwen을 FP8/AWQ 양자화로 올렸다고 알려 주면 추출 품질에 영향이 있을 수 있어 평가 리포트에 적는다. Kev-9B 추론 메모리는 모델 카드 21.9 GB, README 약 17 GB로 문서마다 다르지만 우리가 실측하지 않는다.
 
 ### 데모 날 위험
 
-`live`·`fixture` 모드는 회사 서버와 터널에 의존한다. 터널이 끊기면 gateway → 모델 연결이 실패해 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE` → `PARTIAL`·`RULES_ONLY`로 끝난다([[03-AI-PIPELINE|03]] §8). mock으로 조용히 바뀌지 않는다. 필요하면 사람이 `mock` 모드로 전환한다. 터널 재연결 절차는 아래 기동 절차 4·10번과 D-1 리허설에 넣는다.
+`live`·`fixture` 모드는 회사 엔드포인트에 의존한다. 엔드포인트에 접속하지 못하면(TLS·인증 실패 포함) gateway → 모델 연결이 실패해 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE` → `PARTIAL`·`RULES_ONLY`로 끝난다([[03-AI-PIPELINE|03]] §8). mock으로 조용히 바뀌지 않는다. 필요하면 사람이 `mock` 모드로 전환한다. 엔드포인트 재접속 확인(`GET /v1/models` curl) 절차는 아래 기동 절차 4·10번과 D-1 리허설에 넣는다.
 
 ## Compose 서비스
 |service|이미지|내부 포트|호스트 노출|상태 저장|프로필|
@@ -181,8 +186,9 @@ Kev-9B 추론 메모리는 모델 카드 21.9 GB, README 약 17 GB로 문서마�
 |minio|`cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8` (비root UID 65532)|9000|`127.0.0.1:9000` (`MINIO_HOST_PORT`, 같은 조건)|miniodata|기본|
 |ai-gateway|`services/ai/` 빌드|8000|`127.0.0.1:8000` (`AI_GATEWAY_HOST_PORT`, 같은 조건)|model cache (선택)|기본 (`SOL_RUN_MODE`·`AI_PROVIDER`로 동작 결정)|
 |web|`web/` 빌드|3000|3000|없음|선택(Phase 0 Compose 에는 정의 없음). 기본은 호스트에서 `pnpm -C web start`|
-|kev|아래 Kev Dockerfile, `KEV_RUN=jaredpalmer/kev-9b@v1.0`|8009|회사 GPU 서버 `127.0.0.1:8009`만|model cache|`ai-local`(GPU 서버에서만)|
-|qwen-runtime|vLLM(이미지 태그 고정은 P0-0), `Qwen/Qwen3.5-9B`|8001|회사 GPU 서버 `127.0.0.1:8001`만|model cache|`ai-local`(GPU 서버에서만)|
+|model-router|`nginx:1.27-alpine` + `infra/gpu/model-router.conf`|8080(host 네트워크, `127.0.0.1`)|회사 GPU 서버 `127.0.0.1:8080`만(회사 nginx가 `/sol-radar`를 넘긴다)|없음|`infra/compose.gpu.yaml`(`sol-radar-gpu`, 회사 GPU 서버 전용, Linux). 우리가 띄우지 않는다(ADR-025)|
+|kev|아래 Kev Dockerfile 스케치, `KEV_RUN=jaredpalmer/kev-9b@v1.0`|8009|없음(회사 HTTPS 엔드포인트 뒤)|model cache|참고 스케치, `compose.gpu.yaml` 미포함. 회사 GPU 서버에서는 `kev.serve`를 호스트에 직접 띄운다(ADR-025)|
+|qwen-runtime|vLLM(이미지 태그는 회사 측), `Qwen/Qwen3.5-9B`|8001|없음(회사 HTTPS 엔드포인트 뒤)|model cache|참고 스케치, `compose.gpu.yaml` 미포함. 회사 GPU 서버에서는 vLLM을 호스트에 직접 띄운다(ADR-025)|
 
 - `postgres`·`api`·`seed-demo` 서비스는 없다. DB·Auth는 Supabase, seed는 `pnpm demo:reset`이다.
 - MinIO는 Docker Hub `minio/minio`가 404라(2026-10-16 확인) Chainguard 이미지를 digest로 고정한다(비root 65532, 검증됨).
@@ -203,33 +209,33 @@ Kev-9B 추론 메모리는 모델 카드 21.9 GB, README 약 17 GB로 문서마�
 전제: D-1에 이미지 빌드·pull, `pnpm -C web build`, 마이그레이션 적용(`pnpm db:push`, 사용자 확인 뒤), 전체 리허설을 끝냈다 ([[12-ROADMAP|12 로드맵]]). 당일에는 스키마를 바꾸지 않는다. 증거는 `docs/evidence/demo-day/YYYYMMDD-HHMM/`에 저장한다([[11-TESTING|11 테스트]]). 어느 실행 모드로 시연할지는 [[19-DEMO-SCENARIO|19 데모 시나리오]]를 따른다. 아래 단계에서 **[live·fixture]** 표시는 `ai-local`일 때만 한다.
 
 > [!warning] 데모 네트워크 의존 (미결정)
-> DB·Auth가 Supabase 클라우드 프로젝트라 1~12 모두 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 멈춘다. 대체 경로(로컬 Supabase CLI `pnpm db:start`로 대체, 사전 녹화 영상)는 **미결정**이다([[16-DECISIONS|16 ADR]] 미결정 표). 정해지기 전까지 데모 장소의 네트워크를 미리 확인한다. `live`·`fixture`는 회사 GPU 서버 터널도 필요하다.
+> DB·Auth가 Supabase 클라우드 프로젝트라 1~12 모두 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 멈춘다. 대체 경로(로컬 Supabase CLI `pnpm db:start`로 대체, 사전 녹화 영상)는 **미결정**이다([[16-DECISIONS|16 ADR]] 미결정 표). 정해지기 전까지 데모 장소의 네트워크를 미리 확인한다. `live`·`fixture`는 회사 GPU 추론 엔드포인트(HTTPS) 접속도 필요하다(ADR-025).
 
 1. Docker Desktop 실행, 인터넷 연결 확인. `docker info`가 Server 정보를 출력하면 통과.
 2. 실행 모드 확인과 env 준비: 시연 모드를 정하고 env 묶음을 고른다. `mock`은 `cp infra/env/demo.env.example infra/.env`, `live`·`fixture`는 `cp infra/env/ai-local.env.example infra/.env` 후 `SOL_RUN_MODE`를 맞춘다. placeholder를 실제 값으로 교체하고 `web/.env.local`과 루트 `.env.local`도 채운다(위 "env 파일 위치" 표). `pnpm check:env`가 "placeholder 0건"을 출력하고 모드 모순(예: `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)이 0건이면 통과. `infra/.env`의 `SOL_RUN_MODE` 줄을 `run-mode.txt`로 저장.
 3. Supabase 프로젝트 접근·마이그레이션 상태 확인: `pnpm db:verify`가 `✓ DB 연결·마이그레이션 N개·RLS 활성화·화면 역할 권한·뷰·함수 확인`을 출력하면 통과. `미적용 마이그레이션: …` 또는 연결 오류면 중단한다(당일에 `pnpm db:push`로 고치지 않는다).
 4. 서비스 기동.
    - `mock`: `docker compose -f infra/compose.yaml --profile demo up -d --build`.
-   - **[live·fixture]** ① 회사 GPU 서버의 `kev`·`qwen-runtime`이 떠 있는지 확인한다. ② 노트북에서 SSH 터널을 연결한다(`ssh -N -L 8001:127.0.0.1:8001 -L 8009:127.0.0.1:8009 <user>@<gpu-host>`). ③ 터널로 Kev `GET /v1/models`(Bearer)가 `jaredpalmer/kev-9b@v1.0`을, vLLM `GET /v1/models`가 `Qwen/Qwen3.5-9B`를 돌려주면 통과. 응답을 `tunnel-models.json`으로 저장. ④ `docker compose -f infra/compose.yaml up -d --build`(프로필 플래그 없이 기본 서비스만). gateway가 레지스트리 불일치로 기동을 거부하면 중단한다(`runs/smoke`로 대체된 Kev일 수 있다).
+   - **[live·fixture]** ① 회사 측 모델 기동 완료 통보(P3)를 확인한다. ② 노트북에서 엔드포인트 접속을 확인한다(G1: `GET https://acropolissg.com/sol-radar/healthz` 200 + TLS 유효, `-k` 금지. 위 "회사 GPU 추론 엔드포인트"의 curl). ③ Kev `GET /v1/models`(Bearer)가 `jaredpalmer/kev-9b@v1.0`을, vLLM `GET /v1/models`가 `Qwen/Qwen3.5-9B`를 돌려주면 통과. 응답을 `endpoint-models.json`으로 저장. ④ `docker compose -f infra/compose.yaml up -d --build`(프로필 플래그 없이 기본 서비스만). gateway가 레지스트리 불일치로 기동을 거부하면 중단한다(`runs/smoke`로 대체된 Kev일 수 있다).
    - 공통: `docker compose -f infra/compose.yaml ps`에서 기본 5개 서비스(redis·minio·qdrant·ai-gateway·worker) `healthy`. `ps` 출력을 `compose-ps.txt`로 저장.
 5. web 기동: `pnpm -C web start`(:3000). Compose `web`(선택)을 쓰면 4에서 함께 뜨고 `ps`에 `healthy`로 보인다.
 6. seed: `pnpm demo:reset` 마지막 줄이 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true` 형식인지 확인(사전 리뷰 2건은 FX-01, FX-03). 숫자가 다르면 중단. `live`에서 seed를 넣는 방법은 위 seed 절 todo.
 7. `curl -s http://localhost:3000/health/ready`: `status` ok, `checks.db`(Supabase)·`checks.redis`·`checks.storage`(MinIO) ok, `checks.ai`가 모드와 맞는지 본다(`mock` → `mock`, `live`·`fixture` → `local`). AI만 불가면 `status` degraded(HTTP 200)로 통과. db·redis·storage 중 하나라도 불가면 503 `status:"unavailable"`이므로 중단. 응답을 `health-ready.json`으로 저장. **[live·fixture]** gateway `GET /health`의 `runMode`가 2번에서 정한 모드이고 `kev.registryMatch=true`인지도 확인해 `gateway-health.json`으로 저장. 응답 형식은 [[05-API-SPEC|05 API]], `checks.ai` 의미는 [[14-OBSERVABILITY|14 관측성]].
 8. API 스모크: `org-01` 계정으로 Supabase Auth 비밀번호 로그인을 해 access token을 받는다(`supabase-js` `signInWithPassword` 또는 Auth REST `POST /auth/v1/token?grant_type=password`). `Authorization: Bearer <token>`으로 `GET /api/v1/bids` 19건(`live` 모드는 기본 필터가 `origin=live`라 fixture가 안 보이므로 `origin=demo`로 19건) → `POST /api/v1/bids/:id/analyses` 202 → poll이 10초 안에 `COMPLETED`(`mock` 기준, [[19-DEMO-SCENARIO|19 데모 시나리오]] S4·[[11-TESTING|11 테스트]] §5와 같은 값. 실모델 모드의 소요 시간은 리허설 실측값으로 판단). Bearer 요청은 CSRF 헤더 검사 대상이 아니다([[05-API-SPEC|05 API]]).
 9. 브라우저(폭 1440px, 줌 100%)에서 `/auth/login` → 머리말 "실행 모드: …"가 2번의 모드와 같은지, 우상단 `AI: mock`(또는 `live`·`fixture`면 `AI: local`, 분석 패널 "AI: local · Qwen3.5-9B · Kev-9B v1.0")과 DEMO 배지 확인 → 목록 19건(`live`는 `origin=demo` 필터), 격리 1건(FX-12)은 관리자 수집 현황에만 표시 → 상세 1건이 자격·점수·근거·Kev 참고 지표 영역까지 렌더. 화면 캡처를 `run-mode-header.png`로 저장.
-10. 장애 대체 리허설 (아래 "장애 주입" 절): `docker compose -f infra/compose.yaml stop ai-gateway` → FX-01 재분석 → 상세에 `PARTIAL` 배너, 우상단 `AI: unavailable` → `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` 확인 → FX-01 재분석 `COMPLETED`. **[live·fixture]** 터널 재연결도 한다: SSH 터널 프로세스를 끊는다 → FX-01 재분석이 `PARTIAL`·`RULES_ONLY`(`QWEN_UNAVAILABLE` 또는 `KEV_UNAVAILABLE`)로 끝나고 mock 결과가 나오지 않는지 확인 → 4번 ②의 명령으로 다시 연결하고 ③으로 확인 → FX-01 재분석 `COMPLETED`. 재연결 소요 시간을 기록한다.
+10. 장애 대체 리허설 (아래 "장애 주입" 절): `docker compose -f infra/compose.yaml stop ai-gateway` → FX-01 재분석 → 상세에 `PARTIAL` 배너, 우상단 `AI: unavailable` → `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` 확인 → FX-01 재분석 `COMPLETED`. **[live·fixture]** 엔드포인트 미접속 리허설도 한다(C1 ③ G6과 같은 경로): 엔드포인트 접속을 끊는다(예: `QWEN_BASE_URL`·`KEV_BASE_URL`을 닿지 않는 주소로 바꿔 ai-gateway 재시작, 또는 노트북 방화벽으로 `acropolissg.com` 차단) → FX-01 재분석이 `PARTIAL`·`RULES_ONLY`(`QWEN_UNAVAILABLE` 또는 `KEV_UNAVAILABLE`)로 끝나고 mock 결과가 나오지 않는지 확인 → 원래 값으로 되돌려 ai-gateway를 재시작하고 4번 ②·③의 curl로 재접속을 확인 → FX-01 재분석 `COMPLETED`. 재접속 확인 소요 시간을 기록한다.
 11. 테넌트 격리 리허설: `org-02` VIEWER(`viewer@other.invalid`)로 Supabase Auth 로그인해 받은 access token을 `Authorization: Bearer`로 붙여 `GET /api/v1/bids/{FX-01 id}/qualification-checks` → `404 NOT_FOUND`(RLS가 `org-01` 행을 보여 주지 않는다). 공고 자체(`GET /api/v1/bids/{FX-01 id}`)는 공용이라 200. 404 응답을 `isolation-404.json`으로 저장. 절차는 [[19-DEMO-SCENARIO|19 데모 시나리오]] S7.
-12. 리허설로 생긴 리뷰·알림 초기화: `pnpm demo:reset` (멱등, DEMO 데이터 재생성). 브라우저 탭 1개만 남긴다. **[live·fixture]** 터널이 연결된 상태인지 마지막으로 확인한다(4번 ③).
+12. 리허설로 생긴 리뷰·알림 초기화: `pnpm demo:reset` (멱등, DEMO 데이터 재생성). 브라우저 탭 1개만 남긴다. **[live·fixture]** 엔드포인트가 응답하는지 마지막으로 확인한다(4번 ②·③).
 
 > [!tip] 심사 포인트
-> 10번이 "AI가 죽어도 제품이 동작한다"의 증거다. 데모 중 실제로 ai-gateway를 내리고 PARTIAL 배너를 보여 준다. 실모델 모드에서는 터널을 끊어도 mock으로 몰래 바뀌지 않고 실패 유형이 그대로 보인다.
+> 10번이 "AI가 죽어도 제품이 동작한다"의 증거다. 데모 중 실제로 ai-gateway를 내리고 PARTIAL 배너를 보여 준다. 실모델 모드에서는 엔드포인트에 닿지 않아도 mock으로 몰래 바뀌지 않고 실패 유형이 그대로 보인다.
 
 ## D-1 리허설 추가 항목 (ADR-020)
 
 위 1~12에 더해 D-1에 한다. 결과는 `docs/evidence/demo-day/rehearsal-log.md`에 날짜·소요 시간·실패 단계와 함께 적는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
 - **세 모드 전환**: `live` → `fixture` → `mock` 순서로 env의 `SOL_RUN_MODE`를 바꾸고 worker·ai-gateway를 재시작한다. 모드마다 머리말 "실행 모드", 우상단 `AI: …`, 새로 적재되는 공고의 DEMO 배지, gateway `/health`의 `runMode`를 확인한다. 전환 소요 시간을 기록한다.
 - **모순 env 거부**: `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`로 `pnpm check:env`와 gateway가 기동을 거부하는지 본다.
-- **터널 단절과 재연결**: 기동 절차 10번의 터널 단계를 반복하고 재연결 소요 시간을 잰다. 회사 GPU 서버 쪽 런타임 재시작(예: `kev` 컨테이너 재시작) 뒤 gateway `/health`의 `kev.registryMatch`가 다시 `true`인지도 본다.
+- **엔드포인트 미접속과 재접속 확인**: 기동 절차 10번의 엔드포인트 단계를 반복하고 재접속 확인(`GET /v1/models` curl) 소요 시간을 잰다. 회사 측이 런타임을 재시작했다고 알려 오면 gateway `/health`의 `kev.registryMatch`가 다시 `true`인지도 본다.
 - **live 호출 예산**: 리허설의 공공 API 호출 수가 일일 한도(개발계정 서비스당 1,000건/일) 안인지 관리자 수집 화면으로 확인한다([[07-DATA-PIPELINE|07 수집]]).
 
 ## 장애 주입 (데모 S6)
@@ -240,9 +246,11 @@ Kev-9B 추론 메모리는 모델 카드 21.9 GB, README 약 17 GB로 문서마�
 |주입|`docker compose -f infra/compose.yaml stop ai-gateway`|Worker의 `/kev` 호출이 연결 거부로 즉시 실패(재시도 없음). FX-01 재분석이 1~2초 안에 `PARTIAL`, `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 상세 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY\|09 보안]] 원문), 우상단 `AI: unavailable`, `/health/ready` `status: degraded`, `checks.ai: unavailable`|
 |복구|`docker compose -f infra/compose.yaml start ai-gateway` → `docker compose -f infra/compose.yaml ps`에서 ai-gateway `healthy`|FX-01 재분석 `COMPLETED`, 우상단 `AI: mock`(실모델 모드는 `AI: local`). 분석 1건으로는 circuit이 열리지 않으므로 대기 시간 없음|
 
-후보 (b) `AI_FAULT_INJECT` env 토글은 컨테이너 재시작이 필요하고 (c) mock adapter의 장애 fixture는 "실제로 꺼졌다"는 인상이 약하다. 둘은 테스트([[11-TESTING|11 테스트]] 골든 시나리오 `G6`)에서만 쓴다. `AI_FAULT_INJECT` 값(`kev_timeout`·`qwen_error`·`qwen_unreachable`·`kev_unreachable`·`gateway_down`)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §3. 실모델 모드의 터널 단절은 장애 주입 장면이 아니라 리허설 항목이다(기동 절차 10번).
+후보 (b) `AI_FAULT_INJECT` env 토글은 컨테이너 재시작이 필요하고 (c) mock adapter의 장애 fixture는 "실제로 꺼졌다"는 인상이 약하다. 둘은 테스트([[11-TESTING|11 테스트]] 골든 시나리오 `G6`)에서만 쓴다. `AI_FAULT_INJECT` 값(`kev_timeout`·`qwen_error`·`qwen_unreachable`·`kev_unreachable`·`gateway_down`)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §3. 실모델 모드의 엔드포인트 미접속은 장애 주입 장면이 아니라 리허설 항목이다(기동 절차 10번).
 
 ## Kev 컨테이너 주의
+
+이 절의 컨테이너·entrypoint는 회사 GPU 서버용 **참고 스케치**이고 `infra/compose.gpu.yaml`에 넣지 않았다(빌드 검증 전). 회사 GPU 서버에서는 `kev.serve`를 호스트에 직접 띄운다. 모델 런타임 기동과 가중치 sha256 대조는 회사 측이 하고, 우리가 기동하지 않는다([[16-DECISIONS|ADR-025]]). gateway 쪽 레지스트리 대조는 그대로 우리가 한다.
 > [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev)
 > - 소스에서 설치한다. `pip install kev`는 무관한 ORM 패키지다.
 > - Python 3.12 또는 3.13 + uv.
@@ -285,11 +293,11 @@ CMD ["sh", "-c", "uv run --extra serve python -m kev.serve --run ${KEV_RUN} --po
 > - CUDA 베이스 이미지가 필요한지(torch wheel에 CUDA 런타임 포함 여부)는 빌드 시 확인.
 > - `uv sync --extra serve`가 lockfile 기준으로 재현되는지(`--frozen` 필요 여부) 빌드 시 확인.
 > - GitHub 태그 `kev-1.0` 소스가 `kev-9b@v1.0` 가중치와 맞는지, 아니면 main `1f04cfa`를 고정해야 하는지 빌드 시 확인.
-> - 첫 기동 시 가중치 다운로드 시간은 미측정. `start-period` 600초는 추정값이며 `ai-local` 첫 기동에서 실측해 조정한다.
-> - `KEV_API_KEY`를 켜면 healthcheck의 `/v1/models` 요청에도 `Authorization` 헤더가 필요한지 첫 기동에서 확인한다.
-> - Kev-9B VRAM은 문서마다 다르다(21.9 GB vs 약 17 GB). `ai-local` 첫 기동에서 `nvidia-smi` 값을 기록한다.
+> - 첫 기동 시 가중치 다운로드 시간은 미측정. `start-period` 600초는 추정값이다. 기동은 회사 측이 하므로 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"로 남긴다(ADR-025).
+> - `KEV_API_KEY`를 켜면 healthcheck의 `/v1/models` 요청에도 `Authorization` 헤더가 필요한지는 회사 측 확인 사항이다. 우리는 엔드포인트 `GET /v1/models`에 Bearer 키를 붙여 확인한다(C1 ③ G2).
+> - Kev-9B VRAM은 문서마다 다르다(21.9 GB vs 약 17 GB). `nvidia-smi` 실측은 회사 측 몫이다. 회사가 주는 값이 있으면 기록한다(C1 ③ G5, ADR-025).
 
-## 샘플 GPU override 방향
+## 샘플 GPU override 방향 (참고 스케치, `compose.gpu.yaml` 미포함)
 ```yaml
 services:
   kev:
@@ -313,7 +321,7 @@ services:
               count: 1
               capabilities: [gpu]
 ```
-이것은 배포용 완성 Compose가 아닌 **요구 명세 예시**다. GPU 장수와 배분은 위 "GPU 메모리 배분"을 따른다. 실제 구현에서는 kev container entrypoint/모델 토큰/캐시 경로를 공식 repo 기준으로 구축하고 버전을 pin한다.
+이것은 배포용 완성 Compose가 아닌 **요구 명세 예시**이고, 실제 `infra/compose.gpu.yaml`에는 들어 있지 않다(모델 라우터만 있다. 두 런타임 컨테이너는 빌드 검증 전). 회사 GPU 서버용 참고 스케치라 우리가 기동하지 않는다([[16-DECISIONS|ADR-025]]). `ports`의 `127.0.0.1` 바인딩은 모델 라우터(`127.0.0.1:8080`)가 같은 호스트에서 넘겨받는 전제와는 맞지만, 회사 측 구성에 맞게 회사가 바꾼다. GPU 장수와 배분은 위 "GPU 메모리 배분"대로 회사 측 결정이다. kev container entrypoint/모델 토큰/캐시 경로는 공식 repo 기준으로 구축하고 버전을 pin한다.
 
 ## 운영
 - Compose 서비스: healthcheck, restart policy, log rotation, 비root 실행(MinIO UID 65532, qdrant `-unprivileged` 태그), 포트는 외부 인터페이스에 열지 않는다, 볼륨(redisdata·qdrantdata·miniodata) 백업 및 복구 리허설. 서비스 시작 시 Supabase·Redis readiness 확인, 무한 재시작 대신 명확한 오류 출력.
@@ -339,4 +347,4 @@ services:
 - [[16-DECISIONS|16 ADR]]
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]
 - [[19-DEMO-SCENARIO|19 데모 시나리오]]
-- [[21-MODEL-TRAINING|21 모델 학습]] — 회사 GPU 서버의 평가·LoRA 메모리 검증, 레지스트리 반입
+- [[21-MODEL-TRAINING|21 모델 학습]] — 평가(노트북에서 엔드포인트 접속)·LoRA 메모리 검증(회사 측 실행 요청), 레지스트리 반입

@@ -1,0 +1,10 @@
+{
+  "status": "ok",
+  "runMode": "mock",
+  "provider": "mock",
+  "kevEnabled": true,
+  "qwen": null,
+  "kev": null,
+  "questionSets": [],
+  "parsers": []
+}

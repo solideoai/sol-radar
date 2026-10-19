@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - glossary
-updated: 2026-10-18
+updated: 2026-10-19
 ---
 
 # 20. 용어집
@@ -187,7 +187,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 오류 원인 코드 | 오답의 원인 단계. `PARSE`·`EXTRACTION`·`TRANSLATION`·`STATE`·`RULE`·`LABEL`·`MODEL`. `MODEL`이 주된 원인일 때만 파인튜닝 검토 | [[21-MODEL-TRAINING]] |
 | E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어, E2 Kev-9B 한국어, E3 Qwen 분류(선택), E4 Kev-9B+LoRA(후속). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
 | fixture 배치 `live` vs 실행 모드 `live` | fixture 두 번째 배치(`batch:"live"`, 데모 S5 변경분)와 실제 공공 API 실행 모드(`SOL_RUN_MODE=live`)는 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH` | [[19-DEMO-SCENARIO]] |
-| P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 터널·파서 비교 | [[12-ROADMAP]] |
+| P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속·파서 비교 | [[12-ROADMAP]] |
 
 ## 사이드바·업무 확장 용어 (ADR-021)
 
@@ -204,6 +204,14 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 입찰 프로젝트 | BID 결정 뒤 제안 준비·제출·결과 확인을 관리하는 단위(P1). 사람 결정의 정본은 여전히 `bid_reviews`다 | [[04-DATABASE]] |
 | 체크리스트 | 입찰 프로젝트에 묶인 작업. 템플릿 `tasks`에 `bid_project_id`를 더해 쓴다(P1) | [[04-DATABASE]] |
 | ADR-021 P1 | [[12-ROADMAP]] "있으면 좋음" 최상단에 둔 해커톤 기간 기능. [[01-PRD]]의 P1(해커톤 이후)과 다르다 | [[16-DECISIONS]] |
+
+## 회사 GPU 추론 엔드포인트 용어 (ADR-025)
+
+| 용어 | 뜻 | 원천 |
+|---|---|---|
+| 회사 GPU 추론 엔드포인트 | 회사가 HTTPS로 제공하는 모델 런타임 접속점 `https://acropolissg.com/sol-radar`(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0). 데모 노트북의 ai-gateway(`AI_PROVIDER=local`)가 `QWEN_BASE_URL`·`KEV_BASE_URL`과 API 키(`QWEN_API_KEY`·`KEV_API_KEY`, `infra/.env`에만)로 붙는다. 회사 GPU 서버는 외부 접근 불가라 SSH 터널·`127.0.0.1` 바인딩·`host.docker.internal` 전제는 폐기. 모델 기동·GPU 배분·실측은 회사 운영. 경로(`/qwen`·`/kev`)는 회사 확인 전 가정이고 2026-10-19 기준 응답 미검증 | [[16-DECISIONS\|ADR-025]], [[10-DEPLOYMENT]] |
+| 엔드포인트 미접속 | `live`·`fixture`에서 gateway는 살아 있는데 회사 GPU 추론 엔드포인트에 닿지 않는 상태(옛 표현 "터널 단절"). `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. mock 결과로 몰래 바꾸지 않고, 필요하면 사람이 `mock` 모드로 전환 | [[19-DEMO-SCENARIO]], [[03-AI-PIPELINE]] |
+| 엔드포인트 재접속 확인 | 미접속 뒤 `GET /v1/models`로 Qwen·Kev 응답과 레지스트리 대조를 다시 확인하는 것(옛 표현 "터널 재연결"). 리허설에서 소요 시간을 `rehearsal-log.md`에 적는다 | [[11-TESTING]] |
 
 ## 관련 문서
 

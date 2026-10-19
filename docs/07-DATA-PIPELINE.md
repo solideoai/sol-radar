@@ -89,7 +89,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 
 ### 2.1 인터페이스와 구현체
 
-외부 의존성은 인터페이스로 떼어 낸다. 서비스키나 회사 GPU가 아직 없어도 나머지를 개발할 수 있게 하려는 것이다([[16-DECISIONS|ADR-020]]). 같은 인터페이스로 fixture 경로와 live 경로를 함께 만든다.
+외부 의존성은 인터페이스로 떼어 낸다. 서비스키나 회사 GPU 추론 엔드포인트가 아직 없어도 나머지를 개발할 수 있게 하려는 것이다([[16-DECISIONS|ADR-020]]). 같은 인터페이스로 fixture 경로와 live 경로를 함께 만든다.
 
 | 인터페이스 | 구현체 | 조건 | 동작 |
 |---|---|---|---|
@@ -115,7 +115,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 | 업종 및 근거법규 (15129467) | `G2B_INDUSTRY_MASTER_SERVICE_KEY` | `g2b-industry-master` |
 
 - 네 env는 worker의 `infra/.env`에만 둔다([[10-DEPLOYMENT|10 배포]] env 표). 네 값이 같아도 env를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있게 하기 위해서다.
-- 값은 data.go.kr 일반 인증키 중 Decoding 키(인코딩 전 원문)를 넣는다. Connector가 요청을 만들 때 한 번만 URL 인코딩한다. Encoding 키를 넣으면 두 번 인코딩될 수 있다. 실제 호출 확인은 P0-0이다.
+- 값은 data.go.kr 포털이 제공하는 일반 인증키의 Encoding 키(URL 인코딩된 값)를 그대로 넣는다(2026-10-19 사용자 확인: 포털은 Encoding 키만 제공). worker의 `readG2bServiceKey`(`web/worker/env.ts`)가 `decodeURIComponent`로 한 번 디코딩해 Decoding 키로 만들고, Connector는 요청을 만들 때 그 값을 한 번만 URL 인코딩한다. Decoding 키(`%`가 없는 원문)를 넣어도 디코딩이 값을 바꾸지 않아 결과는 같다. 실제 호출 확인은 P0-0이다.
 - 공통 파라미터: `serviceKey`(그 서비스의 env 값, 서버 전용·로그 금지), `type=json`, `pageNo`, `numOfRows=100`.
 - 공고 목록 조회(`getBidPblancListInfoServc`)
   - 신규: `inqryDiv=1`(등록일시)
@@ -139,7 +139,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 서비스키 발급 전: 공식 참고문서의 응답 예시로 `OfficialApiConnector` 계약 시험을 만든다. 시험 데이터와 시험 이름에 "공식 참고문서 예시"라고 표시하고, 실제 응답이라고 쓰지 않는다.
 - 서비스키 발급 뒤(ADR-020 P0-0·P0-2): 오퍼레이션별 실제 응답 3건으로 바꾸고 `RecordedApiConnector`로 재생한다. 경로는 registry `sampleResponses`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)에 적는다.
 - 실제 응답에는 담당자 이름·전화·이메일이 있다. 저장소에 두는 사본은 담당자 필드를 빼거나 마스킹하고, 서비스키가 든 요청 URL은 남기지 않는다. 원본은 사설 MinIO에만 둔다([[09-SECURITY|09 보안]], [[11-TESTING|11 테스트]]).
-- 회사 GPU가 없을 때의 AI 쪽 개발(mock과 wire 계약 시험)은 [[03-AI-PIPELINE|03 AI 파이프라인]].
+- 회사 GPU 추론 엔드포인트가 없을 때의 AI 쪽 개발(mock과 wire 계약 시험)은 [[03-AI-PIPELINE|03 AI 파이프라인]].
 
 ### 2.4 첨부 다운로드 (`AttachmentFetcher`)
 
