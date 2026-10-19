@@ -141,7 +141,7 @@ interface EvalItem {
 
 ### 4.1 하네스
 
-- 위치: `services/ai/eval/`(Python, `uv run python -m sol_eval …`). 노트북에서 회사 GPU 추론 엔드포인트(Kev 는 `KEV_BASE_URL` 직접, 또는 평가용 gateway URL)에 붙여 돌린다([[16-DECISIONS|ADR-025]]). E4 는 `https://acropolissg.com/sol-radar/kev-lora` 에 붙고, 실행 전에 `GET /v1/models` 를 레지스트리 평가 전용 항목과 대조해 다르면 실행하지 않는다([[16-DECISIONS|ADR-027]]. 라우터 경로는 X6e 전에 더한다).
+- 위치: `services/ai/eval/`(Python, `uv run python -m sol_eval …`). 노트북에서 회사 GPU 추론 엔드포인트(Kev 는 `KEV_BASE_URL` 직접, 또는 평가용 gateway URL)에 붙여 돌린다([[16-DECISIONS|ADR-025]]). E4 는 엔드포인트에 붙지 않는다. 회사가 서버 안에서 `kev.benchmark`(`--rotations 6`)로 채점한 출력 폴더(`rows.json`·`predictions.jsonl`·`report.json`)를 받아 `sol_eval` 이 오프라인으로 지표를 내고, 실행 전에 `report.json` 의 체크포인트 id·test 파일 sha256 을 번들 manifest 와 대조한다([[16-DECISIONS|ADR-027]] 10번 개정, [[23-WEEKEND-FINETUNE|23]] §2.2). 요청당 지연은 E4 에서 재지 않는다.
 - 결과: `report.json`·`report.md`. 숫자 요약만 `docs/evidence/eval/` 에 둔다. 실제 RFP 원문은 증거 폴더에 넣지 않는다.
 - Kev 지표는 `kev.benchmark --data` 를 감싸서 낸다(acc·nll·brier·ece·selective 등, 보정 전후). 체크포인트 비교는 `kev.compare --candidate --reference`(같은 데이터 해시끼리 짝지은 부트스트랩)로 한다.
 
