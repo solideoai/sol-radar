@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "company-profile/v0.1",
+  "orgSlug": "org-01",
+  "revision": 2,
+  "name": "솔리데오",
+  "isDemo": true,
+  "technologies": [
+    { "name": "Java" },
+    { "name": "Spring Boot" },
+    { "name": "전자정부 표준프레임워크" },
+    { "name": "NestJS" },
+    { "name": "Next.js" },
+    { "name": "PostgreSQL" },
+    { "name": "Kubernetes" },
+    { "name": "RAG/LLM 적용" }
+  ],
+  "technologiesComplete": true,
+  "licenses": [
+    { "code": "SW_BUSINESS_REG", "name": "소프트웨어사업자 신고확인서", "status": "HELD" },
+    { "code": "DIRECT_PRODUCTION", "name": "직접생산확인증명서(소프트웨어개발)", "status": "HELD" },
+    { "code": "SME_CONFIRMATION", "name": "중소기업확인서(중기업)", "status": "HELD" },
+    { "code": "ISO_27001", "name": "ISO 27001", "status": "HELD" },
+    { "code": "CMMI_L3", "name": "CMMI L3", "status": "HELD" },
+    { "code": "ICT_CONSTRUCTION", "name": "정보통신공사업 등록", "status": "NOT_HELD" },
+    { "code": "DEFENSE_CONTRACTOR", "name": "방산업체 지정", "status": "NOT_HELD" },
+    { "code": "ISMS_P", "name": "ISMS-P", "status": "NOT_HELD" },
+    { "code": "CSAP", "name": "CSAP", "status": "NOT_HELD" }
+  ],
+  "industryCodes": [],
+  "pastProjects": [
+    {
+      "id": "P1",
+      "name": "지자체 민원 시스템 고도화",
+      "domain": "민원",
+      "amountKrw": "1200000000",
+      "completedAt": "2024-11-30",
+      "evidenceRef": "company-evidence/P1-completion-certificate"
+    },
+    {
+      "id": "P2",
+      "name": "공공기관 데이터 플랫폼 구축",
+      "domain": "데이터 플랫폼",
+      "amountKrw": "2800000000",
+      "completedAt": "2024-03-31",
+      "evidenceRef": "company-evidence/P2-completion-certificate"
+    },
+    {
+      "id": "P3",
+      "name": "교육기관 AI 챗봇 PoC",
+      "domain": "교육",
+      "amountKrw": "300000000",
+      "completedAt": "2025-09-30",
+      "evidenceRef": "company-evidence/P3-completion-certificate"
+    }
+  ],
+  "financials": {
+    "fiscalYear": 2025,
+    "annualRevenueKrw": "18000000000",
+    "employeeCount": 200,
+    "maxContractKrw": "5000000000"
+  },
+  "preferences": {
+    "agencies": [],
+    "agencyTypes": ["지자체", "교육청"],
+    "domains": ["데이터 플랫폼", "AX", "민원", "교육"],
+    "excludedDomains": ["국방"],
+    "excludedKeywords": ["무기체계"]
+  }
+}
