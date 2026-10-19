@@ -3,8 +3,10 @@ import { KEV_DISCLAIMER, companyProfileSchema, type MissingReason } from "@/serv
 import type { Database, Json } from "@/lib/database.types";
 import { toExtractionRecord, type AnalysisRunRecord } from "./analysis.model";
 import { AnalysisInputError, runAnalysis } from "./analysis.service";
+import type { PreanalyzeRunInput } from "./preanalyze.model";
 import {
   EMPTY_ATTACHMENT_READER,
+  isOwnPreanalyzeRun,
   toExtractSource,
   toExtractionRow,
   toFailedUpdate,
@@ -138,6 +140,21 @@ describe("toLoadedContext · score_runs 행", () => {
   it("queuedAt 은 queued_at(PostgREST 의 +00:00 모양)을 ISO(Z)로 바꾼 값이다", () => {
     expect(baseRows().scoreRun.queued_at).toBe(toPostgrestTimestamp(QUEUED_AT));
     expect(toLoadedContext(baseRows()).queuedAt).toBe(QUEUED_AT);
+  });
+
+  // started_at 은 markRunning·markFailed 의 쓰기 조건(compare-and-set)이다. Date 로 바꾸면 마이크로초가 버려져 조건이 맞지 않는다.
+  it("startedAt 은 started_at 원문 그대로다(마이크로초·오프셋을 바꾸지 않는다)", () => {
+    const raw = "2026-10-16T09:00:00.123456+00:00";
+    const rows = rowsWith((draft) => {
+      draft.scoreRun.status = "RUNNING";
+      draft.scoreRun.started_at = raw;
+    });
+    expect(toLoadedContext(rows).startedAt).toBe(raw);
+  });
+
+  it("started_at 이 null(QUEUED)이면 startedAt 도 null 이다", () => {
+    expect(baseRows().scoreRun).toHaveProperty("started_at", null);
+    expect(toLoadedContext(baseRows()).startedAt).toBeNull();
   });
 
   it.each(["QUEUED", "RUNNING", "COMPLETED", "PARTIAL", "FAILED"])(
@@ -677,7 +694,62 @@ describe("toExtractionRow", () => {
   });
 });
 
+// ── 사전 분석: 다시 읽은 run 이 이 사전 분석이 넣은 run 인가 ──
+// ensureQueuedRun 은 idempotency_key 충돌이면 넣지 않고 그 키로 다시 읽는다. 같은 키의 run 을 화면 사용자가 먼저 넣었거나
+// (requested_by 있음) 다른 공고·revision·프로필의 run 이면 사전 분석의 run 이 아니다. 그런 run 을 큐에 넣지 않는다.
+
+describe("isOwnPreanalyzeRun", () => {
+  const FX01 = seedBid("FX-01");
+  const OTHER_UUID = "9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f";
+  const INPUT: PreanalyzeRunInput = {
+    orgId: ORG_ID,
+    bidId: FX01.notice.id,
+    revisionId: FX01.revision.id,
+    companyProfileId: SEED_PROFILE.id,
+    profileRevision: SEED_PROFILE.revision,
+    extractionId: FX01.extraction.id,
+    idempotencyKey: `${ORG_ID}:demo-pre-FX-01-r01`,
+  };
+  type ReadRow = {
+    id: string;
+    status: string;
+    requested_by: string | null;
+    bid_id: string;
+    revision_id: string;
+    company_profile_id: string;
+  };
+  const ownRow = (): ReadRow => ({
+    id: RUN_ID,
+    status: "QUEUED",
+    requested_by: null,
+    bid_id: INPUT.bidId,
+    revision_id: INPUT.revisionId,
+    company_profile_id: INPUT.companyProfileId,
+  });
+
+  it("requested_by 가 null 이고 bid_id·revision_id·company_profile_id 가 입력과 같으면 true 다", () => {
+    expect(isOwnPreanalyzeRun(ownRow(), INPUT)).toBe(true);
+  });
+
+  it("이미 끝난 run(COMPLETED)이어도 입력이 같으면 true 다(상태는 보지 않는다)", () => {
+    expect(isOwnPreanalyzeRun({ ...ownRow(), status: "COMPLETED" }, INPUT)).toBe(true);
+  });
+
+  it.each<[string, Partial<ReadRow>]>([
+    ["requested_by 가 있다(화면 사용자가 넣은 run)", { requested_by: OTHER_UUID }],
+    ["bid_id 가 다르다", { bid_id: OTHER_UUID }],
+    ["revision_id 가 다르다", { revision_id: OTHER_UUID }],
+    ["company_profile_id 가 다르다", { company_profile_id: OTHER_UUID }],
+  ])("%s 면 false 다", (_label, patch) => {
+    expect(isOwnPreanalyzeRun({ ...ownRow(), ...patch }, INPUT)).toBe(false);
+  });
+});
+
 // ── 쓰기: score_runs 상태 ──
+
+// markRunning·markFailed 입력의 expected(읽은 run 상태)는 쓰기 조건이라 갱신 본문에 싣지 않는다.
+const QUEUED_CLAIM = { status: "QUEUED", startedAt: null } as const;
+const RUNNING_CLAIM = { status: "RUNNING", startedAt: "2026-10-16T09:00:00.000Z" } as const;
 
 describe("toRunningUpdate · toFailedUpdate", () => {
   it("markRunning 입력을 RUNNING·started_at·run_mode·ai_provider(대문자)로 옮긴다", () => {
@@ -688,6 +760,7 @@ describe("toRunningUpdate · toFailedUpdate", () => {
         runMode: "fixture",
         aiProvider: "local",
         startedAt: "2026-10-16T09:00:00.000Z",
+        expected: QUEUED_CLAIM,
       }),
     ).toEqual({
       status: "RUNNING",
@@ -708,6 +781,7 @@ describe("toRunningUpdate · toFailedUpdate", () => {
       runMode,
       aiProvider: "mock",
       startedAt: "2026-10-16T09:00:00.000Z",
+      expected: QUEUED_CLAIM,
     });
     expect(update.run_mode).toBe(column);
   });
@@ -719,6 +793,7 @@ describe("toRunningUpdate · toFailedUpdate", () => {
         scoreRunId: RUN_ID,
         errorCode: "ANALYSIS_JOB_FAILED",
         finishedAt: "2026-10-16T09:00:05.000Z",
+        expected: RUNNING_CLAIM,
       }),
     ).toEqual({
       status: "FAILED",

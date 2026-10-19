@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: project.title,
   description: project.description,
   // metadataBase 는 아직 두지 않는다 — 배포 주소를 받는 env 도, 절대 주소가 필요한 칸도 없다. og 이미지·canonical 을
-  // 상대 경로로 쓰기 시작하면 넣는다. 없으면 Next 가 http://localhost:3000 을 붙인다(Vercel 은 og 이미지만 운영 주소로 채운다).
+  // 상대 경로로 쓰기 시작하면 넣는다. 없으면 Next 가 http://localhost:3000 을 붙인다. 배포처는 미결정이다(docs/16-DECISIONS.md 미결정 8번).
 };
 
 export default async function RootLayout({

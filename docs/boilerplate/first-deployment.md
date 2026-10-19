@@ -1,5 +1,8 @@
 # 첫 배포 안내
 
+> [!warning] 보류 문서 (2026-10-19)
+> 웹 배포처가 아직 정해지지 않아([16 ADR](../16-DECISIONS.md) 미결정 8번) 이 문서는 보류 상태입니다. 아래 본문이 가리키는 `pnpm vercel-build`(`web/package.json`)·`web/scripts/vercel-build.sh`·`web/scripts/verify-db.mjs` 는 2026-10-19 에 지웠습니다(해당 줄에 "삭제됨" 표시). 배포처가 정해지면 다시 만들고 이 문서를 그때 고칩니다. 나머지 본문은 템플릿 원문 그대로입니다. 서비스 실행은 [10 배포](../10-DEPLOYMENT.md)(Docker Compose)가 우선입니다.
+
 이 문서는 웹(Vercel)의 **첫 배포를 사람이 직접 설정하는 순서**입니다. 시작 순서와 로컬 실행은
 [README](../../README.md) 에 있습니다. 이 저장소의 시험은 아래 설정 파일과 빌드 스크립트의 연결만 확인합니다.
 실제 Vercel 배포는 이 저장소가 대신 하거나 통과를 보장하지 않습니다.
@@ -51,14 +54,14 @@ Vercel 에서 저장소를 가져온 뒤 프로젝트 설정(Build and Deploymen
 | Root Directory | `web` | 루트와 `web` 은 workspace 가 아닌 독립 프로젝트입니다 |
 | Root Directory 밖 파일 포함 | 켬 | 아래 설명 |
 | Install Command | `pnpm install --frozen-lockfile` | `web/pnpm-lock.yaml` 과 다르면 설치를 멈춥니다 |
-| Build Command | `pnpm vercel-build` | 운영 DB 검사 뒤에 빌드하는 wrapper 를 부릅니다 |
+| Build Command | `pnpm vercel-build` (삭제됨, 위 콜아웃) | 운영 DB 검사 뒤에 빌드하는 wrapper 를 부릅니다 |
 | Node.js Version | 22.x | `.nvmrc` 와 같은 메이저 |
 
 - **Node.js Version 은 프로젝트 설정에서 22.x 로 둡니다.** `web/package.json` 에 `engines` 를 넣으면 Vercel 이 이 설정을 덮고
   범위 안의 가장 높은 메이저(24)를 고르므로 넣지 않습니다(템플릿 원본의 `scripts/template/doctor.test.mjs` 가 지킵니다). 루트의 `engines` 는 Vercel 이 읽지 않습니다.
 - **Build Command 를 꼭 `pnpm vercel-build` 로 둡니다.** [`web/package.json`](../../web/package.json) 의 `vercel-build` 가
-  [`web/scripts/vercel-build.sh`](../../web/scripts/vercel-build.sh) 를 실행합니다. 다른 명령으로 빌드하면 아래 운영 DB 검사를 건너뜁니다.
-- **Root Directory 밖 파일 포함**: 운영 DB 검사 [`web/scripts/verify-db.mjs`](../../web/scripts/verify-db.mjs) 는 `web` 밖의
+  [`web/scripts/vercel-build.sh`](../../web/scripts/vercel-build.sh) 를 실행합니다(둘 다 삭제됨, 위 콜아웃). 다른 명령으로 빌드하면 아래 운영 DB 검사를 건너뜁니다.
+- **Root Directory 밖 파일 포함**: 운영 DB 검사 [`web/scripts/verify-db.mjs`](../../web/scripts/verify-db.mjs)(삭제됨, 위 콜아웃) 는 `web` 밖의
   [`scripts/db-verify.mjs`](../../scripts/db-verify.mjs)·`scripts/migrations.mjs` 와 `supabase/migrations/` 를 읽습니다.
   Root Directory 밖 소스를 빌드에 포함하는 설정이 켜져 있는지 확인합니다.
   근거: [Vercel 모노레포 FAQ](https://vercel.com/docs/monorepos/monorepo-faq). 이 설정 때문에 두 폴더를 workspace 로 바꾸지는 않습니다.
@@ -109,7 +112,7 @@ Preview 에 운영 DB 값을 그대로 넣지 말고, 넣는다면 별도 개발
 
 ### 운영 DB 검사(배포 게이트)가 하는 일
 
-운영 빌드이고 위 세 값 중 하나라도 있으면 wrapper 가 **빌드 전에** `node scripts/verify-db.mjs` 를 실행합니다.
+운영 빌드이고 위 세 값 중 하나라도 있으면 wrapper 가 **빌드 전에** `node scripts/verify-db.mjs` 를 실행합니다(삭제됨, 위 콜아웃).
 
 1. `SUPABASE_DB_URL` 로 TLS 인증서를 검증하며 접속하고, 읽기 전용 트랜잭션에서만 확인합니다. 값이 없으면 접속하지 않고 실패합니다.
    별도 CA 가 필요하면 `NODE_EXTRA_CA_CERTS` 로 줍니다.

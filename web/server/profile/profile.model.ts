@@ -82,6 +82,7 @@ export type DeleteAccountResult =
   | { status: "deleted" }
   | { status: "signed-out" }
   | { status: "sole-owner" }
+  | { status: "sole-admin" }
   | { status: "suspended" };
 
 export type EmploymentResult =

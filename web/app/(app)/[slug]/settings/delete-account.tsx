@@ -27,6 +27,8 @@ const deleteFailure = (status: Exclude<DeleteAccountResult["status"], "deleted">
   switch (status) {
     case "sole-owner":
       return "다른 멤버가 있는 팀의 유일한 소유자라 탈퇴할 수 없습니다. 그 팀 설정의 멤버 화면에서 다른 멤버를 소유자로 바꾸거나 팀을 나간 뒤 다시 시도해 주세요.";
+    case "sole-admin":
+      return "조직의 마지막 관리자라 탈퇴할 수 없습니다. 다른 구성원에게 ADMIN 역할을 부여한 뒤 다시 시도해 주세요.";
     case "suspended":
       return "정지된 계정이라 탈퇴할 수 없습니다.";
     case "signed-out":

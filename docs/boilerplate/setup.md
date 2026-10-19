@@ -47,7 +47,7 @@ PowerShell·cmd 에서는 `bash` 가 잡히지 않거나 WSL 의 bash 가 잡혀
 
 Node 범위(`^22.13.0 || ^24.3.0`)는 루트 `package.json` 에 적은 LTS 두 줄이고, Next 16(`>=20.9.0`)이 받는 범위 안입니다.
 `.nvmrc`(22)는 CI·배포가 쓰는 고정값이라 Node 24 로 돌리면 doctor 가 경고만 합니다. `web` 에 범위를 적지 않는 이유는
-[첫 배포 안내](first-deployment.md#2-웹--vercel) 에 있습니다.
+[첫 배포 안내](first-deployment.md#2-웹--vercel)(보류 문서 — 배포처 미결정, 16 ADR 미결정 8번) 에 있습니다.
 
 ## 시작하기
 

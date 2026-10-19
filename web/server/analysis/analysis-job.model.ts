@@ -111,7 +111,28 @@ export type LoadedAnalysisContext = Pick<
   /** score_runs.idempotency_key */
   idempotencyKey: string | null;
   status: ScoreRunStatus;
+  /**
+   * score_runs.started_at 을 PostgREST 가 준 문자열 그대로(마이크로초·오프셋 포함). QUEUED 면 null 이다.
+   * run 잡기·닫기의 쓰기 조건이라 Date 로 바꾸지 않는다(바꾸면 마이크로초가 버려져 조건이 맞지 않는다).
+   */
+  startedAt: string | null;
 };
+
+/** 읽은 시점의 run 상태. markRunning·markFailed 가 쓰기 조건(compare-and-set)으로 건다. */
+export type RunClaim = { status: "QUEUED" | "RUNNING"; startedAt: string | null };
+
+/**
+ * markRunning 이 쓸 started_at(시도 식별자). 앞 시도의 started_at(원문)이 없으면 now 이고, 있으면
+ * max(now, 앞 값의 밀리초 + 1ms) 다. 새 식별자는 앞 식별자보다 늘 커서 같은 밀리초에 다시 잡아도 값이 겹치지 않는다.
+ * 앞 값은 마이크로초까지 올 수 있다. Date.parse 가 밀리초 아래를 버리므로 그 값 + 1ms 는 원문보다 늘 늦다.
+ */
+export function nextAttemptStartedAt(now: Date, previous: string | null): string {
+  if (previous === null) return now.toISOString();
+  const previousMs = Date.parse(previous);
+  // DB 의 timestamptz 원문이라 읽지 못하면 안 된다. 값은 싣지 않는다.
+  if (Number.isNaN(previousMs)) throw new Error("analysis 오류: started_at INVALID");
+  return new Date(Math.max(now.getTime(), previousMs + 1)).toISOString();
+}
 
 /** 캐시 추출 재사용 키의 모델 쪽(03 §2.1). gateway /health 의 qwen. 모르면 null(→ loader 는 그 revision 의 가장 최근 성공 행). */
 export type ExtractionCacheKey = { modelName: string; promptHash: string } | null;
@@ -124,25 +145,30 @@ export type AnalysisContextLoader = {
   ): Promise<LoadedAnalysisContext | null>;
 };
 
-/** score_runs 상태 port. 결과 저장(COMPLETED·PARTIAL)은 AnalysisRunSink 가 한다. */
+/**
+ * score_runs 상태 port. 결과 저장(COMPLETED·PARTIAL)은 AnalysisRunSink 가 한다.
+ * 잡기·닫기는 compare-and-set 이다. 읽은 시점의 상태(expected)가 그대로일 때만 바꾸고, 그 사이 다른 시도가 잡았거나 끝냈으면 0행이다.
+ */
 export type AnalysisRunTracker = {
+  /** 이 시도가 run 을 잡았으면(1행) true, 0행이면 false 다. */
   markRunning(input: {
     orgId: string;
     scoreRunId: string;
     runMode: RunMode;
     aiProvider: AiProvider;
     startedAt: string;
-  }): Promise<void>;
+    expected: RunClaim;
+  }): Promise<boolean>;
   /**
-   * attemptStartedAt 이 있으면 그 시도가 잡은 run(status=RUNNING, started_at=attemptStartedAt)만 닫는다(markRunning 뒤 영구 실패).
-   * 없으면 끝나지 않은 run(QUEUED·RUNNING)을 닫는다(복구·markRunning 전 실패). 보안 검토 후속.
+   * expected 상태의 run 만 닫는다. markRunning 뒤 영구 실패면 이 시도가 잡은 상태(RUNNING·이 시도의 started_at),
+   * 그 전이면 읽은 상태, 복구면 찾은 상태다. 0행은 오류가 아니다.
    */
   markFailed(input: {
     orgId: string;
     scoreRunId: string;
     errorCode: string;
     finishedAt: string;
-    attemptStartedAt?: string;
+    expected: RunClaim;
   }): Promise<void>;
 };
 
@@ -152,18 +178,18 @@ export type StaleRun = {
   scoreRunId: string;
   idempotencyKey: string | null;
   status: "QUEUED" | "RUNNING";
-  /** queued_at 을 Date.toISOString 모양(밀리초·Z)으로 바꾼 값. 다음 페이지 커서에 쓴다. */
-  queuedAt: string;
+  /** started_at 원문(QUEUED 면 null). 닫을 때 markFailed 의 쓰기 조건으로 쓴다. */
+  startedAt: string | null;
 };
 
-/** keyset 페이지 커서: 앞 페이지 마지막 run 의 queuedAt·id(scoreRunId). */
-export type StaleRunCursor = { queuedAt: string; id: string };
+/** keyset 페이지 커서: 앞 페이지 마지막 run 의 id(scoreRunId). */
+export type StaleRunCursor = { id: string };
 
 /** 멈춘 run 찾기 port. 복구는 운영 작업이라 모든 조직을 본다. 처리할 때는 행의 orgId 를 그대로 쓴다. */
 export type StaleRunFinder = {
   /**
    * status=QUEUED 이고 queued_at < queuedBefore, 또는 status=RUNNING 이고 started_at < runningBefore 인 run.
-   * (queued_at, id) 오름차순, 최대 limit 건. after 가 있으면 (queued_at, id) 가 after 보다 큰 run 만 고른다(첫 페이지는 null).
+   * id 오름차순, 최대 limit 건. after 가 있으면 id 가 after.id 보다 큰 run 만 고른다(첫 페이지는 null).
    * 시각은 Date.toISOString 결과만, after.id 는 uuid 만 받는다(값이 필터 문자열에 그대로 들어간다).
    */
   findStaleRuns(input: {

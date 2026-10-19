@@ -1,6 +1,6 @@
 # 먼저: SOL RADAR 설계 문서가 이 파일보다 우선한다
 
-이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` ~ `docs/20-GLOSSARY.md`)다.
+이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` 의 문서 표에 있는 설계 문서)다.
 기술 스택은 Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen·Kev) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017).
 해커톤 뒤에는 API·worker 를 NestJS 로 옮긴다(ADR-028). 그 전에는 위 스택 그대로다.
 모바일(1280px 미만 레이아웃·`mobile/` Expo 앱)과 결제·구독은 만들지 않는다. 화면은 데스크톱 1280px 이상이다(`docs/16-DECISIONS.md` ADR-007).
@@ -25,7 +25,8 @@
 ## 폴더와 명령 (workspace 아님)
 
 `web/`(Next.js)은 루트와 **따로** 설치되고 돌아간다. 패키지 매니저는 pnpm 이다(npm 아님).
-웹이 루트에서 가져다 쓰는 것은 `supabase/`(스키마)와 `design/tokens.json`(색·글꼴·글자 눈금) 둘이다.
+웹이 루트에서 가져다 쓰는 것은 `supabase/`(스키마)와 `design/tokens.json`(색·글꼴·글자 눈금)이고,
+worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는다(Compose 에서는 읽기 전용 바인드, `docs/10-DEPLOYMENT.md` Compose 서비스 표).
 검증 설정의 정본은 `verify.config.json` 이다. `pnpm verify`·커밋 게이트·CI 가 같은 설정을 읽고, 새 스택도 여기 등록한다.
 
 - 설치: 루트·`web` 두 곳에서 각각 `pnpm install`. 패키지 추가는 그 폴더 안에서 `pnpm add <패키지>` — 루트에 넣지 않는다
@@ -89,7 +90,7 @@
   단계별 구현(단계마다 `/verify`) → 검증(`/spec-check`·테스트·E2E·QA 는 구현과 다른 에이전트가 맡는다) → `/predeploy-review` → 배포
   - 화면이 새로 생기거나 흐름이 바뀌면 구현 전에 `web-designer` 에게 디자인 스펙을 받는다.
   - 서로 독립인 단계는 Claude Code 의 worktree 에이전트에 병렬로 맡길 수 있다. 같은 파일은 한 작업자가 맡는다.
-  - 검증은 `.claude/agents/` 의 `test-*`·`e2e-*`·`qa-*` 에 맡기고, 배포 전에 `test-deployment` 의 GO/NO-GO 를 받는다.
+  - 검증은 `.claude/agents/` 의 `test-*`·`e2e-*`·`qa-*` 에 맡기고, 데모 전에 `demo-verifier` 의 GO/NO-GO 를 받는다(Compose 데모. 웹 배포처는 미결정).
 
 ## 서버·저장 구조 (요약)
 - 서버 코드는 `web/server/<도메인>/` 에 `model`·`repo`·`service`·`index`(배럴)로 둔다. 견본은 `web/server/profile/`·`web/server/organization/`·`web/server/task/`·`web/server/activity/`·`web/server/admin/` → `architecture` 스킬.

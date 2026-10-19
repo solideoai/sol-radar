@@ -10,7 +10,7 @@ updated: 2026-10-19
 
 # 시스템 아키텍처·데이터 흐름
 
-[[02-ARCHITECTURE|02 아키텍처]]와 [[03-AI-PIPELINE|03 AI 파이프라인]]을 발표용으로 줄인 그림이다. 둘과 다르면 02·03이 맞다. 구현 상태는 그림이 아니라 [[PROGRESS|진행 상황]]과 `evidence-list.md`가 말한다. 이 그림은 **설계**이며, 2026-10-19 기준 수집·추출·점수·화면은 구현 전이다.
+[[02-ARCHITECTURE|02 아키텍처]]와 [[03-AI-PIPELINE|03 AI 파이프라인]]을 발표용으로 줄인 그림이다. 둘과 다르면 02·03이 맞다. 구현 상태는 그림이 아니라 [[PROGRESS|진행 상황]]과 `evidence-list.md`가 말한다. 이 그림은 **설계**다. 2026-10-19 기준 main에 있는 것: DB·RLS(C2), 수집·정규화·revision(C3), 규칙 엔진·SOL Score(C4), AI gateway 4 엔드포인트 mock·`local` 어댑터·worker 분석 클라이언트·`PARTIAL` 대체(C5). 구현 전: 화면 `/dashboard`·`/bids`·`/bids/[id]`(C6), 결정 기록·인앱 알림(C7), 첨부 다운로드 소비자, 실모델 추론(엔드포인트 응답 대기).
 
 ## (a) 시스템 아키텍처
 
@@ -34,9 +34,9 @@ flowchart TB
   G2B["data.go.kr Open API<br/>입찰공고 · 사전규격 · 발주계획 · 업종 마스터"]
   ATT["www.g2b.go.kr 첨부<br/>allowlist · 50 MB · 30 s"]
  end
- subgraph gpu["회사 GPU 추론 엔드포인트 · HTTPS<br/>acropolissg.com/sol-radar (회사 제공, 응답 확인 전)"]
-  QW["vLLM · Qwen3.5-9B<br/>/qwen (경로 가정)"]
-  KV["kev.serve · Kev-9B@v1.0<br/>/kev (경로 가정)"]
+ subgraph gpu["회사 GPU 추론 엔드포인트 · HTTPS<br/>acropolissg.com/sol-radar (회사 제공, 응답 미확인)"]
+  QW["vLLM · Qwen3.5-9B<br/>/qwen (라우터 기준 결정 · 응답 미확인)"]
+  KV["kev.serve · Kev-9B@v1.0<br/>/kev (라우터 기준 결정 · 응답 미확인)"]
  end
  B -- 로그인 --> SA
  W -- 세션 검증 --> SA
@@ -50,7 +50,7 @@ flowchart TB
 
 - 모델을 부르는 컴포넌트는 AI gateway 하나다. web과 worker는 Qwen·Kev에 직접 닿지 않는다.
 - DB·Auth는 Supabase 클라우드(Compose 밖)라 데모 중 인터넷이 필요하다. 대체 경로는 `limitations.md`.
-- 회사 GPU 서버는 외부에서 접근할 수 없다. 회사가 모델 런타임(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0)을 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 제공하고, 노트북의 AI gateway가 TLS·API 키로 붙는다([[16-DECISIONS|ADR-025]], 사용자 결정 2026-10-19). `QWEN_BASE_URL`·`KEV_BASE_URL`의 하위 경로 `/qwen`·`/kev`와 인증 방식은 회사 확인 전 **가정**이다. 엔드포인트는 회사가 제공 예정이며 2026-10-19 기준 응답을 아직 확인하지 않았다. 엔드포인트로 가는 데이터는 실제 공고(개인정보 마스킹)와 가상 회사 프로필뿐이다.
+- 회사 GPU 서버는 외부에서 접근할 수 없다. 회사가 모델 런타임(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0)을 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 제공하고, 노트북의 AI gateway가 TLS·API 키로 붙는다([[16-DECISIONS|ADR-025]], 사용자 결정 2026-10-19). `QWEN_BASE_URL`·`KEV_BASE_URL`의 하위 경로 `/qwen`·`/kev`는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`) 기준으로 **결정**했고, 인증은 각 런타임의 Bearer 키(`QWEN_API_KEY`·`KEV_API_KEY`)다([[16-DECISIONS|16 ADR]] 미결정 17번). 바깥(회사) nginx의 `/sol-radar` 접두어 처리·회사 측 추가 인증·실제 응답과 지연은 2026-10-19 기준 **미확인**이다(엔드포인트는 회사가 제공 예정). 엔드포인트로 가는 데이터는 실제 공고(개인정보 마스킹)와 가상 회사 프로필뿐이다.
 - GPU 하드웨어(모델·장수·VRAM)와 모델 기동·메모리 배분은 회사 측 운영이다. 하드웨어 표기는 회사 제공 정보 확인 전이라 적지 않는다. 우리 쪽 점검은 `GET /v1/models` 레지스트리 대조와 지연 실측뿐이다(P0-0 ③ G1~G6, [[10-DEPLOYMENT|10 배포]]).
 
 ## (b) 데이터 흐름

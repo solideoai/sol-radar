@@ -107,10 +107,11 @@ export const profileRepo = {
     return data.length > 0;
   },
   // 지우는 대상은 DB 함수가 JWT 에서 읽는다(인자가 없다). 지우면 그 사람의 세션도 함께 지워진다.
-  async deleteAccount(): Promise<"deleted" | "sole-owner" | "suspended"> {
+  async deleteAccount(): Promise<"deleted" | "sole-owner" | "sole-admin" | "suspended"> {
     const { error } = await (await getSupabase()).rpc("delete_my_account");
     if (!error) return "deleted";
     if (isRaised(error, "sole_owner")) return "sole-owner";
+    if (isRaised(error, "last_admin")) return "sole-admin";
     if (isRaised(error, "suspended")) return "suspended";
     throw error;
   },

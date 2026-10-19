@@ -1,0 +1,53 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+ ❯ server/profile/profile.repo.test.ts (1 test | 1 failed) 63ms
+     × DB의 last_admin을 계정 삭제 대신 sole-admin 결과로 전달한다 61ms
+ ❯ server/organization/organization.repo.test.ts (1 test | 1 failed) 62ms
+     × DB가 멤버 삭제를 막으면 last-admin으로 전달한다 60ms
+ ❯ app/api/users/me/route.test.ts (31 tests | 1 failed) 19ms
+     × 마지막 업무 ADMIN이면 409 sole_admin과 안내를 돌려준다 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  server/organization/organization.repo.test.ts > 조직의 마지막 ADMIN 오류 매핑 > DB가 멤버 삭제를 막으면 last-admin으로 전달한다
+AssertionError: promise rejected "{ code: 'P0001', …(2) }" instead of resolving
+ ❯ server/organization/organization.repo.test.ts:19:131
+     17|       global: { fetch: async () => new Response(JSON.stringify({ code:…
+     18|     }));
+     19|     await expect(organizationRepo.deleteMembership("00000000-0000-4000…
+       |                                                                                                                                   ^
+     20|   });
+     21| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  server/profile/profile.repo.test.ts > 탈퇴 거절 오류 매핑 > DB의 last_admin을 계정 삭제 대신 sole-admin 결과로 전달한다
+AssertionError: promise rejected "{ code: 'P0001', …(2) }" instead of resolving
+ ❯ server/profile/profile.repo.test.ts:19:45
+     17|       global: { fetch: async () => new Response(JSON.stringify({ code:…
+     18|     }));
+     19|     await expect(profileRepo.deleteAccount()).resolves.toBe("sole-admi…
+       |                                             ^
+     20|   });
+     21| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  app/api/users/me/route.test.ts > DELETE /api/users/me > 마지막 업무 ADMIN이면 409 sole_admin과 안내를 돌려준다
+TypeError: Cannot read properties of undefined (reading 'status')
+ ❯ app/api/users/me/route.test.ts:186:21
+    184|     domain.deleteMyAccount.mockResolvedValue({ status: "sole-admin" });
+    185|     const response = await DELETE();
+    186|     expect(response.status).toBe(409);
+       |                     ^
+    187|     expect(await errorOf(response)).toMatchObject({ code: "sole_admin"…
+    188|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  3 failed | 30 passed (33)
+   Start at  21:54:06
+   Duration  575ms (transform 163ms, setup 0ms, import 455ms, tests 144ms, environment 0ms)

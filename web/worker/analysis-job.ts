@@ -7,6 +7,7 @@ import {
   analysisJobDataSchema,
   analyzeAndSave,
   createGatewayClient,
+  nextAttemptStartedAt,
   readGatewayConfig,
   readRunMode,
   requestIdOf,
@@ -21,6 +22,7 @@ import {
   type ExtractionStore,
   type GatewayClient,
   type LoadedAnalysisContext,
+  type RunClaim,
   type RunMode,
 } from "@/server/analysis";
 import { errorNameOf } from "@/worker/error-name";
@@ -92,12 +94,13 @@ function isDone(status: LoadedAnalysisContext["status"]): status is DoneStatus {
 
 /**
  * 실패 처리에 필요한 진행 단계. VERIFIED 뒤에만 score_runs 를 FAILED 로 바꾼다(그 전에는 남의 run 일 수 있다).
- * RUNNING 은 markRunning 이 성공한 뒤다. 그때는 이 시도가 잡은 run(started_at = attemptStartedAt)만 닫는다(보안 검토 후속).
+ * claim 은 닫기의 쓰기 조건이다. VERIFIED 는 loader 가 읽은 상태, RUNNING(markRunning 이 run 을 잡은 뒤)은
+ * 이 시도가 잡은 상태(RUNNING·started_at = attemptStartedAt)다. 그 사이 다른 시도가 잡았거나 끝낸 run 은 닫지 않는다.
  */
 type Progress =
   | { stage: "UNPARSED" }
-  | { stage: "PARSED" | "VERIFIED"; data: AnalysisJobData; requestId: string }
-  | { stage: "RUNNING"; data: AnalysisJobData; requestId: string; attemptStartedAt: string };
+  | { stage: "PARSED"; data: AnalysisJobData; requestId: string }
+  | { stage: "VERIFIED" | "RUNNING"; data: AnalysisJobData; requestId: string; claim: RunClaim };
 
 /** 데이터 오류는 값·경로를 싣지 않고 코드만 던진다. requestId 는 스키마가 형식을 보장한다. */
 function parseJobData(data: unknown): { data: AnalysisJobData; requestId: string } {
@@ -196,11 +199,7 @@ export function createAnalysisProcessor(
     const errorCode = permanent ? failureCodeOf(error) : null;
     const markFailedError =
       errorCode !== null && (progress.stage === "VERIFIED" || progress.stage === "RUNNING")
-        ? await markFailed(
-            progress.data,
-            errorCode,
-            progress.stage === "RUNNING" ? progress.attemptStartedAt : null,
-          )
+        ? await markFailed(progress.data, errorCode, progress.claim)
         : null;
     const ids =
       progress.stage === "UNPARSED"
@@ -229,12 +228,12 @@ export function createAnalysisProcessor(
 
   /**
    * markFailed 가 던지면 삼키지 않고 오류 이름을 돌려준다. 호출자는 원래 오류를 던진다.
-   * markRunning 뒤(RUNNING)면 이 시도의 attemptStartedAt 을 넘겨 다른 시도가 잡았거나 끝낸 run 을 닫지 않는다.
+   * expected(진행 단계의 claim)가 그대로인 run 만 닫는다. 다른 시도가 잡았거나 끝낸 run 은 0행이다.
    */
   async function markFailed(
     data: AnalysisJobData,
     errorCode: string,
-    attemptStartedAt: string | null,
+    expected: RunClaim,
   ): Promise<string | null> {
     try {
       await deps.tracker.markFailed({
@@ -242,7 +241,7 @@ export function createAnalysisProcessor(
         scoreRunId: data.scoreRunId,
         errorCode,
         finishedAt: deps.now().toISOString(),
-        ...(attemptStartedAt === null ? {} : { attemptStartedAt }),
+        expected,
       });
       return null;
     } catch (markError) {
@@ -265,7 +264,6 @@ export function createAnalysisProcessor(
       );
       if (loaded === null) throw new UnrecoverableError(TARGET_NOT_FOUND);
       if (!isSameTarget(loaded, data)) throw new UnrecoverableError(TARGET_MISMATCH);
-      progress = { stage: "VERIFIED", data, requestId };
 
       const ids = { requestId, orgId: data.orgId, scoreRunId: data.scoreRunId };
       const attempt = job.attemptsMade + 1;
@@ -285,17 +283,30 @@ export function createAnalysisProcessor(
         );
         return { outcome: "SKIPPED", scoreRunStatus: loaded.status };
       }
+      // 읽은 상태(QUEUED·RUNNING, started_at 원문). run 잡기와 이 단계 실패의 닫기가 쓰기 조건으로 건다.
+      const expected: RunClaim = { status: loaded.status, startedAt: loaded.startedAt };
+      progress = { stage: "VERIFIED", data, requestId, claim: expected };
 
-      // 분석 시작 시각은 runAnalysis 가 따로 잰다. score_runs.started_at 은 처리 시작 시각이고 이 시도의 식별자다.
-      const attemptStartedAt = t0.toISOString();
-      await deps.tracker.markRunning({
+      // 분석 시작 시각은 runAnalysis 가 따로 잰다. score_runs.started_at 은 이 시도의 식별자다.
+      // 처리 시작 시각(t0)이되 앞 시도의 started_at 보다 늘 커서 같은 밀리초에 다시 잡아도 겹치지 않는다.
+      const attemptStartedAt = nextAttemptStartedAt(t0, loaded.startedAt);
+      const isClaimed = await deps.tracker.markRunning({
         orgId: data.orgId,
         scoreRunId: data.scoreRunId,
         runMode: settings.runMode,
         aiProvider: settings.aiProvider,
         startedAt: attemptStartedAt,
+        expected,
       });
-      progress = { stage: "RUNNING", data, requestId, attemptStartedAt };
+      // 읽은 뒤 다른 시도가 먼저 잡았거나 끝냈다. 재시도해도 같은 결과라 gateway 를 부르지 않고 영구 실패다.
+      // 진행 단계는 VERIFIED 그대로라 닫기는 읽은 상태가 조건이고, 상태가 바뀌었으므로 0행이다.
+      if (!isClaimed) throw new UnrecoverableError(RUN_SUPERSEDED);
+      progress = {
+        stage: "RUNNING",
+        data,
+        requestId,
+        claim: { status: "RUNNING", startedAt: attemptStartedAt },
+      };
 
       const context = toContext(loaded, data, requestId, settings, attemptStartedAt);
       const record = await analyzeAndSave(context, {

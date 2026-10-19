@@ -6,10 +6,13 @@ tags:
   - sol-radar
   - ui
   - hackathon
-updated: 2026-10-16
+updated: 2026-10-19
 ---
 
 # 랜딩 재설계 Implementation Plan
+
+> [!success] 보관 (2026-10-19)
+> 이 설계안은 정본에 반영됐다(근거: 커밋 `6e7cac3`·`7b6193f`·`3b1bb54`·`ffe7059`·`86d8438`·`1a6a575`, [[PROGRESS|진행 상황]] 작업 로그 2026-10-16 "랜딩 재설계" 행과 후속(U5~U7) 행, 증거 `evidence/landing/20261016-redesign-{view,full}-{1440,1280}.png`·`20261016-redesign-test-report.txt`). 수정하지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

@@ -5,11 +5,13 @@ import {
   ANALYSIS_JOB_OPTIONS,
   ANALYSIS_QUEUE,
   analysisJobDataSchema,
+  nextAttemptStartedAt,
   readRunMode,
   requestIdOf,
   toAnalysisJobId,
   toAnalysisSettings,
   toFixtureStem,
+  type RunClaim,
 } from "./analysis-job.model";
 import {
   extractRequestSchema,
@@ -537,6 +539,57 @@ describe("toAnalysisSettings · /health 실패(어떤 kind 든 env 기준)", () 
   });
 });
 
+// ── 시도 식별자(nextAttemptStartedAt) ──
+// markRunning 이 쓸 started_at(시도 식별자)이다. 앞 시도의 started_at(PostgREST 원문, 마이크로초·오프셋 포함)보다 늘 크다.
+// 같은 밀리초에 두 시도가 같은 값을 갖지 않게 한다(compare-and-set 과 함께). 앞 값이 없으면 지금 시각이다.
+
+describe("nextAttemptStartedAt", () => {
+  const NOW = new Date("2026-10-16T09:00:00.250Z");
+
+  it("앞 started_at 이 null 이면 now.toISOString() 이다", () => {
+    expect(nextAttemptStartedAt(NOW, null)).toBe("2026-10-16T09:00:00.250Z");
+  });
+
+  it.each<[string, string, string]>([
+    ["과거(1분 전)", "2026-10-16T08:59:00.123456+00:00", "2026-10-16T09:00:00.250Z"],
+    ["1ms 전", "2026-10-16T09:00:00.249+00:00", "2026-10-16T09:00:00.250Z"],
+    ["같은 밀리초", "2026-10-16T09:00:00.25+00:00", "2026-10-16T09:00:00.251Z"],
+    [
+      "같은 밀리초의 마이크로초 원문",
+      "2026-10-16T09:00:00.250999+00:00",
+      "2026-10-16T09:00:00.251Z",
+    ],
+    ["같은 순간의 다른 오프셋 원문", "2026-10-16T18:00:00.25+09:00", "2026-10-16T09:00:00.251Z"],
+    ["미래(시계가 뒤처졌다)", "2026-10-16T09:00:05+00:00", "2026-10-16T09:00:05.001Z"],
+  ])("앞 started_at 이 %s 이면 max(now, 앞 값의 밀리초 + 1ms) 다", (_label, previous, expected) => {
+    expect(nextAttemptStartedAt(NOW, previous)).toBe(expected);
+  });
+
+  it.each([
+    "2026-10-16T08:59:00.123456+00:00",
+    "2026-10-16T09:00:00.25+00:00",
+    "2026-10-16T09:00:00.250999+00:00",
+    "2026-10-16T09:00:05+00:00",
+  ])("결과는 앞 started_at(%s)보다 늘 늦다", (previous) => {
+    expect(Date.parse(nextAttemptStartedAt(NOW, previous))).toBeGreaterThan(Date.parse(previous));
+  });
+
+  it("결과는 Date.toISOString 모양(밀리초·Z)이다", () => {
+    expect(nextAttemptStartedAt(NOW, "2026-10-16T09:00:00.250999+00:00")).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
+  });
+
+  it.each(["not-a-date", ""])(
+    "앞 started_at 을 시각으로 읽지 못하면(%j) 'analysis 오류: started_at INVALID' 를 던진다",
+    (previous) => {
+      expect(() => nextAttemptStartedAt(NOW, previous)).toThrowError(
+        /^analysis 오류: started_at INVALID$/,
+      );
+    },
+  );
+});
+
 // ── 배럴 ──
 
 describe("@/server/analysis 배럴", () => {
@@ -550,6 +603,7 @@ describe("@/server/analysis 배럴", () => {
     "toFixtureStem",
     "readRunMode",
     "toAnalysisSettings",
+    "nextAttemptStartedAt",
   ])("값 %s 를 내보낸다", (name) => {
     expect(Object.keys(analysisBarrel)).toContain(name);
   });
@@ -557,9 +611,16 @@ describe("@/server/analysis 배럴", () => {
   it("배럴의 toAnalysisSettings 는 analysis-job.model 의 것이다", () => {
     expect(analysisBarrel.toAnalysisSettings).toBe(toAnalysisSettings);
   });
+
+  it("배럴의 nextAttemptStartedAt 은 analysis-job.model 의 함수다(worker 가 배럴로 부른다)", () => {
+    expect(typeof nextAttemptStartedAt).toBe("function");
+    expect(Reflect.get(analysisBarrel, "nextAttemptStartedAt")).toBe(nextAttemptStartedAt);
+  });
 });
 
 // 시도 식별자(보안 검토 후속). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
+// run 잡기·닫기는 compare-and-set 이다. markRunning·markFailed 는 읽은 시점의 run 상태(expected: RunClaim)를 쓰기 조건으로 받는다.
+// 예전 기대(markFailed 의 선택 attemptStartedAt, markRunning 반환 void)는 이 결정으로 바뀌었다.
 describe("@/server/analysis 배럴 · 시도 식별자(타입)", () => {
   it("AnalysisContext.attemptStartedAt 은 string 이다(markRunning 의 startedAt)", () => {
     expectTypeOf<analysisBarrel.AnalysisContext["attemptStartedAt"]>().toEqualTypeOf<string>();
@@ -569,28 +630,63 @@ describe("@/server/analysis 배럴 · 시도 식별자(타입)", () => {
     expectTypeOf<analysisBarrel.AnalysisRunRecord["attemptStartedAt"]>().toEqualTypeOf<string>();
   });
 
-  it("AnalysisRunTracker.markFailed 입력은 attemptStartedAt 을 선택으로 받는다", () => {
+  it("RunClaim 은 읽은 시점의 status(QUEUED·RUNNING)와 started_at 원문(null 가능)이다", () => {
+    expectTypeOf<RunClaim>().toEqualTypeOf<{
+      status: "QUEUED" | "RUNNING";
+      startedAt: string | null;
+    }>();
+  });
+
+  it("LoadedAnalysisContext.startedAt 은 score_runs.started_at 원문(string | null)이다", () => {
+    expectTypeOf<analysisBarrel.LoadedAnalysisContext["startedAt"]>().toEqualTypeOf<
+      string | null
+    >();
+  });
+
+  it("AnalysisRunTracker.markRunning 입력은 expected(RunClaim)를 필수로 받는다", () => {
+    expectTypeOf<Parameters<analysisBarrel.AnalysisRunTracker["markRunning"]>[0]>().toEqualTypeOf<{
+      orgId: string;
+      scoreRunId: string;
+      runMode: analysisBarrel.RunMode;
+      aiProvider: analysisBarrel.AiProvider;
+      startedAt: string;
+      expected: RunClaim;
+    }>();
+  });
+
+  it("AnalysisRunTracker.markRunning 은 잡았는지(boolean)를 돌려준다", () => {
+    expectTypeOf<analysisBarrel.AnalysisRunTracker["markRunning"]>().returns.toEqualTypeOf<
+      Promise<boolean>
+    >();
+  });
+
+  it("AnalysisRunTracker.markFailed 입력은 expected(RunClaim)를 필수로 받고 attemptStartedAt 은 없다", () => {
     expectTypeOf<Parameters<analysisBarrel.AnalysisRunTracker["markFailed"]>[0]>().toEqualTypeOf<{
       orgId: string;
       scoreRunId: string;
       errorCode: string;
       finishedAt: string;
-      attemptStartedAt?: string;
+      expected: RunClaim;
     }>();
   });
 });
 
 // 멈춘 run 찾기 port(C5-B). 타입만 있어 값으로는 볼 수 없으므로 type-check(tsc) 가 단언을 잡는다.
-// 보안 후속 (g): keyset 페이지로 StaleRun 에 queuedAt(ISO)이, 입력에 after(앞 페이지 마지막 run 의 queuedAt·id, 첫 페이지는 null)가 더해졌다.
+// keyset 커서는 id 하나다. 예전 기대((queued_at, id) 커서와 StaleRun.queuedAt)는 밀리초 커서가 같은 run 을 다시 내던 문제로 바뀌었다.
+// StaleRun 은 markFailed 의 쓰기 조건으로 started_at 원문을 갖는다.
 describe("@/server/analysis 배럴 · 멈춘 run 찾기 port(타입)", () => {
-  it("StaleRun 은 orgId·scoreRunId·idempotencyKey(null 가능)·status(QUEUED·RUNNING)·queuedAt 이다", () => {
+  it("StaleRun 은 orgId·scoreRunId·idempotencyKey(null 가능)·status(QUEUED·RUNNING)·startedAt(원문, null 가능)이다", () => {
     expectTypeOf<analysisBarrel.StaleRun>().toEqualTypeOf<{
       orgId: string;
       scoreRunId: string;
       idempotencyKey: string | null;
       status: "QUEUED" | "RUNNING";
-      queuedAt: string;
+      startedAt: string | null;
     }>();
+  });
+
+  it("StaleRunCursor 는 { id } 다", () => {
+    expectTypeOf<analysisBarrel.StaleRunCursor>().toEqualTypeOf<{ id: string }>();
   });
 
   it("StaleRunFinder.findStaleRuns 는 { queuedBefore, runningBefore, limit, after } 하나를 받는다", () => {
@@ -600,7 +696,7 @@ describe("@/server/analysis 배럴 · 멈춘 run 찾기 port(타입)", () => {
           queuedBefore: string;
           runningBefore: string;
           limit: number;
-          after: { queuedAt: string; id: string } | null;
+          after: { id: string } | null;
         },
       ]
     >();

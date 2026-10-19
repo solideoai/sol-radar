@@ -241,6 +241,8 @@ async function markRunning(
       runMode: record.meta.runMode,
       aiProvider: record.meta.model.provider,
       startedAt,
+      // C6 가 넣은 QUEUED run 을 처음 잡는다. expected 는 쓰기 조건이라 갱신 열에는 없다.
+      expected: { status: "QUEUED", startedAt: null },
     }),
     { id: record.scoreRunId, org_id: record.orgId, ...ACTIVE },
   );
@@ -506,6 +508,7 @@ describe("PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL", () => {
         scoreRunId: FAILED_RUN.scoreRunId,
         errorCode: "ANALYSIS_JOB_FAILED",
         finishedAt: FAILED_RUN.meta.finishedAt,
+        expected: { status: "RUNNING", startedAt: FAILED_RUN.attemptStartedAt },
       }),
       {
         id: FAILED_RUN.scoreRunId,
@@ -566,6 +569,7 @@ describe("PGlite 쓰기 제약 · 실제 마이그레이션 위 SQL", () => {
         scoreRunId: FX01.scoreRunId,
         errorCode: "STALE_RUN",
         finishedAt: FX01.meta.finishedAt,
+        expected: { status: "RUNNING", startedAt: FX01.attemptStartedAt },
       }),
       { id: FX01.scoreRunId, org_id: FX01.orgId, ...ACTIVE },
     );

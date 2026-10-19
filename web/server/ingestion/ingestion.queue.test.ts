@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   DOCUMENTS_JOB_NAME,
+  DOCUMENTS_JOB_OPTIONS,
   DOCUMENTS_QUEUE,
   INGEST_JOB_NAME,
   INGEST_QUEUE,
@@ -11,6 +12,8 @@ import {
   ingestJobDataSchema,
   ingestJobDataSchemaAt,
   toBullJobId,
+  toDocumentsJobId,
+  type DocumentsJobData,
   type IngestJobData,
   type JobQueue,
 } from "./ingestion.queue";
@@ -307,47 +310,169 @@ describe("enqueueIngestRun", () => {
   });
 });
 
+// documents job(C1'·C4'). revisionCreatedAt 은 bid_revisions.created_at 이다.
+// PostgREST 는 timestamptz 를 마이크로초 소수와 "+00:00" 으로 돌려준다. 아래 세 표기는 모두 같은 순간이다.
+const REVISION_CREATED_AT = "2026-10-19T03:04:05.123456+00:00";
+const REVISION_CREATED_AT_Z = "2026-10-19T03:04:05.123Z";
+const REVISION_CREATED_AT_KST = "2026-10-19T12:04:05.123+09:00";
+// 위 순간의 epoch ms(Date.UTC(2026, 9, 19, 3, 4, 5, 123))
+const REVISION_CREATED_MS = 1_792_379_045_123;
+// demo:reset 이 같은 revision id 를 다시 만든 뒤의 created_at
+const RECREATED_AT = "2026-10-19T03:10:00.000001+00:00";
+const DOCUMENTS_DATA = {
+  bidId: BID_ID,
+  revisionId: REVISION_ID,
+  revisionCreatedAt: REVISION_CREATED_AT,
+};
+const { revisionCreatedAt: _createdAt, ...documentsWithoutCreatedAt } = DOCUMENTS_DATA;
+void _createdAt;
+
 describe("documentsJobDataSchema", () => {
-  it("bidId·revisionId 가 uuid 면 통과한다", () => {
+  it.each([
+    ["PostgREST 표기(마이크로초·+00:00)", REVISION_CREATED_AT],
+    ["toISOString 표기(Z)", REVISION_CREATED_AT_Z],
+    ["다른 offset 표기(+09:00)", REVISION_CREATED_AT_KST],
+  ])("bidId·revisionId 가 uuid 이고 revisionCreatedAt 이 %s 면 통과한다", (_label, createdAt) => {
     expect(
-      documentsJobDataSchema.safeParse({ bidId: BID_ID, revisionId: REVISION_ID }).success,
+      documentsJobDataSchema.safeParse({ ...DOCUMENTS_DATA, revisionCreatedAt: createdAt }).success,
     ).toBe(true);
   });
 
   it.each([
-    ["bidId 가 uuid 아님", { bidId: "bid-1", revisionId: REVISION_ID }],
-    ["revisionId 가 uuid 아님", { bidId: BID_ID, revisionId: "rev-1" }],
-    ["revisionId 없음", { bidId: BID_ID }],
+    ["bidId 가 uuid 아님", { ...DOCUMENTS_DATA, bidId: "bid-1" }],
+    ["revisionId 가 uuid 아님", { ...DOCUMENTS_DATA, revisionId: "rev-1" }],
+    ["revisionId 없음", { bidId: BID_ID, revisionCreatedAt: REVISION_CREATED_AT }],
+    ["revisionCreatedAt 없음", documentsWithoutCreatedAt],
+    [
+      "revisionCreatedAt 에 offset 없음",
+      { ...DOCUMENTS_DATA, revisionCreatedAt: "2026-10-19T03:04:05.123" },
+    ],
+    ["revisionCreatedAt 이 날짜뿐", { ...DOCUMENTS_DATA, revisionCreatedAt: "2026-10-19" }],
+    ["revisionCreatedAt 이 시각이 아님", { ...DOCUMENTS_DATA, revisionCreatedAt: "not-a-time" }],
+    [
+      "revisionCreatedAt 이 없는 날짜",
+      { ...DOCUMENTS_DATA, revisionCreatedAt: "2026-02-30T00:00:00Z" },
+    ],
+    [
+      "revisionCreatedAt 이 epoch 숫자",
+      { ...DOCUMENTS_DATA, revisionCreatedAt: REVISION_CREATED_MS },
+    ],
+    ["모르는 키", { ...DOCUMENTS_DATA, attempt: 1 }],
   ])("%s 면 거부한다", (_label, data) => {
     expect(documentsJobDataSchema.safeParse(data).success).toBe(false);
   });
 });
 
+describe("toDocumentsJobId (C1')", () => {
+  it("documents-<revisionId>-<revisionCreatedAt epoch ms> 다", () => {
+    expect(toDocumentsJobId(DOCUMENTS_DATA)).toBe(
+      `documents-${REVISION_ID}-${REVISION_CREATED_MS}`,
+    );
+  });
+
+  it("':' 가 없다", () => {
+    expect(toDocumentsJobId(DOCUMENTS_DATA)).not.toContain(":");
+  });
+
+  it("같은 revisionId 라도 revisionCreatedAt 이 다르면(리셋 뒤 재생성) jobId 가 다르다", () => {
+    expect(toDocumentsJobId({ ...DOCUMENTS_DATA, revisionCreatedAt: RECREATED_AT })).not.toBe(
+      toDocumentsJobId(DOCUMENTS_DATA),
+    );
+  });
+
+  it.each([
+    ["Z", REVISION_CREATED_AT_Z],
+    ["+09:00", REVISION_CREATED_AT_KST],
+  ])("같은 순간을 %s 표기로 주면 jobId 가 같다", (_label, createdAt) => {
+    expect(toDocumentsJobId({ ...DOCUMENTS_DATA, revisionCreatedAt: createdAt })).toBe(
+      toDocumentsJobId(DOCUMENTS_DATA),
+    );
+  });
+
+  it("시각이 아니면 던진다(jobId 에 NaN 을 싣지 않는다)", () => {
+    expect(() =>
+      toDocumentsJobId({ ...DOCUMENTS_DATA, revisionCreatedAt: "not-a-time" }),
+    ).toThrow();
+  });
+});
+
 describe("enqueueDocuments", () => {
-  it("fetch 이름에 jobId documents-<revisionId> 로 넣는다", async () => {
+  it("fetch 이름에 검증한 data 를 그대로 넣는다", async () => {
     const { queue, add } = fakeQueue();
 
-    await enqueueDocuments(queue, { bidId: BID_ID, revisionId: REVISION_ID });
+    await enqueueDocuments(queue, DOCUMENTS_DATA);
 
-    expect(add.mock.calls).toEqual([
-      ["fetch", { bidId: BID_ID, revisionId: REVISION_ID }, { jobId: `documents-${REVISION_ID}` }],
+    expect(add.mock.calls.map(([name, data]) => [name, data])).toEqual([["fetch", DOCUMENTS_DATA]]);
+  });
+
+  it("opts 는 jobId 와 재시도·보관 옵션 정확히 그것이다(C1'·C4')", async () => {
+    const { queue, add } = fakeQueue();
+
+    await enqueueDocuments(queue, DOCUMENTS_DATA);
+
+    expect(add.mock.calls.map(([, , opts]) => opts)).toStrictEqual([
+      {
+        jobId: `documents-${REVISION_ID}-${REVISION_CREATED_MS}`,
+        attempts: 3,
+        backoff: { type: "exponential", delay: 2000 },
+        removeOnComplete: { age: 86400 },
+        removeOnFail: { age: 604800 },
+      },
     ]);
+  });
+
+  it("DOCUMENTS_JOB_OPTIONS 는 재시도 3회·지수 2초·완료 1일·실패 7일 보관이다(C4')", () => {
+    expect(DOCUMENTS_JOB_OPTIONS).toStrictEqual({
+      attempts: 3,
+      backoff: { type: "exponential", delay: 2000 },
+      removeOnComplete: { age: 86400 },
+      removeOnFail: { age: 604800 },
+    });
   });
 
   it("documents jobId 는 BullMQ 6.3.16 jobId 검사를 통과한다", async () => {
     const { queue, add } = fakeQueue();
 
-    await enqueueDocuments(queue, { bidId: BID_ID, revisionId: REVISION_ID });
+    await enqueueDocuments(queue, DOCUMENTS_DATA);
 
     expect(add.mock.calls.map(([, , opts]) => bullAcceptsJobId(opts.jobId))).toEqual([true]);
   });
 
-  it("uuid 가 아니면 reject 하고 queue.add 를 부르지 않는다", async () => {
+  it("같은 revisionId 라도 revisionCreatedAt 이 다르면 다른 jobId 로 넣는다", async () => {
     const { queue, add } = fakeQueue();
 
-    await expect(
-      enqueueDocuments(queue, { bidId: "bid-1", revisionId: "rev-1" }),
-    ).rejects.toThrow();
+    await enqueueDocuments(queue, DOCUMENTS_DATA);
+    await enqueueDocuments(queue, { ...DOCUMENTS_DATA, revisionCreatedAt: RECREATED_AT });
+
+    const [first, second] = add.mock.calls.map(([, , opts]) => opts.jobId);
+    expect(first).not.toBe(second);
+  });
+
+  it("같은 순간을 다른 표기(+00:00 마이크로초 / Z)로 넣으면 같은 jobId 다", async () => {
+    const { queue, add } = fakeQueue();
+
+    await enqueueDocuments(queue, DOCUMENTS_DATA);
+    await enqueueDocuments(queue, { ...DOCUMENTS_DATA, revisionCreatedAt: REVISION_CREATED_AT_Z });
+
+    const [first, second] = add.mock.calls.map(([, , opts]) => opts.jobId);
+    expect(second).toBe(first);
+  });
+
+  it.each([
+    [
+      "uuid 가 아님",
+      { bidId: "bid-1", revisionId: "rev-1", revisionCreatedAt: REVISION_CREATED_AT },
+    ],
+    ["revisionCreatedAt 없음", documentsWithoutCreatedAt],
+    [
+      "revisionCreatedAt 에 offset 없음",
+      { ...DOCUMENTS_DATA, revisionCreatedAt: "2026-10-19T03:04:05.123" },
+    ],
+    ["revisionCreatedAt 이 시각이 아님", { ...DOCUMENTS_DATA, revisionCreatedAt: "not-a-time" }],
+  ])("%s 이면 reject 하고 queue.add 를 부르지 않는다", async (_label, data) => {
+    const { queue, add } = fakeQueue();
+
+    await expect(enqueueDocuments(queue, data as DocumentsJobData)).rejects.toThrow();
     expect(add).not.toHaveBeenCalled();
   });
 });

@@ -84,7 +84,7 @@ Polaris 플러그인은 같은 자리를 쓰는 선택 도구라서 설치를 �
 
 스펙의 정본 자리는 `polaris/specs/` 다(`/spec` 이 쓴다). Polaris 는 같은 자리를 쓰는 선택 플러그인이다(AGENTS.md "미션 & 스펙").
 
-설치 상태 점검은 `pnpm run doctor`(기계 JSON: `pnpm --silent run doctor --json`)다. 첫 배포는 `docs/boilerplate/first-deployment.md` 를 안내한다.
+설치 상태 점검은 `pnpm run doctor`(기계 JSON: `pnpm --silent run doctor --json`)다. 데모 기동은 `docs/10-DEPLOYMENT.md` 를 안내한다. 배포처는 미결정이라(`docs/16-DECISIONS.md` 미결정 8번) `docs/boilerplate/first-deployment.md`(Vercel)는 안내하지 않는다.
 템플릿 원본에만 있는 `pnpm bootstrap`·`pnpm smoke:template` 은 이 저장소에 없으니 안내하지 않는다.
 
 ### `/help review` 또는 `/help predeploy-review`

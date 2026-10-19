@@ -46,6 +46,8 @@ updated: 2026-10-19
 
 데모 계정의 역할 배정은 [[04-DATABASE|04 DB]] §6이다.
 
+사용자 요청으로 마지막 업무 `ADMIN`을 강등하거나 조직에서 제거할 수 없다. 계정 탈퇴도 같은 보호를 적용하며, 다른 구성원에게 `ADMIN`을 넘긴 뒤 다시 시도해야 한다. 기존 회원 API `DELETE /api/users/me`는 이 경우 `409 sole_admin`을 돌려준다. 조직 전체 삭제·혼자인 조직의 계정 탈퇴·관리용 seed 경로는 유지한다([[04-DATABASE|04 DB]] §3.1).
+
 업무 역할의 순서(`ADMIN > SALES > ANALYST > VIEWER`)가 모든 자원에 그대로 적용되는 것은 아니다. 리소스별 정책을 쓰고, 문서·코드에서는 허용 역할을 나열한다.
 
 |작업|허용 역할(`sol_role`)|
@@ -216,6 +218,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 엔드포인트는 공개 인터넷에 있다. TLS 필수이고 인증서 검증을 끄지 않는다(`curl -k`, `verify=False` 금지). API 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 필수이고 `infra/.env`에만 둔다. 키 값은 문서·로그·커밋·스크린샷·증거에 남기지 않는다. 엔드포인트 URL은 비밀이 아니다. 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다.
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
+- 호스트 허용 목록: "gateway는 거기에만 붙는다"를 모델 레지스트리(`services/ai/models/registry.yaml`)의 `allowedHosts`로 강제한다. 값은 `acropolissg.com` 하나다([[03-AI-PIPELINE|03]] §11, [[16-DECISIONS|ADR-032]] D2). `QWEN_BASE_URL`·`KEV_BASE_URL`의 호스트가 목록의 값과 정확히 같지 않으면(하위 도메인 포함) gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). 루프백은 시험용으로 허용한다. 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다.
 
 ### 회사 GPU로 가는 데이터
 - 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.

@@ -252,12 +252,12 @@ hf download Qwen/Qwen3.5-4B-Base --revision 1001bb4d826a52d1f399e183466143f4da7b
 
 저장 경로는 둘 중 하나다. 주말 전 확실한 쪽은 2안이다.
 
-1. **C3 live 수집**(`OfficialApiConnector` → Supabase `bid_notices` `is_demo=false`) → `pnpm dataset:build` 가 DB 에서 읽는다. 보조 조회 3종·documents job 이 main 에 아직 없다(C3 남은 일).
+1. **C3 live 수집**(`OfficialApiConnector` → Supabase `bid_notices` `is_demo=false`) → `pnpm dataset:build`(예정) 가 DB 에서 읽는다. 보조 조회 3종·documents job 이 main 에 아직 없다(C3 남은 일).
 2. **녹음 스크립트**: C1 ① 과 같은 방식으로 마스킹한 응답 JSON 을 `fixtures/recorded/train/<serviceId>/<operation>.<date>.pN.masked.json` 에 저장하고, 빌더가 DB 없이 이 파일을 읽는다. 담당자 필드 10개 마스킹과 `serviceKey` 제거 규칙은 `docs/evidence/phase-0/external-deps-api-20261019.md` 를 따른다. 저장소에는 넣지 않고(`.gitignore`) 번들에만 넣는다.
 
 ### 4.4 레코드 구성: 두 갈래
 
-한 레코드는 state 하나 + 질문 여러 개다(22 §4.1). 질문 문구는 `services/ai/kev/question-sets/v0.2.json` 원문, state 는 `services/ai/kev/state-templates/en.v0.2.txt` 와 **서빙과 같은 빌더**로 만든다(둘 다 `c5/gateway-mock` 브랜치에 있다. main 병합 전이면 그 브랜치에서 가져온다).
+한 레코드는 state 하나 + 질문 여러 개다(22 §4.1). 질문 문구는 `services/ai/kev/question-sets/v0.2.json` 원문, state 는 `services/ai/kev/state-templates/en.v0.2.txt` 와 **서빙과 같은 빌더**로 만든다(둘 다 main 에 있다. 질문 세트 `85a30c6`, state 템플릿 `51ad173`, main 병합 `b4a23fc`. 질문 세트 status 는 "초안 — 사용자 검토 전"이다).
 
 **갈래 ① 구조화 필드만(엔드포인트·파서 없이 된다. 주말 기본)**
 

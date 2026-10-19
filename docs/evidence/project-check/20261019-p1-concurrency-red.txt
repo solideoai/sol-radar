@@ -1,0 +1,26 @@
+verify-slot: 슬롯 2 개가 모두 사용 중이다. 비면 시작한다.
+verify-slot: slot-2 을 잡았다 — node scripts/p1-last-admin-concurrency.mjs
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 새 멤버십까지 다시 검사해 마지막 ADMIN 탈퇴를 거절해야 한다
++ actual - expected
+
+  {
++   ok: true
+-   hint: 'last_admin',
+-   ok: false
+  }
+
+    at file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/codex-p1-fixes/scripts/p1-last-admin-concurrency.mjs:128:10
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: { ok: true },
+  expected: { ok: false, hint: 'last_admin' },
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.16.0

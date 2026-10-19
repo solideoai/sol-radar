@@ -121,7 +121,8 @@ def test_refusal_hides_urls_and_keys(fake_server):
 
 def test_fallback_to_mock_is_not_implemented():
     result = run_main(env_for(closed_url(), closed_url(), AI_FALLBACK_TO_MOCK="true"))
-    assert refused_with(result, "기동 거부: AI_FALLBACK_TO_MOCK(NOT_IMPLEMENTED)") == (
+    # 모든 모드가 금지(ADR-030 B11, infra/run-modes.json)라 run-mode 검사가 먼저 거부한다
+    assert refused_with(result, "기동 거부: AI_FALLBACK_TO_MOCK(FORBIDDEN_IN_MODE)") == (
         EX_CONFIG,
         True,
     )

@@ -145,7 +145,7 @@ export function cachedRow(id: string, rowId = CACHED_EXTRACTION_ID): CachedExtra
   return { id: rowId, status: "COMPLETED", payload: loadExtraction(id), translations: null };
 }
 
-/** loader 가 돌려줄 값. FX-01·QUEUED·캐시 추출 있음·첨부 문제 없음. */
+/** loader 가 돌려줄 값. FX-01·QUEUED(started_at 없음)·캐시 추출 있음·첨부 문제 없음. */
 export function loaded(
   id = "FX-01",
   overrides: Partial<LoadedAnalysisContext> = {},
@@ -155,6 +155,7 @@ export function loaded(
     scoreRunId: SCORE_RUN_ID,
     idempotencyKey: IDEMPOTENCY_KEY,
     status: "QUEUED",
+    startedAt: null,
     bidId: `bid-${id}`,
     companyProfileId: COMPANY_PROFILE_ID,
     fixtureId: `${id}.r01`,
@@ -371,9 +372,13 @@ export function fakeLoader(
 export type MarkRunningInput = Parameters<AnalysisRunTracker["markRunning"]>[0];
 export type MarkFailedInput = Parameters<AnalysisRunTracker["markFailed"]>[0];
 
+/**
+ * markRunning 은 기본으로 run 을 잡는다(true). runningClaimed=false 면 0행(그 사이 다른 시도가 잡았거나 끝냈다)이다.
+ * markFailed 는 받은 입력만 기록한다. 쓰기 조건(expected)이 맞는지는 저장 port(analysis.repo) 시험이 본다.
+ */
 export function fakeTracker(
   events: EventLog,
-  options: { runningError?: Error; failedError?: Error } = {},
+  options: { runningError?: Error; failedError?: Error; runningClaimed?: boolean } = {},
 ) {
   const running: MarkRunningInput[] = [];
   const failed: MarkFailedInput[] = [];
@@ -382,6 +387,7 @@ export function fakeTracker(
       running.push(input);
       events.push("tracker.markRunning");
       if (options.runningError) throw options.runningError;
+      return options.runningClaimed ?? true;
     },
     markFailed: async (input) => {
       failed.push(input);

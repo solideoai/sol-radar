@@ -135,7 +135,7 @@ interface EvalItem {
   - `manifest.json`: 데이터셋 버전, git commit, 질문 세트·state 템플릿·라벨 스키마·마스킹 버전, 분할·라벨·출처별 개수, 파일별 sha256
   - 분할별 JSONL
   - `MODEL_TRAINING.md`(§5 절차)
-- 빌더는 두 단계다. Node 스크립트(`pnpm dataset:build`, service role, seed 스크립트와 같은 지위)가 Supabase·MinIO 에서 `EvalItem` 을 만들고, Python(`services/ai`, DB 접근 없음)이 Kev·Qwen 형식으로 바꾼다.
+- 빌더는 두 단계다. Node 스크립트(`pnpm dataset:build`(예정), service role, seed 스크립트와 같은 지위)가 Supabase·MinIO 에서 `EvalItem` 을 만들고, Python(`services/ai`, DB 접근 없음)이 Kev·Qwen 형식으로 바꾼다.
 
 ## 4. 평가
 
@@ -253,12 +253,12 @@ Kev 학습·평가·보정은 Kev 저장소 도구(`kev.train`·`kev.benchmark`�
 
 | 명령 | 위치 | 하는 일 |
 |---|---|---|
-| `pnpm dataset:build --version sol-eval/v0.1` | 루트 스크립트(service role) | live 공고·추출·가상 기업 → `EvalItem` + 분할 + 마스킹 → MinIO |
+| `pnpm dataset:build --version sol-eval/v0.1`(예정) | 루트 스크립트(service role) | live 공고·추출·가상 기업 → `EvalItem` + 분할 + 마스킹 → MinIO |
 | `uv run python -m sol_eval.export --version … --out sol-dataset-v0.1.tar` | `services/ai` | `EvalItem` → Kev JSONL(en·ko)·Qwen SFT JSONL·manifest |
 | `uv run python -m sol_eval.labels check <file>` | `services/ai` | 사람 라벨 파일 검증 |
 | `uv run python -m sol_eval.run --system E1 --split test --kev-url … --gateway-url …` | `services/ai` | 평가 실행 → `report.json`·`report.md` |
 | `uv run python -m sol_eval.probe-train …` | `services/ai`(회사 GPU, 회사 측 실행) | §5.2 메모리 격자 실행 → 결과 표. 감싸는 `kev.train` 명령은 [[22-FINETUNE-RUNBOOK\|22]] §4.2 |
-| `pnpm eval:publish <report.json>` | 루트 스크립트 | 요약을 `eval_runs` 에 저장. 웹은 `GET /api/v1/admin/ai/eval-runs` 로 읽기만([[05-API-SPEC\|05 API]]) |
+| `pnpm eval:publish <report.json>`(예정) | 루트 스크립트 | 요약을 `eval_runs` 에 저장. 웹은 `GET /api/v1/admin/ai/eval-runs` 로 읽기만([[05-API-SPEC\|05 API]]) |
 
 ## 7. 수용 기준 (해커톤 F0·X6)
 

@@ -76,7 +76,7 @@ Compose 내부 네트워크 전용 엔드포인트다([[02-ARCHITECTURE|02 아�
 |엔드포인트|호출자|단위|하는 일|v0.2|
 |---|---|---|---|---|
 |`POST /parse`|documents job(Worker), 새 revision의 첨부마다|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·MinIO 접근 없음. Worker가 텍스트를 MinIO에 쓰고 `bid_documents`에 상태를 기록|새로|
-|`POST /extract`|extract job(Worker), 새 revision마다|공고 revision(조직 무관)|chunk → Qdrant 색인 → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations` 반환. Worker가 `requirement_extractions`에 저장|확장|
+|`POST /extract`|extract job(Worker), 새 revision마다|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations` 반환. Worker가 `requirement_extractions`에 저장|확장|
 |`POST /kev`|analysis job(Worker)|조직 × revision × 프로필 revision|추출 `KNOWN` 값 + 프로필 요약으로 state 구성(§5.6·§5.11) → Kev 질문 세트 → `KevAssist` + `stateTrace`·`stateHash` 반환|확장|
 |`POST /explain`|analysis job(Worker)|조직 × revision × 프로필 revision|규칙 판정·점수 분해·인용·Kev 참고 요약 → 한국어 설명. 입력에 없는 숫자가 있으면 템플릿 문장으로 대체(§6)|새로|
 |`GET /health`|Worker(기동·주기), Route Handler `GET /api/v1/admin/ai/status`|—|실행 모드, Qwen 모델·프롬프트 해시, Kev 모델 id·레지스트리 일치, 질문 세트, 파서 목록|확장|
@@ -146,11 +146,11 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 - Kev 서버 자체가 state 65,536 토큰 초과로 422를 내면 gateway가 `kev.enabled=false`로 바꿔 200으로 돌려준다(state 상한 6,000 토큰을 지키면 생기지 않는다).
 - `/parse`는 50 MB를 넘는 본문을 처리하지 않고 `status=UNSUPPORTED`, `errorCode=TOO_LARGE`로 돌려준다. Worker는 다운로드 단계에서 먼저 거른다(§10.5).
 - 재사용: Worker가 호출 전에 `requirement_extractions`에서 `(revision_id, model_name, prompt_hash)` 행을 찾고, 있으면 `/extract`를 부르지 않는다. 모델 이름·프롬프트 해시는 `GET /health`(gateway)로 미리 받아 둔다. `translations`도 같은 행에서 재사용한다.
-- Worker analysis job 순서: ① 캐시된 추출 로드(없으면 extract job 먼저) → ② 추출 + API 구조화 필드 + 프로필로 자격 판정·SOL Score·권고 계산(규칙) → ③ `KEV_ENABLED`면 `/kev`(질문이 많으면 24개씩 나눠 같은 state로 여러 번, §5.10) → ④ Kev 답을 규칙 결과와 비교해 `reviewFlags` 추가·항목별 Kev 분포 기록(§5.5·§5.13) → ⑤ `/explain` → ⑥ `score_runs`·`requirement_assessments` 저장(service role, 요청 조직의 `org_id` 지정). timeout은 `AI_TIMEOUT_MS`(`/extract`), `KEV_TIMEOUT_MS`(`/kev`), circuit breaker는 Worker가 가진다. `/explain`이 실패하거나 시간을 넘기면 템플릿 문장으로 대체하고 분석을 실패시키지 않는다.
+- Worker analysis job 순서: ① 캐시된 추출 로드(없으면 extract job 먼저) → ② 추출 + API 구조화 필드 + 프로필로 자격 판정·SOL Score·권고 계산(규칙) → ③ `KEV_ENABLED`면 `/kev`(질문이 많으면 24개씩 나눠 같은 state로 여러 번, §5.10) → ④ Kev 답을 규칙 결과와 비교해 `reviewFlags` 추가·항목별 Kev 분포 기록(§5.5·§5.13) → ⑤ `/explain` → ⑥ `score_runs`·`requirement_assessments` 저장(service role, 요청 조직의 `org_id` 지정). gateway는 요청 하나를 `AI_TIMEOUT_MS`(`/extract`)·`KEV_TIMEOUT_MS`(`/kev`) 마감 안에 끝내고(§3), Worker는 그보다 긴 HTTP timeout과 circuit breaker를 가진다. `/explain`이 실패하거나 시간을 넘기면 템플릿 문장으로 대체하고 분석을 실패시키지 않는다.
 - analysis job의 큐 jobId는 `analysis_<orgId>_<scoreRunId>`다(BullMQ가 jobId에 `:`를 금지해서 `_`로 잇는다). 저장 멱등 키 `<orgId>:<requestId>`와 다른 값이다([[05-API-SPEC|05]] §4.5, [[16-DECISIONS|ADR-031]] C14).
 - `/kev` 본문에 규칙 결과(자격 판정·점수·권고)를 넣지 않는다(§5.6). `/explain`에는 넣는다(설명 대상이다).
 
-`GET /health` 응답([[16-DECISIONS|ADR-030]] B9): `runMode`, `qwen: {model, promptHash} | null`, `kev: {modelId, registryMatch} | null`, `questionSets: string[]`, `parsers: {format, parserId}[]`. mock이면 `qwen`은 fixture 고정 값(`model:"fixture"`, fixture 공통 `promptHash`)이다. worker의 추출 재사용 키(revision, model_name, prompt_hash)가 사전 분석이 저장한 추출과 맞게 하려는 것이다. seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다, [[16-DECISIONS|ADR-031]] C16). Route Handler `GET /api/v1/admin/ai/status`·`/admin/ai/models`가 이 값을 읽는다([[05-API-SPEC|05 API]]).
+`GET /health` 응답([[16-DECISIONS|ADR-030]] B9): `status: "ok"`, `runMode`, `provider`(`mock` / `local` / `hosted`), `kevEnabled: boolean`(Kev 어댑터가 있으면 `true`), `qwen: {model, promptHash} | null`, `kev: {modelId, registryMatch} | null`, `questionSets: string[]`, `parsers: {format, parserId}[]`(gateway `services/ai/src/sol_ai/app.py`, worker 쪽 스키마 `web/server/analysis/gateway.model.ts`의 `healthResponseSchema`). mock이면 `qwen`은 fixture 고정 값(`model:"fixture"`, fixture 공통 `promptHash`)이다. worker의 추출 재사용 키(revision, model_name, prompt_hash)가 사전 분석이 저장한 추출과 맞게 하려는 것이다. seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다, [[16-DECISIONS|ADR-031]] C16). Route Handler `GET /api/v1/admin/ai/status`·`/admin/ai/models`가 이 값을 읽는다([[05-API-SPEC|05 API]]).
 
 ### 2.2 외부 의존성 인터페이스
 
@@ -186,18 +186,18 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`AI_PROVIDER`|`mock` / `local` / `hosted`|모드가 정함|Qwen·임베딩 공급자. `mock` 모드 → `mock`, `live`·`fixture` → `local`. `hosted`는 §5.8·ADR-010|
 |`AI_FALLBACK_TO_MOCK`|`true`/`false`|`false`|모델 서버 미접속 때 mock 결과로 자동 대체(§8 설계). **아직 구현하지 않아 `true`면 기동 거부**(`live`는 구현 뒤에도 거부, [[16-DECISIONS\|ADR-030]] B11). 대체가 일어나면 `MOCK_FALLBACK` 플래그와 배너로 밝힌다|
 |`AI_GATEWAY_URL`|URL|`http://ai-gateway:8000`|Worker가 부르는 gateway|
-|`AI_TIMEOUT_MS`|정수|`60000`|Qwen 호출 1회 timeout|
+|`AI_TIMEOUT_MS`|정수|`60000`|`/extract` 요청 하나의 단조 시계 마감. 첫 호출과 재시도를 이 안에 끝낸다. 호출이 시간을 넘기면 `QWEN_UNAVAILABLE`, 재시도할 시간이 남지 않으면 `EXTRACTION_FAILED`([[16-DECISIONS\|ADR-032]] D1)|
 |`AI_PROMPT_VERSION`|문자열|`req-extract/v0.1`|프롬프트 템플릿 버전. 해시와 함께 저장|
 |`QWEN_BASE_URL`|URL|(없음)|`local`/`hosted`에서 Qwen runtime 주소. 해커톤 `local` 값은 [[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시([[16-DECISIONS\|ADR-025]], §5.9)|
 |`QWEN_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 엔드포인트 뒤 vLLM `--api-key`와 같은 값). `local`에서 필수(ADR-025). 서버 env(`infra/.env`)만, 로그 금지([[09-SECURITY\|09 보안]])|
 |`QWEN_MODEL`|모델 ID|(없음)|기본 후보 `Qwen/Qwen3.5-9B`(§3.2). 결과 메타데이터에 기록|
 |`QWEN_CONTEXT_BUDGET_TOKENS`|정수|`12000`|추출 1회 입력 상한. 초과 chunk는 Qdrant 순위로 자른다|
-|`EMBEDDING_MODEL`|모델 ID|(없음)|`mock`이면 키워드 검색으로 대체|
+|`EMBEDDING_MODEL`|모델 ID|(없음)|**미구현(해커톤 컷 밖)**. Qdrant 색인과 함께 코드가 읽지 않는다(2026-10-19 `services/ai/src`·`web/server`·`web/worker`에 0건). 설계: `mock`이면 키워드 검색으로 대체|
 |`KEV_ENABLED`|`true`/`false`|`true`|세 모드 모두 기본 `true`이고 `false`를 허용한다(`infra/run-modes.json`, [[16-DECISIONS\|ADR-029]] A5). `false`면 Kev 없이 `RULES_ONLY`이고 분석은 `COMPLETED`다(§9). `mock`에서 `true`면 mock adapter가 응답|
 |`KEV_BASE_URL`|URL|(없음)|Kev 서버 주소. 해커톤 `local` 값은 [[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시(ADR-025, §5.9). `mock`에서는 쓰지 않는다|
 |`KEV_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 엔드포인트 뒤 `kev.serve`의 `KEV_API_KEY`와 같은 값). `local`에서 필수(§5.9, ADR-025). 서버 env만, 로그 금지|
 |`KEV_MODEL_ID`|레지스트리 id|`kev-9b-v1.0`|`services/ai/models/registry.yaml` 항목 id(`kev-9b-v1.0` → `jaredpalmer/kev-9b@v1.0`). gateway가 기동할 때 Kev `GET /v1/models`와 대조하고 다르면 기동 거부(§11)|
-|`KEV_TIMEOUT_MS`|정수|`5000`|초과 시 Kev 없이 진행. v0.2 분할 요청마다 적용. 실추론 지연은 §5.9에서 실측해 조정|
+|`KEV_TIMEOUT_MS`|정수|`5000`|`/kev` 요청 하나의 단조 시계 마감. 레지스트리 대조와 모든 묶음(§5.10 분할 요청)을 이 안에 끝내고, 넘으면 Kev 없이 진행한다(`KEV_UNAVAILABLE`, ADR-032 D1). 기본값이 v0.2 묶음 2개를 담는지는 실측이 없어 C1 ③ G3(§5.9)에서 다시 본다|
 |`KEV_QUESTION_SET`|문자열|`kev-qs/v0.1`|질문 세트 버전. `mock` 모드·데모 S3는 v0.1(§5.5), `live`·`fixture` 실추론은 v0.2(§5.10)|
 |`KEV_ALLOW_KO_STATE`|`true`/`false`|`false`|`/kev`의 `stateLanguage="ko"` 허용. **평가(E2, [[21-MODEL-TRAINING\|21]]) 전용, §5.11.** `false`면 ko 요청은 `422 KO_STATE_NOT_ALLOWED`. `AI_PROVIDER=hosted`와 함께면 모든 모드에서 기동 거부([[16-DECISIONS\|ADR-030]] B11)|
 |`PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`|어댑터 id|(비교 뒤 결정)|형식별 파서 어댑터(§10.1). 기본값은 실제 RFP 샘플 비교(§10.3) 뒤 정한다([[16-DECISIONS\|16 ADR]] 미결정 4·20번)|
@@ -209,7 +209,8 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`ANALYSIS_STALE_RUNNING_MS`|정수(ms) 1~3600000|`600000`|worker 전용, 선택. 이보다 오래된 `RUNNING` run을 멈춘 분석으로 본다(§8)|
 |`ANALYSIS_RECONCILE_INTERVAL_MS`|정수(ms) 1~3600000|`60000`|worker 전용, 선택. 멈춘 분석 복구 검사 주기(§8)|
 
-- `ANALYSIS_*` 3개의 기본값·범위는 `web/worker/analysis-reconcile.ts`(main `9da17c4`)와 같다. 지금 `infra/compose.yaml`은 이 셋을 worker에 넘기지 않아 컨테이너에서는 기본값이 쓰인다.
+- `ANALYSIS_*` 3개의 기본값·범위는 `web/worker/analysis-reconcile.ts`(main `9da17c4`)와 같다. main `4895010`부터 `infra/compose.yaml`이 이 셋을 worker `environment`에 키만 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에 변수가 없어 코드 기본값이 쓰인다(`compose.yaml` 주석).
+- `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`는 gateway가 요청 하나에 거는 마감이다. worker의 HTTP 시간 제한은 그보다 길다(`KEV_TIMEOUT_MS`+2초·`AI_TIMEOUT_MS`+5초, `web/server/analysis/gateway.model.ts`). worker 쪽이 gateway 실제 소요보다 커야 [[16-DECISIONS|ADR-031]] C6 분류(gateway가 응답했는가)가 성립한다. gateway 쪽 마감 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다([[16-DECISIONS|ADR-032]] D1).
 
 ### 3.1 모드별 동작 (`AI_PROVIDER`)
 
@@ -403,8 +404,8 @@ JSON Schema:
 
 |실패|처리|
 |---|---|
-|JSON 파싱 실패 또는 스키마 위반|같은 입력에 오류 메시지(`"이전 출력은 스키마를 위반했다: {검증 오류 요약}"`)를 user message 끝에 붙여 1회 재시도. 또 실패하면 `EXTRACTION_FAILED`|
-|timeout(`AI_TIMEOUT_MS`)|재시도 없음. `QWEN_UNAVAILABLE`(timeout은 모델 서버 미접속으로 분류한다, §8)|
+|JSON 파싱 실패 또는 스키마 위반|같은 입력에 오류 메시지(`"이전 출력은 스키마를 위반했다: {검증 오류 요약}"`)를 user message 끝에 붙여 1회 재시도. 또 실패하거나 `AI_TIMEOUT_MS` 마감 안에 재시도할 시간이 남지 않으면 `EXTRACTION_FAILED`([[16-DECISIONS\|ADR-032]] D1)|
+|timeout(`AI_TIMEOUT_MS`, 첫 호출과 재시도를 합친 요청 하나의 마감)|재시도 없음. `QWEN_UNAVAILABLE`(timeout은 모델 서버 미접속으로 분류한다, §8)|
 |runtime 연결 불가|재시도 없음. `QWEN_UNAVAILABLE`|
 |`EXTRACTION_FAILED` / `QWEN_UNAVAILABLE`|실패한 추출은 `requirement_extractions`에 저장하지 않는다([[16-DECISIONS\|ADR-030]] B10). 분석은 규칙만으로 진행(`PARTIAL`), `reviewFlags`에 코드 추가, 모든 필드 `UNKNOWN`으로 간주|
 
@@ -554,7 +555,7 @@ COMPANY (profile revision 2)
 
 ### 5.7 어댑터 계약
 
-`services/ai/adapters/kev.py`. `KevAdapterInput`은 `POST /kev` 본문(§2.1)과 같다.
+`services/ai/src/sol_ai/adapters/kev.py`. `KevAdapterInput`은 `POST /kev` 본문(§2.1)과 같다.
 
 ```ts
 // 입력 (내부 계약, Kev wire 형식 아님)
@@ -604,7 +605,7 @@ interface KevAssist {
 - 추출이 인젝션 의심이면 Kev를 부르지 않는다: `enabled=false`, `KevResponse.errorCode=INJECTION_SUSPECTED`, 분석 `COMPLETED`·`RULES_ONLY`(§2.1, [[16-DECISIONS|ADR-030]] B3).
 - mock adapter: fixture별 고정 응답 파일 `fixtures/kev/FX-xx.json`(wire 응답 형식 그대로)을 우선 읽는다. 예: FX-02는 `BID 0.36 / WATCH 0.52 / NO_BID 0.12`, `needsHumanReview 0.74`([[19-DEMO-SCENARIO|19 데모 시나리오]]·[[08-SCORING|08 점수]] 계산 예시와 같은 숫자). 파일이 없으면 공식(추출·프로필만으로 계산, 규칙 결과 없음): `mandatory=true`인 `qualifications[].code`가 프로필 `licenses`에 없으면 `NO_BID` 0.8, 필수 항목 중 `UNKNOWN`/`CONFLICTED`가 있으면 `WATCH` 0.7, 아니면 `BID` 0.6 중심의 고정 분포. 공식의 `fit`은 세 분기 모두 `{"0":0,"1":0.2,"2":0.6,"3":0.2,"4":0}`, `confidence` 0.6, `score` 2.0이다(§5.4, [[16-DECISIONS|ADR-031]] C7). 어느 쪽이든 `provider="mock"`이고 UI가 DEMO 배지로 보여 준다. mock adapter는 v0.1만 내므로 v0.2 필드는 null이다.
 - 테넌트 표기: 문서 예시의 `orgId: "org-01"`(솔리데오), `"org-02"`(비교 조직)는 seed `organizations.slug`다. 실제 API·DB 값은 UUID([[04-DATABASE|04 DB]] §6).
-- wire 형식은 README를 따르되 `services/ai/adapters/kev_wire.py` 한 곳에서만 다룬다. 필드명을 다른 곳에 하드코딩하지 않는다.
+- wire 형식은 README를 따르되 `services/ai/src/sol_ai/adapters/kev_wire.py` 한 곳에서만 다룬다. 필드명을 다른 곳에 하드코딩하지 않는다.
 
 ### 5.8 hosted 경로
 
@@ -626,7 +627,7 @@ interface KevAssist {
 > 검증 절차(C1 ③. 선행 조건 P2 = 회사가 엔드포인트 경로·인증 방식을 알려 줌, P3 = 회사 측 모델 기동 완료 통보):
 > - G1 엔드포인트 HTTPS 접속: `GET https://acropolissg.com/sol-radar/healthz` 200 + TLS 유효(`-k` 금지).
 > - G2 Qwen·Kev `GET /v1/models` 응답과 레지스트리(`KEV_MODEL_ID` 항목, `QWEN_MODEL`) 대조(§11).
-> - G3 지연 실측: §5.4 요청을 §5.6 state(약 500 토큰)로 10회 보내 p50·p95(왕복 포함)를, Qwen 추출 1회 시간을 기록한다. `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`를 이 값에 맞춘다.
+> - G3 지연 실측: §5.4 요청을 §5.6 state(약 500 토큰)로 10회 보내 p50·p95(왕복 포함)를, Qwen 추출 1회 시간을 기록한다. `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`를 이 값에 맞춘다. 기본값 `KEV_TIMEOUT_MS=5000`이 v0.2 묶음 2개(레지스트리 대조 포함)를 담는지도 여기서 본다([[16-DECISIONS|ADR-032]] D1).
 > - G4 vLLM guided JSON 동작 확인(§3.2).
 > - G5 회사 제공 GPU 정보(모델·VRAM·점유)가 있으면 기록, 없으면 "회사 운영, 측정 불가".
 > - G6 엔드포인트 차단 시 `PARTIAL`·`RULES_ONLY` 경로 확인(§8).
@@ -722,7 +723,11 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 
 테이블 정의와 RLS 정책은 [[04-DATABASE|04 DB]]. 위 표들은 Worker가 service role로 Supabase에 쓴다. `requirement_extractions`·`bid_documents`는 공용 공고 데이터라 `authenticated`는 읽기만 하고, `score_runs`·`requirement_assessments`는 `org_id`로 조직마다 나뉜다.
 
-분석 결과 저장은 RPC `finish_score_run(p jsonb)` 하나로 한다(service_role만 실행). 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 마감하고, 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. 멱등 키 check와 requestId 형식은 [[04-DATABASE|04 DB]] §3.4·[[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 구현은 C5-B 마이그레이션 `20261019000011`, main 병합 전).
+분석 결과 저장은 RPC `finish_score_run(p jsonb)` 하나로 한다(service_role만 실행). 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 마감한다. 멱등 키 check와 requestId 형식은 [[04-DATABASE|04 DB]] §3.4·[[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 구현은 C5-B 마이그레이션 `20261019000011`, main `cfe8f0a`).
+- 거절 코드는 `SCORE_RUN_NOT_FOUND`(그 조직에 그 run이 없다)·`SCORE_RUN_NOT_RUNNING`(`RUNNING`이 아니거나 시도 시각이 다르다)·`SCORE_RUN_INVALID_STATUS`(마감 status가 `COMPLETED`·`PARTIAL`이 아니다, 마이그레이션 `20261019000013`)다. `FAILED` 마감은 이 함수가 아니라 markFailed가 한다.
+- `ANALYSIS_RUN_SUPERSEDED`(영구 실패)는 두 경우에 나온다. 늦게 온 마감(finish가 `SCORE_RUN_NOT_RUNNING`)과 run 잡기 실패(markRunning이 0행, compare-and-set)다.
+- 시도 식별자는 `started_at = max(now, 앞 started_at + 1ms)`다. 같은 run을 다시 잡아도 시각이 겹치지 않는다.
+- 위 세 가지는 [[16-DECISIONS|ADR-032]] D5이고 구현은 main `8f33caa`에 있다.
 
 ## 8. 장애와 대체
 
@@ -742,12 +747,12 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 |Qdrant 다운|gateway health|`warnings += QDRANT_FALLBACK`|키워드 검색으로 chunk 선정|—|
 |추출은 성공, 인용 검증 대량 실패|§4.4 4단계(FAILED 비율 50% 초과 규칙은 [[15-DATA-CONTRACTS\|15]] §5.3)|`EXTRACTION_LOW_CONFIDENCE`|`PENDING_REVIEW`|—|
 |hosted 미승인 상태에서 `hosted` 지정|기동 시 env 검사|기동 로그|gateway 기동 거부. 조용히 mock으로 바꾸지 않는다|—|
-|멈춘 분석(오래된 `QUEUED`·`RUNNING` run, 기본 10분, env `ANALYSIS_STALE_*` §3)|worker 주기 검사(`ANALYSIS_RECONCILE_INTERVAL_MS`)|`errorCode=STALE_RUN`|큐에 job이 없는 run 중 `RUNNING`은 같은 jobId로 다시 넣고 시도를 다 썼으면 `FAILED`(`STALE_RUN`)로 끝낸다. `QUEUED`는 다시 넣지 않고 `FAILED`(`STALE_RUN`)로 닫는다. 사용자가 PostgREST로 직접 넣은 `QUEUED` run이 속도 제한([[05-API-SPEC\|05]] §1)을 우회하는 통로가 되지 않게 하려는 것이다([[16-DECISIONS\|ADR-030]] B21, ADR-031 C4)|분석 실패 배너|
+|멈춘 분석(오래된 `QUEUED`·`RUNNING` run, 기본 10분, env `ANALYSIS_STALE_*` §3)|worker 주기 검사(`ANALYSIS_RECONCILE_INTERVAL_MS`)|`errorCode=STALE_RUN`|큐에 job이 없는 run 중 `RUNNING`은 같은 jobId로 다시 넣고 시도를 다 썼으면 `FAILED`(`STALE_RUN`)로 끝낸다. `QUEUED`는 다시 넣지 않고 `FAILED`(`STALE_RUN`)로 닫는다. 사용자가 PostgREST로 직접 넣은 `QUEUED` run이 속도 제한([[05-API-SPEC\|05]] §1)을 우회하는 통로가 되지 않게 하려는 것이다([[16-DECISIONS\|ADR-030]] B21, ADR-031 C4). 대상은 id keyset으로 읽고 처리 순서는 오래된 순이 아니다(ADR-032 D5)|분석 실패 배너|
 |모드와 모순된 env(예: `live` + `AI_PROVIDER=mock`, `live` + `KEV_ALLOW_KO_STATE=true`, 모든 모드의 `hosted` + `KEV_ALLOW_KO_STATE=true`·`AI_FALLBACK_TO_MOCK=true`, B11)|`pnpm check:env`, gateway 기동 시 검사|기동 로그|기동 거부. 조용히 바꾸지 않는다|—|
 
 - `/explain` 전송 실패는 템플릿 문장으로 대체하고 `PARTIAL` 사유가 아니다. `KEV_ENABLED=false`에서 gateway가 죽어도 그렇다. `AI_UNAVAILABLE`은 `/extract`·`/kev` 전송 실패만이다([[16-DECISIONS|ADR-030]] B2).
 - gateway `/health`를 읽지 못하면(gateway 정지) worker는 그 revision의 가장 최근 성공 추출을 모델 이름·프롬프트 해시와 상관없이 쓴다. S6에서 "점수·자격이 직전 run과 같다"(§9)를 지키려는 것이다([[16-DECISIONS|ADR-030]] B10).
-- worker의 실패 분류 기준은 "gateway가 응답했는가"다([[16-DECISIONS|ADR-031]] C6). 전송 실패(연결 거부·timeout·재시도 뒤 5xx·circuit open·시험 503)만 `AI_UNAVAILABLE`(`PARTIAL`)이다. gateway가 응답했지만 쓸 수 없는 `/kev`는 Kev 행(`KEV_UNAVAILABLE`, `COMPLETED`·`RULES_ONLY`), 쓸 수 없는 `/extract`는 `EXTRACTION_FAILED`(`PARTIAL`)다. 진단(zod issue 경로·코드, failure kind)은 worker 로그에만 남기고 값과 DB에는 남기지 않는다.
+- worker의 실패 분류 기준은 "gateway가 응답했는가"다([[16-DECISIONS|ADR-031]] C6). 전송 실패(연결 거부·timeout·재시도 뒤 5xx·circuit open·시험 503)만 `AI_UNAVAILABLE`(`PARTIAL`)이다. gateway가 응답했지만 쓸 수 없는 `/kev`는 Kev 행(`KEV_UNAVAILABLE`, `COMPLETED`·`RULES_ONLY`), 쓸 수 없는 `/extract`는 `EXTRACTION_FAILED`(`PARTIAL`)다. 진단(zod issue 경로·코드, failure kind)은 worker 로그에만 남기고 값과 DB에는 남기지 않는다. 진단 failure 이름은 `HTTP_4XX`·`HTTP_5XX`·`UNREACHABLE`·`TIMEOUT`·`CIRCUIT_OPEN`·`INVALID_RESPONSE`·`WIRE_INVALID`·`PAYLOAD_INVALID`이다. 로그에 남기는 경로 조각은 숫자이거나 `[A-Za-z0-9_]{1,40}`일 때만 그대로 쓰고, 아니면 `*`로 바꾼다([[16-DECISIONS|ADR-032]] D5).
 - 분석 요청 화면 경로에서 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 닫고 멱등 키를 푼다([[05-API-SPEC|05]] §4.5, ADR-031 C4).
 
 **실패한 단계의 내용을 AI가 추측해 채우지 않는다.**
@@ -804,7 +809,7 @@ interface ParseResult {
 ```
 
 - 표는 행마다 한 줄로 쓰고 셀 사이에 ` | `를 넣어 `text`에 직렬화한다. 셀마다 `charStart/charEnd`를 남겨서 표 안 문장도 인용 검증([[15-DATA-CONTRACTS|15 데이터 계약]] §5)을 그대로 통과할 수 있게 한다.
-- 어댑터는 `services/ai/parsers/{pdf,hwpx,hwp}/` 아래 후보마다 하나씩 둔다. 형식마다 사용할 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다(§3). 기본값은 §10.3 비교가 끝난 뒤 정한다.
+- 어댑터는 **예정**이다(아직 없다. `services/ai/src/sol_ai/parse.py`는 형식 판정과 미지원 응답만 한다). 만들 때 `services/ai/parsers/{pdf,hwpx,hwp}/` 아래 후보마다 하나씩 둔다. 형식마다 사용할 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다(§3). 기본값은 §10.3 비교가 끝난 뒤 정한다.
 - Python 밖 런타임이 필요한 후보는 gateway 안에서 상주 하위 프로세스로 부른다(Node·JVM). 이미지 크기와 기동 시간은 비교 표에 함께 적는다([[10-DEPLOYMENT|10 배포]] 파서 런타임). 하위 프로세스의 운영 방식(상주 워커 수, 재시작 정책)은 구현 때 정한다.
 - gateway는 지금처럼 DB·MinIO에 접근하지 않고, `/parse`는 네트워크도 쓰지 않는다. 형식은 확장자가 아니라 내용(매직 바이트)으로 판단한다.
 - 어댑터가 아직 정해지지 않은 형식과 모르는 형식은 `UNSUPPORTED` + `UNSUPPORTED_FORMAT`이고 `warnings`에 `PARSER_NOT_CONFIGURED:<fmt>`, `parserId`는 `"none"`이다. 50 MB를 넘으면 `UNSUPPORTED` + `TOO_LARGE`다([[16-DECISIONS|ADR-030]] B6).
@@ -899,6 +904,10 @@ interface ParseResult {
   - `weights_sha256`, `head_sha256`, `temperature`
   - `dataset`(버전·sha256), `questionSet`, `stateTemplate`, `reports`
 - 공개 모델도 항목으로 둔다. 기본 항목은 `kev-9b-v1.0` → `jaredpalmer/kev-9b@v1.0`이고 gateway env `KEV_MODEL_ID`로 고른다(§3).
+- **호스트 허용 목록**: 레지스트리 최상위 `allowedHosts`는 `local` 모델 서버 URL(`QWEN_BASE_URL`·`KEV_BASE_URL`)의 호스트가 가질 수 있는 이름 목록이다. 값은 `acropolissg.com` 하나다([[16-DECISIONS|ADR-032]] D2).
+  - 호스트 이름이 목록의 값과 정확히 같아야 한다. 하위 도메인은 받지 않는다. 루프백은 시험용으로 허용한다.
+  - 목록 밖이면 gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). [[09-SECURITY|09 보안]] "회사 GPU 추론 엔드포인트 연결"의 "gateway는 거기에만 붙는다"를 이 목록으로 강제한다.
+  - 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다.
 - **서빙 검증**
   - 회사 GPU 서버는 `kev.serve`를 호스트에 직접 띄운다(ADR-025). 그래서 회사가 기동 전에 가중치(`head.pt`·어댑터) sha256을 레지스트리 `weights_sha256`·`head_sha256`과 대조한다([[22-FINETUNE-RUNBOOK|22]] §2.2).
   - gateway는 기동할 때 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`가 레지스트리 `KEV_MODEL_ID` 항목과 같은지 확인하고, 다르면 기동을 거부한다.

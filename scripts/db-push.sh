@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 배포는 데이터부터. 마이그레이션을 '대시보드 직접 SQL'이 아니라 CLI로 적용한다.
 #   - 대시보드에서 직접 실행하면 이력이 남지 않는다. 이 스크립트가 정식 경로다.
-#   - 무료 티어에선 빌드(Vercel, IPv4)에서 DDL '적용'이 막힌다. vercel-build.sh 는 dry-run
-#     '검증'만 하고(fail-closed), 실제 '적용'은 IPv4 Session pooler 로 이 스크립트가 out-of-band 로 한다.
+#   - 웹 배포처는 미결정이라(docs/16-DECISIONS.md 미결정 8번) 빌드에 묶인 DB 검증 wrapper 는 두지 않는다.
+#     dry-run '검증'은 pnpm db:verify(scripts/db-verify.sh)가, 실제 '적용'은 IPv4 Session pooler 로 이 스크립트가 out-of-band 로 한다.
 # SUPABASE_DB_URL 은 .env.local 에 둔다(Supabase → Connect → Session pooler URI, 비밀번호 포함, gitignore).
 set -euo pipefail
 

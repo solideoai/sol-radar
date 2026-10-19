@@ -48,6 +48,8 @@ const FIVE_MINUTES_MS = 5 * 60_000;
 const isoAfter = (base: Date, ms: number): string => new Date(base.getTime() + ms).toISOString();
 // 앞선 SCHEDULED run 하나(창 끝 LAST_G2B_WINDOW_END)
 const PREVIOUS_SCHEDULED = [{ trigger: "SCHEDULED" as const, windowTo: LAST_G2B_WINDOW_END }];
+// 가짜 저장소가 돌려주는 revision created_at 의 기준 시각
+const REVISION_CREATED_BASE_MS = Date.UTC(2026, 9, 19);
 
 const FIXTURE_SEED = {
   source: "fixture",
@@ -173,7 +175,10 @@ const createFakeRepo = (previousRuns: readonly PreviousRun[] = []) => {
         checksum: decision.bid.checksum,
         normalized: decision.bid,
       });
-      return { bidId, revisionId: nextUuid() };
+      const revisionId = nextUuid();
+      // revision 마다 다른 created_at(초 단위). documents job data 가 저장 결과의 값을 싣는지 본다(C1')
+      const revisionCreatedAt = new Date(REVISION_CREATED_BASE_MS + counter * 1000).toISOString();
+      return { bidId, revisionId, revisionCreatedAt };
     },
     async recordError(runId: string, error: IngestErrorInput): Promise<void> {
       errors.push({ runId, ...error });
@@ -323,7 +328,7 @@ describe("processIngestJob — mock 모드 fixture SEED", () => {
     expect(enqueueDocuments).toHaveBeenCalledTimes(SEED_DOCUMENT_JOBS);
   });
 
-  it("documents job data 는 첨부가 있는 저장 결과의 bidId·revisionId 다", async () => {
+  it("documents job data 는 첨부가 있는 저장 결과의 bidId·revisionId·revisionCreatedAt 이다", async () => {
     const { deps, enqueueDocuments } = createDeps("mock");
 
     const result = await processIngestJob(FIXTURE_SEED, deps);
@@ -331,7 +336,11 @@ describe("processIngestJob — mock 모드 fixture SEED", () => {
     expect(enqueueDocuments.mock.calls.map(([data]) => data)).toEqual(
       result.saved
         .filter((saved) => saved.attachmentCount > 0)
-        .map(({ bidId, revisionId }) => ({ bidId, revisionId })),
+        .map(({ bidId, revisionId, revisionCreatedAt }) => ({
+          bidId,
+          revisionId,
+          revisionCreatedAt,
+        })),
     );
   });
 
