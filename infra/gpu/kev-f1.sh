@@ -16,6 +16,10 @@
 # 이 스크립트가 끝낼 때 멈추는 것은 자기가 띄운 nvidia-smi 기록 프로세스 하나뿐이다.
 # --init_from·--base·--base_revision·--lora·--head_dim·--lora_targets·--option_isolation·--special_embeddings 는 Kev-9B v1.0
 # 체크포인트 호환 값으로 고정한다(kev/checkpoint.py COMPAT_FIELDS, docs/22 §4.2). 새 LoRA 를 처음부터 학습하지 않는다.
+# --init_from 에는 Hub 태그(jaredpalmer/kev-9b@v1.0)가 아니라 preflight 가 sha256 을 대조한 로컬 snapshot 디렉터리
+# (태그 v1.0 이 가리키는 커밋 3afdec81…)를 준다. 실행 직전에 adapter_model.safetensors·head.pt 의 sha256 을 다시 대조하고
+# 다르면 시작하지 않는다(head.pt 는 pickle 이라 검증 안 된 파일을 torch.load 에 넣지 않는다). 학습은 HF_HUB_OFFLINE=1 로 돌아
+# 네트워크에서 아무것도 새로 받지 않는다(SOL_HF_OFFLINE=0 으로만 해제).
 set -euo pipefail
 
 SOL_WORK="${SOL_WORK:-/data/www/ai_workspace/sol-radar}"
@@ -29,7 +33,13 @@ SOL_MIN_FREE_MIB="${SOL_MIN_FREE_MIB:-40000}"
 SOL_MEM_BUDGET_MIB="${SOL_MEM_BUDGET_MIB:-41000}"
 export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
 
-INIT_FROM="jaredpalmer/kev-9b@v1.0"
+# 고정 리비전·sha256(kev-preflight.sh·docs/22 §2.2·services/ai/models/registry.yaml 과 같은 값)
+KEV9B_REV="3afdec81efc91da83dee06d30714adf54ee35531"   # jaredpalmer/kev-9b 태그 v1.0 이 가리키는 커밋(2026-10-20 Hub refs)
+KEV9B_ADAPTER_SHA="2b2a70cf4ef4440b6c22899e1f72c2f8ea5c6f65b19aa344539b4b8971d1f13d"
+KEV9B_HEAD_SHA="8e1dab2c8e3664f6fee843e0257d57946c25e0210c61901ea77e71761f4244e1"
+KEV_SNAP="$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/$KEV9B_REV"
+INIT_FROM="$KEV_SNAP"                                    # 로컬 디렉터리 → kev 는 Hub 를 조회하지 않는다(kev/checkpoint.py resolve_run)
+INIT_LABEL="jaredpalmer/kev-9b@v1.0 (snapshot $KEV9B_REV)"
 BASE="Qwen/Qwen3.5-9B-Base"
 BASE_REV="68c46c4b3498877f3ef123c856ecfde50c39f404"
 
@@ -51,6 +61,10 @@ case "$MAX_STATE" in ''|*[!0-9]*) echo "--max_state N 이 필요하다(예: 1024
 for v in "$BATCH" "$ACCUM" "$MAX_STEPS" "$ROW_BUDGET" "$LENGTH_SORT"; do
   case "$v" in ''|*[!0-9]*) echo "숫자가 아닌 인자: $v" >&2; exit 2 ;; esac
 done
+# --tag 는 run 이름의 일부다. 경로 문자(/ ..)·공백을 받지 않는다(runs/ 밖으로 나가지 못하게)
+if [ -n "$TAG" ] && ! printf '%s' "$TAG" | grep -qE '^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$'; then
+  echo "--tag 는 영문·숫자로 시작하는 [A-Za-z0-9._-] 1~41자만 된다: '$TAG'" >&2; exit 2
+fi
 
 die() { echo "중단: $*" >&2; exit 1; }
 
@@ -71,6 +85,19 @@ APPS="$(nvidia-smi -i "$SOL_GPU_INDEX" --query-compute-apps=pid,process_name,use
 FREE_MIB="$(nvidia-smi -i "$SOL_GPU_INDEX" --query-gpu=memory.free --format=csv,noheader,nounits | tr -d ' ')"
 [ "${FREE_MIB:-0}" -ge "$SOL_MIN_FREE_MIB" ] || die "GPU $SOL_GPU_INDEX 여유 메모리 ${FREE_MIB} MiB < ${SOL_MIN_FREE_MIB} MiB"
 
+# ── 체크포인트: preflight 가 본 고정 snapshot 과 같은 경로인지, 파일 sha256 이 지금도 같은지(실행 직전 재대조) ─────────
+MARK_SNAP="$(sed -n 's/^kev_snapshot=//p' "$MARK")"
+[ "$MARK_SNAP" = "$KEV_SNAP" ] || die "preflight 표식의 kev_snapshot($MARK_SNAP)이 이 스크립트의 고정 snapshot($KEV_SNAP)과 다르다. preflight 를 다시"
+[ -d "$KEV_SNAP" ] || die "체크포인트 snapshot 이 없다: $KEV_SNAP"
+for f in adapter_model.safetensors head.pt adapter_config.json; do [ -f "$KEV_SNAP/$f" ] || die "snapshot 에 $f 가 없다"; done
+GOT_ADAPTER="$(sha256sum "$KEV_SNAP/adapter_model.safetensors" | awk '{print $1}')"
+GOT_HEAD="$(sha256sum "$KEV_SNAP/head.pt" | awk '{print $1}')"
+[ "$GOT_ADAPTER" = "$KEV9B_ADAPTER_SHA" ] || die "adapter_model.safetensors sha256 불일치: $GOT_ADAPTER (기대 $KEV9B_ADAPTER_SHA). 학습 금지"
+[ "$GOT_HEAD" = "$KEV9B_HEAD_SHA" ] || die "head.pt sha256 불일치: $GOT_HEAD (기대 $KEV9B_HEAD_SHA). 학습 금지(검증 안 된 pickle 을 로드하지 않는다)"
+BASE_SNAP="$HF_HOME/hub/models--Qwen--Qwen3.5-9B-Base/snapshots/$BASE_REV"
+[ -f "$BASE_SNAP/config.json" ] || die "백본 캐시가 없다: $BASE_SNAP (HF_HUB_OFFLINE=1 로 돌아 새로 받지 않는다)"
+export HF_HUB_OFFLINE="${SOL_HF_OFFLINE:-1}"
+
 NAME="f1-ms${MAX_STATE}-b${BATCH}a${ACCUM}${TAG:+-$TAG}"
 OUT="$SOL_RUNS_DIR/$NAME"
 [ ! -e "$OUT" ] && [ ! -e "$OUT.log" ] || die "이미 있다: $OUT (덮어쓰지 않는다. --tag 로 이름을 바꾼다)"
@@ -78,6 +105,7 @@ mkdir -p "$SOL_RUNS_DIR"
 
 echo "== F1 $NAME $(date -Iseconds) host=$(hostname) GPU=$SOL_GPU_INDEX($GPU_UUID) 여유 ${FREE_MIB} MiB"
 echo "== 인자: --max_state $MAX_STATE --batch $BATCH --accum $ACCUM --max_steps $MAX_STEPS --row_budget $ROW_BUDGET --length_sort $LENGTH_SORT"
+echo "== init_from: $INIT_LABEL (sha256 대조 통과, HF_HUB_OFFLINE=$HF_HUB_OFFLINE)"
 nvidia-smi --query-gpu=index,name,memory.used,memory.total --format=csv > "$OUT.pre.txt"
 cat "$OUT.pre.txt"
 
@@ -138,7 +166,9 @@ if os.path.exists(c):
     j = json.load(open(c))
     src = j.get("init_source") or {}
     m["init_resolved"] = src.get("resolved", "")
-    m["init_adapter_sha256"] = src.get("adapter_sha256") or src.get("weights_sha256", "")
+    # kev/checkpoint.py warm_start: weights_sha256 = 어댑터 파일의 sha256, head_sha256 = head.pt 의 sha256
+    m["init_weights_sha256"] = src.get("weights_sha256") or src.get("adapter_sha256", "")
+    m["init_head_sha256"] = src.get("head_sha256", "")
     m["base_revision"] = j.get("base_revision", "")
 try:
     import torch; m["torch"] = torch.__version__
@@ -149,7 +179,7 @@ PY
 )"
 val() { echo "$METRICS" | "$PY" -I -c 'import json,sys; print(json.load(sys.stdin).get(sys.argv[1], "-"))' "$1"; }
 PEAK_ALLOC="$(val peak_alloc_gib)"; WALL="$(val wall_s)"; SEEN="$(val records_seen)"; TORCH_V="$(val torch)"
-INIT_RESOLVED="$(val init_resolved)"; INIT_SHA="$(val init_adapter_sha256)"; BASE_REV_USED="$(val base_revision)"
+INIT_RESOLVED="$(val init_resolved)"; INIT_WSHA="$(val init_weights_sha256)"; INIT_HSHA="$(val init_head_sha256)"; BASE_REV_USED="$(val base_revision)"
 KEV_COMMIT="$(git -C "$SOL_KEV_SRC" rev-parse HEAD 2>/dev/null || echo '?')"
 STEP_S="-"
 if [ -n "$SEC_PER_REC" ]; then STEP_S="$(awk -v s="$SEC_PER_REC" -v b="$BATCH" -v a="$ACCUM" 'BEGIN {printf "%.1f", s*b*a}')"; fi
@@ -161,6 +191,11 @@ REASONS=()
 [ "$DROPPED" = 0 ] || { VERDICT=FAIL; REASONS+=("dropped $DROPPED (state 가 잘려 요구사항이 빠진다. 22 §4.1 길이 제한)"); }
 [ "$CKPT" = yes ] || { VERDICT=FAIL; REASONS+=("checkpoint 저장 안 됨"); }
 [ "${MAX_USED_MIB:-0}" -le "$SOL_MEM_BUDGET_MIB" ] || { VERDICT=FAIL; REASONS+=("nvidia-smi 최대 ${MAX_USED_MIB} MiB > 예산 ${SOL_MEM_BUDGET_MIB} MiB (안전 여유 부족)"); }
+# kev 가 training_config.json 에 적은 출발 체크포인트 해시가 기대값과 같은지(실행 전 대조의 사후 확인)
+if [ "$CKPT" = yes ]; then
+  [ "$INIT_WSHA" = "$KEV9B_ADAPTER_SHA" ] || { VERDICT=FAIL; REASONS+=("init_source.weights_sha256 ${INIT_WSHA:-?} ≠ 기대 어댑터 sha256"); }
+  [ "$INIT_HSHA" = "$KEV9B_HEAD_SHA" ] || { VERDICT=FAIL; REASONS+=("init_source.head_sha256 ${INIT_HSHA:-?} ≠ 기대 head sha256"); }
+fi
 
 SUMMARY="$OUT.summary.md"
 {
@@ -174,7 +209,7 @@ SUMMARY="$OUT.summary.md"
   echo "| PyTorch | $TORCH_V |"
   echo "| Kev git commit | $KEV_COMMIT |"
   echo "| Base model revision | $BASE@${BASE_REV_USED:-$BASE_REV} |"
-  echo "| LoRA checkpoint(init_from) | $INIT_FROM → ${INIT_RESOLVED:-?} (adapter sha256 ${INIT_SHA:-?}) |"
+  echo "| LoRA checkpoint(init_from) | $INIT_LABEL → ${INIT_RESOLVED:-?}. 실행 전 대조 adapter $GOT_ADAPTER · head $GOT_HEAD. kev 기록 weights_sha256 ${INIT_WSHA:-?} · head_sha256 ${INIT_HSHA:-?} |"
   echo "| 인자 | --max_state $MAX_STATE --batch $BATCH --accum $ACCUM --max_steps $MAX_STEPS --row_budget $ROW_BUDGET --length_sort $LENGTH_SORT --dtype bf16 --weights_dtype bf16 --checkpointing 1 |"
   echo "| GPU peak VRAM (torch max_memory_allocated) | ${PEAK_ALLOC} GiB |"
   echo "| GPU peak VRAM (nvidia-smi memory.used 최대) | ${MAX_USED_MIB} MiB (예산 ${SOL_MEM_BUDGET_MIB} MiB) |"

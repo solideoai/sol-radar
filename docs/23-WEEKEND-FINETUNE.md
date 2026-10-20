@@ -45,7 +45,7 @@ updated: 2026-10-20
 | 10-20(화) | 우리 | §4.3 수집 1일차(목록 60일 + 보조 조회 150건). 가상 기업 원형 6개 JSON 작성(§4.2 C). state 빌더·`sol_eval.export` 뼈대(X6b) | `fixtures/recorded/train/`(마스킹 JSON) 또는 Supabase live 공고, `fixtures/eval/companies/*.json` |
 | 10-20(화) | 회사 | **서버 환경 확인 완료**: 전용 경로·venv `.venv-kev`(Python 3.12.3)·torch 2.8.0+cu128·CUDA·bf16·GPU 1 전용 변수(`CUDA_VISIBLE_DEVICES=1`). 미완: Kev 설치·모델 다운로드·F1(22 §3.2·§4.2) | [F1 기록](evidence/kev-train-feasibility.md) §0 |
 | 10-21(수) | 우리 | 수집 2일차(보조 조회 150건). 갈래 ①(§4.4) 레코드 생성·충돌·누수 검사. 회사 답(§8) 받기 | train JSONL 초안, 검사 로그 |
-| 10-21(수) | 회사 | Kev 설치(22 §3.2: `uv pip install --dry-run` 으로 계획 확인 뒤 설치, torch·triton 불변) → `infra/gpu/kev-preflight.sh` 1차(모델·데이터 없이 환경·GPU 매핑·커널 smoke 까지) | `runs/preflight-*.log` |
+| 10-21(수) | 회사 | Kev 설치(22 §3.2: `uv pip install --dry-run` 으로 계획 확인 뒤 설치, torch·triton 불변) → `infra/gpu/kev-preflight.sh` 1차(모델 전이라 체크포인트·백본 항목이 FAIL 로 끝나는 것이 정상. 환경·GPU 매핑·커널 smoke 항목만 본다. 통과 표식은 10-23 전부 통과 때 생긴다) | `runs/preflight-*.log` |
 | 10-22(목) | 우리 | **번들 확정** `sol-dataset-v0.1.tar` + sha256. 갈래 ②(Qwen 추출) 가능 여부는 이날 저녁 C1 ③·파서 상태로 정한다. 학습 요청서 전송(§8) | 번들, manifest, 요청서 |
 | 10-23(금) | 회사 | 모델·코드·replay 내려받기(§3.4) 또는 반입(외부망 미확인), 번들 반입·sha256 대조, `kev-preflight.sh` 전부 통과(모델 sha256·`--max_state` 별 데이터 길이 표 포함), `nvidia-smi` 기록 | 준비 완료 통보, `runs/preflight-ok` |
 | 10-23(금) | 우리 | 기능 freeze. `sol_eval` 이 `kev.benchmark` 출력 폴더(`rows.json`·`predictions.jsonl`·`report.json`)를 읽어 E4 지표를 내는 경로를 가짜 출력으로 시험(§2.2 A안·§6). 실제 스키마는 토요일 F1 출력으로 확정 | E4 하네스(오프라인) |
@@ -83,11 +83,15 @@ updated: 2026-10-20
 export SOL_WORK=/data/www/ai_workspace/sol-radar
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
 cd "$SOL_WORK"
+# 기준선 E1 은 태그가 아니라 sha256 을 대조한 로컬 snapshot(태그 v1.0 = 커밋 3afdec81…)으로 올린다(22 §4.2 콜아웃)
+KEV9B="$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531"
+sha256sum "$KEV9B/adapter_model.safetensors" "$KEV9B/head.pt"      # 22 §2.2 값과 같아야 한다
+export HF_HUB_OFFLINE=1
 python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e4-test --rotations 6
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test --rotations 6
+python -m kev.benchmark --run "$KEV9B"                  --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test --rotations 6
 python -m kev.compare --candidate runs/e4-test --reference runs/e1-test --out runs/e4-vs-e1      # --out 은 필수 인자
 python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e4-regression
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e1-regression
+python -m kev.benchmark --run "$KEV9B"                  --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e1-regression
 ```
 
 - 선택지 순서 민감도는 서빙 `/v1/systemone/permute` 대신 `kev.benchmark --rotations` 로 잰다(저장소 `kev/benchmark.py` 옵션, [[21-MODEL-TRAINING|21]] §4.1 콜아웃). `permute n_perm=6` 과 뜻이 같은지는 F1 20 step 출력으로 확인한다(§10).
@@ -202,7 +206,7 @@ GPU 1 한 장에는 두 추론 런타임(합쳐 약 41 GB)과 학습을 같이 �
 export SOL_WORK=/data/www/ai_workspace/sol-radar          # 전용 경로(2026-10-20 확인). /data 가용 약 1,011 GB
 export HF_HOME=$SOL_WORK/hf                                # 100 GB 이상 비워 둔다
 git clone https://github.com/jaredpalmer/kev.git "$SOL_WORK/kev" && git -C "$SOL_WORK/kev" checkout 1f04cfa28e6a708485b28a9585010b9e436b776e
-hf download jaredpalmer/kev-9b --revision v1.0
+hf download jaredpalmer/kev-9b --revision 3afdec81efc91da83dee06d30714adf54ee35531   # 태그 v1.0 이 가리키는 커밋. 태그 대신 커밋으로 받는다(22 §2.2)
 hf download Qwen/Qwen3.5-9B-Base --revision 68c46c4b3498877f3ef123c856ecfde50c39f404
 hf download jaredpalmer/kev-suites --repo-type dataset --revision cc4bac803e73112689ec327ffa481c519cbc7a05 --include "v7/decision-v7/*"
 # Kev-4B 는 사용자 승인 뒤에만 쓴다(§3.3). 미리 받아 두는 것은 무방하다
@@ -210,7 +214,7 @@ hf download jaredpalmer/kev-4b --revision v1.0
 hf download Qwen/Qwen3.5-4B-Base --revision 1001bb4d826a52d1f399e183466143f4da7b741b
 ```
 
-받은 뒤 `adapter_model.safetensors`·`head.pt` 의 sha256 을 22 §2.2 기대값(전체 값 기록됨)과 대조한다. `infra/gpu/kev-preflight.sh` 가 같은 대조를 한다. 다르면 학습을 시작하지 않는다.
+받은 뒤 `adapter_model.safetensors`·`head.pt` 의 sha256 을 22 §2.2 기대값(전체 값 기록됨)과 대조한다. `infra/gpu/kev-preflight.sh` 가 고정 snapshot 디렉터리(`snapshots/3afdec81…`)에서 같은 대조를 하고 없거나 다르면 FAIL, `kev-f1.sh` 는 실행 직전에 다시 대조한 뒤 그 로컬 디렉터리를 `--init_from` 에 준다(태그는 실행 중에 해석하지 않는다). 다르면 학습을 시작하지 않는다.
 
 ## 4. 데이터: 오픈 데이터에서 가져온다
 

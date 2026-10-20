@@ -4,6 +4,8 @@
 #
 # 읽기만 한다. GPU 0·2 와 다른 프로세스는 보기만 하고, 어떤 프로세스도 종료하지 않으며(kill·pkill·docker compose down 없음),
 # 파일을 지우거나 덮어쓰지 않는다. 비밀 값을 출력하지 않는다(set -x 금지).
+# 통과 표식(runs/preflight-ok)은 FAIL 이 0건일 때만 남긴다. 체크포인트(kev-9b 고정 커밋 snapshot)·백본 캐시가 없거나
+# sha256 이 다르면 FAIL 이다. 모델을 받기 전에 환경·커널만 보려고 돌리면 FAIL 로 끝나는 것이 정상이고 표식은 생기지 않는다.
 #
 # 사용(서버 셸, 계정 bim):
 #   export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
@@ -39,9 +41,11 @@ SOL_EXPECT_TORCH="${SOL_EXPECT_TORCH:-2.8.0+cu128}"
 SOL_EXPECT_TRITON="${SOL_EXPECT_TRITON:-3.4.0}"
 export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
 
-# 2026-10-19 Hugging Face 에서 받아 계산한 값(docs/22 §2.1·§2.2). 다르면 학습을 시작하지 않는다.
+# 고정 리비전과 2026-10-20 Hugging Face 에서 받아 계산한 sha256(docs/22 §2.1·§2.2, services/ai/models/registry.yaml).
+# 다르면 학습을 시작하지 않는다. 체크포인트는 태그(v1.0)가 아니라 커밋 sha 의 snapshot 디렉터리로만 쓴다(태그는 옮겨질 수 있다).
 KEV9B_BASE="Qwen/Qwen3.5-9B-Base"
 KEV9B_BASE_REV="68c46c4b3498877f3ef123c856ecfde50c39f404"
+KEV9B_REV="3afdec81efc91da83dee06d30714adf54ee35531"   # jaredpalmer/kev-9b 태그 v1.0 이 가리키는 커밋(2026-10-20 Hub refs)
 KEV9B_ADAPTER_SHA="2b2a70cf4ef4440b6c22899e1f72c2f8ea5c6f65b19aa344539b4b8971d1f13d"
 KEV9B_HEAD_SHA="8e1dab2c8e3664f6fee843e0257d57946c25e0210c61901ea77e71761f4244e1"
 KEV_SUITES_REV="cc4bac803e73112689ec327ffa481c519cbc7a05"
@@ -288,9 +292,10 @@ sha_check() { # <파일> <기대 sha256> <이름>
   got="$(sha256sum "$f" | awk '{print $1}')"
   if [ "$got" = "$want" ]; then ok "$name sha256 일치 ($got)"; else fail "$name sha256 불일치: $got (기대 $want). 학습 금지"; fi
 }
-KEV_SNAP="$(find "$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1 || true)"
-if [ -z "$KEV_SNAP" ]; then
-  warn "jaredpalmer/kev-9b 캐시 없음. hf download jaredpalmer/kev-9b --revision v1.0 (HF_HOME=$HF_HOME)"
+# 체크포인트: 태그가 아니라 고정 커밋의 snapshot 디렉터리. 없거나 sha256 이 다르면 FAIL(표식을 남기지 않는다 → kev-f1.sh 가 돌지 않는다)
+KEV_SNAP="$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/$KEV9B_REV"
+if [ ! -d "$KEV_SNAP" ]; then
+  fail "jaredpalmer/kev-9b 고정 snapshot 없음: $KEV_SNAP. hf download jaredpalmer/kev-9b --revision $KEV9B_REV (HF_HOME=$HF_HOME. 태그 v1.0 으로 받아도 같은 디렉터리가 생긴다)"
 else
   info "kev-9b snapshot $KEV_SNAP"
   for f in adapter_model.safetensors head.pt adapter_config.json training_config.json; do
@@ -304,7 +309,7 @@ if [ -f "$BASE_SNAP/config.json" ]; then
   N_SHARDS="$(find "$BASE_SNAP" -maxdepth 1 -name '*.safetensors' 2>/dev/null | wc -l | tr -d ' ')"
   ok "$KEV9B_BASE@$KEV9B_BASE_REV 캐시 있음 (safetensors ${N_SHARDS}개)"
 else
-  warn "$KEV9B_BASE@$KEV9B_BASE_REV 캐시 없음. hf download $KEV9B_BASE --revision $KEV9B_BASE_REV"
+  fail "$KEV9B_BASE@$KEV9B_BASE_REV 캐시 없음. hf download $KEV9B_BASE --revision $KEV9B_BASE_REV (kev-f1.sh 는 HF_HUB_OFFLINE=1 로 돌아 캐시가 없으면 멈춘다)"
 fi
 SUITE_SNAP="$HF_HOME/hub/datasets--jaredpalmer--kev-suites/snapshots/$KEV_SUITES_REV/v7/decision-v7"
 if [ -f "$SUITE_SNAP/train.jsonl" ]; then ok "kev-suites decision-v7 train.jsonl 캐시 있음(F2 --replay)"; else warn "kev-suites decision-v7 캐시 없음(F1 에는 불필요, F2 전에 받는다)"; fi
@@ -372,6 +377,10 @@ fi
   echo "gpu_uuid=$GPU_UUID"
   echo "kev_commit=$SOL_KEV_COMMIT"
   echo "venv=$SOL_KEV_VENV"
+  echo "kev_snapshot=$KEV_SNAP"
+  echo "kev_adapter_sha256=$KEV9B_ADAPTER_SHA"
+  echo "kev_head_sha256=$KEV9B_HEAD_SHA"
+  echo "base_snapshot=$BASE_SNAP"
   [ -f "$SOL_RUNS_DIR/preflight-env.tmp" ] && cat "$SOL_RUNS_DIR/preflight-env.tmp"   # torch=·triton=
   echo "log=$LOG"
 } > "$SOL_RUNS_DIR/preflight-ok"

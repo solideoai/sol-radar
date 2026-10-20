@@ -82,7 +82,7 @@ git clone https://github.com/jaredpalmer/kev.git "$SOL_WORK/kev"
 git -C "$SOL_WORK/kev" checkout 1f04cfa28e6a708485b28a9585010b9e436b776e
 
 # hf CLI 는 huggingface_hub 패키지에 있다(§3.2 설치 뒤 venv 의 hf). venv 에 아직 없으면 `uvx --from huggingface_hub hf download …`
-hf download jaredpalmer/kev-9b --revision v1.0
+hf download jaredpalmer/kev-9b --revision 3afdec81efc91da83dee06d30714adf54ee35531   # 태그 v1.0 이 가리키는 커밋(2026-10-20 Hub refs). 태그는 옮겨질 수 있어 커밋으로 받는다
 hf download Qwen/Qwen3.5-9B-Base --revision 68c46c4b3498877f3ef123c856ecfde50c39f404
 hf download jaredpalmer/kev-suites --repo-type dataset \
   --revision cc4bac803e73112689ec327ffa481c519cbc7a05 --include "v7/decision-v7/*"
@@ -95,7 +95,7 @@ hf download Qwen/Qwen3.5-9B --revision c202236235762e1c871ad0ccb60c8ee5ba337b9a
 **무결성 확인**(받은 직후, 그리고 서빙 기동 전. `infra/gpu/kev-preflight.sh` 가 같은 값을 대조한다)
 
 ```bash
-snap=$(ls -d $HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/*/ | head -1)
+snap=$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531   # 고정 커밋의 snapshot 만 쓴다
 sha256sum "$snap/adapter_model.safetensors" "$snap/head.pt"
 # 기대(2026-10-20 Hub v1.0 파일을 받아 계산, 173,178,096 B / 8,395,071 B):
 #   adapter_model.safetensors 2b2a70cf4ef4440b6c22899e1f72c2f8ea5c6f65b19aa344539b4b8971d1f13d
@@ -242,7 +242,9 @@ F1 은 네 단계다(A 환경 사전 검증 → B 최소 메모리 20 step → C
 
 `--init_from jaredpalmer/kev-9b@v1.0` 이면 `--base`·`--base_revision`·`--lora 16`·`--head_dim 256`·`--option_isolation 0`·`--special_embeddings 0` 이 고정이다(`kev/checkpoint.py` `COMPAT_FIELDS` = base·base_revision·lora·head_dim·option_isolation·special_embeddings·weights. 다르면 거부). `--lora_targets all` 은 그 목록에 없지만 어댑터 텐서가 모듈 집합과 하나라도 어긋나면 `_load_adapter_into` 가 거부하므로 v1.0 `training_config.json` 의 값(`all`)을 그대로 준다. `--base` 기본값은 `Qwen/Qwen3-0.6B-Base` 라서 **반드시 준다**. `--weights_dtype` 은 호환 검사 대상이 아니라 바꿀 수 있다. `--init_from` 을 빼고 새 LoRA 를 처음부터 학습하는 변경은 하지 않는다.
 
-**F1-A 환경 사전 검증** — `bash infra/gpu/kev-preflight.sh`(§3.2 끝). 확인 항목: `CUDA_VISIBLE_DEVICES=1`·`CUDA_DEVICE_ORDER=PCI_BUS_ID`, nvidia-smi GPU 1 uuid 와 `cuda:0` uuid 일치, GPU 1 에 다른 프로세스 없음·여유 40,000 MiB 이상, torch 2.8.0+cu128·CUDA·bf16, numpy·transformers·peft 범위, Kev 고정 커밋·`kev.train --help`, fla 0.5.2·triton 3.4.0·Gated DeltaNet 커널 smoke(fwd+bwd, bf16), `kev-9b@v1.0` adapter/head sha256(§2.2 값)·백본·replay 캐시, 학습 데이터 형식(`kev.data.load_records`)·라벨 비율·`--max_state` 1024/2048/4096/6144 별 `dropped` 수, 디스크. 통과하면 `runs/preflight-ok` 를 남기고 `kev-f1.sh` 가 그것을 요구한다.
+**출발 체크포인트는 태그가 아니라 검증한 로컬 snapshot 으로 준다(2026-10-20 보안 검토).** `kev.train --init_from jaredpalmer/kev-9b@v1.0` 은 Hub 태그를 실행 중에 해석한다(`kev/checkpoint.py` `resolve_run` → `snapshot_download`). 태그가 옮겨지면 sha256 을 대조하지 않은 `head.pt`(pickle)가 `torch.load` 에 들어간다. 그래서 ① 다운로드는 커밋 `3afdec81…` 로 받고(§2.2), ② `kev-preflight.sh` 가 그 snapshot 디렉터리의 `adapter_model.safetensors`·`head.pt` sha256 을 §2.2 값과 대조해 다르거나 없으면 **FAIL**(표식 없음), ③ `kev-f1.sh` 는 실행 직전에 다시 대조하고 `--init_from` 에 그 **로컬 디렉터리**를 주며(로컬 경로면 kev 가 Hub 를 조회하지 않는다) `HF_HUB_OFFLINE=1` 로 돌린다, ④ 끝난 뒤 `training_config.json` `init_source.weights_sha256`·`head_sha256` 이 기대값과 같은지 다시 확인한다. F2·채점도 같은 경로를 쓴다(§4.3·§4.4).
+
+**F1-A 환경 사전 검증** — `bash infra/gpu/kev-preflight.sh`(§3.2 끝). 확인 항목: `CUDA_VISIBLE_DEVICES=1`·`CUDA_DEVICE_ORDER=PCI_BUS_ID`, nvidia-smi GPU 1 uuid 와 `cuda:0` uuid 일치, GPU 1 에 다른 프로세스 없음·여유 40,000 MiB 이상, torch 2.8.0+cu128·CUDA·bf16, numpy·transformers·peft 범위, Kev 고정 커밋·`kev.train --help`, fla 0.5.2·triton 3.4.0·Gated DeltaNet 커널 smoke(fwd+bwd, bf16), 고정 snapshot `3afdec81…` 의 adapter/head sha256(§2.2 값. 없거나 다르면 FAIL)·백본 캐시(없으면 FAIL)·replay 캐시(F2 전, warn), 학습 데이터 형식(`kev.data.load_records`)·라벨 비율·`--max_state` 1024/2048/4096/6144 별 `dropped` 수, 디스크. 통과하면 `runs/preflight-ok` 를 남기고 `kev-f1.sh` 가 그것을 요구한다.
 
 **F1-B 최소 메모리 테스트** — 기본 후보 한 칸: Kev-9B v1.0 LoRA 이어 학습, bf16, batch 1, accum 8, checkpointing 1, `--max_state 1024`, 20 step. `kev-f1.sh --max_state 1024` 가 아래 명령을 돌리고 `nvidia-smi -i 1 … -l 1` 기록을 함께 남긴다.
 
@@ -251,7 +253,7 @@ export SOL_WORK=/data/www/ai_workspace/sol-radar
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1    # 물리 GPU 1 → 프로세스 안 cuda:0
 python -m kev.train \
   --data "$SOL_WORK/sol-dataset-v0.1/kev/train.en.jsonl" \
-  --init_from jaredpalmer/kev-9b@v1.0 \
+  --init_from "$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531" \
   --base Qwen/Qwen3.5-9B-Base --base_revision 68c46c4b3498877f3ef123c856ecfde50c39f404 \
   --lora 16 --head_dim 256 --lora_targets all --option_isolation 0 --special_embeddings 0 \
   --device cuda --dtype bf16 --weights_dtype bf16 --checkpointing 1 \
@@ -291,7 +293,7 @@ nvidia-smi -i 1 --query-gpu=timestamp,memory.used --format=csv -l 5 > "$SOL_WORK
 SAMPLER=$!                                                       # 끝나면 이 PID 만 멈춘다(kill "$SAMPLER")
 python -m kev.train \
   --data "$SOL_WORK/sol-dataset-v0.1/kev/train.en.jsonl" \
-  --init_from jaredpalmer/kev-9b@v1.0 \
+  --init_from "$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531" \
   --base Qwen/Qwen3.5-9B-Base --base_revision 68c46c4b3498877f3ef123c856ecfde50c39f404 \
   --lora 16 --head_dim 256 --lora_targets all --option_isolation 0 --special_embeddings 0 \
   --suite "$SOL_WORK/kev/evals/v7/decision-v7" --replay 2000 \
@@ -333,14 +335,18 @@ python "$SOL_WORK/kev/scripts/calibrate_checkpoint.py" --run runs/kev-9b-sol-lor
 
 ```bash
 # 같은 셸(CUDA_VISIBLE_DEVICES=1). 모델은 한 번에 하나씩 순서대로 올린다(E4 → E1). 동시에 띄우지 않는다
+# 기준선 E1 도 태그가 아니라 sha256 을 대조한 로컬 snapshot 으로 올린다(§4.2 콜아웃). report.json 의 run 에는 이 경로가 적힌다
+KEV9B="$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531"
+sha256sum "$KEV9B/adapter_model.safetensors" "$KEV9B/head.pt"      # §2.2 값과 같아야 한다
+export HF_HUB_OFFLINE=1
 # test 채점: 학습본과 기준선
 python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e4-test --rotations 6
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test --rotations 6
+python -m kev.benchmark --run "$KEV9B"                  --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test --rotations 6
 # 짝 부트스트랩(데이터 해시가 같아야 한다. --out 은 필수 인자다)
 python -m kev.compare --candidate runs/e4-test --reference runs/e1-test --out runs/e4-vs-e1
 # 망각 확인: 공개 decision-v7 development
 python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e4-regression
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e1-regression
+python -m kev.benchmark --run "$KEV9B"                  --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e1-regression
 ```
 
 - 우리 쪽 E4 리포트(21 §4.3 지표 전부, 정보부족→미충족 혼동률 포함)는 `sol_eval`이 위 출력 폴더 4개(`rows.json`·`predictions.jsonl`·`report.json`)를 통째로 돌려받아 **오프라인**으로 낸다(ADR-027 10번 개정, [[23-WEEKEND-FINETUNE|23]] §2.2 A안). 엔드포인트에 붙지 않는다. 실행 전에 `report.json`의 체크포인트 id와 test 파일 sha256이 번들 manifest와 같은지 대조한다. 순서 민감도는 `--rotations 6`으로 잰다. 요청당 지연은 E4에서 재지 않는다.

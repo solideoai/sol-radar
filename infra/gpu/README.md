@@ -57,10 +57,11 @@ curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar
 - 매 셸 세션마다 `export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1`. 프로세스 안에서는 GPU 1 이 `cuda:0` 으로 보인다(정상). SSH 를 다시 열면 사라지므로 두 스크립트가 값을 확인하고 없으면 멈춘다.
 - GPU 0·2 의 프로세스를 종료·이동·설정 변경하지 않는다. 두 스크립트는 `kill`·`pkill`·`docker compose down` 을 쓰지 않는다(`kev-f1.sh` 가 끝낼 때 멈추는 것은 자기가 띄운 `nvidia-smi -l 1` 기록 프로세스뿐이다). GPU 1 에 다른 프로세스가 있으면 종료하지 않고 멈춘 뒤 회사에 확인한다.
 - `CUDA_VISIBLE_DEVICES` 는 다른 사람의 GPU 사용을 막지 못한다. 실행 전후 `nvidia-smi` 로 GPU 1 상태를 확인한다(스크립트가 `*.pre.txt`·`*.post.txt` 로 남긴다).
+- 출발 체크포인트는 Hub 태그가 아니라 커밋 `3afdec81…`(태그 v1.0)의 snapshot 디렉터리다. `kev-preflight.sh` 가 `adapter_model.safetensors`·`head.pt` sha256 을 `services/ai/models/registry.yaml` 값과 대조해 없거나 다르면 FAIL(표식 없음), `kev-f1.sh` 는 실행 직전에 다시 대조하고 그 로컬 경로를 `--init_from` 에 주며 `HF_HUB_OFFLINE=1` 로 돈다. 검증 안 된 `head.pt`(pickle)는 로드하지 않는다.
 
 ```bash
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
-bash infra/gpu/kev-preflight.sh                 # F1-A: 환경·GPU 매핑·커널 smoke·모델 sha256·데이터 길이. 통과 표식 runs/preflight-ok
+bash infra/gpu/kev-preflight.sh                 # F1-A: 환경·GPU 매핑·커널 smoke·고정 snapshot 모델 sha256·데이터 길이. 전부 통과해야 표식 runs/preflight-ok
 bash infra/gpu/kev-f1.sh --max_state 1024       # F1-B: 20 step. PASS 면 2048 → 4096 → 6144 순으로 한 번에 하나씩
 ```
 
