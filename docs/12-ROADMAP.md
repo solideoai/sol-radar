@@ -12,7 +12,7 @@ updated: 2026-10-20
 # 12. 구현 순서와 해커톤 컷
 
 > [!note] 마감·배점과 일정
-> 제출 마감(2026-10-27)·공식 배점과 그 배점이 정하는 우선순위는 [[18-HACKATHON|18 해커톤]] 머리 콜아웃과 §4가 정본이다. 아래 간트는 2026-10-19 [[16-DECISIONS|ADR-027]]로 2일 당긴 일정이다.
+> 제출 마감(2026-10-27)·공식 배점과 그 배점이 정하는 우선순위는 [[18-HACKATHON|18 해커톤]] 머리 콜아웃과 §4가 정본이다. 아래 간트는 2026-10-19 ADR-027로 2일 당긴 일정이다. ADR-027은 2026-10-20 폐기됐고, 일정(Critical Path 단축·freeze 10-23·리허설 10-24·freeze 예외)은 [[16-DECISIONS|ADR-034]] 17번으로 유지한다(2026-10-20 사용자 결정).
 
 [[16-DECISIONS|ADR-020]]으로 해커톤 MVP의 목표가 "fixture 20건 + mock AI"에서 **실제 나라장터 공고를 대상으로 끝까지 동작하는 MVP**로 바뀌었다(사용자 원문: "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP"). 실수집·실추론·평가 트랙(P0-0~P0-11)은 별도 트랙이 아니라 아래 Phase 0~7 안에 들어간다. fixture 경로를 다 만든 뒤 live를 얹는 것이 아니라 같은 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)로 둘을 함께 만든다. 시험과 CI는 `SOL_RUN_MODE=mock`으로 돈다.
 
@@ -49,14 +49,14 @@ updated: 2026-10-20
 |P0-7|SOL Score v0.1 + `/explain` + 대시보드(모드·출처 배지, 결정 모델 참고 패널, 근거 서랍)|3 (화면)·4 (점수)·5 (`/explain`)|1440·1280 스크린샷|
 |P0-8|사전규격·발주계획 수집과 단계 연결|2|StageTimeline에 실데이터|
 |P0-9|평가셋 v0.1: test 20·dev 10 사업, 가상 기업 원형 6개, 라벨 검수(추출 정답 20건, 의미 대응 라벨 150건 이상)|X6|manifest·라벨 검증 통과|
-|P0-10|평가 하네스 + E0·E1·E2 리포트(한국어/영어 비교 포함)|평가 트랙|`docs/evidence/eval/` 리포트|
-|P0-11|학습셋 번들 내보내기 + 메모리 검증 스크립트·절차|X6|train 1,000 레코드 이상, 번들 sha256, 학습 요청서. F1·F2·F3 실행은 GPU 서버 셸이 필요해 회사 측(X6, [[16-DECISIONS\|ADR-027]])|
+|P0-10|평가 하네스 + E0·E1'·E2 리포트(한국어/영어 비교 포함)|평가 트랙|`docs/evidence/eval/` 리포트|
+|P0-11|학습셋 번들 내보내기 + 메모리 검증 스크립트·절차|X6|train 1,000 레코드 이상, 번들 sha256, 학습 요청서. F1·F2·F3 실행은 GPU 서버 셸이 필요해 회사 측(X6, [[16-DECISIONS\|ADR-034]])|
 
 **순서 규칙** ([[16-DECISIONS|ADR-020]], 2026-10-16)
 - **작업 순서는 Phase 순서**(위 Phase 표)다. 의존 관계 때문에 P0-5(Phase 4)·P0-8(Phase 2)이 P0-4·P0-6(Phase 5)보다 먼저 끝날 수 있다.
 - **P0 번호는 우선순위**다. 시간이 모자라면 큰 번호부터 잘라낼 후보로 보고하고 사용자가 정한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
 - P0-0은 서비스키·회사 GPU 추론 엔드포인트가 준비되는 즉시 한다. 그 전에는 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)와 fixture·mock으로 다른 Phase를 진행한다. P0-0 항목이 막히면 즉시 보고한다.
-- P0 번호와 Critical Path C-ID의 대응은 아래 Critical Path 표의 "Phase / P0" 열이다. P0-8은 확장 컷(ADR-023), P0-9·P0-11은 X6(ADR-027)이다. P0-10 하네스는 X1·X6이 같이 쓴다.
+- P0 번호와 Critical Path C-ID의 대응은 아래 Critical Path 표의 "Phase / P0" 열이다. P0-8은 확장 컷(ADR-023), P0-9·P0-11은 X6(ADR-034)이다. P0-10 하네스는 X1·X6이 같이 쓴다.
 
 ## 해커톤 컷 (ADR-023, 2026-10-19)
 
@@ -72,14 +72,14 @@ updated: 2026-10-20
 
 규칙: 핵심 컷 항목이 하나라도 빨간불이면 확장 컷에 손대지 않는다. 핵심 컷과 확장 컷이 모두 녹색이기 전에는 P1에 손대지 않는다. 범위를 더 줄여야 하면 선택지를 보고하고 사용자가 결정한다 ([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
 
-### Critical Path (ADR-023, 2026-10-19 승인 · 일정 ADR-027)
+### Critical Path (ADR-023, 2026-10-19 승인 · 일정 ADR-034 17번)
 
-작업자 3~4명(에이전트) 병렬 전제. 상세(난이도·실패 위험·증거·테스트 기준)는 [수상 전략 보고](plans/2026-10-18-hackathon-award-plan.md) §4. 그 문서의 일정은 [[16-DECISIONS|ADR-027]]로 대체했다. X6 단계별 담당·선행·증거는 [ADR-027 변경안](plans/2026-10-19-finetune-schedule-pull.md) §3.2다.
+작업자 3~4명(에이전트) 병렬 전제. 상세(난이도·실패 위험·증거·테스트 기준)는 [수상 전략 보고](plans/2026-10-18-hackathon-award-plan.md) §4. 그 문서의 일정은 ADR-027(폐기)로 2일 당긴 일정으로 대체했고, 이 일정은 [[16-DECISIONS|ADR-034]] 17번으로 유지한다. X6 단계별 일정은 ADR-034 12번과 [[23-WEEKEND-FINETUNE|23 주말 파인튜닝]] §1이다. [ADR-027 변경안](plans/2026-10-19-finetune-schedule-pull.md) §3.2는 Kev-9B 기준 이력이다.
 
 |ID|작업|Phase / P0|선행|일정|
 |---|---|---|---|---|
 |C0|Phase 0 마감: `phase0/infra` 통합 기동(`docker compose -f infra/compose.yaml up -d`) → 증거 → main 병합|0 / P0-1|없음|10-19|
-|C1|P0-0: ① API 4종 실제 GET(마스킹 저장) ② 첨부 3건 다운로드 ③ 회사 GPU 추론 엔드포인트([[16-DECISIONS\|ADR-025]]): G1 HTTPS 접속(TLS·인증) → G2 Qwen·Bosun `GET /v1/models`·레지스트리 대조 → G3 지연 실측(결정 모델 state 약 500토큰 10회 p50·p95, Qwen 추출 1회) → G4 vLLM guided JSON → G5 회사 제공 GPU 정보가 있으면 기록 → G6 엔드포인트 차단 시 `PARTIAL` ④ 파서 후보 비교 시작. 체크리스트 `docs/evidence/phase-0/external-deps.md`|0 / P0-0|사용자: `infra/.env` 서비스키 4개. 회사: P2 엔드포인트 경로·인증 방식 전달, P3 모델 기동 완료 통보|10-19~20|
+|C1|P0-0: ① API 4종 실제 GET(마스킹 저장) ② 첨부 3건 다운로드 ③ 회사 GPU 추론 엔드포인트([[16-DECISIONS\|ADR-025]]): G1 HTTPS 접속(TLS·인증) → G2 Qwen·Bosun `GET /v1/models`·레지스트리 대조 → G3 지연 실측(결정 모델 state 약 500·6,000토큰 두 가지로 24문항 묶음 10회 p50·p95, Qwen 추출 1회, [[03-AI-PIPELINE\|03]] §5.9) → G4 vLLM guided JSON → G5 회사 제공 GPU 정보가 있으면 기록 → G6 엔드포인트 차단 시 `PARTIAL` ④ 파서 후보 비교 시작. 체크리스트 `docs/evidence/phase-0/external-deps.md`|0 / P0-0|사용자: `infra/.env` 서비스키 4개. 회사: P2 엔드포인트 경로·인증 방식 전달, P3 모델 기동 완료 통보|10-19~20|
 |C2|Phase 1 DB·RLS·`sol_role`(`feat/people-read`의 `20261018000001` 위에)·`pnpm demo:reset`(people seed 흡수)|1|C0|10-19~20|
 |C3|Phase 2 수집: `FixtureConnector`·정규화·revision·격리·ingest job, documents job, `OfficialApiConnector`·`G2bAttachmentFetcher`|2 / P0-2·P0-3|C2, C1 ①|10-19~20|
 |C4|Phase 4 규칙 엔진(순수 함수)·골든 94/72/68·27명 입력|4 / P0-5·P0-7|없음(C2와 병렬)|10-19|
@@ -88,7 +88,7 @@ updated: 2026-10-20
 |C7|Phase 6: 결정 기록 트리거·audit·outbox·인앱 알림 2종|6|C2·C6|10-21|
 |C8|S-LIVE: 실공고 1건 `live` E2E, 실행 로그·녹화|5 / P0-4·P0-6|C1·C3·C5·C6|10-21~22|
 |C9|리허설·대체 경로 6종·세 모드 전환·로컬 Supabase CLI 전환·체크리스트|7|C6·C7|10-22, 10-24|
-|X1|E3 대조 실험(축소 규모). 입력·설계는 C4·C5와 병렬로 준비. 같은 GPU 구간에 E1 test 20 실행(X6 E4 기준선, ADR-027)|평가|C5 local, C1 ③|설계 10-19~, 실행 10-22~23|
+|X1|E3 대조 실험(축소 규모). 입력·설계는 C4·C5와 병렬로 준비. X6 E4 기준선 E1'(공개 Bosun zero-shot, test 20)은 B3(10-22~23)에서 재고, 10-25 서버 안 오프라인 채점(`sol_eval.bosun_score`, B1 예정)에서 E4와 같이 잰다(ADR-034 7번·12번)|평가|C5 local, C1 ③|설계 10-19~, 실행 10-22~23|
 |X2|임팩트 예비 실험 n=3|—|C8|10-22~23|
 |X3|경쟁 서비스 비교(공개 페이지)|—|없음|완료(10-19)|
 |X4|제출물: 슬라이드·3분 영상·기술 자료. 구조는 지금부터 병렬, 완성은 C8·X1·X2 뒤|—|구조: 없음 / 완성: C8·X1·X2|구조 10-19~, 완성 10-23~24, E4 반영 10-26|
@@ -99,7 +99,7 @@ C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장
 
 병렬 순서: 10-19 C0‖C1‖C2‖C3‖C4 보고‖C5‖C6‖X4 구조‖X6a → 10-20 C1 ③‖C2‖C3‖C5‖C6‖X6a·X6b‖X6p 서버 환경 확인(완료), 저녁 외부 의존성 컷 → 10-21 C6‖C7‖C8‖X6a·X6b‖X6p `sol_decision`·Bosun preflight 1차 → 10-22 C8‖C9 1차‖X1‖X2‖X6b 번들 마감·회사 전달 → 10-23 X1‖X2‖X4 완성‖X6p 모델 다운로드·preflight 전부 통과, 기능 freeze → 10-24 C9 최종 리허설‖X4 완성‖X6c·X6d(회사, 주말, GPU 1) → 10-25 X6e(서버 안 오프라인 E4·E1' 채점) → 10-26 X6f·제출물 마감·예비 → 10-27 제출.
 
-**외부 의존성 컷 규칙**(10-20 저녁, C1 결과 기준. ADR-027으로 하루 당겼다. 이 시점은 외부 의존성 컷을 정하는 기준이고 핵심 기능 개발은 계속한다):
+**외부 의존성 컷 규칙**(10-20 저녁, C1 결과 기준. ADR-027으로 하루 당겼고 ADR-034 17번으로 유지한다. 이 시점은 외부 의존성 컷을 정하는 기준이고 핵심 기능 개발은 계속한다):
 
 |C1 결과|S-LIVE 장면|
 |---|---|
@@ -116,13 +116,13 @@ C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장
 |시점|할 일|
 |---|---|
 |freeze (10-23)|기능 freeze. fixture·seed 고정. 모델 레지스트리(`services/ai/models/registry.yaml`)·질문 세트·state 템플릿 버전 고정(데모 서빙 항목 `bosun-v3.1-0.6b`·`qwen3.5-27b` 기준, `kev-9b-v1.0`·`qwen3.5-9b`는 `retired` 보존. E4 학습본 항목(기록용) 추가는 예외이고 데모 gateway 설정은 바꾸지 않는다, ADR-034). 전체 테스트 green. `docs/evidence/` 갱신. 공공 API 오늘 호출량 확인(개발계정 서비스당 1,000건/일)|
-|최종 리허설 (10-24)|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~15 리허설 2회 (재부팅 1회 포함). 로컬 Supabase CLI 전환 리허설([[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 세 모드(`live`·`fixture`·`mock`) 기동 리허설 각 1회(모드 전환은 env 변경 + worker·ai-gateway 재시작). 회사 GPU 추론 엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속 확인(`GET /v1/models`) 리허설, 재접속 확인 소요 시간 기록. live 리허설 호출 수가 일일 한도 안인지 확인. 학습은 물리 GPU 1 만 쓴다. 추론 런타임이 GPU 1 에 있을 때만 X6c·X6d 학습 시간(토 09:00~)을 피해 `live`·`fixture` 확인을 토요일 오전 또는 일요일 저녁에 한다([[23-WEEKEND-FINETUNE\|23]] §2.4)|
+|최종 리허설 (10-24)|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~15 리허설 2회 (재부팅 1회 포함). 로컬 Supabase CLI 전환 리허설([[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 세 모드(`live`·`fixture`·`mock`) 기동 리허설 각 1회(모드 전환은 env 변경 + worker·ai-gateway 재시작). 회사 GPU 추론 엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속 확인(`GET /v1/models`) 리허설, 재접속 확인 소요 시간 기록. live 리허설 호출 수가 일일 한도 안인지 확인. 학습은 물리 GPU 1 만 쓴다. GPU 1 에 있는 우리 추론 런타임은 `sol_decision` Bosun(8009)뿐이고 학습과 공존하는 것이 기본 계획이다. F1 에서 메모리 합계가 넘쳐 회사가 학습 시간대(X6c·X6d, 토 09:00~)에 8009 를 내리면 그 시간에는 `live`·`fixture` 리허설을 잡지 않는다([[23-WEEKEND-FINETUNE\|23]] §1·§2.4)|
 |10-25~26|X6e F3 보정·회사 서버 안 채점·우리 오프라인 E4 평가(10-25), X6f 제출물 반영(10-26), 예비일. freeze 뒤라 앱 기능을 더하지 않고 리허설에서 나온 결함만 고친다. 고쳤으면 기동 절차 1~15를 한 번 다시 돈다|
 |D-day (제출 10-27, 발표일 미입력)|기동 절차 1~15. 엔드포인트 접속(`GET /v1/models`)과 `GET /api/v1/admin/ai/status`(Qwen healthy, Bosun `registryMatch`) 확인. 시연 모드는 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §2.1(기본 `mock`), 장애 대체 순서는 `live` → `fixture` → `mock`. 리허설 후 `pnpm demo:reset`(seed 재실행, 멱등)으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
 
 ```mermaid
 gantt
- title SOL RADAR 핵심 컷 + 파인튜닝 트랙: 2026-10-27 제출 (ADR-023·027)
+ title SOL RADAR 핵심 컷 + 파인튜닝 트랙: 2026-10-27 제출 (ADR-023·034)
  dateFormat YYYY-MM-DD
  section 기반
  C0 Phase 0 마감 병합 :c0, 2026-10-19, 1d
@@ -152,7 +152,7 @@ gantt
  C9 최종 리허설 :c9b, 2026-10-24, 1d
  제출 :milestone, ms, 2026-10-27, 0d
 ```
-위 간트는 ADR-023 Critical Path를 ADR-027으로 2일 당긴 일정이다(모델·도구는 ADR-034의 Bosun 기준). C1 결과로 10-20 저녁에 한 번 재조정한다. X3 경쟁 비교와 X4 제출물 구조는 10-19부터 병렬이다. 각 작업 중간에 커밋하며 [[PROGRESS]]에 완료·남은 일·검증 결과를 기록한다.
+위 간트는 ADR-023 Critical Path를 ADR-027(폐기)로 2일 당긴 일정이고, 이 일정은 ADR-034 17번으로 유지한다(모델·도구도 ADR-034의 Bosun 기준). C1 결과로 10-20 저녁에 한 번 재조정한다. X3 경쟁 비교와 X4 제출물 구조는 10-19부터 병렬이다. 각 작업 중간에 커밋하며 [[PROGRESS]]에 완료·남은 일·검증 결과를 기록한다.
 
 ## 관련 문서
 - [[01-PRD|01 PRD]] — FR별 P0·P1·P2

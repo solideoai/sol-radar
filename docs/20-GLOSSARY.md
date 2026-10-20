@@ -153,7 +153,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | ADR | Architecture Decision Record. 결정·상태·날짜·근거 기록 | [[16-DECISIONS]] |
 | MOC | Map of Content. Obsidian에서 허브 역할을 하는 문서. 이 vault는 [[00-README]] | [[00-README]] |
 | 콜아웃 | `> [!warning] 미검증 가정`, `> [!success] 검증됨`, `> [!todo]`, `> [!tip] 심사 포인트` | [[00-README]] |
-| 해커톤 컷 | [[16-DECISIONS\|ADR-023]] 3단 범위: 핵심 컷(데모 필수) / 확장 컷 / P1(ADR-021 P1). 파인튜닝 트랙 X6은 핵심 컷과 나란히 돈다(ADR-027) | [[12-ROADMAP]] |
+| 해커톤 컷 | [[16-DECISIONS\|ADR-023]] 3단 범위: 핵심 컷(데모 필수) / 확장 컷 / P1(ADR-021 P1). 파인튜닝 트랙 X6은 핵심 컷과 나란히 돈다(ADR-034. ADR-027 폐기) | [[12-ROADMAP]] |
 | `docs/evidence/` | 테스트 리포트·스크린샷·기동 로그를 두는 증거 폴더 | [[11-TESTING]], [[17-CLAUDE-IMPLEMENTATION]] |
 
 ## 솔리데오 인력·가입 용어 (ADR-019)

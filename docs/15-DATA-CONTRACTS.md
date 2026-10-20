@@ -62,7 +62,7 @@ interface EvidenceRef {
   apiSource?: string;         // API_FIELD만. registry key(§8). 예: "g2b-bid-license-limit"
   quotedText: string;         // TEXT: 원문 그대로 5~300자, 요약·의역 금지. API_FIELD: 필드 값 원문
   sourceUrl?: string;         // 원문 재확인 링크
-  fetchedAt: string;          // ISO8601 UTC. 원문을 가져온 시각. worker zod(analysis-input.model.ts)는 필수, gateway JSON Schema(requirement-extraction.v0.1.json)는 선택이다. gateway는 채우지 않는다. 결정: worker가 검증 전에 그 revision의 fetched_at으로 채운다(수정 예정, ed. 16 미결정 26번)
+  fetchedAt: string;          // ISO8601 UTC. 원문을 가져온 시각. worker zod(analysis-input.model.ts)는 필수, gateway JSON Schema(requirement-extraction.v0.1.json)는 선택이다. 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(bid_revisions.fetched_at)으로 채운다(785e454, main 병합 대기. 16 미결정 26번). gateway 계약·JSON Schema는 그대로이고 gateway는 채우지 않는다
   match?: CitationMatch;      // 검증 단계가 채운다. AI 출력에는 없다
 }
 

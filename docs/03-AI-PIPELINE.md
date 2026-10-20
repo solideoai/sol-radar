@@ -309,7 +309,7 @@ interface StaffingRequirement {
 - 모든 `ExtractedField`는 [[15-DATA-CONTRACTS|15 데이터 계약]] §2의 상태 규칙을 따른다. `KNOWN`은 검증 통과한 인용 1개 이상이 있어야 한다.
 - 배열 필드는 **원소마다 근거가 필요**하다. 한 필드에 인용이 여러 개면 `evidence[i]`가 어느 원소를 뒷받침하는지 `note`에 `"[0]→evidence[0], [1]→evidence[1]"` 형식으로 적는다. 짝이 안 맞는 원소는 버린다.
 - `code`는 모델이 아니라 gateway가 채운다. 사전에 없으면 `null`이고 규칙 엔진은 그 항목을 `NEEDS_REVIEW`로 낸다.
-- JSON Schema(draft 2020-12) 파일은 `services/ai/schemas/requirement-extraction.v0.1.json`에 두고, TypeScript 쪽은 `web/server/<도메인>/*.model.ts`의 zod 스키마(ADR-016)로 두어 이 파일과 같은지 시험으로 대조한다. 문서와 파일이 다르면 파일이 틀린 것이다. **미구현**: 대조 시험은 아직 없다. 2026-10-20 확인한 차이 5곳(JSON Schema → zod `web/server/scoring/analysis-input.model.ts`): 근거의 `revisionId`·`fetchedAt` 선택 → 필수, `quotedText` 길이 제한 없음 → 1~300자, `withinYears` number → 정수, 최상위 `model` 선택 → 필수, 자격 `code` 선택 → 필수(nullable).
+- JSON Schema(draft 2020-12) 파일은 `services/ai/schemas/requirement-extraction.v0.1.json`에 두고, TypeScript 쪽은 `web/server/<도메인>/*.model.ts`의 zod 스키마(ADR-016)로 두어 이 파일과 같은지 시험으로 대조한다. 문서와 파일이 다르면 파일이 틀린 것이다. **미구현**: 대조 시험은 아직 없다. 2026-10-20 확인한 차이 5곳(JSON Schema → zod `web/server/scoring/analysis-input.model.ts`): 근거의 `revisionId`·`fetchedAt` 선택 → 필수(`fetchedAt`은 worker가 검증 전에 채운다, `785e454` main 병합 대기), `quotedText` 길이 제한 없음 → 1~300자, `withinYears` number → 정수, 최상위 `model` 선택 → 필수, 자격 `code` 선택 → 필수(nullable).
 
 ### 4.2 예시 1건 (가상 공고, DEMO)
 
@@ -361,7 +361,7 @@ interface StaffingRequirement {
 }
 ```
 
-위 값은 **DEMO fixture용 가상 데이터**다. 실제 기관·공고가 아니다. 인용의 `match`·`revisionId`는 gateway가 검증 후 채우므로 모델 출력 예시에는 없다. `fetchedAt`도 예시에 없지만 gateway는 채우지 않는다(모델 출력에 있을 때만 통과시킨다). worker zod는 `fetchedAt`을 필수로 보므로, worker가 검증 전에 그 revision의 `fetched_at`으로 채우기로 했다(수정 예정, ed. [[16-DECISIONS|16]] 미결정 26번).
+위 값은 **DEMO fixture용 가상 데이터**다. 실제 기관·공고가 아니다. 인용의 `match`·`revisionId`는 gateway가 검증 후 채우므로 모델 출력 예시에는 없다. `fetchedAt`도 예시에 없다. 근거 `fetchedAt`은 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(`bid_revisions.fetched_at`)으로 채운다(`785e454`, main 병합 대기. [[16-DECISIONS|16]] 미결정 26번). gateway 계약과 JSON Schema(`fetchedAt` 선택)는 그대로이고 gateway는 이 값을 채우지 않는다.
 
 ### 4.3 프롬프트 명세 `req-extract/v0.1`
 
