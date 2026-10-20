@@ -120,6 +120,11 @@ function orgScopedBids(): BidsRepo {
       async (orgId: string, id: string) =>
         runs.find((run) => run.orgId === orgId && run.view.id === id)?.view ?? null,
     ),
+    getAnalysisSnapshot: vi.fn(async (orgId: string, id: string) =>
+      runs.some((run) => run.orgId === orgId && run.view.id === id)
+        ? { status: "COMPLETED" as const, inputSnapshot: null }
+        : null,
+    ),
     findRunningAnalysis: notUsed,
     findCompletedSameInput: notUsed,
     resolveAnalysisInput: notUsed,

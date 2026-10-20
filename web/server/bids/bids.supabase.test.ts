@@ -638,6 +638,24 @@ describe("분석 읽기", () => {
     ]);
   });
 
+  it("getAnalysisSnapshot 은 상태와 입력 스냅샷만 조직·id 로 좁혀 읽는다", async () => {
+    fakeDb.on("score_runs", fakeDb.rows([{ status: "COMPLETED", input_snapshot: { a: 1 } }]));
+    expect(await repo.getAnalysisSnapshot(ORG, "run-x")).toEqual({
+      status: "COMPLETED",
+      inputSnapshot: { a: 1 },
+    });
+    expect(callsOf(only("score_runs"), "select")).toEqual([["status,input_snapshot"]]);
+    expect(callsOf(only("score_runs"), "eq")).toEqual([
+      ["id", "run-x"],
+      ["org_id", ORG],
+    ]);
+  });
+
+  it("getAnalysisSnapshot 은 행이 없으면 null 이다", async () => {
+    fakeDb.on("score_runs", fakeDb.rows([]));
+    expect(await repo.getAnalysisSnapshot(ORG, "run-x")).toBeNull();
+  });
+
   it("listAnalyses 는 created_at 내림차순·id 내림차순 키셋이다(최신 run 조회·뷰와 같은 동률 순서, M11)", async () => {
     fakeDb.on(
       "score_runs",
