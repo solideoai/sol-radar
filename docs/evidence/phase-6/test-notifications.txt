@@ -1,0 +1,130 @@
+# Phase 6 C7 — 인앱 알림 2종 producer 시험 증거 (test-notifications)
+작성 2026-10-19T15:47:59Z(KST 2026-10-20 00:47) · 브랜치 c7/notifications(base main 1ab448a) · 담당 b3
+
+## 근거·판정
+- 정본: docs/13-NOTIFICATIONS.md(이벤트·수신자 표, pending polling, 두 단계 멱등, 상태 전이, 혼입 확인), 04 outbox_events·notifications, 05 Notification payload, 11 G2·Phase 6, 12 C7, 02 :119(score_runs → outbox ANALYSIS_COMPLETE → notifications)
+- e8 판정(2026-10-20)
+  - 알림 2종은 REVIEW_ASSIGNED·ANALYSIS_COMPLETE 다. BID_* 펼치기는 S5·확장 컷이라 PENDING 으로 둔다.
+  - G2 는 이벤트 단위와 알림 단계 멱등으로 본다. ANALYSIS_COMPLETE 는 finish_score_run 이 같은 트랜잭션에 쓴다(20261019000016).
+  - 처리는 setInterval 폴링(기본 2초), notifications UNIQUE + on conflict do nothing, outbox 상태 compare-and-set 으로 한다. 재시도 간격은 5·10·20·40초이고 5회째 DEAD 다.
+  - 알림 행은 status SENT, channel IN_APP 이다. payload 는 {bidId, title(공고명), message, link /bids/<bidId>} 다. 수신자가 그 조직 멤버가 아니면 알림 0건으로 PROCESSED 한다.
+- C6 계약: payload 는 c6/screens web/server/bids/notification.model.ts 의 strictObject 를 통과한다. 시험은 같은 모양의 사본으로 확인했다.
+
+## 이미 있던 것(바꾸지 않음)
+- 20261019000007 log_bid_review_audit
+  - bid_reviews insert 마다 REVIEW_DECIDE 감사를 남긴다.
+  - 담당자가 있으면 REVIEW_ASSIGNED outbox 1건을 쓴다. 키는 <reviewId>:<assigneeId>:REVIEW_ASSIGNED 다.
+
+## 이번에 더한 것
+- supabase/migrations/20261019000016_analysis_complete_outbox.sql
+  - finish_score_run 이 마감 뒤 requested_by 가 있으면 ANALYSIS_COMPLETE outbox 1건을 쓴다.
+  - 키는 <scoreRunId>:<requestedBy>:ANALYSIS_COMPLETE 다. aggregate 는 score_run 이고, payload 는 scoreRunId·bidId·orgId·requestedBy·status 다.
+  - 사전 분석 run(requested_by null)은 0건이다. 거절이면 롤백되어 0건이다.
+- web/server/notifications/(outbox.model·repo·service·index)
+  - findDue 는 두 종만, PENDING 과 재시도 시각이 된 FAILED 를 고른다.
+  - 의도를 만들 때 org_id·payload.orgId 가 맞는지 확인하고, 수신자 멤버십을 확인한다.
+  - 알림 행을 upsert 하되 ignore-duplicates 다. outbox 는 compare-and-set 으로 닫는다.
+- web/worker/notify-outbox.ts(readNotifySettings·startNotifier), web/worker/main.ts notifyWorkerRegistration
+  - WORKER_REGISTRATIONS 끝에 더했다. Redis 연결은 쓰지 않는다.
+- 오류 이름 규칙을 web/server/shared/error-name.ts 한 곳으로 옮겼다.
+  - web/worker/error-name.ts 는 그것을 다시 내보낸다.
+  - 시험은 web/worker·web/server 전체에서 규칙이 한 곳에만 있는지 본다.
+
+## G2 — web/server/notifications/outbox-dedupe.test.ts (vitest --reporter=verbose)
+✓ server/notifications/outbox-dedupe.test.ts > G2 알림 단계 멱등 — 메모리 저장(notifications.idempotency_key UNIQUE 흉내) > 같은 REVIEW_ASSIGNED outbox 를 처리한 뒤 PENDING 으로 되돌려 다시 처리해도 알림은 1건이다 9ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 알림 단계 멱등 — 메모리 저장(notifications.idempotency_key UNIQUE 흉내) > 같은 ANALYSIS_COMPLETE outbox 를 처리한 뒤 PENDING 으로 되돌려 다시 처리해도 알림은 1건이다 1ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 알림 단계 멱등 — 메모리 저장(notifications.idempotency_key UNIQUE 흉내) > 다시 처리한 회차도 그 이벤트를 sent 로 세고 PROCESSED 로 닫는다 4ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 알림 단계 멱등 — 메모리 저장(notifications.idempotency_key UNIQUE 흉내) > 두 처리자가 같은 이벤트를 동시에 처리해도 알림은 1건이고 outbox 는 PROCESSED 다 2ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 알림 단계 멱등 — 메모리 저장(notifications.idempotency_key UNIQUE 흉내) > 서로 다른 이벤트는 같은 수신자에게도 각자 1건씩이다(키에 outboxEventId 가 들어간다) 1ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 이벤트 단위 — FX-06 마감 변경 > SEED·LIVE 를 넣으면 C3 판정은 CREATED·CHANGED 다 65ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 이벤트 단위 — FX-06 마감 변경 > BID_CHANGED outbox 는 fixture:DEMO-2026-0006:2:BID_CHANGED 키로 정확히 1건이다 10ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 이벤트 단위 — FX-06 마감 변경 > BID_CHANGED payload 의 changedFields 에 deadlineAt 이 있다(revision diff) 11ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 이벤트 단위 — FX-06 마감 변경 > 공고 이벤트는 org_id null·PENDING·attempts 0 이다(조직 팬아웃 전) 7ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 이벤트 단위 — FX-06 마감 변경 > 같은 LIVE 레코드를 다시 받으면(재전송) C3 가 DUPLICATE 로 판정해 저장하지 않고 BID_CHANGED 는 1건 그대로다 29ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 이벤트 단위 — FX-06 마감 변경 > 같은 revision 2 를 같은 키로 ingest_save_revision 에 다시 보내도 BID_CHANGED 는 1건 그대로다(INGEST_REVISION_CONFLICT 로 거절) 24ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 이벤트 단위 — FX-06 마감 변경 > C3 의 재전송·재저장 뒤에도 공고 이벤트 때문에 생긴 알림은 0건이다 26ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 공고 이벤트(BID_CREATED·BID_CHANGED)는 C7 소비자가 고르지 않는다 > C3 가 쓴 공고 이벤트에 알림 저장소의 findDue 를 적용하면 0건이다 12ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 공고 이벤트(BID_CREATED·BID_CHANGED)는 C7 소비자가 고르지 않는다 > processOutboxBatch 를 돌려도 공고 이벤트는 PENDING·attempts 0 그대로이고 알림은 0건이다 21ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 알림 단계 멱등 — 실제 트리거·finish_score_run·notifications UNIQUE > 트리거가 쓴 REVIEW_ASSIGNED 를 처리하면 배정 대상에게 알림 1건이 SENT·IN_APP 으로 들어가고 outbox 는 PROCESSED 다 39ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 알림 단계 멱등 — 실제 트리거·finish_score_run·notifications UNIQUE > REVIEW_ASSIGNED 를 PENDING 으로 되돌려 다시 처리해도 알림은 1건이다(on conflict do nothing) 43ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 알림 단계 멱등 — 실제 트리거·finish_score_run·notifications UNIQUE > 다시 처리해도 처음 넣은 알림 행을 덮지 않는다(sent_at 이 첫 처리 시각 그대로 — 병합 upsert 가 아니다) 32ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 알림 단계 멱등 — 실제 트리거·finish_score_run·notifications UNIQUE > finish_score_run 이 쓴 ANALYSIS_COMPLETE 를 처리하면 분석 요청자에게 '분석이 끝났습니다.' 알림 1건이다 25ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 알림 단계 멱등 — 실제 트리거·finish_score_run·notifications UNIQUE > PARTIAL 마감의 알림은 규칙만으로 분석했다는 문구다 16ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 알림 단계 멱등 — 실제 트리거·finish_score_run·notifications UNIQUE > ANALYSIS_COMPLETE 를 PENDING 으로 되돌려 다시 처리해도 알림은 1건이다 20ms
+✓ server/notifications/outbox-dedupe.test.ts > G2 — 실제 마이그레이션 위(PGlite) > 알림 단계 멱등 — 실제 트리거·finish_score_run·notifications UNIQUE > 수신자가 이벤트 조직의 멤버가 아니면(다른 조직 사용자) 알림 0건으로 PROCESSED 다 10ms
+Test Files  1 passed (1)
+Tests  21 passed (21)
+
+## RED → GREEN
+- RED(test-server):
+  - web: 새 시험 파일 5개가 import 단계에서 실패했다. 모듈이 없어서다.
+  - main.test C7 묶음 12건이 실패했다.
+  - DB C7 묶음 6건이 실패했다. outbox 가 0건이었다.
+- 오류 이름 공용화: 범위를 넓힌 시험 2건이 RED 였다. 복사본이 worker/error-name.ts·notifications/outbox.model.ts 두 곳에 있었다. 옮긴 뒤 GREEN 이다.
+- GREEN
+  - vitest server/notifications·server/shared·worker: 20 files / 942 통과
+  - DB C7 묶음: 15/15 통과
+
+## 변형 확인(실제 구현, 원복 확인)
+- 메인 세션
+  - payload.orgId 대조 제거 → 4 failed
+  - DEAD 경계 >= 를 > 로 → 4
+  - 멤버 확인 생략 → 12
+  - CAS 에서 attempts 조건 제거 → 3
+  - ignoreDuplicates false → 4
+  - 회차 겹침 막기 제거 → 2
+  - event_type 필터 제거 → 6
+  - notify 등록 제거 → 4
+  - PARTIAL 문구 → 5
+  - 외부 링크 → 6
+  - 000016 on conflict 제거 → DB 1 failed
+- test-server(참조 구현·참조 마이그레이션, 저장소 밖): 10건 모두 빨간불
+
+$ bash verify-slot.sh pnpm verify (worktree 루트)
+  ℹ pass 668
+  ℹ fail 0
+  ✓ DB 타입 일치 — 정본 supabase/migrations
+   Test Files  144 passed (144)
+        Tests  5176 passed (5176)
+    2 rules passed, 0 errors, 0 warnings
+  ✓ Compiled successfully in 4.7s
+  ================== 898 passed, 1 warning in 135.10s ==================
+  exit 0 · worker:check: worker modules loaded
+
+## 실행하지 않은 것·남은 것
+- 클라우드 db:push(000016 포함)와 Compose 실기동은 하지 않았다. 실제 Redis·Supabase 에 붙여 기동하지 않았다. 둘 다 사용자 확인이 필요하다.
+- BID_CREATED·BID_CHANGED·DEADLINE_APPROACHING 펼치기는 S5·확장 컷이다. 이 이벤트들은 PENDING 그대로 남는다.
+- NOTIFY_POLL_INTERVAL_MS 를 정본 env 표에 넣는 일은 e8 이 맡는다.
+- 마이그레이션 번호: Codex 후속 000015 가 아직 main 에 없다. 병합할 때 번호가 main 최대보다 커야 하고, 아니면 다음 빈 번호로 이름을 바꾼다(e8 규칙).
+- C6 E2E(S4 벨 2건)를 실제 생성 경로로 바꿀지는 C6 와 C7 이 병합된 뒤 정한다.
+
+## main a955a41(documents 큐 계약) 병합 뒤
+- 충돌: web/worker/main.test.ts 한 곳이다. 가짜 fetch 의 요청 기록(C7 requests)과 bid_documents URL 기록(main documentRequests)을 둘 다 살렸다. main.ts 는 자동 병합됐다.
+$ bash verify-slot.sh pnpm verify
+  ℹ pass 668 · ℹ fail 0 · ✓ DB 타입 일치
+  Test Files 146 passed · Tests 5223 passed
+  2 rules passed, 0 errors · ✓ Compiled successfully · pytest 898 passed · exit 0
+
+## 보안 검토 후속(3e 검토 f70f8b4: 차단 0·중요 1·낮음 5)
+작성 2026-10-19T16:38:54Z · 근거: 3e 검토, e8 판정(번호 20261019000017, 정지 계정은 0건 PROCESSED)
+- 중요 1(000015 비어 있음): 3e·e8 몫이다. 병합 규칙에 따라 Codex 쪽 이름을 바꾼다. 이 브랜치에서 할 일은 없다.
+- 낮음 1: 회차는 각 이벤트를 처리하기 전에 shouldStop 을 묻는다. stop 은 최대 5초만 기다리고, 넘으면 notify.outbox.stop_timeout 한 줄을 남긴다. 대기 타이머는 끝나면 지운다.
+- 낮음 2
+  - 20261019000017_outbox_notify_due_index 부분 인덱스: (created_at, id) where status in (PENDING, FAILED) and event_type in (REVIEW_ASSIGNED, ANALYSIS_COMPLETE).
+  - 회차가 실패하면 다음 회차를 min(간격 × 2^n, 60초) 뒤로 늦춘다. 빈 회차는 늦추지 않는다.
+  - 실패 로그에 consecutiveFailures·nextDelayMs 를 싣는다.
+- 낮음 3: 저장 오류는 NotificationStoreError 다. 로그 errorName 이 "Error" 가 아니라 이 이름으로 남는다.
+- 낮음 4: 수신자의 profiles.status 가 active 가 아니거나 프로필 행이 없으면 알림 0건으로 PROCESSED 한다(SKIPPED_INACTIVE).
+- 낮음 5(env 정본 등록): e8 4차 묶음이 맡는다.
+- RED(test-server): web 62 failed / 925 passed, DB 인덱스 4 failed. 다른 파일 회귀는 없었다.
+- GREEN: server/notifications·worker 18 files / 987 통과, 인덱스 DB 4/4 통과.
+- 변형(메인 세션, 원복 확인)
+  - shouldStop 끊기 → 3 failed
+  - 늦추기 제거 → 6
+  - 대기 타이머 안 지우기 → 1
+  - 실패 수 초기화 제거 → 1
+  - 프로필 없음을 활동으로 보기 → 1
+$ bash verify-slot.sh pnpm verify
+  ℹ pass 672 · ℹ fail 0 · ✓ DB 타입 일치
+  Test Files 146 passed · Tests 5278 passed
+  2 rules passed, 0 errors · ✓ Compiled successfully · pytest 898 passed · exit 0 · worker:check 통과

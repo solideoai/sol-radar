@@ -39,6 +39,7 @@ import type { LoadedAnalysisContext } from "./analysis-job.model";
 import type { AnalysisContext } from "./analysis.model";
 import type { LoaderRows, RevisionDocumentText } from "./analysis-store.model";
 import {
+  ATTEMPT_STARTED_AT,
   CALCULATION_DATE,
   MOCK_EXPLAIN_TEXT,
   explainBody,
@@ -63,10 +64,10 @@ export const OTHER_ORG_ID: string = orgUuid("org-02");
 export const GOLDEN_IDS = ["FX-01", "FX-02", "FX-03"] as const;
 export type GoldenId = (typeof GOLDEN_IDS)[number];
 
-/** 예산 미공개 공고(budgetKrw=null). 골든 파일·Kev fixture 가 없다. C4 결과는 COMPLETED·missingFactors=[scaleFit BUDGET_UNKNOWN]. */
+/** 예산 미공개 공고(budgetKrw=null). 골든 파일이 없다. 시험은 KEV_ENABLED=false 시나리오로 돌린다. C4 결과는 COMPLETED·missingFactors=[scaleFit BUDGET_UNKNOWN]. */
 export const NO_BUDGET_ID = "FX-11";
 
-/** Kev fixture 가 없는 공고의 gateway: /kev 는 Kev 를 끈 응답(KEV_ENABLED=false, errorCode 없음), /explain 은 mock 템플릿. */
+/** KEV_ENABLED=false 시나리오의 gateway: /kev 는 Kev 를 끈 응답(errorCode 없음), /explain 은 mock 템플릿. */
 export function kevOffRoutes(): GatewayRoutes {
   return {
     "/kev": jsonReply(kevDisabledBody(null)),
@@ -176,7 +177,7 @@ function recordingIngestionRepo(): { repo: IngestionRepo; tables: SeedBidTables 
       checksum: bid.checksum,
       normalized: bid,
     });
-    return { bidId, revisionId };
+    return { bidId, revisionId, revisionCreatedAt: "2026-01-01T00:00:00.000000+00:00" };
   };
   const repo: IngestionRepo = {
     startRun: async (input) => ({
@@ -296,7 +297,11 @@ export type SeedBid = {
   extraction: SeedExtractionRow;
 };
 
-/** seed 가 그 fixture 의 r1 로 넣는 공고·revision·첨부·mock 추출 행. */
+/**
+ * seed 가 그 fixture 의 r1 로 넣는 공고·revision·첨부 행과, 그 공고의 추출 캐시 행.
+ * 추출 행은 demo:reset 이 넣지 않는다(FX-13 인용 검증 우회 때문에 사용자 결정으로 뺐다). 검증된 추출은 demo:preanalyze 가
+ * worker → gateway /extract 로 저장한다. 이 행은 그 저장이 끝난 뒤의 캐시를 mock 추출 fixture 로 흉내 낸 것이다.
+ */
 export function seedBid(fixtureId: string): SeedBid {
   const created = seededBids.find((bid) => bid.fixtureId === fixtureId);
   if (!created) throw new Error(`seed 에 적재되지 않은 fixture: ${fixtureId}`);
@@ -354,6 +359,11 @@ export type SeedRun = {
   queuedAt: string;
   status?: string;
   idempotencyKey?: string | null;
+  /**
+   * score_runs.started_at 을 PostgREST 가 준 원문 그대로(마이크로초·오프셋 포함). 없으면 null(QUEUED).
+   * loader 는 이 값을 바꾸지 않고 startedAt 으로 넘긴다(compare-and-set 의 쓰기 조건).
+   */
+  startedAt?: string | null;
 };
 
 /** loader 가 org-01 의 그 fixture run 에서 읽을 행 전부(seed 와 같은 값). documents 는 첨부 port 의 몫이다. */
@@ -374,6 +384,7 @@ export function loaderRowsFor(
       idempotency_key: run.idempotencyKey === undefined ? null : run.idempotencyKey,
       status: run.status ?? "QUEUED",
       queued_at: toPostgrestTimestamp(run.queuedAt),
+      started_at: run.startedAt ?? null,
     },
     revision: {
       id: bid.revision.id,
@@ -420,10 +431,14 @@ export function loaderRowsFor(
   };
 }
 
-/** worker 처리기 9단계처럼 loader 값에 요청·처리 설정을 더한다(3b mock /health 와 같은 설정: mock·Kev 켜짐·v0.1). */
+/**
+ * worker 처리기 9단계처럼 loader 값에 요청·처리 설정을 더한다(3b mock /health 와 같은 설정: mock·Kev 켜짐·v0.1).
+ * attemptStartedAt 은 worker 가 markRunning 에 넘긴 이 시도의 시작 시각이다(보안 검토 후속).
+ */
 export function contextFromLoaded(
   loaded: LoadedAnalysisContext,
   requestId: string,
+  attemptStartedAt: string = ATTEMPT_STARTED_AT,
 ): AnalysisContext {
   return {
     requestId,
@@ -438,6 +453,7 @@ export function contextFromLoaded(
     team: loaded.team,
     documentIssues: loaded.documentIssues,
     queuedAt: loaded.queuedAt,
+    attemptStartedAt,
     runMode: "mock",
     aiProvider: "mock",
     kev: { enabled: true, questionSetVersion: "kev-qs/v0.1" },
@@ -594,6 +610,225 @@ export function loaderRoute(rows: LoaderRows): PostgrestRoute {
         : postgrestError("PGRST116", 406);
     return { status: 200, body: tableRows };
   };
+}
+
+// ── 2-1. PostgREST 필터 흉내(메모리 행 고르기) ──
+// 요청의 필터·정렬·limit·select 를 메모리 행에 적용해 답한다. 필터 문자열의 모양이 아니라 어떤 행이 골라지는지를 시험이 보게 한다.
+// 지원: <열>=[not.]<op>.<값>(eq·neq·lt·lte·gt·gte·in·is), or·and·not.or·not.and 와 그 안의 and(…)·or(…)·not.and(…)·not.or(…).
+// 같은 이름의 필터가 여럿이면(예: or 두 번) 모두 맞아야 한다(AND). 시각 열(…_at)은 시각으로, 나머지는 글자로 비교한다.
+// null 칸은 is 말고는 어떤 비교에도 맞지 않는다(SQL 의 null). 모르는 연산자·없는 열·틀린 모양이면 400(FAKE_UNSUPPORTED_FILTER)으로
+// 답한다. 흉내가 조용히 틀린 행을 고르지 않게 한다.
+
+export type FakeRow = Record<string, unknown>;
+
+const NON_FILTER_PARAMS: readonly string[] = [
+  "select",
+  "order",
+  "limit",
+  "offset",
+  "on_conflict",
+  "columns",
+];
+
+class UnsupportedFilter extends Error {}
+
+/** 괄호·큰따옴표 밖의 쉼표로 나눈다. */
+function splitTopLevel(text: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (const char of text) {
+    if (escaped) {
+      escaped = false;
+    } else if (quoted && char === "\\") {
+      escaped = true;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (!quoted && char === "(") {
+      depth += 1;
+    } else if (!quoted && char === ")") {
+      depth -= 1;
+    } else if (!quoted && depth === 0 && char === ",") {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  if (quoted || depth !== 0) throw new UnsupportedFilter(`괄호·따옴표가 맞지 않는다: ${text}`);
+  parts.push(current);
+  return parts;
+}
+
+function unquote(value: string): string {
+  return value.length >= 2 && value.startsWith('"') && value.endsWith('"')
+    ? value.slice(1, -1).replace(/\\(.)/g, "$1")
+    : value;
+}
+
+/** 칸과 값의 순서(-1·0·1). 시각 열은 시각으로 비교한다. 값이 시각이 아니면 PostgREST 처럼 거절한다. */
+function compareCell(column: string, cell: unknown, value: string): number {
+  const text = String(cell);
+  if (column.endsWith("_at")) {
+    const left = new Date(text).getTime();
+    const right = new Date(value).getTime();
+    if (Number.isNaN(left) || Number.isNaN(right)) {
+      throw new UnsupportedFilter(`시각이 아니다: ${column}`);
+    }
+    return Math.sign(left - right);
+  }
+  if (text === value) return 0;
+  return text < value ? -1 : 1;
+}
+
+function matchesOperator(column: string, cell: unknown, operator: string): boolean {
+  const negated = operator.startsWith("not.");
+  const body = negated ? operator.slice("not.".length) : operator;
+  const dot = body.indexOf(".");
+  if (dot === -1) throw new UnsupportedFilter(`연산자가 없다: ${column}=${operator}`);
+  const op = body.slice(0, dot);
+  const raw = body.slice(dot + 1);
+  if (op === "is") {
+    const isMatch =
+      raw === "null"
+        ? cell === null || cell === undefined
+        : raw === "true"
+          ? cell === true
+          : raw === "false"
+            ? cell === false
+            : null;
+    if (isMatch === null) throw new UnsupportedFilter(`is 값: ${raw}`);
+    return negated ? !isMatch : isMatch;
+  }
+  if (cell === null || cell === undefined) return false;
+  const isMatch = (() => {
+    if (op === "in") {
+      if (!raw.startsWith("(") || !raw.endsWith(")")) throw new UnsupportedFilter(`in 값: ${raw}`);
+      return splitTopLevel(raw.slice(1, -1))
+        .map(unquote)
+        .some((value) => compareCell(column, cell, value) === 0);
+    }
+    const order = compareCell(column, cell, unquote(raw));
+    if (op === "eq") return order === 0;
+    if (op === "neq") return order !== 0;
+    if (op === "lt") return order < 0;
+    if (op === "lte") return order <= 0;
+    if (op === "gt") return order > 0;
+    if (op === "gte") return order >= 0;
+    throw new UnsupportedFilter(`모르는 연산자: ${op}`);
+  })();
+  return negated ? !isMatch : isMatch;
+}
+
+function matchesColumn(row: FakeRow, column: string, operator: string): boolean {
+  if (!Object.hasOwn(row, column)) throw new UnsupportedFilter(`없는 열: ${column}`);
+  return matchesOperator(column, row[column], operator);
+}
+
+function matchesLogic(row: FakeRow, kind: string, inner: string): boolean {
+  const conditions = splitTopLevel(inner);
+  return kind === "and"
+    ? conditions.every((condition) => matchesCondition(row, condition))
+    : conditions.some((condition) => matchesCondition(row, condition));
+}
+
+/** 논리 트리 안의 조건 하나: and(…)·or(…)·not.and(…)·not.or(…) 또는 <열>.<op>.<값>. */
+function matchesCondition(row: FakeRow, condition: string): boolean {
+  const logic = /^(not\.)?(and|or)\(([\s\S]*)\)$/.exec(condition);
+  if (logic !== null) {
+    const isMatch = matchesLogic(row, logic[2], logic[3]);
+    return logic[1] === undefined ? isMatch : !isMatch;
+  }
+  const dot = condition.indexOf(".");
+  if (dot === -1) throw new UnsupportedFilter(`조건 모양: ${condition}`);
+  return matchesColumn(row, condition.slice(0, dot), condition.slice(dot + 1));
+}
+
+function matchesParams(row: FakeRow, params: URLSearchParams): boolean {
+  return [...params.entries()].every(([key, value]) => {
+    if (NON_FILTER_PARAMS.includes(key)) return true;
+    const logic = /^(not\.)?(and|or)$/.exec(key);
+    if (logic === null) return matchesColumn(row, key, value);
+    if (!value.startsWith("(") || !value.endsWith(")")) {
+      throw new UnsupportedFilter(`${key} 값: ${value}`);
+    }
+    const isMatch = matchesLogic(row, logic[2], value.slice(1, -1));
+    return logic[1] === undefined ? isMatch : !isMatch;
+  });
+}
+
+/** order=<열>.<asc|desc>[.nullsfirst|.nullslast],… 순서로 정렬한다. 없는 열은 같은 값으로 본다. */
+function orderRows(rows: FakeRow[], order: string | null): FakeRow[] {
+  if (order === null || order === "") return rows;
+  const keys = order.split(",").map((part) => {
+    const [column, direction = "asc"] = part.split(".");
+    if (direction !== "asc" && direction !== "desc") {
+      throw new UnsupportedFilter(`order 방향: ${part}`);
+    }
+    return { column, sign: direction === "asc" ? 1 : -1 };
+  });
+  const compare = (a: FakeRow, b: FakeRow): number => {
+    for (const { column, sign } of keys) {
+      const left = a[column];
+      const right = b[column];
+      if (left === right) continue;
+      // Postgres 기본: asc 는 null 이 뒤, desc 는 null 이 앞이다.
+      if (left === null || left === undefined) return sign;
+      if (right === null || right === undefined) return -sign;
+      const order = compareCell(column, left, String(right));
+      if (order !== 0) return order * sign;
+    }
+    return 0;
+  };
+  return rows.toSorted(compare);
+}
+
+function projectRow(row: FakeRow, select: string | null): FakeRow {
+  if (select === null || select === "*") return { ...row };
+  return Object.fromEntries(
+    select.split(",").map((column) => {
+      if (!Object.hasOwn(row, column)) throw new UnsupportedFilter(`없는 select 열: ${column}`);
+      return [column, row[column]];
+    }),
+  );
+}
+
+function unsupportedReply(error: unknown): PostgrestReply {
+  if (!(error instanceof UnsupportedFilter)) throw error;
+  return { status: 400, body: { code: "FAKE_UNSUPPORTED_FILTER", message: error.message } };
+}
+
+/** 고른 행을 select 열로 줄여 답한다. 한 행 요청(object+json)이면 객체(1행이 아니면 PGRST116), 아니면 배열. */
+export function projectedReply(
+  call: PostgrestCall,
+  rows: readonly FakeRow[],
+  status = 200,
+): PostgrestReply {
+  try {
+    const projected = rows.map((row) => projectRow(row, call.params.get("select")));
+    if (!call.accept.includes("vnd.pgrst.object+json")) return { status, body: projected };
+    return projected.length === 1
+      ? { status, body: projected[0] }
+      : postgrestError("PGRST116", 406);
+  } catch (error) {
+    return unsupportedReply(error);
+  }
+}
+
+/** GET 요청의 필터·정렬·offset·limit 를 메모리 행에 적용해 답한다. */
+export function filteredReply(call: PostgrestCall, rows: readonly FakeRow[]): PostgrestReply {
+  try {
+    const matched = rows.filter((row) => matchesParams(row, call.params));
+    const ordered = orderRows(matched, call.params.get("order"));
+    const offset = Number(call.params.get("offset") ?? "0");
+    const limit = call.params.get("limit");
+    const page = ordered.slice(offset, limit === null ? undefined : offset + Number(limit));
+    return projectedReply(call, page);
+  } catch (error) {
+    return unsupportedReply(error);
+  }
 }
 
 // ── 3. PGlite ──

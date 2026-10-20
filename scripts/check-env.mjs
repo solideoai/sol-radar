@@ -23,7 +23,8 @@ const INFRA_REQUIRED = [
   "MINIO_ROOT_USER",
   "MINIO_ROOT_PASSWORD",
 ];
-const AI_REQUIRED = ["QWEN_BASE_URL", "KEV_BASE_URL", "KEV_API_KEY"];
+// local(실추론)은 QWEN_API_KEY 도 필수다(03 §3·09, C5-A S3). gateway 기동 검사와 같은 집합이다
+const AI_REQUIRED = ["QWEN_BASE_URL", "QWEN_API_KEY", "KEV_BASE_URL", "KEV_API_KEY"];
 const HOSTED_REQUIRED = ["HOSTED_API_BASE_URL", "HOSTED_API_KEY"];
 const WEB_REQUIRED = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -31,7 +32,10 @@ const WEB_REQUIRED = [
   "REDIS_URL",
   "MINIO_ENDPOINT",
   "AI_GATEWAY_URL",
+  "API_CURSOR_SECRET",
 ];
+// 목록 HMAC 커서 키는 32자 이상이어야 한다(짧으면 서비스가 503 {component:"cursor"} 를 낸다).
+const CURSOR_SECRET_MIN_LENGTH = 32;
 // G2B 서비스키 4개 이름은 실행 모드 규칙(infra/run-modes.json)에서 가져온다.
 const WEB_FORBIDDEN = [
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -125,6 +129,19 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
   } else {
     for (const key of missingKeys(web, WEB_REQUIRED)) {
       problems.push({ file: WEB_FILE, key, code: "MISSING_KEY" });
+    }
+    // 런타임(readCursorSecret)처럼 앞뒤 공백을 뗀 길이로 잰다. 공백뿐이면 0자다(M7).
+    const cursorSecret = web.API_CURSOR_SECRET;
+    if (cursorSecret && cursorSecret.trim().length < CURSOR_SECRET_MIN_LENGTH) {
+      problems.push({ file: WEB_FILE, key: "API_CURSOR_SECRET", code: "INVALID_FORMAT" });
+    }
+    // web 의 SOL_RUN_MODE(없으면 기본 mock)가 infra 모드와 다르면 화면과 worker 가 다른 모드로 돈다.
+    // infra 모드를 모를 때(UNKNOWN_MODE)는 이미 알렸으므로 비교하지 않는다.
+    const webMode = resolveRunMode({ SOL_RUN_MODE: web.SOL_RUN_MODE }, rules);
+    if (webMode.mode === null) {
+      problems.push({ file: WEB_FILE, key: "SOL_RUN_MODE", code: "UNKNOWN_MODE" });
+    } else if (resolved.mode !== null && webMode.mode !== resolved.mode) {
+      problems.push({ file: WEB_FILE, key: "SOL_RUN_MODE", code: "CONTRADICTS_MODE" });
     }
     problems.push(...placeholderProblems(WEB_FILE, web));
   }

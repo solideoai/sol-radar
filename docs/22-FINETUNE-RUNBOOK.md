@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - ops
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 22. 회사 GPU 파인튜닝 실행서: Kev-9B·Qwen3.5-9B
@@ -36,9 +36,11 @@ updated: 2026-10-19
 | 우리(SOL RADAR) | 회사(GPU 서버) |
 |---|---|
 | 평가셋·학습셋 번들(`sol-dataset-{version}.tar`, sha256)·이 실행서·학습 요청서(§6)를 만든다 | 모델·코드를 받고(§2) 환경을 만든다(§3) |
-| 사람 라벨(사용자 직접, ADR-027 U7) | F1 메모리 검증·F2 학습·F3 보정을 돌린다(§4) |
-| 돌려받은 체크포인트를 노트북에서 평가하고(E4) 레지스트리 항목을 쓴다 | 평가 전용 `kev.serve`를 띄운다(ADR-027 10번) |
+| 사람 라벨(사용자 직접, ADR-027 U7) | F1 메모리 검증·F2 학습·F3 보정을 **물리 GPU 1 에서** 돌린다(§4) |
+| 돌려받은 채점 출력을 노트북에서 오프라인으로 읽어 E4 지표를 내고(21 §4.1) 레지스트리 항목을 쓴다 | 서버 안에서 `kev.benchmark` 채점 4회·`kev.compare` 를 돌린다(ADR-027 10번 개정. 평가 전용 `kev.serve` 는 B안일 때만, §4.4) |
 | 결과를 제출물에 적는다 | 돌려줄 것(§4.5)을 넘긴다. 데이터셋은 학습이 끝나면 지운다 |
+
+회사 측 실행은 GPU 서버 셸(호스트 `sol-NF5280M6`, 계정 `bim`, 2026-10-20 확인)에서 한다. 서버에는 A40 46,068 MiB 가 3장 있고 SOL RADAR 는 **물리 index 1 한 장**만 쓴다(§3.1). 환경 확인 기록은 [F1 기록](evidence/kev-train-feasibility.md) §0 이다.
 
 ## 2. 모델과 자료 출처
 
@@ -74,12 +76,13 @@ updated: 2026-10-19
 **1안: GPU 서버에서 직접 받는다**
 
 ```bash
-export HF_HOME=/data/hf            # 회사 디스크. 여유 100 GB 이상(백본 둘 19.3 GB×2, 병합본·체크포인트·캐시)
-git clone https://github.com/jaredpalmer/kev.git /opt/kev
-git -C /opt/kev checkout 1f04cfa28e6a708485b28a9585010b9e436b776e
+export SOL_WORK=/data/www/ai_workspace/sol-radar     # SOL RADAR 전용 경로(2026-10-20 확인). /data 가용 약 1,011 GB
+export HF_HOME=$SOL_WORK/hf                           # 백본 19.3 GB + 체크포인트·캐시. 100 GB 이상 비워 둔다
+git clone https://github.com/jaredpalmer/kev.git "$SOL_WORK/kev"
+git -C "$SOL_WORK/kev" checkout 1f04cfa28e6a708485b28a9585010b9e436b776e
 
-# hf CLI 는 huggingface_hub 패키지에 있다. venv(§3.2)를 만들기 전이면 `uvx --from huggingface_hub hf download …`로 부른다
-hf download jaredpalmer/kev-9b --revision v1.0
+# hf CLI 는 huggingface_hub 패키지에 있다(§3.2 설치 뒤 venv 의 hf). venv 에 아직 없으면 `uvx --from huggingface_hub hf download …`
+hf download jaredpalmer/kev-9b --revision 3afdec81efc91da83dee06d30714adf54ee35531   # 태그 v1.0 이 가리키는 커밋(2026-10-20 Hub refs). 태그는 옮겨질 수 있어 커밋으로 받는다
 hf download Qwen/Qwen3.5-9B-Base --revision 68c46c4b3498877f3ef123c856ecfde50c39f404
 hf download jaredpalmer/kev-suites --repo-type dataset \
   --revision cc4bac803e73112689ec327ffa481c519cbc7a05 --include "v7/decision-v7/*"
@@ -87,49 +90,86 @@ hf download jaredpalmer/kev-suites --repo-type dataset \
 hf download Qwen/Qwen3.5-9B --revision c202236235762e1c871ad0ccb60c8ee5ba337b9a
 ```
 
-**2안: 다른 기계에서 받아 반입한다.** 같은 명령을 외부망이 있는 기계에서 돌리고 `$HF_HOME/hub`와 `/opt/kev`(+ 파이썬 wheel 묶음 `uv pip download` 결과)를 GPU 서버로 옮긴다. 서버에서는 `export HF_HUB_OFFLINE=1`로 캐시만 쓴다. `kev.train --suite`의 replay 도 같은 리비전이 캐시에 있으면 오프라인으로 읽힌다.
+**2안: 다른 기계에서 받아 반입한다.** 같은 명령을 외부망이 있는 기계에서 돌리고 `$HF_HOME/hub`와 `$SOL_WORK/kev`(+ 파이썬 wheel 묶음 `uv pip download` 결과)를 GPU 서버로 옮긴다. 서버에서는 `export HF_HUB_OFFLINE=1`로 캐시만 쓴다. `kev.train --suite`의 replay 도 같은 리비전이 캐시에 있으면 오프라인으로 읽힌다. Kev 의 Hub 해석은 `huggingface_hub.snapshot_download`(`kev/checkpoint.py`)라 `HF_HOME`·`HF_HUB_OFFLINE` 을 그대로 따른다.
 
-**무결성 확인**(받은 직후, 그리고 서빙 기동 전)
+**무결성 확인**(받은 직후, 그리고 서빙 기동 전. `infra/gpu/kev-preflight.sh` 가 같은 값을 대조한다)
 
 ```bash
-snap=$(ls -d $HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/*/ | head -1)
+snap=$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531   # 고정 커밋의 snapshot 만 쓴다
 sha256sum "$snap/adapter_model.safetensors" "$snap/head.pt"
-# 기대: 2b2a70cf4ef4440b… / 8e1dab2c8e3664f6…  (전체 값은 레지스트리 services/ai/models/registry.yaml 항목 kev-9b-v1.0)
+# 기대(2026-10-20 Hub v1.0 파일을 받아 계산, 173,178,096 B / 8,395,071 B):
+#   adapter_model.safetensors 2b2a70cf4ef4440b6c22899e1f72c2f8ea5c6f65b19aa344539b4b8971d1f13d
+#   head.pt                   8e1dab2c8e3664f6fee843e0257d57946c25e0210c61901ea77e71761f4244e1
 ```
 
-학습본(우리가 돌려받는 체크포인트)도 같은 방식으로 `weights_sha256`·`head_sha256`를 레지스트리에 적고, 기동 전에 대조한다([[03-AI-PIPELINE|03]] §11). `kev.serve`는 `--run` 경로가 틀리면 오류 없이 `runs/smoke`로 대체하므로 이 대조를 빼지 않는다.
+레지스트리(`services/ai/models/registry.yaml` 항목 `kev-9b-v1.0`)의 `weights_sha256`·`head_sha256` 에 위 값을 적었다(2026-10-20 사용자 결정. 태그 `v1.0` = 커밋 `3afdec81efc91da83dee06d30714adf54ee35531`, Hub tree API 의 LFS oid 와 같음을 교차 확인. 시험 `services/ai/tests/test_model_registry.py`). 회사는 `kev.serve` 기동 전에 받은 파일과 이 값을 대조한다. 학습본(우리가 돌려받는 체크포인트)도 같은 방식으로 `weights_sha256`·`head_sha256`를 레지스트리에 적고, 기동 전에 대조한다([[03-AI-PIPELINE|03]] §11). `kev.serve`는 `--run` 경로가 틀리면 오류 없이 `runs/smoke`로 대체하므로 이 대조를 빼지 않는다.
 
 ## 3. 학습 환경
 
 ### 3.1 GPU와 메모리
 
-회사 GPU 모델·VRAM·장수는 아직 받지 못했다(C1 ③ G5, 16 미결정 22). 그래서 80 GB 를 전제하지 않고, 아래 알려진 값으로 시작해 F1(§4.2)에서 실측한다.
+> [!success] 확인됨 (2026-10-20, 사용자가 서버 `sol-NF5280M6` 셸에서 실행. 출력 전문은 [F1 기록](evidence/kev-train-feasibility.md) §0)
+> NVIDIA A40 **3장**(각 46,068 MiB). 드라이버 580.173.02(CUDA 13.0), CUDA Toolkit 12.8, RAM 약 125 GiB(가용 약 54 GiB), `/data` 가용 약 1,011 GB. GPU 0(4,747 MiB 사용 중)·2(9,240 MiB 사용 중)는 회사 기존 서비스가 쓰고 있어 **쓰지 않는다**. GPU 1(5 MiB 사용 중, Compute Capability 8.6)이 SOL RADAR 학습 전용이다. venv 안에서 `CUDA_VISIBLE_DEVICES=1` 로 torch 2.8.0+cu128 이 A40 을 `cuda:0` 으로 잡고 bf16 지원, 가용 44.16 GiB(총 44.42 GiB) 를 확인했다.
+
+| 물리 GPU index(nvidia-smi) | 총 VRAM | 2026-10-20 사용량 | 정책 |
+|---|---:|---:|---|
+| 0 | 46,068 MiB | 4,747 MiB | 회사 기존 서비스. 프로세스 종료·모델 이동·설정 변경 금지 |
+| 1 | 46,068 MiB | 5 MiB | **SOL RADAR 학습·채점 전용**(F1·F2·F3·E4) |
+| 2 | 46,068 MiB | 9,240 MiB | 회사 기존 서비스. 위와 같다 |
+
+바로잡는 것: ① GPU 는 2장이 아니라 3장이다(ADR-027 콜아웃의 "A40×2" 가정 종결). ② 학습에 쓸 수 있는 것은 그중 1장이다. 3장의 VRAM 을 합산해 학습 메모리로 보지 않고, 다중 GPU 학습(`torchrun`)도 하지 않는다. ③ 80 GB GPU·H100·H200 은 없다. ④ nvidia-smi 의 46,068 MiB 와 PyTorch 의 44.42 GiB(`torch.cuda.mem_get_info` 총량, GiB 단위)는 다른 수치다. 예산은 PyTorch 가용 44.16 GiB 를 기준으로 잡고 안전 여유를 둔다(§4.2 F1-D). ⑤ 학습이 되는지는 F1 결과로만 확정한다.
+
+학습 메모리의 기준값은 아래다. A40 에서 잰 값은 아직 없다(F1 §4.2 에서 실측).
 
 | 작업 | 알려진 값 | 출처 |
 |---|---|---|
 | Kev-9B LoRA 학습(공식 설정: fp32 백본, `max_state 7552`, `batch 2`) | 최대 74.1 GB, H200 1장 2.6시간(그 단계 데이터 기준) | Kev-9B 모델 카드 |
+| Kev-9B LoRA 학습(이 실행서 설정: bf16 백본 약 19.3 GB, `--checkpointing 1`, `--batch 1 --accum 8`) | **추정** 30~45 GB. `--max_state` 가 클수록 늘어난다 | 23 §2.4 추정. A40 실측 전 |
 | Kev-9B 서빙 | 상주 약 21.9 GB(모델 카드) / 약 17 GB(README) | 문서 불일치, [[03-AI-PIPELINE\|03]] §5.2 |
+| `kev.benchmark` 채점(fp32 기본 경로) | 가중치 약 38.6 GB + state 길이에 비례한 작업 메모리(카드: H100 fp32 16k state 가 가중치 위로 4.6 GiB) | Kev-9B 모델 카드. 44 GiB 에 들어가는지 미검증(§4.4) |
 | Qwen3.5-9B bf16 LoRA | 약 22 GB(짧은 시퀀스, Unsloth 최적화 기준). 긴 입력(§5.2)은 더 든다 | Unsloth Qwen3.5 문서 |
 | Qwen3.5-9B 서빙(vLLM) | 가중치 약 19.3 GB + KV 캐시(`--gpu-memory-utilization`) | 가중치 크기에서 추정 |
 
-- 학습과 데모 추론(vLLM Qwen, `kev.serve` v1.0)을 같은 GPU에서 동시에 돌릴 수 있는지는 회사가 정한다. 같은 GPU 면 학습 시간대를 추론 구간과 겹치지 않게 잡는다(ADR-027 M6).
-- GPU 메모리는 `nvidia-smi --query-gpu=memory.used --format=csv -l 1`을 학습 내내 기록해 최대값을 읽는다. `kev.train`은 GPU 최대 메모리를 따로 기록하지 않는다.
+- **GPU 1 전용·격리**: 모든 학습·보정·채점 명령은 `export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1` 아래에서 돌린다. 프로세스 안에서 GPU 1 은 `cuda:0` 으로 보인다(정상. `--device cuda` 가 그것을 쓴다). 이 변수는 현재 셸과 자식 프로세스에만 적용되고 SSH 재접속·새 세션에서는 사라지므로, `infra/gpu/kev-preflight.sh`·`infra/gpu/kev-f1.sh` 가 값을 확인하고 없으면 멈춘다. 두 스크립트는 `kill`·`pkill`·`docker compose down` 을 쓰지 않고 GPU 1 에 다른 프로세스가 있으면 종료하지 않고 멈춘다(회사에 확인). `CUDA_VISIBLE_DEVICES` 는 다른 사람의 GPU 1 사용을 막지 못하므로 실행 전후 `nvidia-smi` 로 확인한다.
+- 추론 런타임(vLLM Qwen, `kev.serve` v1.0)이 어느 GPU 에 뜨는지는 미확인이다(2026-10-20 사용량으로는 아직 떠 있지 않다). GPU 1 에 뜨면 학습 시간대와 겹치므로 학습 중 내린다(23 §2.4). GPU 0·2 에 올릴 수 있는지는 회사가 정한다. GPU 1 을 다른 회사 작업에 쓸 가능성도 별도 확인 대상이다(16 미결정 22).
+- GPU 메모리는 두 값을 함께 적는다. `kev.train` 이 `training_metrics.json` 의 `peak_device_bytes` 로 남기는 `torch.cuda.max_memory_allocated()` 최대값과, `nvidia-smi -i 1 --query-gpu=memory.used --format=csv -l 1` 로 학습 내내 기록한 최대값(할당자 예약분·CUDA 컨텍스트 포함, 안전 여유 판정 기준). `kev-f1.sh` 가 둘 다 기록한다.
 
 ### 3.2 Kev 환경
 
-Kev 공식 미세조정 이미지(`skills/kev-finetune/scripts/kev_modal.py`)와 같은 순서로 만든다.
+venv 는 이미 있다: `/data/www/ai_workspace/sol-radar/.venv-kev`(Python 3.12.3, torch 2.8.0+cu128, triton 3.4.0, 2026-10-20 확인). **지우거나 다시 만들지 않는다.** 아래는 그 venv 에 Kev 와 커널을 더하는 순서다. 2026-10-20 기준 Kev 설치·커널 실행은 **미실행**이다.
+
+> [!success] 검증됨 (2026-10-20, 고정 커밋 `1f04cfa…` 소스·PyPI 메타데이터·fla 0.5.2 wheel)
+> - Kev `pyproject.toml`: `requires-python >=3.12,<3.14`, `torch>=2.6,<2.9`, `transformers>=5.17,<6`, `peft>=0.21`, `numpy>=2.5.3`, `accelerate>=1.15.0`, `datasets>=3.0`, `scikit-learn>=1.9.1`, `pydantic>=2.9`. `flash-linear-attention`·`triton` 은 Kev 의 의존성이 아니라 따로 넣는다(공식 Modal 이미지 `modal_app.py` 와 같다). 3.12.3·torch 2.8.0 은 범위 안이다. PyPI(2026-10-20): transformers 최신 5.20.2, peft 0.21.2, numpy 2.5.4, triton 3.4.0 에 cp312 Linux wheel 있음.
+> - torch 2.8.0 은 Linux x86_64 에서 `triton==3.4.0` 을 고정한다(PyPI `requires_dist`). `flash-linear-attention==0.5.2` 는 `fla-core==0.5.2` 와 `transformers>=4.45.0` 만 요구하고 triton 을 끌어오지 않는다(`fla-core[cuda]` 가 `triton>=3.3`). 그래서 fla 를 넣어도 torch·triton 이 바뀌지 않는다.
+> - fla 0.5.2 가 triton 3.4.0~3.7.0 을 거부하는 조건은 `fla/ops/common/chunk_o.py` 의 `IS_NVIDIA_HOPPER`(장치 이름 `NVIDIA H*` 또는 Compute Capability 9)일 때뿐이다(fla#640, H20). A40 은 Compute Capability 8.6(Ampere)이라 이 조건에 걸리지 않는다. **A40 에서는 triton 을 3.7.1 로 올리지 않는다**(올리면 torch 의 고정을 깬다). Ampere 에서 커널이 실제로 도는지는 `kev-preflight.sh` 의 Gated DeltaNet smoke(fwd+bwd)로 확인한다.
+> - Kev 의 fused 커널(`kev/fused_qwen35.py`)은 `flash-linear-attention==0.5.2` **정확히** 그 버전을 요구한다(다르면 `RuntimeError`, `KEV_FUSED=0` 으로 우회). 학습은 transformers 의 Qwen3.5 모델 경로를 쓰고, fla 가 없으면 transformers 가 느린 참조 구현으로 대체한다.
+> - `causal-conv1d` 는 선택이다(DeltaNet short conv 의 CUDA 커널. 없으면 느린 참조 구현). Python 3.12·torch 2.8·cu12 prebuilt wheel 이 GitHub release v1.7.0 에 있다(`causal_conv1d-1.7.0+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl`). F1 기본 후보에는 넣지 않고, step 시간이 문제일 때만 따로 검토한다.
 
 ```bash
-uv venv /opt/venv-kev --python 3.13
-source /opt/venv-kev/bin/activate
-uv pip install "kev[serve] @ file:///opt/kev"
-# Qwen3.5 Gated DeltaNet 커널. torch 2.8 은 triton 3.4 를 고정하지만 fla 는 Hopper(H100·H200)에서 3.7.1 이상이 필요하다
-uv pip install "flash-linear-attention==0.5.2" "triton>=3.7.1"
-python -c "import torch, kev; print(torch.__version__, torch.cuda.get_device_name(0))"
+export SOL_WORK=/data/www/ai_workspace/sol-radar
+source "$SOL_WORK/.venv-kev/bin/activate"
+python -c "import torch; print(torch.__version__)"                  # 2.8.0+cu128 이어야 한다. 아니면 멈추고 보고
+
+# 1) 설치 계획만 본다. 출력은 " + 패키지==버전"(설치)·" - 패키지==버전"(제거) 줄이다(uv 가 없으면 pip 로 같은 패키지를 넣고 `pip check`)
+mkdir -p "$SOL_WORK/runs"
+uv pip install --python "$SOL_WORK/.venv-kev/bin/python" --dry-run \
+  "kev @ file://$SOL_WORK/kev" "flash-linear-attention==0.5.2" 2>&1 | tee "$SOL_WORK/runs/install-plan.txt"
+grep -E '^\s*[-+] (torch|triton)==' "$SOL_WORK/runs/install-plan.txt" && echo "torch 또는 triton 이 바뀐다. 설치하지 말고 보고" || echo "torch·triton 불변"
+# 2) 위 grep 이 "불변"이면 설치한다. --no-deps·--force-reinstall 은 쓰지 않는다
+uv pip install --python "$SOL_WORK/.venv-kev/bin/python" \
+  "kev @ file://$SOL_WORK/kev" "flash-linear-attention==0.5.2"
+uv pip check --python "$SOL_WORK/.venv-kev/bin/python"             # 의존성 충돌 0
+python -c "import torch, numpy, transformers, peft, fla, kev; print(torch.__version__, numpy.__version__, transformers.__version__, peft.__version__, fla.__version__)"
+
+# 3) F1-A: GPU 1 매핑·bf16·커널 smoke·모델 sha256·데이터 길이까지 한 번에(§4.2)
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
+bash infra/gpu/kev-preflight.sh
 ```
 
-- Ampere(A100·A40 등)에서 triton 업그레이드가 필요한지는 확인하지 않았다. 설치 뒤 §4.2 의 20 step 실행이 통과하는지로 판단한다.
-- 이후 명령은 이 venv 에서 `python -m kev.train` 등으로 돌린다. 저장소 스크립트는 `python /opt/kev/scripts/<이름>.py`로 부른다.
+- `kev[serve]`(fastapi·uvicorn·typesafe-sdk)는 학습·채점에 필요 없다. B안(§4.4)으로 `kev.serve` 를 띄울 때만 `"kev[serve] @ file://…"` 로 더한다.
+- `uv` 가 서버에 있는지는 미확인이다. 없으면 `"$SOL_WORK/.venv-kev/bin/pip" install "$SOL_WORK/kev" "flash-linear-attention==0.5.2"` 뒤 `pip check` 로 같은 확인을 한다(pip 에는 `--dry-run` 이 있다: `pip install --dry-run …`).
+- 설치가 torch 를 다른 빌드(예: cu126·CPU)로 바꾸려 하면 강행하지 않는다. 원인(인덱스·제약)과 대안을 보고한다.
+- 이후 명령은 이 venv 에서 `python -m kev.train` 등으로 돌린다. 저장소 스크립트는 `python "$SOL_WORK/kev/scripts/<이름>.py"` 로 부른다.
 
 ### 3.3 Qwen 환경 (조건부, §5)
 
@@ -166,7 +206,7 @@ python -c "from transformers import AutoConfig; print(AutoConfig.from_pretrained
 | 추출 | train 은 Qwen3.5-9B `/extract` 출력, dev·test 는 사람이 확정한 gold(21 §3.7) | 인용 검증 통과 값만 `KNOWN` |
 | 회사 | 가상 기업 원형 6개(`fixtures/eval/companies/*.json`, 21 §3.2)와 항목별 변형(21 §3.3) | 실제 회사 이름·실적은 쓰지 않는다. 원형 하나는 train 에서 뺀다(처음 보는 기업 지표) |
 | state | `services/ai/kev`의 state 빌더(서빙과 **같은 코드**), 템플릿 `en.v0.2` | `ko` state 는 E2 평가 전용이다. 해커톤 LoRA 는 `en`만(ADR-027 M3) |
-| 질문 | `services/ai/kev/question-sets/v0.2.json`의 `instructions`·`criteria` **원문 그대로** | 서빙과 문구가 다르면 학습 효과가 줄어든다(Kev data-format 문서) |
+| 질문 | `services/ai/kev/question-sets/v0.2.json`의 `instructions`·`criteria` **원문 그대로**. 원문은 확정(2026-10-20, 사용자 결정, [[16-DECISIONS\|ADR-033]] E10) | 서빙과 문구가 다르면 학습 효과가 줄어든다(Kev data-format 문서) |
 
 **어떤 질문에 어떤 라벨을 붙이나**(train)
 
@@ -194,53 +234,77 @@ python -c "from transformers import AutoConfig; print(AutoConfig.from_pretrained
 
 **길이 제한(중요).** `kev.train`의 기본 학습 컨텍스트는 state 384 토큰이다(`kev/model.py` `MAX_STATE`). 우리 state 는 최대 6,000 토큰이다([[03-AI-PIPELINE|03]] §5.6). 그래서 `--max_state`를 반드시 준다. 그보다 긴 레코드는 학습에서 빠지고 로그에 `dropped N of M records that exceed the training context`가 찍힌다. **이 줄의 N이 0이 아니면 학습을 받아들이지 않고** F1 결과에 맞춰 state 를 줄이거나(질문을 나눠 state 를 짧게) `--max_state`를 늘린다.
 
-**번들**: `sol-dataset-{version}.tar` = `manifest.json`(버전·git commit·질문 세트·state 템플릿·마스킹 버전·분할별 개수·파일별 sha256·train 레코드 state 토큰 수 최대값) + `kev/train.en.jsonl`·`kev/dev.en.jsonl`·`kev/test.en.jsonl` + 이 문서의 해당 절. 만드는 명령은 [[21-MODEL-TRAINING|21]] §6(`pnpm dataset:build` → `sol_eval.export`).
+**번들**: `sol-dataset-{version}.tar` = `manifest.json`(버전·git commit·질문 세트·state 템플릿·마스킹 버전·분할별 개수·파일별 sha256·train 레코드 state 토큰 수 최대값) + `kev/train.en.jsonl`·`kev/dev.en.jsonl`·`kev/test.en.jsonl` + 이 문서의 해당 절. 만드는 명령은 [[21-MODEL-TRAINING|21]] §6(`pnpm dataset:build`(예정) → `sol_eval.export`).
 
 ### 4.2 F1 메모리 검증
 
-`--init_from jaredpalmer/kev-9b@v1.0`이면 `--base`·`--base_revision`·`--lora 16`·`--head_dim 256`·`--lora_targets all`·`--option_isolation 0`·`--special_embeddings 0`이 고정이다(`kev/checkpoint.py` `COMPAT_FIELDS`가 다르면 거부). `--base` 기본값은 `Qwen/Qwen3-0.6B-Base`라서 **반드시 준다**. `--weights_dtype`은 호환 검사 대상이 아니라 바꿀 수 있다.
+F1 은 네 단계다(A 환경 사전 검증 → B 최소 메모리 20 step → C 단계적 컨텍스트 증가 → D 측정·합격 판정). 실행은 `infra/gpu/kev-preflight.sh`(F1-A)와 `infra/gpu/kev-f1.sh`(F1-B·C)로 하고, 결과는 [F1 기록](evidence/kev-train-feasibility.md)에 옮긴다. 모든 단계는 물리 GPU 1 만 쓴다(§3.1). 2026-10-20 기준 네 단계 모두 **미실행**이다.
+
+`--init_from jaredpalmer/kev-9b@v1.0` 이면 `--base`·`--base_revision`·`--lora 16`·`--head_dim 256`·`--option_isolation 0`·`--special_embeddings 0` 이 고정이다(`kev/checkpoint.py` `COMPAT_FIELDS` = base·base_revision·lora·head_dim·option_isolation·special_embeddings·weights. 다르면 거부). `--lora_targets all` 은 그 목록에 없지만 어댑터 텐서가 모듈 집합과 하나라도 어긋나면 `_load_adapter_into` 가 거부하므로 v1.0 `training_config.json` 의 값(`all`)을 그대로 준다. `--base` 기본값은 `Qwen/Qwen3-0.6B-Base` 라서 **반드시 준다**. `--weights_dtype` 은 호환 검사 대상이 아니라 바꿀 수 있다. `--init_from` 을 빼고 새 LoRA 를 처음부터 학습하는 변경은 하지 않는다.
+
+**출발 체크포인트는 태그가 아니라 검증한 로컬 snapshot 으로 준다(2026-10-20 보안 검토).** `kev.train --init_from jaredpalmer/kev-9b@v1.0` 은 Hub 태그를 실행 중에 해석한다(`kev/checkpoint.py` `resolve_run` → `snapshot_download`). 태그가 옮겨지면 sha256 을 대조하지 않은 `head.pt`(pickle)가 `torch.load` 에 들어간다. 그래서 ① 다운로드는 커밋 `3afdec81…` 로 받고(§2.2), ② `kev-preflight.sh` 가 그 snapshot 디렉터리의 `adapter_model.safetensors`·`head.pt` sha256 을 §2.2 값과 대조해 다르거나 없으면 **FAIL**(표식 없음), ③ `kev-f1.sh` 는 실행 직전에 다시 대조하고 `--init_from` 에 그 **로컬 디렉터리**를 주며(로컬 경로면 kev 가 Hub 를 조회하지 않는다) `HF_HUB_OFFLINE=1` 로 돌린다, ④ 끝난 뒤 `training_config.json` `init_source.weights_sha256`·`head_sha256` 이 기대값과 같은지 다시 확인한다. F2·채점도 같은 경로를 쓴다(§4.3·§4.4).
+
+**F1-A 환경 사전 검증** — `bash infra/gpu/kev-preflight.sh`(§3.2 끝). 확인 항목: `CUDA_VISIBLE_DEVICES=1`·`CUDA_DEVICE_ORDER=PCI_BUS_ID`, nvidia-smi GPU 1 uuid 와 `cuda:0` uuid 일치, GPU 1 에 다른 프로세스 없음·여유 40,000 MiB 이상, torch 2.8.0+cu128·CUDA·bf16, numpy·transformers·peft 범위, Kev 고정 커밋·`kev.train --help`, fla 0.5.2·triton 3.4.0·Gated DeltaNet 커널 smoke(fwd+bwd, bf16), 고정 snapshot `3afdec81…` 의 adapter/head sha256(§2.2 값. 없거나 다르면 FAIL)·백본 캐시(없으면 FAIL)·replay 캐시(F2 전, warn), 학습 데이터 형식(`kev.data.load_records`)·라벨 비율·`--max_state` 1024/2048/4096/6144 별 `dropped` 수, 디스크. 통과하면 `runs/preflight-ok` 를 남기고 `kev-f1.sh` 가 그것을 요구한다.
+
+**F1-B 최소 메모리 테스트** — 기본 후보 한 칸: Kev-9B v1.0 LoRA 이어 학습, bf16, batch 1, accum 8, checkpointing 1, `--max_state 1024`, 20 step. `kev-f1.sh --max_state 1024` 가 아래 명령을 돌리고 `nvidia-smi -i 1 … -l 1` 기록을 함께 남긴다.
 
 ```bash
+export SOL_WORK=/data/www/ai_workspace/sol-radar
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1    # 물리 GPU 1 → 프로세스 안 cuda:0
 python -m kev.train \
-  --data sol-dataset-v0.1/kev/train.en.jsonl \
-  --init_from jaredpalmer/kev-9b@v1.0 \
+  --data "$SOL_WORK/sol-dataset-v0.1/kev/train.en.jsonl" \
+  --init_from "$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531" \
   --base Qwen/Qwen3.5-9B-Base --base_revision 68c46c4b3498877f3ef123c856ecfde50c39f404 \
   --lora 16 --head_dim 256 --lora_targets all --option_isolation 0 --special_embeddings 0 \
   --device cuda --dtype bf16 --weights_dtype bf16 --checkpointing 1 \
-  --batch 1 --accum 8 --max_state 2048 \
-  --max_steps 20 --out runs/f1-ms2048 --seed 0 2>&1 | tee runs/f1-ms2048.log
+  --batch 1 --accum 8 --max_state 1024 \
+  --max_steps 20 --out "$SOL_WORK/runs/f1-ms1024-b1a8" --seed 0 2>&1 | tee "$SOL_WORK/runs/f1-ms1024-b1a8.log"
 ```
 
-격자를 이 순서로 돈다. 칸마다 최대 GPU 메모리, step 시간, OOM 여부, `dropped` 수를 표로 남긴다(`docs/evidence/kev-train-feasibility.md`).
+**F1-C 단계적 컨텍스트 증가** — 앞 칸이 PASS 일 때만 다음 칸. OOM 이 나면 더 큰 값을 시도하지 않는다. F1-A 의 `--max_state` 별 `dropped` 표에서 실제 데이터가 다 들어가는 값까지만 올리고 나머지 칸은 생략해도 된다(갈래 ① 번들은 2048 에서 끝날 수 있다, 23 §4.4).
 
-| 순서 | 바꾸는 값 | 기대 |
+| 순서 | 명령 | 통과 기준 |
 |---|---|---|
-| 1 | `--weights_dtype bf16`(위 명령 기본) | 고정 백본 fp32 약 36 GB → bf16 약 18 GB(추정) |
-| 2 | `--checkpointing 1` | 활성값 메모리 감소, 속도 저하 |
-| 3 | `--batch 1 --accum 8` | 유효 배치는 공식 설정(2×4)과 같다 |
-| 4 | `--max_state` 1024 → 2048 → 4096 → 6144 | 우리 state 최대 길이까지 올라가는지가 핵심이다 |
-| 5 | `--row_budget N`, `--length_sort 1` | 한 pass 의 패딩 토큰 상한, 길이 고르기 |
+| 1 | `kev-f1.sh --max_state 1024` | OOM 없음, `dropped 0 of M`, nvidia-smi 최대 ≤ 41,000 MiB, checkpoint 저장 |
+| 2 | `kev-f1.sh --max_state 2048` | 같다 |
+| 3 | `kev-f1.sh --max_state 4096` | 같다 |
+| 4 | `kev-f1.sh --max_state 6144` | 같다(갈래 ② 상한, 03 §5.6) |
+| 5(선택) | 통과한 최대 `--max_state` 에서 `--batch 2 --accum 4 --tag b2`(속도) 또는 `--row_budget N --length_sort 1`(긴 state 를 질문 단위로 나눠 pass 당 패딩 토큰 상한) | 들어가면 F2 에 쓴다. 안 들어가면 1×8 |
 
-격자 끝에서도 OOM 이면 이 순서로 검토하고 사용자에게 보고한다: ① state 축약 ② `--init_from` 없이 새 LoRA(`--lora_targets attn|qv`, 공개 Kev 학습 성과를 잃으므로 E1 과 비교) ③ Kev-4B(`--init_from jaredpalmer/kev-4b@v1.0`, `--base Qwen/Qwen3.5-4B-Base --base_revision 1001bb4d826a52d1f399e183466143f4da7b741b`) ④ 클라우드 GPU 임대(ADR-010 승인) ⑤ Kev 소스 포크(오프로딩·QLoRA, 마지막 수단).
+기대(추정, A40 실측 전): 고정 백본 fp32 약 38.6 GB → bf16 약 19.3 GB. LoRA r16 어댑터(173 MB)·pointer head(8 MB)·AdamW 상태는 합쳐 1 GB 미만. 나머지는 state·branch 길이에 비례하는 활성값이다. `--checkpointing 1` 이 활성값을 줄이고 속도를 낮춘다. `--batch 1 --accum 8` 의 유효 배치 8 은 공식 설정(2×4)과 같다.
 
-같은 F1 시간에 F3 보정 경로(§4.4 1안)도 20 step 체크포인트로 한 번 돌려 본다.
+**F1-D 측정과 합격 조건** — 칸마다 `kev-f1.sh` 가 `runs/<run>.summary.md` 와 `runs/f1-results.md` 에 적는다: 물리 GPU index(+uuid), PyTorch 버전, Kev git commit, Base model revision, LoRA checkpoint revision(`init_from` 해석 경로·adapter sha256 = `training_config.json` `init_source`), GPU peak VRAM 두 값(`training_metrics.json` `peak_device_bytes` = `torch.cuda.max_memory_allocated`, nvidia-smi `memory.used` 최대), 평균 step 시간(로그 `s/rec` × batch × accum, wall), 학습된 레코드 수(`records_seen`), `dropped` 수, OOM 여부, checkpoint 저장 여부(adapter·head sha256), 로그 경로. 합격은 네 조건 전부다: OOM 없음 · `dropped 0` · nvidia-smi 최대 ≤ 41,000 MiB(46,068 MiB 의 약 89%. GPU 를 전부 쓰도록 계획하지 않는다) · checkpoint 저장. **20 step PASS 만으로 F2 준비 완료라고 적지 않는다.** state 가 잘려 중요한 요구사항이 빠지는 번들(`dropped` > 0, 또는 F1-A 길이 표에서 잘림)은 실패로 보고 원인(긴 `pastPerformance` 목록 등)을 고쳐 번들을 다시 만든 뒤 F2 로 간다. 21 §7 의 데이터 보고 항목(클러스터 수·변형 수·질문 수·라벨 출처 비율·의미 판단 HUMAN 수·요구사항 유형 분포)도 F2 전에 채운다.
+
+F1 이 전부 실패하면 이 순서로 검토하고 결과를 사용자에게 보고한다. ①~⑤ 는 같은 모델·같은 LoRA 구조 안의 조정이라 바로 해 본다. ⑥ 이후는 **사용자 승인 대상**이고 자동으로 넘어가지 않는다.
+
+① 불필요하게 긴 state 제거·구조 개선(질문을 나눠 state 를 짧게, `pastPerformance` 상한) ② `--max_state` 축소(F1-A 의 실제 데이터 길이 표 기준) ③ `--batch`·`--row_budget`·`--length_sort` 조정 ④ `--checkpointing 1`·`--weights_dtype bf16` 등 `kev.train --help` 에 있는 메모리 절감 옵션 재확인 ⑤ 같은 모델·같은 LoRA 구조에서 가능한 추가 최적화(`--shared_prefix 1`: 하이브리드 백본에서 레코드의 state 를 한 번만 통과시키고 질문 branch 를 거기서 잇는 공식 옵션. Kev 는 exact 라고 적는다) ⑥ **Kev-4B 전환**(`--init_from jaredpalmer/kev-4b@v1.0`, `--base Qwen/Qwen3.5-4B-Base --base_revision 1001bb4d826a52d1f399e183466143f4da7b741b`). 9B 실험과 아키텍처·성능 비교 조건이 달라지므로 사용자 승인 뒤에만 한다(23 §3.3) ⑦ 다중 GPU 학습·클라우드 GPU 임대(ADR-010)·Kev 소스 포크(오프로딩·QLoRA)는 모두 사용자 승인 대상이고, GPU 0·2 는 어떤 경우에도 쓰지 않는다. `--init_from` 없이 새 LoRA 를 시작하는 안은 공개 Kev 학습 성과를 잃어 E4 의 뜻이 달라지므로 자동 경로에서 뺐다(사용자가 따로 정할 때만).
+
+같은 F1 시간에 F3 보정 경로(§4.4 1안)도 20 step 체크포인트로 한 번 돌려 본다. 그때 `kev.benchmark` 의 채점 dtype 이 GPU 1 에 들어가는지(§4.4)도 함께 본다.
 
 ### 4.3 F2 학습
 
-F1 결과로 `--max_state`·`--batch`·`--accum`을 정한다. 나머지는 공식 kev-finetune 이어 학습 레시피와 같다.
+F1 을 통과한 설정만 쓴다. `--max_state`·`--batch`·`--accum`(·`--row_budget`·`--length_sort`)은 F1-D 의 PASS 칸 값이다. F1 값과 다르게 바꾸면 그 근거를 `MODEL_CARD.md` 와 [F1 기록](evidence/kev-train-feasibility.md) §3 에 적는다. 나머지는 공식 kev-finetune 이어 학습 레시피와 같다. 물리 GPU 1 만 쓴다.
 
 ```bash
+export SOL_WORK=/data/www/ai_workspace/sol-radar
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
+bash infra/gpu/kev-preflight.sh                                  # 다시 통과해야 시작(GPU 1 점유·데이터·캐시)
+nvidia-smi -i 1 --query-gpu=timestamp,memory.used --format=csv -l 5 > "$SOL_WORK/runs/kev-9b-sol-lora-v0.1.nvidia-smi.csv" &
+SAMPLER=$!                                                       # 끝나면 이 PID 만 멈춘다(kill "$SAMPLER")
 python -m kev.train \
-  --data sol-dataset-v0.1/kev/train.en.jsonl \
-  --init_from jaredpalmer/kev-9b@v1.0 \
+  --data "$SOL_WORK/sol-dataset-v0.1/kev/train.en.jsonl" \
+  --init_from "$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531" \
   --base Qwen/Qwen3.5-9B-Base --base_revision 68c46c4b3498877f3ef123c856ecfde50c39f404 \
   --lora 16 --head_dim 256 --lora_targets all --option_isolation 0 --special_embeddings 0 \
-  --suite /opt/kev/evals/v7/decision-v7 --replay 2000 \
+  --suite "$SOL_WORK/kev/evals/v7/decision-v7" --replay 2000 \
   --epochs 1 --lr 2e-5 --p_none_pair 0.25 \
   --device cuda --dtype bf16 --weights_dtype bf16 --checkpointing 1 \
-  --batch 1 --accum 8 --max_state 6144 \
-  --out runs/kev-9b-sol-lora-v0.1 --seed 0 2>&1 | tee runs/kev-9b-sol-lora-v0.1.train.log
+  --batch 1 --accum 8 --max_state <F1 PASS 값> \
+  --out "$SOL_WORK/runs/kev-9b-sol-lora-v0.1" --seed 0 2>&1 | tee "$SOL_WORK/runs/kev-9b-sol-lora-v0.1.train.log"
 ```
+
+- `--suite` 를 줘도 `--base_revision` 은 필수다. `decision-v7` manifest 의 `base_revisions` 에는 Qwen3-0.6B·4B 만 있고 9B 는 없어서, 빼면 `kev.train` 이 "base not pinned by the suite; pass --base_revision" 으로 멈춘다(2026-10-20 소스 확인).
+- 예상 시간은 F1 의 step 시간 × F2 step 수(train 레코드 + replay 2,000)/8 로 재추정한다. **실측 전 미확정**이다. 공식 H200 2.6시간은 다른 GPU·다른 데이터 값이라 쓰지 않는다.
 
 - `--replay 2000`: 공개 `decision-v7` train 2,000건을 섞어 일반 능력을 잃지 않게 한다(공식 기본). 데이터가 3,000 레코드를 넘으면 500 으로 줄여도 된다. 0 은 버리는 실험에만 쓴다.
 - `--lr 2e-5`: Kev-9B 자신의 이어 학습 lr 이다. 상한 5e-5 를 넘기지 않는다. 망각이 보이면 반으로 줄인다.
@@ -254,10 +318,13 @@ python -m kev.train \
 **보정(dev 분할).** 온도는 dev 로만 맞춘다. test 로 맞추지 않는다.
 
 ```bash
+export SOL_WORK=/data/www/ai_workspace/sol-radar
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1        # 채점·보정도 물리 GPU 1 만
+cd "$SOL_WORK"
 # 1) dev 를 채점해 rows.json 을 만든다
 python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --data sol-dataset-v0.1/kev/dev.en.jsonl --out runs/kev-9b-sol-lora-v0.1-dev
 # 2) 온도를 head.pt 에 쓴다(1안)
-python /opt/kev/scripts/calibrate_checkpoint.py --run runs/kev-9b-sol-lora-v0.1 \
+python "$SOL_WORK/kev/scripts/calibrate_checkpoint.py" --run runs/kev-9b-sol-lora-v0.1 \
   --rows runs/kev-9b-sol-lora-v0.1-dev/rows.json --allow-in-distribution
 ```
 
@@ -267,36 +334,43 @@ python /opt/kev/scripts/calibrate_checkpoint.py --run runs/kev-9b-sol-lora-v0.1 
 **평가.** E4 는 E1 과 **같은 test 분할·같은 데이터셋 버전**에서 비교한다(21 §4.2).
 
 ```bash
+# 같은 셸(CUDA_VISIBLE_DEVICES=1). 모델은 한 번에 하나씩 순서대로 올린다(E4 → E1). 동시에 띄우지 않는다
+# 기준선 E1 도 태그가 아니라 sha256 을 대조한 로컬 snapshot 으로 올린다(§4.2 콜아웃). report.json 의 run 에는 이 경로가 적힌다
+KEV9B="$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531"
+sha256sum "$KEV9B/adapter_model.safetensors" "$KEV9B/head.pt"      # §2.2 값과 같아야 한다
+export HF_HUB_OFFLINE=1
 # test 채점: 학습본과 기준선
-python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e4-test
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test
-# 짝 부트스트랩(데이터 해시가 같아야 한다)
-python -m kev.compare --candidate runs/e4-test --reference runs/e1-test
+python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e4-test --rotations 6
+python -m kev.benchmark --run "$KEV9B"                  --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test --rotations 6
+# 짝 부트스트랩(데이터 해시가 같아야 한다. --out 은 필수 인자다)
+python -m kev.compare --candidate runs/e4-test --reference runs/e1-test --out runs/e4-vs-e1
 # 망각 확인: 공개 decision-v7 development
-python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --suite /opt/kev/evals/v7/decision-v7 --out runs/e4-regression
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --suite /opt/kev/evals/v7/decision-v7 --out runs/e1-regression
+python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e4-regression
+python -m kev.benchmark --run "$KEV9B"                  --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e1-regression
 ```
 
-- 우리 쪽 E4 리포트(21 §4.3 지표 전부, 정보부족→미충족 혼동률 포함)는 `sol_eval`이 평가 전용 `kev.serve`(`https://acropolissg.com/sol-radar/kev-lora`, ADR-027 10번)에 붙어 낸다. 실행 전에 `GET /v1/models`가 레지스트리 평가 전용 항목과 같은지 대조한다.
+- 우리 쪽 E4 리포트(21 §4.3 지표 전부, 정보부족→미충족 혼동률 포함)는 `sol_eval`이 위 출력 폴더 4개(`rows.json`·`predictions.jsonl`·`report.json`)를 통째로 돌려받아 **오프라인**으로 낸다(ADR-027 10번 개정, [[23-WEEKEND-FINETUNE|23]] §2.2 A안). 엔드포인트에 붙지 않는다. 실행 전에 `report.json`의 체크포인트 id와 test 파일 sha256이 번들 manifest와 같은지 대조한다. 순서 민감도는 `--rotations 6`으로 잰다. 요청당 지연은 E4에서 재지 않는다.
+- `report.json` 에 대조할 필드가 있다(2026-10-20 `kev/benchmark.py` 확인): `run`(체크포인트 경로 또는 Hub id), `suite_sha256`(`--data` 파일의 sha256), `rotations`, `split`(`custom`), `calibration_applied`, `environment`(torch·transformers·peft·fla·triton·causal-conv1d 버전, 장치, dtype). E1·E4 의 `environment` 가 같아야 비교가 성립한다.
+- 채점 dtype: `kev.benchmark` 의 기본은 fp32 평가 경로(`LoadOptions.from_env`, 공개 수치와 같은 경로)다. 9B fp32 가중치 약 38.6 GB 가 GPU 1 의 44 GiB 에 state 작업 메모리까지 들어가는지는 **미검증**이고 F1 때 dev 채점으로 확인한다. 안 들어가면 E1·E4 **둘 다** 같은 대체 dtype(`KEV_DTYPE=bf16`)으로 채점하고 `report.json` `environment` 와 `MODEL_CARD.md` 에 적는다. 한쪽만 바꾸지 않는다.
+- 신뢰구간: 같은 사업에서 파생된 회사 변형·질문은 독립 표본이 아니다. `kev.compare` 의 레코드 단위 부트스트랩 외에 `sol_eval` 이 사업 클러스터 단위 paired bootstrap 을 우선 낸다(21 §4.3). 표본이 작으면 개선을 확정하지 않고 탐색적 결과로 적는다.
 - 받아들이는 기준(공식 kev-finetune 기준을 따른다): 망각 확인에서 정확도 하락이 약 2%p 이내, 보정 뒤 확신 오류율(p≥0.9 오답)이 기준선 이하, 평균 확신도가 정확도에서 몇 %p 안. 이 중 하나라도 어기면 결과는 보고하되 서빙 후보로 올리지 않는다.
 - "E4 가 E1 보다 낫다"는 Δ의 95% 신뢰구간이 0을 포함하지 않을 때만 말한다(ADR-027 2번).
 
-평가 전용 서빙(회사, X6e 동안만):
+학습본은 HTTPS 로 서빙하지 않는다(회사 nginx 는 `https://acropolissg.com/sol-radar` location 하나만 등록할 수 있다, ADR-027 10번 개정). 지연·`permute` 실측이 꼭 필요할 때만 B안(23 §2.2): 우리 `infra/gpu/model-router.conf`에 `/kev-lora/` → `127.0.0.1:8010` 블록을 더해 라우터 컨테이너만 다시 띄우고 아래를 띄운다. 회사 nginx 는 손대지 않는다.
 
 ```bash
+# B안일 때만
 KEV_API_KEY="$KEV_API_KEY" python -m kev.serve --run runs/kev-9b-sol-lora-v0.1 --host 127.0.0.1 --port 8010
 ```
-
-라우터 경로 `/sol-radar/kev-lora/`는 ADR-027 10번으로 정했고 `infra/gpu/model-router.conf`에는 아직 넣지 않았다. X6e 전에 넣는다.
 
 ### 4.5 돌려받을 것
 
 | 받는 것 | 내용 |
 |---|---|
 | 체크포인트 폴더 | `adapter_model.safetensors`·`adapter_config.json`·`head.pt`(온도 포함)·`training_config.json`·토크나이저 파일 |
-| 로그 | F1 격자 표, F2 `train.log`(`dropped`·`replay` 줄 포함), `nvidia-smi` 최대 메모리 |
-| 리포트 | dev 보정 결과(온도, 보정 경로 1안/2안), `kev.benchmark` test·regression `report.json`, `kev.compare` 결과 |
-| `MODEL_CARD.md` | 데이터셋 버전·sha256, Kev commit, 하이퍼파라미터, GPU 모델·VRAM, 학습 시간 |
+| 로그 | F1: `runs/preflight-*.log`, `runs/f1-*.summary.md`, `runs/f1-results.md`, `runs/f1-*.log`·`*.nvidia-smi.csv`, 각 run 의 `training_metrics.json`. F2: `train.log`(`dropped`·`replay` 줄 포함), `training_metrics.json`(`peak_device_bytes`·`wall_seconds`), `nvidia-smi` 기록 csv |
+| 리포트 | dev 보정 결과(온도, 보정 경로 1안/2안), `kev.benchmark` test·regression `report.json`, `kev.compare` 결과(`runs/e4-vs-e1`) |
+| `MODEL_CARD.md` | 데이터셋 버전·sha256, Kev commit, 하이퍼파라미터(F1 값과 다르면 근거), GPU(NVIDIA A40 46,068 MiB, 물리 index 1, 드라이버 580.173.02, torch 2.8.0+cu128), 학습 시간(실측), 채점 dtype |
 | sha256 목록 | 어댑터·`head.pt` |
 
 데이터셋 원문은 돌려받지 않는다. 회사는 학습이 끝나면 번들을 지운다. Hugging Face Hub 에 올리지 않는다. 레지스트리 반입과 운영 교체 규칙은 [[21-MODEL-TRAINING|21]] §5.4다.
@@ -445,11 +519,11 @@ vllm serve /data/models/qwen3.5-9b-sol-extract-v0.1 --served-model-name qwen3.5-
 2. 이 문서 §2~§4(Kev). Qwen 은 착수가 결정됐을 때 §5 를 따로 보낸다.
 3. 실행 순서와 받아들이는 기준: F1 격자 → F2 → F3 → test·regression 채점 → 평가 전용 `kev.serve`.
 
-물을 것(C1 P2·P3 요청과 함께, 16 미결정 22):
-1. GPU 모델·VRAM·장수, 학습에 쓸 수 있는 시간대.
-2. 학습과 데모 추론(vLLM Qwen, `kev.serve` v1.0)을 동시에 돌릴 수 있는지.
+물을 것(C1 P2·P3 요청과 함께, 16 미결정 22). GPU 모델·VRAM·장수는 2026-10-20 서버에서 확인했다(§3.1). 남은 것:
+1. 토·일에 물리 GPU 1 을 SOL RADAR 가 독점해도 되는지(다른 회사 작업이 GPU 1 을 쓸 가능성)와 학습 시간대.
+2. 데모 추론 런타임(vLLM Qwen, `kev.serve` v1.0)을 어느 GPU 에 띄울 계획인지. GPU 1 이면 학습 중 내린다. GPU 0·2 는 회사 결정이다.
 3. GPU 서버에서 huggingface.co·github.com·pypi.org 로 나갈 수 있는지(없으면 §2.2 2안).
-4. X6e 동안 평가 전용 `kev.serve`(`127.0.0.1:8010`)를 하나 더 띄울 수 있는지와 라우터 경로 추가.
+4. 일요일(10-25)에 서버 안에서 채점 4회(`kev.benchmark` E4·E1 × test·regression)와 `kev.compare`를 돌리고 출력 폴더(`report.json`·`rows.json`·`predictions.jsonl`)를 보내 줄 수 있는지. 라우터·nginx 변경은 요청하지 않는다(23 §8).
 
 돌려받을 것: §4.5.
 
@@ -457,12 +531,18 @@ vllm serve /data/models/qwen3.5-9b-sol-extract-v0.1 --served-model-name qwen3.5-
 
 | 항목 | 상태 | 확인 방법 |
 |---|---|---|
-| 회사 GPU 사양·외부망·학습 시간대·추론과 동시 점유 | 미확인 | §6 요청(16 미결정 22) |
-| `--weights_dtype bf16` 의 메모리 절감과 9B 에서 `--max_state 6144` 가 들어가는지 | 추정 | F1(§4.2) |
-| Ampere GPU 에서 `flash-linear-attention 0.5.2` + triton 조합 | 미확인 | F1 20 step 실행 |
+| 회사 GPU 사양 | **확인(2026-10-20)**: A40 46,068 MiB ×3, 학습은 물리 GPU 1 한 장(§3.1) | [F1 기록](evidence/kev-train-feasibility.md) §0 |
+| 외부망(Hugging Face·GitHub·PyPI)·학습 시간대·GPU 1 공유 가능성·추론 런타임 위치 | 미확인 | §6 요청(16 미결정 22) |
+| 모델 라우터·vLLM·`kev.serve` 포트(8080·8001·8009)의 실제 실행 상태 | 미확인(2026-10-20 GPU 사용량으로는 추론 런타임이 아직 없다) | C1 ③ G1·G2 |
+| Kev 공식 소스 설치, 학습 의존성 호환(torch 2.8·transformers ≥5.17·peft ≥0.21·numpy), `uv` 설치 여부 | 미실행 | §3.2 `--dry-run` → 설치 → `kev-preflight.sh` |
+| Ampere(A40, CC 8.6)에서 `flash-linear-attention 0.5.2` + triton 3.4.0 | 소스 확인: fla 의 triton 3.4~3.7.0 거부는 Hopper 전용(§3.2). A40 에서 실제로 도는지는 미실행 | `kev-preflight.sh` 커널 smoke → F1-B 20 step |
+| Kev-9B 체크포인트·Qwen3.5-9B-Base 다운로드와 sha256, Kev 모델 로딩 | 미실행 | §2.2 → `kev-preflight.sh` |
+| `--weights_dtype bf16` 의 메모리 절감과 9B 에서 `--max_state 1024~6144` 가 44 GiB 에 들어가는지, 최대 GPU 메모리·step 시간 | 추정(23 §2.4 30~45 GB) | F1-B·C(§4.2) |
+| `kev.benchmark` fp32 채점(가중치 약 38.6 GB)이 GPU 1 에 들어가는지 | 미검증 | F1 때 dev 채점. 안 되면 E1·E4 둘 다 `KEV_DTYPE=bf16`(§4.4) |
 | `calibrate_checkpoint.py --allow-in-distribution`이 우리 dev 행을 받는지 | 미확인 | F1 때 20 step 체크포인트로(§4.4) |
-| Kev-9B 학습 시간(공식 H200 1장 2.6시간은 그 단계 데이터 기준) | 회사 GPU 미측정 | F2 |
+| Kev-9B 학습 시간(공식 H200 1장 2.6시간은 그 단계 데이터 기준. A40 값은 아니다) | A40 미측정. F1 step 시간으로 재추정하기 전까지 **미확정** | F1 → F2 |
 | `kev-suites` 출처별 재배포 조건 | 출처별 상이 | replay 는 회사 내부 학습에만 쓴다. 결과물을 공개하지 않는다 |
+| `kev.benchmark` 출력(`rows.json`·`predictions.jsonl`) 스키마가 `sol_eval` 입력으로 충분한지, `--rotations` 가 `permute n_perm=6` 과 같은 뜻인지 | 미확인 | F1 20 step 체크포인트의 dev 채점 출력(10-24, 23 §10) |
 | Qwen3.5-9B 를 LLaMA-Factory 0.9.5 로 텍스트만 LoRA SFT, 긴 `cutoff_len` 메모리 | 미실행 | §5.3 20 step |
 | vLLM 에서 Qwen3.5 LoRA 어댑터 직접 서빙 | 미확인(오류 없는 실패 보고 있음) | 쓰지 않고 병합본 서빙(§5.4) |
 | 지금 gateway 가 Qwen 을 비사고 모드로 부르는지 | 미확인 | C1 ③ G4([[03-AI-PIPELINE\|03]] §4.3) |

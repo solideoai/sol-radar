@@ -23,6 +23,8 @@ COPY services/ai/prompts ./prompts
 COPY services/ai/guards ./guards
 COPY services/ai/dictionaries ./dictionaries
 COPY services/ai/kev ./kev
+# 모델 레지스트리(03 §11). AI_PROVIDER=local 기동 검사가 읽는다
+COPY services/ai/models ./models
 
 # mock 고정 응답(AI_PROVIDER=mock). 추출·Kev fixture 만 넣는다
 COPY fixtures/extractions /app/fixtures/extractions

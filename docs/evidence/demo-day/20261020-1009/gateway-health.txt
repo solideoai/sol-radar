@@ -1,0 +1,2 @@
+// 명령: curl -s http://127.0.0.1:18001/health (ai-gateway, mock) · 커밋 72bfb9c · 2026-10-20 10:14 KST
+{"status":"ok","runMode":"mock","provider":"mock","kevEnabled":true,"qwen":{"model":"fixture","promptHash":"e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e"},"kev":{"modelId":"mock","registryMatch":null},"questionSets":["kev-qs/v0.1"],"parsers":[{"format":"PDF","parserId":null},{"format":"HWPX","parserId":null},{"format":"HWP","parserId":null}]}

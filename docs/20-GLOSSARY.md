@@ -103,7 +103,7 @@ updated: 2026-10-19
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |
 | 정책 시험 (PGlite) | `scripts/database.test.mjs`를 `node --test` + PGlite로 돌려 RLS·권한·제약·seed 멱등을 본다(`pnpm test:db`) | [[11-TESTING]] |
 | `pnpm demo:reset` | 데모 seed 스크립트. service role로 Supabase 프로젝트에 데모 데이터를 `is_demo=true`로 멱등 적재한다. 적재 내용(조직·계정·공고 fixture·명부 200·사진 검증·사전 리뷰)은 [[10-DEPLOYMENT]] seed 절 | [[10-DEPLOYMENT]], [[19-DEMO-SCENARIO]] |
-| Compose 서비스 | `infra/compose.yaml`의 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다 | [[10-DEPLOYMENT]] |
+| Compose 서비스 | `infra/compose.yaml`의 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`. Compose에 정의 없음, [[10-DEPLOYMENT]] 표 참조). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다 | [[10-DEPLOYMENT]] |
 
 ## 권한·보안
 

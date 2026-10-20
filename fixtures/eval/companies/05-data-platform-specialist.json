@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "company-profile/v0.1",
+  "orgSlug": "eval-05",
+  "revision": 1,
+  "name": "가상 데이터 플랫폼 전문(원형 5)",
+  "isDemo": true,
+  "technologies": [
+    { "name": "PostgreSQL", "level": "EXPERT" },
+    { "name": "Hadoop", "level": "EXPERT" },
+    { "name": "Spark", "level": "EXPERT" },
+    { "name": "Kafka", "level": "EXPERT" },
+    { "name": "Elasticsearch", "level": "EXPERT" },
+    { "name": "Airflow", "level": "INTERMEDIATE" },
+    { "name": "Java", "level": "INTERMEDIATE" },
+    { "name": "Spring Boot", "level": "INTERMEDIATE" },
+    { "name": "Python", "level": "INTERMEDIATE" },
+    { "name": "Kubernetes", "level": "INTERMEDIATE" }
+  ],
+  "technologiesComplete": true,
+  "licenses": [
+    { "code": "SW_BUSINESS_REG", "name": "소프트웨어사업자 신고확인서", "status": "HELD" },
+    { "code": "DIRECT_PRODUCTION", "name": "직접생산확인증명서(소프트웨어개발)", "status": "HELD" },
+    { "code": "SME_CONFIRMATION", "name": "중소기업확인서(중기업)", "status": "HELD" },
+    { "code": "ISO_27001", "name": "ISO 27001", "status": "HELD" },
+    { "code": "ISMS_P", "name": "ISMS-P", "status": "HELD" },
+    { "code": "CSAP", "name": "CSAP", "status": "NOT_HELD" },
+    { "code": "ICT_CONSTRUCTION", "name": "정보통신공사업 등록", "status": "NOT_HELD" }
+  ],
+  "industryCodes": [
+    { "code": "1468", "name": "소프트웨어사업자(컴퓨터관련서비스사업)", "status": "HELD" },
+    { "code": "1426", "name": "소프트웨어사업자(패키지소프트웨어개발.공급사업)", "status": "HELD" },
+    {
+      "code": "1470",
+      "name": "소프트웨어사업자(데이터베이스제작및검색서비스사업)",
+      "status": "HELD"
+    },
+    { "code": "0036", "name": "정보통신공사업", "status": "NOT_HELD" }
+  ],
+  "pastProjects": [
+    {
+      "id": "P1",
+      "name": "공공기관 빅데이터 플랫폼 구축",
+      "domain": "데이터 플랫폼",
+      "amountKrw": "3200000000",
+      "completedAt": "2024-09-30",
+      "evidenceRef": "company-evidence/eval-05/P1-completion-certificate"
+    },
+    {
+      "id": "P2",
+      "name": "광역 지자체 데이터 허브 2단계 구축",
+      "domain": "데이터 플랫폼",
+      "amountKrw": "1800000000",
+      "completedAt": "2025-05-31",
+      "evidenceRef": "company-evidence/eval-05/P2-completion-certificate"
+    },
+    {
+      "id": "P3",
+      "name": "공공데이터 품질 진단·개방 체계 구축",
+      "domain": "기타",
+      "amountKrw": "600000000",
+      "completedAt": "2023-11-30",
+      "evidenceRef": "company-evidence/eval-05/P3-completion-certificate"
+    },
+    {
+      "id": "P4",
+      "name": "교육 데이터 분석 플랫폼 PoC",
+      "domain": "교육",
+      "amountKrw": "200000000",
+      "completedAt": "2025-09-30",
+      "evidenceRef": "company-evidence/eval-05/P4-completion-certificate"
+    }
+  ],
+  "financials": {
+    "fiscalYear": 2025,
+    "annualRevenueKrw": "12000000000",
+    "capitalKrw": "2000000000",
+    "employeeCount": 95,
+    "creditRating": "BBB",
+    "maxContractKrw": "4000000000"
+  },
+  "preferences": {
+    "agencies": [],
+    "agencyTypes": ["공공기관", "지자체", "중앙부처"],
+    "domains": ["데이터 플랫폼", "AX"],
+    "excludedDomains": ["국방"],
+    "excludedKeywords": ["무기체계"]
+  }
+}

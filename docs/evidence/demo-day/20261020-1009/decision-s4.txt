@@ -1,0 +1,23 @@
+# 11번 S4 사람 결정 뒤 확인 · 커밋 72bfb9c · 2026-10-20 10:22 KST
+# DB(전용 Supabase, psql) 결정 전: bid_reviews=2 audit_logs=26 notifications=1 score_runs=19 (FX-02 라이브 분석 1건 포함)
+# DB 결정 후:
+bid_reviews|3
+audit_logs|27
+notifications|2
+score_runs|19
+# audit_logs 최근 2건(action·entity 만):
+id org_id actor_id action target_type target_id before_after request_id created_at 
+ERROR:  column "entity_type" does not exist
+LINE 1: select action, entity_type, created_at from public.audit_log...
+                       ^
+# notifications(type·read):
+ANALYSIS_COMPLETE|f|2026-10-20 01:21:06.116137+00
+REVIEW_ASSIGNED|f|2026-10-20 01:21:44.218278+00
+# GET /api/v1/bids/{FX-02}/reviews (sales token):
+[{"id": "32384dfc-75c1-4ca1-bcce-a294d4b6223c", "bidId": "687bd892-941f-56a9-9ea9-9754ea5e5f1a", "revisionId": "e9bf4421-29b6-5b05-88d8-82d88eceaeaa", "scoreRunId": "6795afc7-e2bf-4586-87cd-c6b508a10bf6", "reviewer": {"id": "1206e665-8526-4217-8f08-86169c3ce0b0", "name": "이영업", "role": "SALES"}, "decision": "WATCH", "reason": "요구기술 6개 중 3개 보유, 마감 D-10으로 촉박. 리허설에서 WATCH 유지로 기록한다.", "decidedAt": "2026-10-20T01:21:43.617467+00:00", "assignee": {"id": "1206e665-8526-4217-8f08-86169c3ce0b0", "name": "이영업"}, "systemRecommendationAtDecision": "WATCH", "disagreementFlag": false}]
+# GET /api/v1/notifications (sales token):
+items= 2 [('REVIEW_ASSIGNED', None), ('ANALYSIS_COMPLETE', None)]
+# audit_logs 최근 2건(action·target_type·created_at) — 위 쿼리의 열 이름 정정:
+REVIEW_DECIDE|bid_review|2026-10-20 01:21:43.617467+00
+ANALYSIS_REQUEST|score_run|2026-10-20 01:21:04.837372+00
+# 브라우저: 결정 뒤 새로고침 → 알림 벨 aria-label '알림, 안 읽음 2건', 드롭다운 '결정 담당 지정(REVIEW_ASSIGNED) · 분석 완료(ANALYSIS_COMPLETE)'. analyst@soltech.invalid 로 열면 결정 radio·사유·[결정 기록] disabled, [재분석]은 활성.

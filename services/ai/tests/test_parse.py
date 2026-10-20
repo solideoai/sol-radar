@@ -202,7 +202,7 @@ def test_parse_is_deterministic(make_client):
 
 
 @pytest.mark.parametrize("content", [PDF, HWPX, HWP, TEXT], ids=["PDF", "HWPX", "HWP", "text"])
-def test_parse_is_same_in_fixture_mode(make_client, content):
+def test_parse_is_same_in_fixture_mode(make_client, local_models, content):
     mock = post(make_client(), content)
     fixture = post(make_client(SOL_RUN_MODE="fixture"), content)
     assert canonical(fixture) == canonical(mock)

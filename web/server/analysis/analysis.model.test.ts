@@ -26,10 +26,11 @@ import {
   type AnalysisContext,
   type CachedExtraction,
   type DocumentIssue,
+  type ExtractReading,
   type ExtractionRecord,
   type ExtraReviewFlag,
 } from "./analysis.model";
-import type { KevOutcome } from "./fallback.model";
+import { toKevOutcome, type KevOutcome } from "./fallback.model";
 import {
   extractRequestSchema,
   type ExtractResponse,
@@ -129,15 +130,34 @@ const failedResult = <T>(failure: GatewayFailure): GatewayResult<T> => ({
   attempts: 1,
 });
 
-/** gateway 호출 실패의 모든 종류(1단계 GatewayFailure). */
+// C5-B 실패 분류(e8 승인, ADR-030 B1, docs/03 §8 :737): 1단계 GatewayFailure 를 "gateway 가 응답했는가"로 나눈다.
+// 예전 목록은 422·INVALID_RESPONSE 까지 모두 전송 실패(AI_UNAVAILABLE)로 봤다. 이 결정으로 둘은 answeredFailures 로 옮겼다.
+
+/** 전송 실패: gateway 가 응답하지 않았다. */
 const transportFailures: [string, GatewayFailure][] = [
   ["연결 거부", { kind: "UNREACHABLE", code: "ECONNREFUSED" }],
   ["timeout", { kind: "TIMEOUT" }],
   ["503 AI_UNAVAILABLE", { kind: "HTTP_ERROR", httpStatus: 503, errorCode: "AI_UNAVAILABLE" }],
-  ["422", { kind: "HTTP_ERROR", httpStatus: 422, errorCode: null }],
-  ["INVALID_RESPONSE", { kind: "INVALID_RESPONSE", issues: ["status: invalid_value"] }],
+  ["500", { kind: "HTTP_ERROR", httpStatus: 500, errorCode: null }],
   ["CIRCUIT_OPEN", { kind: "CIRCUIT_OPEN" }],
 ];
+
+/** 응답했지만 쓸 수 없음: 4xx·봉투 형식 위반. */
+const answeredFailures: [string, GatewayFailure][] = [
+  ["422", { kind: "HTTP_ERROR", httpStatus: 422, errorCode: null }],
+  ["404", { kind: "HTTP_ERROR", httpStatus: 404, errorCode: "NOT_ROUTED" }],
+  ["INVALID_RESPONSE", { kind: "INVALID_RESPONSE", issues: ["status: invalid_value"] }],
+];
+
+/**
+ * readExtractResult 결과에서 kind·reason·response(EXTRACTED 면 extraction·response)만 꺼낸다.
+ * C5-B 진단(설계 2: 실패 종류·issue 목록)을 ExtractReading 에 더해도 이 세 값의 단언은 그대로 엄격하게 남긴다.
+ */
+function coreOf(reading: ExtractReading) {
+  return reading.kind === "EXTRACTED"
+    ? { kind: reading.kind, extraction: reading.extraction, response: reading.response }
+    : { kind: reading.kind, reason: reading.reason, response: reading.response };
+}
 
 // ── K12 ──
 
@@ -315,7 +335,7 @@ describe("readCachedExtraction · 캐시 행 → 쓸 수 있는 추출(못 쓰�
 describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 PARTIAL 사유", () => {
   it("200 COMPLETED·유효 payload → EXTRACTED 이고 추출과 응답 본문을 돌려준다", () => {
     const body = extractBody(loadExtraction("FX-01"));
-    expect(readExtractResult(okResult(body))).toEqual({
+    expect(coreOf(readExtractResult(okResult(body)))).toEqual({
       kind: "EXTRACTED",
       extraction: loadExtraction("FX-01"),
       response: body,
@@ -331,7 +351,7 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
     const payload = withPatch(loadExtraction("FX-01"), (draft) => {
       draft.budgetKrw.value = "12억원";
     });
-    expect(readExtractResult(okResult(extractBody(payload)))).toEqual({
+    expect(coreOf(readExtractResult(okResult(extractBody(payload))))).toEqual({
       kind: "UNAVAILABLE",
       reason: "EXTRACTION_FAILED",
       response: null,
@@ -340,7 +360,7 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
 
   it("200 FAILED·QWEN_UNAVAILABLE → QWEN_UNAVAILABLE 이고 response 는 그 본문(FAILED 행 저장용)", () => {
     const body = extractFailedBody("QWEN_UNAVAILABLE");
-    expect(readExtractResult(okResult(body))).toEqual({
+    expect(coreOf(readExtractResult(okResult(body)))).toEqual({
       kind: "UNAVAILABLE",
       reason: "QWEN_UNAVAILABLE",
       response: body,
@@ -349,7 +369,7 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
 
   it("200 FAILED·errorCode null → EXTRACTION_FAILED 이고 response 는 그 본문", () => {
     const body = extractFailedBody(null);
-    expect(readExtractResult(okResult(body))).toEqual({
+    expect(coreOf(readExtractResult(okResult(body)))).toEqual({
       kind: "UNAVAILABLE",
       reason: "EXTRACTION_FAILED",
       response: body,
@@ -364,11 +384,23 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
   });
 
   it.each(transportFailures)(
-    "호출 실패(%s) → AI_UNAVAILABLE 이고 response 는 null 이다",
+    "전송 실패(%s) → AI_UNAVAILABLE 이고 response 는 null 이다",
     (_name, failure) => {
-      expect(readExtractResult(failedResult<ExtractResponse>(failure))).toEqual({
+      expect(coreOf(readExtractResult(failedResult<ExtractResponse>(failure)))).toEqual({
         kind: "UNAVAILABLE",
         reason: "AI_UNAVAILABLE",
+        response: null,
+      });
+    },
+  );
+
+  // 예전 기대(AI_UNAVAILABLE)는 C5-B 실패 분류로 바뀌었다: gateway 가 응답했으면 추출 실패(EXTRACTION_FAILED)다.
+  it.each(answeredFailures)(
+    "응답했지만 쓸 수 없음(%s) → EXTRACTION_FAILED 이고 response 는 null(저장하지 않는다)",
+    (_name, failure) => {
+      expect(coreOf(readExtractResult(failedResult<ExtractResponse>(failure)))).toEqual({
+        kind: "UNAVAILABLE",
+        reason: "EXTRACTION_FAILED",
         response: null,
       });
     },
@@ -1010,6 +1042,25 @@ describe("extraReviewFlags · C4 reviewFlags 에 없는 파이프라인 플래�
     const kev: KevOutcome = { kind: "GATEWAY_DOWN" };
     expect(extraReviewFlags({ extraction: clean, kev, resultFlags: [] })).toEqual([]);
   });
+
+  // C5-B 실패 분류: /kev 가 응답했지만 쓸 수 없으면 KEV 불가다. Kev 만 불가(200 KEV_UNAVAILABLE)와 같은 플래그를 단다.
+  it.each(answeredFailures)(
+    "/kev 가 응답했지만 쓸 수 없음(%s)이면 KEV_UNAVAILABLE",
+    (_name, failure) => {
+      const kev = toKevOutcome(failedResult<KevResponse>(failure));
+      expect(extraReviewFlags({ extraction: clean, kev, resultFlags: [] })).toEqual([
+        "KEV_UNAVAILABLE",
+      ]);
+    },
+  );
+
+  it.each(transportFailures)(
+    "/kev 전송 실패(%s)는 KEV_UNAVAILABLE 이 아니다(C4 AI_UNAVAILABLE 몫)",
+    (_name, failure) => {
+      const kev = toKevOutcome(failedResult<KevResponse>(failure));
+      expect(extraReviewFlags({ extraction: clean, kev, resultFlags: [] })).toEqual([]);
+    },
+  );
 
   it("셋 다 있으면 CITATION_FAILED → EXTRACTION_LOW_CONFIDENCE → KEV_UNAVAILABLE 순서다", () => {
     const extraction = extractionWith((draft) => {

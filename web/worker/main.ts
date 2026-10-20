@@ -9,6 +9,7 @@ import {
   callableSource,
   createFixtureConnector,
   createOfficialApiConnector,
+  createPendingDocumentFinder,
   createSupabaseIngestAudit,
   createSupabaseIngestionRepo,
   enqueueDocuments,
@@ -16,11 +17,15 @@ import {
   loadSourceRegistry,
   type JobQueue,
 } from "@/server/ingestion";
+import { createNotificationOutboxStore } from "@/server/notifications";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { readReconcileSettings } from "@/worker/analysis-reconcile";
 import { startAnalysisRuntime } from "@/worker/analysis-runtime";
 import { readG2bServiceKey, readWorkerEnv, type WorkerEnv } from "@/worker/env";
+import { errorNameOf } from "@/worker/error-name";
+import { startDocumentsReconciler } from "@/worker/documents-reconcile";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
+import { readNotifySettings, startNotifier } from "@/worker/notify-outbox";
 import {
   processIngestJob,
   readIngestIntervalMinutes,
@@ -85,8 +90,10 @@ type ErrorEmitter = { on(event: "error", listener: (error: Error) => void): unkn
 
 function logErrors(target: ErrorEmitter, label: string): void {
   target.on("error", (error) => {
+    // 이름도 공용 규칙으로 거른다. 개행·값이 섞인 이름이 로그 줄을 깨거나 값을 싣지 않게 한다.
+    const name = errorNameOf(error);
     const code = errorCode(error);
-    console.error(code ? `${label} 오류: ${error.name} ${code}` : `${label} 오류: ${error.name}`);
+    console.error(code ? `${label} 오류: ${name} ${code}` : `${label} 오류: ${name}`);
   });
 }
 
@@ -127,6 +134,22 @@ const closeQuietly = async (closables: readonly Closable[]): Promise<void> => {
   }
 };
 
+/**
+ * 거꾸로 모두 닫는다. 하나가 던져도 나머지를 닫고, 끝에 닫는 순서로 처음 던진 오류를 던진다.
+ * 한 등록의 close 실패로 뒤 등록(Redis 연결·Worker)이 열린 채 남지 않게 한다.
+ */
+async function closeAll(closables: readonly Closable[]): Promise<void> {
+  const failures: unknown[] = [];
+  for (const closable of [...closables].reverse()) {
+    try {
+      await closable.close();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length > 0) throw failures[0];
+}
+
 /** ingest 큐 Worker(6-4). 저장소·connector·documents 큐·감사 기록은 deps 로 받는다. */
 export async function createIngestWorker(
   connection: IORedis,
@@ -145,11 +168,9 @@ export async function createIngestWorker(
     await closeQuietly([{ close: () => worker.close() }, { close: () => queue.close() }]);
     throw error;
   }
+  // closeAll 은 거꾸로 닫는다: worker → queue. worker 가 던져도 queue 를 닫고 처음 오류를 던진다.
   return {
-    async close() {
-      await worker.close();
-      await queue.close();
-    },
+    close: () => closeAll([{ close: () => queue.close() }, { close: () => worker.close() }]),
   };
 }
 
@@ -249,12 +270,17 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
         ingestJobDepsOf(config, documentsQueue),
         config.intervalMinutes,
       );
-      return {
-        async close() {
-          await ingest.close();
-          await closeDocuments.close();
+      const documents = startDocumentsReconciler({
+        finder: createPendingDocumentFinder(getSupabaseAdmin()),
+        queue: documentsQueue,
+        // C6': mock·fixture 는 데모 공고만, live 는 실제 공고만 복구한다
+        isDemo: config.runMode !== "live",
+        log: (line) => {
+          console.log(line);
         },
-      };
+      });
+      // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐.
+      return { close: () => closeAll([closeDocuments, ingest, { close: () => documents.stop() }]) };
     } catch (error) {
       await closeQuietly([closeDocuments]);
       throw error;
@@ -272,13 +298,35 @@ export const analysisWorkerRegistration: WorkerRegistration = async (rawEnv) => 
     startAnalysisRuntime(rawEnv, { connection: () => connection.duplicate() });
 };
 
+// 인앱 알림 outbox 주기 처리(C7, docs/13-NOTIFICATIONS.md). 1단계에서 폴링 간격을 읽는다(틀리면 Redis 연결 전에 멈춘다).
+// 2단계는 service role 저장으로 주기 처리를 시작한다. 큐가 아니라 outbox_events 표를 읽으므로 공유 Redis 연결은
+// 쓰지도 끊지도 않는다(공유 연결은 기본 createWorker 가 끊는다). close 는 타이머를 멈추고 진행 중 회차를 최대 5초 기다린다.
+export const notifyWorkerRegistration: WorkerRegistration = async (rawEnv) => {
+  const settings = readNotifySettings(rawEnv);
+  return async () => {
+    const notifier = startNotifier({
+      store: createNotificationOutboxStore(getSupabaseAdmin()),
+      now: () => new Date(),
+      log: (line) => {
+        console.log(line);
+      },
+      settings,
+    });
+    return { close: () => notifier.stop() };
+  };
+};
+
 export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
   systemWorkerRegistration,
   ingestWorkerRegistration,
   analysisWorkerRegistration,
+  notifyWorkerRegistration,
 ];
 
-/** 등록 순서대로 시작한다. 하나가 던지면 이미 시작한 것을 거꾸로 닫고 다시 던진다. close 도 거꾸로 닫는다 */
+/**
+ * 등록 순서대로 시작한다. 하나가 던지면 이미 시작한 것을 거꾸로 닫고(닫는 중 오류는 버린다) 시작 오류를 다시 던진다.
+ * 돌려준 close 도 거꾸로 닫는다. 한 등록의 close 가 던져도 나머지를 모두 닫고 처음 던진 오류를 던진다.
+ */
 export async function startRegistered(
   connection: IORedis,
   starts: readonly StartWorkers[],
@@ -292,11 +340,7 @@ export async function startRegistered(
       throw error;
     }
   }
-  return {
-    async close() {
-      for (const closable of [...started].reverse()) await closable.close();
-    },
-  };
+  return { close: () => closeAll(started) };
 }
 
 export const defaultWorkerDeps: WorkerDeps = {
@@ -309,8 +353,12 @@ export const defaultWorkerDeps: WorkerDeps = {
       const workers = await startRegistered(connection, starts);
       return {
         async close() {
-          await workers.close();
-          connection.disconnect();
+          // 등록의 close 가 던져도 공유 연결은 끊는다. 오류는 끊은 뒤 그대로 던진다.
+          try {
+            await workers.close();
+          } finally {
+            connection.disconnect();
+          }
         },
       };
     } catch (error) {

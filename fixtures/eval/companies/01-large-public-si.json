@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "company-profile/v0.1",
+  "orgSlug": "eval-01",
+  "revision": 1,
+  "name": "가상 대형 공공 SI(원형 1)",
+  "isDemo": true,
+  "technologies": [
+    { "name": "Java", "level": "EXPERT" },
+    { "name": "Spring Boot", "level": "EXPERT" },
+    { "name": "전자정부 표준프레임워크", "level": "EXPERT" },
+    { "name": "Oracle", "level": "EXPERT" },
+    { "name": "PostgreSQL", "level": "INTERMEDIATE" },
+    { "name": "Kubernetes", "level": "EXPERT" },
+    { "name": "React", "level": "INTERMEDIATE" },
+    { "name": "Vue.js", "level": "INTERMEDIATE" },
+    { "name": "Kafka", "level": "INTERMEDIATE" },
+    { "name": "Elasticsearch", "level": "INTERMEDIATE" },
+    { "name": "영상분석 AI", "level": "BASIC" },
+    { "name": "RAG/LLM 적용", "level": "BASIC" }
+  ],
+  "technologiesComplete": true,
+  "licenses": [
+    { "code": "SW_BUSINESS_REG", "name": "소프트웨어사업자 신고확인서", "status": "HELD" },
+    { "code": "DIRECT_PRODUCTION", "name": "직접생산확인증명서(소프트웨어개발)", "status": "HELD" },
+    { "code": "SME_CONFIRMATION", "name": "중소기업확인서", "status": "NOT_HELD" },
+    { "code": "ISO_27001", "name": "ISO 27001", "status": "HELD" },
+    { "code": "CMMI_L3", "name": "CMMI L3", "status": "HELD" },
+    { "code": "ICT_CONSTRUCTION", "name": "정보통신공사업 등록", "status": "HELD" },
+    { "code": "ISMS_P", "name": "ISMS-P", "status": "HELD" },
+    { "code": "CSAP", "name": "CSAP", "status": "HELD" },
+    { "code": "DEFENSE_CONTRACTOR", "name": "방산업체 지정", "status": "NOT_HELD" }
+  ],
+  "industryCodes": [
+    { "code": "1468", "name": "소프트웨어사업자(컴퓨터관련서비스사업)", "status": "HELD" },
+    { "code": "1426", "name": "소프트웨어사업자(패키지소프트웨어개발.공급사업)", "status": "HELD" },
+    { "code": "1469", "name": "소프트웨어사업자(디지털콘텐츠개발서비스사업)", "status": "HELD" },
+    {
+      "code": "1470",
+      "name": "소프트웨어사업자(데이터베이스제작및검색서비스사업)",
+      "status": "HELD"
+    },
+    { "code": "0036", "name": "정보통신공사업", "status": "HELD" },
+    { "code": "1542", "name": "정보보호 전문서비스 기업", "status": "HELD" }
+  ],
+  "pastProjects": [
+    {
+      "id": "P1",
+      "name": "중앙부처 차세대 행정정보시스템 구축",
+      "domain": "민원",
+      "amountKrw": "18000000000",
+      "completedAt": "2024-12-31",
+      "evidenceRef": "company-evidence/eval-01/P1-completion-certificate"
+    },
+    {
+      "id": "P2",
+      "name": "광역 지자체 통합 데이터 플랫폼 구축",
+      "domain": "데이터 플랫폼",
+      "amountKrw": "12000000000",
+      "completedAt": "2023-10-31",
+      "evidenceRef": "company-evidence/eval-01/P2-completion-certificate"
+    },
+    {
+      "id": "P3",
+      "name": "광역시 스마트시티 통합플랫폼 구축",
+      "domain": "스마트시티",
+      "amountKrw": "9500000000",
+      "completedAt": "2025-03-31",
+      "evidenceRef": "company-evidence/eval-01/P3-completion-certificate"
+    },
+    {
+      "id": "P4",
+      "name": "교육청 차세대 교무행정 시스템 구축",
+      "domain": "교육",
+      "amountKrw": "7000000000",
+      "completedAt": "2024-06-30",
+      "evidenceRef": "company-evidence/eval-01/P4-completion-certificate"
+    },
+    {
+      "id": "P5",
+      "name": "공공기관 지능형 민원 상담 플랫폼 구축",
+      "domain": "AX",
+      "amountKrw": "4500000000",
+      "completedAt": "2025-08-31",
+      "evidenceRef": "company-evidence/eval-01/P5-completion-certificate"
+    }
+  ],
+  "financials": {
+    "fiscalYear": 2025,
+    "annualRevenueKrw": "350000000000",
+    "capitalKrw": "60000000000",
+    "employeeCount": 1200,
+    "creditRating": "AA-",
+    "maxContractKrw": "30000000000"
+  },
+  "preferences": {
+    "agencies": [],
+    "agencyTypes": ["중앙부처", "지자체", "공공기관", "교육청"],
+    "domains": ["민원", "데이터 플랫폼", "스마트시티", "교육", "AX"],
+    "excludedDomains": [],
+    "excludedKeywords": []
+  }
+}

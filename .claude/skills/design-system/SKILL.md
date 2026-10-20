@@ -125,8 +125,8 @@ sidebar(딸려 온 sheet·tooltip)·avatar·table.
 - 입력칸 글자는 14px 이다(`input`·`textarea` 부품의 `md:type-body`).
 - 틀 안의 칸 수는 화면 폭(`md:`)이 아니라 단의 폭(`@container` 와 `@2xl:` 같은 변형)으로 정한다.
   사이드바를 접고 펴면 같은 화면 폭에서도 단의 폭이 달라진다.
-- 템플릿에서 온 화면(인증·조직·작업·관리자)에는 좁은 폭 레이아웃과 `web/e2e/responsive.spec.ts` 의 320·375·768·1280px 넘침 검사가 남아 있다.
-  새 화면은 이 목록에 더하지 않고 1280·1440px 에서 넘침을 본다(본보기: 첫 화면의 `web/e2e/landing.spec.ts`).
+- 공개 경로의 넘침은 `web/e2e/responsive.spec.ts` 가 1280·1440px 두 폭에서 잰다. 새 공개 경로는 그 목록에 더한다(첫 화면은 `web/e2e/landing.spec.ts` 가 따로 잰다).
+  템플릿에서 온 화면(인증·조직·작업·관리자)의 좁은 폭 레이아웃은 남아 있지만 1280px 미만은 검사하지 않는다.
 - 부품 레이아웃은 `pnpm -C web test:browser`(`*.browser.test.tsx`)가 진짜 브라우저로 잰다. 오버레이 부품을 고치면 같이 돌린다.
 
 ## 절대 금지

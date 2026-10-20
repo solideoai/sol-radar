@@ -23,7 +23,11 @@ const WEB_BASE = {
   REDIS_URL: "redis://redis:6379",
   MINIO_ENDPOINT: "http://minio:9000",
   AI_GATEWAY_URL: "http://ai-gateway:8000",
+  API_CURSOR_SECRET: "c".repeat(32),
 };
+
+// web 의 SOL_RUN_MODE 는 infra 모드와 같아야 한다(D2). 모드가 mock 이 아닌 시험은 이 web 을 쓴다.
+const webFor = (mode) => ({ ...WEB_BASE, SOL_RUN_MODE: mode });
 
 const toEnvText = (values) =>
   Object.entries(values)
@@ -140,6 +144,50 @@ test("resolveRunMode: KEV_ENABLED 대소문자·공백 변형은 모순", () => 
   }
 });
 
+// M2: AI_PROVIDER 실효값 hosted 와 KEV_ALLOW_KO_STATE=true 는 모든 모드에서 함께 쓸 수 없다.
+// 판정 순서는 forbidden 다음, hosted 승인 앞. Python(services/ai/tests/test_run_mode.py)과 같은 입력·기대값.
+test("resolveRunMode: M2 fixture 의 hosted + 한국어 state 는 FORBIDDEN_WITH_HOSTED", () => {
+  const result = resolveRunMode({
+    SOL_RUN_MODE: "fixture",
+    AI_PROVIDER: "hosted",
+    AI_HOSTED_APPROVED: "true",
+    KEV_ALLOW_KO_STATE: "true",
+  });
+  assert.deepEqual(result.violations, [
+    { key: "KEV_ALLOW_KO_STATE", reason: "FORBIDDEN_WITH_HOSTED" },
+  ]);
+});
+
+test("resolveRunMode: M2 live 는 모드 금지 → hosted 금지 → 승인 순서", () => {
+  const result = resolveRunMode({
+    SOL_RUN_MODE: "live",
+    AI_PROVIDER: "hosted",
+    KEV_ALLOW_KO_STATE: "true",
+  });
+  assert.deepEqual(result.violations, [
+    { key: "KEV_ALLOW_KO_STATE", reason: "FORBIDDEN_IN_MODE" },
+    { key: "KEV_ALLOW_KO_STATE", reason: "FORBIDDEN_WITH_HOSTED" },
+    { key: "AI_HOSTED_APPROVED", reason: "HOSTED_NOT_APPROVED" },
+  ]);
+});
+
+test("resolveRunMode: M2 mock 에 hosted 값 + 한국어 state", () => {
+  const result = resolveRunMode({
+    SOL_RUN_MODE: "mock",
+    AI_PROVIDER: "hosted",
+    KEV_ALLOW_KO_STATE: "true",
+  });
+  assert.deepEqual(result.violations, [
+    { key: "AI_PROVIDER", reason: "CONTRADICTS_MODE" },
+    { key: "KEV_ALLOW_KO_STATE", reason: "FORBIDDEN_WITH_HOSTED" },
+  ]);
+});
+
+test("resolveRunMode: M2 fixture 의 local + 한국어 state 는 위반 없음", () => {
+  const result = resolveRunMode({ SOL_RUN_MODE: "fixture", KEV_ALLOW_KO_STATE: "true" });
+  assert.deepEqual(result.violations, []);
+});
+
 test("resolveRunMode: 알 수 없는 모드는 mode·effective 가 null", () => {
   const result = resolveRunMode({ SOL_RUN_MODE: "LIVE", AI_PROVIDER: "mock" });
   assert.equal(result.mode, null);
@@ -208,28 +256,35 @@ const G2B_KEYS = [
   "G2B_INDUSTRY_MASTER_SERVICE_KEY",
 ];
 
+const LIVE_INFRA = {
+  ...INFRA_BASE,
+  SOL_RUN_MODE: "live",
+  DEMO_MODE: "false",
+  QWEN_BASE_URL: "http://qwen:8000",
+  // C5-A S3: local(실추론)은 QWEN_API_KEY 필수(03 §3·09)
+  QWEN_API_KEY: "qwen-fake-1",
+  KEV_BASE_URL: "http://kev:8009",
+  KEV_API_KEY: "kev-fake-1",
+  ...Object.fromEntries(G2B_KEYS.map((key) => [key, "g2b-fake-1"])),
+};
+
 test("checkEnv: live 인데 빠진 서비스키마다 MISSING_KEY, mock 은 통과", async () => {
-  const live = {
-    ...INFRA_BASE,
-    SOL_RUN_MODE: "live",
-    DEMO_MODE: "false",
-    QWEN_BASE_URL: "http://qwen:8000",
-    KEV_BASE_URL: "http://kev:8009",
-    KEV_API_KEY: "kev-fake-1",
-    ...Object.fromEntries(G2B_KEYS.map((key) => [key, "g2b-fake-1"])),
-  };
-  await withRoot({ infra: live }, async (root) => {
+  const live = LIVE_INFRA;
+  await withRoot({ infra: live, web: webFor("live") }, async (root) => {
     const result = await checkEnv({ root });
     assert.equal(result.mode, "live");
     assert.deepEqual(result.problems, []);
   });
-  await withRoot({ infra: { ...live, G2B_PRE_SPEC_SERVICE_KEY: "" } }, async (root) => {
-    const result = await checkEnv({ root });
-    assert.deepEqual(
-      result.problems.map((p) => [p.file, p.key, p.code]),
-      [["infra/.env", "G2B_PRE_SPEC_SERVICE_KEY", "MISSING_KEY"]],
-    );
-  });
+  await withRoot(
+    { infra: { ...live, G2B_PRE_SPEC_SERVICE_KEY: "" }, web: webFor("live") },
+    async (root) => {
+      const result = await checkEnv({ root });
+      assert.deepEqual(
+        result.problems.map((p) => [p.file, p.key, p.code]),
+        [["infra/.env", "G2B_PRE_SPEC_SERVICE_KEY", "MISSING_KEY"]],
+      );
+    },
+  );
   await withRoot({}, async (root) => {
     assert.equal((await checkEnv({ root })).ok, true);
   });
@@ -247,6 +302,42 @@ test("checkEnv: web/.env.local 의 서비스키 4종은 FORBIDDEN_KEY", async ()
       [...G2B_KEYS].sort(),
     );
   });
+});
+
+test("checkEnv: infra 가 fixture 인데 web 에 SOL_RUN_MODE 가 없으면 CONTRADICTS_MODE", async () => {
+  await withRoot(
+    { infra: { ...INFRA_BASE, SOL_RUN_MODE: "fixture", AI_PROVIDER: "local" } },
+    async (root) => {
+      const result = await checkEnv({ root });
+      assert.ok(
+        result.problems.some(
+          (p) =>
+            p.file === "web/.env.local" &&
+            p.key === "SOL_RUN_MODE" &&
+            p.code === "CONTRADICTS_MODE",
+        ),
+        JSON.stringify(result.problems),
+      );
+      assert.equal(result.counts.contradiction >= 1, true);
+    },
+  );
+});
+
+test("checkEnv: web SOL_RUN_MODE 가 infra 와 같으면 통과한다", async () => {
+  await withRoot(
+    {
+      infra: { ...INFRA_BASE, SOL_RUN_MODE: "fixture", AI_PROVIDER: "local" },
+      web: { ...WEB_BASE, SOL_RUN_MODE: "fixture" },
+    },
+    async (root) => {
+      const result = await checkEnv({ root });
+      assert.equal(
+        result.problems.some((p) => p.key === "SOL_RUN_MODE"),
+        false,
+        JSON.stringify(result.problems),
+      );
+    },
+  );
 });
 
 test("checkEnv: 알 수 없는 모드면 모드별 필수 키를 보지 않는다", async () => {
@@ -353,16 +444,41 @@ const FIXTURE_INFRA = {
   ...INFRA_BASE,
   SOL_RUN_MODE: "fixture",
   QWEN_BASE_URL: "http://qwen:8000",
+  QWEN_API_KEY: "qwen-fake-1",
   KEV_BASE_URL: "http://kev:8009",
   KEV_API_KEY: "kev-fake-1",
 };
 
+test("checkEnv: fixture 에서 QWEN_API_KEY 가 빠지거나 비면 MISSING_KEY", async () => {
+  const { QWEN_API_KEY: _omitted, ...missing } = FIXTURE_INFRA;
+  for (const infra of [missing, { ...FIXTURE_INFRA, QWEN_API_KEY: "" }]) {
+    await withRoot({ infra, web: webFor("fixture") }, async (root) => {
+      const result = await checkEnv({ root });
+      assert.deepEqual(
+        result.problems.map((p) => [p.file, p.key, p.code]),
+        [["infra/.env", "QWEN_API_KEY", "MISSING_KEY"]],
+      );
+    });
+  }
+});
+
+test("checkEnv: live 에서 QWEN_API_KEY 가 빠지면 MISSING_KEY", async () => {
+  const { QWEN_API_KEY: _omitted, ...infra } = LIVE_INFRA;
+  await withRoot({ infra, web: webFor("live") }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.map((p) => [p.file, p.key, p.code]),
+      [["infra/.env", "QWEN_API_KEY", "MISSING_KEY"]],
+    );
+  });
+});
+
 test("checkEnv: fixture 에서 KEV_API_KEY 가 빠지면 MISSING_KEY", async () => {
   const { KEV_API_KEY: _omitted, ...infra } = FIXTURE_INFRA;
-  await withRoot({ infra: FIXTURE_INFRA }, async (root) => {
+  await withRoot({ infra: FIXTURE_INFRA, web: webFor("fixture") }, async (root) => {
     assert.deepEqual((await checkEnv({ root })).problems, []);
   });
-  await withRoot({ infra }, async (root) => {
+  await withRoot({ infra, web: webFor("fixture") }, async (root) => {
     const result = await checkEnv({ root });
     assert.deepEqual(
       result.problems.map((p) => [p.file, p.key, p.code]),
@@ -373,7 +489,7 @@ test("checkEnv: fixture 에서 KEV_API_KEY 가 빠지면 MISSING_KEY", async () 
 
 test("checkEnv: 승인된 hosted 에서 HOSTED_API_* 가 빠지면 MISSING_KEY", async () => {
   const hosted = { ...FIXTURE_INFRA, AI_PROVIDER: "hosted", AI_HOSTED_APPROVED: "true" };
-  await withRoot({ infra: hosted }, async (root) => {
+  await withRoot({ infra: hosted, web: webFor("fixture") }, async (root) => {
     const result = await checkEnv({ root });
     assert.deepEqual(result.problems.map((p) => [p.key, p.code]).sort(), [
       ["HOSTED_API_BASE_URL", "MISSING_KEY"],
@@ -381,7 +497,7 @@ test("checkEnv: 승인된 hosted 에서 HOSTED_API_* 가 빠지면 MISSING_KEY",
     ]);
   });
   const full = { ...hosted, HOSTED_API_BASE_URL: "http://h.test", HOSTED_API_KEY: "h-fake-1" };
-  await withRoot({ infra: full }, async (root) => {
+  await withRoot({ infra: full, web: webFor("fixture") }, async (root) => {
     assert.deepEqual((await checkEnv({ root })).problems, []);
   });
 });
@@ -501,4 +617,53 @@ test("checkEnv: REDIS_PASSWORD 에 영숫자 외 문자가 있으면 INVALID_FOR
   await withRoot({ infra: { ...INFRA_BASE, REDIS_PASSWORD: hex } }, async (root) => {
     assert.equal((await checkEnv({ root })).ok, true);
   });
+});
+
+test("checkEnv: web 에 API_CURSOR_SECRET 이 없으면 MISSING_KEY", async () => {
+  const { API_CURSOR_SECRET: _omitted, ...web } = WEB_BASE;
+  await withRoot({ web }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.map(({ file, key, code }) => [file, key, code]),
+      [["web/.env.local", "API_CURSOR_SECRET", "MISSING_KEY"]],
+    );
+  });
+});
+
+test("checkEnv: API_CURSOR_SECRET 이 32자 미만이면 INVALID_FORMAT, 값은 출력하지 않는다", async () => {
+  await withRoot({ web: { ...WEB_BASE, API_CURSOR_SECRET: "s".repeat(31) } }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.map(({ file, key, code }) => [file, key, code]),
+      [["web/.env.local", "API_CURSOR_SECRET", "INVALID_FORMAT"]],
+    );
+    assert.equal(result.counts.invalid, 1);
+    const cli = runCli(root);
+    assert.equal(cli.status, 1);
+    assert.ok(!(cli.stdout + cli.stderr).includes("s".repeat(31)));
+  });
+  await withRoot({ web: { ...WEB_BASE, API_CURSOR_SECRET: "s".repeat(32) } }, async (root) => {
+    assert.equal((await checkEnv({ root })).ok, true);
+  });
+});
+
+// M7: 런타임(readCursorSecret)은 앞뒤 공백을 뗀 뒤 32자를 잰다. check:env 도 같게 잰다.
+test("checkEnv: API_CURSOR_SECRET 은 앞뒤 공백을 뗀 길이로 잰다(공백만 32자 이상이면 INVALID_FORMAT)", async () => {
+  for (const value of [" ".repeat(40), `   ${"s".repeat(31)}   `]) {
+    // 따옴표로 감싸야 env 파서가 공백을 남긴다.
+    await withRoot({ web: { ...WEB_BASE, API_CURSOR_SECRET: `"${value}"` } }, async (root) => {
+      const result = await checkEnv({ root });
+      assert.deepEqual(
+        result.problems.map(({ file, key, code }) => [file, key, code]),
+        [["web/.env.local", "API_CURSOR_SECRET", "INVALID_FORMAT"]],
+        JSON.stringify(value),
+      );
+    });
+  }
+  await withRoot(
+    { web: { ...WEB_BASE, API_CURSOR_SECRET: `"  ${"s".repeat(32)}  "` } },
+    async (root) => {
+      assert.equal((await checkEnv({ root })).ok, true);
+    },
+  );
 });

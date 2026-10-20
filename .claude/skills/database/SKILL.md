@@ -282,7 +282,8 @@ where id = (select id from auth.users where email = '<운영자 이메일>');
 
 나온다면 정책이 없거나, `service_role` 로 다니고 있거나, 정책 조건이 틀린 것이다.
 
-## 7. 배포에도 환경변수 넣기
+## 7. 실행 환경에도 환경변수 넣기
 
-배포 서비스(Vercel)에 넣을 값과 자리는 `docs/boilerplate/first-deployment.md` 가 정본이다. 하나만 기억한다 — Vercel 운영의 `SUPABASE_DB_URL` 에는
-루트 `.env.local` 의 값(DDL 권한)을 넣지 않고, 배포 검사만 하는 읽기 전용 역할의 연결 문자열을 넣는다(같은 문서의 "배포 검사 전용 DB 역할").
+실행 환경(Docker Compose + Supabase 클라우드)에 넣을 값과 자리는 `docs/10-DEPLOYMENT.md`("env 파일 위치", `infra/env/*.env.example`)가 정본이다.
+`docs/boilerplate/first-deployment.md`(Vercel)는 배포처가 정해질 때까지 보류 문서다(`docs/16-DECISIONS.md` 미결정 8번).
+하나만 기억한다 — 앱·worker 가 도는 환경에 루트 `.env.local` 의 `SUPABASE_DB_URL`(DDL 권한)을 넣지 않는다. 배포 검사(`pnpm db:verify`)가 필요하면 읽기 전용 역할의 연결 문자열을 쓴다.

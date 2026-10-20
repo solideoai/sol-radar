@@ -31,6 +31,7 @@ const toRole = (value: string): OrgRole => {
 // 정책이 걸러 바뀐 행이 없으면 forbidden, 트리거가 마지막 소유자를 지키면 last-owner.
 const membershipChange = (error: DbError | null, changed: number) => {
   if (error && isRaised(error, "last_owner")) return "last-owner" as const;
+  if (error && isRaised(error, "last_admin")) return "last-admin" as const;
   if (error) throw error;
   return changed > 0 ? ("saved" as const) : ("forbidden" as const);
 };
@@ -231,7 +232,7 @@ export const organizationRepo = {
     orgId: string,
     userId: string,
     role: OrgRole,
-  ): Promise<"saved" | "forbidden" | "last-owner"> {
+  ): Promise<"saved" | "forbidden" | "last-owner" | "last-admin"> {
     const { data, error } = await (
       await getSupabase()
     )
@@ -247,7 +248,7 @@ export const organizationRepo = {
   async deleteMembership(
     orgId: string,
     userId: string,
-  ): Promise<"saved" | "forbidden" | "last-owner"> {
+  ): Promise<"saved" | "forbidden" | "last-owner" | "last-admin"> {
     const { data, error } = await (
       await getSupabase()
     )

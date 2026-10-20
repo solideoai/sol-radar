@@ -25,6 +25,7 @@ import type {
 } from "./analysis.model";
 import { AnalysisInputError } from "./analysis.service";
 import { toIssueList } from "./gateway.model";
+import type { PreanalyzeRunInput } from "./preanalyze.model";
 
 // ── 저장 port 의 행 매핑: DB 행 ↔ 분석 도메인 값의 순수 규칙 (03 §7) ──
 // supabase-js·DB 는 부르지 않는다(analysis.repo 몫). JSONB 는 scoring 배럴의 zod 로 검증하고,
@@ -55,6 +56,7 @@ export type LoaderRows = {
     | "idempotency_key"
     | "status"
     | "queued_at"
+    | "started_at"
   >;
   revision: Pick<
     Row<"bid_revisions">,
@@ -310,6 +312,8 @@ export function toLoadedContext(rows: LoaderRows): LoadedAnalysisContext {
     companyProfileId: scoreRun.company_profile_id,
     idempotencyKey: scoreRun.idempotency_key,
     status: toScoreRunStatus(scoreRun.status),
+    // 쓰기 조건(compare-and-set)이라 PostgREST 원문 그대로 둔다.
+    startedAt: scoreRun.started_at,
     queuedAt,
     fixtureId: toFixtureStem(rawFixtureIdOf(revision.raw_payload), revision.revision),
     bid: toBidSummary(rows, documentIssues.length > 0),
@@ -338,6 +342,27 @@ export function toExtractSource(
         : [{ documentId: document.documentId, text: document.text, pages: document.pages }],
     ),
   };
+}
+
+// ── 사전 분석: 다시 읽은 run 이 이 사전 분석이 넣은 run 인가 ──
+
+/**
+ * 사전 분석은 requested_by 없이 run 을 넣는다. 같은 멱등 키의 run 을 화면 사용자가 먼저 넣었거나(requested_by 있음)
+ * 다른 공고·revision·프로필의 run 이면 사전 분석의 run 이 아니다. 상태는 보지 않는다(끝난 run 이어도 같은 입력이면 그 run 이다).
+ */
+export function isOwnPreanalyzeRun(
+  row: Pick<
+    Row<"score_runs">,
+    "id" | "status" | "requested_by" | "bid_id" | "revision_id" | "company_profile_id"
+  >,
+  input: Pick<PreanalyzeRunInput, "bidId" | "revisionId" | "companyProfileId">,
+): boolean {
+  return (
+    row.requested_by === null &&
+    row.bid_id === input.bidId &&
+    row.revision_id === input.revisionId &&
+    row.company_profile_id === input.companyProfileId
+  );
 }
 
 // ── 쓰기 ──
@@ -395,7 +420,10 @@ function unique<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
 }
 
-/** score_runs 결과 열(03 §7). 규칙 결과(result)와 모델 출력(kev_output)·파이프라인 값(meta)을 다른 열에 둔다. */
+/**
+ * score_runs 마감 열(03 §7). 규칙 결과(result)와 모델 출력(kev_output)·파이프라인 값(meta)을 다른 열에 둔다.
+ * started_at 은 넣지 않는다. markRunning 이 쓴 시도 시작 시각(시도 식별자)이라 마감이 바꾸지 않는다(보안 검토 후속).
+ */
 export function toScoreRunResultUpdate(record: AnalysisRunRecord): Tables["score_runs"]["Update"] {
   const { result, meta } = record;
   return {
@@ -420,7 +448,6 @@ export function toScoreRunResultUpdate(record: AnalysisRunRecord): Tables["score
     run_mode: toColumnCase(meta.runMode),
     ai_provider: toColumnCase(meta.model.provider),
     extraction_id: record.extractionId,
-    started_at: meta.startedAt,
     finished_at: meta.finishedAt,
     // 보정·자동 대체는 아직 없다(03 §8). 늘 null 이다.
     kev_calibration: null,
@@ -485,4 +512,32 @@ export function toRequirementAssessmentRows(
     kev_label: null,
     flags: assessment.flags,
   }));
+}
+
+/** finish_score_run(p) 의 p(20261019000011). 열 이름은 저장 매핑 함수의 출력 그대로다. */
+export type FinishScoreRunPayload = {
+  score_run_id: string;
+  org_id: string;
+  /** 이 시도의 started_at. 함수가 run 의 started_at 과 같은지 본다. */
+  attempt_started_at: string;
+  run: Tables["score_runs"]["Update"];
+  factors: Tables["score_factors"]["Insert"][];
+  assessments: Tables["requirement_assessments"]["Insert"][];
+  checks: Tables["qualification_checks"]["Insert"][];
+};
+
+/**
+ * 결과 저장 RPC 본문(보안 검토 후속). 자식 3표와 마감을 함수 하나가 한 트랜잭션으로 쓴다.
+ * 그 run 이 RUNNING 이고 started_at 이 attempt_started_at 일 때만 쓰고, 아니면 DB 가 거절한다(끝난 run 을 덮지 않는다).
+ */
+export function toFinishScoreRunPayload(record: AnalysisRunRecord): FinishScoreRunPayload {
+  return {
+    score_run_id: record.scoreRunId,
+    org_id: record.orgId,
+    attempt_started_at: record.attemptStartedAt,
+    run: toScoreRunResultUpdate(record),
+    factors: toScoreFactorRows(record),
+    assessments: toRequirementAssessmentRows(record),
+    checks: toQualificationCheckRows(record),
+  };
 }

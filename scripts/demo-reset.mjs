@@ -16,6 +16,10 @@
 // (프로필·분석·결정·배정·알림·감사·초대·seed 밖 구성원)이다. 조직·카탈로그·명부 200 은 고정 UUID 로 upsert 해 id 가
 // 남고, Auth 5계정은 이메일로 찾아 있으면 비밀번호·메타데이터만 갱신한다. live 공고(is_demo=false)·eval_runs 는 건드리지 않는다.
 //
+// 추출(requirement_extractions)은 넣지 않는다. 인용 검증(03 §4.4)을 거친 추출은 gateway 만 만들고, worker 는 있는 추출을
+// 캐시로 써서 /extract 를 부르지 않기 때문이다. 데모 공고의 추출은 pnpm demo:preanalyze(worker → gateway /extract)가
+// 저장한다(FX-02 는 S4 라이브 분석). 지난 리허설의 추출은 데모 공고를 지울 때 FK cascade 로 함께 지워진다.
+//
 // 마지막 줄(10 기동 절차 6): seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,8 +29,6 @@ import {
   deleteDemoBids,
   loadCompanyProfileFixture,
   loadDemoBidFixtures,
-  loadExtractionFixtures,
-  seedRequirementExtractions,
 } from "./demo/bid-notices.mjs";
 import {
   DEMO_ACCOUNTS,
@@ -45,7 +47,7 @@ import {
 } from "./demo/plan.mjs";
 import { createRestClient } from "./demo/rest-client.mjs";
 import { readPortraitState, validatePortraitAssets } from "./people/portraits.mjs";
-import { loadPeopleFixtures, orgUuid, seedSolideoPeople } from "./people/seed.mjs";
+import { catalogUuid, loadPeopleFixtures, orgUuid, seedSolideoPeople } from "./people/seed.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -96,13 +98,12 @@ const ORG_SCOPED_TABLES = [
 
 // 공고 fixture(fixtures/bids)는 seedFixtureBids 가 직접 읽는다. 여기서는 무엇이든 지우기 전에 검증만 한다.
 export const loadDemoFixtures = async ({ fixturesRoot = ROOT } = {}) => {
-  const [, extractions, company, people] = await Promise.all([
+  const [, company, people] = await Promise.all([
     loadDemoBidFixtures(fixturesRoot),
-    loadExtractionFixtures(fixturesRoot),
     loadCompanyProfileFixture(fixturesRoot),
     loadPeopleFixtures(),
   ]);
-  return { extractions, company, people };
+  return { company, people };
 };
 
 // 사진 200장: manifest READY + 사람 검수 PASS + 파일 해시 일치(10 "파일 이름만 200개 있다고 성공 처리하지 않는다").
@@ -169,6 +170,8 @@ const deleteOrgScopedRows = async (client, orgIds) => {
 };
 
 // Auth 계정: 이메일로 찾아 없으면 만들고, 있으면 비밀번호·메타데이터만 갱신한다(id 보존). profiles 행은 가입 트리거가 만든다.
+// 가입 트리거는 처음 만들 때만 신고(부서·직급)를 채운다. 그래서 이미 있는 계정도 신고 열을 카탈로그 id 로 다시 맞춘다
+// (예전 seed 로 신고 없이 만든 org-02 계정이 가입 정보 미완료로 남지 않게). 카탈로그는 앞 단계에서 넣었다.
 const seedAccounts = async (client, password) => {
   const existing = await client.auth.listUsers();
   const users = {};
@@ -183,7 +186,12 @@ const seedAccounts = async (client, password) => {
     await client.update(
       "profiles",
       { id: user.id },
-      { display_name: account.displayName, status: "active" },
+      {
+        display_name: account.displayName,
+        status: "active",
+        declared_department_id: catalogUuid(account.departmentCode),
+        declared_job_title_id: catalogUuid(account.jobTitleCode),
+      },
     );
     users[account.key] = { ...account, id: user.id, created: !found };
   }
@@ -271,12 +279,8 @@ export const seedDemo = async ({
       createdBy: { "org-01": users.admin.id, "org-02": users.outsider.id },
     }),
   );
-  // 공고·revision id 는 demoIdFor(고정 UUID)라 다시 돌려도 같다. 추출·리뷰·배정이 그 id 를 가리킨다.
+  // 공고·revision id 는 demoIdFor(고정 UUID)라 다시 돌려도 같다. 리뷰·배정이 그 id 를 가리킨다.
   const ingest = await ingestBids({ anchor, runMode, idFor: demoIdFor });
-  const extracted = await seedRequirementExtractions(client, {
-    bids: ingest.bids,
-    extractions: fixtures.extractions,
-  });
   await client.insert(
     "bid_reviews",
     toReviewRows({
@@ -287,7 +291,7 @@ export const seedDemo = async ({
   );
   await client.insert("assignments", toAssignmentRows({ bids: ingest.bids }));
   log(
-    `공고 ${ingest.summary.created}건 적재, ${ingest.summary.quarantined}건 격리, 추출 ${extracted.extractions}건. 사진을 검증합니다.`,
+    `공고 ${ingest.summary.created}건 적재, ${ingest.summary.quarantined}건 격리. 사진을 검증합니다.`,
   );
   const portraitState = await portraits();
   const counts = {
@@ -309,7 +313,6 @@ export const seedDemo = async ({
     ingestRun: { id: ingest.ingestRunId, summary: ingest.summary },
     quarantined: ingest.quarantined,
     bids: ingest.bids,
-    extractions: extracted.extractions,
     accounts: DEMO_ACCOUNTS.map(({ email, org, orgRole, solRole }) => ({
       email,
       org,
@@ -401,7 +404,6 @@ const summaryJson = (result) => ({
   ingestRun: result.ingestRun,
   quarantined: result.quarantined,
   bids: result.bids,
-  extractions: result.extractions,
   accounts: result.accounts,
   portraitErrors: result.portraitErrors,
 });

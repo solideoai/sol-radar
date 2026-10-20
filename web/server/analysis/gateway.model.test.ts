@@ -832,3 +832,46 @@ describe("toIssueList", () => {
     expect(result.error && toIssueList(result.error)).toEqual(["items.1.id: invalid_type"]);
   });
 });
+
+// 경로 조각은 받은 객체의 키일 수 있다(record·느슨한 객체). 키에 공고 원문·값이 섞여 진단·로그로 새지 않게,
+// 숫자와 영문·숫자·_ 40자까지의 이름만 그대로 싣고 그 밖은 '*' 로 바꾼다.
+describe("toIssueList · 경로 조각", () => {
+  /** 경로가 path 인 issue 하나의 결과 줄. */
+  const lineFor = (path: PropertyKey[]): string | undefined =>
+    toIssueList(
+      new z.ZodError([{ code: "custom", path, message: "값-SECRET-메시지", input: undefined }]),
+    )[0];
+
+  it.each<[string, PropertyKey[], string]>([
+    ["숫자", [0, 12], "0.12: custom"],
+    ["영문 이름", ["timings", "extractMs"], "timings.extractMs: custom"],
+    ["영문·숫자·_", ["kev_assist", "q1"], "kev_assist.q1: custom"],
+    ["40자 이름", ["a".repeat(40)], `${"a".repeat(40)}: custom`],
+  ])("%s 조각은 그대로 싣는다", (_label, path, expected) => {
+    expect(lineFor(path)).toBe(expected);
+  });
+
+  it.each<[string, PropertyKey[], string]>([
+    ["41자 이름", ["a".repeat(41)], "*: custom"],
+    ["공백", ["has space"], "*: custom"],
+    ["점", ["a.b"], "*: custom"],
+    ["한글", ["공고원문"], "*: custom"],
+    ["기호", ["kebab-key"], "*: custom"],
+    ["빈 이름", [""], "*: custom"],
+    ["symbol", [Symbol("secret")], "*: custom"],
+  ])("%s 조각은 '*' 로 바꾼다", (_label, path, expected) => {
+    expect(lineFor(path)).toBe(expected);
+  });
+
+  it("안전한 조각과 바꾼 조각이 섞이면 조각마다 판정해 '.' 로 잇는다", () => {
+    expect(lineFor(["items", 1, "공고 제목 키", "id"])).toBe("items.1.*.id: custom");
+  });
+
+  it("record 키로 들어온 공고 원문은 경로에 싣지 않는다", () => {
+    const result = z
+      .record(z.string(), z.number())
+      .safeParse({ "세종특별자치시 차세대 행정정보시스템": "x" });
+    const issues = result.error ? toIssueList(result.error) : [];
+    expect(issues).toEqual(["*: invalid_type"]);
+  });
+});

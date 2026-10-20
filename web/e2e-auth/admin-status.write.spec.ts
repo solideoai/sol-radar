@@ -21,8 +21,10 @@ import {
   expectDialogFitsWidth,
   expectListFitsWidth,
   expectRowCells,
+  readSeedListing,
   userRowOf,
 } from "./support/admin-page";
+import { BUSINESS_DASHBOARD } from "./support/account-page";
 import { signInAs } from "./support/local-supabase";
 import { SEED_ACCOUNTS, SEED_ROLES, authFileOf, uniqueTag } from "./support/seed";
 
@@ -55,7 +57,8 @@ test.use({ storageState: authFileOf("admin") });
 
 const NON_ADMIN_ROLES = SEED_ROLES.filter((role) => role !== "admin");
 const SUSPENDED_NOTICE = "정지된 계정이라 로그인할 수 없습니다. 운영자에게 문의해 주세요.";
-const DASHBOARD = /\/[^/]+\/dashboard$/;
+// 다시 로그인한 뒤 첫 화면은 업무 첫 화면(/dashboard)이다.
+const DASHBOARD = BUSINESS_DASHBOARD;
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -226,9 +229,16 @@ test("나와 다른 운영자의 줄에는 정지 버튼이 없고, API 로 바�
     await page.goto(`/admin?q=${tag}`);
     await expectRowCells(userRowOf(page, otherAdmin.email), { ...otherAdmin, isAdmin: true });
 
+    // 시드 운영자의 가입일은 오늘이 아니다(시드는 다시 돌려도 계정을 보존한다). DB 에서 읽는다.
     const { admin } = SEED_ACCOUNTS;
+    const seed = await readSeedListing();
     await page.goto(`/admin?q=${encodeURIComponent(admin.email)}`);
-    await expectRowCells(userRowOf(page, admin.email), { ...admin, isMe: true, isAdmin: true });
+    await expectRowCells(userRowOf(page, admin.email), {
+      ...admin,
+      isMe: true,
+      isAdmin: true,
+      joined: seed.joinedOf("admin"),
+    });
 
     // 버튼이 없어도 직접 부를 수 있다. 서버가 거절하고 아무것도 바꾸지 않는다.
     const me = await signInAs("admin");

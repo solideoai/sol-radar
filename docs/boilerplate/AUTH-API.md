@@ -24,7 +24,7 @@
 | 403 | `suspended` | 정지된 회원 |
 | 403 | `forbidden` | 운영자 전용 |
 | 404 | `not_found` | 대상 없음(남의 것도 없는 것과 같다) |
-| 409 | `sole_owner`·`last_identity`·`self`·`admin_target` | 아래 각 주소 |
+| 409 | `sole_owner`·`sole_admin`·`last_identity`·`self`·`admin_target` | 아래 각 주소 |
 | 503 | `not_configured` | 서버에 Supabase 설정이 없음 |
 
 모든 응답은 `Cache-Control: no-store` 입니다.
@@ -76,6 +76,7 @@
 
 탈퇴. **즉시 삭제되고 되돌릴 수 없습니다.** 프로필·멤버십·개인 조직·연결된 로그인 수단·모든 세션이 지워지고, 팀에 남긴 작업은 만든 사람만 비운 채 남습니다.
 다른 멤버가 있는 팀의 유일한 owner 면 409 `sole_owner`(owner 를 넘기거나 팀을 나간 뒤 다시).
+SOL RADAR에서 다른 멤버가 있는 조직의 마지막 업무 ADMIN이면 409 `sole_admin`입니다. 다른 구성원에게 ADMIN 역할을 부여한 뒤 다시 시도합니다.
 
 ### `PATCH /api/admin/users/{id}/status` — 운영자
 

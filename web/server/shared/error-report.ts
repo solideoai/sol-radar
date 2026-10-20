@@ -82,7 +82,7 @@ export function toBrowserErrorRecord(error: unknown, path: string | null, now: D
   };
 }
 
-/** 서버 오류를 남긴다. 표준 오류 출력의 JSON 한 줄이라 배포 플랫폼의 로그(Vercel → Logs)에서 digest 로 찾는다. */
+/** 서버 오류를 남긴다. 표준 오류 출력의 JSON 한 줄이라 실행 환경의 로그(배포처 미결정, docs/16-DECISIONS.md 미결정 8번)에서 digest 로 찾는다. */
 export function reportServerError(
   error: unknown,
   request: ServerErrorRequest,

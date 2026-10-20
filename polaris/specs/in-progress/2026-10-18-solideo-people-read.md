@@ -11,7 +11,7 @@
 
 ## 1. 역할과 현재 조직
 
-새 append-only migration20261018000001_people_business_roles.sql에서 memberships.sol_role text NOT NULL DEFAULT 'VIEWER', CHECK VIEWER/ANALYST/SALES/ADMIN을 추가한다. 기존 owner/member와 독립이며 org_role/기존정책·가입RPC·개인조직bootstrap·계정ID는 바꾸지 않는다. owner→ADMIN 자동 승격은 하지 않는다. 화면 역할에 sol_role INSERT/UPDATE 권한을 열지 않으며 권한 상승을 막는다. 네 업무역할 모두 명부 SELECT 가능, 기존 RLS조직격리를 유지한다. 새 직원 쓰기 정책은 없다. 생성DB타입은 pnpm db:types로 만든다.
+새 append-only migration20261018000001_people_business_roles.sql에서 memberships.sol_role text NOT NULL DEFAULT 'VIEWER', CHECK VIEWER/ANALYST/SALES/ADMIN을 추가한다. 기존 owner/member와 독립이며 org_role/기존정책·가입RPC·개인조직bootstrap·계정ID는 바꾸지 않는다. owner→ADMIN 자동 승격은 하지 않는다. 이 마이그레이션은 화면 역할의 memberships.sol_role INSERT/UPDATE 권한을 거둔다. 그 뒤 20261019000001이 UPDATE(sol_role)만 다시 열고 정책 "ADMIN 은 역할 변경"(그 조직 sol_role=ADMIN만)과 보호 트리거 protect_sol_role로 권한 상승을 막는다(docs/04-DATABASE.md §3.1 sol_role 변경 잠금, 2026-10-20 ADR-033 E7 정정). INSERT 권한은 계속 없다(초대 수락 트리거가 채운다). 네 업무역할 모두 명부 SELECT 가능, 기존 RLS조직격리를 유지한다. 새 직원 쓰기 정책은 없다. 생성DB타입은 pnpm db:types로 만든다.
 
 organization 도메인에 getMyBusinessAccess()를 더한다. 기존 getCurrentOrganization()의 업무0/1/복수 판정을 재사용하고 ready일 때 세션userId+현재orgId의 sol_role을 사용자 RLS연결로 읽는다. 기존 CurrentOrg와 기존서비스 인터페이스를 불필요하게 바꾸지 않는다. 결과는 기존비ready상태 또는 forbidden 또는 ready{userId,current:CurrentOrg & {solRole:SolRole}}이다. runtime검증으로 유효하지않은역할을 거절한다. API는 기존 requireCompleteUser로 인증/활성/프로필완료를 먼저검사한다. 유효하지않은Bearer가 쿠키로대체되지않는다.
 

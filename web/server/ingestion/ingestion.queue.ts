@@ -67,9 +67,18 @@ export const ingestJobDataSchemaAt = (now: Date) =>
     { error: "window.to 가 지금보다 5분 넘게 미래다", path: ["window", "to"] },
   );
 
+/** BullMQ JobsOptions 중 이 도메인이 쓰는 부분. BullMQ 의 removeOn*.age 는 초 단위다. */
+export type JobQueueOptions = {
+  jobId: string;
+  attempts?: number;
+  backoff?: { type: "exponential"; delay: number };
+  removeOnComplete?: { age: number };
+  removeOnFail?: { age: number };
+};
+
 /** BullMQ Queue 중 쓰는 부분. 시험은 가짜를 넘긴다. */
 export type JobQueue = {
-  add(name: string, data: unknown, opts: { jobId: string }): Promise<unknown>;
+  add(name: string, data: unknown, opts: JobQueueOptions): Promise<unknown>;
 };
 
 /**
@@ -91,10 +100,47 @@ export async function enqueueIngestRun(
   await queue.add(INGEST_JOB_NAME, parsed, { jobId: toBullJobId(parsed.jobKey) });
 }
 
-export const documentsJobDataSchema = z.strictObject({ bidId: z.uuid(), revisionId: z.uuid() });
+// PostgREST 는 timestamptz 를 마이크로초 소수와 "+00:00" 으로 돌려준다(예: 2026-10-19T03:04:05.123456+00:00).
+// 그 모양과 toISOString() 모양을 모두 받고, epoch ms 로 바뀌지 않는 값은 거부한다(jobId 에 NaN 이 들어가지 않게).
+const revisionCreatedAtSchema = isoInstantSchema.refine(
+  (value) => Number.isFinite(Date.parse(value)),
+  { error: "revisionCreatedAt 은 epoch ms 로 바뀌는 시각이어야 한다" },
+);
+
+export const documentsJobDataSchema = z.strictObject({
+  bidId: z.uuid(),
+  revisionId: z.uuid(),
+  revisionCreatedAt: revisionCreatedAtSchema,
+});
 export type DocumentsJobData = z.infer<typeof documentsJobDataSchema>;
+
+/** 02 장애 원칙 "job 유실 없음(재시도·DLQ)"(C4'). 완료 job 은 1일, 실패 job 은 7일 남겨 DLQ 로 본다. age 는 초 단위다. */
+export const DOCUMENTS_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: "exponential", delay: 2_000 },
+  removeOnComplete: { age: 86_400 },
+  removeOnFail: { age: 604_800 },
+} as const satisfies Omit<JobQueueOptions, "jobId">;
+
+/**
+ * C1': documents jobId 는 revision id 와 그 revision 행의 created_at(epoch ms)이다.
+ * demo:reset 이 같은 revision id 를 다시 만들면 created_at 이 바뀌어 새 jobId 가 된다(BullMQ 에 남은 이전 job 에 막히지 않는다).
+ * 같은 행이 살아 있는 동안은 jobId 가 같아, 수집 job 과 복구기가 겹쳐 넣어도 BullMQ 가 하나만 받는다. ':' 는 쓰지 않는다(toBullJobId).
+ */
+export function toDocumentsJobId(
+  data: Pick<DocumentsJobData, "revisionId" | "revisionCreatedAt">,
+): string {
+  const createdAtMs = Date.parse(data.revisionCreatedAt);
+  if (!Number.isFinite(createdAtMs)) {
+    throw new Error("documents jobId: revisionCreatedAt 이 시각이 아니다");
+  }
+  return `documents-${data.revisionId}-${createdAtMs}`;
+}
 
 export async function enqueueDocuments(queue: JobQueue, data: DocumentsJobData): Promise<void> {
   const parsed = documentsJobDataSchema.parse(data);
-  await queue.add(DOCUMENTS_JOB_NAME, parsed, { jobId: `documents-${parsed.revisionId}` });
+  await queue.add(DOCUMENTS_JOB_NAME, parsed, {
+    ...DOCUMENTS_JOB_OPTIONS,
+    jobId: toDocumentsJobId(parsed),
+  });
 }

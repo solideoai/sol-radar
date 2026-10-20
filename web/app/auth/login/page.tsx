@@ -33,8 +33,7 @@ export default async function LoginPage({
   if (me.status === "ready") {
     if (!me.profile.profileComplete) redirect(completionPath(next ?? undefined));
     const organization = await getCurrentOrganization().catch(() => null);
-    if (organization?.status === "ready")
-      redirect(next ?? `/${organization.current.slug}/dashboard`);
+    if (organization?.status === "ready") redirect(next ?? "/dashboard");
     if (organization?.status === "no-org" || organization?.status === "multiple-orgs")
       redirect(organizationStatePath(next));
     redirect("/auth/organization-state");

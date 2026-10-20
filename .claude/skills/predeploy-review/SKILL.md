@@ -58,7 +58,7 @@ worktree 에서 만든 작업은 원본이 아니라 그 worktree 에서 돌린�
 | `polaris/mission.md`, `polaris/specs/**` | product |
 | `web/server/**` | code + infra |
 | `supabase/migrations/**` | infra + code |
-| `.env*`, `web/next.config.*`, `web/proxy.ts`, `vercel.json`, `package.json`, `.github/**` | infra |
+| `.env*`, `web/next.config.*`, `web/proxy.ts`, `infra/compose.yaml`, `infra/env/*.env.example`, `package.json`, `.github/**` | infra |
 | `**/*.test.ts`, `**/*.test.tsx` | qa |
 | `README.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/**`, `.env.example` | developer |
 
@@ -69,7 +69,7 @@ worktree 에서 만든 작업은 원본이 아니라 그 worktree 에서 돌린�
 | 프로필 | 문서 | 관점 |
 |---|---|---|
 | code | `profiles/code.md` | 코드 품질·타입·보안 |
-| design | `profiles/design.md` | UI 일관성·상태·반응형 |
+| design | `profiles/design.md` | UI 일관성·상태·1280·1440px 폭 |
 | product | `profiles/product.md` | 미션 정렬·스펙 범위 |
 | developer | `profiles/developer.md` | 온보딩·DX·문서화 |
 | marketer | `profiles/marketer.md` | 가치 제안·전환·카피 |

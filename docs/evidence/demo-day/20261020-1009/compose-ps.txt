@@ -1,0 +1,7 @@
+# 명령: docker compose -p sol-radar-dd-c9 -f infra/compose.yaml ps · 커밋 72bfb9c(C6 병합 트리, main 병합 전) · 2026-10-20 10:14 KST · 호스트 포트 REDIS 16381·MINIO 19001·QDRANT 16334·AI_GATEWAY 18001
+NAME                           IMAGE                                                                                              COMMAND                   SERVICE      CREATED          STATUS                    PORTS
+sol-radar-dd-c9-ai-gateway-1   sol-radar-dd-c9-ai-gateway                                                                         "python -m sol_ai"        ai-gateway   46 seconds ago   Up 46 seconds (healthy)   127.0.0.1:18001->8000/tcp
+sol-radar-dd-c9-minio-1        cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8   "/usr/bin/minio serv…"   minio        46 seconds ago   Up 46 seconds (healthy)   127.0.0.1:19001->9000/tcp
+sol-radar-dd-c9-qdrant-1       qdrant/qdrant:v1.19.2-unprivileged                                                                 "./entrypoint.sh"         qdrant       46 seconds ago   Up 46 seconds (healthy)   6334/tcp, 127.0.0.1:16334->6333/tcp
+sol-radar-dd-c9-redis-1        redis:8.8.3-alpine                                                                                 "docker-entrypoint.s…"   redis        46 seconds ago   Up 46 seconds (healthy)   127.0.0.1:16381->6379/tcp
+sol-radar-dd-c9-worker-1       sol-radar-dd-c9-worker                                                                             "docker-entrypoint.s…"   worker       46 seconds ago   Up 35 seconds (healthy)   

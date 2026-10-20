@@ -1,0 +1,20 @@
+[project]
+name = "sol-eval"
+version = "0.1.0"
+description = "SOL RADAR 평가셋 빌더·라벨 검증·Kev JSONL 내보내기 (docs/21 §3·§6, DB·네트워크 접근 없음)"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.11",
+    "sol-ai",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+# 평면 배치: services/ai/eval/sol_eval/ 가 모듈이다
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.uv.sources]
+sol-ai = { workspace = true }

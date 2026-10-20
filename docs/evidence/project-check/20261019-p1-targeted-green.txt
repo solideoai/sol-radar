@@ -1,0 +1,30 @@
+verify-slot: slot-1 을 잡았다 — bash -c node scripts/p1-last-admin-concurrency.mjs && pnpm -C web exec vitest run worker/documents-reconcile.test.ts worker/main.test.ts server/profile/profile.repo.test.ts server/organization/organization.repo.test.ts server/profile/profile.service.test.ts app/api/users/me/route.test.ts && node --test --test-name-pattern="마지막 업무 ADMIN 보호" scripts/database.test.mjs
+PASS: 동시 ADMIN 초대 수락·기존 ADMIN 강등·계정 탈퇴에서도 마지막 ADMIN과 계정이 보존된다
+PASS: 검사 이후 초대 수락은 프로필 잠금에 대기한 뒤 FK 거절되고 기존 ADMIN이 보존된다
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/codex-p1-fixes/web
+
+
+ Test Files  6 passed (6)
+      Tests  111 passed (111)
+   Start at  22:13:22
+   Duration  2.93s (transform 2.22s, setup 0ms, import 4.26s, tests 916ms, environment 1ms)
+
+▶ 마지막 업무 ADMIN 보호
+  ✔ 마지막 ADMIN은 자기 업무 역할을 내리지 못한다 (1180.849917ms)
+  ✔ 다른 멤버가 남는 조직의 마지막 ADMIN은 스스로 나가지 못한다 (871.062834ms)
+  ✔ ADMIN 둘을 한 문장으로 update해도 마지막 ADMIN을 없애지 못한다 (1685.771417ms)
+  ✔ ADMIN 둘을 한 문장으로 delete해도 마지막 ADMIN을 없애지 못한다 (4620.908125ms)
+  ✔ 다른 ADMIN이 있으면 자기 강등·탈퇴를 허용하고 남은 마지막 ADMIN은 보호한다 (6477.492333ms)
+  ✔ 계정 탈퇴가 JWT를 비우기 전에 마지막 ADMIN을 보호하고 계정·멤버십·JWT를 보존한다 (6331.036167ms)
+  ✔ 다른 멤버에게 ADMIN을 넘기면 기존 ADMIN은 나갈 수 있다 (5048.262875ms)
+  ✔ 혼자인 조직은 계정 탈퇴와 함께 지울 수 있다 (1569.57825ms)
+✔ 마지막 업무 ADMIN 보호 (27788.564417ms)
+ℹ tests 8
+ℹ suites 1
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29658.27325

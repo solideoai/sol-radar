@@ -189,6 +189,49 @@
   font-weight: 800;
 }
 
+@layer utilities {
+  [data-type-scale="dashboard"] .type-title {
+    font-size: 2.0625rem;
+    line-height: calc(39 / 33);
+  }
+  [data-type-scale="dashboard"] .type-heading {
+    font-size: 1.1875rem;
+    line-height: calc(27 / 19);
+  }
+  [data-type-scale="dashboard"] .type-body {
+    font-size: 1.0625rem;
+    line-height: calc(25 / 17);
+  }
+  [data-type-scale="dashboard"] .type-label {
+    font-size: 1rem;
+    line-height: calc(23 / 16);
+  }
+  [data-type-scale="dashboard"] .type-caption {
+    font-size: 0.9375rem;
+    line-height: calc(19 / 15);
+  }
+  [data-type-scale="sidebar"] .type-title {
+    font-size: 2.0625rem;
+    line-height: calc(39 / 33);
+  }
+  [data-type-scale="sidebar"] .type-heading {
+    font-size: 1.1875rem;
+    line-height: calc(27 / 19);
+  }
+  [data-type-scale="sidebar"] .type-body {
+    font-size: 1.0625rem;
+    line-height: calc(25 / 17);
+  }
+  [data-type-scale="sidebar"] .type-label {
+    font-size: 1rem;
+    line-height: calc(23 / 16);
+  }
+  [data-type-scale="sidebar"] .type-caption {
+    font-size: 0.9375rem;
+    line-height: calc(19 / 15);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

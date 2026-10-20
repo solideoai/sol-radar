@@ -5,7 +5,8 @@ import { test, type PeopleFixtures } from "./support/people-fixtures";
 import { registerPeopleReadTests } from "./support/people-read-cases";
 
 // Every successful setup mutation belongs to the dedicated exact-ID fixture
-// closure. This suite issues only expected-denied employee/role writes.
+// closure. This suite issues only expected-denied employee/role writes, plus the
+// business ADMIN's self sol_role PATCH, which is an allowed no-op (ADMIN→ADMIN).
 let prepared: PeopleFixtures | undefined;
 const fixture = () => {
   if (!prepared) throw new Error("Portable people worker fixture has not initialized.");
@@ -385,33 +386,57 @@ test.describe("[people-read-qa] independent access and denied-write integration"
           headers: userHeaders,
           data: attempt.data,
         });
-        expect(response.status()).toBe(403);
+        if (attempt.path.startsWith("memberships?") && attempt.method === "PATCH") {
+          // 20261019000001 (ADR-021, docs/04-DATABASE.md "sol_role 변경 잠금") grants
+          // UPDATE(sol_role) to authenticated so a business ADMIN can manage roles; the
+          // policy "ADMIN 은 역할 변경" exposes only rows of the caller's ADMIN orgs. A
+          // non-ADMIN self-promotion therefore matches no row (200, empty representation)
+          // instead of a privilege error, and for ADMIN the same PATCH is an allowed no-op
+          // returning its unchanged row. Nothing escalates; every membership is re-read below.
+          expect(response.status(), `${role} sol_role PATCH`).toBe(200);
+          expect(
+            z
+              .array(z.object({ user_id: z.uuid(), sol_role: z.string() }))
+              .parse(await response.json()),
+            `${role} sol_role PATCH rows`,
+          ).toEqual(
+            role === "admin" ? [{ user_id: fixture().accounts.admin.id, sol_role: "ADMIN" }] : [],
+          );
+          continue;
+        }
+        expect(response.status(), `${role} ${attempt.method} ${attempt.path}`).toBe(403);
         expect(z.object({ code: z.string() }).parse(await response.json()).code).toBe("42501");
       }
     }
-    const owner = await direct(
-      request,
-      "viewer",
-      `memberships?select=user_id,org_role,sol_role&org_id=eq.${fixture().orgId}&user_id=eq.${fixture().accounts.viewer.id}`,
-    );
-    expect(owner.status()).toBe(200);
-    expect(
-      z
-        .array(
-          z.object({
-            user_id: z.uuid(),
-            org_role: z.string(),
-            sol_role: z.string(),
-          }),
-        )
-        .parse(await owner.json()),
-    ).toEqual([
-      {
-        user_id: fixture().accounts.viewer.id,
-        org_role: "owner",
-        sol_role: "VIEWER",
-      },
-    ]);
+    for (const role of ["viewer", "analyst", "sales", "admin"]) {
+      const account = fixture().accounts[role];
+      const membership = await direct(
+        request,
+        role,
+        `memberships?select=user_id,org_role,sol_role&org_id=eq.${fixture().orgId}&user_id=eq.${account.id}`,
+      );
+      expect(membership.status()).toBe(200);
+      expect(
+        z
+          .array(
+            z.object({
+              user_id: z.uuid(),
+              org_role: z.string(),
+              sol_role: z.string(),
+            }),
+          )
+          .parse(await membership.json()),
+        `${role} membership is unchanged`,
+      ).toEqual([
+        {
+          user_id: account.id,
+          org_role: account.orgRole,
+          sol_role: account.solRole,
+        },
+      ]);
+    }
+    // The viewer fixture is the org owner; owner org_role grants no business role.
+    expect(fixture().accounts.viewer).toMatchObject({ orgRole: "owner", solRole: "VIEWER" });
     const still = await request.get("/api/v1/team-members", {
       headers: await headers(request, "viewer"),
     });

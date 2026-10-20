@@ -1,0 +1,92 @@
+{
+  "version": "kev-qs/v0.2",
+  "status": "확정 (2026-10-20 사용자). 파인튜닝 학습 데이터(ADR-027)가 같은 원문을 쓴다. 문자열을 바꾸면 버전을 올린다",
+  "source": "docs/03-AI-PIPELINE.md §5.5·§5.10의 질문 요지를 v0.1 문체로 옮긴 영어 원문. 문자열을 바꾸면 버전을 올린다.",
+  "questions": {
+    "recommendation": {
+      "type": "choice",
+      "instructions": "Given the company profile and the notice requirements, which action should the sales team take?",
+      "criteria": {
+        "BID": "Requirements are met and the fit is strong",
+        "WATCH": "Promising but something must be confirmed first",
+        "NO_BID": "A mandatory requirement is unmet or the fit is poor"
+      }
+    },
+    "mandatoryRisk": {
+      "type": "noul",
+      "instructions": "Is there a mandatory qualification, license or past-performance requirement that this company probably does not satisfy?",
+      "criteria": {
+        "true": "At least one mandatory item is likely unmet or unverifiable",
+        "false": "All mandatory items appear satisfied"
+      }
+    },
+    "needsHumanReview": {
+      "type": "noul",
+      "instructions": "Does this notice contain ambiguity, conflicting figures or unusual conditions that a human should check before deciding?"
+    },
+    "fit": {
+      "type": "score",
+      "instructions": "How well does this company's capability match this notice overall?",
+      "criteria": ["Very poor", "Poor", "Moderate", "Good", "Very good"]
+    },
+    "req.{itemId}.status": {
+      "type": "choice",
+      "instructions": "Consider the requirement marked [{itemId}] in the NOTICE section. Does the company described in the COMPANY section satisfy it?",
+      "criteria": {
+        "SATISFIED": "The company's records clearly meet this requirement",
+        "NOT_SATISFIED": "The company's records explicitly show that this requirement is not met",
+        "NEEDS_REVIEW": "The information is missing, ambiguous or cannot be matched with confidence"
+      }
+    },
+    "techFit": {
+      "type": "score",
+      "instructions": "How well do the company's technologies match the technology stack this notice requires, counting equivalent or closely related technologies?",
+      "criteria": ["Very poor", "Poor", "Moderate", "Good", "Very good"]
+    },
+    "perfRelevance": {
+      "type": "score",
+      "instructions": "How relevant is the company's most closely related past project to the work this notice describes?",
+      "criteria": ["Very poor", "Poor", "Moderate", "Good", "Very good"]
+    },
+    "risk.schedule": {
+      "type": "noul",
+      "instructions": "Is the schedule or duration of this project tight compared with the company's staff availability in that period?",
+      "criteria": {
+        "true": "The schedule is likely too tight for the available staff",
+        "false": "The schedule appears manageable with the available staff"
+      }
+    },
+    "risk.staffing": {
+      "type": "noul",
+      "instructions": "Would the company have difficulty providing the staff roles, grades or headcount this notice requires?",
+      "criteria": {
+        "true": "Required roles, grades or headcount are likely hard to provide",
+        "false": "Required staffing appears within the company's capacity"
+      }
+    },
+    "risk.scale": {
+      "type": "noul",
+      "instructions": "Is the scale of this project well beyond the company's past delivery experience?",
+      "criteria": {
+        "true": "The project is much larger than anything the company has delivered",
+        "false": "The project scale is within the company's delivery experience"
+      }
+    },
+    "risk.techGap": {
+      "type": "noul",
+      "instructions": "Does this notice require a core technology that the company has no recorded experience with?",
+      "criteria": {
+        "true": "At least one core technology has no matching company experience",
+        "false": "The company has experience with every core technology"
+      }
+    },
+    "risk.scopeAmbiguity": {
+      "type": "noul",
+      "instructions": "Are the scope or conditions of this project vague or contradictory?",
+      "criteria": {
+        "true": "The scope or conditions are vague or contradictory",
+        "false": "The scope and conditions are clear and consistent"
+      }
+    }
+  }
+}

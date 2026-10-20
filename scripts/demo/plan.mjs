@@ -35,8 +35,10 @@ export const DEMO_ORGS = [
 export const demoOrgIds = () => DEMO_ORGS.map((org) => orgUuid(org.code));
 
 // 19 §1 의 계정 다섯. admin@ 은 조직 관리(owner)와 업무 관리(ADMIN)를 함께 가진다(10 seed 절).
-// org-01 계정은 가입 신고(ADR-019)처럼 부서·직급 코드를 함께 적는다 — 가입 트리거가 카탈로그에서 찾으므로
-// 카탈로그를 계정보다 먼저 넣는다. org-02 계정은 솔리데오 소속이 아니라 신고 정보를 두지 않는다.
+// 계정은 가입 신고(ADR-019)처럼 부서·직급 코드를 함께 적는다 — 가입 트리거가 카탈로그에서 찾으므로
+// 카탈로그를 계정보다 먼저 넣는다. 신고가 없으면 가입 정보 미완료라 업무 API 가 403 PROFILE_INCOMPLETE 다(04 §3.5).
+// 신고 카탈로그는 솔리데오 고정이라(check_declared_employment) org-02 계정도 같은 카탈로그에서 고른다.
+// 값은 같은 VIEWER 인 org-01 viewer 와 같게 둔다.
 export const DEMO_ACCOUNTS = [
   {
     key: "admin",
@@ -85,8 +87,8 @@ export const DEMO_ACCOUNTS = [
     org: "org-02",
     orgRole: "member",
     solRole: "VIEWER",
-    departmentCode: null,
-    jobTitleCode: null,
+    departmentCode: "SOL-D035",
+    jobTitleCode: "SOL-J011",
   },
 ];
 
@@ -141,8 +143,10 @@ export const toRunMode = (value) => {
 
 // ── 6. mock 추출(requirement_extractions) ─────────────────────
 //
-// fixtures/extractions/FX-xx.json 은 마지막 revision, FX-xx.rNN.json 은 앞선 revision 이다(07 §6.5). SEED 는 r1 만
-// 적재하므로 rNN 파일이 있으면 그것을, 없으면 FX-xx.json 을 r1 에 쓴다. 파일 안의 "FX-xx"·"FX-xx#NN" 은 UUID 로 바꾼다.
+// demo:reset 은 추출을 적재하지 않는다(demo-reset.mjs 머리말). 아래 도우미는 분석 저장 시험이 fixture 추출로
+// 캐시 행을 만들 때 test-harness 로 쓴다. gateway 의 인용 검증(03 §4.4)은 거치지 않는다.
+// fixtures/extractions/FX-xx.json 은 마지막 revision, FX-xx.rNN.json 은 앞선 revision 이다(07 §6.5). r1 행은
+// rNN 파일이 있으면 그것을, 없으면 FX-xx.json 을 쓴다. 파일 안의 "FX-xx"·"FX-xx#NN" 은 UUID 로 바꾼다.
 
 export const EXTRACTION_FILE = /^(FX-\d{2})(?:\.r(\d{2}))?\.json$/;
 
@@ -183,8 +187,8 @@ export const substituteExtractionIds = (extraction, { fixtureId, bidId, revision
   return { ...replacePlaceholders(extraction, replace), bidId };
 };
 
-// 첨부 파싱 실패(FX-05)는 PENDING_REVIEW(07 §6.3). 인용 검증 실패(FX-13)는 gateway 가 필드를 CONFLICTED 로 두는 일이라
-// 추출 행의 상태는 COMPLETED 다.
+// 첨부 파싱 실패(FX-05)는 PENDING_REVIEW(07 §6.3). 인용 검증 실패(FX-13)는 gateway 가 필드를 UNKNOWN +
+// note "CITATION_FAILED" 로 바꾸는 일(ADR-029 A1)이라 이 도우미는 반영하지 않고, 추출 행의 상태는 COMPLETED 다.
 export const extractionStatus = (extraction) =>
   (extraction.warnings ?? []).some((warning) =>
     String(warning).startsWith("ATTACHMENT_PARSE_FAILED"),

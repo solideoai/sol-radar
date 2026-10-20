@@ -1,0 +1,14 @@
+// 명령: viewer@other.invalid(org-02) access token 을 Authorization: Bearer 로 붙여 호출 (토큰 마스킹) · 커밋 72bfb9c · 2026-10-20 10:16 KST
+// 1) GET /api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163/qualification-checks (FX-01)
+{"error":{"code":"NOT_FOUND","message":"분석을 찾을 수 없습니다","details":{"resource":"analysis"},"requestId":"99e85b2e-36b2-4e0d-9d59-2376ca879087"}}
+http=404
+// 2) GET /api/v1/analyses/2ed9c433-e55a-4c98-86c7-c16d72bb014e (org-01 의 FX-01 사전 분석 id)
+{"error":{"code":"NOT_FOUND","message":"분석을 찾을 수 없습니다","details":{"resource":"analysis"},"requestId":"a007b7de-b2f4-4101-ba94-1667a5135a69"}}
+http=404
+// 3) GET /api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163 (공고 본문, 공용이라 200 기대. latestAnalysis·latestReview 는 null 기대)
+{"id": "b9f00c0b-96e2-5949-9fc7-ef7bb7aea163", "noticeId": "DEMO-2026-0001", "title": "세종특별자치시 차세대 행정정보시스템 고도화 (가상)", "isDemo": true, "stage": "NOTICE", "latestAnalysis": null, "latestReview": null}
+other keys: ['agency', 'budgetKrw', 'content', 'deadlineAt', 'documents', 'documentsStatus', 'extraction', 'extractionStatus', 'lastSyncedAt', 'latestRevision', 'origin', 'original', 'planRef', 'publishedAt', 'reviews', 'revisions', 'source', 'sourceUrl', 'stageLinks', 'status', 'structuredQualifications']
+http=200
+// 4) 같은 token 으로 GET /api/v1/bids?limit=50 → org-02 에서 보이는 공고 수와 latestAnalysis 존재 여부
+items= 19 withAnalysis= 0 withReview= 0
+http=200

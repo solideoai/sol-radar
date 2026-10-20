@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - ops
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 12. 구현 순서와 해커톤 컷
@@ -30,7 +30,7 @@ updated: 2026-10-19
 |5|AI gateway: mock adapter(CI용, 먼저) → 장애 대체(`PARTIAL`) → Qwen3.5-9B `/extract` local + `translations`(P0-4) → Kev-9B@v1.0 `kev-qs/v0.2` 참고 지표·`stateTrace`·레지스트리 검증(P0-6) → `/explain`(P0-7)|mock/실모델 switch, PARTIAL 경로, 실패 유형 구분, 인용 검증 통과율·실공고 1건 E2E 로그, Kev 응답 원문 저장·규칙 불변 시험|
 |6|최종 권고 + 영업 리뷰 + 인앱 알림|엔드투엔드 검토 완료|
 |7|보안·성능·로그·배포. 세 모드 기동 리허설, 엔드포인트 재접속 확인 리허설|릴리즈 체크리스트 PASS|
-|평가 트랙|평가셋 v0.1(P0-9), 평가 하네스와 E0·E1·E2 리포트(P0-10), 학습셋 번들 내보내기와 LoRA 메모리 검증 스크립트·절차(P0-11). 평가셋 라벨은 10-19부터, 학습셋 번들은 Phase 5 local이 동작한 뒤. Kev-9B LoRA 학습(F1·F2·F3)은 회사 측 실행(X6, [[16-DECISIONS\|ADR-027]])|[[21-MODEL-TRAINING\|21 모델 학습]] §7 수용 기준|
+|평가 트랙|평가셋 v0.1(P0-9), 평가 하네스와 E0·E1·E2 리포트(P0-10), 학습셋 번들 내보내기와 LoRA 메모리 검증 스크립트·절차(P0-11). 평가셋 라벨은 10-19부터, 학습셋 번들은 Phase 5 local이 동작한 뒤. Kev-9B LoRA 학습(F1·F2·F3)은 회사 GPU 서버의 물리 GPU 1(A40 46,068 MiB)에서 회사 측 실행(X6, [[16-DECISIONS\|ADR-027]]. 서버 환경 확인 2026-10-20, Kev 설치·F1 미완)|[[21-MODEL-TRAINING\|21 모델 학습]] §7 수용 기준|
 |8 (P1)|카카오톡/경쟁사/인력배치|공식 데이터 및 외부 승인 확보 후|
 
 ## 해커톤 우선순위 (P0)
@@ -93,11 +93,11 @@ updated: 2026-10-19
 |X3|경쟁 서비스 비교(공개 페이지)|—|없음|완료(10-19)|
 |X4|제출물: 슬라이드·3분 영상·기술 자료. 구조는 지금부터 병렬, 완성은 C8·X1·X2 뒤|—|구조: 없음 / 완성: C8·X1·X2|구조 10-19~, 완성 10-23~24, E4 반영 10-26|
 |X5|확장 컷(위 표 순서)|—|핵심 컷 green|10-23 이후|
-|X6|Kev-9B LoRA 파인튜닝 트랙([[16-DECISIONS\|ADR-027]]): X6a 평가셋 v0.1(P0-9) → X6b 학습셋 번들·학습 요청서(P0-11) → X6c F1(회사) → X6d F2(회사) → X6e F3 보정·E4 평가 → X6f 제출물 반영. 데모 모델은 Kev-9B@v1.0 그대로. 실행 절차는 [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]]|평가 / P0-9·P0-11|C3 live·첨부, C5 `local`, C1 ③, 회사 실행|10-19~26|
+|X6|Kev-9B LoRA 파인튜닝 트랙([[16-DECISIONS\|ADR-027]]): X6a 평가셋 v0.1(P0-9) → X6b 학습셋 번들·학습 요청서(P0-11) ‖ **X6p 회사 GPU 서버 준비**(10-20 **완료**: 전용 경로·venv `.venv-kev`·torch 2.8.0+cu128·CUDA·bf16·물리 GPU 1 전용 변수. 10-21~23 **미완**: Kev 설치·커널 smoke·모델 다운로드·sha256·`infra/gpu/kev-preflight.sh` 통과) → X6c F1(회사, **10-24 토**, `kev-f1.sh` 1024 → 2048 → …) → X6d F2(회사, **10-24 토**. 시간은 F1 실측으로 재추정, 미확정) → X6e F3 보정·서버 안 채점·오프라인 E4 평가(**10-25 일**) → X6f 제출물 반영(10-26). 모든 학습·채점은 물리 GPU 1 한 장. 데모 모델은 Kev-9B@v1.0 그대로. 실행 절차는 [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]], 주말 계획은 [[23-WEEKEND-FINETUNE\|23]]|평가 / P0-9·P0-11|X6c 는 X6b 번들 + X6p preflight 통과. C3 live·첨부(10-22 까지 안 되면 갈래 ① 구조화 필드만), C5 `local`·C1 ③(갈래 ② 일 때만), 회사 실행|10-19~26(학습은 10-24~25 주말, ADR-027 개정)|
 
 C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`)으로 원자적으로 하고, 하위 job은 outbox와 `documents` 큐만 만든다. **새 공고 자동 분석은 핵심 컷에 없다**. live 일정 수집 주기는 기본 30분이고 env로 바꾼다([[07-DATA-PIPELINE|07 수집]] §2).
 
-병렬 순서: 10-19 C0‖C1‖C2‖C3‖C4 보고‖C5‖C6‖X4 구조‖X6a → 10-20 C1 ③‖C2‖C3‖C5‖C6‖X6a·X6b, 저녁 외부 의존성 컷 → 10-21 C6‖C7‖C8‖X6a·X6b(회사 전달)‖X6c → 10-22 C8‖C9 1차‖X1‖X2‖X6c·X6d → 10-23 X1‖X2‖X4 완성‖X6d, 기능 freeze → 10-24 C9 최종 리허설‖X4 완성 → 10-25 X6e → 10-26 X6f·제출물 마감·예비 → 10-27 제출.
+병렬 순서: 10-19 C0‖C1‖C2‖C3‖C4 보고‖C5‖C6‖X4 구조‖X6a → 10-20 C1 ③‖C2‖C3‖C5‖C6‖X6a·X6b‖X6p 서버 환경 확인(완료), 저녁 외부 의존성 컷 → 10-21 C6‖C7‖C8‖X6a·X6b‖X6p Kev 설치·preflight 1차 → 10-22 C8‖C9 1차‖X1‖X2‖X6b 번들 마감·회사 전달 → 10-23 X1‖X2‖X4 완성‖X6p 모델 다운로드·preflight 전부 통과, 기능 freeze → 10-24 C9 최종 리허설‖X4 완성‖X6c·X6d(회사, 주말, GPU 1) → 10-25 X6e(회사 서버 안 채점 + 우리 오프라인 E4) → 10-26 X6f·제출물 마감·예비 → 10-27 제출.
 
 **외부 의존성 컷 규칙**(10-20 저녁, C1 결과 기준. ADR-027으로 하루 당겼다. 이 시점은 외부 의존성 컷을 정하는 기준이고 핵심 기능 개발은 계속한다):
 
@@ -113,10 +113,10 @@ C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장
 ## freeze ~ D-day
 |시점|할 일|
 |---|---|
-|freeze (10-23)|기능 freeze. fixture·seed 고정. 모델 레지스트리(`services/ai/models/registry.yaml`)·질문 세트·state 템플릿 버전 고정(데모 서빙 항목 `kev-9b-v1.0` 기준. E4 평가 전용 LoRA 항목 추가는 예외이고 데모 gateway 설정은 바꾸지 않는다, ADR-027). 전체 테스트 green. `docs/evidence/` 갱신. 공공 API 오늘 호출량 확인(개발계정 서비스당 1,000건/일)|
-|최종 리허설 (10-24)|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~12 리허설 2회 (재부팅 1회 포함). 로컬 Supabase CLI 전환 리허설([[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 세 모드(`live`·`fixture`·`mock`) 기동 리허설 각 1회(모드 전환은 env 변경 + worker·ai-gateway 재시작). 회사 GPU 추론 엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속 확인(`GET /v1/models`) 리허설, 재접속 확인 소요 시간 기록. live 리허설 호출 수가 일일 한도 안인지 확인|
-|10-25~26|X6e F3 보정·E4 평가, X6f 제출물 반영, 예비일. freeze 뒤라 앱 기능을 더하지 않고 리허설에서 나온 결함만 고친다. 고쳤으면 기동 절차 1~12를 한 번 다시 돈다|
-|D-day (제출 10-27, 발표일 미입력)|기동 절차 1~12. 엔드포인트 접속(`GET /v1/models`)과 `GET /api/v1/admin/ai/status`(Qwen healthy, Kev `registryMatch`) 확인. 시연 모드는 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §2.1(기본 `mock`), 장애 대체 순서는 `live` → `fixture` → `mock`. 리허설 후 `pnpm demo:reset`(seed 재실행, 멱등)으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
+|freeze (10-23)|기능 freeze. fixture·seed 고정. 모델 레지스트리(`services/ai/models/registry.yaml`)·질문 세트·state 템플릿 버전 고정(데모 서빙 항목 `kev-9b-v1.0` 기준. E4 학습본 항목(기록용) 추가는 예외이고 데모 gateway 설정은 바꾸지 않는다, ADR-027). 전체 테스트 green. `docs/evidence/` 갱신. 공공 API 오늘 호출량 확인(개발계정 서비스당 1,000건/일)|
+|최종 리허설 (10-24)|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~15 리허설 2회 (재부팅 1회 포함). 로컬 Supabase CLI 전환 리허설([[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 세 모드(`live`·`fixture`·`mock`) 기동 리허설 각 1회(모드 전환은 env 변경 + worker·ai-gateway 재시작). 회사 GPU 추론 엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속 확인(`GET /v1/models`) 리허설, 재접속 확인 소요 시간 기록. live 리허설 호출 수가 일일 한도 안인지 확인. 학습은 물리 GPU 1 만 쓴다. 추론 런타임이 GPU 1 에 있을 때만 X6c·X6d 학습 시간(토 09:00~)을 피해 `live`·`fixture` 확인을 토요일 오전 또는 일요일 저녁에 한다([[23-WEEKEND-FINETUNE\|23]] §2.4)|
+|10-25~26|X6e F3 보정·회사 서버 안 채점·우리 오프라인 E4 평가(10-25), X6f 제출물 반영(10-26), 예비일. freeze 뒤라 앱 기능을 더하지 않고 리허설에서 나온 결함만 고친다. 고쳤으면 기동 절차 1~15를 한 번 다시 돈다|
+|D-day (제출 10-27, 발표일 미입력)|기동 절차 1~15. 엔드포인트 접속(`GET /v1/models`)과 `GET /api/v1/admin/ai/status`(Qwen healthy, Kev `registryMatch`) 확인. 시연 모드는 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §2.1(기본 `mock`), 장애 대체 순서는 `live` → `fixture` → `mock`. 리허설 후 `pnpm demo:reset`(seed 재실행, 멱등)으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
 
 ```mermaid
 gantt
@@ -135,9 +135,10 @@ gantt
  C8 실공고 1건 E2E :c8, 2026-10-21, 2d
  section 파인튜닝 X6
  X6a 평가셋 v0.1 :x6a, 2026-10-19, 3d
- X6b 학습셋 번들 요청서 :x6b, 2026-10-20, 2d
- X6c F1 메모리 검증 회사 :x6c, 2026-10-21, 2d
- X6d F2 LoRA 학습 회사 :x6d, 2026-10-22, 2d
+ X6b 학습셋 번들 요청서 :x6b, 2026-10-20, 3d
+ X6p 서버 환경 Kev 설치 preflight :x6p, 2026-10-20, 4d
+ X6c F1 메모리 검증 회사 :x6c, 2026-10-24, 1d
+ X6d F2 LoRA 학습 회사 :x6d, 2026-10-24, 1d
  X6e F3 보정 E4 평가 :x6e, 2026-10-25, 1d
  X6f 결과 반영 :x6f, 2026-10-26, 1d
  section 검증 제출

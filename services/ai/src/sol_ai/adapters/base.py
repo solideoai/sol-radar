@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from sol_ai.contracts import ExtractRequest, KevRequest
+from sol_ai.deadline import Deadline
 
 
 class AdapterError(Exception):
@@ -32,14 +33,15 @@ class ModelOutput:
     """모델 응답 원문과 payload.model 에 쓸 값.
 
     model_block 이 있으면 파이프라인은 그 블록을 그대로 쓴다(mock: fixture 의 model 블록, K13).
-    없으면 파이프라인이 공급자·프롬프트 해시와 아래 시각·지연·재시도로 model 블록을 만든다.
+    없으면 파이프라인이 공급자·프롬프트 해시와 아래 시각·지연, 자기가 센 재시도로 model 블록을 만든다.
+    warnings 는 입력 조립에서 생긴 경고 코드다(예: TRUNCATED_INPUT).
     """
 
     text: str
     model_block: dict | None = None
     extracted_at: str | None = None
     latency: int | float | None = None
-    retries: int = 0
+    warnings: tuple[str, ...] = ()
 
 
 class QwenAdapter(Protocol):
@@ -48,7 +50,22 @@ class QwenAdapter(Protocol):
     model_name: str | None
     prompt_hash: str | None
 
-    def extract(self, request: ExtractRequest) -> ModelOutput: ...
+    def extract(
+        self, request: ExtractRequest, retry_note: str | None = None, *, deadline: Deadline
+    ) -> ModelOutput:
+        """retry_note 가 있으면 재시도 호출이다(03 §4.3: user message 끝에 검증 오류 요약을 붙인다).
+
+        deadline 은 요청 하나의 마감이다. 첫 호출과 재시도가 같은 객체를 받는다(C5-A S1).
+        """
+        ...
+
+
+@dataclass(frozen=True)
+class KevReply:
+    """Kev wire 응답 본문과 응답 헤더의 요청 id(x-typesafe-request-id)."""
+
+    body: dict
+    request_id: str | None = None
 
 
 class KevClient(Protocol):
@@ -57,11 +74,21 @@ class KevClient(Protocol):
     provider: str
     # GET /health 의 kev.modelId. None 이면 쓸 수 있는 Kev 어댑터가 없다
     model_id: str | None
+    # KevAssist.model(local: 레지스트리 run, mock: "mock")
+    assist_model: str | None
+    # wire 요청 본문의 "model"(local: 레지스트리 requestModel)
+    request_model: str
     registry_match: bool | None
     # 이 Kev 가 답하는 질문 세트 버전. 앞의 것이 기본이다
     question_sets: tuple[str, ...]
 
-    def answer(self, wire_request: dict, request: KevRequest) -> dict: ...
+    def precheck(self) -> None:
+        """서버를 부르기 전 판정(mock 의 장애 주입). 실패면 KevUnavailable."""
+        ...
+
+    def answer(self, wire_request: dict, request: KevRequest, *, deadline: Deadline) -> KevReply:
+        """deadline 은 요청 하나의 마감이다. 레지스트리 지연 대조와 v0.2 묶음 모두가 같은 객체를 받는다(C5-A S1)."""
+        ...
 
 
 @dataclass(frozen=True)

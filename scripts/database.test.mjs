@@ -55,6 +55,155 @@ const accessSnapshot = async (pglite) => ({
 const db = await createSupabaseDb();
 const asUser = (id, role) => actAs(db, id, role);
 
+describe("마지막 업무 ADMIN 보호", () => {
+  const orgId = "adc00000-0000-4000-8000-000000000001";
+  const prepare = async (t, secondAdmin = false) => {
+    const fresh = await migratedDb(t);
+    await fresh.query(
+      "insert into public.organizations (id,slug,name) values ($1,'admin-guard','관리자 보호')",
+      [orgId],
+    );
+    // owner 보호와 업무 ADMIN 보호를 독립적으로 검증한다.
+    for (const [index, role] of ["ADMIN", secondAdmin ? "ADMIN" : "VIEWER", "VIEWER"].entries()) {
+      await fresh.query(
+        "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,$3,$4)",
+        [orgId, users[index], index === 2 ? "owner" : "member", role],
+      );
+    }
+    await actAs(fresh, users[0]);
+    return fresh;
+  };
+  const lastAdmin = (error) => error.code === "P0001" && error.hint === "last_admin";
+
+  it("마지막 ADMIN은 자기 업무 역할을 내리지 못한다", async (t) => {
+    const fresh = await prepare(t);
+    await assert.rejects(
+      fresh.query(
+        "update public.memberships set sol_role='VIEWER' where org_id=$1 and user_id=$2",
+        [orgId, users[0]],
+      ),
+      lastAdmin,
+    );
+    assert.equal(
+      (
+        await fresh.query(
+          "select sol_role from public.memberships where org_id=$1 and user_id=$2",
+          [orgId, users[0]],
+        )
+      ).rows[0].sol_role,
+      "ADMIN",
+    );
+  });
+
+  it("다른 멤버가 남는 조직의 마지막 ADMIN은 스스로 나가지 못한다", async (t) => {
+    const fresh = await prepare(t);
+    await assert.rejects(
+      fresh.query("delete from public.memberships where org_id=$1 and user_id=$2", [
+        orgId,
+        users[0],
+      ]),
+      lastAdmin,
+    );
+  });
+
+  for (const operation of ["update", "delete"]) {
+    it(`ADMIN 둘을 한 문장으로 ${operation}해도 마지막 ADMIN을 없애지 못한다`, async (t) => {
+      const fresh = await prepare(t, true);
+      const sql =
+        operation === "update"
+          ? "update public.memberships set sol_role='VIEWER' where org_id=$1 and sol_role='ADMIN'"
+          : "delete from public.memberships where org_id=$1 and sol_role='ADMIN'";
+      await assert.rejects(fresh.query(sql, [orgId]), lastAdmin);
+      assert.equal(
+        (
+          await fresh.query(
+            "select count(*)::int n from public.memberships where org_id=$1 and sol_role='ADMIN'",
+            [orgId],
+          )
+        ).rows[0].n,
+        2,
+      );
+    });
+  }
+
+  it("다른 ADMIN이 있으면 자기 강등·탈퇴를 허용하고 남은 마지막 ADMIN은 보호한다", async (t) => {
+    const fresh = await prepare(t, true);
+    await fresh.query(
+      "update public.memberships set sol_role='VIEWER' where org_id=$1 and user_id=$2",
+      [orgId, users[0]],
+    );
+    await fresh.query("select public.delete_my_account()");
+    await actAs(fresh, users[1]);
+    await assert.rejects(
+      fresh.query(
+        "update public.memberships set sol_role='VIEWER' where org_id=$1 and user_id=$2",
+        [orgId, users[1]],
+      ),
+      lastAdmin,
+    );
+  });
+
+  it("계정 탈퇴가 JWT를 비우기 전에 마지막 ADMIN을 보호하고 계정·멤버십·JWT를 보존한다", async (t) => {
+    const fresh = await prepare(t);
+    await assert.rejects(fresh.query("select public.delete_my_account()"), lastAdmin);
+    assert.equal((await fresh.query("select auth.uid() id")).rows[0].id, users[0]);
+    assert.equal(
+      (
+        await fresh.query(
+          "select count(*)::int n from public.memberships where org_id=$1 and user_id=$2",
+          [orgId, users[0]],
+        )
+      ).rows[0].n,
+      1,
+    );
+    assert.equal(
+      (await fresh.query("select count(*)::int n from public.profiles where id=$1", [users[0]]))
+        .rows[0].n,
+      1,
+    );
+  });
+
+  it("다른 멤버에게 ADMIN을 넘기면 기존 ADMIN은 나갈 수 있다", async (t) => {
+    const fresh = await prepare(t);
+    await fresh.query(
+      "update public.memberships set sol_role='ADMIN' where org_id=$1 and user_id=$2",
+      [orgId, users[1]],
+    );
+    await fresh.query("delete from public.memberships where org_id=$1 and user_id=$2", [
+      orgId,
+      users[0],
+    ]);
+    await actAs(fresh, users[1]);
+    assert.equal(
+      (
+        await fresh.query(
+          "select count(*)::int n from public.memberships where org_id=$1 and sol_role='ADMIN'",
+          [orgId],
+        )
+      ).rows[0].n,
+      1,
+    );
+  });
+
+  it("혼자인 조직은 계정 탈퇴와 함께 지울 수 있다", async (t) => {
+    const fresh = await prepare(t);
+    await fresh.exec("reset role");
+    await fresh.query("select set_config('request.jwt.claims','',false)");
+    await fresh.query("delete from public.memberships where org_id=$1 and user_id<>$2", [
+      orgId,
+      users[0],
+    ]);
+    await fresh.query("update public.memberships set org_role='owner' where org_id=$1", [orgId]);
+    await actAs(fresh, users[0]);
+    await fresh.query("select public.delete_my_account()");
+    assert.equal(
+      (await fresh.query("select count(*)::int n from public.organizations where id=$1", [orgId]))
+        .rows[0].n,
+      0,
+    );
+  });
+});
+
 // 흉내 DB 의 PostgreSQL 버전. maintain 권한은 17 부터 있다.
 const pgVersion = (await db.query("select current_setting('server_version_num')::int as version"))
   .rows[0].version;
@@ -1144,8 +1293,9 @@ describe("조직·멤버십·초대 정책", () => {
   it("owner 둘을 한 문장으로 함께 내리거나 내보내도 owner 가 0명이 되지 않는다", async (t) => {
     const { pglite, acme } = await teamDb(t);
     await as(pglite, 0);
+    // ADMIN도 둘이어야 첫 삭제는 통과하고 마지막 owner 보호를 독립적으로 검증한다.
     await pglite.query(
-      "update public.memberships set org_role = 'owner' where org_id = $1 and user_id = $2",
+      "update public.memberships set org_role = 'owner', sol_role = 'ADMIN' where org_id = $1 and user_id = $2",
       [acme, users[1]],
     );
     await assert.rejects(
@@ -2679,8 +2829,9 @@ describe("조직·멤버십·초대 정책", () => {
     it("owner 가 둘인 팀은 한 owner 의 탈퇴를 막지 않는다 — 팀은 남은 owner 와 그대로다", async (t) => {
       const { pglite, acme } = await teamDb(t);
       await as(pglite, 0);
+      // 계정을 지우기 전에 남은 owner에게 업무 ADMIN도 인계한다.
       await pglite.query(
-        "update public.memberships set org_role = 'owner' where org_id = $1 and user_id = $2",
+        "update public.memberships set org_role = 'owner', sol_role = 'ADMIN' where org_id = $1 and user_id = $2",
         [acme, users[1]],
       );
       await deleteMe(pglite);
@@ -4283,14 +4434,17 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
       [BID1],
       "bid_revisions_bid_id_revision_key",
     );
+    // C5-B 보안 후속 (a): 키는 `<org_id>:` 로 시작해야 한다(score_runs_idempotency_key_org_check, 20261019000011).
+    // 예전 키 "idem-1" 은 그 check 에 먼저 걸려 이 시험이 보려는 UNIQUE 를 못 보므로 조직 접두어를 붙였다.
+    const idem = `${ORG1}:idem-1`;
     await as(pglite, "sales");
-    await requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.1", { idempotency_key: "idem-1" });
+    await requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.1", { idempotency_key: idem });
     await assert.rejects(
-      requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.2", { idempotency_key: "idem-1" }),
+      requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.2", { idempotency_key: idem }),
       { code: "23505" },
     );
     await rejectsWith(
-      requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.2", { idempotency_key: "idem-1" }),
+      requestRun(pglite, ORG1, PROFILE1, "sol-v0.1.2", { idempotency_key: idem }),
       "score_runs_idempotency_key_key",
     );
   });
@@ -4343,7 +4497,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
           "technologies_complete",
         ]),
         ...columns("notifications", "UPDATE", ["read_at"]),
-        // 상태·결과·요청자·시각은 worker 가 채운다.
+        // 상태·결과·요청자·시각은 worker 가 채운다. request_hash 는 20261019000012 가 더한 요청 지문이다.
         ...columns("score_runs", "INSERT", [
           "ai_provider",
           "algorithm_version",
@@ -4353,6 +4507,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
           "idempotency_key",
           "org_id",
           "profile_revision",
+          "request_hash",
           "revision_id",
           "run_mode",
         ]),
@@ -4571,6 +4726,565 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
             column_name: "kev_assist",
             grantee: "authenticated",
             privilege_type: "SELECT",
+          },
+        ],
+      );
+    });
+  });
+
+  // 20261019000012: 화면(C6)의 읽기·분석 요청 보조. score_runs.request_hash(같은 키 + 다른 본문 409 의 지문),
+  // release_unqueued_score_run(큐 등록 실패 → 요청자 본인의 QUEUED run 을 FAILED 로 풀고 멱등 키를 비운다),
+  // latest_ingest_run(업무 역할이 있는 사용자의 수집 신선도 한 줄), 뷰 bid_list_items(공고 + 조직의 최신 분석·결정 +
+  // 최신 revision 첨부 집계, security_invoker). 멱등 키는 <org_id>:<uuid> 형식이다(20261019000011 의 조직 접두 check 와 맞춘다).
+  describe("C6 화면 읽기·분석 요청 보조 (20261019000012)", () => {
+    const KEY1 = `${ORG1}:5a1e0000-0000-4000-8000-000000000001`;
+    const KEY2 = `${ORG1}:5a1e0000-0000-4000-8000-000000000002`;
+    const KEY_ORG2 = `${ORG2}:5a1e0000-0000-4000-8000-000000000003`;
+    const HASH1 = "a".repeat(64);
+    const HASH2 = "b".repeat(64);
+    const MISSING_RUN = "a0000000-0000-0000-0000-0000000000ff";
+    const functionDenied = (name) => ({
+      code: "42501",
+      message: new RegExp(`permission denied for function ${name}`),
+    });
+
+    const release = (pglite, id) =>
+      rowsOf(pglite, "select public.release_unqueued_score_run($1) as released", [id]);
+    const latestIngest = (pglite, origin) =>
+      rowsOf(pglite, "select * from public.latest_ingest_run($1)", [origin]);
+    // 화면이 읽는 열. 시각·금액(numeric)은 따로 본다.
+    const LIST_COLUMNS = [
+      "id",
+      "status",
+      "budget_krw_text",
+      "latest_run_id",
+      "latest_run_status",
+      "latest_run_score",
+      "latest_run_recommendation",
+      "latest_run_basis",
+      "latest_run_flags",
+      "scored_score",
+      "scored_recommendation",
+      "latest_decision",
+      "latest_reviewer_display_name",
+      "latest_reviewer_email",
+      "docs_total",
+      "docs_pending",
+      "docs_parsed",
+      "docs_partial",
+      "docs_unsupported",
+      "docs_failed",
+      "docs_download_failed",
+    ];
+    const listOf = (pglite) =>
+      rowsOf(pglite, `select ${LIST_COLUMNS.join(", ")} from public.bid_list_items order by id`);
+    const NO_DOCS = {
+      docs_total: 0,
+      docs_pending: 0,
+      docs_parsed: 0,
+      docs_partial: 0,
+      docs_unsupported: 0,
+      docs_failed: 0,
+      docs_download_failed: 0,
+    };
+    const NO_ORG_DATA = {
+      latest_run_id: null,
+      latest_run_status: null,
+      latest_run_score: null,
+      latest_run_recommendation: null,
+      latest_run_basis: null,
+      latest_run_flags: null,
+      scored_score: null,
+      scored_recommendation: null,
+      latest_decision: null,
+      latest_reviewer_display_name: null,
+      latest_reviewer_email: null,
+    };
+    // seed 의 BID1·BID2 공고 열(마감 없음 → 저장 상태 그대로). BID1 에는 최신 revision 의 PENDING 첨부가 하나 있다.
+    const BID1_ROW = {
+      id: BID1,
+      status: "OPEN",
+      budget_krw_text: "1200000000",
+      ...NO_DOCS,
+      docs_total: 1,
+      docs_pending: 1,
+    };
+    const BID2_ROW = { id: BID2, status: "OPEN", budget_krw_text: "800000000", ...NO_DOCS };
+    // 완료 run(RUN1·RUN2 seed) 의 열.
+    const completedRun = (run) => ({
+      latest_run_id: run,
+      latest_run_status: "COMPLETED",
+      latest_run_score: 82,
+      latest_run_recommendation: "BID",
+      latest_run_basis: "RULES_ONLY",
+      latest_run_flags: [],
+      scored_score: 82,
+      scored_recommendation: "BID",
+    });
+
+    it("분석 요청은 request_hash(null 허용 text, 기본값 없음)를 함께 넣고, 넣은 뒤에는 ADMIN·SALES 도 고치지 못한다(42501)", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select data_type, is_nullable, column_default from information_schema.columns
+           where table_schema = 'public' and table_name = 'score_runs' and column_name = 'request_hash'`,
+        ),
+        [{ data_type: "text", is_nullable: "YES", column_default: null }],
+      );
+      await as(pglite, "sales");
+      const [{ id, status, requested_by }] = await requestRun(
+        pglite,
+        ORG1,
+        PROFILE1,
+        "sol-v0.2.0",
+        { idempotency_key: KEY1, request_hash: HASH1 },
+      );
+      assert.deepEqual({ status, requested_by }, { status: "QUEUED", requested_by: WHO.sales });
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select idempotency_key, request_hash from public.score_runs where id = $1",
+          [id],
+        ),
+        [{ idempotency_key: KEY1, request_hash: HASH1 }],
+      );
+      for (const who of ["sales", "admin"]) {
+        await as(pglite, who);
+        await assert.rejects(
+          pglite.query("update public.score_runs set request_hash = $1 where id = $2", [HASH2, id]),
+          { code: "42501", message: /permission denied for table score_runs/ },
+          who,
+        );
+      }
+      // seed run 은 request_hash 없이 넣었다(마이그레이션 전에 쌓인 행과 같다).
+      await asWorker(pglite);
+      assert.deepEqual(
+        await rowsOf(pglite, "select request_hash from public.score_runs where id = any($1)", [
+          [RUN1, RUN2],
+        ]),
+        [{ request_hash: null }, { request_hash: null }],
+      );
+    });
+
+    it("같은 입력의 두 번째 QUEUED 요청은 23505(score_runs_active_input_key), 같은 멱등 키의 두 번째 요청은 다른 입력·다른 요청자라도 23505(score_runs_idempotency_key_key)다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+        request_hash: HASH1,
+      });
+      await assert.rejects(
+        requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+          idempotency_key: KEY2,
+          request_hash: HASH1,
+        }),
+        { code: "23505", message: /score_runs_active_input_key/ },
+        "같은 입력",
+      );
+      for (const who of ["sales", "analyst"]) {
+        await as(pglite, who);
+        await assert.rejects(
+          requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.1", {
+            idempotency_key: KEY1,
+            request_hash: HASH2,
+          }),
+          { code: "23505", message: /score_runs_idempotency_key_key/ },
+          `${who} 같은 키`,
+        );
+      }
+    });
+
+    it("요청자는 자기 QUEUED run 을 release_unqueued_score_run 으로 푼다 — true 이고 FAILED·ENQUEUE_FAILED·멱등 키 null·finished_at 만 바뀌며, 두 번째 호출은 false, 같은 키·같은 입력의 새 QUEUED run 은 들어간다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      const [{ id }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+        request_hash: HASH1,
+      });
+      assert.deepEqual(await release(pglite, id), [{ released: true }]);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select status, error_code, idempotency_key, request_hash, requested_by, started_at, score,
+             finished_at is not null as finished
+           from public.score_runs where id = $1`,
+          [id],
+        ),
+        [
+          {
+            status: "FAILED",
+            error_code: "ENQUEUE_FAILED",
+            idempotency_key: null,
+            request_hash: HASH1,
+            requested_by: WHO.sales,
+            started_at: null,
+            score: null,
+            finished: true,
+          },
+        ],
+      );
+      assert.deepEqual(await release(pglite, id), [{ released: false }], "두 번째 호출");
+      const [again] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+        request_hash: HASH1,
+      });
+      assert.notEqual(again.id, id);
+      assert.equal(again.status, "QUEUED");
+    });
+
+    it("남의 run·RUNNING run·업무 역할이 VIEWER 인 요청자·org-02 사용자·없는 run 은 false 이고 행이 그대로다 — 로그아웃은 실행 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      const [{ id: queued }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+      });
+      const [{ id: running }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.1", {
+        idempotency_key: KEY2,
+      });
+      await asWorker(pglite);
+      await pglite.query(
+        "update public.score_runs set status = 'RUNNING', started_at = now() where id = $1",
+        [running],
+      );
+      // org-02 VIEWER 가 요청자로 적힌 QUEUED run(관리 작업으로 넣는다). 요청자라도 업무 역할이 VIEWER 라 풀지 못한다.
+      const [{ id: viewerRun }] = await rowsOf(
+        pglite,
+        `insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version,
+           run_mode, ai_provider, idempotency_key, requested_by)
+         values ($1, $2, $3, $4, 1, 'sol-v0.2.0', 'MOCK', 'MOCK', $5, $6) returning id`,
+        [ORG2, BID1, REV1, PROFILE2, KEY_ORG2, WHO.outsider],
+      );
+      const snapshot = () =>
+        rowsOf(
+          pglite,
+          "select id, status, error_code, idempotency_key, started_at, finished_at from public.score_runs order by id",
+        );
+      const before = await snapshot();
+      for (const [who, id, why] of [
+        ["analyst", queued, "같은 조직의 남의 run"],
+        ["admin", queued, "ADMIN 도 남의 run 은 못 푼다"],
+        ["sales", running, "RUNNING"],
+        ["outsider", queued, "다른 조직"],
+        ["outsider", viewerRun, "요청자지만 VIEWER"],
+        ["viewer", queued, "VIEWER"],
+        ["operator", queued, "비멤버 운영자"],
+        ["sales", MISSING_RUN, "없는 run"],
+      ]) {
+        await as(pglite, who);
+        assert.deepEqual(await release(pglite, id), [{ released: false }], `${who}: ${why}`);
+      }
+      await asAnon(pglite);
+      await assert.rejects(release(pglite, queued), functionDenied("release_unqueued_score_run"));
+      await asWorker(pglite);
+      assert.deepEqual(await snapshot(), before);
+    });
+
+    it("latest_ingest_run 은 업무 역할이 있는 사용자(다른 조직 포함)에게 출처별 최신 수집 run 한 줄의 상태·시각·요약만 준다 — demo 는 fixture, live 는 g2b, all 은 전부이고, 조직 없는 사용자는 0행, 로그아웃은 실행 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      const SUMMARY = {
+        created: 19,
+        changed: 0,
+        cancelled: 0,
+        skippedDuplicate: 0,
+        quarantined: 1,
+        retried: 0,
+      };
+      await pglite.query(
+        "update public.ingest_runs set summary = $1, started_at = now() - interval '2 hours' where id = $2",
+        [JSON.stringify(SUMMARY), INGEST1],
+      );
+      // 더 오래된 fixture run. 최신 한 줄에 나오지 않는다.
+      await pglite.query(
+        `insert into public.ingest_runs (source, run_mode, job_key, trigger, batch, status, summary, started_at, finished_at)
+         values ('fixture', 'MOCK', 'ingest:fixture:old', 'DEMO', 'SEED', 'SUCCEEDED', '{"created":1}',
+           now() - interval '1 day', now() - interval '1 day')`,
+      );
+      const runOf = async (where) =>
+        (
+          await rowsOf(
+            pglite,
+            `select status, started_at, finished_at, summary from public.ingest_runs where ${where}`,
+          )
+        )[0];
+      const demoRun = await runOf(`id = '${INGEST1}'`);
+      assert.deepEqual(demoRun.summary, SUMMARY);
+      const MEMBERS = ["admin", "sales", "analyst", "viewer", "outsider"];
+      for (const who of MEMBERS) {
+        await as(pglite, who);
+        const rows = await latestIngest(pglite, "demo");
+        assert.deepEqual(rows, [demoRun], `${who} demo`);
+        assert.deepEqual(
+          Object.keys(rows[0]),
+          ["status", "started_at", "finished_at", "summary"],
+          `${who} 열`,
+        );
+        assert.deepEqual(
+          await latestIngest(pglite, "live"),
+          [],
+          `${who} live 는 fixture 를 주지 않는다`,
+        );
+        assert.deepEqual(await latestIngest(pglite, "all"), [demoRun], `${who} all`);
+      }
+
+      // g2b run 이 생기면 live 는 그것을, all 은 가장 최근 것을 준다. demo 는 그대로 fixture 다.
+      await asWorker(pglite);
+      await pglite.query(
+        `insert into public.ingest_runs (source, run_mode, job_key, trigger, status, summary, quota_used, started_at)
+         values ('g2b', 'LIVE', 'ingest:g2b:1', 'SCHEDULED', 'RUNNING', '{"created":3}', 3, now() - interval '1 hour')`,
+      );
+      const liveRun = await runOf("source = 'g2b'");
+      for (const who of MEMBERS) {
+        await as(pglite, who);
+        assert.deepEqual(await latestIngest(pglite, "live"), [liveRun], `${who} live`);
+        assert.deepEqual(await latestIngest(pglite, "all"), [liveRun], `${who} all`);
+        assert.deepEqual(await latestIngest(pglite, "demo"), [demoRun], `${who} demo`);
+        assert.deepEqual(await latestIngest(pglite, "unknown"), [], `${who} 모르는 출처`);
+      }
+
+      for (const who of ["invitee", "operator"]) {
+        await as(pglite, who);
+        for (const origin of ["demo", "live", "all"])
+          assert.deepEqual(await latestIngest(pglite, origin), [], `${who} ${origin}`);
+      }
+      await asAnon(pglite);
+      await assert.rejects(latestIngest(pglite, "demo"), functionDenied("latest_ingest_run"));
+    });
+
+    it("bid_list_items 의 열 이름·타입은 화면 계약 그대로이고, 화면 역할 권한은 authenticated 의 SELECT 하나다 — 로그아웃은 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(
+        (
+          await rowsOf(
+            pglite,
+            `select column_name, data_type from information_schema.columns
+             where table_schema = 'public' and table_name = 'bid_list_items' order by ordinal_position`,
+          )
+        ).map(({ column_name, data_type }) => `${column_name} ${data_type}`),
+        [
+          "id uuid",
+          "source text",
+          "notice_id text",
+          "title text",
+          "agency text",
+          "stage text",
+          "budget_krw numeric",
+          "budget_krw_text text",
+          "published_at timestamp with time zone",
+          "deadline_at timestamp with time zone",
+          "latest_revision integer",
+          "plan_ref text",
+          "is_demo boolean",
+          "source_url text",
+          "last_synced_at timestamp with time zone",
+          "status text",
+          "latest_run_id uuid",
+          "latest_run_status text",
+          "latest_run_score smallint",
+          "latest_run_recommendation text",
+          "latest_run_basis text",
+          "latest_run_flags ARRAY",
+          "latest_run_created_at timestamp with time zone",
+          "scored_score smallint",
+          "scored_recommendation text",
+          "latest_decision text",
+          "latest_decided_at timestamp with time zone",
+          "latest_reviewer_display_name text",
+          "latest_reviewer_email text",
+          "docs_total integer",
+          "docs_pending integer",
+          "docs_parsed integer",
+          "docs_partial integer",
+          "docs_unsupported integer",
+          "docs_failed integer",
+          "docs_download_failed integer",
+        ],
+      );
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select grantee, privilege_type from information_schema.role_table_grants
+           where table_schema = 'public' and table_name = 'bid_list_items' and grantee in ('anon', 'authenticated', 'PUBLIC')
+           order by 1, 2`,
+        ),
+        [{ grantee: "authenticated", privilege_type: "SELECT" }],
+      );
+      await asAnon(pglite);
+      await assert.rejects(
+        rowsOf(pglite, "select id from public.bid_list_items"),
+        /permission denied for view bid_list_items/,
+      );
+    });
+
+    it("bid_list_items — org-01 VIEWER 는 BID1 의 최신 run RUN1·점수·결정을 보고, 새 QUEUED run 이 생기면 최신 run 은 그것이지만 점수는 마지막 완료 run 의 것이며, 최신 결정은 검토자 이름·이메일과 함께 나온다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "viewer");
+      assert.deepEqual(await listOf(pglite), [
+        { ...BID1_ROW, ...NO_ORG_DATA, ...completedRun(RUN1), latest_decision: "BID" },
+        { ...BID2_ROW, ...NO_ORG_DATA },
+      ]);
+
+      await as(pglite, "sales");
+      const [{ id: queued }] = await requestRun(pglite, ORG1, PROFILE1, "sol-v0.2.0", {
+        idempotency_key: KEY1,
+      });
+      await decide(pglite, { decision: "WATCH", reason: "새 분석을 기다리며 지켜본다" });
+      await asWorker(pglite);
+      const [reviewer] = await rowsOf(
+        pglite,
+        "select display_name, email from public.profiles where id = $1",
+        [WHO.sales],
+      );
+      assert.equal(reviewer.email, EMAIL.sales);
+      for (const who of ["admin", "sales", "analyst", "viewer"]) {
+        await as(pglite, who);
+        const [bid1] = await listOf(pglite);
+        assert.deepEqual(
+          bid1,
+          {
+            ...BID1_ROW,
+            latest_run_id: queued,
+            latest_run_status: "QUEUED",
+            latest_run_score: null,
+            latest_run_recommendation: null,
+            latest_run_basis: null,
+            latest_run_flags: [],
+            scored_score: 82,
+            scored_recommendation: "BID",
+            latest_decision: "WATCH",
+            latest_reviewer_display_name: reviewer.display_name,
+            latest_reviewer_email: reviewer.email,
+          },
+          who,
+        );
+      }
+    });
+
+    it("bid_list_items 는 security_invoker 다 — org-02 VIEWER 는 공고를 모두 보지만 org-01 의 run·결정은 보지 않고(자기 조직 것만), 비멤버 운영자는 조직 열이 모두 비어 있다", async (t) => {
+      const pglite = await solDb(t);
+      // org-01 만 BID2 를 분석·결정한다.
+      await as(pglite, "sales");
+      const [{ id: bid2Run }] = await rowsOf(
+        pglite,
+        `insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version,
+           run_mode, ai_provider, idempotency_key)
+         values ($1, $2, $3, $4, 1, 'sol-v0.1.0', 'MOCK', 'MOCK', $5) returning id`,
+        [ORG1, BID2, REV2, PROFILE1, KEY1],
+      );
+      await decide(pglite, { bid_id: BID2, revision_id: REV2, decision: "NO_BID" });
+
+      await as(pglite, "viewer");
+      const [, bid2] = await listOf(pglite);
+      assert.equal(bid2.latest_run_id, bid2Run);
+      assert.equal(bid2.latest_decision, "NO_BID");
+
+      // BID1 은 두 조직이 모두 분석·결정했다(seed). org-02 는 RUN2·WATCH 를, org-01 은 RUN1·BID 를 본다.
+      await as(pglite, "outsider");
+      assert.deepEqual(await listOf(pglite), [
+        { ...BID1_ROW, ...NO_ORG_DATA, ...completedRun(RUN2), latest_decision: "WATCH" },
+        { ...BID2_ROW, ...NO_ORG_DATA },
+      ]);
+      await as(pglite, "operator");
+      assert.deepEqual(await listOf(pglite), [
+        { ...BID1_ROW, ...NO_ORG_DATA },
+        { ...BID2_ROW, ...NO_ORG_DATA },
+      ]);
+    });
+
+    it("bid_list_items 의 status 는 OPEN·AMENDED 이고 마감이 지났으면 CLOSED, 아니면 저장 값이다(B14) — 마감 없음·남은 마감·CANCELLED 는 그대로다", async (t) => {
+      const pglite = await solDb(t);
+      const statusOf = async (stored, deadline) => {
+        await asWorker(pglite);
+        await pglite.query(
+          `update public.bid_notices set status = $1, deadline_at = now() + $2::interval where id = $3`,
+          [stored, deadline, BID2],
+        );
+        await as(pglite, "viewer");
+        return (
+          await rowsOf(pglite, "select status from public.bid_list_items where id = $1", [BID2])
+        )[0].status;
+      };
+      for (const [stored, deadline, expected] of [
+        ["OPEN", "-1 minute", "CLOSED"],
+        ["AMENDED", "-1 day", "CLOSED"],
+        ["OPEN", "1 day", "OPEN"],
+        ["AMENDED", "1 day", "AMENDED"],
+        ["CANCELLED", "-1 day", "CANCELLED"],
+        ["CLOSED", "1 day", "CLOSED"],
+      ])
+        assert.equal(await statusOf(stored, deadline), expected, `${stored} ${deadline}`);
+      // 마감이 없으면 저장 값 그대로다(BID1).
+      assert.deepEqual(
+        await rowsOf(pglite, "select status from public.bid_list_items where id = $1", [BID1]),
+        [{ status: "OPEN" }],
+      );
+      // CLOSED 는 조회할 때만 계산한다. 저장 값은 OPEN 그대로다.
+      assert.equal(await statusOf("OPEN", "-1 minute"), "CLOSED");
+      await asWorker(pglite);
+      assert.deepEqual(
+        await rowsOf(pglite, "select status from public.bid_notices where id = $1", [BID2]),
+        [{ status: "OPEN" }],
+      );
+    });
+
+    it("bid_list_items 의 첨부 집계는 최신 revision 의 첨부만 센다 — 대기(다운로드 PENDING 또는 OK + 파싱 null·PENDING)·PARSED·PARTIAL·UNSUPPORTED·파싱 FAILED·다운로드 FAILED", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      const REV1_2 = "be500000-0000-0000-0000-000000000011";
+      await pglite.query(
+        "insert into public.bid_revisions (id, bid_id, revision, raw_payload, normalized, checksum) values ($1, $2, 2, '{}', '{}', 'sum-0001-2')",
+        [REV1_2, BID1],
+      );
+      await pglite.query("update public.bid_notices set latest_revision = 2 where id = $1", [BID1]);
+      const documents = [
+        ["PENDING", null, null, null],
+        ["OK", null, null, null],
+        ["OK", "PENDING", null, null],
+        ["OK", "PARSED", null, null],
+        ["OK", "PARTIAL", null, null],
+        ["OK", "UNSUPPORTED", "UNSUPPORTED_FORMAT", null],
+        ["OK", "FAILED", "PARSER_ERROR", null],
+        ["FAILED", null, null, "HTTP_5XX"],
+      ];
+      for (const [i, [download, parse, parseError, downloadError]] of documents.entries()) {
+        const ok = download === "OK";
+        await pglite.query(
+          `insert into public.bid_documents (bid_id, revision_id, name, original_url, download_status, download_error_code,
+             object_key, sha256, size_bytes, parse_status, parse_error_code)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [
+            BID1,
+            REV1_2,
+            `첨부-${i}.pdf`,
+            `https://www.g2b.go.kr/doc/r2-${i}`,
+            download,
+            downloadError,
+            ok ? `bids/${BID1}/r2-${i}` : null,
+            ok ? `sha-r2-${i}` : null,
+            ok ? 1024 : null,
+            parse,
+            parseError,
+          ],
+        );
+      }
+      await as(pglite, "viewer");
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select docs_total, docs_pending, docs_parsed, docs_partial, docs_unsupported, docs_failed, docs_download_failed
+           from public.bid_list_items where id = $1`,
+          [BID1],
+        ),
+        [
+          {
+            docs_total: 8,
+            docs_pending: 3,
+            docs_parsed: 1,
+            docs_partial: 1,
+            docs_unsupported: 1,
+            docs_failed: 1,
+            docs_download_failed: 1,
           },
         ],
       );
@@ -5093,6 +5807,1093 @@ describe("수집 저장 함수 — ingest_save_revision (C3 Stage 6)", () => {
       { code: "23502" },
     );
     assert.deepEqual(await snapshotOf(pglite), before);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────
+// 분석 마감 함수 finish_score_run(p jsonb)와 score_runs.idempotency_key 조직 접두어 check(20261019000011) — C5-B 보안 후속.
+// 근거: C5-B 보안 검토 후속(e8 판정: 번호 20261019000011·finish_score_run RPC·키 형식 `<orgId>:<Idempotency-Key>`),
+// docs/04-DATABASE.md §1(여러 표를 한 번에 쓰는 일은 한 트랜잭션에)·§3.4. 선례는 위 ingest_save_revision(20261019000009)이다.
+// worker 의 sink 가 자식 3표(score_factors·requirement_assessments·qualification_checks)와 score_runs 마감을 함수 한 번으로 쓴다.
+// 그 조직의 그 run 이 RUNNING 이고 started_at 이 이 시도의 시작 시각(attempt_started_at)일 때만 쓴다. 늦게 끝난 시도가 이미 끝난
+// run(COMPLETED·PARTIAL·FAILED)이나 다른 시도가 다시 잡은 run 을 덮지 못한다. 거절은 raise exception 이고 메시지가 곧 코드다:
+//   SCORE_RUN_NOT_FOUND   그 조직(p.org_id)에 그 run(p.score_run_id)이 없다
+//   SCORE_RUN_NOT_RUNNING RUNNING 이 아니거나 started_at 이 attempt_started_at 과 다르다(자식 표를 건드리지 않는다)
+// 마감 열은 저장 매핑 toScoreRunResultUpdate 의 키에서 started_at 을 뺀 24개다. 호출은 ingest_save_revision 묶음처럼 화면 역할을 벗고
+// service_role claim 을 싣는 것으로 흉내 내고, 실행 권한(grant)은 service_role 역할을 먼저 만든 DB 에서 따로 본다. 모든 시험은 새 DB 에서 돈다.
+// ────────────────────────────────────────────────────────────────
+describe("분석 마감 함수 — finish_score_run (C5-B 보안 후속)", () => {
+  const ORG1 = "0f000000-0000-4000-8000-000000000301";
+  const ORG2 = "0f000000-0000-4000-8000-000000000302";
+  const BID = "b1d00000-0000-0000-0000-000000000301";
+  const REV = "be500000-0000-0000-0000-000000000301";
+  const PROFILE1 = "c0000000-0000-0000-0000-000000000301"; // ORG1
+  const PROFILE2 = "c0000000-0000-0000-0000-000000000302"; // ORG2
+  const RUN = "a0000000-0000-4000-8000-000000000301"; // ORG1, 시험 대상 run
+  const SIBLING = "a0000000-0000-4000-8000-000000000302"; // ORG1 의 다른 run(건드리면 안 된다)
+  const ORG2_RUN = "a0000000-0000-4000-8000-000000000303"; // ORG2 의 run
+  const MISSING = "a0000000-0000-4000-8000-0000000003ff"; // 어디에도 없는 run
+  const ATTEMPT = "2026-10-19T09:00:00.000Z"; // 이 시도의 시작 시각(markRunning 의 started_at)
+  const OTHER_ATTEMPT = "2026-10-19T09:00:00.001Z"; // 다른 시도
+  const ADMIN = users[0]; // ORG1 owner + ADMIN
+  const OPERATOR = users[2]; // 운영자(profiles.is_admin). 어느 조직에도 없다
+  const FUNCTION = "public.finish_score_run(jsonb)";
+  const DENIED = { code: "42501", message: /permission denied for function finish_score_run/ };
+  const NOT_RUNNING = { message: "SCORE_RUN_NOT_RUNNING" };
+  const NOT_FOUND = { message: "SCORE_RUN_NOT_FOUND" };
+  const KEY_CHECK = { code: "23514", message: /score_runs_idempotency_key_org_check/ };
+
+  // JWT 없는 관리 작업(seed 자리). RLS 를 거치지 않는다.
+  const asWorker = async (pglite) => {
+    await pglite.exec("reset role");
+    await pglite.query("select set_config('request.jwt.claims', '', false)");
+  };
+  // worker 자리 — 화면 역할을 벗고 service_role claim 을 싣는다(ingest_save_revision 묶음과 같다).
+  const asServiceRole = async (pglite) => {
+    await pglite.exec("reset role");
+    await pglite.query("select set_config('request.jwt.claims', $1, false)", [
+      JSON.stringify({ role: "service_role" }),
+    ]);
+  };
+  // 읽기는 화면 역할을 벗고 RLS 없이 본다.
+  const rowsOf = async (pglite, sql, params = []) => {
+    await pglite.exec("reset role");
+    return (await pglite.query(sql, params)).rows;
+  };
+  const iso = (value) => (value === null ? null : value.toISOString());
+  const sortBy = (rows, key) => rows.toSorted((a, b) => (`${a[key]}` < `${b[key]}` ? -1 : 1));
+
+  // 두 조직·공고 하나·회사 프로필 두 개. ORG1 에는 ADMIN(owner) 한 명이 있다.
+  const seed = async (pglite) => {
+    await asWorker(pglite);
+    await pglite.query("update public.profiles set is_admin = true where id = $1", [OPERATOR]);
+    await pglite.query(
+      "insert into public.organizations (id, slug, name, is_demo) values ($1, 'org-finish-1', '마감 시험 조직', true), ($2, 'org-finish-2', '격리 조직', true)",
+      [ORG1, ORG2],
+    );
+    await pglite.query(
+      "insert into public.memberships (org_id, user_id, org_role, sol_role) values ($1, $2, 'owner', 'ADMIN')",
+      [ORG1, ADMIN],
+    );
+    await pglite.query(
+      "insert into public.bid_notices (id, source, notice_id, title, agency, stage, status, budget_krw, source_url, content_hash, is_demo) values ($1, 'fixture', 'DEMO-2026-0301', '분석 마감 시험 공고', '시험기관', 'NOTICE', 'OPEN', 500000000, 'https://fixture.invalid/0301', 'hash-0301', true)",
+      [BID],
+    );
+    await pglite.query(
+      "insert into public.bid_revisions (id, bid_id, revision, raw_payload, normalized, checksum) values ($1, $2, 1, '{}', '{}', 'sum-0301')",
+      [REV, BID],
+    );
+    await pglite.query(
+      "insert into public.company_profiles (id, org_id, revision, name) values ($1, $3, 1, '마감 시험 조직'), ($2, $4, 1, '격리 조직')",
+      [PROFILE1, PROFILE2, ORG1, ORG2],
+    );
+    return pglite;
+  };
+  const finishDb = async (t) => seed(await migratedDb(t));
+  const profileOf = (org) => (org === ORG1 ? PROFILE1 : PROFILE2);
+
+  // run 한 행을 seed 자리에서 넣는다. 진행 중 run 은 같은 입력에 하나뿐이라(score_runs_active_input_key) run 마다 알고리즘 버전을 다르게 둔다.
+  // 끝난 run 은 앞 시도의 결과를 갖는다(COMPLETED·PARTIAL 은 입력 스냅샷이 있어야 한다, score_runs_finished_snapshot_check).
+  const insertRun = async (
+    pglite,
+    id,
+    { org = ORG1, status = "RUNNING", startedAt = ATTEMPT } = {},
+  ) => {
+    await asWorker(pglite);
+    const done = ["COMPLETED", "PARTIAL"].includes(status);
+    await pglite.query(
+      `insert into public.score_runs (id, org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version,
+         run_mode, ai_provider, status, started_at, finished_at, idempotency_key, score, recommendation, input_snapshot,
+         input_snapshot_hash, error_code)
+       values ($1, $2, $3, $4, $5, 1, $6, 'MOCK', 'MOCK', $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      [
+        id,
+        org,
+        BID,
+        REV,
+        profileOf(org),
+        `sol-v0.1.0-${id.slice(-3)}`,
+        status,
+        startedAt,
+        status === "QUEUED" || status === "RUNNING" ? null : "2026-10-19T08:59:00.000Z",
+        `${org}:req-${id.slice(-3)}`,
+        done ? 61 : null,
+        done ? "WATCH" : null,
+        done ? JSON.stringify({ schemaVersion: "analysis-input/v0.1", from: "앞 시도" }) : null,
+        done ? "snap-earlier" : null,
+        status === "FAILED" ? "STALE_RUN" : null,
+      ],
+    );
+  };
+
+  // 앞 시도가 남긴 자식 행 — 요소 하나(skillMatch, 다른 점수)·옛 항목 판정·옛 자격 판정.
+  const insertEarlierChildren = async (pglite, run, org = ORG1) => {
+    await asWorker(pglite);
+    await pglite.query(
+      "insert into public.score_factors (score_run_id, org_id, factor, points, max_points, note) values ($1, $2, 'skillMatch', 1, 30, '앞 시도')",
+      [run, org],
+    );
+    await pglite.query(
+      "insert into public.requirement_assessments (score_run_id, org_id, item_id, item_kind, rule_status, basis) values ($1, $2, 'requiredSkills[9]', 'SKILL', 'SATISFIED', 'EXTRACTION')",
+      [run, org],
+    );
+    await pglite.query(
+      "insert into public.qualification_checks (score_run_id, org_id, bid_id, revision_id, requirement_code, requirement_name, outcome, reason, basis) values ($1, $2, $3, $4, 'LICENSE_OLD', '앞 시도의 자격', 'SATISFIED', '앞 시도', 'API_FIELD')",
+      [run, org, BID, REV],
+    );
+  };
+
+  // 마감 열 — 저장 매핑 toScoreRunResultUpdate 의 키에서 started_at 을 뺀 24개(설계 §2.1·§2.2).
+  const RESULT = {
+    status: "COMPLETED",
+    score: 82,
+    recommendation: "BID",
+    recommendation_basis: "RULES_WITH_KEV_ASSIST",
+    error_code: null,
+    injection_suspected: false,
+    explanation: "마감 시험 설명",
+    review_flags: ["KEV_NEEDS_REVIEW"],
+    missing_factors: ["scaleFit"],
+    input_snapshot: { schemaVersion: "analysis-input/v0.1", bid: { noticeId: "DEMO-2026-0301" } },
+    input_snapshot_hash: "snap-finish-0301",
+    kev_output: { questionSetVersion: "kev-qs/v0.1", wire: [] },
+    kev_assist: { enabled: true, suggestedOption: "BID" },
+    model_metadata: { provider: "mock", explanationSource: "TEMPLATE" },
+    qwen_model: "fixture",
+    prompt_hash: "p-0301",
+    kev_model: "mock",
+    question_set_version: "kev-qs/v0.1",
+    run_mode: "MOCK",
+    ai_provider: "MOCK",
+    extraction_id: null,
+    finished_at: "2026-10-19T09:00:05.000Z",
+    kev_calibration: null,
+    fallback_reason: null,
+  };
+  const FACTORS = [
+    "skillMatch",
+    "pastPerformance",
+    "staffAvailability",
+    "scaleFit",
+    "strategicPreference",
+  ];
+  // 저장 매핑(toScoreFactorRows·toRequirementAssessmentRows·toQualificationCheckRows)의 출력과 같은 열의 행.
+  const factorRows = (run, org) =>
+    FACTORS.map((factor, index) => ({
+      score_run_id: run,
+      org_id: org,
+      factor,
+      raw_value: { index },
+      normalized: factor === "scaleFit" ? null : 0.5,
+      points: factor === "scaleFit" ? 0 : 10 + index,
+      max_points: 20,
+      missing: factor === "scaleFit",
+      missing_reason: factor === "scaleFit" ? "BUDGET_UNKNOWN" : null,
+      evidence: [],
+      note: `요소 ${index}`,
+    }));
+  const assessmentRows = (run, org) => [
+    {
+      score_run_id: run,
+      org_id: org,
+      item_id: "qualifications[0]",
+      item_kind: "QUALIFICATION",
+      rule_status: "SATISFIED",
+      rule_reason: null,
+      basis: "API_FIELD",
+      notice_evidence: [],
+      company_evidence: [],
+      kev_distribution: null,
+      kev_label: null,
+      flags: [],
+    },
+    {
+      score_run_id: run,
+      org_id: org,
+      item_id: "requiredSkills[0]",
+      item_kind: "SKILL",
+      rule_status: "NEEDS_REVIEW",
+      rule_reason: "COMPANY_EVIDENCE_MISSING",
+      basis: "EXTRACTION",
+      notice_evidence: [{ kind: "TEXT", quotedText: "클라우드 전환" }],
+      company_evidence: [],
+      kev_distribution: null,
+      kev_label: null,
+      flags: ["KEV_NEEDS_REVIEW"],
+    },
+  ];
+  const checkRows = (run, org) => [
+    {
+      score_run_id: run,
+      org_id: org,
+      bid_id: BID,
+      revision_id: REV,
+      requirement_code: "LICENSE_1468",
+      requirement_name: "소프트웨어사업자",
+      mandatory: true,
+      outcome: "SATISFIED",
+      reason_code: null,
+      reason: "보유 면허와 일치",
+      basis: "API_FIELD",
+      evidence: [],
+      profile_evidence: null,
+      company_evidence: [],
+    },
+    {
+      score_run_id: run,
+      org_id: org,
+      bid_id: BID,
+      revision_id: REV,
+      requirement_code: null,
+      requirement_name: "실적 요건",
+      mandatory: true,
+      outcome: "NEEDS_REVIEW",
+      reason_code: "NOTICE_INFO_MISSING",
+      reason: "공고에 실적 기준이 없다",
+      basis: "EXTRACTION",
+      evidence: [],
+      profile_evidence: { type: "TEXT", ref: "profile", label: "회사 실적" },
+      company_evidence: [],
+    },
+  ];
+  // 설계 §2.2 의 p. 시험마다 고칠 부분만 덮어쓴다.
+  const payloadOf = (run, { org = ORG1, attempt = ATTEMPT, result = {}, ...rows } = {}) => ({
+    score_run_id: run,
+    org_id: org,
+    attempt_started_at: attempt,
+    run: { ...RESULT, ...result },
+    factors: rows.factors ?? factorRows(run, org),
+    assessments: rows.assessments ?? assessmentRows(run, org),
+    checks: rows.checks ?? checkRows(run, org),
+  });
+
+  // 지금 역할 그대로 부른다.
+  const call = async (pglite, p) =>
+    (await pglite.query("select public.finish_score_run($1::jsonb) as id", [JSON.stringify(p)]))
+      .rows;
+  const finish = async (pglite, p) => {
+    await asServiceRole(pglite);
+    return call(pglite, p);
+  };
+
+  const resultOf = async (pglite, run) => {
+    const [row] = await rowsOf(
+      pglite,
+      `select ${[...Object.keys(RESULT), "started_at"].join(", ")} from public.score_runs where id = $1`,
+      [run],
+    );
+    return { ...row, finished_at: iso(row.finished_at), started_at: iso(row.started_at) };
+  };
+  const factorsOf = async (pglite, run) =>
+    sortBy(
+      await rowsOf(
+        pglite,
+        `select score_run_id, org_id, factor, raw_value, normalized::float8 as normalized, points::float8 as points,
+           max_points::float8 as max_points, missing, missing_reason, evidence, note
+         from public.score_factors where score_run_id = $1`,
+        [run],
+      ),
+      "factor",
+    );
+  const assessmentsOf = async (pglite, run) =>
+    sortBy(
+      await rowsOf(
+        pglite,
+        `select score_run_id, org_id, item_id, item_kind, rule_status, rule_reason, basis, notice_evidence, company_evidence,
+           kev_distribution, kev_label, flags
+         from public.requirement_assessments where score_run_id = $1`,
+        [run],
+      ),
+      "item_id",
+    );
+  const checksOf = async (pglite, run) =>
+    sortBy(
+      await rowsOf(
+        pglite,
+        `select score_run_id, org_id, bid_id, revision_id, requirement_code, requirement_name, mandatory, outcome, reason_code,
+           reason, basis, evidence, profile_evidence, company_evidence
+         from public.qualification_checks where score_run_id = $1`,
+        [run],
+      ),
+      "requirement_name",
+    );
+  // "아무것도 바뀌지 않았다"의 기준 — score_runs 와 자식 3표의 모든 행·모든 열(id·시각 포함).
+  const snapshotOf = async (pglite) => ({
+    score_runs: await rowsOf(pglite, "select * from public.score_runs order by id"),
+    score_factors: await rowsOf(pglite, "select * from public.score_factors order by id"),
+    requirement_assessments: await rowsOf(
+      pglite,
+      "select * from public.requirement_assessments order by id",
+    ),
+    qualification_checks: await rowsOf(
+      pglite,
+      "select * from public.qualification_checks order by id",
+    ),
+  });
+
+  it("실행 권한은 service_role 에만 있다 — anon·authenticated·PUBLIC 은 없다", async (t) => {
+    // 실제 Supabase 에는 service_role 역할이 있다. 흉내 DB 에 없으면 마이그레이션 전에 만들어 같은 조건에서 grant 를 본다.
+    const fresh = await freshDb(t);
+    await fresh.exec(`
+      do $$ begin
+        if not exists (select 1 from pg_roles where rolname = 'service_role') then
+          create role service_role nologin;
+        end if;
+      end $$;
+    `);
+    await applyMigrations(fresh, migrations);
+    assert.deepEqual(
+      (
+        await fresh.query(
+          `select
+             exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') as public,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+             has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated,
+             has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role
+           from pg_proc p where p.oid = to_regprocedure($1)`,
+          [FUNCTION],
+        )
+      ).rows,
+      [{ public: false, anon: false, authenticated: false, service_role: true }],
+    );
+  });
+
+  it("함수는 security invoker 이고 search_path 를 빈 값으로 고정하며 uuid 를 돌려준다", async (t) => {
+    const pglite = await migratedDb(t);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select prosecdef, proconfig, prorettype::regtype::text as returns from pg_proc where oid = to_regprocedure($1)",
+        [FUNCTION],
+      ),
+      [{ prosecdef: false, proconfig: ['search_path=""'], returns: "uuid" }],
+    );
+  });
+
+  it("로그아웃한 사용자(anon)가 부르면 권한 오류이고 run·자식 행이 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    const before = await snapshotOf(pglite);
+    await actAs(pglite, null, "anon");
+    await assert.rejects(call(pglite, payloadOf(RUN)), DENIED);
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("로그인한 사용자(authenticated)는 그 조직의 ADMIN·운영자라도 부르면 권한 오류이고 run·자식 행이 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    const before = await snapshotOf(pglite);
+    for (const id of [ADMIN, OPERATOR]) {
+      await actAs(pglite, id);
+      await assert.rejects(call(pglite, payloadOf(RUN)), DENIED, id);
+    }
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("service_role 이 RUNNING·같은 시도의 run 에 부르면 그 run id 한 행을 돌려준다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    assert.deepEqual(await finish(pglite, payloadOf(RUN)), [{ id: RUN }]);
+  });
+
+  it("마감 열 24개를 p.run 값으로 쓰고 started_at 은 이 시도의 시작 시각 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await finish(pglite, payloadOf(RUN));
+    assert.deepEqual(await resultOf(pglite, RUN), { ...RESULT, started_at: ATTEMPT });
+  });
+
+  it("요소 다섯 행·항목 판정·자격 판정을 p 의 행 그대로 그 run·조직에 쓴다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await finish(pglite, payloadOf(RUN));
+    assert.deepEqual(await factorsOf(pglite, RUN), sortBy(factorRows(RUN, ORG1), "factor"));
+    assert.deepEqual(
+      await assessmentsOf(pglite, RUN),
+      sortBy(assessmentRows(RUN, ORG1), "item_id"),
+    );
+    assert.deepEqual(await checksOf(pglite, RUN), sortBy(checkRows(RUN, ORG1), "requirement_name"));
+  });
+
+  it("앞 시도가 남긴 자식 행이 있으면 요소는 (score_run_id, factor) 로 고쳐 쓰고(중복 없음) 항목·자격 판정은 지운 뒤 p 의 행만 남긴다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await insertEarlierChildren(pglite, RUN);
+    await finish(pglite, payloadOf(RUN));
+    assert.deepEqual(await factorsOf(pglite, RUN), sortBy(factorRows(RUN, ORG1), "factor"));
+    assert.deepEqual(
+      await assessmentsOf(pglite, RUN),
+      sortBy(assessmentRows(RUN, ORG1), "item_id"),
+    );
+    assert.deepEqual(await checksOf(pglite, RUN), sortBy(checkRows(RUN, ORG1), "requirement_name"));
+  });
+
+  it("항목·자격 판정이 빈 배열이면 그 run 의 옛 행을 지우고 넣지 않는다 — 요소와 마감은 쓴다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await insertEarlierChildren(pglite, RUN);
+    await finish(pglite, payloadOf(RUN, { assessments: [], checks: [] }));
+    assert.deepEqual(await assessmentsOf(pglite, RUN), []);
+    assert.deepEqual(await checksOf(pglite, RUN), []);
+    assert.deepEqual(await factorsOf(pglite, RUN), sortBy(factorRows(RUN, ORG1), "factor"));
+    assert.equal((await resultOf(pglite, RUN)).status, "COMPLETED");
+  });
+
+  it("같은 조직의 다른 run 과 그 자식 행은 건드리지 않는다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await insertRun(pglite, SIBLING);
+    await insertEarlierChildren(pglite, SIBLING);
+    const siblingOf = async () => ({
+      run: await rowsOf(pglite, "select * from public.score_runs where id = $1", [SIBLING]),
+      factors: await rowsOf(pglite, "select * from public.score_factors where score_run_id = $1", [
+        SIBLING,
+      ]),
+      assessments: await rowsOf(
+        pglite,
+        "select * from public.requirement_assessments where score_run_id = $1",
+        [SIBLING],
+      ),
+      checks: await rowsOf(
+        pglite,
+        "select * from public.qualification_checks where score_run_id = $1",
+        [SIBLING],
+      ),
+    });
+    const before = await siblingOf();
+    await finish(pglite, payloadOf(RUN));
+    assert.deepEqual(await siblingOf(), before);
+  });
+
+  // 설계(§2.2)는 score_factors 의 org_id 를 p.org_id 로 쓴다고만 하고, 자식 행에 다른 run·조직 값이 들어왔을 때 덮어쓸지
+  // 거절할지는 정하지 않았다. 어느 쪽이든 다른 조직의 run 에 자식 행이 생기면 안 된다 — p 의 run 에 덮어쓰거나 복합 FK(23503)로 거절한다.
+  it("자식 행이 다른 조직의 run 을 가리켜도 그 run 에는 자식 행이 생기지 않는다(p 의 run 으로 쓰거나 23503 으로 거절)", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await insertRun(pglite, ORG2_RUN, { org: ORG2 });
+    const foreignCounts = async () =>
+      (
+        await rowsOf(
+          pglite,
+          `select (select count(*)::int from public.score_factors where score_run_id = $1) as score_factors,
+             (select count(*)::int from public.requirement_assessments where score_run_id = $1) as requirement_assessments,
+             (select count(*)::int from public.qualification_checks where score_run_id = $1) as qualification_checks`,
+          [ORG2_RUN],
+        )
+      )[0];
+    const outcome = await finish(
+      pglite,
+      payloadOf(RUN, {
+        factors: factorRows(ORG2_RUN, ORG2),
+        assessments: assessmentRows(ORG2_RUN, ORG2),
+        checks: checkRows(ORG2_RUN, ORG2),
+      }),
+    ).then(
+      () => "written",
+      (error) => error.code,
+    );
+    assert.ok(["written", "23503"].includes(outcome), `${outcome}`);
+    assert.deepEqual(await foreignCounts(), {
+      score_factors: 0,
+      requirement_assessments: 0,
+      qualification_checks: 0,
+    });
+  });
+
+  // 자격 판정 행의 공고·revision 은 받은 행의 값이 아니라 그 run 의 값이다. 다른 공고를 가리키는 판정이 run 에 섞이지 않는다.
+  it("자격 판정 행이 다른 공고·revision 을 가리켜도 그 run 의 bid_id·revision_id 로 저장한다", async (t) => {
+    const pglite = await finishDb(t);
+    const OTHER_BID = "b1d00000-0000-0000-0000-000000000399";
+    const OTHER_REV = "be500000-0000-0000-0000-000000000399";
+    await pglite.query(
+      "insert into public.bid_notices (id, source, notice_id, title, agency, stage, status, budget_krw, source_url, content_hash, is_demo) values ($1, 'fixture', 'DEMO-2026-0399', '다른 공고', '시험기관', 'NOTICE', 'OPEN', 100000000, 'https://fixture.invalid/0399', 'hash-0399', true)",
+      [OTHER_BID],
+    );
+    await pglite.query(
+      "insert into public.bid_revisions (id, bid_id, revision, raw_payload, normalized, checksum) values ($1, $2, 1, '{}', '{}', 'sum-0399')",
+      [OTHER_REV, OTHER_BID],
+    );
+    await insertRun(pglite, RUN);
+    const foreignChecks = checkRows(RUN, ORG1).map((row) => ({
+      ...row,
+      bid_id: OTHER_BID,
+      revision_id: OTHER_REV,
+    }));
+    await finish(pglite, payloadOf(RUN, { checks: foreignChecks }));
+    const stored = await rowsOf(
+      pglite,
+      "select bid_id, revision_id from public.qualification_checks where score_run_id = $1",
+      [RUN],
+    );
+    assert.ok(stored.length > 0);
+    for (const row of stored) assert.deepEqual(row, { bid_id: BID, revision_id: REV });
+  });
+
+  it("p.run 에 마감 밖 열(started_at·org_id·idempotency_key·company_profile_id·queued_at·requested_by)을 넣어도 그 열은 바뀌지 않는다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    const KEEP =
+      "select id, org_id, bid_id, company_profile_id, idempotency_key, started_at, queued_at, requested_by, created_at from public.score_runs where id = $1";
+    const before = await rowsOf(pglite, KEEP, [RUN]);
+    const hijack = {
+      started_at: "2030-01-01T00:00:00.000Z",
+      org_id: ORG2,
+      idempotency_key: `${ORG2}:hijack`,
+      company_profile_id: PROFILE2,
+      queued_at: "2030-01-01T00:00:00.000Z",
+      requested_by: ADMIN,
+    };
+    assert.deepEqual(await finish(pglite, payloadOf(RUN, { result: hijack })), [{ id: RUN }]);
+    assert.deepEqual(await rowsOf(pglite, KEEP, [RUN]), before);
+    assert.equal((await resultOf(pglite, RUN)).status, "COMPLETED");
+  });
+
+  for (const status of ["COMPLETED", "PARTIAL", "FAILED"]) {
+    it(`끝난 run(${status})에 늦은 시도가 같은 시도 식별자로 부르면 SCORE_RUN_NOT_RUNNING 이고 run·자식 행이 그대로다(행 수·값)`, async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN, { status });
+      await insertEarlierChildren(pglite, RUN);
+      const before = await snapshotOf(pglite);
+      await assert.rejects(finish(pglite, payloadOf(RUN)), NOT_RUNNING);
+      assert.deepEqual(await snapshotOf(pglite), before);
+    });
+  }
+
+  it("아무 시도도 잡지 않은 QUEUED run 이면 SCORE_RUN_NOT_RUNNING 이고 run 이 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN, { status: "QUEUED", startedAt: null });
+    const before = await snapshotOf(pglite);
+    await assert.rejects(finish(pglite, payloadOf(RUN)), NOT_RUNNING);
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("다른 시도가 다시 잡은 RUNNING run(started_at 이 1ms 다르다)이면 SCORE_RUN_NOT_RUNNING 이고 그 시도의 자식 행·run 이 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN, { startedAt: OTHER_ATTEMPT });
+    await insertEarlierChildren(pglite, RUN);
+    const before = await snapshotOf(pglite);
+    await assert.rejects(finish(pglite, payloadOf(RUN, { attempt: ATTEMPT })), NOT_RUNNING);
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("attempt_started_at 이 없거나 null 이면 SCORE_RUN_NOT_RUNNING 이고 run 이 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    const before = await snapshotOf(pglite);
+    const withoutAttempt = Object.fromEntries(
+      Object.entries(payloadOf(RUN)).filter(([key]) => key !== "attempt_started_at"),
+    );
+    await assert.rejects(finish(pglite, withoutAttempt), NOT_RUNNING);
+    await assert.rejects(finish(pglite, payloadOf(RUN, { attempt: null })), NOT_RUNNING);
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("같은 시도로 두 번 부르면 두 번째는 SCORE_RUN_NOT_RUNNING 이고 첫 결과가 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await finish(pglite, payloadOf(RUN));
+    const before = await snapshotOf(pglite);
+    await assert.rejects(
+      finish(
+        pglite,
+        payloadOf(RUN, {
+          result: { score: 10, recommendation: "NO_BID" },
+          assessments: [],
+          checks: [],
+        }),
+      ),
+      NOT_RUNNING,
+    );
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("p.org_id 가 그 run 의 조직이 아니면 SCORE_RUN_NOT_FOUND 이고 두 조직의 run·자식 행이 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await insertRun(pglite, ORG2_RUN, { org: ORG2 });
+    await insertEarlierChildren(pglite, ORG2_RUN, ORG2);
+    const before = await snapshotOf(pglite);
+    await assert.rejects(finish(pglite, payloadOf(ORG2_RUN, { org: ORG1 })), NOT_FOUND);
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("없는 run 이면 SCORE_RUN_NOT_FOUND 이고 아무 행도 생기지 않는다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    const before = await snapshotOf(pglite);
+    await assert.rejects(finish(pglite, payloadOf(MISSING)), NOT_FOUND);
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("자격 판정 한 행이 check 위반이면 23514 로 실패하고 앞서 쓴 요소·항목 판정과 옛 행 지우기까지 모두 되돌아간다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await insertEarlierChildren(pglite, RUN);
+    const before = await snapshotOf(pglite);
+    const [satisfied, review] = checkRows(RUN, ORG1);
+    await assert.rejects(
+      finish(pglite, payloadOf(RUN, { checks: [satisfied, { ...review, reason_code: null }] })),
+      { code: "23514", message: /qualification_checks_needs_review_check/ },
+    );
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  it("마감 열이 check 위반이면(COMPLETED 인데 입력 스냅샷 없음) 자식 3표 쓰기가 모두 되돌아가고 run 은 RUNNING 그대로다", async (t) => {
+    const pglite = await finishDb(t);
+    await insertRun(pglite, RUN);
+    await insertEarlierChildren(pglite, RUN);
+    const before = await snapshotOf(pglite);
+    await assert.rejects(finish(pglite, payloadOf(RUN, { result: { input_snapshot: null } })), {
+      code: "23514",
+      message: /score_runs_finished_snapshot_check/,
+    });
+    assert.deepEqual(await snapshotOf(pglite), before);
+  });
+
+  // 마감 status 는 COMPLETED·PARTIAL 만이다. 실패 닫기(FAILED)는 markFailed 의 몫이고, RUNNING·QUEUED 로 되돌리거나 status 없이
+  // (지금 값 RUNNING 그대로) 결과만 쓰는 마감은 끝나지 않은 run 에 결과를 남긴다. 자식 표를 쓰기 전에 거절하고 아무것도 바꾸지 않는다.
+  // 거절 코드는 SCORE_RUN_INVALID_STATUS(raise exception, 메시지가 곧 코드)다. FAILED 값은 마감 열 check 를 모두 지켜 status 만 거절 이유가 되게 한다.
+  const INVALID_STATUS = { message: "SCORE_RUN_INVALID_STATUS" };
+  const withoutStatus = (p) => ({
+    ...p,
+    run: Object.fromEntries(Object.entries(p.run).filter(([key]) => key !== "status")),
+  });
+  for (const [label, payload] of [
+    [
+      "FAILED",
+      () => payloadOf(RUN, { result: { status: "FAILED", error_code: "ANALYSIS_JOB_FAILED" } }),
+    ],
+    ["RUNNING", () => payloadOf(RUN, { result: { status: "RUNNING" } })],
+    ["QUEUED", () => payloadOf(RUN, { result: { status: "QUEUED" } })],
+    ["없음(지금 값 RUNNING 그대로)", () => withoutStatus(payloadOf(RUN))],
+  ]) {
+    it(`p.run.status 가 ${label} 이면 SCORE_RUN_INVALID_STATUS 이고 자식 3표·score_runs 가 그대로다`, async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await insertEarlierChildren(pglite, RUN);
+      const before = await snapshotOf(pglite);
+      await assert.rejects(finish(pglite, payload()), INVALID_STATUS);
+      assert.deepEqual(await snapshotOf(pglite), before);
+    });
+  }
+
+  for (const [status, result] of [
+    ["COMPLETED", {}],
+    [
+      "PARTIAL",
+      { status: "PARTIAL", error_code: "AI_UNAVAILABLE", review_flags: ["AI_UNAVAILABLE"] },
+    ],
+  ]) {
+    it(`p.run.status 가 ${status} 이면 지금처럼 마감하고 그 run id 를 돌려준다`, async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      assert.deepEqual(await finish(pglite, payloadOf(RUN, { result })), [{ id: RUN }]);
+      assert.equal((await resultOf(pglite, RUN)).status, status);
+    });
+  }
+
+  // 낮음 (a): idempotency_key 는 null 이거나 `<org_id>:` 로 시작한다. 다른 조직의 접두어로 남의 run 을 가리키는 키를 DB 가 막는다.
+  describe("score_runs.idempotency_key 조직 접두어 check", () => {
+    // 진행 중 run 은 같은 입력에 하나뿐이라 넣을 때마다 알고리즘 버전을 바꾼다.
+    let version = 0;
+    const insertKey = async (pglite, key, org = ORG1) => {
+      await asWorker(pglite);
+      version += 1;
+      return pglite.query(
+        "insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version, run_mode, ai_provider, idempotency_key) values ($1, $2, $3, $4, 1, $5, 'MOCK', 'MOCK', $6) returning id",
+        [org, BID, REV, profileOf(org), `sol-v0.1.0-key-${version}`, key],
+      );
+    };
+    const C6_REQUEST = "7d9f5c2e-4b1a-4e8f-9c3d-2a6b8e0f1c4d";
+
+    it("제약 score_runs_idempotency_key_org_check 가 score_runs 의 check 로 있다", async (t) => {
+      const pglite = await migratedDb(t);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select conname, contype from pg_constraint where conrelid = 'public.score_runs'::regclass and conname = 'score_runs_idempotency_key_org_check'",
+        ),
+        [{ conname: "score_runs_idempotency_key_org_check", contype: "c" }],
+      );
+    });
+
+    for (const [label, keyOf] of [
+      ["다른 조직의 접두어", () => `${ORG2}:req-1`],
+      ["조직 접두어가 없다", () => "req-1"],
+      ["org_id 뒤에 ':' 가 없다", () => `${ORG1}req-1`],
+      ["접두어가 맨 앞이 아니다", () => `x${ORG1}:req-1`],
+    ]) {
+      it(`${label} 키는 23514(score_runs_idempotency_key_org_check)로 거절한다`, async (t) => {
+        const pglite = await finishDb(t);
+        await assert.rejects(insertKey(pglite, keyOf()), KEY_CHECK);
+        assert.equal(
+          (await rowsOf(pglite, "select count(*)::int as n from public.score_runs"))[0].n,
+          0,
+        );
+      });
+    }
+
+    it("null·`<org>:demo-pre-FX-01-r01`·`<org>:<uuid>` 키는 넣을 수 있다", async (t) => {
+      const pglite = await finishDb(t);
+      for (const key of [null, `${ORG1}:demo-pre-FX-01-r01`, `${ORG1}:${C6_REQUEST}`])
+        assert.equal((await insertKey(pglite, key)).rows.length, 1, `${key}`);
+      assert.equal((await insertKey(pglite, `${ORG2}:${C6_REQUEST}`, ORG2)).rows.length, 1);
+    });
+
+    it("C6 요청(로그인 ADMIN 의 열 단위 insert)은 `<org>:<uuid>` 면 통과하고 다른 조직 접두어면 23514 다", async (t) => {
+      const pglite = await finishDb(t);
+      const request = (key, version) =>
+        pglite.query(
+          "insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version, run_mode, ai_provider, idempotency_key) values ($1, $2, $3, $4, 1, $5, 'MOCK', 'MOCK', $6) returning status",
+          [ORG1, BID, REV, PROFILE1, version, key],
+        );
+      await actAs(pglite, ADMIN);
+      assert.deepEqual((await request(`${ORG1}:${C6_REQUEST}`, "sol-v0.1.0-c6-1")).rows, [
+        { status: "QUEUED" },
+      ]);
+      await actAs(pglite, ADMIN);
+      await assert.rejects(request(`${ORG2}:${C6_REQUEST}`, "sol-v0.1.0-c6-2"), KEY_CHECK);
+    });
+
+    it("이미 있는 run 의 키를 다른 조직 접두어로 바꾸면 23514 로 거절하고 키가 그대로다", async (t) => {
+      const pglite = await finishDb(t);
+      const [{ id }] = (await insertKey(pglite, `${ORG1}:req-update`)).rows;
+      await asWorker(pglite);
+      await assert.rejects(
+        pglite.query("update public.score_runs set idempotency_key = $1 where id = $2", [
+          `${ORG2}:req-update`,
+          id,
+        ]),
+        KEY_CHECK,
+      );
+      assert.deepEqual(
+        await rowsOf(pglite, "select idempotency_key from public.score_runs where id = $1", [id]),
+        [{ idempotency_key: `${ORG1}:req-update` }],
+      );
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────
+  // C7 인앱 알림 producer — finish_score_run 이 마감과 같은 트랜잭션에 ANALYSIS_COMPLETE outbox 를 쓴다(20261019000016).
+  // 근거: docs/13-NOTIFICATIONS.md(ANALYSIS_COMPLETE 는 score_run COMPLETED·PARTIAL, 수신자는 분석 요청자; 데이터 변경과 outbox 를
+  // 한 트랜잭션에; 두 단계 멱등), docs/04-DATABASE.md §1·§3.6. 키는 `<scoreRunId>:<requestedBy>:ANALYSIS_COMPLETE` 이고
+  // 같은 키가 이미 있으면 on conflict do nothing 으로 흡수한다. 요청자(requested_by)가 없는 run(seed·사전 분석)은 알릴 사람이 없어 쓰지 않는다.
+  // 거절(SCORE_RUN_NOT_FOUND·NOT_RUNNING·INVALID_STATUS)이면 아무것도 쓰지 않는다. outbox 는 화면 역할이 못 읽으므로 관리 작업으로 본다.
+  // ──────────────────────────────────────────────────────────────
+  describe("ANALYSIS_COMPLETE outbox (C7)", () => {
+    const keyOf = (run, requester = ADMIN) => `${run}:${requester}:ANALYSIS_COMPLETE`;
+    // 화면에서 들어온 분석 요청처럼 요청자를 채운다(C6 insert 는 requested_by 기본값 auth.uid()).
+    const setRequester = async (pglite, run, requester = ADMIN) => {
+      await asWorker(pglite);
+      await pglite.query("update public.score_runs set requested_by = $2 where id = $1", [
+        run,
+        requester,
+      ]);
+    };
+    const outboxOf = async (pglite) =>
+      rowsOf(
+        pglite,
+        `select org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key, status, attempts, next_attempt_at
+         from public.outbox_events where event_type = 'ANALYSIS_COMPLETE' order by created_at, id`,
+      );
+    const PARTIAL = {
+      status: "PARTIAL",
+      error_code: "AI_UNAVAILABLE",
+      review_flags: ["AI_UNAVAILABLE"],
+    };
+
+    it("요청자가 있는 run 을 COMPLETED 로 마감하면 ANALYSIS_COMPLETE outbox 1건을 org_id·aggregate·payload·키 그대로 PENDING 으로 쓴다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN));
+      assert.deepEqual(await outboxOf(pglite), [
+        {
+          org_id: ORG1,
+          aggregate_type: "score_run",
+          aggregate_id: RUN,
+          event_type: "ANALYSIS_COMPLETE",
+          payload: {
+            scoreRunId: RUN,
+            bidId: BID,
+            orgId: ORG1,
+            requestedBy: ADMIN,
+            status: "COMPLETED",
+          },
+          idempotency_key: keyOf(RUN),
+          status: "PENDING",
+          attempts: 0,
+          next_attempt_at: null,
+        },
+      ]);
+    });
+
+    it("PARTIAL 로 마감하면 payload.status 가 PARTIAL 이다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN, { result: PARTIAL }));
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => [row.payload.status, row.idempotency_key]),
+        [["PARTIAL", keyOf(RUN)]],
+      );
+    });
+
+    it("outbox 의 payload 키는 scoreRunId·bidId·orgId·requestedBy·status 다섯 개뿐이다(결과·점수·스냅샷을 싣지 않는다)", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN));
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => Object.keys(row.payload).toSorted()),
+        [["bidId", "orgId", "requestedBy", "scoreRunId", "status"]],
+      );
+    });
+
+    it("다른 조직의 run 을 마감하면 그 run 의 조직(org_id)으로 쓴다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, ORG2_RUN, { org: ORG2 });
+      await setRequester(pglite, ORG2_RUN, OPERATOR);
+      await finish(pglite, payloadOf(ORG2_RUN, { org: ORG2 }));
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => [row.org_id, row.payload.orgId, row.idempotency_key]),
+        [[ORG2, ORG2, keyOf(ORG2_RUN, OPERATOR)]],
+      );
+    });
+
+    it("요청자가 없는 run(requested_by null)은 마감해도 outbox 를 쓰지 않는다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      assert.deepEqual(await finish(pglite, payloadOf(RUN)), [{ id: RUN }]);
+      assert.deepEqual(await outboxOf(pglite), []);
+    });
+
+    for (const [label, prepare, payload, rejected] of [
+      [
+        "끝난 run(COMPLETED) — SCORE_RUN_NOT_RUNNING",
+        (pglite) => insertRun(pglite, RUN, { status: "COMPLETED" }),
+        () => payloadOf(RUN),
+        NOT_RUNNING,
+      ],
+      [
+        "QUEUED run — SCORE_RUN_NOT_RUNNING",
+        (pglite) => insertRun(pglite, RUN, { status: "QUEUED", startedAt: null }),
+        () => payloadOf(RUN),
+        NOT_RUNNING,
+      ],
+      [
+        "다른 시도 — SCORE_RUN_NOT_RUNNING",
+        (pglite) => insertRun(pglite, RUN, { startedAt: OTHER_ATTEMPT }),
+        () => payloadOf(RUN),
+        NOT_RUNNING,
+      ],
+      [
+        "마감 status FAILED — SCORE_RUN_INVALID_STATUS",
+        (pglite) => insertRun(pglite, RUN),
+        () => payloadOf(RUN, { result: { status: "FAILED", error_code: "ANALYSIS_JOB_FAILED" } }),
+        { message: "SCORE_RUN_INVALID_STATUS" },
+      ],
+      [
+        "다른 조직의 p.org_id — SCORE_RUN_NOT_FOUND",
+        (pglite) => insertRun(pglite, RUN),
+        () => payloadOf(RUN, { org: ORG2 }),
+        NOT_FOUND,
+      ],
+      [
+        "마감 열 check 위반(COMPLETED 인데 입력 스냅샷 없음) — 23514",
+        (pglite) => insertRun(pglite, RUN),
+        () => payloadOf(RUN, { result: { input_snapshot: null } }),
+        { code: "23514" },
+      ],
+    ]) {
+      it(`거절되면(${label}) 요청자가 있어도 outbox 를 쓰지 않는다`, async (t) => {
+        const pglite = await finishDb(t);
+        await prepare(pglite);
+        await setRequester(pglite, RUN);
+        await assert.rejects(finish(pglite, payload()), rejected);
+        assert.deepEqual(await outboxOf(pglite), []);
+      });
+    }
+
+    it("같은 시도로 두 번 부르면 두 번째는 거절되고 outbox 는 첫 마감의 1건 그대로다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN));
+      await assert.rejects(finish(pglite, payloadOf(RUN, { result: PARTIAL })), NOT_RUNNING);
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => [row.payload.status, row.idempotency_key]),
+        [["COMPLETED", keyOf(RUN)]],
+      );
+    });
+
+    it("같은 키의 outbox 행이 이미 있으면 마감은 성공하고 그 행이 그대로 1건이다(on conflict do nothing)", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await asWorker(pglite);
+      await pglite.query(
+        "insert into public.outbox_events (org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key) values ($1, 'score_run', $2, 'ANALYSIS_COMPLETE', $3, $4)",
+        [ORG1, RUN, JSON.stringify({ marker: "먼저 쓴 이벤트" }), keyOf(RUN)],
+      );
+      assert.deepEqual(await finish(pglite, payloadOf(RUN)), [{ id: RUN }]);
+      assert.equal((await resultOf(pglite, RUN)).status, "COMPLETED");
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => [row.payload, row.idempotency_key]),
+        [[{ marker: "먼저 쓴 이벤트" }, keyOf(RUN)]],
+      );
+    });
+
+    it("같은 조직의 다른 run 마감은 그 run 의 키로 따로 1건씩이다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await insertRun(pglite, SIBLING);
+      await setRequester(pglite, RUN);
+      await setRequester(pglite, SIBLING);
+      await finish(pglite, payloadOf(RUN));
+      await finish(pglite, payloadOf(SIBLING));
+      assert.deepEqual(
+        (await outboxOf(pglite)).map((row) => row.idempotency_key).toSorted(),
+        [keyOf(RUN), keyOf(SIBLING)].toSorted(),
+      );
+    });
+
+    // 알림 단계 멱등(docs/13): notifications.idempotency_key = outboxEventId + userId + channel 은 UNIQUE 다.
+    // worker 는 같은 키를 on conflict do nothing 으로 넣어 같은 이벤트를 다시 처리해도 알림을 늘리지 않는다.
+    it("notifications 에 같은 idempotency_key 를 두 번 on conflict do nothing 으로 넣으면 1건이고 처음 행이 그대로다", async (t) => {
+      const pglite = await finishDb(t);
+      await asWorker(pglite);
+      const key = `${RUN}:${ADMIN}:IN_APP`;
+      const insert = (title) =>
+        pglite.query(
+          `insert into public.notifications (org_id, user_id, type, channel, status, sent_at, idempotency_key, payload)
+           values ($1, $2, 'ANALYSIS_COMPLETE', 'IN_APP', 'SENT', now(), $3, $4)
+           on conflict (idempotency_key) do nothing returning id`,
+          [
+            ORG1,
+            ADMIN,
+            key,
+            JSON.stringify({
+              bidId: BID,
+              title,
+              message: "분석이 끝났습니다.",
+              link: `/bids/${BID}`,
+            }),
+          ],
+        );
+      assert.equal((await insert("처음")).rows.length, 1);
+      assert.equal((await insert("다시")).rows.length, 0);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select payload ->> 'title' as title from public.notifications where idempotency_key = $1",
+          [key],
+        ),
+        [{ title: "처음" }],
+      );
+    });
+  });
+});
+
+// C7 알림 outbox 소비자의 부분 인덱스(20261019000017). 소비자가 없는 공고 이벤트(BID_*)의 PENDING 이 쌓여도
+// findDue(event_type 두 종·status PENDING|FAILED, 정렬 created_at·id)가 그 행을 훑지 않게 한다.
+// 근거: docs/13-NOTIFICATIONS.md "pending polling", docs/04-DATABASE.md §5(인덱스는 만드는 마이그레이션이 정본).
+// 이미 있는 000016 은 고치지 않고 새 파일로 더한다(append-only).
+describe("알림 outbox 부분 인덱스 — outbox_events_notify_due_idx (C7)", () => {
+  const INDEX = "outbox_events_notify_due_idx";
+  const VERSION = "20261019000017";
+  const indexRow = async (pglite) =>
+    (
+      await pglite.query(
+        `select t.relname as table_name, am.amname as method, i.indisunique as is_unique,
+                pg_get_expr(i.indpred, i.indrelid) as predicate,
+                array(select a.attname::text
+                        from unnest(i.indkey::int2[]) with ordinality as k(attnum, ord)
+                        join pg_attribute a on a.attrelid = i.indrelid and a.attnum = k.attnum
+                       order by k.ord) as columns
+           from pg_index i
+           join pg_class c on c.oid = i.indexrelid
+           join pg_namespace n on n.oid = c.relnamespace
+           join pg_class t on t.oid = i.indrelid
+           join pg_am am on am.oid = c.relam
+          where n.nspname = 'public' and c.relname = $1`,
+        [INDEX],
+      )
+    ).rows;
+  const migratedIndex = async (t) => {
+    const fresh = await freshDb(t);
+    await applyMigrations(fresh, migrations);
+    return { fresh, rows: await indexRow(fresh) };
+  };
+
+  it("pg_indexes 에 public.outbox_events 의 outbox_events_notify_due_idx 가 있다", async (t) => {
+    const { fresh } = await migratedIndex(t);
+    assert.deepEqual(
+      (
+        await fresh.query(
+          "select tablename from pg_indexes where schemaname = 'public' and indexname = $1",
+          [INDEX],
+        )
+      ).rows,
+      [{ tablename: "outbox_events" }],
+    );
+  });
+
+  it("btree 이고 unique 가 아니며 키 열은 (created_at, id) 순서다(findDue 의 정렬과 같다)", async (t) => {
+    const { rows } = await migratedIndex(t);
+    assert.deepEqual(
+      rows.map(({ table_name, method, is_unique, columns }) => ({
+        table_name,
+        method,
+        is_unique,
+        columns,
+      })),
+      [
+        {
+          table_name: "outbox_events",
+          method: "btree",
+          is_unique: false,
+          columns: ["created_at", "id"],
+        },
+      ],
+    );
+  });
+
+  it("WHERE 는 status PENDING·FAILED 이면서 event_type REVIEW_ASSIGNED·ANALYSIS_COMPLETE 인 행만 덮는다", async (t) => {
+    const { fresh, rows } = await migratedIndex(t);
+    assert.equal(rows.length, 1, `${INDEX} 가 없다`);
+    const [{ predicate }] = rows;
+    assert.ok(predicate, `${INDEX} 는 부분 인덱스(WHERE)여야 한다`);
+    // 카탈로그의 WHERE 식을 상태 4 × 종류 5 의 모든 조합에 그대로 적용해 덮는 조합을 고른다(글자 모양에 기대지 않는다).
+    const covered = (
+      await fresh.query(
+        `select status, event_type
+           from (values ('PENDING'), ('PROCESSED'), ('FAILED'), ('DEAD')) as s(status)
+          cross join (values ('BID_CREATED'), ('BID_CHANGED'), ('DEADLINE_APPROACHING'),
+                             ('ANALYSIS_COMPLETE'), ('REVIEW_ASSIGNED')) as e(event_type)
+          where ${predicate}
+          order by 1, 2`,
+      )
+    ).rows;
+    assert.deepEqual(covered, [
+      { status: "FAILED", event_type: "ANALYSIS_COMPLETE" },
+      { status: "FAILED", event_type: "REVIEW_ASSIGNED" },
+      { status: "PENDING", event_type: "ANALYSIS_COMPLETE" },
+      { status: "PENDING", event_type: "REVIEW_ASSIGNED" },
+    ]);
+  });
+
+  it(`인덱스는 ${VERSION} 마이그레이션이 만든다 — 그 앞까지 적용하면 없고, 그 파일을 적용하면 생긴다`, async (t) => {
+    const fresh = await freshDb(t);
+    const before = migrations.filter((migration) => migration.version < VERSION);
+    const target = migrations.filter((migration) => migration.version === VERSION);
+    await applyMigrations(fresh, before);
+    const absent = (await indexRow(fresh)).length;
+    await applyMigrations(fresh, target);
+    assert.deepEqual(
+      { absent, files: target.length, present: (await indexRow(fresh)).length },
+      { absent: 0, files: 1, present: 1 },
+    );
   });
 });
 

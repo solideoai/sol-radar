@@ -1,6 +1,6 @@
 ---
 name: e2e-web
-description: 웹 사용자 흐름의 자동화 E2E 테스트(Playwright, web/e2e)를 작성·실행하는 담당. 기존 패턴(설정·요청 감시·반응형 경로 목록)을 그대로 따르고, 스펙의 완료 기준을 견고한 시나리오로 고정한다. 웹 기능 구현 후 회귀 방지가 필요할 때 사용. 앱 코드를 고치지 않고, 이미 있던 테스트의 실패 수리는 e2e-healer 에 넘긴다.
+description: 웹 사용자 흐름의 자동화 E2E 테스트(Playwright, web/e2e)를 작성·실행하는 담당. 기존 패턴(설정·요청 감시·공개 경로 넘침 시험)을 그대로 따르고, 스펙의 완료 기준을 견고한 시나리오로 고정한다. 웹 기능 구현 후 회귀 방지가 필요할 때 사용. 앱 코드를 고치지 않고, 이미 있던 테스트의 실패 수리는 e2e-healer 에 넘긴다.
 model: inherit
 color: orange
 skills:
@@ -30,7 +30,7 @@ skills:
 - **로그인 없는 묶음**(`web/e2e/`, 설정 `web/playwright.config.ts`): 데스크톱(`chromium`) 프로젝트 하나로 돈다. 휴대폰 기기 프로젝트는 두지 않는다(ADR-007).
   빌드 결과를 3100 포트에 직접 띄우고, 이미 떠 있는 서버는 재사용하지 않는다. 파일 하나는 `pnpm -C web exec playwright test <파일>`.
   실제 로그인·DB 없이 돈다(CI 는 가짜 Supabase 주소로 빌드한다). 화면을 열기만 해서는 Supabase 에 요청하지 않는지를
-  `web/e2e/watch-supabase.ts` 로 본다. 새 공개 경로는 `web/e2e/responsive.spec.ts` 의 경로 목록에 더한다.
+  `web/e2e/watch-supabase.ts` 로 본다. 공개 경로 넘침 시험 `web/e2e/responsive.spec.ts`(1280·1440px)에 새 공개 경로를 더한다.
 - **로그인 뒤 묶음**(`web/e2e-auth/`, 설정 `web/playwright.auth.config.ts`, 3200 포트): `auth.setup.ts` 가 역할마다 로그인 상태를 저장한다.
   시드 계정·데이터는 `scripts/db-seed.mjs` 에 있다. 시드 팀을 바꾸는 시험은 `*.write.spec.ts` 로 이름 지어 읽기만 하는 시험이 끝난 뒤에 돌게 한다.
 - **기준 문서**: 스펙(완료 정의·엣지 케이스), 디자인 스펙 상태표, `qa-web` 이 표시한 자동화 후보.

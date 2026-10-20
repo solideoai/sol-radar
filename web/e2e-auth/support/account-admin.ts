@@ -4,9 +4,10 @@ import { declarationMetadata, SOLIDEO_ORG_ID, uniqueTag } from "./seed";
 
 // 마이페이지 쓰기 시험(settings-account.write.spec.ts)이 쓰는 계정 준비 — 로그아웃(모든 기기)·탈퇴는 시드 계정에 하면
 // 같은 실행의 다른 시험이 깨진다(auth.setup.ts). 그래서 시험마다 따로 계정을 만들고 끝나면 지운다.
-// 계정 만들기·지우기와 남은 팀 치우기에만 관리 키(service_role)를 쓴다. 시드(scripts/db-seed.mjs)와 같은 방식이다 —
-// 이 로컬은 가입 메일 확인이 켜져 있어(supabase/config.toml) anon 키로 가입하면 로그인할 수 없다.
-// 팀 만들기·초대·수락처럼 화면 역할이 하는 일은 그 사람으로 로그인해(anon 키 + 그 사람의 토큰) RLS 를 거친다.
+// 계정 만들기·지우기, 팀 만들기, 남은 팀 치우기에만 관리 키(service_role)를 쓴다. 시드(scripts/db-seed.mjs)와 같은 방식이다 —
+// 이 로컬은 가입 메일 확인이 켜져 있어(supabase/config.toml) anon 키로 가입하면 로그인할 수 없고,
+// 팀 만들기는 서비스 운영자만 할 수 있다(ADR-026, 마이그레이션 20261019000008. createTeamOwnedBy 참고).
+// 초대·수락처럼 화면 역할이 하는 일은 그 사람으로 로그인해(anon 키 + 그 사람의 토큰) RLS 를 거친다.
 // 주소와 키는 `supabase status` 에서 읽고, 로컬 주소가 아니면 멈춘다. 키·토큰·비밀번호는 출력하지 않고 파일에도 남기지 않는다.
 
 type LocalAdmin = { apiUrl: string; anonKey: string; serviceKey: string };
@@ -182,8 +183,55 @@ export const refreshSession = async (
 };
 
 const idRowsSchema = z.array(z.object({ id: z.string() }));
+const teamOwnerRowsSchema = z
+  .array(
+    z.object({
+      org_id: z.string(),
+      user_id: z.string(),
+      org_role: z.literal("owner"),
+      sol_role: z.literal("ADMIN"),
+    }),
+  )
+  .length(1);
 
-// owner 가 팀을 만들고 member 를 초대해 수락시킨다(시드와 같은 길). 팀은 removeTestAccounts 가 함께 지운다.
+// 팀을 만들고 owner 를 그 팀의 소유자로 붙인다. 팀 id 를 돌려준다.
+// 팀 만들기는 서비스 운영자만 한다(ADR-026, 20261019000008) — 시험 계정은 운영자가 아니므로 시드(scripts/db-seed.mjs)처럼
+// 관리 키로 만든다. 관리 키로 만든 팀에는 add_team_owner 트리거가 멤버십을 만들지 않으므로(JWT 의 사용자가 없다),
+// 트리거가 팀을 만든 사람에게 주던 값(owner + 업무 역할 ADMIN, 20261019000001)을 직접 넣고 돌려받아 확인한다.
+// 끝으로 그 사람의 토큰으로 팀이 보이는지(RLS) 읽어 멤버십이 붙었는지 본다. 제품 정책은 바꾸지 않는다.
+const createTeamOwnedBy = async (
+  owner: ApiSession,
+  team: { name: string; slug: string },
+): Promise<string> => {
+  const [org] = idRowsSchema.length(1).parse(
+    await call("POST", "/rest/v1/organizations?select=id", {
+      as: "service",
+      body: team,
+      prefer: "return=representation",
+    }),
+  );
+  try {
+    teamOwnerRowsSchema.parse(
+      await call("POST", "/rest/v1/memberships?select=org_id,user_id,org_role,sol_role", {
+        as: "service",
+        body: { org_id: org.id, user_id: owner.userId, org_role: "owner", sol_role: "ADMIN" },
+        prefer: "return=representation",
+      }),
+    );
+  } catch (error) {
+    // 멤버가 없는 팀은 removeTestAccounts 가 찾지 못한다. 여기서 치우고 원래 오류를 그대로 올린다.
+    await call("DELETE", `/rest/v1/organizations?id=eq.${org.id}`, { as: "service" });
+    throw error;
+  }
+  idRowsSchema.length(1).parse(
+    await call("GET", `/rest/v1/organizations?select=id&id=eq.${org.id}`, {
+      as: { token: owner.token },
+    }),
+  );
+  return org.id;
+};
+
+// owner 가 팀의 소유자가 되고(createTeamOwnedBy), member 를 초대해 수락시킨다. 팀은 removeTestAccounts 가 함께 지운다.
 // label 은 팀 이름의 머리말이다. 이름 끝에 실행마다 다른 꼬리표가 붙는다.
 export const createTeamWithMember = async (
   owner: TestAccount,
@@ -193,25 +241,16 @@ export const createTeamWithMember = async (
   const tag = uniqueTag();
   const team = { name: `${label} ${tag}`, slug: `e2e-${tag}` };
   const ownerSession = await signInByApi(owner);
-  await call("POST", "/rest/v1/organizations", {
-    as: { token: ownerSession.token },
-    body: team,
-    prefer: "return=minimal",
-  });
-  const [org] = idRowsSchema.length(1).parse(
-    await call("GET", `/rest/v1/organizations?select=id&slug=eq.${team.slug}`, {
-      as: { token: ownerSession.token },
-    }),
-  );
+  const orgId = await createTeamOwnedBy(ownerSession, team);
   await call("POST", "/rest/v1/invitations", {
     as: { token: ownerSession.token },
-    body: { org_id: org.id, email: member.email, org_role: "member" },
+    body: { org_id: orgId, email: member.email, org_role: "member" },
     prefer: "return=minimal",
   });
   const memberSession = await signInByApi(member);
   await call("POST", "/rest/v1/memberships", {
     as: { token: memberSession.token },
-    body: { org_id: org.id, user_id: memberSession.userId, org_role: "member" },
+    body: { org_id: orgId, user_id: memberSession.userId, org_role: "member" },
     prefer: "return=minimal",
   });
   return team;
@@ -273,16 +312,6 @@ export const readOwnPeopleAccess = async (session: ApiSession) => {
 // Explicit fixture provisioning, never an implicit signup side effect.
 export const createOwnedTeam = async (account: TestAccount, name = "E2E 업무 조직") => {
   const team = { name, slug: `e2e-${uniqueTag()}` };
-  const session = await signInByApi(account);
-  await call("POST", "/rest/v1/organizations", {
-    as: { token: session.token },
-    body: team,
-    prefer: "return=minimal",
-  });
-  const [row] = idRowsSchema.length(1).parse(
-    await call("GET", `/rest/v1/organizations?select=id&slug=eq.${team.slug}`, {
-      as: { token: session.token },
-    }),
-  );
-  return { ...team, id: row.id };
+  const id = await createTeamOwnedBy(await signInByApi(account), team);
+  return { ...team, id };
 };

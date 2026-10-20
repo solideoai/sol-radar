@@ -113,6 +113,11 @@ services:
       KEV_MODEL_ID: ${KEV_MODEL_ID:-}
       KEV_QUESTION_SET: ${KEV_QUESTION_SET:-}
       KEV_API_KEY: ${KEV_API_KEY:-}
+      # 모델 호출 시간 제한(선택). worker 에도 같은 키를 넘긴다 — worker 의 제한(KEV+2s·AI+5s)이 gateway 마감보다 커야
+      # 실패 분류가 맞다(ADR-031 C6·ADR-032 D1). 값 없이 키만 두면 값이 있을 때만 넘어가고, 없으면 기본값(5000·60000)이다.
+      # 빈 문자열을 넘기지 않는 것은 gateway 설정(PositiveInt)이 빈 값을 거절하기 때문이다.
+      KEV_TIMEOUT_MS:
+      AI_TIMEOUT_MS:
     # 호스트에서 띄운 서비스(예: 로컬 Supabase CLI)에 닿기 위한 호스트 별칭. 모델 엔드포인트는 HTTPS 라 이 별칭을 쓰지 않는다(ADR-025)
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -151,6 +156,17 @@ services:
       G2B_PRE_SPEC_SERVICE_KEY: ${G2B_PRE_SPEC_SERVICE_KEY:-}
       G2B_ORDER_PLAN_SERVICE_KEY: ${G2B_ORDER_PLAN_SERVICE_KEY:-}
       G2B_INDUSTRY_MASTER_SERVICE_KEY: ${G2B_INDUSTRY_MASTER_SERVICE_KEY:-}
+      # 주기·시간(선택). 값 없이 키만 두면 infra/.env·셸에 값이 있을 때만 넘어가고, 없으면 컨테이너에 변수가 없어
+      # 코드 기본값을 쓴다(G2B_INGEST_INTERVAL_MINUTES 30분, ANALYSIS_STALE_*_MS 600000, ANALYSIS_RECONCILE_INTERVAL_MS 60000).
+      G2B_INGEST_INTERVAL_MINUTES:
+      ANALYSIS_STALE_QUEUED_MS:
+      ANALYSIS_STALE_RUNNING_MS:
+      ANALYSIS_RECONCILE_INTERVAL_MS:
+      # gateway 와 같은 모델 호출 시간 제한(ai-gateway 서비스의 같은 키 주석). 없으면 기본값 5000·60000.
+      KEV_TIMEOUT_MS:
+      AI_TIMEOUT_MS:
+      # 알림 소비자(C7)의 outbox 폴링 주기. 500~60000ms 이고 없으면 기본값 2000. 범위 밖이면 worker 가 기동을 거부한다.
+      NOTIFY_POLL_INTERVAL_MS:
       # 수집 worker 입력(C3). 이미지 컨텍스트가 web/ 라 fixture·소스 registry 는 저장소에서 읽기 전용으로 붙인다.
       # 컨테이너 안 경로는 여기서 고정한다(infra/.env 로 바꾸지 않는다). 호스트에서 직접 돌릴 때는 코드 기본값(저장소 경로)을 쓴다.
       FIXTURES_DIR: /srv/sol-radar/fixtures

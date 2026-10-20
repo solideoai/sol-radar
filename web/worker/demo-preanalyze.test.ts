@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -73,7 +74,7 @@ function recordingIngestionRepo(): {
       revision: bid.revision,
       raw_payload: JSON.parse(JSON.stringify(rawPayload)),
     });
-    return { bidId, revisionId };
+    return { bidId, revisionId, revisionCreatedAt: "2026-01-01T00:00:00.000000+00:00" };
   };
   const repo: IngestionRepo = {
     startRun: async (input) => ({
@@ -171,6 +172,8 @@ const NOT_COMPLETED_NOTICE =
   /^preanalyze: 끝난 run 이 COMPLETED 가 아니다 — pnpm demo:reset 뒤 다시 돌린다$/;
 /** ensureQueuedRun 이 던지는 오류의 message. 로그로 새면 안 된다. */
 const ENSURE_LEAK = "LEAK-ensure-message";
+/** 같은 멱등 키의 run 이 남(화면 사용자·다른 입력)의 run 일 때 저장 port 가 던지는 message. */
+const ENSURE_CONFLICT_MESSAGE = "analysis store 오류: score_runs.select CONFLICT";
 
 // ── 가짜 ──
 
@@ -203,6 +206,8 @@ type Setup = {
   poll?: (fixtureId: string, readIndex: number) => ScoreRunStatus;
   /** ensureQueuedRun 이 던질 fixtureId(예: score_runs_active_input_key 23505). */
   ensureErrors?: ReadonlySet<string>;
+  /** ensureQueuedRun 이 CONFLICT(같은 키의 run 이 사전 분석의 run 이 아니다)로 던질 fixtureId. */
+  ensureConflicts?: ReadonlySet<string>;
   /** readStatuses 행에 덧붙일 값(로그로 새면 안 된다). */
   extraColumns?: Record<string, unknown>;
   deadlineMs?: number;
@@ -253,6 +258,7 @@ function setup(options: Setup = {}) {
         const error = new Error(`${ENSURE_LEAK} score_runs_active_input_key 23505`);
         throw Object.assign(error, { code: "23505" });
       }
+      if (options.ensureConflicts?.has(fixtureId)) throw new Error(ENSURE_CONFLICT_MESSAGE);
       return { id: runIdFor(fixtureId), status: options.existing?.[fixtureId] ?? "QUEUED" };
     },
     readStatuses: async (orgId, ids) => {
@@ -374,13 +380,14 @@ describe("runPreanalyze · gateway 확인", () => {
     },
   );
 
+  // 보안 후속 (c): 줄은 runMode 와 provider 를 함께 싣는다(둘 다 enum 값). 예전 줄 `(runMode=<값>)` 은 이 결정으로 바뀌었다.
   it.each(["fixture", "live"] as const)(
-    "runMode=%s 면 exit 2 와 'mock 모드가 아니다' 줄을 돌려준다",
+    "runMode=%s 면 exit 2 와 runMode·provider 를 담은 'mock 모드가 아니다' 줄을 돌려준다",
     async (runMode) => {
       const r = await run({ health: healthOk({ runMode, provider: "local" }) });
       expect(r.result).toEqual({
         exitCode: 2,
-        line: `preanalyze: mock 모드가 아니다(runMode=${runMode}) — 사전 분석은 mock 에서만 한다`,
+        line: `preanalyze: mock 모드가 아니다(runMode=${runMode}, provider=local) — 사전 분석은 mock 에서만 한다`,
       });
     },
   );
@@ -393,6 +400,45 @@ describe("runPreanalyze · gateway 확인", () => {
       expect(r.adds).toEqual([]);
     },
   );
+
+  // 보안 후속 (c): runMode=mock 인데 provider 가 local·hosted 인 설정 모순이면 실모델을 부를 수 있어 멈춘다.
+  it.each(["local", "hosted"] as const)(
+    "runMode=mock 이어도 provider=%s 면 exit 2 와 두 값을 담은 'mock 모드가 아니다' 줄을 돌려준다",
+    async (provider) => {
+      const r = await run({ health: healthOk({ runMode: "mock", provider }) });
+      expect(r.result).toEqual({
+        exitCode: 2,
+        line: `preanalyze: mock 모드가 아니다(runMode=mock, provider=${provider}) — 사전 분석은 mock 에서만 한다`,
+      });
+    },
+  );
+
+  it.each(["local", "hosted"] as const)(
+    "runMode=mock 이어도 provider=%s 면 store·queue 를 부르지 않는다",
+    async (provider) => {
+      const r = await run({ health: healthOk({ runMode: "mock", provider }) });
+      expect(r.storeCalls).toEqual([]);
+      expect(r.adds).toEqual([]);
+    },
+  );
+
+  it("runMode=mock 이어도 provider=hosted 면 마지막 줄 하나만 찍는다(다른 줄 없이 멈춘다)", async () => {
+    const r = await run({ health: healthOk({ runMode: "mock", provider: "hosted" }) });
+    expect(transcriptOf(r.lines, r.result.line)).toEqual([r.result.line]);
+  });
+
+  it("provider=mock 이어도 runMode=live 면 exit 2 이고 줄에 두 값을 싣는다", async () => {
+    const r = await run({ health: healthOk({ runMode: "live", provider: "mock" }) });
+    expect(r.result).toEqual({
+      exitCode: 2,
+      line: "preanalyze: mock 모드가 아니다(runMode=live, provider=mock) — 사전 분석은 mock 에서만 한다",
+    });
+  });
+
+  it("runMode=mock·provider=mock 이면 멈추지 않고 데모 조직을 읽는다", async () => {
+    const r = await run({ health: healthOk({ runMode: "mock", provider: "mock" }) });
+    expect(r.storeCalls[0]).toBe("findDemoOrg");
+  });
 
   it("health 는 한 번 부른다", async () => {
     const r = await run();
@@ -717,6 +763,48 @@ describe("runPreanalyze · ensureQueuedRun 이 던질 때", () => {
   });
 });
 
+// ── ensureQueuedRun 이 CONFLICT 로 던질 때 ──
+// 같은 멱등 키의 run 을 화면 사용자가 먼저 넣었거나(requested_by 있음) 다른 공고·revision·프로필의 run 이면 저장 port 가
+// 그 run 을 돌려주지 않고 CONFLICT 로 던진다. CLI 는 그 대상을 준비 실패(ensureQueuedRun)로 세고 큐에 넣지 않는다.
+
+describe("runPreanalyze · ensureQueuedRun 이 CONFLICT(남이 넣은 run)로 던질 때", () => {
+  const conflictFor = (...fixtureIds: string[]) => ({ ensureConflicts: new Set(fixtureIds) });
+
+  it("그 대상은 enqueue 하지 않는다(queue.add 0회)", async () => {
+    const r = await run(conflictFor("FX-07"));
+    expect(addedFixtures(r.adds)).not.toContain("FX-07");
+    expect(r.adds).toHaveLength(17);
+  });
+
+  it("그 대상의 run 은 상태를 읽지 않는다", async () => {
+    const r = await run(conflictFor("FX-07"));
+    for (const read of r.statusReads) expect(read.ids).not.toContain(runIdFor("FX-07"));
+  });
+
+  it("그 대상은 준비 실패(ensureQueuedRun) 줄을 마지막 줄 앞에 찍는다", async () => {
+    const r = await run(conflictFor("FX-07"));
+    expect(fixtureLines(r)).toEqual([
+      "preanalyze: FX-07 FAILED — 준비 실패(ensureQueuedRun), 넣지 않았다",
+    ]);
+  });
+
+  it("그 대상은 failed 로 세고 exit 1 이다", async () => {
+    const r = await run(conflictFor("FX-07"));
+    expect(r.result).toEqual({
+      exitCode: 1,
+      line: "preanalyze: targets=18 completed=17 partial=0 failed=1",
+    });
+  });
+
+  it("오류 message(CONFLICT)를 로그와 마지막 줄에 싣지 않는다", async () => {
+    const r = await run(conflictFor("FX-07", "FX-13"));
+    for (const line of transcriptOf(r.lines, r.result.line)) {
+      expect(line).not.toContain("CONFLICT");
+      expect(line).not.toContain("score_runs.select");
+    }
+  });
+});
+
 // ── 기다리기 ──
 
 describe("runPreanalyze · 기다리기", () => {
@@ -869,5 +957,24 @@ describe("runPreanalyze · 로그", () => {
       expect(line).not.toMatch(/\b94\b/);
       expect(line).not.toContain("explanation");
     }
+  });
+});
+
+// ── 실패 줄의 오류 이름(오류 이름 공용화, 보안 후속 낮음 h 의 남은 곳) ──
+// 실패 줄("멈췄다(…)"·"analysis queue 오류 …"·"queue 닫기 실패 …")은 main 이 찍는다. main 은 IORedis·Queue·service role 을
+// 직접 만들고 내보내지 않아 시험이 부를 수 없다. 그래서 그 줄의 이름을 만드는 곳(errorLabel)이 공용 errorNameOf 를 쓰고
+// error.name 을 거르지 않은 채 싣지 않는지 소스로 본다. 이름 규칙(개행·61자·값 → "Error", Error 아님 → "NonError")은 error-name.test.ts 가 본다.
+
+describe("demo-preanalyze · 실패 줄의 오류 이름은 공용 errorNameOf 로 거른다", () => {
+  const source = readFileSync(new URL("./demo-preanalyze.ts", import.meta.url), "utf8");
+
+  it("errorNameOf 를 @/worker/error-name 에서 가져다 쓴다", () => {
+    expect(source).toMatch(
+      /import\s*\{[^}]*\berrorNameOf\b[^}]*\}\s*from\s*"(@\/worker|\.)\/error-name"/,
+    );
+  });
+
+  it("error.name 을 거르지 않은 채 쓰지 않는다", () => {
+    expect(source).not.toMatch(/\berror\.name\b/);
   });
 });

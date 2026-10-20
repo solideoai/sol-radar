@@ -1,13 +1,14 @@
-// demo/bid-notices.mjs — 데모 공고의 정리·fixture 읽기와 mock 추출 적재.
+// demo/bid-notices.mjs — 데모 공고의 정리와 fixture 읽기.
 //
 // 공고 SEED 적재(공고·revision·첨부·outbox·수집 run·격리)는 C3 수집 도메인의 seedFixtureBids 가 한다(C3 6-5).
 // demo-reset.mjs 가 그것을 ingestBids 로 주입받아 부르고, 돌려받은 { bids, quarantined, summary, ingestRunId } 를 쓴다.
 //
-// seedRequirementExtractions 는 수집이 아니라 extract job 의 결과(mock)라 따로 둔다.
+// mock 추출은 적재하지 않는다. 인용 검증을 거치지 않은 fixture 원본이 worker 캐시가 되면 안 된다(demo-reset.mjs 머리말).
+// loadExtractionFixtures 는 분석 저장 시험(web/server/analysis/store.test-support.ts)이 test-harness 로 쓴다.
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { loadBidFixtures, validateBidFixtures } from "../bids/check.mjs";
-import { extractionFileFor, indexExtractionFiles, toExtractionRow } from "./plan.mjs";
+import { indexExtractionFiles } from "./plan.mjs";
 
 // ── fixture 읽기 ───────────────────────────────────────────────
 
@@ -71,21 +72,4 @@ export const deleteDemoBids = async (client) => {
     });
   await client.delete("bid_notices", { is_demo: true });
   await client.delete("ingest_runs", { source: "fixture" });
-};
-
-// 적재된 공고(r1)마다 mock 추출 한 행. 파일이 없는 공고는 오류다(19건 모두 파일이 있어야 한다, 07 §6.5).
-export const seedRequirementExtractions = async (client, { bids, extractions }) => {
-  const rows = bids.map(({ fixtureId, bidId, revisionId }) => {
-    const file = extractionFileFor(extractions.index, fixtureId, 1);
-    if (!file) throw new Error(`mock 추출 fixture 가 없습니다: ${fixtureId}`);
-    return toExtractionRow({
-      fixtureId,
-      bidId,
-      revisionId,
-      revision: 1,
-      extraction: extractions.files[file],
-    });
-  });
-  await client.insert("requirement_extractions", rows);
-  return { extractions: rows.length };
 };

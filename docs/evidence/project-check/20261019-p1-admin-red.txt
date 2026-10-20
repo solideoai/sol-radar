@@ -1,0 +1,114 @@
+▶ 마지막 업무 ADMIN 보호
+  ✖ 마지막 ADMIN은 자기 업무 역할을 내리지 못한다 (2082.155334ms)
+  ✖ 다른 멤버가 남는 조직의 마지막 ADMIN은 스스로 나가지 못한다 (1755.857958ms)
+  ✖ ADMIN 둘을 한 문장으로 update해도 마지막 ADMIN을 없애지 못한다 (1585.092ms)
+  ✖ ADMIN 둘을 한 문장으로 delete해도 마지막 ADMIN을 없애지 못한다 (1921.522083ms)
+  ✖ 다른 ADMIN이 있으면 자기 강등·탈퇴를 허용하고 남은 마지막 ADMIN은 보호한다 (1645.163666ms)
+  ✖ 계정 탈퇴가 JWT를 비우기 전에 마지막 ADMIN을 보호하고 계정·멤버십·JWT를 보존한다 (1612.459625ms)
+  ✔ 다른 멤버에게 ADMIN을 넘기면 기존 ADMIN은 나갈 수 있다 (1451.495875ms)
+  ✔ 혼자인 조직은 계정 탈퇴와 함께 지울 수 있다 (1575.543333ms)
+✖ 마지막 업무 ADMIN 보호 (13633.528292ms)
+ℹ tests 8
+ℹ suites 1
+ℹ pass 2
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15968.96
+
+✖ failing tests:
+
+test at scripts/database.test.mjs:72:3
+✖ 마지막 ADMIN은 자기 업무 역할을 내리지 못한다 (2082.155334ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection (lastAdmin).
+      at async TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar/scripts/database.test.mjs:74:5)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Promise.all (index 0)
+      at async Suite.run (node:internal/test_runner/test:1771:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at scripts/database.test.mjs:78:3
+✖ 다른 멤버가 남는 조직의 마지막 ADMIN은 스스로 나가지 못한다 (1755.857958ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection (lastAdmin).
+      at async TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar/scripts/database.test.mjs:80:5)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at scripts/database.test.mjs:84:5
+✖ ADMIN 둘을 한 문장으로 update해도 마지막 ADMIN을 없애지 못한다 (1585.092ms)
+  AssertionError [ERR_ASSERTION]: The "lastAdmin" validation function is expected to return "true". Received false
+
+  Caught error:
+
+  error: 업무 역할은 그 조직의 ADMIN 만 바꿉니다
+      at async TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar/scripts/database.test.mjs:87:7)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: error: 업무 역할은 그 조직의 ADMIN 만 바꿉니다
+        at pe.Oe (file:///Users/leegwanghui/dev/hackathon/sol-radar/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/chunk-3OMHRXTA.js:1:18162)
+        at pe.tt (file:///Users/leegwanghui/dev/hackathon/sol-radar/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/chunk-3OMHRXTA.js:1:15548)
+        at pe.parse (file:///Users/leegwanghui/dev/hackathon/sol-radar/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/chunk-3OMHRXTA.js:1:14222)
+        at p.D_ (file:///Users/leegwanghui/dev/hackathon/sol-radar/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/index.js:6:1759)
+        at file:///Users/leegwanghui/dev/hackathon/sol-radar/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/index.js:6:1151
+        at wasm://wasm/0280c65e:wasm-function[10964]:0x58cc19
+        at wasm://wasm/0280c65e:wasm-function[3606]:0x2792af
+        at wasm://wasm/0280c65e:wasm-function[3648]:0x2807ba
+        at wasm://wasm/0280c65e:wasm-function[3658]:0x2809ef
+        at wasm://wasm/0280c65e:wasm-function[9946]:0x5393b2,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at scripts/database.test.mjs:84:5
+✖ ADMIN 둘을 한 문장으로 delete해도 마지막 ADMIN을 없애지 못한다 (1921.522083ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection (lastAdmin).
+      at async TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar/scripts/database.test.mjs:87:7)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at scripts/database.test.mjs:92:3
+✖ 다른 ADMIN이 있으면 자기 강등·탈퇴를 허용하고 남은 마지막 ADMIN은 보호한다 (1645.163666ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection (lastAdmin).
+      at async TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar/scripts/database.test.mjs:97:5)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at scripts/database.test.mjs:100:3
+✖ 계정 탈퇴가 JWT를 비우기 전에 마지막 ADMIN을 보호하고 계정·멤버십·JWT를 보존한다 (1612.459625ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection (lastAdmin).
+      at async TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar/scripts/database.test.mjs:102:5)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

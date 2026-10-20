@@ -228,9 +228,10 @@ it.each(["missing", "suspended"])(
 
 it("bare legacy org entry checks incomplete profile before redirecting even a forged slug", async () => {
   const { default: OrgHomePage } = await import("./[slug]/page");
+  // 갈 곳을 고르지 않은 진입이라 보완 뒤에는 업무 첫 화면(/dashboard)으로 간다(Ruling 16).
   await expect(
     OrgHomePage({ searchParams: Promise.resolve({}), params: Promise.resolve({ slug: "alpha" }) }),
-  ).rejects.toThrow("REDIRECT:/auth/complete-profile");
+  ).rejects.toThrow(/^REDIRECT:\/auth\/complete-profile\?next=%2Fdashboard$/);
   expect(workspace).not.toHaveBeenCalled();
 });
 it.each(["no-org", "multiple-orgs"])(

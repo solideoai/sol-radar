@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getReadiness } from "./health.service";
+import { getAiState, getReadiness } from "./health.service";
 
 // 바깥 세계만 가짜로 바꾼다. 검사 함수·시간 제한·판정은 진짜 코드를 지난다.
 const world = vi.hoisted(() => ({
@@ -178,5 +178,33 @@ describe("getReadiness", () => {
     expect(result.body.checks.storage).toBe("unavailable");
     expect(result.body.checks.ai).toBe("unavailable");
     expect(result.httpStatus).toBe(503);
+  });
+});
+
+describe("getAiState", () => {
+  it("AI 검사 하나만 부른다", async () => {
+    const probes = {
+      db: vi.fn(async () => "ok" as const),
+      redis: vi.fn(async () => "ok" as const),
+      storage: vi.fn(async () => "ok" as const),
+      ai: vi.fn(async () => "local" as const),
+    };
+    expect(await getAiState(probes)).toBe("local");
+    expect(probes.ai).toHaveBeenCalledTimes(1);
+    expect(probes.db).not.toHaveBeenCalled();
+    expect(probes.redis).not.toHaveBeenCalled();
+    expect(probes.storage).not.toHaveBeenCalled();
+  });
+
+  it("검사가 던지면 unavailable", async () => {
+    const probes = {
+      db: vi.fn(),
+      redis: vi.fn(),
+      storage: vi.fn(),
+      ai: vi.fn(async () => {
+        throw new Error("x");
+      }),
+    };
+    expect(await getAiState(probes)).toBe("unavailable");
   });
 });

@@ -220,6 +220,21 @@ test("FX-07 keeps an r01 extraction made from the first revision (no Kubernetes)
   assert.ok(quotes.every((quote) => first.content.includes(quote)));
 });
 
+test("FX-07 keeps an r01 Kev response for the first revision (WATCH, rule score 68)", async () => {
+  const value = await baseline();
+  const kev = value.kev["FX-07.r01"];
+  assert.ok(kev, "fixtures/kev/FX-07.r01.json is missing");
+  assert.equal(kev.fixtureId, "FX-07.r01");
+  assert.equal(kev.responses.recommendation.choice, "WATCH");
+  assert.ok(Math.abs(kev.responses.fit.score - (68 / 20 - 1)) < 1e-9);
+});
+
+test("an rNN Kev response for an earlier revision passes like an rNN extraction", async () => {
+  const value = await copy();
+  value.kev["FX-10.r01"] = { ...structuredClone(value.kev["FX-10"]), fixtureId: "FX-10.r01" };
+  assert.deepEqual(validateBidFixtures(value), { ok: true, errors: [] });
+});
+
 test("a prototype-named key in a mock folder is rejected without throwing", async () => {
   const value = await copy();
   value.extractions.constructor = {};
@@ -760,6 +775,48 @@ for (const [name, mutate, expected] of [
       value.kev["FX-01"].responses.fit.score = 4.5;
     },
     "KEV_FIT",
+  ],
+  [
+    "Kev rNN key with a one-digit revision",
+    (value) => {
+      value.kev["FX-07.r1"] = { ...structuredClone(value.kev["FX-07.r01"]), fixtureId: "FX-07.r1" };
+    },
+    "KEV_SHAPE",
+  ],
+  [
+    "Kev FX-01.r02 for a revision the fixture does not have",
+    (value) => {
+      value.kev["FX-01.r02"] = { ...structuredClone(value.kev["FX-01"]), fixtureId: "FX-01.r02" };
+    },
+    "KEV_REVISION",
+  ],
+  [
+    "Kev rNN for the last revision duplicates the main file",
+    (value) => {
+      value.kev["FX-07.r02"] = { ...structuredClone(value.kev["FX-07"]), fixtureId: "FX-07.r02" };
+    },
+    "KEV_REVISION",
+  ],
+  [
+    "Kev rNN for the quarantined fixture",
+    (value) => {
+      value.kev["FX-12.r01"] = { ...structuredClone(value.kev["FX-01"]), fixtureId: "FX-12.r01" };
+    },
+    "KEV_SHAPE",
+  ],
+  [
+    "Kev rNN without its main file",
+    (value) => {
+      delete value.kev["FX-07"];
+    },
+    "KEV_MISSING",
+  ],
+  [
+    "Kev rNN fixtureId differs from its file name",
+    (value) => {
+      value.kev["FX-07.r01"].fixtureId = "FX-07";
+    },
+    "KEV_SHAPE",
   ],
   [
     "golden FX-03 removed",

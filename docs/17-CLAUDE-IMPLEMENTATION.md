@@ -12,7 +12,7 @@ updated: 2026-10-19
 # 17. Claude Code 구현 운영 규칙
 
 ## 시작 명령
-Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 [[01-PRD|01 PRD]]~[[20-GLOSSARY|20 용어집]]과 [[21-MODEL-TRAINING|21 모델 학습]]·[[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]를 읽은 뒤 Phase 0부터 구현하라. [[12-ROADMAP|12 로드맵]] 해커톤 컷의 핵심 컷(Critical Path C0~C9)을 우선한다. **각 Phase마다 계획 → 코드 → 테스트 → 증거 저장 → 결과 보고 → 다음 단계**를 따르라. 문서와 실제 구현이 충돌하면 코드 전에 [[16-DECISIONS|16 ADR]]과 문서를 갱신하라. 열린 질문은 [[16-DECISIONS|16 ADR]] 미결정 표에 제안하라.
+Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 그 문서 표에 있는 설계 문서 전부를 읽은 뒤 Phase 0부터 구현하라. [[12-ROADMAP|12 로드맵]] 해커톤 컷의 핵심 컷(Critical Path C0~C9)을 우선한다. **각 Phase마다 계획 → 코드 → 테스트 → 증거 저장 → 결과 보고 → 다음 단계**를 따르라. 문서와 실제 구현이 충돌하면 코드 전에 [[16-DECISIONS|16 ADR]]과 문서를 갱신하라. 열린 질문은 [[16-DECISIONS|16 ADR]] 미결정 표에 제안하라.
 
 ## 절대 규칙
 - 스택은 [[16-DECISIONS|16 ADR]] ADR-017을 따른다. 화면·Route Handler(`/api/v1`)·서버 도메인은 Next.js(`web/`, `web/server/<도메인>`)로만 만든다. 다른 웹 프레임워크나 별도 API 서버·ORM을 들이지 않는다. Worker는 `web/worker` 진입점(BullMQ)이다. 해커톤 뒤 API·worker의 NestJS 전환은 ADR-028이고, 그 전에는 NestJS 코드를 만들지 않는다.
@@ -83,7 +83,7 @@ docs/evidence/
 - evidence 파일은 커밋 대상. Phase당 10MB 이하(PNG 압축).
 
 ### 데모 리허설
-Phase 6 완료 후부터 [[10-DEPLOYMENT|10 배포]] 기동 절차 1~12를 매일 1회 실행하고 `docs/evidence/demo-day/rehearsal-log.md`에 날짜·소요 시간·실패 단계를 기록한다. 리허설 항목(세 실행 모드 기동, 엔드포인트 미접속 → 재접속 확인과 소요 시간, 공공 API 일일 호출 한도, 로컬 Supabase CLI 전환)은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §6 체크리스트를 따른다.
+Phase 6 완료 후부터 [[10-DEPLOYMENT|10 배포]] 기동 절차 1~15를 매일 1회 실행하고 `docs/evidence/demo-day/rehearsal-log.md`에 날짜·소요 시간·실패 단계를 기록한다. 리허설 항목(세 실행 모드 기동, 엔드포인트 미접속 → 재접속 확인과 소요 시간, 공공 API 일일 호출 한도, 로컬 Supabase CLI 전환)은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §6 체크리스트를 따른다.
 
 ## 각 Phase 결과 보고 형식
 ```text

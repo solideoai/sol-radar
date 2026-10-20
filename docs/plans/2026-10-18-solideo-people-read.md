@@ -1,4 +1,18 @@
+---
+title: "조직·인력 조회 구현 계획 (Solideo people read)"
+doc: "plan-people-read"
+status: final
+tags:
+  - sol-radar
+  - plan
+  - people
+updated: 2026-10-19
+---
+
 # Solideo people read Implementation Plan
+
+> [!success] 보관 (2026-10-19)
+> 이 설계안은 정본에 반영됐다(근거: PR #6 `98101e8` 원격 main 병합, 로컬 main 병합 `7641ee4`(2026-10-19), [[PROGRESS|진행 상황]] ADR-021 절 N4a 행·"조직·인력 조회와 독립 조직도 구현·검증" 절, 증거 `evidence/people/20261019-people-read.md`). 수정하지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. User approved all implementation and tests on 2026-10-18; no main merge/sharedDB/push/deploy.
 
