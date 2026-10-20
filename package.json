@@ -32,6 +32,7 @@
     "record:g2b": "node scripts/recorded/record-g2b.mjs",
     "eval:split": "node scripts/recorded/split-eval.mjs",
     "record:check": "pnpm -C web exec node --conditions=react-server --import tsx ../scripts/recorded/replay-check.mjs",
+    "ops:close-stale-runs": "node scripts/ops/close-stale-ingest-runs.mjs",
     "test": "node --test \"scripts/**/*.test.mjs\"",
     "test:package": "node --test scripts/gate-integrity.test.mjs",
     "test:db": "node --test scripts/database.test.mjs",

@@ -123,14 +123,16 @@ export const createRestClient = ({ apiUrl, serviceKey, fetchImpl = globalThis.fe
         search: [["on_conflict", conflict]],
       });
     },
-    async update(table, filters, patch) {
+    // returning 이면 바뀐 행을 돌려준다(조건에 맞는 행이 없으면 []). 기본은 지금처럼 돌려주지 않는다.
+    async update(table, filters, patch, { returning = false } = {}) {
       if (Object.keys(filters).length === 0)
         throw new Error(`${table}: 조건 없는 update 는 거부합니다`);
-      return call("PATCH", rest(table), {
+      const result = await call("PATCH", rest(table), {
         body: patch,
-        prefer: "return=minimal",
+        prefer: returning ? "return=representation" : "return=minimal",
         search: filterParams(filters),
       });
+      return returning ? (result ?? []) : result;
     },
     async delete(table, filters) {
       if (Object.keys(filters).length === 0)
