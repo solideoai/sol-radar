@@ -78,7 +78,7 @@ curl -sS -i -H "Authorization: Bearer $DECISION_API_KEY" -H 'Content-Type: appli
   }}'
 # HTTP/1.1 200 OK · x-typesafe-request-id: <uuid4>
 # {"responses":{"recommendation":{"choice":"WATCH","confidence":0.6,"probabilities":{"BID":0.3,"WATCH":0.6,"NO_BID":0.1}},
-#               "fit":{"score":2.4,"probabilities":{"0":…,"4":…},"confidence":…,"legend":["Very poor",…]},
+#               "fit":{"score":2.4,"probabilities":{"0":…,"4":…},"confidence":…,"legend":{"0":"Very poor",…,"4":"Very good"}},
 #               "needsHumanReview":{"noul":0.42}},
 #  "usage":{"input_tokens":0,"output_tokens":0},"latency_ms":…}
 ```

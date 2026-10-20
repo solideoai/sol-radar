@@ -5,7 +5,9 @@
 - 백엔드는 후보 순서대로의 확률 리스트를 돌려준다. 여기서 **후보 id 로** dict 를 만든다(위치가 아니라 id 로 되돌린다).
   합이 1 이 되게 정규화한다. 음수·NaN·무한·길이 불일치·합 0 은 InvalidDistribution 이다.
 - 답: choice {choice: 최대 확률 키(동률은 criteria 순서 앞), confidence: max p, probabilities{key}},
-  score {score: Σ i·p_i, probabilities{"0".."N-1"}, confidence: max p, legend: criteria 리스트}, noul {noul: P(true)}.
+  score {score: Σ i·p_i, probabilities{"0".."N-1"}, confidence: max p, legend: {"0": 등급 이름, …}}, noul {noul: P(true)}.
+  legend 는 Kev wire(fixtures/kev/FX-*.json)와 같은 객체 모양이다. worker 가 원본 wire 를 `fit.legend: record<string,string>` 으로
+  다시 검사하므로 배열로 내면 모든 /kev 응답이 WIRE_INVALID 로 버려진다(2026-10-20 08 세션 발견).
   게이트웨이 파서(kev_wire.parse_response)의 검사(합 1±0.01, score=Σ i·p_i ±0.05)를 같은 식으로 만족한다.
 """
 
@@ -94,13 +96,18 @@ def choice_answer(distribution: Mapping[str, float]) -> dict[str, Any]:
     }
 
 
+def score_legend(legend: Sequence[str]) -> dict[str, str]:
+    """등급 index("0".."N-1") → 등급 이름. Kev wire 의 fit.legend 모양(객체)이다."""
+    return {str(index): str(label) for index, label in enumerate(legend)}
+
+
 def score_answer(legend: Sequence[str], distribution: Mapping[str, float]) -> dict[str, Any]:
     """score = 0 부터 센 등급 index 의 기대값 Σ i·p_i. 등급 키는 "0".."N-1"."""
     return {
         wire.SCORE: sum(int(grade) * p for grade, p in distribution.items()),
         wire.PROBABILITIES: dict(distribution),
         wire.CONFIDENCE: distribution[_argmax(distribution)],
-        wire.LEGEND: list(legend),
+        wire.LEGEND: score_legend(legend),
     }
 
 

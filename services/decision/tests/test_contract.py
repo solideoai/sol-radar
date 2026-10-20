@@ -86,7 +86,8 @@ def test_score_answer_expected_grade_and_legend():
     legend = ["Very poor", "Poor", "Moderate", "Good", "Very good"]
     answer = contract.answer_for(_q("score", legend), [0.0, 0.1, 0.2, 0.3, 0.4])
     assert math.isclose(answer["score"], 0.1 + 0.4 + 0.9 + 1.6)
-    assert answer["legend"] == legend
+    # legend 는 Kev wire 와 같은 객체({"0": 이름, …}). 배열이면 worker 가 fit.legend 를 거부한다(WIRE_INVALID)
+    assert answer["legend"] == dict(zip(["0", "1", "2", "3", "4"], legend, strict=True))
     assert list(answer["probabilities"]) == ["0", "1", "2", "3", "4"]
     assert math.isclose(answer["confidence"], 0.4)
 
