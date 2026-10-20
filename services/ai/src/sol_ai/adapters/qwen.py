@@ -5,7 +5,9 @@
   "<" 는 전각 "＜"(U+FF1C)로 바꾼다(길이가 같고 NFKC 가 "<" 로 되돌려 인용 오프셋에 영향이 없다).
 - 응답은 언제나 텍스트 JSON 으로 받아 파이프라인이 파싱·스키마 검증한다. guided JSON(response_format)을 서버가
   거부해도 다른 방식으로 우회하지 않는다.
-- 오류: 연결 실패·timeout·3xx·5xx·401·403·404 → ModelUnavailable(QWEN_UNAVAILABLE). 400·422·내용 없음 → ExtractionFailed.
+- 오류: 연결 실패·timeout·마감 초과·응답 과대·3xx·5xx·401·403·404 → ModelUnavailable(QWEN_UNAVAILABLE).
+  400·422·내용 없음 → ExtractionFailed.
+- 호출은 요청 마감(AI_TIMEOUT_MS, 핸들러가 만든다)의 남은 시간만 쓴다. 재시도도 같은 마감을 나눠 쓴다(C5-A S1).
 """
 
 import logging
@@ -17,6 +19,8 @@ from datetime import UTC, datetime
 from sol_ai.adapters import http
 from sol_ai.adapters.base import ExtractionFailed, ModelOutput, ModelUnavailable
 from sol_ai.contracts import Attachment, ExtractRequest
+from sol_ai.deadline import Deadline
+from sol_ai.strict_json import parse_json
 
 logger = logging.getLogger("sol_ai.qwen")
 
@@ -109,7 +113,7 @@ def system_prompt(prompt_text: str, schema_text: str) -> str:
 
 
 def _content(reply_text: str) -> str | None:
-    body = http.parse_json(reply_text)
+    body = parse_json(reply_text)
     try:
         content = body["choices"][0]["message"]["content"]
     except (TypeError, KeyError, IndexError):
@@ -129,14 +133,12 @@ class LocalQwen:
         *,
         endpoint: http.Endpoint,
         model: str,
-        timeout_s: float,
         system: str,
         schema: dict,
         budget_tokens: int,
         prompt_hash: str,
     ) -> None:
         self._endpoint = endpoint
-        self._timeout_s = timeout_s
         self._system = system
         self._schema = schema
         self._budget = budget_tokens
@@ -157,7 +159,9 @@ class LocalQwen:
             },
         }
 
-    def extract(self, request: ExtractRequest, retry_note: str | None = None) -> ModelOutput:
+    def extract(
+        self, request: ExtractRequest, retry_note: str | None = None, *, deadline: Deadline
+    ) -> ModelOutput:
         user, truncated = build_user_message(request, self._budget)
         if retry_note is not None:
             user += RETRY_NOTE_PREFIX + retry_note
@@ -167,7 +171,7 @@ class LocalQwen:
                 self._endpoint,
                 "POST",
                 CHAT_COMPLETIONS,
-                timeout_s=self._timeout_s,
+                deadline=deadline,
                 json_body=self._body(user),
             )
         except http.TransportFailure as error:

@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 AI_ROOT = Path(__file__).resolve().parents[1]  # services/ai
@@ -173,6 +174,38 @@ def run_main(extra: dict[str, str]) -> subprocess.CompletedProcess[str]:
         timeout=60,
         check=False,
     )
+
+
+# ---------------------------------------------------------------- 요청 마감(C5-A S1)
+
+
+class FakeClock:
+    """주입용 단조 시계(초). advance 로만 움직인다. 가짜 서버 스레드에서 옮겨도 된다."""
+
+    def __init__(self, start: float = 1000.0) -> None:
+        self._now = start
+        self._lock = threading.Lock()
+
+    def __call__(self) -> float:
+        with self._lock:
+            return self._now
+
+    def advance(self, seconds: float) -> None:
+        with self._lock:
+            self._now += seconds
+
+
+def deadline_type():
+    """C5-A S1 요청 마감 클래스 sol_ai.deadline.Deadline. 구현 전에는 모듈이 없어 ModuleNotFoundError 다."""
+    from sol_ai.deadline import Deadline
+
+    return Deadline
+
+
+def new_deadline(seconds: float, clock=None):
+    """Deadline(seconds, clock=time.monotonic). clock 을 주면 그 시계로 남은 시간을 센다."""
+    deadline = deadline_type()
+    return deadline(seconds) if clock is None else deadline(seconds, clock=clock)
 
 
 def without_timings(payload: dict) -> dict:

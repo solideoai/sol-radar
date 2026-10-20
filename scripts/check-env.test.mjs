@@ -256,16 +256,20 @@ const G2B_KEYS = [
   "G2B_INDUSTRY_MASTER_SERVICE_KEY",
 ];
 
+const LIVE_INFRA = {
+  ...INFRA_BASE,
+  SOL_RUN_MODE: "live",
+  DEMO_MODE: "false",
+  QWEN_BASE_URL: "http://qwen:8000",
+  // C5-A S3: local(실추론)은 QWEN_API_KEY 필수(03 §3·09)
+  QWEN_API_KEY: "qwen-fake-1",
+  KEV_BASE_URL: "http://kev:8009",
+  KEV_API_KEY: "kev-fake-1",
+  ...Object.fromEntries(G2B_KEYS.map((key) => [key, "g2b-fake-1"])),
+};
+
 test("checkEnv: live 인데 빠진 서비스키마다 MISSING_KEY, mock 은 통과", async () => {
-  const live = {
-    ...INFRA_BASE,
-    SOL_RUN_MODE: "live",
-    DEMO_MODE: "false",
-    QWEN_BASE_URL: "http://qwen:8000",
-    KEV_BASE_URL: "http://kev:8009",
-    KEV_API_KEY: "kev-fake-1",
-    ...Object.fromEntries(G2B_KEYS.map((key) => [key, "g2b-fake-1"])),
-  };
+  const live = LIVE_INFRA;
   await withRoot({ infra: live, web: webFor("live") }, async (root) => {
     const result = await checkEnv({ root });
     assert.equal(result.mode, "live");
@@ -440,9 +444,34 @@ const FIXTURE_INFRA = {
   ...INFRA_BASE,
   SOL_RUN_MODE: "fixture",
   QWEN_BASE_URL: "http://qwen:8000",
+  QWEN_API_KEY: "qwen-fake-1",
   KEV_BASE_URL: "http://kev:8009",
   KEV_API_KEY: "kev-fake-1",
 };
+
+test("checkEnv: fixture 에서 QWEN_API_KEY 가 빠지거나 비면 MISSING_KEY", async () => {
+  const { QWEN_API_KEY: _omitted, ...missing } = FIXTURE_INFRA;
+  for (const infra of [missing, { ...FIXTURE_INFRA, QWEN_API_KEY: "" }]) {
+    await withRoot({ infra, web: webFor("fixture") }, async (root) => {
+      const result = await checkEnv({ root });
+      assert.deepEqual(
+        result.problems.map((p) => [p.file, p.key, p.code]),
+        [["infra/.env", "QWEN_API_KEY", "MISSING_KEY"]],
+      );
+    });
+  }
+});
+
+test("checkEnv: live 에서 QWEN_API_KEY 가 빠지면 MISSING_KEY", async () => {
+  const { QWEN_API_KEY: _omitted, ...infra } = LIVE_INFRA;
+  await withRoot({ infra, web: webFor("live") }, async (root) => {
+    const result = await checkEnv({ root });
+    assert.deepEqual(
+      result.problems.map((p) => [p.file, p.key, p.code]),
+      [["infra/.env", "QWEN_API_KEY", "MISSING_KEY"]],
+    );
+  });
+});
 
 test("checkEnv: fixture 에서 KEV_API_KEY 가 빠지면 MISSING_KEY", async () => {
   const { KEV_API_KEY: _omitted, ...infra } = FIXTURE_INFRA;

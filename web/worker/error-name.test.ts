@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { errorNameOf as sharedErrorNameOf } from "@/server/shared";
 import { errorNameOf } from "@/worker/error-name";
 
 // 로그에 싣는 오류 이름(C5-B 보안 후속 낮음 h 의 공용화).
@@ -88,12 +89,39 @@ const productFiles = (): string[] =>
       name.endsWith(".ts") && !name.endsWith(".test.ts") && !name.endsWith(".test-support.ts"),
   );
 
+// 규칙의 자리는 web/server/shared/error-name.ts 다. 도메인(알림 outbox 처리 등)은 worker 를 부를 수 없어(web/lodestar.config.ts)
+// 도메인과 worker 가 함께 부를 수 있는 shared 층에 두고, web/worker/error-name.ts 는 그것을 다시 내보낸다.
+const WEB_DIR = new URL("../", import.meta.url);
+const RULE_HOME = "server/shared/error-name.ts";
+
+/** web/worker·web/server 의 제품 코드 파일(시험·시험 도우미 제외). web 기준 상대 경로. */
+const webProductFiles = (): string[] =>
+  ["worker", "server"].flatMap((root) =>
+    readdirSync(new URL(`${root}/`, WEB_DIR), { recursive: true, encoding: "utf8" })
+      .filter(
+        (name) =>
+          name.endsWith(".ts") && !name.endsWith(".test.ts") && !name.endsWith(".test-support.ts"),
+      )
+      .map((name) => `${root}/${name}`),
+  );
+
 describe("errorNameOf · 공용화", () => {
   it("이름 규칙(/^[A-Za-z0-9_]{1,60}$/)의 복사본이 error-name.ts 밖의 web/worker 제품 코드에 없다", () => {
     const copies = productFiles().filter(
       (name) => name !== "error-name.ts" && readWorkerFile(name).includes(RULE_SOURCE),
     );
     expect(copies).toEqual([]);
+  });
+
+  it(`이름 규칙은 web/worker·web/server 제품 코드 가운데 ${RULE_HOME} 한 곳에만 있다`, () => {
+    const holders = webProductFiles().filter((name) =>
+      readFileSync(new URL(name, WEB_DIR), "utf8").includes(RULE_SOURCE),
+    );
+    expect(holders).toEqual([RULE_HOME]);
+  });
+
+  it("@/worker/error-name 의 errorNameOf 는 @/server/shared 의 그 함수다(다시 내보낸다)", () => {
+    expect(errorNameOf).toBe(sharedErrorNameOf);
   });
 
   it.each(SHARED_USERS)("%s 는 errorNameOf 를 @/worker/error-name 에서 가져다 쓴다", (name) => {

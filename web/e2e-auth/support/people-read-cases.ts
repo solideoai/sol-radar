@@ -239,8 +239,21 @@ export function registerPeopleReadTests() {
       const members = await allMembers(request);
       expect(members).toHaveLength(200);
       expect(new Set(members.map(({ personCode }) => personCode)).size).toBe(200);
+      const windowSchema = z.strictObject({
+        startsAt: z.iso.date(),
+        endsAt: z.iso.date(),
+        fte: z.number(),
+      });
       const fixturePeople = z
         .object({
+          assignments: z.array(
+            z.strictObject({
+              personId: z.string(),
+              startsAt: z.iso.date(),
+              endsAt: z.iso.date(),
+              allocationPercent: z.number(),
+            }),
+          ),
           people: z.array(
             z.object({
               personId: z.string(),
@@ -249,7 +262,7 @@ export function registerPeopleReadTests() {
               role: z.string(),
               grade: z.string().nullable(),
               skills: z.array(z.string()),
-              availability: z.array(z.unknown()),
+              availability: z.array(windowSchema),
             }),
           ),
         })
@@ -261,6 +274,35 @@ export function registerPeopleReadTests() {
             ),
           ),
         );
+      // The roster's prior project assignments have no bid, so they cannot live in the
+      // assignments table. The normal seed folds them into team_member_scoring.availability
+      // (3e181b7, scripts/people/availability.mjs): the covered span's fte drops by
+      // allocationPercent/100, floored at 0. Every fixture assignment covers exactly one
+      // whole window of its person, so the expected window keeps its dates and only fte drops.
+      // A partial-window assignment would need the full split oracle; fail loudly instead.
+      expect(fixturePeople.assignments).toHaveLength(7);
+      for (const assignment of fixturePeople.assignments)
+        expect(
+          fixturePeople.people
+            .find(({ personId }) => personId === assignment.personId)
+            ?.availability.filter(
+              ({ startsAt, endsAt }) =>
+                startsAt === assignment.startsAt && endsAt === assignment.endsAt,
+            ),
+          `${assignment.personId} assignment must cover exactly one whole availability window`,
+        ).toHaveLength(1);
+      const seededAvailability = (personId: string, windows: z.infer<typeof windowSchema>[]) =>
+        windows.map((window) => {
+          const allocated = fixturePeople.assignments
+            .filter(
+              (assignment) =>
+                assignment.personId === personId &&
+                assignment.startsAt === window.startsAt &&
+                assignment.endsAt === window.endsAt,
+            )
+            .reduce((sum, { allocationPercent }) => sum + allocationPercent / 100, 0);
+          return { ...window, fte: Math.max(0, window.fte - allocated) };
+        });
       expect(members.map(({ personCode }) => personCode)).toEqual(
         fixturePeople.people.map(({ personId }) => personId).toSorted(),
       );
@@ -323,7 +365,7 @@ export function registerPeopleReadTests() {
             role: expected?.role,
             grade: expected?.grade,
             skills: expected?.skills,
-            availability: expected?.availability,
+            availability: expected && seededAvailability(expected.personId, expected.availability),
           });
         } else expect(detail.scoring).toBeNull();
       }
@@ -526,6 +568,11 @@ export function registerPeopleReadTests() {
         await expect(dialog).toHaveCount(0);
         await expect(opener).toBeFocused();
         await page.getByRole("button", { name: "초기화", exact: true }).click();
+        // Reset navigates to /people; when that transition commits the filter form is
+        // remounted for the new query (key={query}), which closes any select opened earlier.
+        // Wait for the reset list (no query, full first page) before choosing the next filter.
+        await expect.poll(() => new URL(page.url()).search).toBe("");
+        await expect(peopleButtons(page)).toHaveCount(20);
         await choose(page, "점수 계산 대상", "대상");
         await page.getByRole("button", { name: "검색", exact: true }).click();
         await expect.poll(() => new URL(page.url()).searchParams.get("scoring")).toBe("1");

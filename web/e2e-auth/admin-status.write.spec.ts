@@ -21,6 +21,7 @@ import {
   expectDialogFitsWidth,
   expectListFitsWidth,
   expectRowCells,
+  readSeedListing,
   userRowOf,
 } from "./support/admin-page";
 import { BUSINESS_DASHBOARD } from "./support/account-page";
@@ -228,9 +229,16 @@ test("나와 다른 운영자의 줄에는 정지 버튼이 없고, API 로 바�
     await page.goto(`/admin?q=${tag}`);
     await expectRowCells(userRowOf(page, otherAdmin.email), { ...otherAdmin, isAdmin: true });
 
+    // 시드 운영자의 가입일은 오늘이 아니다(시드는 다시 돌려도 계정을 보존한다). DB 에서 읽는다.
     const { admin } = SEED_ACCOUNTS;
+    const seed = await readSeedListing();
     await page.goto(`/admin?q=${encodeURIComponent(admin.email)}`);
-    await expectRowCells(userRowOf(page, admin.email), { ...admin, isMe: true, isAdmin: true });
+    await expectRowCells(userRowOf(page, admin.email), {
+      ...admin,
+      isMe: true,
+      isAdmin: true,
+      joined: seed.joinedOf("admin"),
+    });
 
     // 버튼이 없어도 직접 부를 수 있다. 서버가 거절하고 아무것도 바꾸지 않는다.
     const me = await signInAs("admin");

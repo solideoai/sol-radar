@@ -7,6 +7,7 @@ hosted 는 사용자 승인 전에 클라이언트를 구현·호출하지 않�
 
 from sol_ai.adapters.base import KevReply, KevUnavailable, ModelOutput, ModelUnavailable
 from sol_ai.contracts import ExtractRequest, KevRequest
+from sol_ai.deadline import Deadline
 
 
 def not_implemented_warning(provider: str) -> str:
@@ -20,7 +21,9 @@ class UnavailableQwen:
     def __init__(self, provider: str) -> None:
         self.provider = provider
 
-    def extract(self, request: ExtractRequest, retry_note: str | None = None) -> ModelOutput:
+    def extract(
+        self, request: ExtractRequest, retry_note: str | None = None, *, deadline: Deadline
+    ) -> ModelOutput:
         raise ModelUnavailable(
             f"{self.provider} Qwen adapter not implemented",
             [not_implemented_warning(self.provider)],
@@ -40,5 +43,5 @@ class UnavailableKev:
     def precheck(self) -> None:
         raise KevUnavailable(f"{self.provider} Kev adapter not implemented")
 
-    def answer(self, wire_request: dict, request: KevRequest) -> KevReply:
+    def answer(self, wire_request: dict, request: KevRequest, *, deadline: Deadline) -> KevReply:
         raise KevUnavailable(f"{self.provider} Kev adapter not implemented")
