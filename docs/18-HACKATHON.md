@@ -91,7 +91,7 @@ updated: 2026-10-20
 
 | 기준 | 배점 | 심사위원이 확인할 것 | 우리가 보여 줄 것 | 근거 위치 |
 |---|---:|---|---|---|
-| 실용성 | 30 | 실제 업무에 바로 적용 가능한 수준인가. 기존 시스템과 연동 가능한가 | 나라장터 공식 Open API 실수집(`live`)과 실제 RFP 첨부 파싱. 공고 발견 → 자격 확인 → 점수 → 사람 결정 기록이 영업팀의 실제 검토 순서와 같다. 연동 지점: Route Handler `/api/v1`(zod 계약), Bearer 토큰 인증, outbox 이벤트(인앱·카카오 mock), 입찰 프로젝트 체크리스트(P1). ERP 실연동·카카오 실발송은 범위 밖이라고 밝힌다 | [[01-PRD]] FR 표, [[05-API-SPEC]], [[07-DATA-PIPELINE]], [[13-NOTIFICATIONS]] |
+| 실용성 | 30 | 실제 업무에 바로 적용 가능한 수준인가. 기존 시스템과 연동 가능한가 | 나라장터 공식 Open API 실수집(`live`)과 실제 RFP 첨부 파싱(첨부 파싱은 미구현, §7). 공고 발견 → 자격 확인 → 점수 → 사람 결정 기록이 영업팀의 실제 검토 순서와 같다. 연동 지점: Route Handler `/api/v1`(zod 계약), Bearer 토큰 인증, outbox 이벤트(인앱·카카오 mock), 입찰 프로젝트 체크리스트(P1). ERP 실연동·카카오 실발송은 범위 밖이라고 밝힌다 | [[01-PRD]] FR 표, [[05-API-SPEC]], [[07-DATA-PIPELINE]], [[13-NOTIFICATIONS]] |
 | 사업적 창의성 | 25 | 기존 방식 대비 새로운 접근인가. 시간·비용·품질 향상에 기여하는가 | §3.2 D1~D5. 기존 서비스는 수집·키워드 알림까지, 우리는 우리 회사 기준 자격 판정·설명 가능한 점수·사람 결정 기록까지. 시간: 공고 1건 검토 30분 → 10분(가설, 측정 방법 명시). 품질: 필수 자격 누락 0, 정보 부족 ≠ 미충족. 비용: 오픈 가중치 모델을 회사 GPU에서 돌려 외부 모델 API 비용 0, 회사 기밀 외부 송출 0 | §3.2, §3.3, [[01-PRD]] 차별점·성공 측정 |
 | 완성도 | 25 | 시연 가능한 프로토타입인가. 오류 없이 흐름이 완결되는가 | 5분 데모 S2·S3·S4·S-LIVE·S6·S7이 끝까지 돈다(§6, 기본 `mock`. S5는 확장 컷). 골든 G1~G10 PASS, 데모 당일 체크리스트 전항목, `pnpm verify`·`pnpm test:db`·E2E·pytest·smoke PASS. AI를 꺼도 `PARTIAL`로 완결되고 오류를 숨기지 않는다 | [[19-DEMO-SCENARIO]], [[11-TESTING]] §4·§5, `docs/evidence/` |
 | 확장 가능성 | 20 | 전사 확산·고도화 가능한 구조인가 | 전사 확산: 조직 격리(`org_id` + Supabase RLS)로 조직을 더해도 코드 변경 없음, 업무 역할 `sol_role` 4종, Compose 프로필로 노트북·GPU 서버 같은 구성. 고도화: 알고리즘 버전·입력 스냅샷으로 과거 분석 재현, 모델 레지스트리·평가셋·오류 분석 절차(Bosun LoRA·`sol-v0.2.x`), Connector·`DocumentParser`·`ModelClient` 인터페이스로 수집 소스·파서·모델 교체 | [[04-DATABASE]], [[08-SCORING]] §5.5, [[21-MODEL-TRAINING]], [[03-AI-PIPELINE]] §2.2, [[10-DEPLOYMENT]] |
@@ -138,11 +138,11 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 영역 | `live` | `fixture` | `mock` | 설명 |
 |---|---|---|---|---|
 | 공고 데이터 | **실제 나라장터 공고**(입찰공고 용역 중 정보화사업, `is_demo=false`) | **가상 fixture 20건**(`DEMO` 배지) | **가상 fixture 20건**(`DEMO` 배지) | 두 종류가 같은 DB에 함께 있을 수 있어 출처(`source`)·`DEMO` 배지·목록 `origin` 필터로 구분한다. 서비스키로 받은 실제 응답은 P0-0에서 확인했다(2026-10-19, `docs/evidence/phase-0/external-deps.md` ①, [[07-DATA-PIPELINE]]) |
-| 첨부(RFP)·파싱 | 실제 첨부를 allowlist(`www.g2b.go.kr`)로 내려받아 파싱 | fixture 첨부 샘플 | fixture 첨부 샘플 | 처리할 수 없는 형식·다운로드 실패는 `PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`와 `확인 필요`로 표시하고 AI가 내용을 추측하지 않는다. g2b 첨부는 공고 3건 모두 로그인·세션 없이 내려받았다(P0-0 ② B1~B4, 2026-10-19). 이용약관상 제한은 미확인이다([[16-DECISIONS]] 미결정 16) |
+| 첨부(RFP)·파싱 | **미구현**. 설계는 실제 첨부를 allowlist(`www.g2b.go.kr`)로 내려받아 파싱 | **미구현**(fixture 첨부 샘플 `fixtures/docs/` 없음) | **미구현** | 지금은 첨부 목록만 저장하고 내려받지도 파싱하지도 않는다. 첨부는 `PENDING`으로 남고 추출은 본문만으로 한다(파서 어댑터 0개, documents 소비자 없음, [[03-AI-PIPELINE]] §2). 설계: 처리할 수 없는 형식·다운로드 실패는 `PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`와 `확인 필요`로 표시하고 AI가 내용을 추측하지 않는다. g2b 첨부는 공고 3건 모두 로그인·세션 없이 내려받았다(P0-0 ② B1~B4, 2026-10-19). 이용약관상 제한은 미확인이다([[16-DECISIONS]] 미결정 16) |
 | 회사 프로필 | **가상 솔리데오** | **가상 솔리데오** | **가상 솔리데오** | 회사명·부서/직급은 솔리데오, 직원 200명·사진·자격·실적·재무는 가상 데모 설정(ADR-019). live 분석도 "실제 공고 × 가상 회사 프로필"이며 분석 화면에 "가상 회사 프로필로 분석" 배지가 붙는다 |
 | Qwen 요구조건 추출·설명 | **회사가 운영하는 vLLM API의 Qwen3.5-27B 실추론** | **회사가 운영하는 vLLM API의 Qwen3.5-27B 실추론** | **고정 응답**(사전 작성 추출) | 실추론은 데모 노트북의 gateway가 HTTPS로 회사 GPU 추론 엔드포인트에 붙는다(ADR-025). 분석 패널에 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c" 또는 "AI: mock" |
 | 결정 모델(Bosun) | **회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론**(우리 `sol_decision` 서버, `kev-qs/v0.2`, 영어 state) | **회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론** | **고정 응답**(`fixtures/kev/FX-xx.json`, `kev-qs/v0.1`) | **참고 지표이며 점수·자격·권고에 반영하지 않는다.** 확률은 선택지에 대한 모델 분포이고 충족 확률·수주확률이 아니다. 우리 도메인 보정 전이라 `UNCALIBRATED`로 표시. 한국어 입력 성능은 E1'·E2로 잰다(§8 2번) |
-| mock 대체 | 금지(켜면 기동 거부) | `AI_FALLBACK_TO_MOCK=true`일 때만. 대체되면 `MOCK_FALLBACK` 플래그와 "실제 모델 결과 아님" 배너 | 해당 없음(처음부터 mock) | 기본은 자동 대체 없음. 모델이 안 되면 `PARTIAL`·`RULES_ONLY`로 끝낸다 |
+| mock 대체 | 금지(켜면 기동 거부) | 금지(켜면 기동 거부) | 금지(처음부터 mock이며, 켜면 기동 거부) | 해커톤 동안 자동 대체는 구현하지 않는다([[16-DECISIONS]] ADR-030 B11, `infra/run-modes.json`). 모델이 안 되면 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모드 전환은 사람이 한다 |
 | 네트워크 의존 | 인터넷(Supabase) + 공공 API + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase) + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase)만 | DB·인증이 Supabase 클라우드라 회장 회선이 끊기면 모든 모드에서 로그인·조회가 멈춘다. 그때는 로컬 Supabase CLI로 전환한다([[19-DEMO-SCENARIO]] §5 대체 경로 ①, [[16-DECISIONS]] ADR-023). 엔드포인트·공공 API가 끊겼을 때의 대응은 §9 |
 
 | 영역 (모드와 무관) | 데모 상태 | 설명 |
@@ -156,9 +156,10 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 테넌트 격리 | 실제 구현 | Supabase RLS(`org_id in (select public.my_org_ids())`) + 정책 시험. 다른 조직 자원은 `404`. 단 worker·seed는 RLS를 무시하는 service role 키를 쓰므로 `org_id`를 직접 지정하고 혼입 방지 시험을 둔다 ([[09-SECURITY]]) |
 | DB·인증 실행 위치 | **Supabase 클라우드 프로젝트(개발 환경)** | 로컬 Compose가 아니라 클라우드다. Compose는 redis·minio·qdrant·ai-gateway·worker를 띄우고 DB와 web은 띄우지 않는다(web은 호스트에서 `pnpm -C web start`, [[10-DEPLOYMENT]]). 데모 실행 환경과 대체 경로는 정했고([[16-DECISIONS]] ADR-023, [[19-DEMO-SCENARIO]] §5), 웹 배포처만 미결정이다([[16-DECISIONS]] 미결정 8) |
 | 세션 쿠키 | **설계상 HttpOnly 아님** | `@supabase/ssr`가 관리하고 브라우저 클라이언트가 같은 쿠키를 읽어 로그인·로그아웃한다. SameSite=Lax, 운영에서 Secure. XSS 방어는 CSP nonce가 맡는다 ([[09-SECURITY]]) |
+| 첨부(RFP) 다운로드·파싱 | **미구현** | 파서 어댑터가 없어 `/parse`는 모든 형식에 `UNSUPPORTED`를 돌려주고, worker에 documents 소비자가 없다. 첨부는 목록만 저장된다(`PENDING`). 분석은 공고 본문과 API 구조화 필드로만 한다. "HWP 파싱"을 시연·주장하지 않는다([[03-AI-PIPELINE]] §2) |
 | 카카오톡 알림 | **범위 외(mock provider)** | 템플릿 승인·계약 전 |
 | 결제·모바일·자동 투찰·승률 예측 | **범위 외** | 구현하지 않음 |
-| S-LIVE 실제 공고 장면 | **`live` 모드 사전 실행 run의 조회**(ADR-023) | 수집·파싱·Qwen 추출·규칙·점수·결정 모델은 S0에서 `live` 모드로 실제 실행하고, 발표 중에는 `mock` 모드 앱에서 그 run을 연다. 실시간 추론을 못 했으면 같은 입력의 실행 로그 기반 녹화이고 그렇게 말한다. 외부 의존성 컷 규칙 4갈래 중 어느 것인지 이 표에 적는다(현재: 미정. C1 ① API는 정상, ③ GPU 결과 대기) |
+| S-LIVE 실제 공고 장면 | **`live` 모드 사전 실행 run의 조회**(ADR-023) | 수집·파싱·Qwen 추출·규칙·점수·결정 모델은 S0에서 `live` 모드로 실제 실행하고, 발표 중에는 `mock` 모드 앱에서 그 run을 연다. 실시간 추론을 못 했으면 같은 입력의 실행 로그 기반 녹화이고 그렇게 말한다. 외부 의존성 컷 규칙 4갈래 중 어느 것인지 이 표에 적는다(현재: "API 정상·GPU 불가" 갈래로 사전 run 1건을 돌렸다. 2026-10-20 격리 로컬 Supabase, 실공고 R26BK01774434, `PARTIAL`·`RULES_ONLY`·`QWEN_UNAVAILABLE`, `docs/evidence/demo-day/20261020-1434/run-modes.md`. 발표용 Supabase에는 아직 없고, 회사 GPU 실추론(C1 ③)은 B1·B2 뒤다) |
 
 ## 8. 예상 질문과 답
 
@@ -166,8 +167,8 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 2. **"결정 모델(Bosun)이 무엇인가? 한국어는 되나?"** Hanno Labs가 공개한 Apache-2.0 소형 결정 모델 Bosun v3.1 0.6B(백본 Qwen3-0.6B, LoRA + decision token 256개). 2026-10-20 ADR-034로 Kev-9B를 대체했다(`KEV_*` 이름은 호환 유지). 문서와 타입이 정해진 질문(yes/no·선택·점수)을 받아 텍스트 생성 없이 질문별 확률을 돌려준다. 학습 데이터(DecisionBench)가 영어라 운영에서는 규칙·Qwen이 정형화한 상태를 **영어 템플릿**으로 넣는다. 한국어가 되는지는 주장하지 않고 잰다: 같은 구조의 영어·한국어 state로 E1'(영어)과 E2(한국어)를 같은 평가셋에서 돌려 Macro-F1·Brier·ECE 차이와 95% 신뢰구간으로 보고한다([[21-MODEL-TRAINING]] §4). 리포트가 나오기 전에는 수치를 말하지 않는다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE=true`)이고, 운영 사용은 평가 결과를 보고 다시 정한다. 결정 모델 결과는 참고 지표이며 점수·자격·권고를 바꾸지 못한다. `mock` 모드에서는 고정 응답이고 `live`·`fixture` 모드에서 실추론한다 ([[03-AI-PIPELINE]] §5).
 3. **"왜 Qwen과 Bosun을 둘 다 쓰나?"** 역할이 다르다. Qwen은 비정형 공고문에서 구조화된 요구조건과 근거 span을 뽑고 한국어 설명을 만든다. Bosun은 정형화된 상태를 읽고 빠르고 일관된 보조 판단을 준다. 둘 다 없어도 규칙 엔진만으로 결과가 나온다.
 4. **"실제 데이터인가?"** `live` 모드는 나라장터 Open API로 실제 입찰공고(용역 중 정보화사업)와 첨부를 수집해 분석한다. 화면 머리말에 실행 모드가 보이고, 공고마다 출처와 `DEMO` 배지로 실제·가상을 구분한다. 회사 프로필은 모든 모드에서 가상 솔리데오라 live 분석은 "실제 공고 × 가상 회사 프로필"이다. 발표 본편 장면은 같은 수치를 재현하려고 `mock` 모드의 가상 fixture로 진행한다(§7, [[19-DEMO-SCENARIO]] §2.1). 실제 응답·첨부 다운로드 확인 결과는 `docs/evidence/phase-0/external-deps.md`에 있다. 그 파일이 없거나 막힌 항목이 있으면 그대로 말한다. 엔드포인트는 공식 명세로 확인해 `registry.yaml`에 등록한 것만 부르고 지어내지 않는다.
-5. **"HWP 첨부는 어떻게 하나?"** 형식별 파서(`DocumentParser`)로 PDF(텍스트 레이어)·HWPX·HWP를 파싱한다. HWP 파서는 오픈소스 후보의 라이선스와 추출 품질(본문·표·금액·자격 조건·요구사항 누락)을 실제 RFP 샘플로 비교한 뒤 정한다([[16-DECISIONS]] 미결정 4). 스캔 PDF·zip·암호 문서처럼 처리할 수 없는 첨부는 `PARSE_UNSUPPORTED`와 "첨부 원문 확인"으로 표시하고, 읽지 못한 내용을 AI가 추측해 채우지 않는다. 원문 다운로드는 유지하고 AI 추출은 `PENDING_REVIEW`로 표시한다. 실공고 형식별 파싱 성공률을 증거로 낸다(P0-3).
-6. **"GPU 없으면 못 쓰나?"** `mock` 모드는 GPU 없이 고정 AI 응답으로 전 기능이 돈다. `live`·`fixture` 모드의 실추론은 회사 GPU 서버(Qwen3.5-27B는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, Bosun은 우리 `sol_decision` 서버)에서 돌고, 데모 노트북의 gateway(`ai-local`)가 회사가 HTTPS로 제공하는 GPU 추론 엔드포인트 `https://acropolissg.com/sol-radar`에 API 키로 붙는다. GPU 서버 자체는 외부에서 접근할 수 없고 모델 런타임 기동·GPU 배분은 회사가 운영한다 ([[10-DEPLOYMENT]], [[16-DECISIONS|ADR-025]]).
+5. **"HWP 첨부는 어떻게 하나?"** 지금은 파싱하지 않는다(미구현, §7). 설계: 형식별 파서(`DocumentParser`)로 PDF(텍스트 레이어)·HWPX·HWP를 파싱한다. HWP 파서는 오픈소스 후보의 라이선스와 추출 품질(본문·표·금액·자격 조건·요구사항 누락)을 실제 RFP 샘플로 비교한 뒤 정한다([[16-DECISIONS]] 미결정 4). 스캔 PDF·zip·암호 문서처럼 처리할 수 없는 첨부는 `PARSE_UNSUPPORTED`와 "첨부 원문 확인"으로 표시하고, 읽지 못한 내용을 AI가 추측해 채우지 않는다. 원문 다운로드는 유지하고 AI 추출은 `PENDING_REVIEW`로 표시한다. 실공고 형식별 파싱 성공률을 증거로 낸다(P0-3).
+6. **"GPU 없으면 못 쓰나?"** `mock` 모드는 GPU 없이 고정 AI 응답으로 전 기능이 돈다. `live`·`fixture` 모드의 실추론은 회사 GPU 서버(Qwen3.5-27B는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, Bosun은 우리 `sol_decision` 서버)에서 돌고, 데모 노트북의 gateway(`ai-local`)가 회사가 HTTPS로 제공하는 두 접속점에 API 키로 붙는다. 결정 모델은 GPU 추론 엔드포인트 `https://acropolissg.com/sol-radar`(`/kev`), Qwen은 회사 vLLM API `https://acropolissg.com/vllm/v1`이다. GPU 서버 자체는 외부에서 접근할 수 없고 모델 런타임 기동·GPU 배분은 회사가 운영한다 ([[10-DEPLOYMENT]], [[16-DECISIONS|ADR-025]]).
 7. **"기존 입찰 정보 서비스와 뭐가 다른가?"** 수집·알림은 기존 서비스도 한다. 우리는 **우리 회사 프로필 기준 자격 판정과 설명 가능한 점수, 사람 결정 기록**까지 간다 (§3.2 D1·D2·D4).
 8. **"AI가 틀리면?"** 근거 없는 인용은 무효 처리하고, 저신뢰·모순은 `NEEDS_REVIEW`로 사람에게 넘긴다. 사람 판정과 AI 차이를 지표로 추적한다 ([[14-OBSERVABILITY]]). 얼마나 틀리는지는 실제 공고 평가셋으로 잰다. 특히 정보 부족을 미충족으로 잘못 판정하는 비율을 따로 보고, 오답은 원인 단계(파싱·추출·번역·state·규칙·라벨·모델)로 나눠 고친다 ([[21-MODEL-TRAINING]]).
 9. **"보안은?"** 테넌트 격리는 Supabase RLS(`org_id`, 다른 조직 자원은 `404`)와 정책 시험으로 강제한다. 인증은 Supabase Auth이고, 토큰 만료·refresh 회전·로그인 시도 제한·비밀번호 정책은 Supabase Auth 설정으로 다룬다(구체 값은 대시보드에서 정하고 확인할 항목, 미검증). 쿠키 인증의 상태 변경 요청은 `X-Requested-With` 헤더 검사(CSRF), XSS는 CSP nonce, RLS를 무시하는 service role 키는 worker·seed 전용이고 브라우저·`NEXT_PUBLIC_` 변수·로그에 넣지 않는다. 그 밖에 SSRF allowlist, 외부 문서는 불신 데이터로 처리, 로그 마스킹 ([[09-SECURITY]]).
@@ -186,7 +187,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 공공 API 일일 한도·장애 | 개발계정은 서비스당 1,000건/일이다. 한도의 90%에서 보조 조회를 멈추고, 에러코드 22를 받으면 그날 수집을 멈춘다. 리허설·시연 호출 수를 미리 계산하고, 막히면 `fixture` 모드로 전환한다 | 조작자 |
 | 첨부 다운로드 불가 | P0-0에서 공고 3건의 첨부는 로그인·세션 없이 받았다(② B1~B4, 2026-10-19). 그래도 당일 받지 못하면 공고 본문·API 필드만으로 분석하고 `DOCUMENT_DOWNLOAD_FAILED`와 관련 자격 `확인 필요`를 그대로 보여 준다 | 조작자 |
 | 모드 표시 혼동 | 모드를 바꿀 때마다 머리말 "실행 모드"와 분석 패널의 AI 표시를 확인한다. mock 결과를 실모델 결과처럼 말하지 않는다 | 발표자 |
-| DB 상태 오염 | `pnpm demo:reset`으로 seed 재적용(service role로 Supabase 프로젝트에 적용, 멱등) | 조작자 |
+| DB 상태 오염 | `pnpm demo:reset`으로 seed 재적용(service role로 Supabase 프로젝트에 적용, 멱등). reset 하면 S-LIVE run도 지워진다(데모 조직의 `score_runs`를 모두 지운다, [[04-DATABASE]] §6). S-LIVE는 리허설 뒤 reset 하지 말고, 지웠으면 다시 돌린다([[19-DEMO-SCENARIO]] §3) | 조작자 |
 | 프로젝터 해상도 | 1440px 기준 레이아웃, 브라우저 확대 110% 사전 점검 | 발표자 |
 | 시간 초과 | §6 시간표 체크포인트. 줄일 때는 S5(넣었을 때)와 S2 조직·인력 화면(선택 15초, [[19-DEMO-SCENARIO]] §4)부터 뺀다. S-LIVE·S6·S7은 빼지 않는다 | 발표자 |
 | 질문이 길어짐 | §8 답을 한 문장으로 먼저 말하고 문서 위치를 안내 | 발표자 |
@@ -202,11 +203,11 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 아키텍처 다이어그램: Next.js(`web/`) + Supabase + Compose + AI gateway + 회사 GPU 추론 엔드포인트(Qwen·Bosun, HTTPS)([[02-ARCHITECTURE]], ADR-017·020·025) + 데이터 흐름 | `docs/submission/architecture.md` | 초안 | 확장성·실용성 | 미확인 |
 | 발표 슬라이드(§1 → §2 → §3.2 → 데모 → §7 → 이후 계획) | `docs/submission/slides-outline.md` → 슬라이드 파일 | 구조 초안 | 4항목 전부 | 미확인 |
 | 데모 영상 3분(백업·제출용) | `docs/submission/video-storyboard.md` → 영상 파일 | 스토리보드 초안 | 완성도·실용성 | 미확인 |
-| 실제 AI 검증 증거 목록 | `docs/submission/evidence-list.md`, `docs/evidence/README.md` | 목록 있음. 실제 API 응답·첨부 다운로드 증거는 있음(C1 ①②, 2026-10-19). 회사 GPU 엔드포인트·실추론·S-LIVE 증거(C1 ③·C5·C8)는 아직 없음 | 실용성 | 미확인 |
+| 실제 AI 검증 증거 목록 | `docs/submission/evidence-list.md`, `docs/evidence/README.md` | 목록 있음. 실제 API 응답·첨부 다운로드 증거는 있음(C1 ①②, 2026-10-19). S-LIVE 사전 run 증거는 규칙만(`PARTIAL`) 1건 있음(C8, `demo-day/20261020-1434/`). 회사 GPU 엔드포인트·실추론 증거(C1 ③·C5)는 아직 없음 | 실용성 | 미확인 |
 | 실험 결과 표(E0·E1'·E2·E3·E4, 임팩트 n=3) | `docs/submission/experiment-tables.md`, `docs/evidence/eval/`, `docs/evidence/impact/` | 빈 템플릿 | 창의성·실용성 | 미확인 |
 | 경쟁 서비스 비교 표 | §3.2.1, `docs/evidence/competitors/` | 완료(X3, 2026-10-19) | 창의성 | 미확인 |
 | 기술적 한계·실행 모드 구분·정직성 표(§7)를 슬라이드와 README에 동일하게 | `docs/submission/limitations.md` | 초안 | 완성도 | 미확인 |
-| `docs/evidence/` 테스트·E2E·기동 로그 | `docs/evidence/phase-*/`, `demo-day/` | 일부 있음: `phase-0/`(C0 통합 기동·보완 항목·`pnpm verify` 출력), `phase-1/`(`demo:reset` 2회·`pnpm test:db`), `phase-4/goldens-report.txt`, 인력·랜딩·경쟁 비교. 화면 E2E·`demo-day/`는 아직 없음 | 완성도 | 미확인 |
+| `docs/evidence/` 테스트·E2E·기동 로그 | `docs/evidence/phase-*/`, `demo-day/` | 일부 있음: `phase-0/`(C0 통합 기동·보완 항목·`pnpm verify` 출력), `phase-1/`(`demo:reset` 2회·`pnpm test:db`), `phase-4/goldens-report.txt`, 인력·랜딩·경쟁 비교, `phase-3/e2e/`(C6 화면 E2E), `fx01/`(FX-01 E2E), `demo-day/20261020-1009/`(C9 mock 리허설 1차, 스크린샷 포함)·`20261020-1434/`(C8 S-LIVE 사전 run) | 완성도 | 미확인 |
 | 외부 의존성 점검 결과 | `docs/evidence/phase-0/external-deps.md` | ① API(A1~A9)·② 첨부(B1~B4) 통과(2026-10-19). ③ 회사 GPU 엔드포인트는 회사 응답 대기, ④ 파서 비교는 미착수 | 실용성 | 미확인 |
 | 공식 심사 기준 확인 후 §4 갱신 | §4 | ✅ 2026-10-18 | — | ✅ |
 

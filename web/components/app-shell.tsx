@@ -232,6 +232,19 @@ function OrgMark({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
   );
 }
 
+// 한 줄에 다 들어가지 않는 이메일은 @ 앞에서 먼저 줄을 바꾼다. 그래도 넘치면 감싼 칸의 wrap-anywhere 가 아무 데서나 바꾼다.
+function EmailText({ email }: { email: string }) {
+  const at = email.indexOf("@");
+  if (at <= 0) return email;
+  return (
+    <>
+      {email.slice(0, at)}
+      <wbr />
+      {email.slice(at)}
+    </>
+  );
+}
+
 function UserMenu({
   user,
   settingsHref,
@@ -262,7 +275,8 @@ function UserMenu({
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
+          {/* 이름·이메일을 줄이지 않고 줄을 바꿔 다 보인다. 높이는 글자에 맞춰 늘어난다(ADR-030 B26). 가장 낮을 때도 아바타+여백으로 48px 이다. */}
+          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" className="h-auto" />}>
             <span className="sr-only">사용자 메뉴</span>
             {/* 이름이 바로 옆에 글자로 있다. 사진을 못 불러오면 머리글자가 그 자리를 채운다(깨진 그림이 보이지 않는다). */}
             <Avatar aria-hidden>
@@ -271,19 +285,18 @@ function UserMenu({
               ) : null}
               <AvatarFallback>{initialOf(user.name)}</AvatarFallback>
             </Avatar>
-            <span className="grid min-w-0 flex-1">
-              <span className="truncate font-medium text-sidebar-accent-foreground">
-                {user.name}
-              </span>
+            <span className="grid min-w-0 flex-1 wrap-anywhere">
+              <span className="font-medium text-sidebar-accent-foreground">{user.name}</span>
               {user.email ? (
-                <span className="truncate type-caption text-muted-foreground">{user.email}</span>
+                <span className="type-caption text-muted-foreground">
+                  <EmailText email={user.email} />
+                </span>
               ) : null}
             </span>
             <ChevronsUpDownIcon className="text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start">
             <DropdownMenuGroup>
-              {/* 버튼에서 말줄임된 이메일을 여기서는 끝까지 보여 준다. */}
               <DropdownMenuLabel className="wrap-anywhere">
                 {user.email ?? user.name}
               </DropdownMenuLabel>

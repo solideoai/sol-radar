@@ -42,7 +42,7 @@ updated: 2026-10-20
 |---|---|---|---|
 |업무 역할|`memberships.sol_role`|`ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check 제약, 기본 `VIEWER`)|아래 표와 [[05-API-SPEC\|05 API]]의 권한 열|
 |조직 역할|`memberships.org_role`(템플릿)|`owner`·`member`|템플릿 호환용. 구성원 관리는 업무 역할 `ADMIN`([[16-DECISIONS\|ADR-021]])|
-|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다. 화면 `/ops`, API `/api/ops/*`. 조직 ADMIN 화면(`/admin/*`)에 들어오지 않고, 조직 ADMIN도 `/ops`는 404([[16-DECISIONS\|ADR-021]]). 팀(조직) 만들기는 운영자만 한다([[16-DECISIONS\|ADR-026]])|
+|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다. 지금은 템플릿 화면 `/admin`(사용자 관리, 운영자가 아니면 404)과 API `/api/admin/users/:id/status`다. 설계의 `/ops`·`/api/ops/*` 분리([[16-DECISIONS\|ADR-021]])는 해커톤 뒤다([[16-DECISIONS\|ADR-023]], 미구현). 운영자라도 업무 역할이 `ADMIN`이 아니면 조직 ADMIN 화면 `/admin/ingestion`은 403 안내다. 팀(조직) 만들기는 운영자만 한다([[16-DECISIONS\|ADR-026]])|
 
 데모 계정의 역할 배정은 [[04-DATABASE|04 DB]] §6이다.
 
@@ -59,7 +59,7 @@ updated: 2026-10-20
 |사람 최종 결정 기록 (`POST /bids/:id/reviews`)|ADMIN, SALES|
 |회사 프로필 개정 (`PUT /company-profile`)|ADMIN|
 |사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿의 owner 기준 정책을 `sol_role=ADMIN` 기준으로 바꿨다, `20261019000001`, [[16-DECISIONS\|ADR-021]])|
-|수동 수집 실행·수집 결과 조회|ADMIN|
+|수동 수집 실행·수집 결과 조회|ADMIN. 예외: 대시보드 수집 신선도용 `latest_ingest_run(text)`은 업무 역할이 있으면 누구나 출처별 최신 run 한 건의 상태·시각·요약만 읽는다([[04-DATABASE\|04]] §3.6)|
 |본인 알림 조회·읽음 처리|모든 인증 사용자. 남의 알림은 `404`|
 |조직·인력 조회(`/people`, ADR-021)|ADMIN, SALES, ANALYST, VIEWER|
 |설정 조직 탭(구성원·초대·업무 역할, ADR-021)|ADMIN|
@@ -71,7 +71,7 @@ updated: 2026-10-20
 
 표기는 [[05-API-SPEC|05 API]]와 동일하게 허용 역할 나열. 역할이 목록에 없으면 `403 FORBIDDEN`.
 
-**조직 격리는 RLS가 강제한다.** 조직 데이터 표(`company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews`·`notifications`·`audit_logs` 등)는 `org_id`를 갖고 RLS `org_id in (select public.my_org_ids())`로 거른다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 토큰)으로 DB를 부르므로 코드가 조직 조건을 빠뜨려도 RLS가 막는다. 사용자가 보낸 orgId는 신뢰하지 않는다. **다른 조직 자원은 행이 보이지 않아 `404 NOT_FOUND`**가 된다(존재 여부를 숨긴다). 공고(공용) 표는 `authenticated` 읽기만 열고 쓰기는 worker(service role)만 한다. 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 정책 시험은 `scripts/database.test.mjs`(PGlite, `pnpm test:db`)에 둔다.
+**조직 격리는 RLS가 강제한다.** 조직 데이터 표(`company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews`·`notifications`·`audit_logs` 등)는 `org_id`를 갖고 RLS `org_id in (select public.my_org_ids())`로 거른다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 토큰)으로 DB를 부르므로 코드가 조직 조건을 빠뜨려도 RLS가 막는다. 사용자가 보낸 orgId는 신뢰하지 않는다. **다른 조직 자원은 행이 보이지 않아 `404 NOT_FOUND`**가 된다(존재 여부를 숨긴다). 공고(공용) 표는 `authenticated` 읽기만 열고 쓰기는 worker(service role)만 한다. 공용 운영 표 `ingest_runs`는 어느 조직의 `ADMIN`이든 모든 행을 읽으므로, 화면 역할에는 열 11개(`id`·`source`·`run_mode`·`trigger`·`batch`·`cursor`·`status`·`summary`·`quota_used`·`started_at`·`finished_at`)만 select를 준다. 수동 수집의 `job_key`·`idempotency_key`(요청한 조직 id)·`requested_by`(요청자 id)·`params`는 닫아 다른 조직 `ADMIN`에게 조직·요청자 id가 새지 않게 한다(`20261019000019`, N8 보안 점검 W1, [[16-DECISIONS|ADR-035]] F2). 요청자는 조직 소유 감사(`audit_logs` `INGEST_MANUAL`)로 찾는다. 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 정책 시험은 `scripts/database.test.mjs`(PGlite, `pnpm test:db`)에 둔다.
 
 ## 위협과 대응
 |위협|대응|
@@ -96,7 +96,8 @@ updated: 2026-10-20
 
 - **위험**: 같은 조직의 `ADMIN`·`SALES`·`ANALYST`는 PostgREST로 `score_runs`에 요청 행을 직접 insert할 수 있다. 그러면 Route Handler의 속도 제한과 분석 큐를 건너뛰고, 같은 입력의 분석을 최대 10분(멈춘 분석 복구 기준 `ANALYSIS_STALE_QUEUED_MS` 기본 600000) 막을 수 있다. insert 권한은 `20261019000004`의 열 단위 권한과 정책 "분석 요청"이 열고, C6(`20261019000012`)가 `request_hash` 열을 더했다.
 - **범위**: 조직 내부자만 할 수 있고, 다른 조직의 데이터는 읽거나 바꿀 수 없다(데이터 유출 없음).
-- **해커톤 뒤 후속**: ① `score_runs` insert 권한을 회수하고 생성 전용 RPC로 바꾼다 ② `release_unqueued_score_run`에 30초 창과 감사 기록을 더한다 ③ `latest_ingest_run`에서 개인 조직을 뺀다 ④ 여러 조직을 지원할 때 repo 질의에 org 필터를 명시한다 ⑤ 시험 전용 fake-session을 시험 쪽으로 옮긴다.
+- **해커톤 뒤 후속**: ① `score_runs` insert 권한을 회수하고 생성 전용 RPC로 바꾼다 ② `release_unqueued_score_run`에 30초 창과 감사 기록을 더한다 ③ `latest_ingest_run`에서 개인 조직을 뺀다 ④ 여러 조직을 지원할 때 repo 질의에 org 필터를 명시한다 ⑤ 시험 전용 fake-session을 시험 쪽으로 옮긴다 ⑥ `live`에서 한 조직의 `ADMIN`이 수동 g2b 수집(조직당 5회/분)으로 공용 G2B 일일 호출 할당량을 다 쓸 수 있다 ⑦ `GET /api/v1/admin/ai/status`의 `gateway.url`(내부 주소)이 조직 `ADMIN`에게 보인다. `/ops` 분리([[16-DECISIONS|ADR-021]]) 때 운영자 화면으로 옮기거나 가린다 ⑧ 수집 단건 조회(`web/server/ingestion/ingestion-admin.repo.ts` 36~45행 `findRun`)에 조직 조건이 없다. `ingest_runs`는 공용 운영 표라 다른 조직이 요청한 run id로 `GET /api/v1/admin/ingestion/runs/:id`를 부르면 200이다(이때 `requestedBy`는 `null`). 여러 조직을 받을 때 정한다 ⑨ N8 E2E 준비(`web/e2e-auth/support/ingestion-setup.ts` 113~117행)는 env의 `SUPABASE_SERVICE_ROLE_KEY`가 N8 격리 Supabase의 값과 같으면 통과시키므로, 그 env를 그대로 받는 시험용 웹 서버에 service role 키가 넘어갈 수 있다. 시험 전용 경로다.
+- ⑥~⑨는 해커톤 동안 받아들인다(단일 조직 [[16-DECISIONS|ADR-019]], 데모는 fixture, [[16-DECISIONS|ADR-035]] F12). ⑥·⑦은 2026-10-20 사용자 결정(정본 5차 일괄 채택)에 든 항목이고, ⑧·⑨는 병합 게이트(sol-radar-3e)가 넘긴 N8 보안 점검 낮음 L1·L3를 조정 세션(sol-radar-45)이 같은 묶음에 더한 것이다.
 
 ## 책임 있는 AI
 ### 원칙
@@ -106,7 +107,7 @@ updated: 2026-10-20
 4. 사람이 최종 결정을 내리고 사유와 함께 기록한다.
 5. DEMO 데이터는 DEMO로 표시한다. 실데이터처럼 보이게 하지 않는다.
 6. live 모드의 분석은 "실제 공고 × 가상 회사 프로필"이다. 회사 프로필은 모든 실행 모드에서 가상 솔리데오 프로필이고, 화면에 "가상 회사 프로필로 분석" 배지를 붙여 실제 회사의 판단처럼 보이지 않게 한다(ADR-019·020).
-7. mock 결과를 실제 모델 결과처럼 보이지 않게 한다. mock 자동 대체는 기본 금지다. `AI_FALLBACK_TO_MOCK=true`(`live`에서는 기동 거부)로 켰을 때 실제로 대체되면 `reviewFlags`에 `MOCK_FALLBACK`, 감사 필드 `fallback_reason`, 화면 배너로 밝힌다.
+7. mock 결과를 실제 모델 결과처럼 보이지 않게 한다. mock 자동 대체는 기본 금지다. 자동 대체(`AI_FALLBACK_TO_MOCK=true`)는 미구현이라 세 실행 모드 모두 켜면 기동을 거부한다(`infra/run-modes.json`, [[16-DECISIONS|ADR-030]] B11). 구현하게 되면 실제로 대체된 run은 `reviewFlags`에 `MOCK_FALLBACK`, 감사 필드 `fallback_reason`, 화면 배너로 밝힌다.
 8. 파싱·다운로드에 실패한 내용을 AI가 추측해 채우지 않는다. Qwen에는 파싱된 텍스트만 들어가고, 결정 모델 state에는 "RFP attachment could not be read; requirements may be incomplete" 사실 한 줄만 들어가며, `/explain`은 파싱 실패를 문장에 밝힌다([[07-DATA-PIPELINE|07 수집]] §2.6).
 9. 모델 성능은 평가셋 숫자(표본 수·신뢰구간 포함)로만 주장한다([[21-MODEL-TRAINING|21 모델 학습]]).
 
@@ -186,7 +187,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 ||`status`, `warnings`, `latency_ms`, `retries`|`COMPLETED / PENDING_REVIEW / FAILED`, 경고 코드(`INJECTION_SUSPECTED`, `QDRANT_FALLBACK` 등)|
 |`score_runs`|`algorithm_version`|규칙 엔진·점수표 버전 (예: `sol-v0.1.0`)|
 ||`run_mode`|그 분석을 돌린 실행 모드 `LIVE` / `FIXTURE` / `MOCK`([[16-DECISIONS\|ADR-020]])|
-||`ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `kev_calibration`|실제로 쓴 AI 공급자·모델·질문 세트(`kev-qs/v0.1`·`v0.2`), 결정 모델 임계값 보정 상태(기본 `UNCALIBRATED`)|
+||`ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `kev_calibration`|실제로 쓴 AI 공급자·모델·질문 세트(`kev-qs/v0.1`·`v0.2`), 결정 모델 임계값 보정 상태(`UNCALIBRATED`·`CALIBRATED`. 지금 worker는 늘 null을 쓴다, [[04-DATABASE\|04]] §3.4)|
 ||`fallback_reason`|mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`). 이때 `ai_provider=MOCK`이고 `review_flags`에 `MOCK_FALLBACK`이 있다. `live` run에는 생길 수 없다(DB check)|
 ||`input_snapshot`|분석 입력 전체(`AnalysisInput`: 추출 결과 + 프로필 revision) JSONB|
 ||`model_metadata`|`provider`, 결정 모델(`GET /v1/models` 응답과 모델 레지스트리 항목, 예: `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`), 질문 세트, 프롬프트 버전|
@@ -197,7 +198,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 재현 규칙: 같은 `input_snapshot` + 같은 `algorithm_version`이면 규칙 점수·자격 판정·권고는 동일해야 한다. 이 성질은 테스트로 고정한다 ([[11-TESTING|11 테스트]]). 기존 run은 덮어쓰지 않고 새 run을 만든다.
 
-업무 감사(`audit_logs`)에는 [[16-DECISIONS|ADR-021]]로 업무 역할 변경, 입찰 프로젝트 상태·결과 변경(P1), 인력 편집(P1)을 더한다.
+업무 감사(`audit_logs`)에는 [[16-DECISIONS|ADR-021]]로 업무 역할 변경, 입찰 프로젝트 상태·결과 변경(P1), 인력 편집(P1)을 더한다. 업무 역할(`sol_role`) 변경 감사는 **미구현**이다. `audit_logs.action` check에 그 값이 없고 남기는 트리거도 없다. 템플릿 `activities`도 `org_role` 변경만 기록한다. 코드 후속이다([[16-DECISIONS|16 ADR]] 미결정 26번).
 
 ### 편향·오탐 모니터링
 지표: 사람 최종 결정 vs 권고 불일치율, `review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_REQUIREMENT_DISAGREEMENT` 비율, 발주기관·사업 유형별 NO-BID 비율 편중, `NEEDS_REVIEW` 비율. 임계 초과 시 가중치를 사람이 재검토한다. 지표 정의와 관리자 화면은 [[14-OBSERVABILITY|14 관측성]].

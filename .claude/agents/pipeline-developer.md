@@ -50,7 +50,7 @@ skills:
   - 기대 summary: `SEED` `{created:19, quarantined:1, retried:2}`, 두 번째 `SEED` `skippedDuplicate:19, quarantined:1`, `LIVE` `{changed:3, cancelled:1, skippedDuplicate:1}`.
 - **AI 호출 규칙**
   - 경로는 worker → AI gateway 하나. **결정 모델(Bosun)·Qwen 을 직접 부르지 않는다**(17 절대 규칙).
-  - `/extract` 는 ingest job 에서 revision 단위로. 호출 전 `(revision_id, model_name, prompt_hash)` 캐시를 찾고, 모델명·해시는 gateway `GET /health` 에서 받는다.
+  - `/extract` 는 analysis job 안에서 부른다(별도 extract job 은 없다. ingest job 은 `/extract` 를 부르지 않는다). 먼저 그 revision 의 성공 추출을 `(revision_id, model_name, prompt_hash)` 키로 찾고(`requirement_extractions`, 여러 조직이 같이 쓴다), 모델명·해시는 gateway `GET /health` 에서 받는다. `/health` 를 못 읽으면 키 없이 그 revision 의 가장 최근 성공 추출을 쓴다. 쓸 추출이 없거나 스키마를 통과하지 못하면 같은 job 에서 `/extract` 를 부르고, 성공 응답(COMPLETED·PENDING_REVIEW)만 저장한다(`web/server/analysis/analysis.service.ts` `prepareExtraction`, `analysis.repo.ts` `selectCachedExtraction`).
   - `/kev` 는 analysis job 에서 `KEV_ENABLED` 일 때만. 본문에 규칙 결과(자격·점수·권고)를 넣지 않는다.
   - timeout: `/extract` `AI_TIMEOUT_MS`+5초, `/kev` `KEV_TIMEOUT_MS`+2초. 연결 거부는 즉시 실패(재시도 없음), timeout·5xx 는 1회 재시도. 연속 3회 실패 시 circuit open, 15초 뒤 half-open.
   - gateway 불가면 캐시된 추출로 규칙만 계산하고 `status=PARTIAL`, `recommendationBasis=RULES_ONLY`, `reviewFlags += AI_UNAVAILABLE`, `errorCode=AI_UNAVAILABLE`. 분석 자체를 실패시키지 않는다.

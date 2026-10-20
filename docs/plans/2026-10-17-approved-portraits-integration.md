@@ -20,7 +20,7 @@ updated: 2026-10-19
 
 **Tech Stack:** Node fs/crypto/test, 기존 Base UI Avatar, Next.js 정적 public, Vitest/Playwright, PGlite.
 
-**Spec:** [기존 승인 스펙](../../polaris/specs/planned/2026-10-16-solideo-people-signup.md), [[16-DECISIONS]] ADR-021, 2026-10-17 사용자 최종 승인·통합 요청. 사용자가 이번 통합과 검증은 승인했으며 main 병합은 별도 승인 대상이다.
+**Spec:** [기존 승인 스펙](../../polaris/specs/done/2026-10-16-solideo-people-signup.md), [[16-DECISIONS]] ADR-021, 2026-10-17 사용자 최종 승인·통합 요청. 사용자가 이번 통합과 검증은 승인했으며 main 병합은 별도 승인 대상이다.
 
 ## Global Constraints
 

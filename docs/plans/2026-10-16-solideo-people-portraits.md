@@ -21,7 +21,7 @@ updated: 2026-10-19
 
 **Tech Stack:** 내장 `image_gen`, imagegen 스킬, Node fs/crypto/test runner, PNG 헤더 검사, 브라우저 HTML 검수.
 
-**Spec:** [승인 스펙](../../polaris/specs/planned/2026-10-16-solideo-people-signup.md) §4·7·10, [11 검증](../11-TESTING.md) PPL-03. [DB·가입 계획](2026-10-16-solideo-people-signup.md)은 이미지 완료를 기다리지 않고 진행할 수 있지만 최종 완료에는 세 계획 모두 필요하다.
+**Spec:** [승인 스펙](../../polaris/specs/done/2026-10-16-solideo-people-signup.md) §4·7·10, [11 검증](../11-TESTING.md) PPL-03. [DB·가입 계획](2026-10-16-solideo-people-signup.md)은 이미지 완료를 기다리지 않고 진행할 수 있지만 최종 완료에는 세 계획 모두 필요하다.
 
 ## Global Constraints
 

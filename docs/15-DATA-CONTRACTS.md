@@ -62,7 +62,7 @@ interface EvidenceRef {
   apiSource?: string;         // API_FIELD만. registry key(§8). 예: "g2b-bid-license-limit"
   quotedText: string;         // TEXT: 원문 그대로 5~300자, 요약·의역 금지. API_FIELD: 필드 값 원문
   sourceUrl?: string;         // 원문 재확인 링크
-  fetchedAt: string;          // ISO8601 UTC. 원문을 가져온 시각
+  fetchedAt: string;          // ISO8601 UTC. 원문을 가져온 시각. worker zod(analysis-input.model.ts)는 필수, gateway JSON Schema(requirement-extraction.v0.1.json)는 선택이다. 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(bid_revisions.fetched_at)으로 채운다(785e454, main 병합 대기. 16 미결정 26번). gateway 계약·JSON Schema는 그대로이고 gateway는 채우지 않는다
   match?: CitationMatch;      // 검증 단계가 채운다. AI 출력에는 없다
 }
 
@@ -82,7 +82,7 @@ interface ExtractedField<T> {
 |`KNOWN`|non-null|1개 이상, 검증 통과|원문에 값이 명시됨|
 |`UNKNOWN`|null|0개|원문에 없음, 또는 인용 검증 전부 실패|
 |`NOT_APPLICABLE`|null|0~1개|해당 항목이 이 공고 유형에 없음(예: 발주계획에는 마감 없음)|
-|`CONFLICTED`|null|2개 이상|원문 내 두 값이 다름(본문 예산 ≠ 첨부 예산). `note`에 두 값을 적는다|
+|`CONFLICTED`|null|1개 이상(값마다 하나씩이 원칙. gateway가 메타데이터 대조로 바꿀 때는 추출 근거를 그대로 두므로 1개일 수 있다)|원문 내 두 값이 다름(본문 예산 ≠ 첨부 예산), 또는 추출값이 `NormalizedBid`의 예산·마감과 다름. `note`에 두 값을 적는다|
 
 `UNKNOWN`을 0, 빈 문자열, 미래 날짜, 기본값으로 바꾸지 않는다. 규칙 엔진은 `UNKNOWN`·`CONFLICTED`를 `NEEDS_REVIEW` 또는 `missingFactors`로 처리한다([[08-SCORING|08 점수]]).
 
@@ -91,7 +91,7 @@ interface ExtractedField<T> {
 |`kind`|채우는 필드|누가 만드나|검증|
 |---|---|---|---|
 |`TEXT`(기본)|`documentId`(본문이면 null), `page`·`charStart`·`charEnd`(선택), `quotedText` 5~300자|Qwen 추출(gateway). AI 출력의 근거는 언제나 `TEXT`다|§5.2 인용 검증 알고리즘|
-|`API_FIELD`|`apiField`, `apiSource`, `quotedText`(필드 값 원문). `documentId`·`page`·`charStart`·`charEnd`는 null|worker·규칙 엔진. API 구조화 필드(면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt` 등)로 판정할 때(`basis=API_FIELD`, [[04-DATABASE\|04 DB]] `qualification_checks`)|§5.4 원본 응답 필드 대조|
+|`API_FIELD`|`apiField`, `apiSource`, `quotedText`(필드 값 원문). `documentId`·`page`·`charStart`·`charEnd`는 null|worker·규칙 엔진. API 구조화 필드(면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt` 등)로 판정할 때(`basis=API_FIELD`, [[04-DATABASE\|04 DB]] `qualification_checks`)|§5.4 원본 응답 필드 대조(미구현)|
 
 판정 라벨: 규칙 판정·결정 모델 요구사항 질문(`req.{itemId}.status`)·평가셋 라벨은 같은 3값(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드를 쓴다. 조건과 사유 코드의 정본은 [[08-SCORING|08 점수]] §5.1이다. 이 문서가 정하는 것은 근거 형식이다: `NOT_SATISFIED`에는 검증을 통과한 공고 쪽 `EvidenceRef` 1개 이상과 회사 쪽 명시적 부정 근거 `CompanyEvidenceRef`(§2.1) 1개 이상이 함께 있어야 한다. 정보가 없다는 사실만으로는 미충족이 될 수 없다.
 
@@ -126,7 +126,7 @@ interface KevStateTrace {
 |타입|저장 위치|규칙|
 |---|---|---|
 |`CompanyEvidenceRef`|`qualification_checks.company_evidence`, `requirement_assessments.company_evidence`([[04-DATABASE\|04 DB]]), `KevStateTrace.lines[].companyEvidence`, 평가셋 `EvalItem.labels[].companyEvidence`|`profileRevision`은 판정에 쓴 회사 프로필 revision이다. 회사 프로필은 모든 실행 모드에서 가상이다(ADR-019·020)|
-|`KevStateTrace`|`score_runs.kev_output`(결정 모델 응답 원문과 함께), API `KevAssist.stateTrace`([[05-API-SPEC\|05 API]])|운영 state는 `en.v0.2`만이다. `ko.v0.2`는 평가 전용(`KEV_ALLOW_KO_STATE=true`)이고 `SOL_RUN_MODE=live`와 함께 쓰면 gateway가 기동을 거부한다([[03-AI-PIPELINE\|03 AI 파이프라인]], [[09-SECURITY\|09 보안]])|
+|`KevStateTrace`|`score_runs.kev_output`(결정 모델 응답 원문과 함께), API `KevAssist.stateTrace`([[05-API-SPEC\|05 API]]). 지금 worker는 `kev_output`에만 남기고 `KevAssist.stateTrace`는 늘 null이다([[03-AI-PIPELINE\|03]] §5.7 구현 상태)|운영 state는 `en.v0.2`만이다. `ko.v0.2`는 평가 전용(`KEV_ALLOW_KO_STATE=true`)이고 `SOL_RUN_MODE=live`와 함께 쓰면 gateway가 기동을 거부한다([[03-AI-PIPELINE\|03 AI 파이프라인]], [[09-SECURITY\|09 보안]])|
 
 - 근거가 하나도 없는 줄(예: `(unknown)`)도 state에 들어갈 수 있다. 그 줄만으로 나온 결정 모델 판단은 `NEEDS_REVIEW` 쪽 근거로만 표시한다.
 - 화면에서 결정 모델 질문 결과를 누르면 그 질문의 `itemIds`를 다룬 줄과 그 줄의 공고 인용·회사 증빙이 열린다([[06-UI-UX|06 UI]]).
@@ -156,6 +156,10 @@ interface NormalizedBid {
   content: string;              // 본문 텍스트. §5.1 정규화 적용
   attachments: { name: string; url: string; mimeType?: string; sizeBytes?: number }[];
   structuredQualifications: StructuredRequirement[];  // 공고 API 구조화 자격. fixture·사전규격·발주계획은 빈 배열일 수 있다
+  auxLookup?: {                 // 보조 조회 3종(면허제한·참가가능지역·e발주 첨부, 07 §2.2)의 결과. live 수집이 보조 조회를 시도한 revision 에만 있다
+    status: "OK" | "FAILED" | "SKIPPED_QUOTA";   // OK = 셋 다 받음, FAILED = 하나라도 실패(22 뒤 부르지 않은 것 포함), SKIPPED_QUOTA = 호출 예산 90% 로 부르지 않음
+    failed: string[];           // 받지 못한 보조 조회의 registry 키(호출 순서). OK 면 빈 배열
+  };
   original: {                   // 정규화 전 원본 문자열. 감사·디버그용
     noticeNo?: string; budget?: string; noticeDate?: string; deadline?: string; stage?: string; status?: string;
   };
@@ -182,14 +186,17 @@ interface StructuredRequirement {
 |필수|`source`, `noticeId`, `title`, `sourceUrl`, `stage`, `fetchedAt`|레코드 격리(`ingest_errors`), 적재하지 않음|
 |선택|`budgetKrw`, `deadlineAt`, `noticeDate`, `agency`, `content`, `attachments`, `planRef`, `preSpecRef`, `normalizationNotes`|null 유지. `original`에 원본 문자열은 남긴다|
 |선택(빈 배열)|`structuredQualifications`|빈 배열. 규칙 엔진은 추출값으로 판정한다|
+|선택(없음)|`auxLookup`|보조 조회를 시도하지 않은 revision(fixture·취소·보조 조회 도입 전)에는 키가 없다|
 
 `checksum`은 canonical JSON(키 정렬, 공백 없음, `fetchedAt`·`checksum` 제외)의 sha256이다. 같은 `source+noticeId`에서 checksum이 바뀌면 새 revision이다.
+
+- **`auxLookup`**(main `c6b16e3`, [[16-DECISIONS|ADR-035]] F7): checksum에 포함된다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부르고(다시 채우기), 셋 다 받으면 `CHANGED` revision으로 저장한다. 또 실패하면 revision을 늘리지 않는다. 같은 공고의 재수집이 `DUPLICATE`로 걸러지도록, 변경 판정의 1차 비교는 저장된 revision에서 보조 조회 유래 부분(면허제한·지역 행, e발주 첨부, `auxLookup`)을 뺀 "목록만" 모양으로 한다([[07-DATA-PIPELINE|07 수집]] §2.2·§5). 규칙 엔진은 `auxLookup`이 `OK`가 아니면 `structured:AUX_LOOKUP` 한 건을 `NEEDS_REVIEW`(`NOTICE_INFO_MISSING`)로 둔다. 구조화 자격이 비어 있어도 "제한 없음"으로 읽지 않는다(`web/server/scoring/qualification.ts` `auxLookupChecks`, [[08-SCORING|08 점수]]).
 
 - live 공고의 원본 필드 → `NormalizedBid` 매핑은 [[07-DATA-PIPELINE|07 수집]] §3.1이다.
 - **개인정보**: 공공 API 응답의 담당자 필드(이름·전화·이메일)는 `NormalizedBid`·`StructuredRequirement.value`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
 - **`seq`**: `StructuredRequirement`에는 `seq`가 없다. 수집(Connector)은 `seq` 없이 내고 `structuredQualifications`의 순서를 결정적으로(안정 정렬) 만든다. 분석 쪽 변환이 배열 index(0부터)로 `seq`([[04-DATABASE|04 DB]] `bid_structured_requirements.seq`)를 채운다([[16-DECISIONS|ADR-030]] B13).
 - **`status` 매핑**: 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 원본 값은 §6 격리다. fixture 레코드에 `status`가 없고 revision ≥ 2면 `AMENDED`다([[07-DATA-PIPELINE|07 수집]] §3.1·§6.5, [[16-DECISIONS|ADR-030]] B14). 목록의 기본 상태 필터와 취소 공고 표시는 [[05-API-SPEC|05 API]] §3이다.
-- **API 구조화 필드 우선**: 같은 조건을 API 구조화 필드(`structuredQualifications`, 금액 `budgetKrw`, 마감 `deadlineAt`)와 Qwen 추출이 둘 다 주면 API 구조화 필드가 우선이다. 두 값이 다르면 그 필드를 `CONFLICTED`로 두고 사람이 본다(§4). 이때 API 쪽 근거는 `EvidenceRef(kind=API_FIELD)`로 남긴다(§2). 규칙 엔진의 판정 방식은 [[08-SCORING|08 점수]] §5.1.
+- **API 구조화 필드 우선**: 같은 조건을 API 구조화 필드(`structuredQualifications`, 금액 `budgetKrw`, 마감 `deadlineAt`)와 Qwen 추출이 둘 다 주면 API 구조화 필드가 우선이다. 두 값이 다르면 그 필드를 `CONFLICTED`로 두고 사람이 본다(§4). 이때 API 쪽 근거는 `EvidenceRef(kind=API_FIELD)`로 남긴다(§2). 지금 코드: 면허제한은 규칙 엔진이 API 근거와 추출 근거를 한 판정(`NEEDS_REVIEW`·`NOTICE_CONFLICTED`)에 함께 남긴다(`web/server/scoring/qualification.ts`). 예산·마감은 gateway가 추출 필드를 `CONFLICTED`로 바꾸고 추출 근거만 둔다(API 근거를 필드에 더하지 않는다). 규칙 엔진의 판정 방식은 [[08-SCORING|08 점수]] §5.1.
 
 > [!warning] 미검증 가정
 > `structuredQualifications`의 원천 필드는 2026-10-19 C1 ①에서 실제 응답으로 확인했다([C1 API 증거](evidence/phase-0/external-deps-api-20261019.md) §5·§10, 녹음 응답 `fixtures/recorded/15129394/`). 면허제한·참가가능지역 필드는 목록 응답에 없고 보조 조회에만 있다. 여부 플래그 `indstrytyLmtYn`·`bidPrtcptLmtYn`은 목록 응답에 있다. 남은 것은 두 가지다. 여부 플래그를 어느 `kind`·필드에 담을지 정하지 않았다. 면허제한이 여러 행일 때의 뜻도 미검증이다. 응답에 AND/OR 필드는 없고 `lmtGrpNo`(그룹)·`lmtSno`(일련번호)만 있으며, "그룹 안은 AND, 그룹끼리는 OR"로 읽히지만 확인하지 않았다([[16-DECISIONS|16 ADR]] 미결정 19번). 확인 전에는 면허제한이 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다.
@@ -268,7 +275,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 ```
 
 - 4단계는 비용이 크다. `len(doc) > 200,000`자면 3단계까지만 하고, 4단계는 `q`의 앞 20자를 `find`로 먼저 좁힌 뒤 ±2,000자 범위에서만 수행한다.
-- 임계값은 env `CITATION_FUZZY_MIN_RATIO`로 조정하고 값은 `score_runs.model_metadata.citation.fuzzyMinRatio`에 기록한다.
+- 임계값은 env `CITATION_FUZZY_MIN_RATIO`로 조정하고 값은 `score_runs.model_metadata.citation.fuzzyMinRatio`에 기록한다. **미구현**: 지금 `model_metadata`는 `{provider, qwen, kev, algorithmVersion, explanationSource}`만 저장한다([[03-AI-PIPELINE|03]] §7).
 
 ### 5.3 실패 시 상태 전이
 
@@ -285,6 +292,9 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 > 임계값 0.92와 창 크기 ±10%는 한국어 공고 텍스트로 측정한 값이 아니다. 검증 방법: fixture 20건의 추출 결과에서 사람이 맞다고 표시한 인용 50건 이상을 모아 FUZZY 판정의 정밀도를 재고, 오탐이 생기면 임계값을 올린다.
 
 ### 5.4 API 구조화 필드 근거 검증 (`kind=API_FIELD`)
+
+> [!warning] 미구현 (2026-10-20, main `554b34c`)
+> 이 절의 원본 필드 대조와 시험은 아직 없다. 지금 규칙 엔진은 `bid_structured_requirements` 행으로 `API_FIELD` 근거를 만들고(`quotedText` = 행의 `name` → `code` → 값 JSON 순, 300자), `match`를 채우지 않는다(`web/server/scoring/qualification.ts` `apiEvidence`).
 
 API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위치가 없으므로 §5.2를 쓰지 않는다. 대신 해당 revision의 `rawPayload`(보조 조회 응답의 필드는 [[04-DATABASE|04 DB]] `bid_structured_requirements.value`에 보존)에서 `apiSource`·`apiField`가 가리키는 필드 값이 `quotedText`와 같은지 확인한다.
 
@@ -304,8 +314,9 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |금액 파싱 실패(숫자 아님, 단위 불명)|`budgetKrw=null`, `original.budget` 보존, `error_code=BUDGET_UNPARSED`(경고, 적재는 함)|
 |날짜 파싱 실패|`deadlineAt=null`, `original.deadline` 보존, 경고 `DATE_UNPARSED`|
 |마감이 공고일보다 이전|적재하되 `status` 그대로, 경고 `DATE_ORDER`|
-|본문 인코딩 깨짐(치환 문자 비율 > 5%)|`content` 보존, 경고 `ENCODING_DEGRADED`, 추출 상태 `PENDING_REVIEW`|
+|본문 인코딩 깨짐(치환 문자 비율 > 5%)|`content` 보존, 경고 `ENCODING_DEGRADED`, 추출 상태 `PENDING_REVIEW`. 지금은 수집 경고(`ingest_errors`)까지만 한다. 추출 상태를 `PENDING_REVIEW`로 바꾸는 연결은 미구현|
 |외부 API 429|Retry-After 후 재시도, `summary.retried` +1. 소진 시 `error_code=RATE_LIMITED`|
+|첨부 URL이 허용 목록(`https://www.g2b.go.kr/pn/`) 밖|그 첨부를 저장하지 않는다. 목록 첨부(`ntceSpecDocUrl1~10`)는 경고 `ATTACHMENT_URL_BLOCKED` 1건에 걸러진 칸 이름만 적는다(`attachment url not allowed: <칸 이름>`, URL은 기록하지 않는다). e발주 첨부 행은 경고 없이 뺀다. 공고는 적재한다. 저장하는 URL은 URL 파서가 정규화한 href다([[09-SECURITY\|09 보안]] SSRF, [[16-DECISIONS\|ADR-035]] F8)|
 |같은 checksum 재수집|적재 생략, `summary.skippedDuplicate` +1 (오류 아님)|
 
 첨부 다운로드·파싱 실패와 공공 API 오류·호출 예산(90% 도달 시 보조 조회 중단)의 처리는 [[07-DATA-PIPELINE|07 수집]] §2.2·§2.6과 [[03-AI-PIPELINE|03 AI 파이프라인]] §8·§10.5가 정본이다. 이때 `ingest_errors.error_code`는 파싱 실패면 `ATTACHMENT_PARSE_FAILED`, 정책상 다운로드 거부(allowlist·크기·MIME, [[09-SECURITY|09 보안]])면 `ATTACHMENT_REJECTED`다. 값 목록은 [[04-DATABASE|04 DB]] `ingest_errors`다.
@@ -353,12 +364,12 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |`g2b-pre-spec`|사전규격정보서비스 (15129437)|`/1230000/ao/HrcspSsstndrdInfoService` + `getPublicPrcureThngInfoServc`|일정 실행|`APPROVED`|`G2B_PRE_SPEC_SERVICE_KEY`|
 |`g2b-order-plan`|발주계획현황서비스 (15129462)|`/1230000/ao/OrderPlanSttusService` + `getOrderPlanSttusListServc`|하루 1회|`APPROVED`|`G2B_ORDER_PLAN_SERVICE_KEY`|
 |`g2b-industry-master`|업종 및 근거법규 (15129467)|`/1230000/ao/IndstrytyBaseLawrgltInfoService` + `getIndstrytyBaseLawrgltInfoList`|수동(사전 갱신)|`APPROVED`|`G2B_INDUSTRY_MASTER_SERVICE_KEY`|
-|`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job|`NOT_REQUESTED`|—|
+|`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job(소비자 미구현)|`APPROVED`(registry 값. 익명 GET이라 활용신청 대상이 아니다. 이용약관 확인은 미결정 16번)|—|
 |`fixture`|fixture 20건(`FX-01`~`FX-20`)|— (네트워크 호출 없음)|seed·수동 수집|`APPROVED`|—|
 
 - 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
-- `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 만든다. Connector는 endpoint를 생성자로 받아 registry 로딩과 떼어 둔다(B16).
-- `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 로그인·세션 없이 익명 GET으로 받아진다(C1 ② B2, 2026-10-19 공고 3건, 리다이렉트 0회). 남은 것은 이용약관상 자동 다운로드가 허용되는지다(미결정 16번). 그 확인 뒤 `approvalStatus`와 `quota`의 뜻을 정한다.
+- `infra/sources/registry.yaml`은 있다. worker(`web/worker/main.ts`)가 수집 도메인의 `loadSourceRegistry`로 읽고 승인·필드 매핑·서비스키를 확인한 뒤 Connector에 등록 endpoint를 넘긴다. Connector는 endpoint를 생성자로 받아 registry 로딩과 떼어 둔다(B16).
+- `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 로그인·세션 없이 익명 GET으로 받아진다(C1 ② B2, 2026-10-19 공고 3건, 리다이렉트 0회). 남은 것은 이용약관상 자동 다운로드가 허용되는지다(미결정 16번). 그 확인 뒤 `approvalStatus`와 `quota`의 뜻을 정한다. 지금 registry 값은 `approvalStatus: APPROVED`, `quota: null`이다.
 
 > [!success] 검증됨 (명세 2026-10-16, 실제 응답 2026-10-19 — data.go.kr 서비스 페이지 Swagger·참고문서, C1 ① 실호출)
 > 서비스 ID·기본 URL·오퍼레이션·개발계정 일 1,000 한도는 아래 서비스 페이지의 명세에서 확인했다. 2026-10-19 C1 ①에서 4개 서비스 모두 서비스키로 실제 응답(`resultCode 00`)을 받았고, 마스킹한 녹음 응답을 `fixtures/recorded/`에 두었다. 호출 로그와 설계와 다른 점 8건(키 형식, 오류 봉투, 보조 조회의 `inqryDiv=2`, `infoBizYn` 요청 필터 무시 등)은 [C1 API 증거](evidence/phase-0/external-deps-api-20261019.md)에 있다. 이 콜아웃이 data.go.kr 검증 사실의 정본이다.
@@ -374,7 +385,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 
 - `NormalizedBid` 스키마 검증(zod)을 fixture 20건 전부 통과하고, 같은 fixture를 두 번 적재해도 revision이 늘지 않는다(Vitest, `web/server/ingestion/*.test.ts`).
 - `ExtractedField`의 `KNOWN`은 유효 근거 없이 저장될 수 없다(DB 적재 전 gateway 검증 + API 응답 검증 테스트).
-- 인용 검증 4경로(EXACT/NORMALIZED/FUZZY/FAILED)와 §5.3 전이가 단위 테스트로 고정된다. `kind=API_FIELD` 근거의 원본 필드 대조(§5.4)도 일치·불일치·형식 오류 경로를 단위 테스트로 고정한다.
+- 인용 검증 4경로(EXACT/NORMALIZED/FUZZY/FAILED)와 §5.3 전이가 단위 테스트로 고정된다. `kind=API_FIELD` 근거의 원본 필드 대조(§5.4)도 일치·불일치·형식 오류 경로를 단위 테스트로 고정한다. (미구현: §5.4 대조 코드와 시험이 아직 없다)
 - `NOT_SATISFIED` 판정은 공고 쪽 `EvidenceRef`와 회사 쪽 `CompanyEvidenceRef`가 둘 다 있어야 저장된다(§2).
 - `UNKNOWN`이 0이나 기본값으로 바뀌는 경로가 코드에 없다(리뷰 체크리스트 항목).
 
