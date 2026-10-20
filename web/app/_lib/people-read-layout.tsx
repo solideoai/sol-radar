@@ -36,6 +36,7 @@ export async function PeopleReadLayout({
         orgs: workspace.orgs,
         pendingInvitationCount: workspace.pendingInvitationCount,
       }}
+      solRole={business.current.solRole}
       defaultSidebarOpen={(await cookies()).get("sidebar_state")?.value !== "false"}
     >
       {children}
