@@ -192,6 +192,8 @@ function toBidSummary(rows: LoaderRows, hasDocumentIssues: boolean) {
       structuredQualifications: toStructuredQualifications(rows.structured),
       // 문제 문서가 없으면 키를 넣지 않는다. 입력 스냅샷이 fixture 경로의 공고 요약과 같은 모양이 되게 한다.
       ...(hasDocumentIssues ? { attachmentsIncomplete: true } : {}),
+      // 보조 조회 결과(07 §2.2)는 있을 때만 옮긴다. 모양은 scoring 의 zod 가 본다(틀리면 AnalysisInputError).
+      ...(normalized.auxLookup === undefined ? {} : { auxLookup: normalized.auxLookup }),
     },
     "bid",
   );

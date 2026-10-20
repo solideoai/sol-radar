@@ -5,17 +5,21 @@ export type { PendingDocument, PendingDocumentFinder } from "./pending-documents
 // ── 배럴: ingestion 도메인의 공개 API. 바깥(worker·seed)은 @/server/ingestion 만 부른다 ──
 // 테스트용 메모리 저장소(ingestion.repo.memory.ts)는 내보내지 않는다.
 export {
+  AUX_LOOKUP_STATUSES,
   BID_SOURCES,
   BID_STAGES,
   BID_STATUSES,
   NORMALIZED_BID_SCHEMA_VERSION,
   STRUCTURED_REQUIREMENT_KINDS,
+  auxLookupSchema,
   bidAttachmentSchema,
   normalizedBidDraftSchema,
   normalizedBidSchema,
   structuredRequirementSchema,
 } from "./normalized-bid.model";
 export type {
+  AuxLookup,
+  AuxLookupStatus,
   BidAttachment,
   BidSource,
   BidStage,
@@ -96,6 +100,9 @@ export {
   quotaState,
 } from "./quota";
 export type { QuotaState } from "./quota";
+// 호출 예산 저장 포트(07 §2.2). Redis 구현은 web/worker/quota-store.ts, 메모리 구현은 시험·fixture 용
+export { createMemoryQuotaStore, validateCalls, validateDailyLimit } from "./quota-store";
+export type { IngestQuota, MemoryQuotaStore, QuotaStore } from "./quota-store";
 
 // ── Stage 2: connector·재시도·첨부·저장 포트·수집 흐름 ──
 export {
@@ -130,8 +137,15 @@ export {
   RETRY_MAX_RETRIES,
   fetchPageWithRetry,
   retryDelayMs,
+  withRetry,
 } from "./retry";
-export type { RetryAttemptLog, RetryDeps, RetryOutcome } from "./retry";
+export type {
+  RetryAttemptLog,
+  RetryDeps,
+  RetryOutcome,
+  RetryResult,
+  RetryableOutcome,
+} from "./retry";
 
 export {
   ATTACHMENT_MAX_BYTES,
@@ -177,6 +191,7 @@ export type {
   IngestRunStatus,
   IngestSummary,
   IngestTrigger,
+  LatestRunWindow,
   SavedRevision,
   SavedRevisionDecision,
   SaveRevisionInput,
@@ -184,7 +199,13 @@ export type {
   StartRunInput,
 } from "./ingestion.port";
 
-export { FIXTURE_ANCHOR_PARAM, SEED_ANCHOR_MISSING, runIngest } from "./ingestion.service";
+export {
+  FIXTURE_ANCHOR_PARAM,
+  QUOTA_EXCEEDED_ERROR_CODE,
+  QUOTA_SOURCE_KEY,
+  SEED_ANCHOR_MISSING,
+  runIngest,
+} from "./ingestion.service";
 export type {
   IdFor,
   IngestRunResult,
@@ -203,22 +224,61 @@ export type {
 // ── Stage 3: 나라장터 입찰공고 목록(OfficialApiConnector) ──
 export {
   G2B_API_HOST,
+  G2B_AUX_OPERATIONS,
   G2B_BID_NOTICE_LIST_OPERATION,
   G2B_BID_NOTICE_SERVICE_ID,
   G2B_CONTACT_FIELDS,
   G2B_DEFAULT_ROWS,
+  G2B_EORDER_ATTACH_OPERATION,
   G2B_GATEWAY_KEY_ERROR_CODES,
+  G2B_LICENSE_LIMIT_OPERATION,
   G2B_MAX_ROWS,
+  G2B_REGION_OPERATION,
   G2B_RESPONSE_MAX_BYTES,
   G2B_WINDOW_MAX_MS,
   looksLikeXml,
+  parseG2bAuxEnvelope,
   parseG2bEnvelope,
   parseG2bGatewayError,
   stripContactFields,
 } from "./g2b.model";
-export type { G2bEnvelope, G2bGatewayError } from "./g2b.model";
-export { buildG2bListUrl, formatG2bDateTime, splitG2bWindow } from "./g2b-request";
+export type { G2bAuxOperation, G2bAuxRegistryKey, G2bEnvelope, G2bGatewayError } from "./g2b.model";
+export {
+  G2B_AUX_INQRY_DIV,
+  G2B_AUX_WINDOW_DAYS_AFTER,
+  G2B_AUX_WINDOW_DAYS_BEFORE,
+  auxWindowOf,
+  buildG2bAuxUrl,
+  buildG2bListUrl,
+  formatG2bDateTime,
+  splitG2bWindow,
+} from "./g2b-request";
 export type { G2bWindowSlice } from "./g2b-request";
+// 보조 조회 3종(07 §2.2): live 의 새 revision 마다 공고 1건 단위로 부른다
+export { G2B_AUX_MAX_PAGES, auxRowsForNotice, createG2bAuxFetcher } from "./g2b-aux";
+export type {
+  G2bAuxFailure,
+  G2bAuxFetcher,
+  G2bAuxFetcherOptions,
+  G2bAuxOutcome,
+  G2bAuxRequest,
+  G2bAuxRows,
+} from "./g2b-aux";
+export {
+  AUX_REGISTRY_KEYS,
+  G2B_EORDER_ATTACHMENT_PATH,
+  auxLookupOf,
+  eorderAttachmentsOf,
+  isAuxIncomplete,
+  licenseRequirementsOf,
+  listOnlyRevision,
+  mergeG2bAux,
+  regionRequirementsOf,
+  registeredAtOf,
+  skippedQuotaLookup,
+  splitNameAndCode,
+  withAuxLookup,
+} from "./normalize-g2b-aux";
 export {
   DEFAULT_INFO_BIZ_FILTER,
   INFO_BIZ_CLASSIFICATION_KEYWORDS,
@@ -239,6 +299,7 @@ export {
   RECORDED_REPLAY_SERVICE_KEY,
   RECORDED_SCHEMA_VERSION,
   createRecordedApiConnector,
+  createRecordedAuxFetcher,
   loadRecordedResponse,
   parseRecordedResponse,
 } from "./recorded-api";
@@ -263,6 +324,7 @@ export {
   APPROVAL_STATUSES,
   SOURCE_REGISTRY_SCHEMA_VERSION,
   callableSource,
+  dailyQuotaOf,
   loadSourceRegistry,
   sourceRegistrySchema,
 } from "./source-registry";

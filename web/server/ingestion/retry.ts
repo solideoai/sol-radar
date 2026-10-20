@@ -42,15 +42,23 @@ export function retryDelayMs(
 const isServerRequestedWait = (failure: ConnectorFailure): boolean =>
   failure.kind === "RATE_LIMITED" && failure.retryAfterSec !== undefined;
 
-export async function fetchPageWithRetry(
-  connector: BidSourceConnector,
-  input: FetchPageInput,
+/** 값으로 돌아오는 실패(ConnectorFailure)를 가진 결과. 목록 페이지와 보조 조회가 같은 재시도 규칙을 쓴다 */
+export type RetryableOutcome = { ok: true } | { ok: false; failure: ConnectorFailure };
+
+export type RetryResult<T extends RetryableOutcome> = {
+  outcome: T;
+  retried: number;
+  attempts: RetryAttemptLog[];
+};
+
+export async function withRetry<T extends RetryableOutcome>(
+  attempt: () => Promise<T>,
   deps: RetryDeps,
-): Promise<RetryOutcome> {
+): Promise<RetryResult<T>> {
   const attempts: RetryAttemptLog[] = [];
-  for (let attempt = 1; ; attempt += 1) {
-    const outcome = await connector.fetchPage(input);
-    const retried = attempt - 1;
+  for (let attemptNo = 1; ; attemptNo += 1) {
+    const outcome = await attempt();
+    const retried = attemptNo - 1;
     if (outcome.ok || !isRetryableFailure(outcome.failure) || retried >= RETRY_MAX_RETRIES) {
       return { outcome, retried, attempts };
     }
@@ -60,7 +68,15 @@ export async function fetchPageWithRetry(
       return { outcome, retried, attempts };
     }
     // 기다린 실패만 남긴다. 포기한 마지막 실패는 outcome 이 말한다.
-    attempts.push({ attempt, failureKind: outcome.failure.kind, waitMs });
+    attempts.push({ attempt: attemptNo, failureKind: outcome.failure.kind, waitMs });
     await deps.sleep(waitMs);
   }
+}
+
+export function fetchPageWithRetry(
+  connector: BidSourceConnector,
+  input: FetchPageInput,
+  deps: RetryDeps,
+): Promise<RetryOutcome> {
+  return withRetry(() => connector.fetchPage(input), deps);
 }

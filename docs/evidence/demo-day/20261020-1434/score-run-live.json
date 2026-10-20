@@ -1,0 +1,25 @@
+{
+  "id": "99614071-1bf9-4417-b0ad-8c3f1a2b4fe0",
+  "bid_id": "88b00bf7-9928-4425-ab38-99406c9e91a9",
+  "status": "PARTIAL",
+  "recommendation_basis": "RULES_ONLY",
+  "error_code": "QWEN_UNAVAILABLE",
+  "review_flags": ["QWEN_UNAVAILABLE"],
+  "run_mode": "LIVE",
+  "ai_provider": "LOCAL",
+  "qwen_model": null,
+  "kev_model": null,
+  "question_set_version": null,
+  "fallback_reason": null,
+  "extraction_id": null,
+  "model_metadata": {
+    "kev": null,
+    "qwen": null,
+    "provider": "local",
+    "algorithmVersion": "sol-v0.1.0",
+    "explanationSource": "TEMPLATE"
+  },
+  "created_at": "2026-10-20T06:04:35.995244+00:00",
+  "started_at": "2026-10-20T06:04:36.319+00:00",
+  "finished_at": "2026-10-20T06:04:39.39+00:00"
+}

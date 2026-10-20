@@ -1,4 +1,5 @@
 import "server-only";
+import { checkAttachmentUrl } from "./attachment-allowlist";
 import type { G2bItem } from "./connector.model";
 import {
   collapseSpaces,
@@ -20,7 +21,7 @@ import {
   type BidStatus,
   type StructuredRequirement,
 } from "./normalized-bid.model";
-import { sourceKeyOf } from "./validation";
+import { attachmentBlockedDetail, sourceKeyOf, type WarningIssue } from "./validation";
 
 // ── 나라장터 입찰공고 목록 한 행 → NormalizedBidDraft (07 §3.1) ──
 // 나라장터 응답은 값이 없을 때 빈 문자열을 준다(실측 마감 19%). 빈 문자열은 "값 없음" 으로 보고 경고하지 않는다.
@@ -69,17 +70,41 @@ function budgetSource(item: G2bItem): { raw: unknown; note?: string } {
   return { raw: undefined };
 }
 
+type ListAttachments = { attachments: { name: string; url: string }[]; blockedFields: string[] };
+
 // stdNtceDocUrl 은 목록 첨부와 같은 파일이라 넣지 않는다. mimeType·sizeBytes 는 응답에 없어 지어내지 않는다.
-function attachmentsOf(item: G2bItem): { name: string; url: string }[] {
+// 첨부 URL 은 응답에서 오므로 허용 목록(https://www.g2b.go.kr/pn/, 09 SSRF) 밖이면 빼고 그 칸 이름을 경고로 남긴다.
+// 저장하는 URL 은 URL 파서가 정규화한 href 다(같은 주소의 다른 표기가 다른 첨부로 남지 않게).
+function attachmentsOf(item: G2bItem): ListAttachments {
+  const blockedFields: string[] = [];
   const slots = Array.from({ length: SPEC_DOC_SLOTS }, (_, index) => index + 1).flatMap((slot) => {
-    const url = item[`ntceSpecDocUrl${slot}`];
+    const field = `ntceSpecDocUrl${slot}`;
+    const url = item[field];
     if (typeof url !== "string" || url.trim() === "") return [];
+    const checked = checkAttachmentUrl(url.trim());
+    if (!checked.ok) {
+      blockedFields.push(field);
+      return [];
+    }
     const name = item[`ntceSpecFileNm${slot}`];
     const fileName = typeof name === "string" && name.trim() !== "" ? name.trim() : `첨부 ${slot}`;
-    return [{ name: fileName, url: url.trim() }];
+    return [{ name: fileName, url: checked.url.href }];
   });
-  return slots.filter((slot, index) => slots.findIndex(({ url }) => url === slot.url) === index);
+  return {
+    attachments: slots.filter(
+      (slot, index) => slots.findIndex(({ url }) => url === slot.url) === index,
+    ),
+    blockedFields,
+  };
 }
+
+const attachmentBlockedWarning = (
+  blockedFields: readonly string[],
+  sourceKey: string,
+): WarningIssue | undefined =>
+  blockedFields.length === 0
+    ? undefined
+    : { code: "ATTACHMENT_URL_BLOCKED", sourceKey, detail: attachmentBlockedDetail(blockedFields) };
 
 const sourceUrlOf = (item: G2bItem): unknown =>
   trimmed(item.bidNtceDtlUrl) ?? trimmed(item.bidNtceUrl);
@@ -119,6 +144,7 @@ export function normalizeG2bBidNotice(
     sourceKey,
   );
   const content = "";
+  const listAttachments = attachmentsOf(item);
   const notes = [budgetChoice.note, noticeDate.note, deadlineAt.note].filter(
     (note) => note !== undefined,
   );
@@ -142,7 +168,7 @@ export function normalizeG2bBidNotice(
     deadlineAt: deadlineAt.value,
     sourceUrl,
     content,
-    attachments: attachmentsOf(item),
+    attachments: listAttachments.attachments,
     // 구조화 자격은 보조 조회(다음 단계)가 채운다. 채워도 같은 순서가 되도록 항상 정렬을 거친다.
     structuredQualifications: sortStructuredRequirements([]),
     original: definedEntries({
@@ -163,5 +189,6 @@ export function normalizeG2bBidNotice(
     deadlineAt.warning,
     dateOrderWarning(noticeDate.value, deadlineAt.value, sourceKey),
     encodingWarning(content, sourceKey),
+    attachmentBlockedWarning(listAttachments.blockedFields, sourceKey),
   ]);
 }

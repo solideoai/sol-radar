@@ -93,6 +93,11 @@ export type CallableSourceResult =
         | "NO_SERVICE_KEY_ENV";
     };
 
+/** registry 항목의 quota.daily(일일 호출 한도, 07 §2.2 호출 예산). 항목이 없거나 한도를 적지 않았으면 null 이다. */
+export function dailyQuotaOf(registry: SourceRegistry, key: string): number | null {
+  return registry.sources.find((source) => source.key === key)?.quota?.daily ?? null;
+}
+
 export function callableSource(registry: SourceRegistry, key: string): CallableSourceResult {
   const entry = registry.sources.find((source) => source.key === key);
   if (entry === undefined) return { ok: false, reason: "NOT_REGISTERED" };

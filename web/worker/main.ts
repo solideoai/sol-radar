@@ -4,17 +4,22 @@ import IORedis from "ioredis";
 import { readGatewayConfig, readRunMode as readAnalysisRunMode } from "@/server/analysis";
 import {
   DOCUMENTS_QUEUE,
+  G2B_AUX_OPERATIONS,
+  G2B_BID_NOTICE_SERVICE_ID,
   INGEST_JOB_NAME,
   INGEST_QUEUE,
   callableSource,
   createFixtureConnector,
+  createG2bAuxFetcher,
   createOfficialApiConnector,
   createPendingDocumentFinder,
   createSupabaseIngestAudit,
   createSupabaseIngestionRepo,
+  dailyQuotaOf,
   enqueueDocuments,
   loadFixtureManifest,
   loadSourceRegistry,
+  type IngestQuota,
   type JobQueue,
 } from "@/server/ingestion";
 import { createNotificationOutboxStore } from "@/server/notifications";
@@ -33,6 +38,7 @@ import {
   type IngestJobDeps,
   type RunMode,
 } from "@/worker/ingest-queue";
+import { createRedisQuotaStore } from "@/worker/quota-store";
 import { checkReadiness, createReadinessProbes } from "@/worker/readiness";
 import { SYSTEM_QUEUE, processSystemJob } from "@/worker/system-queue";
 
@@ -184,7 +190,8 @@ const registryFileOf = (env: Env): string =>
   env.SOURCES_REGISTRY_FILE?.trim() ||
   path.resolve(process.cwd(), "../infra/sources/registry.yaml");
 
-type G2bSource = { endpoint: string; serviceKey: string };
+/** dailyLimit 은 registry quota.daily(07 §2.2 호출 예산). 없으면 기동을 멈춘다 */
+type G2bSource = { endpoint: string; serviceKey: string; dailyLimit: number };
 type IngestConfig = {
   runMode: RunMode;
   intervalMinutes: number;
@@ -193,17 +200,34 @@ type IngestConfig = {
 };
 
 // live 모드는 기동 때 registry 와 서비스키를 확인한다. 부를 수 없는 소스면 연결을 만들기 전에 멈춘다(사유만 싣는다).
+// 보조 조회 3종(07 §2.2)도 registry 항목이 있어야 한다. 같은 서비스(15129394)라 기본 URL·서비스키 env 가 목록과 같아야 한다.
 async function resolveG2bSource(env: Env): Promise<G2bSource> {
-  const callable = callableSource(
-    await loadSourceRegistry(registryFileOf(env)),
-    G2B_BID_NOTICE_SOURCE,
-  );
+  const registry = await loadSourceRegistry(registryFileOf(env));
+  const callable = callableSource(registry, G2B_BID_NOTICE_SOURCE);
   if (!callable.ok) {
     throw new Error(`수집 소스 ${G2B_BID_NOTICE_SOURCE} 를 부를 수 없다: ${callable.reason}`);
+  }
+  for (const { registryKey, operation } of G2B_AUX_OPERATIONS) {
+    const aux = callableSource(registry, registryKey);
+    if (!aux.ok) throw new Error(`수집 소스 ${registryKey} 를 부를 수 없다: ${aux.reason}`);
+    const isSameService =
+      aux.source.baseUrl === callable.source.baseUrl &&
+      aux.source.serviceKeyEnv === callable.source.serviceKeyEnv &&
+      aux.source.operations.includes(operation);
+    if (!isSameService) {
+      throw new Error(
+        `수집 소스 ${registryKey} 는 ${G2B_BID_NOTICE_SOURCE} 와 같은 서비스여야 한다`,
+      );
+    }
+  }
+  const dailyLimit = dailyQuotaOf(registry, G2B_BID_NOTICE_SOURCE);
+  if (dailyLimit === null) {
+    throw new Error(`수집 소스 ${G2B_BID_NOTICE_SOURCE} 의 quota.daily 가 registry 에 없다`);
   }
   return {
     endpoint: callable.source.baseUrl,
     serviceKey: readG2bServiceKey(env, callable.source.serviceKeyEnv),
+    dailyLimit,
   };
 }
 
@@ -217,9 +241,17 @@ async function readIngestConfig(env: Env): Promise<IngestConfig> {
   };
 }
 
-function ingestJobDepsOf(config: IngestConfig, documentsQueue: JobQueue): IngestJobDeps {
+function ingestJobDepsOf(
+  config: IngestConfig,
+  documentsQueue: JobQueue,
+  quota: IngestQuota | null,
+): IngestJobDeps {
   const admin = getSupabaseAdmin();
   const { g2b, fixturesDir } = config;
+  const retry = {
+    sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    random: Math.random,
+  };
   return {
     repo: createSupabaseIngestionRepo(admin),
     runMode: config.runMode,
@@ -238,14 +270,42 @@ function ingestJobDepsOf(config: IngestConfig, documentsQueue: JobQueue): Ingest
         fetch: (url, init) => globalThis.fetch(url, init),
       });
     },
+    // 보조 조회 3종(07 §2.2). 목록과 같은 서비스·서비스키·재시도 규칙이다.
+    createG2bAuxFetcher: async () => {
+      if (g2b === null) throw new Error("g2b 보조 조회는 live 모드에서만 만든다");
+      return createG2bAuxFetcher({
+        endpoint: g2b.endpoint,
+        serviceKey: g2b.serviceKey,
+        fetch: (url, init) => globalThis.fetch(url, init),
+        retry,
+      });
+    },
     enqueueDocuments: (data) => enqueueDocuments(documentsQueue, data),
     recordManualAudit: createSupabaseIngestAudit(admin),
     now: () => new Date(),
-    retry: {
-      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-      random: Math.random,
-    },
+    retry,
     secrets: g2b === null ? [] : [g2b.serviceKey],
+    ...(quota === null ? {} : { quota }),
+  };
+}
+
+// 호출 예산 카운터(07 §2.2)는 live 에서만 만든다. 공유 연결을 duplicate 해 BullMQ 의 blocking 명령 뒤에 줄 서지 않게 한다.
+function createIngestQuota(
+  connection: IORedis,
+  g2b: G2bSource,
+): { quota: IngestQuota; close: Closable } {
+  const quotaConnection = connection.duplicate();
+  return {
+    quota: {
+      store: createRedisQuotaStore(quotaConnection, { dailyLimit: g2b.dailyLimit }),
+      serviceId: G2B_BID_NOTICE_SERVICE_ID,
+      dailyLimit: g2b.dailyLimit,
+    },
+    close: {
+      close: async () => {
+        quotaConnection.disconnect();
+      },
+    },
   };
 }
 
@@ -261,13 +321,15 @@ export const systemWorkerRegistration: WorkerRegistration = async () => async (c
 export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   const config = await readIngestConfig(rawEnv);
   return async (connection) => {
+    const quotaParts = config.g2b === null ? null : createIngestQuota(connection, config.g2b);
+    const closeQuota: Closable = quotaParts?.close ?? { close: async () => undefined };
     const documentsQueue = new Queue(DOCUMENTS_QUEUE, { connection });
     logErrors(documentsQueue, "documents queue");
     const closeDocuments: Closable = { close: () => documentsQueue.close() };
     try {
       const ingest = await createIngestWorker(
         connection,
-        ingestJobDepsOf(config, documentsQueue),
+        ingestJobDepsOf(config, documentsQueue, quotaParts?.quota ?? null),
         config.intervalMinutes,
       );
       const documents = startDocumentsReconciler({
@@ -279,10 +341,13 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
           console.log(line);
         },
       });
-      // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐.
-      return { close: () => closeAll([closeDocuments, ingest, { close: () => documents.stop() }]) };
+      // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐 → 예산 카운터 연결.
+      return {
+        close: () =>
+          closeAll([closeQuota, closeDocuments, ingest, { close: () => documents.stop() }]),
+      };
     } catch (error) {
-      await closeQuietly([closeDocuments]);
+      await closeQuietly([closeQuota, closeDocuments]);
       throw error;
     }
   };

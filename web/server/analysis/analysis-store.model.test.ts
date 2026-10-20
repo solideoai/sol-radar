@@ -318,6 +318,26 @@ describe("toLoadedContext · 공고 요약(bid)", () => {
     expect(toLoadedContext(baseRows()).bid.structuredQualifications).toEqual([]);
   });
 
+  // C8 M2: live 수집의 보조 조회 결과(07 §2.2)는 있을 때만 옮긴다. 규칙 엔진이 NEEDS_REVIEW 로 둘 근거다.
+  it("normalized.auxLookup 이 있으면 공고 요약에 그대로 싣는다", () => {
+    const auxLookup = { status: "FAILED", failed: ["g2b-bid-region"] };
+    const withLookup = rowsWith((draft) => {
+      draft.revision.normalized = { ...NORMALIZED, auxLookup };
+    });
+    expect(toLoadedContext(withLookup).bid.auxLookup).toEqual(auxLookup);
+  });
+
+  it("normalized 에 auxLookup 이 없으면 공고 요약에도 키가 없다(fixture 입력 스냅샷 모양 유지)", () => {
+    expect(toLoadedContext(rows()).bid).not.toHaveProperty("auxLookup");
+  });
+
+  it("auxLookup 모양이 틀리면(모르는 status) AnalysisInputError 를 던진다", () => {
+    const invalid = rowsWith((draft) => {
+      draft.revision.normalized = { ...NORMALIZED, auxLookup: { status: "PARTIAL", failed: [] } };
+    });
+    expect(thrownBy(() => toLoadedContext(invalid))).toBeInstanceOf(AnalysisInputError);
+  });
+
   it("normalized 가 공고 요약 계약에 맞지 않으면(title 빈 값) AnalysisInputError 를 던진다", () => {
     const invalid = rowsWith((draft) => {
       draft.revision.normalized = { ...NORMALIZED, title: "" };

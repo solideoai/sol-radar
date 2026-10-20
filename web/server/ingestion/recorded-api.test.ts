@@ -12,6 +12,7 @@ import {
   RECORDED_REPLAY_SERVICE_KEY,
   createRecordedApiConnector,
   createRecordedFetch,
+  findRecording,
   loadRecordedResponse,
   parseRecordedResponse,
   toG2bEnvelopeBody,
@@ -683,5 +684,81 @@ describe("runIngest — 녹음 Connector", () => {
     await ingestRecorded(createMemoryIngestionRepo(), LIST_10, "recorded:1", FIRST_NOW);
 
     expect(globalFetch).not.toHaveBeenCalled();
+  });
+});
+
+// 보조 조회 재생: 같은 bidNtceNo 로 녹음한 것(inqryDiv=2)을 먼저, 없으면 창 녹음(inqryDiv=1, bidNtceNo 없음)을 돌려준다.
+describe("findRecording — 보조 조회의 bidNtceNo 매칭", () => {
+  const LICENSE_EXACT = "15129394/getBidPblancListInfoLicenseLimit.20261019.masked.json";
+  const LICENSE_WINDOW = "15129394/getBidPblancListInfoLicenseLimit.20261019.window.masked.json";
+  const REGION_WINDOW = "15129394/getBidPblancListInfoPrtcptPsblRgn.20261019.masked.json";
+  const licenseRequest = (bidNtceNo: string | null) => ({
+    operation: "getBidPblancListInfoLicenseLimit",
+    pageNo: "1",
+    bidNtceNo,
+  });
+  const auxUrl = (operation: string, bidNtceNo: string): string =>
+    `${ENDPOINT}/${operation}?${new URLSearchParams({ serviceKey: RECORDED_REPLAY_SERVICE_KEY, type: "json", pageNo: "1", numOfRows: "999", inqryDiv: "2", bidNtceNo })}`;
+
+  it("같은 bidNtceNo 로 녹음한 것이 있으면 그것이다(창 녹음이 앞에 있어도)", async () => {
+    const recordings = [await load(LICENSE_WINDOW), await load(LICENSE_EXACT)];
+
+    expect(findRecording(recordings, licenseRequest("R26BK01756112"))?.params.inqryDiv).toBe("2");
+  });
+
+  it("같은 bidNtceNo 녹음이 없으면 bidNtceNo 없는 창 녹음이다", async () => {
+    const recordings = [await load(LICENSE_EXACT), await load(LICENSE_WINDOW)];
+
+    expect(findRecording(recordings, licenseRequest("R26BK01764257"))?.params.inqryDiv).toBe("1");
+  });
+
+  it("bidNtceNo 없는 요청(목록)은 bidNtceNo 로 녹음한 것을 고르지 않는다", async () => {
+    const recordings = [await load(LICENSE_EXACT)];
+
+    expect(findRecording(recordings, licenseRequest(null))).toBeUndefined();
+  });
+
+  it("오퍼레이션이 다르면 bidNtceNo 가 같아도 고르지 않는다", async () => {
+    const recordings = [await load(LICENSE_EXACT)];
+
+    expect(
+      findRecording(recordings, {
+        ...licenseRequest("R26BK01756112"),
+        operation: "getBidPblancListInfoPrtcptPsblRgn",
+      }),
+    ).toBeUndefined();
+  });
+
+  it("createRecordedFetch 는 bidNtceNo 요청에 inqryDiv=2 녹음(4행)을 돌려준다", async () => {
+    const fetch = createRecordedFetch([await load(LICENSE_WINDOW), await load(LICENSE_EXACT)]);
+
+    const response = await fetch(
+      auxUrl("getBidPblancListInfoLicenseLimit", "R26BK01756112"),
+      replayInit(),
+    );
+
+    expect(parseG2bEnvelope(await response.json())).toMatchObject({ ok: true, totalCount: 4 });
+  });
+
+  it("createRecordedFetch 는 녹음에 없는 공고의 지역 요청에 창 녹음(323행)을 돌려준다(받는 쪽이 거른다)", async () => {
+    const fetch = createRecordedFetch([await load(REGION_WINDOW)]);
+
+    const response = await fetch(
+      auxUrl("getBidPblancListInfoPrtcptPsblRgn", "R26BK01756112"),
+      replayInit(),
+    );
+
+    expect(parseG2bEnvelope(await response.json())).toMatchObject({ ok: true, totalCount: 323 });
+  });
+
+  it("오퍼레이션 녹음이 아예 없으면 404 다", async () => {
+    const fetch = createRecordedFetch([await load(LICENSE_EXACT)]);
+
+    const response = await fetch(
+      auxUrl("getBidPblancListInfoEorderAtchFileInfo", "R26BK01756112"),
+      replayInit(),
+    );
+
+    expect(response.status).toBe(404);
   });
 });

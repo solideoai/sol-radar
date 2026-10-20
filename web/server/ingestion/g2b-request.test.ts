@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { G2B_BID_NOTICE_LIST_OPERATION, G2B_WINDOW_MAX_MS } from "./g2b.model";
-import { buildG2bListUrl, formatG2bDateTime, splitG2bWindow } from "./g2b-request";
+import {
+  G2B_AUX_INQRY_DIV,
+  G2B_AUX_WINDOW_DAYS_AFTER,
+  G2B_AUX_WINDOW_DAYS_BEFORE,
+  auxWindowOf,
+  buildG2bAuxUrl,
+  buildG2bListUrl,
+  formatG2bDateTime,
+  splitG2bWindow,
+} from "./g2b-request";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -200,5 +209,87 @@ describe("buildG2bListUrl", () => {
 
   it("URL 을 다시 풀면 디코딩 키 원문이 나온다", () => {
     expect(new URL(buildUrl()).searchParams.get("serviceKey")).toBe(DECODED_KEY);
+  });
+});
+
+// ── 보조 조회(07 §2.2, C1 증거 §10-3 33번 호출): inqryDiv=2 + bidNtceNo(+bidNtceOrd) + 등록일 −1일 00:00 ~ +6일 23:59 ──
+describe("auxWindowOf", () => {
+  // 등록일시 KST 2026-10-12 09:00:22
+  const REGISTERED_AT = at("2026-10-12T00:00:22.000Z");
+
+  it("기간 상수는 −1일·+6일이다(총 8일, 실측 상한)", () => {
+    expect([G2B_AUX_WINDOW_DAYS_BEFORE, G2B_AUX_WINDOW_DAYS_AFTER]).toEqual([1, 6]);
+  });
+
+  it("from 은 등록일 KST 하루 전 00:00 이다", () => {
+    expect(formatG2bDateTime(auxWindowOf(REGISTERED_AT).from)).toBe("202610110000");
+  });
+
+  it("to 는 등록일 KST 6일 뒤 23:59 다", () => {
+    expect(formatG2bDateTime(auxWindowOf(REGISTERED_AT).to)).toBe("202610182359");
+  });
+
+  it("등록 시각이 UTC 로는 전날이어도 KST 날짜를 기준으로 한다(KST 2026-10-13 00:30 = UTC 10-12 15:30)", () => {
+    const window = auxWindowOf(at("2026-10-12T15:30:00.000Z"));
+    expect([formatG2bDateTime(window.from), formatG2bDateTime(window.to)]).toEqual([
+      "202610120000",
+      "202610192359",
+    ]);
+  });
+});
+
+describe("buildG2bAuxUrl", () => {
+  const REGISTERED_AT = at("2026-10-12T00:00:22.000Z");
+  const buildAux = (overrides: Partial<Parameters<typeof buildG2bAuxUrl>[0]> = {}): string =>
+    buildG2bAuxUrl({
+      endpoint: ENDPOINT,
+      serviceKey: DECODED_KEY,
+      operation: "getBidPblancListInfoLicenseLimit",
+      noticeId: "R26BK00000001",
+      amendmentNo: "000",
+      registeredAt: REGISTERED_AT,
+      pageNo: 1,
+      numOfRows: 999,
+      ...overrides,
+    });
+  const paramsOf = (url: string): Record<string, string> =>
+    Object.fromEntries(new URL(url).searchParams.entries());
+
+  it("inqryDiv 는 2 다(1 은 bidNtceNo 를 무시하고 3 은 오류 07)", () => {
+    expect(G2B_AUX_INQRY_DIV).toBe("2");
+  });
+
+  it("쿼리는 serviceKey·type·pageNo·numOfRows·inqryDiv=2·기간·bidNtceNo·bidNtceOrd 다", () => {
+    expect(paramsOf(buildAux())).toEqual({
+      serviceKey: DECODED_KEY,
+      type: "json",
+      pageNo: "1",
+      numOfRows: "999",
+      inqryDiv: "2",
+      inqryBgnDt: "202610110000",
+      inqryEndDt: "202610182359",
+      bidNtceNo: "R26BK00000001",
+      bidNtceOrd: "000",
+    });
+  });
+
+  it("경로는 endpoint 뒤의 보조 오퍼레이션이다", () => {
+    const url = new URL(buildAux({ operation: "getBidPblancListInfoPrtcptPsblRgn" }));
+    expect(`${url.origin}${url.pathname}`).toBe(`${ENDPOINT}/getBidPblancListInfoPrtcptPsblRgn`);
+  });
+
+  it("차수가 없으면 bidNtceOrd 파라미터를 넣지 않는다", () => {
+    expect("bidNtceOrd" in paramsOf(buildAux({ amendmentNo: null }))).toBe(false);
+  });
+
+  it("서비스키는 정확히 한 번 인코딩된다", () => {
+    const url = buildAux();
+    expect(url).toContain(`serviceKey=${encodeURIComponent(DECODED_KEY)}`);
+    expect(url).not.toContain(`serviceKey=${encodeURIComponent(encodeURIComponent(DECODED_KEY))}`);
+  });
+
+  it("pageNo·numOfRows 를 요청에 쓴다", () => {
+    const params = paramsOf(buildAux({ pageNo: 2, numOfRows: 50 }));
+    expect([params.pageNo, params.numOfRows]).toEqual(["2", "50"]);
   });
 });

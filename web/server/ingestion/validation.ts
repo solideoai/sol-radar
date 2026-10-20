@@ -7,6 +7,8 @@ export const WARNING_CODES = [
   "DATE_UNPARSED",
   "DATE_ORDER",
   "ENCODING_DEGRADED",
+  // 첨부 URL 이 허용 목록(https://www.g2b.go.kr/pn/, 09 SSRF) 밖이라 저장하지 않았다. 공고는 적재한다
+  "ATTACHMENT_URL_BLOCKED",
 ] as const;
 export type QuarantineCode = (typeof QUARANTINE_CODES)[number];
 export type WarningCode = (typeof WARNING_CODES)[number];
@@ -51,3 +53,7 @@ export const invalidFieldsDetail = (paths: readonly string[]): string =>
 
 export const encodingDegradedDetail = (text: string): string =>
   `replacement chars ${Number((replacementCharRatio(text) * 100).toFixed(1))}%`;
+
+/** 걸러진 첨부 칸 이름만 적는다. URL 은 응답에서 온 값이라 기록에 싣지 않는다. */
+export const attachmentBlockedDetail = (fields: readonly string[]): string =>
+  `attachment url not allowed: ${fields.join(", ")}`;

@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "runMode": "live",
+  "provider": "local",
+  "kevEnabled": true,
+  "qwen": {
+    "model": "Qwen/Qwen3.5-9B",
+    "promptHash": "739ba14e1b8ecf8efb8bfc31cdcf888a9c4c76464a93aed5d92cbdf3d93f1cda"
+  },
+  "kev": {
+    "modelId": "kev-9b-v1.0",
+    "registryMatch": null
+  },
+  "questionSets": ["kev-qs/v0.2"],
+  "parsers": [
+    {
+      "format": "PDF",
+      "parserId": null
+    },
+    {
+      "format": "HWPX",
+      "parserId": null
+    },
+    {
+      "format": "HWP",
+      "parserId": null
+    }
+  ]
+}

@@ -322,21 +322,51 @@ describe("infra/sources/registry.yaml", () => {
     ).toEqual(SERVICE_KEY_ENV_BY_KEY);
   });
 
-  it("fieldMapping 은 g2b-bid-notice 만 비어 있지 않다", async () => {
+  // 입찰공고정보서비스의 목록 + 보조 조회 3종(07 §2.2)만 구현했다. 사전규격·발주계획·업종 마스터는 아직이다.
+  const IMPLEMENTED_KEYS = [
+    "g2b-bid-eorder-attach",
+    "g2b-bid-license-limit",
+    "g2b-bid-notice",
+    "g2b-bid-region",
+  ];
+
+  it("fieldMapping 은 입찰공고정보서비스 4개 키(목록 + 보조 조회 3종)만 비어 있지 않다", async () => {
     const registry = await realRegistry();
 
     expect(
       registry.sources
         .filter((source) => Object.keys(source.fieldMapping).length > 0)
-        .map((source) => source.key),
-    ).toEqual(["g2b-bid-notice"]);
+        .map((source) => source.key)
+        .sort(),
+    ).toEqual(IMPLEMENTED_KEYS);
   });
 
-  it("callableSource 로 부를 수 있는 소스는 g2b-bid-notice 하나다", async () => {
+  it("callableSource 로 부를 수 있는 소스는 입찰공고정보서비스 4개 키다", async () => {
     const registry = await realRegistry();
 
-    expect(ALL_KEYS.filter((key) => callableSource(registry, key).ok)).toEqual(["g2b-bid-notice"]);
+    expect(ALL_KEYS.filter((key) => callableSource(registry, key).ok)).toEqual(IMPLEMENTED_KEYS);
   });
+
+  it.each([
+    ["g2b-bid-license-limit", "getBidPblancListInfoLicenseLimit"],
+    ["g2b-bid-region", "getBidPblancListInfoPrtcptPsblRgn"],
+    ["g2b-bid-eorder-attach", "getBidPblancListInfoEorderAtchFileInfo"],
+  ])(
+    "보조 조회 %s 는 목록과 같은 기본 URL·서비스키 env 이고 operations 에 %s 가 있다",
+    async (key, operation) => {
+      const registry = await realRegistry();
+      const list = callableSource(registry, "g2b-bid-notice");
+      const aux = callableSource(registry, key);
+
+      expect(list.ok && aux.ok).toBe(true);
+      if (!list.ok || !aux.ok) return;
+      expect([aux.source.baseUrl, aux.source.serviceKeyEnv, aux.source.operations]).toEqual([
+        list.source.baseUrl,
+        list.source.serviceKeyEnv,
+        [operation],
+      ]);
+    },
+  );
 
   it.each(["g2b-pre-spec", "g2b-order-plan"])("%s 는 NO_FIELD_MAPPING 이다", async (key) => {
     expect(callableSource(await realRegistry(), key)).toEqual({

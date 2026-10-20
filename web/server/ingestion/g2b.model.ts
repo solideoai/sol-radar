@@ -4,6 +4,18 @@ import type { G2bItem } from "./connector.model";
 // ── 나라장터 입찰공고정보서비스(15129394) 목록 응답의 모양 (07 §2.2·§3.1) ──
 export const G2B_BID_NOTICE_SERVICE_ID = "15129394";
 export const G2B_BID_NOTICE_LIST_OPERATION = "getBidPblancListInfoServc";
+// 보조 조회 3종(07 §2.2, 15 §8). 새 revision 마다 공고 1건 단위(inqryDiv=2 + bidNtceNo)로 부른다.
+export const G2B_LICENSE_LIMIT_OPERATION = "getBidPblancListInfoLicenseLimit";
+export const G2B_REGION_OPERATION = "getBidPblancListInfoPrtcptPsblRgn";
+export const G2B_EORDER_ATTACH_OPERATION = "getBidPblancListInfoEorderAtchFileInfo";
+/** registryKey 는 infra/sources/registry.yaml 의 key 이고 ingest_errors.source_key 에 쓴다(15 §8). */
+export const G2B_AUX_OPERATIONS = [
+  { operation: G2B_LICENSE_LIMIT_OPERATION, registryKey: "g2b-bid-license-limit" },
+  { operation: G2B_REGION_OPERATION, registryKey: "g2b-bid-region" },
+  { operation: G2B_EORDER_ATTACH_OPERATION, registryKey: "g2b-bid-eorder-attach" },
+] as const;
+export type G2bAuxOperation = (typeof G2B_AUX_OPERATIONS)[number]["operation"];
+export type G2bAuxRegistryKey = (typeof G2B_AUX_OPERATIONS)[number]["registryKey"];
 export const G2B_MAX_ROWS = 999;
 export const G2B_DEFAULT_ROWS = 100;
 // 07 §2.2: 요청 한 번의 조회 기간은 최대 1일이다.
@@ -74,15 +86,24 @@ function totalCountOf(value: unknown): number | null {
   return null;
 }
 
-function bodyEnvelope(body: unknown): G2bEnvelope {
-  if (!isRecord(body) || !Array.isArray(body.items)) return { ...MALFORMED };
-  const items: unknown[] = body.items;
+type EnvelopeOptions = {
+  /** 2026-10-20 실측: inqryDiv=2 보조 조회가 0건이면 body 에 items 키가 없다({numOfRows,pageNo,totalCount}). */
+  emptyWhenItemsMissing: boolean;
+};
+
+function bodyEnvelope(body: unknown, options: EnvelopeOptions): G2bEnvelope {
+  if (!isRecord(body)) return { ...MALFORMED };
   const totalCount = totalCountOf(body.totalCount);
-  if (totalCount === null || !items.every(isRecord)) return { ...MALFORMED };
+  if (totalCount === null) return { ...MALFORMED };
+  const rawItems: unknown =
+    body.items === undefined && options.emptyWhenItemsMissing && totalCount === 0 ? [] : body.items;
+  if (!Array.isArray(rawItems)) return { ...MALFORMED };
+  const items: unknown[] = rawItems;
+  if (!items.every(isRecord)) return { ...MALFORMED };
   return { ok: true, items: items.filter(isRecord), totalCount };
 }
 
-export function parseG2bEnvelope(body: unknown): G2bEnvelope {
+function parseEnvelopeWith(body: unknown, options: EnvelopeOptions): G2bEnvelope {
   if (!isRecord(body)) return { ...MALFORMED };
 
   const errorEnvelope = body[ERROR_ENVELOPE_KEY];
@@ -96,7 +117,17 @@ export function parseG2bEnvelope(body: unknown): G2bEnvelope {
   if (!header) return { ...MALFORMED };
   // 결과 코드가 정상이 아니면 body 가 정상 모양이어도 믿지 않는다.
   if (header.resultCode.trim() !== SUCCESS_RESULT_CODE) return resultCodeEnvelope(header);
-  return bodyEnvelope(body.response.body);
+  return bodyEnvelope(body.response.body, options);
+}
+
+/** 목록 응답 봉투. items 키가 없으면 MALFORMED 다(목록은 0건에도 빈 배열을 준다). */
+export function parseG2bEnvelope(body: unknown): G2bEnvelope {
+  return parseEnvelopeWith(body, { emptyWhenItemsMissing: false });
+}
+
+/** 보조 조회 응답 봉투. totalCount 0 에 items 키가 없는 실측 모양을 0건으로 읽는다. 그 밖은 목록과 같다. */
+export function parseG2bAuxEnvelope(body: unknown): G2bEnvelope {
+  return parseEnvelopeWith(body, { emptyWhenItemsMissing: true });
 }
 
 // ── data.go.kr 공통 XML 오류 봉투(게이트웨이 오류, 5-A) ──

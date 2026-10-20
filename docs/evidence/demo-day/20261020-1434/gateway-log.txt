@@ -1,0 +1,9 @@
+qwen /v1/models unreachable: ConnectError
+kev /v1/models unreachable: ConnectError
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+qwen call failed: ConnectError
+INFO:     172.29.0.6:51594 - "POST /extract HTTP/1.1" 200 OK
+INFO:     172.29.0.6:51908 - "POST /explain HTTP/1.1" 200 OK

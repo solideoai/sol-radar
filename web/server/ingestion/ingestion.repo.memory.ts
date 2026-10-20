@@ -5,11 +5,12 @@ import type {
   IngestionRepo,
   IngestRunStatus,
   IngestSummary,
+  LatestRunWindow,
   SaveRevisionInput,
   StartedRun,
   StartRunInput,
 } from "./ingestion.repo";
-import type { BidSource, NormalizedBid } from "./normalized-bid.model";
+import type { BidSource, NormalizedBid, StructuredRequirement } from "./normalized-bid.model";
 import type { BidEvent, FieldChange } from "./revision";
 
 // 시험 전용 메모리 저장소. 수집 흐름 시험에서 IngestionRepo 자리에 꽂는다(실제 Supabase 는 부르지 않는다).
@@ -55,6 +56,13 @@ export type MemoryRevision = {
 
 export type MemoryOutboxEvent = BidEvent & { bidId: string; revisionId: string };
 
+/** bid_structured_requirements 한 행 흉내. seq 는 structuredQualifications 의 index 다 */
+export type MemoryStructuredRequirement = StructuredRequirement & {
+  bidId: string;
+  revisionId: string;
+  seq: number;
+};
+
 export type MemoryIngestError = IngestErrorInput & { runId: string };
 
 export type MemoryCheckpoint = { runId: string; cursor: string | null; summary: IngestSummary };
@@ -67,6 +75,8 @@ export type MemoryRun = {
   status: IngestRunStatus;
   cursor: string | null;
   summary: IngestSummary;
+  /** ingest_runs.quota_used 흉내. checkpoint·finish 가 quotaUsed 를 줄 때만 바뀐다 */
+  quotaUsed: number;
 };
 
 export type MemoryIngestionState = {
@@ -76,6 +86,8 @@ export type MemoryIngestionState = {
   revisions: MemoryRevision[];
   /** idempotencyKey 가 겹치는 이벤트는 들어오지 않는다 */
   outbox: MemoryOutboxEvent[];
+  /** 저장한 revision 의 구조화 자격 행(UNIQUE(revision_id, kind, seq) 흉내: 같은 revision 을 다시 쓰면 바꿔 끼운다) */
+  structuredRequirements: MemoryStructuredRequirement[];
   errors: MemoryIngestError[];
   /** 키: jobKey */
   runs: Map<string, MemoryRun>;
@@ -97,6 +109,8 @@ export type MemoryIngestionRepo = IngestionRepo & {
    * 7-1: 일정 수집 창은 SCHEDULED run 만 잇는다(MANUAL 의 미래 창이 일정 수집을 건너뛰게 하지 않는다)
    */
   findLatestRunWindowEnd(source: "g2b", trigger: "SCHEDULED"): Promise<Date | null>;
+  /** source·trigger 가 같은 run 중 가장 최근(시작 순서) run 의 상태와 params.window(상태와 무관). 없으면 null(C8) */
+  findLatestRunWindow(source: "g2b", trigger: "SCHEDULED"): Promise<LatestRunWindow | null>;
 };
 
 /** C3 계약 6-2 SaveRevisionInput.ids. 포트에 생기기 전에도 읽을 수 있게 따로 꺼낸다 */
@@ -138,6 +152,7 @@ const toStartedRun = (run: MemoryRun): MemoryStartedRun => ({
   cursor: run.cursor,
   summary: { ...run.summary },
   params: structuredClone(run.input.params),
+  quotaUsed: run.quotaUsed,
 });
 
 // Date.prototype.toISOString() 형식만 받는다(서비스가 그 형식으로 쓴다).
@@ -160,11 +175,24 @@ const windowEndOf = (params: Record<string, unknown> | null): Date | null => {
     : null;
 };
 
+const isIsoInstant = (value: unknown): value is string =>
+  typeof value === "string" && ISO_INSTANT.test(value) && !Number.isNaN(Date.parse(value));
+
+// C8: 창을 저장한 문자열 그대로 돌려준다(Supabase 저장소의 windowOfParams 와 같은 규칙).
+const windowOf = (params: Record<string, unknown> | null): { from: string; to: string } | null => {
+  const window: unknown = params?.window;
+  if (typeof window !== "object" || window === null) return null;
+  const from: unknown = "from" in window ? window.from : null;
+  const to: unknown = "to" in window ? window.to : null;
+  return isIsoInstant(from) && isIsoInstant(to) ? { from, to } : null;
+};
+
 export function createMemoryIngestionRepo(): MemoryIngestionRepo {
   const state: MemoryIngestionState = {
     bids: new Map(),
     revisions: [],
     outbox: [],
+    structuredRequirements: [],
     errors: [],
     runs: new Map(),
     checkpoints: [],
@@ -192,6 +220,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         status: "RUNNING",
         cursor: null,
         summary: zeroSummary(),
+        quotaUsed: 0,
       };
       state.runs.set(input.jobKey, run);
       return toStartedRun(run);
@@ -221,6 +250,14 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         )
         .at(-1);
       return latest ? windowEndOf(latest.input.params) : null;
+    },
+
+    // C8: 상태와 상관없이 가장 최근에 시작한 run 이다(FAILED 창을 다시 쓰려고).
+    async findLatestRunWindow(source, trigger) {
+      const latest = [...state.runs.values()]
+        .filter((run) => run.input.source === source && run.input.trigger === trigger)
+        .at(-1);
+      return latest ? { status: latest.status, window: windowOf(latest.input.params) } : null;
     },
 
     async findLatestRevision(source, noticeId) {
@@ -298,6 +335,15 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         (event) => event.idempotencyKey === decision.event.idempotencyKey,
       );
       if (!duplicateEvent) state.outbox.push({ ...decision.event, bidId, revisionId });
+      state.structuredRequirements = [
+        ...state.structuredRequirements.filter((row) => row.revisionId !== revisionId),
+        ...normalized.structuredQualifications.map((row, seq) => ({
+          ...structuredClone(row),
+          bidId,
+          revisionId,
+          seq,
+        })),
+      ];
       return { bidId, revisionId, revisionCreatedAt: createdAt };
     },
 
@@ -310,6 +356,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       const run = requireRun(runId);
       run.cursor = checkpoint.cursor;
       run.summary = { ...checkpoint.summary };
+      if (checkpoint.quotaUsed !== undefined) run.quotaUsed = checkpoint.quotaUsed;
       state.checkpoints.push({
         runId,
         cursor: checkpoint.cursor,
@@ -321,6 +368,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       const run = requireRun(runId);
       run.status = result.status;
       run.summary = { ...result.summary };
+      if (result.quotaUsed !== undefined) run.quotaUsed = result.quotaUsed;
       state.finishes.push({ runId, status: result.status, summary: { ...result.summary } });
     },
   };

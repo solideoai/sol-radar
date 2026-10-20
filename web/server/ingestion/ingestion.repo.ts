@@ -8,10 +8,13 @@ import {
   dbErrorCodeOf,
   toIngestErrorInsert,
   toIngestRunInsert,
+  toLatestRunWindow,
   toManualAuditInsert,
+  toQuotaUsedUpdate,
   toSaveRevisionParams,
   toStartedRun,
   toStoredRevision,
+  toStructuredRequirementInserts,
   toSummaryJson,
   windowEndOfParams,
 } from "./ingestion.store";
@@ -31,6 +34,7 @@ export type {
   SaveRevisionInput,
   SavedRevision,
   IngestionRepo,
+  LatestRunWindow,
 } from "./ingestion.port";
 
 // ── Supabase 구현(service role). worker·demo:reset 이 관리자 연결을 넘긴다 ──
@@ -41,6 +45,8 @@ type DbError = { code?: string; message?: string };
 
 const UNIQUE_VIOLATION = "23505";
 const FINISHED_RUN_STATUSES = ["SUCCEEDED", "PARTIAL"] as const;
+// bid_structured_requirements_revision_id_kind_seq_key. 같은 revision 에 다시 쓰면 덮어써 멱등이다.
+const STRUCTURED_CONFLICT_TARGET = "revision_id,kind,seq";
 
 const repoError = (target: string, error: DbError): Error =>
   new Error(`수집 저장소: ${target} 실패 (${dbErrorCodeOf(error)})`);
@@ -140,6 +146,20 @@ export function createSupabaseIngestionRepo(
       return windowEndOfParams(await latestFinishedParams(source, { trigger }));
     },
 
+    // C8: 상태와 상관없이 가장 최근 run 이다(FAILED 창을 다시 쓰려고). 끝난 run 만 보는 위 둘과 다르다.
+    async findLatestRunWindow(source, trigger) {
+      const { data, error } = await client
+        .from("ingest_runs")
+        .select("status, params")
+        .eq("source", source)
+        .eq("trigger", trigger)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw repoError("ingest_runs 조회", error);
+      return data ? toLatestRunWindow(data) : null;
+    },
+
     async saveRevision(input) {
       const { data, error } = await client.rpc("ingest_save_revision", {
         p: toSaveRevisionParams(input),
@@ -156,6 +176,17 @@ export function createSupabaseIngestionRepo(
         .eq("bid_id", saved.bid_id)
         .single();
       if (created.error) throw repoError("bid_revisions 조회", created.error);
+      // 구조화 자격은 RPC 밖에서 쓴다(RPC 는 이 표를 모른다). 행이 없으면 요청을 보내지 않는다.
+      const structured = toStructuredRequirementInserts(
+        { bidId: saved.bid_id, revisionId: saved.revision_id },
+        input.decision.bid.structuredQualifications,
+      );
+      if (structured.length > 0) {
+        const upserted = await client
+          .from("bid_structured_requirements")
+          .upsert(structured, { onConflict: STRUCTURED_CONFLICT_TARGET });
+        if (upserted.error) throw repoError("bid_structured_requirements 저장", upserted.error);
+      }
       return {
         bidId: saved.bid_id,
         revisionId: saved.revision_id,
@@ -171,7 +202,11 @@ export function createSupabaseIngestionRepo(
     async saveCheckpoint(runId, checkpoint) {
       const { error } = await client
         .from("ingest_runs")
-        .update({ cursor: checkpoint.cursor, summary: toSummaryJson(checkpoint.summary) })
+        .update({
+          cursor: checkpoint.cursor,
+          summary: toSummaryJson(checkpoint.summary),
+          ...toQuotaUsedUpdate(checkpoint.quotaUsed),
+        })
         .eq("id", runId);
       if (error) throw repoError("ingest_runs 체크포인트", error);
     },
@@ -183,6 +218,7 @@ export function createSupabaseIngestionRepo(
           status: result.status,
           summary: toSummaryJson(result.summary),
           finished_at: now().toISOString(),
+          ...toQuotaUsedUpdate(result.quotaUsed),
         })
         .eq("id", runId);
       if (error) throw repoError("ingest_runs 종료", error);
