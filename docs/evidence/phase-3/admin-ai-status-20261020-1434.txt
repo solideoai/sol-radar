@@ -1,0 +1,183 @@
+# GET /api/v1/admin/ai/status 실행 증거 (2026-10-20 14:34 KST)
+
+- 브랜치 c6/admin-ai-status, base c03910e, 미커밋 작업 트리(구현 + 시험 작성 중)
+- web: 이 worktree 의 next dev :3117. 경우마다 셸 env 로 AI_GATEWAY_URL·AI_PROVIDER·AI_HOSTED_APPROVED 만 바꿔 다시 띄움
+- Supabase: 전용 격리 스택(project_id sol-radar-admin-ai-20261020-cb, API 127.0.0.1:59721, 마이그레이션 29개). 공유 sol-radar(54321)·fx01(56621) 스택 미접촉
+- seed: pnpm demo:reset -- --env-file <scratchpad>/demo-reset.env (일회용 DEMO_SEED_PASSWORD) → seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true
+- gateway: Compose sol-radar-stack ai-gateway :8000 에 /health 읽기만. 그 스택의 worker·web :3000 미접촉
+- 로그인: Supabase Auth password grant 로 받은 access token 을 Bearer 로 보냄. 토큰·anon 키·service role 키·비밀번호는 이 파일에 없음(<masked>)
+
+## gateway /health 원문 (비교용)
+$ curl -s http://127.0.0.1:8000/health
+{"status":"ok","runMode":"mock","provider":"mock","kevEnabled":true,"qwen":{"model":"fixture","promptHash":"e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e"},"kev":{"modelId":"mock","registryMatch":null},"questionSets":["kev-qs/v0.1"],"parsers":[{"format":"PDF","parserId":null},{"format":"HWPX","parserId":null},{"format":"HWP","parserId":null}]}
+
+# gateway up (Compose sol-radar-stack ai-gateway :8000, 읽기 전용) · 2026-10-20T05:34:01.074Z · web http://localhost:3117 · Supabase http://127.0.0.1:59721
+
+### ADMIN (admin@soltech.invalid)
+$ curl -s -H 'Authorization: Bearer <masked>' http://localhost:3117/api/v1/admin/ai/status
+HTTP 200 · 1104ms · Cache-Control: no-store
+{
+  "runMode": "mock",
+  "provider": "mock",
+  "hostedApproved": false,
+  "gateway": {
+    "url": "http://127.0.0.1:8000",
+    "healthy": true,
+    "checkedAt": "2026-10-20T05:34:02.460Z",
+    "runMode": "mock"
+  },
+  "qwen": {
+    "model": "fixture",
+    "runtime": null,
+    "healthy": true
+  },
+  "kev": {
+    "enabled": true,
+    "healthy": true,
+    "model": null,
+    "modelId": "mock",
+    "run": null,
+    "base": null,
+    "lora": null,
+    "temperature": null,
+    "registryMatch": null
+  },
+  "questionSetVersion": "kev-qs/v0.1",
+  "parsers": []
+}
+
+### SALES (sales@soltech.invalid) — 403 기대
+$ curl -s -H 'Authorization: Bearer <masked>' http://localhost:3117/api/v1/admin/ai/status
+HTTP 403 · 61ms · Cache-Control: no-store
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "AI 상태를 조회할 권한이 없습니다.",
+    "details": {
+      "required": [
+        "ADMIN"
+      ]
+    },
+    "requestId": "9583e533-b2c1-43da-854d-40336fe85de3"
+  }
+}
+
+### 토큰 없음 — 401 기대
+$ curl -s http://localhost:3117/api/v1/admin/ai/status
+HTTP 401 · 7ms · Cache-Control: no-store
+{
+  "error": {
+    "code": "UNAUTHENTICATED",
+    "message": "로그인이 필요합니다.",
+    "details": {},
+    "requestId": "af860237-9bc5-4182-8d0a-69f7d664f966"
+  }
+}
+
+
+# gateway down (web AI_GATEWAY_URL=http://127.0.0.1:59999, 닫힌 포트) · 2026-10-20T05:34:28.062Z · web http://localhost:3117 · Supabase http://127.0.0.1:59721
+
+### ADMIN (admin@soltech.invalid)
+$ curl -s -H 'Authorization: Bearer <masked>' http://localhost:3117/api/v1/admin/ai/status
+HTTP 200 · 596ms · Cache-Control: no-store
+{
+  "runMode": "mock",
+  "provider": "mock",
+  "hostedApproved": false,
+  "gateway": {
+    "url": "http://127.0.0.1:59999",
+    "healthy": false,
+    "checkedAt": "2026-10-20T05:34:28.835Z",
+    "runMode": null
+  },
+  "qwen": {
+    "model": null,
+    "runtime": null,
+    "healthy": null
+  },
+  "kev": {
+    "enabled": true,
+    "healthy": null,
+    "model": null,
+    "modelId": null,
+    "run": null,
+    "base": null,
+    "lora": null,
+    "temperature": null,
+    "registryMatch": null
+  },
+  "questionSetVersion": null,
+  "parsers": []
+}
+
+### SALES (sales@soltech.invalid) — 403 기대
+$ curl -s -H 'Authorization: Bearer <masked>' http://localhost:3117/api/v1/admin/ai/status
+HTTP 403 · 89ms · Cache-Control: no-store
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "AI 상태를 조회할 권한이 없습니다.",
+    "details": {
+      "required": [
+        "ADMIN"
+      ]
+    },
+    "requestId": "aa912304-1f65-4e4e-9a27-07e2e680784b"
+  }
+}
+
+### 토큰 없음 — 401 기대
+$ curl -s http://localhost:3117/api/v1/admin/ai/status
+HTTP 401 · 16ms · Cache-Control: no-store
+{
+  "error": {
+    "code": "UNAUTHENTICATED",
+    "message": "로그인이 필요합니다.",
+    "details": {},
+    "requestId": "12dcbd84-4de8-4818-89ed-5a326a354175"
+  }
+}
+
+
+# hosted 미승인 (web AI_PROVIDER=hosted, AI_HOSTED_APPROVED=false, gateway 닫힌 포트) · 2026-10-20T05:34:46.505Z · web http://localhost:3117 · Supabase http://127.0.0.1:59721
+
+### ADMIN (admin@soltech.invalid)
+$ curl -s -H 'Authorization: Bearer <masked>' http://localhost:3117/api/v1/admin/ai/status
+HTTP 422 · 817ms · Cache-Control: no-store
+{
+  "error": {
+    "code": "HOSTED_NOT_APPROVED",
+    "message": "hosted AI 공급자 사용이 승인되지 않았습니다.",
+    "details": {},
+    "requestId": "4b81a033-bd55-4af9-b735-03f5e31e52af"
+  }
+}
+
+### SALES (sales@soltech.invalid) — 403 기대
+$ curl -s -H 'Authorization: Bearer <masked>' http://localhost:3117/api/v1/admin/ai/status
+HTTP 403 · 120ms · Cache-Control: no-store
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "AI 상태를 조회할 권한이 없습니다.",
+    "details": {
+      "required": [
+        "ADMIN"
+      ]
+    },
+    "requestId": "ace121a5-419f-436b-8d62-c59b590fc83f"
+  }
+}
+
+### 토큰 없음 — 401 기대
+$ curl -s http://localhost:3117/api/v1/admin/ai/status
+HTTP 401 · 7ms · Cache-Control: no-store
+{
+  "error": {
+    "code": "UNAUTHENTICATED",
+    "message": "로그인이 필요합니다.",
+    "details": {},
+    "requestId": "7e32dfc1-7dc2-459a-b578-db2a169e7122"
+  }
+}
+

@@ -25,20 +25,23 @@ function defaultProbes(): Probes {
   };
 }
 
-/** 검사가 멈추거나 던져도 제한 시간 뒤 unavailable 로 끝낸다. 검사가 먼저 끝나면 타이머를 지운다. */
-function withLimit<T extends string>(probe: () => Promise<T>): Promise<T | "unavailable"> {
+/** 검사가 멈추거나 던져도 제한 시간 뒤 fallback 으로 끝낸다. 검사가 먼저 끝나면 타이머를 지운다. */
+export function limitProbe<T, F>(probe: () => Promise<T>, fallback: F): Promise<T | F> {
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve("unavailable"), PROBE_TIMEOUT_MS);
-    const finish = (value: T | "unavailable") => {
+    const timer = setTimeout(() => resolve(fallback), PROBE_TIMEOUT_MS);
+    const finish = (value: T | F) => {
       clearTimeout(timer);
       resolve(value);
     };
-    // probe() 가 동기로 던져도 unavailable 이 되도록 Promise 로 감싼다.
+    // probe() 가 동기로 던져도 fallback 이 되도록 Promise 로 감싼다.
     Promise.resolve()
       .then(probe)
-      .then(finish, () => finish("unavailable"));
+      .then(finish, () => finish(fallback));
   });
 }
+
+const withLimit = <T extends string>(probe: () => Promise<T>): Promise<T | "unavailable"> =>
+  limitProbe(probe, "unavailable" as const);
 
 export async function getReadiness(
   probes: Probes = defaultProbes(),
