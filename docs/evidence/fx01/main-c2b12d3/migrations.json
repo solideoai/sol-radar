@@ -1,0 +1,100 @@
+{
+  "base": "c2b12d3c4962243573f3673f804e66bc9532a761",
+  "projectId": "sol-radar-fx01-e5d9",
+  "apiUrl": "http://127.0.0.1:56621",
+  "dbPort": 56622,
+  "migrations": [
+    {
+      "name": "20261013000001_init.sql",
+      "sha256": "098af1f11fb8a032ca697e2b7f08740afc08d5b23bbc27892f051de6312868cf"
+    },
+    {
+      "name": "20261013000002_function_search_path.sql",
+      "sha256": "331ae2ef758b9e9463282481502b67fa2f2ac7d0a0361fa17e6dd22fbf89a6d8"
+    },
+    {
+      "name": "20261014000001_organizations.sql",
+      "sha256": "71010c58e9c57c23cafca2847ca7491629fdec51c4bb6dbac412c0136feef330"
+    },
+    {
+      "name": "20261014000002_memos_author_profile.sql",
+      "sha256": "57bf30cb7289ad2ae2648d127414d54bf31738ce44356e6e067fe2f9f2d73606"
+    },
+    {
+      "name": "20261014000003_invitation_fixes.sql",
+      "sha256": "173de5dac4f045d74141b9ecbe59166475116b984d1fb73a396209f841f194bf"
+    },
+    {
+      "name": "20261014000004_tasks_and_activity.sql",
+      "sha256": "5ac5dc51aa2f3397fad7296126a7f918356018871c590ccefb3afca1aec14bf6"
+    },
+    {
+      "name": "20261015000001_account_status_and_deletion.sql",
+      "sha256": "8d9b245831feadd745bce5a43dbc998a64226018a7925bd3de72d8d74306deef"
+    },
+    {
+      "name": "20261015000002_team_settings.sql",
+      "sha256": "4f41a543cd2bfbafdfc64e883f288a0cf5ad1007ada89cb935d70cd0b7f750d8"
+    },
+    {
+      "name": "20261016000001_solideo_people_signup.sql",
+      "sha256": "44d3aa93f04b2607f7cf44cdc11d46dcfb5ad1237c052fb3611f7ffe3968158d"
+    },
+    {
+      "name": "20261016000002_declared_employment_cascade.sql",
+      "sha256": "c95d31c20d09f15d7fa0a2687a1c06d1d4e961707b4927df5af76622bfd79c67"
+    },
+    {
+      "name": "20261016000003_adr021_people_catalog.sql",
+      "sha256": "bf580aed073cfcdca797249a55a9c35fb2f8257ffedeb8e102dbb1b9054da62f"
+    },
+    {
+      "name": "20261016000004_adr021_signup_bootstrap.sql",
+      "sha256": "5d785b809cf3e5b759f262b5616cbca8ad423ea4a236c713133f212287229558"
+    },
+    {
+      "name": "20261018000001_people_business_roles.sql",
+      "sha256": "bb03ecfa60bd75df51955abba0057d4dbc6e00febe97235e5086b5364260a3ca"
+    },
+    {
+      "name": "20261019000001_sol_roles_and_policies.sql",
+      "sha256": "69e6f06cb4822044121124f8dba6446072a2c1f58010175a36818524ebb4d3a3"
+    },
+    {
+      "name": "20261019000002_bid_notices.sql",
+      "sha256": "743013c0c5e1a2a96f5a310a25eb52afad25d4117389e7e15361ab14bce6b834"
+    },
+    {
+      "name": "20261019000003_company_profiles.sql",
+      "sha256": "fb2d5904e61d070cfffad55a1a7e295953344acb34f6cfe8942e6b8865484ba0"
+    },
+    {
+      "name": "20261019000004_score_runs.sql",
+      "sha256": "faed1cab13d3320b2812417d05540f2ef24380917b746027773702b07cba6f0a"
+    },
+    {
+      "name": "20261019000005_bid_reviews_assignments.sql",
+      "sha256": "a3f345e8a3297368f711ad11dd442d7c38b7572b2a59f2ab68d3ce208415add5"
+    },
+    {
+      "name": "20261019000006_ingest_outbox_notifications_audit.sql",
+      "sha256": "8f7bc79762330611ce2856645622f995d694af98e65fd258e369b99cdfa4b049"
+    },
+    {
+      "name": "20261019000007_audit_outbox_triggers.sql",
+      "sha256": "006393d5f293349544624f06f93e1ac975544050765079533a8bbff5ceef1e96"
+    },
+    {
+      "name": "20261019000008_team_creation_operator_only.sql",
+      "sha256": "013a0ad66122e59d21f8d51696e36f7a5661225b487aa5dc64d0cd2b4824191f"
+    },
+    {
+      "name": "20261019000009_ingest_save_revision.sql",
+      "sha256": "3c54112d68c73066cf272f77c8d013e5051344617433fe5921045fcf4834bd91"
+    },
+    {
+      "name": "20261019000010_score_run_display_fields.sql",
+      "sha256": "3977d3af68485983d547e6670ec628cb5a49d754a74431cb40fad517646282a0"
+    }
+  ]
+}

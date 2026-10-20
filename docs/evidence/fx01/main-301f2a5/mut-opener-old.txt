@@ -1,0 +1,46 @@
+── run: pnpm -C web test:e2e:work --project=work-write --no-deps fx01-flow
+
+> sol-radar-web@0.1.0 test:e2e:work /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> playwright test -c playwright.work.config.ts --project\=work-write --no-deps fx01-flow
+
+
+Running 2 tests using 1 worker
+
+  ✘  1 [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 (30.1s)
+  ✓  2 [work-write] › e2e-auth/fx01-flow.write.spec.ts:219:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 VIEWER 에게는 404 다 (415ms)
+
+
+  1) [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 › 검증된 자격 근거 서랍을 열고 닫는다 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('region', { name: /^필수자격/ }).getByRole('button', { name: /^근거(?: p\.| API|$)/ }).first()
+
+
+      151 |       .getByRole("button", { name: /^근거(?: p\.| API|$)/ })
+      152 |       .first();
+    > 153 |     await opener.click();
+          |                  ^
+      154 |     const drawer = page.getByRole("dialog", { name: "근거", exact: true });
+      155 |     await expect(drawer).toBeVisible();
+      156 |     await expect(drawer.getByRole("blockquote").first()).toContainText("소프트웨어사업자");
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:153:18
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:147:3
+
+    Error Context: test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 
+  1 passed (59.1s)
+ ELIFECYCLE  Command failed with exit code 1.
+EXIT=1

@@ -1,0 +1,22 @@
+
+> sol-radar-web@0.1.0 demo:preanalyze /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> node --conditions=react-server --import tsx worker/demo-preanalyze.ts
+
+preanalyze: run 18건을 넣었다 — 끝날 때까지 기다린다(최대 600초)
+preanalyze: FX-04 PARTIAL
+preanalyze: FX-05 PARTIAL
+preanalyze: FX-06 PARTIAL
+preanalyze: FX-07 PARTIAL
+preanalyze: FX-08 PARTIAL
+preanalyze: FX-09 PARTIAL
+preanalyze: FX-10 PARTIAL
+preanalyze: FX-11 PARTIAL
+preanalyze: FX-13 PARTIAL
+preanalyze: FX-14 PARTIAL
+preanalyze: FX-15 PARTIAL
+preanalyze: FX-17 PARTIAL
+preanalyze: FX-18 PARTIAL
+preanalyze: FX-19 PARTIAL
+preanalyze: FX-20 PARTIAL
+preanalyze: targets=18 completed=3 partial=15 failed=0
+ ELIFECYCLE  Command failed with exit code 1.

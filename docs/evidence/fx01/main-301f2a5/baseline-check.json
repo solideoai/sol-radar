@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-10-20T06:45:09Z",
+  "target": "local supabase 127.0.0.1:54321 (service role via supabase status, not recorded)",
+  "scoreRuns": 18,
+  "scoreRunsCompleted": 18,
+  "notifications": 0,
+  "bidReviews": 2,
+  "fx02ScoreRuns": 0,
+  "e2eOrganizations": 0
+}

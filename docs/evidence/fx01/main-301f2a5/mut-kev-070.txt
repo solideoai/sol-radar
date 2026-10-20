@@ -1,0 +1,53 @@
+── run: pnpm -C web test:e2e:work --project=work-write --no-deps fx01-flow
+
+> sol-radar-web@0.1.0 test:e2e:work /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> playwright test -c playwright.work.config.ts --project\=work-write --no-deps fx01-flow
+
+
+Running 2 tests using 1 worker
+
+  ✘  1 [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 (6.4s)
+  ✓  2 [work-write] › e2e-auth/fx01-flow.write.spec.ts:219:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 VIEWER 에게는 404 다 (313ms)
+
+
+  1) [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 › 자격 3건 충족·점수 분해 5행·Kev mock 분포를 확인한다 
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator:  getByRole('region', { name: 'Kev 참고 지표', exact: true }).getByRole('meter', { name: 'BID 선택지', exact: true })
+    Expected: "0.7"
+    Received: "0.71"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveAttribute" getByRole('region', { name: 'Kev 참고 지표', exact: true }).getByRole('meter', { name: 'BID 선택지', exact: true }) with timeout 5000ms
+      - waiting for getByRole('region', { name: 'Kev 참고 지표', exact: true }).getByRole('meter', { name: 'BID 선택지', exact: true })
+        14 × locator resolved to <div role="meter" aria-valuemin="0" aria-valuemax="1" aria-label="BID 선택지" aria-valuenow="0.71" aria-valuetext="BID 선택지 71%" class="h-2 w-full overflow-hidden rounded-full bg-muted">…</div>
+           - unexpected value "0.71"
+
+
+      135 |     for (const option of KEV) {
+      136 |       const meter = kev.getByRole("meter", { name: `${option.name} 선택지`, exact: true });
+    > 137 |       await expect(meter).toHaveAttribute("aria-valuenow", String(option.probability));
+          |                           ^
+      138 |       await expect(meter).toHaveAttribute(
+      139 |         "aria-valuetext",
+      140 |         `${option.name} 선택지 ${option.percent}%`,
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:137:27
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:97:3
+
+    Error Context: test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 
+  1 passed (26.0s)
+ ELIFECYCLE  Command failed with exit code 1.
+EXIT=1

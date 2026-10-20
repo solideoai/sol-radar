@@ -1,0 +1,13 @@
+── run: pnpm -C web test:e2e:work --project=work-write --no-deps fx01-flow
+
+> sol-radar-web@0.1.0 test:e2e:work /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> playwright test -c playwright.work.config.ts --project\=work-write --no-deps fx01-flow
+
+
+Running 2 tests using 1 worker
+
+  ✓  1 [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 (2.7s)
+  ✓  2 [work-write] › e2e-auth/fx01-flow.write.spec.ts:219:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 VIEWER 에게는 404 다 (273ms)
+
+  2 passed (22.7s)
+EXIT=0

@@ -22,7 +22,7 @@ const baseURL = `http://${hostname}:${port}`;
 const READ = /(demo-badge|run-mode-badge|no-evidence|bid-isolation|work-screens)\.spec\.ts$/;
 // 데이터를 바꾸는 spec(분석 실행·결정 기록·알림 읽음·취소 공고). 읽기 spec 이 모두 끝난 뒤 한 작업자로 차례로 돈다.
 // 두 폭 증거는 시험 안에서 폭을 바꿔 찍는다(같은 데이터 상태를 두 번 만들 수 없어서).
-const WRITE = /(bid-decision|notifications)\.write\.spec\.ts$/;
+const WRITE = /(bid-decision|fx01-flow|notifications)\.write\.spec\.ts$/;
 
 const desktop = (width: 1440 | 1280) => ({
   ...devices["Desktop Chrome"],
