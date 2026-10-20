@@ -1,22 +1,28 @@
 "use client";
 
 import {
-  BellIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   ChevronsUpDownIcon,
-  FileTextIcon,
-  LayoutDashboardIcon,
   LogOutIcon,
   MailIcon,
-  NetworkIcon,
   SettingsIcon,
   ShieldCheckIcon,
   TriangleAlertIcon,
-  UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import {
+  currentNavGroupId,
+  isCurrentItem,
+  ORG_CHART_ITEM,
+  screenLabelOf,
+  visibleNavGroups,
+  type NavGroup,
+  type NavItem,
+} from "@/components/app-nav";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -45,33 +51,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useSidebarGroupsStore } from "@/lib/stores/sidebar-groups";
 import { initialOf } from "@/lib/utils";
-import type { CurrentOrg, OrgSummary } from "@/server/organization";
+import type { CurrentOrg, OrgSummary, SolRole } from "@/server/organization";
 
-// 화면을 더하면 여기에 한 줄 더한다 — 사이드바 항목과 위 막대의 화면 이름이 같이 생긴다.
-// 주소는 조직 슬러그 없는 절대 경로다(D30). 템플릿의 작업·설정 줄은 뺐다 — 설정은 사용자 메뉴에 있다.
-const NAV = [
-  { href: "/dashboard", label: "대시보드", icon: LayoutDashboardIcon },
-  { href: "/bids", label: "입찰 공고", icon: FileTextIcon },
-  { href: "/notifications", label: "알림", icon: BellIcon },
-  { href: "/people", label: "조직·인력", icon: UsersIcon },
-] as const;
-
-// 사이드바에는 없지만 상단 막대가 화면 이름을 알아야 하는 템플릿 화면(D30). 조직 슬러그가 붙은 주소다.
-// 이름을 모르면 조직 이름까지 막대에서 사라진다.
-const TEMPLATE_SCREENS = [
-  { segment: "settings", label: "설정" },
-  { segment: "tasks", label: "작업" },
-  { segment: "dashboard", label: "대시보드" },
-] as const;
-
-const templateScreenOf = (pathname: string) => {
-  const [, , segment] = pathname.split("/");
-  return TEMPLATE_SCREENS.find((screen) => screen.segment === segment);
-};
-
-const isCurrent = (pathname: string, href: string) =>
-  pathname === href || pathname.startsWith(`${href}/`);
+// 접은 사이드바는 아이콘만 남긴 64px 다(06 §4·§4.1). 부품 기본값(3rem)을 이 틀에서만 바꾼다.
+const SIDEBAR_ICON_WIDTH = { "--sidebar-width-icon": "4rem" } as React.CSSProperties;
 
 // isAdmin 은 서비스 운영자인지다(조직 역할이 아니다). 링크를 숨기는 것은 화면 요구일 뿐이고,
 // 관리자 화면은 서버에서 다시 확인해 운영자가 아니면 404 다.
@@ -92,12 +77,15 @@ type AppShellWorkspace = {
 export function AppShell({
   user,
   workspace,
+  solRole,
   defaultSidebarOpen,
   status,
   children,
 }: {
   user: AppShellUser;
   workspace: AppShellWorkspace;
+  // 지금 업무 조직의 역할(sol_role). 모르면 null 이고, 역할을 요구하는 메뉴(데이터 수집 관리)를 숨긴다.
+  solRole: SolRole | null;
   defaultSidebarOpen: boolean;
   // 있으면 위 막대 오른쪽에 상태 묶음(DEMO·실행 모드·AI·수집·알림)을 그린다.
   status?: TopbarStatusProps;
@@ -105,8 +93,12 @@ export function AppShell({
 }) {
   return (
     // 부품의 기본 min-h-svh 를 푼다. 루트 layout 의 바깥 상자가 화면 높이를 이미 채운다.
-    <SidebarProvider defaultOpen={defaultSidebarOpen} className="min-h-0 flex-1">
-      <AppSidebar user={user} workspace={workspace} />
+    <SidebarProvider
+      defaultOpen={defaultSidebarOpen}
+      className="min-h-0 flex-1"
+      style={SIDEBAR_ICON_WIDTH}
+    >
+      <AppSidebar user={user} workspace={workspace} solRole={solRole} />
       {/* min-w-0 이 없으면 넓은 표·긴 글이 이 단을 밀어 화면이 가로로 넘친다. */}
       <div className="flex min-w-0 flex-1 flex-col">
         <AppTopBar current={workspace.current} status={status} />
@@ -124,26 +116,56 @@ export function AppShell({
   );
 }
 
-function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShellWorkspace }) {
+function AppSidebar({
+  user,
+  workspace,
+  solRole,
+}: {
+  user: AppShellUser;
+  workspace: AppShellWorkspace;
+  solRole: SolRole | null;
+}) {
   const pathname = usePathname();
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, state, isMobile } = useSidebar();
   // 서랍(좁은 폭)을 닫지 않으면 옮겨 간 화면을 서랍이 가린다.
   const closeDrawer = () => setOpenMobile(false);
-  const base = `/${workspace.current.slug}`;
+  const orgSlug = workspace.current.slug;
   const unread = useTopbarStore((s) => s.summary?.unreadNotifications);
+  const groups = visibleNavGroups(solRole);
+  const currentGroupId = currentNavGroupId(groups, pathname, orgSlug);
+  const collapsedGroups = useSidebarGroupsStore((s) => s.collapsed);
+  const enterGroup = useSidebarGroupsStore((s) => s.enter);
+  const toggleGroup = useSidebarGroupsStore((s) => s.toggle);
+  // 아이콘만 남긴 접힘(64px)에서는 묶음 줄이 없다. 접어 둔 묶음의 메뉴도 아이콘으로 다 보인다.
+  const hasGroupRows = isMobile || state === "expanded";
+
+  // 저장된 접힘은 마운트 뒤에 읽는다. 지금 화면의 묶음은 들어올 때 펼친다.
+  useEffect(() => {
+    enterGroup(currentGroupId);
+  }, [currentGroupId, enterGroup]);
 
   return (
-    <Sidebar role="complementary" aria-label="앱 사이드바" data-type-scale="sidebar">
+    <Sidebar
+      role="complementary"
+      aria-label="앱 사이드바"
+      data-type-scale="sidebar"
+      collapsible="icon"
+    >
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
           <OrgMark name={workspace.current.name} />
-          <span className="min-w-0 truncate font-medium">{workspace.current.name}</span>
+          <span className="min-w-0 truncate font-medium group-data-[collapsible=icon]:hidden">
+            {workspace.current.name}
+          </span>
         </div>
         {workspace.pendingInvitationCount > 0 ? (
-          <SidebarMenu>
+          <SidebarMenu className="group-data-[collapsible=icon]:items-center">
             <SidebarMenuItem>
-              <SidebarMenuButton render={<Link href="/invitations" onClick={closeDrawer} />}>
-                <MailIcon />
+              <SidebarMenuButton
+                tooltip="받은 초대"
+                render={<Link href="/invitations" onClick={closeDrawer} />}
+              >
+                <MailIcon aria-hidden />
                 <span>받은 초대</span>
               </SidebarMenuButton>
               <SidebarMenuBadge className="tabular-nums">
@@ -155,64 +177,162 @@ function AppSidebar({ user, workspace }: { user: AppShellUser; workspace: AppShe
         ) : null}
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <nav aria-label="주요 메뉴">
-            <SidebarMenu className="gap-0.5">
-              {NAV.map((item) => {
-                const { href } = item;
-                const isActive = isCurrent(pathname, href);
-                return (
-                  <SidebarMenuItem key={href}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      render={
-                        <Link
-                          href={href}
-                          aria-current={isActive ? "page" : undefined}
-                          onClick={closeDrawer}
-                        />
-                      }
-                    >
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                    {href === "/notifications" && unread !== undefined && unread >= 1 ? (
-                      <SidebarMenuBadge className="tabular-nums">
-                        {unread}
-                        <span className="sr-only">건</span>
-                      </SidebarMenuBadge>
-                    ) : null}
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </nav>
-        </SidebarGroup>
+        <nav aria-label="주요 메뉴" className="flex flex-col py-1">
+          {groups.map((group, index) => (
+            <NavGroupSection
+              key={group.id}
+              group={group}
+              hasDivider={index > 0}
+              isOpen={!hasGroupRows || !collapsedGroups.includes(group.id)}
+              hasGroupRow={hasGroupRows}
+              onToggle={() => toggleGroup(group.id)}
+            >
+              {group.items.map((item) => (
+                <NavMenuItem
+                  key={item.href}
+                  item={item}
+                  isActive={isCurrentItem(pathname, item, orgSlug)}
+                  onNavigate={closeDrawer}
+                  badge={item.href === "/notifications" ? unread : undefined}
+                />
+              ))}
+            </NavGroupSection>
+          ))}
+        </nav>
       </SidebarContent>
       <SidebarFooter>
         <Separator />
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              isActive={isCurrent(pathname, "/org-chart")}
-              tooltip="조직도"
-              render={
-                <Link
-                  href="/org-chart"
-                  aria-label="조직도"
-                  aria-current={isCurrent(pathname, "/org-chart") ? "page" : undefined}
-                  onClick={closeDrawer}
-                />
-              }
-            >
-              <NetworkIcon aria-hidden />
-              <span>조직도</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+        <SidebarMenu className="group-data-[collapsible=icon]:items-center">
+          <NavMenuItem
+            item={ORG_CHART_ITEM}
+            isActive={isCurrentItem(pathname, ORG_CHART_ITEM, orgSlug)}
+            onNavigate={closeDrawer}
+          />
         </SidebarMenu>
-        <UserMenu user={user} settingsHref={`${base}/settings`} onNavigate={closeDrawer} />
+        <UserMenu user={user} settingsHref={`/${orgSlug}/settings`} onNavigate={closeDrawer} />
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+// 묶음 줄은 접기 버튼이다: 화살표와 회색 굵은 글자만, 아이콘 없음(06 §4.1, 2026-10-18 사용자 결정 U4).
+// 메뉴는 화살표 아래 1px 세로선 안쪽으로 들여 쓴다. 접은 사이드바(64px)에서는 묶음 줄 대신 묶음 사이에 짧은 선을 긋는다.
+function NavGroupSection({
+  group,
+  hasDivider,
+  isOpen,
+  hasGroupRow,
+  onToggle,
+  children,
+}: {
+  group: NavGroup;
+  hasDivider: boolean;
+  isOpen: boolean;
+  hasGroupRow: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const listId = `sidebar-group-${group.id}`;
+  return (
+    <SidebarGroup className="py-0.5">
+      {hasDivider ? (
+        <div
+          aria-hidden
+          data-slot="sidebar-group-divider"
+          className="mx-auto my-1 hidden h-px w-6 bg-sidebar-border group-data-[collapsible=icon]:block"
+        />
+      ) : null}
+      {hasGroupRow ? (
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          aria-controls={listId}
+          onClick={onToggle}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left type-caption font-semibold text-muted-foreground ring-sidebar-ring outline-hidden hover:text-sidebar-accent-foreground focus-visible:ring-2"
+        >
+          {isOpen ? (
+            <ChevronDownIcon aria-hidden className="size-4 shrink-0" />
+          ) : (
+            <ChevronRightIcon aria-hidden className="size-4 shrink-0" />
+          )}
+          <span className="truncate">{group.label}</span>
+        </button>
+      ) : null}
+      {/* 세로선은 화살표 가운데(왼쪽에서 16px) 아래에 온다. 가장 긴 "인력 배치 시뮬레이션 준비 중"이 256px 폭에
+          말줄임 없이 들어가도록 트리 안 메뉴의 왼쪽 여백을 6px 로 줄인다(접은 사이드바는 부품의 p-2! 가 이긴다). */}
+      <SidebarMenu
+        id={listId}
+        aria-label={group.label}
+        hidden={!isOpen}
+        className="ml-3.75 w-auto gap-0.5 border-l border-sidebar-border pl-1 group-data-[collapsible=icon]:ml-0 [&_[data-sidebar=menu-button]]:pl-1.5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:border-l-0 group-data-[collapsible=icon]:pl-0"
+      >
+        {children}
+      </SidebarMenu>
+    </SidebarGroup>
+  );
+}
+
+// 출시된 메뉴는 링크, 준비 중 메뉴는 링크 없는 글자다(누를 곳이 없어 초점도 받지 않는다).
+// 활성 메뉴는 sidebar-accent 바탕 + 트리 세로선 자리의 3px brand 막대다(06 §4). 색만으로 알리지 않고 aria-current 를 단다.
+function NavMenuItem({
+  item,
+  isActive,
+  onNavigate,
+  badge,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  onNavigate: () => void;
+  badge?: number;
+}) {
+  if (item.status === "planned") {
+    return (
+      <SidebarMenuItem data-planned="">
+        <SidebarMenuButton
+          tooltip={`${item.label} (준비 중)`}
+          render={<span />}
+          className="cursor-default pr-1.5 text-muted-foreground hover:bg-transparent hover:text-muted-foreground active:bg-transparent active:text-muted-foreground"
+        >
+          <item.icon aria-hidden />
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {/* 아이콘 줄에서는 글자를 감추되 화면 낭독기에는 남긴다. */}
+          <span className="-ml-1 shrink-0 type-caption group-data-[collapsible=icon]:sr-only">
+            준비 중
+          </span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
+  return (
+    <SidebarMenuItem
+      className={
+        isActive
+          ? "before:absolute before:inset-y-1 before:-left-1.5 before:w-0.75 before:rounded-full before:bg-brand group-data-[collapsible=icon]:before:hidden"
+          : undefined
+      }
+    >
+      <SidebarMenuButton
+        isActive={isActive}
+        tooltip={item.label}
+        render={
+          <Link
+            href={item.href}
+            aria-label={item.label}
+            aria-current={isActive ? "page" : undefined}
+            onClick={onNavigate}
+          />
+        }
+      >
+        <item.icon aria-hidden />
+        <span>{item.label}</span>
+      </SidebarMenuButton>
+      {badge !== undefined && badge >= 1 ? (
+        <SidebarMenuBadge className="tabular-nums">
+          {badge}
+          <span className="sr-only">건</span>
+        </SidebarMenuBadge>
+      ) : null}
+    </SidebarMenuItem>
   );
 }
 
@@ -259,7 +379,7 @@ function UserMenu({
   };
 
   return (
-    <SidebarMenu>
+    <SidebarMenu className="group-data-[collapsible=icon]:items-center">
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
@@ -313,17 +433,14 @@ function UserMenu({
 function AppTopBar({ current, status }: { current: CurrentOrg; status?: TopbarStatusProps }) {
   const pathname = usePathname();
   const { state } = useSidebar();
-  const screen =
-    pathname === "/org-chart"
-      ? { label: "조직도" }
-      : (NAV.find((item) => isCurrent(pathname, item.href)) ?? templateScreenOf(pathname));
+  const screenLabel = screenLabelOf(pathname, current.slug);
 
   return (
     // 높이를 고정하지 않는다. 글자를 키우면 막대도 커진다.
     <header className="sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
       {/* -ml-2 는 버튼 안쪽 여백만큼 당겨 아이콘을 본문 선에 맞춘다. */}
       <SidebarTrigger className="-ml-2" />
-      {screen ? (
+      {screenLabel ? (
         <>
           <Separator orientation="vertical" className="my-3.5" />
           {/* 사이드바가 안 보이면(서랍, 접은 넓은 폭) 지금 조직을 알 수 없어 조직 이름을 앞에 붙인다 —
@@ -341,7 +458,7 @@ function AppTopBar({ current, status }: { current: CurrentOrg; status?: TopbarSt
                 /
               </span>
             </span>
-            <span className="shrink-0 font-medium text-foreground">{screen.label}</span>
+            <span className="shrink-0 font-medium text-foreground">{screenLabel}</span>
           </p>
         </>
       ) : null}
