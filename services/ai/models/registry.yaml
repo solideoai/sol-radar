@@ -15,9 +15,13 @@ entries:
     base_revision: null
     init_from: null
     lora: null
+    # Hugging Face jaredpalmer/kev-9b 태그 v1.0(커밋 3afdec81efc91da83dee06d30714adf54ee35531)의 파일 SHA-256.
+    # 2026-10-20 파일을 받아 sha256sum 으로 계산했고 Hub tree API 의 LFS oid 와 같다(docs/22 §2.2).
+    # weights_sha256 = adapter_model.safetensors(173,178,096 B), head_sha256 = head.pt(8,395,071 B).
+    # 회사는 kev.serve 기동 전에 받은 파일과 이 값을 대조한다(ADR-025, 10 "Kev 런타임 주의").
+    weights_sha256: 2b2a70cf4ef4440b6c22899e1f72c2f8ea5c6f65b19aa344539b4b8971d1f13d
+    head_sha256: 8e1dab2c8e3664f6fee843e0257d57946c25e0210c61901ea77e71761f4244e1
     # 회사 운영(ADR-025)에서 채운다
-    weights_sha256: null
-    head_sha256: null
     temperature: null
     dataset: null
     # 공개 모델은 특정 질문 세트로 학습하지 않았다
