@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - decision
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 16. 아키텍처 결정 기록 (ADR)
@@ -83,7 +83,7 @@ updated: 2026-10-19
 |---|---|---|---|---|
 |1|data.go.kr 사용 API별 서비스키·트래픽·페이지네이션·실제 응답 스키마|부분 검증|2026-10-19|**검증됨**(data.go.kr 서비스 페이지 Swagger·참고문서, 2026-10-16): 입찰공고정보서비스 15129394(`/1230000/ad/BidPublicInfoService`), 사전규격 15129437, 발주계획 15129462, 업종 및 근거법규 15129467의 오퍼레이션·요청 파라미터·응답 필드 이름, 무료·자동승인, 개발계정 1,000(사용자정보·개방표준 10,000), JSON/XML, 이용허락범위 제한 없음. 서비스키는 서비스별 env 4개(ADR-022, 값은 저장소 밖). **검증됨**(C1 실호출, 2026-10-19, 4 서비스 37회): 오퍼레이션별 실제 응답(마스킹 14건 `fixtures/recorded/`), `infoBizYn`은 요청 파라미터로 주면 무시돼 클라이언트 필터만 가능(빈값이 많아 필터를 넓힌다, ADR-029 A4), 보조 조회는 `inqryDiv` 필수, 구조화 자격 필드는 보조 조회에만 있다. **미검증**: 조회 기간 상한(8일까지만 확인), 면허제한 여러 행의 의미(19번), 키 오류 응답(resultCode 30·31·22) 형식. 증거 [API 호출 증거](evidence/phase-0/external-deps-api-20261019.md) ([[07-DATA-PIPELINE\|07 수집 파이프라인]], [[15-DATA-CONTRACTS\|15 데이터 계약]])|
 |2|Kev v1.0 체크포인트 가용성·추론 API·라이선스·메모리·한국어 성능|부분 검증|2026-10-16|**검증됨** (https://github.com/jaredpalmer/kev README 및 https://github.com/jaredpalmer/kev/blob/1f04cfa/docs/model-cards/kev-4b.md): 체크포인트 4종(0.8B/4B/9B/27B) 공개, Hub 태그 `v1.0`로 가중치 고정(`--run jaredpalmer/kev-4b@v1.0`, README 명시), GitHub 태그 `kev-1.0`, API `POST /v1/systemone`(noul/choice/score) + `GET /v1/models`, Apache-2.0, Python 3.12/3.13 + uv 소스 설치, `--device cpu\|cuda\|mps\|auto`. 모델 카드 `Languages: English`, 영어 외 언어는 잘 동작하지 않음. **미검증**: 한국어 → 영어 state 변환의 효과(ADR-012), VRAM 요구량, Kev-0.8B CPU 실행, 자체 보고 수치의 독립 재현. hosted 공급자 존재·포맷·가격은 전부 미확인. 다음: [[03-AI-PIPELINE\|03 AI 파이프라인]] §5.9 절차로 `ai-local`에서 fixture 20건 측정. **2026-10-16 추가 검증**(main `1f04cfa`): `kev.train`(LoRA·full FT, QLoRA 없음, `--init_from`), `kev.benchmark`, `kev.compare`, Kev-9B@v1.0 = `db029f08`, 9B 추론 메모리는 모델 카드 21.9 GB·README 약 17 GB로 불일치. ADR-020으로 기본 모델을 Kev-9B로 바꾸고 한국어 성능은 평가셋 E2로 측정 ([[21-MODEL-TRAINING\|21 모델 학습]])|
-|3|Qwen 런타임(vLLM 등) 선택 및 GPU 메모리 분배|결정 (ADR-020·025. vLLM guided JSON 동작은 C1 ③ G4 미검증)|2026-10-19|ADR-020: 해커톤 실추론은 회사 GPU 서버, Qwen 런타임은 vLLM(guided JSON·logprob). **2026-10-19 ADR-025**: GPU 메모리 배분(동시 적재·GPU 장수·양자화)은 회사 측 결정으로 이관했다. 우리 쪽 남은 결정은 없다. 회사가 알려 주는 GPU 모델·VRAM·점유 값이 있으면 C1 ③ G5로 기록하고, 없으면 "회사 운영, 측정 불가"로 남긴다 ([[10-DEPLOYMENT\|10 배포]] GPU 메모리 배분)|
+|3|Qwen 런타임(vLLM 등) 선택 및 GPU 메모리 분배|결정 (ADR-020·025. vLLM guided JSON 동작은 C1 ③ G4 미검증)|2026-10-19|ADR-020: 해커톤 실추론은 회사 GPU 서버, Qwen 런타임은 vLLM(guided JSON·logprob). **2026-10-19 ADR-025**: GPU 메모리 배분(동시 적재·GPU 장수·양자화)은 회사 측 결정으로 이관했다. 우리 쪽 남은 결정은 없다. 회사가 알려 주는 GPU 모델·VRAM·점유 값이 있으면 C1 ③ G5로 기록하고, 없으면 "회사 운영, 측정 불가"로 남긴다. **2026-10-20 서버 확인(G5)**: NVIDIA A40 46,068 MiB ×3. GPU 0·2는 회사 서비스 사용 중, SOL RADAR 학습·채점은 물리 GPU 1만([[22-FINETUNE-RUNBOOK\|22]] §3.1). 추론 런타임(vLLM·`kev.serve`)을 띄울 GPU는 미확인 ([[10-DEPLOYMENT\|10 배포]] GPU 메모리 배분·학습 전용 GPU)|
 |4|HWP/HWPX parser 라이브러리·라이선스·안전성|진행 (ADR-020)|2026-10-16|형식별 `DocumentParser` 인터페이스(HWP·HWPX·PDF)를 두고, 오픈소스 후보의 라이선스와 추출 품질(본문·표·금액·자격 조건·요구사항 누락)을 실제 RFP 샘플로 비교한 뒤 형식마다 정한다. 후보·절차는 [[03-AI-PIPELINE\|03 AI 파이프라인]] §10(요약은 [[07-DATA-PIPELINE\|07 수집]] §2.5). 결정 전까지 처리할 수 없는 첨부는 `PARSE_UNSUPPORTED` → 확인 필요|
 |5|카카오 비즈메시지 발신 계약과 승인된 템플릿|미검증|-|해커톤 범위 밖. mock provider ([[13-NOTIFICATIONS\|13 알림]])|
 |6|한국어 검색 품질(Qdrant 임베딩과 PostgreSQL full text 병행)|미검증|-|데모 필수 아님. 키워드 검색 fallback이 기본|
@@ -102,7 +102,7 @@ updated: 2026-10-19
 |19|면허제한 오퍼레이션의 여러 행이 AND인지 OR인지|미검증|-|실제 응답 확인 전에는 여러 행이면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`) ([[08-SCORING\|08 점수]])|
 |20|문서 파서 형식별 선택(HWP·HWPX·PDF)|미결정|-|미결정 4번과 같은 절차. 실제 RFP 샘플 비교 결과로 형식마다 정하고 이 행을 갱신 ([[03-AI-PIPELINE\|03 AI 파이프라인]] §10)|
 |21|Phase 0 중 발견한 정본 불일치 목록 정리(26건)|제안|2026-10-19|[Phase 0 정본 불일치 목록](plans/2026-10-19-phase-0-doc-inconsistencies.md). 항목마다 사람이 어느 쪽이 맞는지 정한 뒤 해당 정본을 고친다. 구현은 항목별 "구현 방식" 열에 적었다. 일부는 Phase 4·5 골든 확정과 함께 정한다. #1·#2·#3·#4·#7은 ADR-029(2026-10-19 사용자 결정, #7은 A6 D2)로 해결했다|
-|22|회사 GPU에서 Kev-9B LoRA 학습(F1·F2·F3) 실행 가능 여부·주말(10-24~25) 시간대·추론과 동시 점유·일요일 서버 안 채점 4회 실행과 출력 폴더 전송|미검증|2026-10-19|ADR-027(개정). C1 P2·P3 요청과 함께 회사에 묻는다(질문 목록은 [[23-WEEKEND-FINETUNE\|23]] §8, 기한 10-22). 회사 GPU 서버의 외부망(Hugging Face·GitHub·PyPI) 사용 가능 여부도 함께 묻는다([[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]] §2.2). 답이 오기 전 주말 일정은 가정이다. E4 평가 방식은 오프라인 채점으로 개정됐다(ADR-027 10번. 평가 전용 `kev.serve` 8010·`/kev-lora` 경로는 필요 없다). 남은 것은 회사가 메모리와 시간대를 확보할 수 있는지다|
+|22|회사 GPU에서 Kev-9B LoRA 학습(F1·F2·F3) 실행 가능 여부·주말(10-24~25) 시간대·추론과 동시 점유·일요일 서버 안 채점 4회 실행과 출력 폴더 전송|일부 확인 (2026-10-20 서버 환경. 실행 가능 여부는 F1 전까지 미검증)|2026-10-20|ADR-027(개정). **2026-10-20 확인**(ADR-027 상세 부록): A40 46,068 MiB ×3 중 물리 GPU 1(가용 44.16 GiB)이 SOL RADAR 전용이고 GPU 0·2는 회사 서비스. venv `.venv-kev`(Python 3.12.3)·torch 2.8.0+cu128·CUDA·bf16 확인. **남은 미검증**: Kev 설치·커널·F1 실행 가능 여부(F1 결과로만 확정), 토·일 GPU 1 독점 가능 여부·시간대, 추론 런타임을 띄울 GPU, 외부망(Hugging Face·GitHub·PyPI), 일요일 채점 실행·출력 전송. C1 P2·P3 요청과 함께 회사에 묻는다(질문 목록은 [[23-WEEKEND-FINETUNE\|23]] §8, 기한 10-22). E4 평가 방식은 오프라인 채점으로 개정됐다(ADR-027 10번. 평가 전용 `kev.serve` 8010·`/kev-lora` 경로는 필요 없다)|
 
 검증 전에는 명세 가정으로 표시하고 기능 플래그·mock·fixture로 개발한다.
 
@@ -262,13 +262,15 @@ updated: 2026-10-19
 10. **E4 평가 방식(개정 2026-10-19 저녁. 처음 결정 "평가 전용 `kev.serve` 8010 + 라우터 `/sol-radar/kev-lora/`"를 대체)**: 회사 nginx 는 location 하나(`https://acropolissg.com/sol-radar`)만 등록할 수 있다. 학습본은 HTTPS 로 서빙하지 않는다. 회사가 일요일에 서버 안에서 학습본과 v1.0 을 같은 test 파일로 `kev.benchmark`(`--rotations 6`) 채점하고 `kev.compare`·`decision-v7` regression 까지 돌린 뒤 출력 폴더(`report.json`·`rows.json`·`predictions.jsonl`)를 통째로 넘긴다. 우리 `sol_eval` 은 그 출력을 읽어 오프라인으로 지표·Δ·95% CI 를 낸다. 평가 전용 `kev.serve`(`127.0.0.1:8010`)·라우터 `/sol-radar/kev-lora/` 경로·추가 GPU 메모리는 **필요 없다**. 지연·`permute` 실측이 꼭 필요할 때만 B안으로 우리 `infra/gpu/model-router.conf` 에 경로를 더하고 8010 을 띄운다(회사 nginx 는 손대지 않는다). 요청당 지연은 E4 에서 재지 않고 순서 민감도는 `--rotations` 로 잰다. 돌려받은 `report.json` 의 체크포인트 id·test 파일 sha256 을 번들 manifest 와 대조하고 다르면 쓰지 않는다. 데모 gateway 의 `KEV_BASE_URL`(`/kev`, v1.0)과 레지스트리 서빙 항목은 바꾸지 않는다. 상세는 [[23-WEEKEND-FINETUNE|23]] §2.
 11. **라벨 담당**: X6a 사람 라벨(test 20 추출 정답, 의미 대응 150건 이상)은 사용자가 직접 한다. 두 번째 라벨러가 없으면 Cohen κ가 빠졌다고 리포트에 적는다.
 
+**부록 — 회사 GPU 환경 확인(2026-10-20, 운영 사실 기록. 결정 1~11은 바뀌지 않는다)**: 사용자가 회사 GPU 서버 셸(호스트 `sol-NF5280M6`, 계정 `bim`, 경로 `/data/www/ai_workspace/sol-radar`)에서 확인했다. NVIDIA A40 46,068 MiB **3장**(드라이버 580.173.02, CUDA Toolkit 12.8). GPU 0(4,747 MiB 사용 중)·GPU 2(9,240 MiB 사용 중)는 회사 기존 서비스가 써서 **쓰지 않고 그 프로세스를 종료·이동·설정 변경하지 않는다**. GPU 1(5 MiB 사용 중, Compute Capability 8.6)이 SOL RADAR 학습·채점(F1·F2·F3·E4) 전용이고, `CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1`로 프로세스 안 `cuda:0`으로 쓴다. venv `.venv-kev`(Python 3.12.3)에 torch 2.8.0+cu128·triton 3.4.0이 있고 CUDA·bf16·가용 44.16 GiB(총 44.42 GiB)를 확인했다. 3장의 VRAM을 합산하지 않고 다중 GPU 학습·80 GB GPU·H100/H200을 전제하지 않는다. 이 사실은 4번(실행 위치·GPU 배분은 회사)을 바꾸지 않고 구체화한다. Kev 설치·커널·모델 다운로드·F1~E4는 **미실행**이고 학습 가능 여부는 F1 결과로만 확정한다. F1 실패 시 Kev-4B 전환·다중 GPU·클라우드 GPU는 자동이 아니라 사용자 승인 대상이다([[22-FINETUNE-RUNBOOK|22]] §3.1·§4.2, [[23-WEEKEND-FINETUNE|23]] §2.4, [F1 기록](evidence/kev-train-feasibility.md) §0, 스크립트 `infra/gpu/kev-preflight.sh`·`infra/gpu/kev-f1.sh`).
+
 학습 실행 절차(모델 출처·환경·데이터 제작·명령·반입)는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]에 있다. Qwen 파인튜닝은 방법만 22 §5에 두고 실행은 21 §5.6 조건과 별도 결정을 따른다.
 
-> [!warning] 미검증 가정 (2026-10-19)
-> - 회사가 해커톤 안에 F1·F2·F3을 실행할 수 있는지, 어느 시간대에 할 수 있는지 확인하지 않았다.
-> - 회사 GPU 사양을 확인하지 않았다. [C1 절차](plans/2026-10-19-c1-external-deps-procedure.md)의 "A40×2"도 가정이다.
-> - 학습과 추론을 동시에 돌릴 수 있는지 확인하지 않았다.
-> - 9B LoRA 메모리는 21 §5.2 추정치다. 학습 시간은 공식 기준 H200 1장 2.6시간이고, 회사 GPU에서는 재지 않았다.
+> [!warning] 미검증 가정 (2026-10-19, 2026-10-20 갱신)
+> - 서버 셸·venv·torch·CUDA는 확인했지만(위 부록) Kev 설치·커널·F1은 미실행이다. 학습 실행 가능 여부는 F1 결과로 확정하고, 토·일 GPU 1 독점 가능 여부·시간대는 미확인이다.
+> - ~~회사 GPU 사양을 확인하지 않았다.~~ 2026-10-20 서버 확인으로 종결(위 부록). [C1 절차](plans/2026-10-19-c1-external-deps-procedure.md)의 "A40×2" 가정은 틀렸다 — A40 3장이고 그중 1장만 쓴다.
+> - 추론 런타임(vLLM·`kev.serve`)을 어느 GPU에 띄울지 확인하지 않았다. GPU 1에 뜨면 학습과 동시에 돌릴 수 없다(두 런타임 약 41 GB + 학습, 23 §2.4).
+> - 9B LoRA 메모리는 23 §2.4 추정치(30~45 GB)다. 학습 시간은 A40에서 재지 않았고 F1 실측 전 **미확정**이다(공식 H200 1장 2.6시간은 쓰지 않는다).
 > - train 1,000 레코드 확보는 live 수집·첨부 파싱(C3)과 Qwen 추출(C5 `local`, C1 ③)이 되는 것을 전제로 한다. 10-22 까지 안 되면 구조화 필드만 쓰는 갈래 ①(23 §4.4)로 번들을 만든다.
 > - `kev.benchmark` 출력(`rows.json`·`predictions.jsonl`) 스키마가 `sol_eval` 입력으로 충분한지, `--rotations` 가 `permute n_perm=6` 과 같은 뜻인지는 10-24 F1 출력으로 확인한다(23 §10).
 

@@ -7,7 +7,7 @@ tags:
   - ai
   - ops
   - hackathon
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 23. 주말 파인튜닝 계획: 회사 GPU 엔드포인트·오픈 데이터·Hugging Face 모델
@@ -22,19 +22,19 @@ updated: 2026-10-19
 > - 학습 대상은 **Kev-9B@v1.0 → LoRA 이어 학습**(`en` state)뿐이다. Qwen 파인튜닝은 하지 않는다(ADR-027 U1).
 > - 데모·S-LIVE 모델과 레지스트리 서빙 항목 `kev-9b-v1.0`은 바꾸지 않는다. 학습본은 E4 비교에만 쓴다(ADR-027 2번).
 > - 유료 hosted API·클라우드 GPU 임대·유료 LLM 라벨 생성은 쓰지 않는다(ADR-010). 돈이 드는 경로는 이 문서에 없다.
-> - 회사 GPU 사양·외부망·시간대는 2026-10-19 기준 미확인이다(16 미결정 22). 이 문서의 메모리·시간 수치는 그 답을 받기 전의 추정이고, 답이 오면 §2.4·§3.3의 규칙으로 고른다.
+> - 회사 GPU 사양은 2026-10-20 서버에서 확인했다: NVIDIA A40 46,068 MiB **3장** 중 **물리 index 1 한 장**만 학습·채점에 쓴다(§2.4, [[22-FINETUNE-RUNBOOK|22]] §3.1). 외부망·학습 시간대·GPU 1 독점 가능 여부·추론 런타임 위치는 미확인이다(16 미결정 22). 메모리·시간 수치는 A40 실측(F1) 전 추정이다.
 
 ## 0. 한눈에
 
 | 항목 | 결정 |
 |---|---|
 | 언제 | 2026-10-24(토) F1 메모리 검증 → F2 학습, 10-25(일) F3 보정 → E4 평가. 10-26(월) 제출물 반영(X6f). [[12-ROADMAP\|12 로드맵]] 간트의 X6c(10-21~22)·X6d(10-22~23)·X6e(10-25)를 주말로 모은다(§9 제안) |
-| 어디서 | 회사 GPU 서버(외부 접근 불가). 실행은 회사 담당자, 우리는 번들·요청서·평가([[16-DECISIONS\|ADR-025]]) |
-| 모델 | 출발점 `jaredpalmer/kev-9b@v1.0`(백본 `Qwen/Qwen3.5-9B-Base@68c46c4b`). VRAM 이 모자라면 `jaredpalmer/kev-4b@v1.0`. 추론용 `Qwen/Qwen3.5-9B@c2022362`는 그대로(§3) |
+| 어디서 | 회사 GPU 서버 `sol-NF5280M6`(외부 접근 불가. 셸은 계정 `bim`), **물리 GPU 1(A40 46,068 MiB) 한 장**. GPU 0·2 는 회사 서비스라 건드리지 않는다(§2.4). 실행은 회사 측, 우리는 번들·요청서·평가([[16-DECISIONS\|ADR-025]]) |
+| 모델 | 출발점 `jaredpalmer/kev-9b@v1.0`(백본 `Qwen/Qwen3.5-9B-Base@68c46c4b`). F1 이 전부 실패하면 `jaredpalmer/kev-4b@v1.0` 은 **사용자 승인 뒤**(§3.3). 추론용 `Qwen/Qwen3.5-9B@c2022362`는 그대로(§3) |
 | 데이터 | 오픈 데이터 3층. **A** 나라장터 Open API 실공고(서비스키 보유, 이용허락 제한 없음) × 가상 기업 원형의 구성 라벨, **B** Kev 공개 replay `jaredpalmer/kev-suites` `decision-v7`, **C** 우리가 만든 가상 기업 원형 6개(§4) |
 | 엔드포인트 | 회사 nginx 등록은 `https://acropolissg.com/sol-radar` **하나**뿐이고 주말에도 더 요청하지 않는다. 그 뒤의 우리 라우터가 `/qwen`·`/kev` 로 나눈다(ADR-025). 학습본은 HTTPS 로 서빙하지 않고 **서버 안 오프라인 채점**(§2.2 A안)으로 평가한다 |
 | 결과 | `docs/evidence/kev-train-feasibility.md`(F1), `docs/evidence/eval/e4-<일시>.md`(E4 Δ·95% CI), `docs/submission/experiment-tables.md` 표 (c) |
-| 중단선 | 토요일 18:00 KST 까지 F2 가 시작되지 않으면 Kev-4B 경로(§7)로 바꾸거나 "회사 측 미실행"으로 적는다(ADR-027 2번) |
+| 중단선 | 토요일 18:00 KST 까지 F2 가 시작되지 않으면 사용자에게 보고한다. 승인하면 Kev-4B 경로(§7), 아니면 "회사 측 미실행"으로 적는다(ADR-027 2번) |
 
 ## 1. 시간표
 
@@ -43,17 +43,19 @@ updated: 2026-10-19
 | 날짜 | 누가 | 할 일 | 산출물 |
 |---|---|---|---|
 | 10-20(화) | 우리 | §4.3 수집 1일차(목록 60일 + 보조 조회 150건). 가상 기업 원형 6개 JSON 작성(§4.2 C). state 빌더·`sol_eval.export` 뼈대(X6b) | `fixtures/recorded/train/`(마스킹 JSON) 또는 Supabase live 공고, `fixtures/eval/companies/*.json` |
+| 10-20(화) | 회사 | **서버 환경 확인 완료**: 전용 경로·venv `.venv-kev`(Python 3.12.3)·torch 2.8.0+cu128·CUDA·bf16·GPU 1 전용 변수(`CUDA_VISIBLE_DEVICES=1`). 미완: Kev 설치·모델 다운로드·F1(22 §3.2·§4.2) | [F1 기록](evidence/kev-train-feasibility.md) §0 |
 | 10-21(수) | 우리 | 수집 2일차(보조 조회 150건). 갈래 ①(§4.4) 레코드 생성·충돌·누수 검사. 회사 답(§8) 받기 | train JSONL 초안, 검사 로그 |
+| 10-21(수) | 회사 | Kev 설치(22 §3.2: `uv pip install --dry-run` 으로 계획 확인 뒤 설치, torch·triton 불변) → `infra/gpu/kev-preflight.sh` 1차(모델 전이라 체크포인트·백본 항목이 FAIL 로 끝나는 것이 정상. 환경·GPU 매핑·커널 smoke 항목만 본다. 통과 표식은 10-23 전부 통과 때 생긴다) | `runs/preflight-*.log` |
 | 10-22(목) | 우리 | **번들 확정** `sol-dataset-v0.1.tar` + sha256. 갈래 ②(Qwen 추출) 가능 여부는 이날 저녁 C1 ③·파서 상태로 정한다. 학습 요청서 전송(§8) | 번들, manifest, 요청서 |
-| 10-23(금) | 회사 | 모델·코드·replay 내려받기(§3.4) 또는 반입, venv(22 §3.2), 번들 반입·sha256 대조, `nvidia-smi` 기록 | 준비 완료 통보 |
+| 10-23(금) | 회사 | 모델·코드·replay 내려받기(§3.4) 또는 반입(외부망 미확인), 번들 반입·sha256 대조, `kev-preflight.sh` 전부 통과(모델 sha256·`--max_state` 별 데이터 길이 표 포함), `nvidia-smi` 기록 | 준비 완료 통보, `runs/preflight-ok` |
 | 10-23(금) | 우리 | 기능 freeze. `sol_eval` 이 `kev.benchmark` 출력 폴더(`rows.json`·`predictions.jsonl`·`report.json`)를 읽어 E4 지표를 내는 경로를 가짜 출력으로 시험(§2.2 A안·§6). 실제 스키마는 토요일 F1 출력으로 확정 | E4 하네스(오프라인) |
-| 10-24(토) 09:00~12:00 | 회사 | **F1** 메모리 격자(§5.2) 3칸. 결과 표 전송 | F1 표 |
-| 10-24(토) 13:00~ | 회사 | **F2** 학습(§5.3). 공식 H200 1장 2.6시간 기준, 회사 GPU 는 미측정이라 6시간을 잡는다. 로그의 `dropped`·`replay` 줄 확인 | `runs/kev-9b-sol-lora-v0.1`, `train.log` |
-| 10-25(일) 09:00~ | 회사 | **F3** dev 보정(22 §4.4) → 서버 안 채점 4회(`kev.benchmark` E4·E1 × test·development, `--rotations` 포함) → `kev.compare` → 출력 폴더 4개를 통째로 전송(§2.2 A안). 엔드포인트·라우터 변경 없음 | `MODEL_CARD.md`, `report.json`·`rows.json`·`predictions.jsonl` 4벌, `kev.compare` 결과, sha256 |
+| 10-24(토) 09:00~12:00 | 회사 | **F1-B·C**(§5.2): `infra/gpu/kev-f1.sh --max_state 1024` → `2048`(→ `4096` → `6144`, 데이터 길이 표에 따라). 물리 GPU 1 만. 앞 칸 PASS 때만 다음 칸. 결과 표 전송 | `runs/f1-results.md`, `runs/f1-*.summary.md` |
+| 10-24(토) 13:00~ | 회사 | **F2** 학습(§5.3), F1 PASS 설정으로. 소요 시간은 F1 의 step 시간으로 재추정한다(A40 실측 전 **미확정**. H200 2.6시간은 쓰지 않는다). 토요일 안에 끝나지 않으면 일요일 오전으로 넘기고 F3·채점을 뒤로 민다. 로그의 `dropped`·`replay` 줄 확인 | `runs/kev-9b-sol-lora-v0.1`, `train.log`, `training_metrics.json` |
+| 10-25(일) 09:00~ | 회사 | **F3** dev 보정(22 §4.4) → 서버 안 채점 4회(`kev.benchmark` E4·E1 × test·development, `--rotations 6`, GPU 1 에서 한 모델씩 순차) → `kev.compare --out` → 출력 폴더 4개를 통째로 전송(§2.2 A안). 엔드포인트·라우터 변경 없음 | `MODEL_CARD.md`, `report.json`·`rows.json`·`predictions.jsonl` 4벌, `kev.compare` 결과, sha256 |
 | 10-25(일) 오후 | 우리 | 받은 출력의 체크포인트 id·test 파일 sha256 을 번들 manifest 와 대조 → `sol_eval` 오프라인 채점(E4·E1 같은 출력 형식) → 짝 부트스트랩 Δ·95% CI | `docs/evidence/eval/e4-<일시>.md` |
 | 10-26(월) | 우리 | X6f: `experiment-tables.md` (c)·`limitations.md` E4 문장·슬라이드 9장 | 제출물 |
 
-10-24 최종 리허설(C9)과 겹친다. 리허설의 `live`·`fixture` 모드 확인은 학습이 GPU 를 쓰는 시간을 피해 **토요일 오전(F1 전) 또는 일요일 저녁**에 한다(§2.4).
+10-24 최종 리허설(C9)과 겹친다. 학습은 물리 GPU 1 만 쓰므로 추론 런타임이 GPU 0·2 에 있으면 겹치지 않는다. 추론 런타임이 GPU 1 에 뜨는 경우에만 리허설의 `live`·`fixture` 확인을 **토요일 오전(F1 전) 또는 일요일 저녁**에 한다(§2.4). 어느 GPU 에 뜨는지는 미확인이다(§8).
 
 ## 2. 엔드포인트
 
@@ -77,12 +79,19 @@ updated: 2026-10-19
 **A안(기본): 서버 안 오프라인 채점.** 회사가 같은 test 파일로 학습본과 v1.0 을 각각 `kev.benchmark` 로 채점하고 출력 폴더를 그대로 돌려준다. 우리 `sol_eval` 은 그 출력(`rows.json`·`predictions.jsonl`·`report.json`)을 읽어 21 §4.3 지표를 낸다. 네트워크·라우터·추가 GPU 메모리가 필요 없다.
 
 ```bash
-# 회사, 일요일(22 §4.4 와 같은 명령. 출력 폴더 4개를 통째로 돌려준다)
+# 회사, 일요일(22 §4.4 와 같은 명령. 물리 GPU 1 만, 모델은 한 번에 하나씩. 출력 폴더 4개를 통째로 돌려준다)
+export SOL_WORK=/data/www/ai_workspace/sol-radar
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
+cd "$SOL_WORK"
+# 기준선 E1 은 태그가 아니라 sha256 을 대조한 로컬 snapshot(태그 v1.0 = 커밋 3afdec81…)으로 올린다(22 §4.2 콜아웃)
+KEV9B="$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots/3afdec81efc91da83dee06d30714adf54ee35531"
+sha256sum "$KEV9B/adapter_model.safetensors" "$KEV9B/head.pt"      # 22 §2.2 값과 같아야 한다
+export HF_HUB_OFFLINE=1
 python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e4-test --rotations 6
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test --rotations 6
-python -m kev.compare --candidate runs/e4-test --reference runs/e1-test
-python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --suite /opt/kev/evals/v7/decision-v7 --out runs/e4-regression
-python -m kev.benchmark --run jaredpalmer/kev-9b@v1.0   --suite /opt/kev/evals/v7/decision-v7 --out runs/e1-regression
+python -m kev.benchmark --run "$KEV9B"                  --data sol-dataset-v0.1/kev/test.en.jsonl --out runs/e1-test --rotations 6
+python -m kev.compare --candidate runs/e4-test --reference runs/e1-test --out runs/e4-vs-e1      # --out 은 필수 인자
+python -m kev.benchmark --run runs/kev-9b-sol-lora-v0.1 --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e4-regression
+python -m kev.benchmark --run "$KEV9B"                  --suite "$SOL_WORK/kev/evals/v7/decision-v7" --out runs/e1-regression
 ```
 
 - 선택지 순서 민감도는 서빙 `/v1/systemone/permute` 대신 `kev.benchmark --rotations` 로 잰다(저장소 `kev/benchmark.py` 옵션, [[21-MODEL-TRAINING|21]] §4.1 콜아웃). `permute n_perm=6` 과 뜻이 같은지는 F1 20 step 출력으로 확인한다(§10).
@@ -120,23 +129,24 @@ curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar
 
 ### 2.4 학습과 추론의 GPU 동시 점유
 
-회사 GPU 사양을 모르므로(미결정 22) 아래 표로 경우를 나눈다. 수치는 모델 카드·22 §3.1 기준이고 학습 메모리는 추정이다.
+2026-10-20 확인(16 미결정 22 일부 종결): A40 46,068 MiB 가 **3장**이고, 학습·채점에 쓸 수 있는 것은 **물리 GPU 1 한 장**(가용 44.16 GiB)이다. GPU 0(4,747 MiB 사용 중)·2(9,240 MiB 사용 중)는 회사 기존 서비스가 쓰고 있어 어떤 경우에도 쓰지 않고, 그 프로세스를 종료·이동하지 않는다(22 §3.1). 3장의 VRAM 을 합치지 않고 다중 GPU 학습도 하지 않는다. 모든 학습·채점 명령은 `CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1` 아래에서 돌리고 프로세스 안에서는 `cuda:0` 으로 보인다. 수치는 모델 카드·22 §3.1 기준이고 학습 메모리는 추정이다.
 
 | 상주·작업 | 메모리 |
 |---|---|
 | vLLM Qwen3.5-9B 서빙 | 가중치 약 19.3 GB + KV 캐시(`--gpu-memory-utilization`) |
 | `kev.serve` Kev-9B v1.0 | 약 21.9 GB(모델 카드) |
-| Kev-9B LoRA 학습(bf16 백본, `--checkpointing 1`, `--batch 1 --accum 8`, `--max_state 6144`) | **추정** 30~45 GB. 공식 설정(fp32 백본, `max_state 7552`)은 74.1 GB. F1 에서 실측 |
-| `kev.benchmark` 채점(체크포인트 하나씩) | 추론과 같다(약 21.9 GB). 4회를 순서대로 돌리면 동시 점유는 1회분 |
+| Kev-9B LoRA 학습(bf16 백본, `--checkpointing 1`, `--batch 1 --accum 8`, `--max_state` 1024~6144) | **추정** 30~45 GB. 공식 설정(fp32 백본, `max_state 7552`)은 74.1 GB. F1 에서 실측 |
+| `kev.benchmark` 채점(체크포인트 하나씩) | fp32 기본 경로는 가중치 약 38.6 GB + 작업 메모리(44 GiB 에 들어가는지 미검증, 22 §4.4). bf16 이면 약 21.9 GB. 4회를 순서대로 돌리면 동시 점유는 1회분 |
 
-| 회사 GPU | 토요일(F1·F2) | 일요일(F3·채점 4회) |
+GPU 1 한 장에는 두 추론 런타임(합쳐 약 41 GB)과 학습을 같이 둘 수 없다. 추론 런타임이 어느 GPU 에 뜰지는 미확인이다(2026-10-20 사용량으로는 아직 떠 있지 않다, §8).
+
+| 경우 | 토요일(F1·F2) | 일요일(F3·채점 4회) |
 |---|---|---|
-| 1장, 80 GB 이상 | 학습 + Qwen 서빙 동시 가능. `kev.serve` v1.0 은 내린다(학습 중 데모 `live`·`fixture` 불가, `mock` 은 영향 없음) | v1.0 서빙을 켠 채로 채점 4회 |
-| 1장, 40~48 GB | **학습만.** vLLM·`kev.serve` 둘 다 내린다. 리허설은 F1 전 오전에 | 서빙을 내리고 채점 4회를 순서대로. 끝나면 v1.0 서빙 복구 |
-| 1장, 24 GB | 9B 학습 불가 → Kev-4B(§3.3) | 4B 채점 |
-| 2장 이상 | 한 장은 서빙, 한 장은 학습. `CUDA_VISIBLE_DEVICES` 로 나눈다 | 같다 |
+| 추론 런타임이 GPU 0·2 에 있다(회사 결정, 미확인) | GPU 1 에서 학습만. 데모 `live`·`fixture` 는 영향 없음 | GPU 1 에서 채점을 순서대로. 영향 없음 |
+| 추론 런타임이 GPU 1 에 있다 | 학습 전에 회사가 vLLM·`kev.serve` 를 내린다(우리가 끄지 않는다). 리허설의 `live`·`fixture` 확인은 F1 전 오전 또는 일요일 저녁 | 서빙을 내리고 채점 4회를 순서대로. 끝나면 v1.0 서빙 복구 |
+| 추론 런타임이 아직 없다(2026-10-20 상태) | 학습만 | 채점만 |
 
-학습이 GPU 를 쓰는 동안 데모 앱은 `mock` 모드로 두면 영향이 없다(발표 본편 모드). 발표 전 리허설·S-LIVE 사전 run(C8)은 학습 시간과 겹치지 않게 잡는다.
+2026-10-19 에 적어 두었던 "1장 80 GB 이상"·"1장 24 GB"·"2장 이상" 경우는 해당 없음으로 닫는다(A40 46 GB 1장, 다중 GPU 학습 없음). 학습이 GPU 1 을 쓰는 동안 데모 앱은 `mock` 모드로 두면 영향이 없다(발표 본편 모드). 발표 전 리허설·S-LIVE 사전 run(C8)은 추론 런타임이 GPU 1 에 있을 때만 학습 시간과 겹치지 않게 잡는다.
 
 ### 2.5 선행 조건
 
@@ -144,10 +154,10 @@ curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar
 |---|---|---|---|
 | P2 | 엔드포인트 경로·인증 방식(Bearer 외 추가 인증 여부). 등록된 location 은 `/sol-radar/` 하나로 확정 | 회사 | 10-21 |
 | P3 | vLLM·`kev.serve` 기동 완료 통보 | 회사 | 10-21 |
-| P4 | GPU 모델·장수·VRAM, 학습 가능 시간대, 외부망(huggingface.co·github.com·pypi.org) 가능 여부 | 회사(미결정 22) | **10-22** |
+| P4 | GPU 모델·장수·VRAM 은 **2026-10-20 확인**(A40 ×3, 학습은 물리 GPU 1). 남은 것: 토·일 GPU 1 독점 가능 여부·학습 시간대, 추론 런타임을 띄울 GPU, 외부망(huggingface.co·github.com·pypi.org) 가능 여부 | 회사(미결정 22) | **10-22** |
 | P5 | 일요일에 서버 안에서 채점 4회를 돌리고 출력 폴더(`report.json`·`rows.json`·`predictions.jsonl`, 수십 MB)를 보내 줄 수 있는지. 회사 nginx·라우터 변경은 요청하지 않는다 | 회사 | 10-22 |
 
-P4 가 10-22 까지 없으면 §3.4 의 **반입 2안**(우리가 다른 기계에서 받아 넘김)과 Kev-4B 경로를 기본으로 준비한다.
+외부망 답이 10-22 까지 없으면 §3.4 의 **반입 2안**(우리가 다른 기계에서 받아 넘김)을 기본으로 준비한다. Kev-4B 는 F1 결과와 사용자 승인 뒤에만이다(§3.3).
 
 ## 3. 모델 (Hugging Face)
 
@@ -157,9 +167,9 @@ P4 가 10-22 까지 없으면 §3.4 의 **반입 2안**(우리가 다른 기계�
 |---|---|---|---|---|---|
 | **출발 체크포인트** | `jaredpalmer/kev-9b` | 태그 `v1.0`(커밋 `3afdec81efc91da83dee06d30714adf54ee35531`). `main` 은 `db029f08…`, 파일 oid 는 같다(22 §2.1) | Apache-2.0(어댑터·head) | LoRA rank 16 + pointer head. 추론 약 21.9 GB. 영어 전용 | `--init_from jaredpalmer/kev-9b@v1.0` |
 | 백본(동결) | `Qwen/Qwen3.5-9B-Base` | `68c46c4b3498877f3ef123c856ecfde50c39f404`(Kev-9B `training_config.json` `base_revision`) | Apache-2.0 | 9.65B, bf16 약 19.3 GB. 32층(Gated DeltaNet 24 + attention 8), 컨텍스트 262k | `--base --base_revision` |
-| 공개 replay | `jaredpalmer/kev-suites`(dataset) `v7/decision-v7/*` | `cc4bac803e73112689ec327ffa481c519cbc7a05` | manifest 에 라이선스 없음. 출처 10개 데이터셋 각각의 조건을 따른다 → 회사 내부 학습에만 | train 12,576 레코드, 전체 약 295 MB | `--suite /opt/kev/evals/v7/decision-v7 --replay 2000` |
+| 공개 replay | `jaredpalmer/kev-suites`(dataset) `v7/decision-v7/*` | `cc4bac803e73112689ec327ffa481c519cbc7a05` | manifest 에 라이선스 없음. 출처 10개 데이터셋 각각의 조건을 따른다 → 회사 내부 학습에만 | train 12,576 레코드, 전체 약 295 MB | `--suite "$SOL_WORK/kev/evals/v7/decision-v7" --replay 2000` |
 | 추론(데모, 바꾸지 않음) | `Qwen/Qwen3.5-9B` | `c202236235762e1c871ad0ccb60c8ee5ba337b9a` | Apache-2.0 | 9.65B, bf16 약 19.3 GB. thinking 기본 → gateway 는 비사고 모드로 부른다(C1 ③ G4) | vLLM `/qwen`, 갈래 ② train 추출 |
-| **대안** | `jaredpalmer/kev-4b` | 태그 `v1.0`(커밋 `591dcb5bd6d05eb0b5131ea6608f93f10243335c`), 백본 `Qwen/Qwen3.5-4B-Base@1001bb4d826a52d1f399e183466143f4da7b741b` | Apache-2.0 | 추론 약 14.3 GB. 학습 base recipe 최대 24.6 GB(H100) | VRAM 24 GB 급일 때(§3.3) |
+| **대안** | `jaredpalmer/kev-4b` | 태그 `v1.0`(커밋 `591dcb5bd6d05eb0b5131ea6608f93f10243335c`), 백본 `Qwen/Qwen3.5-4B-Base@1001bb4d826a52d1f399e183466143f4da7b741b` | Apache-2.0 | 추론 약 14.3 GB. 학습 base recipe 최대 24.6 GB(H100) | 9B F1 전부 실패 + 사용자 승인 뒤(§3.3) |
 | 코드 | GitHub `jaredpalmer/kev` | `1f04cfa28e6a708485b28a9585010b9e436b776e` | Apache-2.0 | `kev.train`·`kev.benchmark`·`kev.compare`·`kev.serve`·`scripts/calibrate_checkpoint.py` | 소스 설치(`pip install kev` 는 무관한 패키지) |
 
 > [!success] 검증됨 (2026-10-19, Hugging Face refs API `api/models/jaredpalmer/kev-9b/refs`·`api/models/jaredpalmer/kev-4b/refs`, 모델 카드 https://huggingface.co/jaredpalmer/kev-9b · https://huggingface.co/jaredpalmer/kev-4b · https://huggingface.co/Qwen/Qwen3.5-9B · https://huggingface.co/Qwen/Qwen3.5-9B-Base, dataset manifest https://huggingface.co/datasets/jaredpalmer/kev-suites/resolve/main/v7/decision-v7/manifest.json)
@@ -179,31 +189,32 @@ P4 가 10-22 까지 없으면 §3.4 의 **반입 2안**(우리가 다른 기계�
 
 ### 3.3 VRAM 에 따른 선택 규칙
 
-회사 답(P4)을 받으면 아래 한 줄로 정한다. 받기 전에는 9B 를 기본으로 준비하고 4B 명령도 요청서에 같이 넣는다.
+2026-10-20 확인으로 행 하나가 정해졌다: 학습에 쓸 수 있는 VRAM 은 **A40 46,068 MiB 1장(가용 44.16 GiB)** 이다. 기본은 Kev-9B 이고 `--max_state` 는 F1 에서 1024 → 2048 → 4096 → 6144 순으로 올려 들어가는 값이다(22 §4.2). 4B 명령은 요청서에 같이 넣되 **사용자 승인 뒤에만** 쓴다.
 
 | 학습에 쓸 수 있는 VRAM | 모델 | `--max_state` | 비고 |
 |---|---|---|---|
-| 80 GB 이상 | Kev-9B | 6144 | 공식에 가깝다. 동시 서빙 가능 |
-| 40~48 GB | Kev-9B | F1 에서 2048 → 4096 → 6144 순으로 올려 들어가는 값 | 서빙은 내린다. OOM 이면 다음 행 |
-| 24 GB | Kev-4B(`--init_from jaredpalmer/kev-4b@v1.0 --base Qwen/Qwen3.5-4B-Base --base_revision 1001bb4d…`) | 4096 | E4 는 "Kev-4B+LoRA 대 Kev-4B v1.0" 으로 바꿔 적는다. 데모 모델(9B v1.0)과 다르다는 것을 리포트에 명시 |
+| 80 GB 이상 | — | — | 해당 없음(그런 GPU 가 없다. H100·H200 도 없다) |
+| **40~48 GB(A40 1장, 현재)** | **Kev-9B** | F1 에서 1024 → 2048 → 4096 → 6144 순으로 올려 들어가는 값 | 추론 런타임이 GPU 1 에 있으면 내린다(§2.4). F1 이 전부 OOM 이면 22 §4.2 ①~⑤ 를 먼저 하고, 그래도 안 되면 아래 행을 **사용자 승인** 대상으로 보고 |
+| 24 GB(해당 없음) 또는 9B F1 전부 실패 | Kev-4B(`--init_from jaredpalmer/kev-4b@v1.0 --base Qwen/Qwen3.5-4B-Base --base_revision 1001bb4d…`) | 4096 | **사용자 승인 뒤에만**. E4 는 "Kev-4B+LoRA 대 Kev-4B v1.0" 으로 바꿔 적고, 데모 모델(9B v1.0)과 다르며 9B 실험과 아키텍처·성능 비교 조건이 다르다는 것을 리포트에 명시 |
 | 그 아래 | 실행하지 않음 | — | "회사 측 미실행(VRAM 부족)" 으로 기록 |
 
 ### 3.4 받는 명령 (회사, 금요일)
 
-22 §2.2 그대로다. 외부망이 있으면 1안, 없으면 2안(우리가 10-23 목요일에 다른 기계에서 같은 명령으로 받아 `$HF_HOME/hub`·`/opt/kev`·wheel 묶음을 넘기고, 서버에서는 `HF_HUB_OFFLINE=1`).
+22 §2.2 그대로다. 외부망이 있으면 1안, 없으면 2안(우리가 10-23 목요일에 다른 기계에서 같은 명령으로 받아 `$HF_HOME/hub`·`$SOL_WORK/kev`·wheel 묶음을 넘기고, 서버에서는 `HF_HUB_OFFLINE=1`).
 
 ```bash
-export HF_HOME=/data/hf                                   # 여유 100 GB 이상
-git clone https://github.com/jaredpalmer/kev.git /opt/kev && git -C /opt/kev checkout 1f04cfa28e6a708485b28a9585010b9e436b776e
-hf download jaredpalmer/kev-9b --revision v1.0
+export SOL_WORK=/data/www/ai_workspace/sol-radar          # 전용 경로(2026-10-20 확인). /data 가용 약 1,011 GB
+export HF_HOME=$SOL_WORK/hf                                # 100 GB 이상 비워 둔다
+git clone https://github.com/jaredpalmer/kev.git "$SOL_WORK/kev" && git -C "$SOL_WORK/kev" checkout 1f04cfa28e6a708485b28a9585010b9e436b776e
+hf download jaredpalmer/kev-9b --revision 3afdec81efc91da83dee06d30714adf54ee35531   # 태그 v1.0 이 가리키는 커밋. 태그 대신 커밋으로 받는다(22 §2.2)
 hf download Qwen/Qwen3.5-9B-Base --revision 68c46c4b3498877f3ef123c856ecfde50c39f404
 hf download jaredpalmer/kev-suites --repo-type dataset --revision cc4bac803e73112689ec327ffa481c519cbc7a05 --include "v7/decision-v7/*"
-# VRAM 이 24 GB 급이면(§3.3) 함께
+# Kev-4B 는 사용자 승인 뒤에만 쓴다(§3.3). 미리 받아 두는 것은 무방하다
 hf download jaredpalmer/kev-4b --revision v1.0
 hf download Qwen/Qwen3.5-4B-Base --revision 1001bb4d826a52d1f399e183466143f4da7b741b
 ```
 
-받은 뒤 `adapter_model.safetensors`·`head.pt` 의 sha256 을 22 §2.2 기대값과 대조한다. 다르면 학습을 시작하지 않는다.
+받은 뒤 `adapter_model.safetensors`·`head.pt` 의 sha256 을 22 §2.2 기대값(전체 값 기록됨)과 대조한다. `infra/gpu/kev-preflight.sh` 가 고정 snapshot 디렉터리(`snapshots/3afdec81…`)에서 같은 대조를 하고 없거나 다르면 FAIL, `kev-f1.sh` 는 실행 직전에 다시 대조한 뒤 그 로컬 디렉터리를 `--init_from` 에 준다(태그는 실행 중에 해석하지 않는다). 다르면 학습을 시작하지 않는다.
 
 ## 4. 데이터: 오픈 데이터에서 가져온다
 
@@ -304,7 +315,7 @@ hf download Qwen/Qwen3.5-4B-Base --revision 1001bb4d826a52d1f399e183466143f4da7b
 | `--init_from` | `jaredpalmer/kev-9b@v1.0` | 공개 LoRA·head 에서 이어 학습. 백본부터 새로 시작하면 성능이 크게 떨어진다(Kev README) |
 | `--base --base_revision` | `Qwen/Qwen3.5-9B-Base` `68c46c4b…` | `kev.train` 의 `--base` 기본값은 `Qwen/Qwen3-0.6B-Base` 라 **반드시 준다**. `COMPAT_FIELDS` 가 다르면 거부 |
 | `--lora 16 --head_dim 256 --lora_targets all --option_isolation 0 --special_embeddings 0` | 고정 | 체크포인트 호환 |
-| `--suite --replay` | `/opt/kev/evals/v7/decision-v7` `2000` | 공식 이어 학습 레시피. train 이 3,000 을 넘으면 500 으로 줄여도 된다 |
+| `--suite --replay` | `$SOL_WORK/kev/evals/v7/decision-v7` `2000` | 공식 이어 학습 레시피. train 이 3,000 을 넘으면 500 으로 줄여도 된다. manifest 에 9B base pin 이 없어 `--base_revision` 도 같이 준다(22 §4.3) |
 | `--epochs --lr` | `1` `2e-5` | Kev-9B 자신의 lr. 상한 5e-5. 망각이 보이면 반으로 |
 | `--dtype --weights_dtype --checkpointing` | `bf16 bf16 1` | 메모리 |
 | `--batch --accum` | `1 8` | 유효 배치 8(공식 2×4 와 같다) |
@@ -316,15 +327,16 @@ hf download Qwen/Qwen3.5-4B-Base --revision 1001bb4d826a52d1f399e183466143f4da7b
 
 ### 5.2 F1 격자 (토요일 오전, 3칸)
 
-주말 시간이 짧아 22 §4.2 의 5단 격자를 3칸으로 줄인다. 칸마다 `--max_steps 20`, 최대 GPU 메모리(`nvidia-smi --query-gpu=memory.used --format=csv -l 1`)·step 시간·OOM·`dropped` 수를 표로 남긴다.
+22 §4.2 의 F1-A → B → C → D 를 그대로 따른다. F1-A(`infra/gpu/kev-preflight.sh`)는 금요일까지 끝내 둔다. 토요일 오전은 F1-B·C 다. 칸마다 `infra/gpu/kev-f1.sh` 가 20 step 을 돌리고 최대 GPU 메모리 두 값(torch `peak_device_bytes`·`nvidia-smi -i 1` 최대)·step 시간·OOM·`dropped` 수·checkpoint 저장을 `runs/f1-results.md` 에 적는다. 앞 칸이 PASS 일 때만 다음 칸이고, OOM 이면 더 큰 값을 시도하지 않는다. GPU 를 전부 쓰도록 계획하지 않는다(nvidia-smi 최대 ≤ 41,000 MiB).
 
 | 순서 | 값 | 통과 기준 |
 |---|---|---|
-| 1 | `--max_state 2048`(갈래 ① 값) | OOM 없음, `dropped 0 of M` |
-| 2 | `--max_state 6144`(갈래 ② 값. 갈래 ① 번들이면 건너뛴다) | 같음 |
-| 3 | `--batch 2 --accum 4` | 들어가면 F2 에 쓴다(속도). 안 들어가면 1×8 |
+| 1 | `--max_state 1024`(기본 후보: bf16·batch 1·accum 8·checkpointing 1) | OOM 없음, `dropped 0 of M`, nvidia-smi 최대 ≤ 41,000 MiB, checkpoint 저장 |
+| 2 | `--max_state 2048`(갈래 ① 값) | 같다 |
+| 3 | `--max_state 4096` → `6144`(갈래 ② 값. 갈래 ① 번들이면 F1-A 길이 표를 보고 건너뛴다) | 같다 |
+| 4 | 통과한 최대값에서 `--batch 2 --accum 4 --tag b2` | 들어가면 F2 에 쓴다(속도). 안 들어가면 1×8 |
 
-F1 의 20 step 체크포인트로 F3 보정 경로(`calibrate_checkpoint.py --allow-in-distribution`)가 우리 dev 행을 받는지도 같이 돌려 본다(22 §4.4). 격자 1번이 OOM 이면 §3.3 의 Kev-4B 로 바꾼다.
+F1 의 20 step 체크포인트로 F3 보정 경로(`calibrate_checkpoint.py --allow-in-distribution`)가 우리 dev 행을 받는지와 `kev.benchmark` 채점 dtype 이 GPU 1 에 들어가는지(22 §4.4)도 같이 돌려 본다. 격자 1번부터 OOM 이면 22 §4.2 의 ①~⑤(state 축약·`--max_state` 축소·batch/`--row_budget`·공식 메모리 옵션·`--shared_prefix`)를 먼저 검토하고, Kev-4B 전환은 §3.3 대로 사용자 승인 뒤에만 한다.
 
 ### 5.3 F2 받아들이는 기준
 
@@ -341,21 +353,22 @@ F1 의 20 step 체크포인트로 F3 보정 경로(`calibrate_checkpoint.py --al
 2. 회사 쪽 채점 4종: `kev.benchmark` test(E4·E1), `kev.compare`(짝 부트스트랩), regression(`decision-v7` development, E4·E1).
 3. 우리 쪽 `sol_eval --system E4 --from-benchmark runs/e4-test --reference runs/e1-test`(오프라인, §2.2 A안) → 21 §4.3 지표(Macro-F1·정보부족→미충족 혼동률·Brier·ECE, 순서 민감도는 `--rotations`)와 E1 대비 Δ·95% CI. 지연은 재지 않는다(§2.2). E1 도 같은 날 서버에서 같은 test 로 채점한 출력을 쓴다. 엔드포인트는 쓰지 않는다.
 4. 받아들이는 기준(공식 kev-finetune): 망각 정확도 하락 약 2%p 이내, 보정 뒤 확신 오류율(p≥0.9 오답)이 기준선 이하, 보정본이 raw 보다 나음. 어기면 결과는 보고하되 "서빙 후보 아님" 으로 적는다.
-5. "E4 가 E1 보다 낫다" 는 Δ 의 95% CI 가 0 을 포함하지 않을 때만 쓴다. 포함하면 "차이 없음". test 20(또는 축소판 25)은 표본이 작아 CI 가 넓다는 문장을 표 아래에 둔다(`experiment-tables.md` (c)).
-6. 리포트 첫 줄에 적을 것: 데이터셋 버전·commit·갈래·질문 세트·템플릿·모델 리비전(`v1.0` = `3afdec81…`)·회사 GPU(회사가 준 값)·학습 시간·`--max_state`.
+5. "E4 가 E1 보다 낫다" 는 Δ 의 95% CI 가 0 을 포함하지 않을 때만 쓴다. 포함하면 "차이 없음". CI 는 사업 클러스터 단위 paired bootstrap 을 우선 낸다(같은 사업에서 파생된 회사 변형·질문은 독립 표본이 아니다, 21 §4.3). 클러스터가 적으면 개선을 확정하지 않고 탐색적 결과로 적는다. test 20(또는 축소판 25)은 표본이 작아 CI 가 넓다는 문장을 표 아래에 둔다(`experiment-tables.md` (c)).
+6. 리포트 첫 줄에 적을 것: 데이터셋 버전·commit·갈래·질문 세트·템플릿·모델 리비전(`v1.0` = `3afdec81…`)·회사 GPU(NVIDIA A40 46,068 MiB, 물리 index 1, 드라이버 580.173.02, torch 2.8.0+cu128)·학습 시간(실측)·`--max_state`·채점 dtype.
 
 ## 7. 위험과 대체 경로
 
 | 위험 | 판단 시점 | 대체 |
 |---|---|---|
-| 회사 GPU 서버에 외부망이 없다 | 10-22 P4 | §3.4 2안. 우리가 10-23 목요일에 외부망 기계에서 받아 넘긴다(HF 캐시 약 40 GB + `/opt/kev` + wheel 묶음). 서버는 `HF_HUB_OFFLINE=1` |
-| VRAM 이 9B 학습에 부족 | F1 1번 OOM | Kev-4B(§3.3). E4 이름을 "4B" 로 바꿔 적는다 |
+| 회사 GPU 서버에 외부망이 없다 | 10-22 P4 | §3.4 2안. 우리가 10-23 목요일에 외부망 기계에서 받아 넘긴다(HF 캐시 약 40 GB + `$SOL_WORK/kev` + wheel 묶음). 서버는 `HF_HUB_OFFLINE=1` |
+| VRAM 이 9B 학습에 부족(A40 가용 44 GiB) | F1 1번 OOM | 22 §4.2 ①~⑤(state 축약·`--max_state` 축소·batch/`--row_budget`·공식 옵션·`--shared_prefix`) → 사용자 보고. 승인하면 Kev-4B(§3.3)로 바꾸고 E4 이름을 "4B" 로 적는다. 다중 GPU·클라우드 GPU 는 자동으로 가지 않는다 |
+| 다른 회사 작업이 GPU 1 을 쓴다 | `kev-preflight.sh`·`kev-f1.sh` 가 다른 프로세스를 발견 | 종료하지 않고 멈춘다. 회사에 시간대를 확인하고 다시 돈다(16 미결정 22) |
 | 10-22 까지 엔드포인트(C1 ③)·파서가 없다 | 10-22 저녁 | **갈래 ①** 로 번들 확정. 갈래 ② 는 하지 않는다 |
 | 10-22 까지 test 20 사람 라벨이 없다 | 10-22 | 축소판 test(fixture 20 + 실공고 5)로 E4. 리포트에 명시 |
-| 토요일 18:00 까지 F2 미시작 | 10-24 18:00 | Kev-4B 로 축소 시도. 그것도 안 되면 "회사 측 미실행" 문장(`limitations.md` §4) |
+| 토요일 18:00 까지 F2 미시작 | 10-24 18:00 | 사용자 보고. 승인하면 Kev-4B 로 축소 시도, 아니면 "회사 측 미실행" 문장(`limitations.md` §4) |
 | 회사가 `report.json` 만 보내고 `rows.json`·`predictions.jsonl` 을 못 보낸다 | 10-25 | E4 Δ·CI 는 `kev.compare` 결과로 적고, `sol_eval` 지표(정보부족→미충족 혼동률·사유별)는 "미측정" 으로 남긴다. 라우터 B안은 그래도 쓰지 않는다 |
 | 돌려받은 출력을 우리가 다시 재현해야 한다(출력 누락·의심) | 10-25 | 체크포인트가 Kev-4B 일 때만 노트북(Apple M3 Pro, 18 GB)에서 `kev.benchmark --device mps`(옵션 존재 미확인)를 시도한다. 카드는 32 GB Mac 을 권하고 MLX 최대 13 GB 이므로 **짧은 state(갈래 ①)에서만** 기대할 수 있다. 9B 는 노트북에서 시도하지 않는다 |
-| 학습과 데모 리허설이 같은 GPU 를 쓴다 | 10-24 | §2.4. 리허설의 `live`·`fixture` 확인은 토요일 오전·일요일 저녁 |
+| 추론 런타임이 GPU 1 에 떠 학습과 겹친다 | 10-24 | §2.4. 회사가 학습 전에 내리고, 리허설의 `live`·`fixture` 확인은 토요일 오전·일요일 저녁. GPU 0·2 에 있으면 겹치지 않는다 |
 | 결과가 E1 보다 나쁘다 | 10-25 | 그대로 보고한다. 데모 모델은 어차피 v1.0 이다. 오류 분석(21 §4.4 원인 코드)을 한 줄 붙인다 |
 
 ## 8. 회사에 보낼 것·물을 것 (10-22 수요일까지)
@@ -369,8 +382,8 @@ F1 의 20 step 체크포인트로 F3 보정 경로(`calibrate_checkpoint.py --al
 
 물을 것(P4·P5, 16 미결정 22):
 
-1. GPU 모델·장수·VRAM. 토·일 학습에 쓸 수 있는 시간대.
-2. 학습 중 vLLM·`kev.serve` v1.0 을 내려도 되는지, 아니면 다른 GPU 에서 돌릴 수 있는지.
+1. GPU 모델·장수·VRAM 은 2026-10-20 확인했다(A40 ×3, 학습은 물리 GPU 1). 토·일에 GPU 1 을 SOL RADAR 가 독점해도 되는지(다른 회사 작업이 GPU 1 을 쓸 가능성)와 학습 시간대.
+2. 데모 추론 런타임(vLLM·`kev.serve` v1.0)을 어느 GPU 에 띄울지. GPU 1 이면 학습 중 내려도 되는지. GPU 0·2 는 회사 결정이다.
 3. huggingface.co·github.com·pypi.org 로 나갈 수 있는지(없으면 반입 2안).
 4. 일요일에 서버 안에서 채점 4회를 돌리고 출력 폴더(`report.json`·`rows.json`·`predictions.jsonl`)를 보내 줄 수 있는지(P5). 등록된 location 은 `/sol-radar/` 하나뿐이라 그 밖의 nginx 변경은 묻지 않는다.
 5. 돌려줄 것(22 §4.5): 체크포인트 폴더·로그·리포트 4종·`MODEL_CARD.md`·sha256. 데이터셋 원문은 돌려받지 않고, 회사는 학습 뒤 번들을 지운다.
@@ -395,14 +408,17 @@ F1 의 20 step 체크포인트로 F3 보정 경로(`calibrate_checkpoint.py --al
 
 | 항목 | 상태 | 확인 방법·시점 |
 |---|---|---|
-| 회사 GPU 모델·VRAM·장수·외부망·학습 시간대 | 미확인 | P4(10-22) |
+| 회사 GPU 모델·VRAM·장수 | **확인(2026-10-20)**: A40 46,068 MiB ×3, 학습은 물리 GPU 1 | [F1 기록](evidence/kev-train-feasibility.md) §0 |
+| 외부망·학습 시간대·GPU 1 독점 가능 여부·추론 런타임 위치·라우터 포트 실행 상태 | 미확인 | P4(10-22), C1 ③ |
+| Kev 소스 설치·의존성 호환·모델 다운로드·Kev 로딩·F1 20 step·최대 메모리·학습 시간 | 미실행 | 22 §3.2 → `kev-preflight.sh` → `kev-f1.sh`(10-21~24) |
 | 엔드포인트 응답·인증(P2·P3) | 미확인(2026-10-19) | C1 ③ G1~G6 |
 | Kev-9B bf16 백본 LoRA 학습 실제 메모리와 `--max_state 6144` 수용 | 추정 | F1(§5.2) |
 | 60일 목록의 실제 건수와 정보화사업 비율 | 7일 표본 추정(3,555건, 약 6%) | 10-20 수집 |
 | 면허제한 여러 행의 AND/OR | 미확인(미결정 19) | 주말 학습에서는 `NEEDS_REVIEW` 로 라벨 |
 | `kev-suites` 출처 데이터셋별 라이선스 | manifest 에 없음 | 내부 학습 전용으로 취급. 공개 전 출처별 확인 |
 | 첨부 원문의 학습 사용 권리 | 미확인(미결정 18) | 법무. 주말에는 갈래 ② 라도 원문 전체를 번들에 넣지 않는다 |
-| Ampere GPU 에서 `flash-linear-attention 0.5.2` + triton 조합 | 미확인 | F1 20 step |
+| Ampere(A40, CC 8.6)에서 `flash-linear-attention 0.5.2` + triton 3.4.0 | fla 소스상 거부 조건은 Hopper 전용(22 §3.2). A40 실행은 미실행 | `kev-preflight.sh` 커널 smoke → F1 20 step |
+| `kev.benchmark` fp32 채점이 GPU 1(44 GiB)에 들어가는지 | 미검증 | F1 때 dev 채점. 안 되면 E1·E4 둘 다 `KEV_DTYPE=bf16`(22 §4.4) |
 | `calibrate_checkpoint.py --allow-in-distribution` 이 우리 dev 행을 받는지 | 미확인 | F1 때 20 step 체크포인트로 |
 | `kev.benchmark` 출력(`rows.json`·`predictions.jsonl`) 스키마가 `sol_eval` 입력으로 충분한지, `--rotations` 가 `permute n_perm=6` 과 같은 뜻인지 | 미확인 | 토요일 F1 20 step 체크포인트의 dev 채점 출력으로 확인. 부족하면 B안 |
 | Kev-4B 학습본을 18 GB Mac 에서 `kev.benchmark`(`--device mps`)로 돌릴 수 있는지 | 미확인(카드는 32 GB 권장, 옵션 존재 미확인) | §7 마지막 대체 경로를 쓸 때만 |

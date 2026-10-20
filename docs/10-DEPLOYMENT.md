@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 10. Docker Compose 배포·실행 프로필
@@ -134,7 +134,7 @@ flowchart LR
 - **운영 책임**: 모델 런타임 기동, GPU 메모리 배분, 가중치 sha256 대조, `nvidia-smi` 실측은 회사 측이 한다. 우리는 하지 않는다. 우리가 하는 검증은 gateway 기동 시 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`와 vLLM `GET /v1/models`의 모델 이름을 레지스트리(`services/ai/models/registry.yaml`)와 대조하는 것([[03-AI-PIPELINE|03 AI 파이프라인]] §11)과 지연 실측(03 §5.9 G3)이다.
 - **참고 구성**: `infra/compose.gpu.yaml`·`infra/gpu/`, 아래 vLLM·`kev.serve` 기동 명령은 회사 GPU 서버용 참고 구성으로 남긴다. 우리가 기동하지 않는다. 검증(2026-10-19): `docker run --rm -v "$PWD/infra/gpu/model-router.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t` 통과, `docker compose -f infra/compose.gpu.yaml config --quiet` 통과. 실제 GPU 서버 기동은 미실행.
 - **보안**: 엔드포인트는 공개 인터넷에 있으므로 TLS 필수(인증서 검증을 끄지 않는다), API 키 필수, 키는 `infra/.env`에만 둔다. 엔드포인트 URL은 비밀이 아니라 문서에 적지만 키 값은 적지 않는다. 회사 GPU로 가는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다([[09-SECURITY|09 보안]]).
-- **평가**: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(Kev 직접) 또는 평가용 gateway에 붙여 돌린다. LoRA 메모리 검증(`probe-train`)·학습(F2)·온도 보정은 GPU 서버 셸이 필요하므로 회사가 실행한다. 해커톤에는 X6로 요청하고 결과는 E4 비교로만 쓴다(데모 모델은 v1.0, [[16-DECISIONS|ADR-027]], [[21-MODEL-TRAINING|21 모델 학습]]).
+- **평가**: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(Kev 직접) 또는 평가용 gateway에 붙여 돌린다(E0~E3). E4는 엔드포인트에 붙지 않고 회사가 서버 안에서 돌린 `kev.benchmark` 출력을 오프라인으로 읽는다(ADR-027 10번). LoRA 메모리 검증(F1)·학습(F2)·온도 보정(F3)·채점은 GPU 서버 셸이 필요하므로 회사가 **물리 GPU 1에서만** 실행한다(아래 "학습 전용 GPU"). 해커톤에는 X6로 요청하고 결과는 E4 비교로만 쓴다(데모 모델은 v1.0, [[16-DECISIONS|ADR-027]], [[21-MODEL-TRAINING|21 모델 학습]]).
 - 클라우드 GPU 임대는 비용이 들어 hosted와 같은 사용자 승인 대상이다(ADR-010). 승인 전에는 임대하지 않는다.
 
 회사 GPU 서버의 모델 런타임 기동 명령(회사 측이 실행하는 참고 구성. 키 값은 셸 변수로만):
@@ -165,6 +165,24 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/mode
 ### GPU 메모리 배분
 
 회사 측 결정이다([[16-DECISIONS|ADR-025]], 16 미결정 3번 이관). 모델 동시 적재·GPU 장수·양자화 여부는 회사가 정하고, 우리 쪽에 남은 결정은 없다. 회사가 알려 주는 GPU 모델·VRAM·점유 값이 있으면 `docs/evidence/phase-0/external-deps.md`(C1 ③ G5)에 적고, 없으면 "회사 운영, 측정 불가"로 남긴다. 회사가 Qwen을 FP8/AWQ 양자화로 올렸다고 알려 주면 추출 품질에 영향이 있을 수 있어 평가 리포트에 적는다. Kev-9B 추론 메모리는 문서마다 수치가 다르다([[03-AI-PIPELINE|03 AI 파이프라인]] §5.2). 우리는 실측하지 않는다.
+
+2026-10-20 G5 값(사용자가 서버 셸에서 확인): NVIDIA A40 46,068 MiB ×3. GPU 0(4,747 MiB)·2(9,240 MiB)는 회사 기존 서비스 사용 중, GPU 1(5 MiB)은 SOL RADAR 학습 전용. 추론 런타임(vLLM·`kev.serve`)을 어느 GPU에 띄울지와 그 점유는 미확인이다(2026-10-20 사용량으로는 아직 떠 있지 않다).
+
+### 학습 전용 GPU (X6 파인튜닝, 2026-10-20 확인)
+
+위 추론 엔드포인트(nginx 모델 라우터 → vLLM·`kev.serve`)와 **별개**다. Kev-9B LoRA 학습(F1·F2·F3)과 E4 채점은 같은 서버의 **물리 GPU 1 한 장**에서 회사 측이 돌린다([[16-DECISIONS|ADR-027]] 상세 부록). 실행 절차와 스크립트의 정본은 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §3·§4, 인수 문서는 `infra/gpu/README.md` "학습 전용 GPU"다.
+
+| 물리 GPU(nvidia-smi index) | 모델 | VRAM | 2026-10-20 사용량 | 정책 |
+|---|---|---:|---:|---|
+| 0 | NVIDIA A40 | 46,068 MiB | 4,747 MiB | 회사 기존 서비스. 프로세스 종료·모델 이동·설정 변경 금지 |
+| 1 | NVIDIA A40 (CC 8.6) | 46,068 MiB | 5 MiB | **SOL RADAR 학습·채점 전용** |
+| 2 | NVIDIA A40 | 46,068 MiB | 9,240 MiB | 회사 기존 서비스. 위와 같다 |
+
+- 서버 `sol-NF5280M6`, 계정 `bim`, 작업 경로 `/data/www/ai_workspace/sol-radar`, venv `.venv-kev`(Python 3.12.3, torch 2.8.0+cu128, triton 3.4.0). 드라이버 580.173.02(CUDA 13.0), CUDA Toolkit 12.8, `/data` 가용 약 1,011 GB.
+- **GPU 선택**: 매 셸 세션마다 `export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1`. 프로세스 안에서는 GPU 1이 `cuda:0`으로 보인다(정상). SSH 재접속·새 세션·`nohup`·`tmux`에서는 다시 적어야 하며, `infra/gpu/kev-preflight.sh`·`infra/gpu/kev-f1.sh`가 값을 확인하고 없으면 멈춘다. `PCI_BUS_ID`를 두는 이유는 nvidia-smi 번호와 CUDA 번호를 같게 하기 위해서이고, 스크립트가 GPU uuid로 둘이 같은 장치인지 대조한다.
+- **격리**: `CUDA_VISIBLE_DEVICES`는 이 프로세스가 보는 GPU만 줄일 뿐 다른 사람의 GPU 1 사용을 막지 못한다. 실행 전후 `nvidia-smi -i 1`로 점유 프로세스·메모리를 확인하고(스크립트가 `*.pre.txt`·`*.post.txt`로 남긴다), 다른 프로세스가 있으면 **종료하지 않고** 멈춘 뒤 회사에 확인한다. GPU 0·2의 프로세스에 `kill`·`pkill`·`docker compose down`을 쓰지 않는다. 두 스크립트가 끝낼 때 멈추는 것은 자기가 띄운 `nvidia-smi -l 1` 기록 프로세스뿐이다. 3장의 VRAM을 합산하지 않고 다중 GPU 학습을 하지 않는다.
+- **추론 런타임과의 관계**: GPU 1 한 장에는 vLLM(약 19.3 GB+)·`kev.serve`(약 21.9 GB)와 학습을 같이 둘 수 없다. 추론 런타임이 GPU 1에 뜨면 학습 시간에는 회사가 내리고 끝나면 복구한다([[23-WEEKEND-FINETUNE|23]] §2.4). GPU 0·2에 올릴 수 있는지는 회사 결정이다. 모델 라우터·vLLM·`kev.serve` 포트(8080·8001·8009)의 실제 실행 여부는 여전히 미검증이다(C1 ③ G1·G2).
+- 2026-10-20 기준 **확인된 것**: venv·torch·CUDA·bf16·GPU 1 전용 변수. **미실행**: Kev 설치·커널·모델 다운로드·F1·F2·F3·E4. PyTorch가 CUDA를 잡은 것과 Kev 파인튜닝이 되는 것은 다르다. 기록은 `docs/evidence/kev-train-feasibility.md`.
 
 ### 데모 날 위험
 
@@ -256,7 +274,7 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/mode
 > [!warning] 미검증 가정
 > - [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §2.2는 Kev 소스를 main `1f04cfa`로 고정한다. 그 소스(또는 태그 `kev-1.0`)가 `kev-9b@v1.0` 가중치와 맞는지는 확인하지 않았다.
 > - 첫 기동 때 가중치 다운로드 시간은 재지 않았다. 기동은 회사 측이 하므로 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"로 남긴다(ADR-025).
-> - Kev-9B VRAM은 문서마다 다르다([[03-AI-PIPELINE|03]] §5.2). `nvidia-smi` 실측은 회사 측 몫이다. 회사가 주는 값이 있으면 기록한다(C1 ③ G5, ADR-025).
+> - Kev-9B VRAM은 문서마다 다르다([[03-AI-PIPELINE|03]] §5.2). `nvidia-smi` 실측은 회사 측 몫이다. 회사가 주는 값이 있으면 기록한다(C1 ③ G5, ADR-025). GPU 자체는 2026-10-20 확인했다(A40 46,068 MiB ×3, 위 "학습 전용 GPU"). 추론 런타임이 어느 GPU에 뜰지와 그 점유는 미확인이다.
 
 ## 운영
 - Compose 서비스: healthcheck, restart policy, log rotation, 비root 실행(MinIO UID 65532, qdrant `-unprivileged` 태그), 포트는 외부 인터페이스에 열지 않는다, 볼륨(redisdata·qdrantdata·miniodata) 백업 및 복구 리허설. 서비스 시작 시 Supabase·Redis readiness 확인, 무한 재시작 대신 명확한 오류 출력.

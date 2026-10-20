@@ -7,7 +7,7 @@ tags:
   - ai
   - evaluation
   - hackathon
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 21. 모델 학습: 데이터셋·평가·파인튜닝
@@ -22,7 +22,7 @@ updated: 2026-10-19
 | 단계 | 내용 | 해커톤 |
 |---|---|---|
 | F0 | Kev-9B 베이스라인 추론, 한국어/영어 입력 비교, 평가셋 구축, 평가·비교 하네스, 학습셋 내보내기, LoRA 메모리 검증 스크립트 | **완료 조건** |
-| F1 | 회사 GPU 에서 LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행, [[16-DECISIONS\|ADR-025]]) | X6c(회사 측 실행, [[16-DECISIONS\|ADR-027]]). 결과를 받으면 기록 |
+| F1 | 회사 GPU 에서 LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행, [[16-DECISIONS\|ADR-025]]). 물리 GPU 1(NVIDIA A40 46,068 MiB) 한 장만 쓴다. 서버 환경(venv·torch 2.8.0+cu128·CUDA·bf16)은 2026-10-20 확인, Kev 설치·실행은 미완([[22-FINETUNE-RUNBOOK\|22]] §3.1) | X6c(회사 측 실행, [[16-DECISIONS\|ADR-027]]). 학습 가능 여부는 F1 결과로만 확정. 결과를 받으면 기록 |
 | F2 | Kev-9B LoRA 학습(`en`) | X6d(회사 측 실행, ADR-027). 비교 실험이라 §4.4 착수 조건을 기다리지 않는다 |
 | F3 | 온도 보정·평가·반입·운영 모델 교체 | 보정·E4 평가는 X6e. 반입·운영 모델 교체는 후속이고 §4.4 판단과 ADR 을 거친다 |
 | — | Qwen 파인튜닝 | 조건부(§5.6). 해커톤에는 하지 않는다. 방법은 [[22-FINETUNE-RUNBOOK\|22]] §5 |
@@ -143,7 +143,7 @@ interface EvalItem {
 
 - 위치: `services/ai/eval/`(Python, `uv run python -m sol_eval …`). 노트북에서 회사 GPU 추론 엔드포인트(Kev 는 `KEV_BASE_URL` 직접, 또는 평가용 gateway URL)에 붙여 돌린다([[16-DECISIONS|ADR-025]]). E4 는 엔드포인트에 붙지 않는다. 회사가 서버 안에서 `kev.benchmark`(`--rotations 6`)로 채점한 출력 폴더(`rows.json`·`predictions.jsonl`·`report.json`)를 받아 `sol_eval` 이 오프라인으로 지표를 내고, 실행 전에 `report.json` 의 체크포인트 id·test 파일 sha256 을 번들 manifest 와 대조한다([[16-DECISIONS|ADR-027]] 10번 개정, [[23-WEEKEND-FINETUNE|23]] §2.2). 요청당 지연은 E4 에서 재지 않는다.
 - 결과: `report.json`·`report.md`. 숫자 요약만 `docs/evidence/eval/` 에 둔다. 실제 RFP 원문은 증거 폴더에 넣지 않는다.
-- Kev 지표는 `kev.benchmark --data` 를 감싸서 낸다(acc·nll·brier·ece·selective 등, 보정 전후). 체크포인트 비교는 `kev.compare --candidate --reference`(같은 데이터 해시끼리 짝지은 부트스트랩)로 한다.
+- Kev 지표는 `kev.benchmark --data` 를 감싸서 낸다(acc·nll·brier·ece·selective 등, 보정 전후). 체크포인트 비교는 `kev.compare --candidate --reference --out`(같은 데이터 해시끼리 짝지은 부트스트랩. `--out` 은 필수 인자)로 한다.
 
 > [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev main `1f04cfa`)
 > `kev/benchmark.py`(옵션 `--run|--remote`, `--suite|--data`, `--out`, `--split`, `--rotations`, `--date_facts`, 출력 `predictions.jsonl`·`rows.json`·`report.json`), `kev/metrics.py`(acc, nll, brier, ece, confident_error_rate, coverage_at_5pct_error, aurc, selective, score_mae, RPS), `kev/compare.py`(데이터 해시 일치 필요, nll·acc·brier 짝지은 부트스트랩)가 저장소에 있다.
@@ -156,7 +156,7 @@ interface EvalItem {
 | E1 | Kev-9B@v1.0, `en` state | 필수 |
 | E2 | Kev-9B@v1.0, `ko` state(`KEV_ALLOW_KO_STATE=true`, 평가 전용) | 필수 |
 | E3 | Qwen3.5-9B 프롬프트 분류(같은 질문, 선택지 토큰 logprob 으로 분포) | **필수**([[16-DECISIONS\|ADR-023]], 2026-10-19). "Kev 가 꼭 필요한가"를 판단하는 대조군. 해커톤은 축소 규모(§3.5)로 E0·E1·E2·E3 를 같은 입력에서 비교한다. 설계·판정 규칙·3안(유지/축소/제외)은 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md) |
-| E4 | Kev-9B + LoRA(`en`) | X6e(ADR-027). E1 과 같은 test 분할·데이터셋 버전에서 짝 부트스트랩 95% CI 로 비교. `ko` 는 후속 |
+| E4 | Kev-9B + LoRA(`en`) | X6e(ADR-027). E1 과 같은 test 분할·데이터셋 버전·state 템플릿·질문 세트·평가 코드·`--rotations`·지표에서 짝 부트스트랩 95% CI(사업 클러스터 단위 우선, §4.3)로 비교. 서버 안 오프라인 채점(§4.1), 물리 GPU 1 에서 E4·E1 순차. `ko` 는 후속 |
 
 ### 4.3 지표
 
@@ -181,6 +181,8 @@ interface EvalItem {
 | | 처리량·비용 | 시간당 공고 수. 1,000건당 비용 = GPU 시간 단가(입력값) × 시간 |
 
 모든 지표에 부트스트랩 95% 신뢰구간과 표본 수를 함께 적는다.
+
+**신뢰구간의 단위(2026-10-20 추가).** 같은 사업에서 파생된 가상 기업 변형과 질문은 독립 표본이 아니다(같은 공고·같은 추출을 공유한다). 그래서 E1·E4 비교의 CI 는 **사업 클러스터 단위 paired bootstrap**(클러스터를 복원 추출하고 그 안의 항목·질문을 통째로 넣는다)을 우선 내고, 레코드 단위 CI(`kev.compare` 가 내는 값)는 참고로 함께 적는다. 클러스터 수가 적으면(해커톤 test 20) 구간이 넓다. 그때는 개선 효과를 확정적으로 주장하지 않고 **탐색적 결과**로 보고한다. 표본 수는 레코드·질문·클러스터 세 가지를 모두 적는다.
 
 ### 4.4 초기 목표 지표와 파인튜닝 착수 판단
 
@@ -226,7 +228,7 @@ Kev 학습·평가·보정은 Kev 저장소 도구(`kev.train`·`kev.benchmark`�
 
 ### 5.2 보유 GPU 에서의 LoRA 메모리 검증 (F1)
 
-80 GB 를 전제하지 않는다. 회사 GPU 에서 `--max_steps 20` 짧은 실행을 격자로 돌려 최대 메모리, step 시간, OOM 여부, 길이 초과로 빠진 레코드 수를 `docs/evidence/kev-train-feasibility.md` 에 표로 남긴다. 격자와 OOM 일 때의 대안 순서(state 축약 → 새 LoRA → Kev-4B → 클라우드 GPU 임대(ADR-010 승인) → 포크)는 [[22-FINETUNE-RUNBOOK|22]] §4.2 다.
+회사 GPU 는 NVIDIA A40 46,068 MiB(PyTorch 가용 44.16 GiB) 3장 중 **물리 index 1 한 장**이다(2026-10-20 확인, [[22-FINETUNE-RUNBOOK|22]] §3.1). 80 GB·H100·H200 을 전제하지 않고, 3장의 VRAM 을 합치지 않는다. GPU 1 에서 `--max_steps 20` 짧은 실행을 F1-A(환경 사전 검증) → F1-B(bf16·batch 1·accum 8·checkpointing·`--max_state 1024`) → F1-C(`--max_state` 2048 → 4096 → 6144, 앞 칸 통과 때만) → F1-D(측정·합격 판정) 순으로 돌려 최대 메모리(torch 최대 할당·nvidia-smi 최대), step 시간, OOM 여부, 길이 초과로 빠진 레코드 수, checkpoint 저장 여부를 `docs/evidence/kev-train-feasibility.md` 에 표로 남긴다. 학습 가능 여부는 이 결과로만 확정한다. 20 step 통과만으로 F2 준비 완료라고 적지 않는다. 격자와 실패 시 검토 순서(state 축약 → `--max_state` 축소 → batch·`--row_budget` → 공식 메모리 옵션 → 같은 구조의 추가 최적화 → **사용자 승인 대상**인 Kev-4B·다중 GPU·클라우드 GPU 임대(ADR-010)·포크)는 [[22-FINETUNE-RUNBOOK|22]] §4.2 다.
 
 ### 5.3 학습 (F2)
 
@@ -265,8 +267,8 @@ Kev 학습·평가·보정은 Kev 저장소 도구(`kev.train`·`kev.benchmark`�
 - 데이터셋 v0.1(X6a): test 20·dev 10 사업, 원형 6개, manifest·라벨 검증 통과, 사업 단위 분할 누수 0건(클러스터 교차 검사).
 - 평가: E0·E1·E2·E3 리포트와 E1 오류 분석(§4.4)이 `docs/evidence/eval/` 에 있다. 핵심 컷(ADR-023)은 축소판(§3.5) 기준이고, E1 과 E3 의 차이는 점추정이 아니라 부트스트랩 95% 신뢰구간으로 판정한다. 효과가 확인되지 않으면 개선을 주장하지 않고 3안을 제안한다. 지표 표에서 채우지 못한 칸은 이유를 적는다.
 - 재현성: 같은 데이터셋 버전·commit 으로 다시 돌리면 Kev 지표가 같다. Kev 추론이 결정적이라는 가정이 틀리면 그 사실을 보고한다.
-- 내보내기(X6b): train 1,000 레코드 이상, 번들 sha256 기록, Kev JSONL 이 `kev.benchmark --data` 로 읽힌다(회사 측 실행에서 확인), 학습 요청서가 회사에 전달됐다.
-- 메모리 검증 스크립트와 절차가 있다. 실행 결과는 회사 측 실행 뒤 `docs/evidence/kev-train-feasibility.md` 에 남긴다.
+- 내보내기(X6b): train 1,000 레코드 이상, 번들 sha256 기록, Kev JSONL 이 `kev.benchmark --data` 로 읽힌다(회사 측 실행에서 확인), 학습 요청서가 회사에 전달됐다. manifest 와 E4 리포트에 train 레코드 수 외에 **고유 사업 클러스터 수, 가상 기업 변형 수, 질문 수, 라벨 출처별 비율(`CONSTRUCTED`/`HUMAN`/`RULE_SILVER`), 의미 판단 `HUMAN` 라벨 수, 요구사항 유형별(기술·실적·인력·자격) 분포**를 적는다. 규칙 엔진이 이미 푸는 항목(`RULE_SILVER`)을 Kev 가 배웠다는 것만으로 AI 성능 개선을 주장하지 않는다. 개선 주장은 `CONSTRUCTED`·`HUMAN` 라벨 test 에서의 Δ 로만 한다.
+- 메모리 검증 스크립트(`infra/gpu/kev-preflight.sh`·`infra/gpu/kev-f1.sh`)와 절차([[22-FINETUNE-RUNBOOK|22]] §4.2)가 있다. 실행 결과는 회사 측 실행 뒤 `docs/evidence/kev-train-feasibility.md` 에 남긴다(§0 서버 환경은 2026-10-20 기록됨, F1 은 미실행).
 - 파인튜닝(X6c~X6e): 회사 측 실행 결과를 받으면 `kev-train-feasibility.md`·체크포인트 메타데이터·E4 리포트(E1 대비 Δ·95% CI)를 남긴다. 받지 못하면 받지 못한 단계와 이유를 리포트에 적는다. 결과 수치의 통과 기준은 없고, 데모 모델 교체를 뜻하지 않는다.
 
 ## 8. 미확인
@@ -278,8 +280,9 @@ Kev 학습·평가·보정은 Kev 저장소 도구(`kev.train`·`kev.benchmark`�
 | bf16 backbone 의 LoRA 메모리 절감 효과 | 추정 | §5.2 |
 | 공개 레시피 suite 의 `--replay` 사용 가능 여부 | 확인(2026-10-19): 저장소 `evals/v7/decision-v7` + Hub dataset `jaredpalmer/kev-suites`([[22-FINETUNE-RUNBOOK\|22]] §2.1). 회사 GPU 서버의 외부망은 미확인 | F1 |
 | Kev 추론의 결정성(같은 입력 같은 분포) | 가정 | §7 재실행 비교 |
-| 회사 GPU 의 LoRA 학습 실행 가능 여부·시간대·추론과 동시 점유 | 미확인 | 회사에 요청(ADR-027, 16 미결정 22) |
-| 9B LoRA 학습 소요 시간(공식 H200 1장 2.6시간) | 회사 GPU 미측정 | X6d |
+| 회사 GPU 의 LoRA 학습 실행 가능 여부 | GPU 는 확인(A40 46,068 MiB, 물리 index 1 전용, venv·torch·CUDA·bf16, 2026-10-20). Kev 설치·커널·F1 은 미실행이라 실행 가능 여부는 **미확정** | F1([[22-FINETUNE-RUNBOOK\|22]] §4.2, `docs/evidence/kev-train-feasibility.md`) |
+| 학습 시간대·GPU 1 독점·추론 런타임 위치·외부망 | 미확인 | 회사에 요청(ADR-027, 16 미결정 22) |
+| 9B LoRA 학습 소요 시간(공식 H200 1장 2.6시간은 A40 값이 아니다) | A40 미측정. F1 step 시간으로 재추정하기 전까지 미확정 | X6c → X6d |
 | 첨부 원문의 학습 사용 권리 | 미확인 | 법무 |
 
 ## 관련 문서

@@ -9,13 +9,16 @@ UNKNOWN_KEV_FIELDS = (
     "base_revision",
     "init_from",
     "lora",
-    "weights_sha256",
-    "head_sha256",
     "temperature",
     "dataset",
     "questionSet",
     "stateTemplate",
 )
+
+# Hub jaredpalmer/kev-9b 태그 v1.0(커밋 3afdec81…)의 adapter_model.safetensors·head.pt.
+# 2026-10-20 파일을 받아 계산한 sha256sum 이 Hub tree API 의 LFS oid 와 같았다(docs/22 §2.2)
+KEV_V1_0_WEIGHTS_SHA256 = "2b2a70cf4ef4440b6c22899e1f72c2f8ea5c6f65b19aa344539b4b8971d1f13d"
+KEV_V1_0_HEAD_SHA256 = "8e1dab2c8e3664f6fee843e0257d57946c25e0210c61901ea77e71761f4244e1"
 
 
 def registry() -> dict:
@@ -50,6 +53,14 @@ def test_registry_kev_unknown_values_are_null(field):
     kev = entry(KEV_MODEL_ID)
     assert field in kev
     assert kev[field] is None
+
+
+def test_registry_kev_v1_0_sha256_are_verified_full_values():
+    kev = entry(KEV_MODEL_ID)
+    assert kev["weights_sha256"] == KEV_V1_0_WEIGHTS_SHA256
+    assert kev["head_sha256"] == KEV_V1_0_HEAD_SHA256
+    for value in (kev["weights_sha256"], kev["head_sha256"]):
+        assert len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
 
 
 def test_registry_kev_reports_are_empty():
