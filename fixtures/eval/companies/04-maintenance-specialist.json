@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "company-profile/v0.1",
+  "orgSlug": "eval-04",
+  "revision": 1,
+  "name": "가상 유지보수 전문(원형 4)",
+  "isDemo": true,
+  "technologies": [
+    { "name": "Java", "level": "INTERMEDIATE" },
+    { "name": "전자정부 표준프레임워크", "level": "EXPERT" },
+    { "name": "Oracle", "level": "EXPERT" },
+    { "name": "Tibero", "level": "INTERMEDIATE" },
+    { "name": "JSP", "level": "INTERMEDIATE" },
+    { "name": "Linux 서버 운영", "level": "EXPERT" },
+    { "name": "네트워크 장비 운영", "level": "INTERMEDIATE" }
+  ],
+  "technologiesComplete": false,
+  "licenses": [
+    { "code": "SW_BUSINESS_REG", "name": "소프트웨어사업자 신고확인서", "status": "HELD" },
+    { "code": "DIRECT_PRODUCTION", "name": "직접생산확인증명서(소프트웨어개발)", "status": "HELD" },
+    { "code": "SME_CONFIRMATION", "name": "중소기업확인서(중기업)", "status": "HELD" },
+    { "code": "ICT_CONSTRUCTION", "name": "정보통신공사업 등록", "status": "HELD" },
+    { "code": "CSAP", "name": "CSAP", "status": "NOT_HELD" },
+    { "code": "DEFENSE_CONTRACTOR", "name": "방산업체 지정", "status": "NOT_HELD" }
+  ],
+  "industryCodes": [
+    { "code": "1468", "name": "소프트웨어사업자(컴퓨터관련서비스사업)", "status": "HELD" },
+    { "code": "0036", "name": "정보통신공사업", "status": "HELD" },
+    {
+      "code": "1426",
+      "name": "소프트웨어사업자(패키지소프트웨어개발.공급사업)",
+      "status": "NOT_HELD"
+    },
+    {
+      "code": "1470",
+      "name": "소프트웨어사업자(데이터베이스제작및검색서비스사업)",
+      "status": "NOT_HELD"
+    }
+  ],
+  "pastProjects": [
+    {
+      "id": "P1",
+      "name": "광역 지자체 행정정보시스템 통합 유지보수",
+      "domain": "민원",
+      "amountKrw": "800000000",
+      "completedAt": "2024-12-31",
+      "evidenceRef": "company-evidence/eval-04/P1-completion-certificate"
+    },
+    {
+      "id": "P2",
+      "name": "공공기관 정보시스템 운영·유지관리",
+      "domain": "기타",
+      "amountKrw": "500000000",
+      "completedAt": "2025-06-30",
+      "evidenceRef": "company-evidence/eval-04/P2-completion-certificate"
+    },
+    {
+      "id": "P3",
+      "name": "교육청 정보시스템 유지보수",
+      "domain": "교육",
+      "amountKrw": "350000000",
+      "completedAt": "2023-12-31",
+      "evidenceRef": "company-evidence/eval-04/P3-completion-certificate"
+    },
+    {
+      "id": "P4",
+      "name": "지자체 홈페이지 운영·유지보수",
+      "domain": "기타",
+      "amountKrw": "120000000",
+      "completedAt": "2022-02-28",
+      "evidenceRef": "company-evidence/eval-04/P4-completion-certificate"
+    }
+  ],
+  "financials": {
+    "fiscalYear": 2025,
+    "annualRevenueKrw": "6500000000",
+    "capitalKrw": "800000000",
+    "employeeCount": 60,
+    "creditRating": "BB+",
+    "maxContractKrw": "2000000000"
+  },
+  "preferences": {
+    "agencies": [],
+    "agencyTypes": ["지자체", "교육청", "공공기관"],
+    "domains": ["민원", "교육"],
+    "excludedDomains": ["국방"],
+    "excludedKeywords": []
+  }
+}

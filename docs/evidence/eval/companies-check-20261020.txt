@@ -1,0 +1,36 @@
+명령: (cd web && pnpm exec node --conditions=react-server --import tsx <scratchpad>/check/check-companies.mts) · 커밋: base main c53fdc2 + 브랜치 x6a/companies 작업 트리(이 파일과 fixtures/eval/ 이 같은 커밋에 들어간다) · 실행 2026-10-20 01:45:39Z · Node v24.16.0
+검사 내용: fixtures/eval/companies/*.json 6개를 web/server/scoring/analysis-input.model.ts 의 companyProfileSchema.strict() 로 parse(봉투 schemaVersion·orgSlug 는 손으로 대조), 스키마 밖 키 탐색, licenses[].code·name 을 qualification-codes.ts 사전으로 역해석, industryCodes[].code·name 을 fixtures/recorded/15129467/ 녹음본과 대조, 분야·기관유형 값 집합(domain-keywords.ts) 대조, 원형 제약(06 실적 0·매출 없음, technologiesComplete=false 정확히 1개, 업종 6코드마다 HELD/NOT_HELD/미기록 모두 존재). 일회성 스크립트는 세션 scratchpad 에만 있고 저장소에 두지 않았다.
+돌연변이 확인: 02 의 industryCodes[3] 을 status=MAYBE·이름 오타로 바꾸면 zod invalid_value + 업종 1469 분포 오류로 실패(exit 1)했고, 원본으로 되돌린 뒤 아래 결과를 얻었다.
+
+업종 마스터 녹음본 행: 2916
+기준 프로필 solideo-profile.json: zod parse OK (revision 2, 기술 8, 면허 9, 실적 3)
+
+원형 요약
+  eval-01 | 가상 대형 공공 SI(원형 1) | 기술 12/complete=true | 면허 H7/N2 | 업종 H6/N0 | 실적 5건 최대 180억 증빙없음 0 | 상한 300억 | 직원 1200
+  eval-02 | 가상 중견 공공 SI(원형 2) | 기술 8/complete=true | 면허 H4/N3 | 업종 H3/N2 | 실적 4건 최대 22억 증빙없음 0 | 상한 60억 | 직원 150
+  eval-03 | 가상 AI·RAG 전문 스타트업(원형 3) | 기술 9/complete=true | 면허 H2/N4 | 업종 H1/N2 | 실적 3건 최대 4억 증빙없음 1 | 상한 15억 | 직원 24
+  eval-04 | 가상 유지보수 전문(원형 4) | 기술 7/complete=false | 면허 H4/N2 | 업종 H2/N2 | 실적 4건 최대 8억 증빙없음 0 | 상한 20억 | 직원 60
+  eval-05 | 가상 데이터 플랫폼 전문(원형 5) | 기술 10/complete=true | 면허 H5/N2 | 업종 H3/N1 | 실적 4건 최대 32억 증빙없음 0 | 상한 40억 | 직원 95
+  eval-06 | 가상 실적 없는 신생(원형 6) | 기술 5/complete=true | 면허 H1/N0 | 업종 H0/N0 | 실적 0건 최대 0억 증빙없음 0 | 상한 5억 | 직원 8
+
+면허 코드별 HELD/NOT_HELD/미기록(6개 원형)
+  SW_BUSINESS_REG      H5 N0 -1
+  DIRECT_PRODUCTION    H4 N1 -1
+  SME_CONFIRMATION     H5 N1 -0
+  ICT_CONSTRUCTION     H2 N3 -1
+  DEFENSE_CONTRACTOR   H0 N2 -4
+  ISMS_P               H2 N1 -3
+  CSAP                 H1 N2 -3
+  ISO_27001            H3 N1 -2
+  CMMI_L3              H1 N2 -3
+
+업종 코드별 HELD/NOT_HELD/미기록(6개 원형)
+  1468 소프트웨어사업자(컴퓨터관련서비스사업) H4 N1 -1
+  1426 소프트웨어사업자(패키지소프트웨어개발.공급사업) H3 N1 -2
+  1469 소프트웨어사업자(디지털콘텐츠개발서비스사업) H2 N1 -3
+  1470 소프트웨어사업자(데이터베이스제작및검색서비스사업) H3 N1 -2
+  0036 정보통신공사업 H2 N2 -2
+  1542 정보보호 전문서비스 기업 H1 N1 -4
+
+결과: 6개 파일 zod(companyProfileSchema.strict()+봉투 대조) 통과, 스키마 밖 키 0, 면허 코드 사전 일치, 업종 코드·이름 녹음본 일치, 분야·기관유형 값 집합 일치
+exit=0
