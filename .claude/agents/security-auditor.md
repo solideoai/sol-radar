@@ -48,7 +48,7 @@ skills:
 - 로그에 토큰·비밀번호·공고 원문 전체·PII 가 없는가(14 로그 규칙).
 
 **인프라**
-- 호스트 노출 포트가 web 3000 하나이고 `127.0.0.1` 바인딩인가. redis·minio·qdrant·ai-gateway·kev 는 내부 네트워크인가.
+- 호스트 노출 포트가 `redis`·`minio`·`qdrant`·`ai-gateway` 넷뿐이고 모두 `127.0.0.1` 바인딩인가(web 은 호스트 실행이라 이 넷에 닿아야 한다, 10 "Compose 서비스" 절). `0.0.0.0`·외부 인터페이스 바인딩이나 `worker` 포트 노출이 있으면 결함이다.
 - MinIO 가 public bucket 이 아니고, 서버가 권한 검사 후 짧은 presigned URL 을 내는가.
 - 첨부 다운로드에 도메인 allowlist·DNS 재검증·사설 IP 거부·크기 제한(SSRF)이 있는가.
 

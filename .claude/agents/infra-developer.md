@@ -33,7 +33,7 @@ Compose 로 띄우는 서비스와 환경 변수, 기동 검사 스크립트를 
   - pnpm workspace·`apps/`·공유 계약 패키지는 만들지 않는다. `web/` 은 독립 설치(`pnpm -C web …`), `services/ai` 는 uv.
   - worker 컨테이너가 `server-only` 도메인 코드를 부르는 실행 방식은 미검증(미결정 9번). 확인한 방식만 entrypoint 에 쓴다.
 - **보안 최소선**
-  - 호스트에 노출하는 포트는 web 3000 하나(Route Handler 가 `/api/v1` 을 함께 낸다). redis·minio·qdrant·ai-gateway·kev 는 Compose 내부 네트워크. 노출 포트는 `127.0.0.1` 바인딩.
+  - web 은 기본으로 호스트에서 돈다(`pnpm -C web start`, Compose 에 `web` 서비스 없음). 그래서 호스트에 여는 포트는 web 이 닿아야 하는 `redis`·`minio`·`qdrant`·`ai-gateway` 넷이고(`127.0.0.1:${*_HOST_PORT}`, 기본 6380·9000·6333·8000), 모두 `127.0.0.1` 에만 바인딩한다. 외부 인터페이스(`0.0.0.0`)에는 열지 않는다. `worker` 는 포트를 열지 않는다. 결정 모델·Qwen 런타임은 Compose 에 없다(10 "Compose 서비스" 절).
   - `.env.example`·`infra/env/*.env.example` 에는 placeholder 만. 기본 비밀값(`minioadmin` 등) 금지. `pnpm check:env` 는 placeholder 가 남아 있으면 0 이 아닌 코드로 멈춘다.
   - `SUPABASE_SERVICE_ROLE_KEY` 는 worker·seed 서비스에만 넘긴다. web 컨테이너의 브라우저 번들·`NEXT_PUBLIC_` 변수에 들어가지 않게 한다.
   - `demo` 기본값: `DEMO_MODE=true`, `AI_PROVIDER=mock`, `KEV_ENABLED=true`(세 모드 모두 `true`·`false` 허용, 기본 `true`, ADR-029 A5), `AI_HOSTED_APPROVED=false`. `AI_FAULT_INJECT` 는 env 예시에 넣지 않는다(테스트 전용).
