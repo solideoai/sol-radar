@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { z } from "zod";
-import { readWorkContext, storageOf } from "./support/work-fixtures";
+import { assertNoAxe, readWorkContext, storageOf } from "./support/work-fixtures";
 
 // BOOST-2 가정 재계산(계획 Task 5 · 디자인 스펙 docs/plans/2026-10-20-boost2-what-if-ui.md §4.3·§4.7·§10).
 // 데이터는 C6 하네스(playwright.work.config.ts 의 globalSetup = support/work-setup.ts)가 만든 데모 상태다:
@@ -125,6 +125,8 @@ test("FX-03: 정보통신공사업 보유 가정은 NO-BID → WATCH 를 보이�
     for (const line of FIXED_LINES)
       await expect(band.getByText(line, { exact: true })).toBeVisible();
     expect(await band.innerText()).not.toMatch(FORBIDDEN);
+    // 띠가 결과 상태일 때 화면 전체 axe(스위치 켜짐 + 띠). 결과는 axe-report.json 에 모인다.
+    await assertNoAxe(page, "bid-detail-what-if");
   });
 
   await test.step("오른쪽 참여 판단의 권고·점수는 NO-BID 68 그대로다", async () => {

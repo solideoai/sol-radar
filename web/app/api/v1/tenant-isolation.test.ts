@@ -19,6 +19,7 @@ import type {
   ReviewRepo,
 } from "@/server/bids";
 import * as analysisRoute from "./analyses/[id]/route";
+import * as whatIfRoute from "./analyses/[id]/what-if/route";
 import * as bidAnalysesRoute from "./bids/[id]/analyses/route";
 import * as qualificationRoute from "./bids/[id]/qualification-checks/route";
 import * as reviewsRoute from "./bids/[id]/reviews/route";
@@ -170,6 +171,25 @@ function get(user: FakeUser, path: string): Request {
   return fakeRequest(path);
 }
 
+// 가정 재계산은 저장하지 않는 읽기 계산이지만 POST 다(CSRF 머리글을 붙인다).
+function postJson(user: FakeUser, path: string, body: unknown): Request {
+  fakeSession.cookie = user.token;
+  return fakeRequest(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Requested-With": "sol-radar" },
+    body: JSON.stringify(body),
+  });
+}
+
+const ASSUME_ICT = { assumptions: [{ kind: "QUALIFICATION", code: "ICT_CONSTRUCTION" }] };
+
+// 오류 봉투에서 요청마다 다른 requestId 를 뺀 부분.
+const errorShape = (error: { code: string; message: string; details: unknown }) => ({
+  code: error.code,
+  message: error.message,
+  details: error.details,
+});
+
 // 조직 격리에 걸리는 조회 경로 전부. 이름 → 응답
 async function readAll(user: FakeUser): Promise<Record<string, Response>> {
   return {
@@ -182,6 +202,10 @@ async function readAll(user: FakeUser): Promise<Record<string, Response>> {
     ),
     analysis: await analysisRoute.GET(get(user, `/api/v1/analyses/${ORG01_RUN}`), ctx(ORG01_RUN)),
     reviews: await reviewsRoute.GET(get(user, `/api/v1/bids/${FX01}/reviews`), ctx(FX01)),
+    whatIf: await whatIfRoute.POST(
+      postJson(user, `/api/v1/analyses/${ORG01_RUN}/what-if`, ASSUME_ICT),
+      ctx(ORG01_RUN),
+    ),
   };
 }
 
@@ -199,10 +223,17 @@ afterEach(() => {
 describe("11 G5 조직 격리 — Route Handler", () => {
   it("대조군: org-01 SALES 는 자기 조직의 분석·자격 확인·결정을 본다", async () => {
     install();
-    const responses = await readAll(FAKE_USERS.sales);
+    const { whatIf, ...responses } = await readAll(FAKE_USERS.sales);
     for (const [name, response] of Object.entries(responses)) {
       expect(response.status, name).toBe(200);
     }
+    // 가정 재계산은 자기 조직 run 까지 간다. 가짜 저장소의 org-01 스냅샷이 비어 있어 NO_SNAPSHOT 404 다
+    // (다른 조직의 "없는 run" 404 와 다른 본문이다. 아래 org-02 시험과 짝).
+    expect(whatIf?.status).toBe(404);
+    expect((await whatIf?.json()).error.details).toEqual({
+      resource: "analysis",
+      reason: "NO_SNAPSHOT",
+    });
     expect((await responses.bid?.json()).latestAnalysis.id).toBe(ORG01_RUN);
     expect((await responses.analysis?.json()).id).toBe(ORG01_RUN);
     expect(await responses.checks?.json()).toHaveLength(1);
@@ -219,10 +250,14 @@ describe("11 G5 조직 격리 — Route Handler", () => {
       details: { resource: "analysis" },
     });
     expect(responses.analysis?.status).toBe(404);
-    expect((await responses.analysis?.json()).error).toMatchObject({
+    const analysisError = (await responses.analysis?.json()).error;
+    expect(analysisError).toMatchObject({
       code: "NOT_FOUND",
       details: { resource: "analysis" },
     });
+    // 다른 조직 run 의 가정 재계산은 GET /analyses/:id 와 같은 404 본문이다(있는지 새지 않는다).
+    expect(responses.whatIf?.status).toBe(404);
+    expect(errorShape((await responses.whatIf?.json()).error)).toEqual(errorShape(analysisError));
     expect(responses.reviews?.status).toBe(200);
     expect(await responses.reviews?.json()).toEqual([]);
     expect(responses.bid?.status).toBe(200);
@@ -232,6 +267,7 @@ describe("11 G5 조직 격리 — Route Handler", () => {
 
     // 세션의 조직(org-02)이 저장소까지 그대로 간다. 요청이 조직을 고를 길은 없다.
     expect(d.bids.getAnalysis).toHaveBeenCalledWith(ORG_02, ORG01_RUN);
+    expect(d.bids.getAnalysisSnapshot).toHaveBeenCalledWith(ORG_02, ORG01_RUN);
     expect(d.bids.getLatestScoredAnalysis).toHaveBeenCalledWith(ORG_02, FX01);
     expect(d.reviews.listReviews).toHaveBeenCalledWith(ORG_02, FX01);
   });
