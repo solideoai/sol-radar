@@ -80,6 +80,8 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 
 `web/e2e-auth/isolation.spec.ts`는 템플릿이 이미 가진 조직 화면 격리 시험이라 이름이 겹치지 않게 G5 E2E는 `bid-isolation.spec.ts`로 둔다.
 
+E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않는 요청(예: `web/app/(app)/(work)/bids/[id]/submit-review.ts` 39행, `201`이면 본문을 읽지 않는다)에 `response.json()`을 걸면 30초 timeout으로 멈춘다. 이런 요청은 상태 코드만 본다([[16-DECISIONS|ADR-035]] F5).
+
 장애 주입은 두 가지를 구분한다([[10-DEPLOYMENT|10 배포]] "장애 주입" 절).
 
 | 용도 | 방법 | 비고 |
@@ -183,7 +185,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 | 1 | S0 | 엔드포인트 | 회사 GPU 추론 엔드포인트(`QWEN_BASE_URL`·`KEV_BASE_URL`, HTTPS + API 키, [[16-DECISIONS\|ADR-025]]) 접속을 확인한다(방식은 [[10-DEPLOYMENT\|10 배포]]) | 노트북에서 `GET /v1/models`로 회사 vLLM API·`sol_decision` 응답과 레지스트리 대조 | 엔드포인트 미접속이면 `live`·`fixture`를 빼고 `mock`만으로 진행하고 사실대로 말한다 |
 | 2 | S0 | 기동 | `docker compose -f infra/compose.yaml up -d --build` 후 `docker compose -f infra/compose.yaml ps` | `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 `healthy`. web `GET /health/ready` 200, `checks.db: ok`(Supabase 연결), `checks.ai: mock` | 1회 재기동. `checks.db` 불가(503)면 네트워크·Supabase 프로젝트 상태 확인. 그래도 실패면 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로 ①(로컬 Supabase CLI), 그것도 안 되면 사전 녹화 영상 |
 | 3 | S0 | seed | `pnpm demo:reset` (스크립트. service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`. `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`. `GET /api/v1/bids` 총 19건. `bid_reviews` 2건(`FX-01` BID, `FX-03` NO-BID). 조직·인력 편집(ADR-021 P1)이 생긴 뒤에는 점수 계산 대상 27명이 모두 재직(`ACTIVE`)인지 확인 | seed 재실행(멱등) |
-| 4 | S0 | 세 모드 | `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순으로 바꾸며 worker·ai-gateway 재시작. `live`에만 서비스키 4개(`G2B_*_SERVICE_KEY`)가 필요하다([[16-DECISIONS\|ADR-024]] D5). 모드마다 `GET /api/v1/admin/ai/status`(ADMIN)와 머리말 확인. 마지막은 `mock` | 각 모드에서 기동 거부 없음, 머리말 "실행 모드: live\|fixture\|mock", `runMode` 일치. `live`·`fixture`는 `qwen.healthy: true`, `kev.registryMatch: true`. `live`에서 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)이 리허설·시연 예상 호출 수보다 넉넉하다. 결과를 `run-modes.md`에 기록 | 기동 거부면 거부 메시지의 모순 키를 고친다. 실패한 모드는 시연에서 빼고 기록한다. 한도 부족이면 `live` 장면을 빼거나 `fixture`로. live 공고가 DB에 남아 6·7번 수치가 달라지면 기록한다([[19-DEMO-SCENARIO\|19]] §2.1 결정 필요) |
+| 4 | S0 | 세 모드 | `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순으로 바꾸며 worker·ai-gateway 재시작. `live`에만 서비스키 4개(`G2B_*_SERVICE_KEY`)가 필요하다([[16-DECISIONS\|ADR-024]] D5). 모드마다 `GET /api/v1/admin/ai/status`(ADMIN)와 머리말 확인. 마지막은 `mock` | 각 모드에서 기동 거부 없음, 머리말 "실행 모드: live\|fixture\|mock", `runMode` 일치. `live`·`fixture`는 `qwen.healthy: true`, `kev.registryMatch: true`. 두 값은 실시간 탐침이 아니라 gateway `/health` 기준이다(`qwen.healthy` = gateway 생존 + Qwen 모델 설정, `kev.registryMatch` = gateway 기동 때 잰 레지스트리 대조, [[05-API-SPEC\|05 API]] `AiStatus`, [[16-DECISIONS\|ADR-035]] F6). 모델 서버가 기동 뒤에 죽은 것은 이 확인으로 잡히지 않는다. `live`에서 `/admin/sources`의 오늘 호출량(`quotaUsedToday`/`quotaLimit`, 개발계정 서비스당 1,000건/일)이 리허설·시연 예상 호출 수보다 넉넉하다. 결과를 `run-modes.md`에 기록 | 기동 거부면 거부 메시지의 모순 키를 고친다. 실패한 모드는 시연에서 빼고 기록한다. 한도 부족이면 `live` 장면을 빼거나 `fixture`로. live 공고가 DB에 남아 6·7번 수치가 달라지면 기록한다([[19-DEMO-SCENARIO\|19]] §2.1 결정 필요) |
 | 4a | S0 | 사전 분석 | 세 모드 확인이 `mock`으로 끝난 뒤 `pnpm demo:preanalyze`(`mock`·gateway 필수, 실행은 사용자 확인 뒤, [[19-DEMO-SCENARIO\|19]] §3 5번). 이 뒤로 `pnpm demo:reset`을 돌렸으면 다시 한다([[16-DECISIONS\|ADR-031]] C12(f)) | 대상 18건(`FX-02`·격리 `FX-12` 제외) 모두 `COMPLETED`. 기대 플래그: `MODEL_RULE_DISAGREEMENT`는 `FX-03`에만, `KEV_NEEDS_REVIEW`는 `FX-04`·`05`·`11`·`13`·`17`·`19`·`20`(mock Kev needsHumanReview 0.70 ≥ 임계 0.7, ADR-031 C11). 11번의 `FX-02` `KEV_NEEDS_REVIEW`(0.74)는 S4 라이브 분석 결과다 | 실패한 건은 기록하고 S2 기대값(6번) 차이를 함께 적는다 |
 | 5 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login`(Supabase Auth) | `/dashboard` 이동. Topbar에 "실행 모드: mock"·`DEMO` 배지·`AI: mock`·수집 시각·🔔 | `admin@soltech.invalid`로 대체 |
 | 6 | S2 | 대시보드 | — | BID 권고 3건(`FX-01` 94, `FX-18` 82, `FX-06` 78), 마감 임박 카드에 `FX-14`(D-2), 수집 카드에 "격리 1건"(`FX-12`), 최근 변경 목록 | 숫자 불일치는 기록만 하고 진행 |
@@ -198,7 +200,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 | 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` → `FX-01` [재분석] | `완료`로 복귀, Topbar `AI: mock`, 결정 모델 분포 다시 표시 | — |
 | 15 | S6 (리허설) | 엔드포인트 재접속 확인 | 리허설에서만. `fixture` 모드로 전환 → 회사 GPU 추론 엔드포인트를 노트북 쪽에서 차단한다(방식은 [[10-DEPLOYMENT\|10 배포]] 장애 주입 절) → `FX-01` [재분석] `force=true` → 차단 해제 → 재접속 확인(`GET /v1/models`) → 재분석 → `mock`으로 되돌리고 `pnpm demo:reset`으로 초기화(fixture 모드 분석 run이 S3 화면에 남지 않게) → `pnpm demo:preanalyze`로 사전 분석을 다시 만든다(reset이 지운다, 4a) | 끊긴 동안: `PARTIAL`·`RULES_ONLY`, `reviewFlags`에 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`(gateway는 살아 있으므로 `AI_UNAVAILABLE`이 아니다), [[09-SECURITY\|09 보안]] PARTIAL 배너, mock 결과 0건, 점수·자격은 직전 run과 같다. 재접속 뒤: `qwen.healthy: true`·`kev.registryMatch: true`, 재분석 `완료`. 재접속 확인 소요 시간을 `rehearsal-log.md`에 기록 | 재접속이 안 되면 시연은 `mock`만으로 하고 사실대로 말한다 |
 | 16 | S7 | 격리 | `viewer@other.invalid`(`org-02`)로 로그인해 받은 Supabase access token을 `Authorization: Bearer`로 붙여 `GET /api/v1/bids/{FX-01}/qualification-checks`, `GET /api/v1/analyses/{org-01 분석 id}` | 둘 다 404([[09-SECURITY\|09 보안]] IDOR 정책, RLS로 행이 안 보여 404). 화면에서는 `FX-01` 공고 본문은 보이되 점수·자격·검토 없음 | API 응답 JSON으로 대체 시연 |
-| 17 | S7 | 관리자 | `/admin/ingestion` | `SEED` run에 격리 1건(`FX-12`, 사유 `title` 누락), `FX-20` 재시도 로그 2회 + `Retry-After` 대기 | — |
+| 17 | S7 | 관리자 | `/admin/ingestion` | `SEED` run에 격리 1건(`FX-12`, `fixture:DEMO-2026-0012` `MISSING_REQUIRED_FIELD` `missing: title`), `FX-20` 재시도 2회(`summary.retried`. 시도별 기록은 저장하지 않는다, [[16-DECISIONS\|ADR-035]] F5) | — |
 | 18 | 마감 | 증거 | 각 단계 스크린샷 저장 | `demo-day/<일시>/screenshots/` 15장 이상 | — |
 
 체크리스트에서 ❌가 하나라도 있으면 그 항목은 데모에서 "미구현"으로 말한다. 통과한 척하지 않는다.
@@ -306,7 +308,7 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 | NAV-06 | 대시보드 분석 현황: 공고별 최신 1건 집계, 같은 공고 `force` 재분석 뒤 이중 집계 없음 |
 | NAV-07 | 설정 조직 탭: 비ADMIN 403·RLS 거부, 업무 역할 변경 감사 기록 |
 | NAV-08 | 템플릿 설정·가입 정보 보완(PPL-05·06) 회귀 없음 |
-| NAV-09 | 메뉴 노출과 라우트 접근 분리: 미인증 요청은 출시 여부와 관계없이 기존 인증 정책(화면 로그인 안내, API `401`), 로그인 사용자의 미출시 경로 직접 접근 404, 출시 경로라도 권한 없는 역할 403, 메뉴에 없는 출시 경로도 서버 권한 검사 적용, 메뉴 정의의 출시 표시만으로 메뉴가 바뀜 |
+| NAV-09 | 메뉴 노출과 라우트 접근 분리: 미인증 요청은 출시 여부와 관계없이 기존 인증 정책(화면 로그인 안내, API `401`), 로그인 사용자의 미출시 경로(아직 구현되지 않아 경로 파일이 없는 경로) 직접 접근 404, 구현된 경로는 메뉴 노출 조건과 별개로 열린다(메뉴에 없어도 허용 역할 200, [[16-DECISIONS\|ADR-021]]·[[16-DECISIONS\|ADR-035]] F5), 권한 없는 역할 403, 메뉴에 없는 구현 경로도 서버 권한 검사 적용, 메뉴 정의의 출시 표시만으로 메뉴가 바뀜 |
 
 P1([[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단, 데모 필수가 모두 끝난 뒤):
 
