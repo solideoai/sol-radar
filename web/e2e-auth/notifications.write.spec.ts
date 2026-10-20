@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   assertNoAxe,
+  EVIL_LINK_NOTIFICATION_TITLE,
   localAdmin,
   readWorkContext,
   shot,
@@ -34,7 +35,7 @@ test.describe("sales", () => {
     const evil = page
       .locator("main ul")
       .getByRole("link")
-      .filter({ hasText: "분석이 끝났습니다." });
+      .filter({ hasText: EVIL_LINK_NOTIFICATION_TITLE });
     await expect(evil).toHaveAttribute("href", `/bids/${bids["FX-04"]}`);
     const patched = readPatch(page);
     await evil.click();

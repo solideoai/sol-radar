@@ -57,6 +57,19 @@ const NAV = [
   { href: "/people", label: "조직·인력", icon: UsersIcon },
 ] as const;
 
+// 사이드바에는 없지만 상단 막대가 화면 이름을 알아야 하는 템플릿 화면(D30). 조직 슬러그가 붙은 주소다.
+// 이름을 모르면 조직 이름까지 막대에서 사라진다.
+const TEMPLATE_SCREENS = [
+  { segment: "settings", label: "설정" },
+  { segment: "tasks", label: "작업" },
+  { segment: "dashboard", label: "대시보드" },
+] as const;
+
+const templateScreenOf = (pathname: string) => {
+  const [, , segment] = pathname.split("/");
+  return TEMPLATE_SCREENS.find((screen) => screen.segment === segment);
+};
+
 const isCurrent = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
@@ -303,7 +316,7 @@ function AppTopBar({ current, status }: { current: CurrentOrg; status?: TopbarSt
   const screen =
     pathname === "/org-chart"
       ? { label: "조직도" }
-      : NAV.find((item) => isCurrent(pathname, item.href));
+      : (NAV.find((item) => isCurrent(pathname, item.href)) ?? templateScreenOf(pathname));
 
   return (
     // 높이를 고정하지 않는다. 글자를 키우면 막대도 커진다.

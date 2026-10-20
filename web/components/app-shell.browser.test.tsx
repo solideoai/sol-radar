@@ -157,6 +157,26 @@ describe("c6 shell", () => {
     navigation.pathname = "/people";
   });
 
+  it.each([
+    ["/solideo/settings", "설정"],
+    ["/solideo/tasks", "작업"],
+    ["/solideo/dashboard", "대시보드"],
+  ])("topbar names template screen %s and keeps the org name", async (pathname, label) => {
+    await page.viewport(1440, 900);
+    navigation.pathname = pathname;
+    renderShell();
+    const nav = page.getByRole("navigation", { name: "주요 메뉴", exact: true });
+    await expect.element(nav).toBeVisible();
+    // 사이드바 메뉴는 C6 의 네 줄 그대로다(D30: 작업·설정 줄은 메뉴에서만 뺀다).
+    expect(
+      Array.from(nav.element().querySelectorAll("a")).map((a) => a.getAttribute("href")),
+    ).toEqual(["/dashboard", "/bids", "/notifications", "/people"]);
+    const banner = page.getByRole("banner");
+    await expect.element(banner.getByText(label, { exact: true })).toBeInTheDocument();
+    await expect.element(banner.getByText("솔리데오", { exact: true })).toBeInTheDocument();
+    navigation.pathname = "/people";
+  });
+
   it("sidebar menu text is 16px while body type-label stays 13px", async () => {
     await page.viewport(1440, 900);
     renderShell();

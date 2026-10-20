@@ -10,6 +10,10 @@ import { readInstalledAxeSource } from "./people-fixtures";
 // 데모 계정은 scripts/demo/plan.mjs DEMO_ACCOUNTS 의 이메일이다. 그 파일은 최상위 await 가 있는 모듈을 불러
 // Playwright(CJS 변환)가 가져오지 못해 이메일만 옮겨 적는다. seed 계정을 바꾸면 여기도 고친다.
 export const WORK_ROLES = ["sales", "analyst", "viewer", "outsider"] as const;
+// 바깥 링크(https://evil.example)로 심은 알림의 제목. C7 알림 worker 가 같은 문구의 진짜 ANALYSIS_COMPLETE 행을
+// 만들 수 있어, 시험이 이 행만 집도록 이 시험 전용 문구를 쓴다.
+export const EVIL_LINK_NOTIFICATION_TITLE = "분석이 끝났습니다. (바깥 링크 시험)";
+
 export type WorkRole = (typeof WORK_ROLES)[number];
 export const DEMO_ROLE_EMAIL: Record<WorkRole, string> = {
   sales: "sales@soltech.invalid",

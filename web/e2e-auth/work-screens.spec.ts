@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   assertNoAxe,
   choose,
+  EVIL_LINK_NOTIFICATION_TITLE,
   fontSizeOf,
   horizontalOverflow,
   analysisBand,
@@ -308,8 +309,8 @@ test.describe("/notifications", () => {
     const list = page.locator("main ul.divide-y");
     await expect(list.locator("li")).toHaveCount(2);
     await expect(list.getByText("결정 담당으로 지정되었습니다.", { exact: true })).toBeVisible();
-    await expect(list.getByText("분석이 끝났습니다.", { exact: true })).toBeVisible();
-    const evil = list.getByRole("link").filter({ hasText: "분석이 끝났습니다." });
+    await expect(list.getByText(EVIL_LINK_NOTIFICATION_TITLE, { exact: true })).toBeVisible();
+    const evil = list.getByRole("link").filter({ hasText: EVIL_LINK_NOTIFICATION_TITLE });
     await expect(evil).toHaveAttribute("href", `/bids/${bids["FX-04"]}`);
     const hrefs = await page
       .locator("a[href]")
