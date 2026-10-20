@@ -204,13 +204,20 @@ const isSkipped = (
   decision.kind === "DUPLICATE" || decision.kind === "STALE";
 
 // ── 호출 예산(07 §2.2). 예산이 없는 run(시험·녹음·fixture)은 늘 OK 다 ──
-type QuotaStatus = { state: QuotaState; used: number };
+/** unavailable: 저장소를 읽지 못해 상태를 EXHAUSTED 로 닫은 경우(used 는 NaN) */
+type QuotaStatus = { state: QuotaState; used: number; unavailable: boolean };
 
 async function quotaStatusOf(context: RunContext, at: Date): Promise<QuotaStatus> {
   const { quota } = context;
-  if (quota === null) return { state: "OK", used: 0 };
-  const used = await quota.store.get(quota.serviceId, at);
-  return { state: quotaState(used, quota.dailyLimit), used };
+  if (quota === null) return { state: "OK", used: 0, unavailable: false };
+  try {
+    const used = await quota.store.get(quota.serviceId, at);
+    return { state: quotaState(used, quota.dailyLimit), used, unavailable: false };
+  } catch {
+    // 저장소(Redis)에 닿지 못했다. 예산을 모르면 남았다고 낙관하지 않는다 — 소진과 같이 닫는다(07 §2.2).
+    // 오류 내용은 싣지 않는다(연결 문자열이 섞일 수 있다).
+    return { state: "EXHAUSTED", used: Number.NaN, unavailable: true };
+  }
 }
 
 // 호출 직후마다 더한다. 목록 쪽 한 번(재시도 포함)과 공고 1건의 보조 조회 묶음이 "직후"의 단위다.
@@ -433,7 +440,9 @@ async function recordQuotaExhausted(context: RunContext, status: QuotaStatus): P
     sourceKey: QUOTA_SOURCE_KEY,
     errorCode: QUOTA_EXCEEDED_ERROR_CODE,
     resultCode: null,
-    redactedDetail: `일일 호출 한도 소진(${status.used}/${limit}). 목록을 부르지 않는다`,
+    redactedDetail: status.unavailable
+      ? `호출 예산을 읽지 못함(저장소 오류, 한도 ${limit}). 남았다고 보지 않고 목록을 부르지 않는다`
+      : `일일 호출 한도 소진(${status.used}/${limit}). 목록을 부르지 않는다`,
   });
 }
 
