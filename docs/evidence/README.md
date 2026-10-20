@@ -50,6 +50,7 @@ updated: 2026-10-20
 | 파일 | 무엇 | 어디서 확인 |
 |---|---|---|
 | `test-ingestion.txt` | 수집 도메인·worker·저장 RPC·`demo:reset` 시험 출력(미구현 범위를 끝에 명시) | G1·G2, [[07-DATA-PIPELINE\|07 수집]] |
+| `compose-smoke-c3.md` | C3 병합 트리(main `d933c9e`)의 격리 Compose `infra/smoke.sh`(`mock`, 서비스 5개 healthy·`/health/ready`·redis 재시작). 확인하지 않은 것도 적었다 | [[PROGRESS\|진행 상황]] C3, [[11-TESTING\|11 테스트]] §4 Phase 2 |
 
 ### `phase-4/` — 규칙 엔진·골든(C4)
 
@@ -64,6 +65,7 @@ updated: 2026-10-20
 | `test-ai.txt` | `services/ai` pytest 전체 출력(`AI_PROVIDER=mock`만, 외부 호출 차단) | [[11-TESTING\|11 테스트]] G4·G6·G9 |
 | `ai-fallback.txt` | gateway 클라이언트·circuit breaker·`PARTIAL` 대체 시험(가짜 fetch) | G6, [[03-AI-PIPELINE\|03 AI 파이프라인]] §8 |
 | `kev-fixtures-engine-scores.md` | mock Kev fixture 20건의 규칙 엔진 근거 | [[07-DATA-PIPELINE\|07 수집]] fixture 절 |
+| `preanalyze-local-c2b12d3.md` | main `c2b12d3` 트리에서 로컬 Supabase·격리 Compose로 `demo:reset` → `demo:preanalyze`(2026-10-19) | [[10-DEPLOYMENT\|10 배포]] 기동 절차, [[PROGRESS\|진행 상황]] C3·C5 |
 | `preanalyze-cloud-20261020.md` | 클라우드 기동 절차 12~14(`demo:reset`·`check:env`·`/health/ready` ok·`demo:preanalyze` 18/18)와 worker 분석 로그 | [[10-DEPLOYMENT\|10 배포]] 기동 절차, [[11-TESTING\|11 테스트]] §4 Phase 0 `checks.db` |
 
 ### `phase-3/` — 화면 4개·Route Handler(C6)
@@ -74,6 +76,8 @@ updated: 2026-10-20
 | `axe-report.json` | 접근성 검사 결과(위반 0) | 같은 곳 |
 | `isolation-404.json` | 다른 조직 자원 404(G5) | [[11-TESTING\|11 테스트]] G5 |
 | `e2e/` | 대시보드·목록·상세·알림 1440·1280 스크린샷 | [[06-UI-UX\|06 UI]] |
+| `admin-ai-status-20261020-1434.txt` | `GET /api/v1/admin/ai/status` 경우별 실행 기록(격리 Supabase, hosted 미승인 422 포함) | [[05-API-SPEC\|05 API]] `AiStatus`, [[19-DEMO-SCENARIO\|19 데모 시나리오]] §3 S0 4번 |
+| `admin-ingestion/` | N8 `/admin/ingestion` 보고서(`20261020-n8-admin-ingestion-report.md`)와 1440·1280 스크린샷 10장(목록·대화상자·접수됨·실행 상세 서랍·403) | [[06-UI-UX\|06 UI]] §5.8, [[11-TESTING\|11 테스트]] §5 12·17번 |
 
 ### `phase-6/` — 결정 기록·인앱 알림(C7)
 
@@ -89,6 +93,40 @@ updated: 2026-10-20
 | `20261020-1009/checklist.md`·`run-modes.md` | C9 1차 리허설 S0~S7 0~18번 판정표(`mock` 전체, ✅ 13 / ❌ 5)와 세 모드 기록 | 같은 곳 |
 | `20261020-1009/*.txt` | 각 단계 명령 출력(compose ps·smoke·seed·preanalyze·health·gateway·API·격리 404·S6 장애 주입·S4 결정·정리) | 같은 곳 |
 | `20261020-1009/screenshots/` | 1440 기본·1280 목록·상세 스크린샷 | 같은 곳 |
+| `20261020-1434/run-modes.md` | C8 S-LIVE 사전 run(갈래 "API 정상·GPU 불가", 격리 로컬 Supabase): `live` 수집 실공고 86건·호출 266회 → `R26BK01774434` `PARTIAL`·`RULES_ONLY` | [[12-ROADMAP\|12 로드맵]] 외부 의존성 컷, [[19-DEMO-SCENARIO\|19 데모 시나리오]] S-LIVE |
+| `20261020-1434/*.json`·`*.txt`·`*.log` | 같은 run의 수집 run·score run JSON, gateway·worker 로그, `/health/ready`, compose ps | 같은 곳 |
+| `20261020-1434/s-live-{list,detail}-{1440,1280}.png` | S-LIVE 목록·상세 스크린샷(`PARTIAL`·`RULES_ONLY`) | 같은 곳, `submission/slides-outline.md` |
+
+### `fx01/` — FX-01 흐름 E2E
+
+| 파일 | 무엇 | 어디서 확인 |
+|---|---|---|
+| `20261019-fx01-e2e.md` | FX-01 Playwright 수용 시험(통합 전 RED) | [[11-TESTING\|11 테스트]] §5 |
+| `20261019-main-c2b12d3-rerun.md`·`main-c2b12d3/` | main `c2b12d3` 통합 뒤 재실행(C6 전, 일부 실패)과 실행 출력 | 같은 곳 |
+| `20261020-main-301f2a5-rerun.md`·`main-301f2a5/` | main `301f2a5` 뒤 FX-01 전체 흐름 통과(`test:e2e:work` 35·`test:e2e:auth` 125)와 변형 확인 출력 | 같은 곳, [[PROGRESS\|진행 상황]] 작업 로그 `a98c032` |
+
+### `eval/` — 평가셋 v0.1 준비(X6a)
+
+| 파일 | 무엇 | 어디서 확인 |
+|---|---|---|
+| `companies-check-20261020.txt` | 평가 기업 원형 6개 스키마·자격 코드·업종 코드 대조 | [[21-MODEL-TRAINING\|21 모델 학습]] §4, [[PROGRESS\|진행 상황]] X6 |
+| `recording-20261020.md` | 나라장터 60일 목록·보조 조회 녹음과 사업 단위 분할(test 20·dev 10·train 257) | 같은 곳 |
+| `sol-eval-smoke-20261020.txt` | `sol_eval` 라벨 검사·번들 빌드 smoke(개발용 대체 입력) | 같은 곳 |
+
+### `project-check/` — 프로젝트 점검(2026-10-19)
+
+| 파일 | 무엇 | 어디서 확인 |
+|---|---|---|
+| `20261019-audit.txt` | HEAD `cfe8f0a` 설계·코드 대조 점검(결함 목록) | [[PROGRESS\|진행 상황]] 작업 로그 |
+| `20261019-p1-fixes.md` | P1 결함(documents 큐 복구·마지막 업무 ADMIN 보호) 수정 기록 | 같은 곳 |
+| `20261019-p1-*-red.txt`·`20261019-p1-targeted-green.txt`·`20261019-p1-verify.txt` | 수정 전 빨간불 5개·수정 뒤 대상 시험·`pnpm verify` 출력 | 같은 곳 |
+| `20261019-verify.txt`·`20261019-verify-sandbox.txt` | 점검 시점 `pnpm verify` 전체 출력(일반·샌드박스) | 같은 곳 |
+
+### 루트 파일
+
+| 파일 | 무엇 | 어디서 확인 |
+|---|---|---|
+| `kev-train-feasibility.md` | Kev-9B LoRA F1 기록(§0 회사 GPU 서버 환경 확인 2026-10-20, F1 미실행). ADR-034로 대상 모델이 바뀌어 기록으로 보존한다 | [[16-DECISIONS\|16 ADR]] ADR-034 11번, [[22-FINETUNE-RUNBOOK\|22]] |
 
 ### `people/` — 가상 인력·가입·조직도(ADR-019·021)
 

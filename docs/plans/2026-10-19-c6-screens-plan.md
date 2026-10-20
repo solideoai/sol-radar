@@ -1,16 +1,19 @@
 ---
 title: "구현 계획 — C6 화면 A단계 (C2 병합 전)"
 doc: "plan-c6-screens-a"
-status: draft
+status: final
 tags:
   - sol-radar
   - ui
   - hackathon
 created: 2026-10-19
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # C6 화면 A단계 구현 계획
+
+> [!success] 구현·병합 완료 (2026-10-20)
+> 이 A단계는 `c6/screens`에서 구현됐고(검증 증거 `558f3e6`) B단계와 함께 main `4ae09f9`로 병합됐다. 진행 기록은 [[PROGRESS|진행 상황]] C6이다. 계획 본문은 고치지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

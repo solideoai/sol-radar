@@ -381,8 +381,8 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 | [[16-DECISIONS\|16 ADR]] ADR-034 행·상세(1~14번), ADR-027 폐기 콜아웃, ADR-004·012·020·023·025·033 개정 각주, 미결정 2(종결)·3·17·22·24 | 결정 모델 Bosun, Qwen3.5-27B 회사 API 재사용(저녁 개정), `sol_decision` 런타임, GPU 1 공유, 일정 | **반영(2026-10-20, B0)** |
 | [[22-FINETUNE-RUNBOOK\|22 실행서]] 전면 | 출처 2개·sha256, `.venv-bosun`, Bosun 학습·채점 명령(B1 미구현 표기), Qwen 학습 없음, 요청서·미확인 | **반영(2026-10-20, B0, 이 개정)** |
 | [[23-WEEKEND-FINETUNE\|23]](이 문서) | 일정·엔드포인트(변경 없음·B/C안 삭제)·GPU 공유·모델 3개·레코드 단위·레시피·E1' | **반영(2026-10-20, B0)** |
-| `services/decision`·`sol_eval.bosun_score`·`export --format bosun`·`leakage`·`infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`·레지스트리·settings·UI 문구 | — | **B1 미구현**(10-21~22, 계획 §9) |
-| [[03-AI-PIPELINE\|03]] §2·§3.2·§4.3·§5·§11, [[10-DEPLOYMENT\|10]] 엔드포인트·`QWEN_BASE_URL`·GPU 공유, [[21-MODEL-TRAINING\|21]] §4.2 E1'·§5·§6·§7, [[05-API-SPEC\|05]]·[[08-SCORING\|08]]·[[15-DATA-CONTRACTS\|15]]·[[12-ROADMAP\|12]]·[[18-HACKATHON\|18]]·[[19-DEMO-SCENARIO\|19]]·[[20-GLOSSARY\|20]] | 모델명·런타임·S-LIVE 칩·용어 | 후속(각 담당, 계획 §6.7) |
+| `services/decision`·`sol_eval.bosun_score`·`export --format bosun`·`leakage`·`infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`·레지스트리·settings·UI 문구 | — | **B1 진행 중**(브랜치 `feat/bosun-b1`, main 미병합, 2026-10-20 저녁 기준. 계획 §9) |
+| [[03-AI-PIPELINE\|03]] §2·§3.2·§4.3·§5·§11, [[10-DEPLOYMENT\|10]] 엔드포인트·`QWEN_BASE_URL`·GPU 공유, [[21-MODEL-TRAINING\|21]] §4.2 E1'·§5·§6·§7, [[05-API-SPEC\|05]]·[[08-SCORING\|08]]·[[15-DATA-CONTRACTS\|15]]·[[12-ROADMAP\|12]]·[[18-HACKATHON\|18]]·[[19-DEMO-SCENARIO\|19]]·[[20-GLOSSARY\|20]] | 모델명·런타임·S-LIVE 칩·용어 | **반영(2026-10-20, B0 `1c063e5`, main `9048995`)**. B1 코드 값에 맞추는 나머지(레지스트리 값·UI 중립 문구·`sol_decision`·`services/decision` 구현 표기)는 B1 병합 뒤 |
 | `docs/submission/` | `experiment-tables.md` (c)·`limitations.md` E4 문장·`slides-outline.md`·`evidence-list.md` | 후속(B6, 10-26) |
 | `docs/evidence/bosun-train-feasibility.md`·`docs/evidence/eval/e4-<일시>.md`·`docs/evidence/phase-5/endpoint-bosun-<일시>.md` | F1·F2·E4·B2 증거 | 후속(B2·B4·B5). Kev 기록은 보존 |
 
