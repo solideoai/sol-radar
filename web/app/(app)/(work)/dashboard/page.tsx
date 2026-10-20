@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
 import { defaultOrigin } from "@/server/bids";
 import { loadBidCount, loadBidPage, loadDashboardSummary } from "@/app/_lib/work-data";
+import { canRunIngestion } from "@/app/(app)/(work)/empty-state";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { dashboardQueries } from "./dashboard-queries";
 import { DASHBOARD_DESCRIPTION, DASHBOARD_TITLE, DashboardView } from "./dashboard-view";
@@ -37,7 +38,7 @@ export default async function DashboardPage() {
         recommendedTotal={recommendedTotal}
         deadline={deadline.items}
         now={now}
-        showIngestHint={work.role === "ADMIN"}
+        canRunIngestion={canRunIngestion(work.role)}
       />
     </AppPage>
   );
