@@ -7,6 +7,7 @@ import {
   type FetchedPage,
   type SourceRecord,
 } from "./connector.model";
+import type { G2bAuxFetcher } from "./g2b-aux";
 import type {
   IngestionRepo,
   IngestRunStatus,
@@ -16,9 +17,10 @@ import type {
 } from "./ingestion.port";
 import { normalizeFixtureRecord, type NormalizeOutcome } from "./normalize";
 import { normalizeG2bBidNotice } from "./normalize-g2b";
-import type { BidSource } from "./normalized-bid.model";
+import { listOnlyRevision, mergeG2bAux, registeredAtOf } from "./normalize-g2b-aux";
+import type { BidSource, NormalizedBidDraft } from "./normalized-bid.model";
 import { redactSecrets, redactUrl } from "./redaction";
-import { decideRevision } from "./revision";
+import { decideRevision, type ChangeDecision, type StoredRevision } from "./revision";
 import { fetchPageWithRetry, type RetryDeps } from "./retry";
 import type { IngestIssue } from "./validation";
 
@@ -40,6 +42,11 @@ export type RunIngestInput = {
   secrets?: readonly string[];
   /** 주면 저장할 bid·revision 의 id 를 정한다(demo:reset 의 결정적 id). 없으면 DB 가 만든다(6-2) */
   idFor?: IdFor;
+  /**
+   * 보조 조회 3종(07 §2.2). g2b 레코드가 새 revision(재분석 대상)이 될 때만 부른다. 없으면(fixture·녹음 재생) 부르지 않는다.
+   * 실패는 ingest_errors 에 남기고 공고는 보조 없이 저장한다(07 §2.6)
+   */
+  aux?: G2bAuxFetcher;
 };
 
 export type IdFor = (
@@ -87,12 +94,16 @@ type RunContext = {
   /** fixture 레코드에만 쓴다. g2b run 에서는 input.anchor 를 그대로 둔다 */
   anchor: Date | null;
   redact: (text: string) => string;
+  /** 공공 API 호출 수를 세는 run(g2b)인지. fixture 는 세지 않아 quota_used 가 0 으로 남는다 */
+  countsCalls: boolean;
 };
 
 type PageResult = {
   summary: IngestSummary;
   saved: SavedBidRevision[];
   quarantined: QuarantinedRecord[];
+  /** 이 run 이 쓴 공공 API 호출 수(목록 쪽 + 보조 조회, 재시도 포함). 이어 가는 run 은 저장된 값부터 센다 */
+  quotaUsed: number;
 };
 
 const FINISHED_STATUSES: ReadonlySet<IngestRunStatus> = new Set(["SUCCEEDED", "PARTIAL"]);
@@ -163,13 +174,68 @@ const counted = (
   summary: { ...progress.summary, [counter]: progress.summary[counter] + 1 },
 });
 
+const isSkipped = (
+  decision: ChangeDecision,
+): decision is Extract<ChangeDecision, { kind: "DUPLICATE" | "STALE" }> =>
+  decision.kind === "DUPLICATE" || decision.kind === "STALE";
+
+/**
+ * 07 §2.2: 보조 조회는 새 revision 일 때만. 분석하지 않는 revision(취소, 처음부터 취소된 공고)에는 부르지 않는다.
+ * 1차 판정은 목록만으로 한다. 저장된 revision 의 보조 유래 부분을 뺀 모양과 비교해야 같은 공고의 재수집이
+ * DUPLICATE 로 걸러진다(보조 결과가 checksum 에 들어 있어 그대로 비교하면 매번 CHANGED 가 된다).
+ */
+async function withAux(
+  context: RunContext,
+  record: Extract<SourceRecord, { kind: "g2b-bid-notice" }>,
+  draft: NormalizedBidDraft,
+  previous: StoredRevision | null,
+  fetchedAt: Date,
+): Promise<{ decision: ChangeDecision; calls: number }> {
+  const { aux, repo } = context.input;
+  if (aux === undefined) return { decision: decideRevision(previous, draft), calls: 0 };
+
+  const listOnly = decideRevision(previous === null ? null : listOnlyRevision(previous), draft);
+  if (isSkipped(listOnly) || !listOnly.reanalyze) return { decision: listOnly, calls: 0 };
+
+  const fetched = await aux.fetchAux({
+    noticeId: draft.noticeId,
+    amendmentNo: draft.amendmentNo ?? null,
+    registeredAt: registeredAtOf(record.item, fetchedAt),
+  });
+  for (const { registryKey, failure } of fetched.failures) {
+    await repo.recordError(context.runId, {
+      sourceKey: `${registryKey}:${draft.noticeId}`,
+      errorCode: ingestErrorCodeOf(failure),
+      resultCode: failure.resultCode ?? null,
+      redactedDetail: context.redact(failure.detail),
+    });
+  }
+  // 2차 판정은 보조 결과까지 합친 모양으로 한다. 저장되는 checksum 은 이쪽이다.
+  return {
+    decision: decideRevision(previous, mergeG2bAux(draft, fetched.rows)),
+    calls: fetched.calls,
+  };
+}
+
+async function decideRecord(
+  context: RunContext,
+  record: SourceRecord,
+  draft: NormalizedBidDraft,
+  fetchedAt: Date,
+): Promise<{ decision: ChangeDecision; calls: number }> {
+  const previous = await context.input.repo.findLatestRevision(draft.source, draft.noticeId);
+  if (record.kind === "g2b-bid-notice") return withAux(context, record, draft, previous, fetchedAt);
+  return { decision: decideRevision(previous, draft), calls: 0 };
+}
+
 async function ingestRecord(
   context: RunContext,
   record: SourceRecord,
   progress: PageResult,
 ): Promise<PageResult> {
   const { repo, now } = context.input;
-  const outcome = normalizeRecord(record, now(), context.anchor);
+  const fetchedAt = now();
+  const outcome = normalizeRecord(record, fetchedAt, context.anchor);
   if (!outcome.ok) {
     await recordIssue(context, outcome.issue);
     const quarantined: QuarantinedRecord = {
@@ -185,12 +251,11 @@ async function ingestRecord(
   // 경고는 기록만 하고 적재는 계속한다(15 §6).
   for (const warning of outcome.warnings) await recordIssue(context, warning);
 
-  const { draft } = outcome;
-  const previous = await repo.findLatestRevision(draft.source, draft.noticeId);
-  const decision = decideRevision(previous, draft);
+  const { decision, calls } = await decideRecord(context, record, outcome.draft, fetchedAt);
+  const withCalls: PageResult = { ...progress, quotaUsed: progress.quotaUsed + calls };
   // 이전 차수(STALE)는 이미 더 새 차수가 있는 공고의 재수신이라 중복과 같이 센다(summary 키를 늘리지 않는다, 5-E).
   if (decision.kind === "DUPLICATE" || decision.kind === "STALE") {
-    return counted(progress, "skippedDuplicate");
+    return counted(withCalls, "skippedDuplicate");
   }
 
   const { idFor } = context.input;
@@ -209,10 +274,10 @@ async function ingestRecord(
   });
   const counter = COUNTER_OF[decision.kind];
   return {
-    ...progress,
-    summary: { ...progress.summary, [counter]: progress.summary[counter] + 1 },
+    ...withCalls,
+    summary: { ...withCalls.summary, [counter]: withCalls.summary[counter] + 1 },
     saved: [
-      ...progress.saved,
+      ...withCalls.saved,
       {
         bidId: stored.bidId,
         revisionId: stored.revisionId,
@@ -239,11 +304,15 @@ async function ingestPage(
   return progress;
 }
 
+// quota_used 는 공공 API 를 부른 run 만 쓴다. fixture run 은 주지 않아 DB 기본값 0 이 남는다.
+const quotaOf = (context: RunContext, progress: PageResult): { quotaUsed?: number } =>
+  context.countsCalls ? { quotaUsed: progress.quotaUsed } : {};
+
 async function failRun(
   context: RunContext,
   cursor: string | null,
   failure: ConnectorFailure,
-  summary: IngestSummary,
+  progress: PageResult,
 ): Promise<void> {
   const { repo, run } = context.input;
   await repo.recordError(context.runId, {
@@ -253,8 +322,16 @@ async function failRun(
     redactedDetail: context.redact(failure.detail),
   });
   // 실패한 cursor 를 남겨 같은 jobKey 재실행이 그 페이지부터 다시 받게 한다.
-  await repo.saveCheckpoint(context.runId, { cursor, summary });
-  await repo.finishRun(context.runId, { status: "FAILED", summary });
+  await repo.saveCheckpoint(context.runId, {
+    cursor,
+    summary: progress.summary,
+    ...quotaOf(context, progress),
+  });
+  await repo.finishRun(context.runId, {
+    status: "FAILED",
+    summary: progress.summary,
+    ...quotaOf(context, progress),
+  });
 }
 
 const finishedResult = (started: StartedRun): IngestRunResult => ({
@@ -304,22 +381,31 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
   });
 
   let cursor = started.cursor;
-  let progress: PageResult = { summary: { ...started.summary }, saved: [], quarantined: [] };
+  let progress: PageResult = {
+    summary: { ...started.summary },
+    saved: [],
+    quarantined: [],
+    quotaUsed: started.quotaUsed ?? 0,
+  };
   for (;;) {
     const { outcome, retried } = await fetchPageWithRetry(connector, { from, to, cursor }, retry);
+    // 목록 쪽 한 번 = 호출 한 번. 재시도한 만큼 더 나갔다.
+    const pageCalls = context.countsCalls ? retried + 1 : 0;
     progress = {
       ...progress,
       summary: { ...progress.summary, retried: progress.summary.retried + retried },
+      quotaUsed: progress.quotaUsed + pageCalls,
     };
     if (!outcome.ok) {
       // 처리한 페이지가 있어도 connector 실패로 멈췄으면 FAILED 다(그 창의 수집을 끝내지 못했다).
-      await failRun(context, cursor, outcome.failure, progress.summary);
+      await failRun(context, cursor, outcome.failure, progress);
       return finish("FAILED", progress);
     }
     progress = await ingestPage(context, outcome.page, progress);
     await repo.saveCheckpoint(started.runId, {
       cursor: outcome.page.nextCursor,
       summary: progress.summary,
+      ...quotaOf(context, progress),
     });
     if (outcome.page.nextCursor === null) break;
     cursor = outcome.page.nextCursor;
@@ -327,7 +413,11 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
 
   // 04 §4: 끝까지 처리했지만 격리한 레코드가 있으면 PARTIAL 이다. 경고는 PARTIAL 사유가 아니다.
   const status = progress.summary.quarantined > 0 ? "PARTIAL" : "SUCCEEDED";
-  await repo.finishRun(started.runId, { status, summary: progress.summary });
+  await repo.finishRun(started.runId, {
+    status,
+    summary: progress.summary,
+    ...quotaOf(context, progress),
+  });
   return finish(status, progress);
 }
 
@@ -340,7 +430,7 @@ export async function runIngest(input: RunIngestInput): Promise<IngestRunResult>
     const started = await repo.startRun(run);
     if (FINISHED_STATUSES.has(started.status)) return finishedResult(started);
     return pullPages(
-      { input, runId: started.runId, anchor: input.anchor ?? null, redact },
+      { input, runId: started.runId, anchor: input.anchor ?? null, redact, countsCalls: true },
       started,
     );
   }
@@ -357,5 +447,5 @@ export async function runIngest(input: RunIngestInput): Promise<IngestRunResult>
   // 이어 가는 run 은 처음 정한 anchor 를 쓴다. 그사이 다른 SEED 가 돌았어도 날짜가 바뀌지 않는다.
   const anchor = isoInstantOf(started.params?.[FIXTURE_ANCHOR_PARAM]) ?? candidate;
   if (anchor === null) return failMissingAnchor(repo, started);
-  return pullPages({ input, runId: started.runId, anchor, redact }, started);
+  return pullPages({ input, runId: started.runId, anchor, redact, countsCalls: false }, started);
 }

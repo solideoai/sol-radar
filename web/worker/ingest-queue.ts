@@ -4,6 +4,7 @@ import {
   type BidSourceConnector,
   type DocumentsJobData,
   type FixtureBatch,
+  type G2bAuxFetcher,
   type IdFor,
   type IngestionRepo,
   type IngestJobData,
@@ -53,6 +54,8 @@ export type IngestJobDeps = {
   runMode: RunMode;
   createFixtureConnector(batch: FixtureBatch): Promise<BidSourceConnector>;
   createG2bConnector(): Promise<BidSourceConnector>;
+  /** 보조 조회 3종(07 §2.2). live 에서만 만든다. 없으면 g2b 수집이 보조 조회 없이 돈다 */
+  createG2bAuxFetcher?(): Promise<G2bAuxFetcher>;
   enqueueDocuments(data: DocumentsJobData): Promise<void>;
   recordManualAudit(input: { orgId: string; actorId: string | null; runId: string }): Promise<void>;
   now(): Date;
@@ -186,6 +189,12 @@ async function connectorFor(data: IngestJobData, deps: IngestJobDeps): Promise<B
     : deps.createG2bConnector();
 }
 
+// 보조 조회는 g2b 수집에만 붙는다. fixture 는 공공 API 를 부르지 않는다.
+async function auxFor(data: IngestJobData, deps: IngestJobDeps): Promise<{ aux?: G2bAuxFetcher }> {
+  if (data.source !== "g2b" || deps.createG2bAuxFetcher === undefined) return {};
+  return { aux: await deps.createG2bAuxFetcher() };
+}
+
 export async function processIngestJob(
   data: unknown,
   deps: IngestJobDeps,
@@ -204,6 +213,7 @@ export async function processIngestJob(
           retry: deps.retry,
           secrets: deps.secrets,
           ...(deps.idFor === undefined ? {} : { idFor: deps.idFor }),
+          ...(await auxFor(job, deps)),
         })
       : await rejectRun(run, reason, deps);
 

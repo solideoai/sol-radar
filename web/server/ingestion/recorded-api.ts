@@ -2,8 +2,10 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import type { BidSourceConnector, G2bItem } from "./connector.model";
+import { createG2bAuxFetcher, type G2bAuxFetcher } from "./g2b-aux";
 import { G2B_DEFAULT_ROWS, G2B_MAX_ROWS } from "./g2b.model";
 import { createOfficialApiConnector, type FetchLike } from "./official-api-connector";
+import type { RetryDeps } from "./retry";
 
 // ── RecordedApiConnector: fixtures/recorded/ 의 녹음 응답(담당자 필드 마스킹)을 재생한다(07 §2.1·§2.3) ──
 // 시험·개발 전용이다. 세 실행 모드(LIVE·FIXTURE·MOCK)의 connector 선택에는 넣지 않는다. 네트워크를 부르지 않는다.
@@ -100,28 +102,44 @@ const notFound = (): Response =>
     headers: { "content-type": "text/plain" },
   });
 
-const requestedPage = (url: string): { operation: string; pageNo: string | null } | null => {
+type RequestedPage = { operation: string; pageNo: string | null; bidNtceNo: string | null };
+
+const requestedPage = (url: string): RequestedPage | null => {
   if (!URL.canParse(url)) return null;
   const parsed = new URL(url);
   return {
     operation: parsed.pathname.split("/").at(-1) ?? "",
     pageNo: parsed.searchParams.get("pageNo"),
+    bidNtceNo: parsed.searchParams.get("bidNtceNo"),
   };
 };
 
-/** 오퍼레이션·pageNo 가 같은 첫 녹음을 돌려준다. 받은 URL 에는 키가 있어 저장·출력하지 않는다. */
+/**
+ * 오퍼레이션·pageNo 가 같은 녹음 가운데 고른다. 보조 조회(bidNtceNo 요청)는 같은 bidNtceNo 로 녹음한 것을 먼저,
+ * 없으면 bidNtceNo 없이(inqryDiv=1 창) 녹음한 것을 돌려준다 — 창 녹음에는 여러 공고의 행이 섞여 있어 받는 쪽이
+ * bidNtceNo 로 거른다(실제 inqryDiv=1 응답이 bidNtceNo 를 무시하는 것과 같은 모양). 목록 요청은 bidNtceNo 가 없다.
+ */
+export function findRecording(
+  recordings: readonly RecordedResponse[],
+  requested: RequestedPage,
+): RecordedResponse | undefined {
+  const samePage = recordings.filter(
+    (candidate) =>
+      candidate.operation === requested.operation && candidate.params.pageNo === requested.pageNo,
+  );
+  if (requested.bidNtceNo !== null) {
+    const exact = samePage.find((candidate) => candidate.params.bidNtceNo === requested.bidNtceNo);
+    if (exact) return exact;
+  }
+  return samePage.find((candidate) => candidate.params.bidNtceNo === undefined);
+}
+
+/** 녹음을 재생하는 fetch. 받은 URL 에는 키가 있어 저장·출력하지 않는다. */
 export function createRecordedFetch(recordings: readonly RecordedResponse[]): FetchLike {
   return async (url, init) => {
     init.signal.throwIfAborted();
     const requested = requestedPage(url);
-    const recording =
-      requested === null
-        ? undefined
-        : recordings.find(
-            (candidate) =>
-              candidate.operation === requested.operation &&
-              candidate.params.pageNo === requested.pageNo,
-          );
+    const recording = requested === null ? undefined : findRecording(recordings, requested);
     // 없는 쪽을 빈 쪽으로 지어내지 않는다. 404 → HTTP_ERROR 로 run 이 멈추는 것이 정상이다.
     if (!recording) return notFound();
     return new Response(JSON.stringify(toG2bEnvelopeBody(recording)), {
@@ -147,5 +165,20 @@ export function createRecordedApiConnector(options: {
     fetch: createRecordedFetch(options.recordings),
     numOfRows: options.numOfRows ?? recordedRows(options.recordings),
     ...(options.isInfoBizNotice === undefined ? {} : { isInfoBizNotice: options.isInfoBizNotice }),
+  });
+}
+
+/** 녹음을 재생하는 보조 조회 3종. 시험 전용이다. 네트워크를 부르지 않는다. */
+export function createRecordedAuxFetcher(options: {
+  recordings: readonly RecordedResponse[];
+  retry: RetryDeps;
+  numOfRows?: number;
+}): G2bAuxFetcher {
+  return createG2bAuxFetcher({
+    endpoint: RECORDED_ENDPOINT,
+    serviceKey: RECORDED_REPLAY_SERVICE_KEY,
+    fetch: createRecordedFetch(options.recordings),
+    retry: options.retry,
+    ...(options.numOfRows === undefined ? {} : { numOfRows: options.numOfRows }),
   });
 }

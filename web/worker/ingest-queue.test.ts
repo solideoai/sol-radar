@@ -9,6 +9,7 @@ import {
   type FetchPageInput,
   type FixtureBatch,
   type FixtureManifest,
+  type G2bAuxFetcher,
   type IngestErrorInput,
   type IngestRunStatus,
   type IngestSummary,
@@ -690,5 +691,54 @@ describe("processIngestJob — 잘못된 data", () => {
     await processIngestJob({ ...G2B_MANUAL, batch: "SEED" }, deps).catch(() => undefined);
 
     expect(starts).toEqual([]);
+  });
+});
+
+// 보조 조회 3종(07 §2.2)은 live 의 g2b 수집에만 붙는다. deps 가 주지 않으면(없는 환경) g2b 도 보조 없이 돈다.
+describe("processIngestJob — 보조 조회 fetcher 연결", () => {
+  const auxFetcher: G2bAuxFetcher = {
+    async fetchAux() {
+      return {
+        rows: { licenseLimit: [], region: [], eorderAttach: [] },
+        failures: [],
+        calls: 0,
+        retried: 0,
+      };
+    },
+  };
+
+  it("live g2b 수집은 createG2bAuxFetcher 를 한 번 부른다", async () => {
+    const { deps } = createDeps("live");
+    const createG2bAuxFetcher = vi.fn(async () => auxFetcher);
+
+    await processIngestJob(G2B_SCHEDULED, { ...deps, createG2bAuxFetcher });
+
+    expect(createG2bAuxFetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("fixture 수집은 createG2bAuxFetcher 를 부르지 않는다", async () => {
+    const { deps } = createDeps("mock");
+    const createG2bAuxFetcher = vi.fn(async () => auxFetcher);
+
+    await processIngestJob(FIXTURE_SEED, { ...deps, createG2bAuxFetcher });
+
+    expect(createG2bAuxFetcher).not.toHaveBeenCalled();
+  });
+
+  it("모드가 맞지 않아 거절한 수집(live 의 fixture)은 createG2bAuxFetcher 를 부르지 않는다", async () => {
+    const { deps } = createDeps("live");
+    const createG2bAuxFetcher = vi.fn(async () => auxFetcher);
+
+    await processIngestJob(FIXTURE_SEED, { ...deps, createG2bAuxFetcher });
+
+    expect(createG2bAuxFetcher).not.toHaveBeenCalled();
+  });
+
+  it("createG2bAuxFetcher 가 없어도 live g2b 수집은 돈다", async () => {
+    const { deps } = createDeps("live");
+
+    const result = await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect(result.status).toBe("SUCCEEDED");
   });
 });

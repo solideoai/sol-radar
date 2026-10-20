@@ -9,7 +9,7 @@ import type {
   StartedRun,
   StartRunInput,
 } from "./ingestion.port";
-import { normalizedBidSchema } from "./normalized-bid.model";
+import { normalizedBidSchema, type StructuredRequirement } from "./normalized-bid.model";
 import type { StoredRevision } from "./revision";
 
 // ── 저장 포트 ↔ DB 행·RPC 인자 변환(순수, 6-2). Supabase 구현은 이 규칙만 부르고 판단하지 않는다 ──
@@ -131,8 +131,34 @@ export function toStartedRun(row: Tables<"ingest_runs">): StartedRun {
     cursor: row.cursor,
     summary: summaryOf(row.summary),
     params: isPlainObject(row.params) ? row.params : null,
+    quotaUsed: countOf(row.quota_used),
   };
 }
+
+/** checkpoint·finish 의 quotaUsed → ingest_runs.quota_used. 주지 않은 run(fixture)은 열을 건드리지 않는다. */
+export const toQuotaUsedUpdate = (
+  quotaUsed: number | undefined,
+): Pick<TablesInsert<"ingest_runs">, "quota_used"> =>
+  quotaUsed === undefined ? {} : { quota_used: countOf(quotaUsed) };
+
+/**
+ * NormalizedBid.structuredQualifications → bid_structured_requirements 행(04 §3, 15 §3 B13).
+ * seq 는 배열 index(0부터)다. 수집이 kind 순으로 안정 정렬해 두므로 같은 입력이면 같은 seq 다.
+ */
+export const toStructuredRequirementInserts = (
+  ids: { bidId: string; revisionId: string },
+  rows: readonly StructuredRequirement[],
+): TablesInsert<"bid_structured_requirements">[] =>
+  rows.map((row, index) => ({
+    bid_id: ids.bidId,
+    revision_id: ids.revisionId,
+    kind: row.kind,
+    seq: index,
+    code: row.code,
+    name: row.name,
+    value: jsonCopy(row.value),
+    source_operation: row.sourceOperation,
+  }));
 
 const EMPTY_SUMMARY: IngestSummary = {
   created: 0,

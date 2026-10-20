@@ -9,7 +9,7 @@ import type {
   StartedRun,
   StartRunInput,
 } from "./ingestion.repo";
-import type { BidSource, NormalizedBid } from "./normalized-bid.model";
+import type { BidSource, NormalizedBid, StructuredRequirement } from "./normalized-bid.model";
 import type { BidEvent, FieldChange } from "./revision";
 
 // 시험 전용 메모리 저장소. 수집 흐름 시험에서 IngestionRepo 자리에 꽂는다(실제 Supabase 는 부르지 않는다).
@@ -55,6 +55,13 @@ export type MemoryRevision = {
 
 export type MemoryOutboxEvent = BidEvent & { bidId: string; revisionId: string };
 
+/** bid_structured_requirements 한 행 흉내. seq 는 structuredQualifications 의 index 다 */
+export type MemoryStructuredRequirement = StructuredRequirement & {
+  bidId: string;
+  revisionId: string;
+  seq: number;
+};
+
 export type MemoryIngestError = IngestErrorInput & { runId: string };
 
 export type MemoryCheckpoint = { runId: string; cursor: string | null; summary: IngestSummary };
@@ -67,6 +74,8 @@ export type MemoryRun = {
   status: IngestRunStatus;
   cursor: string | null;
   summary: IngestSummary;
+  /** ingest_runs.quota_used 흉내. checkpoint·finish 가 quotaUsed 를 줄 때만 바뀐다 */
+  quotaUsed: number;
 };
 
 export type MemoryIngestionState = {
@@ -76,6 +85,8 @@ export type MemoryIngestionState = {
   revisions: MemoryRevision[];
   /** idempotencyKey 가 겹치는 이벤트는 들어오지 않는다 */
   outbox: MemoryOutboxEvent[];
+  /** 저장한 revision 의 구조화 자격 행(UNIQUE(revision_id, kind, seq) 흉내: 같은 revision 을 다시 쓰면 바꿔 끼운다) */
+  structuredRequirements: MemoryStructuredRequirement[];
   errors: MemoryIngestError[];
   /** 키: jobKey */
   runs: Map<string, MemoryRun>;
@@ -138,6 +149,7 @@ const toStartedRun = (run: MemoryRun): MemoryStartedRun => ({
   cursor: run.cursor,
   summary: { ...run.summary },
   params: structuredClone(run.input.params),
+  quotaUsed: run.quotaUsed,
 });
 
 // Date.prototype.toISOString() 형식만 받는다(서비스가 그 형식으로 쓴다).
@@ -165,6 +177,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
     bids: new Map(),
     revisions: [],
     outbox: [],
+    structuredRequirements: [],
     errors: [],
     runs: new Map(),
     checkpoints: [],
@@ -192,6 +205,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         status: "RUNNING",
         cursor: null,
         summary: zeroSummary(),
+        quotaUsed: 0,
       };
       state.runs.set(input.jobKey, run);
       return toStartedRun(run);
@@ -298,6 +312,15 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         (event) => event.idempotencyKey === decision.event.idempotencyKey,
       );
       if (!duplicateEvent) state.outbox.push({ ...decision.event, bidId, revisionId });
+      state.structuredRequirements = [
+        ...state.structuredRequirements.filter((row) => row.revisionId !== revisionId),
+        ...normalized.structuredQualifications.map((row, seq) => ({
+          ...structuredClone(row),
+          bidId,
+          revisionId,
+          seq,
+        })),
+      ];
       return { bidId, revisionId, revisionCreatedAt: createdAt };
     },
 
@@ -310,6 +333,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       const run = requireRun(runId);
       run.cursor = checkpoint.cursor;
       run.summary = { ...checkpoint.summary };
+      if (checkpoint.quotaUsed !== undefined) run.quotaUsed = checkpoint.quotaUsed;
       state.checkpoints.push({
         runId,
         cursor: checkpoint.cursor,
@@ -321,6 +345,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       const run = requireRun(runId);
       run.status = result.status;
       run.summary = { ...result.summary };
+      if (result.quotaUsed !== undefined) run.quotaUsed = result.quotaUsed;
       state.finishes.push({ runId, status: result.status, summary: { ...result.summary } });
     },
   };
