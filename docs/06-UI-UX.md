@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ui
   - hackathon
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 06. Next.js 화면 및 UX
@@ -156,8 +156,8 @@ flowchart TD
 └──────────┴────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- 사이드바는 256px 고정(템플릿 `Sidebar` 폭 `16rem`, [[16-DECISIONS|ADR-029]] A6 D15). 핵심 컷 앱 셸은 템플릿대로 접으면 통째로 숨는다. 아이콘만 남기는 64px 접힘은 N1 앱 셸(확장 컷)에서 만든다. 묶음과 메뉴는 트리로 보인다(§4.1). 활성 항목은 `sidebar-accent` 배경 + 좌측 3px `brand` 바(트리 세로선 자리).
-- 사이드바 묶음은 업무·AI 분석·입찰 관리·조직·시스템이다. 그 아래 선으로 나눈 맨 아래 고정 칸에 조직도(`/org-chart`)가 있다. 구현과 검증이 끝난 메뉴만 보인다(노출 조건 5개는 [[16-DECISIONS|ADR-021]]). 메뉴 숨김은 권한이 아니며, 서버가 라우트마다 권한을 따로 검사한다. 미인증은 기존 인증 정책, 미출시 경로 404, 출시 경로에 권한 없음 403이다. 해커톤에는 조건을 채운 업무·조직·시스템 메뉴가 보인다. 그림의 "수집 관리"는 데이터 수집 관리(`/admin/ingestion`, ADMIN만)다. 사용자 메뉴: 설정, 서비스 운영(`/ops`, 운영자만. `/ops` 분리는 해커톤 이후, [[16-DECISIONS|ADR-023]]), 로그아웃([[16-DECISIONS|ADR-021]]). Topbar의 회사 이름 "솔리데오"는 고정 표시이고 조직 전환 메뉴가 없다.
+- 사이드바는 256px 고정(템플릿 `Sidebar` 폭 `16rem`, [[16-DECISIONS|ADR-029]] A6 D15). 접으면 아이콘만 남는 64px 아이콘 줄이 된다(§4.1, N1 사이드바 main `9e6d8e2`). 묶음과 메뉴는 트리로 보인다(§4.1). 활성 항목은 `sidebar-accent` 배경 + 좌측 3px `brand` 바(트리 세로선 자리).
+- 사이드바 묶음은 업무·AI 분석·입찰 관리·조직·시스템이다. 그 아래 선으로 나눈 맨 아래 고정 칸에 조직도(`/org-chart`)가 있다. 노출 조건 5개([[16-DECISIONS|ADR-021]])를 채운 메뉴는 링크로, 아직 화면이 없는 메뉴는 링크 없이 "준비 중"으로 보인다(2026-10-20 사용자 결정, ADR-021 개정). 준비 중 메뉴는 초점을 받지 않고 경로는 404 그대로다. 메뉴 정의는 `web/components/app-nav.ts` 한 곳(`released`·`planned`)이다. 메뉴 숨김은 권한이 아니며, 서버가 라우트마다 권한을 따로 검사한다. 미인증은 기존 인증 정책, 미출시 경로 404, 출시 경로에 권한 없음 403이다. 2026-10-21 main 기준 준비 중은 관심 공고·분석 결과 비교·인력 배치 시뮬레이션·입찰 프로젝트 4개다. 그림의 "수집 관리"는 데이터 수집 관리(`/admin/ingestion`, ADMIN만)다. 사용자 메뉴: 설정, 서비스 운영(`/ops`, 운영자만. `/ops` 분리는 해커톤 이후, [[16-DECISIONS|ADR-023]]), 로그아웃([[16-DECISIONS|ADR-021]]). Topbar의 회사 이름 "솔리데오"는 고정 표시이고 조직 전환 메뉴가 없다.
 - Topbar 우측 순서는 고정: `DemoBadge` → `RunModeIndicator` → `AiModeIndicator` → `DataFreshnessIndicator` → `NotificationBell` → 사용자 메뉴. `DEMO` 배지는 실행 모드 바로 앞에 두고, 실행 모드가 `fixture`·`mock`일 때만 보인다(`live`에서는 숨긴다). 템플릿 사이드바는 접으면 숨어서 로고 옆 배지가 사라지므로 Topbar에 둔다([[16-DECISIONS|ADR-029]] A6 D3). 행 단위 `DEMO` 배지는 모드와 무관하게 `isDemo=true` 레코드에 붙는다.
 - Topbar 지표(`RunModeIndicator`·`AiModeIndicator`·`DataFreshnessIndicator`)의 값·색·갱신 주기는 §8이 정본이다.
 - 1280px에서 `/bids` 표의 기본 열이 가로 스크롤 없이 모두 보여야 한다(열 목록은 §5.3).
@@ -165,7 +165,7 @@ flowchart TD
 
 ### 4.1 사이드바 트리와 메뉴 아이콘
 
-2026-10-18 사용자 결정이다. 근거와 시안 비교는 [조직도 설계](plans/2026-10-18-org-chart-sidebar-design.md) §4다. 구조(트리·아이콘·고정 칸)는 N1 앱 셸 작업이 만든다([[12-ROADMAP|12 로드맵]]).
+2026-10-18 사용자 결정이다. 근거와 시안 비교는 [조직도 설계](plans/2026-10-18-org-chart-sidebar-design.md) §4다. 구조(트리·아이콘·고정 칸·64px 아이콘 줄)는 N1 사이드바 작업이 만들었다(main `9e6d8e2`, 증거 [N1 사이드바 트리](evidence/phase-3/n1-sidebar-tree/README.md), 시험 [[11-TESTING|11]] NAV-10).
 
 - **묶음 줄**: 접기 버튼이다. 접기 화살표(`chevron-down`/`chevron-right`, 16px)와 묶음 이름(작은 회색 굵은 글자)만 두고 아이콘은 없다. `aria-expanded`·`aria-controls`를 단다. 지금 화면이 속한 묶음은 들어올 때 항상 펼친다. 접힘 상태는 보는 사람 브라우저(`localStorage`)에만 두며, 읽기·쓰기가 실패해도 사이드바는 정상으로 보인다.
 - **메뉴**: 묶음 화살표 아래 1px 세로선(`border`) 안쪽으로 들여 쓴다. 아이콘 16px + 글자 16px(`type-label` 13px에 아래 글자 크기 예외 +3px). 링크이며 지금 화면이면 `aria-current="page"`다. 아이콘은 장식(`aria-hidden`)이고 이름은 항상 글자로 보인다.
@@ -177,18 +177,18 @@ flowchart TD
 |---|---|---|---|---|
 | 업무 | 대시보드 | `/dashboard` | `layout-dashboard` | 예 |
 | 업무 | 입찰 공고 | `/bids` | `file-text` | 예 |
-| 업무 | 관심 공고 | `/watchlist` | `star` | P1 |
+| 업무 | 관심 공고 | `/watchlist` | `star` | 준비 중 (P1) |
 | 업무 | 알림 | `/notifications` | `bell` | 예 |
-| AI 분석 | 분석 결과 비교 | `/analysis` | `git-compare-arrows` | P1 |
-| AI 분석 | 인력 배치 시뮬레이션 | `/workforce` | `users-round` | P1 |
-| 입찰 관리 | 입찰 프로젝트 | `/projects` | `folder-kanban` | P1 |
+| AI 분석 | 분석 결과 비교 | `/analysis` | `git-compare-arrows` | 준비 중 (P1) |
+| AI 분석 | 인력 배치 시뮬레이션 | `/workforce` | `users-round` | 준비 중 (P1) |
+| 입찰 관리 | 입찰 프로젝트 | `/projects` | `folder-kanban` | 준비 중 (P1) |
 | 조직 | 회사 역량 | `/company` | `award` | 예 |
-| 조직 | 조직·인력 | `/people` | `users` | 확장 컷 |
+| 조직 | 조직·인력 | `/people` | `users` | 예 |
 | 시스템 | 설정 | `/settings` | `settings` | 예 (조직 탭은 확장 컷) |
-| 시스템 | 데이터 수집 관리 | `/admin/ingestion` | `database` | 확장 컷 (ADMIN만) |
-| 맨 아래 고정 칸 | 조직도 | `/org-chart` | `network` | 확장 컷 |
+| 시스템 | 데이터 수집 관리 | `/admin/ingestion` | `database` | 예 (ADMIN만) |
+| 맨 아래 고정 칸 | 조직도 | `/org-chart` | `network` | 예 |
 
-"해커톤 노출"의 확장 컷은 핵심 컷이 모두 green이 된 뒤 노출한다([[16-DECISIONS|ADR-023]], [[12-ROADMAP|12 로드맵]]). 아이콘 이름은 `web/`에 설치된 `lucide-react`에서 확인했다. React에서는 `LayoutDashboardIcon`처럼 `Icon` 접미사 이름으로 부른다.
+"해커톤 노출"은 2026-10-21 main(`app-nav.ts`) 기준이다. "예"는 링크로 보이고, "준비 중"은 링크 없이 보인다. 설정의 조직 탭은 아직 확장 컷이다([[16-DECISIONS|ADR-023]], [[12-ROADMAP|12 로드맵]]). 아이콘 이름은 `web/`에 설치된 `lucide-react`에서 확인했다. React에서는 `LayoutDashboardIcon`처럼 `Icon` 접미사 이름으로 부른다.
 
 ## 5. 라우트별 명세
 
@@ -273,6 +273,7 @@ flowchart TD
 | 빈 상태 | 항목 0건: "등록된 기술이 없습니다. 점수 요소 `기술 스택 적합`이 0점으로 계산됩니다" + [추가](ADMIN). 점수 영향을 문장으로 명시([[08-SCORING\|08 SOL Score]] missing 정책) |
 | 로딩/오류 | §5.1 |
 | 권한 | 읽기 모든 역할. 편집 ADMIN. 비ADMIN에는 편집 버튼 자체를 숨기지 않고 비활성 + 툴팁 "ADMIN만 편집" |
+| 구현 상태 | 2026-10-21 main `bf16806`은 읽기 전용이다: 링크 탭 7개(기술 스택·보유 자격·수행 실적·인력·선호 설정·재무·변경 이력, `?tab=`), 인력 탭은 27명·200명만(가용 FTE는 공고 기간마다 달라 고정 숫자로 보이지 않는다). 편집·새 revision 저장·[추가]는 미구현이다. 증거 [회사 역량 검증 보고](evidence/phase-3/company/20261020-company-read-report.md) |
 
 ### 5.7 `/notifications`
 
@@ -292,7 +293,7 @@ flowchart TD
 | 주요 액션 | [수동 수집 실행] → 대화상자에서 **소스 → 배치** 순서로 고른다. 소스는 `fixture`·`g2b` 둘 다 보이고 지금 실행 모드에서 받지 않는 소스는 숨기지 않고 비활성 + 이유 문장이다(`live`는 `g2b`만, `fixture`·`mock`은 `fixture`만). 배치(`seed`/`live`)는 `fixture`일 때만 보이고 기본 선택이 없다. `g2b`는 입력 칸 없이 기본 창·단계(입찰공고) 안내만 보이고 본문은 `{source:"g2b"}`다. `Idempotency-Key`는 대화상자를 열 때 만들고 같은 본문을 다시 보내면 같은 키, 소스·배치를 바꾸면 새 키다 → 202 → 이력 표 맨 위에 화면 전용 **접수됨** 행(§3.2)과 상태 줄 → 이력 표 첫 쪽 polling(§7과 같은 주기) |
 | 빈 상태 | 실행 이력 0건: "아직 수집을 실행하지 않았습니다" + [수동 수집 실행]. 기록이 없는 항목은 빈 상태로 두고 임의 값을 보이지 않는다 |
 | 로딩/오류 | §5.1. 화면 위 상태 줄 하나(`role="status"`, 토스트 없음)가 접수됨·실행 중·끝남을 알린다. 접수됨이 60초를 넘으면 "worker가 실행 중인지 확인하세요", 실행 중이 30분을 넘으면 경고를 붙인다. 지금 모드에서 실행할 수 있는 소스의 `RUNNING` 또는 접수됨 행이 있으면 [수동 수집 실행]을 비활성하고 도움말("실행 중인 수집이 끝나면 다시 실행할 수 있습니다")을 단다. 최종 판정은 서버 `409 INGESTION_IN_PROGRESS`다([[05-API-SPEC\|05 API]] §2·§5) |
-| 권한 | ADMIN만. 그 외는 §5.1 403 안내(`IngestionForbidden`). 서버 가드 + RLS로 거부한다(메뉴 숨김만으로 막지 않는다). 사이드바 줄은 ADR-021 노출 조건을 채운 뒤 더하고, 그 전에도 경로는 열려 있다([[11-TESTING\|11 테스트]] NAV-09) |
+| 권한 | ADMIN만. 그 외는 §5.1 403 안내(`IngestionForbidden`). 서버 가드 + RLS로 거부한다(메뉴 숨김만으로 막지 않는다). 사이드바 줄은 ADMIN에게만 보인다(main `9e6d8e2`). 경로 접근은 메뉴와 별개다([[11-TESTING\|11 테스트]] NAV-09·NAV-10) |
 
 ### 5.9 `/people` (ADR-021, 구현됨)
 

@@ -7,7 +7,7 @@ tags:
   - ai
   - ops
   - hackathon
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 23. 주말 파인튜닝 계획: Bosun v3.1 0.6B 평가·학습 — 회사 GPU 엔드포인트·오픈 데이터·Hugging Face 모델
@@ -58,7 +58,7 @@ updated: 2026-10-20
 
 Qwen 학습 일정은 **없다**(2026-10-20 저녁 개정. 옛 "10-25 조건부 Qwen 4B QLoRA" 행 삭제).
 
-10-24 최종 리허설(C9)과 겹친다. 우리 추론 런타임 중 GPU 1 에 있는 것은 `sol_decision` Bosun(8009)뿐이고, 학습과 같은 GPU 에 공존하는 것이 기본 계획이다(§2.4 추정 합계 안). F1 에서 합계가 넘치면 학습 시간대에 8009 를 잠시 내리는 것은 회사가 하고(우리가 끄지 않는다), 그 시간에는 `live`·`fixture` 리허설을 잡지 않는다. 데모 본편은 `mock` 이라 영향이 없다.
+10-24 최종 리허설(C9)과 겹친다. 우리 추론 런타임 중 GPU 1 에 있는 것은 `sol_decision` Bosun(8009)뿐이고, 학습과 같은 GPU 에 공존하는 것이 기본 계획이다(§2.4 추정 합계 안). 우리 절차로 8009 를 내리지 않는다 — 어떤 프로세스도 종료·이동하지 않는다([[10-DEPLOYMENT|10]] GPU 절 "추론 런타임과의 관계", ADR-034 10번). F1 에서 합계가 넘치면 멈추고 회사에 보고한다. 8009 를 내릴지·언제 내릴지와 그때의 `live`·`fixture` 리허설 시간은 사람이 정한다. 데모 본편은 `mock` 이라 영향이 없다.
 
 ## 2. 엔드포인트
 
@@ -139,7 +139,7 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"        
 | 경우 | 토요일(F1·F2) | 일요일(F3·채점 4회) |
 |---|---|---|
 | 합계가 들어간다(기본 가정) | GPU 1 에서 PaddleOCR + Bosun 서빙 + 학습 공존. 데모 `live`·`fixture` 영향 없음 | PaddleOCR + 서빙 + 채점(순차). 영향 없음 |
-| F1 에서 합계가 넘친다 | 회사가 학습 시간대에 `sol_decision.serve` 를 내린다(우리가 끄지 않는다. PaddleOCR 는 대상 아님). 리허설의 `live`·`fixture` 확인은 F1 전 오전 또는 일요일 저녁 | 서빙을 내리고 채점 4회를 순서대로. 끝나면 공개 Bosun 서빙 복구 |
+| F1 에서 합계가 넘친다 | 멈추고 회사에 보고한다. 우리 절차로 `sol_decision.serve` 를 내리지 않는다(PaddleOCR 도 대상 아님). 서빙을 내릴지·언제 내릴지와 리허설의 `live`·`fixture` 확인 시간은 사람이 정한다 | 토요일에 사람이 정한 방식을 따르고 채점 4회는 순서대로. 그 결정으로 서빙이 멈췄으면 끝난 뒤 공개 Bosun 서빙 복구를 회사에 확인한다 |
 | PaddleOCR 피크로 OOM | 종료·이동하지 않고 멈춘다. 회사에 시간대를 확인하고 다시 돈다 | 같다 |
 
 옛 "1장 80 GB"·"24 GB"·"2장 이상"·"GPU 1 전용" 경우는 해당 없음으로 닫는다. 학습이 GPU 1 을 쓰는 동안 데모 앱은 `mock` 모드로 두면 영향이 없다(발표 본편 모드).
@@ -342,7 +342,7 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 |---|---|---|
 | **Bosun 0.6B zero-shot 품질(E1')이 낮다**(DecisionBench `rubric_scoring` 가족 0.707) | B3 E1' 측정(10-23) | 그대로 보고한다. τ 재조정은 dev 로만. 플래그 노이즈는 규칙이 최종이라 점수에 영향 없음. 모델 변경은 사용자 결정 |
 | **질문당 지연**: 6k 토큰 × 20문항 순차 prefill 이 `KEV_TIMEOUT_MS` 5000 을 넘는다 | B2 G3 p95 | 질문 배치 forward(왼쪽 패딩)·ADR-033 E4 산식 개정(`settings.py`·`gateway.model.ts` 함께). state KV 공유는 후속 |
-| **GPU 1 공유 간섭**: PaddleOCR 피크로 OOM·지연 | F1·B2 `nvidia-smi` | 종료·이동하지 않고 멈춘다. 회사에 시간대 확인(§8). 합계가 넘치면 학습 시간대에 회사가 8009 를 내린다(§2.4) |
+| **GPU 1 공유 간섭**: PaddleOCR 피크로 OOM·지연 | F1·B2 `nvidia-smi` | 종료·이동하지 않고 멈춘다. 회사에 시간대 확인(§8). 합계가 넘쳐도 우리 절차로 8009 를 내리지 않는다. 그다음은 사람이 정한다(§2.4) |
 | **회사 Qwen3.5-27B API**: `/v1/models` id 불일치·guided JSON·`prompt_logprobs` 미지원·호출 한도·지연 | B2 | 레지스트리 `run` 값 조정은 사용자 결정. guided JSON 없으면 추출 PARTIAL 경로(02 장애 원칙), `prompt_logprobs` 없으면 E3 방법 재설계. 백업 Qwen 4B 로 돌아가는 것도 사용자 결정 |
 | **trainer 재현**: 우리 `sol_decision.train` 이 서빙 분포와 다른 프롬프트·슬롯을 쓴다 | B1 테스트·`bosun-preflight.sh` | `predict`·`decision_logits` 확률 동일성 테스트(seed 고정) 실패면 학습을 시작하지 않는다 |
 | 회사 GPU 서버에 외부망이 없다 | 10-22 P4 | 22 §2.2 2안. 우리가 10-23 외부망 기계에서 받아 넘긴다(Bosun·백본·`services/decision` 소스·wheel). 서버는 `HF_HUB_OFFLINE=1` |
