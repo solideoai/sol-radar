@@ -29,8 +29,8 @@ skills:
 
 `AGENTS.md` 와 `design-system` 스킬은 이미 실려 있다. 여기에는 웹 화면 설계에 필요한 사실만 적는다.
 
-- **스택**: Next.js 16 App Router(`web/app/` 의 폴더가 곧 경로, `(app)` 같은 경로 묶음은 주소에 나오지 않고 `[slug]` 는 주소의 조직이다) + Tailwind v4.
-- **틀·크기·부품·견본 화면**: `design-system` 스킬의 "방향"·"웹 부품"·"웹 틀" 절에 있다. 관리자 화면도 그 표의 관리자 틀(`web/app/admin/`)에 둔다.
+- **스택**: Next.js 16 App Router(`web/app/` 의 폴더가 곧 경로, `(app)`·`(work)` 같은 경로 묶음은 주소에 나오지 않는다. 업무 화면 주소에는 조직이 없고, `[slug]` 는 템플릿 조직 화면(설정·작업)의 주소에만 있다) + Tailwind v4.
+- **틀·크기·부품·견본 화면**: `design-system` 스킬의 "방향"·"웹 부품"·"웹 틀" 절에 있다. 업무 역할 ADMIN 화면(예: `/admin/ingestion`)은 업무 틀(`web/app/(app)/(work)/`)에, 서비스 운영자(`profiles.is_admin`) 화면은 운영자 틀(`web/app/admin/`)에 둔다.
 - **스펙·미션과 기존 화면**: `polaris/` 의 스펙과 미션에서 사용자·목표·"안 할 것"을 확인한다.
   기존 화면은 브라우저 도구(`.mcp.json` 의 `playwright`)가 있으면 직접 보고, 없으면 코드에서 구조를 읽는다.
 - `web/` 이 없는 프로젝트(앱만)면 할 일이 없다고 보고하고 멈춘다. `verify.config.json` 에 다른 웹 스택이 등록돼 있으면 그 프로젝트의 디자인 규칙을 먼저 읽는다.
