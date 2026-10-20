@@ -5,7 +5,7 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # P0-0 외부 의존성 점검
@@ -79,7 +79,7 @@ updated: 2026-10-19
 | G2 | Qwen·Kev `GET /v1/models`(Bearer) 응답을 `endpoint-models.json`에 저장 → Kev `run`·`base`·`lora`·`temperature`와 vLLM 모델 id `Qwen/Qwen3.5-9B`를 `services/ai/models/registry.yaml`(C5에서 생성)과 대조 | 각 1회 | 대기 | — | — |
 | G3 | 지연 실측: Kev `/v1/systemone` 영어 state 약 500토큰 10회 p50·p95, vLLM 추출 1회 왕복 → `KEV_TIMEOUT_MS`·Qwen 타임아웃 권고값 | 절차 §7 | 대기 | — | — |
 | G4 | vLLM guided JSON 동작 1회 | 절차 §7 | 대기 | — | — |
-| G5 | 회사 제공 GPU 정보(모델·VRAM·점유·가중치 sha256)가 있으면 기록, 없으면 "회사 운영, 미제공" | 회사 전달 | 대기 | — | — |
+| G5 | 회사 제공 GPU 정보(모델·VRAM·점유·가중치 sha256)가 있으면 기록, 없으면 "회사 운영, 미제공" | 회사 전달 / 사용자가 서버 셸에서 확인 | 일부 확인 | NVIDIA A40 46,068 MiB ×3(GPU 0: 4,747 MiB·GPU 2: 9,240 MiB 회사 서비스 사용 중, GPU 1: 5 MiB → SOL RADAR 학습 전용), 드라이버 580.173.02, CUDA Toolkit 12.8. 추론 런타임(vLLM·`kev.serve`)의 점유·가중치 sha256 은 미제공(아직 떠 있지 않다). 상세 [[22-FINETUNE-RUNBOOK\|22]] §3.1, `evidence/kev-train-feasibility.md` §0 | 2026-10-20 |
 | G6 | 엔드포인트 차단(잘못된 URL 1회) 시 gateway가 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 기록하고 `PARTIAL`로 끝나는지 | C5 `local` 어댑터 뒤 | 대기(C5) | — | — |
 
 호출 예산: 이 점검 전체 Kev 20회·Qwen 5회 이하. 10-21 컷 규칙의 "GPU 정상"은 G2·G3 통과다.
