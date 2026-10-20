@@ -105,6 +105,8 @@ export const FIXTURE_ANCHOR_PARAM = "anchor";
 export const SEED_ANCHOR_MISSING = "SEED_ANCHOR_MISSING";
 /** 호출 예산 소진으로 run 을 멈췄을 때의 ingest_errors.error_code(run 수준, 호출 자체의 API_QUOTA_EXCEEDED 와 다르다) */
 export const QUOTA_EXCEEDED_ERROR_CODE = "QUOTA_EXCEEDED";
+/** 예산 저장소(Redis)를 읽지 못해 run 을 멈췄을 때의 ingest_errors.error_code. 소진(QUOTA_EXCEEDED)과 섞지 않는다(11 V2-03, 02 장애 원칙) */
+export const QUOTA_STORE_UNAVAILABLE_ERROR_CODE = "QUOTA_STORE_UNAVAILABLE";
 /** 위 기록의 source_key */
 export const QUOTA_SOURCE_KEY = "g2b:quota";
 
@@ -436,9 +438,10 @@ async function recordPageFailure(
 // 쪽을 부르기 전에 그날 예산이 소진됐으면(다른 run·앞 쪽이 다 썼다) 호출 없이 FAILED 로 닫는다. revision 은 만들지 않는다.
 async function recordQuotaExhausted(context: RunContext, status: QuotaStatus): Promise<void> {
   const limit = context.quota?.dailyLimit ?? 0;
+  // 실패 유형을 다른 유형의 코드로 남기지 않는다: 저장소 장애는 QUOTA_STORE_UNAVAILABLE, 실제 소진만 QUOTA_EXCEEDED.
   await context.input.repo.recordError(context.runId, {
     sourceKey: QUOTA_SOURCE_KEY,
-    errorCode: QUOTA_EXCEEDED_ERROR_CODE,
+    errorCode: status.unavailable ? QUOTA_STORE_UNAVAILABLE_ERROR_CODE : QUOTA_EXCEEDED_ERROR_CODE,
     resultCode: null,
     redactedDetail: status.unavailable
       ? `호출 예산을 읽지 못함(저장소 오류, 한도 ${limit}). 남았다고 보지 않고 목록을 부르지 않는다`
