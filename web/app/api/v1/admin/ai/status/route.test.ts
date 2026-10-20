@@ -129,6 +129,16 @@ describe("GET /api/v1/admin/ai/status — 인증", () => {
     await errorOf(response, 401, "UNAUTHENTICATED");
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  // 05 §5 ACCOUNT_DISABLED: profiles.status='suspended' 면 토큰이 유효해도 막는다.
+  it.each(["cookie", "bearer"] as const)(
+    "정지된 ADMIN(%s)은 403 ACCOUNT_DISABLED 이고 gateway 를 부르지 않는다",
+    async (via) => {
+      fakeSession.profileStatus = "suspended";
+      await errorOf(await send({ via }), 403, "ACCOUNT_DISABLED");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("GET /api/v1/admin/ai/status — 역할", () => {
@@ -182,6 +192,14 @@ describe("GET /api/v1/admin/ai/status — 역할", () => {
   it("다른 조직의 VIEWER 도 403 FORBIDDEN 이다", async () => {
     const error = await errorOf(await send({ user: FAKE_USERS.otherViewer }), 403, "FORBIDDEN");
     expect(error.details).toEqual({ required: ["ADMIN"] });
+  });
+
+  // 05 §1 현재 조직: 개인 조직은 업무 멤버십 수에 들지 않는다. 개인 조직의 sol_role=ADMIN 으로는 열리지 않는다.
+  it("개인 조직의 ADMIN 은 403 FORBIDDEN(업무 조직 필요)이고 gateway 를 부르지 않는다", async () => {
+    fakeSession.personalOrg = true;
+    const error = await errorOf(await send(), 403, "FORBIDDEN");
+    expect(error.details).toMatchObject({ reason: "ORGANIZATION_REQUIRED" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
