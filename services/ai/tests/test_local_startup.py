@@ -8,7 +8,17 @@
 
 import pytest
 from fake_models import Reply, closed_url, free_port, kev_models, vllm_models
-from support import KEV_KEY, KEV_RUN, QWEN_KEY, QWEN_RUN, run_main
+from support import (
+    BACKUP_QWEN_RUN,
+    KEV_KEY,
+    KEV_MODEL_ID,
+    KEV_RUN,
+    QWEN_KEY,
+    QWEN_RUN,
+    RETIRED_KEV_MODEL_ID,
+    RETIRED_QWEN_RUN,
+    run_main,
+)
 
 EX_CONFIG = 78
 OUTSIDE_HTTP = "http://203.0.113.10:8000"  # 문서용 주소(RFC 5737). conftest 가 연결을 막는다
@@ -181,6 +191,115 @@ def test_unknown_kev_model_id_is_not_in_registry():
 def test_unknown_qwen_model_is_not_in_registry():
     result = run_main(env_for(closed_url(), closed_url(), QWEN_MODEL="Qwen/Qwen3.5-4B"))
     assert refused_with(result, "QWEN_MODEL(NOT_IN_REGISTRY)") == (EX_CONFIG, True)
+
+
+# ---------------------------------------------------------------- 레지스트리 항목 상태(ADR-034 6번, 03 §11)
+
+
+def test_default_kev_model_id_is_bosun(fake_server):
+    # KEV_MODEL_ID 미지정 → settings 기본값 bosun-v3.1-0.6b. 가짜 서버 /v1/models 기본 응답(Bosun 값)과 맞아 기동한다
+    from sol_ai.settings import Settings
+
+    assert Settings().KEV_MODEL_ID == KEV_MODEL_ID == "bosun-v3.1-0.6b"
+    qwen, kev = model_servers(fake_server)
+    assert started(run_main(env_for(qwen.url, kev.url))) == (0, False)
+
+
+def test_retired_kev_model_id_is_refused_before_remote_check(fake_server):
+    # 퇴역 Kev 서버가 옛 run 을 그대로 내더라도 retired 항목은 고를 수 없다. 원격 대조(6단계) 전에 멈춘다
+    qwen, kev = model_servers(
+        fake_server, kev_reply=Reply(json_body=kev_models("jaredpalmer/kev-9b@v1.0"))
+    )
+    result = run_main(env_for(qwen.url, kev.url, KEV_MODEL_ID=RETIRED_KEV_MODEL_ID))
+    assert refused_with(result, "KEV_MODEL_ID(RETIRED)") == (EX_CONFIG, True)
+    assert (qwen.calls("GET", "/v1/models"), kev.calls("GET", "/v1/models")) == ([], [])
+
+
+def test_retired_kev_model_id_is_not_reported_as_unknown():
+    result = run_main(env_for(closed_url(), closed_url(), KEV_MODEL_ID=RETIRED_KEV_MODEL_ID))
+    assert ("KEV_MODEL_ID(RETIRED)" in result.stderr, "NOT_IN_REGISTRY" in result.stderr) == (
+        True,
+        False,
+    )
+
+
+def test_qwen_entry_is_not_a_kev_model_id():
+    result = run_main(env_for(closed_url(), closed_url(), KEV_MODEL_ID="qwen3.5-27b"))
+    assert refused_with(result, "KEV_MODEL_ID(NOT_IN_REGISTRY)") == (EX_CONFIG, True)
+
+
+def test_retired_qwen_model_is_refused(fake_server):
+    qwen, kev = model_servers(
+        fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN_RUN))
+    )
+    result = run_main(env_for(qwen.url, kev.url, QWEN_MODEL=RETIRED_QWEN_RUN))
+    assert refused_with(result, "QWEN_MODEL(RETIRED)") == (EX_CONFIG, True)
+    assert qwen.calls("GET", "/v1/models") == []
+
+
+def test_backup_qwen_model_is_refused(fake_server):
+    qwen, kev = model_servers(
+        fake_server, qwen_models=Reply(json_body=vllm_models(BACKUP_QWEN_RUN))
+    )
+    result = run_main(env_for(qwen.url, kev.url, QWEN_MODEL=BACKUP_QWEN_RUN))
+    assert refused_with(result, "QWEN_MODEL(BACKUP)") == (EX_CONFIG, True)
+    assert qwen.calls("GET", "/v1/models") == []
+
+
+def test_qwen_default_is_active_27b_not_retired_9b(fake_server):
+    # QWEN_MODEL 미지정 → active default(Qwen/Qwen3.5-27B). 퇴역 9B 만 서빙하는 vLLM 은 불일치다
+    qwen, kev = model_servers(
+        fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN_RUN))
+    )
+    result = run_main(env_for(qwen.url, kev.url))
+    assert refused_with(result, "기동 거부: QWEN_MODEL(REGISTRY_MISMATCH)") == (EX_CONFIG, True)
+
+
+def test_qwen_default_matches_27b_served(fake_server):
+    qwen, kev = model_servers(
+        fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN_RUN, QWEN_RUN))
+    )
+    assert started(run_main(env_for(qwen.url, kev.url))) == (0, False)
+
+
+# ---------------------------------------------------------------- 결정 모델 서버 /v1/models 대조 필드(03 §11)
+
+
+@pytest.mark.parametrize("field", ["base", "lora", "revision"])
+def test_kev_models_field_mismatch_is_registry_mismatch(fake_server, field):
+    reply = Reply(json_body=kev_models(**{field: "something-else"}))
+    qwen, kev = model_servers(fake_server, kev_reply=reply)
+    result = run_main(env_for(qwen.url, kev.url))
+    assert refused_with(result, "기동 거부: KEV_MODEL_ID(REGISTRY_MISMATCH)") == (EX_CONFIG, True)
+
+
+def test_kev_models_without_revision_still_matches(fake_server):
+    # 서버가 revision 을 내지 않으면 revision 은 대조하지 않는다(run·base·lora 만)
+    qwen, kev = model_servers(
+        fake_server, kev_reply=Reply(json_body=kev_models(without=("revision",)))
+    )
+    assert started(run_main(env_for(qwen.url, kev.url))) == (0, False)
+
+
+def test_kev_models_temperature_is_not_compared_when_registry_null(fake_server):
+    qwen, kev = model_servers(fake_server, kev_reply=Reply(json_body=kev_models(temperature=0.7)))
+    assert started(run_main(env_for(qwen.url, kev.url))) == (0, False)
+
+
+def test_kev_models_missing_lora_is_registry_mismatch(fake_server):
+    qwen, kev = model_servers(fake_server, kev_reply=Reply(json_body=kev_models(without=("lora",))))
+    result = run_main(env_for(qwen.url, kev.url))
+    assert refused_with(result, "기동 거부: KEV_MODEL_ID(REGISTRY_MISMATCH)") == (EX_CONFIG, True)
+
+
+def test_refusal_hides_registry_hashes(fake_server):
+    from support import KEV_LORA_SHA256, KEV_REVISION
+
+    qwen, kev = model_servers(fake_server, kev_reply=Reply(json_body=kev_models(lora="x" * 64)))
+    result = run_main(env_for(qwen.url, kev.url))
+    output = result.stdout + result.stderr
+    assert result.returncode == EX_CONFIG
+    assert [v for v in (KEV_LORA_SHA256, KEV_REVISION, "x" * 64) if v in output] == []
 
 
 # ---------------------------------------------------------------- URL 보안(3). 같은 프로세스(연결 차단)

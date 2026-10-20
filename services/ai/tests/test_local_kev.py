@@ -16,6 +16,7 @@ from support import (
     KEV_DISCLAIMER,
     KEV_KEY,
     KEV_MODEL_ID,
+    KEV_REQUEST_MODEL,
     KEV_RUN,
     LEGEND,
     extraction_fixture,
@@ -68,7 +69,7 @@ def test_kev_request_goes_to_systemone_with_bearer_key(make_client, local_models
 def test_kev_request_body_has_state_model_questions(make_client, local_models):
     run_kev(make_client, local_models)
     body = sent(local_models.kev)[0]
-    assert (set(body), body["model"]) == ({"state", "model", "questions"}, "kev-latest")
+    assert (set(body), body["model"]) == ({"state", "model", "questions"}, KEV_REQUEST_MODEL)
 
 
 def test_kev_request_questions_are_question_set_file(make_client, local_models):

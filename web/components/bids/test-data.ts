@@ -302,6 +302,29 @@ export const FX03_VIEW: AnalysisView = {
   }),
 };
 
+// 실모델 식별자(ADR-034 1·9번, 레지스트리 run 값). 화면은 받은 식별자를 그대로 보이고 대응표를 두지 않는다.
+export const BOSUN_MODEL_ID = "Hanno-Labs/bosun-v3.1-0.6b@5e78a37c";
+export const QWEN_MODEL_ID = "Qwen/Qwen3.5-27B";
+
+// S-LIVE: 실제 공고를 local 공급자(Qwen3.5-27B + Bosun v3.1 0.6B, kev-qs/v0.2)로 분석한 FX-01. 숫자는 FX-01 과 같다.
+export const FX01_LIVE_VIEW: AnalysisView = {
+  ...FX01_VIEW,
+  id: "run-fx-01-live",
+  runMode: "live",
+  kev: {
+    ...FX01_VIEW.kev,
+    provider: "local",
+    model: BOSUN_MODEL_ID,
+    questionSetVersion: "kev-qs/v0.2",
+  },
+  model: {
+    provider: "local",
+    qwen: { name: QWEN_MODEL_ID, promptVersion: "req-extract/v0.1", promptHash: "sha256:test" },
+    kev: { model: BOSUN_MODEL_ID, questionSetVersion: "kev-qs/v0.2" },
+    algorithmVersion: "sol-v0.1.0",
+  },
+};
+
 // S6: AI 불가로 규칙만 계산한 PARTIAL. 점수는 FX-01 과 같고 Kev 는 꺼져 있다.
 export const FX01_PARTIAL_VIEW: AnalysisView = {
   ...FX01_VIEW,

@@ -70,7 +70,7 @@ updated: 2026-10-20
 > [!success] 검증됨 (2026-10-20, Hugging Face API `api/models/*`·파일 원문. 확인 주체는 [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §1 세션)
 > - 리비전 존재: `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c…`(main), `Qwen/Qwen3-0.6B@c1899de…`(백업 `Qwen/Qwen3-4B-Instruct-2507@cdbee75f…` 도 존재 확인됨).
 > - Bosun 파일 원문: `modeling_bosun.py`·`configuration_bosun.py`·`config.json`·`serving.json`·`manifest.json`·`adapter/adapter_config.json`. decision token 256개 `<|decision_000|>`~`<|decision_255|>`(id 151669~151924), `max_runtime_choices 255`, `null_token_index 255`, `prompt_schema: bosun-decision-prompt-v3-stable-slots`.
-> - 공개 API: `BosunForDecision.from_pretrained(path, revision=…)`(`trust_remote_code=True`), `predict(*, state, instructions, candidates, decision_type="choice", seed=0, row_id="0") → {"probabilities": [...]}`(**`torch.inference_mode()` 안**), `decision_logits(*, input_ids, attention_mask) → [B, 256]`(no_grad 아님 → 학습용), `render_decision_prompt(...) → (prompt, slot_token_ids, candidate_to_slot)`. state 길이 제한 없음(`truncation=False`). 어댑터는 `PeftModel.from_pretrained(..., is_trainable=False)` 로 올라오므로 학습 때 LoRA 파라미터의 `requires_grad=True` 를 직접 켠다.
+> - 공개 API: `BosunForDecision.from_pretrained(path, revision=…)`(`trust_remote_code=True`), `predict(*, state, instructions, candidates, decision_type="choice", seed=0, row_id="0") → {"probabilities": [...]}`(**`torch.inference_mode()` 안**), `decision_logits(*, input_ids, attention_mask) → [B, 256]`(no_grad 아님 → 학습용), `render_decision_prompt(...) → (content, presentation_order, candidate_to_slot)`. state 길이 제한 없음(`truncation=False`). 어댑터는 `PeftModel.from_pretrained(..., is_trainable=False)` 로 올라오므로 학습 때 LoRA 파라미터의 `requires_grad=True` 를 직접 켠다.
 > - 공개 성능(DecisionBench 23,900행): acc 0.8118, ECE 0.0659. 후보 2개 0.946, 3개 0.983, 5개 0.953. 가장 약한 가족 `rubric_scoring_prioritization` 0.707(우리 `score` 문항과 가장 비슷).
 > - Bosun **학습 코드는 공개되지 않았다**(모델 카드·Hanno GitHub 11개 저장소). 우리 trainer 를 만든다(§4.3).
 
@@ -271,7 +271,7 @@ F1 은 세 단계다(A 환경 사전 검증 → B 20 step smoke → D 측정·�
 
 **출발 체크포인트는 검증한 로컬 snapshot 으로 준다.** `bosun-preflight.sh` 가 `$snap`(§2.2)의 `adapter/adapter_model.safetensors`·`decision_embeddings.safetensors` sha256 을 §2.2 값과 대조해 다르거나 없으면 **FAIL**. `bosun-f1.sh`·F2·채점은 실행 직전에 다시 대조하고 그 **로컬 디렉터리**를 `--package` 에 주며 `HF_HUB_OFFLINE=1` 로 돌린다. 처음부터 새 LoRA 를 만드는 변경은 하지 않는다(공개 LoRA 이어 학습, ADR-034 7번).
 
-**F1-A 환경 사전 검증** — `bash infra/gpu/bosun-preflight.sh`(§3.2 끝). 확인 항목: `CUDA_VISIBLE_DEVICES=1`·`CUDA_DEVICE_ORDER=PCI_BUS_ID`, nvidia-smi GPU 1 uuid 와 `cuda:0` uuid 일치, GPU 1 프로세스 목록(PaddleOCR 허용, 그 밖은 멈춤)·여유 메모리 ≥ B1 에서 정한 기준, torch 2.8.0+cu128·CUDA·bf16, transformers·peft·safetensors 핀, Bosun snapshot 파일 sha256(§2.2 값)·백본 캐시(없으면 FAIL), `sol_decision` import, 학습 데이터 형식(`bosun/*.en.jsonl` 각 줄 §4.1 스키마)·라벨 비율·state 토큰 최대값, `predict()` 와 `decision_logits()` 경로의 확률 동일성 smoke(seed 고정, 계획 §10 4번), 디스크. 통과하면 `runs/preflight-ok` 를 남기고 `bosun-f1.sh` 가 그것을 요구한다.
+**F1-A 환경 사전 검증** — `bash infra/gpu/bosun-preflight.sh`(§3.2 끝). 확인 항목: `CUDA_VISIBLE_DEVICES=1`·`CUDA_DEVICE_ORDER=PCI_BUS_ID`, nvidia-smi GPU 1 uuid 와 `cuda:0` uuid 일치, GPU 1 프로세스 목록(PaddleOCR 허용, 그 밖은 멈춤)·여유 메모리 ≥ B1 에서 정한 기준, torch 2.8.0+cu128·CUDA·bf16, transformers·peft·safetensors 핀, Bosun snapshot 파일 sha256(§2.2 값)·백본 캐시(없으면 FAIL), `sol_decision` import, 학습 데이터 형식(`bosun/*.en.jsonl` 각 줄 §4.1 스키마)·라벨 비율·state 토큰 최대값, `predict()` 와 `decision_logits()` 경로의 확률 동일성 smoke(seed 고정, 계획 §10 4번), 디스크. 통과하면 `runs/bosun-preflight-ok` 를 남기고 `bosun-f1.sh` 가 그것을 요구한다.
 
 **F1-B 20 step smoke** — `bosun-f1.sh --max_steps 20` 이 아래를 돌리고 `nvidia-smi -i 1 … -l 1` 기록을 함께 남긴다. 기본 후보: bf16, gradient checkpointing, batch 1, accum 8(Kev 레시피에서 가져온 출발값. Bosun 전용 값은 F1·dev 로 정한다).
 
@@ -306,7 +306,7 @@ F1 이 전부 실패하면 이 순서로 검토하고 결과를 사용자에게 
 F1 을 통과한 설정만 쓴다. batch·accum 은 F1-D 의 PASS 칸 값이다. F1 값과 다르게 바꾸면 그 근거를 `MODEL_CARD.md` 와 `docs/evidence/bosun-train-feasibility.md` 에 적는다. 물리 GPU 1(공유)만 쓴다. `sol_decision.train`(B1 미구현)의 설계는 계획 §4.2 다:
 
 - **loader**: `BosunForDecision.from_pretrained(<snapshot>)` → 어댑터는 `is_trainable=False` 로 올라오므로 LoRA 파라미터(392 텐서)만 `requires_grad=True` 를 켠다. decision token 임베딩(입·출력 256행)·백본·토크나이저는 **동결**(초기 단계, ADR-034 7번).
-- **손실**: `render_decision_prompt(...)` → (prompt, slot_token_ids, candidate_to_slot) → `decision_logits(input_ids, attention_mask)[:, :K]`(K = 후보 수)에 CE(one-hot) 또는 soft-CE(`gold.probabilities`). 에폭마다 `seed=epoch` 로 제시 순서를 바꿔 slot 편향을 막는다. **왼쪽 패딩 필수**(`decision_logits` 가 마지막 열 attention 1 요구). `predict()` 는 `inference_mode` 라 학습에 쓰지 않는다.
+- **손실**: `render_decision_prompt(...)` → (content, presentation_order, candidate_to_slot) → `decision_logits(input_ids, attention_mask)[:, :K]`(K = 후보 수)에 CE(one-hot) 또는 soft-CE(`gold.probabilities`). 에폭마다 `seed=epoch` 로 제시 순서를 바꿔 slot 편향을 막는다. **왼쪽 패딩 필수**(`decision_logits` 가 마지막 열 attention 1 요구). `predict()` 는 `inference_mode` 라 학습에 쓰지 않는다.
 - **저장**: `runs/bosun-sol-lora-v0.1/` 에 HF 레이아웃 그대로(`config.json`·`adapter/`·`decision_embeddings.safetensors`(복사, 변경 없음)·`tokenizer/`·`serving.json`·`manifest.json` 에 파일 sha256). `BosunForDecision.from_pretrained(<dir>)` 로 **재로딩**되고 `predict` 가 도는지 확인한다.
 
 ```bash

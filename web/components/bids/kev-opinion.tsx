@@ -6,8 +6,10 @@ import { MeterBar } from "@/components/bids/meter-bar";
 import { StatusBadge } from "@/components/bids/status-badge";
 import type { KevView, Recommendation, RequirementAssessmentView, ReviewFlag } from "@/server/bids";
 
-// Kev 참고 지표(§5.4.7). 점수에 더하지 않는 보조 신호라 구역 테두리에 색을 더하지 않는다.
+// 결정 모델 참고 지표(§5.4.7, ADR-034 로 "Kev" 문구를 모델 중립으로 개정). 점수에 더하지 않는 보조 신호라 구역 테두리에 색을 더하지 않는다.
 // 고지 3줄은 09 고정이고 셋째 줄만 {kev.model}·{kev.questionSetVersion}·{kev.provider} 로 바뀐다.
+// provider 가 mock 이면 실제 모델처럼 보이면 안 되므로(ADR-034 15번) 모델명 대신 "Mock 응답(데모 데이터)" 를 쓴다.
+// 식별자(KevView·kev 필드·KEV_* 플래그·파일명)는 API·DB 호환 레이어라 바꾸지 않는다.
 type KevOpinionProps = {
   kev: KevView;
   reviewFlags: ReviewFlag[];
@@ -16,12 +18,19 @@ type KevOpinionProps = {
   errorCode: string | null;
   // 항목 라벨은 화면이 extraction 의 itemId 경로로 풀어 넘긴다. 부품은 경로 조회를 하지 않는다.
   assessments?: { assessment: RequirementAssessmentView; label: string }[];
-  // Kev 를 썼는데 저장된 Kev 결과가 없는 run(kevRecordMissing). 꺼진 것과 구분해 "기록 없음"이라고 쓴다.
+  // 결정 모델을 썼는데 저장된 결과가 없는 run(kevRecordMissing). 꺼진 것과 구분해 "기록 없음"이라고 쓴다.
   notRecorded?: boolean;
 };
 
 const SIGNAL_THRESHOLD = 0.7;
 const OPTIONS = ["BID", "WATCH", "NO_BID"] as const satisfies readonly Recommendation[];
+const MOCK_MODEL_TEXT = "Mock 응답(데모 데이터)";
+
+// 고지 셋째 줄의 모델 정보. mock 은 모델명을 쓰지 않고, 실모델은 받은 식별자(레지스트리 run 값)를 그대로 보인다.
+function modelInfoText(kev: Pick<KevView, "provider" | "model" | "questionSetVersion">): string {
+  const modelPart = kev.provider === "mock" ? MOCK_MODEL_TEXT : `모델: ${kev.model ?? "—"}`;
+  return `${modelPart} · 질문 세트: ${kev.questionSetVersion ?? "—"} · 공급자: ${kev.provider ?? "—"}`;
+}
 
 // 받침 없음 또는 ㄹ 받침이면 "로", 그 밖의 받침이면 "으로".
 function withRo(word: string): string {
@@ -100,7 +109,7 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
       {suggested !== null && (
         <div className="flex flex-col gap-1">
           <p className="type-label text-foreground">
-            Kev 선택지: {RECOMMENDATION_LABEL[suggested]}
+            결정 모델 선택지: {RECOMMENDATION_LABEL[suggested]}
           </p>
           {disagree ? (
             <>
@@ -108,7 +117,7 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
                 <StatusBadge kind="flag" value="MODEL_RULE_DISAGREEMENT" />
               </span>
               <p className="type-label text-foreground">
-                Kev는 {RECOMMENDATION_LABEL[suggested]}를 제시했지만{" "}
+                결정 모델은 {RECOMMENDATION_LABEL[suggested]}를 제시했지만{" "}
                 {withRo(ruleReason ?? "규칙 결과")} 규칙 판정이 우선합니다
               </p>
             </>
@@ -134,12 +143,9 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
       </div>
       <V02 kev={kev} assessments={assessments} />
       <div className="flex flex-col gap-0.5 type-caption text-muted-foreground">
-        <p>이 의견은 Kev 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.</p>
+        <p>이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.</p>
         <p>충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.</p>
-        <p className="wrap-anywhere">
-          최종 결정은 담당자가 기록합니다. 모델: {kev.model ?? "—"} · 질문 세트:{" "}
-          {kev.questionSetVersion ?? "—"} · 공급자: {kev.provider ?? "—"}
-        </p>
+        <p className="wrap-anywhere">최종 결정은 담당자가 기록합니다. {modelInfoText(kev)}</p>
         <p>{kev.disclaimer}</p>
       </div>
     </div>
@@ -178,7 +184,7 @@ function AssessmentTable({
                 규칙 판정
               </th>
               <th scope="col" className="py-1 font-normal">
-                Kev 분포
+                결정 모델 분포
               </th>
             </tr>
           </thead>
@@ -278,7 +284,7 @@ function KevOpinion(props: KevOpinionProps) {
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <div className="flex flex-col">
         <h2 id={headingId} className="type-heading text-foreground">
-          Kev 참고 지표
+          결정 모델 참고 지표
         </h2>
         <p className="type-caption text-muted-foreground">모델 참고 지표 (점수 미반영)</p>
       </div>
@@ -292,12 +298,14 @@ function KevOpinion(props: KevOpinionProps) {
               상태 줄은 "사용 불가" 하나로 두고, 사유는 그 아래 문장으로 쓴다(e8 Ruling 11). */}
           <p className="type-body text-foreground">사용 불가</p>
           <p className="type-label text-muted-foreground">
-            Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다.
+            결정 모델 응답을 받지 못했거나 응답을 쓸 수 없습니다.
           </p>
           <p className="font-mono type-caption text-muted-foreground">
             recommendationBasis: RULES_ONLY
           </p>
-          <p className="type-label text-muted-foreground">Kev 없이 규칙만으로 판정했습니다.</p>
+          <p className="type-label text-muted-foreground">
+            결정 모델 없이 규칙만으로 판정했습니다.
+          </p>
         </div>
       ) : notRecorded ? (
         <Fallback errorCode={null}>기록 없음</Fallback>

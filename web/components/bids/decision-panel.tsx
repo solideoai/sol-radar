@@ -64,7 +64,7 @@ const REASON_TOO_SHORT = "사유를 10자 이상 적어 주세요";
 const REASON_MAX = 2000;
 const OPTIONS = ["BID", "WATCH", "NO_BID"] as const satisfies readonly Recommendation[];
 const BASIS_LABEL = {
-  RULES_WITH_KEV_ASSIST: "규칙 + Kev 참고",
+  RULES_WITH_KEV_ASSIST: "규칙 + 결정 모델 참고",
   RULES_ONLY: "규칙만",
 } as const;
 const isReviewRecommended = (flag: ReviewFlag) =>
@@ -94,7 +94,7 @@ function RecommendationLine({ analysis }: { analysis: AnalysisView | null }) {
 }
 
 // 플래그 배지 + 코드(스펙 §5.4.9 "배지 옆에 코드를 type-caption font-mono 로"). 레일 320px 에서
-// "규칙 우선(Kev 의견 상이) MODEL_RULE_DISAGREEMENT" 처럼 한 덩어리로 두면 넘쳐서, 코드는 배지 밖에 두고 자리가 없으면 다음 줄로 꺾는다.
+// "규칙 우선(결정 모델 의견 상이) MODEL_RULE_DISAGREEMENT" 처럼 한 덩어리로 두면 넘쳐서, 코드는 배지 밖에 두고 자리가 없으면 다음 줄로 꺾는다.
 function FlagItem({ flag }: { flag: ReviewFlag }) {
   return (
     <li className="flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">

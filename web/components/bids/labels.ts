@@ -147,18 +147,18 @@ export const KEV_RISK_LABEL = {
 
 // §5.4.9 플래그 라벨 17개. 배지 옆에 코드를 함께 둔다.
 export const REVIEW_FLAG_LABEL = {
-  MODEL_RULE_DISAGREEMENT: "규칙 우선(Kev 의견 상이)",
-  KEV_MANDATORY_RISK: "Kev 필수자격 위험 신호",
-  KEV_NEEDS_REVIEW: "Kev 사람 검토 신호",
-  KEV_REQUIREMENT_DISAGREEMENT: "항목 판정 상이(Kev)",
-  KEV_DELIVERY_RISK: "수행 리스크 신호(Kev)",
+  MODEL_RULE_DISAGREEMENT: "규칙 우선(결정 모델 의견 상이)",
+  KEV_MANDATORY_RISK: "결정 모델 필수자격 위험 신호",
+  KEV_NEEDS_REVIEW: "결정 모델 사람 검토 신호",
+  KEV_REQUIREMENT_DISAGREEMENT: "항목 판정 상이(결정 모델)",
+  KEV_DELIVERY_RISK: "수행 리스크 신호(결정 모델)",
   CITATION_FAILED: "인용 대조 실패",
   EXTRACTION_FAILED: "추출 실패",
   EXTRACTION_LOW_CONFIDENCE: "추출 신뢰 낮음",
   AI_UNAVAILABLE: "AI 사용 불가",
   QWEN_UNAVAILABLE: "Qwen 서버 미접속",
   // 미접속과 응답 형식 오류를 함께 뜻한다(ADR-031 C6·ADR-032 D9). 그래서 "서버 미접속"이라 쓰지 않는다.
-  KEV_UNAVAILABLE: "Kev 사용 불가",
+  KEV_UNAVAILABLE: "결정 모델 사용 불가",
   MOCK_FALLBACK: "Mock 대체 결과",
   PARSE_UNSUPPORTED: "첨부 원문 확인",
   DOCUMENT_DOWNLOAD_FAILED: "첨부 원문 확인(내려받기 실패)",
@@ -248,8 +248,8 @@ export function ruleReasonOf(
   return "SOL Score 기준";
 }
 
-// 판단 7: 저장 행의 kev_assist 가 null 이면 kev.enabled=false 로 옮겨진다. 이 run 이 Kev 모델을 썼는데(model.kev)
-// Kev 불가 플래그가 없으면 꺼진 것이 아니라 기록이 없는 것이다. 화면은 "사용 안 함" 대신 "기록 없음"이라고 쓴다.
+// 판단 7: 저장 행의 kev_assist 가 null 이면 kev.enabled=false 로 옮겨진다. 이 run 이 결정 모델을 썼는데(model.kev)
+// 결정 모델 불가 플래그가 없으면 꺼진 것이 아니라 기록이 없는 것이다. 화면은 "사용 안 함" 대신 "기록 없음"이라고 쓴다.
 export function kevRecordMissing(
   view: Pick<AnalysisView, "kev" | "model" | "reviewFlags">,
 ): boolean {

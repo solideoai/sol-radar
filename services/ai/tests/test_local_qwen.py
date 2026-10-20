@@ -25,9 +25,15 @@ from support import (
     load_json,
 )
 
+from sol_ai.adapters.http import Endpoint
 from sol_ai.citation import norm
+from sol_ai.settings import normalize_qwen_base_url
 
 COMPLETIONS = "/v1/chat/completions"
+MODELS = "/v1/models"
+# 회사 운영 vLLM API 안내 주소(ADR-034 4번). 끝의 /v1 유무·끝 슬래시와 무관하게 같은 경로로 가야 한다
+COMPANY_VLLM = "https://acropolissg.com/vllm"
+COMPANY_VLLM_SPELLINGS = (COMPANY_VLLM + "/v1", COMPANY_VLLM + "/v1/", COMPANY_VLLM)
 PLACEHOLDER = "{{REQUIREMENT_EXTRACTION_SCHEMA_JSON}}"
 RETRY_NOTE = "\n\n이전 출력은 스키마를 위반했다: "
 UTC_Z = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
@@ -439,4 +445,57 @@ def test_qwen_redirect_is_not_followed(make_client, local_models):
     assert (result["errorCode"], local_models.qwen.calls("POST", "/v1/elsewhere")) == (
         "QWEN_UNAVAILABLE",
         [],
+    )
+
+
+# ---------------------------------------------------------------- QWEN_BASE_URL 정규화(ADR-034 4번, B1)
+
+
+@pytest.mark.parametrize("url", COMPANY_VLLM_SPELLINGS)
+def test_company_vllm_url_spellings_normalize_to_one_base(url):
+    # 순수 함수. 네트워크를 쓰지 않는다
+    assert normalize_qwen_base_url(url) == COMPANY_VLLM
+
+
+@pytest.mark.parametrize("url", COMPANY_VLLM_SPELLINGS)
+def test_company_vllm_url_spellings_reach_v1_models_and_chat_completions(url):
+    endpoint = Endpoint(normalize_qwen_base_url(url))
+    assert (endpoint.url(MODELS), endpoint.url(COMPLETIONS)) == (
+        "https://acropolissg.com/vllm/v1/models",
+        "https://acropolissg.com/vllm/v1/chat/completions",
+    )
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://acropolissg.com/sol-radar/qwen", "https://acropolissg.com/sol-radar/qwen"),
+        ("https://acropolissg.com/sol-radar/qwen/", "https://acropolissg.com/sol-radar/qwen"),
+        ("http://127.0.0.1:8001/v1", "http://127.0.0.1:8001"),
+        ("http://127.0.0.1:8001", "http://127.0.0.1:8001"),
+        # /v1 은 한 번만 뗀다. 경로 가운데의 v1 은 건드리지 않는다
+        ("https://acropolissg.com/v1/vllm", "https://acropolissg.com/v1/vllm"),
+        ("https://acropolissg.com/vllm/v10", "https://acropolissg.com/vllm/v10"),
+    ],
+)
+def test_normalize_qwen_base_url_only_strips_trailing_v1(url, expected):
+    assert normalize_qwen_base_url(url) == expected
+
+
+@pytest.mark.parametrize("suffix", ["", "/", "/v1", "/v1/"])
+def test_qwen_base_url_suffix_does_not_double_v1(make_client, local_models, monkeypatch, suffix):
+    # 가짜 vLLM 에 /v1 을 붙인 주소로 기동·추출해도 요청은 /v1/models·/v1/chat/completions 로만 간다
+    monkeypatch.setenv("QWEN_BASE_URL", local_models.qwen.url + suffix)
+    result = run_extract(make_client, local_models)
+    paths = [(r.method, r.path) for r in local_models.qwen.requests]
+    assert (result["status"], paths) == ("COMPLETED", [("GET", MODELS), ("POST", COMPLETIONS)])
+
+
+def test_kev_base_url_is_not_normalized(make_client, local_models, monkeypatch):
+    # 정규화는 Qwen 전용이다. KEV_BASE_URL 끝의 /v1 은 그대로 경로에 남는다(→ /v1/v1/models, 가짜 서버는 404 = 미확인)
+    monkeypatch.setenv("KEV_BASE_URL", local_models.kev.url + "/v1")
+    body = make_client(SOL_RUN_MODE="fixture").get("/health").json()
+    assert ([r.path for r in local_models.kev.requests], body["kev"]["registryMatch"]) == (
+        ["/v1/v1/models"],
+        None,
     )
