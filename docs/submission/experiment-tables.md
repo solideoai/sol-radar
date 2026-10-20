@@ -5,20 +5,20 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-19
+updated: 2026-10-21
 ---
 
 # 실험 결과 표 (빈 틀)
 
-세 표 모두 **측정 전. 값 없음.** 빈 칸에 추정값을 넣지 않는다. 지표 정의는 [[21-MODEL-TRAINING|21 모델 학습]] §4.3, 비교 대상은 §4.2, 임팩트 지표는 [[01-PRD|01 PRD]] 성공 측정이다. 표본이 작으므로 모든 값에 표본 수와 부트스트랩 95% 신뢰구간을 함께 적고, "예비 검증이며 일반화된 성능을 입증하지 않는다"를 표 아래에 남긴다.
+세 표 모두 **측정 전. 값 없음.** 빈 칸에 추정값을 넣지 않는다. 지표 정의는 [[21-MODEL-TRAINING|21 모델 학습]] §4.3, 비교 대상은 §4.2, 임팩트 지표는 [[01-PRD|01 PRD]] 성공 측정이다. 표본이 작으므로 모든 값에 표본 수와 부트스트랩 95% 신뢰구간을 함께 적고, "예비 검증이며 일반화된 성능을 입증하지 않는다"를 표 아래에 남긴다. 결정 모델은 2026-10-20 [[16-DECISIONS|ADR-034]]로 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)로, 추출·설명 모델은 회사 운영 vLLM API의 `Qwen/Qwen3.5-27B`로 바뀌었다. 그래서 기준선은 E1(Kev-9B, 퇴역·미측정)이 아니라 E1'(공개 Bosun zero-shot)이다(21 §4.2).
 
-## (a) E0 · E1 · E2 · E3 비교 (X1)
+## (a) E0 · E1' · E2 · E3 비교 (X1)
 
 **측정 전. 값 없음.**
 
-입력: fixture 20건(`recommendation` · `mandatoryRisk` · `needsHumanReview`, 사람 기대값) + 실제 공고 5건(사람 라벨, Kev 담당 항목). 해커톤 축소판이며 21 §3.5의 test 20 · dev 10 사업 평가셋이 아니다. 골든 94/72/68과 SOL Score 가중치, Kev 미반영 구조는 이 실험으로 바꾸지 않는다.
+입력: fixture 20건(`recommendation` · `mandatoryRisk` · `needsHumanReview`, 사람 기대값) + 실제 공고 5건(사람 라벨, 결정 모델 담당 항목). 해커톤 축소판이며 21 §3.5의 test 20 · dev 10 사업 평가셋이 아니다. 골든 94/72/68과 SOL Score 가중치, 결정 모델 미반영 구조는 이 실험으로 바꾸지 않는다.
 
-| 지표 | E0 규칙만 | E1 Kev-9B 영어 state | E2 Kev-9B 한국어 state(평가 전용) | E3 Qwen 분류(선택지 logprob) | 표본 수 n | 95% CI 방법 |
+| 지표 | E0 규칙만 | E1' 공개 Bosun 영어 state(zero-shot) | E2 공개 Bosun 한국어 state(평가 전용) | E3 Qwen3.5-27B 분류(선택지 logprob, 회사 API) | 표본 수 n | 95% CI 방법 |
 |---|---|---|---|---|---|---|
 | Accuracy (3값) | | | | | | 부트스트랩 |
 | Macro-F1 (3값) | | | | | | 부트스트랩 |
@@ -28,24 +28,25 @@ updated: 2026-10-19
 | ECE (보정 전) | — | | | | | 부트스트랩 |
 | 지연 p50 (ms, 요청당) | | | | | | — |
 | 지연 p95 (ms, 요청당) | | | | | | — |
-| `permute` n_perm=6 `argmax_stable` 비율 | — | | | | | — |
-| `permute` `spread` | — | | | | | — |
-| Kev만 잡은 유효 위험 신호 수(사람 확인 기준) | — | | | — | | — |
+| 후보 제시 순서 seed 0~5(6회) `argmax_stable` 비율 | — | | | | | — |
+| 후보 제시 순서 seed 0~5 `spread` | — | | | | | — |
+| 결정 모델만 잡은 유효 위험 신호 수(사람 확인 기준) | — | | | — | | — |
 | 규칙 결과와 상충(`MODEL_RULE_DISAGREEMENT`) 건수 | — | | | | | — |
 
 채운 뒤 적을 것:
-- 데이터셋 버전 · git commit · 질문 세트(`kev-qs/v0.1`·`v0.2`) · state 템플릿 버전 · 모델 식별자(`jaredpalmer/kev-9b@v1.0` = `db029f08`, `Qwen/Qwen3.5-9B`) · 온도 · 실행 일시 · 실행 위치(노트북 `sol_eval` → 회사 GPU 추론 엔드포인트 HTTPS, [[16-DECISIONS|ADR-025]]).
+- 데이터셋 버전 · git commit · 질문 세트(`kev-qs/v0.1`·`v0.2`) · state 템플릿 버전 · 모델 식별자(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`, `Qwen/Qwen3.5-27B`는 회사 운영이라 `/v1/models`의 `id` 그대로) · 온도 · 실행 일시 · 실행 위치(E1'·E4는 회사 서버 안 오프라인 채점 `sol_eval.bosun_score`(B1 예정), 그 밖은 노트북 `sol_eval` → 회사 추론 엔드포인트 HTTPS, [[16-DECISIONS|ADR-025]]·[[21-MODEL-TRAINING|21]] §4.1).
+- E3는 회사 vLLM이 `prompt_logprobs`를 주는지 미검증이다(B2에서 확인). 판정 규칙과 유지·축소·제외 3안은 [E3 실험 설계](../plans/2026-10-19-e3-experiment-design.md)를 따른다.
 - 채우지 못한 칸의 이유.
-- E1 오류 분석 요약(원인 코드 `PARSE` · `EXTRACTION` · `TRANSLATION` · `STATE` · `RULE` · `LABEL` · `MODEL` 건수).
-- 결론 후보 셋 중 하나: Kev를 보조 위험 신호 탐지기로 유지 / 역할 축소 / 규칙 + Qwen을 기본 경로로. 근거는 위 표만.
+- E1' 오류 분석 요약(원인 코드 `PARSE` · `EXTRACTION` · `TRANSLATION` · `STATE` · `RULE` · `LABEL` · `MODEL` 건수).
+- 결론 후보 셋 중 하나: 결정 모델을 보조 위험 신호 탐지기로 유지 / 역할 축소 / 규칙 + Qwen을 기본 경로로. 근거는 위 표만.
 
-## (c) E1 · E4 비교 (X6, ADR-027)
+## (c) E1' · E4 비교 (B5, ADR-034)
 
 **측정 전. 값 없음.**
 
-입력: 평가셋 v0.1 test 20 사업(21 §3.5, X6a). E1 = Kev-9B@v1.0, E4 = Kev-9B+LoRA(`en`, dev 온도 보정). 데이터셋 버전·commit·질문 세트·state 템플릿이 같다. 학습 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §4.
+입력: 평가셋 v0.1 test 20 사업(21 §3.5, X6a). E1' = 공개 Bosun v3.1 0.6B zero-shot, E4 = Bosun + LoRA(`en`, 공개 LoRA 이어 학습, dev 온도 보정). 데이터셋 버전·commit·질문 세트·state 템플릿·seed 0~5가 같다. 둘 다 회사 서버 안 오프라인 채점(`sol_eval.bosun_score`, B1 예정)이고 물리 GPU 1에서 순차로 돈다. 학습 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §4.
 
-| 지표 | E1 | E4 | Δ(E4−E1) | 95% CI(짝 부트스트랩) | n |
+| 지표 | E1' | E4 | Δ(E4−E1') | 95% CI(짝 부트스트랩) | n |
 |---|---|---|---|---|---|
 | Macro-F1 (3값) | | | | | |
 | 정보부족 → 미충족 혼동률 | | | | | |
@@ -53,7 +54,7 @@ updated: 2026-10-19
 | ECE (보정 후) | | | | | |
 | 지연 p95 (ms, 요청당) | | | | — | |
 
-채운 뒤 적을 것: 체크포인트 id, `training_config.json` 요약, train 레코드 수, 번들 sha256, 학습 GPU(회사가 준 값), 학습 시간, 망각 확인(공개 `decision-v7` development 정확도 변화). CI가 0을 포함하면 "차이 없음"으로 적는다. 회사가 실행하지 않았으면 표 대신 그 사실을 적는다.
+채운 뒤 적을 것: 체크포인트 id, `training_config.json` 요약, train 레코드 수, 번들 sha256, 학습 GPU(회사가 준 값), 학습 시간, 망각 확인(내부 dev 세트 정확도 변화. dev만으로 Bosun의 일반 Decision 능력이 망각되지 않았다고 주장하지 않는다. DecisionBench 공개 평가 분할은 조건 확인·별도 승인 뒤 보조로만, ADR-034 9번). CI가 0을 포함하면 "차이 없음"으로 적는다. 회사가 실행하지 않았으면 표 대신 그 사실을 적는다.
 
 > 예비 검증이며 일반화된 성능을 입증하지 않는다. 표본이 작아 신뢰구간이 넓다.
 
@@ -82,6 +83,6 @@ updated: 2026-10-19
 
 - [[21-MODEL-TRAINING|21 모델 학습]] — §4.2 비교 대상, §4.3 지표, §4.4 오류 분석
 - [[01-PRD|01 PRD]] — 성공 측정
-- [[08-SCORING|08 점수]] — §5.5 Kev 반영 조건(이 실험으로 바꾸지 않음)
+- [[08-SCORING|08 점수]] — §5.5 결정 모델 반영 조건(이 실험으로 바꾸지 않음)
 - [[11-TESTING|11 테스트]] — §3.4 모델 평가
 - `evidence-list.md`
