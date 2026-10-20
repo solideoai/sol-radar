@@ -75,6 +75,19 @@ export const EXTRA_STATUS_LABEL = {
 export type StatusKey =
   Recommendation | QualificationOutcome | AnalysisStatus | keyof typeof EXTRA_STATUS_LABEL;
 
+// 수집 run 상태(N8 디자인 스펙 docs/plans/2026-10-20-n8-admin-ingestion-design.md §3.3). 06 §3.2 에 수집 줄이 없어
+// 아이콘·색은 분석 상태 키(key)를 빌린다. PENDING 은 화면 전용 "접수됨"(202 뒤 worker 가 행을 만들기 전, D15)이다.
+// short 는 표 칸, long 은 서랍·상태 줄 글자다. PARTIAL 의 long 은 격리 건수를 붙여 쓴다(status-badge).
+export type IngestRunBadgeStatus = "PENDING" | "RUNNING" | "SUCCEEDED" | "PARTIAL" | "FAILED";
+
+export const INGEST_RUN_STATUS_LABEL = {
+  PENDING: { short: "접수됨", long: "접수됨 · 작업 시작 대기", key: "QUEUED" },
+  RUNNING: { short: "실행 중", long: "실행 중", key: "RUNNING" },
+  SUCCEEDED: { short: "완료", long: "완료", key: "COMPLETED" },
+  PARTIAL: { short: "부분 완료", long: "부분 완료", key: "PARTIAL" },
+  FAILED: { short: "실패", long: "실패", key: "FAILED" },
+} as const satisfies Record<IngestRunBadgeStatus, { short: string; long: string; key: StatusKey }>;
+
 // §3.3. 색은 글자·아이콘에만 쓴다(바탕 채움 없음). UNDECIDED 는 아이콘이 없다.
 export const STATUS_ICON = {
   BID: { icon: CircleArrowUpIcon, className: "text-success" },

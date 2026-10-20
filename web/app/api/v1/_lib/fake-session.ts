@@ -81,6 +81,8 @@ export const fakeSession = {
   orgCount: 1,
   // 업무 표 이름 → 행. 질의가 eq·is 로 거르고, update 는 걸린 행을 고친다.
   tables: {} as Record<string, Row[]>,
+  // 서비스 운영자(profiles.is_admin = true)로 둘 사용자 id. 비어 있으면 아무도 운영자가 아니다(기본).
+  operatorIds: [] as string[],
 };
 
 export function resetFakeSession(): void {
@@ -88,6 +90,7 @@ export function resetFakeSession(): void {
   fakeSession.cookie = null;
   fakeSession.orgCount = 1;
   fakeSession.tables = {};
+  fakeSession.operatorIds = [];
 }
 
 // 요청을 만들고 next/headers 가 같은 헤더를 보게 한다.
@@ -103,7 +106,7 @@ const userOf = (token: string | null): FakeUser | null =>
 function profileOf(user: FakeUser): Row {
   return {
     email: user.email,
-    is_admin: false,
+    is_admin: fakeSession.operatorIds.includes(user.id),
     display_name: "가상직원",
     avatar_url: null,
     status: "active",

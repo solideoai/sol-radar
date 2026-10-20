@@ -3651,6 +3651,184 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
         await assert.rejects(pglite.query(sql), PERMISSION, sql);
   });
 
+  // 20261019000019(N8 보안 점검 W1, 계획 docs/plans/2026-10-20-n8-admin-ingestion-plan.md §5): ingest_runs 는 조직 구분 없는
+  // 공용 표라 어느 조직의 ADMIN 이든 행을 읽는다. 그래서 다른 조직이 남긴 job_key·idempotency_key(조직 id 가 들어 있다)·
+  // requested_by(사람 id)·params 가 보였다. 화면 역할의 SELECT 를 열 단위로 줄여 그 넷을 닫는다. 행 정책은 그대로다.
+  // 요청자는 이제 조직 소유 감사(audit_logs INGEST_MANUAL)의 actor_id 로 읽는다(ingestion-admin.repo findManualRequesters).
+  describe("수집 run 열 단위 읽기 (20261019000019, N8 W1)", () => {
+    const INGEST_RUN_VISIBLE = [
+      "id",
+      "source",
+      "run_mode",
+      "trigger",
+      "batch",
+      "cursor",
+      "status",
+      "summary",
+      "quota_used",
+      "started_at",
+      "finished_at",
+    ];
+    const INGEST_RUN_HIDDEN = ["job_key", "idempotency_key", "requested_by", "params"];
+    const INGEST_DENIED = { code: "42501", message: /permission denied for table ingest_runs/ };
+    const MANUAL1 = "e2000000-0000-0000-0000-000000000002";
+    const VISIBLE_SQL = `select ${INGEST_RUN_VISIBLE.join(", ")} from public.ingest_runs order by started_at, id`;
+
+    // 숨길 열을 모두 채운 org-01 수동 run 하나와 그 감사(INGEST_MANUAL, 행위자 SALES). 다른 조직 ADMIN 이 읽는 대상이다.
+    const seedManualRun = async (pglite) => {
+      await asWorker(pglite);
+      await pglite.query(
+        `insert into public.ingest_runs (id, source, run_mode, job_key, trigger, batch, params, status, requested_by, idempotency_key, started_at)
+         values ($1, 'fixture', 'MOCK', $2, 'MANUAL', 'SEED', '{"note":"hidden"}', 'RUNNING', $3, $4, now() + interval '1 minute')`,
+        [MANUAL1, `manual:${ORG1}:req-w1`, WHO.sales, `${ORG1}:req-w1`],
+      );
+      await pglite.query(
+        "insert into public.audit_logs (org_id, actor_id, action, target_type, target_id) values ($1, $2, 'INGEST_MANUAL', 'ingest_run', $3)",
+        [ORG1, WHO.sales, MANUAL1],
+      );
+    };
+    // org-02 owner(VIEWER)를 org-02 의 ADMIN 으로 올린다. 공용 표라 이 사람도 org-01 run 행을 읽는다.
+    const promoteOrg2Admin = async (pglite) => {
+      await asWorker(pglite);
+      await pglite.query(
+        "update public.memberships set sol_role = 'ADMIN' where org_id = $1 and user_id = $2",
+        [ORG2, WHO.outsider],
+      );
+    };
+    const w1Db = async (t) => {
+      const pglite = await solDb(t);
+      await seedManualRun(pglite);
+      await promoteOrg2Admin(pglite);
+      return pglite;
+    };
+    const ADMINS = [
+      ["org-01 ADMIN", "admin"],
+      ["org-02 ADMIN", "outsider"],
+    ];
+
+    it("① 허용 열 열한 개만 고르면 org-01 ADMIN 과 org-02 ADMIN 모두 두 run 을 그 열 그대로 읽는다 — 행 정책은 그대로라 SALES·ANALYST·VIEWER 는 같은 질의가 오류 없이 0행이다", async (t) => {
+      const pglite = await w1Db(t);
+      await asWorker(pglite);
+      const expected = await rowsOf(pglite, VISIBLE_SQL);
+      assert.deepEqual(
+        expected.map((row) => row.id),
+        [INGEST1, MANUAL1],
+      );
+      for (const [label, who] of ADMINS) {
+        await as(pglite, who);
+        const rows = await rowsOf(pglite, VISIBLE_SQL);
+        assert.deepEqual(rows, expected, label);
+        assert.deepEqual(Object.keys(rows[0]), INGEST_RUN_VISIBLE, `${label} 열`);
+      }
+      for (const who of ["sales", "analyst", "viewer"]) {
+        await as(pglite, who);
+        assert.deepEqual(await rowsOf(pglite, VISIBLE_SQL), [], who);
+      }
+    });
+
+    it("② 숨긴 열(job_key·idempotency_key·requested_by·params)은 org-01·org-02 ADMIN 모두 하나씩 고르면 권한 오류(42501)이고, 그 열로 거르기와 select * 도 권한 오류다", async (t) => {
+      const pglite = await w1Db(t);
+      for (const [label, who] of ADMINS) {
+        await as(pglite, who);
+        for (const column of INGEST_RUN_HIDDEN) {
+          await assert.rejects(
+            pglite.query(`select ${column} from public.ingest_runs`),
+            INGEST_DENIED,
+            `${label} select ${column}`,
+          );
+          await assert.rejects(
+            pglite.query(`select id, ${column} from public.ingest_runs where id = $1`, [MANUAL1]),
+            INGEST_DENIED,
+            `${label} select id, ${column}`,
+          );
+          // PostgREST 의 ?<열>=eq.<값> 필터 자리. 숨긴 열 값을 짐작해 맞혀 보는 길도 닫힌다.
+          await assert.rejects(
+            pglite.query(`select id from public.ingest_runs where ${column} is not null`),
+            INGEST_DENIED,
+            `${label} where ${column}`,
+          );
+        }
+        await assert.rejects(
+          pglite.query("select * from public.ingest_runs"),
+          INGEST_DENIED,
+          `${label} select *`,
+        );
+      }
+    });
+
+    it("② 화면 역할의 ingest_runs 권한은 authenticated 의 열 단위 SELECT 열한 개뿐이다 — 표 단위 권한은 없고 anon 에는 아무것도 없다", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select grantee, privilege_type from information_schema.role_table_grants where table_schema='public' and table_name='ingest_runs' and grantee in ('anon','authenticated')",
+        ),
+        [],
+      );
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select grantee, column_name, privilege_type from information_schema.column_privileges where table_schema='public' and table_name='ingest_runs' and grantee in ('anon','authenticated') order by 1,2,3",
+        ),
+        [...INGEST_RUN_VISIBLE].sort().map((column_name) => ({
+          grantee: "authenticated",
+          column_name,
+          privilege_type: "SELECT",
+        })),
+      );
+    });
+
+    it("③ latest_ingest_run(security definer)은 열 권한과 상관없이 그대로 돈다 — org-01 ADMIN·org-02 ADMIN·SALES 모두 최신 fixture run 한 줄의 상태·시각·요약을 받는다", async (t) => {
+      const pglite = await w1Db(t);
+      await asWorker(pglite);
+      const [latest] = await rowsOf(
+        pglite,
+        "select status, started_at, finished_at, summary from public.ingest_runs where id = $1",
+        [MANUAL1],
+      );
+      for (const who of ["admin", "outsider", "sales"]) {
+        await as(pglite, who);
+        assert.deepEqual(
+          await rowsOf(pglite, "select * from public.latest_ingest_run('demo')"),
+          [latest],
+          who,
+        );
+      }
+    });
+
+    it("④ 로그아웃(anon)은 ingest_runs 를 허용 열로도 숨긴 열로도 읽지 못한다 — 모두 권한 오류(42501)다", async (t) => {
+      const pglite = await w1Db(t);
+      await asAnon(pglite);
+      for (const sql of [
+        VISIBLE_SQL,
+        "select id from public.ingest_runs",
+        "select count(*) from public.ingest_runs",
+        "select * from public.ingest_runs",
+        ...INGEST_RUN_HIDDEN.map((column) => `select ${column} from public.ingest_runs`),
+      ])
+        await assert.rejects(pglite.query(sql), INGEST_DENIED, sql);
+    });
+
+    it("요청자는 조직 소유 감사(INGEST_MANUAL·ingest_run)로 읽는다 — org-01 ADMIN 은 그 run 의 actor_id 를 읽고, org-02 ADMIN·org-01 SALES·운영자는 0행이다", async (t) => {
+      const pglite = await w1Db(t);
+      const AUDIT_SQL =
+        "select target_id, actor_id from public.audit_logs where org_id = $1 and action = 'INGEST_MANUAL' and target_type = 'ingest_run' and target_id = any($2::uuid[])";
+      await as(pglite, "admin");
+      assert.deepEqual(await rowsOf(pglite, AUDIT_SQL, [ORG1, [MANUAL1, INGEST1]]), [
+        { target_id: MANUAL1, actor_id: WHO.sales },
+      ]);
+      for (const [who, org] of [
+        ["outsider", ORG1],
+        ["outsider", ORG2],
+        ["sales", ORG1],
+        ["operator", ORG1],
+      ]) {
+        await as(pglite, who);
+        assert.deepEqual(await rowsOf(pglite, AUDIT_SQL, [org, [MANUAL1]]), [], `${who} ${org}`);
+      }
+    });
+  });
+
   it("감사 기록은 그 조직의 ADMIN 만 읽는다 — SALES·ANALYST·VIEWER·org-02·운영자는 0행이고, ADMIN 도 org-02 것은 보지 못하며 아무도 직접 쓰지 못한다", async (t) => {
     const pglite = await solDb(t);
     await as(pglite, "admin");
@@ -4449,9 +4627,10 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
     );
   });
 
-  it("화면 역할의 SOL 표 권한은 로그인 역할의 읽기와 열 단위 넣기(회사 프로필·분석 요청·결정)·알림 read_at 고치기뿐이다 — anon 에는 없고 outbox_events 에는 아무것도 없다", async (t) => {
+  it("화면 역할의 SOL 표 권한은 로그인 역할의 읽기(수집 run 은 열 단위)와 열 단위 넣기(회사 프로필·분석 요청·결정)·알림 read_at 고치기뿐이다 — anon 에는 없고 outbox_events 에는 아무것도 없다", async (t) => {
     const pglite = await solDb(t);
     const tables = [...SOL_TABLES].sort();
+    // ingest_runs 의 읽기는 20261019000019(N8 W1)부터 표 단위가 아니라 열 단위다. 열 목록은 "수집 run 열 단위 읽기" 시험이 본다.
     assert.deepEqual(
       await rowsOf(
         pglite,
@@ -4459,7 +4638,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
         [tables],
       ),
       tables
-        .filter((table) => table !== "outbox_events")
+        .filter((table) => table !== "outbox_events" && table !== "ingest_runs")
         .map((table_name) => ({ table_name, grantee: "authenticated", privilege_type: "SELECT" })),
     );
     const columns = (table_name, privilege_type, names) =>

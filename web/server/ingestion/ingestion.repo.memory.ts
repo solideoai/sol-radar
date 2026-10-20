@@ -215,7 +215,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       if (existing) return toStartedRun(existing);
       counters.run += 1;
       const run: MemoryRun = {
-        runId: `run-${counters.run}`,
+        runId: input.runId ?? `run-${counters.run}`,
         input: structuredClone(input),
         status: "RUNNING",
         cursor: null,

@@ -42,6 +42,8 @@ export type StartRunInput = {
   requestedBy?: string | null;
   /** 수동 수집 요청의 Idempotency-Key(05) */
   idempotencyKey?: string | null;
+  /** 수동 수집 요청이 미리 정한 run id(N8). 있으면 새 ingest_runs 행의 id 다. 같은 jobKey 의 기존 행은 그대로 쓴다 */
+  runId?: string;
 };
 
 /** 같은 jobKey 의 run 이 이미 있으면 새로 만들지 않고 그것을 돌려준다(재실행 멱등). */

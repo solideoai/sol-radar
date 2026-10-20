@@ -4,10 +4,12 @@ import {
   ANALYSIS_STATUS_LABEL,
   EXTRA_STATUS_LABEL,
   FLAG_ICON,
+  INGEST_RUN_STATUS_LABEL,
   QUALIFICATION_LABEL,
   RECOMMENDATION_LABEL,
   REVIEW_FLAG_LABEL,
   STATUS_ICON,
+  type IngestRunBadgeStatus,
   type StatusKey,
 } from "@/components/bids/labels";
 import type {
@@ -31,6 +33,8 @@ type StatusBadgeProps = { variant?: BadgeVariant; showCode?: boolean } & (
   | { kind: "decision"; value: Recommendation | null }
   | { kind: "flag"; value: ReviewFlag }
   | { kind: "bidStatus"; value: BidStatus }
+  // 수집 run(N8). short 는 표 칸 글자, quarantined 를 주면 PARTIAL 긴 글자에 격리 건수를 붙인다.
+  | { kind: "ingestRun"; value: IngestRunBadgeStatus; short?: boolean; quarantined?: number }
 );
 
 type Resolved = { key: StatusKey | ReviewFlag; label: string; code?: string };
@@ -71,6 +75,17 @@ const resolve = (props: StatusBadgeProps): Resolved | null => {
       return props.value === "CANCELLED"
         ? { key: "CANCELLED", label: EXTRA_STATUS_LABEL.CANCELLED }
         : null;
+    case "ingestRun": {
+      const label = INGEST_RUN_STATUS_LABEL[props.value];
+      const withCount =
+        !props.short && props.value === "PARTIAL" && props.quarantined !== undefined;
+      return {
+        key: label.key,
+        label: withCount
+          ? `${label.long} (격리 ${props.quarantined}건)`
+          : label[props.short ? "short" : "long"],
+      };
+    }
   }
 };
 
