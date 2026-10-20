@@ -25,15 +25,17 @@ updated: 2026-10-20
 - 06 §5.6 의 "변경 이력"은 별도 화면 대신 일곱째 탭으로 두었다.
 - 인력 탭은 27명(점수 계산 대상)·200명(전체 명부)만 보인다. 가용 FTE 는 공고 수행 기간마다 달라 고정 숫자로 보이지 않는다.
 - 수행 실적은 저장 모양(08: id·name·domain·amountKrw·completedAt·evidenceRef)을 그대로 보인다. 05 §2 예시(title·startedAt)와 다르다.
+- 만든 사람의 계정이 지워진 revision(`created_by` null)은 `createdBy: { id: "deleted-user", name: "탈퇴한 사용자" }` 로 내보낸다.
+  05 의 `createdBy` 는 null 이 아니고, 결정한 사람 삭제(05 `Review.reviewer`, ADR-032 D6)와 같은 값이다(3e 보안 검토 Low 1 반영).
 
 ## 2. 검증 결과
 
 | 검사 | 결과 | 명령 |
 |---|---|---|
-| `pnpm verify` | exit 0. 루트 node 729/729, web vitest 212 파일 6749/6749, web build 통과(`/company`·`/api/v1/company-profile`·`/revisions` 포함), AI pytest 1369/1369 | `verify-slot.sh pnpm verify` |
-| 도메인·계약 시험 | 38/38. 4역할 200, org-02 격리, 404, 401, 개인 조직 403, 잘못된 JSONB 500(값 미노출), revisions | `pnpm -C web exec vitest run server/company-profile app/api/v1/company-profile components/company/company-tabs.test.ts` |
+| `pnpm verify` | exit 0. 루트 node 729/729, web vitest 212 파일 6751/6751, web build 통과(`/company`·`/api/v1/company-profile`·`/revisions` 포함), AI pytest 1369/1369 | `verify-slot.sh pnpm verify` |
+| 도메인·계약 시험 | 40/40. 4역할 200, org-02 격리, 404, 401, 개인 조직 403, 잘못된 JSONB 500(값 미노출), revisions, 탈퇴한 작성자, 서비스 운영자(`profiles.is_admin`)도 남의 조직 프로필은 404·이력 0건(`?orgId=` 를 붙여도 같다, 3e 보안 검토 Low 2 반영) | `pnpm -C web exec vitest run server/company-profile app/api/v1/company-profile components/company/company-tabs.test.ts` |
 | 부품 브라우저 시험 | 23/23. 탭 7개 × 본문 폭 960·1024px 가로 넘침 0, 탭 aria-current, 빈 상태 | `pnpm -C web exec vitest run --config vitest.browser.config.ts components/company` |
-| 변형 확인 | repo 의 `eq("org_id")` 를 빼면 격리·404 시험 2개가 실패함을 확인하고 되돌렸다 | — |
+| 변형 확인 | repo 의 `eq("org_id")` 를 빼면 격리·404·운영자·이력 시험 5개가 실패함을 확인하고 되돌렸다 | — |
 | DB 정책 | 새 표 없음. `company_profiles` 조직 격리는 기존 G5 시험(`scripts/database.test.mjs` ORG_TABLES)이 덮는다 | `pnpm verify` 안 |
 
 ## 3. 실앱 확인(격리)

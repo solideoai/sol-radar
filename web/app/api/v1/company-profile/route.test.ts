@@ -57,11 +57,15 @@ function seed() {
   ];
 }
 
-type Send = { user?: FakeUser | null; path?: "profile" | "revisions" };
-function send({ user = FAKE_USERS.viewer, path = "profile" }: Send = {}): Promise<Response> {
+type Send = { user?: FakeUser | null; path?: "profile" | "revisions"; search?: string };
+function send({
+  user = FAKE_USERS.viewer,
+  path = "profile",
+  search = "",
+}: Send = {}): Promise<Response> {
   fakeSession.cookie = user?.token ?? null;
   const url = path === "profile" ? "/api/v1/company-profile" : "/api/v1/company-profile/revisions";
-  const request = fakeRequest(url, { method: "GET" });
+  const request = fakeRequest(url + search, { method: "GET" });
   return path === "profile" ? getProfile(request) : getRevisions(request);
 }
 
@@ -121,6 +125,25 @@ describe("GET /api/v1/company-profile", () => {
     await errorOf(await send({ user: null }), 401, "UNAUTHENTICATED");
   });
 
+  // 운영자(profiles.is_admin)도 남의 조직은 못 읽는다(AGENTS.md). 조직은 멤버십으로만 정하고 쿼리로 고를 수 없다.
+  it("서비스 운영자도 자기 조직에 프로필이 없으면 다른 조직 것을 받지 않고 404 다", async () => {
+    fakeSession.operatorIds = [FAKE_USERS.otherViewer.id];
+    fakeSession.tables.company_profiles = [
+      profileRow(ORG_01, 2, "솔리데오"),
+      profileRow(ORG_01, 1, "솔리데오"),
+    ];
+    for (const search of ["", `?orgId=${ORG_01}`, `?org_id=${ORG_01}`]) {
+      const error = await errorOf(
+        await send({ user: FAKE_USERS.otherViewer, search }),
+        404,
+        "NOT_FOUND",
+      );
+      expect(error.details, search).toEqual({ resource: "companyProfile" });
+      const revisions = await send({ user: FAKE_USERS.otherViewer, path: "revisions", search });
+      expect(await revisions.json(), search).toEqual([]);
+    }
+  });
+
   it("업무 조직이 아닌 개인 조직이면 403 이다", async () => {
     fakeSession.personalOrg = true;
     await errorOf(await send(), 403, "FORBIDDEN");
@@ -150,6 +173,18 @@ describe("GET /api/v1/company-profile/revisions", () => {
       createdAt: "2026-10-20T01:00:00+00:00",
       note: "revision 2",
     });
+  });
+
+  it("만든 사람의 계정이 지워진 revision 은 탈퇴한 사용자로 내보낸다(05 createdBy 는 null 이 아니다)", async () => {
+    fakeSession.tables.company_profiles = [
+      profileRow(ORG_01, 2, "솔리데오"),
+      { ...profileRow(ORG_01, 1, "솔리데오"), created_by: null, creator: null },
+    ];
+    const body = (await (await send({ path: "revisions" })).json()) as { createdBy: unknown }[];
+    expect(body.map((row) => row.createdBy)).toEqual([
+      { id: FAKE_USERS.admin.id, name: "관리자" },
+      { id: "deleted-user", name: "탈퇴한 사용자" },
+    ]);
   });
 
   it("다른 조직 사용자는 자기 조직 이력 1건만 받는다", async () => {

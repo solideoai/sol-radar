@@ -41,14 +41,17 @@ export type CompanyProfileSummaryRow = Pick<
   "id" | "revision" | "effective_at" | "created_by" | "note" | "created_at"
 > & { creator: Creator };
 
-export type ProfileAuthor = { id: string; name: string } | null;
+export type ProfileAuthor = { id: string; name: string };
+
+// 만든 사람의 계정이 지워지면 created_by 가 null 이 된다(on delete set null). 05 의 createdBy 는 null 이 아니라서
+// 결정한 사람과 같은 자리 표시로 내보낸다(05 Review.reviewer, ADR-032 D6. 값은 server/bids 의 DELETED_REVIEWER_* 와 같다).
+export const DELETED_AUTHOR: ProfileAuthor = { id: "deleted-user", name: "탈퇴한 사용자" };
 
 export type CompanyProfile = Omit<ScoringProfile, "name"> & {
   id: string;
   orgId: string;
   name: string;
   effectiveAt: string;
-  // 만든 사람의 계정이 지워지면 created_by 가 null 이 된다(on delete set null).
   createdBy: ProfileAuthor;
   createdAt: string;
   note: string | null;
@@ -76,7 +79,7 @@ export class CompanyProfileDataError extends Error {
 
 const authorOf = (createdBy: string | null, creator: Creator): ProfileAuthor =>
   createdBy === null
-    ? null
+    ? DELETED_AUTHOR
     : { id: createdBy, name: nameOf(creator?.display_name ?? null, creator?.email ?? null) };
 
 export function toCompanyProfile(row: CompanyProfileRow): CompanyProfile {

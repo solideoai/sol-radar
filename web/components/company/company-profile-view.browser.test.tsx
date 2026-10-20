@@ -107,7 +107,7 @@ const REVISIONS: CompanyProfileSummary[] = [
     id: "c0000000-0000-4000-8000-000000000001",
     revision: 1,
     effectiveAt: "2026-07-21T15:00:00+00:00",
-    createdBy: null,
+    createdBy: { id: "deleted-user", name: "탈퇴한 사용자" },
     createdAt: PROFILE.createdAt,
     note: "revision 1: 초기 등록(기술 4·실적 2, 목록 불완전)",
   },

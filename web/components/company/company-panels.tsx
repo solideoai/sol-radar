@@ -486,9 +486,7 @@ export function HistoryPanel({
                 <TableCell className="type-body whitespace-normal wrap-anywhere">
                   {revision.note ?? EMPTY}
                 </TableCell>
-                <TableCell className="type-body truncate">
-                  {revision.createdBy?.name ?? "탈퇴한 사용자"}
-                </TableCell>
+                <TableCell className="type-body truncate">{revision.createdBy.name}</TableCell>
                 <TableCell className="pr-4 type-body tabular-nums">
                   {formatKst(revision.createdAt)}
                 </TableCell>

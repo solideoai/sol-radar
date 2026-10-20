@@ -32,15 +32,15 @@ describe("toCompanyProfile", () => {
     expect(profile.preferences?.excludedDomains).toEqual(["국방"]);
   });
 
-  it("이름 없는 작성자는 이메일 앞부분, 지워진 작성자는 null 이다", () => {
+  it("이름 없는 작성자는 이메일 앞부분, 지워진 작성자는 탈퇴한 사용자다(05 createdBy 는 null 이 아니다)", () => {
     expect(
       toCompanyProfile({
         ...PROFILE_ROW,
         creator: { display_name: null, email: "sales@soltech.invalid" },
       }).createdBy,
     ).toEqual({ id: AUTHOR_ID, name: "sales" });
-    expect(toCompanyProfile({ ...PROFILE_ROW, created_by: null, creator: null }).createdBy).toBe(
-      null,
+    expect(toCompanyProfile({ ...PROFILE_ROW, created_by: null, creator: null }).createdBy).toEqual(
+      { id: "deleted-user", name: "탈퇴한 사용자" },
     );
   });
 
@@ -94,7 +94,7 @@ describe("toCompanyProfileSummary", () => {
         id: SUMMARY_ROWS[1].id,
         revision: 1,
         effectiveAt: SUMMARY_ROWS[1].effective_at,
-        createdBy: null,
+        createdBy: { id: "deleted-user", name: "탈퇴한 사용자" },
         createdAt: SUMMARY_ROWS[1].created_at,
         note: SUMMARY_ROWS[1].note,
       },
