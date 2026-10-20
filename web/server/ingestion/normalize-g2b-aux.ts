@@ -1,4 +1,5 @@
 import "server-only";
+import { checkAttachmentUrl } from "./attachment-allowlist";
 import { canonicalJson, finalizeRevision } from "./checksum";
 import type { G2bItem } from "./connector.model";
 import type { G2bAuxRows } from "./g2b-aux";
@@ -116,11 +117,15 @@ export function regionRequirementsOf(rows: readonly G2bItem[]): StructuredRequir
   }));
 }
 
-/** e발주 첨부 행 → attachments. URL 이 없는 행은 뺀다. 이름이 없으면 문서 구분·순번으로 만든다. */
+/**
+ * e발주 첨부 행 → attachments. URL 이 없거나 첨부 허용 목록(https://www.g2b.go.kr/pn/…, 09 SSRF) 밖인 행은 뺀다.
+ * 응답이 바뀌거나 변조돼 다른 호스트·http·사설 주소가 와도 저장하지 않는다(documents 소비자가 믿고 받지 않게).
+ * 이름이 없으면 문서 구분·순번으로 만든다.
+ */
 export function eorderAttachmentsOf(rows: readonly G2bItem[]): BidAttachment[] {
   const attachments = sortedRows(rows, ["atchSno"]).flatMap((row): BidAttachment[] => {
     const url = text(row.eorderAtchFileUrl);
-    if (url === null) return [];
+    if (url === null || !checkAttachmentUrl(url).ok) return [];
     const division = text(row.eorderDocDivNm) ?? "e발주 첨부";
     const sequence = text(row.atchSno);
     const name =

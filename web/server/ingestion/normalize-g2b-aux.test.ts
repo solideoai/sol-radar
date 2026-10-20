@@ -248,6 +248,28 @@ describe("eorderAttachmentsOf", () => {
     expect(eorderAttachmentsOf([eorderRow({ eorderAtchFileUrl: "" })])).toEqual([]);
   });
 
+  it("첨부 허용 목록(https://www.g2b.go.kr/pn/) 밖의 URL 은 저장하지 않는다(09 SSRF — 응답 변조·다른 호스트·http·사설 주소)", () => {
+    const rejected = [
+      "http://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?x=1",
+      "https://evil.example/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do",
+      "https://www.g2b.go.kr/other/downloadRfpFile.do",
+      "https://127.0.0.1/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do",
+      "https://user:pw@www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do",
+      "javascript:alert(1)",
+      "not a url",
+    ];
+    for (const url of rejected) {
+      expect(eorderAttachmentsOf([eorderRow({ eorderAtchFileUrl: url })]), url).toEqual([]);
+    }
+    // 허용 목록 안의 행은 같은 입력에서 그대로 남는다(검사가 전부를 버리는 것이 아니다).
+    expect(
+      eorderAttachmentsOf([
+        eorderRow(),
+        eorderRow({ atchSno: "99", eorderAtchFileUrl: rejected[1] }),
+      ]),
+    ).toHaveLength(1);
+  });
+
   it("atchSno 숫자 순으로 정렬하고 같은 url 은 하나만 남긴다(실측은 26, 31, 30 순서로 온다)", () => {
     const sorted = eorderAttachmentsOf([
       eorderRow({ atchSno: "26", eorderAtchFileUrl: RFP_URL(26) }),
