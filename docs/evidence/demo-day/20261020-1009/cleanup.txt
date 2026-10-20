@@ -1,0 +1,82 @@
+# 정리 전후 docker ps · 2026-10-20 10:27 KST
+## 정리 전 (다른 스택 포함)
+sol-radar-dd-c9-ai-gateway-1	Up 3 minutes (healthy)
+sol-radar-dd-c9-minio-1	Up 14 minutes (healthy)
+sol-radar-dd-c9-qdrant-1	Up 14 minutes (healthy)
+sol-radar-dd-c9-redis-1	Up 12 minutes (healthy)
+sol-radar-dd-c9-worker-1	Up 14 minutes (healthy)
+sol-radar-fx01-e5d9-redis	Up 22 hours
+supabase_auth_sb-c9	Up 15 minutes (healthy)
+supabase_auth_sol-radar	Up 3 days (healthy)
+supabase_auth_sol-radar-fx01-e5d9	Up 17 hours (healthy)
+supabase_db_sb-c9	Up 15 minutes (healthy)
+supabase_db_sol-radar	Up 3 days (healthy)
+supabase_db_sol-radar-fx01-e5d9	Up 17 hours (healthy)
+supabase_inbucket_sb-c9	Up 15 minutes (healthy)
+supabase_inbucket_sol-radar	Up 3 days (healthy)
+supabase_inbucket_sol-radar-fx01-e5d9	Up 22 hours (healthy)
+supabase_kong_sb-c9	Up 15 minutes (healthy)
+supabase_kong_sol-radar	Up 3 days (healthy)
+supabase_kong_sol-radar-fx01-e5d9	Up 22 hours (healthy)
+supabase_pg_meta_sol-radar	Up 3 days (healthy)
+supabase_realtime_sol-radar	Up 3 days (healthy)
+supabase_rest_sb-c9	Up 15 minutes
+supabase_rest_sol-radar	Up 3 days
+supabase_rest_sol-radar-fx01-e5d9	Up 22 hours
+supabase_storage_sol-radar	Up 3 days (healthy)
+supabase_studio_sol-radar	Up 3 days (healthy)
+
+## docker compose -p sol-radar-dd-c9 -f infra/compose.yaml down (볼륨 유지: sol-radar-dd-c9_redisdata · sol-radar-dd-c9_miniodata · sol-radar-dd-c9_qdrantdata)
+ Container sol-radar-dd-c9-ai-gateway-1  Stopping
+ Container sol-radar-dd-c9-worker-1  Stopping
+ Container sol-radar-dd-c9-minio-1  Stopping
+ Container sol-radar-dd-c9-qdrant-1  Stopping
+ Container sol-radar-dd-c9-qdrant-1  Stopped
+ Container sol-radar-dd-c9-qdrant-1  Removing
+ Container sol-radar-dd-c9-minio-1  Stopped
+ Container sol-radar-dd-c9-minio-1  Removing
+ Container sol-radar-dd-c9-qdrant-1  Removed
+ Container sol-radar-dd-c9-minio-1  Removed
+ Container sol-radar-dd-c9-worker-1  Stopped
+ Container sol-radar-dd-c9-worker-1  Removing
+ Container sol-radar-dd-c9-worker-1  Removed
+ Container sol-radar-dd-c9-redis-1  Stopping
+ Container sol-radar-dd-c9-ai-gateway-1  Stopped
+ Container sol-radar-dd-c9-ai-gateway-1  Removing
+ Container sol-radar-dd-c9-ai-gateway-1  Removed
+ Container sol-radar-dd-c9-redis-1  Stopped
+ Container sol-radar-dd-c9-redis-1  Removing
+ Container sol-radar-dd-c9-redis-1  Removed
+ Network sol-radar-dd-c9_default  Removing
+ Network sol-radar-dd-c9_default  Removed
+
+## supabase stop --workdir <scratchpad>/sb-c9 --no-backup (볼륨 supabase_db_sb-c9 는 CLI 가 정리)
+{"project_id_filter":"sb-c9","backup":false,"message":"Stopped supabase local development setup."}
+
+## web(next start :3003) PID 74154 · pw 서버 PID 79292 종료
+web killed
+pwsrv killed
+port 3003 free
+port 38765 free
+
+## 정리 후
+sol-radar-fx01-e5d9-redis	Up 22 hours
+supabase_auth_sol-radar	Up 3 days (healthy)
+supabase_auth_sol-radar-fx01-e5d9	Up 17 hours (healthy)
+supabase_db_sol-radar	Up 3 days (healthy)
+supabase_db_sol-radar-fx01-e5d9	Up 17 hours (healthy)
+supabase_inbucket_sol-radar	Up 3 days (healthy)
+supabase_inbucket_sol-radar-fx01-e5d9	Up 22 hours (healthy)
+supabase_kong_sol-radar	Up 3 days (healthy)
+supabase_kong_sol-radar-fx01-e5d9	Up 22 hours (healthy)
+supabase_pg_meta_sol-radar	Up 3 days (healthy)
+supabase_realtime_sol-radar	Up 3 days (healthy)
+supabase_rest_sol-radar	Up 3 days
+supabase_rest_sol-radar-fx01-e5d9	Up 22 hours
+supabase_storage_sol-radar	Up 3 days (healthy)
+supabase_studio_sol-radar	Up 3 days (healthy)
+
+## 남은 볼륨(이름만)
+sol-radar-dd-c9_miniodata
+sol-radar-dd-c9_qdrantdata
+sol-radar-dd-c9_redisdata

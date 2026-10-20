@@ -1,0 +1,3 @@
+// 명령: curl -s -w 'http=%{http_code}' http://127.0.0.1:3003/health/ready — ai-gateway 중지 직후 · 커밋 72bfb9c · 2026-10-20 10:22 KST
+{"status":"degraded","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"unavailable"}}
+http=200

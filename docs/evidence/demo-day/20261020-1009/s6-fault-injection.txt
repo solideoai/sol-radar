@@ -1,0 +1,47 @@
+# S6 장애 주입 · 커밋 72bfb9c · 시작 2026-10-20 10:22:52 KST
+$ docker compose -p sol-radar-dd-c9 -f infra/compose.yaml stop ai-gateway
+ Container sol-radar-dd-c9-ai-gateway-1  Stopping
+ Container sol-radar-dd-c9-ai-gateway-1  Stopped
+$ docker compose -p sol-radar-dd-c9 -f infra/compose.yaml ps --format '{{.Service}} {{.Status}}'
+ai-gateway Exited (0) Less than a second ago
+minio Up 9 minutes (healthy)
+qdrant Up 9 minutes (healthy)
+redis Up 7 minutes (healthy)
+worker Up 9 minutes (healthy)
+$ curl -s -w 'http=%{http_code}' http://127.0.0.1:3003/health/ready  (10:22:52)
+{"status":"degraded","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"unavailable"}}
+http=200
+$ GET /api/v1/bids/{FX-01} latestAnalysis (sales token) · 10:24:04
+{"id": "844c71c8-e4ac-4b07-9f8f-8537d79933d1", "bidId": "b9f00c0b-96e2-5949-9fc7-ef7bb7aea163", "revisionId": "50e4ec9b-b6d4-561d-93f3-6dd11453a838", "revision": 1, "profileRevision": 2, "runMode": "mock", "status": "PARTIAL", "solScore": 94, "recommendation": "BID", "recommendationBasis": "RULES_ONLY", "explanation": "AI 서비스를 사용할 수 없어 규칙 기반 결과만 제공합니다. 필수자격 3건을 모두 충족했습니다. 요구기술 5개 중 5개 보유(Java, Spring Boot, PostgreSQL, 전자정부 표준프레임워크, Kubernetes). SOL Score 94점으로 참여 권고 구간(75 이상)입니다. 권고: BID(참여 권고). 최종 참여 결정은 사람이 합니다.", "qualification": {"status": "SATISFIED", "checks": [{"id": "bef38850-c50c-4f8b-87ca-14b595667a5f", "requirementCode": "SW_BUSINESS_REG", "requirementName": "소프트웨어사업자 신고확인서", "mandatory": true, "outcome": "SATISFIED", "reason": "회사 프로필 등록 SW_BUSINESS_REG 보유(HELD)", "reasonCode": null, "basis": "EXTRACTION", "evidence": [{"documentId": null, "revisionId": "50e4ec9b-b6d4-561d-93
+$ GET /api/v1/bids/{FX-01}/analyses (이력, 최근 3건: status·basis·flags·solScore)
+844c71c8-e4ac-4b07-9f8f-8537d79933d1 PARTIAL RULES_ONLY ['AI_UNAVAILABLE'] 94 BID None
+2ed9c433-e55a-4c98-86c7-c16d72bb014e COMPLETED RULES_WITH_KEV_ASSIST [] 94 BID None
+$ docker compose ... logs --tail 5 worker (분석 처리 로그)
+{"event":"documents.reconcile","checked":18,"queued":18,"failed":0,"nextCursor":null}
+{"event":"analysis.completed","jobId":"analysis_db4c863c-cb6a-593d-93ff-709a17e0157a_844c71c8-e4ac-4b07-9f8f-8537d79933d1","requestId":"e9b29bbf-2504-4286-bef7-3415f99765c6","orgId":"db4c863c-cb6a-593d-93ff-709a17e0157a","scoreRunId":"844c71c8-e4ac-4b07-9f8f-8537d79933d1","bidId":"b9f00c0b-96e2-5949-9fc7-ef7bb7aea163","attempt":1,"status":"PARTIAL","errorCode":"AI_UNAVAILABLE","recommendationBasis":"RULES_ONLY","settingsSource":"ENV","runModeMismatch":false,"kevFailure":"UNREACHABLE","kevIssues":[],"elapsedMs":110}
+{"event":"notify.outbox","outboxEventId":"234f1b95-d87e-432a-8acb-aba8bc23167b","eventType":"ANALYSIS_COMPLETE","outcome":"SENT"}
+{"event":"notify.outbox.summary","checked":1,"sent":1,"skipped":0,"retried":0,"dead":0}
+{"event":"analysis.reconcile.summary","checked":0,"requeued":0,"failed":0,"inFlight":0}
+{"event":"documents.reconcile","checked":18,"queued":18,"failed":0,"nextCursor":null}
+# 브라우저(13번): FX-01 [재분석](force=true, use-analysis-run start(latest!==null)) → '부분 완료 (규칙만)' · 배너 'AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)' · 'recommendationBasis: RULES_ONLY' · 'AI_UNAVAILABLE' · 점수 94 · 필수자격 3건 모두 충족 · Topbar 'AI: unavailable' + 숨은 status 'AI 연결이 끊겼습니다' · 스크린샷 20261020-demo-bid-detail-partial-1440.png
+# 관찰: worker 로그에 documents.reconcile checked:18 queued:18 이 주기마다 반복(첨부 재처리 큐 재적재). 데모 영향 없음, pipeline-developer 확인 몫.
+
+# S6 복구 · 2026-10-20 10:24:30 KST
+$ docker compose -p sol-radar-dd-c9 -f infra/compose.yaml start ai-gateway
+ Container sol-radar-dd-c9-ai-gateway-1  Starting
+ Container sol-radar-dd-c9-ai-gateway-1  Started
+$ docker compose -p sol-radar-dd-c9 -f infra/compose.yaml ps --format '{{.Service}} {{.Status}}'  (healthy 까지 6초)
+ai-gateway Up 5 seconds (healthy)
+minio Up 11 minutes (healthy)
+qdrant Up 11 minutes (healthy)
+redis Up 9 minutes (healthy)
+worker Up 10 minutes (healthy)
+$ curl -s -w 'http=%{http_code}' http://127.0.0.1:3003/health/ready  (10:24:36)
+{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"mock"}}
+http=200
+# 브라우저(14번): 새로고침 뒤 FX-01 [재분석] → 분석 요청 중 → 대기 중 → 완료 2.4초, Kev BID 71% / WATCH 24% / NO-BID 5% 재표시, Topbar 'AI: mock', 분석 이력 3건 · 스크린샷 20261020-demo-bid-detail-recovered-loaded-1440.png
+$ GET /api/v1/bids/{FX-01}/analyses 최근 3건 · 10:25:11
+13c5c82d-db8b-44bf-8b81-42272ac478ba COMPLETED RULES_WITH_KEV_ASSIST [] 94 None
+844c71c8-e4ac-4b07-9f8f-8537d79933d1 PARTIAL RULES_ONLY ['AI_UNAVAILABLE'] 94 None
+2ed9c433-e55a-4c98-86c7-c16d72bb014e COMPLETED RULES_WITH_KEV_ASSIST [] 94 None
+# 종료 2026-10-20 10:25:11 KST
