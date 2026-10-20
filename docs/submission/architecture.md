@@ -5,12 +5,12 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 시스템 아키텍처·데이터 흐름
 
-[[02-ARCHITECTURE|02 아키텍처]]와 [[03-AI-PIPELINE|03 AI 파이프라인]]을 발표용으로 줄인 그림이다. 둘과 다르면 02·03이 맞다. 구현 상태는 그림이 아니라 [[PROGRESS|진행 상황]]과 `evidence-list.md`가 말한다. 이 그림은 **설계**다. 2026-10-19 기준 main에 있는 것: DB·RLS(C2), 수집·정규화·revision(C3), 규칙 엔진·SOL Score(C4), AI gateway 4 엔드포인트 mock·`local` 어댑터·worker 분석 클라이언트·`PARTIAL` 대체(C5). 구현 전: 화면 `/dashboard`·`/bids`·`/bids/[id]`(C6), 결정 기록·인앱 알림(C7), 첨부 다운로드 소비자, 실모델 추론(엔드포인트 응답 대기).
+[[02-ARCHITECTURE|02 아키텍처]]와 [[03-AI-PIPELINE|03 AI 파이프라인]]을 발표용으로 줄인 그림이다. 둘과 다르면 02·03이 맞다. 구현 상태는 그림이 아니라 [[PROGRESS|진행 상황]]과 `evidence-list.md`가 말한다. 이 그림은 **설계**다. 2026-10-20 기준 main에 있는 것: DB·RLS(C2), 수집·정규화·revision·보조 조회(C3), 규칙 엔진·SOL Score(C4), AI gateway 4 엔드포인트 mock·`local` 어댑터·worker 분석 클라이언트·`PARTIAL` 대체(C5), 화면 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`(C6), 결정 기록·인앱 알림(C7). 구현 전: 첨부 다운로드 소비자·파싱, 실모델 추론(엔드포인트 응답 대기).
 
 ## (a) 시스템 아키텍처
 

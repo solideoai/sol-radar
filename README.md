@@ -63,7 +63,7 @@ SOL RADAR는 이 검토 과정을 데이터와 AI 분석으로 지원합니다.
 
 사용 회사는 솔리데오로 고정합니다. 원본 조직도 팀명·직급/직책은 유지하고 가상 직원 명부 200명(남성 100·여성 100)을 비례 배치합니다. 이름은 실제 사용되는 한글 세 글자 이름을 참고하되 원본 이름과 중복하지 않으며, 고유 정장 프로필 이미지 200장을 연결합니다. 이메일 가입은 부서·직급/직책 필수, 간편 가입자는 첫 로그인 때 입력합니다.
 
-구현돼 있습니다. 명부·선택 목록·이미지 manifest는 `fixtures/people/solideo.*.json`(생성 스크립트 `scripts/people/`), 사진은 `web/public/demo/people/<personId>.png` 200장, 가입 폼·DB는 `supabase/migrations/20261016000001_solideo_people_signup.sql`입니다. 실제 회사명·부서/직급을 제외한 인물·사진·실적·재무 등은 가상 데모 설정입니다. [승인 스펙](polaris/specs/planned/2026-10-16-solideo-people-signup.md)과 [결정 기록 ADR-019](docs/16-DECISIONS.md)를 참고하세요.
+구현돼 있습니다. 명부·선택 목록·이미지 manifest는 `fixtures/people/solideo.*.json`(생성 스크립트 `scripts/people/`), 사진은 `web/public/demo/people/<personId>.png` 200장, 가입 폼·DB는 `supabase/migrations/20261016000001_solideo_people_signup.sql`입니다. 실제 회사명·부서/직급을 제외한 인물·사진·실적·재무 등은 가상 데모 설정입니다. [승인 스펙](polaris/specs/done/2026-10-16-solideo-people-signup.md)과 [결정 기록 ADR-019](docs/16-DECISIONS.md)를 참고하세요.
 
 ## 기술 스택
 

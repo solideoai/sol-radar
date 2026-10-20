@@ -14,7 +14,7 @@ description: 화면을 만들거나 고칠 때 따르는 디자인 시스템 규
 3. **제목이 화면을 이끈다.** `h1` 은 화면에 하나이고 `type-title` 이다. 같은 역할의 글자는 어느 화면에서나 같은 크기다.
 4. **주요 버튼은 화면에 하나.** `default`(남색)는 하나만 두고 나머지는 `outline`·`ghost`·링크로 낮춘다.
 5. **색은 아낀다.** 버튼은 `primary`(남색)이고 브랜드 색 `brand` 는 차트·선택 표시에만 쓴다(첫 화면에서는 로고 점·선택 막대·점수 막대·인용 바탕·안내 아이콘에도 쓴다). 나머지 위계는 회색 단계로 만든다.
-6. **틀 안에 둔다.** 로그인 뒤 화면은 앱 틀(사이드바와 위 막대), 로그인·안내 화면은 인증 틀(화면 가운데의 좁은 단, 로고·카드 없음), 첫 화면은 마케팅 틀(머리말과 바닥글)이다.
+6. **틀 안에 둔다.** 로그인 뒤 화면은 업무 틀(사이드바와 위 막대. 조직(템플릿) 틀도 같은 셸), 운영자 화면은 운영자 틀(머리 막대 하나), 로그인·안내 화면은 인증 틀(화면 가운데의 좁은 단, 로고·카드 없음), 첫 화면은 마케팅 틀(머리말과 바닥글)이다.
 7. **아이콘은 `lucide-react`, 16px.** 글자 없이 아이콘만 둔 버튼에는 이름(`aria-label`)을 단다.
 8. **장식하지 않는다.** 그라데이션, 알약 배지 머리글, 색 원 번호, 문장 속 색 강조, 지어낸 수치·후기·로고, 동작하지 않는 버튼을 넣지 않는다.
 
@@ -88,28 +88,32 @@ sidebar(딸려 온 sheet·tooltip)·avatar·table.
 - `Link` 를 버튼 모양으로 만들 때 `outline` 이거나 클래스를 덧붙이면 `cn(buttonVariants({ variant: "outline" }), "w-full")` 처럼 `cn` 으로 감싼다.
   그냥 이어 붙이면 바탕의 투명 테두리가 `outline` 의 테두리를 이긴다.
 
-## 웹 틀 — 화면은 넷 중 하나에 넣는다
+## 웹 틀 — 화면은 다섯 중 하나에 넣는다
 
 | 틀 | 파일 | 쓰는 화면 |
 |---|---|---|
 | 마케팅 | `web/components/site-header.tsx`·`web/components/site-footer.tsx` | 첫 화면 `web/app/page.tsx`. 단 폭 `max-w-320` + `px-10`(글줄 1200px). 머리말 72px 단색 흰 바탕. 본문 바탕 흰색, 제품 화면 무대·권유 띠만 `bg-muted`. 글자는 첫 화면 눈금(`*-lg`·`subhead`·`wordmark`)을 쓰고 13px 미만을 쓰지 않는다. 바닥글은 어두운 바탕(`bg-foreground`·`text-background`, 로고는 `<Logo inverted />`) |
 | 인증 | `web/components/auth-frame.tsx` (`AuthFrame`·`AuthHeader`) | 로그인·가입·비밀번호(`web/app/auth/`, 주소 `/auth/login` 등), 팀 만들기(`web/app/teams/new/`)·받은 초대(`web/app/invitations/`), 로그인 필요·연결 없음 안내, 없는 주소·오류. 단 폭 `max-w-100`(400px), 가운데 정렬한 제목 아래에 폼·버튼. 비밀번호 칸은 `web/components/password-input.tsx`(보기·숨기기 버튼) |
-| 앱 | `web/app/(app)/[slug]/layout.tsx` + `web/components/app-shell.tsx` | `web/app/(app)/[slug]/` 아래의 로그인 뒤 조직 화면(대시보드·작업·설정·멤버) |
-| 관리자 | `web/app/admin/layout.tsx` | 서비스 운영자(`profiles.is_admin`)만 여는 화면. 조직과 상관없어 사이드바 없이 머리 막대(로고·"앱으로 돌아가기") 하나다. 본문은 `AppPage`. 운영자가 아니면 틀이 404 를 낸다 |
+| 업무 | `web/app/(app)/(work)/layout.tsx` + `web/components/app-shell.tsx` | SOL RADAR 업무 화면. 주소에 조직이 없다(ADR-021): 대시보드 `/dashboard`, 공고 `/bids`·`/bids/[id]`, 알림 `/notifications`, 데이터 수집 관리 `/admin/ingestion`(업무 역할 `sol_role=ADMIN` 전용 — 아래 운영자 틀과 다르다). 조직·인력 `/people`·조직도 `/org-chart` 는 같은 `AppShell` 을 `web/app/_lib/people-read-layout.tsx`(`PeopleReadLayout`)로 그린다 |
+| 조직(템플릿) | `web/app/(app)/[slug]/layout.tsx` + `web/components/app-shell.tsx` | 템플릿에서 이어 쓰는 조직 주소 화면: 설정·멤버·팀 `/<slug>/settings`, 작업 `/<slug>/tasks`, 템플릿 대시보드 `/<slug>/dashboard`. 사이드바 `NAV` 에 없다. 옛 주소 `/settings`·`/memos` 는 지금 업무 조직의 이 화면으로 보낸다(`web/app/(app)/home.ts`) |
+| 운영자 | `web/app/admin/layout.tsx` | 서비스 운영자(`profiles.is_admin`)만 여는 화면. 조직과 상관없어 사이드바 없이 머리 막대(로고·"앱으로 돌아가기") 하나다. 본문은 `AppPage`. 운영자가 아니면 틀이 404 를 낸다 |
 
-- 로그인 뒤 화면은 `web/app/(app)/[slug]/` 아래에 두고 본문을 `AppPage`(`web/components/app-page.tsx` — 제목·설명·동작 자리, 단 폭 `max-w-5xl`)로 감싼다.
-  메뉴에는 `app-shell.tsx` 의 `NAV` 에 한 줄 더한다(주소는 지금 조직의 `/<slug>/...`). 로그인 전·DB 없음 안내는 앱 틀의 `layout.tsx` 가 그린다.
-- `web/app/(app)/[slug]/` 아래 화면은 `requireWorkspace`(`web/app/(app)/[slug]/workspace.ts`)로 지금 조직을 다시 확인한다 — 내 조직이 아니면 404, 로그인 전·DB 없음은 `redirect("/auth/login")`.
+- 새 업무 화면은 `web/app/(app)/(work)/` 아래에 두고 본문을 `AppPage`(`web/components/app-page.tsx` — 제목·설명·동작 자리, 단 폭 `max-w-5xl`, 넓은 표는 `contentClassName` 으로 넓힌다. 예: 공고 목록 `max-w-360`)로 감싼다.
+  메뉴에는 `app-shell.tsx` 의 `NAV` 에 한 줄 더한다(주소는 조직 없는 `/dashboard` 꼴). 사이드바에 없는 조직(템플릿) 화면의 이름은 `NAV` 가 아니라 `TEMPLATE_SCREENS` 에 둔다(상단 막대가 읽는다).
+- `(work)` 아래 화면은 저마다 `requireWork(next)`(`web/app/(app)/(work)/work.ts`)로 다시 확인한다(조직·인력 화면은 `web/app/_lib/people-data.tsx` 의 `loadPeopleDirectory` 를 쓴다) — 로그인 전은 `/auth/login`, 가입 정보 미완료는 가입 보완 화면, 업무 조직이 없거나 여럿·접근 불가는 조직 상태 화면으로 보내고, DB 없음은 오류를 던진다.
+  돌려받은 맥락(`orgId`·`role`(`sol_role`)·`runMode`)으로 화면을 그린다. 역할로 막는 화면은 데이터를 읽기 전에 `role` 을 보고 안내만 그린다(견본 `/admin/ingestion` 의 `IngestionForbidden`). 읽기 권한 자체는 RLS 가 정한다.
+- 조직(템플릿) 화면은 `requireWorkspace`(`web/app/(app)/[slug]/workspace.ts`)로 주소의 조직을 다시 확인한다 — 내 조직이 아니면 404, 로그인 전·DB 없음은 `redirect("/auth/login")`. 로그인 전·DB 없음 안내는 이 틀의 `layout.tsx` 가 그린다.
   틀이 안내를 그려도 화면은 서버에서 실행된다 — 틀은 화면 실행을 막지 못한다.
-- 앱 틀의 사이드바 맨 위(로고 자리, `SidebarHeader`)는 **조직 전환기**다. 지금 조직의 이름과 둘째 줄("개인" 또는 "팀 · 소유자/멤버")을 보이고,
-  메뉴에서 다른 조직·새 팀 만들기·받은 초대로 간다. 받은 초대가 있으면 그 아래 "받은 초대" 줄(`SidebarMenuBadge` 로 개수)을 둔다.
+- 사이드바 맨 위(`SidebarHeader`)는 지금 업무 조직의 표시(`OrgMark` + 조직 이름)다. **조직 전환기·"새 팀 만들기"는 없다** — 서버가 하나뿐인 업무 조직을 고른다(시험 `web/e2e-auth/org-switcher.spec.ts`, 팀 만들기는 운영자 전용 ADR-026).
+  받은 초대가 있으면 그 아래 "받은 초대" 줄(`SidebarMenuBadge` 로 개수)을 둔다.
 - `main` 은 `AuthFrame`·`AppPage` 가 그린다. 그 안의 화면에서 다시 그리지 않는다.
   건너뛰기 링크(루트 `layout.tsx`)가 가는 `id="main-content"` 도 이 `main` 이 갖는다. 틀(머리말·사이드바)은 `main` 밖에 둔다.
 - 버튼 모양이 아닌 링크(로고·문장 속 링크)의 초점 표시는 버튼과 같다: `outline-none focus-visible:ring-3 focus-visible:ring-ring/50`.
   사이드바 안에서는 항목과 같은 `ring-sidebar-ring outline-hidden focus-visible:ring-2` 다.
-- 표시 부품(`web/components/`): 로고는 `logo.tsx` 하나이고 마케팅 틀이 쓴다(앱 틀은 그 자리를 조직 전환기가 차지하고, 인증 틀에는 로고가 없다). 통계 카드 `stat-card.tsx` 와 CSS 막대 차트 `bar-chart.tsx` 는
+- 표시 부품(`web/components/`): 로고는 `logo.tsx` 하나이고 마케팅 틀이 쓴다(업무·조직 틀은 그 자리를 조직 표시가 차지하고, 인증 틀에는 로고가 없다). 통계 카드 `stat-card.tsx` 와 CSS 막대 차트 `bar-chart.tsx` 는
   props 만 받고 데이터를 읽지 않는다. 첫 화면(랜딩) 전용 부품은 `web/components/landing/` 에 모으고, 분석 미리보기는 `product-preview.tsx` 다.
-- 견본: 통계·차트·표·활동 피드·빈 상태는 `web/app/(app)/[slug]/dashboard/`, 거르기·정렬·쪽이 있는 데이터 표와 추가·편집 대화상자·상태 메뉴·삭제 확인은 `web/app/(app)/[slug]/tasks/`,
+- 업무 견본: 카드 대시보드는 `web/app/(app)/(work)/dashboard/`, 필터·더 보기가 있는 목록과 상세는 `web/app/(app)/(work)/bids/`, 역할 전용 화면·실행 대화상자·상세 서랍·상태 다시 읽기는 `web/app/(app)/(work)/admin/ingestion/`.
+- 템플릿 견본: 통계·차트·표·활동 피드·빈 상태는 `web/app/(app)/[slug]/dashboard/`, 거르기·정렬·쪽이 있는 데이터 표와 추가·편집 대화상자·상태 메뉴·삭제 확인은 `web/app/(app)/[slug]/tasks/`,
   가는 선으로 나눈 구역 폼은 `web/app/(app)/[slug]/settings/`, 멤버 표와 초대 폼(역할 고르기는 `select`)은 `web/app/(app)/[slug]/settings/members/`.
 - 화면 안의 하위 메뉴(설정의 "계정"·"멤버")는 `SettingsNav`(`web/app/(app)/[slug]/settings/`)의 모양을 따른다. 링크 줄(`border-b`) 아래 지금 화면에만 2px 밑줄 막대(`foreground`)를 긋는다.
   경로 이동이라 ARIA 탭(`role="tablist"`)이 아니라 링크 + `aria-current="page"` 이고, Tabs 부품을 쓰지 않는다. 사이드바 `NAV` 에는 더하지 않는다.

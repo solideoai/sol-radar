@@ -5,7 +5,7 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 제출물 색인
@@ -20,7 +20,7 @@ updated: 2026-10-19
 | 아키텍처 다이어그램 1장 | `docs/submission/architecture.md` | 초안(Mermaid 2개) | 확장성·실용성 | 미확인 |
 | 데모 영상 3분(백업용) | `docs/submission/video-storyboard.md`(스토리보드). 영상 파일 없음 | 초안(촬영 전) | 완성도 | 미확인 |
 | 발표 슬라이드 | `docs/submission/slides-outline.md`(구성안). 슬라이드 파일 없음 | 초안 | 네 기준 전부 | 미확인 |
-| `docs/evidence/` 테스트·E2E·기동 로그 | `docs/evidence/README.md`(색인), `docs/submission/evidence-list.md`(AI 검증 증거 목록) | 있음: `phase-0`(C0 통합 기동·C1 ①②)·`phase-1`(C2 정책 시험·seed)·`phase-2`(C3)·`phase-4`(C4 골든)·`phase-5`(C5 mock·`PARTIAL`)·`people`·`landing`·`competitors`. 예정: `phase-3`·`phase-6`·실추론 로그·`eval`·`demo-day` | 완성도 | 미확인 |
+| `docs/evidence/` 테스트·E2E·기동 로그 | `docs/evidence/README.md`(색인), `docs/submission/evidence-list.md`(AI 검증 증거 목록) | 있음: `phase-0`(C0 통합 기동·C1 ①②)·`phase-1`(C2 정책 시험·seed)·`phase-2`(C3)·`phase-3`(C6 화면·N8)·`phase-4`(C4 골든)·`phase-5`(C5 mock·`PARTIAL`)·`phase-6`(C7 알림)·`demo-day`(C9 1차 리허설·C8 사전 run)·`eval`(X6a)·`fx01`·`people`·`landing`·`competitors`(2026-10-20). 예정: 실추론 로그 | 완성도 | 미확인 |
 | 외부 의존성 점검 결과·평가 리포트 요약 | `docs/evidence/phase-0/external-deps.md`(①② 통과, ③ 엔드포인트 대기, ④ 미착수)·`external-deps-api-20261019.md`, `docs/evidence/competitors/2026-10-19-competitors.md`(X3), `docs/evidence/eval/`(예정), `docs/submission/experiment-tables.md`(빈 표) | 일부(C1 ①②·X3 있음. C1 ③④·X1 평가 리포트는 예정) | 실용성·창의성 | 미확인 |
 | 정직성 표(§7)를 슬라이드와 README에 동일하게 포함 | [[18-HACKATHON\|18 해커톤]] §7, `slides-outline.md` 11장, `limitations.md` | 초안(슬라이드·README 반영 전) | 완성도 | 미확인 |
 | 공식 심사 기준 확인 후 §4 갱신 | [[18-HACKATHON\|18 해커톤]] §4 | 완료(2026-10-18) | — | 확인됨 |

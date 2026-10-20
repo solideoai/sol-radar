@@ -223,6 +223,29 @@ describe("c6 shell", () => {
     expect(document.querySelector('[data-slot="sidebar-menu-badge"]')).toBeNull();
   });
 
+  it.each([1280, 1440])(
+    "shows the whole user name and email without ellipsis or clipping at %ipx",
+    async (width) => {
+      await page.viewport(width, 900);
+      const name = "솔리데오 사업개발본부 데모 관리자";
+      const email = "solideo-demo-administrator@soltech.invalid";
+      renderShell({ user: { name, email, avatarUrl: null, isAdmin: false } });
+      const button = page.getByRole("button", { name: /사용자 메뉴/ });
+      await expect.element(button).toBeVisible();
+      const box = button.element().getBoundingClientRect();
+      for (const text of [name, email]) {
+        const line = button.getByText(text, { exact: true }).element() as HTMLElement;
+        // 말줄임(…)으로 숨은 글자가 없고, 줄바꿈한 글자가 버튼 밖으로 나가 잘리지 않는다.
+        expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
+        const rect = line.getBoundingClientRect();
+        expect(rect.top).toBeGreaterThanOrEqual(box.top);
+        expect(rect.bottom).toBeLessThanOrEqual(box.bottom);
+        expect(rect.right).toBeLessThanOrEqual(box.right);
+      }
+      expect(button.element().scrollHeight).toBeLessThanOrEqual(button.element().clientHeight);
+    },
+  );
+
   it("hides the under-1280 notice at 1280px and shows it at 1000px", async () => {
     await page.viewport(1280, 900);
     renderShell();
