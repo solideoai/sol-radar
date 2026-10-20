@@ -45,8 +45,9 @@ export const ENABLED_SOCIAL = [
 export const horizontalOverflow = (page: Page): Promise<number> =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
-// Explicitly prepared sole-business fixture destination.
-export const BUSINESS_DASHBOARD = /\/[^/]+\/dashboard$/;
+// 로그인·초대 수락·가입 보완 뒤 업무 첫 화면. 조직 주소 없는 C6 대시보드(/dashboard)다(스펙 §2·D1, Ruling 16).
+// 템플릿 대시보드(/{slug}/dashboard)는 남아 있지만(D30) 착지가 아니다. 경로 전체를 맞춘다.
+export const BUSINESS_DASHBOARD = /^https?:\/\/[^/]+\/dashboard$/;
 
 // 로그인 화면의 폼으로 로그인한다. path 는 ?next= 같은 검색어를 붙인 로그인 주소.
 export const fillSignInForm = async (
@@ -60,7 +61,9 @@ export const fillSignInForm = async (
   await page.getByRole("button", { name: "로그인", exact: true }).click();
 };
 
-// Caller explicitly provisions one business membership before using this helper.
+// 부르는 쪽이 업무 조직 하나를 미리 만들어 둔다. 로그인 뒤 업무 첫 화면(/dashboard)을 확인하고 그 조직의 주소(slug)를 돌려준다.
+// /dashboard 주소에는 조직이 없다. 템플릿 화면이 쓰는 slug 는 옛 주소 /settings 를 서버가 현재 업무 조직의
+// 설정(/{slug}/settings)으로 보내는 곳에서 읽는다. 그래서 이 함수가 끝나면 그 설정 화면에 있다.
 export const signInThroughForm = async (
   page: Page,
   account: { email: string; password: string },
@@ -68,6 +71,8 @@ export const signInThroughForm = async (
   await fillSignInForm(page, account);
   await expect(page).toHaveURL(BUSINESS_DASHBOARD);
   await expect(page.getByRole("heading", { level: 1, name: "대시보드" })).toBeVisible();
+  await page.goto("/settings");
+  await expect(page).toHaveURL((url) => /^\/[^/]+\/settings$/.test(url.pathname));
   return new URL(page.url()).pathname.split("/")[1];
 };
 

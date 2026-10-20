@@ -1417,6 +1417,7 @@ export type Database = {
           qwen_model: string | null
           recommendation: string | null
           recommendation_basis: string | null
+          request_hash: string | null
           requested_by: string | null
           review_flags: string[]
           revision_id: string
@@ -1455,6 +1456,7 @@ export type Database = {
           qwen_model?: string | null
           recommendation?: string | null
           recommendation_basis?: string | null
+          request_hash?: string | null
           requested_by?: string | null
           review_flags?: string[]
           revision_id: string
@@ -1493,6 +1495,7 @@ export type Database = {
           qwen_model?: string | null
           recommendation?: string | null
           recommendation_basis?: string | null
+          request_hash?: string | null
           requested_by?: string | null
           review_flags?: string[]
           revision_id?: string
@@ -1721,7 +1724,47 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      bid_list_items: {
+        Row: {
+          agency: string | null
+          budget_krw: number | null
+          budget_krw_text: string | null
+          deadline_at: string | null
+          docs_download_failed: number | null
+          docs_failed: number | null
+          docs_parsed: number | null
+          docs_partial: number | null
+          docs_pending: number | null
+          docs_total: number | null
+          docs_unsupported: number | null
+          id: string | null
+          is_demo: boolean | null
+          last_synced_at: string | null
+          latest_decided_at: string | null
+          latest_decision: string | null
+          latest_reviewer_display_name: string | null
+          latest_reviewer_email: string | null
+          latest_revision: number | null
+          latest_run_basis: string | null
+          latest_run_created_at: string | null
+          latest_run_flags: string[] | null
+          latest_run_id: string | null
+          latest_run_recommendation: string | null
+          latest_run_score: number | null
+          latest_run_status: string | null
+          notice_id: string | null
+          plan_ref: string | null
+          published_at: string | null
+          scored_recommendation: string | null
+          scored_score: number | null
+          source: string | null
+          source_url: string | null
+          stage: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       activity_name_of: {
@@ -1768,6 +1811,10 @@ export type Database = {
         Args: never
         Returns: boolean
       }
+      latest_ingest_run: {
+        Args: { p_origin: string }
+        Returns: { finished_at: string; started_at: string; status: string; summary: Json }[]
+      }
       my_org_ids: {
         Args: never
         Returns: string[]
@@ -1779,6 +1826,10 @@ export type Database = {
       my_sol_org_ids: {
         Args: { roles: string[] }
         Returns: string[]
+      }
+      release_unqueued_score_run: {
+        Args: { p_score_run_id: string }
+        Returns: boolean
       }
       resolve_solideo_employment: {
         Args: { p_department: string; p_job_title: string }

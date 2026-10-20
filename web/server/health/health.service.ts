@@ -51,3 +51,8 @@ export async function getReadiness(
   ]);
   return toReadiness({ db, redis, storage, ai });
 }
+
+/** AI 검사 하나만 같은 제한 시간으로 돈다. 대시보드가 다른 검사를 기다리지 않게 한다. */
+export function getAiState(probes: Probes = defaultProbes()): Promise<AiState> {
+  return withLimit(probes.ai);
+}

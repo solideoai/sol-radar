@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { BUSINESS_DASHBOARD } from "./support/account-page";
 import { SEED_ACCOUNTS, SEED_TEAM, authFileOf, escapeRegExp } from "./support/seed";
 
 // 초대받은 사람(최초대)이 받은 초대 화면에서 시드 팀 초대를 수락해 팀에 들어온다.
@@ -26,7 +27,19 @@ test("받은 초대를 수락하면 시드 팀의 대시보드로 가고, 팀의
   await page.getByRole("button", { name: `수락 ${SEED_TEAM.name} 초대`, exact: true }).click();
 
   await expect(page.getByText(`${SEED_TEAM.name}에 들어왔습니다`)).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/${SEED_TEAM.slug}/dashboard$`));
+  // 수락 뒤 첫 화면은 로그인과 같은 업무 첫 화면(/dashboard)이고, 들어온 조직으로 그린다(Ruling 16).
+  await expect(page).toHaveURL(BUSINESS_DASHBOARD);
+  await expect(page.getByRole("heading", { level: 1, name: "대시보드" })).toBeVisible();
+  await expect(
+    page.getByRole("complementary", { name: "앱 사이드바" }).getByText(SEED_TEAM.name, {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "받은 초대", exact: true })).toHaveCount(0);
+
+  // 템플릿 대시보드(/{slug}/dashboard, D30)에서 팀의 작업과 활동을 본다.
+  await page.goto(`/${SEED_TEAM.slug}/dashboard`);
   await expect(
     page.getByRole("main").getByText("시드 팀의 작업 진행 상황을 한눈에 봅니다."),
   ).toBeVisible();

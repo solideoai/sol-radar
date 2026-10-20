@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
   // X-Powered-By: Next.js 를 빼서 쓰는 프레임워크를 알리지 않는다.
   poweredByHeader: false,
+  // bullmq 는 선택 의존(pg)과 SQL 파일 읽기를 포함해 번들하면 깨질 수 있다. Node 의 require 로 쓴다(ADR 판단 5).
+  serverExternalPackages: ["bullmq"],
   // 16.3 부터 next dev 는 에이전트를 감지하면 web/AGENTS.md·web/CLAUDE.md 를 만든다. 지침의 정본은 루트 AGENTS.md
   // 하나라서 끈다. 루트 AGENTS.md 가 web/node_modules/next/dist/docs/ 를 읽으라고 같은 안내를 한다.
   agentRules: false,

@@ -13,7 +13,8 @@ export type ReadyWorkspace = Extract<MyWorkspace, { status: "ready" }>;
 
 // layout 과 화면이 같은 요청에서 함께 읽으므로 cache 로 요청 하나에 한 번만 읽는다
 // (받은 초대 수는 지금 시각을 조건으로 읽어서 같은 요청이 자동으로 합쳐지지 않는다).
-export const loadWorkspace = cache(async (slug: string, next = `/${slug}/dashboard`) => {
+// 돌아올 곳을 받지 않으면(조직 첫 주소 /{slug}) 보완 뒤 업무 첫 화면(/dashboard)으로 간다. layout 의 기본값과 같다(Ruling 16).
+export const loadWorkspace = cache(async (slug: string, next = "/dashboard") => {
   await requireCompleteEmployment(next);
   return getMyWorkspace(slug);
 });

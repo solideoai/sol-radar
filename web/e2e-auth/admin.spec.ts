@@ -13,6 +13,7 @@ import {
   userRows,
   usersTable,
 } from "./support/admin-page";
+import { BUSINESS_DASHBOARD } from "./support/account-page";
 import { readProfilesNewestFirst, signInAs } from "./support/local-supabase";
 import { SEED_ACCOUNTS, SEED_ROLES, type SeedRole, authFileOf, escapeRegExp } from "./support/seed";
 
@@ -280,7 +281,7 @@ for (const role of NON_ADMIN_ROLES) {
         await expect(page.getByRole("link", { name: "관리자", exact: true })).toHaveCount(0);
         return;
       }
-      await expect(page).toHaveURL(/\/seed-team\/dashboard$/);
+      await expect(page).toHaveURL(BUSINESS_DASHBOARD);
       await page.getByRole("button", { name: "사용자 메뉴" }).click();
       const menu = page.getByRole("menu");
       await expect(menu.getByRole("menuitem", { name: "설정" })).toBeVisible();

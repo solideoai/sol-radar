@@ -20,6 +20,7 @@
     "verify:quick": "pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors",
     "test:e2e": "playwright test && pnpm test:browser",
     "test:e2e:auth": "node ../scripts/db-seed.mjs && playwright test -c playwright.auth.config.ts",
+    "test:e2e:work": "playwright test -c playwright.work.config.ts",
     "test:browser": "vitest run --config vitest.browser.config.ts",
     "worker": "node --conditions=react-server --import tsx worker/main.ts",
     "worker:check": "node --conditions=react-server --import tsx worker/main.ts --check",

@@ -20,10 +20,10 @@ it("next보다 먼저 현재 서버 완료 상태를 확인한다", async () => 
   ).rejects.toThrow("REDIRECT:/auth/complete-profile?next=%2Falpha%2Ftasks");
   expect(home).not.toHaveBeenCalled();
 });
-it("완료자는 원래 멤버십 홈으로 이동한다", async () => {
+it("완료자는 업무 대시보드로 이동한다", async () => {
   profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
   await expect(LoginPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
-    "REDIRECT:/mine/dashboard",
+    "REDIRECT:/dashboard",
   );
 });
 
