@@ -57,3 +57,6 @@ docs/.obsidian/workspace.json
 docs/.obsidian/workspace-mobile.json
 docs/.trash/
 
+
+# 평가셋 빌드 산출물(docs/21 §3.1). JSONL·manifest 는 커밋하지 않는다
+datasets/
