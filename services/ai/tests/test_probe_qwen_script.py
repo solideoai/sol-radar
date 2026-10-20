@@ -54,6 +54,18 @@ def test_url_outside_allowlist_is_refused_before_any_request(base_url, reason):
     assert "evil.example.com" not in result.stderr
 
 
+def test_key_and_no_dry_run_still_refused_before_sending():
+    """실제로 키가 나갈 수 있는 경로(키 있음·--dry-run 없음·허용 밖 호스트)도 검사가 막는다.
+
+    .invalid 는 예약 TLD 라 검사를 빼면 DNS 실패(exit 1)로 끝나고 트래픽은 나가지 않는다 — 변형이 잡힌다.
+    """
+    result = run_probe(base_url="https://evil.invalid/v1", key="probe-test-key-must-not-leak")
+    assert result.returncode == 3, result.stderr
+    assert "HOST_NOT_ALLOWED" in result.stderr
+    assert result.stdout == ""
+    assert "probe-test-key-must-not-leak" not in result.stdout + result.stderr
+
+
 def test_allowed_host_dry_run_prints_plan_without_sending():
     result = run_probe("--dry-run", base_url=COMPANY)
     assert result.returncode == 0, result.stderr

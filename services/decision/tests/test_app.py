@@ -313,13 +313,25 @@ def test_queue_counts_waiting_requests(make_client, auth):
         first = pool.submit(client.post, "/v1/systemone", json=BODY, headers=auth)
         assert backend.started.wait(2)
         second = pool.submit(others[0].post, "/v1/systemone", json=BODY, headers=auth)
+        # 두 번째가 대기열에 들어간 것(count == 2)을 확인한 뒤에 세 번째를 보낸다(08 검토: 순서 경쟁으로 흔들렸다)
         end = time.monotonic() + 2
-        while others[1].post("/v1/systemone", json=BODY, headers=auth).status_code != 503:
-            assert time.monotonic() < end, "세 번째 요청이 503 이 되지 않았다"
-            time.sleep(0.02)
+        while client.app.state.in_flight.count < 2:
+            assert time.monotonic() < end, "두 번째 요청이 대기열에 들어가지 않았다"
+            time.sleep(0.01)
+        third = others[1].post("/v1/systemone", json=BODY, headers=auth)
+        assert third.status_code == 503
+        assert third.json() == {"errorCode": "QUEUE_FULL"}
         backend.release.set()
         assert first.result(timeout=5).status_code == 200
         assert second.result(timeout=5).status_code == 200
+
+
+def test_in_flight_returns_to_zero_after_requests(client, auth):
+    assert client.app.state.in_flight.count == 0
+    with client:
+        assert client.post("/v1/systemone", json=BODY, headers=auth).status_code == 200
+        assert client.post("/v1/systemone", json=BODY, headers=auth).status_code == 200
+    assert client.app.state.in_flight.count == 0
 
 
 def test_forward_past_deadline_returns_504_without_waiting(make_client, auth):

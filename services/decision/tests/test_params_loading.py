@@ -66,7 +66,8 @@ def test_unlisted_python_file_is_refused_before_remote_code_runs(params, tmp_pat
     assert params.calls == []
 
 
-def test_missing_config_is_package_error(params, tmp_path):
+def test_missing_package_dir_is_package_error(params, tmp_path):
+    # CONFIG_MISSING 은 test_package.py 가 덮는다. 여기서는 디렉터리 자체가 없는 경우만
     with pytest.raises(PackageError) as error:
         params.load_bosun(tmp_path / "nowhere", device="cpu", dtype="float32")
     assert error.value.summary == "PACKAGE_DIR_MISSING"

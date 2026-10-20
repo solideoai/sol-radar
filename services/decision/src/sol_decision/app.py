@@ -48,7 +48,8 @@ from sol_decision import contract, logsafe, wire
 from sol_decision.backend import DecisionBackend, row_id_for
 
 MAX_BODY_BYTES = 128 * 1024
-# 게이트웨이 kev_state.TOKEN_LIMIT(6,000) × CHARS_PER_TOKEN(4). 게이트웨이가 이 길이로 자르므로 정상 요청은 넘지 않는다
+# 게이트웨이 kev_state.TOKEN_LIMIT(6,000) × CHARS_PER_TOKEN(4). 게이트웨이는 past performance 부터 줄여 이 아래로
+# 맞추려 하지만 보장은 아니다(03 §5.6 best-effort). 넘어오면 422 이고 게이트웨이는 KEV_UNAVAILABLE 로 받는다
 MAX_STATE_CHARS = 6_000 * 4
 # 03 §5.6 한글 범위(음절·자모·호환 자모). 게이트웨이 kev_state.HANGUL 과 같은 식이다
 HANGUL = re.compile("[가-힣ᄀ-ᇿ㄰-㆏]")
@@ -188,6 +189,8 @@ def create_app(
     # 추론 스레드 하나. 한 번에 요청(질문 묶음) 하나만 모델을 쓴다(GPU 메모리·결정성). 나머지는 줄을 선다
     inference = ThreadPoolExecutor(max_workers=1, thread_name_prefix="inference")
     in_flight = InFlight()
+    # 시험·관측용 노출. 제품 코드는 이 핸들 밖에서 count 를 바꾸지 않는다
+    app.state.in_flight = in_flight
     key_bytes = config.api_key.get_secret_value().encode("utf-8")
 
     @app.middleware("http")
@@ -247,6 +250,8 @@ def create_app(
     async def systemone(request: Request) -> JSONResponse:
         request_id: str = request.state.request_id
         started = clock()
+        # 마감은 본문을 읽기 전, 요청이 들어온 시점부터 센다("요청 전체" 마감)
+        deadline = Deadline(config.timeout_ms / 1000, clock)
         body = await _read_body(request)
         try:
             parsed = wire.WireRequest.model_validate_json(body)
@@ -260,12 +265,12 @@ def create_app(
         if in_flight.count >= config.max_queue:
             logsafe.log_failure(request_id, code=QUEUE_FULL)
             raise ApiError(503, QUEUE_FULL, headers={"Retry-After": str(RETRY_AFTER_S)})
-        deadline = Deadline(config.timeout_ms / 1000, clock)
         question_count = len(parsed.questions)
         # 추론 스레드의 결과를 Future 로 받는다. 백엔드(모델 라이브러리)가 어떤 예외를 내든 500 으로 바꾸고,
-        # 로그에는 종류 이름만 남긴다(메시지에 입력 조각이 실릴 수 있다)
-        in_flight.count += 1
+        # 로그에는 종류 이름만 남긴다(메시지에 입력 조각이 실릴 수 있다).
+        # count 는 제출이 성공한 뒤 올린다(executor 종료 중 RuntimeError 면 올리지 않아 자리가 새지 않는다)
         future = asyncio.get_running_loop().run_in_executor(inference, answer_all, parsed, deadline)
+        in_flight.count += 1
         future.add_done_callback(release)
         done, _ = await asyncio.wait({future}, timeout=deadline.remaining() + DEADLINE_GRACE_S)
         if not done:
