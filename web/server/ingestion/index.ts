@@ -203,6 +203,7 @@ export {
   FIXTURE_ANCHOR_PARAM,
   QUOTA_EXCEEDED_ERROR_CODE,
   QUOTA_SOURCE_KEY,
+  QUOTA_STORE_UNAVAILABLE_ERROR_CODE,
   SEED_ANCHOR_MISSING,
   runIngest,
 } from "./ingestion.service";
@@ -334,3 +335,43 @@ export type {
   SourceEntry,
   SourceRegistry,
 } from "./source-registry";
+
+// ── N8 수집 관리(/admin/ingestion, 05 §2 :75-77): 입력 검증·IngestionRun 변환·요청·조회. 읽기는 사용자 세션(RLS) ──
+export {
+  INGESTION_ADMIN_ROLES,
+  WINDOW_FUTURE_TOLERANCE_MS,
+  acceptsSourceForMode,
+  canManageIngestion,
+  ingestionRunInputSchema,
+  toIngestionRunView,
+} from "./ingestion-admin.model";
+export type {
+  IngestionAdminErrorCode,
+  IngestionAdminFailure,
+  IngestionAdminResult,
+  IngestionBatch,
+  IngestionRunError,
+  IngestionRunInput,
+  IngestionRunMode,
+  IngestionRunPage,
+  IngestionRunRequester,
+  IngestionRunView,
+} from "./ingestion-admin.model";
+export {
+  getIngestionRun,
+  ingestionForbidden,
+  listIngestionRuns,
+  requestIngestionRun,
+} from "./ingestion-admin.service";
+export type {
+  IngestionAdminContext,
+  IngestionAdminDeps,
+  IngestionAdminRepo,
+  IngestionBodyRead,
+  IngestionIdempotencyRecord,
+  IngestionIdempotencyStore,
+  IngestionLazyBody,
+  IngestionRunCursor,
+  IngestionRunPosition,
+} from "./ingestion-admin.service";
+export { ingestionAdminRepo } from "./ingestion-admin.repo";

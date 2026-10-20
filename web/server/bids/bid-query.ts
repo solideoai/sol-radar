@@ -228,7 +228,8 @@ export const cursorPayloadSchema = z.strictObject({
 });
 export type CursorPayload = z.infer<typeof cursorPayloadSchema>;
 
-export type CursorKind = "bids" | "analyses" | "notifications";
+// ingestionRuns 는 수집 관리(N8) 이력이다. 그 커서는 app 층(app/_lib/ingestion-deps.ts)이 조직을 넣어 만든다.
+export type CursorKind = "bids" | "analyses" | "notifications" | "ingestionRuns";
 
 // 커서가 묶이는 범위의 지문. 종류가 달라지면 같은 값이어도 지문이 다르다.
 // parts 에는 조직(알림은 사람도)을 넣는다. 다른 조직·사람이 받은 커서를 쓰지 못하게 한다(보안 L3).

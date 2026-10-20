@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 import type { Tables } from "@/lib/database.types";
 import type { FixtureBatch, FixtureFile, FixtureRecord } from "./fixture.model";
 import type { SavedRevisionDecision, SaveRevisionInput } from "./ingestion.repo";
+import type { StartRunInput } from "./ingestion.port";
 import {
+  toIngestRunInsert,
   toQuotaUsedUpdate,
   toSaveRevisionParams,
   toStartedRun,
@@ -488,6 +490,64 @@ describe("toStartedRun", () => {
     const params = { window: { from: "2026-10-18T15:00:00.000Z", to: "2026-10-19T15:00:00.000Z" } };
     const row = runRow({ params });
     expect(toStartedRun(row).params).toEqual(params);
+  });
+});
+
+// N8 수동 수집(계획서 docs/plans/2026-10-20-n8-admin-ingestion-plan.md §2): Route Handler 가 만든 run id(job data runId)를
+// worker 의 run 입력(StartRunInput.runId)까지 잇고, startRun 이 그 값을 ingest_runs.id 로 넣는다. 없으면 DB 기본값(gen_random_uuid).
+describe("toIngestRunInsert — runId(N8)", () => {
+  const ORG_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
+  const USER_ID = "3f2b8c1e-5d4a-4c7b-9e1f-0a2b3c4d5e6f";
+  const RUN_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+  const MANUAL_RUN: StartRunInput = {
+    source: "fixture",
+    runMode: "FIXTURE",
+    jobKey: `manual:${ORG_ID}:req-1`,
+    trigger: "MANUAL",
+    batch: "SEED",
+    params: null,
+    requestedBy: USER_ID,
+    idempotencyKey: `${ORG_ID}:req-1`,
+  };
+
+  it("runId 가 있으면 그 값을 id 로 넣고 나머지 열은 그대로다", () => {
+    expect(toIngestRunInsert({ ...MANUAL_RUN, runId: RUN_ID })).toStrictEqual({
+      id: RUN_ID,
+      source: "fixture",
+      run_mode: "FIXTURE",
+      job_key: `manual:${ORG_ID}:req-1`,
+      trigger: "MANUAL",
+      batch: "SEED",
+      params: null,
+      requested_by: USER_ID,
+      idempotency_key: `${ORG_ID}:req-1`,
+      status: "RUNNING",
+      summary: {
+        created: 0,
+        changed: 0,
+        cancelled: 0,
+        skippedDuplicate: 0,
+        quarantined: 0,
+        retried: 0,
+      },
+    });
+  });
+
+  it("runId 가 없으면 id 키를 넣지 않는다(DB 기본값)", () => {
+    expect(toIngestRunInsert(MANUAL_RUN)).not.toHaveProperty("id");
+  });
+
+  it("일정 수집(요청자·runId 없음)도 id 키가 없다", () => {
+    const scheduled: StartRunInput = {
+      source: "g2b",
+      runMode: "LIVE",
+      jobKey: "g2b:SCHEDULED:2026-10-19T03:00:00.000Z",
+      trigger: "SCHEDULED",
+      batch: null,
+      params: { window: { from: "2026-10-18T03:00:00.000Z", to: "2026-10-19T03:00:00.000Z" } },
+    };
+
+    expect(toIngestRunInsert(scheduled)).not.toHaveProperty("id");
   });
 });
 

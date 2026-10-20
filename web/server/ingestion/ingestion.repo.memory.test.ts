@@ -111,6 +111,63 @@ describe("메모리 저장소 findLatestRunWindowEnd(source, trigger) — C3 계
   });
 });
 
+// N8 수동 수집(계획 docs/plans/2026-10-20-n8-admin-ingestion-plan.md §2 ingestion.store.ts): run 입력의 runId(Route Handler 가
+// 만든 202 의 id)가 있으면 새 run 의 id 다. 없으면 저장소가 정한다. 같은 jobKey 재실행은 기존 run 을 그대로 쓴다.
+describe("메모리 저장소 startRun 의 runId(N8)", () => {
+  const ORG_ID = "9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d";
+  const USER_ID = "3f2b8c1e-5d4a-4c7b-9e1f-0a2b3c4d5e6f";
+  const RUN_ID = "a8000000-0000-4000-8000-000000000001";
+  const OTHER_RUN_ID = "a8000000-0000-4000-8000-000000000002";
+  const manualRun = (runId?: string): StartRunInput => ({
+    source: "fixture",
+    runMode: "MOCK",
+    jobKey: `manual:${ORG_ID}:req-1`,
+    trigger: "MANUAL",
+    batch: "SEED",
+    params: null,
+    requestedBy: USER_ID,
+    idempotencyKey: `${ORG_ID}:req-1`,
+    ...(runId === undefined ? {} : { runId }),
+  });
+
+  it("runId 가 있으면 새 run 의 id 가 그 값이다", async () => {
+    const repo = createMemoryIngestionRepo();
+
+    const started = await repo.startRun(manualRun(RUN_ID));
+
+    expect([started.runId, repo.state.runs.get(manualRun().jobKey)?.runId]).toEqual([
+      RUN_ID,
+      RUN_ID,
+    ]);
+  });
+
+  it("그 runId 로 run 을 끝낼 수 있다", async () => {
+    const repo = createMemoryIngestionRepo();
+    await repo.startRun(manualRun(RUN_ID));
+
+    await repo.finishRun(RUN_ID, { status: "SUCCEEDED", summary: ZERO });
+
+    expect(repo.state.runs.get(manualRun().jobKey)?.status).toBe("SUCCEEDED");
+  });
+
+  it("runId 가 없으면 저장소가 정한 id(run-<순번>)다", async () => {
+    const repo = createMemoryIngestionRepo();
+
+    const started = await repo.startRun(manualRun());
+
+    expect(started.runId).toBe("run-1");
+  });
+
+  it("같은 jobKey 를 다른 runId 로 다시 시작하면 기존 run 을 그대로 준다(행을 새로 만들지 않는다)", async () => {
+    const repo = createMemoryIngestionRepo();
+    await repo.startRun(manualRun(RUN_ID));
+
+    const again = await repo.startRun(manualRun(OTHER_RUN_ID));
+
+    expect([again.runId, repo.state.runs.size]).toEqual([RUN_ID, 1]);
+  });
+});
+
 // C8: 창 재사용은 가장 최근 SCHEDULED run 의 상태를 본다(FAILED 면 그 창을 다시 쓴다). 상태와 무관하게 최근 것이다.
 describe("메모리 저장소 findLatestRunWindow(source, trigger) — C8 창 재사용", () => {
   const WINDOW = { from: "2026-10-18T03:00:00.000Z", to: SCHEDULED_END };

@@ -1,7 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { createServer, type AddressInfo } from "node:net";
+import IORedis from "ioredis";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { quotaKey, quotaState } from "@/server/ingestion";
 import {
   QUOTA_KEY_TTL_SECONDS,
+  QUOTA_REDIS_OPTIONS,
   createRedisQuotaStore,
   type QuotaRedis,
 } from "@/worker/quota-store";
@@ -140,5 +143,73 @@ describe("createRedisQuotaStore", () => {
     expect(() => createRedisQuotaStore(fakeRedis().redis, { dailyLimit: -1 })).toThrow(
       "RedisQuotaStore",
     );
+  });
+});
+
+// Redis 에 닿지 못할 때(e8 운영 판단 ②): BullMQ 공유 연결 옵션(maxRetriesPerRequest: null)을 물려받으면 get 이
+// 끝없이 기다린다. QUOTA_REDIS_OPTIONS 로 duplicate 하면 바로 실패한다. 실제 ioredis 로 닫힌 로컬 포트에 붙어 본다(네트워크 없음).
+describe("QUOTA_REDIS_OPTIONS — Redis 에 닿지 못하면 바로 실패한다", () => {
+  const closedPort = async (): Promise<number> => {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    return port;
+  };
+  const settledWithin = async (promise: Promise<unknown>, ms: number): Promise<boolean> => {
+    const timeout = Symbol("timeout");
+    const outcome = await Promise.race([
+      promise.then(
+        () => "resolved",
+        () => "rejected",
+      ),
+      new Promise<typeof timeout>((resolve) => setTimeout(() => resolve(timeout), ms)),
+    ]);
+    return outcome !== timeout;
+  };
+  const connections: IORedis[] = [];
+  afterEach(() => {
+    for (const connection of connections) connection.disconnect();
+    connections.length = 0;
+  });
+
+  it("BullMQ 와 같은 옵션(maxRetriesPerRequest: null, offline queue)으로는 get 이 1.5초 안에 끝나지 않는다(변형 확인)", async () => {
+    const shared = new IORedis({
+      host: "127.0.0.1",
+      port: await closedPort(),
+      lazyConnect: true,
+      maxRetriesPerRequest: null,
+    });
+    connections.push(shared);
+    const store = createRedisQuotaStore(shared, { dailyLimit: LIMIT });
+
+    const pending = store.get(SERVICE, AT);
+    pending.catch(() => undefined);
+    expect(await settledWithin(pending, 1_500)).toBe(false);
+  });
+
+  it("QUOTA_REDIS_OPTIONS 로 duplicate 한 연결은 get 이 3초 안에 거절된다(기다리지 않는다)", async () => {
+    const shared = new IORedis({
+      host: "127.0.0.1",
+      port: await closedPort(),
+      lazyConnect: true,
+      maxRetriesPerRequest: null,
+    });
+    const quotaConnection = shared.duplicate(QUOTA_REDIS_OPTIONS);
+    connections.push(shared, quotaConnection);
+    const store = createRedisQuotaStore(quotaConnection, { dailyLimit: LIMIT });
+
+    const pending = store.get(SERVICE, AT);
+    pending.catch(() => undefined);
+    expect(await settledWithin(pending, 3_000)).toBe(true);
+    await expect(pending).rejects.toThrow();
+  });
+
+  it("옵션은 끊긴 동안 줄 세우지 않고(enableOfflineQueue false), 한 번만 다시 보내며(1), 응답 없으면 2초에 끝낸다", () => {
+    expect(QUOTA_REDIS_OPTIONS).toEqual({
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+      commandTimeout: 2_000,
+    });
   });
 });

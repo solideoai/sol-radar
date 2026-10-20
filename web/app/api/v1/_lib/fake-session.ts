@@ -79,15 +79,24 @@ export const fakeSession = {
   cookie: null as string | null,
   // 업무 조직 수(0 = 조직 없음, 2 = 여러 조직)
   orgCount: 1,
+  // profiles.status. "suspended" 면 운영자가 정지한 계정이다(토큰은 아직 유효).
+  profileStatus: "active",
+  // true 면 첫 조직이 그 사용자의 개인 조직(personal_owner_id = 사용자 id)이다.
+  personalOrg: false,
   // 업무 표 이름 → 행. 질의가 eq·is 로 거르고, update 는 걸린 행을 고친다.
   tables: {} as Record<string, Row[]>,
+  // 서비스 운영자(profiles.is_admin = true)로 둘 사용자 id. 비어 있으면 아무도 운영자가 아니다(기본).
+  operatorIds: [] as string[],
 };
 
 export function resetFakeSession(): void {
   fakeSession.headers = new Headers();
   fakeSession.cookie = null;
   fakeSession.orgCount = 1;
+  fakeSession.profileStatus = "active";
+  fakeSession.personalOrg = false;
   fakeSession.tables = {};
+  fakeSession.operatorIds = [];
 }
 
 // 요청을 만들고 next/headers 가 같은 헤더를 보게 한다.
@@ -103,10 +112,10 @@ const userOf = (token: string | null): FakeUser | null =>
 function profileOf(user: FakeUser): Row {
   return {
     email: user.email,
-    is_admin: false,
+    is_admin: fakeSession.operatorIds.includes(user.id),
     display_name: "가상직원",
     avatar_url: null,
-    status: "active",
+    status: fakeSession.profileStatus,
     created_at: "2026-10-18",
     declared_department_id: DEPARTMENT_ID,
     declared_job_title_id: JOB_TITLE_ID,
@@ -119,14 +128,14 @@ function membershipsOf(user: FakeUser, columns: string, filters: Map<string, unk
   if (columns === "sol_role") {
     return filters.get("org_id") === user.orgId ? [{ sol_role: user.solRole }] : [];
   }
-  // organization.repo: 내 조직 목록(개인 조직 아님)
+  // organization.repo: 내 조직 목록. personalOrg 면 첫 조직이 개인 조직이다.
   return Array.from({ length: fakeSession.orgCount }, (_, index) => ({
     org_role: "member",
     organization: {
       id: index === 0 ? user.orgId : `0f000000-0000-4000-8000-00000000009${index}`,
       slug: index === 0 ? "solideo" : `extra-${index}`,
       name: "솔리데오",
-      personal_owner_id: null,
+      personal_owner_id: fakeSession.personalOrg && index === 0 ? user.id : null,
     },
   }));
 }
