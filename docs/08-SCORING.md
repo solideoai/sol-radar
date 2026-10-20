@@ -96,7 +96,7 @@ const SCHEDULE = (bizDays: number) => bizDays >= 10 ? 1.0 : bizDays >= 5 ? 0.7 :
 function staffAvailability(bid: Bid, extraction: RequirementExtraction, team: TeamAvailability, today: Date) {
   const requiredFte = fteFromStaffing(extraction.staffing) ?? fteByBudget(bid.budgetKrw); // staffing KNOWN이면 Σ minCount. 둘 다 없으면 MISSING (§4)
   if (requiredFte === null) return MISSING;
-  const period      = bid.projectPeriod ?? defaultPeriod(bid);                 // 기간 미상: 마감 +1개월부터 6개월
+  const period      = bid.projectPeriod ?? defaultPeriod(bid);                 // 기간 미상: 마감 +1개월 이후 첫 월초부터 6개월(calendar.ts defaultProjectPeriod. 마감이 없으면 계산 기준일)
   const available   = team.availableFte(period);                           // assignments 겹침 제외한 FTE 합. scoringEligible=true인 가상 계산 대상만 전달(전체 명부 인원수와 구분)
   // ADR-021: team_member_scoring 행이 있는 인력만 전달. P1 이후 재직 상태가 LEFT인 인력은 입력에서 빠진다(계산식 변화 아님, sol-v0.1.0 유지)
   const ratio       = Math.min(1, available / requiredFte);
@@ -320,13 +320,13 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 
 ### 6.3 Example B — `FX-02` → WATCH
 
-공고: 경기도교육청 통합 LMS 구축, 분야 교육, 예산 28억, 마감 +10일(영업일 7), 기간 12개월. 추출: 필수 Java·Spring Boot·PostgreSQL·Vue.js·SCORM 연동·WebRTC, 우대 Kubernetes·AWS, 필요 인력 `UNKNOWN`. 자격: 소프트웨어사업자, 직접생산확인, 공동수급 허용 → 모두 `SATISFIED`.
+공고: 경기도교육청 통합 LMS 구축, 분야 교육, 예산 28억, 마감 +10일(영업일 6. 엔진은 월~금을 센다. 처음 적은 7은 달력일 × 5/7 근사였고 일정 계수 구간 ≥5는 같다, `web/server/scoring/calendar.ts`), 기간 12개월. 추출: 필수 Java·Spring Boot·PostgreSQL·Vue.js·SCORM 연동·WebRTC, 우대 Kubernetes·AWS, 필요 인력 `UNKNOWN`. 자격: 소프트웨어사업자, 직접생산확인, 공동수급 허용 → 모두 `SATISFIED`.
 
 | 요소 | raw | normalized | points |
 |---|---|---:|---:|
 | `skillMatch` | 필수 3/6 = 0.5 (Java, Spring Boot, PostgreSQL. Vue.js·SCORM·WebRTC 없음), 우대 1/2 = 0.5 (Kubernetes만) | 0.8×0.5 + 0.2×0.5 = **0.50** | 15.0 |
 | `pastPerformance` | P3: 분야 1, 금액 3/28 = 0.107, 최근성 1.0, 증빙 1.0 → 0.4 + 0.032 + 0.3 = 0.732. P2: 분야 0, 금액 1.0, 최근성 1.0 → 0.60. 최대 | **0.732** | 18.3 |
-| `staffAvailability` | 필요 FTE 미추출 → 예산 구간 20~50억 = 20 FTE, 가용 20 → ratio 1.0, 영업일 7 → 계수 0.7 | **0.70** | 14.0 |
+| `staffAvailability` | 필요 FTE 미추출 → 예산 구간 20~50억 = 20 FTE, 가용 20 → ratio 1.0, 영업일 6 → 계수 0.7 | **0.70** | 14.0 |
 | `scaleFit` | 28억 / 28억 = 1.0 ≤ 1.5 | **1.00** | 15.0 |
 | `strategicPreference` | 제외 키워드 없음. 분야 교육 → 1.0, 경기도교육청 → 유형 교육청 → 1.0 | **1.00** | 10.0 |
 | 합계 | | | **72.3 → 72** |
