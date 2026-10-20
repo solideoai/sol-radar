@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - pipeline
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 03. AI 파이프라인: Qwen + Kev
@@ -210,7 +210,8 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`ANALYSIS_RECONCILE_INTERVAL_MS`|정수(ms) 1~3600000|`60000`|worker 전용, 선택. 멈춘 분석 복구 검사 주기(§8)|
 
 - `ANALYSIS_*` 3개의 기본값·범위는 `web/worker/analysis-reconcile.ts`(main `9da17c4`)와 같다. main `4895010`부터 `infra/compose.yaml`이 이 셋을 worker `environment`에 키만 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에 변수가 없어 코드 기본값이 쓰인다(`compose.yaml` 주석).
-- `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`는 gateway가 요청 하나에 거는 마감이다. worker의 HTTP 시간 제한은 그보다 길다(`KEV_TIMEOUT_MS`+2초·`AI_TIMEOUT_MS`+5초, `web/server/analysis/gateway.model.ts`). worker 쪽이 gateway 실제 소요보다 커야 [[16-DECISIONS|ADR-031]] C6 분류(gateway가 응답했는가)가 성립한다. gateway 쪽 마감 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다([[16-DECISIONS|ADR-032]] D1).
+- `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`는 gateway가 요청 하나에 거는 마감이다. worker의 HTTP 시간 제한은 그보다 길다(`KEV_TIMEOUT_MS`+2초·`AI_TIMEOUT_MS`+5초, `web/server/analysis/gateway.model.ts`). worker 쪽이 gateway 실제 소요보다 커야 [[16-DECISIONS|ADR-031]] C6 분류(gateway가 응답했는가)가 성립한다. gateway 쪽 마감 구현은 main `0a32e47`에 병합됐다(3b `c5/gateway-hardening-3`, `services/ai/src/sol_ai/deadline.py`, [[16-DECISIONS|ADR-032]] D1).
+- **기본값을 바꿀 때**([[16-DECISIONS|ADR-033]] E4): 기본값은 gateway `services/ai/src/sol_ai/settings.py`(`KEV_TIMEOUT_MS=5000`·`AI_TIMEOUT_MS=60000`)와 worker `web/server/analysis/gateway.model.ts`(`DEFAULT_KEV_TIMEOUT_MS`·`DEFAULT_AI_TIMEOUT_MS`) 두 곳에 있다. 하나만 바꾸면 worker 시간 제한이 gateway 마감보다 짧아질 수 있으므로 함께 바꾼다. `infra/compose.yaml`은 두 키를 ai-gateway·worker 둘 다에 값 없는 키로 넘긴다(main `01fa51a`, 병합 `9f71244`). 빈 문자열을 넘기면 gateway 설정(`PositiveInt`) 검증이 실패해 기동하지 않으므로 값 없는 키여야 한다.
 
 ### 3.1 모드별 동작 (`AI_PROVIDER`)
 
@@ -627,7 +628,7 @@ interface KevAssist {
 > 검증 절차(C1 ③. 선행 조건 P2 = 회사가 엔드포인트 경로·인증 방식을 알려 줌, P3 = 회사 측 모델 기동 완료 통보):
 > - G1 엔드포인트 HTTPS 접속: `GET https://acropolissg.com/sol-radar/healthz` 200 + TLS 유효(`-k` 금지).
 > - G2 Qwen·Kev `GET /v1/models` 응답과 레지스트리(`KEV_MODEL_ID` 항목, `QWEN_MODEL`) 대조(§11).
-> - G3 지연 실측: §5.4 요청을 §5.6 state(약 500 토큰)로 10회 보내 p50·p95(왕복 포함)를, Qwen 추출 1회 시간을 기록한다. `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`를 이 값에 맞춘다. 기본값 `KEV_TIMEOUT_MS=5000`이 v0.2 묶음 2개(레지스트리 대조 포함)를 담는지도 여기서 본다([[16-DECISIONS|ADR-032]] D1).
+> - G3 지연 실측: §5.4 요청을 §5.6 state(약 500 토큰)로 10회 보내 p50·p95(왕복 포함)를, Qwen 추출 1회 시간을 기록한다. `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`를 이 값에 맞춘다. 기본값 `KEV_TIMEOUT_MS=5000`이 v0.2 묶음 2개(레지스트리 대조 포함)를 담는지도 여기서 본다([[16-DECISIONS|ADR-032]] D1). 판정: (묶음 수 × 24문항 요청의 p95 + `GET /v1/models` 시간)이 `KEV_TIMEOUT_MS`(5000)를 넘으면 상향을 제안한다. 바꿀 때는 §3 "기본값을 바꿀 때"대로 gateway와 worker를 함께 바꾼다([[16-DECISIONS|ADR-033]] E4).
 > - G4 vLLM guided JSON 동작 확인(§3.2).
 > - G5 회사 제공 GPU 정보(모델·VRAM·점유)가 있으면 기록, 없으면 "회사 운영, 측정 불가".
 > - G6 엔드포인트 차단 시 `PARTIAL`·`RULES_ONLY` 경로 확인(§8).
@@ -652,7 +653,7 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
 
 **Kev 담당 항목**(`itemId`는 추출 필드 경로): `requiredSkills[i]`·`pastPerformance[i]`·`staffing[i]`, 사전 코드가 없는 `qualifications[i]`(`code=null`). 항목별 범위(규칙 담당과 나누는 선)의 정본은 [[08-SCORING|08 점수]] §5.1 "규칙 담당과 Kev 담당"이다. 규칙 담당 항목에 Kev 질문을 붙이더라도 평가용 비교 지표로만 쓴다.
 
-- `instructions`·`criteria` 원문(영어)은 `services/ai/kev/question-sets/v0.2.json`에 둔다. 한국어 평가용 번역본은 `v0.2.ko.json`이다. 바꾸면 버전을 올린다.
+- `instructions`·`criteria` 원문(영어)은 `services/ai/kev/question-sets/v0.2.json`에 둔다. 한국어 평가용 번역본은 `v0.2.ko.json`이다. 바꾸면 버전을 올린다. `v0.2.json` 원문은 **확정(2026-10-20)**이다(사용자 결정, [[16-DECISIONS|ADR-033]] E10). 파인튜닝 학습 데이터([[22-FINETUNE-RUNBOOK|22]] §4.1)도 이 원문을 그대로 쓴다. 파일 안 `status` 문자열은 코드 쪽에서 따로 바꾼다.
 - 요청 하나에 질문이 많으면 24개씩 나눠 보낸다(state는 같다). 묶음 방식은 구현 때 정한다. state는 6,000 토큰 이내로 한다(9B 검증된 길이 8,192 안, §5.1).
 
 ### 5.11 state 두 언어 템플릿과 번역
@@ -907,7 +908,7 @@ interface ParseResult {
 - **호스트 허용 목록**: 레지스트리 최상위 `allowedHosts`는 `local` 모델 서버 URL(`QWEN_BASE_URL`·`KEV_BASE_URL`)의 호스트가 가질 수 있는 이름 목록이다. 값은 `acropolissg.com` 하나다([[16-DECISIONS|ADR-032]] D2).
   - 호스트 이름이 목록의 값과 정확히 같아야 한다. 하위 도메인은 받지 않는다. 루프백은 시험용으로 허용한다.
   - 목록 밖이면 gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). [[09-SECURITY|09 보안]] "회사 GPU 추론 엔드포인트 연결"의 "gateway는 거기에만 붙는다"를 이 목록으로 강제한다.
-  - 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다.
+  - 구현은 main `0a32e47`에 병합됐다(3b `c5/gateway-hardening-3`, `services/ai/models/registry.yaml` `allowedHosts`).
 - **서빙 검증**
   - 회사 GPU 서버는 `kev.serve`를 호스트에 직접 띄운다(ADR-025). 그래서 회사가 기동 전에 가중치(`head.pt`·어댑터) sha256을 레지스트리 `weights_sha256`·`head_sha256`과 대조한다([[22-FINETUNE-RUNBOOK|22]] §2.2).
   - gateway는 기동할 때 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`가 레지스트리 `KEV_MODEL_ID` 항목과 같은지 확인하고, 다르면 기동을 거부한다.

@@ -1,18 +1,20 @@
 ---
 title: "디자인 스펙 — C6 Phase 3 화면 (앱 셸 최소·대시보드·공고 목록·공고 상세·알림)"
 doc: "design-c6-screens"
-status: review
+status: final
 tags:
   - sol-radar
   - ui
   - hackathon
 created: 2026-10-19
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 디자인 스펙: C6 Phase 3 화면
 
 ADR-023 핵심 컷의 화면 범위 "앱 셸 최소(메뉴 3개·Topbar 지표 4개·DEMO 배지) · `/dashboard` · `/bids` · `/bids/[id]` · `/notifications`, Route Handler 9개"([[12-ROADMAP|12 로드맵]] C6 행, [수상 전략 계획](2026-10-18-hackathon-award-plan.md) §2.2·§4 C6)를 구현자가 추측 없이 옮길 수 있게 고정한다. 이 문서는 **초안**이며 사용자 승인 뒤 구현한다. 코드·정본·설정은 바꾸지 않는다. 화면 문구는 모두 초안이고 확정은 사용자 몫이다. 단, [[09-SECURITY|09 보안]] "모델 한계 고지 문구"에서 온 문장은 바꾸지 않는다(아래에서 `09 고정`으로 표시).
+
+**상태: 구현 완료(2026-10-20).** 이 스펙대로 구현해 main `4ae09f9`(브랜치 `c6/screens` @ `1a9c43e`)에 병합했다. 구현하며 달라진 점 네 가지는 사용자가 수용했다([[16-DECISIONS|ADR-033]] E9). 본문의 해당 자리를 고쳤고, 목록은 §14다. 위 "초안"·"사용자 승인 뒤 구현" 문장은 작성 당시의 상태다.
 
 > [!warning] 미검증 가정
 > 이 스펙은 코드와 문서를 읽고 썼다. 브라우저·dev 서버는 띄우지 않았으므로 1440·1280 실측 폭은 계산값이다. C4 규칙 엔진 타입(`web/server/scoring/analysis-result.model.ts`·`analysis-input.model.ts`)은 다른 세션이 쓰는 미커밋 파일이라 이름이 바뀔 수 있다. 바뀌면 §7 매핑 표만 고친다.
@@ -96,6 +98,7 @@ flowchart LR
 
 - 화면마다 `requireWork()`(새 함수, `requireCurrentOrganization` + `sol_role` 읽기)로 다시 확인한다. 틀은 화면 실행을 막지 못한다(design-system 웹 틀 규칙).
 - 업무 멤버십 0개·2개 이상 → 기존 `organizationStatePath`로 보낸다. 가입 정보 미완료 → `/auth/complete-profile`. 로그인 전 → `/auth/login`.
+- 로그인·초대 수락·가입 보완 뒤 첫 화면은 모두 `/dashboard`다(구현 `bc15b75`, §14 (d)).
 - 본문은 `AppPage`로 감싼다. 표가 넓은 `/dashboard`·`/bids`·`/bids/[id]`는 단 폭을 넓힌다(`max-w-5xl` 1024px → 06 §4 "Content max 1440" 이므로 `max-w-360`). 방법은 브랜치가 더한 `contentClassName` prop과 **같은 이름·같은 시그니처**로 한다(§8 충돌 지점 2).
 
 ### 3.2 화면 폭
@@ -175,7 +178,7 @@ flowchart LR
 
 - 사이드바: 템플릿 `Sidebar` 그대로(폭 256px, 06 §4의 240px와 다르다 — D15). 머리(`SidebarHeader`)는 지금처럼 조직 표시 `솔리데오`(전환 메뉴 없음, ADR-021)와 받은 초대 줄. 몸통 `nav aria-label="주요 메뉴"`에 `NAV` 3줄. 바닥은 템플릿 사용자 메뉴(설정 → 템플릿 `/{slug}/settings`, 운영자만 "관리자", 로그아웃). 06 §4는 사용자 메뉴를 Topbar에 그렸지만 06 §4.1·조직도 설계 §4.1이 "사이드바 바닥에 사용자 메뉴가 있으면"을 전제하므로 템플릿 위치를 유지한다.
 - `NAV`(06 §4.1 아이콘): 대시보드 `/dashboard` `LayoutDashboardIcon` · 입찰 공고 `/bids` `FileTextIcon` · 알림 `/notifications` `BellIcon`. `/bids/[id]`에서는 "입찰 공고"가 활성(`aria-current="page"`). 알림 메뉴 오른쪽 `SidebarMenuBadge`에 안 읽은 수(0이면 숨김, 스크린리더 "건"). 템플릿의 "작업"·"설정" 메뉴는 `NAV`에서 뺀다(메뉴 3개). 템플릿 경로 `/{slug}/tasks`·`/{slug}/dashboard` 자체는 이번에 건드리지 않는다(D30).
-- Topbar 왼쪽: `SidebarTrigger` · 세로 구분선 · 현재 화면 이름(`type-label`, 템플릿 그대로).
+- Topbar 왼쪽: `SidebarTrigger` · 세로 구분선 · 현재 화면 이름(`type-label`, 템플릿 그대로). `NAV` 밖의 템플릿 화면(`/{slug}/settings` "설정"·`/{slug}/tasks` "작업"·`/{slug}/dashboard` "대시보드")도 이름을 보인다. 이름을 모르면 막대에서 조직 이름까지 사라지기 때문이다(구현 `1a9c43e`, §14).
 - Topbar 오른쪽(순서 고정, 06 §4): `DemoBadge`(fixture·mock일 때) → `RunModeIndicator` → `AiModeIndicator` → `DataFreshnessIndicator` → `NotificationBell`. 지표 사이는 세로 `Separator`. 글자 `type-label`.
   - `DEMO` 배지 위치는 06의 "로고 바로 옆"과 다르다. 템플릿 사이드바는 접으면 통째로 숨어서 로고 옆 배지가 사라진다. 그래서 실행 모드 바로 앞에 둔다(D3).
 - 1280px Topbar 폭 1024px 안에서 오른쪽 묶음은 약 480px, 왼쪽은 약 200px라 한 줄에 든다.
@@ -240,7 +243,7 @@ flowchart LR
 ```text
 1440px (본문 1120)                                               1280px (본문 960)
 대시보드                                                          (같은 구성, 카드 5칸 유지 — 칸 폭 약 179px)
-실행 모드와 수집 현황, 검토가 필요한 공고를 봅니다.               표 두 개는 3fr:2fr 유지(@4xl 이상)
+실행 모드와 수집 현황, 검토가 필요한 공고를 봅니다.               표 두 개는 위아래로 쌓는다(§14 (a), 아래 그림의 나란히 배치는 작성 당시)
 [AI 불가 배너 — 조건부]
 ┌BID 권고──┐┌검토 대기─┐┌마감 임박 7일┐┌수집────────┐┌분석 현황──┐
 │ 3        ││ 16       ││ 4           ││ 12분 전     ││ 18        │
@@ -253,7 +256,7 @@ flowchart LR
 ```
 
 - 카드 줄: `@container` + `grid grid-cols-3 gap-4 @4xl:grid-cols-5`(본문 960·1120 모두 5칸). 카드는 `StatCard`(`size="sm"`, 값 `type-title tabular-nums`). 카드 자체는 링크가 아니다(`StatCard` 변경을 피한다). 이동은 표의 "전체 보기"가 맡는다.
-- 표 줄: `grid items-start gap-6 @4xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]`(템플릿 대시보드 견본과 같다). 각 표는 `Card` 안 `Table className="table-fixed"`, 최대 5행.
+- 표 줄: 표 두 개를 **위아래로** 쌓는다(BID 권고 위, 마감 임박 아래). 처음 스펙은 `@4xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]`로 나란히였지만, 대시보드 글자 +3px([[16-DECISIONS|ADR-030]] B25)에서 마감 표의 고정 열(출처·마감·권고·결정)만 약 408px라 1280(본문 960)에서 제목 칸이 거의 남지 않고 1280 넘침 금지를 지킬 수 없다(§14 (a), `web/app/(app)/(work)/dashboard/dashboard-view.tsx` 주석). 각 표는 `Card` 안 `Table className="table-fixed"`, 최대 5행.
 
 **구성 요소와 데이터**
 
@@ -400,7 +403,7 @@ SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여
 | 요약 줄 1 | 발주기관 · 예산(전체 금액) · 마감(날짜 시각 + D-n) | `agency`, `budgetKrw`, `deadlineAt` |
 | 요약 줄 2 | 공고번호 · revision · 수집 시각(KST, 툴팁 UTC) | `noticeId`, `latestRevision`, `lastSyncedAt` |
 | [원문 보기] | `outline` 링크 버튼, 새 탭(`target="_blank" rel="noopener noreferrer"`), `ExternalLinkIcon`, 이름 "원문 보기 (새 탭)" | `sourceUrl` |
-| [분석 실행] / [재분석] | 분석 없음 → `분석 실행`(**default**, 이때 결정 기록 버튼은 outline). 분석 있음 → `재분석`(outline, `RefreshCwIcon`). 권한·취소 상태는 §5.4.10 | — |
+| [분석 실행] / [재분석] | 분석 없음 → `분석 실행`(**default**, 이때 결정 기록 버튼은 outline). 분석 있음 → `재분석`(outline, `RefreshCwIcon`). 단, 점수가 있는 run 없이 최신 run이 `FAILED`뿐이면 `재분석`이 **default**다(§14 (c)). 권한·취소 상태는 §5.4.10 | — |
 
 #### 5.4.2 분석 요약 띠와 분석 실행
 
@@ -530,7 +533,7 @@ C4 타입은 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)를 `nul
 
 구역 제목 "근거 인용" + `(N건 · 원문 대조 검증 통과)`(`AnalysisResult.evidence`는 `match != FAILED`만 담는다). 행: 인용문 앞부분 1줄 말줄임 `"요구기술: Java, Spring Boot…"` · 위치 `p.4` 또는 `API {apiField}` · [열기](`variant="link" size="sm"`).
 
-그 아래 **첨부 상태** 소구역: 첨부마다 이름 · 형식 · 상태. 실패는 09 고정 배지로 보인다.
+그 아래 **첨부 상태** 소구역: 첨부마다 이름 · 형식 · 상태. 실패는 09 고정 배지로 보인다. 첨부 다운로드 링크는 내려받기 라우트가 생길 때까지 그리지 않는다(죽은 링크가 되므로, §14).
 
 | 첨부 상태 | 배지(09 고정) | 덧붙이는 글자(보이는 글자, 06 §6 "다른 배지") |
 |---|---|---|
@@ -553,7 +556,7 @@ C4 타입은 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)를 `nul
 
 #### 5.4.9 결정 패널 (`DecisionPanel`, 오른쪽 레일)
 
-`Card`(24px 안쪽), 구역은 `Separator`로 나눈다. 이 화면의 **default 버튼은 하나**: 분석이 있으면 [결정 기록], 없으면 상단 [분석 실행](§5.4.1).
+`Card`(24px 안쪽), 구역은 `Separator`로 나눈다. 이 화면의 **default 버튼은 하나**: 점수가 있는 분석이 있으면 [결정 기록], 없으면 상단 [분석 실행] 또는 (최신 run이 `FAILED`뿐이면) [재분석](§5.4.1, §14 (c)).
 
 | 순서 | 요소 | 보이는 것 | 필드 |
 |---|---|---|---|
@@ -592,6 +595,7 @@ C4 타입은 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)를 `nul
 | 취소(`CANCELLED`, FX-08 — S5 확장 컷 데이터) | 비활성 + 배너(§5.4.6) | 비활성 |
 | polling 중 | 비활성 "분석 중…" | 활성(지난 분석 기준) — 단 `scoreRunId`는 직전 완료 run |
 | 미분석 | [분석 실행] default | outline [결정 기록], `scoreRunId` 없이 저장 가능(05 `scoreRunId?`) |
+| 최신 run이 `FAILED`뿐(점수 있는 run 없음) | [재분석] default(§14 (c)) | outline [결정 기록] |
 
 #### 5.4.11 상태표 — `/bids/[id]`
 
@@ -600,12 +604,12 @@ C4 타입은 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)를 `nul
 | 로딩 | 서버 읽기 중 | 상단 요약·레일·구역 skeleton | — |
 | 정상 BID (S3 FX-01) | `COMPLETED`, BID | 자격 3건 충족, 94 분해, Kev 71/24/5 + `규칙 권고와 같음` + 고지, 근거 3건, "마지막 결정: BID"(seed) | 근거 열기, 재분석, 결정 기록 |
 | 규칙 우선 (S3 FX-03) | `NO_BID` + `MODEL_RULE_DISAGREEMENT` | 미충족 1건, 68 `참고 점수`, Kev BID 55% + `규칙 우선` + 06 고정 문장, 레일 "사람 검토 권장", "마지막 결정: NO-BID" | 같음 |
-| 미분석 (S4 FX-02 전) | `latestAnalysis=null` | ④는 체크리스트 대신 빈 상태 `CircleDashedIcon` "아직 분석하지 않았습니다" + [분석 실행](default). ⑤~⑦은 그리지 않는다. 레일: 권고 `미분석`, 점수 `—`, 결정 폼(outline 버튼) | 분석 실행 |
+| 미분석 (S4 FX-02 전) | `latestAnalysis=null` | ④는 체크리스트 대신 빈 상태 `CircleDashedIcon` "아직 분석하지 않았습니다". 빈 상태 안에는 버튼을 따로 두지 않는다. default는 상단 [분석 실행] 하나다(§14 (b)). ⑤~⑦은 그리지 않는다. 레일: 권고 `미분석`, 점수 `—`, 결정 폼(outline 버튼) | 분석 실행 |
 | polling (S4) | `QUEUED`·`RUNNING` | 띠 `대기 중`·`분석 중`(회전 아이콘), ④~⑦·레일 위 skeleton, live 영역 안내 | 기다림 |
 | 완료 WATCH (S4 FX-02) | `COMPLETED`, WATCH, `KEV_NEEDS_REVIEW` | 72 분해 15.0/18.3/14.0/15.0/10.0, Kev 36/52/12, 레일 "사람 검토 권장" | 결정 기록 |
 | 결정 저장됨 | `POST reviews` 201 | 토스트, 결정 이력 +1, "마지막 결정: WATCH · 김영업 · 시각" | — |
 | PARTIAL (S6) | `PARTIAL`, `RULES_ONLY`, `AI_UNAVAILABLE` | AI 불가 배너(09 고정) + 코드, 자격·점수 그대로(94), Kev "사용 불가", 분석 이력 2건 | 재분석 |
-| FAILED | `FAILED` | 실패 배너 + `errorCode`, ④~⑦은 빈 상태 "분석 결과가 없습니다" | 재분석 |
+| FAILED | `FAILED` | 실패 배너 + `errorCode`, ④~⑦은 빈 상태 "분석 결과가 없습니다". 점수 있는 이전 run이 없으면 상단 [재분석]이 default(§14 (c)) | 재분석 |
 | 지연 | polling 5분 초과 | 지연 배너 | 새로고침 |
 | Mock 대체 | `MOCK_FALLBACK` | destructive 배너(09 고정) + `fallbackReason` | — |
 | 근거 없음 (FX-04) | 자격 `NEEDS_REVIEW`, 인용 0 | 자격 행 아래 09 고정 INSUFFICIENT_DATA 문구, 권고 WATCH | — |
@@ -867,6 +871,22 @@ C4 타입은 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)를 `nul
 7. C4 ↔ 05 계약 정리(D16) — C5·C2 작업자와 함께.
 8. S4 담당자 지정과 벨 기대값(D5), S7 화면 증거(D18).
 9. 새 부품 2개(상태 배지, 라디오 그룹) 승인(§10.4).
+
+## 14. 구현 결과와 스펙 차이 (2026-10-20, [[16-DECISIONS|ADR-033]] E9)
+
+C6은 main `4ae09f9`(브랜치 `c6/screens` @ `1a9c43e`)에 병합됐다. 증거는 `docs/evidence/phase-3/`(`c6-b-test-report.txt`, `axe-report.json`, `isolation-404.json`, `e2e/*.png` 22장)다. 구현이 이 스펙과 다른 점 네 가지를 사용자가 수용했다(2026-10-20).
+
+| # | 스펙 | 구현 | 이유 |
+|---|---|---|---|
+|(a)|대시보드 BID 권고 표·마감 임박 표를 `@4xl`부터 3fr:2fr로 나란히(§5.2)|위아래로 쌓는다|대시보드 글자 +3px([[16-DECISIONS\|ADR-030]] B25)에서 마감 표 고정 열만 약 408px라 나란히 두면 1280에서 제목 칸이 거의 0이다. 1280 넘침 금지를 지킨다|
+|(b)|미분석 빈 상태 안에 [분석 실행](default)(§5.4.11)|빈 상태 안에 버튼을 따로 두지 않는다|화면의 default 버튼은 하나라는 규칙(§5.4.9). 상단의 [분석 실행]이 그 버튼이다|
+|(c)|분석이 있으면 [재분석]은 outline(§5.4.1)|최신 run이 `FAILED`뿐이면(점수 있는 run 없음) 상단 [재분석]이 default|결정할 결과가 없으므로 다음 행동은 재분석이다. default 버튼은 여전히 하나다|
+|(d)|가입 보완·조직 상태 화면 뒤 기본 이동은 템플릿 `/{slug}/dashboard`였다(스펙에 따로 적지 않음)|로그인·초대 수락·가입 보완 뒤 첫 화면을 모두 업무 `/dashboard`로(`bc15b75`). 템플릿 경로 자체는 남긴다(D30)|첫 화면을 하나로 통일한다([[06-UI-UX\|06]] §5.2)|
+
+그 밖에 구현에서 정한 것:
+- `KEV_UNAVAILABLE`의 Kev 구역은 상태 줄 "사용 불가"와 그 아래 사유 "Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다."로 보인다(§5.4.7, `web/components/bids/kev-opinion.tsx`).
+- 상단바는 `NAV` 밖 템플릿 화면(설정·작업·템플릿 대시보드)의 이름도 보인다(§4.1, `1a9c43e`).
+- 첨부 다운로드 링크는 내려받기 라우트가 생길 때까지 숨긴다(§5.4.8).
 
 ## 관련 문서
 
