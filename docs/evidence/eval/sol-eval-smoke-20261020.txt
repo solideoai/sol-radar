@@ -1,0 +1,491 @@
+# sol_eval smoke 2026-10-20 — 명령: cd services/ai && uv run python -m sol_eval {labels check,build,export,manifest} · 커밋 9135f67 (브랜치 x6a/sol-eval, main c53fdc2 기준)
+# 입력: C1 녹음 fixtures/recorded/15129394(목록 7일 100건+1일 10건, 면허제한 창, 참가지역 창, e발주 창) + 업종 마스터 15129467 + fixtures/company/solideo-profile.json(원형 1개 대체) + --derive-splits(유도 분할). x6a/recording·x6a/companies 입력이 아직 없어 개발용 대체 입력으로 돌렸다.
+# 산출 datasets/sol-eval/v0.1/ 은 gitignore. 인용 텍스트·첨부 원문·담당자 필드는 산출물에 없다(아래 hygiene).
+
+$ uv run python -m sol_eval labels check ../../fixtures/eval/labels/fixture.v0.1.jsonl
+items 19, labels 89, problems 0
+labelSource: CONSTRUCTED 89
+draftedBy: RULE 89
+recommendation: BID 4 (24%), NO_BID 2 (12%), WATCH 11 (65%)
+req.qualifications[*].status: NEEDS_REVIEW 1 (6%), NOT_SATISFIED 2 (12%), SATISFIED 14 (82%)
+req.requiredSkills[*].status: NOT_SATISFIED 17 (31%), SATISFIED 38 (69%)
+OK
+
+$ uv run python -m sol_eval build --as-of 2026-10-19 --derive-splits
+녹음 폴더가 없어 C1 녹음으로 대체한다: /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/x6a-sol-eval/fixtures/recorded/train → /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/x6a-sol-eval/fixtures/recorded/15129394
+{
+  "splitsSource": "derived",
+  "splitsFile": null,
+  "schemaVersion": "sol-eval-build-report/v0.1",
+  "datasetVersion": "v0.1",
+  "branch": 1,
+  "asOf": "2026-10-19",
+  "createdAt": "2026-10-20T02:27:25.331312+00:00",
+  "recordedDir": "/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/x6a-sol-eval/fixtures/recorded/15129394",
+  "maskingVersion": "sol-recorded/v0.1",
+  "recordedFiles": [
+    {
+      "path": "getBidPblancListInfoChgHstryServc.20261019.masked.json",
+      "rawSha256": "8247b4cb9cf1be9799bea74ca5e655b80e9a27cb567814c30a8e7f561e8848af"
+    },
+    {
+      "path": "getBidPblancListInfoEorderAtchFileInfo.20261019.masked.json",
+      "rawSha256": "ae70d65dcacf091c02ad6bb855a4d1e27dfca6e38f17e9ad29e6dbdf4631ca05"
+    },
+    {
+      "path": "getBidPblancListInfoLicenseLimit.20261019.masked.json",
+      "rawSha256": "0bd125814f70d4b1aa995056a608708d16092f3c9922ef9a61e28101639fb302"
+    },
+    {
+      "path": "getBidPblancListInfoLicenseLimit.20261019.window.masked.json",
+      "rawSha256": "e904dc913053e725ad305d12f95e2f3a688519c0fbbcd0ecb147cf42b9160ea5"
+    },
+    {
+      "path": "getBidPblancListInfoPrtcptPsblRgn.20261019.masked.json",
+      "rawSha256": "a6841a590157ae152be1714104b49114cab92b2aad9f3b568bef7321024078e0"
+    },
+    {
+      "path": "getBidPblancListInfoServc.20261019.7d-p1.masked.json",
+      "rawSha256": "43723e148ada9a1ecc7a1fdb9fcbc1ab6be39324a783a865b8103a09db2f4d38"
+    },
+    {
+      "path": "getBidPblancListInfoServc.20261019.error07.masked.json",
+      "rawSha256": "8715db67fd320c531e91723988ff60fef8d3c81bc3fca8674393e840dbf0548c"
+    },
+    {
+      "path": "getBidPblancListInfoServc.20261019.masked.json",
+      "rawSha256": "79a19388e4bd1ecfa791c38cfeb4a1e2db498a5670852bf9e2125c0c6aaf65f2"
+    }
+  ],
+  "industryMasterCodes": 2916,
+  "companiesSource": "/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/x6a-sol-eval/fixtures/company/solideo-profile.json",
+  "companies": [
+    "solideo-profile"
+  ],
+  "holdoutCompany": "06",
+  "holdoutCompanies": [],
+  "maxTrainRecords": null,
+  "scheduleRule": {
+    "tightDays": 7,
+    "safeDays": 30
+  },
+  "kstOffsetAssumed": "+09:00",
+  "counts": {
+    "clusters.dev": 3,
+    "clusters.test": 18,
+    "clusters.train": 56,
+    "items.dev": 18,
+    "items.test": 79,
+    "items.train": 260,
+    "labels.dev": 26,
+    "labels.test": 98,
+    "labels.train": 559,
+    "notices.dev": 3,
+    "notices.multiRowLicense": 21,
+    "notices.qualAxis": 13,
+    "notices.test": 19,
+    "notices.train": 58,
+    "notices.used": 80,
+    "notices.withLicenseRows": 40,
+    "recorded.duplicateNotices": 0,
+    "recorded.errorEnvelopes": 1,
+    "recorded.files": 8,
+    "recorded.notices": 110,
+    "recorded.noticesWithEorderRows": 10,
+    "recorded.noticesWithLicenseRows": 40,
+    "recorded.noticesWithRegionRows": 19,
+    "skipped.licenseRowsMissingForY": 30
+  },
+  "variants": {
+    "f-ample": 80,
+    "f-none": 80,
+    "q-held": 13,
+    "q-missing": 13,
+    "q-not-held": 13,
+    "s-over": 79,
+    "s-within": 79
+  },
+  "labelsByFamilyAndValue": {
+    "train": {
+      "req.qualifications[*].status=NEEDS_REVIEW": 85,
+      "req.qualifications[*].status=NOT_SATISFIED": 20,
+      "req.qualifications[*].status=SATISFIED": 46,
+      "risk.scale=false": 201,
+      "risk.scale=true": 57,
+      "risk.schedule=false": 6,
+      "risk.schedule=true": 28,
+      "risk.staffing=false": 58,
+      "risk.staffing=true": 58
+    },
+    "dev": {
+      "req.qualifications[*].status=NEEDS_REVIEW": 4,
+      "req.qualifications[*].status=NOT_SATISFIED": 4,
+      "req.qualifications[*].status=SATISFIED": 6,
+      "risk.scale=false": 3,
+      "risk.scale=true": 3,
+      "risk.staffing=false": 3,
+      "risk.staffing=true": 3
+    },
+    "test": {
+      "req.qualifications[*].status=NEEDS_REVIEW": 17,
+      "req.qualifications[*].status=NOT_SATISFIED": 2,
+      "req.qualifications[*].status=SATISFIED": 3,
+      "risk.scale=false": 19,
+      "risk.scale=true": 19,
+      "risk.staffing=false": 19,
+      "risk.staffing=true": 19
+    }
+  },
+  "labelsBySource": {
+    "train": {
+      "CONSTRUCTED": 341,
+      "RULE_SILVER": 218
+    },
+    "dev": {
+      "CONSTRUCTED": 26
+    },
+    "test": {
+      "CONSTRUCTED": 98
+    }
+  },
+  "warnings": [
+    "원형이 1개뿐이다(개발용 대체 입력: /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/x6a-sol-eval/fixtures/company/solideo-profile.json)",
+    "홀드아웃 원형(06*)이 없다. 처음 보는 기업 지표를 낼 수 없다"
+  ]
+}
+wrote /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/x6a-sol-eval/datasets/sol-eval/v0.1
+
+$ uv run python -m sol_eval export
+{
+  "schemaVersion": "sol-eval-export-report/v0.1",
+  "questionSet": "kev-qs/v0.2",
+  "languages": [
+    "en",
+    "ko"
+  ],
+  "maxStateTokens": 2048,
+  "splits": {
+    "train": {
+      "en": {
+        "records": 252,
+        "questions": 505,
+        "items": 260,
+        "mergedDuplicateStates": 8,
+        "droppedLabelsWithoutStateMarker": 40,
+        "droppedItemsWithoutQuestions": 0,
+        "maxStateChars": 2516,
+        "maxStateTokensApprox": 629,
+        "tokenMethod": "chars/4 approximation (tokenizer not computed)",
+        "recordsOverMaxState": 0,
+        "maxStateTokens": 2048,
+        "hangulCharsInEnState": 0,
+        "labelsByFamilyAndValue": {
+          "req.qualifications[*].status=needs_review": 59,
+          "req.qualifications[*].status=not_satisfied": 20,
+          "req.qualifications[*].status=satisfied": 30,
+          "risk.scale=false": 195,
+          "risk.scale=true": 55,
+          "risk.schedule=false": 6,
+          "risk.schedule=true": 28,
+          "risk.staffing=false": 56,
+          "risk.staffing=true": 56
+        },
+        "stateFingerprint": "51042b97112d384e5b5cbc184b27bac67d6d5d7273a9620f132dd89ad86cd52b",
+        "warnings": [],
+        "file": "kev/train.en.jsonl"
+      },
+      "ko": {
+        "records": 252,
+        "questions": 505,
+        "items": 260,
+        "mergedDuplicateStates": 8,
+        "droppedLabelsWithoutStateMarker": 40,
+        "droppedItemsWithoutQuestions": 0,
+        "maxStateChars": 1933,
+        "maxStateTokensApprox": 484,
+        "tokenMethod": "chars/4 approximation (tokenizer not computed)",
+        "recordsOverMaxState": 0,
+        "maxStateTokens": 2048,
+        "hangulCharsInEnState": 0,
+        "labelsByFamilyAndValue": {
+          "req.qualifications[*].status=needs_review": 59,
+          "req.qualifications[*].status=not_satisfied": 20,
+          "req.qualifications[*].status=satisfied": 30,
+          "risk.scale=false": 195,
+          "risk.scale=true": 55,
+          "risk.schedule=false": 6,
+          "risk.schedule=true": 28,
+          "risk.staffing=false": 56,
+          "risk.staffing=true": 56
+        },
+        "stateFingerprint": "464094f07533e449795975b2a91ba381fe33563ec1551fe25927aa6c71fd6ab7",
+        "warnings": [],
+        "file": "kev/train.ko.jsonl"
+      }
+    },
+    "dev": {
+      "en": {
+        "records": 18,
+        "questions": 26,
+        "items": 18,
+        "mergedDuplicateStates": 0,
+        "droppedLabelsWithoutStateMarker": 0,
+        "droppedItemsWithoutQuestions": 0,
+        "maxStateChars": 1249,
+        "maxStateTokensApprox": 313,
+        "tokenMethod": "chars/4 approximation (tokenizer not computed)",
+        "recordsOverMaxState": 0,
+        "maxStateTokens": 2048,
+        "hangulCharsInEnState": 0,
+        "labelsByFamilyAndValue": {
+          "req.qualifications[*].status=needs_review": 4,
+          "req.qualifications[*].status=not_satisfied": 4,
+          "req.qualifications[*].status=satisfied": 6,
+          "risk.scale=false": 3,
+          "risk.scale=true": 3,
+          "risk.staffing=false": 3,
+          "risk.staffing=true": 3
+        },
+        "stateFingerprint": "5a531c447b03aea0491c4ca84298d145b51a71b4d7d8f20f7efd81674efdad62",
+        "warnings": [],
+        "file": "kev/dev.en.jsonl"
+      },
+      "ko": {
+        "records": 18,
+        "questions": 26,
+        "items": 18,
+        "mergedDuplicateStates": 0,
+        "droppedLabelsWithoutStateMarker": 0,
+        "droppedItemsWithoutQuestions": 0,
+        "maxStateChars": 762,
+        "maxStateTokensApprox": 191,
+        "tokenMethod": "chars/4 approximation (tokenizer not computed)",
+        "recordsOverMaxState": 0,
+        "maxStateTokens": 2048,
+        "hangulCharsInEnState": 0,
+        "labelsByFamilyAndValue": {
+          "req.qualifications[*].status=needs_review": 4,
+          "req.qualifications[*].status=not_satisfied": 4,
+          "req.qualifications[*].status=satisfied": 6,
+          "risk.scale=false": 3,
+          "risk.scale=true": 3,
+          "risk.staffing=false": 3,
+          "risk.staffing=true": 3
+        },
+        "stateFingerprint": "0983857c0b9bf783770aa34d3860f587c2ff32635278810b275a27348e4f3379",
+        "warnings": [],
+        "file": "kev/dev.ko.jsonl"
+      }
+    },
+    "test": {
+      "en": {
+        "records": 75,
+        "questions": 92,
+        "items": 79,
+        "mergedDuplicateStates": 4,
+        "droppedLabelsWithoutStateMarker": 0,
+        "droppedItemsWithoutQuestions": 0,
+        "maxStateChars": 2476,
+        "maxStateTokensApprox": 619,
+        "tokenMethod": "chars/4 approximation (tokenizer not computed)",
+        "recordsOverMaxState": 0,
+        "maxStateTokens": 2048,
+        "hangulCharsInEnState": 0,
+        "labelsByFamilyAndValue": {
+          "req.qualifications[*].status=needs_review": 15,
+          "req.qualifications[*].status=not_satisfied": 2,
+          "req.qualifications[*].status=satisfied": 3,
+          "risk.scale=false": 18,
+          "risk.scale=true": 18,
+          "risk.staffing=false": 18,
+          "risk.staffing=true": 18
+        },
+        "stateFingerprint": "27487a3c0f73340748492eb605f1fc6f81136b0b82f6337b0f9fe4b103c24c55",
+        "warnings": [],
+        "file": "kev/test.en.jsonl"
+      },
+      "ko": {
+        "records": 75,
+        "questions": 92,
+        "items": 79,
+        "mergedDuplicateStates": 4,
+        "droppedLabelsWithoutStateMarker": 0,
+        "droppedItemsWithoutQuestions": 0,
+        "maxStateChars": 1261,
+        "maxStateTokensApprox": 316,
+        "tokenMethod": "chars/4 approximation (tokenizer not computed)",
+        "recordsOverMaxState": 0,
+        "maxStateTokens": 2048,
+        "hangulCharsInEnState": 0,
+        "labelsByFamilyAndValue": {
+          "req.qualifications[*].status=needs_review": 15,
+          "req.qualifications[*].status=not_satisfied": 2,
+          "req.qualifications[*].status=satisfied": 3,
+          "risk.scale=false": 18,
+          "risk.scale=true": 18,
+          "risk.staffing=false": 18,
+          "risk.staffing=true": 18
+        },
+        "stateFingerprint": "91fe1f6f4a9204a060408f932c6fcbd49a00b4a93ffa9c2936fe2f66ab67e894",
+        "warnings": [],
+        "file": "kev/test.ko.jsonl"
+      }
+    }
+  }
+}
+
+$ uv run python -m sol_eval manifest
+{
+  "schemaVersion": "sol-dataset-manifest/v0.1",
+  "datasetVersion": "v0.1",
+  "createdAt": "2026-10-20T02:27:26.701074+00:00",
+  "gitCommit": "9135f67d586c638a27affab5b49add92dcc655fb",
+  "branch": 1,
+  "asOf": "2026-10-19",
+  "questionSet": {
+    "version": "kev-qs/v0.2",
+    "file": "services/ai/kev/question-sets/v0.2.json",
+    "sha256": "8efbfeada1b6dda932971d877a224bbb6f817ebba1f885c4337d4ae37e339c33"
+  },
+  "stateTemplates": {
+    "en": {
+      "name": "en.v0.2",
+      "file": "services/ai/kev/state-templates/en.v0.2.txt",
+      "sha256": "5e9e03643d4828653e7b2bce6937de7afd6f12a32fbd338ada7caa369aeb4eb4"
+    },
+    "ko": {
+      "name": "ko.v0.2",
+      "file": "services/ai/kev/state-templates/ko.v0.2.txt",
+      "sha256": "ae23059fe9ccede336cb103f722991b9c6d8f300b618bb1e375a7c4c8cfee29e"
+    }
+  },
+  "extractionSchema": {
+    "file": "services/ai/schemas/requirement-extraction.v0.1.json",
+    "sha256": "1895dc889b755802cbd53d340750915350b7e8e6abc15dc22834cfcd2e83397c"
+  },
+  "qualificationDictionary": {
+    "file": "services/ai/dictionaries/qualification-codes.yaml",
+    "sha256": "a9d818c2ed7cad579828254c911a45b10b1bda70f3dc6220510c8cacbce408f0"
+  },
+  "maskingVersion": "sol-recorded/v0.1",
+  "splitsSource": "derived",
+  "splitsFile": null,
+  "companies": [
+    "solideo-profile"
+  ],
+  "holdoutCompany": "06",
+  "holdoutCompanies": [],
+  "counts": {
+    "train": {
+      "items": 260,
+      "clusters": 56,
+      "labels": 559,
+      "labelsBySource": {
+        "CONSTRUCTED": 341,
+        "RULE_SILVER": 218
+      },
+      "records": {
+        "en": 252,
+        "ko": 252
+      },
+      "questions": {
+        "en": 505,
+        "ko": 505
+      }
+    },
+    "dev": {
+      "items": 18,
+      "clusters": 3,
+      "labels": 26,
+      "labelsBySource": {
+        "CONSTRUCTED": 26
+      },
+      "records": {
+        "en": 18,
+        "ko": 18
+      },
+      "questions": {
+        "en": 26,
+        "ko": 26
+      }
+    },
+    "test": {
+      "items": 79,
+      "clusters": 18,
+      "labels": 98,
+      "labelsBySource": {
+        "CONSTRUCTED": 98
+      },
+      "records": {
+        "en": 75,
+        "ko": 75
+      },
+      "questions": {
+        "en": 92,
+        "ko": 92
+      }
+    }
+  },
+  "stateTokens": {
+    "method": "chars/4 approximation",
+    "tokenizerComputed": false,
+    "maxChars": 2516,
+    "maxTokensApprox": 629,
+    "maxStateForTraining": 2048
+  },
+  "leakCheck": {
+    "testDevClustersInTrain": 0,
+    "testDevNoticesInTrain": 0,
+    "testClustersInDev": 0,
+    "holdoutCompanyOutsideTest": 0
+  },
+  "companiesBySplit": {
+    "train": [
+      "solideo-profile"
+    ],
+    "dev": [
+      "solideo-profile"
+    ],
+    "test": [
+      "solideo-profile"
+    ]
+  },
+  "warnings": {
+    "build": [
+      "원형이 1개뿐이다(개발용 대체 입력: /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/x6a-sol-eval/fixtures/company/solideo-profile.json)",
+      "홀드아웃 원형(06*)이 없다. 처음 보는 기업 지표를 낼 수 없다"
+    ],
+    "export": {
+      "train": {
+        "en": [],
+        "ko": []
+      },
+      "dev": {
+        "en": [],
+        "ko": []
+      },
+      "test": {
+        "en": [],
+        "ko": []
+      }
+    }
+  },
+  "files": 18
+}
+
+$ hygiene: 산출 JSONL 에 담당자 필드·마스킹 토큰·en 한글이 없는지
+items.dev.jsonl contactHits [] hangulInEn -
+items.test.jsonl contactHits [] hangulInEn -
+items.train.jsonl contactHits [] hangulInEn -
+kev/dev.en.index.jsonl contactHits [] hangulInEn -
+kev/dev.en.jsonl contactHits [] hangulInEn 0
+kev/dev.ko.index.jsonl contactHits [] hangulInEn -
+kev/dev.ko.jsonl contactHits [] hangulInEn -
+kev/test.en.index.jsonl contactHits [] hangulInEn -
+kev/test.en.jsonl contactHits [] hangulInEn 0
+kev/test.ko.index.jsonl contactHits [] hangulInEn -
+kev/test.ko.jsonl contactHits [] hangulInEn -
+kev/train.en.index.jsonl contactHits [] hangulInEn -
+kev/train.en.jsonl contactHits [] hangulInEn 0
+kev/train.ko.index.jsonl contactHits [] hangulInEn -
+kev/train.ko.jsonl contactHits [] hangulInEn -

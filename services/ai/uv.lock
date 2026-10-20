@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 
+[manifest]
+members = [
+    "sol-ai",
+    "sol-eval",
+]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.5"
@@ -671,6 +677,7 @@ dev = [
     { name = "httpx" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "sol-eval" },
 ]
 
 [package.metadata]
@@ -690,6 +697,22 @@ dev = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.17.1" },
+    { name = "sol-eval", editable = "eval" },
+]
+
+[[package]]
+name = "sol-eval"
+version = "0.1.0"
+source = { editable = "eval" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "sol-ai" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.11" },
+    { name = "sol-ai", editable = "." },
 ]
 
 [[package]]

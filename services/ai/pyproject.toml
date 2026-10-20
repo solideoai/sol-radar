@@ -23,10 +23,20 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+# eval/sol_eval 도 1차 패키지다(import 정렬)
+src = [".", "src", "eval"]
 
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.1.1",
     "ruff>=0.17.1",
+    "sol-eval",
 ]
+
+# 평가셋 CLI(eval/sol_eval)는 같은 가상환경의 workspace 멤버다: uv run python -m sol_eval …
+[tool.uv.workspace]
+members = ["eval"]
+
+[tool.uv.sources]
+sol-eval = { workspace = true }
