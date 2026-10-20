@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -82,7 +82,7 @@ updated: 2026-10-20
 |GET|`/admin/ai/eval-runs`|`ADMIN`|**(미구현)** 평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
 |GET|`/admin/ai/eval-runs/:id`|`ADMIN`|**(미구현)** 평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
 
-**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개는 다른 브랜치에서 구현 중이라 이 정리에서 뺐다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다. `POST /analyses/:id/what-if`([[16-DECISIONS|ADR-037]])는 브랜치 `feat/boost2-what-if` `1eaba6f`에 구현됐고 main 병합 전이라 main 기준인 위 목록에 넣지 않았다.
+**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개는 다른 브랜치에서 구현 중이라 이 정리에서 뺐다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다. `POST /analyses/:id/what-if`([[16-DECISIONS|ADR-037]])는 브랜치 `feat/boost2-what-if`(API `1eaba6f`, 현재 `faa707b`)에 구현됐고 main 병합 전이라 main 기준인 위 목록에 넣지 않았다.
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
@@ -349,7 +349,7 @@ interface WhatIfResult {                                    // 200 본문(그대
 - 가정 가능 = `kev=null`로 다시 계산한 원래 결과의 필수 항목 가운데 `requirementCode`가 자격 코드 사전(`QUALIFICATION_CODES`)에 있고 `outcome`이 `NOT_SATISFIED`이거나 `NEEDS_REVIEW`이면서 `reasonCode`가 `COMPANY_EVIDENCE_MISSING`인 것. 하나라도 가정 불가면 계산하지 않고 400이다.
 - 처리 순서: 인증·CSRF(§1) → 경로 id가 UUID가 아니면 저장소를 부르지 않고 `404 {resource:"analysis"}` → 본문 16KB 초과 `400`(`path:"body"`) → 본문 zod 검증 `400` → run 읽기(사용자 세션·RLS, `status`·`input_snapshot`만) → 없음·다른 조직 `404 {resource:"analysis"}` → `QUEUED`·`RUNNING`이면 `409 ANALYSIS_IN_PROGRESS`(`details` 없음) → `FAILED`이거나 스냅샷이 `AnalysisInput` 스키마에 맞지 않으면(null 포함) `404 {resource:"analysis", reason:"NO_SNAPSHOT"}` → 가정 불가 코드가 있으면 `400 VALIDATION_ERROR {issues:[{path:"assumptions",message}], rejected:[{kind,code}]}` → `200 WhatIfResult`.
 - DB에 아무것도 쓰지 않는다(`score_runs`·`bid_reviews`·`audit_logs`·알림·outbox 불변). 결정 모델·gateway·큐를 부르지 않는다. 속도 제한·`Idempotency-Key` 대상이 아니다. 권한은 4개 업무 역할 모두다.
-- 구현: `web/server/scoring/what-if.ts`(`whatIf`), `web/server/bids/what-if.service.ts`(`computeWhatIf`), `web/app/api/v1/analyses/[id]/what-if/route.ts`. 브랜치 `feat/boost2-what-if` `1eaba6f`(main 병합 전).
+- 구현: `web/server/scoring/what-if.ts`(`whatIf`), `web/server/bids/what-if.service.ts`(`computeWhatIf`), `web/app/api/v1/analyses/[id]/what-if/route.ts`. 브랜치 `feat/boost2-what-if`(API `1eaba6f`, 화면 `26beca1`, E2E `c9a1a49`, main 병합 전).
 
 ### 4.6 검토·알림·대시보드·수집
 
