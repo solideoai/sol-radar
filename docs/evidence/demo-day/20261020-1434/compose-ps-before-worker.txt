@@ -1,0 +1,4 @@
+sol-radar-c8-ai-gateway-1	Up 50 seconds (healthy)	127.0.0.1:8010->8000/tcp
+sol-radar-c8-minio-1	Up 50 seconds (healthy)	127.0.0.1:9010->9000/tcp
+sol-radar-c8-qdrant-1	Up 50 seconds (healthy)	6334/tcp, 127.0.0.1:6343->6333/tcp
+sol-radar-c8-redis-1	Up 50 seconds (healthy)	127.0.0.1:6390->6379/tcp

@@ -1,0 +1,12 @@
+         kind         | count 
+----------------------+-------
+ LICENSE_LIMIT        |   110
+ PARTICIPATION_REGION |     2
+ PERMITTED_INDUSTRY   |     1
+(3 rows)
+
+ ingest_errors 
+---------------
+             0
+(1 row)
+
