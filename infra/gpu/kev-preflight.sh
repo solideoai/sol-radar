@@ -21,6 +21,8 @@
 #   SOL_RUNS_DIR      $SOL_WORK/runs                          로그·결과·통과 표식(preflight-ok)
 #   SOL_MIN_FREE_MIB  40000                                   GPU 1 최소 여유 메모리(MiB)
 #   SOL_ALLOW_SHARED_GPU  (비워 둠)  1 이면 GPU 1 에 다른 프로세스가 있어도 FAIL 대신 warn
+#   SOL_EXPECT_TORCH  2.8.0+cu128    venv 의 torch 가 이 값과 다르면 FAIL(설치가 torch 를 바꿨다는 뜻)
+#   SOL_EXPECT_TRITON 3.4.0          venv 의 triton 이 이 값과 다르면 FAIL(torch 2.8.0 의 고정값)
 set -euo pipefail
 
 SOL_WORK="${SOL_WORK:-/data/www/ai_workspace/sol-radar}"
@@ -33,6 +35,8 @@ SOL_TRAIN_DATA="${SOL_TRAIN_DATA:-$SOL_WORK/sol-dataset-v0.1/kev/train.en.jsonl}
 SOL_RUNS_DIR="${SOL_RUNS_DIR:-$SOL_WORK/runs}"
 SOL_MIN_FREE_MIB="${SOL_MIN_FREE_MIB:-40000}"
 SOL_ALLOW_SHARED_GPU="${SOL_ALLOW_SHARED_GPU:-}"
+SOL_EXPECT_TORCH="${SOL_EXPECT_TORCH:-2.8.0+cu128}"
+SOL_EXPECT_TRITON="${SOL_EXPECT_TRITON:-3.4.0}"
 export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
 
 # 2026-10-19 Hugging Face 에서 받아 계산한 값(docs/22 §2.1·§2.2). 다르면 학습을 시작하지 않는다.
@@ -126,10 +130,17 @@ PY="$SOL_KEV_VENV/bin/python"
 if [ ! -x "$PY" ]; then
   fail "venv python 이 없다: $PY"
 else
-  SOL_GPU_UUID="$GPU_UUID" SOL_GPU_INDEX="$SOL_GPU_INDEX" SOL_MIN_FREE_MIB="$SOL_MIN_FREE_MIB" SOL_KEV_SRC="$SOL_KEV_SRC" "$PY" -I - <<'PY' | collect
+  SOL_GPU_UUID="$GPU_UUID" SOL_GPU_INDEX="$SOL_GPU_INDEX" SOL_MIN_FREE_MIB="$SOL_MIN_FREE_MIB" SOL_KEV_SRC="$SOL_KEV_SRC" \
+  SOL_EXPECT_TORCH="$SOL_EXPECT_TORCH" SOL_EXPECT_TRITON="$SOL_EXPECT_TRITON" SOL_ENV_FILE="$SOL_RUNS_DIR/preflight-env.tmp" "$PY" -I - <<'PY' | collect
 import os, sys, time
 
 def say(level, msg): print(f"{level} {msg}", flush=True)
+
+seen = {}   # 통과 표식에 적을 버전(SOL_ENV_FILE)
+def note(key, value):
+    seen[key] = value
+    with open(os.environ["SOL_ENV_FILE"], "w", encoding="utf-8") as fh:
+        fh.write("".join(f"{k}={v}\n" for k, v in seen.items()))
 
 def vtuple(v):
     out = []
@@ -154,7 +165,12 @@ cuda_ok = False
 try:
     import torch
     tv = torch.__version__
-    say("ok" if tv.startswith("2.8.0") else "warn", f"torch {tv} (2026-10-20 확인값 2.8.0+cu128, kev 요구 >=2.6,<2.9)")
+    note("torch", tv)
+    want_torch = os.environ["SOL_EXPECT_TORCH"]
+    if tv == want_torch:
+        say("ok", f"torch {tv} (2026-10-20 확인값과 같다)")
+    else:
+        say("FAIL", f"torch {tv} 가 기대값 {want_torch} 와 다르다. 설치가 torch 를 바꿨다(cu128 빌드가 아니면 CUDA 경로가 다르다). docs/22 §3.2 의 --dry-run 으로 원인 확인. 의도한 값이면 SOL_EXPECT_TORCH 로 명시")
     if not torch.cuda.is_available():
         say("FAIL", "torch.cuda.is_available() False")
     else:
@@ -192,7 +208,12 @@ for name, lo, hi, must in (("transformers", (5, 17), (6,), True), ("peft", (0, 2
 
 try:
     import triton
-    say("info", f"triton {triton.__version__} (torch 2.8.0 이 3.4.0 을 고정한다. A40 에서는 올리지 않는다)")
+    note("triton", triton.__version__)
+    want_triton = os.environ["SOL_EXPECT_TRITON"]
+    if triton.__version__ == want_triton:
+        say("ok", f"triton {triton.__version__} (torch 2.8.0 의 고정값. A40 에서는 올리지 않는다)")
+    else:
+        say("FAIL", f"triton {triton.__version__} 가 기대값 {want_triton} 와 다르다. 설치가 triton 을 바꿨다(torch 2.8.0 은 3.4.0 고정). 의도한 값이면 SOL_EXPECT_TRITON 로 명시")
 except Exception as e:
     say("FAIL", f"triton 없음 ({e.__class__.__name__})")
 
@@ -256,7 +277,7 @@ else
   if [ -x "$PY" ]; then
     if "$PY" -m kev.train --help >/dev/null 2>&1; then ok "python -m kev.train --help"; else fail "python -m kev.train --help 실패"; fi
     if "$PY" -m kev.benchmark --help >/dev/null 2>&1; then ok "python -m kev.benchmark --help"; else fail "python -m kev.benchmark --help 실패"; fi
-    [ -f "$SOL_KEV_SRC/scripts/calibrate_checkpoint.py" ] && ok "scripts/calibrate_checkpoint.py 있음(F3)" || warn "scripts/calibrate_checkpoint.py 없음(F3)"
+    if [ -f "$SOL_KEV_SRC/scripts/calibrate_checkpoint.py" ]; then ok "scripts/calibrate_checkpoint.py 있음(F3)"; else warn "scripts/calibrate_checkpoint.py 없음(F3)"; fi
   fi
 fi
 
@@ -267,7 +288,7 @@ sha_check() { # <파일> <기대 sha256> <이름>
   got="$(sha256sum "$f" | awk '{print $1}')"
   if [ "$got" = "$want" ]; then ok "$name sha256 일치 ($got)"; else fail "$name sha256 불일치: $got (기대 $want). 학습 금지"; fi
 }
-KEV_SNAP="$(ls -d "$HF_HOME"/hub/models--jaredpalmer--kev-9b/snapshots/*/ 2>/dev/null | head -1 || true)"
+KEV_SNAP="$(find "$HF_HOME/hub/models--jaredpalmer--kev-9b/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1 || true)"
 if [ -z "$KEV_SNAP" ]; then
   warn "jaredpalmer/kev-9b 캐시 없음. hf download jaredpalmer/kev-9b --revision v1.0 (HF_HOME=$HF_HOME)"
 else
@@ -280,7 +301,7 @@ else
 fi
 BASE_SNAP="$HF_HOME/hub/models--Qwen--Qwen3.5-9B-Base/snapshots/$KEV9B_BASE_REV"
 if [ -f "$BASE_SNAP/config.json" ]; then
-  N_SHARDS="$(ls "$BASE_SNAP"/*.safetensors 2>/dev/null | wc -l | tr -d ' ')"
+  N_SHARDS="$(find "$BASE_SNAP" -maxdepth 1 -name '*.safetensors' 2>/dev/null | wc -l | tr -d ' ')"
   ok "$KEV9B_BASE@$KEV9B_BASE_REV 캐시 있음 (safetensors ${N_SHARDS}개)"
 else
   warn "$KEV9B_BASE@$KEV9B_BASE_REV 캐시 없음. hf download $KEV9B_BASE --revision $KEV9B_BASE_REV"
@@ -351,6 +372,7 @@ fi
   echo "gpu_uuid=$GPU_UUID"
   echo "kev_commit=$SOL_KEV_COMMIT"
   echo "venv=$SOL_KEV_VENV"
+  [ -f "$SOL_RUNS_DIR/preflight-env.tmp" ] && cat "$SOL_RUNS_DIR/preflight-env.tmp"   # torch=·triton=
   echo "log=$LOG"
 } > "$SOL_RUNS_DIR/preflight-ok"
 echo "preflight 통과 (warn ${#WARNS[@]}건). 표식: $SOL_RUNS_DIR/preflight-ok, 로그: $LOG"

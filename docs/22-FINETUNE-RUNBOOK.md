@@ -102,7 +102,7 @@ sha256sum "$snap/adapter_model.safetensors" "$snap/head.pt"
 #   head.pt                   8e1dab2c8e3664f6fee843e0257d57946c25e0210c61901ea77e71761f4244e1
 ```
 
-레지스트리(`services/ai/models/registry.yaml` 항목 `kev-9b-v1.0`)의 `weights_sha256`·`head_sha256` 은 아직 `null` 이다(회사 운영에서 채운다, ADR-025). 위 값으로 채우는 것은 별도 결정이다. 학습본(우리가 돌려받는 체크포인트)도 같은 방식으로 `weights_sha256`·`head_sha256`를 레지스트리에 적고, 기동 전에 대조한다([[03-AI-PIPELINE|03]] §11). `kev.serve`는 `--run` 경로가 틀리면 오류 없이 `runs/smoke`로 대체하므로 이 대조를 빼지 않는다.
+레지스트리(`services/ai/models/registry.yaml` 항목 `kev-9b-v1.0`)의 `weights_sha256`·`head_sha256` 에 위 값을 적었다(2026-10-20 사용자 결정. 태그 `v1.0` = 커밋 `3afdec81efc91da83dee06d30714adf54ee35531`, Hub tree API 의 LFS oid 와 같음을 교차 확인. 시험 `services/ai/tests/test_model_registry.py`). 회사는 `kev.serve` 기동 전에 받은 파일과 이 값을 대조한다. 학습본(우리가 돌려받는 체크포인트)도 같은 방식으로 `weights_sha256`·`head_sha256`를 레지스트리에 적고, 기동 전에 대조한다([[03-AI-PIPELINE|03]] §11). `kev.serve`는 `--run` 경로가 틀리면 오류 없이 `runs/smoke`로 대체하므로 이 대조를 빼지 않는다.
 
 ## 3. 학습 환경
 
@@ -150,10 +150,12 @@ export SOL_WORK=/data/www/ai_workspace/sol-radar
 source "$SOL_WORK/.venv-kev/bin/activate"
 python -c "import torch; print(torch.__version__)"                  # 2.8.0+cu128 이어야 한다. 아니면 멈추고 보고
 
-# 1) 설치 계획만 본다. torch·triton 이 바뀌거나 지워지는 줄이 있으면 설치하지 않고 보고한다(uv 가 없으면 pip 로 같은 패키지를 넣고 `pip check`)
+# 1) 설치 계획만 본다. 출력은 " + 패키지==버전"(설치)·" - 패키지==버전"(제거) 줄이다(uv 가 없으면 pip 로 같은 패키지를 넣고 `pip check`)
+mkdir -p "$SOL_WORK/runs"
 uv pip install --python "$SOL_WORK/.venv-kev/bin/python" --dry-run \
-  "kev @ file://$SOL_WORK/kev" "flash-linear-attention==0.5.2"
-# 2) 계획이 torch 2.8.0+cu128·triton 3.4.0 을 유지하면 설치한다. --no-deps·--force-reinstall 은 쓰지 않는다
+  "kev @ file://$SOL_WORK/kev" "flash-linear-attention==0.5.2" 2>&1 | tee "$SOL_WORK/runs/install-plan.txt"
+grep -E '^\s*[-+] (torch|triton)==' "$SOL_WORK/runs/install-plan.txt" && echo "torch 또는 triton 이 바뀐다. 설치하지 말고 보고" || echo "torch·triton 불변"
+# 2) 위 grep 이 "불변"이면 설치한다. --no-deps·--force-reinstall 은 쓰지 않는다
 uv pip install --python "$SOL_WORK/.venv-kev/bin/python" \
   "kev @ file://$SOL_WORK/kev" "flash-linear-attention==0.5.2"
 uv pip check --python "$SOL_WORK/.venv-kev/bin/python"             # 의존성 충돌 0
