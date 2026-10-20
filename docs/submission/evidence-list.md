@@ -5,12 +5,12 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 실제 AI 검증 증거 목록
 
-"실제 데이터·실제 모델로 돌았다"는 주장을 받칠 증거다. 2026-10-19 기준 1·2번(C1 ①②)만 있고 나머지는 없음·예정이다. 파일 경로는 [[11-TESTING|11 테스트]] §6과 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 증거 규칙을 따른다. 담당 작업 ID는 [수상 전략 계획](../plans/2026-10-18-hackathon-award-plan.md) §4의 C1·C5·C8이다. 증거가 생기면 상태를 "있음(날짜)"으로 바꾸고 `docs/evidence/README.md` 색인에도 넣는다.
+"실제 데이터·실제 모델로 돌았다"는 주장을 받칠 증거다. 2026-10-20 기준 1·2번(C1 ①②)은 있고, 7·9번은 일부만 있다(규칙만 `PARTIAL`인 S-LIVE 사전 run, `mock` 리허설). 나머지는 없음·예정이다. 파일 경로는 [[11-TESTING|11 테스트]] §6과 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 증거 규칙을 따른다. 담당 작업 ID는 [수상 전략 계획](../plans/2026-10-18-hackathon-award-plan.md) §4의 C1·C5·C8이다. 증거가 생기면 상태를 "있음(날짜)"으로 바꾸고 `docs/evidence/README.md` 색인에도 넣는다.
 
 | # | 증거 항목 | 무엇을 증명하나 | 예정 파일 경로 | 상태 | 담당 |
 |---|---|---|---|---|---|
@@ -20,9 +20,9 @@ updated: 2026-10-19
 | 4 | 파서 후보 비교표(형식별 재현율 · 누락 · 라이선스) | 어떤 형식을 "지원"으로 표시할 수 있나 | `docs/evidence/phase-0/parser-benchmark.md`, `docs/evidence/phase-2/parse-success-rate.md` | 없음 · 예정 | C1 ④ · C3 |
 | 5 | Qwen 실추출 인용 검증 통과율(필드별 EXACT · NORMALIZED · FUZZY · FAILED 비율) | 추출값이 원문에 근거한다 | `docs/evidence/phase-5/extraction-citations-<일시>.md` | 없음 · 예정 | C5 |
 | 6 | Kev 응답 원문(wire) · `stateTrace` · `stateHash` 표본, 레지스트리 대조 결과(`registryMatch`) | Kev가 실제로 불렸고 어떤 state로 무엇을 답했는지 추적 가능 | `docs/evidence/phase-5/kev-sample-<일시>.json`, gateway `/health` 응답 저장본 | 없음 · 예정 | C5 |
-| 7 | live E2E 실행 로그 1건(수집 → 첨부 → 파싱 → 추출 → 규칙 → 점수 → Kev → 저장. 요청 ID · `run_mode=LIVE` · 모델 · `promptHash` · `input_snapshot_hash` · 단계별 지연) | S-LIVE 장면이 실제 실행 결과다 | `docs/evidence/phase-5/live-e2e-<일시>.md`, 화면 캡처 `YYYYMMDD-phase5-bid-detail-loaded-1440.png` | 없음 · 예정 | C8 |
+| 7 | live E2E 실행 로그 1건(수집 → 첨부 → 파싱 → 추출 → 규칙 → 점수 → Kev → 저장. 요청 ID · `run_mode=LIVE` · 모델 · `promptHash` · `input_snapshot_hash` · 단계별 지연) | S-LIVE 장면이 실제 실행 결과다 | `docs/evidence/phase-5/live-e2e-<일시>.md`, 화면 캡처 `YYYYMMDD-phase5-bid-detail-loaded-1440.png` | 일부(2026-10-20): 갈래 "API 정상·GPU 불가" 사전 run. `live` 수집 실공고 86건 → `R26BK01774434` `PARTIAL`·`RULES_ONLY`(첨부·파싱·추출·결정 모델 없음), [기록](../evidence/demo-day/20261020-1434/run-modes.md), 캡처 `demo-day/20261020-1434/s-live-{list,detail}-{1440,1280}.png`. 실추론 live E2E는 C1 ③ 뒤 | C8 |
 | 8 | 녹화 영상(실시간 조회가 불안정할 때, 같은 입력의 7번 로그 기반) | S-LIVE 대체. "녹화"라고 표시 | 저장소 밖, 경로는 `README.md`에 | 없음 · 예정 | C8 · C9 |
-| 9 | 세 모드 기동 리허설 결과(`runMode` 일치, `qwen.healthy`, `kev.registryMatch`), 엔드포인트 미접속 → `PARTIAL` → 재접속 확인(`GET /v1/models`) 시간 | 실행 모드 표시가 실제 상태와 같다 | `docs/evidence/demo-day/<일시>/run-modes.md`, `rehearsal-log.md` | 없음 · 예정 | C9 |
+| 9 | 세 모드 기동 리허설 결과(`runMode` 일치, `qwen.healthy`, `kev.registryMatch`), 엔드포인트 미접속 → `PARTIAL` → 재접속 확인(`GET /v1/models`) 시간 | 실행 모드 표시가 실제 상태와 같다 | `docs/evidence/demo-day/<일시>/run-modes.md`, `rehearsal-log.md` | 일부(2026-10-20): `mock`만 기동한 [C9 1차 기록](../evidence/demo-day/20261020-1009/run-modes.md)·[리허설 로그](../evidence/demo-day/rehearsal-log.md), C8 사전 run [기록](../evidence/demo-day/20261020-1434/run-modes.md). `live`·`fixture` 기동과 엔드포인트 재접속 확인은 GPU 엔드포인트 뒤 | C9 |
 
 ## 적지 않는 것
 

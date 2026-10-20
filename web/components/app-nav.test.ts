@@ -39,7 +39,7 @@ describe("NAV_GROUPS", () => {
       [
         "조직",
         [
-          ["/company", "Award", "planned"],
+          ["/company", "Award", "released"],
           ["/people", "Users", "released"],
         ],
       ],
@@ -109,6 +109,7 @@ describe("currentNavGroupId", () => {
   it.each([
     ["/dashboard", "work"],
     ["/bids/x", "work"],
+    ["/company", "organization"],
     ["/people", "organization"],
     ["/admin/ingestion", "system"],
     ["/solideo/settings", "system"],
@@ -124,6 +125,7 @@ describe("screenLabelOf", () => {
     ["/dashboard", "대시보드"],
     ["/bids/x", "입찰 공고"],
     ["/admin/ingestion", "데이터 수집 관리"],
+    ["/company", "회사 역량"],
     ["/org-chart", "조직도"],
     ["/solideo/settings", "설정"],
     ["/solideo/tasks", "작업"],

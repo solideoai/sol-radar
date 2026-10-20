@@ -1,15 +1,18 @@
 ---
 title: "설계 — 사이드바 트리·메뉴 아이콘과 조직도 화면 분리"
 doc: "design-org-chart"
-status: review
+status: final
 tags:
   - sol-radar
   - ui
   - product
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 설계 — 사이드바 트리·메뉴 아이콘과 조직도 화면 분리
+
+> [!success] 병합 (2026-10-19)
+> `/org-chart` 두 칸 탐색기(`13cf75f`), 사이드바 맨 아래 고정 칸의 "조직도", `/people` 명부만 남기기는 `feat/people-read`로 구현돼 main `7641ee4`(PR #6 `98101e8`)에 병합됐다([[06-UI-UX|06 UI]] §5.9·§5.9.1). 묶음 줄을 접는 사이드바 트리는 N1 앱 셸 몫이라 아직 없다([[PROGRESS|진행 상황]] ADR-021 N1). 본문의 "구현은 아직 전" 문장은 작성 당시 기록이다.
 
 2026-10-18 사용자 대화에서 정했다. 이 문서는 설계 결정이며 구현은 아직 전이다(2026-10-19 현재 `/org-chart` 병합, [[PROGRESS|진행 상황]] 참조). [[16-DECISIONS|ADR-021]]의 사이드바 정보 구조와 [[06-UI-UX|06 UI]] §4·§5.9를 개정한다. 승인 설계 [사이드바 정보 구조와 입찰 업무 확장](2026-10-16-sidebar-ia-design.md)은 본문을 고치지 않고 그 문서 §8 "확정 이후 변경 기록"에 행을 더한다.
 
@@ -252,7 +255,7 @@ updated: 2026-10-19
 
 사용자가 그 세션에 붙여 넣는다. 이 세션은 그 worktree를 고치지 않는다.
 
-> **대상**: `polaris/specs/in-progress/2026-10-18-solideo-people-ui.md`와 그 구현(`web/components/people/*`, `/people` 페이지, `web/components/app-shell.tsx`), 새 `/org-chart` 페이지
+> **대상**: `polaris/specs/done/2026-10-18-solideo-people-ui.md`와 그 구현(`web/components/people/*`, `/people` 페이지, `web/components/app-shell.tsx`), 새 `/org-chart` 페이지
 > **근거**: [설계 — 사이드바 트리·메뉴 아이콘과 조직도 화면 분리](docs/plans/2026-10-18-org-chart-sidebar-design.md) U1·U5·U6·U7, M1·M4~M8·M11~M15 (2026-10-18 사용자 결정). main에는 아직 없는 파일이라, 이 worktree에서 쓰려면 사용자에게 그 파일을 받거나 main을 병합한다.
 >
 > 1. `/people`에서 `명부`/`조직도` 보기 전환(`view=list|tree`)과 조직도 패널을 없앤다. `/people`은 명부(이름 검색·부서·직급·점수 계산 대상 필터·표·페이지)와 `PersonDrawer`만이다. `view` 쿼리가 와도 무시하고 명부를 보인다. 리다이렉트는 만들지 않는다.
@@ -262,7 +265,7 @@ updated: 2026-10-19
 > 5. 상단에 "이름으로 찾기" combobox(후보: 이름·팀·직급, 최대 8개)를 둔다. 고르면 그 팀까지 트리를 펼쳐 고르고 URL을 바꾸고 그 카드로 초점을 옮긴다. 서랍은 자동으로 열지 않는다.
 > 6. 사이드바: 지금 템플릿 사이드바의 바닥(사용자 메뉴 바로 위)에 위쪽 선으로 나눈 "조직도" 링크(`NetworkIcon`)를 하나 더한다. "조직·인력"(`/people`) 링크는 그대로 둔다. 사이드바 트리·묶음·메뉴 아이콘 개편은 N1 앱 셸이 맡으니 이번에 하지 않는다.
 > 7. `PersonDrawer`와 `PersonAvatar` 이니셜 대체는 두 화면이 함께 쓴다.
-> 8. 스펙 문서(`polaris/specs/in-progress/2026-10-18-solideo-people-ui.md`)의 조직도 패널 절·보기 전환 설명·상태표 조직도 행을 `/org-chart` 절로 옮겨 고친다. 시험은 설계 문서 §7 NAV-04(개정)·NAV-11을 기준으로 한다(1440·1280, axe 위반 0, 200명 각자 정확히 한 번, 본부 합 81명, 상위 미지정 29개 부서·119명).
+> 8. 스펙 문서(`polaris/specs/done/2026-10-18-solideo-people-ui.md`)의 조직도 패널 절·보기 전환 설명·상태표 조직도 행을 `/org-chart` 절로 옮겨 고친다. 시험은 설계 문서 §7 NAV-04(개정)·NAV-11을 기준으로 한다(1440·1280, axe 위반 0, 200명 각자 정확히 한 번, 본부 합 81명, 상위 미지정 29개 부서·119명).
 
 ## 관련 문서
 

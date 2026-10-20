@@ -81,7 +81,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     id: "organization",
     label: "조직",
     items: [
-      { href: "/company", label: "회사 역량", icon: AwardIcon, status: "planned" },
+      { href: "/company", label: "회사 역량", icon: AwardIcon, status: "released" },
       { href: "/people", label: "조직·인력", icon: UsersIcon, status: "released" },
     ],
   },

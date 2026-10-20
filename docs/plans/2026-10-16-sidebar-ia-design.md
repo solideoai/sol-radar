@@ -485,7 +485,7 @@ flowchart LR
 ### 7.3 정본 결정을 바꾸는 곳 (ADR-021에 "개정"으로 적는다)
 
 - ADR-019 "인력 자동 배정·추천은 범위 밖" → 사람이 고르는 "규칙 매칭 후보" 표시만 허용(P1), 저장은 해커톤 이후.
-- ADR-019·04의 `team_members` 한 표 구조 → `team_members`(운영)와 `team_member_scoring`(점수) 두 표. 정본 밖이지만 같은 내용을 담은 [솔리데오 인력 스펙](../../polaris/specs/planned/2026-10-16-solideo-people-signup.md) §8도 고친다.
+- ADR-019·04의 `team_members` 한 표 구조 → `team_members`(운영)와 `team_member_scoring`(점수) 두 표. 정본 밖이지만 같은 내용을 담은 [솔리데오 인력 스펙](../../polaris/specs/done/2026-10-16-solideo-people-signup.md) §8도 고친다.
 - ADR-018 남은 것 "개인 조직 생성 유지 여부"와 미결정 11·12 → D10·D11로 종결.
 - 12 해커톤 컷: 관리자 수집 현황 화면 "있으면 좋음" → 데모 필수(A8). 조직·인력 조회를 Phase 3에 명시(A10).
 - 06 §5.3 마감 임박 72시간 → 7일(A7).
@@ -682,7 +682,7 @@ flowchart LR
 - **새 절 "사이드바·업무 확장 (ADR-021)", 덧붙임**: 설계 승인 체크, 정본 반영 체크(동기화 뒤), 데모 필수 N1·N2·N4a·N8·N9, P1 N3·N5·N6·N7·N4b 체크 항목.
 - **작업 로그, 덧붙임**: 동기화 행(기준 커밋 해시 포함).
 
-### B.17 정본 밖 — [솔리데오 인력 스펙](../../polaris/specs/planned/2026-10-16-solideo-people-signup.md)
+### B.17 정본 밖 — [솔리데오 인력 스펙](../../polaris/specs/done/2026-10-16-solideo-people-signup.md)
 
 - **§8, 교체**: `team_members`에 직무·기술등급을 두는 문장을 `team_member_scoring` 분리로 바꾼다. "기존 인력 배정 API/화면은 P1" 문장 뒤에 "조회 화면(`/people`)은 데모 필수(ADR-021)"를 덧붙인다. §4 부서 정본 행에 `parentId`·`kind`(선택), 본부·그룹 `targetCount` 없음을 덧붙이고, §5 배분 알고리즘이 팀만 대상이라는 문장을 덧붙인다. §10 완료 기준 1행에 부서 계층 검증과 팀별 목표·실제·차이 보고를 덧붙인다.
 

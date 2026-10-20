@@ -123,7 +123,14 @@ describe("sidebar tree (NAV-10)", () => {
     ).map((button) => button.textContent);
     expect(groupLabels).toEqual(["업무", "AI 분석", "입찰 관리", "조직", "시스템"]);
     // VIEWER 에게 데이터 수집 관리(ADMIN 전용)는 없다.
-    expect(linkHrefs()).toEqual(["/dashboard", "/bids", "/notifications", "/people", "/settings"]);
+    expect(linkHrefs()).toEqual([
+      "/dashboard",
+      "/bids",
+      "/notifications",
+      "/company",
+      "/people",
+      "/settings",
+    ]);
     const planned = Array.from(mainNav().element().querySelectorAll("[data-planned]")).map(
       (item) => item.textContent,
     );
@@ -132,7 +139,6 @@ describe("sidebar tree (NAV-10)", () => {
       "분석 결과 비교준비 중",
       "인력 배치 시뮬레이션준비 중",
       "입찰 프로젝트준비 중",
-      "회사 역량준비 중",
     ]);
     // 준비 중 메뉴는 누를 곳이 없다: 링크도 버튼도 아니고 초점을 받지 않는다.
     for (const item of mainNav().element().querySelectorAll("[data-planned]")) {
@@ -155,6 +161,7 @@ describe("sidebar tree (NAV-10)", () => {
       "/dashboard",
       "/bids",
       "/notifications",
+      "/company",
       "/people",
       "/settings",
       "/admin/ingestion",
@@ -280,6 +287,7 @@ describe("sidebar tree (NAV-10)", () => {
       "/dashboard",
       "/bids",
       "/notifications",
+      "/company",
       "/people",
       "/settings",
       "/admin/ingestion",
@@ -288,7 +296,7 @@ describe("sidebar tree (NAV-10)", () => {
       expect(link.getAttribute("aria-label")).toBeTruthy();
       expect(link.querySelector("svg")).not.toBeNull();
     }
-    expect(mainNav().element().querySelectorAll("[data-planned] svg").length).toBe(5);
+    expect(mainNav().element().querySelectorAll("[data-planned] svg").length).toBe(4);
     // 아이콘 줄에서도 준비 중 메뉴는 화면 낭독기에 "준비 중"을 읽힌다(sr-only: 보이지 않지만 display 는 남는다).
     for (const item of mainNav().element().querySelectorAll("[data-planned]")) {
       const status = Array.from(item.querySelectorAll("span")).find(
@@ -408,6 +416,29 @@ describe("c6 shell", () => {
     expect(document.querySelectorAll('[data-slot="topbar-status"]').length).toBe(0);
     expect(document.querySelector('[data-slot="sidebar-menu-badge"]')).toBeNull();
   });
+
+  it.each([1280, 1440])(
+    "shows the whole user name and email without ellipsis or clipping at %ipx",
+    async (width) => {
+      await page.viewport(width, 900);
+      const name = "솔리데오 사업개발본부 데모 관리자";
+      const email = "solideo-demo-administrator@soltech.invalid";
+      renderShell({ user: { name, email, avatarUrl: null, isAdmin: false } });
+      const button = page.getByRole("button", { name: /사용자 메뉴/ });
+      await expect.element(button).toBeVisible();
+      const box = button.element().getBoundingClientRect();
+      for (const text of [name, email]) {
+        const line = button.getByText(text, { exact: true }).element() as HTMLElement;
+        // 말줄임(…)으로 숨은 글자가 없고, 줄바꿈한 글자가 버튼 밖으로 나가 잘리지 않는다.
+        expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
+        const rect = line.getBoundingClientRect();
+        expect(rect.top).toBeGreaterThanOrEqual(box.top);
+        expect(rect.bottom).toBeLessThanOrEqual(box.bottom);
+        expect(rect.right).toBeLessThanOrEqual(box.right);
+      }
+      expect(button.element().scrollHeight).toBeLessThanOrEqual(button.element().clientHeight);
+    },
+  );
 
   it("hides the under-1280 notice at 1280px and shows it at 1000px", async () => {
     await page.viewport(1280, 900);
