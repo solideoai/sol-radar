@@ -6,6 +6,7 @@ import {
   analyze,
   type AnalysisInput,
   type KevMockResponse,
+  type RequirementExtraction,
 } from "@/server/scoring";
 import {
   collectEvidence,
@@ -1112,6 +1113,34 @@ describe("runAnalysis · /extract 실패만 PARTIAL 이다", () => {
     const { record } = await run(noCache(), { routes: withExtract(reply) });
     expect(record.result).toMatchObject({ status: "PARTIAL", errorCode: "EXTRACTION_FAILED" });
     expect(record.input.aiUnavailableReason).toBe("EXTRACTION_FAILED");
+  });
+
+  it("근거에 fetchedAt 이 없는 payload(실모델 출력)는 거부하지 않고, 저장 payload 의 근거 fetchedAt 은 공고 revision 의 수집 시각이다", async () => {
+    // gateway 는 모델이 낸 fetchedAt 을 통과시키기만 하고 채우지 않는다(services/ai extraction.py). 비어 있으면 worker 가 채운다.
+    const payload = structuredClone(loadExtraction("FX-01")) as unknown as Record<string, unknown>;
+    let removed = 0;
+    for (const field of Object.values(payload)) {
+      if (typeof field !== "object" || field === null || !("evidence" in field)) continue;
+      for (const ref of (field as { evidence: Record<string, unknown>[] }).evidence) {
+        delete ref.fetchedAt;
+        removed += 1;
+      }
+    }
+    expect(removed).toBeGreaterThan(0);
+    const context = noCache();
+    const reply = jsonReply(extractBody(payload as unknown as RequirementExtraction));
+    const { record, store } = await run(context, { routes: withExtract(reply) });
+    expect(record.result.status).not.toBe("PARTIAL");
+    expect(record.input.aiUnavailableReason ?? null).toBeNull();
+    expect(store.saves).toHaveLength(1);
+    const saved = store.saves[0].payload as unknown as Record<string, unknown>;
+    const fetchedAts = Object.values(saved).flatMap((field) =>
+      typeof field === "object" && field !== null && "evidence" in field
+        ? (field as { evidence: { fetchedAt?: string }[] }).evidence.map((ref) => ref.fetchedAt)
+        : [],
+    );
+    expect(fetchedAts).toHaveLength(removed);
+    expect(new Set(fetchedAts)).toEqual(new Set([context.bid.fetchedAt]));
   });
 
   it("200 COMPLETED 인데 payload 가 스키마 위반 → save·/kev 는 부르지 않고 /explain 은 부른다", async () => {
