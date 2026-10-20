@@ -1,0 +1,25 @@
+> pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors
+> sol-radar-web@0.1.0 type-check /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> next typegen && tsc --noEmit
+Generating route types...
+ Test Files  135 passed (135)
+      Tests  4382 passed (4382)
+  ✔ outbox 이벤트는 org_id null·aggregate_type bid_notice·aggregate_id 공고 id 로 event_type·payload·idempotency_key 를 그대로 담고 PENDING 이다 (934.791167ms)
+ℹ tests 203
+ℹ pass 203
+ℹ fail 0
+ℹ skipped 0
+DB 타입 검사 중...
+> sol-radar@0.1.0 check:db-types /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e
+> node scripts/db-types-gen.mjs --check
+✓ DB 타입 일치 — 정본 supabase/migrations
+  ✔ outbox 이벤트는 org_id null·aggregate_type bid_notice·aggregate_id 공고 id 로 event_type·payload·idempotency_key 를 그대로 담고 PENDING 이다 (812.738458ms)
+✔ a prototype-named key in a mock folder is rejected without throwing (3.67ms)
+✔ rejects prototype-named manifest id (23.488916ms)
+  ✔ 빠진 검사를 이름 단위로 잡는다 (type-check 안의 test 같은 부분 일치에 속지 않는다) (0.152042ms)
+ℹ tests 595
+ℹ pass 595
+ℹ fail 0
+ℹ skipped 0
+[통과] 커밋 게이트 통과.
+[test/fx01-flow b604f3d] chore: FX-01 E2E에 최신 main 병합

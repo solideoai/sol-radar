@@ -1,0 +1,208 @@
+
+> sol-radar-web@0.1.0 test:e2e:auth /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> node ../scripts/db-seed.mjs && playwright test -c playwright.auth.config.ts
+
+▶ 시드 넣기 (로컬 Supabase)
+✓ 시드를 넣었습니다. 비밀번호는 모두 [REDACTED]
+  소유자        seed-owner@example.test   (팀 /seed-team 의 owner)
+  멤버          seed-member@example.test  (팀의 member)
+  조직 밖 사람  seed-outsider@example.test (팀과 관계없음)
+  초대받은 사람 seed-invitee@example.test  (팀 초대를 받아 둔 상태)
+  운영자        seed-admin@example.test    (서비스 운영자, /admin. 팀 없음)
+[WebServer] (node:36699) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36735) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 127 tests using 5 workers
+
+(node:36782) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36775) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36779) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36781) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:36780) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘    2 [setup] › e2e-auth/auth.setup.ts:9:8 › 박외부(outsider) 로 로그인해 상태를 저장한다 (9.7s)
+  ✘    4 [setup] › e2e-auth/auth.setup.ts:9:8 › 최초대(invitee) 로 로그인해 상태를 저장한다 (10.6s)
+  ✘    3 [setup] › e2e-auth/auth.setup.ts:9:8 › 김소유(owner) 로 로그인해 상태를 저장한다 (10.9s)
+  ✘    5 [setup] › e2e-auth/auth.setup.ts:9:8 › 이멤버(member) 로 로그인해 상태를 저장한다 (10.8s)
+  ✘    1 [setup] › e2e-auth/auth.setup.ts:9:8 › 정운영(admin) 로 로그인해 상태를 저장한다 (11.1s)
+
+
+  1) [setup] › e2e-auth/auth.setup.ts:9:8 › 김소유(owner) 로 로그인해 상태를 저장한다 ─────────────────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/seed-team\/dashboard$/
+    Received string:  "http://localhost:3301/auth/login"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        13 × locator resolved to <html lang="ko" class="h-full">…</html>
+           - unexpected value "http://localhost:3301/auth/login"
+
+
+      14 |
+      15 |     if (role === "owner" || role === "member") {
+    > 16 |       await expect(page).toHaveURL(/\/seed-team\/dashboard$/);
+         |                          ^
+      17 |       await expect(page.getByRole("heading", { level: 1, name: "대시보드" })).toBeVisible();
+      18 |       await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
+      19 |     } else {
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/auth.setup.ts:16:26
+
+    Error Context: test-results/auth/auth.setup.ts-김소유-owner-로-로그인해-상태를-저장한다-setup/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth/auth.setup.ts-김소유-owner-로-로그인해-상태를-저장한다-setup/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/auth/auth.setup.ts-김소유-owner-로-로그인해-상태를-저장한다-setup/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [setup] › e2e-auth/auth.setup.ts:9:8 › 이멤버(member) 로 로그인해 상태를 저장한다 ────────────────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/seed-team\/dashboard$/
+    Received string:  "http://localhost:3301/auth/login"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        13 × locator resolved to <html lang="ko" class="h-full">…</html>
+           - unexpected value "http://localhost:3301/auth/login"
+
+
+      14 |
+      15 |     if (role === "owner" || role === "member") {
+    > 16 |       await expect(page).toHaveURL(/\/seed-team\/dashboard$/);
+         |                          ^
+      17 |       await expect(page.getByRole("heading", { level: 1, name: "대시보드" })).toBeVisible();
+      18 |       await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
+      19 |     } else {
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/auth.setup.ts:16:26
+
+    Error Context: test-results/auth/auth.setup.ts-이멤버-member-로-로그인해-상태를-저장한다-setup/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth/auth.setup.ts-이멤버-member-로-로그인해-상태를-저장한다-setup/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/auth/auth.setup.ts-이멤버-member-로-로그인해-상태를-저장한다-setup/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [setup] › e2e-auth/auth.setup.ts:9:8 › 박외부(outsider) 로 로그인해 상태를 저장한다 ──────────────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/auth\/organization-state$/
+    Received string:  "http://localhost:3301/auth/login"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        13 × locator resolved to <html lang="ko" class="h-full">…</html>
+           - unexpected value "http://localhost:3301/auth/login"
+
+
+      18 |       await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
+      19 |     } else {
+    > 20 |       await expect(page).toHaveURL(/\/auth\/organization-state$/);
+         |                          ^
+      21 |       await expect(page.getByRole("heading", { level: 1 })).toHaveText("조직 초대가 필요합니다");
+      22 |     }
+      23 |
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/auth.setup.ts:20:26
+
+    Error Context: test-results/auth/auth.setup.ts-박외부-outsider-로-로그인해-상태를-저장한다-setup/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth/auth.setup.ts-박외부-outsider-로-로그인해-상태를-저장한다-setup/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/auth/auth.setup.ts-박외부-outsider-로-로그인해-상태를-저장한다-setup/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [setup] › e2e-auth/auth.setup.ts:9:8 › 최초대(invitee) 로 로그인해 상태를 저장한다 ───────────────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/auth\/organization-state$/
+    Received string:  "http://localhost:3301/auth/login"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        13 × locator resolved to <html lang="ko" class="h-full">…</html>
+           - unexpected value "http://localhost:3301/auth/login"
+
+
+      18 |       await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
+      19 |     } else {
+    > 20 |       await expect(page).toHaveURL(/\/auth\/organization-state$/);
+         |                          ^
+      21 |       await expect(page.getByRole("heading", { level: 1 })).toHaveText("조직 초대가 필요합니다");
+      22 |     }
+      23 |
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/auth.setup.ts:20:26
+
+    Error Context: test-results/auth/auth.setup.ts-최초대-invitee-로-로그인해-상태를-저장한다-setup/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth/auth.setup.ts-최초대-invitee-로-로그인해-상태를-저장한다-setup/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/auth/auth.setup.ts-최초대-invitee-로-로그인해-상태를-저장한다-setup/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [setup] › e2e-auth/auth.setup.ts:9:8 › 정운영(admin) 로 로그인해 상태를 저장한다 ─────────────────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/auth\/organization-state$/
+    Received string:  "http://localhost:3301/auth/login"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        13 × locator resolved to <html lang="ko" class="h-full">…</html>
+           - unexpected value "http://localhost:3301/auth/login"
+
+
+      18 |       await expect(page.getByRole("button", { name: "조직 전환" })).toHaveCount(0);
+      19 |     } else {
+    > 20 |       await expect(page).toHaveURL(/\/auth\/organization-state$/);
+         |                          ^
+      21 |       await expect(page.getByRole("heading", { level: 1 })).toHaveText("조직 초대가 필요합니다");
+      22 |     }
+      23 |
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/auth.setup.ts:20:26
+
+    Error Context: test-results/auth/auth.setup.ts-정운영-admin-로-로그인해-상태를-저장한다-setup/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/auth/auth.setup.ts-정운영-admin-로-로그인해-상태를-저장한다-setup/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/auth/auth.setup.ts-정운영-admin-로-로그인해-상태를-저장한다-setup/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5 failed
+    [setup] › e2e-auth/auth.setup.ts:9:8 › 김소유(owner) 로 로그인해 상태를 저장한다 ──────────────────────────────
+    [setup] › e2e-auth/auth.setup.ts:9:8 › 이멤버(member) 로 로그인해 상태를 저장한다 ─────────────────────────────
+    [setup] › e2e-auth/auth.setup.ts:9:8 › 박외부(outsider) 로 로그인해 상태를 저장한다 ───────────────────────────
+    [setup] › e2e-auth/auth.setup.ts:9:8 › 최초대(invitee) 로 로그인해 상태를 저장한다 ────────────────────────────
+    [setup] › e2e-auth/auth.setup.ts:9:8 › 정운영(admin) 로 로그인해 상태를 저장한다 ──────────────────────────────
+  122 did not run
+ ELIFECYCLE  Command failed with exit code 1.

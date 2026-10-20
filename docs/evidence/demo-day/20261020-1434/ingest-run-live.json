@@ -1,0 +1,25 @@
+{
+  "id": "2c0002b4-e656-4f74-8823-c0f5a1250e8a",
+  "source": "g2b",
+  "trigger": "SCHEDULED",
+  "status": "SUCCEEDED",
+  "run_mode": "LIVE",
+  "quota_used": 266,
+  "summary": {
+    "changed": 1,
+    "created": 86,
+    "retried": 0,
+    "cancelled": 0,
+    "quarantined": 0,
+    "skippedDuplicate": 0
+  },
+  "params": {
+    "stages": ["NOTICE"],
+    "window": {
+      "to": "2026-10-20T06:00:00.000Z",
+      "from": "2026-10-19T06:00:00.000Z"
+    }
+  },
+  "started_at": "2026-10-20T06:00:39.600663+00:00",
+  "finished_at": "2026-10-20T06:03:23.272+00:00"
+}

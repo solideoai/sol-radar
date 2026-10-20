@@ -1,0 +1,165 @@
+── run: bash -c pnpm -C web build && pnpm -C web test:e2e:work
+
+> sol-radar-web@0.1.0 build /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> next build
+
+▲ Next.js 16.4.1 (Turbopack)
+- Environments: .env.local
+✓ Running next.config.ts took 102ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1231ms
+  Running TypeScript ...
+  Finished TypeScript in 15.8s ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/35) ...
+  Generating static pages using 10 workers (8/35) 
+  Generating static pages using 10 workers (17/35) 
+  Generating static pages using 10 workers (26/35) 
+✓ Generating static pages using 10 workers (35/35) in 691ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /[slug]
+├ ƒ /[slug]/dashboard
+├ ƒ /[slug]/settings
+├ ƒ /[slug]/settings/members
+├ ƒ /[slug]/settings/team
+├ ƒ /[slug]/tasks
+├ ƒ /admin
+├ ƒ /api/admin/users/[id]/status
+├ ƒ /api/auth/identities/[id]
+├ ƒ /api/auth/logout-all
+├ ƒ /api/auth/me
+├ ƒ /api/auth/providers
+├ ƒ /api/users/me
+├ ƒ /api/v1/analyses/[id]
+├ ƒ /api/v1/bids
+├ ƒ /api/v1/bids/[id]
+├ ƒ /api/v1/bids/[id]/analyses
+├ ƒ /api/v1/bids/[id]/qualification-checks
+├ ƒ /api/v1/bids/[id]/reviews
+├ ƒ /api/v1/dashboard/summary
+├ ƒ /api/v1/departments
+├ ƒ /api/v1/job-titles
+├ ƒ /api/v1/me/employment
+├ ƒ /api/v1/notifications
+├ ƒ /api/v1/notifications/[id]/read
+├ ƒ /api/v1/signup-options
+├ ƒ /api/v1/team-members
+├ ƒ /api/v1/team-members/[id]
+├ ƒ /auth/account
+├ ƒ /auth/callback
+├ ƒ /auth/complete-profile
+├ ƒ /auth/confirm
+├ ƒ /auth/login
+├ ƒ /auth/organization-state
+├ ƒ /auth/password
+├ ƒ /auth/reset
+├ ƒ /auth/sign-up
+├ ƒ /bids
+├ ƒ /bids/[id]
+├ ƒ /dashboard
+├ ƒ /health/live
+├ ƒ /health/ready
+├ ○ /icon.svg
+├ ƒ /invitations
+├ ƒ /memos
+├ ƒ /notifications
+├ ƒ /org-chart
+├ ƒ /people
+├ ƒ /settings
+└ ƒ /teams/new
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+> sol-radar-web@0.1.0 test:e2e:work /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> playwright test -c playwright.work.config.ts
+
+
+Running 35 tests using 2 workers
+
+  ✓   1 [work-guard] › e2e-auth/work-guard.spec.ts:8:5 › L7 worker 주소가 로컬 Supabase 와 같을 때만 같다고 본다 (9ms)
+  ✓   2 [work-1440] › e2e-auth/bid-isolation.spec.ts:17:5 › G5 org-02 VIEWER 는 FX-01 상세를 200 으로 보되 분석 없음이고 자격 API 는 404 다 (2.6s)
+  ✓   3 [work-1440] › e2e-auth/demo-badge.spec.ts:20:5 › G8 목록 모든 행과 Topbar·상세 제목 앞에 DEMO 가 있고 초점을 주면 09 툴팁이 보인다 (2.9s)
+  ✓   4 [work-1440] › e2e-auth/no-evidence.spec.ts:11:5 › G4 FX-04 는 자격 확인 필요·권고 WATCH 와 INSUFFICIENT_DATA 문장을 보이고 수주·낙찰 확률을 말하지 않는다 (1.1s)
+  ✓   6 [work-1440] › e2e-auth/work-screens.spec.ts:51:7 › S2 /dashboard › 카드·BID 표 값이 19 S2 와 같고 표 두 개는 위아래로 쌓이며 +3px 눈금이다 (1.1s)
+  ✓   7 [work-1440] › e2e-auth/work-screens.spec.ts:100:7 › S3 /bids › 목록 정상 상태·글자·넘침과 스크린샷 (1.2s)
+  ✓   5 [work-1440] › e2e-auth/run-mode-badge.spec.ts:7:5 › V2-02 Topbar 실행 모드·AI 가 mock 이고 FX-01 분석 띠에 분석 실행 모드와 가상 프로필 배지가 있다 (2.9s)
+  ✓   9 [work-1440] › e2e-auth/run-mode-badge.spec.ts:24:5 › V2-02 /bids?origin=all 이면 출처 필터 값이 전체다 (1.5s)
+  ✓  10 [work-1280] › e2e-auth/bid-isolation.spec.ts:17:5 › G5 org-02 VIEWER 는 FX-01 상세를 200 으로 보되 분석 없음이고 자격 API 는 404 다 (1.2s)
+  ✓   8 [work-1440] › e2e-auth/work-screens.spec.ts:115:7 › S3 /bids › S3 1·2·4·5번: 권고 BID + 점수 높은 순 → FX-01 상단, 결정 NO-BID → FX-03 규칙 우선 (6.2s)
+  ✓  11 [work-1280] › e2e-auth/demo-badge.spec.ts:20:5 › G8 목록 모든 행과 Topbar·상세 제목 앞에 DEMO 가 있고 초점을 주면 09 툴팁이 보인다 (2.7s)
+  ✓  12 [work-1440] › e2e-auth/work-screens.spec.ts:187:7 › S3 /bids › 필터 결과 0건이면 빈 상태와 필터 초기화를 보인다 (1.3s)
+  ✓  13 [work-1280] › e2e-auth/no-evidence.spec.ts:11:5 › G4 FX-04 는 자격 확인 필요·권고 WATCH 와 INSUFFICIENT_DATA 문장을 보이고 수주·낙찰 확률을 말하지 않는다 (845ms)
+  ✓  14 [work-1440] › e2e-auth/work-screens.spec.ts:204:7 › S3 /bids › 잘못된 공고 주소는 공고를 찾을 수 없습니다와 공고 목록으로를 보인다 (833ms)
+  ✓  15 [work-1280] › e2e-auth/run-mode-badge.spec.ts:7:5 › V2-02 Topbar 실행 모드·AI 가 mock 이고 FX-01 분석 띠에 분석 실행 모드와 가상 프로필 배지가 있다 (2.2s)
+  ✓  16 [work-1440] › e2e-auth/work-screens.spec.ts:215:7 › S4 /bids/[id] FX-01 › 상세 정상 상태·넘침·스크린샷, 결정 레일은 sticky, 첨부 내려받기 링크는 없다 (2.3s)
+  ✓  17 [work-1280] › e2e-auth/run-mode-badge.spec.ts:24:5 › V2-02 /bids?origin=all 이면 출처 필터 값이 전체다 (1.4s)
+  ✓  18 [work-1440] › e2e-auth/work-screens.spec.ts:304:7 › /notifications › 알림 정상 상태: 2건, 바깥 링크는 앱 안 공고 경로로 바뀌어 있다 (1.2s)
+  ✓  19 [work-1280] › e2e-auth/work-screens.spec.ts:51:7 › S2 /dashboard › 카드·BID 표 값이 19 S2 와 같고 표 두 개는 위아래로 쌓이며 +3px 눈금이다 (1.4s)
+  ✓  20 [work-1440] › e2e-auth/work-screens.spec.ts:345:9 › API 질의 조합(.or 여러 개 = AND) › q=광역시 + 점수 높은 순을 2건씩 읽어도 전체와 같다 (744ms)
+  ✓  22 [work-1440] › e2e-auth/work-screens.spec.ts:345:9 › API 질의 조합(.or 여러 개 = AND) › q=광역시 + 결정 미결정 + 점수 높은 순을 2건씩 읽어도 전체와 같다 (447ms)
+  ✓  21 [work-1280] › e2e-auth/work-screens.spec.ts:100:7 › S3 /bids › 목록 정상 상태·글자·넘침과 스크린샷 (1.0s)
+  ✓  23 [work-1280] › e2e-auth/work-screens.spec.ts:115:7 › S3 /bids › S3 1·2·4·5번: 권고 BID + 점수 높은 순 → FX-01 상단, 결정 NO-BID → FX-03 규칙 우선 (3.2s)
+  ✓  24 [work-1280] › e2e-auth/work-screens.spec.ts:187:7 › S3 /bids › 필터 결과 0건이면 빈 상태와 필터 초기화를 보인다 (790ms)
+  ✓  25 [work-1280] › e2e-auth/work-screens.spec.ts:204:7 › S3 /bids › 잘못된 공고 주소는 공고를 찾을 수 없습니다와 공고 목록으로를 보인다 (662ms)
+  ✓  26 [work-1280] › e2e-auth/work-screens.spec.ts:215:7 › S4 /bids/[id] FX-01 › 상세 정상 상태·넘침·스크린샷, 결정 레일은 sticky, 첨부 내려받기 링크는 없다 (2.7s)
+  ✓  27 [work-1280] › e2e-auth/work-screens.spec.ts:304:7 › /notifications › 알림 정상 상태: 2건, 바깥 링크는 앱 안 공고 경로로 바뀌어 있다 (716ms)
+  ✓  28 [work-1280] › e2e-auth/work-screens.spec.ts:345:9 › API 질의 조합(.or 여러 개 = AND) › q=광역시 + 점수 높은 순을 2건씩 읽어도 전체와 같다 (331ms)
+  ✓  29 [work-1280] › e2e-auth/work-screens.spec.ts:345:9 › API 질의 조합(.or 여러 개 = AND) › q=광역시 + 결정 미결정 + 점수 높은 순을 2건씩 읽어도 전체와 같다 (186ms)
+  ✓  30 [work-write] › e2e-auth/bid-decision.write.spec.ts:37:5 › S3 취소 공고는 상태 '취소 포함'을 고를 때만 보인다(ADR-029 A7) (2.5s)
+  ✓  31 [work-write] › e2e-auth/bid-decision.write.spec.ts:63:5 › S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사람 검토 권장 → WATCH 결정 기록 → 저장 실패 상태 (10.8s)
+  ✘  32 [work-write] › e2e-auth/fx01-flow.write.spec.ts:40:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 (871ms)
+  ✓  33 [work-write] › e2e-auth/fx01-flow.write.spec.ts:205:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 VIEWER 에게는 404 다 (222ms)
+  ✓  34 [work-write] › e2e-auth/notifications.write.spec.ts:30:7 › sales › 바깥 링크 알림을 누르면 앱 안 공고로 가고, 다 읽으면 안 읽음 목록은 빈 상태다(O1) (2.3s)
+  ✓  35 [work-write] › e2e-auth/notifications.write.spec.ts:74:7 › analyst › 목록이 바뀌어 커서가 무효면 [처음부터 보기]가 같은 주소로 다시 이동해 서버 첫 쪽을 새로 읽는다 (2.7s)
+
+
+  1) [work-write] › e2e-auth/fx01-flow.write.spec.ts:40:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 › S3: 공고 목록에서 FX-01 상세를 연다 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('table', { name: '입찰 공고 목록', exact: true }).getByRole('row').filter({ has: getByRole('link', { name: '세종특별자치시 차세대 행정정보시스템 고도화 (가상)', exact: true }) }).getByRole('cell', { name: 'BID', exact: true })
+    Expected: visible
+    Error: strict mode violation: getByRole('table', { name: '입찰 공고 목록', exact: true }).getByRole('row').filter({ has: getByRole('link', { name: '세종특별자치시 차세대 행정정보시스템 고도화 (가상)', exact: true }) }).getByRole('cell', { name: 'BID', exact: true }) resolved to 2 elements:
+        1) <td data-slot="table-cell" class="px-3 py-2.5 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 type-body overflow-hidden">…</td> aka getByRole('cell', { name: 'BID' }).nth(5)
+        2) <td data-slot="table-cell" class="px-3 py-2.5 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 type-body overflow-hidden">…</td> aka getByRole('cell', { name: 'BID', exact: true }).nth(3)
+
+    Call log:
+      - Expect "toBeVisible" getByRole('table', { name: '입찰 공고 목록', exact: true }).getByRole('row').filter({ has: getByRole('link', { name: '세종특별자치시 차세대 행정정보시스템 고도화 (가상)', exact: true }) }).getByRole('cell', { name: 'BID', exact: true }) with timeout 5000ms
+      - waiting for getByRole('table', { name: '입찰 공고 목록', exact: true }).getByRole('row').filter({ has: getByRole('link', { name: '세종특별자치시 차세대 행정정보시스템 고도화 (가상)', exact: true }) }).getByRole('cell', { name: 'BID', exact: true })
+
+
+      75 |     await expect(row).toHaveCount(1);
+      76 |     await expect(row.getByRole("cell", { name: "94", exact: true })).toBeVisible();
+    > 77 |     await expect(row.getByRole("cell", { name: "BID", exact: true })).toBeVisible();
+         |                                                                       ^
+      78 |     await row.getByRole("link", { name: FX01_TITLE, exact: true }).click();
+      79 |     // 목록 행 링크는 /bids/<id> 이고, 목록 조건이 있으면 ?list=<조건>이 붙는다(components/bids/bid-table.tsx detailHref).
+      80 |     await expect(page).toHaveURL(new RegExp(`/bids/${bidId}(\\?list=[^#]*)?$`));
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:77:71
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:62:3
+
+    Error Context: test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [work-write] › e2e-auth/fx01-flow.write.spec.ts:40:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 
+  34 passed (1.2m)
+ ELIFECYCLE  Command failed with exit code 1.
+EXIT=1

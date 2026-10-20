@@ -1,0 +1,5 @@
+── compose up (sol-radar-ee)
+compose: ai-gateway=healthy minio=healthy qdrant=healthy redis=healthy worker=healthy 
+worker supabase: local ok
+── run: true
+EXIT=0

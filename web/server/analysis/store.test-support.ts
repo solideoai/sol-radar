@@ -190,6 +190,7 @@ function recordingIngestionRepo(): { repo: IngestionRepo; tables: SeedBidTables 
     findLatestRevision: async (source, noticeId) => latest.get(`${source}:${noticeId}`) ?? null,
     findLatestSeedAnchor: async () => null,
     findLatestRunWindowEnd: async () => null,
+    findLatestRunWindow: async () => null,
     saveRevision: async (input) => save(input),
     recordError: async () => undefined,
     saveCheckpoint: async () => undefined,

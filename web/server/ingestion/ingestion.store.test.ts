@@ -8,10 +8,13 @@ import type { SavedRevisionDecision, SaveRevisionInput } from "./ingestion.repo"
 import type { StartRunInput } from "./ingestion.port";
 import {
   toIngestRunInsert,
+  toQuotaUsedUpdate,
   toSaveRevisionParams,
   toStartedRun,
   toStoredRevision,
+  toStructuredRequirementInserts,
 } from "./ingestion.store";
+import type { StructuredRequirement } from "./normalized-bid.model";
 import { normalizeFixtureRecord } from "./normalize";
 import type { NormalizedBidDraft } from "./normalized-bid.model";
 import { decideRevision, type StoredRevision } from "./revision";
@@ -413,7 +416,7 @@ describe("toStartedRun", () => {
     ...overrides,
   });
 
-  it("행을 StartedRun(runId·status·cursor·summary·params)으로 읽는다", () => {
+  it("행을 StartedRun(runId·status·cursor·summary·params·quotaUsed)으로 읽는다", () => {
     const row = runRow();
     expect(toStartedRun(row)).toEqual({
       runId: REVISION_UUID,
@@ -421,7 +424,16 @@ describe("toStartedRun", () => {
       cursor: "5",
       summary: SUMMARY,
       params: { anchor: "2026-10-19T03:00:00.000Z" },
+      quotaUsed: 0,
     });
+  });
+
+  it("quota_used 는 그대로 읽는다(이어 가는 g2b run 이 여기서부터 더 센다)", () => {
+    expect(toStartedRun(runRow({ quota_used: 37 })).quotaUsed).toBe(37);
+  });
+
+  it("quota_used 가 음수면 0 으로 읽는다", () => {
+    expect(toStartedRun(runRow({ quota_used: -1 })).quotaUsed).toBe(0);
   });
 
   it("cursor 가 null 이면 null 이다", () => {
@@ -536,5 +548,79 @@ describe("toIngestRunInsert — runId(N8)", () => {
     };
 
     expect(toIngestRunInsert(scheduled)).not.toHaveProperty("id");
+  });
+});
+
+describe("toQuotaUsedUpdate", () => {
+  it("quotaUsed 를 주지 않으면 빈 객체다(fixture run 은 quota_used 를 건드리지 않는다)", () => {
+    expect(toQuotaUsedUpdate(undefined)).toEqual({});
+  });
+
+  it("quotaUsed 를 주면 quota_used 로 싣는다", () => {
+    expect(toQuotaUsedUpdate(12)).toEqual({ quota_used: 12 });
+  });
+
+  it("0 이상 정수가 아니면 0 으로 싣는다", () => {
+    expect([toQuotaUsedUpdate(-3), toQuotaUsedUpdate(1.5)]).toEqual([
+      { quota_used: 0 },
+      { quota_used: 0 },
+    ]);
+  });
+});
+
+describe("toStructuredRequirementInserts", () => {
+  const IDS = { bidId: BID_UUID, revisionId: REVISION_UUID };
+  const LICENSE: StructuredRequirement = {
+    kind: "LICENSE_LIMIT",
+    code: "0036",
+    name: "정보통신공사업",
+    value: {
+      bidNtceNo: "R26BK00000001",
+      lcnsLmtNm: "정보통신공사업/0036",
+      lmtGrpNo: "1",
+      lmtSno: "1",
+    },
+    sourceOperation: "getBidPblancListInfoLicenseLimit",
+  };
+  const REGION: StructuredRequirement = {
+    kind: "PARTICIPATION_REGION",
+    code: null,
+    name: "대구광역시",
+    value: { bidNtceNo: "R26BK00000001", prtcptPsblRgnNm: "대구광역시", lmtSno: "1" },
+    sourceOperation: "getBidPblancListInfoPrtcptPsblRgn",
+  };
+
+  it("행마다 bid_id·revision_id·kind·seq(배열 index)·code·name·value·source_operation 을 싣는다", () => {
+    expect(toStructuredRequirementInserts(IDS, [LICENSE, REGION])).toEqual([
+      {
+        bid_id: BID_UUID,
+        revision_id: REVISION_UUID,
+        kind: "LICENSE_LIMIT",
+        seq: 0,
+        code: "0036",
+        name: "정보통신공사업",
+        value: LICENSE.value,
+        source_operation: "getBidPblancListInfoLicenseLimit",
+      },
+      {
+        bid_id: BID_UUID,
+        revision_id: REVISION_UUID,
+        kind: "PARTICIPATION_REGION",
+        seq: 1,
+        code: null,
+        name: "대구광역시",
+        value: REGION.value,
+        source_operation: "getBidPblancListInfoPrtcptPsblRgn",
+      },
+    ]);
+  });
+
+  it("빈 배열이면 빈 배열이다", () => {
+    expect(toStructuredRequirementInserts(IDS, [])).toEqual([]);
+  });
+
+  it("value 는 복사본이다(입력 객체를 그대로 넣지 않는다)", () => {
+    const [row] = toStructuredRequirementInserts(IDS, [LICENSE]);
+    expect(row?.value).not.toBe(LICENSE.value);
   });
 });

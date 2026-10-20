@@ -51,12 +51,14 @@ describe("검증 상수", () => {
     expect(QUARANTINE_CODES).toEqual(["MISSING_REQUIRED_FIELD", "SCHEMA_INVALID"]);
   });
 
-  it("경고 코드는 BUDGET_UNPARSED·DATE_UNPARSED·DATE_ORDER·ENCODING_DEGRADED 순서다", () => {
+  it("경고 코드는 BUDGET_UNPARSED·DATE_UNPARSED·DATE_ORDER·ENCODING_DEGRADED·ATTACHMENT_URL_BLOCKED 순서다", () => {
     expect(WARNING_CODES).toEqual([
       "BUDGET_UNPARSED",
       "DATE_UNPARSED",
       "DATE_ORDER",
       "ENCODING_DEGRADED",
+      // C8 L2: 허용 목록 밖 첨부 URL 을 뺀 공고(09 SSRF). 적재는 한다
+      "ATTACHMENT_URL_BLOCKED",
     ]);
   });
 

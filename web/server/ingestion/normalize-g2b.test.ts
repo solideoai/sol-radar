@@ -627,3 +627,71 @@ describe("sortStructuredRequirements", () => {
     expect(sortStructuredRequirements([])).toEqual([]);
   });
 });
+
+// C8 L2(09 SSRF): 목록 첨부(ntceSpecDocUrl1~10)도 허용 목록(https://www.g2b.go.kr/pn/)을 건다. 밖이면 빼고 경고를 남긴다.
+describe("normalizeG2bBidNotice — 첨부 허용 목록(L2)", () => {
+  const REJECTED = [
+    "http://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadFile.do?x=1",
+    "https://evil.example/pn/pnp/pnpe/UntyAtchFile/downloadFile.do",
+    "https://www.g2b.go.kr/other/downloadFile.do",
+    "https://127.0.0.1/pn/pnp/pnpe/UntyAtchFile/downloadFile.do",
+    "https://user:pw@www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadFile.do",
+    "https://www.g2b.go.kr:8443/pn/pnp/pnpe/UntyAtchFile/downloadFile.do",
+    "javascript:alert(1)",
+    "not a url",
+  ];
+
+  it.each(REJECTED)("허용 목록 밖 URL(%s)은 첨부에서 빼고 공고는 적재한다", (url) => {
+    const item = baseItem({ ntceSpecDocUrl3: url, ntceSpecFileNm3: "3.밖.pdf" });
+
+    expect(draftOf(item).attachments.map((attachment) => attachment.url)).toEqual([
+      docUrl(1),
+      docUrl(2),
+    ]);
+  });
+
+  it("걸러진 칸은 ATTACHMENT_URL_BLOCKED 경고 한 건에 칸 이름만 적는다(URL 은 싣지 않는다)", () => {
+    const item = baseItem({
+      ntceSpecDocUrl3: REJECTED[1],
+      ntceSpecFileNm3: "3.밖.pdf",
+      ntceSpecDocUrl5: REJECTED[6],
+      ntceSpecFileNm5: "5.밖.pdf",
+    });
+
+    expect(warningsOf(item)).toEqual([
+      {
+        code: "ATTACHMENT_URL_BLOCKED",
+        sourceKey: SOURCE_KEY,
+        detail: "attachment url not allowed: ntceSpecDocUrl3, ntceSpecDocUrl5",
+      },
+    ]);
+    expect(JSON.stringify(warningsOf(item))).not.toContain("evil.example");
+  });
+
+  it("모두 허용 목록 안이면 경고가 없다", () => {
+    expect(warningsOf(baseItem())).toEqual([]);
+  });
+
+  it("허용 URL 은 파서가 정규화한 href 로 저장한다(호스트 대문자·기본 포트·앞뒤 공백)", () => {
+    const item = baseItem({
+      ntceSpecDocUrl1: `  HTTPS://WWW.G2B.GO.KR:443/pn/pnp/pnpe/UntyAtchFile/downloadFile.do?bidPbancNo=${NOTICE_NO}&fileSeq=1  `,
+    });
+
+    expect(draftOf(item).attachments[0]?.url).toBe(
+      `https://www.g2b.go.kr/pn/pnp/pnpe/UntyAtchFile/downloadFile.do?bidPbancNo=${NOTICE_NO}&fileSeq=1`,
+    );
+  });
+
+  it("실측 모양의 목록 첨부 URL 은 href 가 원문과 같다(기존 revision 의 checksum 이 바뀌지 않는다)", () => {
+    expect(draftOf(baseItem()).attachments.map((attachment) => attachment.url)).toEqual([
+      docUrl(1),
+      docUrl(2),
+    ]);
+  });
+
+  it("경로 탈출(/pn/../other)은 pathname 이 /pn/ 밖이라 뺀다", () => {
+    const item = baseItem({ ntceSpecDocUrl3: "https://www.g2b.go.kr/pn/../other/x.do" });
+
+    expect(draftOf(item).attachments).toHaveLength(2);
+  });
+});

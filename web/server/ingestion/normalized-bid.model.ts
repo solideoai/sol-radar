@@ -46,6 +46,19 @@ export const bidAttachmentSchema = z.strictObject({
 });
 export type BidAttachment = z.infer<typeof bidAttachmentSchema>;
 
+export const AUX_LOOKUP_STATUSES = ["OK", "FAILED", "SKIPPED_QUOTA"] as const;
+export type AuxLookupStatus = (typeof AUX_LOOKUP_STATUSES)[number];
+
+// 07 §2.2 보조 조회 3종(면허제한·참가가능지역·e발주 첨부)의 결과. live 수집이 보조 조회를 시도한 revision 에만 있다.
+// OK = 셋 다 성공, FAILED = 하나라도 실패, SKIPPED_QUOTA = 호출 예산(한도의 90%)에 닿아 부르지 않음.
+// OK 가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부르고(다시 채우기), 규칙 엔진은 그 공고를 확인 필요로 둔다.
+export const auxLookupSchema = z.strictObject({
+  status: z.enum(AUX_LOOKUP_STATUSES),
+  /** 결과를 받지 못한 보조 조회의 registryKey(실패·22 뒤 미호출·예산으로 건너뜀). OK 면 빈 배열 */
+  failed: z.array(z.string().min(1)),
+});
+export type AuxLookup = z.infer<typeof auxLookupSchema>;
+
 const bidOriginalSchema = z.strictObject({
   noticeNo: z.string().optional(),
   budget: z.string().optional(),
@@ -73,6 +86,7 @@ const draftShape = {
   content: z.string(),
   attachments: z.array(bidAttachmentSchema),
   structuredQualifications: z.array(structuredRequirementSchema),
+  auxLookup: auxLookupSchema.optional(),
   original: bidOriginalSchema,
   normalizationNotes: z.array(z.string()).min(1).optional(),
   isDemo: z.boolean(),

@@ -1,0 +1,97 @@
+{
+  "counts": {
+    "migrations": 23,
+    "discardedTables": 0,
+    "people": 200,
+    "scoring": 27,
+    "bids": 19,
+    "runsByStatus": {
+      "PARTIAL": 15,
+      "COMPLETED": 3
+    }
+  },
+  "fx01": {
+    "runId": "e515d4a6-04ac-4e2f-956e-c6ebccaee783",
+    "bidId": "b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+    "status": "COMPLETED",
+    "score": 94,
+    "recommendation": "BID",
+    "basis": "RULES_WITH_KEV_ASSIST",
+    "errorCode": null,
+    "runMode": "MOCK",
+    "provider": "MOCK",
+    "inputHash": "f661299672286a9bfecba4406fe08c38cd0526ab050ff3282b1f6d22b4f174bb",
+    "members": 27,
+    "kev": {
+      "BID": 0.71,
+      "WATCH": 0.24,
+      "NO_BID": 0.05
+    },
+    "queuedAt": "2026-10-19T08:09:35.572361+00:00",
+    "startedAt": "2026-10-19T08:09:35.898+00:00",
+    "finishedAt": "2026-10-19T08:09:36.013+00:00",
+    "orderedTimestamps": true,
+    "factors": [
+      {
+        "factor": "pastPerformance",
+        "points": 25.0,
+        "max": 25.0,
+        "raw": null
+      },
+      {
+        "factor": "scaleFit",
+        "points": 15.0,
+        "max": 15.0,
+        "raw": null
+      },
+      {
+        "factor": "skillMatch",
+        "points": 24.0,
+        "max": 30.0,
+        "raw": null
+      },
+      {
+        "factor": "staffAvailability",
+        "points": 20.0,
+        "max": 20.0,
+        "raw": {
+          "period": {
+            "endsAt": "2027-07-01",
+            "startsAt": "2027-01-01"
+          },
+          "requiredFte": 12,
+          "teamMembers": 27,
+          "availableFte": 20,
+          "businessDays": 15,
+          "periodSource": "DEFAULT",
+          "availableRatio": 1,
+          "scheduleFactor": 1,
+          "requiredFteSource": "STAFFING"
+        }
+      },
+      {
+        "factor": "strategicPreference",
+        "points": 10.0,
+        "max": 10.0,
+        "raw": null
+      }
+    ],
+    "qualifications": [
+      {
+        "name": "소프트웨어 직접생산확인증명서",
+        "outcome": "SATISFIED",
+        "evidenceCount": 1
+      },
+      {
+        "name": "소프트웨어사업자 신고확인서",
+        "outcome": "SATISFIED",
+        "evidenceCount": 1
+      },
+      {
+        "name": "중소기업확인서",
+        "outcome": "SATISFIED",
+        "evidenceCount": 1
+      }
+    ]
+  }
+}

@@ -4,3 +4,9 @@ import "server-only";
 export { getAiState, getReadiness } from "./health.service";
 export type { Probes } from "./health.service";
 export type { AiState, CheckState, Readiness } from "./health.model";
+
+// 05 §2 GET /admin/ai/status(ADMIN). 응답 계약은 aiStatusSchema 다.
+export { getAiStatus } from "./ai-status.service";
+export type { AiStatusDeps, AiStatusResult } from "./ai-status.service";
+export { aiStatusSchema } from "./ai-status.model";
+export type { AiStatus } from "./ai-status.model";

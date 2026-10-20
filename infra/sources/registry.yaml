@@ -41,7 +41,8 @@ sources:
       - fixtures/recorded/15129394/getBidPblancListInfoChgHstryServc.20261019.masked.json
     lastVerifiedAt: "2026-10-19"
 
-  # 보조 조회 3종은 아직 구현하지 않았다(fieldMapping 비어 있음 → 부르지 않는다).
+  # 보조 조회 3종(07 §2.2). live worker 가 새 revision 마다 공고 1건 단위(inqryDiv=2 + bidNtceNo)로 부른다.
+  # 응답 행의 필드는 C1 증거 §5·§10-5 실측(fixtures/recorded/15129394)이다. 매핑은 web/server/ingestion/normalize-g2b-aux.ts.
   - key: g2b-bid-license-limit
     displayName: 나라장터 입찰공고정보서비스(면허제한)
     provider: 조달청 / data.go.kr
@@ -53,7 +54,16 @@ sources:
       operations: [getBidPblancListInfoLicenseLimit]
     method: GET
     quota: { daily: 1000, tps: 30 }
-    fieldMapping: {}
+    fieldMapping:
+      bidNtceNo: 요청 bidNtceNo (noticeId) 와 같은 행만 쓴다
+      bidNtceOrd: structuredQualifications[].value.bidNtceOrd (차수, 원본 보존)
+      lcnsLmtNm: structuredQualifications[kind=LICENSE_LIMIT].name / .code ("이름/코드" 를 나눔, 코드는 4자리 업종코드)
+      permsnIndstrytyList: structuredQualifications[kind=PERMITTED_INDUSTRY] ("[이름/코드],…" 항목마다 한 행)
+      lmtGrpNo: 정렬 키(그룹). value 에 보존. AND/OR 뜻은 미검증(16 미결정 19번)
+      lmtSno: 정렬 키(일련번호). value 에 보존
+      indstrytyMfrcFldList: structuredQualifications[].value 에만 보존
+      rgstDt: structuredQualifications[].value 에만 보존
+      bsnsDivNm: structuredQualifications[].value 에만 보존
     changeNoticeUrl: null
     redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
     sampleResponses:
@@ -72,7 +82,13 @@ sources:
       operations: [getBidPblancListInfoPrtcptPsblRgn]
     method: GET
     quota: { daily: 1000, tps: 30 }
-    fieldMapping: {}
+    fieldMapping:
+      bidNtceNo: 요청 bidNtceNo (noticeId) 와 같은 행만 쓴다
+      bidNtceOrd: structuredQualifications[].value.bidNtceOrd (차수, 원본 보존)
+      prtcptPsblRgnNm: structuredQualifications[kind=PARTICIPATION_REGION].name (code 는 null)
+      lmtSno: 정렬 키(일련번호). value 에 보존
+      rgstDt: structuredQualifications[].value 에만 보존
+      bsnsDivNm: structuredQualifications[].value 에만 보존
     changeNoticeUrl: null
     redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
     sampleResponses:
@@ -90,7 +106,13 @@ sources:
       operations: [getBidPblancListInfoEorderAtchFileInfo]
     method: GET
     quota: { daily: 1000, tps: 30 }
-    fieldMapping: {}
+    fieldMapping:
+      bidNtceNo: 요청 bidNtceNo (noticeId) 와 같은 행만 쓴다
+      bidNtceOrd: 차수(첨부에는 싣지 않는다)
+      eorderAtchFileUrl: attachments[].url (목록 첨부 뒤에 더한다. 같은 url 은 목록 쪽을 남긴다. 호스트 www.g2b.go.kr, 경로 /pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do)
+      eorderAtchFileNm: attachments[].name (비어 있으면 "eorderDocDivNm atchSno")
+      eorderDocDivNm: 이름 대체에만 쓴다(제안요청서·기타문서)
+      atchSno: 정렬 키(첨부 순번)
     changeNoticeUrl: null
     redistributionLimit: "API 데이터: 이용허락범위 제한 없음"
     sampleResponses:

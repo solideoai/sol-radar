@@ -1,0 +1,43 @@
+[
+  {
+    "fixtureId": "FX-01",
+    "runId": "e515d4a6-04ac-4e2f-956e-c6ebccaee783",
+    "storedStatus": "COMPLETED",
+    "storedScore": 94,
+    "recomputedScore": 94,
+    "hashMatches": true,
+    "members": 27,
+    "storedKevProbabilities": {
+      "BID": 0.71,
+      "WATCH": 0.24,
+      "NO_BID": 0.05
+    },
+    "gatewayEnvelopeValid": true,
+    "wireFitKeys": ["score", "legend", "probabilities", "confidence"],
+    "scoringWireValid": true,
+    "issues": []
+  },
+  {
+    "fixtureId": "FX-04",
+    "runId": "95ec1977-8bb4-4239-a9ad-3a0386f615a5",
+    "storedStatus": "PARTIAL",
+    "storedScore": 68,
+    "recomputedScore": 68,
+    "hashMatches": true,
+    "members": 27,
+    "storedKevProbabilities": null,
+    "gatewayEnvelopeValid": true,
+    "wireFitKeys": ["score", "legend"],
+    "scoringWireValid": false,
+    "issues": [
+      {
+        "path": "responses.fit.probabilities",
+        "code": "invalid_type"
+      },
+      {
+        "path": "responses.fit.confidence",
+        "code": "invalid_type"
+      }
+    ]
+  }
+]

@@ -15,6 +15,8 @@ export const WARNING_ERROR_CODES = [
   "DATE_UNPARSED",
   "DATE_ORDER",
   "ENCODING_DEGRADED",
+  // 첨부 주소가 허용 목록 밖이라 받지 않았다(normalize-g2b.ts, 공고 자체는 적재된다).
+  "ATTACHMENT_URL_BLOCKED",
 ] as const;
 export const FAILURE_ERROR_CODES = [
   "RUN_MODE_MISMATCH",
@@ -47,6 +49,7 @@ const CODE_LABEL: ReadonlyMap<string, string> = new Map([
   ["DATE_UNPARSED", "날짜를 읽지 못함"],
   ["DATE_ORDER", "날짜 순서 이상"],
   ["ENCODING_DEGRADED", "글자 깨짐"],
+  ["ATTACHMENT_URL_BLOCKED", "허용되지 않은 첨부 주소"],
   ["API_SERVICE_KEY_INVALID", "공공 API 서비스키 거부 (키 값은 보이지 않습니다)"],
   ["RATE_LIMITED", "요청 제한(429)이 계속되어 중단"],
   ["SEED_ANCHOR_MISSING", "SEED 수집 기록이 없어 LIVE 배치를 시작할 수 없음"],

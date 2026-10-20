@@ -54,6 +54,15 @@ export type StartedRun = {
   summary: IngestSummary;
   /** 처음 시작할 때 저장한 params. 이어 가는 run 이 처음 정한 fixture anchor 를 다시 쓴다(5-B) */
   params: Record<string, unknown> | null;
+  /** 이 run 이 지금까지 쓴 공공 API 호출 수(ingest_runs.quota_used). 이어 가는 g2b run 이 여기서부터 더 센다 */
+  quotaUsed?: number;
+};
+
+/** source·trigger 가 같은 run 중 가장 최근 run 의 상태와 수집 창(C8 창 재사용) */
+export type LatestRunWindow = {
+  status: IngestRunStatus;
+  /** params.window. 둘 다 ISO 시각이 아니면 null */
+  window: { from: string; to: string } | null;
 };
 
 export type IngestErrorInput = {
@@ -88,15 +97,24 @@ export type IngestionRepo = {
    * 7-1: 일정 수집 창은 SCHEDULED run 만 잇는다. MANUAL 의 미래 창이 일정 수집을 건너뛰게 하지 않는다
    */
   findLatestRunWindowEnd(source: "g2b", trigger: "SCHEDULED"): Promise<Date | null>;
-  /** bid_notices upsert + bid_revisions insert + outbox(event.idempotencyKey) 를 한 트랜잭션으로 */
+  /**
+   * source·trigger 가 같은 run 중 가장 최근(started_at) run 의 상태와 params.window(상태와 무관, RUNNING·FAILED 포함). 없으면 null.
+   * C8: FAILED 로 끝난 일정 run 의 창을 다시 써 재기동마다 새 24h 창을 열지 않는다(web/worker/ingest-queue.ts)
+   */
+  findLatestRunWindow(source: "g2b", trigger: "SCHEDULED"): Promise<LatestRunWindow | null>;
+  /**
+   * bid_notices upsert + bid_revisions insert + outbox(event.idempotencyKey) 를 한 트랜잭션으로.
+   * 그 뒤 decision.bid.structuredQualifications 를 bid_structured_requirements 에 revision 단위로 쓴다(UNIQUE(revision_id, kind, seq) upsert)
+   */
   saveRevision(input: SaveRevisionInput): Promise<SavedRevision>;
   recordError(runId: string, error: IngestErrorInput): Promise<void>;
+  /** quotaUsed 는 공공 API 를 부른 run(g2b)만 준다. 주지 않으면 ingest_runs.quota_used 를 건드리지 않는다(fixture 는 0) */
   saveCheckpoint(
     runId: string,
-    checkpoint: { cursor: string | null; summary: IngestSummary },
+    checkpoint: { cursor: string | null; summary: IngestSummary; quotaUsed?: number },
   ): Promise<void>;
   finishRun(
     runId: string,
-    result: { status: IngestRunStatus; summary: IngestSummary },
+    result: { status: IngestRunStatus; summary: IngestSummary; quotaUsed?: number },
   ): Promise<void>;
 };

@@ -170,6 +170,16 @@ export type StructuredRequirement = z.infer<typeof structuredRequirementSchema>;
 
 export const bidStageSchema = z.enum(["PLAN", "PRE_SPEC", "NOTICE"]);
 
+// 15 §3 NormalizedBid.auxLookup: live 수집의 보조 조회 3종(면허제한·참가가능지역·e발주 첨부) 결과(07 §2.2).
+// OK 가 아니면 구조화 자격이 비어 있어도 "제한 없음"이 아니라 "모름"이다. 규칙 엔진은 NEEDS_REVIEW 로 둔다.
+export const auxLookupStatusSchema = z.enum(["OK", "FAILED", "SKIPPED_QUOTA"]);
+export const auxLookupSchema = z.object({
+  status: auxLookupStatusSchema,
+  /** 결과를 받지 못한 보조 조회의 registryKey. OK 면 빈 배열 */
+  failed: z.array(z.string()),
+});
+export type AuxLookup = z.infer<typeof auxLookupSchema>;
+
 // NormalizedBid(15 §3) 가운데 규칙 엔진이 읽는 요약. revisionId·fetchedAt 은 API_FIELD 근거(EvidenceRef)를
 // 만들 때 필요해서 필수다. attachmentsIncomplete 는 첨부 다운로드·파싱 실패를 호출자가 알려 주는 값(03 §5.7 과 같은 이름).
 export const normalizedBidSummarySchema = z.object({
@@ -185,6 +195,8 @@ export const normalizedBidSummarySchema = z.object({
   projectPeriod: z.object({ startsAt: dateLike, endsAt: dateLike }).nullable().optional(),
   structuredQualifications: z.array(structuredRequirementSchema),
   attachmentsIncomplete: z.boolean().optional(),
+  // 보조 조회를 시도한 live revision 에만 있다. fixture·보조 조회 전 revision 에는 없다(없으면 검사를 만들지 않는다)
+  auxLookup: auxLookupSchema.optional(),
 });
 export type NormalizedBidSummary = z.infer<typeof normalizedBidSummarySchema>;
 

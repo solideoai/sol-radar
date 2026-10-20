@@ -448,6 +448,37 @@ function extractionChecks(
     });
 }
 
+/**
+ * 07 §2.2: 보조 조회(면허제한·참가가능지역)를 받지 못한 공고는 구조화 자격이 비어 있어도 "제한 없음"이 아니다.
+ * 확인 필요(NEEDS_REVIEW, NOTICE_INFO_MISSING) 한 건을 둔다. API 필드 근거는 없다(받지 못했으니). 필드가 없으면 만들지 않는다.
+ */
+function auxLookupChecks(bid: NormalizedBidSummary): QualificationCheck[] {
+  const lookup = bid.auxLookup;
+  if (lookup === undefined || lookup.status === "OK") return [];
+  const isQuota = lookup.status === "SKIPPED_QUOTA";
+  const missing = lookup.failed.join(", ");
+  return [
+    finish(
+      {
+        id: "structured:AUX_LOOKUP",
+        requirementCode: null,
+        requirementName: isQuota
+          ? "면허·지역 제한 조회 실패(호출 예산)"
+          : "면허·지역 제한 조회 실패",
+        mandatory: true,
+        basis: "API_FIELD",
+        evidence: [],
+      },
+      needsReview(
+        "NOTICE_INFO_MISSING",
+        isQuota
+          ? `공공 API 호출 예산으로 보조 조회(${missing})를 부르지 못함. 면허·지역 제한을 확인하지 못해 사람 검토 필요`
+          : `보조 조회(${missing})가 실패해 면허·지역 제한을 확인하지 못함. 사람 검토 필요`,
+      ),
+    ),
+  ];
+}
+
 function overallStatus(checks: QualificationCheck[]): QualificationOutcome {
   const mandatory = checks.filter((check) => check.mandatory);
   if (mandatory.some((check) => check.outcome === "NOT_SATISFIED")) return "NOT_SATISFIED";
@@ -465,7 +496,7 @@ export function assessQualifications(context: QualificationContext): Qualificati
     field !== undefined && field.state === "KNOWN" && field.value !== null && field.value.length > 0
       ? extractionChecks(context, items, structured.mergedCodes, structured.conflictedCodes)
       : [syntheticCheck(context, noticeMissingVerdict(context, field?.state ?? "ABSENT"))];
-  const computed = [...structured.checks, ...fromExtraction];
+  const computed = [...structured.checks, ...auxLookupChecks(bid), ...fromExtraction];
 
   // 발주계획은 자격 요건이 아직 없다. 항목은 보여 주되 전부 확인 필요로 저장한다(위 머리말 결정).
   const checks =

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { G2bItem } from "./connector.model";
-import { G2B_CONTACT_FIELDS, parseG2bEnvelope, stripContactFields } from "./g2b.model";
+import {
+  G2B_AUX_OPERATIONS,
+  G2B_CONTACT_FIELDS,
+  parseG2bAuxEnvelope,
+  parseG2bEnvelope,
+  stripContactFields,
+} from "./g2b.model";
 
 // 나라장터 입찰공고 목록(15129394 getBidPblancListInfoServc) 응답 봉투의 작은 예시.
 // 모양은 2026-10-19 실측 응답을 본떴고, 값은 모두 가상이다.
@@ -193,4 +199,53 @@ describe("stripContactFields", () => {
       expect(stripContactFields({ [key]: "가상 값" })).toEqual({ [key]: "가상 값" });
     },
   );
+});
+
+// 2026-10-20 실측: inqryDiv=2 보조 조회가 0건이면 body 에 items 키가 없다({numOfRows, pageNo, totalCount}).
+describe("parseG2bAuxEnvelope — 보조 조회 0건 모양", () => {
+  const EMPTY_AUX_BODY = { numOfRows: 999, pageNo: 1, totalCount: 0 };
+
+  it("보조 오퍼레이션은 3종이고 registry 키와 짝이다", () => {
+    expect(G2B_AUX_OPERATIONS).toEqual([
+      { operation: "getBidPblancListInfoLicenseLimit", registryKey: "g2b-bid-license-limit" },
+      { operation: "getBidPblancListInfoPrtcptPsblRgn", registryKey: "g2b-bid-region" },
+      { operation: "getBidPblancListInfoEorderAtchFileInfo", registryKey: "g2b-bid-eorder-attach" },
+    ]);
+  });
+
+  it("items 키가 없고 totalCount 0 이면 0건으로 읽는다", () => {
+    expect(parseG2bAuxEnvelope(okEnvelope(EMPTY_AUX_BODY))).toEqual({
+      ok: true,
+      items: [],
+      totalCount: 0,
+    });
+  });
+
+  it("목록 파서는 같은 모양을 MALFORMED 로 본다(동작을 바꾸지 않는다)", () => {
+    expect(parseG2bEnvelope(okEnvelope(EMPTY_AUX_BODY))).toEqual({ ok: false, kind: "MALFORMED" });
+  });
+
+  it("items 키가 없는데 totalCount 가 0 이 아니면 MALFORMED 다", () => {
+    expect(parseG2bAuxEnvelope(okEnvelope({ ...EMPTY_AUX_BODY, totalCount: 4 }))).toEqual({
+      ok: false,
+      kind: "MALFORMED",
+    });
+  });
+
+  it("행이 있으면 목록 파서와 같게 읽는다", () => {
+    expect(parseG2bAuxEnvelope(okEnvelope({ items: [ITEM_A], totalCount: 1 }))).toEqual({
+      ok: true,
+      items: [ITEM_A],
+      totalCount: 1,
+    });
+  });
+
+  it("오류 봉투는 목록 파서와 같게 RESULT_CODE 다", () => {
+    expect(parseG2bAuxEnvelope(errorEnvelope("07", "입력범위값 초과 에러"))).toEqual({
+      ok: false,
+      kind: "RESULT_CODE",
+      resultCode: "07",
+      resultMsg: "입력범위값 초과 에러",
+    });
+  });
 });

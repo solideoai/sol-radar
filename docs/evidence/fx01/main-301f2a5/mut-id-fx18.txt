@@ -1,0 +1,53 @@
+── run: pnpm -C web test:e2e:work --project=work-write --no-deps fx01-flow
+
+> sol-radar-web@0.1.0 test:e2e:work /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> playwright test -c playwright.work.config.ts --project\=work-write --no-deps fx01-flow
+
+
+Running 2 tests using 1 worker
+
+  ✘  1 [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 (6.2s)
+  ✓  2 [work-write] › e2e-auth/fx01-flow.write.spec.ts:219:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 VIEWER 에게는 404 다 (240ms)
+
+
+  1) [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 › S3: 공고 목록에서 FX-01 상세를 연다 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/bids\/5f28b611-29d8-59fa-92eb-a0c453b91cd0(\?list=[^#]*)?$/
+    Received string:  "http://localhost:3203/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        - locator resolved to <html lang="ko" class="h-full">…</html>
+        - unexpected value "http://localhost:3203/bids"
+        13 × locator resolved to <html lang="ko" class="h-full">…</html>
+           - unexpected value "http://localhost:3203/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163"
+
+
+      89 |     await row.getByRole("link", { name: FX01_TITLE, exact: true }).click();
+      90 |     // 목록 행 링크는 /bids/<id> 이고, 목록 조건이 있으면 ?list=<조건>이 붙는다(components/bids/bid-table.tsx detailHref).
+    > 91 |     await expect(page).toHaveURL(new RegExp(`/bids/${bids["FX-18"]}(\\?list=[^#]*)?$`));
+         |                        ^
+      92 |     await expect(
+      93 |       page.getByRole("heading", { level: 1, name: FX01_TITLE, exact: true }),
+      94 |     ).toBeVisible();
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:91:24
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:71:3
+
+    Error Context: test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 
+  1 passed (28.3s)
+ ELIFECYCLE  Command failed with exit code 1.
+EXIT=1
