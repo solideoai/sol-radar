@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 11. 검증·테스트 전략
@@ -42,7 +42,8 @@ pnpm verify                                       # 공통 검사 + web(서식·
 pnpm -C web test                                  # Vitest: 서버 도메인·Route Handler·scoring goldens·ingestion·worker
 pnpm test:db                                      # DB 정책: supabase/migrations를 PGlite에 올려 RLS·제약·seed 멱등 (scripts/database.test.mjs)
 pnpm -C web test:e2e                              # Playwright 로그인 전(web/e2e) + 부품 브라우저 시험
-pnpm -C web test:e2e:auth                         # Playwright 로그인 뒤(web/e2e-auth)
+pnpm -C web test:e2e:auth                         # Playwright 로그인 뒤(web/e2e-auth, 템플릿 시드)
+pnpm -C web test:e2e:work                         # Playwright C6 업무 화면(web/e2e-auth, demo:reset·demo:preanalyze, 1440·1280)
 uv run --project services/ai pytest               # AI gateway
 bash infra/smoke.sh                               # compose ps + health + 큐 왕복
 ```
@@ -52,7 +53,8 @@ bash infra/smoke.sh                               # compose ps + health + 큐 �
 위 자동 시험은 모두 `SOL_RUN_MODE=mock`으로 돌고 실제 공공 API·회사 GPU 추론 엔드포인트를 부르지 않는다. 공공 API 응답은 저장한 응답을 재생하는 `RecordedApiConnector`로, 첨부는 `FixtureAttachmentFetcher`로, 모델은 mock `ModelClient`로 대신한다. 실제 외부 의존성 확인은 §3.3, 모델 측정은 §3.4에서 따로 한다.
 
 > [!warning] 미검증 가정
-> - 템플릿의 `pnpm -C web test:e2e:auth`는 로컬 Supabase(`pnpm db:start`)와 템플릿 시드 `scripts/db-seed.mjs`(로컬 전용)를 전제로 한다. SOL RADAR 데모 seed(`pnpm demo:reset`)와 Supabase 클라우드 개발 프로젝트에서 로그인 뒤 E2E를 어떻게 돌릴지는 C6에서 정한다(G5 `e2e-auth` 겹이 C6이다, [[PROGRESS]]).
+> - 템플릿의 `pnpm -C web test:e2e:auth`는 로컬 Supabase(`pnpm db:start`)와 템플릿 시드 `scripts/db-seed.mjs`(로컬 전용)를 전제로 한다. C6(main `4ae09f9`)은 업무 화면 E2E를 따로 `pnpm -C web test:e2e:work`(`web/playwright.work.config.ts`)로 두었다. 이 명령도 로컬 Supabase·Compose(redis·ai-gateway mock·worker) 위에서 돌고, globalSetup이 `pnpm demo:reset` → 모드 확인 → `pnpm demo:preanalyze`(18건)로 데모 상태를 다시 만든다. 공용 DB를 다시 seed하므로 verify·CI에는 넣지 않는다. Supabase 클라우드 개발 프로젝트에서 로그인 뒤 E2E를 돌리는 방법은 아직 정하지 않았다.
+> - 로그인 뒤 E2E를 띄우는 웹 서버에는 메일 env 4개(`SMTP_HOST`·`SMTP_PORT`·`MAIL_FROM`·`SITE_URL`)가 있어야 한다. 초대 메일 시험이 로컬 메일함(Mailpit)을 읽기 때문이다. `pnpm db:start`가 비어 있을 때만 `web/.env.local`에 로컬 메일함 값을 적는다(`scripts/local-env.mjs`). 셸 env로 웹 서버를 띄우는 실행 템플릿에도 이 4개를 넣는다([[16-DECISIONS|ADR-033]] E5).
 > - `services/ai` pytest는 `verify.config.json`의 `ai` 프로젝트로 등록돼 `pnpm verify`가 돌린다(`uv` 필요, Phase 0). `infra/smoke.sh`는 Docker가 필요해 `pnpm verify` 밖에서 수동으로 돌린다. CI(GitHub Actions)의 `astral-sh/setup-uv` 단계는 실행 확인 전이다([[PROGRESS]]).
 
 CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌리고, 위 명령 중 어느 하나라도 실패하면 Phase 완료로 보고하지 않는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
@@ -61,12 +63,12 @@ CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌�
 
 골든 G1~G10은 `SOL_RUN_MODE=mock`에서만 단언한다. `fixture` 모드는 같은 fixture를 쓰지만 실모델(Qwen3.5-9B·Kev-9B) 추출·분포가 mock과 다를 수 있으므로 골든 수치(`FX-01` 94·`FX-02` 72·`FX-03` 68, Kev 71/24/5·36/52/12)를 단언하지 않는다([[16-DECISIONS|ADR-020]]).
 
-fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~6에서 만든다. 2026-10-19 기준 `web/server/ingestion`(Vitest 36개)·`web/server/scoring`(13개)·`web/server/analysis`(11개)·`web/worker`(12개)·`services/ai/tests`(pytest 21개)·`scripts/database.test.mjs`(G5 RLS 정책 겹)가 있어, G1·G3·G7·G9 전부와 G2·G4·G5·G6·G10의 서버·gateway·DB 쪽 파일은 있다. `web/server/notifications`(G2)·`EvidenceRef` 계약(G10)과 C6 예정 파일(`web/app/api/v1/tenant-isolation.test.ts`, 아래 `web/e2e-auth/*.spec.ts`)은 아직 없고 **예정**이다. 경로는 저장소 루트 기준이고, Vitest 서버 시험은 템플릿 관례대로 `.test.ts`, Playwright E2E는 `.spec.ts`다. 명령 열의 `vitest <경로>`는 `pnpm -C web exec vitest run <경로>`의 줄임, `e2e:auth`는 `pnpm -C web test:e2e:auth`의 줄임이다. 증거 열은 §6의 저장 위치.
+fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~6에서 만든다. 2026-10-19 기준 `web/server/ingestion`(Vitest 36개)·`web/server/scoring`(13개)·`web/server/analysis`(11개)·`web/worker`(12개)·`services/ai/tests`(pytest 21개)·`scripts/database.test.mjs`(G5 RLS 정책 겹)가 있어, G1·G3·G7·G9 전부와 G2·G4·G5·G6·G10의 서버·gateway·DB 쪽 파일은 있다. 2026-10-20 C6(main `4ae09f9`)·C7(main `841b064`) 병합으로 `web/server/notifications`(G2), `web/app/api/v1/tenant-isolation.test.ts`, `web/e2e-auth/`의 `bid-isolation`·`demo-badge`·`no-evidence` spec이 생겼다. 아래 표에서 아직 없는 파일(`web/e2e-auth/partial-analysis.spec.ts`·`cancelled-bid.spec.ts`·`admin-ingestion.spec.ts`, `web/server/dashboard/deadline-summary.test.ts`, `web/server/notifications/deadline.test.ts`)과 `EvidenceRef` 계약(G10)은 **예정**이다. 경로는 저장소 루트 기준이고, Vitest 서버 시험은 템플릿 관례대로 `.test.ts`, Playwright E2E는 `.spec.ts`다. 명령 열의 `vitest <경로>`는 `pnpm -C web exec vitest run <경로>`의 줄임, `e2e:auth`는 `pnpm -C web test:e2e:auth`의 줄임이다. 증거 열은 §6의 저장 위치.
 
 | # | 시나리오 | fixture | 테스트 파일 | 명령 | 통과 기준 | 증거 |
 |---|---|---|---|---|---|---|
 | G1 | 같은 공고 2회 수집 → bid 1건, revision 1, 이벤트 0 | `FX-09` (+`FX-10` 차수) | `web/server/ingestion/idempotent-upsert.test.ts` | `pnpm -C web exec vitest run server/ingestion` | `bid_notices` 1행, `bid_revisions` 1행, `notifications` 추가 0 | `phase-2/test-ingestion.txt` |
-| G2 | 마감일 변경 → revision diff 저장, 알림 정확히 1건 | `FX-06` (+`FX-07` 예산·요구사항) | `web/server/ingestion/revision-diff.test.ts`, `web/server/notifications/outbox-dedupe.test.ts` | 위와 동일 + `vitest server/notifications` | revision 2, diff에 `deadlineAt` 전/후, `BID_CHANGED` 1건, 재전송해도 1건 | `phase-2/test-ingestion.txt`, `phase-6/test-notifications.txt` |
+| G2 | 마감일 변경 → revision diff 저장, 알림 정확히 1건 | `FX-06` (+`FX-07` 예산·요구사항) | `web/server/ingestion/revision-diff.test.ts`, `web/server/notifications/outbox.service.test.ts`·`outbox-dedupe.test.ts` | 위와 동일 + `vitest server/notifications` | 해커톤은 **이벤트 단위 + 알림 멱등**으로 본다([[16-DECISIONS\|ADR-033]] E3, 공고 알림 펼치기는 S5·확장 컷): revision 2, diff에 `deadlineAt` 전/후, `BID_CHANGED` outbox 1건(다시 수집해도 1건). 같은 outbox 이벤트를 다시·동시에 처리해도 알림 1건(`<outboxEventId>:<userId>:IN_APP` UNIQUE) | `phase-2/test-ingestion.txt`, `phase-6/test-notifications.txt` |
 | G3 | 필수 업종 자격 부족 → NO-BID, Kev BID 무시 | `FX-03` (+`FX-16` 일치 사례) | `web/server/scoring/decision-policy.golden.test.ts`, `web/server/scoring/kev-no-override.test.ts` | `pnpm -C web exec vitest run server/scoring` | 권고 `NO-BID`, `reviewFlags` 포함 `MODEL_RULE_DISAGREEMENT`, 점수 68 참고 표시 | `phase-4/goldens-report.txt` |
 | G4 | 근거 문서 없음 → NEEDS_REVIEW/WATCH, 수주확률 문구 없음 | `FX-04` (+`FX-05` 파싱 실패) | `web/server/scoring/needs-review.test.ts`, `services/ai/tests/test_extraction_schema.py`, `web/e2e-auth/no-evidence.spec.ts` | `vitest server/scoring`, `pytest`, `e2e:auth` | 자격 `NEEDS_REVIEW`, 권고 `WATCH`, 응답·화면에 "수주 확률" 문자열이 "아님" 없이 단독 등장 0회 | `phase-4/goldens-report.txt`, `phase-5/test-ai.txt`, `phase-3/e2e/no-evidence.png` |
 | G5 | 다른 orgId로 조회 → 404 | `FX-01` + `org-02` VIEWER `viewer@other.invalid` 세션(Bearer 토큰) | `scripts/database.test.mjs`(RLS 정책), `web/app/api/v1/tenant-isolation.test.ts`(Route Handler), `web/e2e-auth/bid-isolation.spec.ts` | `pnpm test:db`, `vitest app/api/v1`, `e2e:auth` | `GET /bids/{FX-01}/qualification-checks` 404, `GET /analyses/{org-01 분석 id}` 404, `GET /bids/{FX-01}/reviews` 빈 목록, `GET /company-profile`은 org-02 revision 1. 응답 본문에 org-01 데이터 0건. DB 정책 시험: org-02 사용자 세션으로 org-01의 `company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews` 0행 | `phase-1/test-isolation.txt`, `demo-day/*/isolation-404.json` |
@@ -89,7 +91,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 
 ### 3.1 골든 외 회귀 케이스
 
-2026-10-19 기준 `web/server/scoring/`의 `missing-policy`·`scale-limit`·`worked-examples.golden`·`reproducibility`(C4), `web/server/ingestion/`의 `cancel`·`quarantine`·`normalize-amount`·`normalize-date`·`stage-link`, `services/ai/tests/test_citation_verify.py`가 있다. `web/server/dashboard`·`web/server/notifications`와 화면 E2E(`web/e2e-auth/*.spec.ts`)는 예정이다.
+2026-10-19 기준 `web/server/scoring/`의 `missing-policy`·`scale-limit`·`worked-examples.golden`·`reproducibility`(C4), `web/server/ingestion/`의 `cancel`·`quarantine`·`normalize-amount`·`normalize-date`·`stage-link`, `services/ai/tests/test_citation_verify.py`가 있다. `web/server/notifications`는 C7(main `841b064`), 화면 E2E 일부는 C6(main `4ae09f9`)로 생겼다. `web/server/dashboard`와 아래 표의 `cancelled-bid`·`admin-ingestion` spec은 예정이다.
 
 | fixture | 검증 대상 | 테스트 파일 |
 |---|---|---|

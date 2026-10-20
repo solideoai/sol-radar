@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -48,6 +48,8 @@ updated: 2026-10-19
 
 사용자 요청으로 마지막 업무 `ADMIN`을 강등하거나 조직에서 제거할 수 없다. 계정 탈퇴도 같은 보호를 적용하며, 다른 구성원에게 `ADMIN`을 넘긴 뒤 다시 시도해야 한다. 기존 회원 API `DELETE /api/users/me`는 이 경우 `409 sole_admin`을 돌려준다. 조직 전체 삭제·혼자인 조직의 계정 탈퇴·관리용 seed 경로는 유지한다([[04-DATABASE|04 DB]] §3.1).
 
+마지막 `ADMIN`·owner인지 셀 때는 **활동 계정만 센다**(`profiles.status='active'`, 정책 도우미 `my_sol_org_ids()`와 같은 기준, [[16-DECISIONS|ADR-033]] E2). 정지된 `ADMIN`만 남는 강등·제거·탈퇴는 조직 관리를 잠그므로 막는다. 지금 main의 보호(`20261019000014`, 템플릿 `protect_last_owner`)는 계정 상태를 보지 않고 멤버십 수를 센다. 활동 계정 기준은 후속 마이그레이션 예정이다(04 §3.1 결정 2).
+
 업무 역할의 순서(`ADMIN > SALES > ANALYST > VIEWER`)가 모든 자원에 그대로 적용되는 것은 아니다. 리소스별 정책을 쓰고, 문서·코드에서는 허용 역할을 나열한다.
 
 |작업|허용 역할(`sol_role`)|
@@ -87,6 +89,14 @@ updated: 2026-10-19
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
 |열린 리다이렉트|알림 `payload.link`는 앱 안 경로만 쓴다. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC\|05 API]] §4.6, [[13-NOTIFICATIONS\|13 알림]], [[16-DECISIONS\|ADR-030]] B23)|
+
+### 해커톤 동안 수용한 위험 ([[16-DECISIONS|ADR-033]] E11)
+
+2026-10-20 사용자가 해커톤 동안 아래 위험을 받아들이기로 정했다.
+
+- **위험**: 같은 조직의 `ADMIN`·`SALES`·`ANALYST`는 PostgREST로 `score_runs`에 요청 행을 직접 insert할 수 있다. 그러면 Route Handler의 속도 제한과 분석 큐를 건너뛰고, 같은 입력의 분석을 최대 10분(멈춘 분석 복구 기준 `ANALYSIS_STALE_QUEUED_MS` 기본 600000) 막을 수 있다. insert 권한은 `20261019000004`의 열 단위 권한과 정책 "분석 요청"이 열고, C6(`20261019000012`)가 `request_hash` 열을 더했다.
+- **범위**: 조직 내부자만 할 수 있고, 다른 조직의 데이터는 읽거나 바꿀 수 없다(데이터 유출 없음).
+- **해커톤 뒤 후속**: ① `score_runs` insert 권한을 회수하고 생성 전용 RPC로 바꾼다 ② `release_unqueued_score_run`에 30초 창과 감사 기록을 더한다 ③ `latest_ingest_run`에서 개인 조직을 뺀다 ④ 여러 조직을 지원할 때 repo 질의에 org 필터를 명시한다 ⑤ 시험 전용 fake-session을 시험 쪽으로 옮긴다.
 
 ## 책임 있는 AI
 ### 원칙
@@ -218,7 +228,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 엔드포인트는 공개 인터넷에 있다. TLS 필수이고 인증서 검증을 끄지 않는다(`curl -k`, `verify=False` 금지). API 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 필수이고 `infra/.env`에만 둔다. 키 값은 문서·로그·커밋·스크린샷·증거에 남기지 않는다. 엔드포인트 URL은 비밀이 아니다. 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다.
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
-- 호스트 허용 목록: "gateway는 거기에만 붙는다"를 모델 레지스트리(`services/ai/models/registry.yaml`)의 `allowedHosts`로 강제한다. 값은 `acropolissg.com` 하나다([[03-AI-PIPELINE|03]] §11, [[16-DECISIONS|ADR-032]] D2). `QWEN_BASE_URL`·`KEV_BASE_URL`의 호스트가 목록의 값과 정확히 같지 않으면(하위 도메인 포함) gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). 루프백은 시험용으로 허용한다. 구현은 3b 브랜치 `c5/gateway-hardening`(main 미병합)이다.
+- 호스트 허용 목록: "gateway는 거기에만 붙는다"를 모델 레지스트리(`services/ai/models/registry.yaml`)의 `allowedHosts`로 강제한다. 값은 `acropolissg.com` 하나다([[03-AI-PIPELINE|03]] §11, [[16-DECISIONS|ADR-032]] D2). `QWEN_BASE_URL`·`KEV_BASE_URL`의 호스트가 목록의 값과 정확히 같지 않으면(하위 도메인 포함) gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). 루프백은 시험용으로 허용한다. 구현은 main `0a32e47`에 병합됐다(3b `c5/gateway-hardening-3`).
 
 ### 회사 GPU로 가는 데이터
 - 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
