@@ -1,0 +1,348 @@
+---
+title: "디자인 스펙 — 카카오톡 추천 공고 알림(나에게 보내기)"
+doc: "design-kakao-memo-notify"
+status: final
+tags:
+  - sol-radar
+  - pipeline
+  - ui
+  - hackathon
+created: 2026-10-20
+updated: 2026-10-20
+---
+
+# 디자인 스펙: 카카오톡 추천 공고 알림 (나에게 보내기)
+
+로그인한 사용자가 개인 설정에서 켜면, 분석 결과 BID·WATCH 권고가 나온 공고를 그 사람의 휴대폰 카카오톡으로 보낸다. 이 문서는 **설계 확정본(2026-10-20)** 이다. 검토자 확인을 거쳤고, 남은 질문은 §12대로 추천안으로 정했다. 다음 단계는 계획(구현 단계·완료 기준)이다. 코드·정본·설정은 바꾸지 않는다. 정본 반영안은 §13에 파일·절 단위로 적고, 반영은 정본 담당 세션과 절 목록을 맞춘 뒤 한다.
+
+표시 규칙: **(사용자)** 는 사용자가 2026-10-20 대화에서 정한 것, **(설계 판단)** 은 이 문서를 쓴 쪽이 정한 기본값이다. 설계 판단은 사용자가 고칠 수 있다.
+
+## 1. 의도와 이유
+
+- 쓰는 사람은 영업팀이다. 대부분 사무실 자리에 없거나 외부 출장 중이라 공고를 휴대폰으로 본다 **(사용자)**.
+- 지금 알림은 인앱뿐이다([[13-NOTIFICATIONS|13 알림]]). 웹을 열어야 보이므로 밖에 있는 영업팀은 추천 공고를 놓친다.
+- 그래서 추천 공고가 나오면 본인 휴대폰 카카오톡으로 바로 받게 한다 **(사용자)**.
+- 경쟁 서비스는 알림톡·문자·카카오톡으로 공고 알림을 보낸다([[18-HACKATHON|18]] §3.2.1 ③). SOL RADAR는 지금 "인앱(카카오는 mock)"이다. 이 기능으로 그 칸을 채운다.
+
+## 2. 사용자가 정한 것 (2026-10-20)
+
+| # | 결정 | 비고 |
+|---|---|---|
+| U1 | 로그인한 사용자 **본인** 휴대폰 카톡으로 공고가 온다 | |
+| U2 | 개인 계정 설정에서 **ON/OFF** 한다 | |
+| U3 | 보내는 공고는 **추천 공고 = 분석 권고가 BID 또는 WATCH** 인 공고 | 신규 공고 전부가 아니다 |
+| U4 | 카톡 한 통만 보고 판단할 수 있게 핵심을 담고, 근거는 웹 상세에서 본다 | 정본 13의 "AI 자유 서술은 웹에서만"과 같다 |
+| U5 | **해커톤에서 mock 이 아니라 실제 휴대폰으로 발송**한다 | ADR-006 개정 필요(§13) |
+| U6 | 사업자등록 없이 한다 → 카카오 **"나에게 보내기"**(카카오톡 메시지 API, 메모) | 알림톡은 사업자·비즈니스 채널이 필요해 쓰지 않는다 |
+| U7 | 메시지 모양은 **피드형(시안 B)**: 권고 표시 + 제목 + 사유 한 줄 + 항목 표 + 버튼 2개(분석 보기·공고 원문) | 시안: 대화 중 브라우저로 본 `kakao-message.html` |
+| U8 | 설정 칸은 시안 ①~④ 그대로(연결 전·연결됨 꺼짐·켜짐·연결 만료). 빠진 것 없음 | 시안: `settings-kakao.html` |
+| U9 | 여러 건이 한꺼번에 나오면 **건마다 따로** 피드형으로 보낸다 | 설계 판단으로 제안했고 사용자가 "없어 진행해"로 받음 |
+| U10 | 데모는 **동영상으로 녹화**한다. 발표 중 실시간 수신 장면은 필요 없다 | |
+
+## 3. 목표 · 비목표 · 안 할 것
+
+**목표**
+
+1. 설정에서 켠 사용자는 추천 공고가 나온 뒤 짧은 시간 안에(설계 판단: 1분 안) 카톡 "나와의 채팅"으로 피드형 메시지를 받는다.
+2. 같은 공고는 한 사람에게 한 번만 간다(다시 분석해도, worker가 같은 이벤트를 다시 처리해도).
+3. 켜고 끄기, 연결, 연결 만료가 설정 화면에 보이고 사용자가 스스로 고칠 수 있다.
+4. 실제 휴대폰 수신을 한 번 녹화해 증거로 남긴다(`docs/evidence/`).
+
+**비목표 (이번에 하지 않음)**
+
+- 카카오 알림톡·비즈니스 채널·딜러사 연동. 운영 전환 경로로 문서에만 남긴다(§13 ADR).
+- 1280px 미만 휴대폰 화면. 카톡 버튼을 누르면 카톡 안 브라우저로 데스크톱 화면이 열린다. 이것은 받아들인다(ADR-007 유지).
+- 새 공고 **자동 분석**. 해커톤 컷에는 없다([[07-DATA-PIPELINE|07]] §2 "새 공고 자동 분석은 해커톤 컷에 없다"). 추천은 사람이 요청한 분석과 데모 사전 분석(`pnpm demo:preanalyze`)이 끝날 때만 생긴다.
+- 다른 알림 종류(`BID_CHANGED`·`DEADLINE_APPROACHING` 등)의 카톡 발송, 수신 시간대·빈도 설정, 이메일.
+- 휴대폰 번호 수집. 나에게 보내기는 번호가 필요 없다.
+
+**안 할 것 (어기면 동작해도 실패)**
+
+- AI 자유 서술(`explanation`, Qwen 요약)을 카톡에 싣는 것. 사유 한 줄은 규칙 결과에서만 만든다.
+- 사용자가 켜지 않았거나 끈 뒤에 보내는 것. 다른 조직의 공고를 보내는 것.
+- 카카오 토큰·메시지 본문·공고명을 로그나 오류 메시지에 남기는 것([[14-OBSERVABILITY|14]]).
+- 카카오 비밀값을 브라우저 번들이나 `NEXT_PUBLIC_*` 에 넣는 것.
+- 나에게 보내기를 운영 경로로 문서에 적는 것. 카카오는 서비스가 사용자에게 보내는 자동 안내에 알림톡을 안내한다(§4.2). 이 경로는 해커톤 시연용이다.
+- 핵심 컷 일정을 밀어내는 것(§12 사용자 확인 항목 1).
+
+## 4. 제약
+
+### 4.1 저장소 규칙
+
+- 스택은 그대로다(ADR-017). 새 패키지 없이 `fetch` 로 카카오 API를 부른다.
+- 서버 코드는 `web/server/<도메인>/` 의 model·repo·service·index, worker는 `web/worker`, 스키마·RLS는 `supabase/migrations/` 새 파일로만 쓴다.
+- service role은 worker만 쓴다. 웹 서버(Route Handler)는 사용자 세션 + RLS·RPC로만 쓴다.
+- 마이그레이션 뒤 `pnpm db:types` 로 `web/lib/database.types.ts` 를 같은 커밋에 갱신하고, 새 표의 정책 시험을 `scripts/database.test.mjs` 에 더한다. 클라우드 DB 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.
+- 색은 `design/tokens.json` 에서만 온다. 카카오 노란 버튼은 이미 있는 `kakao`·`kakao-foreground` 토큰을 쓴다(로그인 버튼 전용 토큰이므로 "카카오 연결" 버튼에 쓰는 것은 정본 반영 때 토큰 설명을 고친다, §13).
+- 화면 확인은 1440·1280 두 폭이다.
+- 일정: 기능 freeze 10-23, 리허설 10-24, 제출 10-27([[12-ROADMAP|12]] 병렬 순서).
+
+### 4.2 카카오 규격 (2026-10-20 공식 문서 확인)
+
+| 항목 | 내용 | 출처 |
+|---|---|---|
+| 발송 API | `POST https://kapi.kakao.com/v2/api/talk/memo/default/send`, 헤더 `Authorization: Bearer <사용자 액세스 토큰>`, `Content-Type: application/x-www-form-urlencoded;charset=utf-8`, 본문 `template_object`(JSON). 성공 시 `{"result_code":0}` | 메시지 REST API |
+| 동의항목 | `talk_message`(카카오톡 메시지 전송). 앱의 동의항목 설정에서 켠다. 선택 동의다 | 메시지 REST API, devtalk |
+| 쿼터 | 나에게 발송은 심사 승인 전·후 모두 "발송 건수 제한 없음" | 메시지 공통 안내 |
+| 인가 | `GET https://kauth.kakao.com/oauth/authorize?client_id&redirect_uri&response_type=code&scope=talk_message` | 카카오 로그인 REST API |
+| 토큰 | `POST https://kauth.kakao.com/oauth/token`, `grant_type=authorization_code`, `client_id`(REST API 키), `redirect_uri`, `code`, `client_secret`(시크릿 ON이면 필수) | 같음 |
+| 갱신 | 같은 URL, `grant_type=refresh_token`. 새 `refresh_token` 은 남은 기간이 1개월 미만일 때만 응답에 온다 | 같음 |
+| 만료 | 액세스 토큰은 응답 `expires_in`(예시 약 12시간), 리프레시 토큰은 `refresh_token_expires_in`(예시 60일). 고정값이 아니므로 응답 값을 저장해 쓴다 | 같음 |
+| 연결 끊기 | `POST https://kapi.kakao.com/v1/user/unlink` 는 동의를 철회하고 토큰을 폐기한다. 같은 카카오 앱을 로그인에도 쓰면 **로그인 연결도 끊긴다** | 같음 |
+| 피드 틀 | `object_type:"feed"`. `content` 는 `title`·`image_url`·`description` 중 하나 필수(이미지 없어도 됨), `link` 필수. 제목+설명 최대 4줄. `item_content.items` 최대 5개, `item` 최대 6자, `item_op` 1줄 14자·2줄 25자. `buttons` 최대 2개(`title`·`link` 필수) | 기본 템플릿 |
+| 링크 | `web_url`·`mobile_web_url` 도메인은 앱 설정의 웹 도메인과 일치해야 한다 | 기본 템플릿 |
+| 정책 | 메시지 FAQ는 "회원가입, 주문/배송 내역, 결제 알림 등 정보를 사용자에게 자동 안내"에 알림톡을 안내한다 | 메시지 FAQ |
+
+> [!warning] 미검증 가정
+> - 나에게 보내기로 받은 메시지가 **휴대폰 알림을 울리는지** 공식 문서에 없다. 개발자 커뮤니티 답변은 "알림이 뜨지 않는다"고 한다. 첫 단계에서 실제 휴대폰으로 확인한다(§11 S0). 울리지 않으면 사용자에게 알리고 계속할지 다시 묻는다.
+> - `talk_message` 를 쓰려면 카카오 쪽 검수가 필요한지 확실하지 않다. 공식 표상 나에게 발송은 심사 전에도 제한이 없다. S0에서 함께 확인한다.
+> - 같은 공고를 짧은 시간에 반복 발송하면 어뷰징 제한(`400/-2`)이 걸렸다는 커뮤니티 보고가 있다. 원인은 확인되지 않았다.
+
+### 4.3 기존 구조에서 이어받는 것
+
+- 알림은 outbox → worker 소비 → `notifications` 행의 두 단계 멱등이다([[13-NOTIFICATIONS|13]]). `notifications.channel` 에 `KAKAO` 가 이미 있다([[04-DATABASE|04]] §4 `notification_channel`).
+- 분석 결과 저장은 RPC `finish_score_run(p)`(service_role 전용) 하나이고, 같은 트랜잭션에서 `ANALYSIS_COMPLETE` outbox를 쓴다(마이그레이션 `20261019000016`). 새 이벤트도 같은 자리에서 쓴다.
+- worker의 알림 소비자는 `web/worker/notify-outbox.ts`, 도메인은 `web/server/notifications`(`NOTIFY_EVENT_TYPES` 등)다.
+- 개인 설정 화면은 `web/app/account/account-settings.tsx`(절: 프로필·로그인 수단·비밀번호·세션·회원 탈퇴, `SettingsSection`)다.
+
+**코드에 아직 없는 것 (새로 만든다, 2026-10-20 검토로 확인)**
+
+- 카카오 발송 경로·mock provider·`NOTIFY_KAKAO_PROVIDER` 는 정본 문서에만 있고 코드·env 예시에는 없다. 소비자는 `channel: "IN_APP"`·`SENT` 고정이다(`web/server/notifications/outbox.model.ts:116-117`).
+- 지금 소비자는 이벤트 1건을 받는 사람 1명으로만 바꾼다. 조직 전원에게 펼치는 일은 하지 않는다고 적혀 있다(`outbox.model.ts:5-7`). 이 기능의 펼치기는 새 일이다.
+- 알림 처리 대상 이벤트 종류는 세 곳이 같아야 한다: `NOTIFY_EVENT_TYPES`(`outbox.model.ts:11`), 저장소의 `findDue` 조건, 부분 인덱스 `outbox_events_notify_due_idx`(`20261019000017:16-19`).
+- 알림 종류 목록은 세 곳에 있다: `outbox_events_event_type_check`(`20261019000006:100`), `notifications_type_check`(같은 파일 `:128`), 화면 zod enum(`web/server/bids/notification.model.ts:7-13`). zod 에서 빠지면 행이 목록에서 오류 없이 사라진다.
+- 인앱 알림 목록과 안 읽음 수는 channel 로 거르지 않는다(`web/server/bids/notification.supabase.ts:22`, `web/server/bids/dashboard.supabase.ts:57`). KAKAO 행이 `read_at` null 로 쌓이면 안 읽음 수가 부푼다.
+- `notifications` 는 `org_id` NOT NULL + `memberships(org_id, user_id)` FK 이고(`20261019000006:121,129-130`), 화면 계약은 `payload.bidId` 필수다(`notification.model.ts:18`).
+- `pnpm demo:reset` 은 조직의 `outbox_events`·`notifications` 를 지운다(`scripts/demo-reset.mjs`). 사용자 단위인 `kakao_notify_links` 는 남는다.
+
+## 5. 동작
+
+### 5.1 언제 보내나
+
+- `finish_score_run` 이 run을 `COMPLETED` 또는 `PARTIAL` 로 마감하고 `recommendation` 이 `BID` 또는 `WATCH` 이면, 같은 트랜잭션에서 outbox 이벤트 `BID_RECOMMENDED` 1건을 쓴다 **(설계 판단)**.
+  - **사람이 요청한 run(`requested_by` 있음)만 해당한다. 데모 사전 분석 run(`requested_by` null)은 보내지 않는다** **(추천안으로 확정, §12-2)**.
+    - 이유: `pnpm demo:reset` 이 조직의 outbox·알림을 지워 "처음 한 번"이 reset 마다 풀린다(§4.3). 리허설마다 사전 분석 18건의 BID·WATCH가 카톡으로 또 쏟아지고, 어뷰징 제한(§4.2) 위험도 생긴다.
+    - reset 뒤 사람이 다시 분석하면 다시 보낸다. 데모를 처음 상태로 되돌리는 것이 reset 의 뜻이므로 받아들인다.
+    - 녹화는 S4 라이브 분석(`FX-02`)으로 한 통을 받는 장면으로 한다([[19-DEMO-SCENARIO|19]]).
+    - 해커톤 뒤 새 공고 자동 분석이 생기면 이 조건을 다시 정한다.
+  - `idempotency_key` = `<orgId>:<bidId>:BID_RECOMMENDED`. 조직·공고마다 **처음 한 번**만 생긴다. 다시 분석해 다시 BID·WATCH가 나와도 새 이벤트가 없다. 처음 분석이 NO_BID였다가 나중에 BID가 나오면 그때 처음 생긴다.
+  - `aggregate_type` `score_run`, `aggregate_id` run id, payload `{ scoreRunId, bidId, orgId, recommendation, status }`.
+- `NO_BID`·`FAILED` 는 이벤트가 없다.
+- `PARTIAL`(규칙만 분석)도 보낸다. 메시지 설명 줄에 "AI 없이 규칙만으로 분석"을 붙인다 **(설계 판단)**.
+
+### 5.2 누구에게
+
+- 이벤트의 조직 구성원(`memberships`) 가운데, 카카오 알림이 **켜져 있고 연결 상태가 정상**이며 계정이 활성(`profiles.status = 'active'`)인 사람 전원이다. 역할은 가리지 않는다 **(설계 판단)**.
+- 받는 사람마다 `notifications` 행 1개: `channel=KAKAO`, `type=BID_RECOMMENDED`, `idempotency_key` = `<outboxEventId>:<userId>:KAKAO`. 같은 이벤트를 다시·동시에 처리해도 한 사람에게 한 통이다.
+- 받는 사람이 0명이면 알림 0건으로 outbox를 `PROCESSED` 로 닫는다.
+- 분석을 요청한 본인도 받는다 **(설계 판단)**. 데모를 한 계정으로 녹화하면 요청자와 수신자가 같은 사람이기 때문이다.
+- 인앱 알림은 이 이벤트로 만들지 않는다 **(설계 판단)**. 이 기능은 카톡을 켠 사람을 위한 것이다.
+- 인앱 알림 목록과 안 읽음 수는 `channel = 'IN_APP'` 만 센다. 두 조회(§4.3)에 조건을 더한다.
+
+### 5.3 메시지 (피드형, U7)
+
+| 피드 필드 | 값 | 한도 |
+|---|---|---|
+| `content.title` | 공고명 | 제목+설명 4줄 안. 길면 자른다 |
+| `content.description` | `BID 권고 · <사유 한 줄>` 또는 `WATCH 권고 · <사유 한 줄>`. PARTIAL이면 뒤에 ` · AI 없이 규칙만으로 분석` | 같음 |
+| `item_content.items[0]` | `발주처` / 수요기관명 | `item` 6자, `item_op` 25자 |
+| `items[1]` | `마감` / `10-30(금) 18:00 · D-10` | 같음 |
+| `items[2]` | `추정금액` / `12.4억` (없으면 `미공개`) | 같음 |
+| `items[3]` | `점수` / SOL Score 숫자 | 같음 |
+| `buttons[0]` | `분석 보기` → `<앱 주소>/bids/<bidId>` | 2개까지 |
+| `buttons[1]` | `공고 원문` → 공고의 원문 주소 | §5.3 아래 |
+| `content.link` | `buttons[0]` 와 같은 주소 | 필수 |
+
+- 시안의 색 배지("BID 권고")는 카카오 피드에서 그릴 수 없다. 설명 줄의 앞머리 글자로 대신한다.
+- **사유 한 줄**은 규칙 결과에서 만든다. 예: 필수 자격 판정 요약("필수 자격 충족" / "확인 필요 2건")과 실적 요소("유사 실적 3건"). 어느 필드에서 어떻게 고를지는 빌더가 [[08-SCORING|08 스코어링]]의 결과 구조를 보고 정한다. AI 서술은 쓰지 않는다.
+- 이미지는 넣지 않는다(필수 아님).
+- 메시지는 "나와의 채팅"에 들어오므로 보낸 사람은 본인으로 보인다. 첫 줄 구분을 위해 제목 앞에 붙임말은 넣지 않는다 **(설계 판단)**. 시안 그대로다.
+- **공고 원문 버튼**: 원문 주소의 도메인(나라장터 등)을 카카오 앱 웹 도메인에 등록할 수 있으면 원문으로 보낸다. 등록할 수 없으면 두 버튼 모두 SOL RADAR 상세로 보내고 둘째 버튼은 상세의 원문 링크 자리로 연다 **(설계 판단)**. S0에서 확인한다.
+- 링크 주소는 서버 env의 앱 주소에서 만든다. 데모 영상은 휴대폰이 열 수 있는 주소여야 버튼이 동작한다. 로컬(`localhost`)이면 메시지는 오지만 버튼은 휴대폰에서 열리지 않는다. 영상에서는 메시지 수신까지만 보여 줘도 된다(U10).
+
+### 5.4 여러 건 · 속도
+
+- 건마다 따로 보낸다(U9). 사전 분석처럼 한꺼번에 여러 건이 나오면 한 사용자에게 **1초에 1통**을 넘지 않게 순서대로 보낸다 **(설계 판단)**. 커뮤니티의 어뷰징 제한 보고 때문이다.
+
+### 5.5 실패와 연결 만료
+
+- 보내기 전에 액세스 토큰이 5분 안에 만료되면 먼저 갱신한다. 갱신 응답에 새 `refresh_token` 이 있으면 그것으로 바꾼다.
+- 카카오가 토큰 오류를 돌려주면 한 번 갱신하고 한 번 다시 보낸다. 갱신도 실패하면(리프레시 만료·동의 철회) 연결 상태를 `EXPIRED` 로 바꾸고, 그 알림 행은 바로 `DEAD` 다. 다시 해도 같기 때문이다.
+- 연결이 `EXPIRED` 로 **바뀌는 순간 한 번** 인앱 알림을 보낸다(시안 ④ "앱 안 알림으로도 알려 드립니다"). 종류 `KAKAO_EXPIRED`, 문구 "카카오 연결이 만료되어 카카오톡 알림을 보내지 못하고 있습니다. 설정에서 다시 연결해 주세요." **(설계 판단)**
+  - 만료는 `BID_RECOMMENDED` 를 보내다 알게 된다. 그래서 이 인앱 알림은 그 이벤트의 조직·공고에 붙인다(`org_id`·`payload.bidId` 가 있으니 `notifications` FK와 화면 계약을 그대로 만족한다). 링크는 `/settings`(개인 설정으로 넘겨 주는 기존 경로)다.
+  - 키 `<outboxEventId>:<userId>:KAKAO_EXPIRED:IN_APP`. 한 번 바뀔 때 한 건이다.
+  - 시험 메시지에서 만료를 알게 되면 인앱 알림을 만들지 않는다. 사용자가 설정 화면을 보고 있으므로 칸 ④로 충분하다.
+- **재시도 단위는 받는 사람 한 명(알림 행 하나)이다** **(설계 판단)**.
+  - 이미 `SENT` 인 사람에게는 다시 보내지 않는다. 이벤트를 다시 처리해도 남은 사람에게만 보낸다.
+  - 보내기 전에 실패가 분명한 경우(연결 실패, 5xx, 429)는 지금 알림 소비자와 같은 간격(5·10·20·40초, 5번째 실패면 `DEAD`)으로 다시 보낸다.
+  - **결과가 불분명한 실패(요청을 보낸 뒤 시간 초과)는 다시 보내지 않는다(최대 한 번).** 카카오가 이미 보냈을 수 있어서다. 두 통이 가면 어뷰징 제한(§4.2) 위험이 있고, 한 통이 빠져도 공고는 웹에 남는다. 그 행은 `DEAD`(오류 이름 `TIMEOUT_UNKNOWN`)로 닫는다.
+  - 이 규칙을 지키는 방법(알림 행에 시도 수·다음 시각 열을 더할지, 이벤트 단위 재시도 안에서 행 상태로 걸러 낼지)은 빌더가 정한다.
+- 카카오 오류 코드(예: 토큰 무효, 동의 부족)의 정확한 값과 분류는 빌더가 카카오 문서로 확인해 표로 고정한다.
+- 로그는 지금 규칙대로 이벤트마다 JSON 한 줄(`outboxEventId`·종류·결과·시도 수·오류 이름)이다. 토큰·본문·공고명·카카오 사용자 ID는 싣지 않는다.
+
+## 6. 카카오 연결 (설계 판단)
+
+Supabase 간편 로그인과 **따로** 카카오 인가를 한 번 더 받는다.
+
+**왜 따로인가**
+
+1. worker가 사용자가 없는 동안에도 보내려면 리프레시 토큰을 서버에 보관해야 한다. Supabase Auth는 제공자 토큰을 보관해 주지 않는다. 로그인 콜백 순간에만 받을 수 있어, 로그인할 때마다 덮어쓰고 만료를 관리하는 일이 로그인 흐름에 섞인다.
+2. 카카오로 로그인하지 않는 사용자(이메일 가입)도 카톡 알림을 켤 수 있어야 한다.
+3. 간편 로그인의 카카오 제공자 설정은 해커톤 후순위다(ADR-018). 이 기능이 그 일정에 묶이지 않는다.
+
+**흐름**
+
+1. 설정 칸 ①에서 "카카오 연결하기"를 누른다. 버튼 이름은 로그인 수단 절의 카카오 연결과 헷갈리지 않게 "카카오톡 알림 연결"로 한다.
+2. Route Handler가 `state`(CSRF 방지, 짧은 수명, 서버에서 검증할 수 있는 값)를 만들고 `kauth.kakao.com/oauth/authorize?...&scope=talk_message` 로 보낸다.
+3. 카카오 동의 화면에서 "카카오톡 메시지 전송"에 동의한다.
+4. 콜백 Route Handler가 `state` 를 확인하고, 코드를 토큰으로 바꾸고, 응답의 `scope` 에 `talk_message` 가 있는지 확인한다. 없으면 연결하지 않고 "메시지 전송에 동의해야 켤 수 있습니다"를 보인다.
+5. 토큰을 서버에서 암호화해 RPC로 본인 행에 저장한다(§7). 연결과 동시에 켬 상태로 둔다(사용자는 켜려고 연결했다).
+6. 설정 화면으로 돌아와 ③ 상태가 된다. "시험 메시지 보내기"를 권한다.
+
+**끄기와 탈퇴**
+
+- 끄면 켬 상태만 끈다(시안 ②). 연결은 남아 있어 다시 켤 때 동의를 다시 받지 않는다.
+- ②에 작은 [연결 해제] 버튼을 둔다. 누르면 토큰을 지우고 ①로 돌아간다 **(설계 판단: 시안에 없던 버튼. 쓰지 않을 토큰을 사용자가 지울 수 있게)**.
+- 카카오 `unlink` 는 부르지 않는다. 같은 카카오 앱을 간편 로그인에도 쓰면 로그인 연결까지 끊기기 때문이다(§4.2).
+- 회원 탈퇴 시 행이 같이 지워진다(FK on delete cascade).
+
+**카카오 앱 설정 (사용자가 함)**
+
+- 카카오 디벨로퍼스에 앱을 하나 만든다(간편 로그인과 같은 앱을 써도 된다). 카카오 로그인 활성화, Redirect URI에 콜백 주소 등록, 동의항목 "카카오톡 메시지 전송(talk_message)" 선택 동의로 켜기, 플랫폼 웹 도메인에 앱 주소(+원문 도메인) 등록, 클라이언트 시크릿 발급.
+- 값(REST API 키·시크릿)은 사용자가 서버 env 파일에 직접 넣는다. 키 이름은 빌더가 `.env.example`·`infra/env/*.env.example` 에 적는다.
+
+## 7. 데이터
+
+새 마이그레이션 파일로만 쓴다. 이름·번호는 빌더가 정한다.
+
+**표 `kakao_notify_links`** (사용자 개인 설정이라 조직 표가 아니다. `profiles` 처럼 `user_id` 로 소유한다)
+
+| 열 | 내용 |
+|---|---|
+| `user_id` | PK, FK profiles(on delete cascade) |
+| `enabled` | boolean, 기본 false |
+| `status` | `CONNECTED`·`EXPIRED` (check) |
+| `access_token_enc`·`refresh_token_enc` | 서버에서 암호화한 값(text). 평문을 DB에 두지 않는다 |
+| `access_expires_at`·`refresh_expires_at` | 카카오 응답의 초 값으로 계산 |
+| `last_sent_at`·`last_result` | 마지막 발송 시각과 결과(`SENT`·`FAILED`·`EXPIRED`). 설정 칸 ③의 "마지막 발송" 줄 |
+| `created_at`·`updated_at` | |
+
+- **RLS·권한**: 화면 역할은 본인 행(`user_id = auth.uid()`)만 읽고, 열 단위 권한으로 `enabled`·`status`·`last_sent_at`·`last_result`·`updated_at` 만 읽는다. 토큰 열은 화면 역할이 읽지 못한다. 쓰기는 아래 `security definer` RPC 넷으로만 한다 **(설계 판단)**.
+  - `request_kakao_notify_test()`: 시험 메시지. 화면 역할은 `outbox_events` 에 권한이 없으므로(`20261019000006:213`) 이 RPC가 본인 것만 outbox에 넣는다(§9). 본인 행이 `CONNECTED`·켬이 아니면 거절.
+  - `save_kakao_notify_link(...)`: 콜백이 부른다. 본인 행에 암호문·만료·`CONNECTED`·`enabled=true` 를 넣거나 바꾼다.
+  - `set_kakao_notify_enabled(p_enabled boolean)`: 켜기·끄기. 본인 행이 `CONNECTED` 일 때만 켤 수 있다.
+  - `disconnect_kakao_notify()`: 연결 해제. 본인 행의 `enabled=false`, 토큰 열을 지운다.
+  - worker(service role)는 읽기·상태·토큰 갱신을 한다.
+- **암호화**: 앱 쪽 AES-256-GCM, 키는 서버 env(`KAKAO_TOKEN_ENC_KEY` 같은 이름, 웹 서버·worker만) **(설계 판단)**. 키를 바꾸는 절차는 이번에 만들지 않는다(바꾸면 모두 다시 연결).
+- **이벤트 종류**: `BID_RECOMMENDED`·`KAKAO_EXPIRED`·`KAKAO_TEST` 를 §4.3의 세 곳(check 둘 + zod enum)에 더하고, 알림 처리 대상 세 곳(`NOTIFY_EVENT_TYPES`·`findDue`·부분 인덱스)에도 더한다. `KAKAO_TEST` 는 outbox에만 쓰고 `notifications` 행은 만들지 않는다(결과는 `last_result`). [[04-DATABASE|04]] §4 `notification_type` 도 같이 늘린다.
+- **`finish_score_run`**: 새 마이그레이션에서 `create or replace` 로 §5.1의 outbox 쓰기를 더한다. 나머지는 `20261019000016` 과 같다.
+- **정책 시험**: `scripts/database.test.mjs` 에 본인 행만 보임, 토큰 열 읽기 거부, 남의 행 RPC 불가, anon 거부를 더한다.
+
+## 8. worker
+
+- 알림 소비자(`web/worker/notify-outbox.ts`)가 `BID_RECOMMENDED`·`KAKAO_EXPIRED` 도 읽는다.
+- 발송 수단은 env `NOTIFY_KAKAO_PROVIDER` 로 고른다: `mock`(기본, 외부 호출 없이 즉시 성공) · `memo`(나에게 보내기 실발송) **(설계 판단)**. 정본 13은 mock을 적어 두었지만 코드에는 없으므로 mock도 새로 만든다(§4.3). 시험·CI는 `mock` 이다. 실발송은 사용자가 env를 `memo` 로 바꿀 때만 일어난다.
+- 펼치기(이벤트 1건 → 켠 구성원 N명의 알림 행)는 새로 만든다(§4.3).
+- 카카오 호출은 서버 도메인 안의 작은 클라이언트(발송·토큰 갱신)로 둔다. 시간 초과를 두고, 응답 본문을 로그에 싣지 않는다.
+- 카카오 REST API 키·시크릿·암호화 키는 worker와 웹 서버 env에만 둔다. **ADR-018은 간편 로그인 제공자의 Client ID·Secret을 Supabase 쪽에만 두라고 한다.** 이 기능은 그 예외다(§13 ADR).
+
+## 9. 화면
+
+- 위치: 개인 설정의 "로그인 수단" 바로 아래 새 절 "카카오톡 알림"(U8).
+- 상태 4개(시안과 같음):
+  1. **연결 전**: 스위치 비활성 + "카카오 계정을 먼저 연결해야 켤 수 있습니다." + [카카오톡 알림 연결]
+  2. **연결됨·꺼짐**: 스위치 끔 + [연결 해제](§6). 시안의 문구 "켜면 카카오 화면에서 동의를 한 번 묻습니다"는 ①의 안내 문구로 옮긴다. 동의는 연결할 때 받기 때문이다 **(설계 판단)**.
+  3. **켜짐**: 스위치 켬 + "마지막 발송: <시각> · <결과>" + [시험 메시지 보내기]
+  4. **연결 만료**: 스위치 켬 + 경고 문구 + [다시 연결]
+- 설명 문구: "추천 공고(BID·WATCH 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."
+- **시험 메시지 보내기**: 본인에게 고정 문구의 피드 한 통을 보낸다. 실발송 경로가 하나이도록 worker를 거친다(RPC `request_kakao_notify_test()` → outbox `KAKAO_TEST`(`org_id` null), 키 `<userId>:<분 단위 시각>:KAKAO_TEST` 로 1분에 한 번) **(설계 판단)**. `notifications` 행은 만들지 않고 결과는 `last_result` 로 칸에 보인다(새로고침 또는 짧은 polling, 빌더가 고름).
+- 콜백 결과(성공·동의 거부·state 불일치)는 설정 화면의 알림 문구로 보인다. 로그인 수단 절의 연결 결과 표시 방식을 따른다.
+- 스위치·버튼은 기존 shadcn 부품을 쓴다. 노란 버튼은 `kakao` 토큰.
+
+## 10. API
+
+`/api/v1/me/kakao-notify` 아래에 둔다(이름은 빌더가 기존 `me` 경로 관례에 맞춘다). zod 계약, 세션 쿠키 + 상태 변경에 `X-Requested-With: sol-radar`, 남의 것은 없다(본인 것만).
+
+| 메서드 | 경로 | 하는 일 |
+|---|---|---|
+| GET | `/me/kakao-notify` | `{ enabled, status, lastSentAt, lastResult }` |
+| GET | `/me/kakao-notify/connect` | `state` 를 만들고 카카오 인가 주소로 보낸다 |
+| GET | `/me/kakao-notify/callback` | §6 4~6 |
+| PATCH | `/me/kakao-notify` | `{ enabled }` 켜기·끄기. 연결 전이면 409 |
+| DELETE | `/me/kakao-notify` | 연결 해제(§6) |
+| POST | `/me/kakao-notify/test` | 시험 메시지 이벤트를 쌓는다. 연결·켬 상태가 아니면 409 |
+
+`Notification.type`([[05-API-SPEC|05]] §4.6)에 `BID_RECOMMENDED`·`KAKAO_EXPIRED` 를 더한다. 인앱 목록·안 읽음 수가 `channel = 'IN_APP'` 만 보도록 조회를 고치므로(§5.2), 목록에 나타나는 새 종류는 `KAKAO_EXPIRED` 하나다.
+
+## 11. 시험과 증거
+
+- **S0 (가장 먼저, 코드 전)**: 사용자 휴대폰으로 카카오 앱 하나를 만들어 나에게 보내기 한 통을 보낸다. 확인할 것 — 휴대폰 알림이 울리는가, `talk_message` 가 검수 없이 되는가, 피드 B형(`item_content`)이 시안처럼 보이는가, 원문 도메인을 웹 도메인에 등록할 수 있는가. 결과를 `docs/evidence/` 에 적는다. **알림이 울리지 않으면 여기서 멈추고 사용자에게 묻는다.**
+- 단위 시험(Vitest): 피드 변환(글자 한도·자르기·PARTIAL 문구·추정금액 없음), 받는 사람 고르기(켬·연결·활성·같은 조직만), 두 단계 멱등(같은 공고 두 번 분석 → 이벤트 1건, 같은 이벤트 두 번 처리 → 한 사람 한 통), 토큰 갱신·만료 분류, `EXPIRED` 로 바뀔 때 인앱 1건, 로그에 토큰·본문 없음.
+- DB 정책 시험(PGlite): §7.
+- 수동 실발송 1회: `NOTIFY_KAKAO_PROVIDER=memo` 로 실제 분석 한 건 → 휴대폰 수신을 녹화해 `docs/evidence/` 에 둔다(U10).
+- 화면: 설정 칸 4상태를 1440·1280 두 폭에서 확인한다.
+- 시험이 정말 실패할 수 있는지 변형 확인을 한다(테스트 에이전트 규칙).
+
+## 12. 추천안으로 확정한 것 · 남은 위험
+
+2026-10-20 검토에서 남은 질문 둘은 사용자 지시(조정 세션 sol-radar-12 전달: "질문이 남으면 추천안대로 확정해 진행")에 따라 추천안으로 확정했다. 사용자가 고칠 수 있다.
+
+1. **일정 위치 (확정)**: 확장 컷 맨 앞에 둔다. 핵심 컷과 같은 파일(`web/server/notifications`, `finish_score_run`, 알림 목록 조회)을 고치므로 핵심 컷 병합 뒤 착수하고, 기능 freeze(10-23) 전에 끝낸다. S0을 맨 먼저 한다. 10-23까지 못 끝내면 해커톤에서는 빼고 이 문서와 ADR만 남긴다.
+2. **사전 분석 발송 (확정)**: 보내지 않는다. 사람이 요청한 분석만 보낸다(§5.1).
+3. 알림 울림·검수 필요 여부(§4.2 미검증). S0에서 울리지 않으면 멈추고 사용자에게 묻는다.
+4. 카카오 정책: 나에게 보내기를 서비스 알림에 쓰는 것은 카카오 안내와 다르다. 해커톤 시연용으로만 쓰고 운영 전환은 알림톡(사업자·비즈니스 채널·딜러사·템플릿 검수)이다. 발표·제출물에서 이렇게 밝힌다.
+5. 외부로 나가는 데이터: 공고 공개 정보와 함께 조직 내부 값(권고·점수·규칙 사유)이 카카오 서버를 거쳐 본인 카톡에 저장된다. [[09-SECURITY|09]]에 적는다.
+6. 사용자가 할 일: 카카오 디벨로퍼스 앱 만들기와 설정(§6 "카카오 앱 설정"), 키를 서버 env에 넣기, S0 시험 수신. 이 작업 세션은 카카오 API 호출·키 발급·외부 계정 연동을 하지 않는다.
+
+## 13. 정본 반영안 (파일·절 단위)
+
+정본 수정은 정본 담당 세션과 아래 절 목록을 맞춘 뒤 한다. ADR 번호는 그 세션이 정한다(ADR-035·036은 다른 작업이 예약).
+
+| 파일 | 절 | 바꿀 내용 |
+|---|---|---|
+| [[16-DECISIONS]] | 결정 표 + 상세 절 | **새 ADR**: "카카오톡 추천 공고 알림 — 해커톤 실발송은 나에게 보내기". 내용: U1~U10, ADR-006 개정(해커톤 동작이 "mock만"에서 "`memo` 실발송, 기본 `mock`"으로), ADR-018 예외(카카오 REST 키·시크릿·암호화 키를 웹 서버·worker env에), 운영 전환 조건(알림톡: 사업자·비즈니스 채널·딜러사·템플릿 검수), 카카오 정책 위험. ADR-006 행 상태에 "개정(ADR-0xx)". 미결정 5번에 "해커톤은 나에게 보내기로 대체, 비즈메시지는 운영 전환 때" 추가 |
+| [[01-PRD]] | 범위 표 "제외" 줄, FR-09 행 | "카카오톡 실발송(mock provider만)" → "카카오 알림톡(사업자 필요)". FR-09: 해커톤은 나에게 보내기로 추천 공고(BID·WATCH)만, 설정에서 ON/OFF |
+| [[13-NOTIFICATIONS]] | 해커톤 범위 콜아웃, 이벤트 표, 발송 수단 줄, 새 절 | 콜아웃 고침. 이벤트 표에 `BID_RECOMMENDED`·`KAKAO_EXPIRED`·`KAKAO_TEST` 행. 새 절 "카카오톡 추천 공고(나에게 보내기)": §5·§6·§8 요약. "알림톡은 승인된 템플릿에 허용 변수만" 규칙은 운영 경로로 그대로 둔다 |
+| [[04-DATABASE]] | 표 목록, §4 ENUM `notification_type`, `outbox_events` 키 목록·부분 인덱스, §3 RPC | `kakao_notify_links` 행, 새 종류 3개, 키 `<orgId>:<bidId>:BID_RECOMMENDED`, 인덱스 조건, RPC 2개, `finish_score_run` 설명 |
+| [[05-API-SPEC]] | "범위 밖" 줄, §4.6 `Notification`, 새 절 | "카카오 발송 설정" 범위 밖에서 뺌. type 합집합에 2개. `/me/kakao-notify` 5개 |
+| [[06-UI-UX]] | 개인 설정 화면 절, 알림 화면 "권한" 줄 | "카카오톡 알림" 절과 상태 4개. 알림 줄 "카카오는 mock" 고침 |
+| [[09-SECURITY]] | 비밀값, 외부 전송, 토큰 보관 | 카카오 비밀값 위치, 토큰 암호화·열 권한, state 검증, 외부로 나가는 값 목록, 로그 금지 |
+| [[10-DEPLOYMENT]] | env 표, 외부 설정 | `NOTIFY_KAKAO_PROVIDER`·카카오 키 이름, 카카오 앱 설정 절차(Redirect URI·웹 도메인·동의항목) |
+| [[12-ROADMAP]] | 해커톤 컷 표·병렬 순서, "해커톤 이후" 칸, Phase 8 | §12-1 결정에 따라 새 행. "카카오 실발송" → "카카오 알림톡 운영 전환" |
+| [[18-HACKATHON]] | §3.2.1 표 ③, §4 실용성 행, 범위 표 "카카오톡 알림" | "인앱(카카오는 mock)" → "인앱 + 카카오톡(나에게 보내기)". 범위 표 "범위 외(mock)" 고침. "ERP 실연동·카카오 실발송은 범위 밖" 문장 고침 |
+| [[11-TESTING]] | 골든 표 또는 계약 기준 | 카카오 멱등·수신자 시험 행(번호는 정본 세션) |
+| [[19-DEMO-SCENARIO]] | 영상 장면 | 녹화 장면 하나(휴대폰 수신). 라이브 발표 흐름은 바꾸지 않는다(U10) |
+| [[20-GLOSSARY]] | 용어 | "나에게 보내기", "카카오톡 알림 연결", "추천 공고" |
+| `design/tokens.json` | `$comment` | `kakao` 토큰을 "카카오톡 알림 연결" 버튼에도 쓴다고 적는다(생성물 `pnpm tokens`) |
+| `docs/submission/limitations.md` | 범위 밖 문단 | "카카오톡 실발송" → "카카오 알림톡(운영 전환)" + 나에게 보내기 한계(알림 정책·울림) |
+| [[PROGRESS]] | 작업 로그 | 이 설계와 구현 결과 |
+
+## 14. 빌더에게 맡기는 것
+
+- 마이그레이션 번호·파일 나눔, RPC 인자 모양, 도메인 폴더 이름(`web/server/notifications` 안에 둘지 새 도메인으로 뺄지).
+- 사유 한 줄을 규칙 결과의 어느 필드에서 만들지(§5.3, AI 서술 금지만 지키면 된다).
+- 카카오 오류 코드 분류표, 시간 초과 값, 1초 1통을 지키는 방법.
+- `state` 를 만들고 검증하는 방법(서명 쿠키 등), 콜백 결과 표시 방식.
+- 시험 메시지 결과를 화면에 반영하는 방법(새로고침·polling).
+- 구현 단계 나누기와 단계별 완료 기준(계획 문서에서).
+
+## 출처 (2026-10-20 확인)
+
+- [카카오 메시지 REST API](http://developers.kakao.com/docs/ko/kakaotalk-message/rest-api)
+- [카카오 메시지 공통 안내(쿼터 표)](http://developers.kakao.com/docs/ko/kakaotalk-message/common)
+- [카카오 메시지 FAQ](https://developers.kakao.com/docs/ko/kakaotalk-message/faq)
+- [카카오 기본 템플릿(피드)](http://developers.kakao.com/docs/ko/message-template/default)
+- [카카오 로그인 REST API(인가·토큰·갱신·연결 끊기)](http://developers.kakao.com/docs/ko/kakaologin/rest-api)
+- [devtalk: 나에게 보내기 알림·발송 제한 답변](https://devtalk.kakao.com/t/topic/125990)
+- [devtalk: 나에게 보내기 400/-2 실패 사례](https://devtalk.kakao.com/t/api-100-400-2/150538)
+- [비즈고: 알림톡 조건·비용](https://blog.bizgo.io/howto/alim-talk-basic)
+
+## 관련 문서
+
+- [[13-NOTIFICATIONS|13 알림]]
+- [[16-DECISIONS|16 ADR]]
+- [[04-DATABASE|04 DB]]
+- [[05-API-SPEC|05 API]]
+- [[06-UI-UX|06 UI]]
+- [[09-SECURITY|09 보안]]
+- [[18-HACKATHON|18 해커톤]]
