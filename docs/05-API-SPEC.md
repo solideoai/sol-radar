@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -47,7 +47,7 @@ updated: 2026-10-20
 |GET|`/bids/:id/documents/:docId/download`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 첨부 다운로드|`302` → 60초 presigned URL([[09-SECURITY\|09 보안]])|
 |GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|현재 프로필(최신 revision)|`CompanyProfile`|
 |GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 이력|`CompanyProfileSummary[]`|
-|PUT|`/company-profile`|`ADMIN`|새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
+|PUT|`/company-profile`|`ADMIN`|**(미구현)** 새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
 |POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기). 중복·큐 계약은 §4.5|`AnalysisRequest` → `202 AnalysisAccepted`|
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
@@ -81,7 +81,7 @@ updated: 2026-10-20
 |GET|`/admin/ai/eval-runs`|`ADMIN`|**(미구현)** 평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
 |GET|`/admin/ai/eval-runs/:id`|`ADMIN`|**(미구현)** 평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
 
-**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개는 다른 브랜치에서 구현 중이라 이 정리에서 뺐다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다.
+**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개 가운데 `GET /company-profile`·`GET /company-profile/revisions`는 main `bf16806`(2026-10-20, `feat/company-read`)로 들어왔고 `PUT /company-profile`(새 revision 저장)은 **(미구현)**이다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다.
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
@@ -509,7 +509,7 @@ interface PeoplePage {
 |409|`PROFILE_REVISION_CONFLICT`|`baseRevision` ≠ 최신|`{currentRevision}`|
 |409|`ANALYSIS_IN_PROGRESS`|같은 입력의 run이 `QUEUED`/`RUNNING`인데 `force=true`|`{analysisId}`|
 |409|`IDEMPOTENCY_KEY_REUSED`|같은 키, 다른 본문|—|
-|409|`INGESTION_IN_PROGRESS`|`POST /admin/ingestion/runs`에서 같은 소스의 `ingest_runs` 행이 `RUNNING`. 멱등 재현(같은 키·같은 본문이면 첫 202) 뒤에 판정하고, 큐에만 있는 job은 막지 않는다. 오래 남은 `RUNNING` 행의 정리 규칙은 [[16-DECISIONS\|16 ADR]] 미결정 25번|`{runId}`|
+|409|`INGESTION_IN_PROGRESS`|`POST /admin/ingestion/runs`에서 같은 소스의 `ingest_runs` 행이 `RUNNING`. 멱등 재현(같은 키·같은 본문이면 첫 202) 뒤에 판정하고, 큐에만 있는 job은 막지 않는다. 오래 남은 g2b `RUNNING` 행은 운영자 명령 `pnpm ops:close-stale-runs`로 닫는다([[07-DATA-PIPELINE\|07]] §2.7, [[16-DECISIONS\|16 ADR]] 미결정 25번)|`{runId}`|
 |409|`PROJECT_REQUIRES_BID_DECISION`|P1. `POST /projects`의 `reviewId`가 BID 결정이 아님([[16-DECISIONS\|ADR-021]])|`{reviewId}`|
 |409|`LATEST_DECISION_NOT_BID`|P1. 입찰 프로젝트를 연 뒤 최신 결정이 BID가 아니어서 상태 전진을 막음. 자동 종료하지 않는다([[16-DECISIONS\|ADR-021]])|`{bidId, latestDecision}`|
 |409|`RUN_MODE_MISMATCH`|`POST /admin/ingestion/runs`의 `source`가 현재 실행 모드(`SOL_RUN_MODE`)와 맞지 않음(`live`에 `fixture`, `fixture`·`mock`에 `g2b`). 서버가 조용히 소스를 바꾸지 않는다([[16-DECISIONS\|ADR-020]])|`{runMode, source}`|

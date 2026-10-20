@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -20,7 +20,7 @@ updated: 2026-10-20
 - **RLS**: 모든 표는 만드는 즉시 `enable row level security`를 켠다. 화면 역할(`anon`, `authenticated`)의 권한은 `revoke all` 뒤 필요한 것만 다시 준다(열 단위 권한 포함). 행은 정책으로만 연다. 정책 시험은 `scripts/database.test.mjs`(PGlite, `pnpm test:db`)에 더한다.
 - **접근 경로는 두 가지다.**
   1. Next 요청 처리(Route Handler `/api/v1`, Server Component, Server Action): 사용자 세션(anon 키 + 로그인 쿠키, 스크립트는 `Authorization: Bearer <Supabase access token>`)으로 DB를 부른다. 권한은 RLS가 정한다.
-  2. worker(`web/worker`)와 seed 스크립트(`pnpm demo:reset`): `SUPABASE_SERVICE_ROLE_KEY`로 부른다. service role은 RLS를 무시한다. 그래서 worker는 `org_id`를 직접 지정하고, 복합 외래 키(§5)와 테넌트 혼입 시험으로 막는다. service role 키는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다([[09-SECURITY|09 보안]]).
+  2. worker(`web/worker`)와 seed 스크립트(`pnpm demo:reset`), 운영자 스크립트(`pnpm ops:close-stale-runs`, [[16-DECISIONS|16 ADR]] 미결정 25번. seed 스크립트와 같은 지위의 로컬 명령): `SUPABASE_SERVICE_ROLE_KEY`로 부른다. service role은 RLS를 무시한다. 그래서 worker는 `org_id`를 직접 지정하고, 복합 외래 키(§5)와 테넌트 혼입 시험으로 막는다. service role 키는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다([[09-SECURITY|09 보안]]).
 - **조직 데이터**(프로필, 점수, 검토, 인력, 알림, 감사)는 `org_id`를 가지며 정책 `org_id in (select public.my_org_ids())`로 거른다. 요청 본문·쿼리의 조직 ID는 쓰지 않는다. 다른 조직의 행은 보이지 않으므로 API는 `404`를 낸다. 서비스 운영자(`profiles.is_admin`)도 남의 조직 데이터는 읽지 못한다. 정지된 사용자에게는 `my_org_ids()`가 빈 목록을 돌려준다(템플릿).
 - **공고**(`bid_notices`, `bid_revisions`, `bid_documents`, `bid_structured_requirements`, `requirement_extractions`)는 공용이다. `org_id`가 없고, 로그인한 사용자는 읽기만 하며, 쓰기는 worker(service role)만 한다. 나라장터에서 수집한 live 공고(`source`=`g2b-*`, `is_demo=false`)와 fixture 공고(`source=fixture`, `is_demo=true`)가 같은 표에 함께 있을 수 있고, 둘은 `source`와 `is_demo`로 구분한다([[16-DECISIONS|ADR-020]]).
 - 원본 공고는 `bid_revisions`로 버전화한다. 외부 공고는 `source + notice_id`로 유일하고, 내용이 바뀌면 revision이 늘어난다. 기존 revision은 수정·삭제하지 않는다.
@@ -83,7 +83,7 @@ erDiagram
 
 ## 3. 테이블
 
-각 표의 `RLS` 칸에서 "조직 전원"은 `org_id in (select public.my_org_ids())`, "역할 X"는 그 조직에서 `memberships.sol_role`이 X인 사용자다(도우미 함수는 §3.1). "worker"는 service role로 쓰는 worker·seed 스크립트다. 표기가 없는 쓰기는 화면 역할에 권한이 없다는 뜻이다.
+각 표의 `RLS` 칸에서 "조직 전원"은 `org_id in (select public.my_org_ids())`, "역할 X"는 그 조직에서 `memberships.sol_role`이 X인 사용자다(도우미 함수는 §3.1). "worker"는 service role로 쓰는 worker·seed·운영자 스크립트다. 표기가 없는 쓰기는 화면 역할에 권한이 없다는 뜻이다.
 
 ### 3.1 조직·사용자 (템플릿 재사용)
 

@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - ops
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 22. 회사 GPU 파인튜닝 실행서: Bosun v3.1 0.6B LoRA (Qwen 은 회사 API, 학습 없음)
@@ -295,9 +295,9 @@ bash infra/gpu/bosun-f1.sh --max_steps 20 \
 
 **F1-D 측정과 합격 조건** — 칸마다 `bosun-f1.sh` 가 `runs/<run>.summary.md` 와 `runs/f1-results.md` 에 적는다: 물리 GPU index(+uuid), PyTorch·transformers·peft 버전, `sol_decision` git commit, Bosun snapshot 리비전·어댑터 sha256, GPU 최대 메모리 두 값(`torch.cuda.max_memory_allocated`, nvidia-smi `memory.used` 전체 최대 — PaddleOCR·서빙 포함), 평균 step 시간(wall), 학습된 레코드 수, OOM 여부, 패키지 저장 여부(어댑터 sha256)·재로딩 뒤 `predict` 동작, 로그 경로. 합격은 네 조건 전부다: OOM 없음 · 20 step 완료 · GPU 전체 최대 ≤ B1 기준 · 저장·재로딩. 합격선 숫자는 계획 §8 합계 + 여유로 B1 에서 정하고 이 문서는 정하지 않는다(Kev 판의 41,000 MiB 는 전용 전제라 쓰지 않는다). **20 step PASS 만으로 F2 준비 완료라고 적지 않는다.** 21 §7 의 데이터 보고 항목(클러스터 수·변형 수·질문 수·라벨 출처 비율·의미 판단 HUMAN 수·요구사항 유형 분포)도 F2 전에 채운다.
 
-F1 이 전부 실패하면 이 순서로 검토하고 결과를 사용자에게 보고한다. ①~③ 은 같은 모델·같은 LoRA 구조 안의 조정이라 바로 해 본다. ④ 이후는 **사용자 승인 대상**이고 자동으로 넘어가지 않는다.
+F1 이 전부 실패하면 이 순서로 검토하고 결과를 사용자에게 보고한다. ①·② 는 같은 모델·같은 LoRA 구조 안의 조정이라 바로 해 본다. ③ 은 멈추고 보고하는 단계이고 그다음은 사람이 정한다. ④ 는 **사용자 승인 대상**이다. 어느 단계도 자동으로 넘어가지 않는다.
 
-① 불필요하게 긴 state 제거·구조 개선(`pastPerformance` 상한) ② batch 1·accum 늘리기·gradient checkpointing 확인 ③ 학습 시간대에 `sol_decision.serve`(8009)를 잠시 내려 메모리 확보(회사가 내린다. 우리가 끄지 않는다. PaddleOCR 는 대상이 아니다. 그 시간에는 S-LIVE 리허설을 잡지 않는다) ④ 다중 GPU·클라우드 GPU 임대(ADR-010)·GPU 0·2 사용은 모두 **사용자 승인 대상**이고, GPU 0·2 는 어떤 경우에도 쓰지 않는다. Kev-4B 전환 같은 모델 변경 경로는 이 문서에 없다.
+① 불필요하게 긴 state 제거·구조 개선(`pastPerformance` 상한) ② batch 1·accum 늘리기·gradient checkpointing 확인 ③ 그래도 GPU 1 메모리가 넘치면 멈추고 회사에 보고한다. 학습과 `sol_decision.serve`(8009)는 공존이 기본이고 우리 절차로 8009 를 내리지 않는다 — 어떤 프로세스도 종료·이동하지 않는다([[10-DEPLOYMENT|10]] GPU 절 "추론 런타임과의 관계", ADR-034 10번). 8009 를 내릴지·언제 내릴지는 사람이 정하고, 그 결정으로 서빙이 멈추는 시간에는 S-LIVE 리허설을 잡지 않는다. PaddleOCR 는 대상이 아니다 ④ 다중 GPU·클라우드 GPU 임대(ADR-010)·GPU 0·2 사용은 모두 **사용자 승인 대상**이고, GPU 0·2 는 어떤 경우에도 쓰지 않는다. Kev-4B 전환 같은 모델 변경 경로는 이 문서에 없다.
 
 같은 F1 시간에 F3 보정·채점 경로(§4.4)도 20 step 패키지와 dev 로 한 번 돌려 `bosun_score` 출력 스키마를 확정한다.
 
