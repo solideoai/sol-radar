@@ -268,6 +268,45 @@ describe("run 시작 전 EXHAUSTED — 목록을 부르지 않는다", () => {
     expect(repo.state.errors[0]?.redactedDetail).toContain("1000/1000");
   });
 
+  it("예산 저장소를 읽지 못하면(Redis 장애) 남았다고 보지 않는다: 목록 호출 0·run FAILED·QUOTA_STORE_UNAVAILABLE, detail 에 오류 내용 없음", async () => {
+    const repo = createMemoryIngestionRepo();
+    const quota = quotaWith(0);
+    vi.spyOn(quota.store, "get").mockRejectedValue(
+      new Error("connect ECONNREFUSED redis://:secret@127.0.0.1:6390"),
+    );
+    const fetched = routedFetch(routesWith());
+
+    const result = await ingestG2b(repo, fetched.fetch, { jobKey: "g2b:1", quota });
+
+    const detail = repo.state.errors[0]?.redactedDetail ?? "";
+    expect([
+      result.status,
+      fetched.operations,
+      errorsOf(repo),
+      repo.state.revisions.length,
+      detail.includes("읽지 못함"),
+      detail.includes("ECONNREFUSED") || detail.includes("secret"),
+    ]).toEqual(["FAILED", [], [["g2b:quota", "QUOTA_STORE_UNAVAILABLE", null]], 0, true, false]);
+  });
+
+  it("저장소 장애와 실제 소진은 다른 코드다(11 V2-03: 실패 유형을 다른 유형의 코드로 남기지 않는다)", async () => {
+    const codeOf = async (quota: IngestQuota): Promise<string | undefined> => {
+      const repo = createMemoryIngestionRepo();
+      await ingestG2b(repo, routedFetch(routesWith()).fetch, { jobKey: "g2b:1", quota });
+      return repo.state.errors[0]?.errorCode;
+    };
+    const broken = quotaWith(0);
+    vi.spyOn(broken.store, "get").mockRejectedValue(new Error("redis down"));
+
+    const [unavailable, exhausted] = await Promise.all([codeOf(broken), codeOf(quotaWith(LIMIT))]);
+
+    expect([unavailable, exhausted, unavailable === exhausted]).toEqual([
+      "QUOTA_STORE_UNAVAILABLE",
+      "QUOTA_EXCEEDED",
+      false,
+    ]);
+  });
+
   it("소진된 run 을 이어 가면 cursor 가 그대로다(checkpoint 는 받은 cursor 를 남긴다)", async () => {
     const repo = createMemoryIngestionRepo();
 

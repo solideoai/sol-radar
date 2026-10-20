@@ -38,7 +38,7 @@ import {
   type IngestJobDeps,
   type RunMode,
 } from "@/worker/ingest-queue";
-import { createRedisQuotaStore } from "@/worker/quota-store";
+import { QUOTA_REDIS_OPTIONS, createRedisQuotaStore } from "@/worker/quota-store";
 import { checkReadiness, createReadinessProbes } from "@/worker/readiness";
 import { SYSTEM_QUEUE, processSystemJob } from "@/worker/system-queue";
 
@@ -290,11 +290,12 @@ function ingestJobDepsOf(
 }
 
 // 호출 예산 카운터(07 §2.2)는 live 에서만 만든다. 공유 연결을 duplicate 해 BullMQ 의 blocking 명령 뒤에 줄 서지 않게 한다.
+// 공유 연결의 maxRetriesPerRequest: null 을 그대로 물려받으면 Redis 장애 때 예산 확인이 끝없이 기다린다. 바로 실패하는 옵션으로 덮는다.
 function createIngestQuota(
   connection: IORedis,
   g2b: G2bSource,
 ): { quota: IngestQuota; close: Closable } {
-  const quotaConnection = connection.duplicate();
+  const quotaConnection = connection.duplicate(QUOTA_REDIS_OPTIONS);
   return {
     quota: {
       store: createRedisQuotaStore(quotaConnection, { dailyLimit: g2b.dailyLimit }),

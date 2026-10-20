@@ -105,6 +105,8 @@ export const FIXTURE_ANCHOR_PARAM = "anchor";
 export const SEED_ANCHOR_MISSING = "SEED_ANCHOR_MISSING";
 /** 호출 예산 소진으로 run 을 멈췄을 때의 ingest_errors.error_code(run 수준, 호출 자체의 API_QUOTA_EXCEEDED 와 다르다) */
 export const QUOTA_EXCEEDED_ERROR_CODE = "QUOTA_EXCEEDED";
+/** 예산 저장소(Redis)를 읽지 못해 run 을 멈췄을 때의 ingest_errors.error_code. 소진(QUOTA_EXCEEDED)과 섞지 않는다(11 V2-03, 02 장애 원칙) */
+export const QUOTA_STORE_UNAVAILABLE_ERROR_CODE = "QUOTA_STORE_UNAVAILABLE";
 /** 위 기록의 source_key */
 export const QUOTA_SOURCE_KEY = "g2b:quota";
 
@@ -204,13 +206,20 @@ const isSkipped = (
   decision.kind === "DUPLICATE" || decision.kind === "STALE";
 
 // ── 호출 예산(07 §2.2). 예산이 없는 run(시험·녹음·fixture)은 늘 OK 다 ──
-type QuotaStatus = { state: QuotaState; used: number };
+/** unavailable: 저장소를 읽지 못해 상태를 EXHAUSTED 로 닫은 경우(used 는 NaN) */
+type QuotaStatus = { state: QuotaState; used: number; unavailable: boolean };
 
 async function quotaStatusOf(context: RunContext, at: Date): Promise<QuotaStatus> {
   const { quota } = context;
-  if (quota === null) return { state: "OK", used: 0 };
-  const used = await quota.store.get(quota.serviceId, at);
-  return { state: quotaState(used, quota.dailyLimit), used };
+  if (quota === null) return { state: "OK", used: 0, unavailable: false };
+  try {
+    const used = await quota.store.get(quota.serviceId, at);
+    return { state: quotaState(used, quota.dailyLimit), used, unavailable: false };
+  } catch {
+    // 저장소(Redis)에 닿지 못했다. 예산을 모르면 남았다고 낙관하지 않는다 — 소진과 같이 닫는다(07 §2.2).
+    // 오류 내용은 싣지 않는다(연결 문자열이 섞일 수 있다).
+    return { state: "EXHAUSTED", used: Number.NaN, unavailable: true };
+  }
 }
 
 // 호출 직후마다 더한다. 목록 쪽 한 번(재시도 포함)과 공고 1건의 보조 조회 묶음이 "직후"의 단위다.
@@ -429,11 +438,14 @@ async function recordPageFailure(
 // 쪽을 부르기 전에 그날 예산이 소진됐으면(다른 run·앞 쪽이 다 썼다) 호출 없이 FAILED 로 닫는다. revision 은 만들지 않는다.
 async function recordQuotaExhausted(context: RunContext, status: QuotaStatus): Promise<void> {
   const limit = context.quota?.dailyLimit ?? 0;
+  // 실패 유형을 다른 유형의 코드로 남기지 않는다: 저장소 장애는 QUOTA_STORE_UNAVAILABLE, 실제 소진만 QUOTA_EXCEEDED.
   await context.input.repo.recordError(context.runId, {
     sourceKey: QUOTA_SOURCE_KEY,
-    errorCode: QUOTA_EXCEEDED_ERROR_CODE,
+    errorCode: status.unavailable ? QUOTA_STORE_UNAVAILABLE_ERROR_CODE : QUOTA_EXCEEDED_ERROR_CODE,
     resultCode: null,
-    redactedDetail: `일일 호출 한도 소진(${status.used}/${limit}). 목록을 부르지 않는다`,
+    redactedDetail: status.unavailable
+      ? `호출 예산을 읽지 못함(저장소 오류, 한도 ${limit}). 남았다고 보지 않고 목록을 부르지 않는다`
+      : `일일 호출 한도 소진(${status.used}/${limit}). 목록을 부르지 않는다`,
   });
 }
 
