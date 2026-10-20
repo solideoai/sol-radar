@@ -17,7 +17,7 @@ updated: 2026-10-21
 | 영역 | `live` | `fixture` | `mock` |
 |---|---|---|---|
 | 공고 | 실제 나라장터 공고(`is_demo=false`) | 가상 fixture 20건(`DEMO` 배지) | 가상 fixture 20건 |
-| 첨부·파싱 | 실제 첨부 allowlist 다운로드·파싱(검증된 형식만) | fixture 샘플 | fixture 샘플 |
+| 첨부·파싱 | **미구현**(설계: 실제 첨부를 allowlist `www.g2b.go.kr`로 내려받아 파싱. 지금은 첨부 목록만 저장하고 `PENDING`, 추출은 본문만) | **미구현**(fixture 첨부 샘플 없음) | **미구현** |
 | 회사 프로필 | **가상 솔리데오**(모든 모드, "가상 회사 프로필로 분석" 배지) | 가상 솔리데오 | 가상 솔리데오 |
 | Qwen 추출·설명 | 회사가 운영하는 vLLM API의 `Qwen/Qwen3.5-27B`(HTTPS) 실추론 | 실추론 | 고정 응답 |
 | 결정 모델(Bosun) | 회사 GPU 서버의 Bosun v3.1 0.6B 실추론(우리 `sol_decision` 서버), 참고 지표만, `UNCALIBRATED` | 실추론 | 고정 응답(`kev-qs/v0.1`, 모델 식별자 `mock`) |
@@ -79,7 +79,7 @@ updated: 2026-10-21
 | 공공 API 장애·일일 한도 | `fixture` 모드로 전환(env + 재시작) | "실행 모드: fixture", `DEMO` 배지 |
 | 회사 Qwen API·결정 모델 엔드포인트 미접속(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`) | `mock` 모드로 전환하거나 사전 완료 run 조회. 재접속 확인은 `GET /v1/models` | "AI: mock" 또는 저장된 run의 `run_mode` |
 | Supabase 클라우드 장애 | 로컬 CLI 전환 | 위와 같음 |
-| 첨부 다운로드 실패 | 그대로 시연 | `DOCUMENT_DOWNLOAD_FAILED` 배지, 관련 자격 "확인 필요" |
+| 첨부 다운로드 실패 | 해당 없음(첨부 다운로드·파싱 미구현, 18 §7) | 첨부는 `PENDING`. `DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED` 배지는 나오지 않는다(19 §4 S-LIVE). 설계: 배지와 관련 자격 "확인 필요" |
 | 추론 시간 초과 | 그대로 시연 | `PARTIAL` 배너, `RULES_ONLY` |
 
 자동 fallback은 없다. 전환은 사람이 하고 바꿨다고 말한다.

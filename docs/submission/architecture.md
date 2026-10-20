@@ -87,7 +87,7 @@ flowchart TD
 
 | `SOL_RUN_MODE` | 공고 | AI | 회사 프로필 | 화면 표시 | 쓰는 곳 |
 |---|---|---|---|---|---|
-| `live` | data.go.kr 실제 공고(`is_demo=false`), 첨부 실제 다운로드 | 회사 vLLM API `Qwen/Qwen3.5-27B` · 회사 GPU 서버 Bosun v3.1 0.6B 실추론(`AI_PROVIDER=local`, HTTPS) | 가상 솔리데오(`is_demo=true`) | 머리말 "실행 모드: live", 분석 패널 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c", "가상 회사 프로필로 분석" | S-LIVE 1건, 해커톤 MVP 목표 |
+| `live` | data.go.kr 실제 공고(`is_demo=false`), 첨부 실제 다운로드(설계, 미구현) | 회사 vLLM API `Qwen/Qwen3.5-27B` · 회사 GPU 서버 Bosun v3.1 0.6B 실추론(`AI_PROVIDER=local`, HTTPS) | 가상 솔리데오(`is_demo=true`) | 머리말 "실행 모드: live", 분석 패널 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c", "가상 회사 프로필로 분석" | S-LIVE 1건, 해커톤 MVP 목표 |
 | `fixture` | fixture 20건(`is_demo=true`, `DEMO` 배지) | 실추론 그대로 | 가상 솔리데오 | "실행 모드: fixture", "AI: local" | 공공 API 장애 시 대체, 한국어 state 평가(E2) |
 | `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`, `fixtures/extractions`·`fixtures/kev`) | 가상 솔리데오 | "실행 모드: mock", "AI: mock" | 발표 본편 S2~S7, CI, 골든 94/72/68 |
 
