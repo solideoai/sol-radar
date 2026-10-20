@@ -1,9 +1,10 @@
 import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
-const { profile, workspace, cookieStore, shell } = vi.hoisted(() => ({
+const { profile, workspace, business, cookieStore, shell } = vi.hoisted(() => ({
   profile: vi.fn(),
   workspace: vi.fn(),
+  business: vi.fn(),
   cookieStore: vi.fn(),
   shell: vi.fn(),
 }));
@@ -25,7 +26,10 @@ vi.mock("next/headers", () => ({
   cookies: cookieStore,
 }));
 vi.mock("@/server/profile", () => ({ getMyProfile: profile }));
-vi.mock("@/server/organization", () => ({ getMyWorkspace: workspace }));
+vi.mock("@/server/organization", () => ({
+  getMyWorkspace: workspace,
+  getMyBusinessAccess: business,
+}));
 vi.mock("@/components/app-shell", () => ({ AppShell: shell }));
 import OrgLayout, { metadata } from "./layout";
 const props = { params: Promise.resolve({ slug: "alpha" }), children: "PRIVATE BUSINESS CONTENT" };
@@ -55,6 +59,7 @@ it("미완료 로그인은 레이아웃 업무 조회 전에 실제 경로로 �
     /^REDIRECT:\/auth\/complete-profile\?next=%2Falpha%2Ftasks%3Fq%3D1$/,
   );
   expect(workspace).not.toHaveBeenCalled();
+  expect(business).not.toHaveBeenCalled();
 });
 it("완료해도 조직 멤버가 아니면 기존 404를 유지한다", async () => {
   profile.mockResolvedValue({ status: "ready", profile: { profileComplete: true } });
@@ -70,3 +75,33 @@ it.each(["missing", "suspended"])(
     expect(workspace).not.toHaveBeenCalled();
   },
 );
+
+const readyProfile = {
+  status: "ready",
+  profile: {
+    profileComplete: true,
+    displayName: "김소유",
+    email: "owner@example.test",
+    avatarUrl: null,
+    isAdmin: false,
+  },
+};
+const readyWorkspace = {
+  status: "ready",
+  current: { id: "org", slug: "alpha", name: "알파", isPersonal: false, myRole: "owner" },
+  orgs: [],
+  pendingInvitationCount: 0,
+};
+it.each([
+  [{ status: "ready", current: { solRole: "ADMIN" } }, "ADMIN"],
+  [{ status: "no-org" }, null],
+])("사이드바 역할 메뉴를 위해 업무 역할을 틀에 넘긴다 (%o)", async (access, solRole) => {
+  profile.mockResolvedValue(readyProfile);
+  workspace.mockResolvedValue(readyWorkspace);
+  business.mockResolvedValue(access);
+  cookieStore.mockResolvedValue({ get: () => undefined });
+  shell.mockReturnValue(null);
+  renderToStaticMarkup(await OrgLayout(props));
+  expect(shell).toHaveBeenCalledTimes(1);
+  expect(shell.mock.calls[0]?.[0]).toMatchObject({ solRole, defaultSidebarOpen: true });
+});
