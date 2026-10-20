@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "company-profile/v0.1",
+  "orgSlug": "eval-06",
+  "revision": 1,
+  "name": "가상 실적 없는 신생(원형 6)",
+  "isDemo": true,
+  "technologies": [
+    { "name": "Java", "level": "INTERMEDIATE" },
+    { "name": "Spring Boot", "level": "INTERMEDIATE" },
+    { "name": "PostgreSQL", "level": "BASIC" },
+    { "name": "React", "level": "INTERMEDIATE" },
+    { "name": "RAG/LLM 적용", "level": "BASIC" }
+  ],
+  "technologiesComplete": true,
+  "licenses": [{ "code": "SME_CONFIRMATION", "name": "중소기업확인서(소기업)", "status": "HELD" }],
+  "industryCodes": [],
+  "pastProjects": [],
+  "financials": {
+    "fiscalYear": 2025,
+    "capitalKrw": "100000000",
+    "employeeCount": 8,
+    "maxContractKrw": "500000000"
+  },
+  "preferences": {
+    "agencies": [],
+    "agencyTypes": ["지자체", "공공기관"],
+    "domains": ["민원", "AX"],
+    "excludedDomains": [],
+    "excludedKeywords": []
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "company-profile/v0.1",
+  "orgSlug": "eval-03",
+  "revision": 1,
+  "name": "가상 AI·RAG 전문 스타트업(원형 3)",
+  "isDemo": true,
+  "technologies": [
+    { "name": "Python", "level": "EXPERT" },
+    { "name": "FastAPI", "level": "EXPERT" },
+    { "name": "PyTorch", "level": "EXPERT" },
+    { "name": "RAG/LLM 적용", "level": "EXPERT" },
+    { "name": "LangChain", "level": "INTERMEDIATE" },
+    { "name": "Qdrant", "level": "INTERMEDIATE" },
+    { "name": "PostgreSQL", "level": "INTERMEDIATE" },
+    { "name": "React", "level": "INTERMEDIATE" },
+    { "name": "Kubernetes", "level": "BASIC" }
+  ],
+  "technologiesComplete": true,
+  "licenses": [
+    { "code": "SW_BUSINESS_REG", "name": "소프트웨어사업자 신고확인서", "status": "HELD" },
+    { "code": "SME_CONFIRMATION", "name": "중소기업확인서(소기업)", "status": "HELD" },
+    {
+      "code": "DIRECT_PRODUCTION",
+      "name": "직접생산확인증명서(소프트웨어개발)",
+      "status": "NOT_HELD"
+    },
+    { "code": "ISO_27001", "name": "ISO 27001", "status": "NOT_HELD" },
+    { "code": "CMMI_L3", "name": "CMMI L3", "status": "NOT_HELD" },
+    { "code": "ICT_CONSTRUCTION", "name": "정보통신공사업 등록", "status": "NOT_HELD" }
+  ],
+  "industryCodes": [
+    { "code": "1469", "name": "소프트웨어사업자(디지털콘텐츠개발서비스사업)", "status": "HELD" },
+    { "code": "1468", "name": "소프트웨어사업자(컴퓨터관련서비스사업)", "status": "NOT_HELD" },
+    { "code": "1542", "name": "정보보호 전문서비스 기업", "status": "NOT_HELD" }
+  ],
+  "pastProjects": [
+    {
+      "id": "P1",
+      "name": "공공기관 민원 상담 RAG 챗봇 구축",
+      "domain": "AX",
+      "amountKrw": "400000000",
+      "completedAt": "2025-06-30",
+      "evidenceRef": "company-evidence/eval-03/P1-completion-certificate"
+    },
+    {
+      "id": "P2",
+      "name": "교육기관 학습 지원 AI 튜터 PoC",
+      "domain": "교육",
+      "amountKrw": "150000000",
+      "completedAt": "2024-12-31",
+      "evidenceRef": "company-evidence/eval-03/P2-completion-certificate"
+    },
+    {
+      "id": "P3",
+      "name": "지자체 행정문서 검색 LLM 실증",
+      "domain": "민원",
+      "amountKrw": "80000000",
+      "completedAt": "2025-09-30",
+      "evidenceRef": null
+    }
+  ],
+  "financials": {
+    "fiscalYear": 2025,
+    "annualRevenueKrw": "1800000000",
+    "capitalKrw": "500000000",
+    "employeeCount": 24,
+    "maxContractKrw": "1500000000"
+  },
+  "preferences": {
+    "agencies": [],
+    "agencyTypes": ["공공기관", "지자체", "교육청"],
+    "domains": ["AX", "민원", "교육"],
+    "excludedDomains": ["국방"],
+    "excludedKeywords": ["무기체계", "영상감시"]
+  }
+}
