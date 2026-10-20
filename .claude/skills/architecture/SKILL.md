@@ -28,7 +28,8 @@ web/
   app/                      # 화면(라우트). 되도록 얇게 — 데이터를 받아 컴포넌트에 넘기는 정도
     page.tsx
     <기능>/page.tsx
-    (app)/[slug]/<기능>/page.tsx  # 로그인 뒤 조직 화면. [slug] 는 주소의 조직, [slug]/layout.tsx 의 앱 틀 안에서 열린다(주소에 (app) 은 나오지 않는다)
+    (app)/(work)/<기능>/page.tsx  # SOL RADAR 업무 화면(/dashboard·/bids·/notifications·/admin/ingestion). 주소에 조직이 없고 (work)/layout.tsx 의 업무 틀 안에서 열린다. 화면마다 requireWork
+    (app)/[slug]/<기능>/page.tsx  # 템플릿에서 이어 쓰는 조직 화면(설정·작업). [slug] 는 주소의 조직, [slug]/layout.tsx 안에서 열린다(주소에 (app)·(work) 는 나오지 않는다)
     <기능>/actions.ts       # 서버 함수("use server"). 서버에서 돌아야 하는 저장·변경이 있을 때만
     api/<이름>/route.ts     # 라우트 핸들러. 바깥(웹훅·다른 서비스)이 부르는 HTTP 주소가 필요할 때만
   components/               # 재사용 UI 조각. shadcn 부품은 components/ui/
@@ -103,7 +104,8 @@ URL 쿼리는 모델의 `parseTaskListQuery` 가 조건으로 바꾸고(잘못�
 DB 트리거가 남긴 기록을 읽어 문장으로 바꾸는 읽기 전용 도메인은 **`web/server/activity/`** 다(`getRecentActivities`, 쓰는 함수가 없다).
 조직·멤버십·초대는 **`web/server/organization/`** 에 있다(화면 `web/app/(app)/[slug]/settings/members/`·`web/app/teams/new/`·`web/app/invitations/`).
 서비스 운영자(`profiles.is_admin`)만 여는 화면의 도메인은 **`web/server/admin/`** 이다(화면 `web/app/admin/`, 운영자가 아니면 404).
-로그인 뒤 틀(`web/app/(app)/[slug]/layout.tsx`)과 그 아래 화면은 `getMyWorkspace(slug)` 로 주소의 조직이 내 조직인지 확인한다(`web/app/(app)/[slug]/workspace.ts` 의 `requireWorkspace`, 아니면 404).
+업무 화면(`web/app/(app)/(work)/` 아래)은 저마다 `requireWork(next)`(`web/app/(app)/(work)/work.ts`)로 로그인·가입 완료·업무 조직 하나를 확인해 `orgId`·`role`(`sol_role`) 맥락을 받는다. 주소에 조직이 없다(ADR-021).
+조직(템플릿) 틀(`web/app/(app)/[slug]/layout.tsx`)과 그 아래 화면은 `getMyWorkspace(slug)` 로 주소의 조직이 내 조직인지 확인한다(`web/app/(app)/[slug]/workspace.ts` 의 `requireWorkspace`, 아니면 404).
 작업·활동 도메인은 조직 도메인도, 서로도 부르지 않는다 — 화면이 확인한 지금 조직을 `TaskScope`·`ActivityScope` 로 넘겨 잇고, 대시보드 화면이 두 도메인을 각각 불러 조립한다.
 도메인 여럿이 같은 규칙을 쓰면 `web/server/shared/` 로 옮긴다(만든 사람·사용자 이름의 `nameOf`).
 프로필에는 고치기(쓰기) 견본도 있다: 폼(`web/app/account/display-name-form.tsx`) → 서버 함수(`web/app/account/actions.ts`) → `updateMyDisplayName`(검증·로그인 확인) → repo.

@@ -189,7 +189,7 @@ Qwen 은 회사가 운영하는 vLLM API(`Qwen/Qwen3.5-27B`)를 쓰므로 GPU �
 
 ```bash
 # 노트북(우리) 또는 회사. 키 값은 셸 변수로만. id 가 Qwen/Qwen3.5-27B 이어야 레지스트리 대조가 통과한다
-curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/models"
+curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"   # 값이 /v1 로 끝나므로(https://acropolissg.com/vllm/v1) /models 만 붙인다
 ```
 
 회사 vLLM 이 guided JSON(`response_format: json_schema`, G4)과 E3 용 `prompt_logprobs` 를 지원하는지, 호출 한도·추가 인증·지연(`AI_TIMEOUT_MS` 60000 안)은 **미검증**이다(B2, §7).

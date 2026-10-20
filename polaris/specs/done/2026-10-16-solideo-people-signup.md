@@ -1,6 +1,6 @@
 ---
 title: "솔리데오 가상 직원 200명·프로필 이미지·가입 정보"
-status: planned
+status: done
 tags:
   - sol-radar
   - people

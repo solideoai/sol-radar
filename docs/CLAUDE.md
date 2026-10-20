@@ -25,7 +25,7 @@ updated: 2026-10-20
   - 화면 확인은 1440px·1280px 두 폭으로 한다. 모바일 폭은 확인하지 않는다.
   - 결제는 결제·구독·요금제 화면, 결제 게이트웨이 연동, 관련 패키지 설치를 모두 포함한다.
 - `AI_PROVIDER=mock`이 기본. 유료 hosted 모델 API는 사용자 승인 전 호출하지 않는다.
-- 솔리데오 고정·가상 직원 200명·가입 부서/직급 필수는 ADR-019와 `polaris/specs/planned/2026-10-16-solideo-people-signup.md`를 따른다. 원본 엑셀 실명 재사용 금지, 명부와 Auth 계정 분리, imagegen 기본 도구로 고유 정장 사진 200장.
+- 솔리데오 고정·가상 직원 200명·가입 부서/직급 필수는 ADR-019와 `polaris/specs/done/2026-10-16-solideo-people-signup.md`를 따른다. 원본 엑셀 실명 재사용 금지, 명부와 Auth 계정 분리, imagegen 기본 도구로 고유 정장 사진 200장.
 - 각 작업 후 `docs/PROGRESS.md` 갱신, 증거(테스트 리포트·스크린샷·기동 로그)는 `docs/evidence/`에 저장.
 - 이 `docs/` 폴더는 Obsidian vault다. 문서를 고칠 때 frontmatter와 위키링크 규약(`docs/00-README.md` Obsidian 규약 절)을 유지한다.
 - `docs/boilerplate/`는 출발 템플릿(agentic-boilerplate)의 문서다. Supabase·인증·DB 정책 문서는 적용하고, Expo 앱 문서는 적용하지 않으며, Vercel·EAS 배포 문서는 배포처가 정해질 때까지 보류한다. 이 vault의 문서와 충돌하면 이 vault의 문서를 따른다(분류: `docs/boilerplate/README.md`).

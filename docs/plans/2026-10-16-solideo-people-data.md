@@ -21,7 +21,7 @@ updated: 2026-10-19
 
 **Tech Stack:** Node `^22.13.0 || ^24.3.0`, pnpm 9.15.9, Node test runner, ExcelJS 4.4.0(루트 개발 의존성으로 추가), JSON, SHA-256.
 
-**Spec:** [승인 스펙](../../polaris/specs/planned/2026-10-16-solideo-people-signup.md) §2~6·9~10, [07 데이터](../07-DATA-PIPELINE.md), [11 검증](../11-TESTING.md) PPL-01·02·07. 후속은 [사진](2026-10-16-solideo-people-portraits.md), [DB·가입](2026-10-16-solideo-people-signup.md) 계획이다. 실행 방식은 세 계획을 함께 검토한 뒤 선택한다.
+**Spec:** [승인 스펙](../../polaris/specs/done/2026-10-16-solideo-people-signup.md) §2~6·9~10, [07 데이터](../07-DATA-PIPELINE.md), [11 검증](../11-TESTING.md) PPL-01·02·07. 후속은 [사진](2026-10-16-solideo-people-portraits.md), [DB·가입](2026-10-16-solideo-people-signup.md) 계획이다. 실행 방식은 세 계획을 함께 검토한 뒤 선택한다.
 
 ## Global Constraints
 

@@ -1,7 +1,7 @@
 ---
 title: "구현 계획 — C6 화면 B단계 (main 병합 뒤)"
 doc: "plan-c6-screens-b"
-status: active
+status: final
 tags:
   - sol-radar
   - ui
@@ -11,6 +11,9 @@ updated: 2026-10-20
 ---
 
 # C6 화면 B단계 구현 계획
+
+> [!success] 구현·병합 완료 (2026-10-20)
+> 이 계획의 B1~B3은 `c6/screens` @ `1a9c43e`로 구현돼 main `4ae09f9`로 병합됐다(병합 커밋 본문: `test:e2e:work` 33/33·`test:e2e:auth` 125/125). 진행 기록은 [[PROGRESS|진행 상황]] C6이다. 계획 본문은 고치지 않고 보관한다.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

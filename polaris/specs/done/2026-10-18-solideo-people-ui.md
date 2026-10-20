@@ -1,5 +1,7 @@
 # 디자인 스펙: 솔리데오 조직·인력 조회
 
+상태: done(2026-10-20 정본 6차에서 done/ 으로 옮김. 구현은 동반 스펙과 함께 PR #6 으로 main 에 병합).
+
 작성일: 2026-10-18. 범위: 승인된 N4a 조회 기능. 최초 작성 당시 구현·브라우저 검증 전 디자인 명세였으며, Task3A 승인 개정의 구현 검증은 별도 작업 보고서와 원본 로그에 기록한다. 서버 계약·인증 가드의 구현은 동반 구현 스펙을 따른다. UI 페이지 크기는 20명이다(`docs/05-API-SPEC.md` §3).
 
 ## 기준과 근거
@@ -7,7 +9,7 @@
 - `docs/CLAUDE.md`, `docs/16-DECISIONS.md` ADR-007·019·021: 데스크톱 1280px 이상, 가상 명부, 조직·인력 조회와 편집 범위 구분.
 - `docs/06-UI-UX.md` §5.9·§7: 목록·조직도·PersonDrawer, URL 필터, 이니셜 대체, 연락처 없음.
 - `docs/05-API-SPEC.md` §4.7: Department, TeamMemberListItem, TeamMemberDetail. 사진 식별용 `personCode`와 상세 조회용 직원 `id`는 다른 값이다.
-- `docs/plans/2026-10-16-sidebar-ia-design.md` N4a, `polaris/specs/planned/2026-10-16-solideo-people-signup.md`: 200명 명부 중 27명만 점수 계산 대상.
+- `docs/plans/2026-10-16-sidebar-ia-design.md` N4a, `polaris/specs/done/2026-10-16-solideo-people-signup.md`: 200명 명부 중 27명만 점수 계산 대상.
 - `fixtures/people/solideo.departments.json`, `solideo.people.json`, `solideo.job-titles.json`, `solideo.portraits.json`: 이름·직급·조직 연결·사진 정본. 읽어서 확인한 현재 자료는 본부 6개, 그룹 4개, 팀 38개다. 연결 확인된 팀 13개에 81명, 상위 미지정 팀 25개에 119명이 속한다. 상위 미지정 그룹 4개에는 연결된 팀이 없다.
 - `.claude/agents/web-designer.md`, `.claude/skills/design-system/SKILL.md`, `design/tokens.json`: 조밀한 제품 화면, 기존 의미 토큰·글자 눈금·부품 사용. 모바일 템플릿 지침보다 데스크톱 제품 설계가 우선한다.
 - 기존 코드 관찰: `web/components/app-shell.tsx`, `app-page.tsx`, `ui/table.tsx`, `ui/sheet.tsx`, `people/person-avatar.tsx`, `web/lib/demo-portrait.ts`, `web/app/(app)/[slug]/settings/settings-nav.tsx`. 브라우저는 열지 않았다. `polaris/mission.md`는 현재 없다. 제품 설계와 위 승인 범위로 판단했다.

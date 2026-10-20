@@ -27,6 +27,8 @@ const nextConfig: NextConfig = {
   // 16.3 부터 next dev 는 에이전트를 감지하면 web/AGENTS.md·web/CLAUDE.md 를 만든다. 지침의 정본은 루트 AGENTS.md
   // 하나라서 끈다. 루트 AGENTS.md 가 web/node_modules/next/dist/docs/ 를 읽으라고 같은 안내를 한다.
   agentRules: false,
+  // next dev 의 화면 표시(N 동그라미)는 기본이 왼쪽 아래라 사이드바 맨 아래 사용자 칸(아바타·이름)을 덮는다. 오른쪽 아래로 옮긴다.
+  devIndicators: { position: "bottom-right" },
   headers: async () => [{ source: "/:path*", headers: securityHeaders }],
   // 계정 화면은 /auth 아래로 옮겼다(/auth/login·sign-up·reset·password). 옛 주소는 이미 보낸 메일 링크(클라우드에 붙여 둔 템플릿의
   // next=/account·/account/password)와 북마크가 쓰므로 영구 이동으로 넘긴다. 검색어(?link=…)는 그대로 따라간다.

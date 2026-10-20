@@ -1,6 +1,6 @@
 ---
 title: "솔리데오 가입·필수 정보 보완 UI"
-status: planned
+status: done
 tags:
   - sol-radar
   - ui
@@ -158,7 +158,7 @@ updated: 2026-10-16
 
 #### 기준과 범위
 
-승인된 `polaris/specs/planned/2026-10-16-solideo-signup-ui.md` §4의 계정 정리·복구 접근을 구체화한다. 현재 `/account`는 로그인으로 보내는 호환 경로이고 실제 계정 UI는 조직 레이아웃 안의 `web/app/(app)/[slug]/settings/page.tsx`에 있다. 필수 정보 가드 뒤에 있는 설정만으로는 보완 전 계정 정리를 제공할 수 없으므로, 조직 밖 `/auth/account`에 기존 계정 화면의 구역을 재사용한다.
+승인된 `polaris/specs/done/2026-10-16-solideo-signup-ui.md` §4의 계정 정리·복구 접근을 구체화한다. 현재 `/account`는 로그인으로 보내는 호환 경로이고 실제 계정 UI는 조직 레이아웃 안의 `web/app/(app)/[slug]/settings/page.tsx`에 있다. 필수 정보 가드 뒤에 있는 설정만으로는 보완 전 계정 정리를 제공할 수 없으므로, 조직 밖 `/auth/account`에 기존 계정 화면의 구역을 재사용한다.
 
 코드로 기존 구조를 확인했다. 브라우저 검수 결과는 아니다. 참고한 자료는 `.claude/agents/web-designer.md`, `.claude/skills/design-system/SKILL.md`, 승인 UI 스펙, `auth/account-card.tsx`, `components/auth-frame.tsx`, 기존 설정 페이지·`SettingsSection`·`LoginMethods`·`SessionActions`·`DeleteAccount`·`DisplayNameForm`·`SignOutButton`이다. 카피는 구현·검수용 초안이다.
 
@@ -233,7 +233,7 @@ updated: 2026-10-16
 
 2026-10-16 작성. 설계 산출물이며 제품 코드·토큰·DB를 변경하지 않는다. 최신 정본은 읽기 전용 `/Users/leegwanghui/dev/hackathon/sol-radar`의 `docs/05-API-SPEC.md` §1·§5·§8, `docs/06-UI-UX.md` §5.2·§5.11, `docs/09-SECURITY.md` 인증·ADR-019 절, `docs/16-DECISIONS.md` ADR-018·019·021이다. 호출자가 지정한 승인 소스 HEAD는 `114a10aa245b76909c4952c3c82a473337ba0cbd`다. 구현 관찰은 별도 작업트리 `/Users/leegwanghui/.codex/worktrees/b3ef/sol-radar`의 현재 인증 코드에 한한다. 브라우저 관찰·런타임 검수 결과가 아니다.
 
-설계 규칙은 `.claude/agents/web-designer.md`·`.claude/skills/design-system/SKILL.md`, 기존 가입 UI 기준은 `polaris/specs/planned/2026-10-16-solideo-signup-ui.md`와 그 안의 보완 전 계정 관리 확장이다. `docs/CLAUDE.md`·`docs/00-README.md`·`docs/17-CLAUDE-IMPLEMENTATION.md`를 읽었다. `polaris/mission.md`는 현재 작업트리에 없어 새 미션을 만들지 않고 승인된 기능·ADR 범위로 설계한다.
+설계 규칙은 `.claude/agents/web-designer.md`·`.claude/skills/design-system/SKILL.md`, 기존 가입 UI 기준은 `polaris/specs/done/2026-10-16-solideo-signup-ui.md`와 그 안의 보완 전 계정 관리 확장이다. `docs/CLAUDE.md`·`docs/00-README.md`·`docs/17-CLAUDE-IMPLEMENTATION.md`를 읽었다. `polaris/mission.md`는 현재 작업트리에 없어 새 미션을 만들지 않고 승인된 기능·ADR 범위로 설계한다.
 
 참고한 실제 구조:
 

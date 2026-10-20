@@ -1,5 +1,6 @@
 ---
 title: "N8 /admin/ingestion — 구현 계획(서버)"
+status: final
 tags:
   - sol-radar
   - plan
@@ -7,6 +8,9 @@ updated: 2026-10-20
 ---
 
 # N8 `/admin/ingestion` — 구현 계획(서버)
+
+> [!success] 구현·병합 (2026-10-20)
+> 이 계획은 `n8/admin-ingestion` @ `1ac444c`로 구현돼 main `81249f0`에 병합됐다(마이그레이션 `20261019000019` 포함). 정본 반영은 [[16-DECISIONS|ADR-035]] F1~F3이다. 계획 본문은 고치지 않고 보관한다.
 
 배정: sol-radar-aa(사용자 지시) → sol-radar-54. 판정: sol-radar-e8(2026-10-20). 브랜치 `n8/admin-ingestion`.
 화면 계획은 디자인 스펙(`2026-10-20-n8-admin-ingestion-design.md`)이 나온 뒤 이 문서 아래에 더한다.
