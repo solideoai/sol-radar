@@ -8,8 +8,9 @@ updated: 2026-10-20
 
 # `/company` 회사 역량(읽기 전용) — 검증 보고
 
-배정: 사용자 지시(사이드바 메뉴 중 해커톤 노출 화면, 06 §4.1 "해커톤 노출: 예"). 작업 세션: sol-radar-7d.
-브랜치 `feat/company-read`(base main `9048995`), worktree `sol-radar-worktrees/company-read`.
+배정: 사용자 지시(사이드바 메뉴 중 해커톤 노출 화면, 06 §4.1 "해커톤 노출: 예"). 작업 세션: sol-radar-fa(이전 이름 7d).
+브랜치 `feat/company-read`(base main `9048995`), worktree `sol-radar-worktrees/company-read`. main 병합 `bf16806`(3e).
+스크린샷 14장은 병합 뒤 main `e92e4a6`(개발 표시 위치 수정 `4342bd8` 포함)에서 다시 찍었다(브랜치 `docs/company-evidence-shots`).
 
 ## 1. 만든 것
 
@@ -65,7 +66,7 @@ updated: 2026-10-20
 | 1280 | history | 0 | 0 | `20261020-phase3-company-history-1280.png` |
 
 브라우저 콘솔 오류는 상단바의 `GET /health/ready` 503 뿐이다(Redis·AI gateway 를 띄우지 않은 격리 환경의 기대값). `/company` 자체의 오류는 없다.
-스크린샷 왼쪽 아래의 "N" 동그라미는 Next.js 개발 표시이고 운영 빌드에는 없다.
+Next.js 개발 표시("N" 동그라미, `nextjs-portal`)는 운영 빌드에 없는 것이라 촬영 직전에 페이지에서 숨겼다(앱 코드는 바꾸지 않았다). 넘침 측정은 숨기기 전에 했다.
 
 ## 4. 남은 일
 
