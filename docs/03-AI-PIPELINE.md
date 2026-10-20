@@ -21,13 +21,13 @@ updated: 2026-10-20
 |구성요소|맡는 일|입력|출력|최종 결정 권한|
 |---|---|---|---|---|
 |나라장터 Connector(worker, [[07-DATA-PIPELINE\|07 수집]])|공고·사전규격·발주계획·면허제한·참가가능지역·첨부 목록 수집|data.go.kr Open API(`fixture`·`mock` 모드는 fixture 20건)|`NormalizedBid` + 구조화 자격 필드|없음|
-|문서 파서(`POST /parse`, §10)|첨부 바이트 → 텍스트·페이지·표|PDF·HWPX·HWP 바이트|`ParseResult`(텍스트, 페이지 오프셋, 블록, 품질 신호, 오류 코드)|없음|
-|Qwen3.5-27B 추출(`POST /extract`, 회사 운영 vLLM API)|요구사항 구조화 추출, 자유 텍스트 값의 영어 표기|`NormalizedBid.content` + 첨부 텍스트 chunk|`RequirementExtraction`(§4.1) + `translations`(§5.11)|없음. 값마다 `state`와 인용|
+|문서 파서(`POST /parse`, §10)|첨부 바이트 → 텍스트·페이지·표. **(미구현)** 파서 어댑터가 없어 지금은 형식만 판정하고 모든 형식에 `UNSUPPORTED` + 경고 `PARSER_NOT_CONFIGURED:<형식>`을 돌려준다(`parse.py`)|PDF·HWPX·HWP 바이트|`ParseResult`(텍스트, 페이지 오프셋, 블록, 품질 신호, 오류 코드)|없음|
+|Qwen3.5-27B 추출(`POST /extract`, 회사 운영 vLLM API)|요구사항 구조화 추출, 자유 텍스트 값의 영어 표기|`NormalizedBid.content` + 첨부 텍스트 chunk|`RequirementExtraction`(§4.1) + `translations`(§5.11. **미구현**: 지금은 늘 `null`)|없음. 값마다 `state`와 인용|
 |규칙 엔진([[08-SCORING\|08 점수]])|명시 조건 검증(업종·면허, 지역, 금액, 인력 수, 자격증, 마감)|API 구조화 필드 > 추출값, 회사 프로필|항목별 `SATISFIED`/`NOT_SATISFIED`/`NEEDS_REVIEW` + 사유 코드 + 양쪽 근거|**있음**(자격 판정)|
 |결정 모델 Bosun v3.1 0.6B(`POST /kev`. 경로 이름은 호환 유지, ADR-034)|비정형 요구사항의 충족 분류, 기술 적합성, 실적 연관성, 수행 리스크|영어 state 텍스트(§5.6·§5.11) + 질문 세트(§5.5·§5.10)|질문별 확률(선택지 분포·yes 확률·등급. typed decision `choice`/`score`/`noul`)|없음. 참고 지표·`reviewFlags`만|
 |SOL Score 엔진([[08-SCORING\|08 점수]])|`sol-v0.1.0` 결정론 점수, BID/WATCH/NO-BID 권고|규칙 결과 + 추출 + 회사 프로필|`AnalysisResult`(점수 분해, 권고)|**있음**(권고까지). 결정 모델 확률은 입력이 아니다|
-|Qwen3.5-27B 설명(`POST /explain`)|규칙 결과·점수·인용·결정 모델 참고 지표를 한국어 2~4문장으로 설명|위 결과|`explanation` 텍스트|없음. 입력 밖 숫자가 나오면 폐기하고 템플릿으로 대체|
-|Embedding + Qdrant|근거 문단 검색|chunk 텍스트|chunk id, 점수|없음|
+|설명(`POST /explain`. Qwen3.5-27B 설명은 **미구현**)|규칙 결과·점수·인용·결정 모델 참고 지표를 한국어 2~4문장으로 설명. 지금은 모든 모드가 템플릿 문장이다(`explain.py`, `fallback=true`)|위 결과|`explanation` 텍스트|없음. 입력 밖 숫자가 나오면 폐기하고 템플릿으로 대체|
+|Embedding + Qdrant(**미구현**, 해커톤 컷 밖)|근거 문단 검색|chunk 텍스트|chunk id, 점수|없음|
 |사람|최종 참여 결정|화면|`bid_reviews`|**최종**|
 
 같은 조건을 API 구조화 필드와 Qwen 추출이 둘 다 주면 **API 구조화 필드가 우선**이고, 다르면 `CONFLICTED`다. 판정 규칙은 [[08-SCORING|08 점수]] §5.1, 근거 형식은 [[15-DATA-CONTRACTS|15 데이터 계약]] §3이 정본이다(gateway 쪽 대조는 §4.4 7단계).
@@ -59,14 +59,17 @@ flowchart TD
 
 worker job 순서:
 1. **ingest**(source `g2b`, `fixture` 모드는 `fixture`): 목록 조회 → 정보화사업 필터 → 공고별 보조 조회(면허제한·참가가능지역·e발주 첨부) → 정규화 → revision diff([[07-DATA-PIPELINE|07 수집]]).
-2. **documents**: 새 revision의 첨부를 다운로드하고 `POST /parse`를 부른다. 텍스트는 MinIO에 쓰고 `bid_documents`에 다운로드·파싱 상태를 기록한다.
-3. **extract**: `POST /extract`. 재사용 키는 `(revision_id, model_name, prompt_hash)` 그대로다.
+2. **documents**: 새 revision의 첨부를 다운로드하고 `POST /parse`를 부른다. 텍스트는 MinIO에 쓰고 `bid_documents`에 다운로드·파싱 상태를 기록한다. **(미구현)** ingest가 첨부 있는 revision마다 documents job을 넣고 1분마다 `PENDING` 첨부를 다시 넣지만(`web/worker/documents-reconcile.ts`), 이 큐를 처리하는 Worker가 없다. 첨부는 `PENDING`으로 남고 추출은 본문만으로 한다.
+3. **extract**: `POST /extract`. 재사용 키는 `(revision_id, model_name, prompt_hash)` 그대로다. 지금은 별도 extract job이 없다. analysis job이 캐시된 추출이 없을 때 같은 job 안에서 `/extract`를 부른다(`web/server/analysis/analysis.service.ts`).
 4. **analysis**: 규칙 → `POST /kev` → 플래그 병합 → 점수·권고 → `POST /explain` → 저장.
+
+> [!warning] 구현 상태 (2026-10-20, main `554b34c` 기준)
+> 위 그림과 job 순서는 v0.2 설계다. 지금 동작하는 것은 ingest·analysis 두 job(과 system job)이다. 첨부 파싱(`/parse` 어댑터·documents 소비자), `translations`, Qwen 설명(`/explain`), Qdrant 색인·검색은 미구현이다. 추출은 공고 본문만으로 하고, 설명은 템플릿 문장이다.
 
 - job은 따로 재시도할 수 있게 나눈다. 앞 단계가 실패해도 다음 단계는 가진 정보로 진행한다. 예: 첨부가 실패하면 본문만으로 추출하고 경고를 단다.
 - 추출(`/extract`)은 **공고 revision 단위**로 1회 실행하고 조직과 무관하게 재사용한다(ADR-011). 파싱(`/parse`)은 첨부 문서 단위다. 자격 판정·점수·결정 모델·설명은 **조직 × revision × 프로필 revision** 단위다.
 - 호출 경로는 Worker(`web/worker`, BullMQ 소비자) → AI gateway(FastAPI :8000) → Qwen runtime(회사 운영 vLLM API, Qwen3.5-27B)·결정 모델 서버(`sol_decision.serve`, Bosun v3.1 0.6B) 하나로 고정한다. Worker와 Next 서버는 Qwen·결정 모델을 직접 부르지 않는다([[02-ARCHITECTURE|02 아키텍처]]). 해커톤 실추론에서는 결정 모델 런타임이 회사 GPU 서버에 있고 노트북의 gateway가 회사가 제공하는 HTTPS 엔드포인트(결정 모델 `https://acropolissg.com/sol-radar/kev`, Qwen `https://acropolissg.com/vllm/v1`)로 붙는다([[16-DECISIONS|ADR-025]]·ADR-034, §5.9, [[10-DEPLOYMENT|10 배포]]).
-- Worker가 부르는 gateway 엔드포인트는 `POST /parse`(documents job), `POST /extract`(extract job), `POST /kev`·`POST /explain`(analysis job), `GET /health`다(§2.1).
+- Worker가 부르는 gateway 엔드포인트는 `POST /parse`(documents job, 소비자 미구현), `POST /extract`(설계는 extract job, 지금은 analysis job 안), `POST /kev`·`POST /explain`(analysis job), `GET /health`다(§2.1).
 - AI 단계 어느 것이든 실패하면 규칙 판정·점수·권고는 규칙만으로 끝내고 `status=PARTIAL`, `recommendationBasis=RULES_ONLY`. 실패 유형별 처리는 §8.
 
 ### 2.1 gateway 내부 계약: `/parse`, `/extract`, `/kev`, `/explain`, `/health`
@@ -75,10 +78,10 @@ Compose 내부 네트워크 전용 엔드포인트다([[02-ARCHITECTURE|02 아�
 
 |엔드포인트|호출자|단위|하는 일|v0.2|
 |---|---|---|---|---|
-|`POST /parse`|documents job(Worker), 새 revision의 첨부마다|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·MinIO 접근 없음. Worker가 텍스트를 MinIO에 쓰고 `bid_documents`에 상태를 기록|새로|
-|`POST /extract`|extract job(Worker), 새 revision마다|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations` 반환. Worker가 `requirement_extractions`에 저장|확장|
+|`POST /parse`|documents job(Worker, 소비자 미구현), 새 revision의 첨부마다|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·MinIO 접근 없음. Worker가 텍스트를 MinIO에 쓰고 `bid_documents`에 상태를 기록|새로|
+|`POST /extract`|analysis job(Worker)이 캐시된 추출이 없을 때(설계는 별도 extract job)|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations`(미구현, 늘 `null`) 반환. Worker가 `requirement_extractions`에 저장|확장|
 |`POST /kev`|analysis job(Worker)|조직 × revision × 프로필 revision|추출 `KNOWN` 값 + 프로필 요약으로 state 구성(§5.6·§5.11) → 결정 모델 질문 세트 → `KevAssist` + `stateTrace`·`stateHash` 반환|확장|
-|`POST /explain`|analysis job(Worker)|조직 × revision × 프로필 revision|규칙 판정·점수 분해·인용·결정 모델 참고 요약 → 한국어 설명. 입력에 없는 숫자가 있으면 템플릿 문장으로 대체(§6)|새로|
+|`POST /explain`|analysis job(Worker)|조직 × revision × 프로필 revision|규칙 판정·점수 분해·인용·결정 모델 참고 요약 → 한국어 설명. 입력에 없는 숫자가 있으면 템플릿 문장으로 대체(§6). 지금은 모든 모드가 템플릿이다(Qwen 설명 미구현)|새로|
 |`GET /health`|Worker(기동·주기), Route Handler `GET /api/v1/admin/ai/status`|—|실행 모드, Qwen 모델·프롬프트 해시, 결정 모델 id(`kev.modelId`)·레지스트리 일치, 질문 세트, 파서 목록|확장|
 
 ```ts
@@ -96,7 +99,7 @@ interface ExtractRequest {
 interface ExtractResponse {
   status: "COMPLETED" | "PENDING_REVIEW" | "FAILED";   // PENDING_REVIEW: 인젝션 의심, ATTACHMENT_PARSE_FAILED 경고, FAILED 인용 비율 > 50%(§4.4 9단계, ADR-029)
   payload: RequirementExtraction | null;   // FAILED면 null
-  translations: Record<string, string> | null;  // v0.2. fieldPath → 영어 표기. 숫자 보존 검사를 통과한 값만(§5.11)
+  translations: Record<string, string> | null;  // v0.2. fieldPath → 영어 표기. 숫자 보존 검사를 통과한 값만(§5.11). 미구현: gateway가 늘 null을 돌려준다
   errorCode: "EXTRACTION_FAILED" | "QWEN_UNAVAILABLE" | null;   // QWEN_UNAVAILABLE = gateway → Qwen 미접속(§8)
   injectionSuspected: boolean;             // §4.4
   warnings: string[];
@@ -108,7 +111,7 @@ interface KevResponse {
   errorCode: "KEV_UNAVAILABLE" | "INJECTION_SUSPECTED" | null;   // KEV_UNAVAILABLE = gateway → 결정 모델 서버 미접속·timeout(200으로 알린다), INJECTION_SUSPECTED = 인젝션 의심으로 결정 모델 호출 생략
   kev: KevAssist;                          // §5.7. v0.2 필드와 stateTrace(§5.12)는 kev 안에 있다
   stateHash: string | null;                // sha256(state 텍스트). 결정 모델을 부르지 않았으면 null
-  requirements: {                          // v0.2. 결정 모델 담당 항목(§5.10)별 분포. requirement_assessments.kev_distribution·kev_label
+  requirements: {                          // v0.2. 결정 모델 담당 항목(§5.10)별 분포. 설계 저장처 requirement_assessments.kev_distribution·kev_label(지금 worker는 kev_output에만 남긴다, §5.7 구현 상태)
     itemId: string; qid: string;
     distribution: Record<"SATISFIED" | "NOT_SATISFIED" | "NEEDS_REVIEW", number>;
     label: "SATISFIED" | "NOT_SATISFIED" | "NEEDS_REVIEW";
@@ -121,23 +124,23 @@ interface KevResponse {
 interface ExplainRequest {
   requestId: string;
   qualificationChecks: unknown[];          // 규칙 판정·사유 코드·양쪽 근거(05 QualificationCheck)
-  scoreBreakdown: unknown;                 // 점수 분해·권고·recommendationBasis(05)
+  scoreBreakdown: unknown;                 // 점수 분해·권고·recommendationBasis(05)·reviewFlags(필수. 규칙 엔진 플래그 + 파이프라인 플래그)
   evidence: EvidenceRef[];                 // 설명에 쓸 수 있는 공고 인용
   kevSummary: KevAssist | null;            // 참고 지표. 없으면 null
   documentIssues: { documentId: string; downloadStatus: string; parseStatus: string; errorCode: string | null }[];  // 실패·부분 파싱 첨부. 문장에 반드시 밝힌다(§8)
 }
-interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boolean }   // fallback=true면 템플릿 문장. mock은 늘 fallback=true
+interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boolean }   // fallback=true면 템플릿 문장. 지금은 모든 모드가 fallback=true(Qwen 설명 미구현)
 ```
 
 **계약 세부 결정** (2026-10-16)
-- `translations`는 `ExtractResponse`의 최상위 필드다. `RequirementExtraction` 스키마(v0.1)는 바꾸지 않고, 저장은 별도 열 `requirement_extractions.translations`다([[04-DATABASE|04 DB]]).
+- `translations`는 `ExtractResponse`의 최상위 필드다. `RequirementExtraction` 스키마(v0.1)는 바꾸지 않고, 저장은 별도 열 `requirement_extractions.translations`다([[04-DATABASE|04 DB]]). **미구현**: gateway(`extraction.py`)는 늘 `translations=None`을 돌려준다. worker 저장·재사용 경로는 있으나 값이 늘 `null`이다.
 - `KevResponse.requirements`(요구사항 항목별 분포)와 `wire`(Kev wire 응답 원문. ADR-034 뒤에는 `sol_decision` 서버가 같은 형식으로 낸다)는 위 정의대로 둔다. Worker가 `requirement_assessments`와 `score_runs.kev_output`(§7)에 저장한다.
 - 면허·업종·지역 대조는 gateway가 아니라 규칙 엔진(`web/server/scoring`)이 한다. gateway는 판정하지 않는다.
 
 **계약 세부 결정** (2026-10-19, [[16-DECISIONS|ADR-030]])
 - `fixtureId`는 `FX-NN` 또는 `FX-NN.rNN`이다(B4). worker는 늘 `FX-NN.rNN`을 보내고, mock은 그 revision 파일이 없으면 `FX-NN` 파일로 대체한다(`/extract`·`/kev`). 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절하고, 응답의 id는 요청 값으로 바꾼다.
 - `KevResponse.errorCode`(B3): gateway → 결정 모델 서버 미접속·timeout은 200 + `KEV_UNAVAILABLE`이다. 추출이 인젝션 의심(`injectionSuspected=true`)이면 gateway는 결정 모델을 부르지 않고 `kev.enabled=false` + `INJECTION_SUSPECTED`로 돌려준다. 이때 분석은 `COMPLETED`·`RULES_ONLY`다.
-- `/explain`(B7): mock 응답은 늘 템플릿 문장(`fallback=true`)이다. 규칙 엔진 출력의 `explanation`에는 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않으므로, 화면에 보이는 설명은 분석 메타의 `explanation`(이 `/explain` 문장 또는 템플릿 문장)이다(B24). 알려진 한계: 이 설명 문장에도 파이프라인 플래그가 반영되지 않는다. `ExplainRequest`에 `reviewFlags`가 없고 mock은 늘 템플릿이다([[16-DECISIONS|ADR-031]] C12(c)).
+- `/explain`(B7): 지금은 세 모드 모두 템플릿 문장(`fallback=true`)이다(`explain.py`. Qwen 설명 어댑터 미구현). 화면에 보이는 설명은 분석 메타의 `explanation`이다(B24). worker는 `fallback=false`인 모델 문장만 쓰고, `fallback=true`면 gateway 템플릿 문장 대신 규칙 엔진의 `explanation`(템플릿)을 쓴다(`chooseExplanation`, `web/server/analysis/analysis.model.ts`). `ExplainRequest.scoreBreakdown.reviewFlags`는 필수이고 파이프라인 플래그(`CITATION_FAILED` 등)도 담는다(`toExplainRequest`). 알려진 한계: 규칙 엔진 `explanation`도 gateway 템플릿도 이 플래그를 문장에 쓰지 않으므로 설명 문장에 파이프라인 플래그가 반영되지 않는다([[16-DECISIONS|ADR-031]] C12(c)).
 
 - HTTP 200은 "gateway가 응답했다"는 뜻이다. 파싱·추출·결정 모델·설명의 개별 실패는 본문 `status`/`errorCode`/`kev.enabled`/`fallback`으로 표현한다. 200이 아닌 응답은 아래 둘뿐이고, 본문은 `{errorCode, message}`다([[16-DECISIONS|ADR-030]] B8).
   - 503 `{"errorCode":"AI_UNAVAILABLE","message"}`(시험 전용 예외): `AI_PROVIDER=mock` + `AI_FAULT_INJECT=gateway_down`일 때만 `/extract`·`/kev`·`/explain`이 gateway 연결 불가를 흉내 낸다(§3 env 표, [[16-DECISIONS|ADR-029]] A3). 데모·운영에서는 생기지 않는다
@@ -146,7 +149,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 - 결정 모델 서버(`sol_decision.serve`, Bosun)는 state 길이 제한이 없다(Bosun `truncation=False`, 백본 ctx 40,960. Kev 의 65,536 토큰 422 는 퇴역). 우리 상한 6,000 토큰(§5.6)은 그대로 지킨다. 서버가 4xx(요청 `model`이 서버 alias와 다를 때 422, 질문 24개·후보 255개·본문 1 MiB 초과)를 내면 gateway가 `kev.enabled=false`·`KEV_UNAVAILABLE`로 바꿔 200으로 돌려준다.
 - `/parse`는 50 MB를 넘는 본문을 처리하지 않고 `status=UNSUPPORTED`, `errorCode=TOO_LARGE`로 돌려준다. Worker는 다운로드 단계에서 먼저 거른다(§10.5).
 - 재사용: Worker가 호출 전에 `requirement_extractions`에서 `(revision_id, model_name, prompt_hash)` 행을 찾고, 있으면 `/extract`를 부르지 않는다. 모델 이름·프롬프트 해시는 `GET /health`(gateway)로 미리 받아 둔다. `translations`도 같은 행에서 재사용한다.
-- Worker analysis job 순서: ① 캐시된 추출 로드(없으면 extract job 먼저) → ② 추출 + API 구조화 필드 + 프로필로 자격 판정·SOL Score·권고 계산(규칙) → ③ `KEV_ENABLED`면 `/kev`(질문이 많으면 24개씩 나눠 같은 state로 여러 번, §5.10) → ④ 결정 모델 답을 규칙 결과와 비교해 `reviewFlags` 추가·항목별 결정 모델 분포 기록(§5.5·§5.13) → ⑤ `/explain` → ⑥ `score_runs`·`requirement_assessments` 저장(service role, 요청 조직의 `org_id` 지정). gateway는 요청 하나를 `AI_TIMEOUT_MS`(`/extract`)·`KEV_TIMEOUT_MS`(`/kev`) 마감 안에 끝내고(§3), Worker는 그보다 긴 HTTP timeout과 circuit breaker를 가진다. `/explain`이 실패하거나 시간을 넘기면 템플릿 문장으로 대체하고 분석을 실패시키지 않는다.
+- Worker analysis job 순서: ① 캐시된 추출 로드(없으면 같은 job 안에서 `/extract`. 별도 extract job은 없다) → ② 추출 + API 구조화 필드 + 프로필로 자격 판정·SOL Score·권고 계산(규칙) → ③ `KEV_ENABLED`면 `/kev`(질문이 많으면 24개씩 나눠 같은 state로 여러 번, §5.10) → ④ 결정 모델 답을 규칙 결과와 비교해 `reviewFlags` 추가·항목별 결정 모델 분포 기록(§5.5·§5.13) → ⑤ `/explain` → ⑥ `score_runs`·`requirement_assessments` 저장(service role, 요청 조직의 `org_id` 지정). gateway는 요청 하나를 `AI_TIMEOUT_MS`(`/extract`)·`KEV_TIMEOUT_MS`(`/kev`) 마감 안에 끝내고(§3), Worker는 그보다 긴 HTTP timeout과 circuit breaker를 가진다. `/explain`이 실패하거나 시간을 넘기면 템플릿 문장으로 대체하고 분석을 실패시키지 않는다.
 - analysis job의 큐 jobId는 `analysis_<orgId>_<scoreRunId>`다(BullMQ가 jobId에 `:`를 금지해서 `_`로 잇는다). 저장 멱등 키 `<orgId>:<requestId>`와 다른 값이다([[05-API-SPEC|05]] §4.5, [[16-DECISIONS|ADR-031]] C14).
 - `/kev` 본문에 규칙 결과(자격 판정·점수·권고)를 넣지 않는다(§5.6). `/explain`에는 넣는다(설명 대상이다).
 
@@ -191,7 +194,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`QWEN_BASE_URL`|URL|(없음)|`local`/`hosted`에서 Qwen runtime 주소. 해커톤 `local` 값은 `https://acropolissg.com/vllm/v1`(회사가 운영하는 vLLM API. 어댑터가 끝의 `/v1` 중복을 정규화해 `/chat/completions`·`/models`를 붙인다(B1). 회사 안내 값 그대로. 2026-10-20 사용자 결정, [[16-DECISIONS\|ADR-034]] 4번). `/sol-radar/qwen`(→8001)은 백업 경로(미사용). 호스트가 `acropolissg.com`이라 `allowedHosts`(§11)는 그대로. 예시는 [[10-DEPLOYMENT\|10 배포]] `ai-local` env|
 |`QWEN_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 vLLM API의 키. 회사가 제공한다). `local`에서 필수(ADR-025·034). 서버 env(`infra/.env`)만, 로그 금지([[09-SECURITY\|09 보안]])|
 |`QWEN_MODEL`|모델 ID|(없음)|`Qwen/Qwen3.5-27B`(회사 vLLM API, 2026-10-20 사용자 결정, §3.2). 레지스트리 default 항목 `qwen3.5-27b`와 회사 API `GET /v1/models`의 `id`와 같아야 한다(§11). 결과 메타데이터에 기록|
-|`QWEN_CONTEXT_BUDGET_TOKENS`|정수|`12000`|추출 1회 입력 상한. 초과 chunk는 Qdrant 순위로 자른다|
+|`QWEN_CONTEXT_BUDGET_TOKENS`|정수|`12000`|추출 1회 입력 상한. 지금은 본문·첨부 텍스트의 글자 수로 근사한다. 본문은 늘 넣고 첨부 chunk를 요청·페이지 순서로 더하다 예산을 넘는 chunk부터 뺀다(`TRUNCATED_INPUT`, `adapters/qwen.py` `build_user_message`). Qdrant 순위로 자르는 것은 설계(미구현)|
 |`EMBEDDING_MODEL`|모델 ID|(없음)|**미구현(해커톤 컷 밖)**. Qdrant 색인과 함께 코드가 읽지 않는다(2026-10-19 `services/ai/src`·`web/server`·`web/worker`에 0건). 설계: `mock`이면 키워드 검색으로 대체|
 |`KEV_ENABLED`|`true`/`false`|`true`|세 모드 모두 기본 `true`이고 `false`를 허용한다(`infra/run-modes.json`, [[16-DECISIONS\|ADR-029]] A5). `false`면 결정 모델 없이 `RULES_ONLY`이고 분석은 `COMPLETED`다(§9). `mock`에서 `true`면 mock adapter가 응답|
 |`KEV_BASE_URL`|URL|(없음)|결정 모델 서버(`sol_decision.serve`, Bosun) 주소. 이름은 호환 유지(ADR-034 Q2). 해커톤 `local` 값은 `https://acropolissg.com/sol-radar/kev`([[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시, ADR-025, §5.9). `mock`에서는 쓰지 않는다|
@@ -217,9 +220,9 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 
 |모드|Qwen 추출|Qwen 설명(`/explain`)|결정 모델(`/kev`)|임베딩|용도|
 |---|---|---|---|---|---|
-|`mock`|`fixtures/extractions/FX-xx.json`을 읽어 같은 스키마 검증·인용 검증을 **실제로** 통과시켜 반환|템플릿 문장(규칙 결과 치환)|mock adapter: `fixtures/kev/FX-xx.json`의 고정 응답, 없으면 자격 상태 기반 공식(§5.7). `provider=mock` 표기. 질문 세트 v0.1|해시 기반 가짜 벡터 대신 PostgreSQL 키워드 검색|CI, 골든, 모델 장애 시 시연|
-|`local`|회사가 운영하는 vLLM API의 Qwen3.5-27B|같은 Qwen + 숫자 검사(§6)|Bosun v3.1 0.6B(`sol_decision.serve`, 회사 GPU 서버 `:8009`, `KEV_ENABLED=true`일 때)|로컬 임베딩 모델|`live`·`fixture` 모드|
-|`hosted`|외부 API(비용)|동일|§5.8 hosted 경로 또는 local|외부 API|승인 후만|
+|`mock`|`fixtures/extractions/FX-xx.json`을 읽어 같은 스키마 검증·인용 검증을 **실제로** 통과시켜 반환|템플릿 문장(규칙 결과 치환)|mock adapter: `fixtures/kev/FX-xx.json`의 고정 응답, 없으면 자격 상태 기반 공식(§5.7). `provider=mock` 표기. 질문 세트 v0.1|미구현(설계: 해시 기반 가짜 벡터 대신 PostgreSQL 키워드 검색)|CI, 골든, 모델 장애 시 시연|
+|`local`|회사가 운영하는 vLLM API의 Qwen3.5-27B|설계: 같은 Qwen + 숫자 검사(§6). **미구현**: 지금은 mock과 같은 템플릿 문장|Bosun v3.1 0.6B(`sol_decision.serve`, 회사 GPU 서버 `:8009`, `KEV_ENABLED=true`일 때)|미구현(설계: 로컬 임베딩 모델)|`live`·`fixture` 모드|
+|`hosted`|외부 API(비용)|동일|§5.8 hosted 경로 또는 local|미구현(설계: 외부 API)|승인 후만|
 
 `mock`은 "AI를 건너뛴다"가 아니라 "모델 호출만 고정 응답으로 바꾼다"다. 스키마 검증·인용 검증·저장·UI 경로는 세 모드가 같다. 그래서 mock 화면과 실모델 화면의 구조가 같다. `/parse`는 모델을 쓰지 않으므로 세 모드에서 같다.
 
@@ -306,7 +309,7 @@ interface StaffingRequirement {
 - 모든 `ExtractedField`는 [[15-DATA-CONTRACTS|15 데이터 계약]] §2의 상태 규칙을 따른다. `KNOWN`은 검증 통과한 인용 1개 이상이 있어야 한다.
 - 배열 필드는 **원소마다 근거가 필요**하다. 한 필드에 인용이 여러 개면 `evidence[i]`가 어느 원소를 뒷받침하는지 `note`에 `"[0]→evidence[0], [1]→evidence[1]"` 형식으로 적는다. 짝이 안 맞는 원소는 버린다.
 - `code`는 모델이 아니라 gateway가 채운다. 사전에 없으면 `null`이고 규칙 엔진은 그 항목을 `NEEDS_REVIEW`로 낸다.
-- JSON Schema(draft 2020-12) 파일은 `services/ai/schemas/requirement-extraction.v0.1.json`에 두고, TypeScript 쪽은 `web/server/<도메인>/*.model.ts`의 zod 스키마(ADR-016)로 두어 이 파일과 같은지 시험으로 대조한다. 문서와 파일이 다르면 파일이 틀린 것이다.
+- JSON Schema(draft 2020-12) 파일은 `services/ai/schemas/requirement-extraction.v0.1.json`에 두고, TypeScript 쪽은 `web/server/<도메인>/*.model.ts`의 zod 스키마(ADR-016)로 두어 이 파일과 같은지 시험으로 대조한다. 문서와 파일이 다르면 파일이 틀린 것이다. **미구현**: 대조 시험은 아직 없다. 2026-10-20 확인한 차이 5곳(JSON Schema → zod `web/server/scoring/analysis-input.model.ts`): 근거의 `revisionId`·`fetchedAt` 선택 → 필수, `quotedText` 길이 제한 없음 → 1~300자, `withinYears` number → 정수, 최상위 `model` 선택 → 필수, 자격 `code` 선택 → 필수(nullable).
 
 ### 4.2 예시 1건 (가상 공고, DEMO)
 
@@ -358,7 +361,7 @@ interface StaffingRequirement {
 }
 ```
 
-위 값은 **DEMO fixture용 가상 데이터**다. 실제 기관·공고가 아니다. 인용의 `match`, `revisionId`, `fetchedAt`은 gateway가 검증 후 채우므로 모델 출력 예시에는 없다.
+위 값은 **DEMO fixture용 가상 데이터**다. 실제 기관·공고가 아니다. 인용의 `match`·`revisionId`는 gateway가 검증 후 채우므로 모델 출력 예시에는 없다. `fetchedAt`도 예시에 없지만 gateway는 채우지 않는다(모델 출력에 있을 때만 통과시킨다). worker zod는 `fetchedAt`을 필수로 보므로, worker가 검증 전에 그 revision의 `fetched_at`으로 채우기로 했다(수정 예정, ed. [[16-DECISIONS|16]] 미결정 26번).
 
 ### 4.3 프롬프트 명세 `req-extract/v0.1`
 
@@ -391,15 +394,17 @@ JSON Schema:
 <document id="{documentId}" kind="attachment" page="{n}" charOffset="{페이지 시작 오프셋}">
 {chunk 텍스트}
 </document>
-... (Qdrant 순위 상위 chunk, 합계 QWEN_CONTEXT_BUDGET_TOKENS 이내)
+... (설계: Qdrant 순위 상위 chunk, 합계 QWEN_CONTEXT_BUDGET_TOKENS 이내. 지금: 본문은 늘 넣고 첨부 chunk는 요청·페이지 순서로 남은 글자 수 예산 안에서 넣는다)
 ```
+
+- 지금 입력 선정은 `adapters/qwen.py`의 `build_user_message`가 한다(§3 `QWEN_CONTEXT_BUDGET_TOKENS`). Qdrant 순위로 chunk를 고르는 방식은 미구현이다.
 
 - 메타데이터(`<notice>` 속성)는 구조화 값이며 모델이 바꾸지 않는다. 추출값과 다르면 모델은 `CONFLICTED`를 내야 하고, 다르게 내도 gateway가 §4.4에서 `CONFLICTED`로 바꾼다.
 - `charOffset`을 주는 이유: 모델이 chunk 내 상대 위치를 내면 gateway가 절대 오프셋으로 환산한다. 환산 실패는 인용 검증(§4.4)이 잡는다.
 - 첨부는 `/parse`가 낸 텍스트만 넣는다. 다운로드·파싱에 실패한 첨부는 넣지 않고 `warnings += ATTACHMENT_PARSE_FAILED:{documentId}`만 남긴다. "첨부가 있었다"는 사실로 내용을 추정하게 하는 지시는 프롬프트에 넣지 않는다(§8).
-- 추론 설정: `temperature=0`, `top_p=1`, `max_tokens=4096`, 런타임이 지원하면 `seed=42`와 JSON Schema 기반 구조화 출력(guided decoding). 지원하지 않으면 텍스트 파싱 + 검증으로 대체.
-  - 비사고 모드(`chat_template_kwargs: {"enable_thinking": false}`)로 부른다. Qwen3.5는 기본이 사고(thinking) 모드라 답 앞에 `<think>…</think>`를 낸다(모델 카드 "Qwen3.5 models operate in thinking mode by default", 2026-10-19 확인). 회사 API의 Qwen3.5-27B도 같은 가족이라 이 근거는 그대로 유효하다(2026-10-20 사용자 결정, [[16-DECISIONS|ADR-034]]. ADR-034 초안의 Qwen3-4B-Instruct-2507(non-thinking 전용)은 백업으로만 보존). Qwen 파인튜닝은 하지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.6).
-  - 미검증: 회사 vLLM API에서 이 값과 guided JSON(`response_format: json_schema`)이 함께 동작하는지는 B2 C1 ③ G4(§5.9)에서 확인한다. 2026-10-19 기준 gateway 코드(`c5/gateway-mock` 브랜치 `services/ai/src/sol_ai/extraction.py`)는 아직 이 값을 보내지 않는다.
+- 추론 설정: `temperature=0`, `top_p=1`, `max_tokens=4096`, 런타임이 지원하면 `seed=42`와 JSON Schema 기반 구조화 출력(guided decoding). 지원하지 않으면 텍스트 파싱 + 검증으로 대체. **지금 코드는 다르다**: gateway(`adapters/qwen.py`)는 `seed=42`와 `response_format: json_schema`를 늘 보내고, 서버가 400·422로 거부하면 대체 없이 `EXTRACTION_FAILED`다. 응답 본문은 언제나 텍스트 JSON으로 받아 파싱·스키마 검증한다([[16-DECISIONS|16]] 미결정 26번).
+  - 비사고 모드(`chat_template_kwargs: {"enable_thinking": false}`)로 부른다(설계. 지금 main `adapters/qwen.py`는 이 값을 보내지 않는다. 미결정 26번). Qwen3.5는 기본이 사고(thinking) 모드라 답 앞에 `<think>…</think>`를 낸다(모델 카드 "Qwen3.5 models operate in thinking mode by default", 2026-10-19 확인). 회사 API의 Qwen3.5-27B도 같은 가족이라 이 근거는 그대로 유효하다(2026-10-20 사용자 결정, [[16-DECISIONS|ADR-034]]. ADR-034 초안의 Qwen3-4B-Instruct-2507(non-thinking 전용)은 백업으로만 보존). Qwen 파인튜닝은 하지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.6).
+  - 미검증: 회사 vLLM API에서 이 값과 guided JSON(`response_format: json_schema`)이 함께 동작하는지는 B2 C1 ③ G4(§5.9)에서 확인한다. 2026-10-20 main `554b34c` 기준 gateway(`adapters/qwen.py`)는 `response_format`은 보내고 `enable_thinking`은 보내지 않는다.
 
 **재시도 정책**:
 
@@ -422,7 +427,7 @@ JSON Schema:
 4. **인용 검증**: [[15-DATA-CONTRACTS|15 데이터 계약]] §5. `FAILED`만 남은 필드는 `value=null`, `state=UNKNOWN`, `note="CITATION_FAILED"`이고 `warnings`에 `CITATION_FAILED:{field}`를 단다. 실패한 인용은 `match=FAILED`로 `evidence`에 남는다(화면에는 보이지 않는다). `CONFLICTED`로 바꾸지 않는다. `CONFLICTED`는 서로 다른 값의 근거가 2개 이상일 때다([[15-DATA-CONTRACTS|15]] §2, [[16-DECISIONS|ADR-029]] A1, `FX-13`).
 5. **인젝션 탐지(출력)**: `summary`·`note`·문자열 값에 같은 패턴이 있거나, `restrictions`·`qualifications`에 근거 없는 완화 문구("자격 요건 없음" 등 `evidence=[]`)가 있으면 `injectionSuspected=true`.
 6. **정규화**: 금액 정수 문자열, 날짜 UTC, 기술명 trim. 환산 결과는 `note`에.
-7. **메타데이터 대조**: `budgetKrw`, `deadlineAt`이 `NormalizedBid`와 다르면 `CONFLICTED`. v0.2에서 대조 대상을 API 구조화 필드로 넓힌다(§1): 면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt`. API 필드가 우선이고 다르면 `CONFLICTED`다. 면허·지역의 대조를 이 단계(gateway)에서 할지 규칙 엔진에서 할지는 구현 때 정한다. gateway에서 하려면 `ExtractRequest`에 구조화 자격 필드(04 `bid_structured_requirements`)를 더해야 한다.
+7. **메타데이터 대조**: `budgetKrw`, `deadlineAt`이 `NormalizedBid`와 다르면 `CONFLICTED`. v0.2에서 대조 대상을 API 구조화 필드로 넓힌다(§1): 면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt`. API 필드가 우선이고 다르면 `CONFLICTED`다. 면허·지역의 대조는 gateway가 아니라 규칙 엔진(`web/server/scoring`)이 한다(§2.1 계약 세부 결정 2026-10-16). gateway의 이 단계는 `budgetKrw`·`deadlineAt`만 `NormalizedBid`와 대조한다.
 8. **사전 매핑**: `qualifications[].code`를 `services/ai/dictionaries/qualification-codes.yaml`로 채운다. 미매핑은 `null`.
 9. **저장**: `requirement_extractions`(status `COMPLETED` 또는 `PENDING_REVIEW`). 다음 중 하나면 `PENDING_REVIEW`다([[16-DECISIONS|ADR-029]] A2): `injectionSuspected=true`, `warnings`에 `ATTACHMENT_PARSE_FAILED:*`가 있음(`FX-05`), FAILED 인용 비율 > 50%(`EXTRACTION_LOW_CONFIDENCE`, [[15-DATA-CONTRACTS|15]] §5.3). `translations`는 같은 행의 `translations` 열(§5.11).
 
@@ -439,7 +444,7 @@ JSON Schema:
 |`ATTACHMENT_PARSE_FAILED:{documentId}`|첨부 텍스트 없음(다운로드·파싱 실패), 본문만으로 추출|추출 `PENDING_REVIEW`(9단계, ADR-029 A2). 첨부에 의존하는 항목 `NEEDS_REVIEW`(`PARSE_UNSUPPORTED`)|
 |`CITATION_FAILED:{field}`|그 필드의 인용이 모두 검증에 실패해 `UNKNOWN`이 됨(4단계)|`reviewFlags += CITATION_FAILED`. 필드 `note="CITATION_FAILED"`(ADR-029 A1)|
 |`INJECTION_SUSPECTED`|문서 내 지시문 패턴 탐지([[09-SECURITY\|09 보안]] 프롬프트 인젝션 대응 표)|추출 `PENDING_REVIEW`, 관련 자격 `NEEDS_REVIEW`, `reviewFlags += INJECTION_SUSPECTED`|
-|`QDRANT_FALLBACK`|Qdrant 불가로 키워드 검색으로 chunk 선정(§8)|—|
+|`QDRANT_FALLBACK`|Qdrant 불가로 키워드 검색으로 chunk 선정(§8). **미구현**: Qdrant를 쓰지 않으므로 지금은 생기지 않는다|—|
 |`EXTRACTION_LOW_CONFIDENCE`|FAILED 인용 비율 > 50%([[15-DATA-CONTRACTS\|15]] §5.3)|추출 `PENDING_REVIEW`(9단계), `reviewFlags += EXTRACTION_LOW_CONFIDENCE`|
 |`MOCK_FIXTURE_NOT_FOUND`|mock이 고를 추출 fixture 파일이 없음|—(ADR-030 B12)|
 |`ADAPTER_NOT_IMPLEMENTED:{provider}`|그 공급자의 어댑터가 아직 없음. 조용히 mock으로 바꾸지 않는다|—(ADR-030 B12)|
@@ -521,7 +526,7 @@ Bosun은 0.6B 한 크기다(Kev의 0.8B/4B/9B/27B 선택은 퇴역. 이력은 [[
 
 응답 필드(타입별): `choice` → `choice`, `confidence`, `probabilities`; `noul` → `noul`(yes 확률); `score` → `score`(0부터 시작하는 평균 등급 index), `legend`, `probabilities`, `confidence`. 공통 `usage`, `latency_ms`, 헤더 `x-typesafe-request-id`. 어댑터는 응답 원문을 Worker에 돌려주고 Worker가 `score_runs.kev_output`에 그대로 저장한다. v0.2는 질문이 많으면 같은 state로 24개씩 나눠 보낸다(§5.10). 응답 모양이 Kev wire와 같으므로 gateway의 `kev_wire.py`·`KevClient` Protocol·worker의 `wire` 재파싱(`kevMockResponseSchema`)은 ADR-034 뒤에도 바꾸지 않는다.
 
-`score` 질문의 응답은 `score`·`legend`·`probabilities`·`confidence` 넷을 모두 가진다. 하나라도 없으면 형식 오류다. `score`는 등급 분포의 기대 등급(Σ i·p_i)이고, 같은 응답의 분포에서 구한 값과 0.05를 넘게 다르면 형식 오류다. `confidence`는 분포의 최대 확률이다([[16-DECISIONS|ADR-031]] C7, main `9da17c4`의 `kev_wire.py`에 구현. 서버가 같은 식으로 계산한다).
+`score` 질문의 응답은 `score`·`legend`·`probabilities`·`confidence` 넷을 모두 가진다. 하나라도 없으면 형식 오류다. legend 검사는 두 곳이 다르다. gateway(`kev_wire.py`)는 서버가 보낸 legend의 값·모양을 보지 않고 질문 세트의 `score_legend`로 `KevAssist`를 만든다. worker는 gateway가 넘긴 서버 원본 wire를 다시 검사하며(`readKevWire` → `kevMockResponseSchema`, `web/server/scoring/analysis-input.model.ts`), 원본 wire의 `fit.legend`를 문자열→문자열 객체(`{"0": 등급 이름, …}`)로 요구한다. 배열이면 `WIRE_INVALID`라 `KEV_UNAVAILABLE`이 된다. Bosun 서버가 배열을 내던 결함은 B1 `7320c3e`에서 수정했다(3e 병합 대기, [[16-DECISIONS|16]] 미결정 26번). `score`는 등급 분포의 기대 등급(Σ i·p_i)이고, 같은 응답의 분포에서 구한 값과 0.05를 넘게 다르면 형식 오류다. `confidence`는 분포의 최대 확률이다([[16-DECISIONS|ADR-031]] C7, main `9da17c4`의 `kev_wire.py`에 구현. 서버가 같은 식으로 계산한다).
 
 **Bosun typed decision 변환**(서버 안. 계획 §4.1. Hanno `jev-compatible-server`의 Bosun 매핑과 같게 두고 코드는 복사하지 않는다. 서빙과 학습이 같은 함수를 쓴다):
 
@@ -633,6 +638,9 @@ interface KevAssist {
 ```
 
 - 요구사항 항목별 Kev 분포(`req.{itemId}.status`)는 `KevAssist`가 아니라 `requirement_assessments`에 둔다([[05-API-SPEC|05 API]] `RequirementAssessment.kev`).
+
+> [!warning] v0.2 필드 구현 상태 (2026-10-20, main `554b34c`)
+> gateway는 질문 세트가 `kev-qs/v0.2`면 `scores`·`risks`·`calibration`·`stateTrace`와 `KevResponse.requirements`를 채운다(`adapters/kev.py`). worker는 이 값을 `score_runs.kev_output`(원문 보관)에만 남긴다. 저장·표시하는 `KevAssist`(`score_runs.kev_assist`)의 v0.2 필드 4개는 늘 null이다(`web/server/scoring/decision.ts` `toKevAssist`). `score_runs.kev_calibration`, `requirement_assessments.kev_distribution`·`kev_label`도 늘 null이고, v0.2 플래그(`KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`)를 다는 코드도 없다. 지금 동작하는 플래그는 v0.1 3개(§5.5)뿐이다. 화면 부품(`web/components/bids/kev-opinion.tsx`)은 값이 오면 보정 상태·점수·리스크를 그리지만 지금은 그리지 않는다.
 - `KEV_ENABLED=false` 또는 timeout/오류: `enabled=false`, 나머지 null, `recommendationBasis=RULES_ONLY`. 분석은 실패하지 않는다. 오류에는 gateway가 응답했지만 쓸 수 없는 `/kev`(4xx·봉투 오류·wire 스키마 위반)도 들어간다. 이때도 `KEV_UNAVAILABLE` 플래그·분석 `COMPLETED`·`RULES_ONLY`다. 그래서 `KEV_UNAVAILABLE`은 "결정 모델 서버 미접속·timeout + 응답 형식 오류"를 뜻한다. gateway에 닿지 못한 전송 실패는 이 줄이 아니라 §8의 `AI_UNAVAILABLE`이다([[16-DECISIONS|ADR-031]] C6).
 - 추출이 인젝션 의심이면 결정 모델을 부르지 않는다: `enabled=false`, `KevResponse.errorCode=INJECTION_SUSPECTED`, 분석 `COMPLETED`·`RULES_ONLY`(§2.1, [[16-DECISIONS|ADR-030]] B3).
 - mock adapter: fixture별 고정 응답 파일 `fixtures/kev/FX-xx.json`(wire 응답 형식 그대로)을 우선 읽는다. 예: FX-02는 `BID 0.36 / WATCH 0.52 / NO_BID 0.12`, `needsHumanReview 0.74`([[19-DEMO-SCENARIO|19 데모 시나리오]]·[[08-SCORING|08 점수]] 계산 예시와 같은 숫자). 파일이 없으면 공식(추출·프로필만으로 계산, 규칙 결과 없음): `mandatory=true`인 `qualifications[].code`가 프로필 `licenses`에 없으면 `NO_BID` 0.8, 필수 항목 중 `UNKNOWN`/`CONFLICTED`가 있으면 `WATCH` 0.7, 아니면 `BID` 0.6 중심의 고정 분포. 공식의 `fit`은 세 분기 모두 `{"0":0,"1":0.2,"2":0.6,"3":0.2,"4":0}`, `confidence` 0.6, `score` 2.0이다(§5.4, [[16-DECISIONS|ADR-031]] C7). 어느 쪽이든 `provider="mock"`이고 UI가 DEMO 배지로 보여 준다. mock adapter는 v0.1만 내므로 v0.2 필드는 null이다.
@@ -692,6 +700,7 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
 - 구조는 하나이고 언어만 둘이다: `services/ai/kev/state-templates/{en,ko}.v0.2.txt`. 줄 순서·항목 id·숫자는 두 언어가 같다. 그래서 한국어/영어 비교가 언어 효과만 잰다.
 - `en`(운영 기본): 고정 라벨은 템플릿으로 쓴다. 자유 텍스트 값은 `/extract`가 돌려준 `translations`를 쓴다. 대상은 실적 설명, 인력 조건, 사전 밖 자격명, 영문 표기가 없는 기술명이다.
   - 번역은 Qwen이 용어집(`services/ai/kev/glossary.ko-en.yaml`)을 보고 `/extract`에서 함께 한다(revision 단위 1회, 추출과 같은 재사용 키).
+  - **미구현**: 용어집 파일이 없고 `/extract`는 늘 `translations=null`이다. 그래서 지금 영어 state의 한글 자유 텍스트 값은 모두 `(untranslated)`다(`kev_state.py`). 고정 라벨·사전 영어 라벨만 영어로 들어간다.
   - 원문의 숫자 토큰이 번역에 그대로 있지 않으면 그 값은 번역하지 않고 `(untranslated)`로 표시한다.
 - `ko`(평가 전용): 같은 템플릿의 한국어판에 원문 값을 넣는다. gateway env `KEV_ALLOW_KO_STATE=true`일 때만 받고, 아니면 `422 KO_STATE_NOT_ALLOWED`다([[16-DECISIONS|ADR-012]] 개정).
   - `KEV_ALLOW_KO_STATE=true`는 `SOL_RUN_MODE=live`와 함께 쓸 수 없다. `AI_PROVIDER=hosted`와 함께여도 모든 모드에서 쓸 수 없다(`KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[16-DECISIONS|ADR-030]] B11). 둘 다 gateway와 `pnpm check:env`가 기동을 거부한다.
@@ -709,10 +718,10 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
 
 - 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 화면 구역 제목은 "결정 모델 참고 지표"(모델 중립 문구. 2026-10-20 ADR-034 Q3로 "Kev 참고 지표"에서 바꿈, ADR-029 A6 D13 개정. 실제 모델명은 `KevAssist.model` 값으로 함께 보인다)이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"를 함께 보인다([[06-UI-UX|06 UI]] §8, [[16-DECISIONS|ADR-029]] A6 D13). 질문별 분포 막대, 리스크 목록, 항목별 분류가 들어간다([[06-UI-UX|06 UI]]).
 - 고지 문구: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다." `KevAssist.disclaimer`로 내려 준다. 이 literal은 API·DB 호환(zod literal로 저장 행 파싱)을 위해 ADR-034 뒤에도 유지한다(ADR-034 5번).
-- 보정 상태를 표시한다: `UNCALIBRATED`(기본) / `CALIBRATED`(데이터셋 버전 표기).
+- 보정 상태를 표시한다: `UNCALIBRATED`(기본) / `CALIBRATED`(데이터셋 버전 표기). **미구현**: worker가 `calibration`을 늘 null로 저장해 지금은 표시되지 않는다(§5.7 구현 상태).
 - 임계값 τ는 처음에 0.70이고 "미보정"으로 표시한다. 베이스라인 평가 뒤 dev 분할로 다시 정한다. 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다.
 
-v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다. v0.1 플래그(`MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW`, §5.5)는 그대로다.
+v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다. v0.1 플래그(`MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW`, §5.5)는 그대로다. **미구현**: `KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`는 값 집합·화면 라벨에만 있고 다는 코드가 없다. `PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`도 첨부 처리(documents 소비자)가 없어 지금은 생기지 않는다.
 
 |플래그|조건|
 |---|---|
@@ -731,7 +740,7 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 - 파싱·다운로드에 실패한 내용을 AI가 추측해 채우지 않는다(§8).
 - mock 결과는 언제나 mock이라고 표시한다. 자동 대체가 일어나면 `MOCK_FALLBACK`과 배너로 밝힌다(§8).
 - 모델 출력(`kev_output`, 추출 원문)과 규칙 결과(`score`, `recommendation`)는 다른 컬럼에 저장하고 섞지 않는다.
-- 저장 메타데이터: 실행 모드, 모델 식별자·버전(결정 모델은 레지스트리 id와 `/v1/models`의 `run`), 프롬프트 해시·버전, 질문 세트 버전, state 해시, 입력 스냅샷 해시, `temperature`, 처리 시간, 재시도 횟수, 결정 모델 `requestId`, 인용 검증 임계값, 인젝션 의심 여부, 파서 id.
+- 저장 메타데이터(설계 목록. 지금 `model_metadata`에 저장하는 모양은 §7 표): 실행 모드, 모델 식별자·버전(결정 모델은 레지스트리 id와 `/v1/models`의 `run`), 프롬프트 해시·버전, 질문 세트 버전, state 해시, 입력 스냅샷 해시, `temperature`, 처리 시간, 재시도 횟수, 결정 모델 `requestId`, 인용 검증 임계값, 인젝션 의심 여부, 파서 id.
 - 프롬프트 인젝션: 문서 텍스트는 `<document>` 안의 데이터이며 시스템 프롬프트와 분리한다. 모델에 도구·파일·네트워크 권한이 없다. 출력은 스키마로 강제한다([[09-SECURITY|09 보안]]).
 - 설명 생성(`POST /explain`)은 규칙 결과·인용·결정 모델 참고 요약만 입력으로 받고, 입력에 없는 숫자·사실을 쓰면 폐기하고 템플릿 문장으로 대체한다(숫자 토큰이 입력 집합 밖이면 폐기, `fallback=true`). 파싱에 실패한 첨부가 있으면 문장에 반드시 밝힌다.
 
@@ -743,15 +752,15 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 |`requirement_extractions.payload`|`RequirementExtraction` 전체(검증 후). `FAILED` 추출은 저장하지 않는다([[16-DECISIONS\|ADR-030]] B10)|
 |`requirement_extractions.prompt_hash`, `model_name`, `schema_version`|재사용 키|
 |`requirement_extractions.provider`|추출 공급자. env·API 값은 소문자(`mock`·`local`·`hosted`), 저장값은 대문자(`MOCK`·`LOCAL`·`HOSTED`, [[04-DATABASE\|04 DB]] `ai_provider`)|
-|`requirement_extractions.translations`|자유 텍스트 값의 영어 표기(숫자 보존 검사 통과분만, §5.11)|
+|`requirement_extractions.translations`|자유 텍스트 값의 영어 표기(숫자 보존 검사 통과분만, §5.11). 미구현: 늘 null|
 |`score_runs.input_snapshot`|`AnalysisInput`: `NormalizedBid` 요약, `extractionId`, 프로필 스냅샷, 점수 계산 대상 `team.members`·기간 배정 `team.assignments`·고정 기준 시각 `team.asOf`, 규칙 설정 버전. 인력 이름·성별·사진은 제외|
-|`score_runs.kev_output`|Kev wire 응답 원문(분할 요청이면 전부) + `questionSetVersion` + `KevStateTrace`(`stateHash` 포함, §5.12)|
+|`score_runs.kev_output`|Kev wire 응답 원문(분할 요청이면 전부, `wire`) + `questionSetVersion` + `stateHash` + `stateTrace`(§5.12) + `requirements`. v0.2 필드는 여기에만 남는다(§5.7 구현 상태)|
 |`score_runs.run_mode`, `ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `prompt_hash`, `input_snapshot_hash`, `injection_suspected`|감사용 평문 컬럼([[09-SECURITY\|09 보안]] 감사 필드 표와 이름 일치). `input_snapshot_hash = sha256(canonical input_snapshot)`|
-|`score_runs.kev_calibration`|결정 모델 임계값 보정 상태(`UNCALIBRATED`·`CALIBRATED`). 결정 모델을 쓰지 않은 run은 null|
+|`score_runs.kev_calibration`|결정 모델 임계값 보정 상태(`UNCALIBRATED`·`CALIBRATED`). 결정 모델을 쓰지 않은 run은 null. 미구현: worker가 늘 null을 쓴다|
 |`score_runs.fallback_reason`|mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`, §8). 알려진 한계: 지금은 늘 null이다. gateway 계약에 mock 자동 대체를 알리는 필드가 없고 `AI_FALLBACK_TO_MOCK`도 아직 구현하지 않았다([[16-DECISIONS\|ADR-031]] C12(a))|
-|`score_runs.model_metadata`|`{qwen:{name,promptVersion,promptHash,temperature,latencyMs,retries}, kev:{model,questionSetVersion,latencyMs,requestId}, embedding:{model}, citation:{fuzzyMinRatio}}`|
+|`score_runs.model_metadata`|지금 저장하는 모양: `{provider, qwen:{name,promptVersion,promptHash} \| null, kev:{model,questionSetVersion} \| null, algorithmVersion, explanationSource}`(`toModelMeta`·`analysis-store.model.ts`, [[05-API-SPEC\|05]] `AnalysisResult.model`). 설계에 있던 `temperature`·`latencyMs`·`retries`·`requestId`·`embedding`·`citation.fuzzyMinRatio`는 저장하지 않는다|
 |`score_runs.review_flags`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `KEV_REQUIREMENT_DISAGREEMENT`, `KEV_DELIVERY_RISK`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `AI_UNAVAILABLE`, `QWEN_UNAVAILABLE`, `KEV_UNAVAILABLE`, `MOCK_FALLBACK`, `PARSE_UNSUPPORTED`, `DOCUMENT_DOWNLOAD_FAILED`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`(규칙 엔진이 설정)|
-|`requirement_assessments`|요구사항 항목마다 규칙 판정·사유·양쪽 근거, 결정 모델 분포·라벨, 플래그(참고 지표. 판정·점수·권고를 바꾸지 않는다)|
+|`requirement_assessments`|요구사항 항목마다 규칙 판정·사유·양쪽 근거, 결정 모델 분포·라벨(미구현: `kev_distribution`·`kev_label` 늘 null), 플래그(참고 지표. 판정·점수·권고를 바꾸지 않는다)|
 
 테이블 정의와 RLS 정책은 [[04-DATABASE|04 DB]]. 위 표들은 Worker가 service role로 Supabase에 쓴다. `requirement_extractions`·`bid_documents`는 공용 공고 데이터라 `authenticated`는 읽기만 하고, `score_runs`·`requirement_assessments`는 `org_id`로 조직마다 나뉜다.
 
@@ -774,9 +783,9 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 |결정 모델 서버 미접속/timeout·응답 형식 오류(gateway는 정상)|gateway → 결정 모델 서버: 연결 거부, timeout(`KEV_TIMEOUT_MS`). gateway가 200 + `errorCode=KEV_UNAVAILABLE`로 알린다. worker: gateway가 응답했지만 쓸 수 없는 `/kev`(4xx·봉투 오류·wire 스키마 위반, [[16-DECISIONS\|ADR-031]] C6)|`KEV_UNAVAILABLE`(`reviewFlags`)|`kev.enabled=false`, `RULES_ONLY`. 분석은 `COMPLETED`|참고 지표 영역 "결정 모델 사용 불가"(ADR-034 Q3)|
 |AI gateway 연결 불가(연결 거부·timeout, 데모 S6 `docker compose stop ai-gateway`)|worker → gateway: `/extract`·`/kev` 전송 실패(연결 거부·timeout·5xx 재시도 소진·circuit open·시험 전용 503, [[16-DECISIONS\|ADR-030]] B1). `/kev` 전송 실패도 `KEV_UNAVAILABLE`이 아니라 이 행이다|`AI_UNAVAILABLE`|analysis job은 캐시된 `requirement_extractions`로 규칙 판정·점수를 계산하고 `status=PARTIAL`, `recommendationBasis=RULES_ONLY`, `reviewFlags += AI_UNAVAILABLE`, `errorCode=AI_UNAVAILABLE`, `kev.enabled=false`. 캐시된 추출도 없으면 모든 필드 `UNKNOWN` 취급|UI 배너 `AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)`([[09-SECURITY\|09 보안]] 문구, [[02-ARCHITECTURE\|02 아키텍처]] 장애 원칙, [[05-API-SPEC\|05 API 명세]] §6.4)|
 |`/extract` 응답 형식 오류(gateway는 정상)|worker: gateway가 응답했지만 쓸 수 없는 `/extract`(4xx·봉투 오류·스키마 위반, [[16-DECISIONS\|ADR-031]] C6)|`EXTRACTION_FAILED`|분석 `PARTIAL`|분석 상태 `PARTIAL`|
-|회사 추론 엔드포인트 미접속(TLS·인증 실패 포함, ADR-025. Qwen은 회사 vLLM API `/vllm`, 결정 모델은 `/sol-radar/kev`)|gateway → Qwen·결정 모델 서버 연결 거부·timeout·4xx/5xx|위 Qwen·결정 모델 미접속 행과 같다(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE` 따로)|위와 같다. 자동 mock 대체 없음. 필요하면 사람이 `mock` 모드로 전환(§3)|위와 같다|
+|회사 추론 엔드포인트 미접속(TLS·인증 실패 포함, ADR-025. Qwen은 회사 vLLM API `/vllm`, 결정 모델은 `/sol-radar/kev`)|gateway → Qwen·결정 모델 서버 연결 거부·timeout·4xx/5xx. 단 Qwen의 400·422는 미접속이 아니라 `EXTRACTION_FAILED`다(401·403·404·3xx·5xx는 `QWEN_UNAVAILABLE`, `adapters/qwen.py`)|위 Qwen·결정 모델 미접속 행과 같다(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE` 따로)|위와 같다. 자동 mock 대체 없음. 필요하면 사람이 `mock` 모드로 전환(§3)|위와 같다|
 |레지스트리 불일치|gateway 기동 시 결정 모델 서버 `GET /v1/models`(`run`·`base`·`lora`·`revision`) ↔ `KEV_MODEL_ID` 항목, 회사 Qwen API `GET /v1/models` `id` ↔ `QWEN_MODEL`(§11)|기동 로그|gateway 기동 거부. 레지스트리와 다른 패키지가 같은 alias로 조용히 서빙되는 것을 막는다(서버 쪽은 `manifest.json` sha256 대조)|`/health` 미응답 → 위 gateway 연결 불가 행|
-|Qdrant 다운|gateway health|`warnings += QDRANT_FALLBACK`|키워드 검색으로 chunk 선정|—|
+|Qdrant 다운(**미구현**, 설계)|gateway health|`warnings += QDRANT_FALLBACK`|키워드 검색으로 chunk 선정. 지금 gateway는 Qdrant를 검사·호출하지 않는다|—|
 |추출은 성공, 인용 검증 대량 실패|§4.4 4단계(FAILED 비율 50% 초과 규칙은 [[15-DATA-CONTRACTS\|15]] §5.3)|`EXTRACTION_LOW_CONFIDENCE`|`PENDING_REVIEW`|—|
 |hosted 미승인 상태에서 `hosted` 지정|기동 시 env 검사|기동 로그|gateway 기동 거부. 조용히 mock으로 바꾸지 않는다|—|
 |멈춘 분석(오래된 `QUEUED`·`RUNNING` run, 기본 10분, env `ANALYSIS_STALE_*` §3)|worker 주기 검사(`ANALYSIS_RECONCILE_INTERVAL_MS`)|`errorCode=STALE_RUN`|큐에 job이 없는 run 중 `RUNNING`은 같은 jobId로 다시 넣고 시도를 다 썼으면 `FAILED`(`STALE_RUN`)로 끝낸다. `QUEUED`는 다시 넣지 않고 `FAILED`(`STALE_RUN`)로 닫는다. 사용자가 PostgREST로 직접 넣은 `QUEUED` run이 속도 제한([[05-API-SPEC\|05]] §1)을 우회하는 통로가 되지 않게 하려는 것이다([[16-DECISIONS\|ADR-030]] B21, ADR-031 C4). 대상은 id keyset으로 읽고 처리 순서는 오래된 순이 아니다(ADR-032 D5)|분석 실패 배너|

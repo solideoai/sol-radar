@@ -338,7 +338,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`company_profiles`|3|`org-01` revision 1(초기)·revision 2(기술·실적 추가)와 `org-02` 격리 시연용 프로필 1개(`scripts/demo/plan.mjs`). 마지막 줄의 `profileRevisions=2`는 `org-01` 것만 센다. 데모에서 revision 차이를 보여 준다. 모두 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
 |`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재. `source=fixture`|
 |`bid_revisions`|19 (`LIVE` 뒤 23)|seed 직후는 공고 19건의 r1. 정정·기한변경·취소 fixture(`FX-06`·`FX-07`·`FX-08`·`FX-10`)는 `batch=LIVE` 수집에서 revision 2를 얻어 23이 된다([[16-DECISIONS\|ADR-030]] B15)|
-|`bid_documents`|07 표 기준|첨부가 있는 fixture만(`download_status=OK`). 파싱 실패 케이스(`parse_status` `UNSUPPORTED` 또는 `FAILED`) 1건 이상 포함|
+|`bid_documents`|07 표 기준|첨부가 있는 fixture만. 수집 흐름 그대로 넣으므로 지금은 모두 `download_status=PENDING`, `parse_status` NULL이다(reset 뒤 18행, `docs/evidence/phase-5/preanalyze-local-c2b12d3.md` 7차). documents 소비자가 없어 그대로 남는다([[03-AI-PIPELINE\|03]] §2). 설계 목표: `download_status=OK`, 파싱 실패 케이스(`parse_status` `UNSUPPORTED` 또는 `FAILED`) 1건 이상 포함|
 |`bid_structured_requirements`|07 표 기준|API 구조화 자격 필드를 담은 fixture만|
 |`requirement_extractions`|0|seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다). 검증된 추출은 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장하고(인용 검증 포함, [[03-AI-PIPELINE\|03]] §4.4), `FX-02`는 S4 라이브 분석 때 저장한다. `fixtures/extractions/` 파일 20개는 gateway mock이 읽는 정본으로 그대로다([[16-DECISIONS\|ADR-031]] C16)|
 |`score_runs` / `requirement_assessments`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 `pnpm demo:preanalyze`로 18건을 사전 분석해 채운다([[16-DECISIONS\|ADR-030]] B22)|

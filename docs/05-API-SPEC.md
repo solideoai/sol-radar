@@ -45,9 +45,9 @@ updated: 2026-10-20
 |GET|`/bids/:id/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** revision 목록·변경 필드|`BidRevisionSummary[]`|
 |GET|`/bids/:id/revisions/:rev`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 특정 revision 정규화 본문|`NormalizedBid`|
 |GET|`/bids/:id/documents/:docId/download`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 첨부 다운로드|`302` → 60초 presigned URL([[09-SECURITY\|09 보안]])|
-|GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 현재 프로필(최신 revision)|`CompanyProfile`|
-|GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** revision 이력|`CompanyProfileSummary[]`|
-|PUT|`/company-profile`|`ADMIN`|**(미구현)** 새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
+|GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|현재 프로필(최신 revision)|`CompanyProfile`|
+|GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 이력|`CompanyProfileSummary[]`|
+|PUT|`/company-profile`|`ADMIN`|새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
 |POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기). 중복·큐 계약은 §4.5|`AnalysisRequest` → `202 AnalysisAccepted`|
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
@@ -81,7 +81,7 @@ updated: 2026-10-20
 |GET|`/admin/ai/eval-runs`|`ADMIN`|**(미구현)** 평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
 |GET|`/admin/ai/eval-runs/:id`|`ADMIN`|**(미구현)** 평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
 
-**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 15개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. 화면이 생기기 전까지 [[11-TESTING|11]] §5의 `/admin/sources` 확인은 할 수 없다.
+**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개는 다른 브랜치에서 구현 중이라 이 정리에서 뺐다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다.
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
