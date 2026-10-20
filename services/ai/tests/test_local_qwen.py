@@ -418,8 +418,10 @@ def test_qwen_connection_failure_is_unavailable(make_client, local_models, monke
 
 @pytest.mark.parametrize("status", [400, 422])
 def test_qwen_bad_request_is_extraction_failed(make_client, local_models, status):
+    # 가짜 서버는 답이 하나면 되풀이한다: guided 요청과 대체 요청이 둘 다 거부된 경우다
     result = run_extract(make_client, local_models, Reply(status, {"error": "bad request"}))
     assert (result["status"], result["errorCode"]) == ("FAILED", "EXTRACTION_FAILED")
+    assert len(sent(local_models)) == 2
 
 
 @pytest.mark.parametrize(
@@ -440,3 +442,86 @@ def test_qwen_redirect_is_not_followed(make_client, local_models):
         "QWEN_UNAVAILABLE",
         [],
     )
+
+
+# ---------------------------------------------------------------- 비사고 모드·guided JSON 대체(03 §4.3, 미결정 26-7·26-3)
+
+
+def test_qwen_request_disables_thinking(make_client, local_models):
+    """Qwen3.5 는 기본이 사고 모드라 chat_template_kwargs.enable_thinking=false 를 보낸다(26-7)."""
+    run_extract(make_client, local_models)
+    assert sent(local_models)[0]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def rejected(status: int = 400) -> Reply:
+    return Reply(status, {"error": {"message": "response_format is not supported"}})
+
+
+def fenced_reply(prefix: str = "") -> Reply:
+    """guided JSON 없이 답하는 서버 흉내: <think>·코드펜스·설명 문장이 섞인 텍스트."""
+    content = f"{prefix}```json\n{extraction_output()}\n```\n위 JSON 이 추출 결과입니다."
+    return Reply(json_body=chat_completion(content))
+
+
+@pytest.mark.parametrize("status", [400, 422])
+def test_qwen_guided_rejected_falls_back_once_without_response_format(
+    make_client, local_models, status
+):
+    result = run_extract(make_client, local_models, rejected(status), valid_reply())
+    assert result["status"] == "COMPLETED"
+    first, second = sent(local_models)
+    assert "response_format" in first
+    assert "response_format" not in second
+    # 그 밖의 필드(모델·메시지·추론 설정·비사고 모드)는 같다
+    assert {k: v for k, v in first.items() if k != "response_format"} == second
+    assert second["chat_template_kwargs"] == {"enable_thinking": False}
+    assert result["payload"]["model"]["retries"] == 0
+
+
+def test_qwen_fallback_reply_with_think_and_code_fence_is_parsed(make_client, local_models):
+    """대체 경로의 답은 <think>·코드펜스·설명을 벗기고 같은 스키마·인용 검증 체인을 지난다."""
+    result = run_extract(
+        make_client, local_models, rejected(), fenced_reply("<think>생각…</think>\n")
+    )
+    assert result["status"] == "COMPLETED"
+    assert result["payload"]["bidId"] == BID_ID
+    assert result["payload"]["model"]["retries"] == 0
+
+
+def test_qwen_guided_reply_is_not_unwrapped(make_client, local_models):
+    """guided 경로(200)의 답은 그대로 파싱한다. 코드펜스가 오면 스키마 위반 재시도로 간다(대체가 아니다)."""
+    run_extract(make_client, local_models, fenced_reply(), valid_reply())
+    first, second = sent(local_models)
+    assert "response_format" in first and "response_format" in second
+    assert user_content(second).startswith(user_content(first) + RETRY_NOTE)
+
+
+def test_qwen_fallback_rejected_again_is_extraction_failed(make_client, local_models):
+    result = run_extract(make_client, local_models, rejected(400), rejected(422))
+    assert (result["status"], result["errorCode"]) == ("FAILED", "EXTRACTION_FAILED")
+    assert len(sent(local_models)) == 2
+
+
+@pytest.mark.parametrize("status", [500, 401, 404])
+def test_qwen_fallback_server_error_is_unavailable(make_client, local_models, status):
+    result = run_extract(make_client, local_models, rejected(), Reply(status, {"error": "x"}))
+    assert (result["status"], result["errorCode"]) == ("FAILED", "QWEN_UNAVAILABLE")
+    assert len(sent(local_models)) == 2
+
+
+def test_qwen_fallback_applies_again_on_schema_retry(make_client, local_models):
+    """대체는 요청마다 한 번이고 서버 능력을 기억하지 않는다: 스키마 위반 재시도도 guided 로 시작해 다시 대체한다."""
+    result = run_extract(make_client, local_models, rejected(), NOT_JSON, rejected(), valid_reply())
+    assert (result["status"], result["payload"]["model"]["retries"]) == ("COMPLETED", 1)
+    bodies = sent(local_models)
+    assert ["response_format" in b for b in bodies] == [True, False, True, False]
+    assert user_content(bodies[2]).startswith(user_content(bodies[0]) + RETRY_NOTE)
+
+
+def test_qwen_fallback_shares_request_deadline(make_client, local_models, monkeypatch):
+    """대체 호출도 같은 마감을 쓴다: 대체 답이 마감을 넘기면 QWEN_UNAVAILABLE 이고 세 번째 호출은 없다."""
+    monkeypatch.setenv("AI_TIMEOUT_MS", "300")
+    result = run_extract(
+        make_client, local_models, rejected(), Reply(json_body=chat_completion("{}"), delay=5)
+    )
+    assert (result["errorCode"], len(sent(local_models))) == ("QWEN_UNAVAILABLE", 2)
