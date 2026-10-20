@@ -44,6 +44,7 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
         orgs: workspace.orgs,
         pendingInvitationCount: workspace.pendingInvitationCount,
       }}
+      solRole={business.current.solRole}
       defaultSidebarOpen={(await cookies()).get("sidebar_state")?.value !== "false"}
       status={{
         runMode,
