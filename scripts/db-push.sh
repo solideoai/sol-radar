@@ -23,5 +23,5 @@ echo "▶ 마이그레이션 적용(직접 pg 연결, 대시보드 직접 SQL �
 # supabase db push 는 무료 티어 Session pooler에서 인증이 완결 안 됨(db-verify.mjs 주석 참고).
 # 그래서 직접 pg로 supabase/migrations/*.sql 중 아직 적용 안 된 것만 순서대로 적용하고 이력에 남긴다.
 export SUPABASE_DB_URL
-node scripts/db-push.mjs
+node scripts/db-push.mjs "$@"
 echo "✅ 적용 완료"
