@@ -1,7 +1,8 @@
 """회사 운영 vLLM API(Qwen) 실연결 확인. **사용자 확인 뒤 손으로만 실행한다.**
 
-pytest(testpaths=tests)·verify.sh·CI 어디서도 저절로 돌지 않는다(scripts/ 는 시험 경로가 아니고 import 되지 않는다).
-외부 네트워크를 부르므로 시험·검증 명령에 끼우지 않는다. 실행마다 회사 API 호출 예산을 쓴다.
+pytest(testpaths=tests)·verify.sh·CI 어디서도 저절로 실요청을 보내지 않는다(scripts/ 는 import 되지 않는다.
+tests/test_probe_qwen_script.py 는 이 파일을 subprocess 로 띄워 URL 거부·--dry-run 경로만 본다 — 네트워크 없음).
+외부 네트워크를 부르므로 실요청은 시험·검증 명령에 끼우지 않는다. 실행마다 회사 API 호출 예산을 쓴다.
 
 사용법(services/ai 에서):
     QWEN_BASE_URL=https://acropolissg.com/vllm/v1 QWEN_MODEL=Qwen/Qwen3.5-27B QWEN_API_KEY=… \\
@@ -9,13 +10,17 @@ pytest(testpaths=tests)·verify.sh·CI 어디서도 저절로 돌지 않는다(s
 
 - env: QWEN_BASE_URL(끝의 /v1 유무 무관. settings.normalize_qwen_base_url 로 정규화), QWEN_MODEL, QWEN_API_KEY.
   키가 없으면 요청을 보내지 않고 exit 2 와 안내만 낸다.
+- URL 검사(게이트웨이 기동 검사 3단계와 같은 adapters.http.url_problems): https(루프백은 http 허용)·계정 정보 없음·
+  호스트가 models/registry.yaml allowedHosts 또는 루프백. 위반이면 --dry-run 이어도 요청 계획을 내지 않고 exit 3.
+  키를 허용 밖 호스트로 보내는 일을 막는다.
 - --dry-run: 보낼 요청 모양(메서드·URL·본문)만 출력하고 보내지 않는다. Authorization 헤더는 "설정됨" 여부만 적는다.
 - 실행: ① GET /v1/models(id 목록, max_model_len 이 있으면 함께, QWEN_MODEL 포함 여부)
        ② POST /v1/chat/completions 아주 짧은 프롬프트 + response_format json_schema + chat_template_kwargs
           {enable_thinking: false} + max_tokens 64 → guided JSON 지원 여부(응답이 스키마대로 파싱되는지)·지연 ms
        ③ --logprobs 면 같은 엔드포인트에 prompt_logprobs 를 더해 응답에 prompt_logprobs 가 오는지
 - 출력: JSON 한 줄(stdout). **키 값·Authorization 헤더는 절대 출력하지 않는다.** 오류 메시지도 예외 종류와
-  HTTP 상태만 적는다. exit 0 = 요청을 보냈다(지원 여부는 JSON 의 값으로 본다), 1 = 전송 실패, 2 = 키 없음.
+  HTTP 상태만 적는다. exit 0 = 요청을 보냈다(지원 여부는 JSON 의 값으로 본다), 1 = 전송 실패, 2 = 키 없음,
+  3 = URL 거부(허용 밖 호스트·http·계정 정보).
 
 > 미검증 가정: vLLM 의 `response_format json_schema`·`chat_template_kwargs`·`prompt_logprobs` 받아들임과 응답 모양은
 > 회사 서버 B2 확인 전이다(ADR-034 8번·미결정). 이 스크립트는 "그렇게 보냈을 때 무엇이 왔는지" 를 기록할 뿐이다.
@@ -32,11 +37,14 @@ from typing import Any
 import httpx
 
 # uv run 이 sol_ai 패키지를 가상환경에 설치하므로 바로 import 한다(경로 조작 없음)
+from sol_ai.adapters.http import url_problems
+from sol_ai.paths import REGISTRY_FILE
+from sol_ai.registry import ModelRegistry
 from sol_ai.settings import normalize_qwen_base_url
 
 MODELS = "/v1/models"
 CHAT_COMPLETIONS = "/v1/chat/completions"
-EXIT_OK, EXIT_TRANSPORT, EXIT_NO_KEY = 0, 1, 2
+EXIT_OK, EXIT_TRANSPORT, EXIT_NO_KEY, EXIT_URL_REFUSED = 0, 1, 2, 3
 
 # ② 아주 짧은 프롬프트. 스키마는 불리언 하나(guided JSON 지원 여부만 본다)
 PROBE_SCHEMA = {
@@ -68,6 +76,11 @@ def read_target() -> Target | None:
     if not base or not model:
         return None
     return Target(normalize_qwen_base_url(base), model, bool(os.environ.get("QWEN_API_KEY", "")))
+
+
+def url_refusals(base_url: str) -> list[str]:
+    """게이트웨이와 같은 URL 검사. 사유 이름만 돌려준다(URL·호스트 값은 담지 않는다)."""
+    return url_problems(base_url, ModelRegistry.load(REGISTRY_FILE).allowed_hosts)
 
 
 def _headers() -> dict[str, str]:
@@ -240,6 +253,15 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return EXIT_NO_KEY
+    refusals = url_refusals(target.base_url)
+    if refusals:
+        print(
+            "QWEN_BASE_URL 거부: "
+            + ", ".join(refusals)
+            + " — 요청을 보내지 않았다. https 와 models/registry.yaml allowedHosts(또는 루프백)만 허용한다",
+            file=sys.stderr,
+        )
+        return EXIT_URL_REFUSED
     if args.dry_run:
         print(
             json.dumps(

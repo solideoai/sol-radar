@@ -47,6 +47,8 @@ python -m sol_decision.serve \
 |---|---|---|
 | `DECISION_API_KEY` | (필수) | Bearer 키. 없으면 기동 거부 |
 | `DECISION_TIMEOUT_MS` | `4500` | 요청 하나(질문 전부)의 마감. 넘으면 504. 게이트웨이 `KEV_TIMEOUT_MS`(5000)보다 짧게 둔다 |
+| `DECISION_MAX_QUEUE` | `4` | 추론 스레드에 넘겼고 아직 끝나지 않은 요청(처리 중 1 + 대기)의 상한. 차면 503 `QUEUE_FULL` |
+| `DECISION_ALLOW_KO_STATE` | `false` | 평가 전용(게이트웨이 `KEV_ALLOW_KO_STATE` 와 짝). `true` 면 state 의 한글을 422 로 거절하지 않는다. 운영에서는 두지 않는다 |
 | `DECISION_RUN` | `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c` | `/v1/models` 의 `run`. 학습본이면 레지스트리 id(예 `bosun-sol-lora-v0.1`) |
 | `DECISION_REVISION` | `5e78a37c8d86860ebac9ef2d5327d6299498498e` | `/v1/models` 의 `revision` |
 | `DECISION_BASE` | 패키지 `config.json` 의 `base_model_name_or_path@base_model_revision[:8]` | `/v1/models` 의 `base` |
@@ -101,19 +103,23 @@ score → `{id: "0".."N-1", label}`, noul → `true`/`false`(description 기본 
 | 상태 | `errorCode` | 뜻 |
 |---|---|---|
 | 401 | `UNAUTHORIZED` | `Authorization: Bearer` 없음·불일치(`/v1/*`·`/systemone`) |
-| 413 | `PAYLOAD_TOO_LARGE` | 본문 1 MiB 초과 |
+| 413 | `PAYLOAD_TOO_LARGE` | 본문 128 KiB 초과 |
 | 422 | `INVALID_REQUEST` | wire 형식 위반(`errors[{loc,msg,type}]` 동봉. 입력 값은 되돌리지 않는다) |
 | 422 | `MODEL_MISMATCH` | 요청 `model` 이 alias 와 다름 |
+| 422 | `STATE_TOO_LARGE` | `state` 가 24,000자 초과(객체면 JSON 직렬화 길이). 게이트웨이 `kev_state` 가 자르는 6,000 토큰 × 4자와 같다 |
+| 422 | `STATE_NOT_ENGLISH` | `state` 에 한글 음절·자모(03 §5.6). `DECISION_ALLOW_KO_STATE=true` 면 검사하지 않는다 |
 | 500 | `INVALID_DISTRIBUTION` | 백엔드 확률이 분포가 아님(길이·NaN·음수·합 0) |
 | 500 | `INFERENCE_FAILED` | 백엔드 예외 |
-| 504 | `DEADLINE_EXCEEDED` | `DECISION_TIMEOUT_MS` 초과(질문 사이와 끝에서 검사. 진행 중인 forward 는 끊지 않는다) |
+| 503 | `QUEUE_FULL` | 처리 중·대기 중 요청이 `DECISION_MAX_QUEUE` 개(`Retry-After: 1`) |
+| 504 | `DEADLINE_EXCEEDED` | `DECISION_TIMEOUT_MS` 초과(질문 사이와 끝에서 검사). forward 하나가 마감을 넘기면 스레드를 기다리지 않고 응답한다(스레드는 끊지 못해 끝날 때까지 대기열 한 자리를 쓴다) |
 
 기동 거부(exit 78, stderr `기동 거부: …`): `DECISION_API_KEY(MISSING)`, `PACKAGE PACKAGE_REQUIRED`, `PACKAGE MANIFEST_MISSING(manifest.json)`,
 `PACKAGE CONFIG_MISSING(config.json)`, `PACKAGE REQUIRED_FILE_NOT_IN_MANIFEST(<경로>)`, `PACKAGE FILE_MISSING(<경로>)`,
-`PACKAGE SHA256_MISMATCH(<경로>)`, `PACKAGE MANIFEST_PATH_OUTSIDE(<경로>)`, `BACKEND MODEL_DEPENDENCIES_MISSING`, `BACKEND LOAD_FAILED(<예외 종류>)`.
+`PACKAGE SHA256_MISMATCH(<경로>)`, `PACKAGE MANIFEST_PATH_OUTSIDE(<경로>)`, `PACKAGE REMOTE_CODE_NOT_IN_MANIFEST(<파일>)`(최상위 `*.py` 가 manifest 에 없음 — `trust_remote_code` 가 실행하는 파일이다),
+`BACKEND MODEL_DEPENDENCIES_MISSING`, `BACKEND LOAD_FAILED(<예외 종류>)`. 학습기·parity·`sol_eval bosun_score` 도 같은 검증을 지난 디렉터리만 `from_pretrained` 에 넘긴다.
 
 로그에는 요청 id·질문 수·상태 코드·지연·예외 종류 이름만 남는다. state·질문 문구·키·예외 메시지는 남기지 않는다.
-추론은 스레드 하나에서 한 요청씩 순차로 돈다(동시 요청은 줄을 선다).
+추론은 스레드 하나에서 한 요청씩 순차로 돈다(동시 요청은 줄을 선다. 줄은 `DECISION_MAX_QUEUE` 까지, 그 뒤는 503).
 
 ## 검증
 
@@ -122,6 +128,6 @@ bash verify.sh     # ruff check · ruff format --check · pytest (torch 없이)
 ```
 
 시험은 가짜 백엔드로 wire 3타입 왕복, 게이트웨이 `kev_wire.parse_response`·`kev_local.kev_registry_match` 와의 parity,
-후보 id 매핑, 인증·상한·마감·오류 코드, 패키지 sha256 검증, 레지스트리 문자열 일치를 본다.
+후보 id 매핑, 인증·상한(본문·state·대기열)·state 언어·마감·오류 코드, 패키지 sha256·remote code 검증, 레지스트리 문자열 일치를 본다.
 **실제 Bosun 로딩·추론·지연은 회사 서버에서만 확인한다**(가중치는 저장소에 없다): 기동 뒤 위 `curl` 셋과
 `docs/03-AI-PIPELINE.md` §5.9 의 절차를 따른다.
