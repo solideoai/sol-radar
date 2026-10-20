@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONNECTOR_FAILURE_KINDS,
   QUARANTINE_CODES,
+  QUOTA_EXCEEDED_ERROR_CODE,
   SEED_ANCHOR_MISSING,
   WARNING_CODES,
   ingestErrorCodeOf,
@@ -56,6 +57,18 @@ describe("errorKindOf — 중단·기타", () => {
     expect(errorKindOf(SEED_ANCHOR_MISSING)).toBe("FAILURE");
   });
 
+  // 호출 예산(g2b:quota) 때문에 run 을 멈춘 기록이다. 실제 소진(QUOTA_EXCEEDED)과 저장소 오류(QUOTA_STORE_UNAVAILABLE)를 나눈다.
+  it.each(["QUOTA_EXCEEDED", "QUOTA_STORE_UNAVAILABLE"])(
+    "호출 예산 중단 %s 는 FAILURE 다",
+    (code) => {
+      expect(errorKindOf(code)).toBe("FAILURE");
+    },
+  );
+
+  it("수집 서비스의 QUOTA_EXCEEDED_ERROR_CODE 상수도 FAILURE 다", () => {
+    expect(errorKindOf(QUOTA_EXCEEDED_ERROR_CODE)).toBe("FAILURE");
+  });
+
   it.each([
     "API_HTTP_ERROR",
     "API_RESULT_CODE",
@@ -86,6 +99,8 @@ describe("errorCodeLabel — §4.7 코드 라벨", () => {
     ["API_SERVICE_KEY_INVALID", "공공 API 서비스키 거부 (키 값은 보이지 않습니다)"],
     ["RATE_LIMITED", "요청 제한(429)이 계속되어 중단"],
     ["SEED_ANCHOR_MISSING", "SEED 수집 기록이 없어 LIVE 배치를 시작할 수 없음"],
+    ["QUOTA_EXCEEDED", "일일 호출 예산 소진"],
+    ["QUOTA_STORE_UNAVAILABLE", "호출 예산 확인 실패(저장소 오류)"],
   ])("%s 의 라벨은 %s 다", (code, label) => {
     expect(errorCodeLabel(code)).toBe(label);
   });

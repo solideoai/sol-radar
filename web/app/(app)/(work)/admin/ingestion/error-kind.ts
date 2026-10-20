@@ -24,6 +24,9 @@ export const FAILURE_ERROR_CODES = [
   "SEED_ANCHOR_MISSING",
   // 재시도를 다 쓴 뒤 run 을 멈추는 코드다(connector.model.ts).
   "RATE_LIMITED",
+  // 호출 예산(sourceKey g2b:quota) 때문에 run 을 멈춘 기록이다. 실제 소진과 예산 저장소(Redis) 오류를 나눈다(ingestion.service.ts).
+  "QUOTA_EXCEEDED",
+  "QUOTA_STORE_UNAVAILABLE",
 ] as const;
 export const FAILURE_ERROR_PREFIX = "API_";
 
@@ -53,6 +56,8 @@ const CODE_LABEL: ReadonlyMap<string, string> = new Map([
   ["API_SERVICE_KEY_INVALID", "공공 API 서비스키 거부 (키 값은 보이지 않습니다)"],
   ["RATE_LIMITED", "요청 제한(429)이 계속되어 중단"],
   ["SEED_ANCHOR_MISSING", "SEED 수집 기록이 없어 LIVE 배치를 시작할 수 없음"],
+  ["QUOTA_EXCEEDED", "일일 호출 예산 소진"],
+  ["QUOTA_STORE_UNAVAILABLE", "호출 예산 확인 실패(저장소 오류)"],
   ["RUN_MODE_MISMATCH", "실행 모드와 소스가 맞지 않음"],
   ["WINDOW_INVALID", "수집 구간이 올바르지 않음"],
 ]);
