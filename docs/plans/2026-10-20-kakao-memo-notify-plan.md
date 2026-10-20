@@ -209,7 +209,7 @@ updated: 2026-10-20
 
 **Files:**
 - Create: `web/app/(app)/[slug]/settings/kakao-notify-section.tsx`, `web/app/(app)/[slug]/settings/kakao-notify-section.browser.test.tsx`
-- Modify: `web/app/account/account-settings.tsx`(로그인 수단 절 바로 아래에 `SettingsSection id="settings-kakao-notify" title="카카오톡 알림"`, `loadAccountSettings` 가 `getMyKakaoNotify()` 도 읽음, `kakao` 검색 값을 받음), `web/app/(app)/[slug]/settings/page.tsx`(`searchParams.kakao` 전달), `web/server/bids/notification.model.ts`(zod type enum += `BID_RECOMMENDED`·`KAKAO_EXPIRED`), `web/server/bids/notification.supabase.ts`(list 에 `.eq("channel", "IN_APP")`), `web/server/bids/dashboard.supabase.ts`(안 읽음 수에 같은 조건)
+- Modify: `design/tokens.json`(`$comment` 의 kakao 문장에 "카카오톡 알림 연결 버튼" 용도를 더한다) + 생성물 `web/app/globals.css`(`pnpm tokens`, 같은 커밋), `web/app/account/account-settings.tsx`(로그인 수단 절 바로 아래에 `SettingsSection id="settings-kakao-notify" title="카카오톡 알림"`, `loadAccountSettings` 가 `getMyKakaoNotify()` 도 읽음, `kakao` 검색 값을 받음), `web/app/(app)/[slug]/settings/page.tsx`(`searchParams.kakao` 전달), `web/server/bids/notification.model.ts`(zod type enum += `BID_RECOMMENDED`·`KAKAO_EXPIRED`), `web/server/bids/notification.supabase.ts`(list 에 `.eq("channel", "IN_APP")`), `web/server/bids/dashboard.supabase.ts`(안 읽음 수에 같은 조건)
 - Test: 위 browser 시험, 기존 `web/server/bids/*` 시험에 channel 조건 단언 추가
 
 **Interfaces:**
@@ -235,6 +235,6 @@ updated: 2026-10-20
 
 ## 계획 밖 (다른 세션)
 
-- 정본 반영: 설계 §13 표. ADR(ADR-006 개정·ADR-018 예외)은 제안 상태로 정본 담당 세션에 넘긴다.
+- 정본 반영: ADR-038(제안). 제안 단계는 16의 행·상세·미결정 5번만(설계 부록 A 문구, 정본 6-1 끝 커밋 위 새 브랜치). 본문은 ADR-038·ADR-018 예외 채택 뒤 정본 담당 세션이 설계 §13 표대로 반영한다.
 - `docs/PROGRESS.md` 작업 로그는 정본 담당 세션이 쓴다.
 - 19 데모 시나리오의 녹화 장면 추가.
