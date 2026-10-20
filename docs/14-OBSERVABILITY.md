@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - ops
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 14. 관측성·운영
@@ -23,7 +23,7 @@ updated: 2026-10-19
 |2|분석 상태 분포 (최근 24시간)|`score_runs.status` group by|`score_runs.org_id`|`COMPLETED` 건수가 사전 분석 건수([[19-DEMO-SCENARIO\|19 데모 시나리오]] §3 5번, FX-02를 뺀 18건)와 일치, 장애 리허설 후 `PARTIAL` 1건|
 |3|권고 분포|`score_runs.recommendation`|`score_runs.org_id`|BID / WATCH / NO-BID 건수가 fixture 기대 라벨([[07-DATA-PIPELINE\|07 수집 파이프라인]])과 일치|
 |4|사람 결정 vs 권고 불일치율|`bid_reviews.decision` vs 해당 `score_runs.recommendation`. `score_runs.review_flags`의 `MODEL_RULE_DISAGREEMENT` 건수 별도|`bid_reviews.org_id`|리뷰 기록 직후 갱신. 책임 있는 AI 모니터링 지표 ([[09-SECURITY\|09 보안]])|
-|5|알림 outbox 적체·중복|`outbox_events.status=PENDING` 건수, `notifications` idempotency 위반 시도 수|`notifications.org_id`. `outbox_events.org_id`는 nullable(공고 이벤트는 공용)|적체 0, 중복 0|
+|5|알림 outbox 적체·중복|`outbox_events.status=PENDING` 건수(알림을 만드는 두 종 `REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`만 센다. 공고 이벤트 `BID_*`는 해커톤에 소비자가 없어 `PENDING`으로 쌓이므로 적체에 넣지 않는다, [[13-NOTIFICATIONS\|13 알림]] "인앱 알림 2종"), `notifications` idempotency 위반 시도 수|`notifications.org_id`. `outbox_events.org_id`는 nullable(공고 이벤트는 공용)|두 종 기준 적체 0, 중복 0|
 
 테이블·컬럼 이름의 원천은 [[04-DATABASE|04 DB]].
 
@@ -46,3 +46,4 @@ updated: 2026-10-19
 - [[09-SECURITY|09 보안]]
 - [[10-DEPLOYMENT|10 배포]]
 - [[11-TESTING|11 테스트]]
+- [[13-NOTIFICATIONS|13 알림]]

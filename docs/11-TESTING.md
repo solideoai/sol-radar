@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 11. 검증·테스트 전략
@@ -42,7 +42,8 @@ pnpm verify                                       # 공통 검사 + web(서식·
 pnpm -C web test                                  # Vitest: 서버 도메인·Route Handler·scoring goldens·ingestion·worker
 pnpm test:db                                      # DB 정책: supabase/migrations를 PGlite에 올려 RLS·제약·seed 멱등 (scripts/database.test.mjs)
 pnpm -C web test:e2e                              # Playwright 로그인 전(web/e2e) + 부품 브라우저 시험
-pnpm -C web test:e2e:auth                         # Playwright 로그인 뒤(web/e2e-auth)
+pnpm -C web test:e2e:auth                         # Playwright 로그인 뒤(web/e2e-auth, 템플릿 시드)
+pnpm -C web test:e2e:work                         # Playwright C6 업무 화면(web/e2e-auth, demo:reset·demo:preanalyze, 1440·1280)
 uv run --project services/ai pytest               # AI gateway
 bash infra/smoke.sh                               # compose ps + health + 큐 왕복
 ```
@@ -52,7 +53,8 @@ bash infra/smoke.sh                               # compose ps + health + 큐 �
 위 자동 시험은 모두 `SOL_RUN_MODE=mock`으로 돌고 실제 공공 API·회사 GPU 추론 엔드포인트를 부르지 않는다. 공공 API 응답은 저장한 응답을 재생하는 `RecordedApiConnector`로, 첨부는 `FixtureAttachmentFetcher`로, 모델은 mock `ModelClient`로 대신한다. 실제 외부 의존성 확인은 §3.3, 모델 측정은 §3.4에서 따로 한다.
 
 > [!warning] 미검증 가정
-> - 템플릿의 `pnpm -C web test:e2e:auth`는 로컬 Supabase(`pnpm db:start`)와 템플릿 시드 `scripts/db-seed.mjs`(로컬 전용)를 전제로 한다. SOL RADAR 데모 seed(`pnpm demo:reset`)와 Supabase 클라우드 개발 프로젝트에서 로그인 뒤 E2E를 어떻게 돌릴지는 C6에서 정한다(G5 `e2e-auth` 겹이 C6이다, [[PROGRESS]]).
+> - 템플릿의 `pnpm -C web test:e2e:auth`는 로컬 Supabase(`pnpm db:start`)와 템플릿 시드 `scripts/db-seed.mjs`(로컬 전용)를 전제로 한다. C6(main `4ae09f9`)은 업무 화면 E2E를 따로 `pnpm -C web test:e2e:work`(`web/playwright.work.config.ts`)로 두었다. 이 명령도 로컬 Supabase·Compose(redis·ai-gateway mock·worker) 위에서 돌고, globalSetup이 `pnpm demo:reset` → 모드 확인 → `pnpm demo:preanalyze`(18건)로 데모 상태를 다시 만든다. 공용 DB를 다시 seed하므로 verify·CI에는 넣지 않는다. Supabase 클라우드 개발 프로젝트에서 로그인 뒤 E2E를 돌리는 방법은 아직 정하지 않았다.
+> - `test:e2e:auth`는 `web/.env.local`의 `SMTP_HOST`·`SMTP_PORT`·`MAIL_FROM`·`SITE_URL`이 필요하다(`pnpm db:start`가 로컬 메일함 값으로 채운다, `docs/boilerplate/database.md` 127~128행). 격리 Compose·worktree 실행에서는 같은 4개를 프로세스 env로 넘긴다([[16-DECISIONS|ADR-033]] E5).
 > - `services/ai` pytest는 `verify.config.json`의 `ai` 프로젝트로 등록돼 `pnpm verify`가 돌린다(`uv` 필요, Phase 0). `infra/smoke.sh`는 Docker가 필요해 `pnpm verify` 밖에서 수동으로 돌린다. CI(GitHub Actions)의 `astral-sh/setup-uv` 단계는 실행 확인 전이다([[PROGRESS]]).
 
 CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌리고, 위 명령 중 어느 하나라도 실패하면 Phase 완료로 보고하지 않는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
@@ -61,12 +63,12 @@ CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌�
 
 골든 G1~G10은 `SOL_RUN_MODE=mock`에서만 단언한다. `fixture` 모드는 같은 fixture를 쓰지만 실모델(Qwen3.5-9B·Kev-9B) 추출·분포가 mock과 다를 수 있으므로 골든 수치(`FX-01` 94·`FX-02` 72·`FX-03` 68, Kev 71/24/5·36/52/12)를 단언하지 않는다([[16-DECISIONS|ADR-020]]).
 
-fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~6에서 만든다. 2026-10-19 기준 `web/server/ingestion`(Vitest 36개)·`web/server/scoring`(13개)·`web/server/analysis`(11개)·`web/worker`(12개)·`services/ai/tests`(pytest 21개)·`scripts/database.test.mjs`(G5 RLS 정책 겹)가 있어, G1·G3·G7·G9 전부와 G2·G4·G5·G6·G10의 서버·gateway·DB 쪽 파일은 있다. `web/server/notifications`(G2)·`EvidenceRef` 계약(G10)과 C6 예정 파일(`web/app/api/v1/tenant-isolation.test.ts`, 아래 `web/e2e-auth/*.spec.ts`)은 아직 없고 **예정**이다. 경로는 저장소 루트 기준이고, Vitest 서버 시험은 템플릿 관례대로 `.test.ts`, Playwright E2E는 `.spec.ts`다. 명령 열의 `vitest <경로>`는 `pnpm -C web exec vitest run <경로>`의 줄임, `e2e:auth`는 `pnpm -C web test:e2e:auth`의 줄임이다. 증거 열은 §6의 저장 위치.
+fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~6에서 만든다. 2026-10-19 기준 `web/server/ingestion`(Vitest 36개)·`web/server/scoring`(13개)·`web/server/analysis`(11개)·`web/worker`(12개)·`services/ai/tests`(pytest 21개)·`scripts/database.test.mjs`(G5 RLS 정책 겹)가 있어, G1·G3·G7·G9 전부와 G2·G4·G5·G6·G10의 서버·gateway·DB 쪽 파일은 있다. 2026-10-20 C6(main `4ae09f9`)·C7(main `841b064`) 병합으로 `web/server/notifications`(G2), `web/app/api/v1/tenant-isolation.test.ts`, `web/e2e-auth/`의 `bid-isolation`·`demo-badge`·`no-evidence` spec이 생겼다. 아래 표에서 아직 없는 파일(`web/e2e-auth/partial-analysis.spec.ts`·`cancelled-bid.spec.ts`·`admin-ingestion.spec.ts`, `web/server/dashboard/deadline-summary.test.ts`, `web/server/notifications/deadline.test.ts`)과 `EvidenceRef` 계약(G10)은 **예정**이다. 경로는 저장소 루트 기준이고, Vitest 서버 시험은 템플릿 관례대로 `.test.ts`, Playwright E2E는 `.spec.ts`다. 명령 열의 `vitest <경로>`는 `pnpm -C web exec vitest run <경로>`의 줄임, `e2e:auth`는 `pnpm -C web test:e2e:auth`의 줄임이다. 증거 열은 §6의 저장 위치.
 
 | # | 시나리오 | fixture | 테스트 파일 | 명령 | 통과 기준 | 증거 |
 |---|---|---|---|---|---|---|
 | G1 | 같은 공고 2회 수집 → bid 1건, revision 1, 이벤트 0 | `FX-09` (+`FX-10` 차수) | `web/server/ingestion/idempotent-upsert.test.ts` | `pnpm -C web exec vitest run server/ingestion` | `bid_notices` 1행, `bid_revisions` 1행, `notifications` 추가 0 | `phase-2/test-ingestion.txt` |
-| G2 | 마감일 변경 → revision diff 저장, 알림 정확히 1건 | `FX-06` (+`FX-07` 예산·요구사항) | `web/server/ingestion/revision-diff.test.ts`, `web/server/notifications/outbox-dedupe.test.ts` | 위와 동일 + `vitest server/notifications` | revision 2, diff에 `deadlineAt` 전/후, `BID_CHANGED` 1건, 재전송해도 1건 | `phase-2/test-ingestion.txt`, `phase-6/test-notifications.txt` |
+| G2 | 마감일 변경 → revision diff 저장, 알림 정확히 1건 | `FX-06` (+`FX-07` 예산·요구사항) | `web/server/ingestion/revision-diff.test.ts`, `web/server/notifications/outbox.service.test.ts`·`outbox-dedupe.test.ts` | 위와 동일 + `vitest server/notifications` | 해커톤은 **이벤트 단위 + 알림 멱등**으로 본다([[16-DECISIONS\|ADR-033]] E3, 공고 알림 펼치기는 S5·확장 컷): revision 2, diff에 `deadlineAt` 전/후, `BID_CHANGED` outbox 1건(다시 수집해도 1건). 같은 outbox 이벤트를 다시·동시에 처리해도 알림 1건(`<outboxEventId>:<userId>:IN_APP` UNIQUE) | `phase-2/test-ingestion.txt`, `phase-6/test-notifications.txt` |
 | G3 | 필수 업종 자격 부족 → NO-BID, Kev BID 무시 | `FX-03` (+`FX-16` 일치 사례) | `web/server/scoring/decision-policy.golden.test.ts`, `web/server/scoring/kev-no-override.test.ts` | `pnpm -C web exec vitest run server/scoring` | 권고 `NO-BID`, `reviewFlags` 포함 `MODEL_RULE_DISAGREEMENT`, 점수 68 참고 표시 | `phase-4/goldens-report.txt` |
 | G4 | 근거 문서 없음 → NEEDS_REVIEW/WATCH, 수주확률 문구 없음 | `FX-04` (+`FX-05` 파싱 실패) | `web/server/scoring/needs-review.test.ts`, `services/ai/tests/test_extraction_schema.py`, `web/e2e-auth/no-evidence.spec.ts` | `vitest server/scoring`, `pytest`, `e2e:auth` | 자격 `NEEDS_REVIEW`, 권고 `WATCH`, 응답·화면에 "수주 확률" 문자열이 "아님" 없이 단독 등장 0회 | `phase-4/goldens-report.txt`, `phase-5/test-ai.txt`, `phase-3/e2e/no-evidence.png` |
 | G5 | 다른 orgId로 조회 → 404 | `FX-01` + `org-02` VIEWER `viewer@other.invalid` 세션(Bearer 토큰) | `scripts/database.test.mjs`(RLS 정책), `web/app/api/v1/tenant-isolation.test.ts`(Route Handler), `web/e2e-auth/bid-isolation.spec.ts` | `pnpm test:db`, `vitest app/api/v1`, `e2e:auth` | `GET /bids/{FX-01}/qualification-checks` 404, `GET /analyses/{org-01 분석 id}` 404, `GET /bids/{FX-01}/reviews` 빈 목록, `GET /company-profile`은 org-02 revision 1. 응답 본문에 org-01 데이터 0건. DB 정책 시험: org-02 사용자 세션으로 org-01의 `company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews` 0행 | `phase-1/test-isolation.txt`, `demo-day/*/isolation-404.json` |
@@ -89,7 +91,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 
 ### 3.1 골든 외 회귀 케이스
 
-2026-10-19 기준 `web/server/scoring/`의 `missing-policy`·`scale-limit`·`worked-examples.golden`·`reproducibility`(C4), `web/server/ingestion/`의 `cancel`·`quarantine`·`normalize-amount`·`normalize-date`·`stage-link`, `services/ai/tests/test_citation_verify.py`가 있다. `web/server/dashboard`·`web/server/notifications`와 화면 E2E(`web/e2e-auth/*.spec.ts`)는 예정이다.
+2026-10-19 기준 `web/server/scoring/`의 `missing-policy`·`scale-limit`·`worked-examples.golden`·`reproducibility`(C4), `web/server/ingestion/`의 `cancel`·`quarantine`·`normalize-amount`·`normalize-date`·`stage-link`, `services/ai/tests/test_citation_verify.py`가 있다. `web/server/notifications`는 C7(main `841b064`), 화면 E2E 일부는 C6(main `4ae09f9`)로 생겼다. `web/server/dashboard`와 아래 표의 `cancelled-bid`·`admin-ingestion` spec은 예정이다.
 
 | fixture | 검증 대상 | 테스트 파일 |
 |---|---|---|
@@ -188,13 +190,13 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 | 7 | S2 | 목록 | `/bids`, 권고 `BID` 필터, 점수 내림차순([[16-DECISIONS\|ADR-031]] C3. 단계 NOTICE 필터는 사전규격 `FX-18`을 뺀다) | `FX-01` 최상단 94, `FX-12` 미노출, 모든 행 `DEMO` 칩, 1280px에서 가로 스크롤 없음 | — |
 | 8 | S3 | 상세 BID | `FX-01` 열기 | 자격 3건 `충족`, 점수 94, 분해 5행(24.0/25.0/20.0/15.0/10.0), Kev 71/24/5 + 09 고지 문구, 분석 패널 "AI: mock"·"가상 회사 프로필로 분석" 배지, 근거 3건 → 드로어에 원문 하이라이트, 결정 패널 "마지막 결정: BID"(seed 리뷰) | 드로어 실패 시 원문 링크 새 탭 |
 | 9 | S3 | 규칙 우선 | 권고 필터를 풀고 결정 `NO-BID` 필터 → `FX-03` 열기 | 권고 `NO-BID`, 자격 1건 `미충족` + 근거 문장, 점수 68 "참고" 표시, Kev 섹션 `규칙 우선` 배지와 "Kev는 BID를 제시했지만…" 문구, "마지막 결정: NO-BID"(seed 리뷰) | — |
-| 10 | S4 | 라이브 분석 | `FX-02` → [분석 재실행] | 202 → `대기 중` → `분석 중` → `완료` 10초 이내. 점수 72, WATCH, 분해 15.0/18.3/14.0/15.0/10.0, Kev 36/52/12 | 60초 초과 시 새로고침, 사유 기록 |
+| 10 | S4 | 라이브 분석 | `FX-02`(미분석) → [분석 실행] | 202 → `대기 중` → `분석 중` → `완료` 10초 이내. 점수 72, WATCH, 분해 15.0/18.3/14.0/15.0/10.0, Kev 36/52/12 | 60초 초과 시 새로고침, 사유 기록 |
 | 11 | S4 | 사람 결정 | `FX-02` 결정 패널에서 WATCH 유지 또는 BID 선택 + 사유 + 담당자에 발표자 자신(`sales@soltech.invalid`) 지정 → [결정 기록] | "마지막 결정: … · 담당자 · 시각", 결정 패널 상단 "사람 검토 권장"(`KEV_NEEDS_REVIEW`). `bid_reviews` +1(총 3건), 감사로그 1건. Topbar 알림 벨에 `REVIEW_ASSIGNED`가 들어 있다. 분석 요청자에게 가는 `ANALYSIS_COMPLETE`도 올 수 있어 벨은 1~2건이다([[16-DECISIONS\|ADR-029]] A6 D5). `analyst@soltech.invalid`로 보면 패널 읽기 전용 | — |
 | 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen/Qwen3.5-9B · jaredpalmer/kev-9b@v1.0"(받은 모델 식별자, ADR-029 A6 D12)·"가상 회사 프로필로 분석". Topbar는 `실행 모드: mock` 그대로다. 자격 3값 + 사유 코드, 점수 분해 5행, Kev `UNCALIBRATED` + 고지 문구, 근거 서랍 실제 첨부 인용. 외부 의존성 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
 | 12 | S5 (확장 컷) | 변경 수집 | `/admin/ingestion`(`admin@soltech.invalid`) → 수동 수집 `LIVE`(API `batch:"live"`). fixture의 live 배치이며 실행 모드 `live`와 다르다(`SOL_RUN_MODE=live`에서는 `409 RUN_MODE_MISMATCH`). 이어서 `FX-07` 상세에서 [재분석]을 누른다(수집은 분석을 자동으로 넣지 않는다, ADR-030 B18, [[16-DECISIONS\|ADR-031]] C15). S5가 구현되지 않았으면 이 행은 "미구현"으로 적고 건너뛴다 | 🔔 증가. `FX-07` revision 2 → 재분석 68 → 77(엔진 77.3, ADR-031 C9), 권고 WATCH → BID. `FX-06` diff 마감 +14 → +28, 알림 1건. `FX-09` 재전송으로 알림 추가 0. `FX-08` `취소됨`(목록에서는 상태 필터 "취소 포함"을 골라야 보이고, 상세는 언제나 열린다, [[16-DECISIONS\|ADR-029]] A7). summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보여 주고 다음 장면 |
-| 13 | S6 | 장애 대체 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` [분석 재실행] `force=true` | 1~2초 안에 `부분 완료 (규칙만)`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)", `recommendationBasis: RULES_ONLY`, Topbar `AI: unavailable`, `/health/ready` `status: degraded`. 점수 94·자격 3건 그대로 | 사전 녹화 영상 |
-| 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` → `FX-01` 재실행 | `완료`로 복귀, Topbar `AI: mock`, Kev 분포 다시 표시 | — |
-| 15 | S6 (리허설) | 엔드포인트 재접속 확인 | 리허설에서만. `fixture` 모드로 전환 → 회사 GPU 추론 엔드포인트를 노트북 쪽에서 차단한다(방식은 [[10-DEPLOYMENT\|10 배포]] 장애 주입 절) → `FX-01` [분석 재실행] `force=true` → 차단 해제 → 재접속 확인(`GET /v1/models`) → 재분석 → `mock`으로 되돌리고 `pnpm demo:reset`으로 초기화(fixture 모드 분석 run이 S3 화면에 남지 않게) → `pnpm demo:preanalyze`로 사전 분석을 다시 만든다(reset이 지운다, 4a) | 끊긴 동안: `PARTIAL`·`RULES_ONLY`, `reviewFlags`에 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`(gateway는 살아 있으므로 `AI_UNAVAILABLE`이 아니다), [[09-SECURITY\|09 보안]] PARTIAL 배너, mock 결과 0건, 점수·자격은 직전 run과 같다. 재접속 뒤: `qwen.healthy: true`·`kev.registryMatch: true`, 재분석 `완료`. 재접속 확인 소요 시간을 `rehearsal-log.md`에 기록 | 재접속이 안 되면 시연은 `mock`만으로 하고 사실대로 말한다 |
+| 13 | S6 | 장애 대체 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` [재분석] `force=true` | 1~2초 안에 `부분 완료 (규칙만)`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)", `recommendationBasis: RULES_ONLY`, Topbar `AI: unavailable`, `/health/ready` `status: degraded`. 점수 94·자격 3건 그대로 | 사전 녹화 영상 |
+| 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` → `FX-01` [재분석] | `완료`로 복귀, Topbar `AI: mock`, Kev 분포 다시 표시 | — |
+| 15 | S6 (리허설) | 엔드포인트 재접속 확인 | 리허설에서만. `fixture` 모드로 전환 → 회사 GPU 추론 엔드포인트를 노트북 쪽에서 차단한다(방식은 [[10-DEPLOYMENT\|10 배포]] 장애 주입 절) → `FX-01` [재분석] `force=true` → 차단 해제 → 재접속 확인(`GET /v1/models`) → 재분석 → `mock`으로 되돌리고 `pnpm demo:reset`으로 초기화(fixture 모드 분석 run이 S3 화면에 남지 않게) → `pnpm demo:preanalyze`로 사전 분석을 다시 만든다(reset이 지운다, 4a) | 끊긴 동안: `PARTIAL`·`RULES_ONLY`, `reviewFlags`에 `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`(gateway는 살아 있으므로 `AI_UNAVAILABLE`이 아니다), [[09-SECURITY\|09 보안]] PARTIAL 배너, mock 결과 0건, 점수·자격은 직전 run과 같다. 재접속 뒤: `qwen.healthy: true`·`kev.registryMatch: true`, 재분석 `완료`. 재접속 확인 소요 시간을 `rehearsal-log.md`에 기록 | 재접속이 안 되면 시연은 `mock`만으로 하고 사실대로 말한다 |
 | 16 | S7 | 격리 | `viewer@other.invalid`(`org-02`)로 로그인해 받은 Supabase access token을 `Authorization: Bearer`로 붙여 `GET /api/v1/bids/{FX-01}/qualification-checks`, `GET /api/v1/analyses/{org-01 분석 id}` | 둘 다 404([[09-SECURITY\|09 보안]] IDOR 정책, RLS로 행이 안 보여 404). 화면에서는 `FX-01` 공고 본문은 보이되 점수·자격·검토 없음 | API 응답 JSON으로 대체 시연 |
 | 17 | S7 | 관리자 | `/admin/ingestion` | `SEED` run에 격리 1건(`FX-12`, 사유 `title` 누락), `FX-20` 재시도 로그 2회 + `Retry-After` 대기 | — |
 | 18 | 마감 | 증거 | 각 단계 스크린샷 저장 | `demo-day/<일시>/screenshots/` 15장 이상 | — |
