@@ -1,0 +1,10 @@
+# 명령: COMPOSE_PROJECT_NAME=sol-radar-dd-c9 WEB_URL=http://127.0.0.1:3003 REDIS_HOST_PORT=16381 MINIO_HOST_PORT=19001 QDRANT_HOST_PORT=16334 AI_GATEWAY_HOST_PORT=18001 REDIS_URL=<masked> bash infra/smoke.sh · 커밋 72bfb9c · 2026-10-20 10:14 KST
+ok 1 서비스 5개 healthy
+ok 2 web live
+ok 3 web ready (db·redis·storage)
+ok 4 worker ping
+ Container sol-radar-dd-c9-redis-1  Restarting
+ Container sol-radar-dd-c9-redis-1  Started
+ok 5 redis 재시작 뒤 값 유지 (호스트 포트 16381)
+smoke 통과
+exit=0

@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -109,7 +109,8 @@ erDiagram
 
 Phase 1 조직·사용자 결정(마이그레이션 머리 주석의 "§3.1 결정 N"이 이 번호다):
 1. 개인 조직과 현재 조직: 위 `profiles` 행과 [[05-API-SPEC|05 API 명세]] §1 현재 조직([[16-DECISIONS|ADR-021]]).
-2. 구성원 관리 권한: `sol_role='ADMIN'` 기준(위 `memberships`·`invitations` 행, ADR-021). 사용자 요청으로 마지막 업무 ADMIN을 강등하거나 내보낼 수 없다(`last_admin`). 같은 조직 행을 잠가 동시 변경을 직렬화하고, 일괄 변경도 ADMIN을 0명으로 만들 수 없다. 계정 탈퇴는 JWT를 비우기 전에 `auth.users → profiles → organizations` 순서로 행을 잠그고 검사한다. 멤버십의 프로필 FK 잠금과 충돌시켜 검사 뒤 다른 세션이 새 조직에 가입하는 경로도 막는다. 혼자인 조직의 계정 탈퇴·조직 삭제와 JWT 없는 관리 작업·service role은 기존 관리 경로를 유지한다. 구현은 조정 세션(e8)이 배정한 새 마이그레이션 `20261019000014`다.
+2. 구성원 관리 권한: `sol_role='ADMIN'` 기준(위 `memberships`·`invitations` 행, ADR-021). 사용자 요청으로 마지막 업무 ADMIN을 강등하거나 내보낼 수 없다(`last_admin`). 같은 조직 행을 잠가 동시 변경을 직렬화하고, 일괄 변경도 ADMIN을 0명으로 만들 수 없다. 계정 탈퇴는 JWT를 비우기 전에 `auth.users → profiles → organizations` 순서로 행을 잠그고 검사한다. 멤버십의 프로필 FK 잠금과 충돌시켜 검사 뒤 다른 세션이 새 조직에 가입하는 경로도 막는다. 혼자인 조직의 계정 탈퇴·조직 삭제와 JWT 없는 관리 작업·service role은 기존 관리 경로를 유지한다. 구현은 조정 세션(e8)이 배정한 새 마이그레이션 `20261019000014`다(main `0e9821d`).
+   - **남은 관리자는 활동 계정만 센다**([[16-DECISIONS|ADR-033]] E2): 마지막 업무 ADMIN 보호와 템플릿의 마지막 owner 보호는 "다른 ADMIN·owner가 남는가"를 셀 때 `profiles.status='active'`인 계정만 센다. `my_sol_org_ids()`가 정지 사용자에게 빈 목록을 주는 것과 같은 기준이다. 정지된 ADMIN·owner만 남는 변경은 거절한다. 구현 상태: main의 `20261019000014`(`protect_last_sol_admin`·`delete_my_account`)와 템플릿 `protect_last_owner`(`20261014000001`)는 아직 계정 상태를 보지 않고 멤버십을 센다. 활동 계정 기준은 후속 마이그레이션 예정이다(번호는 e8 배정).
 3. 비활성화: 조직 ADMIN의 비활성화는 그 조직에서 내보내기다([[05-API-SPEC|05 API 명세]] §2 `DELETE /admin/users/:id`, [[09-SECURITY|09 보안]] 인증). 계정 정지(`profiles.status`)는 서비스 운영자만 `admin_set_user_status`로 한다.
 4. 로그인 감사: `audit_logs`의 `LOGIN`·`LOGOUT`을 남길 지점은 [[16-DECISIONS|16 ADR]] 미결정 14번이다.
 
@@ -184,7 +185,8 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 - `requirement_assessments.kev_distribution`의 JSONB 모양은 `{qid, distribution, label}`이다([[16-DECISIONS|ADR-032]] D7). [[05-API-SPEC|05]] §4.5 `RequirementAssessment.kev`와 같고, gateway `/kev` 응답의 항목 분포 `{itemId, qid, distribution, label}`(`services/ai/src/sol_ai/contracts.py` `RequirementDistribution`)과도 맞는다. 항목 경로 `itemId`는 이 표의 `item_id` 열에 있다. 지금 C5-B 저장 매핑은 이 열에 null을 쓴다(`web/server/analysis/analysis-store.model.ts`). Kev 질문 세트 v0.2의 항목 질문을 쓰는 run에서 채운다.
 - 미충족(`NOT_SATISFIED`)에는 공고 쪽 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 한다. 이 규칙은 규칙 엔진과 zod 스키마, 단위 시험이 강제한다(JSONB 내부라 DB check로 걸지 않는다, §1).
 - `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)는 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장한다(`web/server/scoring/qualification.ts`). 값 집합은 3값 그대로이고, 결정 경로에서는 다른 `NEEDS_REVIEW`와 같게 다룬다.
-- `finish_score_run(p jsonb)`: 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 결과를 쓰고 마감한다. 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. `20261019000013`부터는 마감 뒤 status가 `COMPLETED`·`PARTIAL`이 아니어도 `SCORE_RUN_INVALID_STATUS`로 거절한다(`FAILED` 마감은 이 함수가 아니라 markFailed가 한다). 멱등 키의 requestId 형식(`^[A-Za-z0-9_-]{1,128}$`)은 [[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 구현은 C5-B 마이그레이션 `20261019000011`(main `cfe8f0a`)과 `20261019000013`(main `8f33caa`)).
+- `finish_score_run(p jsonb)`: 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 결과를 쓰고 마감한다. 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. `20261019000013`부터는 마감 뒤 status가 `COMPLETED`·`PARTIAL`이 아니어도 `SCORE_RUN_INVALID_STATUS`로 거절한다(`FAILED` 마감은 이 함수가 아니라 markFailed가 한다). 멱등 키의 requestId 형식(`^[A-Za-z0-9_-]{1,128}$`)은 [[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 구현은 C5-B 마이그레이션 `20261019000011`(main `cfe8f0a`)과 `20261019000013`(main `8f33caa`)). `20261019000016`(C7, main `841b064`)부터는 마감한 run에 `requested_by`가 있으면 같은 트랜잭션에서 `outbox_events`에 `ANALYSIS_COMPLETE` 1건을 쓴다(§3.6, [[13-NOTIFICATIONS|13 알림]]). 사전 분석 run(`requested_by` null)은 쓰지 않고, 거절되면 트랜잭션 전체가 되돌아가 이벤트도 남지 않는다.
+- `score_runs.request_hash`(text, null 허용, `20261019000012`, main `4ae09f9`): 분석 요청 본문의 지문. 같은 `Idempotency-Key`에 다른 본문이 오면 서버가 이 값과 비교해 409를 낸다. 화면 역할은 요청 행을 넣을 때만 쓴다(열 단위 insert 권한, 고치기 권한 없음). 같은 마이그레이션의 `release_unqueued_score_run(uuid)`는 큐 등록에 실패한 자기 요청 run을 `FAILED`·`ENQUEUE_FAILED`로 풀고 멱등 키를 비운다.
 - 후보: `qualification_checks`에 (`score_run_id`, 항목) UNIQUE를 둘지 정한다. 항목을 가리킬 열은 아직 정하지 않았다(지금 표에는 항목 id 열이 없고 `requirement_code`는 null일 수 있다, ADR-031 C12(d)).
 
 ### 3.5 부서·직급 카탈로그와 인력 (ADR-019)
@@ -207,8 +209,8 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |---|---|---|---|
 |`ingest_runs`|`id`, `source` text(ingest_source), `run_mode` text(run_mode), `job_key` text, `trigger` text(ingest_trigger), `batch` text(ingest_batch) nullable, `params` JSONB nullable(`g2b` run의 `{window:{from,to}, stages:[…]}`, 요청 생략 시 실제 적용한 기본값), `cursor` text nullable, `status` text(ingest_status), `summary` JSONB(`{created, changed, cancelled, skippedDuplicate, quarantined, retried}`), `quota_used` int default 0, `requested_by` FK profiles nullable(on delete set null), `idempotency_key` text nullable, `started_at`, `finished_at` nullable|`job_key` UNIQUE, `idempotency_key` UNIQUE. `batch`는 `source='fixture'`일 때만 값이 있다|공용 표(`org_id` 없음). 읽기: 어느 조직에서든 역할 `ADMIN`인 사용자(`exists (select 1 from public.my_sol_org_ids(array['ADMIN']))`). 쓰기: worker만. 수동 수집도 Route Handler는 job만 넣고 행은 worker가 만든다([[07-DATA-PIPELINE\|07 수집]])|
 |`ingest_errors`|`id`, `ingest_run_id` FK, `source_key` text, `error_code` text, `result_code` text nullable, `redacted_detail` text, `created_at`|PII 없음([[15-DATA-CONTRACTS\|15 데이터 계약]] §6). `error_code` 값: `MISSING_REQUIRED_FIELD`, `SCHEMA_INVALID`, `BUDGET_UNPARSED`, `DATE_UNPARSED`, `DATE_ORDER`, `ENCODING_DEGRADED`, `ATTACHMENT_PARSE_FAILED`, `ATTACHMENT_REJECTED`, `RATE_LIMITED`, `DUPLICATE`. `result_code`는 공공 API 응답의 `resultCode` 원문|`ingest_runs`와 같다|
-|`outbox_events`|`id`, `org_id` FK nullable, `aggregate_type` text, `aggregate_id` UUID, `event_type` text(notification_type), `payload` JSONB, `idempotency_key` text, `status` text(outbox_status), `attempts` smallint, `next_attempt_at` nullable, `created_at`, `processed_at` nullable|`idempotency_key` UNIQUE = `source+noticeId+revision+eventType`([[07-DATA-PIPELINE\|07 수집]])|내부 표. 화면 역할은 읽기·쓰기 모두 권한이 없다. 쓰기: worker, `bid_reviews` insert 트리거|
-|`notifications`|`id`, `org_id` FK, `user_id`, `type` text(notification_type), `channel` text(notification_channel), `idempotency_key` text, `payload` JSONB, `status` text(notification_status), `provider_message_id` nullable, `error` text nullable, `sent_at` nullable, `read_at` nullable, `created_at`|`idempotency_key` UNIQUE = `outboxEventId+userId+channel`([[13-NOTIFICATIONS\|13 알림]]). (`org_id`,`user_id`) → `memberships(org_id, user_id)`(on delete cascade)|읽기: 본인(`user_id = auth.uid()` 그리고 조직 전원 조건). 쓰기: 본인의 `read_at` 열 update만. 생성은 worker. 남의 알림은 보이지 않으므로 `404`|
+|`outbox_events`|`id`, `org_id` FK nullable, `aggregate_type` text, `aggregate_id` UUID, `event_type` text(notification_type), `payload` JSONB, `idempotency_key` text, `status` text(outbox_status), `attempts` smallint, `next_attempt_at` nullable, `created_at`, `processed_at` nullable|`idempotency_key` UNIQUE. 공고 이벤트(`BID_*`) = `source+noticeId+revision+eventType`([[07-DATA-PIPELINE\|07 수집]], 예 `fixture:<noticeId>:2:BID_CHANGED`), `REVIEW_ASSIGNED` = `<reviewId>:<assigneeId>:REVIEW_ASSIGNED`(`aggregate_type` `bid_review`), `ANALYSIS_COMPLETE` = `<scoreRunId>:<requestedBy>:ANALYSIS_COMPLETE`(`aggregate_type` `score_run`, `20261019000016`). 부분 인덱스 `outbox_events_notify_due_idx`(`created_at`,`id`) where `status` ∈ `PENDING`·`FAILED` and `event_type` ∈ `REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`(`20261019000017`, 알림 처리의 조회 조건과 같다)|내부 표. 화면 역할은 읽기·쓰기 모두 권한이 없다. 쓰기: worker, `bid_reviews` insert 트리거, `finish_score_run`(service role)|
+|`notifications`|`id`, `org_id` FK, `user_id`, `type` text(notification_type), `channel` text(notification_channel), `idempotency_key` text, `payload` JSONB, `status` text(notification_status), `provider_message_id` nullable, `error` text nullable, `sent_at` nullable, `read_at` nullable, `created_at`|`idempotency_key` UNIQUE = `outboxEventId+userId+channel`([[13-NOTIFICATIONS\|13 알림]]). 인앱 알림은 `<outboxEventId>:<userId>:IN_APP`이고, 행을 만들 때 `status=SENT`·`sent_at`=처리 시각·`channel=IN_APP`이다(인앱은 행 기록이 곧 발송, C7 main `841b064`). (`org_id`,`user_id`) → `memberships(org_id, user_id)`(on delete cascade)|읽기: 본인(`user_id = auth.uid()` 그리고 조직 전원 조건). 쓰기: 본인의 `read_at` 열 update만. 생성은 worker. 남의 알림은 보이지 않으므로 `404`|
 |`audit_logs`|`id`, `org_id` FK, `actor_id` FK profiles nullable(on delete set null), `action` text, `target_type` text, `target_id` UUID, `before_after` JSONB, `request_id` text, `created_at`|append-only. IP·토큰·원문 미기록|읽기: 그 조직의 역할 `ADMIN`. 쓰기: 화면 역할은 권한이 없다. `security definer` 트리거와 worker·seed만 쓴다. update·delete 없음|
 
 `audit_logs.action` 값과 쓰는 곳:
@@ -371,8 +373,12 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 - `20261019000009`: 수집 저장 함수 `ingest_save_revision(p jsonb)`(service_role 전용). 공고·revision·첨부·outbox 이벤트를 한 트랜잭션에 쓴다([[16-DECISIONS|ADR-030]] B18, main `d933c9e`).
 - `20261019000010`: `score_factors.missing_reason`·`score_runs.kev_assist` 열(§3.4, main `c2b12d3`).
 - `20261019000011`: 분석 마감 함수 `finish_score_run(p jsonb)`(service_role 전용)와 check `score_runs_idempotency_key_org_check`. check는 `not valid`로 건다(§3.4, ADR-031 C5, main `cfe8f0a`).
-- `20261019000012`: C6 화면 쪽 마이그레이션이다. 브랜치 `c6/screens`에만 있고, C6 병합 때 main에 들어온다.
+- `20261019000012`: C6 화면 쪽 마이그레이션. `score_runs.request_hash` 열, `release_unqueued_score_run(uuid)`, `latest_ingest_run(text)`, 뷰 `bid_list_items`(§3.4, main `4ae09f9`). 번호가 `000013`·`000014`보다 앞서지만 main에는 나중에 들어왔다(병합 커밋 본문 "로컬 적용분이라 번호 예외").
 - `20261019000013`: `finish_score_run`을 다시 만들어 마감 status를 `COMPLETED`·`PARTIAL`로만 받는다(`SCORE_RUN_INVALID_STATUS`, §3.4, main `8f33caa`).
+- `20261019000014`: 마지막 업무 ADMIN 보호 트리거 `protect_last_sol_admin`과 `delete_my_account` 재정의(§3.1 결정 2, main `0e9821d`). 활동 계정만 세는 기준은 후속 마이그레이션 예정이다([[16-DECISIONS|ADR-033]] E2).
+- `20261019000016`: `finish_score_run`이 마감과 같은 트랜잭션에서 `ANALYSIS_COMPLETE` outbox를 쓴다(§3.4·§3.6, main `841b064`).
+- `20261019000017`: 알림 처리용 부분 인덱스 `outbox_events_notify_due_idx`(§3.6, main `841b064`).
+- `20261019000015`라는 파일은 main에 없다.
 
 ADR-021 P1 표·열(§3.1 `tasks.bid_project_id`, §3.5 `employment_status`·ADMIN 쓰기 정책, §3.8)은 P1 착수 때 새 파일로 만든다.
 
@@ -394,5 +400,5 @@ ADR-021 P1 표·열(§3.1 `tasks.bid_project_id`, §3.5 `employment_status`·ADM
 - [[09-SECURITY|09 보안]] — 테넌트 격리(RLS), RBAC, 보존
 - [[11-TESTING|11 테스트]] — 정책 시험, G5 격리
 - [[13-NOTIFICATIONS|13 알림]] — outbox
-- [[16-DECISIONS|16 ADR]] — ADR-017 아키텍처 전환, ADR-020 실데이터 MVP와 AI 파이프라인 v0.2(실행 모드·첨부 파싱·항목 판정·평가 표)
+- [[16-DECISIONS|16 ADR]] — ADR-017 아키텍처 전환, ADR-020 실데이터 MVP와 AI 파이프라인 v0.2(실행 모드·첨부 파싱·항목 판정·평가 표), ADR-033 정본 반영 4차(활동 계정 기준·인앱 알림)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `eval_runs`에 올리는 평가 리포트, 비교 대상·지표

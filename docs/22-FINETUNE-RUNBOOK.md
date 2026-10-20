@@ -206,7 +206,7 @@ python -c "from transformers import AutoConfig; print(AutoConfig.from_pretrained
 | 추출 | train 은 Qwen3.5-9B `/extract` 출력, dev·test 는 사람이 확정한 gold(21 §3.7) | 인용 검증 통과 값만 `KNOWN` |
 | 회사 | 가상 기업 원형 6개(`fixtures/eval/companies/*.json`, 21 §3.2)와 항목별 변형(21 §3.3) | 실제 회사 이름·실적은 쓰지 않는다. 원형 하나는 train 에서 뺀다(처음 보는 기업 지표) |
 | state | `services/ai/kev`의 state 빌더(서빙과 **같은 코드**), 템플릿 `en.v0.2` | `ko` state 는 E2 평가 전용이다. 해커톤 LoRA 는 `en`만(ADR-027 M3) |
-| 질문 | `services/ai/kev/question-sets/v0.2.json`의 `instructions`·`criteria` **원문 그대로** | 서빙과 문구가 다르면 학습 효과가 줄어든다(Kev data-format 문서) |
+| 질문 | `services/ai/kev/question-sets/v0.2.json`의 `instructions`·`criteria` **원문 그대로**. 원문은 확정(2026-10-20, 사용자 결정, [[16-DECISIONS\|ADR-033]] E10) | 서빙과 문구가 다르면 학습 효과가 줄어든다(Kev data-format 문서) |
 
 **어떤 질문에 어떤 라벨을 붙이나**(train)
 

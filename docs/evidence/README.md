@@ -14,7 +14,7 @@ updated: 2026-10-20
 
 색인은 파일 이름과 한 줄 설명만 적는다. 통과·실패 판정과 숫자는 각 파일 안에 있다.
 
-## 있는 증거 (2026-10-19 기준, 이 저장소 트리)
+## 있는 증거 (2026-10-20 기준, 이 저장소 트리)
 
 ### `phase-0/` — 실행 환경 통합 기동(C0)·외부 의존성(C1)
 
@@ -42,6 +42,8 @@ updated: 2026-10-20
 | `test-db-FAIL.txt` | 같은 시험의 수정 전 실패 출력(ADR-026 정책 1건, 빨간불 확인용) | 같은 곳 |
 | `demo-reset.txt`·`seed-summary.json` | 격리 Supabase에서 `pnpm demo:reset` 2회 실행 로그와 요약 | [[04-DATABASE\|04 DB]] seed |
 | `people-availability.txt` | 인력 배정 7건을 `team_member_scoring.availability`로 접는 seed 시험 | [[08-SCORING\|08 점수]] §6.1 |
+| `migrate.log` | 클라우드 Supabase `pnpm db:push` 29개 적용 로그(2026-10-20, 호스트·키 없음) | [[10-DEPLOYMENT\|10 배포]] `db:push`, [[PROGRESS\|진행 상황]] Phase 1 |
+| `demo-reset-cloud-20261020.json` | 클라우드 `pnpm demo:reset` 요약(기동 절차 12) | [[10-DEPLOYMENT\|10 배포]] 기동 절차 |
 
 ### `phase-2/` — 수집(C3)
 
@@ -62,6 +64,31 @@ updated: 2026-10-20
 | `test-ai.txt` | `services/ai` pytest 전체 출력(`AI_PROVIDER=mock`만, 외부 호출 차단) | [[11-TESTING\|11 테스트]] G4·G6·G9 |
 | `ai-fallback.txt` | gateway 클라이언트·circuit breaker·`PARTIAL` 대체 시험(가짜 fetch) | G6, [[03-AI-PIPELINE\|03 AI 파이프라인]] §8 |
 | `kev-fixtures-engine-scores.md` | mock Kev fixture 20건의 규칙 엔진 근거 | [[07-DATA-PIPELINE\|07 수집]] fixture 절 |
+| `preanalyze-cloud-20261020.md` | 클라우드 기동 절차 12~14(`demo:reset`·`check:env`·`/health/ready` ok·`demo:preanalyze` 18/18)와 worker 분석 로그 | [[10-DEPLOYMENT\|10 배포]] 기동 절차, [[11-TESTING\|11 테스트]] §4 Phase 0 `checks.db` |
+
+### `phase-3/` — 화면 4개·Route Handler(C6)
+
+| 파일 | 무엇 | 어디서 확인 |
+|---|---|---|
+| `c6-a-test-report.txt`·`c6-b-test-report.txt` | C6 두 레인의 시험 출력 | [[11-TESTING\|11 테스트]] §4 Phase 3 |
+| `axe-report.json` | 접근성 검사 결과(위반 0) | 같은 곳 |
+| `isolation-404.json` | 다른 조직 자원 404(G5) | [[11-TESTING\|11 테스트]] G5 |
+| `e2e/` | 대시보드·목록·상세·알림 1440·1280 스크린샷 | [[06-UI-UX\|06 UI]] |
+
+### `phase-6/` — 결정 기록·인앱 알림(C7)
+
+| 파일 | 무엇 | 어디서 확인 |
+|---|---|---|
+| `test-notifications.txt` | 알림 도메인·outbox·worker 시험 출력 | [[11-TESTING\|11 테스트]] §4 Phase 6, [[13-NOTIFICATIONS\|13 알림]] |
+
+### `demo-day/` — 데모 리허설(C9)
+
+| 파일 | 무엇 | 어디서 확인 |
+|---|---|---|
+| `rehearsal-log.md` | 리허설 회차 표(날짜·범위·커밋·소요·실패 단계) | [[11-TESTING\|11 테스트]] §5, [[19-DEMO-SCENARIO\|19 데모 시나리오]] §6 |
+| `20261020-1009/checklist.md`·`run-modes.md` | C9 1차 리허설 S0~S7 0~18번 판정표(`mock` 전체, ✅ 13 / ❌ 5)와 세 모드 기록 | 같은 곳 |
+| `20261020-1009/*.txt` | 각 단계 명령 출력(compose ps·smoke·seed·preanalyze·health·gateway·API·격리 404·S6 장애 주입·S4 결정·정리) | 같은 곳 |
+| `20261020-1009/screenshots/` | 1440 기본·1280 목록·상세 스크린샷 | 같은 곳 |
 
 ### `people/` — 가상 인력·가입·조직도(ADR-019·021)
 

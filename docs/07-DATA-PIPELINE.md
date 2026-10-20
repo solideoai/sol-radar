@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 07. 조달청 데이터 수집
@@ -146,7 +146,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 
 ### 2.4 첨부 다운로드 (`AttachmentFetcher`)
 
-documents job이 새 revision의 첨부를 내려받아 MinIO에 쓰고, 바이트를 gateway `POST /parse`로 보낸다. 추출 텍스트도 MinIO에 쓰고 `bid_documents`에 상태를 기록한다([[04-DATABASE|04 DB]]). 다운로드는 worker만 한다. gateway는 네트워크·MinIO에 접근하지 않는다.
+documents job이 새 revision의 첨부를 내려받아 MinIO에 쓰고, 바이트를 gateway `POST /parse`로 보낸다. 추출 텍스트도 MinIO에 쓰고 `bid_documents`에 상태를 기록한다([[04-DATABASE|04 DB]]). 다운로드는 worker만 한다. gateway는 네트워크·MinIO에 접근하지 않는다. job 모양·재시도·보존·복구 대상은 이 문서 끝 "documents 큐 소비자 계약"이 정본이다(소비자는 아직 없다).
 
 - 첨부 목록: 입찰공고 응답의 `ntceSpecDocUrl1~10`·`ntceSpecFileNm1~10`과 e발주 첨부 오퍼레이션 결과.
 - 허용 호스트는 `www.g2b.go.kr`(https)뿐이다. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트다.
@@ -438,7 +438,23 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 
 ## 문서 큐 등록 복구
 
-공고 저장과 함께 생성하는 `bid_documents.download_status='PENDING'` 행을 문서 처리의 영속 상태로 사용한다. 저장 뒤 `documents` 큐 등록에 실패하거나 worker가 중단되어도 이 행은 남는다. ingest worker는 기동 시와 60초마다 미처리 첨부를 ID 순 keyset 페이지(100행)로 읽고 revision별 `documents-<revisionId>` job을 등록한다. 같은 job ID로 등록하므로 대기·진행 중 작업은 중복 생성하지 않는다. 큐·DB 장애는 다음 회차에 재시도하며 첨부 상태를 완료로 바꾸지 않는다. 페이지 커서는 다음 회차로 이어 첫 페이지에 대기 중인 첨부가 많아도 뒤 페이지에 도달하고, 끝에 도달하면 처음부터 다시 훑는다. 복구기는 worker 종료 시 진행 중 회차를 마친 뒤 큐보다 먼저 멈춘다. 다운로드·파싱 소비자의 구현은 별도 범위다.
+공고 저장과 함께 생성하는 `bid_documents.download_status='PENDING'` 행을 문서 처리의 영속 상태로 사용한다. 저장 뒤 `documents` 큐 등록에 실패하거나 worker가 중단되어도 이 행은 남는다. ingest worker는 기동 시와 60초마다 미처리 첨부를 ID 순 keyset 페이지(100행)로 읽고 revision별 job을 등록한다(jobId는 아래 계약). 같은 job ID로 등록하므로 대기·진행 중 작업은 중복 생성하지 않는다. 큐·DB 장애는 다음 회차에 재시도하며 첨부 상태를 완료로 바꾸지 않는다. 페이지 커서는 다음 회차로 이어 첫 페이지에 대기 중인 첨부가 많아도 뒤 페이지에 도달하고, 끝에 도달하면 처음부터 다시 훑는다. 복구기는 worker 종료 시 진행 중 회차를 마친 뒤 큐보다 먼저 멈춘다.
+
+### documents 큐 소비자 계약 ([[16-DECISIONS|ADR-033]] E1)
+
+생산 쪽(수집 job·복구기)은 main `58636d1`(병합 `a955a41`)에 있다. **소비자(다운로드·파싱 worker)는 아직 없다.** 소비자를 만들 때 아래 계약을 따른다.
+
+- **job 모양**: 큐 `documents`, job 이름 `fetch`, data `{bidId, revisionId, revisionCreatedAt}`. jobId는 `documents-<revisionId>-<revision created_at epoch ms>`다(`web/server/ingestion/ingestion.queue.ts` `toDocumentsJobId`). PostgREST가 돌려주는 `created_at`의 마이크로초는 ms로 자른다. `demo:reset`이 같은 revision id를 다시 만들어도 `created_at`이 바뀌어 새 jobId가 되므로, BullMQ에 남은 이전 job에 막히지 않는다.
+- **보존 옵션**: attempts 3, backoff exponential 2초, `removeOnComplete` 86400초(1일), `removeOnFail` 604800초(7일). 옵션은 `enqueueDocuments` 한 곳에서만 붙인다(`DOCUMENTS_JOB_OPTIONS`).
+- **끝내기 전 상태**: 소비자는 job을 끝내기 전에 그 revision의 `bid_documents` 행을 모두 `PENDING` 밖으로 옮긴다. 다운로드는 `OK` 또는 `FAILED`(화면·플래그 `DOCUMENT_DOWNLOAD_FAILED`, 사유는 `download_error_code`)다. 다운로드가 `OK`인 행의 파싱은 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED` 중 하나다(§2.4·§2.5).
+- **재시도와 마지막 시도**: 재시도할 오류는 throw해 BullMQ가 다시 돌게 한다. 마지막 시도(3번째)에서 실패하면 throw 대신 해당 행을 `FAILED`와 오류 코드(`download_error_code` 또는 `parse_error_code`)로 남기고 job을 끝낸다.
+- **행이 없을 때**: 그 revision의 행이 없으면(리셋 등으로 지워졌다) 아무것도 하지 않고 완료하고 로그 한 줄을 남긴다.
+- **복구기 대상**: `download_status='PENDING'`, 또는 `download_status='OK'`이면서 `parse_status='PENDING'`인 첨부(`web/server/ingestion/pending-documents.repo.ts`).
+- **실행 모드 범위**: 실행 모드가 `live`가 아니면(`mock`·`fixture`) `bid_notices.is_demo=true` 공고만, `live`면 `is_demo=false` 공고만 다룬다. 복구기 조회와 소비자 양쪽에 같은 범위를 건다.
+- **상한**: 마지막 시도 중 worker가 강제 종료되어 행이 `PENDING`으로 남으면, 그 failed job이 남아 있는 최대 7일(`removeOnFail`) 동안은 같은 jobId라 복구기가 다시 넣지 못한다.
+- **옛 jobId**: 계약 전 모양(`documents-<uuid>`)으로 들어간 job은 소비자가 생기면 no-op으로 끝나고, 보존 기간 뒤 지워진다.
+- `pnpm demo:reset`은 `documents` 큐(Redis)를 건드리지 않는다.
+- 알려진 낮은 위험: `saveRevision`의 RPC `ingest_save_revision`과 `bid_revisions.created_at` 조회는 한 트랜잭션이 아니다. 둘 사이에서 실패하면 ingest 재시도는 `DUPLICATE`라 job을 넣지 않고, 복구기(60초)가 같은 jobId로 메운다. 근본 해결(RPC가 `created_at`을 돌려주는 새 마이그레이션)은 [[16-DECISIONS|16 ADR]] 미결정 23번이다.
 
 ## 관련 문서
 
@@ -446,7 +462,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — 실행 모드 전체 표, gateway `POST /parse` 계약(`ParseResult`), 모델 장애와 대체
 - [[04-DATABASE|04 DB]] — `bid_notices`, `bid_revisions`, `bid_documents`, `bid_structured_requirements`, `ingest_runs`, seed 범위
 - [[09-SECURITY|09 보안]] — SSRF allowlist, 서비스키, 공공 API 응답 개인정보, 첨부 저작권·파서 라이선스
-- [[16-DECISIONS|16 ADR]] — ADR-020, 미결정 1·4·16·19·20번
+- [[16-DECISIONS|16 ADR]] — ADR-020·033, 미결정 1·4·16·19·20·23번
 - [[21-MODEL-TRAINING|21 모델 학습]] — live 공고로 만드는 평가셋
 - [[08-SCORING|08 SOL Score]] — fixture별 기대 점수의 계산 근거
 - [[11-TESTING|11 테스트]] — 골든 시나리오 ↔ FX-ID 매핑

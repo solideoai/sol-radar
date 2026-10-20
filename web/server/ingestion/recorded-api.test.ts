@@ -217,9 +217,11 @@ afterEach(() => {
 
 describe("녹음 파일", () => {
   it("fixtures/recorded 에는 녹음 파일 14개가 있다", () => {
+    // train/ 은 X6a 학습용 녹음이다. 저장소에 넣지 않으므로(.gitignore) 로컬에 있어도 세지 않는다
     const files = readdirSync(RECORDED_DIR, { recursive: true, encoding: "utf8" })
       .filter((file) => file.endsWith(".json"))
       .map((file) => file.split("\\").join("/"))
+      .filter((file) => !file.startsWith("train/"))
       .sort();
 
     expect(files).toEqual([...RECORDING_FILES].sort());
