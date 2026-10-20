@@ -83,13 +83,18 @@ def test_v0_2_score_questions_have_five_grades(qid):
     assert questions(V0_2_FILE)[qid]["criteria"] == GRADES
 
 
-def test_v0_2_is_marked_draft():
+def test_v0_2_is_marked_final():
+    # 2026-10-20 사용자가 질문 원문을 그대로 확정했다. 초안 표기가 남으면 안 된다
     data = load_json(V0_2_FILE)
-    assert (data["version"], "초안" in data["status"]) == (V0_2, True)
+    assert (data["version"], data["status"].startswith("확정"), "초안" in data["status"]) == (
+        V0_2,
+        True,
+        False,
+    )
 
 
 def test_v0_2_english_questions_have_no_hangul():
-    # status(초안 표기)는 한국어다. 한글 0자는 질문 문자열(instructions·criteria)에 대한 요구로 본다
+    # status(확정 표기)는 한국어다. 한글 0자는 질문 문자열(instructions·criteria)에 대한 요구로 본다
     assert HANGUL.findall(" ".join(strings(questions(V0_2_FILE)))) == []
 
 
