@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — N8 데이터 수집 관리 (/admin/ingestion)"
 doc: "design-n8-admin-ingestion"
-status: review
+status: final
 tags:
   - sol-radar
   - ui
@@ -11,6 +11,9 @@ updated: 2026-10-20
 ---
 
 # 디자인 스펙: N8 데이터 수집 관리 (`/admin/ingestion`)
+
+> [!success] 구현·병합 (2026-10-20)
+> 이 스펙은 `n8/admin-ingestion` @ `1ac444c`로 구현돼 main `81249f0`에 병합됐다. ① 소스별 카드는 첫 구현에 없다. 정본은 [[06-UI-UX|06 UI]] §3.2·§5.8과 [[16-DECISIONS|ADR-035]] F3이다. 아래 "초안·사용자 승인 뒤 구현" 문구는 작성 당시 기록이다.
 
 [[12-ROADMAP|12 로드맵]] 확장 컷의 "`/admin/ingestion` 화면"과 [[PROGRESS|진행 상황]]의 "데모 필수 N8"을 구현자가 추측 없이 옮길 수 있게 고정한다. 이 문서는 **초안**이며 사용자 승인 뒤 구현한다. 코드·정본·설정은 바꾸지 않는다. 화면 문구는 모두 초안이고 확정은 사용자 몫이다. 결정이 필요한 것은 §12에 D1~D15로 모았다.
 

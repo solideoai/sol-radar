@@ -12,7 +12,7 @@ updated: 2026-10-20
 # 13. 알림 설계
 
 > [!tip] 해커톤 범위
-> 해커톤에서는 **in-app 알림만 실제 발송**한다. Kakao 알림톡은 `NOTIFY_KAKAO_PROVIDER=mock`인 mock provider로 outbox 상태 전이만 시연하고 외부 호출은 없다. 실발송은 비즈메시지 계약·템플릿 승인 후다 ([[16-DECISIONS|16 ADR]] ADR-006, 미결정 5번).
+> 해커톤에서는 **in-app 알림만 실제 발송**한다. Kakao 알림톡은 `NOTIFY_KAKAO_PROVIDER=mock`인 mock provider로 outbox 상태 전이만 시연하는 설계다. **미구현**: mock provider와 이 env가 코드에 없다(채널 값 `KAKAO`만 스키마에 있다). 외부 호출은 없다. 실발송은 비즈메시지 계약·템플릿 승인 후다 ([[16-DECISIONS|16 ADR]] ADR-006, 미결정 5번).
 
 ## 이벤트와 전달
 |이벤트|발생 시점|수신자|채널 (P0)|해커톤 구현 (C7, main `841b064`)|
@@ -23,7 +23,7 @@ updated: 2026-10-20
 |`ANALYSIS_COMPLETE`|score_run `COMPLETED` 또는 `PARTIAL`|분석 요청자|in-app|알림 보냄(아래 "인앱 알림 2종"). `FAILED`는 알리지 않는다|
 |`REVIEW_ASSIGNED`|담당자 배정|배정 대상|in-app|알림 보냄(아래 "인앱 알림 2종")|
 
-발송 수단: in-app(P0), Kakao 알림톡(P1, 승인과 동의 필요. 해커톤 동작은 위 "해커톤 범위"), 이메일은 확장 예정.
+발송 수단: in-app(P0), Kakao 알림톡(P1 설계. mock provider도 미구현, 실발송은 승인과 동의 필요), 이메일은 확장 예정. 아래 시퀀스의 Kakao mock 경로는 설계다.
 
 ```mermaid
 sequenceDiagram

@@ -18,7 +18,7 @@ updated: 2026-10-19
 
 **Tech Stack:** Next.js 16.4, React 19, Supabase Postgres/RLS/Auth/SSR, zod 4, react-hook-form, 기존 Base UI Select, Vitest(node/browser), PGlite, Playwright.
 
-**Spec:** [승인 스펙](../../polaris/specs/planned/2026-10-16-solideo-people-signup.md) §3·8~10, [04 DB](../04-DATABASE.md), [05 API](../05-API-SPEC.md) §8, [06 UI](../06-UI-UX.md) §5, [08 점수](../08-SCORING.md), [11 검증](../11-TESTING.md) PPL-04~07. 사진은 [별도 계획](2026-10-16-solideo-people-portraits.md)이며 가입 UI 완성의 선행 조건은 아니다.
+**Spec:** [승인 스펙](../../polaris/specs/done/2026-10-16-solideo-people-signup.md) §3·8~10, [04 DB](../04-DATABASE.md), [05 API](../05-API-SPEC.md) §8, [06 UI](../06-UI-UX.md) §5, [08 점수](../08-SCORING.md), [11 검증](../11-TESTING.md) PPL-04~07. 사진은 [별도 계획](2026-10-16-solideo-people-portraits.md)이며 가입 UI 완성의 선행 조건은 아니다.
 
 ## Global Constraints
 
