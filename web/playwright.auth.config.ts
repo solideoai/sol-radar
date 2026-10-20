@@ -16,8 +16,9 @@ const baseURL = `http://${hostname}:${port}`;
 //     자기가 만든 이름이 겹치지 않는 작업만 다루고, 초대 수락처럼 한 번뿐인 일은 이 단계의 한 시험만 한다.
 const WRITE = /\.write\.spec\.ts$/;
 // C6 업무 화면 E2E 는 데모 seed(demo:reset·demo:preanalyze)를 쓴다. 이 설정의 템플릿 seed 로는 돌지 않는다(playwright.work.config.ts).
+// N8 수집 관리 E2E(admin-ingestion)도 데모 seed 를 쓰고 따로 돈다(playwright.ingestion.config.ts).
 const WORK =
-  /(demo-badge|run-mode-badge|no-evidence|bid-isolation|work-screens|work-guard|bid-decision\.write|notifications\.write)\.spec\.ts$/;
+  /(demo-badge|run-mode-badge|no-evidence|bid-isolation|work-screens|work-guard|bid-decision\.write|notifications\.write|admin-ingestion)\.spec\.ts$/;
 
 export default defineConfig({
   // Shared Node tooling uses native ESM (including import.meta for checkout-root cwd).

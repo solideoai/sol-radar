@@ -104,6 +104,8 @@ async function runInputOf(data: IngestJobData, deps: IngestJobDeps): Promise<Sta
     trigger: data.trigger,
     requestedBy: data.requestedBy ?? null,
     idempotencyKey: data.idempotencyKey ?? null,
+    // N8: 수동 수집 요청이 정한 run id 를 행 id 로 쓴다. 없으면 키를 두지 않는다(DB 기본값)
+    ...(data.runId === undefined ? {} : { runId: data.runId }),
   };
   if (data.source === "fixture") {
     return { ...common, source: "fixture", jobKey: data.jobKey, batch: data.batch, params: null };

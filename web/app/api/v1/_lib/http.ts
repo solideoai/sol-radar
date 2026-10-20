@@ -2,7 +2,7 @@ import "server-only";
 import type { PeopleResult } from "@/server/people";
 import { toServerErrorRecord } from "@/server/shared";
 import { authenticate, type AuthUser } from "@/server/auth";
-import type { AnalysisContext, ServiceResult } from "@/server/bids";
+import type { AnalysisContext } from "@/server/bids";
 import { getMyBusinessAccess } from "@/server/organization";
 import { getMyEmployment, type EmploymentResult } from "@/server/profile";
 
@@ -16,6 +16,8 @@ type ApiErrorCode =
   | "UNSUPPORTED_ACCOUNT_STATE"
   | "INVALID_CURSOR"
   | "ANALYSIS_IN_PROGRESS"
+  | "INGESTION_IN_PROGRESS"
+  | "RUN_MODE_MISMATCH"
   | "IDEMPOTENCY_KEY_REUSED"
   | "RATE_LIMITED"
   | "NOT_FOUND"
@@ -43,8 +45,20 @@ export function apiError(
   );
 }
 
-// 서비스 결과를 v1 응답으로 옮긴다. result.code 가 ApiErrorCode 안에 있는지는 tsc 가 본다.
-export function serviceResponse<T>(result: ServiceResult<T>): Response {
+// 서비스 결과의 공통 모양(공고 ServiceResult·수집 관리 IngestionAdminResult). 도메인끼리는 서로를 import 하지 않아
+// 여기서 모양으로 받는다. result.code 가 ApiErrorCode 안에 있는지는 tsc 가 본다.
+type ServiceOutcome<T> =
+  | { ok: true; status: number; data: T }
+  | {
+      ok: false;
+      status: number;
+      code: ApiErrorCode;
+      message: string;
+      details?: Record<string, unknown>;
+    };
+
+// 서비스 결과를 v1 응답으로 옮긴다.
+export function serviceResponse<T>(result: ServiceOutcome<T>): Response {
   if (result.ok) return json(result.data, result.status);
   const retryAfter = result.details?.retryAfterSeconds;
   return apiError(

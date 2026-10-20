@@ -143,9 +143,10 @@ const EMPTY_SUMMARY: IngestSummary = {
   retried: 0,
 };
 
-/** startRun 이 새로 넣는 ingest_runs 행. 상태는 RUNNING, 집계는 0 에서 시작한다. */
+/** startRun 이 새로 넣는 ingest_runs 행. 상태는 RUNNING, 집계는 0 에서 시작한다. runId 가 없으면 id 는 DB 기본값이다. */
 export function toIngestRunInsert(input: StartRunInput): TablesInsert<"ingest_runs"> {
   return {
+    ...(input.runId === undefined ? {} : { id: input.runId }),
     source: input.source,
     run_mode: input.runMode,
     job_key: input.jobKey,

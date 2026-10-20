@@ -476,3 +476,51 @@ describe("enqueueDocuments", () => {
     expect(add).not.toHaveBeenCalled();
   });
 });
+
+// N8 수동 수집(계획서 docs/plans/2026-10-20-n8-admin-ingestion-plan.md §2): Route Handler 가 만든 run id 를 job data 의
+// runId 로 넘기고 worker 가 그 값을 ingest_runs.id 로 쓴다. 선택 필드(z.uuid().optional())라 일정·데모 job 은 그대로다.
+describe("ingestJobDataSchema — runId(N8)", () => {
+  const RUN_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+  const REQUEST_ID = "req-20261020_a1";
+  const FIXTURE_MANUAL = {
+    source: "fixture",
+    batch: "SEED",
+    trigger: "MANUAL",
+    jobKey: `manual:${ORG_ID}:${REQUEST_ID}`,
+    idempotencyKey: `${ORG_ID}:${REQUEST_ID}`,
+    requestedBy: USER_ID,
+    orgId: ORG_ID,
+  };
+
+  it.each([
+    ["g2b MANUAL 에 runId", { ...G2B_MANUAL, runId: RUN_ID }],
+    ["fixture MANUAL 에 runId", { ...FIXTURE_MANUAL, runId: RUN_ID }],
+    ["runId 없는 MANUAL(선택 필드)", FIXTURE_MANUAL],
+  ])("%s 는 통과한다", (_label, data) => {
+    expect(ingestJobDataSchema.safeParse(data).success).toBe(true);
+  });
+
+  it("parse 결과에 runId 가 그대로 남는다", () => {
+    expect(ingestJobDataSchema.parse({ ...FIXTURE_MANUAL, runId: RUN_ID })).toMatchObject({
+      runId: RUN_ID,
+    });
+  });
+
+  it.each<[string, unknown]>([
+    ["uuid 아님", "run-1"],
+    ["빈 문자열", ""],
+    ["숫자", 1],
+    ["null", null],
+  ])("runId 가 %s 면 거부한다", (_label, runId) => {
+    expect(ingestJobDataSchema.safeParse({ ...FIXTURE_MANUAL, runId }).success).toBe(false);
+  });
+
+  it("enqueueIngestRun 은 runId 를 data 에 실어 jobId = toBullJobId(jobKey) 로 넣는다", async () => {
+    const { queue, add } = fakeQueue();
+    const data = { ...FIXTURE_MANUAL, runId: RUN_ID };
+
+    await enqueueIngestRun(queue, data as IngestJobData, ENQUEUE_NOW);
+
+    expect(add.mock.calls).toEqual([["run", data, { jobId: toBullJobId(data.jobKey) }]]);
+  });
+});

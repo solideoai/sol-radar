@@ -26,6 +26,8 @@ const baseJobShape = {
   idempotencyKey: z.string().optional(),
   requestedBy: z.uuid().optional(),
   orgId: z.uuid().optional(),
+  // N8 수동 수집: Route Handler 가 만든 run id. worker 가 ingest_runs.id 로 쓴다(일정·데모 job 은 없다)
+  runId: z.uuid().optional(),
 };
 
 // fixture 는 batch 필수·window 금지, g2b 는 batch 금지(05). 판별 유니온의 strict 객체라 반대쪽 키는 모르는 키로 거부된다.

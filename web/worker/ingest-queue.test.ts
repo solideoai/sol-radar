@@ -142,7 +142,8 @@ const createFakeRepo = (previousRuns: readonly PreviousRun[] = []) => {
       const existing = runs.get(input.jobKey);
       if (existing) return existing;
       const run: StartedRun = {
-        runId: nextUuid(),
+        // 포트 계약(StartRunInput.runId, N8): 있으면 새 행의 id 다. 메모리 저장소와 같은 규칙
+        runId: input.runId ?? nextUuid(),
         status: "RUNNING",
         cursor: null,
         summary: { ...EMPTY_INGEST_SUMMARY },
@@ -689,6 +690,97 @@ describe("processIngestJob — 잘못된 data", () => {
 
     await processIngestJob({ ...G2B_MANUAL, batch: "SEED" }, deps).catch(() => undefined);
 
+    expect(starts).toEqual([]);
+  });
+});
+
+// N8 수동 수집(계획 docs/plans/2026-10-20-n8-admin-ingestion-plan.md §1 10번·§2 ingestion.store.ts): Route Handler 가 만든
+// runId 를 job data → run 입력(StartRunInput.runId)으로 잇고, 저장소가 그 값을 ingest_runs.id 로 쓴다. 202 의 id 와 행 id 가 같아진다.
+// 메모리 저장소(ingestion.repo.memory)는 배럴 밖이라 여기서 부르지 않는다(도메인 딥 import 금지). 메모리 저장소가 runId 를
+// 행 id 로 쓰는지는 server/ingestion/ingestion.repo.memory.test.ts 가 보고, 여기서는 같은 규칙의 가짜 저장소로 본다.
+describe("processIngestJob — 수동 수집 runId(N8)", () => {
+  const RUN_ID = "a8000000-0000-4000-8000-000000000001";
+  const OTHER_RUN_ID = "a8000000-0000-4000-8000-000000000002";
+  const REQUEST_ID = "req-20261020_a1";
+  const FIXTURE_MANUAL = {
+    source: "fixture",
+    batch: "SEED",
+    trigger: "MANUAL",
+    jobKey: `manual:${ORG_ID}:${REQUEST_ID}`,
+    idempotencyKey: `${ORG_ID}:${REQUEST_ID}`,
+    requestedBy: USER_ID,
+    orgId: ORG_ID,
+    runId: RUN_ID,
+  };
+
+  it("fixture MANUAL job 의 runId 를 startRun 입력에 싣는다", async () => {
+    const { deps, starts } = createDeps("mock");
+
+    await processIngestJob(FIXTURE_MANUAL, deps);
+
+    expect(starts.map((start) => start.runId)).toEqual([RUN_ID]);
+  });
+
+  it("g2b MANUAL job 의 runId 를 startRun 입력에 싣는다", async () => {
+    const { deps, starts } = createDeps("live");
+
+    await processIngestJob({ ...G2B_MANUAL, runId: RUN_ID }, deps);
+
+    expect(starts.map((start) => start.runId)).toEqual([RUN_ID]);
+  });
+
+  it("저장소가 그 runId 로 행을 만들면 결과·수동 수집 감사의 runId 도 그 값이다", async () => {
+    const { deps, recordManualAudit } = createDeps("mock");
+
+    const result = await processIngestJob(FIXTURE_MANUAL, deps);
+
+    expect([result.runId, recordManualAudit.mock.calls]).toEqual([
+      RUN_ID,
+      [[{ orgId: ORG_ID, actorId: USER_ID, runId: RUN_ID }]],
+    ]);
+  });
+
+  it("실행 모드가 어긋나 FAILED 로 닫는 run 도 그 runId 로 열고 닫는다", async () => {
+    const { deps, starts, finishes } = createDeps("live");
+
+    const result = await processIngestJob(FIXTURE_MANUAL, deps);
+
+    expect([result.status, result.runId, starts[0]?.runId, finishes.map((f) => f.runId)]).toEqual([
+      "FAILED",
+      RUN_ID,
+      RUN_ID,
+      [RUN_ID],
+    ]);
+  });
+
+  it.each([
+    ["fixture DEMO", "mock" as RunMode, FIXTURE_SEED],
+    ["g2b SCHEDULED", "live" as RunMode, G2B_SCHEDULED],
+    ["runId 없는 g2b MANUAL", "live" as RunMode, G2B_MANUAL],
+  ])(
+    "runId 가 없는 %s job 은 startRun 입력에 runId 키를 두지 않는다(DB 기본값)",
+    async (_label, mode, job) => {
+      const { deps, starts } = createDeps(mode, { previousRuns: PREVIOUS_SCHEDULED });
+
+      await processIngestJob(job, deps);
+
+      expect(starts[0]).not.toHaveProperty("runId");
+    },
+  );
+
+  it("같은 jobKey 를 다시 처리하면 기존 run 을 쓴다(두 번째 job 의 runId 가 달라도 행 id 는 처음 것)", async () => {
+    const { deps, starts } = createDeps("mock");
+
+    const first = await processIngestJob(FIXTURE_MANUAL, deps);
+    const again = await processIngestJob({ ...FIXTURE_MANUAL, runId: OTHER_RUN_ID }, deps);
+
+    expect([first.runId, again.runId, starts.length]).toEqual([RUN_ID, RUN_ID, 2]);
+  });
+
+  it("runId 가 UUID 가 아니면 run 을 열지 않고 던진다", async () => {
+    const { deps, starts } = createDeps("mock");
+
+    await expect(processIngestJob({ ...FIXTURE_MANUAL, runId: "run-1" }, deps)).rejects.toThrow();
     expect(starts).toEqual([]);
   });
 });
