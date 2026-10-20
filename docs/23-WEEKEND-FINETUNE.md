@@ -44,7 +44,7 @@ updated: 2026-10-20
 
 | 날짜 | 단계 | 누가 | 할 일 | 산출물 |
 |---|---|---|---|---|
-| 10-20(화) | B0 | 우리 | ADR-034 채택 기록, 22·23 개정(이 문서). §4.3 수집 1일차(목록 60일 + 보조 조회 150건), 가상 기업 원형 6개 JSON 작성(§4.2 C) | 16·22·23, `fixtures/recorded/train/` 또는 Supabase live 공고, `fixtures/eval/companies/*.json` |
+| 10-20(화) | B0 | 우리 | ADR-034 채택 기록, 22·23 개정(이 문서). §4.3 수집 1일차는 **실행하지 않는다**(10-20 실사용 762/1,000, §4.3). 가상 기업 원형 6개 JSON 작성(§4.2 C) | 16·22·23, `fixtures/recorded/train/` 또는 Supabase live 공고, `fixtures/eval/companies/*.json` |
 | 10-20(화) | — | 회사 | **당시 기록**: 오전 서버 환경 확인(A40 ×3, torch 2.8.0+cu128, 당시 `.venv-kev`), 오후 Kev-9B 가중치 다운로드(`db029f08`, 퇴역)·`.venv-bosun` 에서 Bosun CPU 2-step 학습 성공(장난감 6건)·PaddleOCR 가 GPU 1 약 9,167 MiB 사용 보고 | [F1 기록](evidence/kev-train-feasibility.md) §0, 사용자 보고(미검증) |
 | 10-21(수)~22(목) | B1 | 우리 | `services/decision`(`sol_decision.serve`·`train`, 호환성 테스트), 레지스트리·settings·`local_setup`, `sol_eval` `--format bosun`·`bosun_score`·`leakage`, `infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`, UI 문구 중립화, 테스트 갱신. `pnpm verify`·`uv run pytest` 초록, `kev-no-override`·`review.independent` **무수정 통과** | 코드, 핀 목록, 22 §3.2 명령의 인자 확정 |
 | 10-21(수)~22(목) | B2 | 회사 | `.venv-bosun` 핀 `uv pip install --dry-run` → 설치(torch 불변), Bosun·백본 다운로드 + sha256 대조(22 §2.2), `bosun-preflight.sh` 통과. **사용자 승인 뒤** `sol_decision.serve`(8009) 기동(GPU 1, PaddleOCR 공존). 라우터 그대로. 회사 Qwen3.5-27B API 는 키 전달·`GET /v1/models` id·guided JSON·`prompt_logprobs` 확인만 | `runs/preflight-*.log`, `venv-bosun-freeze.txt`, 서버 안 `curl …/sol-radar/kev/v1/models` 응답 |
@@ -117,7 +117,7 @@ sha256sum sol-dataset-v0.1/bosun/test.en.jsonl                                  
 ```bash
 curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/healthz        # 200, -k 금지
 curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/kev/v1/models  # 인증 없이 401 또는 403
-curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/models"                     # id: Qwen/Qwen3.5-27B (게이트웨이가 /v1 중복을 정규화한다)
+curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"                        # id: Qwen/Qwen3.5-27B (값이 /v1 로 끝나므로 /models 만 붙인다)
 ```
 
 게이트웨이 쪽은 `/api/v1/admin/ai/status` 의 `kev.modelId=bosun-v3.1-0.6b`·`kev.registryMatch: true`·`qwen.model=Qwen/Qwen3.5-27B` 로 확인한다(계획 개정 콜아웃).
@@ -230,6 +230,9 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 ### 4.3 수집 계획 (A1, 10-20~21)
 
 호출 예산은 서비스당 1,000건/일이고, 리허설·시연 몫으로 매일 100건을 남긴다.
+
+> [!warning] 10-20 계획은 실행하지 않는다 (2026-10-20)
+> 10-20 실사용이 15129394 762/1,000이다(C8 live run 1회 266회 포함, [야간 기록](plans/2026-10-20-overnight-decisions.md)). 아래 표의 10-20 몫(목록 약 30회 + 보조 조회 450회)은 남은 예산을 넘으므로 그날 계획은 실행하지 않는다. 다시 잡는 날짜와 건수는 정하지 않았다.
 
 | 단계 | 호출 | 건수 | 날짜 |
 |---|---|---|---|
@@ -351,7 +354,7 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 | 돌려받은 출력을 우리가 다시 재현해야 한다(출력 누락·의심) | 10-25 | 0.6B 라 노트북(Apple M3 Pro, 18 GB)에서 `bosun_score` 재실행을 **시도할 수 있다**(mps 지원·속도 미확인, §10). 결과가 다르면 서버 출력을 쓰지 않는다 |
 | 결과가 E1' 보다 나쁘다 | 10-25 | 그대로 보고한다. 데모 모델은 어차피 공개 Bosun 이다. 오류 분석(21 §4.4 원인 코드)을 한 줄 붙인다 |
 
-## 8. 회사에 보낼 것·물을 것 (10-22 수요일까지)
+## 8. 회사에 보낼 것·물을 것 (10-22 목요일까지)
 
 보낼 것:
 

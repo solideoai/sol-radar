@@ -26,7 +26,7 @@ updated: 2026-10-20
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
 |목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
 |멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. 두 엔드포인트 모두 키가 없으면 서버가 UUID를 만든다(분석 [[16-DECISIONS\|ADR-030]] B20, 수동 수집 [[16-DECISIONS\|ADR-035]] F1. 서버가 만든 키는 클라이언트가 모르므로 재현되지 않는다). requestId(`Idempotency-Key` 값 또는 서버가 만든 UUID)는 `^[A-Za-z0-9_-]{1,128}$`만 받는다. 헤더 형식 검사는 엔드포인트마다 다르다. 분석은 UUID가 아니면, 수동 수집은 위 패턴이 아니면 `400 VALIDATION_ERROR`다. 분석의 저장 멱등 키는 `<org_id>:<requestId>`이고, DB check `score_runs_idempotency_key_org_check`가 `<org_id>:`로 시작하는지 강제한다([[04-DATABASE\|04 DB]] §3.4, [[16-DECISIONS\|ADR-031]] C5). 수동 수집의 저장 멱등 키(`ingest_runs.idempotency_key`)는 `<orgId>:<requestId>`, jobKey는 `manual:<orgId>:<requestId>`다. 같은 키 판정은 Redis `idem:ingest:<orgId>:<requestId>`(SET NX, 24시간)로 하고, 큐에 넣다 실패하면 그 키를 지워 같은 키로 다시 받게 한다|
-|요청 ID|모든 응답에 `X-Request-Id`. 로그·감사·오류 본문에 같은 값|
+|요청 ID|모든 응답에 `X-Request-Id`. 오류 본문의 `requestId`와 같은 값이다. 지금 구현은 응답마다 새 UUID를 만든다(`web/app/api/v1/_lib/http.ts`). 요청 헤더 값을 이어받지 않고, Supabase 호출에 넘기지 않아 `audit_logs.request_id`는 null이다. 500 오류 로그에만 같은 값이 남는다. 로그·감사까지 같은 값으로 잇는 것은 코드 후속이다([[16-DECISIONS\|16 ADR]] 미결정 26번)|
 |속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `POST /admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 수동 수집은 `POST`만 센다(목록·단건 `GET`과 화면 polling은 세지 않는다). 초과 `429` + `Retry-After`. 횟수를 세는 Redis에 닿지 못하면 두 엔드포인트 모두 `503 SERVICE_UNAVAILABLE {component:"redis"}`|
 |문서|계약의 원천은 zod 스키마다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성하고 개발 환경에서만 노출한다|
 
@@ -39,15 +39,15 @@ updated: 2026-10-20
 |GET|`/signup-options`|public|솔리데오 고정 가입 선택 목록(ID·표시명·버전만)|`SignupOptions`|
 |GET|`/me/employment`|session(본인)|조직 합류 전에도 가입 신고 정보·완료 여부 조회|`EmploymentState`|
 |PATCH|`/me/employment`|session(본인)|부서·직급/직책 필수 보완|`EmploymentInput` → `200 EmploymentState`|
-|GET|`/me`|auth|세션 사용자·현재 조직·역할(`orgRole`·`solRole`)|`Me`|
+|GET|`/me`|auth|**(미구현)** 세션 사용자·현재 조직·역할(`orgRole`·`solRole`)|`Me`|
 |GET|`/bids`|`ADMIN, SALES, ANALYST, VIEWER`|목록·검색·필터·커서. 출처 필터 `origin=live\|demo\|all`. P1: `watched=me`([[16-DECISIONS\|ADR-021]])|§3 → `Page<BidListItem>`|
 |GET|`/bids/:id`|`ADMIN, SALES, ANALYST, VIEWER`|상세(최신 revision, 추출, 최신 분석, 검토, 첨부 다운로드·파싱 상태, 단계 연결, API 구조화 자격 필드)|`BidDetail`|
-|GET|`/bids/:id/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 목록·변경 필드|`BidRevisionSummary[]`|
-|GET|`/bids/:id/revisions/:rev`|`ADMIN, SALES, ANALYST, VIEWER`|특정 revision 정규화 본문|`NormalizedBid`|
-|GET|`/bids/:id/documents/:docId/download`|`ADMIN, SALES, ANALYST, VIEWER`|첨부 다운로드|`302` → 60초 presigned URL([[09-SECURITY\|09 보안]])|
-|GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|현재 프로필(최신 revision)|`CompanyProfile`|
-|GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 이력|`CompanyProfileSummary[]`|
-|PUT|`/company-profile`|`ADMIN`|새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
+|GET|`/bids/:id/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** revision 목록·변경 필드|`BidRevisionSummary[]`|
+|GET|`/bids/:id/revisions/:rev`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 특정 revision 정규화 본문|`NormalizedBid`|
+|GET|`/bids/:id/documents/:docId/download`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 첨부 다운로드|`302` → 60초 presigned URL([[09-SECURITY\|09 보안]])|
+|GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 현재 프로필(최신 revision)|`CompanyProfile`|
+|GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** revision 이력|`CompanyProfileSummary[]`|
+|PUT|`/company-profile`|`ADMIN`|**(미구현)** 새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
 |POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기). 중복·큐 계약은 §4.5|`AnalysisRequest` → `202 AnalysisAccepted`|
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
@@ -68,18 +68,20 @@ updated: 2026-10-20
 |GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 BID 결정(`reviewId`) 필수(P1, ADR-021)|BID 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
 |GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 BID가 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
 |POST|`/projects/:id/result`|`ADMIN, SALES`|결과 기록(수동). 점수·결정 모델·학습에 쓰지 않는다(P1, ADR-021)|P1 착수 때 정한다|
-|GET|`/admin/users`|`ADMIN`|이 조직의 구성원 목록(템플릿 `memberships` + `profiles`)|`User[]`|
-|POST|`/admin/users/invite`|`ADMIN`|초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
-|PATCH|`/admin/users/:id`|`ADMIN`|업무 역할 변경(`memberships.sol_role`). `:id`는 구성원의 사용자 ID(`profiles.id`). 이 조직 구성원이 아니면 `404`|`UserPatch` → `200 User`|
-|DELETE|`/admin/users/:id`|`ADMIN`|비활성화 = 이 조직에서 내보내기(`memberships` 행 삭제, 템플릿 구성원 기능). 계정 자체 정지(`profiles.status='suspended'`)는 서비스 운영자(`profiles.is_admin`) 기능이라 이 API에 없다|`204`|
+|GET|`/admin/users`|`ADMIN`|**(미구현)** 이 조직의 구성원 목록(템플릿 `memberships` + `profiles`)|`User[]`|
+|POST|`/admin/users/invite`|`ADMIN`|**(미구현)** 초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
+|PATCH|`/admin/users/:id`|`ADMIN`|**(미구현)** 업무 역할 변경(`memberships.sol_role`). `:id`는 구성원의 사용자 ID(`profiles.id`). 이 조직 구성원이 아니면 `404`|`UserPatch` → `200 User`|
+|DELETE|`/admin/users/:id`|`ADMIN`|**(미구현)** 비활성화 = 이 조직에서 내보내기(`memberships` 행 삭제, 템플릿 구성원 기능). 계정 자체 정지(`profiles.status='suspended'`)는 서비스 운영자(`profiles.is_admin`) 기능이라 이 API에 없다|`204`|
 |POST|`/admin/ingestion/runs`|`ADMIN`|수동 수집(멱등, §1). 소스는 `g2b`(나라장터 Open API) 또는 `fixture`. 실행 모드와 맞지 않는 소스는 `409 RUN_MODE_MISMATCH`. 검사 순서: 역할 → `Idempotency-Key` 형식 → 본문 크기(16KB) → 속도 제한 → 본문 검증(`window.to`가 지금보다 5분 넘게 미래면 400) → 실행 모드 → 멱등 재현 → 진행 중(같은 source의 `RUNNING` 행이면 `409 INGESTION_IN_PROGRESS {runId}`. 큐에만 있는 job은 막지 않는다. worker가 jobKey로 멱등 처리한다) → 키 잡기 → 큐. Route Handler는 job만 넣는다. run id를 만들어 job data `runId`로 넘기고, worker가 그 id로 `ingest_runs` 행을 만든다. 202 본문은 행이 생기기 전 모습(`status:"RUNNING"`, summary 0)을 합성한 것이다(§6.5)|`IngestionRunInput` → `202 IngestionRun`|
 |GET|`/admin/ingestion/runs`|`ADMIN`|수집 이력. `started_at desc, id desc` keyset, 조직에 묶인 HMAC 커서(커서 비밀이 없으면 `503 {component:"cursor"}`)|`?cursor&limit` → `Page<IngestionRun>`|
 |GET|`/admin/ingestion/runs/:id`|`ADMIN`|수집 결과·오류. id가 UUID가 아니거나 행이 없으면 `404 {resource:"ingestionRun"}`. 202 뒤 worker가 행을 만들기 전에도 404이고, 화면은 이력 표를 polling한다|`IngestionRun`|
-|GET|`/admin/sources`|`ADMIN`|수집 소스 registry 항목별 승인·호출량·최근 성공/오류|`SourceStatus[]`|
+|GET|`/admin/sources`|`ADMIN`|**(미구현)** 수집 소스 registry 항목별 승인·호출량·최근 성공/오류|`SourceStatus[]`|
 |GET|`/admin/ai/status`|`ADMIN`|실행 모드, AI 공급자, Qwen·결정 모델(Bosun) 상태, 레지스트리 일치, 파서 목록|`AiStatus`|
-|GET|`/admin/ai/models`|`ADMIN`|모델 레지스트리 항목과 현재 활성 항목(gateway `/health`에서 읽음)|`ModelRegistryStatus`|
-|GET|`/admin/ai/eval-runs`|`ADMIN`|평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
-|GET|`/admin/ai/eval-runs/:id`|`ADMIN`|평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
+|GET|`/admin/ai/models`|`ADMIN`|**(미구현)** 모델 레지스트리 항목과 현재 활성 항목(gateway `/health`에서 읽음)|`ModelRegistryStatus`|
+|GET|`/admin/ai/eval-runs`|`ADMIN`|**(미구현)** 평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
+|GET|`/admin/ai/eval-runs/:id`|`ADMIN`|**(미구현)** 평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
+
+**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 15개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. 화면이 생기기 전까지 [[11-TESTING|11]] §5의 `/admin/sources` 확인은 할 수 없다.
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
@@ -96,19 +98,21 @@ updated: 2026-10-20
 |`q`|string|—|1~100자|제목·기관·공고번호 검색(trigram). 비어 있으면 전체|
 |`stage`|`PLAN\|PRE_SPEC\|NOTICE`, 반복 가능|전체|ENUM|단계 필터|
 |`status`|`OPEN\|AMENDED\|CANCELLED\|CLOSED`, 반복 가능|`OPEN,AMENDED`|ENUM|상태 필터. 명시하면 그 값만. 기본값은 취소 공고(`CANCELLED`)를 숨긴다. 화면 `/bids`의 상태 필터에는 "취소 포함" 선택지가 있고, 고르면 `CANCELLED`도 함께 읽어 그 행에 "취소됨"을 표시한다. 공고 상세(`GET /bids/:id`)는 상태와 상관없이 열린다([[16-DECISIONS\|ADR-029]] A7). 저장 상태는 `OPEN`·`AMENDED`·`CANCELLED`이고, `CLOSED`는 수집 정규화가 만들지 않고 조회할 때 `deadlineAt`으로 계산한다([[15-DATA-CONTRACTS\|15]] §3, [[16-DECISIONS\|ADR-030]] B14). 기본값 `OPEN,AMENDED`는 이렇게 계산한 `CLOSED`(마감 지남)도 뺀다. "취소 포함"은 `CANCELLED`만 더하고 `CLOSED`는 더하지 않는다([[16-DECISIONS\|ADR-031]] C15)|
-|`agencies`|string, 반복 가능(`agencies=a&agencies=b`)|—|각 1~100자, 최대 10개|발주기관 정확 일치|
-|`budgetMin`, `budgetMax`|KRW 정수 문자열|—|`>= 0`, `min <= max`|예산 범위. 예산 `null`인 공고는 범위 필터에 걸리지 않고 제외된다|
+|`agencies`|string, 반복 가능(`agencies=a&agencies=b`)|—|각 1~100자, 최대 10개|**(미구현)** 발주기관 정확 일치|
+|`budgetMin`, `budgetMax`|KRW 정수 문자열|—|`>= 0`, `min <= max`|**(미구현)** 예산 범위. 예산 `null`인 공고는 범위 필터에 걸리지 않고 제외된다|
 |`deadlineFrom`, `deadlineTo`|ISO8601|—|`from <= to`|마감 범위. 마감 `null`은 제외|
-|`scoreMin`|int|—|0~100|최신 분석(`COMPLETED`/`PARTIAL`)의 SOL Score 이상. 분석 없는 공고는 제외|
+|`scoreMin`|int|—|0~100|**(미구현)** 최신 분석(`COMPLETED`/`PARTIAL`)의 SOL Score 이상. 분석 없는 공고는 제외|
 |`recommendation`|`BID\|WATCH\|NO_BID`, 반복 가능|—|ENUM|최신 분석의 시스템 권고|
 |`decision`|`BID\|WATCH\|NO_BID\|NONE`, 반복 가능|—|ENUM|최신 사람 결정. `NONE` = 미결정|
-|`hasAnalysis`|boolean|—|—|분석 존재 여부|
+|`hasAnalysis`|boolean|—|—|**(미구현)** 분석 존재 여부|
 |`origin`|`live\|demo\|all`|실행 모드: `live`면 `live`, `fixture`·`mock`이면 `demo`|ENUM|출처 필터([[16-DECISIONS\|ADR-020]]). 기본값이 실행 모드를 따르는 이유는 모드마다 그 모드의 데이터만 기본으로 보여 live 공고와 fixture 공고가 섞이지 않게 하려는 것이다. 둘 다 보려면 `all`([[19-DEMO-SCENARIO\|19 데모]] §2.1). `live` = 나라장터에서 수집한 공고(`is_demo=false`), `demo` = fixture 등 가상 공고(`is_demo=true`)|
 |`isDemo`|boolean|—|—|DEMO 공고만/제외. 생략 시 둘 다. `isDemo=true`는 `origin=demo`, `false`는 `origin=live`와 같다. 둘을 함께 주고 뜻이 다르면 `400 VALIDATION_ERROR`|
 |`sort`|`publishedAt:desc\|publishedAt:asc\|deadlineAt:asc\|deadlineAt:desc\|score:desc\|budgetKrw:desc`|`publishedAt:desc`|ENUM|정렬. `score:desc`는 분석 없는 공고를 뒤로|
 |`cursor`|string|—|서버 발급 값|이전 응답의 `nextCursor`. 변조는 `400 INVALID_CURSOR`|
 |`limit`|int|20|1~100|페이지 크기|
 |`watched`|`me`|—|ENUM|본인 관심 공고만(P1, [[16-DECISIONS\|ADR-021]])|
+
+**(미구현)**을 붙인 필터 5개(`agencies`·`budgetMin`·`budgetMax`·`scoreMin`·`hasAnalysis`)는 지금 파서(`web/server/bids/bid-query.ts` `parseBidListQuery`)가 읽지 않는다. 보내도 400이 아니라 무시되고 필터 없이 200이다(파서는 정해 둔 키만 꺼내 검증한다). 화면도 이 필터를 보내지 않는다.
 
 커서는 `(sort 키 값, id)`를 base64url로 인코딩하고 HMAC(키: 서버 전용 env `API_CURSOR_SECRET`, [[10-DEPLOYMENT|10 배포]])을 붙인다. 필터·정렬이 바뀌면 커서를 버리고 처음부터 요청한다.
 
@@ -207,7 +211,7 @@ interface BidDocument {
   downloadErrorCode: "AUTH_REQUIRED" | "HTTP_4XX" | "HTTP_5XX" | "REDIRECT_BLOCKED" | "HOST_NOT_ALLOWED" | "TOO_LARGE" | "TIMEOUT" | null;
   pageCount: number | null;
   parseErrorCode: "UNSUPPORTED_FORMAT" | "NO_TEXT_LAYER" | "ENCRYPTED" | "DISTRIBUTION_PROTECTED" | "TOO_LARGE" | "CORRUPTED" | "PARSER_ERROR" | null;
-  downloadPath: string | null;     // "/api/v1/bids/:id/documents/:docId/download". downloadStatus가 OK가 아니면 null
+  downloadPath: string | null;     // "/api/v1/bids/:id/documents/:docId/download". downloadStatus가 OK가 아니면 null. 다운로드 라우트가 미구현이라 지금은 늘 null(bids.supabase.ts)
 }
 interface StructuredRequirement {  // 공고 API가 구조화 필드로 준 자격 조건(04 bid_structured_requirements)
   kind: "LICENSE_LIMIT" | "PERMITTED_INDUSTRY" | "PARTICIPATION_REGION" | "REGIONAL_JOINT_CONTRACT";
@@ -355,7 +359,7 @@ interface DashboardSummary {
   reviews: { pending: number;     // 최신 분석이 있고 사람 결정이 없는 공고 수(ADR-029 A6 D11)
     byDecision: Record<Recommendation, number>; disagreementWithSystem: number };
   upcoming: { bidId: string; title: string; deadlineAt: string; recommendation: Recommendation | null; decision: Recommendation | null }[];  // 마감 임박 10건
-  recentChanges: { bidId: string; title: string; revision: number; changedFields: string[]; changedAt: string }[];  // 최근 revision 변경 10건(06 §5.3 ④, ADR-029 A6 D9)
+  recentChanges: { bidId: string; title: string; revision: number; changedFields: string[]; changedAt: string }[];  // (미구현) 최근 revision 변경 10건(06 §5.3 ④, ADR-029 A6 D9). 지금 응답 스키마(dashboard.model.ts, strict)에 이 필드가 없다
   unreadNotifications: number;
 }
 interface IngestionRunInput {
@@ -615,9 +619,9 @@ GET /api/v1/analyses/7d2c...
  "reviewFlags":["KEV_NEEDS_REVIEW"],
  "injectionSuspected":false,
  "kev":{"enabled":true,"provider":"mock","model":"mock","questionSetVersion":"kev-qs/v0.1",
-        "suggestedOption":"WATCH","probabilities":{"BID":0.36,"WATCH":0.52,"NO_BID":0.12},"confidence":0.28,
-        "mandatoryRisk":0.10,"needsHumanReview":0.74,"fit":{"score":3.2,"legend":{"0":"Very poor","1":"Poor","2":"Moderate","3":"Good","4":"Very good"}},
-        "latencyMs":3,"requestId":"mock-7d2c",
+        "suggestedOption":"WATCH","probabilities":{"BID":0.36,"WATCH":0.52,"NO_BID":0.12},"confidence":0.52,
+        "mandatoryRisk":0.10,"needsHumanReview":0.74,"fit":{"score":2.2,"legend":{"0":"Very poor","1":"Poor","2":"Moderate","3":"Good","4":"Very good"}},
+        "latencyMs":0,"requestId":null,
         "scores":null,"risks":null,"calibration":null,"stateTrace":null,
         "disclaimer":"Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."},
  "fallbackReason":null,

@@ -42,7 +42,7 @@ updated: 2026-10-20
 |---|---|---|---|
 |업무 역할|`memberships.sol_role`|`ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check 제약, 기본 `VIEWER`)|아래 표와 [[05-API-SPEC\|05 API]]의 권한 열|
 |조직 역할|`memberships.org_role`(템플릿)|`owner`·`member`|템플릿 호환용. 구성원 관리는 업무 역할 `ADMIN`([[16-DECISIONS\|ADR-021]])|
-|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다. 화면 `/ops`, API `/api/ops/*`. 조직 ADMIN 화면(`/admin/*`)에 들어오지 않고, 조직 ADMIN도 `/ops`는 404([[16-DECISIONS\|ADR-021]]). 팀(조직) 만들기는 운영자만 한다([[16-DECISIONS\|ADR-026]])|
+|서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다. 지금은 템플릿 화면 `/admin`(사용자 관리, 운영자가 아니면 404)과 API `/api/admin/users/:id/status`다. 설계의 `/ops`·`/api/ops/*` 분리([[16-DECISIONS\|ADR-021]])는 해커톤 뒤다([[16-DECISIONS\|ADR-023]], 미구현). 운영자라도 업무 역할이 `ADMIN`이 아니면 조직 ADMIN 화면 `/admin/ingestion`은 403 안내다. 팀(조직) 만들기는 운영자만 한다([[16-DECISIONS\|ADR-026]])|
 
 데모 계정의 역할 배정은 [[04-DATABASE|04 DB]] §6이다.
 
@@ -59,7 +59,7 @@ updated: 2026-10-20
 |사람 최종 결정 기록 (`POST /bids/:id/reviews`)|ADMIN, SALES|
 |회사 프로필 개정 (`PUT /company-profile`)|ADMIN|
 |사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿의 owner 기준 정책을 `sol_role=ADMIN` 기준으로 바꿨다, `20261019000001`, [[16-DECISIONS\|ADR-021]])|
-|수동 수집 실행·수집 결과 조회|ADMIN|
+|수동 수집 실행·수집 결과 조회|ADMIN. 예외: 대시보드 수집 신선도용 `latest_ingest_run(text)`은 업무 역할이 있으면 누구나 출처별 최신 run 한 건의 상태·시각·요약만 읽는다([[04-DATABASE\|04]] §3.6)|
 |본인 알림 조회·읽음 처리|모든 인증 사용자. 남의 알림은 `404`|
 |조직·인력 조회(`/people`, ADR-021)|ADMIN, SALES, ANALYST, VIEWER|
 |설정 조직 탭(구성원·초대·업무 역할, ADR-021)|ADMIN|
@@ -107,7 +107,7 @@ updated: 2026-10-20
 4. 사람이 최종 결정을 내리고 사유와 함께 기록한다.
 5. DEMO 데이터는 DEMO로 표시한다. 실데이터처럼 보이게 하지 않는다.
 6. live 모드의 분석은 "실제 공고 × 가상 회사 프로필"이다. 회사 프로필은 모든 실행 모드에서 가상 솔리데오 프로필이고, 화면에 "가상 회사 프로필로 분석" 배지를 붙여 실제 회사의 판단처럼 보이지 않게 한다(ADR-019·020).
-7. mock 결과를 실제 모델 결과처럼 보이지 않게 한다. mock 자동 대체는 기본 금지다. `AI_FALLBACK_TO_MOCK=true`(`live`에서는 기동 거부)로 켰을 때 실제로 대체되면 `reviewFlags`에 `MOCK_FALLBACK`, 감사 필드 `fallback_reason`, 화면 배너로 밝힌다.
+7. mock 결과를 실제 모델 결과처럼 보이지 않게 한다. mock 자동 대체는 기본 금지다. 자동 대체(`AI_FALLBACK_TO_MOCK=true`)는 미구현이라 세 실행 모드 모두 켜면 기동을 거부한다(`infra/run-modes.json`, [[16-DECISIONS|ADR-030]] B11). 구현하게 되면 실제로 대체된 run은 `reviewFlags`에 `MOCK_FALLBACK`, 감사 필드 `fallback_reason`, 화면 배너로 밝힌다.
 8. 파싱·다운로드에 실패한 내용을 AI가 추측해 채우지 않는다. Qwen에는 파싱된 텍스트만 들어가고, 결정 모델 state에는 "RFP attachment could not be read; requirements may be incomplete" 사실 한 줄만 들어가며, `/explain`은 파싱 실패를 문장에 밝힌다([[07-DATA-PIPELINE|07 수집]] §2.6).
 9. 모델 성능은 평가셋 숫자(표본 수·신뢰구간 포함)로만 주장한다([[21-MODEL-TRAINING|21 모델 학습]]).
 
@@ -187,7 +187,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 ||`status`, `warnings`, `latency_ms`, `retries`|`COMPLETED / PENDING_REVIEW / FAILED`, 경고 코드(`INJECTION_SUSPECTED`, `QDRANT_FALLBACK` 등)|
 |`score_runs`|`algorithm_version`|규칙 엔진·점수표 버전 (예: `sol-v0.1.0`)|
 ||`run_mode`|그 분석을 돌린 실행 모드 `LIVE` / `FIXTURE` / `MOCK`([[16-DECISIONS\|ADR-020]])|
-||`ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `kev_calibration`|실제로 쓴 AI 공급자·모델·질문 세트(`kev-qs/v0.1`·`v0.2`), 결정 모델 임계값 보정 상태(기본 `UNCALIBRATED`)|
+||`ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `kev_calibration`|실제로 쓴 AI 공급자·모델·질문 세트(`kev-qs/v0.1`·`v0.2`), 결정 모델 임계값 보정 상태(`UNCALIBRATED`·`CALIBRATED`. 지금 worker는 늘 null을 쓴다, [[04-DATABASE\|04]] §3.4)|
 ||`fallback_reason`|mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`). 이때 `ai_provider=MOCK`이고 `review_flags`에 `MOCK_FALLBACK`이 있다. `live` run에는 생길 수 없다(DB check)|
 ||`input_snapshot`|분석 입력 전체(`AnalysisInput`: 추출 결과 + 프로필 revision) JSONB|
 ||`model_metadata`|`provider`, 결정 모델(`GET /v1/models` 응답과 모델 레지스트리 항목, 예: `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`), 질문 세트, 프롬프트 버전|
@@ -198,7 +198,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 재현 규칙: 같은 `input_snapshot` + 같은 `algorithm_version`이면 규칙 점수·자격 판정·권고는 동일해야 한다. 이 성질은 테스트로 고정한다 ([[11-TESTING|11 테스트]]). 기존 run은 덮어쓰지 않고 새 run을 만든다.
 
-업무 감사(`audit_logs`)에는 [[16-DECISIONS|ADR-021]]로 업무 역할 변경, 입찰 프로젝트 상태·결과 변경(P1), 인력 편집(P1)을 더한다.
+업무 감사(`audit_logs`)에는 [[16-DECISIONS|ADR-021]]로 업무 역할 변경, 입찰 프로젝트 상태·결과 변경(P1), 인력 편집(P1)을 더한다. 업무 역할(`sol_role`) 변경 감사는 **미구현**이다. `audit_logs.action` check에 그 값이 없고 남기는 트리거도 없다. 템플릿 `activities`도 `org_role` 변경만 기록한다. 코드 후속이다([[16-DECISIONS|16 ADR]] 미결정 26번).
 
 ### 편향·오탐 모니터링
 지표: 사람 최종 결정 vs 권고 불일치율, `review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_REQUIREMENT_DISAGREEMENT` 비율, 발주기관·사업 유형별 NO-BID 비율 편중, `NEEDS_REVIEW` 비율. 임계 초과 시 가중치를 사람이 재검토한다. 지표 정의와 관리자 화면은 [[14-OBSERVABILITY|14 관측성]].
