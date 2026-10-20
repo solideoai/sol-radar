@@ -19,7 +19,7 @@ updated: 2026-10-19
 **Goal:** 조직·인력200명 조회·계층·상세와4업무역할을 현재 main89b2b5e 기반 격리브랜치에 구현한다.
 **Architecture:** 기존auth/organization/RLS를보존하며sol_role과별도businessaccess를추가한다. people도메인이조회·집계·HMAC페이지·DTO를공유하고 /people scoped UI가이를사용한다.
 **Tech Stack:** existing Next16/React19, Supabase/RLS/PGlite, Zod, Tailwind/shadcn BaseUI, Vitest/Playwright; no new packages.
-**Spec:** polaris/specs/in-progress/2026-10-18-solideo-people-read.md; UI polaris/specs/in-progress/2026-10-18-solideo-people-ui.md. User's five-stage requirements are binding.
+**Spec:** polaris/specs/done/2026-10-18-solideo-people-read.md; UI polaris/specs/done/2026-10-18-solideo-people-ui.md. User's five-stage requirements are binding.
 
 ## Global Constraints
 
