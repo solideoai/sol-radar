@@ -101,17 +101,17 @@ updated: 2026-10-20
 ## 책임 있는 AI
 ### 원칙
 1. 규칙 엔진이 최종이다. 자격 판정과 SOL Score는 결정적 규칙으로만 계산한다.
-2. Kev는 보조 의견이다. 규칙상 `NOT_SATISFIED`·`NEEDS_REVIEW`를 BID로 승격할 수 없다. Kev 결과는 "모델 참고 지표 (점수 미반영)" 영역에만 보이고 SOL Score의 입력이 아니다([[16-DECISIONS|ADR-020]]).
-3. 충족 확률·낙찰 확률·수주확률을 표현하지 않는다. Kev 확률은 "선택지에 대한 모델 분포"로만 표기한다(아래 고지 문구).
+2. 결정 모델(Bosun)은 보조 의견이다. 규칙상 `NOT_SATISFIED`·`NEEDS_REVIEW`를 BID로 승격할 수 없다. 결정 모델 결과는 "모델 참고 지표 (점수 미반영)" 영역에만 보이고 SOL Score의 입력이 아니다([[16-DECISIONS|ADR-020]]).
+3. 충족 확률·낙찰 확률·수주확률을 표현하지 않는다. 결정 모델 확률은 "선택지에 대한 모델 분포"로만 표기한다(아래 고지 문구).
 4. 사람이 최종 결정을 내리고 사유와 함께 기록한다.
 5. DEMO 데이터는 DEMO로 표시한다. 실데이터처럼 보이게 하지 않는다.
 6. live 모드의 분석은 "실제 공고 × 가상 회사 프로필"이다. 회사 프로필은 모든 실행 모드에서 가상 솔리데오 프로필이고, 화면에 "가상 회사 프로필로 분석" 배지를 붙여 실제 회사의 판단처럼 보이지 않게 한다(ADR-019·020).
 7. mock 결과를 실제 모델 결과처럼 보이지 않게 한다. mock 자동 대체는 기본 금지다. `AI_FALLBACK_TO_MOCK=true`(`live`에서는 기동 거부)로 켰을 때 실제로 대체되면 `reviewFlags`에 `MOCK_FALLBACK`, 감사 필드 `fallback_reason`, 화면 배너로 밝힌다.
-8. 파싱·다운로드에 실패한 내용을 AI가 추측해 채우지 않는다. Qwen에는 파싱된 텍스트만 들어가고, Kev state에는 "RFP attachment could not be read; requirements may be incomplete" 사실 한 줄만 들어가며, `/explain`은 파싱 실패를 문장에 밝힌다([[07-DATA-PIPELINE|07 수집]] §2.6).
+8. 파싱·다운로드에 실패한 내용을 AI가 추측해 채우지 않는다. Qwen에는 파싱된 텍스트만 들어가고, 결정 모델 state에는 "RFP attachment could not be read; requirements may be incomplete" 사실 한 줄만 들어가며, `/explain`은 파싱 실패를 문장에 밝힌다([[07-DATA-PIPELINE|07 수집]] §2.6).
 9. 모델 성능은 평가셋 숫자(표본 수·신뢰구간 포함)로만 주장한다([[21-MODEL-TRAINING|21 모델 학습]]).
 
 > [!warning] 미검증 가정
-> Kev는 영어 모델이다. Kev-9B 모델 카드는 `language: en`이고 영어가 아닌 입력은 사용 범위 밖이다(2026-10-16 확인, https://github.com/jaredpalmer/kev main `1f04cfa` docs/model-cards/kev-9b.md. Kev-4B 모델 카드도 `Languages: English`). 한국어 공고는 어댑터가 추출된 사실을 **영어 템플릿 state로 변환**해 전달한다([[03-AI-PIPELINE|03 AI 파이프라인]] §5.6). 이 변환이 한국어 입찰 도메인에서 유효한지는 미검증이고, 평가셋의 E1(영어 state)·E2(한국어 state) 비교로 잰다([[21-MODEL-TRAINING|21 모델 학습]]). 그래서 Kev는 `review_flags` 추가와 참고 지표 표시만 할 수 있다. **한국어 state는 운영에서 거부한다.** 같은 구조의 한국어 템플릿은 평가 전용이라 gateway env `KEV_ALLOW_KO_STATE=true`일 때만 받고, 없이 오면 `422 KO_STATE_NOT_ALLOWED`다. `SOL_RUN_MODE=live`와 함께 쓰면 플래그가 있어도 gateway가 기동을 거부한다([[16-DECISIONS|16 ADR]] ADR-012·020). 한국어 운영 사용은 평가 결과를 보고 다시 검토한다.
+> 결정 모델은 영어 입력을 전제한다. Bosun v3.1 0.6B와 학습 데이터 DecisionBench는 영어이고 한국어 도메인 성능은 미검증이다(2026-10-20 ADR-034로 ADR-012 근거 개정. 당시 기록: Kev-9B 모델 카드 `language: en`, 2026-10-16 확인, https://github.com/jaredpalmer/kev main `1f04cfa` docs/model-cards/kev-9b.md). 한국어 공고는 어댑터가 추출된 사실을 **영어 템플릿 state로 변환**해 전달한다([[03-AI-PIPELINE|03 AI 파이프라인]] §5.6). 이 변환이 한국어 입찰 도메인에서 유효한지는 미검증이고, 평가셋의 E1'(영어 state)·E2(한국어 state) 비교로 잰다([[21-MODEL-TRAINING|21 모델 학습]]). 그래서 결정 모델은 `review_flags` 추가와 참고 지표 표시만 할 수 있다. **한국어 state는 운영에서 거부한다.** 같은 구조의 한국어 템플릿은 평가 전용이라 gateway env `KEV_ALLOW_KO_STATE=true`일 때만 받고, 없이 오면 `422 KO_STATE_NOT_ALLOWED`다. `SOL_RUN_MODE=live`와 함께 쓰면 플래그가 있어도 gateway가 기동을 거부한다([[16-DECISIONS|16 ADR]] ADR-012·020). 한국어 운영 사용은 평가 결과를 보고 다시 검토한다.
 
 ### 사람 개입 지점 (HITL)
 |지점|누가|무엇을|시스템 동작|
@@ -147,8 +147,8 @@ Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확�
 일부만 읽음       ← parse_status=PARTIAL
 ```
 ```text
-[Kev 참고 지표 영역의 recommendation 블록 — kev-qs/v0.1, 모든 모드·데모 S3. 06·08의 "Kev 블록 3줄"]
-이 의견은 Kev 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.
+[결정 모델 참고 지표 영역의 recommendation 블록 — kev-qs/v0.1, 모든 모드·데모 S3. 06·08의 "결정 모델 블록 3줄". ADR-034로 "Kev"를 모델 중립 문구로 개정]
+이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.
 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.
 최종 결정은 담당자가 기록합니다. 모델: {kev.model} · 질문 세트: {kev.questionSetVersion} · 공급자: {kev.provider}
 ```
@@ -173,7 +173,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 |출력 강제|JSON Schema 검증. 실패 시 1회 재시도, 재실패 시 `requirement_extractions.status=FAILED`, 분석은 `PARTIAL`. 스키마 밖 필드는 폐기|
 |권한 없음|모델에는 도구·파일·네트워크 호출 권한이 없다. gateway는 모델 출력을 실행하지 않고 값으로만 다룬다|
 |인용 검증|AI가 만든 인용은 원문 문자열 매칭에 실패하면 무효 ([[15-DATA-CONTRACTS\|15 데이터 계약]])|
-|Kev 입력 정형화|Kev에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 자유 텍스트 값은 `/extract`의 `translations`(숫자 보존 검사 통과분)만 쓴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`)|
+|결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 자유 텍스트 값은 `/extract`의 `translations`(숫자 보존 검사 통과분)만 쓴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`)|
 |파싱 실패 처리|읽지 못한 첨부의 내용을 추정하라는 지시를 프롬프트에 넣지 않는다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`이 된다([[15-DATA-CONTRACTS\|15 데이터 계약]] §5.1)|
 
 ### 감사 가능성
@@ -186,11 +186,11 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 ||`status`, `warnings`, `latency_ms`, `retries`|`COMPLETED / PENDING_REVIEW / FAILED`, 경고 코드(`INJECTION_SUSPECTED`, `QDRANT_FALLBACK` 등)|
 |`score_runs`|`algorithm_version`|규칙 엔진·점수표 버전 (예: `sol-v0.1.0`)|
 ||`run_mode`|그 분석을 돌린 실행 모드 `LIVE` / `FIXTURE` / `MOCK`([[16-DECISIONS\|ADR-020]])|
-||`ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `kev_calibration`|실제로 쓴 AI 공급자·모델·질문 세트(`kev-qs/v0.1`·`v0.2`), Kev 임계값 보정 상태(기본 `UNCALIBRATED`)|
+||`ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `kev_calibration`|실제로 쓴 AI 공급자·모델·질문 세트(`kev-qs/v0.1`·`v0.2`), 결정 모델 임계값 보정 상태(기본 `UNCALIBRATED`)|
 ||`fallback_reason`|mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`). 이때 `ai_provider=MOCK`이고 `review_flags`에 `MOCK_FALLBACK`이 있다. `live` run에는 생길 수 없다(DB check)|
 ||`input_snapshot`|분석 입력 전체(`AnalysisInput`: 추출 결과 + 프로필 revision) JSONB|
-||`model_metadata`|`provider`, Kev 모델(`GET /v1/models` 응답과 모델 레지스트리 항목, 예: `jaredpalmer/kev-9b@v1.0`), 질문 세트, 프롬프트 버전|
-||`kev_output`|Kev 원 응답 JSONB와 `KevStateTrace`(state 줄마다의 공고 인용·회사 증빙, [[15-DATA-CONTRACTS\|15 데이터 계약]] §2.1). 없으면 null|
+||`model_metadata`|`provider`, 결정 모델(`GET /v1/models` 응답과 모델 레지스트리 항목, 예: `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`), 질문 세트, 프롬프트 버전|
+||`kev_output`|결정 모델 원 응답 JSONB(열 이름은 호환 유지)와 `KevStateTrace`(state 줄마다의 공고 인용·회사 증빙, [[15-DATA-CONTRACTS\|15 데이터 계약]] §2.1). 없으면 null|
 ||`review_flags`, `recommendation_basis`, `error_code`|사람 검토 사유, `RULES_ONLY / RULES_WITH_KEV_ASSIST`, 실패 사유|
 ||`queued_at`, `started_at`, `finished_at`, `status`|실행 시각과 `COMPLETED / PARTIAL / FAILED`|
 |`ingest_runs`|`run_mode`, `source`, `quota_used`|수집 당시 실행 모드, 요청 소스(`fixture`·`g2b`), 쓴 공공 API 호출 수|
@@ -203,7 +203,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 지표: 사람 최종 결정 vs 권고 불일치율, `review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_REQUIREMENT_DISAGREEMENT` 비율, 발주기관·사업 유형별 NO-BID 비율 편중, `NEEDS_REVIEW` 비율. 임계 초과 시 가중치를 사람이 재검토한다. 지표 정의와 관리자 화면은 [[14-OBSERVABILITY|14 관측성]].
 
 > [!tip] 심사 포인트
-> "AI가 틀리면 어떻게 되나"에 대한 답이 이 절이다. 틀린 Kev 출력은 규칙을 넘지 못하고, 사람이 확인하기 전 자격은 확정되지 않으며, 모든 실행은 모델·프롬프트·입력 해시로 재현 가능하다.
+> "AI가 틀리면 어떻게 되나"에 대한 답이 이 절이다. 틀린 결정 모델 출력은 규칙을 넘지 못하고, 사람이 확인하기 전 자격은 확정되지 않으며, 모든 실행은 모델·프롬프트·입력 해시로 재현 가능하다.
 
 ## 데모 환경 보안 최소선
 - `.env.example`류 파일에는 placeholder만 둔다. 기동 전 `pnpm check:env`가 placeholder를 감지하면 중단.
@@ -220,11 +220,11 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 ## 실데이터와 회사 GPU 서버 (ADR-020)
 
-해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.5-9B·Kev-9B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020]]). 이 절은 그때 지킬 경계를 정한다.
+해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.5-27B·Bosun v3.1 0.6B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020·034]]). 이 절은 그때 지킬 경계를 정한다.
 
 ### 회사 GPU 추론 엔드포인트 연결 (ADR-025)
-- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen은 vLLM, Kev는 `kev.serve`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
-- 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). 회사가 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 모델 런타임을 제공하고, gateway는 거기에만 붙는다. `QWEN_BASE_URL`·`KEV_BASE_URL`은 엔드포인트 아래 경로(`/qwen`·`/kev`)다. 경로는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)가 나누고, 인증은 라우터가 아니라 각 런타임(vLLM `--api-key`, `kev.serve` `KEV_API_KEY`)이 한다([[16-DECISIONS|ADR-025]]). 라우터는 `Authorization` 헤더를 통과시키고 로그에 `$uri`만 남겨 키·쿼리를 기록하지 않는다. `/sol-radar/healthz`는 인증 없음·비밀 없음의 접속 확인용이다. 터널 전제는 폐기했다.
+- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen3.5-27B는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, 결정 모델 Bosun은 우리 `sol_decision` 서버 `127.0.0.1:8009`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
+- 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). 회사가 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 모델 런타임을 제공하고, gateway는 거기에만 붙는다. `KEV_BASE_URL`은 엔드포인트 아래 경로(`/kev`)이고 `QWEN_BASE_URL`은 회사 vLLM API(`https://acropolissg.com/vllm/v1`. `/sol-radar/qwen`은 백업)다. 경로는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)가 나누고, 인증은 라우터가 아니라 각 런타임(vLLM `--api-key`, `sol_decision` `DECISION_API_KEY`(노트북 `KEV_API_KEY`와 같은 값))이 한다([[16-DECISIONS|ADR-025]]). 라우터는 `Authorization` 헤더를 통과시키고 로그에 `$uri`만 남겨 키·쿼리를 기록하지 않는다. `/sol-radar/healthz`는 인증 없음·비밀 없음의 접속 확인용이다. 터널 전제는 폐기했다.
 - 엔드포인트는 공개 인터넷에 있다. TLS 필수이고 인증서 검증을 끄지 않는다(`curl -k`, `verify=False` 금지). API 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 필수이고 `infra/.env`에만 둔다. 키 값은 문서·로그·커밋·스크린샷·증거에 남기지 않는다. 엔드포인트 URL은 비밀이 아니다. 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다.
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
@@ -237,7 +237,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 ### 공공 API 응답의 개인정보
 - 입찰공고 응답에는 담당자 이름·전화·이메일이 있다.
-- 담당자 필드는 `NormalizedBid`, `bid_revisions.normalized`·`raw_payload`, `bid_structured_requirements`, 모델 입력(Qwen·Kev), 데이터셋에 넣지 않는다([[15-DATA-CONTRACTS|15 데이터 계약]] §3, [[04-DATABASE|04 DB]]).
+- 담당자 필드는 `NormalizedBid`, `bid_revisions.normalized`·`raw_payload`, `bid_structured_requirements`, 모델 입력(Qwen·결정 모델), 데이터셋에 넣지 않는다([[15-DATA-CONTRACTS|15 데이터 계약]] §3, [[04-DATABASE|04 DB]]).
 - 담당자 필드가 든 원본 응답(`rawPayload` 원본)은 사설 MinIO에만 보관한다. public bucket 금지와 presigned URL 규칙(위 MinIO 행)은 그대로다.
 - 데이터셋을 내보내기 전에 본문·첨부 텍스트의 전화·이메일 패턴을 같은 길이의 마스킹 문자로 바꾼다. 길이를 지켜서 인용 오프셋이 그대로 맞게 한다([[21-MODEL-TRAINING|21 모델 학습]] §3.6).
 - 증거(`docs/evidence/`)·시험 fixture·registry `sampleResponses`에 실제 응답을 둘 때도 담당자 필드를 빼거나 마스킹하고, 서비스키가 든 요청 URL은 남기지 않는다.

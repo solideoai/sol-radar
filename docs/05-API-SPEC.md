@@ -67,7 +67,7 @@ updated: 2026-10-20
 |POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사). 점수 속성은 받지 않는다(P1, ADR-021)|P1 착수 때 정한다|
 |GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 BID 결정(`reviewId`) 필수(P1, ADR-021)|BID 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
 |GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 BID가 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
-|POST|`/projects/:id/result`|`ADMIN, SALES`|결과 기록(수동). 점수·Kev·학습에 쓰지 않는다(P1, ADR-021)|P1 착수 때 정한다|
+|POST|`/projects/:id/result`|`ADMIN, SALES`|결과 기록(수동). 점수·결정 모델·학습에 쓰지 않는다(P1, ADR-021)|P1 착수 때 정한다|
 |GET|`/admin/users`|`ADMIN`|이 조직의 구성원 목록(템플릿 `memberships` + `profiles`)|`User[]`|
 |POST|`/admin/users/invite`|`ADMIN`|초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
 |PATCH|`/admin/users/:id`|`ADMIN`|업무 역할 변경(`memberships.sol_role`). `:id`는 구성원의 사용자 ID(`profiles.id`). 이 조직 구성원이 아니면 `404`|`UserPatch` → `200 User`|
@@ -76,7 +76,7 @@ updated: 2026-10-20
 |GET|`/admin/ingestion/runs`|`ADMIN`|수집 이력|`Page<IngestionRun>`|
 |GET|`/admin/ingestion/runs/:id`|`ADMIN`|수집 결과·오류|`IngestionRun`|
 |GET|`/admin/sources`|`ADMIN`|수집 소스 registry 항목별 승인·호출량·최근 성공/오류|`SourceStatus[]`|
-|GET|`/admin/ai/status`|`ADMIN`|실행 모드, AI 공급자, Qwen·Kev 상태, 레지스트리 일치, 파서 목록|`AiStatus`|
+|GET|`/admin/ai/status`|`ADMIN`|실행 모드, AI 공급자, Qwen·결정 모델(Bosun) 상태, 레지스트리 일치, 파서 목록|`AiStatus`|
 |GET|`/admin/ai/models`|`ADMIN`|모델 레지스트리 항목과 현재 활성 항목(gateway `/health`에서 읽음)|`ModelRegistryStatus`|
 |GET|`/admin/ai/eval-runs`|`ADMIN`|평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
 |GET|`/admin/ai/eval-runs/:id`|`ADMIN`|평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
@@ -85,7 +85,7 @@ updated: 2026-10-20
 
 범위 밖(이번 해커톤에서 만들지 않음): 인력 배치 저장·배정 확정 API(해커톤 이후), 카카오 발송 설정, 경쟁사 분석, 알림 모두 읽음·알림 유형 필터(API가 없고 핵심 컷 화면에서도 뺀다, [[16-DECISIONS|ADR-029]] A6 D7). 인력 배치 시뮬레이션 조회(`GET /workforce/simulation`)는 P1이다([[16-DECISIONS|ADR-021]]).
 
-[[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·Kev v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`(예정)가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
+[[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·결정 모델 v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`(예정)가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
 
 [[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`. "P1, ADR-021" 행은 [[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단이며 데모 필수가 모두 끝난 뒤 만든다.
 
@@ -131,7 +131,7 @@ type BidStatus = "OPEN" | "AMENDED" | "CANCELLED" | "CLOSED";
 type Recommendation = "BID" | "WATCH" | "NO_BID";
 type RecommendationBasis = "RULES_ONLY" | "RULES_WITH_KEV_ASSIST";
 type AnalysisStatus = "QUEUED" | "RUNNING" | "COMPLETED" | "PARTIAL" | "FAILED";
-type QualificationOutcome = "SATISFIED" | "NOT_SATISFIED" | "NEEDS_REVIEW";   // 규칙 판정·Kev 항목 질문·평가셋 라벨이 같은 3값(08 §5.1)
+type QualificationOutcome = "SATISFIED" | "NOT_SATISFIED" | "NEEDS_REVIEW";   // 규칙 판정·결정 모델 항목 질문·평가셋 라벨이 같은 3값(08 §5.1)
 type NeedsReviewReason = "NOTICE_INFO_MISSING" | "NOTICE_CONFLICTED" | "COMPANY_EVIDENCE_MISSING"
   | "AMBIGUOUS_MATCH" | "PARSE_UNSUPPORTED" | "STAGE_NOT_APPLICABLE";       // NEEDS_REVIEW 사유(08 §5.1)
 type RequirementBasis = "API_FIELD" | "EXTRACTION";                         // 공고 쪽 값의 출처. 둘 다 있으면 API_FIELD 우선
@@ -140,7 +140,7 @@ type ReviewFlag = "MODEL_RULE_DISAGREEMENT" | "KEV_MANDATORY_RISK" | "KEV_NEEDS_
   | "KEV_REQUIREMENT_DISAGREEMENT" | "KEV_DELIVERY_RISK" | "CITATION_FAILED"
   | "EXTRACTION_FAILED" | "EXTRACTION_LOW_CONFIDENCE" | "AI_UNAVAILABLE" | "QWEN_UNAVAILABLE" | "KEV_UNAVAILABLE"
   | "MOCK_FALLBACK" | "PARSE_UNSUPPORTED" | "DOCUMENT_DOWNLOAD_FAILED"
-  | "INSUFFICIENT_DATA" | "INJECTION_SUSPECTED" | "SCALE_LIMIT_EXCEEDED";    // 조건은 08 §5.3·§5.4. KEV_UNAVAILABLE = Kev 미접속·timeout + Kev 응답 형식 오류(§5, ADR-031 C6)
+  | "INSUFFICIENT_DATA" | "INJECTION_SUSPECTED" | "SCALE_LIMIT_EXCEEDED";    // 조건은 08 §5.3·§5.4. KEV_UNAVAILABLE = 결정 모델 미접속·timeout + 결정 모델 응답 형식 오류(§5, ADR-031 C6)
 type FactorKey = "skillMatch" | "pastPerformance" | "staffAvailability" | "scaleFit" | "strategicPreference";
 type MissingReason = "NO_REQUIREMENTS_EXTRACTED" | "PROFILE_TECHNOLOGIES_EMPTY" | "BID_DOMAIN_UNKNOWN" | "PROFILE_PROJECTS_EMPTY"
   | "REQUIRED_FTE_UNKNOWN" | "TEAM_EMPTY" | "BUDGET_UNKNOWN" | "PREFERENCES_NOT_SET";   // 요소가 missing인 사유(08 §4 표, ADR-029 A6 D16)
@@ -282,7 +282,7 @@ interface RequirementAssessment {                                // 요구사항
   itemKind: RequirementItemKind;
   ruleStatus: QualificationOutcome; ruleReason: NeedsReviewReason | null; basis: RequirementBasis;
   noticeEvidence: EvidenceRef[]; companyEvidence: CompanyEvidenceRef[];
-  kev: {                                                         // 참고 지표. ruleStatus·점수·권고를 바꾸지 않는다. Kev 담당 항목이 아니거나 Kev가 없으면 null
+  kev: {                                                         // 참고 지표. ruleStatus·점수·권고를 바꾸지 않는다. 결정 모델 담당 항목이 아니거나 결정 모델이 없으면 null
     qid: string;                                                 // "req.{itemId}.status"
     distribution: Record<QualificationOutcome, number>;
     label: QualificationOutcome;                                 // 분포의 최댓값 선택지
@@ -298,7 +298,7 @@ interface AnalysisResult {
   recommendationBasis: RecommendationBasis | null;
   explanation: string | null;                                    // gateway /explain(Qwen) 설명, 또는 입력 밖 숫자·Qwen 불가 시 템플릿 문장. 첨부를 읽지 못했으면 그 사실을 밝힌다
   qualification: { status: QualificationOutcome; checks: QualificationCheck[] };
-  requirementAssessments: RequirementAssessment[];               // 항목별 규칙 판정·사유·양쪽 근거·Kev 참고 분포·플래그
+  requirementAssessments: RequirementAssessment[];               // 항목별 규칙 판정·사유·양쪽 근거·결정 모델 참고 분포·플래그
   scoreBreakdown: ScoreFactor[];
   missingFactors: { factor: FactorKey; reason: MissingReason }[];   // ADR-029 A6 D16
   reviewFlags: ReviewFlag[];
@@ -390,17 +390,22 @@ interface AiStatus {
   kev: {
     enabled: boolean; healthy: boolean | null; model: string | null;
     modelId: string | null;        // 레지스트리 항목 id(KEV_MODEL_ID)
-    run: string | null; base: string | null; lora: number | null; temperature: number | null;   // Kev GET /v1/models 값
+    run: string | null; base: string | null; lora: number | null; temperature: number | null;   // 결정 모델 서버(sol_decision, Bosun) GET /v1/models 값. 필드 이름은 Kev wire 호환(ADR-034)
     registryMatch: boolean | null; // 위 값이 레지스트리 항목과 같은가. false면 gateway가 기동을 거부한다
   };
   questionSetVersion: string | null;                  // 예: "kev-qs/v0.2"
   parsers: { format: string; parserId: string }[];    // gateway /parse가 지원하는 형식과 어댑터·버전
 }
 interface ModelRegistryEntry {     // services/ai/models/registry.yaml 항목(21 §5.4). 가중치는 없다
-  id: string; run: string; base: string; baseRevision: string | null; initFrom: string | null; lora: number | null;
-  weightsSha256: string | null; headSha256: string | null; temperature: number | null;
+  id: string; kind: "decision" | "qwen" | "kev";   // ADR-034: 결정 모델은 kind=decision(Bosun). kev 는 퇴역 항목 읽기 호환(B1 예정)
+  run: string; base: string | null; baseRevision: string | null; initFrom: string | null;
+  revision: string | null;         // ADR-034: 모델 저장소 커밋 sha 전체(run 의 @뒤는 앞 8자). 회사 운영 Qwen API 는 null (B1 예정)
+  status: "active" | "retired" | "backup" | null;   // ADR-034: retired(kev-9b-v1.0·qwen3.5-9b)·backup(qwen3-4b-instruct-2507)은 기동 대조 대상에서 제외 (B1 예정)
+  lora: string | number | null;    // Bosun 은 어댑터 safetensors sha256(문자열), Kev 이력 항목은 rank(숫자)
+  weightsSha256: string | null; headSha256: string | null; decisionEmbeddingsSha256: string | null;   // 마지막 필드는 Bosun decision_embeddings.safetensors (B1 예정)
+  temperature: number | null;
   dataset: { version: string; sha256: string } | null;
-  questionSet: string; stateTemplate: string; reports: string[];
+  questionSet: string | null; stateTemplate: string | null; requestModel: string | null; reports: string[];
 }
 interface ModelRegistryStatus {
   entries: ModelRegistryEntry[];
@@ -414,7 +419,7 @@ interface MetricValue {            // 평가 지표 하나. 작은 평가셋이�
 }
 interface EvalRunSummary {         // 04 eval_runs
   id: string; datasetVersion: string; datasetSha256: string;
-  systemId: string;                // 비교 대상 ID. 예: "E0"(규칙만), "E1"(Kev-9B 영어 state), "E2"(Kev-9B 한국어 state)
+  systemId: string;                // 비교 대상 ID. 예: "E0"(규칙만), "E1'"(공개 Bosun 영어 state zero-shot), "E2"(Bosun 한국어 state, 평가 전용), "E3"(Qwen3.5-27B logprob 분류), "E4"(Bosun + LoRA)
   split: "train" | "dev" | "test";
   keyMetrics: { macroF1: MetricValue; needsReviewToNotSatisfiedRate: MetricValue; ece: MetricValue };   // 21 §4.4 초기 목표 지표 세 개
   gitCommit: string; createdAt: string;
@@ -515,12 +520,12 @@ interface PeoplePage {
 |첨부 다운로드 불가|`BidDocument.downloadStatus=FAILED`, `reviewFlags`의 `DOCUMENT_DOWNLOAD_FAILED`, 관련 항목 `NEEDS_REVIEW`|
 |파싱 실패·부분 파싱·미지원 형식|`BidDocument.parseStatus`·`parseErrorCode`, `reviewFlags`의 `PARSE_UNSUPPORTED`, 관련 항목 `NEEDS_REVIEW`(`PARSE_UNSUPPORTED`)|
 |Qwen 서버 미접속|`reviewFlags`의 `QWEN_UNAVAILABLE`. 캐시된 추출이 없으면 `status=PARTIAL`|
-|Kev 서버 미접속·Kev 응답 형식 오류(gateway가 응답했지만 쓸 수 없는 `/kev`: 4xx·봉투 오류·wire 스키마 위반)|`reviewFlags`의 `KEV_UNAVAILABLE`, `kev.enabled=false`, `recommendationBasis=RULES_ONLY`, `status=COMPLETED`|
+|결정 모델 서버 미접속·응답 형식 오류(gateway가 응답했지만 쓸 수 없는 `/kev`: 4xx·봉투 오류·wire 스키마 위반)|`reviewFlags`의 `KEV_UNAVAILABLE`, `kev.enabled=false`, `recommendationBasis=RULES_ONLY`, `status=COMPLETED`|
 |추출 응답 형식 오류(gateway가 응답했지만 쓸 수 없는 `/extract`)|`errorCode=EXTRACTION_FAILED`, `status=PARTIAL`|
 |gateway 미접속(전송 실패: 연결 거부·timeout·재시도 뒤 5xx·circuit open·시험 503)|`errorCode=AI_UNAVAILABLE`, `status=PARTIAL`(위 문단과 같다)|
 |mock 자동 대체(`AI_FALLBACK_TO_MOCK=true`일 때만)|`fallbackReason`, `model.provider="mock"`, `reviewFlags`의 `MOCK_FALLBACK`|
 
-분류 기준은 "gateway가 응답했는가"다. gateway에 닿지 못한 전송 실패만 `AI_UNAVAILABLE`이고, 응답했지만 쓸 수 없으면 `/kev`는 `KEV_UNAVAILABLE`, `/extract`는 `EXTRACTION_FAILED`다. 그래서 `KEV_UNAVAILABLE`은 "Kev 미접속·timeout + Kev 응답 형식 오류"를 뜻한다. 진단(zod issue 경로·코드, failure kind)은 worker 로그에만 남고 이 API와 DB에는 나오지 않는다([[16-DECISIONS|ADR-031]] C6).
+분류 기준은 "gateway가 응답했는가"다. gateway에 닿지 못한 전송 실패만 `AI_UNAVAILABLE`이고, 응답했지만 쓸 수 없으면 `/kev`는 `KEV_UNAVAILABLE`, `/extract`는 `EXTRACTION_FAILED`다. 그래서 `KEV_UNAVAILABLE`은 "결정 모델 미접속·timeout + 결정 모델 응답 형식 오류"를 뜻한다. 진단(zod issue 경로·코드, failure kind)은 worker 로그에만 남고 이 API와 DB에는 나오지 않는다([[16-DECISIONS|ADR-031]] C6).
 
 gateway 내부 오류 코드(예: 한국어 state를 허용하지 않을 때의 `KO_STATE_NOT_ALLOWED`)는 Compose 내부 계약이라 이 API로 나오지 않는다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 
@@ -602,7 +607,7 @@ GET /api/v1/analyses/7d2c...
  "missingFactors":[],
  "reviewFlags":["KEV_NEEDS_REVIEW"],
  "injectionSuspected":false,
- "kev":{"enabled":true,"provider":"mock","model":"jaredpalmer/kev-9b@v1.0","questionSetVersion":"kev-qs/v0.1",
+ "kev":{"enabled":true,"provider":"mock","model":"mock","questionSetVersion":"kev-qs/v0.1",
         "suggestedOption":"WATCH","probabilities":{"BID":0.36,"WATCH":0.52,"NO_BID":0.12},"confidence":0.28,
         "mandatoryRisk":0.10,"needsHumanReview":0.74,"fit":{"score":3.2,"legend":{"0":"Very poor","1":"Poor","2":"Moderate","3":"Good","4":"Very good"}},
         "latencyMs":3,"requestId":"mock-7d2c",
@@ -611,16 +616,16 @@ GET /api/v1/analyses/7d2c...
  "fallbackReason":null,
  "evidence":[],
  "model":{"provider":"mock","qwen":{"name":"fixture","promptVersion":"req-extract/v0.1","promptHash":"sha256:3f1c..."},
-          "kev":{"model":"jaredpalmer/kev-9b@v1.0","questionSetVersion":"kev-qs/v0.1"},"algorithmVersion":"sol-v0.1.0"},
+          "kev":{"model":"mock","questionSetVersion":"kev-qs/v0.1"},"algorithmVersion":"sol-v0.1.0"},
  "errorCode":null,
  "queuedAt":"2026-10-16T02:00:00Z","startedAt":"2026-10-16T02:00:01Z","finishedAt":"2026-10-16T02:00:06Z",
  "disclaimer":"SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다."
 }
 ```
 
-위 값은 **DEMO fixture FX-02의 가상 데이터**이며 [[08-SCORING|08 점수]] worked example과 같은 숫자다. 요소 합 15.0+18.3+14.0+15.0+10.0 = 72.3 → `solScore` 72(정수 반올림). 자격은 전부 충족이고 WATCH는 점수가 50~75 구간이기 때문이다. `kev.needsHumanReview=0.74`가 임계값 0.7 이상이라 `reviewFlags`에 `KEV_NEEDS_REVIEW`가 들어갔고, Kev 권고(WATCH)가 규칙 권고와 같아 `MODEL_RULE_DISAGREEMENT`는 없다. 다른 fixture의 mock Kev 값은 [[07-DATA-PIPELINE|07 수집]] §6.3. 예시의 `scoreBreakdown.evidence`와 `requirementAssessments`는 지면상 비웠다.
+위 값은 **DEMO fixture FX-02의 가상 데이터**이며 [[08-SCORING|08 점수]] worked example과 같은 숫자다. 요소 합 15.0+18.3+14.0+15.0+10.0 = 72.3 → `solScore` 72(정수 반올림). 자격은 전부 충족이고 WATCH는 점수가 50~75 구간이기 때문이다. `kev.needsHumanReview=0.74`가 임계값 0.7 이상이라 `reviewFlags`에 `KEV_NEEDS_REVIEW`가 들어갔고, 결정 모델 권고(WATCH)가 규칙 권고와 같아 `MODEL_RULE_DISAGREEMENT`는 없다. 다른 fixture의 mock Kev 값은 [[07-DATA-PIPELINE|07 수집]] §6.3. 예시의 `scoreBreakdown.evidence`와 `requirementAssessments`는 지면상 비웠다.
 
-이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.5-9B·Kev-9B, `kev-qs/v0.2`)을 쓰므로 추출과 Kev 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
+이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.5-27B·Bosun v3.1 0.6B, `kev-qs/v0.2`)을 쓰므로 추출과 결정 모델 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
 
 ### 6.4 AI 장애 시 재분석 (데모 장면)
 
@@ -678,10 +683,10 @@ live 수집 결과의 건수는 실제 공고에 따라 달라지므로 예시�
 - worker(`web/worker`)는 service role이라 RLS를 거치지 않는다. 조직 데이터를 쓸 때 `org_id`를 직접 지정하고, 테넌트 혼입을 막는 시험을 둔다.
 - `POST /bids/:id/analyses`의 중복 방지는 [[04-DATABASE|04 DB]]의 부분 UNIQUE 인덱스와 `Idempotency-Key` 둘로 한다. `force=false`에서 같은 입력의 완료 run이나 진행 중 run이 있으면 새 job을 만들지 않고 `deduplicated:true`로 그 run을 돌려준다(§4.5 분석 요청 계약).
 - `POST /bids/:id/reviews`는 한 트랜잭션 안에서 `bid_reviews` insert + `audit_logs` insert를 쓰고, `assigneeUserId`가 있을 때만 `REVIEW_ASSIGNED` outbox(수신자 = 담당자, idempotency `reviewId+assigneeUserId+REVIEW_ASSIGNED`)를 함께 쓴다. supabase-js 질의 빌더는 여러 문장을 한 트랜잭션으로 묶지 못하므로, 이런 쓰기는 `supabase/migrations`의 DB 함수로 만들고 `rpc`로 부른다.
-- 응답에 Kev 값이 있을 때마다 `disclaimer` 문자열("Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.")을 내려 보내고, UI는 그 문자열을 그대로 보여 준다. Kev 값(v0.1 분포, v0.2 `scores`·`risks`, 항목별 `requirementAssessments[].kev`)은 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 둔다. 충족 확률·낙찰 확률·수주확률로 읽힐 표현을 쓰지 않는다([[16-DECISIONS|ADR-020]]).
+- 응답에 결정 모델 값이 있을 때마다 `disclaimer` 문자열("Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다." — literal 유지, ADR-034)을 내려 보내고, UI는 그 문자열을 그대로 보여 준다. 결정 모델 값(v0.1 분포, v0.2 `scores`·`risks`, 항목별 `requirementAssessments[].kev`)은 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 둔다. 충족 확률·낙찰 확률·수주확률로 읽힐 표현을 쓰지 않는다([[16-DECISIONS|ADR-020]]).
 - 실행 모드는 서버가 env `SOL_RUN_MODE`로 정한다. 요청으로 바꿀 수 없다. 소스·모드가 맞지 않는 요청은 조용히 고치지 않고 `409 RUN_MODE_MISMATCH`로 거절한다.
 - live 공고 응답(`BidDetail.original`, `structuredQualifications` 등)에는 나라장터 응답의 담당자 필드(이름·전화·이메일)를 넣지 않는다. 이 필드는 정규화 단계에서 이미 빠진다([[07-DATA-PIPELINE|07 수집]], [[09-SECURITY|09 보안]]).
-- `/admin/ai/models`·`/admin/ai/status`의 레지스트리 값은 gateway `/health`에서 읽는다. Route Handler가 Kev·Qwen 서버를 직접 부르지 않는다.
+- `/admin/ai/models`·`/admin/ai/status`의 레지스트리 값은 gateway `/health`에서 읽는다. Route Handler가 결정 모델·Qwen 서버를 직접 부르지 않는다.
 - 계약 변경은 zod 스키마 diff와 Route Handler 계약 시험으로 PR에서 보이게 한다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성한다.
 - 템플릿의 `/api/auth/*`·`/api/users/me`·`/api/admin/users/[id]/status`는 템플릿 기능(로그인 수단 연결·운영자 정지 등)이며 이 계약(`/api/v1`) 밖이다. Phase 0에서는 지우지 않았고, 정리는 N1 앱 셸 작업에서 같은 경로를 다시 짤 때 한다([Phase 0 인프라 계획](plans/2026-10-18-phase-0-infra.md) D15). 템플릿 운영자 API를 `/api/ops/users/:id/status`로 옮기는 `/ops` 분리([[16-DECISIONS|ADR-021]])는 해커톤 이후다([[16-DECISIONS|ADR-023]]). 옮긴 뒤에도 `profiles.is_admin`만 부른다. 조직 ADMIN의 `/api/v1/admin/*`와 다르다. 조직 ADMIN은 `/ops`에 들어가지 못한다(404).
 
@@ -723,6 +728,6 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 - [[09-SECURITY|09 보안]] — 세션 쿠키·CSRF·RBAC·RLS
 - [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트
 - [[11-TESTING|11 테스트]] — Route Handler 계약 시험·RLS 정책 시험
-- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·Kev v0.2·평가 API)
+- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.5-27B)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalRunReport` 지표, 모델 레지스트리, 운영자 CLI
 - [[07-DATA-PIPELINE|07 수집]] — `IngestionRunInput` 소스, 나라장터 Connector·정규화

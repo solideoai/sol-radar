@@ -1,15 +1,16 @@
 # SOL RADAR 회사 GPU 서버용 참고 구성 (ADR-025). 노트북 Compose(compose.yaml)와 합치지 않는다.
 #   회사 GPU 서버에서:  docker compose -f infra/compose.gpu.yaml up -d
 #
-# 여기에는 모델 라우터만 있다. vLLM(Qwen3.5-9B, 127.0.0.1:8001)과 kev.serve(Kev-9B@v1.0, 127.0.0.1:8009)는
-# docs/10-DEPLOYMENT.md 의 명령으로 호스트에 직접 띄운다. 두 런타임의 컨테이너 구성은 빌드 검증 전이라 넣지 않았다.
+# 여기에는 모델 라우터만 있다. 결정 서버 sol_decision.serve(Bosun v3.1 0.6B, 127.0.0.1:8009, ADR-034)는
+# docs/10-DEPLOYMENT.md 의 명령으로 호스트에 직접 띄운다. 추출·설명(Qwen/Qwen3.5-27B)은 회사가 운영하는 vLLM API(https://acropolissg.com/vllm/v1)를 쓰므로
+# 127.0.0.1:8001 에는 vLLM 을 띄우지 않는다(라우터의 /qwen 규칙은 Qwen 4B 백업용, 미사용). 결정 서버의 컨테이너 구성은 빌드 검증 전이라 넣지 않았다.
 # 회사 nginx 는 https://acropolissg.com/sol-radar 를 http://127.0.0.1:8080 으로 넘긴다(infra/gpu/README.md).
 name: sol-radar-gpu
 
 services:
   model-router:
     image: nginx:1.27-alpine
-    # 호스트 127.0.0.1 에 묶인 vLLM·kev.serve 에 닿고 127.0.0.1:8080 으로만 듣는다. Linux 전용(macOS Docker Desktop 은 host 네트워크가 없다)
+    # 호스트 127.0.0.1 에 묶인 sol_decision.serve(와 백업 vLLM) 에 닿고 127.0.0.1:8080 으로만 듣는다. Linux 전용(macOS Docker Desktop 은 host 네트워크가 없다)
     network_mode: host
     restart: unless-stopped
     volumes:

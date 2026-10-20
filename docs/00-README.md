@@ -5,12 +5,12 @@ status: draft
 tags:
   - sol-radar
   - moc
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # SOL RADAR — 구현 문서 인덱스
 
-> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen, Kev) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
+> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen3.5-27B, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
 
 ## 10줄 요약
 
@@ -19,7 +19,7 @@ updated: 2026-10-19
 3. Qwen이 공고문에서 요구조건을 **원문 인용과 함께** JSON으로 추출한다. 인용이 원문과 맞지 않으면 무효다.
 4. 회사 프로필과 대조해 필수 자격을 `SATISFIED / NOT_SATISFIED / NEEDS_REVIEW`로 판정한다. 법적 자격을 자동 확정하지 않는다.
 5. SOL Score(0~100)는 **결정론적 규칙**으로 계산하고 5개 요소·입력 스냅샷·알고리즘 버전을 저장한다. 낙찰 확률이 아니다.
-6. Kev-9B(소형 결정 모델)는 요구사항별 충족 분류·기술 적합성·실적 연관성·수행 리스크를 확률로 내는 **참고 지표**다. 점수에 넣지 않고 규칙 판정을 뒤집을 수 없으며, 분포는 충족 확률·수주확률이 아니라고 UI에 고지한다. 성능은 실제 공고 평가셋으로 잰다([[21-MODEL-TRAINING]]).
+6. Bosun v3.1 0.6B(소형 결정 모델, [[16-DECISIONS|ADR-034]]. 이름 `KEV_*`·`/kev`는 호환 유지)는 요구사항별 충족 분류·기술 적합성·실적 연관성·수행 리스크를 확률로 내는 **참고 지표**다. 점수에 넣지 않고 규칙 판정을 뒤집을 수 없으며, 분포는 충족 확률·수주확률이 아니라고 UI에 고지한다. 성능은 실제 공고 평가셋으로 잰다([[21-MODEL-TRAINING]]).
 7. 시스템은 **권고**만 하고, 최종 결정은 사람이 사유와 함께 `bid_reviews`에 기록한다.
 8. 모델이 꺼져도 규칙만으로 `PARTIAL` 결과를 낸다. 공공 API·모델 서버에 장애가 나도 `fixture`·`mock` 모드로 전 기능이 돈다. 실패 유형(API·첨부 다운로드·파싱·모델 서버)은 따로 표시하고, mock으로 바꾼 결과는 반드시 mock이라고 표시한다. DEMO 데이터는 DEMO로 표시한다.
 9. 테넌트 격리(`org_id` + Supabase RLS), Supabase Auth 세션, 외부 문서 불신 처리, 감사 로그를 기본으로 한다.
@@ -38,7 +38,7 @@ updated: 2026-10-19
 절대 규칙(스택·코드 위치·RLS·결제·모바일 금지·hosted 모델과 클라우드 GPU 승인·실행 모드와 mock 표시·DEMO 표시)과 해커톤 우선순위, 단계마다 계획 → 코드 → 테스트 → 증거 → 보고 순서는 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]이 정본이다. 실행 지침은 [[CLAUDE]], 폴더 구조는 [[02-ARCHITECTURE|02 아키텍처]] monorepo 절이다. 아래는 17에 없는 원칙만 둔다.
 
 1. 01~05의 계약부터 확정한다. 미결정 사항은 [[16-DECISIONS|16 ADR]]에 기록한다.
-2. MVP의 end-to-end 세로 기능은 **실제 공고 수집 → 첨부 파싱 → Qwen 추출 → 자격 검증 → Kev 참고 지표 → SOL Score → BID/WATCH/NO-BID → 대시보드 → 알림 이벤트**다. 첫 단계는 외부 의존성(실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속) 조기 점검이다([[12-ROADMAP|12 로드맵]]).
+2. MVP의 end-to-end 세로 기능은 **실제 공고 수집 → 첨부 파싱 → Qwen 추출 → 자격 검증 → 결정 모델 참고 지표 → SOL Score → BID/WATCH/NO-BID → 대시보드 → 알림 이벤트**다. 첫 단계는 외부 의존성(실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속) 조기 점검이다([[12-ROADMAP|12 로드맵]]).
 3. 정확하지 않은 수주확률, 평가위원 점수, 미래 발주예측은 만들어내지 않는다. 근거 미확보 시 `INSUFFICIENT_DATA`로 표시한다.
 
 ## 문서
@@ -47,7 +47,7 @@ updated: 2026-10-19
 |---|---|---|
 | 01 | [[01-PRD]] | 제품 요구사항 / MVP 범위 / 차별점 / 성공 지표 |
 | 02 | [[02-ARCHITECTURE]] | 서비스 경계·흐름·데모 토폴로지 |
-| 03 | [[03-AI-PIPELINE]] | 실행 모드·env 플래그 / 파이프라인 v0.2(`/parse`·`/extract`·`/kev`·`/explain`) / Qwen `RequirementExtraction` 스키마·프롬프트 / Kev 질문 세트 `kev-qs/v0.1`·`v0.2`·state 추적·mock adapter / 모델 레지스트리 / 장애·수용 기준 |
+| 03 | [[03-AI-PIPELINE]] | 실행 모드·env 플래그 / 파이프라인 v0.2(`/parse`·`/extract`·`/kev`·`/explain`) / Qwen `RequirementExtraction` 스키마·프롬프트 / 결정 모델(Bosun) 질문 세트 `kev-qs/v0.1`·`v0.2`·state 추적·mock adapter / 모델 레지스트리 / 장애·수용 기준 |
 | 04 | [[04-DATABASE]] | Supabase Postgres 스키마·RLS 정책·ERD·ENUM·seed 범위·식별자 규칙 |
 | 05 | [[05-API-SPEC]] | Route Handler(`/api/v1`) 계약·Supabase Auth·DTO(zod)·오류 코드·예시 |
 | 06 | [[06-UI-UX]] | 데스크톱 전용 화면 명세·디자인 토큰·라우트별 상태 표·상세 와이어프레임·분석 상태 머신 |
@@ -65,9 +65,9 @@ updated: 2026-10-19
 | 18 | [[18-HACKATHON]] | 피치·차별점·심사 기준 매핑·데모 스크립트·Q&A·정직성 표 |
 | 19 | [[19-DEMO-SCENARIO]] | 데모 기업·fixture 스토리·클릭 경로·장애 대체 시연 |
 | 20 | [[20-GLOSSARY]] | 용어집 (단일 원천) |
-| 21 | [[21-MODEL-TRAINING]] | 평가셋(실제 공고 × 가상 기업)·평가 지표·오류 분석·Kev-9B LoRA 파인튜닝 전략(착수 판단·E4 비교. 실행 절차는 22)·모델 레지스트리 |
-| 22 | [[22-FINETUNE-RUNBOOK]] | 회사 GPU 파인튜닝 실행서: 모델 출처(Hugging Face·GitHub 리비전)·학습 환경·Kev·Qwen 학습 데이터 제작·학습·보정·병합·반입 명령 |
-| 23 | [[23-WEEKEND-FINETUNE]] | 주말(10-24~25) 회사 GPU 파인튜닝 계획: 엔드포인트(등록 location 하나, 학습본은 서버 안 오프라인 채점)·오픈 데이터 출처(나라장터 API × 가상 기업 구성 라벨·Kev 공개 replay)·Hugging Face 모델 선택·시간표·대체 경로 |
+| 21 | [[21-MODEL-TRAINING]] | 평가셋(실제 공고 × 가상 기업)·평가 지표·오류 분석·Bosun LoRA 파인튜닝 전략(착수 판단·E4 비교. 실행 절차는 22)·모델 레지스트리 |
+| 22 | [[22-FINETUNE-RUNBOOK]] | 회사 GPU 파인튜닝 실행서: 모델 출처(Hugging Face·GitHub 리비전)·학습 환경·Bosun 학습 데이터 제작·학습·보정·병합·반입 명령(Qwen 파인튜닝은 하지 않는다) |
+| 23 | [[23-WEEKEND-FINETUNE]] | 주말(10-24~25) 회사 GPU 파인튜닝 계획: 엔드포인트(등록 location 하나, 학습본은 서버 안 오프라인 채점)·오픈 데이터 출처(나라장터 API × 가상 기업 구성 라벨. Kev 공개 replay 는 퇴역)·Hugging Face 모델(Bosun v3.1 0.6B, Qwen 은 회사 API) 선택·시간표·대체 경로 |
 | — | [[CLAUDE]] | Claude Code 지침 (루트 `CLAUDE.md`가 `@docs/CLAUDE.md`로 먼저 불러온다, ADR-015) |
 | — | [[PROGRESS]] | 진행 상황·작업 로그 (저장소 경로 `docs/PROGRESS.md`) |
 
@@ -77,7 +77,7 @@ updated: 2026-10-19
 |---|---|---|
 | 수주확률을 표시하지 않는다 | [[03-AI-PIPELINE]] 품질 가드레일, [[06-UI-UX]] 상세 화면 상태, [[18-HACKATHON]] §7 | G4 ([[11-TESTING]]) |
 | 점수는 결정론적이고 재현 가능하다 | [[08-SCORING]] 점수표·정규화 함수, [[04-DATABASE]] `score_runs.input_snapshot`, `algorithm_version` | Scoring Vitest goldens |
-| Kev는 규칙 판정을 뒤집을 수 없다 | [[08-SCORING]] Kev 처리, [[03-AI-PIPELINE]] 가드레일 | G3 |
+| 결정 모델(Bosun)은 규칙 판정을 뒤집을 수 없다 | [[08-SCORING]] 결정 모델 처리, [[03-AI-PIPELINE]] 가드레일 | G3 |
 | AI 없이도 결과가 나온다 | [[02-ARCHITECTURE]] 장애 원칙, [[10-DEPLOYMENT]] demo 프로필 | G6 |
 | 근거 인용은 원문과 대조된다 | [[15-DATA-CONTRACTS]] `EvidenceRef` 검증 | AI pytest citations |
 | 사람이 최종 결정하고 기록이 남는다 | [[08-SCORING]] 결정 정책, [[04-DATABASE]] `bid_reviews`, `audit_logs` | E2E 로그인→공고→분석→검토 |
@@ -86,8 +86,8 @@ updated: 2026-10-19
 | 데모 데이터는 가상이며 그렇게 표시된다 | [[04-DATABASE]] `is_demo`, [[06-UI-UX]] DEMO 배지, [[18-HACKATHON]] §7 | G8 |
 | 근거 없는 값은 만들지 않는다 (`UNKNOWN`·`CONFLICTED`로 남긴다) | [[15-DATA-CONTRACTS]] §2 `FieldState`, §5 인용 검증 | AI pytest schema·citations |
 | 분석은 재현 가능한 키로 식별된다 | [[04-DATABASE]] `score_runs`(revision_id, company_profile_id, algorithm_version, prompt_hash, input_snapshot) | `pnpm test:db` (제약·정책 시험, PGlite) |
-| Kev는 보수적 방향으로만 영향을 준다 | [[03-AI-PIPELINE]] §5.5 질문별 사용처·규칙 충돌 처리 | G3, AI pytest adapter |
-| Kev는 실재하는 Apache-2.0 모델이다. 영어 모델이며 한국어 성능은 미검증이다 | 아래 §출처, [[16-DECISIONS]] 미결정 2번, [[03-AI-PIPELINE]] §5.6 영어 템플릿 | 2026-10-16 README·모델 카드 확인. 한국어/영어 비교는 평가셋 E1·E2([[21-MODEL-TRAINING]]) |
+| 결정 모델은 보수적 방향으로만 영향을 준다 | [[03-AI-PIPELINE]] §5.5 질문별 사용처·규칙 충돌 처리 | G3, AI pytest adapter |
+| 결정 모델 Bosun v3.1 0.6B는 실재하는 Apache-2.0 모델이다. 학습 데이터가 영어이며 한국어 성능은 미검증이다 | 아래 §출처, [[16-DECISIONS]] 미결정 24번, [[03-AI-PIPELINE]] §5.6 영어 템플릿 | 2026-10-20 Hugging Face 리비전 `5e78a37c` 확인(ADR-034). 한국어/영어 비교는 평가셋 E1'·E2([[21-MODEL-TRAINING]]) |
 | 외부 API 필드를 지어내지 않았다 | [[07-DATA-PIPELINE]] registry 절, [[16-DECISIONS]] 미결정 1번 | data.go.kr 명세 확인(2026-10-16), 실응답 확인(2026-10-19 C1, `fixtures/recorded/`, `docs/evidence/phase-0/external-deps-api-20261019.md`. 설계 가정과 다른 점은 같은 문서 §10) |
 | 모델 성능 주장은 평가셋 숫자로만 한다 | [[21-MODEL-TRAINING]] 지표·신뢰구간·오류 분석 | `docs/evidence/eval/` 리포트 |
 | 파싱에 실패한 내용을 AI가 추측해 채우지 않는다 | [[03-AI-PIPELINE]] 장애와 대체, [[15-DATA-CONTRACTS]] 인용 검증 | 파싱 실패 fixture 시험([[11-TESTING]]) |
@@ -105,9 +105,10 @@ updated: 2026-10-19
 
 > [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev)
 > Kev는 Jared Palmer가 공개한 Apache-2.0 소형 결정 모델이다. Qwen3.5 기반 Kev-0.8B / 4B(권장) / 9B, Qwen3.8 기반 Kev-27B가 "Kev 1.0"으로 함께 릴리즈되었다(GitHub 태그 `kev-1.0`, Hub 태그 `v1.0`). 서버 실행은 `uv run --extra serve python -m kev.serve --run jaredpalmer/kev-4b@v1.0 --port 8009` (README: `@v1.0`은 항상 같은 가중치를 로드. quickstart는 태그 없이 적혀 있다). API는 TypeSafe System One 호환 `POST /v1/systemone`, 질문 타입 `noul` / `choice` / `score`. `pip install kev`는 무관한 패키지이므로 소스에서 설치한다. 모델 카드(`docs/model-cards/kev-4b.md`)는 `Languages: English`이며 영어 외 언어는 잘 동작하지 않는다고 명시한다. 따라서 한국어 입찰 도메인 성능은 미검증이고, 입력은 영어 템플릿 state로 변환해 전달한다([[03-AI-PIPELINE]] §5.6). 호스팅 제공처(OpenRouter 등) 가용성은 확인되지 않았다(2026-10-16 페이지 404).
+> 퇴역(2026-10-20 ADR-034). 현재 결정 모델은 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`), 검증은 [계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §1. 위는 Kev 당시 기록이다.
 
 - 조달청 데이터: https://www.data.go.kr/ — 입찰공고정보서비스(15129394)·사전규격(15129437)·발주계획(15129462)·업종 및 근거법규(15129467)의 오퍼레이션·필드 이름은 2026-10-16 서비스 페이지 명세로 확인했다. 서비스키로 받은 실제 응답은 2026-10-19 C1 ①(공공 API A1~A9)·②(첨부 B1~B4)에서 확인했다. 마스킹한 응답 14건은 `fixtures/recorded/`, 호출 기록과 설계 가정과 다른 점 8건은 `docs/evidence/phase-0/external-deps-api-20261019.md`에 있다([[16-DECISIONS]] 미결정 1번).
-- Kev 학습·평가 도구(`kev.train`·`kev.benchmark`·`kev.compare`, `--init_from`)는 2026-10-16 저장소 main `1f04cfa`에서 확인했다([[22-FINETUNE-RUNBOOK]] §2). 기본 모델은 Kev-9B@v1.0이다(ADR-020).
+- Kev 학습·평가 도구(`kev.train`·`kev.benchmark`·`kev.compare`, `--init_from`)는 2026-10-16 저장소 main `1f04cfa`에서 확인했다([[22-FINETUNE-RUNBOOK]] §2). 기본 모델은 Kev-9B@v1.0이었다(ADR-020, 당시 기록). **퇴역(2026-10-20 ADR-034)**: 결정 모델은 Bosun v3.1 0.6B, 학습·채점 도구는 우리 `sol_eval.bosun_score`(B1 예정)다. 추출·설명은 회사 운영 vLLM API의 Qwen3.5-27B다.
 - 현재 문서는 구현용 설계안이다. 외부 API 필드/호출 한도, 모델 성능, 카카오 발송 조건은 검증 전 확정 사실로 취급하지 않는다. 검증 상태는 [[16-DECISIONS|16 ADR]]에 날짜와 함께 기록한다.
 
 ## 솔리데오 가상 인력·가입 결정

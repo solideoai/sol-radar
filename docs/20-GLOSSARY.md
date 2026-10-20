@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - glossary
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 20. 용어집
@@ -41,7 +41,7 @@ updated: 2026-10-19
 | 권고 (recommendation) | 시스템이 내는 `BID` / `WATCH` / `NO_BID`. 결정이 아니다 | [[08-SCORING]] |
 | 결정 (decision, `bid_reviews`) | 사람이 사유와 함께 기록하는 최종 참여 판단 | [[08-SCORING]] |
 | BID / WATCH / NO-BID | 참여 / 관망·추가 검토 / 불참 | [[08-SCORING]] |
-| `MODEL_RULE_DISAGREEMENT` | Kev 참고 지표(`recommendation`)와 규칙 판정이 상충할 때 발생. 사람 검토 필수 | [[08-SCORING]] |
+| `MODEL_RULE_DISAGREEMENT` | 결정 모델 참고 지표(`recommendation`)와 규칙 판정이 상충할 때 발생. 사람 검토 필수 | [[08-SCORING]] |
 | `INSUFFICIENT_DATA` | 근거가 없어 값을 표시하지 않는 상태. 임의 값으로 채우지 않는다 | [[00-README]] |
 | 분석 상태 | `QUEUED → RUNNING → COMPLETED / PARTIAL / FAILED`. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`(화면 `미분석`). `PARTIAL`은 AI 없이 규칙만으로 완결한 결과([[16-DECISIONS\|ADR-029]] A6 D17) | [[06-UI-UX]] |
 | 골든셋 / 골든 시나리오 | 기대 결과가 사람에 의해 확정된 테스트 입력. 회귀 기준 | [[11-TESTING]] |
@@ -53,10 +53,14 @@ updated: 2026-10-19
 | 용어 | 정의 | 주 문서 |
 |---|---|---|
 | Qwen | 오픈 가중치 LLM 계열. 공고문에서 요구조건을 JSON으로 추출하고 한국어 설명을 생성 | [[03-AI-PIPELINE]] |
-| Kev | Jared Palmer의 Apache-2.0 소형 결정 모델(Qwen3.5 기반 0.8B/4B/9B, Qwen3.8 기반 27B). 타입이 정해진 질문에 텍스트 생성 없이 캘리브레이션된 확률을 돌려준다. 모델 카드 기준 영어 전용. 저장소 https://github.com/jaredpalmer/kev | [[03-AI-PIPELINE]] |
-| System One (TypeSafe) | Kev 서버가 호환하는 API 프로토콜. 엔드포인트 `POST /v1/systemone` | [[03-AI-PIPELINE]] |
-| `noul` / `choice` / `score` | Kev 질문 타입: yes/no, 다지선다, 등급 평가 | [[03-AI-PIPELINE]] |
-| Kev 분포 | 선택지에 대한 모델 확률 분포. **충족 확률·수주확률이 아니다.** UI에 항상 고지 | [[06-UI-UX]] |
+| Kev | **퇴역(2026-10-20 ADR-034, Bosun으로 교체)**. Jared Palmer의 Apache-2.0 소형 결정 모델(Qwen3.5 기반 0.8B/4B/9B, Qwen3.8 기반 27B). 타입이 정해진 질문에 텍스트 생성 없이 캘리브레이션된 확률을 돌려준다. 모델 카드 기준 영어 전용. 저장소 https://github.com/jaredpalmer/kev. 이름 `KEV_*`·`kev_*`·`/kev`·`kev-qs`는 호환 레이어로 남는다 | [[16-DECISIONS\|ADR-034]] |
+| Bosun | Hanno Labs의 Apache-2.0 소형 결정 모델 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`(백본 `Qwen/Qwen3-0.6B`, LoRA r=16 + decision token 256개). 2026-10-20 ADR-034로 Kev-9B를 대체한 **결정 모델**. 우리 `sol_decision` 서버(`127.0.0.1:8009`)가 Kev wire 호환으로 띄운다. 학습 데이터(DecisionBench)가 영어라 한국어 성능은 미검증 | [[03-AI-PIPELINE]], [[16-DECISIONS\|ADR-034]] |
+| decision token | Bosun이 후보마다 하나씩 쓰는 특수 토큰 256개(`decision_000`~`decision_255`). 모델은 텍스트 대신 이 토큰들 위의 분포를 내고, 그것이 질문별 확률이 된다 | [[03-AI-PIPELINE]] |
+| `presented_slot` | Bosun의 decision token 배정 방식. 후보를 seed로 섞어 제시한 슬롯 순서대로 토큰을 배정하고 `candidate_to_slot`으로 원래 후보에 되돌린다. 제시 순서 민감도는 seed 여러 개로 잰다 | [[21-MODEL-TRAINING]] |
+| E1' | 공개 Bosun v3.1 0.6B zero-shot(영어 state)을 E4와 같은 test 세트에서 돌린 기준선. Kev-9B의 E1은 미측정 | [[21-MODEL-TRAINING]] |
+| System One (TypeSafe) | Kev wire가 따르는 API 프로토콜. 우리 `sol_decision` 서버(Bosun)도 호환한다. 엔드포인트 `POST /v1/systemone` | [[03-AI-PIPELINE]] |
+| `noul` / `choice` / `score` | 결정 모델 질문 타입(Kev wire): yes/no, 다지선다, 등급 평가 | [[03-AI-PIPELINE]] |
+| 결정 모델 분포(옛 표현 Kev 분포) | 선택지에 대한 모델 확률 분포. **충족 확률·수주확률이 아니다.** UI에 항상 고지 | [[06-UI-UX]] |
 | 규칙 엔진 | 필수 자격·점수·결정 정책을 계산하는 결정론적 코드. 최종 권고의 주체 | [[08-SCORING]] |
 | 임베딩 / Qdrant | 근거 문단을 벡터로 저장·검색. 재생성 가능한 파생 인덱스 | [[02-ARCHITECTURE]] |
 | `EvidenceRef` | 근거 인용 구조 `{kind, documentId, revisionId, page?, charStart?, charEnd?, apiField?, apiSource?, quotedText, sourceUrl?, fetchedAt}`. `kind=TEXT`는 본문·첨부 텍스트 인용, `kind=API_FIELD`는 공공 API 구조화 필드 값. 검증 실패 시 무효 | [[15-DATA-CONTRACTS]] |
@@ -64,7 +68,7 @@ updated: 2026-10-19
 | 프롬프트 인젝션 | 외부 문서 안의 지시문이 모델을 조종하려는 공격. 외부 문서는 데이터로만 취급 | [[09-SECURITY]] |
 | HITL (Human-in-the-loop) | 사람이 반드시 개입하는 지점. 최종 결정, `NEEDS_REVIEW`, `MODEL_RULE_DISAGREEMENT` | [[09-SECURITY]] |
 | `AI_PROVIDER` | `mock` / `local` / `hosted`. 데모 기본은 `mock` | [[03-AI-PIPELINE]], [[10-DEPLOYMENT]] |
-| `KEV_ENABLED` | Kev 사용 플래그. 세 실행 모드 모두 기본 `true`(`live`·`fixture` → 실모델, `mock` → mock adapter)이고 `false`도 허용한다. `false`면 Kev 없이 `RULES_ONLY`, 분석은 `COMPLETED`([[16-DECISIONS\|ADR-029]] A5) | [[03-AI-PIPELINE]] |
+| `KEV_ENABLED` | 결정 모델(Bosun) 사용 플래그(이름은 호환 유지, ADR-034). 세 실행 모드 모두 기본 `true`(`live`·`fixture` → 실모델, `mock` → mock adapter)이고 `false`도 허용한다. `false`면 결정 모델 없이 `RULES_ONLY`, 분석은 `COMPLETED`([[16-DECISIONS\|ADR-029]] A5) | [[03-AI-PIPELINE]] |
 
 ## 데이터·플랫폼
 
@@ -98,7 +102,7 @@ updated: 2026-10-19
 | 서버 도메인 (`web/server/<도메인>`) | 서버 전용 업무 코드. model·repo·service·index(배럴)로 나누고 `import "server-only"`로 시작한다. 다른 코드는 배럴(`@/server/<도메인>`)로만 부른다. 예: `bids`·`ingestion`·`scoring`·`analysis`·`review`·`notifications`·`company-profile`·`health` | [[02-ARCHITECTURE]] |
 | zod 스키마 (계약 단일 원천) | `web/server/<도메인>/*.model.ts`의 zod 스키마. 화면 폼·Route Handler·worker가 같은 스키마로 입력을 검증한다. OpenAPI 문서는 필요하면 여기서 생성한다(선택) | [[05-API-SPEC]], [[16-DECISIONS]] |
 | worker 진입점 (`web/worker`) | BullMQ 소비자(ingest·documents·extract·analysis job)를 띄우는 별도 Node(TypeScript) 프로세스. `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈은 `node --conditions=react-server --import tsx worker/main.ts`로 불러온다(2026-10-18 검증, 16 미결정 9번) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
-| AI gateway | Python FastAPI 서비스(`services/ai/`, :8000). Qwen·Kev 호출은 이것만 한다. Next 서버와 worker는 Kev에 직접 접근하지 않는다 | [[03-AI-PIPELINE]] |
+| AI gateway | Python FastAPI 서비스(`services/ai/`, :8000). Qwen·결정 모델(Bosun) 호출은 이것만 한다. Next 서버와 worker는 결정 모델에 직접 접근하지 않는다 | [[03-AI-PIPELINE]] |
 | 마이그레이션 (`supabase/migrations/`) | 스키마·RLS 정책·DB 함수를 담는 SQL 파일. 새 파일로만 쌓는다(append-only). 클라우드 적용은 `pnpm db:push`(사용자 확인 뒤에만) | [[04-DATABASE]] |
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |
 | 정책 시험 (PGlite) | `scripts/database.test.mjs`를 `node --test` + PGlite로 돌려 RLS·권한·제약·seed 멱등을 본다(`pnpm test:db`) | [[11-TESTING]] |
@@ -171,23 +175,23 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 정보화사업 (`infoBizYn`) | 입찰공고 응답의 정보화사업 여부. 빈값이 많아 수집 필터는 `infoBizYn='Y'` 또는 `sucsfbidMthdNm`에 "SW사업" 또는 `pubPrcrmntClsfcNm` 정보시스템·SW 분류인 용역 공고로 넓혔다([[16-DECISIONS\|ADR-029]] A4) | [[07-DATA-PIPELINE]] |
 | API 구조화 필드 | 면허제한·참가가능지역·금액·마감처럼 공공 API가 필드로 주는 조건. 같은 조건이면 Qwen 추출보다 우선 | [[08-SCORING]] |
 | `DocumentParser` | HWP·HWPX·PDF 형식별 파서 어댑터 인터페이스. 결과는 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED`. 계약 정본은 03 §10 | [[03-AI-PIPELINE]] |
-| 실패 유형 | 공공 API 실패·첨부 다운로드 불가·파싱 실패·모델 서버 미접속(Qwen·Kev 따로). 서로 섞지 않고 따로 기록·표시 | [[03-AI-PIPELINE]] |
+| 실패 유형 | 공공 API 실패·첨부 다운로드 불가·파싱 실패·모델 서버 미접속(Qwen·Bosun 따로). 서로 섞지 않고 따로 기록·표시 | [[03-AI-PIPELINE]] |
 | `MOCK_FALLBACK` | `AI_FALLBACK_TO_MOCK=true`(live 금지)일 때 실제 모델 대신 mock 결과를 낸 run의 플래그. 화면에 "실제 모델 결과 아님" 배너. 해커톤 동안은 자동 대체를 구현하지 않아 `true`면 기동 거부다([[16-DECISIONS\|ADR-030]] B11) | [[03-AI-PIPELINE]] |
-| 참고 지표 | Kev 결과를 보여 주는 화면 영역. SOL Score·자격·권고에 반영하지 않는다 | [[08-SCORING]] |
-| `kev-qs/v0.2` | Kev 질문 세트 v0.2. 요구사항별 `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`, `techFit`, `perfRelevance`, `risk.*`. v0.1과 함께 쓴다 | [[03-AI-PIPELINE]] |
+| 참고 지표 | 결정 모델 결과를 보여 주는 화면 영역. SOL Score·자격·권고에 반영하지 않는다 | [[08-SCORING]] |
+| `kev-qs/v0.2` | 결정 모델 질문 세트 v0.2(이름은 호환 유지, 문구 불변). 요구사항별 `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`, `techFit`, `perfRelevance`, `risk.*`. v0.1과 함께 쓴다 | [[03-AI-PIPELINE]] |
 | 사유 코드 | `NEEDS_REVIEW`의 이유. `NOTICE_INFO_MISSING`·`NOTICE_CONFLICTED`·`COMPANY_EVIDENCE_MISSING`·`AMBIGUOUS_MATCH`·`PARSE_UNSUPPORTED`·`STAGE_NOT_APPLICABLE` | [[08-SCORING]] |
 | 명시적 부정 근거 | 회사가 조건을 충족하지 않는다는 기록(`NOT_HELD`, 요구치 미만 수치, 완결된 기술 목록에 없음). 미충족 판정에 필요 | [[08-SCORING]] |
 | `CompanyEvidenceRef` | 회사 쪽 근거 위치(프로필 revision·기록 키·증빙 문서) | [[15-DATA-CONTRACTS]] |
-| `KevStateTrace` | Kev state 줄마다 공고 인용·회사 증빙·요구사항 항목을 기록한 추적표 | [[15-DATA-CONTRACTS]] |
+| `KevStateTrace` | 결정 모델 state 줄마다 공고 인용·회사 증빙·요구사항 항목을 기록한 추적표 | [[15-DATA-CONTRACTS]] |
 | 모델 레지스트리 | `services/ai/models/registry.yaml`. 모델 id·run·base·sha256·데이터셋 버전. gateway가 기동할 때 대조 | [[21-MODEL-TRAINING]] |
 | 평가셋 | 실제 공고 × 가상 기업 원형 6개로 만든 라벨 데이터. test 20·dev 10 사업(해커톤) | [[21-MODEL-TRAINING]] |
 | 사업 클러스터 | 같은 사업의 발주계획·사전규격·공고·재공고를 묶은 단위. 평가셋 분할 단위 | [[21-MODEL-TRAINING]] |
 | 대조 변형 | 같은 공고에 대해 기업 기록만 바꿔 충족·미충족·정보 부족 사례를 만든 가상 기업 | [[21-MODEL-TRAINING]] |
 | 라벨 출처 | `CONSTRUCTED`(변형으로 정해짐), `HUMAN`(사람 검수 확정), `RULE_SILVER`(규칙 계산, 학습셋 전용) | [[21-MODEL-TRAINING]] |
 | 오류 원인 코드 | 오답의 원인 단계. `PARSE`·`EXTRACTION`·`TRANSLATION`·`STATE`·`RULE`·`LABEL`·`MODEL`. `MODEL`이 주된 원인일 때만 파인튜닝 검토 | [[21-MODEL-TRAINING]] |
-| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어, E2 Kev-9B 한국어, E3 Qwen 분류(필수, 축소 규모), E4 Kev-9B+LoRA(해커톤 X6 비교 실험, ADR-027). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
-| EX0·EX1 | Qwen3.5-9B 추출 LoRA 전(EX0, 원본)·후(EX1, 병합본) 비교. 조건부이고 해커톤에는 하지 않는다(착수 조건 실행서 §5.1, 평가 §5.5) | [[22-FINETUNE-RUNBOOK]] |
-| 파인튜닝 실행서 | 회사 GPU 서버에서 Kev-9B LoRA(X6)를 **어떻게** 돌리는지 적은 절차서. 모델·자료 출처와 가중치 sha256 확인, 학습 환경, F1~F3, 회사에 넘기는 학습 요청서를 담는다. Qwen3.5-9B LoRA SFT는 방법만 담는다. 무엇을 왜 학습하는지는 [[21-MODEL-TRAINING\|21]] | [[22-FINETUNE-RUNBOOK]] |
+| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어(퇴역, 미측정), E1' 공개 Bosun 영어 state zero-shot, E2 Bosun 한국어 state(평가 전용), E3 Qwen3.5-27B logprob 분류(필수, 축소 규모), E4 Bosun + LoRA(해커톤 X6 비교 실험, ADR-034). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
+| EX0 | 회사 운영 Qwen3.5-27B API 추출 품질의 기준 측정(추출 지표·인용 충실도·`(untranslated)` 비율). EX1(파인튜닝 뒤 비교)은 삭제 — Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정, ADR-034) | [[21-MODEL-TRAINING]] |
+| 파인튜닝 실행서 | 회사 GPU 서버에서 Bosun LoRA(X6)를 **어떻게** 돌리는지 적은 절차서. 모델·자료 출처와 가중치 sha256 확인, 학습 환경, F1~F3, 회사에 넘기는 학습 요청서를 담는다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정). 무엇을 왜 학습하는지는 [[21-MODEL-TRAINING\|21]] | [[22-FINETUNE-RUNBOOK]] |
 | fixture 배치 `live` vs 실행 모드 `live` | fixture 두 번째 배치(`batch:"live"`, 데모 S5 변경분)와 실제 공공 API 실행 모드(`SOL_RUN_MODE=live`)는 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH` | [[19-DEMO-SCENARIO]] |
 | P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속·파서 비교 | [[12-ROADMAP]] |
 
@@ -213,7 +217,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 |---|---|---|
 | 회사 GPU 추론 엔드포인트 | 회사가 HTTPS로 제공하는 모델 런타임 접속점 `https://acropolissg.com/sol-radar`. ai-gateway가 그 아래 경로(`/qwen`·`/kev`, GPU 서버 안 모델 라우터 기준으로 결정)와 Bearer 키로 붙는다. 연결 방식·운영 책임·미확인 항목은 ADR-025 상세 | [[16-DECISIONS\|ADR-025]], [[10-DEPLOYMENT]] |
 | 엔드포인트 미접속 | `live`·`fixture`에서 gateway는 살아 있는데 회사 GPU 추론 엔드포인트에 닿지 않는 상태(옛 표현 "터널 단절"). `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. mock 결과로 몰래 바꾸지 않고, 필요하면 사람이 `mock` 모드로 전환 | [[19-DEMO-SCENARIO]], [[03-AI-PIPELINE]] |
-| 엔드포인트 재접속 확인 | 미접속 뒤 `GET /v1/models`로 Qwen·Kev 응답과 레지스트리 대조를 다시 확인하는 것(옛 표현 "터널 재연결"). 리허설에서 소요 시간을 `rehearsal-log.md`에 적는다 | [[11-TESTING]] |
+| 엔드포인트 재접속 확인 | 미접속 뒤 `GET /v1/models`로 Qwen·Bosun 응답과 레지스트리 대조를 다시 확인하는 것(옛 표현 "터널 재연결"). 리허설에서 소요 시간을 `rehearsal-log.md`에 적는다 | [[11-TESTING]] |
 
 ## 관련 문서
 
