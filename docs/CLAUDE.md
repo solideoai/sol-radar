@@ -4,7 +4,7 @@ status: draft
 tags:
   - sol-radar
   - claude
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # Claude Code — SOL RADAR 지침
@@ -16,7 +16,7 @@ updated: 2026-10-20
 - 기술 스택: Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python(Qwen3.5-27B + Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) + Docker Compose(`docs/16-DECISIONS.md` ADR-017). 이외로 임의 변경하지 않는다.
   - 코드는 `web/`(화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`), worker는 `web/worker`, 스키마·RLS는 `supabase/migrations/`(새 파일로만)에 둔다. 별도 API 서버·ORM은 두지 않는다(ADR-001·002 폐기). 해커톤 뒤에는 API·worker를 NestJS로 옮긴다(ADR-028). 그 전에는 위 구조로 구현한다.
   - Supabase가 맡는 것은 DB와 Auth뿐이다. 첨부는 MinIO, 검색은 Qdrant, 큐는 Redis/BullMQ, 모델 호출은 AI gateway(`services/ai`)다.
-  - 조직 데이터는 `org_id` + RLS, 업무 역할은 `memberships.sol_role`이다. service role 키는 worker·seed 스크립트만 쓴다. 클라우드 DB 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.
+  - 조직 데이터는 `org_id` + RLS, 업무 역할은 `memberships.sol_role`이다. service role 키는 worker·seed·운영자 스크립트(`scripts/ops/`)만 쓴다. 클라우드 DB 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.
 - 순서: Phase 0 저장소 정리/인프라 구현 → 검증 → 보고 → 다음 Phase. 핵심 컷(`docs/12-ROADMAP.md` Critical Path)을 먼저 끝낸다.
 - `docs/09-SECURITY.md` 우선 준수. 미확인 외부 명세는 mock + ADR(`docs/16-DECISIONS.md`). 최종 결정은 사람이 한다.
 - 범위 외: 결제·구독, 모바일, 자동 투찰, 승률 예측. 관련 코드를 쓰지 않는다. 화면은 데스크톱 1280px 이상.

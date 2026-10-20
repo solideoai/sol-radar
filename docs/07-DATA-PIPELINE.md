@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 07. 조달청 데이터 수집
@@ -211,7 +211,7 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 - 조직당 5회/분은 `POST`만 센다. 목록·단건 `GET`과 화면 polling은 세지 않는다.
 - `409 INGESTION_IN_PROGRESS`는 멱등 재현 뒤에 같은 source의 `RUNNING` 행으로 판정한다. 큐에만 있는 job은 막지 않는다(worker가 jobKey로 멱등 처리한다).
 - 요청자(`requestedBy`)는 `ingest_runs.requested_by`가 아니라 요청한 조직의 감사(`audit_logs` `INGEST_MANUAL`의 `actor_id`)로 찾는다. worker는 run을 끝낸 뒤 이 감사를 남긴다(모드가 맞지 않아 거절한 run도 남긴다). 같은 조직이면 `{id,name}`, 다른 조직이거나 감사가 남기 전이면 `null`이다. 화면 역할은 `ingest_runs`의 `job_key`·`idempotency_key`·`requested_by`·`params`를 읽지 못한다([[04-DATABASE|04 DB]] §3.6, `20261019000019`).
-- worker가 멈춰 `RUNNING`으로 남은 fixture run은 `pnpm demo:reset`이 fixture 수집 run을 모두 지우면서 풀린다. g2b run은 지우지 않는다. 오래된 `RUNNING` 행의 정리 규칙은 정하지 않았다([[16-DECISIONS|16 ADR]] 미결정 25번).
+- worker가 멈춰 `RUNNING`으로 남은 fixture run은 `pnpm demo:reset`이 fixture 수집 run을 모두 지우면서 풀린다. g2b run은 지우지 않는다. 오래 남은 g2b run은 운영자 명령 `pnpm ops:close-stale-runs -- --env-file <path> [--apply]`(`scripts/ops/close-stale-ingest-runs.mjs`)로 닫는다: `started_at`이 30분 이상 지난 `source=g2b`·`status=RUNNING` 행을 `FAILED`(`finished_at` 기록)로 바꾼다. 기본은 대상 목록만 보이고 `--apply`일 때만 바꾸며, 행마다 `id`와 `status=RUNNING`을 함께 조건으로 걸어 그 사이 끝난 run은 건너뛴다. 오류 코드·`ingest_errors`·`summary`는 바꾸지 않는다. 시간 기준 자동 전환은 해커톤 뒤다([[16-DECISIONS|16 ADR]] 미결정 25번, 운영 절차는 [[10-DEPLOYMENT|10 배포]] 운영 절).
 
 ## 3. 데이터 정규화
 
