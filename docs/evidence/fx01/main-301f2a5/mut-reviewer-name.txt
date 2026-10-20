@@ -1,0 +1,53 @@
+── run: pnpm -C web test:e2e:work --project=work-write --no-deps fx01-flow
+
+> sol-radar-web@0.1.0 test:e2e:work /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web
+> playwright test -c playwright.work.config.ts --project\=work-write --no-deps fx01-flow
+
+
+Running 2 tests using 1 worker
+
+  ✘  1 [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 (7.0s)
+  ✓  2 [work-write] › e2e-auth/fx01-flow.write.spec.ts:219:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 VIEWER 에게는 404 다 (246ms)
+
+
+  1) [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 › S4: WATCH 를 기록하면 결정 이력이 정확히 한 건 늘고 새로 고침 뒤에도 남는다 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('complementary', { name: '참여 판단', exact: true })
+    Expected substring: "마지막 결정: WATCH · 김분석"
+    Received string:    "참여 판단권고BID규칙 + Kev 참고94/ 100SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다.최종 결정BIDWATCHNO-BID사유0 / 2000담당자이영업▼결정 기록결정 이력마지막 결정: WATCH · 이영업 · 2026-10-20 15:39WATCH· 이영업(SALES) · 2026-10-20 15:39FX-01 E2E mvgbcbqy0lnz: 참여 전 계약 조건을 확인하기 위해 WATCH로 기록합니다.담당 이영업권고와 다름BID· 이영업(SALES) · 2026-10-20 15:39자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인력 12 FTE 대비 가용 20 FTE. 사전 검토에서 입찰 참여로 결정했다."
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toContainText" getByRole('complementary', { name: '참여 판단', exact: true }) with timeout 5000ms
+      - waiting for getByRole('complementary', { name: '참여 판단', exact: true })
+        14 × locator resolved to <aside class="min-w-0" aria-labelledby="decision-title">…</aside>
+           - unexpected value "참여 판단권고BID규칙 + Kev 참고94/ 100SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다.최종 결정BIDWATCHNO-BID사유0 / 2000담당자이영업▼결정 기록결정 이력마지막 결정: WATCH · 이영업 · 2026-10-20 15:39WATCH· 이영업(SALES) · 2026-10-20 15:39FX-01 E2E mvgbcbqy0lnz: 참여 전 계약 조건을 확인하기 위해 WATCH로 기록합니다.담당 이영업권고와 다름BID· 이영업(SALES) · 2026-10-20 15:39자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인력 12 FTE 대비 가용 20 FTE. 사전 검토에서 입찰 참여로 결정했다."
+
+
+      202 |     await expect(rail.getByRole("heading", { name: "결정 이력", exact: true })).toBeVisible();
+      203 |     await expect(rail.getByText(reason, { exact: true })).toBeVisible();
+    > 204 |     await expect(rail).toContainText("마지막 결정: WATCH · 김분석");
+          |                        ^
+      205 |     // 사람 결정이 바뀌어도 규칙 점수는 그대로다.
+      206 |     await page.reload();
+      207 |     await expect(rail.getByText(reason, { exact: true })).toBeVisible();
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:204:24
+        at /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/fx01-e2e/web/e2e-auth/fx01-flow.write.spec.ts:165:3
+
+    Error Context: test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/work/fx01-flow.write-FX-01-대시보드-94점부터-근거-확인-WATCH-결정과-이력-보존까지-work-write/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지 
+  1 passed (25.2s)
+ ELIFECYCLE  Command failed with exit code 1.
+EXIT=1
