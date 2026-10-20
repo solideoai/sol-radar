@@ -83,9 +83,39 @@ try {
     console.log(`  새로 적용할 마이그레이션이 없습니다 (이미 적용 ${skipped}개)`);
   else if (skipped > 0) console.log(`  이미 적용된 ${skipped}개는 건너뜁니다`);
 
-  for (const migration of pending) {
-    await apply(client, migration);
-    console.log("  ✓", migration.file);
+  // 사전 질의(ADR-032 D3, 3e 병합 게이트 권고): 20261019000011 은 score_runs.idempotency_key 에 조직 접두어
+  // check 를 not valid 로 건다. 접두어 없는 행이 남아 있으면 finish_score_run 이 그 run 에 쓰지 못하므로,
+  // 그 파일을 적용하기 전에 상태와 관계없이 0행인지 확인하고 아니면 아무것도 적용하지 않는다.
+  const IDEMPOTENCY_CHECK_VERSION = "20261019000011";
+  if (pending.some((migration) => migration.version === IDEMPOTENCY_CHECK_VERSION)) {
+    const table = await client.query("select to_regclass('public.score_runs') as rel");
+    if (table.rows[0]?.rel) {
+      const bad = await client.query(
+        "select status, count(*)::int as n from public.score_runs where idempotency_key is not null and not starts_with(idempotency_key, org_id::text || ':') group by status",
+      );
+      if (bad.rows.length > 0)
+        throw new Error(
+          `score_runs 에 조직 접두어 없는 idempotency_key 행이 있습니다(${bad.rows
+            .map((row) => `${row.status}=${row.n}`)
+            .join(
+              ", ",
+            )}). 정리하거나 validate 계획을 세운 뒤 다시 실행하세요. 아무것도 적용하지 않았습니다.`,
+        );
+      console.log("  ✓ 사전 질의: 조직 접두어 없는 idempotency_key 행 0");
+    }
+  }
+
+  if (process.argv.includes("--check")) {
+    console.log(
+      `  --check: 적용하지 않습니다. 미적용 ${pending.length}개${
+        pending.length ? `: ${pending.map((migration) => migration.file).join(", ")}` : ""
+      }`,
+    );
+  } else {
+    for (const migration of pending) {
+      await apply(client, migration);
+      console.log("  ✓", migration.file);
+    }
   }
 } catch (e) {
   console.error("❌ 적용 실패:", errorMessage(e));
