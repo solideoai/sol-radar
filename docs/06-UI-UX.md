@@ -107,8 +107,15 @@ flowchart TD
 | 분석 PARTIAL | `부분 완료 (규칙만)` | `alert-triangle` | warning |
 | 분석 FAILED | `실패` | `alert-octagon` | danger |
 | 공고 CANCELLED | `취소됨` | `ban` | neutral |
+| 수집 접수됨(화면 전용) | `접수됨` / 서랍·상태 줄 `접수됨 · 작업 시작 대기` | `loader` (회전) | info |
+| 수집 run RUNNING | `실행 중` | `loader` (회전) | info |
+| 수집 run SUCCEEDED | `완료` | `check` | success |
+| 수집 run PARTIAL | `부분 완료`(격리가 있으면 `부분 완료 (격리 N건)`) | `alert-triangle` | warning |
+| 수집 run FAILED | `실패` | `alert-octagon` | danger |
 | 가상 데이터 | `DEMO` | `flask-conical` | demo |
 | 결정 모델 의견 상이 | `규칙 우선` | `shield-check` | warning |
+
+수집 run 상태는 `ingest_runs.status` 4값([[04-DATABASE|04 DB]] `ingest_status`)이다. `접수됨`은 API 상태가 아니라 화면 전용이다. `POST /admin/ingestion/runs`가 202를 준 뒤 worker가 그 run 행을 만들기 전까지 이력 표에 이 행을 보이고, 같은 id의 행이 목록에 나타나면 그 행으로 바꾼다(worker가 멈춰 있으면 "실행 중"이라고 보이지 않으려는 것이다, §5.8).
 
 자격 판정은 `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW` 3값이다. 발주계획처럼 자격 요건이 없는 공고는 `NEEDS_REVIEW` + 사유 `STAGE_NOT_APPLICABLE`로 저장하므로([[04-DATABASE|04 DB]] §3.4), 판정은 `확인 필요`로, 사유는 `해당 없음`으로 적는다.
 
@@ -192,7 +199,7 @@ flowchart TD
 | 로딩 | 레이아웃과 같은 형태의 skeleton. 스피너 단독 금지 | `loading.tsx` |
 | 빈 상태 | 아이콘 + 한 줄 설명 + 다음 행동 버튼 1개 | 라우트별 §5.2~5.8 |
 | 오류 | 제목 "불러오지 못했습니다" + `requestId` + [다시 시도]. 원인 텍스트는 서버가 준 `error.message`만 | `error.tsx` |
-| 권한 없음 | 403: "이 화면을 볼 권한이 없습니다" + 현재 역할 표시 + [대시보드로]. 404: 공고·분석이 다른 조직 것이면 404로 통일([[09-SECURITY\|09 보안]]) | 라우트 가드 |
+| 권한 없음 | 403: 화면 틀(`AppPage` 제목)은 그대로 두고 본문만 안내한다. 화면 응답은 HTTP 200이고 API는 `403 FORBIDDEN`이다. `/admin/ingestion`은 "이 화면을 볼 권한이 없습니다" + "데이터 수집 관리는 업무 역할이 ADMIN인 구성원만 볼 수 있습니다. 지금 역할: {역할}" + [대시보드로] 버튼이다(`IngestionForbidden`). `/people`·`/org-chart`는 "조회 권한이 없습니다" 한 줄이다(`PeopleForbidden`). 404: 공고·분석이 다른 조직 것이면 404로 통일([[09-SECURITY\|09 보안]]) | 라우트 가드 |
 | 신선도 경고 | §8 `DataFreshnessIndicator` | `DataFreshnessIndicator` |
 
 ### 5.2 `/auth/login`
@@ -280,11 +287,11 @@ flowchart TD
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | ① 소스별 카드: 마지막 성공·실패 시각, 적재 건수, 격리 건수. ② 실행 이력 표: run id, 배치, 상태, 시작/종료, 처리/격리/재시도 수. ③ 격리 오류 표: fixture/소스 키, 오류 코드, 민감정보 제거된 상세(`FX-12`). ④ 재시도 로그(429 대기 포함, `FX-20`). 각 실행의 데이터 출처(`source`)·실행 모드(`run_mode`), 마지막 수집 시각([[16-DECISIONS\|ADR-021]]) |
-| 주요 액션 | [수동 수집 실행] → 배치 선택(`seed`/`live`, 데모 모드) + `Idempotency-Key` 자동 → 202 → 이력 표 polling |
+| 섹션 | ① 소스별 카드: 마지막 성공·실패 시각, 적재 건수, 격리 건수(N8 첫 구현 main `81249f0`에는 없다. 시간이 모자라면 먼저 자르는 항목). ② 실행 이력 표: 시작 시각(누르면 ③ 서랍)·걸린 시간, 상태(§3.2 수집 run 상태)·run id 앞 8자리, 소스·배치와 실행 모드(`run_mode`)·실행 방식(`trigger`·요청자), 신규·변경·취소·중복·격리·재시도 수. 최근 실행이 위이고 다음 쪽은 [더 보기]로 받는다(커서 방식). ③ 실행 상세 서랍(오른쪽 480px, 주소 `?run=<id>`): 종료 시각, 공공 API 호출 수(`quotaUsed`), 오류를 중단 원인·격리·경고·그 밖으로 나눠 소스 키·오류 코드(한국어 라벨과 코드 글자를 함께)·민감정보 제거된 상세를 보인다(`FX-12` → `fixture:DEMO-2026-0012` `MISSING_REQUIRED_FIELD` `missing: title`). ④ 재시도: `summary.retried` 횟수만 보인다("재시도 N회", `FX-20`은 2회). 시도별 기록(429 대기 시간 등)은 저장하지 않는다([[16-DECISIONS\|ADR-035]] F3) |
+| 주요 액션 | [수동 수집 실행] → 대화상자에서 **소스 → 배치** 순서로 고른다. 소스는 `fixture`·`g2b` 둘 다 보이고 지금 실행 모드에서 받지 않는 소스는 숨기지 않고 비활성 + 이유 문장이다(`live`는 `g2b`만, `fixture`·`mock`은 `fixture`만). 배치(`seed`/`live`)는 `fixture`일 때만 보이고 기본 선택이 없다. `g2b`는 입력 칸 없이 기본 창·단계(입찰공고) 안내만 보이고 본문은 `{source:"g2b"}`다. `Idempotency-Key`는 대화상자를 열 때 만들고 같은 본문을 다시 보내면 같은 키, 소스·배치를 바꾸면 새 키다 → 202 → 이력 표 맨 위에 화면 전용 **접수됨** 행(§3.2)과 상태 줄 → 이력 표 첫 쪽 polling(§7과 같은 주기) |
 | 빈 상태 | 실행 이력 0건: "아직 수집을 실행하지 않았습니다" + [수동 수집 실행]. 기록이 없는 항목은 빈 상태로 두고 임의 값을 보이지 않는다 |
-| 로딩/오류 | §5.1. 실행 중 버튼 비활성 + "실행 중 (run id)" |
-| 권한 | ADMIN만. 그 외 403. 서버 가드 + RLS로 거부한다(메뉴 숨김만으로 막지 않는다) |
+| 로딩/오류 | §5.1. 화면 위 상태 줄 하나(`role="status"`, 토스트 없음)가 접수됨·실행 중·끝남을 알린다. 접수됨이 60초를 넘으면 "worker가 실행 중인지 확인하세요", 실행 중이 30분을 넘으면 경고를 붙인다. 지금 모드에서 실행할 수 있는 소스의 `RUNNING` 또는 접수됨 행이 있으면 [수동 수집 실행]을 비활성하고 도움말("실행 중인 수집이 끝나면 다시 실행할 수 있습니다")을 단다. 최종 판정은 서버 `409 INGESTION_IN_PROGRESS`다([[05-API-SPEC\|05 API]] §2·§5) |
+| 권한 | ADMIN만. 그 외는 §5.1 403 안내(`IngestionForbidden`). 서버 가드 + RLS로 거부한다(메뉴 숨김만으로 막지 않는다). 사이드바 줄은 ADR-021 노출 조건을 채운 뒤 더하고, 그 전에도 경로는 열려 있다([[11-TESTING\|11 테스트]] NAV-09) |
 
 ### 5.9 `/people` (ADR-021, 구현 예정)
 

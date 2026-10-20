@@ -81,7 +81,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 수집 job(ingest job)은 **`web/worker`**가 돌린다. BullMQ 소비자이고, 같은 코드베이스의 별도 Node(TypeScript) 프로세스다. Connector·정규화·변경 감지 코드는 `web/server/ingestion`에 두고 worker가 import한다.
 - worker는 `SUPABASE_SERVICE_ROLE_KEY`로 Supabase에 쓴다. 공고 표(`bid_notices`, `bid_revisions`, `bid_documents`)와 `ingest_runs`·`ingest_errors`·`outbox_events`는 화면 역할에 쓰기 권한이 없고 worker만 쓴다([[04-DATABASE|04 DB]] §3).
 - service role은 RLS를 무시한다. 공고는 공용 데이터라 `org_id`가 없다. 조직이 걸리는 행(수동 수집 감사 `INGEST_MANUAL`, 조직 사용자에게 가는 알림)은 job 데이터의 `orgId`를 직접 넣는다. 조직 표에 쓰는 worker 코드에는 테넌트 혼입 시험을 둔다.
-- 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다.
+- 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다(§2.7).
 - 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다.
 - 공고·revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 한 번에(원자적으로) 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘겨 리허설마다 공고 id를 보존한다([[16-DECISIONS|ADR-030]] B18).
 - 변경 감지 뒤 하위 job은 outbox와 `documents` 큐만 Redis/BullMQ로 만든다. 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집 주기는 기본 30분이고 env `G2B_INGEST_INTERVAL_MINUTES`로 바꾼다(B18, §2.2).
@@ -124,17 +124,25 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
   - 정정·취소: `inqryDiv=3`(변경일시)
   - 기간: `inqryBgnDt`·`inqryEndDt`(`YYYYMMDDHHMM`)
 - 수집 창
-  - 일정 실행(BullMQ repeatable job): 직전 성공 체크포인트 ~ 지금. 요청 한 번은 최대 1일 단위로 나눠 조회한다.
-  - 수동 실행(`POST /api/v1/admin/ingestion/runs`의 `window`, [[05-API-SPEC|05 API]]): 최대 7일.
+  - 일정 실행(BullMQ repeatable job)과 `window` 없는 수동 실행: 직전에 성공한 일정 run의 창 끝 ~ 지금(분 내림). 일정 run이 없으면 지금 − 1일부터다. 마지막 일정 run이 `FAILED`면 새 창을 열지 않고 그 창을 다시 쓴다. worker를 다시 띄울 때도 같다(일정 run은 jobKey `g2b:SCHEDULED:<창 끝>`이 같아져 저장된 cursor부터 잇는다, §2.6). 요청 한 번은 최대 1일 단위로 나눠 조회한다.
+  - 수동 실행(`POST /api/v1/admin/ingestion/runs`의 `window`, [[05-API-SPEC|05 API]]): 최대 7일, `from < to`, `to`는 지금 + 5분까지(§2.7).
   - API가 허용하는 조회 기간 상한은 미확인이다(§1.1 콜아웃). 실측해서 나눠 조회하는 단위를 조정한다.
 - 정보화사업 필터: `infoBizYn`은 요청 파라미터가 아니다. 어느 오퍼레이션의 명세에도 없고, 요청에 넣어도 오류 없이 무시된다(2026-10-19 실호출). 그래서 응답의 `infoBizYn`으로 클라이언트 쪽에서 거른다. 7일 100건 표본에서 `Y`는 6건이고 약 93%가 빈값(`""`)이라 `Y`만 받으면 대부분을 놓친다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md) §10-4). 그래서 필터를 넓힌다([[16-DECISIONS|ADR-029]] A4): `infoBizYn='Y'` **또는** `sucsfbidMthdNm`에 "SW사업" 포함 **또는** `pubPrcrmntClsfcNm`이 정보시스템·SW 분류. 필터는 교체할 수 있는 순수 함수로 두고 기본값이 이 규칙이다. 업종코드 필터는 쓰지 않는다.
-- 보조 조회 3종(면허제한 `getBidPblancListInfoLicenseLimit`, 참가가능지역 `getBidPblancListInfoPrtcptPsblRgn`, e발주 첨부 `getBidPblancListInfoEorderAtchFileInfo`)은 **새 revision일 때만** 부른다. 세 오퍼레이션은 `inqryDiv`가 필수다. 공고 1건만 받으려면 `inqryDiv=2` + `bidNtceNo`(+기간)로 부른다. `inqryDiv=1`(기간)은 `bidNtceNo`를 무시하고 기간 안 전체(물품·공사·용역)를 돌려주고, `inqryDiv=3`은 오류 `07`(입력범위값 초과)이다(2026-10-19 실호출). 공고마다 1회 부를지, 수집 창과 같은 기간으로 받아 `bidNtceNo`+`bidNtceOrd`로 붙일지는 정하지 않았다(증거 §10-3).
+- 보조 조회 3종(면허제한 `getBidPblancListInfoLicenseLimit`, 참가가능지역 `getBidPblancListInfoPrtcptPsblRgn`, e발주 첨부 `getBidPblancListInfoEorderAtchFileInfo`)은 **새 revision일 때만** 부른다(취소처럼 분석하지 않는 revision은 빼고, 아래 다시 채우기는 예외). 세 오퍼레이션은 `inqryDiv`가 필수다. 공고 1건만 받으려면 `inqryDiv=2` + `bidNtceNo`(+기간)로 부른다. `inqryDiv=1`(기간)은 `bidNtceNo`를 무시하고 기간 안 전체(물품·공사·용역)를 돌려주고, `inqryDiv=3`은 오류 `07`(입력범위값 초과)이다(2026-10-19 실호출).
+  - 구현은 공고 단위다(main `c6b16e3`): 공고 1건마다 세 오퍼레이션을 `inqryDiv=2` + `bidNtceNo`(+ 차수가 있으면 `bidNtceOrd`) + 등록일 −1일~+6일 기간으로 한 번씩 부르고, 응답에서 그 공고의 행만 남긴다.
+  - 결과는 `NormalizedBid.auxLookup`(`OK`·`FAILED`·`SKIPPED_QUOTA`, [[15-DATA-CONTRACTS|15 데이터 계약]] §3)에 남는다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부른다(다시 채우기). 셋 다 받으면 `CHANGED` revision으로 저장하고, 또 실패하면 revision을 늘리지 않는다.
+  - e발주 첨부의 URL은 첨부 허용 목록(`https://www.g2b.go.kr/pn/`, §2.4) 안이어야 저장한다. 목록 첨부(`ntceSpecDocUrl1~10`)도 같다([[15-DATA-CONTRACTS|15]] §6 `ATTACHMENT_URL_BLOCKED`).
 - 사전규격은 일정 실행, 발주계획은 하루 1회, 업종 코드 마스터는 수동으로 받아 사전으로 저장한다(키별 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8).
-- 호출 예산은 서비스마다 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST)로 따로 센다.
-  - 한도의 90%에 닿으면 보조 조회를 멈춘다. 그 공고는 `확인 필요`(`NEEDS_REVIEW`, 정보 부족)로 남긴다.
-  - 에러코드 22(일일 허용량 초과)를 받으면 그 서비스의 그날 호출을 멈춘다. 다른 서비스의 수집은 계속한다. 입찰공고정보서비스가 멈추면 목록과 보조 조회 3종이 함께 멈춘다.
-  - data.go.kr XML 오류 봉투의 `returnReasonCode`는 22 = `QUOTA_EXCEEDED`(위 처리), 30·31 = 키 오류(재시도하지 않는다)로 읽는다([[16-DECISIONS|ADR-030]] B17). 실측 표본이 없는 **미검증 가정**이다(16 미결정 1번).
+- 호출 예산은 서비스마다 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST 날짜, TTL 2일)로 따로 센다. 한도(`dailyLimit`)는 registry `quota.daily`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)다. 지금 수집하는 서비스는 입찰공고정보서비스(15129394)뿐이라 `live` worker의 카운터도 그 하나다(main `c6b16e3`). worker는 호출 직후마다 더한다(목록 쪽 한 번은 재시도까지, 공고 1건의 보조 조회 묶음). `ingest_runs.quota_used`는 그 run이 쓴 공공 API 호출 수다(목록 + 보조, 재시도 포함).
+  - 목록 쪽을 부르기 전에 그날 예산이 소진됐으면 목록을 부르지 않고 run을 `FAILED`로 닫는다(`ingest_errors` `source_key` `g2b:quota`, `QUOTA_EXCEEDED`).
+  - 공고마다 보조 조회 전에 한도의 90%에 닿았으면 보조 조회를 건너뛴다. 새 revision은 `auxLookup.status=SKIPPED_QUOTA`로 저장하고 그 공고는 `확인 필요`(`NEEDS_REVIEW`, `NOTICE_INFO_MISSING`)로 남긴다. 다시 채우기는 미룬다(revision 없음).
+  - 에러코드 22(일일 허용량 초과)를 받으면 그날 카운터를 한도까지 올리고 같은 run의 남은 호출(남은 공고의 보조 조회·다음 쪽)을 모두 멈춘다. 이미 받은 행만 저장하고 cursor를 보존한 채 `FAILED`다(`g2b:quota` `QUOTA_EXCEEDED`, `result_code` 22). 카운터가 서비스마다 따로라 다른 서비스의 수집은 계속한다. 입찰공고정보서비스가 멈추면 목록과 보조 조회 3종이 함께 멈춘다.
+  - 예산 저장소(Redis)를 읽지 못하면 남았다고 보지 않고 목록 호출 없이 `FAILED`다(`g2b:quota` `QUOTA_STORE_UNAVAILABLE`, 사용자 결정 2026-10-20). worker의 예산 연결은 장애 때 기다리지 않고 바로 실패한다(`enableOfflineQueue: false`·`maxRetriesPerRequest: 1`·`commandTimeout` 2000ms, main `2db27c1`).
+  - 실패한 일정 run의 창은 다음 일정 실행과 worker 재기동 때 다시 쓴다(위 "수집 창").
+  - **운영 결정**([[16-DECISIONS|ADR-035]] F11, 사용자 결정 2026-10-20): `live` 영구 실패(서비스키 거부 등)면 `FAILED` 창을 다시 써서 같은 창에 머문다. 예산이 소진된 날에는 일정 주기(30분)마다 `g2b:quota` 기록이 1건씩 쌓인다(호출 0). 해커톤 동안 받아들인다. 해커톤 뒤 후속: 같은 오류는 하루 1건으로 줄이고, 영구 실패면 그 창을 포기하는 규칙을 둔다.
+  - data.go.kr XML 오류 봉투의 `returnReasonCode`는 22 = 일일 한도 초과(호출 자체의 오류 코드는 `API_QUOTA_EXCEEDED`, 위 처리), 30·31 = 키 오류(재시도하지 않는다)로 읽는다([[16-DECISIONS|ADR-030]] B17). 실측 표본이 없는 **미검증 가정**이다(16 미결정 1번).
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
+  - 실측(2026-10-20 C8, [증거](evidence/demo-day/20261020-1434/run-modes.md)): 24시간 창 하나에 정보화 공고 86건, 호출 266회(목록 쪽 5 + 새 revision 87 × 보조 3, 재시도 0). `live`로 바꾸면 worker 기동 직후 첫 일정 run이 이만큼(약 260회) 쓴다([[12-ROADMAP|12 로드맵]] S0 `live` 전환 비용).
 - 초당 30 tps(참고문서)를 넘지 않는다.
 - 일정 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(worker 전용, 선택): 기본 `30`(분)이고 양의 정수만 받는다. 틀리면 worker가 env 이름만 알리고 멈춘다(`web/worker/ingest-queue.ts`의 `DEFAULT_G2B_INGEST_INTERVAL_MINUTES`, main `9da17c4`). main `4895010`부터 `infra/compose.yaml`이 이 키를 worker `environment`에 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에서는 기본값 30분이 쓰인다([[10-DEPLOYMENT|10 배포]] env 파일 위치 표, [[16-DECISIONS|ADR-031]] C13).
 
@@ -191,6 +199,19 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
   - 결정 모델 state에는 "RFP attachment could not be read; requirements may be incomplete"라는 사실 한 줄만 넣는다. 읽지 못한 문서의 요구사항으로 결정 모델 질문을 만들지 않는다.
   - `/explain`은 파싱 실패를 문장에 반드시 밝힌다.
 - 데이터 출처는 자동으로 바꾸지 않는다(live → fixture 없음). AI의 mock 자동 대체는 기본 금지이고, 켜는 조건(`AI_FALLBACK_TO_MOCK`)과 표시(`MOCK_FALLBACK`·배너)는 [[03-AI-PIPELINE|03 AI 파이프라인]]을 따른다.
+
+### 2.7 수동 수집 (`POST /api/v1/admin/ingestion/runs`)
+
+요청·응답·오류 코드 계약은 [[05-API-SPEC|05 API]] §1·§2·§5·§6.5가 정본이고, 화면은 [[06-UI-UX|06 UI]] §5.8이다. 수집 쪽에서 지킬 것만 적는다(main `81249f0`, [[16-DECISIONS|ADR-035]] F1).
+
+- Route Handler는 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. run id는 Route Handler가 만들어 job data `runId`로 넘기고, worker가 그 id로 `ingest_runs` 행을 만든다. 202 본문은 행이 생기기 전 모습(`RUNNING`, summary 0)을 합성한 것이다. 행이 생기기 전 `GET /runs/:id`는 404이고, 화면은 이력 표를 polling한다.
+- `Idempotency-Key`가 없으면 서버가 UUID를 만든다(분석 [[16-DECISIONS|ADR-030]] B20과 같다). 저장 멱등 키(`ingest_runs.idempotency_key`)는 `<orgId>:<requestId>`, jobKey는 `manual:<orgId>:<requestId>`다.
+- 같은 키 판정은 Redis `idem:ingest:<orgId>:<requestId>`(SET NX, 24시간)로 한다. 같은 본문이면 첫 202를 그대로 다시 주고(실행 중이어도 같다), 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`다. 큐에 넣다 실패하면 그 키를 지워 같은 키로 다시 받게 하고 `503 {component:"queue"}`를 준다.
+- `stages`는 생략하거나 `["NOTICE"]`만 받는다(그 밖은 400). worker가 지금 공고 단계만 수집하기 때문이다. g2b run의 `params`에는 실제 적용값 `{window, stages:["NOTICE"]}`가 남는다.
+- 조직당 5회/분은 `POST`만 센다. 목록·단건 `GET`과 화면 polling은 세지 않는다.
+- `409 INGESTION_IN_PROGRESS`는 멱등 재현 뒤에 같은 source의 `RUNNING` 행으로 판정한다. 큐에만 있는 job은 막지 않는다(worker가 jobKey로 멱등 처리한다).
+- 요청자(`requestedBy`)는 `ingest_runs.requested_by`가 아니라 요청한 조직의 감사(`audit_logs` `INGEST_MANUAL`의 `actor_id`)로 찾는다. worker는 run을 끝낸 뒤 이 감사를 남긴다(모드가 맞지 않아 거절한 run도 남긴다). 같은 조직이면 `{id,name}`, 다른 조직이거나 감사가 남기 전이면 `null`이다. 화면 역할은 `ingest_runs`의 `job_key`·`idempotency_key`·`requested_by`·`params`를 읽지 못한다([[04-DATABASE|04 DB]] §3.6, `20261019000019`).
+- worker가 멈춰 `RUNNING`으로 남은 fixture run은 `pnpm demo:reset`이 fixture 수집 run을 모두 지우면서 풀린다. g2b run은 지우지 않는다. 오래된 `RUNNING` 행의 정리 규칙은 정하지 않았다([[16-DECISIONS|16 ADR]] 미결정 25번).
 
 ## 3. 데이터 정규화
 

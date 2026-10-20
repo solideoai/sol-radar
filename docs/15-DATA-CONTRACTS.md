@@ -156,6 +156,10 @@ interface NormalizedBid {
   content: string;              // 본문 텍스트. §5.1 정규화 적용
   attachments: { name: string; url: string; mimeType?: string; sizeBytes?: number }[];
   structuredQualifications: StructuredRequirement[];  // 공고 API 구조화 자격. fixture·사전규격·발주계획은 빈 배열일 수 있다
+  auxLookup?: {                 // 보조 조회 3종(면허제한·참가가능지역·e발주 첨부, 07 §2.2)의 결과. live 수집이 보조 조회를 시도한 revision 에만 있다
+    status: "OK" | "FAILED" | "SKIPPED_QUOTA";   // OK = 셋 다 받음, FAILED = 하나라도 실패(22 뒤 부르지 않은 것 포함), SKIPPED_QUOTA = 호출 예산 90% 로 부르지 않음
+    failed: string[];           // 받지 못한 보조 조회의 registry 키(호출 순서). OK 면 빈 배열
+  };
   original: {                   // 정규화 전 원본 문자열. 감사·디버그용
     noticeNo?: string; budget?: string; noticeDate?: string; deadline?: string; stage?: string; status?: string;
   };
@@ -182,8 +186,11 @@ interface StructuredRequirement {
 |필수|`source`, `noticeId`, `title`, `sourceUrl`, `stage`, `fetchedAt`|레코드 격리(`ingest_errors`), 적재하지 않음|
 |선택|`budgetKrw`, `deadlineAt`, `noticeDate`, `agency`, `content`, `attachments`, `planRef`, `preSpecRef`, `normalizationNotes`|null 유지. `original`에 원본 문자열은 남긴다|
 |선택(빈 배열)|`structuredQualifications`|빈 배열. 규칙 엔진은 추출값으로 판정한다|
+|선택(없음)|`auxLookup`|보조 조회를 시도하지 않은 revision(fixture·취소·보조 조회 도입 전)에는 키가 없다|
 
 `checksum`은 canonical JSON(키 정렬, 공백 없음, `fetchedAt`·`checksum` 제외)의 sha256이다. 같은 `source+noticeId`에서 checksum이 바뀌면 새 revision이다.
+
+- **`auxLookup`**(main `c6b16e3`, [[16-DECISIONS|ADR-035]] F7): checksum에 포함된다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부르고(다시 채우기), 셋 다 받으면 `CHANGED` revision으로 저장한다. 또 실패하면 revision을 늘리지 않는다. 같은 공고의 재수집이 `DUPLICATE`로 걸러지도록, 변경 판정의 1차 비교는 저장된 revision에서 보조 조회 유래 부분(면허제한·지역 행, e발주 첨부, `auxLookup`)을 뺀 "목록만" 모양으로 한다([[07-DATA-PIPELINE|07 수집]] §2.2·§5). 규칙 엔진은 `auxLookup`이 `OK`가 아니면 `structured:AUX_LOOKUP` 한 건을 `NEEDS_REVIEW`(`NOTICE_INFO_MISSING`)로 둔다. 구조화 자격이 비어 있어도 "제한 없음"으로 읽지 않는다(`web/server/scoring/qualification.ts` `auxLookupChecks`, [[08-SCORING|08 점수]]).
 
 - live 공고의 원본 필드 → `NormalizedBid` 매핑은 [[07-DATA-PIPELINE|07 수집]] §3.1이다.
 - **개인정보**: 공공 API 응답의 담당자 필드(이름·전화·이메일)는 `NormalizedBid`·`StructuredRequirement.value`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
@@ -306,6 +313,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |마감이 공고일보다 이전|적재하되 `status` 그대로, 경고 `DATE_ORDER`|
 |본문 인코딩 깨짐(치환 문자 비율 > 5%)|`content` 보존, 경고 `ENCODING_DEGRADED`, 추출 상태 `PENDING_REVIEW`|
 |외부 API 429|Retry-After 후 재시도, `summary.retried` +1. 소진 시 `error_code=RATE_LIMITED`|
+|첨부 URL이 허용 목록(`https://www.g2b.go.kr/pn/`) 밖|그 첨부를 저장하지 않는다. 목록 첨부(`ntceSpecDocUrl1~10`)는 경고 `ATTACHMENT_URL_BLOCKED` 1건에 걸러진 칸 이름만 적는다(`attachment url not allowed: <칸 이름>`, URL은 기록하지 않는다). e발주 첨부 행은 경고 없이 뺀다. 공고는 적재한다. 저장하는 URL은 URL 파서가 정규화한 href다([[09-SECURITY\|09 보안]] SSRF, [[16-DECISIONS\|ADR-035]] F8)|
 |같은 checksum 재수집|적재 생략, `summary.skippedDuplicate` +1 (오류 아님)|
 
 첨부 다운로드·파싱 실패와 공공 API 오류·호출 예산(90% 도달 시 보조 조회 중단)의 처리는 [[07-DATA-PIPELINE|07 수집]] §2.2·§2.6과 [[03-AI-PIPELINE|03 AI 파이프라인]] §8·§10.5가 정본이다. 이때 `ingest_errors.error_code`는 파싱 실패면 `ATTACHMENT_PARSE_FAILED`, 정책상 다운로드 거부(allowlist·크기·MIME, [[09-SECURITY|09 보안]])면 `ATTACHMENT_REJECTED`다. 값 목록은 [[04-DATABASE|04 DB]] `ingest_errors`다.

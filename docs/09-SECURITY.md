@@ -71,7 +71,7 @@ updated: 2026-10-20
 
 표기는 [[05-API-SPEC|05 API]]와 동일하게 허용 역할 나열. 역할이 목록에 없으면 `403 FORBIDDEN`.
 
-**조직 격리는 RLS가 강제한다.** 조직 데이터 표(`company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews`·`notifications`·`audit_logs` 등)는 `org_id`를 갖고 RLS `org_id in (select public.my_org_ids())`로 거른다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 토큰)으로 DB를 부르므로 코드가 조직 조건을 빠뜨려도 RLS가 막는다. 사용자가 보낸 orgId는 신뢰하지 않는다. **다른 조직 자원은 행이 보이지 않아 `404 NOT_FOUND`**가 된다(존재 여부를 숨긴다). 공고(공용) 표는 `authenticated` 읽기만 열고 쓰기는 worker(service role)만 한다. 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 정책 시험은 `scripts/database.test.mjs`(PGlite, `pnpm test:db`)에 둔다.
+**조직 격리는 RLS가 강제한다.** 조직 데이터 표(`company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews`·`notifications`·`audit_logs` 등)는 `org_id`를 갖고 RLS `org_id in (select public.my_org_ids())`로 거른다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 토큰)으로 DB를 부르므로 코드가 조직 조건을 빠뜨려도 RLS가 막는다. 사용자가 보낸 orgId는 신뢰하지 않는다. **다른 조직 자원은 행이 보이지 않아 `404 NOT_FOUND`**가 된다(존재 여부를 숨긴다). 공고(공용) 표는 `authenticated` 읽기만 열고 쓰기는 worker(service role)만 한다. 공용 운영 표 `ingest_runs`는 어느 조직의 `ADMIN`이든 모든 행을 읽으므로, 화면 역할에는 열 11개(`id`·`source`·`run_mode`·`trigger`·`batch`·`cursor`·`status`·`summary`·`quota_used`·`started_at`·`finished_at`)만 select를 준다. 수동 수집의 `job_key`·`idempotency_key`(요청한 조직 id)·`requested_by`(요청자 id)·`params`는 닫아 다른 조직 `ADMIN`에게 조직·요청자 id가 새지 않게 한다(`20261019000019`, N8 보안 점검 W1, [[16-DECISIONS|ADR-035]] F2). 요청자는 조직 소유 감사(`audit_logs` `INGEST_MANUAL`)로 찾는다. 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 정책 시험은 `scripts/database.test.mjs`(PGlite, `pnpm test:db`)에 둔다.
 
 ## 위협과 대응
 |위협|대응|
@@ -96,7 +96,8 @@ updated: 2026-10-20
 
 - **위험**: 같은 조직의 `ADMIN`·`SALES`·`ANALYST`는 PostgREST로 `score_runs`에 요청 행을 직접 insert할 수 있다. 그러면 Route Handler의 속도 제한과 분석 큐를 건너뛰고, 같은 입력의 분석을 최대 10분(멈춘 분석 복구 기준 `ANALYSIS_STALE_QUEUED_MS` 기본 600000) 막을 수 있다. insert 권한은 `20261019000004`의 열 단위 권한과 정책 "분석 요청"이 열고, C6(`20261019000012`)가 `request_hash` 열을 더했다.
 - **범위**: 조직 내부자만 할 수 있고, 다른 조직의 데이터는 읽거나 바꿀 수 없다(데이터 유출 없음).
-- **해커톤 뒤 후속**: ① `score_runs` insert 권한을 회수하고 생성 전용 RPC로 바꾼다 ② `release_unqueued_score_run`에 30초 창과 감사 기록을 더한다 ③ `latest_ingest_run`에서 개인 조직을 뺀다 ④ 여러 조직을 지원할 때 repo 질의에 org 필터를 명시한다 ⑤ 시험 전용 fake-session을 시험 쪽으로 옮긴다.
+- **해커톤 뒤 후속**: ① `score_runs` insert 권한을 회수하고 생성 전용 RPC로 바꾼다 ② `release_unqueued_score_run`에 30초 창과 감사 기록을 더한다 ③ `latest_ingest_run`에서 개인 조직을 뺀다 ④ 여러 조직을 지원할 때 repo 질의에 org 필터를 명시한다 ⑤ 시험 전용 fake-session을 시험 쪽으로 옮긴다 ⑥ `live`에서 한 조직의 `ADMIN`이 수동 g2b 수집(조직당 5회/분)으로 공용 G2B 일일 호출 할당량을 다 쓸 수 있다 ⑦ `GET /api/v1/admin/ai/status`의 `gateway.url`(내부 주소)이 조직 `ADMIN`에게 보인다. `/ops` 분리([[16-DECISIONS|ADR-021]]) 때 운영자 화면으로 옮기거나 가린다 ⑧ 수집 단건 조회(`web/server/ingestion/ingestion-admin.repo.ts` 36~45행 `findRun`)에 조직 조건이 없다. `ingest_runs`는 공용 운영 표라 다른 조직이 요청한 run id로 `GET /api/v1/admin/ingestion/runs/:id`를 부르면 200이다(이때 `requestedBy`는 `null`). 여러 조직을 받을 때 정한다 ⑨ N8 E2E 준비(`web/e2e-auth/support/ingestion-setup.ts` 113~117행)는 env의 `SUPABASE_SERVICE_ROLE_KEY`가 N8 격리 Supabase의 값과 같으면 통과시키므로, 그 env를 그대로 받는 시험용 웹 서버에 service role 키가 넘어갈 수 있다. 시험 전용 경로다.
+- ⑥~⑨는 해커톤 동안 받아들인다(단일 조직 [[16-DECISIONS|ADR-019]], 데모는 fixture, [[16-DECISIONS|ADR-035]] F12). ⑥·⑦은 2026-10-20 사용자 결정(정본 5차 일괄 채택)에 든 항목이고, ⑧·⑨는 병합 게이트(sol-radar-3e)가 넘긴 N8 보안 점검 낮음 L1·L3를 조정 세션(sol-radar-45)이 같은 묶음에 더한 것이다.
 
 ## 책임 있는 AI
 ### 원칙

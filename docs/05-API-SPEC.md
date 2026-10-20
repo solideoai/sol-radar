@@ -25,9 +25,9 @@ updated: 2026-10-20
 |권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 템플릿 호환용이라 이 열에 쓰지 않는다. 구성원 관리도 `sol_role=ADMIN`이다(RLS 정책은 `20261019000001`, [[16-DECISIONS\|ADR-021]]). `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
 |목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
-|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. `POST /bids/:id/analyses`에 키가 없으면 서버가 UUID를 만든다([[16-DECISIONS\|ADR-030]] B20). 분석의 저장 멱등 키는 `<org_id>:<requestId>`이고, requestId(`Idempotency-Key` 값 또는 서버가 만든 UUID)는 `^[A-Za-z0-9_-]{1,128}$`만 받는다. DB check `score_runs_idempotency_key_org_check`가 `<org_id>:`로 시작하는지 강제한다([[04-DATABASE\|04 DB]] §3.4, [[16-DECISIONS\|ADR-031]] C5)|
+|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. 두 엔드포인트 모두 키가 없으면 서버가 UUID를 만든다(분석 [[16-DECISIONS\|ADR-030]] B20, 수동 수집 [[16-DECISIONS\|ADR-035]] F1. 서버가 만든 키는 클라이언트가 모르므로 재현되지 않는다). requestId(`Idempotency-Key` 값 또는 서버가 만든 UUID)는 `^[A-Za-z0-9_-]{1,128}$`만 받는다. 헤더 형식 검사는 엔드포인트마다 다르다. 분석은 UUID가 아니면, 수동 수집은 위 패턴이 아니면 `400 VALIDATION_ERROR`다. 분석의 저장 멱등 키는 `<org_id>:<requestId>`이고, DB check `score_runs_idempotency_key_org_check`가 `<org_id>:`로 시작하는지 강제한다([[04-DATABASE\|04 DB]] §3.4, [[16-DECISIONS\|ADR-031]] C5). 수동 수집의 저장 멱등 키(`ingest_runs.idempotency_key`)는 `<orgId>:<requestId>`, jobKey는 `manual:<orgId>:<requestId>`다. 같은 키 판정은 Redis `idem:ingest:<orgId>:<requestId>`(SET NX, 24시간)로 하고, 큐에 넣다 실패하면 그 키를 지워 같은 키로 다시 받게 한다|
 |요청 ID|모든 응답에 `X-Request-Id`. 로그·감사·오류 본문에 같은 값|
-|속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `/admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 초과 `429` + `Retry-After`|
+|속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `POST /admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 수동 수집은 `POST`만 센다(목록·단건 `GET`과 화면 polling은 세지 않는다). 초과 `429` + `Retry-After`. 횟수를 세는 Redis에 닿지 못하면 두 엔드포인트 모두 `503 SERVICE_UNAVAILABLE {component:"redis"}`|
 |문서|계약의 원천은 zod 스키마다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성하고 개발 환경에서만 노출한다|
 
 ## 2. 엔드포인트
@@ -72,9 +72,9 @@ updated: 2026-10-20
 |POST|`/admin/users/invite`|`ADMIN`|초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
 |PATCH|`/admin/users/:id`|`ADMIN`|업무 역할 변경(`memberships.sol_role`). `:id`는 구성원의 사용자 ID(`profiles.id`). 이 조직 구성원이 아니면 `404`|`UserPatch` → `200 User`|
 |DELETE|`/admin/users/:id`|`ADMIN`|비활성화 = 이 조직에서 내보내기(`memberships` 행 삭제, 템플릿 구성원 기능). 계정 자체 정지(`profiles.status='suspended'`)는 서비스 운영자(`profiles.is_admin`) 기능이라 이 API에 없다|`204`|
-|POST|`/admin/ingestion/runs`|`ADMIN`|수동 수집(멱등). 소스는 `g2b`(나라장터 Open API) 또는 `fixture`. 실행 모드와 맞지 않는 소스는 `409 RUN_MODE_MISMATCH`|`IngestionRunInput` → `202 IngestionRun`|
-|GET|`/admin/ingestion/runs`|`ADMIN`|수집 이력|`Page<IngestionRun>`|
-|GET|`/admin/ingestion/runs/:id`|`ADMIN`|수집 결과·오류|`IngestionRun`|
+|POST|`/admin/ingestion/runs`|`ADMIN`|수동 수집(멱등, §1). 소스는 `g2b`(나라장터 Open API) 또는 `fixture`. 실행 모드와 맞지 않는 소스는 `409 RUN_MODE_MISMATCH`. 검사 순서: 역할 → `Idempotency-Key` 형식 → 본문 크기(16KB) → 속도 제한 → 본문 검증(`window.to`가 지금보다 5분 넘게 미래면 400) → 실행 모드 → 멱등 재현 → 진행 중(같은 source의 `RUNNING` 행이면 `409 INGESTION_IN_PROGRESS {runId}`. 큐에만 있는 job은 막지 않는다. worker가 jobKey로 멱등 처리한다) → 키 잡기 → 큐. Route Handler는 job만 넣는다. run id를 만들어 job data `runId`로 넘기고, worker가 그 id로 `ingest_runs` 행을 만든다. 202 본문은 행이 생기기 전 모습(`status:"RUNNING"`, summary 0)을 합성한 것이다(§6.5)|`IngestionRunInput` → `202 IngestionRun`|
+|GET|`/admin/ingestion/runs`|`ADMIN`|수집 이력. `started_at desc, id desc` keyset, 조직에 묶인 HMAC 커서(커서 비밀이 없으면 `503 {component:"cursor"}`)|`?cursor&limit` → `Page<IngestionRun>`|
+|GET|`/admin/ingestion/runs/:id`|`ADMIN`|수집 결과·오류. id가 UUID가 아니거나 행이 없으면 `404 {resource:"ingestionRun"}`. 202 뒤 worker가 행을 만들기 전에도 404이고, 화면은 이력 표를 polling한다|`IngestionRun`|
 |GET|`/admin/sources`|`ADMIN`|수집 소스 registry 항목별 승인·호출량·최근 성공/오류|`SourceStatus[]`|
 |GET|`/admin/ai/status`|`ADMIN`|실행 모드, AI 공급자, Qwen·결정 모델(Bosun) 상태, 레지스트리 일치, 파서 목록|`AiStatus`|
 |GET|`/admin/ai/models`|`ADMIN`|모델 레지스트리 항목과 현재 활성 항목(gateway `/health`에서 읽음)|`ModelRegistryStatus`|
@@ -361,17 +361,19 @@ interface DashboardSummary {
 interface IngestionRunInput {
   source: "g2b" | "fixture";       // g2b = 나라장터 Open API(OfficialApiConnector), fixture = fixture 20건(FixtureConnector)
   batch?: "seed" | "live";         // fixture 전용이며 fixture에서는 필수. seed: 기동 시 revision 1 적재. live: 데모 중 변경분(정정·취소·기한변경) 투입
-  window?: { from: string; to: string };             // g2b 전용. 최대 7일. 생략하면 직전 성공 체크포인트 ~ 지금. worker 는 1일 단위로 나눠 조회
-  stages?: ("NOTICE" | "PRE_SPEC" | "PLAN")[];       // g2b 전용. 생략하면 세 단계 모두. 실제 적용값은 ingest_runs.params 에 저장
+  window?: { from: string; to: string };             // g2b 전용. 최대 7일, from < to, to 는 지금 + 5분까지. 생략하면 07 §2.2 기본 창. worker 는 1일 단위로 나눠 조회
+  stages?: ["NOTICE"];             // g2b 전용. 생략하거나 ["NOTICE"]만 받는다(그 밖 400). worker 가 지금 공고 단계만 수집하기 때문이다(ADR-035 F1). 실제 적용값은 ingest_runs.params 에 저장
 }
 interface IngestionRun {
-  id: string; source: "g2b" | "fixture"; runMode: RunMode;
+  id: string;                      // 수동 수집이면 Route Handler 가 만들어 job data runId 로 넘긴 값(worker 가 이 id 로 행을 만든다)
+  source: "g2b" | "fixture"; runMode: RunMode;
   batch: "seed" | "live" | null; trigger: "SCHEDULED" | "MANUAL" | "DEMO";
   status: "RUNNING" | "SUCCEEDED" | "PARTIAL" | "FAILED";
   summary: { created: number; changed: number; cancelled: number; skippedDuplicate: number; quarantined: number; retried: number };
   quotaUsed: number;               // 이 run이 쓴 공공 API 호출 수(fixture는 0)
   errors: { sourceKey: string; errorCode: string; resultCode: string | null; detail: string }[];   // redacted. sourceKey는 registry 키, resultCode는 공공 API resultCode
-  cursor: string | null; requestedBy: { id: string; name: string } | null;
+  cursor: string | null;
+  requestedBy: { id: string; name: string } | null;   // 202 본문(같은 키 재현 포함)은 첫 요청자다. 목록·단건은 요청한 조직의 감사(audit_logs INGEST_MANUAL, worker 가 run 을 끝낸 뒤 남긴다)의 actor 로 찾는다. 지금 조직 구성원이면 {id,name}, 다른 조직이 요청했거나 감사가 남기 전(실행 중)이거나 일정·데모 수집이면 null(id 도 내보내지 않는다)
   startedAt: string; finishedAt: string | null;
 }
 interface SourceStatus {           // 수집 소스 registry 항목 하나(15 §8)
@@ -385,16 +387,19 @@ interface SourceStatus {           // 수집 소스 registry 항목 하나(15 §
 interface AiStatus {
   runMode: RunMode;                // SOL_RUN_MODE
   provider: "mock" | "local" | "hosted"; hostedApproved: boolean;
-  gateway: { url: string; healthy: boolean; checkedAt: string };
-  qwen: { model: string | null; runtime: string | null; healthy: boolean | null };   // runtime 예: "vllm"
+  gateway: { url: string; healthy: boolean; checkedAt: string;
+    runMode: RunMode | null };     // gateway /health 가 알린 실행 모드. gateway 가 죽어 있으면 null. web 의 runMode 와 어긋나면 보인다
+  qwen: { model: string | null; runtime: string | null; healthy: boolean | null };   // healthy = gateway 생존 + Qwen 모델 설정(gateway 가 죽어 있으면 null). runtime 은 해커톤 동안 null
   kev: {
-    enabled: boolean; healthy: boolean | null; model: string | null;
+    enabled: boolean;
+    healthy: boolean | null;       // gateway 기동 때 잰 registryMatch. mock 의 null 은 true, local·hosted 의 null 은 null. gateway 가 죽었거나 결정 모델이 꺼져 있으면 null
+    model: string | null;          // 해커톤 동안 null
     modelId: string | null;        // 레지스트리 항목 id(KEV_MODEL_ID)
-    run: string | null; base: string | null; lora: number | null; temperature: number | null;   // 결정 모델 서버(sol_decision, Bosun) GET /v1/models 값. 필드 이름은 Kev wire 호환(ADR-034)
+    run: string | null; base: string | null; lora: number | null; temperature: number | null;   // 결정 모델 서버(sol_decision, Bosun) GET /v1/models 값. 필드 이름은 Kev wire 호환(ADR-034). gateway /health 가 주지 않아 해커톤 동안 null
     registryMatch: boolean | null; // 위 값이 레지스트리 항목과 같은가. false면 gateway가 기동을 거부한다
   };
   questionSetVersion: string | null;                  // 예: "kev-qs/v0.2"
-  parsers: { format: string; parserId: string }[];    // gateway /parse가 지원하는 형식과 어댑터·버전
+  parsers: { format: string; parserId: string }[];    // gateway /parse가 지원하는 형식과 어댑터·버전. parserId 가 null(어댑터 없음)인 형식은 뺀다. 지금은 []
 }
 interface ModelRegistryEntry {     // services/ai/models/registry.yaml 항목(21 §5.4). 가중치는 없다
   id: string; kind: "decision" | "qwen" | "kev";   // ADR-034: 결정 모델은 kind=decision(Bosun). kev 는 퇴역 항목 읽기 호환(B1 예정)
@@ -430,7 +435,9 @@ interface EvalRunReport extends EvalRunSummary {
 }
 ```
 
-`IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`를 생략하면 세 단계(`NOTICE`·`PRE_SPEC`·`PLAN`) 모두이고, 실제 적용값은 `ingest_runs.params`에 남는다. 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE|07 수집]] §2.2)는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
+`IngestionRunInput` 검증: `source=fixture`에 `batch`가 없거나 `window`·`stages`가 있으면, `source=g2b`에 `batch`가 있거나 `window`가 7일을 넘으면 `400 VALIDATION_ERROR`다. 소스와 실행 모드가 맞지 않으면 `409 RUN_MODE_MISMATCH`다. `live` 모드는 `g2b`만, `fixture`·`mock` 모드는 `fixture`만 받는다([[16-DECISIONS|ADR-020]]). `stages`는 생략하거나 `["NOTICE"]`만 받고 그 밖은 `400 VALIDATION_ERROR`다. worker가 지금 공고 단계만 수집하기 때문이다. 실제 적용값(`{window, stages:["NOTICE"]}`)은 `ingest_runs.params`에 남는다([[16-DECISIONS|ADR-035]] F1). 사전규격·발주계획 수집이 생기면 받는 값을 넓힌다.
+
+`AiStatus`의 값은 gateway `/health` 한 번에서만 읽는다(Route Handler가 Qwen·결정 모델을 직접 부르지 않는다, §7). `qwen.healthy`는 "gateway 생존 + Qwen 모델 설정"이고 `kev.healthy`는 gateway 기동 때 잰 `registryMatch`다. 둘 다 실시간 탐침이 아니므로 화면은 "gateway 기준 정상"으로 쓴다. `qwen.runtime`·`kev.model`·`run`·`base`·`lora`·`temperature`는 gateway `/health`가 주지 않아 해커톤 동안 null이다. 응답의 `gateway.url`(내부 주소)이 조직 ADMIN에게 보이는 것은 해커톤 동안 받아들인 위험이다([[09-SECURITY|09 보안]] "해커톤 동안 수용한 위험" ⑦). 서비스키 4개(`G2B_*_SERVICE_KEY`, [[07-DATA-PIPELINE|07 수집]] §2.2)는 서버 전용이며 어떤 응답·오류 본문·로그에도 싣지 않는다([[09-SECURITY|09 보안]]).
 
 `Review.reviewer`와 계정 삭제: 결정한 사람의 계정이 지워지면 `bid_reviews.reviewer_id`는 null이 된다(on delete set null, [[04-DATABASE|04 DB]] §3.4). 계정이 삭제된 결정자는 `{ id: "deleted-user", name: "탈퇴한 사용자", role: null }`로 내보낸다. DTO 타입은 바꾸지 않는다([[16-DECISIONS|ADR-032]] D6, 사용자 결정 2026-10-19. 구현은 C6, main `4ae09f9`).
 
@@ -498,15 +505,15 @@ interface PeoplePage {
 |409|`PROFILE_REVISION_CONFLICT`|`baseRevision` ≠ 최신|`{currentRevision}`|
 |409|`ANALYSIS_IN_PROGRESS`|같은 입력의 run이 `QUEUED`/`RUNNING`인데 `force=true`|`{analysisId}`|
 |409|`IDEMPOTENCY_KEY_REUSED`|같은 키, 다른 본문|—|
-|409|`INGESTION_IN_PROGRESS`|같은 소스 수집이 `RUNNING`|`{runId}`|
+|409|`INGESTION_IN_PROGRESS`|`POST /admin/ingestion/runs`에서 같은 소스의 `ingest_runs` 행이 `RUNNING`. 멱등 재현(같은 키·같은 본문이면 첫 202) 뒤에 판정하고, 큐에만 있는 job은 막지 않는다. 오래 남은 `RUNNING` 행의 정리 규칙은 [[16-DECISIONS\|16 ADR]] 미결정 25번|`{runId}`|
 |409|`PROJECT_REQUIRES_BID_DECISION`|P1. `POST /projects`의 `reviewId`가 BID 결정이 아님([[16-DECISIONS\|ADR-021]])|`{reviewId}`|
 |409|`LATEST_DECISION_NOT_BID`|P1. 입찰 프로젝트를 연 뒤 최신 결정이 BID가 아니어서 상태 전진을 막음. 자동 종료하지 않는다([[16-DECISIONS\|ADR-021]])|`{bidId, latestDecision}`|
 |409|`RUN_MODE_MISMATCH`|`POST /admin/ingestion/runs`의 `source`가 현재 실행 모드(`SOL_RUN_MODE`)와 맞지 않음(`live`에 `fixture`, `fixture`·`mock`에 `g2b`). 서버가 조용히 소스를 바꾸지 않는다([[16-DECISIONS\|ADR-020]])|`{runMode, source}`|
 |422|`INVALID_SOURCE_DOCUMENT`|분석 대상 revision에 본문·첨부 텍스트가 전혀 없음, 또는 수집 fixture 파일이 스키마 위반|`{revisionId}` 또는 `{file, issues}`|
-|422|`HOSTED_NOT_APPROVED`|`AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=false`. `/admin/ai/status`에서만|—|
+|422|`HOSTED_NOT_APPROVED`|`AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=true`가 아님. hosted는 gateway와 web **둘 다** `AI_HOSTED_APPROVED=true`여야 한다(gateway는 승인 없이 기동을 거부하고, web env에 승인 값이 없어도 이 응답이다, [[10-DEPLOYMENT\|10 배포]] env 표). `/admin/ai/status`에서만|—|
 |429|`RATE_LIMITED`|속도 제한(Redis로 세는 §1의 API 제한)|`Retry-After` 헤더|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
-|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20)|`{component:"queue"\|"db"\|"storage"}`|
+|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20). 수동 수집의 큐 등록이 실패하면 잡은 Redis 멱등 키를 지운 뒤 이 응답을 준다. `redis`는 속도 제한·멱등 저장소에 닿지 못함, `cursor`는 커서 서명 비밀(`API_CURSOR_SECRET`)이 없거나 짧음이다|`{component:"queue"\|"db"\|"storage"\|"redis"\|"cursor"}`|
 
 로그인 실패·시도 제한·토큰 갱신 실패는 이 API가 아니라 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
 
@@ -643,21 +650,24 @@ GET /api/v1/analyses/8e3d...
 ### 6.5 수동 수집
 
 ```json
-POST /api/v1/admin/ingestion/runs            (기동 시 SEED 배치)
+POST /api/v1/admin/ingestion/runs            (SEED 배치, SOL_RUN_MODE=mock)
 Idempotency-Key: 1b2c...
 {"source":"fixture","batch":"seed"}
-→ 202 {"id":"...","source":"fixture","batch":"seed","trigger":"MANUAL","status":"RUNNING",
-       "summary":{"created":0,"changed":0,"cancelled":0,"skippedDuplicate":0,"quarantined":0,"retried":0}, ...}
+→ 202 {"id":"<Route Handler 가 만든 runId>","source":"fixture","runMode":"mock","batch":"seed","trigger":"MANUAL","status":"RUNNING",
+       "summary":{"created":0,"changed":0,"cancelled":0,"skippedDuplicate":0,"quarantined":0,"retried":0},
+       "quotaUsed":0,"errors":[],"cursor":null,"requestedBy":{"id":"...","name":"..."},"startedAt":"...","finishedAt":null}
+GET /api/v1/admin/ingestion/runs/:id (worker 가 행을 만들기 전)
+→ 404 {"error":{"code":"NOT_FOUND","message":"...","details":{"resource":"ingestionRun"},"requestId":"..."}}
 GET /api/v1/admin/ingestion/runs/:id (완료 후)
 → {"status":"PARTIAL","summary":{"created":19,"changed":0,"cancelled":0,"skippedDuplicate":0,"quarantined":1,"retried":2},
-   "errors":[{"sourceKey":"fixture:FX-12","errorCode":"MISSING_REQUIRED_FIELD","detail":"title 누락"}], ...}
+   "errors":[{"sourceKey":"fixture:DEMO-2026-0012","errorCode":"MISSING_REQUIRED_FIELD","resultCode":null,"detail":"missing: title"}], ...}
 
 POST /api/v1/admin/ingestion/runs            (데모 중 LIVE 배치)
 {"source":"fixture","batch":"live"}
 → 완료 후 {"status":"SUCCEEDED","summary":{"created":0,"changed":3,"cancelled":1,"skippedDuplicate":1,"quarantined":0,"retried":0},"errors":[], ...}
 ```
 
-SEED의 `retried: 2`는 FX-20(429 Retry-After 재시도) 케이스, `quarantined: 1`은 FX-12. 값은 [[07-DATA-PIPELINE|07 수집]] fixture 표 기준.
+SEED의 `retried: 2`는 FX-20(429 Retry-After 재시도) 케이스, `quarantined: 1`은 FX-12. 값은 [[07-DATA-PIPELINE|07 수집]] fixture 표 기준. 재시도는 `summary.retried` 횟수만 남고 시도별 기록은 저장하지 않는다. 격리 오류의 `sourceKey`는 `<source>:<noticeId>`라 FX-12는 `fixture:DEMO-2026-0012`이고, `detail`은 값 없이 필드 이름만 담는다(`missing: title`, [[15-DATA-CONTRACTS|15 데이터 계약]] §6). 화면은 `errorCode`를 한국어 라벨(`필수 필드 누락`)과 함께 보인다([[06-UI-UX|06 UI]] §5.8). 데모 기동의 SEED는 보통 `pnpm demo:reset`(trigger `DEMO`)이 넣는다.
 
 ### 6.6 live 모드 수집 (나라장터)
 
@@ -728,6 +738,6 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 - [[09-SECURITY|09 보안]] — 세션 쿠키·CSRF·RBAC·RLS
 - [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트
 - [[11-TESTING|11 테스트]] — Route Handler 계약 시험·RLS 정책 시험
-- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.5-27B)
+- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.5-27B), ADR-035(수동 수집 계약·`AiStatus` 보완)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalRunReport` 지표, 모델 레지스트리, 운영자 CLI
 - [[07-DATA-PIPELINE|07 수집]] — `IngestionRunInput` 소스, 나라장터 Connector·정규화
