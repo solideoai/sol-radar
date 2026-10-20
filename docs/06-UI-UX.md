@@ -512,7 +512,7 @@ flowchart TD
 
 ## 12. 증거 스크린샷 상태명
 
-[[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]의 파일명 규칙 `YYYYMMDD-phaseN-<route>-<state>-<width>.png`를 따른다. `state`는 아래 7개만 쓴다. `width`는 1440(기준)과 1280(최소) 두 가지를 찍는다.
+[[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]의 파일명 규칙 `YYYYMMDD-phaseN-<route>-<state>-<width>.png`를 따른다. `state`는 아래 8개만 쓴다. `width`는 1440(기준)과 1280(최소) 두 가지를 찍는다.
 
 | state | 뜻 | 찍는 라우트 (최소) |
 |---|---|---|
@@ -523,6 +523,7 @@ flowchart TD
 | `forbidden` | 403/404 | `admin-ingestion`(VIEWER), `settings-org`(VIEWER) |
 | `partial` | AI 불가 배너 + `RULES_ONLY` | `bid-detail`(`FX-01`), `dashboard` |
 | `demo-badge` | `DEMO` 배지·툴팁 클로즈업 | `bids-list`, `login` |
+| `what-if` | 보유 가정 스위치 1개를 켠 가정 시나리오 띠(원래 → 가정), 결정 패널은 원래 값([[16-DECISIONS\|ADR-037]]) | `bid-detail`(`FX-03`) |
 
 S7(`org-02`)의 화면 증거는 `forbidden`이 아니다. 공고는 공용이라 `org-02`의 상세는 `200`이고 분석·자격·검토가 비어 보인다. 그래서 `bid-detail`(`org-02`)의 "분석 없음" 상태를 `loaded`로 찍고, `GET /api/v1/bids/{FX-01}/qualification-checks`의 `404` 응답을 함께 캡처한다([[16-DECISIONS|ADR-029]] A6 D18). `admin-ingestion`·`people`·`org-chart`·`settings-org`는 확장 컷 화면이라 노출된 뒤에만 찍는다([[16-DECISIONS|ADR-023]]). `/ops`는 해커톤 이후라 찍지 않는다.
 
