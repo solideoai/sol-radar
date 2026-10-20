@@ -5,17 +5,21 @@ export type { PendingDocument, PendingDocumentFinder } from "./pending-documents
 // ── 배럴: ingestion 도메인의 공개 API. 바깥(worker·seed)은 @/server/ingestion 만 부른다 ──
 // 테스트용 메모리 저장소(ingestion.repo.memory.ts)는 내보내지 않는다.
 export {
+  AUX_LOOKUP_STATUSES,
   BID_SOURCES,
   BID_STAGES,
   BID_STATUSES,
   NORMALIZED_BID_SCHEMA_VERSION,
   STRUCTURED_REQUIREMENT_KINDS,
+  auxLookupSchema,
   bidAttachmentSchema,
   normalizedBidDraftSchema,
   normalizedBidSchema,
   structuredRequirementSchema,
 } from "./normalized-bid.model";
 export type {
+  AuxLookup,
+  AuxLookupStatus,
   BidAttachment,
   BidSource,
   BidStage,
@@ -96,6 +100,9 @@ export {
   quotaState,
 } from "./quota";
 export type { QuotaState } from "./quota";
+// 호출 예산 저장 포트(07 §2.2). Redis 구현은 web/worker/quota-store.ts, 메모리 구현은 시험·fixture 용
+export { createMemoryQuotaStore, validateCalls, validateDailyLimit } from "./quota-store";
+export type { IngestQuota, MemoryQuotaStore, QuotaStore } from "./quota-store";
 
 // ── Stage 2: connector·재시도·첨부·저장 포트·수집 흐름 ──
 export {
@@ -184,6 +191,7 @@ export type {
   IngestRunStatus,
   IngestSummary,
   IngestTrigger,
+  LatestRunWindow,
   SavedRevision,
   SavedRevisionDecision,
   SaveRevisionInput,
@@ -191,7 +199,13 @@ export type {
   StartRunInput,
 } from "./ingestion.port";
 
-export { FIXTURE_ANCHOR_PARAM, SEED_ANCHOR_MISSING, runIngest } from "./ingestion.service";
+export {
+  FIXTURE_ANCHOR_PARAM,
+  QUOTA_EXCEEDED_ERROR_CODE,
+  QUOTA_SOURCE_KEY,
+  SEED_ANCHOR_MISSING,
+  runIngest,
+} from "./ingestion.service";
 export type {
   IdFor,
   IngestRunResult,
@@ -251,14 +265,19 @@ export type {
   G2bAuxRows,
 } from "./g2b-aux";
 export {
+  AUX_REGISTRY_KEYS,
   G2B_EORDER_ATTACHMENT_PATH,
+  auxLookupOf,
   eorderAttachmentsOf,
+  isAuxIncomplete,
   licenseRequirementsOf,
   listOnlyRevision,
   mergeG2bAux,
   regionRequirementsOf,
   registeredAtOf,
+  skippedQuotaLookup,
   splitNameAndCode,
+  withAuxLookup,
 } from "./normalize-g2b-aux";
 export {
   DEFAULT_INFO_BIZ_FILTER,
@@ -305,6 +324,7 @@ export {
   APPROVAL_STATUSES,
   SOURCE_REGISTRY_SCHEMA_VERSION,
   callableSource,
+  dailyQuotaOf,
   loadSourceRegistry,
   sourceRegistrySchema,
 } from "./source-registry";

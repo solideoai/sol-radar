@@ -254,6 +254,7 @@ describe("G2bAuxFetcher.fetchAux — 결과", () => {
     expect(outcome).toEqual({
       rows: { licenseLimit: [licenseRow()], region: [regionRow()], eorderAttach: [eorderRow()] },
       failures: [],
+      skipped: [],
       calls: 3,
       retried: 0,
     });
@@ -473,6 +474,60 @@ describe("G2bAuxFetcher.fetchAux — 실패는 오퍼레이션마다 따로", ()
     const outcome = await fetcherWith(fetch).fetchAux(REQUEST);
 
     expect([outcome.rows, outcome.failures.length, outcome.calls]).toEqual([EMPTY_AUX_ROWS, 3, 3]);
+  });
+
+  // C8 M1(07 §2.2): 22 는 같은 서비스의 다음 호출도 같은 답이다. 남은 오퍼레이션을 부르지 않고 skipped 로 알린다.
+  it("면허제한이 일일 한도(22)면 지역·e발주를 부르지 않고 skipped 에 두 키를 돌려준다(호출 1)", async () => {
+    const { calls, fetch } = routedFetch({
+      ...ALL_OK,
+      [LICENSE_OP]: () => json(errorBody("22", "서비스 요청제한횟수 초과에러")),
+    });
+
+    const outcome = await fetcherWith(fetch).fetchAux(REQUEST);
+
+    expect([
+      calls.map(({ operation }) => operation),
+      outcome.failures.map(({ registryKey, failure }) => [registryKey, failure.kind]),
+      outcome.skipped,
+      outcome.rows,
+      outcome.calls,
+    ]).toEqual([
+      [LICENSE_OP],
+      [["g2b-bid-license-limit", "QUOTA_EXCEEDED"]],
+      ["g2b-bid-region", "g2b-bid-eorder-attach"],
+      EMPTY_AUX_ROWS,
+      1,
+    ]);
+  });
+
+  it("마지막 오퍼레이션(e발주)이 22 면 앞의 행은 담고 skipped 는 비어 있다", async () => {
+    const { fetch } = routedFetch({
+      ...ALL_OK,
+      [EORDER_OP]: () => json(errorBody("22", "서비스 요청제한횟수 초과에러")),
+    });
+
+    const outcome = await fetcherWith(fetch).fetchAux(REQUEST);
+
+    expect([
+      outcome.rows,
+      outcome.failures.map(({ registryKey }) => registryKey),
+      outcome.skipped,
+    ]).toEqual([
+      { licenseLimit: [licenseRow()], region: [regionRow()], eorderAttach: [] },
+      ["g2b-bid-eorder-attach"],
+      [],
+    ]);
+  });
+
+  it("결과 코드 07(한도 아님)은 남은 오퍼레이션을 계속 부른다(skipped 없음)", async () => {
+    const { fetch } = routedFetch({
+      ...ALL_OK,
+      [LICENSE_OP]: () => json(errorBody("07", "입력범위값 초과 에러")),
+    });
+
+    const outcome = await fetcherWith(fetch).fetchAux(REQUEST);
+
+    expect([outcome.skipped, outcome.calls]).toEqual([[], 3]);
   });
 
   it("오류 메시지가 서비스키를 되돌려 줘도 detail 에 키가 없다", async () => {

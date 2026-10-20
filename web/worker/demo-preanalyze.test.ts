@@ -87,6 +87,7 @@ function recordingIngestionRepo(): {
     findLatestRevision: async () => null,
     findLatestSeedAnchor: async () => null,
     findLatestRunWindowEnd: async () => null,
+    findLatestRunWindow: async () => null,
     saveRevision: async (input) => save(input),
     recordError: async () => undefined,
     saveCheckpoint: async () => undefined,

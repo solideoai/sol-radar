@@ -8,6 +8,7 @@ import {
   dbErrorCodeOf,
   toIngestErrorInsert,
   toIngestRunInsert,
+  toLatestRunWindow,
   toManualAuditInsert,
   toQuotaUsedUpdate,
   toSaveRevisionParams,
@@ -33,6 +34,7 @@ export type {
   SaveRevisionInput,
   SavedRevision,
   IngestionRepo,
+  LatestRunWindow,
 } from "./ingestion.port";
 
 // ── Supabase 구현(service role). worker·demo:reset 이 관리자 연결을 넘긴다 ──
@@ -142,6 +144,20 @@ export function createSupabaseIngestionRepo(
 
     async findLatestRunWindowEnd(source, trigger) {
       return windowEndOfParams(await latestFinishedParams(source, { trigger }));
+    },
+
+    // C8: 상태와 상관없이 가장 최근 run 이다(FAILED 창을 다시 쓰려고). 끝난 run 만 보는 위 둘과 다르다.
+    async findLatestRunWindow(source, trigger) {
+      const { data, error } = await client
+        .from("ingest_runs")
+        .select("status, params")
+        .eq("source", source)
+        .eq("trigger", trigger)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw repoError("ingest_runs 조회", error);
+      return data ? toLatestRunWindow(data) : null;
     },
 
     async saveRevision(input) {

@@ -5,6 +5,7 @@ import { readGatewayConfig, readRunMode as readAnalysisRunMode } from "@/server/
 import {
   DOCUMENTS_QUEUE,
   G2B_AUX_OPERATIONS,
+  G2B_BID_NOTICE_SERVICE_ID,
   INGEST_JOB_NAME,
   INGEST_QUEUE,
   callableSource,
@@ -14,9 +15,11 @@ import {
   createPendingDocumentFinder,
   createSupabaseIngestAudit,
   createSupabaseIngestionRepo,
+  dailyQuotaOf,
   enqueueDocuments,
   loadFixtureManifest,
   loadSourceRegistry,
+  type IngestQuota,
   type JobQueue,
 } from "@/server/ingestion";
 import { createNotificationOutboxStore } from "@/server/notifications";
@@ -35,6 +38,7 @@ import {
   type IngestJobDeps,
   type RunMode,
 } from "@/worker/ingest-queue";
+import { createRedisQuotaStore } from "@/worker/quota-store";
 import { checkReadiness, createReadinessProbes } from "@/worker/readiness";
 import { SYSTEM_QUEUE, processSystemJob } from "@/worker/system-queue";
 
@@ -186,7 +190,8 @@ const registryFileOf = (env: Env): string =>
   env.SOURCES_REGISTRY_FILE?.trim() ||
   path.resolve(process.cwd(), "../infra/sources/registry.yaml");
 
-type G2bSource = { endpoint: string; serviceKey: string };
+/** dailyLimit 은 registry quota.daily(07 §2.2 호출 예산). 없으면 기동을 멈춘다 */
+type G2bSource = { endpoint: string; serviceKey: string; dailyLimit: number };
 type IngestConfig = {
   runMode: RunMode;
   intervalMinutes: number;
@@ -215,9 +220,14 @@ async function resolveG2bSource(env: Env): Promise<G2bSource> {
       );
     }
   }
+  const dailyLimit = dailyQuotaOf(registry, G2B_BID_NOTICE_SOURCE);
+  if (dailyLimit === null) {
+    throw new Error(`수집 소스 ${G2B_BID_NOTICE_SOURCE} 의 quota.daily 가 registry 에 없다`);
+  }
   return {
     endpoint: callable.source.baseUrl,
     serviceKey: readG2bServiceKey(env, callable.source.serviceKeyEnv),
+    dailyLimit,
   };
 }
 
@@ -231,7 +241,11 @@ async function readIngestConfig(env: Env): Promise<IngestConfig> {
   };
 }
 
-function ingestJobDepsOf(config: IngestConfig, documentsQueue: JobQueue): IngestJobDeps {
+function ingestJobDepsOf(
+  config: IngestConfig,
+  documentsQueue: JobQueue,
+  quota: IngestQuota | null,
+): IngestJobDeps {
   const admin = getSupabaseAdmin();
   const { g2b, fixturesDir } = config;
   const retry = {
@@ -271,6 +285,27 @@ function ingestJobDepsOf(config: IngestConfig, documentsQueue: JobQueue): Ingest
     now: () => new Date(),
     retry,
     secrets: g2b === null ? [] : [g2b.serviceKey],
+    ...(quota === null ? {} : { quota }),
+  };
+}
+
+// 호출 예산 카운터(07 §2.2)는 live 에서만 만든다. 공유 연결을 duplicate 해 BullMQ 의 blocking 명령 뒤에 줄 서지 않게 한다.
+function createIngestQuota(
+  connection: IORedis,
+  g2b: G2bSource,
+): { quota: IngestQuota; close: Closable } {
+  const quotaConnection = connection.duplicate();
+  return {
+    quota: {
+      store: createRedisQuotaStore(quotaConnection, { dailyLimit: g2b.dailyLimit }),
+      serviceId: G2B_BID_NOTICE_SERVICE_ID,
+      dailyLimit: g2b.dailyLimit,
+    },
+    close: {
+      close: async () => {
+        quotaConnection.disconnect();
+      },
+    },
   };
 }
 
@@ -286,13 +321,15 @@ export const systemWorkerRegistration: WorkerRegistration = async () => async (c
 export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   const config = await readIngestConfig(rawEnv);
   return async (connection) => {
+    const quotaParts = config.g2b === null ? null : createIngestQuota(connection, config.g2b);
+    const closeQuota: Closable = quotaParts?.close ?? { close: async () => undefined };
     const documentsQueue = new Queue(DOCUMENTS_QUEUE, { connection });
     logErrors(documentsQueue, "documents queue");
     const closeDocuments: Closable = { close: () => documentsQueue.close() };
     try {
       const ingest = await createIngestWorker(
         connection,
-        ingestJobDepsOf(config, documentsQueue),
+        ingestJobDepsOf(config, documentsQueue, quotaParts?.quota ?? null),
         config.intervalMinutes,
       );
       const documents = startDocumentsReconciler({
@@ -304,10 +341,13 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
           console.log(line);
         },
       });
-      // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐.
-      return { close: () => closeAll([closeDocuments, ingest, { close: () => documents.stop() }]) };
+      // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐 → 예산 카운터 연결.
+      return {
+        close: () =>
+          closeAll([closeQuota, closeDocuments, ingest, { close: () => documents.stop() }]),
+      };
     } catch (error) {
-      await closeQuietly([closeDocuments]);
+      await closeQuietly([closeQuota, closeDocuments]);
       throw error;
     }
   };

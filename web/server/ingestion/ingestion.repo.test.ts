@@ -317,3 +317,65 @@ describe("createSupabaseIngestionRepo — ingest_runs.quota_used", () => {
     });
   });
 });
+
+// C8 창 재사용: ingest_runs 에서 source·trigger 가 같은 가장 최근 run(상태 무관)의 status·params 를 읽는다.
+describe("createSupabaseIngestionRepo.findLatestRunWindow (C8)", () => {
+  const WINDOW = { from: "2026-10-18T09:00:00.000Z", to: "2026-10-19T09:00:00.000Z" };
+
+  it("source·trigger 로 걸러 started_at 내림차순 1건의 status·params 를 GET 한다", async () => {
+    const { repo, requests } = recordingRepo({
+      ...OK_ROUTES,
+      runs: { status: 200, body: [{ status: "FAILED", params: { window: WINDOW } }] },
+    });
+
+    const latest = await repo.findLatestRunWindow("g2b", "SCHEDULED");
+
+    const [request] = requests;
+    expect([
+      request?.method,
+      request?.url.pathname,
+      Object.fromEntries(request?.url.searchParams ?? []),
+      latest,
+    ]).toEqual([
+      "GET",
+      "/rest/v1/ingest_runs",
+      {
+        select: "status,params",
+        source: "eq.g2b",
+        trigger: "eq.SCHEDULED",
+        order: "started_at.desc",
+        limit: "1",
+      },
+      { status: "FAILED", window: WINDOW },
+    ]);
+  });
+
+  it("run 이 없으면 null 이다", async () => {
+    const { repo } = recordingRepo({ ...OK_ROUTES, runs: { status: 200, body: [] } });
+
+    await expect(repo.findLatestRunWindow("g2b", "SCHEDULED")).resolves.toBeNull();
+  });
+
+  it("params 에 창이 없으면 window 가 null 이다(상태는 돌려준다)", async () => {
+    const { repo } = recordingRepo({
+      ...OK_ROUTES,
+      runs: { status: 200, body: [{ status: "RUNNING", params: null }] },
+    });
+
+    await expect(repo.findLatestRunWindow("g2b", "SCHEDULED")).resolves.toEqual({
+      status: "RUNNING",
+      window: null,
+    });
+  });
+
+  it("조회가 실패하면 표 이름만 담아 던진다", async () => {
+    const { repo } = recordingRepo({
+      ...OK_ROUTES,
+      runs: { status: 500, body: { code: "XX000", message: "비밀값 섞인 메시지" } },
+    });
+
+    const error = await rejectionOf(repo.findLatestRunWindow("g2b", "SCHEDULED"));
+    expect(String(error)).toContain("ingest_runs");
+    expect(String(error)).not.toContain("비밀값");
+  });
+});

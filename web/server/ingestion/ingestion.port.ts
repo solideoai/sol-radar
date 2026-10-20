@@ -56,6 +56,13 @@ export type StartedRun = {
   quotaUsed?: number;
 };
 
+/** source·trigger 가 같은 run 중 가장 최근 run 의 상태와 수집 창(C8 창 재사용) */
+export type LatestRunWindow = {
+  status: IngestRunStatus;
+  /** params.window. 둘 다 ISO 시각이 아니면 null */
+  window: { from: string; to: string } | null;
+};
+
 export type IngestErrorInput = {
   sourceKey: string;
   errorCode: string;
@@ -88,6 +95,11 @@ export type IngestionRepo = {
    * 7-1: 일정 수집 창은 SCHEDULED run 만 잇는다. MANUAL 의 미래 창이 일정 수집을 건너뛰게 하지 않는다
    */
   findLatestRunWindowEnd(source: "g2b", trigger: "SCHEDULED"): Promise<Date | null>;
+  /**
+   * source·trigger 가 같은 run 중 가장 최근(started_at) run 의 상태와 params.window(상태와 무관, RUNNING·FAILED 포함). 없으면 null.
+   * C8: FAILED 로 끝난 일정 run 의 창을 다시 써 재기동마다 새 24h 창을 열지 않는다(web/worker/ingest-queue.ts)
+   */
+  findLatestRunWindow(source: "g2b", trigger: "SCHEDULED"): Promise<LatestRunWindow | null>;
   /**
    * bid_notices upsert + bid_revisions insert + outbox(event.idempotencyKey) 를 한 트랜잭션으로.
    * 그 뒤 decision.bid.structuredQualifications 를 bid_structured_requirements 에 revision 단위로 쓴다(UNIQUE(revision_id, kind, seq) upsert)

@@ -341,12 +341,35 @@ describe("runIngest — 변경 없는 재수집에는 보조 조회를 부르지
     expect([quotaUsedOf(repo, "g2b:1"), quotaUsedOf(repo, "g2b:2")]).toEqual([4, 1]);
   });
 
-  it("보조 조회가 실패했던 공고도 목록이 같으면 DUPLICATE 다(실패를 다시 메우려고 revision 을 만들지 않는다)", async () => {
+  // C8 M2 다시 채우기(07 §2.2): 보조 조회가 불완전했던 공고는 목록이 같아도 다시 부른다. 자세한 시험은 ingestion.service.quota.test.ts.
+  it("보조 조회가 실패했던 공고는 목록이 같아도 보조 3종을 다시 불러 CHANGED 로 저장한다", async () => {
     const repo = createMemoryIngestionRepo();
     const failing = routesWith({
       [LICENSE_OP]: () => json(errorBody("07", "입력범위값 초과 에러")),
     });
     await ingestG2b(repo, routedFetch(failing).fetch, { jobKey: "g2b:1" });
+    const second = routedFetch(routesWith());
+
+    const result = await ingestG2b(repo, second.fetch, { jobKey: "g2b:2", now: LATER_NOW });
+
+    const revisions = memoryRevisionsOf(repo, "g2b-bid-notice", NOTICE_NO);
+    expect([
+      result.summary,
+      second.auxCalls(),
+      revisions.map(({ normalized }) => normalized.auxLookup),
+    ]).toEqual([
+      { ...ZERO, changed: 1 },
+      3,
+      [
+        { status: "FAILED", failed: ["g2b-bid-license-limit"] },
+        { status: "OK", failed: [] },
+      ],
+    ]);
+  });
+
+  it("보조 조회가 다 성공했던 공고는 목록이 같으면 DUPLICATE 이고 보조 호출 0 이다", async () => {
+    const repo = createMemoryIngestionRepo();
+    await ingestG2b(repo, routedFetch(routesWith()).fetch, { jobKey: "g2b:1" });
     const second = routedFetch(routesWith());
 
     const result = await ingestG2b(repo, second.fetch, { jobKey: "g2b:2", now: LATER_NOW });
@@ -575,7 +598,8 @@ describe("runIngest — 보조 조회 실패는 공고를 막지 않는다(07 §
     expect(detail).toContain("[REDACTED]");
   });
 
-  it("일일 한도(22)는 API_QUOTA_EXCEEDED 로 남기고 공고는 저장된다", async () => {
+  // C8 M1(07 §2.2): 22 는 그날 호출을 멈춘다. 받은 공고는 보조 없이 저장하되 run 은 FAILED 다(자세한 시험은 ingestion.service.quota.test.ts).
+  it("일일 한도(22)는 API_QUOTA_EXCEEDED 와 run 수준 QUOTA_EXCEEDED 로 남기고 공고는 저장되지만 run 은 FAILED 다", async () => {
     const repo = createMemoryIngestionRepo();
     const quota = routesWith({
       [EORDER_OP]: () => json(errorBody("22", "서비스 요청제한횟수 초과에러")),
@@ -584,9 +608,21 @@ describe("runIngest — 보조 조회 실패는 공고를 막지 않는다(07 §
     const result = await ingestG2b(repo, routedFetch(quota).fetch, { jobKey: "g2b:1" });
 
     expect([
+      result.status,
       result.summary.created,
-      repo.state.errors.map(({ errorCode, resultCode }) => [errorCode, resultCode]),
-    ]).toEqual([1, [["API_QUOTA_EXCEEDED", "22"]]]);
+      repo.state.errors.map(({ sourceKey, errorCode, resultCode }) => [
+        sourceKey,
+        errorCode,
+        resultCode,
+      ]),
+    ]).toEqual([
+      "FAILED",
+      1,
+      [
+        [`g2b-bid-eorder-attach:${NOTICE_NO}`, "API_QUOTA_EXCEEDED", "22"],
+        ["g2b:quota", "QUOTA_EXCEEDED", "22"],
+      ],
+    ]);
   });
 });
 

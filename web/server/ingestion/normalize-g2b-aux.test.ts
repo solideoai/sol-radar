@@ -7,13 +7,18 @@ import {
   G2B_EORDER_ATTACHMENT_PATH,
   eorderAttachmentsOf,
   licenseRequirementsOf,
+  AUX_REGISTRY_KEYS,
+  auxLookupOf,
+  isAuxIncomplete,
   listOnlyRevision,
+  skippedQuotaLookup,
+  withAuxLookup,
   mergeG2bAux,
   regionRequirementsOf,
   registeredAtOf,
   splitNameAndCode,
 } from "./normalize-g2b-aux";
-import type { NormalizedBidDraft } from "./normalized-bid.model";
+import { normalizedBidSchema, type NormalizedBidDraft } from "./normalized-bid.model";
 import type { StoredRevision } from "./revision";
 
 // 보조 조회 행 → structuredQualifications·attachments(07 §3.1, 15 §3, C1 증거 §5·§10-5·§10-8). 순수 함수 시험.
@@ -411,5 +416,133 @@ describe("registeredAtOf", () => {
     expect(registeredAtOf(listItem({ rgstDt: "어제", bidNtceDt: undefined }), FETCHED_AT)).toEqual(
       FETCHED_AT,
     );
+  });
+});
+
+// C8 L1(09 SSRF): e발주 첨부 URL 은 원문이 아니라 URL 파서가 정규화한 href 로 저장한다.
+describe("eorderAttachmentsOf — href 정규화(L1)", () => {
+  it("호스트 대문자·기본 포트 443·앞뒤 공백은 같은 href 가 된다", () => {
+    const raw = `  HTTPS://WWW.G2B.GO.KR:443/pn/pnp/pnpe/UntyAtchFile/downloadRfpFile.do?rfpNo=R26DH00000001&rfpOrd=000&rfpUntyAtchFileNo=1 `;
+    expect(eorderAttachmentsOf([eorderRow({ eorderAtchFileUrl: raw })])).toEqual([
+      { name: "제안요청서.hwpx", url: RFP_URL(1) },
+    ]);
+  });
+
+  it("실측 모양의 URL 은 href 가 원문과 같다(기존 revision 의 checksum 이 바뀌지 않는다)", () => {
+    expect(eorderAttachmentsOf([eorderRow()])[0]?.url).toBe(RFP_URL(1));
+  });
+
+  it("정규화 뒤 같은 href 는 하나만 남는다", () => {
+    expect(
+      eorderAttachmentsOf([
+        eorderRow({ atchSno: "1" }),
+        eorderRow({
+          atchSno: "2",
+          eorderAtchFileUrl: RFP_URL(1).replace("https://www", "HTTPS://WWW"),
+        }),
+      ]),
+    ).toHaveLength(1);
+  });
+});
+
+// C8 M2: 보조 조회 결과 → auxLookup(15 §3 NormalizedBid.auxLookup, 선택 필드).
+describe("auxLookupOf · skippedQuotaLookup · isAuxIncomplete · withAuxLookup", () => {
+  const failure = (
+    registryKey: "g2b-bid-license-limit" | "g2b-bid-region" | "g2b-bid-eorder-attach",
+  ) => ({
+    operation: "getBidPblancListInfoLicenseLimit" as const,
+    registryKey,
+    failure: { kind: "RESULT_CODE" as const, resultCode: "07", detail: "x" },
+  });
+
+  it("registry 키는 호출 순서(면허제한·지역·e발주)다", () => {
+    expect(AUX_REGISTRY_KEYS).toEqual([
+      "g2b-bid-license-limit",
+      "g2b-bid-region",
+      "g2b-bid-eorder-attach",
+    ]);
+  });
+
+  it("실패·건너뜀이 없으면 OK 이고 failed 는 빈 배열이다", () => {
+    expect(auxLookupOf({ failures: [], skipped: [] })).toEqual({ status: "OK", failed: [] });
+  });
+
+  it("실패한 키와 22 뒤 부르지 않은 키를 합쳐 호출 순서로 적는다(입력 순서와 무관)", () => {
+    expect(
+      auxLookupOf({
+        failures: [failure("g2b-bid-eorder-attach")],
+        skipped: ["g2b-bid-license-limit"],
+      }),
+    ).toEqual({ status: "FAILED", failed: ["g2b-bid-license-limit", "g2b-bid-eorder-attach"] });
+  });
+
+  it("같은 키가 두 번 와도 한 번만 적는다", () => {
+    expect(
+      auxLookupOf({ failures: [failure("g2b-bid-region")], skipped: ["g2b-bid-region"] }).failed,
+    ).toEqual(["g2b-bid-region"]);
+  });
+
+  it("skippedQuotaLookup 은 SKIPPED_QUOTA 에 세 키 모두이고 부를 때마다 새 배열이다", () => {
+    const first = skippedQuotaLookup();
+    expect(first).toEqual({ status: "SKIPPED_QUOTA", failed: [...AUX_REGISTRY_KEYS] });
+    expect(skippedQuotaLookup().failed).not.toBe(first.failed);
+  });
+
+  it("isAuxIncomplete 는 FAILED·SKIPPED_QUOTA 만 참이다(없음·OK 는 거짓)", () => {
+    expect([
+      isAuxIncomplete({}),
+      isAuxIncomplete({ auxLookup: { status: "OK", failed: [] } }),
+      isAuxIncomplete({ auxLookup: { status: "FAILED", failed: ["g2b-bid-region"] } }),
+      isAuxIncomplete({ auxLookup: skippedQuotaLookup() }),
+    ]).toEqual([false, false, true, true]);
+  });
+
+  it("withAuxLookup 은 draft 를 바꾸지 않고 auxLookup 을 더한 복사본을 준다", () => {
+    const draft = draftOf();
+    const merged = withAuxLookup(draft, { status: "OK", failed: [] });
+    expect([draft.auxLookup, merged.auxLookup]).toEqual([undefined, { status: "OK", failed: [] }]);
+  });
+
+  it("auxLookup 이 있는 draft 도 NormalizedBid 스키마를 통과한다. 모르는 status·키는 거부한다", () => {
+    const ok = finalizeRevision(withAuxLookup(draftOf(), skippedQuotaLookup()), 1);
+    expect(normalizedBidSchema.safeParse(ok).success).toBe(true);
+    expect(
+      normalizedBidSchema.safeParse({ ...ok, auxLookup: { status: "PARTIAL", failed: [] } })
+        .success,
+    ).toBe(false);
+    expect(
+      normalizedBidSchema.safeParse({ ...ok, auxLookup: { status: "OK", failed: [], extra: 1 } })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("listOnlyRevision — auxLookup 도 뺀다(C8)", () => {
+  it("auxLookup 이 있는 저장 revision 의 목록만 모양에는 auxLookup 키가 없고 checksum 은 목록만 draft 와 같다", () => {
+    const bid = finalizeRevision(
+      withAuxLookup(mergeG2bAux(draftOf(), rows({ licenseLimit: [licenseRow()] })), {
+        status: "FAILED",
+        failed: ["g2b-bid-region"],
+      }),
+      2,
+    );
+    const previous: StoredRevision = {
+      bidId: "bid-1",
+      revision: 2,
+      checksum: bid.checksum,
+      normalized: bid,
+    };
+
+    const listOnly = listOnlyRevision(previous);
+
+    expect([
+      "auxLookup" in listOnly.normalized,
+      listOnly.checksum,
+      previous.normalized.auxLookup,
+    ]).toEqual([
+      false,
+      finalizeRevision(draftOf(), 2).checksum,
+      { status: "FAILED", failed: ["g2b-bid-region"] },
+    ]);
   });
 });

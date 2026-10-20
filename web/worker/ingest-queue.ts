@@ -8,6 +8,7 @@ import {
   type IdFor,
   type IngestionRepo,
   type IngestJobData,
+  type IngestQuota,
   type IngestRunMode,
   type IngestRunResult,
   type RetryDeps,
@@ -62,6 +63,8 @@ export type IngestJobDeps = {
   retry: RetryDeps;
   idFor?: IdFor;
   secrets: readonly string[];
+  /** 호출 예산(07 §2.2). live 에서만 준다. 없으면 g2b 수집이 예산을 보지 않는다 */
+  quota?: IngestQuota;
 };
 
 const RUN_MODE_OF: Readonly<Record<RunMode, IngestRunMode>> = {
@@ -90,11 +93,15 @@ function parseJobData(data: unknown, now: Date): IngestJobData {
 
 // 6-4 보충: window 가 없으면 트리거와 상관없이 직전 성공 창 끝 ~ 지금(분 내림). 없으면 지금 − 1일부터.
 // 7-1: 직전 창은 SCHEDULED run 의 것만 본다. MANUAL 의 창(미래일 수 있다)을 이으면 일정 수집이 구간을 건너뛴다.
+// C8: 마지막 SCHEDULED run 이 FAILED 면 그 창을 다시 쓴다. jobKey 가 같아져 저장된 cursor 부터 잇는다(07 §2.6).
+// 새 24h 창을 열면 재기동·일정마다 같은 공고를 다시 받고 호출 예산을 또 쓴다.
 async function g2bWindowOf(
   data: Extract<IngestJobData, { source: "g2b" }>,
   deps: IngestJobDeps,
 ): Promise<{ from: string; to: string }> {
   if (data.window !== undefined) return data.window;
+  const last = await deps.repo.findLatestRunWindow("g2b", "SCHEDULED");
+  if (last !== null && last.status === "FAILED" && last.window !== null) return last.window;
   const to = floorToMinute(deps.now());
   const lastEnd = await deps.repo.findLatestRunWindowEnd("g2b", "SCHEDULED");
   const from = lastEnd ?? new Date(to.getTime() - DEFAULT_G2B_LOOKBACK_MS);
@@ -213,6 +220,7 @@ export async function processIngestJob(
           retry: deps.retry,
           secrets: deps.secrets,
           ...(deps.idFor === undefined ? {} : { idFor: deps.idFor }),
+          ...(deps.quota === undefined ? {} : { quota: deps.quota }),
           ...(await auxFor(job, deps)),
         })
       : await rejectRun(run, reason, deps);

@@ -5,6 +5,7 @@ import type {
   IngestionRepo,
   IngestRunStatus,
   IngestSummary,
+  LatestRunWindow,
   SaveRevisionInput,
   StartedRun,
   StartRunInput,
@@ -108,6 +109,8 @@ export type MemoryIngestionRepo = IngestionRepo & {
    * 7-1: 일정 수집 창은 SCHEDULED run 만 잇는다(MANUAL 의 미래 창이 일정 수집을 건너뛰게 하지 않는다)
    */
   findLatestRunWindowEnd(source: "g2b", trigger: "SCHEDULED"): Promise<Date | null>;
+  /** source·trigger 가 같은 run 중 가장 최근(시작 순서) run 의 상태와 params.window(상태와 무관). 없으면 null(C8) */
+  findLatestRunWindow(source: "g2b", trigger: "SCHEDULED"): Promise<LatestRunWindow | null>;
 };
 
 /** C3 계약 6-2 SaveRevisionInput.ids. 포트에 생기기 전에도 읽을 수 있게 따로 꺼낸다 */
@@ -170,6 +173,18 @@ const windowEndOf = (params: Record<string, unknown> | null): Date | null => {
   return typeof to === "string" && ISO_INSTANT.test(to) && !Number.isNaN(Date.parse(to))
     ? new Date(Date.parse(to))
     : null;
+};
+
+const isIsoInstant = (value: unknown): value is string =>
+  typeof value === "string" && ISO_INSTANT.test(value) && !Number.isNaN(Date.parse(value));
+
+// C8: 창을 저장한 문자열 그대로 돌려준다(Supabase 저장소의 windowOfParams 와 같은 규칙).
+const windowOf = (params: Record<string, unknown> | null): { from: string; to: string } | null => {
+  const window: unknown = params?.window;
+  if (typeof window !== "object" || window === null) return null;
+  const from: unknown = "from" in window ? window.from : null;
+  const to: unknown = "to" in window ? window.to : null;
+  return isIsoInstant(from) && isIsoInstant(to) ? { from, to } : null;
 };
 
 export function createMemoryIngestionRepo(): MemoryIngestionRepo {
@@ -235,6 +250,14 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         )
         .at(-1);
       return latest ? windowEndOf(latest.input.params) : null;
+    },
+
+    // C8: 상태와 상관없이 가장 최근에 시작한 run 이다(FAILED 창을 다시 쓰려고).
+    async findLatestRunWindow(source, trigger) {
+      const latest = [...state.runs.values()]
+        .filter((run) => run.input.source === source && run.input.trigger === trigger)
+        .at(-1);
+      return latest ? { status: latest.status, window: windowOf(latest.input.params) } : null;
     },
 
     async findLatestRevision(source, noticeId) {

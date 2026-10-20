@@ -110,3 +110,64 @@ describe("메모리 저장소 findLatestRunWindowEnd(source, trigger) — C3 계
     await expect(repo.findLatestRunWindowEnd("g2b", "SCHEDULED")).resolves.toBeNull();
   });
 });
+
+// C8: 창 재사용은 가장 최근 SCHEDULED run 의 상태를 본다(FAILED 면 그 창을 다시 쓴다). 상태와 무관하게 최근 것이다.
+describe("메모리 저장소 findLatestRunWindow(source, trigger) — C8 창 재사용", () => {
+  const WINDOW = { from: "2026-10-18T03:00:00.000Z", to: SCHEDULED_END };
+
+  it("SCHEDULED run 이 없으면 null 이다", async () => {
+    const repo = createMemoryIngestionRepo();
+    await runWith(repo, g2bRun("manual-1", "MANUAL", MANUAL_FUTURE_END), "FAILED");
+    await expect(repo.findLatestRunWindow("g2b", "SCHEDULED")).resolves.toBeNull();
+  });
+
+  it("FAILED 로 끝난 SCHEDULED run 의 상태와 창을 준다", async () => {
+    const repo = createMemoryIngestionRepo();
+    await runWith(repo, g2bRun("g2b:SCHEDULED:1", "SCHEDULED", SCHEDULED_END), "FAILED");
+    await expect(repo.findLatestRunWindow("g2b", "SCHEDULED")).resolves.toEqual({
+      status: "FAILED",
+      window: WINDOW,
+    });
+  });
+
+  it("가장 최근에 시작한 SCHEDULED run 이다(앞선 FAILED 뒤 SUCCEEDED 면 SUCCEEDED)", async () => {
+    const repo = createMemoryIngestionRepo();
+    await runWith(
+      repo,
+      g2bRun("g2b:SCHEDULED:1", "SCHEDULED", "2026-10-18T03:00:00.000Z"),
+      "FAILED",
+    );
+    await runWith(repo, g2bRun("g2b:SCHEDULED:2", "SCHEDULED", SCHEDULED_END), "SUCCEEDED");
+    await expect(repo.findLatestRunWindow("g2b", "SCHEDULED")).resolves.toMatchObject({
+      status: "SUCCEEDED",
+    });
+  });
+
+  it("끝나지 않은(RUNNING) run 도 돌려준다", async () => {
+    const repo = createMemoryIngestionRepo();
+    await runWith(repo, g2bRun("g2b:SCHEDULED:1", "SCHEDULED", SCHEDULED_END), "RUNNING");
+    await expect(repo.findLatestRunWindow("g2b", "SCHEDULED")).resolves.toEqual({
+      status: "RUNNING",
+      window: WINDOW,
+    });
+  });
+
+  it("그 뒤 MANUAL run 이 있어도 SCHEDULED 것만 본다", async () => {
+    const repo = createMemoryIngestionRepo();
+    await runWith(repo, g2bRun("g2b:SCHEDULED:1", "SCHEDULED", SCHEDULED_END), "FAILED");
+    await runWith(repo, g2bRun("manual-1", "MANUAL", MANUAL_FUTURE_END), "SUCCEEDED");
+    await expect(repo.findLatestRunWindow("g2b", "SCHEDULED")).resolves.toMatchObject({
+      status: "FAILED",
+      window: WINDOW,
+    });
+  });
+
+  it("창이 ISO 시각이 아니면 window 는 null 이다", async () => {
+    const repo = createMemoryIngestionRepo();
+    await runWith(repo, g2bRun("g2b:SCHEDULED:1", "SCHEDULED", "어제"), "FAILED");
+    await expect(repo.findLatestRunWindow("g2b", "SCHEDULED")).resolves.toEqual({
+      status: "FAILED",
+      window: null,
+    });
+  });
+});

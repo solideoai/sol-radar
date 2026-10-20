@@ -41,9 +41,11 @@ export type G2bAuxFailure = {
 };
 
 export type G2bAuxOutcome = {
-  /** 성공한 오퍼레이션의 행(담당자 필드 제거, 다른 공고의 행 제외). 실패한 오퍼레이션은 빈 배열 */
+  /** 성공한 오퍼레이션의 행(담당자 필드 제거, 다른 공고의 행 제외). 실패·미호출 오퍼레이션은 빈 배열 */
   rows: G2bAuxRows;
   failures: G2bAuxFailure[];
+  /** 일일 한도(결과코드 22)를 받은 뒤 부르지 않은 오퍼레이션의 registryKey(호출 순서대로). 22 를 받은 것 자체는 failures 에 있다 */
+  skipped: G2bAuxRegistryKey[];
   /** 이 요청에서 나간 공공 API 호출 수(재시도·쪽 포함). quota_used 에 더한다 */
   calls: number;
   retried: number;
@@ -129,22 +131,28 @@ export function createG2bAuxFetcher(options: G2bAuxFetcherOptions): G2bAuxFetche
   async function fetchAux(request: G2bAuxRequest): Promise<G2bAuxOutcome> {
     const rows: G2bAuxRows = { licenseLimit: [], region: [], eorderAttach: [] };
     const failures: G2bAuxFailure[] = [];
+    const skipped: G2bAuxRegistryKey[] = [];
     let calls = 0;
     let retried = 0;
     // 차례로 부른다. 같은 서비스의 호출이라 동시에 보내면 초당 한도(30 tps)에 더 빨리 닿는다.
-    for (const { operation, registryKey } of G2B_AUX_OPERATIONS) {
+    for (const [index, { operation, registryKey }] of G2B_AUX_OPERATIONS.entries()) {
       const result = await fetchPages(operation, request);
       calls += result.calls;
       retried += result.retried;
       if (!result.ok) {
         failures.push({ operation, registryKey, failure: result.failure });
+        // 일일 한도(22)는 같은 서비스의 다음 호출도 같은 답이다(07 §2.2). 남은 오퍼레이션을 부르지 않는다.
+        if (result.failure.kind === "QUOTA_EXCEEDED") {
+          skipped.push(...G2B_AUX_OPERATIONS.slice(index + 1).map((entry) => entry.registryKey));
+          break;
+        }
         continue;
       }
       rows[ROWS_KEY_OF[operation]] = auxRowsForNotice(result.items, request.noticeId).map(
         stripContactFields,
       );
     }
-    return { rows, failures, calls, retried };
+    return { rows, failures, skipped, calls, retried };
   }
 
   return { fetchAux };

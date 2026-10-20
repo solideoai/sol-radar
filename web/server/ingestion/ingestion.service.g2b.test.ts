@@ -373,15 +373,25 @@ describe("runIngest — g2b 공공 API 실패", () => {
     expect([sleep.mock.calls.length, result.summary.retried]).toEqual([0, 0]);
   });
 
-  it("에러코드 22 는 errorCode API_QUOTA_EXCEEDED·resultCode 22 로 기록한다", async () => {
+  // C8 M1(07 §2.2): 호출 자체의 실패(API_QUOTA_EXCEEDED, 쪽 키)와 run 을 멈춘 기록(QUOTA_EXCEEDED, g2b:quota)을 따로 남긴다.
+  it("에러코드 22 는 쪽 실패 API_QUOTA_EXCEEDED 와 run 수준 QUOTA_EXCEEDED(g2b:quota) 를 resultCode 22 로 기록한다", async () => {
     const repo = createMemoryIngestionRepo();
 
-    await ingestG2b(repo, respondWith(errorEnvelope("22", "서비스 요청제한횟수 초과에러")), {
-      jobKey: "g2b:1",
-    });
+    const result = await ingestG2b(
+      repo,
+      respondWith(errorEnvelope("22", "서비스 요청제한횟수 초과에러")),
+      { jobKey: "g2b:1" },
+    );
 
-    expect(repo.state.errors.map((error) => [error.errorCode, error.resultCode])).toEqual([
-      ["API_QUOTA_EXCEEDED", "22"],
+    expect([
+      result.status,
+      repo.state.errors.map((error) => [error.sourceKey, error.errorCode, error.resultCode]),
+    ]).toEqual([
+      "FAILED",
+      [
+        ["g2b:page:start", "API_QUOTA_EXCEEDED", "22"],
+        ["g2b:quota", "QUOTA_EXCEEDED", "22"],
+      ],
     ]);
   });
 

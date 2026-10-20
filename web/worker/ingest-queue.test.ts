@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
   EMPTY_INGEST_SUMMARY,
   createFixtureConnector,
+  createMemoryQuotaStore,
   loadFixtureManifest,
   type BidSource,
   type BidSourceConnector,
@@ -14,6 +15,7 @@ import {
   type IngestRunStatus,
   type IngestSummary,
   type IngestTrigger,
+  type LatestRunWindow,
   type SavedRevision,
   type SaveRevisionInput,
   type StartedRun,
@@ -87,21 +89,32 @@ beforeAll(async () => {
   manifest = await loadFixtureManifest(FIXTURES_DIR);
 });
 
-type PreviousRun = { trigger: IngestTrigger; windowTo: Date };
+// status·windowFrom 은 C8 창 재사용 시험이 준다. 없으면 SUCCEEDED·(windowTo − 1일)이다.
+type PreviousRun = {
+  trigger: IngestTrigger;
+  windowTo: Date;
+  status?: IngestRunStatus;
+  windowFrom?: Date;
+};
 type RunRecord = {
   runId: string;
   source: string;
   trigger: IngestTrigger;
   status: IngestRunStatus;
   windowTo: string | null;
+  window: { from: string; to: string } | null;
 };
 
-const windowToOf = (params: Record<string, unknown> | null): string | null => {
+const windowOfParams = (
+  params: Record<string, unknown> | null,
+): { from: string; to: string } | null => {
   const window = params?.window;
   if (typeof window !== "object" || window === null) return null;
-  const to = (window as Record<string, unknown>).to;
-  return typeof to === "string" ? to : null;
+  const { from, to } = window as Record<string, unknown>;
+  return typeof from === "string" && typeof to === "string" ? { from, to } : null;
 };
+const windowToOf = (params: Record<string, unknown> | null): string | null =>
+  windowOfParams(params)?.to ?? null;
 
 // IngestionRepo 포트를 따르는 가짜 저장소. 실제 Supabase 는 부르지 않는다.
 // findLatestRunWindowEnd 는 SUCCEEDED·PARTIAL g2b run 의 window.to 중 가장 나중 것이다.
@@ -111,8 +124,14 @@ const createFakeRepo = (previousRuns: readonly PreviousRun[] = []) => {
     runId: `previous-${index}`,
     source: "g2b",
     trigger: run.trigger,
-    status: "SUCCEEDED",
+    status: run.status ?? "SUCCEEDED",
     windowTo: run.windowTo.toISOString(),
+    window: {
+      from: (
+        run.windowFrom ?? new Date(run.windowTo.getTime() - DEFAULT_G2B_LOOKBACK_MS)
+      ).toISOString(),
+      to: run.windowTo.toISOString(),
+    },
   }));
   const starts: StartRunInput[] = [];
   const errors: (IngestErrorInput & { runId: string })[] = [];
@@ -156,6 +175,7 @@ const createFakeRepo = (previousRuns: readonly PreviousRun[] = []) => {
         trigger: input.trigger,
         status: "RUNNING",
         windowTo: windowToOf(input.params),
+        window: windowOfParams(input.params),
       });
       return run;
     },
@@ -166,6 +186,14 @@ const createFakeRepo = (previousRuns: readonly PreviousRun[] = []) => {
       return null;
     },
     findLatestRunWindowEnd,
+    // C8: 가장 최근 SCHEDULED run(상태 무관)의 상태·창. FAILED 면 processIngestJob 이 그 창을 다시 쓴다.
+    async findLatestRunWindow(
+      source: "g2b",
+      trigger: IngestTrigger,
+    ): Promise<LatestRunWindow | null> {
+      const last = history.filter((run) => run.source === source && run.trigger === trigger).at(-1);
+      return last ? { status: last.status, window: last.window } : null;
+    },
     async saveRevision({ decision }: SaveRevisionInput): Promise<SavedRevision> {
       const key = `${decision.bid.source}:${decision.bid.noticeId}`;
       const bidId = bidIds.get(key) ?? nextUuid();
@@ -701,6 +729,7 @@ describe("processIngestJob — 보조 조회 fetcher 연결", () => {
       return {
         rows: { licenseLimit: [], region: [], eorderAttach: [] },
         failures: [],
+        skipped: [],
         calls: 0,
         retried: 0,
       };
@@ -740,5 +769,128 @@ describe("processIngestJob — 보조 조회 fetcher 연결", () => {
     const result = await processIngestJob(G2B_SCHEDULED, deps);
 
     expect(result.status).toBe("SUCCEEDED");
+  });
+});
+
+// C8: 마지막 SCHEDULED run 이 FAILED 면 그 창을 다시 쓴다(같은 jobKey → 저장된 cursor 부터). 재기동마다 새 24h 창을 열지 않는다.
+describe("processIngestJob — FAILED 로 끝난 일정 창을 다시 쓴다(C8)", () => {
+  const FAILED_WINDOW = {
+    from: new Date("2026-10-17T09:00:00.000Z"),
+    to: new Date("2026-10-18T09:00:00.000Z"),
+  };
+  const failedRun = {
+    trigger: "SCHEDULED" as const,
+    status: "FAILED" as const,
+    windowFrom: FAILED_WINDOW.from,
+    windowTo: FAILED_WINDOW.to,
+  };
+  const failedIso = { from: FAILED_WINDOW.from.toISOString(), to: FAILED_WINDOW.to.toISOString() };
+
+  it("마지막 SCHEDULED run 이 FAILED 면 그 창 그대로 수집하고 jobKey 도 같다(cursor 부터 잇는다)", async () => {
+    const { deps, g2bInputs, starts } = createDeps("live", { previousRuns: [failedRun] });
+
+    await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect([g2bInputs.map(({ from, to }) => ({ from, to })), starts[0]?.jobKey]).toEqual([
+      [failedIso],
+      `g2b:SCHEDULED:${failedIso.to}`,
+    ]);
+  });
+
+  it("앞선 성공 창이 있어도 마지막 run 이 FAILED 면 그 실패 창을 쓴다(성공 끝 ~ 지금이 아니다)", async () => {
+    const { deps, g2bInputs } = createDeps("live", {
+      previousRuns: [{ trigger: "SCHEDULED", windowTo: LAST_G2B_WINDOW_END }, failedRun],
+    });
+
+    await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect(g2bInputs.map(({ from, to }) => ({ from, to }))).toEqual([failedIso]);
+  });
+
+  it("마지막 run 이 SUCCEEDED 면 앞선 FAILED 가 있어도 성공 창 끝 ~ 지금이다", async () => {
+    const { deps, g2bInputs } = createDeps("live", {
+      previousRuns: [failedRun, { trigger: "SCHEDULED", windowTo: LAST_G2B_WINDOW_END }],
+    });
+
+    await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect(g2bInputs.map(({ from, to }) => ({ from, to }))).toEqual([
+      { from: LAST_G2B_WINDOW_END.toISOString(), to: NOW_FLOORED },
+    ]);
+  });
+
+  it("FAILED 가 MANUAL run 이면 일정 창에 영향이 없다", async () => {
+    const { deps, g2bInputs } = createDeps("live", {
+      previousRuns: [
+        { trigger: "SCHEDULED", windowTo: LAST_G2B_WINDOW_END },
+        { ...failedRun, trigger: "MANUAL" },
+      ],
+    });
+
+    await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect(g2bInputs.map(({ from, to }) => ({ from, to }))).toEqual([
+      { from: LAST_G2B_WINDOW_END.toISOString(), to: NOW_FLOORED },
+    ]);
+  });
+
+  it("수동 수집(window 있음)은 창 재사용과 무관하다", async () => {
+    const { deps, g2bInputs } = createDeps("live", { previousRuns: [failedRun] });
+
+    await processIngestJob(G2B_MANUAL, deps);
+
+    expect(g2bInputs.map(({ from, to }) => ({ from, to }))).toEqual([MANUAL_WINDOW]);
+  });
+
+  it("끝나지 않은(RUNNING) 마지막 run 의 창은 다시 쓰지 않는다(지금처럼 성공 끝 ~ 지금)", async () => {
+    const { deps, g2bInputs } = createDeps("live", {
+      previousRuns: [
+        { trigger: "SCHEDULED", windowTo: LAST_G2B_WINDOW_END },
+        { ...failedRun, status: "RUNNING" },
+      ],
+    });
+
+    await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect(g2bInputs.map(({ from, to }) => ({ from, to }))).toEqual([
+      { from: LAST_G2B_WINDOW_END.toISOString(), to: NOW_FLOORED },
+    ]);
+  });
+});
+
+// C8 M1: deps.quota 를 주면 runIngest 가 예산을 본다. 소진된 예산이면 목록을 부르지 않고 FAILED 로 닫는다.
+describe("processIngestJob — 호출 예산 연결(C8)", () => {
+  const exhaustedQuota = () => {
+    const store = createMemoryQuotaStore({ dailyLimit: 1000 });
+    void store.add("15129394", NOW, 1000);
+    return { store, serviceId: "15129394", dailyLimit: 1000 };
+  };
+
+  it("예산이 소진됐으면 g2b connector 를 부르지 않고 g2b:quota QUOTA_EXCEEDED·FAILED 다", async () => {
+    const { deps, g2bInputs, errors } = createDeps("live", { previousRuns: PREVIOUS_SCHEDULED });
+
+    const result = await processIngestJob(G2B_SCHEDULED, { ...deps, quota: exhaustedQuota() });
+
+    expect([
+      result.status,
+      g2bInputs.length,
+      errors.map((error) => [error.sourceKey, error.errorCode]),
+    ]).toEqual(["FAILED", 0, [["g2b:quota", "QUOTA_EXCEEDED"]]]);
+  });
+
+  it("예산을 주지 않으면 지금처럼 돈다", async () => {
+    const { deps, g2bInputs } = createDeps("live", { previousRuns: PREVIOUS_SCHEDULED });
+
+    const result = await processIngestJob(G2B_SCHEDULED, deps);
+
+    expect([result.status, g2bInputs.length]).toEqual(["SUCCEEDED", 1]);
+  });
+
+  it("fixture 수집은 예산을 보지 않는다(소진돼도 SEED 가 돈다)", async () => {
+    const { deps } = createDeps("mock");
+
+    const result = await processIngestJob(FIXTURE_SEED, { ...deps, quota: exhaustedQuota() });
+
+    expect(result.summary).toEqual(SEED_SUMMARY);
   });
 });

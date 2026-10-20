@@ -5,6 +5,7 @@ import type {
   IngestErrorInput,
   IngestRunStatus,
   IngestSummary,
+  LatestRunWindow,
   SaveRevisionInput,
   StartedRun,
   StartRunInput,
@@ -214,6 +215,24 @@ export const windowEndOfParams = (params: Json | null): Date | null => {
   const window = isPlainObject(params) ? params.window : null;
   return isPlainObject(window) ? isoInstantOf(window.to) : null;
 };
+
+/** g2b run 의 params.window 를 저장한 문자열 그대로. 둘 중 하나라도 ISO 시각이 아니면 null 이다(C8). */
+export const windowOfParams = (params: Json | null): { from: string; to: string } | null => {
+  const window = isPlainObject(params) ? params.window : null;
+  if (!isPlainObject(window)) return null;
+  const { from, to } = window;
+  return typeof from === "string" &&
+    typeof to === "string" &&
+    isoInstantOf(from) !== null &&
+    isoInstantOf(to) !== null
+    ? { from, to }
+    : null;
+};
+
+/** ingest_runs 행(status·params) → 창 재사용 판단 값(C8). */
+export const toLatestRunWindow = (
+  row: Pick<Tables<"ingest_runs">, "status" | "params">,
+): LatestRunWindow => ({ status: statusOf(row.status), window: windowOfParams(row.params) });
 
 /** 수동 수집 감사 한 줄(6-6). 조직 소유 감사라 org_id 가 있어야 한다. */
 export const toManualAuditInsert = (input: {
