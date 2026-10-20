@@ -1,7 +1,9 @@
 # 회사 GPU 서버 모델 라우터 (ADR-025)
 
 회사 nginx 가 `https://acropolissg.com/sol-radar` 하나만 등록할 수 있어, 그 뒤에서 경로를 나누는 작은 nginx 를 둔다.
-노트북 ai-gateway 는 `QWEN_BASE_URL=https://acropolissg.com/sol-radar/qwen`, `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev` 로 붙는다.
+노트북 ai-gateway 는 `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev` 로 붙는다. `QWEN_BASE_URL` 은 이 라우터가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1` 이다(아래).
+
+2026-10-20 ADR-034: `:8009` 런타임은 `kev.serve` 대신 우리 결정 서버 `sol_decision.serve`(Bosun v3.1 0.6B, Kev wire 호환)다. 추출·설명 `Qwen/Qwen3.5-27B` 는 회사가 이미 운영하는 vLLM API(`https://acropolissg.com/vllm/v1`, env 값은 회사 안내 그대로 `https://acropolissg.com/vllm/v1`, 게이트웨이가 `/v1` 중복을 정규화한다(B1))를 쓰므로 `:8001` 에는 아무것도 띄우지 않고 `/qwen` 규칙은 백업(미사용)으로 남긴다. 라우터 설정·경로·포트·회사 nginx 는 바꾸지 않는다.
 
 ## 회사 nginx 에 부탁할 것 (location 하나)
 
@@ -20,14 +22,26 @@ location /sol-radar/ {
 
 ## GPU 서버에서 띄우기
 
-1. vLLM·kev.serve 를 `docs/10-DEPLOYMENT.md` 의 명령으로 호스트 `127.0.0.1:8001`·`127.0.0.1:8009` 에 띄운다(`--api-key`, `KEV_API_KEY` 필수).
+1. 결정 서버 `sol_decision.serve`(Bosun v3.1 0.6B, venv `.venv-bosun`)를 아래 명령(`docs/10-DEPLOYMENT.md` "회사 GPU 추론 엔드포인트" 와 같다)으로 호스트 `127.0.0.1:8009` 에 띄운다. `DECISION_API_KEY` 필수(노트북 `KEV_API_KEY` 와 같은 값, 셸 변수로만). 물리 GPU 1 에서 PaddleOCR 와 공유한다. `:8001` 에는 아무것도 띄우지 않는다(추출·설명은 회사 운영 vLLM API). `sol_decision` 은 2026-10-20 기준 미구현(B1)이고 기동은 사용자 승인 뒤에 한다.
+
+   ```bash
+   export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1     # 물리 GPU 1. 가시성만 제한한다(독점 아님)
+   # --package: 고정 snapshot(Hanno-Labs/bosun-v3.1-0.6b 리비전 5e78a37c8d86860ebac9ef2d5327d6299498498e) 또는 학습본 run 디렉터리.
+   # 서버가 manifest.json 의 sha256 과 파일을 대조해 다르면 기동을 거부한다. HF_HUB_OFFLINE=1 로 다운로드를 막는다
+   HF_HUB_OFFLINE=1 DECISION_API_KEY="$DECISION_API_KEY" python -m sol_decision.serve --package <snapshot dir> --host 127.0.0.1 --port 8009
+   ```
+
 2. 라우터: 컨테이너면 `docker compose -f infra/compose.gpu.yaml up -d`(Linux, host 네트워크). 호스트 nginx 를 쓰면 `infra/gpu/model-router.conf` 를 `/etc/nginx/conf.d/sol-radar-router.conf` 로 두고 `nginx -t && nginx -s reload`.
 3. 서버 안에서 확인(키는 셸 변수로만, 값을 출력하지 않는다):
 
 ```bash
 curl -s http://127.0.0.1:8080/healthz                                   # ok
-curl -s -H "Authorization: Bearer $QWEN_API_KEY" http://127.0.0.1:8080/sol-radar/qwen/v1/models
-curl -s -H "Authorization: Bearer $KEV_API_KEY"  http://127.0.0.1:8080/sol-radar/kev/v1/models
+curl -s -H "Authorization: Bearer $DECISION_API_KEY" http://127.0.0.1:8080/sol-radar/kev/v1/models
+#   기대: data[0].id == bosun-v3.1-0.6b, run == Hanno-Labs/bosun-v3.1-0.6b@5e78a37c, base == Qwen/Qwen3-0.6B@c1899de,
+#         lora == 어댑터 sha256(961d237b…), revision == 5e78a37c8d86860ebac9ef2d5327d6299498498e
+# /sol-radar/qwen/* 은 백업 경로(미사용). :8001 이 비어 있으면 라우터가 연결 실패(502)를 돌려주는 것이 정상이다
+# 추출 모델 확인은 회사 운영 vLLM API 로 한다(키는 회사 제공):
+curl -s -H "Authorization: Bearer $QWEN_API_KEY" https://acropolissg.com/vllm/v1/models     # data[].id 에 Qwen/Qwen3.5-27B
 ```
 
 ## 밖에서 확인 (우리 쪽 C1 ③ G1·G2)
@@ -35,6 +49,7 @@ curl -s -H "Authorization: Bearer $KEV_API_KEY"  http://127.0.0.1:8080/sol-radar
 ```bash
 curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/healthz    # 200, TLS 유효(-k 금지)
 curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/kev/v1/models   # 인증 없이 401 또는 403
+curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/vllm/v1/models            # 회사 vLLM API. 인증 없이 무엇을 주는지 미확인 — 기록한다
 ```
 
 ## 바뀌면 알려 줄 것
@@ -42,27 +57,38 @@ curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar
 - 바깥 nginx 가 접두어를 떼는지(둘 다 동작하지만 기록한다)
 - 라우터 포트(8080)·런타임 포트(8001·8009)를 바꿨는지
 - 회사 프록시 단의 추가 인증(기본 인증·IP 허용·별도 헤더)이 있는지
+- 회사 운영 vLLM API(`/vllm/v1`)의 주소·모델 id(`Qwen/Qwen3.5-27B`)·키·인증 방식·호출 한도가 바뀌는지
 
-## 학습 전용 GPU: Kev-9B LoRA F1 (ADR-027, 2026-10-20 서버 확인)
+## GPU 1 공유: Bosun v3.1 0.6B LoRA F1 (ADR-034, 2026-10-20)
 
-위 라우터·vLLM·`kev.serve`(추론)와 별개다. 학습(F1·F2·F3)과 E4 채점은 **물리 GPU 1 한 장**만 쓴다. 정본은 `docs/22-FINETUNE-RUNBOOK.md` §3·§4, `docs/23-WEEKEND-FINETUNE.md`, `docs/10-DEPLOYMENT.md` "학습 전용 GPU".
+위 라우터·`sol_decision.serve`(추론)와 Bosun LoRA 학습(F1·F2)·오프라인 채점(E1'·E4)은 모두 **물리 GPU 1 한 장**에서 돌고, GPU 1 은 회사 PaddleOCR vLLM 서비스(약 9,167 MiB, 2026-10-20 사용자 보고, 미검증)와 **공유**한다. 전용이 아니다. 정본은 `docs/22-FINETUNE-RUNBOOK.md` §3·§4, `docs/23-WEEKEND-FINETUNE.md`, `docs/10-DEPLOYMENT.md` "GPU 1 공유", 메모리 계획은 `docs/plans/2026-10-20-bosun-qwen4b-migration-plan.md` §8.
 
-| 물리 GPU(nvidia-smi index) | 모델 | VRAM | 2026-10-20 사용량 | 정책 |
-|---|---|---:|---:|---|
-| 0 | NVIDIA A40 | 46,068 MiB | 4,747 MiB | 회사 기존 서비스. **쓰지 않는다** |
-| 1 | NVIDIA A40 (CC 8.6) | 46,068 MiB | 5 MiB | **SOL RADAR 학습 전용** |
-| 2 | NVIDIA A40 | 46,068 MiB | 9,240 MiB | 회사 기존 서비스. **쓰지 않는다** |
+| 물리 GPU(nvidia-smi index) | 모델 | VRAM | 2026-10-20 오전 스냅샷(당시 기록) | 2026-10-20 사용자 보고(미검증) | 정책 |
+|---|---|---:|---:|---|---|
+| 0 | NVIDIA A40 | 46,068 MiB | 4,747 MiB | — | 회사 기존 서비스. **쓰지 않는다** |
+| 1 | NVIDIA A40 (CC 8.6) | 46,068 MiB | 5 MiB | PaddleOCR vLLM 약 9,167 MiB 상주 | **공유**: 회사 PaddleOCR + SOL RADAR `sol_decision` 서빙·Bosun LoRA 학습·채점. 어떤 프로세스도 종료·이동 금지 |
+| 2 | NVIDIA A40 | 46,068 MiB | 9,240 MiB | — | 회사 기존 서비스. **쓰지 않는다** |
 
-- 서버 `sol-NF5280M6`, 계정 `bim`, 작업 경로 `/data/www/ai_workspace/sol-radar`, venv `.venv-kev`(Python 3.12.3, torch 2.8.0+cu128, triton 3.4.0). 드라이버 580.173.02(CUDA 13.0), CUDA Toolkit 12.8.
-- 매 셸 세션마다 `export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1`. 프로세스 안에서는 GPU 1 이 `cuda:0` 으로 보인다(정상). SSH 를 다시 열면 사라지므로 두 스크립트가 값을 확인하고 없으면 멈춘다.
-- GPU 0·2 의 프로세스를 종료·이동·설정 변경하지 않는다. 두 스크립트는 `kill`·`pkill`·`docker compose down` 을 쓰지 않는다(`kev-f1.sh` 가 끝낼 때 멈추는 것은 자기가 띄운 `nvidia-smi -l 1` 기록 프로세스뿐이다). GPU 1 에 다른 프로세스가 있으면 종료하지 않고 멈춘 뒤 회사에 확인한다.
-- `CUDA_VISIBLE_DEVICES` 는 다른 사람의 GPU 사용을 막지 못한다. 실행 전후 `nvidia-smi` 로 GPU 1 상태를 확인한다(스크립트가 `*.pre.txt`·`*.post.txt` 로 남긴다).
-- 출발 체크포인트는 Hub 태그가 아니라 커밋 `3afdec81…`(태그 v1.0)의 snapshot 디렉터리다. `kev-preflight.sh` 가 `adapter_model.safetensors`·`head.pt` sha256 을 `services/ai/models/registry.yaml` 값과 대조해 없거나 다르면 FAIL(표식 없음), `kev-f1.sh` 는 실행 직전에 다시 대조하고 그 로컬 경로를 `--init_from` 에 주며 `HF_HUB_OFFLINE=1` 로 돈다. 검증 안 된 `head.pt`(pickle)는 로드하지 않는다.
+GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8. 추출·설명 Qwen3.5-27B 는 회사 vLLM API 라 여기 없다):
+
+| 상주·작업 | 추정 | 비고 |
+|---|---|---|
+| PaddleOCR vLLM(회사) | 약 9.2 GB | 건드리지 않는다 |
+| `sol_decision.serve` Bosun v3.1 0.6B bf16 | 약 1.5~3 GB | 6k 토큰 state 활성값 포함 |
+| Bosun LoRA 학습(bf16, batch 1, 6k 토큰, grad checkpointing) | 약 6~10 GB | F1 20 step 으로 실측 |
+| 합계 | 약 17~22 GB | 가용 약 36,900 MiB(46,068 − 9,167, 사용자 보고 기준) 안 |
+
+- 서버 `sol-NF5280M6`, 계정 `bim`, 작업 경로 `/data/www/ai_workspace/sol-radar`. venv 는 `.venv-bosun`(2026-10-20 사용자 보고. 패키지 핀은 B2 에서 기록 — 미확인). `.venv-qwen`·Qwen 4B 다운로드는 중단하고 백업으로 보존한다(삭제하지 않는다). 이전 `.venv-kev`(Python 3.12.3, torch 2.8.0+cu128, triton 3.4.0)는 Kev 용 기록이다. 드라이버 580.173.02(CUDA 13.0), CUDA Toolkit 12.8.
+- 매 셸 세션마다 `export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1`. 프로세스 안에서는 GPU 1 이 `cuda:0` 으로 보인다(정상). SSH 를 다시 열면 사라진다. 이 변수는 **가시성만 제한하고 독점이 아니다** — 다른 사람의 GPU 1 사용을 막지 못한다.
+- **종료·이동 금지(최우선)**: GPU 0·1·2 어느 프로세스도 종료·이동·설정 변경하지 않는다. GPU 1 의 PaddleOCR 는 정상 상주라 **FAIL 사유도 종료 대상도 아니다**. 그 외 미지의 프로세스가 GPU 1 에 있으면 종료하지 않고 멈춘 뒤 회사에 확인한다. `kill`·`pkill`·`docker compose down` 을 쓰지 않는다(스크립트가 끝낼 때 멈추는 것은 자기가 띄운 `nvidia-smi -l 1` 기록 프로세스뿐). 실행 전후 `nvidia-smi -i 1` 로 GPU 1 상태를 기록한다(`*.pre.txt`·`*.post.txt`). GPU 학습·모델 서빙 시작·nginx 변경·배포는 사용자 승인 전까지 하지 않는다.
+- **스크립트**: `infra/gpu/kev-preflight.sh`·`kev-f1.sh` 는 Kev-9B 용으로 **보존·퇴역**(ADR-034). 전용 전제(`SOL_MIN_FREE_MIB=40000`, GPU 1 에 다른 프로세스가 있으면 FAIL)라 공유 GPU 1 에서는 PaddleOCR 때문에 FAIL 하므로 그대로 쓰지 않는다. Bosun 전용 `infra/gpu/bosun-preflight.sh`·`bosun-f1.sh` 는 **B1 에서 만든다(2026-10-20 기준 미구현)**: `.venv-bosun`·torch/transformers/peft 핀 검사, GPU 1 매핑(uuid 대조), PaddleOCR 허용 목록과 `SOL_MIN_FREE_MIB` 재산정(위 계획 합계 + 여유), Bosun snapshot sha256 대조(`adapter/adapter_model.safetensors` `961d237b…`, `decision_embeddings.safetensors` `88f9e856…`, `manifest.json` — 계획 §1.1 값), 데이터 길이; `bosun-f1.sh` 는 `sol_decision.train --max_steps 20` 과 메모리 최대값 기록. 인터페이스는 B1 에서 확정한다.
+- 출발 패키지는 Hub 태그가 아니라 리비전 `5e78a37c8d86860ebac9ef2d5327d6299498498e`(main, 2026-10-09) 의 snapshot 디렉터리다. 학습은 공개 LoRA(392 텐서)만 이어 학습하고 decision token 임베딩·백본은 동결한다. `HF_HUB_OFFLINE=1` 로 돈다.
 
 ```bash
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
-bash infra/gpu/kev-preflight.sh                 # F1-A: 환경·GPU 매핑·커널 smoke·고정 snapshot 모델 sha256·데이터 길이. 전부 통과해야 표식 runs/preflight-ok
-bash infra/gpu/kev-f1.sh --max_state 1024       # F1-B: 20 step. PASS 면 2048 → 4096 → 6144 순으로 한 번에 하나씩
+# B1 뒤(2026-10-20 기준 미구현). 사용자 승인 뒤에만 실행한다
+bash infra/gpu/bosun-preflight.sh              # F1-A: 환경·GPU 1 매핑·PaddleOCR 공존·snapshot sha256·데이터 길이. 전부 통과해야 표식 runs/preflight-ok
+bash infra/gpu/bosun-f1.sh                     # F1-B: sol_decision.train --max_steps 20. 메모리 최대값·step 시간 기록
 ```
 
-결과는 `runs/<이름>.summary.md`·`runs/f1-results.md` 에 남고, `docs/evidence/kev-train-feasibility.md` 표에 옮긴다. 20 step PASS 는 F2 착수 조건의 일부일 뿐이다(`dropped 0`·안전 여유·데이터 보고 항목은 22 §4.2).
+결과는 `runs/f1-results.md`·`train.log` 에 남고, 새 파일 `docs/evidence/bosun-train-feasibility.md` 표에 옮긴다(Kev 기록 `docs/evidence/kev-train-feasibility.md` 는 보존, 개서하지 않는다). 20 step PASS(메모리 최대값 < 예산, 재로딩 후 `predict` 동작)는 F2 착수 조건의 일부일 뿐이다(계획 §9 B4, 22 §4).

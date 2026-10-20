@@ -4,7 +4,7 @@ status: draft
 tags:
   - sol-radar
   - claude
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # Claude Code — SOL RADAR 지침
@@ -13,7 +13,7 @@ updated: 2026-10-19
 
 반드시 `docs/00-README.md`부터 읽고 `docs/17-CLAUDE-IMPLEMENTATION.md`에 따른다. 해커톤 범위와 데모 흐름은 `docs/18-HACKATHON.md`, `docs/19-DEMO-SCENARIO.md`, `docs/12-ROADMAP.md`의 해커톤 컷을 따른다.
 
-- 기술 스택: Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python(Qwen + Kev) + Docker Compose(`docs/16-DECISIONS.md` ADR-017). 이외로 임의 변경하지 않는다.
+- 기술 스택: Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python(Qwen3.5-27B + Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) + Docker Compose(`docs/16-DECISIONS.md` ADR-017). 이외로 임의 변경하지 않는다.
   - 코드는 `web/`(화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`), worker는 `web/worker`, 스키마·RLS는 `supabase/migrations/`(새 파일로만)에 둔다. 별도 API 서버·ORM은 두지 않는다(ADR-001·002 폐기). 해커톤 뒤에는 API·worker를 NestJS로 옮긴다(ADR-028). 그 전에는 위 구조로 구현한다.
   - Supabase가 맡는 것은 DB와 Auth뿐이다. 첨부는 MinIO, 검색은 Qdrant, 큐는 Redis/BullMQ, 모델 호출은 AI gateway(`services/ai`)다.
   - 조직 데이터는 `org_id` + RLS, 업무 역할은 `memberships.sol_role`이다. service role 키는 worker·seed 스크립트만 쓴다. 클라우드 DB 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.

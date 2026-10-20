@@ -152,7 +152,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
   - `parse_status`·`parse_error_code`: `/parse` 결과. 다운로드가 `OK`가 되면 `PENDING`으로 두고 파싱 뒤 결과 값으로 바꾼다. 다운로드가 `PENDING`·`FAILED`인 동안은 NULL(파싱 시도 안 함)이다. 형식별 파서는 실제 RFP 샘플 비교로 정한다([[03-AI-PIPELINE|03 AI 파이프라인]] 문서 파싱 절). 50 MB 초과는 다운로드하지 않으므로 `download_status=FAILED` + `download_error_code=TOO_LARGE`이고 `parse_status`는 NULL이다.
   - `parser_id`: 파서 어댑터와 버전. `parse_quality`: 파서가 낸 품질 신호.
 - `bid_structured_requirements`: 면허제한(`lcnsLmtNm`)·허용 업종(`permsnIndstrytyList`)·참가가능지역(`prtcptPsblRgnNm`)·지역의무공동도급(`rgnDutyJntcontrctRt`) 행. 같은 조건을 이 표와 Qwen 추출이 둘 다 주면 **이 표가 우선**이고, 둘이 다르면 그 조건은 `CONFLICTED`다([[08-SCORING|08 점수]] §5.1). `source_operation`은 값을 받은 오퍼레이션 이름, `value`는 그 행의 원본 필드다(담당자 필드는 넣지 않는다).
-- `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 원문의 숫자가 그대로 남은 번역만 들어간다. Kev 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
+- `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 원문의 숫자가 그대로 남은 번역만 들어간다. 결정 모델 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 
 > [!warning] 미검증 가정
 > `bid_structured_requirements`의 원천 필드 이름은 data.go.kr 서비스 페이지 명세(Swagger·참고문서, 2026-10-16)로 확인했다. 서비스키로 실제 응답을 받아 본 것은 아니다. 면허제한이 여러 행일 때 AND/OR 중 무엇인지도 모른다. 확인 전에는 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다. 검증 방법: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건을 저장하고 매핑을 확인한다([[07-DATA-PIPELINE|07 수집]]).
@@ -177,12 +177,12 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 `factor` 값은 `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference` 다섯 개로 [[08-SCORING|08 점수]]의 요소 순서와 같다. `score_runs`의 `ai_provider`·`qwen_model`·`kev_model`·`question_set_version`·`prompt_hash`·`input_snapshot_hash`·`injection_suspected`는 [[09-SECURITY|09 보안]] 감사 필드 표와 이름이 같은 평문 컬럼이며, `model_metadata` JSONB와 중복 저장한다(조회·감사용). `input_snapshot_hash = sha256(canonical input_snapshot)`. `score_runs.input_snapshot`은 `{schemaVersion:"analysis-input/v0.1", bid: NormalizedBid 요약, extractionId, profile: CompanyProfile 스냅샷, team:{members, assignments, asOf}, config:{algorithmVersion, thresholds}}`. `team.members`는 계산에 쓴 하위 27명의 personId·직무·기술등급·스킬·가용성이고 `team.assignments`는 해당 기간 배정 스냅샷, `team.asOf`는 고정 계산 기준 시각이다. 이름·성별·사진은 점수 입력에 넣지 않는다. 200명 명부가 바뀌어도 당시 계산을 재현할 수 있어야 한다. `score_factors.org_id`는 RLS를 다른 조직 표와 같은 식 하나로 쓰려고 둔다. 값은 부모 `score_runs.org_id`와 같아야 하고 복합 FK가 이를 강제한다.
 
 열 설명([[16-DECISIONS|ADR-020]]):
-- `score_runs.run_mode`: 그 분석을 돌린 실행 모드. `kev_calibration`: Kev 임계값의 보정 상태(`UNCALIBRATED`가 기본, Kev를 쓰지 않은 run은 null). `fallback_reason`: `AI_FALLBACK_TO_MOCK=true`에서 mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`). 자동 대체는 기본으로 꺼져 있고 `live` 모드에서는 켤 수 없다.
-- `score_runs.kev_output`: Kev 응답 원문과 함께 `KevStateTrace`(state 줄마다의 공고 인용·회사 증빙, `stateHash`)를 담는다([[03-AI-PIPELINE|03 AI 파이프라인]]). Kev는 인용을 만들지 못하므로 근거 추적은 이 trace로 한다.
-- `score_factors.missing_reason`·`score_runs.kev_assist`(`20261019000010`): 화면이 저장된 행만으로 요소별 missing 사유와 Kev 참고 지표를 보이려고 둔다. `missing_reason`은 규칙 엔진 `MissingReason` 8값(§4, [[05-API-SPEC|05]] `ScoreFactor.missingReason`)이고 null을 허용한다. `kev_assist`는 `AnalysisResult.kev`(`KevAssist`, [[03-AI-PIPELINE|03]] §5.7)이고 값 형식은 앱 zod가 지킨다(DB는 jsonb). wire 원문 `kev_output`은 그대로 둔다. 두 열은 worker만 쓰고(`score_runs`의 화면 역할 insert 열 목록에 `kev_assist`는 없다), 마이그레이션 전에 쌓인 행은 null이다. Kev 지표는 점수·권고를 바꾸지 않는다.
+- `score_runs.run_mode`: 그 분석을 돌린 실행 모드. `kev_calibration`: 결정 모델 임계값의 보정 상태(`UNCALIBRATED`가 기본, 결정 모델을 쓰지 않은 run은 null). `kev_*` 열·`RULES_WITH_KEV_ASSIST`·`KEV_*` 플래그는 이름을 호환 유지하고 값은 결정 모델 Bosun v3.1 0.6B의 것이다(`kev_model`에 실제 모델명, [[16-DECISIONS|ADR-034]]). `fallback_reason`: `AI_FALLBACK_TO_MOCK=true`에서 mock 자동 대체가 실제로 일어났을 때만 그 원인(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`). 자동 대체는 기본으로 꺼져 있고 `live` 모드에서는 켤 수 없다.
+- `score_runs.kev_output`: 결정 모델 응답 원문과 함께 `KevStateTrace`(state 줄마다의 공고 인용·회사 증빙, `stateHash`)를 담는다([[03-AI-PIPELINE|03 AI 파이프라인]]). 결정 모델은 인용을 만들지 못하므로 근거 추적은 이 trace로 한다.
+- `score_factors.missing_reason`·`score_runs.kev_assist`(`20261019000010`): 화면이 저장된 행만으로 요소별 missing 사유와 결정 모델 참고 지표를 보이려고 둔다. `missing_reason`은 규칙 엔진 `MissingReason` 8값(§4, [[05-API-SPEC|05]] `ScoreFactor.missingReason`)이고 null을 허용한다. `kev_assist`는 `AnalysisResult.kev`(`KevAssist`, [[03-AI-PIPELINE|03]] §5.7)이고 값 형식은 앱 zod가 지킨다(DB는 jsonb). wire 원문 `kev_output`은 그대로 둔다. 두 열은 worker만 쓰고(`score_runs`의 화면 역할 insert 열 목록에 `kev_assist`는 없다), 마이그레이션 전에 쌓인 행은 null이다. 결정 모델 지표는 점수·권고를 바꾸지 않는다.
 - `qualification_checks`: `reason_code`는 `NEEDS_REVIEW`의 사유, `basis`는 공고 쪽 값이 API 구조화 필드(`API_FIELD`)에서 왔는지 Qwen 추출(`EXTRACTION`)에서 왔는지다. `company_evidence`는 회사 쪽 근거를 `CompanyEvidenceRef`(프로필 revision·종류·레코드 키·증빙 파일·인용, [[15-DATA-CONTRACTS|15 데이터 계약]])로 남긴다. 기존 `profile_evidence`(`{type, ref, label}` 표시용)는 그대로 둔다.
-- `requirement_assessments`: 요구사항 항목(기술·실적·인력·자격)마다 규칙 판정·사유·양쪽 근거와 Kev 분포·라벨·플래그를 한 행에 둔다. `item_id`는 추출 필드 경로(예: `requiredSkills[2]`, `qualifications[0]`)다. `kev_distribution`·`kev_label`은 참고 지표이고 `rule_status`·점수·권고를 바꾸지 않는다([[08-SCORING|08 점수]] §5.4).
-- `requirement_assessments.kev_distribution`의 JSONB 모양은 `{qid, distribution, label}`이다([[16-DECISIONS|ADR-032]] D7). [[05-API-SPEC|05]] §4.5 `RequirementAssessment.kev`와 같고, gateway `/kev` 응답의 항목 분포 `{itemId, qid, distribution, label}`(`services/ai/src/sol_ai/contracts.py` `RequirementDistribution`)과도 맞는다. 항목 경로 `itemId`는 이 표의 `item_id` 열에 있다. 지금 C5-B 저장 매핑은 이 열에 null을 쓴다(`web/server/analysis/analysis-store.model.ts`). Kev 질문 세트 v0.2의 항목 질문을 쓰는 run에서 채운다.
+- `requirement_assessments`: 요구사항 항목(기술·실적·인력·자격)마다 규칙 판정·사유·양쪽 근거와 결정 모델 분포·라벨·플래그를 한 행에 둔다. `item_id`는 추출 필드 경로(예: `requiredSkills[2]`, `qualifications[0]`)다. `kev_distribution`·`kev_label`은 참고 지표이고 `rule_status`·점수·권고를 바꾸지 않는다([[08-SCORING|08 점수]] §5.4).
+- `requirement_assessments.kev_distribution`의 JSONB 모양은 `{qid, distribution, label}`이다([[16-DECISIONS|ADR-032]] D7). [[05-API-SPEC|05]] §4.5 `RequirementAssessment.kev`와 같고, gateway `/kev` 응답의 항목 분포 `{itemId, qid, distribution, label}`(`services/ai/src/sol_ai/contracts.py` `RequirementDistribution`)과도 맞는다. 항목 경로 `itemId`는 이 표의 `item_id` 열에 있다. 지금 C5-B 저장 매핑은 이 열에 null을 쓴다(`web/server/analysis/analysis-store.model.ts`). 결정 모델 질문 세트 v0.2의 항목 질문을 쓰는 run에서 채운다.
 - 미충족(`NOT_SATISFIED`)에는 공고 쪽 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 한다. 이 규칙은 규칙 엔진과 zod 스키마, 단위 시험이 강제한다(JSONB 내부라 DB check로 걸지 않는다, §1).
 - `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)는 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장한다(`web/server/scoring/qualification.ts`). 값 집합은 3값 그대로이고, 결정 경로에서는 다른 `NEEDS_REVIEW`와 같게 다룬다.
 - `finish_score_run(p jsonb)`: 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 결과를 쓰고 마감한다. 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. `20261019000013`부터는 마감 뒤 status가 `COMPLETED`·`PARTIAL`이 아니어도 `SCORE_RUN_INVALID_STATUS`로 거절한다(`FAILED` 마감은 이 함수가 아니라 markFailed가 한다). 멱등 키의 requestId 형식(`^[A-Za-z0-9_-]{1,128}$`)은 [[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 구현은 C5-B 마이그레이션 `20261019000011`(main `cfe8f0a`)과 `20261019000013`(main `8f33caa`)). `20261019000016`(C7, main `841b064`)부터는 마감한 run에 `requested_by`가 있으면 같은 트랜잭션에서 `outbox_events`에 `ANALYSIS_COMPLETE` 1건을 쓴다(§3.6, [[13-NOTIFICATIONS|13 알림]]). 사전 분석 run(`requested_by` null)은 쓰지 않고, 거절되면 트랜잭션 전체가 되돌아가 이벤트도 남지 않는다.
@@ -240,7 +240,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |---|---|---|---|
 |`eval_runs`|`id`, `dataset_version` text, `dataset_sha256` text, `system_id` text, `split` text(eval_split), `metrics` JSONB, `git_commit` text, `created_at`|`metrics`는 평가 리포트의 지표 표 전체(지표마다 값·부트스트랩 95% 신뢰구간·표본 수, 채우지 못한 칸은 이유). 조직·공고와 외래 키 없음|공용 표(`org_id` 없음). 읽기: 어느 조직에서든 역할 `ADMIN`인 사용자(`ingest_runs`와 같은 식). 쓰기: service role(`pnpm eval:publish`(예정))만. 화면 역할 쓰기 권한 없음|
 
-`system_id`는 비교 대상 ID(`E0` 규칙만, `E1` Kev-9B 영어 state, `E2` Kev-9B 한국어 state 등, [[21-MODEL-TRAINING|21 모델 학습]] §4.2)다. 열 이름은 예약어 `commit`을 피해 `git_commit`으로 쓴다. 평가셋 원문(실제 RFP)은 이 표에 넣지 않는다. 데이터셋 빌드·평가 실행은 운영자 CLI가 하고 웹은 이 표를 읽기만 한다([[21-MODEL-TRAINING|21 모델 학습]] §6).
+`system_id`는 비교 대상 ID(`E0` 규칙만, `E1'` 공개 Bosun 영어 state zero-shot, `E2` Bosun 한국어 state 등, [[21-MODEL-TRAINING|21 모델 학습]] §4.2)다. 열 이름은 예약어 `commit`을 피해 `git_commit`으로 쓴다. 평가셋 원문(실제 RFP)은 이 표에 넣지 않는다. 데이터셋 빌드·평가 실행은 운영자 CLI가 하고 웹은 이 표를 읽기만 한다([[21-MODEL-TRAINING|21 모델 학습]] §6).
 
 ### 3.8 입찰 업무 (P1, ADR-021)
 
@@ -249,7 +249,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
 |`bid_watches`|`org_id`, `user_id`, `bid_id`, `created_at`|PK(`org_id`,`user_id`,`bid_id`)|본인 행만 읽기·쓰기. 공고별 관심 인원 수는 집계 함수로만 조직에 공개한다|
-|`bid_projects`|`id`, `org_id`, `bid_id`, `opened_by_review_id` FK `bid_reviews`, `status`(bid_project_status), `owner_id`(로그인 계정), `submission_due_override` nullable, `result`(bid_project_result) nullable, `result_note`, `result_recorded_at`, `closed_at`, `created_by`, `created_at`, `updated_at`|UNIQUE(`org_id`,`bid_id`), UNIQUE(`id`,`org_id`). 여는 결정은 `decision=BID`(DB 함수가 검사). 마감은 공고 값을 읽고 덮어쓸 때만 override(복제 금지)|읽기: 조직 전원. 쓰기: SALES·ADMIN. 결정이 바뀌면 경고만 하고 자동 종료하지 않는다. 결과는 점수·Kev·평가셋·학습셋에 쓰지 않는다|
+|`bid_projects`|`id`, `org_id`, `bid_id`, `opened_by_review_id` FK `bid_reviews`, `status`(bid_project_status), `owner_id`(로그인 계정), `submission_due_override` nullable, `result`(bid_project_result) nullable, `result_note`, `result_recorded_at`, `closed_at`, `created_by`, `created_at`, `updated_at`|UNIQUE(`org_id`,`bid_id`), UNIQUE(`id`,`org_id`). 여는 결정은 `decision=BID`(DB 함수가 검사). 마감은 공고 값을 읽고 덮어쓸 때만 override(복제 금지)|읽기: 조직 전원. 쓰기: SALES·ADMIN. 결정이 바뀌면 경고만 하고 자동 종료하지 않는다. 결과는 점수·결정 모델·평가셋·학습셋에 쓰지 않는다|
 |`bid_project_events`|`id`, `org_id`, `bid_project_id`, `actor_id`, `from_status`, `to_status`, `note`, `created_at`|추가만|읽기: 조직 전원. 쓰기: 상태를 바꾸는 DB 함수만. 같은 함수가 `audit_logs`도 쓴다|
 
 체크리스트는 템플릿 `tasks`에 `bid_project_id`를 더해 쓴다(§3.1). 추적성: 프로젝트 → 여는 결정(`bid_reviews`) → 그 결정의 `score_run_id` → `input_snapshot_hash`.
@@ -272,9 +272,9 @@ DB check로 거는 값 집합은 33개(ADR-021 P1 표가 생기면 36개)이고,
 |`extraction_status`|`PENDING`, `COMPLETED`, `PENDING_REVIEW`, `FAILED`|`requirement_extractions.status`|`PENDING_REVIEW` = 인용 실패율 > 50% 또는 파싱 품질 저하|
 |`score_run_status`|`QUEUED`, `RUNNING`, `COMPLETED`, `PARTIAL`, `FAILED`|`score_runs.status`|`PARTIAL` = AI 없이 규칙만|
 |`recommendation`|`BID`, `WATCH`, `NO_BID`|`score_runs.recommendation`, `bid_reviews.system_recommendation`|시스템 권고|
-|`recommendation_basis`|`RULES_ONLY`, `RULES_WITH_KEV_ASSIST`|`score_runs.recommendation_basis`|Kev는 `reviewFlags`와 참고 지표만 더한다(점수 미반영)|
+|`recommendation_basis`|`RULES_ONLY`, `RULES_WITH_KEV_ASSIST`|`score_runs.recommendation_basis`|결정 모델은 `reviewFlags`와 참고 지표만 더한다(점수 미반영)|
 |`review_flag`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `KEV_REQUIREMENT_DISAGREEMENT`, `KEV_DELIVERY_RISK`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `AI_UNAVAILABLE`, `QWEN_UNAVAILABLE`, `KEV_UNAVAILABLE`, `MOCK_FALLBACK`, `PARSE_UNSUPPORTED`, `DOCUMENT_DOWNLOAD_FAILED`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`|`score_runs.review_flags[]`, `requirement_assessments.flags[]`|사람 검토 유도 신호. `INJECTION_SUSPECTED` = 추출 입력·출력에서 지시문 패턴 탐지([[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4, [[09-SECURITY\|09 보안]]). `SCALE_LIMIT_EXCEEDED` = 규모 적합 요소 0점 사유(재무 한도 초과, [[08-SCORING\|08 점수]]). ADR-020으로 더한 7개(`KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`·`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`·`MOCK_FALLBACK`·`PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`)의 조건은 [[08-SCORING\|08 점수]] §5.4. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다|
-|`qualification_outcome`|`SATISFIED`, `NOT_SATISFIED`, `NEEDS_REVIEW`|`qualification_checks.outcome`, `requirement_assessments.rule_status`·`kev_label`|법적 자격 자동 확정 없음. 규칙 판정·Kev 질문·평가셋 라벨이 같은 3값을 쓴다([[08-SCORING\|08 점수]] §5.1). `NOT_APPLICABLE` 처리는 §3.4|
+|`qualification_outcome`|`SATISFIED`, `NOT_SATISFIED`, `NEEDS_REVIEW`|`qualification_checks.outcome`, `requirement_assessments.rule_status`·`kev_label`|법적 자격 자동 확정 없음. 규칙 판정·결정 모델 질문·평가셋 라벨이 같은 3값을 쓴다([[08-SCORING\|08 점수]] §5.1). `NOT_APPLICABLE` 처리는 §3.4|
 |`review_decision`|`BID`, `WATCH`, `NO_BID`|`bid_reviews.decision`|사람의 최종 결정|
 |`field_state`|`KNOWN`, `UNKNOWN`, `NOT_APPLICABLE`, `CONFLICTED`|JSONB 내부(`ExtractedField.state`)|DB check가 아닌 JSON 값. zod로 검증|
 |`ingest_trigger`|`SCHEDULED`, `MANUAL`, `DEMO`|`ingest_runs.trigger`|—|
@@ -300,7 +300,7 @@ DB check로 거는 값 집합은 33개(ADR-021 P1 표가 생기면 36개)이고,
 |`department_kind`|`DIVISION`, `GROUP`, `TEAM`|`departments.kind`|본부·그룹·팀. null 허용(없으면 팀으로 다룬다, [[16-DECISIONS\|ADR-021]])|
 |`employment_status`|`ACTIVE`, `LEFT`|`team_members.employment_status`|P1. 기본 `ACTIVE`. `LEFT`는 표시 인원과 다음 분석의 가용 인력에서 빠진다|
 |`bid_project_status`|`PREPARING`, `SUBMITTED`, `AWAITING_RESULT`, `CLOSED`|`bid_projects.status`|P1. 제안 준비 / 제출 완료 / 결과 확인 / 종료. 보드의 "검토 대기" 열은 저장하지 않고 기존 표에서 계산한다|
-|`bid_project_result`|`WON`, `LOST`, `CANCELLED`, `NOT_SUBMITTED`|`bid_projects.result`|P1. 수동 기록. 점수·Kev·학습에 쓰지 않는다|
+|`bid_project_result`|`WON`, `LOST`, `CANCELLED`, `NOT_SUBMITTED`|`bid_projects.result`|P1. 수동 기록. 점수·결정 모델·학습에 쓰지 않는다|
 
 ## 5. 인덱스·제약
 

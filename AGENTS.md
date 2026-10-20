@@ -1,7 +1,7 @@
 # 먼저: SOL RADAR 설계 문서가 이 파일보다 우선한다
 
 이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` 의 문서 표에 있는 설계 문서)다.
-기술 스택은 Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen·Kev) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017).
+기술 스택은 Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen3.5-27B·Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017·034).
 해커톤 뒤에는 API·worker 를 NestJS 로 옮긴다(ADR-028). 그 전에는 위 스택 그대로다.
 모바일(1280px 미만 레이아웃·`mobile/` Expo 앱)과 결제·구독은 만들지 않는다. 화면은 데스크톱 1280px 이상이다(`docs/16-DECISIONS.md` ADR-007).
 이 파일의 나머지는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히면 설계 문서를 따른다.

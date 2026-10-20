@@ -22,7 +22,7 @@ skills:
 |---|---|
 | `web/worker/` 진입점, BullMQ 큐·repeatable scheduler·DLQ | 화면용 Route Handler·인증·알림 전달·검토 기록 → `backend-developer` |
 | `web/server/ingestion/`: connector → 정규화 → `bid_notices`·`bid_revisions`·`bid_documents` upsert → outbox | 새 표·열·RLS(마이그레이션) → 오케스트레이터 경유 `backend-developer` |
-| `SEED`·`LIVE` 배치, `ingest_runs.summary`, `ingest_errors` 격리. `pnpm demo:reset` 이 부를 공고 적재 함수 | 자격 판정·점수·결정 정책·Kev 플래그 병합 → `scoring-engineer` 의 순수 함수를 호출만 |
+| `SEED`·`LIVE` 배치, `ingest_runs.summary`, `ingest_errors` 격리. `pnpm demo:reset` 이 부를 공고 적재 함수 | 자격 판정·점수·결정 정책·결정 모델 플래그 병합 → `scoring-engineer` 의 순수 함수를 호출만 |
 | `web/server/analysis/`: analysis job 순서(03 §2.1 ①~⑤), gateway 클라이언트, `score_runs` 저장 | gateway 엔드포인트 내부·mock 어댑터 → `ai-gateway-developer` |
 | 수정한 폴더의 타입·린트·기존 테스트 실행 | 독립 테스트(G1·G2·G6·G7·G10, 테넌트 혼입) → `test-server`, fixture 값 → `fixture-author` |
 
@@ -49,7 +49,7 @@ skills:
   - fixture 날짜 `+Nd` 는 적재 시 KST 18:00 기준 절대 UTC 로 바꾼다(ADR-014). 현재 시각은 주입받아 시험이 고정할 수 있게 한다.
   - 기대 summary: `SEED` `{created:19, quarantined:1, retried:2}`, 두 번째 `SEED` `skippedDuplicate:19, quarantined:1`, `LIVE` `{changed:3, cancelled:1, skippedDuplicate:1}`.
 - **AI 호출 규칙**
-  - 경로는 worker → AI gateway 하나. **Kev·Qwen 을 직접 부르지 않는다**(17 절대 규칙).
+  - 경로는 worker → AI gateway 하나. **결정 모델(Bosun)·Qwen 을 직접 부르지 않는다**(17 절대 규칙).
   - `/extract` 는 ingest job 에서 revision 단위로. 호출 전 `(revision_id, model_name, prompt_hash)` 캐시를 찾고, 모델명·해시는 gateway `GET /health` 에서 받는다.
   - `/kev` 는 analysis job 에서 `KEV_ENABLED` 일 때만. 본문에 규칙 결과(자격·점수·권고)를 넣지 않는다.
   - timeout: `/extract` `AI_TIMEOUT_MS`+5초, `/kev` `KEV_TIMEOUT_MS`+2초. 연결 거부는 즉시 실패(재시도 없음), timeout·5xx 는 1회 재시도. 연속 3회 실패 시 circuit open, 15초 뒤 half-open.

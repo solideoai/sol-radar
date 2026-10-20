@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -14,18 +14,18 @@ updated: 2026-10-19
 이 문서는 수집(07) → 추출(03) → 저장(04) → API(05) 사이를 오가는 **공통 데이터 타입의 단일 정의**다. 다른 문서는 여기 이름을 그대로 쓴다.
 
 > [!tip] 심사 포인트
-> AI가 만든 모든 값은 `state`(알고 있음/모름/해당 없음/상충)와 원문 인용(`EvidenceRef`)을 함께 가진다. 인용은 원문과 문자열 대조로 검증하고, 실패하면 값을 버린다. 공공 API의 구조화 필드를 근거로 쓰면 원본 응답의 필드 값과 대조한다. 회사 쪽 근거(`CompanyEvidenceRef`)와 Kev 입력 줄의 출처(`KevStateTrace`)도 남긴다. "근거 없는 값은 없다"가 이 계약의 핵심이다.
+> AI가 만든 모든 값은 `state`(알고 있음/모름/해당 없음/상충)와 원문 인용(`EvidenceRef`)을 함께 가진다. 인용은 원문과 문자열 대조로 검증하고, 실패하면 값을 버린다. 공공 API의 구조화 필드를 근거로 쓰면 원본 응답의 필드 값과 대조한다. 회사 쪽 근거(`CompanyEvidenceRef`)와 결정 모델(Bosun) 입력 줄의 출처(`KevStateTrace`)도 남긴다. "근거 없는 값은 없다"가 이 계약의 핵심이다.
 
 ## 1. 계약 이름과 정의 위치
 
 |계약|정의 위치|생산자|소비자|
 |---|---|---|---|
 |`FieldState`, `EvidenceRef`, `ExtractedField<T>`|이 문서 §2|AI gateway(`kind=TEXT`), worker·규칙 엔진(`kind=API_FIELD`)|규칙 엔진, API, UI|
-|`CompanyEvidenceRef`, `KevStateTrace`|이 문서 §2.1|규칙 엔진(worker), AI gateway Kev 어댑터(state 빌더)|API, UI, `score_runs.kev_output`, 평가셋|
+|`CompanyEvidenceRef`, `KevStateTrace`|이 문서 §2.1|규칙 엔진(worker), AI gateway 결정 모델 어댑터(state 빌더)|API, UI, `score_runs.kev_output`, 평가셋|
 |`NormalizedBid`, `StructuredRequirement`|이 문서 §3|Connector(07, `web/server/ingestion`)|DB `bid_revisions.normalized`·`bid_structured_requirements`, 추출기, 규칙 엔진|
 |`ParseResult`(gateway `POST /parse` 응답)|[[03-AI-PIPELINE\|03 AI 파이프라인]]|AI gateway 문서 파서|worker documents job, 추출기, 인용 검증(§5.1)|
 |`RequirementExtraction`|[[03-AI-PIPELINE\|03 AI 파이프라인]] §4.1|Qwen 추출기|규칙 엔진, `requirement_extractions.payload`|
-|판정 라벨(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드|[[08-SCORING\|08 점수]] §5.1|규칙 엔진, Kev 어댑터|API, UI, 평가셋|
+|판정 라벨(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드|[[08-SCORING\|08 점수]] §5.1|규칙 엔진, 결정 모델 어댑터|API, UI, 평가셋|
 |`AnalysisInput`|[[04-DATABASE\|04 DB]] `score_runs.input_snapshot`|worker(`web/worker`)|재현·백테스트|
 |`AnalysisResult`, `BidDetail` 등 API 응답·요청 스키마|[[05-API-SPEC\|05 API 명세]] §4|Route Handler(`web/app/api/v1`)|화면(`web/app`), 스크립트|
 |`EvalItem`(평가셋 정본 형식)|[[21-MODEL-TRAINING\|21 모델 학습]] §3.7|데이터셋 빌더(`pnpm dataset:build`, 예정)|평가 하네스, 학습셋 내보내기|
@@ -93,11 +93,11 @@ interface ExtractedField<T> {
 |`TEXT`(기본)|`documentId`(본문이면 null), `page`·`charStart`·`charEnd`(선택), `quotedText` 5~300자|Qwen 추출(gateway). AI 출력의 근거는 언제나 `TEXT`다|§5.2 인용 검증 알고리즘|
 |`API_FIELD`|`apiField`, `apiSource`, `quotedText`(필드 값 원문). `documentId`·`page`·`charStart`·`charEnd`는 null|worker·규칙 엔진. API 구조화 필드(면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt` 등)로 판정할 때(`basis=API_FIELD`, [[04-DATABASE\|04 DB]] `qualification_checks`)|§5.4 원본 응답 필드 대조|
 
-판정 라벨: 규칙 판정·Kev 요구사항 질문(`req.{itemId}.status`)·평가셋 라벨은 같은 3값(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드를 쓴다. 조건과 사유 코드의 정본은 [[08-SCORING|08 점수]] §5.1이다. 이 문서가 정하는 것은 근거 형식이다: `NOT_SATISFIED`에는 검증을 통과한 공고 쪽 `EvidenceRef` 1개 이상과 회사 쪽 명시적 부정 근거 `CompanyEvidenceRef`(§2.1) 1개 이상이 함께 있어야 한다. 정보가 없다는 사실만으로는 미충족이 될 수 없다.
+판정 라벨: 규칙 판정·결정 모델 요구사항 질문(`req.{itemId}.status`)·평가셋 라벨은 같은 3값(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드를 쓴다. 조건과 사유 코드의 정본은 [[08-SCORING|08 점수]] §5.1이다. 이 문서가 정하는 것은 근거 형식이다: `NOT_SATISFIED`에는 검증을 통과한 공고 쪽 `EvidenceRef` 1개 이상과 회사 쪽 명시적 부정 근거 `CompanyEvidenceRef`(§2.1) 1개 이상이 함께 있어야 한다. 정보가 없다는 사실만으로는 미충족이 될 수 없다.
 
-### 2.1 회사 쪽 근거 `CompanyEvidenceRef`와 Kev state 추적 `KevStateTrace`
+### 2.1 회사 쪽 근거 `CompanyEvidenceRef`와 결정 모델 state 추적 `KevStateTrace`
 
-`EvidenceRef`는 공고 쪽만 가리킨다. 판정의 다른 한쪽인 회사 기록과, 인용을 만들지 못하는 Kev의 입력 줄을 추적하려고 두 타입을 둔다([[16-DECISIONS|ADR-020]]). [[05-API-SPEC|05 API 명세]]·[[21-MODEL-TRAINING|21 모델 학습]]의 같은 이름 타입은 이 정의를 따른다.
+`EvidenceRef`는 공고 쪽만 가리킨다. 판정의 다른 한쪽인 회사 기록과, 인용을 만들지 못하는 결정 모델(Bosun. 타입 이름 Kev는 호환 유지, ADR-034)의 입력 줄을 추적하려고 두 타입을 둔다([[16-DECISIONS|ADR-020]]). [[05-API-SPEC|05 API 명세]]·[[21-MODEL-TRAINING|21 모델 학습]]의 같은 이름 타입은 이 정의를 따른다.
 
 ```ts
 /** 회사 쪽 근거 위치. 회사 프로필 revision의 기록 하나 또는 회사 증빙 파일을 가리킨다 */
@@ -109,7 +109,7 @@ interface CompanyEvidenceRef {
   quotedText: string | null;
 }
 
-/** Kev state를 만들 때 줄마다 남기는 출처. Kev는 인용을 만들지 못한다 */
+/** 결정 모델 state를 만들 때 줄마다 남기는 출처. 결정 모델은 인용을 만들지 못한다 */
 interface KevStateTrace {
   stateHash: string;                       // sha256(state 텍스트)
   template: "en.v0.2" | "ko.v0.2";
@@ -126,10 +126,10 @@ interface KevStateTrace {
 |타입|저장 위치|규칙|
 |---|---|---|
 |`CompanyEvidenceRef`|`qualification_checks.company_evidence`, `requirement_assessments.company_evidence`([[04-DATABASE\|04 DB]]), `KevStateTrace.lines[].companyEvidence`, 평가셋 `EvalItem.labels[].companyEvidence`|`profileRevision`은 판정에 쓴 회사 프로필 revision이다. 회사 프로필은 모든 실행 모드에서 가상이다(ADR-019·020)|
-|`KevStateTrace`|`score_runs.kev_output`(Kev 응답 원문과 함께), API `KevAssist.stateTrace`([[05-API-SPEC\|05 API]])|운영 state는 `en.v0.2`만이다. `ko.v0.2`는 평가 전용(`KEV_ALLOW_KO_STATE=true`)이고 `SOL_RUN_MODE=live`와 함께 쓰면 gateway가 기동을 거부한다([[03-AI-PIPELINE\|03 AI 파이프라인]], [[09-SECURITY\|09 보안]])|
+|`KevStateTrace`|`score_runs.kev_output`(결정 모델 응답 원문과 함께), API `KevAssist.stateTrace`([[05-API-SPEC\|05 API]])|운영 state는 `en.v0.2`만이다. `ko.v0.2`는 평가 전용(`KEV_ALLOW_KO_STATE=true`)이고 `SOL_RUN_MODE=live`와 함께 쓰면 gateway가 기동을 거부한다([[03-AI-PIPELINE\|03 AI 파이프라인]], [[09-SECURITY\|09 보안]])|
 
-- 근거가 하나도 없는 줄(예: `(unknown)`)도 state에 들어갈 수 있다. 그 줄만으로 나온 Kev 판단은 `NEEDS_REVIEW` 쪽 근거로만 표시한다.
-- 화면에서 Kev 질문 결과를 누르면 그 질문의 `itemIds`를 다룬 줄과 그 줄의 공고 인용·회사 증빙이 열린다([[06-UI-UX|06 UI]]).
+- 근거가 하나도 없는 줄(예: `(unknown)`)도 state에 들어갈 수 있다. 그 줄만으로 나온 결정 모델 판단은 `NEEDS_REVIEW` 쪽 근거로만 표시한다.
+- 화면에서 결정 모델 질문 결과를 누르면 그 질문의 `itemIds`를 다룬 줄과 그 줄의 공고 인용·회사 증빙이 열린다([[06-UI-UX|06 UI]]).
 - 첨부를 읽지 못했으면 state에는 그 사실 한 줄만 들어가고, 읽지 못한 문서의 요구사항으로 줄을 만들지 않는다([[07-DATA-PIPELINE|07 수집]] §2.6).
 
 ## 3. `NormalizedBid`
@@ -207,6 +207,29 @@ interface StructuredRequirement {
 |`budgetKrw`|`ExtractedField<string>`|규모 적합성. `NormalizedBid.budgetKrw`와 다르면 `CONFLICTED`|
 |`deadlineAt`|`ExtractedField<string>`|마감 알림. `NormalizedBid.deadlineAt` 우선|
 |`restrictions[]`|`ExtractedField<string[]>`|지역·기업규모 제한 → 필수자격 후보. 참가가능지역·지역의무공동도급은 `structuredQualifications`가 있으면 그것이 우선|
+
+### 4.1 결정 모델 학습 레코드 `bosun/{split}.en.jsonl` (ADR-034, B1 예정)
+
+Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev 레코드 "state 1 + 질문 N"과 다르다). `sol_eval.export --format bosun`(B1 예정, 2026-10-20 미구현)이 `EvalItem`·`Label`과 질문 세트 `kev-qs/v0.2`에서 만든다. 서빙(`sol_decision`)과 학습이 같은 변환 함수를 쓴다(계획 §4.1).
+
+| 필드 | 뜻 | 출처 |
+|---|---|---|
+| `rowId` | `sha256(itemId + ":" + qid)` | 생성 |
+| `itemId`·`clusterId`·`split`·`bid{source,noticeId,revisionId}`·`companyVariantId` | `EvalItem` 그대로(누수 검사·추적용) | `EvalItem` |
+| `qid`·`questionType` | 질문 id·`choice\|score\|noul` | `kev-qs/v0.2` |
+| `instructions` | 질문 세트 **원문**(ADR-033 E10) | `kev-qs/v0.2` |
+| `candidates[]` | `{id, label, description}`. choice = criteria 키 순서(id=label=키, description=criteria 문구), score = `"0".."4"`(label=legend), noul = `true`/`false`(description=criteria.true/false 또는 "yes"/"no") | 변환 규칙 |
+| `state`·`stateHash`·`stateTemplate` | `en.v0.2` 텍스트 문자열 그대로, `sha256(state)`, `"en.v0.2"` | state 빌더(서빙과 같은 코드) |
+| `questionSet` | `"kev-qs/v0.2"` | |
+| `gold{candidateId, probabilities[]}` | 정답 후보 id 와 `candidates` 순서의 분포(one-hot 또는 `Label.target` soft) | `Label` |
+| `labelSource`·`reason`·`noticeEvidence[]`·`companyEvidence[]` | `Label` 그대로. `RULE_SILVER` 는 train 에만 | `Label` |
+
+- `recommendation`·`fit`·`mandatoryRisk`·`needsHumanReview`(v0.1 4문항)은 레코드로 만들지 않는다(참고 질문, 학습 제외. ADR-034 2번). `techFit`·`perfRelevance`는 `HUMAN` 라벨만, `risk.*`는 변형이 직접 바꾼 `CONSTRUCTED`만.
+- 번들 `sol-dataset-{version}.tar`의 `manifest.json`에 분할별 건수, 질문별·선택지별 분포(각 ≥ 5%), 파일 sha256, train∩(dev∪test) 클러스터 0건, held-out 기업 원형 id 를 적는다. `bosun/` 디렉터리만 두고 `kev/`는 만들지 않는다.
+- 평가 출력(`sol_eval.bosun_score`, B1 예정)은 `predictions.jsonl`(`rowId`, `probabilities[]`, `seed`)·`rows.json`·`report.json`(패키지 id·sha256, test 파일 sha256, seed 목록)이고, 지표는 [[21-MODEL-TRAINING|21]] §4.3 그대로다.
+
+> [!warning] 미검증 가정 (2026-10-20)
+> 이 계약은 Bosun 공개 API(`render_decision_prompt`·`decision_logits`)와 Hanno `jev-compatible-server`의 타입 매핑을 읽고 정했다. 학습 코드가 서빙과 같은 프롬프트·슬롯을 만드는지는 B1 의 동일성 테스트로 확인한다.
 
 ## 5. 인용 검증 알고리즘
 

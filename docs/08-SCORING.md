@@ -6,17 +6,17 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 08. SOL Score 및 참여 권고
 
 > [!tip] 심사 포인트
-> SOL Score는 **설명 가능한 결정론적 점수**다. 같은 입력이면 같은 점수가 나오고, 모든 점수는 요소별 raw → normalized → points 분해와 근거를 함께 저장한다. 이 문서는 숫자를 끝까지 계산한 worked example 3건(§6)으로 그 주장을 증명한다. Kev는 보조 의견일 뿐이고 규칙 판정을 뒤집지 못한다(§5, `FX-03`). Kev 확률은 점수 입력이 아니고 "모델 참고 지표"와 검토 플래그로만 보인다(§5.4). 정보가 없다는 이유로 "미충족"을 내지 않는다(§5.1).
+> SOL Score는 **설명 가능한 결정론적 점수**다. 같은 입력이면 같은 점수가 나오고, 모든 점수는 요소별 raw → normalized → points 분해와 근거를 함께 저장한다. 이 문서는 숫자를 끝까지 계산한 worked example 3건(§6)으로 그 주장을 증명한다. 결정 모델(Bosun, [[16-DECISIONS|ADR-034]]. 이름 `KEV_*`는 호환 유지)은 보조 의견일 뿐이고 규칙 판정을 뒤집지 못한다(§5, `FX-03`). 결정 모델 확률은 점수 입력이 아니고 "모델 참고 지표"와 검토 플래그로만 보인다(§5.4). 정보가 없다는 이유로 "미충족"을 내지 않는다(§5.1).
 
 ## 1. 핵심 정의
 
-SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이지 낙찰 확률이 아니다. 점수는 결정론적 규칙으로 계산하고 Kev는 별도의 보조 신호로 저장한다. 입력은 `bid_revisions.normalized` + `RequirementExtraction`([[03-AI-PIPELINE|03 AI 파이프라인]] §4.1) + `company_profiles` 특정 revision이며, 입력 스냅샷은 `score_runs.input_snapshot`에 저장한다([[04-DATABASE|04 DB]]). live 공고는 공고 API의 구조화 자격 필드(`bid_structured_requirements`)도 입력이다(§5.1).
+SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이지 낙찰 확률이 아니다. 점수는 결정론적 규칙으로 계산하고 결정 모델 출력은 별도의 보조 신호로 저장한다. 입력은 `bid_revisions.normalized` + `RequirementExtraction`([[03-AI-PIPELINE|03 AI 파이프라인]] §4.1) + `company_profiles` 특정 revision이며, 입력 스냅샷은 `score_runs.input_snapshot`에 저장한다([[04-DATABASE|04 DB]]). live 공고는 공고 API의 구조화 자격 필드(`bid_structured_requirements`)도 입력이다(§5.1).
 
 알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.1.0` 하나다. 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(§6.1).
 
@@ -168,7 +168,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 
 #### 판정 라벨 (3값 + 사유 코드, ADR-020)
 
-규칙 판정, Kev 항목 질문(`req.{itemId}.status`), 평가셋 라벨([[21-MODEL-TRAINING|21 모델 학습]] §2)이 같은 3값을 쓴다([[16-DECISIONS|ADR-020]]).
+규칙 판정, 결정 모델 항목 질문(`req.{itemId}.status`), 평가셋 라벨([[21-MODEL-TRAINING|21 모델 학습]] §2)이 같은 3값을 쓴다([[16-DECISIONS|ADR-020]]).
 
 | 값 (화면) | 조건 |
 |---|---|
@@ -183,7 +183,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 | `NOTICE_INFO_MISSING` | 공고에서 요구를 꺼내지 못함(`UNKNOWN`, 첨부 미파싱 포함) | `FX-04` 자격 요건 미추출 |
 | `NOTICE_CONFLICTED` | 공고 안의 값이 상충함(`CONFLICTED`). API 구조화 필드와 추출이 다른 경우 포함(아래) | 본문 예산 ≠ 첨부 예산 |
 | `COMPANY_EVIDENCE_MISSING` | 회사 프로필에 해당 정보·증빙이 없음 | 면허 목록에 그 면허가 아예 없음(`NOT_HELD`도 `HELD`도 아님) |
-| `AMBIGUOUS_MATCH` | 의미 대응이 불확실함(규칙 사전 밖, Kev 판단 필요) | 사전 코드가 없는 자격(`code=null`), "MSA 기반 클라우드 네이티브" 같은 사전 밖 기술 표현, 면허제한 여러 행의 AND/OR 미확인 |
+| `AMBIGUOUS_MATCH` | 의미 대응이 불확실함(규칙 사전 밖, 결정 모델 판단 필요) | 사전 코드가 없는 자격(`code=null`), "MSA 기반 클라우드 네이티브" 같은 사전 밖 기술 표현, 면허제한 여러 행의 AND/OR 미확인 |
 | `PARSE_UNSUPPORTED` | 첨부를 읽지 못함(다운로드 실패 포함) | 스캔 PDF, 배포용 HWP |
 | `STAGE_NOT_APPLICABLE` | 발주계획 단계라 자격 요건이 아직 없음 | `FX-17` |
 
@@ -193,15 +193,15 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 - 회사 프로필은 "없다"를 기록할 수 있어야 한다: `licenses[].status`·`industryCodes[].status`(`HELD`/`NOT_HELD`), `technologiesComplete`([[05-API-SPEC|05 API]] `CompanyProfile`, [[04-DATABASE|04 DB]] §3.2).
 - 발주계획(`stage=PLAN`, `FX-17`)과 추출 상태 `NOT_APPLICABLE`인 자격 항목은 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장한다. 판정 값 집합(3값)을 늘리지 않고, 결정 경로에서 확인 필요와 같게 다룬다(`web/server/scoring/qualification.ts`, [[04-DATABASE|04 DB]] §3.4).
 
-#### 규칙 담당과 Kev 담당
+#### 규칙 담당과 결정 모델 담당
 
-규칙 엔진은 명시 조건을 판정한다: 업종·면허, 참가 지역, 금액, 인력 수, 자격증, 마감. 사전 코드가 있는 자격, API 구조화 필드, 숫자 조건은 규칙만 판정한다. 비정형 요구사항은 규칙이 판정할 수 없으면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 두고 Kev가 참고 분포를 낸다(§5.4). Kev 담당 항목은 다음이다.
+규칙 엔진은 명시 조건을 판정한다: 업종·면허, 참가 지역, 금액, 인력 수, 자격증, 마감. 사전 코드가 있는 자격, API 구조화 필드, 숫자 조건은 규칙만 판정한다. 비정형 요구사항은 규칙이 판정할 수 없으면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 두고 결정 모델이 참고 분포를 낸다(§5.4). 결정 모델 담당 항목은 다음이다.
 - `requiredSkills[i]`: 기술별 의미 대응. 별칭표로 맞으면 규칙이 `SATISFIED`, 사전에 있는 기술인데 `technologiesComplete=true` 목록에 없으면 규칙이 `NOT_SATISFIED`다.
 - `pastPerformance[i]`: 실적 요구의 분야·유사성. 금액·건수·기간은 규칙 담당.
 - `staffing[i]`: 역할·등급의 의미 대응. 인원 수는 규칙 담당.
 - `qualifications[i]` 중 사전 코드가 없는 것(`code=null`).
 
-항목마다의 판정·사유·양쪽 근거·Kev 분포는 `requirement_assessments`에 저장한다([[04-DATABASE|04 DB]] §3.4). 이 항목 판정은 화면 근거와 평가에 쓰인다. 결정 정책(§5.2)의 "필수자격"은 지금처럼 `qualification_checks`의 필수 항목만 본다. 기술·실적·인력 항목은 점수(§3)로 반영되고 권고 경로를 따로 바꾸지 않는다.
+항목마다의 판정·사유·양쪽 근거·결정 모델 분포는 `requirement_assessments`에 저장한다([[04-DATABASE|04 DB]] §3.4). 이 항목 판정은 화면 근거와 평가에 쓰인다. 결정 정책(§5.2)의 "필수자격"은 지금처럼 `qualification_checks`의 필수 항목만 본다. 기술·실적·인력 항목은 점수(§3)로 반영되고 권고 경로를 따로 바꾸지 않는다.
 
 #### API 구조화 필드 우선 (ADR-020)
 
@@ -227,45 +227,45 @@ flowchart TD
 
 BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사람의 결정·사유로 기록한다. 75/50은 초기 가정이며 조직별로 바꿀 수 있도록 config versioning한다.
 
-"명확히 미충족"은 §5.1의 `NOT_SATISFIED`(양쪽 근거가 있는 미충족)만이다. "확인 필요"는 사유 코드와 상관없이 같은 경로(WATCH + 사람 검토)다. Kev 확률(v0.1·v0.2 모두)은 이 흐름의 입력이 아니다([[16-DECISIONS|ADR-020]]).
+"명확히 미충족"은 §5.1의 `NOT_SATISFIED`(양쪽 근거가 있는 미충족)만이다. "확인 필요"는 사유 코드와 상관없이 같은 경로(WATCH + 사람 검토)다. 결정 모델 확률(v0.1·v0.2 모두)은 이 흐름의 입력이 아니다([[16-DECISIONS|ADR-020]]).
 
-### 5.3 Kev 처리 (`kev-qs/v0.1`)
+### 5.3 결정 모델 처리 (`kev-qs/v0.1`)
 
-Kev 질문 세트 `kev-qs/v0.1`은 4종(`recommendation`·`mandatoryRisk`·`needsHumanReview`·`fit`)이다. 질문 정의·임계값(0.70)·플래그(`MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW`)의 정본은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.5다. 어느 것도 규칙 판정이나 점수를 바꾸지 못한다. `kev-qs/v0.2`(§5.4)는 이 4종을 그대로 포함하고 질문을 더한다. mock 모드와 데모 S3("규칙이 Kev를 이긴다")는 v0.1 `recommendation`을 계속 쓴다([[16-DECISIONS|ADR-020]]).
+결정 모델 질문 세트 `kev-qs/v0.1`은 4종(`recommendation`·`mandatoryRisk`·`needsHumanReview`·`fit`)이다. 질문 정의·임계값(0.70)·플래그(`MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW`)의 정본은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.5다. 어느 것도 규칙 판정이나 점수를 바꾸지 못한다. `kev-qs/v0.2`(§5.4)는 이 4종을 그대로 포함하고 질문을 더한다. mock 모드와 데모 S3("규칙이 결정 모델을 이긴다")는 v0.1 `recommendation`을 계속 쓴다([[16-DECISIONS|ADR-020]]).
 
 점수·결정 쪽에서 정하는 표시는 둘이다.
 - `KEV_MANDATORY_RISK`가 붙으면 "사람 검토 권장"을, `KEV_NEEDS_REVIEW`가 붙으면 결정 패널 상단에 "사람 검토 권장"을 띄운다. 자격 결과와 권고는 바꾸지 않는다.
-- `fit`(wire `score`는 0부터 세는 index 0~4)은 Kev 섹션에 "적합도 의견 n/5"(n = index + 1)로만 보인다. SOL Score에 합산하지 않는다.
+- `fit`(wire `score`는 0부터 세는 index 0~4)은 결정 모델 섹션에 "적합도 의견 n/5"(n = index + 1)로만 보인다. SOL Score에 합산하지 않는다.
 
 `recommendation` 분포는 설명 가능한 보조 의견으로만 쓴다. 규칙상 NO-BID·확인 필요를 BID로 승격할 수 없다.
 
-| 규칙 권고 | Kev 최상위 선택지 | 결과 | `recommendationBasis` |
+| 규칙 권고 | 결정 모델 최상위 선택지 | 결과 | `recommendationBasis` |
 |---|---|---|---|
 | 같음 | 같음 | 규칙 권고 그대로 | `RULES_WITH_KEV_ASSIST` |
-| BID | WATCH 또는 NO_BID | 규칙 BID 유지. 상세 화면에 "Kev 의견 상이" 표시, 사람 검토 권장 | `RULES_WITH_KEV_ASSIST` + `reviewFlags:["MODEL_RULE_DISAGREEMENT"]` |
-| WATCH / NO-BID | BID | 규칙 유지. Kev는 승격 불가 | 위와 동일 |
-| 아무거나 | Kev 없음(장애·비활성, gateway·Qwen은 정상) | 규칙 권고 그대로, `analysis.status=COMPLETED`(gateway나 Qwen까지 불가하면 `PARTIAL`, [[03-AI-PIPELINE\|03]] §8) | `RULES_ONLY` |
+| BID | WATCH 또는 NO_BID | 규칙 BID 유지. 상세 화면에 "결정 모델 의견 상이" 표시, 사람 검토 권장 | `RULES_WITH_KEV_ASSIST` + `reviewFlags:["MODEL_RULE_DISAGREEMENT"]` |
+| WATCH / NO-BID | BID | 규칙 유지. 결정 모델은 승격 불가 | 위와 동일 |
+| 아무거나 | 결정 모델 없음(장애·비활성, gateway·Qwen은 정상) | 규칙 권고 그대로, `analysis.status=COMPLETED`(gateway나 Qwen까지 불가하면 `PARTIAL`, [[03-AI-PIPELINE\|03]] §8) | `RULES_ONLY` |
 
-Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"으로 고정하고 본문에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 Kev 블록 3줄을 그대로 쓴다. 임계값 0.70과 플래그 이름은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5와 같다. 질문 세트 버전 `kev-qs/v0.1`.
+결정 모델의 confidence는 입찰 승률이 아니다. 화면 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"으로 고정하고 본문에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 결정 모델 블록 3줄을 그대로 쓴다. 임계값 0.70과 플래그 이름은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5와 같다. 질문 세트 버전 `kev-qs/v0.1`.
 
-### 5.4 Kev v0.2 참고 지표와 플래그 (`kev-qs/v0.2`, ADR-020)
+### 5.4 결정 모델 v0.2 참고 지표와 플래그 (`kev-qs/v0.2`, ADR-020·034)
 
-`live`·`fixture` 모드는 Kev-9B에 `kev-qs/v0.2`를 묻는다. v0.1 4종(§5.3)에 `req.{itemId}.status`·`techFit`·`perfRelevance`·`risk.*` 5종이 더해진다. 질문 정의는 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.10, 플래그 `KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`의 조건은 03 §5.13이 정본이다. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다. 점수 쪽에서 지키는 것은 다음이다.
+`live`·`fixture` 모드는 결정 모델(Bosun v3.1 0.6B, ADR-034)에 `kev-qs/v0.2`를 묻는다. v0.1 4종(§5.3)에 `req.{itemId}.status`·`techFit`·`perfRelevance`·`risk.*` 5종이 더해진다. 질문 정의는 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.10, 플래그 `KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`의 조건은 03 §5.13이 정본이다. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다. 점수 쪽에서 지키는 것은 다음이다.
 
 - `techFit`·`perfRelevance`는 "모델 참고 지표"에 표시만 한다. `skillMatch`·`pastPerformance`에 더하지 않는다.
-- `req.{itemId}.status`는 Kev 담당 항목(§5.1)에 묻는다. `KEV_REQUIREMENT_DISAGREEMENT`는 규칙이 `SATISFIED`·`NOT_SATISFIED`인 항목에서만 생기고, 해당 항목 행과 `reviewFlags`에 보인다. 규칙이 `NEEDS_REVIEW`인 항목에는 플래그를 달지 않고 Kev 분포를 참고 지표로만 보인다.
+- `req.{itemId}.status`는 결정 모델 담당 항목(§5.1)에 묻는다. `KEV_REQUIREMENT_DISAGREEMENT`는 규칙이 `SATISFIED`·`NOT_SATISFIED`인 항목에서만 생기고, 해당 항목 행과 `reviewFlags`에 보인다. 규칙이 `NEEDS_REVIEW`인 항목에는 플래그를 달지 않고 결정 모델 분포를 참고 지표로만 보인다.
 - `KEV_DELIVERY_RISK`는 "모델 참고 지표"의 리스크 목록에 보인다. 어떤 리스크인지는 `kev.risks`다.
 - **τ = 0.70, 미보정**(`kev_calibration=UNCALIBRATED`)으로 시작한다. 베이스라인 평가 뒤 dev 분할로 다시 정하고, 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다([[21-MODEL-TRAINING|21 모델 학습]]). 화면에 보정 상태를 함께 보인다.
 - v0.1 질문의 임계값(`mandatoryRisk`·`needsHumanReview` 0.70, §5.3)과 처리 표는 그대로다.
-- Kev 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 고지 문구는 "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."이고 API가 `KevAssist.disclaimer`로 내려 준다([[05-API-SPEC|05 API]]).
-- Kev가 결과를 냈으면 `recommendationBasis=RULES_WITH_KEV_ASSIST`, Kev가 없으면(비활성·장애) `RULES_ONLY`다(§5.3 표와 같다).
-- Kev 출력이 할 수 있는 일은 `review_flags` 추가와 참고 지표 표시뿐이다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 절대 규칙).
+- 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 고지 문구는 "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."(literal 유지, ADR-034)이고 API가 `KevAssist.disclaimer`로 내려 준다([[05-API-SPEC|05 API]]).
+- 결정 모델이 결과를 냈으면 `recommendationBasis=RULES_WITH_KEV_ASSIST`, 결정 모델이 없으면(비활성·장애) `RULES_ONLY`다(§5.3 표와 같다).
+- 결정 모델 출력이 할 수 있는 일은 `review_flags` 추가와 참고 지표 표시뿐이다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 절대 규칙).
 
 같은 run에 붙을 수 있는 파이프라인 실패 플래그(`DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED`·`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`·`MOCK_FALLBACK`)의 조건과 처리는 [[03-AI-PIPELINE|03 AI 파이프라인]] §8이 정본이다(첨부 쪽 플래그는 §5.13에도 있다). 이것들도 점수 계산식을 바꾸지 않는다. 입력이 비면 §4 missing 정책과 §5.1 `NEEDS_REVIEW`가 그대로 적용될 뿐이다.
 
-### 5.5 Kev를 점수에 반영하려면
+### 5.5 결정 모델을 점수에 반영하려면
 
-지금은 Kev 확률을 SOL Score에 가산하지 않는다(사용자 결정, [[16-DECISIONS|ADR-020]]). 나중에 반영하려면 아래 순서를 밟는다. 이 순서 전에는 Kev를 점수에 넣는 코드 경로를 만들지 않는다.
+지금은 결정 모델 확률을 SOL Score에 가산하지 않는다(사용자 결정, [[16-DECISIONS|ADR-020]]). 나중에 반영하려면 아래 순서를 밟는다. 이 순서 전에는 결정 모델을 점수에 넣는 코드 경로를 만들지 않는다.
 
 1. **평가**: 평가셋 test 분할에서 신뢰성 기준을 통과한다. 기준은 사용자가 정한다(제안값은 [[21-MODEL-TRAINING|21 모델 학습]] §4.4).
 2. **오류 분석**: 오답을 원인 단계(파싱·추출·번역·state·규칙·라벨·모델)로 나눠, 반영하려는 판단이 모델 쪽에서 믿을 만한지 확인한다(21 §4.4).
@@ -275,7 +275,7 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 ## 6. Worked example: 솔리데오의 가상 데모 프로필
 
 > [!warning] 가상 데이터
-> 회사명 솔리데오와 엑셀의 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 아래 직원 이름·얼굴·실적·자격·재무·가용 인력은 **가상 데모 설정**이며 실제 회사 현황을 뜻하지 않는다. seed 데이터에 `isDemo=true`로 들어간다. 공고 `FX-01`·`FX-02`·`FX-03`은 [[07-DATA-PIPELINE|07 수집]] §6.2의 가상 fixture다. 계산 기준일은 2026-10-16. 이 절이 프로필 값의 단일 원천이며 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1이 같은 값을 쓴다. 아래 수치와 Kev 값은 `mock` 실행 모드(mock 추출, Kev `kev-qs/v0.1` mock 응답)의 골든이다(§1, [[16-DECISIONS|ADR-020]]).
+> 회사명 솔리데오와 엑셀의 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 아래 직원 이름·얼굴·실적·자격·재무·가용 인력은 **가상 데모 설정**이며 실제 회사 현황을 뜻하지 않는다. seed 데이터에 `isDemo=true`로 들어간다. 공고 `FX-01`·`FX-02`·`FX-03`은 [[07-DATA-PIPELINE|07 수집]] §6.2의 가상 fixture다. 계산 기준일은 2026-10-16. 이 절이 프로필 값의 단일 원천이며 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1이 같은 값을 쓴다. 아래 수치와 결정 모델 값은 `mock` 실행 모드(mock 추출, `kev-qs/v0.1` mock 응답)의 골든이다(§1, [[16-DECISIONS|ADR-020]]).
 
 ### 6.1 프로필 요약 (`org-01`, `company_profiles` revision 2)
 
@@ -316,7 +316,7 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 | `strategicPreference` | 제외 키워드 없음. 분야 민원 ∈ domains → 1.0, 세종특별자치시 → 유형 지자체 → 1.0 | 0.6 + 0.4 = **1.00** | 10.0 |
 | 합계 | | | **94.0 → 94** |
 
-결정 경로: 자격 미충족 없음 → 확인 필요 없음, `missingFactors` 0 → 94 ≥ 75 → **BID**. Kev(mock): BID 0.71 / WATCH 0.24 / NO_BID 0.05 → 일치, `recommendationBasis=RULES_WITH_KEV_ASSIST`.
+결정 경로: 자격 미충족 없음 → 확인 필요 없음, `missingFactors` 0 → 94 ≥ 75 → **BID**. 결정 모델(mock): BID 0.71 / WATCH 0.24 / NO_BID 0.05 → 일치, `recommendationBasis=RULES_WITH_KEV_ASSIST`.
 
 ### 6.3 Example B — `FX-02` → WATCH
 
@@ -331,7 +331,7 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 | `strategicPreference` | 제외 키워드 없음. 분야 교육 → 1.0, 경기도교육청 → 유형 교육청 → 1.0 | **1.00** | 10.0 |
 | 합계 | | | **72.3 → 72** |
 
-결정 경로: 자격 OK → `missingFactors` 0 (필요 FTE는 예산 구간으로 대체되어 missing이 아님, evidence에 `estimatedFrom:"budgetTier"` 기록) → 72 < 75, ≥ 50 → **WATCH**. Kev(mock): BID 0.36 / WATCH 0.52 / NO_BID 0.12 → 일치. `needsHumanReview` 0.74 ≥ 0.70 → `reviewFlags:["KEV_NEEDS_REVIEW"]`, 결정 패널에 "사람 검토 권장". 화면 설명: "요구기술 6개 중 3개 보유. Vue.js·SCORM·WebRTC 경험 없음. 제안 준비 기간 7영업일로 촉박."
+결정 경로: 자격 OK → `missingFactors` 0 (필요 FTE는 예산 구간으로 대체되어 missing이 아님, evidence에 `estimatedFrom:"budgetTier"` 기록) → 72 < 75, ≥ 50 → **WATCH**. 결정 모델(mock): BID 0.36 / WATCH 0.52 / NO_BID 0.12 → 일치. `needsHumanReview` 0.74 ≥ 0.70 → `reviewFlags:["KEV_NEEDS_REVIEW"]`, 결정 패널에 "사람 검토 권장". 화면 설명: "요구기술 6개 중 3개 보유. Vue.js·SCORM·WebRTC 경험 없음. 제안 준비 기간 7영업일로 촉박."
 
 ### 6.4 Example C — `FX-03` → NO-BID (자격)
 
@@ -348,7 +348,7 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 | `strategicPreference` | 제외 키워드 없음. 분야 스마트시티 ∉ domains → 0.5, 부산광역시 → 유형 지자체 ∈ agencyTypes → 1.0 | 0.3 + 0.4 = **0.70** | 7.0 |
 | 합계 | | | **68.2 → 68** |
 
-결정 경로: **필수자격 명확히 미충족 → NO-BID**. 점수 68은 참고용으로만 표시한다. Kev(mock): BID 0.55 / WATCH 0.30 / NO_BID 0.15 → 상충. 처리: 권고는 NO-BID 유지, `reviewFlags:["MODEL_RULE_DISAGREEMENT"]`, 상세 화면에 "Kev는 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다" 배너, 사람 검토 항목에 올림. 골든 시나리오 G3([[11-TESTING|11 테스트]]).
+결정 경로: **필수자격 명확히 미충족 → NO-BID**. 점수 68은 참고용으로만 표시한다. 결정 모델(mock): BID 0.55 / WATCH 0.30 / NO_BID 0.15 → 상충. 처리: 권고는 NO-BID 유지, `reviewFlags:["MODEL_RULE_DISAGREEMENT"]`, 상세 화면에 "결정 모델은 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다" 배너, 사람 검토 항목에 올림. 골든 시나리오 G3([[11-TESTING|11 테스트]]).
 
 ### 6.5 세 사례 요약
 
@@ -357,7 +357,7 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 | 자격 | 모두 충족 | 모두 충족 | 1건 미충족 |
 | SOL Score | 94 | 72 | 68 (참고) |
 | 규칙 권고 | BID | WATCH | NO-BID |
-| Kev 최상위 | BID | WATCH | BID |
+| 결정 모델 최상위 | BID | WATCH | BID |
 | 최종 권고 | BID | WATCH | NO-BID |
 | `reviewFlags` | 없음 | `KEV_NEEDS_REVIEW` | `MODEL_RULE_DISAGREEMENT` |
 
@@ -365,9 +365,9 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 
 ## 7. 저장 형식
 
-`score_runs` 1건 + `score_factors` 5건(`factor` 값은 05 `FactorKey`: `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference`). 각 factor 행은 `raw_value`(위 표의 raw 열에 해당하는 JSON), `points`, `max_points`, `evidence`(매칭된 기술 목록, 선택된 실적 ID, FTE 계산 근거, `EvidenceRef` 배열)를 가진다. `score_runs.model_metadata`에 Kev 모델 식별자·`prompt_hash`·처리 시간, Kev 질문 4종의 출력(wire 응답 원문)은 `score_runs.kev_output`에, `review_flags[]`·`missing_factors[]`는 04의 전용 열에, `input_snapshot`에는 `AnalysisInput`(입력 전체)과 `input_snapshot_hash`를 넣는다. API 응답 형태는 [[05-API-SPEC|05 API]]의 `AnalysisResult`.
+`score_runs` 1건 + `score_factors` 5건(`factor` 값은 05 `FactorKey`: `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference`). 각 factor 행은 `raw_value`(위 표의 raw 열에 해당하는 JSON), `points`, `max_points`, `evidence`(매칭된 기술 목록, 선택된 실적 ID, FTE 계산 근거, `EvidenceRef` 배열)를 가진다. `score_runs.model_metadata`에 결정 모델 식별자(실제 모델명, ADR-034)·`prompt_hash`·처리 시간, 결정 모델 질문 4종의 출력(wire 응답 원문)은 `score_runs.kev_output`에, `review_flags[]`·`missing_factors[]`는 04의 전용 열에, `input_snapshot`에는 `AnalysisInput`(입력 전체)과 `input_snapshot_hash`를 넣는다. API 응답 형태는 [[05-API-SPEC|05 API]]의 `AnalysisResult`.
 
-[[16-DECISIONS|ADR-020]]으로 더해지는 것: `score_runs.run_mode`(실행 모드)·`kev_calibration`(τ 보정 상태)·`fallback_reason`(mock 자동 대체 원인), `score_runs.kev_output`에 Kev 응답 원문과 `KevStateTrace`, 요구사항 항목마다 `requirement_assessments` 1행(규칙 판정·사유·`basis`·양쪽 근거·Kev 분포·라벨·플래그), `qualification_checks`의 `reason_code`·`company_evidence`·`basis`([[04-DATABASE|04 DB]] §3.4). `kev-qs/v0.2` run의 `kev_output`에는 v0.2 질문 출력(24개씩 나눈 요청이면 응답 전부)도 들어간다([[03-AI-PIPELINE|03 AI 파이프라인]] §7).
+[[16-DECISIONS|ADR-020]]으로 더해지는 것: `score_runs.run_mode`(실행 모드)·`kev_calibration`(τ 보정 상태)·`fallback_reason`(mock 자동 대체 원인), `score_runs.kev_output`에 결정 모델 응답 원문과 `KevStateTrace`, 요구사항 항목마다 `requirement_assessments` 1행(규칙 판정·사유·`basis`·양쪽 근거·결정 모델 분포·라벨·플래그), `qualification_checks`의 `reason_code`·`company_evidence`·`basis`([[04-DATABASE|04 DB]] §3.4). `kev-qs/v0.2` run의 `kev_output`에는 v0.2 질문 출력(24개씩 나눈 요청이면 응답 전부)도 들어간다([[03-AI-PIPELINE|03 AI 파이프라인]] §7).
 
 규칙 엔진 출력의 `explanation`에는 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않는다. 화면에 보이는 설명은 분석 메타의 `explanation`(gateway `/explain` 문장 또는 템플릿 문장)이다([[03-AI-PIPELINE|03 AI 파이프라인]] §2.1, [[16-DECISIONS|ADR-030]] B24).
 
@@ -376,10 +376,10 @@ Kev의 모델 confidence는 입찰 승률이 아니다. 화면 제목은 "모델
 - 골든셋: `fixtures/goldens/FX-xx.json`에 요소별 points와 최종 권고를 고정하고 규칙 단위 테스트(Vitest, `web/server/scoring/*.test.ts`) 100% 통과. 단언은 `mock` 모드에서만 한다(§1).
 - 재현성: 같은 `input_snapshot_hash` + `algorithm_version`이면 같은 `score`와 같은 요소별 `points`. 두 번 계산해 byte-동일.
 - 요소별 missing 정책 테스트(§4 표의 행마다 1개).
-- Kev 승격 금지 테스트(`FX-03`, `FX-16`). 골든 시나리오 G3.
+- 결정 모델 승격 금지 테스트(`FX-03`, `FX-16`). 골든 시나리오 G3.
 - 판정 라벨 테스트(§5.1, ADR-020 P0-5): 정보 부족 → `NEEDS_REVIEW`이지 `NOT_SATISFIED`가 아님(공고 `UNKNOWN`, 회사 기록 없음, `technologiesComplete=false`, 첨부 미파싱 각각), `NOT_SATISFIED`는 양쪽 근거가 있을 때만, `NEEDS_REVIEW`에는 사유 코드가 반드시 있음.
 - API 구조화 필드 우선 테스트(§5.1): API 필드와 추출이 같으면 `basis=API_FIELD`, 다르면 `CONFLICTED` → `NEEDS_REVIEW`(`NOTICE_CONFLICTED`), 면허제한 여러 행 → `AMBIGUOUS_MATCH`.
-- Kev v0.2 규칙 불변 테스트(§5.4, ADR-020 P0-6): Kev 분포를 극단값으로 바꿔도 규칙 판정·요소 points·SOL Score·권고가 byte-동일하고 `reviewFlags`만 달라진다.
+- 결정 모델 v0.2 규칙 불변 테스트(§5.4, ADR-020 P0-6): 결정 모델 분포를 극단값으로 바꿔도 규칙 판정·요소 points·SOL Score·권고가 byte-동일하고 `reviewFlags`만 달라진다.
 - 모델 평가 지표(Macro-F1, 정보부족→미충족 혼동률, Brier·ECE 등)는 이 문서가 아니라 [[21-MODEL-TRAINING|21 모델 학습]] §4가 정한다.
 - 사람이 평가한 자격 검토와 비교, 추천 precision@K, 잘못된 자격 충족 판정률, 날짜 누설 방지 백테스트([[15-DATA-CONTRACTS|15 데이터 계약]] 시점 일치). 실제 낙찰확률 모델은 낙찰 라벨·시점 정합성이 검증될 때만 별도로 만든다.
 
@@ -391,11 +391,11 @@ ADR-019는 전체 직원 명부·프로필 `employeeCount`를 200으로 통일�
 
 - [[07-DATA-PIPELINE|07 수집]] — fixture `FX-01`~`FX-20`과 기대 점수
 - [[19-DEMO-SCENARIO|19 데모 시나리오]] — 솔리데오 프로필·데모 계정 (이 문서 §6.1과 동일 값)
-- [[03-AI-PIPELINE|03 AI 파이프라인]] — `RequirementExtraction`, Kev 질문 세트
+- [[03-AI-PIPELINE|03 AI 파이프라인]] — `RequirementExtraction`, 결정 모델 질문 세트
 - [[04-DATABASE|04 DB]] — `score_runs`, `score_factors`, `company_profiles.financials`
 - [[05-API-SPEC|05 API]] — `AnalysisResult` DTO
-- [[06-UI-UX|06 UI]] — 점수 분해·missing 배지·Kev 상이 배너 표시
+- [[06-UI-UX|06 UI]] — 점수 분해·missing 배지·결정 모델 상이 배너 표시
 - [[11-TESTING|11 테스트]] — 골든 시나리오 G3·G4
-- [[16-DECISIONS|16 ADR]] — ADR-004(Kev는 보조), ADR-020(판정 라벨 3값 + 사유 코드, Kev v0.2 참고 지표, 점수 미반영)
-- [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋 라벨, Kev 반영 전 신뢰성 기준·오류 분석
-- [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — Kev 출력은 플래그·참고 지표만
+- [[16-DECISIONS|16 ADR]] — ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B)
+- [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋 라벨, 결정 모델 반영 전 신뢰성 기준·오류 분석
+- [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 결정 모델 출력은 플래그·참고 지표만

@@ -188,7 +188,7 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 - **실패한 단계의 내용을 AI가 추측해 채우지 않는다.**
   - Qwen에는 파싱된 텍스트만 들어간다. "첨부가 있었다"는 사실로 내용을 추정하게 하는 지시를 프롬프트에 넣지 않는다.
   - 근거가 파싱 텍스트에 없는 값은 인용 검증([[15-DATA-CONTRACTS|15 데이터 계약]] §5)에서 걸려 `UNKNOWN`이 된다.
-  - Kev state에는 "RFP attachment could not be read; requirements may be incomplete"라는 사실 한 줄만 넣는다. 읽지 못한 문서의 요구사항으로 Kev 질문을 만들지 않는다.
+  - 결정 모델 state에는 "RFP attachment could not be read; requirements may be incomplete"라는 사실 한 줄만 넣는다. 읽지 못한 문서의 요구사항으로 결정 모델 질문을 만들지 않는다.
   - `/explain`은 파싱 실패를 문장에 반드시 밝힌다.
 - 데이터 출처는 자동으로 바꾸지 않는다(live → fixture 없음). AI의 mock 자동 대체는 기본 금지이고, 켜는 조건(`AI_FALLBACK_TO_MOCK`)과 표시(`MOCK_FALLBACK`·배너)는 [[03-AI-PIPELINE|03 AI 파이프라인]]을 따른다.
 
@@ -311,7 +311,7 @@ fixture 한 건의 형태:
 |---|---|---|---|---:|---|---|---|---|---|
 | `FX-01` | NOTICE | 세종특별자치시 차세대 행정정보시스템 고도화 | 세종특별자치시 | 12억 | +21d | 신규·정상. 첨부 RFP 파싱 성공, 자격 3건 모두 충족 | **BID** (점수 94) | G5, G6, G8 | S3 자격·근거 서랍, S6 장애 대체(force 재분석), S7 격리 |
 | `FX-02` | NOTICE | 경기도교육청 통합 LMS 구축 | 경기도교육청 | 28억 | +10d | 신규·정상. 요구기술 6개 중 3개 보유, 마감 촉박 | **WATCH** (점수 72) | — | S4 라이브 분석 + 사람 결정 |
-| `FX-03` | NOTICE | 부산광역시 지능형 CCTV 통합관제센터 구축 | 부산광역시 | 45억 | +15d | 필수자격 미충족(정보통신공사업 등록). mock Kev는 `BID 0.55` 제시 | **NO-BID** (자격). 점수 68은 참고. `MODEL_RULE_DISAGREEMENT` 기록 | G3 | S3 "규칙이 Kev를 이긴다" |
+| `FX-03` | NOTICE | 부산광역시 지능형 CCTV 통합관제센터 구축 | 부산광역시 | 45억 | +15d | 필수자격 미충족(정보통신공사업 등록). mock Kev는 `BID 0.55` 제시 | **NO-BID** (자격). 점수 68은 참고. `MODEL_RULE_DISAGREEMENT` 기록 | G3 | S3 "규칙이 결정 모델을 이긴다" |
 | `FX-04` | NOTICE | 한국지능정보사회진흥원 데이터 거버넌스 체계 수립 컨설팅 | 한국지능정보사회진흥원 | 6억 | +12d | 첨부 없음. 본문에 자격 요건 문장 없음 | 자격 **NEEDS_REVIEW** → WATCH. 근거 인용 0건, 수주확률 문구 없음 | G4 | — |
 | `FX-05` | NOTICE | 국민건강보험공단 대국민 포털 재구축 | 국민건강보험공단 | 32억 | +20d | 첨부 HWP 파싱 실패(의도적으로 손상) | `parse_status=FAILED`, 추출 `PENDING_REVIEW`(`warnings`의 `ATTACHMENT_PARSE_FAILED:*`, [[03-AI-PIPELINE\|03]] §4.4, ADR-029 A2), 자격 NEEDS_REVIEW → WATCH. "첨부 원문 확인" 배지 | G4 변형 | — |
 | `FX-06` | NOTICE | 대전광역시 스마트시티 통합플랫폼 유지보수 | 대전광역시 | 9억 | +14d → r2 +28d | 기한변경 정정(`LIVE` 배치, `amendmentNo` 02) | **BID** (점수 78) 유지. revision 2, `BID_CHANGED` 알림 정확히 1건 | G2 | S5 변경 알림 |
@@ -324,7 +324,7 @@ fixture 한 건의 형태:
 | `FX-13` | NOTICE | 울산광역시 산업안전 모니터링 플랫폼 | 울산광역시 | `"1,500백만원"` | +19d | 금액 텍스트 정규화 + 추출 fixture에 원문과 불일치하는 인용 1건 | `budgetKrw="1500000000"`, 원본 문자열 보존. 인용 검증 실패 → 해당 필드(`qualifications`) `UNKNOWN` + `note="CITATION_FAILED"`, 실패 인용은 `match=FAILED`로 남고 화면에 보이지 않음, `warnings`에 `CITATION_FAILED:qualifications`, `reviewFlags`에 `CITATION_FAILED`(`CONFLICTED` 아님, ADR-029 A1), 자격 NEEDS_REVIEW. WATCH | — | — |
 | `FX-14` | NOTICE | 광주광역시 AI 행정 비서 시범사업 | 광주광역시 | 5억 | +2d (KST 18:00) | 마감 임박, 타임존 변환 | UTC 09:00 저장. 대시보드 "마감 임박" 카드, `DEADLINE_APPROACHING` 1건. WATCH (일정 감점) | — | S2 마감 임박 |
 | `FX-15` | NOTICE | 행정안전부 차세대 지방행정 공통기반 구축 | 행정안전부 | 80억 | +30d | 규모 초과(솔리데오 수행 상한 50억) | 규모 적합 0점 + `SCALE_LIMIT_EXCEEDED` 경고. WATCH (58) | — | — |
-| `FX-16` | NOTICE | 국방부 군 지휘통제체계 SW 유지보수 | 국방부 | 40억 | +20d | 비선호 분야(국방) + 방산업체 지정 필수 미충족. mock Kev도 `NO_BID 0.70` | **NO-BID** (자격). 규칙·Kev 일치 | G3 일치 사례 | — |
+| `FX-16` | NOTICE | 국방부 군 지휘통제체계 SW 유지보수 | 국방부 | 40억 | +20d | 비선호 분야(국방) + 방산업체 지정 필수 미충족. mock Kev도 `NO_BID 0.70` | **NO-BID** (자격). 규칙·결정 모델 일치 | G3 일치 사례 | — |
 | `FX-17` | PLAN | 과학기술정보통신부 2027년 AI 행정서비스 구축 발주계획 | 과학기술정보통신부 | 50억 (예정) | 없음 (2027-03 예정) | 발주계획 단계. `planRef=DEMO-PLAN-0042` | 자격 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`), WATCH (조기 추적). StageTimeline 1단계 | — | — |
 | `FX-18` | PRE_SPEC | 과학기술정보통신부 AI 행정서비스 구축 사전규격 | 과학기술정보통신부 | 48억 | 의견등록 +7d | `planRef=DEMO-PLAN-0042`로 `FX-17`과 연결 | 연결 확정(식별자). **BID** (82). StageTimeline 2단계 | — | — |
 | `FX-19` | PRE_SPEC | 세종특별자치시 행정정보 연계 플랫폼 사전규격 | 세종특별자치시 | 10억 | +7d | `planRef` 없음. `FX-01`과 제목 유사도만 높음 | "연결 후보"로만 표시, 자동 병합 없음. WATCH | — | — |
@@ -362,7 +362,7 @@ fixture 한 건의 형태:
 | `FX-16` | 0.10 / 0.20 / 0.70 | 0.90 | 0.30 | 1.6 | 규칙 NO-BID와 일치 |
 
 > [!warning] 미검증 가정
-> 위 분포는 데모용 고정값이다. 실제 Kev 출력이 아니며, Kev 한국어 성능은 미검증이다([[03-AI-PIPELINE|03 AI 파이프라인]]). 화면에는 항상 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"으로 표시한다.
+> 위 분포는 데모용 고정값이다. 실제 결정 모델(Bosun) 출력이 아니며, 결정 모델 한국어 성능은 미검증이다([[03-AI-PIPELINE|03 AI 파이프라인]]). 화면에는 항상 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"으로 표시한다.
 
 ### 6.4 배치와 데모 조작
 

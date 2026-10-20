@@ -12,7 +12,7 @@ updated: 2026-10-20
 # 06. Next.js 화면 및 UX
 
 > [!tip] 심사 포인트
-> 화면은 "정직한 AI" 원칙을 그대로 드러낸다. 모든 가상 데이터에 `DEMO` 배지, Kev 분포 옆에 항상 "수주 확률 아님", 규칙이 Kev를 이기면 그 사실을 배너로 보여 주고, AI가 죽어도 규칙 점수로 화면이 완결된다. 이 문서는 구현자가 추측 없이 옮길 수 있도록 토큰·레이아웃·라우트별 상태·와이어프레임을 고정한다.
+> 화면은 "정직한 AI" 원칙을 그대로 드러낸다. 모든 가상 데이터에 `DEMO` 배지, 결정 모델 분포 옆에 항상 "수주 확률 아님", 규칙이 결정 모델을 이기면 그 사실을 배너로 보여 주고, AI가 죽어도 규칙 점수로 화면이 완결된다. 이 문서는 구현자가 추측 없이 옮길 수 있도록 토큰·레이아웃·라우트별 상태·와이어프레임을 고정한다.
 
 ## 1. 범위와 원칙
 
@@ -108,7 +108,7 @@ flowchart TD
 | 분석 FAILED | `실패` | `alert-octagon` | danger |
 | 공고 CANCELLED | `취소됨` | `ban` | neutral |
 | 가상 데이터 | `DEMO` | `flask-conical` | demo |
-| Kev 의견 상이 | `규칙 우선` | `shield-check` | warning |
+| 결정 모델 의견 상이 | `규칙 우선` | `shield-check` | warning |
 
 자격 판정은 `SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW` 3값이다. 발주계획처럼 자격 요건이 없는 공고는 `NEEDS_REVIEW` + 사유 `STAGE_NOT_APPLICABLE`로 저장하므로([[04-DATABASE|04 DB]] §3.4), 판정은 `확인 필요`로, 사유는 `해당 없음`으로 적는다.
 
@@ -373,11 +373,11 @@ flowchart TD
 │           │ 전략적 선호      ██████████ 10.0 / 10     │                                 │
 │           │ 알고리즘 sol-v0.1.0 · 프로필 rev 2        │                                 │
 │           │                                          │                                 │
-│           │ ■ Kev 참고 지표                           │                                 │
+│           │ ■ 결정 모델 참고 지표                     │                                 │
 │           │ 모델 선택지 신뢰 분포 (충족·수주 확률 아님)│                                 │
 │           │ BID 71% · WATCH 24% · NO-BID 5%           │                                 │
 │           │ 낙찰 확률 아님 · 규칙 판정을 뒤집지 않음   │                                 │
-│           │ kev-9b · kev-qs/v0.1 · mock · 규칙과 일치  │                                 │
+│           │ mock(데모 응답) · kev-qs/v0.1 · 규칙 일치 │                                 │
 │           │                                          │                                 │
 │           │ ■ 근거 인용 (EvidenceDrawer 트리거)        │                                 │
 │           │ "요구기술: Java, Spring Boot…"  p.4 [열기] │                                 │
@@ -386,28 +386,28 @@ flowchart TD
 └───────────┴──────────────────────────────────────────┴─────────────────────────────────┘
 ```
 
-섹션 순서는 고정이다: 상단 요약 → 단계 이력 → 필수자격 체크리스트 → 점수 분해 → Kev 참고 지표 → 근거 인용. Kev 참고 지표는 점수에 반영하지 않는다는 점을 섹션 안에 항상 적는다([[08-SCORING|08 점수]], [[16-DECISIONS|ADR-020]]).
+섹션 순서는 고정이다: 상단 요약 → 단계 이력 → 필수자격 체크리스트 → 점수 분해 → 결정 모델 참고 지표 → 근거 인용. 결정 모델 참고 지표는 점수에 반영하지 않는다는 점을 섹션 안에 항상 적는다([[08-SCORING|08 점수]], [[16-DECISIONS|ADR-020]]).
 
-`kev-qs/v0.2`(실모델 `live`·`fixture` 모드)에서는 Kev 참고 지표 섹션이 아래를 더 보여 준다. 시각 표현은 구현 전 `web-designer` 디자인 스펙으로 정한다.
+`kev-qs/v0.2`(실모델 `live`·`fixture` 모드)에서는 결정 모델 참고 지표 섹션이 아래를 더 보여 준다. 시각 표현은 구현 전 `web-designer` 디자인 스펙으로 정한다.
 - 요구사항 항목별 3값 분포(충족·미충족·확인 필요)와 규칙 판정 나란히. 다르면 `KEV_REQUIREMENT_DISAGREEMENT` 배지
 - `techFit`·`perfRelevance` 등급, `risk.*` 리스크 목록(`KEV_DELIVERY_RISK`)
 - 보정 상태 태그 `미보정`/`보정됨(데이터셋 버전)`
 - 항목을 누르면 그 판단에 쓰인 state 줄과 공고 인용·회사 증빙(`KevStateTrace`)을 근거 서랍에 연다
 
-상단 요약에는 모든 실행 모드에서 "가상 회사 프로필로 분석" 배지를 붙인다(회사 프로필은 언제나 가상 솔리데오 프로필이다. `live` 공고면 "실제 공고 × 가상 회사 프로필"). 우측 레일(결정 패널)은 sticky. 숫자는 [[08-SCORING|08 SOL Score]] §6.2 Example A(`FX-01`)와 같다. Kev 섹션 하단에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 Kev 블록 3줄이 그대로 들어간다(와이어프레임에는 지면상 요약).
+상단 요약에는 모든 실행 모드에서 "가상 회사 프로필로 분석" 배지를 붙인다(회사 프로필은 언제나 가상 솔리데오 프로필이다. `live` 공고면 "실제 공고 × 가상 회사 프로필"). 우측 레일(결정 패널)은 sticky. 숫자는 [[08-SCORING|08 SOL Score]] §6.2 Example A(`FX-01`)와 같다. 결정 모델 섹션 하단에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 결정 모델 블록 3줄이 그대로 들어간다(와이어프레임에는 지면상 요약).
 
 상태별 변형:
 
 | 상황 | 변형 |
 |---|---|
-| `PARTIAL` (AI 불가) | 상단 요약 아래 warning 배너, 문구는 [[09-SECURITY\|09 보안]] 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)". 배너 우측에 `recommendationBasis: RULES_ONLY`와 `errorCode`(예 `AI_UNAVAILABLE`). Kev 섹션은 "사용 불가". Topbar `AI: unavailable` |
-| Kev 상이 (`MODEL_RULE_DISAGREEMENT`) | Kev 섹션에 `규칙 우선` 배지 + "Kev는 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다"(`FX-03`). 결정 패널 상단 "사람 검토 권장" |
+| `PARTIAL` (AI 불가) | 상단 요약 아래 warning 배너, 문구는 [[09-SECURITY\|09 보안]] 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)". 배너 우측에 `recommendationBasis: RULES_ONLY`와 `errorCode`(예 `AI_UNAVAILABLE`). 결정 모델 섹션은 "사용 불가". Topbar `AI: unavailable` |
+| 결정 모델 상이 (`MODEL_RULE_DISAGREEMENT`) | 결정 모델 섹션에 `규칙 우선` 배지 + "결정 모델은 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다"(`FX-03`). 결정 패널 상단 "사람 검토 권장" |
 | 자격 `NEEDS_REVIEW` | 체크리스트 행 warning + "확인 필요". 근거가 없으면 09 문구 "근거를 확인할 수 없어 INSUFFICIENT_DATA로 표시합니다. 이 항목은 점수에 반영하지 않았습니다." 권고 WATCH |
 | `missingFactors` | 해당 요소 행 회색 바 + `미확인` 배지 + 툴팁 사유(`FX-11`) |
 | 첨부 파싱 실패 | 근거 섹션에 danger 배지 "첨부 원문 확인" + 원문 링크(`FX-05`). 사유(`UNSUPPORTED_FORMAT`·`NO_TEXT_LAYER`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED` 등)를 툴팁으로 |
 | 첨부 다운로드 실패 | 근거 섹션에 danger 배지 `DOCUMENT_DOWNLOAD_FAILED` "첨부를 내려받지 못했습니다" + 원문 링크. 파싱 실패와 다른 배지 |
 | 부분 파싱 (`PARTIAL`) | 해당 첨부에 warning 배지 "일부만 읽음". 근거 없는 항목은 확인 필요 |
-| Qwen 미접속 / Kev 사용 불가 | 각각 다른 문구: Qwen 불가는 `PARTIAL` 배너(위), Kev 불가(`KEV_UNAVAILABLE` = Kev 미접속·timeout + Kev 응답 형식 오류)는 Kev 섹션 "Kev 사용 불가" + `RULES_ONLY`. 원인을 "서버 미접속"으로 단정하지 않는다([[03-AI-PIPELINE\|03]] §8, [[16-DECISIONS\|ADR-031]] C6) |
+| Qwen 미접속 / 결정 모델 사용 불가 | 각각 다른 문구: Qwen 불가는 `PARTIAL` 배너(위), 결정 모델 불가(`KEV_UNAVAILABLE` = 결정 모델 미접속·timeout + 응답 형식 오류)는 결정 모델 섹션 "결정 모델 사용 불가" + `RULES_ONLY`. 원인을 "서버 미접속"으로 단정하지 않는다([[03-AI-PIPELINE\|03]] §8, [[16-DECISIONS\|ADR-031]] C6) |
 | mock 자동 대체 (`MOCK_FALLBACK`) | 상단 danger 배너 "모델 서버에 연결하지 못해 Mock 결과를 표시합니다. (실제 모델 결과 아님)". `AI_FALLBACK_TO_MOCK=true`일 때만 생기고 `live` 모드에서는 생기지 않는다 |
 | 취소 | §5.5 |
 
@@ -423,8 +423,8 @@ flowchart TD
 - 5분 초과: "분석이 지연되고 있습니다" + [새로고침]. 자동 polling 중단(큐 적체 시 브라우저 부하 방지).
 - 상태 변화는 `aria-live="polite"` 영역으로 읽어 준다.
 - 상태 이름은 [[05-API-SPEC|05 API]]의 값(`QUEUED`·`RUNNING`·`COMPLETED`·`PARTIAL`·`FAILED`)을 쓴다. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`이고 화면 글자는 `미분석`이다([[16-DECISIONS|ADR-029]] A6 D17).
-- 분석 결과에는 항상 `createdAt`, `algorithmVersion`, 프로필 revision, Kev 모델 식별자(또는 `mock`)를 표시한다.
-- 분석 출처는 상세의 분석 요약 띠에 "분석 실행 모드: live|fixture|mock"과 "AI: local · {qwen 모델 식별자} · {kev 모델 식별자}"(또는 "AI: mock")로 보인다. Topbar의 "실행 모드"(앱의 지금 모드)와 구분하려고 "분석"을 붙인다. 모델 이름은 받은 식별자 그대로 쓰고(예 `Qwen/Qwen3.5-9B`·`jaredpalmer/kev-9b@v1.0`) 표시 이름 대응표는 만들지 않는다. S-LIVE에서는 Topbar `실행 모드: mock`과 `분석 실행 모드: live`가 함께 보이는 것이 정상이다([[16-DECISIONS|ADR-029]] A6 D12).
+- 분석 결과에는 항상 `createdAt`, `algorithmVersion`, 프로필 revision, 결정 모델 식별자(또는 `mock`)를 표시한다.
+- 분석 출처는 상세의 분석 요약 띠에 "분석 실행 모드: live|fixture|mock"과 "AI: local · {qwen 모델 식별자} · {kev 모델 식별자}"(또는 "AI: mock")로 보인다. Topbar의 "실행 모드"(앱의 지금 모드)와 구분하려고 "분석"을 붙인다. 모델 이름은 받은 식별자 그대로 쓰고(예 `Qwen/Qwen3.5-27B`·`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`) 표시 이름 대응표는 만들지 않는다. S-LIVE에서는 Topbar `실행 모드: mock`과 `분석 실행 모드: live`가 함께 보이는 것이 정상이다([[16-DECISIONS|ADR-029]] A6 D12).
 
 ## 8. 데모 친화 요소
 
@@ -438,7 +438,7 @@ flowchart TD
 | `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("12분 전"). 60분 초과면 warning 색 + "수집 지연" 텍스트, 수집 실패 시 danger + 관리자 링크 |
 | `AnalysisStatus` | 상세·목록 | §7 상태 + 실시간 polling |
 | AI 불가 배너 | 상세 상단, 대시보드 상단 | `analysis.status=PARTIAL` 또는 `/health/ready` `status: degraded`일 때. 문구는 09 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" + `recommendationBasis: RULES_ONLY` |
-| Kev 섹션 제목·고지 | Kev 섹션 | 섹션 이름은 "Kev 참고 지표"이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"(03·05·08·09의 영역 이름)를 함께 보인다([[16-DECISIONS\|ADR-029]] A6 D13). 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" Kev 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSetVersion`으로 치환. 둘 다 생략 금지 |
+| 결정 모델 섹션 제목·고지 | 결정 모델 섹션 | 섹션 이름은 "결정 모델 참고 지표"(ADR-034로 "Kev 참고 지표"에서 개정)이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"(03·05·08·09의 영역 이름)를 함께 보인다([[16-DECISIONS\|ADR-029]] A6 D13, ADR-034 5번). 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" 결정 모델 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSetVersion`으로 치환. 둘 다 생략 금지 |
 | 변경 diff | 상세 단계 이력 → revision 클릭 | 예산·마감·자격·첨부 변경 전/후 나란히(`FX-06`, `FX-07`) |
 
 ## 9. 컴포넌트
@@ -504,7 +504,7 @@ S7(`org-02`)의 화면 증거는 `forbidden`이 아니다. 공고는 공용이�
 ## 관련 문서
 
 - [[05-API-SPEC|05 API]] — 화면이 소비하는 DTO·오류 코드
-- [[08-SCORING|08 SOL Score]] — 점수 분해·missing 배지·Kev 상이 처리
+- [[08-SCORING|08 SOL Score]] — 점수 분해·missing 배지·결정 모델 상이 처리
 - [[07-DATA-PIPELINE|07 수집]] — 화면 상태를 재현하는 fixture `FX-01`~`FX-20`
 - [[13-NOTIFICATIONS|13 알림]] — 알림 유형·읽음 처리
 - [[09-SECURITY|09 보안]] — 403/404 정책, Supabase Auth 세션, 모델 한계 고지 문구(원문)
