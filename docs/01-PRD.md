@@ -30,7 +30,7 @@ SOL RADAR는 공공 SI·AX 기업이 `어떤 입찰에 참여해야 하는가`�
 범위 제외 결정은 [[16-DECISIONS|16 ADR]] ADR-007. 구현 시 금지 규칙은 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]].
 
 ## 사용자 및 권한
-- ADMIN: 기업 정보·구성원·연동 설정 관리. 서비스 운영자(`profiles.is_admin`, `/ops`)와 다르다([[16-DECISIONS|ADR-021]]).
+- ADMIN: 기업 정보·구성원·연동 설정 관리. 서비스 운영자(`profiles.is_admin`. 지금 화면은 템플릿 `/admin`이고 `/ops` 분리는 해커톤 뒤)와 다르다([[16-DECISIONS|ADR-021]]·ADR-023).
 - SALES: 공고 탐색, 검토, 담당자 배정 및 의사결정.
 - ANALYST: 분석 실행, 점수·자격 판정 확인. 검토 의견(코멘트) 기록은 해커톤 범위 밖(P1).
 - VIEWER: 허용 범위 내 읽기.

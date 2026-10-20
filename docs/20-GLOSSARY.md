@@ -101,7 +101,7 @@ updated: 2026-10-20
 | Route Handler | Next.js App Router의 서버 HTTP 핸들러(`web/app/api/v1/**/route.ts`). 외부 API 계약 `/api/v1/...`과 헬스체크 `/health/live`·`/health/ready`를 낸다 | [[05-API-SPEC]] |
 | 서버 도메인 (`web/server/<도메인>`) | 서버 전용 업무 코드. model·repo·service·index(배럴)로 나누고 `import "server-only"`로 시작한다. 다른 코드는 배럴(`@/server/<도메인>`)로만 부른다. 예: `bids`·`ingestion`·`scoring`·`analysis`·`review`·`notifications`·`company-profile`·`health` | [[02-ARCHITECTURE]] |
 | zod 스키마 (계약 단일 원천) | `web/server/<도메인>/*.model.ts`의 zod 스키마. 화면 폼·Route Handler·worker가 같은 스키마로 입력을 검증한다. OpenAPI 문서는 필요하면 여기서 생성한다(선택) | [[05-API-SPEC]], [[16-DECISIONS]] |
-| worker 진입점 (`web/worker`) | BullMQ 소비자(ingest·documents·extract·analysis job)를 띄우는 별도 Node(TypeScript) 프로세스. `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈은 `node --conditions=react-server --import tsx worker/main.ts`로 불러온다(2026-10-18 검증, 16 미결정 9번) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
+| worker 진입점 (`web/worker`) | BullMQ 소비자를 띄우는 별도 Node(TypeScript) 프로세스. 지금 소비자는 system·ingest·analysis이고, documents 큐는 생산만 하며, `/extract`는 analysis job 안에서 부른다(설계의 documents·extract job 소비자는 미구현). `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈은 `node --conditions=react-server --import tsx worker/main.ts`로 불러온다(2026-10-18 검증, 16 미결정 9번) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
 | AI gateway | Python FastAPI 서비스(`services/ai/`, :8000). Qwen·결정 모델(Bosun) 호출은 이것만 한다. Next 서버와 worker는 결정 모델에 직접 접근하지 않는다 | [[03-AI-PIPELINE]] |
 | 마이그레이션 (`supabase/migrations/`) | 스키마·RLS 정책·DB 함수를 담는 SQL 파일. 새 파일로만 쌓는다(append-only). 클라우드 적용은 `pnpm db:push`(사용자 확인 뒤에만) | [[04-DATABASE]] |
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |
@@ -199,7 +199,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 
 | 용어 | 뜻 | 원천 |
 |---|---|---|
-| 서비스 운영자 vs 조직 ADMIN | 서비스 운영자는 `profiles.is_admin`이고 `/ops`만 쓴다. 조직 ADMIN은 `memberships.sol_role=ADMIN`이고 그 조직의 `/admin/*`·설정 조직 탭을 쓴다. 서로의 화면에 들어가지 않는다 | [[09-SECURITY]] |
+| 서비스 운영자 vs 조직 ADMIN | 서비스 운영자는 `profiles.is_admin`이고 운영자 화면만 쓴다(지금은 템플릿 `/admin`, 비운영자는 404. `/ops` 분리는 해커톤 뒤). 조직 ADMIN은 `memberships.sol_role=ADMIN`이고 그 조직의 `/admin/*`·설정 조직 탭을 쓴다. 서로의 화면에 들어가지 않는다 | [[09-SECURITY]] |
 | 현재 조직 | 요청을 처리할 업무 조직. 서버가 세션 사용자의 업무 멤버십으로 정하고 요청의 조직 ID를 받지 않는다. 멤버십 2개 이상은 지원하지 않는다 | [[05-API-SPEC]] |
 | 조직·인력 | 가상 직원 200명의 명부·개인 상세 화면 `/people`. 조직도는 별도 화면 `/org-chart`다(2026-10-18) | [[06-UI-UX]] |
 | 조직도 | 가상 직원 200명을 부서 트리(본부 → 그룹 → 팀)와 고른 팀의 사진 카드로 보는 화면 `/org-chart`. 사이드바 맨 아래 고정 칸에서 연다. 원본에서 상위 부서가 확인되지 않은 부서는 "상위 미지정" 구역에 따로 보인다 | [[06-UI-UX]] |
@@ -215,7 +215,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 
 | 용어 | 뜻 | 원천 |
 |---|---|---|
-| 회사 GPU 추론 엔드포인트 | 회사가 HTTPS로 제공하는 모델 런타임 접속점 `https://acropolissg.com/sol-radar`. ai-gateway가 그 아래 경로(`/qwen`·`/kev`, GPU 서버 안 모델 라우터 기준으로 결정)와 Bearer 키로 붙는다. 연결 방식·운영 책임·미확인 항목은 ADR-025 상세 | [[16-DECISIONS\|ADR-025]], [[10-DEPLOYMENT]] |
+| 회사 GPU 추론 엔드포인트 | 회사가 HTTPS로 제공하는 모델 런타임 접속점 `https://acropolissg.com/sol-radar`. ai-gateway가 그 아래 `/kev`(결정 모델, GPU 서버 안 모델 라우터 `infra/gpu/model-router.conf`)에 Bearer 키로 붙는다. `/qwen`은 백업 경로이고 쓰지 않는다. Qwen은 이 엔드포인트가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1`(`QWEN_BASE_URL`)에 붙는다([[16-DECISIONS\|ADR-034]]). 연결 방식·운영 책임·미확인 항목은 ADR-025 상세 | [[16-DECISIONS\|ADR-025]], [[10-DEPLOYMENT]] |
 | 엔드포인트 미접속 | `live`·`fixture`에서 gateway는 살아 있는데 회사 GPU 추론 엔드포인트에 닿지 않는 상태(옛 표현 "터널 단절"). `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. mock 결과로 몰래 바꾸지 않고, 필요하면 사람이 `mock` 모드로 전환 | [[19-DEMO-SCENARIO]], [[03-AI-PIPELINE]] |
 | 엔드포인트 재접속 확인 | 미접속 뒤 `GET /v1/models`로 Qwen·Bosun 응답과 레지스트리 대조를 다시 확인하는 것(옛 표현 "터널 재연결"). 리허설에서 소요 시간을 `rehearsal-log.md`에 적는다 | [[11-TESTING]] |
 
