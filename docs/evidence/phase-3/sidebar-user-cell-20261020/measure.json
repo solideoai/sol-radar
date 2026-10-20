@@ -1,0 +1,54 @@
+[
+  {
+    "width": 1440,
+    "path": "/dashboard",
+    "pageOverflowX": false,
+    "buttonHeight": 58,
+    "buttonWidth": 239,
+    "overflowY": false,
+    "lines": [
+      {
+        "text": "김관리",
+        "fontSize": "16px",
+        "ellipsis": false,
+        "insideButton": true,
+        "width": 159,
+        "height": 23
+      },
+      {
+        "text": "admin@soltech.invalid",
+        "fontSize": "15px",
+        "ellipsis": false,
+        "insideButton": true,
+        "width": 159,
+        "height": 19
+      }
+    ]
+  },
+  {
+    "width": 1280,
+    "path": "/dashboard",
+    "pageOverflowX": false,
+    "buttonHeight": 58,
+    "buttonWidth": 239,
+    "overflowY": false,
+    "lines": [
+      {
+        "text": "김관리",
+        "fontSize": "16px",
+        "ellipsis": false,
+        "insideButton": true,
+        "width": 159,
+        "height": 23
+      },
+      {
+        "text": "admin@soltech.invalid",
+        "fontSize": "15px",
+        "ellipsis": false,
+        "insideButton": true,
+        "width": 159,
+        "height": 19
+      }
+    ]
+  }
+]
