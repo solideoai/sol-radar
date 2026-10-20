@@ -5,12 +5,12 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 기술적 한계·미완성 항목·실행 모드 구분
 
-심사위원이 "어디까지가 실제이고 어디까지가 mock인가"를 묻기 전에 먼저 답하는 문서다. 정본은 [[18-HACKATHON|18 해커톤]] §7 정직성 표와 [[16-DECISIONS|16 ADR]] 미결정 표다. 2026-10-19 기준이며, 외부 의존성 컷 결정(10-20 저녁, [[16-DECISIONS|ADR-027]]) 뒤 §4를 한 갈래로 확정한다.
+심사위원이 "어디까지가 실제이고 어디까지가 mock인가"를 묻기 전에 먼저 답하는 문서다. 정본은 [[18-HACKATHON|18 해커톤]] §7 정직성 표와 [[16-DECISIONS|16 ADR]] 미결정 표다. 구현 상태는 2026-10-20 main `301f2a5` 기준이다. 외부 의존성 컷 결정(10-20 저녁, [[16-DECISIONS|ADR-027]]) 뒤 §4를 한 갈래로 확정한다.
 
 ## 1. 정직성 표 요약 (18 §7)
 
@@ -21,7 +21,9 @@ updated: 2026-10-19
 | 회사 프로필 | **가상 솔리데오**(모든 모드, "가상 회사 프로필로 분석" 배지) | 가상 솔리데오 | 가상 솔리데오 |
 | Qwen 추출·설명 | 회사 GPU 추론 엔드포인트(HTTPS) 실추론 | 실추론 | 고정 응답 |
 | Kev | 실추론, 참고 지표만, `UNCALIBRATED` | 실추론 | 고정 응답(`kev-qs/v0.1`) |
-| mock 자동 대체 | 금지(켜면 기동 거부) | `AI_FALLBACK_TO_MOCK=true`일 때만, 배너 표시 | 해당 없음 |
+| mock 자동 대체 | 금지(켜면 기동 거부) | 금지(켜면 기동 거부) | 금지(처음부터 mock이며, 켜면 기동 거부) |
+
+표의 `live`·`fixture` 열은 목표 실행 경로다. 첨부 다운로드 소비자·실제 파서 연결과 회사 GPU 엔드포인트 검증은 남아 있다(§3). 자동 mock 대체는 해커톤 동안 구현하지 않으며 세 모드 모두 `AI_FALLBACK_TO_MOCK=true`를 거부한다([[16-DECISIONS|ADR-030]] B11, `infra/run-modes.json`).
 
 모드와 무관하게 실제 구현인 것(mock 응답이 아닌 것): 수집·정규화·revision·변경 감지, 자격 판정·SOL Score·결정 정책, 인앱 알림, 테넌트 격리(RLS). 어디까지 구현됐는지는 §3. 골든 94/72/68은 `mock`에서만 단언한다.
 
@@ -43,7 +45,9 @@ updated: 2026-10-19
 
 ## 3. 미완성·범위 밖
 
-**해커톤 안 미완성(2026-10-19)**: 화면 `/dashboard`·`/bids`·`/bids/[id]`와 Route Handler(C6), 결정 기록·인앱 알림(C7), 첨부 다운로드 소비자(documents job)·`AttachmentTextReader`·보조 조회 3종(C3 남은 것), 실모델 추론(C1 ③ 엔드포인트 응답 대기. `local` 어댑터 코드는 있다), live 수집 1건·S-LIVE(C8), 평가 하네스(X1), 파서 후보 비교(C1 ④). main 에 있는 것: 공고 스키마·RLS·`pnpm demo:reset`(`48b20a5`), 수집 핵심(`d933c9e`), 규칙 엔진·골든(`e22de09`), gateway 4 엔드포인트 mock(`daf07a6`)·worker 분석 클라이언트·`PARTIAL` 대체(`c2b12d3`)·`local` 어댑터(`b4a23fc`)·보안 후속(`cfe8f0a`), `/people`·`/org-chart`(`7641ee4`). 진행 상태는 [[PROGRESS|진행 상황]].
+**main에 있는 구현(2026-10-20)**: 공고 스키마·RLS·`pnpm demo:reset`(C2), 수집 핵심(C3), 규칙 엔진·골든(C4), gateway 4 엔드포인트 mock·worker 분석 클라이언트·`PARTIAL` 대체·`local` 어댑터(C5), `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`와 업무 Route Handler(C6, `4ae09f9`), 결정 기록과 인앱 알림 2종(C7, `841b064`), `/people`·`/org-chart`다. C6 화면·C7 알림은 더 이상 미구현 항목이 아니다.
+
+**해커톤 안 남은 작업**: 첨부 다운로드 소비자(documents job)·`AttachmentTextReader`·보조 조회 3종(C3), 실모델 추론(C1 ③ 엔드포인트 응답 대기), live 수집 1건·S-LIVE(C8), 평가 하네스(X1), 파서 후보 비교(C1 ④), C7 추가 화면 증거·공고 이벤트 알림 확장, C9 세 모드·대체 경로·최종 리허설이다. `mock` 1차 리허설과 클라우드 사전 분석은 [기록](../evidence/demo-day/20261020-1009/checklist.md)이 있지만 실모델·핵심 컷 전체 통과를 뜻하지 않는다. 최신 상태와 남은 일은 [[PROGRESS|진행 상황]]을 따른다.
 
 **확장 컷으로 이월**(핵심 컷 green 뒤에만): 조직도·직원 목록 데모 노출, 설정 조직 탭, 인력 배치 시뮬레이션, 직원 편집, `/ops`, 사전규격·발주계획 단계 연결(P0-8), S5 변경 감지 장면. 평가셋 v0.1·학습셋 번들(P0-9·P0-11)은 파인튜닝 트랙 X6로 옮겼다([[16-DECISIONS|ADR-027]]).
 

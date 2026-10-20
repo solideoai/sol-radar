@@ -17,7 +17,7 @@ updated: 2026-10-20
   - 남은 것: P0-0은 아래 C1. 17 보고 형식의 Phase 0 보고. CI(GitHub Actions)는 결제 한도 해소 뒤 `35ac193`(2026-10-19)부터 통과.
 - [x] Phase 1 Supabase migrations·RLS·`sol_role`/seed/Supabase Auth·RBAC — 스키마·RLS·`sol_role`·`pnpm demo:reset`은 C2로 main에 있다(`48b20a5`). 클라우드 적용 완료(2026-10-20): `pnpm db:push` 29개(`20261013000001`~`20261019000017`, 실패 0, dd 세션·사용자 승인, [`migrate.log`](evidence/phase-1/migrate.log)), 클라우드 `pnpm demo:reset` 2회 멱등(마지막 줄 일치, 2회째 계정 새로 만든 0, [요약](evidence/phase-1/demo-reset-cloud-20261020.json)). 로그인 E2E `test:e2e:auth` 125/125(`307c134`, main `c53fdc2`)
 - [ ] Phase 2 ingestion/normalization (fixture 20건) — C3 수집 핵심은 main에 병합됐다(`d933c9e`, 2026-10-19). 남은 것은 아래 C3
-- [ ] Phase 3 Next.js UI (데스크톱 전용) — 핵심 컷 화면(C6: `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Route Handler 10개)은 main 병합 `4ae09f9`(2026-10-20). 증거 `evidence/phase-3/`(E2E work 33/33·axe 위반 0·1440/1280 스크린샷 22장·`isolation-404.json`). 남은 것: [[11-TESTING|11 테스트]] §4 Phase 3의 NAV-01~NAV-09(ADR-021 확장 컷 화면)
+- [ ] Phase 3 Next.js UI (데스크톱 전용) — 핵심 컷 화면(C6: `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Route Handler 10개)은 main 병합 `4ae09f9`(2026-10-20). 증거 `evidence/phase-3/`(E2E work 33/33·axe 위반 0·1440/1280 스크린샷 22장·`isolation-404.json`). 확장 컷의 NAV-01~NAV-09는 별도 남은 항목이며 핵심 컷 화면의 수용 기준에는 포함하지 않는다([[11-TESTING|11 테스트]] §4·§9, ADR-023)
 - [ ] Phase 4 eligibility/SOL Score — 규칙 엔진·골든 시험은 main에 있다(`e22de09`, 2026-10-19). 남은 것은 아래 C4
 - [ ] Phase 5 Kev/Qwen adapters (mock 먼저, 실모델은 feature flag) — mock 단계(gateway `daf07a6`·worker 분석 클라이언트 `c2b12d3`·mock Kev fit 수정 `9da17c4`), `local` 어댑터(`b4a23fc`), C5-B 보안 후속(`cfe8f0a`·`8f33caa`)은 main에 병합됐다(2026-10-19). 실추론은 C1 ③ 뒤. 남은 것은 아래 C5
 - [ ] Phase 6 review/notifications (인앱) — 결정 기록(C6 `POST /bids/:id/reviews`, 트리거는 C2 `20261019000007`)과 인앱 알림 2종(C7 `841b064`)은 main에 있다. 남은 것: 아래 C7
@@ -232,3 +232,10 @@ Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영20
 `fix/p1-docs-reconcile-last-admin`에 main `4895010`의 수집 closeAll·등록 구조를 반영하고, DB의 PENDING 첨부를 시작 시·60초마다 커서 조회해 documents 큐를 복구하도록 했다. 조정 세션(e8)이 배정한 `20261019000014_protect_last_sol_admin.sql`로 마지막 업무 ADMIN의 강등·삭제·계정 탈퇴를 차단한다. 계정·프로필·조직 잠금으로 동시 초대 수락과 탈퇴의 경쟁도 보호한다. API 409 `sole_admin`과 기존 설정 화면 안내를 추가했다. DB 타입은 재생성했으며 바이트 변경이 없다.
 
 수정 전 회귀 실패와 실제 임시 PostgreSQL 동시성 실패를 재현한 뒤 초점 검증(동시성 2·웹 111·새 DB 8)을 통과했다. 독립 리뷰 지적을 반영하고 기존 owner 테스트 2개의 ADMIN 인계 fixture를 보완한 최종 전체 `pnpm verify`는 루트 647·웹 4884·AI 894 및 프로덕션 빌드까지 exit 0이다. 무거운 검증은 공용 `verify-slot.sh`로 감쌌다. P2 owner/ADMIN 화면 기준 정리·문서 소비자 구현·공개/인증 E2E·브라우저 화면 검사·전체 Compose·실모델 추론은 이번 범위가 아니다. main 커밋·병합, 공유 DB 적용·seed/reset·push·배포는 하지 않았다. [변경·검증·한계](evidence/project-check/20261019-p1-fixes.md).
+
+
+## 현행 코드 기준 문서 정정 (2026-10-20)
+
+main `301f2a5`에서 격리한 `docs/current-code-reconcile`에서 README·번호 문서·제출 문서를 코드·스키마·실행 설정·추적된 검증 기록과 대조했다. C6 화면·C7 결정/알림의 낡은 미구현 표시, mock 자동 대체 허용 오기, 두 env와 web 재기동이 빠진 모드 전환, NOTIFY env 전달, 실제 큐/파서/알림 경로, API·정규화 계약, 평가 CLI와 데이터 준비 상태를 정정했다. Kev v0.2 질문 확정 구현 `89188d2`도 ADR-033 E10의 당시 상태와 구분해 기록했다.
+
+미연결 기능은 요구 설계를 보존하면서 현행 한계를 표시했다. 과거 실패·실행 SHA·리허설 결과는 덮어쓰지 않았다. `mock` 리허설·데이터셋 도구 검증을 실모델 평가 완료로 올리지 않았고, 다른 세션이 편집 중인 `docs/submission/slides-outline.md`는 보존했다. 공용 `verify-slot.sh`로 감싼 전체 `pnpm verify`는 루트 723·웹 5738·AI 1369와 프로덕션 빌드까지 exit 0이다. 로컬/위키 파일 참조 2310개와 수정 문서 날짜·코드 블록을 확인했고, 실제 `sol_eval` 도움말·fixture 라벨 검사(19개 item·89개 CONSTRUCTED/RULE 라벨·문제 0)도 통과했다. 수정 근거·교차 리뷰·검증 범위는 [문서 정정 보고](evidence/docs-review/20261020-docs-reconcile.md)에 기록한다. main 직접 커밋·병합, DB·모델·수집·배포 실행은 하지 않았다.

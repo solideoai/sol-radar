@@ -17,7 +17,7 @@ updated: 2026-10-20
 > [!warning] 범위
 > - **Kev-9B LoRA**: 해커톤 X6 트랙의 비교 실험이다([[16-DECISIONS|ADR-027]]). 데모·S-LIVE 모델은 `jaredpalmer/kev-9b@v1.0` 그대로다.
 > - **Qwen3.5-9B LoRA SFT**: 방법만 준비한다. 해커톤에는 실행하지 않는다(ADR-027 U1). 착수는 21 §5.6 조건과 사람 결정·ADR을 거친다.
-> - `sol_eval`·`pnpm dataset:build` 같은 우리 쪽 도구는 아직 없다(P0-9~P0-11, X6a·X6b에서 만든다). 아래에서 이 도구를 쓰는 단계는 그 구현을 전제로 한다.
+> - `sol_eval`의 `labels check`·`build`·`export`·`manifest`는 구현됐다(`services/ai/eval/README.md`, 개발용 smoke 증거 `docs/evidence/eval/sol-eval-smoke-20261020.txt`). 엔드포인트 평가·benchmark 출력 기반 오프라인 지표 하네스, `pnpm dataset:build`, Qwen SFT 내보내기·tar 포장은 아직 미구현이다. 아래 해당 단계는 그 구현을 전제로 한다.
 
 ## 1. 한눈에
 
@@ -234,7 +234,7 @@ python -c "from transformers import AutoConfig; print(AutoConfig.from_pretrained
 
 **길이 제한(중요).** `kev.train`의 기본 학습 컨텍스트는 state 384 토큰이다(`kev/model.py` `MAX_STATE`). 우리 state 는 최대 6,000 토큰이다([[03-AI-PIPELINE|03]] §5.6). 그래서 `--max_state`를 반드시 준다. 그보다 긴 레코드는 학습에서 빠지고 로그에 `dropped N of M records that exceed the training context`가 찍힌다. **이 줄의 N이 0이 아니면 학습을 받아들이지 않고** F1 결과에 맞춰 state 를 줄이거나(질문을 나눠 state 를 짧게) `--max_state`를 늘린다.
 
-**번들**: `sol-dataset-{version}.tar` = `manifest.json`(버전·git commit·질문 세트·state 템플릿·마스킹 버전·분할별 개수·파일별 sha256·train 레코드 state 토큰 수 최대값) + `kev/train.en.jsonl`·`kev/dev.en.jsonl`·`kev/test.en.jsonl` + 이 문서의 해당 절. 만드는 명령은 [[21-MODEL-TRAINING|21]] §6(`pnpm dataset:build`(예정) → `sol_eval.export`).
+**번들**: `sol-dataset-{version}.tar` = `manifest.json`(버전·git commit·질문 세트·state 템플릿·마스킹 버전·분할별 개수·파일별 sha256·train 레코드 state 토큰 수 최대값) + `kev/train.en.jsonl`·`kev/dev.en.jsonl`·`kev/test.en.jsonl` + 이 문서의 해당 절. 현행 갈래 ① 데이터 생성 명령은 [[21-MODEL-TRAINING|21]] §6의 `sol_eval build` → `sol_eval export` → `sol_eval manifest`다. 산출물은 디렉터리이며 tar 포장은 아직 미구현이다. DB에서 읽는 `pnpm dataset:build`는 후속이다.
 
 ### 4.2 F1 메모리 검증
 

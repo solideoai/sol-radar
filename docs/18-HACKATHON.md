@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - hackathon
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 18. 해커톤 출품 전략
@@ -142,7 +142,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 회사 프로필 | **가상 솔리데오** | **가상 솔리데오** | **가상 솔리데오** | 회사명·부서/직급은 솔리데오, 직원 200명·사진·자격·실적·재무는 가상 데모 설정(ADR-019). live 분석도 "실제 공고 × 가상 회사 프로필"이며 분석 화면에 "가상 회사 프로필로 분석" 배지가 붙는다 |
 | Qwen 요구조건 추출·설명 | **회사 GPU 추론 엔드포인트의 Qwen3.5-9B 실추론** | **회사 GPU 추론 엔드포인트의 Qwen3.5-9B 실추론** | **고정 응답**(사전 작성 추출) | 실추론은 데모 노트북의 gateway가 HTTPS로 회사 GPU 추론 엔드포인트에 붙는다(ADR-025). 분석 패널에 "AI: local · Qwen3.5-9B · Kev-9B v1.0" 또는 "AI: mock" |
 | Kev | **회사 GPU 추론 엔드포인트의 Kev-9B@v1.0 실추론**(`kev-qs/v0.2`, 영어 state) | **회사 GPU 추론 엔드포인트의 Kev-9B@v1.0 실추론** | **고정 응답**(`fixtures/kev/FX-xx.json`, `kev-qs/v0.1`) | **참고 지표이며 점수·자격·권고에 반영하지 않는다.** 확률은 선택지에 대한 모델 분포이고 충족 확률·수주확률이 아니다. 우리 도메인 보정 전이라 `UNCALIBRATED`로 표시. 한국어 입력 성능은 E1·E2로 잰다(§8 2번) |
-| mock 대체 | 금지(켜면 기동 거부) | `AI_FALLBACK_TO_MOCK=true`일 때만. 대체되면 `MOCK_FALLBACK` 플래그와 "실제 모델 결과 아님" 배너 | 해당 없음(처음부터 mock) | 기본은 자동 대체 없음. 모델이 안 되면 `PARTIAL`·`RULES_ONLY`로 끝낸다 |
+| mock 대체 | 금지(켜면 기동 거부) | 금지(켜면 기동 거부) | 금지(처음부터 mock이며, 켜면 기동 거부) | 해커톤 동안 자동 대체는 구현하지 않는다(ADR-030 B11, `infra/run-modes.json`). 모델이 안 되면 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모드 전환은 사람이 한다 |
 | 네트워크 의존 | 인터넷(Supabase) + 공공 API + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase) + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase)만 | DB·인증이 Supabase 클라우드라 회장 회선이 끊기면 모든 모드에서 로그인·조회가 멈춘다. 그때는 로컬 Supabase CLI로 전환한다([[19-DEMO-SCENARIO]] §5 대체 경로 ①, [[16-DECISIONS]] ADR-023). 엔드포인트·공공 API가 끊겼을 때의 대응은 §9 |
 
 | 영역 (모드와 무관) | 데모 상태 | 설명 |

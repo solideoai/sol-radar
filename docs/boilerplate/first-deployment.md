@@ -60,8 +60,8 @@ Vercel 에서 저장소를 가져온 뒤 프로젝트 설정(Build and Deploymen
 - **Node.js Version 은 프로젝트 설정에서 22.x 로 둡니다.** `web/package.json` 에 `engines` 를 넣으면 Vercel 이 이 설정을 덮고
   범위 안의 가장 높은 메이저(24)를 고르므로 넣지 않습니다(템플릿 원본의 `scripts/template/doctor.test.mjs` 가 지킵니다). 루트의 `engines` 는 Vercel 이 읽지 않습니다.
 - **Build Command 를 꼭 `pnpm vercel-build` 로 둡니다.** [`web/package.json`](../../web/package.json) 의 `vercel-build` 가
-  [`web/scripts/vercel-build.sh`](../../web/scripts/vercel-build.sh) 를 실행합니다(둘 다 삭제됨, 위 콜아웃). 다른 명령으로 빌드하면 아래 운영 DB 검사를 건너뜁니다.
-- **Root Directory 밖 파일 포함**: 운영 DB 검사 [`web/scripts/verify-db.mjs`](../../web/scripts/verify-db.mjs)(삭제됨, 위 콜아웃) 는 `web` 밖의
+  `web/scripts/vercel-build.sh` 를 실행합니다(둘 다 삭제됨, 위 콜아웃). 다른 명령으로 빌드하면 아래 운영 DB 검사를 건너뜁니다.
+- **Root Directory 밖 파일 포함**: 운영 DB 검사 `web/scripts/verify-db.mjs`(삭제됨, 위 콜아웃) 는 `web` 밖의
   [`scripts/db-verify.mjs`](../../scripts/db-verify.mjs)·`scripts/migrations.mjs` 와 `supabase/migrations/` 를 읽습니다.
   Root Directory 밖 소스를 빌드에 포함하는 설정이 켜져 있는지 확인합니다.
   근거: [Vercel 모노레포 FAQ](https://vercel.com/docs/monorepos/monorepo-faq). 이 설정 때문에 두 폴더를 workspace 로 바꾸지는 않습니다.

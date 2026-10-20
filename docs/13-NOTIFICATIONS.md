@@ -12,7 +12,7 @@ updated: 2026-10-20
 # 13. 알림 설계
 
 > [!tip] 해커톤 범위
-> 해커톤에서는 **in-app 알림만 실제 발송**한다. Kakao 알림톡은 `NOTIFY_KAKAO_PROVIDER=mock`인 mock provider로 outbox 상태 전이만 시연하고 외부 호출은 없다. 실발송은 비즈메시지 계약·템플릿 승인 후다 ([[16-DECISIONS|16 ADR]] ADR-006, 미결정 5번).
+> 해커톤에서는 **in-app 알림만 실제 발송**한다. Kakao 알림톡은 P1 설계이며 `NOTIFY_KAKAO_PROVIDER=mock`인 mock provider의 outbox 상태 전이 시연도 아직 구현하지 않았다. 현재 worker는 이 env를 읽거나 카카오에 외부 호출하지 않는다. 실발송은 비즈메시지 계약·템플릿 승인 후다 ([[16-DECISIONS|16 ADR]] ADR-006, 미결정 5번).
 
 ## 이벤트와 전달
 |이벤트|발생 시점|수신자|채널 (P0)|해커톤 구현 (C7, main `841b064`)|
@@ -23,19 +23,18 @@ updated: 2026-10-20
 |`ANALYSIS_COMPLETE`|score_run `COMPLETED` 또는 `PARTIAL`|분석 요청자|in-app|알림 보냄(아래 "인앱 알림 2종"). `FAILED`는 알리지 않는다|
 |`REVIEW_ASSIGNED`|담당자 배정|배정 대상|in-app|알림 보냄(아래 "인앱 알림 2종")|
 
-발송 수단: in-app(P0), Kakao 알림톡(P1, 승인과 동의 필요. 해커톤 동작은 위 "해커톤 범위"), 이메일은 확장 예정.
+발송 수단: in-app(P0), Kakao 알림톡(P1 설계, mock도 미구현, 실발송은 승인과 동의 필요), 이메일은 확장 예정. 아래 시퀀스는 현재 인앱 처리 경로다.
 
 ```mermaid
 sequenceDiagram
  participant D as 도메인 (web/server · web/worker)
  participant P as Supabase Postgres
  participant W as Outbox 처리 (web/worker)
- participant C as Provider (in-app / Kakao mock)
  D->>P: 한 트랜잭션: 데이터 변경 + outbox_events(사용자 요청은 insert 트리거)
- W->>P: (service role) pending polling / lock
- W->>C: 발송 (in-app은 notifications 테이블 기록, Kakao mock은 즉시 성공)
- C-->>W: provider message ID/status
- W->>P: notifications(org_id·user_id 지정).status = SENT / FAILED / DEAD, outbox_events.status = PROCESSED
+ W->>P: (service role) 두 종의 PENDING / 재시도 시각이 된 FAILED 조회
+ W->>P: 수신자의 조직 멤버십·활동 상태·공고 확인
+ W->>P: notifications(org_id·user_id 지정, IN_APP, SENT) 멱등 insert
+ W->>P: outbox_events를 읽은 상태와 비교해 PROCESSED로 갱신
 ```
 
 ## 핵심 규칙
@@ -43,9 +42,9 @@ sequenceDiagram
   - `outbox_events.idempotency_key` = `source + noticeId + revision + eventType` (UNIQUE). 같은 변경이 두 번 수집돼도 이벤트는 하나. 사용자 요청에서 생기는 두 종은 `<reviewId>:<assigneeId>:REVIEW_ASSIGNED`, `<scoreRunId>:<requestedBy>:ANALYSIS_COMPLETE`다(아래 "인앱 알림 2종").
   - `notifications.idempotency_key` = `outboxEventId + userId + channel` (UNIQUE). 같은 이벤트가 같은 사용자·채널에 두 번 전달되지 않는다.
 - 마감 임박 수신자(P1, [[16-DECISIONS|ADR-021]]): 공고 담당자와 관심 등록자의 합집합이고 사용자 ID로 중복을 없앤다. idempotency 키는 `bidId + userId + DEADLINE_APPROACHING + D-n`이다. 담당자이면서 관심 등록자인 사람도 한 번만 받는다.
-- 상태 전이: `outbox_events.status` `PENDING → PROCESSED`, 실패 시 재시도 후 `FAILED → DEAD`. `notifications.status` `PENDING → SENT`, 실패 시 `FAILED → DEAD`(DLQ). 읽음은 `read_at`. 채널 값은 `IN_APP`, `KAKAO`. ENUM 원천은 04 §4.
+- 현재 상태 처리: `outbox_events.status`는 성공 시 `PENDING / FAILED → PROCESSED`, 저장 오류 시 재시도 가능한 `FAILED`, 마지막 실패나 잘못된 payload는 `DEAD`다. 인앱 `notifications`는 처음부터 `SENT` 행을 쓰고 저장 실패 재시도는 outbox에서 한다. 향후 provider 전달 설계는 `notifications.status` `PENDING → SENT`, 실패 시 `FAILED → DEAD`(DLQ)다. 읽음은 `read_at`. 채널 ENUM은 `IN_APP`, `KAKAO`이고 원천은 04 §4다.
 - 트랜잭션 경계: Supabase 클라이언트(PostgREST)는 요청 하나를 트랜잭션 하나로 처리한다. 그래서 데이터 변경과 `outbox_events` 기록을 한 트랜잭션에 묶는다([[04-DATABASE|04 DB]] §1). 사용자 요청에서 생기는 이벤트(검토 배정 → `REVIEW_ASSIGNED`)는 `bid_reviews` insert 트리거(`log_bid_review_audit`, `security definer`)로 구현했다(마이그레이션 `20261019000007`). 이 트리거는 감사(`REVIEW_DECIDE`)와, 담당자가 있을 때 outbox 1건을 같은 트랜잭션에 쓴다. 같은 키가 다시 오면 outbox는 한 건만 남는다. 호출자의 `org_id`·`sol_role`(ADMIN·SALES)은 `bid_reviews` insert 정책이 확인한다(마이그레이션 `20261019000005`).
-- 발송·상태 전이는 `web/worker`가 service role로 한다. service role은 RLS를 거치지 않으므로 `notifications` 행을 만들 때 `org_id`·`user_id`를 직접 지정하고, 수신자가 그 `org_id`의 구성원(`memberships`)인지 확인한다. 공고 이벤트(`outbox_events.org_id` null)는 조직별로 fan-out하고 각 알림 행에 받는 조직의 `org_id`를 넣는다. 테넌트 혼입 방지 시험은 `web/worker/*.test.ts`와 `scripts/database.test.mjs`에 둔다([[11-TESTING|11 테스트]]).
+- 발송·상태 전이는 `web/worker`가 service role로 한다. service role은 RLS를 거치지 않으므로 `notifications` 행을 만들 때 `org_id`·`user_id`를 직접 지정하고, 수신자가 그 `org_id`의 구성원(`memberships`)인지 확인한다. 후속 공고 이벤트(`outbox_events.org_id` null) fan-out 설계에서는 각 알림 행에 받는 조직의 `org_id`를 넣는다. 현재 공고 이벤트 소비자는 없다. 테넌트 혼입 방지 시험은 `web/worker/*.test.ts`와 `scripts/database.test.mjs`에 둔다([[11-TESTING|11 테스트]]).
 - RLS:
   - `notifications`: 로그인 사용자는 자기 알림만 읽는다(`user_id = auth.uid()` 그리고 `org_id in (select public.my_org_ids())`). 화면에서 바꿀 수 있는 것은 읽음(`read_at`)뿐이다. 생성·삭제·상태 전이는 worker(service role)만 한다.
   - `outbox_events`: 화면 역할(anon·authenticated)에 열지 않는다(권한·정책 0, 마이그레이션 `20261019000006`). 쓰기는 위 트리거와 worker만 한다. 관리자 지표(적체·중복)를 어떻게 보여 줄지는 [[14-OBSERVABILITY|14 관측성]].

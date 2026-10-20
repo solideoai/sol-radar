@@ -5,18 +5,20 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 시스템 아키텍처·데이터 흐름
 
-[[02-ARCHITECTURE|02 아키텍처]]와 [[03-AI-PIPELINE|03 AI 파이프라인]]을 발표용으로 줄인 그림이다. 둘과 다르면 02·03이 맞다. 구현 상태는 그림이 아니라 [[PROGRESS|진행 상황]]과 `evidence-list.md`가 말한다. 이 그림은 **설계**다. 2026-10-19 기준 main에 있는 것: DB·RLS(C2), 수집·정규화·revision(C3), 규칙 엔진·SOL Score(C4), AI gateway 4 엔드포인트 mock·`local` 어댑터·worker 분석 클라이언트·`PARTIAL` 대체(C5). 구현 전: 화면 `/dashboard`·`/bids`·`/bids/[id]`(C6), 결정 기록·인앱 알림(C7), 첨부 다운로드 소비자, 실모델 추론(엔드포인트 응답 대기).
+[[02-ARCHITECTURE|02 아키텍처]]와 [[03-AI-PIPELINE|03 AI 파이프라인]]을 발표용으로 줄인 그림이다. 둘과 다르면 02·03이 맞다. 구현 상태는 그림이 아니라 [[PROGRESS|진행 상황]]과 `evidence-list.md`가 말한다. 이 그림은 **목표 설계**다. 2026-10-20 main `301f2a5`에는 DB·RLS(C2), 수집·정규화·revision(C3), 규칙 엔진·SOL Score(C4), AI gateway·`local` 어댑터·worker 분석 클라이언트(C5), 대시보드·공고 목록/상세·알림 화면과 업무 API(C6), 결정 기록·인앱 알림 2종(C7)이 있다. 첨부 다운로드 소비자·실제 파서·Qdrant 검색 연결과 실모델 추론 검증은 남아 있다.
+
+현재 web은 Compose 서비스가 아니라 **호스트의 Next.js 프로세스**다. Compose는 redis·minio·qdrant·ai-gateway·worker를 띄운다. worker는 ingest·analysis와 DB outbox polling을 실행하며, documents는 큐 생산·복구까지 있고 소비자는 없다. `/extract`는 별도 extract 큐가 아니라 analysis 서비스 안에서 호출한다. 아래 두 그림의 첨부·Qdrant·독립 extract 단계는 후속 설계까지 포함한다([[02-ARCHITECTURE|02 아키텍처]], [[07-DATA-PIPELINE|07 수집]]).
 
 ## (a) 시스템 아키텍처
 
 ```mermaid
 flowchart TB
- subgraph laptop[데모 노트북 · Docker Compose]
+ subgraph laptop[데모 노트북 · web 호스트 + Docker Compose]
   B["브라우저 1440px"] --> W["Next.js web :3000<br/>화면 · Route Handler /api/v1 · web/server"]
   W --> R[("Redis · BullMQ")]
   W --> MIN[("MinIO · 첨부 원본")]
@@ -92,7 +94,7 @@ flowchart TD
 | `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`, `fixtures/extractions`·`fixtures/kev`) | 가상 솔리데오 | "실행 모드: mock", "AI: mock" | 발표 본편 S2~S7, CI, 골든 94/72/68 |
 
 - 모드마다 바뀌는 것은 **입력(공고 출처)과 모델 호출 방식**뿐이다. 스키마 검증·인용 검증·규칙 엔진·점수 알고리즘(`sol-v0.1.0`)·저장·화면 경로는 세 모드가 같다.
-- 모드와 모순된 env(`live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)는 `pnpm check:env`와 gateway가 기동을 거부한다. 자동 대체는 없다. 모드 전환은 env 교체와 worker·gateway 재시작으로 사람이 한다.
+- 모드와 모순된 env(`live` + `AI_PROVIDER=mock`, 모든 모드의 `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)는 `pnpm check:env`와 gateway가 기동을 거부한다. 자동 대체는 없다. 모드 전환은 `infra/.env`·`web/.env.local` 정합성을 맞추고 worker·gateway 재생성 및 호스트 web 재기동으로 사람이 한다([[10-DEPLOYMENT|10 배포]]).
 - 분석마다 `score_runs.run_mode`·`ai_provider`·`qwen_model`·`kev_model`이 남아 과거 분석이 어느 모드였는지 알 수 있다.
 
 ## 관련 문서

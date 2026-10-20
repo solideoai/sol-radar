@@ -9,11 +9,13 @@ SOL RADAR는 공공 SI·AX 기업을 위해 공공 발주·입찰 정보를 수�
 `agentic-boilerplate`에서 출발했습니다. 설계 문서의 정본은 `docs/`([문서 인덱스](docs/00-README.md))이고,
 이 README는 그 인덱스로 가는 입구입니다. 여기 적힌 기능은 목표 범위이며, 구현·검증 여부는 [진행 상황](docs/PROGRESS.md)을 따릅니다.
 
-## 현재 상태 (2026-10-19)
+## 현재 상태 (2026-10-20, 기준 main `301f2a5`)
 
-- main에 병합됨: DB 스키마·RLS·`sol_role`·`pnpm demo:reset`(C2), 공고 수집·정규화·revision(C3), 규칙 엔진·SOL Score·골든 시험(C4), AI gateway `/extract`·`/kev` mock과 worker 분석 클라이언트(C5).
-- 미구현: 공고 목록·상세·분석 화면과 Route Handler(C6), 담당자 결정 기록·인앱 알림(C7).
+- main에 병합됨: DB 스키마·RLS·`sol_role`·`pnpm demo:reset`(C2), 공고 수집·정규화·revision(C3), 규칙 엔진·SOL Score·골든 시험(C4), AI gateway 4개 엔드포인트·`local` 어댑터와 worker 분석 클라이언트(C5), 대시보드·공고 목록/상세·알림 화면과 업무 Route Handler(C6), 결정 기록·인앱 알림 2종(`REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`, C7).
+- 남은 작업: 첨부 다운로드 소비자·실제 파서 연결, 다른 수집 소스·보조 조회 연결, 실제 모델 엔드포인트 검증과 S-LIVE, 모델 평가·최종 리허설. 핵심 컷 전체가 완료됐다는 뜻은 아닙니다.
 - 데모는 Docker Compose + Supabase 클라우드로 돌리고 AI는 mock 모드가 기본입니다. 실제 모델 추론(S-LIVE)은 회사 GPU 엔드포인트 확인 결과로 정합니다.
+
+클라우드 seed·사전 분석과 `mock` 1차 리허설 기록은 [진행 상황](docs/PROGRESS.md)과 [리허설 체크리스트](docs/evidence/demo-day/20261020-1009/checklist.md)에 있습니다. 세 모드 전체·실모델 추론의 통과 기록으로 읽지 않습니다.
 
 실제인 것과 mock인 것의 구분은 [해커톤 문서 §7 정직성 표](docs/18-HACKATHON.md), 기술적 한계와 실행 모드 구분은 [제출물 한계 문서](docs/submission/limitations.md)에 있습니다.
 
@@ -77,12 +79,12 @@ SOL RADAR는 이 검토 과정을 데이터와 AI 분석으로 지원합니다.
 | 큐·캐시 | Redis · BullMQ | 비동기 수집 및 분석 작업(worker `web/worker`) |
 | AI 서비스 | Python · FastAPI | AI 모델 연동 및 분석 파이프라인(`services/ai`) |
 | AI 모델 | Qwen · Kev | 요구사항 구조화 및 의사결정 보조 |
-| 벡터 검색 | Qdrant | 관련 문서 및 근거 검색 |
-| 파일 저장 | MinIO | 공고 첨부파일 및 원본 문서 보관 |
+| 벡터 검색 | Qdrant | 검색 인프라. AI 입력의 Qdrant 검색 연결은 후속 설계 |
+| 파일 저장 | MinIO | 첨부 보관 인프라. 다운로드·저장 소비자 연결은 남은 작업 |
 | 실행 환경 | Docker Compose | Redis·MinIO·Qdrant·AI 서비스·worker 실행. 웹은 호스트에서 `pnpm -C web start` |
 
 DB·인증은 Supabase 클라우드 프로젝트를 씁니다. 데모는 Docker Compose([배포](docs/10-DEPLOYMENT.md))로 돌리고, 웹 배포처는 아직 정하지 않았습니다([결정 기록](docs/16-DECISIONS.md) ADR-017·미결정 8번).
-모델의 구체적인 버전과 연동 방식은 검증 후 확정합니다.
+모델 식별자와 버전은 `services/ai/models/registry.yaml`을 따릅니다. 버전 결정과 실제 엔드포인트의 응답·지연 검증은 구분합니다.
 
 ## 데이터와 분석 원칙
 

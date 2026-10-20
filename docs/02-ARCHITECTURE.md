@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - architecture
   - pipeline
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 02. 시스템 아키텍처
@@ -14,11 +14,11 @@ updated: 2026-10-19
 ## 경계
 
 > [!note] 해커톤 뒤 전환 예정 ([[16-DECISIONS|ADR-028]])
-> 해커톤 제출(2026-10-27) 뒤 `/api/v1` Route Handler와 worker를 NestJS 앱으로 옮기고, Next.js는 화면만 맡는다. Supabase(Postgres·RLS·Auth)와 나머지 구성은 그대로다. 아래는 해커톤 동안의 현재 구조다.
+> 해커톤 제출(2026-10-27) 뒤 `/api/v1` Route Handler와 worker를 NestJS 앱으로 옮기고, Next.js는 화면만 맡는다. Supabase(Postgres·RLS·Auth)와 나머지 구성은 그대로다. 아래는 해커톤 구조와 목표 호출 경로다. 현재 연결된 실행 경로는 각 절의 구현 상태를 함께 따른다.
 
 - Next.js (`web/`, :3000): 화면(App Router, server components), Route Handler(`/api/v1/**`, 헬스체크 `/health/live`·`/health/ready`), 서버 도메인 `web/server/<도메인>/`(model·repo·service·index 배럴, `import "server-only"`). 요청 처리 경로는 사용자 세션(anon 키 + 로그인 쿠키, 스크립트는 `Authorization: Bearer <Supabase access token>`)으로 Supabase를 부르고, 권한은 DB의 RLS가 정한다. 분석·수동 수집 요청은 BullMQ job으로 넣는다(producer). 외부 API 계약의 단일 원천은 zod 스키마(`web/server/<도메인>/*.model.ts`, [[16-DECISIONS|16 ADR]] ADR-016·017).
 - Supabase (클라우드 프로젝트, Compose 밖): **Postgres + RLS**(정형 데이터·점수·감사 이력, 조직 격리)와 **Auth**(이메일+비밀번호·간편 로그인, 공개 가입 + 초대로 조직 합류, ADR-018)만 맡는다. 스키마·RLS·함수는 `supabase/migrations/*.sql`(append-only), 타입은 생성물 `web/lib/database.types.ts`(`pnpm db:types`). Supabase Storage·pgvector·Supabase Queues는 쓰지 않는다.
-- Worker (`web/worker/`, 별도 Node(TypeScript) 프로세스): BullMQ consumer(ingest job·documents job·extract job·analysis job·outbox 처리). `live` 모드에서 나라장터 Open API(data.go.kr)를 부르고 첨부를 `www.g2b.go.kr` allowlist로 내려받는 유일한 컴포넌트다(서비스별 서비스키 4개 `G2B_*_SERVICE_KEY`는 worker env에만, [[07-DATA-PIPELINE|07 수집]] §2.2, [[16-DECISIONS|ADR-022]]). 같은 코드베이스의 `web/server` 도메인 코드를 같이 쓴다. Supabase는 service role 키(`SUPABASE_SERVICE_ROLE_KEY`)로 부르므로 RLS를 거치지 않는다. 그래서 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다([[09-SECURITY|09 보안]]).
+- Worker (`web/worker/`, 별도 Node(TypeScript) 프로세스): 현재 BullMQ system·ingest·analysis 소비자와 DB outbox 주기 처리를 실행한다. documents 큐는 생산·복구만 연결됐고 다운로드·파싱 소비자는 아직 없다. 별도 extract 소비자도 없으며 `/extract`는 analysis 처리 안에서 호출한다. 설계상 `live` 모드의 나라장터 Open API(data.go.kr) 호출과 `www.g2b.go.kr` allowlist 첨부 다운로드는 worker만 맡는다(서비스별 서비스키 4개 `G2B_*_SERVICE_KEY`는 worker env에만, [[07-DATA-PIPELINE|07 수집]] §2.2, [[16-DECISIONS|ADR-022]]). 같은 코드베이스의 `web/server` 도메인 코드를 같이 쓴다. Supabase는 service role 키(`SUPABASE_SERVICE_ROLE_KEY`)로 부르므로 RLS를 거치지 않는다. 그래서 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다([[09-SECURITY|09 보안]]).
 - Python AI gateway (FastAPI :8000): 첨부 파싱(`/parse`, 형식별 `DocumentParser`), 문서 요구조건 구조화(Qwen `/extract`), 근거 설명(Qwen `/explain`), 임베딩, Kev 호출 어댑터(`/kev`), JSON schema 검증, `AI_PROVIDER=mock|local|hosted` 분기. **Kev와 Qwen 런타임을 호출하는 유일한 컴포넌트**다. Worker·Next 서버는 Kev에 직접 접근하지 않는다. 실행 모드(`SOL_RUN_MODE=live|fixture|mock`)는 [[03-AI-PIPELINE|03 AI 파이프라인]]과 [[16-DECISIONS|ADR-020]].
 - Qdrant: 임베딩 검색; MinIO: 첨부파일; Redis: job queue/cache. 세 서비스와 AI gateway·worker는 Docker Compose로 띄운다([[10-DEPLOYMENT|10 배포]]).
 
@@ -26,6 +26,9 @@ updated: 2026-10-19
 > `web/server` 모듈은 `import "server-only"`로 시작한다. worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `web/server` 코드를 그대로 불러온다(`pnpm -C web worker:check` → `worker modules loaded`). `--conditions` 없이 띄우면 `server-only`가 "This module cannot be imported from a Client Component module" 오류로 멈춘다. [[16-DECISIONS|16 ADR]] 미결정 9번 종결.
 
 ## AI 호출 경로 (단일)
+
+아래 표는 목표 경로를 포함한다. 현재 `/extract`·`/kev`·`/explain`은 analysis job 안에서 호출한다(`web/server/analysis/analysis.service.ts`). documents 소비자·별도 extract job·Qdrant 연동은 미연결이고, gateway `/parse`는 형식 판정만 하며 파서 어댑터가 없어 `UNSUPPORTED`를 반환한다(`services/ai/src/sol_ai/parse.py`). 수집 범위와 Redis 호출 예산의 구현 상태는 [[07-DATA-PIPELINE|07 수집]] §2.2를 따른다.
+
 |호출자|대상|방식|비고|
 |---|---|---|---|
 |Worker `web/worker` (documents job)|AI gateway|HTTP `POST /parse` (바이트 본문)|첨부 1건 단위. worker가 MinIO에서 읽은 바이트를 보내고 결과 텍스트를 MinIO에 쓴다. gateway는 MinIO에 접근하지 않는다|
@@ -65,7 +68,7 @@ web/server/<도메인>/       #   model·repo·service·index(배럴), import "s
 web/app/(app)/(work)/      #   업무 화면 묶음 — 조직 주소 없는 /dashboard·/bids·/bids/[id]·/notifications(ADR-029 A6 D1). 템플릿 /[slug]/… 화면은 확장 컷에서 정리(D30)
 web/app/api/v1/**/route.ts#   외부 계약(05 API) — 경로는 /api/v1/... 그대로
 web/app/health/{live,ready}/route.ts  # 헬스체크 /health/live, /health/ready
-web/worker/               # BullMQ 소비자 진입점(ingest·documents·extract·analysis job, outbox 처리). web/server 도메인 코드를 같이 쓴다(같은 코드베이스의 별도 프로세스)
+web/worker/               # 현재 system·ingest·analysis 소비자, documents 큐 생산·복구, DB outbox 주기 처리. web/server 도메인 코드를 같이 쓴다
 supabase/migrations/      # 스키마·RLS·함수(append-only, 이미 있는 파일은 고치지 않는다)
 services/ai/              # Python AI gateway (FastAPI :8000), adapters/mock.py·kev.py·qwen.py
 infra/compose.yaml        # redis, minio, qdrant, ai-gateway, worker 5개. web 은 호스트 실행(Compose 에 없음). 실행 프로필은 env 묶음(infra/env/)
@@ -82,7 +85,7 @@ docs/                     # 이 vault, docs/evidence/
 공고/회사/검토 정보의 단일 기록원은 **Supabase Postgres**다. 조직 소유 데이터는 `org_id`를 갖고 RLS(`org_id in (select public.my_org_ids())`)로 거른다. 공고처럼 조직 소유가 없는 공용 데이터는 로그인 사용자(`authenticated`)에게 읽기만 열고, 쓰기는 worker(service role)만 한다. 다른 조직 자원은 RLS로 행이 보이지 않아 `404`가 된다([[09-SECURITY|09 보안]]). Qdrant는 재생성 가능한 파생 인덱스. MinIO는 원본 바이트 저장, Supabase Postgres에 키·해시·접근 권한 기록. 점수 재계산은 비동기 job이며 결과에는 알고리즘 버전·프롬프트 해시·모델 식별자를 남긴다. Kev 출력은 규칙 점수와 별도 컬럼에 저장한다 ([[04-DATABASE|04 DB]]).
 
 ## 흐름
-job은 넷이다. **ingest job**(수집·정규화·revision) → **documents job**(첨부 다운로드·`/parse`) → **extract job**(`/extract`, 공고 revision 단위)이 공고 쪽을 끝내고, **analysis job**은 조직 × revision × 프로필 revision 단위로 규칙 판정·Kev·점수를 만든다. 용어는 [[03-AI-PIPELINE|03 AI 파이프라인]] §2와 같다.
+목표 파이프라인의 job은 넷이다. **ingest job**(수집·정규화·revision) → **documents job**(첨부 다운로드·`/parse`) → **extract job**(`/extract`, 공고 revision 단위)이 공고 쪽을 끝내고, **analysis job**은 조직 × revision × 프로필 revision 단위로 규칙 판정·Kev·점수를 만든다. 용어는 [[03-AI-PIPELINE|03 AI 파이프라인]] §2와 같다. 아래 시퀀스도 목표 흐름이다. 현재 ingest는 documents 큐 등록까지 연결되고, 사람의 분석 요청이나 데모 사전 분석이 analysis job 안에서 추출 캐시를 확인한 뒤 필요하면 `/extract`를 호출한다. 알림은 BullMQ job이 아닌 DB outbox polling이다([[13-NOTIFICATIONS|13 알림]]).
 
 ```mermaid
 sequenceDiagram
@@ -121,7 +124,7 @@ sequenceDiagram
 - Worker가 Kev를 직접 호출하는 경로는 없다. Kev 어댑터·mock·질문 세트는 `services/ai/`에만 둔다.
 - Worker는 service role로 쓰므로 RLS가 막아 주지 않는다. analysis job은 job에 담긴 `orgId`를 모든 읽기·쓰기에 `org_id`로 지정한다.
 - Kev는 `review_flags`를 추가하고 참고 지표로 표시될 뿐 자격 판정·점수·권고를 바꾸지 못한다 ([[03-AI-PIPELINE|03 AI 파이프라인]] §5.5, [[08-SCORING|08 스코어링]], [[16-DECISIONS|ADR-020]]).
-- 위 시퀀스는 분석 경로다. `live` 모드의 ingest job은 그 앞에 data.go.kr 수집 → documents job(첨부 다운로드 → `/parse`) → extract job 순서로 돈다([[03-AI-PIPELINE|03 AI 파이프라인]] §2).
+- 목표 공고 처리 흐름은 `live` 모드에서 data.go.kr 수집(ingest job) → documents job(첨부 다운로드 → `/parse`) → extract job 순서다([[03-AI-PIPELINE|03 AI 파이프라인]] §2).
 - 추출 실패·AI 불가 시 analysis job은 규칙만으로 끝내고 `status=PARTIAL`, `recommendation_basis=RULES_ONLY`.
 
 ## 데모 토폴로지 (노트북 1대 + 회사 GPU 서버)
@@ -162,7 +165,7 @@ flowchart TB
  AI -. AI_PROVIDER=hosted, 사용자 승인 후 .-> OR
 ```
 - 노트북에서는 Compose 서비스(redis·minio·qdrant·ai-gateway·worker)와 web이 돈다. web은 호스트에서 `pnpm -C web start`로 띄운다. `infra/compose.yaml`에 `web` 서비스는 없다([[16-DECISIONS|ADR-024]] D1, [[10-DEPLOYMENT|10 배포]]). DB·Auth는 노트북 밖 Supabase 클라우드 프로젝트다.
-- 실행 모드([[16-DECISIONS|ADR-020]]): `live` = 공공 API + 회사 GPU 실추론(해커톤 MVP 목표), `fixture` = fixture 20건 + 회사 GPU 실추론(공공 API 장애 대체), `mock` = fixture 20건 + mock AI(모델 장애 대체·CI·골든). 장애 대체 순서는 `live` → `fixture` → `mock`이고, 모드 전환은 env 교체와 worker·gateway 재시작으로 한다. 자동으로 바꾸지 않는다.
+- 실행 모드([[16-DECISIONS|ADR-020]]): `live` = 공공 API + 회사 GPU 실추론(해커톤 MVP 목표), `fixture` = fixture 20건 + 회사 GPU 실추론(공공 API 장애 대체), `mock` = fixture 20건 + mock AI(모델 장애 대체·CI·골든). 장애 대체 순서는 `live` → `fixture` → `mock`이고, 모드 전환은 `infra/.env`·`web/.env.local`의 모드를 맞춘 뒤 worker·gateway 컨테이너를 재생성하고 호스트 web을 재기동한다([[10-DEPLOYMENT|10 배포]] 실행 모드 전환 절차). 자동으로 바꾸지 않는다.
 - 현재 실행 모드와 `AI_PROVIDER` 값은 `/health/ready`의 `checks.ai`와 화면 우상단 표시(`실행 모드` + `AI: mock | local | hosted`)로 노출된다. gateway가 불가하면 `AI: unavailable`. 심사위원이 지금 보는 것이 실데이터·실모델인지 항상 알 수 있다.
 - mock 응답은 fixture ID별로 고정된 결정적 값이다. 같은 입력에 같은 출력이 나와야 골든 테스트가 성립하므로 골든은 `mock` 모드에서만 단언한다.
 - 회사 GPU 서버는 외부 접근 불가이고, 회사가 모델 런타임을 HTTPS 엔드포인트(`https://acropolissg.com/sol-radar` 아래)로 제공한다. gateway는 TLS 검증을 켠 채 API 키(`QWEN_API_KEY`·`KEV_API_KEY`)로 붙는다([[16-DECISIONS|ADR-025]]). 회사 nginx는 location 하나만 두고, GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`)가 `/sol-radar/qwen`·`/sol-radar/kev`를 vLLM·`kev.serve`로 나눈다. 엔드포인트에 접속하지 못하면 gateway가 Qwen·Kev 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모델 기동·GPU 배분은 회사 운영이다. 프로필 정의는 [[10-DEPLOYMENT|10 배포]].

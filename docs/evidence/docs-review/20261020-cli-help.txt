@@ -1,0 +1,14 @@
+usage: sol_eval [-h] {labels,build,export,manifest} ...
+
+python -m sol_eval: labels check · build · export · manifest (docs/21 §6, e3
+설계 §5). DB·네트워크·실모델을 쓰지 않는다. 문제가 있으면 exit 1, 입력 형식 오류는 exit 2.
+
+positional arguments:
+  {labels,build,export,manifest}
+    labels              라벨 파일 검사
+    build               갈래 ① EvalItem JSONL 빌드
+    export              EvalItem → Kev JSONL(en·ko)
+    manifest            번들 manifest.json
+
+options:
+  -h, --help            show this help message and exit

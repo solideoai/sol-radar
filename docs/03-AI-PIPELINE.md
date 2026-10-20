@@ -139,7 +139,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 - `KevResponse.errorCode`(B3): gateway → Kev 미접속·timeout은 200 + `KEV_UNAVAILABLE`이다. 추출이 인젝션 의심(`injectionSuspected=true`)이면 gateway는 Kev를 부르지 않고 `kev.enabled=false` + `INJECTION_SUSPECTED`로 돌려준다. 이때 분석은 `COMPLETED`·`RULES_ONLY`다.
 - `/explain`(B7): mock 응답은 늘 템플릿 문장(`fallback=true`)이다. 규칙 엔진 출력의 `explanation`에는 파이프라인 플래그(`CITATION_FAILED` 등)가 반영되지 않으므로, 화면에 보이는 설명은 분석 메타의 `explanation`(이 `/explain` 문장 또는 템플릿 문장)이다(B24). 알려진 한계: 이 설명 문장에도 파이프라인 플래그가 반영되지 않는다. `ExplainRequest`에 `reviewFlags`가 없고 mock은 늘 템플릿이다([[16-DECISIONS|ADR-031]] C12(c)).
 
-- HTTP 200은 "gateway가 응답했다"는 뜻이다. 파싱·추출·Kev·설명의 개별 실패는 본문 `status`/`errorCode`/`kev.enabled`/`fallback`으로 표현한다. 200이 아닌 응답은 아래 둘뿐이고, 본문은 `{errorCode, message}`다([[16-DECISIONS|ADR-030]] B8).
+- HTTP 200은 "gateway가 응답했다"는 뜻이다. 파싱·추출·Kev·설명의 개별 실패는 본문 `status`/`errorCode`/`kev.enabled`/`fallback`으로 표현한다. 아래 두 애플리케이션 오류의 본문은 `{errorCode, message}`다([[16-DECISIONS|ADR-030]] B8). 요청 본문 형식 오류·문자열/첨부 수 상한 초과는 별도로 FastAPI 기본 422(`{detail:[...]}`)를 반환한다(`services/ai/src/sol_ai/contracts.py`, `tests/test_request_limits.py`).
   - 503 `{"errorCode":"AI_UNAVAILABLE","message"}`(시험 전용 예외): `AI_PROVIDER=mock` + `AI_FAULT_INJECT=gateway_down`일 때만 `/extract`·`/kev`·`/explain`이 gateway 연결 불가를 흉내 낸다(§3 env 표, [[16-DECISIONS|ADR-029]] A3). 데모·운영에서는 생기지 않는다
   - 422 `KO_STATE_NOT_ALLOWED`: `/kev`에 `stateLanguage="ko"`가 왔는데 `KEV_ALLOW_KO_STATE`가 `true`가 아닐 때(§5.11)
 - `AI_PROVIDER=hosted`인데 승인이 없으면 gateway가 기동을 거부한다(exit 78, §3·§8). 요청 단계의 503은 없다(B8, Phase 0 불일치 #12의 구현 방식).
@@ -191,7 +191,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`QWEN_BASE_URL`|URL|(없음)|`local`/`hosted`에서 Qwen runtime 주소. 해커톤 `local` 값은 [[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시([[16-DECISIONS\|ADR-025]], §5.9)|
 |`QWEN_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 엔드포인트 뒤 vLLM `--api-key`와 같은 값). `local`에서 필수(ADR-025). 서버 env(`infra/.env`)만, 로그 금지([[09-SECURITY\|09 보안]])|
 |`QWEN_MODEL`|모델 ID|(없음)|기본 후보 `Qwen/Qwen3.5-9B`(§3.2). 결과 메타데이터에 기록|
-|`QWEN_CONTEXT_BUDGET_TOKENS`|정수|`12000`|추출 1회 입력 상한. 초과 chunk는 Qdrant 순위로 자른다|
+|`QWEN_CONTEXT_BUDGET_TOKENS`|정수|`12000`|현재 본문·첨부 텍스트의 글자 수 근사 예산이다. 본문은 항상 포함하고 첨부를 요청·페이지 순서로 더하다 첫 초과 chunk부터 생략한다(`TRUNCATED_INPUT`). 메타·시스템 프롬프트는 예산에 포함하지 않는다. Qdrant 순위 선정은 후속 설계|
 |`EMBEDDING_MODEL`|모델 ID|(없음)|**미구현(해커톤 컷 밖)**. Qdrant 색인과 함께 코드가 읽지 않는다(2026-10-19 `services/ai/src`·`web/server`·`web/worker`에 0건). 설계: `mock`이면 키워드 검색으로 대체|
 |`KEV_ENABLED`|`true`/`false`|`true`|세 모드 모두 기본 `true`이고 `false`를 허용한다(`infra/run-modes.json`, [[16-DECISIONS\|ADR-029]] A5). `false`면 Kev 없이 `RULES_ONLY`이고 분석은 `COMPLETED`다(§9). `mock`에서 `true`면 mock adapter가 응답|
 |`KEV_BASE_URL`|URL|(없음)|Kev 서버 주소. 해커톤 `local` 값은 [[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시(ADR-025, §5.9). `mock`에서는 쓰지 않는다|
@@ -217,9 +217,9 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 
 |모드|Qwen 추출|Qwen 설명(`/explain`)|Kev|임베딩|용도|
 |---|---|---|---|---|---|
-|`mock`|`fixtures/extractions/FX-xx.json`을 읽어 같은 스키마 검증·인용 검증을 **실제로** 통과시켜 반환|템플릿 문장(규칙 결과 치환)|mock adapter: `fixtures/kev/FX-xx.json`의 고정 응답, 없으면 자격 상태 기반 공식(§5.7). `provider=mock` 표기. 질문 세트 v0.1|해시 기반 가짜 벡터 대신 PostgreSQL 키워드 검색|CI, 골든, 모델 장애 시 시연|
-|`local`|vLLM의 Qwen3.5-9B(해커톤은 회사 GPU 서버)|같은 Qwen + 숫자 검사(§6)|Kev-9B@v1.0 서버(`KEV_ENABLED=true`일 때)|로컬 임베딩 모델|`live`·`fixture` 모드|
-|`hosted`|외부 API(비용)|동일|§5.8 hosted 경로 또는 local|외부 API|승인 후만|
+|`mock`|`fixtures/extractions/FX-xx.json`을 읽어 같은 스키마 검증·인용 검증을 **실제로** 통과시켜 반환|템플릿 문장(규칙 결과 치환)|mock adapter: `fixtures/kev/FX-xx.json`의 고정 응답, 없으면 자격 상태 기반 공식(§5.7). `provider=mock` 표기. 질문 세트 v0.1|미구현. 키워드 검색 대체는 후속 설계|CI, 골든, 모델 장애 시 시연|
+|`local`|vLLM의 Qwen3.5-9B(해커톤은 회사 GPU 서버)|같은 Qwen + 숫자 검사(§6)|Kev-9B@v1.0 서버(`KEV_ENABLED=true`일 때)|미구현. 로컬 임베딩 모델은 후속 설계|`live`·`fixture` 모드|
+|`hosted`|외부 API(비용)|동일|§5.8 hosted 경로 또는 local|미구현. 외부 API는 후속 설계|승인 후만|
 
 `mock`은 "AI를 건너뛴다"가 아니라 "모델 호출만 고정 응답으로 바꾼다"다. 스키마 검증·인용 검증·저장·UI 경로는 세 모드가 같다. 그래서 mock 화면과 실모델 화면의 구조가 같다. `/parse`는 모델을 쓰지 않으므로 세 모드에서 같다.
 
@@ -391,9 +391,10 @@ JSON Schema:
 <document id="{documentId}" kind="attachment" page="{n}" charOffset="{페이지 시작 오프셋}">
 {chunk 텍스트}
 </document>
-... (Qdrant 순위 상위 chunk, 합계 QWEN_CONTEXT_BUDGET_TOKENS 이내)
+... (현재: 본문은 항상 포함, 첨부 chunk만 요청·페이지 순서로 남은 글자 수 근사 예산에 맞춰 포함)
 ```
 
+- 현재 입력 선정은 `adapters/qwen.py`의 `build_user_message`가 맡는다(§3). 본문은 항상 포함하고, 첨부는 첫 예산 초과 chunk부터 생략한다. Qdrant 순위로 chunk를 고르는 방식은 후속 설계다.
 - 메타데이터(`<notice>` 속성)는 구조화 값이며 모델이 바꾸지 않는다. 추출값과 다르면 모델은 `CONFLICTED`를 내야 하고, 다르게 내도 gateway가 §4.4에서 `CONFLICTED`로 바꾼다.
 - `charOffset`을 주는 이유: 모델이 chunk 내 상대 위치를 내면 gateway가 절대 오프셋으로 환산한다. 환산 실패는 인용 검증(§4.4)이 잡는다.
 - 첨부는 `/parse`가 낸 텍스트만 넣는다. 다운로드·파싱에 실패한 첨부는 넣지 않고 `warnings += ATTACHMENT_PARSE_FAILED:{documentId}`만 남긴다. "첨부가 있었다"는 사실로 내용을 추정하게 하는 지시는 프롬프트에 넣지 않는다(§8).
@@ -439,7 +440,7 @@ JSON Schema:
 |`ATTACHMENT_PARSE_FAILED:{documentId}`|첨부 텍스트 없음(다운로드·파싱 실패), 본문만으로 추출|추출 `PENDING_REVIEW`(9단계, ADR-029 A2). 첨부에 의존하는 항목 `NEEDS_REVIEW`(`PARSE_UNSUPPORTED`)|
 |`CITATION_FAILED:{field}`|그 필드의 인용이 모두 검증에 실패해 `UNKNOWN`이 됨(4단계)|`reviewFlags += CITATION_FAILED`. 필드 `note="CITATION_FAILED"`(ADR-029 A1)|
 |`INJECTION_SUSPECTED`|문서 내 지시문 패턴 탐지([[09-SECURITY\|09 보안]] 프롬프트 인젝션 대응 표)|추출 `PENDING_REVIEW`, 관련 자격 `NEEDS_REVIEW`, `reviewFlags += INJECTION_SUSPECTED`|
-|`QDRANT_FALLBACK`|Qdrant 불가로 키워드 검색으로 chunk 선정(§8)|—|
+|`QDRANT_FALLBACK`|후속 설계: Qdrant 불가로 키워드 검색으로 chunk 선정(§8). 현재는 발생하지 않음|미구현|
 |`EXTRACTION_LOW_CONFIDENCE`|FAILED 인용 비율 > 50%([[15-DATA-CONTRACTS\|15]] §5.3)|추출 `PENDING_REVIEW`(9단계), `reviewFlags += EXTRACTION_LOW_CONFIDENCE`|
 |`MOCK_FIXTURE_NOT_FOUND`|mock이 고를 추출 fixture 파일이 없음|—(ADR-030 B12)|
 |`ADAPTER_NOT_IMPLEMENTED:{provider}`|그 공급자의 어댑터가 아직 없음. 조용히 mock으로 바꾸지 않는다|—(ADR-030 B12)|
@@ -745,7 +746,7 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 |`/extract` 응답 형식 오류(gateway는 정상)|worker: gateway가 응답했지만 쓸 수 없는 `/extract`(4xx·봉투 오류·스키마 위반, [[16-DECISIONS\|ADR-031]] C6)|`EXTRACTION_FAILED`|분석 `PARTIAL`|분석 상태 `PARTIAL`|
 |회사 GPU 추론 엔드포인트 미접속(TLS·인증 실패 포함, ADR-025)|gateway → Qwen·Kev 연결 거부·timeout·4xx/5xx|위 Qwen·Kev 미접속 행과 같다(`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE` 따로)|위와 같다. 자동 mock 대체 없음. 필요하면 사람이 `mock` 모드로 전환(§3)|위와 같다|
 |레지스트리 불일치|gateway 기동 시 Kev `GET /v1/models` ↔ `KEV_MODEL_ID` 항목(§11)|기동 로그|gateway 기동 거부. `runs/smoke`로 조용히 대체된 Kev를 쓰지 않는다|`/health` 미응답 → 위 gateway 연결 불가 행|
-|Qdrant 다운|gateway health|`warnings += QDRANT_FALLBACK`|키워드 검색으로 chunk 선정|—|
+|Qdrant 다운(후속 설계, 미구현)|gateway health 검사 예정|`warnings += QDRANT_FALLBACK` 예정|키워드 검색으로 chunk 선정 예정. 현재 gateway는 Qdrant를 검사·호출하지 않고 첨부 순서와 텍스트 예산으로 입력을 고른다|—|
 |추출은 성공, 인용 검증 대량 실패|§4.4 4단계(FAILED 비율 50% 초과 규칙은 [[15-DATA-CONTRACTS\|15]] §5.3)|`EXTRACTION_LOW_CONFIDENCE`|`PENDING_REVIEW`|—|
 |hosted 미승인 상태에서 `hosted` 지정|기동 시 env 검사|기동 로그|gateway 기동 거부. 조용히 mock으로 바꾸지 않는다|—|
 |멈춘 분석(오래된 `QUEUED`·`RUNNING` run, 기본 10분, env `ANALYSIS_STALE_*` §3)|worker 주기 검사(`ANALYSIS_RECONCILE_INTERVAL_MS`)|`errorCode=STALE_RUN`|큐에 job이 없는 run 중 `RUNNING`은 같은 jobId로 다시 넣고 시도를 다 썼으면 `FAILED`(`STALE_RUN`)로 끝낸다. `QUEUED`는 다시 넣지 않고 `FAILED`(`STALE_RUN`)로 닫는다. 사용자가 PostgREST로 직접 넣은 `QUEUED` run이 속도 제한([[05-API-SPEC\|05]] §1)을 우회하는 통로가 되지 않게 하려는 것이다([[16-DECISIONS\|ADR-030]] B21, ADR-031 C4). 대상은 id keyset으로 읽고 처리 순서는 오래된 순이 아니다(ADR-032 D5)|분석 실패 배너|
@@ -913,7 +914,7 @@ interface ParseResult {
   - 회사 GPU 서버는 `kev.serve`를 호스트에 직접 띄운다(ADR-025). 그래서 회사가 기동 전에 가중치(`head.pt`·어댑터) sha256을 레지스트리 `weights_sha256`·`head_sha256`과 대조한다([[22-FINETUNE-RUNBOOK|22]] §2.2).
   - gateway는 기동할 때 Kev `GET /v1/models`의 `run`·`base`·`lora`·`temperature`가 레지스트리 `KEV_MODEL_ID` 항목과 같은지 확인하고, 다르면 기동을 거부한다.
   - `kev.serve`는 경로가 틀리면 오류 없이 `runs/smoke`로 대체하기 때문에 이 검사가 필요하다.
-- **호환성**: 레지스트리 항목의 `questionSet`·`stateTemplate`이 gateway 설정과 다르면 기동을 거부한다. 학습셋 state와 서빙 state는 같은 코드·같은 템플릿 버전으로 만든다(§5.11).
+- **호환성**: 레지스트리 항목의 `questionSet`이 null이 아니고 gateway 설정과 다르면 기동을 거부한다. `stateTemplate` 불일치 시 기동 거부도 설계 요구지만 현재 레지스트리 로더가 이 필드를 읽지 않아 미구현이다(`registry.py`, `adapters/local_setup.py`). 학습셋 state와 서빙 state는 같은 코드·같은 템플릿 버전으로 만든다(§5.11).
 - 검증 결과는 `GET /health`의 `kev{modelId, registryMatch}`로 보이고(Kev를 쓰지 않는 설정이면 `null`, §2.1), 관리자 화면이 `GET /api/v1/admin/ai/status`·`/admin/ai/models`로 읽는다([[05-API-SPEC|05 API]]).
 - 운영 모델 교체는 ADR로 정한다. 기존 `score_runs`는 덮어쓰지 않는다.
 

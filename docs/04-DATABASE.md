@@ -155,7 +155,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 - `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 원문의 숫자가 그대로 남은 번역만 들어간다. Kev 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 
 > [!warning] 미검증 가정
-> `bid_structured_requirements`의 원천 필드 이름은 data.go.kr 서비스 페이지 명세(Swagger·참고문서, 2026-10-16)로 확인했다. 서비스키로 실제 응답을 받아 본 것은 아니다. 면허제한이 여러 행일 때 AND/OR 중 무엇인지도 모른다. 확인 전에는 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다. 검증 방법: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건을 저장하고 매핑을 확인한다([[07-DATA-PIPELINE|07 수집]]).
+> `bid_structured_requirements`의 원천 필드 이름은 data.go.kr 서비스 페이지 명세(Swagger·참고문서, 2026-10-16)와 C1 실제 응답(2026-10-19)으로 확인했다. 면허제한·참가가능지역 보조 조회의 관측 결과와 매핑 차이는 [C1 API 증거](evidence/phase-0/external-deps-api-20261019.md) §5·§10에 있다. 면허제한이 여러 행일 때 AND/OR 중 무엇인지는 여전히 미검증이다. 확인 전에는 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다([[07-DATA-PIPELINE|07 수집]], [[16-DECISIONS|16 ADR]] 미결정 19번).
 
 식별자 규칙(fixture 기준, [[07-DATA-PIPELINE|07 수집]]):
 - `notice_id`는 차수를 뺀 공고번호다. 예: 원본 `DEMO-2026-0010-01`, `DEMO-2026-0010-02` → `notice_id="DEMO-2026-0010"`, 각각 `bid_revisions.amendment_no="01"`, `"02"`.
@@ -333,10 +333,10 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`organizations`|2|`org-01` = 사용자 회사 "솔리데오"의 가상 데모 조직(공공 SI 중견 설정, 프로필 상세는 [[08-SCORING\|08 점수]]·[[19-DEMO-SCENARIO\|19 데모 시나리오]]). `org-02` = 비교 조직(테넌트 격리 시연용, 프로필 1개). 값은 `slug`이며 `id`는 seed가 고정 UUID로 만든다. 둘 다 팀 조직(`personal_owner_id is null`)이다|
 |`auth.users` / `profiles`|5|`org-01`에 역할당 1명(4), `org-02`에 VIEWER 1명(`viewer@other.invalid`, [[19-DEMO-SCENARIO\|19 데모 시나리오]] S7 격리 시연)|
 |`memberships`|5|`org-01`: `admin@soltech.invalid` = `owner` + `ADMIN`, `sales@`·`analyst@`·`viewer@soltech.invalid` = `member` + 각 `sol_role`. `org-02`: `viewer@other.invalid` = `member` + `VIEWER`|
-|`company_profiles`|2|revision 1(초기), revision 2(기술·실적 추가). 데모에서 revision 차이를 보여 준다. 둘 다 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
+|`company_profiles`|3|`org-01`의 revision 1(초기)·revision 2(기술·실적 추가), `org-02`의 격리 시연용 revision 1. 모두 `is_demo=true`. 데모에서 `org-01`의 revision 차이를 보여 준다. seed 요약의 `profileRevisions=2`는 `org-01`만 센 값이다. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
 |`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재. `source=fixture`|
 |`bid_revisions`|19 (`LIVE` 뒤 23)|seed 직후는 공고 19건의 r1. 정정·기한변경·취소 fixture(`FX-06`·`FX-07`·`FX-08`·`FX-10`)는 `batch=LIVE` 수집에서 revision 2를 얻어 23이 된다([[16-DECISIONS\|ADR-030]] B15)|
-|`bid_documents`|07 표 기준|첨부가 있는 fixture만(`download_status=OK`). 파싱 실패 케이스(`parse_status` `UNSUPPORTED` 또는 `FAILED`) 1건 이상 포함|
+|`bid_documents`|07 표 기준|첨부가 있는 fixture만 적재한다. 현재 공통 수집 RPC는 이름·원본 URL만 넣어 `download_status=PENDING`, `parse_status=null`이다. 실제 다운로드·파싱 상태를 채우는 것은 documents 소비자 구현 뒤다. fixture의 파싱 실패 시나리오와 DB에서 실제 처리를 마친 상태는 구분한다|
 |`bid_structured_requirements`|07 표 기준|API 구조화 자격 필드를 담은 fixture만|
 |`requirement_extractions`|0|seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다). 검증된 추출은 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장하고(인용 검증 포함, [[03-AI-PIPELINE\|03]] §4.4), `FX-02`는 S4 라이브 분석 때 저장한다. `fixtures/extractions/` 파일 20개는 gateway mock이 읽는 정본으로 그대로다([[16-DECISIONS\|ADR-031]] C16)|
 |`score_runs` / `requirement_assessments`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 `pnpm demo:preanalyze`로 18건을 사전 분석해 채운다([[16-DECISIONS\|ADR-030]] B22)|
@@ -349,9 +349,9 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`notifications`|0|데모 중 이벤트로 생성|
 |`audit_logs`|seed 작업분|seed 자체도 `actor_id=null`, `action=SEED`로 남긴다|
 
-SEED 배치 공고는 공고 적재 함수 하나(`scripts/demo/bid-notices.mjs`의 `seedBidNotices`)로 넣는다. 수집 코드(`web/server/ingestion`, `FixtureConnector`)가 main에 들어오기 전까지는 07 §6.4·15 §3 규칙을 `scripts/demo/plan.mjs`의 순수 함수로 직접 계산한다. 들어오면 스크립트가 `FixtureConnector`의 `runIngest({ source: "fixture", batch: "SEED" })`를 직접 부르도록 바꾼다(파일 머리 주석). `server-only` 모듈을 Node 프로세스에서 쓰는 실행 방식은 `node --conditions=react-server --import tsx`로 검증됐다([[16-DECISIONS|16 ADR]] 미결정 9번).
+SEED 배치 공고는 `scripts/demo-reset.mjs`의 `createDefaultIngestBids`가 수집 도메인(`web/server/ingestion`)의 `seedFixtureBids`를 호출해 넣는다. 이 함수는 `FixtureConnector`와 공통 수집 저장 경로를 사용해 공고·revision·첨부·outbox·수집 run·격리를 처리한다. `scripts/demo/bid-notices.mjs`는 삭제 전 fixture 검증과 데모 공고 정리를 맡으며, `scripts/demo/plan.mjs`는 고정 ID와 프로필·검토·배정 계획을 맡는다. `server-only` 모듈을 Node 프로세스에서 쓰는 실행 방식은 `node --conditions=react-server --import tsx`다([[16-DECISIONS|16 ADR]] 미결정 9번).
 
-seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/database.test.mjs`)에서 "두 번 돌려도 건수가 같다"와 "`org-02` 사용자가 `org-01` 행을 읽지 못한다"를 확인한다([[11-TESTING|11 테스트]] G5).
+seed 멱등·건수·다른 조직 데이터 격리는 `scripts/demo-reset.test.mjs`의 PGlite 시험에서 확인한다. 표별 RLS 정책은 `scripts/database.test.mjs`에서 별도로 확인한다([[11-TESTING|11 테스트]] G5).
 
 ## 7. migration 순서
 

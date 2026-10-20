@@ -10,6 +10,9 @@ updated: 2026-10-20
 
 # 05. REST API 명세 (Next.js Route Handler)
 
+> [!note] 목표 계약과 구현 상태 (2026-10-20, main `301f2a5`)
+> 이 명세는 후속 API의 목표 계약도 포함한다. 대시보드·공고·분석·검토·알림의 핵심 업무 API는 C6로 구현됐지만, `/api/v1/admin/*`와 `/api/v1/company-profile`은 현재 Route Handler가 없다. 실행 가능한 범위는 `web/app/api/v1/`과 [[PROGRESS|진행 상황]]을 함께 확인한다.
+
 외부 API 계약의 단일 원천은 **zod 스키마**(`web/server/<도메인>/*.model.ts`, [[16-DECISIONS|16 ADR]] ADR-016)다. Route Handler(`web/app/api/v1/**/route.ts`)는 요청을 이 스키마로 검증하고, 응답 타입도 같은 스키마에서 얻는다(`z.infer`). 이 문서는 그 스키마가 담아야 할 내용을 사람이 읽는 형태로 적은 것이며, 둘이 다르면 zod 스키마를 고치고 이 문서를 맞춘다. 상태 코드와 응답 형태는 Route Handler 계약 시험(Vitest, [[11-TESTING|11 테스트]])이 검사한다. 구조 결정은 ADR-017(Next.js + Supabase)이다.
 
 ## 1. 규칙
@@ -25,7 +28,7 @@ updated: 2026-10-20
 |권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 템플릿 호환용이라 이 열에 쓰지 않는다. 구성원 관리도 `sol_role=ADMIN`이다(RLS 정책은 `20261019000001`, [[16-DECISIONS\|ADR-021]]). `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
 |목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
-|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. `POST /bids/:id/analyses`에 키가 없으면 서버가 UUID를 만든다([[16-DECISIONS\|ADR-030]] B20). 분석의 저장 멱등 키는 `<org_id>:<requestId>`이고, requestId(`Idempotency-Key` 값 또는 서버가 만든 UUID)는 `^[A-Za-z0-9_-]{1,128}$`만 받는다. DB check `score_runs_idempotency_key_org_check`가 `<org_id>:`로 시작하는지 강제한다([[04-DATABASE\|04 DB]] §3.4, [[16-DECISIONS\|ADR-031]] C5)|
+|멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더(UUID)를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. `POST /bids/:id/analyses`에 키가 없으면 서버가 UUID를 만든다([[16-DECISIONS\|ADR-030]] B20). 이 HTTP 경로는 UUID가 아닌 키를 `400 VALIDATION_ERROR`로 거절하며, UUID는 소문자로 정규화해 저장한다. 분석의 저장 멱등 키는 `<org_id>:<requestId>`다. worker job 계약은 사전 분석 스크립트의 키도 받으므로 requestId에 `^[A-Za-z0-9_-]{1,128}$`를 허용한다. DB check `score_runs_idempotency_key_org_check`는 `<org_id>:`로 시작하는지 강제한다([[04-DATABASE\|04 DB]] §3.4, [[16-DECISIONS\|ADR-031]] C5)|
 |요청 ID|모든 응답에 `X-Request-Id`. 로그·감사·오류 본문에 같은 값|
 |속도 제한|로그인·토큰 갱신은 Supabase Auth의 요청 제한을 쓴다(값은 Supabase 대시보드 설정으로 정하고 확인한다, 미검증). `/bids/:id/analyses` 조직당 30회/분, `/admin/ingestion/runs` 조직당 5회/분은 Redis로 센다. 초과 `429` + `Retry-After`|
 |문서|계약의 원천은 zod 스키마다. OpenAPI 문서는 선택이며, 만들면 zod 스키마에서 생성하고 개발 환경에서만 노출한다|
@@ -125,7 +128,7 @@ interface ApiError {
   error: { code: ErrorCode; message: string; details?: Record<string, unknown>; requestId: string }
 }
 type Role = "ADMIN" | "SALES" | "ANALYST" | "VIEWER";   // memberships.sol_role. §2 권한 열이 보는 값
-type OrgRole = "owner" | "member";                      // memberships.org_role. 조직 관리(초대·구성원)용, 템플릿 값
+type OrgRole = "owner" | "member";                      // memberships.org_role. 템플릿 호환 값. 초대·구성원 관리 권한은 solRole=ADMIN
 type BidStage = "PLAN" | "PRE_SPEC" | "NOTICE";
 type BidStatus = "OPEN" | "AMENDED" | "CANCELLED" | "CLOSED";
 type Recommendation = "BID" | "WATCH" | "NO_BID";
@@ -501,11 +504,11 @@ interface PeoplePage {
 |422|`HOSTED_NOT_APPROVED`|`AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=false`. `/admin/ai/status`에서만|—|
 |429|`RATE_LIMITED`|속도 제한(Redis로 세는 §1의 API 제한)|`Retry-After` 헤더|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
-|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20)|`{component:"queue"\|"db"\|"storage"}`|
+|503|`SERVICE_UNAVAILABLE`|큐(BullMQ)·속도 제한 저장소(Redis)·DB(Supabase)·스토리지(MinIO) 연결 불가 또는 커서 서명 키 미설정·길이 부족으로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20)|`{component:"queue"\|"redis"\|"db"\|"storage"\|"cursor"}`|
 
 로그인 실패·시도 제한·토큰 갱신 실패는 이 API가 아니라 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
 
-`AI_UNAVAILABLE`, `EXTRACTION_FAILED`는 HTTP 오류가 아니다. 분석은 비동기이므로 AI 장애는 `AnalysisResult.status=PARTIAL` + `errorCode`로 나타난다. API가 503을 내는 경우는 요청 자체를 큐에 넣지 못할 때뿐이다.
+`AI_UNAVAILABLE`, `EXTRACTION_FAILED`는 HTTP 오류가 아니다. 분석은 비동기이므로 AI 장애는 `AnalysisResult.status=PARTIAL` + `errorCode`로 나타난다. HTTP `503`은 위 표의 인프라·설정 오류로 요청을 처리할 수 없을 때 반환한다.
 
 [[16-DECISIONS|ADR-020]]의 실패 유형도 HTTP 오류가 아니다. 유형마다 따로 기록하고 따로 보여 주며, 한 유형을 다른 유형으로 뭉뚱그리지 않는다.
 

@@ -44,7 +44,7 @@ flowchart LR
 | 단계 연결 보조 | 계약과정통합공개 (15129459) | — | `getCntrctProcssIntgOpenServc` | 후속 (평가셋 사업 묶기에 선택 사용) |
 | 후속 | 낙찰정보 (15129397), 계약정보 (15129427), 사용자정보 (15129466) | — | — | 해커톤 밖. 낙찰은 학습 목표 아님 |
 
-registry 키(`g2b-bid-notice` 등 9개)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다. 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). registry 파일 `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 만들고, Connector는 endpoint를 생성자로 받는다.
+registry 키(`g2b-bid-notice` 등 9개)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다. 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). registry 파일은 `infra/sources/registry.yaml`에 있고, Connector는 endpoint를 생성자로 받는다. 현재 연결 범위는 §2.2 구현 상태를 따른다.
 
 > [!success] 검증됨 (2026-10-16 명세 확인, 2026-10-19 실응답 확인)
 > 위 서비스 ID·기본 URL·오퍼레이션과 §2.2·§3.1의 요청 파라미터·응답 필드 이름은 각 서비스 페이지의 명세에서 확인했다. 무료이고 개발·운영 계정 모두 자동승인이며, 개발계정 호출 한도는 서비스마다 1,000이다(사용자정보·개방표준은 10,000). 2026-10-19에 서비스키로 네 서비스를 37회 실제 호출했고, 담당자 필드를 마스킹한 녹음 응답 14건을 `fixtures/recorded/<serviceId>/`에 저장했다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md)). 명세와 실제가 다른 점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8 콜아웃이 정본이다.
@@ -69,7 +69,7 @@ registry 키(`g2b-bid-notice` 등 9개)와 호출 시점은 [[15-DATA-CONTRACTS|
 - live 공고와 fixture 공고는 같은 DB에 함께 있을 수 있다. 공고는 `source`와 `is_demo`로 구분하고, 공고 목록은 `origin=live|demo|all`로 거른다([[05-API-SPEC|05 API]]). `is_demo=true` 공고에는 `DEMO` 배지가 붙는다.
 - 수집 run마다 `ingest_runs.run_mode`·`source`·`quota_used`를 남긴다([[04-DATABASE|04 DB]]). 분석 run의 모드 기록(`score_runs.run_mode` 등)은 03·04.
 - `SOL_RUN_MODE`가 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`의 기본값을 정한다. 값을 직접 줬는데 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다(예: `live`인데 `AI_PROVIDER=mock`). 조용히 바꾸지 않는다.
-- 데이터 출처를 자동으로 바꾸지 않는다. `live`에서 공공 API가 실패해도 `FixtureConnector`로 넘어가지 않는다(§2.6). 모드 전환은 env를 바꾸고 worker·gateway를 재시작해서 한다. 시연 중 장애 대체 순서는 `live` → `fixture` → `mock`이다.
+- 데이터 출처를 자동으로 바꾸지 않는다. `live`에서 공공 API가 실패해도 `FixtureConnector`로 넘어가지 않는다(§2.6). 모드 전환은 `infra/.env`·`web/.env.local`의 모드를 맞추고 worker·gateway 컨테이너를 재생성한 뒤 호스트 web을 재기동한다([[10-DEPLOYMENT|10 배포]] 실행 모드 전환 절차). 시연 중 장애 대체 순서는 `live` → `fixture` → `mock`이다.
 - **회사 프로필은 모든 모드에서 가상 솔리데오 프로필**(`company_profiles.is_demo=true`)이다. live 모드의 분석은 "실제 공고 × 가상 회사 프로필"이고 화면에 "가상 회사 프로필로 분석" 배지를 붙인다(ADR-019, [[09-SECURITY|09 보안]]). 실제 회사 자료를 쓰려면 별도 ADR과 09 개정이 먼저 있어야 한다.
 - 골든 수치(94/72/68)는 `mock` 모드에서만 단언한다. `fixture` 모드의 실모델 추출은 mock 추출과 다를 수 있어 골든 대상이 아니다([[11-TESTING|11 테스트]]).
 
@@ -103,7 +103,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 | `DocumentParser` | 형식별 어댑터 | 모든 모드 | gateway `POST /parse` 안에서 동작(§2.5) |
 
 - 세 실행 모드는 `RecordedApiConnector`를 고르지 않는다. `OfficialApiConnector`의 응답 해석(정규화·오류 처리)을 네트워크 없이 시험하는 데 쓴다.
-- `OfficialApiConnector`는 registry 항목이나 서비스키 4개 중 하나라도 없으면 기동할 때 빠진 env 이름을 알리고 멈춘다(값은 출력하지 않는다). 다른 Connector로 조용히 바꾸지 않고, 다른 서비스의 키를 대신 쓰지 않는다.
+- 현재 worker의 live 기동 검증(`web/worker/main.ts`의 `resolveG2bSource`)은 `g2b-bid-notice` registry 항목과 그 항목의 `serviceKeyEnv`가 가리키는 입찰공고 키만 확인한다. 다른 세 서비스키의 기동 검증·소스 연결은 후속 구현이다. `pnpm check:env`의 env 파일 검사와 worker 기동 검증은 별개다. 키 누락 오류에는 env 이름만 출력하며 다른 Connector나 다른 서비스키로 조용히 바꾸지 않는다.
 
 ### 2.2 나라장터 요청 규칙
 
@@ -137,6 +137,9 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
 - 초당 30 tps(참고문서)를 넘지 않는다.
 - 일정 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(worker 전용, 선택): 기본 `30`(분)이고 양의 정수만 받는다. 틀리면 worker가 env 이름만 알리고 멈춘다(`web/worker/ingest-queue.ts`의 `DEFAULT_G2B_INGEST_INTERVAL_MINUTES`, main `9da17c4`). main `4895010`부터 `infra/compose.yaml`이 이 키를 worker `environment`에 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에서는 기본값 30분이 쓰인다([[10-DEPLOYMENT|10 배포]] env 파일 위치 표, [[16-DECISIONS|ADR-031]] C13).
+
+> [!note] 현재 수집 구현 (2026-10-20)
+> 위 요청·일정·예산 규칙은 목표 설계다. 현재 worker는 입찰공고 목록 `getBidPblancListInfoServc`만 연결하고 `stages: ["NOTICE"]`를 기록한다(`web/worker/ingest-queue.ts`). 목록 요청은 `inqryDiv=1`만 지원한다(`web/server/ingestion/g2b-request.ts`). 변경일 기준 조회(`inqryDiv=3`), 보조 조회 3종, 사전규격·발주계획·업종 마스터 수집은 아직 연결하지 않았다. `quota.ts`의 Redis 키·상태 계산 함수와 일일 한도 오류 분류는 있지만 Redis 예산 카운터·90% 제어·당일 호출 중단 상태의 영속 연결은 아직 없다. 현재 제공하는 보호 범위를 이 설계 전체가 구현된 것으로 해석하지 않는다.
 
 ### 2.3 서비스키 없이 개발하기
 

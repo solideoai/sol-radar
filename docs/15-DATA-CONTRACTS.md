@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-10-19
+updated: 2026-10-20
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -80,7 +80,7 @@ interface ExtractedField<T> {
 |state|value|evidence|언제|
 |---|---|---|---|
 |`KNOWN`|non-null|1개 이상, 검증 통과|원문에 값이 명시됨|
-|`UNKNOWN`|null|0개|원문에 없음, 또는 인용 검증 전부 실패|
+|`UNKNOWN`|null|유효 근거 0개. 인용 검증 실패 시 `match=FAILED`인 ref는 보존(§5.3)|원문에 없음, 또는 인용 검증 전부 실패|
 |`NOT_APPLICABLE`|null|0~1개|해당 항목이 이 공고 유형에 없음(예: 발주계획에는 마감 없음)|
 |`CONFLICTED`|null|2개 이상|원문 내 두 값이 다름(본문 예산 ≠ 첨부 예산). `note`에 두 값을 적는다|
 
@@ -180,7 +180,9 @@ interface StructuredRequirement {
 |구분|필드|비어 있을 때|
 |---|---|---|
 |필수|`source`, `noticeId`, `title`, `sourceUrl`, `stage`, `fetchedAt`|레코드 격리(`ingest_errors`), 적재하지 않음|
-|선택|`budgetKrw`, `deadlineAt`, `noticeDate`, `agency`, `content`, `attachments`, `planRef`, `preSpecRef`, `normalizationNotes`|null 유지. `original`에 원본 문자열은 남긴다|
+|nullable|`budgetKrw`, `deadlineAt`, `noticeDate`, `agency`|값이 없으면 null. `original`에 원본 문자열은 남긴다|
+|빈 값 허용|`content`, `attachments`|본문이 없으면 빈 문자열, 첨부가 없으면 빈 배열|
+|선택 키|`amendmentNo`, `planRef`, `preSpecRef`, `normalizationNotes`|값이 없으면 키 생략(null을 넣지 않는다)|
 |선택(빈 배열)|`structuredQualifications`|빈 배열. 규칙 엔진은 추출값으로 판정한다|
 
 `checksum`은 canonical JSON(키 정렬, 공백 없음, `fetchedAt`·`checksum` 제외)의 sha256이다. 같은 `source+noticeId`에서 checksum이 바뀌면 새 revision이다.
@@ -334,7 +336,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 |`fixture`|fixture 20건(`FX-01`~`FX-20`)|— (네트워크 호출 없음)|seed·수동 수집|`APPROVED`|—|
 
 - 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
-- `infra/sources/registry.yaml`은 C3의 worker 연결 단계에서 만든다. Connector는 endpoint를 생성자로 받아 registry 로딩과 떼어 둔다(B16).
+- `infra/sources/registry.yaml`은 구현돼 있다. worker(`web/worker/main.ts`)가 수집 도메인의 `loadSourceRegistry`로 읽고 승인·필드 매핑·서비스키를 확인한 뒤 Connector에 등록 endpoint를 전달한다. Connector는 endpoint를 생성자로 받아 registry 로딩과 떼어 둔다(B16).
 - `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 로그인·세션 없이 익명 GET으로 받아진다(C1 ② B2, 2026-10-19 공고 3건, 리다이렉트 0회). 남은 것은 이용약관상 자동 다운로드가 허용되는지다(미결정 16번). 그 확인 뒤 `approvalStatus`와 `quota`의 뜻을 정한다.
 
 > [!success] 검증됨 (명세 2026-10-16, 실제 응답 2026-10-19 — data.go.kr 서비스 페이지 Swagger·참고문서, C1 ① 실호출)

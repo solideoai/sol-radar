@@ -81,7 +81,7 @@ updated: 2026-10-20
 해커톤에는 라벨링 화면을 만들지 않는다. JSONL 파일과 검증 CLI 로 한다.
 
 1. 데이터셋 빌더가 항목·변형을 만들고, 규칙 판정과 Qwen 추출로 초안 라벨을 채운다.
-2. 사람이 JSONL 라벨 파일을 검수한다. `sol_eval.labels check` 가 형식·값 집합·근거 존재를 검사한다.
+2. 사람이 JSONL 라벨 파일을 검수한다. `uv run python -m sol_eval labels check <file>`가 형식·값 집합·근거 존재를 검사한다(`services/ai`에서 실행).
 3. 추출 정답(gold `RequirementExtraction`)도 같은 방식이다. 인용은 인용 검증기([[15-DATA-CONTRACTS|15 데이터 계약]] §5)를 통과해야 한다.
 4. 사람 라벨에는 라벨러 id·시각·도구 버전을 남긴다. test 의 10% 는 두 번째 사람이 다시 라벨링해 Cohen κ 를 잰다. 두 번째 사람이 없으면 이 지표가 빠졌다고 리포트에 적는다.
 5. 초안 출처를 `draftedBy`(`RULE`·`QWEN`·`CLAUDE`·`NONE`)로 남긴다. 사람이 검수해 확정한 것만 `labelSource=HUMAN` 이다. Qwen 초안에서 시작한 gold 는 정답이 초안에 끌려갈 수 있다. 그래서 test 추출 gold 중 5건 이상은 초안 없이(`draftedBy=NONE`) 만들고, 이 묶음과 나머지의 Qwen 점수 차이를 함께 보고한다.
@@ -129,17 +129,19 @@ interface EvalItem {
 }
 ```
 
-- **Kev JSONL**: `kev.train --data`·`kev.benchmark --data` 와 같은 형식이다. 한 줄에 `{"state": …, "questions": {qid: {"type","instructions","criteria","label","target"?}}}` 하나. state 는 서빙과 **같은 코드**(`services/ai/kev` 의 state 빌더)와 같은 템플릿 버전으로 만든다. `en`·`ko` 두 벌을 낸다.
+- **Kev JSONL**: `kev.train --data`·`kev.benchmark --data` 와 같은 형식이다. 한 줄에 `{"state": …, "questions": {qid: {"type","instructions","criteria","label","target"?}}}` 하나. state 는 서빙과 **같은 코드**(`services/ai/src/sol_ai/kev_state_v02.py` 의 state 빌더)와 같은 템플릿 버전으로 만든다. `en`·`ko` 두 벌을 낸다.
 - **Qwen SFT JSONL**(조건부 Qwen 파인튜닝용): 시스템 프롬프트 `req-extract/v0.1` + user 메시지 + gold JSON.
 - **번들** `sol-dataset-{version}.tar`
   - `manifest.json`: 데이터셋 버전, git commit, 질문 세트·state 템플릿·라벨 스키마·마스킹 버전, 분할·라벨·출처별 개수, 파일별 sha256
   - 분할별 JSONL
   - `MODEL_TRAINING.md`(§5 절차)
-- 빌더는 두 단계다. Node 스크립트(`pnpm dataset:build`(예정), service role, seed 스크립트와 같은 지위)가 Supabase·MinIO 에서 `EvalItem` 을 만들고, Python(`services/ai`, DB 접근 없음)이 Kev·Qwen 형식으로 바꾼다.
+- 현재 갈래 ① 빌더는 `sol_eval build`가 마스킹 녹음 응답·가상 기업·분할 파일을 읽어 `EvalItem`을 만들고, `sol_eval export`가 Kev JSONL(en·ko)로 바꾼다(DB·네트워크 접근 없음). `sol_eval manifest`가 manifest를 따로 만든다. Supabase·MinIO를 읽는 Node 스크립트(`pnpm dataset:build`, service role)와 Qwen SFT 내보내기·tar 포장은 후속이다. 현행 명령·입력 계약은 `services/ai/eval/README.md`를 따른다.
 
 ## 4. 평가
 
 ### 4.1 하네스
+
+현재 `services/ai/eval/`에 구현된 CLI는 `labels check`·`build`·`export`·`manifest`다. 아래 엔드포인트 평가·benchmark 출력 기반 오프라인 지표·비교 하네스는 후속 설계이며 아직 실행 명령이 없다. 데이터셋 개발용 smoke 증거(`docs/evidence/eval/sol-eval-smoke-20261020.txt`)는 모델 평가 결과가 아니다.
 
 - 위치: `services/ai/eval/`(Python, `uv run python -m sol_eval …`). 노트북에서 회사 GPU 추론 엔드포인트(Kev 는 `KEV_BASE_URL` 직접, 또는 평가용 gateway URL)에 붙여 돌린다([[16-DECISIONS|ADR-025]]). E4 는 엔드포인트에 붙지 않는다. 회사가 서버 안에서 `kev.benchmark`(`--rotations 6`)로 채점한 출력 폴더(`rows.json`·`predictions.jsonl`·`report.json`)를 받아 `sol_eval` 이 오프라인으로 지표를 내고, 실행 전에 `report.json` 의 체크포인트 id·test 파일 sha256 을 번들 manifest 와 대조한다([[16-DECISIONS|ADR-027]] 10번 개정, [[23-WEEKEND-FINETUNE|23]] §2.2). 요청당 지연은 E4 에서 재지 않는다.
 - 결과: `report.json`·`report.md`. 숫자 요약만 `docs/evidence/eval/` 에 둔다. 실제 RFP 원문은 증거 폴더에 넣지 않는다.
@@ -256,10 +258,12 @@ Kev 학습·평가·보정은 Kev 저장소 도구(`kev.train`·`kev.benchmark`�
 | 명령 | 위치 | 하는 일 |
 |---|---|---|
 | `pnpm dataset:build --version sol-eval/v0.1`(예정) | 루트 스크립트(service role) | live 공고·추출·가상 기업 → `EvalItem` + 분할 + 마스킹 → MinIO |
-| `uv run python -m sol_eval.export --version … --out sol-dataset-v0.1.tar` | `services/ai` | `EvalItem` → Kev JSONL(en·ko)·Qwen SFT JSONL·manifest |
-| `uv run python -m sol_eval.labels check <file>` | `services/ai` | 사람 라벨 파일 검증 |
-| `uv run python -m sol_eval.run --system E1 --split test --kev-url … --gateway-url …` | `services/ai` | 평가 실행 → `report.json`·`report.md` |
-| `uv run python -m sol_eval.probe-train …` | `services/ai`(회사 GPU, 회사 측 실행) | §5.2 메모리 격자 실행 → 결과 표. 감싸는 `kev.train` 명령은 [[22-FINETUNE-RUNBOOK\|22]] §4.2 |
+| `uv run python -m sol_eval build --as-of 2026-10-19` | `services/ai` | 마스킹 녹음 응답·가상 기업·분할 → `items.{train,dev,test}.jsonl`·빌드 보고서 |
+| `uv run python -m sol_eval export --version v0.1` | `services/ai` | `items.*.jsonl` → Kev JSONL(en·ko)·내보내기 보고서. `--out`은 입력·출력 디렉터리이며 tar 파일이 아니다 |
+| `uv run python -m sol_eval manifest --version v0.1` | `services/ai` | 빌드·내보내기 보고서와 JSONL → `manifest.json` |
+| `uv run python -m sol_eval labels check ../../fixtures/eval/labels/fixture.v0.1.jsonl` | `services/ai` | 라벨 파일 검증 |
+| 평가·비교 하네스(예정, 미구현) | `services/ai/eval/` | E0~E4 → `report.json`·`report.md`. `sol_eval.run` 모듈은 아직 없다 |
+| `bash infra/gpu/kev-preflight.sh` → `bash infra/gpu/kev-f1.sh --max_state 1024` | 저장소 루트(회사 GPU, 회사 측 실행) | §5.2 메모리 검증. 환경·선행 조건·후속 격자는 [[22-FINETUNE-RUNBOOK\|22]] §4.2. `sol_eval.probe-train` 모듈은 없다 |
 | `pnpm eval:publish <report.json>`(예정) | 루트 스크립트 | 요약을 `eval_runs` 에 저장. 웹은 `GET /api/v1/admin/ai/eval-runs` 로 읽기만([[05-API-SPEC\|05 API]]) |
 
 ## 7. 수용 기준 (해커톤 F0·X6)
