@@ -1,0 +1,1199 @@
+{
+  "scope": "User explicitly requested physical MVP test reduction, not test exclusions.",
+  "webUnitBefore": 6830,
+  "webUnitKeptBeforeNewSmoke": 281,
+  "webUnitKeptFiles": [
+    "web/app/api/v1/bids-contract.test.ts",
+    "web/app/api/v1/tenant-isolation.test.ts",
+    "web/app/api/v1/what-if-contract.test.ts",
+    "web/proxy.test.ts",
+    "web/server/analysis/decision-wire-compat.test.ts",
+    "web/server/bids/demo-flag.test.ts",
+    "web/server/bids/review.service.test.ts",
+    "web/server/ingestion/idempotent-upsert.test.ts",
+    "web/server/ingestion/revision-diff.test.ts",
+    "web/server/ingestion/service-key-redaction.test.ts",
+    "web/server/notifications/outbox-dedupe.test.ts",
+    "web/server/organization/business-access.service.test.ts",
+    "web/server/scoring/analyze.partial.test.ts",
+    "web/server/scoring/kev-no-override.test.ts",
+    "web/server/scoring/needs-review.test.ts",
+    "web/server/scoring/reproducibility.test.ts",
+    "web/server/scoring/requirement-status.test.ts",
+    "web/server/scoring/what-if.test.ts",
+    "web/server/scoring/worked-examples.golden.test.ts",
+    "web/server/supabase/claims.test.ts",
+    "web/test/auth-browser-origin.test.ts",
+    "web/worker/readiness.test.ts"
+  ],
+  "webUnitRemoved": [
+    {
+      "file": "web/app/(app)/(work)/admin/ingestion/error-kind.test.ts",
+      "cases": 65
+    },
+    {
+      "file": "web/app/(app)/(work)/admin/ingestion/ingest-format.test.ts",
+      "cases": 27
+    },
+    {
+      "file": "web/app/(app)/(work)/admin/ingestion/ingest-runs.test.ts",
+      "cases": 44
+    },
+    {
+      "file": "web/app/(app)/(work)/admin/ingestion/ingestion-api.test.ts",
+      "cases": 36
+    },
+    {
+      "file": "web/app/(app)/(work)/admin/ingestion/ingestion-copy.test.ts",
+      "cases": 14
+    },
+    {
+      "file": "web/app/(app)/(work)/admin/ingestion/request-errors.test.ts",
+      "cases": 33
+    },
+    {
+      "file": "web/app/(app)/(work)/admin/ingestion/use-ingest-polling.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/app/(app)/(work)/bids/[id]/assessment-labels.test.ts",
+      "cases": 6
+    },
+    {
+      "file": "web/app/(app)/(work)/bids/[id]/back-href.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/app/(app)/(work)/bids/[id]/submit-review.test.ts",
+      "cases": 10
+    },
+    {
+      "file": "web/app/(app)/(work)/bids/list-query.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/app/(app)/(work)/dashboard/dashboard-queries.test.ts",
+      "cases": 6
+    },
+    {
+      "file": "web/app/(app)/(work)/empty-state.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/app/(app)/(work)/layout.test.ts",
+      "cases": 2
+    },
+    {
+      "file": "web/app/(app)/(work)/work.test.ts",
+      "cases": 14
+    },
+    {
+      "file": "web/app/(app)/[slug]/layout.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/app/(app)/employment-guard.test.ts",
+      "cases": 48
+    },
+    {
+      "file": "web/app/(app)/org-chart/page.test.ts",
+      "cases": 6
+    },
+    {
+      "file": "web/app/(app)/people/layout.test.ts",
+      "cases": 5
+    },
+    {
+      "file": "web/app/(app)/people/page.test.ts",
+      "cases": 10
+    },
+    {
+      "file": "web/app/_lib/analysis-queue.test.ts",
+      "cases": 13
+    },
+    {
+      "file": "web/app/_lib/idempotency-store.test.ts",
+      "cases": 24
+    },
+    {
+      "file": "web/app/_lib/ingest-queue.test.ts",
+      "cases": 24
+    },
+    {
+      "file": "web/app/_lib/ingestion-deps.test.ts",
+      "cases": 20
+    },
+    {
+      "file": "web/app/_lib/rate-limit.test.ts",
+      "cases": 11
+    },
+    {
+      "file": "web/app/_lib/work-deps.test.ts",
+      "cases": 2
+    },
+    {
+      "file": "web/app/api/admin/users/[id]/status/route.test.ts",
+      "cases": 19
+    },
+    {
+      "file": "web/app/api/auth/identities/[id]/route.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/app/api/auth/logout-all/route.test.ts",
+      "cases": 5
+    },
+    {
+      "file": "web/app/api/auth/me/route.test.ts",
+      "cases": 7
+    },
+    {
+      "file": "web/app/api/auth/providers/route.test.ts",
+      "cases": 5
+    },
+    {
+      "file": "web/app/api/users/me/route.test.ts",
+      "cases": 31
+    },
+    {
+      "file": "web/app/api/v1/_lib/http.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/app/api/v1/_lib/work-route.test.ts",
+      "cases": 7
+    },
+    {
+      "file": "web/app/api/v1/admin-ingestion-contract.test.ts",
+      "cases": 67
+    },
+    {
+      "file": "web/app/api/v1/admin/ai/status/route.test.ts",
+      "cases": 26
+    },
+    {
+      "file": "web/app/api/v1/company-profile/route.test.ts",
+      "cases": 14
+    },
+    {
+      "file": "web/app/api/v1/me/employment/route.test.ts",
+      "cases": 23
+    },
+    {
+      "file": "web/app/api/v1/team-members/route.test.ts",
+      "cases": 17
+    },
+    {
+      "file": "web/app/auth/account/page.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/app/auth/callback/route.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/app/auth/complete-profile/page.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/app/auth/confirm/route.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/app/auth/employment-routing.test.ts",
+      "cases": 41
+    },
+    {
+      "file": "web/app/auth/login/page.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/app/auth/organization-state/page.test.ts",
+      "cases": 13
+    },
+    {
+      "file": "web/app/auth/sign-up/sign-up-schema.test.ts",
+      "cases": 23
+    },
+    {
+      "file": "web/app/health/ready/route.test.ts",
+      "cases": 1
+    },
+    {
+      "file": "web/app/invitations/page.test.ts",
+      "cases": 5
+    },
+    {
+      "file": "web/app/teams/new/page.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/components/app-nav.test.ts",
+      "cases": 24
+    },
+    {
+      "file": "web/components/bids/evidence-store.test.ts",
+      "cases": 3
+    },
+    {
+      "file": "web/components/bids/external-url.test.ts",
+      "cases": 2
+    },
+    {
+      "file": "web/components/bids/format.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/components/bids/labels.test.ts",
+      "cases": 16
+    },
+    {
+      "file": "web/components/bids/test-data.test.ts",
+      "cases": 17
+    },
+    {
+      "file": "web/components/company/company-tabs.test.ts",
+      "cases": 14
+    },
+    {
+      "file": "web/components/landing/analysis.test.ts",
+      "cases": 11
+    },
+    {
+      "file": "web/components/landing/demo-bids.test.ts",
+      "cases": 9
+    },
+    {
+      "file": "web/components/landing/format.test.ts",
+      "cases": 6
+    },
+    {
+      "file": "web/components/landing/landing-links.test.ts",
+      "cases": 3
+    },
+    {
+      "file": "web/components/people/org-chart-model.test.ts",
+      "cases": 2
+    },
+    {
+      "file": "web/components/people/people-query.test.ts",
+      "cases": 3
+    },
+    {
+      "file": "web/lib/demo-portrait.test.ts",
+      "cases": 14
+    },
+    {
+      "file": "web/lib/stores/sidebar-groups.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/lib/supabase-browser.test.ts",
+      "cases": 6
+    },
+    {
+      "file": "web/server/activity/activity.model.test.ts",
+      "cases": 20
+    },
+    {
+      "file": "web/server/activity/activity.service.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/server/admin/admin.model.test.ts",
+      "cases": 44
+    },
+    {
+      "file": "web/server/admin/admin.service.test.ts",
+      "cases": 29
+    },
+    {
+      "file": "web/server/analysis/analysis-job.model.test.ts",
+      "cases": 139
+    },
+    {
+      "file": "web/server/analysis/analysis-store.model.test.ts",
+      "cases": 131
+    },
+    {
+      "file": "web/server/analysis/analysis.db-path.test.ts",
+      "cases": 55
+    },
+    {
+      "file": "web/server/analysis/analysis.model.test.ts",
+      "cases": 188
+    },
+    {
+      "file": "web/server/analysis/analysis.repo.test.ts",
+      "cases": 200
+    },
+    {
+      "file": "web/server/analysis/analysis.service.test.ts",
+      "cases": 278
+    },
+    {
+      "file": "web/server/analysis/circuit-breaker.model.test.ts",
+      "cases": 21
+    },
+    {
+      "file": "web/server/analysis/fallback.model.test.ts",
+      "cases": 123
+    },
+    {
+      "file": "web/server/analysis/gateway.client.test.ts",
+      "cases": 78
+    },
+    {
+      "file": "web/server/analysis/gateway.model.test.ts",
+      "cases": 175
+    },
+    {
+      "file": "web/server/analysis/preanalyze.model.test.ts",
+      "cases": 58
+    },
+    {
+      "file": "web/server/auth/auth.model.test.ts",
+      "cases": 34
+    },
+    {
+      "file": "web/server/auth/auth.service.test.ts",
+      "cases": 53
+    },
+    {
+      "file": "web/server/bids/analysis-row.mapper.test.ts",
+      "cases": 23
+    },
+    {
+      "file": "web/server/bids/bid-query.test.ts",
+      "cases": 31
+    },
+    {
+      "file": "web/server/bids/bid-row.mapper.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/server/bids/bid.model.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/server/bids/bids.service.test.ts",
+      "cases": 60
+    },
+    {
+      "file": "web/server/bids/bids.supabase.test.ts",
+      "cases": 39
+    },
+    {
+      "file": "web/server/bids/dashboard.service.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/server/bids/dashboard.supabase.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/server/bids/notification.model.test.ts",
+      "cases": 21
+    },
+    {
+      "file": "web/server/bids/notification.service.test.ts",
+      "cases": 11
+    },
+    {
+      "file": "web/server/bids/notification.supabase.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/server/bids/origin-filter.test.ts",
+      "cases": 3
+    },
+    {
+      "file": "web/server/bids/postgrest.test.ts",
+      "cases": 17
+    },
+    {
+      "file": "web/server/bids/review.supabase.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/server/bids/what-if.service.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/server/company-profile/company-profile.model.test.ts",
+      "cases": 7
+    },
+    {
+      "file": "web/server/company-profile/company-profile.service.test.ts",
+      "cases": 5
+    },
+    {
+      "file": "web/server/csp/csp.model.test.ts",
+      "cases": 9
+    },
+    {
+      "file": "web/server/health/ai-status.model.test.ts",
+      "cases": 52
+    },
+    {
+      "file": "web/server/health/ai-status.repo.test.ts",
+      "cases": 14
+    },
+    {
+      "file": "web/server/health/ai-status.service.test.ts",
+      "cases": 27
+    },
+    {
+      "file": "web/server/health/health.model.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/server/health/health.service.test.ts",
+      "cases": 13
+    },
+    {
+      "file": "web/server/ingestion/attachment-fetcher.test.ts",
+      "cases": 224
+    },
+    {
+      "file": "web/server/ingestion/cancel.test.ts",
+      "cases": 14
+    },
+    {
+      "file": "web/server/ingestion/checksum.test.ts",
+      "cases": 21
+    },
+    {
+      "file": "web/server/ingestion/fixture-connector.test.ts",
+      "cases": 51
+    },
+    {
+      "file": "web/server/ingestion/fixture-status.test.ts",
+      "cases": 10
+    },
+    {
+      "file": "web/server/ingestion/g2b-aux.test.ts",
+      "cases": 34
+    },
+    {
+      "file": "web/server/ingestion/g2b-envelope.test.ts",
+      "cases": 40
+    },
+    {
+      "file": "web/server/ingestion/g2b-filter.test.ts",
+      "cases": 22
+    },
+    {
+      "file": "web/server/ingestion/g2b-gateway-error.test.ts",
+      "cases": 56
+    },
+    {
+      "file": "web/server/ingestion/g2b-request.test.ts",
+      "cases": 34
+    },
+    {
+      "file": "web/server/ingestion/ingestion-admin.model.test.ts",
+      "cases": 60
+    },
+    {
+      "file": "web/server/ingestion/ingestion-admin.repo.test.ts",
+      "cases": 31
+    },
+    {
+      "file": "web/server/ingestion/ingestion-admin.service.test.ts",
+      "cases": 116
+    },
+    {
+      "file": "web/server/ingestion/ingestion.queue.test.ts",
+      "cases": 94
+    },
+    {
+      "file": "web/server/ingestion/ingestion.repo.memory.test.ts",
+      "cases": 18
+    },
+    {
+      "file": "web/server/ingestion/ingestion.repo.test.ts",
+      "cases": 17
+    },
+    {
+      "file": "web/server/ingestion/ingestion.service.anchor.test.ts",
+      "cases": 40
+    },
+    {
+      "file": "web/server/ingestion/ingestion.service.aux.test.ts",
+      "cases": 30
+    },
+    {
+      "file": "web/server/ingestion/ingestion.service.g2b.test.ts",
+      "cases": 23
+    },
+    {
+      "file": "web/server/ingestion/ingestion.service.ids.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/server/ingestion/ingestion.service.quarantined.test.ts",
+      "cases": 9
+    },
+    {
+      "file": "web/server/ingestion/ingestion.service.quota.test.ts",
+      "cases": 29
+    },
+    {
+      "file": "web/server/ingestion/ingestion.service.test.ts",
+      "cases": 68
+    },
+    {
+      "file": "web/server/ingestion/ingestion.store.test.ts",
+      "cases": 54
+    },
+    {
+      "file": "web/server/ingestion/normalize-amount.test.ts",
+      "cases": 41
+    },
+    {
+      "file": "web/server/ingestion/normalize-date.test.ts",
+      "cases": 64
+    },
+    {
+      "file": "web/server/ingestion/normalize-g2b-aux.test.ts",
+      "cases": 46
+    },
+    {
+      "file": "web/server/ingestion/normalize-g2b.test.ts",
+      "cases": 97
+    },
+    {
+      "file": "web/server/ingestion/normalized-bid.contract.test.ts",
+      "cases": 89
+    },
+    {
+      "file": "web/server/ingestion/official-api-connector.test.ts",
+      "cases": 71
+    },
+    {
+      "file": "web/server/ingestion/official-api-errors.test.ts",
+      "cases": 40
+    },
+    {
+      "file": "web/server/ingestion/pending-documents.repo.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/server/ingestion/point-in-time.test.ts",
+      "cases": 13
+    },
+    {
+      "file": "web/server/ingestion/quarantine.test.ts",
+      "cases": 53
+    },
+    {
+      "file": "web/server/ingestion/quota-store.test.ts",
+      "cases": 15
+    },
+    {
+      "file": "web/server/ingestion/quota.test.ts",
+      "cases": 29
+    },
+    {
+      "file": "web/server/ingestion/rate-limit-retry.test.ts",
+      "cases": 66
+    },
+    {
+      "file": "web/server/ingestion/recorded-api.test.ts",
+      "cases": 118
+    },
+    {
+      "file": "web/server/ingestion/seed-fixture-bids.test.ts",
+      "cases": 18
+    },
+    {
+      "file": "web/server/ingestion/source-registry.test.ts",
+      "cases": 53
+    },
+    {
+      "file": "web/server/ingestion/stage-link.test.ts",
+      "cases": 34
+    },
+    {
+      "file": "web/server/ingestion/stale-amendment.test.ts",
+      "cases": 29
+    },
+    {
+      "file": "web/server/ingestion/text-normalize.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/server/notifications/outbox.model.test.ts",
+      "cases": 50
+    },
+    {
+      "file": "web/server/notifications/outbox.repo.test.ts",
+      "cases": 77
+    },
+    {
+      "file": "web/server/notifications/outbox.service.test.ts",
+      "cases": 66
+    },
+    {
+      "file": "web/server/organization/business-access.model.test.ts",
+      "cases": 2
+    },
+    {
+      "file": "web/server/organization/business-access.repo.test.ts",
+      "cases": 3
+    },
+    {
+      "file": "web/server/organization/organization.mail.test.ts",
+      "cases": 23
+    },
+    {
+      "file": "web/server/organization/organization.model.test.ts",
+      "cases": 43
+    },
+    {
+      "file": "web/server/organization/organization.repo.test.ts",
+      "cases": 1
+    },
+    {
+      "file": "web/server/organization/organization.service.test.ts",
+      "cases": 76
+    },
+    {
+      "file": "web/server/people/people.cursor.test.ts",
+      "cases": 5
+    },
+    {
+      "file": "web/server/people/people.model.test.ts",
+      "cases": 25
+    },
+    {
+      "file": "web/server/people/people.repo.test.ts",
+      "cases": 7
+    },
+    {
+      "file": "web/server/people/people.service.test.ts",
+      "cases": 19
+    },
+    {
+      "file": "web/server/profile/employment.test.ts",
+      "cases": 10
+    },
+    {
+      "file": "web/server/profile/profile.catalog.test.ts",
+      "cases": 1
+    },
+    {
+      "file": "web/server/profile/profile.model.test.ts",
+      "cases": 10
+    },
+    {
+      "file": "web/server/profile/profile.repo.test.ts",
+      "cases": 1
+    },
+    {
+      "file": "web/server/profile/profile.service.test.ts",
+      "cases": 17
+    },
+    {
+      "file": "web/server/scoring/analysis-input.model.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/server/scoring/aux-lookup.test.ts",
+      "cases": 11
+    },
+    {
+      "file": "web/server/scoring/decision-policy.golden.test.ts",
+      "cases": 7
+    },
+    {
+      "file": "web/server/scoring/missing-policy.test.ts",
+      "cases": 11
+    },
+    {
+      "file": "web/server/scoring/review.independent.test.ts",
+      "cases": 68
+    },
+    {
+      "file": "web/server/scoring/scale-limit.test.ts",
+      "cases": 4
+    },
+    {
+      "file": "web/server/scoring/scoring.model.test.ts",
+      "cases": 10
+    },
+    {
+      "file": "web/server/scoring/structured-field-priority.test.ts",
+      "cases": 8
+    },
+    {
+      "file": "web/server/shared/employment.test.ts",
+      "cases": 5
+    },
+    {
+      "file": "web/server/shared/error-report.test.ts",
+      "cases": 12
+    },
+    {
+      "file": "web/server/shared/review-input.test.ts",
+      "cases": 5
+    },
+    {
+      "file": "web/server/supabase/client.test.ts",
+      "cases": 52
+    },
+    {
+      "file": "web/server/supabase/session.test.ts",
+      "cases": 11
+    },
+    {
+      "file": "web/server/task/task.model.test.ts",
+      "cases": 43
+    },
+    {
+      "file": "web/server/task/task.service.test.ts",
+      "cases": 38
+    },
+    {
+      "file": "web/test/local-status.test.ts",
+      "cases": 15
+    },
+    {
+      "file": "web/worker/analysis-job.test.ts",
+      "cases": 161
+    },
+    {
+      "file": "web/worker/analysis-reconcile.test.ts",
+      "cases": 200
+    },
+    {
+      "file": "web/worker/analysis-runtime.test.ts",
+      "cases": 62
+    },
+    {
+      "file": "web/worker/demo-preanalyze.test.ts",
+      "cases": 89
+    },
+    {
+      "file": "web/worker/documents-reconcile.test.ts",
+      "cases": 11
+    },
+    {
+      "file": "web/worker/env.test.ts",
+      "cases": 10
+    },
+    {
+      "file": "web/worker/error-name.test.ts",
+      "cases": 50
+    },
+    {
+      "file": "web/worker/heartbeat.test.ts",
+      "cases": 3
+    },
+    {
+      "file": "web/worker/ingest-queue.test.ts",
+      "cases": 85
+    },
+    {
+      "file": "web/worker/main.test.ts",
+      "cases": 69
+    },
+    {
+      "file": "web/worker/notify-outbox.test.ts",
+      "cases": 43
+    },
+    {
+      "file": "web/worker/ping.test.ts",
+      "cases": 3
+    },
+    {
+      "file": "web/worker/quota-store.test.ts",
+      "cases": 13
+    },
+    {
+      "file": "web/worker/system-queue.test.ts",
+      "cases": 3
+    }
+  ],
+  "additionalRemovedFiles": [
+    "scripts/db-seed.test.mjs",
+    "scripts/demo-bids.test.mjs",
+    "scripts/demo-people.test.mjs",
+    "scripts/demo-reset.test.mjs",
+    "scripts/ops/close-stale-ingest-runs.test.mjs",
+    "scripts/ops/stale-runs.test.mjs",
+    "scripts/people/allocation.test.mjs",
+    "scripts/people/approved-portraits.test.mjs",
+    "scripts/people/availability.test.mjs",
+    "scripts/people/departments.test.mjs",
+    "scripts/people/names.test.mjs",
+    "scripts/people/portraits.test.mjs",
+    "scripts/people/seed.test.mjs",
+    "scripts/people/workbook.test.mjs",
+    "scripts/recorded/g2b-lib.test.mjs",
+    "scripts/recorded/split-lib.test.mjs",
+    "scripts/tokens-gen.test.mjs",
+    "web/app/(app)/(work)/bids/[id]/bid-detail-view.browser.test.tsx",
+    "web/app/(app)/(work)/bids/[id]/use-analysis-run.browser.test.tsx",
+    "web/app/(app)/(work)/bids/bid-list-more.browser.test.tsx",
+    "web/app/(app)/(work)/dashboard/dashboard-view.browser.test.tsx",
+    "web/app/(app)/(work)/notifications/notification-list.browser.test.tsx",
+    "web/app/(app)/(work)/work-error.browser.test.tsx",
+    "web/app/(app)/[slug]/tasks/task-form-dialog.browser.test.tsx",
+    "web/app/(app)/[slug]/tasks/task-list.browser.test.tsx",
+    "web/app/account/account-settings.browser.test.tsx",
+    "web/app/auth/complete-profile/complete-profile-form.browser.test.tsx",
+    "web/app/auth/employment-fields.browser.test.tsx",
+    "web/app/auth/organization-state/state-retry.browser.test.tsx",
+    "web/app/auth/organization-state/state.browser.test.tsx",
+    "web/app/auth/sign-up/sign-up-form.browser.test.tsx",
+    "web/app/invitations/invitation-list.browser.test.tsx",
+    "web/components/app-page.browser.test.tsx",
+    "web/components/app-shell.browser.test.tsx",
+    "web/components/bar-chart.browser.test.tsx",
+    "web/components/bids/analysis-display.browser.test.tsx",
+    "web/components/bids/bid-list.browser.test.tsx",
+    "web/components/bids/bid-table-font.browser.test.tsx",
+    "web/components/bids/evidence.browser.test.tsx",
+    "web/components/bids/status-badge.browser.test.tsx",
+    "web/components/bids/what-if.browser.test.tsx",
+    "web/components/company/company-profile-view.browser.test.tsx",
+    "web/components/logo.browser.test.tsx",
+    "web/components/people/org-chart.browser.test.tsx",
+    "web/components/people/people-directory.browser.test.tsx",
+    "web/components/people/person-avatar.browser.test.tsx",
+    "web/components/people/person-drawer.browser.test.tsx",
+    "web/components/topbar-status.browser.test.tsx",
+    "web/components/ui/dialog.browser.test.tsx",
+    "web/e2e-auth/admin-status.write.spec.ts",
+    "web/e2e-auth/admin.spec.ts",
+    "web/e2e-auth/dashboard.spec.ts",
+    "web/e2e-auth/invitation-mail.write.spec.ts",
+    "web/e2e-auth/invitation.write.spec.ts",
+    "web/e2e-auth/notifications.write.spec.ts",
+    "web/e2e-auth/org-switcher.spec.ts",
+    "web/e2e-auth/organization-state.write.spec.ts",
+    "web/e2e-auth/paging.write.spec.ts",
+    "web/e2e-auth/people.write.spec.ts",
+    "web/e2e-auth/settings-account.spec.ts",
+    "web/e2e-auth/settings-account.write.spec.ts",
+    "web/e2e-auth/signup-employment.spec.ts",
+    "web/e2e-auth/signup-employment.write.spec.ts",
+    "web/e2e-auth/tasks-crud.write.spec.ts",
+    "web/e2e-auth/tasks-view.spec.ts",
+    "web/e2e-auth/team-settings-isolation.write.spec.ts",
+    "web/e2e-auth/team-settings.write.spec.ts",
+    "web/e2e-auth/work-screens.spec.ts",
+    "web/e2e/account.spec.ts",
+    "web/e2e/landing-reveal.spec.ts",
+    "web/e2e/operations.spec.ts",
+    "web/e2e/responsive.spec.ts",
+    "web/e2e/site-header.spec.ts",
+    "web/e2e/tasks.spec.ts"
+  ],
+  "protectedConcurrentTestChanges": [
+    "web/app/(app)/(work)/admin/ingestion/error-kind.test.ts",
+    "web/app/(app)/(work)/admin/ingestion/ingest-format.test.ts",
+    "web/app/(app)/(work)/admin/ingestion/ingest-runs.test.ts",
+    "web/app/(app)/(work)/admin/ingestion/ingestion-api.test.ts",
+    "web/app/(app)/(work)/admin/ingestion/ingestion-copy.test.ts",
+    "web/app/(app)/(work)/admin/ingestion/request-errors.test.ts",
+    "web/app/(app)/(work)/admin/ingestion/use-ingest-polling.test.ts",
+    "web/app/(app)/(work)/bids/[id]/assessment-labels.test.ts",
+    "web/app/(app)/(work)/bids/[id]/back-href.test.ts",
+    "web/app/(app)/(work)/bids/[id]/submit-review.test.ts",
+    "web/app/(app)/(work)/bids/list-query.test.ts",
+    "web/app/(app)/(work)/dashboard/dashboard-queries.test.ts",
+    "web/app/(app)/(work)/empty-state.test.ts",
+    "web/app/(app)/(work)/layout.test.ts",
+    "web/app/(app)/(work)/work.test.ts",
+    "web/app/(app)/[slug]/layout.test.ts",
+    "web/app/(app)/employment-guard.test.ts",
+    "web/app/(app)/org-chart/page.test.ts",
+    "web/app/(app)/people/layout.test.ts",
+    "web/app/(app)/people/page.test.ts",
+    "web/app/_lib/analysis-queue.test.ts",
+    "web/app/_lib/idempotency-store.test.ts",
+    "web/app/_lib/ingest-queue.test.ts",
+    "web/app/_lib/ingestion-deps.test.ts",
+    "web/app/_lib/rate-limit.test.ts",
+    "web/app/_lib/work-deps.test.ts",
+    "web/app/api/admin/users/[id]/status/route.test.ts",
+    "web/app/api/auth/identities/[id]/route.test.ts",
+    "web/app/api/auth/logout-all/route.test.ts",
+    "web/app/api/auth/me/route.test.ts",
+    "web/app/api/auth/providers/route.test.ts",
+    "web/app/api/users/me/route.test.ts",
+    "web/app/api/v1/_lib/http.test.ts",
+    "web/app/api/v1/_lib/work-route.test.ts",
+    "web/app/api/v1/admin-ingestion-contract.test.ts",
+    "web/app/api/v1/admin/ai/status/route.test.ts",
+    "web/app/api/v1/company-profile/route.test.ts",
+    "web/app/api/v1/me/employment/route.test.ts",
+    "web/app/api/v1/team-members/route.test.ts",
+    "web/app/auth/account/page.test.ts",
+    "web/app/auth/callback/route.test.ts",
+    "web/app/auth/complete-profile/page.test.ts",
+    "web/app/auth/confirm/route.test.ts",
+    "web/app/auth/employment-routing.test.ts",
+    "web/app/auth/login/page.test.ts",
+    "web/app/auth/organization-state/page.test.ts",
+    "web/app/auth/sign-up/sign-up-schema.test.ts",
+    "web/app/health/ready/route.test.ts",
+    "web/app/invitations/page.test.ts",
+    "web/app/teams/new/page.test.ts",
+    "web/components/app-nav.test.ts",
+    "web/components/bids/evidence-store.test.ts",
+    "web/components/bids/external-url.test.ts",
+    "web/components/bids/format.test.ts",
+    "web/components/bids/labels.test.ts",
+    "web/components/bids/test-data.test.ts",
+    "web/components/company/company-tabs.test.ts",
+    "web/components/landing/analysis.test.ts",
+    "web/components/landing/demo-bids.test.ts",
+    "web/components/landing/format.test.ts",
+    "web/components/landing/landing-links.test.ts",
+    "web/components/landing/product-preview.browser.test.tsx",
+    "web/components/people/org-chart-model.test.ts",
+    "web/components/people/people-query.test.ts",
+    "web/e2e/landing-sections.spec.ts",
+    "web/e2e/landing.spec.ts",
+    "web/lib/demo-portrait.test.ts",
+    "web/lib/stores/sidebar-groups.test.ts",
+    "web/lib/supabase-browser.test.ts",
+    "web/server/activity/activity.model.test.ts",
+    "web/server/activity/activity.service.test.ts",
+    "web/server/admin/admin.model.test.ts",
+    "web/server/admin/admin.service.test.ts",
+    "web/server/analysis/analysis-job.model.test.ts",
+    "web/server/analysis/analysis-store.model.test.ts",
+    "web/server/analysis/analysis.db-path.test.ts",
+    "web/server/analysis/analysis.model.test.ts",
+    "web/server/analysis/analysis.repo.test.ts",
+    "web/server/analysis/analysis.service.test.ts",
+    "web/server/analysis/circuit-breaker.model.test.ts",
+    "web/server/analysis/fallback.model.test.ts",
+    "web/server/analysis/gateway.client.test.ts",
+    "web/server/analysis/gateway.model.test.ts",
+    "web/server/analysis/preanalyze.model.test.ts",
+    "web/server/auth/auth.model.test.ts",
+    "web/server/auth/auth.service.test.ts",
+    "web/server/bids/analysis-row.mapper.test.ts",
+    "web/server/bids/bid-query.test.ts",
+    "web/server/bids/bid-row.mapper.test.ts",
+    "web/server/bids/bid.model.test.ts",
+    "web/server/bids/bids.service.test.ts",
+    "web/server/bids/bids.supabase.test.ts",
+    "web/server/bids/dashboard.service.test.ts",
+    "web/server/bids/dashboard.supabase.test.ts",
+    "web/server/bids/notification.model.test.ts",
+    "web/server/bids/notification.service.test.ts",
+    "web/server/bids/notification.supabase.test.ts",
+    "web/server/bids/origin-filter.test.ts",
+    "web/server/bids/postgrest.test.ts",
+    "web/server/bids/review.supabase.test.ts",
+    "web/server/bids/what-if.service.test.ts",
+    "web/server/company-profile/company-profile.model.test.ts",
+    "web/server/company-profile/company-profile.service.test.ts",
+    "web/server/csp/csp.model.test.ts",
+    "web/server/health/ai-status.model.test.ts",
+    "web/server/health/ai-status.repo.test.ts",
+    "web/server/health/ai-status.service.test.ts",
+    "web/server/health/health.model.test.ts",
+    "web/server/health/health.service.test.ts",
+    "web/server/ingestion/attachment-fetcher.test.ts",
+    "web/server/ingestion/cancel.test.ts",
+    "web/server/ingestion/checksum.test.ts",
+    "web/server/ingestion/fixture-connector.test.ts",
+    "web/server/ingestion/fixture-status.test.ts",
+    "web/server/ingestion/g2b-aux.test.ts",
+    "web/server/ingestion/g2b-envelope.test.ts",
+    "web/server/ingestion/g2b-filter.test.ts",
+    "web/server/ingestion/g2b-gateway-error.test.ts",
+    "web/server/ingestion/g2b-request.test.ts",
+    "web/server/ingestion/ingestion-admin.model.test.ts",
+    "web/server/ingestion/ingestion-admin.repo.test.ts",
+    "web/server/ingestion/ingestion-admin.service.test.ts",
+    "web/server/ingestion/ingestion.queue.test.ts",
+    "web/server/ingestion/ingestion.repo.memory.test.ts",
+    "web/server/ingestion/ingestion.repo.test.ts",
+    "web/server/ingestion/ingestion.service.anchor.test.ts",
+    "web/server/ingestion/ingestion.service.aux.test.ts",
+    "web/server/ingestion/ingestion.service.g2b.test.ts",
+    "web/server/ingestion/ingestion.service.ids.test.ts",
+    "web/server/ingestion/ingestion.service.quarantined.test.ts",
+    "web/server/ingestion/ingestion.service.quota.test.ts",
+    "web/server/ingestion/ingestion.service.test.ts",
+    "web/server/ingestion/ingestion.store.test.ts",
+    "web/server/ingestion/normalize-amount.test.ts",
+    "web/server/ingestion/normalize-date.test.ts",
+    "web/server/ingestion/normalize-g2b-aux.test.ts",
+    "web/server/ingestion/normalize-g2b.test.ts",
+    "web/server/ingestion/normalized-bid.contract.test.ts",
+    "web/server/ingestion/official-api-connector.test.ts",
+    "web/server/ingestion/official-api-errors.test.ts",
+    "web/server/ingestion/pending-documents.repo.test.ts",
+    "web/server/ingestion/point-in-time.test.ts",
+    "web/server/ingestion/quarantine.test.ts",
+    "web/server/ingestion/quota-store.test.ts",
+    "web/server/ingestion/quota.test.ts",
+    "web/server/ingestion/rate-limit-retry.test.ts",
+    "web/server/ingestion/recorded-api.test.ts",
+    "web/server/ingestion/seed-fixture-bids.test.ts",
+    "web/server/ingestion/source-registry.test.ts",
+    "web/server/ingestion/stage-link.test.ts",
+    "web/server/ingestion/stale-amendment.test.ts",
+    "web/server/ingestion/text-normalize.test.ts",
+    "web/server/notifications/outbox.model.test.ts",
+    "web/server/notifications/outbox.repo.test.ts",
+    "web/server/notifications/outbox.service.test.ts",
+    "web/server/organization/business-access.model.test.ts",
+    "web/server/organization/business-access.repo.test.ts",
+    "web/server/organization/organization.mail.test.ts",
+    "web/server/organization/organization.model.test.ts",
+    "web/server/organization/organization.repo.test.ts",
+    "web/server/organization/organization.service.test.ts",
+    "web/server/people/people.cursor.test.ts",
+    "web/server/people/people.model.test.ts",
+    "web/server/people/people.repo.test.ts",
+    "web/server/people/people.service.test.ts",
+    "web/server/profile/employment.test.ts",
+    "web/server/profile/profile.catalog.test.ts",
+    "web/server/profile/profile.model.test.ts",
+    "web/server/profile/profile.repo.test.ts",
+    "web/server/profile/profile.service.test.ts",
+    "web/server/scoring/analysis-input.model.test.ts",
+    "web/server/scoring/aux-lookup.test.ts",
+    "web/server/scoring/decision-policy.golden.test.ts",
+    "web/server/scoring/missing-policy.test.ts",
+    "web/server/scoring/review.independent.test.ts",
+    "web/server/scoring/scale-limit.test.ts",
+    "web/server/scoring/scoring.model.test.ts",
+    "web/server/scoring/structured-field-priority.test.ts",
+    "web/server/shared/employment.test.ts",
+    "web/server/shared/error-report.test.ts",
+    "web/server/shared/review-input.test.ts",
+    "web/server/supabase/client.test.ts",
+    "web/server/supabase/session.test.ts",
+    "web/server/task/task.model.test.ts",
+    "web/server/task/task.service.test.ts",
+    "web/test/local-status.test.ts",
+    "web/worker/analysis-job.test.ts",
+    "web/worker/analysis-reconcile.test.ts",
+    "web/worker/analysis-runtime.test.ts",
+    "web/worker/demo-preanalyze.test.ts",
+    "web/worker/documents-reconcile.test.ts",
+    "web/worker/env.test.ts",
+    "web/worker/error-name.test.ts",
+    "web/worker/heartbeat.test.ts",
+    "web/worker/ingest-queue.test.ts",
+    "web/worker/main.test.ts",
+    "web/worker/notify-outbox.test.ts",
+    "web/worker/ping.test.ts",
+    "web/worker/quota-store.test.ts",
+    "web/worker/system-queue.test.ts"
+  ],
+  "pythonRemovedFiles": [
+    "services/ai/tests/test_explain.py",
+    "services/ai/tests/test_kev_adapter.py",
+    "services/ai/tests/test_local_deadline.py",
+    "services/ai/tests/test_local_hardening.py",
+    "services/ai/tests/test_local_hardening2.py",
+    "services/ai/tests/test_local_hardening3.py",
+    "services/ai/tests/test_local_health.py",
+    "services/ai/tests/test_local_kev.py",
+    "services/ai/tests/test_local_startup.py",
+    "services/ai/tests/test_model_registry.py",
+    "services/ai/tests/test_model_unavailable.py",
+    "services/ai/tests/test_probe_qwen_script.py",
+    "services/ai/tests/test_question_sets.py",
+    "services/ai/tests/test_run_mode.py",
+    "services/ai/tests/test_sol_eval_bosun.py",
+    "services/decision/tests/test_contract.py",
+    "services/decision/tests/test_mapping.py",
+    "services/decision/tests/test_package.py",
+    "services/decision/tests/test_params_loading.py",
+    "services/decision/tests/test_serve_cli.py",
+    "services/decision/tests/test_train_pure.py",
+    "services/decision/tests/test_wire.py"
+  ],
+  "pythonPrunedFunctions": [
+    {
+      "file": "services/ai/tests/test_citation_verify.py",
+      "remainingFunctions": [
+        "test_exact_when_offsets_match_quote",
+        "test_failed_just_below_default_threshold",
+        "test_failed_not_found_when_absent",
+        "test_failed_ratio_above_half_sets_low_confidence_and_pending_review",
+        "test_failed_ref_drops_only_its_array_element",
+        "test_ref_to_unknown_document_fails_and_unknowns_field"
+      ]
+    },
+    {
+      "file": "services/ai/tests/test_extraction_schema.py",
+      "remainingFunctions": [
+        "test_extract_response_has_contract_keys",
+        "test_fixture_id_cannot_escape_fixture_directory",
+        "test_fx01_completes_without_warnings",
+        "test_fx13_failed_citation_makes_qualifications_unknown",
+        "test_g4_fx04_has_no_values_and_no_refs",
+        "test_g4_fx05_attachment_parse_failure_is_pending_review"
+      ]
+    },
+    {
+      "file": "services/ai/tests/test_injection.py",
+      "remainingFunctions": [
+        "test_fixture_bid_records_cover_twenty_notices",
+        "test_output_flag_makes_extraction_pending_review",
+        "test_section9_phrase_in_body_is_flagged",
+        "test_section9_phrase_makes_extraction_pending_review"
+      ]
+    },
+    {
+      "file": "services/ai/tests/test_local_kev_v02.py",
+      "remainingFunctions": [
+        "test_v0_2_invalid_values_in_a_chunk_disable_everything",
+        "test_v0_2_korean_state_is_refused_without_allow",
+        "test_v0_2_scores"
+      ]
+    },
+    {
+      "file": "services/ai/tests/test_local_qwen.py",
+      "remainingFunctions": [
+        "test_qwen_invalid_json_is_retried_with_violation_note",
+        "test_qwen_redirect_is_not_followed",
+        "test_qwen_timeout_is_unavailable_without_retry",
+        "test_qwen_valid_output_completes"
+      ]
+    },
+    {
+      "file": "services/ai/tests/test_parse.py",
+      "remainingFunctions": [
+        "test_body_over_50mb_is_too_large",
+        "test_format_is_judged_by_content_not_name_or_type",
+        "test_parse_response_has_contract_keys",
+        "test_parse_stops_reading_body_after_limit"
+      ]
+    }
+  ],
+  "rootTestsBefore": 779,
+  "rootTestsAfter": 163,
+  "webUnitTestsAfter": 286,
+  "webUnitFilesAfter": 23,
+  "aiTestsBefore": 1511,
+  "aiCoreTestsAfter": 100,
+  "decisionTestsBefore": 152,
+  "decisionTestsAfter": 57,
+  "databaseCoreTestsAfter": 21,
+  "browserFilesBefore": 35,
+  "browserFilesAfter": 3,
+  "publicE2ECollected": 45,
+  "authE2ECollected": 13,
+  "workE2ECollected": 16,
+  "aiTotalTestsAfter": 101,
+  "aiConcurrentDeploymentSmokeTests": 1,
+  "fullVerify": "PASS",
+  "concurrentTestFilesPreserved": ["services/ai/tests/test_vercel.py"],
+  "physicallyRemovedTestFiles": 293
+}

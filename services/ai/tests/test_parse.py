@@ -9,7 +9,6 @@ import json
 import zipfile
 
 import pytest
-from support import canonical
 
 LIMIT = 52_428_800  # 50 MB
 CHUNK = 1 << 20
@@ -64,53 +63,6 @@ def test_parse_response_has_contract_keys(make_client):
 @pytest.mark.parametrize(
     ("content", "file_name", "content_type", "fmt"),
     [
-        (PDF, "rfp.pdf", "application/pdf", "PDF"),
-        (HWPX, "rfp.hwpx", "application/hwp+zip", "HWPX"),
-        (HWP, "rfp.hwp", "application/x-hwp", "HWP"),
-    ],
-)
-def test_known_format_without_parser_is_unsupported_with_warning(
-    make_client, content, file_name, content_type, fmt
-):
-    result = post(make_client(), content, file_name, content_type)
-    assert (result["status"], result["format"], result["errorCode"], result["warnings"]) == (
-        "UNSUPPORTED",
-        fmt,
-        "UNSUPPORTED_FORMAT",
-        [f"PARSER_NOT_CONFIGURED:{fmt}"],
-    )
-
-
-@pytest.mark.parametrize("content", [PDF, HWPX, HWP], ids=["PDF", "HWPX", "HWP"])
-def test_unparsed_result_is_empty_with_none_parser(make_client, content):
-    result = post(make_client(), content)
-    assert (
-        result["parserId"],
-        result["text"],
-        result["pages"],
-        result["blocks"],
-        result["quality"],
-    ) == ("none", "", [], [], None)
-
-
-@pytest.mark.parametrize(
-    "content",
-    [EPUB_LIKE_ZIP, PLAIN_ZIP, OLE_OTHER, TEXT, PNG],
-    ids=["zip_other_mimetype", "zip_without_mimetype", "ole_without_hwp", "text", "png"],
-)
-def test_unknown_content_is_unsupported_format(make_client, content):
-    result = post(make_client(), content)
-    assert (result["status"], result["format"], result["errorCode"]) == (
-        "UNSUPPORTED",
-        "UNKNOWN",
-        "UNSUPPORTED_FORMAT",
-    )
-    assert [w for w in result["warnings"] if w.startswith("PARSER_NOT_CONFIGURED")] == []
-
-
-@pytest.mark.parametrize(
-    ("content", "file_name", "content_type", "fmt"),
-    [
         (PDF, "rfp.hwp", "application/x-hwp", "PDF"),
         (HWP, "rfp.pdf", "application/pdf", "HWP"),
         (HWPX, "rfp.zip", "application/zip", "HWPX"),
@@ -141,14 +93,6 @@ def test_body_over_50mb_is_too_large(make_client):
         "UNSUPPORTED",
         "TOO_LARGE",
         "PDF",
-    )
-
-
-def test_body_of_exactly_50mb_is_not_too_large(make_client):
-    result = post(make_client(), big_pdf(LIMIT), "big.pdf", "application/pdf")
-    assert (result["errorCode"], result["warnings"]) == (
-        "UNSUPPORTED_FORMAT",
-        ["PARSER_NOT_CONFIGURED:PDF"],
     )
 
 
@@ -194,15 +138,3 @@ def test_parse_stops_reading_body_after_limit(make_client):
     body = b"".join(m.get("body", b"") for m in messages if m["type"] == "http.response.body")
     assert (status, json.loads(body)["errorCode"]) == (200, "TOO_LARGE")
     assert state["consumed"] <= LIMIT + CHUNK
-
-
-def test_parse_is_deterministic(make_client):
-    client = make_client()
-    assert canonical(post(client, HWPX)) == canonical(post(client, HWPX))
-
-
-@pytest.mark.parametrize("content", [PDF, HWPX, HWP, TEXT], ids=["PDF", "HWPX", "HWP", "text"])
-def test_parse_is_same_in_fixture_mode(make_client, local_models, content):
-    mock = post(make_client(), content)
-    fixture = post(make_client(SOL_RUN_MODE="fixture"), content)
-    assert canonical(fixture) == canonical(mock)

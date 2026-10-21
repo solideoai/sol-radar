@@ -4,23 +4,42 @@
     "common": [
       {
         "command": "pnpm",
-        "args": ["format:check"]
+        "args": ["format:check"],
+        "changedPaths": [
+          "^(scripts|design|fixtures|infra)/",
+          "^(package\\.json|pnpm-lock\\.yaml|verify\\.config\\.json|\\.prettier.*|\\.npmrc)$"
+        ]
       },
       {
         "command": "pnpm",
-        "args": ["test"]
+        "args": ["test"],
+        "changedPaths": [
+          "^(scripts|supabase|fixtures|design)/",
+          "^infra/run-modes[.]json$",
+          "^\\.husky/",
+          "^\\.claude/(hooks/|settings.*\\.json$)",
+          "^\\.github/",
+          "^(package\\.json|pnpm-lock\\.yaml|verify\\.config\\.json|\\.npmrc)$"
+        ]
       },
       {
         "command": "pnpm",
-        "args": ["check:tokens"]
+        "args": ["check:tokens"],
+        "changedPaths": ["^design/", "^web/app/globals\\.css$", "^scripts/tokens-gen"]
       },
       {
         "command": "pnpm",
-        "args": ["check:colors"]
+        "args": ["check:colors"],
+        "changedPaths": ["^design/", "^scripts/check-colors\\.sh$"]
       },
       {
         "command": "pnpm",
-        "args": ["check:db-types"]
+        "args": ["check:db-types"],
+        "changedPaths": [
+          "^supabase/",
+          "^web/lib/database\\.types\\.ts$",
+          "^scripts/(db-types-gen|supabase-pglite|migrations)\\.mjs$"
+        ]
       }
     ],
     "projects": [
@@ -28,6 +47,13 @@
         "name": "web",
         "directory": "web",
         "marker": "package.json",
+        "changedPaths": [
+          "^web/",
+          "^services/decision/tests/fixtures/",
+          "^(supabase|design|fixtures|infra)/",
+          "^scripts/(demo/|people/|run-mode\\.mjs$|local-test-target\\.|supabase-pglite\\.mjs$)",
+          "^(package\\.json|pnpm-lock\\.yaml|verify\\.config\\.json|\\.prettier.*|\\.npmrc)$"
+        ],
         "setup": {
           "command": "pnpm",
           "args": ["install", "--frozen-lockfile"]
@@ -53,6 +79,11 @@
         "name": "ai",
         "directory": "services/ai",
         "marker": "pyproject.toml",
+        "changedPaths": [
+          "^services/ai/",
+          "^(fixtures|infra)/",
+          "^(package\\.json|pnpm-lock\\.yaml|verify\\.config\\.json|\\.npmrc)$"
+        ],
         "setup": {
           "command": "uv",
           "args": ["sync", "--frozen"]
@@ -70,6 +101,14 @@
         "name": "decision",
         "directory": "services/decision",
         "marker": "pyproject.toml",
+        "changedPaths": [
+          "^services/decision/",
+          "^services/ai/src/sol_ai/adapters/",
+          "^services/ai/src/sol_ai/(registry|contracts|deadline|strict_json|errors|schema|timeutil|paths)[.]py$",
+          "^services/ai/(kev/question-sets|models|schemas)/",
+          "^(fixtures|infra)/",
+          "^(package\\.json|pnpm-lock\\.yaml|verify\\.config\\.json|\\.npmrc)$"
+        ],
         "setup": {
           "command": "uv",
           "args": ["sync", "--frozen"]

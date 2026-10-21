@@ -37,7 +37,8 @@
     "test:package": "node --test scripts/gate-integrity.test.mjs",
     "test:db": "node --test scripts/database.test.mjs",
     "verify": "node scripts/verify.mjs",
-    "verify:quick": "node scripts/verify.mjs --quick"
+    "verify:quick": "node scripts/verify.mjs --quick",
+    "verify:changed": "node scripts/verify-changed.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",

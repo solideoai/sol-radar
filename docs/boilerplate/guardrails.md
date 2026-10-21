@@ -24,6 +24,10 @@ fix(web): 로그인 오류 문구가 겹치는 문제
 - 범위는 선택이고 타입 바로 뒤 괄호에 공백 없이 씁니다. 콜론 뒤는 정확히 한 칸, 첫 줄은 50자 이내.
 - 어기면 `.husky/commit-msg` 가 막습니다. 규칙은 `scripts/commit-message.mjs`.
 
+### 해커톤 개발 중 검증
+
+SOL RADAR의 실행 시점은 [[../17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] "해커톤 검증 정책"(ADR-046)이 정본이다. 개발 중에는 `pnpm verify:changed`가 `verify.config.json`의 `changedPaths`로 변경 영역을 선택하고, 통합·제출 전에는 기존 전체 `pnpm verify`를 실행한다. `--base <기준 커밋>`은 커밋된 변경까지 포함하고 `--dry-run`은 실행 계획을 출력한다. 미분류 코드 변경은 전체 quick 검사로 넓힌다. 아래 커밋 게이트·CI의 필수 검사는 그대로 적용한다.
+
 ### 커밋 게이트가 보는 것
 
 `.husky/pre-commit` 은 바뀐 곳만 골라 검사합니다. 빌드는 빼서 빠르게 끝나게 했고, 빌드는 CI 가 봅니다.
@@ -84,10 +88,10 @@ E2E 브라우저 설치는 하지 않습니다. 브라우저가 없으면 E2E �
   `scripts/template/` 의 시험은 새 프로젝트로 복사하지 않습니다. 제품의 README·문서는 제품이 고쳐 쓰기 때문입니다.
 - **스크립트 단위 시험(템플릿 원본에만)** — `scripts/` 의 도구 하나하나를 시험하는 파일(doctor·토큰·색·DB 타입 생성기·가드 훅·배포 검사 등)과
   게이트를 임시 저장소에서 돌려 보는 시험(커밋 게이트·커밋 메시지·CI 필수 검사·CI 커밋 검사)도 `scripts/template/` 에 있어 새 프로젝트로 가지 않습니다.
-  이 저장소의 `pnpm test`(`node --test "scripts/**/*.test.mjs"`)가 도는 시험은 2026-10-19 기준 18개입니다. `scripts/` 바로 아래 10개:
-  `check-commits`·`check-env`·`database`(DB 정책)·`db-seed`(시드)·`demo-bids`·`demo-people`·`demo-reset`·`gate-integrity`(게이트가 약해지지 않았는지)·`local-test-target`·`pre-push`(push 전 검사)의 `.test.mjs`.
-  `scripts/people/` 8개: `allocation`·`approved-portraits`·`availability`·`departments`·`names`·`portraits`·`seed`·`workbook`의 `.test.mjs`.
-  새 프로젝트에서 `scripts/` 의 도구나 `.husky/` 의 게이트를 고칠 때는 그 시험을 템플릿 원본에서 가져와 함께 고칩니다.
+  이 저장소의 시험은 2026-10-21 사용자 지시(ADR-046 개정)로 MVP 핵심만 남겼다. 현재 루트 `pnpm test`는 8파일을 모두 실행한다:
+  `check-commits`·`check-env`·`database`(핵심 정책 21개)·`gate-integrity`·`local-test-target`·`pre-push`·`verify-changed`와 `recorded/masking`의 `.test.mjs`.
+  템플릿 CRUD·인력/사진 생성·fixture 전수 변형·기타 도구 회귀를 일괄 복구하지 않는다. 현재 범위와 실제 삭제 목록은
+  `docs/evidence/verification/20261021-pruned-tests.json`, 검증 기준은 [[../11-TESTING|11 테스트]] "현재 MVP 자동 시험"이 정본이다.
 - **게이트 파일 편집 금지** — 클로드는 검증이 기대는 파일을 고치지 못합니다(`.claude/settings.json` 의 `deny`):
   `.husky/`, `.claude/settings*.json`·`.claude/hooks/`, `.github/`, `web/lodestar.config.*`. 검사를 고쳐 초록불을 만드는 길을 막기 위해서이고,
   권한 모드와 상관없이(`bypassPermissions` 에서도) 묻지 않고 막습니다. `package.json`·`.npmrc`·`verify.config.json`·`scripts/`·`eslint.config.*` 는

@@ -58,9 +58,26 @@ bash infra/smoke.sh                               # compose ps + health + 큐 �
 > - `test:e2e:auth`는 `web/.env.local`의 `SMTP_HOST`·`SMTP_PORT`·`MAIL_FROM`·`SITE_URL`이 필요하다(`pnpm db:start`가 로컬 메일함 값으로 채운다, `docs/boilerplate/database.md` 127~128행). 격리 Compose·worktree 실행에서는 같은 4개를 프로세스 env로 넘긴다([[16-DECISIONS|ADR-033]] E5).
 > - `services/ai` pytest는 `verify.config.json`의 `ai` 프로젝트로 등록돼 `pnpm verify`가 돌린다(`uv` 필요, Phase 0). `infra/smoke.sh`는 Docker가 필요해 `pnpm verify` 밖에서 수동으로 돌린다. CI(GitHub Actions)의 `astral-sh/setup-uv` 단계는 실행 확인 전이다([[PROGRESS]]).
 
-CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌리고, 위 명령 중 어느 하나라도 실패하면 Phase 완료로 보고하지 않는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
+CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돈다. 개발 중에는 `pnpm verify:changed`로 변경 영역만 검사하고, 통합·제출 전에 전체 `pnpm verify`를 실행한다(ADR-046). 실행한 검사 중 실패가 있으면 해당 범위를 완료로 보고하지 않는다. 전체 명령 목록을 매 작업마다 모두 실행할 필요는 없다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] "해커톤 검증 정책").
+
+## 현재 MVP 자동 시험 (ADR-046 개정, 2026-10-21)
+
+사용자가 시험 자체를 최대한 줄이도록 명시해 시험 파일·케이스를 실제 삭제했다. 현재 범위가 아래 과거 전체 설계/회귀 표보다 우선한다. 삭제는 MVP 검증 범위의 의도적인 변경이며 `skip`·탐색 제외는 쓰지 않는다. 삭제 목록과 남긴 파일은 [정본 목록](evidence/verification/20261021-pruned-tests.json), 실행 결과는 [검증 기록](evidence/verification/20261021-implementation.md)에 있다.
+
+| 영역 | 축소 후 | 남긴 핵심 |
+|---|---|---|
+| 웹 단위 | 23파일·286개 (기존 219파일·6,830개) | 골든 94/72/68, 정보 부족·모델 장애·모델 승격 금지, 재현성·가정 재계산, 조직 격리·요청 계약, 수집 멱등·revision, 첨부 보안·키 가림, 알림 멱등·사람 결정 |
+| DB 정책 | 21개 | 모든 표 RLS, 조직/운영자 격리, 업무 역할·worker 쓰기 경계, 복합 FK, 결정 불변·감사·outbox, 숨긴 수집 열·view·명부/평가 인력 격리. 마이그레이션한 스냅샷을 독립 복제해 실행 |
+| AI gateway | 101개 (기존 1,511개) | 기동/비용 승인·요청 제한·mock 표시, 핵심 추출·인용·인젝션, 첨부·모델 장애, Qwen/Bosun 어댑터 대표 흐름 |
+| 결정 서버 | 57개 (기존 152개) | API 인증·입력 계약, backend 계산, gateway/worker wire 호환, 모델 레지스트리 |
+| 브라우저 컴포넌트 | 3파일 | 결정 패널·가정 재계산·현재 작업 중인 랜딩 미리보기. 나머지 세부 부품/템플릿의 레이아웃 회귀는 삭제 |
+| E2E | 공개 45·기본 인증 13·업무 16개 수집 확인, 수집 관리 별도 | 핵심 공개 화면·접근 거부·조직 격리·FX-01/02 분석과 결정·DEMO/모드·가정 재계산. 실제 실행 여부는 실행 기록으로 구분 |
+
+신규 시험은 핵심 사용자 동작·권한·계산·저장 또는 실제 결함을 직접 검증할 때만 추가한다. 같은 계약을 여러 계층에서 반복하거나 상수·문구·목업 값·모든 입력 조합을 복사해 고정하는 시험은 만들지 않는다. 핵심 아닌 템플릿 CRUD·사진/배분 생성 도구·전수 hardening·학습/패키징 회귀는 제거했다. 해당 경로를 다시 바꿀 때 필요한 대표 회귀만 추가한다.
 
 ## 3. 골든 시나리오 ↔ fixture ↔ 테스트 ↔ 명령
+
+아래 파일별 연결과 이후 세부 회귀 목록은 축소 전 설계/기록을 포함한다. 현재 자동 실행 파일은 위 MVP 목록이 정본이며 삭제한 파일이 표에 있다는 이유로 다시 만들지 않는다. 제품의 골든 값·보안 정책·데모 수용 조건은 유지한다.
 
 골든 G1~G10은 `SOL_RUN_MODE=mock`에서만 단언한다. `fixture` 모드는 같은 fixture를 쓰지만 실모델(Qwen3.8-Flash-Next·Bosun v3.1 0.6B) 추출·분포가 mock과 다를 수 있으므로 골든 수치(`FX-01` 94·`FX-02` 72·`FX-03` 68, 결정 모델 71/24/5·36/52/12)를 단언하지 않는다([[16-DECISIONS|ADR-020]]).
 
@@ -235,7 +252,7 @@ docs/evidence/
   boost2/   (E2E 출력·1440·1280 스크린샷)  # ADR-037 가정 재계산 통과 조건 ③ (§4)
   eval/                                    # E0·E1'·E2 리포트 숫자 요약·오류 분석 요약 (21 §4, RFP 원문 금지)
   kev-train-feasibility.md                 # LoRA 메모리 검증 결과 (22 §4.2, 회사 측 실행 뒤. Kev 당시 기록. Bosun은 bosun-train-feasibility.md, ADR-034)
-  demo-day/ rehearsal-log.md               # 17: 매일 리허설 날짜·소요 시간·실패 단계·엔드포인트 재접속 확인 소요 시간
+  demo-day/ rehearsal-log.md               # 17: 통합·제출 리허설 날짜·소요 시간·실패 단계·엔드포인트 재접속 확인 소요 시간(ADR-046)
   demo-day/ YYYYMMDD-HHMM/  checklist.md  run-modes.md  screenshots/*.png  isolation-404.json  compose-ps.txt
 ```
 
@@ -270,7 +287,7 @@ docs/evidence/
 
 ## 7. MVP 완료 조건
 
-`pnpm verify`(서식·타입·린트·단위)·`pnpm test:db`·E2E·pytest·smoke 모두 PASS. fixture 기반 시연 플로우(§5) 100% 통과. API 비밀 로그 유출 없음. 수집 중복 없음. 모든 스코어에 근거·`algorithm_version`·프로필 revision 존재. 사람 최종 결정이 `bid_reviews`와 감사로그에 기록. 성능 목표는 실측치를 기록하고 비현실적인 수치를 성공으로 주장하지 않는다.
+제출 전 최종 코드의 `pnpm verify`(서식·타입·린트·단위·DB 정책·두 Python 서비스 pytest·빌드)·E2E·smoke 모두 PASS. `verify`에 포함된 `pnpm test:db`·pytest와 `test:e2e`에 포함된 `test:browser`는 같은 입력에서 다시 실행하지 않는다(ADR-046). 개발 중에는 변경 영역 검사로 작업을 확인하고, 통합·제출 검증과 구분해 기록한다. fixture 기반 시연 플로우(§5) 100% 통과. API 비밀 로그 유출 없음. 수집 중복 없음. 모든 스코어에 근거·`algorithm_version`·프로필 revision 존재. 사람 최종 결정이 `bid_reviews`와 감사로그에 기록. 성능 목표는 실측치를 기록하고 비현실적인 수치를 성공으로 주장하지 않는다.
 
 ADR-020 이후 해커톤 MVP는 실제 나라장터 수집과 회사 GPU 추론 엔드포인트의 실추론(Qwen3.8-Flash-Next·Bosun v3.1 0.6B, [[16-DECISIONS|ADR-025·034]])까지 포함한다. 데모 필수 P0-0~P0-11의 완료 기준은 [[12-ROADMAP|12 로드맵]] 해커톤 컷, 평가 트랙의 기준은 [[21-MODEL-TRAINING|21 모델 학습]] §7이다. 세 실행 모드 기동 리허설을 통과해야 한다. 실모델 경로는 증거(로그·리포트)가 있는 항목만 검증됨으로 적고, 없는 항목은 **미검증**으로 표시한다. hosted 경로는 사용자 승인 전에는 쓰지 않으므로 해커톤 범위에서 미검증이다. Bosun LoRA는 X6(ADR-034)이다. 우리 쪽 산출물(평가셋·학습셋 번들·학습 요청서·E4 하네스)은 완료 조건이다. 회사 측 학습 결과는 받으면 E4로 보고하고, 받지 못하면 미실행으로 적는다.
 

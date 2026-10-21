@@ -9,6 +9,10 @@
 템플릿의 Expo 앱(`mobile/`)과 그 규칙은 지웠다. 다시 만들지 않는다.
 커밋 메시지 형식과 "결정적 강제 장치"(커밋 게이트·훅·린트를 끄거나 돌아가지 않기)는 그대로 지킨다.
 
+해커톤 검증은 `docs/17-CLAUDE-IMPLEMENTATION.md`의 "해커톤 검증 정책"(ADR-046)을 따른다. 개발 중에는 `pnpm verify:changed`, 통합·제출 전에는 전체 `pnpm verify`를 실행한다. 이 정책은 아래 템플릿 및 스킬의 매 단계 전체 검증·개별 작업마다 별도 QA 지시보다 우선한다.
+
+2026-10-21 사용자 추가 지시로 과도한 시험 파일·케이스도 실제 삭제하고 MVP 핵심만 남겼다. 현재 목록은 `docs/evidence/verification/20261021-pruned-tests.json`이다. 삭제한 전수 행렬·템플릿 회귀를 일률적으로 복구하지 않는다. 새 시험은 핵심 동작이나 실제 결함을 직접 검증할 때만 추가하고, 상수/목업 값 복사·계층별 중복·무차별 입력 조합은 만들지 않는다.
+
 # 웹 코드 전에: 이 Next.js 는 학습 데이터와 다르다
 
 이 안내는 웹(`web/`) 코드에 적용한다. Next.js 16 은 API·규약·파일 구조가 학습 데이터와 다를 수 있다.
@@ -34,7 +38,8 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 - DB: 로컬은 `pnpm db:start`(Docker·Supabase CLI 필요)가 켜고, 마이그레이션을 적용하고, `web/.env.local` 을 채운다. 끄기 `pnpm db:stop`.
   시험 계정·데이터는 `pnpm db:seed`(로컬 전용, 다시 돌리면 처음 상태로 되돌린다. 계정은 `scripts/db-seed.mjs` 머리에 있다)
   운영(클라우드) 적용은 `pnpm db:push` — 운영 DB 를 바꾸므로 사용자 확인 뒤에만 실행한다
-- 검증: `pnpm verify`(공통 검사 + 등록된 프로젝트). 빌드를 뺀 빠른 검증은 `pnpm verify:quick`
+- 개발 중 검증: `pnpm verify:changed`(HEAD 대비 변경 영역). 커밋된 브랜치 변경까지 보려면 `pnpm verify:changed --base <기준 커밋>`, 실행 계획만 보려면 `--dry-run`.
+- 통합·제출 전 검증: `pnpm verify`(공통 검사 + 등록된 프로젝트·빌드). `pnpm verify:quick`은 빌드만 뺀 전체 검사이며 변경 범위 검사가 아니다.
 - 시험 하나만: 웹 `pnpm -C web exec vitest run <파일> -t "<이름>"` · 루트 `node --test scripts/<이름>.test.mjs`. 브라우저 시험은 `pnpm -C web test:browser`, E2E 는 `pnpm -C web test:e2e`.
   로그인 뒤 E2E 는 `pnpm -C web test:e2e:auth`(로컬 Supabase 필요, verify·CI 에는 없다 → `testing` 스킬)
 - 서식: 고친 폴더에서 `pnpm format` (루트·`web` 각자). 손으로 맞추지 않는다.
@@ -52,7 +57,7 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 1. **구현은 단계로 쪼개고 단계마다 검증한다.** 스펙이 있으면 그것을 근거로 쓰고, 없으면 없다고 한 줄 알린 뒤 진행한다.
    큰 일(여러 단계·여러 영역)은 스펙과 계획을 먼저 세운다(아래 표준 흐름).
 2. **작게 만든다.** 한 번에 기능 하나.
-3. **`/verify` 통과 전에는 "다 됐다"고 말하지 않는다.** (서식·타입·린트·테스트·빌드 초록불)
+3. **선택한 검증을 통과하기 전에는 "다 됐다"고 말하지 않는다.** 개발 작업은 변경 범위 검사, 통합·제출은 전체 검사와 빌드가 기준이다. 실행한 범위와 미실행 검사를 구분해 보고한다.
 4. **배포 전에 `/predeploy-review`.** 전문가 관점으로 점검한다.
 5. **항상 좋은 코드·구조로.** 코드 `conventions`, 화면 `design-system`, 구조 `architecture`, 저장 `database`, 테스트 `testing`,
    웹 React·Next.js 성능 `vercel-react-best-practices`.
@@ -84,13 +89,13 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 ## 표준 흐름
 `/setup`(처음 한 번) → 일의 크기로 두 갈래:
 
-- **작은 일** — 한 세션에 끝나는 화면 하나·표 하나·결함 하나. 바로 구현한다(황금 규칙 5 의 스킬을 적용하고 `/verify` 를 반복한다).
+- **작은 일** — 한 세션에 끝나는 화면 하나·표 하나·결함 하나. 바로 구현한다(황금 규칙 5 의 스킬을 적용하고 변경 범위 검증을 실행한다).
   요구가 모호하면 먼저 `/interview-quick`. → `/predeploy-review` → 배포
 - **큰 일** — 여러 단계·여러 영역. `/interview` → `/spec`(`polaris/specs/`) → 계획(단계마다 고칠 파일과 완료 기준을 적어 사용자 승인) →
-  단계별 구현(단계마다 `/verify`) → 검증(`/spec-check`·테스트·E2E·QA 는 구현과 다른 에이전트가 맡는다) → `/predeploy-review` → 배포
+  단계별 구현(단계마다 관련 검사) → 통합 검증(전체 `pnpm verify`·변경 흐름 E2E·독립 리뷰 1회) → `/predeploy-review` → 배포
   - 화면이 새로 생기거나 흐름이 바뀌면 구현 전에 `web-designer` 에게 디자인 스펙을 받는다.
   - 서로 독립인 단계는 Claude Code 의 worktree 에이전트에 병렬로 맡길 수 있다. 같은 파일은 한 작업자가 맡는다.
-  - 검증은 `.claude/agents/` 의 `test-*`·`e2e-*`·`qa-*` 에 맡기고, 데모 전에 `demo-verifier` 의 GO/NO-GO 를 받는다(Compose 데모. 웹 배포처는 미결정).
+  - 작은 작업은 구현자가 관련 검증까지 맡는다. 독립 리뷰는 통합 단위로 한 번 모으고, 데모 전에 `demo-verifier` 의 GO/NO-GO 를 받는다(Compose 데모. 웹 배포처는 미결정). 작은 단계마다 test·e2e·qa 에이전트와 다중 프로필 리뷰를 연달아 실행하지 않는다.
 
 ## 서버·저장 구조 (요약)
 - 서버 코드는 `web/server/<도메인>/` 에 `model`·`repo`·`service`·`index`(배럴)로 둔다. 견본은 `web/server/profile/`·`web/server/organization/`·`web/server/task/`·`web/server/activity/`·`web/server/admin/` → `architecture` 스킬.
