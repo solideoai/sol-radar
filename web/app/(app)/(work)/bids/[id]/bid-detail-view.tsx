@@ -30,6 +30,7 @@ import {
 import { QualificationChecklist } from "@/components/bids/qualification-checklist";
 import { ScoreFactors } from "@/components/bids/score-factors";
 import { SourceLink } from "@/components/bids/source-link";
+import { StageLinks } from "@/components/bids/stage-links";
 import { StageTimeline } from "@/components/bids/stage-timeline";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
 import {
@@ -54,6 +55,7 @@ import type {
   BidDocument,
   Recommendation,
   RunMode,
+  StageLinksView,
 } from "@/server/bids";
 import type { WhatIfSummary } from "@/server/scoring";
 import { EmptyState } from "@/app/(app)/(work)/empty-state";
@@ -100,6 +102,8 @@ type BidDetailViewProps = {
   backHref: string;
   /** 서버가 요청마다 한 번 만든 시각(ISO). D-n 의 기준이다(하이드레이션 차이 없음). */
   now: string;
+  /** 같은 사업의 다른 단계 공고(P0-8). null 은 읽기 실패, 주지 않으면 구역을 그리지 않는다(기능 끔). */
+  stageLinks?: StageLinksView | null;
 };
 
 // 09 고정
@@ -786,6 +790,7 @@ export function BidDetailView({
   canDecide,
   backHref,
   now,
+  stageLinks,
 }: BidDetailViewProps) {
   const router = useRouter();
   const at = useMemo(() => new Date(now), [now]);
@@ -910,6 +915,7 @@ export function BidDetailView({
                 stageLinks={bid.stageLinks}
                 latestRevision={bid.latestRevision}
               />
+              {stageLinks !== undefined && <StageLinks stageLinks={stageLinks} />}
             </section>
             {progress !== null ? (
               <AnalysisSkeleton />

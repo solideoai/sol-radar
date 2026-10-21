@@ -19,3 +19,11 @@ export { createBidsRepo } from "./bids.supabase";
 export { reviewRepo } from "./review.supabase";
 export { notificationRepo } from "./notification.supabase";
 export { createDashboardRepo } from "./dashboard.supabase";
+export * from "./stage-links.model";
+export type { StageLinkRow, StageLinksRepo } from "./stage-links.repo";
+export {
+  STAGE_LINK_CANDIDATE_LIMIT,
+  STAGE_LINK_POOL_LIMIT,
+  getStageLinks,
+} from "./stage-links.service";
+export { stageLinksRepo } from "./stage-links.supabase";

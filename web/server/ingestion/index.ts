@@ -90,6 +90,24 @@ export type {
 export { STAGE_LINK_CANDIDATE_MIN_SIMILARITY, linkStages, titleSimilarity } from "./stage-link";
 export type { StageLink, StageLinkCandidate, StageLinkInput } from "./stage-link";
 
+// 사전규격·발주계획(P0-8 Task 3). 정규화·요청 주소까지만 있고 worker 는 아직 부르지 않는다.
+export {
+  G2B_ORDER_PLAN_LIST_OPERATION,
+  G2B_ORDER_PLAN_SERVICE_ID,
+  G2B_ORDER_PLAN_SOURCE,
+  G2B_PRE_SPEC_LIST_OPERATION,
+  G2B_PRE_SPEC_SERVICE_ID,
+  G2B_PRE_SPEC_SOURCE,
+} from "./g2b-stage.model";
+export { normalizeG2bPreSpec } from "./normalize-g2b-pre-spec";
+export { normalizeG2bOrderPlan } from "./normalize-g2b-order-plan";
+export { isInfoBizPreSpec } from "./g2b-stage-filter";
+export {
+  buildG2bOrderPlanListUrl,
+  buildG2bPreSpecListUrl,
+  formatG2bYearMonth,
+} from "./g2b-stage-request";
+
 export { isVisibleAt, revisionAsOf } from "./point-in-time";
 export { REDACTED, redactSecrets, redactUrl } from "./redaction";
 export {

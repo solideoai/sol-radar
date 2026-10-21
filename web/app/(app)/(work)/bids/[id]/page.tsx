@@ -7,10 +7,13 @@ import {
   canRecordReview,
   canRequestAnalysis,
   getBid,
+  getStageLinks,
   isUuid,
   listBidAnalyses,
+  stageLinksRepo,
   type AnalysisView,
   type BidDetail,
+  type StageLinksView,
 } from "@/server/bids";
 import { getMembersPage } from "@/server/organization";
 import { assessmentLabel } from "./assessment-labels";
@@ -35,12 +38,13 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   if (!isUuid(id)) notFound();
 
   const deps = workDeps();
-  const [detail, history, membersPage] = await Promise.all([
+  const [detail, history, membersPage, stageLinks] = await Promise.all([
     getBid(work.orgId, id, { repo: deps.bids }),
     listBidAnalyses(work.orgId, id, { cursor: null, limit: HISTORY_LIMIT }, deps.cursorSecret, {
       repo: deps.bids,
     }),
     getMembersPage({ org: work.org, userId: work.userId }),
+    readStageLinks(id),
   ]);
   if (!detail.ok) {
     if (detail.status === 404) notFound();
@@ -87,8 +91,25 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       canDecide={canRecordReview(work.role)}
       backHref={backHrefOf((await searchParams).list, work.runMode)}
       now={new Date().toISOString()}
+      stageLinks={stageLinks}
     />
   );
+}
+
+// 단계 연결(P0-8)은 단계 이력 아래 보조 구역이다. 읽지 못해도(404·DB 오류로 던짐) 상세는 그리고 그 구역에 한 줄만 적는다.
+// 공고 자체는 getBid 가 읽었으므로 여기서 404 가 나도 화면을 404 로 바꾸지 않는다. 던진 오류는 500 으로 적는다
+// (로그 꼴은 bid_detail_history_failed 와 같은 한 줄이다).
+async function readStageLinks(id: string): Promise<StageLinksView | null> {
+  const result = await getStageLinks(id, { repo: stageLinksRepo }).catch(() => null);
+  if (result?.ok) return result.data;
+  console.error(
+    JSON.stringify({
+      event: "bid_detail_stage_links_failed",
+      bidId: id,
+      status: result?.status ?? 500,
+    }),
+  );
+  return null;
 }
 
 // 화면에 내려보낼 칸만 고른다. 추출 결과·원본 문자열·구조화 자격·revision 목록은 화면이 쓰지 않아 싣지 않는다.
