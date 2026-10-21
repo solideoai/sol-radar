@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  CHECKLIST_FORBIDDEN_MESSAGE,
+  checklistForbidden,
   dueStateOf,
+  formFieldsOf,
   formatDateTime,
   formatDay,
   formatMonthDay,
@@ -21,6 +24,7 @@ import {
   type TaskStatsRow,
   toAssigneeOptions,
   toStatus,
+  toChecklistView,
   toTaskDashboard,
   toTaskView,
 } from "./task.model";
@@ -551,5 +555,43 @@ describe("toTaskDashboard", () => {
     expect(empty.counts).toEqual({ open: 0, overdue: 0, completedThisWeek: 0, mine: 0 });
     expect(empty.daily.every((day) => day.added === 0 && day.completed === 0)).toBe(true);
     expect(empty.dueSoon).toEqual([]);
+  });
+});
+
+describe("입찰 프로젝트 체크리스트 모델", () => {
+  it("formFieldsOf 는 FormData 의 글자 칸만 객체로 옮기고, 객체는 그대로 둔다", () => {
+    const form = new FormData();
+    form.set("title", "제안서");
+    form.set("dueDate", "2026-10-28");
+    form.set("file", new Blob(["x"]), "x.txt");
+    expect(formFieldsOf(form)).toEqual({ title: "제안서", dueDate: "2026-10-28" });
+    const plain = { title: "그대로" };
+    expect(formFieldsOf(plain)).toBe(plain);
+  });
+
+  it("toChecklistView 의 지우기 표시는 만든 사람이 아니라 canManage 다", () => {
+    const context = { today: "2026-10-14", names: NAMES };
+    const manager = { orgId: ORG_ID, userId: ME, canManage: true };
+    const reader = { orgId: ORG_ID, userId: ME, canManage: false };
+    expect(
+      toChecklistView(taskRow({ created_by: OTHER }), { ...context, scope: manager }).canDelete,
+    ).toBe(true);
+    expect(
+      toChecklistView(taskRow({ created_by: ME }), { ...context, scope: reader }).canDelete,
+    ).toBe(false);
+    expect(
+      toChecklistView(taskRow({ created_by: ME }), { ...context, scope: reader }),
+    ).toMatchObject({
+      isMine: true,
+      title: "회의록 공유",
+    });
+  });
+
+  it("권한 없음 결과는 고정 문구를 싣는다", () => {
+    expect(checklistForbidden()).toEqual({
+      status: "forbidden",
+      message: CHECKLIST_FORBIDDEN_MESSAGE,
+    });
+    expect(CHECKLIST_FORBIDDEN_MESSAGE).toBe("체크리스트를 고칠 권한이 없습니다");
   });
 });

@@ -25,6 +25,10 @@ type DbError = { code: string; message: string };
 const isAssigneeRejected = (error: DbError) =>
   error.code === FOREIGN_KEY_VIOLATION && error.message.includes("tasks_assignee_fkey");
 
+// 체크리스트를 다른 조직·없는 프로젝트에 넣으면 (bid_project_id, org_id) → bid_projects 외래 키가 거절한다.
+const isProjectRejected = (error: DbError) =>
+  error.code === FOREIGN_KEY_VIOLATION && error.message.includes("tasks_bid_project_fkey");
+
 const TASK_COLUMNS =
   "id, title, description, status, due_date, assignee_id, created_by, completed_at, created_at";
 
@@ -190,6 +194,92 @@ export const taskRepo = {
       .from("tasks")
       .select("id")
       .eq("org_id", orgId)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data !== null;
+  },
+
+  // ── 입찰 프로젝트 체크리스트(P1 N6) ──
+  // 모두 그 조직·그 프로젝트로 좁힌다. 일반 작업 id 를 넘겨도 체크리스트 함수로는 바뀌지 않는다.
+  // 쓰기 권한은 restrictive 정책이 정한다: 넣기는 42501 오류, 고치기·지우기는 오류 없이 0행이 된다.
+
+  // 만든 순(오래된 것 위). 완료를 눌러도 줄 자리가 바뀌지 않는다.
+  async listChecklist(orgId: string, projectId: string): Promise<TaskRow[]> {
+    const { data, error } = await (
+      await getSupabase()
+    )
+      .from("tasks")
+      .select(TASK_COLUMNS)
+      .eq("org_id", orgId)
+      .eq("bid_project_id", projectId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (error) throw error;
+    return data;
+  },
+
+  // bid_project_id 는 넣을 때만 정한다(update 열 권한에 없다).
+  async insertChecklistItem(
+    orgId: string,
+    projectId: string,
+    task: TaskInput,
+  ): Promise<"saved" | "rls-rejected" | "assignee-not-member" | "project-missing"> {
+    const { error } = await (
+      await getSupabase()
+    )
+      .from("tasks")
+      .insert({ org_id: orgId, bid_project_id: projectId, ...toColumns(task) });
+    if (!error) return "saved";
+    if (error.code === RLS_VIOLATION) return "rls-rejected";
+    if (isProjectRejected(error)) return "project-missing";
+    if (isAssigneeRejected(error)) return "assignee-not-member";
+    throw error;
+  },
+
+  async updateChecklistItem(
+    orgId: string,
+    projectId: string,
+    id: string,
+    changes: TaskEdit | { status: TaskStatus },
+  ): Promise<"saved" | "missing" | "assignee-not-member"> {
+    const values = "title" in changes ? { ...toColumns(changes), status: changes.status } : changes;
+    const { data, error } = await (
+      await getSupabase()
+    )
+      .from("tasks")
+      .update(values)
+      .eq("org_id", orgId)
+      .eq("bid_project_id", projectId)
+      .eq("id", id)
+      .select("id");
+    if (error && isAssigneeRejected(error)) return "assignee-not-member";
+    if (error) throw error;
+    return data.length > 0 ? "saved" : "missing";
+  },
+
+  async deleteChecklistItem(orgId: string, projectId: string, id: string): Promise<boolean> {
+    const { data, error } = await (
+      await getSupabase()
+    )
+      .from("tasks")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("bid_project_id", projectId)
+      .eq("id", id)
+      .select("id");
+    if (error) throw error;
+    return data.length > 0;
+  },
+
+  async isChecklistItemVisible(orgId: string, projectId: string, id: string): Promise<boolean> {
+    const { data, error } = await (
+      await getSupabase()
+    )
+      .from("tasks")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("bid_project_id", projectId)
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;

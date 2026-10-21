@@ -1,10 +1,16 @@
 import "server-only";
 import {
+  type AddChecklistItemResult,
   type AddTaskResult,
   type AssigneeOption,
   type ChangeTaskStatusResult,
+  type ChecklistForbidden,
+  type ChecklistScope,
+  checklistForbidden,
+  type DeleteChecklistItemResult,
   type DeleteTaskResult,
   DUE_SOON_COUNT,
+  formFieldsOf,
   isDefaultFilters,
   memberNames,
   pageCountOf,
@@ -18,9 +24,13 @@ import {
   type TaskDashboard,
   type TaskListPage,
   type TaskScope,
+  type TaskView,
   toAssigneeOptions,
+  toChecklistView,
+  type ToggleChecklistItemResult,
   toTaskDashboard,
   toTaskView,
+  type UpdateChecklistItemResult,
   type UpdateTaskResult,
 } from "./task.model";
 import { taskRepo, type TaskRepo } from "./task.repo";
@@ -165,4 +175,109 @@ export async function deleteTask(
   // 아직 보이면 지울 권한이 없는 것이고(그새 member 로 바뀜 등), 안 보이면 이미 없거나 내가 빠졌다.
   if (await repo.isVisible(orgId, id)) return { status: "forbidden" };
   return { status: await missingReason(orgId, userId, repo) };
+}
+
+// ── 입찰 프로젝트 체크리스트(P1 N6, 계획 Task 3) ──
+// 템플릿 검증(parseNewTask·parseTaskEdit)을 그대로 쓰고 bid_project_id 만 더한다.
+// scope 는 화면이 업무 맥락(requireWork)에서 만든다 — 조직은 요청에서 받지 않는다(M17). 프로젝트·항목 id 는 화면이 보낸 값이라 검사한다.
+// 쓰기 권한은 restrictive 정책이 정하고(ADMIN·SALES), 거절은 던지지 않고 "체크리스트를 고칠 권한이 없습니다" 결과다.
+
+export async function listProjectChecklist(
+  scope: ChecklistScope,
+  projectId: string,
+  repo: TaskRepo = taskRepo,
+  now?: Date,
+): Promise<TaskView[]> {
+  const id = requireId(projectId, "프로젝트");
+  const [rows, members] = await Promise.all([
+    repo.listChecklist(scope.orgId, id),
+    repo.listMembers(scope.orgId),
+  ]);
+  const today = seoulDate(now ?? new Date());
+  const names = memberNames(members);
+  return rows.map((row) => toChecklistView(row, { scope, today, names }));
+}
+
+// 넣기가 정책에 걸렸을 때: 아직 멤버면 역할이 막은 것이고, 아니면 내가 조직에서 빠졌다.
+async function rejectedReason(
+  scope: ChecklistScope,
+  repo: TaskRepo,
+): Promise<{ status: "not-in-org" } | ChecklistForbidden> {
+  return (await repo.isMember(scope.orgId, scope.userId))
+    ? checklistForbidden()
+    : { status: "not-in-org" };
+}
+
+// 고치기·지우기가 0행일 때: 항목이 아직 보이면 정책이 걸렀고, 안 보이면 그새 지워졌거나 내가 빠졌다.
+async function unchangedReason(
+  scope: ChecklistScope,
+  projectId: string,
+  taskId: string,
+  repo: TaskRepo,
+): Promise<{ status: "gone" | "not-in-org" } | ChecklistForbidden> {
+  if (await repo.isChecklistItemVisible(scope.orgId, projectId, taskId))
+    return checklistForbidden();
+  return { status: await missingReason(scope.orgId, scope.userId, repo) };
+}
+
+export async function addProjectChecklistItem(
+  scope: ChecklistScope,
+  projectIdInput: unknown,
+  input: unknown,
+  repo: TaskRepo = taskRepo,
+): Promise<AddChecklistItemResult> {
+  const projectId = requireId(projectIdInput, "프로젝트");
+  const parsed = parseNewTask(formFieldsOf(input));
+  if (!parsed.ok) return { status: "invalid", field: parsed.field, message: parsed.message };
+  const result = await repo.insertChecklistItem(scope.orgId, projectId, parsed.task);
+  if (result === "rls-rejected") return rejectedReason(scope, repo);
+  if (result === "project-missing") return { status: "gone" };
+  return { status: result };
+}
+
+export async function updateProjectChecklistItem(
+  scope: ChecklistScope,
+  projectIdInput: unknown,
+  taskIdInput: unknown,
+  input: unknown,
+  repo: TaskRepo = taskRepo,
+): Promise<UpdateChecklistItemResult> {
+  const projectId = requireId(projectIdInput, "프로젝트");
+  const taskId = requireId(taskIdInput, "작업");
+  const parsed = parseTaskEdit(formFieldsOf(input));
+  if (!parsed.ok) return { status: "invalid", field: parsed.field, message: parsed.message };
+  const result = await repo.updateChecklistItem(scope.orgId, projectId, taskId, parsed.task);
+  if (result === "missing") return unchangedReason(scope, projectId, taskId, repo);
+  return { status: result };
+}
+
+// 체크 = 완료(done), 해제 = 할 일(todo). 화면은 불리언만 보낸다 — 다른 값은 잘못된 호출이라 던진다.
+export async function toggleProjectChecklistItem(
+  scope: ChecklistScope,
+  projectIdInput: unknown,
+  taskIdInput: unknown,
+  done: unknown,
+  repo: TaskRepo = taskRepo,
+): Promise<ToggleChecklistItemResult> {
+  const projectId = requireId(projectIdInput, "프로젝트");
+  const taskId = requireId(taskIdInput, "작업");
+  if (typeof done !== "boolean") throw new Error("체크리스트 완료 값이 올바르지 않습니다");
+  const result = await repo.updateChecklistItem(scope.orgId, projectId, taskId, {
+    status: done ? "done" : "todo",
+  });
+  if (result === "assignee-not-member") throw new Error("상태만 바꿨는데 담당자가 거절됐습니다");
+  if (result === "missing") return unchangedReason(scope, projectId, taskId, repo);
+  return { status: result };
+}
+
+export async function deleteProjectChecklistItem(
+  scope: ChecklistScope,
+  projectIdInput: unknown,
+  taskIdInput: unknown,
+  repo: TaskRepo = taskRepo,
+): Promise<DeleteChecklistItemResult> {
+  const projectId = requireId(projectIdInput, "프로젝트");
+  const taskId = requireId(taskIdInput, "작업");
+  if (await repo.deleteChecklistItem(scope.orgId, projectId, taskId)) return { status: "deleted" };
+  return unchangedReason(scope, projectId, taskId, repo);
 }

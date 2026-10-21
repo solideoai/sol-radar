@@ -1,13 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TaskMemberRow, TaskRow, TaskScope, TaskStatsRow } from "./task.model";
+import {
+  CHECKLIST_FORBIDDEN_MESSAGE,
+  type ChecklistScope,
+  type TaskMemberRow,
+  type TaskRow,
+  type TaskScope,
+  type TaskStatsRow,
+} from "./task.model";
 import type { TaskRepo } from "./task.repo";
 import {
+  addProjectChecklistItem,
   addTask,
   changeTaskStatus,
+  deleteProjectChecklistItem,
   deleteTask,
   getTaskAssignees,
   getTaskDashboard,
   getTaskList,
+  listProjectChecklist,
+  toggleProjectChecklistItem,
+  updateProjectChecklistItem,
   updateTask,
 } from "./task.service";
 
@@ -66,6 +78,11 @@ const fakeRepo = (overrides: Partial<TaskRepo> = {}): TaskRepo => ({
   update: vi.fn(async () => "saved" as const),
   deleteById: vi.fn(async () => true),
   isVisible: vi.fn(async () => false),
+  listChecklist: vi.fn(async () => []),
+  insertChecklistItem: vi.fn(async () => "saved" as const),
+  updateChecklistItem: vi.fn(async () => "saved" as const),
+  deleteChecklistItem: vi.fn(async () => true),
+  isChecklistItemVisible: vi.fn(async () => false),
   ...overrides,
 });
 
@@ -482,5 +499,239 @@ describe("deleteTask", () => {
   it("저장 오류는 삼키지 않고 그대로 올린다", async () => {
     const repo = fakeRepo({ deleteById: vi.fn(async () => Promise.reject(new Error("db down"))) });
     await expect(deleteTask(ORG_ID, TASK_ID, repo)).rejects.toThrow("db down");
+  });
+});
+
+// ── 입찰 프로젝트 체크리스트(P1 N6, 계획 Task 3) ──
+// 체크리스트는 bid_project_id 가 있는 작업이다. 쓰기는 restrictive 정책이 ADMIN·SALES 만 연다(M13).
+// RLS 거부는 던지지 않고 "체크리스트를 고칠 권한이 없습니다" 결과다.
+describe("입찰 프로젝트 체크리스트", () => {
+  const PROJECT_ID = "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b";
+  const MANAGER: ChecklistScope = { orgId: ORG_ID, userId: ME, canManage: true };
+  const READER: ChecklistScope = { orgId: ORG_ID, userId: ME, canManage: false };
+  const FORBIDDEN = { status: "forbidden", message: CHECKLIST_FORBIDDEN_MESSAGE };
+
+  describe("listProjectChecklist", () => {
+    it("listProjectChecklist 는 그 프로젝트 행만 읽는다 — 저장에 조직과 프로젝트를 넘기고 받은 순서(만든 순) 그대로다", async () => {
+      const repo = fakeRepo({
+        listChecklist: vi.fn(async () => [
+          taskRow({ id: "t1", created_at: "2026-10-14T01:00:00.000Z" }),
+          taskRow({ id: "t2", status: "done", created_at: "2026-10-14T02:00:00.000Z" }),
+        ]),
+      });
+      const rows = await listProjectChecklist(MANAGER, PROJECT_ID, repo, NOW);
+      expect(repo.listChecklist).toHaveBeenCalledWith(ORG_ID, PROJECT_ID);
+      expect(repo.listPage).not.toHaveBeenCalled();
+      expect(rows.map((row) => row.id)).toEqual(["t1", "t2"]);
+      expect(rows[1]).toMatchObject({ status: "done", statusLabel: "완료" });
+    });
+
+    it("지우기 표시는 역할로 정한다 — ADMIN·SALES 면 남이 만든 항목도, 아니면 내가 만든 항목도 없다", async () => {
+      const repo = fakeRepo({
+        listChecklist: vi.fn(async () => [
+          taskRow({ id: "mine", created_by: ME }),
+          taskRow({ id: "theirs", created_by: OTHER }),
+        ]),
+      });
+      const managed = await listProjectChecklist(MANAGER, PROJECT_ID, repo, NOW);
+      expect(managed.map((row) => row.canDelete)).toEqual([true, true]);
+      const read = await listProjectChecklist(READER, PROJECT_ID, repo, NOW);
+      expect(read.map((row) => row.canDelete)).toEqual([false, false]);
+    });
+
+    it("형식이 틀린 프로젝트 id 는 던지고 읽지 않는다", async () => {
+      const repo = fakeRepo();
+      await expect(listProjectChecklist(MANAGER, "p1", repo, NOW)).rejects.toThrow(
+        "프로젝트 id 형식",
+      );
+      expect(repo.listChecklist).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("addProjectChecklistItem", () => {
+    it("addProjectChecklistItem 은 insert 에 bid_project_id 를 넣는다 — 템플릿 검증(parseNewTask)을 그대로 쓴다", async () => {
+      const repo = fakeRepo();
+      await expect(
+        addProjectChecklistItem(
+          MANAGER,
+          PROJECT_ID,
+          { title: " 제안서 초안 ", description: " ", assigneeId: "none", dueDate: "2026-10-28" },
+          repo,
+        ),
+      ).resolves.toEqual({ status: "saved" });
+      expect(repo.insertChecklistItem).toHaveBeenCalledWith(ORG_ID, PROJECT_ID, {
+        title: "제안서 초안",
+        description: null,
+        assigneeId: null,
+        dueDate: "2026-10-28",
+      });
+      expect(repo.insert).not.toHaveBeenCalled();
+    });
+
+    it("FormData 로 와도 같은 칸 이름(title·description·assigneeId·dueDate)으로 읽는다", async () => {
+      const repo = fakeRepo();
+      const form = new FormData();
+      form.set("title", "가격 제안서");
+      form.set("assigneeId", OTHER);
+      form.set("dueDate", "");
+      await addProjectChecklistItem(MANAGER, PROJECT_ID, form, repo);
+      expect(repo.insertChecklistItem).toHaveBeenCalledWith(ORG_ID, PROJECT_ID, {
+        title: "가격 제안서",
+        description: null,
+        assigneeId: OTHER,
+        dueDate: null,
+      });
+    });
+
+    it("틀린 입력은 칸 오류이고 저장하지 않는다", async () => {
+      const repo = fakeRepo();
+      await expect(
+        addProjectChecklistItem(MANAGER, PROJECT_ID, { title: "" }, repo),
+      ).resolves.toEqual({ status: "invalid", field: "title", message: "제목을 입력하세요" });
+      expect(repo.insertChecklistItem).not.toHaveBeenCalled();
+    });
+
+    it("RLS 거부(42501)는 권한 없음 결과다 — 멤버인데 거절되면 forbidden, 멤버가 아니면 not-in-org", async () => {
+      const rejected = fakeRepo({
+        insertChecklistItem: vi.fn(async () => "rls-rejected" as const),
+      });
+      await expect(
+        addProjectChecklistItem(READER, PROJECT_ID, { title: "몰래 넣기" }, rejected),
+      ).resolves.toEqual(FORBIDDEN);
+      expect(rejected.isMember).toHaveBeenCalledWith(ORG_ID, ME);
+
+      const left = fakeRepo({
+        insertChecklistItem: vi.fn(async () => "rls-rejected" as const),
+        isMember: vi.fn(async () => false),
+      });
+      await expect(
+        addProjectChecklistItem(MANAGER, PROJECT_ID, { title: "제목" }, left),
+      ).resolves.toEqual({ status: "not-in-org" });
+    });
+
+    it("다른 조직·없는 프로젝트(외래 키 거절)는 gone, 담당자 외래 키 거절은 assignee-not-member 다", async () => {
+      const gone = fakeRepo({ insertChecklistItem: vi.fn(async () => "project-missing" as const) });
+      await expect(
+        addProjectChecklistItem(MANAGER, PROJECT_ID, { title: "제목" }, gone),
+      ).resolves.toEqual({ status: "gone" });
+      const assignee = fakeRepo({
+        insertChecklistItem: vi.fn(async () => "assignee-not-member" as const),
+      });
+      await expect(
+        addProjectChecklistItem(MANAGER, PROJECT_ID, { title: "제목", assigneeId: LEFT }, assignee),
+      ).resolves.toEqual({ status: "assignee-not-member" });
+    });
+
+    it("형식이 틀린 프로젝트 id 는 던지고 저장하지 않는다", async () => {
+      const repo = fakeRepo();
+      await expect(addProjectChecklistItem(MANAGER, "p1", { title: "제목" }, repo)).rejects.toThrow(
+        "프로젝트 id 형식",
+      );
+      expect(repo.insertChecklistItem).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("toggleProjectChecklistItem", () => {
+    it("체크는 done, 해제는 todo 로 그 프로젝트의 그 항목만 바꾼다", async () => {
+      const repo = fakeRepo();
+      await expect(
+        toggleProjectChecklistItem(MANAGER, PROJECT_ID, TASK_ID, true, repo),
+      ).resolves.toEqual({ status: "saved" });
+      await toggleProjectChecklistItem(MANAGER, PROJECT_ID, TASK_ID, false, repo);
+      expect(vi.mocked(repo.updateChecklistItem).mock.calls).toEqual([
+        [ORG_ID, PROJECT_ID, TASK_ID, { status: "done" }],
+        [ORG_ID, PROJECT_ID, TASK_ID, { status: "todo" }],
+      ]);
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it("바뀐 행이 없는데 항목이 보이면 권한 없음(정책이 걸렀다), 안 보이면 gone·not-in-org 다", async () => {
+      const blocked = fakeRepo({
+        updateChecklistItem: vi.fn(async () => "missing" as const),
+        isChecklistItemVisible: vi.fn(async () => true),
+      });
+      await expect(
+        toggleProjectChecklistItem(READER, PROJECT_ID, TASK_ID, true, blocked),
+      ).resolves.toEqual(FORBIDDEN);
+      expect(blocked.isChecklistItemVisible).toHaveBeenCalledWith(ORG_ID, PROJECT_ID, TASK_ID);
+
+      const gone = fakeRepo({ updateChecklistItem: vi.fn(async () => "missing" as const) });
+      await expect(
+        toggleProjectChecklistItem(MANAGER, PROJECT_ID, TASK_ID, true, gone),
+      ).resolves.toEqual({ status: "gone" });
+    });
+
+    it("불리언이 아닌 값·형식이 틀린 id 는 화면이 보낼 수 없는 값이라 던진다", async () => {
+      const repo = fakeRepo();
+      await expect(
+        toggleProjectChecklistItem(MANAGER, PROJECT_ID, TASK_ID, "done", repo),
+      ).rejects.toThrow("완료 값");
+      await expect(
+        toggleProjectChecklistItem(MANAGER, PROJECT_ID, "t1", true, repo),
+      ).rejects.toThrow("작업 id 형식");
+      expect(repo.updateChecklistItem).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("updateProjectChecklistItem", () => {
+    it("템플릿 편집 검증(parseTaskEdit)을 거쳐 그 프로젝트의 항목에 저장한다", async () => {
+      const repo = fakeRepo();
+      await expect(
+        updateProjectChecklistItem(
+          MANAGER,
+          PROJECT_ID,
+          TASK_ID,
+          { title: " 고친 항목 ", status: "in_progress", assigneeId: ME, dueDate: "" },
+          repo,
+        ),
+      ).resolves.toEqual({ status: "saved" });
+      expect(repo.updateChecklistItem).toHaveBeenCalledWith(ORG_ID, PROJECT_ID, TASK_ID, {
+        title: "고친 항목",
+        description: null,
+        status: "in_progress",
+        assigneeId: ME,
+        dueDate: null,
+      });
+    });
+
+    it("정책이 걸러 바뀐 행이 없고 항목이 보이면 권한 없음이다", async () => {
+      const repo = fakeRepo({
+        updateChecklistItem: vi.fn(async () => "missing" as const),
+        isChecklistItemVisible: vi.fn(async () => true),
+      });
+      await expect(
+        updateProjectChecklistItem(
+          READER,
+          PROJECT_ID,
+          TASK_ID,
+          { title: "t", status: "todo" },
+          repo,
+        ),
+      ).resolves.toEqual(FORBIDDEN);
+    });
+  });
+
+  describe("deleteProjectChecklistItem", () => {
+    it("지운 행이 있으면 deleted, 없는데 보이면 권한 없음, 안 보이면 gone 이다", async () => {
+      const deleted = fakeRepo();
+      await expect(
+        deleteProjectChecklistItem(MANAGER, PROJECT_ID, TASK_ID, deleted),
+      ).resolves.toEqual({ status: "deleted" });
+      expect(deleted.deleteChecklistItem).toHaveBeenCalledWith(ORG_ID, PROJECT_ID, TASK_ID);
+      expect(deleted.deleteById).not.toHaveBeenCalled();
+
+      const blocked = fakeRepo({
+        deleteChecklistItem: vi.fn(async () => false),
+        isChecklistItemVisible: vi.fn(async () => true),
+      });
+      await expect(
+        deleteProjectChecklistItem(READER, PROJECT_ID, TASK_ID, blocked),
+      ).resolves.toEqual(FORBIDDEN);
+
+      const gone = fakeRepo({ deleteChecklistItem: vi.fn(async () => false) });
+      await expect(deleteProjectChecklistItem(MANAGER, PROJECT_ID, TASK_ID, gone)).resolves.toEqual(
+        { status: "gone" },
+      );
+    });
   });
 });

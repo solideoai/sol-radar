@@ -14,6 +14,7 @@ export * from "./review.service";
 export * from "./what-if.service";
 export * from "./notification.service";
 export * from "./dashboard.service";
+export * from "./review-pending";
 export { keysetFilter, likePattern, quoteValue, uniqueViolation } from "./postgrest";
 export { createBidsRepo } from "./bids.supabase";
 export { reviewRepo } from "./review.supabase";
