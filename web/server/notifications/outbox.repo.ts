@@ -28,8 +28,8 @@ export class NotificationStoreError extends Error {
   }
 }
 
-/** PostgREST 오류를 NotificationStoreError 로 바꾼다. code 가 없으면 UNKNOWN 이다. */
-function storeError(
+/** PostgREST 오류를 NotificationStoreError 로 바꾼다. code 가 없으면 UNKNOWN 이다. kakao.repo 도 쓴다(배럴에는 내보내지 않는다). */
+export function storeError(
   table: string,
   action: string,
   error: { code?: string | null },
@@ -85,7 +85,7 @@ export function createNotificationOutboxStore(client: Client): NotificationOutbo
 
   return {
     // 조직 조건을 걸지 않는다(모든 조직의 이벤트를 처리한다). 조직은 행마다 org_id 로 돌려주고 모델이 확인한다.
-    // 공고 이벤트(BID_*)는 고르지 않는다. 오래된 것부터 limit 건까지.
+    // NOTIFY_EVENT_TYPES(인앱 두 종·카카오 두 종)만 고른다. 공고 이벤트(BID_CREATED·BID_CHANGED)는 고르지 않는다. 오래된 것부터 limit 건까지.
     async findDue(input) {
       const isValidInput =
         isIsoInstant(input.now) && Number.isInteger(input.limit) && input.limit >= 1;

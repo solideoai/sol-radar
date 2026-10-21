@@ -167,6 +167,14 @@ services:
       AI_TIMEOUT_MS:
       # 알림 소비자(C7)의 outbox 폴링 주기. 500~60000ms 이고 없으면 기본값 2000. 범위 밖이면 worker 가 기동을 거부한다.
       NOTIFY_POLL_INTERVAL_MS:
+      # 카카오톡 추천 공고 알림의 발송 수단(선택). 비면 mock(외부 호출 없이 성공)이고, memo(카카오 "나에게 보내기" 실발송)일 때만
+      # 아래 카카오 키 넷이 필요하다. memo 인데 하나라도 비거나 KAKAO_TOKEN_ENC_KEY 가 base64 32바이트가 아니면 worker 가 기동을 거부한다.
+      # 값은 infra/.env 에만 적고 여기에는 기본값을 두지 않는다. KAKAO_TOKEN_ENC_KEY·SITE_URL 은 웹 서버와 같은 값이다.
+      NOTIFY_KAKAO_PROVIDER:
+      KAKAO_REST_API_KEY:
+      KAKAO_CLIENT_SECRET:
+      KAKAO_TOKEN_ENC_KEY:
+      SITE_URL:
       # 수집 worker 입력(C3). 이미지 컨텍스트가 web/ 라 fixture·소스 registry 는 저장소에서 읽기 전용으로 붙인다.
       # 컨테이너 안 경로는 여기서 고정한다(infra/.env 로 바꾸지 않는다). 호스트에서 직접 돌릴 때는 코드 기본값(저장소 경로)을 쓴다.
       FIXTURES_DIR: /srv/sol-radar/fixtures

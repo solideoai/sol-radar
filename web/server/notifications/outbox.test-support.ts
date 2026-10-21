@@ -144,8 +144,16 @@ type RetryUpdate = Parameters<NotificationOutboxStore["markRetry"]>[1];
 /** 저장 호출 하나. key 는 무엇에 대한 호출인지(이벤트 id·bidId·"org:user"·알림 키). */
 export type StoreCall = { method: StoreMethod; key: string };
 
-/** 알림 단계가 고르는 이벤트 종류(docs/13). 메모리 저장은 DB 처럼 이 둘만 고른다. */
-const DUE_EVENT_TYPES: readonly string[] = ["REVIEW_ASSIGNED", "ANALYSIS_COMPLETE"];
+/**
+ * 알림 단계가 고르는 이벤트 종류(docs/13, 부분 인덱스 20261021000002). 메모리 저장은 DB 처럼 이 넷만 고른다.
+ * 제품의 NOTIFY_EVENT_TYPES 를 쓰지 않고 따로 적는다 — 제품 목록이 틀려도 흉내가 같이 틀리지 않게 한다.
+ */
+const DUE_EVENT_TYPES: readonly string[] = [
+  "REVIEW_ASSIGNED",
+  "ANALYSIS_COMPLETE",
+  "BID_RECOMMENDED",
+  "KAKAO_TEST",
+];
 
 const toEventRow = (row: MemoryOutboxRow): OutboxEventRow => {
   if (row.status !== "PENDING" && row.status !== "FAILED") {
@@ -423,7 +431,7 @@ export function fakeSupabase(route: AsyncPostgrestRoute = () => undefined) {
 }
 
 // ── 3-1. PostgREST 필터 흉내(메모리 행 고르기) ──
-// 지원: <열>=[not.]<op>.<값>(eq·neq·lt·lte·gt·gte·in·is), or·and 와 그 안의 and(…)·or(…).
+// 지원: <열>=[not.]<op>.<값>(eq·neq·lt·lte·gt·gte·in·is), or·and 와 그 안의 and(…)·or(…), jsonb 키 <열>->><키>.
 // 같은 이름의 필터가 여럿이면 모두 맞아야 한다(AND). 시각 열(…_at)은 시각으로, 둘 다 수면 수로, 나머지는 글자로 비교한다.
 // null 칸은 is 말고는 어떤 비교에도 맞지 않는다(SQL 의 null). 모르는 연산자·없는 열·틀린 모양이면 400(FAKE_UNSUPPORTED_FILTER).
 
@@ -517,9 +525,27 @@ function matchesOperator(column: string, cell: unknown, operator: string): boole
   return negated ? !isMatch : isMatch;
 }
 
+const JSON_TEXT_ARROW = "->>";
+
+/**
+ * 필터 열의 칸. <열>->><키> 는 jsonb 열의 키를 글자로 읽는다(PostgREST 의 ->> 처럼 없거나 null 이면 null,
+ * 글자가 아니면 JSON 글자). 열이 없으면 거절한다.
+ */
+function cellOf(row: FakeRow, column: string): unknown {
+  const arrow = column.indexOf(JSON_TEXT_ARROW);
+  const base = arrow === -1 ? column : column.slice(0, arrow);
+  if (!Object.hasOwn(row, base)) throw new UnsupportedFilter(`없는 열: ${base}`);
+  if (arrow === -1) return row[base];
+  const key = column.slice(arrow + JSON_TEXT_ARROW.length);
+  const value = row[base];
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const inner: unknown = Object.hasOwn(value, key) ? Reflect.get(value, key) : null;
+  if (inner === null || inner === undefined) return null;
+  return typeof inner === "string" ? inner : JSON.stringify(inner);
+}
+
 function matchesColumn(row: FakeRow, column: string, operator: string): boolean {
-  if (!Object.hasOwn(row, column)) throw new UnsupportedFilter(`없는 열: ${column}`);
-  return matchesOperator(column, row[column], operator);
+  return matchesOperator(column, cellOf(row, column), operator);
 }
 
 function matchesLogic(row: FakeRow, kind: string, inner: string): boolean {
