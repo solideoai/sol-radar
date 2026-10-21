@@ -49,7 +49,7 @@ updated: 2026-10-21
 
 | 장면 | 만든 방법 | 화면에서 읽은 글자 | 스크린샷 |
 |---|---|---|---|
-| ① 분석 0건 | seed 직후 | 카드 "분석 현황 (완료) \| 0 \| 분석 기록 없음", 1280 에서도 제목 한 줄 | `01-dashboard-no-analysis-1440.png` · `-1280.png` |
+| ① 분석 0건 | seed 직후 | 카드 "분석 현황 (완료) \| 0 \| 분석 기록 없음", 1280 에서도 제목·힌트 모두 한 줄(N9 때 두 줄로 꺾이던 힌트가 풀림) | `01-dashboard-no-analysis-1440.png` · `-1280.png` |
 | ② 사전 분석 | worker 안 `worker/demo-preanalyze.ts` | `targets=18 completed=18 partial=0 failed=0`. 카드 "18 \| 부분 0 · 실패 0", FX-01 행 "94 BID" | `02-dashboard-preanalyzed-1440.png` · `-1280.png` |
 | ③ 결정 모델 안내(30-2a) | FX-18 상세 | 새 안내 문구 보임, 본문에 "Kev" 없음 | `03-detail-decision-disclaimer-1440.png` · `-1280.png` |
 | ④ 재분석 대기(30-3) | worker 정지 → FX-01 상세 "재분석" 클릭 | 띠 "대기 중", run QUEUED, 버튼 "분석 중…" | `04-detail-rerun-queued-1440.png` |
