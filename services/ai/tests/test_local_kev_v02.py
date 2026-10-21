@@ -14,6 +14,7 @@ from support import (
     HANGUL,
     KEV_DISCLAIMER,
     KEV_KEY,
+    KEV_REQUEST_MODEL,
     LEGEND,
     NUMBER_TOKEN,
     PROFILE,
@@ -250,7 +251,10 @@ def test_v0_2_chunks_share_the_same_state(v02):
 def test_v0_2_chunks_carry_bearer_and_request_model(v02):
     v02.call()
     headers = {r.headers.get("authorization") for r in v02.recorded()}
-    assert (headers, {b["model"] for b in v02.sent()}) == ({f"Bearer {KEV_KEY}"}, {"kev-latest"})
+    assert (headers, {b["model"] for b in v02.sent()}) == (
+        {f"Bearer {KEV_KEY}"},
+        {KEV_REQUEST_MODEL},
+    )
 
 
 def test_v0_2_notice_questions_come_first(v02):

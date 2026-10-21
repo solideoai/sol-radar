@@ -1,6 +1,7 @@
-"""python -m sol_eval: labels check · build · export · manifest (docs/21 §6, e3 설계 §5).
+"""python -m sol_eval: labels check · build · export · manifest · leakage · bosun_score · compare (docs/21 §6, ADR-034).
 
-DB·네트워크·실모델을 쓰지 않는다. 문제가 있으면 exit 1, 입력 형식 오류는 exit 2.
+DB·네트워크를 쓰지 않는다. 실모델은 bosun_score --backend bosun(기본)만 로컬 패키지에서 올린다.
+문제(라벨 검사 실패·누수 위반)가 있으면 exit 1, 입력 형식 오류는 exit 2.
 """
 
 import argparse
@@ -10,10 +11,35 @@ from datetime import date
 from pathlib import Path
 
 from sol_eval import DATASET_VERSION
+from sol_eval.bosun_score import (
+    BACKEND_BOSUN,
+    BACKEND_FAKE,
+    DEFAULT_SEEDS,
+    SUITE_FORMAT_DECISIONBENCH,
+    SUITE_FORMATS,
+    ScoreInputError,
+    ScoreOptions,
+    parse_seeds,
+    score,
+)
 from sol_eval.build_branch1 import BuildOptions, build
+from sol_eval.compare import (
+    DEFAULT_BOOTSTRAP_SEED,
+    DEFAULT_ITERATIONS,
+    CompareError,
+    CompareOptions,
+    compare,
+)
 from sol_eval.dataset import DatasetFormatError
-from sol_eval.export import ExportError, ExportOptions, export
+from sol_eval.export import FORMAT_KEV, FORMATS, ExportError, ExportOptions, export
 from sol_eval.labels import check_file, format_summary
+from sol_eval.leakage import (
+    DEFAULT_MIN_SHARE,
+    DEFAULT_SIMILARITY_THRESHOLD,
+    LeakageInputError,
+    LeakageOptions,
+    check_bundle,
+)
 from sol_eval.manifest import ManifestError, write_manifest
 from sol_eval.paths import (
     DEFAULT_COMPANIES_DIR,
@@ -76,9 +102,69 @@ def cmd_export(args: argparse.Namespace) -> int:
         out_dir=_out_dir(args.out, args.version),
         languages=tuple(args.languages.split(",")),
         max_state_tokens=args.max_state,
+        format=args.format,
     )
     summary = export(options)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_leakage(args: argparse.Namespace) -> int:
+    report = check_bundle(
+        LeakageOptions(
+            bundle_dir=resolve(args.bundle),
+            similarity_threshold=args.similarity,
+            fail_on_similarity=args.fail_on_similarity,
+            min_share=args.min_share,
+        )
+    )
+    payload = report.to_json()
+    if args.out:
+        out = resolve(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0 if report.ok else EX_PROBLEMS
+
+
+def cmd_bosun_score(args: argparse.Namespace) -> int:
+    if args.suite and args.data:
+        raise ScoreInputError("--data 와 --suite 는 함께 쓰지 않는다")
+    if not args.suite and not args.data:
+        raise ScoreInputError("--data 또는 --suite 가 필요하다")
+    options = ScoreOptions(
+        out_dir=resolve(args.out),
+        data_path=resolve(args.suite or args.data),
+        seeds=parse_seeds(args.seeds),
+        backend=args.backend,
+        package_dir=resolve(args.package) if args.package else None,
+        suite_format=args.suite_format if args.suite else None,
+    )
+    report = score(options)
+    shown = {k: v for k, v in report.items() if k != "metrics"}
+    shown["metrics"] = {
+        "overall": report["metrics"]["overall"],
+        "consistency": report["metrics"]["consistency"]["overall"],
+    }
+    print(json.dumps(shown, ensure_ascii=False, indent=2))
+    print(f"wrote {options.out_dir}")
+    return 0
+
+
+def cmd_compare(args: argparse.Namespace) -> int:
+    report = compare(
+        CompareOptions(
+            candidate_dir=resolve(args.candidate),
+            reference_dir=resolve(args.reference),
+            out_dir=resolve(args.out),
+            prediction_seed=args.seed,
+            iterations=args.iterations,
+            bootstrap_seed=args.bootstrap_seed,
+        )
+    )
+    shown = {k: v for k, v in report.items() if k != "bootstrap"}
+    shown["bootstrap"] = report["bootstrap"]["cluster"]
+    print(json.dumps(shown, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -133,13 +219,74 @@ def parser() -> argparse.ArgumentParser:
     )
     b.set_defaults(func=cmd_build)
 
-    e = sub.add_parser("export", help="EvalItem → Kev JSONL(en·ko)")
+    e = sub.add_parser(
+        "export", help="EvalItem → Kev JSONL(en·ko) 또는 Bosun 질문 단위 JSONL(--format bosun)"
+    )
     common(e)
-    e.add_argument("--languages", default="en,ko")
     e.add_argument(
-        "--max-state", type=int, default=2048, help="state 토큰 상한(글자/4 근사, 초과는 경고)"
+        "--format",
+        default=FORMAT_KEV,
+        choices=FORMATS,
+        help="kev(기본): kev/{split}.{lang}.jsonl · bosun: bosun/{split}.en.jsonl + manifest.json",
+    )
+    e.add_argument("--languages", default="en,ko", help="kev 형식만. bosun 은 en 고정")
+    e.add_argument(
+        "--max-state",
+        type=int,
+        default=2048,
+        help="kev 형식만. state 토큰 상한(글자/4 근사, 초과는 경고)",
     )
     e.set_defaults(func=cmd_export)
+
+    lk = sub.add_parser(
+        "leakage", help="Bosun 번들 누수 검사(클러스터·fixture·held-out·state·분포·sha256)"
+    )
+    lk.add_argument("--bundle", required=True, help="manifest.json 과 bosun/ 이 있는 폴더")
+    lk.add_argument(
+        "--similarity",
+        type=float,
+        default=DEFAULT_SIMILARITY_THRESHOLD,
+        help="유사 state 5-gram Jaccard 임계(기본 0.9)",
+    )
+    lk.add_argument(
+        "--fail-on-similarity", action="store_true", help="유사 state 를 경고가 아니라 위반으로"
+    )
+    lk.add_argument(
+        "--min-share",
+        type=float,
+        default=DEFAULT_MIN_SHARE,
+        help="후보별 최소 정답 비율(기본 0.05)",
+    )
+    lk.add_argument("--out", help="리포트 JSON 저장 위치(선택)")
+    lk.set_defaults(func=cmd_leakage)
+
+    bs = sub.add_parser("bosun_score", help="Bosun 패키지 오프라인 채점(E1'·E4)")
+    bs.add_argument("--package", help="Bosun 패키지 폴더(HF 레이아웃). backend bosun 에 필수")
+    bs.add_argument("--data", help="bosun/{split}.en.jsonl")
+    bs.add_argument(
+        "--out", required=True, help="출력 폴더(predictions.jsonl·rows.json·report.json)"
+    )
+    bs.add_argument(
+        "--seeds", default=DEFAULT_SEEDS, help='후보 제시 순서 seed("0-5" 또는 "0,2,4")'
+    )
+    bs.add_argument(
+        "--backend",
+        default=BACKEND_BOSUN,
+        choices=(BACKEND_BOSUN, BACKEND_FAKE),
+        help="bosun(기본, 로컬 패키지) 또는 fake(결정적 가짜, 시험용)",
+    )
+    bs.add_argument("--suite", help="외부 보조 평가 JSONL(ADR-034 9번). 라이선스 확인 뒤에만 실행")
+    bs.add_argument("--suite-format", default=SUITE_FORMAT_DECISIONBENCH, choices=SUITE_FORMATS)
+    bs.set_defaults(func=cmd_bosun_score)
+
+    cp = sub.add_parser("compare", help="두 bosun_score 출력의 짝 부트스트랩 Δ·95%% CI")
+    cp.add_argument("--candidate", required=True, help="예: runs/e4-test")
+    cp.add_argument("--reference", required=True, help="예: runs/e1p-test")
+    cp.add_argument("--out", required=True)
+    cp.add_argument("--seed", type=int, default=0, help="비교할 예측 seed(기본 0, 서빙과 같다)")
+    cp.add_argument("--iterations", type=int, default=DEFAULT_ITERATIONS)
+    cp.add_argument("--bootstrap-seed", type=int, default=DEFAULT_BOOTSTRAP_SEED)
+    cp.set_defaults(func=cmd_compare)
 
     m = sub.add_parser("manifest", help="번들 manifest.json")
     common(m)
@@ -151,7 +298,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
         return args.func(args)
-    except (DatasetFormatError, ExportError, ManifestError, ValueError, FileNotFoundError) as error:
+    except (
+        DatasetFormatError,
+        ExportError,
+        ManifestError,
+        LeakageInputError,
+        ScoreInputError,
+        CompareError,
+        ValueError,
+        FileNotFoundError,
+    ) as error:
         print(f"오류: {error}", file=sys.stderr)
         return EX_FORMAT
 

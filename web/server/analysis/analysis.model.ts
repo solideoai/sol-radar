@@ -205,8 +205,45 @@ export type ExtractReading =
       diagnostic: FailureDiagnostic | null;
     };
 
-/** /extract 결과 → 쓸 수 있는 추출 또는 PARTIAL 사유. 1단계 toExtractionOutcome 뒤 payload 를 scoring 스키마로 검증한다. */
-export function readExtractResult(result: GatewayResult<ExtractResponse>): ExtractReading {
+/** 근거(EvidenceRef)의 fetchedAt 을 채울 때 쓰는 공고 revision 의 수집 시각. NormalizedBidSummary.fetchedAt(= bid_revisions.fetched_at)이다. */
+export type EvidenceFetchedAt = { fetchedAt: string };
+
+function hasFetchedAt(ref: Record<string, unknown>): boolean {
+  return typeof ref.fetchedAt === "string" && ref.fetchedAt.length > 0;
+}
+
+/**
+ * gateway 추출 payload 의 근거(EvidenceRef)에 fetchedAt 이 없으면 revision 의 수집 시각으로 채운다.
+ *
+ * gateway(services/ai extraction.py)는 모델이 낸 fetchedAt 을 통과시키기만 하고 채우지 않으며 JSON Schema 에서도 선택이다.
+ * 반면 scoring 의 evidenceRefSchema 는 필수라, 실모델 추출은 모델이 fetchedAt 을 쓰지 않으면 통째로 EXTRACTION_FAILED 가
+ * 됐다(2026-10-20 docs 감사). 근거의 수집 시각은 그 추출이 읽은 revision 의 fetched_at 과 같으므로 여기서 채운다.
+ * 모델이 낸 값이 있으면 그대로 둔다. 다른 키·모양은 손대지 않고(스키마 검증은 그대로 뒤에서 한다), 입력을 바꾸지 않는다.
+ */
+export function fillMissingEvidenceFetchedAt(
+  payload: unknown,
+  revision: EvidenceFetchedAt,
+): unknown {
+  if (!isRecord(payload)) return payload;
+  const filled: Record<string, unknown> = { ...payload };
+  for (const [key, field] of Object.entries(payload)) {
+    if (!isRecord(field) || !Array.isArray(field.evidence)) continue;
+    const evidence = field.evidence.map((ref) =>
+      isRecord(ref) && !hasFetchedAt(ref) ? { ...ref, fetchedAt: revision.fetchedAt } : ref,
+    );
+    filled[key] = { ...field, evidence };
+  }
+  return filled;
+}
+
+/**
+ * /extract 결과 → 쓸 수 있는 추출 또는 PARTIAL 사유. 1단계 toExtractionOutcome 뒤 근거의 빈 fetchedAt 을 revision 수집 시각으로
+ * 채우고(fillMissingEvidenceFetchedAt) payload 를 scoring 스키마로 검증한다. 저장되는 payload 는 채운 뒤의 값이다.
+ */
+export function readExtractResult(
+  result: GatewayResult<ExtractResponse>,
+  revision: EvidenceFetchedAt,
+): ExtractReading {
   const outcome = toExtractionOutcome(result);
   if (outcome.kind === "UNAVAILABLE") {
     return result.ok
@@ -218,7 +255,9 @@ export function readExtractResult(result: GatewayResult<ExtractResponse>): Extra
           diagnostic: toFailureDiagnostic(result.failure),
         };
   }
-  const parsed = requirementExtractionSchema.safeParse(outcome.response.payload);
+  const parsed = requirementExtractionSchema.safeParse(
+    fillMissingEvidenceFetchedAt(outcome.response.payload, revision),
+  );
   if (!parsed.success) {
     // gateway 가 응답했으므로 추출 실패다. issue 에는 경로·코드만 있고 payload 값(공고 원문)은 없다.
     return {

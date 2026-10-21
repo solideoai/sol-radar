@@ -1,5 +1,7 @@
 """EvalItem JSONL → Kev JSONL(docs/21 §3.7, 22 §4.1): 한 줄 = {"state": …, "questions": {qid: {...}}}.
 
+`--format bosun`(기본은 kev)이면 bosun_export.export_bosun 으로 넘긴다(질문 단위 레코드, 15 §4.1). 아래는 Kev 형식이다.
+
 - state 는 서빙 빌더(state.py)로 만든다. en·ko 두 벌.
 - instructions·criteria 는 v0.2.json 원문 그대로(req 틀은 {itemId} 만 항목 경로로 바꾼다. 서빙과 같다).
 - label 형: choice 는 선택지 문자열, noul 은 JSON boolean, score 는 등급 index 정수(22 §4.1 예시 기준).
@@ -18,6 +20,7 @@ from typing import Any
 from sol_ai.adapters import kev_wire
 from sol_ai.kev_state import CHARS_PER_TOKEN
 from sol_ai.question_sets import Q_REQUIREMENT_STATUS, QuestionSet
+from sol_eval.bosun_export import BosunExportError, BosunExportOptions, export_bosun
 from sol_eval.dataset import SPLITS, EvalItem, Label, read_items
 from sol_eval.labels import (
     allowed_labels,
@@ -30,6 +33,9 @@ from sol_eval.state import LANGUAGES, build_state, has_hangul, state_hash
 
 MIN_LABEL_SHARE = 0.05
 DEFAULT_MAX_STATE_TOKENS = 2048
+FORMAT_KEV = "kev"
+FORMAT_BOSUN = "bosun"
+FORMATS = (FORMAT_KEV, FORMAT_BOSUN)
 
 
 class ExportError(ValueError):
@@ -42,6 +48,7 @@ class ExportOptions:
     languages: tuple[str, ...] = LANGUAGES
     max_state_tokens: int = DEFAULT_MAX_STATE_TOKENS
     splits: tuple[str, ...] = SPLITS
+    format: str = FORMAT_KEV
 
 
 @dataclass
@@ -212,6 +219,13 @@ def _balance_warnings(report: SplitLanguageReport, question_set: QuestionSet) ->
 
 
 def export(options: ExportOptions) -> dict[str, Any]:
+    if options.format == FORMAT_BOSUN:
+        try:
+            return export_bosun(BosunExportOptions(out_dir=options.out_dir, splits=options.splits))
+        except BosunExportError as error:
+            raise ExportError(str(error)) from error
+    if options.format != FORMAT_KEV:
+        raise ExportError(f"알 수 없는 형식: {options.format} (가능: {', '.join(FORMATS)})")
     question_set = load_question_set()
     kev_dir = options.out_dir / "kev"
     kev_dir.mkdir(parents=True, exist_ok=True)

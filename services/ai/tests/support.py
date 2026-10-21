@@ -26,10 +26,21 @@ RULES_FILE = REPO_ROOT / "infra" / "run-modes.json"
 SRC_DIR = AI_ROOT / "src" / "sol_ai"
 
 PROMPT_VERSION = "req-extract/v0.1"
-# local 어댑터 시험(가짜 모델 서버). 키는 가짜 값이다
-QWEN_RUN = "Qwen/Qwen3.5-9B"
-KEV_RUN = "jaredpalmer/kev-9b@v1.0"
-KEV_MODEL_ID = "kev-9b-v1.0"
+# local 어댑터 시험(가짜 모델 서버). 키는 가짜 값이다. 모델 식별자는 레지스트리(03 §11, ADR-034 6번)의 active 항목이다
+QWEN_RUN = "Qwen/Qwen3.8-Flash-Next"
+KEV_RUN = "Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"
+KEV_MODEL_ID = "bosun-v3.1-0.6b"
+# 결정 모델 서버 POST /v1/systemone 요청 본문의 "model"(레지스트리 requestModel)
+KEV_REQUEST_MODEL = "bosun-v3.1-0.6b"
+# 결정 모델 서버 GET /v1/models 가 내는 값(레지스트리 base·lora·revision 과 같아야 기동한다)
+KEV_BASE = "Qwen/Qwen3-0.6B@c1899de2"
+KEV_LORA_SHA256 = "961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5"
+KEV_REVISION = "5e78a37c8d86860ebac9ef2d5327d6299498498e"
+# 퇴역·백업 항목(기동 대조 대상이 아니다)
+RETIRED_KEV_MODEL_ID = "kev-9b-v1.0"
+RETIRED_QWEN_RUN = "Qwen/Qwen3.5-9B"
+RETIRED_QWEN27B_RUN = "Qwen/Qwen3.5-27B"
+BACKUP_QWEN_RUN = "Qwen/Qwen3-4B-Instruct-2507"
 QWEN_KEY = "qwen-test-key-0001"
 KEV_KEY = "kev-test-key-0002"
 KEV_DISCLAIMER = "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."

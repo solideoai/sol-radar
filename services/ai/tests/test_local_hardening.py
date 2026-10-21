@@ -43,6 +43,7 @@ from pydantic import SecretStr
 from support import (
     AI_ROOT,
     KEV_KEY,
+    KEV_MODEL_ID,
     LEGEND,
     QWEN_KEY,
     QWEN_RUN,
@@ -694,7 +695,7 @@ def test_empty_question_set_and_model_id_env_use_defaults(monkeypatch):
     monkeypatch.setenv("KEV_QUESTION_SET", "")
     monkeypatch.setenv("KEV_MODEL_ID", "")
     settings = Settings()
-    assert (settings.KEV_QUESTION_SET, settings.KEV_MODEL_ID) == ("kev-qs/v0.1", "kev-9b-v1.0")
+    assert (settings.KEV_QUESTION_SET, settings.KEV_MODEL_ID) == ("kev-qs/v0.1", KEV_MODEL_ID)
 
 
 def test_local_starts_with_empty_question_set_and_model_id_env():

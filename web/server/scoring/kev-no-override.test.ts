@@ -135,7 +135,7 @@ describe("G3·V2-06 · Kev 는 규칙 판정·점수·권고를 바꾸지 못한
     expect(result.score).toBe(94);
     expect(result.qualificationStatus).toBe("SATISFIED");
     expect(result.reviewFlags).toEqual(["MODEL_RULE_DISAGREEMENT", "KEV_MANDATORY_RISK"]);
-    expect(result.explanation).toContain("Kev는 NO_BID를 제시했지만 규칙 판정이 우선");
+    expect(result.explanation).toContain("결정 모델은 NO_BID를 제시했지만 규칙 판정이 우선");
   });
 
   it("Kev 임계값 경계: needsHumanReview 0.70 은 플래그, 0.699 는 아님", () => {

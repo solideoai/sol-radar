@@ -65,6 +65,23 @@
           "command": "bash",
           "args": ["verify.sh"]
         }
+      },
+      {
+        "name": "decision",
+        "directory": "services/decision",
+        "marker": "pyproject.toml",
+        "setup": {
+          "command": "uv",
+          "args": ["sync", "--frozen"]
+        },
+        "verify": {
+          "command": "bash",
+          "args": ["verify.sh"]
+        },
+        "quick": {
+          "command": "bash",
+          "args": ["verify.sh"]
+        }
       }
     ]
   },

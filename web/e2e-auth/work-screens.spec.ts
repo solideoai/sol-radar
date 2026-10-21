@@ -180,7 +180,7 @@ test.describe("S3 /bids", () => {
     await expect(rail).toContainText("MODEL_RULE_DISAGREEMENT");
     expect(await kevDistribution(page)).toEqual({ BID: 55, WATCH: 30, "NO-BID": 15 });
     const kev = kevSection(page);
-    await expect(kev.getByText("규칙 우선(Kev 의견 상이)", { exact: true })).toBeVisible();
+    await expect(kev.getByText("규칙 우선(결정 모델 의견 상이)", { exact: true })).toBeVisible();
     await expect(kev).toContainText("규칙 판정이 우선합니다");
   });
 

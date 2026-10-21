@@ -137,7 +137,36 @@ describe("kevRecordMissing(판단 7)", () => {
 });
 
 describe("KEV_UNAVAILABLE 라벨(ADR-031 C6·ADR-032 D9)", () => {
-  it("미접속과 응답 형식 오류를 함께 뜻하므로 'Kev 사용 불가'다", () => {
-    expect(REVIEW_FLAG_LABEL.KEV_UNAVAILABLE).toBe("Kev 사용 불가");
+  it("미접속과 응답 형식 오류를 함께 뜻하므로 '결정 모델 사용 불가'다", () => {
+    expect(REVIEW_FLAG_LABEL.KEV_UNAVAILABLE).toBe("결정 모델 사용 불가");
+  });
+});
+
+describe("모델 중립 문구(ADR-034 5번)", () => {
+  it("플래그 라벨은 'Kev' 대신 '결정 모델'을 쓰고 키(KEV_*)는 그대로다", () => {
+    expect(JSON.stringify(Object.values(REVIEW_FLAG_LABEL))).not.toMatch(/Kev/);
+    expect(REVIEW_FLAG_LABEL.MODEL_RULE_DISAGREEMENT).toBe("규칙 우선(결정 모델 의견 상이)");
+    expect(REVIEW_FLAG_LABEL.KEV_MANDATORY_RISK).toBe("결정 모델 필수자격 위험 신호");
+    expect(REVIEW_FLAG_LABEL.KEV_NEEDS_REVIEW).toBe("결정 모델 사람 검토 신호");
+    expect(REVIEW_FLAG_LABEL.KEV_REQUIREMENT_DISAGREEMENT).toBe("항목 판정 상이(결정 모델)");
+    expect(REVIEW_FLAG_LABEL.KEV_DELIVERY_RISK).toBe("수행 리스크 신호(결정 모델)");
+    expect(Object.keys(REVIEW_FLAG_LABEL)).toEqual(
+      expect.arrayContaining([
+        "KEV_MANDATORY_RISK",
+        "KEV_NEEDS_REVIEW",
+        "KEV_REQUIREMENT_DISAGREEMENT",
+        "KEV_DELIVERY_RISK",
+        "KEV_UNAVAILABLE",
+      ]),
+    );
+  });
+  it("리스크 라벨 키(risk.*)는 그대로다", () => {
+    expect(Object.keys(KEV_RISK_LABEL)).toEqual([
+      "risk.schedule",
+      "risk.staffing",
+      "risk.scale",
+      "risk.techGap",
+      "risk.scopeAmbiguity",
+    ]);
   });
 });

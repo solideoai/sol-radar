@@ -64,7 +64,7 @@ import { useAnalysisRun, type ActiveRun, type RunState } from "./use-analysis-ru
 
 // /bids/[id] 본문(스펙 §5.4). 정보 위계는 06 §6 순서로 고정이다:
 // ① 상단 요약 → ② 분석 요약 띠(+배너) → ②' 가정 시나리오 띠(BOOST-2, 켠 가정이 있을 때만) → ③ 단계 이력 → ④ 필수자격
-// → ⑤ SOL Score 분해 → ⑥ Kev 참고 지표 → ⑦ 근거 인용.
+// → ⑤ SOL Score 분해 → ⑥ 결정 모델 참고 지표 → ⑦ 근거 인용.
 // 오른쪽 레일은 결정 패널이다. 분석 실행 상태를 머리(버튼)와 본문(skeleton)이 함께 써서 한 클라이언트 부품으로 그린다.
 
 /** 화면에 내려보내는 공고. 본문 근거 하이라이트에 쓰는 content 는 싣고, 화면이 쓰지 않는 큰 칸은 뺀다. */
@@ -90,7 +90,7 @@ type BidDetailViewProps = {
   previousScored: AnalysisView | null;
   /** 분석 이력 첫 쪽. 읽지 못했으면 null. */
   history: { items: AnalysisHistoryRow[]; hasMore: boolean } | null;
-  /** Kev 항목별 분포의 itemId → 추출 문구(서버가 BidDetail.extraction 에서 풀었다). */
+  /** 결정 모델 항목별 분포의 itemId → 추출 문구(서버가 BidDetail.extraction 에서 풀었다). */
   assessmentLabels: Record<string, string>;
   members: { id: string; name: string }[];
   currentUserId: string;
@@ -528,8 +528,9 @@ function ProfileBadge() {
 }
 
 function aiText(model: AnalysisView["model"]): string {
+  // mock 응답은 실제 모델이 추론한 것처럼 보이면 안 된다(ADR-034 15번). 모델명 없이 "AI: mock" 만 쓴다.
   if (model.provider === "mock") return "AI: mock";
-  // 모델 이름은 받은 식별자 그대로 보인다(스펙 D12).
+  // 모델 이름은 받은 식별자 그대로 보인다(스펙 D12, 예 Hanno-Labs/bosun-v3.1-0.6b@5e78a37c).
   return [`AI: ${model.provider}`, model.qwen?.name, model.kev?.model]
     .filter((part) => part !== undefined)
     .join(" · ");
