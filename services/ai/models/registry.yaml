@@ -11,7 +11,7 @@ allowedHosts:
   - acropolissg.com
 entries:
   # 결정 모델(ADR-034 1·6번). 출처: Hugging Face Hanno-Labs/bosun-v3.1-0.6b 리비전 5e78a37c…, 패키지 manifest.json(2026-10-20 확인).
-  # run 표기는 <repo>@<sha 앞 8자>, 전체 sha 는 revision. 서버(sol_decision) GET /v1/models 의 run·base·lora(·revision) 와 대조한다.
+  # run 표기는 <repo>@<sha 앞 8자>, 전체 sha 는 revision. 서버(sol_decision) GET /v1/models 의 run·base·lora·decision_embeddings_sha256(·revision) 와 대조한다.
   - id: bosun-v3.1-0.6b
     kind: decision
     run: Hanno-Labs/bosun-v3.1-0.6b@5e78a37c
