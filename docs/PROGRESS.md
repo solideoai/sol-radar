@@ -15,6 +15,11 @@ updated: 2026-10-21
 
 작업 폴더에 이미 구현된 사용자 승인 MVP 핵심 DB 시험 21개와 PGlite 스냅샷 재사용을 이 수정에 반영했다. 마이그레이션을 한 번 적용하고 시험마다 독립 DB를 복제한다. 다른 미커밋 시험 축소·제품 변경은 포함하지 않았다. CI와 같은 `node scripts/verify.mjs --common`은 24.41초에 통과했다(루트 502개, 실패·건너뜀 0, 서식·토큰·색·DB 타입 검사 포함). [원인 기록](evidence/verification/20261021-ci-common-timeout.txt), [검증 로그](evidence/verification/20261021-ci-common-verify.txt).
 
+## Vercel 다중 서비스 구성 (2026-10-21, 사용자 승인)
+
+- 사용자 요청으로 루트 `vercel.json`에 `web`(전체 공개 경로)·`ai`(내부 전용), `web → ai`의 `AI_GATEWAY_URL` 바인딩을 구성했다. 기존 웹 코드는 같은 변수를 요청 시점에 읽는다. AI ASGI 진입점과 공용 데이터 번들링 빌드를 추가했다. `eval`은 CLI로, `decision`·worker·Redis·MinIO·Qdrant는 기존 외부 환경으로 유지한다. 외부 worker는 Compose AI gateway를 계속 쓴다. 사용자가 구성 제시 뒤 커밋·푸시를 요청했다.
+- 검증: 공식 Vercel schema 오류 0, `pnpm verify:changed` 통과(루트 163·웹 286·AI 101·decision 57), CLI 65.0.0 `vercel dev -L` 별도 복사본 smoke(첫 화면 200·API 인증 401·내부 AI 상태 `mock`), 웹 프로덕션 빌드 통과. DB·Redis·MinIO를 연결하지 않은 smoke라 `/health/ready` 전체는 503이다. 커밋 전 최신 원격 `main`(`cb972ce`) 기준 별도 작업 폴더에서 전체 `pnpm verify`도 통과했다(루트 765·웹 6,830·AI 1,512·decision 152, 웹 빌드 포함, [로그](evidence/vercel/20261021-commit-verify.txt)). 로그인 E2E·클라우드 배포는 미실행. 최초 임시 검증 실패와 재검증 근거는 [증거](evidence/vercel/20261021-configuration.md)에 기록했다. 구성·환경변수 안내는 [[10-DEPLOYMENT|10 배포]]의 Vercel 절이다.
+
 ## 랜딩 운영 문구 정리 (2026-10-21)
 
 사용자 요청으로 히어로·마지막 CTA의 MVP/로그인 한정 안내, 주요 기능의 개발 예정 표시, 이용 흐름·비교표의 개발 중 문구를 제거했다. FAQ의 데이터 활용 설명도 현재형으로 정리했다. 예시 데이터 고지는 유지하고 관련 E2E 기대 문구를 갱신했다. 기존 미커밋 디자인 변경은 별도로 보존했다.
@@ -109,6 +114,11 @@ updated: 2026-10-21
 
 | 날짜 | Phase | 변경 | 검증 | 남은 문제 |
 |---|---|---|---|---|
+| 2026-10-21 | 사이드바 문구 | 사용자 요청으로 미출시 메뉴의 "준비 중" 배지·툴팁 접미사 제거. 메뉴 이름·비활성 상태·경로 가드 유지, [[06-UI-UX]] §4.1 반영 | `pnpm verify:changed` exit 0·서식·diff 검사 통과. [기록](evidence/phase-3/20261021-sidebar-label.txt) | `/dashboard`는 로그인으로 이동. 저장소 로컬 시험 계정은 현재 서버에서 인증 거절되어, 임시 계정 정보 요청 중. 실제 로그인 뒤 화면·전체 빌드 미검증 |
+| 2026-10-21 | 랜딩 색감 | 후속 요청으로 바깥 세로선·히어로 격자 제거. 기존 brand 파랑을 버튼·메뉴 hover·기능 아이콘·단계 번호에 적용하고 제품 무대·일부 기능 예시·마지막 안내에 4% 옅은 바탕 적용. [[06-UI-UX]] §3.4 갱신 | `pnpm verify:changed` exit 0, 현재 랜딩 E2E 28 PASS, MCP 1440·1280 바깥 선 0px·가로/값 칸 넘침 0, 파랑/흰색 대비 5.41:1. [증거](evidence/landing/20261021-color.txt) | 전체 빌드·인증 흐름 미실행. 기존 테스트 정리·배포 작업 보존 |
+| 2026-10-21 | 랜딩 디자인 | 사용자 지정 Edgelink를 Playwright MCP로 직접 확인. 중앙 히어로·옅은 격자·제품 무대·기능 교차 배치·FAQ·흰 바닥글로 공개 랜딩 개선, [[06-UI-UX]] §3.4에 반영 | `pnpm verify:changed` exit 0(루트 779·웹 6830·AI 1511·결정 모델 152), 개발 서버 랜딩 E2E 35/35·미리보기 브라우저 8/8, MCP 1440·1280 가로/값 칸 넘침 0. [전후 캡처·검증 기록](evidence/landing/20261021-redesign.txt) | 초기 배지 넘침 수정 후 회귀 통과. 127.0.0.1 개발 HMR 오류는 localhost로 구분 검증. 전체 빌드·로그인 뒤 흐름 미실행 |
+| 2026-10-21 | 해커톤 검증 축소 (ADR-046) | `pnpm verify:changed` 추가와 개발/통합 검증 분리. 사용자 추가 지시에 따라 시험 자체도 실제 삭제: 웹6,830→286·루트779→163·AI1,511→101·결정152→57, DB 핵심21. 비핵심 시험293파일 삭제·Python6파일 축소·DB8,608→1,117줄. 게이트·CI·린트 명령과 핵심 점수/보안/데모 검증 유지 | 최종 전체 `pnpm verify` exit 0: 루트163(13.93초), 웹286(5.20초), AI101(22.03초), 결정57(0.55초), 타입·린트·빌드 PASS. 범위 선택14·게이트27도 PASS. [최종 검증](evidence/verification/20261021-mvp-verify.txt)·[삭제 목록](evidence/verification/20261021-pruned-tests.json) | 초기 sandbox EPERM과 축소 전 중단 기록은 [구현 기록](evidence/verification/20261021-implementation.md)에 보존. E2E는 수집 확인이며 이번 실제 실행은 하지 않음. 다른 세션의 랜딩/배포 수정은 보존 |
+| 2026-10-21 | 로컬 실행 | 사용자 요청으로 `pnpm -C web dev` 실행, `http://localhost:3000` | Next.js 16.4.1 Ready 307ms, 루트 HTTP 200([기동 로그](evidence/dev-server-20261021.txt)) | 로그인·외부 서비스 연동은 이번 실행에서 미검증 |
 | 2026-10-16 | 문서 | Kev 저장소 실재·라이선스·API·실행 명령 확인. 18/20 신설, 00·CLAUDE·PROGRESS 개편. 세 세션에 03~17 분배 | 웹 검색·README 확인 | 해커톤 공식 기준 미확인, 한국어 도메인 Kev 성능 미검증, 조달청 API 필드 미검증 |
 | 2026-10-16 | 문서 | 4개 세션 병렬 수정 완료. 660줄 → 3,954줄. 충돌 정리: FX-12는 격리(조직 소유 아님), 계정 5개 `.invalid` 도메인, gateway 엔드포인트 `/extract`+`/kev`, Kev 임계 0.70, 배너 문구 09 verbatim, 골든 G1~G10 / 데모 S0~S7, FX-20은 SEED 배치, seed 리뷰 2건, mock Kev 파일 20건 명시 | 스크립트 검사(frontmatter·위키링크·표 파이프·이메일·폐기 용어·배너 문구) 0건, 핵심 숫자 교차 grep 일치 | Obsidian 실제 렌더 미확인(Mermaid 11블록), git 미초기화, 해커톤 공식 기준·마감 미입력, OpenRouter 등 hosted 공급자 미확인 |
 | 2026-10-16 | 문서 | vault를 `sol-radar` 저장소 `docs/`로 이전(원본 `sol-radar-docs`에서 복사). 템플릿 문서 11개를 `docs/boilerplate/`로 옮기고 분류(`boilerplate/README.md`, 번호 문서 우선). 템플릿 문서를 가리키던 27개 파일의 경로 갱신(`polaris/specs/done`은 지난 기록이라 유지). `.gitignore`에 Obsidian 개인 상태, `.prettierignore`에 `docs/.obsidian/`, Obsidian 제외 목록에 `boilerplate/` 추가. 루트 README 문서 링크를 `docs/`로 변경 | 링크 검사(마크다운 링크·위키링크 573개·`docs/boilerplate` 경로 47개) 이동으로 깨진 것 0건, `pnpm format:check` 통과, `pnpm test` 177/177, `pnpm verify:quick` 통과 | 미커밋. 원본 `sol-radar-docs` 삭제 여부 미정. 루트 `AGENTS.md`·템플릿 코드(Supabase·Expo)와 번호 문서 스택(NestJS·Prisma, 모바일 범위 외) 충돌 미해결. `06-UI-UX` 버튼 표기 `[수집 실행](ADMIN만)` 등 4곳이 마크다운 링크로 렌더됨 |
