@@ -186,7 +186,8 @@ const bypassesQuery = `
     from pg_catalog.pg_roles r
     where r.rolname in (${sqlList(SCREEN_ROLES)})
   ), relations as materialized (
-    select c.oid, n.nspname as schema_name, c.relname as name, c.relkind,
+    -- union 의 첫 갈래가 name 형(63바이트)이면 함수 갈래의 시그니처도 잘리므로 text 로 바꾼다.
+    select c.oid, n.nspname as schema_name, c.relname::text as name, c.relkind,
       exists (
         select 1 from pg_catalog.pg_options_to_table(c.reloptions) o
         where case when o.option_name = 'security_invoker' then o.option_value::boolean else false end
@@ -269,6 +270,11 @@ const bypassesQuery = `
 // - public.latest_ingest_run(text): 업무 역할이 있는 사용자에게 최신 수집 run 한 건의 status·started_at·finished_at·summary 만
 //   준다. ingest_runs 는 ADMIN 만 읽는 운영 표라 security definer 다. 로그인 역할만 실행하고, 업무 역할이 없으면 0행이며
 //   다른 열과 수집 오류는 내주지 않는다. 이유는 20261019000012 마이그레이션 주석에 있다.
+// - public.save_kakao_notify_link(text, text, timestamptz, timestamptz)·public.set_kakao_notify_enabled(boolean)·
+//   public.disconnect_kakao_notify()·public.request_kakao_notify_test(): 카카오톡 알림 연결의 저장·켜기 끄기·해제·시험 메시지
+//   요청(ADR-038). 화면 역할에는 kakao_notify_links 의 쓰기 권한과 outbox_events 의 권한이 없어 security definer 다.
+//   로그인 역할만 실행하고, auth.uid() 가 없으면 거절하며, 다루는 행은 부른 사람(auth.uid()) 자신의 연결 행과 그 사람의
+//   KAKAO_TEST outbox 한 건뿐이다. 토큰 열은 돌려주지 않는다. 이유는 20261021000001 마이그레이션 주석에 있다.
 const ALLOWED_DEFINER_FUNCTIONS = new Set([
   "public.resolve_solideo_employment(text, text)",
   "public.my_sol_org_ids(text[])",
@@ -280,6 +286,10 @@ const ALLOWED_DEFINER_FUNCTIONS = new Set([
   "public.is_active_user()",
   "public.delete_my_account()",
   "public.admin_set_user_status(uuid, text)",
+  "public.save_kakao_notify_link(text, text, timestamp with time zone, timestamp with time zone)",
+  "public.set_kakao_notify_enabled(boolean)",
+  "public.disconnect_kakao_notify()",
+  "public.request_kakao_notify_test()",
 ]);
 
 const compareBypass = compareBy((finding) => [

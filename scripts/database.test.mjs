@@ -6972,6 +6972,259 @@ describe("분석 마감 함수 — finish_score_run (C5-B 보안 후속)", () =>
       );
     });
   });
+
+  // 추천 공고 outbox(20261021000002, ADR-038). 사람이 요청한 분석이 BID·WATCH 로 끝나면 finish_score_run 이 결과와 같은
+  // 트랜잭션에 BID_RECOMMENDED 1건을 쓴다. 키는 조직·공고마다 하나라 다시 분석해도 늘지 않는다(처음 한 번만).
+  // 근거: docs/plans/2026-10-20-kakao-memo-notify-plan.md Task 1, 설계 docs/plans/2026-10-20-kakao-memo-notify-design.md §5.1·§7.
+  describe("추천 공고 outbox — BID_RECOMMENDED", () => {
+    const VERSION = "20261021000002";
+    const INDEX = "outbox_events_notify_due_idx";
+    const keyOf = (org = ORG1) => `${org}:${BID}:BID_RECOMMENDED`;
+    // 화면에서 들어온 분석 요청처럼 요청자를 채운다(C6 insert 는 requested_by 기본값 auth.uid()).
+    const setRequester = async (pglite, run, requester = ADMIN) => {
+      await asWorker(pglite);
+      await pglite.query("update public.score_runs set requested_by = $2 where id = $1", [
+        run,
+        requester,
+      ]);
+    };
+    const recommendedOf = async (pglite) =>
+      rowsOf(
+        pglite,
+        `select org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key, status, attempts, next_attempt_at
+         from public.outbox_events where event_type = 'BID_RECOMMENDED' order by created_at, id`,
+      );
+    const eventTypesOf = async (pglite) =>
+      (await rowsOf(pglite, "select event_type from public.outbox_events order by event_type")).map(
+        (row) => row.event_type,
+      );
+    const PARTIAL_WATCH = {
+      status: "PARTIAL",
+      recommendation: "WATCH",
+      error_code: "AI_UNAVAILABLE",
+      review_flags: ["AI_UNAVAILABLE"],
+    };
+    // 부분 인덱스의 WHERE 식(카탈로그 값). 없으면 null.
+    const predicateOf = async (pglite) =>
+      (
+        await pglite.query(
+          `select pg_get_expr(i.indpred, i.indrelid) as predicate,
+                  array(select a.attname::text
+                          from unnest(i.indkey::int2[]) with ordinality as k(attnum, ord)
+                          join pg_attribute a on a.attrelid = i.indrelid and a.attnum = k.attnum
+                         order by k.ord) as columns
+             from pg_index i
+             join pg_class c on c.oid = i.indexrelid
+             join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and c.relname = $1`,
+          [INDEX],
+        )
+      ).rows[0] ?? null;
+    // WHERE 식을 상태 4 × 종류 7 의 모든 조합에 그대로 적용해 덮는 조합을 고른다(글자 모양에 기대지 않는다).
+    const coveredBy = async (pglite, predicate) =>
+      (
+        await pglite.query(
+          `select status, event_type
+             from (values ('PENDING'), ('PROCESSED'), ('FAILED'), ('DEAD')) as s(status)
+            cross join (values ('BID_CREATED'), ('BID_CHANGED'), ('DEADLINE_APPROACHING'), ('ANALYSIS_COMPLETE'),
+                               ('REVIEW_ASSIGNED'), ('BID_RECOMMENDED'), ('KAKAO_TEST')) as e(event_type)
+            where ${predicate}
+            order by 1, 2`,
+        )
+      ).rows;
+
+    it("⑨ 요청자가 있는 run 이 BID 로 마감되면 BID_RECOMMENDED 1건을 org_id·aggregate·payload·키 그대로 PENDING 으로 쓴다 — ANALYSIS_COMPLETE 도 그대로 함께 쓴다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN));
+      assert.deepEqual(await recommendedOf(pglite), [
+        {
+          org_id: ORG1,
+          aggregate_type: "score_run",
+          aggregate_id: RUN,
+          event_type: "BID_RECOMMENDED",
+          payload: {
+            scoreRunId: RUN,
+            bidId: BID,
+            orgId: ORG1,
+            recommendation: "BID",
+            status: "COMPLETED",
+          },
+          idempotency_key: keyOf(),
+          status: "PENDING",
+          attempts: 0,
+          next_attempt_at: null,
+        },
+      ]);
+      assert.deepEqual(await eventTypesOf(pglite), ["ANALYSIS_COMPLETE", "BID_RECOMMENDED"]);
+    });
+
+    it("⑨ PARTIAL(규칙만 분석)로 끝난 WATCH 도 쓴다 — payload 는 recommendation WATCH·status PARTIAL 이다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN, { result: PARTIAL_WATCH }));
+      assert.deepEqual(
+        (await recommendedOf(pglite)).map((row) => [row.payload, row.idempotency_key]),
+        [
+          [
+            {
+              scoreRunId: RUN,
+              bidId: BID,
+              orgId: ORG1,
+              recommendation: "WATCH",
+              status: "PARTIAL",
+            },
+            keyOf(),
+          ],
+        ],
+      );
+    });
+
+    it("⑩ 같은 공고를 다시 분석해 WATCH 로 마감해도 BID_RECOMMENDED 는 처음 run 의 1건 그대로다 — ANALYSIS_COMPLETE 는 run 마다 1건씩이다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await insertRun(pglite, SIBLING);
+      await setRequester(pglite, RUN);
+      await setRequester(pglite, SIBLING);
+      await finish(pglite, payloadOf(RUN));
+      assert.deepEqual(
+        await finish(pglite, payloadOf(SIBLING, { result: { recommendation: "WATCH" } })),
+        [{ id: SIBLING }],
+      );
+      assert.deepEqual(
+        (await recommendedOf(pglite)).map((row) => [
+          row.aggregate_id,
+          row.payload.scoreRunId,
+          row.payload.recommendation,
+          row.idempotency_key,
+        ]),
+        [[RUN, RUN, "BID", keyOf()]],
+      );
+      assert.deepEqual(await eventTypesOf(pglite), [
+        "ANALYSIS_COMPLETE",
+        "ANALYSIS_COMPLETE",
+        "BID_RECOMMENDED",
+      ]);
+    });
+
+    it("⑩ 다른 조직이 같은 공고를 BID 로 마감하면 그 조직의 키(<orgId>:<bidId>:BID_RECOMMENDED)로 따로 1건이다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await insertRun(pglite, ORG2_RUN, { org: ORG2 });
+      await setRequester(pglite, RUN);
+      await setRequester(pglite, ORG2_RUN, OPERATOR);
+      await finish(pglite, payloadOf(RUN));
+      await finish(pglite, payloadOf(ORG2_RUN, { org: ORG2 }));
+      assert.deepEqual(
+        (await recommendedOf(pglite))
+          .map((row) => [row.org_id, row.payload.orgId, row.idempotency_key])
+          .toSorted((a, b) => (a[2] < b[2] ? -1 : 1)),
+        [
+          [ORG1, ORG1, keyOf(ORG1)],
+          [ORG2, ORG2, keyOf(ORG2)],
+        ].toSorted((a, b) => (a[2] < b[2] ? -1 : 1)),
+      );
+    });
+
+    it("⑪ 요청자가 없는 run(requested_by null, 데모 사전 분석)은 BID 로 마감해도 쓰지 않는다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      assert.deepEqual(await finish(pglite, payloadOf(RUN)), [{ id: RUN }]);
+      assert.deepEqual(await recommendedOf(pglite), []);
+      assert.deepEqual(await eventTypesOf(pglite), []);
+    });
+
+    it("⑫ NO_BID 로 마감하면 쓰지 않고, 같은 공고를 나중에 다시 분석해 BID 가 나오면 그때 처음 1건이 생긴다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await insertRun(pglite, SIBLING);
+      await setRequester(pglite, RUN);
+      await setRequester(pglite, SIBLING);
+      await finish(pglite, payloadOf(RUN, { result: { recommendation: "NO_BID" } }));
+      assert.deepEqual(await recommendedOf(pglite), []);
+      assert.deepEqual(await eventTypesOf(pglite), ["ANALYSIS_COMPLETE"]);
+      await finish(pglite, payloadOf(SIBLING));
+      assert.deepEqual(
+        (await recommendedOf(pglite)).map((row) => [
+          row.aggregate_id,
+          row.payload.recommendation,
+          row.idempotency_key,
+        ]),
+        [[SIBLING, "BID", keyOf()]],
+      );
+    });
+
+    it("⑫ 권고가 없는 마감(recommendation null)도 쓰지 않는다", async (t) => {
+      const pglite = await finishDb(t);
+      await insertRun(pglite, RUN);
+      await setRequester(pglite, RUN);
+      await finish(pglite, payloadOf(RUN, { result: { ...PARTIAL_WATCH, recommendation: null } }));
+      assert.deepEqual(await recommendedOf(pglite), []);
+    });
+
+    it("⑬ 부분 인덱스 outbox_events_notify_due_idx 의 WHERE 는 새 종류 BID_RECOMMENDED·KAKAO_TEST 의 PENDING·FAILED 도 덮는다 — 키 열은 그대로 (created_at, id)", async (t) => {
+      const fresh = await freshDb(t);
+      await applyMigrations(fresh, migrations);
+      const index = await predicateOf(fresh);
+      assert.ok(index?.predicate, `${INDEX} 는 부분 인덱스(WHERE)여야 한다`);
+      assert.deepEqual(index.columns, ["created_at", "id"]);
+      assert.deepEqual(await coveredBy(fresh, index.predicate), [
+        { status: "FAILED", event_type: "ANALYSIS_COMPLETE" },
+        { status: "FAILED", event_type: "BID_RECOMMENDED" },
+        { status: "FAILED", event_type: "KAKAO_TEST" },
+        { status: "FAILED", event_type: "REVIEW_ASSIGNED" },
+        { status: "PENDING", event_type: "ANALYSIS_COMPLETE" },
+        { status: "PENDING", event_type: "BID_RECOMMENDED" },
+        { status: "PENDING", event_type: "KAKAO_TEST" },
+        { status: "PENDING", event_type: "REVIEW_ASSIGNED" },
+      ]);
+    });
+
+    it(`⑬ 새 종류는 ${VERSION} 이 더한다 — 그 앞까지 적용한 인덱스는 BID_RECOMMENDED·KAKAO_TEST 를 덮지 않는다`, async (t) => {
+      const fresh = await freshDb(t);
+      await applyMigrations(
+        fresh,
+        migrations.filter((migration) => migration.version < VERSION),
+      );
+      const before = await predicateOf(fresh);
+      assert.ok(before?.predicate, `${VERSION} 앞에도 ${INDEX} 가 있어야 한다(20261019000017)`);
+      assert.deepEqual(
+        (await coveredBy(fresh, before.predicate)).filter((row) =>
+          ["BID_RECOMMENDED", "KAKAO_TEST"].includes(row.event_type),
+        ),
+        [],
+      );
+    });
+
+    it("⑬ check 제약이 새 종류를 받는다 — outbox 는 BID_RECOMMENDED·KAKAO_TEST, notifications 는 BID_RECOMMENDED·KAKAO_EXPIRED. 목록 밖 종류는 그대로 거절(23514)한다", async (t) => {
+      const pglite = await finishDb(t);
+      await asWorker(pglite);
+      const outbox = (type, key) =>
+        pglite.query(
+          "insert into public.outbox_events (org_id, aggregate_type, aggregate_id, event_type, idempotency_key) values (null, 'kakao_notify_link', $1, $2, $3)",
+          [ADMIN, type, key],
+        );
+      const notification = (type, channel, key) =>
+        pglite.query(
+          "insert into public.notifications (org_id, user_id, type, channel, idempotency_key, payload) values ($1, $2, $3, $4, $5, $6)",
+          [ORG1, ADMIN, type, channel, key, JSON.stringify({ bidId: BID })],
+        );
+      await outbox("BID_RECOMMENDED", "check-outbox-1");
+      await outbox("KAKAO_TEST", "check-outbox-2");
+      await notification("BID_RECOMMENDED", "KAKAO", "check-notification-1");
+      await notification("KAKAO_EXPIRED", "IN_APP", "check-notification-2");
+      await assert.rejects(outbox("KAKAO_EXPIRED", "check-outbox-3"), {
+        code: "23514",
+        message: /outbox_events_event_type_check/,
+      });
+      await assert.rejects(notification("KAKAO_TEST", "IN_APP", "check-notification-3"), {
+        code: "23514",
+        message: /notifications_type_check/,
+      });
+    });
+  });
 });
 
 // C7 알림 outbox 소비자의 부분 인덱스(20261019000017). 소비자가 없는 공고 이벤트(BID_*)의 PENDING 이 쌓여도
@@ -7073,6 +7326,382 @@ describe("알림 outbox 부분 인덱스 — outbox_events_notify_due_idx (C7)",
       { absent, files: target.length, present: (await indexRow(fresh)).length },
       { absent: 0, files: 1, present: 1 },
     );
+  });
+});
+
+// 카카오톡 알림 연결(20261021000001, ADR-038). 사용자 개인 설정이라 조직 표가 아니고 user_id 로 소유한다(profiles 처럼).
+// 화면 역할은 본인 행의 여섯 열만 읽고(토큰·만료 열은 못 읽는다), 쓰기는 security definer RPC 넷으로만 한다.
+// 근거: docs/plans/2026-10-20-kakao-memo-notify-plan.md Task 1, 설계 docs/plans/2026-10-20-kakao-memo-notify-design.md §7.
+describe("카카오톡 알림 연결 — kakao_notify_links", () => {
+  const [ME, OTHER, OPERATOR] = users;
+  const VISIBLE = ["user_id", "enabled", "status", "last_sent_at", "last_result", "updated_at"];
+  const HIDDEN = [
+    "access_token_enc",
+    "refresh_token_enc",
+    "access_expires_at",
+    "refresh_expires_at",
+    "created_at",
+  ];
+  const TABLE_DENIED = { code: "42501", message: /permission denied for table kakao_notify_links/ };
+  const fnDenied = (name) => ({
+    code: "42501",
+    message: new RegExp(`permission denied for function ${name}`),
+  });
+  const NOT_CONNECTED = { message: "KAKAO_NOT_CONNECTED" };
+  const NOT_READY = { message: "KAKAO_NOT_READY" };
+  const ACCESS_AT = "2026-10-21T16:00:00.000Z";
+  const REFRESH_AT = "2026-12-20T10:00:00.000Z";
+  const RPCS = [
+    [
+      "save_kakao_notify_link",
+      "select public.save_kakao_notify_link('enc-access', 'enc-refresh', now(), now())",
+    ],
+    ["set_kakao_notify_enabled", "select public.set_kakao_notify_enabled(true)"],
+    ["disconnect_kakao_notify", "select public.disconnect_kakao_notify()"],
+    ["request_kakao_notify_test", "select public.request_kakao_notify_test()"],
+  ];
+
+  // JWT 없는 관리 작업(worker·seed 자리). RLS 를 거치지 않고 본다·고친다.
+  const asWorker = async (pglite) => {
+    await pglite.exec("reset role");
+    await pglite.query("select set_config('request.jwt.claims', '', false)");
+  };
+  const workerRows = async (pglite, sql, params = []) => {
+    await asWorker(pglite);
+    return (await pglite.query(sql, params)).rows;
+  };
+  const iso = (value) => (value === null ? null : value.toISOString());
+  // 본인 행 전체(토큰 열 포함)를 worker 자리에서 읽는다.
+  const linkOf = async (pglite, who) =>
+    (
+      await workerRows(
+        pglite,
+        `select user_id, enabled, status, access_token_enc, refresh_token_enc, access_expires_at, refresh_expires_at,
+           last_sent_at, last_result
+         from public.kakao_notify_links where user_id = $1`,
+        [who],
+      )
+    ).map((row) => ({
+      ...row,
+      access_expires_at: iso(row.access_expires_at),
+      refresh_expires_at: iso(row.refresh_expires_at),
+    }));
+  // 콜백(웹 서버)이 부르는 자리 — 그 사람으로 로그인해 RPC 를 부른다.
+  const save = async (
+    pglite,
+    who,
+    access = `enc-access-${who}`,
+    refresh = `enc-refresh-${who}`,
+  ) => {
+    await actAs(pglite, who);
+    await pglite.query("select public.save_kakao_notify_link($1, $2, $3, $4)", [
+      access,
+      refresh,
+      ACCESS_AT,
+      REFRESH_AT,
+    ]);
+  };
+  const setEnabled = async (pglite, who, enabled) => {
+    await actAs(pglite, who);
+    return pglite.query("select public.set_kakao_notify_enabled($1)", [enabled]);
+  };
+  // worker 가 갱신 실패(invalid_grant)로 연결을 만료시키는 자리.
+  const expire = async (pglite, who) => {
+    await asWorker(pglite);
+    await pglite.query(
+      "update public.kakao_notify_links set status = 'EXPIRED', last_result = 'EXPIRED' where user_id = $1",
+      [who],
+    );
+  };
+  const testOutboxOf = async (pglite) =>
+    workerRows(
+      pglite,
+      `select org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key, status
+       from public.outbox_events where event_type = 'KAKAO_TEST' order by created_at, id`,
+    );
+
+  it("① 본인은 자기 행의 허용 열 여섯 개만 읽는다 — 토큰·만료·created_at 열은 하나씩 골라도, 그 열로 걸러도, select * 도 권한 오류(42501)다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    await actAs(pglite, ME);
+    const rows = (await pglite.query(`select ${VISIBLE.join(", ")} from public.kakao_notify_links`))
+      .rows;
+    assert.deepEqual(Object.keys(rows[0] ?? {}), VISIBLE);
+    assert.deepEqual(
+      rows.map(({ updated_at, ...row }) => ({
+        ...row,
+        has_updated_at: updated_at instanceof Date,
+      })),
+      [
+        {
+          user_id: ME,
+          enabled: true,
+          status: "CONNECTED",
+          last_sent_at: null,
+          last_result: null,
+          has_updated_at: true,
+        },
+      ],
+    );
+    for (const column of HIDDEN) {
+      await assert.rejects(
+        pglite.query(`select ${column} from public.kakao_notify_links`),
+        TABLE_DENIED,
+        `select ${column}`,
+      );
+      // PostgREST 의 ?<열>=eq.<값> 필터 자리. 숨긴 열 값을 짐작해 맞혀 보는 길도 닫힌다.
+      await assert.rejects(
+        pglite.query(`select user_id from public.kakao_notify_links where ${column} is not null`),
+        TABLE_DENIED,
+        `where ${column}`,
+      );
+    }
+    await assert.rejects(pglite.query("select * from public.kakao_notify_links"), TABLE_DENIED);
+  });
+
+  it("① 화면 역할의 kakao_notify_links 권한은 authenticated 의 열 단위 SELECT 여섯 개뿐이다 — 표 단위 권한은 없고 anon 에는 아무것도 없다", async (t) => {
+    const pglite = await migratedDb(t);
+    assert.deepEqual(
+      await workerRows(
+        pglite,
+        "select grantee, privilege_type from information_schema.role_table_grants where table_schema='public' and table_name='kakao_notify_links' and grantee in ('anon','authenticated')",
+      ),
+      [],
+    );
+    assert.deepEqual(
+      await workerRows(
+        pglite,
+        "select grantee, column_name, privilege_type from information_schema.column_privileges where table_schema='public' and table_name='kakao_notify_links' and grantee in ('anon','authenticated') order by 1,2,3",
+      ),
+      [...VISIBLE].sort().map((column_name) => ({
+        grantee: "authenticated",
+        column_name,
+        privilege_type: "SELECT",
+      })),
+    );
+  });
+
+  it("② 남의 행은 0행이다 — 두 사람이 모두 연결해도 각자 자기 행 하나만 보이고, 남의 user_id 로 걸러도 0행이며 운영자(is_admin)도 남의 행을 못 본다", async (t) => {
+    const pglite = await migratedDb(t);
+    await asWorker(pglite);
+    await pglite.query("update public.profiles set is_admin = true where id = $1", [OPERATOR]);
+    await save(pglite, ME);
+    await save(pglite, OTHER);
+    for (const [who, other] of [
+      [ME, OTHER],
+      [OTHER, ME],
+    ]) {
+      await actAs(pglite, who);
+      assert.deepEqual(
+        (await pglite.query("select user_id from public.kakao_notify_links")).rows,
+        [{ user_id: who }],
+        who,
+      );
+      assert.deepEqual(
+        (
+          await pglite.query("select user_id from public.kakao_notify_links where user_id = $1", [
+            other,
+          ])
+        ).rows,
+        [],
+        `${who} → ${other}`,
+      );
+    }
+    await actAs(pglite, OPERATOR);
+    assert.deepEqual(
+      (await pglite.query("select user_id from public.kakao_notify_links")).rows,
+      [],
+    );
+  });
+
+  it("③ anon 은 표 읽기·쓰기와 RPC 넷 모두 권한 오류(42501)이고 행은 그대로다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    const before = await linkOf(pglite, ME);
+    await actAs(pglite, null, "anon");
+    await assert.rejects(
+      pglite.query("select user_id from public.kakao_notify_links"),
+      TABLE_DENIED,
+    );
+    await assert.rejects(
+      pglite.query("update public.kakao_notify_links set enabled = false where user_id = $1", [ME]),
+      TABLE_DENIED,
+    );
+    await assert.rejects(
+      pglite.query("delete from public.kakao_notify_links where user_id = $1", [ME]),
+      TABLE_DENIED,
+    );
+    for (const [name, sql] of RPCS) await assert.rejects(pglite.query(sql), fnDenied(name), name);
+    assert.deepEqual(await linkOf(pglite, ME), before);
+  });
+
+  it("③ 로그인 역할이어도 JWT 에 사용자(sub)가 없으면 RPC 넷 모두 UNAUTHENTICATED 다", async (t) => {
+    const pglite = await migratedDb(t);
+    await actAs(pglite, null);
+    for (const [name, sql] of RPCS)
+      await assert.rejects(pglite.query(sql), { message: "UNAUTHENTICATED" }, name);
+    assert.deepEqual(await workerRows(pglite, "select user_id from public.kakao_notify_links"), []);
+  });
+
+  it("④ set_kakao_notify_enabled(true) 는 행이 없으면 KAKAO_NOT_CONNECTED 다 — 끄기(false)는 행이 없어도 오류 없이 아무것도 만들지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await assert.rejects(setEnabled(pglite, ME, true), NOT_CONNECTED);
+    await setEnabled(pglite, ME, false);
+    assert.deepEqual(await linkOf(pglite, ME), []);
+  });
+
+  it("④ CONNECTED 행은 끄고 다시 켤 수 있고, EXPIRED 행은 켤 수 없지만(KAKAO_NOT_CONNECTED) 끌 수는 있다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    const stateOf = async () =>
+      (await linkOf(pglite, ME)).map(({ enabled, status }) => ({ enabled, status }));
+    await setEnabled(pglite, ME, false);
+    assert.deepEqual(await stateOf(), [{ enabled: false, status: "CONNECTED" }]);
+    await setEnabled(pglite, ME, true);
+    assert.deepEqual(await stateOf(), [{ enabled: true, status: "CONNECTED" }]);
+    await expire(pglite, ME);
+    await assert.rejects(setEnabled(pglite, ME, true), NOT_CONNECTED);
+    await setEnabled(pglite, ME, false);
+    assert.deepEqual(await stateOf(), [{ enabled: false, status: "EXPIRED" }]);
+    await assert.rejects(setEnabled(pglite, ME, true), NOT_CONNECTED);
+    assert.deepEqual(await stateOf(), [{ enabled: false, status: "EXPIRED" }]);
+  });
+
+  it("⑤ save_kakao_notify_link 뒤 본인 행은 enabled=true·status='CONNECTED' 이고 암호문·만료 시각이 그대로 들어간다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME, "enc-access-1", "enc-refresh-1");
+    assert.deepEqual(await linkOf(pglite, ME), [
+      {
+        user_id: ME,
+        enabled: true,
+        status: "CONNECTED",
+        access_token_enc: "enc-access-1",
+        refresh_token_enc: "enc-refresh-1",
+        access_expires_at: ACCESS_AT,
+        refresh_expires_at: REFRESH_AT,
+        last_sent_at: null,
+        last_result: null,
+      },
+    ]);
+  });
+
+  it("⑤ 다시 저장하면(재연결) 같은 행을 바꾼다 — EXPIRED·끔이 CONNECTED·켬으로 돌아오고 암호문이 바뀌며 행은 1개다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME, "enc-access-1", "enc-refresh-1");
+    await expire(pglite, ME);
+    await setEnabled(pglite, ME, false);
+    await save(pglite, ME, "enc-access-2", "enc-refresh-2");
+    assert.deepEqual(
+      (await linkOf(pglite, ME)).map(
+        ({ enabled, status, access_token_enc, refresh_token_enc }) => ({
+          enabled,
+          status,
+          access_token_enc,
+          refresh_token_enc,
+        }),
+      ),
+      [
+        {
+          enabled: true,
+          status: "CONNECTED",
+          access_token_enc: "enc-access-2",
+          refresh_token_enc: "enc-refresh-2",
+        },
+      ],
+    );
+  });
+
+  it("⑥ disconnect_kakao_notify 뒤 본인 행은 0행이고 남의 행은 그대로다 — 행이 없을 때 다시 불러도 오류가 없다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    await save(pglite, OTHER);
+    const otherBefore = await linkOf(pglite, OTHER);
+    await actAs(pglite, ME);
+    await pglite.query("select public.disconnect_kakao_notify()");
+    assert.deepEqual(await linkOf(pglite, ME), []);
+    assert.deepEqual(await linkOf(pglite, OTHER), otherBefore);
+    await actAs(pglite, ME);
+    await pglite.query("select public.disconnect_kakao_notify()");
+    assert.deepEqual(await linkOf(pglite, ME), []);
+  });
+
+  it("⑦ request_kakao_notify_test() 를 같은 분에 두 번 부르면 true, false 이고 outbox 에는 KAKAO_TEST 1행이다(org_id null·aggregate·payload·키 <userId>:<UTC 분>:KAKAO_TEST)", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    await actAs(pglite, ME);
+    // 한 트랜잭션 안의 now() 는 같아서 분 경계에 걸려도 두 번이 같은 분이다.
+    await pglite.exec("begin");
+    const first = (await pglite.query("select public.request_kakao_notify_test() as queued")).rows;
+    const second = (await pglite.query("select public.request_kakao_notify_test() as queued")).rows;
+    const [{ minute }] = (
+      await pglite.query(
+        `select to_char(now() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI') as minute`,
+      )
+    ).rows;
+    await pglite.exec("commit");
+    assert.deepEqual([first, second], [[{ queued: true }], [{ queued: false }]]);
+    assert.match(minute, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    assert.deepEqual(await testOutboxOf(pglite), [
+      {
+        org_id: null,
+        aggregate_type: "kakao_notify_link",
+        aggregate_id: ME,
+        event_type: "KAKAO_TEST",
+        payload: { userId: ME },
+        idempotency_key: `${ME}:${minute}:KAKAO_TEST`,
+        status: "PENDING",
+      },
+    ]);
+  });
+
+  it("⑦ 연결이 없거나, 꺼져 있거나, EXPIRED 이면 request_kakao_notify_test() 는 KAKAO_NOT_READY 이고 outbox 를 쓰지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    const request = async () => {
+      await actAs(pglite, ME);
+      return pglite.query("select public.request_kakao_notify_test()");
+    };
+    await assert.rejects(request(), NOT_READY, "연결 없음");
+    await save(pglite, ME);
+    await setEnabled(pglite, ME, false);
+    await assert.rejects(request(), NOT_READY, "꺼짐");
+    await setEnabled(pglite, ME, true);
+    await expire(pglite, ME);
+    await assert.rejects(request(), NOT_READY, "EXPIRED");
+    assert.deepEqual(await testOutboxOf(pglite), []);
+  });
+
+  it("⑧ authenticated 가 kakao_notify_links 를 직접 update·insert·delete 하면 권한 오류(42501)이고, outbox_events 에 직접 넣는 길도 막혀 있다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    await expire(pglite, ME);
+    const before = await linkOf(pglite, ME);
+    await actAs(pglite, ME);
+    for (const sql of [
+      "update public.kakao_notify_links set status = 'CONNECTED' where user_id = $1",
+      "update public.kakao_notify_links set enabled = true where user_id = $1",
+      "update public.kakao_notify_links set access_token_enc = 'forged' where user_id = $1",
+    ])
+      await assert.rejects(pglite.query(sql, [ME]), TABLE_DENIED, sql);
+    await assert.rejects(
+      pglite.query(
+        "insert into public.kakao_notify_links (user_id, enabled, status) values ($1, true, 'CONNECTED')",
+        [OTHER],
+      ),
+      TABLE_DENIED,
+    );
+    await assert.rejects(
+      pglite.query("delete from public.kakao_notify_links where user_id = $1", [ME]),
+      TABLE_DENIED,
+    );
+    await assert.rejects(
+      pglite.query(
+        "insert into public.outbox_events (aggregate_type, aggregate_id, event_type, idempotency_key) values ('kakao_notify_link', $1, 'KAKAO_TEST', 'forged')",
+        [ME],
+      ),
+      { code: "42501", message: /permission denied for table outbox_events/ },
+    );
+    assert.deepEqual(await linkOf(pglite, ME), before);
+    assert.deepEqual(await linkOf(pglite, OTHER), []);
   });
 });
 
@@ -7485,6 +8114,22 @@ describe("뷰·함수로 RLS 를 거치지 않는 길", () => {
       ...opened("delete_my_account(uuid)", "function", ["EXECUTE"]),
       ...opened("is_admin(uuid)", "function", ["EXECUTE"]),
     ]);
+  });
+
+  // 회귀: 결과의 name 열은 뷰 갈래(pg_class.relname, name 형)와 함수 갈래를 union 한다. 첫 갈래가 name 형이면 함수 시그니처가
+  // 63바이트에서 잘려 허용 목록과 맞지 않고, 앞 63자가 같은 다른 함수와 구별되지 않는다(20261021000001 의 save_kakao_notify_link).
+  it("64자를 넘는 함수 시그니처도 잘리지 않고 그대로 나온다 — 허용한 긴 시그니처는 통과하고, 인자 하나만 다른 오버로드는 전체 이름으로 잡는다", async (t) => {
+    const fresh = await freshDb(t);
+    await applyMigrations(fresh, migrations);
+    await fresh.exec(`
+      create function public.save_kakao_notify_link(text, text, timestamptz, timestamptz, text) returns void
+        language sql security definer set search_path = ''
+        as $$ select $$;
+    `);
+    const overload =
+      "save_kakao_notify_link(text, text, timestamp with time zone, timestamp with time zone, text)";
+    assert.ok(overload.length > 64, `${overload.length}자`);
+    assert.deepEqual(await findRlsBypasses(fresh), opened(overload, "function", ["EXECUTE"]));
   });
 
   it("모든 SECURITY DEFINER 함수는 search_path 를 고정해야 한다 — 허용 목록도 예외가 아니다", async (t) => {

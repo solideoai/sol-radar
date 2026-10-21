@@ -861,6 +861,56 @@ export type Database = {
           },
         ]
       }
+      kakao_notify_links: {
+        Row: {
+          access_expires_at: string | null
+          access_token_enc: string | null
+          created_at: string
+          enabled: boolean
+          last_result: string | null
+          last_sent_at: string | null
+          refresh_expires_at: string | null
+          refresh_token_enc: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_expires_at?: string | null
+          access_token_enc?: string | null
+          created_at?: string
+          enabled?: boolean
+          last_result?: string | null
+          last_sent_at?: string | null
+          refresh_expires_at?: string | null
+          refresh_token_enc?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_expires_at?: string | null
+          access_token_enc?: string | null
+          created_at?: string
+          enabled?: boolean
+          last_result?: string | null
+          last_sent_at?: string | null
+          refresh_expires_at?: string | null
+          refresh_token_enc?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakao_notify_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memberships: {
         Row: {
           created_at: string
@@ -1791,6 +1841,10 @@ export type Database = {
         Args: never
         Returns: undefined
       }
+      disconnect_kakao_notify: {
+        Args: never
+        Returns: undefined
+      }
       display_name_from_metadata: {
         Args: { meta: Json }
         Returns: string
@@ -1831,9 +1885,21 @@ export type Database = {
         Args: { p_score_run_id: string }
         Returns: boolean
       }
+      request_kakao_notify_test: {
+        Args: never
+        Returns: boolean
+      }
       resolve_solideo_employment: {
         Args: { p_department: string; p_job_title: string }
         Returns: { department_code: string; department_id: string; department_name: string; job_title_code: string; job_title_id: string; job_title_label: string }[]
+      }
+      save_kakao_notify_link: {
+        Args: { p_access_expires_at: string; p_access_token_enc: string; p_refresh_expires_at: string; p_refresh_token_enc: string }
+        Returns: undefined
+      }
+      set_kakao_notify_enabled: {
+        Args: { p_enabled: boolean }
+        Returns: undefined
       }
       task_dashboard_stats: {
         Args: { as_of?: string; target_org: string }
