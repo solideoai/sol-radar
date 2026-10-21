@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-10-21T15:42:00.233Z",
+  "deploymentId": "dpl_CzpxmUVMG1z2L19K9CUbE7FbSHYr",
+  "readyState": "READY",
+  "expectedDeployment": false,
+  "health": [
+    {
+      "url": "https://www.solideos-radar.com/health/live",
+      "httpStatus": 200
+    },
+    {
+      "url": "https://www.solideos-radar.com/health/ready",
+      "httpStatus": 503
+    },
+    {
+      "url": "https://acropolissg.com/redis/health",
+      "httpStatus": 502
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "dpl_HExk88yn3gSb34PUyipSYuDaThDS",
+  "url": "sol-radar-69a3jrvok-gwanghui97s-projects.vercel.app",
+  "readyState": "READY",
+  "target": "production",
+  "projectId": "prj_i1QhzEUmo98jdaNx829YIVEVTVug",
+  "releaseCommitSha": "4ca804d10bdc70c422626f580882e57a8d133b10",
+  "githubCommitSha": "4ca804d10bdc70c422626f580882e57a8d133b10",
+  "githubCommitRef": "main",
+  "alias": [
+    "www.solideos-radar.com",
+    "sol-radar-khaki.vercel.app",
+    "solideos-radar.com",
+    "sol-radar-gwanghui97s-projects.vercel.app"
+  ],
+  "createdAt": 1792596896810,
+  "ready": 1792596981345,
+  "buildCount": 0
+}

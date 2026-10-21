@@ -1,0 +1,409 @@
+{
+  "target": {
+    "host": "aws-0-ap-southeast-2.pooler.supabase.com",
+    "projectRef": "brtysdocxemrqhdezzqg"
+  },
+  "repository": "/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/public-procurement",
+  "capturedAt": "2026-10-21T15:33:51.072Z",
+  "transaction": "READ ONLY",
+  "appliedMigrationCount": 36,
+  "latestAppliedMigration": "20261023000200",
+  "pending": [],
+  "counts": {
+    "bid_notices": "19",
+    "bid_revisions": "19",
+    "score_runs": "18",
+    "bid_reviews": "2",
+    "bid_documents": "18",
+    "ingest_runs": "1",
+    "bid_opportunities": "19",
+    "opportunity_notice_links": "19",
+    "bid_relevance_assessments": "0",
+    "notice_match_candidates": "0"
+  },
+  "fkFingerprints": [
+    {
+      "schema_name": "public",
+      "table_name": "assignments",
+      "constraint_name": "assignments_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices",
+      "rows": "2",
+      "fingerprint": "22b2be636fddd3572aa5bff7ececd665"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_documents",
+      "constraint_name": "bid_documents_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices",
+      "rows": "18",
+      "fingerprint": "61428d6d0eb456cc72a3ef3c7a51f151"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_documents",
+      "constraint_name": "bid_documents_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions",
+      "rows": "18",
+      "fingerprint": "e953b585f7c45591485c94e6c4867cd3"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_reviews",
+      "constraint_name": "bid_reviews_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices",
+      "rows": "2",
+      "fingerprint": "07216737777b28a6766ecbf2043f340c"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_reviews",
+      "constraint_name": "bid_reviews_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions",
+      "rows": "2",
+      "fingerprint": "8bbc9e06d2ffd1f571b8b3f6f52abf85"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_reviews",
+      "constraint_name": "bid_reviews_score_run_fkey",
+      "columns": ["score_run_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "score_runs",
+      "rows": "2",
+      "fingerprint": "a248d13e88e03e6b26ed56d29e8ffb81"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_revisions",
+      "constraint_name": "bid_revisions_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices",
+      "rows": "19",
+      "fingerprint": "a94ce6be650eb9b43eb963e9f52ef447"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_structured_requirements",
+      "constraint_name": "bid_structured_requirements_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices",
+      "rows": "0",
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_structured_requirements",
+      "constraint_name": "bid_structured_requirements_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions",
+      "rows": "0",
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "qualification_checks",
+      "constraint_name": "qualification_checks_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices",
+      "rows": "21",
+      "fingerprint": "937b78d14644cd943d986167698eeb18"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "qualification_checks",
+      "constraint_name": "qualification_checks_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions",
+      "rows": "21",
+      "fingerprint": "fc9ea32a8a1e4050d3e71d1553b3f89a"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "qualification_checks",
+      "constraint_name": "qualification_checks_score_run_fkey",
+      "columns": ["score_run_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "score_runs",
+      "rows": "21",
+      "fingerprint": "28fe72da236db5ca844f0d2ed4844764"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "requirement_assessments",
+      "constraint_name": "requirement_assessments_score_run_fkey",
+      "columns": ["score_run_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "score_runs",
+      "rows": "50",
+      "fingerprint": "c9029d4e2b30fdd256c41680857fdce3"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "requirement_extractions",
+      "constraint_name": "requirement_extractions_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices",
+      "rows": "18",
+      "fingerprint": "574ab8c6e32d3993d815ddc86ff36f8f"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "requirement_extractions",
+      "constraint_name": "requirement_extractions_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions",
+      "rows": "18",
+      "fingerprint": "e031e1899a7759f34744326de8e2ce84"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "score_factors",
+      "constraint_name": "score_factors_score_run_fkey",
+      "columns": ["score_run_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "score_runs",
+      "rows": "90",
+      "fingerprint": "7a579b1308cf7de123bad4518f9fd790"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "score_runs",
+      "constraint_name": "score_runs_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices",
+      "rows": "18",
+      "fingerprint": "6d6b49622f4184a20be33fc081cb13eb"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "score_runs",
+      "constraint_name": "score_runs_company_profile_fkey",
+      "columns": ["company_profile_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "company_profiles",
+      "rows": "18",
+      "fingerprint": "033bac329b413f611527fb8a1eef4547"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "score_runs",
+      "constraint_name": "score_runs_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions",
+      "rows": "18",
+      "fingerprint": "c86fd4efb7577ecc7e8816da948e8c5a"
+    }
+  ],
+  "specs": [
+    {
+      "schema_name": "public",
+      "table_name": "assignments",
+      "constraint_name": "assignments_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_documents",
+      "constraint_name": "bid_documents_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_documents",
+      "constraint_name": "bid_documents_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_reviews",
+      "constraint_name": "bid_reviews_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_reviews",
+      "constraint_name": "bid_reviews_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_reviews",
+      "constraint_name": "bid_reviews_score_run_fkey",
+      "columns": ["score_run_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "score_runs"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_revisions",
+      "constraint_name": "bid_revisions_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_structured_requirements",
+      "constraint_name": "bid_structured_requirements_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "bid_structured_requirements",
+      "constraint_name": "bid_structured_requirements_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "qualification_checks",
+      "constraint_name": "qualification_checks_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "qualification_checks",
+      "constraint_name": "qualification_checks_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "qualification_checks",
+      "constraint_name": "qualification_checks_score_run_fkey",
+      "columns": ["score_run_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "score_runs"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "requirement_assessments",
+      "constraint_name": "requirement_assessments_score_run_fkey",
+      "columns": ["score_run_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "score_runs"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "requirement_extractions",
+      "constraint_name": "requirement_extractions_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "requirement_extractions",
+      "constraint_name": "requirement_extractions_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "score_factors",
+      "constraint_name": "score_factors_score_run_fkey",
+      "columns": ["score_run_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "score_runs"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "score_runs",
+      "constraint_name": "score_runs_bid_id_fkey",
+      "columns": ["bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_notices"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "score_runs",
+      "constraint_name": "score_runs_company_profile_fkey",
+      "columns": ["company_profile_id", "org_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "company_profiles"
+    },
+    {
+      "schema_name": "public",
+      "table_name": "score_runs",
+      "constraint_name": "score_runs_revision_fkey",
+      "columns": ["revision_id", "bid_id"],
+      "primary_columns": ["id"],
+      "target_schema": "public",
+      "target_table": "bid_revisions"
+    }
+  ],
+  "verification": "PASSED"
+}

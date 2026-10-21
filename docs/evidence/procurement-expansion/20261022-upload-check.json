@@ -1,0 +1,17 @@
+{
+  "fileCount": 1212,
+  "totalSize": 453461345,
+  "forbiddenFileCount": 0,
+  "emptyExcludedDirectoryEntries": 12,
+  "requiredPaths": [
+    "vercel.json",
+    "infra/sources/registry.yaml",
+    "infra/run-modes.json",
+    "web/next.config.ts",
+    "web/server/opportunities/index.ts"
+  ],
+  "framework": {
+    "name": "Services",
+    "slug": "services"
+  }
+}

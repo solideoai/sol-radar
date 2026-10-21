@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-10-21T15:45:52.081Z",
+  "deploymentId": "dpl_HExk88yn3gSb34PUyipSYuDaThDS",
+  "readyState": "READY",
+  "releaseCommitSha": "4ca804d10bdc70c422626f580882e57a8d133b10",
+  "expectedRelease": true,
+  "checks": [
+    {
+      "url": "https://www.solideos-radar.com/health/live",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "url": "https://www.solideos-radar.com/health/ready",
+      "status": 503,
+      "expected": 503
+    },
+    {
+      "url": "https://www.solideos-radar.com/api/v1/opportunities",
+      "status": 401,
+      "expected": 401
+    },
+    {
+      "url": "https://acropolissg.com/redis/health",
+      "status": 502,
+      "expected": 502
+    }
+  ],
+  "remaining": [
+    "company Gateway/Worker not updated: missing SSH connection target and server repository path",
+    "new6 services disabled/NOT_VERIFIED"
+  ]
+}

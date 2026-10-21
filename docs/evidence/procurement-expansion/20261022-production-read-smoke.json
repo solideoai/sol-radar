@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-10-21T15:40:53.693Z",
+  "target": "https://www.solideos-radar.com",
+  "role": "VIEWER",
+  "checks": [
+    {
+      "name": "viewer_login",
+      "ok": true
+    },
+    {
+      "name": "dashboard_1440",
+      "ok": true,
+      "width": 1440,
+      "documentOverflowPx": 0
+    },
+    {
+      "name": "bids_1280",
+      "ok": true,
+      "width": 1280,
+      "documentOverflowPx": 0
+    },
+    {
+      "name": "source_summary",
+      "ok": true,
+      "groupCount": 4,
+      "serviceCount": 10,
+      "newDisabledServices": 6
+    },
+    {
+      "name": "opportunity_summary",
+      "ok": true,
+      "totalOpportunities": 15,
+      "earlyCount": 4,
+      "pendingAnalysis": 1,
+      "sourceConflictCount": 0
+    },
+    {
+      "name": "opportunities_budget_and_cursor",
+      "ok": true,
+      "total": 15,
+      "checkedItems": 4,
+      "cursorChecked": true
+    },
+    {
+      "name": "viewer_admin_boundary",
+      "ok": true,
+      "status": 403
+    }
+  ],
+  "ok": true,
+  "authRequests": 1,
+  "blockedMutations": 0,
+  "pageErrors": 0,
+  "authResponseStatus": 200,
+  "authErrorCode": null,
+  "finalPath": "/bids"
+}
