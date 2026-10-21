@@ -1,0 +1,47 @@
+# GET /api/v1/admin/ai/status — 2026-10-21 11:48:58 KST · 커밋 4e62170 · SOL_RUN_MODE=mock
+$ node api.mjs admin@soltech.invalid GET /api/v1/admin/ai/status   (ADMIN)
+HTTP 200
+{
+  "runMode": "mock",
+  "provider": "mock",
+  "hostedApproved": false,
+  "gateway": {
+    "url": "http://127.0.0.1:18011",
+    "healthy": true,
+    "checkedAt": "2026-10-21T02:49:01.538Z",
+    "runMode": "mock"
+  },
+  "qwen": {
+    "model": "fixture",
+    "runtime": null,
+    "healthy": true
+  },
+  "kev": {
+    "enabled": true,
+    "healthy": true,
+    "model": null,
+    "modelId": "mock",
+    "run": null,
+    "base": null,
+    "lora": null,
+    "temperature": null,
+    "registryMatch": null
+  },
+  "questionSetVersion": "kev-qs/v0.1",
+  "parsers": []
+}
+
+$ node api.mjs sales@soltech.invalid GET /api/v1/admin/ai/status   (SALES, 권한 음성)
+HTTP 403
+{
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "AI 상태를 조회할 권한이 없습니다.",
+    "details": {
+      "required": [
+        "ADMIN"
+      ]
+    },
+    "requestId": "7752afc5-fd99-4fd4-a2dc-56d6cad572e9"
+  }
+}

@@ -1,0 +1,205 @@
+{
+  "schemaVersion": "sol-seed-summary/v0.1",
+  "generatedAt": "2026-10-21T02:46:58.238Z",
+  "ok": true,
+  "line": "seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true",
+  "counts": {
+    "orgs": 2,
+    "users": 5,
+    "profileRevisions": 2,
+    "people": 200,
+    "bids": 19,
+    "quarantined": 1,
+    "reviews": 2,
+    "portraits": 200
+  },
+  "mismatches": [],
+  "anchor": "2026-10-21T02:46:53.983Z",
+  "runMode": "MOCK",
+  "ingestRun": {
+    "id": "db2d990a-eefa-4880-81c1-a71c0fc1ee0c",
+    "summary": {
+      "created": 19,
+      "changed": 0,
+      "cancelled": 0,
+      "skippedDuplicate": 0,
+      "quarantined": 1,
+      "retried": 2
+    }
+  },
+  "quarantined": [
+    {
+      "fixtureId": "FX-12",
+      "sourceKey": "fixture:DEMO-2026-0012",
+      "errorCode": "MISSING_REQUIRED_FIELD"
+    }
+  ],
+  "bids": [
+    {
+      "fixtureId": "FX-01",
+      "bidId": "b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "revisionId": "50e4ec9b-b6d4-561d-93f3-6dd11453a838",
+      "noticeId": "DEMO-2026-0001",
+      "checksum": "4b1249ecd0d89f18b17c2908a69276ec49c440a5149879028d2999e5d6d201f3"
+    },
+    {
+      "fixtureId": "FX-02",
+      "bidId": "687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "revisionId": "e9bf4421-29b6-5b05-88d8-82d88eceaeaa",
+      "noticeId": "DEMO-2026-0002",
+      "checksum": "e466f9351a49af167f1a25ec6ab0e05bf9c0a955aecf4ed37ccb06f4eac5bcef"
+    },
+    {
+      "fixtureId": "FX-03",
+      "bidId": "dcb0a308-6f3b-5457-8d0a-fbdf4be684b9",
+      "revisionId": "ba90964c-a5c2-5bb3-a492-38d2a500578a",
+      "noticeId": "DEMO-2026-0003",
+      "checksum": "992e5f96debd221988e8e805574f38bfa5f08bb8261d032603033a1945a3f26c"
+    },
+    {
+      "fixtureId": "FX-04",
+      "bidId": "9036e273-d51b-5090-8c89-53161dbb6714",
+      "revisionId": "f32f2f3d-e353-5544-a534-ccb91d329366",
+      "noticeId": "DEMO-2026-0004",
+      "checksum": "dddac0d7def35d680d1643547087abfddef86f64fa0dc6310874fd3a517184f6"
+    },
+    {
+      "fixtureId": "FX-05",
+      "bidId": "4f552925-ef52-591d-b31e-a33cf6465668",
+      "revisionId": "3abfe68b-45bd-5caf-80ee-6b7437f24d2e",
+      "noticeId": "DEMO-2026-0005",
+      "checksum": "3d3d28b8216f460480a35506778d93c236156a7d7169cdb58331862be0d98ef4"
+    },
+    {
+      "fixtureId": "FX-06",
+      "bidId": "b7df7a25-d4e7-566b-86f3-f8ceaf474e08",
+      "revisionId": "54e30fa1-8224-5886-904c-cecb3516ffd2",
+      "noticeId": "DEMO-2026-0006",
+      "checksum": "c7ae21bd553adc8acfe672bcf20b1bbbb7170e68ecf867ab085b6d3ecbed4e8e"
+    },
+    {
+      "fixtureId": "FX-07",
+      "bidId": "cbc1beaa-65c3-5446-b0bb-b39577a24dc5",
+      "revisionId": "c60cb058-a4ff-5537-9226-001a49c28aed",
+      "noticeId": "DEMO-2026-0007",
+      "checksum": "7ae25170a505416775fd0e22bdcac4bbca443f49df5dd01bd454459543a71f26"
+    },
+    {
+      "fixtureId": "FX-08",
+      "bidId": "1aca5230-53d0-58c9-93a1-5dab49a0c338",
+      "revisionId": "95cf3914-1190-5e8a-9cc5-d83d27ce1221",
+      "noticeId": "DEMO-2026-0008",
+      "checksum": "89589cab9daf581f5205a158ad9f5c2aff421a2d292c7fc26691f13c21031dfc"
+    },
+    {
+      "fixtureId": "FX-09",
+      "bidId": "009a7aa0-10c9-54f0-8be4-f124dbebcfb1",
+      "revisionId": "23840c5c-0728-5b0f-9c75-7b27d961d80b",
+      "noticeId": "DEMO-2026-0009",
+      "checksum": "f0af5826c12a1689605d114c7f6147fb7da1e5503e7b55613c5576a3918c89f1"
+    },
+    {
+      "fixtureId": "FX-10",
+      "bidId": "0f43b834-130f-53d1-a075-26ef321b162f",
+      "revisionId": "6332a3d9-2388-5d8b-961b-21bd4be08029",
+      "noticeId": "DEMO-2026-0010",
+      "checksum": "6afe5962706ccdb6551b520819a826387e00b6f0774c9b9ee92c2076f111e202"
+    },
+    {
+      "fixtureId": "FX-11",
+      "bidId": "d6a7d9d4-f567-5226-a467-9986cf50e5b8",
+      "revisionId": "d96fd818-4041-5904-b614-39b01259af72",
+      "noticeId": "DEMO-2026-0011",
+      "checksum": "9894cb90a704227ef92ba1ada067d57b9323a3b9d6cf1cee351f9e7204da3de6"
+    },
+    {
+      "fixtureId": "FX-13",
+      "bidId": "b432b15d-96d1-5ef1-bf42-30547dbc066e",
+      "revisionId": "a7e885e9-f5f9-5767-a35a-84526ba4b0a7",
+      "noticeId": "DEMO-2026-0013",
+      "checksum": "fdf802ca40d3826c1e8eea44e67459b99470c6ad1db08b362d8ae1842d8989a0"
+    },
+    {
+      "fixtureId": "FX-14",
+      "bidId": "29dc6ded-e564-5d29-82ec-ea9806ad48b1",
+      "revisionId": "89eef97b-b164-5d19-a8d0-059f0d3badc1",
+      "noticeId": "DEMO-2026-0014",
+      "checksum": "4610ace254d126148edb35ee26181140fa0550208e12ec1ccc7147902dc3057c"
+    },
+    {
+      "fixtureId": "FX-15",
+      "bidId": "f66379fe-96c4-5ffc-a1c3-f36bad5c1299",
+      "revisionId": "0d17fed6-7485-5837-bae6-8cd26a017c45",
+      "noticeId": "DEMO-2026-0015",
+      "checksum": "93d7a406edf5f08c5ebd19d4e721a7e76535701bd627b59bb554a8beae4d49bd"
+    },
+    {
+      "fixtureId": "FX-16",
+      "bidId": "9f10f9dc-7a52-5616-8bfd-b65d74285a9d",
+      "revisionId": "646026ac-e55f-53a8-a5d5-8a064e688d9a",
+      "noticeId": "DEMO-2026-0016",
+      "checksum": "ec4684ec766523a23d9e3cdd1fa930e1e75177c78633255443c86b6786075397"
+    },
+    {
+      "fixtureId": "FX-17",
+      "bidId": "8db93cc7-fae2-557e-a8bc-ca4e5352e10c",
+      "revisionId": "39792e3d-bd88-533c-925d-0b0fafb55817",
+      "noticeId": "DEMO-2026-0017",
+      "checksum": "57d5ad55f473fdcd92f10edb77c013bde1da92c49d630fa2219635d8921bab42"
+    },
+    {
+      "fixtureId": "FX-18",
+      "bidId": "5f28b611-29d8-59fa-92eb-a0c453b91cd0",
+      "revisionId": "450219b7-332e-5bca-afd4-dd330fefbe2b",
+      "noticeId": "DEMO-2026-0018",
+      "checksum": "0562dd0f64a5409cb16da83a170b231ee623209023b394d48989860286f1451a"
+    },
+    {
+      "fixtureId": "FX-19",
+      "bidId": "f1b8fdee-7493-542e-b800-3a60b6ee7032",
+      "revisionId": "9b21f3d2-2915-573f-8feb-94e25041288f",
+      "noticeId": "DEMO-2026-0019",
+      "checksum": "efcb31652d84d9bb29b5f7ddc1e883f6f79e8f162be126621e6c389cc0f477de"
+    },
+    {
+      "fixtureId": "FX-20",
+      "bidId": "1cfcc05b-daaf-5a55-950c-ce2422b996b5",
+      "revisionId": "ff8834c7-1151-564e-9485-4dcf76659a5b",
+      "noticeId": "DEMO-2026-0020",
+      "checksum": "c0a9adcc9cee69738a875e7f02f76d02041a6b1cb21164d8c5a496b9bd6a848e"
+    }
+  ],
+  "accounts": [
+    {
+      "email": "admin@soltech.invalid",
+      "org": "org-01",
+      "orgRole": "owner",
+      "solRole": "ADMIN"
+    },
+    {
+      "email": "sales@soltech.invalid",
+      "org": "org-01",
+      "orgRole": "member",
+      "solRole": "SALES"
+    },
+    {
+      "email": "analyst@soltech.invalid",
+      "org": "org-01",
+      "orgRole": "member",
+      "solRole": "ANALYST"
+    },
+    {
+      "email": "viewer@soltech.invalid",
+      "org": "org-01",
+      "orgRole": "member",
+      "solRole": "VIEWER"
+    },
+    {
+      "email": "viewer@other.invalid",
+      "org": "org-02",
+      "orgRole": "member",
+      "solRole": "VIEWER"
+    }
+  ],
+  "portraitErrors": []
+}

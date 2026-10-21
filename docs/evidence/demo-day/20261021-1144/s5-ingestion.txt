@@ -1,0 +1,29 @@
+# S5 변경 수집(11 §5 12번) — 커밋 4e62170 · 격리 스택 · 2026-10-21 12:01:08 KST
+## 수집 전 DB (FX | latest_revision | status | deadline KST | budget)
+FX-06|1|OPEN|2026-11-04 18:00|900000000
+FX-07|1|OPEN|2026-11-08 18:00|1800000000
+FX-08|1|OPEN|2026-11-06 18:00|700000000
+FX-09|1|OPEN|2026-11-15 18:00|1100000000
+FX-10|1|OPEN|2026-11-04 18:00|800000000
+## 알림 (type | user | count)
+ANALYSIS_COMPLETE|sales@soltech.invalid|2
+REVIEW_ASSIGNED|sales@soltech.invalid|1
+## outbox_events 수
+22
+
+## 화면에서 수동 수집 실행(admin@soltech.invalid, 소스 fixture · 배치 LIVE) — POST /api/v1/admin/ingestion/runs → 202 (본문 {"source":"fixture","batch":"live"}), run c65ff7d5
+## 수집 뒤 ingest_runs (id | batch | trigger | status | summary | 시작 | 끝)
+db2d990a-eefa-4880-81c1-a71c0fc1ee0c|SEED|DEMO|PARTIAL|{"changed": 0, "created": 19, "retried": 2, "cancelled": 0, "quarantined": 1, "skippedDuplicate": 0}|11:46:56.622|11:46:57.285
+c65ff7d5-597d-408d-bc13-a77f4f87e181|LIVE|MANUAL|SUCCEEDED|{"changed": 3, "created": 0, "retried": 0, "cancelled": 1, "quarantined": 0, "skippedDuplicate": 1}|12:01:33.069|12:01:33.706
+## 수집 뒤 DB (FX | latest_revision | status | deadline KST | budget)
+FX-06|2|AMENDED|2026-11-18 18:00|900000000
+FX-07|2|AMENDED|2026-11-08 18:00|2160000000
+FX-08|2|CANCELLED|2026-11-06 18:00|700000000
+FX-09|1|OPEN|2026-11-15 18:00|1100000000
+FX-10|2|AMENDED|2026-11-04 18:00|800000000
+## 알림 (type | user | FX | 시각)
+ANALYSIS_COMPLETE|sales@soltech.invalid|687bd892-941f-56a9-9ea9-9754ea5e5f1a|11:55:34
+ANALYSIS_COMPLETE|sales@soltech.invalid|687bd892-941f-56a9-9ea9-9754ea5e5f1a|11:57:57
+REVIEW_ASSIGNED|sales@soltech.invalid|687bd892-941f-56a9-9ea9-9754ea5e5f1a|11:58:45
+## outbox_events (수집 뒤 새 행 type)
+id org_id aggregate_type aggregate_id event_type payload idempotency_key status attempts next_attempt_at created_at processed_at 

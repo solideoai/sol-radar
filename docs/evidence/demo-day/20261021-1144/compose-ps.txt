@@ -1,0 +1,15 @@
+# $ docker compose -p sol-radar-c9-54 -f infra/compose.yaml ps — 2026-10-21 11:46:35 KST · 커밋 4e62170
+# 기동은 배정 세션이 미리 했다(이 리허설에서 up 을 다시 돌리지 않음). 아래는 확인 시점 상태.
+NAME                           IMAGE                                                                                              COMMAND                   SERVICE      CREATED         STATUS                   PORTS
+sol-radar-c9-54-ai-gateway-1   sol-radar-c9-54-ai-gateway                                                                         "python -m sol_ai"        ai-gateway   7 minutes ago   Up 7 minutes (healthy)   127.0.0.1:18011->8000/tcp
+sol-radar-c9-54-minio-1        cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8   "/usr/bin/minio serv…"   minio        7 minutes ago   Up 7 minutes (healthy)   127.0.0.1:19011->9000/tcp
+sol-radar-c9-54-qdrant-1       qdrant/qdrant:v1.19.2-unprivileged                                                                 "./entrypoint.sh"         qdrant       7 minutes ago   Up 7 minutes (healthy)   6334/tcp, 127.0.0.1:16344->6333/tcp
+sol-radar-c9-54-redis-1        redis:8.8.3-alpine                                                                                 "docker-entrypoint.s…"   redis        7 minutes ago   Up 7 minutes (healthy)   127.0.0.1:16391->6379/tcp
+sol-radar-c9-54-worker-1       sol-radar-c9-54-worker                                                                             "docker-entrypoint.s…"   worker       7 minutes ago   Up 7 minutes (healthy)   
+
+$ docker compose -p sol-radar-c9-54 -f infra/compose.yaml ps --format '{{.Service}} {{.Health}}'
+ai-gateway healthy
+minio healthy
+qdrant healthy
+redis healthy
+worker healthy

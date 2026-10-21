@@ -1,0 +1,361 @@
+# 브라우저 단계 출력(stdout 그대로) — C9 2차 리허설 · 커밋 4e62170 · web http://localhost:3216
+# 도구: worktree web/node_modules 의 @playwright/test 1.64.1 chromium(headless). .mcp.json playwright 브라우저는 다른 세션이 쓰고 있어("Browser is already in use") 직접 띄웠다.
+# 러너: scratchpad/c9api/pw.mjs <email> <width> <step.mjs> — 사용자별 storageState 유지, 콘솔 error/warning 수집, 1440x900·1280x800.
+# 비밀번호·토큰은 러너가 출력하지 않는다.
+
+==================================================================
+## 5·6 로그인·대시보드 (11:50)
+$ node pw.mjs sales@soltech.invalid 1440 s05-login-dashboard.mjs
+------------------------------------------------------------------
+login sales@soltech.invalid → /dashboard (5089ms)
+--- header(innerText) ---
+사이드바 여닫기 | 대시보드 | DEMO | 실행 모드: mock | AI: mock | 수집 3분 전
+--- main(innerText) ---
+대시보드
+
+실행 모드와 수집 현황, 검토가 필요한 공고를 봅니다.
+
+요약
+
+BID 권고
+
+3
+
+검토 대기
+
+16
+
+마감 임박 (7일)
+
+1
+
+수집
+
+3분 전
+
+적재 19 · 격리 1
+
+분석 현황
+
+18
+
+부분 0 · 실패 0
+
+BID 권고 (점수 높은 순)
+전체 보기
+
+DEMO 표시는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다.
+
+BID 권고 (점수 높은 순)
+출처	제목	발주기관	SOL Score	권고
+
+DEMO
+	
+세종특별자치시 차세대 행정정보시스템 고도화 (가상)
+	
+세종특별자치시
+	94	
+BID
+
+
+DEMO
+	
+과학기술정보통신부 AI 행정서비스 구축 사전규격 (가상)
+	
+과학기술정보통신부
+	82	
+BID
+
+
+DEMO
+	
+대전광역시 스마트시티 통합플랫폼 유지보수 (가상)
+	
+대전광역시
+	78	
+BID
+마감 임박 (7일)
+전체 보기
+
+DEMO 표시는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다.
+
+마감 임박 (7일)
+출처	제목	마감	권고	결정
+
+DEMO
+	
+광주광역시 AI 행정 비서 시범사업 (가상)
+	
+D-2
+10. 23.
+	
+WATCH
+	
+미결정
+overflow: {"innerWidth":1440,"scrollWidth":1440,"offenders":[]}
+screenshot: 20261021-demo-dashboard-loaded-1440.png
+console(error/warning): 0
+
+==================================================================
+## 7 목록 1440 (11:52, 선택 대기 보정 뒤 재실행)
+$ node pw.mjs sales@soltech.invalid 1440 s07-bids.mjs
+------------------------------------------------------------------
+전체 목록 19행 · DEMO 칩 19 · 경상북도(FX-12) 행 0
+overflow(전체): {"innerWidth":1440,"scrollWidth":1440,"offenders":[]}
+권고 선택지: 전체 / BID / WATCH / NO-BID
+정렬 선택지: 최근 공고 순 / 점수 높은 순 / 마감 빠른 순
+url: /bids?recommendation=BID&sort=score%3Adesc
+
+  DEMO 입찰공고 세종특별자치시 차세대 행정정보시스템 고도화 (가상) 세종특별자치시 12억 1,200,000,000원 D-21 11. 11. 94 BID 완료 BID
+  DEMO 사전규격 과학기술정보통신부 AI 행정서비스 구축 사전규격 (가상) 과학기술정보통신부 48억 4,800,000,000원 D-7 10. 28. 82 BID 완료 미결정
+  DEMO 입찰공고 대전광역시 스마트시티 통합플랫폼 유지보수 (가상) 대전광역시 9억 900,000,000원 D-14 11. 4. 78 BID 완료 미결정
+overflow(BID): {"innerWidth":1440,"scrollWidth":1440,"offenders":[]}
+screenshot: 20261021-demo-bids-loaded-1440.png
+console(error/warning): 0
+
+==================================================================
+## 7 목록 1280
+$ node pw.mjs sales@soltech.invalid 1280 s07-bids.mjs
+------------------------------------------------------------------
+전체 목록 19행 · DEMO 칩 19 · 경상북도(FX-12) 행 0
+overflow(전체): {"innerWidth":1280,"scrollWidth":1280,"offenders":[]}
+screenshot: 20261021-demo-bids-all-loaded-1280.png
+권고 선택지: 전체 / BID / WATCH / NO-BID
+정렬 선택지: 최근 공고 순 / 점수 높은 순 / 마감 빠른 순
+url: /bids?recommendation=BID&sort=score%3Adesc
+
+  DEMO 입찰공고 세종특별자치시 차세대 행정정보시스템 고도화 (가상) 세종특별자치시 12억 1,200,000,000원 D-21 11. 11. 94 BID 완료 BID
+  DEMO 사전규격 과학기술정보통신부 AI 행정서비스 구축 사전규격 (가상) 과학기술정보통신부 48억 4,800,000,000원 D-7 10. 28. 82 BID 완료 미결정
+  DEMO 입찰공고 대전광역시 스마트시티 통합플랫폼 유지보수 (가상) 대전광역시 9억 900,000,000원 D-14 11. 4. 78 BID 완료 미결정
+overflow(BID): {"innerWidth":1280,"scrollWidth":1280,"offenders":[]}
+screenshot: 20261021-demo-bids-loaded-1280.png
+console(error/warning): 0
+
+==================================================================
+## 8 FX-01 상세 1440 (11:53)
+$ node pw.mjs sales@soltech.invalid 1440 s08-fx01.mjs
+------------------------------------------------------------------
+요약: 분석 요약 완료 2026-10-21 11:49 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2
+자격: 필수자격 (3건 · 모두 충족) 충족 소프트웨어사업자 신고확인서 필수 AI 추출 회사 프로필 등록 SW_BUSINESS_REG 보유(HELD) 회사: 소프트웨어사업자 신고확인서 근거 공고 본문 · "소프트웨어사업자 신고확인서를 보유한 업체" 충족 소프트웨어 직접생산확인증명서 필수 AI 추출 회사 프로필 등록 DIRECT_PRODUCTION 보유(HELD) 회사: 직접생산확인증명서(소프트웨어개발) 근거 공고 본문 · "소프트웨어 직접생산확인증명서를 보유한 업체" 충족 중소기업확인서 필수 AI 추출 회사 프로필 등록 SME_CONFIRMATION 보유(HELD) 회사: 중소기업확인서(중기업) 근거 공고 본문 · "중소기업 제한경쟁 입찰이며 중소기업확인서를 보유한 업체"
+점수: SOL Score 분해 필수자격 3건을 모두 충족했습니다. 요구기술 5개 중 5개 보유(Java, Spring Boot, PostgreSQL, 전자정부 표준프레임워크, Kubernetes). SOL Score 94점으로 참여 권고 구간(75 이상)입니다. 권고: BID(참여 권고). 최종 참여 결정은 사람이 합니다. 펼치기 기술 스택 적합 24.0 / 30 근거 2건 유사 수행 실적 25.0 / 25 근거 1건 인력 가용성 20.0 / 20 근거 1건 규모 적합성 15.0 / 15 근거 1건 전략적 선호 10.0 / 10 민원 분야·지자체 선호 일치 합계 94.0 → SOL Score 94 (반올림) · 알고리즘 sol-v0.1.0 · 프로필 rev 2
+결정 모델: 결정 모델 참고 지표 모델 참고 지표 (점수 미반영) 모델 선택지 신뢰 분포 (충족·수주 확률 아님) BID 71% WATCH 24% NO-BID 5% 결정 모델 선택지: BID 규칙 권고와 같음 필수자격 위험 신호 0.05 · 기준 0.70 이상 사람 검토 필요 신호 0.12 · 기준 0.70 이상 적합도 의견 4/5 이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다. 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다. 최종 결정은 담당자가 기록합니다. Mock 응답(데모 데이터) · 질문 세트: kev-qs/v0.1 · 공급자: mock Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.
+참여 판단: 참여 판단 권고 BID 규칙 + 결정 모델 참고 94 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 마지막 결정: BID · 이영업 · 2026-10-21 11:46 BID · 이영업(SALES) · 2026-10-21 11:46 자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인력 12 FTE 대비 가용 20 FTE. 사전 검토에서 입찰 참여로 결정했다.
+첫 화면 위치: ["분석 요약: top 240 bottom 322 / viewport 900","SOL Score 분해: top 913 bottom 1405 / viewport 900"]
+overflow: {"innerWidth":1440,"scrollWidth":1440,"offenders":[]}
+screenshot: 20261021-demo-bid-detail-loaded-1440.png
+screenshot: 20261021-demo-bid-detail-demo-badge-1440.png
+드로어: 근거 소프트웨어사업자 신고확인서 소프트웨어사업자 신고확인서를 보유한 업체 공고 본문 · 문자 195–217 원문 대조: 정규화 후 일치 세종특별자치시가 차세대 행정정보시스템 고도화 사업의 제안사를 모집한다. 사업 분야는 민원이며 사업예산은 12억원, 사업기간은 8개월이다. 필수 기술은 Java, Spring Boot, PostgreSQL, 전자정부 표준프레임워크, Kubernetes 이다. 우대 기술은 Elasticsearch, Kafka 이다. 참가 자격은 다음과 같다. 첫째, 소프트웨어사업자 신고확인서를 보유한 업체. 둘째, 소프트웨어 직접생산확인증명서를 보유한 업체. 셋째, 중소기업 제한경쟁 입찰이며 중소기업확인서를 보유한 업체. 필요 인력은 PM 1명, PL 1명, 개발 10명으로 합계 12명이다. 수집 2026-10-16 18:00 KST 원문 보기 닫기
+드로어 <mark>: ["소프트웨어사업자 신고확인서를 보유한 업체"]
+screenshot: 20261021-demo-bid-detail-evidence-loaded-1440.png
+console(error/warning): 0
+
+==================================================================
+## 8 FX-01 상세 1280
+$ node pw.mjs sales@soltech.invalid 1280 s08-fx01.mjs
+------------------------------------------------------------------
+요약: 분석 요약 완료 2026-10-21 11:49 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2
+자격: 필수자격 (3건 · 모두 충족) 충족 소프트웨어사업자 신고확인서 필수 AI 추출 회사 프로필 등록 SW_BUSINESS_REG 보유(HELD) 회사: 소프트웨어사업자 신고확인서 근거 공고 본문 · "소프트웨어사업자 신고확인서를 보유한 업체" 충족 소프트웨어 직접생산확인증명서 필수 AI 추출 회사 프로필 등록 DIRECT_PRODUCTION 보유(HELD) 회사: 직접생산확인증명서(소프트웨어개발) 근거 공고 본문 · "소프트웨어 직접생산확인증명서를 보유한 업체" 충족 중소기업확인서 필수 AI 추출 회사 프로필 등록 SME_CONFIRMATION 보유(HELD) 회사: 중소기업확인서(중기업) 근거 공고 본문 · "중소기업 제한경쟁 입찰이며 중소기업확인서를 보유한 업체"
+점수: SOL Score 분해 필수자격 3건을 모두 충족했습니다. 요구기술 5개 중 5개 보유(Java, Spring Boot, PostgreSQL, 전자정부 표준프레임워크, Kubernetes). SOL Score 94점으로 참여 권고 구간(75 이상)입니다. 권고: BID(참여 권고). 최종 참여 결정은 사람이 합니다. 펼치기 기술 스택 적합 24.0 / 30 근거 2건 유사 수행 실적 25.0 / 25 근거 1건 인력 가용성 20.0 / 20 근거 1건 규모 적합성 15.0 / 15 근거 1건 전략적 선호 10.0 / 10 민원 분야·지자체 선호 일치 합계 94.0 → SOL Score 94 (반올림) · 알고리즘 sol-v0.1.0 · 프로필 rev 2
+결정 모델: 결정 모델 참고 지표 모델 참고 지표 (점수 미반영) 모델 선택지 신뢰 분포 (충족·수주 확률 아님) BID 71% WATCH 24% NO-BID 5% 결정 모델 선택지: BID 규칙 권고와 같음 필수자격 위험 신호 0.05 · 기준 0.70 이상 사람 검토 필요 신호 0.12 · 기준 0.70 이상 적합도 의견 4/5 이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다. 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다. 최종 결정은 담당자가 기록합니다. Mock 응답(데모 데이터) · 질문 세트: kev-qs/v0.1 · 공급자: mock Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.
+참여 판단: 참여 판단 권고 BID 규칙 + 결정 모델 참고 94 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 마지막 결정: BID · 이영업 · 2026-10-21 11:46 BID · 이영업(SALES) · 2026-10-21 11:46 자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인력 12 FTE 대비 가용 20 FTE. 사전 검토에서 입찰 참여로 결정했다.
+첫 화면 위치: ["분석 요약: top 240 bottom 322 / viewport 800","SOL Score 분해: top 913 bottom 1427 / viewport 800"]
+overflow: {"innerWidth":1280,"scrollWidth":1280,"offenders":[]}
+screenshot: 20261021-demo-bid-detail-loaded-1280.png
+console(error/warning): 0
+
+==================================================================
+## 9·9a FX-03 규칙 우선·가정 재계산 1440 (11:54)
+$ node pw.mjs sales@soltech.invalid 1440 s09-fx03.mjs
+------------------------------------------------------------------
+url: /bids?sort=score%3Adesc&decision=NO_BID
+  DEMO 입찰공고 부산광역시 지능형 CCTV 통합관제센터 구축 (가상) 부산광역시 45억 4,500,000,000원 D-15 11. 5. 68 NO-BID 완료 NO-BID
+screenshot: 20261021-demo-bids-nobid-loaded-1440.png
+자격: 필수자격 (2건 · 미충족 1) 충족 소프트웨어사업자 신고확인서 필수 AI 추출 회사 프로필 등록 SW_BUSINESS_REG 보유(HELD) 회사: 소프트웨어사업자 신고확인서 근거 공고 본문 · "소프트웨어사업자 신고확인서를 보유한 업체" 미충족 정보통신공사업 등록 필수 AI 추출 회사 프로필에 정보통신공사업 등록 미보유(NOT_HELD)로 기록됨 회사: 정보통신공사업 등록 근거 공고 본문 · "정보통신공사업법에 따른 정보통신공사업 등록업체"
+점수 머리: SOL Score 분해 참고 점수 필수자격 미충족으로 권고에 쓰지 않은 점수입니다 필수자격 미충족: 정보통신공사업 등록. 공고 근거와 회사 프로필의 미보유 기록이 모두 있어 규칙 판정이 우선합니다. 요구기술 6개 중 4개 보유(Java, Spring Boot, PostgreSQL, Kubernetes). 영상분석 AI·VMS 연동 경험 없음. 점수 68점은 참고용으로만 표시하며 권고는 NO-BID(참여 비권고)입니다. 결정 모델은 BID를 제시했지만 규칙 판정이 우선합니다. 결정 모델 분포는 모델 참고 지표이며 점수에 반영하지 않습니다. 최종 참여 결정은 사람이 합니다. 펼치기 기술 스택 적합 20.0 / 30 근거 1건 유사 수행 실적 12.2 / 25 근거 1건 인력 가용성 20.0 / 20 필요 인력 
+결정 모델: 결정 모델 참고 지표 모델 참고 지표 (점수 미반영) 모델 선택지 신뢰 분포 (충족·수주 확률 아님) BID 55% WATCH 30% NO-BID 15% 결정 모델 선택지: BID 규칙 우선(결정 모델 의견 상이) 결정 모델은 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다 필수자격 위험 신호 0.85 · 기준 0.70 이상 사람 검토 필요 신호 0.58 · 기준 0.70 이상 적합도 의견 2/5 이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다. 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다. 최종 결정은 담당자가 기록합니다. Mock 응답(데모 데이터) · 질문 세트: kev-qs/v0.1 · 공급자: mock Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.
+MODEL_RULE_DISAGREEMENT 글자 수: 1
+참여 판단: 참여 판단 권고 NO-BID 규칙 + 결정 모델 참고 68 / 100 참고 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 사람 검토 권장 규칙 우선(결정 모델 의견 상이) MODEL_RULE_DISAGREEMENT 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 마지막 결정: NO-BID · 이영업 · 2026-10-21 11:46 NO-BID · 이영업(SALES) · 2026-10-21 11:46 정보통신공사업 등록이 없어 필수 자격 미충족. Kev 가 BID 를 제시해도 규칙이 우선이므로 사전 검토에서 불참을 결정했다.
+screenshot: 20261021-demo-bid-detail-fx03-loaded-1440.png
+스위치 보임: false · 켜짐(전): false
+띠 표시까지 372ms
+띠: 가정 시나리오 가정 지우기 가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다. 결정 모델 의견은 가정에 포함하지 않았습니다. 켠 가정 정보통신공사업 등록 보유 원래 결과와 가정 결과 비교 원래 가정 권고 NO-BID WATCH SOL Score 68 / 100 참고 68 / 100 변화 없음 필수자격 미충족 충족 바뀐 자격 항목 정보통신공사업 등록 미충족 충족 요소별 점수 바뀐 요소 없음 · 필수자격 판정은 SOL Score 계산에 들어가지 않습니다
+띠에 '확률' false · '승률' false · 스위치 행 '확률|승률' false
+스위치 켜짐(후): true
+결정 패널 그대로: true
+결정 패널(후): 참여 판단 권고 NO-BID 규칙 + 결정 모델 참고 68 / 100 참고 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 사람 검토 권장 규칙 우선(결정 모델 의견 상이) MODEL_RULE_DISAGREEMENT 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 마지막 결정: NO-BID · 이영업 · 2026-10-21 11:46 NO-BID · 이영업(SALES)
+overflow(띠): {"innerWidth":1440,"scrollWidth":1440,"offenders":[]}
+screenshot: 20261021-demo-bid-detail-fx03-what-if-loaded-1440.png
+지운 뒤 띠 수: 0 · 스위치: false
+새로 고침 뒤 띠 수: 0 · 스위치: false
+console(error/warning): 0
+
+==================================================================
+## 9a 가정 재계산 1280
+$ node pw.mjs sales@soltech.invalid 1280 s09-fx03.mjs
+------------------------------------------------------------------
+스위치 보임: true · 켜짐(전): false
+띠 표시까지 164ms
+띠: 가정 시나리오 가정 지우기 가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다. 결정 모델 의견은 가정에 포함하지 않았습니다. 켠 가정 정보통신공사업 등록 보유 원래 결과와 가정 결과 비교 원래 가정 권고 NO-BID WATCH SOL Score 68 / 100 참고 68 / 100 변화 없음 필수자격 미충족 충족 바뀐 자격 항목 정보통신공사업 등록 미충족 충족 요소별 점수 바뀐 요소 없음 · 필수자격 판정은 SOL Score 계산에 들어가지 않습니다
+띠에 '확률' false · '승률' false · 스위치 행 '확률|승률' false
+스위치 켜짐(후): true
+결정 패널 그대로: true
+결정 패널(후): 참여 판단 권고 NO-BID 규칙 + 결정 모델 참고 68 / 100 참고 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 사람 검토 권장 규칙 우선(결정 모델 의견 상이) MODEL_RULE_DISAGREEMENT 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 마지막 결정: NO-BID · 이영업 · 2026-10-21 11:46 NO-BID · 이영업(SALES)
+overflow(띠): {"innerWidth":1280,"scrollWidth":1280,"offenders":[]}
+screenshot: 20261021-demo-bid-detail-fx03-what-if-loaded-1280.png
+지운 뒤 띠 수: 0 · 스위치: false
+새로 고침 뒤 띠 수: 0 · 스위치: false
+console(error/warning): 0
+
+==================================================================
+## 9a bid_reviews·score_runs 건수 (psql, 9·9a 전후)
+$ docker exec -i supabase_db_sol-radar-c9-54 psql … select count(*) from bid_reviews / score_runs
+------------------------------------------------------------------
+bid_reviews 전: 2 · score_runs 전: 18
+bid_reviews 후: 2 · score_runs 후: 18
+
+==================================================================
+## 10 FX-02 [분석 실행] 1회차 (11:55) — 전이 시각은 측정 결함(아래 주의)
+$ node pw.mjs sales@soltech.invalid 1440 s10-fx02.mjs
+------------------------------------------------------------------
+처음 요약: 분석 요약 미분석
+main 버튼: ["분석 실행","이영업","결정 기록"]
+screenshot: 20261021-demo-bid-detail-fx02-empty-1440.png
+screenshot: 20261021-demo-bid-detail-fx02-loading-1440.png
+전이: 114ms 분석 요청 중… → 30305ms 대기 중 → 60452ms 완료
+POST 응답: ["202 /api/v1/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a/analyses {\"analysisId\":\"ed2ae71a-1636-40a4-b23e-837cfdc17bd3\",\"status\":\"QUEUED\",\"deduplicated\":false,\"pollUrl\":\"/api/v1/analyses/ed2ae71a-1636-40a4-b23e-837cfdc17bd3\"}"]
+요약: 분석 요약 완료 2026-10-21 11:55 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2
+점수: SOL Score 분해 필수자격 2건을 모두 충족했습니다. 요구기술 6개 중 3개 보유(Java, Spring Boot, PostgreSQL). Vue.js·SCORM 연동·WebRTC 경험 없음. 제안 준비 기간 8영업일로 촉박해 인력 가용 계수를 0.7로 낮췄습니다. SOL Score 72점으로 사람 검토 구간(50~75)입니다. 권고: WATCH(사람 검토). 모델 참고 지표가 사람 검토를 권장합니다. 최종 참여 결정은 사람이 합니다. 펼치기 기술 스택 적합 15.0 / 30 근거 2건 유사 수행 실적 18.3 / 25 근거 1건 인력 가용성 14.0 / 20 필요 인력 미추출: 예산 구간으로 추정. 마감 촉박 일정 계수 0.7 규모 적합성 15.0 / 15 근거 1건 전략적 선호 10.0 / 10 교육 분야·교육청 선호 일치 합계 72.3 → SOL Score 72 (반올림) · 알고리즘 sol-v0.1.0 · 프로필 rev 2
+결정 모델: 결정 모델 참고 지표 모델 참고 지표 (점수 미반영) 모델 선택지 신뢰 분포 (충족·수주 확률 아님) BID 36% WATCH 52% NO-BID 12% 결정 모델 선택지: WATCH 규칙 권고와 같음 필수자격 위험 신호 0.10 · 기준 0.70 이상 사람 검토 필요 신호 0.74 · 기준 0.70 이상 적합도 의견 3/5 이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다. 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다. 최종 결정은 담당자가 기록합니다. Mock 응답(데모 데이터) · 질문 세트: kev-qs/v0.1 · 공급자: mock Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.
+참여 판단: 참여 판단 권고 WATCH 규칙 + 결정 모델 참고 72 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 사람 검토 권장 결정 모델 사람 검토 신호 KEV_NEEDS_REVIEW 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 아직 기록된 결정이 없습니다
+overflow: {"innerWidth":1440,"scrollWidth":1440,"offenders":[]}
+screenshot: 20261021-demo-bid-detail-fx02-loaded-1440.png
+console(error/warning): 0
+
+# 주의: 1회차 '전이' 줄의 30305ms·60452ms 는 스크립트 결함이다. 버튼 locator 가 사라질 때 Playwright 기본 대기 30초가 걸렸다.
+#       같은 시각에 찍은 스크린샷은 이미 '완료' 화면이어서 loading 이름이 틀려 지웠다. DB 상 1회차 run ed2ae71a 는 queued 11:55:34.429 → finished 11:55:34.730 (301ms).
+
+==================================================================
+## 10 재측정: FX-02 [재분석] 1회, MutationObserver (11:57)
+$ BID=687bd892-… SHOT=bid-detail-fx02 node pw.mjs sales@soltech.invalid 1440 s10b-timing.mjs
+------------------------------------------------------------------
+누르기 전 요약: 분석 요약 완료 2026-10-21 11:55 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2
+누른 버튼: 재분석
+screenshot: 20261021-demo-bid-detail-fx02-loading-1440.png
+전이(MutationObserver):
+  32ms 분석 요약 완료 2026-10-21 11:55 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0. || 버튼:분석 요청 중…
+  223ms 분석 요약 대기 중 || 버튼:분석 중…
+  4018ms 분석 요약 완료 2026-10-21 11:57 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0. || 버튼:재분석
+POST 응답: ["202 /api/v1/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a/analyses req={\"force\":true} res={\"analysisId\":\"999f48fd-45ce-4072-ac89-6c49ff8aaea9\",\"status\":\"QUEUED\",\"deduplicated\":false,\"pollUrl\":\"/api/v1/analyses/999f48fd-45ce-4072-ac89-6c49ff8aaea9\"}"]
+요약(후): 분석 요약 완료 2026-10-21 11:57 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 분석 이력 2건 ▾
+console(error/warning): 0
+ed2ae71a-1636-40a4-b23e-837cfdc17bd3|COMPLETED|72|WATCH|11:55:34.429|11:55:34.730|301
+999f48fd-45ce-4072-ac89-6c49ff8aaea9|COMPLETED|72|WATCH|11:57:54.807|11:57:55.424|617
+
+==================================================================
+## 11 FX-02 사람 결정·벨 (11:58)
+$ node pw.mjs sales@soltech.invalid 1440 s11-decision.mjs
+------------------------------------------------------------------
+결정 전: 참여 판단 권고 WATCH 규칙 + 결정 모델 참고 72 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 사람 검토 권장 결정 모델 사람 검토 신호 KEV_NEEDS_REVIEW 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 아직 기록된 결정이 없습니다
+담당자(기본): 이영업
+POST reviews: 201 (177ms)
+결정 뒤: 참여 판단 권고 WATCH 규칙 + 결정 모델 참고 72 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 사람 검토 권장 결정 모델 사람 검토 신호 KEV_NEEDS_REVIEW 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 마지막 결정: WATCH · 이영업 · 2026-10-21 11:58 WATCH · 이영업(SALES) · 2026-10-21 11:58 요구기술 3개(Vue.js·SCORM·WebRTC) 미보유, 협력사 확보 후 재검토 담당 이영업
+screenshot: 20261021-demo-bid-detail-fx02-decision-loaded-1440.png
+벨 이름: 알림, 안 읽음 3건 · 글자: 
+벨 내용: (팝오버 못 찾음)
+screenshot: 20261021-demo-topbar-bell-loaded-1440.png
+console(error/warning): 0
+
+==================================================================
+## 11 DB (psql, 결정 뒤)
+$ select count(*) bid_reviews·audit_logs·notifications / notifications / audit_logs 최근 3 / bid_reviews
+------------------------------------------------------------------
+3|28|3
+ANALYSIS_COMPLETE|11:55:34
+ANALYSIS_COMPLETE|11:57:57
+REVIEW_ASSIGNED|11:58:45
+REVIEW_DECIDE|bid_review|11:58:44
+ANALYSIS_REQUEST|score_run|11:57:54
+ANALYSIS_REQUEST|score_run|11:55:34
+DEMO-2026-0001|BID|자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인력 12 FTE 대비 가용 20 FTE. 사전 검토에서 입찰 참여로 결정했다.||f
+DEMO-2026-0003|NO_BID|정보통신공사업 등록이 없어 필수 자격 미충족. Kev 가 BID 를 제시해도 규칙이 우선이므로 사전 검토에서 불참을 결정했다.||f
+DEMO-2026-0002|WATCH|요구기술 3개(Vue.js·SCORM·WebRTC) 미보유, 협력사 확보 후 재검토|sales@soltech.invalid|t
+
+==================================================================
+## 11 analyst 읽기 전용 (11:59)
+$ node pw.mjs analyst@soltech.invalid 1440 s11-analyst.mjs
+------------------------------------------------------------------
+analyst 결정 패널: 참여 판단 권고 WATCH 규칙 + 결정 모델 참고 72 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 사람 검토 권장 결정 모델 사람 검토 신호 KEV_NEEDS_REVIEW 최종 결정 결정은 ADMIN·SALES 역할만 기록할 수 있습니다 BID WATCH NO-BID 사유 0 / 2000 담당자 박분석 결정 기록 결정 이력 마지막 결정: WATCH · 이영업 · 2026-10-21 11:58 WATCH · 이영업(SALES) · 2026-10-21 11:58 요구기술 3개(Vue.js·SCORM·WebRTC) 미보유, 협력사 확보 후 재검토 담당 이영업
+radio BID disabled: true
+radio WATCH disabled: true
+radio NO-BID disabled: true
+사유 disabled: true
+결정 기록 disabled: true
+재분석 disabled: false
+머리말: 사이드바 여닫기 입찰 공고 DEMO 실행 모드: mock AI: mock 수집 12분 전
+screenshot: 20261021-demo-bid-detail-fx02-analyst-forbidden-1440.png
+console(error/warning): 0
+
+==================================================================
+## 17 /admin/ingestion SEED run 1440 (12:00)
+$ RUN=db2d990a node pw.mjs admin@soltech.invalid 1440 s17-ingestion.mjs
+------------------------------------------------------------------
+행: 2026-10-21 11:46 0초 부분 완료 db2d990a 데모 데이터 · 배치 SEED 실행 모드 mock · 데모 초기화 19 0 0 0 1 2
+overflow: {"innerWidth":1440,"scrollWidth":1440,"offenders":[]}
+screenshot: 20261021-demo-admin-ingestion-loaded-1440.png
+상세 로딩 311ms
+상세: 수집 실행 db2d990a 데모 데이터 (fixture) · 배치 SEED · 실행 모드 mock 부분 완료 (격리 1건) 시작 2026-10-21 11:46:56 종료 2026-10-21 11:46:57 (0초) 방식 데모 초기화 (pnpm demo:reset) 공공 API 호출 0회 (fixture는 공공 API를 부르지 않습니다) 신규 19 변경 0 새 revision 취소 0 중복 0 같은 내용 재수신, 저장 안 함 격리 1 재시도 2 격리 1건 필수 정보가 없거나 형식이 틀려 적재하지 않았습니다. 공고 목록에 나오지 않습니다. fixture:DEMO-2026-0012 필수 필드 누락 MISSING_REQUIRED_FIELD missing: title 재시도 2회 429 응답은 서버가 정한 대기 시간(Retry-After)을 지킨 뒤 다시 요청합니다. 실행 id db2d990a-eefa-4880-81c1-a71c0fc1ee0c 체크포인트 — 닫기
+screenshot: 20261021-demo-admin-ingestion-run-loaded-1440.png
+console(error/warning): 0
+
+==================================================================
+## 17 /admin/ingestion 1280
+$ node pw.mjs admin@soltech.invalid 1280 s17-ingestion.mjs
+------------------------------------------------------------------
+행: 2026-10-21 11:46 0초 부분 완료 db2d990a 데모 데이터 · 배치 SEED 실행 모드 mock · 데모 초기화 19 0 0 0 1 2
+overflow: {"innerWidth":1280,"scrollWidth":1280,"offenders":[]}
+screenshot: 20261021-demo-admin-ingestion-loaded-1280.png
+console(error/warning): 0
+
+==================================================================
+## 12 수동 수집 LIVE (12:01)
+$ node pw.mjs admin@soltech.invalid 1440 s12-live.mjs
+------------------------------------------------------------------
+대화상자: 수동 수집 실행 공고를 지금 수집합니다. 수집은 분석을 자동으로 시작하지 않습니다. 소스 데모 데이터 (fixture) 저장소의 가상 공고 20건(FX-01~FX-20)을 읽습니다. 나라장터 (g2b) 실행 모드 mock에서는 쓸 수 없습니다. live 모드에서만 됩니다. 배치 SEED · 처음 적재 공고 20건의 첫 revision을 적재합니다. 이미 적재했으면 모두 중복으로 건너뜁니다. LIVE · 변경분 투입 정정·취소·기한 변경·재전송 5건을 적재합니다. 공고가 바뀌고 알림이 생깁니다. 되돌리려면 pnpm demo:reset 을 다시 실행해야 합니다. 배치 LIVE는 실행 모드 live와 다릅니다. 취소 수집 실행 Close
+POST: 202 req={"source":"fixture","batch":"live"} res={"id":"c65ff7d5-597d-408d-bc13-a77f4f87e181","source":"fixture","runMode":"mock","batch":"live","trigger":"MANUAL","status":"RUNNING","summary":{"created":0,"changed":0,"cancelled":0,"skippedDuplicate":0,"quarantined":0,"retried":0},"quotaUsed":0,"errors":[],"cursor":null,"requestedBy":{"id":"74e37166-f22d-4764-ac8e-029c79d1602b","name":"김관리"},"startedAt":"2026-10-21T03:01:32.756Z","finishedAt":nu
+직후 화면 status: 데이터 수집 관리 공고 수집 실행 기록과 격리·재시도를 봅니다. 수집은 분석을 자동으로 시작하지 않습니다. 수동 수집 실행 실행 중인 수집이 끝나면 다시 실행할 수 있습니다 수집을 요청했습니다 · 데모 데이터 · 배치 LIVE · c65ff7d5 · 작업 시작을 기다리는 중 자세히 실행 이력 수집 실행 2건 표시 수집 실행 이력. 최근 실행이 위에 있습니다. 시작 상태 소스·방식 신규 변경 취소 중복 격리 재시도 2026-10-21 12:01 — 접수됨 c65ff7d5 데모 데이터 · 배치 LIVE 실행 모드 mock · 수동 · 
+목록 갱신까지 846ms
+행: 2026-10-21 12:01 — 접수됨 c65ff7d5 데모 데이터 · 배치 LIVE 실행 모드 mock · 수동 · 김관리 — — — — — —
+행: 2026-10-21 11:46 0초 부분 완료 db2d990a 데모 데이터 · 배치 SEED 실행 모드 mock · 데모 초기화 19 0 0 0 1 2
+screenshot: 20261021-demo-admin-ingestion-live-loaded-1440.png
+console(error/warning): 0
+
+==================================================================
+## 12 이어서 FX-07 재분석·FX-06·FX-08·벨 (12:03)
+$ node pw.mjs sales@soltech.invalid 1440 s12-after.mjs
+------------------------------------------------------------------
+벨: 알림, 안 읽음 3건
+FX-07 머리(재분석 전): 공고 목록 DEMO 입찰공고 출처 fixture 한국도로공사 교통정보 데이터플랫폼 고도화 (가상) 발주기관 한국도로공사 · 예산 2,160,000,000원 · 마감 2026-11-08 18:00 (D-18) 공고번호 DEMO-2026-0007 · revision 2 · 수집 2026-10-21 12:01 KST 원문 보기 재분석 분석 요약 완료 2026-10-21 11:49 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 단계 이력 발주계획 — 사전규격 — 입찰공고 r2 필수자격 (1건 · 모두 충족) 충족 소프트웨어사업자 신고확인서 필수 AI 추출 회사 프로필 등록 SW_BUSINESS_REG 보유(HELD) 회사: 소프트웨어사업자 신고확인서 근거 공고 본문 · "
+FX-07 참여 판단(전): 참여 판단 권고 WATCH 규칙 + 결정 모델 참고 68 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 아직 기록된 결정이 없습니다
+FX-07 재분석 완료까지 3655ms
+FX-07 요약(후): 분석 요약 완료 2026-10-21 12:03 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 분석 이력 2건 ▾
+FX-07 점수(후): SOL Score 분해 필수자격 1건을 모두 충족했습니다. 요구기술 3개 중 1개 보유(Kubernetes). Hadoop·Spark 경험 없음. SOL Score 77점으로 참여 권고 구간(75 이상)입니다. 권고: BID(참여 권고). 최종 참여 결정은 사람이 합니다. 펼치기 기술 스택 적합 11.0 / 30 근거 2건 유사 수행 실적 23.3 / 25 근거 1건 인력 가용성 20.0 / 20 필요 인력 미추출: 예산 구간으로 추정 규모 적합성 15.0 / 15 근거 1건 전략적 선호 8.0 / 10 합계 77.3 → SOL Score 77 (반올림) · 알고리즘 sol-v0.1.0 · 프로필 rev 2
+FX-07 참여 판단(후): 참여 판단 권고 BID 규칙 + 결정 모델 참고 77 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 아직 기록된 결정이 없습니다
+screenshot: 20261021-demo-bid-detail-fx07-loaded-1440.png
+FX-06 머리: 공고 목록 DEMO 입찰공고 출처 fixture 대전광역시 스마트시티 통합플랫폼 유지보수 (가상) 발주기관 대전광역시 · 예산 900,000,000원 · 마감 2026-11-18 18:00 (D-28) 공고번호 DEMO-2026-0006 · revision 2 · 수집 2026-10-21 12:01 KST 원문 보기 재분석 분석 요약 완료 2026-10-21 11:49 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 단계 이력 발주계획 — 사전규격 — 입찰공고 r2 필수자격 (1건 · 모두 충족) 충족 소프트웨어사업자 신고확인서 필수 AI 추출 회사 프로필 등록 SW_BUSINESS_REG 보유(HELD) 회사: 소프트웨어사업자 신고확인서 근거 공고 본문 · "소프트
+FX-08 머리: 공고 목록 DEMO 입찰공고 취소됨 출처 fixture 충청북도 농업기술정보시스템 구축 (가상) 발주기관 충청북도 · 예산 700,000,000원 · 마감 2026-11-06 18:00 (D-16) 공고번호 DEMO-2026-0008 · revision 2 · 수집 2026-10-21 12:01 KST 원문 보기 재분석 분석 요약 완료 2026-10-21 11:49 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 이 공고는 취소되었습니다. 기존 분석·결정 기록은 보존됩니다 단계 이력 발주계획 — 사전규격 — 입찰공고 r2 필수자격 (1건 · 모두 충족) 충족 소프트웨어사업자 신고확인서 필수 AI 추출 회사 프로필 등록 SW_BUSINESS_REG 보유(HELD) 회사
+screenshot: 20261021-demo-bid-detail-fx08-loaded-1440.png
+목록 기본: 18행 · 충청북도(FX-08) 0
+상태 선택지: 진행 중 (기본) / 취소 포함
+목록 취소 포함: 19행 · FX-08 행: DEMO 입찰공고 취소됨 충청북도 농업기술정보시스템 구축 (가상) 충청북도 7억 700,000,000원 D-16 11. 6. 70 WATCH 완료 미결정
+console(error/warning): 0
+
+==================================================================
+## 16 org-02 화면 (12:08)
+$ node pw.mjs viewer@other.invalid 1440 s16-screen.mjs
+------------------------------------------------------------------
+login viewer@other.invalid → /dashboard (5595ms)
+머리말: 사이드바 여닫기 입찰 공고 DEMO 실행 모드: mock AI: mock 수집 7분 전
+main: 공고 목록 DEMO 입찰공고 출처 fixture 세종특별자치시 차세대 행정정보시스템 고도화 (가상) 발주기관 세종특별자치시 · 예산 1,200,000,000원 · 마감 2026-11-11 18:00 (D-21) 공고번호 DEMO-2026-0001 · revision 1 · 수집 2026-10-21 11:46 KST 원문 보기 분석 실행 분석 요청은 ADMIN·SALES·ANALYST 역할만 할 수 있습니다 분석 요약 미분석 단계 이력 발주계획 — 사전규격 — 입찰공고 r1 아직 분석하지 않았습니다 첨부 상태 제안요청서.pdf 참여 판단 권고 미분석 — 점수 없음 최종 결정 결정은 ADMIN·SALES 역할만 기록할 수 있습니다 BID WATCH NO-BID 사유 0 / 2000 담당자 정외부 결정 기록 결정 이력 아직 기록된 결정이 없습니다
+94 글자 수: 0
+screenshot: 20261021-demo-bid-detail-org02-empty-1440.png
+console(error/warning): 0
