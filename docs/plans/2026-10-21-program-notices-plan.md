@@ -26,7 +26,7 @@ updated: 2026-10-21
 ## Global Constraints
 
 - 덧붙이기만 한다. `infra/sources/registry.yaml`·`web/server/ingestion/source-registry.ts`·`OfficialApiConnector`·`ingest_save_revision`·분석 job·`bid_list_items`·`/api/v1/bids`·`ingest_runs` 계약은 고치지 않는다.
-- 기존 파일 수정은 이 셋뿐이다: `web/app/(app)/(work)/bids/page.tsx`(링크 줄 1개), `web/worker/main.ts`(등록 1줄 + import), `infra/compose.yaml`·env 예시·`infra/run-modes.json`(키 이름·경로).
+- 기존 파일 수정은 이 셋뿐이다: `web/app/(app)/(work)/bids/page.tsx`·`loading.tsx`(링크 줄 1개씩, 디자인 스펙 §12 Q2), `web/worker/main.ts`(등록 1줄 + import), `infra/compose.yaml`·env 예시·`infra/run-modes.json`(키 이름·경로). 시험(`main.test.ts`·`scripts/database.test.mjs`)·생성물(`database.types.ts`)·`package.json` 스크립트 한 줄·`scripts/recorded/README.md` 한 절은 각 Task 의 짝으로 더한다.
 - 호출 호스트는 `www.bizinfo.go.kr`·`mss.go.kr` 둘뿐, `https:` 만. 리다이렉트는 따르지 않는다(`redirect: "manual"`, 3xx 는 실패).
 - 기업마당 키 env 이름 `BIZINFO_API_KEY`. 서버(worker)만 읽는다. `NEXT_PUBLIC_` 금지, 로그·오류·run 기록·녹음·증거에 키를 남기지 않는다(`crtfcKey` 값 가림). live 필수 키가 아니다.
 - `.env` 이름 파일은 어떤 도구로도 읽지 않는다(셸·node·python·스캔). env 이름을 문자열로 이어 붙이지 않는다. 막히면 멈추고 보고한다. 서브에이전트 지시문에도 넣는다.
@@ -184,8 +184,8 @@ docs/evidence/program-notices/                    스크린샷·녹음 보고
 - Produces:
   - `parseProgramNoticeListQuery(raw: RawQuery): {ok: true; value: ProgramNoticeListQuery} | {ok: false; issues: QueryIssue[]}` — `source=bizinfo|mss`(없으면 둘 다), `q`(소관기관 검색어, 1~50자, 공백만이면 무시), `sort=deadline|published`(기본 deadline), `includeClosed=true|false`(기본 false). 모르는 키는 무시, 값이 틀리면 400.
   - `ProgramNoticeListItem = {id, source, title, agency, sourceUrl, publishedAt, applyStartOn, applyEndOn, summary, applyMethod, target, tags, isDemo}`.
-  - `listProgramNotices(query, deps: {repo: ProgramNoticesRepo; today: string}): Promise<{items: ProgramNoticeListItem[]; total: number}>` — repo 는 최대 300행. 마감 지난 것(applyEndOn < today) 은 `includeClosed` 가 아니면 뺀다(null 은 늘 남김). 두 소스가 다 보일 때 같은 `dedupe_key` 면 기업마당 행만 남긴다. 정렬 deadline: applyEndOn 오름차순, null 뒤, 같으면 publishedAt 내림차순. published: publishedAt 내림차순, null 뒤.
-  - `GET /api/v1/program-notices` → `businessRoute` + `serviceResponse` 봉투, 200 `{items, total}`, 400 `VALIDATION_ERROR`. today 는 `kstToday(new Date())`.
+  - `listProgramNotices(query, deps: {repo: ProgramNoticesRepo; today: string}): Promise<{items: ProgramNoticeListItem[]; total: number; hasAnyNotice: boolean; isCapped: boolean}>` — repo 는 등록일 최신 순 최대 600행(`LIST_FETCH_LIMIT`)을 읽고, 거르고 정렬한 뒤 300행(`LIST_MAX_ITEMS`)에서 자른다. `hasAnyNotice` 는 거르기 전 저장 행이 있는지, `isCapped` 는 300행을 넘어 잘렸는지다(디자인 스펙 §12 Q3). 마감 지난 것(applyEndOn < today) 은 `includeClosed` 가 아니면 뺀다(null 은 늘 남김). 두 소스가 다 보일 때 같은 `dedupe_key` 면 기업마당 행만 남긴다. 정렬 deadline: applyEndOn 오름차순, null 뒤, 같으면 publishedAt 내림차순. published: publishedAt 내림차순, null 뒤.
+  - `GET /api/v1/program-notices` → `businessRoute` + `serviceResponse` 봉투, 200 `{items, total, hasAnyNotice, isCapped}`, 400 `VALIDATION_ERROR`. today 는 `kstToday(new Date())`.
 - [ ] **Step 1: 실패하는 시험**: 위 규칙마다 1개(Review Focus 4 의 KST 오늘 포함), 중복 묶기에서 `source=mss` 필터면 중기부 행이 남는다, `q` 는 소관기관 부분 일치(대소문자·공백 무시), Route 400·200 모양(기존 `/api/v1/bids` route 시험 관례).
 - [ ] **Step 2:** FAIL. **Step 3:** 구현. repo 는 `getSupabase()`(anon + 세션, RLS)로 `program_notices` 를 읽는다. **Step 4:** PASS. **Step 5:** 커밋 `feat(program-notices): 목록 조회와 GET /api/v1/program-notices`.
 
@@ -203,11 +203,11 @@ docs/evidence/program-notices/                    스크린샷·녹음 보고
 
 **Files:**
 - Create: `web/app/(app)/(work)/bids/bids-source-nav.tsx`, `web/app/(app)/(work)/bids/programs/page.tsx`·`loading.tsx`·`error.tsx`·`programs-copy.ts`·`list-query.ts`(+`.test.ts`)·`program-list-view.tsx`·`program-notice-drawer.tsx`, 브라우저 시험 `program-list.browser.test.tsx`
-- Modify: `web/app/(app)/(work)/bids/page.tsx`(AppPage 첫 자식으로 `<BidsSourceNav current="g2b" />` 한 줄 + import)
+- Modify: `web/app/(app)/(work)/bids/page.tsx`(AppPage 첫 자식으로 `<BidsSourceNav current="g2b" />` 한 줄 + import), `web/app/(app)/(work)/bids/loading.tsx`(같은 한 줄, 디자인 스펙 §12 Q2)
 
 **Interfaces:**
 - Consumes: Task 6 `listProgramNotices`·`parseProgramNoticeListQuery`·`ProgramNoticeListItem`. 서버 페이지는 Route Handler 를 거치지 않고 서비스를 직접 부른다(`/bids` 첫 쪽과 같은 관례).
-- 디자인은 `web-designer` 스펙(`docs/plans/2026-10-21-program-notices-design.md`)을 먼저 받는다. 고정할 것: 링크 줄은 `SettingsNav` 모양(링크 + `aria-current="page"`, 2px 밑줄), 제목은 두 화면 모두 "공고". 열: 출처 배지·공고명·소관기관·신청 마감(없으면 "기간 미표기")·등록일. 필터: 출처, 소관기관 검색어, 정렬, "마감 지난 공고 포함" 토글 — 주소 쿼리가 정본. 상세는 서랍(Sheet): 개요·신청방법·지원대상·태그, "문의처는 원문에서 확인하세요", "원문 보기"(`target="_blank" rel="noopener noreferrer"`). 빈 상태 "수집된 부처 지원사업 공고가 없습니다". 점수·권고·분석·결정 버튼 없음. 글자는 평문(`whitespace-pre-line`).
+- 디자인은 `web-designer` 스펙(`docs/plans/2026-10-21-program-notices-design.md`)을 먼저 받는다. 고정할 것: 링크 줄은 `SettingsNav` 모양(링크 + `aria-current="page"`, 2px 밑줄), 제목은 `/bids` 그대로("입찰 공고")이고 `/bids/programs` h1 만 "부처 지원사업 공고"(디자인 스펙 §12 Q1). 열: 출처 배지·공고명·소관기관·신청 마감(없으면 "기간 미표기")·등록일. 필터: 출처, 소관기관 검색어, 정렬, "마감 지난 공고 포함" 토글 — 주소 쿼리가 정본. 상세는 서랍(Sheet): 개요·신청방법·지원대상·태그, "문의처는 원문에서 확인하세요", "원문 보기"(`target="_blank" rel="noopener noreferrer"`). 빈 상태 "수집된 부처 지원사업 공고가 없습니다". 점수·권고·분석·결정 버튼 없음. 글자는 평문(`whitespace-pre-line`).
 - [ ] **Step 1:** 브라우저 시험(1280 폭 넘침 없음, 서랍 열림·닫힘 초점, 원문 링크 속성) 실패 확인. **Step 2:** 구현. **Step 3:** `pnpm -C web test:browser` 해당 파일 PASS, `pnpm -C web lodestar`·`pnpm check:colors` PASS. **Step 4:** 1440·1280 스크린샷 `docs/evidence/program-notices/`. **Step 5:** 커밋 `feat(web): 부처 지원사업 공고 목록과 상세 서랍`.
 
 ### Task 9: E2E·검증·기준점
