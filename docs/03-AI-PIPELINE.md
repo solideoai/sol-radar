@@ -466,7 +466,7 @@ JSON Schema:
 > - 타입 `choice`·`score`·`noul`은 프롬프트의 `type` 문자열로만 들어간다. noul 전용 null slot 구현은 없다(noul은 후보 `true`/`false` 2개로 표현, §5.4).
 > - state 길이 제한 없음(`truncation=False`). 언어: 학습 데이터(DecisionBench)는 영어, state 길이 14~18.9k 자. 한국어 입찰 도메인 성능은 측정된 적이 없다.
 > - 공개 성능(자체 보고, 독립 재현 없음): DecisionBench 23,900행 acc 0.8118, ECE 0.0659. 후보 2개 0.946, 3개 0.983, 5개 0.953. 가장 약한 가족 `rubric_scoring_prioritization` 0.707. 이 문서는 이 수치를 설계 근거로 쓰지 않는다. 성능은 평가셋으로 잰다([[21-MODEL-TRAINING|21 모델 학습]]).
-> - 학습 코드 공개 안 됨(모델 카드·Hanno Labs GitHub). 학습·채점은 우리 코드다(`services/decision`·`sol_eval.bosun_score`, main `1b68f9b`, 21 §5.1).
+> - 학습 코드 공개 안 됨(모델 카드·Hanno Labs GitHub). 학습·채점은 우리 코드다(`services/decision`·`sol_eval bosun_score`, main `1b68f9b`, 21 §5.1).
 
 > [!warning] 미검증 가정 (2026-10-20)
 > - hannolabs.ai "Introducing Bosun"(2026-06-11)은 Qwen3-Reranker 기반 yes/no 크로스인코더 Bosun-XS/4B를 설명한다. v3.1 0.6B(decision token)는 다른 세대다. 인용 때 섞지 않는다.
@@ -587,7 +587,7 @@ COMPANY (profile revision 2)
 - 제외: 규칙 엔진의 자격 판정·SOL Score·권고. 규칙 결과를 넣지 않아야 결정 모델이 독립 신호가 된다(`MODEL_RULE_DISAGREEMENT`가 의미를 가진다). `/kev` 본문(§2.1)에도 넣지 않는다.
 - 기관명·회사명 등 고유명사는 영문 표기가 없으면 역할명으로 바꾼다(`(Korean public agency)`). 회사 기밀 수치는 프로필에 있는 범위만 쓴다.
 - 길이 상한 6,000 토큰. ADR-034 뒤에도 유지한다: Bosun은 state 길이 제한이 없고(`truncation=False`) 백본 ctx가 40,960이지만, 질문당 forward 1회라 지연이 state 길이 × 문항 수에 비례하고 DecisionBench 학습 state는 14~18.9k 자여서 상한을 올릴 근거가 없다. 초과하면 `pastPerformance` 목록부터 자른다.
-  - 학습셋도 같은 길이의 state를 쓴다. Bosun 학습(`sol_decision.train`, main `1b68f9b`)은 state를 자르지 않고, `--max-state-tokens`(기본 6,144)를 넘는 레코드를 건너뛰며 그 수를 `training_metrics.json`의 `skippedOverLength`에 남긴다([[21-MODEL-TRAINING|21]] §5.2, [[22-FINETUNE-RUNBOOK|22]] §4.2).
+  - 학습셋도 같은 길이의 state를 쓴다. Bosun 학습(`sol_decision.train`, main `1b68f9b`)은 state를 자르지 않고, `--max-state-tokens`(기본 6,144)를 넘는 레코드를 건너뛰며 그 수를 `training_metrics.json`의 `metrics.skippedOverLength`(패키지 `manifest.json`에도 있다)에 남긴다([[21-MODEL-TRAINING|21]] §5.2, [[22-FINETUNE-RUNBOOK|22]] §4.2).
 - 첨부 다운로드·파싱에 실패했거나 `PARTIAL`이면 사실 한 줄만 넣는다(§8): `RFP attachment could not be read; requirements may be incomplete`.
 
 > [!warning] 미검증 가정 (2026-10-20)
@@ -949,7 +949,7 @@ interface ParseResult {
   - `requestModel`(wire 요청의 `model` 값), `dataset`(버전·sha256), `questionSet`, `stateTemplate`, `reports`, `default`
 - 항목(계획 §5.3):
   - `bosun-v3.1-0.6b` — 기본 결정 모델. `kind: decision`, `run: Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`, `revision: 5e78a37c8d86860ebac9ef2d5327d6299498498e`, `base: Qwen/Qwen3-0.6B@c1899de2`, `base_revision: c1899de289a04d12100db370d81485cdf75e47ca`, `lora: 961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5`, `decision_embeddings_sha256: 88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188`, `requestModel: bosun-v3.1-0.6b`, `status: active`, `temperature`·`questionSet`·`stateTemplate`는 null. gateway env `KEV_MODEL_ID`로 고른다(§3).
-  - `bosun-sol-lora-v0.1` — F2 뒤. `kind: decision`, `init_from: bosun-v3.1-0.6b`, `run`은 회사가 돌려준 manifest로 채움, `reports`가 채워질 때까지 `default: false`.
+  - `bosun-sol-lora-v0.1` — F2 뒤. `kind: decision`, `init_from: bosun-v3.1-0.6b`, `run`은 회사가 돌려준 manifest로 채움. 사용자 승인 전까지 `status`를 `active`가 아닌 값으로 둔다(결정 모델은 `KEV_MODEL_ID`와 `status: active`로 고른다. `default`는 qwen 항목에만 효과가 있다).
   - `qwen3.8-flash-next` — 기본 Qwen. `kind: qwen`, `run: Qwen/Qwen3.8-Flash-Next`(2026-10-21 사용자 보고), `revision: null`(회사 운영 값 미확인), `default: true`, `status: active`. `QWEN_MODEL`과 같아야 한다.
   - 퇴역·백업: `kev-9b-v1.0`(`jaredpalmer/kev-9b@v1.0`, 옛 `kind: kev`)·`qwen3.5-27b`(`Qwen/Qwen3.5-27B`, 2026-10-21 교체 전 기본)·`qwen3.5-9b`는 `status: retired`, `qwen3-4b-instruct-2507`(`revision cdbee75f17c01a7cc42f958dc650907174af0554`)은 `status: backup`. 이력 보존용이고 기동 대조에서 뺀다. 롤백은 이 항목과 env 값 3개(`KEV_MODEL_ID`·`QWEN_BASE_URL`·`QWEN_MODEL`), 8009 런타임만 바꾼다(ADR-034 13번).
 - **호스트 허용 목록**: 레지스트리 최상위 `allowedHosts`는 `local` 모델 서버 URL(`QWEN_BASE_URL`·`KEV_BASE_URL`)의 호스트가 가질 수 있는 이름 목록이다. 값은 `acropolissg.com` 하나다([[16-DECISIONS|ADR-032]] D2). 회사 Qwen API `https://acropolissg.com/vllm/v1`도 같은 호스트라 목록 변경이 없다(ADR-034 4번).

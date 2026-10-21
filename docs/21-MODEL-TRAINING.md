@@ -21,7 +21,7 @@ updated: 2026-10-21
 
 | 단계 | 내용 | 해커톤 |
 |---|---|---|
-| F0 | 결정 모델(공개 Bosun v3.1 0.6B) 베이스라인 추론 E1', 한국어/영어 입력 비교, 평가셋 구축, 평가·비교 하네스, 학습셋 내보내기(Bosun 질문 단위 레코드), LoRA 메모리 검증 스크립트 | **완료 조건**. 하네스의 Bosun 부분(`sol_eval.export --format bosun`·`sol_eval.bosun_score`·`sol_eval.leakage`·`sol_eval.compare`)은 main `1b68f9b`(B1)에 있다. 실측 결과는 아직 없다 |
+| F0 | 결정 모델(공개 Bosun v3.1 0.6B) 베이스라인 추론 E1', 한국어/영어 입력 비교, 평가셋 구축, 평가·비교 하네스, 학습셋 내보내기(Bosun 질문 단위 레코드), LoRA 메모리 검증 스크립트 | **완료 조건**. 하네스의 Bosun 부분(`python -m sol_eval` 의 `export --format bosun`·`bosun_score`·`leakage`·`compare`)은 main `1b68f9b`(B1)에 있다. 실측 결과는 아직 없다 |
 | F1 | 회사 GPU 에서 Bosun LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행, [[16-DECISIONS\|ADR-025]]). 물리 GPU 1(NVIDIA A40 46,068 MiB) 한 장만 쓰고, 회사 PaddleOCR vLLM(약 9,167 MiB, 2026-10-20 사용자 보고)과 **공유**한다. 서버의 torch 2.8.0+cu128·CUDA·bf16 은 2026-10-20 오전 `.venv-kev` 에서 확인했다. Bosun 용 `.venv-bosun` 은 사용자 보고이고 B2 에서 확인한다. GPU 에서의 Bosun 학습은 미실행([[22-FINETUNE-RUNBOOK\|22]] §3.1) | B4(10-24, 회사 측 실행, [[16-DECISIONS\|ADR-034]] 12번). 학습 가능 여부는 F1 결과로만 확정. 결과를 받으면 기록 |
 | F2 | Bosun v3.1 0.6B LoRA 이어 학습(`en`. 공개 LoRA 392 텐서만, decision 임베딩 동결) | B4(회사 측 실행, ADR-034). 비교 실험이라 §4.4 착수 조건을 기다리지 않는다 |
 | F3 | 온도 보정·평가·반입·운영 모델 교체 | 보정·E4 평가(E1' 대비)는 B5(10-25). 반입·운영 모델 교체는 후속이고 §4.4 판단·사용자 승인·ADR 을 거친다(ADR-034 9번) |
@@ -81,7 +81,7 @@ updated: 2026-10-21
 해커톤에는 라벨링 화면을 만들지 않는다. JSONL 파일과 검증 CLI 로 한다.
 
 1. 데이터셋 빌더가 항목·변형을 만들고, 규칙 판정과 Qwen 추출로 초안 라벨을 채운다.
-2. 사람이 JSONL 라벨 파일을 검수한다. `sol_eval.labels check` 가 형식·값 집합·근거 존재를 검사한다.
+2. 사람이 JSONL 라벨 파일을 검수한다. `python -m sol_eval labels check` 가 형식·값 집합·근거 존재를 검사한다.
 3. 추출 정답(gold `RequirementExtraction`)도 같은 방식이다. 인용은 인용 검증기([[15-DATA-CONTRACTS|15 데이터 계약]] §5)를 통과해야 한다.
 4. 사람 라벨에는 라벨러 id·시각·도구 버전을 남긴다. test 의 10% 는 두 번째 사람이 다시 라벨링해 Cohen κ 를 잰다. 두 번째 사람이 없으면 이 지표가 빠졌다고 리포트에 적는다.
 5. 초안 출처를 `draftedBy`(`RULE`·`QWEN`·`CLAUDE`·`NONE`)로 남긴다. 사람이 검수해 확정한 것만 `labelSource=HUMAN` 이다. Qwen 초안에서 시작한 gold 는 정답이 초안에 끌려갈 수 있다. 그래서 test 추출 gold 중 5건 이상은 초안 없이(`draftedBy=NONE`) 만들고, 이 묶음과 나머지의 Qwen 점수 차이를 함께 보고한다.
@@ -129,13 +129,13 @@ interface EvalItem {
 }
 ```
 
-- **Bosun 질문 단위 레코드** `bosun/{split}.en.jsonl`(ADR-034, [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §4.2): Bosun 은 질문 하나당 forward 1회라 한 줄이 **질문 하나**다(Kev JSONL 의 "state 1 + 질문 N" 한 줄과 다르다. Kev 형식은 퇴역). `EvalItem`·`Label` 필드를 보존하고 `questionType`·`candidates`(03 §5.4 타입 변환 표)·`gold`(one-hot 또는 `Label.target` soft)를 더한다. state 는 서빙과 **같은 코드**(`services/ai/kev` 의 state 빌더)와 같은 템플릿 버전(`en.v0.2`)으로 만들고, `instructions` 는 `services/ai/kev/question-sets/v0.2.json` 원문 그대로다([[16-DECISIONS|ADR-033]] E10). 학습·E1'·E4 는 `en` 만 쓴다. `export --format bosun` 은 `en` 만 쓴다(main `1b68f9b`). `ko` state 파일을 내는 것은 퇴역한 Kev 형식(`kev/{split}.ko.jsonl`)뿐이다. E2 는 이 Bosun 레코드 형식을 그대로 쓰고 state 만 한국어로 바꿔 오프라인 `bosun_score` 로 E1' 과 짝 비교한다(세부 필드·내보내기 코드는 ed, [[16-DECISIONS|16]] 미결정 29-1·29-6. 2026-10-21 기준 코드 없음).
+- **Bosun 질문 단위 레코드** `bosun/{split}.en.jsonl`(ADR-034, [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §4.2): Bosun 은 질문 하나당 forward 1회라 한 줄이 **질문 하나**다(Kev JSONL 의 "state 1 + 질문 N" 한 줄과 다르다. Kev 형식은 퇴역). `EvalItem`·`Label` 필드를 보존하고 `questionType`·`candidates`(03 §5.4 타입 변환 표)·`gold`(one-hot 또는 `Label.target` soft)를 더한다. state 는 서빙과 **같은 코드**(`services/ai/kev` 의 state 빌더)와 같은 템플릿 버전(`en.v0.2`)으로 만들고, `instructions` 는 `services/ai/kev/question-sets/v0.2.json` 원문 그대로다([[16-DECISIONS|ADR-033]] E10). 학습·E1'·E4 는 `en` 만 쓴다. `export --format bosun` 은 `en` 만 쓴다(main `1b68f9b`). `ko` state 파일을 내는 것은 퇴역한 Kev 형식(`kev/{split}.ko.jsonl`)뿐이다. E2 는 이 Bosun 레코드 형식을 그대로 쓰고 state 만 한국어로 바꿔 오프라인 `bosun_score` 로 E1' 과 짝 비교한다([[16-DECISIONS|16]] 미결정 29-1·29-6). 파일은 같은 폴더의 `bosun/{split}.ko.jsonl` 이고, 레코드 최상위에 `language: "ko"` 를 더한다(없으면 `en`). `rowId`·질문 세트·후보·gold 는 `en` 과 같아 `compare` 가 `rowId` 로 짝짓는다. state 만 `services/ai/kev/state-templates/ko.v0.2.txt` 로 렌더한다. 내보내기 `python -m sol_eval export --format bosun --language ko` 는 B2 뒤 ed 가 만든다(2026-10-21 기준 코드 없음). 결정 서버(8009)를 거치지 않으므로 운영 입력이 영어 state 만인 규칙(03)은 그대로다.
 - **Qwen SFT JSONL**: 내보내지 않는다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정, §5.6). 추출 gold(`EvalItem.extraction`)는 EX0 측정에만 쓴다.
 - **번들** `sol-dataset-{version}/` 폴더(그대로 보내고 `manifest.json` 의 파일별 sha256 으로 대조한다. tar 로 묶지 않는다, [[16-DECISIONS|16]] 미결정 29-3)
   - `manifest.json`: 데이터셋 버전, git commit, 질문 세트·state 템플릿·라벨 스키마·마스킹 버전, 분할·라벨·출처별 개수, 파일별 sha256, train∩(dev∪test) 클러스터 0건 확인, 질문별·선택지별 분포(각 ≥ 5%)
   - `bosun/{split}.en.jsonl`(`kev/` 디렉터리는 만들지 않는다)
   - `MODEL_TRAINING.md`(§5 절차)
-- 빌더는 두 단계다. Node 스크립트(`pnpm dataset:build`(예정), service role, seed 스크립트와 같은 지위)가 Supabase·MinIO 에서 `EvalItem` 을 만들고, Python(`services/ai`, DB 접근 없음)이 Bosun 레코드로 바꾼다(`sol_eval.export --format bosun`, main `1b68f9b`). Node 빌더는 아직 없다. 지금 `EvalItem` 은 `sol_eval build`(갈래 ①)가 녹음 구조화 필드 × 가상 기업 변형으로 만든다. `sol_eval` 은 DB 를 읽지 않는다.
+- 빌더는 두 단계다. Node 스크립트(`pnpm dataset:build`(예정), service role, seed 스크립트와 같은 지위)가 Supabase·MinIO 에서 `EvalItem` 을 만들고, Python(`services/ai`, DB 접근 없음)이 Bosun 레코드로 바꾼다(`python -m sol_eval export --format bosun`, main `1b68f9b`). Node 빌더는 아직 없다. 지금 `EvalItem` 은 `sol_eval build`(갈래 ①)가 녹음 구조화 필드 × 가상 기업 변형으로 만든다. `sol_eval` 은 DB 를 읽지 않는다.
 
 Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 
@@ -164,11 +164,11 @@ Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 
 > [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev main `1f04cfa`)
 > `kev/benchmark.py`(옵션 `--run|--remote`, `--suite|--data`, `--out`, `--split`, `--rotations`, `--date_facts`, 출력 `predictions.jsonl`·`rows.json`·`report.json`), `kev/metrics.py`(acc, nll, brier, ece, confident_error_rate, coverage_at_5pct_error, aurc, selective, score_mae, RPS), `kev/compare.py`(데이터 해시 일치 필요, nll·acc·brier 짝지은 부트스트랩)가 저장소에 있다.
-> 퇴역(ADR-034, 2026-10-20): 결정 모델이 Bosun 으로 바뀌어 위 도구는 쓰지 않는다. 이력으로 남긴다. `sol_eval.bosun_score` 는 같은 출력 파일 이름을 쓴다.
+> 퇴역(ADR-034, 2026-10-20): 결정 모델이 Bosun 으로 바뀌어 위 도구는 쓰지 않는다. 이력으로 남긴다. `python -m sol_eval bosun_score` 는 같은 출력 파일 이름을 쓴다.
 
 > [!warning] 미검증 가정 (2026-10-20)
 > - 순서 민감도는 Kev 의 `POST /v1/systemone/permute`(`n_perm=6`) 대신 Bosun 의 후보 제시 순서 seed(`sha256(f"{seed}:{row_id}:candidate-order")`) 0~5 로 6회 돌려 잰다. `sol_decision.serve` 에는 `permute` 엔드포인트가 없다.
-> - `sol_eval.bosun_score`·`sol_eval.export --format bosun`·`sol_eval.leakage`·`sol_eval.compare` 는 main `1b68f9b`(B1)에 있고, 결정적 가짜 backend(`bosun_score --backend fake`)로 시험한다(`services/ai/tests/test_sol_eval_bosun.py`). 실제 패키지 채점은 아직 하지 않았다.
+> - (2026-10-21 갱신) `python -m sol_eval` 의 `bosun_score`·`export --format bosun`·`leakage`·`compare` 는 main `1b68f9b`(B1)에 있고, 결정적 가짜 backend(`bosun_score --backend fake`)로 시험한다(`services/ai/tests/test_sol_eval_bosun.py`). 실제 패키지 채점은 아직 하지 않았다.
 
 ### 4.2 비교 대상
 
@@ -177,7 +177,7 @@ Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 | E0 | 규칙만(결정 모델 없음) | 필수 |
 | E1 | Kev-9B@v1.0, `en` state | **퇴역·미측정**([[16-DECISIONS\|ADR-034]] Q5). Kev-9B 는 가중치만 받았고 `kev.serve`·F1 은 실행하지 않았다. 범위 밖 |
 | E1' | 공개 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`) zero-shot, `en` state | 필수. E4 의 기준선 |
-| E2 | 공개 Bosun v3.1 0.6B, `ko` state(`KEV_ALLOW_KO_STATE=true`, 평가 전용) | 필수 |
+| E2 | 공개 Bosun v3.1 0.6B, `ko` state(템플릿 `ko.v0.2`, 레코드 `bosun/{split}.ko.jsonl`, 서버 안 오프라인 `bosun_score`, 평가 전용. 내보내기는 B2 뒤 ed, [[16-DECISIONS\|16]] 미결정 29-6) | 필수 |
 | E3 | Qwen3.8-Flash-Next(회사 vLLM API) 프롬프트 분류(같은 질문, 선택지 토큰 logprob 으로 분포) | **필수**([[16-DECISIONS\|ADR-023]], 2026-10-19. 모델은 회사 API 의 Qwen3.8-Flash-Next. 회사 API 사용은 2026-10-20 사용자 결정, 모델 교체는 2026-10-21 사용자 보고). "결정 모델이 꼭 필요한가"를 판단하는 대조군. 해커톤은 축소 규모(§3.5)로 E0·E1'·E2·E3 를 같은 입력에서 비교한다. 설계·판정 규칙·3안(유지/축소/제외)은 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md). 회사 vLLM 이 `prompt_logprobs` 를 주는지는 미검증 |
 | E4 | Bosun v3.1 0.6B + LoRA(`en`, 공개 LoRA 이어 학습) | B5(ADR-034). E1' 과 같은 test 분할·데이터셋 버전·state 템플릿·질문 세트·평가 코드·seed 0~5·지표에서 짝 부트스트랩 95% CI(사업 클러스터 단위 우선, §4.3)로 비교. 서버 안 오프라인 채점(§4.1), 물리 GPU 1 에서 E4·E1' 순차. `ko` 는 후속 |
 | EX0 | Qwen3.8-Flash-Next(회사 vLLM API) 추출 원본 | 회사 API 추출 품질 기준 측정만(§4.3 추출 행 + `(untranslated)` 비율). 파인튜닝 비교(EX1)는 하지 않는다(§5.6) |
@@ -197,7 +197,7 @@ Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 | 보정 | Brier, ECE, NLL | 보정 전과 후 |
 | | 선택적 정확도 | 확률 상위 구간만 골랐을 때의 정확도(coverage–risk) |
 | 일관성 | 반복 일치 | 같은 요청 5회. 결정 모델은 분포 최대 편차, Qwen 추출은 필드 일치율 |
-| | 선택지 순서 | Bosun 후보 제시 순서 seed 0~5(6회, `sol_eval.bosun_score --seeds 0-5`)의 `argmax_stable` 비율과 `spread`. Kev 의 `/v1/systemone/permute` `n_perm=6` 을 대체한다(ADR-034) |
+| | 선택지 순서 | Bosun 후보 제시 순서 seed 0~5(6회, `python -m sol_eval bosun_score --seeds 0-5`)의 `argmax_stable` 비율과 `spread`. Kev 의 `/v1/systemone/permute` `n_perm=6` 을 대체한다(ADR-034) |
 | | 표현 변경 | state 줄 순서 섞기 + 용어집 동의어 치환 뒤 argmax 가 바뀐 비율 |
 | 언어 | 한국어/영어 차이 | E1'·E2 의 항목 id 짝 비교(둘 다 서버 안 오프라인 `bosun_score`. E2 는 E1' 레코드 형식에 state 만 한국어, [[16-DECISIONS\|16]] 미결정 29-1·29-6). ΔMacro-F1·ΔBrier·ΔECE 와 부트스트랩 95% 신뢰구간(하네스 자체 구현) |
 | 성능 | 지연 | 요청당 p50·p95(결정 모델, Qwen 추출, 공고 1건 E2E) |
@@ -248,16 +248,16 @@ Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 
 ### 5.1 도구
 
-- Bosun 공식 학습 코드는 **없다**(모델 카드·Hanno Labs GitHub 저장소에 없음, 계획 §1.1). 학습·채점은 우리 코드다: `services/decision` 의 `sol_decision.train`(학습), `sol_eval.bosun_score`(오프라인 채점), `sol_eval.export --format bosun`(레코드 내보내기), `sol_eval.leakage`(누수 검사), `sol_eval.compare`(짝 부트스트랩 Δ·95% CI), `sol_decision.trainer.calibrate`(F3 보정). 전부 main `1b68f9b`(B1)에 있고 실행은 아직 없다. Kev 저장소 도구(`kev.train`·`kev.benchmark`·`kev.compare`·`scripts/calibrate_checkpoint.py`)는 쓰지 않는다(퇴역).
+- Bosun 공식 학습 코드는 **없다**(모델 카드·Hanno Labs GitHub 저장소에 없음, 계획 §1.1). 학습·채점은 우리 코드다: `services/decision` 의 `sol_decision.train`(학습), `python -m sol_eval` 의 `bosun_score`(오프라인 채점)·`export --format bosun`(레코드 내보내기)·`leakage`(누수 검사)·`compare`(짝 부트스트랩 Δ·95% CI), `sol_decision.trainer.calibrate`(F3 보정). 전부 main `1b68f9b`(B1)에 있고 실행은 아직 없다. Kev 저장소 도구(`kev.train`·`kev.benchmark`·`kev.compare`·`scripts/calibrate_checkpoint.py`)는 쓰지 않는다(퇴역).
 - 학습 대상은 공개 LoRA 어댑터(PEFT, r=16, alpha 32, dropout 0.05, `q_proj k_proj v_proj o_proj gate_proj up_proj down_proj` 7모듈 × 28층 = 392 텐서, 10,092,544 파라미터)만이다. 공개본에서 **이어 학습**하고 새 LoRA 를 만들지 않는다(Kev `--init_from` 과 같은 원칙). decision token 임베딩(256행 입·출력)·백본(`Qwen/Qwen3-0.6B@c1899de`)·토크나이저는 동결한다(ADR-034 7번).
 - 손실: `render_decision_prompt(...)` → `(content, presentation_order, candidate_to_slot)` → `decision_logits(input_ids, attention_mask)[:, :K]`(K = 후보 수)에 CE(one-hot) 또는 soft-CE(`gold.probabilities`). 에폭마다 `seed = --seed + epoch` 로 후보 제시 순서를 바꿔 slot 편향을 막는다. 왼쪽 패딩 필수(`decision_logits` 가 마지막 열 attention 1 을 요구). `predict()` 는 `torch.inference_mode()` 안이라 학습에 쓰지 않는다. 학습 전에 `predict` 와 `decision_logits` 경로의 확률이 같은지(seed 고정) `python -m sol_decision.parity` 로 확인한다(모델 필요, 미실행. 계획 §10 4번).
-- 회사 서버의 CPU 2-step smoke(장난감 6건 `datasets/decision/smoke.jsonl`, 2026-10-20 사용자 보고)는 **파이프라인 증거**로만 `docs/evidence/bosun-train-feasibility.md`(신규)에 적는다. 성능 주장에 쓰지 않는다. 그 코드는 저장소 밖이라 B1 학습기 `services/decision/src/sol_decision/train.py` 가 대체한다(계획 §10 10번, `services/decision/docs/TRAINING.md`). 결과 비교는 B2 에서 한다.
+- 회사 서버의 CPU 2-step smoke(장난감 6건 `datasets/decision/smoke.jsonl`, 2026-10-20 사용자 보고)는 **파이프라인 증거**로만 `docs/evidence/bosun-train-feasibility.md`(신규)에 적는다. 성능 주장에 쓰지 않는다. 그 코드는 저장소 밖이고, B1 학습기 `services/decision/src/sol_decision/train.py` 가 대체했다(`services/decision/docs/TRAINING.md`. 계획 §10 10번의 "반입 뒤 흡수"에서 바뀜). 결과 비교는 B2 에서 한다.
 
 ### 5.2 보유 GPU 에서의 LoRA 메모리 검증 (F1)
 
 회사 GPU 는 NVIDIA A40 46,068 MiB(PyTorch 가용 44.16 GiB) 3장 중 **물리 index 1 한 장**이고(2026-10-20 확인, [[22-FINETUNE-RUNBOOK|22]] §3.1), 그 GPU 는 회사 PaddleOCR vLLM(약 9,167 MiB, 2026-10-20 사용자 보고·미검증)과 **공유**한다. 가용은 약 36,900 MiB 로 본다. "GPU 1 전용"·"5 MiB" 는 2026-10-20 오전 스냅샷의 기록이고 전제가 아니다(ADR-034 10번). 80 GB·H100·H200 을 전제하지 않고, 3장의 VRAM 을 합치지 않고, 어떤 프로세스도 종료·이동하지 않는다.
 
-F1 은 GPU 1 에서 `infra/gpu/bosun-f1.sh`(main `1b68f9b`, 미실행. `kev-f1.sh` 는 보존)가 `python -m sol_decision.train --max-steps 20 --batch 1 --accum 8 --bf16 --grad-checkpointing --max-state-tokens 6144`(6,000 토큰 state 포함)을 돌려 최대 메모리(torch 최대 할당·nvidia-smi 최대), step 시간, OOM 여부, state 토큰이 상한을 넘은 레코드 수, checkpoint 저장·재로딩(`BosunForDecision.from_pretrained(<dir>)` 뒤 `predict`) 여부를 `docs/evidence/bosun-train-feasibility.md` 에 표로 남긴다. 사전 검사는 `infra/gpu/bosun-preflight.sh`(main `1b68f9b`. `.venv-bosun`, Bosun snapshot sha256 을 레지스트리 값과 대조, GPU 1 의 다른 프로세스는 기록만 하고 FAIL 아님, 회사 공유 승인 `SOL_GPU_SHARE_APPROVED=1` 이 없으면 FAIL)다. 학습 가능 여부는 이 결과로만 확정한다. 20 step 통과만으로 F2 준비 완료라고 적지 않는다. 메모리 추정(F1 실측 전, 계획 §8): Bosun LoRA 학습 약 6~10 GB, `sol_decision.serve` 서빙 약 1.5~3 GB. 실패 시 검토 순서(state 축약 → batch·누적 → 공식 메모리 옵션 → **사용자 승인 대상**인 다중 GPU·클라우드 GPU 임대(ADR-010))는 [[22-FINETUNE-RUNBOOK|22]] §4.2 다. Kev-4B 로의 축소 선택지는 퇴역했다.
+F1 은 GPU 1 에서 `infra/gpu/bosun-f1.sh`(main `1b68f9b`, 미실행. `kev-f1.sh` 는 보존)가 `python -m sol_decision.train --max-steps 20 --batch 1 --accum 8 --bf16 --grad-checkpointing --max-state-tokens 6144`(6,000 토큰 state 포함)을 돌려 최대 메모리(torch 최대 할당·nvidia-smi 최대. torch 값은 `training_metrics.json` 의 `metrics.peakMemoryMb` 이고, 지금 `bosun-f1.sh` 요약 칸은 키 이름이 달라 `-` 다, [[16-DECISIONS|16]] 미결정 26-15), step 시간, OOM 여부, state 토큰이 상한을 넘은 레코드 수(`training_metrics.json` 의 `metrics.skippedOverLength`), checkpoint 저장·재로딩(`BosunForDecision.from_pretrained(<dir>)` 뒤 `predict`) 여부를 `docs/evidence/bosun-train-feasibility.md` 에 표로 남긴다. 사전 검사는 `infra/gpu/bosun-preflight.sh`(main `1b68f9b`. `.venv-bosun`, Bosun snapshot sha256 을 레지스트리 값과 대조, GPU 1 의 다른 프로세스는 기록만 하고 FAIL 아님, 회사 공유 승인 `SOL_GPU_SHARE_APPROVED=1` 이 없으면 FAIL)다. 학습 가능 여부는 이 결과로만 확정한다. 20 step 통과만으로 F2 준비 완료라고 적지 않는다. 메모리 추정(F1 실측 전, 계획 §8): Bosun LoRA 학습 약 6~10 GB, `sol_decision.serve` 서빙 약 1.5~3 GB. 실패 시 검토 순서(state 축약 → batch·누적 → 공식 메모리 옵션 → **사용자 승인 대상**인 다중 GPU·클라우드 GPU 임대(ADR-010))는 [[22-FINETUNE-RUNBOOK|22]] §4.2 다. Kev-4B 로의 축소 선택지는 퇴역했다.
 
 ### 5.3 학습 (F2)
 
@@ -266,7 +266,7 @@ F1 은 GPU 1 에서 `infra/gpu/bosun-f1.sh`(main `1b68f9b`, 미실행. `kev-f1.s
 ### 5.4 반입과 모델 레지스트리
 
 - 회사 GPU 에서 돌려받는 것은 [[22-FINETUNE-RUNBOOK|22]] §4.5 다: 학습본 패키지 `runs/bosun-sol-lora-v0.1/`(Hugging Face 레이아웃 그대로 — `config.json`·`adapter/`·`decision_embeddings.safetensors`(복사, 변경 없음)·`tokenizer/`·`serving.json`·`manifest.json` 의 파일 sha256), `train.log`, `training_metrics.json`, `runs/f1-results.md`, 채점 출력 폴더(`predictions.jsonl`·`rows.json`·`report.json`), `MODEL_CARD.md`. 데이터셋 원문은 돌려받지 않는다. 받으면 manifest sha256 을 먼저 대조한다.
-- 레지스트리 항목 필드와 서빙 검증(서버 기동 시 패키지 sha256 대조, gateway 의 `GET /v1/models` 대조, `questionSet`·`stateTemplate` 호환성)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §11 이 정본이다. 학습본 항목 id 는 `bosun-sol-lora-v0.1`(`kind: decision`, `init_from: bosun-v3.1-0.6b`, `run` 은 회사가 돌려준 manifest 로 채움)이고 `reports` 가 채워질 때까지 `default: false` 다.
+- 레지스트리 항목 필드와 서빙 검증(서버 기동 시 패키지 sha256 대조, gateway 의 `GET /v1/models` 대조, `questionSet`·`stateTemplate` 호환성)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §11 이 정본이다. 학습본 항목 id 는 `bosun-sol-lora-v0.1`(`kind: decision`, `init_from: bosun-v3.1-0.6b`, `run` 은 회사가 돌려준 manifest 로 채움)이고 사용자 승인 전까지 `status` 를 `active` 가 아닌 값으로 둔다. 결정 모델은 `KEV_MODEL_ID` 와 `status: active` 로 고르고, `default` 는 qwen 항목에만 효과가 있다.
 - E4 평가 전용 항목은 B5 에서 패키지를 받은 뒤 넣는다. 데모 서빙 항목 `bosun-v3.1-0.6b`(공개본)는 바꾸지 않는다. 학습본으로의 교체는 같은 평가셋에서 Δ 의 95% CI 가 0 을 배제하는 개선과 dev·regression 안정성을 보이고 **사용자 승인**을 받은 뒤에만 한다(ADR-034 9번).
 - 운영 모델 교체는 ADR 로 정한다. 기존 `score_runs` 는 덮어쓰지 않는다.
 
@@ -289,17 +289,17 @@ Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 �
 | `uv run python -m sol_eval leakage --bundle <폴더> [--out <리포트.json>]` | `services/ai` | 클러스터 교차·held-out 기업·fixture 포함·같은/유사 state·선택지 분포(각 ≥ 5%)·manifest sha256 검사 → 리포트(위반이면 exit 1). main `1b68f9b` |
 | `uv run python -m sol_eval labels check <file>` | `services/ai` | 사람 라벨 파일 검증 |
 | `uv run python -m sol_eval.run --system E3 --split test --kev-url … --gateway-url …`(예정) | `services/ai` | 엔드포인트 평가 실행(E3·EX0, 보조 E2. E1' 은 아래 오프라인 채점, 16 미결정 29-1) → `report.json`·`report.md`. main `1b68f9b` 에 없다(B1 은 이 실행기를 만들지 않았다). 시스템 id·인자는 미정 |
-| `uv run python -m sol_eval bosun_score --package <dir> --data test.en.jsonl --seeds 0-5 --out runs/e4-test` | `services/ai`(회사 GPU 서버 안, 회사 측 실행) | 오프라인 채점(E1'·E4, 언어 짝 비교용 E2) → `predictions.jsonl`·`rows.json`·`report.json`. main `1b68f9b`. `--backend fake` 는 시험용, `--suite` 는 외부 보조 평가(ADR-034 9번, 실행은 별도 승인) |
+| `python -m sol_eval bosun_score --package <dir> --data "$SOL_WORK/sol-dataset-v0.1/bosun/test.en.jsonl" --seeds 0-5 --out "$SOL_WORK/runs/e4-test"` | 회사 GPU 서버의 `.venv-bosun`(`uv run` 아님. 설치는 22 §3.2, 회사 측 실행). 경로는 절대 경로로 준다 | 오프라인 채점(E1'·E4, 언어 짝 비교용 E2) → `predictions.jsonl`·`rows.json`·`report.json`. main `1b68f9b`. `--backend fake` 는 시험용, `--suite` 는 외부 보조 평가(ADR-034 9번, 실행은 별도 승인) |
 | `uv run python -m sol_eval compare --candidate runs/e4-test --reference runs/e1p-test --out runs/e4-vs-e1p` | `services/ai`(노트북) | 두 채점 출력의 짝 부트스트랩 Δ·95% CI. 데이터가 다르면 거부한다. main `1b68f9b` |
-| `SOL_GPU_SHARE_APPROVED=1 SOL_TRAIN_APPROVED=1 bash infra/gpu/bosun-f1.sh [--batch B --accum A]` → `python -m sol_decision.train --max-steps 20 …` | `services/decision`(회사 GPU, 회사 측 실행) | §5.2 F1 메모리 smoke → 결과 표. main `1b68f9b`, 미실행. 이전 `sol_eval.probe-train`·`infra/gpu/kev-f1.sh` 는 퇴역(파일은 보존) |
+| `SOL_GPU_SHARE_APPROVED=1 SOL_TRAIN_APPROVED=1 bash infra/gpu/bosun-f1.sh [--batch B --accum A]` → `python -m sol_decision.train --max-steps 20 …` | 저장소 루트(회사 GPU 서버, 회사 측 실행. `CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1`, preflight 통과 표식 `$SOL_WORK/runs/bosun-preflight-ok` 필요) | §5.2 F1 메모리 smoke → 결과 표. main `1b68f9b`, 미실행. 이전 `infra/gpu/kev-f1.sh` 는 퇴역(파일은 보존) |
 | `pnpm eval:publish <report.json>`(예정) | 루트 스크립트 | 요약을 `eval_runs` 에 저장. 웹은 `GET /api/v1/admin/ai/eval-runs` 로 읽기만([[05-API-SPEC\|05 API]]) |
 
 ## 7. 수용 기준 (해커톤 F0·B3~B5)
 
-- 데이터셋 v0.1(B3): test 20·dev 10 사업, 원형 6개, manifest·라벨 검증 통과, 사업 단위 분할 누수 0건(클러스터 교차 검사, `sol_eval.leakage`).
+- 데이터셋 v0.1(B3): test 20·dev 10 사업, 원형 6개, manifest·라벨 검증 통과, 사업 단위 분할 누수 0건(클러스터 교차 검사, `python -m sol_eval leakage`).
 - 평가: E0·E1'·E2·E3·EX0 리포트와 E1' 오류 분석(§4.4)이 `docs/evidence/eval/` 에 있다. 핵심 컷(ADR-023)은 축소판(§3.5) 기준이고, E1' 과 E3 의 차이는 점추정이 아니라 부트스트랩 95% 신뢰구간으로 판정한다. 효과가 확인되지 않으면 개선을 주장하지 않고 3안을 제안한다. 지표 표에서 채우지 못한 칸은 이유를 적는다. E1(Kev-9B)은 "퇴역·미측정" 으로 적는다.
 - 재현성: 같은 데이터셋 버전·commit·seed 로 다시 돌리면 결정 모델 지표가 같다. Bosun `predict` 가 seed 고정에서 결정적이라는 가정이 틀리면 그 사실을 보고한다.
-- 내보내기(B3): train 1,000 레코드(질문 단위) 이상, 번들 sha256 기록, Bosun 레코드가 `sol_eval.bosun_score --data` 로 읽힌다(노트북에서 `--backend fake` 로, 회사 측 실행에서 실제로 확인), 학습 요청서가 회사에 전달됐다. manifest 와 E4 리포트에 train 레코드 수 외에 **고유 사업 클러스터 수, 가상 기업 변형 수, 질문 수, 라벨 출처별 비율(`CONSTRUCTED`/`HUMAN`/`RULE_SILVER`), 의미 판단 `HUMAN` 라벨 수, 요구사항 유형별(기술·실적·인력·자격) 분포**를 적는다. 규칙 엔진이 이미 푸는 항목(`RULE_SILVER`)을 결정 모델이 배웠다는 것만으로 AI 성능 개선을 주장하지 않는다. 개선 주장은 `CONSTRUCTED`·`HUMAN` 라벨 test 에서의 Δ 로만 한다.
+- 내보내기(B3): train 1,000 레코드(질문 단위) 이상, 번들 sha256 기록, Bosun 레코드가 `python -m sol_eval bosun_score --data` 로 읽힌다(노트북에서 `--backend fake` 로, 회사 측 실행에서 실제로 확인), 학습 요청서가 회사에 전달됐다. manifest 와 E4 리포트에 train 레코드 수 외에 **고유 사업 클러스터 수, 가상 기업 변형 수, 질문 수, 라벨 출처별 비율(`CONSTRUCTED`/`HUMAN`/`RULE_SILVER`), 의미 판단 `HUMAN` 라벨 수, 요구사항 유형별(기술·실적·인력·자격) 분포**를 적는다. 규칙 엔진이 이미 푸는 항목(`RULE_SILVER`)을 결정 모델이 배웠다는 것만으로 AI 성능 개선을 주장하지 않는다. 개선 주장은 `CONSTRUCTED`·`HUMAN` 라벨 test 에서의 Δ 로만 한다.
 - 메모리 검증 스크립트(`infra/gpu/bosun-preflight.sh`·`infra/gpu/bosun-f1.sh`, main `1b68f9b`)와 절차([[22-FINETUNE-RUNBOOK|22]] §4.2)가 있다. 실행 결과는 회사 측 실행 뒤 `docs/evidence/bosun-train-feasibility.md` 에 남긴다. Kev 기록 `docs/evidence/kev-train-feasibility.md`(§0 서버 환경 2026-10-20 기록, F1 미실행)는 삭제·개서하지 않는다(ADR-034 11번).
 - 파인튜닝(B4·B5): 회사 측 실행 결과를 받으면 `bosun-train-feasibility.md`·패키지 `manifest.json`·E4 리포트(E1' 대비 Δ·95% CI, seed 0~5)를 `docs/evidence/eval/e4-<일시>.md` 에 남긴다. 받지 못하면 받지 못한 단계와 이유를 리포트에 적는다. 결과 수치의 통과 기준은 없고, 데모 모델 교체를 뜻하지 않는다(ADR-034 9번).
 
@@ -317,7 +317,7 @@ Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 �
 | Bosun LoRA 학습·서빙 메모리(A40, 6,000 토큰 state) | 추정(학습 약 6~10 GB, 서빙 약 1.5~3 GB, 계획 §8) | F1 |
 | GPU 1 공유: PaddleOCR 피크 메모리·지연 간섭 | 미확인 | B2 `nvidia-smi` 기록, 회사 점유 추이 요청. 보수적 메모리 설정 |
 | 회사 서버 보고(PaddleOCR 약 9,167 MiB, `.venv-bosun`(`.venv-qwen` 은 중단·백업), CPU 2-step 성공, `datasets/decision/smoke.jsonl`) | 미검증(사용자 보고) | B2 `nvidia-smi`·`pip list` 기록으로 교차 |
-| 회사 2-step 학습 코드가 저장소 밖 | 재현 불가 | 반입·리뷰 뒤 `services/decision/train.py` 로 흡수 |
+| 회사 2-step 학습 코드가 저장소 밖 | 미반입. B1 학습기 `services/decision/src/sol_decision/train.py` 가 대체했다(`services/decision/docs/TRAINING.md`. 계획 §10 10번의 "반입 뒤 흡수"에서 바뀜) | B2 에서 결과 비교 |
 | 리비전 `5e78a37c`(지시서·레지스트리 핀)와 Hanno `jev-compatible-server` 핀 `87cea31` 의 가중치 동일 여부 | 커밋 메시지 기준 문서 차이만 | B2 두 리비전 `manifest.json` sha256 대조 |
 | 회사 vLLM API(`Qwen/Qwen3.8-Flash-Next`)의 guided JSON(`response_format: json_schema`)·`prompt_logprobs` 지원, 추출·번역 품질, 서빙 파라미터·리비전 | 미검증(회사 운영) | B2 G2·G4, B3 EX0·E3 |
 | 학습 시간대(10-24~25)·외부망·출력 폴더 전송 | 미확인 | 회사에 요청([[16-DECISIONS\|16 ADR]] 미결정 22·24번) |
