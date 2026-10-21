@@ -1,0 +1,114 @@
+{
+  "generatedAt": "2026-10-21T03:08:27.450Z",
+  "commit": "4e62170",
+  "web": "http://localhost:3216",
+  "note": "Bearer 토큰·anon 키·비밀번호는 기록하지 않았다. 응답 코드와 본문만 남긴다.",
+  "tokenResponseShape": {
+    "org02": {
+      "http": 200,
+      "keys": [
+        "access_token",
+        "expires_at",
+        "expires_in",
+        "refresh_token",
+        "token_type",
+        "user",
+        "weak_password"
+      ],
+      "token_type": "bearer",
+      "expires_in": 3600
+    },
+    "org01": {
+      "http": 200,
+      "keys": [
+        "access_token",
+        "expires_at",
+        "expires_in",
+        "refresh_token",
+        "token_type",
+        "user",
+        "weak_password"
+      ],
+      "token_type": "bearer",
+      "expires_in": 3600
+    }
+  },
+  "calls": [
+    {
+      "as": "viewer@other.invalid (org-02)",
+      "request": "GET /api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163/qualification-checks",
+      "status": 404,
+      "body": {
+        "error": {
+          "code": "NOT_FOUND",
+          "message": "분석을 찾을 수 없습니다",
+          "details": {
+            "resource": "analysis"
+          },
+          "requestId": "5720b5b1-0e4d-4d89-88a3-782d11e67682"
+        }
+      }
+    },
+    {
+      "as": "viewer@other.invalid (org-02)",
+      "request": "GET /api/v1/analyses/d17b432f-781f-414f-953b-7f78771dc154",
+      "status": 404,
+      "body": {
+        "error": {
+          "code": "NOT_FOUND",
+          "message": "분석을 찾을 수 없습니다",
+          "details": {
+            "resource": "analysis"
+          },
+          "requestId": "44e88efc-e7db-4601-8c53-8669e098b403"
+        }
+      }
+    },
+    {
+      "as": "viewer@other.invalid (org-02)",
+      "request": "GET /api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "status": 200,
+      "body": {
+        "id": "b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+        "noticeId": "DEMO-2026-0001",
+        "title": "세종특별자치시 차세대 행정정보시스템 고도화 (가상)",
+        "isDemo": true,
+        "latestAnalysis": null,
+        "latestReview": null
+      }
+    },
+    {
+      "as": "viewer@other.invalid (org-02)",
+      "request": "GET /api/v1/bids?limit=50&status=OPEN&status=AMENDED&status=CLOSED&status=CANCELLED",
+      "status": 200,
+      "body": {
+        "count": 19,
+        "withAnalysis": 0,
+        "withReview": 0,
+        "hasNext": false
+      }
+    },
+    {
+      "as": "sales@soltech.invalid (org-01, 대조)",
+      "request": "GET /api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163/qualification-checks",
+      "status": 200,
+      "body": {
+        "count": 3,
+        "statuses": [
+          "소프트웨어사업자 신고확인서: SATISFIED",
+          "소프트웨어 직접생산확인증명서: SATISFIED",
+          "중소기업확인서: SATISFIED"
+        ]
+      }
+    },
+    {
+      "as": "sales@soltech.invalid (org-01, 대조)",
+      "request": "GET /api/v1/analyses/d17b432f-781f-414f-953b-7f78771dc154",
+      "status": 200,
+      "body": {
+        "id": "d17b432f-781f-414f-953b-7f78771dc154",
+        "status": "COMPLETED"
+      }
+    }
+  ]
+}

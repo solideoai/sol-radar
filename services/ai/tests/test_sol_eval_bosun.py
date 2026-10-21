@@ -13,7 +13,9 @@ from typing import Any
 
 import pytest
 
-from sol_eval.__main__ import main
+from sol_eval import __main__ as sol_eval_cli
+from sol_eval import bosun_score as bosun_score_module
+from sol_eval.__main__ import main, parser
 from sol_eval.bosun_export import BosunExportError, BosunExportOptions, export_bosun
 from sol_eval.bosun_metrics import (
     ScoredRow,
@@ -34,6 +36,8 @@ from sol_eval.bosun_score import (
     ScoreOptions,
     make_backend,
     parse_seeds,
+    resolve_device,
+    resolve_dtype,
     score,
 )
 from sol_eval.compare import CompareError, CompareOptions, compare
@@ -744,6 +748,127 @@ def test_bosun_score_cli_with_fake_backend(bundle: Path, tmp_path: Path) -> None
     assert code == 0
     assert (out / "report.json").exists()
     assert main(["bosun_score", "--backend", "fake", "--out", str(out)]) == 2
+
+
+# ---------------------------------------------------------------- device·dtype(26-16, torch 없이)
+
+
+def test_bosun_score_cli_device_and_dtype_default_to_auto() -> None:
+    """services/decision CLI 와 같게 기본은 auto 다(CUDA 가 있으면 cuda·bf16, 없으면 cpu·fp32)."""
+    args = parser().parse_args(["bosun_score", "--out", "x"])
+    assert (args.device, args.dtype) == ("auto", "auto")
+    args = parser().parse_args(["bosun_score", "--out", "x", "--device", "cpu", "--dtype", "bf16"])
+    assert (args.device, args.dtype) == ("cpu", "bf16")
+    with pytest.raises(SystemExit):
+        parser().parse_args(["bosun_score", "--out", "x", "--device", "mps"])
+    with pytest.raises(SystemExit):
+        parser().parse_args(["bosun_score", "--out", "x", "--dtype", "fp16"])
+
+
+@pytest.mark.parametrize(
+    ("choice", "cuda_available", "expected"),
+    [
+        ("auto", True, "cuda"),
+        ("auto", False, "cpu"),
+        ("cpu", True, "cpu"),
+        ("cpu", False, "cpu"),
+        ("cuda", True, "cuda"),
+    ],
+)
+def test_resolve_device(choice: str, cuda_available: bool, expected: str) -> None:
+    assert resolve_device(choice, cuda_available=cuda_available) == expected
+
+
+def test_resolve_device_rejects_cuda_without_cuda_and_unknown_choice() -> None:
+    with pytest.raises(ScoreInputError, match="CUDA"):
+        resolve_device("cuda", cuda_available=False)
+    with pytest.raises(ScoreInputError, match="--device"):
+        resolve_device("mps", cuda_available=True)
+
+
+@pytest.mark.parametrize(
+    ("device", "choice", "expected"),
+    [
+        ("cuda", "auto", "bf16"),
+        ("cpu", "auto", "fp32"),
+        ("cuda", "fp32", "fp32"),
+        ("cpu", "bf16", "bf16"),
+    ],
+)
+def test_resolve_dtype(device: str, choice: str, expected: str) -> None:
+    assert resolve_dtype(device, choice) == expected
+
+
+def test_resolve_dtype_rejects_unknown_choice() -> None:
+    with pytest.raises(ScoreInputError, match="--dtype"):
+        resolve_dtype("cpu", "fp16")
+
+
+def test_make_backend_passes_device_and_dtype(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[Path, str, str]] = []
+
+    class RecordingBackend:
+        name = "bosun"
+
+        def __init__(self, package_dir: Path, device: str, dtype: str) -> None:
+            calls.append((package_dir, device, dtype))
+
+    monkeypatch.setattr(bosun_score_module, "BosunBackend", RecordingBackend)
+    package = tmp_path / "pkg"
+    package.mkdir()
+    base = ScoreOptions(
+        out_dir=tmp_path / "o", data_path=tmp_path / "d", seeds=[0], package_dir=package
+    )
+    make_backend(base)
+    make_backend(
+        ScoreOptions(
+            out_dir=tmp_path / "o",
+            data_path=tmp_path / "d",
+            seeds=[0],
+            package_dir=package,
+            device="cuda",
+            dtype="bf16",
+        )
+    )
+    assert calls == [(package, "auto", "auto"), (package, "cuda", "bf16")]
+
+
+def test_bosun_score_cli_forwards_device_and_dtype(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[ScoreOptions] = []
+
+    def fake_score(options: ScoreOptions) -> dict[str, Any]:
+        seen.append(options)
+        return {"metrics": {"overall": {}, "consistency": {"overall": {}}}}
+
+    monkeypatch.setattr(sol_eval_cli, "score", fake_score)
+    data = tmp_path / "d.jsonl"
+    data.write_text("", encoding="utf-8")
+    args = ["bosun_score", "--data", str(data), "--out", str(tmp_path / "o")]
+    assert main(args) == 0
+    assert main([*args, "--device", "cpu", "--dtype", "fp32"]) == 0
+    assert [(o.device, o.dtype) for o in seen] == [("auto", "auto"), ("cpu", "fp32")]
+
+
+def test_bosun_score_report_records_backend_device_and_dtype(bundle: Path, tmp_path: Path) -> None:
+    data = bundle / "bosun" / "dev.en.jsonl"
+    fake = score(ScoreOptions(out_dir=tmp_path / "fake", data_path=data, seeds=[0], backend="fake"))
+    assert (fake["environment"]["device"], fake["environment"]["dtype"]) == (None, None)
+
+    class LoadedBackend(StaticBackend):
+        device = "cpu"
+        dtype = "fp32"
+
+    loaded = score(
+        ScoreOptions(out_dir=tmp_path / "loaded", data_path=data, seeds=[0]),
+        backend=LoadedBackend({}),
+    )
+    saved = json.loads((tmp_path / "loaded" / "report.json").read_text(encoding="utf-8"))
+    assert (saved["environment"]["device"], saved["environment"]["dtype"]) == ("cpu", "fp32")
+    assert loaded["environment"] == saved["environment"]
 
 
 def _bosun_package(root: Path, *, files: dict[str, bytes] | None = None) -> Path:
