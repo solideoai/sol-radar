@@ -479,7 +479,7 @@ flowchart TD
 | `RunModeIndicator` | Topbar | `실행 모드: live \| fixture \| mock`([[16-DECISIONS\|ADR-020]]). web 서버가 env `SOL_RUN_MODE`(기본 `mock`)를 읽어 서버 렌더로 넘긴다. `/health/ready`에는 실행 모드 값이 없다([[10-DEPLOYMENT\|10 배포]], [[16-DECISIONS\|ADR-029]] A6 D2). `live`는 중립 색, `fixture`·`mock`은 warning 색 |
 | 가상 회사 프로필 배지 | 상세 상단 요약 | 모든 분석에 "가상 회사 프로필로 분석". 툴팁 "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다" |
 | 공고 출처 필터 | `/bids` 필터 바 | `origin=live\|demo\|all`(기본: `live` 모드 `live`, `fixture`·`mock` 모드 `demo`) |
-| `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable` 네 값만. `/health/ready` `checks.ai` 값([[14-OBSERVABILITY\|14 관측성]]), 30초 간격 갱신에 더해 창이 초점을 얻을 때와 분석 polling이 `PARTIAL`·`FAILED`로 끝날 때 바로 한 번 더 읽는다(S6 "1~2초 안에 `AI: unavailable`", [[16-DECISIONS\|ADR-029]] A6 D4). gateway 불가면 `unavailable` + danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
+| `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable` 네 값만. `/health/ready` `checks.ai` 값([[14-OBSERVABILITY\|14 관측성]]), 30초 간격 갱신에 더해 창이 초점을 얻을 때와 분석 polling이 `PARTIAL`·`FAILED`로 끝날 때 바로 한 번 더 읽는다(S6 "수 초 안에 `AI: unavailable`", [[16-DECISIONS\|16]] 미결정 30-5, [[16-DECISIONS\|ADR-029]] A6 D4). gateway 불가면 `unavailable` + danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
 | `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("12분 전"). 60분 초과면 warning 색 + "수집 지연" 텍스트, 수집 실패 시 danger + 관리자 링크 |
 | `AnalysisStatus` | 상세·목록 | §7 상태 + 실시간 polling |
 | AI 불가 배너 | 상세 상단, 대시보드 상단 | `analysis.status=PARTIAL` 또는 `/health/ready` `status: degraded`일 때. 문구는 09 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" + `recommendationBasis: RULES_ONLY` |

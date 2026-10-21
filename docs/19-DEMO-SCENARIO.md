@@ -63,10 +63,10 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | Q&A 예비 | FX-17 → FX-18 과기정통부 AI 행정서비스 (발주계획 → 사전규격) | PLAN → PRE_SPEC | 식별자 `DEMO-PLAN-0042`로 연결 | PLAN은 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`, 화면 `확인 필요` · 사유 `해당 없음`) | 82 (PRE_SPEC) | WATCH → BID, StageTimeline 2단계 | — |
 | Q&A 예비 | FX-19 세종 행정정보 연계 플랫폼 사전규격 | PRE_SPEC | 식별자 없음, FX-01과 제목만 유사 | — | — | "연결 후보"만 표시, 자동 병합 없음 | — |
 
-§3 5번 사전 분석 18건의 기대 플래그: `MODEL_RULE_DISAGREEMENT`는 FX-03에만 붙는다. `KEV_NEEDS_REVIEW`는 FX-04·05·11·13·17·19·20에 붙는다(mock Kev needsHumanReview 0.70 ≥ 임계 0.7). 위 표의 Q&A 예비 FX-04·FX-05 행도 이 플래그 대상이다. FX-07 점수와 FX-17 자격 표기는 규칙 엔진 출력이다([[16-DECISIONS|ADR-031]] C9·C10·C11).
+§3 5번 사전 분석 18건의 기대 플래그: `MODEL_RULE_DISAGREEMENT`는 FX-03에만 붙는다. `KEV_NEEDS_REVIEW`는 FX-04·05·11·13·17·19·20에 붙는다(mock 결정 모델 needsHumanReview 0.70 ≥ 임계 0.7). 위 표의 Q&A 예비 FX-04·FX-05 행도 이 플래그 대상이다. FX-07 점수와 FX-17 자격 표기는 규칙 엔진 출력이다([[16-DECISIONS|ADR-031]] C9·C10·C11).
 
 > [!tip] 심사 포인트
-> 세 결과(BID / WATCH / NO-BID)가 모두 한 번씩 나온다. 핵심은 **FX-03**: mock Kev가 BID 0.55를 내도 정보통신공사업 미충족이 규칙에서 `NOT_SATISFIED`라 NO-BID로 고정되고 `MODEL_RULE_DISAGREEMENT`가 기록된다. 이 한 장면이 "정직한 AI"(D3)와 "규칙이 최종"(D5)을 동시에 보여 준다. 사람 결정 기록(D4)은 FX-02에서 보여 준다.
+> 세 결과(BID / WATCH / NO-BID)가 모두 한 번씩 나온다. 핵심은 **FX-03**: mock 결정 모델이 BID 0.55를 내도 정보통신공사업 미충족이 규칙에서 `NOT_SATISFIED`라 NO-BID로 고정되고 `MODEL_RULE_DISAGREEMENT`가 기록된다. 이 한 장면이 "정직한 AI"(D3)와 "규칙이 최종"(D5)을 동시에 보여 준다. 사람 결정 기록(D4)은 FX-02에서 보여 준다.
 
 ### 2.1 실행 모드 표시와 장애 대체 순서
 
