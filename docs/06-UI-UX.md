@@ -231,9 +231,9 @@ flowchart TD
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | ① 요약 카드 5개(한 줄): BID 권고 N건(공고별 최신 분석 1건 기준), 검토 대기 N건(최신 분석이 있고 사람 결정이 없는 공고 수. 두 정의는 [[16-DECISIONS\|ADR-029]] A6 D10·D11), 마감 임박(7일) N건, 수집 카드(마지막 수집 시각 + "적재 N · 격리 N", 값은 `DashboardSummary.dataFreshness.lastIngestSummary`), 분석 현황(공고별 최신 분석 1건 기준 완료·부분·실패 건수, 중복 실행 이중 집계 없음, 값은 `DashboardSummary.analyses.latestByStatus`). 다섯 번째 슬롯은 입찰 프로젝트([[16-DECISIONS\|ADR-021]] P1)가 들어오면 "진행 중 입찰 프로젝트"로 바꾼다. ② "BID 권고" 표(상위 5, 점수순). ③ "마감 임박" 표(마감순). ④ 최근 변경(revision 이벤트 10건, **미구현**: 응답에 `recentChanges`가 없고 화면에도 없다, [[05-API-SPEC\|05]] §4) |
+| 섹션 | ① 요약 카드 5개(한 줄): BID 권고 N건(공고별 최신 분석 1건 기준), 검토 대기 N건(최신 분석이 있고 사람 결정이 없는 공고 수. 두 정의는 [[16-DECISIONS\|ADR-029]] A6 D10·D11), 마감 임박(7일) N건, 수집 카드(마지막 수집 시각 + "적재 N · 격리 N", 값은 `DashboardSummary.dataFreshness.lastIngestSummary`), 분석 현황 (완료)(카드 이름. 큰 숫자는 공고별 최신 분석 1건 기준 완료 건수, 아랫줄은 부분·실패 건수, 중복 실행 이중 집계 없음, 값은 `DashboardSummary.analyses.latestByStatus`. 0건이면 "분석 기록 없음". 카드 이름과 빈 문구는 [[16-DECISIONS\|16]] 미결정 30-6·30-7, 구현 전). 다섯 번째 슬롯은 입찰 프로젝트([[16-DECISIONS\|ADR-021]] P1)가 들어오면 "진행 중 입찰 프로젝트"로 바꾼다. ② "BID 권고" 표(상위 5, 점수순). 공고별 끝난 분석(`COMPLETED`·`PARTIAL`) 중 최신 1건 기준이라 카드와 같고, 재분석이 진행 중이면 "재분석 중"을 표시한다. 대시보드 서비스 안에서 끝난 분석을 읽을 수 없어 `bid_list_items`·`/api/v1/bids`를 바꿔야 하면 freeze 전에는 "재분석 중" 표시만 넣고 "끝난 분석 중 최신"은 freeze 뒤로 미룬다(ADR-039 ①, 미결정 30-8, 구현 전. 지금은 진행 중 run 의 점수·권고 "—"가 보인다). ③ "마감 임박" 표(마감순). ④ 최근 변경(revision 이벤트 10건, **미구현**: 응답에 `recentChanges`가 없고 화면에도 없다, [[05-API-SPEC\|05]] §4) |
 | 주요 액션 | 각 행 클릭 → `/bids/[id]`. "전체 보기" → `/bids?decision=…` 필터 적용 링크 |
-| 빈 상태 | 공고 0건: "아직 수집된 공고가 없습니다" + [수집 실행](ADMIN만) 또는 "관리자에게 요청". 지금 코드는 다르다: ADMIN에게 "관리자에게 수집을 요청하세요" 안내만 붙고 버튼이 없으며, 다른 역할에는 안내가 없다(`web/app/(app)/(work)/empty-state.tsx`, [[16-DECISIONS\|16]] 미결정 26번). 권고 0건: "BID 권고 공고가 없습니다". 분석 0건: 분석 현황 카드에 0을 보이고 "아직 분석한 공고가 없습니다" |
+| 빈 상태 | 공고 0건: "아직 수집된 공고가 없습니다". ADMIN에게는 [수집 실행] 단추(`/admin/ingestion`으로 가는 `outline` 링크, 그 화면의 [수동 수집 실행]으로 돌린다), 다른 역할에게는 단추 없이 "관리자에게 수집을 요청하세요"를 보인다(`web/app/(app)/(work)/empty-state.tsx`, main `a546b89`, [[16-DECISIONS\|16]] 미결정 26-6). 권고 0건: "BID 권고 공고가 없습니다". 분석 0건: 분석 현황 카드에 0을 보이고 "아직 분석한 공고가 없습니다" |
 | 로딩 | 카드 5개 + 표 skeleton |
 | 오류 | §5.1 |
 | 권한 | 모든 역할 |
@@ -283,7 +283,7 @@ flowchart TD
 | 주요 액션 | 행 클릭 → 읽음 처리(`PATCH /notifications/:id/read`) + 공고 상세. [모두 읽음]은 핵심 컷에서 뺀다(API 없음, D7) |
 | 빈 상태 | "알림이 없습니다. 공고가 바뀌면 여기에 표시됩니다" |
 | 로딩/오류 | §5.1 |
-| 권한 | 본인 알림만. 해커톤 범위는 in-app만, 카카오는 mock([[13-NOTIFICATIONS\|13 알림]]) |
+| 권한 | 본인 인앱 알림만(`channel = 'IN_APP'`). 카카오톡으로 보낸 추천 공고는 이 목록에 나오지 않고, 카카오 연결 만료 안내(`KAKAO_EXPIRED`, 링크 `/settings`)만 인앱으로 온다([[16-DECISIONS\|ADR-038]], 구현 중, [[13-NOTIFICATIONS\|13 알림]]) |
 
 ### 5.8 `/admin/ingestion`
 
@@ -332,10 +332,28 @@ flowchart TD
 
 | 탭 | 내용 | 권한 |
 |---|---|---|
-| 개인 | 이름·부서/직급 신고 정보(ADR-019 보완 흐름과 같은 검증), 비밀번호·로그인 수단, 계정 삭제(템플릿 기능 재사용) | 본인 |
+| 개인 | 이름·부서/직급 신고 정보(ADR-019 보완 흐름과 같은 검증), 비밀번호·로그인 수단, 카카오톡 알림(§5.10.1, ADR-038), 계정 삭제(템플릿 기능 재사용) | 본인 |
 | 조직 | 구성원 목록, 초대, 업무 역할(`sol_role`) 변경과 감사 기록 | ADMIN. 그 외 403(서버 가드 + RLS) |
 
-회사 선호 설정은 `/company`가 맡는다. 개인 알림 수신 설정은 해커톤 이후다.
+회사 선호 설정은 `/company`가 맡는다. 개인 알림 수신 설정은 카카오톡 알림 켜기·끄기(§5.10.1)만 둔다. 수신 시간대·빈도·이메일은 해커톤 이후다.
+
+### 5.10.1 개인 설정 "카카오톡 알림" ([[16-DECISIONS|ADR-038]], 구현 중 `feat/kakao-notify`)
+
+개인 설정의 "로그인 수단" 절 바로 아래에 새 절 "카카오톡 알림"을 둔다(`web/app/account/account-settings.tsx`의 `SettingsSection`). 설명 문구는 "추천 공고(BID·WATCH 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."다. 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", API는 [[05-API-SPEC|05 API]] §9다. 설정 칸은 아직 구현 전이다(화면 상태 모양 `KakaoNotifyView`만 `ced705f`에 있다).
+
+| 상태 | 보이는 것 |
+|---|---|
+| ① 연결 전(`DISCONNECTED`) | 스위치 비활성 + "카카오 계정을 먼저 연결해야 켤 수 있습니다. 연결할 때 카카오 화면에서 '카카오톡 메시지 전송' 동의를 한 번 묻습니다." + [카카오톡 알림 연결] |
+| ② 연결됨·꺼짐(`OFF`) | 스위치 끔 + [연결 해제]. 다시 켤 때 동의를 다시 받지 않는다 |
+| ③ 켜짐(`ON`) | 스위치 켬 + "마지막 발송: <시각> · <결과>" + [시험 메시지 보내기] |
+| ④ 연결 만료(`EXPIRED`) | 스위치 켬 + 경고 "카카오 연결이 만료되어 보내지 못하고 있습니다. 앱 안 알림으로도 알려 드립니다." + [다시 연결]. 만료는 켬·끔보다 먼저 보인다 |
+
+- 버튼 이름 "카카오톡 알림 연결"은 로그인 수단 절의 카카오 연결과 헷갈리지 않게 정한 것이다. 노란 버튼은 `kakao`·`kakao-foreground` 토큰을 쓴다(토큰 설명은 구현 브랜치가 고친다). 스위치·버튼은 기존 shadcn 부품이다.
+- 연결 결과(`/settings?kakao=connected|consent_denied|state_mismatch|failed`)는 설정 화면의 안내 문구로 보인다. 로그인 수단 절의 연결 결과 표시 방식을 따른다. 동의를 거부하면 "메시지 전송에 동의해야 켤 수 있습니다."다.
+- [시험 메시지 보내기]는 본인에게 고정 문구 한 통을 보내고(1분에 한 번), 결과는 ③의 "마지막 발송" 줄로 보인다.
+- [연결 해제]는 저장된 토큰을 지우고 ①로 돌아간다. 카카오 쪽 연결 끊기(`unlink`)는 부르지 않는다.
+- 카톡 메시지의 버튼을 누르면 카톡 안 브라우저로 데스크톱 화면이 열린다. 1280px 미만 화면은 만들지 않는다(ADR-007).
+- 1440·1280 두 폭에서 네 상태를 확인한다.
 
 ### 5.11 현재 조직과 계정 상태 (ADR-021, 구현됨)
 
@@ -390,7 +408,7 @@ flowchart TD
 │           │ 모델 선택지 신뢰 분포 (충족·수주 확률 아님)│                                 │
 │           │ BID 71% · WATCH 24% · NO-BID 5%           │                                 │
 │           │ 낙찰 확률 아님 · 규칙 판정을 뒤집지 않음   │                                 │
-│           │ mock(데모 응답) · kev-qs/v0.1 · 규칙 일치 │                                 │
+│           │ Mock 응답(데모 데이터) · kev-qs/v0.1      │                                 │
 │           │                                          │                                 │
 │           │ ■ 근거 인용 (EvidenceDrawer 트리거)        │                                 │
 │           │ "요구기술: Java, Spring Boot…"  p.4 [열기] │                                 │
@@ -426,7 +444,7 @@ flowchart TD
 
 ### 6.1 가정 시나리오 (ADR-037, 데모 강화 컷)
 
-[[16-DECISIONS|ADR-037]]의 BOOST-2 가정 재계산이다. 상태표·문구 W1~W21·접근성·토큰 매핑은 화면 디자인 스펙 `docs/plans/2026-10-20-boost2-what-if-ui.md`(2026-10-20 승인, 브랜치 `feat/boost2-what-if`, main 병합 전)가 정본이고, 여기에는 위계와 고정 규칙만 둔다. 화면은 구현 중이다(2026-10-20).
+[[16-DECISIONS|ADR-037]]의 BOOST-2 가정 재계산이다. 상태표·문구 W1~W21·접근성·토큰 매핑은 화면 디자인 스펙 `docs/plans/2026-10-20-boost2-what-if-ui.md`(2026-10-20 승인)가 정본이고, 여기에는 위계와 고정 규칙만 둔다. 화면은 main `d48c7a2`에 들어갔다(2026-10-21).
 
 - **자리**: §6 섹션 순서는 그대로다. 가정이 하나라도 켜져 있을 때만 상단 요약의 분석 요약 띠(와 그 아래 경고 배너) 바로 아래, 단계 이력 위에 점선 테두리 "가정 시나리오" 띠가 낀다. 켠 가정이 없으면 띠도 자리도 없다.
 - **스위치**: 최신 run이 점수 run(`COMPLETED`·`PARTIAL`)이고 필수 자격에 `NOT_SATISFIED` 또는 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)가 있으면, 진입 때 빈 가정으로 [[05-API-SPEC|05]] `POST /analyses/:id/what-if`를 한 번 부른다. 응답 `assumable`에 든 필수자격 행에만 첫 줄 오른쪽 끝에 "보유 가정" 스위치를 붙인다. 서버가 유일한 판정 근거이고, 화면이 미충족 행을 보고 스위치를 미리 그리지 않는다. 행의 판정 배지·사유·근거는 바꾸지 않는다(켜도 "미충족"이다). 스위치가 있으면 필수자격 제목 아래에 안내 한 줄을 둔다.
@@ -451,7 +469,7 @@ flowchart TD
 - 상태 변화는 `aria-live="polite"` 영역으로 읽어 준다.
 - 상태 이름은 [[05-API-SPEC|05 API]]의 값(`QUEUED`·`RUNNING`·`COMPLETED`·`PARTIAL`·`FAILED`)을 쓴다. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`이고 화면 글자는 `미분석`이다([[16-DECISIONS|ADR-029]] A6 D17).
 - 분석 결과에는 항상 `createdAt`, `algorithmVersion`, 프로필 revision, 결정 모델 식별자(또는 `mock`)를 표시한다.
-- 분석 출처는 상세의 분석 요약 띠에 "분석 실행 모드: live|fixture|mock"과 "AI: local · {qwen 모델 식별자} · {kev 모델 식별자}"(또는 "AI: mock")로 보인다. Topbar의 "실행 모드"(앱의 지금 모드)와 구분하려고 "분석"을 붙인다. 모델 이름은 받은 식별자 그대로 쓰고(예 `Qwen/Qwen3.8-Flash-Next`·`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`) 표시 이름 대응표는 만들지 않는다. S-LIVE에서는 Topbar `실행 모드: mock`과 `분석 실행 모드: live`가 함께 보이는 것이 정상이다([[16-DECISIONS|ADR-029]] A6 D12).
+- 분석 출처는 상세의 분석 요약 띠에 "분석 실행 모드: live|fixture|mock"과 "AI: local · {qwen 모델 식별자} · {kev 모델 식별자}"(또는 "AI: mock")로 보인다. Topbar의 "실행 모드"(앱의 지금 모드)와 구분하려고 "분석"을 붙인다. run 에 `AI_UNAVAILABLE` 플래그가 있으면 기록된 출처 뒤에 "· 응답 없음(규칙만)"을 덧붙인다(예 "AI: mock · 응답 없음(규칙만)". Topbar "AI: unavailable"·PARTIAL 배너와 맞춘다. [[16-DECISIONS|16]] 미결정 30-1, 구현 전). 모델 이름은 받은 식별자 그대로 쓰고(예 `Qwen/Qwen3.8-Flash-Next`·`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`) 표시 이름 대응표는 만들지 않는다. S-LIVE에서는 Topbar `실행 모드: mock`과 `분석 실행 모드: live`가 함께 보이는 것이 정상이다([[16-DECISIONS|ADR-029]] A6 D12).
 
 ## 8. 데모 친화 요소
 
@@ -461,11 +479,11 @@ flowchart TD
 | `RunModeIndicator` | Topbar | `실행 모드: live \| fixture \| mock`([[16-DECISIONS\|ADR-020]]). web 서버가 env `SOL_RUN_MODE`(기본 `mock`)를 읽어 서버 렌더로 넘긴다. `/health/ready`에는 실행 모드 값이 없다([[10-DEPLOYMENT\|10 배포]], [[16-DECISIONS\|ADR-029]] A6 D2). `live`는 중립 색, `fixture`·`mock`은 warning 색 |
 | 가상 회사 프로필 배지 | 상세 상단 요약 | 모든 분석에 "가상 회사 프로필로 분석". 툴팁 "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다" |
 | 공고 출처 필터 | `/bids` 필터 바 | `origin=live\|demo\|all`(기본: `live` 모드 `live`, `fixture`·`mock` 모드 `demo`) |
-| `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable` 네 값만. `/health/ready` `checks.ai` 값([[14-OBSERVABILITY\|14 관측성]]), 30초 간격 갱신에 더해 창이 초점을 얻을 때와 분석 polling이 `PARTIAL`·`FAILED`로 끝날 때 바로 한 번 더 읽는다(S6 "1~2초 안에 `AI: unavailable`", [[16-DECISIONS\|ADR-029]] A6 D4). gateway 불가면 `unavailable` + danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
+| `AiModeIndicator` | Topbar | `AI: mock \| local \| hosted \| unavailable` 네 값만. `/health/ready` `checks.ai` 값([[14-OBSERVABILITY\|14 관측성]]), 30초 간격 갱신에 더해 창이 초점을 얻을 때와 분석 polling이 `PARTIAL`·`FAILED`로 끝날 때 바로 한 번 더 읽는다(S6 "수 초 안에 `AI: unavailable`", [[16-DECISIONS\|16]] 미결정 30-5, [[16-DECISIONS\|ADR-029]] A6 D4). gateway 불가면 `unavailable` + danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
 | `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("12분 전"). 60분 초과면 warning 색 + "수집 지연" 텍스트, 수집 실패 시 danger + 관리자 링크 |
 | `AnalysisStatus` | 상세·목록 | §7 상태 + 실시간 polling |
 | AI 불가 배너 | 상세 상단, 대시보드 상단 | `analysis.status=PARTIAL` 또는 `/health/ready` `status: degraded`일 때. 문구는 09 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" + `recommendationBasis: RULES_ONLY` |
-| 결정 모델 섹션 제목·고지 | 결정 모델 섹션 | 섹션 이름은 "결정 모델 참고 지표"(ADR-034로 "Kev 참고 지표"에서 개정)이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"(03·05·08·09의 영역 이름)를 함께 보인다([[16-DECISIONS\|ADR-029]] A6 D13, ADR-034 5번). 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" 결정 모델 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSetVersion`으로 치환. 둘 다 생략 금지 |
+| 결정 모델 섹션 제목·고지 | 결정 모델 섹션 | 섹션 이름은 "결정 모델 참고 지표"(ADR-034로 "Kev 참고 지표"에서 개정)이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"(03·05·08·09의 영역 이름)를 함께 보인다([[16-DECISIONS\|ADR-029]] A6 D13, ADR-034 5번). 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" 결정 모델 블록 3줄을 그대로. 고지 줄은 화면 문구 "결정 모델 확률은 …"이고 API literal "Kev 확률은 …"을 그대로 보이지 않는다(미결정 30-2, 구현 전). `{kev.model}`·`{kev.questionSetVersion}`·`{kev.provider}`는 `AnalysisResult.kev.model`·`kev.questionSetVersion`·`kev.provider`로 치환. 셋 다 생략 금지. `kev.provider`가 `mock`이면 `모델: {kev.model}` 자리에 "Mock 응답(데모 데이터)"를 쓰고 모델명을 쓰지 않는다([[16-DECISIONS\|ADR-034]] 15번, `web/components/bids/kev-opinion.tsx`). 분석 요약 띠는 "AI: mock"이다(아래 "분석 출처") |
 | 변경 diff | 상세 단계 이력 → revision 클릭 | 예산·마감·자격·첨부 변경 전/후 나란히(`FX-06`, `FX-07`) |
 
 ## 9. 컴포넌트

@@ -4,7 +4,8 @@
     python -m sol_eval bosun_score --backend fake --data … --out …                 # 결정적 가짜(시험용)
     python -m sol_eval bosun_score --package <dir> --suite <jsonl> --suite-format decisionbench --out …
 
-- 백엔드는 지연 import 다. `AutoModelForCausalLM.from_pretrained(package, trust_remote_code=True, local_files_only=True)`
+- 백엔드는 지연 import 다. 먼저 `package_check.verify_package_dir`(manifest sha256·최상위 *.py 대조. 위반이면
+  ScoreInputError, exit 2) 를 지난 뒤 `AutoModelForCausalLM.from_pretrained(package, trust_remote_code=True, local_files_only=True)`
   뒤 Bosun 공개 API `model.predict(state=, instructions=, candidates=, decision_type=, seed=, row_id=)["probabilities"]`
   (후보 순서 리스트)를 부른다. 네트워크·모델 다운로드는 하지 않는다. **실모델 경로는 2026-10-20 미검증**이다
   (candidates 인자에 {id,label,description} 목록을 그대로 넘기는 것, decision_type 값이 questionType 과 같다는 것은 가정).
@@ -39,6 +40,7 @@ from sol_eval.bosun_metrics import (
 from sol_eval.labels import qid_family
 from sol_eval.leakage import read_jsonl
 from sol_eval.manifest import sha256_file
+from sol_eval.package_check import PackageVerificationError, verify_package_dir
 
 SCORE_REPORT_SCHEMA_VERSION = "sol-eval-bosun-score-report/v0.1"
 PREDICTIONS_FILE = "predictions.jsonl"
@@ -126,11 +128,16 @@ class FakeBackend:
 
 
 class BosunBackend:
-    """Bosun 패키지(HF 레이아웃)를 로컬에서만 올린다. torch·transformers 는 여기서만 import 한다."""
+    """Bosun 패키지(HF 레이아웃)를 로컬에서만 올린다. torch·transformers 는 여기서만 import 한다.
+
+    `trust_remote_code=True` 는 패키지의 `modeling_bosun.py` 를 실행하므로 검증(manifest sha256·최상위 *.py)을
+    지난 디렉터리만 올린다. 위반이면 PackageVerificationError 를 내고 transformers 는 import 하지 않는다.
+    """
 
     name = BACKEND_BOSUN
 
     def __init__(self, package_dir: Path) -> None:
+        verify_package_dir(package_dir)
         from transformers import AutoModelForCausalLM
 
         self.package_dir = package_dir
@@ -452,7 +459,10 @@ def make_backend(options: ScoreOptions) -> Backend:
         raise ScoreInputError(f"알 수 없는 backend: {options.backend}")
     if options.package_dir is None or not options.package_dir.is_dir():
         raise ScoreInputError("--package <dir> 가 필요하다(backend bosun)")
-    return BosunBackend(options.package_dir)
+    try:
+        return BosunBackend(options.package_dir)
+    except PackageVerificationError as error:
+        raise ScoreInputError(f"--package 검증 실패: {error.summary}") from error
 
 
 def score(options: ScoreOptions, backend: Backend | None = None) -> dict[str, Any]:

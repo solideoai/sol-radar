@@ -1,5 +1,6 @@
 """시험용 백엔드. 제품의 FakeBackend 와 달리 시나리오(id 기반 분포·지연·예외·잘못된 분포)를 흉내 낸다."""
 
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -96,6 +97,27 @@ class RaisingBackend:
 
     def predict(self, **_: Any) -> list[float]:
         raise RuntimeError(self._message)
+
+    def identity(self) -> ModelIdentity:
+        return IDENTITY
+
+
+class BlockingBackend:
+    """predict 가 release 될 때까지 멈춘다(마감을 넘긴 forward·대기열 시험). started 로 들어온 것을 알린다."""
+
+    name = "blocking"
+    device = "cpu"
+
+    def __init__(self) -> None:
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.calls = 0
+
+    def predict(self, *, candidates: Sequence[Mapping[str, Any]], **_: Any) -> list[float]:
+        self.calls += 1
+        self.started.set()
+        self.release.wait(10)
+        return [1 / len(candidates)] * len(candidates)
 
     def identity(self) -> ModelIdentity:
         return IDENTITY

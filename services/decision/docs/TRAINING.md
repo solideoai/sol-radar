@@ -14,12 +14,20 @@
 ## 설치 (회사 서버 `.venv-bosun`)
 
 모델 의존성은 `pyproject.toml` 의 `model` extra 다. 노트북·CI 는 extras 없이 설치하고 torch 를 import 하지 않는다.
+회사 GPU 서버는 **기존 `.venv-bosun`(torch 2.8.0+cu128)에 `--no-deps` 로만 올린다**(README "설치", 사용자 결정 2026-10-21, `docs/22` §4 절차가 정본).
+`uv sync --frozen --extra model` 은 쓰지 않는다 — `uv.lock` 의 `model` extra 가 torch 2.14.1 을 받아 회사 venv 를 바꾼다.
 
 ```bash
+PY="$SOL_WORK/.venv-bosun/bin/python"
 cd services/decision
-uv sync --frozen --extra model
+uv pip install --python "$PY" --dry-run --no-deps -e .     # 계획만. 출력에 torch·transformers·peft 줄이 있으면 멈추고 보고
+uv pip install --python "$PY" --no-deps -e .
+uv pip check --python "$PY"                                # 빠진 순수 의존성만 명시 설치(docs/22 §4), torch 계열은 건드리지 않는다
+"$PY" -c "import torch; print(torch.__version__)"          # 2.8.0+cu128 그대로
 export HF_HUB_OFFLINE=1     # 백본 Qwen/Qwen3-0.6B@c1899de 는 HF 캐시에 있어야 한다(22 §2.2)
 ```
+
+아래 표의 `python` 은 이 `"$PY"` 다. `uv run` 은 노트북(extras 없음) 전용이다.
 
 ## 명령
 
@@ -28,12 +36,12 @@ export HF_HUB_OFFLINE=1     # 백본 Qwen/Qwen3-0.6B@c1899de 는 HF 캐시에 �
 | 단계 | 명령 |
 |---|---|
 | 동일성 검사(학습 전 필수) | `python -m sol_decision.parity --package "$snap" --data "$SOL_WORK/sol-dataset-v0.1/bosun/test.en.jsonl" --n 8` |
-| CPU smoke(승인 불필요) | `python -m sol_decision.train --package "$snap" --data <작은 jsonl> --out runs/cpu-smoke --device cpu --max-steps 2 --batch 1 --accum 1 --verify-reload` |
+| CPU smoke(승인 불필요) | `python -m sol_decision.train --package "$snap" --data <작은 jsonl> --out "$SOL_WORK/runs/cpu-smoke" --device cpu --max-steps 2 --batch 1 --accum 1 --verify-reload` |
 | F1 smoke(GPU 1, 승인 뒤) | `python -m sol_decision.train --package "$snap" --data …/bosun/train.en.jsonl --out "$SOL_WORK/runs/f1-b1a8" --max-steps 20 --batch 1 --accum 8 --grad-checkpointing --verify-reload` |
 | F2 학습 | `python -m sol_decision.train --package "$snap" --data …/bosun/train.en.jsonl --out "$SOL_WORK/runs/bosun-sol-lora-v0.1" --seed 0 --epochs <F1 로 정함> --batch <F1 PASS 값> --accum <F1 PASS 값> --grad-checkpointing --verify-reload` |
 | F3 보정(dev) | `python -m sol_decision.trainer.calibrate --data …/bosun/dev.en.jsonl --predictions "$SOL_WORK/runs/e4-dev/predictions.jsonl" --out "$SOL_WORK/runs/bosun-sol-lora-v0.1/calibration.json"` |
 | F3 보정(직접 추론) | `python -m sol_decision.trainer.calibrate --data …/bosun/dev.en.jsonl --package "$SOL_WORK/runs/bosun-sol-lora-v0.1" --seeds 0-5 --out …/calibration.json` |
-| 서버 전용 시험 | `SOL_BOSUN_PACKAGE="$snap" uv run --extra model pytest tests_model` |
+| 서버 전용 시험 | `SOL_BOSUN_PACKAGE="$snap" "$PY" -m pytest tests_model` (venv 의 torch·transformers 로. `uv run --extra model` 은 쓰지 않는다) |
 
 `parity` 는 같은 레코드에서 ① `model.predict()` 확률과 ② 학습 경로(`render_decision_prompt` → chat template → `decision_logits[:, :K]` softmax → 후보 순서 복원) 확률의 최대 절대 오차를 내고, 프롬프트 문자열이 바이트 단위로 같은지도 본다. 허용치는 단건 `--tol 1e-4`, 왼쪽 패딩 배치 `--batch-tol 1e-2`(bf16 커널 차이 여유). 하나라도 넘으면 exit 1 이고 **학습을 시작하지 않는다**(ADR-034 미검증 콜아웃). 엄격 비교는 `--no-bf16`(fp32)로 돈다.
 
