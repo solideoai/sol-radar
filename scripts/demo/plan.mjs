@@ -305,7 +305,7 @@ export const DEMO_REVIEWS = [
     decision: "NO_BID",
     systemRecommendation: "NO_BID",
     reason:
-      "정보통신공사업 등록이 없어 필수 자격 미충족. Kev 가 BID 를 제시해도 규칙이 우선이므로 사전 검토에서 불참을 결정했다.",
+      "정보통신공사업 등록이 없어 필수 자격 미충족. 결정 모델이 BID 를 제시해도 규칙이 우선이므로 사전 검토에서 불참을 결정했다.",
   },
 ];
 

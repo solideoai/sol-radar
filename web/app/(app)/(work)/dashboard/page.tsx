@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
 import { defaultOrigin } from "@/server/bids";
-import { loadBidCount, loadBidPage, loadDashboardSummary } from "@/app/_lib/work-data";
+import {
+  loadBidCount,
+  loadBidPage,
+  loadDashboardSummary,
+  loadFinishedAnalyses,
+} from "@/app/_lib/work-data";
 import { canRunIngestion } from "@/app/(app)/(work)/empty-state";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { dashboardQueries } from "./dashboard-queries";
@@ -25,6 +30,8 @@ export default async function DashboardPage() {
     loadBidCount(work.orgId, queries.bid),
     loadBidPage(work.orgId, queries.deadline),
   ]);
+  // BID 표 칸은 끝난 분석 기준으로 채운다. 재분석 중인 공고만 한 번 더 읽는다(미결정 30-8).
+  const recommendedFinished = await loadFinishedAnalyses(recommended.items);
   return (
     <AppPage
       title={DASHBOARD_TITLE}
@@ -35,6 +42,7 @@ export default async function DashboardPage() {
       <DashboardView
         summary={summary}
         recommended={recommended.items}
+        recommendedFinished={recommendedFinished}
         recommendedTotal={recommendedTotal}
         deadline={deadline.items}
         now={now}

@@ -1,12 +1,13 @@
 import "server-only";
-import type { BidStage, BidStatus, Recommendation } from "./bid.model";
+import type { AnalysisStatus, BidListItem, BidStage, BidStatus, Recommendation } from "./bid.model";
 import type {
   DashboardAnalysisRow,
   DashboardBidRow,
   DashboardRepo,
   DashboardReviewRow,
+  FinishedScoreRow,
 } from "./bids.repo";
-import type { DashboardSummary, StatusSummary } from "./dashboard.model";
+import type { DashboardSummary, FinishedAnalysis, StatusSummary } from "./dashboard.model";
 
 // 05 §4.6 DashboardSummary 집계. 정의는 C6 스펙 D10·D11 이다.
 // D10: 권고는 공고별 최신 분석 1건 기준. D11: 검토 대기는 최신 분석이 있으나 사람 결정이 없는 공고 수.
@@ -132,4 +133,45 @@ export async function getStatusSummary(
     dataFreshness: { ...status.dataFreshness, isDemo: origin === "demo" },
     unreadNotifications: status.unreadNotifications,
   };
+}
+
+// ── 대시보드 BID 권고 표의 점수·권고(미결정 30-8) ──
+// 표의 행은 목록(GET /bids)이 끝난 분석의 권고 BID 로 고르고 점수로 줄 세운다. 그런데 칸은 최신 run 을 그려서,
+// 재분석이 진행 중이거나 실패한 공고는 "—"가 된다. 그런 공고만 끝난 분석 중 최신 1건으로 칸을 채운다.
+
+const isScoredStatus = (status: AnalysisStatus) => status === "COMPLETED" || status === "PARTIAL";
+
+const needsFinished = ({ latestAnalysis }: BidListItem): boolean =>
+  latestAnalysis !== null && !isScoredStatus(latestAnalysis.status);
+
+export function finishedAnalysesOf(
+  items: readonly BidListItem[],
+  rows: readonly FinishedScoreRow[],
+): Record<string, FinishedAnalysis> {
+  const byBid = new Map(rows.map((row) => [row.bidId, row]));
+  return Object.fromEntries(
+    items.flatMap((item) => {
+      const latest = item.latestAnalysis;
+      const row = byBid.get(item.id);
+      if (latest === null || isScoredStatus(latest.status) || row === undefined) return [];
+      // 끝난 분석이 하나도 없으면 채울 값이 없다.
+      if (row.solScore === null && row.recommendation === null) return [];
+      const entry: FinishedAnalysis = {
+        solScore: row.solScore,
+        recommendation: row.recommendation,
+        rerunning: latest.status === "QUEUED" || latest.status === "RUNNING",
+      };
+      return [[item.id, entry]];
+    }),
+  );
+}
+
+// 채울 공고가 없으면 읽지 않는다.
+export async function getFinishedAnalyses(
+  items: readonly BidListItem[],
+  deps: { repo: Pick<DashboardRepo, "listFinishedScores"> },
+): Promise<Record<string, FinishedAnalysis>> {
+  const bidIds = items.filter(needsFinished).map((item) => item.id);
+  if (bidIds.length === 0) return {};
+  return finishedAnalysesOf(items, await deps.repo.listFinishedScores(bidIds));
 }

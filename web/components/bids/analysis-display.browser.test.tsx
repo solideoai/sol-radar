@@ -328,9 +328,12 @@ describe("KevOpinion", () => {
     );
     expect(text(host)).not.toContain("kev-mock");
     expect(text(host)).not.toContain("모델: ");
-    expect(text(host)).toContain(FX01_VIEW.kev.disclaimer);
-    // KEV_DISCLAIMER literal 을 뺀 화면 글자에는 "Kev" 가 없다(ADR-034 5번 모델 중립 문구).
-    expect(text(host).replace(FX01_VIEW.kev.disclaimer, "")).not.toMatch(/Kev/);
+    // 고지 끝줄은 API 의 KEV_DISCLAIMER literal 대신 모델 중립 문구를 보인다(미결정 30-2(a)). 화면 어디에도 "Kev" 가 없다.
+    expect(text(host)).toContain(
+      "결정 모델 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.",
+    );
+    expect(text(host)).not.toContain(FX01_VIEW.kev.disclaimer);
+    expect(text(host)).not.toMatch(/Kev/);
     const meters = host.querySelectorAll('[role="meter"]');
     expect(meters).toHaveLength(3);
     expect(meters[0]?.getAttribute("aria-valuetext")).toBe("BID 선택지 71%");

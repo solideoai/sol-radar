@@ -32,7 +32,8 @@ export type DashboardCardSlot = {
 };
 
 const EMPTY = "—";
-const NO_ANALYSIS_HINT = "아직 분석한 공고가 없습니다";
+// 수집 카드의 "수집 기록 없음"과 짝이다. 1280 카드 폭에서도 한 줄에 든다(미결정 30-7).
+const NO_ANALYSIS_HINT = "분석 기록 없음";
 
 const countCard = (count: number): DashboardCard => ({ value: String(count), tone: "default" });
 
@@ -86,7 +87,8 @@ export const DASHBOARD_CARD_SLOTS: readonly DashboardCardSlot[] = [
   },
   {
     id: "analyses",
-    label: "분석 현황",
+    // 큰 숫자가 완료 건수임을 이름에 밝힌다. "마감 임박 (7일)"과 같은 꼴이다(미결정 30-6).
+    label: "분석 현황 (완료)",
     read: ({ summary }) => analysesCard(summary.analyses.latestByStatus),
   },
 ];

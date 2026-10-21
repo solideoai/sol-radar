@@ -362,6 +362,25 @@ describe("BidDetailView 분석 결과(스펙 §5.4.2~§5.4.8)", () => {
     expect(text(host)).toContain("사용 불가");
   });
 
+  it("AI 가 응답하지 않은 run(AI_UNAVAILABLE)은 띠의 AI 표기 뒤에 '응답 없음(규칙만)'을 붙인다(미결정 30-1)", () => {
+    const band = (host: HTMLElement) =>
+      host.querySelector('[aria-labelledby="analysis-band-title"]')?.textContent ?? "";
+    const partial = render({ bid: detail({ latestAnalysis: FX01_PARTIAL_VIEW }) });
+    expect(band(partial.host)).toContain("AI: mock · 응답 없음(규칙만)");
+    const completed = render({ bid: detail({ latestAnalysis: FX01_VIEW }) });
+    expect(band(completed.host)).toContain("AI: mock");
+    expect(band(completed.host)).not.toContain("응답 없음");
+    // 실모델 run 도 받은 식별자 뒤에 붙인다. 출처 표기는 그대로다.
+    const live = render({
+      bid: detail({
+        latestAnalysis: { ...FX01_LIVE_VIEW, reviewFlags: ["AI_UNAVAILABLE"] },
+      }),
+    });
+    expect(band(live.host)).toContain(
+      `AI: local · ${QWEN_MODEL_ID} · ${BOSUN_MODEL_ID} · 응답 없음(규칙만)`,
+    );
+  });
+
   it("kev_assist 가 비어 기록이 없는 run 은 결정 모델 구역에 '기록 없음'을 쓴다", async () => {
     const unrecorded: AnalysisView = {
       ...FX02_VIEW,
@@ -453,6 +472,26 @@ describe("BidDetailView 분석 실행(스펙 §5.4.2 흐름)", () => {
     await expect.element(decisionButton()).toBeEnabled();
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ force: true });
   });
+
+  it.each([
+    ["QUEUED", "대기 중"],
+    ["RUNNING", "분석 중"],
+  ] as const)(
+    "진행 중(%s) run 은 분석 요약 띠에 06 §2 상태 배지 '%s'를 보인다(미결정 30-3)",
+    async (status, label) => {
+      fetchMock.mockResolvedValue(
+        new Response(JSON.stringify({ id: "run-active", status }), { status: 200 }),
+      );
+      const { host } = render({
+        bid: detail({ latestAnalysis: { ...FX02_VIEW, id: "run-active", status } }),
+        previousScored: FX02_VIEW,
+      });
+      const band = host.querySelector('[aria-labelledby="analysis-band-title"]');
+      await vi.waitFor(() => expect(band?.textContent).toContain(label));
+      // 지난 run 의 모드·AI 표기를 새 결과처럼 보이지 않는다.
+      expect(band?.textContent).not.toContain("AI: mock");
+    },
+  );
 
   it("서버가 진행 중이라고 준 run 의 poll 이 404 면 빈 결과로 떨어지지 않고 상태 확인 실패와 [새로고침]을 보인다", async () => {
     fetchMock.mockResolvedValue(

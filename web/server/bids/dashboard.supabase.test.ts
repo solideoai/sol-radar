@@ -221,3 +221,36 @@ describe("dashboard.loadStatus", () => {
     await expect(repo.loadStatus("live")).rejects.toThrow("rpc down");
   });
 });
+
+// 미결정 30-8: 대시보드 BID 표의 공고만 뷰 bid_list_items 의 끝난 분석 열(scored_*)을 읽는다.
+describe("dashboard.listFinishedScores", () => {
+  it("받은 공고 id 만 bid_list_items 에서 scored_score·scored_recommendation 으로 읽는다", async () => {
+    fakeDb.on(
+      "bid_list_items",
+      fakeDb.rows([
+        { id: "b1", scored_score: "82.0", scored_recommendation: "BID" },
+        { id: "b2", scored_score: null, scored_recommendation: null },
+      ]),
+    );
+    expect(await repo.listFinishedScores(["b1", "b2"])).toEqual([
+      { bidId: "b1", solScore: 82, recommendation: "BID" },
+      { bidId: "b2", solScore: null, recommendation: null },
+    ]);
+    const q = only("bid_list_items");
+    expect(callsOf(q, "select")).toEqual([["id,scored_score,scored_recommendation"]]);
+    expect(callsOf(q, "in")).toEqual([["id", ["b1", "b2"]]]);
+  });
+
+  it("공고가 없으면 읽지 않는다", async () => {
+    expect(await repo.listFinishedScores([])).toEqual([]);
+    expect(fakeDb.queries("bid_list_items")).toHaveLength(0);
+  });
+
+  it("권고 값이 enum 밖이면 실패한다(받은 값을 다시 검사한다)", async () => {
+    fakeDb.on(
+      "bid_list_items",
+      fakeDb.rows([{ id: "b1", scored_score: 82, scored_recommendation: "MAYBE" }]),
+    );
+    await expect(repo.listFinishedScores(["b1"])).rejects.toThrow();
+  });
+});

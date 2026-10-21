@@ -25,6 +25,10 @@ type KevOpinionProps = {
 const SIGNAL_THRESHOLD = 0.7;
 const OPTIONS = ["BID", "WATCH", "NO_BID"] as const satisfies readonly Recommendation[];
 const MOCK_MODEL_TEXT = "Mock 응답(데모 데이터)";
+// 고지 끝줄. API·DB 는 호환을 위해 KEV_DISCLAIMER literal("Kev 확률은 …")을 그대로 두고(ADR-034 5번, 스키마가 값을
+// literal 로 고정한다), 화면만 모델 중립 문구를 보인다(미결정 30-2(a)).
+const DECISION_MODEL_DISCLAIMER =
+  "결정 모델 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.";
 
 // 고지 셋째 줄의 모델 정보. mock 은 모델명을 쓰지 않고, 실모델은 받은 식별자(레지스트리 run 값)를 그대로 보인다.
 function modelInfoText(kev: Pick<KevView, "provider" | "model" | "questionSetVersion">): string {
@@ -146,7 +150,7 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
         <p>이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.</p>
         <p>충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.</p>
         <p className="wrap-anywhere">최종 결정은 담당자가 기록합니다. {modelInfoText(kev)}</p>
-        <p>{kev.disclaimer}</p>
+        <p>{DECISION_MODEL_DISCLAIMER}</p>
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { BidListItem } from "@/server/bids";
+import type { BidListItem, FinishedAnalysis } from "@/server/bids";
 
 // 스펙 §5.3 (10열 표) · §5.2 (대시보드 compact 표). 데이터를 가져오지 않고 props 만 그린다.
 // 서버 모듈은 타입으로만 가져온다.
@@ -98,11 +98,29 @@ type BidTableProps = {
   busy?: boolean;
   /** 표 아래 자리(더 보기 단추 등). */
   footer?: React.ReactNode;
+  /**
+   * 공고 id → 끝난 분석(COMPLETED·PARTIAL) 중 최신 1건의 점수·권고. 있으면 SOL Score·권고 칸을 이 값으로 그리고,
+   * 재분석 중이면 "재분석 중"을 붙인다. 대시보드 BID 권고 표만 넘긴다(미결정 30-8).
+   */
+  finished?: Record<string, FinishedAnalysis>;
   className?: string;
 };
 
 function hasDocumentIssue({ documentsStatus: d }: BidListItem): boolean {
   return d.downloadFailed + d.failed + d.unsupported + d.partial > 0;
+}
+
+// 재분석이 진행 중인 공고의 권고 칸 아래 글자. 아이콘은 분석 진행 중과 같다.
+function RerunningLabel() {
+  const { icon: Icon, className } = STATUS_ICON.RUNNING;
+  return (
+    <span
+      className={cn("inline-flex items-center gap-1 whitespace-nowrap type-caption", className)}
+    >
+      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+      <span>재분석 중</span>
+    </span>
+  );
 }
 
 function MutedLabel({ statusKey }: { statusKey: "NOT_ANALYZED" }) {
@@ -123,17 +141,21 @@ const detailHref = (id: string, listQuery: string | undefined): string =>
 function Cell({
   column,
   item,
+  finished,
   now,
   compact,
   listQuery,
 }: {
   column: Column;
   item: BidListItem;
+  finished: FinishedAnalysis | undefined;
   now: Date;
   compact: boolean;
   listQuery: string | undefined;
 }) {
   const analysis = item.latestAnalysis;
+  // 끝난 분석 값이 있으면 점수·권고 칸은 그 값이다(최신 run 이 진행 중·실패인 공고).
+  const scored = finished ?? analysis;
   switch (column.key) {
     case "origin":
       return item.isDemo ? (
@@ -205,14 +227,23 @@ function Cell({
       );
     }
     case "score":
-      return <span>{analysis?.solScore == null ? EMPTY : Math.round(analysis.solScore)}</span>;
-    case "recommendation":
-      if (analysis === null) return <MutedLabel statusKey="NOT_ANALYZED" />;
-      return analysis.recommendation === null ? (
-        <span>{EMPTY}</span>
-      ) : (
-        <StatusBadge kind="recommendation" value={analysis.recommendation} variant="inline" />
+      return <span>{scored?.solScore == null ? EMPTY : Math.round(scored.solScore)}</span>;
+    case "recommendation": {
+      if (scored === null) return <MutedLabel statusKey="NOT_ANALYZED" />;
+      const badge =
+        scored.recommendation === null ? (
+          <span>{EMPTY}</span>
+        ) : (
+          <StatusBadge kind="recommendation" value={scored.recommendation} variant="inline" />
+        );
+      if (finished?.rerunning !== true) return badge;
+      return (
+        <div className="flex flex-col items-start gap-0.5">
+          {badge}
+          <RerunningLabel />
+        </div>
       );
+    }
     case "analysis":
       return analysis === null ? (
         <MutedLabel statusKey="NOT_ANALYZED" />
@@ -243,6 +274,7 @@ function BidTable({
   listQuery,
   busy = false,
   footer,
+  finished,
   className,
 }: BidTableProps) {
   const columns: readonly Column[] = compact ? COMPACT_COLUMNS[compactKind] : FULL_COLUMNS;
@@ -291,6 +323,7 @@ function BidTable({
                     <Cell
                       column={column}
                       item={item}
+                      finished={finished?.[item.id]}
                       now={now}
                       compact={compact}
                       listQuery={listQuery}

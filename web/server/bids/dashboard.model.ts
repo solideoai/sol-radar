@@ -1,6 +1,11 @@
 import "server-only";
 import { z } from "zod";
-import { bidStageSchema, bidStatusSchema, recommendationSchema } from "./bid.model";
+import {
+  bidStageSchema,
+  bidStatusSchema,
+  recommendationSchema,
+  type Recommendation,
+} from "./bid.model";
 
 // 05 §4.6 DashboardSummary
 const count = z.number().int().nonnegative();
@@ -62,3 +67,13 @@ export type DashboardSummary = z.infer<typeof dashboardSummarySchema>;
 
 // 업무 틀 상단바용 요약(수집 신선도·안 읽은 알림 수). DashboardSummary 의 두 칸과 같은 모양이다(M3).
 export type StatusSummary = Pick<DashboardSummary, "dataFreshness" | "unreadNotifications">;
+
+// 대시보드 BID 권고 표의 점수·권고 자리(미결정 30-8). API 계약이 아니라 화면 안에서만 쓴다.
+// 표는 /bids 와 같은 목록(BidListItem)을 쓰고, 최신 run 이 끝난 분석이 아니면 끝난 분석(COMPLETED·PARTIAL)
+// 중 최신 1건의 값으로 채운다. 카드("BID 권고")·목록의 BID 필터·점수 정렬과 같은 기준이다.
+export type FinishedAnalysis = {
+  solScore: number | null;
+  recommendation: Recommendation | null;
+  /** 최신 run 이 QUEUED·RUNNING 이다. 표에 "재분석 중"을 붙인다. */
+  rerunning: boolean;
+};

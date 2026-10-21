@@ -8,7 +8,12 @@ import {
   effectiveStatus,
   recommendationSchema,
 } from "./bid.model";
-import type { DashboardRepo, DashboardSource, DashboardStatusSource } from "./bids.repo";
+import type {
+  DashboardRepo,
+  DashboardSource,
+  DashboardStatusSource,
+  FinishedScoreRow,
+} from "./bids.repo";
 
 // 대시보드 원천. 공고에 이 조직의 분석·결정을 붙여 읽고, 수집 신선도·안 읽은 알림 수·AI 상태를 함께 모은다.
 // 집계(최신 1건 고르기·세기)는 서비스(getDashboardSummary)가 한다.
@@ -49,6 +54,31 @@ function freshnessOf(rows: unknown[]): DashboardSource["dataFreshness"] {
 }
 
 type Db = Awaited<ReturnType<typeof getSupabase>>;
+
+// 뷰 행은 열마다 null 이 될 수 있다고 생성된다. 공고 id 가 없는 행은 없지만 받은 값을 다시 검사한다.
+// numeric 점수는 문자열로 올 수 있어 숫자로 바꾼다(목록 매퍼와 같다).
+const finishedScoreRowSchema = z.object({
+  id: z.string().min(1),
+  scored_score: z.union([z.number(), z.string()]).nullable(),
+  scored_recommendation: recommendationSchema.nullable(),
+});
+
+async function readFinishedScores(db: Db, bidIds: string[]): Promise<FinishedScoreRow[]> {
+  // 목록(GET /bids)과 같은 뷰·같은 RLS 다. 이 조직의 분석만 보인다.
+  const { data, error } = await db
+    .from("bid_list_items")
+    .select("id,scored_score,scored_recommendation")
+    .in("id", bidIds);
+  if (error) throw error;
+  return data.map((raw) => {
+    const row = finishedScoreRowSchema.parse(raw);
+    return {
+      bidId: row.id,
+      solScore: row.scored_score === null ? null : Number(row.scored_score),
+      recommendation: row.scored_recommendation,
+    };
+  });
+}
 
 // 상단바 두 값(수집 신선도·안 읽은 알림 수). 대시보드 전체 읽기와 업무 틀이 함께 쓴다.
 async function readStatus(db: Db, origin: "live" | "demo" | "all"): Promise<DashboardStatusSource> {
@@ -109,6 +139,11 @@ export function createDashboardRepo(config: {
 
     async loadStatus(origin) {
       return readStatus(await getSupabase(), origin);
+    },
+
+    async listFinishedScores(bidIds) {
+      if (bidIds.length === 0) return [];
+      return readFinishedScores(await getSupabase(), bidIds);
     },
   };
 }

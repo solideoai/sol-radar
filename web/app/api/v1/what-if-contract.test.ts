@@ -135,7 +135,7 @@ function install(bids: BidsRepo): WorkDeps {
       createReview: notUsed,
     },
     notifications: { list: notUsed, markRead: notUsed },
-    dashboard: { load: notUsed, loadStatus: notUsed },
+    dashboard: { load: notUsed, loadStatus: notUsed, listFinishedScores: notUsed },
     queue: { enqueue: notUsed },
     limiter: { hit: notUsed },
     cursorSecret: "test-only-cursor-secret-at-least-32-characters",

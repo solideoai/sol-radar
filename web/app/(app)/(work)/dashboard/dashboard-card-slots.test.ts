@@ -67,13 +67,13 @@ const slot = (id: DashboardCardSlotId) => {
 };
 
 describe("DASHBOARD_CARD_SLOTS", () => {
-  it("슬롯은 5개이고 순서는 BID 권고 → 검토 대기 → 마감 임박 → 수집 → 분석 현황이다", () => {
+  it("슬롯은 5개이고 순서는 BID 권고 → 검토 대기 → 마감 임박 → 수집 → 분석 현황 (완료)다", () => {
     expect(DASHBOARD_CARD_SLOTS.map(({ id, label }) => [id, label])).toEqual([
       ["recommended", "BID 권고"],
       ["review-pending", "검토 대기"],
       ["deadline", "마감 임박 (7일)"],
       ["ingest", "수집"],
-      ["analyses", "분석 현황"],
+      ["analyses", "분석 현황 (완료)"],
     ]);
   });
 
@@ -93,10 +93,10 @@ describe("DASHBOARD_CARD_SLOTS", () => {
 });
 
 describe("분석 현황 슬롯", () => {
-  it("분석이 0건이면 값 0, 힌트는 '아직 분석한 공고가 없습니다'다(06 §5.2 빈 상태)", () => {
+  it("분석이 0건이면 값 0, 힌트는 '분석 기록 없음'이다(06 §5.2 빈 상태, 미결정 30-7)", () => {
     expect(slot("analyses").read(withLatest({ completed: 0, partial: 0, failed: 0 }))).toEqual({
       value: "0",
-      hint: "아직 분석한 공고가 없습니다",
+      hint: "분석 기록 없음",
       tone: "default",
     });
   });

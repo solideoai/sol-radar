@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
+import type { AnalysisStatus, BidListItem } from "./bid.model";
 import type {
   DashboardAnalysisRow,
   DashboardBidRow,
   DashboardRepo,
   DashboardReviewRow,
   DashboardSource,
+  FinishedScoreRow,
 } from "./bids.repo";
 import { dashboardSummarySchema } from "./dashboard.model";
-import { getDashboardSummary, getStatusSummary } from "./dashboard.service";
+import {
+  finishedAnalysesOf,
+  getDashboardSummary,
+  getFinishedAnalyses,
+  getStatusSummary,
+} from "./dashboard.service";
 
 const NOW = new Date("2026-10-19T00:00:00Z");
 
@@ -44,8 +51,15 @@ const source = (bids: DashboardBidRow[]): DashboardSource => ({
 const noStatus = async (): Promise<never> => {
   throw new Error("요약 시험은 loadStatus 를 부르지 않는다");
 };
+const noFinished = async (): Promise<never> => {
+  throw new Error("요약 시험은 listFinishedScores 를 부르지 않는다");
+};
 const summaryOf = (bids: DashboardBidRow[], origin: "live" | "demo" | "all" = "demo") => {
-  const repo: DashboardRepo = { load: async () => source(bids), loadStatus: noStatus };
+  const repo: DashboardRepo = {
+    load: async () => source(bids),
+    loadStatus: noStatus,
+    listFinishedScores: noFinished,
+  };
   return getDashboardSummary("org1", origin, { repo }, NOW);
 };
 
@@ -326,6 +340,7 @@ describe("getDashboardSummary · 분석 현황(latestByStatus) — NAV-06", () =
         return source([]);
       },
       loadStatus: noStatus,
+      listFinishedScores: noFinished,
     };
     for (const origin of ["live", "demo", "all"] as const) {
       await getDashboardSummary("org1", origin, { repo }, NOW);
@@ -348,6 +363,7 @@ describe("getStatusSummary", () => {
   const repoOf = (load: DashboardRepo["load"]): DashboardRepo => ({
     load,
     loadStatus: async () => ({ dataFreshness: freshness, unreadNotifications: 5 }),
+    listFinishedScores: noFinished,
   });
 
   it.each([
@@ -367,4 +383,98 @@ describe("getStatusSummary", () => {
       );
     },
   );
+});
+
+// 미결정 30-8: 대시보드 BID 권고 표의 점수·권고 칸은 끝난 분석(COMPLETED·PARTIAL) 중 최신 1건이다.
+// 표의 행은 목록이 끝난 분석의 권고 BID 로 고른다. 최신 run 이 진행 중·실패인 공고만 끝난 분석 값으로 칸을 채운다.
+describe("대시보드 BID 표의 끝난 분석 값 — 미결정 30-8", () => {
+  const listItem = (id: string, status: AnalysisStatus | null): BidListItem => ({
+    id,
+    source: "fixture",
+    noticeId: `DEMO-${id}`,
+    title: `공고 ${id}`,
+    agency: null,
+    stage: "NOTICE",
+    status: "OPEN",
+    budgetKrw: null,
+    publishedAt: null,
+    deadlineAt: null,
+    latestRevision: 1,
+    planRef: null,
+    isDemo: true,
+    sourceUrl: "https://example.invalid/bid",
+    lastSyncedAt: "2026-10-19T00:00:00Z",
+    origin: "demo",
+    documentsStatus: {
+      total: 0,
+      pending: 0,
+      parsed: 0,
+      partial: 0,
+      unsupported: 0,
+      failed: 0,
+      downloadFailed: 0,
+    },
+    latestAnalysis:
+      status === null
+        ? null
+        : {
+            id: `run-${id}`,
+            status,
+            solScore: status === "COMPLETED" || status === "PARTIAL" ? 90 : null,
+            recommendation: status === "COMPLETED" || status === "PARTIAL" ? "BID" : null,
+            recommendationBasis: null,
+            reviewFlags: [],
+            createdAt: "2026-10-19T00:00:00Z",
+          },
+    latestReview: null,
+  });
+  const scoreRow = (bidId: string, over: Partial<FinishedScoreRow> = {}): FinishedScoreRow => ({
+    bidId,
+    solScore: 82,
+    recommendation: "BID",
+    ...over,
+  });
+
+  it("재분석 RUNNING·QUEUED 인 공고는 끝난 분석의 점수·권고에 '재분석 중'을 붙인다(S6 FX-18)", () => {
+    const items = [listItem("fx18", "RUNNING"), listItem("fx06", "QUEUED")];
+    expect(
+      finishedAnalysesOf(items, [scoreRow("fx18"), scoreRow("fx06", { solScore: 78 })]),
+    ).toEqual({
+      fx18: { solScore: 82, recommendation: "BID", rerunning: true },
+      fx06: { solScore: 78, recommendation: "BID", rerunning: true },
+    });
+  });
+
+  it("최신 run 이 FAILED 면 끝난 분석 값으로 채우고 '재분석 중'은 붙이지 않는다", () => {
+    expect(finishedAnalysesOf([listItem("b1", "FAILED")], [scoreRow("b1")])).toEqual({
+      b1: { solScore: 82, recommendation: "BID", rerunning: false },
+    });
+  });
+
+  it("최신 run 이 COMPLETED·PARTIAL 이거나 분석이 없으면 칸을 바꾸지 않는다", () => {
+    const items = [listItem("c", "COMPLETED"), listItem("p", "PARTIAL"), listItem("n", null)];
+    expect(finishedAnalysesOf(items, [scoreRow("c"), scoreRow("p"), scoreRow("n")])).toEqual({});
+  });
+
+  it("끝난 분석이 하나도 없으면(값이 모두 null) 칸을 바꾸지 않는다", () => {
+    const rows = [scoreRow("b1", { solScore: null, recommendation: null })];
+    expect(finishedAnalysesOf([listItem("b1", "RUNNING")], rows)).toEqual({});
+  });
+
+  it("채울 공고만 repo 에 묻고, 없으면 읽지 않는다", async () => {
+    const asked: string[][] = [];
+    const repo = {
+      listFinishedScores: async (bidIds: string[]) => {
+        asked.push(bidIds);
+        return bidIds.map((id) => scoreRow(id));
+      },
+    };
+    const items = [listItem("done", "COMPLETED"), listItem("rerun", "RUNNING")];
+    expect(await getFinishedAnalyses(items, { repo })).toEqual({
+      rerun: { solScore: 82, recommendation: "BID", rerunning: true },
+    });
+    expect(asked).toEqual([["rerun"]]);
+    expect(await getFinishedAnalyses([listItem("done", "COMPLETED")], { repo })).toEqual({});
+    expect(asked).toHaveLength(1);
+  });
 });

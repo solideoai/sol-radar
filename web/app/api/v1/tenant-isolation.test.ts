@@ -153,7 +153,7 @@ function install(): WorkDeps {
     bids: orgScopedBids(),
     reviews: orgScopedReviews(),
     notifications: { list: notUsed, markRead: notUsed },
-    dashboard: { load: notUsed, loadStatus: notUsed },
+    dashboard: { load: notUsed, loadStatus: notUsed, listFinishedScores: notUsed },
     queue: { enqueue: notUsed },
     limiter: { hit: notUsed },
     cursorSecret: SECRET,

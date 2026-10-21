@@ -3,12 +3,14 @@ import { cache } from "react";
 import {
   countBids,
   getDashboardSummary,
+  getFinishedAnalyses,
   getStatusSummary,
   listBids,
   listNotifications,
   type BidListItem,
   type BidListOrigin,
   type BidListQuery,
+  type FinishedAnalysis,
   type Notification,
   type Page,
   type StatusSummary,
@@ -32,6 +34,13 @@ export async function loadBidPage(orgId: string, query: BidListQuery): Promise<P
   const result = await listBids(orgId, query, deps.cursorSecret, { repo: deps.bids });
   if (!result.ok) throw new Error(result.message);
   return result.data;
+}
+
+// 대시보드 BID 권고 표에서 최신 run 이 끝난 분석이 아닌 공고의 점수·권고(미결정 30-8). 표의 공고만 읽는다.
+export function loadFinishedAnalyses(
+  items: readonly BidListItem[],
+): Promise<Record<string, FinishedAnalysis>> {
+  return getFinishedAnalyses(items, { repo: workDeps().dashboard });
 }
 
 // 같은 조건의 전체 건수. 대시보드 "BID 권고" 카드가 BID 표와 같은 조건(BidListQuery)을 넘겨 센다(M4).

@@ -4,7 +4,7 @@ import { BidTable } from "@/components/bids/bid-table";
 import { StatCard } from "@/components/stat-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { BidListItem, DashboardSummary } from "@/server/bids";
+import type { BidListItem, DashboardSummary, FinishedAnalysis } from "@/server/bids";
 import { NoBidsEmptyState } from "@/app/(app)/(work)/empty-state";
 import { DashboardAiBanner } from "./dashboard-ai-banner";
 import { DASHBOARD_CARD_SLOTS, type DashboardCardInput } from "./dashboard-card-slots";
@@ -21,6 +21,8 @@ export const DASHBOARD_DESCRIPTION = "실행 모드와 수집 현황, 검토가 
 type DashboardViewProps = {
   summary: DashboardSummary;
   recommended: BidListItem[];
+  /** BID 표에서 최신 run 이 끝난 분석이 아닌 공고의 끝난 분석 값(공고 id → 값, 미결정 30-8). 없으면 칸은 최신 run 이다. */
+  recommendedFinished?: Record<string, FinishedAnalysis>;
   /** BID 표와 같은 조건(진행 중 공고의 최신 점수 권고 BID)의 전체 건수. "BID 권고" 카드 값이다(M4). */
   recommendedTotal: number;
   deadline: BidListItem[];
@@ -63,6 +65,7 @@ function BidTableCard({
   title,
   href,
   items,
+  finished,
   now,
   kind,
   emptyText,
@@ -72,6 +75,7 @@ function BidTableCard({
   title: string;
   href: string;
   items: BidListItem[];
+  finished?: Record<string, FinishedAnalysis>;
   now: Date;
   kind: "recommended" | "deadline";
   emptyText: string;
@@ -100,7 +104,14 @@ function BidTableCard({
       ) : (
         // 표는 카드 끝까지 닿고 첫·끝 칸 글자를 카드 여백(24px)에 맞춘다(BidTable compact).
         <CardContent className="@container -mb-4 px-0">
-          <BidTable items={items} caption={title} now={now} compact compactKind={kind} />
+          <BidTable
+            items={items}
+            finished={finished}
+            caption={title}
+            now={now}
+            compact
+            compactKind={kind}
+          />
         </CardContent>
       )}
     </Card>
@@ -113,6 +124,7 @@ const listHref = (params: Record<string, string>): string =>
 export function DashboardView({
   summary,
   recommended,
+  recommendedFinished,
   recommendedTotal,
   deadline,
   now,
@@ -131,6 +143,7 @@ export function DashboardView({
             title="BID 권고 (점수 높은 순)"
             href={listHref({ recommendation: "BID", sort: "score:desc" })}
             items={recommended}
+            finished={recommendedFinished}
             now={now}
             kind="recommended"
             emptyText="BID 권고 공고가 없습니다"

@@ -184,8 +184,17 @@ export type DashboardSource = {
 // 업무 틀(layout) 상단바가 쓰는 두 값. 공고 집계·AI 상태 없이 읽는다(M3).
 export type DashboardStatusSource = Pick<DashboardSource, "dataFreshness" | "unreadNotifications">;
 
+// 공고의 끝난 분석(COMPLETED·PARTIAL) 중 최신 1건의 점수·권고. 뷰 bid_list_items 의 scored_* 열이다.
+export type FinishedScoreRow = {
+  bidId: string;
+  solScore: number | null;
+  recommendation: Recommendation | null;
+};
+
 export interface DashboardRepo {
   load(orgId: string, origin: "live" | "demo" | "all"): Promise<DashboardSource>;
   // 수집 신선도와 안 읽은 알림 수만 읽는다. AI 프로브를 부르지 않는다.
   loadStatus(origin: "live" | "demo" | "all"): Promise<DashboardStatusSource>;
+  // 대시보드 BID 권고 표의 공고(최대 5건)만 읽는다(미결정 30-8). 목록의 BID 필터·점수 정렬과 같은 열이다.
+  listFinishedScores(bidIds: string[]): Promise<FinishedScoreRow[]>;
 }

@@ -169,6 +169,7 @@ function install(overrides: Overrides = {}): WorkDeps {
         dataFreshness: DASHBOARD_SOURCE.dataFreshness,
         unreadNotifications: DASHBOARD_SOURCE.unreadNotifications,
       })),
+      listFinishedScores: vi.fn(async () => []),
       ...dashboard,
     },
     queue: { enqueue: vi.fn(async () => undefined) },

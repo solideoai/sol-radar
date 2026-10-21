@@ -61,8 +61,8 @@ test.describe("S2 /dashboard", () => {
     const card = (label: string) =>
       summary.locator('[data-slot="card"]').filter({ has: page.getByText(label, { exact: true }) });
     await expect(card("BID 권고").locator(".type-title")).toHaveText("3");
-    await expect(card("분석 현황").locator(".type-title")).toHaveText("18");
-    await expect(card("분석 현황")).toContainText("부분 0 · 실패 0");
+    await expect(card("분석 현황 (완료)").locator(".type-title")).toHaveText("18");
+    await expect(card("분석 현황 (완료)")).toContainText("부분 0 · 실패 0");
     await expect(card("수집")).toContainText("적재 19 · 격리 1");
 
     const bidTable = page.getByRole("table", { name: "BID 권고 (점수 높은 순)" });

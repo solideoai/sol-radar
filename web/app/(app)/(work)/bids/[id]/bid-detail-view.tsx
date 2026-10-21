@@ -527,13 +527,17 @@ function ProfileBadge() {
   );
 }
 
-function aiText(model: AnalysisView["model"]): string {
+function aiText({ model, reviewFlags }: Pick<AnalysisView, "model" | "reviewFlags">): string {
+  // AI gateway 가 응답하지 않아 규칙만 계산한 run 은 기록된 출처 뒤에 그 사실을 붙인다(미결정 30-1).
+  // 상단바 "AI: unavailable"·PARTIAL 배너와 엇갈리지 않게 하고, 출처 표기("AI: mock")는 그대로 둔다(11 V2-02).
+  const unanswered = reviewFlags.includes("AI_UNAVAILABLE") ? " · 응답 없음(규칙만)" : "";
   // mock 응답은 실제 모델이 추론한 것처럼 보이면 안 된다(ADR-034 15번). 모델명 없이 "AI: mock" 만 쓴다.
-  if (model.provider === "mock") return "AI: mock";
+  if (model.provider === "mock") return `AI: mock${unanswered}`;
   // 모델 이름은 받은 식별자 그대로 보인다(스펙 D12, 예 Hanno-Labs/bosun-v3.1-0.6b@5e78a37c).
-  return [`AI: ${model.provider}`, model.qwen?.name, model.kev?.model]
+  const named = [`AI: ${model.provider}`, model.qwen?.name, model.kev?.model]
     .filter((part) => part !== undefined)
     .join(" · ");
+  return `${named}${unanswered}`;
 }
 
 function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
@@ -630,7 +634,7 @@ function AnalysisBand({
             <Dot />
             <span>분석 실행 모드: {shown.runMode}</span>
             <Dot />
-            <span className="min-w-0 wrap-anywhere">{aiText(shown.model)}</span>
+            <span className="min-w-0 wrap-anywhere">{aiText(shown)}</span>
           </>
         )}
       </div>

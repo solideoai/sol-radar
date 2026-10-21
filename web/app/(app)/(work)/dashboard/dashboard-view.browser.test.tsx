@@ -93,7 +93,7 @@ describe("DashboardView", () => {
       ["검토 대기", "16"],
       ["마감 임박 (7일)", "4"],
       ["수집", "12분 전", "적재 19 · 격리 1"],
-      ["분석 현황", "18", "부분 0 · 실패 0"],
+      ["분석 현황 (완료)", "18", "부분 0 · 실패 0"],
     ]);
   });
 
@@ -138,7 +138,7 @@ describe("DashboardView", () => {
     expect(cardValues(host)[3]).toEqual(["수집", "—", "수집 기록 없음"]);
   });
 
-  it("분석이 0건이면 분석 현황 힌트가 아직 분석한 공고가 없습니다다", () => {
+  it("분석이 0건이면 분석 현황 힌트가 분석 기록 없음이다", () => {
     const host = render({
       summary: {
         ...SUMMARY,
@@ -149,7 +149,7 @@ describe("DashboardView", () => {
         },
       },
     });
-    expect(cardValues(host)[4]).toEqual(["분석 현황", "0", "아직 분석한 공고가 없습니다"]);
+    expect(cardValues(host)[4]).toEqual(["분석 현황 (완료)", "0", "분석 기록 없음"]);
   });
 
   it("BID 권고 표는 받은 순서(점수 높은 순)대로 그리고, 전체 보기는 같은 조건의 목록으로 간다", async () => {
@@ -165,6 +165,45 @@ describe("DashboardView", () => {
     await expect
       .element(page.getByRole("link", { name: "마감 임박 전체 보기" }))
       .toHaveAttribute("href", "/bids?sort=deadlineAt%3Aasc");
+  });
+
+  it("재분석 중인 공고는 끝난 분석의 점수·권고를 보이고 '재분석 중'을 붙인다(미결정 30-8)", async () => {
+    const base = BID_LIST[0];
+    const rerunning: BidListItem = {
+      ...base,
+      latestAnalysis: {
+        ...(base.latestAnalysis as NonNullable<BidListItem["latestAnalysis"]>),
+        id: "run-rerun",
+        status: "RUNNING",
+        solScore: null,
+        recommendation: null,
+        recommendationBasis: null,
+      },
+    };
+    const rowsOf = () =>
+      [
+        ...page
+          .getByRole("table", { name: "BID 권고 (점수 높은 순)" })
+          .element()
+          .querySelectorAll("tbody tr"),
+      ].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent));
+    // 값이 없으면 칸은 최신 run(진행 중)이라 "—"다. 이것이 고치기 전 모습이다.
+    render({ recommended: [rerunning, BID_LIST[1]] });
+    expect(rowsOf()[0]?.slice(3)).toEqual(["—", "—"]);
+    mounted.splice(0).forEach((root) => root.unmount());
+    document.body.replaceChildren();
+
+    const host = render({
+      recommended: [rerunning, BID_LIST[1]],
+      recommendedFinished: {
+        [rerunning.id]: { solScore: 94, recommendation: "BID", rerunning: true },
+      },
+    });
+    const [first, second] = rowsOf();
+    expect(first?.slice(3)).toEqual(["94", "BID재분석 중"]);
+    expect(second?.join("")).not.toContain("재분석 중");
+    // 960px 에서도 권고 칸 안에 든다.
+    expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth);
   });
 
   it("권고·마감 임박 표가 비면 각 자리에 빈 상태 글을 보인다", async () => {
