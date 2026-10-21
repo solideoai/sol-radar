@@ -68,3 +68,29 @@ describe("notificationSchema payload", () => {
     },
   );
 });
+
+// 카카오 알림(계획 Task 7): 만료 안내는 인앱 행(KAKAO_EXPIRED)이다. 목록 스키마를 통과해야 벨에 보인다.
+describe("notificationSchema 카카오 종류", () => {
+  it("KAKAO_EXPIRED 인앱 행이 통과하고 링크는 설정 화면이다", () => {
+    const expired = {
+      ...make("/settings"),
+      type: "KAKAO_EXPIRED",
+      payload: {
+        bidId: "abc",
+        title: "공고",
+        message:
+          "카카오 연결이 만료되어 카카오톡 알림을 보내지 못하고 있습니다. 설정에서 다시 연결해 주세요.",
+        link: "/settings",
+      },
+    };
+    const parsed = notificationSchema.parse(expired);
+    expect(parsed.type).toBe("KAKAO_EXPIRED");
+    expect(safeNotificationLink(parsed)).toBe("/settings");
+  });
+
+  it("BID_RECOMMENDED 종류도 거절하지 않는다", () => {
+    expect(
+      notificationSchema.safeParse({ ...make("/bids/abc"), type: "BID_RECOMMENDED" }).success,
+    ).toBe(true);
+  });
+});

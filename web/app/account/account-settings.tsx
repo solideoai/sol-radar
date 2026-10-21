@@ -22,6 +22,11 @@ import {
 } from "@/app/(app)/[slug]/settings/login-methods";
 import { SessionActions } from "@/app/(app)/[slug]/settings/session-actions";
 import { SettingsSection } from "@/app/(app)/[slug]/settings/settings-section";
+import {
+  KAKAO_NOTIFY_HEADING_ID,
+  KakaoNotifySection,
+} from "@/app/(app)/[slug]/settings/kakao-notify-section";
+import type { KakaoConnectOutcome, KakaoNotifyView } from "@/server/kakao-notify";
 
 const LINK_OUTCOMES: readonly LinkOutcome[] = [
   "linked",
@@ -88,11 +93,14 @@ export function AccountSettings({
   login,
   link,
   settingsPath,
+  kakao,
 }: {
   profile: ProfileView;
   login: Extract<MyLoginMethods, { status: "ready" }>;
   link?: string;
   settingsPath: string;
+  // 개인 설정(/<slug>/settings)만 넘긴다. 업무 조직 없는 계정 화면(/auth/account)에는 칸이 없다 — 추천 공고를 받을 조직이 없다.
+  kakao?: { view: KakaoNotifyView; outcome: KakaoConnectOutcome | null };
 }) {
   const outcome = LINK_OUTCOMES.find((known) => known === link) ?? null;
   const name = nameOf(profile.displayName, profile.email);
@@ -160,6 +168,15 @@ export function AccountSettings({
             outcome={outcome}
           />
         </SettingsSection>
+        {kakao ? (
+          <SettingsSection
+            id={KAKAO_NOTIFY_HEADING_ID}
+            title="카카오톡 알림"
+            description="추천 공고(BID·WATCH 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."
+          >
+            <KakaoNotifySection view={kakao.view} outcome={kakao.outcome} />
+          </SettingsSection>
+        ) : null}
         <SettingsSection
           id="settings-password"
           title="비밀번호"

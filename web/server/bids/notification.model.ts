@@ -10,6 +10,9 @@ export const notificationSchema = z.strictObject({
     "DEADLINE_APPROACHING",
     "ANALYSIS_COMPLETE",
     "REVIEW_ASSIGNED",
+    // 카카오 알림(20261021000002). 만료 안내는 인앱 행이고, 추천 공고는 KAKAO 행이라 목록에는 오지 않는다.
+    "BID_RECOMMENDED",
+    "KAKAO_EXPIRED",
   ]),
   channel: z.enum(["IN_APP", "KAKAO"]),
   status: z.enum(["PENDING", "SENT", "FAILED", "DEAD"]),

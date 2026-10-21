@@ -168,6 +168,7 @@ describe("dashboard.load", () => {
     const q = only("notifications");
     expect(callsOf(q, "select")).toEqual([["id", { count: "exact", head: true }]]);
     expect(callsOf(q, "is")).toEqual([["read_at", null]]);
+    expect(callsOf(q, "eq")).toEqual([["channel", "IN_APP"]]);
     expect(callsOf(only("bid_notices"), "eq").some(([column]) => column === "is_demo")).toBe(false);
   });
 
@@ -213,6 +214,7 @@ describe("dashboard.loadStatus", () => {
     const q = only("notifications");
     expect(callsOf(q, "select")).toEqual([["id", { count: "exact", head: true }]]);
     expect(callsOf(q, "is")).toEqual([["read_at", null]]);
+    expect(callsOf(q, "eq")).toEqual([["channel", "IN_APP"]]);
   });
 
   it("DB 오류는 던진다", async () => {
