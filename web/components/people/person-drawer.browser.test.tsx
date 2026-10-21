@@ -89,9 +89,20 @@ const render = () => {
   root.render(<Harness />);
   return root;
 };
+// 서랍은 오른쪽에서 40px(data-starting-style) 밀려 들어온다. 열리는 중에 닫기를 누르면 Playwright 가 잰 자리와
+// 실제로 누르는 자리가 달라, 오른쪽 끝을 넘은 닫기 버튼 대신 시험 화면 밖을 누른다(부하 때만 실패하던 원인).
+// 그래서 시작 상태가 끝나고 서랍 자신의 전환이 멈춘 뒤에 돌려준다. 안쪽 뼈대(animate-pulse)는 끝나지 않아 기다리지 않는다.
 const open = async () => {
   await page.getByRole("button", { name: "김민준 상세 보기", exact: true }).click();
-  await expect.element(page.getByRole("dialog", { name: "김민준", exact: true })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "김민준", exact: true });
+  await expect.element(dialog).toBeVisible();
+  await expect.element(dialog).not.toHaveAttribute("data-starting-style");
+  await Promise.allSettled(
+    dialog
+      .element()
+      .getAnimations()
+      .map((animation) => animation.finished),
+  );
 };
 describe("person read drawer", () => {
   it.each([1280, 1440])("keeps480px width inside %ipx viewport", async (width) => {

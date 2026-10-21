@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
 import { defaultOrigin } from "@/server/bids";
 import { loadBidPage } from "@/app/_lib/work-data";
+import { canRunIngestion } from "@/app/(app)/(work)/empty-state";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { BIDS_DESCRIPTION, BIDS_TITLE } from "./bids-copy";
 import { BidListView } from "./bid-list-view";
@@ -28,7 +29,7 @@ export default async function BidsPage({ searchParams }: PageProps<"/bids">) {
         nextCursor={first.pageInfo.nextCursor}
         query={search}
         now={now.toISOString()}
-        showIngestHint={work.role === "ADMIN"}
+        canRunIngestion={canRunIngestion(work.role)}
       />
     </AppPage>
   );
