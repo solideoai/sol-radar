@@ -1,0 +1,42 @@
+# 리허설 끝 상태 — 2026-10-21 12:11:35 KST · 커밋 4e62170
+# 스택·web 은 내리지 않았다(정리는 배정 세션). ai-gateway 는 14번에서 다시 켜 healthy.
+$ docker compose -p sol-radar-c9-54 -f infra/compose.yaml ps --format "{{.Service}} {{.State}} {{.Health}}"
+ai-gateway running healthy
+minio running healthy
+qdrant running healthy
+redis running healthy
+worker running healthy
+$ curl -s http://localhost:3216/health/ready
+{"status":"unavailable","checks":{"db":"unavailable","redis":"unavailable","storage":"unavailable","ai":"unavailable"}}
+http 503
+$ ps -p 14051 -o pid,comm
+14051 next-server (v16.4.1)
+# DB 건수(psql): bids | score_runs | bid_reviews | notifications | ingest_runs
+19|24|3|7|2
+# 이 리허설이 남긴 데이터(초기화하지 않음): FX-02 run 2·결정 1, FX-01 run 4(COMPLETED·PARTIAL·PARTIAL·COMPLETED), FX-07 run 2, LIVE 수집 run 1(FX-06·07·08·10 revision 2), 알림 7(ANALYSIS_COMPLETE 6·REVIEW_ASSIGNED 1).
+$ git status --short
+?? docs/evidence/demo-day/20261021-1144/
+
+# 위 503 은 일시적이었다. 원인 수정 없이 다시 확인만 했다. 호스트 부하가 컸다(다른 세션 작업).
+$ curl -s -m 10 http://localhost:3216/health/ready   (12:14:23)
+{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"mock"}}
+http 200 · 1.797334s
+$ curl -s -m 10 http://localhost:3216/health/ready   (12:14:27)
+{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"mock"}}
+http 200 · 0.202701s
+$ curl -s -m 10 http://localhost:3216/health/ready   (12:14:29)
+{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"mock"}}
+http 200 · 0.461881s
+$ uptime
+12:14  up 83 days, 52 mins, 13 users, load averages: 60.65 62.32 44.85
+$ docker ps --filter name=sol-radar-c9-54 (Supabase CLI 스택 포함)
+sol-radar-c9-54-worker-1 Up 35 minutes (healthy)
+sol-radar-c9-54-qdrant-1 Up 35 minutes (healthy)
+sol-radar-c9-54-ai-gateway-1 Up 8 minutes (healthy)
+sol-radar-c9-54-minio-1 Up 35 minutes (healthy)
+sol-radar-c9-54-redis-1 Up 35 minutes (healthy)
+supabase_rest_sol-radar-c9-54 Up 38 minutes
+supabase_inbucket_sol-radar-c9-54 Up 38 minutes (healthy)
+supabase_auth_sol-radar-c9-54 Up 38 minutes (healthy)
+supabase_kong_sol-radar-c9-54 Up 39 minutes (healthy)
+supabase_db_sol-radar-c9-54 Up 39 minutes (healthy)

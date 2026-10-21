@@ -1,0 +1,45 @@
+# pnpm check:env · docker info · 포트 확인 — 2026-10-21 11:45:47 KST · 커밋 4e62170 · worktree c9-rehearsal-54
+
+$ docker info --format "Server {{.ServerVersion}}"
+Server 27.4.0
+
+$ pnpm check:env
+
+> sol-radar@0.1.0 check:env /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/c9-rehearsal-54
+> node scripts/check-env.mjs
+
+check:env 통과: 실행 모드 mock, placeholder 0건, 모드 모순 0건
+exit 0
+
+$ lsof -nP -iTCP:3216 -sTCP:LISTEN  (web next start, PID 14051 — 리허설 web 이 이미 사용 중)
+COMMAND PID TYPE NODE NAME 
+node 14051 IPv4 TCP 127.0.0.1:3216 (LISTEN)
+
+$ lsof -nP -iTCP:3000 -sTCP:LISTEN  (편차: 이번 리허설은 3000 대신 3216 사용)
+
+$ lsof -nP -a -p 14051 -iTCP  (web 이 붙은 원격 포트 — Supabase 59761·redis 16391·minio 19011·gateway 18011 인지)
+   1 127.0.0.1:3216 (LISTEN)
+
+$ curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:59761/auth/v1/health  (격리 Supabase API, apikey 없이)
+200
+
+$ docker exec supabase_db_sol-radar-c9-54 psql … select count(*) from supabase_migrations.schema_migrations
+30|20261013000001|20261019000019
+
+$ docker compose -p sol-radar-c9-54 -f infra/compose.yaml exec -T <svc> printenv <모드 키 7개>  (비밀 아닌 모드 값만)
+[worker]
+SOL_RUN_MODE=mock
+DEMO_MODE=true
+AI_PROVIDER=<unset>
+KEV_ENABLED=<unset>
+AI_HOSTED_APPROVED=<unset>
+AI_FALLBACK_TO_MOCK=<unset>
+KEV_ALLOW_KO_STATE=<unset>
+[ai-gateway]
+SOL_RUN_MODE=mock
+DEMO_MODE=true
+AI_PROVIDER=mock
+KEV_ENABLED=true
+AI_HOSTED_APPROVED=false
+AI_FALLBACK_TO_MOCK=false
+KEV_ALLOW_KO_STATE=false
