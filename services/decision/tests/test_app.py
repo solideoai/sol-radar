@@ -1,13 +1,17 @@
-"""HTTP 계약: 인증·상한·model 불일치·마감·백엔드 실패·요청 id·로그 내용."""
+"""HTTP 계약: 인증·상한(본문·state·대기열)·state 언어·model 불일치·마감·백엔드 실패·요청 id·로그 내용."""
 
 import logging
 import re
+import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from conftest import ALIAS, API_KEY
-from fakes import RaisingBackend, ScriptedBackend, SlowBackend
+from fakes import BlockingBackend, RaisingBackend, ScriptedBackend, SlowBackend
+from fastapi.testclient import TestClient
 
+from sol_decision import app as app_module
 from sol_decision import wire
 
 UUID4 = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
@@ -105,17 +109,18 @@ def test_zero_and_25_questions_are_422(client, auth):
     )
 
 
-def test_body_over_1mib_is_413(client, auth):
-    big = {**BODY, "state": "x" * (1024 * 1024 + 1)}
+def test_body_limit_is_128kib(client, auth):
+    assert app_module.MAX_BODY_BYTES == 128 * 1024
+    big = {**BODY, "state": "x" * (app_module.MAX_BODY_BYTES + 1)}
     response = client.post("/v1/systemone", json=big, headers=auth)
     assert response.status_code == 413
     assert response.json() == {"errorCode": "PAYLOAD_TOO_LARGE"}
 
 
-def test_body_over_1mib_without_content_length_is_413(client, auth):
+def test_body_over_limit_without_content_length_is_413(client, auth):
     def chunks():
         yield b'{"state": "'
-        yield b"x" * (1024 * 1024 + 1)
+        yield b"x" * (app_module.MAX_BODY_BYTES + 1)
         yield b'", "questions": {}}'
 
     response = client.post(
@@ -195,3 +200,152 @@ def test_state_object_is_passed_through_to_backend(make_client, auth):
     assert backend.calls[0]["seed"] == 0
     assert backend.calls[0]["decision_type"] == "noul"
     assert backend.calls[0]["instructions"] == "Should a human check?"
+
+
+# ---------------------------------------------------------------- state 상한·언어(3e 보안 검토 M1·L1)
+
+
+def test_state_limit_matches_gateway_truncation():
+    # 게이트웨이 kev_state 는 6,000 토큰(글자 수 / 4) 에서 자른다. 서버는 그 길이를 넘는 state 를 받지 않는다
+    assert app_module.MAX_STATE_CHARS == 24_000
+
+
+def test_state_at_limit_is_accepted(client, auth):
+    body = {**BODY, "state": "x" * app_module.MAX_STATE_CHARS}
+    assert client.post("/v1/systemone", json=body, headers=auth).status_code == 200
+
+
+def test_state_string_over_limit_is_422_state_too_large(client, auth):
+    body = {**BODY, "state": "x" * (app_module.MAX_STATE_CHARS + 1)}
+    response = client.post("/v1/systemone", json=body, headers=auth)
+    assert response.status_code == 422
+    assert response.json() == {"errorCode": "STATE_TOO_LARGE"}
+    assert "xxxx" not in response.text
+
+
+def test_state_object_over_limit_is_422_state_too_large(client, auth):
+    # 객체 state 는 JSON 직렬화 길이로 잰다
+    body = {**BODY, "state": {"notice": "x" * app_module.MAX_STATE_CHARS}}
+    response = client.post("/v1/systemone", json=body, headers=auth)
+    assert response.status_code == 422
+    assert response.json() == {"errorCode": "STATE_TOO_LARGE"}
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        "COMPANY 솔리데오 has 12 engineers",
+        "ㄱ",
+        {"company": {"name": "회사"}, "notice": "x"},
+        {"items": ["ok", "한글"]},
+    ],
+)
+def test_korean_state_is_422_state_not_english(client, auth, state):
+    response = client.post("/v1/systemone", json={**BODY, "state": state}, headers=auth)
+    assert response.status_code == 422
+    assert response.json() == {"errorCode": "STATE_NOT_ENGLISH"}
+    assert "회사" not in response.text and "솔리데오" not in response.text
+
+
+def test_korean_questions_are_not_checked(client, auth):
+    # L1 은 state 만 본다. 질문 문구(평가용 번역 세트)는 그대로 통과한다
+    body = {**BODY, "questions": {"q": {"type": "noul", "instructions": "사람이 확인해야 하나?"}}}
+    assert client.post("/v1/systemone", json=body, headers=auth).status_code == 200
+
+
+def test_korean_state_allowed_only_with_eval_flag(make_client, auth):
+    body = {**BODY, "state": "COMPANY 솔리데오 has 12 engineers"}
+    allowed = make_client(allow_ko_state=True).post("/v1/systemone", json=body, headers=auth)
+    assert allowed.status_code == 200
+    # 상한은 플래그와 무관하다
+    huge = {**BODY, "state": "가" * (app_module.MAX_STATE_CHARS + 1)}
+    assert make_client(allow_ko_state=True).post(
+        "/v1/systemone", json=huge, headers=auth
+    ).json() == {"errorCode": "STATE_TOO_LARGE"}
+
+
+def test_korean_state_422_is_logged_without_state(client, auth, caplog):
+    caplog.set_level(logging.DEBUG)
+    body = {**BODY, "state": "SECRET-KO 솔리데오"}
+    assert client.post("/v1/systemone", json=body, headers=auth).status_code == 422
+    assert "솔리데오" not in caplog.text and "SECRET-KO" not in caplog.text
+
+
+# ---------------------------------------------------------------- 대기열·마감 뒤 응답(3e 보안 검토 M1)
+
+
+def _post_until(client, auth, status: int, *, seconds: float = 3.0):
+    """status 가 올 때까지 다시 보낸다(추론 스레드가 자리를 비우는 시점은 비동기다)."""
+    end = time.monotonic() + seconds
+    while True:
+        response = client.post("/v1/systemone", json=BODY, headers=auth)
+        if response.status_code == status or time.monotonic() >= end:
+            return response
+        time.sleep(0.02)
+
+
+def test_queue_full_is_503_until_inference_frees(make_client, auth, caplog):
+    caplog.set_level(logging.DEBUG)
+    backend = BlockingBackend()
+    first_client = make_client(backend, max_queue=1, timeout_ms=5_000)
+    second_client = TestClient(first_client.app, raise_server_exceptions=False)
+    with first_client, ThreadPoolExecutor(max_workers=1) as pool:
+        first = pool.submit(first_client.post, "/v1/systemone", json=BODY, headers=auth)
+        assert backend.started.wait(2)
+        busy = second_client.post("/v1/systemone", json=BODY, headers=auth)
+        assert busy.status_code == 503
+        assert busy.json() == {"errorCode": "QUEUE_FULL"}
+        assert busy.headers["Retry-After"] == "1"
+        assert UUID4.match(busy.headers[wire.REQUEST_ID_HEADER])
+        backend.release.set()
+        assert first.result(timeout=5).status_code == 200
+        assert _post_until(first_client, auth, 200).status_code == 200
+    assert "code=QUEUE_FULL" in caplog.text
+    assert backend.calls == 2
+
+
+def test_queue_counts_waiting_requests(make_client, auth):
+    """max_queue=2: 처리 중 1 + 대기 1 까지 받고 세 번째는 503."""
+    backend = BlockingBackend()
+    client = make_client(backend, max_queue=2, timeout_ms=5_000)
+    others = [TestClient(client.app, raise_server_exceptions=False) for _ in range(2)]
+    with client, ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(client.post, "/v1/systemone", json=BODY, headers=auth)
+        assert backend.started.wait(2)
+        second = pool.submit(others[0].post, "/v1/systemone", json=BODY, headers=auth)
+        # 두 번째가 대기열에 들어간 것(count == 2)을 확인한 뒤에 세 번째를 보낸다(08 검토: 순서 경쟁으로 흔들렸다)
+        end = time.monotonic() + 2
+        while client.app.state.in_flight.count < 2:
+            assert time.monotonic() < end, "두 번째 요청이 대기열에 들어가지 않았다"
+            time.sleep(0.01)
+        third = others[1].post("/v1/systemone", json=BODY, headers=auth)
+        assert third.status_code == 503
+        assert third.json() == {"errorCode": "QUEUE_FULL"}
+        backend.release.set()
+        assert first.result(timeout=5).status_code == 200
+        assert second.result(timeout=5).status_code == 200
+
+
+def test_in_flight_returns_to_zero_after_requests(client, auth):
+    assert client.app.state.in_flight.count == 0
+    with client:
+        assert client.post("/v1/systemone", json=BODY, headers=auth).status_code == 200
+        assert client.post("/v1/systemone", json=BODY, headers=auth).status_code == 200
+    assert client.app.state.in_flight.count == 0
+
+
+def test_forward_past_deadline_returns_504_without_waiting(make_client, auth):
+    """forward 하나가 마감을 넘기면 스레드를 기다리지 않고 504 를 보낸다. 그동안 자리는 차 있다(503)."""
+    backend = BlockingBackend()
+    client = make_client(backend, max_queue=1, timeout_ms=50)
+    with client:
+        started = time.monotonic()
+        response = client.post("/v1/systemone", json=BODY, headers=auth)
+        assert time.monotonic() - started < 2
+        assert response.status_code == 504
+        assert response.json() == {"errorCode": "DEADLINE_EXCEEDED"}
+        assert backend.started.is_set() and not backend.release.is_set()
+        assert client.post("/v1/systemone", json=BODY, headers=auth).status_code == 503
+        backend.release.set()
+        # 스레드가 끝나면(마감이 지나 DeadlineExceeded 로 끝난다) 자리가 비고 다시 받는다
+        assert _post_until(client, auth, 200).status_code == 200

@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -62,7 +62,7 @@ interface EvidenceRef {
   apiSource?: string;         // API_FIELD만. registry key(§8). 예: "g2b-bid-license-limit"
   quotedText: string;         // TEXT: 원문 그대로 5~300자, 요약·의역 금지. API_FIELD: 필드 값 원문
   sourceUrl?: string;         // 원문 재확인 링크
-  fetchedAt: string;          // ISO8601 UTC. 원문을 가져온 시각. worker zod(analysis-input.model.ts)는 필수, gateway JSON Schema(requirement-extraction.v0.1.json)는 선택이다. 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(bid_revisions.fetched_at)으로 채운다(785e454, main 병합 대기. 16 미결정 26번). gateway 계약·JSON Schema는 그대로이고 gateway는 채우지 않는다
+  fetchedAt: string;          // ISO8601 UTC. 원문을 가져온 시각. worker zod(analysis-input.model.ts)는 필수, gateway JSON Schema(requirement-extraction.v0.1.json)는 선택이다. 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(bid_revisions.fetched_at)으로 채운다(785e454, B1 병합 24b2597, main 1b68f9b. 16 미결정 26-1). gateway 계약·JSON Schema는 그대로이고 gateway는 채우지 않는다
   match?: CitationMatch;      // 검증 단계가 채운다. AI 출력에는 없다
 }
 
@@ -215,9 +215,9 @@ interface StructuredRequirement {
 |`deadlineAt`|`ExtractedField<string>`|마감 알림. `NormalizedBid.deadlineAt` 우선|
 |`restrictions[]`|`ExtractedField<string[]>`|지역·기업규모 제한 → 필수자격 후보. 참가가능지역·지역의무공동도급은 `structuredQualifications`가 있으면 그것이 우선|
 
-### 4.1 결정 모델 학습 레코드 `bosun/{split}.en.jsonl` (ADR-034, B1 예정)
+### 4.1 결정 모델 학습 레코드 `bosun/{split}.en.jsonl` (ADR-034)
 
-Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev 레코드 "state 1 + 질문 N"과 다르다). `sol_eval.export --format bosun`(B1 예정, 2026-10-20 미구현)이 `EvalItem`·`Label`과 질문 세트 `kev-qs/v0.2`에서 만든다. 서빙(`sol_decision`)과 학습이 같은 변환 함수를 쓴다(계획 §4.1).
+Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev 레코드 "state 1 + 질문 N"과 다르다). `python -m sol_eval export --format bosun`(`bosun_export.py`·`bosun_records.py`, main `1b68f9b`)이 `EvalItem`·`Label`과 질문 세트 `kev-qs/v0.2`에서 만든다. `services/decision` 안에서는 학습(`trainer/prompting.py`)과 서빙(`backend.py` → `model.predict()`)이 같은 Bosun 패키지 함수 `render_decision_prompt`(`modeling_bosun.py`)를 쓴다(같은지는 `sol_decision.parity`가 본다, 계획 §4.1). 다만 질문별 후보 목록 `candidates_for`는 이 레코드를 만드는 `sol_eval/bosun_records.py`와 서버 `sol_decision/contract.py`에 따로 구현돼 있고 둘을 비교하는 시험이 없다([[16-DECISIONS|16]] 미결정 26-12, F1 학습 전 교차 시험). 언어 짝 비교용 E2 레코드는 이 형식을 그대로 쓰고 state 만 한국어로 바꾼다(세부는 [[16-DECISIONS|16]] 미결정 29-6 ed 결정, 코드 없음).
 
 | 필드 | 뜻 | 출처 |
 |---|---|---|
@@ -232,11 +232,11 @@ Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev �
 | `labelSource`·`reason`·`noticeEvidence[]`·`companyEvidence[]` | `Label` 그대로. `RULE_SILVER` 는 train 에만 | `Label` |
 
 - `recommendation`·`fit`·`mandatoryRisk`·`needsHumanReview`(v0.1 4문항)은 레코드로 만들지 않는다(참고 질문, 학습 제외. ADR-034 2번). `techFit`·`perfRelevance`는 `HUMAN` 라벨만, `risk.*`는 변형이 직접 바꾼 `CONSTRUCTED`만.
-- 번들 `sol-dataset-{version}.tar`의 `manifest.json`에 분할별 건수, 질문별·선택지별 분포(각 ≥ 5%), 파일 sha256, train∩(dev∪test) 클러스터 0건, held-out 기업 원형 id 를 적는다. `bosun/` 디렉터리만 두고 `kev/`는 만들지 않는다.
-- 평가 출력(`sol_eval.bosun_score`, B1 예정)은 `predictions.jsonl`(`rowId`, `probabilities[]`, `seed`)·`rows.json`·`report.json`(패키지 id·sha256, test 파일 sha256, seed 목록)이고, 지표는 [[21-MODEL-TRAINING|21]] §4.3 그대로다.
+- 번들 `sol-dataset-{version}/` 폴더(tar로 묶지 않는다, [[16-DECISIONS|16]] 미결정 29-3)의 `manifest.json`에 분할별 건수, 질문별·선택지별 분포(각 ≥ 5%), 파일 sha256, train∩(dev∪test) 클러스터 0건, held-out 기업 원형 id 를 적는다. `bosun/` 디렉터리만 두고 `kev/`는 만들지 않는다.
+- 평가 출력(`python -m sol_eval bosun_score`, main `1b68f9b`)은 `predictions.jsonl`(`rowId`, `qid`, `seed`, `probabilities[]`, `argmax`)·`rows.json`·`report.json`(패키지 경로·manifest sha256, 데이터 파일 sha256, seed 목록, 환경)이고, 지표는 [[21-MODEL-TRAINING|21]] §4.3 그대로다.
 
-> [!warning] 미검증 가정 (2026-10-20)
-> 이 계약은 Bosun 공개 API(`render_decision_prompt`·`decision_logits`)와 Hanno `jev-compatible-server`의 타입 매핑을 읽고 정했다. 학습 코드가 서빙과 같은 프롬프트·슬롯을 만드는지는 B1 의 동일성 테스트로 확인한다.
+> [!warning] 미검증 가정 (2026-10-21)
+> 이 계약은 Bosun 공개 API(`render_decision_prompt`·`decision_logits`)와 Hanno `jev-compatible-server`의 타입 매핑을 읽고 정했다. 학습 코드(`trainer.prompting.render_record`)가 모델 모듈의 `render_decision_prompt`를 그대로 부르는지는 `services/decision/tests/test_train_pure.py`가 모델 없이 확인한다(B1). 실제 확률이 `predict()`와 같은지는 `python -m sol_decision.parity`(모델 필요)로 회사 서버에서 확인하며 아직 실행하지 않았다.
 
 ## 5. 인용 검증 알고리즘
 
