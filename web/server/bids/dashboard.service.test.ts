@@ -170,6 +170,174 @@ describe("getDashboardSummary", () => {
   });
 });
 
+// NAV-06(11 §9, 설계 §2.3): 분석 현황 카드는 공고별 끝난 분석(COMPLETED·PARTIAL·FAILED) 중 최신 1건만 센다.
+// 같은 공고를 다시 분석해도(force 재분석·S6 PARTIAL) 공고 하나는 한 번만 세고, 진행 중 run 은 건너뛴다.
+describe("getDashboardSummary · 분석 현황(latestByStatus) — NAV-06", () => {
+  const latest = async (bids: DashboardBidRow[]) => (await summaryOf(bids)).analyses.latestByStatus;
+  const sum = ({
+    completed,
+    partial,
+    failed,
+  }: {
+    completed: number;
+    partial: number;
+    failed: number;
+  }) => completed + partial + failed;
+
+  it("COMPLETED 뒤 force 재분석이 PARTIAL 로 끝나면 부분 1 이고 완료는 세지 않는다(S6: 완료 17 · 부분 1)", async () => {
+    const result = await latest([
+      bid("b1", {
+        analyses: [
+          analysis({ id: "a1", status: "COMPLETED", createdAt: "2026-10-10T00:00:00Z" }),
+          analysis({ id: "a2", status: "PARTIAL", createdAt: "2026-10-11T00:00:00Z" }),
+        ],
+      }),
+    ]);
+    expect(result).toEqual({ completed: 0, partial: 1, failed: 0 });
+  });
+
+  it("같은 공고를 세 번 COMPLETED 로 다시 분석해도 완료 1 이다", async () => {
+    const result = await latest([
+      bid("b1", {
+        analyses: ["10", "11", "12"].map((day, i) =>
+          analysis({ id: `a${i}`, status: "COMPLETED", createdAt: `2026-10-${day}T00:00:00Z` }),
+        ),
+      }),
+    ]);
+    expect(result).toEqual({ completed: 1, partial: 0, failed: 0 });
+  });
+
+  it("FAILED 뒤 다시 분석해 COMPLETED 면 완료 1 · 실패 0 이고, 그 반대면 완료 0 · 실패 1 이다", async () => {
+    const recovered = await latest([
+      bid("b1", {
+        analyses: [
+          analysis({
+            id: "a1",
+            status: "FAILED",
+            recommendation: null,
+            createdAt: "2026-10-10T00:00:00Z",
+          }),
+          analysis({ id: "a2", status: "COMPLETED", createdAt: "2026-10-11T00:00:00Z" }),
+        ],
+      }),
+    ]);
+    expect(recovered).toEqual({ completed: 1, partial: 0, failed: 0 });
+    const broken = await latest([
+      bid("b1", {
+        analyses: [
+          analysis({ id: "a1", status: "COMPLETED", createdAt: "2026-10-10T00:00:00Z" }),
+          analysis({
+            id: "a2",
+            status: "FAILED",
+            recommendation: null,
+            createdAt: "2026-10-11T00:00:00Z",
+          }),
+        ],
+      }),
+    ]);
+    expect(broken).toEqual({ completed: 0, partial: 0, failed: 1 });
+  });
+
+  it.each(["QUEUED", "RUNNING"] as const)(
+    "재분석이 %s 인 동안에는 앞의 끝난 분석을 센다 — 숫자가 1 줄지 않는다",
+    async (status) => {
+      const result = await latest([
+        bid("b1", {
+          analyses: [
+            analysis({ id: "a1", status: "PARTIAL", createdAt: "2026-10-10T00:00:00Z" }),
+            analysis({ id: "a2", status, recommendation: null, createdAt: "2026-10-11T00:00:00Z" }),
+          ],
+        }),
+      ]);
+      expect(result).toEqual({ completed: 0, partial: 1, failed: 0 });
+    },
+  );
+
+  it("끝난 분석이 없고 진행 중 run 만 있는 공고는 세지 않는다", async () => {
+    const result = await latest([
+      bid("b1", { analyses: [analysis({ id: "a1", status: "QUEUED", recommendation: null })] }),
+    ]);
+    expect(result).toEqual({ completed: 0, partial: 0, failed: 0 });
+  });
+
+  it("행 순서와 상관없이 created_at 이 가장 늦은 끝난 분석을 고른다", async () => {
+    const result = await latest([
+      bid("b1", {
+        analyses: [
+          analysis({ id: "a3", status: "PARTIAL", createdAt: "2026-10-12T00:00:00Z" }),
+          analysis({ id: "a1", status: "COMPLETED", createdAt: "2026-10-10T00:00:00Z" }),
+          analysis({
+            id: "a2",
+            status: "FAILED",
+            recommendation: null,
+            createdAt: "2026-10-11T00:00:00Z",
+          }),
+        ],
+      }),
+    ]);
+    expect(result).toEqual({ completed: 0, partial: 1, failed: 0 });
+  });
+
+  it("created_at 이 같은 두 건이어도 공고 하나는 한 번만 센다(뒤에 읽은 행)", async () => {
+    const result = await latest([
+      bid("b1", {
+        analyses: [
+          analysis({ id: "a1", status: "COMPLETED", createdAt: "2026-10-10T00:00:00Z" }),
+          analysis({ id: "a2", status: "PARTIAL", createdAt: "2026-10-10T00:00:00Z" }),
+        ],
+      }),
+    ]);
+    expect(result).toEqual({ completed: 0, partial: 1, failed: 0 });
+  });
+
+  it("여러 공고를 섞어도 합계는 끝난 분석이 있는 공고 수와 같다", async () => {
+    const result = await latest([
+      bid("b1", {
+        analyses: [
+          analysis({ id: "a1", status: "COMPLETED", createdAt: "2026-10-10T00:00:00Z" }),
+          analysis({ id: "a2", status: "PARTIAL", createdAt: "2026-10-11T00:00:00Z" }),
+        ],
+      }),
+      bid("b2", {
+        analyses: [
+          analysis({
+            id: "a3",
+            status: "FAILED",
+            recommendation: null,
+            createdAt: "2026-10-10T00:00:00Z",
+          }),
+          analysis({ id: "a4", status: "COMPLETED", createdAt: "2026-10-11T00:00:00Z" }),
+          analysis({ id: "a5", status: "COMPLETED", createdAt: "2026-10-12T00:00:00Z" }),
+        ],
+      }),
+      bid("b3", { analyses: [analysis({ id: "a6", status: "FAILED", recommendation: null })] }),
+      bid("b4", { analyses: [analysis({ id: "a7", status: "RUNNING", recommendation: null })] }),
+      bid("b5"),
+    ]);
+    expect(result).toEqual({ completed: 1, partial: 1, failed: 1 });
+    expect(sum(result)).toBe(3);
+  });
+
+  it("대시보드 출처(origin)를 그대로 repo 에 넘긴다 — 분석 현황도 같은 출처의 공고만 센다", async () => {
+    const calls: [string, string][] = [];
+    const repo: DashboardRepo = {
+      load: async (orgId, origin) => {
+        calls.push([orgId, origin]);
+        return source([]);
+      },
+      loadStatus: noStatus,
+    };
+    for (const origin of ["live", "demo", "all"] as const) {
+      await getDashboardSummary("org1", origin, { repo }, NOW);
+    }
+    expect(calls).toEqual([
+      ["org1", "live"],
+      ["org1", "demo"],
+      ["org1", "all"],
+    ]);
+  });
+});
+
 // M3: 업무 틀의 상단바용 가벼운 요약. 전체 집계(load)를 부르지 않는다.
 describe("getStatusSummary", () => {
   const freshness = {

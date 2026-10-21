@@ -1,13 +1,13 @@
 import { cn } from "cn";
 import Link from "next/link";
 import { BidTable } from "@/components/bids/bid-table";
-import { formatRelative } from "@/components/bids/format";
 import { StatCard } from "@/components/stat-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BidListItem, DashboardSummary } from "@/server/bids";
 import { NoBidsEmptyState } from "@/app/(app)/(work)/empty-state";
 import { DashboardAiBanner } from "./dashboard-ai-banner";
+import { DASHBOARD_CARD_SLOTS, type DashboardCardInput } from "./dashboard-card-slots";
 
 // /dashboard 본문(스펙 §5.2). 데이터를 읽지 않고 page.tsx 가 서버에서 읽은 값만 그린다.
 // 글자는 AppPage typeScale="dashboard"(+3px, ADR-030 B25) 안에서 커진다. 그래서 표 두 개는 위아래로 쌓는다.
@@ -30,59 +30,28 @@ type DashboardViewProps = {
   canRunIngestion: boolean;
 };
 
-const EMPTY = "—";
-
-type IngestCard = { value: string; hint?: string; tone: "default" | "destructive" };
-
-function ingestCard(freshness: DashboardSummary["dataFreshness"], now: Date): IngestCard {
-  const { lastIngestAt, lastIngestStatus, lastIngestSummary } = freshness;
-  if (lastIngestAt === null) return { value: EMPTY, hint: "수집 기록 없음", tone: "default" };
-  const counts =
-    lastIngestSummary === null
-      ? undefined
-      : `적재 ${lastIngestSummary.created} · 격리 ${lastIngestSummary.quarantined}`;
-  const failed = lastIngestStatus === "FAILED";
-  return {
-    value: failed ? "실패" : formatRelative(lastIngestAt, now),
-    hint: counts,
-    tone: failed ? "destructive" : "default",
-  };
-}
-
-function SummaryCards({
-  summary,
-  recommendedTotal,
-  now,
-}: {
-  summary: DashboardSummary;
-  recommendedTotal: number;
-  now: Date;
-}) {
-  const { analyses, reviews, bids, dataFreshness } = summary;
-  const { completed, partial, failed } = analyses.latestByStatus;
-  const ingest = ingestCard(dataFreshness, now);
+function SummaryCards(input: DashboardCardInput) {
   return (
     <section aria-labelledby="dashboard-summary-title">
       <h2 id="dashboard-summary-title" className="sr-only">
         요약
       </h2>
       {/* 본문 960(1280·펼침)·1120(1440·펼침) 모두 @4xl 이상이라 다섯 칸 한 줄이다. 카드는 링크가 아니다. */}
+      {/* 카드 정의(이름·값·힌트·색)는 슬롯 배열 한 곳에 있다(dashboard-card-slots). 여기는 차례로 그리기만 한다. */}
       <div className="@container">
         <div className="grid grid-cols-3 gap-4 @4xl:grid-cols-5">
-          {/* 아래 BID 표·전체 보기와 같은 정의다. 요약의 byRecommendation(모든 상태·최신 끝난 분석)과 다를 수 있다. */}
-          <StatCard label="BID 권고" value={String(recommendedTotal)} />
-          <StatCard label="검토 대기" value={String(reviews.pending)} />
-          <StatCard label="마감 임박 (7일)" value={String(bids.deadlineWithin7Days)} />
-          <StatCard label="수집" value={ingest.value} tone={ingest.tone} hint={ingest.hint} />
-          <StatCard
-            label="분석 현황"
-            value={String(completed)}
-            hint={
-              completed + partial + failed === 0
-                ? "아직 분석한 공고가 없습니다"
-                : `부분 ${partial} · 실패 ${failed}`
-            }
-          />
+          {DASHBOARD_CARD_SLOTS.map((slot) => {
+            const card = slot.read(input);
+            return (
+              <StatCard
+                key={slot.id}
+                label={slot.label}
+                value={card.value}
+                hint={card.hint}
+                tone={card.tone}
+              />
+            );
+          })}
         </div>
       </div>
     </section>
