@@ -64,7 +64,11 @@ describe("list", () => {
     fakeDb.on("notifications", fakeDb.rows([]));
     await notificationRepo.list(USER, { unreadOnly: false, limit: 5 }, null);
     const q = only("notifications");
-    expect(callsOf(q, "eq")).toEqual([["user_id", USER]]);
+    // 카카오 발송 기록(channel KAKAO)은 인앱 목록에 보이지 않는다(계획 Task 7).
+    expect(callsOf(q, "eq")).toEqual([
+      ["user_id", USER],
+      ["channel", "IN_APP"],
+    ]);
     expect(callsOf(q, "is")).toEqual([]);
     expect(callsOf(q, "order")).toEqual([
       ["created_at", { ascending: false, nullsFirst: false }],
@@ -111,6 +115,7 @@ describe("markRead", () => {
     expect(callsOf(q, "eq")).toEqual([
       ["id", "n-1"],
       ["user_id", USER],
+      ["channel", "IN_APP"],
     ]);
     expect(callsOf(q, "is")).toEqual([["read_at", null]]);
   });
@@ -123,6 +128,12 @@ describe("markRead", () => {
     const marked = await notificationRepo.markRead(USER, "n-1");
     expect(marked?.readAt).toBe("2026-10-15T00:00:00+00:00");
     expect(fakeDb.queries("notifications")).toHaveLength(2);
+    // 다시 읽기도 인앱 행으로만 좁힌다 — 카카오 행 id 로는 찾지 못한다(404).
+    expect(callsOf(fakeDb.queries("notifications")[1] as FakeQuery, "eq")).toEqual([
+      ["id", "n-1"],
+      ["user_id", USER],
+      ["channel", "IN_APP"],
+    ]);
   });
 
   it("없으면 null", async () => {

@@ -3,13 +3,25 @@ import { z } from "zod";
 import type { Json } from "@/lib/database.types";
 
 // ── 인앱 알림 producer 의 순수 규칙: outbox 이벤트 → 알림 의도 → notifications 행, 실패 → 재시도 갱신 (docs/13-NOTIFICATIONS.md) ──
-// 두 종(REVIEW_ASSIGNED·ANALYSIS_COMPLETE)만 알린다. 공고 이벤트(BID_*, org_id null)의 조직 팬아웃은 아직 하지 않는다.
+// 인앱은 두 종(REVIEW_ASSIGNED·ANALYSIS_COMPLETE)만 알린다. 공고 이벤트(BID_CREATED·BID_CHANGED, org_id null)의 조직 팬아웃은 아직 하지 않는다.
 // 수신자는 REVIEW_ASSIGNED 면 배정 대상, ANALYSIS_COMPLETE 면 분석 요청자다(docs/13 "이벤트와 전달" 표).
+// 카카오 두 종(BID_RECOMMENDED·KAKAO_TEST)도 같은 회차가 고르지만 규칙은 kakao.model 에 있다. toNotificationIntent 는 그 둘을 받지 않는다.
 // 시각은 Date 로 받고 ISO 문자열로 돌려준다. 저장·시계·로그는 모른다.
 
-/** 알림 단계가 고르는 이벤트 종류. */
-export const NOTIFY_EVENT_TYPES = ["REVIEW_ASSIGNED", "ANALYSIS_COMPLETE"] as const;
+/**
+ * 알림 단계가 고르는 이벤트 종류. 인앱 두 종과 카카오 두 종이다.
+ * 세 곳이 같아야 한다: 이 목록 · findDue 필터(outbox.repo) · 부분 인덱스 outbox_events_notify_due_idx(20261021000602).
+ */
+export const NOTIFY_EVENT_TYPES = [
+  "REVIEW_ASSIGNED",
+  "ANALYSIS_COMPLETE",
+  "BID_RECOMMENDED",
+  "KAKAO_TEST",
+] as const;
 export type NotifyEventType = (typeof NOTIFY_EVENT_TYPES)[number];
+
+/** 인앱 알림 의도로 바꾸는 두 종. */
+export type InAppEventType = "REVIEW_ASSIGNED" | "ANALYSIS_COMPLETE";
 
 /** outbox_events 에서 읽는 열. findDue 가 PENDING 과 재시도 시각이 된 FAILED 만 고른다. */
 export type OutboxEventRow = {
@@ -47,7 +59,7 @@ export type SendIntent = {
   orgId: string;
   userId: string;
   bidId: string;
-  type: NotifyEventType;
+  type: InAppEventType;
   message: string;
 };
 /** SEND 는 알릴 사람·공고·문구, INVALID 는 다시 해도 같은 결과인 이벤트(종류·조직·payload 가 틀렸다). */
@@ -91,7 +103,7 @@ function readPayload(
 }
 
 /**
- * outbox 이벤트 하나를 알림 의도로 바꾼다. 두 종이 아니거나, 조직에 속하지 않거나(org_id null),
+ * outbox 이벤트 하나를 알림 의도로 바꾼다. 인앱 두 종이 아니거나(카카오 두 종 포함), 조직에 속하지 않거나(org_id null),
  * payload 가 틀리거나, payload 의 조직이 행의 조직과 다르면(다른 조직 혼입) INVALID 다.
  * 자기 자신을 담당으로 지정해도 알린다.
  */
@@ -106,11 +118,14 @@ export function toNotificationIntent(event: OutboxEventRow): NotificationIntent 
 /** 알림 목록(docs/05-API-SPEC.md §4.6)이 받는 payload. 키는 정확히 넷이다. */
 export type NotificationPayload = { bidId: string; title: string; message: string; link: string };
 
-/** notifications 에 넣는 행. 행을 만들 때 이미 보낸 것으로 본다(인앱은 행 기록이 곧 발송이다). */
+/**
+ * notifications 에 넣는 인앱 행. 행을 만들 때 이미 보낸 것으로 본다(인앱은 행 기록이 곧 발송이다).
+ * KAKAO_EXPIRED 는 카카오 연결 만료를 알리는 인앱 알림이다(kakao.model toKakaoExpiredRow). KAKAO 행은 KakaoNotificationRow 다.
+ */
 export type NotificationRow = {
   org_id: string;
   user_id: string;
-  type: NotifyEventType;
+  type: InAppEventType | "KAKAO_EXPIRED";
   channel: "IN_APP";
   status: "SENT";
   sent_at: string;

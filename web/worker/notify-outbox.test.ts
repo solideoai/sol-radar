@@ -1,6 +1,25 @@
+import { randomBytes } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { NotificationOutboxStore, OutboxEventRow } from "@/server/notifications";
-import { readNotifySettings, startNotifier } from "@/worker/notify-outbox";
+import {
+  KakaoTokenKeyMismatchError,
+  encryptKakaoToken,
+  toTestFeedTemplate,
+  type KakaoLinkStore,
+  type KakaoSender,
+  type StoredKakaoLink,
+} from "@/server/kakao-notify";
+import type {
+  KakaoChannelDeps,
+  KakaoOutboxStore,
+  NotificationOutboxStore,
+  OutboxEventRow,
+} from "@/server/notifications";
+import {
+  createKakaoSender,
+  readKakaoSettings,
+  readNotifySettings,
+  startNotifier,
+} from "@/worker/notify-outbox";
 
 // 인앱 알림 outbox 주기 처리(C7, docs/13-NOTIFICATIONS.md "pending polling"). 기동 때 한 번, 그 뒤 NOTIFY_POLL_INTERVAL_MS(기본 2000)마다
 // processOutboxBatch 를 돈다. 앞 회차가 안 끝났으면 건너뛰고, 회차 오류는 삼켜 로그 한 줄만 남긴다(worker 를 죽이지 않는다).
@@ -11,6 +30,8 @@ import { readNotifySettings, startNotifier } from "@/worker/notify-outbox";
 // main 이 notify 를 먼저 닫으므로(web/worker/main.ts closeAll) 늦어지면 다른 worker 의 종료가 밀린다.
 // 모양은 analysis-reconcile 의 startReconciler 와 같다.
 // 저장·시계·로그는 가짜다. Redis·네트워크·Supabase 는 쓰지 않는다. 등록(WORKER_REGISTRATIONS)은 main.test.ts 가 본다.
+// 카카오(계획 Task 5): readKakaoSettings 가 NOTIFY_KAKAO_PROVIDER(mock 기본 | memo)와 카카오 키를 읽고, createKakaoSender 가 그 설정으로
+// 발송 수단을 고른다. mock 은 외부 호출이 없다. 실제 카카오 서버는 부르지 않는다 — fetch 는 늘 가짜이고 토큰 암호화 키는 시험마다 만든다.
 
 type NotifierDeps = Parameters<typeof startNotifier>[0];
 type NotifySettings = NotifierDeps["settings"];
@@ -89,6 +110,302 @@ describe("readNotifySettings", () => {
   });
 });
 
+// ── readKakaoSettings ──
+
+const PROVIDER_KEY = "NOTIFY_KAKAO_PROVIDER";
+const SITE = "https://sol-radar.example";
+const REST_API_KEY = "SECRETVALUE-rest-api-key";
+const CLIENT_SECRET = "SECRETVALUE-client-secret";
+const MEMO_KEYS = ["KAKAO_REST_API_KEY", "KAKAO_CLIENT_SECRET", "KAKAO_TOKEN_ENC_KEY", "SITE_URL"];
+
+/** 토큰 암호화 키(base64 32바이트). 저장소에 키 값을 두지 않으려고 시험마다 만든다. */
+const newEncKey = (): string => randomBytes(32).toString("base64");
+
+/** base64url(-·_)로 쓴 32바이트 키. 첫 두 바이트가 0xff·0xef 라 정규 base64 로는 "/+" 로 시작한다. */
+const base64UrlKey = (): string => {
+  const bytes = randomBytes(32);
+  bytes[0] = 0xff;
+  bytes[1] = 0xef;
+  return bytes.toString("base64url");
+};
+
+const memoEnv = (encKey: string, overrides: Record<string, string | undefined> = {}) => ({
+  [PROVIDER_KEY]: "memo",
+  KAKAO_REST_API_KEY: REST_API_KEY,
+  KAKAO_CLIENT_SECRET: CLIENT_SECRET,
+  KAKAO_TOKEN_ENC_KEY: encKey,
+  SITE_URL: SITE,
+  ...overrides,
+});
+
+/** 오류 message. 던지지 않으면 시험을 실패시킨다. */
+function kakaoSettingsErrorOf(env: Record<string, string | undefined>): string {
+  try {
+    readKakaoSettings(env);
+  } catch (error) {
+    if (error instanceof Error) return error.message;
+    throw new Error("Error 가 아닌 값을 던졌다");
+  }
+  throw new Error("던지지 않았다");
+}
+
+describe("readKakaoSettings", () => {
+  it("NOTIFY_KAKAO_PROVIDER 가 없으면 mock 이고, SITE_URL 이 없으면 http://localhost:3000 이다", () => {
+    expect(readKakaoSettings({})).toEqual({ provider: "mock", siteUrl: "http://localhost:3000" });
+  });
+
+  it.each([[""], ["   "], ["mock"], [" mock "]])(
+    "NOTIFY_KAKAO_PROVIDER 가 %j 이면 mock 이다",
+    (raw) => {
+      expect(readKakaoSettings({ [PROVIDER_KEY]: raw }).provider).toBe("mock");
+    },
+  );
+
+  it("mock 은 SITE_URL 이 있으면 앞뒤 공백을 뗀 그 값을 쓴다", () => {
+    expect(readKakaoSettings({ [PROVIDER_KEY]: "mock", SITE_URL: ` ${SITE} ` })).toEqual({
+      provider: "mock",
+      siteUrl: SITE,
+    });
+  });
+
+  it("mock 은 카카오 키가 없어도 던지지 않고 키를 돌려주지 않는다(외부 호출이 없다)", () => {
+    expect(Object.keys(readKakaoSettings({ [PROVIDER_KEY]: "mock" })).toSorted()).toEqual([
+      "provider",
+      "siteUrl",
+    ]);
+  });
+
+  it("memo 이고 네 키가 모두 있으면 앞뒤 공백을 뗀 값과 timeoutMs 5000 을 돌려준다", () => {
+    const encKey = newEncKey();
+    expect(
+      readKakaoSettings(
+        memoEnv(encKey, {
+          [PROVIDER_KEY]: " memo ",
+          KAKAO_REST_API_KEY: ` ${REST_API_KEY} `,
+          KAKAO_TOKEN_ENC_KEY: ` ${encKey} `,
+        }),
+      ),
+    ).toEqual({
+      provider: "memo",
+      restApiKey: REST_API_KEY,
+      clientSecret: CLIENT_SECRET,
+      encKey,
+      siteUrl: SITE,
+      timeoutMs: 5_000,
+    });
+  });
+
+  it.each([["MEMO"], ["Mock"], ["kakao"], ["alimtalk"], ["SECRETVALUE-memo"]])(
+    "NOTIFY_KAKAO_PROVIDER 가 %s 이면 'worker env 오류: NOTIFY_KAKAO_PROVIDER' 로 던진다(값은 싣지 않는다)",
+    (raw) => {
+      expect(kakaoSettingsErrorOf({ [PROVIDER_KEY]: raw })).toBe(
+        "worker env 오류: NOTIFY_KAKAO_PROVIDER",
+      );
+    },
+  );
+
+  it("memo 인데 네 키가 모두 없으면 키 이름만 정해진 순서로 담아 던진다", () => {
+    expect(kakaoSettingsErrorOf({ [PROVIDER_KEY]: "memo" })).toBe(
+      "worker env 누락: KAKAO_REST_API_KEY, KAKAO_CLIENT_SECRET, KAKAO_TOKEN_ENC_KEY, SITE_URL",
+    );
+  });
+
+  it.each(MEMO_KEYS)("memo 인데 %s 만 비면(공백만 있어도) 그 이름만 담아 던진다", (key) => {
+    expect(kakaoSettingsErrorOf(memoEnv(newEncKey(), { [key]: "   " }))).toBe(
+      `worker env 누락: ${key}`,
+    );
+  });
+
+  it("누락 오류에 다른 키의 값을 싣지 않는다", () => {
+    const encKey = newEncKey();
+    const message = kakaoSettingsErrorOf(memoEnv(encKey, { KAKAO_CLIENT_SECRET: "" }));
+    for (const value of [REST_API_KEY, encKey, SITE]) expect(message).not.toContain(value);
+  });
+
+  it.each([
+    ["16바이트", () => randomBytes(16).toString("base64")],
+    ["31바이트", () => randomBytes(31).toString("base64")],
+    ["33바이트", () => randomBytes(33).toString("base64")],
+    ["base64 가 아닌 글자", () => "SECRETVALUE-not-a-key"],
+    // 아래는 Buffer.from(…, "base64") 가 조용히 32바이트로 읽어 예전 검사를 지나던 값이다(보안 검토 2).
+    ["끝에 !!! 가 붙은 값", () => `${newEncKey()}!!!`],
+    ["따옴표로 감싼 값", () => `"${newEncKey()}"`],
+    ["가운데에 개행이 든 값", () => newEncKey().replace(/^(.{20})/, "$1\n")],
+    ["base64url 글자로 쓴 값", () => base64UrlKey()],
+    ["패딩(=)을 뺀 값", () => newEncKey().replace(/=+$/, "")],
+    ["전부 0 인 32바이트", () => Buffer.alloc(32).toString("base64")],
+  ])(
+    "memo 인데 KAKAO_TOKEN_ENC_KEY 가 %s 면 'worker env 오류: KAKAO_TOKEN_ENC_KEY' 로 던진다(값은 싣지 않는다)",
+    (_label, makeKey) => {
+      const key = makeKey();
+      const message = kakaoSettingsErrorOf(memoEnv(newEncKey(), { KAKAO_TOKEN_ENC_KEY: key }));
+      expect(message).toBe("worker env 오류: KAKAO_TOKEN_ENC_KEY");
+      expect(message).not.toContain(key);
+    },
+  );
+
+  it.each([
+    ["mock", "SECRETVALUE.example"],
+    ["mock", "ftp://sol-radar.example"],
+    ["mock", "javascript:alert(1)"],
+    ["memo", "sol-radar.example"],
+    ["memo", "file:///etc/passwd"],
+  ])(
+    "%s 인데 SITE_URL 이 http·https 주소가 아니면(%s) 'worker env 오류: SITE_URL' 로 던진다(값은 싣지 않는다)",
+    (provider, siteUrl) => {
+      const env =
+        provider === "memo"
+          ? memoEnv(newEncKey(), { SITE_URL: siteUrl })
+          : { [PROVIDER_KEY]: provider, SITE_URL: siteUrl };
+      const message = kakaoSettingsErrorOf(env);
+      expect(message).toBe("worker env 오류: SITE_URL");
+      expect(message).not.toContain(siteUrl);
+    },
+  );
+
+  it("SITE_URL 은 http 도 받는다(로컬 데모)", () => {
+    expect(readKakaoSettings({ SITE_URL: "http://127.0.0.1:3000" }).siteUrl).toBe(
+      "http://127.0.0.1:3000",
+    );
+  });
+});
+
+// ── createKakaoSender ──
+
+const LINK_USER_ID = "5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170";
+const ACCESS_TOKEN = "SECRETVALUE-access-token";
+/** 연결 행의 액세스 암호문이 묶인 자리(사용자·종류). */
+const LINK_ACCESS = { userId: LINK_USER_ID, kind: "access" } as const;
+const MEMO_SEND_URL = "https://kapi.kakao.com/v2/api/talk/memo/default/send";
+
+/** 연결 저장 가짜. read 는 늘 link 를 돌려주고, 마지막 발송 줄(markResult)만 기록한다. */
+function fakeLinks(link: StoredKakaoLink | null) {
+  const results: string[] = [];
+  const links: KakaoLinkStore = {
+    read: async () => link,
+    saveTokens: async () => {
+      throw new Error("이 시험은 토큰을 갱신하지 않는다");
+    },
+    markExpired: async () => {
+      throw new Error("이 시험은 연결을 만료로 바꾸지 않는다");
+    },
+    markResult: async (_userId, result) => {
+      results.push(result);
+    },
+  };
+  return { links, results };
+}
+
+const connectedLink = (accessTokenEnc: string | null): StoredKakaoLink => ({
+  userId: LINK_USER_ID,
+  accessTokenEnc,
+  refreshTokenEnc: null,
+  // 한 시간 뒤 만료라 보내기 전에 갱신하지 않는다.
+  accessExpiresAt: new Date(NOW.getTime() + 60 * 60 * 1000),
+  refreshExpiresAt: null,
+  status: "CONNECTED",
+});
+
+/** 부르면 시험이 알 수 있게 기록만 하고 던지는 fetch. 실제 네트워크에 붙지 않는다. */
+const refusingFetch = () =>
+  vi.fn<typeof fetch>(async () => {
+    throw new Error("이 시험은 fetch 를 부르지 않는다");
+  });
+
+describe("createKakaoSender", () => {
+  const baseDeps = (links: KakaoLinkStore, fetch: typeof globalThis.fetch) => ({
+    links,
+    fetch,
+    now: () => NOW,
+    sleep: async () => undefined,
+  });
+
+  it("mock 은 연결된 사용자에게 SENT 를 돌려주고 마지막 발송 줄을 적으며 fetch 를 부르지 않는다", async () => {
+    const fake = fakeLinks(connectedLink("v1.sealed"));
+    const fetch = refusingFetch();
+    const sender = createKakaoSender(
+      { provider: "mock", siteUrl: SITE },
+      baseDeps(fake.links, fetch),
+    );
+    await expect(sender.send(LINK_USER_ID, toTestFeedTemplate(SITE))).resolves.toEqual({
+      kind: "SENT",
+    });
+    expect(fake.results).toEqual(["SENT"]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("mock 은 연결이 없으면 EXPIRED(changed false)이고 fetch 를 부르지 않는다", async () => {
+    const fetch = refusingFetch();
+    const sender = createKakaoSender(
+      { provider: "mock", siteUrl: SITE },
+      baseDeps(fakeLinks(null).links, fetch),
+    );
+    await expect(sender.send(LINK_USER_ID, toTestFeedTemplate(SITE))).resolves.toEqual({
+      kind: "EXPIRED",
+      changed: false,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("memo 는 KAKAO_TOKEN_ENC_KEY 로 연결의 액세스 토큰을 풀어 나에게 보내기를 시간 제한과 함께 한 번 부른다", async () => {
+    const encKey = newEncKey();
+    const fake = fakeLinks(connectedLink(encryptKakaoToken(ACCESS_TOKEN, encKey, LINK_ACCESS)));
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ result_code: 0 }));
+    const sender = createKakaoSender(
+      {
+        provider: "memo",
+        restApiKey: REST_API_KEY,
+        clientSecret: CLIENT_SECRET,
+        encKey,
+        siteUrl: SITE,
+        timeoutMs: 5_000,
+      },
+      baseDeps(fake.links, fetch),
+    );
+    await expect(sender.send(LINK_USER_ID, toTestFeedTemplate(SITE))).resolves.toEqual({
+      kind: "SENT",
+    });
+    expect(fetch).toHaveBeenCalledOnce();
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    expect(String(input)).toBe(MEMO_SEND_URL);
+    expect(new Headers(init?.headers).get("authorization")).toBe(`Bearer ${ACCESS_TOKEN}`);
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    expect(fake.results).toEqual(["SENT"]);
+  });
+
+  it("memo 는 웹이 다른 키로 잠근 토큰이면 KakaoTokenKeyMismatchError 로 던지고, 보내지도 연결을 만료로 바꾸지도 않는다(키가 발송 수단까지 이어진다)", async () => {
+    const fake = fakeLinks(
+      connectedLink(encryptKakaoToken(ACCESS_TOKEN, newEncKey(), LINK_ACCESS)),
+    );
+    const expired: string[] = [];
+    const links: KakaoLinkStore = {
+      ...fake.links,
+      markExpired: async (userId) => {
+        expired.push(userId);
+        return true;
+      },
+    };
+    const fetch = refusingFetch();
+    const sender = createKakaoSender(
+      {
+        provider: "memo",
+        restApiKey: REST_API_KEY,
+        clientSecret: CLIENT_SECRET,
+        encKey: newEncKey(),
+        siteUrl: SITE,
+        timeoutMs: 5_000,
+      },
+      baseDeps(links, fetch),
+    );
+    await expect(sender.send(LINK_USER_ID, toTestFeedTemplate(SITE))).rejects.toThrow(
+      KakaoTokenKeyMismatchError,
+    );
+    expect(expired).toEqual([]);
+    expect(fake.results).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
 // ── startNotifier ──
 
 const reviewAssigned = (): OutboxEventRow => ({
@@ -139,14 +456,42 @@ function fakeStore(
   return { store, findDue, inserted, processed };
 }
 
+/** 카카오 소비자 가짜. 이 파일의 이벤트는 거의 인앱이라, isActive 만 답하고 나머지 저장은 부르면 던진다. 보낸 사람만 기록한다. */
+function fakeKakao() {
+  const sends: string[] = [];
+  const unexpected = async (): Promise<never> => {
+    throw new Error("이 시험은 추천 공고 이벤트를 넣지 않는다");
+  };
+  const store: KakaoOutboxStore = {
+    listRecipients: unexpected,
+    isActive: async () => true,
+    readFeedSource: unexpected,
+    hasKakaoSentForBid: unexpected,
+    ensureKakaoRow: unexpected,
+    setKakaoRowStatus: unexpected,
+    closeOpenKakaoRows: unexpected,
+    insertNotification: unexpected,
+  };
+  const sender: KakaoSender = {
+    send: async (userId) => {
+      sends.push(userId);
+      return { kind: "SENT" };
+    },
+  };
+  const kakao: KakaoChannelDeps = { store, sender, siteUrl: SITE };
+  return { kakao, sends };
+}
+
 function setup(
   next?: (index: number) => Promise<OutboxEventRow[]>,
   overrides: StoreOverrides = {},
 ) {
   const fake = fakeStore(next, overrides);
+  const kakaoFake = fakeKakao();
   const lines: string[] = [];
   const deps: NotifierDeps = {
     store: fake.store,
+    kakao: kakaoFake.kakao,
     // 가짜 시계(vi.useFakeTimers({ now: NOW }))를 따른다. 실패 뒤 늦추기의 기준 시각이 deps.now() 라서
     // 고정 시각이면 늦추기가 끝나지 않는다. 시작 시각은 NOW 그대로다.
     now: () => new Date(Date.now()),
@@ -155,7 +500,7 @@ function setup(
     },
     settings: SETTINGS,
   };
-  return { ...fake, deps, lines };
+  return { ...fake, deps, lines, kakaoSends: kakaoFake.sends };
 }
 
 const records = (lines: readonly string[]): unknown[] =>
@@ -234,6 +579,26 @@ describe("startNotifier", () => {
     const handle = startNotifier(s.deps, fakeTimers());
     await vi.advanceTimersByTimeAsync(0);
     expect([s.inserted, s.processed]).toEqual([[`${EVENT_ID}:${ASSIGNEE_ID}:IN_APP`], [EVENT_ID]]);
+    await handle.stop();
+  });
+
+  it("카카오 이벤트(KAKAO_TEST)는 deps.kakao 의 발송 수단으로 보내고 PROCESSED 로 닫는다(인앱 알림은 없다)", async () => {
+    const kakaoTest: OutboxEventRow = {
+      id: SECOND_EVENT_ID,
+      org_id: null,
+      event_type: "KAKAO_TEST",
+      payload: { userId: LINK_USER_ID },
+      status: "PENDING",
+      attempts: 0,
+    };
+    const s = setup(async (index) => (index === 0 ? [kakaoTest] : []));
+    const handle = startNotifier(s.deps, fakeTimers());
+    await vi.advanceTimersByTimeAsync(0);
+    expect([s.kakaoSends, s.inserted, s.processed]).toEqual([
+      [LINK_USER_ID],
+      [],
+      [SECOND_EVENT_ID],
+    ]);
     await handle.stop();
   });
 

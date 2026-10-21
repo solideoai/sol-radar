@@ -84,7 +84,7 @@ describe("findDue · 질의", () => {
     );
   });
 
-  it("event_type in (REVIEW_ASSIGNED, ANALYSIS_COMPLETE) 조건을 건다", async () => {
+  it("event_type in (NOTIFY_EVENT_TYPES: 인앱 두 종·카카오 두 종) 조건을 건다", async () => {
     expect(inValues(await find(), "event_type")).toEqual([...NOTIFY_EVENT_TYPES].toSorted());
   });
 

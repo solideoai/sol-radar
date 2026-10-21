@@ -22,7 +22,8 @@ import {
   type IngestQuota,
   type JobQueue,
 } from "@/server/ingestion";
-import { createNotificationOutboxStore } from "@/server/notifications";
+import { createKakaoLinkStore } from "@/server/kakao-notify";
+import { createKakaoOutboxStore, createNotificationOutboxStore } from "@/server/notifications";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { readReconcileSettings } from "@/worker/analysis-reconcile";
 import { startAnalysisRuntime } from "@/worker/analysis-runtime";
@@ -30,7 +31,12 @@ import { readG2bServiceKey, readWorkerEnv, type WorkerEnv } from "@/worker/env";
 import { errorNameOf } from "@/worker/error-name";
 import { startDocumentsReconciler } from "@/worker/documents-reconcile";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
-import { readNotifySettings, startNotifier } from "@/worker/notify-outbox";
+import {
+  createKakaoSender,
+  readKakaoSettings,
+  readNotifySettings,
+  startNotifier,
+} from "@/worker/notify-outbox";
 import {
   processIngestJob,
   readIngestIntervalMinutes,
@@ -364,15 +370,33 @@ export const analysisWorkerRegistration: WorkerRegistration = async (rawEnv) => 
     startAnalysisRuntime(rawEnv, { connection: () => connection.duplicate() });
 };
 
-// 인앱 알림 outbox 주기 처리(C7, docs/13-NOTIFICATIONS.md). 1단계에서 폴링 간격을 읽는다(틀리면 Redis 연결 전에 멈춘다).
+// 인앱 알림 outbox 주기 처리(C7, docs/13-NOTIFICATIONS.md). 1단계에서 폴링 간격과 카카오 발송 수단 설정을 읽는다
+// (NOTIFY_KAKAO_PROVIDER 비면 mock, memo 면 카카오 키 넷이 필요하다. 틀리면 Redis 연결 전에 멈춘다).
 // 2단계는 service role 저장으로 주기 처리를 시작한다. 큐가 아니라 outbox_events 표를 읽으므로 공유 Redis 연결은
 // 쓰지도 끊지도 않는다(공유 연결은 기본 createWorker 가 끊는다). close 는 타이머를 멈추고 진행 중 회차를 최대 5초 기다린다.
+// 카카오 발송 수단의 fetch 는 부를 때 전역 fetch 를 찾는다(시험이 전역 fetch 를 가짜로 바꿀 수 있게). mock 은 부르지 않는다.
 export const notifyWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   const settings = readNotifySettings(rawEnv);
+  const kakaoSettings = readKakaoSettings(rawEnv);
   return async () => {
+    const admin = getSupabaseAdmin();
+    const now = () => new Date();
     const notifier = startNotifier({
-      store: createNotificationOutboxStore(getSupabaseAdmin()),
-      now: () => new Date(),
+      store: createNotificationOutboxStore(admin),
+      kakao: {
+        store: createKakaoOutboxStore(admin),
+        sender: createKakaoSender(kakaoSettings, {
+          links: createKakaoLinkStore(admin),
+          fetch: (input, init) => globalThis.fetch(input, init),
+          now,
+          sleep: (ms) =>
+            new Promise<void>((resolve) => {
+              setTimeout(resolve, ms);
+            }),
+        }),
+        siteUrl: kakaoSettings.siteUrl,
+      },
+      now,
       log: (line) => {
         console.log(line);
       },

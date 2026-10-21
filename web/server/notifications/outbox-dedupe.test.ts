@@ -10,7 +10,11 @@ import {
   type FixtureRecord,
   type IngestionRepo,
 } from "@/server/ingestion";
-import { createNotificationOutboxStore, processOutboxBatch } from "@/server/notifications";
+import {
+  createKakaoOutboxStore,
+  createNotificationOutboxStore,
+  processOutboxBatch,
+} from "@/server/notifications";
 import {
   asAdminTask,
   asServiceRole,
@@ -29,6 +33,7 @@ import {
   memoryRow,
   reviewAssignedEvent,
 } from "./outbox.test-support";
+import { SITE_URL, fakeSender, idleKakao } from "./kakao.test-support";
 
 // G2 — 마감일 변경 → 알림 정확히 1건, 재전송해도 1건(docs/11-TESTING.md G2, docs/13-NOTIFICATIONS.md "두 단계 멱등성").
 // 1) 이벤트 단위: outbox_events.idempotency_key = source + noticeId + revision + eventType(UNIQUE). 같은 변경이 두 번 와도 이벤트는 하나다.
@@ -111,7 +116,13 @@ async function countOf(db: SqlDb, table: string): Promise<number> {
 
 describe("G2 알림 단계 멱등 — 메모리 저장(notifications.idempotency_key UNIQUE 흉내)", () => {
   const runBatch = (store: ReturnType<typeof createMemoryStore>["store"]) =>
-    processOutboxBatch({ store, now: () => NOW, log: () => undefined, limit: 50 });
+    processOutboxBatch({
+      store,
+      kakao: idleKakao(),
+      now: () => NOW,
+      log: () => undefined,
+      limit: 50,
+    });
 
   it.each([
     ["REVIEW_ASSIGNED", reviewAssignedEvent()],
@@ -230,9 +241,15 @@ describe("G2 — 실제 마이그레이션 위(PGlite)", () => {
 
   const ingestionRepo = () => createSupabaseIngestionRepo(pgliteSupabase(db).client);
   const notificationStore = () => createNotificationOutboxStore(pgliteSupabase(db).client);
+  // 카카오 쪽도 실제 저장(연결 0명)으로 둔다. finish_score_run 이 쓴 BID_RECOMMENDED 는 받는 사람 0명으로 PROCESSED 가 된다.
   const runBatch = (now = NOW) =>
     processOutboxBatch({
       store: notificationStore(),
+      kakao: {
+        store: createKakaoOutboxStore(pgliteSupabase(db).client),
+        sender: fakeSender().sender,
+        siteUrl: SITE_URL,
+      },
       now: () => now,
       log: () => undefined,
       limit: 50,

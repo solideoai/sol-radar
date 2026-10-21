@@ -29,6 +29,17 @@ import {
   type MemoryOutboxRow,
   type StoreCall,
 } from "./outbox.test-support";
+import {
+  SITE_URL,
+  USER_A,
+  USER_B,
+  USER_C,
+  bidRecommendedEvent,
+  createMemoryKakaoStore,
+  fakeSender,
+  idleKakao,
+  kakaoTestEvent,
+} from "./kakao.test-support";
 
 // 알림 outbox 한 회차(docs/13-NOTIFICATIONS.md). 처리할 이벤트를 찾아 하나씩 순서대로:
 //   두 종이 아니거나 payload 가 틀리면 DEAD(재시도해도 같다), 수신자가 그 조직 멤버가 아니면 알림 없이 PROCESSED(혼입 방지),
@@ -46,6 +57,7 @@ async function run(options: Options = {}) {
   const lines: string[] = [];
   const summary = await processOutboxBatch({
     store: memory.store,
+    kakao: idleKakao(),
     now: () => new Date(NOW.getTime()),
     log: (line) => {
       lines.push(line);
@@ -91,7 +103,13 @@ describe("processOutboxBatch · 찾기", () => {
       fail: failOn("findDue"),
     });
     const error = await rejectionOf(
-      processOutboxBatch({ store: memory.store, now: () => NOW, log: () => undefined, limit: 1 }),
+      processOutboxBatch({
+        store: memory.store,
+        kakao: idleKakao(),
+        now: () => NOW,
+        log: () => undefined,
+        limit: 1,
+      }),
     );
     expect(error.name).toBe("PostgrestError");
     expect(memory.calls.map((call) => call.method)).toEqual(["findDue"]);
@@ -191,6 +209,7 @@ describe("processOutboxBatch · SEND", () => {
     });
     const summary = await processOutboxBatch({
       store: memory.store,
+      kakao: idleKakao(),
       now: () => NOW,
       log: () => undefined,
       limit: LIMIT,
@@ -431,7 +450,13 @@ describe("processOutboxBatch · 저장 실패는 재시도", () => {
       fail: (call) => failOn("isMember")(call) ?? failOn("markRetry")(call),
     });
     await expect(
-      processOutboxBatch({ store: memory.store, now: () => NOW, log: () => undefined, limit: 1 }),
+      processOutboxBatch({
+        store: memory.store,
+        kakao: idleKakao(),
+        now: () => NOW,
+        log: () => undefined,
+        limit: 1,
+      }),
     ).resolves.toMatchObject({ checked: 1, sent: 0 });
   });
 });
@@ -654,6 +679,7 @@ describe("processOutboxBatch · shouldStop(종료 신호)", () => {
     const lines: string[] = [];
     const summary = await processOutboxBatch({
       store: memory.store,
+      kakao: idleKakao(),
       now: () => new Date(NOW.getTime()),
       log: (line) => {
         lines.push(line);
@@ -757,5 +783,236 @@ describe("processOutboxBatch · shouldStop(종료 신호)", () => {
       entry === "isMember" ? [trace[index - 1]] : [],
     );
     expect(firstCalls).toEqual(["shouldStop", "shouldStop", "shouldStop"]);
+  });
+});
+
+// ── 카카오 이벤트(BID_RECOMMENDED·KAKAO_TEST) ──
+// 한 회차가 두 새 종류를 인앱 규칙(toNotificationIntent) 전에 카카오 소비자(processKakaoEvent)로 넘기고, 그 결과로 outbox 를 닫는다.
+//   SENT·SKIPPED_* → PROCESSED · RETRY → toRetryUpdate · DEAD(INVALID·재시도 다 씀) → DEAD · 저장이 던지면 → toRetryUpdate(errorName).
+
+describe("processOutboxBatch · 카카오 이벤트", () => {
+  type KakaoOptions = Parameters<typeof createMemoryKakaoStore>[0];
+
+  async function runKakao(
+    events: readonly MemoryOutboxRow[],
+    kakaoOptions: KakaoOptions = {},
+    reply?: Parameters<typeof fakeSender>[0],
+    outboxOptions: Options = {},
+  ) {
+    const memory = createMemoryStore({ events, ...outboxOptions });
+    const kakao = createMemoryKakaoStore(kakaoOptions);
+    const fake = fakeSender(reply);
+    const lines: string[] = [];
+    const summary = await processOutboxBatch({
+      store: memory.store,
+      kakao: { store: kakao.store, sender: fake.sender, siteUrl: SITE_URL },
+      now: () => new Date(NOW.getTime()),
+      log: (line) => {
+        lines.push(line);
+      },
+      limit: LIMIT,
+    });
+    return { ...memory, kakao, fake, lines, summary };
+  }
+
+  it("BID_RECOMMENDED 는 카카오로 보내고 outbox 를 PROCESSED 로 닫는다(인앱 알림은 없다)", async () => {
+    const s = await runKakao([memoryRow(bidRecommendedEvent())]);
+    expect(s.fake.recipientsSent()).toEqual([USER_A]);
+    expect(s.eventOf(EVENT_ID)).toMatchObject({ status: "PROCESSED", processed_at: NOW_ISO });
+    expect(s.notifications).toEqual([]);
+  });
+
+  it("카카오 이벤트에는 인앱 규칙의 멤버십·정지·공고명 확인을 쓰지 않는다", async () => {
+    const s = await runKakao([memoryRow(bidRecommendedEvent())]);
+    expect(s.calls.map((call) => call.method)).toEqual(["findDue", "markProcessed"]);
+  });
+
+  it("KAKAO_TEST 는 행 없이 보내고 PROCESSED 로 닫는다", async () => {
+    const s = await runKakao([memoryRow(kakaoTestEvent(USER_B))]);
+    expect(s.fake.recipientsSent()).toEqual([USER_B]);
+    expect([s.kakao.rows, s.notifications]).toEqual([[], []]);
+    expect(s.eventOf(EVENT_ID).status).toBe("PROCESSED");
+  });
+
+  it("정지 계정의 KAKAO_TEST 는 보내지 않고 PROCESSED·skipped 1 이다", async () => {
+    const s = await runKakao([memoryRow(kakaoTestEvent(USER_A))], { inactive: [USER_A] });
+    expect(s.fake.sends).toEqual([]);
+    expect(s.eventOf(EVENT_ID).status).toBe("PROCESSED");
+    expect(s.summary).toEqual({ checked: 1, sent: 0, skipped: 1, retried: 0, dead: 0 });
+  });
+
+  it("받는 사람이 0명이면 PROCESSED·skipped 1 이다", async () => {
+    const s = await runKakao([memoryRow(bidRecommendedEvent())], { recipients: {} });
+    expect(s.eventOf(EVENT_ID).status).toBe("PROCESSED");
+    expect(s.summary).toEqual({ checked: 1, sent: 0, skipped: 1, retried: 0, dead: 0 });
+  });
+
+  it("공고·run 이 없으면 PROCESSED·skipped 1 이다", async () => {
+    const s = await runKakao([memoryRow(bidRecommendedEvent())], { feeds: {} });
+    expect(s.eventOf(EVENT_ID).status).toBe("PROCESSED");
+    expect(s.summary.skipped).toBe(1);
+  });
+
+  it("한 사람이라도 RETRYABLE 이면 outbox 는 FAILED·attempts 1·5초 뒤 재시도다", async () => {
+    const s = await runKakao([memoryRow(bidRecommendedEvent())], {}, () => ({
+      kind: "RETRYABLE",
+      code: "HTTP_503",
+    }));
+    expect(s.eventOf(EVENT_ID)).toMatchObject({
+      status: "FAILED",
+      attempts: 1,
+      next_attempt_at: isoAfter(NOW, 5_000),
+    });
+    expect(s.summary.retried).toBe(1);
+  });
+
+  it("다섯 번째 실패(attempts 4)면 outbox 는 DEAD·attempts 5 이고 그 사람의 행도 DEAD 다", async () => {
+    const event = bidRecommendedEvent("BID", { status: "FAILED", attempts: 4 });
+    const s = await runKakao(
+      [memoryRow(event, { next_attempt_at: "2026-10-20T08:59:00.000Z" })],
+      {},
+      () => ({ kind: "RETRYABLE", code: "NETWORK" }),
+    );
+    expect(s.eventOf(EVENT_ID)).toMatchObject({
+      status: "DEAD",
+      attempts: 5,
+      next_attempt_at: null,
+    });
+    expect(s.kakao.rowOf(USER_A).status).toBe("DEAD");
+    expect(s.summary.dead).toBe(1);
+  });
+
+  it("INVALID(org_id null)면 바로 DEAD 이고 카카오 저장·발송을 부르지 않는다", async () => {
+    const s = await runKakao([memoryRow(bidRecommendedEvent("BID", { org_id: null }))]);
+    expect(s.eventOf(EVENT_ID)).toMatchObject({ status: "DEAD", attempts: 1 });
+    expect([s.kakao.calls, s.fake.sends]).toEqual([[], []]);
+  });
+
+  it("카카오 저장이 던지면 RETRY·errorName 으로 재시도한다", async () => {
+    const failure = leakyError("NotificationStoreError");
+    const s = await runKakao([memoryRow(bidRecommendedEvent())], {
+      fail: (call) => (call.method === "listRecipients" ? failure : undefined),
+    });
+    expect(s.eventOf(EVENT_ID)).toMatchObject({ status: "FAILED", attempts: 1 });
+    expect(eventLines(s.lines)).toEqual([
+      expect.objectContaining({ outcome: "RETRY", errorName: "NotificationStoreError" }),
+    ]);
+  });
+
+  it("보낸 뒤 outbox 를 닫다 던져 재시도해도 다음 회차에 다시 보내지 않는다", async () => {
+    const memory = createMemoryStore({
+      events: [memoryRow(bidRecommendedEvent())],
+      fail: (call) =>
+        call.method === "markProcessed" && !hasFailedOnce() ? leakyError() : undefined,
+    });
+    const hasFailedOnce = () =>
+      memory.calls.filter((call) => call.method === "markProcessed").length > 1;
+    const kakao = createMemoryKakaoStore();
+    const fake = fakeSender();
+    let clockMs = NOW.getTime();
+    const deps = {
+      store: memory.store,
+      kakao: { store: kakao.store, sender: fake.sender, siteUrl: SITE_URL },
+      now: () => new Date(clockMs),
+      log: () => undefined,
+      limit: LIMIT,
+    };
+    await processOutboxBatch(deps);
+    expect(memory.eventOf(EVENT_ID).status).toBe("FAILED");
+    clockMs += 10_000;
+    await processOutboxBatch(deps);
+    expect(memory.eventOf(EVENT_ID).status).toBe("PROCESSED");
+    expect(fake.sends).toHaveLength(1);
+  });
+
+  it("인앱 이벤트와 카카오 이벤트가 같은 회차에 섞여도 각자 처리한다(인앱 두 종의 동작은 그대로)", async () => {
+    const s = await runKakao([
+      memoryRow(reviewAssignedEvent(), { created_at: "2026-10-20T08:00:00.000Z" }),
+      memoryRow(bidRecommendedEvent("BID", { id: OTHER_EVENT_ID }), {
+        created_at: "2026-10-20T08:00:01.000Z",
+      }),
+    ]);
+    expect(s.notifications.map((row) => [row.type, row.channel, row.user_id])).toEqual([
+      ["REVIEW_ASSIGNED", "IN_APP", ASSIGNEE_ID],
+    ]);
+    expect(s.fake.recipientsSent()).toEqual([USER_A]);
+    expect([s.eventOf(EVENT_ID).status, s.eventOf(OTHER_EVENT_ID).status]).toEqual([
+      "PROCESSED",
+      "PROCESSED",
+    ]);
+  });
+
+  describe("로그", () => {
+    const KAKAO_KEYS = [
+      "event",
+      "outboxEventId",
+      "eventType",
+      "outcome",
+      "attempts",
+      "errorName",
+      "sent",
+      "failed",
+    ];
+
+    it("이벤트마다 notify.outbox 한 줄이고 결과 수(sent·failed)를 싣는다", async () => {
+      const s = await runKakao(
+        [memoryRow(bidRecommendedEvent())],
+        { recipients: { [ORG_ID]: [USER_A, USER_B] } },
+        (userId) =>
+          userId === USER_B ? { kind: "RETRYABLE", code: "HTTP_503" } : { kind: "SENT" },
+      );
+      expect(eventLines(s.lines)).toEqual([
+        {
+          event: "notify.outbox",
+          outboxEventId: EVENT_ID,
+          eventType: "BID_RECOMMENDED",
+          outcome: "RETRY",
+          attempts: 1,
+          sent: 1,
+          failed: 1,
+        },
+      ]);
+    });
+
+    it("줄에는 정해 둔 키 말고 다른 키가 없다", async () => {
+      const s = await runKakao([
+        memoryRow(bidRecommendedEvent(), { created_at: "2026-10-20T08:00:00.000Z" }),
+        memoryRow(kakaoTestEvent(USER_B, { id: OTHER_EVENT_ID }), {
+          created_at: "2026-10-20T08:00:01.000Z",
+        }),
+      ]);
+      for (const line of eventLines(s.lines)) {
+        expect(Object.keys(line).filter((key) => !KAKAO_KEYS.includes(key))).toEqual([]);
+      }
+    });
+
+    it("로그에 수신자·조직·공고·run·공고명·피드 문구·사이트 주소·오류 code 를 싣지 않는다", async () => {
+      const s = await runKakao(
+        [
+          memoryRow(bidRecommendedEvent(), { created_at: "2026-10-20T08:00:00.000Z" }),
+          memoryRow(kakaoTestEvent(USER_C, { id: OTHER_EVENT_ID }), {
+            created_at: "2026-10-20T08:00:01.000Z",
+          }),
+        ],
+        { recipients: { [ORG_ID]: [USER_A, USER_B] } },
+        (userId) => (userId === USER_B ? { kind: "REJECTED", code: "KAKAO_-2" } : { kind: "SENT" }),
+      );
+      const text = s.lines.join("\n");
+      for (const value of [
+        USER_A,
+        USER_B,
+        USER_C,
+        ORG_ID,
+        BID_ID,
+        RUN_ID,
+        BID_TITLE,
+        "가상시청",
+        "권고",
+        SITE_URL,
+        "KAKAO_-2",
+      ]) {
+        expect(text).not.toContain(value);
+      }
+    });
   });
 });

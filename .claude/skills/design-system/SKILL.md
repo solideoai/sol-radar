@@ -56,7 +56,7 @@ design/tokens.json  ──pnpm tokens──▶  web/app/globals.css
 - `primary` 는 주요 버튼(남색), `brand` 는 브랜드 색(파랑), `accent` 는 메뉴 항목 hover 바탕이다.
   `sidebar-*` 여덟 개는 사이드바 안에서만 쓴다(`web/components/ui/sidebar.tsx`·`web/components/app-shell.tsx`).
 - `chart-2` 는 차트의 둘째 계열 색이다(첫째 계열은 `brand`). 막대와 범례 색 칸에만 쓰고 글자·바탕·버튼에는 쓰지 않는다.
-- `kakao`·`naver`(와 `-foreground`)는 각 회사 로그인 버튼 가이드의 지정 색이다. 간편 로그인 버튼(`web/app/auth/social-sign-in.tsx`)과 로그인 수단 목록의 회사 표시(`web/components/provider-mark.tsx`)에만 쓰고 값을 바꾸지 않는다.
+- `kakao`·`naver`(와 `-foreground`)는 각 회사 로그인 버튼 가이드의 지정 색이다. 간편 로그인 버튼(`web/app/auth/social-sign-in.tsx`)과 로그인 수단 목록의 회사 표시(`web/components/provider-mark.tsx`), 그리고 `kakao` 는 개인 설정의 카카오톡 알림 연결 버튼(`web/app/(app)/[slug]/settings/kakao-notify-section.tsx`, ADR-038)에만 쓰고 값을 바꾸지 않는다.
   네이버 짝(흰 글자/#03A94D)은 대비가 3.09:1 이라 대비 검사에서 예외다 — 대신 가이드 값 그대로인지를 검사한다. 예외는 사람이 정한다(이 짝은 2026-10-15 사용자 결정).
   회사 로고는 브랜드 색 그대로인 정적 파일(`web/public/google.svg`·`kakao.svg`·`naver.svg`)이다.
 - 웹에서는 토큰 Tailwind 클래스(`bg-primary`·`text-muted-foreground`), CSS 에서는 `var(--이름)`(`var(--primary)`).

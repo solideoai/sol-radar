@@ -14,10 +14,12 @@ import {
   FilePlusIcon,
   FlaskConicalIcon,
   InfoIcon,
+  Link2OffIcon,
   LoaderCircleIcon,
   OctagonAlertIcon,
   OctagonXIcon,
   ShieldCheckIcon,
+  ThumbsUpIcon,
   TriangleAlertIcon,
   UserCheckIcon,
 } from "lucide-react";
@@ -196,6 +198,8 @@ export const NOTIFICATION_TYPE_LABEL = {
   BID_CHANGED: "공고 변경",
   BID_CREATED: "새 공고",
   DEADLINE_APPROACHING: "마감 임박",
+  BID_RECOMMENDED: "추천 공고",
+  KAKAO_EXPIRED: "카카오 연결 만료",
 } as const satisfies Record<NotificationType, string>;
 
 export const NOTIFICATION_ICON = {
@@ -204,6 +208,8 @@ export const NOTIFICATION_ICON = {
   BID_CHANGED: FilePenIcon,
   BID_CREATED: FilePlusIcon,
   DEADLINE_APPROACHING: CalendarClockIcon,
+  BID_RECOMMENDED: ThumbsUpIcon,
+  KAKAO_EXPIRED: Link2OffIcon,
 } as const satisfies Record<NotificationType, LucideIcon>;
 
 // §5.4.9 사람 검토 권장 플래그 5개. 나머지 12개는 중립 배지로 그린다.

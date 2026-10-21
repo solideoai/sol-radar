@@ -27,7 +27,7 @@ describe("라벨 표", () => {
     expect(Object.keys(MISSING_REASON_LABEL)).toHaveLength(8);
     expect(Object.keys(NEEDS_REVIEW_REASON_LABEL)).toHaveLength(6);
     expect(Object.keys(FACTOR_LABEL)).toHaveLength(5);
-    expect(Object.keys(NOTIFICATION_TYPE_LABEL)).toHaveLength(5);
+    expect(Object.keys(NOTIFICATION_TYPE_LABEL)).toHaveLength(7);
     expect(Object.keys(KEV_RISK_LABEL)).toHaveLength(5);
   });
   it("요소 순서는 점수표 순이다", () => {
@@ -54,7 +54,7 @@ describe("라벨 표", () => {
       expect(STATUS_ICON).toHaveProperty(key);
     }
     expect(STATUS_ICON.NO_BID.className).toBe("text-destructive");
-    expect(Object.keys(NOTIFICATION_ICON)).toHaveLength(5);
+    expect(Object.keys(NOTIFICATION_ICON)).toHaveLength(7);
   });
   it("수주·낙찰 확률 글자를 쓰지 않는다", () => {
     const all = JSON.stringify([

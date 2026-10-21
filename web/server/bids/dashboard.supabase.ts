@@ -54,7 +54,12 @@ type Db = Awaited<ReturnType<typeof getSupabase>>;
 async function readStatus(db: Db, origin: "live" | "demo" | "all"): Promise<DashboardStatusSource> {
   const [ingest, unread] = await Promise.all([
     db.rpc("latest_ingest_run", { p_origin: origin }),
-    db.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+    // 인앱 행만 센다. 카카오 발송 기록(channel KAKAO)은 read_at 이 늘 비어 있어 세면 벨 숫자가 부푼다.
+    db
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("channel", "IN_APP")
+      .is("read_at", null),
   ]);
   if (ingest.error) throw ingest.error;
   if (unread.error) throw unread.error;

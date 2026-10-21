@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdtempSync, existsSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -5,6 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type IORedis from "ioredis";
+import { encryptKakaoToken } from "@/server/kakao-notify";
 import {
   analysisWorkerRegistration,
   defaultWorkerDeps,
@@ -680,7 +682,13 @@ const fakeConnection = (label: string): FakeConnection => {
   };
 };
 
-const loadMainWithAnalysisFakes = async (pendingDocuments: object[] = []) => {
+/** 가짜 PostgREST 의 표별 답. undefined 면 기본 답(빈 목록, bid_documents 는 pendingDocuments)이다. */
+type FakeRoute = (method: string, url: URL) => unknown;
+
+const loadMainWithAnalysisFakes = async (
+  pendingDocuments: object[] = [],
+  route: FakeRoute = () => undefined,
+) => {
   vi.resetModules();
   analysisFakes.redis = [];
   analysisFakes.workers = [];
@@ -730,14 +738,18 @@ const loadMainWithAnalysisFakes = async (pendingDocuments: object[] = []) => {
     return { default: Redis, Redis };
   });
   // service role 클라이언트는 진짜 supabase-js 로 만들되 fetch 만 빈 목록을 돌려주는 가짜로 바꾼다(복구 회차가 score_runs 를 읽는다).
+  // route 가 답을 주는 요청(카카오 시험 이벤트 등)은 그 답을 돌려준다.
   vi.doMock("@supabase/supabase-js", async (importOriginal) => {
     const original = await importOriginal<typeof import("@supabase/supabase-js")>();
     const fakeFetch: typeof fetch = async (input, init) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
-      analysisFakes.requests.push(`${(init?.method ?? "GET").toUpperCase()} ${url.pathname}`);
+      const method = (init?.method ?? "GET").toUpperCase();
+      analysisFakes.requests.push(`${method} ${url.pathname}`);
       const documents = String(input).includes("/bid_documents?");
       if (documents) analysisFakes.documentRequests.push(new URL(String(input)));
-      return new Response(JSON.stringify(documents ? pendingDocuments : []), {
+      const routed = route(method, url);
+      const body = routed === undefined ? (documents ? pendingDocuments : []) : routed;
+      return new Response(JSON.stringify(body), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -989,6 +1001,69 @@ describe("notifyWorkerRegistration (C7)", () => {
   const opened: Closable[] = [];
   const outboxReads = () => analysisFakes.requests.filter((request) => request === OUTBOX_READ);
 
+  // ── 카카오 발송 수단(계획 Task 5). NOTIFY_KAKAO_PROVIDER 비면 mock(외부 호출 없음), memo 면 카카오 키 넷이 필요하다 ──
+  // 실제 카카오 서버는 부르지 않는다. 전역 fetch 는 늘 던지는 가짜이고, 토큰 암호화 키는 시험마다 만든다.
+  const PROVIDER_KEY = "NOTIFY_KAKAO_PROVIDER";
+  const KAKAO_USER_ID = "8a7b6c5d-4e3f-4a2b-9c1d-0e9f8a7b6c5d";
+  const KAKAO_TEST_EVENT_ID = "9b8a7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
+  const MEMO_SEND_URL = "https://kapi.kakao.com/v2/api/talk/memo/default/send";
+  const OUTBOX_UPDATE = "PATCH /rest/v1/outbox_events";
+  const LINK_READ = "GET /rest/v1/kakao_notify_links";
+  const memoEnv = (encKey: string) => ({
+    ...analysisEnv,
+    [PROVIDER_KEY]: "memo",
+    KAKAO_REST_API_KEY: "SECRETVALUE-rest-api-key",
+    KAKAO_CLIENT_SECRET: "SECRETVALUE-client-secret",
+    KAKAO_TOKEN_ENC_KEY: encKey,
+    SITE_URL: "https://sol-radar.example",
+  });
+  const newEncKey = (): string => randomBytes(32).toString("base64");
+  /** 전역 fetch 가짜(beforeEach 의 stubGlobal)가 받은 주소. */
+  const globalFetchUrls = (): string[] =>
+    vi.mocked(globalThis.fetch).mock.calls.map(([input]) => String(input));
+
+  /**
+   * 첫 outbox 읽기에 KAKAO_TEST 이벤트 하나를 주고, 그 사용자를 활동 계정·CONNECTED 연결로 답한다.
+   * 연결의 액세스 토큰은 encKey 로 잠근 값이고 한 시간 뒤 만료다(보내기 전에 갱신하지 않는다).
+   */
+  const kakaoTestRoute = (encKey: string): FakeRoute => {
+    let reads = 0;
+    const accessTokenEnc = encryptKakaoToken("SECRETVALUE-access-token", encKey, {
+      userId: KAKAO_USER_ID,
+      kind: "access",
+    });
+    return (method, url) => {
+      if (method === "GET" && url.pathname === "/rest/v1/outbox_events") {
+        reads += 1;
+        if (reads > 1) return [];
+        return [
+          {
+            id: KAKAO_TEST_EVENT_ID,
+            org_id: null,
+            event_type: "KAKAO_TEST",
+            payload: { userId: KAKAO_USER_ID },
+            status: "PENDING",
+            attempts: 0,
+          },
+        ];
+      }
+      if (method === "GET" && url.pathname === "/rest/v1/profiles") return [{ status: "active" }];
+      if (method === "GET" && url.pathname === "/rest/v1/kakao_notify_links") {
+        return [
+          {
+            user_id: KAKAO_USER_ID,
+            access_token_enc: accessTokenEnc,
+            refresh_token_enc: null,
+            access_expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+            refresh_expires_at: null,
+            status: "CONNECTED",
+          },
+        ];
+      }
+      return undefined;
+    };
+  };
+
   beforeEach(() => {
     for (const [key, value] of Object.entries(analysisEnv)) vi.stubEnv(key, value);
     vi.stubGlobal(
@@ -1045,6 +1120,47 @@ describe("notifyWorkerRegistration (C7)", () => {
         outboxReads(),
       ]).toEqual([[], [], [], []]);
     });
+
+    it("NOTIFY_KAKAO_PROVIDER 가 mock·memo 밖이면 그 키 이름만 담아 던진다(값은 싣지 않는다)", async () => {
+      const main = await loadMainWithAnalysisFakes();
+      const error = await rejectionOf(
+        main.notifyWorkerRegistration({ ...analysisEnv, [PROVIDER_KEY]: "SECRETVALUE-kakao" }),
+      );
+      const message = error instanceof Error ? error.message : "";
+      expect(message).toBe("worker env 오류: NOTIFY_KAKAO_PROVIDER");
+    });
+
+    it("memo 인데 카카오 키가 없으면 키 이름만 담아 던진다", async () => {
+      const main = await loadMainWithAnalysisFakes();
+      await expect(
+        main.notifyWorkerRegistration({ ...analysisEnv, [PROVIDER_KEY]: "memo" }),
+      ).rejects.toThrow(
+        "worker env 누락: KAKAO_REST_API_KEY, KAKAO_CLIENT_SECRET, KAKAO_TOKEN_ENC_KEY, SITE_URL",
+      );
+    });
+
+    it("memo 인데 KAKAO_TOKEN_ENC_KEY 가 32바이트가 아니면 그 키 이름만 담아 던진다(값은 싣지 않는다)", async () => {
+      const main = await loadMainWithAnalysisFakes();
+      const shortKey = randomBytes(16).toString("base64");
+      const error = await rejectionOf(
+        main.notifyWorkerRegistration({ ...memoEnv(newEncKey()), KAKAO_TOKEN_ENC_KEY: shortKey }),
+      );
+      const message = error instanceof Error ? error.message : "";
+      expect(message).toBe("worker env 오류: KAKAO_TOKEN_ENC_KEY");
+      expect(message).not.toContain(shortKey);
+    });
+
+    it("memo 이고 키가 모두 맞으면 Worker·Queue·연결을 만들지 않고 카카오도 부르지 않은 채 2단계 시작 함수를 돌려준다", async () => {
+      const main = await loadMainWithAnalysisFakes();
+      const start = await main.notifyWorkerRegistration(memoEnv(newEncKey()));
+      expect(start).toBeTypeOf("function");
+      expect([
+        analysisFakes.redis,
+        analysisFakes.workers,
+        outboxReads(),
+        globalFetchUrls(),
+      ]).toEqual([[], [], [], []]);
+    });
   });
 
   describe("2단계(service role 저장으로 주기 처리 시작)", () => {
@@ -1096,6 +1212,36 @@ describe("notifyWorkerRegistration (C7)", () => {
       expect(shared.disconnect).not.toHaveBeenCalled();
       expect(shared.quit).not.toHaveBeenCalled();
     });
+
+    /** route 로 답하는 가짜 위에서 시작한다. */
+    const startNotifyWith = async (
+      workerEnv: Record<string, string | undefined>,
+      route: FakeRoute,
+    ) => {
+      const main = await loadMainWithAnalysisFakes([], route);
+      const start = await main.notifyWorkerRegistration(workerEnv);
+      const closable = await start(fakeConnection("공유") as unknown as IORedis);
+      opened.push(closable);
+      return closable;
+    };
+
+    it("NOTIFY_KAKAO_PROVIDER 가 없으면 mock 으로 KAKAO_TEST 를 처리하고 전역 fetch(카카오)를 부르지 않는다", async () => {
+      await startNotifyWith(analysisEnv, kakaoTestRoute(newEncKey()));
+      await vi.waitFor(() => {
+        expect(analysisFakes.requests).toContain(OUTBOX_UPDATE);
+      });
+      expect(analysisFakes.requests).toContain(LINK_READ);
+      expect(globalFetchUrls()).toEqual([]);
+    });
+
+    it("memo 면 같은 KAKAO_TEST 를 주입한 fetch 로 나에게 보내기에 보낸다(시험의 전역 fetch 는 던지는 가짜다)", async () => {
+      const encKey = newEncKey();
+      await startNotifyWith(memoEnv(encKey), kakaoTestRoute(encKey));
+      await vi.waitFor(() => {
+        expect(analysisFakes.requests).toContain(OUTBOX_UPDATE);
+      });
+      expect(globalFetchUrls()).toEqual([MEMO_SEND_URL]);
+    });
   });
 
   describe("기본 createWorker 와 함께", () => {
@@ -1114,6 +1260,20 @@ describe("notifyWorkerRegistration (C7)", () => {
       await expect(
         startDefault(main, { ...analysisEnv, [NOTIFY_KEY]: "SECRETVALUE" }),
       ).rejects.toThrow(NOTIFY_KEY);
+      expect(analysisFakes.redis).toEqual([]);
+      expect(analysisFakes.workers).toEqual([]);
+    });
+
+    it.each([
+      ["NOTIFY_KAKAO_PROVIDER 가 틀리면", { [PROVIDER_KEY]: "SECRETVALUE" }, PROVIDER_KEY],
+      [
+        "memo 인데 카카오 키가 없으면",
+        { [PROVIDER_KEY]: "memo" },
+        "worker env 누락: KAKAO_REST_API_KEY",
+      ],
+    ])("%s Redis 연결·Worker 를 만들기 전에 기동을 멈춘다", async (_label, overrides, expected) => {
+      const main = await loadMainWithAnalysisFakes();
+      await expect(startDefault(main, { ...analysisEnv, ...overrides })).rejects.toThrow(expected);
       expect(analysisFakes.redis).toEqual([]);
       expect(analysisFakes.workers).toEqual([]);
     });

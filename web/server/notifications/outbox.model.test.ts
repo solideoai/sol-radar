@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
@@ -71,8 +74,33 @@ const rowOf = (event: OutboxEventRow, title = BID_TITLE) =>
   toNotificationRow({ intent: sendIntentOf(event), outboxEventId: event.id, title, now: NOW });
 
 describe("NOTIFY_EVENT_TYPES", () => {
-  it("알리는 이벤트는 REVIEW_ASSIGNED·ANALYSIS_COMPLETE 두 종이다", () => {
-    expect(NOTIFY_EVENT_TYPES).toEqual(["REVIEW_ASSIGNED", "ANALYSIS_COMPLETE"]);
+  it("알림 단계가 고르는 이벤트는 인앱 두 종과 카카오 두 종(BID_RECOMMENDED·KAKAO_TEST)이다", () => {
+    expect(NOTIFY_EVENT_TYPES).toEqual([
+      "REVIEW_ASSIGNED",
+      "ANALYSIS_COMPLETE",
+      "BID_RECOMMENDED",
+      "KAKAO_TEST",
+    ]);
+  });
+
+  it("마지막으로 만든 부분 인덱스 outbox_events_notify_due_idx 의 이벤트 종류와 같다(findDue 가 인덱스를 탄다)", () => {
+    // 세 곳(NOTIFY_EVENT_TYPES·findDue 필터·부분 인덱스)이 같아야 한다(설계 §4.3). 인덱스는 마이그레이션에서 읽는다.
+    const migrationsDir = fileURLToPath(new URL("../../../supabase/migrations/", import.meta.url));
+    const creates = readdirSync(migrationsDir)
+      .filter((name) => name.endsWith(".sql"))
+      .toSorted()
+      .flatMap((name) =>
+        [
+          ...readFileSync(join(migrationsDir, name), "utf8").matchAll(
+            /create index[^;]*outbox_events_notify_due_idx[^;]*;/gi,
+          ),
+        ].map((match) => match[0]),
+      );
+    const typesInIndex = /event_type in \(([^)]*)\)/i
+      .exec(creates.at(-1) ?? "")?.[1]
+      ?.split(",")
+      .map((value) => value.trim().replace(/^'|'$/g, ""));
+    expect(typesInIndex?.toSorted()).toEqual([...NOTIFY_EVENT_TYPES].toSorted());
   });
 });
 
@@ -134,12 +162,16 @@ describe("toNotificationIntent · ANALYSIS_COMPLETE", () => {
 describe("toNotificationIntent · INVALID", () => {
   const INVALID = { kind: "INVALID" };
 
-  it.each([["BID_CREATED"], ["BID_CHANGED"], ["DEADLINE_APPROACHING"], ["UNKNOWN_EVENT"]])(
-    "두 종이 아닌 이벤트(%s)는 INVALID 다",
-    (eventType) => {
-      expect(toNotificationIntent(reviewAssignedEvent({ event_type: eventType }))).toEqual(INVALID);
-    },
-  );
+  it.each([
+    ["BID_CREATED"],
+    ["BID_CHANGED"],
+    ["DEADLINE_APPROACHING"],
+    ["UNKNOWN_EVENT"],
+    ["BID_RECOMMENDED"],
+    ["KAKAO_TEST"],
+  ])("인앱 두 종이 아닌 이벤트(%s)는 INVALID 다", (eventType) => {
+    expect(toNotificationIntent(reviewAssignedEvent({ event_type: eventType }))).toEqual(INVALID);
+  });
 
   it("org_id 가 null 이면(조직에 속하지 않은 이벤트) INVALID 다", () => {
     expect(toNotificationIntent(reviewAssignedEvent({ org_id: null }))).toEqual(INVALID);
