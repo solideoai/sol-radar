@@ -31,7 +31,7 @@ updated: 2026-10-21
 ## Global Constraints
 
 - 덧붙이기만 한다. 핵심 컷 경로·계약은 바꾸지 않는다: 저장 RPC `ingest_save_revision`, 분석 job, `GET /api/v1/bids/:id` 응답(05 §4.3 `BidDetail.stageLinks` 그대로), `StageTimeline` 의 지금 동작.
-- freeze 10-23 까지 green 이 아니면 데모에서 뺀다. 화면 진입점은 상세의 한 구역(`StageLinks`)뿐이라 그 한 줄을 빼면 사라진다.
+- freeze(10-24 22:00, ADR-042. 처음 10-23 에서 바뀜)까지 green 이 아니면 데모에서 뺀다. 화면 진입점은 상세의 한 구역(`StageLinks`)뿐이라 그 한 줄을 빼면 사라진다.
 - 승률·확률 표시 금지. 제목 유사도 숫자는 화면에 내지 않는다(확률로 읽힐 수 있다). 모바일·결제 코드 금지. 화면 확인은 1440·1280 두 폭만.
 - 공공 API 실호출 금지. live 정규화는 `fixtures/recorded/` 녹음 응답만 쓴다. `AI_PROVIDER=mock`.
 - 마이그레이션은 이 계획에 없다. 필요해지면 `20261021000400`~`000499` 대역만 쓰고, 3e 에 기준점을 보내기 전에 main 을 합쳐 main 최대 번호보다 크게 다시 붙이고 `pnpm db:types` 를 같은 커밋에 넣는다.
@@ -129,11 +129,11 @@ updated: 2026-10-21
 
 별도 계획으로 쓴다. 들어갈 것: 사전규격 일정 실행·발주계획 하루 1회 job, 서비스별 호출 예산 카운터(`quota:15129437:*`·`quota:15129462:*`), env 기본 꺼짐(`G2B_STAGE_INGEST_ENABLED`, 이름은 그때 확정), 발주계획은 입찰공고와 이어지는 행만 저장(D8), 저장은 기존 `ingest_save_revision` 그대로. live 호출이 생기므로 켜는 것은 사용자 결정이다.
 
-## freeze(10-23) 전 최소 범위
+## freeze(10-24 22:00) 전 최소 범위
 
 - **반드시**: Task 1·Task 2. fixture·mock 데이터(`pnpm demo:reset` 의 FX-17~FX-19)로 상세에서 단계 연결과 연결 후보가 보인다. 이것으로 19 Q&A 예비 장면(FX-17 → FX-18)이 화면에서 돈다.
-- **되면**: Task 3. 10-23 전에 green 이면 같은 기준점에 넣고, 아니면 다음 묶음으로 미룬다(데모 장면에 쓰이지 않는다).
-- 10-23 까지 Task 1·2 가 green 이 아니면 `bid-detail-view.tsx` 의 `<StageLinks>` 한 줄과 page 의 읽기를 빼고 데모에서 뺀다(조건 ③).
+- **되면**: Task 3. freeze 전에 green 이면 같은 기준점에 넣고, 아니면 다음 묶음으로 미룬다(데모 장면에 쓰이지 않는다).
+- freeze 까지 Task 1·2 가 green 이 아니면 `bid-detail-view.tsx` 의 `<StageLinks>` 한 줄과 page 의 읽기를 빼고 데모에서 뺀다(조건 ③).
 
 ## 정본 문서에 반영할 것 (45 에 넘긴다, 이 브랜치는 `docs/plans/`·`docs/PROGRESS.md`·`docs/evidence/p08/` 만 쓴다)
 
