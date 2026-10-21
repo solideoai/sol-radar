@@ -237,7 +237,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
 - 호스트 허용 목록: "gateway는 거기에만 붙는다"를 모델 레지스트리(`services/ai/models/registry.yaml`)의 `allowedHosts`로 강제한다. 값은 `acropolissg.com` 하나다([[03-AI-PIPELINE|03]] §11, [[16-DECISIONS|ADR-032]] D2). `QWEN_BASE_URL`·`KEV_BASE_URL`의 호스트가 목록의 값과 정확히 같지 않으면(하위 도메인 포함) gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). 루프백은 시험용으로 허용한다. 구현은 main `0a32e47`에 병합됐다(3b `c5/gateway-hardening-3`).
-- 결정 서버(`sol_decision.serve`) 방어(main `36edfb6`): 요청 본문 128 KiB, state 24,000자, 대기열 `DECISION_MAX_QUEUE` 4(넘으면 503), 요청 마감 `DECISION_TIMEOUT_MS` 4,500ms(넘으면 504), 한글 state 거절, 패키지 최상위 `*.py`의 manifest 대조(`trust_remote_code`가 실행하는 코드). 세부는 [[03-AI-PIPELINE|03]] §5.3, 대조 범위의 한계는 [[16-DECISIONS|16]] 미결정 28이다.
+- 결정 서버(`sol_decision.serve`) 방어(main `36edfb6`): 요청 본문 128 KiB, state 24,000자, 대기열 `DECISION_MAX_QUEUE` 4(넘으면 503), 요청 마감 `DECISION_TIMEOUT_MS` 4,500ms(넘으면 504), 한글 state 거절, 패키지 최상위 `*.py`의 manifest 대조(`trust_remote_code`가 실행하는 코드). 세부는 [[03-AI-PIPELINE|03]] §5.3, 대조 범위의 한계와 임베딩 sha256 대조 추가(2026-10-21 사용자 결정, 구현 전)는 [[16-DECISIONS|16]] 미결정 28이다.
 
 ### 회사 GPU로 가는 데이터
 - 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
