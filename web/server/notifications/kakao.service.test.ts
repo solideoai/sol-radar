@@ -287,6 +287,18 @@ describe("processKakaoEvent · Review Focus 3 — 사용자가 카카오에서 �
     ]);
   });
 
+  // 행 갱신이 실패해 이벤트를 다시 처리하면 연결은 이미 만료라 발송 수단이 changed=false 를 준다 — 알림을 다시 만들 기회가 없다.
+  it("EXPIRED(changed=true) 뒤 행 갱신이 던져도 만료 인앱 알림은 이미 남아 있다(알림을 행 갱신보다 먼저 넣는다)", async () => {
+    const storeFailure = new Error("저장 실패 흉내");
+    const s = setup(
+      { fail: (call) => (call.method === "setKakaoRowStatus" ? storeFailure : undefined) },
+      () => ({ kind: "EXPIRED", changed: true }),
+    );
+    await expect(rejectionOf(s.processOnce())).resolves.toBe(storeFailure);
+    expect(s.inApp).toHaveLength(1);
+    expect(methodsOf(s.calls).slice(-2)).toEqual(["insertNotification", "setKakaoRowStatus"]);
+  });
+
   it("EXPIRED(changed=false) 면 행은 DEAD 이고 인앱 알림은 없다(바뀐 순간에만 한 번)", async () => {
     const s = setup({}, () => ({ kind: "EXPIRED", changed: false }));
     await s.processOnce();

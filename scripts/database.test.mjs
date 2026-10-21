@@ -7874,6 +7874,21 @@ describe("카카오톡 알림 연결 — kakao_notify_links", () => {
     assert.equal(await testOutboxCountOf(pglite, ME), 11);
   });
 
+  it("⑩ 다른 종류의 outbox 는 aggregate_id 가 그 사람이어도 세지 않는다 — KAKAO_TEST 만 상한에 든다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    await asWorker(pglite);
+    for (let index = 0; index < 10; index += 1) {
+      await pglite.query(
+        `insert into public.outbox_events (org_id, aggregate_type, aggregate_id, event_type, idempotency_key, status)
+         values (null, 'kakao_notify_link', $1::uuid, 'REVIEW_ASSIGNED', $2, 'PROCESSED')`,
+        [ME, `${ME}:other-${index}:REVIEW_ASSIGNED`],
+      );
+    }
+    assert.equal(await requestTest(pglite, ME), true);
+    assert.equal(await testOutboxCountOf(pglite, ME), 1);
+  });
+
   // ── ⑪ 20261021000004: 상한을 세는 질의가 outbox 전체를 읽지 않는다(보안 검토 하) ──
   it("⑪ outbox_events_kakao_test_idx 는 (aggregate_id, created_at) 이고 KAKAO_TEST 행만 덮는다", async (t) => {
     const pglite = await migratedDb(t);

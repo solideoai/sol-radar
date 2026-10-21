@@ -119,6 +119,35 @@ describe("createOAuthState·verifyOAuthState", () => {
     }
   });
 
+  // MAC 이 맞아도 발급 시각 모양 검사가 따로 막는다. 같은 시각의 다른 표기(+·16진·지수·13자리)는 받지 않는다.
+  it("MAC 이 맞아도 발급 시각이 10진 정수 1~12자리가 아니면 거부한다", () => {
+    const secret = newKey();
+    const issuedSeconds = NOW.getTime() / 1000;
+    const nonce = randomBytes(16).toString("base64url");
+    const stateWith = (issuedAt: string) =>
+      `${issuedAt}.${nonce}.${expectedMac(secret, USER_ID, issuedAt, nonce)}`;
+    expect(
+      verifyOAuthState({
+        state: stateWith(String(issuedSeconds)),
+        userId: USER_ID,
+        now: NOW,
+        secret,
+      }),
+    ).toBe(true);
+    for (const issuedAt of [
+      `+${issuedSeconds}`,
+      `0x${issuedSeconds.toString(16)}`,
+      `${issuedSeconds}e0`,
+      `000${issuedSeconds}`,
+    ]) {
+      expect(Number(issuedAt)).toBe(issuedSeconds);
+      expect(
+        verifyOAuthState({ state: stateWith(issuedAt), userId: USER_ID, now: NOW, secret }),
+        issuedAt,
+      ).toBe(false);
+    }
+  });
+
   it("키 형식이 틀리면 만들기·확인 모두 형식 오류를 던진다(값은 싣지 않는다)", () => {
     const shortKey = randomBytes(16).toString("base64");
     expect(() => createOAuthState({ userId: USER_ID, now: NOW, secret: shortKey })).toThrow(

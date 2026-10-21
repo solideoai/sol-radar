@@ -243,6 +243,23 @@ describe("completeKakaoConnect — 거부·state (Review Focus 5)", () => {
       }),
       reason: "STATE_INVALID",
     },
+    {
+      // state 를 먼저 본다 — access_denied 밖의 카카오 오류 값도 state 가 맞기 전에는 믿지 않는다.
+      name: "state 가 틀린 채 다른 카카오 오류(server_error)로 돌아왔다",
+      build: (config: KakaoConnectConfig) => ({
+        params: callbackParams({ error: "server_error", state: "1.a.b" }),
+        stateCookie: stateFor(config),
+      }),
+      reason: "STATE_INVALID",
+    },
+    {
+      name: "state 쿠키 없이 다른 카카오 오류(server_error)로 돌아왔다",
+      build: (config: KakaoConnectConfig) => ({
+        params: callbackParams({ error: "server_error", state: stateFor(config) }),
+        stateCookie: undefined,
+      }),
+      reason: "STATE_MISSING",
+    },
   ] as const;
 
   for (const testCase of rejected) {
