@@ -1,0 +1,26 @@
+async (page) => {
+  const context = await page.context().browser().newContext({ javaScriptEnabled: false });
+  const probe = await context.newPage();
+  try {
+    await probe.goto('http://localhost:3000/auth/login');
+    await probe.getByLabel('이메일', { exact: true }).fill('native-submit@example.test');
+    await probe.getByLabel('비밀번호', { exact: true }).fill('native-submit-sentinel');
+    const submitted = probe.waitForRequest((request) =>
+      request.isNavigationRequest() && new URL(request.url()).pathname === '/auth/login'
+    );
+    await probe.route('http://localhost:3000/auth/login**', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/plain', body: 'Submission captured locally' })
+    );
+    await probe.getByRole('button', { name: '로그인', exact: true }).click();
+    const request = await submitted;
+    const url = new URL(request.url());
+    return {
+      method: request.method(),
+      passwordInUrl: url.searchParams.has('password'),
+      passwordInBody: (request.postData() || '').includes('native-submit-sentinel'),
+      passed: request.method() === 'POST' && !url.searchParams.has('password'),
+    };
+  } finally {
+    await context.close();
+  }
+}

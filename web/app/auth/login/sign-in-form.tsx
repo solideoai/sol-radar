@@ -44,7 +44,7 @@ export function SignInForm() {
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+    <form method="post" onSubmit={form.handleSubmit(onSubmit)} noValidate>
       <FieldGroup>
         <Field data-invalid={Boolean(errors.email)}>
           <FieldLabel htmlFor="email">이메일</FieldLabel>

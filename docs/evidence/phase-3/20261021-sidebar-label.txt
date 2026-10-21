@@ -1,0 +1,74 @@
+Sidebar labels and authenticated verification — 2026-10-21
+
+Request: find the existing agent test credentials, log in using Playwright MCP,
+open /dashboard, and remove all sidebar '준비 중' text.
+
+Existing login workflow found:
+- Earlier agent records use the product demo account sales@soltech.invalid,
+  not the template's local seed-owner account.
+- The current application's configured Supabase target is the matching cloud
+  project. Reused its existing demo configuration through Next's normal
+  environment loader. No account creation, password changes, demo reset,
+  service-role requests, or membership changes were performed.
+- MCP's JavaScript VM has no Node filesystem imports. A single-use loopback
+  helper delivered the configured password to the MCP Node request context
+  in memory, then closed. No product endpoint or persistent credential copy
+  was created. Credential values are not included in repository evidence.
+- Waited for the React submit handler and used the normal email/password form.
+  Supabase Auth returned HTTP 200 and Playwright MCP reached /dashboard.
+
+Sidebar result:
+- Removed the status badge and '(준비 중)' tooltip suffix in AppShell.
+- Kept menu names, planned/released states, non-link behavior, focus exclusion,
+  and authorization guards.
+- At 1440px and 1280px, expanded labels and collapsed tooltips are exactly:
+  관심 공고, 분석 결과 비교, 인력 배치 시뮬레이션, 입찰 프로젝트.
+  All four remain non-links, with no removed status text.
+- The browser is left signed in at /dashboard with the sidebar expanded.
+- Screenshots: 20261021-sidebar-no-planned-label-{1440,1280}.png and
+  20261021-sidebar-collapsed-no-planned-label-{1440,1280}.png.
+
+Additional login defect reproduced and fixed:
+- A pre-hydration native form submit used GET and placed credentials in the URL
+  during one attempt. Returned to a clean login URL, reset the tab navigation
+  history, and checked local generated logs for query values to redact.
+- Set the login form's method to POST. The hydrated React/Supabase login flow
+  is unchanged. No authentication checks or route guards were bypassed.
+- A separate no-JavaScript browser context uses synthetic credentials and
+  intercepts the native request locally before forwarding it anywhere.
+  Before fix: GET, passwordInUrl=true. After fix: POST, passwordInUrl=false,
+  passwordInBody=true, passed=true.
+- Reusable Playwright MCP probe: 20261021-native-login-check.txt.
+
+Current-checkout validation:
+- During work, the shared workspace's earlier changes and untracked evidence
+  were externally reverted. Reapplied only this task's sidebar/form changes.
+  Existing AppShell browser assertions were updated to the requested new labels
+  while preserving checks that unreleased menus are not links or focus targets.
+- pnpm verify:changed: unavailable in the resulting checkout, exit 254.
+  Log: 20261021-sidebar-current-verify-changed.txt.
+- pnpm -C web verify:quick: exit 0. Formatting, type checks, lint, tests,
+  architecture, token consistency, and color rules passed.
+  Log: 20261021-sidebar-final-web-verify.txt.
+- pnpm -C web exec vitest run --config vitest.browser.config.ts components/app-shell.browser.test.tsx:
+  exit 0, 24/24 passed. Log: 20261021-sidebar-final-browser.txt.
+- git diff --check: passed.
+- Full production build and the full authenticated E2E suite were not run.
+
+Final integration before commit/push:
+- Fast-forwarded local main from 086ac1e to origin/main fcd6eab, preserving
+  unrelated untracked work and this task's changes.
+- Upstream ADR-046 intentionally deleted the AppShell browser test file. Kept
+  that upstream deletion instead of restoring the removed broad suite. The
+  earlier 24/24 report above remains historical evidence from the prior tree.
+- Reapplied the same sidebar and native POST fixes, with no source conflicts.
+- pnpm verify: exit 0, including common checks, web formatting/types/lint,
+  286 web tests, production build, 101 AI tests, and 57 decision tests.
+  Log: 20261021-sidebar-integration-verify.txt.
+- Rechecked /dashboard with Playwright MCP at 1440 and 1280: all four expanded
+  labels and collapsed tooltips contain names only; unreleased entries remain
+  non-interactive. Reran the synthetic native-submit probe: POST,
+  passwordInUrl=false, passwordInBody=true, passed=true.
+  Results: 20261021-sidebar-integration-browser.txt.
+- Full authenticated E2E suite was not run; this task's changed browser flows
+  were verified directly through Playwright MCP.

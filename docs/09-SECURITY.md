@@ -31,6 +31,7 @@ updated: 2026-10-21
 - **현재 조직**: 서버가 정하고 요청의 조직 ID를 믿지 않는다. 업무 멤버십 2개 이상은 지원하지 않는다(`403 UNSUPPORTED_ACCOUNT_STATE`, [[16-DECISIONS|ADR-021]]).
 - **정지**: `profiles.status='suspended'`(템플릿 `20261015000001_account_status_and_deletion.sql`)면 토큰이 아직 유효해도 API는 `403 ACCOUNT_DISABLED`이고, 정책 도우미(`public.my_org_ids()`)가 빈 목록을 돌려 조직 데이터가 닫힌다. 정지는 서비스 운영자(`profiles.is_admin`)만 한다. 조직 ADMIN의 "비활성화"는 그 조직에서 내보내기다([[05-API-SPEC|05 API]] §2).
 - 로그인 실패 문구는 이메일 존재 여부를 구분하지 않는다([[06-UI-UX|06 UI]] §5.2).
+- 로그인 폼의 기본 전송 방식은 `POST`로 고정한다. React 이벤트가 연결되기 전에도 이메일·비밀번호가 URL 검색어에 붙지 않는다. 정상 로그인은 기존 Supabase Auth 호출을 그대로 사용한다(2026-10-21 재현·수정, `docs/evidence/phase-3/20261021-native-login-check.txt`).
 
 > [!warning] 미검증 가정 — Supabase Auth 설정
 > access token 만료 시간, refresh token 회전·재사용 탐지, 로그인 시도 제한(요청 수 제한), 비밀번호 정책은 자체 코드가 아니라 **Supabase Auth 설정**이다. 공개 가입은 켜 둔다(ADR-018). 구체 값은 Supabase 대시보드 설정으로 정하고 확인한다(미검증). 확인 전까지 이 문서는 값을 적지 않는다([[16-DECISIONS|16 ADR]] 미결정 표).
