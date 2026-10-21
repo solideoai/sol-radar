@@ -32,7 +32,7 @@ const { analysisJobDataSchema, ANALYSIS_QUEUE } = await import(
 );
 const { quotaState } = await import(new URL("../web/server/ingestion/index.ts", import.meta.url));
 const webDir = fileURLToPath(new URL("../web/", import.meta.url));
-const standaloneDir = join(webDir, ".next/standalone");
+const standaloneDir = join(webDir, ".next/standalone/web");
 await access(join(standaloneDir, "server.js"));
 // Dockerfile과 같은 실제 정적 파일 배치. 존재하는 asset도 Proxy가 막는지 본다.
 await cp(join(webDir, ".next/static"), join(standaloneDir, ".next/static"), { recursive: true });

@@ -3,7 +3,15 @@ import { z } from "zod";
 
 // 05 §4.1 공통 + §4.3 공고 DTO. 타입은 z.infer 로 얻는다(ADR-016).
 
-export const bidStageSchema = z.enum(["PLAN", "PRE_SPEC", "NOTICE"]);
+export const bidStageSchema = z.enum([
+  "PLAN",
+  "PROCUREMENT_REQUEST",
+  "PRE_SPEC",
+  "NOTICE",
+  "OPENING",
+  "AWARD",
+  "CONTRACT",
+]);
 export const bidStatusSchema = z.enum(["OPEN", "AMENDED", "CANCELLED", "CLOSED"]);
 export const recommendationSchema = z.enum(["BID", "WATCH", "NO_BID"]);
 export const recommendationBasisSchema = z.enum(["RULES_ONLY", "RULES_WITH_KEV_ASSIST"]);

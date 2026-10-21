@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
+import { formatKst } from "@/components/bids/format";
+import { OpportunityRefresh } from "@/components/work/opportunities-refresh";
 import { defaultOrigin } from "@/server/bids";
-import { loadBidCount, loadBidPage, loadDashboardSummary } from "@/app/_lib/work-data";
+import {
+  loadOpportunityPage,
+  loadOpportunitySources,
+  loadOpportunitySummary,
+} from "@/app/_lib/opportunity-data";
 import { canRunIngestion } from "@/app/(app)/(work)/empty-state";
 import { requireWork } from "@/app/(app)/(work)/work";
-import { dashboardQueries } from "./dashboard-queries";
+import { dashboardListQuery, dashboardQueries } from "./dashboard-queries";
 import { DASHBOARD_DESCRIPTION, DASHBOARD_TITLE, DashboardView } from "./dashboard-view";
 
 export const metadata: Metadata = { title: DASHBOARD_TITLE };
@@ -19,26 +25,42 @@ export default async function DashboardPage() {
   const now = new Date();
   const queries = dashboardQueries(now, work.runMode);
   // "BID 권고" 카드는 BID 표와 같은 조건(queries.bid)으로 센다. 표·전체 보기와 숫자가 갈라지지 않는다(M4).
-  const [summary, recommended, recommendedTotal, deadline] = await Promise.all([
-    loadDashboardSummary(work.orgId, defaultOrigin(work.runMode)),
-    loadBidPage(work.orgId, queries.bid),
-    loadBidCount(work.orgId, queries.bid),
-    loadBidPage(work.orgId, queries.deadline),
+  const [summaryResult, reviewResult, earlyResult, sourcesResult] = await Promise.allSettled([
+    loadOpportunitySummary(work.orgId, defaultOrigin(work.runMode), now.toISOString()),
+    loadOpportunityPage(work.orgId, queries.review),
+    loadOpportunityPage(work.orgId, queries.early),
+    loadOpportunitySources(defaultOrigin(work.runMode)),
   ]);
+  if (summaryResult.status === "rejected") throw summaryResult.reason;
+  const summary = summaryResult.value;
   return (
     <AppPage
       title={DASHBOARD_TITLE}
       description={DASHBOARD_DESCRIPTION}
       typeScale="dashboard"
       contentClassName="max-w-360"
+      actions={
+        <div className="flex flex-wrap items-center gap-3">
+          <time
+            dateTime={summary.generatedAt}
+            className="type-caption text-muted-foreground tabular-nums"
+          >
+            {formatKst(summary.generatedAt)} 기준 · KST
+          </time>
+          <OpportunityRefresh />
+        </div>
+      }
     >
       <DashboardView
         summary={summary}
-        recommended={recommended.items}
-        recommendedTotal={recommendedTotal}
-        deadline={deadline.items}
+        review={reviewResult.status === "fulfilled" ? reviewResult.value.items : null}
+        early={earlyResult.status === "fulfilled" ? earlyResult.value.items : null}
+        sources={sourcesResult.status === "fulfilled" ? sourcesResult.value : null}
+        reviewQuery={dashboardListQuery(queries.review)}
+        earlyQuery={dashboardListQuery(queries.early)}
         now={now}
         canRunIngestion={canRunIngestion(work.role)}
+        runMode={work.runMode}
       />
     </AppPage>
   );

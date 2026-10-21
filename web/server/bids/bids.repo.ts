@@ -24,6 +24,7 @@ export type AnalysisInput = {
   revisionId: string;
   extractionId: string | null;
   algorithmVersion: string;
+  stage?: BidListItem["stage"];
 };
 
 export type CreateAnalysisRun = AnalysisInput & {

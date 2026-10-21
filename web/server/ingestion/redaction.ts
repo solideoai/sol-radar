@@ -3,8 +3,8 @@ import "server-only";
 // ── V2-11 서비스키 보호: 로그·오류·ingest_errors 에 서비스키가 어떤 형태로도 남지 않게 한다 ──
 export const REDACTED = "[REDACTED]";
 
-const SERVICE_KEY_PARAM_NAME = "servicekey";
-const SERVICE_KEY_QUERY = /([?&]servicekey=)[^&#]*/gi;
+const SERVICE_KEY_PARAM_NAMES = new Set(["servicekey", "apikey"]);
+const CREDENTIAL_QUERY = /([?&])([^=&#\s]+)=[^&#]*/g;
 const REGEX_SPECIAL = /[.*+?^${}()|[\]\\]/g;
 
 const escapeRegex = (text: string): string => text.replace(REGEX_SPECIAL, "\\$&");
@@ -33,11 +33,11 @@ export function redactSecrets(text: string, secrets: readonly string[]): string 
 
 function isServiceKeyName(rawName: string): boolean {
   try {
-    return (
-      decodeURIComponent(rawName.replaceAll("+", " ")).toLowerCase() === SERVICE_KEY_PARAM_NAME
+    return SERVICE_KEY_PARAM_NAMES.has(
+      decodeURIComponent(rawName.replaceAll("+", " ")).toLowerCase(),
     );
   } catch {
-    return rawName.toLowerCase() === SERVICE_KEY_PARAM_NAME;
+    return SERVICE_KEY_PARAM_NAMES.has(rawName.toLowerCase());
   }
 }
 
@@ -50,7 +50,11 @@ const redactQueryPart = (part: string): string => {
 
 // URL 을 다시 직렬화하면 다른 파라미터의 인코딩이 바뀔 수 있어서, 쿼리 문자열을 원문 그대로 잘라 값만 바꾼다.
 export function redactUrl(url: string): string {
-  if (!URL.canParse(url)) return url.replace(SERVICE_KEY_QUERY, `$1${REDACTED}`);
+  if (!URL.canParse(url)) {
+    return url.replace(CREDENTIAL_QUERY, (query, separator: string, name: string) =>
+      isServiceKeyName(name) ? `${separator}${name}=${REDACTED}` : query,
+    );
+  }
   const hashIndex = url.indexOf("#");
   const beforeHash = hashIndex === -1 ? url : url.slice(0, hashIndex);
   const hash = hashIndex === -1 ? "" : url.slice(hashIndex);

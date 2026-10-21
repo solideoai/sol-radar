@@ -211,3 +211,155 @@ sources:
     redistributionLimit: 가상 데이터(isDemo)
     sampleResponses: []
     lastVerifiedAt: "2026-10-19"
+
+  # ADR-047 신규 6서비스: 문서 확인 완료, 실인증·응답/완전성 검증 전에는 호출하지 않는다.
+  - {
+      "key": "kwater-bid-notice",
+      "displayName": "K-water 전자조달 입찰공고",
+      "provider": "한국수자원공사",
+      "sourceFamily": "KWATER",
+      "serviceId": "15101635",
+      "serviceKeyEnv": "KWATER_BID_NOTICE_SERVICE_KEY",
+      "approvalStatus": "NOT_REQUESTED",
+      "enabled": false,
+      "verification": "NOT_VERIFIED",
+      "keyIssuance": "UNKNOWN",
+      "endpoint":
+        {
+          "baseUrl": "https://apis.data.go.kr/B500001/ebid/tndr3",
+          "operations": ["servcList", "dmscptList"],
+        },
+      "method": "GET",
+      "quota": { "daily": 10000, "tps": null },
+      "fieldMapping": {},
+      "changeNoticeUrl": "https://www.data.go.kr/data/15101635/openapi.do",
+      "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
+      "sampleResponses": [],
+      "lastVerifiedAt": "2026-10-21",
+    }
+  - {
+      "key": "lh-bid-notice",
+      "displayName": "LH 입찰공고정보",
+      "provider": "한국토지주택공사",
+      "sourceFamily": "LH",
+      "serviceId": "15159012",
+      "serviceKeyEnv": "LH_BID_NOTICE_SERVICE_KEY",
+      "approvalStatus": "NOT_REQUESTED",
+      "enabled": false,
+      "verification": "NOT_VERIFIED",
+      "keyIssuance": "UNKNOWN",
+      "endpoint":
+        {
+          "baseUrl": "https://apis.data.go.kr/B552555/OpenBidInfoList",
+          "operations": ["getOpenBidInfo"],
+        },
+      "method": "GET",
+      "quota": { "daily": 1000, "tps": null },
+      "fieldMapping": {},
+      "changeNoticeUrl": "https://www.data.go.kr/data/15159012/openapi.do",
+      "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
+      "sampleResponses": [],
+      "lastVerifiedAt": "2026-10-21",
+    }
+  - {
+      "key": "kwater-procurement-plan",
+      "displayName": "K-water 전자조달 발주계획",
+      "provider": "한국수자원공사",
+      "sourceFamily": "KWATER",
+      "serviceId": "15102588",
+      "serviceKeyEnv": "KWATER_PROCUREMENT_PLAN_SERVICE_KEY",
+      "approvalStatus": "NOT_REQUESTED",
+      "enabled": false,
+      "verification": "NOT_VERIFIED",
+      "keyIssuance": "UNKNOWN",
+      "endpoint":
+        { "baseUrl": "https://apis.data.go.kr/B500001/ebid/ordg2", "operations": ["servc", "gds"] },
+      "method": "GET",
+      "quota": { "daily": 10000, "tps": null },
+      "fieldMapping": {},
+      "changeNoticeUrl": "https://www.data.go.kr/data/15102588/openapi.do",
+      "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
+      "sampleResponses": [],
+      "lastVerifiedAt": "2026-10-21",
+    }
+  - {
+      "key": "lh-pre-specification",
+      "displayName": "LH 사전규격공개정보",
+      "provider": "한국토지주택공사",
+      "sourceFamily": "LH",
+      "serviceId": "15159011",
+      "serviceKeyEnv": "LH_PRE_SPECIFICATION_SERVICE_KEY",
+      "approvalStatus": "NOT_REQUESTED",
+      "enabled": false,
+      "verification": "NOT_VERIFIED",
+      "keyIssuance": "UNKNOWN",
+      "endpoint":
+        {
+          "baseUrl": "https://apis.data.go.kr/B552555/OpenAdvcinfoReqList",
+          "operations": ["getOpenAdvcinfoReqList"],
+        },
+      "method": "GET",
+      "quota": { "daily": 1000, "tps": null },
+      "fieldMapping": {},
+      "changeNoticeUrl": "https://www.data.go.kr/data/15159011/openapi.do",
+      "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
+      "sampleResponses": [],
+      "lastVerifiedAt": "2026-10-21",
+    }
+  - {
+      "key": "g2b-procurement-request",
+      "displayName": "나라장터 조달요청서비스",
+      "provider": "조달청",
+      "sourceFamily": "G2B",
+      "serviceId": "15129468",
+      "serviceKeyEnv": "G2B_PROCUREMENT_REQUEST_SERVICE_KEY",
+      "approvalStatus": "NOT_REQUESTED",
+      "enabled": false,
+      "verification": "NOT_VERIFIED",
+      "keyIssuance": "UNKNOWN",
+      "endpoint":
+        {
+          "baseUrl": "https://apis.data.go.kr/1230000/ao/PrcrmntReqInfoService",
+          "operations": ["getPrcrmntReqInfoListGnrlServc", "getPrcrmntReqInfoListThngDetail"],
+        },
+      "method": "GET",
+      "quota": { "daily": 1000, "tps": null },
+      "fieldMapping": {},
+      "changeNoticeUrl": "https://www.data.go.kr/data/15129468/openapi.do",
+      "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
+      "sampleResponses": [],
+      "lastVerifiedAt": "2026-10-21",
+    }
+  - {
+      "key": "kepco-ebid-contract",
+      "displayName": "KEPCO 전자입찰계약정보",
+      "provider": "한국전력공사",
+      "sourceFamily": "KEPCO",
+      "serviceId": "15148223",
+      "serviceKeyEnv": "KEPCO_EBID_CONTRACT_SERVICE_KEY",
+      "approvalStatus": "NOT_REQUESTED",
+      "enabled": false,
+      "verification": "NOT_VERIFIED",
+      "keyIssuance": "ISSUED",
+      "endpoint":
+        {
+          "baseUrl": "https://bigdata.kepco.co.kr/openapi/v1/electContract.do",
+          "operations": ["electContract"],
+        },
+      "method": "GET",
+      "quota": { "daily": null, "tps": null },
+      "fieldMapping":
+        {
+          "no": "noticeId (companyId namespace)",
+          "name": "title",
+          "companyId": "providerCompanyId",
+          "progressState": "providerStatus (explicit verified mapping)",
+          "noticeDate": "publishedAt",
+          "endDatetime": "biddingEndsAt",
+          "bidAttendReqCloseDatetime": "applicationDeadlineAt",
+        },
+      "changeNoticeUrl": "https://www.data.go.kr/data/15148223/openapi.do",
+      "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
+      "sampleResponses": [],
+      "lastVerifiedAt": "2026-10-21",
+    }

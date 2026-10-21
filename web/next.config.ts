@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 // 모든 응답(페이지·404·정적 파일)에 다는 보안 헤더. e2e/operations.spec.ts 가 응답에서 확인한다.
 // CSP(Content-Security-Policy)는 여기 두지 않는다. nonce 가 요청마다 달라야 해서 proxy.ts 가 화면 응답에 단다
@@ -20,7 +21,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  turbopack: { root: __dirname },
+
+  // 서비스 현황/수동접수는 Worker와 같은 정본 registry를 읽는다. web 밖의 이 파일을 서버 산출물에 포함한다.
+  outputFileTracingRoot: path.resolve(__dirname, ".."),
+  outputFileTracingIncludes: { "/*": ["../infra/sources/registry.yaml"] },
+  turbopack: { root: path.resolve(__dirname, "..") },
   // X-Powered-By: Next.js 를 빼서 쓰는 프레임워크를 알리지 않는다.
   poweredByHeader: false,
   // bullmq 는 선택 의존(pg)과 SQL 파일 읽기를 포함해 번들하면 깨질 수 있다. Node 의 require 로 쓴다(ADR 판단 5).

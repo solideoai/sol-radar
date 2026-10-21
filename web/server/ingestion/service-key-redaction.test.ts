@@ -197,3 +197,18 @@ describe("redactUrl — URL 로 읽히지 않는 경우(정규식)", () => {
     expect(redactUrl(`op?serviceKey=${ENCODED_ONCE}#top`)).toBe("op?serviceKey=[REDACTED]#top");
   });
 });
+
+describe("external API credential names", () => {
+  it("redacts mixed-case and encoded apiKey names alongside serviceKey", () => {
+    expect(redactUrl("request failed: /openapi?%61piKey=echo&companyId=COM01")).toBe(
+      "request failed: /openapi?%61piKey=[REDACTED]&companyId=COM01",
+    );
+    expect(
+      redactUrl(
+        "https://bigdata.kepco.co.kr/openapi/v1/electContract.do?ApiKey=secret&%61piKey=echo&serviceKey=other&companyId=COM01",
+      ),
+    ).toBe(
+      "https://bigdata.kepco.co.kr/openapi/v1/electContract.do?ApiKey=[REDACTED]&%61piKey=[REDACTED]&serviceKey=[REDACTED]&companyId=COM01",
+    );
+  });
+});

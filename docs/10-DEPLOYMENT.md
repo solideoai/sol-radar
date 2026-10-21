@@ -485,6 +485,12 @@ Hobby는 개인·비상업 조건과 월100GB, Pro는 현재 $20/월·기본 Fla
 
 승인된 공급자 스위치는 `NOTIFY_EMAIL_PROVIDER=mock|smtp`(기본 `mock`)다. 기존 초대 메일 SMTP 설정을 재사용하며 실발송 계정은 사용자 선택인 데모 전용 Gmail이다. `SMTP_USER`·`SMTP_PASSWORD` 등은 이를 읽는 서버 프로세스에만 전달하고 공개 변수·로그·저장소에 넣지 않는다. 이 절은 env 계약의 승인 범위를 설명하며 현재 main worker가 이미 읽는다는 뜻이 아니다. 구현·통합 뒤 실제 대상 환경에서 확인한다. 시험·로컬은 외부 실발송 없이 mock·Mailpit을 사용하고, 개인 설정·EMAIL 채널 적용·수신 확인 전에는 기능 완료로 표시하지 않는다([[13-NOTIFICATIONS|13]]).
 
+## 검토 중 확장: 서비스별 활성화와 실행 모드
+
+ADR-047 [계획](plans/2026-10-21-public-procurement-expansion-plan.md)I2/I7은 신규 서비스를 disabled 상태로 준비하고 키/승인/실응답/완전성을 검증한 뒤 하나씩 live에서만 활성화하는 안이다. 기존 live/fixture/mock·DEMO/AI표시·자동fallback금지·호스팅 승인 규칙을 유지한다. 신규 env6개와 KEPCO endpoint는 스펙§3의 이름을 사용하되 이번에는 실제 env/배포 설정을 바꾸지 않았다.
+
+현재 Vercel Services 구성과 별도 회사 Redis Gateway/Storage 전환 작업의 완료 범위를 구분한다([[20261021-review|조사]]). Nginx·운영Compose·Redis·Gateway·bucket·모델을 이번 확장으로 변경하지 않는다. 배포 전 실제SHA/검사/기간/복구안을 준비하고 `/predeploy-review`·운영DB/배포 확인을 받는다. 기존 데이터/볼륨을 삭제하는 롤백은 제안하지 않는다.
+
 ## 관련 문서
 - [[02-ARCHITECTURE|02 아키텍처]]
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — env 전체 표, 실행 모드, `/parse`·레지스트리 계약
@@ -501,3 +507,6 @@ Hobby는 개인·비상업 조건과 월100GB, Pro는 현재 $20/월·기본 Fla
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가(노트북에서 엔드포인트 접속)·LoRA 메모리 검증(회사 측 실행 요청), 레지스트리 반입
 - [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] · [[23-WEEKEND-FINETUNE|23 주말 파인튜닝 계획]] — GPU 1 공유 실행 절차
 - [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) — ADR-034 외부 사실(§1)·엔드포인트·env(§5)·GPU 1 공유 메모리 계획(§8)
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

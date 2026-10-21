@@ -9,6 +9,7 @@ test("company Compose publishes only the HTTP service on loopback6380 and reuses
   );
   assert.deepEqual(Object.keys(config.services), ["redis-api"]);
   const api = config.services["redis-api"];
+  assert.deepEqual(api.build, { context: "..", dockerfile: "web/Dockerfile" });
   assert.deepEqual(api.ports, ["127.0.0.1:6380:3000"]);
   assert.equal(api.restart, "unless-stopped");
   assert.equal(api.environment.SOL_DEPLOYMENT_ROLE, "redis-api");
@@ -25,6 +26,8 @@ test("Gateway image cannot copy local secret files and starts the existing Next 
   assert.match(ignore, /node_modules/);
   assert.match(dockerfile, /USER node/);
   assert.match(dockerfile, /\.next\/standalone/);
+  assert.match(dockerfile, /COPY infra\/sources\/ \/app\/infra\/sources\//);
+  assert.match(dockerfile, /WORKDIR \/app\/web/);
   assert.match(dockerfile, /CMD \["node", "server.js"\]/);
   assert.doesNotMatch(dockerfile, /COPY.*\.env/);
 });

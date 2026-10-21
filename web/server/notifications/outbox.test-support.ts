@@ -423,7 +423,7 @@ export function fakeSupabase(route: AsyncPostgrestRoute = () => undefined) {
 }
 
 // ── 3-1. PostgREST 필터 흉내(메모리 행 고르기) ──
-// 지원: <열>=[not.]<op>.<값>(eq·neq·lt·lte·gt·gte·in·is), or·and 와 그 안의 and(…)·or(…).
+// 지원: <열>=[not.]<op>.<값>(eq·neq·lt·lte·gt·gte·in·is·ilike), or·and 와 그 안의 and(…)·or(…).
 // 같은 이름의 필터가 여럿이면 모두 맞아야 한다(AND). 시각 열(…_at)은 시각으로, 둘 다 수면 수로, 나머지는 글자로 비교한다.
 // null 칸은 is 말고는 어떤 비교에도 맞지 않는다(SQL 의 null). 모르는 연산자·없는 열·틀린 모양이면 400(FAKE_UNSUPPORTED_FILTER).
 
@@ -499,6 +499,23 @@ function matchesOperator(column: string, cell: unknown, operator: string): boole
   }
   if (cell === null || cell === undefined) return false;
   const isMatch = (() => {
+    if (op === "ilike") {
+      const pattern = unquote(raw);
+      const literal = (char: string) => ("\\^$.*+?()[]{}|".includes(char) ? `\\${char}` : char);
+      let expression = "^";
+      for (let index = 0; index < pattern.length; index += 1) {
+        const char = pattern[index];
+        if (char === undefined) break;
+        if (char === "\\") {
+          const next = pattern[index + 1];
+          if (next === undefined) throw new UnsupportedFilter("ilike 이스케이프가 끝나지 않았다");
+          expression += literal(next);
+          index += 1;
+        } else
+          expression += char === "%" || char === "*" ? ".*" : char === "_" ? "." : literal(char);
+      }
+      return new RegExp(`${expression}$`, "isu").test(String(cell));
+    }
     if (op === "in") {
       if (!raw.startsWith("(") || !raw.endsWith(")")) throw new UnsupportedFilter(`in 값: ${raw}`);
       return splitTopLevel(raw.slice(1, -1))

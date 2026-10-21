@@ -6,6 +6,7 @@ const TOKEN = "test-only-service-token-0123456789-abcdefghijklmnopqrstuvwxyz";
 const USER_TOKEN = "test-user-jwt";
 const RUN = "c1000000-0000-4000-8000-000000000001";
 const PATH = "/api/v1/bids/b1000000-0000-4000-8000-000000000001/analyses";
+const INGEST_PATH = "/api/v1/admin/ingestion/runs";
 const env = { REDIS_API_BASE_URL: "https://acropolissg.com/redis/", REDIS_API_TOKEN: TOKEN };
 const accessToken = async () => USER_TOKEN;
 const accepted = (extra: object = {}) =>
@@ -24,6 +25,130 @@ const request = (body = "{}") =>
 afterEach(() => vi.useRealTimers());
 
 describe("Redis HTTPS client boundary", () => {
+  it("preserves external ingestion sources and safe run metadata", async () => {
+    for (const [source, serviceKey] of [
+      ["kwater", "kwater-bid-notice"],
+      ["lh", "lh-bid-notice"],
+      ["kepco", "kepco-ebid-contract"],
+    ]) {
+      const result = await relayRedisApi(
+        new Request(`https://app.invalid${INGEST_PATH}`, { method: "POST", body: "{}" }),
+        INGEST_PATH,
+        {
+          env,
+          accessToken,
+          send: async () =>
+            Response.json(
+              {
+                id: RUN,
+                source,
+                serviceKey,
+                completeness: "UNKNOWN",
+                fetchedCount: 0,
+                runMode: "live",
+                batch: null,
+                trigger: "MANUAL",
+                status: "RUNNING",
+                summary: {
+                  created: 0,
+                  changed: 0,
+                  cancelled: 0,
+                  skippedDuplicate: 0,
+                  quarantined: 0,
+                  retried: 0,
+                },
+                quotaUsed: 0,
+                errors: [],
+                cursor: null,
+                requestedBy: null,
+                startedAt: "2026-10-22T00:00:00Z",
+                finishedAt: null,
+                privateField: "must-not-return",
+              },
+              { status: 202 },
+            ),
+        },
+      );
+      expect(result.status).toBe(202);
+      const body = await result.json();
+      expect(body).toMatchObject({ source, serviceKey, completeness: "UNKNOWN", fetchedCount: 0 });
+      expect(body.privateField).toBeUndefined();
+    }
+  });
+
+  it("preserves a whitelisted source-readiness 503 without retrying or echoing upstream details", async () => {
+    const send = vi.fn(async () =>
+      Response.json(
+        {
+          error: {
+            code: "SERVICE_UNAVAILABLE",
+            message: "https://private.invalid/?apiKey=must-not-return",
+            details: {
+              component: "source",
+              source: "kepco",
+              serviceKey: "kepco-ebid-contract",
+              reason: "DISABLED",
+              requestUrl: "https://private.invalid/?apiKey=must-not-return",
+            },
+            requestId: RUN,
+          },
+        },
+        { status: 503, headers: { "Set-Cookie": "must-not-return" } },
+      ),
+    );
+    const result = await relayRedisApi(
+      new Request(`https://app.invalid${INGEST_PATH}`, { method: "POST", body: "{}" }),
+      INGEST_PATH,
+      { env, send, accessToken },
+    );
+    expect(result.status).toBe(503);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(result.headers.get("X-Request-Id")).toBe(RUN);
+    expect(result.headers.has("set-cookie")).toBe(false);
+    expect(await result.json()).toEqual({
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "아직 사용할 수 없는 수집 서비스입니다",
+        details: {
+          component: "source",
+          source: "kepco",
+          serviceKey: "kepco-ebid-contract",
+          reason: "DISABLED",
+        },
+        requestId: RUN,
+      },
+    });
+  });
+
+  it("normalizes unrecognized source-readiness reasons instead of exposing upstream text", async () => {
+    const send = vi.fn(async () =>
+      Response.json(
+        {
+          error: {
+            code: "SERVICE_UNAVAILABLE",
+            message: "https://private.invalid/credentials",
+            details: {
+              component: "source",
+              source: "kepco",
+              serviceKey: "kepco-ebid-contract",
+              reason: "https://private.invalid/credentials",
+            },
+            requestId: RUN,
+          },
+        },
+        { status: 503 },
+      ),
+    );
+    const result = await relayRedisApi(
+      new Request(`https://app.invalid${INGEST_PATH}`, { method: "POST", body: "{}" }),
+      INGEST_PATH,
+      { env, send, accessToken },
+    );
+    expect(result.status).toBe(503);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect((await result.json()).error.details).toEqual({ component: "redis-api" });
+  });
+
   it("replays the same key/body when a 202 response stream fails after headers", async () => {
     const attempts: RequestInit[] = [];
     const send: typeof fetch = async (_url, init) => {

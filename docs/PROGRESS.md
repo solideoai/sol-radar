@@ -9,6 +9,11 @@ updated: 2026-10-21
 
 # 진행 상황
 
+## 공공조달 운영 적용 진행 (2026-10-22, 사용자 추가 승인)
+
+커밋·main 병합·운영 DB·배포를 승인받아 최신 Storage/Gateway/Qwen main과 통합 중이다. [적용 기록](evidence/procurement-expansion/20261022-release.md)에 SHA·검증·적용/미적용을 구분한다. 아래 10-21 로컬/설계 로그는 당시 기록이다. 신규6 API는 비활성·실인증 미검증을 유지한다.
+
+
 ## 첫 구현 묶음 로컬 통합 (2026-10-21, 운영 적용 대기)
 
 사용자 승인으로 `feat/first-bundle-integration`에서 main `206db64`와 인력200명·Redis HTTP Gateway·private Supabase Storage를 통합했다. 변동 중인 Storage 작업 폴더는 hash를 고정한 읽기 전용 snapshot으로 인수했다. 기존 main의 검증 축소·Vercel 구현을 보존하고 combined migration에서 타입을 재생성했다. 이미 클라우드에 적용된 인력00600은 변경하지 않았다.
@@ -25,6 +30,21 @@ updated: 2026-10-21
 - 첨부 fixture fetcher·보조 조회·documents 생산/복구와 미완인 실첨부 다운로드·documents 소비자·파서를 구분한다. 설명은 현재 모든 모드가 템플릿이다.
 - 커밋 직전 병합된 ADR-048의 private Supabase Storage 결정을 보존했다. Vercel 웹·AI 승인 구성과 실제 운영 관찰/배포 증거를 구분한다. P1·이메일은 승인된 범위와 main 구현·수신 검증 상태를 별도로 표시한다.
 - C9 3차 10-23, freeze 10-24 22:00, 최종 리허설 10-25, 완료 목표 10-26, 공식 제출 10-27이다. 검증은 ADR-046을 따른다.
+
+## 공공조달 확장 로컬 구현 (2026-10-21, 후속 승인)
+
+사용자 “승인할게 시작해.”에 따라 `main@7133636`에서 분리한 `feat/public-procurement`에 구현한다. 신규 Adapter6·원본 증거/관련성/기회 투영·Worker/service readiness·조직별 유효 결과 조회·대시보드/11열 공고/관리자 서비스 현황을 연결했다. Migration 파일2개와 생성 타입을 추가했으나 공유 DB에 적용하지 않았다. 최초 아래 설계 로그의 “승인 대기/미착수”는 당시 기록이다.
+
+신규6 API는 disabled/NOT_VERIFIED이며 KEPCO 발급 완료와 실인증은 다르다. 정제 JSONB 원본 구조·새4단계 분석 차단·첨부/Storage/실모델 경계와 검증 결과는 [구현 보고](evidence/procurement-expansion/20261021-implementation.md)에 기록한다. main·다른 작업 트리·운영 설정·배포는 변경하지 않는다. 최종 전체 verify는 루트165·웹331·AI101·decision57 및 프로덕션 빌드 exit0, Chromium 부품2개 통과다. 독립 리뷰4건과 후보 집계를 수정·재확인했다. 실인증/로그인 E2E/운영 적용은 미실행이다.
+
+## 공공 입찰 4+6서비스·업무 UI 설계 (2026-10-21, 승인 대기)
+
+- 사용자 범위에 따라 **분석·공식 API 명세 조사·설계·계획·정본 문서만** 작성했다. 조사 기준은 `main@206db64`. 기존 untracked Bosun/Qwen4B 브리프와 디자인 PNG 2장은 보존한다. 다른 worktree/미커밋 구현은 읽기만 했다.
+- 산출물: [승인용 스펙](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md), [[2026-10-21-public-procurement-expansion-plan|Phase 0~8/승인 후 I1~I7 계획]], [[20261021-review|실제 구현·공식 6API·키 상태 조사]], [[16-DECISIONS|ADR-047 제안]]. 정본 00~12·14~16·21에 검토 중 안내/영향도를 추가했다. 기존 핵심 정책은 개정하지 않았다.
+- 현재 차이: 정기 live는 G2B 입찰+보조 3조회이며 기존 나머지 3서비스의 등록/과거 응답은 정기 적재와 다르다. 새 Source 필터는 기존 origin(실제/데모)과 분리한다. 실첨부 다운로더/documents 소비자/parser/Qdrant는 미완성이다. N3/N6/N9/P0-8/S5/Gateway/Storage 병렬 작업을 main 완료로 보고하지 않는다.
+- 신규 6종의 공식 페이지/내장 Swagger 문서를 확인했다. **KEPCO 키 발급 완료(사용자 확인), 인증 미검증**이다. 나머지 신규 5키는 상태 미확인이며 확인된 미발급은 없다. 신규 공고 API 실호출·키 값 읽기·DB/운영/모델 변경·수집/UI 코드·migration 생성/적용·배포는 하지 않았다.
+- 설계의 승인 대상: source 기록을 보존하는 opportunity/link, 정정/취소 event 분리, 저관련 보존/관련성 분리, SI·AI 기본 우선 정렬, private 정제 원본, 1280px 표 내부 스크롤/대시보드 세로 배치, P0/P1 순서와 통합 기준. 기존 점수/모델/RLS/DEMO/해커톤 일정은 유지한다. **구현은 승인 전 미착수.**
+- 검증: `pnpm verify:changed` exit 0(당시 문서/증거 25개·코드 검사 0개). JSON 서식·문서 경로/필수항목/원본 hash/diff 점검은 [[20261021-review|조사 기록]]과 `evidence/procurement-expansion/20261021-document-check.json`에 기록한다. 전체 verify/빌드/E2E/API 실호출은 미실행이다. 점검 도중 나타난 `web/components/landing/hero.tsx`, DB 인증서 확인 진행 기록과 `docs/evidence/database/`는 병행 작업으로 보존했다. 해당 hero 변경의 별도 커밋으로 최종 관찰 HEAD는 `7133636`이며 이번 작업에서 커밋하지 않았다.
 
 
 ## Vercel 다중 서비스 구성 (2026-10-21, 사용자 승인)

@@ -7,6 +7,8 @@ import { AppPage } from "@/components/app-page";
 import { refreshTopbarStatus } from "@/components/topbar-status";
 import { Button } from "@/components/ui/button";
 import type { RunMode } from "@/server/bids";
+import type { SourceSummary } from "@/server/opportunities";
+import { IngestionServices } from "./ingestion-services";
 import { EmptyState } from "@/app/(app)/(work)/empty-state";
 import { LoadMoreFooter, useLoadMore } from "@/app/(app)/(work)/load-more";
 import { IngestRunDrawer } from "./ingest-run-drawer";
@@ -49,6 +51,7 @@ type IngestionViewProps = {
   initialNextCursor: string | null;
   /** 서버가 첫 쪽을 읽은 시각(ISO). 상태 줄 시간 계산의 첫 기준이다. */
   now: string;
+  sources: SourceSummary;
 };
 
 export function IngestionView({
@@ -56,6 +59,7 @@ export function IngestionView({
   initialItems,
   initialNextCursor,
   now,
+  sources,
 }: IngestionViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -203,6 +207,7 @@ export function IngestionView({
         onReload={() => router.refresh()}
       />
 
+      <IngestionServices summary={sources} runMode={runMode} onAccepted={onAccepted} />
       <section aria-labelledby="ingest-history-title" className="flex flex-col gap-3">
         <h2 id="ingest-history-title" className="type-heading text-foreground">
           실행 이력

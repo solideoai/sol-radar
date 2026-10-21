@@ -3,8 +3,8 @@ name: sol-radar-gateway
 services:
   redis-api:
     build:
-      context: ../web
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: web/Dockerfile
     init: true
     env_file: .env.redis-api.local
     environment:

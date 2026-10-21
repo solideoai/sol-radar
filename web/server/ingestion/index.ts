@@ -375,3 +375,20 @@ export type {
   IngestionRunPosition,
 } from "./ingestion-admin.service";
 export { ingestionAdminRepo } from "./ingestion-admin.repo";
+
+// ADR-047 공공조달 확장. 기존 G2B/fixture 계약은 유지한다.
+export {
+  EXTERNAL_SERVICES,
+  EXTERNAL_SOURCE_KEYS,
+  KEPCO_COMPANIES,
+} from "./external-connector.model";
+export type { ExternalSourceKey, ExternalConnectorOptions } from "./external-connector.model";
+export {
+  createExternalApiConnector,
+  createExternalSourceConnector,
+} from "./external-api-connector";
+export { normalizeExternalNotice } from "./external-normalize";
+export type { PageCapture, IngestCompleteness } from "./connector.model";
+export { projectProcurementRevision, backfillProcurementRelevance } from "./procurement-projection";
+export { classifyProcurementRelevance } from "./relevance";
+export { matchProcurementOpportunities } from "./opportunity-match";

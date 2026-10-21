@@ -9,41 +9,55 @@ type StageTimelineProps = {
   latestRevision: number;
 };
 
-const STEPS = ["PLAN", "PRE_SPEC", "NOTICE"] as const satisfies readonly BidStage[];
+const STEPS = [
+  "PLAN",
+  "PROCUREMENT_REQUEST",
+  "PRE_SPEC",
+  "NOTICE",
+  "OPENING",
+  "AWARD",
+  "CONTRACT",
+] as const satisfies readonly BidStage[];
 
 function StageTimeline({ stage, stageLinks, latestRevision }: StageTimelineProps) {
   const refs: Record<BidStage, string | null> = {
     PLAN: stageLinks.planRef,
+    PROCUREMENT_REQUEST: null,
     PRE_SPEC: stageLinks.preSpecRef,
     NOTICE: null,
+    OPENING: null,
+    AWARD: null,
+    CONTRACT: null,
   };
   return (
     <ol
       aria-label="단계 이력"
       className="flex flex-wrap items-center gap-x-4 gap-y-1 type-label text-foreground"
     >
-      {STEPS.map((step) => {
-        const current = step === stage;
-        return (
-          <li
-            key={step}
-            aria-current={current ? "step" : undefined}
-            className="flex min-w-0 items-center gap-1.5"
-          >
-            <span
-              aria-hidden="true"
-              className={cn(
-                "size-2.5 shrink-0 rounded-full border",
-                current ? "border-foreground bg-foreground" : "border-muted-foreground",
-              )}
-            />
-            <span className={cn(!current && "text-muted-foreground")}>{STAGE_LABEL[step]}</span>
-            <span className="min-w-0 wrap-anywhere tabular-nums text-muted-foreground">
-              {current ? `r${latestRevision}` : (refs[step] ?? "—")}
-            </span>
-          </li>
-        );
-      })}
+      {STEPS.filter((step) => ["PLAN", "PRE_SPEC", "NOTICE"].includes(step) || step === stage).map(
+        (step) => {
+          const current = step === stage;
+          return (
+            <li
+              key={step}
+              aria-current={current ? "step" : undefined}
+              className="flex min-w-0 items-center gap-1.5"
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "size-2.5 shrink-0 rounded-full border",
+                  current ? "border-foreground bg-foreground" : "border-muted-foreground",
+                )}
+              />
+              <span className={cn(!current && "text-muted-foreground")}>{STAGE_LABEL[step]}</span>
+              <span className="min-w-0 wrap-anywhere tabular-nums text-muted-foreground">
+                {current ? `r${latestRevision}` : (refs[step] ?? "—")}
+              </span>
+            </li>
+          );
+        },
+      )}
     </ol>
   );
 }

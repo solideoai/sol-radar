@@ -557,6 +557,202 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
     );
     assert.deepEqual(rows, []);
   });
+  it("ADR047 — 출처 사본을 한 기회로 묶어도 공고·분석·사람 결정 FK와 조직 격리를 보존한다", async (t) => {
+    const pglite = await solDb(t);
+    const opportunity = (
+      await rowsOf(
+        pglite,
+        "select opportunity_id from public.opportunity_notice_links where bid_id=$1",
+        [BID1],
+      )
+    )[0].opportunity_id;
+    await pglite.query("select public.link_bid_opportunity($1,$2,'DUPLICATE',$3::jsonb)", [
+      BID2,
+      opportunity,
+      JSON.stringify({ kind: "OFFICIAL_REFERENCE", reference: "verified-copy" }),
+    ]);
+    assert.equal(
+      (
+        await rowsOf(
+          pglite,
+          "select count(distinct opportunity_id)::int n from public.opportunity_notice_links where bid_id in ($1,$2)",
+          [BID1, BID2],
+        )
+      )[0].n,
+      1,
+    );
+    assert.equal(await countOf(pglite, "bid_notices"), 2);
+    assert.equal(
+      (await rowsOf(pglite, "select bid_id from public.score_runs where id=$1", [RUN1]))[0].bid_id,
+      BID1,
+    );
+    assert.equal(
+      (await rowsOf(pglite, "select bid_id from public.bid_reviews where id=$1", [REVIEW1]))[0]
+        .bid_id,
+      BID1,
+    );
+    await pglite.query(
+      "insert into public.ingest_runs(source,run_mode,trigger,job_key,service_key,status,summary,params) values ('g2b','LIVE','SCHEDULED','private-job','g2b-bid-notice','SUCCEEDED','{\"created\":2}','{\"credential\":\"not-public\"}')",
+    );
+    await as(pglite, "viewer");
+    assert.equal((await rowsOf(pglite, "select * from public.opportunity_notice_links")).length, 2);
+    const visible = await rowsOf(pglite, "select * from public.opportunity_list_items");
+    assert.equal(visible.length, 1);
+    assert.equal(visible[0].bid_id, BID1);
+    assert.equal(visible[0].source_count, 2);
+    assert.equal(visible[0].analysis_id, RUN1);
+    const health = await rowsOf(pglite, "select * from public.procurement_source_health('live')");
+    assert.equal(health.length, 1);
+    assert.equal(health[0].service_key, "g2b-bid-notice");
+    assert.equal(JSON.stringify(health).includes("not-public"), false);
+    assert.equal("params" in health[0], false);
+    assert.equal(
+      (await rowsOf(pglite, "select * from public.procurement_source_health('unknown')")).length,
+      0,
+    );
+    const summary = (
+      await rowsOf(pglite, "select public.procurement_summary($1,'demo') value", [ORG1])
+    )[0].value;
+    assert.equal(summary.totalOpportunities, 1);
+    await asWorker(pglite);
+    await pglite.query(
+      "insert into public.ingest_runs(source,run_mode,trigger,job_key,service_key,status,started_at) values ('kepco','LIVE','SCHEDULED','kepco-safe-status','kepco-ebid-contract','PARTIAL',now()+interval '1 second')",
+    );
+    await as(pglite, "viewer");
+    assert.equal(
+      (await rowsOf(pglite, "select * from public.latest_ingest_run('live')"))[0].status,
+      "PARTIAL",
+    );
+    await assert.rejects(
+      pglite.query("select * from public.procurement_missing_relevance_revisions(100)"),
+      /permission denied/,
+    );
+    await assert.rejects(
+      pglite.query("select public.link_bid_opportunity($1,$2,'DUPLICATE','{}')", [
+        BID2,
+        opportunity,
+      ]),
+      /permission denied/,
+    );
+    await assert.rejects(pglite.query("select * from public.ingest_payloads"), /permission denied/);
+    await as(pglite, "outsider");
+    assert.equal(await countOf(pglite, "score_runs", "org_id=$1", [ORG1]), 0);
+    assert.equal(
+      (await rowsOf(pglite, "select analysis_id from public.opportunity_list_items"))[0]
+        .analysis_id,
+      RUN2,
+    );
+    await asWorker(pglite);
+    await pglite.query(
+      "insert into public.company_profiles(org_id,revision,name) values ($1,2,'새 기업 프로필')",
+      [ORG1],
+    );
+    await as(pglite, "viewer");
+    const invalidated = (
+      await rowsOf(pglite, "select analysis_id,latest_decision from public.opportunity_list_items")
+    )[0];
+    assert.equal(invalidated.analysis_id, null);
+    assert.equal(invalidated.latest_decision, null);
+    await as(pglite, "operator");
+    assert.equal(
+      (await rowsOf(pglite, "select * from public.procurement_source_health('live')")).length,
+      0,
+    );
+    await asWorker(pglite);
+    await pglite.query(
+      "insert into public.bid_notices(source,notice_id,title,stage,status,source_url,content_hash,is_demo) values ('kepco-ebid-contract','COM01:42','실제 전력 데이터 플랫폼','NOTICE','OPEN','https://bigdata.kepco.co.kr/','live-hash',false)",
+    );
+    const liveBid = (
+      await rowsOf(pglite, "select id from public.bid_notices where source='kepco-ebid-contract'")
+    )[0].id;
+    await assert.rejects(
+      pglite.query("select public.link_bid_opportunity($1,$2,'DUPLICATE',$3::jsonb)", [
+        liveBid,
+        opportunity,
+        JSON.stringify({ kind: "OFFICIAL_REFERENCE", reference: "wrong-origin" }),
+      ]),
+      /origin mismatch/,
+    );
+  });
+  it("ADR047 — 재분석·단계 연결·출처 충돌·재판정에도 현재 결과와 집계가 정확하다", async (t) => {
+    const db = await solDb(t);
+    const [queued] = await requestRun(db, ORG1, PROFILE1, "sol-v0.1.0");
+    await as(db, "viewer");
+    let row = (
+      await rowsOf(db, "select * from public.opportunity_list_items where bid_id=$1", [BID1])
+    )[0];
+    assert.equal(row.analysis_id, RUN1);
+    assert.equal(row.latest_run_id, queued.id);
+    assert.equal(row.latest_run_status, "QUEUED");
+    assert.equal(row.latest_decision, "BID");
+    const before = (await rowsOf(db, "select public.procurement_dataset_version($1) v", [ORG1]))[0]
+      .v;
+    await asWorker(db);
+    await db.query(
+      "update public.score_runs set status='COMPLETED',score=90,recommendation='BID',recommendation_basis='RULES_ONLY',input_snapshot='{}',input_snapshot_hash='new-snapshot',finished_at=now() where id=$1",
+      [queued.id],
+    );
+    await as(db, "viewer");
+    row = (
+      await rowsOf(db, "select * from public.opportunity_list_items where bid_id=$1", [BID1])
+    )[0];
+    assert.equal(row.sol_score, 90);
+    assert.equal(row.latest_decision, "BID");
+    assert.notEqual(
+      (await rowsOf(db, "select public.procurement_dataset_version($1) v", [ORG1]))[0].v,
+      before,
+    );
+    await asWorker(db);
+    const [left, right] = [BID1, BID2].sort();
+    for (const [hash, outcome, at] of [
+      ["old", "CANDIDATE", "2026-10-20T00:00:00Z"],
+      ["new", "CANDIDATE", "2026-10-20T01:00:00Z"],
+    ]) {
+      await db.query(
+        "insert into public.notice_match_candidates(left_bid_id,right_bid_id,outcome,policy_version,input_hash,created_at) values ($1,$2,$3,$4,$5,$6)",
+        [left, right, outcome, "match/v0.1", hash, at],
+      );
+    }
+    let summary = (await rowsOf(db, "select public.procurement_summary($1,'demo') v", [ORG1]))[0].v;
+    assert.equal(summary.potentialDuplicateCount, 1);
+    await db.query(
+      "insert into public.notice_match_candidates(left_bid_id,right_bid_id,outcome,policy_version,input_hash) values ($1,$2,'DISTINCT','match/v0.1','resolved')",
+      [left, right],
+    );
+    summary = (await rowsOf(db, "select public.procurement_summary($1,'demo') v", [ORG1]))[0].v;
+    assert.equal(summary.potentialDuplicateCount, 0);
+    await db.query("update public.bid_notices set stage='PLAN' where id=$1", [BID2]);
+    const early = (
+      await rowsOf(
+        db,
+        "select opportunity_id from public.opportunity_notice_links where bid_id=$1",
+        [BID2],
+      )
+    )[0].opportunity_id;
+    await db.query("select public.link_bid_opportunity($1,$2,'STAGE_LINK',$3::jsonb)", [
+      BID1,
+      early,
+      JSON.stringify({ kind: "OFFICIAL_REFERENCE", reference: "official-stage-reference" }),
+    ]);
+    await as(db, "viewer");
+    row = (await rowsOf(db, "select * from public.opportunity_list_items"))[0];
+    assert.equal(row.bid_id, BID1);
+    assert.equal(row.stage, "NOTICE");
+    summary = (await rowsOf(db, "select public.procurement_summary($1,'demo') v", [ORG1]))[0].v;
+    assert.equal(summary.totalOpportunities, 1);
+    assert.equal(summary.earlyCount, 0);
+    assert.equal(summary.bidRecommended, 1);
+    await asWorker(db);
+    await db.query("update public.bid_notices set stage='NOTICE',status='CANCELLED' where id=$1", [
+      BID2,
+    ]);
+    await as(db, "viewer");
+    row = (await rowsOf(db, "select * from public.opportunity_list_items"))[0];
+    assert.equal(row.source_conflict, true);
+    assert.equal(row.sol_score, 90);
+    summary = (await rowsOf(db, "select public.procurement_summary($1,'demo') v", [ORG1]))[0].v;
+    assert.equal(summary.bidRecommended, 0);
+  });
   it("G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만", async (t) => {
     const pglite = await solDb(t);
     const shared = ORG_TABLES.filter((table) => !["audit_logs", "notifications"].includes(table));

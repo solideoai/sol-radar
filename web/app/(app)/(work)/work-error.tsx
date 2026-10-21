@@ -21,6 +21,7 @@ export function WorkError({
   retry,
   title,
   contentClassName,
+  typeScale,
 }: {
   error: Error & { digest?: string };
   retry: () => void;
@@ -28,10 +29,11 @@ export function WorkError({
   title: string;
   // 그 화면의 단 폭. 읽는 중(loading)·오류·정상 화면의 제목 자리가 같게 화면과 같은 값을 넘긴다.
   contentClassName?: string;
+  typeScale?: "dashboard";
 }) {
   useEffect(() => reportBrowserError(error), [error]);
   return (
-    <AppPage title={title} contentClassName={contentClassName}>
+    <AppPage title={title} contentClassName={contentClassName} typeScale={typeScale}>
       <section
         role="alert"
         aria-labelledby="work-error-title"

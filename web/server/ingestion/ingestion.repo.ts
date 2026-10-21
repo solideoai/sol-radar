@@ -1,4 +1,8 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import { isPlainRecord } from "./normalize-common";
+import { normalizedBidSchema } from "./normalized-bid.model";
+import { projectProcurementRevision } from "./procurement-projection";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json, Tables } from "@/lib/database.types";
 import type { FixtureBatch } from "./fixture.model";
@@ -57,6 +61,17 @@ export function createSupabaseIngestionRepo(
 ): IngestionRepo {
   const now = options.now ?? (() => new Date());
 
+  const startedOf = (row: Tables<"ingest_runs">): StartedRun => ({
+    ...toStartedRun(row),
+    completeness:
+      row.completeness === "PARTIAL"
+        ? "PARTIAL"
+        : row.completeness === "UNKNOWN"
+          ? "UNKNOWN"
+          : "COMPLETE",
+    fetchedCount: row.fetched_count,
+  });
+
   const findRun = async (jobKey: string): Promise<Tables<"ingest_runs"> | null> => {
     const { data, error } = await client
       .from("ingest_runs")
@@ -69,8 +84,12 @@ export function createSupabaseIngestionRepo(
 
   // 끝나지 않은(RUNNING·FAILED) run 은 다시 RUNNING 으로 열어 저장된 cursor 부터 잇는다. 끝난 run 은 그대로 돌려준다.
   const reopen = async (row: Tables<"ingest_runs">): Promise<StartedRun> => {
-    const started = toStartedRun(row);
-    if (started.status === "SUCCEEDED" || started.status === "PARTIAL") return started;
+    const started = startedOf(row);
+    if (
+      started.status === "SUCCEEDED" ||
+      (started.status === "PARTIAL" && started.completeness === "COMPLETE")
+    )
+      return started;
     const { data, error } = await client
       .from("ingest_runs")
       .update({ status: "RUNNING", finished_at: null })
@@ -78,7 +97,7 @@ export function createSupabaseIngestionRepo(
       .select("*")
       .single();
     if (error) throw repoError("ingest_runs 재개", error);
-    return toStartedRun(data);
+    return startedOf(data);
   };
 
   const latestFinishedParams = async (
@@ -106,10 +125,16 @@ export function createSupabaseIngestionRepo(
       if (existing) return reopen(existing);
       const { data, error } = await client
         .from("ingest_runs")
-        .insert(toIngestRunInsert(input))
+        .insert({
+          ...toIngestRunInsert(input),
+          service_key: input.serviceKey ?? null,
+          operation: input.operation ?? null,
+          partition_key: input.partitionKey ?? null,
+          completeness: input.serviceKey === undefined ? "COMPLETE" : "UNKNOWN",
+        })
         .select("*")
         .single();
-      if (!error) return toStartedRun(data);
+      if (!error) return startedOf(data);
       // 같은 jobKey 를 두 worker 가 동시에 열면 하나만 들어간다. 진 쪽은 들어간 run 을 이어 받는다.
       if (error.code === UNIQUE_VIOLATION) {
         const raced = await findRun(input.jobKey);
@@ -142,22 +167,60 @@ export function createSupabaseIngestionRepo(
       return anchorOfParams(await latestFinishedParams(source, { batch: "SEED" }));
     },
 
-    async findLatestRunWindowEnd(source, trigger) {
-      return windowEndOfParams(await latestFinishedParams(source, { trigger }));
+    async findLatestRunWindowEnd(source, trigger, scope = {}) {
+      let query = client
+        .from("ingest_runs")
+        .select("params")
+        .eq("source", source)
+        .eq("trigger", trigger)
+        .eq("status", "SUCCEEDED")
+        .eq("completeness", "COMPLETE");
+      if (source === "g2b" && scope.serviceKey === "g2b-bid-notice") {
+        // 서비스 구분 전의 G2B 이력은 입찰공고뿐이었다. 새 조달요청 창과 섞지 않고 이어 읽는다.
+        query = query.or("service_key.eq.g2b-bid-notice,service_key.is.null");
+      } else if (scope.serviceKey !== undefined) {
+        query = query.eq("service_key", scope.serviceKey);
+      }
+      if (scope.operation !== undefined) query = query.eq("operation", scope.operation);
+      if (scope.partitionKey !== undefined) query = query.eq("partition_key", scope.partitionKey);
+      const { data, error } = await query
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw repoError("ingest_runs 성공 창 조회", error);
+      return windowEndOfParams(data?.params ?? null);
     },
 
     // C8: 상태와 상관없이 가장 최근 run 이다(FAILED 창을 다시 쓰려고). 끝난 run 만 보는 위 둘과 다르다.
-    async findLatestRunWindow(source, trigger) {
-      const { data, error } = await client
+    async findLatestRunWindow(source, trigger, scope = {}) {
+      let query = client
         .from("ingest_runs")
-        .select("status, params")
+        .select("status, params, completeness")
         .eq("source", source)
-        .eq("trigger", trigger)
+        .eq("trigger", trigger);
+      if (source === "g2b" && scope.serviceKey === "g2b-bid-notice") {
+        query = query.or("service_key.eq.g2b-bid-notice,service_key.is.null");
+      } else if (scope.serviceKey !== undefined) {
+        query = query.eq("service_key", scope.serviceKey);
+      }
+      if (scope.operation !== undefined) query = query.eq("operation", scope.operation);
+      if (scope.partitionKey !== undefined) query = query.eq("partition_key", scope.partitionKey);
+      const { data, error } = await query
         .order("started_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw repoError("ingest_runs 조회", error);
-      return data ? toLatestRunWindow(data) : null;
+      return data
+        ? {
+            ...toLatestRunWindow(data),
+            completeness:
+              data.completeness === "PARTIAL"
+                ? "PARTIAL"
+                : data.completeness === "UNKNOWN"
+                  ? "UNKNOWN"
+                  : "COMPLETE",
+          }
+        : null;
     },
 
     async saveRevision(input) {
@@ -187,11 +250,93 @@ export function createSupabaseIngestionRepo(
           .upsert(structured, { onConflict: STRUCTURED_CONFLICT_TARGET });
         if (upserted.error) throw repoError("bid_structured_requirements 저장", upserted.error);
       }
+      await projectProcurementRevision(client, {
+        bidId: saved.bid_id,
+        revisionId: saved.revision_id,
+        bid: input.decision.bid,
+        rawPayload: input.rawPayload,
+      });
       return {
         bidId: saved.bid_id,
         revisionId: saved.revision_id,
         revisionCreatedAt: created.data.created_at,
       };
+    },
+
+    async ensureRevisionProjection(source, noticeId) {
+      const notice = await client
+        .from("bid_notices")
+        .select("id")
+        .eq("source", source)
+        .eq("notice_id", noticeId)
+        .maybeSingle();
+      if (notice.error) throw repoError("bid_notices 투영 복구 조회", notice.error);
+      if (!notice.data) return;
+      const row = await client
+        .from("bid_revisions")
+        .select("id,normalized,raw_payload")
+        .eq("bid_id", notice.data.id)
+        .order("revision", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (row.error) throw repoError("bid_revisions 투영 복구 조회", row.error);
+      if (!row.data) return;
+      const parsed = normalizedBidSchema.safeParse(row.data.normalized);
+      if (!parsed.success || !isPlainRecord(row.data.raw_payload))
+        throw new Error("수집 저장소: 투영 복구 스키마 오류");
+      await projectProcurementRevision(client, {
+        bidId: notice.data.id,
+        revisionId: row.data.id,
+        bid: parsed.data,
+        rawPayload: row.data.raw_payload,
+      });
+    },
+
+    async recordPayload(runId, capture) {
+      const payloadHash = createHash("sha256").update(capture.sanitizedPayload).digest("hex");
+      const payload: Json =
+        capture.contentType === "application/json"
+          ? JSON.parse(capture.sanitizedPayload)
+          : { xml: capture.sanitizedPayload };
+      if (Buffer.byteLength(JSON.stringify(payload), "utf8") > 2 * 1024 * 1024)
+        throw new Error("수집 저장소: 정제 원본 증거 크기 초과");
+      const row = {
+        run_id: runId,
+        service_key: capture.serviceKey,
+        operation: capture.operation,
+        partition_key: capture.partitionKey,
+        content_type: capture.contentType,
+        sanitized_payload: payload,
+        payload_hash: payloadHash,
+      };
+      const saved = await client
+        .from("ingest_payloads")
+        .upsert(row, { onConflict: "run_id,service_key,operation,partition_key,payload_hash" })
+        .select("id")
+        .single();
+      if (saved.error) throw repoError("ingest_payloads 저장", saved.error);
+      return saved.data.id;
+    },
+
+    async recordRunItem(runId, item) {
+      const result = await client
+        .from("ingest_run_items")
+        .upsert(
+          {
+            run_id: runId,
+            source_record_key: item.sourceRecordKey,
+            payload_hash: item.payloadHash,
+            payload_id: item.payloadId,
+            bid_id: item.bidId ?? null,
+            revision_id: item.revisionId ?? null,
+            outcome: item.outcome,
+            error_code: item.errorCode ?? null,
+          },
+          { onConflict: "run_id,source_record_key,payload_hash", ignoreDuplicates: true },
+        )
+        .select("id");
+      if (result.error) throw repoError("ingest_run_items 저장", result.error);
+      return (result.data?.length ?? 0) > 0;
     },
 
     async recordError(runId, error) {
@@ -204,6 +349,12 @@ export function createSupabaseIngestionRepo(
         .from("ingest_runs")
         .update({
           cursor: checkpoint.cursor,
+          ...(checkpoint.completeness === undefined
+            ? {}
+            : { completeness: checkpoint.completeness }),
+          ...(checkpoint.fetchedCount === undefined
+            ? {}
+            : { fetched_count: checkpoint.fetchedCount }),
           summary: toSummaryJson(checkpoint.summary),
           ...toQuotaUsedUpdate(checkpoint.quotaUsed),
         })
@@ -216,6 +367,8 @@ export function createSupabaseIngestionRepo(
         .from("ingest_runs")
         .update({
           status: result.status,
+          ...(result.completeness === undefined ? {} : { completeness: result.completeness }),
+          ...(result.fetchedCount === undefined ? {} : { fetched_count: result.fetchedCount }),
           summary: toSummaryJson(result.summary),
           finished_at: now().toISOString(),
           ...toQuotaUsedUpdate(result.quotaUsed),

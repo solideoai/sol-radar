@@ -10,5 +10,13 @@ export default function DashboardError({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
-  return <WorkError error={error} retry={retry} title="대시보드" contentClassName="max-w-360" />;
+  return (
+    <WorkError
+      error={error}
+      retry={retry}
+      title="대시보드"
+      contentClassName="max-w-360"
+      typeScale="dashboard"
+    />
+  );
 }

@@ -18,7 +18,7 @@ updated: 2026-10-21
 
 발주계획(`PLAN`), 사전규격(`PRE_SPEC`), 입찰공고(`NOTICE`)가 P0. 계약과정 통합공개·낙찰·계약정보는 후속이다. 낙찰 결과는 학습 목표로도 쓰지 않는다([[21-MODEL-TRAINING|21 모델 학습]]).
 
-해커톤 MVP는 `live` 모드의 실수집을 목표로 한다. 수집 대상은 입찰공고 중 **용역이면서 정보화사업**인 공고다. 정보화사업은 `infoBizYn='Y'`이거나, 낙찰방법명 `sucsfbidMthdNm`에 "SW사업"이 있거나, 공공조달분류명 `pubPrcrmntClsfcNm`이 정보시스템·SW 분류인 공고다(§2.2, [[16-DECISIONS|ADR-029]] A4). 사전규격·발주계획은 단계 연결(§4)에 쓴다. fixture 20건은 `fixture`·`mock` 모드와 CI에서 그대로 쓴다(§1.2, §6).
+해커톤 MVP는 `live` 모드의 실수집을 목표로 한다. ADR-047 후속 승인으로 live Worker는 기존 용역 API의 정보화 사전 필터를 해제하고 수집 뒤 관련성을 분류한다. 아래 정보화 조건은 Connector의 호환 기본값과 과거 ADR-029 범위 설명이며 현재 Worker의 삭제/적재 조건으로 쓰지 않는다. 수집 대상은 입찰공고 중 **용역이면서 정보화사업**인 공고다. 정보화사업은 `infoBizYn='Y'`이거나, 낙찰방법명 `sucsfbidMthdNm`에 "SW사업"이 있거나, 공공조달분류명 `pubPrcrmntClsfcNm`이 정보시스템·SW 분류인 공고다(§2.2, [[16-DECISIONS|ADR-029]] A4). 사전규격·발주계획은 단계 연결(§4)에 쓴다. fixture 20건은 `fixture`·`mock` 모드와 CI에서 그대로 쓴다(§1.2, §6).
 
 ```mermaid
 flowchart LR
@@ -478,6 +478,12 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - `pnpm demo:reset`은 `documents` 큐(Redis)를 건드리지 않는다.
 - 알려진 낮은 위험: `saveRevision`의 RPC `ingest_save_revision`과 `bid_revisions.created_at` 조회는 한 트랜잭션이 아니다. 둘 사이에서 실패하면 ingest 재시도는 `DUPLICATE`라 job을 넣지 않고, 복구기(60초)가 같은 jobId로 메운다. 근본 해결(RPC가 `created_at`을 돌려주는 새 마이그레이션)은 [[16-DECISIONS|16 ADR]] 미결정 23번이다.
 
+## 검토 중 확장: 기존4+신규6 공식 서비스
+
+ADR-047 [승인용 설계](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§3~7에 K-water 입찰/계획·LH 입찰/사전규격·G2B 조달요청·KEPCO Adapter, 서비스별 창/cursor/quota/원본/오류, 출처 간 사업기회·관련성 정책을 제안했다. [[20261021-review|공식 명세 조사]]는 공개 문서 확인이며 신규 인증 성공이 아니다. KEPCO40자리 키는 발급 완료, 실호출/전회사범위/금액/첨부는 미검증이다.
+
+현재 정기 live 경로는 G2B 입찰공고+보조3조회다. 다른 기존3서비스의 registry 승인/녹음 응답과 정기 적재 완료를 구분한다. 넓은 수집 후 저관련 보존은 기존 broad 사전필터와 다르므로 승인 뒤 변경한다. byte 원본 전체 보관·HTTP첨부 예외·자동 전체 AI분석·운영 전체재수집은 채택하지 않았다. 수집 코드/registry/env/운영 scheduler는 이번에 바꾸지 않는다.
+
 ## 관련 문서
 
 - [[15-DATA-CONTRACTS|15 데이터 계약]] — `NormalizedBid`, `fieldState`, 수집 소스 registry
@@ -490,3 +496,6 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - [[11-TESTING|11 테스트]] — 골든 시나리오 ↔ FX-ID 매핑
 - [[19-DEMO-SCENARIO|19 데모 시나리오]] — FX-ID별 데모 장면
 - [[13-NOTIFICATIONS|13 알림]] — revision 이벤트와 outbox
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

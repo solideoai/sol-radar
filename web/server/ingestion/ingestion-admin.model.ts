@@ -1,5 +1,7 @@
 import "server-only";
 import { z } from "zod";
+import { KEPCO_COMPANIES } from "./external-connector.model";
+import type { IngestCompleteness } from "./connector.model";
 import type { Json, Tables } from "@/lib/database.types";
 import type { SolRole } from "@/server/organization";
 import type {
@@ -29,7 +31,8 @@ export type IngestionRunRow = Pick<
   | "quota_used"
   | "started_at"
   | "finished_at"
->;
+> &
+  Partial<Pick<Tables<"ingest_runs">, "service_key" | "completeness" | "fetched_count">>;
 type IngestErrorRow = Tables<"ingest_errors">;
 
 /** 실행 모드(SOL_RUN_MODE). API 는 소문자로 낸다 */
@@ -62,30 +65,76 @@ const windowSchema = z.strictObject({ from: isoInstantSchema, to: isoInstantSche
   { error: "window 는 from < to 이고 7일 이하여야 합니다" },
 );
 
+const externalWindowSchema = z
+  .strictObject({ from: isoInstantSchema, to: isoInstantSchema })
+  .refine(
+    ({ from, to }) =>
+      Date.parse(to) > Date.parse(from) &&
+      Date.parse(to) - Date.parse(from) <= 90 * 24 * 60 * 60 * 1000,
+    { error: "외부 수집 창은 90일 이하여야 합니다" },
+  );
+const externalOptions = { operation: z.string().min(1).max(100).optional() };
+
 const STORED_BATCH = { seed: "SEED", live: "LIVE" } as const;
 
 // fixture 는 batch 필수·window·stages 금지, g2b 는 batch 금지. strict 객체라 반대쪽 키는 모르는 키로 거절된다.
 // stages 는 지금 수집하는 단계가 공고뿐이라 생략과 ["NOTICE"] 만 받는다(e8 판정 1). 큐에는 싣지 않는다.
-export const ingestionRunInputSchema = z.discriminatedUnion("source", [
-  z.strictObject({
-    source: z.literal("fixture"),
-    batch: z.enum(["seed", "live"]).transform((batch) => STORED_BATCH[batch]),
-  }),
-  z.strictObject({
-    source: z.literal("g2b"),
-    window: windowSchema.optional(),
-    stages: z
-      .tuple([z.literal("NOTICE")], { error: 'stages 는 ["NOTICE"] 만 받습니다' })
-      .optional(),
-  }),
-]);
+export const ingestionRunInputSchema = z
+  .discriminatedUnion("source", [
+    z.strictObject({
+      source: z.literal("fixture"),
+      batch: z.enum(["seed", "live"]).transform((batch) => STORED_BATCH[batch]),
+    }),
+    z.strictObject({
+      source: z.literal("g2b"),
+      window: externalWindowSchema.optional(),
+      serviceKey: z.enum(["g2b-bid-notice", "g2b-procurement-request"]).optional(),
+      requestId: z.string().min(1).max(200).optional(),
+      ...externalOptions,
+      stages: z
+        .tuple([z.literal("NOTICE")], { error: 'stages 는 ["NOTICE"] 만 받습니다' })
+        .optional(),
+    }),
+    z.strictObject({
+      source: z.literal("kwater"),
+      serviceKey: z.enum(["kwater-bid-notice", "kwater-procurement-plan"]),
+      window: externalWindowSchema.optional(),
+      ...externalOptions,
+    }),
+    z.strictObject({
+      source: z.literal("lh"),
+      serviceKey: z.enum(["lh-bid-notice", "lh-pre-specification"]),
+      window: externalWindowSchema.optional(),
+      ...externalOptions,
+    }),
+    z.strictObject({
+      source: z.literal("kepco"),
+      serviceKey: z.literal("kepco-ebid-contract"),
+      companyId: z
+        .string()
+        .refine((code) => Object.hasOwn(KEPCO_COMPANIES, code), {
+          error: "companyId 가 확인된 코드가 아닙니다",
+        })
+        .optional(),
+      window: externalWindowSchema.optional(),
+      ...externalOptions,
+    }),
+  ])
+  .refine(
+    (data) =>
+      data.source !== "g2b" ||
+      (data.serviceKey !== undefined && data.serviceKey !== "g2b-bid-notice") ||
+      data.window === undefined ||
+      windowSchema.safeParse(data.window).success,
+    { error: "나라장터 입찰공고 창은 7일 이하여야 합니다", path: ["window"] },
+  );
 export type IngestionRunInput = z.infer<typeof ingestionRunInputSchema>;
 
 /** 05 :428·ADR-020: live 는 g2b 만, fixture·mock 은 fixture 만 받는다 */
 export const acceptsSourceForMode = (
   runMode: IngestionRunMode,
   source: IngestRunSource,
-): boolean => (runMode === "live" ? source === "g2b" : source === "fixture");
+): boolean => (runMode === "live" ? source !== "fixture" : source === "fixture");
 
 // ── 출력(05 IngestionRun :367-376, §6.5·6.6) ──
 
@@ -100,6 +149,9 @@ export type IngestionRunRequester = { id: string; name: string };
 
 export type IngestionRunView = {
   id: string;
+  serviceKey?: string;
+  completeness?: IngestCompleteness;
+  fetchedCount?: number;
   source: IngestRunSource;
   runMode: IngestionRunMode;
   batch: IngestionBatch | null;
@@ -143,6 +195,9 @@ function summaryOf(value: Json): IngestSummary {
 const SOURCES = [
   ["fixture", "fixture"],
   ["g2b", "g2b"],
+  ["kwater", "kwater"],
+  ["lh", "lh"],
+  ["kepco", "kepco"],
 ] as const satisfies readonly (readonly [string, IngestRunSource])[];
 const RUN_MODES = [
   ["LIVE", "live"],
@@ -195,6 +250,13 @@ export function toIngestionRunView(
 ): IngestionRunView {
   return {
     id: row.id,
+    ...(row.service_key ? { serviceKey: row.service_key } : {}),
+    ...(row.completeness === "COMPLETE" ||
+    row.completeness === "PARTIAL" ||
+    row.completeness === "UNKNOWN"
+      ? { completeness: row.completeness }
+      : {}),
+    ...(row.fetched_count === undefined ? {} : { fetchedCount: row.fetched_count }),
     source: apiValueOf(SOURCES, row.source, "source"),
     runMode: apiValueOf(RUN_MODES, row.run_mode, "run_mode"),
     batch: row.batch === null ? null : apiValueOf(BATCHES, row.batch, "batch"),

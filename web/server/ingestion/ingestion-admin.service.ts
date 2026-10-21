@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { EXTERNAL_SERVICES, type ExternalSourceKey } from "./external-connector.model";
 import type { z } from "zod";
 import type { Tables } from "@/lib/database.types";
 import type { SolRole } from "@/server/organization";
@@ -79,6 +80,7 @@ export type IngestionRunCursor = {
 type RateLimitHit = { allowed: true } | { allowed: false; retryAfterSeconds: number };
 
 export type IngestionAdminDeps = {
+  serviceReady?: (serviceKey: ExternalSourceKey) => Promise<{ ok: boolean; reason?: string }>;
   repo: IngestionAdminRepo;
   queue: { enqueue(data: IngestJobData): Promise<void> };
   idempotency: IngestionIdempotencyStore;
@@ -162,32 +164,58 @@ async function redisCall<T>(
 
 /** 큐에 넣고 해시하는 요청. stages 는 뺀다(job 스키마가 strict 이고, 생략과 ["NOTICE"] 는 같은 요청이다) */
 type RunRequest =
-  | { source: "fixture"; batch: "SEED" | "LIVE" }
-  | { source: "g2b"; window?: { from: string; to: string } };
+  | Extract<IngestionRunInput, { source: "fixture" }>
+  | Omit<Extract<IngestionRunInput, { source: "g2b" }>, "stages">
+  | Exclude<IngestionRunInput, { source: "fixture" | "g2b" }>;
 
-const toRunRequest = (input: IngestionRunInput): RunRequest =>
-  input.source === "fixture"
-    ? { source: "fixture", batch: input.batch }
-    : input.window === undefined
-      ? { source: "g2b" }
-      : { source: "g2b", window: input.window };
+function toRunRequest(input: IngestionRunInput): RunRequest {
+  if (input.source !== "g2b") return input;
+  if (input.serviceKey === undefined || input.serviceKey === "g2b-bid-notice")
+    return input.window === undefined ? { source: "g2b" } : { source: "g2b", window: input.window };
+  return {
+    source: "g2b",
+    serviceKey: input.serviceKey,
+    ...(input.window === undefined ? {} : { window: input.window }),
+    ...(input.operation === undefined ? {} : { operation: input.operation }),
+    ...(input.requestId === undefined ? {} : { requestId: input.requestId }),
+  };
+}
+function externalServiceOf(request: RunRequest): ExternalSourceKey | null {
+  if (request.source === "fixture") return null;
+  if (request.source === "g2b")
+    return request.serviceKey === "g2b-procurement-request" ? request.serviceKey : null;
+  return request.serviceKey;
+}
 
 // 같은 시각을 다르게 쓴 window(Z·밀리초 유무)는 같은 요청이다.
 function requestHashOf(request: RunRequest): string {
   const window =
-    request.source === "g2b" && request.window !== undefined
+    request.source !== "fixture" && request.window !== undefined
       ? [Date.parse(request.window.from), Date.parse(request.window.to)]
       : null;
   const batch = request.source === "fixture" ? request.batch : null;
-  return createHash("sha256")
-    .update(JSON.stringify([request.source, batch, window]))
-    .digest("hex");
+  const serviceKey = externalServiceOf(request);
+  const identity =
+    serviceKey === null
+      ? [request.source, batch, window]
+      : [
+          request.source,
+          batch,
+          window,
+          serviceKey,
+          request.source === "fixture"
+            ? null
+            : (request.operation ?? EXTERNAL_SERVICES[serviceKey].operation),
+          request.source === "kepco" ? (request.companyId ?? null) : null,
+          request.source === "g2b" ? (request.requestId ?? null) : null,
+        ];
+  return createHash("sha256").update(JSON.stringify(identity)).digest("hex");
 }
 
 // 7-1: 미래 창은 아직 올라오지 않은 공고 구간을 "수집함"으로 남긴다. 큐 job 스키마도 같은 규칙으로 거절하므로
 // 큐에서 던져 503 이 되기 전에 400 으로 막는다. 기준은 deps.now() 다.
 function futureWindowFailure(request: RunRequest, now: Date): IngestionAdminFailure | null {
-  if (request.source !== "g2b" || request.window === undefined) return null;
+  if (request.source === "fixture" || request.window === undefined) return null;
   if (Date.parse(request.window.to) <= now.getTime() + WINDOW_FUTURE_TOLERANCE_MS) return null;
   return ingestionFailure(400, "VALIDATION_ERROR", "요청 본문이 올바르지 않습니다", {
     issues: [{ path: "window.to", message: "window.to 는 지금보다 5분 넘게 미래일 수 없습니다" }],
@@ -208,11 +236,7 @@ function jobDataOf(
     orgId: ctx.orgId,
     runId,
   };
-  return request.source === "fixture"
-    ? { source: "fixture", batch: request.batch, ...common }
-    : request.window === undefined
-      ? { source: "g2b", ...common }
-      : { source: "g2b", window: request.window, ...common };
+  return { ...request, ...common };
 }
 
 /** 202 본문(05 §6.5). worker 가 행을 만들기 전의 모습이다 */
@@ -225,6 +249,13 @@ function acceptedView(
   return {
     id: record.runId,
     source: request.source,
+    ...(externalServiceOf(request) === null
+      ? {}
+      : {
+          serviceKey: externalServiceOf(request) ?? undefined,
+          completeness: "UNKNOWN" as const,
+          fetchedCount: 0,
+        }),
     runMode,
     batch: request.source === "fixture" ? (request.batch === "SEED" ? "seed" : "live") : null,
     trigger: "MANUAL",
@@ -322,6 +353,28 @@ export async function requestIngestionRun(
   const earlier = await redisCall(deps, () => deps.idempotency.get(redisKey));
   if (!earlier.ok) return redisUnavailable();
   if (earlier.value !== null) return replay(earlier.value);
+
+  const externalKey = externalServiceOf(request);
+  if (externalKey !== null) {
+    let readiness: { ok: boolean; reason?: string } = { ok: false, reason: "NOT_VERIFIED" };
+    try {
+      readiness = (await deps.serviceReady?.(externalKey)) ?? readiness;
+    } catch {
+      readiness = { ok: false, reason: "NOT_VERIFIED" };
+    }
+    if (!readiness.ok) {
+      const reason =
+        readiness.reason !== undefined && /^[A-Z_]{1,50}$/.test(readiness.reason)
+          ? readiness.reason
+          : "NOT_VERIFIED";
+      return ingestionFailure(503, "SERVICE_UNAVAILABLE", "아직 사용할 수 없는 수집 서비스입니다", {
+        component: "source",
+        source: request.source,
+        serviceKey: externalKey,
+        reason,
+      });
+    }
+  }
 
   // 행으로 보이는 실행만 막는다. 큐에만 있는 job 은 worker 가 jobKey 로 멱등 처리한다(e8 판정 3).
   const running = await deps.repo.findRunningRun(request.source);

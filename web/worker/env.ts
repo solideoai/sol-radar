@@ -41,3 +41,25 @@ export function readG2bServiceKey(
     throw new Error(`worker env 형식 오류: ${envName} (URL 인코딩이 깨졌다)`);
   }
 }
+
+const EXTERNAL_KEY_ENVS = new Set([
+  "KWATER_BID_NOTICE_SERVICE_KEY",
+  "KWATER_PROCUREMENT_PLAN_SERVICE_KEY",
+  "LH_BID_NOTICE_SERVICE_KEY",
+  "LH_PRE_SPECIFICATION_SERVICE_KEY",
+  "G2B_PROCUREMENT_REQUEST_SERVICE_KEY",
+  "KEPCO_EBID_CONTRACT_SERVICE_KEY",
+]);
+/** KEPCO는 data.go.kr 키와 별개다. 공유 fallback 키는 활용승인 증거가 없으므로 추측하지 않는다. */
+export function readExternalServiceKey(
+  env: Record<string, string | undefined>,
+  envName: string,
+): string {
+  if (!EXTERNAL_KEY_ENVS.has(envName))
+    throw new Error("외부 API 인증 환경변수 이름이 허용되지 않았습니다");
+  if (envName !== "KEPCO_EBID_CONTRACT_SERVICE_KEY") return readG2bServiceKey(env, envName);
+  const key = env[envName]?.trim();
+  if (!key || key.length !== 40 || /\s/.test(key))
+    throw new Error(`worker env 형식 오류: ${envName} (40자리 키 필요)`);
+  return key;
+}

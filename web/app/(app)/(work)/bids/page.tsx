@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
 import { defaultOrigin } from "@/server/bids";
-import { loadBidPage } from "@/app/_lib/work-data";
+import { loadOpportunityFilters, loadOpportunityPage } from "@/app/_lib/opportunity-data";
 import { canRunIngestion } from "@/app/(app)/(work)/empty-state";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { BIDS_DESCRIPTION, BIDS_TITLE } from "./bids-copy";
@@ -17,19 +17,44 @@ export default async function BidsPage({ searchParams }: PageProps<"/bids">) {
   await connection();
   const raw = await searchParams;
   const work = await requireWork(nextPathOf(raw));
-  const { query, search } = listQueryOf(raw, work.runMode);
+  const { query, search, notice } = listQueryOf(raw, work.runMode);
   // D-n 의 기준. 요청마다 한 번 만들어 내린다(P1, 하이드레이션 차이 없음).
   const now = new Date();
-  const first = await loadBidPage(work.orgId, query);
+  const [first, filters] = await Promise.all([
+    loadOpportunityPage(work.orgId, query),
+    loadOpportunityFilters(query.origin),
+  ]);
+  const stableQuery = new URLSearchParams(search);
+  stableQuery.set("asOf", first.asOf);
+  const hasFilters = Boolean(
+    query.q ||
+    query.sourceFamily.length ||
+    query.agencyId.length ||
+    query.companyId.length ||
+    query.stage.length ||
+    query.status.length ||
+    query.category.length ||
+    query.recommendation.length ||
+    query.decision.length ||
+    query.includeEarly ||
+    !query.siAiFirst ||
+    query.sortExplicit ||
+    query.origin !== defaultOrigin(work.runMode),
+  );
   return (
     <AppPage title={BIDS_TITLE} description={BIDS_DESCRIPTION} contentClassName="max-w-360">
       <BidListView
         defaultOrigin={defaultOrigin(work.runMode) === "live" ? "live" : "demo"}
         items={first.items}
+        total={first.total}
         nextCursor={first.pageInfo.nextCursor}
-        query={search}
+        query={stableQuery.toString()}
         now={now.toISOString()}
         canRunIngestion={canRunIngestion(work.role)}
+        agencies={filters.agencies}
+        companies={filters.companies}
+        notice={notice}
+        hasFilters={hasFilters}
       />
     </AppPage>
   );

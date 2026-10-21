@@ -17,7 +17,15 @@ export type StageLinkCandidate = { bidIdA: string; bidIdB: string; similarity: n
 /** 가정값이다. fixture 실측: FX-01↔FX-19 0.529, 그다음으로 높은 쌍 0.258. */
 export const STAGE_LINK_CANDIDATE_MIN_SIMILARITY = 0.5;
 
-const STAGE_ORDER: Readonly<Record<BidStage, number>> = { PLAN: 0, PRE_SPEC: 1, NOTICE: 2 };
+const STAGE_ORDER: Readonly<Record<BidStage, number | null>> = {
+  PLAN: 0,
+  PRE_SPEC: 1,
+  NOTICE: 2,
+  PROCUREMENT_REQUEST: null,
+  OPENING: null,
+  AWARD: null,
+  CONTRACT: null,
+};
 // 단계마다 제목에 붙는 말이라 같은 사업인지 가리는 데 도움이 되지 않는다.
 const STAGE_TITLE_WORDS = ["(가상)", "사전규격", "발주계획"] as const;
 
@@ -63,12 +71,18 @@ const hasValue = (reference: string | null | undefined): reference is string =>
 
 function planRefLink(a: StageLinkInput, b: StageLinkInput): StageLink | null {
   if (!hasValue(a.planRef) || a.planRef !== b.planRef || a.stage === b.stage) return null;
-  const [from, to] = STAGE_ORDER[a.stage] < STAGE_ORDER[b.stage] ? [a, b] : [b, a];
+  const orderA = STAGE_ORDER[a.stage];
+  const orderB = STAGE_ORDER[b.stage];
+  if (orderA === null || orderB === null) return null;
+  const [from, to] = orderA < orderB ? [a, b] : [b, a];
   return { fromBidId: from.bidId, toBidId: to.bidId, basis: "PLAN_REF" };
 }
 
 const refersToPreSpec = (preSpec: StageLinkInput, bid: StageLinkInput): boolean =>
-  preSpec.stage === "PRE_SPEC" && hasValue(bid.preSpecRef) && bid.preSpecRef === preSpec.noticeId;
+  preSpec.stage === "PRE_SPEC" &&
+  bid.stage === "NOTICE" &&
+  hasValue(bid.preSpecRef) &&
+  bid.preSpecRef === preSpec.noticeId;
 
 function preSpecRefLink(a: StageLinkInput, b: StageLinkInput): StageLink | null {
   if (refersToPreSpec(a, b)) return { fromBidId: a.bidId, toBidId: b.bidId, basis: "PRE_SPEC_REF" };

@@ -115,6 +115,12 @@ updated: 2026-10-21
 
 ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·남녀 100/100·고유 정장 사진 200장·가입 부서/직급 필수 선택을 설계했다. 원본 실명은 재사용하지 않는다. 이름·사진 경로와 생성/검증 규칙은 [[07-DATA-PIPELINE]], 가입 화면은 [[06-UI-UX]], 검증은 [[11-TESTING]] PPL-01~07, [승인 스펙](../polaris/specs/done/2026-10-16-solideo-people-signup.md)에 있다. 구현 상태와 남은 일은 [[PROGRESS]]의 솔리데오 절을 따른다.
 
+## 검토 중: 공공 입찰 수집 확장·업무 UI (2026-10-21)
+
+기존 조달청4서비스 유지와 신규6서비스, Source/발주기관/단계/분야 분리, 고유 사업기회 집계, 대시보드·입찰 공고·수집 운영 화면을 [승인용 설계](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)에 정리했다. [[2026-10-21-public-procurement-expansion-plan|Phase0~8 계획]], [[20261021-review|구현/공식 API 조사]]와 [[16-DECISIONS|ADR-047 제안]]을 함께 읽는다.
+
+**현재 계약의 교체나 기능 완료가 아니다.** 정본과 충돌하는 모델·원본보존·넓은 수집·UI 스크롤 정책은 승인 전 제안이다. KEPCO 키는 발급 완료(사용자 확인), 실호출 미검증이다. Redis Gateway/Storage/인력200명 작업은 해당 branch와 현재 main을 구분한다. 구현·DB 적용·배포·운영 재수집은 시작하지 않았다.
+
 ## 관련 문서
 
 - [[18-HACKATHON|18 해커톤 전략]]
@@ -124,3 +130,6 @@ ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·�
 - [[21-MODEL-TRAINING|21 모델 학습]]
 - [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]
 - [[PROGRESS|진행 상황]]
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

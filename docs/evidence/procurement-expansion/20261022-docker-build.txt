@@ -1,0 +1,160 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.29kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-slim
+#2 DONE 0.8s
+
+#3 [build 1/9] FROM docker.io/library/node:22-slim@sha256:a6385bc33f0f9d6a08482c87f52baee537a9184e2b47dea1ed97caac62f8960c
+#3 DONE 0.0s
+
+#4 [runtime 2/6] WORKDIR /app
+#4 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 854.25kB 0.1s done
+#5 DONE 0.1s
+
+#6 [build 3/9] WORKDIR /app/web
+#6 CACHED
+
+#7 [build 4/9] COPY web/package.json web/pnpm-lock.yaml ./
+#7 CACHED
+
+#8 [build 2/9] RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+#8 CACHED
+
+#9 [build 5/9] RUN pnpm install --frozen-lockfile
+#9 CACHED
+
+#10 [build 6/9] COPY web/ ./
+#10 DONE 1.6s
+
+#11 [build 7/9] COPY infra/sources/ /app/infra/sources/
+#11 DONE 0.0s
+
+#12 [build 8/9] COPY scripts/ /app/scripts/
+#12 DONE 0.0s
+
+#13 [build 9/9] RUN pnpm build
+#13 0.402
+#13 0.402 > sol-radar-web@0.1.0 build /app/web
+#13 0.402 > next build
+#13 0.402
+#13 0.814 ▲ Next.js 16.4.1 (Turbopack)
+#13 0.851 ✓ Running next.config.ts took 37ms
+#13 0.851 ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+#13 0.855 Attention: Next.js now collects completely anonymous telemetry regarding usage.
+#13 0.855 This information is used to shape Next.js' roadmap and prioritize features.
+#13 0.855 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+#13 0.855 https://nextjs.org/telemetry
+#13 0.855
+#13 0.886
+#13 0.918   Creating an optimized production build ...
+#13 9.970 ✓ Compiled successfully in 9.0s
+#13 9.981   Running TypeScript ...
+#13 29.37   Finished TypeScript in 19.4s ...
+#13 29.38   Collecting page data using 10 workers ...
+#13 30.84   Generating static pages using 10 workers (0/45) ...
+#13 30.93   Generating static pages using 10 workers (11/45)
+#13 31.03   Generating static pages using 10 workers (22/45)
+#13 31.10   Generating static pages using 10 workers (33/45)
+#13 31.16 ✓ Generating static pages using 10 workers (45/45) in 321ms
+#13 31.16   Finalizing page optimization ...
+#13 31.61
+#13 31.61 Route (app)
+#13 31.61 ┌ ƒ /
+#13 31.61 ├ ƒ /_not-found
+#13 31.61 ├ ƒ /[slug]
+#13 31.61 ├ ƒ /[slug]/dashboard
+#13 31.61 ├ ƒ /[slug]/settings
+#13 31.61 ├ ƒ /[slug]/settings/members
+#13 31.61 ├ ƒ /[slug]/settings/team
+#13 31.61 ├ ƒ /[slug]/tasks
+#13 31.61 ├ ƒ /admin
+#13 31.61 ├ ƒ /admin/ingestion
+#13 31.61 ├ ƒ /api/admin/users/[id]/status
+#13 31.61 ├ ƒ /api/auth/identities/[id]
+#13 31.61 ├ ƒ /api/auth/logout-all
+#13 31.61 ├ ƒ /api/auth/me
+#13 31.61 ├ ƒ /api/auth/providers
+#13 31.61 ├ ƒ /api/users/me
+#13 31.61 ├ ƒ /api/v1/admin/ai/status
+#13 31.61 ├ ƒ /api/v1/admin/ingestion/runs
+#13 31.61 ├ ƒ /api/v1/admin/ingestion/runs/[id]
+#13 31.61 ├ ƒ /api/v1/admin/ingestion/services
+#13 31.61 ├ ƒ /api/v1/analyses/[id]
+#13 31.61 ├ ƒ /api/v1/analyses/[id]/what-if
+#13 31.61 ├ ƒ /api/v1/bids
+#13 31.61 ├ ƒ /api/v1/bids/[id]
+#13 31.61 ├ ƒ /api/v1/bids/[id]/analyses
+#13 31.61 ├ ƒ /api/v1/bids/[id]/documents/[documentId]/download-url
+#13 31.61 ├ ƒ /api/v1/bids/[id]/qualification-checks
+#13 31.61 ├ ƒ /api/v1/bids/[id]/reviews
+#13 31.61 ├ ƒ /api/v1/company-profile
+#13 31.61 ├ ƒ /api/v1/company-profile/revisions
+#13 31.61 ├ ƒ /api/v1/dashboard/opportunity-summary
+#13 31.61 ├ ƒ /api/v1/dashboard/summary
+#13 31.61 ├ ƒ /api/v1/departments
+#13 31.61 ├ ƒ /api/v1/ingestion/source-summary
+#13 31.61 ├ ƒ /api/v1/job-titles
+#13 31.61 ├ ƒ /api/v1/me/employment
+#13 31.61 ├ ƒ /api/v1/notifications
+#13 31.61 ├ ƒ /api/v1/notifications/[id]/read
+#13 31.61 ├ ƒ /api/v1/opportunities
+#13 31.61 ├ ƒ /api/v1/signup-options
+#13 31.61 ├ ƒ /api/v1/team-members
+#13 31.61 ├ ƒ /api/v1/team-members/[id]
+#13 31.61 ├ ƒ /auth/account
+#13 31.61 ├ ƒ /auth/callback
+#13 31.61 ├ ƒ /auth/complete-profile
+#13 31.61 ├ ƒ /auth/confirm
+#13 31.61 ├ ƒ /auth/login
+#13 31.61 ├ ƒ /auth/organization-state
+#13 31.61 ├ ƒ /auth/password
+#13 31.61 ├ ƒ /auth/reset
+#13 31.61 ├ ƒ /auth/sign-up
+#13 31.61 ├ ƒ /bids
+#13 31.61 ├ ƒ /bids/[id]
+#13 31.61 ├ ƒ /company
+#13 31.61 ├ ƒ /dashboard
+#13 31.61 ├ ƒ /health
+#13 31.61 ├ ƒ /health/live
+#13 31.61 ├ ƒ /health/ready
+#13 31.61 ├ ○ /icon.svg
+#13 31.61 ├ ƒ /invitations
+#13 31.61 ├ ƒ /memos
+#13 31.61 ├ ƒ /notifications
+#13 31.61 ├ ƒ /org-chart
+#13 31.61 ├ ƒ /people
+#13 31.61 ├ ƒ /settings
+#13 31.61 └ ƒ /teams/new
+#13 31.61
+#13 31.61
+#13 31.61 ƒ Proxy (Middleware)
+#13 31.61
+#13 31.61 ○  (Static)   prerendered as static content
+#13 31.61 ƒ  (Dynamic)  server-rendered on demand
+#13 31.61
+#13 DONE 31.8s
+
+#14 [runtime 3/6] COPY --from=build --chown=node:node /app/web/.next/standalone ./
+#14 DONE 0.8s
+
+#15 [runtime 4/6] WORKDIR /app/web
+#15 DONE 0.0s
+
+#16 [runtime 5/6] COPY --from=build --chown=node:node /app/web/.next/static ./.next/static
+#16 DONE 0.2s
+
+#17 [runtime 6/6] COPY --from=build --chown=node:node /app/web/public ./public
+#17 DONE 2.6s
+
+#18 exporting to image
+#18 exporting layers
+#18 exporting layers 1.0s done
+#18 writing image sha256:fa8f9fe03c0680ea27b81c376076478045ba96ff911808e73ce8c3b84d01fb7c done
+#18 naming to docker.io/library/sol-radar-gateway:procurement-review 0.0s done
+#18 DONE 1.0s

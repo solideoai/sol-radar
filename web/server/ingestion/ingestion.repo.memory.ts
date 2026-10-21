@@ -1,4 +1,7 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import type { IngestCompleteness, PageCapture } from "./connector.model";
+import type { IngestRunItemInput, IngestRunSource, IngestWindowScope } from "./ingestion.port";
 
 import type {
   IngestErrorInput,
@@ -77,9 +80,13 @@ export type MemoryRun = {
   summary: IngestSummary;
   /** ingest_runs.quota_used 흉내. checkpoint·finish 가 quotaUsed 를 줄 때만 바뀐다 */
   quotaUsed: number;
+  completeness: IngestCompleteness;
+  fetchedCount: number;
 };
 
 export type MemoryIngestionState = {
+  payloads: (PageCapture & { id: string; runId: string; payloadHash: string })[];
+  runItems: (IngestRunItemInput & { runId: string })[];
   /** 키: `${source}:${noticeId}` */
   bids: Map<string, MemoryBid>;
   /** 넣은 순서 그대로 */
@@ -105,12 +112,20 @@ export type MemoryIngestionRepo = IngestionRepo & {
   /** source 의 SEED run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(시작 순서) run 의 params.anchor. ISO 가 아니면 null */
   findLatestSeedAnchor(source: "fixture"): Promise<Date | null>;
   /**
-   * source·trigger 가 같은 run 중 SUCCEEDED·PARTIAL 로 끝난 가장 최근(시작 순서) run 의 params.window.to. ISO 가 아니면 null.
+   * source·trigger·service/partition 이 같은 SUCCEEDED + COMPLETE run 중 가장 최근(시작 순서)의 params.window.to. ISO 가 아니면 null.
    * 7-1: 일정 수집 창은 SCHEDULED run 만 잇는다(MANUAL 의 미래 창이 일정 수집을 건너뛰게 하지 않는다)
    */
-  findLatestRunWindowEnd(source: "g2b", trigger: "SCHEDULED"): Promise<Date | null>;
+  findLatestRunWindowEnd(
+    source: Exclude<IngestRunSource, "fixture">,
+    trigger: "SCHEDULED",
+    scope?: IngestWindowScope,
+  ): Promise<Date | null>;
   /** source·trigger 가 같은 run 중 가장 최근(시작 순서) run 의 상태와 params.window(상태와 무관). 없으면 null(C8) */
-  findLatestRunWindow(source: "g2b", trigger: "SCHEDULED"): Promise<LatestRunWindow | null>;
+  findLatestRunWindow(
+    source: Exclude<IngestRunSource, "fixture">,
+    trigger: "SCHEDULED",
+    scope?: IngestWindowScope,
+  ): Promise<LatestRunWindow | null>;
 };
 
 /** C3 계약 6-2 SaveRevisionInput.ids. 포트에 생기기 전에도 읽을 수 있게 따로 꺼낸다 */
@@ -153,6 +168,8 @@ const toStartedRun = (run: MemoryRun): MemoryStartedRun => ({
   summary: { ...run.summary },
   params: structuredClone(run.input.params),
   quotaUsed: run.quotaUsed,
+  completeness: run.completeness,
+  fetchedCount: run.fetchedCount,
 });
 
 // Date.prototype.toISOString() 형식만 받는다(서비스가 그 형식으로 쓴다).
@@ -189,6 +206,8 @@ const windowOf = (params: Record<string, unknown> | null): { from: string; to: s
 
 export function createMemoryIngestionRepo(): MemoryIngestionRepo {
   const state: MemoryIngestionState = {
+    payloads: [],
+    runItems: [],
     bids: new Map(),
     revisions: [],
     outbox: [],
@@ -221,6 +240,8 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         cursor: null,
         summary: zeroSummary(),
         quotaUsed: 0,
+        completeness: input.serviceKey === undefined ? "COMPLETE" : "UNKNOWN",
+        fetchedCount: 0,
       };
       state.runs.set(input.jobKey, run);
       return toStartedRun(run);
@@ -240,24 +261,45 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
     },
 
     // trigger 는 7-1 의 포트에서 필수다. 포트가 바뀌기 전의 한 인자 호출도 컴파일되게 선택으로 받되, 주면 그 trigger 만 본다.
-    async findLatestRunWindowEnd(source: "g2b", trigger?: "SCHEDULED") {
+    async findLatestRunWindowEnd(
+      source: Exclude<IngestRunSource, "fixture">,
+      trigger?: "SCHEDULED",
+      scope: IngestWindowScope = {},
+    ) {
       const latest = [...state.runs.values()]
         .filter(
           (run) =>
             run.input.source === source &&
             (trigger === undefined || run.input.trigger === trigger) &&
-            FINISHED_SEED_STATUSES.has(run.status),
+            run.status === "SUCCEEDED" &&
+            run.completeness === "COMPLETE" &&
+            Object.entries(scope).every(
+              ([key, value]) => run.input[key as keyof StartRunInput] === value,
+            ),
         )
         .at(-1);
       return latest ? windowEndOf(latest.input.params) : null;
     },
 
     // C8: 상태와 상관없이 가장 최근에 시작한 run 이다(FAILED 창을 다시 쓰려고).
-    async findLatestRunWindow(source, trigger) {
+    async findLatestRunWindow(source, trigger, scope = {}) {
       const latest = [...state.runs.values()]
-        .filter((run) => run.input.source === source && run.input.trigger === trigger)
+        .filter(
+          (run) =>
+            run.input.source === source &&
+            run.input.trigger === trigger &&
+            Object.entries(scope).every(
+              ([key, value]) => run.input[key as keyof StartRunInput] === value,
+            ),
+        )
         .at(-1);
-      return latest ? { status: latest.status, window: windowOf(latest.input.params) } : null;
+      return latest
+        ? {
+            status: latest.status,
+            completeness: latest.completeness,
+            window: windowOf(latest.input.params),
+          }
+        : null;
     },
 
     async findLatestRevision(source, noticeId) {
@@ -347,6 +389,38 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       return { bidId, revisionId, revisionCreatedAt: createdAt };
     },
 
+    async recordPayload(runId, capture) {
+      requireRun(runId);
+      const payloadHash = createHash("sha256").update(capture.sanitizedPayload).digest("hex");
+      const prior = state.payloads.find(
+        (row) =>
+          row.runId === runId &&
+          row.serviceKey === capture.serviceKey &&
+          row.operation === capture.operation &&
+          row.partitionKey === capture.partitionKey &&
+          row.payloadHash === payloadHash,
+      );
+      if (prior) return prior.id;
+      const id = `payload-${state.payloads.length + 1}`;
+      state.payloads.push({ ...structuredClone(capture), id, runId, payloadHash });
+      return id;
+    },
+
+    async recordRunItem(runId, item) {
+      requireRun(runId);
+      if (
+        state.runItems.some(
+          (row) =>
+            row.runId === runId &&
+            row.sourceRecordKey === item.sourceRecordKey &&
+            row.payloadHash === item.payloadHash,
+        )
+      )
+        return false;
+      state.runItems.push({ ...structuredClone(item), runId });
+      return true;
+    },
+
     async recordError(runId, error) {
       requireRun(runId);
       state.errors.push({ runId, ...error });
@@ -357,6 +431,8 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       run.cursor = checkpoint.cursor;
       run.summary = { ...checkpoint.summary };
       if (checkpoint.quotaUsed !== undefined) run.quotaUsed = checkpoint.quotaUsed;
+      if (checkpoint.completeness !== undefined) run.completeness = checkpoint.completeness;
+      if (checkpoint.fetchedCount !== undefined) run.fetchedCount = checkpoint.fetchedCount;
       state.checkpoints.push({
         runId,
         cursor: checkpoint.cursor,
@@ -369,6 +445,8 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
       run.status = result.status;
       run.summary = { ...result.summary };
       if (result.quotaUsed !== undefined) run.quotaUsed = result.quotaUsed;
+      if (result.completeness !== undefined) run.completeness = result.completeness;
+      if (result.fetchedCount !== undefined) run.fetchedCount = result.fetchedCount;
       state.finishes.push({ runId, status: result.status, summary: { ...result.summary } });
     },
   };

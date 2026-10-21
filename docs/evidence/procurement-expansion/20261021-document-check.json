@@ -1,0 +1,48 @@
+{
+  "checkedAt": "2026-10-21T13:49:55.313202+00:00",
+  "baseline": "main@206db64",
+  "scope": "task-owned documentation only; concurrent work excluded",
+  "checks": {
+    "new_markdown": 3,
+    "modified_canonical_markdown": 18,
+    "relative_links_checked": 32,
+    "wiki_links_checked": 32,
+    "actual_source_paths_checked": 47
+  },
+  "preservedOriginalFiles": {
+    "docs/SOL_RADAR_BOSUN_QWEN4B_MIGRATION_BRIEF.md": true,
+    "docs/design/references/SOL RADAR 공공조달 대시보드.png": true,
+    "docs/design/references/SOL RADAR 입찰 공고 대시보드.png": true
+  },
+  "concurrentWorkObserved": [
+    "web/components/landing/hero.tsx (separate commit 7133636)",
+    "docs/PROGRESS.md: Supabase DB 인증서 연결 확인",
+    "docs/evidence/database/"
+  ],
+  "concurrentHeroUnchangedSinceObservation": {
+    "web/components/landing/hero.tsx": true
+  },
+  "taskProductCodeChanges": 0,
+  "taskMigrationFilesCreated": 0,
+  "authenticatedApiCalls": 0,
+  "codeTestsRun": 0,
+  "changedVerification": {
+    "exitCode": 0,
+    "observedChangedPaths": 25,
+    "selectedCodeChecks": 0,
+    "timing": "before concurrent hero and database evidence changes appeared"
+  },
+  "diffCheck": true,
+  "priorCheckerFindings": [
+    "Escaped wiki table pipes and approval-pending label were initially misread; corrected checker.",
+    "Concurrent hero.tsx change appeared during whole-worktree scan; preserved and excluded from task ownership."
+  ],
+  "issues": [],
+  "finalObservedHead": "7133636",
+  "gitFinalReadState": {
+    "coreBare": "true",
+    "normalStatus": "failed: this operation must be run in a work tree",
+    "configurationChangedByThisTask": false,
+    "finalReadOnlyCheck": "explicit --work-tree path; repository configuration unchanged"
+  }
+}

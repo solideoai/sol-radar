@@ -17,9 +17,15 @@ const sourceEntrySchema = z.strictObject({
   // 7-4: 나라장터 서비스키 이름만 받는다. 다른 비밀(SUPABASE_SERVICE_ROLE_KEY 등)을 읽어 요청 URL 에 싣지 못하게 한다.
   serviceKeyEnv: z
     .string()
-    .regex(/^G2B_[A-Z0-9_]+_SERVICE_KEY$/)
+    .regex(
+      /^(?:G2B_[A-Z0-9_]+_SERVICE_KEY|KWATER_BID_NOTICE_SERVICE_KEY|KWATER_PROCUREMENT_PLAN_SERVICE_KEY|LH_BID_NOTICE_SERVICE_KEY|LH_PRE_SPECIFICATION_SERVICE_KEY|KEPCO_EBID_CONTRACT_SERVICE_KEY)$/,
+    )
     .nullable(),
   approvalStatus: z.enum(APPROVAL_STATUSES),
+  sourceFamily: z.enum(["G2B", "KWATER", "LH", "KEPCO"]).optional(),
+  enabled: z.boolean().optional(),
+  verification: z.enum(["VERIFIED", "NOT_VERIFIED"]).optional(),
+  keyIssuance: z.enum(["ISSUED", "UNKNOWN"]).optional(),
   endpoint: z
     .strictObject({
       // 8-3: 서비스키가 쿼리로 나가므로 평문 http 엔드포인트는 등록하지 않는다.
@@ -87,6 +93,8 @@ export type CallableSourceResult =
       ok: false;
       reason:
         | "NOT_REGISTERED"
+        | "DISABLED"
+        | "NOT_VERIFIED"
         | "NOT_APPROVED"
         | "NO_ENDPOINT"
         | "NO_FIELD_MAPPING"
@@ -101,6 +109,8 @@ export function dailyQuotaOf(registry: SourceRegistry, key: string): number | nu
 export function callableSource(registry: SourceRegistry, key: string): CallableSourceResult {
   const entry = registry.sources.find((source) => source.key === key);
   if (entry === undefined) return { ok: false, reason: "NOT_REGISTERED" };
+  if (entry.enabled === false) return { ok: false, reason: "DISABLED" };
+  if (entry.verification === "NOT_VERIFIED") return { ok: false, reason: "NOT_VERIFIED" };
   if (entry.approvalStatus !== "APPROVED") return { ok: false, reason: "NOT_APPROVED" };
   if (entry.endpoint === null) return { ok: false, reason: "NO_ENDPOINT" };
   if (Object.keys(entry.fieldMapping).length === 0)

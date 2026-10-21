@@ -805,6 +805,12 @@ interface KakaoNotifyEnabledInput { enabled: boolean }
 
 Next 설정의 기존 별칭(`/account`, `/favicon.ico`)과 trailing slash 정규화는 Proxy 이전308일 수 있으며 목적지에서 허용 경로·인증을 다시 적용한다. Gateway client는 redirect를 따라가지 않는다. Readiness는 backend2초 probe에 전송 여유를 준 별도5초 상한이며 AI만 지연되면200/degraded를 유지한다.
 
+## 검토 중 확장: 사업기회 읽기 계약 (미구현)
+
+ADR-047 [제안](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§9에 `GET /api/v1/opportunities`, `/dashboard/opportunity-summary`, `/ingestion/source-summary`, `/admin/ingestion/services`와 기존 수집 POST 확장을 정의했다. 기존 `/bids` API는 source record ID/DTO를 보존한다. 새 계약의 Source family 필터는 현재 `origin=live/demo/all`을 대체하지 않는다.
+
+새 목록은 기관/companyId·분야·early·SI/AI우선·예산정렬과 서버 cursor를 지원하는 안이다. 기본 early OFF, 우선정렬 ON,20건/최대100·필터변경cursor초기화·null마지막·org scope/RLS를 따른다. 후속 승인으로 새 zod/Route Handler와 기존 ADMIN 수집 POST의 serviceKey/회사/operation 옵션을 구현했다. migration 적용 전 운영 API 사용 가능을 뜻하지 않는다.
+
 ## 관련 문서
 
 - [[15-DATA-CONTRACTS|15 데이터 계약]] — `EvidenceRef`, `NormalizedBid`
@@ -824,3 +830,6 @@ Next 설정의 기존 별칭(`/account`, `/favicon.ico`)과 trailing slash 정�
 `GET /api/v1/bids/{bidId}/documents/{documentId}/download-url`: 기존 업무 인증/가입 완료/조직 검사 후 사용자 JWT+RLS로 문서와 공고 연결을 확인한다. download OK·Storage 원장 참조가 있어야 한다. bucket/path는 요청에서 받지 않는다.
 성공200 `{url,expiresIn:60}`·`Cache-Control:no-store`, 파일명 attachment로 발급한다. 없는/읽을 수 없는 문서는404, Storage 오류는503 `{component:"storage"}`다. signed URL을 로그에 기록하지 않는다.
 Readiness의 `checks.storage`는 private Storage에 대한 Worker 실검사 보고다. Redis TTL120초와 scope(DB URL·모드·bucket) 검사를 통과한 보고만 사용하며 보고 없음/만료는503이다.
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

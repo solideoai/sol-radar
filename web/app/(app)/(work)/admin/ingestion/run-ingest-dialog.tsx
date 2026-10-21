@@ -42,6 +42,9 @@ const BATCHES = ["seed", "live"] as const satisfies readonly IngestBatch[];
 const SOURCE_DESCRIPTION = {
   fixture: "저장소의 가상 공고 20건(FX-01~FX-20)을 읽습니다.",
   g2b: "나라장터 Open API에서 입찰공고를 읽습니다.",
+  kwater: "K-water 전자조달 API를 조회합니다. 검증 전에는 실행할 수 없습니다.",
+  lh: "LH 전자조달 API를 조회합니다. 검증 전에는 실행할 수 없습니다.",
+  kepco: "KEPCO 전자입찰 API를 조회합니다. 발급된 키의 실인증 검증이 필요합니다.",
 } as const satisfies Record<IngestSource, string>;
 
 const BATCH_TEXT = {

@@ -14,6 +14,7 @@ import type { BidDetailParts, BidListItemRow } from "./bid-row.mapper";
 import {
   analysisStatusSchema,
   bidDocumentSchema,
+  bidStageSchema,
   structuredRequirementSchema,
   type AnalysisStatus,
   type BidDocument,
@@ -424,7 +425,7 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
           ? profiles.order("revision", { ascending: false }).limit(1)
           : profiles.eq("revision", profileRevision)
         ).maybeSingle(),
-        db.from("bid_notices").select("latest_revision").eq("id", bidId).maybeSingle(),
+        db.from("bid_notices").select("latest_revision,stage").eq("id", bidId).maybeSingle(),
       ]);
       if (profile.error) throw profile.error;
       if (notice.error) throw notice.error;
@@ -455,6 +456,7 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
         revisionId: revision.data.id,
         extractionId: extraction.data?.id ?? null,
         algorithmVersion: config.algorithmVersion,
+        stage: bidStageSchema.parse(notice.data.stage),
       };
     },
 

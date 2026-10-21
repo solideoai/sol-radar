@@ -975,6 +975,12 @@ interface ParseResult {
 > [!warning] 미검증 가정 (2026-10-21)
 > `/v1/models` 응답의 필드 이름(`run`·`base`·`lora`·`revision`·`decision_embeddings_sha256`·`temperature`·`questionTypes`)은 우리 `sol_decision` 서버가 내고 B1에서 `services/decision/tests/test_models_endpoint.py`로 고정했다. `status`·`revision`을 읽는 `registry.py`는 `services/ai/tests/test_model_registry.py`가 고정한다(main `1b68f9b`). 회사 Qwen API `/v1/models`의 `id`는 2026-10-21 실호출로 `Qwen3.8-Flash-Next-AWQ-INT4`임을 확인했다(§3.2). 이전 콜아웃의 `runs/smoke` 대체 동작(Kev)은 퇴역했다.
 
+## 검토 중 확장: 다기관 입력과 관련성 분리
+
+ADR-047 [승인용 설계](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§7~8은 신규 source revision을 기존 RequirementExtraction·EvidenceRef·규칙·Bosun 참고지표·SOL Score에 연결한다. 관련성은 별도 DTO/근거/버전이며 점수 입력이 아니다. 모델 registry·`KEV_*`/`/kev`·질문세트·PARTIAL·인용검증을 유지한다. 대표 출처/revision이 바뀌면 예전 분석을 복사하지 않는다.
+
+현재 active Qwen3.8-Flash-Next/Bosun0.6B와 untracked Qwen4B 브리프는 구분한다. 본 확장은 모델 교체/파인튜닝/실추론 실행 승인이 아니다. 첨부 기반 분석은 별도 문서처리 파이프라인 완성이 선행한다.
+
 ## 관련 문서
 
 - [[15-DATA-CONTRACTS|15 데이터 계약]] — `EvidenceRef`, `FieldState`, 인용 검증, `CompanyEvidenceRef`·`KevStateTrace` 정본
@@ -990,3 +996,6 @@ interface ParseResult {
 - [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] — Bosun v3.1 0.6B LoRA 실행서(ADR-034 Bosun 기준), 가중치 출처·sha256 확인. Qwen 파인튜닝은 하지 않는다
 - [[23-WEEKEND-FINETUNE|23 주말 파인튜닝 계획]] — B4·B5 일정, 오프라인 채점
 - [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) — ADR-034 분석, Bosun 사실 §1.1·wire 변환 §4.1·서버 계약 §5.1·레지스트리 §5.3
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

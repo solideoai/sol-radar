@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { KEPCO_COMPANIES } from "./external-connector.model";
 
 // ── 수집·첨부 큐의 이름과 job data 규칙(6-4). 05 IngestionRunInput 검증과 같은 규칙을 큐 입구에서 한 번 더 건다 ──
 export const INGEST_QUEUE = "ingest";
@@ -19,6 +20,16 @@ const windowSchema = z.strictObject({ from: isoInstantSchema, to: isoInstantSche
   },
   { error: "window 는 from < to 이고 7일 이하다" },
 );
+
+const externalWindowSchema = z
+  .strictObject({ from: isoInstantSchema, to: isoInstantSchema })
+  .refine(
+    ({ from, to }) =>
+      Date.parse(to) > Date.parse(from) &&
+      Date.parse(to) - Date.parse(from) <= 90 * 24 * 60 * 60 * 1000,
+    { error: "external window 는 from < to 이고 90일 이하다" },
+  );
+const externalOptions = { operation: z.string().min(1).max(100).optional() };
 
 const baseJobShape = {
   trigger: z.enum(["SCHEDULED", "MANUAL", "DEMO"]),
@@ -40,7 +51,37 @@ const jobDataUnion = z.discriminatedUnion("source", [
   z.strictObject({
     source: z.literal("g2b"),
     // 생략하면 worker 가 직전 성공 창 끝 ~ 지금으로 정한다(SCHEDULED 의 반복 job data 는 고정이라 창이 없다)
-    window: windowSchema.optional(),
+    window: externalWindowSchema.optional(),
+    serviceKey: z.enum(["g2b-bid-notice", "g2b-procurement-request"]).optional(),
+    requestId: z.string().min(1).max(200).optional(),
+    ...externalOptions,
+    ...baseJobShape,
+  }),
+  z.strictObject({
+    source: z.literal("kwater"),
+    serviceKey: z.enum(["kwater-bid-notice", "kwater-procurement-plan"]),
+    window: externalWindowSchema.optional(),
+    ...externalOptions,
+    ...baseJobShape,
+  }),
+  z.strictObject({
+    source: z.literal("lh"),
+    serviceKey: z.enum(["lh-bid-notice", "lh-pre-specification"]),
+    window: externalWindowSchema.optional(),
+    ...externalOptions,
+    ...baseJobShape,
+  }),
+  z.strictObject({
+    source: z.literal("kepco"),
+    serviceKey: z.literal("kepco-ebid-contract"),
+    companyId: z
+      .string()
+      .refine((code) => Object.hasOwn(KEPCO_COMPANIES, code), {
+        error: "companyId 가 확인된 코드가 아니다",
+      })
+      .optional(),
+    window: externalWindowSchema.optional(),
+    ...externalOptions,
     ...baseJobShape,
   }),
 ]);
@@ -50,10 +91,19 @@ const hasManualRequester = (data: z.infer<typeof jobDataUnion>): boolean =>
   data.trigger !== "MANUAL" || (data.orgId !== undefined && data.requestedBy !== undefined);
 
 /** 시각과 무관한 검사만 한다. 큐에 넣거나 처리할 때는 ingestJobDataSchemaAt(now) 를 쓴다. */
-export const ingestJobDataSchema = jobDataUnion.refine(hasManualRequester, {
-  error: "MANUAL 수집은 orgId·requestedBy 가 필요하다",
-  path: ["requestedBy"],
-});
+export const ingestJobDataSchema = jobDataUnion
+  .refine(hasManualRequester, {
+    error: "MANUAL 수집은 orgId·requestedBy 가 필요하다",
+    path: ["requestedBy"],
+  })
+  .refine(
+    (data) =>
+      data.source !== "g2b" ||
+      (data.serviceKey !== undefined && data.serviceKey !== "g2b-bid-notice") ||
+      data.window === undefined ||
+      windowSchema.safeParse(data.window).success,
+    { error: "나라장터 입찰공고 창은 7일 이하다", path: ["window"] },
+  );
 export type IngestJobData = z.infer<typeof ingestJobDataSchema>;
 
 /** window.to 가 지금보다 이만큼 넘게 미래면 받지 않는다(서버 시계 차이만 허용한다, 7-1). */
@@ -63,7 +113,7 @@ export const INGEST_WINDOW_FUTURE_TOLERANCE_MS = 5 * 60_000;
 export const ingestJobDataSchemaAt = (now: Date) =>
   ingestJobDataSchema.refine(
     (data) =>
-      data.source !== "g2b" ||
+      data.source === "fixture" ||
       data.window === undefined ||
       Date.parse(data.window.to) <= now.getTime() + INGEST_WINDOW_FUTURE_TOLERANCE_MS,
     { error: "window.to 가 지금보다 5분 넘게 미래다", path: ["window", "to"] },

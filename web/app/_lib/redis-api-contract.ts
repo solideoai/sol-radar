@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { EXTERNAL_SOURCE_KEYS } from "@/server/ingestion";
 
 export const analysisAcceptedSchema = z
   .object({
@@ -11,9 +12,13 @@ export const analysisAcceptedSchema = z
   .refine((value) => value.pollUrl === `/api/v1/analyses/${value.analysisId}`);
 
 const count = z.number().int().nonnegative();
+const externalServiceKey = z.enum(EXTERNAL_SOURCE_KEYS);
 export const ingestAcceptedSchema = z.object({
   id: z.uuid(),
-  source: z.enum(["fixture", "g2b"]),
+  source: z.enum(["fixture", "g2b", "kwater", "lh", "kepco"]),
+  serviceKey: z.enum(["g2b-bid-notice", ...EXTERNAL_SOURCE_KEYS]).optional(),
+  completeness: z.enum(["COMPLETE", "PARTIAL", "UNKNOWN"]).optional(),
+  fetchedCount: count.optional(),
   runMode: z.enum(["mock", "fixture", "live"]),
   batch: z.enum(["seed", "live"]).nullable(),
   trigger: z.enum(["SCHEDULED", "MANUAL", "DEMO"]),
@@ -39,6 +44,27 @@ export const ingestAcceptedSchema = z.object({
   requestedBy: z.object({ id: z.uuid(), name: z.string() }).nullable(),
   startedAt: z.iso.datetime({ offset: true }),
   finishedAt: z.iso.datetime({ offset: true }).nullable(),
+});
+
+export const sourceReadinessErrorSchema = z.object({
+  error: z.object({
+    code: z.literal("SERVICE_UNAVAILABLE"),
+    details: z.object({
+      component: z.literal("source"),
+      source: z.enum(["g2b", "kwater", "lh", "kepco"]),
+      serviceKey: externalServiceKey,
+      reason: z.enum([
+        "NOT_REGISTERED",
+        "DISABLED",
+        "NOT_VERIFIED",
+        "NOT_APPROVED",
+        "NO_ENDPOINT",
+        "NO_FIELD_MAPPING",
+        "NO_SERVICE_KEY_ENV",
+      ]),
+    }),
+    requestId: z.uuid(),
+  }),
 });
 
 export const backendErrorSchema = z.object({

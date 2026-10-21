@@ -389,6 +389,12 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 - `NOT_SATISFIED` 판정은 공고 쪽 `EvidenceRef`와 회사 쪽 `CompanyEvidenceRef`가 둘 다 있어야 저장된다(§2).
 - `UNKNOWN`이 0이나 기본값으로 바뀌는 경로가 코드에 없다(리뷰 체크리스트 항목).
 
+## 검토 중 확장: NormalizedBid v0.3 및 opportunity
+
+ADR-047 [제안](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§4~9는 기존v0.2/fixture와 source bid/revision을 읽는 호환변환, Source family/기관 namespace/companyId/서비스partition, stage와정정·취소event, 금액종류/단위/날짜정밀도, 원본참조·중복관계·관련성근거를 분리한다. 기존 source 필드의 의미를 family로 몰래 바꾸지 않는다.
+
+기존 v0.2와 신규 외부 v0.3를 함께 지원한다. JSON/XML의결측·대소문자alias충돌·잘린페이지·안정ID미확보는 확인필요/격리/부분 상태로 보존한다. 원문인용/FieldState/조직별input snapshot 계약을 유지한다. 상세 DTO/유일성/버전은 스펙, 실제zod/SQL 변경은 승인된 [[2026-10-21-public-procurement-expansion-plan|I1~I4]]다.
+
 ## 관련 문서
 
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — `RequirementExtraction` 전체 스키마, 프롬프트
@@ -400,3 +406,6 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 - [[11-TESTING|11 테스트]] — 골든 시나리오
 - [[16-DECISIONS|16 ADR]] — ADR-020, 미결정 1·16·18·19번
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalItem`, 데이터셋 마스킹
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

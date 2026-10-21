@@ -10,6 +10,7 @@ import { createIdempotencyStore } from "./idempotency-store";
 import { createIngestQueue } from "./ingest-queue";
 import { createAnalysisRateLimiter } from "./rate-limit";
 import { currentRunMode } from "./run-mode";
+import { sourceServiceReadiness } from "./opportunity-sources";
 
 // 수집 관리(N8) Route Handler·화면이 서비스에 주입하는 의존성 묶음.
 // 수집 도메인은 공고 도메인을 부르지 않으므로 HMAC 커서는 여기(app 층)서 공고 도메인의 서명 도구로 만든다.
@@ -50,6 +51,7 @@ export function ingestionDeps(orgId: string): IngestionAdminDeps {
       limitPerMinute: INGEST_LIMIT_PER_MINUTE,
     }),
     runMode: currentRunMode(),
+    serviceReady: sourceServiceReadiness,
     now: () => new Date(),
     newId: () => crypto.randomUUID(),
     cursor: secret === null ? null : ingestionRunCursor(orgId, secret),

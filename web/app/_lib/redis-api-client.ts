@@ -6,6 +6,7 @@ import {
   backendErrorSchema,
   backendReadinessSchema,
   ingestAcceptedSchema,
+  sourceReadinessErrorSchema,
 } from "./redis-api-contract";
 import { redisApiOperation } from "./redis-api-path";
 import { withRedisApiDeadline } from "./redis-api-deadline";
@@ -113,7 +114,7 @@ export async function relayRedisApi(
               cache: "no-store",
               redirect: "manual",
             });
-            if ([502, 503, 504].includes(upstream.status) && attempt === 0) {
+            if ([502, 504].includes(upstream.status) && attempt === 0) {
               void upstream.body?.cancel().catch(() => undefined);
               throw new Error("REDIS_API_TEMPORARY_FAILURE");
             }
@@ -122,7 +123,7 @@ export async function relayRedisApi(
               return bodyTooLarge();
             }
             if (
-              upstream.status >= 500 ||
+              (upstream.status >= 500 && upstream.status !== 503) ||
               upstream.status < 200 ||
               (upstream.status >= 300 && upstream.status < 400)
             ) {
@@ -137,8 +138,20 @@ export async function relayRedisApi(
             await retryDelay(signal);
             continue;
           }
-          if (text.includes(settings.token) || text.includes(accessToken))
+          const containsCredential = text.includes(settings.token) || text.includes(accessToken);
+          if (upstream.status === 503) {
+            const sourceFailure =
+              operation === "ingest-submit" && !containsCredential
+                ? sourceReadinessResponse(text)
+                : null;
+            if (sourceFailure !== null) return sourceFailure;
+            if (attempt === 0) {
+              await retryDelay(signal);
+              continue;
+            }
             return redisApiUnavailable();
+          }
+          if (containsCredential) return redisApiUnavailable();
           const raw: unknown = JSON.parse(text);
           const responseSchema =
             upstream.status === 202
@@ -166,6 +179,24 @@ export async function relayRedisApi(
     );
   } catch {
     return redisApiUnavailable();
+  }
+}
+
+function sourceReadinessResponse(text: string): Response | null {
+  try {
+    const parsed = sourceReadinessErrorSchema.safeParse(JSON.parse(text));
+    if (!parsed.success) return null;
+    return Response.json(
+      {
+        error: {
+          ...parsed.data.error,
+          message: "아직 사용할 수 없는 수집 서비스입니다",
+        },
+      },
+      { status: 503, headers: responseHeaders(parsed.data.error.requestId) },
+    );
+  } catch {
+    return null;
   }
 }
 

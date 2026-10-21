@@ -1,182 +1,220 @@
 import { cn } from "cn";
+import { CircleDashedIcon } from "lucide-react";
 import Link from "next/link";
-import { BidTable } from "@/components/bids/bid-table";
-import { formatRelative } from "@/components/bids/format";
+import { formatKrwCompact } from "@/components/bids/format";
+import { StatusBadge } from "@/components/bids/status-badge";
 import { StatCard } from "@/components/stat-card";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { BidListItem, DashboardSummary } from "@/server/bids";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { OpportunityReviewRows } from "@/components/work/opportunities-review-rows";
+import { OpportunitySourceStatus } from "@/components/work/opportunities-source-status";
+import type { OpportunityItem, OpportunitySummary, SourceSummary } from "@/server/opportunities";
+import type { RunMode } from "@/server/bids";
 import { NoBidsEmptyState } from "@/app/(app)/(work)/empty-state";
 import { DashboardAiBanner } from "./dashboard-ai-banner";
 
-// /dashboard 본문(스펙 §5.2). 데이터를 읽지 않고 page.tsx 가 서버에서 읽은 값만 그린다.
-// 글자는 AppPage typeScale="dashboard"(+3px, ADR-030 B25) 안에서 커진다. 그래서 표 두 개는 위아래로 쌓는다.
-// 스펙 §5.2 는 @4xl 부터 3fr:2fr 로 나란히였지만, +3px 글자에서 마감 표의 고정 열(출처·마감·권고·결정)만 408px 라
-// 나란히 두면 제목 칸이 1280(본문 960)에서 거의 0, 1440·접힘(본문 1376)에서도 130px 남짓이라 공고 이름을 읽을 수 없다.
-
-// page·loading·error 가 같은 제목과 설명을 쓴다(읽는 동안과 읽은 뒤 제목 줄이 튀지 않게).
 export const DASHBOARD_TITLE = "대시보드";
-export const DASHBOARD_DESCRIPTION = "실행 모드와 수집 현황, 검토가 필요한 공고를 봅니다.";
+export const DASHBOARD_DESCRIPTION = "공공조달 데이터와 수집 현황, 검토할 사업기회를 확인합니다.";
+const count = (value: number) => value.toLocaleString("ko-KR");
 
-type DashboardViewProps = {
-  summary: DashboardSummary;
-  recommended: BidListItem[];
-  /** BID 표와 같은 조건(진행 중 공고의 최신 점수 권고 BID)의 전체 건수. "BID 권고" 카드 값이다(M4). */
-  recommendedTotal: number;
-  deadline: BidListItem[];
-  /** 서버가 요청마다 한 번 만든 시각. 상대 시각·D-n 의 기준이다. */
-  now: Date;
-  /** 공고 0건 빈 상태에 [수집 실행] 단추를 둘지(ADMIN). 아니면 "관리자에게 수집을 요청하세요"를 보인다. */
-  canRunIngestion: boolean;
-};
-
-const EMPTY = "—";
-
-type IngestCard = { value: string; hint?: string; tone: "default" | "destructive" };
-
-function ingestCard(freshness: DashboardSummary["dataFreshness"], now: Date): IngestCard {
-  const { lastIngestAt, lastIngestStatus, lastIngestSummary } = freshness;
-  if (lastIngestAt === null) return { value: EMPTY, hint: "수집 기록 없음", tone: "default" };
-  const counts =
-    lastIngestSummary === null
-      ? undefined
-      : `적재 ${lastIngestSummary.created} · 격리 ${lastIngestSummary.quarantined}`;
-  const failed = lastIngestStatus === "FAILED";
-  return {
-    value: failed ? "실패" : formatRelative(lastIngestAt, now),
-    hint: counts,
-    tone: failed ? "destructive" : "default",
-  };
-}
-
-function SummaryCards({
-  summary,
-  recommendedTotal,
-  now,
-}: {
-  summary: DashboardSummary;
-  recommendedTotal: number;
-  now: Date;
-}) {
-  const { analyses, reviews, bids, dataFreshness } = summary;
-  const { completed, partial, failed } = analyses.latestByStatus;
-  const ingest = ingestCard(dataFreshness, now);
-  return (
-    <section aria-labelledby="dashboard-summary-title">
-      <h2 id="dashboard-summary-title" className="sr-only">
-        요약
-      </h2>
-      {/* 본문 960(1280·펼침)·1120(1440·펼침) 모두 @4xl 이상이라 다섯 칸 한 줄이다. 카드는 링크가 아니다. */}
-      <div className="@container">
-        <div className="grid grid-cols-3 gap-4 @4xl:grid-cols-5">
-          {/* 아래 BID 표·전체 보기와 같은 정의다. 요약의 byRecommendation(모든 상태·최신 끝난 분석)과 다를 수 있다. */}
-          <StatCard label="BID 권고" value={String(recommendedTotal)} />
-          <StatCard label="검토 대기" value={String(reviews.pending)} />
-          <StatCard label="마감 임박 (7일)" value={String(bids.deadlineWithin7Days)} />
-          <StatCard label="수집" value={ingest.value} tone={ingest.tone} hint={ingest.hint} />
-          <StatCard
-            label="분석 현황"
-            value={String(completed)}
-            hint={
-              completed + partial + failed === 0
-                ? "아직 분석한 공고가 없습니다"
-                : `부분 ${partial} · 실패 ${failed}`
-            }
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function BidTableCard({
-  name,
+function OpportunityPanel({
   title,
-  href,
+  description,
   items,
-  now,
-  kind,
+  query,
   emptyText,
+  early = false,
 }: {
-  /** "전체 보기" 링크 이름에 붙이는 짧은 표 이름 */
-  name: string;
   title: string;
-  href: string;
-  items: BidListItem[];
-  now: Date;
-  kind: "recommended" | "deadline";
+  description: string;
+  items: OpportunityItem[] | null;
+  query: string;
   emptyText: string;
+  early?: boolean;
 }) {
   return (
-    <Card className="min-w-0">
+    <Card className="min-w-0 shadow-none">
       <CardHeader>
         <CardTitle>
           <h2>{title}</h2>
         </CardTitle>
+        <CardDescription className="type-caption">{description}</CardDescription>
         <CardAction>
-          {/* 같은 화면에 "전체 보기"가 둘이라 어느 표의 것인지 이름에 넣는다. */}
           <Link
-            href={href}
-            aria-label={`${name} 전체 보기`}
+            href={`/bids?${query}`}
+            aria-label={`${title} 전체 보기`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           >
             전체 보기
           </Link>
         </CardAction>
       </CardHeader>
-      {items.length === 0 ? (
-        <CardContent>
-          <p className="type-label text-muted-foreground">{emptyText}</p>
-        </CardContent>
-      ) : (
-        // 표는 카드 끝까지 닿고 첫·끝 칸 글자를 카드 여백(24px)에 맞춘다(BidTable compact).
-        <CardContent className="@container -mb-4 px-0">
-          <BidTable items={items} caption={title} now={now} compact compactKind={kind} />
-        </CardContent>
-      )}
+      <CardContent className="px-0">
+        {items === null ? (
+          <p className="px-6 type-label text-muted-foreground">
+            목록을 불러오지 못했습니다. 데이터 새로고침으로 다시 시도하세요.
+          </p>
+        ) : items.length === 0 ? (
+          <p className="px-6 type-label text-muted-foreground">{emptyText}</p>
+        ) : (
+          <OpportunityReviewRows items={items} query={query} early={early} />
+        )}
+      </CardContent>
     </Card>
   );
 }
 
-const listHref = (params: Record<string, string>): string =>
-  `/bids?${new URLSearchParams(params).toString()}`;
+function Portfolio({ summary }: { summary: OpportunitySummary }) {
+  return (
+    <Card className="min-w-0 shadow-none">
+      <CardHeader>
+        <CardTitle>
+          <h2>입찰 포트폴리오</h2>
+        </CardTitle>
+        <CardDescription className="type-caption">
+          권고 분포 · 입찰 프로젝트·수주 실적이 아닙니다
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y divide-border">
+          {(["BID", "WATCH", "NO_BID", "PENDING"] as const).map((key) => (
+            <li key={key} className="flex items-center justify-between gap-3 py-3 first:pt-0">
+              {key === "PENDING" ? (
+                <span className="inline-flex items-center gap-1 type-caption text-muted-foreground">
+                  <CircleDashedIcon aria-hidden className="size-4" />
+                  분석 대기
+                </span>
+              ) : (
+                <StatusBadge kind="recommendation" value={key} variant="inline" />
+              )}
+              <span className="type-body tabular-nums">{count(summary.portfolio[key])}건</span>
+            </li>
+          ))}
+        </ul>
+        {(summary.sourceConflictCount ?? 0) > 0 && (
+          <p className="mt-3 type-caption text-warning">
+            출처 간 확인 필요 {count(summary.sourceConflictCount ?? 0)}건 · 별도 검토
+          </p>
+        )}
+        <p className="mt-3 border-t border-border pt-3 type-caption wrap-anywhere text-muted-foreground">
+          확인 예산{" "}
+          <span className="font-mono" title={formatKrwCompact(summary.knownBudgetKrw).full}>
+            {formatKrwCompact(summary.knownBudgetKrw).text}
+          </span>
+          <br />
+          예산 미확인 {count(summary.unknownBudgetCount)}건
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function DashboardView({
   summary,
-  recommended,
-  recommendedTotal,
-  deadline,
+  review,
+  early,
+  sources,
+  reviewQuery,
+  earlyQuery,
   now,
   canRunIngestion,
-}: DashboardViewProps) {
+  runMode,
+}: {
+  summary: OpportunitySummary;
+  review: OpportunityItem[] | null;
+  early: OpportunityItem[] | null;
+  sources: SourceSummary | null;
+  reviewQuery: string;
+  earlyQuery: string;
+  now: Date;
+  canRunIngestion: boolean;
+  runMode: RunMode;
+}) {
+  const healthy = sources?.groups.reduce((total, group) => total + group.healthyServices, 0) ?? 0;
+  const enabled = sources?.groups.reduce((total, group) => total + group.enabledServices, 0) ?? 0;
+  const isExternal = runMode === "live";
   return (
     <>
       <DashboardAiBanner />
-      <SummaryCards summary={summary} recommendedTotal={recommendedTotal} now={now} />
-      {summary.bids.total === 0 ? (
-        <NoBidsEmptyState canRun={canRunIngestion} />
-      ) : (
-        <div className="flex flex-col gap-6">
-          <BidTableCard
-            name="BID 권고"
-            title="BID 권고 (점수 높은 순)"
-            href={listHref({ recommendation: "BID", sort: "score:desc" })}
-            items={recommended}
-            now={now}
-            kind="recommended"
-            emptyText="BID 권고 공고가 없습니다"
-          />
-          <BidTableCard
-            name="마감 임박"
-            title="마감 임박 (7일)"
-            href={listHref({ sort: "deadlineAt:asc" })}
-            items={deadline}
-            now={now}
-            kind="deadline"
-            emptyText="7일 안에 마감되는 공고가 없습니다"
-          />
-        </div>
+      {summary.isDemo && (
+        <p className="type-caption text-muted-foreground">DEMO · 예시 공고 기준</p>
       )}
+      <section aria-label="공공조달 요약" className="grid grid-cols-5 gap-4 [&_p]:wrap-anywhere">
+        <StatCard
+          label="신규 발견"
+          value={count(summary.newlyDiscovered)}
+          hint="최근 24시간 · 입찰공고"
+          className="min-w-0 shadow-none"
+        />
+        <StatCard
+          label="분석 대기"
+          value={count(summary.pendingAnalysis)}
+          hint="현재 입력의 분석 결과 없음"
+          className="min-w-0 shadow-none"
+        />
+        <StatCard
+          label="BID 권고"
+          value={count(summary.bidRecommended)}
+          hint="현재 유효 분석 · 진행 중"
+          className="min-w-0 shadow-none"
+        />
+        <StatCard
+          label="마감 임박 (7일)"
+          value={count(summary.closingSoon)}
+          hint="정확한 마감 확인 · 진행 중"
+          className="min-w-0 shadow-none"
+        />
+        <StatCard
+          label="수집 상태"
+          value={!isExternal || sources === null || enabled === 0 ? "—" : `${healthy}/${enabled}`}
+          hint={
+            !isExternal
+              ? `${runMode} 모드 · 외부 수집 없음`
+              : sources === null
+                ? "수집 현황 조회 실패"
+                : enabled === 0
+                  ? "활성 수집 서비스 없음"
+                  : healthy < enabled
+                    ? "일부 미완료 · 소스 상태 확인"
+                    : "정상 · 활성 서비스 기준"
+          }
+          className="min-w-0 shadow-none"
+        />
+      </section>
+      {summary.potentialDuplicateCount > 0 && (
+        <p className="type-caption text-warning">
+          중복 후보 {count(summary.potentialDuplicateCount)}건은 별도 사업기회로 집계됩니다.
+        </p>
+      )}
+      {summary.totalOpportunities === 0 && <NoBidsEmptyState canRun={canRunIngestion} />}
+      <div className="@container">
+        <div className="grid grid-cols-1 items-stretch gap-6 @min-[70rem]:grid-cols-[minmax(0,7fr)_minmax(320px,3fr)]">
+          <OpportunityPanel
+            title="우선 검토할 입찰"
+            description="공공 SI·AI 우선 · 최근 공고 순"
+            items={review}
+            query={reviewQuery}
+            emptyText="검토할 입찰공고가 없습니다"
+          />
+          <OpportunitySourceStatus summary={sources} now={now} canManage={canRunIngestion} />
+          <OpportunityPanel
+            title="예정 사업 및 사전규격"
+            description="발주계획·조달요청·사전규격 · 별도 집계"
+            items={early}
+            query={earlyQuery}
+            early
+            emptyText="예정 사업 및 사전규격이 없습니다"
+          />
+          <Portfolio summary={summary} />
+        </div>
+      </div>
     </>
   );
 }

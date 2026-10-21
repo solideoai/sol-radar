@@ -121,6 +121,12 @@ flowchart LR
 
 지표 저장 위치와 관리자 화면 노출은 [[14-OBSERVABILITY|14 관측성]], 테스트 매핑은 [[11-TESTING|11 테스트]].
 
+## 승인된 확장: 공공 SI·AI·AX 사업기회
+
+2026-10-21 사용자 요청으로 기존 조달청4서비스와 신규 K-water2/LH2/G2B요청/KEPCO를 다루는 [승인용 설계](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)를 작성했다(ADR-047 채택). 수집 범위는 넓게, 관련 공공 SI·AI 사업은 우선 노출하며 낮은 관련성/미분류도 보존한다. 관련성은 기업 적합도/SOL Score와 별개다. 고유 사업기회·출처·발주기관·단계를 구분하고 최종 참여 결정은 사람이 한다.
+
+최초 완료 범위는 조사·설계·문서였다. 후속 승인으로 로컬 구현을 진행한다. 기존 해커톤 일정/핵심 정책·모델·점수·모바일/결제 제외는 유지하며 구현·운영 경계는 [[2026-10-21-public-procurement-expansion-plan|계획]]과 구현 보고를 따른다.
+
 ## 관련 문서
 - [[00-README|00 인덱스]]
 - [[02-ARCHITECTURE|02 아키텍처]]
@@ -130,3 +136,6 @@ flowchart LR
 - [[18-HACKATHON|18 해커톤]]
 - [[19-DEMO-SCENARIO|19 데모 시나리오]]
 - [[21-MODEL-TRAINING|21 모델 학습]]
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

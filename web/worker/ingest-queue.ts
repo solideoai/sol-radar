@@ -1,5 +1,8 @@
 import {
   ingestJobDataSchemaAt,
+  EXTERNAL_SERVICES,
+  G2B_BID_NOTICE_LIST_OPERATION,
+  type ExternalSourceKey,
   runIngest,
   type BidSourceConnector,
   type DocumentsJobData,
@@ -50,7 +53,18 @@ export function readIngestIntervalMinutes(env: Env): number {
   return Number(value);
 }
 
+export type ExternalIngestJobData = Exclude<IngestJobData, { source: "fixture" }> & {
+  serviceKey: ExternalSourceKey;
+};
+const isExternalJob = (data: IngestJobData): data is ExternalIngestJobData =>
+  data.source !== "fixture" &&
+  data.serviceKey !== undefined &&
+  data.serviceKey !== "g2b-bid-notice";
 export type IngestJobDeps = {
+  scheduledExternalJobs?: ExternalIngestJobData[];
+  createExternalConnector?(data: ExternalIngestJobData): Promise<BidSourceConnector>;
+  externalSourceGate?(data: ExternalIngestJobData): string | null;
+  quotaForExternal?(data: ExternalIngestJobData): IngestQuota | undefined;
   repo: IngestionRepo;
   runMode: RunMode;
   createFixtureConnector(batch: FixtureBatch): Promise<BidSourceConnector>;
@@ -75,7 +89,7 @@ const RUN_MODE_OF: Readonly<Record<RunMode, IngestRunMode>> = {
 
 // 05·ADR-020: live 는 g2b 만, fixture·mock 은 fixture 만 받는다.
 const acceptsSource = (mode: RunMode, source: IngestJobData["source"]): boolean =>
-  mode === "live" ? source === "g2b" : source === "fixture";
+  mode === "live" ? source !== "fixture" : source === "fixture";
 
 const floorToMinute = (at: Date): Date =>
   new Date(Math.floor(at.getTime() / MINUTE_MS) * MINUTE_MS);
@@ -100,10 +114,11 @@ async function g2bWindowOf(
   deps: IngestJobDeps,
 ): Promise<{ from: string; to: string }> {
   if (data.window !== undefined) return data.window;
-  const last = await deps.repo.findLatestRunWindow("g2b", "SCHEDULED");
+  const scope = { serviceKey: "g2b-bid-notice" };
+  const last = await deps.repo.findLatestRunWindow("g2b", "SCHEDULED", scope);
   if (last !== null && last.status === "FAILED" && last.window !== null) return last.window;
   const to = floorToMinute(deps.now());
-  const lastEnd = await deps.repo.findLatestRunWindowEnd("g2b", "SCHEDULED");
+  const lastEnd = await deps.repo.findLatestRunWindowEnd("g2b", "SCHEDULED", scope);
   const from = lastEnd ?? new Date(to.getTime() - DEFAULT_G2B_LOOKBACK_MS);
   return { from: from.toISOString(), to: to.toISOString() };
 }
@@ -120,10 +135,51 @@ async function runInputOf(data: IngestJobData, deps: IngestJobDeps): Promise<Sta
   if (data.source === "fixture") {
     return { ...common, source: "fixture", jobKey: data.jobKey, batch: data.batch, params: null };
   }
+  if (isExternalJob(data)) {
+    const operation = data.operation ?? EXTERNAL_SERVICES[data.serviceKey].operation;
+    const partitionKey =
+      data.source === "kepco"
+        ? (data.companyId ?? "all")
+        : data.source === "g2b" && data.requestId !== undefined
+          ? `request:${data.requestId}`
+          : "all";
+    const scope = { serviceKey: data.serviceKey, operation, partitionKey };
+    const last = await deps.repo.findLatestRunWindow(data.source, "SCHEDULED", scope);
+    const to = floorToMinute(deps.now());
+    const end = await deps.repo.findLatestRunWindowEnd(data.source, "SCHEDULED", scope);
+    const from =
+      end === null
+        ? new Date(to.getTime() - (data.source === "kepco" ? 89 : 90) * 24 * 60 * 60 * 1000)
+        : new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    const window =
+      data.window ??
+      ((last?.status === "FAILED" ||
+        last?.status === "RUNNING" ||
+        last?.completeness === "PARTIAL" ||
+        last?.completeness === "UNKNOWN") &&
+      last.window !== null
+        ? last.window
+        : { from: from.toISOString(), to: to.toISOString() });
+    return {
+      ...common,
+      source: data.source,
+      ...scope,
+      jobKey:
+        data.trigger === "SCHEDULED"
+          ? `${data.serviceKey}:${operation}:${partitionKey}:${window.from}:${window.to}`
+          : data.jobKey,
+      batch: null,
+      params: { window, serviceKey: data.serviceKey, operation, partitionKey },
+    };
+  }
+  if (data.source !== "g2b") throw new Error("ingest source missing serviceKey");
   const window = await g2bWindowOf(data, deps);
   return {
     ...common,
     source: "g2b",
+    serviceKey: "g2b-bid-notice",
+    operation: G2B_BID_NOTICE_LIST_OPERATION,
+    partitionKey: "all",
     // 반복 job 의 data 는 고정이라 jobKey 를 창 끝으로 나눠야 일정 실행마다 새 run 이 된다.
     jobKey: data.trigger === "SCHEDULED" ? `g2b:SCHEDULED:${window.to}` : data.jobKey,
     batch: null,
@@ -143,7 +199,7 @@ function rejectReasonOf(run: StartRunInput, mode: RunMode): RejectReason | null 
       detail: `실행 모드 ${mode} 에서 ${run.source} 수집을 받지 않는다`,
     };
   }
-  const window = run.source === "g2b" ? windowOfParams(run.params) : null;
+  const window = run.source !== "fixture" ? windowOfParams(run.params) : null;
   if (window !== null && Date.parse(window.from) >= Date.parse(window.to)) {
     return {
       sourceKey: "g2b:window",
@@ -193,6 +249,11 @@ async function rejectRun(
 }
 
 async function connectorFor(data: IngestJobData, deps: IngestJobDeps): Promise<BidSourceConnector> {
+  if (isExternalJob(data)) {
+    if (deps.createExternalConnector === undefined)
+      throw new Error("external connector not configured");
+    return deps.createExternalConnector(data);
+  }
   return data.source === "fixture"
     ? deps.createFixtureConnector(data.batch)
     : deps.createG2bConnector();
@@ -200,7 +261,8 @@ async function connectorFor(data: IngestJobData, deps: IngestJobDeps): Promise<B
 
 // 보조 조회는 g2b 수집에만 붙는다. fixture 는 공공 API 를 부르지 않는다.
 async function auxFor(data: IngestJobData, deps: IngestJobDeps): Promise<{ aux?: G2bAuxFetcher }> {
-  if (data.source !== "g2b" || deps.createG2bAuxFetcher === undefined) return {};
+  if (data.source !== "g2b" || isExternalJob(data) || deps.createG2bAuxFetcher === undefined)
+    return {};
   return { aux: await deps.createG2bAuxFetcher() };
 }
 
@@ -210,7 +272,22 @@ export async function processIngestJob(
 ): Promise<IngestRunResult> {
   const job = parseJobData(data, deps.now());
   const run = await runInputOf(job, deps);
-  const reason = rejectReasonOf(run, deps.runMode);
+  const modeReason = rejectReasonOf(run, deps.runMode);
+  const externalReason =
+    modeReason === null && isExternalJob(job)
+      ? (deps.externalSourceGate?.(job) ??
+        (deps.externalSourceGate === undefined ? "NOT_VERIFIED" : null))
+      : null;
+  const reason =
+    modeReason ??
+    (externalReason === null
+      ? null
+      : {
+          sourceKey: `${job.source}:readiness`,
+          errorCode: `SOURCE_${externalReason}`,
+          detail: `source readiness: ${externalReason}`,
+        });
+  const quota = isExternalJob(job) ? deps.quotaForExternal?.(job) : deps.quota;
 
   const result =
     reason === null
@@ -222,7 +299,7 @@ export async function processIngestJob(
           retry: deps.retry,
           secrets: deps.secrets,
           ...(deps.idFor === undefined ? {} : { idFor: deps.idFor }),
-          ...(deps.quota === undefined ? {} : { quota: deps.quota }),
+          ...(quota === undefined ? {} : { quota }),
           ...(await auxFor(job, deps)),
         })
       : await rejectRun(run, reason, deps);

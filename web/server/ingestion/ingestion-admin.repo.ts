@@ -11,7 +11,7 @@ import type { IngestionAdminRepo, IngestionRunPosition } from "./ingestion-admin
 
 // 화면 역할이 고를 수 있는 열(마이그레이션의 grant 순서). supabase-js 가 행 타입을 뽑도록 문자열 그대로 둔다.
 const RUN_COLUMNS =
-  "id,source,run_mode,trigger,batch,cursor,status,summary,quota_used,started_at,finished_at";
+  "id,source,run_mode,trigger,batch,cursor,status,summary,quota_used,started_at,finished_at,service_key,completeness,fetched_count";
 
 // PostgREST 필터 값은 큰따옴표로 감싸고 안의 `"`·`\` 를 이스케이프한다(postgrest.ts quoteValue 와 같은 규칙).
 const quote = (value: string): string => `"${value.replace(/["\\]/g, (ch) => `\\${ch}`)}"`;

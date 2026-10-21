@@ -405,6 +405,12 @@ ADR-021 P1 표·열(§3.1 `tasks.bid_project_id`, §3.5 `employment_status`·ADM
 - 클라우드 적용(`pnpm db:push`)은 사용자 확인 뒤에 한다.
 - seed는 마이그레이션이 아니다(§6 `pnpm demo:reset`).
 
+## 검토 중 확장: 사업기회·출처·분류·수집 증거
+
+ADR-047 [변경안](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§4는 기존 `bid_notices`/`bid_revisions`와 분석/검토 FK를 보존하고 기관·opportunity/link·중복판정이력·notice event·private payload 참조·run item·관련성평가를 추가한다. source family와 registry key, stage와 정정/취소 event를 구분한다. 새 migration2개와 생성 DB 타입을 추가했다. 운영 DB 적용은 하지 않았다.
+
+공용 공고 읽기/worker 쓰기, 조직 데이터 org_id RLS, 원본/오류/수집운영 ADMIN 제한, 웹 service role 금지를 유지한다. 새 source의 provider key/partition으로 번호 충돌을 방지한다. `feat/supabase-storage`의 파일 원장을 중복 생성하지 않으며 migration 번호·생성 타입은 통합 담당과 조정한다. 기존 migration 수정/운영 DB 적용은 이번 범위가 아니다.
+
 ## 관련 문서
 
 - [[15-DATA-CONTRACTS|15 데이터 계약]] — JSONB 안에 들어가는 타입
@@ -426,3 +432,6 @@ main에 먼저 커밋된00700/00701은 수정하지 않는다. 후속 `202610210
 `claim_document_storage`→실제 immutable upload/바이트 검증→`finish_document_storage` 순서로 확정한다. 업로드 후 DB 실패는 파일 삭제 없이 원장 lease 재획득으로 복구한다. 참조 확정과 삭제 claim은 같은 object row를 잠근다.
 `document_storage_candidates`는24시간 이상·lease 만료·무참조만 반환한다. 삭제는 Storage API 뒤 원장 확정 순서다. 기존 파일이나 bucket 전체 삭제는 하지 않는다.
 `20261021000701_document_storage_access.sql`은 활동 중 업무 멤버가 DB에서 참조한 download OK 원본만 읽는 Storage SELECT 정책을 추가한다. parsed·health·학습 파일과 사용자 쓰기는 열지 않는다. bucket 준비는 DB migration과 별도의 API 운영 명령이다.
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

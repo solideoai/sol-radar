@@ -1,15 +1,22 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import { canonicalJson } from "./checksum";
+import { normalizeExternalNotice } from "./external-normalize";
+import { sanitizeExternalValue } from "./external-payload";
+import { isPlainRecord } from "./normalize-common";
 import { z } from "zod";
 import {
   ingestErrorCodeOf,
   type BidSourceConnector,
   type ConnectorFailure,
   type FetchedPage,
+  type IngestCompleteness,
   type SourceRecord,
 } from "./connector.model";
 import type { G2bAuxFetcher } from "./g2b-aux";
 import type {
   IngestionRepo,
+  IngestRunItemInput,
   IngestRunStatus,
   IngestSummary,
   StartedRun,
@@ -132,7 +139,11 @@ type PageResult = {
   halted: ConnectorFailure | null;
 };
 
-const FINISHED_STATUSES: ReadonlySet<IngestRunStatus> = new Set(["SUCCEEDED", "PARTIAL"]);
+const isFinishedRun = (started: StartedRun): boolean =>
+  started.status === "SUCCEEDED" ||
+  (started.status === "PARTIAL" &&
+    started.completeness !== "PARTIAL" &&
+    started.completeness !== "UNKNOWN");
 const isoInstantSchema = z.iso.datetime();
 
 const stringOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null);
@@ -168,7 +179,17 @@ function normalizeRecord(
   record: SourceRecord,
   fetchedAt: Date,
   anchor: Date | null,
+  secrets: readonly string[] = [],
 ): NormalizeOutcome {
+  if (record.kind === "external") {
+    const safe = sanitizeExternalValue(record.item, secrets);
+    if (!isPlainRecord(safe)) throw new Error("external record must be an object");
+    return normalizeExternalNotice(record.sourceKey, safe, {
+      fetchedAt,
+      companyId: record.companyId,
+      operation: record.operation,
+    });
+  }
   if (record.kind === "g2b-bid-notice") return normalizeG2bBidNotice(record.item, { fetchedAt });
   // fixture run 은 anchor 가 없으면 connector 를 부르기 전에 멈춘다. 여기 닿으면 g2b run 에 fixture 레코드가 섞인 프로그램 오류다.
   if (anchor === null) throw new Error("runIngest: fixture 레코드의 날짜 기준(anchor)이 없다");
@@ -176,8 +197,38 @@ function normalizeRecord(
 }
 
 // 5-F: b3 가 raw_payload->>'fixtureId' 로 mock 추출 파일을 고른다. g2b 행은 connector 가 이미 담당자 필드를 뺐다.
-const rawPayloadOf = (record: SourceRecord): Record<string, unknown> =>
-  record.kind === "fixture" ? { fixtureId: record.fixtureId, ...record.record } : record.item;
+const rawPayloadOf = (
+  record: SourceRecord,
+  secrets: readonly string[] = [],
+): Record<string, unknown> => {
+  if (record.kind === "fixture") return { fixtureId: record.fixtureId, ...record.record };
+  const safe = sanitizeExternalValue(record.item, secrets);
+  if (!isPlainRecord(safe)) throw new Error("external payload must be an object");
+  return safe;
+};
+async function recordRunItem(
+  context: RunContext,
+  record: SourceRecord,
+  payloadId: string | null,
+  sourceRecordKey: string,
+  outcome: IngestRunItemInput["outcome"],
+  saved?: { bidId: string; revisionId: string },
+  errorCode?: string,
+): Promise<boolean> {
+  if (record.kind !== "external") return true;
+  if (!context.input.repo.recordRunItem)
+    throw new Error("수집 저장소: 외부 레코드 증거 저장이 없다");
+  return context.input.repo.recordRunItem(context.runId, {
+    sourceRecordKey,
+    payloadHash: createHash("sha256")
+      .update(canonicalJson(rawPayloadOf(record, context.input.secrets)))
+      .digest("hex"),
+    payloadId,
+    outcome,
+    ...saved,
+    ...(errorCode === undefined ? {} : { errorCode }),
+  });
+}
 
 const fixtureIdOf = (record: SourceRecord): string | null =>
   record.kind === "fixture" ? record.fixtureId : null;
@@ -322,11 +373,22 @@ async function ingestRecord(
   context: RunContext,
   record: SourceRecord,
   progress: PageResult,
+  payloadId: string | null,
 ): Promise<PageResult> {
   const { repo, now } = context.input;
   const fetchedAt = now();
-  const outcome = normalizeRecord(record, fetchedAt, context.anchor);
+  const outcome = normalizeRecord(record, fetchedAt, context.anchor, context.input.secrets);
   if (!outcome.ok) {
+    const inserted = await recordRunItem(
+      context,
+      record,
+      payloadId,
+      outcome.issue.sourceKey,
+      "QUARANTINED",
+      undefined,
+      outcome.issue.code,
+    );
+    if (!inserted) return progress;
     await recordIssue(context, outcome.issue);
     const quarantined: QuarantinedRecord = {
       sourceKey: outcome.issue.sourceKey,
@@ -345,7 +407,16 @@ async function ingestRecord(
   const withCalls: PageResult = { ...progress, quotaUsed: progress.quotaUsed + calls, halted };
   // 이전 차수(STALE)는 이미 더 새 차수가 있는 공고의 재수신이라 중복과 같이 센다(summary 키를 늘리지 않는다, 5-E).
   if (decision.kind === "DUPLICATE" || decision.kind === "STALE") {
-    return counted(withCalls, "skippedDuplicate");
+    if (decision.kind === "DUPLICATE")
+      await repo.ensureRevisionProjection?.(outcome.draft.source, outcome.draft.noticeId);
+    const inserted = await recordRunItem(
+      context,
+      record,
+      payloadId,
+      `${outcome.draft.source}:${outcome.draft.noticeId}`,
+      "DUPLICATE",
+    );
+    return inserted ? counted(withCalls, "skippedDuplicate") : withCalls;
   }
 
   const { idFor } = context.input;
@@ -359,9 +430,18 @@ async function ingestRecord(
         };
   const stored = await repo.saveRevision({
     decision,
-    rawPayload: rawPayloadOf(record),
+    rawPayload: rawPayloadOf(record, context.input.secrets),
     ...(ids === undefined ? {} : { ids }),
   });
+  const inserted = await recordRunItem(
+    context,
+    record,
+    payloadId,
+    `${source}:${noticeId}`,
+    decision.kind,
+    stored,
+  );
+  if (!inserted) return withCalls;
   const counter = COUNTER_OF[decision.kind];
   return {
     ...withCalls,
@@ -390,8 +470,19 @@ async function ingestPage(
 ): Promise<PageResult> {
   // 같은 페이지 안의 같은 공고(경계 겹침·000/001)가 앞 레코드의 저장을 보고 걸러져야 해서 차례로 처리한다.
   let progress = start;
+  if (
+    (page.capture !== undefined || page.records.some((record) => record.kind === "external")) &&
+    context.input.repo.recordPayload === undefined
+  )
+    throw new Error("수집 저장소: 외부 원본 증거 저장이 없다");
+  if (page.records.some((record) => record.kind === "external") && page.capture === undefined)
+    throw new Error("수집 페이지: 외부 원본 증거가 없다");
+  const payloadId =
+    page.capture === undefined
+      ? null
+      : ((await context.input.repo.recordPayload?.(context.runId, page.capture)) ?? null);
   for (const record of page.records) {
-    progress = await ingestRecord(context, record, progress);
+    progress = await ingestRecord(context, record, progress, payloadId);
     // 22 를 받았다. 다음 공고의 보조 조회도 같은 답이라 여기서 멈춘다(저장한 공고는 그대로다).
     if (progress.halted !== null) break;
   }
@@ -427,6 +518,11 @@ async function recordPageFailure(
   failure: ConnectorFailure,
 ): Promise<void> {
   const { repo, run } = context.input;
+  if (failure.capture !== undefined) {
+    if (repo.recordPayload === undefined)
+      throw new Error("수집 저장소: 오류 원본 증거 저장이 없다");
+    await repo.recordPayload(context.runId, failure.capture);
+  }
   await repo.recordError(context.runId, {
     sourceKey: `${run.source}:page:${cursor ?? "start"}`,
     errorCode: ingestErrorCodeOf(failure),
@@ -495,6 +591,7 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
     alreadyFinished: false,
   });
 
+  let completeness: IngestCompleteness = "COMPLETE";
   let cursor = started.cursor;
   let progress: PageResult = {
     summary: { ...started.summary },
@@ -514,7 +611,10 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
 
     const { outcome, retried } = await fetchPageWithRetry(connector, { from, to, cursor }, retry);
     // 목록 쪽 한 번 = 호출 한 번. 재시도한 만큼 더 나갔다.
-    const pageCalls = context.countsCalls ? retried + 1 : 0;
+    const rejectedBeforeFetch =
+      !outcome.ok &&
+      (outcome.failure.kind === "NOT_VERIFIED" || outcome.failure.kind === "INVALID_INPUT");
+    const pageCalls = context.countsCalls && !rejectedBeforeFetch ? retried + 1 : 0;
     await countCalls(context, pageCalls, at);
     progress = {
       ...progress,
@@ -528,6 +628,8 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
       await closeFailed(context, cursor, progress);
       return finish("FAILED", progress);
     }
+    if (outcome.page.completeness !== undefined && outcome.page.completeness !== "COMPLETE")
+      completeness = outcome.page.completeness;
     progress = await ingestPage(context, outcome.page, progress);
     if (progress.halted !== null) {
       // 이 쪽을 다 처리하지 못했다. 같은 cursor 를 남겨 이어 가는 run 이 이 쪽부터 다시 받게 한다
@@ -536,7 +638,35 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
       await closeFailed(context, cursor, progress);
       return finish("FAILED", progress);
     }
+    if (completeness !== "COMPLETE") {
+      await repo.saveCheckpoint(started.runId, {
+        cursor,
+        summary: progress.summary,
+        completeness,
+        fetchedCount:
+          progress.summary.created +
+          progress.summary.changed +
+          progress.summary.cancelled +
+          progress.summary.skippedDuplicate +
+          progress.summary.quarantined,
+        ...quotaOf(context, progress),
+      });
+      await repo.finishRun(started.runId, {
+        status: "PARTIAL",
+        summary: progress.summary,
+        completeness,
+        ...quotaOf(context, progress),
+      });
+      return finish("PARTIAL", progress);
+    }
     await repo.saveCheckpoint(started.runId, {
+      completeness,
+      fetchedCount:
+        progress.summary.created +
+        progress.summary.changed +
+        progress.summary.cancelled +
+        progress.summary.skippedDuplicate +
+        progress.summary.quarantined,
       cursor: outcome.page.nextCursor,
       summary: progress.summary,
       ...quotaOf(context, progress),
@@ -549,6 +679,7 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
   const status = progress.summary.quarantined > 0 ? "PARTIAL" : "SUCCEEDED";
   await repo.finishRun(started.runId, {
     status,
+    completeness,
     summary: progress.summary,
     ...quotaOf(context, progress),
   });
@@ -562,7 +693,7 @@ export async function runIngest(input: RunIngestInput): Promise<IngestRunResult>
 
   if (run.source !== "fixture") {
     const started = await repo.startRun(run);
-    if (FINISHED_STATUSES.has(started.status)) return finishedResult(started);
+    if (isFinishedRun(started)) return finishedResult(started);
     return pullPages(
       {
         input,
@@ -583,7 +714,7 @@ export async function runIngest(input: RunIngestInput): Promise<IngestRunResult>
       ? run.params
       : { ...run.params, [FIXTURE_ANCHOR_PARAM]: candidate.toISOString() };
   const started = await repo.startRun({ ...run, params });
-  if (FINISHED_STATUSES.has(started.status)) return finishedResult(started);
+  if (isFinishedRun(started)) return finishedResult(started);
 
   // 이어 가는 run 은 처음 정한 anchor 를 쓴다. 그사이 다른 SEED 가 돌았어도 날짜가 바뀌지 않는다.
   const anchor = isoInstantOf(started.params?.[FIXTURE_ANCHOR_PARAM]) ?? candidate;

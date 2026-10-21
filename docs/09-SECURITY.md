@@ -283,6 +283,12 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 데모용 Gmail 앱 비밀번호와 SMTP 인증값은 서버 전용 env에만 둔다. `NEXT_PUBLIC_`·브라우저·문서·로그에 넣지 않고, 받는 주소·제목·공고명·본문도 로그·증거에 남기지 않는다. 개인 설정 opt-in 사용자의 로그인 이메일만 쓰며 별도 받는 주소를 입력받지 않는다. 로컬·시험은 외부 실발송을 하지 않는다. 실제 수신 검증 전에는 발송 완료를 주장하지 않는다([[13-NOTIFICATIONS|13]]).
 
+## 검토 중 확장: 외부키·원본·수집 권한
+
+ADR-047 [제안](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§5.1/12는 서비스별 서버 env, KEPCO `apiKey` URL/오류 마스킹, private 정제 원문, HTTPS기관별 첨부allowlist를 요구한다. 후속 구현에서 apiKey/서비스키 이름·echo값·URL/실패 payload 마스킹을 추가했다. 실제 키/운영 로그를 사용한 검증은 하지 않았다. HTTP첨부는 자동 다운로드하지 않고 byte 원본 전체 보관 예외는 별도 승인이다.
+
+기존 업무 ADMIN만 수동수집·CSRF/멱등/감사를 유지한다. 일반 구성원 Source summary는 비밀/오류상세를 제외한 읽기이며 외부 탐침을 실행하지 않는다. org별 분석/사람결정/관심/프로젝트 RLS와 웹 service role 금지는 바뀌지 않는다. 보안 정책/운영 설정은 이번에 변경하지 않았다.
+
 ## 관련 문서
 - [[03-AI-PIPELINE|03 AI 파이프라인]]
 - [[04-DATABASE|04 DB]]
@@ -298,3 +304,6 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - [[16-DECISIONS|16 ADR]]
 - [[21-MODEL-TRAINING|21 모델 학습]]
 - [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

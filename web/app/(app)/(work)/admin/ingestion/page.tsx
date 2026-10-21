@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { ingestionDeps } from "@/app/_lib/ingestion-deps";
 import { listIngestionRuns } from "@/server/ingestion";
+import { getOpportunityClient } from "@/server/opportunities";
+import { loadSourceSummary } from "@/app/_lib/opportunity-sources";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { IngestionForbidden } from "./ingestion-forbidden";
 import { INGESTION_PATH, INGESTION_TITLE } from "./ingestion-copy";
@@ -31,12 +33,17 @@ export default async function IngestionPage({ searchParams }: PageProps<"/admin/
   );
   // 예상한 실패(커서 비밀 없음 503 등)도 화면에서는 읽기 실패라 오류 경계(error.tsx)로 던진다.
   if (!result.ok) throw new Error(result.message);
+  const sources = await loadSourceSummary(
+    await getOpportunityClient(),
+    work.runMode === "live" ? "live" : "demo",
+  );
   return (
     <IngestionView
       runMode={work.runMode}
       initialItems={result.data.items}
       initialNextCursor={result.data.pageInfo.nextCursor}
       now={now.toISOString()}
+      sources={sources}
     />
   );
 }

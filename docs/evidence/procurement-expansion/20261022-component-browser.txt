@@ -1,0 +1,11 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/public-procurement/web
+
+Loaded  vitest@4.1.11  and  @vitest/browser@4.1.12 .
+Running mixed versions is not supported and may lead into bugs
+Update your dependencies and make sure the versions match.
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  00:29:22
+   Duration  2.23s (transform 0ms, setup 154ms, import 261ms, tests 583ms, environment 0ms)

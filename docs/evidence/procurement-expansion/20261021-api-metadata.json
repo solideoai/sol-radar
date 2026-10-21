@@ -1,0 +1,214 @@
+{
+  "reviewedAt": "2026-10-21T13:32:59.012608+00:00",
+  "baseline": "main@206db64",
+  "scope": "public documentation, no authenticated API requests",
+  "services": [
+    {
+      "dataId": "15101635",
+      "officialUrl": "https://www.data.go.kr/data/15101635/openapi.do",
+      "verification": "PUBLIC_DOCUMENT_ONLY",
+      "htmlSha256": "ede5a9574ec0cefa915a1be93c626c911756b3cabad9f1c284cd3f21bc9e0917",
+      "documentedGatewayBase": "https://apis.data.go.kr/B500001/ebid/tndr3",
+      "operations": ["/cntrwkList", "/gdsList", "/rstList", "/servcList", "/dmscptList"],
+      "requestMetadataAvailableFor": [
+        {
+          "operation": "dmscptList",
+          "parameters": [
+            {
+              "name": "serviceKey",
+              "required": true
+            },
+            {
+              "name": "pageNo",
+              "required": true
+            },
+            {
+              "name": "numOfRows",
+              "required": true
+            },
+            {
+              "name": "_type",
+              "required": false
+            },
+            {
+              "name": "searchDt",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "liveCallPerformed": false
+    },
+    {
+      "dataId": "15159012",
+      "officialUrl": "https://www.data.go.kr/data/15159012/openapi.do",
+      "verification": "PUBLIC_DOCUMENT_ONLY",
+      "htmlSha256": "9e452d49bdbaebbb6fdf11ee23b81f37dc49f0a0092a9484b8b9aa4ff418fe4e",
+      "documentedGatewayBase": "https://apis.data.go.kr/B552555/OpenBidInfoList",
+      "operations": ["/getOpenBidInfo"],
+      "requestMetadataAvailableFor": [
+        {
+          "operation": "getOpenBidInfo",
+          "parameters": [
+            {
+              "name": "serviceKey",
+              "required": true
+            },
+            {
+              "name": "pageNo",
+              "required": false
+            },
+            {
+              "name": "numOfRows",
+              "required": false
+            },
+            {
+              "name": "tndrbidRegDtStart",
+              "required": true
+            },
+            {
+              "name": "tndrbidRegDtEnd",
+              "required": true
+            },
+            {
+              "name": "bidNum",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "liveCallPerformed": false
+    },
+    {
+      "dataId": "15102588",
+      "officialUrl": "https://www.data.go.kr/data/15102588/openapi.do",
+      "verification": "PUBLIC_DOCUMENT_ONLY",
+      "htmlSha256": "81ce1f52af600c731bda3fa3024edab0cc96c90a02699b9ef0b63cd2ab0a7937",
+      "documentedGatewayBase": "https://apis.data.go.kr/B500001/ebid/ordg2",
+      "operations": ["/cntrwk", "/servc", "/gds"],
+      "requestMetadataAvailableFor": [
+        {
+          "operation": "gds",
+          "parameters": [
+            {
+              "name": "serviceKey",
+              "required": true
+            },
+            {
+              "name": "pageNo",
+              "required": true
+            },
+            {
+              "name": "numOfRows",
+              "required": true
+            },
+            {
+              "name": "_type",
+              "required": true
+            },
+            {
+              "name": "searchDt",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "liveCallPerformed": false
+    },
+    {
+      "dataId": "15159011",
+      "officialUrl": "https://www.data.go.kr/data/15159011/openapi.do",
+      "verification": "PUBLIC_DOCUMENT_ONLY",
+      "htmlSha256": "9d93f99262f0cce607b21801bb0dfb0ed2c635998620ac8559390e330dda8602",
+      "documentedGatewayBase": "https://apis.data.go.kr/B552555/OpenAdvcinfoReqList",
+      "operations": ["/getOpenAdvcinfoReqList"],
+      "requestMetadataAvailableFor": [
+        {
+          "operation": "getOpenAdvcinfoReqList",
+          "parameters": [
+            {
+              "name": "serviceKey",
+              "required": true
+            },
+            {
+              "name": "pageNo",
+              "required": true
+            },
+            {
+              "name": "numOfRows",
+              "required": true
+            },
+            {
+              "name": "opinionRegEndDtmStart",
+              "required": true
+            },
+            {
+              "name": "opinionRegEndDtmEnd",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "liveCallPerformed": false
+    },
+    {
+      "dataId": "15129468",
+      "officialUrl": "https://www.data.go.kr/data/15129468/openapi.do",
+      "verification": "PUBLIC_DOCUMENT_ONLY",
+      "htmlSha256": "d760862ae9f5b4f4188d8ba6737dcf190e9ca29bea08ce7ab1615483c799c2a7",
+      "documentedGatewayBase": "https://apis.data.go.kr/1230000/ao/PrcrmntReqInfoService",
+      "operations": [
+        "/getPrcrmntReqInfoListThng",
+        "/getPrcrmntReqInfoListFrgcptPPSSrch",
+        "/getPrcrmntReqInfoListFrgcptDetail",
+        "/getPrcrmntReqInfoListFrgcpt",
+        "/getPrcrmntReqInfoListTechServcPPSSrch",
+        "/getPrcrmntReqInfoListTechServc",
+        "/getPrcrmntReqInfoListGnrlServcPPSSrch",
+        "/getPrcrmntReqInfoListGnrlServc",
+        "/getPrcrmntReqInfoListCnstwkPPSSrch",
+        "/getPrcrmntReqInfoListCnstwk",
+        "/getPrcrmntReqInfoListThngPPSSrch",
+        "/getPrcrmntReqInfoListThngDetail"
+      ],
+      "requestMetadataAvailableFor": [
+        {
+          "operation": "getPrcrmntReqInfoListThngDetail",
+          "parameters": [
+            {
+              "name": "serviceKey",
+              "required": true
+            },
+            {
+              "name": "pageNo",
+              "required": true
+            },
+            {
+              "name": "numOfRows",
+              "required": true
+            },
+            {
+              "name": "type",
+              "required": false
+            },
+            {
+              "name": "prcrmntReqNo",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "liveCallPerformed": false
+    },
+    {
+      "dataId": "15148223",
+      "officialUrl": "https://www.data.go.kr/data/15148223/openapi.do",
+      "verification": "PUBLIC_LINK_METADATA_AND_USER_SUPPLIED_SPEC",
+      "htmlSha256": "eb8c8204a359ff68145676b860201cf78894ccee82ed535ceafd867da83336ee",
+      "apiUrlFromUserSpec": "https://bigdata.kepco.co.kr/openapi/v1/electContract.do",
+      "keyIssuance": "ISSUED_USER_CONFIRMED",
+      "authentication": "NOT_TESTED",
+      "liveCallPerformed": false
+    }
+  ]
+}

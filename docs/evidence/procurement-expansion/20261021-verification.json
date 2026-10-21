@@ -1,0 +1,63 @@
+{
+  "verifiedAt": "2026-10-21T14:59:24.562842+00:00",
+  "branch": "feat/public-procurement",
+  "baseline": "7133636",
+  "workingTree": "/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/public-procurement",
+  "committed": false,
+  "fullVerify": {
+    "command": "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.bare GIT_CONFIG_VALUE_0=false pnpm verify",
+    "exitCode": 0,
+    "rootTests": 165,
+    "webTests": 331,
+    "aiTests": 101,
+    "decisionTests": 57,
+    "webProductionBuild": true,
+    "log": "20261021-verify.txt"
+  },
+  "focusedChromium": {
+    "tests": 2,
+    "passed": 2,
+    "evidence": "ui/20261021-component-verification.md",
+    "scope": "DEMO component props, not authenticated product routes"
+  },
+  "serverAssetTrace": {
+    "registry": "infra/sources/registry.yaml",
+    "dashboard": true,
+    "adminIngestion": true,
+    "sourceSummaryApi": true
+  },
+  "review": {
+    "independentIntegratedReviews": 1,
+    "importantFindings": 4,
+    "additionalCandidateCountFinding": true,
+    "fixedAndRechecked": true,
+    "remainingImportantInRecheck": 0
+  },
+  "actualExternalAuthenticatedCalls": 0,
+  "productionDbChanges": 0,
+  "deployments": 0,
+  "actualKeysReadOrPrinted": false,
+  "notRun": [
+    "authenticated product-route/API E2E",
+    "live API authentication/completeness",
+    "live model inference",
+    "production migration/backfill",
+    "Compose runtime/predeploy/demo GO-NOGO"
+  ],
+  "newServiceDefaults": "disabled/NOT_VERIFIED",
+  "keyIssuance": {
+    "KEPCO": "ISSUED_USER_CONFIRMED",
+    "otherNewFive": "UNKNOWN"
+  },
+  "limits": [
+    "sanitized parsed JSONB payload; no original transport-byte object",
+    "new stages outside PLAN/PRE_SPEC/NOTICE blocked before analysis queue",
+    "source-specific human relevance calibration not run",
+    "existing G2B pre-spec/order-plan/master ingestion incomplete",
+    "multi-caller atomic quota reservation requires infrastructure integration"
+  ],
+  "warnings": [
+    "existing Starlette/httpx deprecation warning",
+    "focused browser Vitest core/browser patch version mismatch"
+  ]
+}

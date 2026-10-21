@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - ops
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 14. 관측성·운영
@@ -44,6 +44,12 @@ updated: 2026-10-20
 ## 장애 대응
 수집 오류: 이전 데이터 + freshness 배너. AI 불가: 규칙 점수로 처리(`PARTIAL`). Supabase(Postgres) 장애·네트워크 끊김: 조회·쓰기 불가 및 명확한 503(`component: db`), Supabase Auth도 같은 프로젝트라 로그인 불가. 큐 backlog: rate 제한. 장애별 사용자 노출은 [[02-ARCHITECTURE|02 아키텍처]] 장애 원칙 표. Sentry/Prometheus/Grafana 도입은 해커톤 이후, 표준 metrics endpoint부터 제공(지금은 endpoint가 없다). DB 백업·복구는 Supabase가 관리한다(세부 미검증, [[10-DEPLOYMENT|10 배포]] 운영 절). Compose 볼륨(redis·qdrant·minio) 복구 테스트는 월 1회. 마이그레이션은 append-only라 되돌리기도 새 마이그레이션 파일로 하고, 그 절차를 문서화한다.
 
+## 검토 중 확장: 기관 요약과 API별 수집 현황
+
+ADR-047 [설계](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§10/12는4 Source 요약과10 API 서비스/partition별 연결·인증·마지막수집/성공·fetched/new/updated/duplicate/error/quarantine을 구분한다. 인증키발급/인증성공/정상0건/장애/미검증은 별개다. KEPCO 초기상태는 발급완료·인증미검증, 나머지 신규5키는 상태미확인이다.
+
+통계GET은 저장된 DB결과만 읽고 수집/탐침을 실행하지 않는다. 마지막run 하나를 기관 전체 정상으로 표시하지 않는다. source별고유공고·고유사업기회·반복fetched·HTTP호출수는 다른 지표다. 후속 N8 서비스 표는 최근 실행 통계와 발급/인증/연결 상태를 분리한다. 정상은 최근60분 이내 COMPLETE 성공 기준이며 기관 요약은 비활성/미완료 서비스도 반영한다. 상세 계약과 핵심시험은 [[2026-10-21-public-procurement-expansion-plan|I6]]이다.
+
 ## 관련 문서
 - [[02-ARCHITECTURE|02 아키텍처]]
 - [[04-DATABASE|04 DB]]
@@ -51,3 +57,6 @@ updated: 2026-10-20
 - [[10-DEPLOYMENT|10 배포]]
 - [[11-TESTING|11 테스트]]
 - [[13-NOTIFICATIONS|13 알림]]
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

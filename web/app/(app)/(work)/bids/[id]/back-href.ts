@@ -1,8 +1,9 @@
 import "server-only";
-import { parseBidListQuery, type RunMode } from "@/server/bids";
+import type { RunMode } from "@/server/bids";
+import { parseOpportunityQuery } from "@/server/opportunities";
 
 // "← 공고 목록"의 주소(스펙 §5.4.1). 목록 표가 상세 링크에 ?list=<목록 조건> 을 붙인다.
-// 그 값이 목록 조건으로 읽힐 때만 그 조건으로 돌아가고, 아니면 기본 목록이다. 경로는 /bids 고정이라 바깥 주소로 새지 않는다.
+// 새 공공조달 조건도 서버 정본으로 검증한다. 경로는 /bids 고정이라 바깥 주소로 새지 않는다.
 export function backHrefOf(list: string | string[] | undefined, runMode: RunMode): string {
   const value = Array.isArray(list) ? list[0] : list;
   if (value === undefined || value.trim() === "") return "/bids";
@@ -10,7 +11,9 @@ export function backHrefOf(list: string | string[] | undefined, runMode: RunMode
   const raw = Object.fromEntries(
     [...new Set(params.keys())].map((key) => [key, params.getAll(key)]),
   );
-  if (!parseBidListQuery(raw, runMode).ok) return "/bids";
+  if (!parseOpportunityQuery(raw, runMode).ok) return "/bids";
+  params.delete("cursor");
+  params.delete("limit");
   const search = params.toString();
   return search === "" ? "/bids" : `/bids?${search}`;
 }

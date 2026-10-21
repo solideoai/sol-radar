@@ -396,6 +396,12 @@ P1(2026-10-21 [[16-DECISIONS|ADR-042]]에 따라 핵심 컷·확장 컷과 조�
 
 원래 실패 기록, 실행 SHA, 재사용 범위, 접근성·화면 증거 및 남은 Auth 4건은 [최종 구현·검증 보고](evidence/people/20261019-people-read.md)와 그 원본 증거 묶음을 따른다. main 병합·공유 DB 적용·push·배포는 수행하지 않았다.
 
+## 검토 중 확장: API·사업기회·관련성·UI 핵심 시험
+
+ADR-047 [[2026-10-21-public-procurement-expansion-plan|계획]]의 “핵심 검증 범위”는6서비스 인증/파싱/페이지/호출한도/날짜/오류, 정정/취소/중복/원본출처/단위/첨부, 관련성/근거/점수회귀, KPI/필터/정렬/11열/LH/모드/ADMIN을 실제 위험 사례로 묶는다. 기존 골든·RLS·PARTIAL·DEMO·사람결정 시험을 재사용하고 `20261021-pruned-tests.json`에서 삭제한 전수행렬은 복원하지 않는다.
+
+이번 문서 작업에서는 코드/빌드/E2E·인증된API·실추론·시각 시험을 실행하지 않는다(ADR-046 문서전용). 문서 경로/계약·공식 metadata·보존hash·diff와 changed 검사의 선택 결과만 확인한다. 향후 개발은 `verify:changed`, 통합/제출은 전체 `verify`와 영향E2E·독립리뷰1회다.
+
 ## 관련 문서
 
 - [[07-DATA-PIPELINE|07 수집]] — fixture `FX-01`~`FX-20` 명세
@@ -413,3 +419,6 @@ P1(2026-10-21 [[16-DECISIONS|ADR-042]]에 따라 핵심 컷·확장 컷과 조�
 
 로컬 자동 검증은 실제 PostgreSQL 정책/lease/CAS·중복 논리 문서·원장 복구, 실제 Supabase SDK의 immutable upload/다운로드/checksum/응답 유실·50MiB 경계, 60초 URL·오류 비노출, Worker stale health, bucket private/소유/한도 검사를 포함한다.
 클라우드 Storage API·사용자 JWT의 RLS HTTP·50MiB 업로드·원본 이전 checksum·회사 HTTPS·실제 배포는 별도 운영 증거가 필요하다. PGlite나 fake HTTP 통과로 이를 대신하지 않는다.
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

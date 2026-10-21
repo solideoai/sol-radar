@@ -200,6 +200,12 @@ flowchart TB
 
 명부 정본(`fixtures/people/solideo.*.json`)과 생성·배분은 [[07-DATA-PIPELINE]], 표(`team_members`·`team_member_scoring`, [[16-DECISIONS|ADR-021]])와 가입 신고 열은 [[04-DATABASE]], 가입 API(`GET /api/v1/signup-options`·`GET·PATCH /api/v1/me/employment`)와 `/auth/complete-profile` 보완 규칙은 [[05-API-SPEC]] §8이 정의한다. 구현 상태는 [[PROGRESS]]를 따른다.
 
+## 검토 중 확장: 다기관 Adapter와 사업기회
+
+ADR-047 [제안 설계](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§2/4/5는 기존 Next 도메인·Worker·Postgres·Redis·AI Gateway를 재사용한다. 외부 source record/revision과 회사별 분석을 보존하고 opportunity/link 읽기 모델을 추가하는 안이다. 별도 API 서버/DB/큐를 도입하지 않는다.
+
+현재 main의 Redis TCP·MinIO readiness와 별도 `feat/redis-http-gateway`/`feat/supabase-storage` 작업을 구분한다([[20261021-review|조사]]). Storage provider·회사 HTTP접수·파일 원장은 해당 통합 결과를 재사용하고 이번 설계에서 운영 설정을 바꾸지 않는다. 실첨부 downloader/documents 소비자/parser/Qdrant 검색 미완성을 수집 확장 완료로 간주하지 않는다.
+
 ## 관련 문서
 - [[01-PRD|01 PRD]]
 - [[03-AI-PIPELINE|03 AI 파이프라인]]
@@ -210,3 +216,6 @@ flowchart TB
 - [[16-DECISIONS|16 ADR]]
 - [[07-DATA-PIPELINE|07 수집 파이프라인]]
 - [[21-MODEL-TRAINING|21 모델 학습]]
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

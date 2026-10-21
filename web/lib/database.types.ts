@@ -305,6 +305,68 @@ export type Database = {
           },
         ]
       }
+      bid_notice_events: {
+        Row: {
+          bid_id: string
+          evidence: Json
+          id: string
+          kind: string
+          occurred_at: string
+          provider_status: string | null
+          related_bid_id: string | null
+          revision_id: string
+        }
+        Insert: {
+          bid_id: string
+          evidence?: Json
+          id?: string
+          kind: string
+          occurred_at?: string
+          provider_status?: string | null
+          related_bid_id?: string | null
+          revision_id: string
+        }
+        Update: {
+          bid_id?: string
+          evidence?: Json
+          id?: string
+          kind?: string
+          occurred_at?: string
+          provider_status?: string | null
+          related_bid_id?: string | null
+          revision_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_notice_events_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_notice_events_related_bid_id_fkey"
+            columns: ["related_bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_notice_events_revision_id_bid_id_fkey"
+            columns: ["revision_id", "bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_revisions"
+            referencedColumns: ["id", "bid_id"]
+          },
+          {
+            foreignKeyName: "bid_notice_events_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "bid_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bid_notices: {
         Row: {
           agency: string | null
@@ -319,8 +381,13 @@ export type Database = {
           notice_id: string
           plan_ref: string | null
           pre_spec_ref: string | null
+          procuring_agency_id: string | null
+          provider_company_id: string | null
+          provider_record_key: string | null
           published_at: string | null
+          service_id: string | null
           source: string
+          source_family: string | null
           source_url: string
           stage: string
           status: string
@@ -340,8 +407,13 @@ export type Database = {
           notice_id: string
           plan_ref?: string | null
           pre_spec_ref?: string | null
+          procuring_agency_id?: string | null
+          provider_company_id?: string | null
+          provider_record_key?: string | null
           published_at?: string | null
+          service_id?: string | null
           source: string
+          source_family?: string | null
           source_url: string
           stage: string
           status: string
@@ -361,15 +433,123 @@ export type Database = {
           notice_id?: string
           plan_ref?: string | null
           pre_spec_ref?: string | null
+          procuring_agency_id?: string | null
+          provider_company_id?: string | null
+          provider_record_key?: string | null
           published_at?: string | null
+          service_id?: string | null
           source?: string
+          source_family?: string | null
           source_url?: string
           stage?: string
           status?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bid_notices_procuring_agency_id_fkey"
+            columns: ["procuring_agency_id"]
+            isOneToOne: false
+            referencedRelation: "procurement_agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bid_opportunities: {
+        Row: {
+          canonical_notice_id: string
+          canonical_reason: Json
+          first_seen_at: string
+          id: string
+          identity_version: string
+          is_demo: boolean
+          superseded_by: string | null
+        }
+        Insert: {
+          canonical_notice_id: string
+          canonical_reason?: Json
+          first_seen_at?: string
+          id?: string
+          identity_version?: string
+          is_demo: boolean
+          superseded_by?: string | null
+        }
+        Update: {
+          canonical_notice_id?: string
+          canonical_reason?: Json
+          first_seen_at?: string
+          id?: string
+          identity_version?: string
+          is_demo?: boolean
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_opportunities_canonical_notice_id_fkey"
+            columns: ["canonical_notice_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_opportunities_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "bid_opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bid_relevance_assessments: {
+        Row: {
+          categories: string[]
+          created_at: string
+          evidence: Json
+          id: string
+          input_hash: string
+          missing_channels: string[]
+          policy_version: string
+          relevance_score: number | null
+          revision_id: string
+          state: string
+          tags: string[]
+        }
+        Insert: {
+          categories?: string[]
+          created_at?: string
+          evidence?: Json
+          id?: string
+          input_hash: string
+          missing_channels?: string[]
+          policy_version: string
+          relevance_score?: number | null
+          revision_id: string
+          state: string
+          tags?: string[]
+        }
+        Update: {
+          categories?: string[]
+          created_at?: string
+          evidence?: Json
+          id?: string
+          input_hash?: string
+          missing_channels?: string[]
+          policy_version?: string
+          relevance_score?: number | null
+          revision_id?: string
+          state?: string
+          tags?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_relevance_assessments_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "bid_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bid_reviews: {
         Row: {
@@ -805,18 +985,141 @@ export type Database = {
           },
         ]
       }
+      ingest_payloads: {
+        Row: {
+          content_type: string
+          fetched_at: string
+          id: string
+          object_ref: string | null
+          operation: string
+          parser_version: string
+          partition_key: string
+          payload_hash: string
+          run_id: string
+          sanitized_payload: Json
+          service_key: string
+        }
+        Insert: {
+          content_type: string
+          fetched_at?: string
+          id?: string
+          object_ref?: string | null
+          operation: string
+          parser_version?: string
+          partition_key?: string
+          payload_hash: string
+          run_id: string
+          sanitized_payload: Json
+          service_key: string
+        }
+        Update: {
+          content_type?: string
+          fetched_at?: string
+          id?: string
+          object_ref?: string | null
+          operation?: string
+          parser_version?: string
+          partition_key?: string
+          payload_hash?: string
+          run_id?: string
+          sanitized_payload?: Json
+          service_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingest_payloads_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ingest_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ingest_run_items: {
+        Row: {
+          bid_id: string | null
+          created_at: string
+          error_code: string | null
+          id: string
+          outcome: string
+          payload_hash: string
+          payload_id: string | null
+          revision_id: string | null
+          run_id: string
+          source_record_key: string
+        }
+        Insert: {
+          bid_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          outcome: string
+          payload_hash: string
+          payload_id?: string | null
+          revision_id?: string | null
+          run_id: string
+          source_record_key: string
+        }
+        Update: {
+          bid_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          outcome?: string
+          payload_hash?: string
+          payload_id?: string | null
+          revision_id?: string | null
+          run_id?: string
+          source_record_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingest_run_items_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_run_items_payload_id_fkey"
+            columns: ["payload_id"]
+            isOneToOne: false
+            referencedRelation: "ingest_payloads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_run_items_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "bid_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_run_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ingest_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingest_runs: {
         Row: {
           batch: string | null
+          completeness: string
           cursor: string | null
+          fetched_count: number
           finished_at: string | null
           id: string
           idempotency_key: string | null
           job_key: string
+          operation: string | null
           params: Json | null
+          partition_key: string | null
           quota_used: number
           requested_by: string | null
           run_mode: string
+          service_key: string | null
           source: string
           started_at: string
           status: string
@@ -825,15 +1128,20 @@ export type Database = {
         }
         Insert: {
           batch?: string | null
+          completeness?: string
           cursor?: string | null
+          fetched_count?: number
           finished_at?: string | null
           id?: string
           idempotency_key?: string | null
           job_key: string
+          operation?: string | null
           params?: Json | null
+          partition_key?: string | null
           quota_used?: number
           requested_by?: string | null
           run_mode: string
+          service_key?: string | null
           source: string
           started_at?: string
           status?: string
@@ -842,15 +1150,20 @@ export type Database = {
         }
         Update: {
           batch?: string | null
+          completeness?: string
           cursor?: string | null
+          fetched_count?: number
           finished_at?: string | null
           id?: string
           idempotency_key?: string | null
           job_key?: string
+          operation?: string | null
           params?: Json | null
+          partition_key?: string | null
           quota_used?: number
           requested_by?: string | null
           run_mode?: string
+          service_key?: string | null
           source?: string
           started_at?: string
           status?: string
@@ -989,6 +1302,57 @@ export type Database = {
           },
         ]
       }
+      notice_match_candidates: {
+        Row: {
+          created_at: string
+          evidence: Json
+          id: string
+          input_hash: string
+          left_bid_id: string
+          outcome: string
+          policy_version: string
+          reasons: string[]
+          right_bid_id: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json
+          id?: string
+          input_hash: string
+          left_bid_id: string
+          outcome: string
+          policy_version: string
+          reasons?: string[]
+          right_bid_id: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json
+          id?: string
+          input_hash?: string
+          left_bid_id?: string
+          outcome?: string
+          policy_version?: string
+          reasons?: string[]
+          right_bid_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notice_match_candidates_left_bid_id_fkey"
+            columns: ["left_bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notice_match_candidates_right_bid_id_fkey"
+            columns: ["right_bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           channel: string
@@ -1049,6 +1413,51 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "memberships"
             referencedColumns: ["org_id", "user_id"]
+          },
+        ]
+      }
+      opportunity_notice_links: {
+        Row: {
+          bid_id: string
+          decided_at: string
+          evidence: Json
+          history: Json
+          opportunity_id: string
+          policy_version: string
+          relation: string
+        }
+        Insert: {
+          bid_id: string
+          decided_at?: string
+          evidence?: Json
+          history?: Json
+          opportunity_id: string
+          policy_version?: string
+          relation: string
+        }
+        Update: {
+          bid_id?: string
+          decided_at?: string
+          evidence?: Json
+          history?: Json
+          opportunity_id?: string
+          policy_version?: string
+          relation?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_notice_links_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: true
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_notice_links_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "bid_opportunities"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1139,6 +1548,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      procurement_agencies: {
+        Row: {
+          agency_code: string
+          aliases: string[]
+          code_namespace: string
+          id: string
+          name: string
+        }
+        Insert: {
+          agency_code: string
+          aliases?: string[]
+          code_namespace: string
+          id?: string
+          name: string
+        }
+        Update: {
+          agency_code?: string
+          aliases?: string[]
+          code_namespace?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -1866,6 +2299,50 @@ export type Database = {
         }
         Relationships: []
       }
+      opportunity_list_items: {
+        Row: {
+          agency: string | null
+          agency_id: string | null
+          agency_ids: string[] | null
+          analysis_id: string | null
+          analysis_status: string | null
+          bid_id: string | null
+          budget_krw: string | null
+          budget_krw_value: number | null
+          categories: string[] | null
+          changed_at: string | null
+          company_id: string | null
+          company_ids: string[] | null
+          deadline_at: string | null
+          first_seen_at: string | null
+          id: string | null
+          is_demo: boolean | null
+          latest_decision: string | null
+          latest_decision_at: string | null
+          latest_run_id: string | null
+          latest_run_status: string | null
+          notice_id: string | null
+          org_id: string | null
+          published_at: string | null
+          recommendation: string | null
+          relevance_rank: number | null
+          relevance_score: number | null
+          relevance_state: string | null
+          revision_id: string | null
+          sol_score: number | null
+          source: string | null
+          source_conflict: boolean | null
+          source_count: number | null
+          source_families: string[] | null
+          source_family: string | null
+          source_url: string | null
+          sources: Json | null
+          stage: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       activity_name_of: {
@@ -1936,6 +2413,10 @@ export type Database = {
         Args: { p_origin: string }
         Returns: { finished_at: string; started_at: string; status: string; summary: Json }[]
       }
+      link_bid_opportunity: {
+        Args: { p_bid_id: string; p_evidence: Json; p_opportunity_id: string; p_relation: string }
+        Returns: undefined
+      }
       my_org_ids: {
         Args: never
         Returns: string[]
@@ -1947,6 +2428,30 @@ export type Database = {
       my_sol_org_ids: {
         Args: { roles: string[] }
         Returns: string[]
+      }
+      procurement_dataset_version: {
+        Args: { p_org_id: string }
+        Returns: string
+      }
+      procurement_filter_options: {
+        Args: { p_origin: string }
+        Returns: Json
+      }
+      procurement_missing_relevance_revisions: {
+        Args: { p_limit?: number }
+        Returns: { bid_id: string; normalized: Json; raw_payload: Json; revision_id: string }[]
+      }
+      procurement_source_health: {
+        Args: { p_origin: string }
+        Returns: { auth_status: string; completeness: string; error_count: number; fetched_count: number; finished_at: string; last_success_at: string; service_key: string; source: string; started_at: string; status: string; summary: Json }[]
+      }
+      procurement_summary: {
+        Args: { p_as_of?: string; p_org_id: string; p_origin: string }
+        Returns: Json
+      }
+      refresh_bid_opportunity: {
+        Args: { p_id: string }
+        Returns: undefined
       }
       release_unqueued_score_run: {
         Args: { p_score_run_id: string }

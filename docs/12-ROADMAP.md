@@ -175,6 +175,12 @@ gantt
 ```
 위 간트는 ADR-023 Critical Path를 ADR-027(폐기)로 2일 당기고 2026-10-21 [[16-DECISIONS|ADR-042]]로 완료 목표 10-26(공식 제출 10-27, 발표자료·발표 연습)·freeze 10-24 22:00·리허설 10-25에 맞춘 일정이다(모델·도구는 ADR-034의 Bosun 기준). C1 결과로 10-20 저녁에 한 번 재조정한다. X3 경쟁 비교와 X4 제출물 구조는 10-19부터 병렬이다. 각 작업 중간에 커밋하며 [[PROGRESS]]에 완료·남은 일·검증 결과를 기록한다.
 
+## 승인된 로컬 구현 트랙: 공공 입찰 확장·업무 UI (ADR-047)
+
+2026-10-21 이번 작업은 [설계](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)와 [[2026-10-21-public-procurement-expansion-plan|Phase0~8 계획]]·[[20261021-review|공식명세/현황 조사]]를 작성했다. 후속 승인으로 격리 브랜치 구현을 진행하며 운영 활성화는 서비스별 검증 후 별도다. 기존 ADR-042 freeze10-24 22시·리허설10-25·완료목표10-26·공식제출10-27을 유지한다.
+
+승인 후 순서는 통합기준확정→additive identity/RLS→신규P0(K-water입찰/LH입찰/KEPCO)→중복/관련성→P1(K-water계획/LH사전규격/G2B요청)+기존early→기존AI회귀→UI/운영집계→통합/단계활성화다. key/안정ID/금액의미/실첨부·문서소비자/파서가 미확인인 서비스는 비활성이다. 병렬 Gateway/Storage/N3/N6/N9/P0-8/S5와 공유 파일 담당을 맞추며 운영 일정 단축/전수재수집은 하지 않는다.
+
 ## 관련 문서
 - [[01-PRD|01 PRD]] — FR별 P0·P1·P2
 - [[10-DEPLOYMENT|10 배포]]
@@ -186,3 +192,6 @@ gantt
 - [[21-MODEL-TRAINING|21 모델 학습]]
 - [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] — X6 실행 절차
 - [[PROGRESS]]
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

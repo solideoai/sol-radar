@@ -183,8 +183,12 @@ export const REVIEW_FLAG_LABEL = {
 // 상세 단계 이력(§5.4.3)
 export const STAGE_LABEL = {
   PLAN: "발주계획",
+  PROCUREMENT_REQUEST: "조달요청",
   PRE_SPEC: "사전규격",
   NOTICE: "입찰공고",
+  OPENING: "개찰",
+  AWARD: "낙찰",
+  CONTRACT: "계약",
 } as const satisfies Record<BidStage, string>;
 
 type NotificationType = Notification["type"];

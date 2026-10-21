@@ -4,6 +4,12 @@ import IORedis from "ioredis";
 import { readGatewayConfig, readRunMode as readAnalysisRunMode } from "@/server/analysis";
 import {
   DOCUMENTS_QUEUE,
+  EXTERNAL_SOURCE_KEYS,
+  EXTERNAL_SERVICES,
+  createExternalSourceConnector,
+  type ExternalSourceKey,
+  type SourceRegistry,
+  type CallableSource,
   G2B_AUX_OPERATIONS,
   G2B_BID_NOTICE_SERVICE_ID,
   INGEST_JOB_NAME,
@@ -36,7 +42,12 @@ import { createWorkerStorageClient } from "@/worker/storage-client";
 import { createDocumentStorage } from "@/worker/document-storage";
 import { readReconcileSettings } from "@/worker/analysis-reconcile";
 import { startAnalysisRuntime } from "@/worker/analysis-runtime";
-import { readG2bServiceKey, readWorkerEnv, type WorkerEnv } from "@/worker/env";
+import {
+  readG2bServiceKey,
+  readExternalServiceKey,
+  readWorkerEnv,
+  type WorkerEnv,
+} from "@/worker/env";
 import { errorNameOf } from "@/worker/error-name";
 import { startDocumentsReconciler } from "@/worker/documents-reconcile";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
@@ -46,6 +57,7 @@ import {
   readIngestIntervalMinutes,
   readRunMode,
   type IngestJobDeps,
+  type ExternalIngestJobData,
   type RunMode,
 } from "@/worker/ingest-queue";
 import { QUOTA_REDIS_OPTIONS, createRedisQuotaStore } from "@/worker/quota-store";
@@ -180,6 +192,20 @@ export async function createIngestWorker(
   logErrors(queue, "ingest queue");
   try {
     await syncG2bSchedule(queue, deps.runMode, intervalMinutes);
+    for (const key of EXTERNAL_SOURCE_KEYS) {
+      const job =
+        deps.runMode === "live"
+          ? deps.scheduledExternalJobs?.find((candidate) => candidate.serviceKey === key)
+          : undefined;
+      const schedulerId = `${key}-scheduled`;
+      if (job === undefined) await queue.removeJobScheduler(schedulerId);
+      else
+        await queue.upsertJobScheduler(
+          schedulerId,
+          { every: intervalMinutes * 60_000 },
+          { name: INGEST_JOB_NAME, data: job },
+        );
+    }
   } catch (error) {
     await closeQuietly([{ close: () => worker.close() }, { close: () => queue.close() }]);
     throw error;
@@ -207,12 +233,13 @@ type IngestConfig = {
   intervalMinutes: number;
   fixturesDir: string;
   g2b: G2bSource | null;
+  registry: SourceRegistry | null;
+  external: Map<ExternalSourceKey, { source: CallableSource; key: string; dailyLimit: number }>;
 };
 
 // live 모드는 기동 때 registry 와 서비스키를 확인한다. 부를 수 없는 소스면 연결을 만들기 전에 멈춘다(사유만 싣는다).
 // 보조 조회 3종(07 §2.2)도 registry 항목이 있어야 한다. 같은 서비스(15129394)라 기본 URL·서비스키 env 가 목록과 같아야 한다.
-async function resolveG2bSource(env: Env): Promise<G2bSource> {
-  const registry = await loadSourceRegistry(registryFileOf(env));
+async function resolveG2bSource(env: Env, registry: SourceRegistry): Promise<G2bSource> {
   const callable = callableSource(registry, G2B_BID_NOTICE_SOURCE);
   if (!callable.ok) {
     throw new Error(`수집 소스 ${G2B_BID_NOTICE_SOURCE} 를 부를 수 없다: ${callable.reason}`);
@@ -243,18 +270,47 @@ async function resolveG2bSource(env: Env): Promise<G2bSource> {
 
 async function readIngestConfig(env: Env): Promise<IngestConfig> {
   const runMode = readRunMode(env);
+  const registry = runMode === "live" ? await loadSourceRegistry(registryFileOf(env)) : null;
+  const external: IngestConfig["external"] = new Map();
+  if (registry !== null) {
+    for (const key of EXTERNAL_SOURCE_KEYS) {
+      const callable = callableSource(registry, key);
+      if (!callable.ok) continue;
+      const dailyLimit = dailyQuotaOf(registry, key);
+      if (dailyLimit === null || dailyLimit < 1)
+        throw new Error(`수집 소스 ${key} quota.daily 미확인`);
+      external.set(key, {
+        source: callable.source,
+        key: readExternalServiceKey(env, callable.source.serviceKeyEnv),
+        dailyLimit,
+      });
+    }
+  }
   return {
     runMode,
     intervalMinutes: readIngestIntervalMinutes(env),
     fixturesDir: fixturesDirOf(env),
-    g2b: runMode === "live" ? await resolveG2bSource(env) : null,
+    g2b: registry !== null ? await resolveG2bSource(env, registry) : null,
+    registry,
+    external,
   };
+}
+
+function externalScheduledJob(key: ExternalSourceKey): ExternalIngestJobData {
+  const common = { trigger: "SCHEDULED" as const, jobKey: `${key}:SCHEDULED` };
+  if (key === "g2b-procurement-request") return { ...common, source: "g2b", serviceKey: key };
+  if (key === "kwater-bid-notice" || key === "kwater-procurement-plan")
+    return { ...common, source: "kwater", serviceKey: key };
+  if (key === "lh-bid-notice" || key === "lh-pre-specification")
+    return { ...common, source: "lh", serviceKey: key };
+  return { ...common, source: "kepco", serviceKey: key };
 }
 
 function ingestJobDepsOf(
   config: IngestConfig,
   documentsQueue: JobQueue,
   quota: IngestQuota | null,
+  externalQuotas: Map<ExternalSourceKey, IngestQuota>,
 ): IngestJobDeps {
   const admin = getSupabaseAdmin();
   const { g2b, fixturesDir } = config;
@@ -265,6 +321,46 @@ function ingestJobDepsOf(
   return {
     repo: createSupabaseIngestionRepo(admin),
     runMode: config.runMode,
+    scheduledExternalJobs: Array.from(config.external.keys())
+      .filter((key) => {
+        const source = config.external.get(key);
+        const operation = EXTERNAL_SERVICES[key].operation;
+        return (
+          source !== undefined &&
+          source.source.operations.includes(operation) &&
+          (EXTERNAL_SERVICES[key].verifiedOperations as readonly string[]).includes(operation)
+        );
+      })
+      .map(externalScheduledJob),
+    externalSourceGate: (job) => {
+      if (config.registry === null) return "NOT_VERIFIED";
+      const callable = callableSource(config.registry, job.serviceKey);
+      if (!callable.ok) return callable.reason;
+      const operation = job.operation ?? EXTERNAL_SERVICES[job.serviceKey].operation;
+      if (
+        !callable.source.operations.includes(operation) ||
+        !(EXTERNAL_SERVICES[job.serviceKey].verifiedOperations as readonly string[]).includes(
+          operation,
+        )
+      )
+        return "NOT_VERIFIED";
+      return config.external.has(job.serviceKey) ? null : "NOT_VERIFIED";
+    },
+    createExternalConnector: async (job) => {
+      const external = config.external.get(job.serviceKey);
+      if (config.runMode !== "live" || external === undefined)
+        throw new Error("external connector source not verified");
+      return createExternalSourceConnector({
+        sourceKey: job.serviceKey,
+        serviceKey: external.key,
+        endpoint: external.source.baseUrl,
+        operation: job.operation,
+        companyId: job.source === "kepco" ? job.companyId : undefined,
+        requestId: job.source === "g2b" ? job.requestId : undefined,
+        fetch: (url, init) => globalThis.fetch(url, init),
+      });
+    },
+    quotaForExternal: (job) => externalQuotas.get(job.serviceKey),
     createFixtureConnector: async (batch) =>
       createFixtureConnector({
         fixturesDir,
@@ -278,6 +374,8 @@ function ingestJobDepsOf(
         endpoint: g2b.endpoint,
         serviceKey: g2b.serviceKey,
         fetch: (url, init) => globalThis.fetch(url, init),
+        // ADR-047: 관련성은 보존한 revision에서 분류한다. 수집 전에 저관련 공고를 버리지 않는다.
+        isInfoBizNotice: () => true,
       });
     },
     // 보조 조회 3종(07 §2.2). 목록과 같은 서비스·서비스키·재시도 규칙이다.
@@ -294,7 +392,10 @@ function ingestJobDepsOf(
     recordManualAudit: createSupabaseIngestAudit(admin),
     now: () => new Date(),
     retry,
-    secrets: g2b === null ? [] : [g2b.serviceKey],
+    secrets: [
+      ...(g2b === null ? [] : [g2b.serviceKey]),
+      ...Array.from(config.external.values(), (value) => value.key),
+    ],
     ...(quota === null ? {} : { quota }),
   };
 }
@@ -334,13 +435,28 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   return async (connection) => {
     const quotaParts = config.g2b === null ? null : createIngestQuota(connection, config.g2b);
     const closeQuota: Closable = quotaParts?.close ?? { close: async () => undefined };
+    const externalQuotaConnection =
+      config.external.size > 0 ? connection.duplicate(QUOTA_REDIS_OPTIONS) : null;
+    const externalQuotas = new Map<ExternalSourceKey, IngestQuota>();
+    if (externalQuotaConnection !== null)
+      for (const [key, source] of config.external)
+        externalQuotas.set(key, {
+          serviceId: EXTERNAL_SERVICES[key].serviceId,
+          dailyLimit: source.dailyLimit,
+          store: createRedisQuotaStore(externalQuotaConnection, { dailyLimit: source.dailyLimit }),
+        });
+    const closeExternalQuota: Closable = {
+      close: async () => {
+        externalQuotaConnection?.disconnect();
+      },
+    };
     const documentsQueue = new Queue(DOCUMENTS_QUEUE, { connection });
     logErrors(documentsQueue, "documents queue");
     const closeDocuments: Closable = { close: () => documentsQueue.close() };
     try {
       const ingest = await createIngestWorker(
         connection,
-        ingestJobDepsOf(config, documentsQueue, quotaParts?.quota ?? null),
+        ingestJobDepsOf(config, documentsQueue, quotaParts?.quota ?? null, externalQuotas),
         config.intervalMinutes,
       );
       const documents = startDocumentsReconciler({
@@ -355,10 +471,16 @@ export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
       // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐 → 예산 카운터 연결.
       return {
         close: () =>
-          closeAll([closeQuota, closeDocuments, ingest, { close: () => documents.stop() }]),
+          closeAll([
+            closeQuota,
+            closeExternalQuota,
+            closeDocuments,
+            ingest,
+            { close: () => documents.stop() },
+          ]),
       };
     } catch (error) {
-      await closeQuietly([closeQuota, closeDocuments]);
+      await closeQuietly([closeQuota, closeExternalQuota, closeDocuments]);
       throw error;
     }
   };

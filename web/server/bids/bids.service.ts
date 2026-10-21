@@ -66,6 +66,7 @@ export type AnalysisAccepted = {
 
 const ANALYSIS_ROLES: readonly SolRole[] = ["ADMIN", "SALES", "ANALYST"];
 const REVIEW_ROLES: readonly SolRole[] = ["ADMIN", "SALES"];
+const ANALYSIS_STAGES: readonly BidListItem["stage"][] = ["PLAN", "PRE_SPEC", "NOTICE"];
 
 export const canRequestAnalysis = (role: SolRole): boolean => ANALYSIS_ROLES.includes(role);
 export const canRecordReview = (role: SolRole): boolean => REVIEW_ROLES.includes(role);
@@ -172,6 +173,12 @@ export async function requestAnalysis(
   if (analysisInput === null) {
     return fail(404, "NOT_FOUND", "회사 프로필 revision 을 찾을 수 없습니다", {
       resource: "profileRevision",
+    });
+  }
+  if (analysisInput.stage !== undefined && !ANALYSIS_STAGES.includes(analysisInput.stage)) {
+    return fail(400, "VALIDATION_ERROR", "이 단계의 공고는 아직 분석할 수 없습니다", {
+      stage: analysisInput.stage,
+      reason: "STAGE_NOT_SUPPORTED",
     });
   }
 

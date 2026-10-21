@@ -30,6 +30,9 @@ export type IngestRun = IngestionRunView;
 const SOURCE_LABEL = {
   fixture: { long: "데모 데이터 (fixture)", short: "데모 데이터" },
   g2b: { long: "나라장터 (g2b)", short: "나라장터" },
+  kwater: { long: "K-water", short: "K-water" },
+  lh: { long: "LH", short: "LH" },
+  kepco: { long: "KEPCO", short: "KEPCO" },
 } as const satisfies Record<IngestSource, { long: string; short: string }>;
 
 export const sourceLabel = (source: IngestSource, short = false): string =>

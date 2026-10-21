@@ -3,11 +3,31 @@ import { z } from "zod";
 
 // ── 수집 도메인 모델: 15 §3 NormalizedBid. 모든 connector 가 이 모양으로 공고를 넘긴다 ──
 export const NORMALIZED_BID_SCHEMA_VERSION = "normalized-bid/v0.2";
+export const EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION = "normalized-bid/v0.3";
 
-export const BID_SOURCES = ["fixture", "g2b-bid-notice", "g2b-pre-spec", "g2b-order-plan"] as const;
+export const BID_SOURCES = [
+  "fixture",
+  "g2b-bid-notice",
+  "g2b-pre-spec",
+  "g2b-order-plan",
+  "kwater-bid-notice",
+  "lh-bid-notice",
+  "kwater-procurement-plan",
+  "lh-pre-specification",
+  "g2b-procurement-request",
+  "kepco-ebid-contract",
+] as const;
 export type BidSource = (typeof BID_SOURCES)[number];
 
-export const BID_STAGES = ["PLAN", "PRE_SPEC", "NOTICE"] as const;
+export const BID_STAGES = [
+  "PLAN",
+  "PRE_SPEC",
+  "NOTICE",
+  "PROCUREMENT_REQUEST",
+  "OPENING",
+  "AWARD",
+  "CONTRACT",
+] as const;
 export type BidStage = (typeof BID_STAGES)[number];
 
 export const BID_STATUSES = ["OPEN", "AMENDED", "CANCELLED", "CLOSED"] as const;
@@ -68,8 +88,52 @@ const bidOriginalSchema = z.strictObject({
   status: z.string().optional(),
 });
 
+export const sourceMetadataSchema = z.strictObject({
+  sourceFamily: z.enum(["G2B", "KWATER", "LH", "KEPCO"]),
+  serviceId: z.string().min(1),
+  operation: z.string().min(1),
+  providerCompanyId: z.string().min(1).optional(),
+  providerRecordKey: z.string().min(1),
+  providerStatus: z.string().nullable(),
+  sourceUrlKind: z.enum(["NOTICE", "SERVICE_DOCUMENTATION"]),
+  agencyCodeNamespace: z.string().optional(),
+  agencyCode: z.string().optional(),
+  applicationDeadlineAt: isoUtcDateTime.nullable(),
+  biddingStartsAt: isoUtcDateTime.nullable(),
+  biddingEndsAt: isoUtcDateTime.nullable(),
+  participationStatus: z.enum([
+    "NOT_STARTED",
+    "APPLICATION_OPEN",
+    "BIDDING_OPEN",
+    "ENDED",
+    "UNKNOWN",
+  ]),
+  providerEvent: z.enum(["FAILED", "OPENED", "ENDED"]).nullable(),
+  dates: z.record(
+    z.string(),
+    z.strictObject({
+      raw: z.string(),
+      precision: z.enum(["DATE", "MINUTE", "SECOND", "UNKNOWN"]),
+      utc: isoUtcDateTime.nullable(),
+    }),
+  ),
+  amounts: z.array(
+    z.strictObject({
+      kind: z.string(),
+      raw: z.string(),
+      amountKrw: z.string().regex(KRW_INTEGER).nullable(),
+      currency: z.literal("KRW").nullable(),
+      unit: z.enum(["KRW", "MILLION_KRW", "UNVERIFIED"]),
+      vat: z.enum(["INCLUDED", "EXCLUDED", "UNVERIFIED"]),
+    }),
+  ),
+  attributes: z.record(z.string(), z.string()),
+});
+export type SourceMetadata = z.infer<typeof sourceMetadataSchema>;
+
 const draftShape = {
-  schemaVersion: z.literal(NORMALIZED_BID_SCHEMA_VERSION),
+  schemaVersion: z.enum([NORMALIZED_BID_SCHEMA_VERSION, EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION]),
+  sourceMetadata: sourceMetadataSchema.optional(),
   source: z.enum(BID_SOURCES),
   noticeId: z.string().min(1),
   amendmentNo: optionalIdentifier,

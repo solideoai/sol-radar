@@ -556,6 +556,12 @@ S7(`org-02`)의 화면 증거는 `forbidden`이 아니다. 공고는 공용이�
 
 예: `20261020-phase3-bid-detail-partial-1440.png`. 저장 위치와 목록은 [[11-TESTING|11 테스트]] §6.
 
+## 검토 중 확장: 대시보드·입찰 공고·수집 운영
+
+2026-10-21 제공 레퍼런스2장을 확인한 [디자인 제안](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§10~12와 [[2026-10-21-public-procurement-expansion-plan|Phase5~6/I6]]을 따른다(ADR-047 제안). KPI는 신규발견/분석대기/BID권고/마감임박/수집상태, 본문은 검토입찰/소스상태/예정사업/권고포트폴리오다. 입찰 목록은 지정11열·Source/기관/분야·SI/AI우선 ON·early OFF를 제안한다. 이미지의 수치·날짜·지자체 Source 배지는 실제 데이터 계약이 아니다.
+
+흰 바탕·가는 선·기존 토큰/셸·대시보드+3px 정책을 유지한다. `status-badge.tsx`의 공통 모듈을 SourceBadge로 확장하고 LH를 포함해 중앙정렬한다. **11열의1280px 표 내부 가로 스크롤과 대시보드1280px 세로 배치는 기존 정책과 충돌하므로 승인 전 제안**이다. 이 절이 기존 무스크롤 규칙을 자동 개정하지 않는다. 구현 전 web-designer 검토·구현 뒤1440/1280 확인이 필요하다. 화면 코드는 이번에 수정하지 않았다.
+
 ## 관련 문서
 
 - [[05-API-SPEC|05 API]] — 화면이 소비하는 DTO·오류 코드
@@ -566,3 +572,6 @@ S7(`org-02`)의 화면 증거는 `forbidden`이 아니다. 공고는 공용이�
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 스크린샷 파일명 규칙
 - [[11-TESTING|11 테스트]] — E2E·a11y 검사, 데모 수용 체크리스트
 - [[19-DEMO-SCENARIO|19 데모 시나리오]] — 클릭 경로
+
+
+ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.
