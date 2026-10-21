@@ -137,3 +137,27 @@ def test_public_manifest_values_match_constants():
     assert package.PUBLIC_DECISION_EMBEDDINGS_SHA256 == (
         "88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188"
     )
+
+
+def test_unlisted_python_file_is_rejected(tmp_path):
+    # trust_remote_code 가 실행할 수 있는 최상위 .py 가 manifest 에 없으면 거절한다(심어 둔 모듈)
+    root = make_package(tmp_path)
+    (root / "configuration_bosun.py").write_bytes(b"# planted")
+    with pytest.raises(package.PackageError) as error:
+        package.verify_package(root)
+    assert error.value.summary == "REMOTE_CODE_NOT_IN_MANIFEST(configuration_bosun.py)"
+
+
+def test_listed_python_files_pass_and_nested_py_is_not_remote_code(tmp_path):
+    root = make_package(
+        tmp_path,
+        files={
+            "adapter/adapter_model.safetensors": b"adapter-bytes",
+            "decision_embeddings.safetensors": b"embedding-bytes",
+            "modeling_bosun.py": b"# model",
+            "configuration_bosun.py": b"# config",
+        },
+    )
+    (root / "tokenizer").mkdir()
+    (root / "tokenizer" / "helper.py").write_bytes(b"# not loaded by auto_map")
+    assert package.verify_package(root).lora_sha256 == _sha(b"adapter-bytes")

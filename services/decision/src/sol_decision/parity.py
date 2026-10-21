@@ -23,6 +23,7 @@ from typing import Any
 
 import torch
 
+from sol_decision.package import PackageError
 from sol_decision.trainer.batching import encode_prompts
 from sol_decision.trainer.data import TrainRecord, read_records
 from sol_decision.trainer.loss import slot_probabilities
@@ -164,7 +165,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         dtype,
         len(records),
     )
-    model = load_bosun(args.package, device=device, dtype=dtype)
+    try:
+        model = load_bosun(args.package, device=device, dtype=dtype)
+    except PackageError as error:
+        # manifest sha256·최상위 *.py 대조 실패. trust_remote_code 로 올리지 않았다
+        log.error("package verification failed: %s", error.summary)
+        return 2
     report = run_parity(
         model, records, seed=args.seed, tolerance=args.tol, batch_tolerance=args.batch_tol
     )
