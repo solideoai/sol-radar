@@ -6,10 +6,13 @@ import { useEvidenceStore } from "@/components/bids/evidence-store";
 import {
   BID_DOCUMENTS,
   BID_LIST,
+  BOSUN_MODEL_ID,
+  FX01_LIVE_VIEW,
   FX01_PARTIAL_VIEW,
   FX01_VIEW,
   FX02_VIEW,
   FX03_VIEW,
+  QWEN_MODEL_ID,
   REVIEWS_FX01,
 } from "@/components/bids/test-data";
 import type { AnalysisView } from "@/server/bids";
@@ -136,7 +139,7 @@ describe("BidDetailView 버튼과 권한(스펙 §5.4.1·§5.4.10)", () => {
     await expect.element(page.getByText("아직 분석하지 않았습니다")).toBeVisible();
     // ⑤~⑦은 그리지 않는다(빈 구역 대신 한 빈 상태로 묶는다).
     expect(page.getByText("SOL Score 분해").elements()).toHaveLength(0);
-    expect(page.getByText("Kev 참고 지표").elements()).toHaveLength(0);
+    expect(page.getByText("결정 모델 참고 지표").elements()).toHaveLength(0);
     // 첨부 상태는 공고 데이터라 미분석이어도 보인다(S7).
     await expect.element(page.getByRole("heading", { name: "첨부 상태" })).toBeVisible();
   });
@@ -213,6 +216,26 @@ describe("BidDetailView 상단 요약(스펙 §5.4.1)", () => {
     expect(text(host)).toContain("실제 공고 × 가상 회사 프로필");
   });
 
+  it("실모델(local) run 은 AI 칩과 결정 모델 구역에 받은 식별자를 그대로 보인다(ADR-034 9·15번)", async () => {
+    const { host } = render({
+      bid: detail({
+        isDemo: false,
+        origin: "live",
+        source: "g2b-bid-notice",
+        noticeId: "R26BK00000001",
+        latestAnalysis: FX01_LIVE_VIEW,
+      }),
+    });
+    // S-LIVE 칩(06 §7 D12): "AI: local · {qwen} · {kev}". 표시 이름 대응표 없음.
+    expect(text(host)).toContain(`AI: local · ${QWEN_MODEL_ID} · ${BOSUN_MODEL_ID}`);
+    expect(text(host)).not.toContain("AI: mock");
+    expect(text(host)).toContain(
+      `최종 결정은 담당자가 기록합니다. 모델: ${BOSUN_MODEL_ID} · 질문 세트: kev-qs/v0.2 · 공급자: local`,
+    );
+    expect(text(host)).not.toContain("Mock 응답");
+    expect(text(host)).toContain("규칙 + 결정 모델 참고");
+  });
+
   it("원문 주소가 http·https 가 아니면(javascript:) 링크를 하나도 그리지 않고 글자로만 보인다", async () => {
     const unsafe = "javascript:alert(1)";
     const { host } = render({
@@ -237,19 +260,28 @@ describe("BidDetailView 상단 요약(스펙 §5.4.1)", () => {
 });
 
 describe("BidDetailView 분석 결과(스펙 §5.4.2~§5.4.8)", () => {
-  it("FX-01: 띠·자격·점수 분해·Kev·근거를 06 순서로 그린다", async () => {
+  it("FX-01: 띠·자격·점수 분해·결정 모델·근거를 06 순서로 그린다", async () => {
     const { host } = render({
       bid: detail({ latestAnalysis: FX01_VIEW, reviews: REVIEWS_FX01 }),
       history: historyOf(FX01_VIEW, FX01_PARTIAL_VIEW),
     });
     const headings = Array.from(host.querySelectorAll("main h2")).map((h) => h.textContent ?? "");
-    const order = ["단계 이력", "필수자격", "SOL Score 분해", "Kev 참고 지표", "근거 인용"].map(
-      (name) => headings.findIndex((h) => h.startsWith(name)),
-    );
+    const order = [
+      "단계 이력",
+      "필수자격",
+      "SOL Score 분해",
+      "결정 모델 참고 지표",
+      "근거 인용",
+    ].map((name) => headings.findIndex((h) => h.startsWith(name)));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(text(host)).toContain("분석 실행 모드: fixture");
+    // mock 응답은 실제 모델처럼 보이면 안 된다(ADR-034 15번): 칩은 "AI: mock", 구역은 "Mock 응답(데모 데이터)", 모델명 없음.
     expect(text(host)).toContain("AI: mock");
+    expect(text(host)).toContain("Mock 응답(데모 데이터)");
+    expect(text(host)).not.toContain("kev-mock");
+    expect(text(host)).not.toContain(BOSUN_MODEL_ID);
+    expect(text(host)).toContain("규칙 + 결정 모델 참고");
     expect(text(host)).toContain("알고리즘 sol-v0.1.0 · 프로필 rev 2");
     expect(text(host)).toContain("규칙 권고와 같음");
     expect(text(host)).toContain("마지막 결정: BID · 김영업");
@@ -318,7 +350,7 @@ describe("BidDetailView 분석 결과(스펙 §5.4.2~§5.4.8)", () => {
     expect(page.getByRole("button", { name: "재분석" }).elements()).toHaveLength(2);
   });
 
-  it("PARTIAL 은 09 고정 AI 불가 배너와 Kev '사용 불가'를 보인다", async () => {
+  it("PARTIAL 은 09 고정 AI 불가 배너와 결정 모델 '사용 불가'를 보인다", async () => {
     const { host } = render({ bid: detail({ latestAnalysis: FX01_PARTIAL_VIEW }) });
     await expect
       .element(
@@ -330,7 +362,7 @@ describe("BidDetailView 분석 결과(스펙 §5.4.2~§5.4.8)", () => {
     expect(text(host)).toContain("사용 불가");
   });
 
-  it("kev_assist 가 비어 기록이 없는 run 은 Kev 구역에 '기록 없음'을 쓴다", async () => {
+  it("kev_assist 가 비어 기록이 없는 run 은 결정 모델 구역에 '기록 없음'을 쓴다", async () => {
     const unrecorded: AnalysisView = {
       ...FX02_VIEW,
       reviewFlags: [],
@@ -341,7 +373,7 @@ describe("BidDetailView 분석 결과(스펙 §5.4.2~§5.4.8)", () => {
     expect(text(host)).not.toContain("사용 안 함");
   });
 
-  it("Kev v0.2 항목별 분포는 넘겨받은 항목 문구를 쓴다", async () => {
+  it("결정 모델 v0.2 항목별 분포는 넘겨받은 항목 문구를 쓴다", async () => {
     const v02: AnalysisView = {
       ...FX01_VIEW,
       kev: { ...FX01_VIEW.kev, questionSetVersion: "kev-qs/v0.2" },

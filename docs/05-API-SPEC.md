@@ -40,6 +40,12 @@ updated: 2026-10-21
 |GET|`/me/employment`|session(본인)|조직 합류 전에도 가입 신고 정보·완료 여부 조회|`EmploymentState`|
 |PATCH|`/me/employment`|session(본인)|부서·직급/직책 필수 보완|`EmploymentInput` → `200 EmploymentState`|
 |GET|`/me`|auth|**(미구현)** 세션 사용자·현재 조직·역할(`orgRole`·`solRole`)|`Me`|
+|GET|`/me/kakao-notify`|session(본인)|**(구현 중, `feat/kakao-notify`)** 개인 설정 "카카오톡 알림" 칸 상태([[16-DECISIONS\|ADR-038]], §9)|`KakaoNotifyView`|
+|PATCH|`/me/kakao-notify`|session(본인)|**(구현 중)** 카카오톡 알림 켜기·끄기|`KakaoNotifyEnabledInput` → `204`. 연결 전 켜기는 `409 KAKAO_NOT_CONNECTED`|
+|DELETE|`/me/kakao-notify`|session(본인)|**(구현 중)** 연결 해제(본인 연결 행을 지운다. 카카오 `unlink`는 부르지 않는다)|`204`|
+|GET|`/me/kakao-notify/connect`|session(본인)|**(구현 중)** `state`를 만들어 카카오 인가 주소(`scope=talk_message`)로 보낸다|`302` 카카오 인가|
+|GET|`/me/kakao-notify/callback`|session(본인)|**(구현 중)** `state` 확인 → 코드를 토큰으로 → `talk_message` 동의 확인 → 암호화 저장|`302 /settings?kakao=connected\|consent_denied\|state_mismatch\|failed`|
+|POST|`/me/kakao-notify/test`|session(본인)|**(구현 중)** 시험 메시지 이벤트(`KAKAO_TEST`)를 쌓는다|`202`. 연결·켬이 아니면 `409 KAKAO_NOT_READY`, 같은 분에 다시 누르면 `429 KAKAO_TEST_THROTTLED`|
 |GET|`/bids`|`ADMIN, SALES, ANALYST, VIEWER`|목록·검색·필터·커서. 출처 필터 `origin=live\|demo\|all`. P1: `watched=me`([[16-DECISIONS\|ADR-021]])|§3 → `Page<BidListItem>`|
 |GET|`/bids/:id`|`ADMIN, SALES, ANALYST, VIEWER`|상세(최신 revision, 추출, 최신 분석, 검토, 첨부 다운로드·파싱 상태, 단계 연결, API 구조화 자격 필드)|`BidDetail`|
 |GET|`/bids/:id/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** revision 목록·변경 필드|`BidRevisionSummary[]`|
@@ -51,6 +57,7 @@ updated: 2026-10-21
 |POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기). 중복·큐 계약은 §4.5|`AnalysisRequest` → `202 AnalysisAccepted`|
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
+|POST|`/analyses/:id/what-if`|`ADMIN, SALES, ANALYST, VIEWER`|가정 재계산([[16-DECISIONS\|ADR-037]], 데모 강화 컷). 저장된 입력 스냅샷에 보유 가정을 얹어 규칙 엔진으로 다시 계산하고 아무것도 저장하지 않는다. 읽기 계산이라 역할 제한이 없다. 계약은 §4.5 "가정 재계산"|`WhatIfRequest` → `200 WhatIfResult`|
 |GET|`/bids/:id/qualification-checks`|`ADMIN, SALES, ANALYST, VIEWER`|최신 분석의 자격 판정(항목마다 사유 코드·회사 근거·값 출처)|`QualificationCheck[]`|
 |GET|`/bids/:id/reviews`|`ADMIN, SALES, ANALYST, VIEWER`|검토 이력|`Review[]`|
 |POST|`/bids/:id/reviews`|`ADMIN, SALES`|사람 최종 결정 기록|`ReviewInput` → `201 Review`|
@@ -81,11 +88,11 @@ updated: 2026-10-21
 |GET|`/admin/ai/eval-runs`|`ADMIN`|**(미구현)** 평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
 |GET|`/admin/ai/eval-runs/:id`|`ADMIN`|**(미구현)** 평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
 
-**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개 가운데 `GET /company-profile`·`GET /company-profile/revisions`는 main `bf16806`(2026-10-20, `feat/company-read`)로 들어왔고 `PUT /company-profile`(새 revision 저장)은 **(미구현)**이다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다.
+**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. `/me/kakao-notify` 6개([[16-DECISIONS|ADR-038]])는 설계이고 `feat/kakao-notify`에서 구현 중이다(main에는 없다). **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개 가운데 `GET /company-profile`·`GET /company-profile/revisions`는 main `bf16806`(2026-10-20, `feat/company-read`)로 들어왔고 `PUT /company-profile`(새 revision 저장)은 **(미구현)**이다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다. `POST /analyses/:id/what-if`([[16-DECISIONS|ADR-037]])도 구현됐다(브랜치 `feat/boost2-what-if` `faa707b`, 2026-10-21 main 병합 `d48c7a2`). 위 목록은 `554b34c` 기준이라 따로 적는다.
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
-범위 밖(이번 해커톤에서 만들지 않음): 인력 배치 저장·배정 확정 API(해커톤 이후), 카카오 발송 설정, 경쟁사 분석, 알림 모두 읽음·알림 유형 필터(API가 없고 핵심 컷 화면에서도 뺀다, [[16-DECISIONS|ADR-029]] A6 D7). 인력 배치 시뮬레이션 조회(`GET /workforce/simulation`)는 P1이다([[16-DECISIONS|ADR-021]]).
+범위 밖(이번 해커톤에서 만들지 않음): 인력 배치 저장·배정 확정 API(해커톤 이후), 경쟁사 분석, 알림 모두 읽음·알림 유형 필터(API가 없고 핵심 컷 화면에서도 뺀다, [[16-DECISIONS|ADR-029]] A6 D7). 인력 배치 시뮬레이션 조회(`GET /workforce/simulation`)는 P1이다([[16-DECISIONS|ADR-021]]).
 
 [[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·결정 모델 v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`(예정)가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
 
@@ -324,6 +331,32 @@ interface AnalysisResult {
 - `Idempotency-Key`가 없으면 서버가 UUID를 만든다. `score_runs`의 멱등 키는 `<org_id>:<requestId>`다.
 - 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않아 `_`로 잇는다), payload `{orgId, scoreRunId, idempotencyKey}`. jobId와 저장 멱등 키 `<orgId>:<requestId>`는 다른 값이고 서로 바꿔 쓰지 않는다([[16-DECISIONS|ADR-031]] C14).
 
+**가정 재계산**(`POST /analyses/:id/what-if`, [[16-DECISIONS|ADR-037]] 데모 강화 컷): 저장된 run의 `input_snapshot`에 "보유 가정"을 얹어 규칙 엔진을 다시 돌리고 원래 결과와 가정 결과를 함께 돌려준다. 계산 규칙은 [[08-SCORING|08]] §5.6, 화면은 [[06-UI-UX|06]] §6.1이다. 화면은 상세 진입 때 빈 가정으로 한 번 불러 `assumable`을 받고, 스위치가 바뀔 때마다 다시 부른다.
+
+```ts
+interface WhatIfRequest {
+  assumptions: { kind: "QUALIFICATION"; code: string }[];  // strict 객체. code 1~64자, 최대 10개. 빈 배열 = 가정 없이 원래만 다시 계산(가정 가능 목록 받기)
+}
+interface WhatIfSummary {                                   // 규칙 엔진 출력 요약. 이름은 엔진 이름 그대로다(아래 목록)
+  score: number;                                            // 0~100. AnalysisResult.solScore와 같은 규칙 엔진 값. 낙찰 확률 아님
+  recommendation: Recommendation;
+  qualificationStatus: QualificationOutcome;
+  factors: { factor: FactorKey; points: number; maxPoints: number }[];
+  checks: { id: string; requirementName: string; requirementCode: string | null; outcome: QualificationOutcome; reasonCode: string | null }[];
+}
+interface WhatIfResult {                                    // 200 본문(그대로, 감싸지 않는다)
+  assumable: string[];                                      // 이 run에서 가정할 수 있는 자격 코드(중복 제거)
+  before: WhatIfSummary;                                    // 스냅샷을 kev=null로 다시 계산한 원래 값
+  after: WhatIfSummary;                                     // 가정을 적용한 값. 가정이 0개면 before와 같다
+}
+```
+
+- 이 응답은 규칙 엔진 이름(`score`·`factors`·`qualificationStatus`·`checks`)을 그대로 쓴다. 이 절 첫 문단의 이름 바꾸기(`score` → `solScore` 등)를 따르지 않는다.
+- 가정 가능 = `kev=null`로 다시 계산한 원래 결과의 필수 항목 가운데 `requirementCode`가 자격 코드 사전(`QUALIFICATION_CODES`)에 있고 `outcome`이 `NOT_SATISFIED`이거나 `NEEDS_REVIEW`이면서 `reasonCode`가 `COMPANY_EVIDENCE_MISSING`인 것. 하나라도 가정 불가면 계산하지 않고 400이다.
+- 처리 순서: 인증·CSRF(§1) → 경로 id가 UUID가 아니면 저장소를 부르지 않고 `404 {resource:"analysis"}` → 본문 16KB 초과 `400`(`path:"body"`) → 본문 zod 검증 `400` → run 읽기(사용자 세션·RLS, `status`·`input_snapshot`만) → 없음·다른 조직 `404 {resource:"analysis"}` → `QUEUED`·`RUNNING`이면 `409 ANALYSIS_IN_PROGRESS`(`details` 없음) → `FAILED`이거나 스냅샷이 `AnalysisInput` 스키마에 맞지 않으면(null 포함) `404 {resource:"analysis", reason:"NO_SNAPSHOT"}` → 가정 불가 코드가 있으면 `400 VALIDATION_ERROR {issues:[{path:"assumptions",message}], rejected:[{kind,code}]}` → `200 WhatIfResult`.
+- DB에 아무것도 쓰지 않는다(`score_runs`·`bid_reviews`·`audit_logs`·알림·outbox 불변). 결정 모델·gateway·큐를 부르지 않는다. 속도 제한·`Idempotency-Key` 대상이 아니다. 권한은 4개 업무 역할 모두다.
+- 구현: `web/server/scoring/what-if.ts`(`whatIf`), `web/server/bids/what-if.service.ts`(`computeWhatIf`), `web/app/api/v1/analyses/[id]/what-if/route.ts`. 브랜치 `feat/boost2-what-if`(API `1eaba6f`, 화면 `26beca1`, E2E `c9a1a49`), 2026-10-21 main 병합 `d48c7a2`.
+
 ### 4.6 검토·알림·대시보드·수집
 
 ```ts
@@ -339,7 +372,7 @@ interface Review {
   disagreementFlag: boolean;                                     // decision !== systemRecommendationAtDecision. bid_reviews.disagreement_flag
 }
 interface Notification {
-  id: string; type: "BID_CREATED" | "BID_CHANGED" | "DEADLINE_APPROACHING" | "ANALYSIS_COMPLETE" | "REVIEW_ASSIGNED";
+  id: string; type: "BID_CREATED" | "BID_CHANGED" | "DEADLINE_APPROACHING" | "ANALYSIS_COMPLETE" | "REVIEW_ASSIGNED" | "BID_RECOMMENDED" | "KAKAO_EXPIRED";   // 뒤의 둘은 ADR-038(구현 중). 인앱 목록·안 읽음 수는 channel IN_APP만 세므로 목록에 나오는 새 종류는 KAKAO_EXPIRED(link /settings) 하나다
   channel: "IN_APP" | "KAKAO"; status: "PENDING" | "SENT" | "FAILED" | "DEAD";
   payload: { bidId: string; title: string; message: string; link: string; changedFields?: string[] };   // link는 앱 안 경로만. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 /bids/{bidId}로 바꾼다(열린 리다이렉트 방지, ADR-030 B23)
   readAt: string | null; createdAt: string;
@@ -355,7 +388,7 @@ interface DashboardSummary {
   analyses: { total: number;
     byRecommendation: Record<Recommendation, number>;   // 공고별 최신 분석 1건 기준. force 재분석으로 이중 집계하지 않는다(ADR-029 A6 D10)
     partial: number; withReviewFlags: number;
-    latestByStatus: { completed: number; partial: number; failed: number } };  // ADR-021 분석 현황 카드. 공고별 최신 score_runs 1건 기준, QUEUED·RUNNING 제외, origin 필터를 따른다
+    latestByStatus: { completed: number; partial: number; failed: number } };  // ADR-021 분석 현황 카드. 공고별로 끝난 score_runs(COMPLETED·PARTIAL·FAILED) 가운데 최신(created_at) 1건 기준. 진행 중(QUEUED·RUNNING) run 은 건너뛰고 그 앞의 끝난 분석을 센다(web/server/bids/dashboard.service.ts). origin 필터를 따른다
   reviews: { pending: number;     // 최신 분석이 있고 사람 결정이 없는 공고 수(ADR-029 A6 D11)
     byDecision: Record<Recommendation, number>; disagreementWithSystem: number };
   upcoming: { bidId: string; title: string; deadlineAt: string; recommendation: Recommendation | null; decision: Recommendation | null }[];  // 마감 임박 10건
@@ -405,13 +438,13 @@ interface AiStatus {
   questionSetVersion: string | null;                  // 예: "kev-qs/v0.2"
   parsers: { format: string; parserId: string }[];    // gateway /parse가 지원하는 형식과 어댑터·버전. parserId 가 null(어댑터 없음)인 형식은 뺀다. 지금은 []
 }
-interface ModelRegistryEntry {     // services/ai/models/registry.yaml 항목(21 §5.4). 가중치는 없다
-  id: string; kind: "decision" | "qwen" | "kev";   // ADR-034: 결정 모델은 kind=decision(Bosun). kev 는 퇴역 항목 읽기 호환(B1 예정)
+interface ModelRegistryEntry {     // services/ai/models/registry.yaml 항목(21 §5.4). 가중치는 없다. 아래 ADR-034 필드는 B1 `c6097be`(main `1b68f9b`)부터 파일·gateway `registry.py`에 있다. 이 응답을 내는 `/admin/ai/models`는 미구현
+  id: string; kind: "decision" | "qwen" | "kev";   // ADR-034: 결정 모델은 kind=decision(Bosun). kev 는 퇴역 항목 읽기 호환
   run: string; base: string | null; baseRevision: string | null; initFrom: string | null;
-  revision: string | null;         // ADR-034: 모델 저장소 커밋 sha 전체(run 의 @뒤는 앞 8자). 회사 운영 Qwen API 는 null (B1 예정)
-  status: "active" | "retired" | "backup" | null;   // ADR-034: retired(kev-9b-v1.0·qwen3.5-9b)·backup(qwen3-4b-instruct-2507)은 기동 대조 대상에서 제외 (B1 예정)
+  revision: string | null;         // ADR-034: 모델 저장소 커밋 sha 전체(run 의 @뒤는 앞 8자). 회사 운영 Qwen API 는 null
+  status: "active" | "retired" | "backup" | null;   // ADR-034: retired(kev-9b-v1.0·qwen3.5-27b·qwen3.5-9b)·backup(qwen3-4b-instruct-2507)은 기동 대조 대상에서 제외
   lora: string | number | null;    // Bosun 은 어댑터 safetensors sha256(문자열), Kev 이력 항목은 rank(숫자)
-  weightsSha256: string | null; headSha256: string | null; decisionEmbeddingsSha256: string | null;   // 마지막 필드는 Bosun decision_embeddings.safetensors (B1 예정)
+  weightsSha256: string | null; headSha256: string | null; decisionEmbeddingsSha256: string | null;   // 마지막 필드는 Bosun decision_embeddings.safetensors
   temperature: number | null;
   dataset: { version: string; sha256: string } | null;
   questionSet: string | null; stateTemplate: string | null; requestModel: string | null; reports: string[];
@@ -428,7 +461,7 @@ interface MetricValue {            // 평가 지표 하나. 작은 평가셋이�
 }
 interface EvalRunSummary {         // 04 eval_runs
   id: string; datasetVersion: string; datasetSha256: string;
-  systemId: string;                // 비교 대상 ID. 예: "E0"(규칙만), "E1'"(공개 Bosun 영어 state zero-shot), "E2"(Bosun 한국어 state, 평가 전용), "E3"(Qwen3.5-27B logprob 분류), "E4"(Bosun + LoRA)
+  systemId: string;                // 비교 대상 ID. 예: "E0"(규칙만), "E1'"(공개 Bosun 영어 state zero-shot), "E2"(Bosun 한국어 state, 평가 전용), "E3"(Qwen3.8-Flash-Next logprob 분류), "E4"(Bosun + LoRA)
   split: "train" | "dev" | "test";
   keyMetrics: { macroF1: MetricValue; needsReviewToNotSatisfiedRate: MetricValue; ece: MetricValue };   // 21 §4.4 초기 목표 지표 세 개
   gitCommit: string; createdAt: string;
@@ -497,7 +530,7 @@ interface PeoplePage {
 
 |HTTP|code|언제|`details`|
 |---:|---|---|---|
-|400|`VALIDATION_ERROR`|DTO·쿼리 검증 실패|`{issues:[{path,message}]}`|
+|400|`VALIDATION_ERROR`|DTO·쿼리 검증 실패. 가정 재계산의 가정 불가 코드도 이 코드다(§4.5 "가정 재계산", [[16-DECISIONS\|ADR-037]])|`{issues:[{path,message}]}`. 가정 불가면 `rejected:[{kind,code}]`를 더한다|
 |400|`INVALID_CURSOR`|커서 변조·만료|—|
 |401|`UNAUTHENTICATED`|세션 쿠키·Bearer 토큰 없음, 서명이 틀림, 만료. 브라우저는 Supabase 클라이언트가 세션을 갱신한 뒤 다시 시도하고, 그래도 401이면 `/auth/login`으로 보낸다|—|
 |403|`FORBIDDEN`|`sol_role`이 허용 목록에 없음|`{required:[Role]}`|
@@ -505,17 +538,20 @@ interface PeoplePage {
 |403|`PROFILE_INCOMPLETE`|이름·부서·직급/직책 보완 전 업무 API 요청|`{completionPath:"/auth/complete-profile"}`|
 |403|`ACCOUNT_DISABLED`|`profiles.status='suspended'`인 사용자(토큰이 아직 유효해도)|—|
 |403|`UNSUPPORTED_ACCOUNT_STATE`|업무 조직 멤버십이 2개 이상인 사용자의 업무 API 요청. 해커톤 MVP는 업무 조직 하나만 지원한다([[16-DECISIONS\|ADR-021]])|—|
-|404|`NOT_FOUND`|자원 없음 **또는 다른 조직 자원**(RLS로 행이 보이지 않음). 로그인 사용자의 아직 출시하지 않은 경로도 404다(메뉴 노출과 무관, [[16-DECISIONS\|ADR-021]])|`{resource:"bid"\|"analysis"\|...}`|
+|404|`NOT_FOUND`|자원 없음 **또는 다른 조직 자원**(RLS로 행이 보이지 않음). 로그인 사용자의 아직 출시하지 않은 경로도 404다(메뉴 노출과 무관, [[16-DECISIONS\|ADR-021]]). 가정 재계산은 run이 `FAILED`이거나 입력 스냅샷이 스키마에 맞지 않을 때도 404다([[16-DECISIONS\|ADR-037]])|`{resource:"bid"\|"analysis"\|...}`. 가정 재계산의 스냅샷 없음은 `{resource:"analysis", reason:"NO_SNAPSHOT"}`|
 |409|`PROFILE_REVISION_CONFLICT`|`baseRevision` ≠ 최신|`{currentRevision}`|
-|409|`ANALYSIS_IN_PROGRESS`|같은 입력의 run이 `QUEUED`/`RUNNING`인데 `force=true`|`{analysisId}`|
+|409|`ANALYSIS_IN_PROGRESS`|같은 입력의 run이 `QUEUED`/`RUNNING`인데 `force=true`. 또는 `POST /analyses/:id/what-if`의 run이 `QUEUED`·`RUNNING`(스냅샷이 아직 없다, [[16-DECISIONS\|ADR-037]])|`{analysisId}`. 가정 재계산은 `details` 없음|
 |409|`IDEMPOTENCY_KEY_REUSED`|같은 키, 다른 본문|—|
 |409|`INGESTION_IN_PROGRESS`|`POST /admin/ingestion/runs`에서 같은 소스의 `ingest_runs` 행이 `RUNNING`. 멱등 재현(같은 키·같은 본문이면 첫 202) 뒤에 판정하고, 큐에만 있는 job은 막지 않는다. 오래 남은 g2b `RUNNING` 행은 운영자 명령 `pnpm ops:close-stale-runs`로 닫는다([[07-DATA-PIPELINE\|07]] §2.7, [[16-DECISIONS\|16 ADR]] 미결정 25번)|`{runId}`|
 |409|`PROJECT_REQUIRES_BID_DECISION`|P1. `POST /projects`의 `reviewId`가 BID 결정이 아님([[16-DECISIONS\|ADR-021]])|`{reviewId}`|
 |409|`LATEST_DECISION_NOT_BID`|P1. 입찰 프로젝트를 연 뒤 최신 결정이 BID가 아니어서 상태 전진을 막음. 자동 종료하지 않는다([[16-DECISIONS\|ADR-021]])|`{bidId, latestDecision}`|
 |409|`RUN_MODE_MISMATCH`|`POST /admin/ingestion/runs`의 `source`가 현재 실행 모드(`SOL_RUN_MODE`)와 맞지 않음(`live`에 `fixture`, `fixture`·`mock`에 `g2b`). 서버가 조용히 소스를 바꾸지 않는다([[16-DECISIONS\|ADR-020]])|`{runMode, source}`|
+|409|`KAKAO_NOT_CONNECTED`|구현 중([[16-DECISIONS\|ADR-038]]). `PATCH /me/kakao-notify`로 켜려는데 카카오톡 알림 연결이 없거나 `CONNECTED`가 아님|—|
+|409|`KAKAO_NOT_READY`|구현 중(ADR-038). `POST /me/kakao-notify/test`인데 연결·켬 상태가 아님|—|
 |422|`INVALID_SOURCE_DOCUMENT`|분석 대상 revision에 본문·첨부 텍스트가 전혀 없음, 또는 수집 fixture 파일이 스키마 위반|`{revisionId}` 또는 `{file, issues}`|
 |422|`HOSTED_NOT_APPROVED`|`AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=true`가 아님. hosted는 gateway와 web **둘 다** `AI_HOSTED_APPROVED=true`여야 한다(gateway는 승인 없이 기동을 거부하고, web env에 승인 값이 없어도 이 응답이다, [[10-DEPLOYMENT\|10 배포]] env 표). `/admin/ai/status`에서만|—|
 |429|`RATE_LIMITED`|속도 제한(Redis로 세는 §1의 API 제한)|`Retry-After` 헤더|
+|429|`KAKAO_TEST_THROTTLED`|구현 중([[16-DECISIONS\|ADR-038]]). 시험 메시지를 같은 분에 다시 요청(1분에 한 번, §9)|—|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
 |503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20). 수동 수집의 큐 등록이 실패하면 잡은 Redis 멱등 키를 지운 뒤 이 응답을 준다. `redis`는 속도 제한·멱등 저장소에 닿지 못함, `cursor`는 커서 서명 비밀(`API_CURSOR_SECRET`)이 없거나 짧음이다|`{component:"queue"\|"db"\|"storage"\|"redis"\|"cursor"}`|
 
@@ -636,7 +672,7 @@ GET /api/v1/analyses/7d2c...
 
 위 값은 **DEMO fixture FX-02의 가상 데이터**이며 [[08-SCORING|08 점수]] worked example과 같은 숫자다. 요소 합 15.0+18.3+14.0+15.0+10.0 = 72.3 → `solScore` 72(정수 반올림). 자격은 전부 충족이고 WATCH는 점수가 50~75 구간이기 때문이다. `kev.needsHumanReview=0.74`가 임계값 0.7 이상이라 `reviewFlags`에 `KEV_NEEDS_REVIEW`가 들어갔고, 결정 모델 권고(WATCH)가 규칙 권고와 같아 `MODEL_RULE_DISAGREEMENT`는 없다. 다른 fixture의 mock Kev 값은 [[07-DATA-PIPELINE|07 수집]] §6.3. 예시의 `scoreBreakdown.evidence`와 `requirementAssessments`는 지면상 비웠다.
 
-이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.5-27B·Bosun v3.1 0.6B, `kev-qs/v0.2`)을 쓰므로 추출과 결정 모델 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
+이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.8-Flash-Next·Bosun v3.1 0.6B, `kev-qs/v0.2`)을 쓰므로 추출과 결정 모델 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
 
 ### 6.4 AI 장애 시 재분석 (데모 장면)
 
@@ -732,6 +768,23 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 
 `profileComplete`는 이름·두 신고 값의 현재 유효성으로 서버에서 계산하며 클라이언트의 boolean을 신뢰하지 않는다. OAuth 콜백·기존 미완료 계정 로그인은 `/auth/complete-profile`로 보낸다. 업무 화면과 업무 API에서 모두 보완 전 접근을 막는다. Auth 콜백·가입 옵션·본인 신고 정보 조회/저장·로그아웃·초대 안내는 보완 전에도 허용해 반복 이동을 막는다. 보완을 끝내도 멤버십·RLS 확인과 기존 초대 정책은 그대로 적용한다.
 
+## 9. 카카오톡 알림 설정 계약 ([[16-DECISIONS|ADR-038]], 구현 중 `feat/kakao-notify`)
+
+개인 설정의 "카카오톡 알림" 칸([[06-UI-UX|06 UI]])이 쓰는 본인 전용 경로다. 설계는 [카카오 알림 설계](plans/2026-10-20-kakao-memo-notify-design.md) §6·§9·§10, 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고"다. 화면 상태 모양(`KakaoNotifyView`)은 `web/server/kakao-notify`(`ced705f`)에 있고, Route Handler는 아직 없다. 세션 쿠키 + 상태 변경에 `X-Requested-With: sol-radar`(§1 CSRF)다. 남의 연결은 다루지 않는다. 경로마다 본인 것만이다.
+
+```ts
+interface KakaoNotifyView {
+  state: "DISCONNECTED" | "OFF" | "ON" | "EXPIRED";   // 연결 전 · 연결됨·꺼짐 · 켜짐 · 연결 만료. 만료는 켬·끔보다 먼저 본다
+  lastSentAt: string | null;                          // 마지막 발송 시각(kakao_notify_links.last_sent_at)
+  lastResult: "SENT" | "FAILED" | "EXPIRED" | null;   // 마지막 발송 결과. 토큰은 이 모양에 없다
+}
+interface KakaoNotifyEnabledInput { enabled: boolean }
+```
+
+- 연결: `GET /me/kakao-notify/connect`가 짧은 수명의 `state`(CSRF 방지)를 만들고 카카오 인가로 보낸다. 콜백은 `state`를 확인하고, 코드를 토큰으로 바꾸고, 응답 `scope`에 `talk_message`가 없으면 저장하지 않는다. 결과는 `/settings?kakao=connected|consent_denied|state_mismatch|failed`로 돌려 보내고 설정 화면이 문구로 보인다. 토큰은 서버에서 암호화해 RPC `save_kakao_notify_link`로 저장하고 연결과 함께 켠다([[04-DATABASE|04 DB]] §3.1, [[09-SECURITY|09 보안]]).
+- 켜기·끄기·해제는 RPC `set_kakao_notify_enabled`·`disconnect_kakao_notify`를 부른다. 시험 메시지는 `request_kakao_notify_test`가 outbox `KAKAO_TEST`를 넣고 worker가 보낸다(1분에 한 번).
+- 응답 코드(204·202·302·409·429)는 [계획](plans/2026-10-20-kakao-memo-notify-plan.md) Task 6의 값이다. 구현이 바뀌면 이 절을 고친다.
+
 ## 관련 문서
 
 - [[15-DATA-CONTRACTS|15 데이터 계약]] — `EvidenceRef`, `NormalizedBid`
@@ -740,8 +793,8 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 - [[06-UI-UX|06 UI]] — 화면별 사용 엔드포인트
 - [[08-SCORING|08 점수]] — `scoreBreakdown` 계산
 - [[09-SECURITY|09 보안]] — 세션 쿠키·CSRF·RBAC·RLS
-- [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트
+- [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트, 카카오톡 추천 공고
 - [[11-TESTING|11 테스트]] — Route Handler 계약 시험·RLS 정책 시험
-- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.5-27B), ADR-035(수동 수집 계약·`AiStatus` 보완)
+- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.8-Flash-Next), ADR-035(수동 수집 계약·`AiStatus` 보완)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalRunReport` 지표, 모델 레지스트리, 운영자 CLI
 - [[07-DATA-PIPELINE|07 수집]] — `IngestionRunInput` 소스, 나라장터 Connector·정규화

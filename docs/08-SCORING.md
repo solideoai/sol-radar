@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 08. SOL Score 및 참여 권고
@@ -257,7 +257,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 - `KEV_DELIVERY_RISK`는 "모델 참고 지표"의 리스크 목록에 보인다. 어떤 리스크인지는 `kev.risks`다.
 - **τ = 0.70, 미보정**(`kev_calibration=UNCALIBRATED`)으로 시작한다. 베이스라인 평가 뒤 dev 분할로 다시 정하고, 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다([[21-MODEL-TRAINING|21 모델 학습]]). 화면에 보정 상태를 함께 보인다.
 - v0.1 질문의 임계값(`mandatoryRisk`·`needsHumanReview` 0.70, §5.3)과 처리 표는 그대로다.
-- 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 고지 문구는 "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."(literal 유지, ADR-034)이고 API가 `KevAssist.disclaimer`로 내려 준다([[05-API-SPEC|05 API]]).
+- 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 고지 문구는 "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."(literal 유지, ADR-034)이고 API가 `KevAssist.disclaimer`로 내려 준다([[05-API-SPEC|05 API]]). 화면은 [[09-SECURITY|09]]의 모델 중립 문구("결정 모델 확률은 …")를 쓴다([[16-DECISIONS|16]] 미결정 30-2, 구현 전).
 - 결정 모델이 결과를 냈으면 `recommendationBasis=RULES_WITH_KEV_ASSIST`, 결정 모델이 없으면(비활성·장애) `RULES_ONLY`다(§5.3 표와 같다).
 - 결정 모델 출력이 할 수 있는 일은 `review_flags` 추가와 참고 지표 표시뿐이다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] 절대 규칙).
 
@@ -271,6 +271,12 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 2. **오류 분석**: 오답을 원인 단계(파싱·추출·번역·state·규칙·라벨·모델)로 나눠, 반영하려는 판단이 모델 쪽에서 믿을 만한지 확인한다(21 §4.4).
 3. **새 알고리즘 버전 `sol-v0.2.x`**: 가중치·임계값과 함께 새 버전으로 만든다. 기존 `score_runs`는 덮어쓰지 않는다(§2).
 4. **ADR**: [[16-DECISIONS|16 ADR]]에 결정을 기록한다. 결정은 사람이 한다.
+
+### 5.6 가정 재계산 (ADR-037)
+
+가정 재계산(`whatIf`, `web/server/scoring/what-if.ts`)은 저장된 `score_runs.input_snapshot`(§7)을 `AnalysisInput` 스키마로 검증한 뒤, 가정한 자격 코드만 `profile.licenses`에서 `HELD`로 바꾸거나 더한 사본(`applyAssumptions`)으로 `analyze()`를 다시 부른다. 원래와 가정 모두 `kev=null`로 계산하고, `config`(`today`·`thresholds`)·`bid`·`extraction`·`team`과 계산식·가중치·임계값(75/50)은 그대로다. 가정할 수 있는 항목은 원래 결과의 필수 항목 가운데 자격 코드 사전(`QUALIFICATION_CODES`)에 있는 코드이면서 `NOT_SATISFIED`이거나 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)인 것뿐이다. 결과는 저장하지 않고 `analyze()`도 고치지 않는다. 점수·권고·자격 판정은 결정 모델 영향을 받지 않으므로(§5.4) `kev=null`로 다시 계산한 원래 값은 저장값과 같다([[16-DECISIONS|ADR-037]], API는 [[05-API-SPEC|05]] §4.5 "가정 재계산").
+
+`FX-03`(§6.4)에 정보통신공사업 등록을 가정하면 자격 종합이 `SATISFIED`가 되어 §5.2의 "명확히 미충족" 갈래를 지나고, 점수 68이 50~75 구간이라 권고는 NO-BID → WATCH다. 자격 판정은 점수에 들어가지 않으므로 SOL Score는 68 그대로다(골든 `web/server/scoring/what-if.test.ts`).
 
 ## 6. Worked example: 솔리데오의 가상 데모 프로필
 
@@ -396,6 +402,6 @@ ADR-019는 전체 직원 명부·프로필 `employeeCount`를 200으로 통일�
 - [[05-API-SPEC|05 API]] — `AnalysisResult` DTO
 - [[06-UI-UX|06 UI]] — 점수 분해·missing 배지·결정 모델 상이 배너 표시
 - [[11-TESTING|11 테스트]] — 골든 시나리오 G3·G4
-- [[16-DECISIONS|16 ADR]] — ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B)
+- [[16-DECISIONS|16 ADR]] — ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6)
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋 라벨, 결정 모델 반영 전 신뢰성 기준·오류 분석
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 결정 모델 출력은 플래그·참고 지표만

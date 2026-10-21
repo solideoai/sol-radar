@@ -9,11 +9,14 @@ import {
 import type { FactorKey, Recommendation, ReviewFlag } from "@/server/bids";
 import {
   BID_LIST,
+  BOSUN_MODEL_ID,
+  FX01_LIVE_VIEW,
   FX01_PARTIAL_VIEW,
   FX01_VIEW,
   FX02_VIEW,
   FX03_VIEW,
   NOTIFICATIONS,
+  QWEN_MODEL_ID,
   REVIEWS_FX01,
 } from "./test-data";
 
@@ -83,6 +86,27 @@ describe("Kev 분포와 특성", () => {
     const failed = FX03_VIEW.qualification.checks.filter((c) => c.outcome === "NOT_SATISFIED");
     expect(failed).toHaveLength(1);
     expect(failed[0]?.profileEvidence[0]?.type).toBe("INDUSTRY_CODE");
+  });
+});
+
+describe("모델 식별자(ADR-034 15번)", () => {
+  it("mock 뷰는 공급자가 mock 이고 실모델 식별자를 갖지 않는다", () => {
+    for (const view of [FX01_VIEW, FX02_VIEW, FX03_VIEW]) {
+      expect(view.model.provider).toBe("mock");
+      expect(view.kev.provider).toBe("mock");
+      expect(JSON.stringify(view)).not.toContain(BOSUN_MODEL_ID);
+    }
+  });
+  it("실모델 뷰는 스키마를 통과하고 받은 식별자를 그대로 갖는다", () => {
+    expect(analysisViewSchema.parse(FX01_LIVE_VIEW)).toEqual(FX01_LIVE_VIEW);
+    expect(FX01_LIVE_VIEW.model.provider).toBe("local");
+    expect(FX01_LIVE_VIEW.model.qwen?.name).toBe(QWEN_MODEL_ID);
+    expect(FX01_LIVE_VIEW.model.kev?.model).toBe(BOSUN_MODEL_ID);
+    expect(FX01_LIVE_VIEW.kev.model).toBe(BOSUN_MODEL_ID);
+    expect(FX01_LIVE_VIEW.kev.questionSetVersion).toBe("kev-qs/v0.2");
+    // 숫자는 FX-01 과 같다. 모델 식별자만 다르다.
+    expect(FX01_LIVE_VIEW.solScore).toBe(FX01_VIEW.solScore);
+    expect(FX01_LIVE_VIEW.kev.probabilities).toEqual(FX01_VIEW.kev.probabilities);
   });
 });
 

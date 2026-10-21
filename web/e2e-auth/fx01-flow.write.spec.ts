@@ -131,7 +131,7 @@ test("FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보�
       ).toBeVisible();
     }
 
-    const kev = page.getByRole("region", { name: "Kev 참고 지표", exact: true });
+    const kev = page.getByRole("region", { name: "결정 모델 참고 지표", exact: true });
     for (const option of KEV) {
       const meter = kev.getByRole("meter", { name: `${option.name} 선택지`, exact: true });
       await expect(meter).toHaveAttribute("aria-valuenow", String(option.probability));

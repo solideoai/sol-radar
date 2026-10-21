@@ -27,7 +27,16 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from support import KEV_RUN, QWEN_RUN, extraction_fixture, kev_fixture
+from support import (
+    KEV_BASE,
+    KEV_LORA_SHA256,
+    KEV_MODEL_ID,
+    KEV_REVISION,
+    KEV_RUN,
+    QWEN_RUN,
+    extraction_fixture,
+    kev_fixture,
+)
 
 
 @dataclass(frozen=True)
@@ -535,9 +544,27 @@ def vllm_models(*model_ids: str) -> dict:
     return {"object": "list", "data": [{"id": m, "object": "model"} for m in model_ids]}
 
 
-def kev_models(run: str = KEV_RUN, *, top_level: bool = False) -> dict:
-    """kev.serve GET /v1/models(필드 이름 run 은 03 §11 미검증 가정)."""
-    model = {"id": "kev", "run": run, "base": "Qwen/Qwen3.5-9B", "lora": None, "temperature": 1.0}
+def kev_models(
+    run: str = KEV_RUN,
+    *,
+    top_level: bool = False,
+    without: tuple[str, ...] = (),
+    **overrides: object,
+) -> dict:
+    """결정 모델 서버(sol_decision) GET /v1/models(03 §11, ADR-034 3번). 기본값은 레지스트리 bosun-v3.1-0.6b 와 같다.
+
+    without 에 적은 키는 응답에서 뺀다(예: revision 을 내지 않는 서버). overrides 는 필드 값을 바꾼다.
+    """
+    model: dict[str, object] = {
+        "id": KEV_MODEL_ID,
+        "run": run,
+        "base": KEV_BASE,
+        "lora": KEV_LORA_SHA256,
+        "revision": KEV_REVISION,
+        "temperature": None,
+        **overrides,
+    }
+    model = {k: v for k, v in model.items() if k not in without}
     return model if top_level else {"object": "list", "data": [model]}
 
 

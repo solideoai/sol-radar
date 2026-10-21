@@ -1,12 +1,47 @@
-# 모델 레지스트리(docs/03 §11, ADR-020·025). git 으로 관리하고 가중치는 넣지 않는다.
-# gateway 는 기동할 때 KEV_MODEL_ID 항목을 Kev GET /v1/models 와, QWEN_MODEL(없으면 qwen 기본 항목 run)을
-# vLLM GET /v1/models 와 대조한다. 값을 모르는 항목은 null 로 두고 지어내지 않는다.
+# 모델 레지스트리(docs/03 §11, ADR-020·025·034). git 으로 관리하고 가중치는 넣지 않는다.
+# gateway 는 기동할 때 KEV_MODEL_ID 항목(kind: decision. 옛 kind: kev 는 읽기 호환)을 결정 모델 서버 GET /v1/models 와,
+# QWEN_MODEL(없으면 qwen 기본 항목 run)을 vLLM GET /v1/models 와 대조한다. 값을 모르는 항목은 null 로 두고 지어내지 않는다.
+# status: active(기본) 항목만 KEV_MODEL_ID·QWEN_MODEL 로 고를 수 있다. retired·backup 은 이력·롤백용이고 기동 대조에서 뺀다.
+# mock 항목은 두지 않는다(ADR-034 15번). mock 응답의 모델 식별자는 "mock" 이다.
 schemaVersion: model-registry/v0.1
 # local 모델 서버 URL(QWEN_BASE_URL·KEV_BASE_URL)이 가리킬 수 있는 호스트. 루프백(127.0.0.1·localhost·::1)은 따로 허용한다.
-# 소문자 호스트가 글자 그대로 같아야 한다(하위 도메인·끝 점 불가). 회사 엔드포인트 https://acropolissg.com/sol-radar(09·10)
+# 소문자 호스트가 글자 그대로 같아야 한다(하위 도메인·끝 점 불가). 회사 엔드포인트 https://acropolissg.com/sol-radar(09·10),
+# 회사 운영 vLLM API https://acropolissg.com/vllm/v1 도 같은 호스트다(ADR-034 4번).
 allowedHosts:
   - acropolissg.com
 entries:
+  # 결정 모델(ADR-034 1·6번). 출처: Hugging Face Hanno-Labs/bosun-v3.1-0.6b 리비전 5e78a37c…, 패키지 manifest.json(2026-10-20 확인).
+  # run 표기는 <repo>@<sha 앞 8자>, 전체 sha 는 revision. 서버(sol_decision) GET /v1/models 의 run·base·lora(·revision) 와 대조한다.
+  - id: bosun-v3.1-0.6b
+    kind: decision
+    run: Hanno-Labs/bosun-v3.1-0.6b@5e78a37c
+    revision: 5e78a37c8d86860ebac9ef2d5327d6299498498e
+    # 백본 Qwen/Qwen3-0.6B(Apache-2.0). 리비전은 2026-10-20 Hugging Face API 로 존재를 확인했다
+    base: Qwen/Qwen3-0.6B@c1899de2
+    base_revision: c1899de289a04d12100db370d81485cdf75e47ca
+    init_from: null
+    # adapter_model.safetensors 의 sha256(manifest.json). 회사는 다운로드 뒤 이 값과 대조한다(03 §11)
+    lora: 961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5
+    # decision_embeddings.safetensors 의 sha256(manifest.json)
+    decision_embeddings_sha256: 88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188
+    temperature: null
+    dataset: null
+    # 공개 모델은 특정 질문 세트로 학습하지 않았다
+    questionSet: null
+    stateTemplate: null
+    # POST /v1/systemone 요청 본문의 "model" 값(sol_decision 서버가 같은 id 로 받는다)
+    requestModel: bosun-v3.1-0.6b
+    status: active
+    reports: []
+  # 추출·설명 모델: 회사 운영 vLLM API https://acropolissg.com/vllm/v1 (ADR-034 1·4번).
+  # 리비전·양자화·서빙 설정은 회사 운영 값이라 고정하지 않고, GET /v1/models 의 id 만 run 과 대조한다
+  - id: qwen3.8-flash-next
+    kind: qwen
+    run: Qwen/Qwen3.8-Flash-Next
+    revision: null
+    default: true
+    status: active
+  # ---- 퇴역(retired)·백업(backup). 이력 보존·롤백용(ADR-034 6·13번). 내용은 퇴역 당시 그대로 둔다 ----
   - id: kev-9b-v1.0
     kind: kev
     run: jaredpalmer/kev-9b@v1.0
@@ -29,8 +64,21 @@ entries:
     stateTemplate: null
     # 미검증 가정(Kev README 예시): POST /v1/systemone 요청 본문의 "model" 값
     requestModel: kev-latest
+    status: retired
     reports: []
+  # 2026-10-21 회사 vLLM 모델 교체(Qwen/Qwen3.8-Flash-Next)로 퇴역
+  - id: qwen3.5-27b
+    kind: qwen
+    run: Qwen/Qwen3.5-27B
+    revision: null
+    status: retired
   - id: qwen3.5-9b
     kind: qwen
     run: Qwen/Qwen3.5-9B
-    default: true
+    status: retired
+  # 처음 안(Qwen3-4B-Instruct-2507)은 백업으로만 보존한다. 리비전은 2026-10-20 Hugging Face API 로 존재를 확인했다(ADR-034 1번 개정)
+  - id: qwen3-4b-instruct-2507
+    kind: qwen
+    run: Qwen/Qwen3-4B-Instruct-2507
+    revision: cdbee75f17c01a7cc42f958dc650907174af0554
+    status: backup

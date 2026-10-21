@@ -78,17 +78,18 @@ updated: 2026-10-21
 |---|---|
 |IDOR|공고(`bid_notices`, `bid_revisions`, `bid_documents`, `requirement_extractions`)는 공용(`authenticated` 읽기만). 점수·검토·프로필·인력·알림은 `org_id` + RLS로 조직별 격리, 다른 조직 자원은 `404 NOT_FOUND`. 검증은 G5(RLS 정책 시험 + Route Handler 시험 + E2E, [[11-TESTING\|11 테스트]])|
 |RLS 설정 오류|anon 키는 공개 값이라 RLS가 빠지거나 정책이 넓으면 브라우저에서 바로 데이터가 읽힌다. 표는 만들자마자 `enable row level security`, 필요한 권한·정책만 연다. 조직 격리·역할별 쓰기·공고 읽기 전용을 `scripts/database.test.mjs`(PGlite, `pnpm test:db`) 정책 시험으로 고정한다. 마이그레이션은 새 파일로만 쌓는다(append-only)|
-|service role 키 유출|`SUPABASE_SERVICE_ROLE_KEY`는 RLS를 무시한다. worker와 seed 스크립트(`pnpm demo:reset`), 운영자 스크립트(`pnpm ops:close-stale-runs`, `--env-file`로 대상을 매번 정한다)만 서버 전용 env로 쓰고, Next 요청 처리 경로에서는 쓰지 않는다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지에 넣지 않는다(템플릿 커밋 게이트·훅이 비밀 키를 코드·공개 변수에 넣는 일을 막는다). worker는 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다. 유출이 의심되면 Supabase 대시보드에서 키를 교체한다(절차 미검증)|
+|service role 키 유출|`SUPABASE_SERVICE_ROLE_KEY`는 RLS를 무시한다. worker와 seed 스크립트(`pnpm demo:reset`), 운영자 스크립트(`pnpm ops:close-stale-runs`, `--env-file`로 대상을 매번 정한다)만 서버 전용 env로 쓴다. 운영자 스크립트는 사람이 로컬에서 직접 돌리는 CLI로만 한정한다(2026-10-21 사용자 결정(조정 세션 sol-radar-12 경유: "결정이 필요한 것들은 다 추천안대로 진행해")). 웹 서버(Route Handler·서버 컴포넌트·Next 요청 처리 경로)와 클라이언트 번들에서는 쓰지 않는다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지에 넣지 않는다(템플릿 커밋 게이트·훅이 비밀 키를 코드·공개 변수에 넣는 일을 막는다). worker는 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다. 유출이 의심되면 Supabase 대시보드에서 키를 교체한다(절차 미검증)|
 |CSRF|위 인증 절의 **CSRF** 항목과 세션 쿠키 표(SameSite=Lax)|
 |XSS|위 인증 절의 **XSS** 항목. 세션 쿠키가 HttpOnly가 아니라서 XSS는 곧 세션 탈취다|
 |SQL injection|supabase-js 질의 빌더(값은 파라미터로 전달). SQL은 마이그레이션·DB 함수에만 두고 문자열을 이어 붙여 만들지 않는다. DB 함수는 `search_path`를 고정한다(템플릿 `20261013000002_function_search_path.sql`)|
 |SSRF|첨부 다운로드(worker의 `G2bAttachmentFetcher`)는 `https://www.g2b.go.kr`만 허용한다(allowlist. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트). 리다이렉트는 같은 allowlist 안에서만 따르고, 연결 전에 DNS를 다시 확인해 사설 IP로 풀리면 거부한다. timeout 30 s, 최대 50 MB(넘으면 받지 않는다), 형식은 확장자가 아니라 매직 바이트로 판정한다. 공공 API는 `infra/sources/registry.yaml`에 등록한 data.go.kr 엔드포인트만 부른다([[15-DATA-CONTRACTS\|15 데이터 계약]] §8). gateway(`/parse`)는 네트워크·MinIO에 접근하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.4)|
 |LLM prompt injection|아래 "책임 있는 AI" 절|
 |문서 악성코드|MIME/sniff(매직 바이트), 확장자/크기 제한(50 MB), 격리 처리, 필요한 경우 AV 스캔. 파서는 gateway 안에서만 돌고 네트워크 권한이 없다|
-|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키는 서비스마다 하나씩 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, [[16-DECISIONS\|ADR-022]])이고 모두 worker 전용 서버 env다. 로그 마스킹은 네 값을 모두 가린다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 추론 엔드포인트의 `QWEN_API_KEY`·`KEV_API_KEY`는 gateway의 서버 env(`infra/.env`)에만 둔다([[16-DECISIONS\|ADR-025]])|
+|비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키는 서비스마다 하나씩 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, [[16-DECISIONS\|ADR-022]])이고 모두 worker 전용 서버 env다. 로그 마스킹은 네 값을 모두 가린다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 추론 엔드포인트의 `QWEN_API_KEY`·`KEV_API_KEY`는 gateway의 서버 env(`infra/.env`)에만 둔다([[16-DECISIONS\|ADR-025]]). 카카오톡 알림의 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`는 Supabase가 아니라 웹 서버·worker의 서버 env에만 둔다(ADR-018 예외, [[16-DECISIONS\|ADR-038]]. 구현 중)|
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
 |열린 리다이렉트|알림 `payload.link`는 앱 안 경로만 쓴다. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC\|05 API]] §4.6, [[13-NOTIFICATIONS\|13 알림]], [[16-DECISIONS\|ADR-030]] B23)|
+|카카오 토큰 유출·연결 위조|카카오톡 알림 토큰은 서버에서 암호화해 저장하고 worker만 복호화한다. 화면 역할은 토큰 열을 읽지 못한다. 연결 콜백은 `state`를 서버에서 검증한다. 토큰·본문·공고명은 로그에 싣지 않는다. 아래 "카카오톡 알림" 절([[16-DECISIONS\|ADR-038]], 구현 중)|
 
 ### 해커톤 동안 수용한 위험 ([[16-DECISIONS|ADR-033]] E11)
 
@@ -127,9 +128,12 @@ updated: 2026-10-21
 
 ### 모델 한계 고지 문구 (UI에 그대로 사용)
 ```text
-[모델 참고 지표 (점수 미반영) 영역 — kev-qs/v0.2, API KevAssist.disclaimer]
-Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.
+[모델 참고 지표 (점수 미반영) 영역 — kev-qs/v0.2, 화면 문구]
+결정 모델 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.
 ```
+
+API `KevAssist.disclaimer`와 DB는 호환을 위해 literal "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."를 그대로 둔다([[16-DECISIONS|ADR-034]] 5번). 화면은 위 모델 중립 문구를 쓴다([[16-DECISIONS|16]] 미결정 30-2, 2026-10-21 12 추천안. 구현 전이라 지금 화면은 API literal을 그대로 보인다).
+
 ```text
 [가상 회사 프로필 배지 — 모든 실행 모드의 분석 화면]
 가상 회사 프로필로 분석
@@ -153,6 +157,7 @@ Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확�
 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.
 최종 결정은 담당자가 기록합니다. 모델: {kev.model} · 질문 세트: {kev.questionSetVersion} · 공급자: {kev.provider}
 ```
+`kev.provider`가 `mock`이면 위 셋째 줄의 `모델: {kev.model}` 자리에 "Mock 응답(데모 데이터)"를 쓰고 모델명을 쓰지 않는다([[16-DECISIONS|ADR-034]] 15번).
 ```text
 [AI 불가 배너]
 AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)
@@ -210,8 +215,10 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - `.env.example`류 파일에는 placeholder만 둔다. 기동 전 `pnpm check:env`가 placeholder를 감지하면 중단.
 - env 구분:
   - 공개 값: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. anon 키는 브라우저 번들에 들어가도록 설계된 공개 키이고 권한은 RLS가 정한다.
-  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed·운영자 스크립트 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
+  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed·로컬 운영자 CLI 전용. 웹 서버·클라이언트 번들 금지), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
+  - 카카오톡 알림([[16-DECISIONS|ADR-038]], 구현 중): `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`(토큰 암호화 키, base64 32바이트). 웹 서버·worker 전용이고 `NEXT_PUBLIC_`·브라우저 번들에 넣지 않는다(ADR-018 예외). worker 쪽 이름은 `feat/kakao-notify` `52adabb`의 env 예시 파일에 주석으로만 있다(값 없음).
   - redis·minio는 `demo` 프로필에서도 기본 비밀값(`minioadmin` 등)을 쓰지 않는다.
+- `NOTIFY_KAKAO_PROVIDER=mock`이 기본이다(외부 호출 없음). `memo`(카카오 나에게 보내기 실발송)는 사용자가 env를 바꿀 때만 쓴다(ADR-038, 구현 중).
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
 - 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "Compose 서비스" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
 - seed 데모 계정(목록·역할은 [[04-DATABASE|04 DB]] §6)은 `.invalid` TLD라 실제 메일이 가지 않는다. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
@@ -221,10 +228,10 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 ## 실데이터와 회사 GPU 서버 (ADR-020)
 
-해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.5-27B·Bosun v3.1 0.6B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020·034]]). 이 절은 그때 지킬 경계를 정한다.
+해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.8-Flash-Next·Bosun v3.1 0.6B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020·034]]). 이 절은 그때 지킬 경계를 정한다.
 
 ### 회사 GPU 추론 엔드포인트 연결 (ADR-025)
-- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen3.5-27B는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, 결정 모델 Bosun은 우리 `sol_decision` 서버 `127.0.0.1:8009`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
+- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen3.8-Flash-Next는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, 결정 모델 Bosun은 우리 `sol_decision` 서버 `127.0.0.1:8009`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
 - 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). 회사가 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 모델 런타임을 제공하고, gateway는 거기에만 붙는다. `KEV_BASE_URL`은 엔드포인트 아래 경로(`/kev`)이고 `QWEN_BASE_URL`은 회사 vLLM API(`https://acropolissg.com/vllm/v1`. `/sol-radar/qwen`은 백업)다. 경로는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)가 나누고, 인증은 라우터가 아니라 각 런타임(vLLM `--api-key`, `sol_decision` `DECISION_API_KEY`(노트북 `KEV_API_KEY`와 같은 값))이 한다([[16-DECISIONS|ADR-025]]). 라우터는 `Authorization` 헤더를 통과시키고 로그에 `$uri`만 남겨 키·쿼리를 기록하지 않는다. `/sol-radar/healthz`는 인증 없음·비밀 없음의 접속 확인용이다. 터널 전제는 폐기했다.
 - 엔드포인트는 공개 인터넷에 있다. TLS 필수이고 인증서 검증을 끄지 않는다(`curl -k`, `verify=False` 금지). API 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 필수이고 `infra/.env`에만 둔다. 키 값은 문서·로그·커밋·스크린샷·증거에 남기지 않는다. 엔드포인트 URL은 비밀이 아니다. 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다.
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).
@@ -234,7 +241,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 ### 회사 GPU로 가는 데이터
 - 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
 - 회사 GPU 서버는 Hugging Face·GitHub에서 공개 가중치·코드를 받기만 한다(쓰기 없음). 외부망이 없으면 다른 기계에서 받아 반입한다([[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §2.2).
-- 평가 하네스(`sol_eval`)는 노트북에서 엔드포인트에 붙여 돌린다. LoRA 메모리 검증(`probe-train`)·학습(F2)·보정은 GPU 서버 셸이 필요해 회사가 실행한다(ADR-025·027). 실행 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다. 회사 GPU에서 돌려받는 것은 체크포인트·리포트·모델 카드이고 데이터셋 원문은 돌려받지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).
+- 평가 하네스(`sol_eval`)는 DB·네트워크를 쓰지 않는다. 평가셋 빌드·내보내기·누수 검사·비교(`compare`)는 노트북에서 돌리고, 실모델 채점(`sol_eval.bosun_score`, E4·E1')은 회사 GPU 서버 안에서 로컬 Bosun 패키지를 올려 오프라인으로 돈다(모델 다운로드 없음, [[16-DECISIONS|ADR-034]] 7번, main `1b68f9b`. 실모델 경로는 미검증). F1 사전 검증·smoke(`infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`)·학습(F2)·보정(F3)은 GPU 서버 셸이 필요해 회사가 실행한다(ADR-025, ADR-034 10번, 사용자 승인 뒤). 실행 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다. 회사 GPU에서 돌려받는 것은 체크포인트·리포트·모델 카드이고 데이터셋 원문은 돌려받지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).
 
 ### 공공 API 응답의 개인정보
 - 입찰공고 응답에는 담당자 이름·전화·이메일이 있다.
@@ -248,6 +255,15 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 그래서 첨부 원문은 내부 분석과 사내 학습에만 쓴다. 외부 공개·데이터셋 배포 전에 법무를 확인한다. 실제 RFP 원문은 저장소와 `docs/evidence/`에 넣지 않고 지표와 문서 id만 남긴다.
 - **배포용(보호) HWP는 복호화하지 않는다.** 일부 파서 후보는 배포용 문서를 풀 수 있지만, 작성자가 건 보호를 푸는 것이 저작권법상 기술적 보호조치 해제에 해당하는지 확인하지 않았다. 법무 확인 전에는 `UNSUPPORTED`(`DISTRIBUTION_PROTECTED`)로 처리하고, 열기 암호 문서는 `ENCRYPTED`로 둔다.
 - **파서 라이선스**: 후보는 MIT·Apache-2.0·BSD만 쓴다. AGPL(pyhwp·PyMuPDF, camelot의 `ghostscript` extra)은 네트워크 서비스로 제공하면 서비스 전체 소스 공개 의무가 생겨 쓰지 않는다. GPL(H2Orestart·poppler)은 이미지 배포 시 의무가 생기고, 별도 프로세스 호출이 의무를 피하는지 법률 검토 전이라 쓰지 않는다. marker 모델 가중치(수정 OpenRAIL-M, 상업 이용 제한)도 쓰지 않는다. 후보 목록은 [[07-DATA-PIPELINE|07 수집]] §2.5.
+
+## 카카오톡 알림 ([[16-DECISIONS|ADR-038]], 구현 중 `feat/kakao-notify`)
+
+- **나가는 값**: 공고 공개 정보(공고명·발주처·마감·추정금액·원문 주소)와 조직 내부 값(BID·WATCH 권고, SOL Score, 규칙 사유 한 줄)이 카카오 서버를 거쳐 받는 사람 본인의 카톡 "나와의 채팅"에 남는다. 본인이 개인 설정에서 켠 경우에만 보낸다. AI 자유 서술·첨부 원문·회사 프로필 세부·다른 사람의 정보는 싣지 않는다. 받는 사람은 그 공고를 분석한 조직의 구성원뿐이고 다른 조직의 공고는 보내지 않는다([[13-NOTIFICATIONS|13 알림]]).
+- **토큰 보관**: 카카오 액세스·리프레시 토큰은 웹 서버가 AES-256-GCM(`KAKAO_TOKEN_ENC_KEY`)으로 암호화해 `kakao_notify_links`에 저장하고 worker만 복호화한다. 평문은 DB에 두지 않는다. 화면 역할은 본인 행만, 토큰이 아닌 열 여섯 개만 읽는다(열 단위 권한). 쓰기는 본인 행만 다루는 `security definer` RPC 넷으로만 한다([[04-DATABASE|04 DB]] §3.1). 키를 바꾸는 절차는 없다(바꾸면 모두 다시 연결한다).
+- **연결 검증**: 연결 시작이 짧은 수명의 `state`를 만들고 콜백이 서버에서 검증한다. 맞지 않으면 저장하지 않는다. 응답 `scope`에 `talk_message`가 없으면 연결하지 않는다([[05-API-SPEC|05 API]] §9).
+- **로그 금지**: 토큰·메시지 본문·공고명·카카오 사용자 ID는 로그·오류 메시지에 싣지 않는다. 오류에는 env 키 이름만 싣고 값은 싣지 않는다([[14-OBSERVABILITY|14 관측성]]).
+- **연결 끊기**: 카카오 `unlink`는 부르지 않는다(같은 카카오 앱을 간편 로그인에도 쓰면 로그인 연결까지 끊긴다). 회원 탈퇴 때는 연결 행이 같이 지워진다(FK on delete cascade).
+- **카카오 정책**: 카카오는 서비스가 사용자에게 보내는 자동 안내에 알림톡을 안내한다. 나에게 보내기는 해커톤 시연용이고 운영은 알림톡이다. 발표·제출물에서 이렇게 밝힌다.
 
 ## 정보 보존
 원본 공공 문서와 회사 자료를 분리. 회사 정보 삭제 요청 및 보존 기한은 실제 운영 조직 정책/법령 확인 후 정의; 백업에도 같은 절차 적용. 로그에는 원문/토큰/PII 미기록. 기본 TLS, DB/오브젝트 스토리지 주기적 백업 및 복구 테스트. Supabase 프로젝트의 백업 범위·보존 기간은 플랜 설정으로 확인한다(미검증). MinIO 첨부 원본(Compose volume)은 Supabase 백업에 들어가지 않는다.
@@ -270,6 +286,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - [[08-SCORING|08 스코어링]]
 - [[10-DEPLOYMENT|10 배포]]
 - [[11-TESTING|11 테스트]]
+- [[13-NOTIFICATIONS|13 알림]]
 - [[14-OBSERVABILITY|14 관측성]]
 - [[15-DATA-CONTRACTS|15 데이터 계약]]
 - [[16-DECISIONS|16 ADR]]

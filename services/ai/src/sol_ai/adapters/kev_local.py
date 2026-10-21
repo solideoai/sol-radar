@@ -36,8 +36,8 @@ KEV_MAX_RESPONSE_BYTES = 1 * 1024 * 1024
 def kev_registry_match(reply: http.HttpReply, entry: RegistryEntry) -> bool | None:
     """GET /v1/models 응답을 레지스트리 항목과 대조. 200 이 아니거나 읽을 수 없으면 None(미확인).
 
-    응답의 모델 객체(최상위 data 배열 원소, 없으면 최상위 객체) 가운데 run 이 같고, 레지스트리의
-    base·lora·temperature 중 null 이 아닌 값이 모두 같은 객체가 있으면 일치. 필드 이름은 03 §11 미검증 가정.
+    응답의 모델 객체(최상위 data 배열 원소, 없으면 최상위 객체) 가운데 레지스트리 항목과 같은 객체
+    (RegistryEntry.matches: run·base·lora·temperature, 응답에 있으면 revision)가 있으면 일치. 필드 이름은 03 §11.
     """
     if reply.status != 200:
         return None
@@ -48,12 +48,7 @@ def kev_registry_match(reply: http.HttpReply, entry: RegistryEntry) -> bool | No
         models = [body]
     else:
         return None
-    return any(
-        isinstance(model, dict)
-        and model.get("run") == entry.run
-        and all(model.get(field) == value for field, value in entry.match_values.items())
-        for model in models
-    )
+    return any(entry.matches(model) for model in models)
 
 
 def check_kev_registry(

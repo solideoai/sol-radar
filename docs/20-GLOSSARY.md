@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - glossary
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 20. 용어집
@@ -41,6 +41,7 @@ updated: 2026-10-20
 | 권고 (recommendation) | 시스템이 내는 `BID` / `WATCH` / `NO_BID`. 결정이 아니다 | [[08-SCORING]] |
 | 결정 (decision, `bid_reviews`) | 사람이 사유와 함께 기록하는 최종 참여 판단 | [[08-SCORING]] |
 | BID / WATCH / NO-BID | 참여 / 관망·추가 검토 / 불참 | [[08-SCORING]] |
+| 추천 공고 | 사람이 요청한 분석에서 권고가 BID 또는 WATCH로 처음 나온 공고. 조직·공고마다 한 번 outbox `BID_RECOMMENDED`가 생기고, 카카오톡 알림을 켠 구성원에게 보낸다. 데모 사전 분석은 제외한다. 권고이지 결정이 아니다([[16-DECISIONS]] ADR-038) | [[13-NOTIFICATIONS]] |
 | `MODEL_RULE_DISAGREEMENT` | 결정 모델 참고 지표(`recommendation`)와 규칙 판정이 상충할 때 발생. 사람 검토 필수 | [[08-SCORING]] |
 | `INSUFFICIENT_DATA` | 근거가 없어 값을 표시하지 않는 상태. 임의 값으로 채우지 않는다 | [[00-README]] |
 | 분석 상태 | `QUEUED → RUNNING → COMPLETED / PARTIAL / FAILED`. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`(화면 `미분석`). `PARTIAL`은 AI 없이 규칙만으로 완결한 결과([[16-DECISIONS\|ADR-029]] A6 D17) | [[06-UI-UX]] |
@@ -78,6 +79,8 @@ updated: 2026-10-20
 | 입력 스냅샷 (`input_snapshot`) | 점수 계산 시점의 입력 전체 복사본. 재현용 | [[04-DATABASE]] |
 | 알고리즘 버전 (`algorithm_version`) | 점수 규칙 버전 식별자 (예: `sol-v0.1.0`) | [[08-SCORING]] |
 | outbox 패턴 | 도메인 변경과 알림 이벤트를 같은 트랜잭션에 기록하고 worker(`web/worker`)가 전달 | [[13-NOTIFICATIONS]] |
+| 나에게 보내기 | 카카오톡 메시지 API 가운데 사용자 본인의 "나와의 채팅"으로 보내는 기능(`talk_message` 동의 필요). 사업자·템플릿 검수 없이 쓸 수 있어 해커톤 카카오톡 실발송에 쓴다(`NOTIFY_KAKAO_PROVIDER=memo`, 기본 `mock`). 시연용이고 운영 경로는 알림톡이다([[16-DECISIONS]] ADR-038) | [[13-NOTIFICATIONS]] |
+| 카카오톡 알림 연결 | 개인 설정에서 본인 카카오 계정에 "카카오톡 메시지 전송" 동의를 받아 토큰을 저장하는 것. Supabase 간편 로그인의 카카오 연결과 따로다. 화면 상태는 연결 전·연결됨(꺼짐)·켜짐·연결 만료 4가지이고, 토큰은 웹 서버가 암호화해 본인 행(`kakao_notify_links`)에 저장한다. 구현 중(`feat/kakao-notify`) | [[06-UI-UX]], [[13-NOTIFICATIONS]] |
 | 멱등키 (idempotency key) | 같은 요청·이벤트를 두 번 처리하지 않게 하는 고유 키 | [[05-API-SPEC]], [[13-NOTIFICATIONS]] |
 | 커서 페이지네이션 | `{items, pageInfo:{cursor,nextCursor,hasNext}}` 형식의 목록 응답 | [[05-API-SPEC]] |
 | fixture | 외부 API 없이 쓰는 가상 공고 데이터 `FX-01`~`FX-20` | [[07-DATA-PIPELINE]] |
@@ -189,8 +192,8 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 대조 변형 | 같은 공고에 대해 기업 기록만 바꿔 충족·미충족·정보 부족 사례를 만든 가상 기업 | [[21-MODEL-TRAINING]] |
 | 라벨 출처 | `CONSTRUCTED`(변형으로 정해짐), `HUMAN`(사람 검수 확정), `RULE_SILVER`(규칙 계산, 학습셋 전용) | [[21-MODEL-TRAINING]] |
 | 오류 원인 코드 | 오답의 원인 단계. `PARSE`·`EXTRACTION`·`TRANSLATION`·`STATE`·`RULE`·`LABEL`·`MODEL`. `MODEL`이 주된 원인일 때만 파인튜닝 검토 | [[21-MODEL-TRAINING]] |
-| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어(퇴역, 미측정), E1' 공개 Bosun 영어 state zero-shot, E2 Bosun 한국어 state(평가 전용), E3 Qwen3.5-27B logprob 분류(필수, 축소 규모), E4 Bosun + LoRA(해커톤 X6 비교 실험, ADR-034). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
-| EX0 | 회사 운영 Qwen3.5-27B API 추출 품질의 기준 측정(추출 지표·인용 충실도·`(untranslated)` 비율). EX1(파인튜닝 뒤 비교)은 삭제 — Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정, ADR-034) | [[21-MODEL-TRAINING]] |
+| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어(퇴역, 미측정), E1' 공개 Bosun 영어 state zero-shot, E2 Bosun 한국어 state(평가 전용), E3 Qwen3.8-Flash-Next logprob 분류(필수, 축소 규모), E4 Bosun + LoRA(해커톤 X6 비교 실험, ADR-034). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
+| EX0 | 회사 운영 Qwen3.8-Flash-Next API 추출 품질의 기준 측정(추출 지표·인용 충실도·`(untranslated)` 비율). EX1(파인튜닝 뒤 비교)은 삭제 — Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정, ADR-034) | [[21-MODEL-TRAINING]] |
 | 파인튜닝 실행서 | 회사 GPU 서버에서 Bosun LoRA(X6)를 **어떻게** 돌리는지 적은 절차서. 모델·자료 출처와 가중치 sha256 확인, 학습 환경, F1~F3, 회사에 넘기는 학습 요청서를 담는다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정). 무엇을 왜 학습하는지는 [[21-MODEL-TRAINING\|21]] | [[22-FINETUNE-RUNBOOK]] |
 | fixture 배치 `live` vs 실행 모드 `live` | fixture 두 번째 배치(`batch:"live"`, 데모 S5 변경분)와 실제 공공 API 실행 모드(`SOL_RUN_MODE=live`)는 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH` | [[19-DEMO-SCENARIO]] |
 | P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속·파서 비교 | [[12-ROADMAP]] |

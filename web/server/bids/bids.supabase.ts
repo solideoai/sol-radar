@@ -393,6 +393,20 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
       return data === null ? null : toAnalysis(data);
     },
 
+    async getAnalysisSnapshot(orgId, id) {
+      const db = await getSupabase();
+      const { data, error } = await db
+        .from("score_runs")
+        .select("status,input_snapshot")
+        .eq("id", id)
+        .eq("org_id", orgId)
+        .maybeSingle();
+      if (error) throw error;
+      return data === null
+        ? null
+        : { status: analysisStatusSchema.parse(data.status), inputSnapshot: data.input_snapshot };
+    },
+
     findRunningAnalysis(orgId, bidId, input) {
       return findSameInput(orgId, bidId, input, ACTIVE);
     },

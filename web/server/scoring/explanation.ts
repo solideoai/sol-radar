@@ -132,7 +132,7 @@ export function buildExplanation(args: {
       : null,
     decisionSentence(args.score, args.recommendation, args.rulePath),
     args.reviewFlags.includes("MODEL_RULE_DISAGREEMENT") && args.kevSuggestedOption !== null
-      ? `Kev는 ${args.kevSuggestedOption}를 제시했지만 규칙 판정이 우선합니다. Kev 분포는 모델 참고 지표이며 점수에 반영하지 않습니다.`
+      ? `결정 모델은 ${args.kevSuggestedOption}를 제시했지만 규칙 판정이 우선합니다. 결정 모델 분포는 모델 참고 지표이며 점수에 반영하지 않습니다.`
       : null,
     args.reviewFlags.includes("KEV_NEEDS_REVIEW") || args.reviewFlags.includes("KEV_MANDATORY_RISK")
       ? "모델 참고 지표가 사람 검토를 권장합니다."

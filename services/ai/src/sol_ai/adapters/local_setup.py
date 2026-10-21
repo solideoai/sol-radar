@@ -3,6 +3,10 @@
 1~5단계(설정·키 형식·URL·질문 세트·레지스트리 항목)에 위반이 있으면 6단계(원격 GET /v1/models 대조)를 하지 않는다.
 6단계는 응답이 있고 다를 때만 거부하고, 응답이 없으면(연결 실패·timeout·3xx·401·403·404·5xx) 기동한다.
 값(URL·호스트·키·해시)은 위반 요약·로그에 넣지 않는다.
+
+레지스트리 항목(5단계, ADR-034 6번): KEV_MODEL_ID 는 kind decision(옛 kev 호환) 항목, QWEN_MODEL 은 qwen 항목의 run 이다.
+항목이 없으면 NOT_IN_REGISTRY, 있어도 status 가 active 가 아니면 상태 이름(RETIRED·BACKUP)으로 거부한다.
+QWEN_BASE_URL 은 끝의 /v1 을 뗀 뒤(settings.normalize_qwen_base_url) URL 검사·대조·호출에 쓴다. KEV_BASE_URL 은 그대로다.
 """
 
 import logging
@@ -18,9 +22,9 @@ from sol_ai.deadline import Deadline
 from sol_ai.errors import StartupRefused
 from sol_ai.paths import PROMPT_FILE, REGISTRY_FILE
 from sol_ai.question_sets import V0_1, V0_2, QuestionSet
-from sol_ai.registry import ModelRegistry
+from sol_ai.registry import ModelRegistry, RegistryEntry
 from sol_ai.schema import ExtractionSchema
-from sol_ai.settings import Settings
+from sol_ai.settings import Settings, normalize_qwen_base_url
 from sol_ai.strict_json import parse_json
 
 logger = logging.getLogger("sol_ai.local")
@@ -43,6 +47,15 @@ class LocalConfigError(StartupRefused):
 
 def _given(value: str | None) -> str | None:
     return value if value else None
+
+
+def _status_problem(entry: RegistryEntry | None) -> str | None:
+    """레지스트리 항목 위반 사유. 없으면 NOT_IN_REGISTRY, active 가 아니면 상태 이름(RETIRED·BACKUP). 통과면 None."""
+    if entry is None:
+        return "NOT_IN_REGISTRY"
+    if not entry.active:
+        return entry.status.upper()
+    return None
 
 
 def _key_problem(value: SecretStr | None) -> str | None:
@@ -93,7 +106,9 @@ def configure_local(
 ) -> LocalAdapters:
     registry = ModelRegistry.load(REGISTRY_FILE)
     violations: list[tuple[str, str]] = []
-    qwen_url, kev_url = _given(settings.QWEN_BASE_URL), _given(settings.KEV_BASE_URL)
+    raw_qwen_url, kev_url = _given(settings.QWEN_BASE_URL), _given(settings.KEV_BASE_URL)
+    # 회사 vLLM API 주소의 끝 /v1 을 뗀다(Qwen 전용). 떼고 나서 비면 원래 값을 두어 URL 검사(3단계)가 거부하게 한다
+    qwen_url = (normalize_qwen_base_url(raw_qwen_url) or raw_qwen_url) if raw_qwen_url else None
 
     # 1. 자동 대체는 구현하지 않는다(L3)
     if settings.AI_FALLBACK_TO_MOCK == "true":
@@ -120,22 +135,25 @@ def configure_local(
             violations.extend(
                 (key, reason) for reason in http.url_problems(url, registry.allowed_hosts)
             )
-    # 4·5. 질문 세트·레지스트리 항목
-    entry = registry.kev(settings.KEV_MODEL_ID)
+    # 4·5. 질문 세트·레지스트리 항목(결정 모델은 kind decision·옛 kev, active 만. 03 §11)
+    entry = registry.decision(settings.KEV_MODEL_ID)
     if kev_enabled:
         version = settings.KEV_QUESTION_SET
         if version not in SUPPORTED_QUESTION_SETS or version not in question_sets:
             violations.append(("KEV_QUESTION_SET", "QUESTION_SET_NOT_AVAILABLE"))
         if entry is not None and entry.question_set not in (None, settings.KEV_QUESTION_SET):
             violations.append(("KEV_MODEL_ID", "QUESTION_SET_MISMATCH"))
-        if entry is None:
-            violations.append(("KEV_MODEL_ID", "NOT_IN_REGISTRY"))
+        entry_problem = _status_problem(entry)
+        if entry_problem is not None:
+            violations.append(("KEV_MODEL_ID", entry_problem))
     requested_qwen = _given(settings.QWEN_MODEL)
     default_qwen = registry.qwen_default()
-    qwen_runs = registry.qwen_runs()
     qwen_model = requested_qwen or (default_qwen.run if default_qwen is not None else None)
-    if qwen_model is None or qwen_model not in qwen_runs:
-        violations.append(("QWEN_MODEL", "NOT_IN_REGISTRY"))
+    qwen_problem = _status_problem(
+        registry.qwen_entry(qwen_model) if qwen_model is not None else None
+    )
+    if qwen_problem is not None:
+        violations.append(("QWEN_MODEL", qwen_problem))
     # 1~5 단계에 위반이 있으면 원격 대조를 하지 않는다(e8 결정 1)
     if violations or qwen_url is None or qwen_model is None:
         raise LocalConfigError(violations)
