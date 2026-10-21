@@ -58,7 +58,7 @@ updated: 2026-10-21
 
 Qwen 학습 일정은 **없다**(2026-10-20 저녁 개정. 옛 "10-25 조건부 Qwen 4B QLoRA" 행 삭제).
 
-10-24는 C9 3차 리허설·P1 병합·기능 freeze(22:00)와, 10-25 채점은 최종 리허설(C9)과 겹친다([[16-DECISIONS|ADR-042]]). 우리 추론 런타임 중 GPU 1 에 있는 것은 `sol_decision` Bosun(8009)뿐이고, 학습과 같은 GPU 에 공존하는 것이 기본 계획이다(§2.4 추정 합계 안). 우리 절차로 8009 를 내리지 않는다 — 어떤 프로세스도 종료·이동하지 않는다([[10-DEPLOYMENT|10]] GPU 절 "추론 런타임과의 관계", ADR-034 10번). F1 에서 합계가 넘치면 멈추고 회사에 보고한다. 8009 를 내릴지·언제 내릴지와 그때의 `live`·`fixture` 리허설 시간은 사람이 정한다. 데모 본편은 `mock` 이라 영향이 없다.
+C9 3차는 10-23이다. 10-24 학습은 P1 병합·기능 freeze(22:00)와 같은 날이고, 10-25 채점은 최종 리허설(C9)과 겹친다([[16-DECISIONS|ADR-042]]). 우리 추론 런타임 중 GPU 1 에 있는 것은 `sol_decision` Bosun(8009)뿐이고, 학습과 같은 GPU 에 공존하는 것이 기본 계획이다(§2.4 추정 합계 안). 우리 절차로 8009 를 내리지 않는다 — 어떤 프로세스도 종료·이동하지 않는다([[10-DEPLOYMENT|10]] GPU 절 "추론 런타임과의 관계", ADR-034 10번). F1 에서 합계가 넘치면 멈추고 회사에 보고한다. 8009 를 내릴지·언제 내릴지와 그때의 `live`·`fixture` 리허설 시간은 사람이 정한다. 데모 본편은 `mock` 이라 영향이 없다.
 
 ## 2. 엔드포인트
 
@@ -249,7 +249,7 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 
 저장 경로는 둘 중 하나다. 주말 전 확실한 쪽은 2안이다.
 
-1. **C3 live 수집**(`OfficialApiConnector` → Supabase `bid_notices` `is_demo=false`) → `EvalItem` → `python -m sol_eval export --format bosun`(먼저 `python -m sol_eval build` 가 만든 `items.{split}.jsonl` 이 있어야 한다). 지금(main `1b68f9b`) `sol_eval` 은 DB 를 읽지 않는다: `sol_eval build` 가 녹음 구조화 필드(갈래 ①)에서 `EvalItem` 을 만들고, DB 에서 만드는 Node 빌더(`pnpm dataset:build`)는 예정이다(21 §3.7). 보조 조회 3종·documents job 이 main 에 아직 없다(C3 남은 일).
+1. **C3 live 수집**(`OfficialApiConnector` → Supabase `bid_notices` `is_demo=false`) → `EvalItem` → `python -m sol_eval export --format bosun`(먼저 `python -m sol_eval build` 가 만든 `items.{split}.jsonl` 이 있어야 한다). 지금(main `1b68f9b`) `sol_eval` 은 DB 를 읽지 않는다: `sol_eval build` 가 녹음 구조화 필드(갈래 ①)에서 `EvalItem` 을 만들고, DB 에서 만드는 Node 빌더(`pnpm dataset:build`)는 예정이다(21 §3.7). 보조 조회 3종과 documents job 생산·복구는 main에 있다(`c6b16e3`·`2db27c1`, worker ingest 경로). documents 소비자·실첨부 다운로드·본문 reader·파서는 미완이다. 보조 API 수집과 첨부 처리 완료를 구분한다.
 2. **녹음 스크립트**: C1 ① 과 같은 방식으로 마스킹한 응답 JSON 을 `fixtures/recorded/train/<serviceId>/<operation>.<date>.pN.masked.json` 에 저장하고, 빌더가 DB 없이 이 파일을 읽는다. 담당자 필드 10개 마스킹과 `serviceKey` 제거 규칙은 `docs/evidence/phase-0/external-deps-api-20261019.md` 를 따른다. 저장소에는 넣지 않고(`.gitignore`) 번들에만 넣는다.
 
 ### 4.4 레코드 구성: 질문 단위, 두 갈래

@@ -17,6 +17,16 @@ updated: 2026-10-21
 
 외부 `https://acropolissg.com/redis/health`는 2026-10-21 22:59 KST 읽기 전용 확인에서502였다. Redis PONG 보고와 HTTP Gateway 상태는 구분한다. main 병합·push, 클라우드 새00700/00701·bucket 생성, 회사 프로세스/Nginx·Vercel 배포·모델 학습은 실행하지 않았다. 다음은 운영 적용안 검토·Gateway upstream 확인, 이후 documents 소비자·실파서·durable dispatch/quota 예약이다. [계획](plans/2026-10-21-first-bundle-integration.md)·[구현/검증/리뷰](evidence/first-bundle/20261021-implementation.md)·[적용/복구안](evidence/first-bundle/20261021-release-plan.md).
 
+## 문서 정합화 현재 요약 (2026-10-21)
+
+승인된 [[2026-10-21-docs-current-baseline-sync-plan|수정 계획]]에 따라 운영 절차·시연 주장·배포·권한·P1/이메일·일정·검증 안내·부분 구현 상태를 정정했다. 단계별 근거·독립 검토 1회와 최종 문서 검증은 [[20261021-docs-current-baseline-sync|정정·검증 기록]]에 있다.
+
+- C1 점검은 Qwen3.8·Bosun, 500/6,000토큰 ×24문항을 기준으로 한다. 회사 served id·실추론·학습 품질은 증거 확보 전 미확인이다.
+- 첨부 fixture fetcher·보조 조회·documents 생산/복구와 미완인 실첨부 다운로드·documents 소비자·파서를 구분한다. 설명은 현재 모든 모드가 템플릿이다.
+- 커밋 직전 병합된 ADR-048의 private Supabase Storage 결정을 보존했다. Vercel 웹·AI 승인 구성과 실제 운영 관찰/배포 증거를 구분한다. P1·이메일은 승인된 범위와 main 구현·수신 검증 상태를 별도로 표시한다.
+- C9 3차 10-23, freeze 10-24 22:00, 최종 리허설 10-25, 완료 목표 10-26, 공식 제출 10-27이다. 검증은 ADR-046을 따른다.
+
+
 ## Vercel 다중 서비스 구성 (2026-10-21, 사용자 승인)
 
 - 사용자 요청으로 루트 `vercel.json`에 `web`(전체 공개 경로)·`ai`(내부 전용), `web → ai`의 `AI_GATEWAY_URL` 바인딩을 구성했다. 기존 웹 코드는 같은 변수를 요청 시점에 읽는다. AI ASGI 진입점과 공용 데이터 번들링 빌드를 추가했다. `eval`은 CLI로, `decision`·worker·Redis·MinIO·Qdrant는 기존 외부 환경으로 유지한다. 외부 worker는 Compose AI gateway를 계속 쓴다. 사용자가 구성 제시 뒤 커밋·푸시를 요청했다.
@@ -154,7 +164,7 @@ HEAD `086ac1e`의 문서21~23·ADR-034·042, Bosun 학습·평가 코드, 인력
 - [ ] 데모 필수 N1 앱 셸: 사이드바 정보 구조(구현·검증된 메뉴만), 조직 주소 없는 경로·서버 조직 결정, 사용자 메뉴, `/ops` 분리.
 - [ ] 데모 필수 N2 설정: 개인 탭, 조직 탭(ADMIN).
 - [ ] 데모 필수 N4a 조직·인력 조회(`/people`·`/org-chart`): 격리 브랜치에서 명부·독립 조직도·PersonDrawer·사진 구현 및 기능 검증([2026-10-19 결과](evidence/people/20261019-people-read.md)). main 병합됨(PR #6 `98101e8`, 로컬 `7641ee4`, 2026-10-19). 기존 인증 E2E 4건 실패 해소·전체 수용은 병합 뒤 재확인 기록이 없다.
-- [ ] 데모 필수 N8 데이터 수집 관리(`/admin/ingestion`): main 병합 `81249f0`(2026-10-20, `n8/admin-ingestion` @ `1ac444c`). 실행 이력 표·실행 상세 서랍·수동 수집 대화상자·403 안내, Route Handler 3개, 마이그레이션 `20261019000019`. 증거 [보고서](evidence/phase-3/admin-ingestion/20261020-n8-admin-ingestion-report.md)(N8 E2E 30/30, 1440·1280 스크린샷 10장). 남은 것: ① 소스별 카드, 사이드바 줄(ADR-021 노출 조건), g2b `RUNNING` 정리 규칙([[16-DECISIONS|16]] 미결정 25번)
+- [ ] 데모 필수 N8 데이터 수집 관리(`/admin/ingestion`): main 병합 `81249f0`(2026-10-20, `n8/admin-ingestion` @ `1ac444c`). 실행 이력 표·실행 상세 서랍·수동 수집 대화상자·403 안내, Route Handler 3개, 마이그레이션 `20261019000019`. 증거 [보고서](evidence/phase-3/admin-ingestion/20261020-n8-admin-ingestion-report.md)(N8 E2E 30/30, 1440·1280 스크린샷 10장). 남은 것: ① 소스별 카드와 추가 확장 마무리. ADMIN 사이드바 메뉴는 구현돼 있고, g2b `RUNNING` 정리는 승인된 로컬 운영자 CLI(`pnpm ops:close-stale-runs`, 16 미결정 25번)로 구현됐다. 실제 DB 적용 완료를 뜻하지 않는다
 - [ ] 데모 필수 N9 대시보드 카드 5개(다섯 번째 "분석 현황").
 - [ ] P1(2026-10-21 [[16-DECISIONS|ADR-042]]로 핵심 컷·확장 컷과 병행, freeze 10-24 22:00, 이 순서): N3 관심 공고 → N5 분석 결과 비교 → N6 입찰 프로젝트 → N7 인력 배치 시뮬레이션 → N4b 조직·인력 편집. 담당(12 배정 2026-10-21): N3 fa(N2 기준점 뒤)·N5 9c(부처 공고 기준점 뒤)·N6 30(P0-8 Task 1·2 뒤)·N7 54(N9·c9-followups-ui 뒤)·N4b 93(S5 뒤. S5가 늦으면 fa). 97은 닫혔고 aa는 예비. 계획·구현 해시와 검증은 각 세션이 이 줄 아래에 더한다. freeze까지 green이 아닌 화면은 사이드바 "준비 중"으로 남긴다.
 
@@ -163,7 +173,9 @@ HEAD `086ac1e`의 문서21~23·ADR-034·042, Bosun 학습·평가 코드, 인력
 [[16-DECISIONS|ADR-010]]에 따라 유료 hosted 모델 API(`AI_PROVIDER=hosted`, `AI_HOSTED_APPROVED=true`)는 사용자 승인 후에만 켠다. 승인마다 아래에 기록한다.
 
 | 날짜 | 승인자 | 공급자·모델 | 목적 | 예상 비용 | 결과 |
-|---|---|---|---|---|---|
+|---|---|---|---|---|
+| 2026-10-21 | 문서 정합화 정정 | 승인된 7단계 계획을 완료했다. 운영 모델·URL·부하, 실제 근거/설명 범위, Vercel·로컬 CLI, P1·EMAIL·일정, 삭제 시험 참조·부분 구현을 정정했다. 기존 ADR-047·병행 작업·과거 로그를 보존했다 | 정정 대상 37문서의 변경 줄·링크·표·frontmatter와 C1 shell 구문, 명시적 work-tree diff 검사 통과. 독립 검토 P2 네 건 수정·근거 재대조. [검증 기록](evidence/documentation/20261021-docs-current-baseline-sync.md) | 정정 검증은 ADR-046 문서 전용 기준. 코드 시험·빌드·외부 호출·DB/운영 변경·배포 미실행. 사용자 후속 요청에 따라 커밋·push. 실접속·학습·메일 수신 등 기존 미검증 상태 유지 |
+| 2026-10-21 | 문서 정합화 계획 | 사용자 문서 감사 후속으로 [[2026-10-21-docs-current-baseline-sync-plan\|수정 계획]]을 작성했다. 운영 절차·시연 주장 → 배포·권한 → 범위·일정 → 검증 안내 → 구현 상태 → 전체 문서 대조의 7단계다. 기존 ADR-047 미커밋 설계는 보존한다 | frontmatter·7단계 완료 기준·기존 경로 45개·위키링크 확인. 일반 Git 검사는 저장소 `core.bare=true` 상태로 실패했고 설정 변경 없이 명시적 `--work-tree`의 diff 검사 통과. 코드 시험·빌드 미실행(ADR-046 문서 전용) | 계획 검토 단계. Task 1~7 문서 수정은 아직 시작하지 않음 |---|
 | — | — | — | 아직 승인 없음 | — | — |
 
 ## 작업 로그

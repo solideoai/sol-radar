@@ -291,7 +291,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 - `postgres`·`api`·`seed-demo` 서비스는 없다. DB·Auth는 Supabase, seed는 `pnpm demo:reset`이다.
 - 모델 런타임은 어느 Compose 파일에도 없다. `Qwen/Qwen3.8-Flash-Next`는 회사가 운영하는 vLLM API이고, `sol_decision.serve`(Bosun)는 회사가 GPU 서버 호스트에 직접 띄운다(위 "회사 GPU 추론 엔드포인트").
 - web을 호스트에서 띄우면 Next 서버가 redis·qdrant·minio·ai-gateway에 닿아야 하므로 이 네 서비스만 `127.0.0.1`에 포트를 연다(외부 인터페이스에는 열지 않는다). Compose `web`을 쓰면 호스트 노출은 필요 없다. 기본은 호스트 실행(`pnpm -C web start`)으로 확정했다(Phase 0, [[16-DECISIONS|ADR-024]] D1 제안). Phase 0 `infra/compose.yaml` 에는 `web` 서비스가 없다.
-- 웹과 내부 AI gateway의 배포처는 Vercel Services다(ADR-044). 외부 Compose 서비스의 접속 주소·HTTPS reverse proxy 설정은 별도로 정한다.
+- 웹·AI Vercel 구성은 이 문서의 Vercel 절을 따른다. Compose 자체의 운영 HTTPS reverse proxy 구성은 운영 심화 후속으로 별도 결정한다.
 - healthcheck(Phase 0 구현): `worker` 는 heartbeat 파일을 본다. worker 가 `WORKER_HEARTBEAT_FILE`(기본 `/tmp/sol-worker-heartbeat`)을 10초마다 갱신하고, healthcheck 는 파일 수정 시각이 30초 이내인지 판정한다([[16-DECISIONS|ADR-024]] D3 제안). `ai-gateway` 는 `GET /health` 200 이고 `start_period: 20s`(기동 4~8초). `minio`·`qdrant` 이미지에는 curl·wget 이 없어 bash `/dev/tcp` 로 `GET /minio/health/live`·`GET /readyz` 의 200 을 확인한다. `redis` 는 `redis-cli ping`(비밀번호는 `REDISCLI_AUTH` 로만 전달).
 - redis 비밀번호는 프로세스 인자·`docker inspect` 에 남지 않게 설정을 stdin 으로 넘기고, 컨테이너는 `setpriv` 로 `redis` 사용자로 내려 실행한다. worker 이미지의 CMD 는 pnpm 이 아니라 `node --conditions=react-server --import tsx worker/main.ts` 이고 Compose 는 `init: true` 다.
 
@@ -388,7 +388,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
   - 클라우드 적용은 2026-10-20에 했다. 첫 `pnpm db:push`(29개, `20261019000017`까지, dd 세션·사용자 승인)는 클라우드에 `score_runs` 표가 아직 없어 이 질의를 건너뛰었고([`migrate.log`](evidence/phase-1/migrate.log) 3행), `20261019000019`는 sol-radar-3e가 20:48 KST에 적용했다([[04-DATABASE|04]] §7).
 - 오래 남은 g2b 수집 run 정리([[16-DECISIONS|16 ADR]] 미결정 25번, [[07-DATA-PIPELINE|07 수집]] §2.7): `pnpm ops:close-stale-runs -- --env-file <path>`로 대상(30분 이상 `RUNNING`)을 먼저 보고, 맞으면 같은 명령에 `--apply`를 붙인다. `--env-file`은 기본값이 없고 그 파일의 `NEXT_PUBLIC_SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`만 읽는다(셸 환경 변수로 덮지 않는다). 인자 앞의 `--`를 빼면 Node 24가 `--env-file`을 자기 옵션으로 읽는다. 클라우드 Supabase를 가리키는 파일로 `--apply`하는 것은 클라우드 DB를 바꾸므로 사용자 확인 뒤에만 한다. 기준 분은 `--older-than-minutes N`(기본 30, 30 미만 거부)이다.
 - DB 백업·복구는 Supabase가 관리한다. 플랜별 백업 주기·보존 기간·PITR 여부는 **미검증**이다. Supabase 대시보드에서 확인해 이 절에 기록한다.
-- 웹 배포처는 Vercel Services(ADR-044). 외부 Compose 서비스의 접속 주소·HTTPS reverse proxy 설정은 별도 운영 항목이다.
+- Vercel 웹·AI 승인 구성과 외부 인프라 연결 조건은 Vercel 절을 따른다. Compose 운영용 HTTPS reverse proxy는 후속이다.
 - 운영 모델 교체(Bosun 학습본 `bosun-sol-lora-v0.1` 등)는 레지스트리 항목 추가 → 패키지 sha256 대조(회사)·gateway 대조 통과 → ADR 순서로 하고, 사용자 승인 뒤에만 한다([[21-MODEL-TRAINING|21 모델 학습]] §5.4, [[16-DECISIONS|ADR-034]] 9번).
 
 ## 솔리데오 인력·사진 준비 (ADR-019)
@@ -478,6 +478,10 @@ frontend는 `SOL_DEPLOYMENT_ROLE=frontend`, 서버 전용 `REDIS_API_BASE_URL=ht
 10-24(토)22:00 전 `pnpm verify`, 실제 HTTPS401/403/404·202→polling→Worker 완료·멱등/429·비공개 포트 확인이 green이어야10-25 리허설에서 선택한다. 로컬 Phase 1 통과만으로 이 운영 조건을 완료 처리하지 않는다. 실패하면 새 경로 활성화를 보류하고 기존 Compose로 수동 복귀한다. S0는 [[19-DEMO-SCENARIO|19]] §3, 실행별 체크는 [[11-TESTING|11]] §5에 기록한다.
 
 Hobby는 개인·비상업 조건과 월100GB, Pro는 현재 $20/월·기본 Flat Rate CDN1TB 용량이며 실제 사용 팀의 계약을 확인한다. 함수는 Fluid Compute 기준 Hobby 최대300초·Pro 일반 최대800초, 요청/응답4.5MB다. [공식 근거·요금표·지침 승인 문안](plans/2026-10-21-redis-vercel-merge-conditions.md)에서 세부 조건을 확인한다. 회사 업무용 Pro가 필요하면 비용·예산 상한을 사용자에게 확인한 뒤 진행한다. 이번 정리는 결제·업그레이드·실배포 승인이 아니다.
+
+## 이메일 알림 설정 (ADR-041, 승인 설계·구현 전)
+
+승인된 공급자 스위치는 `NOTIFY_EMAIL_PROVIDER=mock|smtp`(기본 `mock`)다. 기존 초대 메일 SMTP 설정을 재사용하며 실발송 계정은 사용자 선택인 데모 전용 Gmail이다. `SMTP_USER`·`SMTP_PASSWORD` 등은 이를 읽는 서버 프로세스에만 전달하고 공개 변수·로그·저장소에 넣지 않는다. 이 절은 env 계약의 승인 범위를 설명하며 현재 main worker가 이미 읽는다는 뜻이 아니다. 구현·통합 뒤 실제 대상 환경에서 확인한다. 시험·로컬은 외부 실발송 없이 mock·Mailpit을 사용하고, 개인 설정·EMAIL 채널 적용·수신 확인 전에는 기능 완료로 표시하지 않는다([[13-NOTIFICATIONS|13]]).
 
 ## 관련 문서
 - [[02-ARCHITECTURE|02 아키텍처]]

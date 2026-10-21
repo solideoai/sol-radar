@@ -6,10 +6,13 @@ tags:
   - ops
   - hackathon
   - plan
-updated: 2026-10-19
+updated: 2026-10-21
 ---
 
 # C1 P0-0 외부 의존성 검증 절차
+
+> [!note] 현재 적용 범위 (2026-10-21)
+> §1~6은 2026-10-19 공공 API·첨부 점검 당시 절차다. 실행 결과는 `docs/evidence/phase-0/external-deps-api-20261019.md`와 `external-deps.md`가 정본이다. 모델 점검은 아래 §7~8을 ADR-034 개정과 [[03-AI-PIPELINE|03]] §5.9에 맞췄다. 서버 준비·Qwen probe 실행은 [[2026-10-21-bosun-b2-runbook|B2 런북]]을 먼저 따른다. 이 수정은 실접속·모델 기동·성능 측정 완료를 뜻하지 않는다.
 
 [[12-ROADMAP|12 로드맵]] C1과 [[11-TESTING|11 테스트]] §3.3의 "방법" 열을 구체화한 절차다. 체크리스트와 결과 기록은 `docs/evidence/phase-0/external-deps.md`이고, 이 문서는 그 항목(A1~A9, B1~B4, G1~G6, D1~D3)을 어떻게 실행하는지 적는다. G 항목은 [[16-DECISIONS|ADR-025]](사용자 결정 2026-10-19)로 재정의했다: 회사 GPU 서버 직접 접속·터널·기동 절차 대신 회사가 제공하는 HTTPS 추론 엔드포인트를 점검한다(§7·§8). 2026-10-19 기준 어느 항목도 실행하지 않았다. 아래 응답 구조·필드 이름·오류 코드는 **실측 전 가정**이고, 실제 응답을 받은 뒤 이 문서와 [[07-DATA-PIPELINE|07 수집]] §3.1·[[15-DATA-CONTRACTS|15 데이터 계약]] §8을 고친다.
 
@@ -239,62 +242,70 @@ head -c 8 "$SCRATCH/att-1.bin" | xxd
 
 ## 7. 모델 엔드포인트 점검 절차 (G1~G4)
 
-[[16-DECISIONS|ADR-025]](사용자 결정 2026-10-19): 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). 회사가 모델 런타임(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0)을 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 제공하고, 노트북 ai-gateway가 거기에 HTTPS로 붙는다. 모델 기동·GPU 메모리·가중치 대조·`nvidia-smi`는 회사 측 운영이라 우리는 하지 않는다. 우리가 하는 것은 `GET /v1/models` 레지스트리 대조와 지연 실측뿐이다. 엔드포인트는 회사가 제공 예정이며 2026-10-19 기준 응답을 아직 확인하지 않았다. 아키텍처(Worker → gateway → 모델)·실행 모드·`AI_PROVIDER=local`은 그대로다.
+[[16-DECISIONS|ADR-025·034]]: Qwen3.8-Flash-Next는 회사 운영 vLLM API `https://acropolissg.com/vllm/v1`, Bosun v3.1 0.6B는 회사 서버의 `sol_decision.serve`를 `/sol-radar/kev`로 호출한다. `KEV_*`·`/kev`는 호환 이름이다. 모델 기동·GPU 배분은 회사 운영이며 Bosun 기동은 사용자 승인 뒤다. 노트북에서는 HTTPS 접속·레지스트리 대조·지연을 점검한다. 실제 served id·응답·품질은 B2 증거 확보 전 미확인이다. Worker → gateway → 모델 경계와 `AI_PROVIDER=local`은 유지한다.
 
 선행 조건:
 
-- **P2** 회사가 엔드포인트 경로·인증 방식을 전달한다. 전달 전까지 아래는 **가정**이다: `QWEN_BASE_URL=https://acropolissg.com/sol-radar/qwen`, `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev`, 인증은 `Authorization: Bearer <키>`. 실제 값은 회사가 알려 주는 대로 `infra/.env`에만 적는다(`QWEN_API_KEY`·`KEV_API_KEY`). env 이름은 바꾸지 않는다.
+- **P2** 회사가 경로·인증 방식을 전달한다. 현재 설정은 `QWEN_BASE_URL=https://acropolissg.com/vllm/v1`, `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev`다. 키는 서버 전용 `infra/.env`에만 둔다(`QWEN_API_KEY`·`KEV_API_KEY`). Qwen의 실제 `GET /v1/models` id는 B2 probe로 확인한다. `/sol-radar/qwen`→8001은 백업이며 사용하지 않는다.
 - **P3** 회사 측 모델 기동 완료 통보. 통보 전에는 G1만 할 수 있다(401/403 또는 연결 실패를 그대로 적는다).
 
-호출 예산: 이 점검 전체 Kev 20회·Qwen 5회 이하. 키는 셸 변수로만 둔다(§1 방법 1·2와 같은 방식, 변수 이름 `QWEN_API_KEY`·`KEV_API_KEY`). 값·`Authorization` 헤더를 로그·증거·터미널 출력에 남기지 않는다. `curl -v`·`set -x` 금지, `curl -k`(인증서 검증 끄기) 금지.
+호출 수: G3는 state 두 종류에 각각 10회, 총 20회 결정 모델 요청이다. G1·G2·G4·G6 요청은 별도이므로 실호출 전에 합계와 승인 범위를 확인한다. Qwen probe는 B2 런북 §8의 3회 요청과 중복 실행하지 않는다. 키 값·`Authorization` 헤더를 로그·증거·터미널 출력에 남기지 않는다. `curl -v`·`set -x`·`curl -k` 금지.
 
 1. **G1 HTTPS 접속·TLS**: 인증 없이 각 1회.
 
 ```bash
+QWEN_API_ROOT="${QWEN_BASE_URL%/}"
+case "$QWEN_API_ROOT" in
+  */v1) ;;
+  *) QWEN_API_ROOT="$QWEN_API_ROOT/v1" ;;
+esac
 curl -sS -o /dev/null -w 'http=%{http_code} ssl_verify=%{ssl_verify_result} time=%{time_total}\n' \
   --max-time 15 "$KEV_BASE_URL/v1/models"
 curl -sS -o /dev/null -w 'http=%{http_code} ssl_verify=%{ssl_verify_result} time=%{time_total}\n' \
-  --max-time 15 "$QWEN_BASE_URL/v1/models"
+  --max-time 15 "$QWEN_API_ROOT/models"
 ```
 
-   기대: `http=401` 또는 `403`(인증 요구), `ssl_verify=0`(인증서 유효). `http=000`이거나 curl이 인증서 오류를 내면 "미접속"으로 적고 회사에 알린다. `curl -k`로 우회하지 않는다. 인증 없이 `200`이 나오면 그대로 기록하고 회사에 보고한다(API 키 필수, [[09-SECURITY|09 보안]]).
+   기대: 결정 모델 서버는 무인증 401, 회사 Qwen API는 회사 인증 정책대로 결과를 기록한다. `ssl_verify=0`은 인증서 유효다. `http=000`·인증서 오류는 "미접속"으로 기록하고 회사에 알린다. `curl -k`로 우회하지 않는다.
 
-2. **G2 `/v1/models` 레지스트리 대조**(Bearer, Kev·Qwen 각 1회):
+2. **G2 `/v1/models` 레지스트리 대조**(Bearer, Bosun·Qwen 각 1회. Qwen은 B2 probe 결과를 재사용):
 
 ```bash
 curl -sS --max-time 15 -H "Authorization: Bearer $KEV_API_KEY" "$KEV_BASE_URL/v1/models" > "$SCRATCH/kev-models.json"
-curl -sS --max-time 15 -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/v1/models" > "$SCRATCH/qwen-models.json"
+curl -sS --max-time 15 -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_API_ROOT/models" > "$SCRATCH/qwen-models.json"
 grep -i -E 'key|token|secret' "$SCRATCH/kev-models.json" "$SCRATCH/qwen-models.json" && echo "비밀 의심 필드 있음: 저장 전 확인" || echo "비밀 의심 필드 없음"
 ```
 
    - 두 응답을 `docs/evidence/phase-0/endpoint-models.json`에 `{ "kev": …, "qwen": …, "fetchedAt": "…" }`로 저장한다. 저장 전에 위 `grep`으로 키·토큰 값이 응답에 없는지 본다(있으면 그 필드를 지우고 지웠다고 적는다).
-   - Kev 응답의 `run`·`base`·`lora`·`temperature`를 `services/ai/models/registry.yaml`(C5에서 만든다. 2026-10-19 기준 파일 없음. 그때까지는 [[03-AI-PIPELINE|03 AI 파이프라인]] §11 표)과 대조한다. 필드 이름은 실측 전 가정이다. 다르면 실제 이름을 적고 §11 표를 고칠 항목으로 보고한다.
-   - vLLM 응답 `data[].id`가 `Qwen/Qwen3.5-9B`인지 본다. 다르면 그 값을 적는다(레지스트리 `qwen` 항목 갱신 후보).
+   - Bosun 응답의 `id`·`run`·`base`·`lora`·`decision_embeddings_sha256`·`revision`을 `services/ai/models/registry.yaml`의 `bosun-v3.1-0.6b`와 대조한다([[03-AI-PIPELINE|03]] §11). 불일치를 성공으로 처리하지 않는다.
+   - vLLM `data[].id`를 레지스트리의 `Qwen/Qwen3.8-Flash-Next`와 대조한다. 실제 id는 아직 미확인이다. 다르면 B2 런북 §8대로 실제 값을 기록하고 레지스트리·`QWEN_MODEL` 수정 대상으로 보고한다.
 
 3. **G3 지연 실측**([[03-AI-PIPELINE|03 AI 파이프라인]] §5.9 2번):
-   - Kev `POST /v1/systemone`에 §5.6 영어 템플릿 state(약 500 토큰)·질문 4종을 **10회**. 응답 `latency_ms`의 p50·p95와 curl `%{time_total}` 왕복 p50·p95를 적는다. state는 fixture(`FX-01`)로 만들고 실제 공고 원문은 쓰지 않는다.
+   - Bosun `POST /v1/systemone`에 §5.6 영어 템플릿 state **약 500토큰·6,000토큰 두 종류**, **24문항 묶음**을 각각 **10회** 보낸다. `latency_ms`와 왕복 시간의 p50·p95를 적는다. fixture로 만들고 실제 공고 원문은 쓰지 않는다.
    - vLLM `POST /v1/chat/completions`에 `/extract` 추출 프롬프트(fixture 본문 1건) **1회** 왕복 시간.
-   - 결과로 `KEV_TIMEOUT_MS`(기본 `5000`)·`AI_TIMEOUT_MS`(기본 `60000`, Qwen) 권고값을 낸다. 왕복 p95에 여유를 둔 값을 권고로 적고, 적용은 [[03-AI-PIPELINE|03 AI 파이프라인]] §4 env 표 갱신으로 별도 보고한다.
-   - Kev 10회 중 1회라도 10초를 넘으면 그 사실을 적는다(§5.9 "10초 초과면 쓰지 않는다").
+   - `(묶음 수 × 24문항 요청 p95 + GET /v1/models 시간)`을 `KEV_TIMEOUT_MS`(기본 `5000`)와 비교한다. 넘으면 gateway·worker timeout 동시 변경을 제안한다([[03-AI-PIPELINE|03]] §3·§5.9). Qwen은 `AI_TIMEOUT_MS`(기본 `60000`)와 비교한다. 이 점검에서 설정을 자동 변경하지 않는다.
 
-4. **G4 vLLM guided JSON**: `response_format`(`json_schema`) 또는 vLLM `guided_json`으로 `RequirementExtraction` 축소 스키마 **1회** 요청. 응답이 스키마대로 파싱되는지 본다. 같은 요청에 `logprobs=true`를 넣어 E3 실험 전제(`logprobs`)도 함께 확인한다. 어느 파라미터가 통하는지 적는다(C5 gateway `local` 어댑터 구현 입력).
+4. **G4 vLLM guided JSON**: B2 런북 §8 probe의 `response_format: json_schema`·`prompt_logprobs` 결과를 재사용한다. `enable_thinking:false`와 추출 검증 계약은 [[03-AI-PIPELINE|03]] §4.3을 따른다. guided JSON 지원, E3용 prompt logprobs 지원, 추출 품질을 각각 기록한다.
 
 기록은 `docs/evidence/phase-0/endpoint-check.md`(G1~G6 결과, 지연 표)와 `endpoint-models.json`에 둔다. `external-deps.md` G1~G6 행에 통과/막힘과 날짜를 적는다.
 
 ## 8. 회사 제공 정보와 장애 경로 (G5~G6)
 
-VRAM 추정·기동 절차·GPU 배분은 회사 측 운영으로 넘어갔다([[16-DECISIONS|ADR-025]]). "모델 기동·GPU 점유 사용자 승인"은 더 이상 없다. LoRA 메모리 검증은 회사 측 실행 요청 사항이다.
+GPU 배분은 회사 운영이며 물리 GPU 1은 PaddleOCR과 공유한다(ADR-034). Bosun 준비·기동·학습은 B2 런북과 [[22-FINETUNE-RUNBOOK|22]]의 승인·중단 조건을 따른다. 노트북 점검을 모델 기동 승인으로 간주하지 않는다.
 
-1. **G5 회사 제공 GPU 정보**: 회사가 GPU 모델·VRAM·점유·가중치 sha256·가중치 다운로드 시간을 주면 `endpoint-check.md`에 "회사 제공(날짜)"으로 적는다. 주지 않으면 "회사 운영, 미제공"으로 적는다. 직접 측정하지 않고 추정값을 넣지 않는다. Kev-9B 추론 메모리의 문서 불일치(모델 카드 21.9 GB vs README 약 17 GB)는 회사 값이 오기 전까지 미검증으로 둔다.
-2. **G6 엔드포인트 미접속 → `PARTIAL`**: `KEV_BASE_URL`(또는 `QWEN_BASE_URL`)을 잘못된 경로로 **1회** 바꿔 gateway가 `KEV_UNAVAILABLE`·`QWEN_UNAVAILABLE`을 내고 Worker 결과가 `PARTIAL`·`RULES_ONLY`로 끝나는지, 자동 mock 대체가 없는지 본다. **C5 gateway `local` 어댑터 구현 뒤에 한다**(대기 사유: 2026-10-19 기준 `local` 어댑터 미구현). 재접속 확인은 `GET /v1/models`(G2 명령) 1회다.
+1. **G5 회사 제공 GPU 정보**: GPU 1의 PaddleOCR·Bosun 점유와 패키지 sha256 등을 회사가 제공하면 날짜와 함께 기록한다. 없으면 "회사 운영, 미제공"으로 남긴다. 추정값을 실측으로 쓰지 않는다.
+2. **G6 실패 대상별 상태 확인**: `local` 어댑터는 구현돼 있으며 실접속 검증은 별도다. 격리된 리허설 환경에서 아래를 나누어 확인하고 복구 후 G2 재접속을 확인한다([[03-AI-PIPELINE|03]] §8, `web/server/analysis/fallback.model.ts`).
+   - **Bosun만 불가, Qwen 추출 정상·gateway 생존:** `KEV_UNAVAILABLE`, `COMPLETED`·`RULES_ONLY`. 결정 모델만 없다는 이유로 PARTIAL을 기대하지 않는다.
+   - **Qwen 추출 불가:** 추출 캐시가 없는 검증용 revision을 사용한다. 재분석 `force=true`만으로 캐시가 우회됐다고 보지 않는다. `QWEN_UNAVAILABLE`, `PARTIAL`·`RULES_ONLY`와 정보 부족 표시를 확인한다.
+   - **gateway 연결 불가:** `AI_UNAVAILABLE`, `PARTIAL`·`RULES_ONLY`. 위 모델 단독 장애와 원인을 구분한다.
+   - 어느 경우도 mock으로 자동 대체하지 않는다. 캐시된 추출로 완료되는 경우는 별도 기록하고 Qwen 실패 검증 성공으로 세지 않는다.
 
 운영 전제:
 
 - TLS 필수. 인증서 검증을 끄지 않는다(`curl -k`, 클라이언트 `verify=False` 금지).
 - API 키 필수. 값은 `infra/.env`에만 둔다(`QWEN_API_KEY`·`KEV_API_KEY`). `web/.env.local`·`NEXT_PUBLIC_`에 넣지 않는다.
 - 엔드포인트 URL은 비밀이 아니다. 키 값은 어디에도 적지 않는다.
-- env 이름은 그대로다(`QWEN_BASE_URL`·`KEV_BASE_URL`·`QWEN_API_KEY`·`KEV_API_KEY`). SSH 포트포워딩·`127.0.0.1:8001`/`8009` 바인딩·`host.docker.internal` 전제는 폐기했다(이력: ADR-025 이전 §7·§8).
-- `kev.serve`·vLLM 기동 명령·버전 고정은 회사 측 사항이다. 우리가 회사에 요청할 것: vLLM 모델 id `Qwen/Qwen3.5-9B`, guided JSON·`logprobs` 활성, Kev `--run jaredpalmer/kev-9b@v1.0`, 두 런타임의 `GET /v1/models` 노출, API 키 인증.
+- env 이름은 그대로다(`QWEN_BASE_URL`·`KEV_BASE_URL`·`QWEN_API_KEY`·`KEV_API_KEY`). 노트북은 HTTPS를 사용하며 SSH 터널·`host.docker.internal`을 쓰지 않는다. 회사 서버 내부의 `sol_decision`은 `127.0.0.1:8009` 바인딩을 유지한다(ADR-034).
+- 회사에 확인할 것은 Qwen 실제 모델 id·인증·guided JSON·`prompt_logprobs`, Bosun 승인 후 기동 완료·`GET /v1/models`·인증이다. `kev.serve`·Qwen 8001 신규 기동을 요청하지 않는다.
 
 ## 9. 산출물·보고 형식
 

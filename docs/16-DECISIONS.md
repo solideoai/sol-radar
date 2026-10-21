@@ -64,6 +64,9 @@ ADR-005·017·028의 파일 저장소 조항을 대체한다. Redis/BullMQ·Qdra
 기존 ADR 문장은 당시 이력이며 현행 파일 저장은 이 결정을 따른다. Gateway Phase 1은 ADR-045의 기존 구현을 재사용한다.
 **코드 전환과 운영 전환은 별개다. 클라우드 migration·bucket 준비·기존 파일 inventory/이전·실연결 검증 전에는 운영 완료로 표시하지 않는다. 기존 MinIO 컨테이너·볼륨·파일을 자동 삭제하지 않는다.**
 
+> [!note] 현재 적용 안내 (2026-10-21)
+> 아래 ADR 본문은 당시 결정을 보존한다. Vercel 웹·AI 다중 서비스 구성은 2026-10-21 사용자 승인으로 추가됐으며 [[10-DEPLOYMENT|10 배포]] Vercel 절과 `docs/evidence/vercel/20261021-configuration.md`를 따른다. 과거의 배포처 미결정·템플릿 보류 안내보다 이 구성이 우선하고, 이 Vercel 구성의 클라우드 배포 성공은 구성 증거에서 미확인이다. service role의 worker·seed 제한에는 미결정 25번에서 승인한 **사람이 로컬에서 직접 실행하는 운영자 CLI** 예외가 적용된다([[09-SECURITY|09]]). 웹 서버·브라우저 금지는 유지한다. 미출시 메뉴의 "준비 중"은 내부 상태다. 10-21 후속 사용자 요청으로 배지·툴팁 접미사는 제거했으며 이름만 비링크로 보인다([[06-UI-UX|06]] §4.1). 과거 ADR의 "준비 중 유지"를 배지 복구 지시로 해석하지 않는다.
+
 ## 결정 사항
 |ID|결정|상태|날짜|근거|
 |---|---|---|---|---|
@@ -154,7 +157,7 @@ ADR-005·017·028의 파일 저장소 조항을 대체한다. Redis/BullMQ·Qdra
 |5|카카오 비즈메시지 발신 계약과 승인된 템플릿|미검증 (해커톤 대체안 ADR-038 채택, 2026-10-21)|2026-10-21|해커톤 범위 밖. 알림톡은 비즈니스 채널(사업자 서류)·딜러사·템플릿 검수(보통 2~3일)가 필요하다(2026-10-20 확인). 해커톤 실발송은 ADR-038 "나에게 보내기"(시연용)로 대체하고, 비즈메시지는 운영 전환 때 다시 연다 ([[13-NOTIFICATIONS\|13 알림]])|
 |6|한국어 검색 품질(Qdrant 임베딩과 PostgreSQL full text 병행)|미검증|-|데모 필수 아님. 키워드 검색 fallback이 기본|
 |7|초기 스코어 가중치와 결정 임계값(75/50), 조직별 판정 기준|미검증|-|[[08-SCORING\|08 스코어링]] worked example로 fixture 3건 일치 확인. 조직별 config versioning|
-|8|데모·배포 실행 환경: Supabase 클라우드 그대로 / 로컬 Supabase CLI(`pnpm db:start`) 대체 / 웹 배포처|결정 (ADR-023·044)|2026-10-19|데모 기본은 Supabase 클라우드 + 정상 네트워크. 대체 경로 6종을 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5에 고정: 인터넷 실패 → 로컬 Supabase CLI(`pnpm db:start` + `pnpm demo:reset`, D-1 리허설), 공공 API 장애 → `fixture`, GPU 접속 실패 → `mock` 또는 사전 실행 run 조회, Supabase 클라우드 장애 → 로컬 CLI, 첨부 실패 → `DOCUMENT_DOWNLOAD_FAILED` 화면 그대로, 추론 시간 초과 → `PARTIAL`. 자동 fallback 없음, 화면에 모드·출처 표시, 발표에서 밝힌다. 웹 배포처는 Vercel Services로 확정(2026-10-21 사용자 승인, ADR-044). 외부 worker·저장소·회사 GPU는 유지하며 실제 클라우드 배포는 아직 실행하지 않음 ([[10-DEPLOYMENT\|10 배포]])|
+|8|데모·배포 실행 환경: Supabase 클라우드 그대로 / 로컬 Supabase CLI(`pnpm db:start`) 대체 / 웹 배포처|결정 (ADR-023 데모, 10-21 Vercel 구성 승인)|2026-10-21|데모 기본은 Supabase 클라우드 + 정상 네트워크. 대체 경로 6종을 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5에 고정: 인터넷 실패 → 로컬 Supabase CLI(`pnpm db:start` + `pnpm demo:reset`, D-1 리허설), 공공 API 장애 → `fixture`, GPU 접속 실패 → `mock` 또는 사전 실행 run 조회, Supabase 클라우드 장애 → 로컬 CLI, 첨부 실패 → `DOCUMENT_DOWNLOAD_FAILED` 화면 그대로, 추론 시간 초과 → `PARTIAL`. 자동 fallback 없음, 화면에 모드·출처 표시, 발표에서 밝힌다. 2026-10-21 웹·AI Vercel 구성이 사용자 승인으로 추가됐다. Compose 데모는 유지하며 Vercel 로컬 smoke·빌드 검증과 이 구성의 클라우드 배포 성공 여부를 구분한다 ([[10-DEPLOYMENT\|10 배포]])|
 |9|worker가 `server-only` 도메인 코드를 쓰는 실행 방식(`node --conditions=react-server` 또는 같은 효과의 방식)|검증됨|2026-10-18|`node --conditions=react-server --import tsx worker/main.ts`로 띄운다(조건이 없으면 `server-only` 오류로 멈춘다). 2026-10-19에 Compose worker 이미지 안 기동·큐 왕복·정상 종료까지 확인해 종결했다(이미지 CMD는 ADR-024 D2). 증거 `docs/evidence/phase-0/worker-conditions.txt`·`smoke.txt`·`worker-stop.txt`·`c0-integration-20261019.md`, 커밋 `fa92254`·`d170aba` ([[02-ARCHITECTURE\|02 아키텍처]], [[10-DEPLOYMENT\|10 배포]])|
 |10|Supabase Auth 세부 설정값(토큰 만료·refresh 재사용 탐지·로그인 시도 제한·비밀번호 정책)|미검증|-|Supabase 대시보드 설정으로 정하고 확인한다. 확인 전에는 값을 문서에 적지 않는다(지어내지 않는다) ([[09-SECURITY\|09 보안]])|
 |11|현재 조직 고르기: 템플릿 가입 트리거는 계정마다 개인 조직을 만들고 화면은 `/[slug]/…`로 조직을 고른다. 05 `Me`·06 경로(`/dashboard`·`/bids`)는 업무 조직 하나와 slug 없는 경로를 전제한다|결정 (ADR-021)|2026-10-16|조직 주소 없는 경로. 서버가 현재 조직을 정한다(업무 멤버십 0개 안내 / 1개 진입 / 2개 이상 지원 안 함). 조직 전환 UI 없음. 가입 시 개인 조직 생성 중단, 기존 개인 조직은 보존 ([[05-API-SPEC\|05 API]] §1)|

@@ -175,7 +175,7 @@ flowchart TB
 - 회사 GPU 서버는 외부 접근 불가이고, 회사가 모델 런타임을 HTTPS 엔드포인트(`https://acropolissg.com/sol-radar` 아래)로 제공한다. gateway는 TLS 검증을 켠 채 API 키(`QWEN_API_KEY`·`KEV_API_KEY`)로 붙는다([[16-DECISIONS|ADR-025]]). 회사 nginx는 `/sol-radar` location 하나를 우리 라우터로 넘기고, GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`)가 `/sol-radar/qwen`·`/sol-radar/kev`를 vLLM·`sol_decision`(Bosun)으로 나눈다. Qwen은 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`(`QWEN_BASE_URL`, 우리가 띄우지 않는다)에 붙고 `/sol-radar/qwen`은 백업이다([[16-DECISIONS|ADR-034]]). 엔드포인트에 접속하지 못하면 gateway가 Qwen·결정 모델 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모델 기동·GPU 배분은 회사 운영이다. 프로필 정의는 [[10-DEPLOYMENT|10 배포]].
 
 > [!warning] 데모 네트워크 의존
-> 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 중 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다([[16-DECISIONS|ADR-023]], 미결정 8번). 웹 배포처는 아직 미결정이다.
+> 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 중 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다([[16-DECISIONS|ADR-023]], 미결정 8번). Vercel 웹·AI 다중 서비스 구성은 2026-10-21 승인됐다. 현재 구성·검증 범위는 [[10-DEPLOYMENT|10 배포]]를 따른다.
 
 ## 장애 원칙
 |장애|감지|사용자에게 보이는 것|데이터 영향|

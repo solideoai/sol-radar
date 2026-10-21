@@ -5,7 +5,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 증거 색인
@@ -166,10 +166,10 @@ updated: 2026-10-20
 | 알림 정확히 1건 | G2 | `phase-6/test-notifications.txt` |
 | 실제 공고를 `live`로 수집하고 형식별 파싱 성공률을 쟀다 | P0-2·P0-3 | `phase-2/ingest-run-live-<일시>.json`, `phase-2/parse-success-rate.md` |
 | AI 없이도 `PARTIAL`로 완결된다(화면) | G6 | `phase-5/e2e/partial.png` |
-| 실추론(Qwen 인용 검증 통과율, Kev 응답 원문·`stateTrace`) | P0-4·P0-6 | `phase-5/` 실추론 로그 |
+| 실추론(Qwen 인용 검증 통과율, 결정 모델 Bosun 응답 원문·`stateTrace`) | P0-4·P0-6 | `phase-5/` 실추론 로그 |
 | 가상 데이터는 가상이라고 표시된다 | G8, V2-02 | `phase-3/e2e/*.png` |
-| 모델 성능을 숫자로 잰다(E0·E1·E2, 한국어/영어 비교) | [[21-MODEL-TRAINING\|21 모델 학습]] §4 | `eval/` |
-| Kev-9B LoRA 가 회사 GPU(A40 46,068 MiB, 물리 GPU 1)에서 학습된다(F1)·E4 비교 | [[21-MODEL-TRAINING\|21 모델 학습]] §5.2, [[22-FINETUNE-RUNBOOK\|22]] §4.2 | `kev-train-feasibility.md`(§0 서버 환경 확인 2026-10-20 기록됨. F1 표는 미실행), `eval/e4-<일시>.md` |
+| 모델 성능을 숫자로 잰다(E0·E1′·E2, 한국어/영어 비교) | [[21-MODEL-TRAINING\|21 모델 학습]] §4 | `eval/` |
+| Bosun LoRA의 회사 GPU 1(PaddleOCR 공유) F1·학습·E4와 공개 Bosun E1′ 비교 | [[21-MODEL-TRAINING\|21 모델 학습]] §5, [[22-FINETUNE-RUNBOOK\|22]] §4.2 | `bosun-train-feasibility.md`, `eval/e4-<일시>.md`(회사 실행·결과 확보 뒤 생성). 기존 `kev-train-feasibility.md`는 당시 환경 확인 이력으로 보존 |
 | 데모 당일 체크리스트와 세 모드 리허설 | [[11-TESTING\|11 테스트]] §5 | `demo-day/<일시>/checklist.md`, `demo-day/<일시>/run-modes.md`, `demo-day/rehearsal-log.md` |
 
 ## 관련 문서

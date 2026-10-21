@@ -99,7 +99,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 | | `FixtureConnector` | `SOL_RUN_MODE=fixture` 또는 `mock` | `fixtures/manifest.yaml` 순서대로 페이지 반환, 네트워크 호출 없음 |
 | | `RecordedApiConnector` | 시험·개발 | 저장한 실제 응답(`fixtures/recorded/`, §2.3)을 재생한다. 네트워크 호출 없음 |
 | `AttachmentFetcher` | `G2bAttachmentFetcher` | `live` | `www.g2b.go.kr` allowlist 다운로드(§2.4) |
-| | `FixtureAttachmentFetcher` | `fixture`·`mock`·시험 | `fixtures/docs/`의 첨부 샘플(PDF·HWPX·HWP). **미구현**: 이 Fetcher와 `fixtures/docs/` 폴더가 아직 없다 |
+| | `FixtureAttachmentFetcher` | `fixture`·`mock`·시험 | `createFixtureAttachmentFetcher`는 `web/server/ingestion/fixture-attachment-fetcher.ts`에 구현돼 있다. `fixtures/docs/` 샘플과 documents 소비자 연결은 미완이며, 현재 제품에서 첨부 다운로드·파싱이 실행된다는 뜻은 아니다 |
 | `DocumentParser` | 형식별 어댑터 | 모든 모드 | gateway `POST /parse` 안에서 동작(§2.5) |
 
 - 세 실행 모드는 `RecordedApiConnector`를 고르지 않는다. `OfficialApiConnector`의 응답 해석(정규화·오류 처리)을 네트워크 없이 시험하는 데 쓴다.

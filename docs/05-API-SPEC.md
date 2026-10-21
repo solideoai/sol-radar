@@ -96,7 +96,7 @@ updated: 2026-10-21
 
 [[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·결정 모델 v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`(예정)가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
 
-[[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`. "P1, ADR-021" 행은 [[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단이며 데모 필수가 모두 끝난 뒤 만든다.
+[[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`. "P1, ADR-021" 행은 2026-10-21 [[16-DECISIONS|ADR-042]]에 따라 핵심 컷·확장 컷과 조건부 병행한다. 구현 전 엔드포인트는 계속 404이며 승인만으로 구현 완료로 바뀌지 않는다.
 
 ## 3. `GET /bids` 쿼리 파라미터
 
@@ -358,6 +358,8 @@ interface WhatIfResult {                                    // 200 본문(그대
 - 구현: `web/server/scoring/what-if.ts`(`whatIf`), `web/server/bids/what-if.service.ts`(`computeWhatIf`), `web/app/api/v1/analyses/[id]/what-if/route.ts`. 브랜치 `feat/boost2-what-if`(API `1eaba6f`, 화면 `26beca1`, E2E `c9a1a49`), 2026-10-21 main 병합 `d48c7a2`.
 
 ### 4.6 검토·알림·대시보드·수집
+
+이메일 추천 공고 알림은 [[16-DECISIONS|ADR-041]]로 해커톤 확장 컷에 승인됐다. 개인 설정 opt-in·로그인 이메일·`EMAIL` 채널은 승인 설계이며 main 구현 전이다. 아래 현재 알림 DTO와 적용된 DB 채널에 EMAIL을 이미 추가했다고 해석하지 않는다. 메일 설정의 새 경로·DTO는 이 문서에서 임의로 만들지 않고 구현 계약 확정 때 반영한다([[13-NOTIFICATIONS|13 알림]]).
 
 ```ts
 interface ReviewInput {

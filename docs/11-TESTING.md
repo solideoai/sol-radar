@@ -83,7 +83,7 @@ CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돈�
 
 ## 3. 골든 시나리오 ↔ fixture ↔ 테스트 ↔ 명령
 
-아래 파일별 연결과 이후 세부 회귀 목록은 축소 전 설계/기록을 포함한다. 현재 자동 실행 파일은 위 MVP 목록이 정본이며 삭제한 파일이 표에 있다는 이유로 다시 만들지 않는다. 제품의 골든 값·보안 정책·데모 수용 조건은 유지한다.
+아래 파일별 연결과 이후 세부 회귀 목록은 축소 전 설계/기록을 포함한다. 현재 자동 실행 파일은 위 MVP 목록이 정본이며 삭제한 파일이 표에 있다는 이유로 다시 만들지 않는다. 다른 문서가 현재 자동 검증을 설명할 때도 이 목록을 연결하고, 과거 파일별 표·실행 로그는 날짜가 있는 이력으로 인용한다. 제품의 골든 값·보안 정책·데모 수용 조건은 유지한다.
 
 골든 G1~G10은 `SOL_RUN_MODE=mock`에서만 단언한다. `fixture` 모드는 같은 fixture를 쓰지만 실모델(Qwen3.8-Flash-Next·Bosun v3.1 0.6B) 추출·분포가 mock과 다를 수 있으므로 골든 수치(`FX-01` 94·`FX-02` 72·`FX-03` 68, 결정 모델 71/24/5·36/52/12)를 단언하지 않는다([[16-DECISIONS|ADR-020]]).
 
@@ -232,7 +232,7 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 | 9a | S3 | 가정 재계산(데모 강화 컷, [[16-DECISIONS\|ADR-037]]) | 9번에 이어 `FX-03` 필수자격 "정보통신공사업 등록" 행의 "보유 가정" 스위치를 한 번 켠다 → 띠를 읽는다 → [가정 지우기] | 1초 안에 분석 요약 띠 아래 점선 "가정 시나리오" 띠: 권고 NO-BID → WATCH, SOL Score 68 → 68 "변화 없음", 필수자격 미충족 → 충족, 고정 문구 두 줄. 오른쪽 결정 패널은 NO-BID 68·"마지막 결정: NO-BID" 그대로. 띠·스위치에 확률·승률 글자 없음. 지우면 띠가 사라지고 스위치가 꺼진다. `bid_reviews` 2건 그대로 | 스위치가 없거나(미병합·`NO_SNAPSHOT`) 계산이 실패하면 9번까지만 하고 넘어간다. freeze까지 green이 아니면 "미구현"으로 적는다 |
 | 10 | S4 | 라이브 분석 | `FX-02`(미분석) → [분석 실행] | 202 → `대기 중` → `분석 중` → `완료` 10초 이내. 점수 72, WATCH, 분해 15.0/18.3/14.0/15.0/10.0, 결정 모델 36/52/12 | 60초 초과 시 새로고침, 사유 기록 |
 | 11 | S4 | 사람 결정 | `FX-02` 결정 패널에서 WATCH 유지 또는 BID 선택 + 사유 + 담당자에 발표자 자신(`sales@soltech.invalid`) 지정 → [결정 기록] | "마지막 결정: … · 담당자 · 시각", 결정 패널 상단 "사람 검토 권장"(`KEV_NEEDS_REVIEW`). `bid_reviews` +1(총 3건), 감사로그 1건. Topbar 알림 벨에 `REVIEW_ASSIGNED`가 들어 있다. 분석 요청자에게 가는 `ANALYSIS_COMPLETE`도 올 수 있어 벨은 1~2건이다([[16-DECISIONS\|ADR-029]] A6 D5). `analyst@soltech.invalid`로 보면 패널 읽기 전용 | — |
-| 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자, ADR-029 A6 D12)·"가상 회사 프로필로 분석". Topbar는 `실행 모드: mock` 그대로다. 자격 3값 + 사유 코드, 점수 분해 5행, 결정 모델 `UNCALIBRATED` + 고지 문구, 근거 서랍 실제 첨부 인용. 외부 의존성 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
+| 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자, ADR-029 A6 D12)·"가상 회사 프로필로 분석". Topbar는 `실행 모드: mock` 그대로다. 자격 3값 + 사유 코드, 점수 분해 5행, 결정 모델 참고 지표 + 고지 문구(보정 전; `UNCALIBRATED` UI 표시는 미구현), 근거 서랍 공고 본문·API 필드 인용. 첨부 인용은 다운로드·파서 구현과 증거 확보 후 별도 확인한다. 외부 의존성 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
 | 12 | S5 (확장 컷) | 변경 수집 | `/admin/ingestion`(`admin@soltech.invalid`) → 수동 수집 `LIVE`(API `batch:"live"`). fixture의 live 배치이며 실행 모드 `live`와 다르다(`SOL_RUN_MODE=live`에서는 `409 RUN_MODE_MISMATCH`). 이어서 `FX-07` 상세에서 [재분석]을 누른다(수집은 분석을 자동으로 넣지 않는다, ADR-030 B18, [[16-DECISIONS\|ADR-031]] C15). S5가 구현되지 않았으면 이 행은 "미구현"으로 적고 건너뛴다 | 🔔 증가. `FX-07` revision 2 → 재분석 68 → 77(엔진 77.3, ADR-031 C9), 권고 WATCH → BID. `FX-06` diff 마감 +14 → +28, 알림 1건. `FX-09` 재전송으로 알림 추가 0. `FX-08` `취소됨`(목록에서는 상태 필터 "취소 포함"을 골라야 보이고, 상세는 언제나 열린다, [[16-DECISIONS\|ADR-029]] A7). summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보여 주고 다음 장면 |
 | 13 | S6 | 장애 대체 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` [재분석] `force=true` | 수 초 안에(run 은 약 1~2초에 끝나고, 화면은 분석 상세 폴링 2초 간격으로 반영한다. 2차 리허설 화면 실측 5.4~6.0초, [[16-DECISIONS\|16]] 미결정 30-5) `부분 완료 (규칙만)`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)", `recommendationBasis: RULES_ONLY`, Topbar `AI: unavailable`, `/health/ready` `status: degraded`. 점수 94·자격 3건 그대로 | 사전 녹화 영상 |
 | 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` → `FX-01` [재분석] | `완료`로 복귀, Topbar `AI: mock`, 결정 모델 분포 다시 표시 | — |
@@ -350,7 +350,7 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 | NAV-09 | 메뉴 노출과 라우트 접근 분리: 미인증 요청은 출시 여부와 관계없이 기존 인증 정책(화면 로그인 안내, API `401`), 로그인 사용자의 미출시 경로(아직 구현되지 않아 경로 파일이 없는 경로) 직접 접근 404, 구현된 경로는 메뉴 노출 조건과 별개로 열린다(메뉴에 없어도 허용 역할 200, [[16-DECISIONS\|ADR-021]]·[[16-DECISIONS\|ADR-035]] F5), 권한 없는 역할 403, 메뉴에 없는 구현 경로도 서버 권한 검사 적용, 메뉴 정의의 출시 표시만으로 메뉴가 바뀜 |
 | NAV-10 | 사이드바 트리([[06-UI-UX\|06]] §4.1): 묶음 5개 순서, 출시 메뉴는 링크·준비 중 메뉴는 링크 없음(초점 없음), 데이터 수집 관리는 ADMIN만, 활성 메뉴 `aria-current`·3px brand 막대, 묶음 접기 `aria-expanded`·`localStorage`(저장 실패해도 정상)·지금 화면의 묶음은 들어올 때 펼침, 64px 아이콘 줄(툴팁·`aria-label`·묶음 줄 없음), 조직도 고정 칸. **구현됨**: `web/components/app-shell.browser.test.tsx` "sidebar tree (NAV-10)" 11건(main `9e6d8e2`) |
 
-P1([[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단, 데모 필수가 모두 끝난 뒤):
+P1(2026-10-21 [[16-DECISIONS|ADR-042]]에 따라 핵심 컷·확장 컷과 조건부 병행, freeze 10-24 22:00):
 
 | ID | 자동 검증할 조건 |
 |---|---|

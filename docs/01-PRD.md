@@ -85,7 +85,7 @@ SOL RADAR는 공공 SI·AX 기업이 `어떤 입찰에 참여해야 하는가`�
 - 개인정보/회사 기밀: 테넌트 격리(Supabase RLS, `org_id`, 정책 시험으로 검증), 파일 접근 검증, 로그 마스킹.
 - 분석: 실패·근거 부족 시 상태 표시; 무근거 확률 표현 금지. AI 불가 시 규칙 점수만으로 완결(`analysis.status=PARTIAL`).
 - 화면: 데스크톱 전용. 최소 폭 1280px, 1440px 기준 레이아웃, 1280~1920 반응형. WCAG AA, 키보드 조작, 색만으로 의미 전달 금지. 상세는 [[06-UI-UX|06 UI]].
-- 데모 환경: 노트북 1대(GPU 없음). MVP 완료 기준은 `SOL_RUN_MODE=live`(실제 공고 + 회사 GPU 추론 엔드포인트 실추론, HTTPS 접속, [[16-DECISIONS|ADR-025]])의 E2E 동작이다. 발표의 고정 장면(S2~S7)은 재현성을 위해 `mock`(저장 공고 + mock AI)으로 하고, 실공고 분석은 선택 장면과 증거로 보인다([[19-DEMO-SCENARIO|19 데모 시나리오]]). 공공 API·모델 서버 장애 때도 `fixture`·`mock`으로 전 기능 시연 가능([[16-DECISIONS|ADR-020]]). DB와 인증은 Supabase 클라우드 프로젝트(개발 환경)라 시연 중 인터넷 연결이 필요하다. 네트워크가 끊겼을 때의 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다([[16-DECISIONS|ADR-023]], 미결정 8번). 웹 배포처는 아직 미결정이다. 상세는 [[10-DEPLOYMENT|10 배포]].
+- 데모 환경: 노트북 1대(GPU 없음). MVP 완료 기준은 `SOL_RUN_MODE=live`(실제 공고 + 회사 GPU 추론 엔드포인트 실추론, HTTPS 접속, [[16-DECISIONS|ADR-025]])의 E2E 동작이다. 발표의 고정 장면(S2~S7)은 재현성을 위해 `mock`(저장 공고 + mock AI)으로 하고, 실공고 분석은 선택 장면과 증거로 보인다([[19-DEMO-SCENARIO|19 데모 시나리오]]). 공공 API·모델 서버 장애 때도 `fixture`·`mock`으로 전 기능 시연 가능([[16-DECISIONS|ADR-020]]). DB와 인증은 Supabase 클라우드 프로젝트(개발 환경)라 시연 중 인터넷 연결이 필요하다. 네트워크가 끊겼을 때의 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다([[16-DECISIONS|ADR-023]], 미결정 8번). Vercel 웹·AI 다중 서비스 구성은 2026-10-21 승인됐다. 현재 구성·검증 범위는 [[10-DEPLOYMENT|10 배포]]를 따른다. 상세는 [[10-DEPLOYMENT|10 배포]].
 
 ## 사용자 여정
 ```mermaid
