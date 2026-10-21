@@ -5,12 +5,23 @@ import { usePathname } from "next/navigation";
 
 // 경로를 옮기는 메뉴라서 탭(role="tablist")이 아니라 링크와 aria-current 다.
 // "팀"은 팀 조직에서만 둔다(개인 조직은 이름을 바꾸거나 지우지 않는다). 맨 끝에 두어 "멤버" 자리가 두 조직에서 같다.
-export function SettingsNav({ slug, isTeam }: { slug: string; isTeam: boolean }) {
+// "조직"(SOL RADAR 설정 조직 탭, /settings/organization)은 업무 역할 ADMIN 에게만 보이고 그보다 뒤에 둔다
+// (ADMIN 이 아닌 사람의 다른 항목 자리가 바뀌지 않게). 링크를 숨기는 것은 화면 요구이고, 그 화면이 권한을 다시 본다.
+export function SettingsNav({
+  slug,
+  isTeam,
+  showOrganization = false,
+}: {
+  slug: string;
+  isTeam: boolean;
+  showOrganization?: boolean;
+}) {
   const pathname = usePathname();
   const items = [
     { href: `/${slug}/settings`, label: "계정" },
     { href: `/${slug}/settings/members`, label: "멤버" },
     ...(isTeam ? [{ href: `/${slug}/settings/team`, label: "팀" }] : []),
+    ...(showOrganization ? [{ href: "/settings/organization", label: "조직" }] : []),
   ];
 
   return (

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getMembersPage } from "@/server/organization";
 import { requireWorkspace } from "@/app/(app)/[slug]/workspace";
 import { SettingsNav } from "@/app/(app)/[slug]/settings/settings-nav";
+import { canSeeOrganizationTab } from "@/app/(app)/[slug]/settings/show-organization";
 import { InvitationTable } from "./invitation-table";
 import { InviteForm } from "./invite-form";
 import { LeaveTeam } from "./leave-team";
@@ -25,7 +26,10 @@ export default async function MembersPage({ params }: PageProps<"/[slug]/setting
     `/${(await params).slug}/settings/members`,
   );
   const { current, userId } = workspace;
-  const page = await getMembersPage({ org: current, userId });
+  const [page, showOrganization] = await Promise.all([
+    getMembersPage({ org: current, userId }),
+    canSeeOrganizationTab(current.id),
+  ]);
 
   const description =
     page.status === "personal"
@@ -38,7 +42,11 @@ export default async function MembersPage({ params }: PageProps<"/[slug]/setting
     <AppPage title="설정" description={description}>
       {/* AppPage 의 간격이 사이에 끼지 않게 하위 메뉴와 카드를 한 묶음으로 둔다. */}
       <div>
-        <SettingsNav slug={current.slug} isTeam={!current.isPersonal} />
+        <SettingsNav
+          slug={current.slug}
+          isTeam={!current.isPersonal}
+          showOrganization={showOrganization}
+        />
         <div className="flex flex-col gap-6 pt-6">
           {page.status === "personal" ? (
             <PersonalNotice />

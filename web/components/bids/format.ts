@@ -69,6 +69,13 @@ export function formatKst(iso: string): string {
   return `${f.year}-${f.month}-${f.day} ${f.hour}:${f.minute}`;
 }
 
+// 날짜만 `2026-10-19`(서울 날짜). 합류일·초대 만료일(설정 조직 탭).
+export function formatKstDate(iso: string): string {
+  const f = kstFields(new Date(iso));
+  if (!f) return EMPTY;
+  return `${f.year}-${f.month}-${f.day}`;
+}
+
 const kstShort = new Intl.DateTimeFormat("ko-KR", {
   timeZone: TIME_ZONE,
   month: "numeric",

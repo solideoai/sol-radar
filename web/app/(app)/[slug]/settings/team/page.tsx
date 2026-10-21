@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
 import { requireWorkspace } from "@/app/(app)/[slug]/workspace";
 import { SettingsNav } from "@/app/(app)/[slug]/settings/settings-nav";
+import { canSeeOrganizationTab } from "@/app/(app)/[slug]/settings/show-organization";
 import { SettingsSection } from "@/app/(app)/[slug]/settings/settings-section";
 import { DeleteTeam } from "./delete-team";
 import { RenameTeamForm } from "./rename-team-form";
@@ -20,6 +21,7 @@ export default async function TeamSettingsPage({ params }: PageProps<"/[slug]/se
   );
   if (current.isPersonal) notFound();
   const isOwner = current.myRole === "owner";
+  const showOrganization = await canSeeOrganizationTab(current.id);
   // 지운 뒤에는 공통 진입점에서 남은 업무 조직 또는 조직 상태 화면으로 보낸다.
   const homeHref = "/dashboard";
   // 띄어쓰기 없는 긴 이름(40자)도 좁은 폭에서 줄을 바꾼다(본문은 break-keep 이라 그대로면 가로로 넘친다).
@@ -38,7 +40,7 @@ export default async function TeamSettingsPage({ params }: PageProps<"/[slug]/se
     >
       {/* AppPage 의 간격이 사이에 끼지 않게 하위 메뉴와 구역을 한 묶음으로 둔다. */}
       <div>
-        <SettingsNav slug={current.slug} isTeam />
+        <SettingsNav slug={current.slug} isTeam showOrganization={showOrganization} />
         <div className="@container">
           <div className="divide-y divide-border">
             {isOwner ? (

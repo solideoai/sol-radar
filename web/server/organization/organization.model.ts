@@ -148,7 +148,8 @@ export function parseNewTeam(
 const roleSchema = z.enum(["owner", "member"], "역할을 고르세요");
 
 // 초대 비교가 대소문자를 가리지 않도록 소문자로 맞춘다.
-const emailSchema = z
+// 설정 조직 탭(org-settings.model)의 업무 역할 초대도 같은 규칙을 쓴다.
+export const emailSchema = z
   .string("이메일은 글자여야 합니다")
   .trim()
   .toLowerCase()

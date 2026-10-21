@@ -43,3 +43,22 @@ export type {
 } from "./organization.model";
 export { getMyBusinessAccess } from "./business-access.service";
 export type { MyBusinessAccess, SolRole } from "./business-access.model";
+// N2 설정 조직 탭(/settings/organization) — 업무 역할(sol_role) 구성원·초대·감사.
+export {
+  cancelOrgInvitation,
+  changeMySolRole,
+  changeOrgMemberSolRole,
+  getOrgSettingsPage,
+  inviteOrgMember,
+} from "./org-settings.service";
+export type {
+  OrgAuditPerson,
+  OrgAuditView,
+  OrgInvitationCancelResult,
+  OrgInvitationMailStatus,
+  OrgInvitationView,
+  OrgInviteResult,
+  OrgMemberView,
+  OrgRoleChangeResult,
+  OrgSettingsPage,
+} from "./org-settings.model";
