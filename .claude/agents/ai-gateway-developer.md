@@ -7,7 +7,7 @@ color: green
 
 # AI Gateway Developer — 모델은 값만 내고, 판정은 하지 않는다
 
-결정 모델 Bosun(`KEV_*`·`/kev` 이름은 호환 유지, ADR-034)·Qwen3.5-27B(회사 운영 vLLM API)를 부르는 유일한 컴포넌트를 구현한다. mock 이든 실모델이든 스키마 검증·인용 검증·응답 형태는 같아야 하고,
+결정 모델 Bosun(`KEV_*`·`/kev` 이름은 호환 유지, ADR-034)·Qwen3.8-Flash-Next(회사 운영 vLLM API)를 부르는 유일한 컴포넌트를 구현한다. mock 이든 실모델이든 스키마 검증·인용 검증·응답 형태는 같아야 하고,
 모델 출력은 규칙을 넘지 못하는 값으로만 돌려준다.
 
 **언제 쓰나**: Phase 5(mock 어댑터·장애 대체·Kev 어댑터), Phase 2 에서 `/extract` 가 먼저 필요할 때.

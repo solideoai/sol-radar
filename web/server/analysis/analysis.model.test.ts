@@ -13,6 +13,7 @@ import {
   collectEvidence,
   extraReviewFlags,
   readCachedExtraction,
+  fillMissingEvidenceFetchedAt,
   readExtractResult,
   toExplainRequest,
   toExtractRequest,
@@ -332,10 +333,100 @@ describe("readCachedExtraction · 캐시 행 → 쓸 수 있는 추출(못 쓰�
 
 // ── /extract 결과 ──
 
+/** 근거 fetchedAt 을 채울 revision 수집 시각. fixture 근거의 값과 다르게 두어, 채운 것과 원래 것을 구분한다. */
+const REVISION = { fetchedAt: "2026-10-20T01:23:45Z" };
+
+/** 모든 근거에서 fetchedAt 을 지운 payload(실모델이 fetchedAt 을 내지 않는 경우). 지운 개수도 돌려준다. */
+function withoutEvidenceFetchedAt(payload: RequirementExtraction): {
+  payload: unknown;
+  removed: number;
+} {
+  let removed = 0;
+  const copy = structuredClone(payload) as unknown as Record<string, unknown>;
+  for (const field of Object.values(copy)) {
+    if (typeof field !== "object" || field === null || !("evidence" in field)) continue;
+    for (const ref of (field as { evidence: Record<string, unknown>[] }).evidence) {
+      delete ref.fetchedAt;
+      removed += 1;
+    }
+  }
+  return { payload: copy, removed };
+}
+
+function evidenceFetchedAts(extraction: RequirementExtraction): string[] {
+  return Object.values(extraction as unknown as Record<string, unknown>).flatMap((field) =>
+    typeof field === "object" && field !== null && "evidence" in field
+      ? (field as { evidence: { fetchedAt: string }[] }).evidence.map((ref) => ref.fetchedAt)
+      : [],
+  );
+}
+
+describe("fillMissingEvidenceFetchedAt · 근거의 빈 fetchedAt 을 revision 수집 시각으로 채운다", () => {
+  it("fetchedAt 이 없는 근거만 채우고, 모델이 낸 값은 그대로 둔다", () => {
+    const original = loadExtraction("FX-01");
+    const { payload, removed } = withoutEvidenceFetchedAt(original);
+    expect(removed).toBeGreaterThan(0);
+    const partly = structuredClone(payload) as Record<
+      string,
+      { evidence: Record<string, unknown>[] }
+    >;
+    partly.summary.evidence[0].fetchedAt = "2026-01-02T03:04:05Z";
+    const filled = fillMissingEvidenceFetchedAt(partly, REVISION) as typeof partly;
+    expect(filled.summary.evidence[0].fetchedAt).toBe("2026-01-02T03:04:05Z");
+    const rest = evidenceFetchedAts(filled as unknown as RequirementExtraction).filter(
+      (at) => at !== "2026-01-02T03:04:05Z",
+    );
+    expect(rest).toHaveLength(removed - 1);
+    expect(new Set(rest)).toEqual(new Set([REVISION.fetchedAt]));
+  });
+
+  it("다른 키·근거 밖 모양은 손대지 않고 입력도 바꾸지 않는다", () => {
+    const { payload } = withoutEvidenceFetchedAt(loadExtraction("FX-01"));
+    const before = structuredClone(payload);
+    const filled = fillMissingEvidenceFetchedAt(payload, REVISION) as Record<string, unknown>;
+    expect(payload).toEqual(before);
+    expect(filled.schemaVersion).toBe("requirement-extraction/v0.1");
+    expect(filled.model).toEqual((payload as Record<string, unknown>).model);
+    expect(filled.warnings).toEqual((payload as Record<string, unknown>).warnings);
+    // 객체가 아닌 payload·근거 원소는 그대로 돌려준다(스키마 검증이 뒤에서 거른다)
+    expect(fillMissingEvidenceFetchedAt(null, REVISION)).toBeNull();
+    expect(fillMissingEvidenceFetchedAt("x", REVISION)).toBe("x");
+    expect(fillMissingEvidenceFetchedAt({ summary: { evidence: [1, "a"] } }, REVISION)).toEqual({
+      summary: { evidence: [1, "a"] },
+    });
+  });
+});
+
 describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 PARTIAL 사유", () => {
+  it("근거에 fetchedAt 이 없는 payload(실모델 출력)도 거부하지 않고 revision 수집 시각으로 채워 EXTRACTED 다", () => {
+    const original = loadExtraction("FX-01");
+    const { payload, removed } = withoutEvidenceFetchedAt(original);
+    expect(removed).toBeGreaterThan(0);
+    const reading = readExtractResult(
+      okResult(extractBody(payload as RequirementExtraction)),
+      REVISION,
+    );
+    expect(reading.kind).toBe("EXTRACTED");
+    if (reading.kind !== "EXTRACTED") return;
+    const ats = evidenceFetchedAts(reading.extraction);
+    expect(ats).toHaveLength(removed);
+    expect(new Set(ats)).toEqual(new Set([REVISION.fetchedAt]));
+    // fetchedAt 말고는 원래 추출과 같다(저장되는 payload 가 채운 값이다)
+    expect(withoutEvidenceFetchedAt(reading.extraction).payload).toEqual(payload);
+  });
+
+  it("모델이 낸 fetchedAt 은 revision 값으로 덮어쓰지 않는다", () => {
+    const original = loadExtraction("FX-01");
+    const reading = readExtractResult(okResult(extractBody(original)), REVISION);
+    expect(reading.kind).toBe("EXTRACTED");
+    if (reading.kind !== "EXTRACTED") return;
+    expect(evidenceFetchedAts(reading.extraction)).toEqual(evidenceFetchedAts(original));
+    expect(evidenceFetchedAts(reading.extraction)).not.toContain(REVISION.fetchedAt);
+  });
+
   it("200 COMPLETED·유효 payload → EXTRACTED 이고 추출과 응답 본문을 돌려준다", () => {
     const body = extractBody(loadExtraction("FX-01"));
-    expect(coreOf(readExtractResult(okResult(body)))).toEqual({
+    expect(coreOf(readExtractResult(okResult(body), REVISION))).toEqual({
       kind: "EXTRACTED",
       extraction: loadExtraction("FX-01"),
       response: body,
@@ -344,14 +435,14 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
 
   it("200 PENDING_REVIEW·유효 payload → EXTRACTED 다", () => {
     const body = extractBody(loadExtraction("FX-01"), { status: "PENDING_REVIEW" });
-    expect(readExtractResult(okResult(body))).toMatchObject({ kind: "EXTRACTED" });
+    expect(readExtractResult(okResult(body), REVISION)).toMatchObject({ kind: "EXTRACTED" });
   });
 
   it("200 COMPLETED 인데 payload 가 스키마 위반이면 EXTRACTION_FAILED 이고 response 는 null(저장하지 않는다)", () => {
     const payload = withPatch(loadExtraction("FX-01"), (draft) => {
       draft.budgetKrw.value = "12억원";
     });
-    expect(coreOf(readExtractResult(okResult(extractBody(payload))))).toEqual({
+    expect(coreOf(readExtractResult(okResult(extractBody(payload)), REVISION))).toEqual({
       kind: "UNAVAILABLE",
       reason: "EXTRACTION_FAILED",
       response: null,
@@ -360,7 +451,7 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
 
   it("200 FAILED·QWEN_UNAVAILABLE → QWEN_UNAVAILABLE 이고 response 는 그 본문(FAILED 행 저장용)", () => {
     const body = extractFailedBody("QWEN_UNAVAILABLE");
-    expect(coreOf(readExtractResult(okResult(body)))).toEqual({
+    expect(coreOf(readExtractResult(okResult(body), REVISION))).toEqual({
       kind: "UNAVAILABLE",
       reason: "QWEN_UNAVAILABLE",
       response: body,
@@ -369,7 +460,7 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
 
   it("200 FAILED·errorCode null → EXTRACTION_FAILED 이고 response 는 그 본문", () => {
     const body = extractFailedBody(null);
-    expect(coreOf(readExtractResult(okResult(body)))).toEqual({
+    expect(coreOf(readExtractResult(okResult(body), REVISION))).toEqual({
       kind: "UNAVAILABLE",
       reason: "EXTRACTION_FAILED",
       response: body,
@@ -377,7 +468,9 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
   });
 
   it("200 FAILED·EXTRACTION_FAILED → EXTRACTION_FAILED 다", () => {
-    expect(readExtractResult(okResult(extractFailedBody("EXTRACTION_FAILED")))).toMatchObject({
+    expect(
+      readExtractResult(okResult(extractFailedBody("EXTRACTION_FAILED")), REVISION),
+    ).toMatchObject({
       kind: "UNAVAILABLE",
       reason: "EXTRACTION_FAILED",
     });
@@ -386,7 +479,7 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
   it.each(transportFailures)(
     "전송 실패(%s) → AI_UNAVAILABLE 이고 response 는 null 이다",
     (_name, failure) => {
-      expect(coreOf(readExtractResult(failedResult<ExtractResponse>(failure)))).toEqual({
+      expect(coreOf(readExtractResult(failedResult<ExtractResponse>(failure), REVISION))).toEqual({
         kind: "UNAVAILABLE",
         reason: "AI_UNAVAILABLE",
         response: null,
@@ -398,7 +491,7 @@ describe("readExtractResult · /extract 결과 → 쓸 수 있는 추출 또는 
   it.each(answeredFailures)(
     "응답했지만 쓸 수 없음(%s) → EXTRACTION_FAILED 이고 response 는 null(저장하지 않는다)",
     (_name, failure) => {
-      expect(coreOf(readExtractResult(failedResult<ExtractResponse>(failure)))).toEqual({
+      expect(coreOf(readExtractResult(failedResult<ExtractResponse>(failure), REVISION))).toEqual({
         kind: "UNAVAILABLE",
         reason: "EXTRACTION_FAILED",
         response: null,

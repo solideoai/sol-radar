@@ -260,7 +260,7 @@ export const qualificationSection = (page: Page) =>
   page.locator("section", { has: page.getByRole("heading", { level: 2, name: /^필수자격/ }) });
 export const kevSection = (page: Page) =>
   page.locator("section", {
-    has: page.getByRole("heading", { level: 2, name: "Kev 참고 지표", exact: true }),
+    has: page.getByRole("heading", { level: 2, name: "결정 모델 참고 지표", exact: true }),
   });
 
 /** 표에서 공고 id 로 행 하나를 찾는다(상세 링크는 ?list= 가 붙을 수 있다). */

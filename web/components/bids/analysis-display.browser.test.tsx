@@ -11,7 +11,14 @@ import { ScoreFactors } from "@/components/bids/score-factors";
 import { ScoreGauge } from "@/components/bids/score-gauge";
 import { StageTimeline } from "@/components/bids/stage-timeline";
 import { StatusBadge } from "@/components/bids/status-badge";
-import { FX01_PARTIAL_VIEW, FX01_VIEW, FX02_VIEW, FX03_VIEW } from "@/components/bids/test-data";
+import {
+  BOSUN_MODEL_ID,
+  FX01_LIVE_VIEW,
+  FX01_PARTIAL_VIEW,
+  FX01_VIEW,
+  FX02_VIEW,
+  FX03_VIEW,
+} from "@/components/bids/test-data";
 import type { AnalysisView, KevView, RequirementAssessmentView } from "@/server/bids";
 
 // 분석 표시 부품을 진짜 브라우저로 잰다. 컨테이너 폭은 상세 주 영역(1280 = 616px)과 776px(1440)이다.
@@ -305,20 +312,25 @@ describe("KevOpinion", () => {
     for (const t of ["71%", "24%", "5%", "규칙 권고와 같음", "적합도 의견 4/5"]) {
       expect(text(host)).toContain(t);
     }
-    expect(text(host)).toContain("Kev 참고 지표");
+    expect(text(host)).toContain("결정 모델 참고 지표");
     expect(text(host)).toContain("모델 참고 지표 (점수 미반영)");
     expect(text(host)).toContain("모델 선택지 신뢰 분포 (충족·수주 확률 아님)");
-    expect(text(host)).toContain("Kev 선택지: BID");
+    expect(text(host)).toContain("결정 모델 선택지: BID");
     expect(text(host)).toContain(
-      "이 의견은 Kev 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.",
+      "이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.",
     );
     expect(text(host)).toContain(
       "충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.",
     );
+    // mock 응답은 실제 모델처럼 보이면 안 된다(ADR-034 15번). 모델명 자리에 "Mock 응답(데모 데이터)".
     expect(text(host)).toContain(
-      "최종 결정은 담당자가 기록합니다. 모델: kev-mock · 질문 세트: kev-qs/v0.1 · 공급자: mock",
+      "최종 결정은 담당자가 기록합니다. Mock 응답(데모 데이터) · 질문 세트: kev-qs/v0.1 · 공급자: mock",
     );
+    expect(text(host)).not.toContain("kev-mock");
+    expect(text(host)).not.toContain("모델: ");
     expect(text(host)).toContain(FX01_VIEW.kev.disclaimer);
+    // KEV_DISCLAIMER literal 을 뺀 화면 글자에는 "Kev" 가 없다(ADR-034 5번 모델 중립 문구).
+    expect(text(host).replace(FX01_VIEW.kev.disclaimer, "")).not.toMatch(/Kev/);
     const meters = host.querySelectorAll('[role="meter"]');
     expect(meters).toHaveLength(3);
     expect(meters[0]?.getAttribute("aria-valuetext")).toBe("BID 선택지 71%");
@@ -327,11 +339,21 @@ describe("KevOpinion", () => {
     expect(text(host)).toContain("기준 0.70 이상");
   });
 
+  it("실모델(local) 응답은 받은 식별자를 그대로 보이고 Mock 문구를 쓰지 않는다", () => {
+    const host = render(kevOpinion(FX01_LIVE_VIEW));
+    expect(text(host)).toContain(
+      `최종 결정은 담당자가 기록합니다. 모델: ${BOSUN_MODEL_ID} · 질문 세트: kev-qs/v0.2 · 공급자: local`,
+    );
+    expect(text(host)).not.toContain("Mock 응답");
+    // 표시 이름 대응표를 두지 않는다(06 §7 D12). "Bosun v3.1" 같은 가공 이름이 없다.
+    expect(text(host)).not.toMatch(/Bosun v3\.1/);
+  });
+
   it("FX-03 은 규칙 우선 배지와 06 고정 문장을 보인다", () => {
     const host = render(kevOpinion(FX03_VIEW, "필수자격 미충족"));
-    expect(text(host)).toContain("규칙 우선");
+    expect(text(host)).toContain("규칙 우선(결정 모델 의견 상이)");
     expect(text(host)).toContain(
-      "Kev는 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다",
+      "결정 모델은 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다",
     );
     expect(text(host)).not.toContain("규칙 권고와 같음");
   });
@@ -339,7 +361,7 @@ describe("KevOpinion", () => {
   it("ruleReasonOf(FX03_VIEW) 로 06 고정 문장이 그대로 나온다", () => {
     const host = render(kevOpinion(FX03_VIEW, ruleReasonOf(FX03_VIEW)));
     expect(text(host)).toContain(
-      "Kev는 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다",
+      "결정 모델은 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다",
     );
   });
 
@@ -353,18 +375,18 @@ describe("KevOpinion", () => {
         errorCode={null}
       />,
     );
-    expect(text(host)).toContain("Kev 선택지: BID");
+    expect(text(host)).toContain("결정 모델 선택지: BID");
     expect(text(host)).not.toContain("규칙 권고와 같음");
   });
 
   it("PARTIAL 은 사용 불가를 보이고 고지 3줄은 없다", () => {
     const host = render(kevOpinion(FX01_PARTIAL_VIEW));
     expect(text(host)).toContain("사용 불가");
-    expect(text(host)).not.toContain("이 의견은 Kev 모델이");
+    expect(text(host)).not.toContain("이 의견은 결정 모델이");
     expect(host.querySelectorAll('[role="meter"]')).toHaveLength(0);
   });
 
-  it("KEV_UNAVAILABLE(미접속·응답 형식 오류)은 'Kev 사용 불가'와 규칙만 판정 문장을 보인다", () => {
+  it("KEV_UNAVAILABLE(미접속·응답 형식 오류)은 '사용 불가'와 규칙만 판정 문장을 보인다", () => {
     const host = render(
       <KevOpinion
         kev={FX01_PARTIAL_VIEW.kev}
@@ -378,17 +400,18 @@ describe("KevOpinion", () => {
     // 상태 줄은 "사용 불가" 하나이고, 사유는 그 아래 문장으로 둔다(e8 Ruling 11, 같은 말 되풀이 금지).
     const lines = Array.from(host.querySelectorAll("p")).map((p) => p.textContent);
     expect(lines).toContain("사용 불가");
-    expect(lines.indexOf("Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다.")).toBe(
+    expect(lines.indexOf("결정 모델 응답을 받지 못했거나 응답을 쓸 수 없습니다.")).toBe(
       lines.indexOf("사용 불가") + 1,
     );
-    expect(text(host)).not.toContain("(Kev 사용 불가)");
+    expect(text(host)).not.toContain("(결정 모델 사용 불가)");
     expect(text(host)).not.toContain("서버 미접속");
-    expect(text(host)).toContain("Kev 없이 규칙만으로 판정했습니다.");
+    expect(text(host)).toContain("결정 모델 없이 규칙만으로 판정했습니다.");
+    expect(text(host)).not.toMatch(/Kev/);
   });
 
-  it("KEV_UNAVAILABLE 플래그 배지도 'Kev 사용 불가'다", () => {
+  it("KEV_UNAVAILABLE 플래그 배지는 '결정 모델 사용 불가'다", () => {
     const host = render(<StatusBadge kind="flag" value="KEV_UNAVAILABLE" showCode />);
-    expect(text(host)).toBe("Kev 사용 불가KEV_UNAVAILABLE");
+    expect(text(host)).toBe("결정 모델 사용 불가KEV_UNAVAILABLE");
   });
 
   it("notRecorded 면 '기록 없음'을 보이고 '사용 안 함'은 없다", () => {
@@ -406,7 +429,7 @@ describe("KevOpinion", () => {
     expect(text(host)).not.toContain("사용 안 함");
   });
 
-  it("notRecorded 여도 Kev 불가 플래그가 있으면 불가 문장이 우선한다", () => {
+  it("notRecorded 여도 결정 모델 불가 플래그가 있으면 불가 문장이 우선한다", () => {
     const host = render(
       <KevOpinion
         kev={FX01_PARTIAL_VIEW.kev}
@@ -417,7 +440,7 @@ describe("KevOpinion", () => {
         notRecorded
       />,
     );
-    expect(text(host)).toContain("Kev 응답을 받지 못했거나 응답을 쓸 수 없습니다.");
+    expect(text(host)).toContain("결정 모델 응답을 받지 못했거나 응답을 쓸 수 없습니다.");
     expect(text(host)).not.toContain("기록 없음");
   });
 
@@ -504,6 +527,7 @@ describe("KevOpinion 항목별 분포", () => {
     details.querySelector("summary")!.click();
     expect(details.open).toBe(true);
     expect(details.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(details.querySelector("thead")?.textContent).toContain("결정 모델 분포");
     expect(text(details)).toContain("충족 86% · 미충족 4% · 확인 필요 10%");
     expect(text(details)).toContain("소프트웨어사업자 신고");
     expect(text(details).match(/항목 판정 상이/g)).toHaveLength(1);

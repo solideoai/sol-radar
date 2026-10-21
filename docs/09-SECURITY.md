@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -78,7 +78,7 @@ updated: 2026-10-20
 |---|---|
 |IDOR|공고(`bid_notices`, `bid_revisions`, `bid_documents`, `requirement_extractions`)는 공용(`authenticated` 읽기만). 점수·검토·프로필·인력·알림은 `org_id` + RLS로 조직별 격리, 다른 조직 자원은 `404 NOT_FOUND`. 검증은 G5(RLS 정책 시험 + Route Handler 시험 + E2E, [[11-TESTING\|11 테스트]])|
 |RLS 설정 오류|anon 키는 공개 값이라 RLS가 빠지거나 정책이 넓으면 브라우저에서 바로 데이터가 읽힌다. 표는 만들자마자 `enable row level security`, 필요한 권한·정책만 연다. 조직 격리·역할별 쓰기·공고 읽기 전용을 `scripts/database.test.mjs`(PGlite, `pnpm test:db`) 정책 시험으로 고정한다. 마이그레이션은 새 파일로만 쌓는다(append-only)|
-|service role 키 유출|`SUPABASE_SERVICE_ROLE_KEY`는 RLS를 무시한다. worker와 seed 스크립트(`pnpm demo:reset`)만 서버 전용 env로 쓰고, Next 요청 처리 경로에서는 쓰지 않는다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지에 넣지 않는다(템플릿 커밋 게이트·훅이 비밀 키를 코드·공개 변수에 넣는 일을 막는다). worker는 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다. 유출이 의심되면 Supabase 대시보드에서 키를 교체한다(절차 미검증)|
+|service role 키 유출|`SUPABASE_SERVICE_ROLE_KEY`는 RLS를 무시한다. worker와 seed 스크립트(`pnpm demo:reset`), 운영자 스크립트(`pnpm ops:close-stale-runs`, `--env-file`로 대상을 매번 정한다)만 서버 전용 env로 쓴다. 운영자 스크립트는 사람이 로컬에서 직접 돌리는 CLI로만 한정한다(2026-10-21 사용자 결정(조정 세션 sol-radar-12 경유: "결정이 필요한 것들은 다 추천안대로 진행해")). 웹 서버(Route Handler·서버 컴포넌트·Next 요청 처리 경로)와 클라이언트 번들에서는 쓰지 않는다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그·오류 메시지에 넣지 않는다(템플릿 커밋 게이트·훅이 비밀 키를 코드·공개 변수에 넣는 일을 막는다). worker는 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다. 유출이 의심되면 Supabase 대시보드에서 키를 교체한다(절차 미검증)|
 |CSRF|위 인증 절의 **CSRF** 항목과 세션 쿠키 표(SameSite=Lax)|
 |XSS|위 인증 절의 **XSS** 항목. 세션 쿠키가 HttpOnly가 아니라서 XSS는 곧 세션 탈취다|
 |SQL injection|supabase-js 질의 빌더(값은 파라미터로 전달). SQL은 마이그레이션·DB 함수에만 두고 문자열을 이어 붙여 만들지 않는다. DB 함수는 `search_path`를 고정한다(템플릿 `20261013000002_function_search_path.sql`)|
@@ -210,7 +210,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - `.env.example`류 파일에는 placeholder만 둔다. 기동 전 `pnpm check:env`가 placeholder를 감지하면 중단.
 - env 구분:
   - 공개 값: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`. anon 키는 브라우저 번들에 들어가도록 설계된 공개 키이고 권한은 RLS가 정한다.
-  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed 전용), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
+  - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed·로컬 운영자 CLI 전용. 웹 서버·클라이언트 번들 금지), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
   - redis·minio는 `demo` 프로필에서도 기본 비밀값(`minioadmin` 등)을 쓰지 않는다.
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
 - 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "Compose 서비스" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
@@ -221,10 +221,10 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 ## 실데이터와 회사 GPU 서버 (ADR-020)
 
-해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.5-27B·Bosun v3.1 0.6B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020·034]]). 이 절은 그때 지킬 경계를 정한다.
+해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.8-Flash-Next·Bosun v3.1 0.6B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020·034]]). 이 절은 그때 지킬 경계를 정한다.
 
 ### 회사 GPU 추론 엔드포인트 연결 (ADR-025)
-- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen3.5-27B는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, 결정 모델 Bosun은 우리 `sol_decision` 서버 `127.0.0.1:8009`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
+- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen3.8-Flash-Next는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, 결정 모델 Bosun은 우리 `sol_decision` 서버 `127.0.0.1:8009`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
 - 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). 회사가 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 모델 런타임을 제공하고, gateway는 거기에만 붙는다. `KEV_BASE_URL`은 엔드포인트 아래 경로(`/kev`)이고 `QWEN_BASE_URL`은 회사 vLLM API(`https://acropolissg.com/vllm/v1`. `/sol-radar/qwen`은 백업)다. 경로는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)가 나누고, 인증은 라우터가 아니라 각 런타임(vLLM `--api-key`, `sol_decision` `DECISION_API_KEY`(노트북 `KEV_API_KEY`와 같은 값))이 한다([[16-DECISIONS|ADR-025]]). 라우터는 `Authorization` 헤더를 통과시키고 로그에 `$uri`만 남겨 키·쿼리를 기록하지 않는다. `/sol-radar/healthz`는 인증 없음·비밀 없음의 접속 확인용이다. 터널 전제는 폐기했다.
 - 엔드포인트는 공개 인터넷에 있다. TLS 필수이고 인증서 검증을 끄지 않는다(`curl -k`, `verify=False` 금지). API 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 필수이고 `infra/.env`에만 둔다. 키 값은 문서·로그·커밋·스크린샷·증거에 남기지 않는다. 엔드포인트 URL은 비밀이 아니다. 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다.
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).

@@ -1,0 +1,106 @@
+{
+  "responses": {
+    "recommendation": {
+      "choice": "NO_BID",
+      "confidence": 0.4553191489361702,
+      "probabilities": {
+        "BID": 0.3680851063829787,
+        "WATCH": 0.17659574468085107,
+        "NO_BID": 0.4553191489361702
+      }
+    },
+    "mandatoryRisk": {
+      "noul": 0.4462809917355372
+    },
+    "needsHumanReview": {
+      "noul": 0.05555555555555555
+    },
+    "fit": {
+      "score": 2.193001060445387,
+      "probabilities": {
+        "0": 0.15800636267232238,
+        "1": 0.19088016967126192,
+        "2": 0.19936373276776245,
+        "3": 0.20360551431601273,
+        "4": 0.24814422057264052
+      },
+      "confidence": 0.24814422057264052,
+      "legend": {
+        "0": "Very poor",
+        "1": "Poor",
+        "2": "Moderate",
+        "3": "Good",
+        "4": "Very good"
+      }
+    },
+    "req.R1.status": {
+      "choice": "SATISFIED",
+      "confidence": 0.9299065420560748,
+      "probabilities": {
+        "SATISFIED": 0.9299065420560748,
+        "NOT_SATISFIED": 0.0514018691588785,
+        "NEEDS_REVIEW": 0.018691588785046728
+      }
+    },
+    "req.R2.status": {
+      "choice": "SATISFIED",
+      "confidence": 0.4765957446808511,
+      "probabilities": {
+        "SATISFIED": 0.4765957446808511,
+        "NOT_SATISFIED": 0.2170212765957447,
+        "NEEDS_REVIEW": 0.30638297872340425
+      }
+    },
+    "techFit": {
+      "score": 2.1524163568773234,
+      "probabilities": {
+        "0": 0.18463444857496902,
+        "1": 0.21189591078066913,
+        "2": 0.13135068153655513,
+        "3": 0.21065675340768278,
+        "4": 0.2614622057001239
+      },
+      "confidence": 0.2614622057001239,
+      "legend": {
+        "0": "Very poor",
+        "1": "Poor",
+        "2": "Moderate",
+        "3": "Good",
+        "4": "Very good"
+      }
+    },
+    "perfRelevance": {
+      "score": 2.7295850066934406,
+      "probabilities": {
+        "0": 0.022757697456492636,
+        "1": 0.09370816599732262,
+        "2": 0.31593038821954483,
+        "3": 0.26639892904953144,
+        "4": 0.30120481927710846
+      },
+      "confidence": 0.31593038821954483,
+      "legend": {
+        "0": "Very poor",
+        "1": "Poor",
+        "2": "Moderate",
+        "3": "Good",
+        "4": "Very good"
+      }
+    },
+    "risk.schedule": {
+      "noul": 0.345679012345679
+    },
+    "risk.staffing": {
+      "noul": 0.26288659793814434
+    },
+    "risk.scale": {
+      "noul": 0.5301837270341208
+    },
+    "risk.techGap": {
+      "noul": 0.12980769230769232
+    },
+    "risk.scopeAmbiguity": {
+      "noul": 0.8439306358381503
+    }
+  }
+}

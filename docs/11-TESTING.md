@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 11. 검증·테스트 전략
@@ -62,7 +62,7 @@ CI는 템플릿 방식(`verify.config.json`을 읽는 `pnpm verify`)으로 돌�
 
 ## 3. 골든 시나리오 ↔ fixture ↔ 테스트 ↔ 명령
 
-골든 G1~G10은 `SOL_RUN_MODE=mock`에서만 단언한다. `fixture` 모드는 같은 fixture를 쓰지만 실모델(Qwen3.5-27B·Bosun v3.1 0.6B) 추출·분포가 mock과 다를 수 있으므로 골든 수치(`FX-01` 94·`FX-02` 72·`FX-03` 68, 결정 모델 71/24/5·36/52/12)를 단언하지 않는다([[16-DECISIONS|ADR-020]]).
+골든 G1~G10은 `SOL_RUN_MODE=mock`에서만 단언한다. `fixture` 모드는 같은 fixture를 쓰지만 실모델(Qwen3.8-Flash-Next·Bosun v3.1 0.6B) 추출·분포가 mock과 다를 수 있으므로 골든 수치(`FX-01` 94·`FX-02` 72·`FX-03` 68, 결정 모델 71/24/5·36/52/12)를 단언하지 않는다([[16-DECISIONS|ADR-020]]).
 
 fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~6에서 만든다. 2026-10-19 기준 `web/server/ingestion`(Vitest 36개)·`web/server/scoring`(13개)·`web/server/analysis`(11개)·`web/worker`(12개)·`services/ai/tests`(pytest 21개)·`scripts/database.test.mjs`(G5 RLS 정책 겹)가 있어, G1·G3·G7·G9 전부와 G2·G4·G5·G6·G10의 서버·gateway·DB 쪽 파일은 있다. 2026-10-20 C6(main `4ae09f9`)·C7(main `841b064`) 병합으로 `web/server/notifications`(G2), `web/app/api/v1/tenant-isolation.test.ts`, `web/e2e-auth/`의 `bid-isolation`·`demo-badge`·`no-evidence` spec이 생겼다. 아래 표에서 아직 없는 파일(`web/e2e-auth/partial-analysis.spec.ts`·`cancelled-bid.spec.ts`·`admin-ingestion.spec.ts`, `web/server/dashboard/deadline-summary.test.ts`, `web/server/notifications/deadline.test.ts`)과 `EvidenceRef` 계약(G10)은 **예정**이다. 경로는 저장소 루트 기준이고, Vitest 서버 시험은 템플릿 관례대로 `.test.ts`, Playwright E2E는 `.spec.ts`다. 명령 열의 `vitest <경로>`는 `pnpm -C web exec vitest run <경로>`의 줄임, `e2e:auth`는 `pnpm -C web test:e2e:auth`의 줄임이다. 증거 열은 §6의 저장 위치.
 
@@ -108,6 +108,8 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 | `FX-19` | 제목 유사도만 → 후보 표시, 병합 없음 | `web/server/ingestion/stage-link.test.ts` |
 | `FX-01`~`FX-03` | [[08-SCORING\|08 SOL Score]] §6 worked example 수치 일치 | `web/server/scoring/worked-examples.golden.test.ts` |
 | 전체 | 재현성: 같은 `input_snapshot_hash` + `algorithm_version` → 같은 `score`·같은 요소별 `points`(두 번 계산 byte-동일) | `web/server/scoring/reproducibility.test.ts` |
+| `FX-01`~`FX-03` | 가정 재계산([[16-DECISIONS\|ADR-037]], main `d48c7a2`): 정보통신공사업 등록 보유 가정 → 권고 `NO_BID` → `WATCH`, SOL Score 68 → 68, 자격 종합 `SATISFIED`. 가정 0개면 원래와 같다(`FX-01`·`FX-02`·`FX-03`), 가정 가능 목록은 `FX-03` `[ICT_CONSTRUCTION]`·`FX-01` 빈 배열, 이미 충족·사전 밖 코드 거절, 저장된 `kev`가 있어도 결과 같음, 입력 스냅샷 불변, 스키마 위반 스냅샷 → `null` | `web/server/scoring/what-if.test.ts` |
+| `FX-03` | 가정 재계산 API: 비로그인 401, CSRF 헤더 없음 403 `CSRF_REJECTED`, UUID 아닌 id 404(저장소 안 부름), 다른 조직 run 404, 본문 오류 400, `QUEUED`·`RUNNING` 409 `ANALYSIS_IN_PROGRESS`, `FAILED`·스냅샷 위반 404 `NO_SNAPSHOT`, 가정 불가 400 `rejected`, 200 `assumable`·`before`·`after`, 어떤 경우에도 저장소 쓰기 메서드 호출 0 | `web/server/bids/what-if.service.test.ts`, `web/app/api/v1/what-if-contract.test.ts` |
 
 ### 3.2 실데이터·실행 모드 시험 (ADR-020)
 
@@ -116,7 +118,7 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 | ID | 자동 검증할 조건 | 테스트 파일 | 명령 | P0 |
 |---|---|---|---|---|
 | V2-01 | **실행 모드 모순 기동 거부.** `SOL_RUN_MODE`와 직접 준 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`가 모순되면 `pnpm check:env`와 gateway가 기동을 거부하고 모순된 키 이름을 알린다. 예: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`. 값을 조용히 바꾸지 않는다. 미지정이면 `mock`. 정상 세 모드 조합은 통과. `pnpm check:env`는 `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 시험과 수동 확인은 파일(또는 `--root`로 가리킨 임시 트리)에 모순 값을 적어 한다 | `scripts/check-env.test.mjs`, `services/ai/tests/test_run_mode.py` (둘 다 Phase 0에서 작성됨) | `node --test scripts/check-env.test.mjs`, `pytest` | P0-1 |
-| V2-02 | **출처·모드 기록과 표시.** 분석마다 `score_runs.run_mode`(`LIVE`·`FIXTURE`·`MOCK`)·`ai_provider`·`qwen_model`·`kev_model`·`question_set_version`, 추출마다 `provider`·`model_name`, 수집마다 `ingest_runs.run_mode`·`source`가 저장된다. 화면: 머리말 "실행 모드", 분석 요약 띠 "분석 실행 모드: live\|fixture\|mock"과 "AI: mock" 또는 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자 그대로, [[16-DECISIONS\|ADR-029]] A6 D12), `is_demo` 공고의 `DEMO` 배지, 공고 목록 `origin=live\|demo\|all` 필터, 모든 모드의 "가상 회사 프로필로 분석" 배지 | `web/server/analysis/analysis-store.model.test.ts`, `web/server/bids/origin-filter.test.ts`, `web/e2e-auth/run-mode-badge.spec.ts` | `vitest server/analysis`, `vitest server/bids`, `e2e:auth` | P0-1, P0-7 |
+| V2-02 | **출처·모드 기록과 표시.** 분석마다 `score_runs.run_mode`(`LIVE`·`FIXTURE`·`MOCK`)·`ai_provider`·`qwen_model`·`kev_model`·`question_set_version`, 추출마다 `provider`·`model_name`, 수집마다 `ingest_runs.run_mode`·`source`가 저장된다. 화면: 머리말 "실행 모드", 분석 요약 띠 "분석 실행 모드: live\|fixture\|mock"과 "AI: mock" 또는 "AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자 그대로, [[16-DECISIONS\|ADR-029]] A6 D12), `is_demo` 공고의 `DEMO` 배지, 공고 목록 `origin=live\|demo\|all` 필터, 모든 모드의 "가상 회사 프로필로 분석" 배지 | `web/server/analysis/analysis-store.model.test.ts`, `web/server/bids/origin-filter.test.ts`, `web/e2e-auth/run-mode-badge.spec.ts` | `vitest server/analysis`, `vitest server/bids`, `e2e:auth` | P0-1, P0-7 |
 | V2-03 | **실패 유형 4종 구분.** 공공 API 실패(HTTP 오류·`resultCode` 비정상·에러코드 22·timeout) → `ingest_runs.status`·`ingest_errors`, 기존 공고 유지. 첨부 다운로드 불가(인증 요구·4xx·5xx·allowlist 밖 리다이렉트·크기 초과) → `download_status=FAILED` + 사유, 본문만 추출, `DOCUMENT_DOWNLOAD_FAILED`. 파싱 실패·부분 파싱 → `parse_status`·`parse_error_code`, `PARSE_UNSUPPORTED`. 모델 서버 미접속 → `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록(Qwen 불가: 캐시된 추출, 없으면 `UNKNOWN` → `PARTIAL` / 결정 모델 불가: `RULES_ONLY`). 한 유형을 다른 유형의 코드로 기록하면 실패. gateway 미접속은 G6 | `web/server/ingestion/official-api-errors.test.ts`, `web/server/ingestion/attachment-fetcher.test.ts`, `web/server/analysis/fallback.model.test.ts`, `web/server/analysis/analysis.service.test.ts`, `services/ai/tests/test_model_unavailable.py` | `vitest server/ingestion`, `vitest server/analysis`, `pytest` | P0-2~P0-4, P0-6 |
 | V2-04 | **파싱 실패 내용을 AI가 추측하지 않는다.** 첨부가 `FAILED`·`UNSUPPORTED`인 공고에서 Qwen 입력에는 파싱된 텍스트만 들어가고 "첨부가 있었다"로 내용을 추정하게 하는 지시가 없다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`. 결정 모델 state에는 "RFP attachment could not be read; requirements may be incomplete" 한 줄만 들어가고, 읽지 못한 문서로 만든 결정 모델 질문은 0개. `/explain` 문장에 파싱 실패가 밝혀진다 | `services/ai/tests/test_extraction_schema.py`(`ATTACHMENT_PARSE_FAILED:*` → `PENDING_REVIEW`. 결정 모델 state 한 줄·`/explain` 문장 시험은 예정), `web/server/analysis/parse-failure.test.ts`(예정) | `pytest`, `vitest server/analysis` | P0-3, P0-4 |
 | V2-05 | **정보 부족 ≠ 미충족.** 공고 쪽 `UNKNOWN`·`CONFLICTED` → `NEEDS_REVIEW` + `NOTICE_INFO_MISSING`·`NOTICE_CONFLICTED`. 회사 기록·증빙 없음 또는 `complete=false` → `NEEDS_REVIEW` + `COMPANY_EVIDENCE_MISSING`. 모든 `NOT_SATISFIED`에 공고 근거 1건 이상과 회사 쪽 명시적 부정 근거(`NOT_HELD`, 요구치 미만 수치, `complete=true` 목록에 없음) 1건 이상. API 구조화 필드가 추출보다 우선이고 두 값이 다르면 `CONFLICTED`. 면허제한이 여러 행이면 `AMBIGUOUS_MATCH` | `web/server/scoring/requirement-status.test.ts`, `web/server/scoring/structured-field-priority.test.ts` | `vitest server/scoring` | P0-5 |
@@ -143,7 +145,7 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 |---|---|---|
 | ① | data.go.kr 오퍼레이션별 실제 응답 3건 저장, 필드 매핑 확인 | 오퍼레이션·`resultCode`·확인한 필드. 저장한 응답은 담당자 이름·전화·이메일을 마스킹한 뒤 `RecordedApiConnector` 계약 시험에 쓴다(그 전의 시험 자료는 "문서 예시"라고 표시) |
 | ② | 공고 3건의 첨부 실제 다운로드 | 로그인·세션 필요 여부, HTTP 상태, 받은 형식. 막히면 본문·API 필드만으로 진행하고 `DOCUMENT_DOWNLOAD_FAILED` 표시([[16-DECISIONS\|16 ADR]] 미결정 16) |
-| ③ | 회사 운영 vLLM API(`https://acropolissg.com/vllm/v1`, Qwen3.5-27B. `/sol-radar/qwen` 경로는 백업)와 회사 GPU 추론 엔드포인트(`https://acropolissg.com/sol-radar`)의 `sol_decision` 서버(Bosun v3.1 0.6B, `127.0.0.1:8009`). 단계 G1~G6와 선행 조건 P2·P3는 [[16-DECISIONS\|ADR-025]] 상세 7번이 정본이다 | G1~G6 결과. `/v1/models` 응답·레지스트리 대조, 지연 p50·p95, guided JSON 결과. GPU 모델·VRAM·실측 추론 메모리는 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"(Kev-9B 당시 기록: 문서 값 17 GB와 21.9 GB가 다르다. Bosun 메모리는 F1 실측 전 추정, [계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §8). 미결정 3·17(회사 엔드포인트 경로·인증·응답 미검증) |
+| ③ | 회사 운영 vLLM API(`https://acropolissg.com/vllm/v1`, Qwen3.8-Flash-Next. `/sol-radar/qwen` 경로는 백업)와 회사 GPU 추론 엔드포인트(`https://acropolissg.com/sol-radar`)의 `sol_decision` 서버(Bosun v3.1 0.6B, `127.0.0.1:8009`). 단계 G1~G6와 선행 조건 P2·P3는 [[16-DECISIONS\|ADR-025]] 상세 7번이 정본이다 | G1~G6 결과. `/v1/models` 응답·레지스트리 대조, 지연 p50·p95, guided JSON 결과. GPU 모델·VRAM·실측 추론 메모리는 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"(Kev-9B 당시 기록: 문서 값 17 GB와 21.9 GB가 다르다. Bosun 메모리는 F1 실측 전 추정, [계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §8). 미결정 3·17(회사 엔드포인트 경로·인증·응답 미검증) |
 | ④ | 실제 RFP 샘플로 파서 후보 비교 시작 | 후보·라이선스·샘플별 누락 관찰(§3.2 측정 항목) |
 
 서비스키 값, 엔드포인트 인증 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 적지 않는다. 준비되기 전에는 "대기(사유)"로 적고, 나머지 개발은 인터페이스(`RecordedApiConnector`·`FixtureAttachmentFetcher`·mock `ModelClient`)로 진행한다.
@@ -153,7 +155,7 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 모델 평가는 이 문서의 골든·V2 시험과 목적이 다르다. 골든은 통과/실패를 가르는 결정적 회귀이고, 평가는 실제 공고에서 모델이 얼마나 맞히는지를 재는 측정이다. 지표 정의·비교 대상·오류 분석 절차·수용 기준의 정본은 [[21-MODEL-TRAINING|21]] §4·§7이고 여기에는 요약만 둔다.
 
 - 평가셋: 실제 공고 × 가상 기업 원형 6개, test 20·dev 10 사업(사업 단위 분할), 사람 검수는 추출 정답 20건과 의미 대응 라벨 150건 이상.
-- 비교: E0(규칙만)·E1'(공개 Bosun v3.1 0.6B zero-shot, 영어 state)·E2(같은 모델, 한국어 state)·**E3(Qwen3.5-27B logprob 분류 대조군)** 모두 필수. 해커톤에서는 축소 규모(fixture 20건 + 실공고 5건, ADR-023 X1)로 돌리고 전체 평가셋(test 20·dev 10 사업)은 X6(ADR-034)에서 만들어 E1'·E4 비교에 쓴다. 설계는 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md). 표본이 작아 신뢰구간이 넓다는 것을 리포트에 적는다.
+- 비교: E0(규칙만)·E1'(공개 Bosun v3.1 0.6B zero-shot, 영어 state)·E2(같은 모델, 한국어 state)·**E3(Qwen3.8-Flash-Next logprob 분류 대조군)** 모두 필수. 해커톤에서는 축소 규모(fixture 20건 + 실공고 5건, ADR-023 X1)로 돌리고 전체 평가셋(test 20·dev 10 사업)은 X6(ADR-034)에서 만들어 E1'·E4 비교에 쓴다. 설계는 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md). 표본이 작아 신뢰구간이 넓다는 것을 리포트에 적는다.
 - 지표 영역: 추출, 분류, 보정, 일관성, 한국어/영어 차이, 성능. 표본이 작아 모든 지표에 부트스트랩 95% 신뢰구간과 표본 수를 함께 적는다.
 - 초기 목표(Macro-F1 0.80, 정보부족→미충족 혼동률 5%, 보정 후 ECE 0.08)에 못 미쳐도 자동으로 파인튜닝하지 않는다. 오류 분석으로 원인 단계를 가른 뒤 사람이 정한다. 해커톤 X6의 Bosun LoRA는 사용자 결정으로 하는 E4 비교 실험이고(ADR-034), 운영 반영은 이 절차를 그대로 따른다.
 - 실행 위치는 노트북이고 회사 GPU 추론 엔드포인트(결정 모델은 `KEV_BASE_URL` 직접 또는 평가용 gateway, [[16-DECISIONS|ADR-025]])에 붙인다. 명령은 `uv run python -m sol_eval …`. `pnpm verify`·CI에는 넣지 않는다. 숫자 요약만 `docs/evidence/eval/`에 두고 실제 RFP 원문은 넣지 않는다.
@@ -174,6 +176,8 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 
 **ADR-023 핵심 컷과의 대응**(2026-10-19): 핵심 컷의 통과 조건은 Phase 0(C0·C1), Phase 1(C2), Phase 2 중 fixture 수집·revision·격리와 live 1건 수집·파싱(C3), Phase 3 중 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications` E2E·G8·V2-02(C6), Phase 4 전부(C4), Phase 5 중 G6·G9·V2-04·V2-07·V2-08·V2-13과 실추론 1건 증거(C5·C8), Phase 6(C7), Phase 7 중 §5 체크리스트·세 모드·대체 경로 리허설(C9), 평가 트랙 중 E0·E1'·E2·E3 축소 규모 리포트(X1)다. NAV-01~NAV-09, S5(G2 변경 감지 화면), P0-8은 확장 컷이다. 전체 평가셋·P0-11·E4는 X6([[16-DECISIONS|ADR-034]])이고 핵심 컷 통과 조건에 들어가지 않는다([[12-ROADMAP|12 로드맵]]).
 
+**ADR-037 데모 강화 컷(BOOST-2 가정 재계산)의 통과 조건**(2026-10-20): ① 단위·계약 시험(§3.1 `FX-03` 두 행). 핵심은 `FX-03` 정보통신공사업 가정 → NO-BID → WATCH, 68 → 68과 쓰기 0이다. ② 브라우저 시험: 띠가 원래·가정 권고와 점수를 그리고, 고정 문구 두 줄("가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다." / "결정 모델 의견은 가정에 포함하지 않았습니다.")이 정확히 일치하고, 띠·스위치·안내·낭독 문구에 "확률"·"승률"·"가능성"·"수주"·"%"가 없고, 스위치를 연타하면 마지막 응답만 그리고, 결정 패널 권고가 바뀌지 않는다. ③ E2E(`pnpm -C web test:e2e:work`, 격리 Supabase·격리 compose. globalSetup 이 `demo:reset` → `demo:preanalyze` 를 한다. `web/e2e-auth/what-if.write.spec.ts`): sales 로그인 → `FX-03` → "정보통신공사업 등록" 스위치 → 띠 "NO-BID → WATCH"·"68 → 68" → 결정 패널 NO-BID 유지 → 새로 고침 뒤 띠 없음 → `GET /api/v1/bids/{FX-03}/reviews` 건수가 전후 같다. 1440·1280 스크린샷. ④ `pnpm verify` 통과, 골든 94/72/68 불변. 증거는 `docs/evidence/boost2/`. 10-23 freeze까지 ①~④가 green이 아니면 데모에서 뺀다. 핵심 컷 통과 조건에는 들어가지 않는다. 2026-10-21 상태: 브랜치 `feat/boost2-what-if`에서 ①~④가 green이다. ①·②는 `c9a1a49`의 단위·계약·브라우저 시험, ③은 `c9a1a49`에서 `test:e2e:work` 전체 36개 통과(증거 `docs/evidence/boost2/20261020-boost2-what-if-e2e.md`), ④는 main `5628c35` 병합 `faa707b`에서 `pnpm verify` 통과(root 765·web 6814·빌드·AI 1369)다. 2026-10-21 병합 게이트(sol-radar-3e)를 거쳐 main에 들어갔다(코드 `d48c7a2`, 정본 `a70e9bf`). 3e가 병합 결과에서 `pnpm verify`(루트 765·web 6818·빌드)·AI 1369·`worker:check`·`test:browser` 510/510·실DB `test:e2e:work` 36·`test:e2e:auth` 125를 다시 통과시켰다(`a70e9bf` 커밋 메시지).
+
 ## 5. 데모 당일 수용 체크리스트
 
 데모 시작 전 한 번, 리허설 때 한 번 통과시킨다. 결과는 `docs/evidence/demo-day/YYYYMMDD-HHMM/checklist.md`에 ✅/❌와 스크린샷 이름으로 기록한다. 장면 번호는 [[19-DEMO-SCENARIO|19 데모 시나리오]]와 같다: `S0` 사전 준비(§3), `S1` 문제 슬라이드(조작 없음, 체크리스트 대상 아님), `S2`~`S7` 클릭 경로(§4). 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). 비밀번호는 루트 `.env.local`의 `DEMO_SEED_PASSWORD`(`pnpm demo:reset`이 읽는다, [[10-DEPLOYMENT|10 배포]])에만 두고 문서·저장소에 실제 값을 쓰지 않는다.
@@ -193,9 +197,10 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 | 7 | S2 | 목록 | `/bids`, 권고 `BID` 필터, 점수 내림차순([[16-DECISIONS\|ADR-031]] C3. 단계 NOTICE 필터는 사전규격 `FX-18`을 뺀다) | `FX-01` 최상단 94, `FX-12` 미노출, 모든 행 `DEMO` 칩, 1280px에서 가로 스크롤 없음 | — |
 | 8 | S3 | 상세 BID | `FX-01` 열기 | 자격 3건 `충족`, 점수 94, 분해 5행(24.0/25.0/20.0/15.0/10.0), 결정 모델 71/24/5 + 09 고지 문구, 분석 패널 "AI: mock"·"가상 회사 프로필로 분석" 배지, 근거 3건 → 드로어에 원문 하이라이트, 결정 패널 "마지막 결정: BID"(seed 리뷰) | 드로어 실패 시 원문 링크 새 탭 |
 | 9 | S3 | 규칙 우선 | 권고 필터를 풀고 결정 `NO-BID` 필터 → `FX-03` 열기 | 권고 `NO-BID`, 자격 1건 `미충족` + 근거 문장, 점수 68 "참고" 표시, 결정 모델 섹션 `규칙 우선` 배지와 "결정 모델은 BID를 제시했지만…" 문구, "마지막 결정: NO-BID"(seed 리뷰) | — |
+| 9a | S3 | 가정 재계산(데모 강화 컷, [[16-DECISIONS\|ADR-037]]) | 9번에 이어 `FX-03` 필수자격 "정보통신공사업 등록" 행의 "보유 가정" 스위치를 한 번 켠다 → 띠를 읽는다 → [가정 지우기] | 1초 안에 분석 요약 띠 아래 점선 "가정 시나리오" 띠: 권고 NO-BID → WATCH, SOL Score 68 → 68 "변화 없음", 필수자격 미충족 → 충족, 고정 문구 두 줄. 오른쪽 결정 패널은 NO-BID 68·"마지막 결정: NO-BID" 그대로. 띠·스위치에 확률·승률 글자 없음. 지우면 띠가 사라지고 스위치가 꺼진다. `bid_reviews` 2건 그대로 | 스위치가 없거나(미병합·`NO_SNAPSHOT`) 계산이 실패하면 9번까지만 하고 넘어간다. freeze까지 green이 아니면 "미구현"으로 적는다 |
 | 10 | S4 | 라이브 분석 | `FX-02`(미분석) → [분석 실행] | 202 → `대기 중` → `분석 중` → `완료` 10초 이내. 점수 72, WATCH, 분해 15.0/18.3/14.0/15.0/10.0, 결정 모델 36/52/12 | 60초 초과 시 새로고침, 사유 기록 |
 | 11 | S4 | 사람 결정 | `FX-02` 결정 패널에서 WATCH 유지 또는 BID 선택 + 사유 + 담당자에 발표자 자신(`sales@soltech.invalid`) 지정 → [결정 기록] | "마지막 결정: … · 담당자 · 시각", 결정 패널 상단 "사람 검토 권장"(`KEV_NEEDS_REVIEW`). `bid_reviews` +1(총 3건), 감사로그 1건. Topbar 알림 벨에 `REVIEW_ASSIGNED`가 들어 있다. 분석 요청자에게 가는 `ANALYSIS_COMPLETE`도 올 수 있어 벨은 1~2건이다([[16-DECISIONS\|ADR-029]] A6 D5). `analyst@soltech.invalid`로 보면 패널 읽기 전용 | — |
-| 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자, ADR-029 A6 D12)·"가상 회사 프로필로 분석". Topbar는 `실행 모드: mock` 그대로다. 자격 3값 + 사유 코드, 점수 분해 5행, 결정 모델 `UNCALIBRATED` + 고지 문구, 근거 서랍 실제 첨부 인용. 외부 의존성 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
+| 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자, ADR-029 A6 D12)·"가상 회사 프로필로 분석". Topbar는 `실행 모드: mock` 그대로다. 자격 3값 + 사유 코드, 점수 분해 5행, 결정 모델 `UNCALIBRATED` + 고지 문구, 근거 서랍 실제 첨부 인용. 외부 의존성 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
 | 12 | S5 (확장 컷) | 변경 수집 | `/admin/ingestion`(`admin@soltech.invalid`) → 수동 수집 `LIVE`(API `batch:"live"`). fixture의 live 배치이며 실행 모드 `live`와 다르다(`SOL_RUN_MODE=live`에서는 `409 RUN_MODE_MISMATCH`). 이어서 `FX-07` 상세에서 [재분석]을 누른다(수집은 분석을 자동으로 넣지 않는다, ADR-030 B18, [[16-DECISIONS\|ADR-031]] C15). S5가 구현되지 않았으면 이 행은 "미구현"으로 적고 건너뛴다 | 🔔 증가. `FX-07` revision 2 → 재분석 68 → 77(엔진 77.3, ADR-031 C9), 권고 WATCH → BID. `FX-06` diff 마감 +14 → +28, 알림 1건. `FX-09` 재전송으로 알림 추가 0. `FX-08` `취소됨`(목록에서는 상태 필터 "취소 포함"을 골라야 보이고, 상세는 언제나 열린다, [[16-DECISIONS\|ADR-029]] A7). summary `{changed:3, cancelled:1, skippedDuplicate:1}` | 수집 실패 시 이력 표 오류를 보여 주고 다음 장면 |
 | 13 | S6 | 장애 대체 | `docker compose -f infra/compose.yaml stop ai-gateway` → `FX-01` [재분석] `force=true` | 1~2초 안에 `부분 완료 (규칙만)`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)", `recommendationBasis: RULES_ONLY`, Topbar `AI: unavailable`, `/health/ready` `status: degraded`. 점수 94·자격 3건 그대로 | 사전 녹화 영상 |
 | 14 | S6 | 복구 | `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` → `FX-01` [재분석] | `완료`로 복귀, Topbar `AI: mock`, 결정 모델 분포 다시 표시 | — |
@@ -224,6 +229,7 @@ docs/evidence/
   phase-5/  test-ai.txt  ai-fallback.txt  e2e/partial.png
             (실추론 로그)                  # P0-4 인용 검증 통과율·실공고 1건 E2E, P0-6 결정 모델 응답·stateTrace 표본
   phase-6/  test-notifications.txt  e2e/*.png
+  boost2/   (E2E 출력·1440·1280 스크린샷)  # ADR-037 가정 재계산 통과 조건 ③ (§4)
   eval/                                    # E0·E1'·E2 리포트 숫자 요약·오류 분석 요약 (21 §4, RFP 원문 금지)
   kev-train-feasibility.md                 # LoRA 메모리 검증 결과 (22 §4.2, 회사 측 실행 뒤. Kev 당시 기록. Bosun은 bosun-train-feasibility.md, ADR-034)
   demo-day/ rehearsal-log.md               # 17: 매일 리허설 날짜·소요 시간·실패 단계·엔드포인트 재접속 확인 소요 시간
@@ -263,7 +269,7 @@ docs/evidence/
 
 `pnpm verify`(서식·타입·린트·단위)·`pnpm test:db`·E2E·pytest·smoke 모두 PASS. fixture 기반 시연 플로우(§5) 100% 통과. API 비밀 로그 유출 없음. 수집 중복 없음. 모든 스코어에 근거·`algorithm_version`·프로필 revision 존재. 사람 최종 결정이 `bid_reviews`와 감사로그에 기록. 성능 목표는 실측치를 기록하고 비현실적인 수치를 성공으로 주장하지 않는다.
 
-ADR-020 이후 해커톤 MVP는 실제 나라장터 수집과 회사 GPU 추론 엔드포인트의 실추론(Qwen3.5-27B·Bosun v3.1 0.6B, [[16-DECISIONS|ADR-025·034]])까지 포함한다. 데모 필수 P0-0~P0-11의 완료 기준은 [[12-ROADMAP|12 로드맵]] 해커톤 컷, 평가 트랙의 기준은 [[21-MODEL-TRAINING|21 모델 학습]] §7이다. 세 실행 모드 기동 리허설을 통과해야 한다. 실모델 경로는 증거(로그·리포트)가 있는 항목만 검증됨으로 적고, 없는 항목은 **미검증**으로 표시한다. hosted 경로는 사용자 승인 전에는 쓰지 않으므로 해커톤 범위에서 미검증이다. Bosun LoRA는 X6(ADR-034)이다. 우리 쪽 산출물(평가셋·학습셋 번들·학습 요청서·E4 하네스)은 완료 조건이다. 회사 측 학습 결과는 받으면 E4로 보고하고, 받지 못하면 미실행으로 적는다.
+ADR-020 이후 해커톤 MVP는 실제 나라장터 수집과 회사 GPU 추론 엔드포인트의 실추론(Qwen3.8-Flash-Next·Bosun v3.1 0.6B, [[16-DECISIONS|ADR-025·034]])까지 포함한다. 데모 필수 P0-0~P0-11의 완료 기준은 [[12-ROADMAP|12 로드맵]] 해커톤 컷, 평가 트랙의 기준은 [[21-MODEL-TRAINING|21 모델 학습]] §7이다. 세 실행 모드 기동 리허설을 통과해야 한다. 실모델 경로는 증거(로그·리포트)가 있는 항목만 검증됨으로 적고, 없는 항목은 **미검증**으로 표시한다. hosted 경로는 사용자 승인 전에는 쓰지 않으므로 해커톤 범위에서 미검증이다. Bosun LoRA는 X6(ADR-034)이다. 우리 쪽 산출물(평가셋·학습셋 번들·학습 요청서·E4 하네스)은 완료 조건이다. 회사 측 학습 결과는 받으면 E4로 보고하고, 받지 못하면 미실행으로 적는다.
 
 ## 8. 솔리데오 인력·가입 수용 기준 (ADR-019)
 
@@ -310,6 +316,7 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 | NAV-07 | 설정 조직 탭: 비ADMIN 403·RLS 거부, 업무 역할 변경 감사 기록 |
 | NAV-08 | 템플릿 설정·가입 정보 보완(PPL-05·06) 회귀 없음 |
 | NAV-09 | 메뉴 노출과 라우트 접근 분리: 미인증 요청은 출시 여부와 관계없이 기존 인증 정책(화면 로그인 안내, API `401`), 로그인 사용자의 미출시 경로(아직 구현되지 않아 경로 파일이 없는 경로) 직접 접근 404, 구현된 경로는 메뉴 노출 조건과 별개로 열린다(메뉴에 없어도 허용 역할 200, [[16-DECISIONS\|ADR-021]]·[[16-DECISIONS\|ADR-035]] F5), 권한 없는 역할 403, 메뉴에 없는 구현 경로도 서버 권한 검사 적용, 메뉴 정의의 출시 표시만으로 메뉴가 바뀜 |
+| NAV-10 | 사이드바 트리([[06-UI-UX\|06]] §4.1): 묶음 5개 순서, 출시 메뉴는 링크·준비 중 메뉴는 링크 없음(초점 없음), 데이터 수집 관리는 ADMIN만, 활성 메뉴 `aria-current`·3px brand 막대, 묶음 접기 `aria-expanded`·`localStorage`(저장 실패해도 정상)·지금 화면의 묶음은 들어올 때 펼침, 64px 아이콘 줄(툴팁·`aria-label`·묶음 줄 없음), 조직도 고정 칸. **구현됨**: `web/components/app-shell.browser.test.tsx` "sidebar tree (NAV-10)" 11건(main `9e6d8e2`) |
 
 P1([[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단, 데모 필수가 모두 끝난 뒤):
 

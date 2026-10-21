@@ -25,9 +25,15 @@ from support import (
     load_json,
 )
 
+from sol_ai.adapters.http import Endpoint
 from sol_ai.citation import norm
+from sol_ai.settings import normalize_qwen_base_url
 
 COMPLETIONS = "/v1/chat/completions"
+MODELS = "/v1/models"
+# 회사 운영 vLLM API 안내 주소(ADR-034 4번). 끝의 /v1 유무·끝 슬래시와 무관하게 같은 경로로 가야 한다
+COMPANY_VLLM = "https://acropolissg.com/vllm"
+COMPANY_VLLM_SPELLINGS = (COMPANY_VLLM + "/v1", COMPANY_VLLM + "/v1/", COMPANY_VLLM)
 PLACEHOLDER = "{{REQUIREMENT_EXTRACTION_SCHEMA_JSON}}"
 RETRY_NOTE = "\n\n이전 출력은 스키마를 위반했다: "
 UTC_Z = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
@@ -418,8 +424,10 @@ def test_qwen_connection_failure_is_unavailable(make_client, local_models, monke
 
 @pytest.mark.parametrize("status", [400, 422])
 def test_qwen_bad_request_is_extraction_failed(make_client, local_models, status):
+    # 가짜 서버는 답이 하나면 되풀이한다: guided 요청과 대체 요청이 둘 다 거부된 경우다
     result = run_extract(make_client, local_models, Reply(status, {"error": "bad request"}))
     assert (result["status"], result["errorCode"]) == ("FAILED", "EXTRACTION_FAILED")
+    assert len(sent(local_models)) == 2
 
 
 @pytest.mark.parametrize(
@@ -440,3 +448,139 @@ def test_qwen_redirect_is_not_followed(make_client, local_models):
         "QWEN_UNAVAILABLE",
         [],
     )
+
+
+# ---------------------------------------------------------------- QWEN_BASE_URL 정규화(ADR-034 4번, B1)
+
+
+@pytest.mark.parametrize("url", COMPANY_VLLM_SPELLINGS)
+def test_company_vllm_url_spellings_normalize_to_one_base(url):
+    # 순수 함수. 네트워크를 쓰지 않는다
+    assert normalize_qwen_base_url(url) == COMPANY_VLLM
+
+
+@pytest.mark.parametrize("url", COMPANY_VLLM_SPELLINGS)
+def test_company_vllm_url_spellings_reach_v1_models_and_chat_completions(url):
+    endpoint = Endpoint(normalize_qwen_base_url(url))
+    assert (endpoint.url(MODELS), endpoint.url(COMPLETIONS)) == (
+        "https://acropolissg.com/vllm/v1/models",
+        "https://acropolissg.com/vllm/v1/chat/completions",
+    )
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://acropolissg.com/sol-radar/qwen", "https://acropolissg.com/sol-radar/qwen"),
+        ("https://acropolissg.com/sol-radar/qwen/", "https://acropolissg.com/sol-radar/qwen"),
+        ("http://127.0.0.1:8001/v1", "http://127.0.0.1:8001"),
+        ("http://127.0.0.1:8001", "http://127.0.0.1:8001"),
+        # /v1 은 한 번만 뗀다. 경로 가운데의 v1 은 건드리지 않는다
+        ("https://acropolissg.com/v1/vllm", "https://acropolissg.com/v1/vllm"),
+        ("https://acropolissg.com/vllm/v10", "https://acropolissg.com/vllm/v10"),
+    ],
+)
+def test_normalize_qwen_base_url_only_strips_trailing_v1(url, expected):
+    assert normalize_qwen_base_url(url) == expected
+
+
+@pytest.mark.parametrize("suffix", ["", "/", "/v1", "/v1/"])
+def test_qwen_base_url_suffix_does_not_double_v1(make_client, local_models, monkeypatch, suffix):
+    # 가짜 vLLM 에 /v1 을 붙인 주소로 기동·추출해도 요청은 /v1/models·/v1/chat/completions 로만 간다
+    monkeypatch.setenv("QWEN_BASE_URL", local_models.qwen.url + suffix)
+    result = run_extract(make_client, local_models)
+    paths = [(r.method, r.path) for r in local_models.qwen.requests]
+    assert (result["status"], paths) == ("COMPLETED", [("GET", MODELS), ("POST", COMPLETIONS)])
+
+
+def test_kev_base_url_is_not_normalized(make_client, local_models, monkeypatch):
+    # 정규화는 Qwen 전용이다. KEV_BASE_URL 끝의 /v1 은 그대로 경로에 남는다(→ /v1/v1/models, 가짜 서버는 404 = 미확인)
+    monkeypatch.setenv("KEV_BASE_URL", local_models.kev.url + "/v1")
+    body = make_client(SOL_RUN_MODE="fixture").get("/health").json()
+    assert ([r.path for r in local_models.kev.requests], body["kev"]["registryMatch"]) == (
+        ["/v1/v1/models"],
+        None,
+    )
+
+
+# ---------------------------------------------------------------- 비사고 모드·guided JSON 대체(03 §4.3, 미결정 26-7·26-3)
+
+
+def test_qwen_request_disables_thinking(make_client, local_models):
+    """Qwen3.5 계열은 기본이 사고 모드였다. Qwen3.8-Flash-Next 는 미확인이라 enable_thinking=false 를 그대로 보낸다(03 §4.3, 26-7)."""
+    run_extract(make_client, local_models)
+    assert sent(local_models)[0]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def rejected(status: int = 400) -> Reply:
+    return Reply(status, {"error": {"message": "response_format is not supported"}})
+
+
+def fenced_reply(prefix: str = "") -> Reply:
+    """guided JSON 없이 답하는 서버 흉내: <think>·코드펜스·설명 문장이 섞인 텍스트."""
+    content = f"{prefix}```json\n{extraction_output()}\n```\n위 JSON 이 추출 결과입니다."
+    return Reply(json_body=chat_completion(content))
+
+
+@pytest.mark.parametrize("status", [400, 422])
+def test_qwen_guided_rejected_falls_back_once_without_response_format(
+    make_client, local_models, status
+):
+    result = run_extract(make_client, local_models, rejected(status), valid_reply())
+    assert result["status"] == "COMPLETED"
+    first, second = sent(local_models)
+    assert "response_format" in first
+    assert "response_format" not in second
+    # 그 밖의 필드(모델·메시지·추론 설정·비사고 모드)는 같다
+    assert {k: v for k, v in first.items() if k != "response_format"} == second
+    assert second["chat_template_kwargs"] == {"enable_thinking": False}
+    assert result["payload"]["model"]["retries"] == 0
+
+
+def test_qwen_fallback_reply_with_think_and_code_fence_is_parsed(make_client, local_models):
+    """대체 경로의 답은 <think>·코드펜스·설명을 벗기고 같은 스키마·인용 검증 체인을 지난다."""
+    result = run_extract(
+        make_client, local_models, rejected(), fenced_reply("<think>생각…</think>\n")
+    )
+    assert result["status"] == "COMPLETED"
+    assert result["payload"]["bidId"] == BID_ID
+    assert result["payload"]["model"]["retries"] == 0
+
+
+def test_qwen_guided_reply_is_not_unwrapped(make_client, local_models):
+    """guided 경로(200)의 답은 그대로 파싱한다. 코드펜스가 오면 스키마 위반 재시도로 간다(대체가 아니다)."""
+    run_extract(make_client, local_models, fenced_reply(), valid_reply())
+    first, second = sent(local_models)
+    assert "response_format" in first and "response_format" in second
+    assert user_content(second).startswith(user_content(first) + RETRY_NOTE)
+
+
+def test_qwen_fallback_rejected_again_is_extraction_failed(make_client, local_models):
+    result = run_extract(make_client, local_models, rejected(400), rejected(422))
+    assert (result["status"], result["errorCode"]) == ("FAILED", "EXTRACTION_FAILED")
+    assert len(sent(local_models)) == 2
+
+
+@pytest.mark.parametrize("status", [500, 401, 404])
+def test_qwen_fallback_server_error_is_unavailable(make_client, local_models, status):
+    result = run_extract(make_client, local_models, rejected(), Reply(status, {"error": "x"}))
+    assert (result["status"], result["errorCode"]) == ("FAILED", "QWEN_UNAVAILABLE")
+    assert len(sent(local_models)) == 2
+
+
+def test_qwen_fallback_applies_again_on_schema_retry(make_client, local_models):
+    """대체는 요청마다 한 번이고 서버 능력을 기억하지 않는다: 스키마 위반 재시도도 guided 로 시작해 다시 대체한다."""
+    result = run_extract(make_client, local_models, rejected(), NOT_JSON, rejected(), valid_reply())
+    assert (result["status"], result["payload"]["model"]["retries"]) == ("COMPLETED", 1)
+    bodies = sent(local_models)
+    assert ["response_format" in b for b in bodies] == [True, False, True, False]
+    assert user_content(bodies[2]).startswith(user_content(bodies[0]) + RETRY_NOTE)
+
+
+def test_qwen_fallback_shares_request_deadline(make_client, local_models, monkeypatch):
+    """대체 호출도 같은 마감을 쓴다: 대체 답이 마감을 넘기면 QWEN_UNAVAILABLE 이고 세 번째 호출은 없다."""
+    monkeypatch.setenv("AI_TIMEOUT_MS", "300")
+    result = run_extract(
+        make_client, local_models, rejected(), Reply(json_body=chat_completion("{}"), delay=5)
+    )
+    assert (result["errorCode"], len(sent(local_models))) == ("QWEN_UNAVAILABLE", 2)

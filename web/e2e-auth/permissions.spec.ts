@@ -49,7 +49,9 @@ test.describe("멤버(이멤버)", () => {
     ]);
     await expect(page.getByRole("heading", { name: "초대하기" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "대기 중인 초대" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: / 관리$/ })).toHaveCount(0);
+    // 본문(main)에서만 센다. 사이드바 묶음 줄 "입찰 관리"(ADR-021 트리)도 이름이 " 관리"로 끝나는 버튼이다.
+    // 회원 관리 버튼이 본문에 있다는 것은 소유자 시험이 같은 범위로 확인한다.
+    await expect(page.getByRole("main").getByRole("button", { name: / 관리$/ })).toHaveCount(0);
     // 나가기는 멤버도 할 수 있다.
     await expect(page.getByRole("heading", { name: "팀 나가기" })).toBeVisible();
     // 조직 전환기의 둘째 줄이 역할을 알려 준다.
@@ -73,7 +75,9 @@ test.describe("소유자(김소유)", () => {
     ).toBeVisible();
     await expect(page.getByRole("heading", { name: "초대하기" })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: `${SEED_ACCOUNTS.member.name} 관리`, exact: true }),
+      page
+        .getByRole("main")
+        .getByRole("button", { name: `${SEED_ACCOUNTS.member.name} 관리`, exact: true }),
     ).toBeVisible();
     // 초대받은 사람은 아직 수락하지 않았다(수락은 invitation.write.spec.ts 가 이 시험 뒤에 한다).
     const invitations = page.getByRole("table", { name: "대기 중인 초대" });

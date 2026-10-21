@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -47,10 +47,11 @@ updated: 2026-10-20
 |GET|`/bids/:id/documents/:docId/download`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 첨부 다운로드|`302` → 60초 presigned URL([[09-SECURITY\|09 보안]])|
 |GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|현재 프로필(최신 revision)|`CompanyProfile`|
 |GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 이력|`CompanyProfileSummary[]`|
-|PUT|`/company-profile`|`ADMIN`|새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
+|PUT|`/company-profile`|`ADMIN`|**(미구현)** 새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
 |POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기). 중복·큐 계약은 §4.5|`AnalysisRequest` → `202 AnalysisAccepted`|
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
+|POST|`/analyses/:id/what-if`|`ADMIN, SALES, ANALYST, VIEWER`|가정 재계산([[16-DECISIONS\|ADR-037]], 데모 강화 컷). 저장된 입력 스냅샷에 보유 가정을 얹어 규칙 엔진으로 다시 계산하고 아무것도 저장하지 않는다. 읽기 계산이라 역할 제한이 없다. 계약은 §4.5 "가정 재계산"|`WhatIfRequest` → `200 WhatIfResult`|
 |GET|`/bids/:id/qualification-checks`|`ADMIN, SALES, ANALYST, VIEWER`|최신 분석의 자격 판정(항목마다 사유 코드·회사 근거·값 출처)|`QualificationCheck[]`|
 |GET|`/bids/:id/reviews`|`ADMIN, SALES, ANALYST, VIEWER`|검토 이력|`Review[]`|
 |POST|`/bids/:id/reviews`|`ADMIN, SALES`|사람 최종 결정 기록|`ReviewInput` → `201 Review`|
@@ -81,7 +82,7 @@ updated: 2026-10-20
 |GET|`/admin/ai/eval-runs`|`ADMIN`|**(미구현)** 평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
 |GET|`/admin/ai/eval-runs/:id`|`ADMIN`|**(미구현)** 평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
 
-**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개는 다른 브랜치에서 구현 중이라 이 정리에서 뺐다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다.
+**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개 가운데 `GET /company-profile`·`GET /company-profile/revisions`는 main `bf16806`(2026-10-20, `feat/company-read`)로 들어왔고 `PUT /company-profile`(새 revision 저장)은 **(미구현)**이다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다. `POST /analyses/:id/what-if`([[16-DECISIONS|ADR-037]])도 구현됐다(브랜치 `feat/boost2-what-if` `faa707b`, 2026-10-21 main 병합 `d48c7a2`). 위 목록은 `554b34c` 기준이라 따로 적는다.
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
@@ -324,6 +325,32 @@ interface AnalysisResult {
 - `Idempotency-Key`가 없으면 서버가 UUID를 만든다. `score_runs`의 멱등 키는 `<org_id>:<requestId>`다.
 - 큐 `analysis`, job 이름 `analyze`, jobId `analysis_<orgId>_<scoreRunId>`(BullMQ jobId에는 `:`를 쓰지 않아 `_`로 잇는다), payload `{orgId, scoreRunId, idempotencyKey}`. jobId와 저장 멱등 키 `<orgId>:<requestId>`는 다른 값이고 서로 바꿔 쓰지 않는다([[16-DECISIONS|ADR-031]] C14).
 
+**가정 재계산**(`POST /analyses/:id/what-if`, [[16-DECISIONS|ADR-037]] 데모 강화 컷): 저장된 run의 `input_snapshot`에 "보유 가정"을 얹어 규칙 엔진을 다시 돌리고 원래 결과와 가정 결과를 함께 돌려준다. 계산 규칙은 [[08-SCORING|08]] §5.6, 화면은 [[06-UI-UX|06]] §6.1이다. 화면은 상세 진입 때 빈 가정으로 한 번 불러 `assumable`을 받고, 스위치가 바뀔 때마다 다시 부른다.
+
+```ts
+interface WhatIfRequest {
+  assumptions: { kind: "QUALIFICATION"; code: string }[];  // strict 객체. code 1~64자, 최대 10개. 빈 배열 = 가정 없이 원래만 다시 계산(가정 가능 목록 받기)
+}
+interface WhatIfSummary {                                   // 규칙 엔진 출력 요약. 이름은 엔진 이름 그대로다(아래 목록)
+  score: number;                                            // 0~100. AnalysisResult.solScore와 같은 규칙 엔진 값. 낙찰 확률 아님
+  recommendation: Recommendation;
+  qualificationStatus: QualificationOutcome;
+  factors: { factor: FactorKey; points: number; maxPoints: number }[];
+  checks: { id: string; requirementName: string; requirementCode: string | null; outcome: QualificationOutcome; reasonCode: string | null }[];
+}
+interface WhatIfResult {                                    // 200 본문(그대로, 감싸지 않는다)
+  assumable: string[];                                      // 이 run에서 가정할 수 있는 자격 코드(중복 제거)
+  before: WhatIfSummary;                                    // 스냅샷을 kev=null로 다시 계산한 원래 값
+  after: WhatIfSummary;                                     // 가정을 적용한 값. 가정이 0개면 before와 같다
+}
+```
+
+- 이 응답은 규칙 엔진 이름(`score`·`factors`·`qualificationStatus`·`checks`)을 그대로 쓴다. 이 절 첫 문단의 이름 바꾸기(`score` → `solScore` 등)를 따르지 않는다.
+- 가정 가능 = `kev=null`로 다시 계산한 원래 결과의 필수 항목 가운데 `requirementCode`가 자격 코드 사전(`QUALIFICATION_CODES`)에 있고 `outcome`이 `NOT_SATISFIED`이거나 `NEEDS_REVIEW`이면서 `reasonCode`가 `COMPANY_EVIDENCE_MISSING`인 것. 하나라도 가정 불가면 계산하지 않고 400이다.
+- 처리 순서: 인증·CSRF(§1) → 경로 id가 UUID가 아니면 저장소를 부르지 않고 `404 {resource:"analysis"}` → 본문 16KB 초과 `400`(`path:"body"`) → 본문 zod 검증 `400` → run 읽기(사용자 세션·RLS, `status`·`input_snapshot`만) → 없음·다른 조직 `404 {resource:"analysis"}` → `QUEUED`·`RUNNING`이면 `409 ANALYSIS_IN_PROGRESS`(`details` 없음) → `FAILED`이거나 스냅샷이 `AnalysisInput` 스키마에 맞지 않으면(null 포함) `404 {resource:"analysis", reason:"NO_SNAPSHOT"}` → 가정 불가 코드가 있으면 `400 VALIDATION_ERROR {issues:[{path:"assumptions",message}], rejected:[{kind,code}]}` → `200 WhatIfResult`.
+- DB에 아무것도 쓰지 않는다(`score_runs`·`bid_reviews`·`audit_logs`·알림·outbox 불변). 결정 모델·gateway·큐를 부르지 않는다. 속도 제한·`Idempotency-Key` 대상이 아니다. 권한은 4개 업무 역할 모두다.
+- 구현: `web/server/scoring/what-if.ts`(`whatIf`), `web/server/bids/what-if.service.ts`(`computeWhatIf`), `web/app/api/v1/analyses/[id]/what-if/route.ts`. 브랜치 `feat/boost2-what-if`(API `1eaba6f`, 화면 `26beca1`, E2E `c9a1a49`), 2026-10-21 main 병합 `d48c7a2`.
+
 ### 4.6 검토·알림·대시보드·수집
 
 ```ts
@@ -428,7 +455,7 @@ interface MetricValue {            // 평가 지표 하나. 작은 평가셋이�
 }
 interface EvalRunSummary {         // 04 eval_runs
   id: string; datasetVersion: string; datasetSha256: string;
-  systemId: string;                // 비교 대상 ID. 예: "E0"(규칙만), "E1'"(공개 Bosun 영어 state zero-shot), "E2"(Bosun 한국어 state, 평가 전용), "E3"(Qwen3.5-27B logprob 분류), "E4"(Bosun + LoRA)
+  systemId: string;                // 비교 대상 ID. 예: "E0"(규칙만), "E1'"(공개 Bosun 영어 state zero-shot), "E2"(Bosun 한국어 state, 평가 전용), "E3"(Qwen3.8-Flash-Next logprob 분류), "E4"(Bosun + LoRA)
   split: "train" | "dev" | "test";
   keyMetrics: { macroF1: MetricValue; needsReviewToNotSatisfiedRate: MetricValue; ece: MetricValue };   // 21 §4.4 초기 목표 지표 세 개
   gitCommit: string; createdAt: string;
@@ -497,7 +524,7 @@ interface PeoplePage {
 
 |HTTP|code|언제|`details`|
 |---:|---|---|---|
-|400|`VALIDATION_ERROR`|DTO·쿼리 검증 실패|`{issues:[{path,message}]}`|
+|400|`VALIDATION_ERROR`|DTO·쿼리 검증 실패. 가정 재계산의 가정 불가 코드도 이 코드다(§4.5 "가정 재계산", [[16-DECISIONS\|ADR-037]])|`{issues:[{path,message}]}`. 가정 불가면 `rejected:[{kind,code}]`를 더한다|
 |400|`INVALID_CURSOR`|커서 변조·만료|—|
 |401|`UNAUTHENTICATED`|세션 쿠키·Bearer 토큰 없음, 서명이 틀림, 만료. 브라우저는 Supabase 클라이언트가 세션을 갱신한 뒤 다시 시도하고, 그래도 401이면 `/auth/login`으로 보낸다|—|
 |403|`FORBIDDEN`|`sol_role`이 허용 목록에 없음|`{required:[Role]}`|
@@ -505,11 +532,11 @@ interface PeoplePage {
 |403|`PROFILE_INCOMPLETE`|이름·부서·직급/직책 보완 전 업무 API 요청|`{completionPath:"/auth/complete-profile"}`|
 |403|`ACCOUNT_DISABLED`|`profiles.status='suspended'`인 사용자(토큰이 아직 유효해도)|—|
 |403|`UNSUPPORTED_ACCOUNT_STATE`|업무 조직 멤버십이 2개 이상인 사용자의 업무 API 요청. 해커톤 MVP는 업무 조직 하나만 지원한다([[16-DECISIONS\|ADR-021]])|—|
-|404|`NOT_FOUND`|자원 없음 **또는 다른 조직 자원**(RLS로 행이 보이지 않음). 로그인 사용자의 아직 출시하지 않은 경로도 404다(메뉴 노출과 무관, [[16-DECISIONS\|ADR-021]])|`{resource:"bid"\|"analysis"\|...}`|
+|404|`NOT_FOUND`|자원 없음 **또는 다른 조직 자원**(RLS로 행이 보이지 않음). 로그인 사용자의 아직 출시하지 않은 경로도 404다(메뉴 노출과 무관, [[16-DECISIONS\|ADR-021]]). 가정 재계산은 run이 `FAILED`이거나 입력 스냅샷이 스키마에 맞지 않을 때도 404다([[16-DECISIONS\|ADR-037]])|`{resource:"bid"\|"analysis"\|...}`. 가정 재계산의 스냅샷 없음은 `{resource:"analysis", reason:"NO_SNAPSHOT"}`|
 |409|`PROFILE_REVISION_CONFLICT`|`baseRevision` ≠ 최신|`{currentRevision}`|
-|409|`ANALYSIS_IN_PROGRESS`|같은 입력의 run이 `QUEUED`/`RUNNING`인데 `force=true`|`{analysisId}`|
+|409|`ANALYSIS_IN_PROGRESS`|같은 입력의 run이 `QUEUED`/`RUNNING`인데 `force=true`. 또는 `POST /analyses/:id/what-if`의 run이 `QUEUED`·`RUNNING`(스냅샷이 아직 없다, [[16-DECISIONS\|ADR-037]])|`{analysisId}`. 가정 재계산은 `details` 없음|
 |409|`IDEMPOTENCY_KEY_REUSED`|같은 키, 다른 본문|—|
-|409|`INGESTION_IN_PROGRESS`|`POST /admin/ingestion/runs`에서 같은 소스의 `ingest_runs` 행이 `RUNNING`. 멱등 재현(같은 키·같은 본문이면 첫 202) 뒤에 판정하고, 큐에만 있는 job은 막지 않는다. 오래 남은 `RUNNING` 행의 정리 규칙은 [[16-DECISIONS\|16 ADR]] 미결정 25번|`{runId}`|
+|409|`INGESTION_IN_PROGRESS`|`POST /admin/ingestion/runs`에서 같은 소스의 `ingest_runs` 행이 `RUNNING`. 멱등 재현(같은 키·같은 본문이면 첫 202) 뒤에 판정하고, 큐에만 있는 job은 막지 않는다. 오래 남은 g2b `RUNNING` 행은 운영자 명령 `pnpm ops:close-stale-runs`로 닫는다([[07-DATA-PIPELINE\|07]] §2.7, [[16-DECISIONS\|16 ADR]] 미결정 25번)|`{runId}`|
 |409|`PROJECT_REQUIRES_BID_DECISION`|P1. `POST /projects`의 `reviewId`가 BID 결정이 아님([[16-DECISIONS\|ADR-021]])|`{reviewId}`|
 |409|`LATEST_DECISION_NOT_BID`|P1. 입찰 프로젝트를 연 뒤 최신 결정이 BID가 아니어서 상태 전진을 막음. 자동 종료하지 않는다([[16-DECISIONS\|ADR-021]])|`{bidId, latestDecision}`|
 |409|`RUN_MODE_MISMATCH`|`POST /admin/ingestion/runs`의 `source`가 현재 실행 모드(`SOL_RUN_MODE`)와 맞지 않음(`live`에 `fixture`, `fixture`·`mock`에 `g2b`). 서버가 조용히 소스를 바꾸지 않는다([[16-DECISIONS\|ADR-020]])|`{runMode, source}`|
@@ -636,7 +663,7 @@ GET /api/v1/analyses/7d2c...
 
 위 값은 **DEMO fixture FX-02의 가상 데이터**이며 [[08-SCORING|08 점수]] worked example과 같은 숫자다. 요소 합 15.0+18.3+14.0+15.0+10.0 = 72.3 → `solScore` 72(정수 반올림). 자격은 전부 충족이고 WATCH는 점수가 50~75 구간이기 때문이다. `kev.needsHumanReview=0.74`가 임계값 0.7 이상이라 `reviewFlags`에 `KEV_NEEDS_REVIEW`가 들어갔고, 결정 모델 권고(WATCH)가 규칙 권고와 같아 `MODEL_RULE_DISAGREEMENT`는 없다. 다른 fixture의 mock Kev 값은 [[07-DATA-PIPELINE|07 수집]] §6.3. 예시의 `scoreBreakdown.evidence`와 `requirementAssessments`는 지면상 비웠다.
 
-이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.5-27B·Bosun v3.1 0.6B, `kev-qs/v0.2`)을 쓰므로 추출과 결정 모델 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
+이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.8-Flash-Next·Bosun v3.1 0.6B, `kev-qs/v0.2`)을 쓰므로 추출과 결정 모델 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
 
 ### 6.4 AI 장애 시 재분석 (데모 장면)
 
@@ -742,6 +769,6 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 - [[09-SECURITY|09 보안]] — 세션 쿠키·CSRF·RBAC·RLS
 - [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트
 - [[11-TESTING|11 테스트]] — Route Handler 계약 시험·RLS 정책 시험
-- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.5-27B), ADR-035(수동 수집 계약·`AiStatus` 보완)
+- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.8-Flash-Next), ADR-035(수동 수집 계약·`AiStatus` 보완)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalRunReport` 지표, 모델 레지스트리, 운영자 CLI
 - [[07-DATA-PIPELINE|07 수집]] — `IngestionRunInput` 소스, 나라장터 Connector·정규화
