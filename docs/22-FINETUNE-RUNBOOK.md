@@ -357,12 +357,12 @@ python -m sol_decision.train \
 
 ```bash
 export SOL_WORK=/data/www/ai_workspace/sol-radar
-export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1    # 지금(main) bosun_score 는 장치를 지정하지 않아 CPU fp32 로 돈다(E1'·E4 가 같은 CPU fp32 라 비교는 성립, 느림). 미결정 26-16 브랜치가 main 에 들어가면 기본 auto 로 GPU 1 bf16 에서 돈다
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1    # bosun_score 기본 --device auto·--dtype auto(CUDA 가 있으면 GPU 1 bf16). 명시는 --device cuda --dtype bf16, CPU 대체는 --device cpu(fp32). 실제 값은 report.json environment 의 device·dtype(main 60c81c9, 미결정 26-16)
 export HF_HOME="$SOL_WORK/hf"                                                 # preflight 기본값과 같게
 source "$SOL_WORK/.venv-bosun/bin/activate"                                   # sol_eval 설치는 §3.2·미결정 29-2
 cd "$SOL_WORK"
 snap=$HF_HOME/hub/models--Hanno-Labs--bosun-v3.1-0.6b/snapshots/5e78a37c8d86860ebac9ef2d5327d6299498498e
-sha256sum "$snap/adapter/adapter_model.safetensors" "$snap/decision_embeddings.safetensors"   # §2.2 값과 같아야 한다(4e62170 의 bosun_score 는 대조하지 않는다, 미결정 26-17)
+sha256sum "$snap/adapter/adapter_model.safetensors" "$snap/decision_embeddings.safetensors"   # §2.2 값과 같아야 한다(사람 교차 확인용. bosun_score 도 main 36edfb6 부터 모델 로드 전에 manifest sha256 을 대조한다, 미결정 26-17)
 # 경로는 모두 절대 경로로 준다. 상대 --out 은 sol_eval 이 저장소 clone 기준으로 풀어 출력이 clone 의 runs/ 에 생긴다
 # 모델은 한 번에 하나씩 순서대로 올린다. 출력 폴더 4개를 통째로 돌려준다
 D="$SOL_WORK/sol-dataset-v0.1/bosun"; R="$SOL_WORK/runs"

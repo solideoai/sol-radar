@@ -99,7 +99,7 @@ python -m sol_eval bosun_score --package "$snap"                  --data "$D/tes
 python -m sol_eval bosun_score --package "$snap"                  --data "$D/dev.en.jsonl"  --seeds 0-5 --out "$R/e1p-dev"
 ```
 
-- 지금(main `4e62170`) `bosun_score` 는 장치를 지정하지 않아 CPU fp32 로 돈다. E1'·E4 가 같은 CPU fp32 로 돌면 비교는 성립하지만 느리고, 소요 시간은 미측정이다. B5 전에 `bosun_score` 에 `--device`·`--dtype`(기본 `auto`, 서버에서는 GPU 1 bf16)을 더하는 브랜치가 준비 중이다([[16-DECISIONS|16]] 미결정 26-16, 구현 전). Bosun 은 회사 A40 GPU 1 에서 돈다(2026-10-21 사용자 확인). 그 브랜치가 main 에 들어가면 10-25 B5 채점은 GPU 1 bf16 으로 돌리고, 못 들어가면 CPU fp32 로 돌린다. CPU fp32 로 돌리게 되면 read-check(§4.5) 때 시간을 재서 일정을 다시 잡는다. 어느 쪽이든 E1'·E4 는 같은 장치·dtype 으로 잰다.
+- `bosun_score` 는 `--device {auto,cpu,cuda}`·`--dtype {auto,fp32,bf16}` 을 받고 기본은 `auto` 다(main `60c81c9`, [[16-DECISIONS|16]] 미결정 26-16). 서버에서는 GPU 1 bf16 으로 돌고, 실제 값은 `report.json` `environment` 의 `device`·`dtype` 에 남는다. Bosun 은 회사 A40 GPU 1 에서 돈다(2026-10-21 사용자 확인). 10-25 B5 채점은 GPU 1 bf16 으로 돌리고, GPU 1 에 못 올리면 `--device cpu`(fp32)로 돌린다. CPU fp32 로 돌리게 되면 read-check(§4.5) 때 시간을 재서 일정을 다시 잡는다. 어느 쪽이든 E1'·E4 는 같은 장치·dtype 으로 잰다.
 - 선택지 순서 민감도는 Kev 의 `permute`·`--rotations` 대신 Bosun 의 제시 순서 seed(`--seeds 0-5`, 6회)로 잰다(22 §4.1).
 - 요청당 지연 p50·p95 는 서빙이 없으므로 **E4 에서는 재지 않는다.** 지연은 B2 의 G3(공개 Bosun 서빙)에서 잰다.
 - 돌려받은 `report.json` 의 패키지 sha256·test 파일 sha256 이 번들 manifest 와 같은지 대조한다. 다르면 그 결과는 쓰지 않는다.
@@ -136,7 +136,7 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"        
 | PaddleOCR vLLM(회사) | 약 9.2 GB | 건드리지 않음. 피크 미확인(§8) |
 | `sol_decision.serve` Bosun bf16 서빙 | 약 1.5~3 GB | 6k 토큰 state 활성값 포함 |
 | Bosun LoRA 학습(bf16, batch 1, 6k 토큰, gradient checkpointing) | 약 6~10 GB | F1 20 step 으로 실측 |
-| `sol_eval bosun_score` 채점(패키지 하나씩) | 26-16 브랜치가 들어가 GPU 1 bf16 으로 돌리면 서빙과 비슷(추정). CPU fp32 대체면 GPU 메모리를 쓰지 않는다 | 4회를 순서대로 돌리면 동시 점유는 1회분 |
+| `sol_eval bosun_score` 채점(패키지 하나씩) | GPU 1 bf16(기본 `auto`, main `60c81c9`)이면 서빙과 비슷(추정). `--device cpu` 대체면 GPU 메모리를 쓰지 않는다 | 4회를 순서대로 돌리면 동시 점유는 1회분 |
 | ~~vLLM Qwen3-4B·Qwen 4B QLoRA~~ | — | 철회(2026-10-20 저녁). Qwen 은 회사 API, GPU 1 에 올리지 않는다 |
 
 **전부 추정, F1 실측 전**([분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §8). 합계 약 17~22 GB 로 가용 약 36,900 MiB 안에 들어간다고 **가정**한다. PaddleOCR 피크가 크면 달라진다.
