@@ -5,12 +5,16 @@ import type { Tables } from "@/lib/database.types";
 import type { SolRole } from "@/server/organization";
 import {
   INGESTION_ADMIN_ROLES,
+  INGESTION_CARD_SOURCES,
+  INGESTION_FAILURE_STATUSES,
+  INGESTION_SUCCESS_STATUSES,
   WINDOW_FUTURE_TOLERANCE_MS,
   acceptsSourceForMode,
   canManageIngestion,
   ingestionFailure,
   ingestionRunInputSchema,
   toIngestionRunView,
+  toIngestionSourceCard,
   type IngestionAdminFailure,
   type IngestionAdminResult,
   type IngestionRunInput,
@@ -19,8 +23,9 @@ import {
   type IngestionRunRequester,
   type IngestionRunRow,
   type IngestionRunView,
+  type IngestionSourceCard,
 } from "./ingestion-admin.model";
-import { EMPTY_INGEST_SUMMARY, type IngestRunSource } from "./ingestion.port";
+import { EMPTY_INGEST_SUMMARY, type IngestRunSource, type IngestRunStatus } from "./ingestion.port";
 import type { IngestJobData } from "./ingestion.queue";
 
 // ── N8 수집 관리 흐름(05 §2 :75-77). 예상한 실패는 결과로 돌려주고 HTTP 로 옮기는 일은 Route Handler 가 한다 ──
@@ -44,6 +49,14 @@ export type IngestionAdminRepo = {
   listErrors(runIds: readonly string[]): Promise<IngestErrorRow[]>;
   /** 같은 source 의 status = RUNNING 행 */
   findRunningRun(source: IngestRunSource): Promise<{ id: string } | null>;
+  /**
+   * source 의 status 가 statuses 중 하나인 가장 최근에 끝난 run 한 행(finished_at desc, 비어 있으면 뒤).
+   * 소스별 카드가 쓴다. 화면 역할이 읽을 수 있는 열만 온다(W1)
+   */
+  findLatestRun(
+    source: IngestRunSource,
+    statuses: readonly IngestRunStatus[],
+  ): Promise<IngestionRunRow | null>;
   /** userId → 이름. orgId 조직의 구성원만 담는다 */
   findMemberNames(orgId: string, userIds: readonly string[]): Promise<Map<string, string>>;
   /**
@@ -445,6 +458,36 @@ export async function listIngestionRuns(
       items: await toViews(ctx, page, repo),
       pageInfo: { cursor: query.cursor, nextCursor, hasNext: nextCursor !== null },
     },
+  };
+}
+
+/**
+ * 소스별 최근 수집 카드(N8 디자인 스펙 §4.4, D3). 소스마다 최신 성공(SUCCEEDED·PARTIAL) 1건·최신 실패(FAILED) 1건과
+ * 실패 run 의 오류를 읽는다. 공개 API 가 아니라 화면 서버 컴포넌트가 부른다. 요청자는 싣지 않는다(카드에 없다)
+ */
+export async function getIngestionSourceCards(
+  ctx: IngestionAdminContext,
+  deps: Pick<IngestionAdminDeps, "repo">,
+): Promise<IngestionAdminResult<IngestionSourceCard[]>> {
+  if (!canManageIngestion(ctx.role)) return forbidden();
+  const { repo } = deps;
+  const latest = await Promise.all(
+    INGESTION_CARD_SOURCES.map(async (source) => {
+      const [success, failure] = await Promise.all([
+        repo.findLatestRun(source, INGESTION_SUCCESS_STATUSES),
+        repo.findLatestRun(source, INGESTION_FAILURE_STATUSES),
+      ]);
+      return { source, success, failure };
+    }),
+  );
+  const failedRunIds = latest.flatMap(({ failure }) => (failure === null ? [] : [failure.id]));
+  const errors = failedRunIds.length === 0 ? [] : await repo.listErrors(failedRunIds);
+  return {
+    ok: true,
+    status: 200,
+    data: latest.map(({ source, success, failure }) =>
+      toIngestionSourceCard(source, { success, failure }, errors),
+    ),
   };
 }
 

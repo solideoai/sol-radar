@@ -71,6 +71,23 @@ export const ingestionAdminRepo: IngestionAdminRepo = {
     return data;
   },
 
+  // 소스별 카드의 "마지막 성공·실패". 끝난 시각이 늦은 것이 마지막이다(같은 소스 run 이 겹쳐 돌아도 맞다).
+  // finished_at 이 빈 끝난 행은 맨 뒤로 보내고, 같은 시각이면 id 로 순서를 고정한다. 거르기·정렬 모두 허용 열만 쓴다(W1).
+  async findLatestRun(source, statuses) {
+    const db = await getSupabase();
+    const { data, error } = await db
+      .from("ingest_runs")
+      .select(RUN_COLUMNS)
+      .eq("source", source)
+      .in("status", [...statuses])
+      .order("finished_at", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
   // 수동 수집 요청자는 worker 가 요청한 조직에 남긴 감사(INGEST_MANUAL, target_id = runId)의 행위자다.
   // action·target_type 은 worker 가 쓰는 값(ingestion.store.ts toManualAuditInsert)과 같아야 한다.
   // 감사는 조직 소유 표라 RLS 가 내 조직(ADMIN) 것만 열고, 지금 조직(orgId)으로 다시 좁힌다. 계정이 지워져 actor_id 가

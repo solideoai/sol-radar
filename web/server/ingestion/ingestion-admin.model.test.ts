@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Tables } from "@/lib/database.types";
 import {
+  INGESTION_CARD_SOURCES,
+  INGESTION_FAILURE_STATUSES,
+  INGESTION_SUCCESS_STATUSES,
   acceptsSourceForMode,
   ingestionRunInputSchema,
   toIngestionRunView,
+  toIngestionSourceCard,
 } from "@/server/ingestion";
 
 // N8 수집 관리의 순수 규칙. 구현(ingestion-admin.model.ts)보다 먼저 쓴 시험이다.
@@ -323,6 +327,173 @@ describe("toIngestionRunView — ingest_runs 행 → IngestionRun(05 :367-376)",
         "summary",
         "trigger",
       ].sort(),
+    );
+  });
+});
+
+// 소스별 최근 수집 카드(N8 디자인 스펙 §4.4, D3). 저장이 고른 최신 성공·실패 행 → 카드 보기 모델.
+describe("toIngestionSourceCard — 소스별 카드(§4.4)", () => {
+  const SUCCESS_ID = "a1000000-0000-4000-8000-0000000000a1";
+  const FAILURE_ID = "f1000000-0000-4000-8000-0000000000f1";
+  const OTHER_FAILURE_ID = "f2000000-0000-4000-8000-0000000000f2";
+  // 화면 역할이 읽는 열만 있는 행(W1). 숨긴 네 열이 없다
+  type CardRunRow = Omit<IngestRunRow, "job_key" | "idempotency_key" | "requested_by" | "params">;
+  const cardRow = (overrides: Partial<CardRunRow> = {}): CardRunRow => ({
+    id: SUCCESS_ID,
+    source: "fixture",
+    run_mode: "MOCK",
+    trigger: "DEMO",
+    batch: "SEED",
+    cursor: null,
+    status: "PARTIAL",
+    summary: SEED_SUMMARY,
+    quota_used: 0,
+    started_at: "2026-10-20T04:51:00.000Z",
+    finished_at: "2026-10-20T04:51:12.000Z",
+    ...overrides,
+  });
+  const failedRow = (overrides: Partial<CardRunRow> = {}): CardRunRow =>
+    cardRow({
+      id: FAILURE_ID,
+      status: "FAILED",
+      summary: ZERO_SUMMARY,
+      started_at: "2026-10-20T05:00:00.000Z",
+      finished_at: "2026-10-20T05:00:03.000Z",
+      ...overrides,
+    });
+  const errorOf = (
+    runId: string,
+    sourceKey: string,
+    errorCode: string,
+    createdAt: string,
+  ): IngestErrorRow => ({
+    id: `${runId.slice(0, 8)}-${sourceKey}`,
+    ingest_run_id: runId,
+    source_key: sourceKey,
+    error_code: errorCode,
+    result_code: null,
+    redacted_detail: `${errorCode} 상세`,
+    created_at: createdAt,
+  });
+
+  it("카드 순서는 데모 데이터(fixture) → 나라장터(g2b) 다", () => {
+    expect(INGESTION_CARD_SOURCES).toStrictEqual(["fixture", "g2b"]);
+  });
+
+  it("마지막 성공은 SUCCEEDED·PARTIAL, 마지막 실패는 FAILED 다", () => {
+    expect(INGESTION_SUCCESS_STATUSES).toStrictEqual(["SUCCEEDED", "PARTIAL"]);
+    expect(INGESTION_FAILURE_STATUSES).toStrictEqual(["FAILED"]);
+  });
+
+  it("성공 run 은 끝난 시각과 신규·변경·격리 숫자를, 실패 run 은 끝난 시각과 그 run 의 오류만 순서대로 싣는다", () => {
+    const errors = [
+      errorOf(FAILURE_ID, "fixture:DEMO-2026-0003", "BUDGET_UNPARSED", "2026-10-20T05:00:01.000Z"),
+      errorOf(
+        OTHER_FAILURE_ID,
+        "g2b:page:start",
+        "API_SERVICE_KEY_INVALID",
+        "2026-10-20T05:00:01.500Z",
+      ),
+      errorOf(FAILURE_ID, "fixture:page:2", "SCHEMA_INVALID", "2026-10-20T05:00:02.000Z"),
+    ];
+
+    expect(
+      toIngestionSourceCard("fixture", { success: cardRow(), failure: failedRow() }, errors),
+    ).toStrictEqual({
+      source: "fixture",
+      lastSuccess: {
+        runId: SUCCESS_ID,
+        status: "PARTIAL",
+        finishedAt: "2026-10-20T04:51:12.000Z",
+        created: 19,
+        changed: 0,
+        quarantined: 1,
+      },
+      lastFailure: {
+        runId: FAILURE_ID,
+        finishedAt: "2026-10-20T05:00:03.000Z",
+        errors: [
+          {
+            sourceKey: "fixture:DEMO-2026-0003",
+            errorCode: "BUDGET_UNPARSED",
+            resultCode: null,
+            detail: "BUDGET_UNPARSED 상세",
+          },
+          {
+            sourceKey: "fixture:page:2",
+            errorCode: "SCHEMA_INVALID",
+            resultCode: null,
+            detail: "SCHEMA_INVALID 상세",
+          },
+        ],
+      },
+    });
+  });
+
+  it("run 이 없으면 성공·실패 모두 null 이다(화면은 '수집 기록이 없습니다')", () => {
+    expect(toIngestionSourceCard("g2b", { success: null, failure: null }, [])).toStrictEqual({
+      source: "g2b",
+      lastSuccess: null,
+      lastFailure: null,
+    });
+  });
+
+  it("성공만 있으면 실패는 null 이고, 실패만 있으면 성공은 null 이다", () => {
+    const g2bSuccess = cardRow({
+      source: "g2b",
+      run_mode: "LIVE",
+      batch: null,
+      status: "SUCCEEDED",
+    });
+    expect(
+      toIngestionSourceCard("g2b", { success: g2bSuccess, failure: null }, []).lastFailure,
+    ).toBeNull();
+    const onlyFailure = toIngestionSourceCard(
+      "fixture",
+      { success: null, failure: failedRow() },
+      [],
+    );
+    expect(onlyFailure.lastSuccess).toBeNull();
+    expect(onlyFailure.lastFailure).toStrictEqual({
+      runId: FAILURE_ID,
+      finishedAt: "2026-10-20T05:00:03.000Z",
+      errors: [],
+    });
+  });
+
+  it("summary 의 빠진 키는 0 이다(worker 가 쓰는 jsonb 를 믿지 않는다)", () => {
+    const card = toIngestionSourceCard(
+      "fixture",
+      { success: cardRow({ status: "SUCCEEDED", summary: { created: 3 } }), failure: null },
+      [],
+    );
+
+    expect(card.lastSuccess).toMatchObject({ created: 3, changed: 0, quarantined: 0 });
+  });
+
+  it("끝난 run 의 finished_at 이 비어 있으면 시작 시각을 쓴다(지어내지 않는다)", () => {
+    const card = toIngestionSourceCard(
+      "fixture",
+      { success: cardRow({ finished_at: null }), failure: failedRow({ finished_at: null }) },
+      [],
+    );
+
+    expect(card.lastSuccess?.finishedAt).toBe("2026-10-20T04:51:00.000Z");
+    expect(card.lastFailure?.finishedAt).toBe("2026-10-20T05:00:00.000Z");
+  });
+
+  it.each<[string, Partial<CardRunRow>, "success" | "failure"]>([
+    ["성공 자리에 FAILED", { status: "FAILED" }, "success"],
+    ["성공 자리에 RUNNING", { status: "RUNNING", finished_at: null }, "success"],
+    ["실패 자리에 SUCCEEDED", { status: "SUCCEEDED" }, "failure"],
+    ["다른 소스 행", { source: "g2b", run_mode: "LIVE", batch: null }, "success"],
+  ])("%s 이 오면 던진다(저장과 규칙이 어긋난 것을 감추지 않는다)", (_label, overrides, slot) => {
+    const row = slot === "success" ? cardRow(overrides) : failedRow(overrides);
+    const latest =
+      slot === "success" ? { success: row, failure: null } : { success: null, failure: row };
+
+    expect(() => toIngestionSourceCard("fixture", latest, [])).toThrow(
+      "ingest_runs 카드 행의 소스·상태가 요청과 맞지 않다",
     );
   });
 });

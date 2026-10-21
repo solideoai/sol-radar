@@ -1,5 +1,6 @@
 import type { IngestionRunView } from "@/server/ingestion";
 import type { RunMode } from "@/server/bids";
+import { formatCount } from "./ingest-format";
 
 // /admin/ingestion 화면 글자(N8 디자인 스펙 docs/plans/2026-10-20-n8-admin-ingestion-design.md §3.4·§6, 초안).
 // 서버 컴포넌트·클라이언트 부품이 같이 쓴다. 서버 모듈은 타입으로만 가져온다.
@@ -62,3 +63,38 @@ export function sourceWithBatch(run: Pick<IngestRun, "source" | "batch">, short 
 // 05 :428·ADR-020. live 는 g2b 만, fixture·mock 은 fixture 만 받는다. 최종 판정은 서버(409 RUN_MODE_MISMATCH)다.
 export const acceptsSource = (runMode: RunMode, source: IngestSource): boolean =>
   runMode === "live" ? source === "g2b" : source === "fixture";
+
+// ── 소스별 최근 수집 카드(스펙 §4.4·§6) ──
+
+export const SOURCE_CARDS_TITLE = "소스별 최근 수집";
+/** 카드 순서는 고정이다(스펙 §4.4). 서버가 어떤 순서로 주든 이 순서로 그린다. */
+export const SOURCE_CARD_ORDER = ["fixture", "g2b"] as const satisfies readonly IngestSource[];
+export const SOURCE_CARD_TERMS = {
+  lastSuccess: "마지막 성공",
+  lastFailure: "마지막 실패",
+  loaded: "적재",
+  quarantined: "격리",
+} as const;
+export const SOURCE_CARD_NONE = "없음";
+export const SOURCE_CARD_EMPTY = "수집 기록이 없습니다";
+
+// 받지 않는 소스는 받는 모드를 밝힌다. 모드 이름은 늘 "실행 모드" 앞말과 함께다(배치 LIVE 와 섞이지 않게).
+const SOURCE_ONLY_MODES = {
+  fixture: "실행 모드 fixture·mock에서만 실행할 수 있습니다",
+  g2b: "실행 모드 live에서만 실행할 수 있습니다",
+} as const satisfies Record<IngestSource, string>;
+
+/** 카드의 "실행 가능" 줄. 지금 실행 모드에서 되면 그 모드를, 안 되면 받는 모드를 보인다. */
+export const runnableLabel = (runMode: RunMode, source: IngestSource): string =>
+  acceptsSource(runMode, source)
+    ? `${runModeLabel(runMode)}에서 실행할 수 있습니다`
+    : SOURCE_ONLY_MODES[source];
+
+// 카드는 칸이 넓어 건수를 줄이지 않고 전체 수(ko-KR 자릿점)로 보인다.
+const fullCount = (count: number): string => formatCount(count).full;
+
+/** 카드 "적재" 값. 마지막 성공 run 의 summary 다. */
+export const loadedLabel = (created: number, changed: number): string =>
+  `신규 ${fullCount(created)} · 변경 ${fullCount(changed)}`;
+/** 카드 "격리" 값. */
+export const quarantinedLabel = (quarantined: number): string => `${fullCount(quarantined)}건`;

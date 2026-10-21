@@ -269,15 +269,66 @@ describe("ingestionAdminRepo.findRunningRun", () => {
   });
 });
 
+describe("ingestionAdminRepo.findLatestRun — 소스별 카드(N8 디자인 스펙 §4.4)", () => {
+  it("source·status 묶음으로 거르고 finished_at desc(빈 값은 뒤)·id desc 로 한 행만 읽는다", async () => {
+    reply("ingest_runs", ok([RUN_ROW]));
+
+    expect(await ingestionAdminRepo.findLatestRun("fixture", ["SUCCEEDED", "PARTIAL"])).toEqual(
+      RUN_ROW,
+    );
+
+    const request = only();
+    expect([request.method, request.url.pathname]).toEqual(["GET", "/rest/v1/ingest_runs"]);
+    expect(params(request, "select")).toEqual([RUN_SELECT]);
+    expect(params(request, "source")).toEqual(["eq.fixture"]);
+    expect(params(request, "status")).toEqual(["in.(SUCCEEDED,PARTIAL)"]);
+    expect(params(request, "order")).toEqual(["finished_at.desc.nullslast,id.desc"]);
+    expect(params(request, "limit")).toEqual(["1"]);
+  });
+
+  it("FAILED 하나도 같은 in 필터로 읽는다", async () => {
+    reply("ingest_runs", ok([]));
+
+    await ingestionAdminRepo.findLatestRun("g2b", ["FAILED"]);
+
+    const request = only();
+    expect(params(request, "source")).toEqual(["eq.g2b"]);
+    expect(params(request, "status")).toEqual(["in.(FAILED)"]);
+  });
+
+  it("조직 구분 없는 공용 표라 org_id 로 거르지 않는다", async () => {
+    reply("ingest_runs", ok([]));
+
+    await ingestionAdminRepo.findLatestRun("fixture", ["FAILED"]);
+
+    expect(params(only(), "org_id")).toEqual([]);
+  });
+
+  it("행이 없으면 null 이다", async () => {
+    reply("ingest_runs", ok([]));
+
+    expect(await ingestionAdminRepo.findLatestRun("g2b", ["SUCCEEDED", "PARTIAL"])).toBeNull();
+  });
+
+  it("DB 오류는 던진다(null 로 바꿔 '기록 없음'처럼 보이지 않는다)", async () => {
+    reply("ingest_runs", failing);
+
+    await expect(ingestionAdminRepo.findLatestRun("fixture", ["FAILED"])).rejects.toMatchObject({
+      message: DB_ERROR.message,
+    });
+  });
+});
+
 describe("ingestionAdminRepo — ingest_runs 열 단위 읽기(W1, 20261019000019)", () => {
-  it("ingest_runs 를 읽는 세 메서드는 select=* 도 숨긴 열(job_key·idempotency_key·requested_by·params)도 고르지 않고, 거르기·정렬도 허용 열로만 한다", async () => {
+  it("ingest_runs 를 읽는 네 메서드는 select=* 도 숨긴 열(job_key·idempotency_key·requested_by·params)도 고르지 않고, 거르기·정렬도 허용 열로만 한다", async () => {
     reply("ingest_runs", ok([]));
 
     await ingestionAdminRepo.listRuns({ limit: 2, after: { startedAt: STARTED_AT, id: RUN_B } });
     await ingestionAdminRepo.findRun(RUN_A);
     await ingestionAdminRepo.findRunningRun("g2b");
+    await ingestionAdminRepo.findLatestRun("fixture", ["SUCCEEDED", "PARTIAL"]);
 
-    expect(net.requests).toHaveLength(3);
+    expect(net.requests).toHaveLength(4);
     for (const request of net.requests) {
       const label = `${request.method} ${request.url.search}`;
       const selected = params(request, "select").flatMap((value) => value.split(","));
@@ -437,7 +488,7 @@ describe("ingestionAdminRepo.findMemberNames", () => {
 });
 
 describe("ingestionAdminRepo — 접속 통로", () => {
-  it("여섯 읽기 모두 사용자 세션(getSupabase)만 쓰고 service role·세션 없는 anon 통로는 부르지 않는다", async () => {
+  it("일곱 읽기 모두 사용자 세션(getSupabase)만 쓰고 service role·세션 없는 anon 통로는 부르지 않는다", async () => {
     reply("ingest_runs", ok([]));
     reply("ingest_errors", ok([]));
     reply("memberships", ok([]));
@@ -447,10 +498,11 @@ describe("ingestionAdminRepo — 접속 통로", () => {
     await ingestionAdminRepo.findRun(RUN_A);
     await ingestionAdminRepo.listErrors([RUN_A]);
     await ingestionAdminRepo.findRunningRun("fixture");
+    await ingestionAdminRepo.findLatestRun("g2b", ["FAILED"]);
     await ingestionAdminRepo.findMemberNames(ORG_ID, [USER_A]);
     await ingestionAdminRepo.findManualRequesters(ORG_ID, [RUN_A]);
 
-    expect(supabase.getSupabase).toHaveBeenCalledTimes(6);
+    expect(supabase.getSupabase).toHaveBeenCalledTimes(7);
     expect(supabase.getSupabaseAdmin).not.toHaveBeenCalled();
     expect(supabase.createSupabaseAdminClient).not.toHaveBeenCalled();
     expect(supabase.getSupabaseAnon).not.toHaveBeenCalled();
@@ -466,6 +518,7 @@ describe("ingestionAdminRepo — 접속 통로", () => {
     await ingestionAdminRepo.findRun(RUN_A);
     await ingestionAdminRepo.listErrors([RUN_A]);
     await ingestionAdminRepo.findRunningRun("fixture");
+    await ingestionAdminRepo.findLatestRun("fixture", ["SUCCEEDED", "PARTIAL"]);
     await ingestionAdminRepo.findMemberNames(ORG_ID, [USER_A]);
     await ingestionAdminRepo.findManualRequesters(ORG_ID, [RUN_A]);
 

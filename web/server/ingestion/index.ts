@@ -339,11 +339,15 @@ export type {
 // ── N8 수집 관리(/admin/ingestion, 05 §2 :75-77): 입력 검증·IngestionRun 변환·요청·조회. 읽기는 사용자 세션(RLS) ──
 export {
   INGESTION_ADMIN_ROLES,
+  INGESTION_CARD_SOURCES,
+  INGESTION_FAILURE_STATUSES,
+  INGESTION_SUCCESS_STATUSES,
   WINDOW_FUTURE_TOLERANCE_MS,
   acceptsSourceForMode,
   canManageIngestion,
   ingestionRunInputSchema,
   toIngestionRunView,
+  toIngestionSourceCard,
 } from "./ingestion-admin.model";
 export type {
   IngestionAdminErrorCode,
@@ -356,9 +360,13 @@ export type {
   IngestionRunPage,
   IngestionRunRequester,
   IngestionRunView,
+  IngestionSourceCard,
+  IngestionSourceFailure,
+  IngestionSourceSuccess,
 } from "./ingestion-admin.model";
 export {
   getIngestionRun,
+  getIngestionSourceCards,
   ingestionForbidden,
   listIngestionRuns,
   requestIngestionRun,

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  SOURCE_CARD_ORDER,
   acceptsSource,
   batchLabel,
+  loadedLabel,
+  quarantinedLabel,
   runModeLabel,
+  runnableLabel,
   sourceLabel,
   sourceWithBatch,
   triggerLabel,
@@ -69,5 +73,31 @@ describe("acceptsSource — 실행 모드별 소스(05 :428, ADR-020)", () => {
     ["mock", "g2b", false],
   ] as const)("실행 모드 %s 에서 %s 는 %s", (mode, source, expected) => {
     expect(acceptsSource(mode, source)).toBe(expected);
+  });
+});
+
+describe("소스별 카드 글자(스펙 §4.4·§6)", () => {
+  it("카드 순서는 데모 데이터(fixture) → 나라장터(g2b) 다", () => {
+    expect(SOURCE_CARD_ORDER).toStrictEqual(["fixture", "g2b"]);
+  });
+
+  it.each([
+    ["mock", "fixture", "실행 모드 mock에서 실행할 수 있습니다"],
+    ["fixture", "fixture", "실행 모드 fixture에서 실행할 수 있습니다"],
+    ["live", "fixture", "실행 모드 fixture·mock에서만 실행할 수 있습니다"],
+    ["live", "g2b", "실행 모드 live에서 실행할 수 있습니다"],
+    ["mock", "g2b", "실행 모드 live에서만 실행할 수 있습니다"],
+    ["fixture", "g2b", "실행 모드 live에서만 실행할 수 있습니다"],
+  ] as const)("실행 모드 %s 의 %s 카드는 '%s'", (mode, source, expected) => {
+    expect(runnableLabel(mode, source)).toBe(expected);
+  });
+});
+
+describe("카드 적재·격리 값", () => {
+  it("적재는 '신규 {n} · 변경 {n}', 격리는 '{n}건'이고 자릿점을 찍는다(줄이지 않는다)", () => {
+    expect(loadedLabel(19, 0)).toBe("신규 19 · 변경 0");
+    expect(loadedLabel(123_456, 2)).toBe("신규 123,456 · 변경 2");
+    expect(quarantinedLabel(1)).toBe("1건");
+    expect(quarantinedLabel(0)).toBe("0건");
   });
 });

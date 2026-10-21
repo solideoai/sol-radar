@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Tables } from "@/lib/database.types";
-import { getIngestionRun, listIngestionRuns, requestIngestionRun } from "@/server/ingestion";
+import {
+  getIngestionRun,
+  getIngestionSourceCards,
+  listIngestionRuns,
+  requestIngestionRun,
+} from "@/server/ingestion";
 
 // N8 수집 관리 서비스. 구현(ingestion-admin.service.ts)보다 먼저 쓴 시험이다.
 // 근거: 05 §2(:75-77)·IngestionRunInput(:361-366)·IngestionRun(:367-376)·검증(:428)·오류 §5(:482-504)·§6.5·6.6,
@@ -56,6 +61,8 @@ type AdminRepo = {
   listErrors(runIds: string[]): Promise<IngestErrorRow[]>;
   /** 같은 source 의 status = RUNNING 행(사용자 세션·RLS 로 읽는다) */
   findRunningRun(source: string): Promise<{ id: string } | null>;
+  /** 소스별 카드: source 의 status 가 statuses 중 하나인 가장 최근에 끝난 행(사용자 세션·RLS) */
+  findLatestRun(source: string, statuses: readonly string[]): Promise<IngestRunRow | null>;
   /** userId → 이름. orgId(지금 조직) 구성원만 담는다. 다른 조직 사람은 빠진다 */
   findMemberNames(orgId: string, userIds: string[]): Promise<Map<string, string>>;
   /**
@@ -157,6 +164,7 @@ function fake(options: FakeOptions = {}) {
     findRun: vi.fn<AdminRepo["findRun"]>(async () => null),
     listErrors: vi.fn<AdminRepo["listErrors"]>(async () => []),
     findRunningRun: vi.fn<AdminRepo["findRunningRun"]>(async () => null),
+    findLatestRun: vi.fn<AdminRepo["findLatestRun"]>(async () => null),
     findMemberNames: vi.fn<AdminRepo["findMemberNames"]>(memberNames),
     findManualRequesters: vi.fn<AdminRepo["findManualRequesters"]>(async (orgId, runIds) => {
       const byRun = audits.get(orgId) ?? new Map<string, string>();
@@ -251,6 +259,7 @@ const backendOf = (f: Fake): Record<string, Called> => ({
   findRun: f.repo.findRun,
   listErrors: f.repo.listErrors,
   findRunningRun: f.repo.findRunningRun,
+  findLatestRun: f.repo.findLatestRun,
   findMemberNames: f.repo.findMemberNames,
   findManualRequesters: f.repo.findManualRequesters,
 });
@@ -1552,5 +1561,156 @@ describe("getIngestionRun", () => {
     expect(result).toMatchObject({ ok: true, status: 200, data: { requestedBy: null } });
     expect(JSON.stringify(result)).not.toContain(USER_ID);
     expect(f.repo.findManualRequesters).toHaveBeenCalledWith(ORG_B, [RUN_A]);
+  });
+});
+
+// ───────────────────────── 소스별 최근 수집 카드(N8 디자인 스펙 §4.4, D3) ─────────────────────────
+// 공개 API 없이 화면 서버 컴포넌트가 부른다. 소스마다 최신 성공(SUCCEEDED·PARTIAL) 1건·최신 실패(FAILED) 1건과 실패 run 의 오류.
+
+describe("getIngestionSourceCards", () => {
+  const FIXTURE_OK = runRow(RUN_A, {
+    status: "PARTIAL",
+    summary: { ...ZERO_SUMMARY, created: 19, quarantined: 1, retried: 2 },
+  });
+  const FIXTURE_FAILED = runRow(RUN_B, { status: "FAILED" });
+  const G2B_FAILED = runRow(RUN_C, {
+    source: "g2b",
+    run_mode: "LIVE",
+    batch: null,
+    status: "FAILED",
+  });
+  // (source, 상태 묶음) → 행. 가짜 저장은 이 표대로만 돌려준다.
+  const latestTable =
+    (rows: Record<string, IngestRunRow>): AdminRepo["findLatestRun"] =>
+    async (source, statuses) =>
+      rows[`${source}:${statuses.join(",")}`] ?? null;
+
+  it.each<Role>(["SALES", "ANALYST", "VIEWER"])(
+    "%s 는 403 FORBIDDEN {required:[ADMIN]} 이고 저장을 건드리지 않는다",
+    async (role) => {
+      const f = fake();
+
+      const result = await getIngestionSourceCards({ ...ADMIN, role }, f.deps);
+
+      expect(result).toStrictEqual(FORBIDDEN);
+      expect(callOrder(backendOf(f))).toStrictEqual([]);
+    },
+  );
+
+  it("소스마다 최신 성공(SUCCEEDED·PARTIAL)·최신 실패(FAILED)를 한 번씩, 모두 네 번 읽는다", async () => {
+    const f = fake();
+
+    await getIngestionSourceCards(ADMIN, f.deps);
+
+    expect(
+      f.repo.findLatestRun.mock.calls.map(([source, statuses]) => [source, [...statuses]]),
+    ).toStrictEqual([
+      ["fixture", ["SUCCEEDED", "PARTIAL"]],
+      ["fixture", ["FAILED"]],
+      ["g2b", ["SUCCEEDED", "PARTIAL"]],
+      ["g2b", ["FAILED"]],
+    ]);
+  });
+
+  it("카드는 데모 데이터(fixture) → 나라장터(g2b) 순서이고, run 이 없으면 성공·실패 모두 null 이며 오류를 읽지 않는다", async () => {
+    const f = fake();
+
+    const result = await getIngestionSourceCards(ADMIN, f.deps);
+
+    expect(result).toStrictEqual({
+      ok: true,
+      status: 200,
+      data: [
+        { source: "fixture", lastSuccess: null, lastFailure: null },
+        { source: "g2b", lastSuccess: null, lastFailure: null },
+      ],
+    });
+    expect(f.repo.listErrors).not.toHaveBeenCalled();
+  });
+
+  it("실패 run 들의 오류를 한 번에 읽어 카드마다 그 run 것만 싣고, 성공 run 은 적재·격리 숫자를 싣는다", async () => {
+    const f = fake();
+    f.repo.findLatestRun.mockImplementation(
+      latestTable({
+        "fixture:SUCCEEDED,PARTIAL": FIXTURE_OK,
+        "fixture:FAILED": FIXTURE_FAILED,
+        "g2b:FAILED": G2B_FAILED,
+      }),
+    );
+    f.repo.listErrors.mockResolvedValue([
+      errorRow(RUN_C, "g2b:page:start", { error_code: "API_SERVICE_KEY_INVALID" }),
+      errorRow(RUN_B, "fixture:page:2", { error_code: "SCHEMA_INVALID" }),
+    ]);
+
+    const result = await getIngestionSourceCards(ADMIN, f.deps);
+
+    expect(f.repo.listErrors).toHaveBeenCalledTimes(1);
+    expect([...(f.repo.listErrors.mock.calls[0]?.[0] ?? [])].sort()).toStrictEqual(
+      [RUN_B, RUN_C].sort(),
+    );
+    expect(result).toStrictEqual({
+      ok: true,
+      status: 200,
+      data: [
+        {
+          source: "fixture",
+          lastSuccess: {
+            runId: RUN_A,
+            status: "PARTIAL",
+            finishedAt: "2026-10-20T01:02:00.000Z",
+            created: 19,
+            changed: 0,
+            quarantined: 1,
+          },
+          lastFailure: {
+            runId: RUN_B,
+            finishedAt: "2026-10-20T01:02:00.000Z",
+            errors: [
+              {
+                sourceKey: "fixture:page:2",
+                errorCode: "SCHEMA_INVALID",
+                resultCode: null,
+                detail: "fixture:page:2 누락",
+              },
+            ],
+          },
+        },
+        {
+          source: "g2b",
+          lastSuccess: null,
+          lastFailure: {
+            runId: RUN_C,
+            finishedAt: "2026-10-20T01:02:00.000Z",
+            errors: [
+              {
+                sourceKey: "g2b:page:start",
+                errorCode: "API_SERVICE_KEY_INVALID",
+                resultCode: null,
+                detail: "g2b:page:start 누락",
+              },
+            ],
+          },
+        },
+      ],
+    });
+  });
+
+  it("요청자(감사·구성원)는 읽지 않는다(카드에 없다)", async () => {
+    const f = fake();
+    f.repo.findLatestRun.mockImplementation(
+      latestTable({ "fixture:SUCCEEDED,PARTIAL": FIXTURE_OK }),
+    );
+
+    await getIngestionSourceCards(ADMIN, f.deps);
+
+    expect(f.repo.findManualRequesters).not.toHaveBeenCalled();
+    expect(f.repo.findMemberNames).not.toHaveBeenCalled();
+  });
+
+  it("읽다 던지면 그대로 던진다(빈 카드로 바꿔 '기록 없음'처럼 보이지 않는다)", async () => {
+    const f = fake();
+    f.repo.findLatestRun.mockRejectedValue(new Error("latest read failed"));
+
+    await expect(getIngestionSourceCards(ADMIN, f.deps)).rejects.toThrow("latest read failed");
   });
 });

@@ -37,8 +37,8 @@ import {
 import { RunIngestDialog } from "./run-ingest-dialog";
 import { useIngestPolling } from "./use-ingest-polling";
 
-// /admin/ingestion 본문(N8 스펙 §4.1): 머리 → 실행 상태 줄 → 실행 이력 표 + 더 보기. 실행 상세는 오른쪽 서랍(?run=<id>).
-// 소스별 카드(§4.4, D3)는 이번 단계에 넣지 않는다.
+// /admin/ingestion 본문(N8 스펙 §4.1): 머리 → 실행 상태 줄 → 소스별 카드 → 실행 이력 표 + 더 보기. 실행 상세는 오른쪽 서랍(?run=<id>).
+// 소스별 카드(§4.4, D3)는 page(서버 컴포넌트)가 그려 sourceCards 자리로 넘긴다. 이 화면은 자리만 잡고 다시 계산하지 않는다.
 // 행은 세 곳에서 온다: 서버가 그린 첫 쪽 + 더 보기(useLoadMore), 폴링으로 읽은 run(polled), 이 화면이 접수한 run(accepted).
 
 const RUN_PARAM = "run";
@@ -49,6 +49,8 @@ type IngestionViewProps = {
   initialNextCursor: string | null;
   /** 서버가 첫 쪽을 읽은 시각(ISO). 상태 줄 시간 계산의 첫 기준이다. */
   now: string;
+  /** 서버가 그린 소스별 최근 수집 카드(§4.4). 상태 줄과 실행 이력 사이에 둔다. */
+  sourceCards: React.ReactNode;
 };
 
 export function IngestionView({
@@ -56,6 +58,7 @@ export function IngestionView({
   initialItems,
   initialNextCursor,
   now,
+  sourceCards,
 }: IngestionViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -91,9 +94,12 @@ export function IngestionView({
         items,
         pending.map((entry) => entry.run.id),
       ),
-    // 소스별 카드가 없어 화면을 서버에서 다시 그릴 것은 없다(다시 그리면 더 보기로 붙인 행이 사라진다).
-    // 상단바 "수집 N분 전"만 바로 다시 읽는다.
-    onSettled: () => void refreshTopbarStatus(),
+    // 상단바 "수집 N분 전"을 다시 읽고, 스펙 §4.8 대로 router.refresh() 로 소스별 카드·첫 쪽을 서버가 다시 그린다.
+    // 단 더 보기로 행을 붙였으면 다시 그릴 때 그 행이 사라지므로 부르지 않는다(카드는 화면을 새로 고칠 때까지 끝나기 전 값).
+    onSettled: () => {
+      void refreshTopbarStatus();
+      if (more.appendedFrom === null) router.refresh();
+    },
   });
 
   // ── 서랍: 주소 ?run=<id> 가 정본이다. 열 때는 기록을 더해(뒤로 가기로 닫힌다) 서버를 다시 부르지 않는다. ──
@@ -202,6 +208,8 @@ export function IngestionView({
         onRecheck={polling.start}
         onReload={() => router.refresh()}
       />
+
+      {sourceCards}
 
       <section aria-labelledby="ingest-history-title" className="flex flex-col gap-3">
         <h2 id="ingest-history-title" className="type-heading text-foreground">

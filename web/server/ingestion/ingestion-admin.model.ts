@@ -210,6 +210,103 @@ export function toIngestionRunView(
   };
 }
 
+// ── 소스별 최근 수집 카드(N8 디자인 스펙 §4.4, D3). 공개 API 없이 화면 서버 컴포넌트가 읽는다 ──
+
+/** 카드를 읽는 소스. 화면도 이 순서(데모 데이터 → 나라장터)로 그린다 */
+export const INGESTION_CARD_SOURCES = [
+  "fixture",
+  "g2b",
+] as const satisfies readonly IngestRunSource[];
+/** "마지막 성공"으로 치는 상태. 부분 완료(격리 있음)도 적재를 끝낸 run 이다 */
+export const INGESTION_SUCCESS_STATUSES = [
+  "SUCCEEDED",
+  "PARTIAL",
+] as const satisfies readonly IngestRunStatus[];
+/** "마지막 실패"로 치는 상태 */
+export const INGESTION_FAILURE_STATUSES = ["FAILED"] as const satisfies readonly IngestRunStatus[];
+
+type IngestionSuccessStatus = (typeof INGESTION_SUCCESS_STATUSES)[number];
+
+/** 마지막 성공 run. 적재·격리 숫자는 이 run 의 summary 다 */
+export type IngestionSourceSuccess = {
+  runId: string;
+  status: IngestionSuccessStatus;
+  finishedAt: string;
+  created: number;
+  changed: number;
+  quarantined: number;
+};
+/** 마지막 실패 run. 중단 원인 고르기는 상태 줄과 같은 화면 쪽 오류 분류가 맡는다(분류 규칙을 두 곳에 두지 않는다) */
+export type IngestionSourceFailure = {
+  runId: string;
+  finishedAt: string;
+  /** 이 run 의 오류(저장 순서 그대로) */
+  errors: IngestionRunError[];
+};
+export type IngestionSourceCard = {
+  source: IngestRunSource;
+  lastSuccess: IngestionSourceSuccess | null;
+  lastFailure: IngestionSourceFailure | null;
+};
+
+const hasStatus = <S extends IngestRunStatus>(
+  view: IngestionRunView,
+  statuses: readonly S[],
+): view is IngestionRunView & { status: S } => statuses.some((status) => status === view.status);
+
+// 저장이 고른 행이 이 카드의 소스·상태가 아니면 읽기와 규칙이 어긋난 것이라 이어 가지 않는다(apiValueOf 와 같다).
+function cardRunOf<S extends IngestRunStatus>(
+  source: IngestRunSource,
+  row: IngestionRunRow,
+  statuses: readonly S[],
+): IngestionRunView & { status: S } {
+  const view = toIngestionRunView(row, [], null);
+  if (view.source !== source || !hasStatus(view, statuses)) {
+    throw new Error("ingest_runs 카드 행의 소스·상태가 요청과 맞지 않다");
+  }
+  return view;
+}
+
+// 끝난 run 은 finished_at 이 있어야 하지만 DB 제약이 없다. 비어 있으면 지어내지 않고 시작 시각을 보인다.
+const finishedAtOf = (view: IngestionRunView): string => view.finishedAt ?? view.startedAt;
+
+/**
+ * 소스 하나의 카드. success·failure 는 그 소스의 최신 SUCCEEDED·PARTIAL run 과 최신 FAILED run 이고,
+ * errors 는 실패 run 들의 ingest_errors 행(다른 run 것이 섞여 와도 이 카드의 실패 run 것만 고른다)이다.
+ */
+export function toIngestionSourceCard(
+  source: IngestRunSource,
+  latest: { success: IngestionRunRow | null; failure: IngestionRunRow | null },
+  errors: readonly IngestErrorRow[],
+): IngestionSourceCard {
+  const success =
+    latest.success === null ? null : cardRunOf(source, latest.success, INGESTION_SUCCESS_STATUSES);
+  const failure =
+    latest.failure === null ? null : cardRunOf(source, latest.failure, INGESTION_FAILURE_STATUSES);
+  return {
+    source,
+    lastSuccess:
+      success === null
+        ? null
+        : {
+            runId: success.id,
+            status: success.status,
+            finishedAt: finishedAtOf(success),
+            created: success.summary.created,
+            changed: success.summary.changed,
+            quarantined: success.summary.quarantined,
+          },
+    lastFailure:
+      failure === null
+        ? null
+        : {
+            runId: failure.id,
+            finishedAt: finishedAtOf(failure),
+            errors: errors.filter((error) => error.ingest_run_id === failure.id).map(toRunError),
+          },
+  };
+}
+
 // ── 서비스 결과(bids ServiceResult 와 같은 모양. Route Handler 가 serviceResponse 로 HTTP 봉투에 옮긴다) ──
 
 export type IngestionAdminErrorCode =
