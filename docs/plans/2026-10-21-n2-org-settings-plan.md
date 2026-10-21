@@ -58,6 +58,18 @@ updated: 2026-10-21
 - `(app)/settings`(이동)와 `(app)/(work)/settings/organization` 이 같은 첫 마디를 쓴다. 빌드로 경로 충돌이 없는지 먼저 확인한다.
 - freeze 10-23 전에 green 이 아니면 브랜치를 병합하지 않는다.
 
+## 5. 보안 검토 반영(3e, 2026-10-21)
+
+기준점 `cd6fc96` 에 3e 가 Medium 1·Low 2 를 냈다. 사용자 결정(3e 세션): N2 병합 전에 Medium 을 고친다.
+
+| 항목 | 내용 | 처리 |
+|---|---|---|
+| Medium | 같은 이메일을 다시 초대하면 `invitations.sol_role` 이 update 되는데 USER_INVITE 감사는 insert 에만 남는다. VIEWER 초대 뒤 ADMIN 재초대·수락이면 ADMIN 멤버십이 감사 없이 생긴다 | 마이그레이션 `20261021000610_invitation_sol_role_audit.sql`: `sol_role` 이 실제로 바뀐 update 마다 USER_INVITE 감사 한 행(`before.solRole` 이전 역할, `after` 는 insert 감사와 같은 모양, 행위자 `auth.uid()`, JWT 없으면 남기지 않음). 재초대는 막지 않는다. action 은 USER_INVITE 를 그대로 써서 `audit_logs_action_check` 를 바꾸지 않고(N6 과 겹치지 않는다), 조직 탭 "최근 변경 기록"이 "초대 · 이메일 · 새 역할"로 그대로 읽는다 |
+| Low 1 | `request_id` 는 요청 헤더 `x-request-id` 를 옮긴 값이라 부른 사람이 정할 수 있다 | 마이그레이션 주석에 적었다. 요청 추적에만 쓰고 행위자는 `actor_id` 로만 판단한다. 정본 09 반영은 45 몫 |
+| Low 2 | 초대 메일 발송에 속도 제한이 없다 | 해커톤 뒤 후속. 이번에 고치지 않는다 |
+
+시험: `scripts/database.test.mjs` "재초대 업무 역할 변경 감사(20261021000610)" — 역할을 바꾼 재초대 → 감사 1행, 같은 역할 재초대 → 0행, JWT 없는 관리 작업 → 0행, org-01 ADMIN 의 org-02 멤버십·초대 update → 0행·감사 없음, 감사는 org-01 ADMIN 만 읽는다. 변형 5개(트리거 없음·같은 값 거르기 빼기·JWT 거르기 빼기·이전 값 대신 새 값·action 바꾸기) 모두 잡힌다. 모델 시험에 재초대 행 하나를 더했다.
+
 ## 관련 문서
 
 - [[06-UI-UX|06 UI]]

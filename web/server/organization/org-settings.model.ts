@@ -112,7 +112,7 @@ export type OrgAuditView =
       toRole: SolRole;
     };
 
-// 감사 행의 before_after 는 트리거가 쓴 모양이다(20261021000300·20261019000007 §5). 어긋나면 던진다.
+// 감사 행의 before_after 는 트리거가 쓴 모양이다(20261021000300·20261019000007 §5·재초대 20261021000610). 어긋나면 던진다.
 const roleChangeShape = z.object({
   before: z.object({ solRole: solRoleSchema }),
   after: z.object({ solRole: solRoleSchema }),

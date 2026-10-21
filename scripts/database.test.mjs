@@ -4445,6 +4445,105 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
     assert.equal((await invite(ORG1, "second@example.invalid", "SALES")).length, 1);
   });
 
+  it("재초대 업무 역할 변경 감사(20261021000610) — 다시 초대해 초대의 sol_role 이 바뀌면 USER_INVITE(before 에 이전 역할) 한 행이 남고, 같은 역할 재초대·JWT 없는 관리 작업은 남지 않으며, org-01 ADMIN 은 org-02 의 멤버십·초대를 바꾸지 못한다(0행·감사 없음)", async (t) => {
+    const pglite = await solDb(t);
+    // 서비스(orgSettingsRepo.renewInvitation)와 같은 모양: org_id·email 로 찾아 sol_role 만 적고 id 를 돌려받는다.
+    const reinvite = (org, email, role) =>
+      rowsOf(
+        pglite,
+        "update public.invitations set sol_role = $3 where org_id = $1 and email = $2 returning id",
+        [org, email, role],
+      );
+    // 재초대 감사는 before 가 있는 USER_INVITE 다(insert 감사는 before 가 JSON null). 역할 감사(USER_ROLE_CHANGE)는 늘지 않아야 한다.
+    const roleChanges = async () => {
+      await asWorker(pglite);
+      assert.equal(await countOf(pglite, "audit_logs", "action = 'USER_ROLE_CHANGE'"), 0);
+      return rowsOf(
+        pglite,
+        `select org_id, actor_id, target_type, target_id, before_after -> 'before' ->> 'solRole' as before_role,
+                before_after -> 'after' ->> 'solRole' as after_role, before_after -> 'after' ->> 'email' as email
+           from public.audit_logs
+          where action = 'USER_INVITE' and before_after -> 'before' <> 'null'::jsonb
+          order by created_at, id`,
+      );
+    };
+    await as(pglite, "admin");
+    const [{ id: invitation }] = await rowsOf(
+      pglite,
+      "insert into public.invitations (org_id, email, sol_role) values ($1, $2, 'VIEWER') returning id",
+      [ORG1, EMAIL.invitee],
+    );
+    // 같은 역할로 다시 초대하면 만료만 늘고 감사는 없다.
+    assert.deepEqual(await reinvite(ORG1, EMAIL.invitee, "VIEWER"), [{ id: invitation }]);
+    assert.deepEqual(await roleChanges(), [], "같은 역할 재초대");
+    // 역할을 바꿔 다시 초대하면 한 행.
+    await as(pglite, "admin");
+    assert.deepEqual(await reinvite(ORG1, EMAIL.invitee, "ADMIN"), [{ id: invitation }]);
+    // seed·worker(JWT 없음)는 행위자가 없어 남기지 않는다.
+    await asWorker(pglite);
+    assert.deepEqual(await reinvite(ORG1, EMAIL.invitee, "SALES"), [{ id: invitation }]);
+    const changed = {
+      org_id: ORG1,
+      actor_id: WHO.admin,
+      target_type: "invitation",
+      target_id: invitation,
+      before_role: "VIEWER",
+      after_role: "ADMIN",
+      email: EMAIL.invitee,
+    };
+    assert.deepEqual(await roleChanges(), [changed]);
+    // 다른 조직: org-01 ADMIN 은 org-02 의 멤버십·초대를 읽지도 바꾸지도 못한다.
+    const [{ id: org2Invitation }] = await rowsOf(
+      pglite,
+      "insert into public.invitations (org_id, email, sol_role) values ($1, 'org2-guest@example.invalid', 'VIEWER') returning id",
+      [ORG2],
+    );
+    await as(pglite, "admin");
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "update public.memberships set sol_role = 'ADMIN' where org_id = $1 and user_id = $2 returning sol_role",
+        [ORG2, WHO.outsider],
+      ),
+      [],
+      "org-02 멤버십",
+    );
+    assert.deepEqual(
+      await reinvite(ORG2, "org2-guest@example.invalid", "ADMIN"),
+      [],
+      "org-02 초대",
+    );
+    await asWorker(pglite);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        `select (select sol_role from public.memberships where org_id = $1 and user_id = $2) as member_role,
+                (select sol_role from public.invitations where id = $3) as invitation_role`,
+        [ORG2, WHO.outsider, org2Invitation],
+      ),
+      [{ member_role: "VIEWER", invitation_role: "VIEWER" }],
+    );
+    assert.deepEqual(await roleChanges(), [changed], "org-02 시도 뒤");
+    // 감사는 그 조직 ADMIN 만 읽는다.
+    for (const [who, expected] of [
+      ["admin", 1],
+      ["sales", 0],
+      ["outsider", 0],
+      ["operator", 0],
+    ]) {
+      await as(pglite, who);
+      assert.equal(
+        await countOf(
+          pglite,
+          "audit_logs",
+          "action = 'USER_INVITE' and before_after -> 'before' <> 'null'::jsonb",
+        ),
+        expected,
+        who,
+      );
+    }
+  });
+
   it("worker 전용 표(점수 요소·자격 판정·항목 판정·인력 배정)는 조직 전원이 읽고 ADMIN 도 넣기·고치기·지우기는 권한 오류다", async (t) => {
     const pglite = await solDb(t);
     const tables = [

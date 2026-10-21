@@ -163,6 +163,34 @@ describe("toOrgAuditView", () => {
     });
   });
 
+  it("재초대(before 에 이전 역할이 있는 USER_INVITE, 20261021000610)도 초대 한 줄로 새 역할을 낸다", () => {
+    expect(
+      toOrgAuditView(
+        auditRow({
+          action: "USER_INVITE",
+          targetId: GONE,
+          beforeAfter: {
+            before: { solRole: "VIEWER" },
+            after: {
+              email: "new@soltech.invalid",
+              orgRole: "member",
+              solRole: "ADMIN",
+              expiresAt: "2026-10-28T00:00:00.000Z",
+            },
+          },
+        }),
+        members,
+      ),
+    ).toEqual({
+      id: "audit-1",
+      kind: "invite",
+      at: "2026-10-21T05:05:00.000Z",
+      actor: { kind: "member", name: "김관리", isMe: true },
+      email: "new@soltech.invalid",
+      toRole: "ADMIN",
+    });
+  });
+
   it("행위자 id 가 없으면 탈퇴한 사용자, 지금 구성원이 아니면 조직을 떠난 사용자다", () => {
     const entry = toOrgAuditView(auditRow({ actorId: null, targetId: GONE }), members);
     expect(entry.actor).toEqual({ kind: "deleted" });
