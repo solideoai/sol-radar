@@ -1,0 +1,27 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+ ❯ worker/document-storage.test.ts (8 tests | 1 failed) 267ms
+     × reuses legacy bytes at the unchanged physical path returned by the upgraded ledger 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  worker/document-storage.test.ts > immutable document Storage (real Supabase SDK transport) > reuses legacy bytes at the unchanged physical path returned by the upgraded ledger
+Error: storage_claim_path_mismatch
+ ❯ Object.uploadImmutable worker/document-storage.ts:93:51
+     91|     if (error || !claimed.success) throw new Error("storage_claim_fail…
+     92|     const expectedPath = logicalObject.path.replace(/\/([^/]+)$/, `/${…
+     93|     if (claimed.data.path !== expectedPath) throw new Error("storage_c…
+       |                                                   ^
+     94|     const object = { ...logicalObject, path: claimed.data.path };
+     95|     const bucket = client.storage.from(object.bucket);
+ ❯ worker/document-storage.test.ts:88:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  23:36:35
+   Duration  859ms (transform 173ms, setup 0ms, import 394ms, tests 267ms, environment 0ms)
+

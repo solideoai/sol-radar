@@ -1,0 +1,61 @@
+▶ Supabase Storage — immutable objects and private access
+  ✔ 00702 preserves existing raw/parsed paths and references while new incarnations use UUID paths (961.513875ms)
+  ✔ keeps two document references to the same checksum, and serializes upload ownership (203.269541ms)
+  ✔ only active business members can read referenced raw objects; anonymous, parsed, unreferenced and direct writes stay closed (193.873625ms)
+  ✔ upload/DB failure preserves the object and expired ownership recovers; deleting objects cannot gain references (204.261041ms)
+  ✔ a delayed expired deleter cannot target a new document with the same logical checksum key (242.101917ms)
+✔ Supabase Storage — immutable objects and private access (3938.601958ms)
+▶ SOL RADAR 표 정책 — 업무 역할·조직 격리
+  ✔ public의 모든 일반 테이블에 RLS가 켜져 있다 (171.028875ms)
+  ✔ G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만 (436.442541ms)
+  ✔ 공고 다섯 표는 조직 소유가 아니다 — org-02 VIEWER 와 비멤버 운영자도 활동 중이면 읽고, ADMIN 이라도 넣기·고치기·지우기는 권한 오류다 (360.063666ms)
+  ✔ 운영자(profiles.is_admin)는 멤버가 아닌 조직의 SOL 표를 하나도 읽지 못한다 — 조직 표 아홉 개와 운영 표 셋 모두 0행이고 정책 도우미도 빈 목록이다 (229.22475ms)
+  ✔ outbox_events 는 내부 표다 — ADMIN·VIEWER·org-02·로그아웃 누구도 읽지도 쓰지도 못한다(권한 오류) (304.394875ms)
+  ✔ 로그아웃한 사람(anon)은 SOL 표 열여덟 개를 읽지도 쓰지도 못하고 정책 도우미 my_sol_org_ids 도 부르지 못한다 — 모두 권한 오류 (433.857584ms)
+  ✔ 운영 표(수집 run·수집 오류·평가 결과)는 어느 조직에서든 ADMIN 인 사람만 읽는다 — SALES·ANALYST·VIEWER·org-02 는 0행이고 ADMIN 도 쓰지는 못한다 (602.704458ms)
+  ✔ 감사 기록은 그 조직의 ADMIN 만 읽는다 — SALES·ANALYST·VIEWER·org-02·운영자는 0행이고, ADMIN 도 org-02 것은 보지 못하며 아무도 직접 쓰지 못한다 (488.921583ms)
+  ✔ 분석 요청은 ADMIN·SALES·ANALYST 가 QUEUED 행으로만 넣는다 — VIEWER·org-02 는 정책 오류, 상태·결과·요청자·스냅샷 열은 권한이 없고, 상태 전이·지우기는 worker 몫이며 ANALYSIS_REQUEST 감사가 남는다 (526.932ms)
+  ✔ 결정 기록은 ADMIN·SALES 만 넣는다 — ANALYST·VIEWER·org-02 는 정책 오류, 권고·불일치 플래그·검토자·시각은 열 권한이 없고 트리거가 채우며, REVIEW_DECIDE 감사와 담당자가 있을 때 REVIEW_ASSIGNED outbox 1건이 같은 트랜잭션에 남는다 (364.868292ms)
+  ✔ 결정의 분석 run 은 같은 조직·같은 공고의 것만이고(score_run_mismatch) 담당자는 같은 조직 멤버만이다(bid_reviews_assignee_fkey) — 담당자가 조직을 나가면 담당자만 비고 결정은 남는다 (243.610333ms)
+  ✔ 업무 역할 변경은 그 조직의 ADMIN 만 한다 — SALES 의 시도와 org-02 owner(VIEWER)의 시도는 0행, ADMIN 은 자기 조직만 바꾸고 org-02 에는 0행이다 (410.565333ms)
+  ✔ 업무 역할 보호 트리거 — update 정책이 실수로 열려도 ADMIN 이 아닌 사람의 sol_role 변경은 42501(sol_role_admin_only)이고, 같은 값·ADMIN·JWT 없는 관리 작업·service_role 은 통과한다 (356.007583ms)
+  ✔ worker 전용 표(점수 요소·자격 판정·항목 판정·인력 배정)는 조직 전원이 읽고 ADMIN 도 넣기·고치기·지우기는 권한 오류다 (223.916083ms)
+  ✔ 테넌트 혼입은 복합 외래 키가 거절한다(23503) — worker 가 RLS 없이 써도 다른 조직 프로필의 run, run 과 다른 org_id 의 요소·자격·항목 판정, 다른 조직 직원의 배정, 비멤버 수신자의 알림, 다른 공고의 revision 은 들어가지 않는다 (333.940041ms)
+  ▶ 수집 run 열 단위 읽기 (20261019000019, N8 W1)
+    ✔ ② 숨긴 열(job_key·idempotency_key·requested_by·params)은 org-01·org-02 ADMIN 모두 하나씩 고르면 권한 오류(42501)이고, 그 열로 거르기와 select * 도 권한 오류다 (215.585584ms)
+  ✔ 수집 run 열 단위 읽기 (20261019000019, N8 W1) (215.756875ms)
+  ▶ 공고 목록 뷰 조직 격리
+    ✔ bid_list_items 는 security_invoker 다 — org-02 VIEWER 는 공고를 모두 보지만 org-01 의 run·결정은 보지 않고(자기 조직 것만), 비멤버 운영자는 조직 열이 모두 비어 있다 (214.250667ms)
+  ✔ 공고 목록 뷰 조직 격리 (214.370833ms)
+✔ SOL RADAR 표 정책 — 업무 역할·조직 격리 (5918.469709ms)
+▶ 솔리데오 카탈로그·명부·점수 정책
+  ✔ other-organization users and platform admins cannot read the roster; anonymous is denied (176.0895ms)
+  ✔ 회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다 (174.26975ms)
+  ✔ ADR021 점수는 같은 조직만 읽고 owner·운영자·일반회원·익명은 쓰지 못한다 (215.235084ms)
+  ✔ 합성 직원 속성은 JSON 배열·출처·완전성을 DB 제약으로 강제한다 (174.935625ms)
+  ✔ ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다 (186.063917ms)
+✔ 솔리데오 카탈로그·명부·점수 정책 (926.920125ms)
+✔ 웹 변경에는 웹 검사만 실행하고 루트 DB·Python 검사를 넣지 않는다 (6.789584ms)
+✔ Python 변경에는 해당 서비스 검사만 실행한다 (4.755625ms)
+✔ 실행 중 읽는 Markdown 프롬프트는 AI 서비스 검사를 실행한다 (2.785542ms)
+✔ AI 결정 모델 계약 변경은 decision의 서비스 간 호환 시험도 실행한다 (8.875917ms)
+✔ 결정 서버의 worker 응답 fixture 변경은 웹 wire 호환 시험도 실행한다 (2.290292ms)
+✔ 실행 모드 계약 변경은 Node 환경변수·승인 정책 시험도 실행한다 (2.616416ms)
+✔ 새 마이그레이션은 DB 정책·타입과 의존 프로젝트 검사를 포함한다 (1.667666ms)
+✔ DB 타입 생성물을 직접 바꿔도 정본 일치 검사를 실행한다 (1.613375ms)
+✔ 파서 입력 PDF fixture는 문서로 제외하지 않고 의존 검사를 실행한다 (1.274417ms)
+✔ 문서·증거·발표자료만 바뀌면 코드 검사를 실행하지 않는다 (2.302708ms)
+✔ 미분류 코드와 검증 설정 변경은 전체 quick 검사로 넓힌다 (3.909542ms)
+✔ 훅의 Git 환경변수가 다른 저장소의 변경 조회와 시험 커밋을 오염시키지 않는다 (521.716416ms)
+✔ 커밋 훅의 Git 환경에서도 임시 저장소 시험은 호출 저장소를 바꾸지 않는다 (808.8145ms)
+✔ 실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다 (325.787875ms)
+✔ 기준 커밋을 지정하면 이미 커밋한 변경도 검사한다 (267.842125ms)
+✔ CLI dry-run은 실행 없이 명령을 보여 주고 실제 실행은 첫 실패에서 멈춘다 (714.515583ms)
+ℹ tests 43
+ℹ suites 5
+ℹ pass 43
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10953.184959

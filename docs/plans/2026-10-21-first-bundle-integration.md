@@ -57,6 +57,7 @@ updated: 2026-10-21
 
 ## 관련 문서
 
+- 2026-10-21 후속 사용자 선택1: main23e9834에 로컬 병합하고 병행 문서 정정eca5552도cd6d644로 통합했다. 기존00700/00701은 보존하고00702를 추가했다. 원래 main 작업75경로 보존·복원 후 전체187/367/101/57·빌드가 통과했다. [최신 main 병합 기록](../evidence/first-bundle/20261021-main-merge.md). 운영 변경·push는 미실행이다.
 - [[PROGRESS]]
 - [[16-DECISIONS]]
 - [[17-CLAUDE-IMPLEMENTATION]]

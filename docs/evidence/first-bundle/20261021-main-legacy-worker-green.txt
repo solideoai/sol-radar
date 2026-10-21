@@ -1,0 +1,9 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+
+ Test Files  3 passed (3)
+      Tests  38 passed (38)
+   Start at  23:37:41
+   Duration  1.21s (transform 505ms, setup 0ms, import 1.39s, tests 366ms, environment 0ms)
+

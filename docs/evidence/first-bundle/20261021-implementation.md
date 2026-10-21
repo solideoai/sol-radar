@@ -6,6 +6,9 @@ updated: 2026-10-21
 
 # 200명·Gateway·Storage 통합 결과
 
+> [!note] 후속 main 병합 완료
+> 사용자 선택1에 따라 main23e9834·cd6d644에 통합했고, 먼저 커밋된00700/00701은 보존하며00702로 삭제 경합을 보강했다. 현재 Storage 결정은 ADR-048이다. 기존 작업 복원 후 main 전체712테스트·빌드가 통과했다. 아래는 최초 브랜치 당시 기록이며 최신 상태는 [main 병합 기록](20261021-main-merge.md)을 따른다.
+
 작업 브랜치는 `feat/first-bundle-integration`, 기준 main은 `206db640465fc3bb3d7b9fa6cfde921de74cfada`다. 사용자 승인 범위에서 인력200명·Redis HTTPS Gateway·private Supabase Storage를 한 release로 통합했다. 운영 적용 완료 기록은 아니다.
 
 ## 변경과 입력
