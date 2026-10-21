@@ -218,10 +218,11 @@ afterEach(() => {
 describe("녹음 파일", () => {
   it("fixtures/recorded 에는 녹음 파일 14개가 있다", () => {
     // train/ 은 X6a 학습용 녹음이다. 저장소에 넣지 않으므로(.gitignore) 로컬에 있어도 세지 않는다
+    // program-notices/ 는 부처 공고 녹음(sol-program-recorded/v0.1, ADR-040)이라 이 형식이 아니다. 시험은 web/server/program-notices 몫이다
     const files = readdirSync(RECORDED_DIR, { recursive: true, encoding: "utf8" })
       .filter((file) => file.endsWith(".json"))
       .map((file) => file.split("\\").join("/"))
-      .filter((file) => !file.startsWith("train/"))
+      .filter((file) => !file.startsWith("train/") && !file.startsWith("program-notices/"))
       .sort();
 
     expect(files).toEqual([...RECORDING_FILES].sort());

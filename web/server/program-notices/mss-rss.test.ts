@@ -2,9 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseMssRss } from "./mss-rss";
+import { loadProgramRecordings } from "./recording";
 
 const FETCHED_AT = "2026-10-21T01:00:00.000Z";
 const SAMPLE = readFileSync(join(__dirname, "test-data", "mss-sample.xml"), "utf8");
+// 저장소의 부처 공고 녹음(scripts/recorded/record-program-notices.mjs 가 만든 실제 응답, 연락처 가림). 읽기만 한다.
+const RECORDED_DIR = join(__dirname, "..", "..", "..", "fixtures", "recorded", "program-notices");
 
 const parsedOk = (body: string) => {
   const result = parseMssRss(body, FETCHED_AT);
@@ -82,6 +85,27 @@ describe("parseMssRss", () => {
     expect(parsedOk(rssOf(""))).toEqual({ ok: true, notices: [], dropped: 0 });
     for (const body of ["", "<html><body>점검 중</body></html>", JSON.stringify({ error: 1 })]) {
       expect(parseMssRss(body, FETCHED_AT)).toEqual({ ok: false, errorCode: "RESPONSE_SHAPE" });
+    }
+  });
+});
+
+describe("저장소의 중기부 녹음 재생", () => {
+  // 실제 RSS 는 링크·등록일도 CDATA 이고 링크 호스트가 www.mss.go.kr 이다(가상 샘플과 다르다, 2026-10-21 녹음).
+  it("가장 최근 녹음의 항목을 하나도 버리지 않고 읽는다", async () => {
+    const { recordings, skipped } = await loadProgramRecordings(RECORDED_DIR, "mss");
+    expect(skipped).toBe(0);
+    const [latest] = recordings;
+    if (latest === undefined)
+      throw new Error("fixtures/recorded/program-notices/mss 에 녹음이 없다");
+    const items = latest.body.match(/<item\b/gi) ?? [];
+    const { notices, dropped } = parsedOk(latest.body);
+    expect(items.length).toBeGreaterThan(0);
+    expect(dropped).toBe(0);
+    expect(notices).toHaveLength(items.length);
+    expect(new Set(notices.map((notice) => notice.sourceNoticeId)).size).toBe(notices.length);
+    for (const notice of notices) {
+      expect(notice.sourceUrl.startsWith("https://www.mss.go.kr/")).toBe(true);
+      expect(notice.publishedAt).not.toBeNull();
     }
   });
 });
