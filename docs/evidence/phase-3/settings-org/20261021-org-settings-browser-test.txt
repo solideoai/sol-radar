@@ -1,0 +1,17 @@
+# org-settings.browser.test.tsx (2026-10-21 12:06 KST, 슬롯 안 실행)
+
+## 변형 확인: org-invite-form.tsx 의 @lg:justify-start 를 지운 채 '배치' 시험
+     × 1440 폭에서 네 구역이 단 안에 들어오고 긴 값은 말줄임된다 541ms
+     × 1280 폭에서 네 구역이 단 안에 들어오고 긴 값은 말줄임된다 245ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  |chromium| app/(app)/(work)/settings/organization/org-settings.browser.test.tsx > 배치 > 1440 폭에서 네 구역이 단 안에 들어오고 긴 값은 말줄임된다
+    191|       expect(submit.width).toBeLessThan(100);
+ FAIL  |chromium| app/(app)/(work)/settings/organization/org-settings.browser.test.tsx > 배치 > 1280 폭에서 네 구역이 단 안에 들어오고 긴 값은 말줄임된다
+    191|       expect(submit.width).toBeLessThan(100);
+      Tests  2 failed | 15 skipped (17)
+
+## 복원 뒤 전체
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  12:06:01
+   Duration  9.97s (transform 0ms, setup 598ms, import 3.00s, tests 3.72s, environment 0ms)
