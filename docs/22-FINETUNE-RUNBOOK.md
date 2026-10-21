@@ -107,7 +107,7 @@ sha256sum "$snap/adapter/adapter_model.safetensors" "$snap/decision_embeddings.s
 # 백본 Qwen3-0.6B shard: 받은 뒤 sha256sum 결과를 docs/evidence/bosun-train-feasibility.md 에 기록한다(기대값은 아직 없다 — B2 에서 기록)
 ```
 
-레지스트리(`services/ai/models/registry.yaml` 항목 `bosun-v3.1-0.6b`, main `1b68f9b`)의 `lora` 가 어댑터 sha256, `decision_embeddings_sha256` 이 임베딩 sha256 이다(계획 §5.3. 값은 §2.1 과 같다). `sol_decision.serve` 는 기동 때 패키지 `manifest.json` 의 sha256 과 파일을 대조하고 다르면 **기동을 거부**한다(계획 §5.1). 학습본 패키지(§4.3)도 같은 레이아웃·같은 대조다. 게이트웨이는 `GET /v1/models` 의 `run`·`base`·`lora` 로 레지스트리를 대조하고 sha256 은 검사하지 않으므로(운영자 몫, [[03-AI-PIPELINE|03]] §11) 이 대조를 빼지 않는다.
+레지스트리(`services/ai/models/registry.yaml` 항목 `bosun-v3.1-0.6b`, main `1b68f9b`)의 `lora` 가 어댑터 sha256, `decision_embeddings_sha256` 이 임베딩 sha256 이다(계획 §5.3. 값은 §2.1 과 같다). `sol_decision.serve` 는 기동 때 패키지 `manifest.json` 의 sha256 과 파일을 대조하고 다르면 **기동을 거부**한다(계획 §5.1). 학습본 패키지(§4.3)도 같은 레이아웃·같은 대조다. 게이트웨이는 `GET /v1/models` 의 `run`·`base`·`lora`·`decision_embeddings_sha256`(main `2adabed`) 으로 레지스트리를 대조할 뿐 파일 sha256 을 직접 계산하지 않으므로(운영자 몫, [[03-AI-PIPELINE|03]] §11) 이 대조를 빼지 않는다.
 
 ## 3. 학습 환경
 
