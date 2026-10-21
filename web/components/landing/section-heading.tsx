@@ -13,11 +13,11 @@ export function SectionHeading({
 }) {
   return (
     <div className={className}>
-      <h2 id={id} className="max-w-220 type-headline text-balance text-foreground">
+      <h2 id={id} className="max-w-200 type-headline text-balance text-foreground">
         {title}
       </h2>
       {description && (
-        <p className="mt-5 max-w-190 type-lead text-muted-foreground">{description}</p>
+        <p className="mt-5 max-w-190 type-body-lg text-muted-foreground">{description}</p>
       )}
     </div>
   );

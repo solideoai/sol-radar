@@ -1,0 +1,30 @@
+Sidebar planned-label removal — 2026-10-21
+
+Request: log in with temporary credentials, open /dashboard, and remove all
+sidebar '준비 중' text.
+
+Code changes:
+- Removed the planned-item badge from AppShell.
+- Removed the '(준비 중)' tooltip suffix, including collapsed-sidebar tooltips.
+- Preserved menu names, planned/released status, link availability, permissions,
+  and route guards. Updated navigation comments and docs/06-UI-UX.md section 4.1.
+
+Verification:
+- pnpm -C web format: exit 0.
+- pnpm verify:changed: exit 0; see 20261021-sidebar-label-verify-changed.txt.
+- git diff --check: passed.
+- Source check: no '준비 중' or '준비중' text remains in app-shell.tsx or app-nav.ts.
+
+Browser verification pending credentials:
+- Playwright MCP opened http://localhost:3000/dashboard and was redirected to
+  /auth/login.
+- Tried the repository's explicitly documented local seed account once through
+  the normal email/password form. The current server returned
+  '이메일 또는 비밀번호가 맞지 않습니다'; it remained on /auth/login.
+- Requested the intended temporary account ID and password from the user.
+- No account creation, password reset, DB seeding, session forgery, route-guard
+  changes, or environment-file reads were performed.
+- The real authenticated dashboard/sidebar has not yet been visually checked.
+  No credentials or session tokens are included in this evidence.
+
+Scope: copy removal only; production build and full authenticated E2E were not run.

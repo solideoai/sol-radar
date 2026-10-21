@@ -28,20 +28,24 @@ const BODY_CELL = "w-[39%] py-6 pr-6 align-top type-body-lg";
 // 머리말의 "서비스 소개"(/#about)가 오는 자리.
 export function ProblemSection() {
   return (
-    <section id="about" aria-labelledby="about-title" className="scroll-mt-24 pt-36">
-      <div className="mx-auto w-full max-w-320 px-10">
-        <Reveal>
+    <section
+      id="about"
+      aria-labelledby="about-title"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 pt-24 pb-4"
+    >
+      <div>
+        <Reveal className="mx-auto max-w-220 text-center">
           <SectionHeading
             id="about-title"
             title="공고 검색보다 오래 걸리는 건, 참여 여부를 판단하는 일입니다."
             description="SOL RADAR는 이 과정을 하나의 검토 흐름으로 묶습니다. 공고를 모으고, 회사 정보와 대조하고, 판단 근거와 함께 검토 순서를 정리합니다."
           />
         </Reveal>
-        <Reveal className="mt-12">
-          {/* 표의 시작은 2px 검정 선, 줄 사이는 가는 선이다. 상자로 감싸지 않는다. */}
+        <Reveal className="mt-14">
+          {/* 표는 가는 선과 열 정렬로 비교 관계를 드러낸다. */}
           <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-t-2 border-foreground">
+              <tr className="border-t border-border">
                 <th scope="col" className={HEAD_CELL}>
                   검토 단계
                 </th>
@@ -58,7 +62,7 @@ export function ProblemSection() {
                 <tr key={row.stage} className="border-t border-border">
                   <th
                     scope="row"
-                    className="w-[22%] py-6 pr-6 align-top type-lead font-bold text-foreground"
+                    className="w-[22%] py-7 pr-6 align-top type-body-lg font-semibold text-foreground"
                   >
                     {row.stage}
                   </th>

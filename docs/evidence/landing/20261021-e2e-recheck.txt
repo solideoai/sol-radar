@@ -1,0 +1,43 @@
+
+Running 1 test using 1 worker
+
+(node:80835) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › e2e/landing.spec.ts:104:5 › 목록에서 다른 공고를 고르면 분석이 바뀐다 (7.2s)
+
+
+  1) [chromium] › e2e/landing.spec.ts:104:5 › 목록에서 다른 공고를 고르면 분석이 바뀐다 ──────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('region', { name: '공고 분석 예시' }).getByRole('tabpanel').getByRole('heading', { name: '통합 민원 포털 기능 개선' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('region', { name: '공고 분석 예시' }).getByRole('tabpanel').getByRole('heading', { name: '통합 민원 포털 기능 개선' }) with timeout 5000ms
+      - waiting for getByRole('region', { name: '공고 분석 예시' }).getByRole('tabpanel').getByRole('heading', { name: '통합 민원 포털 기능 개선' })
+
+
+      107 |   await preview.getByRole("tab", { name: /통합 민원 포털 기능 개선/ }).click();
+      108 |   const panel = preview.getByRole("tabpanel");
+    > 109 |   await expect(panel.getByRole("heading", { name: "통합 민원 포털 기능 개선" })).toBeVisible();
+          |                                                                        ^
+      110 |   await expect(panel.getByRole("meter", { name: "SOL Score" })).toHaveAttribute(
+      111 |     "aria-valuenow",
+      112 |     "88",
+        at /Users/leegwanghui/dev/hackathon/sol-radar/web/e2e/landing.spec.ts:109:72
+
+    Error Context: ../../../../../../private/tmp/sol-radar-landing-e2e/landing-목록에서-다른-공고를-고르면-분석이-바뀐다-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../../../../../private/tmp/sol-radar-landing-e2e/landing-목록에서-다른-공고를-고르면-분석이-바뀐다-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../../../../../private/tmp/sol-radar-landing-e2e/landing-목록에서-다른-공고를-고르면-분석이-바뀐다-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/landing.spec.ts:104:5 › 목록에서 다른 공고를 고르면 분석이 바뀐다 ───────────────────────────────

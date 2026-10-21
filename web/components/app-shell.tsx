@@ -258,8 +258,8 @@ function NavGroupSection({
           <span className="truncate">{group.label}</span>
         </button>
       ) : null}
-      {/* 세로선은 화살표 가운데(왼쪽에서 16px) 아래에 온다. 가장 긴 "인력 배치 시뮬레이션 준비 중"이 256px 폭에
-          말줄임 없이 들어가도록 트리 안 메뉴의 왼쪽 여백을 6px 로 줄인다(접은 사이드바는 부품의 p-2! 가 이긴다). */}
+      {/* 세로선은 화살표 가운데(왼쪽에서 16px) 아래에 온다. 긴 메뉴 이름이 256px 폭에
+          들어가도록 트리 안 메뉴의 왼쪽 여백을 6px 로 둔다(접은 사이드바는 부품의 p-2! 가 이긴다). */}
       <SidebarMenu
         id={listId}
         aria-label={group.label}
@@ -272,7 +272,7 @@ function NavGroupSection({
   );
 }
 
-// 출시된 메뉴는 링크, 준비 중 메뉴는 링크 없는 글자다(누를 곳이 없어 초점도 받지 않는다).
+// 출시된 메뉴는 링크, 미출시 메뉴는 링크 없는 이름만 표시한다(초점도 받지 않는다).
 // 활성 메뉴는 sidebar-accent 바탕 + 트리 세로선 자리의 3px brand 막대다(06 §4). 색만으로 알리지 않고 aria-current 를 단다.
 function NavMenuItem({
   item,
@@ -289,16 +289,12 @@ function NavMenuItem({
     return (
       <SidebarMenuItem data-planned="">
         <SidebarMenuButton
-          tooltip={`${item.label} (준비 중)`}
+          tooltip={item.label}
           render={<span />}
           className="cursor-default pr-1.5 text-muted-foreground hover:bg-transparent hover:text-muted-foreground active:bg-transparent active:text-muted-foreground"
         >
           <item.icon aria-hidden />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          {/* 아이콘 줄에서는 글자를 감추되 화면 낭독기에는 남긴다. */}
-          <span className="-ml-1 shrink-0 type-caption group-data-[collapsible=icon]:sr-only">
-            준비 중
-          </span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     );

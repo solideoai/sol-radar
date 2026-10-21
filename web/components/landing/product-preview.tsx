@@ -22,7 +22,7 @@ export function ProductPreview() {
       <Tabs.Root
         defaultValue={DEMO_BIDS[0].id}
         orientation="vertical"
-        className="grid grid-cols-[280px_minmax(0,1fr)_288px]"
+        className="grid grid-cols-[260px_minmax(0,1fr)_288px]"
       >
         <div className="border-r border-border bg-muted/50 p-3">
           <p
@@ -59,7 +59,12 @@ export function ProductPreview() {
 // 창 머리. 주소 칸 대신 화면 이름과 분석 기준을 적는다 — 실제 서비스 주소처럼 보이지 않게 한다.
 function PreviewBar() {
   return (
-    <div className="flex h-13 items-center gap-3.5 border-b border-border px-5">
+    <div className="flex h-13 items-center gap-3.5 border-b border-border bg-muted/30 px-5">
+      <span aria-hidden className="mr-2 flex gap-1.5">
+        <span className="size-2 rounded-full bg-input" />
+        <span className="size-2 rounded-full bg-input" />
+        <span className="size-2 rounded-full bg-input" />
+      </span>
       <p className="type-ui-lg font-semibold text-foreground">공고 분석</p>
       <span aria-hidden className="h-4 w-px bg-border" />
       <p className="type-label-lg text-muted-foreground">분석 기준: 가상 기업 프로필</p>
@@ -82,7 +87,7 @@ function BidTab({ bid }: { bid: DemoBid }) {
       <span className="type-ui-lg font-semibold text-foreground">{bid.title}</span>
       <span className="type-label-lg text-muted-foreground">{bid.agency}</span>
       <span className="mt-1.5 flex items-center gap-2.5">
-        <span className="type-label-lg text-muted-foreground">
+        <span className="type-label-lg whitespace-nowrap text-muted-foreground">
           SOL Score <span className="font-semibold text-foreground tabular-nums">{bid.score}</span>
         </span>
         <RecommendationBadge value={bid.recommendation} />
@@ -95,7 +100,7 @@ function BidTab({ bid }: { bid: DemoBid }) {
 function BidReview({ bid }: { bid: DemoBid }) {
   const [followUp] = bid.followUps;
   return (
-    <div className="min-w-0 px-7 pt-6 pb-7">
+    <div className="min-w-0 px-6 pt-6 pb-7">
       <p className="type-label-lg text-muted-foreground">입찰공고</p>
       <h3 id={`${bid.id}-title`} className="mt-3 type-heading-lg text-foreground">
         {bid.title}

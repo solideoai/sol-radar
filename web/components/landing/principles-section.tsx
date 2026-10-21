@@ -56,8 +56,12 @@ const PRINCIPLES: { title: string; body: string; onScreen: React.ReactNode }[] =
 
 export function PrinciplesSection() {
   return (
-    <section id="principles" aria-labelledby="principles-title" className="scroll-mt-24 pt-36">
-      <div className="mx-auto w-full max-w-320 px-10">
+    <section
+      id="principles"
+      aria-labelledby="principles-title"
+      className="mx-auto w-full max-w-300 scroll-mt-24 border-t border-border/60 px-10 py-24"
+    >
+      <div>
         <Reveal>
           <SectionHeading
             id="principles-title"
@@ -78,7 +82,7 @@ export function PrinciplesSection() {
                   index % 2 === 1 && "border-l pr-0 pl-10",
                 )}
               >
-                <h3 className="type-heading-lg text-foreground">{principle.title}</h3>
+                <h3 className="max-w-100 type-heading-lg text-foreground">{principle.title}</h3>
                 <p className="mt-3 type-body-lg text-muted-foreground">{principle.body}</p>
                 <p className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-2 pt-5">
                   <span className="mr-1 type-body font-semibold text-muted-foreground">

@@ -1,0 +1,51 @@
+SOL RADAR landing refresh — 2026-10-21
+
+Reference: https://edgelink.me/
+Opened and inspected directly with Playwright MCP at desktop width.
+The reference informed the centered headline, thin grid lines, light product
+stage, alternating feature layouts, split FAQ, and white footer.
+SOL RADAR's existing tokens, copy, account destinations, demo data, disclosure
+text, tab behavior, and reduced-motion support are retained. No dependencies
+were added. The public landing design is recorded in docs/06-UI-UX.md section 3.4.
+
+Visual and interaction checks through Playwright MCP:
+- 1440x900 and 1280x800: no horizontal page overflow.
+- All three sample notices at both widths: no overflowing decision values.
+- Sample scores remain 82, 88, and 64; switching notices updates the result.
+- ArrowDown selects the next sample notice.
+- Main navigation anchors land about 96px from the top, below the 73px header.
+- Existing demo labels, score disclosure, and human decision status remain.
+- Before, after, and full-page screenshots are saved alongside this file.
+
+Automated checks:
+- Existing landing/header/section Playwright specs: 35/35 passed on localhost.
+  Command: pnpm -C web exec playwright test landing.spec.ts landing-sections.spec.ts site-header.spec.ts --config=/private/tmp/sol-radar-landing-playwright.config.mjs
+  The temporary configuration selects the running development server at
+  http://localhost:3000; the repository's production E2E config was unchanged.
+  Log: 20261021-e2e-localhost.txt
+- Existing ProductPreview browser tests: 8/8 passed.
+  Command: pnpm -C web exec vitest run --config vitest.browser.config.ts components/landing/product-preview.browser.test.tsx
+  Log: 20261021-browser-fixed.txt
+- pnpm verify:changed: passed, exit 0. Root tests 779/779, web tests 6830/6830,
+  AI tests 1511/1511, decision tests 152/152. Formatting, types, lint, architecture,
+  design tokens, color rules, and DB type consistency also passed.
+  Log: 20261021-verify-changed.txt
+  Pre-existing verification-tool/config changes in the shared working folder
+  broaden this command to all configured quick checks.
+
+Failures investigated and retained:
+- Narrowing the decision rail to 260px left an 81px value cell for a 90px WATCH
+  or NO-BID badge. The existing browser tests reproduced both failures (6/8).
+  Restoring the 288px rail fixes all three notices at both widths (8/8).
+- The initial E2E run used 127.0.0.1:3000 and passed 34/35. The tab switch
+  failed again in a focused recheck. Fresh browser contexts demonstrated that
+  this host produced invalid HMR WebSocket responses and reset the selection,
+  while localhost produced no errors and kept the new selection. Using the
+  same localhost URL as the user and MCP resolved the environment issue; all
+  35 existing specs then passed without altering their assertions.
+- Vitest reports the pre-existing vitest 4.1.11 / browser 4.1.12 mismatch.
+  Dependencies were not changed for this design task.
+- Python reports the existing Starlette/httpx deprecation warning.
+
+Scope: development verification and the public landing flow. Production build,
+full pnpm verify, authenticated flows, and submission-wide checks were not run.

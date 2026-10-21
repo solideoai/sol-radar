@@ -1,0 +1,40 @@
+SOL RADAR landing color refinement — 2026-10-21
+
+User request: remove the side borders and add restrained color comparable to
+Edgelink. Reopened https://edgelink.me/ directly through Playwright MCP.
+
+Changes:
+- Removed the outer left/right borders throughout the landing and footer.
+- Removed the hero's decorative grid.
+- Used existing brand blue for primary landing buttons, header hover states,
+  small feature icons, and step numbers.
+- Used brand blue at 4% opacity behind the product preview, alternating feature
+  illustrations, and final call to action. White remains the main background.
+- Preserved existing design token values, copy, account links, demo data,
+  qualification states, score disclosures, and interactive preview behavior.
+- Updated docs/06-UI-UX.md section 3.4 with the user's latest direction.
+
+Verification:
+- pnpm -C web format: exit 0.
+- pnpm verify:changed: exit 0. Current working folder checks: root 163,
+  web 286, AI 101, decision 57 tests passed, plus formatting, type-checking,
+  lint, architecture, token/color guards, and generated DB type consistency.
+  Log: 20261021-color-verify-changed.txt
+- Existing landing/sections/header Playwright specs against localhost:3000:
+  28 passed. Log: 20261021-color-e2e.txt
+  Command: pnpm -C web exec playwright test landing.spec.ts landing-sections.spec.ts site-header.spec.ts --config=/private/tmp/sol-radar-landing-playwright.config.mjs
+- Playwright MCP at 1440x900 and 1280x800: all landing sections have 0px outer
+  side borders; document overflow 0px; all three preview notices switch without
+  overflowing value cells. Score disclosure ends at y=745px on both screens.
+- Brand blue / white contrast is 5.41:1. Computed primary button colors are
+  rgb(27, 100, 218) and rgb(255, 255, 255).
+- Screenshots: 20261021-color-{1440,1280}.png and
+  20261021-color-full-{1440,1280}.png, captured with reduced motion for stability.
+- git diff --check: passed.
+
+Scope: landing styles only. This working folder already contained separate
+test removal/cleanup and deployment changes when this request started. They
+were preserved; no test assertions, test files, or verification settings were
+changed in this task. Counts therefore differ from the earlier redesign run.
+The Python checks retain the existing Starlette/httpx deprecation warning.
+Production build, authenticated flows, and full pnpm verify were not run.

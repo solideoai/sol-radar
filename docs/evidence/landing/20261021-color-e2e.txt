@@ -1,0 +1,37 @@
+
+Running 28 tests using 2 workers
+
+(node:27469) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27470) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   2 [chromium] › e2e/landing-sections.spec.ts:23:7 › 머리말의 분석 방식 링크는 그 구역으로 가고, 제목이 머리말에 가리지 않는다 (2.1s)
+  ✓   1 [chromium] › e2e/landing-sections.spec.ts:23:7 › 머리말의 주요 기능 링크는 그 구역으로 가고, 제목이 머리말에 가리지 않는다 (2.1s)
+  ✓   4 [chromium] › e2e/landing-sections.spec.ts:39:5 › 서비스 소개는 지금 방식과 SOL RADAR 를 비교하는 표다 (2.3s)
+  ✓   5 [chromium] › e2e/landing-sections.spec.ts:55:5 › 구역 제목 위에 작은 머리글이 없다 (1.6s)
+  ✓   3 [chromium] › e2e/landing-sections.spec.ts:23:7 › 머리말의 서비스 소개 링크는 그 구역으로 가고, 제목이 머리말에 가리지 않는다 (4.0s)
+  ✓   6 [chromium] › e2e/landing-sections.spec.ts:64:5 › 주요 기능은 네 가지이고, 화면이 예시 데이터임을 밝힌다 (1.4s)
+  ✓   7 [chromium] › e2e/landing-sections.spec.ts:102:5 › 주요 기능 설명은 가운뎃점으로 줄을 시작하지 않는다 (1.5s)
+  ✓   9 [chromium] › e2e/landing-sections.spec.ts:128:5 › 분석 원칙 네 가지가 있다 (1.1s)
+  ✓   8 [chromium] › e2e/landing-sections.spec.ts:112:5 › 작동 방식은 세 단계이고, 단계마다 하는 일과 얻는 것이 있다 (1.1s)
+  ✓  10 [chromium] › e2e/landing-sections.spec.ts:153:5 › FAQ 는 질문 다섯 개와 답이 처음부터 펼쳐져 있다 (972ms)
+  ✓  11 [chromium] › e2e/landing-sections.spec.ts:162:5 › 주소에 #faq 를 붙여 열면 FAQ 제목이 머리말 아래에 보인다 (998ms)
+  ✓  12 [chromium] › e2e/landing-sections.spec.ts:167:5 › 마지막 구역에 시작하기·분석 예시 보기가 있다 (971ms)
+  ✓  13 [chromium] › e2e/landing-sections.spec.ts:190:5 › 첫 화면에는 빈 링크(href="#")와 이름 없는 링크·버튼이 없다 (953ms)
+  ✓  14 [chromium] › e2e/landing.spec.ts:15:5 › 제목과 설명 메타데이터가 SOL RADAR 의 것이다 (765ms)
+  ✓  15 [chromium] › e2e/landing.spec.ts:24:5 › 히어로에 제목·설명·두 버튼이 있고, 시작하기는 가입 화면으로 간다 (1.8s)
+  ✓  16 [chromium] › e2e/landing.spec.ts:50:5 › 분석 예시 보기를 누르면 미리보기로 가고, 머리말에 가리지 않는다 (1.0s)
+  ✓  18 [chromium] › e2e/landing.spec.ts:90:7 › 1440×900 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다 (739ms)
+  ✓  17 [chromium] › e2e/landing.spec.ts:59:5 › 미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수·자격·권고가 맞는다 (790ms)
+  ✓  19 [chromium] › e2e/landing.spec.ts:90:7 › 1280×800 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다 (801ms)
+  ✓  21 [chromium] › e2e/landing.spec.ts:117:7 › 1280px 폭에서 가로로 넘치지 않는다 (528ms)
+  ✓  20 [chromium] › e2e/landing.spec.ts:103:5 › 목록에서 다른 공고를 고르면 분석이 바뀐다 (1.8s)
+  ✓  22 [chromium] › e2e/landing.spec.ts:117:7 › 1440px 폭에서 가로로 넘치지 않는다 (472ms)
+  ✓  23 [chromium] › e2e/landing.spec.ts:117:7 › 1920px 폭에서 가로로 넘치지 않는다 (750ms)
+  ✓  24 [chromium] › e2e/landing.spec.ts:127:5 › 1280px 미만에서만 데스크톱 화면 안내가 보인다 (931ms)
+  ✓  25 [chromium] › e2e/landing.spec.ts:145:5 › 움직임 줄이기를 켜면 등장 애니메이션이 하나도 없다 (913ms)
+  ✓  26 [chromium] › e2e/landing.spec.ts:172:5 › 바닥글에 로고·한 줄 소개·메뉴·저작권이 있고, 없는 정책 화면으로 가는 링크는 없다 (831ms)
+  ✓  28 [chromium] › e2e/landing.spec.ts:201:5 › 1440 첫 화면의 보이는 글자는 모두 13px 이상이다 (708ms)
+  ✓  27 [chromium] › e2e/landing.spec.ts:193:5 › 첫 화면 본문·머리말·바닥글은 낱말 단위로 줄을 바꾸고 바탕은 흰색이다 (855ms)
+
+  28 passed (18.8s)

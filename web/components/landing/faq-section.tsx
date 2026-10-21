@@ -29,20 +29,24 @@ const FAQS = [
 // 질문이 다섯 개뿐이라 접지 않는다. 핵심 고지("수주 확률 아님", "담당자가 결정")를 누르지 않고 읽게 한다.
 export function FaqSection() {
   return (
-    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-24 pt-36">
-      <div className="mx-auto w-full max-w-320 px-10">
-        <Reveal>
+    <section
+      id="faq"
+      aria-labelledby="faq-title"
+      className="mx-auto w-full max-w-300 scroll-mt-24 border-t border-border/60 px-10 py-24"
+    >
+      <div className="grid grid-cols-[320px_minmax(0,1fr)] items-start gap-16">
+        <Reveal className="sticky top-28">
           <SectionHeading id="faq-title" title="자주 묻는 질문" />
+          <p className="mt-5 type-body-lg text-muted-foreground">
+            시작하기 전에 궁금한 점을 확인하세요.
+          </p>
         </Reveal>
-        <Reveal className="mt-12">
-          <dl className="border-t-2 border-foreground">
+        <Reveal>
+          <dl className="border-t border-border">
             {FAQS.map((faq) => (
-              <div
-                key={faq.question}
-                className="grid grid-cols-12 gap-10 border-b border-border py-7"
-              >
-                <dt className="col-span-5 type-lead font-bold text-foreground">{faq.question}</dt>
-                <dd className="col-span-7 type-body-lg text-muted-foreground">{faq.answer}</dd>
+              <div key={faq.question} className="border-b border-border py-7 first:pt-6">
+                <dt className="type-ui-lg font-semibold text-foreground">{faq.question}</dt>
+                <dd className="mt-3 type-body-lg text-muted-foreground">{faq.answer}</dd>
               </div>
             ))}
           </dl>

@@ -1,0 +1,46 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+Loaded  vitest@4.1.11  and  @vitest/browser@4.1.12 .
+Running mixed versions is not supported and may lead into bugs
+Update your dependencies and make sure the versions match.
+8:41:20 PM [vite] (client) Re-optimizing dependencies because lockfile has changed
+8:41:21 PM [vite] (client) [optimizer] scanning dependencies...
+ ❯ |chromium| components/landing/product-preview.browser.test.tsx (8 tests | 2 failed) 1147ms
+     × 1265px 에서 세 공고 모두 화면 폭과 칸을 넘지 않는다 231ms
+     × 1280px 에서 세 공고 모두 화면 폭과 칸을 넘지 않는다 191ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |chromium| components/landing/product-preview.browser.test.tsx > ProductPreview > 1265px 에서 세 공고 모두 화면 폭과 칸을 넘지 않는다
+ FAIL  |chromium| components/landing/product-preview.browser.test.tsx > ProductPreview > 1280px 에서 세 공고 모두 화면 폭과 칸을 넘지 않는다
+AssertionError: expected [ 'demo-1: WATCH' ] to deeply equal []
+
+Failure screenshots:
+  - test-results/vitest-screenshots/components/landing/product-preview.browser.test.tsx/ProductPreview-1265px----------------------------1.png
+  - test-results/vitest-screenshots/components/landing/product-preview.browser.test.tsx/ProductPreview-1280px----------------------------1.png
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "demo-1: WATCH",[39m
+[31m+ ][39m
+
+ ❯ components/landing/product-preview.browser.test.tsx:123:28
+    121|           .filter((value) => value.scrollWidth > value.clientWidth)
+    122|           .map((value) => `${bid.id}: ${value.textContent}`);
+    123|         expect(overflowing).toEqual([]);
+       |                            ^
+    124|       }
+    125|     }),
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  20:41:20
+   Duration  3.82s (transform 0ms, setup 268ms, import 132ms, tests 1.15s, environment 0ms)
+

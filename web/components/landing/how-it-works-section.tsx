@@ -28,25 +28,31 @@ const VALUE = "mt-1 type-body-lg text-foreground";
 // 머리말의 "분석 방식"(/#analysis)이 오는 자리. 바로 뒤에 분석 원칙 구역이 이어진다.
 export function HowItWorksSection() {
   return (
-    <section id="analysis" aria-labelledby="analysis-title" className="scroll-mt-24 pt-36">
-      <div className="mx-auto w-full max-w-320 px-10">
-        <Reveal>
+    <section
+      id="analysis"
+      aria-labelledby="analysis-title"
+      className="mx-auto w-full max-w-300 scroll-mt-24 border-t border-border/60 px-10 py-24"
+    >
+      <div>
+        <Reveal className="mx-auto max-w-210 text-center">
           <SectionHeading
             id="analysis-title"
             title="기업 정보를 등록하면, 검토할 사업이 명확해집니다."
           />
         </Reveal>
-        {/* 공공 문서의 업무 흐름도처럼 한 줄 띠로 잇는다. 시작은 2px 검정 선, 칸 사이는 가는 선이다. */}
+        {/* 세 단계를 가는 선으로 연결하고, 번호는 강조색 없이 본문 색으로 둔다. */}
         {/* 번호는 순서라는 정보라서 쓰되, 강조색 없이 본문 색으로 둔다. */}
         <Reveal className="mt-14">
-          <ol className="grid grid-cols-3 border-t-2 border-foreground">
+          <ol className="grid grid-cols-3 border-y border-border">
             {STEPS.map((step, index) => (
               <li
                 key={step.title}
-                className={cn("pt-7 pr-8 pb-2", index > 0 && "border-l border-border pl-8")}
+                className={cn("py-8 pr-8", index > 0 && "border-l border-border pl-8")}
               >
-                <p className="type-ui-lg font-bold text-foreground">{index + 1}단계</p>
-                <h3 className="mt-2 type-heading-lg text-foreground">{step.title}</h3>
+                <p className="type-label-lg font-medium text-brand">
+                  0{index + 1} · {index + 1}단계
+                </p>
+                <h3 className="mt-4 type-heading-lg text-foreground">{step.title}</h3>
                 <dl className="mt-5 flex flex-col gap-4">
                   <div>
                     <dt className={TERM}>하는 일</dt>
