@@ -388,7 +388,7 @@ interface DashboardSummary {
   analyses: { total: number;
     byRecommendation: Record<Recommendation, number>;   // 공고별 최신 분석 1건 기준. force 재분석으로 이중 집계하지 않는다(ADR-029 A6 D10)
     partial: number; withReviewFlags: number;
-    latestByStatus: { completed: number; partial: number; failed: number } };  // ADR-021 분석 현황 카드. 공고별 최신 score_runs 1건 기준, QUEUED·RUNNING 제외, origin 필터를 따른다
+    latestByStatus: { completed: number; partial: number; failed: number } };  // ADR-021 분석 현황 카드. 공고별로 끝난 score_runs(COMPLETED·PARTIAL·FAILED) 가운데 최신(created_at) 1건 기준. 진행 중(QUEUED·RUNNING) run 은 건너뛰고 그 앞의 끝난 분석을 센다(web/server/bids/dashboard.service.ts). origin 필터를 따른다
   reviews: { pending: number;     // 최신 분석이 있고 사람 결정이 없는 공고 수(ADR-029 A6 D11)
     byDecision: Record<Recommendation, number>; disagreementWithSystem: number };
   upcoming: { bidId: string; title: string; deadlineAt: string; recommendation: Recommendation | null; decision: Recommendation | null }[];  // 마감 임박 10건
