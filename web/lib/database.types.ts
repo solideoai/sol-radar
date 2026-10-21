@@ -327,6 +327,148 @@ export type Database = {
         }
         Relationships: []
       }
+      bid_project_events: {
+        Row: {
+          actor_id: string | null
+          bid_project_id: string
+          created_at: string
+          from_status: string | null
+          id: string
+          note: string | null
+          org_id: string
+          to_status: string
+        }
+        Insert: {
+          actor_id?: string | null
+          bid_project_id: string
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          org_id: string
+          to_status: string
+        }
+        Update: {
+          actor_id?: string | null
+          bid_project_id?: string
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_project_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_project_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_project_events_project_fkey"
+            columns: ["bid_project_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id", "org_id"]
+          },
+        ]
+      }
+      bid_projects: {
+        Row: {
+          bid_id: string
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          opened_by_review_id: string
+          org_id: string
+          owner_id: string | null
+          result: string | null
+          result_note: string | null
+          result_recorded_at: string | null
+          status: string
+          submission_due_override: string | null
+          updated_at: string
+        }
+        Insert: {
+          bid_id: string
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opened_by_review_id: string
+          org_id: string
+          owner_id?: string | null
+          result?: string | null
+          result_note?: string | null
+          result_recorded_at?: string | null
+          status?: string
+          submission_due_override?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bid_id?: string
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opened_by_review_id?: string
+          org_id?: string
+          owner_id?: string | null
+          result?: string | null
+          result_note?: string | null
+          result_recorded_at?: string | null
+          status?: string
+          submission_due_override?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_projects_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_opened_by_review_fkey"
+            columns: ["opened_by_review_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "bid_reviews"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "bid_projects_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_owner_fkey"
+            columns: ["org_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["org_id", "user_id"]
+          },
+        ]
+      }
       bid_reviews: {
         Row: {
           assignee_id: string | null
@@ -1552,6 +1694,7 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          bid_project_id: string | null
           completed_at: string | null
           created_at: string
           created_by: string | null
@@ -1565,6 +1708,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          bid_project_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1578,6 +1722,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          bid_project_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1596,6 +1741,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "memberships"
             referencedColumns: ["org_id", "user_id"]
+          },
+          {
+            foreignKeyName: "tasks_bid_project_fkey"
+            columns: ["bid_project_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "tasks_created_by_fkey"
@@ -1783,6 +1935,10 @@ export type Database = {
         Args: { meta: Json }
         Returns: string
       }
+      change_bid_project_status: {
+        Args: { p_note: string; p_project_id: string; p_to_status: string }
+        Returns: undefined
+      }
       create_personal_org: {
         Args: { owner_id: string }
         Returns: string
@@ -1826,6 +1982,14 @@ export type Database = {
       my_sol_org_ids: {
         Args: { roles: string[] }
         Returns: string[]
+      }
+      open_bid_project: {
+        Args: { p_review_id: string }
+        Returns: { project_id: string; reopened: boolean }[]
+      }
+      record_bid_project_result: {
+        Args: { p_note: string; p_project_id: string; p_result: string }
+        Returns: undefined
       }
       release_unqueued_score_run: {
         Args: { p_score_run_id: string }

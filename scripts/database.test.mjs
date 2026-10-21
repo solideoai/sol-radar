@@ -516,6 +516,7 @@ describe("DB 접근 정책", () => {
       ],
     );
     // 열 단위 권한. 표 권한(SELECT)이 모든 열에 비치는 것은 뺀다. 만든 사람·완료 시각·만든 시각은 DB 가 채운다.
+    // bid_project_id(입찰 프로젝트 체크리스트, 20261022000300)는 넣을 때만 정하고 고치지 못한다.
     assert.deepEqual(
       (
         await db.query(
@@ -525,6 +526,7 @@ describe("DB 접근 정책", () => {
       [
         ["assignee_id", "INSERT"],
         ["assignee_id", "UPDATE"],
+        ["bid_project_id", "INSERT"],
         ["description", "INSERT"],
         ["description", "UPDATE"],
         ["due_date", "INSERT"],
@@ -5469,6 +5471,587 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
       );
     });
   });
+  // ────────────────────────────────────────────────────────────────
+  // 입찰 프로젝트 (ADR-021 P1 N6, 20261022000300) — 계획 docs/plans/2026-10-21-n6-bid-projects-plan.md Task 1.
+  // 상태·결과·열기는 security definer 함수 셋만 바꾸고, 같은 함수가 이력·감사를 쓴다(M9). 체크리스트는 tasks(M11·M13).
+  // ────────────────────────────────────────────────────────────────
+  describe("입찰 프로젝트 — bid_projects·bid_project_events·체크리스트 (P1 N6)", () => {
+    const open = (pglite, reviewId) =>
+      rowsOf(pglite, "select project_id, reopened from public.open_bid_project($1)", [reviewId]);
+    const move = (pglite, id, to, note = null) =>
+      rowsOf(pglite, "select public.change_bid_project_status($1, $2, $3)", [id, to, note]);
+    const record = (pglite, id, result, note = null) =>
+      rowsOf(pglite, "select public.record_bid_project_result($1, $2, $3)", [id, result, note]);
+    const projectOf = async (pglite, id) => {
+      await asWorker(pglite);
+      return (await rowsOf(pglite, "select * from public.bid_projects where id = $1", [id]))[0];
+    };
+    const eventsOf = async (pglite, id) => {
+      await asWorker(pglite);
+      return rowsOf(
+        pglite,
+        // 이력은 추가만 하는 표라 ctid 순서가 넣은 순서다. PGlite 에서 연달아 부르면 created_at 이 같아질 수 있어 쓰지 않는다.
+        "select actor_id, from_status, to_status, note from public.bid_project_events where bid_project_id = $1 order by ctid",
+        [id],
+      );
+    };
+    const auditsOf = async (pglite, id) => {
+      await asWorker(pglite);
+      return rowsOf(
+        pglite,
+        "select action, actor_id, before_after from public.audit_logs where target_type = 'bid_project' and target_id = $1 order by created_at, id",
+        [id],
+      );
+    };
+    // 관리 작업으로 org-01·BID1 에 결정 한 줄을 더한다. 시각은 지금이라 앞의 결정보다 뒤다.
+    const decideLater = async (pglite, decision) => {
+      await asWorker(pglite);
+      return (await decide(pglite, { decision }))[0].id;
+    };
+    // SALES 가 시드 BID 결정(REVIEW1)으로 연 프로젝트.
+    const openedDb = async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      const [opened] = await open(pglite, REVIEW1);
+      return { pglite, id: opened.project_id };
+    };
+    const codeIs = (code, detail) => (error) => {
+      assert.match(error.message, new RegExp(`^${code}$`));
+      if (detail !== undefined) assert.equal(error.detail, detail);
+      return true;
+    };
+
+    it("최신 결정이 BID 면 SALES 가 열고 PREPARING·담당자 본인·이력 1행·감사 PROJECT_OPEN 1행이 생긴다 — 조직 네 역할 모두 읽는다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      const [opened] = await open(pglite, REVIEW1);
+      assert.equal(opened.reopened, false);
+      const project = await projectOf(pglite, opened.project_id);
+      assert.equal(project.org_id, ORG1);
+      assert.equal(project.bid_id, BID1);
+      assert.equal(project.opened_by_review_id, REVIEW1);
+      assert.equal(project.status, "PREPARING");
+      assert.equal(project.owner_id, WHO.sales);
+      assert.equal(project.created_by, WHO.sales);
+      assert.equal(project.closed_at, null);
+      assert.equal(project.result, null);
+      for (const who of ["admin", "sales", "analyst", "viewer"]) {
+        await as(pglite, who);
+        assert.equal(await countOf(pglite, "bid_projects"), 1, `${who}: 프로젝트`);
+        assert.equal(await countOf(pglite, "bid_project_events"), 1, `${who}: 이력`);
+      }
+      assert.deepEqual(await eventsOf(pglite, opened.project_id), [
+        { actor_id: WHO.sales, from_status: null, to_status: "PREPARING", note: null },
+      ]);
+      const audits = await auditsOf(pglite, opened.project_id);
+      assert.equal(audits.length, 1);
+      assert.equal(audits[0].action, "PROJECT_OPEN");
+      assert.equal(audits[0].actor_id, WHO.sales);
+      assert.equal(audits[0].before_after.before, null);
+      assert.equal(audits[0].before_after.after.openedByReviewId, REVIEW1);
+      assert.equal(audits[0].before_after.after.status, "PREPARING");
+    });
+
+    it("WATCH·NO_BID 결정과 최신이 아닌 BID 결정으로는 열지 못한다(PROJECT_REQUIRES_BID_DECISION) — 프로젝트·이력·감사가 생기지 않는다", async (t) => {
+      const pglite = await solDb(t);
+      const watch = await decideLater(pglite, "WATCH");
+      await as(pglite, "sales");
+      await assert.rejects(open(pglite, watch), codeIs("PROJECT_REQUIRES_BID_DECISION"));
+      await assert.rejects(open(pglite, REVIEW1), codeIs("PROJECT_REQUIRES_BID_DECISION"));
+      const noBid = await decideLater(pglite, "NO_BID");
+      await as(pglite, "admin");
+      await assert.rejects(open(pglite, noBid), codeIs("PROJECT_REQUIRES_BID_DECISION"));
+      await asWorker(pglite);
+      assert.equal(await countOf(pglite, "bid_projects"), 0);
+      assert.equal(await countOf(pglite, "bid_project_events"), 0);
+      assert.equal(await countOf(pglite, "audit_logs", "target_type = 'bid_project'"), 0);
+    });
+
+    it("결정에 담당자가 있으면 그 사람이 처음 담당자다 — 연 사람(ADMIN)이 아니라 결정의 담당자(ANALYST)다", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      const [assigned] = await decide(pglite, { decision: "BID", assignee_id: WHO.analyst });
+      await as(pglite, "admin");
+      const [opened] = await open(pglite, assigned.id);
+      assert.equal((await projectOf(pglite, opened.project_id)).owner_id, WHO.analyst);
+      assert.equal(
+        (await auditsOf(pglite, opened.project_id))[0].before_after.after.ownerId,
+        WHO.analyst,
+      );
+    });
+
+    it("같은 결정으로 두 번 열면 두 번째는 PROJECT_ALREADY_OPEN 이고 detail 이 그 프로젝트 id 다 — 프로젝트·이력은 하나다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await as(pglite, "admin");
+      await assert.rejects(open(pglite, REVIEW1), codeIs("PROJECT_ALREADY_OPEN", id));
+      await asWorker(pglite);
+      assert.equal(await countOf(pglite, "bid_projects"), 1);
+      assert.equal(await countOf(pglite, "bid_project_events"), 1);
+    });
+
+    it("ANALYST·VIEWER 는 세 함수가 FORBIDDEN 이고 직접 넣기·지우기는 권한 오류, 담당자·마감 고치기는 0행이다 — ADMIN·SALES 도 이력을 직접 넣지 못한다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      for (const who of ["analyst", "viewer"]) {
+        await as(pglite, who);
+        await assert.rejects(open(pglite, REVIEW1), codeIs("FORBIDDEN"), `${who}: 열기`);
+        await assert.rejects(move(pglite, id, "SUBMITTED"), codeIs("FORBIDDEN"), `${who}: 상태`);
+        await assert.rejects(record(pglite, id, "WON"), codeIs("FORBIDDEN"), `${who}: 결과`);
+        assert.equal(
+          (
+            await rowsOf(
+              pglite,
+              "update public.bid_projects set submission_due_override = now(), owner_id = $1 returning id",
+              [WHO[who]],
+            )
+          ).length,
+          0,
+          `${who}: 담당자·마감`,
+        );
+        await rejectsWith(
+          pglite.query(
+            "insert into public.bid_projects (org_id, bid_id, opened_by_review_id) values ($1, $2, $3)",
+            [ORG1, BID2, REVIEW1],
+          ),
+          PERMISSION.source,
+          `${who}: 넣기`,
+        );
+        await rejectsWith(
+          pglite.query("delete from public.bid_projects"),
+          PERMISSION.source,
+          `${who}: 지우기`,
+        );
+      }
+      for (const who of ["admin", "sales", "viewer"]) {
+        await as(pglite, who);
+        await rejectsWith(
+          pglite.query(
+            "insert into public.bid_project_events (org_id, bid_project_id, to_status) values ($1, $2, 'CLOSED')",
+            [ORG1, id],
+          ),
+          PERMISSION.source,
+          `${who}: 이력 넣기`,
+        );
+        await rejectsWith(
+          pglite.query(
+            "insert into public.audit_logs (org_id, action, target_type, target_id) values ($1, 'PROJECT_OPEN', 'bid_project', $2)",
+            [ORG1, id],
+          ),
+          PERMISSION.source,
+          `${who}: 감사 넣기`,
+        );
+      }
+      const project = await projectOf(pglite, id);
+      assert.equal(project.status, "PREPARING");
+      assert.equal(project.owner_id, WHO.sales);
+      assert.equal(project.submission_due_override, null);
+      assert.equal((await eventsOf(pglite, id)).length, 1);
+    });
+
+    it("다른 조직 사람은 프로젝트·이력이 0행이고 세 함수는 NOT_FOUND 다 — 그 조직의 SALES 여도 같고, 로그아웃한 사람은 함수를 부르지 못한다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await asWorker(pglite);
+      await pglite.query("update public.memberships set sol_role = 'SALES' where user_id = $1", [
+        WHO.outsider,
+      ]);
+      await as(pglite, "outsider");
+      assert.equal(await countOf(pglite, "bid_projects"), 0);
+      assert.equal(await countOf(pglite, "bid_project_events"), 0);
+      await assert.rejects(open(pglite, REVIEW1), codeIs("NOT_FOUND"));
+      await assert.rejects(move(pglite, id, "CLOSED"), codeIs("NOT_FOUND"));
+      await assert.rejects(record(pglite, id, "LOST"), codeIs("NOT_FOUND"));
+      assert.equal(
+        (await rowsOf(pglite, "update public.bid_projects set owner_id = null returning id"))
+          .length,
+        0,
+      );
+      await asAnon(pglite);
+      for (const call of [
+        () => open(pglite, REVIEW1),
+        () => move(pglite, id, "CLOSED"),
+        () => record(pglite, id, "WON"),
+      ])
+        await rejectsWith(call(), "permission denied for function");
+      const project = await projectOf(pglite, id);
+      assert.equal(project.status, "PREPARING");
+      assert.equal(project.result, null);
+      assert.equal(project.owner_id, WHO.sales);
+    });
+
+    it("최신 결정이 BID 면 앞으로 세 칸·뒤로 한 칸이 되고 한 칸마다 이력·감사가 1행씩이다 — 메모는 앞뒤 공백을 지우고 CLOSED 는 closed_at 을 채운다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await as(pglite, "sales");
+      const path = [
+        "SUBMITTED",
+        "PREPARING",
+        "SUBMITTED",
+        "AWAITING_RESULT",
+        "SUBMITTED",
+        "AWAITING_RESULT",
+      ];
+      await move(pglite, id, path[0], "  제출서류 접수  ");
+      for (const to of path.slice(1)) await move(pglite, id, to);
+      await as(pglite, "admin");
+      await move(pglite, id, "CLOSED", "   ");
+      const events = await eventsOf(pglite, id);
+      assert.deepEqual(
+        events.map((event) => `${event.from_status}>${event.to_status}`),
+        [
+          "null>PREPARING",
+          "PREPARING>SUBMITTED",
+          "SUBMITTED>PREPARING",
+          "PREPARING>SUBMITTED",
+          "SUBMITTED>AWAITING_RESULT",
+          "AWAITING_RESULT>SUBMITTED",
+          "SUBMITTED>AWAITING_RESULT",
+          "AWAITING_RESULT>CLOSED",
+        ],
+      );
+      assert.equal(events[1].note, "제출서류 접수");
+      assert.equal(events.at(-1).note, null);
+      assert.equal(events.at(-1).actor_id, WHO.admin);
+      const audits = await auditsOf(pglite, id);
+      assert.deepEqual(
+        audits.map((audit) => audit.action),
+        ["PROJECT_OPEN", ...Array(7).fill("PROJECT_STATUS_CHANGE")],
+      );
+      assert.deepEqual(audits.at(-1).before_after, {
+        before: { status: "AWAITING_RESULT" },
+        after: { status: "CLOSED", note: null },
+      });
+      const project = await projectOf(pglite, id);
+      assert.equal(project.status, "CLOSED");
+      assert.notEqual(project.closed_at, null);
+    });
+
+    it("연 뒤 WATCH·NO_BID 결정이 들어와도 자동 종료하지 않는다 — 앞으로 가기는 LATEST_DECISION_NOT_BID(detail 최신 결정)이고 뒤로 가기와 종료는 된다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await as(pglite, "sales");
+      await move(pglite, id, "SUBMITTED");
+      await decideLater(pglite, "WATCH");
+      assert.equal((await projectOf(pglite, id)).status, "SUBMITTED");
+      await as(pglite, "sales");
+      await assert.rejects(
+        move(pglite, id, "AWAITING_RESULT"),
+        codeIs("LATEST_DECISION_NOT_BID", "WATCH"),
+      );
+      assert.equal((await projectOf(pglite, id)).status, "SUBMITTED");
+      await as(pglite, "sales");
+      await move(pglite, id, "PREPARING");
+      await decideLater(pglite, "NO_BID");
+      await as(pglite, "sales");
+      await assert.rejects(
+        move(pglite, id, "SUBMITTED"),
+        codeIs("LATEST_DECISION_NOT_BID", "NO_BID"),
+      );
+      await move(pglite, id, "CLOSED", "발주처 사업 취소로 종료");
+      const project = await projectOf(pglite, id);
+      assert.equal(project.status, "CLOSED");
+      assert.notEqual(project.closed_at, null);
+      assert.equal((await eventsOf(pglite, id)).length, 4);
+    });
+
+    it("같은 상태·두 칸 건너뛰기·모르는 값·CLOSED 에서 나가기는 INVALID_PROJECT_TRANSITION 이고 detail 이 '전>후' 다 — 상태·이력은 그대로다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await as(pglite, "sales");
+      await assert.rejects(
+        move(pglite, id, "PREPARING"),
+        codeIs("INVALID_PROJECT_TRANSITION", "PREPARING>PREPARING"),
+      );
+      await assert.rejects(
+        move(pglite, id, "AWAITING_RESULT"),
+        codeIs("INVALID_PROJECT_TRANSITION", "PREPARING>AWAITING_RESULT"),
+      );
+      await assert.rejects(
+        move(pglite, id, "DONE"),
+        codeIs("INVALID_PROJECT_TRANSITION", "PREPARING>DONE"),
+      );
+      await assert.rejects(
+        move(pglite, id, null),
+        codeIs("INVALID_PROJECT_TRANSITION", "PREPARING>"),
+      );
+      assert.equal((await eventsOf(pglite, id)).length, 1);
+      await as(pglite, "sales");
+      await move(pglite, id, "CLOSED");
+      for (const to of ["PREPARING", "CLOSED", "SUBMITTED"]) {
+        await as(pglite, "sales");
+        await assert.rejects(
+          move(pglite, id, to),
+          codeIs("INVALID_PROJECT_TRANSITION", `CLOSED>${to}`),
+        );
+      }
+      assert.equal((await projectOf(pglite, id)).status, "CLOSED");
+      assert.equal((await eventsOf(pglite, id)).length, 2);
+    });
+
+    it("종료 뒤 새 BID 결정으로 열면 같은 프로젝트가 PREPARING 으로 다시 열리고 결과가 빈다 — 이전 값은 감사 before 에 남고, 종료 전 결정으로는 다시 열지 못한다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await as(pglite, "sales");
+      await record(pglite, id, "CANCELLED", "발주 취소");
+      await move(pglite, id, "CLOSED");
+      await assert.rejects(open(pglite, REVIEW1), codeIs("PROJECT_REQUIRES_BID_DECISION"));
+      const again = await decideLater(pglite, "BID");
+      await as(pglite, "admin");
+      const [reopened] = await open(pglite, again);
+      assert.deepEqual(reopened, { project_id: id, reopened: true });
+      const project = await projectOf(pglite, id);
+      assert.equal(project.status, "PREPARING");
+      assert.equal(project.opened_by_review_id, again);
+      assert.equal(project.closed_at, null);
+      assert.equal(project.result, null);
+      assert.equal(project.result_note, null);
+      assert.equal(project.result_recorded_at, null);
+      assert.equal(await countOf(pglite, "bid_projects"), 1);
+      const last = (await auditsOf(pglite, id)).at(-1);
+      assert.equal(last.action, "PROJECT_OPEN");
+      assert.equal(last.actor_id, WHO.admin);
+      assert.equal(last.before_after.before.status, "CLOSED");
+      assert.equal(last.before_after.before.openedByReviewId, REVIEW1);
+      assert.equal(last.before_after.before.result, "CANCELLED");
+      assert.equal(last.before_after.before.resultNote, "발주 취소");
+      assert.equal(last.before_after.after.openedByReviewId, again);
+      assert.deepEqual((await eventsOf(pglite, id)).at(-1), {
+        actor_id: WHO.admin,
+        from_status: "CLOSED",
+        to_status: "PREPARING",
+        note: null,
+      });
+    });
+
+    it("결과 기록은 상태를 바꾸지 않고 덮어쓸 수 있으며 기록마다 감사 PROJECT_RESULT_RECORD 1행이다 — 값 집합 밖은 23514(bid_projects_result_check)", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await as(pglite, "sales");
+      await record(pglite, id, "LOST", "  가격 점수 차이  ");
+      let project = await projectOf(pglite, id);
+      assert.equal(project.status, "PREPARING");
+      assert.equal(project.result, "LOST");
+      assert.equal(project.result_note, "가격 점수 차이");
+      assert.notEqual(project.result_recorded_at, null);
+      await as(pglite, "admin");
+      await record(pglite, id, "WON");
+      project = await projectOf(pglite, id);
+      assert.equal(project.result, "WON");
+      assert.equal(project.result_note, null);
+      const results = (await auditsOf(pglite, id)).filter(
+        (a) => a.action === "PROJECT_RESULT_RECORD",
+      );
+      assert.equal(results.length, 2);
+      assert.deepEqual(results[1].before_after, {
+        before: { result: "LOST", resultNote: "가격 점수 차이" },
+        after: { result: "WON", resultNote: null },
+      });
+      await as(pglite, "sales");
+      await rejectsWith(record(pglite, id, "MAYBE"), "bid_projects_result_check");
+      assert.equal((await projectOf(pglite, id)).result, "WON");
+    });
+
+    it("ADMIN·SALES 는 담당자·제출 마감 덮어쓰기를 직접 고치고 updated_at 이 바뀐다 — 상태·결과·종료 시각·여는 결정·조직은 열 권한이 없다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      const before = await projectOf(pglite, id);
+      await as(pglite, "sales");
+      const changed = await rowsOf(
+        pglite,
+        "update public.bid_projects set owner_id = $1, submission_due_override = '2026-11-30T18:00:00+09:00' where id = $2 returning id",
+        [WHO.admin, id],
+      );
+      assert.equal(changed.length, 1);
+      await as(pglite, "admin");
+      assert.equal(
+        (
+          await rowsOf(
+            pglite,
+            "update public.bid_projects set submission_due_override = null where id = $1 returning id",
+            [id],
+          )
+        ).length,
+        1,
+      );
+      const after = await projectOf(pglite, id);
+      assert.equal(after.owner_id, WHO.admin);
+      assert.equal(after.submission_due_override, null);
+      assert.ok(after.updated_at > before.updated_at);
+      for (const assignment of [
+        "status = 'CLOSED'",
+        "result = 'WON'",
+        "closed_at = now()",
+        "opened_by_review_id = null",
+        `org_id = '${ORG2}'`,
+        "result_recorded_at = now()",
+      ]) {
+        await as(pglite, "sales");
+        await rejectsWith(
+          pglite.query(`update public.bid_projects set ${assignment} where id = $1`, [id]),
+          PERMISSION.source,
+          assignment,
+        );
+      }
+    });
+
+    it("담당자는 같은 조직 멤버만이다 — 다른 조직 사람은 23503(bid_projects_owner_fkey)이고 멤버십이 지워지면 owner_id 만 빈다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await as(pglite, "sales");
+      await rejectsWith(
+        pglite.query("update public.bid_projects set owner_id = $1 where id = $2", [
+          WHO.outsider,
+          id,
+        ]),
+        "bid_projects_owner_fkey",
+      );
+      await asWorker(pglite);
+      await pglite.query("delete from public.memberships where org_id = $1 and user_id = $2", [
+        ORG1,
+        WHO.sales,
+      ]);
+      const project = await projectOf(pglite, id);
+      assert.equal(project.owner_id, null);
+      assert.equal(project.status, "PREPARING");
+    });
+
+    it("체크리스트(bid_project_id 가 있는 작업)는 ADMIN·SALES 만 넣고 고치고 지운다 — ANALYST·VIEWER 는 정책 오류·0행이고, 같은 사람의 일반 작업은 그대로 된다", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      await as(pglite, "sales");
+      const [item] = await rowsOf(
+        pglite,
+        "insert into public.tasks (org_id, title, bid_project_id) values ($1, '제안서 초안', $2) returning id",
+        [ORG1, id],
+      );
+      await as(pglite, "admin");
+      assert.equal(
+        (
+          await rowsOf(
+            pglite,
+            "update public.tasks set status = 'done' where id = $1 returning id",
+            [item.id],
+          )
+        ).length,
+        1,
+      );
+      for (const who of ["analyst", "viewer"]) {
+        await as(pglite, who);
+        await rejectsWith(
+          pglite.query(
+            "insert into public.tasks (org_id, title, bid_project_id) values ($1, '몰래 넣기', $2)",
+            [ORG1, id],
+          ),
+          POLICY.source,
+          `${who}: 넣기`,
+        );
+        assert.equal(
+          (
+            await rowsOf(
+              pglite,
+              "update public.tasks set title = '바꿈' where id = $1 returning id",
+              [item.id],
+            )
+          ).length,
+          0,
+          `${who}: 고치기`,
+        );
+        assert.equal(
+          (await rowsOf(pglite, "delete from public.tasks where id = $1 returning id", [item.id]))
+            .length,
+          0,
+          `${who}: 지우기`,
+        );
+        const [own] = await rowsOf(
+          pglite,
+          "insert into public.tasks (org_id, title) values ($1, '일반 작업') returning id",
+          [ORG1],
+        );
+        assert.equal(
+          (
+            await rowsOf(
+              pglite,
+              "update public.tasks set status = 'done' where id = $1 returning id",
+              [own.id],
+            )
+          ).length,
+          1,
+          `${who}: 일반 작업 고치기`,
+        );
+        assert.equal(
+          (await rowsOf(pglite, "delete from public.tasks where id = $1 returning id", [own.id]))
+            .length,
+          1,
+          `${who}: 일반 작업 지우기`,
+        );
+      }
+      // 템플릿 삭제 정책은 만든 사람·owner 만이지만, 체크리스트는 ADMIN·SALES 가 남이 만든 행도 지운다.
+      // SALES 는 owner 가 아니고 ADMIN 이 만든 행이라 템플릿 정책으로는 지우지 못한다.
+      await as(pglite, "admin");
+      const [byAdmin] = await rowsOf(
+        pglite,
+        "insert into public.tasks (org_id, title, bid_project_id) values ($1, '가격 제안서', $2) returning id",
+        [ORG1, id],
+      );
+      await as(pglite, "sales");
+      assert.equal(
+        (await rowsOf(pglite, "delete from public.tasks where id = $1 returning id", [byAdmin.id]))
+          .length,
+        1,
+      );
+      assert.equal(
+        (await rowsOf(pglite, "delete from public.tasks where id = $1 returning id", [item.id]))
+          .length,
+        1,
+      );
+    });
+
+    it("tasks.bid_project_id 는 update 로 바꾸지 못하고(권한 오류) 다른 조직·없는 프로젝트로는 넣지 못한다(23503 tasks_bid_project_fkey)", async (t) => {
+      const { pglite, id } = await openedDb(t);
+      // org-02 에도 BID 결정과 프로젝트를 관리 작업으로 만든다.
+      await asWorker(pglite);
+      const [org2Review] = await decide(pglite, { org_id: ORG2, decision: "BID" });
+      const [org2Project] = await rowsOf(
+        pglite,
+        "insert into public.bid_projects (org_id, bid_id, opened_by_review_id) values ($1, $2, $3) returning id",
+        [ORG2, BID1, org2Review.id],
+      );
+      await as(pglite, "sales");
+      const [plain] = await rowsOf(
+        pglite,
+        "insert into public.tasks (org_id, title) values ($1, '일반 작업') returning id",
+        [ORG1],
+      );
+      await rejectsWith(
+        pglite.query("update public.tasks set bid_project_id = $1 where id = $2", [id, plain.id]),
+        PERMISSION.source,
+      );
+      for (const target of [org2Project.id, "0b000000-0000-0000-0000-00000000dead"]) {
+        await as(pglite, "sales");
+        await rejectsWith(
+          pglite.query(
+            "insert into public.tasks (org_id, title, bid_project_id) values ($1, '체크', $2)",
+            [ORG1, target],
+          ),
+          "tasks_bid_project_fkey",
+        );
+      }
+    });
+
+    it("audit_logs_action_check 는 N2 의 USER_ROLE_CHANGE 와 PROJECT_OPEN·PROJECT_STATUS_CHANGE·PROJECT_RESULT_RECORD 를 함께 받고 모르는 값은 23514 다", async (t) => {
+      const pglite = await solDb(t);
+      await asWorker(pglite);
+      for (const action of [
+        "USER_ROLE_CHANGE",
+        "PROJECT_OPEN",
+        "PROJECT_STATUS_CHANGE",
+        "PROJECT_RESULT_RECORD",
+        "REVIEW_DECIDE",
+        "SEED",
+      ])
+        await pglite.query(
+          "insert into public.audit_logs (org_id, action, target_type, target_id) values ($1, $2, 'organization', $1)",
+          [ORG1, action],
+        );
+      await rejectsWith(
+        pglite.query(
+          "insert into public.audit_logs (org_id, action, target_type, target_id) values ($1, 'PROJECT_DELETE', 'organization', $1)",
+          [ORG1],
+        ),
+        "audit_logs_action_check",
+      );
+    });
+  });
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -8600,7 +9183,11 @@ it("ADR021 가입 변경은 이전 개인 조직·소유권·작업을 그대로
     (await fresh.query("select * from public.memberships")).rows,
     memberships.map((membership) => ({ ...membership, sol_role: "VIEWER" })),
   );
-  assert.deepEqual((await fresh.query("select * from public.tasks")).rows, tasks);
+  // 뒤 마이그레이션이 더한 열(P1 N6 bid_project_id)은 기존 작업에서 비어 있어야 한다.
+  assert.deepEqual(
+    (await fresh.query("select * from public.tasks")).rows,
+    tasks.map((task) => ({ ...task, bid_project_id: null })),
+  );
   assert.deepEqual(
     (await fresh.query("select id from public.profiles order by id")).rows,
     users.slice(0, 2).map((id) => ({ id })),

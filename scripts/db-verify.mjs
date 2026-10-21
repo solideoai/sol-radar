@@ -269,7 +269,16 @@ const bypassesQuery = `
 // - public.latest_ingest_run(text): 업무 역할이 있는 사용자에게 최신 수집 run 한 건의 status·started_at·finished_at·summary 만
 //   준다. ingest_runs 는 ADMIN 만 읽는 운영 표라 security definer 다. 로그인 역할만 실행하고, 업무 역할이 없으면 0행이며
 //   다른 열과 수집 오류는 내주지 않는다. 이유는 20261019000012 마이그레이션 주석에 있다.
+// - public.open_bid_project(uuid)·public.change_bid_project_status(uuid, text, text)·
+//   public.record_bid_project_result(uuid, text, text): 입찰 프로젝트(ADR-021 P1 N6)의 열기·상태 전이·결과 기록.
+//   화면 역할에는 bid_projects 의 insert·status·result 열 권한과 bid_project_events·audit_logs 쓰기 권한이 없어
+//   security definer 다(상태·이력·감사를 한 트랜잭션에 쓴다, M9). 로그인 역할만 실행하고, 대상 결정·프로젝트가 부른 사람의
+//   조직(my_org_ids)이 아니면 NOT_FOUND, 그 조직의 ADMIN·SALES 가 아니면 FORBIDDEN 이며, 바꾸는 행은 그 프로젝트 하나와
+//   그 이력·감사 행뿐이다. 이유는 20261022000300 마이그레이션 주석에 있다.
 const ALLOWED_DEFINER_FUNCTIONS = new Set([
+  "public.open_bid_project(uuid)",
+  "public.change_bid_project_status(uuid, text, text)",
+  "public.record_bid_project_result(uuid, text, text)",
   "public.resolve_solideo_employment(text, text)",
   "public.my_sol_org_ids(text[])",
   "public.release_unqueued_score_run(uuid)",
