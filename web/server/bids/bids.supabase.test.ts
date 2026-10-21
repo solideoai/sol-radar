@@ -627,6 +627,84 @@ describe("getBid", () => {
   });
 });
 
+describe("공고 revision 이력", () => {
+  const rows = [
+    {
+      id: "r2",
+      revision: 2,
+      amendment_no: "02",
+      fetched_at: T0,
+      checksum: "c2",
+      changed_fields: ["budgetKrw"],
+    },
+    {
+      id: "r1",
+      revision: 1,
+      amendment_no: null,
+      fetched_at: T0,
+      checksum: "c1",
+      changed_fields: [],
+    },
+  ];
+
+  it("공고 행이 없으면 null 이다", async () => {
+    fakeDb.on("bid_list_items", fakeDb.rows([]));
+    fakeDb.on("bid_revisions", fakeDb.rows(rows));
+    expect(await repo.getRevisionHistory(BID)).toBeNull();
+  });
+
+  it("제목과 revision 목록(내림차순)을 읽고 요약으로 옮긴다", async () => {
+    fakeDb.on("bid_list_items", fakeDb.rows([{ title: "클라우드 전환" }]));
+    fakeDb.on("bid_revisions", fakeDb.rows(rows));
+    const history = await repo.getRevisionHistory(BID);
+    expect(history?.title).toBe("클라우드 전환");
+    expect(history?.revisions).toEqual([
+      {
+        id: "r2",
+        revision: 2,
+        amendmentNo: "02",
+        fetchedAt: T0,
+        checksum: "c2",
+        changedFields: ["budgetKrw"],
+      },
+      {
+        id: "r1",
+        revision: 1,
+        amendmentNo: null,
+        fetchedAt: T0,
+        checksum: "c1",
+        changedFields: [],
+      },
+    ]);
+    const revisions = only("bid_revisions");
+    expect(callsOf(revisions, "eq")).toEqual([["bid_id", BID]]);
+    expect(callsOf(revisions, "order")).toEqual([["revision", { ascending: false }]]);
+    expect(callsOf(only("bid_list_items"), "eq")).toEqual([["id", BID]]);
+  });
+
+  it("스냅샷은 고른 revision 만 normalized 와 함께 읽는다", async () => {
+    fakeDb.on(
+      "bid_revisions",
+      fakeDb.rows([
+        { revision: 1, normalized: { title: "a" } },
+        { revision: 2, normalized: { title: "b" } },
+      ]),
+    );
+    expect(await repo.getRevisionSnapshots(BID, [1, 2])).toEqual([
+      { revision: 1, normalized: { title: "a" } },
+      { revision: 2, normalized: { title: "b" } },
+    ]);
+    const query = only("bid_revisions");
+    expect(callsOf(query, "select")).toEqual([["revision,normalized"]]);
+    expect(callsOf(query, "in")).toEqual([["revision", [1, 2]]]);
+  });
+
+  it("고른 번호가 없으면 질의 없이 빈 배열이다", async () => {
+    expect(await repo.getRevisionSnapshots(BID, [])).toEqual([]);
+    expect(fakeDb.queries("bid_revisions")).toHaveLength(0);
+  });
+});
+
 describe("분석 읽기", () => {
   it("getAnalysis 는 조직과 id 로 좁혀 읽는다", async () => {
     fakeDb.on("score_runs", fakeDb.rows([storedRun()]));

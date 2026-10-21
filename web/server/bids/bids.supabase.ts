@@ -358,6 +358,36 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
       return bidExistsIn(await getSupabase(), bidId);
     },
 
+    // 제목은 뷰 한 줄에서, revision 목록은 bid_revisions 에서 읽는다. 공고 행이 없으면 null.
+    async getRevisionHistory(bidId) {
+      const db = await getSupabase();
+      const [notice, revisions] = await Promise.all([
+        db.from("bid_list_items").select("title").eq("id", bidId).maybeSingle(),
+        db
+          .from("bid_revisions")
+          .select(REVISION_COLUMNS)
+          .eq("bid_id", bidId)
+          .order("revision", { ascending: false }),
+      ]);
+      if (notice.error) throw notice.error;
+      if (revisions.error) throw revisions.error;
+      if (notice.data === null) return null;
+      return { title: notice.data.title ?? "", revisions: revisions.data.map(toRevisionSummary) };
+    },
+
+    async getRevisionSnapshots(bidId, revisions) {
+      if (revisions.length === 0) return [];
+      const { data, error } = await (
+        await getSupabase()
+      )
+        .from("bid_revisions")
+        .select("revision,normalized")
+        .eq("bid_id", bidId)
+        .in("revision", revisions);
+      if (error) throw error;
+      return data;
+    },
+
     // 분석 이력: created_at 내림차순(nulls last), 같은 시각은 id 내림차순 키셋.
     // 동률 순서는 최신 run 조회(latestAnalysis)·뷰와 같다. 이력 첫 줄이 "최신"과 어긋나지 않는다(M11).
     async listAnalyses(orgId, bidId, limit, after) {

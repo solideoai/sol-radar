@@ -118,6 +118,8 @@ function fakeBids(): BidsRepo {
     countBids: vi.fn(async () => 0),
     getBid: vi.fn(async () => BID),
     bidExists: vi.fn(async () => true),
+    getRevisionHistory: vi.fn(async () => null),
+    getRevisionSnapshots: vi.fn(async () => []),
     listAnalyses: vi.fn(emptyPage),
     getLatestScoredAnalysis: vi.fn(async () => ANALYSIS),
     getAnalysis: vi.fn(async () => ANALYSIS),

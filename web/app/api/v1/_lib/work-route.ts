@@ -21,12 +21,13 @@ export function businessRoute(
   });
 }
 
-type PathResource = "bid" | "analysis" | "notification" | "ingestionRun";
+type PathResource = "bid" | "analysis" | "notification" | "ingestionRun" | "revision";
 const NOT_FOUND_MESSAGES: Record<PathResource, string> = {
   bid: "공고를 찾을 수 없습니다",
   analysis: "분석을 찾을 수 없습니다",
   notification: "알림을 찾을 수 없습니다",
   ingestionRun: "수집 실행을 찾을 수 없습니다",
+  revision: "변경 이력을 찾을 수 없습니다",
 };
 
 // 경로 id 가 UUID 가 아닐 때의 응답. 없는 자원과 같은 404 이고 DB 는 부르지 않는다(Review Focus 2).

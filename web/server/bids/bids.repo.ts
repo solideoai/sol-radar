@@ -3,6 +3,7 @@ import type { AnalysisView } from "./analysis-view.model";
 import type { BidListQuery, CursorPayload } from "./bid-query";
 import type { AnalysisStatus, BidListItem, Recommendation } from "./bid.model";
 import type { BidDetail } from "./bid-detail.model";
+import type { BidRevisionSummary } from "./bid.model";
 import type { Notification } from "./notification.model";
 import type { Review } from "./review.model";
 
@@ -62,6 +63,15 @@ export interface BidsRepo {
     orgId: string,
     id: string,
   ): Promise<{ status: AnalysisStatus; inputSnapshot: unknown } | null>;
+  // 공고의 제목과 revision 목록(내림차순). 공고가 없으면 null
+  getRevisionHistory(
+    bidId: string,
+  ): Promise<{ title: string; revisions: BidRevisionSummary[] } | null>;
+  // 고른 revision 의 정규화 스냅샷. 없는 번호는 결과에 없다
+  getRevisionSnapshots(
+    bidId: string,
+    revisions: number[],
+  ): Promise<{ revision: number; normalized: unknown }[]>;
   // 같은 입력(공고 revision·프로필 revision·알고리즘, 04 §5 부분 UNIQUE)의 QUEUED·RUNNING run
   findRunningAnalysis(orgId: string, bidId: string, input: AnalysisInput): Promise<RunRef | null>;
   // 같은 입력의 완료(COMPLETED·PARTIAL) run 중 최신
