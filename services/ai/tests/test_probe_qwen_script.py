@@ -20,7 +20,7 @@ def run_probe(*args: str, base_url: str, key: str | None = None) -> subprocess.C
     env = {
         "PATH": os.environ.get("PATH", ""),
         "QWEN_BASE_URL": base_url,
-        "QWEN_MODEL": "Qwen/Qwen3.5-27B",
+        "QWEN_MODEL": "Qwen/Qwen3.8-Flash-Next",
         # 프록시·HF 설정 등 바깥 env 는 넘기지 않는다
     }
     if key is not None:
