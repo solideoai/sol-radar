@@ -4,8 +4,9 @@
 - status: active(기본)·retired·backup. KEV_MODEL_ID·QWEN_MODEL 로 고를 수 있는 항목은 active 뿐이다. retired·backup 은
   이력·롤백용이라 읽되 기동 대조 대상에서 뺀다(local_setup 이 상태 이름을 거부 사유로 쓴다).
 - qwen 기본 항목은 active 이고 default: true 인 항목 하나다. 둘 이상이면 기동을 거부한다.
-- 결정 모델 서버 GET /v1/models 대조(RegistryEntry.matches): run 이 같고, base·lora·temperature 중 레지스트리 값이 null
-  이 아닌 것이 모두 같아야 한다(lora 는 어댑터 sha256 문자열). revision 은 서버 응답에 그 키가 있고 레지스트리 값도 null
+- 결정 모델 서버 GET /v1/models 대조(RegistryEntry.matches): run 이 같고, base·lora·temperature·decision_embeddings_sha256
+  중 레지스트리 값이 null 이 아닌 것이 모두 같아야 한다(lora 는 어댑터 sha256, decision_embeddings_sha256 은
+  decision_embeddings.safetensors 의 sha256 문자열. 서버 응답에 키가 없어도 다르다고 본다). revision 은 서버 응답에 그 키가 있고 레지스트리 값도 null
   이 아닐 때만 함께 대조한다(회사 운영 값을 모르면 null 로 두므로 강제하지 않는다).
 
 allowedHosts(C5-A S2, e8 확정 2026-10-19): local 모델 서버 URL 이 가리킬 수 있는 호스트(루프백 밖). 실제로 쓸
@@ -32,7 +33,8 @@ STATUS_BACKUP = "backup"
 STATUSES = frozenset({STATUS_ACTIVE, STATUS_RETIRED, STATUS_BACKUP})
 
 # 03 §11: 결정 모델 서버 GET /v1/models 와 대조하는 필드. 레지스트리 값이 null 이면 대조하지 않는다
-KEV_MATCH_FIELDS = ("base", "lora", "temperature")
+# decision_embeddings_sha256 은 미결정 28 ①(사용자 결정 2026-10-21)로 더했다
+KEV_MATCH_FIELDS = ("base", "lora", "temperature", "decision_embeddings_sha256")
 # 서버 응답에 키가 있을 때만 대조하는 필드
 REVISION_FIELD = "revision"
 

@@ -29,6 +29,7 @@ from pathlib import Path
 
 from support import (
     KEV_BASE,
+    KEV_EMBEDDINGS_SHA256,
     KEV_LORA_SHA256,
     KEV_MODEL_ID,
     KEV_REVISION,
@@ -561,6 +562,7 @@ def kev_models(
         "base": KEV_BASE,
         "lora": KEV_LORA_SHA256,
         "revision": KEV_REVISION,
+        "decision_embeddings_sha256": KEV_EMBEDDINGS_SHA256,
         "temperature": None,
         **overrides,
     }
