@@ -4,7 +4,15 @@ import "server-only";
 // 카카오톡 "나에게 보내기" 추천 공고 알림(설계 docs/plans/2026-10-20-kakao-memo-notify-design.md).
 
 // 토큰 암호화. 웹 서버가 암호화해 저장하고 worker 만 복호화한다(설계 §7).
-export { decryptKakaoToken, encryptKakaoToken } from "./kakao-token.crypto";
+// 암호문은 v1.<kid>.<iv>.<tag>.<ciphertext> 이고 사용자·토큰 종류(KakaoTokenContext)에 묶인다. kid 가 지금 키와 다르면
+// KakaoTokenKeyMismatchError(설정 오류)다. assertKakaoTokenKey 는 KAKAO_TOKEN_ENC_KEY 형식 검사다(worker 기동 때).
+export {
+  KakaoTokenKeyMismatchError,
+  assertKakaoTokenKey,
+  decryptKakaoToken,
+  encryptKakaoToken,
+} from "./kakao-token.crypto";
+export type { KakaoTokenContext } from "./kakao-token.crypto";
 
 // 피드 한 통과 사유 줄(설계 §5.3). AI 서술은 싣지 않는다.
 export { toBidFeedTemplate, toReasonLine, toTestFeedTemplate } from "./feed.model";
@@ -18,6 +26,7 @@ export type {
 // 설정 칸의 화면 상태 4개(설계 §9)와 worker 발송 port 가 읽고 쓰는 연결 행(설계 §5.5).
 export { toKakaoNotifyView } from "./kakao-notify.model";
 export type {
+  KakaoLinkExpectation,
   KakaoLinkStore,
   KakaoNotifyRow,
   KakaoNotifyView,

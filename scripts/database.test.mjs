@@ -7331,6 +7331,7 @@ describe("알림 outbox 부분 인덱스 — outbox_events_notify_due_idx (C7)",
 
 // 카카오톡 알림 연결(20261021000001, ADR-038). 사용자 개인 설정이라 조직 표가 아니고 user_id 로 소유한다(profiles 처럼).
 // 화면 역할은 본인 행의 여섯 열만 읽고(토큰·만료 열은 못 읽는다), 쓰기는 security definer RPC 넷으로만 한다.
+// 20261021000003(보안 검토 보강)이 저장 RPC 의 입력 검사(KAKAO_LINK_INVALID)와 시험 메시지 하루 상한(24시간 10건)을 더한다(⑨·⑩).
 // 근거: docs/plans/2026-10-20-kakao-memo-notify-plan.md Task 1, 설계 docs/plans/2026-10-20-kakao-memo-notify-design.md §7.
 describe("카카오톡 알림 연결 — kakao_notify_links", () => {
   const [ME, OTHER, OPERATOR] = users;
@@ -7349,12 +7350,13 @@ describe("카카오톡 알림 연결 — kakao_notify_links", () => {
   });
   const NOT_CONNECTED = { message: "KAKAO_NOT_CONNECTED" };
   const NOT_READY = { message: "KAKAO_NOT_READY" };
+  const LINK_INVALID = { message: "KAKAO_LINK_INVALID" };
   const ACCESS_AT = "2026-10-21T16:00:00.000Z";
   const REFRESH_AT = "2026-12-20T10:00:00.000Z";
   const RPCS = [
     [
       "save_kakao_notify_link",
-      "select public.save_kakao_notify_link('enc-access', 'enc-refresh', now(), now())",
+      "select public.save_kakao_notify_link('v1.enc-access', 'v1.enc-refresh', now(), now())",
     ],
     ["set_kakao_notify_enabled", "select public.set_kakao_notify_enabled(true)"],
     ["disconnect_kakao_notify", "select public.disconnect_kakao_notify()"],
@@ -7390,8 +7392,8 @@ describe("카카오톡 알림 연결 — kakao_notify_links", () => {
   const save = async (
     pglite,
     who,
-    access = `enc-access-${who}`,
-    refresh = `enc-refresh-${who}`,
+    access = `v1.enc-access-${who}`,
+    refresh = `v1.enc-refresh-${who}`,
   ) => {
     await actAs(pglite, who);
     await pglite.query("select public.save_kakao_notify_link($1, $2, $3, $4)", [
@@ -7569,14 +7571,14 @@ describe("카카오톡 알림 연결 — kakao_notify_links", () => {
 
   it("⑤ save_kakao_notify_link 뒤 본인 행은 enabled=true·status='CONNECTED' 이고 암호문·만료 시각이 그대로 들어간다", async (t) => {
     const pglite = await migratedDb(t);
-    await save(pglite, ME, "enc-access-1", "enc-refresh-1");
+    await save(pglite, ME, "v1.enc-access-1", "v1.enc-refresh-1");
     assert.deepEqual(await linkOf(pglite, ME), [
       {
         user_id: ME,
         enabled: true,
         status: "CONNECTED",
-        access_token_enc: "enc-access-1",
-        refresh_token_enc: "enc-refresh-1",
+        access_token_enc: "v1.enc-access-1",
+        refresh_token_enc: "v1.enc-refresh-1",
         access_expires_at: ACCESS_AT,
         refresh_expires_at: REFRESH_AT,
         last_sent_at: null,
@@ -7587,10 +7589,10 @@ describe("카카오톡 알림 연결 — kakao_notify_links", () => {
 
   it("⑤ 다시 저장하면(재연결) 같은 행을 바꾼다 — EXPIRED·끔이 CONNECTED·켬으로 돌아오고 암호문이 바뀌며 행은 1개다", async (t) => {
     const pglite = await migratedDb(t);
-    await save(pglite, ME, "enc-access-1", "enc-refresh-1");
+    await save(pglite, ME, "v1.enc-access-1", "v1.enc-refresh-1");
     await expire(pglite, ME);
     await setEnabled(pglite, ME, false);
-    await save(pglite, ME, "enc-access-2", "enc-refresh-2");
+    await save(pglite, ME, "v1.enc-access-2", "v1.enc-refresh-2");
     assert.deepEqual(
       (await linkOf(pglite, ME)).map(
         ({ enabled, status, access_token_enc, refresh_token_enc }) => ({
@@ -7604,8 +7606,8 @@ describe("카카오톡 알림 연결 — kakao_notify_links", () => {
         {
           enabled: true,
           status: "CONNECTED",
-          access_token_enc: "enc-access-2",
-          refresh_token_enc: "enc-refresh-2",
+          access_token_enc: "v1.enc-access-2",
+          refresh_token_enc: "v1.enc-refresh-2",
         },
       ],
     );
@@ -7702,6 +7704,174 @@ describe("카카오톡 알림 연결 — kakao_notify_links", () => {
     );
     assert.deepEqual(await linkOf(pglite, ME), before);
     assert.deepEqual(await linkOf(pglite, OTHER), []);
+  });
+
+  // ── ⑨·⑩ 20261021000003 보강 ──
+
+  // 저장 RPC 를 값 그대로 부른다(null 도 넘긴다). save 와 달리 기본값을 채우지 않는다.
+  const saveRaw = async (pglite, who, access, refresh, accessAt, refreshAt) => {
+    await actAs(pglite, who);
+    return pglite.query("select public.save_kakao_notify_link($1, $2, $3, $4)", [
+      access,
+      refresh,
+      accessAt,
+      refreshAt,
+    ]);
+  };
+  // worker 자리에서 그 사용자의 KAKAO_TEST outbox 를 created_at 이 now() - minutesAgo 분인 행으로 count 건 넣는다.
+  const seedTestOutbox = async (pglite, who, count, minutesAgo, keyPrefix = "seed") => {
+    await asWorker(pglite);
+    for (let index = 0; index < count; index += 1) {
+      await pglite.query(
+        `insert into public.outbox_events (org_id, aggregate_type, aggregate_id, event_type, payload, idempotency_key, status, created_at)
+         values (null, 'kakao_notify_link', $1::uuid, 'KAKAO_TEST', jsonb_build_object('userId', $1::uuid), $2, 'PROCESSED',
+                 now() - make_interval(mins => $3::int))`,
+        [who, `${who}:${keyPrefix}-${index}:KAKAO_TEST`, minutesAgo],
+      );
+    }
+  };
+  const testOutboxCountOf = async (pglite, who) =>
+    (
+      await workerRows(
+        pglite,
+        "select count(*)::int as count from public.outbox_events where event_type = 'KAKAO_TEST' and aggregate_id = $1",
+        [who],
+      )
+    )[0].count;
+  const requestTest = async (pglite, who) => {
+    await actAs(pglite, who);
+    return (await pglite.query("select public.request_kakao_notify_test() as queued")).rows[0]
+      .queued;
+  };
+
+  it("⑨ save_kakao_notify_link 는 토큰 둘·만료 둘 중 하나라도 null 이면 KAKAO_LINK_INVALID 이고 행을 만들지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    const valid = ["v1.access", "v1.refresh", ACCESS_AT, REFRESH_AT];
+    for (let index = 0; index < valid.length; index += 1) {
+      const args = valid.map((value, position) => (position === index ? null : value));
+      await assert.rejects(saveRaw(pglite, ME, ...args), LINK_INVALID, `null 자리 ${index}`);
+    }
+    assert.deepEqual(await linkOf(pglite, ME), []);
+  });
+
+  it("⑨ 토큰이 'v1.' 로 시작하지 않으면 KAKAO_LINK_INVALID 다(접두어 틀림·대문자·v2·앞 공백·빈 값)", async (t) => {
+    const pglite = await migratedDb(t);
+    for (const wrong of ["enc-access", "V1.access", "v2.access", " v1.access", "v1", ""]) {
+      await assert.rejects(
+        saveRaw(pglite, ME, wrong, "v1.refresh", ACCESS_AT, REFRESH_AT),
+        LINK_INVALID,
+        `access ${JSON.stringify(wrong)}`,
+      );
+      await assert.rejects(
+        saveRaw(pglite, ME, "v1.access", wrong, ACCESS_AT, REFRESH_AT),
+        LINK_INVALID,
+        `refresh ${JSON.stringify(wrong)}`,
+      );
+    }
+    assert.deepEqual(await linkOf(pglite, ME), []);
+  });
+
+  it("⑨ 토큰이 4097자면 KAKAO_LINK_INVALID 이고, 4096자는 저장한다", async (t) => {
+    const pglite = await migratedDb(t);
+    const ofLength = (length) => `v1.${"a".repeat(length - "v1.".length)}`;
+    await assert.rejects(
+      saveRaw(pglite, ME, ofLength(4097), "v1.refresh", ACCESS_AT, REFRESH_AT),
+      LINK_INVALID,
+      "access 4097",
+    );
+    await assert.rejects(
+      saveRaw(pglite, ME, "v1.access", ofLength(4097), ACCESS_AT, REFRESH_AT),
+      LINK_INVALID,
+      "refresh 4097",
+    );
+    assert.deepEqual(await linkOf(pglite, ME), []);
+    await saveRaw(pglite, ME, ofLength(4096), ofLength(4096), ACCESS_AT, REFRESH_AT);
+    assert.deepEqual(
+      (await linkOf(pglite, ME)).map(({ status, access_token_enc, refresh_token_enc }) => ({
+        status,
+        access: access_token_enc.length,
+        refresh: refresh_token_enc.length,
+      })),
+      [{ status: "CONNECTED", access: 4096, refresh: 4096 }],
+    );
+  });
+
+  it("⑨ 정상 값은 그대로 저장하고, 거절된 재연결은 이미 있는 연결을 바꾸지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await saveRaw(
+      pglite,
+      ME,
+      "v1.kid.iv.tag.access",
+      "v1.kid.iv.tag.refresh",
+      ACCESS_AT,
+      REFRESH_AT,
+    );
+    const before = await linkOf(pglite, ME);
+    assert.deepEqual(
+      before.map(({ status, access_token_enc, refresh_token_enc, access_expires_at }) => ({
+        status,
+        access_token_enc,
+        refresh_token_enc,
+        access_expires_at,
+      })),
+      [
+        {
+          status: "CONNECTED",
+          access_token_enc: "v1.kid.iv.tag.access",
+          refresh_token_enc: "v1.kid.iv.tag.refresh",
+          access_expires_at: ACCESS_AT,
+        },
+      ],
+    );
+    await assert.rejects(saveRaw(pglite, ME, null, null, null, null), LINK_INVALID);
+    await assert.rejects(
+      saveRaw(pglite, ME, "plain-token", "v1.r", ACCESS_AT, REFRESH_AT),
+      LINK_INVALID,
+    );
+    assert.deepEqual(await linkOf(pglite, ME), before);
+  });
+
+  it("⑨ 사용자(sub)가 없으면 입력이 틀려도 UNAUTHENTICATED 가 먼저다", async (t) => {
+    const pglite = await migratedDb(t);
+    await actAs(pglite, null);
+    await assert.rejects(
+      pglite.query("select public.save_kakao_notify_link(null, null, null, null)"),
+      { message: "UNAUTHENTICATED" },
+    );
+  });
+
+  it("⑩ request_kakao_notify_test 는 최근 24시간에 그 사람의 KAKAO_TEST 가 10건이면 11번째를 넣지 않고 false 다 — outbox 가 늘지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    await seedTestOutbox(pglite, ME, 10, 23 * 60 + 59);
+    assert.equal(await testOutboxCountOf(pglite, ME), 10);
+    assert.equal(await requestTest(pglite, ME), false);
+    assert.equal(await testOutboxCountOf(pglite, ME), 10);
+  });
+
+  it("⑩ 9건이면 10번째는 넣고(true) 그다음은 false 다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    await seedTestOutbox(pglite, ME, 9, 60);
+    assert.equal(await requestTest(pglite, ME), true);
+    assert.equal(await testOutboxCountOf(pglite, ME), 10);
+    // 같은 분 키 중복(⑦)과 섞이지 않게 방금 넣은 행의 키를 바꾸고 한 분 앞으로 민다. 상한이 없으면 다음 요청은 true 다.
+    await asWorker(pglite);
+    await pglite.query(
+      "update public.outbox_events set created_at = now() - interval '1 minute', idempotency_key = idempotency_key || ':moved' where aggregate_id = $1 and status = 'PENDING'",
+      [ME],
+    );
+    assert.equal(await requestTest(pglite, ME), false);
+    assert.equal(await testOutboxCountOf(pglite, ME), 10);
+  });
+
+  it("⑩ 24시간보다 오래된 KAKAO_TEST 와 다른 사람의 KAKAO_TEST 는 세지 않는다", async (t) => {
+    const pglite = await migratedDb(t);
+    await save(pglite, ME);
+    await seedTestOutbox(pglite, ME, 10, 24 * 60 + 1, "old");
+    await seedTestOutbox(pglite, OTHER, 10, 30, "other");
+    assert.equal(await requestTest(pglite, ME), true);
+    assert.equal(await testOutboxCountOf(pglite, ME), 11);
   });
 });
 

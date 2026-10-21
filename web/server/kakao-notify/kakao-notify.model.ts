@@ -34,8 +34,8 @@ export function toKakaoNotifyView(row: KakaoNotifyRow | null): KakaoNotifyView {
 export type KakaoSendRecord = NonNullable<KakaoNotifyRow["last_result"]>;
 
 /**
- * 액세스 암호문·만료가 null 일 수 있다. 표가 null 을 허용한다(20261021000001). RPC 로는 생기지 않지만
- * 생기면 sender 가 암호문 없음은 만료로, 만료 없음은 "곧 만료"로 다룬다.
+ * 액세스 암호문·만료가 null 일 수 있다. 표가 null 을 허용한다(20261021000001). RPC 로는 생기지 않지만(20261021000003 이
+ * 저장 RPC 입력을 검사한다) 생기면 sender 가 암호문 없음은 만료로, 만료 없음은 "곧 만료"로 다룬다.
  */
 export type StoredKakaoLink = {
   userId: string;
@@ -54,11 +54,25 @@ export type SealedKakaoTokens = {
   refreshExpiresAt: Date | null;
 };
 
+/**
+ * 조건부 갱신의 기대값: read 로 읽은 행의 액세스 암호문. 행이 아직 그 값일 때만 바꾼다(null 이면 null 인 행만).
+ * 읽은 뒤 사용자가 다시 연결했으면(save_kakao_notify_link 가 새 암호문을 넣음) 0행이 바뀌어 새 연결을 덮어쓰거나 만료로 바꾸지 않는다.
+ */
+export type KakaoLinkExpectation = { accessTokenEnc: string | null };
+
 export type KakaoLinkStore = {
   /** 연결이 없으면 null. */
   read(userId: string): Promise<StoredKakaoLink | null>;
-  saveTokens(userId: string, sealed: SealedKakaoTokens): Promise<void>;
-  /** CONNECTED 인 행만 EXPIRED 로 바꾼다. 바꿨으면 true — 만료 인앱 알림은 바뀐 순간 한 번만 낸다(설계 §5.5). */
-  markExpired(userId: string): Promise<boolean>;
+  /** 액세스 암호문이 expected 와 같은 행만 바꾼다. 바꿨으면 true, 0행이면(다시 연결·해제됨) false. */
+  saveTokens(
+    userId: string,
+    sealed: SealedKakaoTokens,
+    expected: KakaoLinkExpectation,
+  ): Promise<boolean>;
+  /**
+   * CONNECTED 이고 액세스 암호문이 expected 와 같은 행만 EXPIRED 로 바꾼다. 바꿨으면 true — 만료 인앱 알림은 바뀐 순간 한 번만
+   * 낸다(설계 §5.5). 0행이면(이미 만료·다시 연결·해제됨) false.
+   */
+  markExpired(userId: string, expected: KakaoLinkExpectation): Promise<boolean>;
   markResult(userId: string, result: KakaoSendRecord, at: Date): Promise<void>;
 };

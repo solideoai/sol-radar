@@ -17,7 +17,8 @@ import type { KakaoFeedTemplate } from "./feed.model";
 //   | 200, result_code 0 을 확인 못 함            | UNKNOWN_OUTCOME   | 카카오가 받았으니 갔을 수 있다. 다시 보내지 않는다      |
 //   | 401(본문 무관), 또는 code -401              | TOKEN_INVALID     | -401 토큰 무효·만료(앱 키 불일치도 같은 코드다)         |
 //   | 403, code -402                              | TOKEN_INVALID     | -402 동의 없음 — 사용자가 talk_message 동의를 철회했다  |
-//   | 429, 5xx(500·502·503 -9798 점검 등)         | RETRYABLE HTTP_n  | 시스템 오류·점검·쿼터                                   |
+//   | 504(본문 무관)                              | UNKNOWN_OUTCOME   | 앞단이 기다리다 끊었다. 뒤쪽이 이미 처리했을 수 있다    |
+//   | 429, 그 밖의 5xx(500·502·503 -9798 점검 등) | RETRYABLE HTTP_n  | 시스템 오류·점검·쿼터                                   |
 //   | 400, code -1                                | RETRYABLE KAKAO_-1| 서버 내부 처리 오류. 문서의 해결이 "재시도"다           |
 //   | 400, code -7                                | RETRYABLE KAKAO_-7| 서비스 점검·내부 문제(503 점검과 같게 본다)             |
 //   | 400, code -603                              | UNKNOWN_OUTCOME   | 카카오 내부 처리 timeout — 갔는지 모른다                |
@@ -25,7 +26,8 @@ import type { KakaoFeedTemplate } from "./feed.model";
 //   | 연결 실패(TypeError 등, abort 아님)         | RETRYABLE NETWORK | 보내기 전 실패가 분명하다                               |
 //   | 그 밖의 4xx(-2 인자·어뷰징, -3 앱 설정,     | REJECTED          | code 가 정수면 KAKAO_<code>, 아니면 HTTP_<상태>         |
 //   |  -10 횟수 초과, -532·-533·-536 하루 쿼터 등) |                   | 같은 요청을 다시 보내도 같다                            |
-//   본문을 읽다 끊기면 상태만으로 나눈다(200 은 UNKNOWN_OUTCOME, 401 은 TOKEN_INVALID, 5xx 는 RETRYABLE, 나머지 REJECTED HTTP_n).
+//   본문을 읽다 끊기면 상태만으로 나눈다(200·504 는 UNKNOWN_OUTCOME, 401 은 TOKEN_INVALID, 그 밖의 5xx 는 RETRYABLE,
+//   나머지 REJECTED HTTP_n).
 //   연결 전 timeout 과 요청 뒤 timeout 은 fetch 가 구분해 주지 않는다. 두 번 가는 쪽보다 한 통 빠지는 쪽을 고른다.
 //
 // 토큰(https://developers.kakao.com/docs/ko/kakaologin/rest-api, .../kakaologin/trouble-shooting):
@@ -84,6 +86,8 @@ const MESSAGE_SCOPE = "talk_message";
 
 const RETRYABLE_KAKAO_CODES: ReadonlySet<number> = new Set([-1, -7]);
 const UNKNOWN_OUTCOME_KAKAO_CODES: ReadonlySet<number> = new Set([-603]);
+/** 게이트웨이 시간 초과. 요청이 카카오 뒤쪽에 닿아 처리됐을 수 있어 다시 보내지 않는다(설계 §5.5 최대 한 번). */
+const GATEWAY_TIMEOUT = 504;
 
 /** 응답이 왔는가. 본문을 읽다 끊겼으면 body 는 undefined 이고 bodyFailure 에 까닭이 있다. */
 type Exchange =
@@ -133,6 +137,7 @@ function classifySend(exchange: Exchange): KakaoSendResult {
   }
   if (status === 401 || kakaoCode === -401) return { kind: "TOKEN_INVALID" };
   if (status === 403 && kakaoCode === -402) return { kind: "TOKEN_INVALID" };
+  if (status === GATEWAY_TIMEOUT) return { kind: "UNKNOWN_OUTCOME" };
   if (status === 429 || status >= 500) return { kind: "RETRYABLE", code: `HTTP_${status}` };
   if (kakaoCode !== null && RETRYABLE_KAKAO_CODES.has(kakaoCode)) {
     return { kind: "RETRYABLE", code: `KAKAO_${kakaoCode}` };

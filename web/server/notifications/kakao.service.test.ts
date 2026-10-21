@@ -1,6 +1,12 @@
+import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { toBidFeedTemplate, toTestFeedTemplate } from "@/server/kakao-notify";
-import type { KakaoSenderResult } from "@/server/kakao-notify";
+import {
+  KakaoTokenKeyMismatchError,
+  createMemoKakaoSender,
+  toBidFeedTemplate,
+  toTestFeedTemplate,
+} from "@/server/kakao-notify";
+import type { KakaoApi, KakaoSenderResult } from "@/server/kakao-notify";
 import { processKakaoEvent, toBidFeedInput, type OutboxEventRow } from "@/server/notifications";
 import {
   EXPIRED_IN_APP_MESSAGE,
@@ -10,9 +16,11 @@ import {
   USER_C,
   bidRecommendedEvent,
   createMemoryKakaoStore,
+  createMemoryLinkStore,
   fakeSender,
   feedSource,
   kakaoTestEvent,
+  sealedLink,
   type KakaoStoreCall,
   type MemoryKakaoRow,
 } from "./kakao.test-support";
@@ -575,6 +583,93 @@ describe("processKakaoEvent · 발송 수단이 던지면 그 사람만 FAILED",
       fail: (call) => (call.method === "setKakaoRowStatus" ? storeFailure : undefined),
     });
     await expect(rejectionOf(s.processOnce())).resolves.toBe(storeFailure);
+  });
+});
+
+describe("processKakaoEvent · 웹과 worker 의 토큰 암호화 키가 다르면(설정 오류)", () => {
+  // 보안 검토 1: 키가 다르면 실제 memo 발송 수단이 KakaoTokenKeyMismatchError 로 던진다(변조가 아니다). 소비자는 그 사람만 FAILED 로
+  // 두고 이벤트를 재시도한다. 연결된 전원을 만료로 바꾸고 전원에게 만료 인앱 알림을 보내던 길을 막는다.
+  // 카카오 API 는 부르면 기록만 하고 시험이 알 수 있게 하는 가짜다(네트워크 없음).
+  const RECIPIENTS = [USER_A, USER_B, USER_C];
+
+  function mismatchSetup() {
+    const webKey = randomBytes(32).toString("base64");
+    const workerKey = randomBytes(32).toString("base64");
+    const links = createMemoryLinkStore(
+      Object.fromEntries(RECIPIENTS.map((userId) => [userId, sealedLink(userId, webKey, NOW)])),
+    );
+    const kakaoCalls: string[] = [];
+    const api: KakaoApi = {
+      authorizeUrl: () => {
+        throw new Error("소비자가 authorizeUrl 을 불렀다");
+      },
+      exchangeCode: async () => {
+        throw new Error("소비자가 exchangeCode 를 불렀다");
+      },
+      refresh: async () => {
+        kakaoCalls.push("refresh");
+        throw new Error("키가 다르면 갱신하지 않는다");
+      },
+      sendMemo: async () => {
+        kakaoCalls.push("send");
+        return { kind: "SENT" };
+      },
+    };
+    const sender = createMemoKakaoSender({
+      api,
+      links: links.store,
+      encKey: workerKey,
+      now: () => new Date(NOW),
+      sleep: async () => undefined,
+    });
+    const memory = createMemoryKakaoStore(THREE);
+    const processOnce = (event: OutboxEventRow) =>
+      processKakaoEvent(
+        { store: memory.store, sender, siteUrl: SITE_URL, now: () => new Date(NOW) },
+        event,
+      );
+    return { ...memory, links, kakaoCalls, processOnce };
+  }
+
+  it("아무도 EXPIRED 가 되지 않고 만료 인앱도 없다 — 사람마다 FAILED(KakaoTokenKeyMismatchError)이고 이벤트는 재시도하다 다섯 번째에 DEAD", async () => {
+    const s = mismatchSetup();
+    const outcomes: string[] = [];
+    for (const attempts of [0, 1, 2, 3, 4]) {
+      const event =
+        attempts === 0 ? bidRecommendedEvent() : retried(bidRecommendedEvent(), attempts);
+      const result = await s.processOnce(event);
+      outcomes.push(result.outcome);
+      if (attempts === 0) {
+        expect(result).toEqual({ outcome: "RETRY", sent: 0, failed: 3 });
+        for (const userId of RECIPIENTS) {
+          expect(s.rowOf(userId)).toMatchObject({
+            status: "FAILED",
+            error: "KakaoTokenKeyMismatchError",
+          });
+        }
+      }
+    }
+    expect(outcomes).toEqual(["RETRY", "RETRY", "RETRY", "RETRY", "DEAD"]);
+    for (const userId of RECIPIENTS) {
+      expect(s.rowOf(userId)).toMatchObject({
+        status: "DEAD",
+        error: "KakaoTokenKeyMismatchError",
+      });
+      expect(s.links.rows[userId].status).toBe("CONNECTED");
+    }
+    expect(s.links.callsOf("markExpired")).toEqual([]);
+    expect(s.inApp).toEqual([]);
+    expect(s.kakaoCalls).toEqual([]);
+  });
+
+  it("KAKAO_TEST 도 그 오류로 reject 하고(부르는 쪽이 재시도로 돌린다) 연결을 만료로 바꾸지 않는다", async () => {
+    const s = mismatchSetup();
+    await expect(rejectionOf(s.processOnce(kakaoTestEvent(USER_A)))).resolves.toBeInstanceOf(
+      KakaoTokenKeyMismatchError,
+    );
+    expect(s.links.rows[USER_A].status).toBe("CONNECTED");
+    expect(s.links.callsOf("markExpired")).toEqual([]);
+    expect(s.kakaoCalls).toEqual([]);
   });
 });
 

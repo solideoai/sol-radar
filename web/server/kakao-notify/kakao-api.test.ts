@@ -289,7 +289,7 @@ describe("sendMemo · 토큰 무효", () => {
 });
 
 describe("sendMemo · 다시 보낼 수 있는 실패", () => {
-  it.each([500, 502, 503, 504])("%i → RETRYABLE HTTP_<상태>", async (status) => {
+  it.each([500, 502, 503])("%i → RETRYABLE HTTP_<상태>", async (status) => {
     const { api } = apiWith(kakaoError(status, -9798));
     expect(await api.sendMemo(ACCESS_TOKEN, TEMPLATE)).toEqual({
       kind: "RETRYABLE",
@@ -359,6 +359,24 @@ describe("sendMemo · 결과를 모르는 실패", () => {
 
   it("400 / -603(카카오 내부 처리 timeout) → UNKNOWN_OUTCOME", async () => {
     const { api } = apiWith(kakaoError(400, -603));
+    expect(await api.sendMemo(ACCESS_TOKEN, TEMPLATE)).toEqual({ kind: "UNKNOWN_OUTCOME" });
+  });
+
+  // 504 는 앞단(게이트웨이)이 뒤쪽 응답을 기다리다 끊은 것이라 카카오 뒤쪽이 이미 처리했을 수 있다(최대 한 번).
+  it.each([
+    ["카카오 오류 본문", kakaoError(504, -9798)],
+    ["HTML 본문", textReply(504, "<html>Gateway Timeout</html>")],
+    ["빈 본문", textReply(504, "")],
+  ])("504(%s) → UNKNOWN_OUTCOME — 다시 보내지 않는다", async (_label, reply) => {
+    const { api } = apiWith(reply);
+    expect(await api.sendMemo(ACCESS_TOKEN, TEMPLATE)).toEqual({ kind: "UNKNOWN_OUTCOME" });
+  });
+
+  it.each([
+    ["timeout", timedOut()],
+    ["연결 끊김", refused()],
+  ])("504 는 본문을 읽다 끊겨도(%s, 상태만 보는 경로) UNKNOWN_OUTCOME", async (_label, error) => {
+    const { api } = apiWith(bodyErrorReply(504, error));
     expect(await api.sendMemo(ACCESS_TOKEN, TEMPLATE)).toEqual({ kind: "UNKNOWN_OUTCOME" });
   });
 });

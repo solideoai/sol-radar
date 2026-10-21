@@ -1028,7 +1028,10 @@ describe("notifyWorkerRegistration (C7)", () => {
    */
   const kakaoTestRoute = (encKey: string): FakeRoute => {
     let reads = 0;
-    const accessTokenEnc = encryptKakaoToken("SECRETVALUE-access-token", encKey);
+    const accessTokenEnc = encryptKakaoToken("SECRETVALUE-access-token", encKey, {
+      userId: KAKAO_USER_ID,
+      kind: "access",
+    });
     return (method, url) => {
       if (method === "GET" && url.pathname === "/rest/v1/outbox_events") {
         reads += 1;

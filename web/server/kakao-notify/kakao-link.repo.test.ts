@@ -37,7 +37,7 @@ const linkRow = (overrides: Row = {}): Row => ({
   user_id: USER_ID,
   enabled: true,
   status: "CONNECTED",
-  access_token_enc: "v1.iv.tag.access",
+  access_token_enc: "v1.kid.iv.tag.access",
   refresh_token_enc: "v1.iv.tag.refresh",
   access_expires_at: "2026-10-20T17:14:00+00:00",
   refresh_expires_at: "2026-12-19T05:14:00+00:00",
@@ -58,12 +58,18 @@ const postgrestError = (code: string, status = 400): Reply => ({
   },
 });
 
-/** eq 필터만 안다. 다른 연산자·없는 열이면 400 으로 답해 흉내가 조용히 틀린 행을 고르지 않게 한다. */
+/** eq 필터와 is.null 만 안다. 다른 연산자·없는 열이면 400 으로 답해 흉내가 조용히 틀린 행을 고르지 않게 한다. */
 function matches(row: Row, params: URLSearchParams): boolean | "UNSUPPORTED" {
   const filters = [...params.entries()].filter(([key]) => key !== "select");
   for (const [column, value] of filters) {
-    if (!value.startsWith("eq.") || !Object.hasOwn(row, column)) return "UNSUPPORTED";
-    if (String(row[column]) !== value.slice("eq.".length)) return false;
+    if (!Object.hasOwn(row, column)) return "UNSUPPORTED";
+    if (value === "is.null") {
+      if (row[column] !== null) return false;
+      continue;
+    }
+    if (!value.startsWith("eq.")) return "UNSUPPORTED";
+    // eq 는 null 과 같지 않다(SQL 의 = null 처럼). null 을 "null" 글자와 맞추지 않는다.
+    if (row[column] === null || String(row[column]) !== value.slice("eq.".length)) return false;
   }
   return true;
 }
@@ -189,7 +195,7 @@ describe("read", () => {
     const { store } = storeWith();
     expect(await store.read(USER_ID)).toEqual({
       userId: USER_ID,
-      accessTokenEnc: "v1.iv.tag.access",
+      accessTokenEnc: "v1.kid.iv.tag.access",
       refreshTokenEnc: "v1.iv.tag.refresh",
       accessExpiresAt: new Date("2026-10-20T17:14:00Z"),
       refreshExpiresAt: new Date("2026-12-19T05:14:00Z"),
@@ -240,31 +246,80 @@ describe("read", () => {
 
 // ── saveTokens ──
 
+/** 읽은 행의 액세스 암호문(linkRow 기본값). 조건부 갱신의 기대값이다. */
+const READ_ACCESS = { accessTokenEnc: "v1.kid.iv.tag.access" };
+
 describe("saveTokens", () => {
   const sealed = {
-    accessTokenEnc: "v1.new.tag.access",
-    refreshTokenEnc: "v1.new.tag.refresh",
+    accessTokenEnc: "v1.kid.new.tag.access",
+    refreshTokenEnc: "v1.kid.new.tag.refresh",
     accessExpiresAt: new Date("2026-10-21T05:14:00.000Z"),
     refreshExpiresAt: new Date("2026-12-20T05:14:00.000Z"),
   };
 
-  it("그 사용자 행을 PATCH 한 번으로 바꾸고 본문은 토큰 암호문 둘·만료 둘(ISO)뿐이다", async () => {
+  it("그 사용자 행을 PATCH 한 번으로 바꾸고 본문은 토큰 암호문 둘·만료 둘(ISO)뿐이며, 바꿨으면 true", async () => {
     const { store, fake } = storeWith();
-    await store.saveTokens(USER_ID, sealed);
+    expect(await store.saveTokens(USER_ID, sealed, READ_ACCESS)).toBe(true);
     const call = only(fake.calls);
     expect(`${call.method} ${call.table}`).toBe(`PATCH ${TABLE}`);
-    expect(filtersOf(call)).toEqual({ user_id: `eq.${USER_ID}` });
     expect(call.body).toEqual({
-      access_token_enc: "v1.new.tag.access",
-      refresh_token_enc: "v1.new.tag.refresh",
+      access_token_enc: "v1.kid.new.tag.access",
+      refresh_token_enc: "v1.kid.new.tag.refresh",
       access_expires_at: "2026-10-21T05:14:00.000Z",
       refresh_expires_at: "2026-12-20T05:14:00.000Z",
     });
   });
 
+  it("user_id 와 access_token_enc=읽은 값 조건으로 PATCH 한다(조건부 갱신)", async () => {
+    const { store, fake } = storeWith();
+    await store.saveTokens(USER_ID, sealed, READ_ACCESS);
+    expect(filtersOf(only(fake.calls))).toEqual({
+      user_id: `eq.${USER_ID}`,
+      access_token_enc: `eq.${READ_ACCESS.accessTokenEnc}`,
+    });
+  });
+
+  it("바뀐 행을 돌려받으려고 user_id 만 고른다(토큰 열을 읽지 않는다)", async () => {
+    const { store, fake } = storeWith();
+    await store.saveTokens(USER_ID, sealed, READ_ACCESS);
+    expect(selectedColumns(only(fake.calls))).toEqual(["user_id"]);
+  });
+
+  it("행의 액세스 암호문이 읽은 값과 다르면(그 사이 사용자가 다시 연결함) 바꾸지 않고 false", async () => {
+    const { store, fake } = storeWith([linkRow({ access_token_enc: "v1.kid.reconnected.access" })]);
+    expect(await store.saveTokens(USER_ID, sealed, READ_ACCESS)).toBe(false);
+    expect(fake.rows[0]).toMatchObject({
+      access_token_enc: "v1.kid.reconnected.access",
+      refresh_token_enc: "v1.iv.tag.refresh",
+    });
+  });
+
+  it("기대값이 null 이면 access_token_enc is null 로 거른다 — null 인 행은 바꾸고 true, 값이 있는 행은 그대로 false", async () => {
+    const nullRow = storeWith([linkRow({ access_token_enc: null })]);
+    expect(await nullRow.store.saveTokens(USER_ID, sealed, { accessTokenEnc: null })).toBe(true);
+    expect(filtersOf(only(nullRow.fake.calls))).toEqual({
+      user_id: `eq.${USER_ID}`,
+      access_token_enc: "is.null",
+    });
+    expect(nullRow.fake.rows[0].access_token_enc).toBe("v1.kid.new.tag.access");
+
+    const filledRow = storeWith();
+    expect(await filledRow.store.saveTokens(USER_ID, sealed, { accessTokenEnc: null })).toBe(false);
+    expect(filledRow.fake.rows[0].access_token_enc).toBe(READ_ACCESS.accessTokenEnc);
+  });
+
+  it("행이 없으면(그 사이 연결 해제) false", async () => {
+    const { store } = storeWith([linkRow({ user_id: OTHER_USER_ID })]);
+    expect(await store.saveTokens(USER_ID, sealed, READ_ACCESS)).toBe(false);
+  });
+
   it("refresh 가 null 이면 null 로 적는다", async () => {
     const { store, fake } = storeWith();
-    await store.saveTokens(USER_ID, { ...sealed, refreshTokenEnc: null, refreshExpiresAt: null });
+    await store.saveTokens(
+      USER_ID,
+      { ...sealed, refreshTokenEnc: null, refreshExpiresAt: null },
+      READ_ACCESS,
+    );
     expect(only(fake.calls).body).toMatchObject({
       refresh_token_enc: null,
       refresh_expires_at: null,
@@ -273,59 +328,80 @@ describe("saveTokens", () => {
 
   it("다른 사용자 행은 바꾸지 않는다", async () => {
     const { store, fake } = storeWith([linkRow(), linkRow({ user_id: OTHER_USER_ID })]);
-    await store.saveTokens(USER_ID, sealed);
+    await store.saveTokens(USER_ID, sealed, READ_ACCESS);
     expect(fake.rows.find((row) => row.user_id === OTHER_USER_ID)?.access_token_enc).toBe(
-      "v1.iv.tag.access",
+      READ_ACCESS.accessTokenEnc,
     );
     expect(fake.rows.find((row) => row.user_id === USER_ID)?.access_token_enc).toBe(
-      "v1.new.tag.access",
+      "v1.kid.new.tag.access",
     );
   });
 
   it("PostgREST 오류는 code 만 싣고 던진다", async () => {
     const { store } = storeWith([linkRow()], failAll("23514"));
-    expectStoreError(await rejectionOf(store.saveTokens(USER_ID, sealed)), "update", "23514");
+    expectStoreError(
+      await rejectionOf(store.saveTokens(USER_ID, sealed, READ_ACCESS)),
+      "update",
+      "23514",
+    );
   });
 });
 
 // ── markExpired ──
 
 describe("markExpired", () => {
-  it("CONNECTED 인 행을 EXPIRED 로 바꾸고 true", async () => {
+  it("CONNECTED 이고 액세스 암호문이 읽은 값인 행을 EXPIRED 로 바꾸고 true", async () => {
     const { store, fake } = storeWith();
-    expect(await store.markExpired(USER_ID)).toBe(true);
+    expect(await store.markExpired(USER_ID, READ_ACCESS)).toBe(true);
     expect(fake.rows[0].status).toBe("EXPIRED");
   });
 
   it("이미 EXPIRED 면 바꾸지 않고 false", async () => {
     const { store, fake } = storeWith([linkRow({ status: "EXPIRED" })]);
-    expect(await store.markExpired(USER_ID)).toBe(false);
+    expect(await store.markExpired(USER_ID, READ_ACCESS)).toBe(false);
     expect(fake.rows[0].status).toBe("EXPIRED");
   });
 
   it("행이 없으면 false", async () => {
     const { store } = storeWith([linkRow({ user_id: OTHER_USER_ID })]);
-    expect(await store.markExpired(USER_ID)).toBe(false);
+    expect(await store.markExpired(USER_ID, READ_ACCESS)).toBe(false);
   });
 
-  it("user_id 와 status=CONNECTED 조건으로 PATCH 하고 본문은 status 하나다", async () => {
+  it("액세스 암호문이 읽은 값과 다르면(그 사이 다시 연결한 새 행) CONNECTED 그대로 두고 false", async () => {
+    const { store, fake } = storeWith([linkRow({ access_token_enc: "v1.kid.reconnected.access" })]);
+    expect(await store.markExpired(USER_ID, READ_ACCESS)).toBe(false);
+    expect(fake.rows[0].status).toBe("CONNECTED");
+  });
+
+  it("user_id·status=CONNECTED·access_token_enc=읽은 값 조건으로 PATCH 하고 본문은 status 하나다", async () => {
     const { store, fake } = storeWith();
-    await store.markExpired(USER_ID);
+    await store.markExpired(USER_ID, READ_ACCESS);
     const call = only(fake.calls);
     expect(call.method).toBe("PATCH");
-    expect(filtersOf(call)).toEqual({ user_id: `eq.${USER_ID}`, status: "eq.CONNECTED" });
+    expect(filtersOf(call)).toEqual({
+      user_id: `eq.${USER_ID}`,
+      status: "eq.CONNECTED",
+      access_token_enc: `eq.${READ_ACCESS.accessTokenEnc}`,
+    });
     expect(call.body).toEqual({ status: "EXPIRED" });
+  });
+
+  it("기대값이 null 이면 access_token_enc is null 로 거른다", async () => {
+    const { store, fake } = storeWith([linkRow({ access_token_enc: null })]);
+    expect(await store.markExpired(USER_ID, { accessTokenEnc: null })).toBe(true);
+    expect(filtersOf(only(fake.calls))).toMatchObject({ access_token_enc: "is.null" });
+    expect(fake.rows[0].status).toBe("EXPIRED");
   });
 
   it("바뀐 행을 돌려받으려고 user_id 만 고른다(토큰 열을 읽지 않는다)", async () => {
     const { store, fake } = storeWith();
-    await store.markExpired(USER_ID);
+    await store.markExpired(USER_ID, READ_ACCESS);
     expect(selectedColumns(only(fake.calls))).toEqual(["user_id"]);
   });
 
   it("PostgREST 오류는 code 만 싣고 던진다", async () => {
     const { store } = storeWith([linkRow()], failAll("40001"));
-    expectStoreError(await rejectionOf(store.markExpired(USER_ID)), "update", "40001");
+    expectStoreError(await rejectionOf(store.markExpired(USER_ID, READ_ACCESS)), "update", "40001");
   });
 });
 

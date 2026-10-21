@@ -7,6 +7,8 @@ import type { KakaoLinkStore, StoredKakaoLink } from "./kakao-notify.model";
 // worker 만 쓴다. worker 가 service role 클라이언트(getSupabaseAdmin)를 넘긴다 — 화면 역할은 토큰 열을 읽지도 쓰지도 못한다
 // (20261021000001 열 권한). 클라이언트는 모듈에 담아 두지 않는다.
 // updated_at 은 표의 touch_updated_at 트리거가 채우므로 적지 않는다.
+// saveTokens·markExpired 는 조건부 갱신이다. 읽은 액세스 암호문(expected)이 그대로인 행만 바꾸고, 바뀐 행 수로 true·false 를 정한다.
+// 읽은 뒤 사용자가 다시 연결하면 새 암호문이 들어와 0행이다 — 옛 토큰으로 새 연결을 덮어쓰거나 새 연결을 만료로 바꾸지 않는다.
 // 오류 message 에는 표·동작·code 만 싣는다(PostgREST message·details 에 값이 섞일 수 있다). 던지는 오류는 모두 KakaoLinkStoreError 다.
 
 type Client = SupabaseClient<Database>;
@@ -73,8 +75,8 @@ export function createKakaoLinkStore(client: Client): KakaoLinkStore {
       return result.data === null ? null : toStoredLink(result.data);
     },
 
-    async saveTokens(userId, sealed) {
-      const result = await client
+    async saveTokens(userId, sealed, expected) {
+      const update = client
         .from(TABLE)
         .update({
           access_token_enc: sealed.accessTokenEnc,
@@ -83,17 +85,27 @@ export function createKakaoLinkStore(client: Client): KakaoLinkStore {
           refresh_expires_at: sealed.refreshExpiresAt?.toISOString() ?? null,
         })
         .eq("user_id", userId);
+      const result = await (
+        expected.accessTokenEnc === null
+          ? update.is("access_token_enc", null)
+          : update.eq("access_token_enc", expected.accessTokenEnc)
+      ).select("user_id");
       if (result.error) throw storeError("update", result.error);
+      return result.data.length > 0;
     },
 
-    // CONNECTED 일 때만 바꾸고 바뀐 행으로 true·false 를 정한다. 만료 인앱 알림을 바뀐 순간 한 번만 내기 위해서다.
-    async markExpired(userId) {
-      const result = await client
+    // CONNECTED 이고 읽은 액세스 암호문일 때만 바꾸고 바뀐 행으로 true·false 를 정한다. 만료 인앱 알림을 바뀐 순간 한 번만 내기 위해서다.
+    async markExpired(userId, expected) {
+      const update = client
         .from(TABLE)
         .update({ status: "EXPIRED" })
         .eq("user_id", userId)
-        .eq("status", "CONNECTED")
-        .select("user_id");
+        .eq("status", "CONNECTED");
+      const result = await (
+        expected.accessTokenEnc === null
+          ? update.is("access_token_enc", null)
+          : update.eq("access_token_enc", expected.accessTokenEnc)
+      ).select("user_id");
       if (result.error) throw storeError("update", result.error);
       return result.data.length > 0;
     },

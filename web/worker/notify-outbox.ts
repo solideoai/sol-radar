@@ -1,4 +1,5 @@
 import {
+  assertKakaoTokenKey,
   createKakaoApi,
   createMemoKakaoSender,
   createMockKakaoSender,
@@ -62,8 +63,6 @@ const MEMO_REQUIRED_KEYS = [
 const DEFAULT_SITE_URL = "http://localhost:3000";
 /** 카카오 요청 하나(응답 본문 읽기까지)의 시간 제한. */
 const KAKAO_TIMEOUT_MS = 5_000;
-/** 토큰 암호화 키의 바이트 수(AES-256-GCM). kakao-token.crypto 의 키 검사와 같다. */
-const ENC_KEY_BYTES = 32;
 
 export type KakaoSettings =
   | { provider: "mock"; siteUrl: string }
@@ -90,9 +89,20 @@ function checkSiteUrl(siteUrl: string): string {
   return siteUrl;
 }
 
+/** 토큰 암호화 키 형식은 kakao-token.crypto 한 곳이 정한다(정규 base64·32바이트·전부 0 아님). 오류에는 키 이름만 싣는다. */
+function checkEncKey(encKey: string): string {
+  try {
+    assertKakaoTokenKey(encKey);
+  } catch {
+    throw envError(ENC_KEY_KEY);
+  }
+  return encKey;
+}
+
 /**
  * NOTIFY_KAKAO_PROVIDER 가 비면 mock(SITE_URL 이 비면 http://localhost:3000), mock·memo 밖이면 던진다.
- * memo 는 네 키가 모두 있어야 하고, KAKAO_TOKEN_ENC_KEY 는 base64 32바이트여야 한다. 값은 앞뒤 공백을 뗀다.
+ * memo 는 네 키가 모두 있어야 하고, KAKAO_TOKEN_ENC_KEY 는 정규 base64(패딩 포함) 32바이트이고 전부 0 이 아니어야 한다.
+ * 값은 앞뒤 공백을 뗀다.
  */
 export function readKakaoSettings(env: Record<string, string | undefined>): KakaoSettings {
   const value = (key: string): string => env[key]?.trim() ?? "";
@@ -103,8 +113,7 @@ export function readKakaoSettings(env: Record<string, string | undefined>): Kaka
   if (provider !== "memo") throw envError(KAKAO_PROVIDER_KEY);
   const missing = MEMO_REQUIRED_KEYS.filter((key) => value(key) === "");
   if (missing.length > 0) throw new Error(`worker env 누락: ${missing.join(", ")}`);
-  const encKey = value(ENC_KEY_KEY);
-  if (Buffer.from(encKey, "base64").length !== ENC_KEY_BYTES) throw envError(ENC_KEY_KEY);
+  const encKey = checkEncKey(value(ENC_KEY_KEY));
   return {
     provider: "memo",
     restApiKey: value("KAKAO_REST_API_KEY"),

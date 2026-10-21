@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  KakaoTokenKeyMismatchError,
   encryptKakaoToken,
   toTestFeedTemplate,
   type KakaoLinkStore,
@@ -120,6 +121,14 @@ const MEMO_KEYS = ["KAKAO_REST_API_KEY", "KAKAO_CLIENT_SECRET", "KAKAO_TOKEN_ENC
 /** 토큰 암호화 키(base64 32바이트). 저장소에 키 값을 두지 않으려고 시험마다 만든다. */
 const newEncKey = (): string => randomBytes(32).toString("base64");
 
+/** base64url(-·_)로 쓴 32바이트 키. 첫 두 바이트가 0xff·0xef 라 정규 base64 로는 "/+" 로 시작한다. */
+const base64UrlKey = (): string => {
+  const bytes = randomBytes(32);
+  bytes[0] = 0xff;
+  bytes[1] = 0xef;
+  return bytes.toString("base64url");
+};
+
 const memoEnv = (encKey: string, overrides: Record<string, string | undefined> = {}) => ({
   [PROVIDER_KEY]: "memo",
   KAKAO_REST_API_KEY: REST_API_KEY,
@@ -215,8 +224,16 @@ describe("readKakaoSettings", () => {
 
   it.each([
     ["16바이트", () => randomBytes(16).toString("base64")],
+    ["31바이트", () => randomBytes(31).toString("base64")],
     ["33바이트", () => randomBytes(33).toString("base64")],
     ["base64 가 아닌 글자", () => "SECRETVALUE-not-a-key"],
+    // 아래는 Buffer.from(…, "base64") 가 조용히 32바이트로 읽어 예전 검사를 지나던 값이다(보안 검토 2).
+    ["끝에 !!! 가 붙은 값", () => `${newEncKey()}!!!`],
+    ["따옴표로 감싼 값", () => `"${newEncKey()}"`],
+    ["가운데에 개행이 든 값", () => newEncKey().replace(/^(.{20})/, "$1\n")],
+    ["base64url 글자로 쓴 값", () => base64UrlKey()],
+    ["패딩(=)을 뺀 값", () => newEncKey().replace(/=+$/, "")],
+    ["전부 0 인 32바이트", () => Buffer.alloc(32).toString("base64")],
   ])(
     "memo 인데 KAKAO_TOKEN_ENC_KEY 가 %s 면 'worker env 오류: KAKAO_TOKEN_ENC_KEY' 로 던진다(값은 싣지 않는다)",
     (_label, makeKey) => {
@@ -257,6 +274,8 @@ describe("readKakaoSettings", () => {
 
 const LINK_USER_ID = "5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170";
 const ACCESS_TOKEN = "SECRETVALUE-access-token";
+/** 연결 행의 액세스 암호문이 묶인 자리(사용자·종류). */
+const LINK_ACCESS = { userId: LINK_USER_ID, kind: "access" } as const;
 const MEMO_SEND_URL = "https://kapi.kakao.com/v2/api/talk/memo/default/send";
 
 /** 연결 저장 가짜. read 는 늘 link 를 돌려주고, 마지막 발송 줄(markResult)만 기록한다. */
@@ -330,7 +349,7 @@ describe("createKakaoSender", () => {
 
   it("memo 는 KAKAO_TOKEN_ENC_KEY 로 연결의 액세스 토큰을 풀어 나에게 보내기를 시간 제한과 함께 한 번 부른다", async () => {
     const encKey = newEncKey();
-    const fake = fakeLinks(connectedLink(encryptKakaoToken(ACCESS_TOKEN, encKey)));
+    const fake = fakeLinks(connectedLink(encryptKakaoToken(ACCESS_TOKEN, encKey, LINK_ACCESS)));
     const fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ result_code: 0 }));
     const sender = createKakaoSender(
       {
@@ -354,8 +373,10 @@ describe("createKakaoSender", () => {
     expect(fake.results).toEqual(["SENT"]);
   });
 
-  it("memo 는 다른 키로 잠근 토큰을 풀지 못하면 보내지 않는다(키가 발송 수단까지 이어진다)", async () => {
-    const fake = fakeLinks(connectedLink(encryptKakaoToken(ACCESS_TOKEN, newEncKey())));
+  it("memo 는 웹이 다른 키로 잠근 토큰이면 KakaoTokenKeyMismatchError 로 던지고, 보내지도 연결을 만료로 바꾸지도 않는다(키가 발송 수단까지 이어진다)", async () => {
+    const fake = fakeLinks(
+      connectedLink(encryptKakaoToken(ACCESS_TOKEN, newEncKey(), LINK_ACCESS)),
+    );
     const expired: string[] = [];
     const links: KakaoLinkStore = {
       ...fake.links,
@@ -376,11 +397,11 @@ describe("createKakaoSender", () => {
       },
       baseDeps(links, fetch),
     );
-    await expect(sender.send(LINK_USER_ID, toTestFeedTemplate(SITE))).resolves.toEqual({
-      kind: "EXPIRED",
-      changed: true,
-    });
-    expect(expired).toEqual([LINK_USER_ID]);
+    await expect(sender.send(LINK_USER_ID, toTestFeedTemplate(SITE))).rejects.toThrow(
+      KakaoTokenKeyMismatchError,
+    );
+    expect(expired).toEqual([]);
+    expect(fake.results).toEqual([]);
     expect(fetch).not.toHaveBeenCalled();
   });
 });

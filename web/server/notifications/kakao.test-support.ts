@@ -3,8 +3,17 @@
 // 2. 메모리 저장(KakaoOutboxStore 흉내). notifications.idempotency_key UNIQUE(같은 키는 조용히 무시)와
 //    받는 사람을 보낼 때마다 다시 고르는 것(setRecipients 로 회차 사이에 바꾼다)을 흉내 낸다.
 // 3. 가짜 발송 수단(KakaoSender 흉내). 정해 둔 결과를 돌려주고 보낸 사람·템플릿을 기록한다. 실제 카카오는 부르지 않는다.
+// 4. 메모리 연결 저장(KakaoLinkStore 흉내). 실제 memo 발송 수단을 소비자에 붙여 보는 시험(키 불일치 등)에 쓴다.
+//    saveTokens·markExpired 는 repo 처럼 조건부다 — 읽은 액세스 암호문이 그대로일 때만 바꾼다.
 // 근거: docs/plans/2026-10-20-kakao-memo-notify-design.md §5.2·§5.5, 계획 Task 4.
-import type { KakaoFeedTemplate, KakaoSender, KakaoSenderResult } from "@/server/kakao-notify";
+import {
+  encryptKakaoToken,
+  type KakaoFeedTemplate,
+  type KakaoLinkStore,
+  type KakaoSender,
+  type KakaoSenderResult,
+  type StoredKakaoLink,
+} from "@/server/kakao-notify";
 import type {
   KakaoChannelDeps,
   KakaoFeedSource,
@@ -265,5 +274,57 @@ export function idleKakao(): KakaoChannelDeps {
     store: createMemoryKakaoStore({ recipients: {} }).store,
     sender: fakeSender().sender,
     siteUrl: SITE_URL,
+  };
+}
+
+// ── 4. 메모리 연결 저장 ──
+
+/** 그 사용자의 CONNECTED 연결. 토큰은 key 로 그 사용자·종류에 묶어 잠그고, 액세스는 now 의 한 시간 뒤 만료다(갱신하지 않는다). */
+export function sealedLink(userId: string, key: string, now: Date): StoredKakaoLink {
+  return {
+    userId,
+    accessTokenEnc: encryptKakaoToken(`fake-access-${userId}`, key, { userId, kind: "access" }),
+    refreshTokenEnc: encryptKakaoToken(`fake-refresh-${userId}`, key, { userId, kind: "refresh" }),
+    accessExpiresAt: new Date(now.getTime() + 60 * 60 * 1000),
+    refreshExpiresAt: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000),
+    status: "CONNECTED",
+  };
+}
+
+/** KakaoLinkStore 흉내(메모리). 부른 메서드와 사용자를 기록한다. */
+export function createMemoryLinkStore(initial: Readonly<Record<string, StoredKakaoLink>>) {
+  const rows: Record<string, StoredKakaoLink> = structuredClone({ ...initial });
+  const calls: { method: keyof KakaoLinkStore; userId: string }[] = [];
+  const store: KakaoLinkStore = {
+    async read(userId) {
+      calls.push({ method: "read", userId });
+      const row = rows[userId];
+      return row === undefined ? null : structuredClone(row);
+    },
+    async saveTokens(userId, sealed, expected) {
+      calls.push({ method: "saveTokens", userId });
+      const row = rows[userId];
+      if (row === undefined || row.accessTokenEnc !== expected.accessTokenEnc) return false;
+      Object.assign(row, sealed);
+      return true;
+    },
+    async markExpired(userId, expected) {
+      calls.push({ method: "markExpired", userId });
+      const row = rows[userId];
+      if (row?.status !== "CONNECTED" || row.accessTokenEnc !== expected.accessTokenEnc) {
+        return false;
+      }
+      row.status = "EXPIRED";
+      return true;
+    },
+    async markResult(userId) {
+      calls.push({ method: "markResult", userId });
+    },
+  };
+  return {
+    store,
+    rows,
+    calls,
+    callsOf: (method: keyof KakaoLinkStore) => calls.filter((call) => call.method === method),
   };
 }

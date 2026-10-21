@@ -3,11 +3,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { KakaoApi, KakaoSendResult, KakaoTokenSet } from "./kakao-api";
 import type { KakaoLinkStore, StoredKakaoLink } from "./kakao-notify.model";
 import { createMemoKakaoSender, createMockKakaoSender } from "./kakao-sender";
-import { decryptKakaoToken, encryptKakaoToken } from "./kakao-token.crypto";
+import {
+  KakaoTokenKeyMismatchError,
+  decryptKakaoToken,
+  encryptKakaoToken,
+  type KakaoTokenContext,
+} from "./kakao-token.crypto";
 import type { KakaoFeedTemplate } from "./feed.model";
 
 // 카카오 발송 port(계획 Task 3 Step 1, 설계 §5.4 1초 1통·§5.5 실패와 만료, Review Focus 3).
 // 카카오 API·연결 저장·시계는 가짜다. 실제 네트워크는 부르지 않는다. 키는 시험마다 새로 만든다.
+// 보안 검토 보강: 키 불일치는 만료가 아니라 던지고(1), 암호문은 사용자·종류에 묶이며(3), 토큰 저장·만료는 읽은 액세스 암호문이
+// 그대로일 때만 바꾼다(5 — 그 사이 다시 연결했으면 RETRYABLE LINK_CHANGED).
 
 const USER_ID = "5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170";
 const OTHER_USER_ID = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
@@ -36,6 +43,18 @@ const TEMPLATE: KakaoFeedTemplate = {
 
 const newKey = (): string => randomBytes(32).toString("base64");
 const at = (ms: number): Date => new Date(START.getTime() + ms);
+const accessOf = (userId: string): KakaoTokenContext => ({ userId, kind: "access" });
+const refreshOf = (userId: string): KakaoTokenContext => ({ userId, kind: "refresh" });
+
+/** 암호문 본문(ciphertext) 첫 글자를 바꾼다. 모양·kid 는 그대로라 변조(KAKAO_TOKEN_DECRYPT_FAILED)다. */
+const tampered = (sealed: string): string => {
+  const parts = sealed.split(".");
+  const ciphertext = parts[4];
+  parts[4] = `${ciphertext[0] === "A" ? "B" : "A"}${ciphertext.slice(1)}`;
+  return parts.join(".");
+};
+
+const LINK_CHANGED: KakaoSendResult = { kind: "RETRYABLE", code: "LINK_CHANGED" };
 
 // ── 시계: sleep 은 기다리지 않고 시각만 앞으로 민다 ──
 // isFrozen 이면 sleep 이 시각을 밀지 않는다. 동시 발송에서 각자가 받은 대기 시간을 그대로 보려고 쓴다.
@@ -69,12 +88,15 @@ afterEach(() => {
 
 type StoreCall = { method: keyof KakaoLinkStore; args: unknown[] };
 
+/**
+ * 연결 저장(메모리). saveTokens·markExpired 는 repo 처럼 조건부다 — 행의 액세스 암호문이 기대값과 같을 때만(markExpired 는
+ * CONNECTED 도) 바꾸고 바꿨는지 돌려준다. afterRead 는 read 가 돌려준 뒤 행을 바꾼다(그 사이 다시 연결·다른 처리자 흉내).
+ */
 function memoryLinks(
   initial: Record<string, StoredKakaoLink> = {},
   options: {
     fail?: (method: keyof KakaoLinkStore) => Error | undefined;
-    /** markExpired 가 0행을 바꾼 것처럼(다른 처리자가 먼저 바꿈) 답한다. */
-    isExpiredByOther?: boolean;
+    afterRead?: (rows: Record<string, StoredKakaoLink>) => void;
   } = {},
 ) {
   const rows: Record<string, StoredKakaoLink> = structuredClone(initial);
@@ -88,17 +110,23 @@ function memoryLinks(
     async read(userId) {
       record("read", [userId]);
       const row = rows[userId];
-      return row === undefined ? null : structuredClone(row);
+      const link = row === undefined ? null : structuredClone(row);
+      options.afterRead?.(rows);
+      return link;
     },
-    async saveTokens(userId, sealed) {
-      record("saveTokens", [userId, sealed]);
+    async saveTokens(userId, sealed, expected) {
+      record("saveTokens", [userId, sealed, expected]);
       const row = rows[userId];
-      if (row) Object.assign(row, sealed);
+      if (row === undefined || row.accessTokenEnc !== expected.accessTokenEnc) return false;
+      Object.assign(row, sealed);
+      return true;
     },
-    async markExpired(userId) {
-      record("markExpired", [userId]);
+    async markExpired(userId, expected) {
+      record("markExpired", [userId, expected]);
       const row = rows[userId];
-      if (options.isExpiredByOther || row?.status !== "CONNECTED") return false;
+      if (row?.status !== "CONNECTED" || row.accessTokenEnc !== expected.accessTokenEnc) {
+        return false;
+      }
       row.status = "EXPIRED";
       return true;
     },
@@ -121,8 +149,8 @@ function connectedLink(
 ): StoredKakaoLink {
   return {
     userId,
-    accessTokenEnc: encryptKakaoToken(OLD_ACCESS, key),
-    refreshTokenEnc: encryptKakaoToken(OLD_REFRESH, key),
+    accessTokenEnc: encryptKakaoToken(OLD_ACCESS, key, accessOf(userId)),
+    refreshTokenEnc: encryptKakaoToken(OLD_REFRESH, key, refreshOf(userId)),
     accessExpiresAt: at(6 * HOUR_MS),
     refreshExpiresAt: at(60 * 24 * HOUR_MS),
     status: "CONNECTED",
@@ -358,12 +386,15 @@ describe("createMemoKakaoSender · 만료 전 갱신", () => {
 
     const saves = links.callsOf("saveTokens");
     expect(saves).toHaveLength(1);
-    const [userId, sealed] = saves[0].args as [string, Record<string, unknown>];
+    const [userId, sealed, expected] = saves[0].args as [string, Record<string, unknown>, unknown];
     expect(userId).toBe(USER_ID);
+    expect(expected).toEqual({ accessTokenEnc: before.accessTokenEnc });
     expect(Object.keys(sealed).toSorted()).toEqual(
       ["accessExpiresAt", "accessTokenEnc", "refreshExpiresAt", "refreshTokenEnc"].toSorted(),
     );
-    expect(decryptKakaoToken(String(sealed.accessTokenEnc), key)).toBe(NEW_ACCESS);
+    expect(decryptKakaoToken(String(sealed.accessTokenEnc), key, accessOf(USER_ID))).toBe(
+      NEW_ACCESS,
+    );
     expect(sealed.accessTokenEnc).not.toContain(NEW_ACCESS);
     expect(sealed.accessExpiresAt).toEqual(at(12 * HOUR_MS));
     expect(sealed.refreshTokenEnc).toBe(before.refreshTokenEnc);
@@ -377,7 +408,9 @@ describe("createMemoKakaoSender · 만료 전 갱신", () => {
     });
     await sender.send(USER_ID, TEMPLATE);
     const [, sealed] = links.callsOf("saveTokens")[0].args as [string, Record<string, unknown>];
-    expect(decryptKakaoToken(String(sealed.refreshTokenEnc), key)).toBe(NEW_REFRESH);
+    expect(decryptKakaoToken(String(sealed.refreshTokenEnc), key, refreshOf(USER_ID))).toBe(
+      NEW_REFRESH,
+    );
     expect(sealed.refreshExpiresAt).toEqual(at(59 * 24 * HOUR_MS));
   });
 
@@ -402,6 +435,19 @@ describe("createMemoKakaoSender · 만료 전 갱신", () => {
     expect(api.sendCalls).toHaveLength(1);
     expect(links.callsOf("markExpired")).toHaveLength(1);
   });
+
+  it("그때 markExpired 의 기대값은 방금 저장한 새 액세스 암호문이다(읽은 옛 값이 아니다)", async () => {
+    const { sender, links } = memoWith({
+      ...expiringIn(MINUTE_MS),
+      sends: [{ kind: "TOKEN_INVALID" }],
+    });
+    await sender.send(USER_ID, TEMPLATE);
+    const [, sealed] = links.callsOf("saveTokens")[0].args as [string, { accessTokenEnc: string }];
+    expect(links.callsOf("markExpired").map((call) => call.args)).toEqual([
+      [USER_ID, { accessTokenEnc: sealed.accessTokenEnc }],
+    ]);
+    expect(links.rows[USER_ID].status).toBe("EXPIRED");
+  });
 });
 
 // ── memo: 토큰 무효 → 한 번 갱신 뒤 한 번 재발송 ──
@@ -423,17 +469,30 @@ describe("createMemoKakaoSender · TOKEN_INVALID", () => {
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: true });
     expect(api.refreshCalls).toHaveLength(1);
     expect(api.sendCalls).toHaveLength(2);
-    expect(links.callsOf("markExpired").map((call) => call.args)).toEqual([[USER_ID]]);
+    const [, sealed] = links.callsOf("saveTokens")[0].args as [string, { accessTokenEnc: string }];
+    expect(links.callsOf("markExpired").map((call) => call.args)).toEqual([
+      [USER_ID, { accessTokenEnc: sealed.accessTokenEnc }],
+    ]);
     expect(links.rows[USER_ID].status).toBe("EXPIRED");
     expect(resultsOf(links)).toEqual(["EXPIRED"]);
   });
 
-  it("다른 처리자가 먼저 만료로 바꿨으면 changed 는 false 다", async () => {
-    const { sender } = memoWith({
+  it("다른 처리자가 먼저 만료로 바꿨으면(markExpired 0행) RETRYABLE LINK_CHANGED 이고, 다음 발송은 EXPIRED(changed false)다", async () => {
+    let isFirstRead = true;
+    const { sender, links } = memoWith({
       sends: [{ kind: "TOKEN_INVALID" }],
-      storeOptions: { isExpiredByOther: true },
+      refreshes: ["INVALID_GRANT"],
+      storeOptions: {
+        afterRead: (rows) => {
+          if (!isFirstRead) return;
+          isFirstRead = false;
+          rows[USER_ID].status = "EXPIRED";
+        },
+      },
     });
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: false });
+    expect(resultsOf(links)).toEqual(["FAILED", "EXPIRED"]);
   });
 
   it("다시 보낸 결과가 RETRYABLE 이면 그대로 돌려준다", async () => {
@@ -521,27 +580,29 @@ describe("createMemoKakaoSender · 갱신 실패", () => {
 // ── memo: 복호화 실패 ──
 
 describe("createMemoKakaoSender · 복호화 실패", () => {
-  it("액세스 암호문을 풀 수 없으면(다른 키) 카카오를 부르지 않고 markExpired 하고 EXPIRED", async () => {
+  it("액세스 암호문을 풀 수 없으면(변조) 카카오를 부르지 않고 markExpired 하고 EXPIRED", async () => {
+    const key = newKey();
+    const link = connectedLink(key);
+    const accessTokenEnc = tampered(link.accessTokenEnc ?? "");
     const { sender, api, links } = memoWith({
-      links: { [USER_ID]: connectedLink(newKey()) },
+      key,
+      links: { [USER_ID]: { ...link, accessTokenEnc } },
     });
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: true });
     expect(api.sendCalls).toEqual([]);
     expect(api.refreshCalls).toEqual([]);
-    expect(links.callsOf("markExpired")).toHaveLength(1);
+    expect(links.callsOf("markExpired").map((call) => call.args)).toEqual([
+      [USER_ID, { accessTokenEnc }],
+    ]);
     expect(resultsOf(links)).toEqual(["EXPIRED"]);
   });
 
-  it("refresh 암호문을 풀 수 없으면 갱신하지 않고 markExpired 하고 EXPIRED", async () => {
+  it("refresh 암호문을 풀 수 없으면(변조) 갱신하지 않고 markExpired 하고 EXPIRED", async () => {
     const key = newKey();
+    const link = connectedLink(key, { accessExpiresAt: at(MINUTE_MS) });
     const { sender, api, links } = memoWith({
       key,
-      links: {
-        [USER_ID]: connectedLink(key, {
-          accessExpiresAt: at(MINUTE_MS),
-          refreshTokenEnc: encryptKakaoToken(OLD_REFRESH, newKey()),
-        }),
-      },
+      links: { [USER_ID]: { ...link, refreshTokenEnc: tampered(link.refreshTokenEnc ?? "") } },
     });
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: true });
     expect(api.refreshCalls).toEqual([]);
@@ -549,7 +610,7 @@ describe("createMemoKakaoSender · 복호화 실패", () => {
     expect(links.callsOf("markExpired")).toHaveLength(1);
   });
 
-  it("액세스 암호문이 없으면(DB 의 null) 카카오를 부르지 않고 markExpired 하고 EXPIRED", async () => {
+  it("액세스 암호문이 없으면(DB 의 null) 카카오를 부르지 않고 기대값 null 로 markExpired 하고 EXPIRED", async () => {
     const key = newKey();
     const { sender, api, links } = memoWith({
       key,
@@ -558,7 +619,9 @@ describe("createMemoKakaoSender · 복호화 실패", () => {
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: true });
     expect(api.sendCalls).toEqual([]);
     expect(api.refreshCalls).toEqual([]);
-    expect(links.callsOf("markExpired")).toHaveLength(1);
+    expect(links.callsOf("markExpired").map((call) => call.args)).toEqual([
+      [USER_ID, { accessTokenEnc: null }],
+    ]);
   });
 
   it("암호화 키 형식이 틀리면 설정 오류로 던지고 연결을 만료로 바꾸지 않는다", async () => {
@@ -575,6 +638,217 @@ describe("createMemoKakaoSender · 복호화 실패", () => {
     });
     await expect(sender.send(USER_ID, TEMPLATE)).rejects.toThrow("KAKAO_TOKEN_ENC_KEY 형식 오류");
     expect(links.callsOf("markExpired")).toEqual([]);
+    expect(api.sendCalls).toEqual([]);
+  });
+});
+
+// ── memo: 키 불일치(보안 검토 1) — 설정 오류라 만료로 바꾸지 않고 던진다 ──
+
+describe("createMemoKakaoSender · 키 불일치", () => {
+  /** 웹이 다른 키로 잠근 연결. worker(sender)는 memoWith 의 키를 쓴다. */
+  const sealedByOtherKey = (overrides: Partial<StoredKakaoLink> = {}, userId = USER_ID) =>
+    connectedLink(newKey(), overrides, userId);
+
+  it("액세스 암호문이 다른 키면 KakaoTokenKeyMismatchError 로 던지고, 만료로 바꾸지도 카카오를 부르지도 마지막 발송 줄을 적지도 않는다", async () => {
+    const { sender, api, links } = memoWith({ links: { [USER_ID]: sealedByOtherKey() } });
+    const error = await sender.send(USER_ID, TEMPLATE).then(
+      () => null,
+      (reason: unknown) => reason,
+    );
+    expect(error).toBeInstanceOf(KakaoTokenKeyMismatchError);
+    expect(api.sendCalls).toEqual([]);
+    expect(api.refreshCalls).toEqual([]);
+    expect(links.callsOf("markExpired")).toEqual([]);
+    expect(links.callsOf("saveTokens")).toEqual([]);
+    expect(links.callsOf("markResult")).toEqual([]);
+    expect(links.rows[USER_ID].status).toBe("CONNECTED");
+  });
+
+  it("갱신해야 할 때 refresh 암호문이 다른 키여도 던지고 만료로 바꾸지 않는다", async () => {
+    const key = newKey();
+    const link = connectedLink(key, {
+      accessExpiresAt: at(MINUTE_MS),
+      refreshTokenEnc: encryptKakaoToken(OLD_REFRESH, newKey(), refreshOf(USER_ID)),
+    });
+    const { sender, api, links } = memoWith({ key, links: { [USER_ID]: link } });
+    await expect(sender.send(USER_ID, TEMPLATE)).rejects.toThrow(KakaoTokenKeyMismatchError);
+    expect(api.refreshCalls).toEqual([]);
+    expect(api.sendCalls).toEqual([]);
+    expect(links.callsOf("markExpired")).toEqual([]);
+    expect(links.rows[USER_ID].status).toBe("CONNECTED");
+  });
+
+  it("연결된 두 사람 모두 다른 키면 둘 다 던지고 아무도 만료로 바뀌지 않는다", async () => {
+    const { sender, links } = memoWith({
+      links: {
+        [USER_ID]: sealedByOtherKey(),
+        [OTHER_USER_ID]: sealedByOtherKey({}, OTHER_USER_ID),
+      },
+    });
+    for (const userId of [USER_ID, OTHER_USER_ID]) {
+      await expect(sender.send(userId, TEMPLATE)).rejects.toThrow("KAKAO_TOKEN_KEY_MISMATCH");
+    }
+    expect(links.callsOf("markExpired")).toEqual([]);
+    expect([links.rows[USER_ID].status, links.rows[OTHER_USER_ID].status]).toEqual([
+      "CONNECTED",
+      "CONNECTED",
+    ]);
+  });
+});
+
+// ── memo: 암호문은 사용자·토큰 종류에 묶인다(보안 검토 3) ──
+
+describe("createMemoKakaoSender · 사용자·종류에 묶인 암호문", () => {
+  it("남의 행의 액세스 암호문을 옮겨 넣으면 풀지 못해(변조) 카카오를 부르지 않고 EXPIRED", async () => {
+    const key = newKey();
+    const { sender, api } = memoWith({
+      key,
+      links: {
+        [USER_ID]: connectedLink(key, {
+          accessTokenEnc: encryptKakaoToken(OLD_ACCESS, key, accessOf(OTHER_USER_ID)),
+        }),
+      },
+    });
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: true });
+    expect(api.sendCalls).toEqual([]);
+  });
+
+  it("refresh 자리에 액세스 암호문을 넣으면 풀지 못해 갱신하지 않고 EXPIRED", async () => {
+    const key = newKey();
+    const link = connectedLink(key, { accessExpiresAt: at(MINUTE_MS) });
+    const { sender, api } = memoWith({
+      key,
+      links: { [USER_ID]: { ...link, refreshTokenEnc: link.accessTokenEnc } },
+    });
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: true });
+    expect(api.refreshCalls).toEqual([]);
+  });
+
+  it("갱신한 새 토큰은 그 사용자·종류로 잠근다 — 다른 사용자나 다른 종류로는 풀리지 않는다", async () => {
+    const key = newKey();
+    const { sender, links } = memoWith({
+      key,
+      links: { [USER_ID]: connectedLink(key, { accessExpiresAt: at(MINUTE_MS) }) },
+      refreshes: [tokenSet({ refreshToken: NEW_REFRESH, refreshExpiresAt: at(59 * 24 * HOUR_MS) })],
+    });
+    await sender.send(USER_ID, TEMPLATE);
+    const [, sealed] = links.callsOf("saveTokens")[0].args as [
+      string,
+      { accessTokenEnc: string; refreshTokenEnc: string },
+    ];
+    expect(decryptKakaoToken(sealed.accessTokenEnc, key, accessOf(USER_ID))).toBe(NEW_ACCESS);
+    expect(decryptKakaoToken(sealed.refreshTokenEnc, key, refreshOf(USER_ID))).toBe(NEW_REFRESH);
+    for (const [value, context] of [
+      [sealed.accessTokenEnc, refreshOf(USER_ID)],
+      [sealed.accessTokenEnc, accessOf(OTHER_USER_ID)],
+      [sealed.refreshTokenEnc, accessOf(USER_ID)],
+      [sealed.refreshTokenEnc, refreshOf(OTHER_USER_ID)],
+    ] as const) {
+      expect(() => decryptKakaoToken(value, key, context)).toThrow("KAKAO_TOKEN_DECRYPT_FAILED");
+    }
+  });
+});
+
+// ── memo: 갱신 경합(보안 검토 5) — 읽은 뒤 사용자가 다시 연결했으면 옛 토큰으로 덮어쓰거나 새 연결을 만료로 바꾸지 않는다 ──
+
+describe("createMemoKakaoSender · 갱신 경합", () => {
+  const NEWER_ACCESS = "fake-reconnected-access-token";
+
+  /** read 가 돌려준 뒤 사용자가 다시 연결한 것처럼, 같은 키로 잠근 새 토큰의 CONNECTED 행으로 바꾼다. */
+  const reconnectAfterRead = (key: string) => {
+    let isDone = false;
+    return (rows: Record<string, StoredKakaoLink>) => {
+      if (isDone) return;
+      isDone = true;
+      rows[USER_ID] = connectedLink(key, {
+        accessTokenEnc: encryptKakaoToken(NEWER_ACCESS, key, accessOf(USER_ID)),
+      });
+    };
+  };
+
+  it("미리 갱신했는데 저장이 0행이면(그 사이 다시 연결) 보내지 않고 RETRYABLE LINK_CHANGED, 새 연결은 그대로다", async () => {
+    const key = newKey();
+    const { sender, api, links } = memoWith({
+      key,
+      links: { [USER_ID]: connectedLink(key, { accessExpiresAt: at(MINUTE_MS) }) },
+      storeOptions: { afterRead: reconnectAfterRead(key) },
+    });
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
+    expect(api.refreshCalls).toEqual([OLD_REFRESH]);
+    expect(api.sendCalls).toEqual([]);
+    expect(links.callsOf("saveTokens")).toHaveLength(1);
+    const row = links.rows[USER_ID];
+    expect(row.status).toBe("CONNECTED");
+    expect(decryptKakaoToken(row.accessTokenEnc ?? "", key, accessOf(USER_ID))).toBe(NEWER_ACCESS);
+    expect(resultsOf(links)).toEqual(["FAILED"]);
+  });
+
+  it("다음 발송은 새 연결의 토큰으로 보낸다", async () => {
+    const key = newKey();
+    const { sender, api } = memoWith({
+      key,
+      links: { [USER_ID]: connectedLink(key, { accessExpiresAt: at(MINUTE_MS) }) },
+      storeOptions: { afterRead: reconnectAfterRead(key) },
+    });
+    await sender.send(USER_ID, TEMPLATE);
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "SENT" });
+    expect(api.sendCalls.map((call) => call.accessToken)).toEqual([NEWER_ACCESS]);
+  });
+
+  it("TOKEN_INVALID 뒤 갱신해 저장이 0행이어도 다시 보내지 않고 RETRYABLE LINK_CHANGED", async () => {
+    const key = newKey();
+    const { sender, api } = memoWith({
+      key,
+      sends: [{ kind: "TOKEN_INVALID" }],
+      storeOptions: { afterRead: reconnectAfterRead(key) },
+    });
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
+    expect(api.sendCalls.map((call) => call.accessToken)).toEqual([OLD_ACCESS]);
+  });
+
+  it("갱신이 INVALID_GRANT 인데 만료가 0행이면(그 사이 다시 연결) 새 연결을 만료로 바꾸지 않고 RETRYABLE LINK_CHANGED", async () => {
+    const key = newKey();
+    const { sender, links } = memoWith({
+      key,
+      sends: [{ kind: "TOKEN_INVALID" }],
+      refreshes: ["INVALID_GRANT"],
+      storeOptions: { afterRead: reconnectAfterRead(key) },
+    });
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
+    expect(links.callsOf("markExpired")).toHaveLength(1);
+    expect(links.rows[USER_ID].status).toBe("CONNECTED");
+    expect(resultsOf(links)).toEqual(["FAILED"]);
+  });
+
+  it("변조된 암호문이어도 만료가 0행이면(그 사이 다시 연결) RETRYABLE LINK_CHANGED", async () => {
+    const key = newKey();
+    const link = connectedLink(key);
+    const { sender, api, links } = memoWith({
+      key,
+      links: { [USER_ID]: { ...link, accessTokenEnc: tampered(link.accessTokenEnc ?? "") } },
+      storeOptions: { afterRead: reconnectAfterRead(key) },
+    });
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
+    expect(api.sendCalls).toEqual([]);
+    expect(links.rows[USER_ID].status).toBe("CONNECTED");
+  });
+
+  it("연결 해제로 행이 사라졌으면 저장이 0행이라 RETRYABLE LINK_CHANGED 이고, 다음 발송은 EXPIRED(changed false)다", async () => {
+    const key = newKey();
+    let isDone = false;
+    const { sender, api } = memoWith({
+      key,
+      links: { [USER_ID]: connectedLink(key, { accessExpiresAt: at(MINUTE_MS) }) },
+      storeOptions: {
+        afterRead: (rows) => {
+          if (isDone) return;
+          isDone = true;
+          delete rows[USER_ID];
+        },
+      },
+    });
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
+    expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: false });
     expect(api.sendCalls).toEqual([]);
   });
 });
