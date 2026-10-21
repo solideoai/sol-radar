@@ -1,0 +1,49 @@
+{
+  "base": "fcd6eab",
+  "scope": "Playwright MCP integration verification after origin/main fast-forward",
+  "sidebar": {
+    "path": "/dashboard",
+    "results": [
+      {
+        "width": 1440,
+        "labels": [
+          "관심 공고",
+          "분석 결과 비교",
+          "인력 배치 시뮬레이션",
+          "입찰 프로젝트"
+        ],
+        "tooltips": [
+          "관심 공고",
+          "분석 결과 비교",
+          "인력 배치 시뮬레이션",
+          "입찰 프로젝트"
+        ],
+        "unreleasedItemsInteractive": false,
+        "passed": true
+      },
+      {
+        "width": 1280,
+        "labels": [
+          "관심 공고",
+          "분석 결과 비교",
+          "인력 배치 시뮬레이션",
+          "입찰 프로젝트"
+        ],
+        "tooltips": [
+          "관심 공고",
+          "분석 결과 비교",
+          "인력 배치 시뮬레이션",
+          "입찰 프로젝트"
+        ],
+        "unreleasedItemsInteractive": false,
+        "passed": true
+      }
+    ]
+  },
+  "nativeLogin": {
+    "method": "POST",
+    "passwordInUrl": false,
+    "passwordInBody": true,
+    "passed": true
+  }
+}

@@ -259,7 +259,7 @@ function NavGroupSection({
         </button>
       ) : null}
       {/* 세로선은 화살표 가운데(왼쪽에서 16px) 아래에 온다. 긴 메뉴 이름이 256px 폭에
-          들어가도록 트리 안 메뉴의 왼쪽 여백을 6px 로 둔다(접은 사이드바는 부품의 p-2! 가 이긴다). */}
+          말줄임 없이 들어가도록 트리 안 메뉴의 왼쪽 여백을 6px 로 줄인다(접은 사이드바는 부품의 p-2! 가 이긴다). */}
       <SidebarMenu
         id={listId}
         aria-label={group.label}
