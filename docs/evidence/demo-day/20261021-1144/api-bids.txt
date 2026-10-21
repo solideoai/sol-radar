@@ -1,0 +1,40 @@
+# GET /api/v1/bids (seed 직후, preanalyze 전) — 2026-10-21 11:48:42 KST · 커밋 4e62170 · web http://localhost:3216 · Bearer 토큰은 적지 않음
+
+$ GET /api/v1/bids?(기본)  as sales@soltech.invalid → HTTP 200 · 19건
+FX-11 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-19 | PRE_SPEC | OPEN | DEMO | latestAnalysis=null | review=null
+FX-09 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-18 | PRE_SPEC | OPEN | DEMO | latestAnalysis=null | review=null
+FX-04 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-06 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-03 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=NO_BID
+FX-15 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-10 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-02 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-16 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-07 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-08 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-13 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-01 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=BID
+FX-14 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-05 | NOTICE | OPEN | DEMO | latestAnalysis=null | review=null
+FX-20 | PLAN | OPEN | DEMO | latestAnalysis=null | review=null
+FX-17 | PLAN | OPEN | DEMO | latestAnalysis=null | review=null
+FX-12 포함: false · DEMO 19/19
+
+# preanalyze 뒤 목록 — 2026-10-21 11:52:59 KST
+
+$ GET /api/v1/bids?recommendation=BID&sort=score:desc  as sales@soltech.invalid → HTTP 200 · 3건
+FX-01 | NOTICE | OPEN | DEMO | COMPLETED score=94 rec=BID | review=BID
+FX-18 | PRE_SPEC | OPEN | DEMO | COMPLETED score=82 rec=BID | review=null
+FX-06 | NOTICE | OPEN | DEMO | COMPLETED score=78 rec=BID | review=null
+FX-12 포함: false · DEMO 3/3
+
+$ GET /api/v1/bids?stage=NOTICE&recommendation=BID&sort=score:desc  as sales@soltech.invalid → HTTP 200 · 2건
+FX-01 | NOTICE | OPEN | DEMO | COMPLETED score=94 rec=BID | review=BID
+FX-06 | NOTICE | OPEN | DEMO | COMPLETED score=78 rec=BID | review=null
+FX-12 포함: false · DEMO 2/2
+
+$ GET /api/v1/bids?decision=NO_BID  as sales@soltech.invalid → HTTP 200 · 1건
+FX-03 | NOTICE | OPEN | DEMO | COMPLETED score=68 rec=NO_BID | review=NO_BID
+FX-12 포함: false · DEMO 1/1

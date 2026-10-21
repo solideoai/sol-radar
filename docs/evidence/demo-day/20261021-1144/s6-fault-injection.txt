@@ -1,0 +1,108 @@
+# S6 장애 주입·복구(11 §5 13·14번) — 커밋 4e62170 · Compose 프로젝트 sol-radar-c9-54 · web :3216
+## 13 장애 주입 12:04:02
+$ docker compose -p sol-radar-c9-54 -f infra/compose.yaml stop ai-gateway
+ Container sol-radar-c9-54-ai-gateway-1  Stopping
+ Container sol-radar-c9-54-ai-gateway-1  Stopped
+exit 0
+$ docker compose -p sol-radar-c9-54 -f infra/compose.yaml ps --format "{{.Service}} {{.State}} {{.Health}}"
+ai-gateway exited 
+minio running healthy
+qdrant running healthy
+redis running healthy
+worker running healthy
+$ curl -s -w 'http %{http_code}' http://localhost:3216/health/ready   (12:04:08)
+{"status":"degraded","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"unavailable"}}
+http 200
+
+## 13 화면: FX-01 [재분석] (sales) 12:04:09
+머리말(전): 사이드바 여닫기 입찰 공고 DEMO 실행 모드: mock AI: unavailable 수집 2분 전 4 AI 연결이 끊겼습니다
+재분석 → 끝 화면까지 5392ms
+POST: ["202 req={\"force\":true} res={\"analysisId\":\"939f14ca-889f-4294-888c-db89bd4b4b94\",\"status\":\"QUEUED\",\"deduplicated\":false,\"pollUrl\":\"/api/v1/analyses/939f14ca-889f-4294-888c-db89bd4b4b94\"}"]
+머리말(후): 사이드바 여닫기 입찰 공고 DEMO 실행 모드: mock AI: unavailable 수집 2분 전 5 AI 연결이 끊겼습니다
+alert: []
+요약: 분석 요약 부분 완료 (규칙만) 2026-10-21 12:04 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 분석 이력 2건 ▾
+자격: 필수자격 (3건 · 모두 충족) 충족 소프트웨어사업자 신고확인서 필수 AI 추출 회사 프로필 등록 SW_BUSINESS_REG 보유(HELD) 회사: 소프트웨어사업자 신고확인서 근거 공고 본문 · "소프트웨어사업자 
+점수: SOL Score 분해 AI 서비스를 사용할 수 없어 규칙 기반 결과만 제공합니다. 필수자격 3건을 모두 충족했습니다. 요구기술 5개 중 5개 보유(Java, Spring Boot, PostgreSQL, 전자정부 표준프레임워크, Kubernetes). SOL Score 94점으로 참여 권고 구간(75 이상)입니다. 권고: BID(참여 권고). 최종 참여 결정은 사람이 합니다. 펼치기 기술 스택 적합 24.0 / 30 근거 2건 유사 수행 실적 25.0 / 25 근거 1건 인력 가용성 20.0 / 20 근거 1건 규모 적합성 15.0 / 15 근거 1건 전략적 선호 10.0 / 10 민원 분야·지자체 선호 일치 합계 94.0 → SOL Score 94 (반올림) · 알고리즘 sol-v0.1.0 · 프로필 rev 2
+결정 모델: 결정 모델 참고 지표 모델 참고 지표 (점수 미반영) 사용 불가 AI_UNAVAILABLE
+참여 판단: 참여 판단 권고 BID 규칙만 94 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. AI 사용 불가 AI_UNAVAILABLE 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 마지막 결정: BID · 이영업 · 2026-10-21 11:46 BID · 이영업(SALES) · 2026-10-21 11:46 자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인
+PARTIAL 배너: ["AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"]
+screenshot: 20261021-demo-bid-detail-partial-1440.png
+console(error/warning): 0
+## 13 화면 1280 (재분석 없이 같은 상태)
+머리말(전): 사이드바 여닫기 입찰 공고 DEMO 실행 모드: mock AI: unavailable 수집 2분 전 5 AI 연결이 끊겼습니다
+머리말(후): 사이드바 여닫기 입찰 공고 DEMO 실행 모드: mock AI: unavailable 수집 2분 전 5 AI 연결이 끊겼습니다
+PARTIAL 배너: ["AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"]
+screenshot: 20261021-demo-bid-detail-partial-1280.png
+console(error/warning): 0
+## 13 DB: FX-01 score_runs (status | score | recommendation | basis | review_flags | fallback_reason | error_code | ms)
+COMPLETED|94|BID|RULES_WITH_KEV_ASSIST||||2844|11:49:16
+PARTIAL|94|BID|RULES_ONLY|AI_UNAVAILABLE||AI_UNAVAILABLE|862|12:04:15
+## 13 GET /api/v1/admin/ai/status (ADMIN, gateway 중지 중)
+HTTP 200
+{
+  "runMode": "mock",
+  "provider": "mock",
+  "hostedApproved": false,
+  "gateway": {
+    "url": "http://127.0.0.1:18011",
+    "healthy": false,
+    "checkedAt": "2026-10-21T03:04:30.965Z",
+    "runMode": null
+  },
+  "qwen": {
+    "model": null,
+    "runtime": null,
+
+## 13 재측정: FX-01 [재분석] 한 번 더(gateway 중지 유지), 화면 글자 변화 시각을 브라우저 MutationObserver 로 기록 12:04:57
+누르기 전 요약: 분석 요약 부분 완료 (규칙만) 2026-10-21 12:04 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 분석 이력 2건 ▾
+누른 버튼: 재분석
+screenshot: 20261021-demo-bid-detail-fx01-fault-loading-1440.png
+전이(MutationObserver):
+  369ms 분석 요약 부분 완료 (규칙만) 2026-10-21 12:04 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리 || 버튼:분석 요청 중…
+  1328ms 분석 요약 대기 중 분석 이력 2건 ▾ || 버튼:분석 중…
+  5959ms 분석 요약 부분 완료 (규칙만) 2026-10-21 12:05 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리 || 버튼:재분석
+POST 응답: ["202 /api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163/analyses req={\"force\":true} res={\"analysisId\":\"807e2947-9302-4e86-a954-ef10615b4c07\",\"status\":\"QUEUED\",\"deduplicated\":false,\"pollUrl\":\"/api/v1/analyses/807e2947-9302-4e86-a954-ef10615b4c07\"}"]
+요약(후): 분석 요약 부분 완료 (규칙만) 2026-10-21 12:05 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 분석 이력 3건 ▾
+console(error/warning): 0
+COMPLETED|RULES_WITH_KEV_ASSIST||2844|11:49:16.052|11:49:18.897
+PARTIAL|RULES_ONLY|AI_UNAVAILABLE|862|12:04:15.574|12:04:16.437
+PARTIAL|RULES_ONLY|AI_UNAVAILABLE|1608|12:05:12.474|12:05:14.082
+
+## 14 복구 12:05:50
+$ docker compose -p sol-radar-c9-54 -f infra/compose.yaml start ai-gateway
+ Container sol-radar-c9-54-ai-gateway-1  Starting
+ Container sol-radar-c9-54-ai-gateway-1  Started
+exit 0
+ai-gateway healthy 까지 17초 (12:06:07)
+$ docker compose -p sol-radar-c9-54 -f infra/compose.yaml ps --format "{{.Service}} {{.State}} {{.Health}}"
+ai-gateway running healthy
+minio running healthy
+qdrant running healthy
+redis running healthy
+worker running healthy
+$ curl -s -w 'http %{http_code}' http://localhost:3216/health/ready
+{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"mock"}}
+http 200
+$ curl -s http://127.0.0.1:18011/health
+{"status":"ok","runMode":"mock","provider":"mock","kevEnabled":true,"qwen":{"model":"fixture","promptHash":"e9ff84681c4fa852cb5948c56246c6ff3ae72092581af488057f761fc6b8114e"},"kev":{"modelId":"mock","registryMatch":null},"questionSets":["kev-qs/v0.1"],"parsers":[{"format":"PDF","parserId":null},{"format":"HWPX","parserId":null},{"format":"HWP","parserId":null}]}
+http 200
+
+## 14 화면: FX-01 [재분석] (sales) 12:06:08
+머리말(전): 사이드바 여닫기 입찰 공고 DEMO 실행 모드: mock AI: mock 수집 4분 전 6
+재분석 → 끝 화면까지 4163ms
+POST: ["202 req={\"force\":true} res={\"analysisId\":\"d17b432f-781f-414f-953b-7f78771dc154\",\"status\":\"QUEUED\",\"deduplicated\":false,\"pollUrl\":\"/api/v1/analyses/d17b432f-781f-414f-953b-7f78771dc154\"}"]
+머리말(후): 사이드바 여닫기 입찰 공고 DEMO 실행 모드: mock AI: mock 수집 4분 전 6
+alert: []
+요약: 분석 요약 완료 2026-10-21 12:06 · 분석 실행 모드: mock · AI: mock 가상 회사 프로필로 분석 알고리즘 sol-v0.1.0 · 프로필 rev 2 분석 이력 4건 ▾
+자격: 필수자격 (3건 · 모두 충족) 충족 소프트웨어사업자 신고확인서 필수 AI 추출 회사 프로필 등록 SW_BUSINESS_REG 보유(HELD) 회사: 소프트웨어사업자 신고확인서 근거 공고 본문 · "소프트웨어사업자 
+점수: SOL Score 분해 필수자격 3건을 모두 충족했습니다. 요구기술 5개 중 5개 보유(Java, Spring Boot, PostgreSQL, 전자정부 표준프레임워크, Kubernetes). SOL Score 94점으로 참여 권고 구간(75 이상)입니다. 권고: BID(참여 권고). 최종 참여 결정은 사람이 합니다. 펼치기 기술 스택 적합 24.0 / 30 근거 2건 유사 수행 실적 25.0 / 25 근거 1건 인력 가용성 20.0 / 20 근거 1건 규모 적합성 15.0 / 15 근거 1건 전략적 선호 10.0 / 10 민원 분야·지자체 선호 일치 합계 94.0 → SOL Score 94 (반올림) · 알고리즘 sol-v0.1.0 · 프로필 rev 2
+결정 모델: 결정 모델 참고 지표 모델 참고 지표 (점수 미반영) 모델 선택지 신뢰 분포 (충족·수주 확률 아님) BID 71% WATCH 24% NO-BID 5% 결정 모델 선택지: BID 규칙 권고와 같음 필수자격 위험 신호 0.05 · 기준 0.70 이상 사람 검토 필요 신호 0.12 · 기준 0.70 이상 적합도 의견 4/5 이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다. 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다. 최종 결정은 담당자가 기록합니다. Mock 응답(데모 데이터) · 질문 세트: kev-qs/v0.1 · 공급자: mock Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다.
+참여 판단: 참여 판단 권고 BID 규칙 + 결정 모델 참고 94 / 100 SOL Score는 내부 적합도이며 낙찰 확률이 아닙니다. 최종 참여 결정은 사람이 합니다. 최종 결정 BID WATCH NO-BID 사유 0 / 2000 담당자 이영업 결정 기록 결정 이력 마지막 결정: BID · 이영업 · 2026-10-21 11:46 BID · 이영업(SALES) · 2026-10-21 11:46 자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인력 12 FTE 대비 가용
+PARTIAL 배너: []
+screenshot: 20261021-demo-bid-detail-recovered-loaded-1440.png
+console(error/warning): 0
+## 14 DB: FX-01 score_runs
+COMPLETED|94|BID|RULES_WITH_KEV_ASSIST||2844|11:49:16
+PARTIAL|94|BID|RULES_ONLY|AI_UNAVAILABLE|862|12:04:15
+PARTIAL|94|BID|RULES_ONLY|AI_UNAVAILABLE|1608|12:05:12
+COMPLETED|94|BID|RULES_WITH_KEV_ASSIST||2192|12:06:15

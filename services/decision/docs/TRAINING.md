@@ -14,7 +14,7 @@
 ## 설치 (회사 서버 `.venv-bosun`)
 
 모델 의존성은 `pyproject.toml` 의 `model` extra 다. 노트북·CI 는 extras 없이 설치하고 torch 를 import 하지 않는다.
-회사 GPU 서버는 **기존 `.venv-bosun`(torch 2.8.0+cu128)에 `--no-deps` 로만 올린다**(README "설치", 사용자 결정 2026-10-21, `docs/22` §4 절차가 정본).
+회사 GPU 서버는 **기존 `.venv-bosun`(torch 2.8.0+cu128)에 `--no-deps` 로만 올린다**(README "설치", 12 추천안(사용자 위임 2026-10-21), `docs/22` §4 절차가 정본).
 `uv sync --frozen --extra model` 은 쓰지 않는다 — `uv.lock` 의 `model` extra 가 torch 2.14.1 을 받아 회사 venv 를 바꾼다.
 
 ```bash

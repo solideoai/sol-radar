@@ -1,0 +1,33 @@
+# $ pnpm demo:reset -- --write-summary /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/c9-rehearsal-54/docs/evidence/demo-day/20261021-1144/seed-summary.json — 커밋 4e62170
+# 대상: 격리 Supabase CLI 스택 sol-radar-c9-54 (API 127.0.0.1:59761). 값은 스크립트가 루트 env 파일에서 스스로 읽었다(이 증거에 적지 않음).
+# 실행 전 DB(psql, supabase_db_sol-radar-c9-54): bids|runs|reviews|orgs|users
+0|0|0|0|0
+# 시작 11:46:47
+
+> sol-radar@0.1.0 demo:reset /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/c9-rehearsal-54
+> pnpm -C web exec node --conditions=react-server --import tsx ../scripts/demo-reset.mjs -- --write-summary /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/c9-rehearsal-54/docs/evidence/demo-day/20261021-1144/seed-summary.json
+
+▶ 데모 seed (127.0.0.1:59761)
+  표 확인 완료. 조직·카탈로그·명부부터 넣습니다.
+  명부 200명·카탈로그 upsert. 데모 공고와 조직 소유 행을 지웁니다.
+  계정 5개(새로 만든 5). 회사 프로필·공고를 넣습니다.
+  공고 19건 적재, 1건 격리. 사진을 검증합니다.
+seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true
+exit 0
+# 끝 11:46:58 · 소요 11초
+# 실행 뒤 DB: bids|runs|reviews|orgs|users
+19|0|2|2|5
+
+# psql 확인 11:47:16
+$ select source, batch, run_mode, trigger, status, summary from ingest_runs
+fixture|SEED|MOCK|DEMO|PARTIAL|{"changed": 0, "created": 19, "retried": 2, "cancelled": 0, "quarantined": 1, "skippedDuplicate": 0}
+$ select n.notice_id, r.decision, o.name from bid_reviews r join bid_notices n on n.id=r.bid_id join organizations o on o.id=r.org_id
+DEMO-2026-0001|BID|솔리데오
+DEMO-2026-0003|NO_BID|솔리데오
+$ select count(*) filter (where is_demo), count(*) from bid_notices; ingest_errors
+19|19
+4c902794-3ace-4fef-99bc-de4b9adb2b40|db2d990a-eefa-4880-81c1-a71c0fc1ee0c|fixture:DEMO-2026-0012|MISSING_REQUIRED_FIELD||missing: title|2026-10-21 02:46:57.11346+00
+$ team_member_scoring 점수 계산 대상 · 재직 상태
+member_id org_id role grade skills availability created_at 
+$ select count(*) from team_members; select count(*) from team_member_scoring  (재직 상태 열은 아직 없다 → 11 §5 3번 "27명 ACTIVE" 조건은 ADR-021 P1 편집이 생긴 뒤 항목이라 해당 없음)
+200|27

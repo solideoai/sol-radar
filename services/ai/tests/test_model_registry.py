@@ -10,6 +10,7 @@ import yaml
 from support import (
     BACKUP_QWEN_RUN,
     KEV_BASE,
+    KEV_EMBEDDINGS_SHA256,
     KEV_LORA_SHA256,
     KEV_MODEL_ID,
     KEV_REQUEST_MODEL,
@@ -199,8 +200,12 @@ def test_load_decision_entry_fields():
         BOSUN_BASE_REVISION,
         BOSUN_DECISION_EMBEDDINGS_SHA256,
     )
-    # 대조 값: base·lora 만(temperature 는 null 이라 대조하지 않는다)
-    assert bosun.match_values == {"base": KEV_BASE, "lora": KEV_LORA_SHA256}
+    # 대조 값: base·lora·decision_embeddings_sha256(temperature 는 null 이라 대조하지 않는다)
+    assert bosun.match_values == {
+        "base": KEV_BASE,
+        "lora": KEV_LORA_SHA256,
+        "decision_embeddings_sha256": KEV_EMBEDDINGS_SHA256,
+    }
     assert (bosun.request_model, bosun.question_set) == (KEV_REQUEST_MODEL, None)
 
 
@@ -252,6 +257,7 @@ def server_model(**overrides: object) -> dict:
         "base": KEV_BASE,
         "lora": KEV_LORA_SHA256,
         "revision": KEV_REVISION,
+        "decision_embeddings_sha256": KEV_EMBEDDINGS_SHA256,
         "temperature": None,
     }
     return {**model, **overrides}
@@ -272,12 +278,27 @@ def test_matches_ignores_null_temperature_in_registry():
     assert bosun().matches(server_model(temperature=1.0)) is True
 
 
-@pytest.mark.parametrize("field", ["run", "base", "lora", "revision"])
+def test_matches_ignores_null_decision_embeddings_in_registry(tmp_path):
+    # 레지스트리 decision_embeddings_sha256 이 null 이면 서버가 키를 빼도, 다른 값을 줘도 대조하지 않는다
+    data = registry()
+    for e in data["entries"]:
+        if e["id"] == KEV_MODEL_ID:
+            e["decision_embeddings_sha256"] = None
+    entry = ModelRegistry.load(write_registry(tmp_path, data)).decision(KEV_MODEL_ID)
+    assert entry is not None
+    assert "decision_embeddings_sha256" not in entry.match_values
+    without_key = server_model()
+    del without_key["decision_embeddings_sha256"]
+    assert entry.matches(without_key) is True
+    assert entry.matches(server_model(decision_embeddings_sha256="0" * 64)) is True
+
+
+@pytest.mark.parametrize("field", ["run", "base", "lora", "revision", "decision_embeddings_sha256"])
 def test_matches_rejects_different_value(field):
     assert bosun().matches(server_model(**{field: "something-else"})) is False
 
 
-@pytest.mark.parametrize("field", ["base", "lora"])
+@pytest.mark.parametrize("field", ["base", "lora", "decision_embeddings_sha256"])
 def test_matches_rejects_missing_non_null_field(field):
     model = server_model()
     del model[field]
