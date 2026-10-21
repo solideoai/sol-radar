@@ -10,7 +10,7 @@ updated: 2026-10-21
 
 # 실험 결과 표 (빈 틀)
 
-세 표 모두 **측정 전. 값 없음.** 빈 칸에 추정값을 넣지 않는다. 지표 정의는 [[21-MODEL-TRAINING|21 모델 학습]] §4.3, 비교 대상은 §4.2, 임팩트 지표는 [[01-PRD|01 PRD]] 성공 측정이다. 표본이 작으므로 모든 값에 표본 수와 부트스트랩 95% 신뢰구간을 함께 적고, "예비 검증이며 일반화된 성능을 입증하지 않는다"를 표 아래에 남긴다. 결정 모델은 2026-10-20 [[16-DECISIONS|ADR-034]]로 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)로, 추출·설명 모델은 회사 운영 vLLM API의 `Qwen/Qwen3.5-27B`로 바뀌었다. 그래서 기준선은 E1(Kev-9B, 퇴역·미측정)이 아니라 E1'(공개 Bosun zero-shot)이다(21 §4.2).
+세 표 모두 **측정 전. 값 없음.** 빈 칸에 추정값을 넣지 않는다. 지표 정의는 [[21-MODEL-TRAINING|21 모델 학습]] §4.3, 비교 대상은 §4.2, 임팩트 지표는 [[01-PRD|01 PRD]] 성공 측정이다. 표본이 작으므로 모든 값에 표본 수와 부트스트랩 95% 신뢰구간을 함께 적고, "예비 검증이며 일반화된 성능을 입증하지 않는다"를 표 아래에 남긴다. 결정 모델은 2026-10-20 [[16-DECISIONS|ADR-034]]로 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)로, 추출·설명 모델은 회사 vLLM API(`https://acropolissg.com/vllm/v1`)의 `Qwen/Qwen3.8-Flash-Next`(2026-10-21 사용자 보고, `/v1/models` 대조는 B2)로 바뀌었다. 그래서 기준선은 E1(Kev-9B, 퇴역·미측정)이 아니라 E1'(공개 Bosun zero-shot)이다(21 §4.2).
 
 ## (a) E0 · E1' · E2 · E3 비교 (X1)
 
@@ -18,7 +18,7 @@ updated: 2026-10-21
 
 입력: fixture 20건(`recommendation` · `mandatoryRisk` · `needsHumanReview`, 사람 기대값) + 실제 공고 5건(사람 라벨, 결정 모델 담당 항목). 해커톤 축소판이며 21 §3.5의 test 20 · dev 10 사업 평가셋이 아니다. 골든 94/72/68과 SOL Score 가중치, 결정 모델 미반영 구조는 이 실험으로 바꾸지 않는다.
 
-| 지표 | E0 규칙만 | E1' 공개 Bosun 영어 state(zero-shot) | E2 공개 Bosun 한국어 state(평가 전용) | E3 Qwen3.5-27B 분류(선택지 logprob, 회사 API) | 표본 수 n | 95% CI 방법 |
+| 지표 | E0 규칙만 | E1' 공개 Bosun 영어 state(zero-shot) | E2 공개 Bosun 한국어 state(평가 전용) | E3 Qwen3.8-Flash-Next 분류(선택지 logprob, 회사 API) | 표본 수 n | 95% CI 방법 |
 |---|---|---|---|---|---|---|
 | Accuracy (3값) | | | | | | 부트스트랩 |
 | Macro-F1 (3값) | | | | | | 부트스트랩 |
@@ -34,7 +34,7 @@ updated: 2026-10-21
 | 규칙 결과와 상충(`MODEL_RULE_DISAGREEMENT`) 건수 | — | | | | | — |
 
 채운 뒤 적을 것:
-- 데이터셋 버전 · git commit · 질문 세트(`kev-qs/v0.1`·`v0.2`) · state 템플릿 버전 · 모델 식별자(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`, `Qwen/Qwen3.5-27B`는 회사 운영이라 `/v1/models`의 `id` 그대로) · 온도 · 실행 일시 · 실행 위치(E1'·E4는 회사 서버 안 오프라인 채점 `sol_eval.bosun_score`(B1 예정), 그 밖은 노트북 `sol_eval` → 회사 추론 엔드포인트 HTTPS, [[16-DECISIONS|ADR-025]]·[[21-MODEL-TRAINING|21]] §4.1).
+- 데이터셋 버전 · git commit · 질문 세트(`kev-qs/v0.1`·`v0.2`) · state 템플릿 버전 · 모델 식별자(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`, `Qwen/Qwen3.8-Flash-Next`는 회사 운영이라 `/v1/models`의 `id` 그대로) · 온도 · 실행 일시 · 실행 위치(E1'·E4는 회사 서버 안 오프라인 채점 `sol_eval.bosun_score`(B1 예정), 그 밖은 노트북 `sol_eval` → 회사 추론 엔드포인트 HTTPS, [[16-DECISIONS|ADR-025]]·[[21-MODEL-TRAINING|21]] §4.1).
 - E3는 회사 vLLM이 `prompt_logprobs`를 주는지 미검증이다(B2에서 확인). 판정 규칙과 유지·축소·제외 3안은 [E3 실험 설계](../plans/2026-10-19-e3-experiment-design.md)를 따른다.
 - 채우지 못한 칸의 이유.
 - E1' 오류 분석 요약(원인 코드 `PARSE` · `EXTRACTION` · `TRANSLATION` · `STATE` · `RULE` · `LABEL` · `MODEL` 건수).

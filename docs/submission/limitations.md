@@ -10,7 +10,7 @@ updated: 2026-10-21
 
 # 기술적 한계·미완성 항목·실행 모드 구분
 
-심사위원이 "어디까지가 실제이고 어디까지가 mock인가"를 묻기 전에 먼저 답하는 문서다. 정본은 [[18-HACKATHON|18 해커톤]] §7 정직성 표와 [[16-DECISIONS|16 ADR]] 미결정 표다. 2026-10-19 기준이며, 외부 의존성 컷 결정(10-20 저녁. 일정 근거는 ADR-027 폐기 뒤 [[16-DECISIONS|ADR-034]] 17번) 뒤 §4를 한 갈래로 확정한다. 모델은 2026-10-20 ADR-034로 바뀌었다: 결정 모델은 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`), 추출·설명 모델은 회사가 운영하는 vLLM API의 `Qwen/Qwen3.5-27B`다. 이 문서에서 "Kev"는 식별자(`/kev`·`KEV_*`·`kev-qs/*` 등)로만 남는다.
+심사위원이 "어디까지가 실제이고 어디까지가 mock인가"를 묻기 전에 먼저 답하는 문서다. 정본은 [[18-HACKATHON|18 해커톤]] §7 정직성 표와 [[16-DECISIONS|16 ADR]] 미결정 표다. 2026-10-19 기준이며, 외부 의존성 컷 결정(10-20 저녁. 일정 근거는 ADR-027 폐기 뒤 [[16-DECISIONS|ADR-034]] 17번) 뒤 §4를 한 갈래로 확정한다. 모델은 2026-10-20 ADR-034로 바뀌었다: 결정 모델은 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`), 추출·설명 모델은 회사 vLLM API(`https://acropolissg.com/vllm/v1`)의 `Qwen/Qwen3.8-Flash-Next`(2026-10-21 사용자 보고, `/v1/models` 대조는 B2)다. 이 문서에서 "Kev"는 식별자(`/kev`·`KEV_*`·`kev-qs/*` 등)로만 남는다.
 
 ## 1. 정직성 표 요약 (18 §7)
 
@@ -19,7 +19,7 @@ updated: 2026-10-21
 | 공고 | 실제 나라장터 공고(`is_demo=false`) | 가상 fixture 20건(`DEMO` 배지) | 가상 fixture 20건 |
 | 첨부·파싱 | **미구현**(설계: 실제 첨부를 allowlist `www.g2b.go.kr`로 내려받아 파싱. 지금은 첨부 목록만 저장하고 `PENDING`, 추출은 본문만) | **미구현**(fixture 첨부 샘플 없음) | **미구현** |
 | 회사 프로필 | **가상 솔리데오**(모든 모드, "가상 회사 프로필로 분석" 배지) | 가상 솔리데오 | 가상 솔리데오 |
-| Qwen 추출·설명 | 회사가 운영하는 vLLM API의 `Qwen/Qwen3.5-27B`(HTTPS) 실추론 | 실추론 | 고정 응답 |
+| Qwen 추출·설명 | 회사가 운영하는 vLLM API의 `Qwen/Qwen3.8-Flash-Next`(HTTPS) 실추론 | 실추론 | 고정 응답 |
 | 결정 모델(Bosun) | 회사 GPU 서버의 Bosun v3.1 0.6B 실추론(우리 `sol_decision` 서버), 참고 지표만, `UNCALIBRATED` | 실추론 | 고정 응답(`kev-qs/v0.1`, 모델 식별자 `mock`) |
 | mock 자동 대체 | 금지(켜면 기동 거부) | 금지(켜면 기동 거부. 해커톤 동안 미구현, ADR-030 B11) | 금지(처음부터 mock, 켜면 기동 거부) |
 
@@ -33,7 +33,7 @@ updated: 2026-10-21
 | 나라장터 API의 조회 기간 상한·면허제한 여러 행의 의미·키 오류 응답(resultCode 30·31·22) 형식 | 미검증. 실제 응답 자체는 **검증됨**(2026-10-19 C1 ① A1~A9, 4 서비스 37회, 마스킹 응답 14건 `fixtures/recorded/`) | 16 미결정 1번, `evidence-list.md` 1번, [API 호출 증거](../evidence/phase-0/external-deps-api-20261019.md) |
 | g2b 첨부 자동 다운로드의 이용약관상 허용 여부·HWP 5.0 표본 | 미검증. 익명 다운로드 자체는 **검증됨**(2026-10-19 C1 ② B1~B4, 3건 `www.g2b.go.kr` 익명 GET 200, 로그인·리다이렉트 0건) | 16 미결정 16 · 18번, `evidence-list.md` 2번 |
 | 결정 모델 엔드포인트(`https://acropolissg.com/sol-radar/kev` → `sol_decision` `:8009`)와 회사 Qwen API(`https://acropolissg.com/vllm/v1`)의 `/v1/models` 응답·지연, 회사 vLLM의 guided JSON·`prompt_logprobs`(E3) 지원, 바깥 nginx의 `/sol-radar` 접두어 처리, 회사 측 추가 인증. 하위 경로 `/kev`와 Bearer 키 인증은 GPU 서버 안 모델 라우터(`infra/gpu/model-router.conf`) 기준으로 **결정**(`/sol-radar/qwen`은 백업 경로, 미사용) | 미검증(B2에서 확인. Qwen API는 키·`/v1/models` 응답 확인만, `sol_decision` 기동은 사용자 승인 뒤) | 16 미결정 3 · 17 · 24번, [[16-DECISIONS\|ADR-025]]·[[16-DECISIONS\|ADR-034]], P0-0 ③ G1~G4 |
-| 회사 GPU 하드웨어·VRAM 점유·가중치 대조. 물리 GPU 1은 회사 PaddleOCR 서비스와 공유하고, 우리가 올리는 것은 Bosun 서빙·학습뿐이다(Qwen3.5-27B는 회사 API라 GPU 1을 쓰지 않는다) | 직접 측정 불가(서버 외부 접근 불가, 회사 운영). 회사가 주는 값이 있으면 기록, 없으면 "회사 운영, 미제공" | [[16-DECISIONS\|ADR-025]]·[[16-DECISIONS\|ADR-034]] 10번, P0-0 ③ G5 |
+| 회사 GPU 하드웨어·VRAM 점유·가중치 대조. 물리 GPU 1은 회사 PaddleOCR 서비스와 공유하고, 우리가 올리는 것은 Bosun 서빙·학습뿐이다(Qwen3.8-Flash-Next는 회사 API라 GPU 1을 쓰지 않는다) | 직접 측정 불가(서버 외부 접근 불가, 회사 운영). 회사가 주는 값이 있으면 기록, 없으면 "회사 운영, 미제공" | [[16-DECISIONS\|ADR-025]]·[[16-DECISIONS\|ADR-034]] 10번, P0-0 ③ G5 |
 | HWP·HWPX·PDF 파서 선택과 품질 | 후보 조사만. 실제 RFP 샘플 비교 전 | 16 미결정 4 · 20번 |
 | 첨부 원문(공고문·제안요청서)의 저작권·학습 사용 권리 | 미확인. 내부 분석만, 원문은 증거에 넣지 않음 | 16 미결정 18번 |
 | 면허제한 여러 행의 AND/OR | 미확인. 여러 행이면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`) | 16 미결정 19번 |
@@ -43,7 +43,7 @@ updated: 2026-10-21
 
 ## 3. 미완성·범위 밖
 
-**해커톤 안 미완성(2026-10-20)**: 첨부 다운로드 소비자(documents job)·`AttachmentTextReader`(C3 남은 것), 실모델 추론(C1 ③ 엔드포인트 응답 대기. `local` 어댑터 코드는 있다. Bosun·Qwen3.5-27B 전환 코드(ADR-034 B1)는 main 병합 전), 실추론 S-LIVE(C8. 규칙만 `PARTIAL`인 사전 run은 있다), 평가 하네스(X1), 파서 후보 비교(C1 ④). main 에 있는 것: 공고 스키마·RLS·`pnpm demo:reset`(`48b20a5`), 수집 핵심(`d933c9e`)·보조 조회 3종·호출 예산(`c6b16e3`·`2db27c1`), 규칙 엔진·골든(`e22de09`), gateway 4 엔드포인트 mock(`daf07a6`)·worker 분석 클라이언트·`PARTIAL` 대체(`c2b12d3`)·`local` 어댑터(`b4a23fc`)·보안 후속(`cfe8f0a`·`0a32e47`), 화면 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`와 Route Handler(C6 `4ae09f9`), 결정 기록·인앱 알림 2종(C7 `841b064`), `/people`·`/org-chart`(`7641ee4`), 수집 관리 `/admin/ingestion`(N8 `81249f0`). 진행 상태는 [[PROGRESS|진행 상황]].
+**해커톤 안 미완성(2026-10-20)**: 첨부 다운로드 소비자(documents job)·`AttachmentTextReader`(C3 남은 것), 실모델 추론(C1 ③ 엔드포인트 응답 대기. `local` 어댑터 코드는 있다. Bosun·Qwen 전환 코드(ADR-034 B1)는 main 병합 전), 실추론 S-LIVE(C8. 규칙만 `PARTIAL`인 사전 run은 있다), 평가 하네스(X1), 파서 후보 비교(C1 ④). main 에 있는 것: 공고 스키마·RLS·`pnpm demo:reset`(`48b20a5`), 수집 핵심(`d933c9e`)·보조 조회 3종·호출 예산(`c6b16e3`·`2db27c1`), 규칙 엔진·골든(`e22de09`), gateway 4 엔드포인트 mock(`daf07a6`)·worker 분석 클라이언트·`PARTIAL` 대체(`c2b12d3`)·`local` 어댑터(`b4a23fc`)·보안 후속(`cfe8f0a`·`0a32e47`), 화면 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`와 Route Handler(C6 `4ae09f9`), 결정 기록·인앱 알림 2종(C7 `841b064`), `/people`·`/org-chart`(`7641ee4`), 수집 관리 `/admin/ingestion`(N8 `81249f0`). 진행 상태는 [[PROGRESS|진행 상황]].
 
 **확장 컷으로 이월**(핵심 컷 green 뒤에만): 조직도·직원 목록 데모 노출, 설정 조직 탭, 인력 배치 시뮬레이션, 직원 편집, `/ops`, 사전규격·발주계획 단계 연결(P0-8), S5 변경 감지 장면. 평가셋 v0.1·학습셋 번들(P0-9·P0-11)은 파인튜닝 트랙 X6로 옮겼다(ADR-027. ADR-027 폐기 뒤 X6는 Bosun LoRA 트랙으로 남는다, [[16-DECISIONS|ADR-034]]).
 
@@ -57,7 +57,7 @@ updated: 2026-10-21
 
 | 갈래 | C1 결과 | 발표에서 말할 문장 |
 |---|---|---|
-| A | 공공 API 정상, GPU 정상 | "이 화면은 나라장터에서 실제로 수집한 공고를, 회사가 운영하는 Qwen3.5-27B와 회사 GPU 서버에서 돌린 결정 모델 Bosun으로 분석한 결과입니다. 회사 프로필은 가상이고, 실행 모드는 live입니다. 실행 로그는 증거 폴더에 있습니다." |
+| A | 공공 API 정상, GPU 정상 | "이 화면은 나라장터에서 실제로 수집한 공고를, 회사가 운영하는 Qwen3.8-Flash-Next와 회사 GPU 서버에서 돌린 결정 모델 Bosun으로 분석한 결과입니다. 회사 프로필은 가상이고, 실행 모드는 live입니다. 실행 로그는 증거 폴더에 있습니다." |
 | B | 공공 API 정상, GPU 불가 | "이 화면은 나라장터에서 실제로 수집한 공고입니다. 모델 엔드포인트에 연결하지 못해 규칙 기반 자격 판정과 점수만 있는 PARTIAL 결과이고, AI 추출과 결정 모델 참고 지표는 비어 있습니다. mock으로 대체하지 않았습니다." |
 | C | 공공 API 불가, GPU 정상 | "공공 API 호출이 막혀 실제 공고 대신 검증된 가상 공고(fixture)를 썼습니다. 분석은 회사 Qwen API와 결정 모델 서버의 실제 모델 추론이고, 실행 모드는 fixture입니다. 가상 공고라는 뜻으로 DEMO 배지가 붙어 있습니다." |
 | D | 둘 다 불가 | "오늘 시연은 가상 공고와 고정 AI 응답(mock 모드)입니다. 실제 API 응답·모델 엔드포인트 연결은 확보하지 못했고, 그 사실과 시도 기록을 증거 폴더에 그대로 남겼습니다. 실제 결과를 보여 드리지 못한 것은 저희 한계입니다." |
