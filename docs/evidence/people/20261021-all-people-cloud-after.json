@@ -1,0 +1,33 @@
+{
+  "phase": "after",
+  "people": 200,
+  "certificates": 200,
+  "projects": 401,
+  "fixedPeriodFte": 95.5,
+  "canonicalScorerFte": 95.5,
+  "assignments": 2,
+  "profileMatches": 200,
+  "preserved": {
+    "members": {
+      "count": 200,
+      "fingerprint": "5f2552a5119d8badba45f543d8200854"
+    },
+    "auth": {
+      "count": 5,
+      "fingerprint": "91814b7c49d44c01b639bdb1e00b752a"
+    },
+    "profiles": {
+      "count": 5,
+      "fingerprint": "e6054dcf1728e1e80102613071042fc3"
+    },
+    "scores": {
+      "count": 18,
+      "fingerprint": "8df18bf9fcd07b9a1c66efaeb14ee959"
+    },
+    "otherScoring": {
+      "count": 0,
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  },
+  "migration": "20261021000600"
+}

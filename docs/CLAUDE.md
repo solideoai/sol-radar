@@ -16,6 +16,7 @@ updated: 2026-10-21
 - 기술 스택: Next.js + Supabase(Postgres·RLS·Auth·Storage) + Redis/BullMQ + Qdrant + Python(Qwen3.8-Flash-Next + Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) + Docker Compose(`docs/16-DECISIONS.md` ADR-017). 이외로 임의 변경하지 않는다.
   - 코드는 `web/`(화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`), worker는 `web/worker`, 스키마·RLS는 `supabase/migrations/`(새 파일로만)에 둔다. 별도 API 서버·ORM은 두지 않는다(ADR-001·002 폐기). 해커톤 뒤에는 API·worker를 NestJS로 옮긴다(ADR-028). 그 전에는 위 구조로 구현한다.
   - Supabase가 맡는 것은 DB·Auth·private Storage다. 첨부는 Supabase Storage, 검색은 Qdrant, 큐는 Redis/BullMQ, 모델 호출은 AI gateway(`services/ai`)다.
+  - Vercel `frontend`는 회사 Gateway에 서비스 token+사용자 JWT로 HTTPS 접수한다. 회사 `redis-api`만 Redis TCP를 사용하고 웹에 service role을 넣지 않는다. 회사 Redis6379·HTTP loopback6380·기존 Nginx `/redis/`는 유지한다(ADR-045). 운영 전환은 검증 결과를 준비한 뒤 확인받는다.
   - 조직 데이터는 `org_id` + RLS, 업무 역할은 `memberships.sol_role`이다. service role 키는 worker·seed 스크립트와 사람이 로컬에서 직접 돌리는 운영자 CLI(`scripts/ops/`)만 쓴다. 웹 서버(Route Handler·서버 컴포넌트)와 클라이언트 번들에서는 쓰지 않는다. 클라우드 DB 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.
 - 순서: Phase 0 저장소 정리/인프라 구현 → 검증 → 보고 → 다음 Phase. 핵심 컷(`docs/12-ROADMAP.md` Critical Path)을 먼저 끝낸다.
 - `docs/09-SECURITY.md` 우선 준수. 미확인 외부 명세는 mock + ADR(`docs/16-DECISIONS.md`). 최종 결정은 사람이 한다.
@@ -30,7 +31,7 @@ updated: 2026-10-21
 - 해커톤 검증은 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] "해커톤 검증 정책"(ADR-046)을 우선한다. 개발 중 `pnpm verify:changed`, 통합·제출 전 전체 `pnpm verify`를 실행한다. 같은 코드·입력·환경에서 통과한 검사를 중복 실행하지 않는다. Compose·전체 E2E·독립 리뷰는 변경 영향과 통합 시점에 맞춰 실행한다. 이 정책이 템플릿 및 개별 스킬의 매 단계 전체 검증 지시보다 우선한다.
 - 이 `docs/` 폴더는 Obsidian vault다. 문서를 고칠 때 frontmatter와 위키링크 규약(`docs/00-README.md` Obsidian 규약 절)을 유지한다.
 - 2026-10-21 사용자 추가 지시로 시험 자체도 MVP 핵심으로 축소했다(ADR-046 개정). 이전 문서·스킬의 전수 행렬·템플릿 회귀를 다시 만들지 않는다. 현재 목록과 삭제 범위는 `docs/evidence/verification/20261021-pruned-tests.json`, 기준은 [[11-TESTING|11 테스트]] "현재 MVP 자동 시험"이다.
-- `docs/boilerplate/`는 출발 템플릿(agentic-boilerplate)의 문서다. Supabase·인증·DB 정책 문서는 적용하고, Expo 앱 문서는 적용하지 않으며, Vercel·EAS 배포 문서는 배포처가 정해질 때까지 보류한다. 이 vault의 문서와 충돌하면 이 vault의 문서를 따른다(분류: `docs/boilerplate/README.md`).
+- `docs/boilerplate/`는 출발 템플릿(agentic-boilerplate)의 문서다. Supabase·인증·DB 정책 문서는 적용하고, Expo 앱 문서는 적용하지 않으며, Vercel Services 배포는 `docs/10-DEPLOYMENT.md`·ADR-044를 따른다. 템플릿의 단일 웹 배포·EAS 문서는 적용하지 않는다. 이 vault의 문서와 충돌하면 이 vault의 문서를 따른다(분류: `docs/boilerplate/README.md`).
 
 ## 관련 문서
 

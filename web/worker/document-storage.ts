@@ -30,7 +30,11 @@ export type StoredObject = {
   sizeBytes: number;
   mimeType: string;
 };
-const claimSchema = z.object({ id: z.guid(), status: z.enum(["UPLOADING", "STORED", "ERROR"]) });
+const claimSchema = z.object({
+  id: z.guid(),
+  path: z.string().min(1),
+  status: z.enum(["UPLOADING", "STORED", "ERROR"]),
+});
 const deleteSchema = z.object({ id: z.guid(), bucket: z.string(), path: z.string() });
 const checksum = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
@@ -78,13 +82,17 @@ function isDuplicate(error: { statusCode?: string | number; message: string }): 
 
 export function createDocumentStorage(client: SupabaseClient<Database>, settings: StorageSettings) {
   async function uploadImmutable(input: UploadInput): Promise<StoredObject> {
-    const object = describeUpload(input, settings);
+    const logicalObject = describeUpload(input, settings);
     const leaseToken = randomUUID();
     const { data, error } = await client.rpc("claim_document_storage", {
-      p: { ...object, leaseToken },
+      p: { ...logicalObject, leaseToken },
     });
     const claimed = claimSchema.safeParse(data);
     if (error || !claimed.success) throw new Error("storage_claim_failed");
+    const expectedPath = logicalObject.path.replace(/\/([^/]+)$/, `/${claimed.data.id}/$1`);
+    if (claimed.data.path !== expectedPath && claimed.data.path !== logicalObject.path)
+      throw new Error("storage_claim_path_mismatch");
+    const object = { ...logicalObject, path: claimed.data.path };
     const bucket = client.storage.from(object.bucket);
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const uploaded = await bucket.upload(object.path, input.bytes, {

@@ -22,10 +22,33 @@ const memberSchema = z.strictObject({
   scoringEligible: z.boolean(),
   isDemo: z.literal(true),
 });
+const certificationSchema = z.strictObject({
+  code: z.string(),
+  name: z.string(),
+  issuedAt: z.iso.date(),
+  expiresAt: z.iso.date(),
+  isDemo: z.literal(true),
+  evidenceRef: z.string().startsWith("synthetic:"),
+});
+const pastProjectSchema = z.strictObject({
+  projectId: z.string(),
+  name: z.string(),
+  domain: z.string(),
+  role: z.string(),
+  startsAt: z.iso.date(),
+  endsAt: z.iso.date(),
+  skills: z.array(z.string()),
+  isDemo: z.literal(true),
+  evidenceRef: z.string().startsWith("synthetic:"),
+});
 const scoringSchema = z.strictObject({
   role: z.string(),
   grade: z.string().nullable(),
   skills: z.array(z.string()),
+  certifications: z.array(certificationSchema).min(1),
+  pastProjects: z.array(pastProjectSchema).min(1),
+  capabilitySource: z.literal("SYNTHETIC"),
+  capabilityVersion: z.literal("synthetic-people/v1"),
   availability: z.array(
     z.strictObject({
       startsAt: z.iso.date(),
@@ -210,7 +233,7 @@ export function registerPeopleReadTests() {
         expect(z.array(titleSchema).parse(await titles.json())).toHaveLength(12);
         expect(first.items).toHaveLength(20);
         expect(first.totalCount).toBe(200);
-        expect(first.summary).toEqual({ totalCount: 200, scoringCount: 27 });
+        expect(first.summary).toEqual({ totalCount: 200, scoringCount: 200 });
         const detail = await get(request, `/api/v1/team-members/${first.items[0].id}`, role);
         expect(detail.status()).toBe(200);
         detailSchema.parse(await detail.json());
@@ -232,7 +255,7 @@ export function registerPeopleReadTests() {
       });
     }
 
-    test("all200 pagination, catalogs, hierarchy aggregates and27/173 details are complete", async ({
+    test("all200 pagination, catalogs, hierarchy aggregates and200 calculation details are complete", async ({
       request,
     }) => {
       test.setTimeout(120_000);
@@ -262,6 +285,10 @@ export function registerPeopleReadTests() {
               role: z.string(),
               grade: z.string().nullable(),
               skills: z.array(z.string()),
+              certifications: z.array(certificationSchema).min(1),
+              pastProjects: z.array(pastProjectSchema).min(1),
+              capabilitySource: z.literal("SYNTHETIC"),
+              capabilityVersion: z.literal("synthetic-people/v1"),
               availability: z.array(windowSchema),
             }),
           ),
@@ -365,13 +392,17 @@ export function registerPeopleReadTests() {
             role: expected?.role,
             grade: expected?.grade,
             skills: expected?.skills,
+            certifications: expected?.certifications,
+            pastProjects: expected?.pastProjects,
+            capabilitySource: expected?.capabilitySource,
+            capabilityVersion: expected?.capabilityVersion,
             availability: expected && seededAvailability(expected.personId, expected.availability),
           });
         } else expect(detail.scoring).toBeNull();
       }
-      expect(scoringCount).toBe(27);
-      expect(await allMembers(request, new URLSearchParams({ scoring: "1" }))).toHaveLength(27);
-      expect(await allMembers(request, new URLSearchParams({ scoring: "0" }))).toHaveLength(173);
+      expect(scoringCount).toBe(200);
+      expect(await allMembers(request, new URLSearchParams({ scoring: "1" }))).toHaveLength(200);
+      expect(await allMembers(request, new URLSearchParams({ scoring: "0" }))).toHaveLength(0);
     });
 
     test("Opaque cursors bind org/filter/limit, reject tampering and support previous", async ({
@@ -428,7 +459,7 @@ export function registerPeopleReadTests() {
         }),
       );
       expect(matching.items.map(({ id }) => id)).toEqual([first.id]);
-      expect(matching.summary).toEqual({ totalCount: 200, scoringCount: 27 });
+      expect(matching.summary).toEqual({ totalCount: 200, scoringCount: 200 });
       expect(
         (await list(request, new URLSearchParams({ q: "존재하지않는가상인물" }))).totalCount,
       ).toBe(0);

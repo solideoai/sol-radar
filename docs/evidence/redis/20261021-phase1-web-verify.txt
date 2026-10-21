@@ -1,0 +1,144 @@
+
+> sol-radar-web@0.1.0 verify /Users/leegwanghui/dev/hackathon/sol-radar/web
+> pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors && pnpm build
+
+
+> sol-radar-web@0.1.0 format:check /Users/leegwanghui/dev/hackathon/sol-radar/web
+> prettier --check . --ignore-path ../.gitignore --ignore-path ../.prettierignore
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar-web@0.1.0 type-check /Users/leegwanghui/dev/hackathon/sol-radar/web
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> sol-radar-web@0.1.0 lint /Users/leegwanghui/dev/hackathon/sol-radar/web
+> eslint
+
+
+> sol-radar-web@0.1.0 check:lint-guards /Users/leegwanghui/dev/hackathon/sol-radar/web
+> node ../scripts/check-lint-guards.mjs
+
+✓ 린트 가드레일 유지 — 주석·any·@ts-ignore·.only·.skip 으로 검사를 끌 수 없습니다
+
+> sol-radar-web@0.1.0 test /Users/leegwanghui/dev/hackathon/sol-radar/web
+> vitest run
+
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+
+ Test Files  222 passed (222)
+      Tests  6900 passed (6900)
+   Start at  18:06:10
+   Duration  24.31s (transform 20.81s, setup 0ms, import 86.17s, tests 71.62s, environment 40ms)
+
+
+> sol-radar-web@0.1.0 lodestar /Users/leegwanghui/dev/hackathon/sol-radar/web
+> lodestar check
+
+  [32m✓[0m architecture/layers  [2m739 files, 7 layers[0m  [2m732ms[0m
+  [32m✓[0m architecture/no-circular  [2m810 modules[0m  [2m764ms[0m
+  2 rules passed, 0 errors, 0 warnings [2m(768ms)[0m
+
+> sol-radar-web@0.1.0 check:tokens /Users/leegwanghui/dev/hackathon/sol-radar/web
+> node ../scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar-web@0.1.0 check:colors /Users/leegwanghui/dev/hackathon/sol-radar/web
+> bash ../scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용
+
+> sol-radar-web@0.1.0 build /Users/leegwanghui/dev/hackathon/sol-radar/web
+> next build
+
+▲ Next.js 16.4.1 (Turbopack)
+- Environments: .env.local
+✓ Running next.config.ts took 112ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 4.2s
+  Running TypeScript ...
+  Finished TypeScript in 7.5s ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/41) ...
+  Generating static pages using 10 workers (10/41) 
+  Generating static pages using 10 workers (20/41) 
+  Generating static pages using 10 workers (30/41) 
+✓ Generating static pages using 10 workers (41/41) in 580ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /[slug]
+├ ƒ /[slug]/dashboard
+├ ƒ /[slug]/settings
+├ ƒ /[slug]/settings/members
+├ ƒ /[slug]/settings/team
+├ ƒ /[slug]/tasks
+├ ƒ /admin
+├ ƒ /admin/ingestion
+├ ƒ /api/admin/users/[id]/status
+├ ƒ /api/auth/identities/[id]
+├ ƒ /api/auth/logout-all
+├ ƒ /api/auth/me
+├ ƒ /api/auth/providers
+├ ƒ /api/users/me
+├ ƒ /api/v1/admin/ai/status
+├ ƒ /api/v1/admin/ingestion/runs
+├ ƒ /api/v1/admin/ingestion/runs/[id]
+├ ƒ /api/v1/analyses/[id]
+├ ƒ /api/v1/analyses/[id]/what-if
+├ ƒ /api/v1/bids
+├ ƒ /api/v1/bids/[id]
+├ ƒ /api/v1/bids/[id]/analyses
+├ ƒ /api/v1/bids/[id]/qualification-checks
+├ ƒ /api/v1/bids/[id]/reviews
+├ ƒ /api/v1/company-profile
+├ ƒ /api/v1/company-profile/revisions
+├ ƒ /api/v1/dashboard/summary
+├ ƒ /api/v1/departments
+├ ƒ /api/v1/job-titles
+├ ƒ /api/v1/me/employment
+├ ƒ /api/v1/notifications
+├ ƒ /api/v1/notifications/[id]/read
+├ ƒ /api/v1/signup-options
+├ ƒ /api/v1/team-members
+├ ƒ /api/v1/team-members/[id]
+├ ƒ /auth/account
+├ ƒ /auth/callback
+├ ƒ /auth/complete-profile
+├ ƒ /auth/confirm
+├ ƒ /auth/login
+├ ƒ /auth/organization-state
+├ ƒ /auth/password
+├ ƒ /auth/reset
+├ ƒ /auth/sign-up
+├ ƒ /bids
+├ ƒ /bids/[id]
+├ ƒ /company
+├ ƒ /dashboard
+├ ƒ /health
+├ ƒ /health/live
+├ ƒ /health/ready
+├ ○ /icon.svg
+├ ƒ /invitations
+├ ƒ /memos
+├ ƒ /notifications
+├ ƒ /org-chart
+├ ƒ /people
+├ ƒ /settings
+└ ƒ /teams/new
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

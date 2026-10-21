@@ -70,7 +70,7 @@ updated: 2026-10-21
 |GET|`/team-members/:id`|`ADMIN, SALES, ANALYST, VIEWER`|개인 상세(ADR-021). 점수 계산 대상이면 직무·등급·스킬·가용성|`TeamMemberDetail`(§4.7)|
 |PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|P1 착수 때 zod 계약으로 정한다|
 |GET|`/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|조직 분석 이력. 비교는 `GET /analyses/:id`를 최대 4번 부른다(P1, ADR-021)|`?bidId&status&recommendation&runMode&cursor` → `Page`(항목 형태는 P1 착수 때 정한다)|
-|GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 27명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=` → P1 착수 때 정한다|
+|GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 200명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=` → P1 착수 때 정한다|
 |POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사). 점수 속성은 받지 않는다(P1, ADR-021)|P1 착수 때 정한다|
 |GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 BID 결정(`reviewId`) 필수(P1, ADR-021)|BID 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
 |GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 BID가 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
@@ -494,11 +494,11 @@ interface TeamMemberListItem {
   id: string; personCode: string; name: string;  // personCode = SOL-P0001~SOL-P0200
   departmentId: string; jobTitleId: string;      // 소속은 팀만
   portraitUrl: string | null;                    // 없으면 이니셜로 대신 표시
-  scoringEligible: boolean;                      // team_member_scoring 행이 있는 27명
+  scoringEligible: boolean;                      // team_member_scoring 행이 있는 200명
   isDemo: true;
 }
 interface TeamMemberDetail extends TeamMemberListItem {
-  scoring: { role: string; grade: string | null; skills: unknown[]; availability: unknown[] } | null;  // 점수 계산 대상만. 원소 형태는 SOL Score 입력 `AnalysisInput.team.members`(15)·`TeamAvailability`(08 §3.3)와 같은 zod 스키마를 쓴다. 조직 구성원 누구나 읽는다(RLS로 다른 조직 0행)
+  scoring: { role: string; grade: string | null; skills: unknown[]; availability: unknown[]; certifications?: unknown[]; pastProjects?: unknown[]; capabilitySource?: "UNSPECIFIED" | "SYNTHETIC"; capabilityVersion?: string | null } | null;  // 점수 계산 대상만. 원소 형태는 SOL Score 입력 `AnalysisInput.team.members`(15)·`TeamAvailability`(08 §3.3)와 같은 zod 스키마를 쓴다. 조직 구성원 누구나 읽는다(RLS로 다른 조직 0행)
 }
 ```
 
@@ -784,6 +784,24 @@ interface KakaoNotifyEnabledInput { enabled: boolean }
 - 연결: `GET /me/kakao-notify/connect`가 짧은 수명의 `state`(CSRF 방지)를 만들고 카카오 인가로 보낸다. 콜백은 `state`를 확인하고, 코드를 토큰으로 바꾸고, 응답 `scope`에 `talk_message`가 없으면 저장하지 않는다. 결과는 `/settings?kakao=connected|consent_denied|state_mismatch|failed`로 돌려 보내고 설정 화면이 문구로 보인다. 토큰은 서버에서 암호화해 RPC `save_kakao_notify_link`로 저장하고 연결과 함께 켠다([[04-DATABASE|04 DB]] §3.1, [[09-SECURITY|09 보안]]).
 - 켜기·끄기·해제는 RPC `set_kakao_notify_enabled`·`disconnect_kakao_notify`를 부른다. 시험 메시지는 `request_kakao_notify_test`가 outbox `KAKAO_TEST`를 넣고 worker가 보낸다(1분에 한 번).
 - 응답 코드(204·202·302·409·429)는 [계획](plans/2026-10-20-kakao-memo-notify-plan.md) Task 6의 값이다. 구현이 바뀌면 이 절을 고친다.
+
+## Redis HTTPS 접수 경계 (ADR-045, Phase 1)
+
+사용자용 `/api/v1` 경로·Supabase 세션·업무 RBAC/RLS 계약은 유지한다. Vercel `frontend`의 분석/수집 POST만 회사 Next.js `redis-api`로 전달한다. 외부 prefix는 `https://acropolissg.com/redis`, Nginx는 `/redis/`를 제거하며 설정을 변경하지 않는다.
+
+| 회사 Gateway 외부 경로 | 메서드 | 인증 | 응답 |
+| --- | --- | --- | --- |
+| `/redis/health` | GET | `X-Sol-Service-Token` | 기존 readiness 상태, 200/503; 토큰 실패401 |
+| `/redis/api/v1/bids/{id}/analyses` | POST | 서비스 token + 사용자 Bearer | 기존202 AnalysisAccepted·pollUrl |
+| `/redis/api/v1/analyses/{id}` | GET | 동일 | 기존 분석 상태/결과·타 조직404 |
+| `/redis/api/v1/admin/ingestion/runs` | POST | 동일 + 업무 ADMIN | 기존202 IngestionRun |
+| `/redis/api/v1/admin/ingestion/runs/{id}` | GET | 동일 + 업무 ADMIN | 기존 수집 실행, Worker 행 생성 전404 가능 |
+
+서비스 token은 서버 전용32바이트 이상 난수이며 사용자 JWT와 별도다. token만으로 업무 권한을 만들지 않는다. 비허용 경로·임의 Redis 명령은404다. Cookie·refresh token·신뢰되지 않은 org/role 헤더는 전달하지 않는다. 요청16KiB, 접수 HTTP 전체15초 상한, 최대1회 재시도 시 동일 Idempotency-Key/본문을 쓴다. 429/Retry-After·409는 보존하고 upstream 502/HTML/잘못된 응답은503 `SERVICE_UNAVAILABLE`(`component:redis-api`)로 정규화한다.
+
+현재 수집/분석의 Redis·DB crash 경계는 기존대로다. durable dispatch와 예산 예약 정확성 보강은 후속 단계이므로 무손실/정확히1회 실행을 이 API의 검증 결과로 주장하지 않는다. 자세한 운영·승인 경계는 [[10-DEPLOYMENT|10 배포]]와 [[2026-10-21-redis-gateway-supabase-storage-migration|전환 계획]]을 따른다.
+
+Next 설정의 기존 별칭(`/account`, `/favicon.ico`)과 trailing slash 정규화는 Proxy 이전308일 수 있으며 목적지에서 허용 경로·인증을 다시 적용한다. Gateway client는 redirect를 따라가지 않는다. Readiness는 backend2초 probe에 전송 여유를 준 별도5초 상한이며 AI만 지연되면200/degraded를 유지한다.
 
 ## 관련 문서
 

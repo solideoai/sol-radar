@@ -16,13 +16,20 @@ function harness() {
   let rejectCommit = false;
   let deletes = 0;
   let loseResponse = false;
+  let legacyPath = false;
   const fetcher: typeof fetch = async (url, init) => {
     const request = new Request(url, init);
     const pathname = new URL(request.url).pathname;
     if (pathname.startsWith("/rest/v1/rpc/")) {
       const { p } = await request.json();
-      if (pathname.endsWith("claim_document_storage"))
-        return Response.json({ id: "0b1ec000-0000-0000-0000-000000000011", status: "UPLOADING" });
+      if (pathname.endsWith("claim_document_storage")) {
+        const id = "0b1ec000-0000-0000-0000-000000000011";
+        return Response.json({
+          id,
+          path: legacyPath ? String(p.path) : String(p.path).replace(/\/([^/]+)$/, `/${id}/$1`),
+          status: legacyPath ? "STORED" : "UPLOADING",
+        });
+      }
       if (rejectCommit) return Response.json({ message: "db unavailable" }, { status: 503 });
       commits.push(p);
       return Response.json(null);
@@ -64,11 +71,43 @@ function harness() {
     loseResponse: () => {
       loseResponse = true;
     },
+    useLegacyPath: () => {
+      legacyPath = true;
+    },
     deletes: () => deletes,
   };
 }
 
 describe("immutable document Storage (real Supabase SDK transport)", () => {
+  it("reuses legacy bytes at the unchanged physical path returned by the upgraded ledger", async () => {
+    const h = harness();
+    h.useLegacyPath();
+    const sha = createHash("sha256").update(bytes).digest("hex");
+    const path = `raw/bids/${bidId}/${revisionId}/${sha}.pdf`;
+    h.objects.set(`${settings.rawBucket}/${path}`, bytes);
+    const stored = await h.storage.uploadImmutable({
+      kind: "raw",
+      documentId,
+      bidId,
+      revisionId,
+      bytes,
+    });
+    expect(stored.path).toBe(path);
+    expect(h.objects.size).toBe(1);
+    expect(h.objects.get(`${settings.rawBucket}/${path}`)).toEqual(bytes);
+  });
+  it("uploads and verifies the physical incarnation returned by the ledger, not the logical deduplication path", async () => {
+    const h = harness();
+    const stored = await h.storage.uploadImmutable({
+      kind: "raw",
+      documentId,
+      bidId,
+      revisionId,
+      bytes,
+    });
+    expect(stored.path).toContain("/0b1ec000-0000-0000-0000-000000000011/");
+    expect(h.objects.get(`${stored.bucket}/${stored.path}`)).toEqual(bytes);
+  });
   it("recovers an upload response lost after the server stored the bytes", async () => {
     const h = harness();
     h.loseResponse();

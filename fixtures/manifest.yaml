@@ -85,7 +85,7 @@ fixtures:
   - id: FX-15
     stage: NOTICE
     tags: [normal, scale-exceeded]
-    expected: { outcome: WATCH, designScore: 58 }
+    expected: { outcome: WATCH, designScore: 68 }
   - id: FX-16
     stage: NOTICE
     tags: [normal, G3, excluded-domain, mandatory-unmet, kev-agreement]

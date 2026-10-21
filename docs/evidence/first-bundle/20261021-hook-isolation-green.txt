@@ -1,0 +1,37 @@
+file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/verify-changed.mjs:15
+      throw new Error(
+            ^
+
+Error: 변경 파일을 읽을 수 없습니다: fatal: bad revision 'missing-branch'
+    at read (file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/verify-changed.mjs:15:13)
+    at changedFiles (file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/verify-changed.mjs:22:10)
+    at file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/[eval1]:2:37
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:230:26)
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:227:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.16.0
+✔ 웹 변경에는 웹 검사만 실행하고 루트 DB·Python 검사를 넣지 않는다 (5.990708ms)
+✔ Python 변경에는 해당 서비스 검사만 실행한다 (2.598708ms)
+✔ 실행 중 읽는 Markdown 프롬프트는 AI 서비스 검사를 실행한다 (1.290125ms)
+✔ AI 결정 모델 계약 변경은 decision의 서비스 간 호환 시험도 실행한다 (5.858584ms)
+✔ 결정 서버의 worker 응답 fixture 변경은 웹 wire 호환 시험도 실행한다 (1.602ms)
+✔ 실행 모드 계약 변경은 Node 환경변수·승인 정책 시험도 실행한다 (1.195875ms)
+✔ 새 마이그레이션은 DB 정책·타입과 의존 프로젝트 검사를 포함한다 (1.30925ms)
+✔ DB 타입 생성물을 직접 바꿔도 정본 일치 검사를 실행한다 (0.991333ms)
+✔ 파서 입력 PDF fixture는 문서로 제외하지 않고 의존 검사를 실행한다 (1.049458ms)
+✔ 문서·증거·발표자료만 바뀌면 코드 검사를 실행하지 않는다 (1.12425ms)
+✔ 미분류 코드와 검증 설정 변경은 전체 quick 검사로 넓힌다 (2.820791ms)
+✔ 커밋 훅의 Git 환경에서도 임시 저장소 시험은 호출 저장소를 바꾸지 않는다 (535.958ms)
+✔ 실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다 (228.981042ms)
+✔ 기준 커밋을 지정하면 이미 커밋한 변경도 검사한다 (282.986375ms)
+✔ CLI dry-run은 실행 없이 명령을 보여 주고 실제 실행은 첫 실패에서 멈춘다 (507.605417ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1671.230959

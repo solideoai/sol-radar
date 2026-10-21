@@ -220,8 +220,8 @@ flowchart LR
 
 | private bucket | 저장 대상 / 경로 |
 | --- | --- |
-| `bid-documents` | 원본 PDF/HWP/HWPX 및 첨부. 기존 `raw/bids/{bidId}/{revisionId}/{sha256}.{ext}` 유지 |
-| `bid-parsed` | `parsed/bids/{bidId}/{revisionId}/{rawSha256}/{parserVersionHash}/result.json`에 text/pages/blocks/quality·text SHA 보존 |
+| `bid-documents` | 원본 PDF/HWP/HWPX 및 첨부. 논리 키는 `raw/bids/{bidId}/{revisionId}/{sha256}.{ext}`, 실제 키는 파일명 앞에 `{objectId}/` 디렉터리 추가 |
+| `bid-parsed` | 논리 키 `parsed/bids/{bidId}/{revisionId}/{rawSha256}/{parserVersionHash}/result.json`, 실제 키는 파일명 앞에 `{objectId}/` 디렉터리 추가. text/pages/blocks/quality·text SHA 보존 |
 | `ai-training` | 필요한 export만 `orgs/{orgId}/datasets/{datasetVersion}/{sha256}.{ext}`. 실제 사용 단계에서 생성, manifest·출처·org 권한 필수 |
 
 - 원본 상한은 기존 **52,428,800 bytes(50 MiB)**, 0 byte 거절. MIME·확장자뿐 아니라 magic bytes로 판정한다. global/bucket 한도를 모두 맞추고 실제 project 설정을 확인한다.
@@ -243,7 +243,7 @@ flowchart LR
 
 추가 열: `storage_bucket`, `text_storage_bucket`, `uploaded_at`, `parsed_at`, `download_error_message`, `parse_error_message`, `raw_storage_id`, `parsed_storage_id`, `processing_attempt_id`, `processing_lease_until`. 오류 메시지는 안전한 최대 500자 요약이고 원본 URL query·token·문서 본문을 포함하지 않는다. parser 버전과 원본/text SHA는 parsed manifest에도 보존한다.
 
-신규 `document_storage_objects`는 논리적 문서 복제가 아니라 **물리 object의 업로드/삭제 lease 원장**이다. bucket+path UNIQUE, SHA/size/MIME, 상태 `UPLOADING|STORED|DELETE_PENDING|ERROR`, lease token/기한·오류·시각을 둔다. 사용자 직접 권한은 닫고 Worker만 조작한다. `bid_documents`의 기존 key와 원장 참조가 어긋나지 않게 원자적 확정 RPC로만 연결한다.
+신규 `document_storage_objects`는 논리적 문서 복제가 아니라 **물리 object의 업로드/삭제 lease 원장**이다. bucket+logical_path UNIQUE로 중복을 재사용하고 bucket+path UNIQUE로 UUID 세대별 실제 파일을 구분한다. 삭제한 경로는 재사용하지 않으며 claim이 실제 경로를 반환한다. SHA/size/MIME, 상태 `UPLOADING|STORED|DELETE_PENDING|ERROR`, lease token/기한·오류·시각을 둔다. 사용자 직접 권한은 닫고 Worker만 조작한다. `bid_documents`의 실제 key와 원장 참조가 어긋나지 않게 원자적 확정 RPC로만 연결한다.
 
 1. DB에 object 업로드 의도·lease를 먼저 남긴다. 동일 bucket/path 동시 업로드는 원장 고유키/CAS로 조정한다.
 2. Worker가 검증한 바이트를 Storage API로 업로드하고 hash/size를 확인한다. 실패 시 원장 ERROR, 문서 download 실패 사유 기록, 재시도 시 재사용 여부 확인이다.

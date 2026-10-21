@@ -298,7 +298,7 @@ export const DEMO_REVIEWS = [
     decision: "BID",
     systemRecommendation: "BID",
     reason:
-      "자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인력 12 FTE 대비 가용 20 FTE. 사전 검토에서 입찰 참여로 결정했다.",
+      "자격 3건 모두 충족, 필수 기술 5개 보유, 필요 인력 12 FTE 대비 가용 95.5 FTE. 사전 검토에서 입찰 참여로 결정했다.",
   },
   {
     fixtureId: "FX-03",
@@ -329,7 +329,7 @@ export const toReviewRows = ({ bids, reviewerId, decidedAt }) =>
   });
 
 // 04 §6: 배정 2건, 기간 충돌 1건 포함. 두 사람 모두 명부 fixture 에서 2026-12~2027-07 에 100% 배정돼 있어
-// (people.json assignments, 27명 중 7명 → 가용 20 FTE) 점수 계산의 가용 FTE 가 바뀌지 않는다. SOL-P0012 의
+// (people.json assignments, 200명 중 기존 배정 7명 차감 → 가용 95.5 FTE) 점수 계산의 가용 FTE 가 바뀌지 않는다. SOL-P0012 의
 // FX-01 배정은 그 기존 배정과 기간이 겹치는 충돌 사례다.
 export const DEMO_ASSIGNMENTS = [
   {

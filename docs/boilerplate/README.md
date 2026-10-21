@@ -5,7 +5,7 @@ SOL RADAR 설계 문서는 상위 `docs/` 의 번호 문서(`00-README.md` ~ `20
 
 - SOL RADAR 는 [16 ADR](../16-DECISIONS.md) ADR-017(2026-10-16)부터 템플릿과 같은 Next.js(`web/`) + Supabase(Postgres·RLS·Auth) 구조를 씁니다.
   그래서 Supabase 데이터·인증 문서는 번호 문서와 부딪히지 않는 범위에서 그대로 적용합니다. Expo 앱(`mobile/`)은 지웠고(ADR-007) 문서에 남아 있던 앱(Expo·EAS) 내용도 걷어 냈습니다(2026-10-18).
-  Vercel 배포 문서는 배포처가 정해질 때까지 보류합니다(16 ADR 미결정 8번).
+  Vercel Services 배포는 [10 배포](../10-DEPLOYMENT.md)·ADR-044를 따릅니다. 이 폴더의 단일 웹 배포 문서는 과거 템플릿 기록입니다.
 - 템플릿 원본에만 있는 도구(`pnpm bootstrap`·`pnpm smoke:template`·`scripts/template/`·`.github/workflows/template.yml`)의 사용법도 걷어 냈습니다. 이 저장소에는 그 도구가 없습니다.
 - 지우지 않고 둔 이유: 템플릿 코드(`web/`·`supabase/`·`scripts/`)와 스킬·에이전트(`.claude/`)·`AGENTS.md` 가 이 문서를 가리키고, SOL RADAR 도 같은 구조를 씁니다.
   템플릿 견본 도메인(작업 `tasks` 등)을 정리할 때 해당 절을 함께 정리합니다.
@@ -26,7 +26,7 @@ SOL RADAR 설계 문서는 상위 `docs/` 의 번호 문서(`00-README.md` ~ `20
 | | [AUTH-TESTING.md](AUTH-TESTING.md) | 인증 자동·수동 시험 | 시험 방식(PGlite 정책 시험 `pnpm test:db`·Vitest·`test:e2e:auth`)은 적용. 골든·수용 기준은 [11 테스트](../11-TESTING.md) 우선. OAuth 수동 확인은 제공자를 설정한 뒤 한다(ADR-018 후순위) |
 | | [SUPABASE-SETUP.md](SUPABASE-SETUP.md) | Supabase 프로젝트·환경 변수·대시보드·첫 운영자 | 적용(개발은 Supabase 클라우드 프로젝트). 제공자 줄은 적용(ADR-018 후순위). manual linking(로그인 수단 연결)은 Phase 0 템플릿 정리에서 정한다. SOL RADAR 환경 변수 전체는 [10 배포](../10-DEPLOYMENT.md) 우선. Auth 세부 설정값은 16 ADR 미결정 10번 |
 | | [OAUTH-PROVIDERS.md](OAUTH-PROVIDERS.md) | 구글·카카오·네이버 제공자 설정 | 적용(ADR-018). 제공자 설정은 다른 기능을 모두 끝낸 뒤 한다(후순위). 데모 로그인은 seed 계정의 이메일 + 비밀번호 |
-| 배포 — 보류 | [first-deployment.md](first-deployment.md) | 웹 Vercel 첫 배포 | 웹 배포처가 미결정이라 보류(16 ADR 미결정 8번). 공개·비밀 환경 변수 구분 원칙은 참고. 서비스 실행은 [10 배포](../10-DEPLOYMENT.md)(Docker Compose) 우선 |
+| 배포 — 보류 | [first-deployment.md](first-deployment.md) | 웹 Vercel 첫 배포 | 단일 웹 배포의 과거 템플릿 기록. 현행 Vercel Services 설정은 [10 배포](../10-DEPLOYMENT.md)·ADR-044가 정본 |
 
 적용 근거: [16 ADR](../16-DECISIONS.md) ADR-017(Next.js + Supabase 전환)과 ADR-015(지침 우선순위 갱신).
 적용하지 않거나 보류하는 근거: ADR-007(모바일·결제 제외), 16 ADR 미결정 8번(데모·배포 실행 환경).

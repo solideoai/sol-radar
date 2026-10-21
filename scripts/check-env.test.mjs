@@ -26,6 +26,47 @@ const WEB_BASE = {
   API_CURSOR_SECRET: "c".repeat(32),
 };
 
+test("checkEnv: frontend requires HTTPS service API, not Redis TCP/MinIO/AI direct URLs", async () => {
+  const web = {
+    NEXT_PUBLIC_SUPABASE_URL: WEB_BASE.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: WEB_BASE.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    API_CURSOR_SECRET: WEB_BASE.API_CURSOR_SECRET,
+    SOL_DEPLOYMENT_ROLE: "frontend",
+    REDIS_API_BASE_URL: "https://acropolissg.com/redis",
+    REDIS_API_TOKEN: "test-only-service-token-0123456789-abcdefghijklmnopqrstuvwxyz",
+  };
+  await withRoot({ web }, async (root) => {
+    assert.equal((await checkEnv({ root })).ok, true);
+  });
+  await withRoot(
+    {
+      web: {
+        ...web,
+        REDIS_URL: "redis://redis:6379",
+        NEXT_PUBLIC_REDIS_API_TOKEN: "test-only-never-public",
+      },
+    },
+    async (root) => {
+      const result = await checkEnv({ root });
+      assert.ok(result.problems.some((p) => p.key === "REDIS_URL" && p.code === "FORBIDDEN_KEY"));
+      assert.ok(
+        result.problems.some(
+          (p) => p.key === "NEXT_PUBLIC_REDIS_API_TOKEN" && p.code === "FORBIDDEN_KEY",
+        ),
+      );
+    },
+  );
+});
+
+test("checkEnv: redis-api needs a server token and rejects an unknown role", async () => {
+  await withRoot({ web: { ...WEB_BASE, SOL_DEPLOYMENT_ROLE: "redis-api" } }, async (root) => {
+    assert.ok((await checkEnv({ root })).problems.some((p) => p.key === "REDIS_API_TOKEN"));
+  });
+  await withRoot({ web: { ...WEB_BASE, SOL_DEPLOYMENT_ROLE: "made-up-role" } }, async (root) => {
+    assert.ok((await checkEnv({ root })).problems.some((p) => p.key === "SOL_DEPLOYMENT_ROLE"));
+  });
+});
+
 // web 의 SOL_RUN_MODE 는 infra 모드와 같아야 한다(D2). 모드가 mock 이 아닌 시험은 이 web 을 쓴다.
 const webFor = (mode) => ({ ...WEB_BASE, SOL_RUN_MODE: mode });
 

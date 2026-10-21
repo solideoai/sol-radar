@@ -1,0 +1,89 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+ ❯ app/_lib/redis-api-client.test.ts (26 tests | 2 failed) 393ms
+     × replays the same key/body when a 202 response stream fails after headers 24ms
+     × preserves degraded readiness when only the backend AI probe times out 10ms
+ ❯ app/api/v1/redis-gateway-contract.test.ts (8 tests | 1 failed) 25ms
+     × bounds initial authentication and prevents dispatch after authentication completes late 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  app/_lib/redis-api-client.test.ts > Redis HTTPS client boundary > replays the same key/body when a 202 response stream fails after headers
+AssertionError: expected 503 to be 202 // Object.is equality
+
+- Expected
++ Received
+
+- 202
++ 503
+
+ ❯ app/_lib/redis-api-client.test.ts:44:27
+     42|     };
+     43|     const result = await relayRedisApi(request('{ "force": false }'), …
+     44|     expect(result.status).toBe(202);
+       |                           ^
+     45|     expect(attempts).toHaveLength(2);
+     46|     expect(new Headers(attempts[1].headers).get("Idempotency-Key"))
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  app/_lib/redis-api-client.test.ts > remote readiness does not need Redis TCP > preserves degraded readiness when only the backend AI probe times out
+AssertionError: expected { httpStatus: 503, body: { …(2) } } to deeply equal { httpStatus: 200, body: { …(2) } }
+
+- Expected
++ Received
+
+  {
+    "body": {
+      "checks": {
+        "ai": "unavailable",
+-       "db": "ok",
+-       "redis": "ok",
+-       "storage": "ok",
++       "db": "unavailable",
++       "redis": "unavailable",
++       "storage": "unavailable",
+      },
+-     "status": "degraded",
++     "status": "unavailable",
+    },
+-   "httpStatus": 200,
++   "httpStatus": 503,
+  }
+
+ ❯ app/_lib/redis-api-client.test.ts:209:27
+    207|     } });
+    208|     await vi.advanceTimersByTimeAsync(2101);
+    209|     expect(await pending).toEqual({
+       |                           ^
+    210|       httpStatus: 200,
+    211|       body: { status: "degraded", checks: { db: "ok", redis: "ok", sto…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  app/api/v1/redis-gateway-contract.test.ts > frontend → existing company API > bounds initial authentication and prevents dispatch after authentication completes late
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ app/api/v1/redis-gateway-contract.test.ts:85:21
+     83|     void pending.then(() => { settled = true; });
+     84|     await vi.advanceTimersByTimeAsync(101);
+     85|     expect(settled).toBe(true);
+       |                     ^
+     86|     expect((await pending).status).toBe(503);
+     87|     finishAuth();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 31 passed (34)
+   Start at  17:54:54
+   Duration  4.43s (transform 3.31s, setup 0ms, import 4.92s, tests 418ms, environment 0ms)
+

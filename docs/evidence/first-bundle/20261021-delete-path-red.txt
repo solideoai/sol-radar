@@ -1,0 +1,30 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/.codex/worktrees/f572/sol-radar/web
+
+ ❯ worker/document-storage.test.ts (7 tests | 1 failed | 6 skipped) 15ms
+     × uploads and verifies the physical incarnation returned by the ledger, not the logical deduplication path 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  worker/document-storage.test.ts > immutable document Storage (real Supabase SDK transport) > uploads and verifies the physical incarnation returned by the ledger, not the logical deduplication path
+AssertionError: expected 'raw/bids/b1d00000-0000-0000-0000-0000…' to contain '/0b1ec000-0000-0000-0000-000000000011/'
+
+Expected: "/0b1ec000-0000-0000-0000-000000000011/"
+Received: "raw/bids/b1d00000-0000-0000-0000-000000000011/be500000-0000-0000-0000-000000000011/0716f9264c9fe19f5d7455276107f3ddcc1d3497f63d60689a73558ae8a1bf5e.pdf"
+
+ ❯ worker/document-storage.test.ts:77:25
+     75|     const h = harness();
+     76|     const stored = await h.storage.uploadImmutable({ kind: "raw", docu…
+     77|     expect(stored.path).toContain("/0b1ec000-0000-0000-0000-0000000000…
+       |                         ^
+     78|     expect(h.objects.get(`${stored.bucket}/${stored.path}`)).toEqual(b…
+     79|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 skipped (7)
+   Start at  23:04:03
+   Duration  627ms (transform 182ms, setup 0ms, import 405ms, tests 15ms, environment 0ms)
+

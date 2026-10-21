@@ -117,6 +117,10 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
         role: person.role,
         grade: person.grade,
         skills: person.skills,
+        certifications: person.certifications,
+        past_projects: person.pastProjects,
+        capability_source: person.capabilitySource,
+        capability_version: person.capabilityVersion,
         availability: foldAssignmentsIntoAvailability(
           person.availability,
           assignmentsOf(priorAssignments, person.personId),

@@ -45,8 +45,8 @@ describe("Supabase Storage — immutable objects and private access", () => {
     mimeType: "application/pdf",
     leaseToken: lease,
   };
-  async function setup(t) {
-    const db = await migratedDb(t);
+  async function setup(t, database) {
+    const db = database ?? (await migratedDb(t));
     await db.query(
       "insert into public.bid_notices(id,source,notice_id,title,agency,stage,status,budget_krw,source_url,content_hash,is_demo) values($1,'fixture','STORAGE-1','시험','기관','NOTICE','OPEN',100,'https://fixture.invalid/1','hash',true)",
       [bid],
@@ -79,6 +79,68 @@ describe("Supabase Storage — immutable objects and private access", () => {
         format: "PDF",
       }),
     ]);
+
+  it("00702 preserves existing raw/parsed paths and references while new incarnations use UUID paths", async (t) => {
+    const db = await createSupabaseDb();
+    t.after(() => db.close());
+    const upgrade = migrations.find((migration) => migration.file.startsWith("20261021000702_"));
+    assert.ok(upgrade);
+    await applyMigrations(
+      db,
+      migrations.filter((migration) => migration !== upgrade),
+    );
+    const { docs } = await setup(t, db);
+    const raw = await claim(db);
+    await finish(db, raw, docs[0].id);
+    const parsedPath = `parsed/bids/${bid}/${rev}/${sha}/${"b".repeat(64)}/result.json`;
+    const parsed = await claim(db, {
+      ...claimInput,
+      path: parsedPath,
+      bucket: "bid-parsed",
+      sha256: "c".repeat(64),
+      mimeType: "application/json",
+    });
+    await db.query("select public.finish_document_storage($1::jsonb)", [
+      JSON.stringify({
+        objectId: parsed.id,
+        documentId: docs[0].id,
+        leaseToken: lease,
+        kind: "parsed",
+        parserId: "legacy-parser",
+        parseStatus: "PARSED",
+        pageCount: 1,
+      }),
+    ]);
+    const readDocument = async () =>
+      (
+        await db.query(
+          "select object_key,text_object_key,raw_storage_id,parsed_storage_id from public.bid_documents where id=$1",
+          [docs[0].id],
+        )
+      ).rows[0];
+    const before = await readDocument();
+    await applyMigrations(db, [upgrade]);
+    assert.deepEqual(await readDocument(), before);
+    const existing = await claim(db);
+    assert.equal(existing.id, raw.id);
+    assert.equal(existing.path, objectPath);
+    assert.deepEqual(
+      (
+        await db.query(
+          "select logical_path,path from public.document_storage_objects order by bucket",
+        )
+      ).rows,
+      [
+        { logical_path: objectPath, path: objectPath },
+        { logical_path: parsedPath, path: parsedPath },
+      ],
+    );
+    const newPath = objectPath.replace(sha, "d".repeat(64));
+    const fresh = await claim(db, { ...claimInput, path: newPath, sha256: "d".repeat(64) });
+    assert.equal(fresh.path, newPath.replace(/\/([^/]+)$/, `/${fresh.id}/$1`));
+    await finish(db, fresh, docs[1].id);
+    assert.deepEqual(await readDocument(), before);
+  });
 
   it("keeps two document references to the same checksum, and serializes upload ownership", async (t) => {
     const { db, docs } = await setup(t);
@@ -113,7 +175,7 @@ describe("Supabase Storage — immutable objects and private access", () => {
     );
     await db.query(
       "insert into storage.objects(bucket_id,name) values('bid-documents',$1),('bid-documents','unreferenced'),('bid-parsed','private.json')",
-      [objectPath],
+      [object.path],
     );
     await db.query(
       "insert into public.organizations(id,slug,name) values('0e000000-0000-0000-0000-000000000011','storage-test','시험')",
@@ -124,7 +186,7 @@ describe("Supabase Storage — immutable objects and private access", () => {
     );
     await actAs(db, users[0]);
     assert.deepEqual((await db.query("select name from storage.objects")).rows, [
-      { name: objectPath },
+      { name: object.path },
     ]);
     await assert.rejects(
       db.query("insert into storage.objects(bucket_id,name) values('bid-documents','forged')"),
@@ -202,6 +264,59 @@ describe("Supabase Storage — immutable objects and private access", () => {
       (await db.query("select id from public.document_storage_objects where id=$1", [object.id]))
         .rows.length,
       0,
+    );
+  });
+
+  it("a delayed expired deleter cannot target a new document with the same logical checksum key", async (t) => {
+    const { db, docs } = await setup(t);
+    const first = await claim(db);
+    await finish(db, first, docs[0].id);
+    const oldPath = (
+      await db.query("select object_key from public.bid_documents where id=$1", [docs[0].id])
+    ).rows[0].object_key;
+    const bytes = new Set([oldPath]);
+    await db.query("delete from public.bid_documents where id=$1", [docs[0].id]);
+    await db.query(
+      "update public.document_storage_objects set created_at=now()-interval '25 hours' where id=$1",
+      [first.id],
+    );
+    const remove = async (token) =>
+      (
+        await db.query("select public.claim_document_storage_delete($1,$2) as value", [
+          first.id,
+          token,
+        ])
+      ).rows[0].value;
+    const delayed = await remove(lease);
+    await db.query(
+      "update public.document_storage_objects set lease_until=now()-interval '1 minute' where id=$1",
+      [first.id],
+    );
+    const takeoverToken = "1ea5e000-0000-0000-0000-000000000002";
+    const takeover = await remove(takeoverToken);
+    bytes.delete(takeover.path);
+    await db.query("select public.finish_document_storage_delete($1,$2)", [
+      first.id,
+      takeoverToken,
+    ]);
+    const recreated = await claim(db);
+    await finish(db, recreated, docs[1].id);
+    const newPath = (
+      await db.query("select object_key from public.bid_documents where id=$1", [docs[1].id])
+    ).rows[0].object_key;
+    bytes.add(newPath);
+    bytes.delete(delayed.path);
+    assert.notEqual(
+      newPath,
+      oldPath,
+      "each physical object incarnation needs a distinct Storage key",
+    );
+    assert.ok(bytes.has(newPath), "the referenced recreated bytes must survive the old delete");
+    assert.equal(recreated.path, newPath);
+    assert.equal(
+      (await claim(db)).path,
+      newPath,
+      "logical duplicates still reuse the current physical object",
     );
   });
 });
@@ -1240,6 +1355,10 @@ describe("솔리데오 카탈로그·명부·점수 정책", () => {
       for (const sql of [
         "insert into public.team_member_scoring(member_id,org_id,role) values (gen_random_uuid(),$1,'DEV')",
         "update public.team_member_scoring set org_id=$1",
+        "update public.team_member_scoring set certifications='[]'::jsonb where org_id=$1",
+        "update public.team_member_scoring set past_projects='[]'::jsonb where org_id=$1",
+        "update public.team_member_scoring set capability_source='UNSPECIFIED' where org_id=$1",
+        "update public.team_member_scoring set capability_version='tampered' where org_id=$1",
         "delete from public.team_member_scoring where org_id=$1",
       ])
         await assert.rejects(fresh.query(sql, [solideo]), /permission denied/);
@@ -1257,6 +1376,32 @@ describe("솔리데오 카탈로그·명부·점수 정책", () => {
       /permission denied/,
     );
   });
+
+  it("합성 직원 속성은 JSON 배열·출처·완전성을 DB 제약으로 강제한다", async (t) => {
+    const fresh = await setup(t);
+    await fresh.exec(
+      "insert into public.team_member_scoring(member_id,org_id,role) select id,org_id,'DEV' from public.team_members",
+    );
+    for (const sql of [
+      "update public.team_member_scoring set certifications='{}'::jsonb",
+      "update public.team_member_scoring set past_projects='null'::jsonb",
+      "update public.team_member_scoring set capability_source='REAL'",
+      "update public.team_member_scoring set capability_source='SYNTHETIC'",
+    ])
+      await assert.rejects(fresh.exec(sql), /check constraint/);
+    const row = (
+      await fresh.query(
+        "select certifications,past_projects,capability_source,capability_version from public.team_member_scoring",
+      )
+    ).rows[0];
+    assert.deepEqual(row, {
+      certifications: [],
+      past_projects: [],
+      capability_source: "UNSPECIFIED",
+      capability_version: null,
+    });
+  });
+
   it("ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다", async (t) => {
     const fresh = await setup(t);
     const member = (await fresh.query("select id from public.team_members")).rows[0].id;

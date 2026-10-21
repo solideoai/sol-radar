@@ -24,7 +24,9 @@ const EXPECTED = {
 describe("G3 · 08 §6 worked examples (FX-01 94 BID · FX-02 72 WATCH · FX-03 68 NO-BID)", () => {
   for (const [id, expected] of Object.entries(EXPECTED)) {
     it(`${id}: 요소별 points·점수·권고·플래그가 08 §6 과 같다`, () => {
-      const result = analyze(buildInput(id));
+      const input = buildInput(id);
+      expect(input.team.members).toHaveLength(200);
+      const result = analyze(input);
       expect(result.factors.map((factor) => factor.factor)).toEqual([
         "skillMatch",
         "pastPerformance",
@@ -43,7 +45,9 @@ describe("G3 · 08 §6 worked examples (FX-01 94 BID · FX-02 72 WATCH · FX-03 
 
     it(`${id}: fixtures/goldens/${id}.json 과 같다`, () => {
       const golden = loadGolden(id);
-      const result = analyze(buildInput(id));
+      const input = buildInput(id);
+      expect(input.team.members).toHaveLength(200);
+      const result = analyze(input);
       expect(
         result.factors.map(({ factor, normalized, points, maxPoints }) => ({
           factor,
@@ -62,7 +66,7 @@ describe("G3 · 08 §6 worked examples (FX-01 94 BID · FX-02 72 WATCH · FX-03 
     });
   }
 
-  it("FX-01: 중간값 — 필수 5/5·우대 0/2, P1 선택, 12 FTE/가용 20, 영업일 15, 자격 3건 모두 SATISFIED", () => {
+  it("FX-01: 중간값 — 필수 5/5·우대 0/2, P1 선택, 12 FTE/가용 95.5, 영업일 15, 자격 3건 모두 SATISFIED", () => {
     const result = analyze(buildInput("FX-01"));
     const [skill, past, staff, scale, strategic] = result.factors;
     expect(skill.rawValue).toMatchObject({
@@ -76,7 +80,7 @@ describe("G3 · 08 §6 worked examples (FX-01 94 BID · FX-02 72 WATCH · FX-03 
     expect(staff.rawValue).toMatchObject({
       requiredFte: 12,
       requiredFteSource: "STAFFING",
-      availableFte: 20,
+      availableFte: 95.5,
       availableRatio: 1,
       businessDays: 15,
       scheduleFactor: 1,
@@ -124,7 +128,7 @@ describe("G3 · 08 §6 worked examples (FX-01 94 BID · FX-02 72 WATCH · FX-03 
       requiredFte: 20,
       requiredFteSource: "BUDGET_TIER",
       estimatedFrom: "budgetTier",
-      availableFte: 20,
+      availableFte: 95.5,
       scheduleFactor: 0.7,
     });
     expect(staff.note).toContain("0.7");
@@ -170,7 +174,7 @@ describe("G3 · 08 §6 worked examples (FX-01 94 BID · FX-02 72 WATCH · FX-03 
     expect(past.rawValue).toMatchObject({ bidDomain: "스마트시티", selectedProjectId: "P2" });
     expect(staff.rawValue).toMatchObject({
       requiredFte: 20,
-      availableFte: 20,
+      availableFte: 95.5,
       businessDays: 11,
       scheduleFactor: 1,
     });

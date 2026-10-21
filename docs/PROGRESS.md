@@ -9,6 +9,14 @@ updated: 2026-10-21
 
 # 진행 상황
 
+## 첫 구현 묶음 로컬 통합 (2026-10-21, 운영 적용 대기)
+
+사용자 승인으로 `feat/first-bundle-integration`에서 main `206db64`와 인력200명·Redis HTTP Gateway·private Supabase Storage를 통합했다. 변동 중인 Storage 작업 폴더는 hash를 고정한 읽기 전용 snapshot으로 인수했다. 기존 main의 검증 축소·Vercel 구현을 보존하고 combined migration에서 타입을 재생성했다. 이미 클라우드에 적용된 인력00600은 변경하지 않았다.
+
+독립 통합 리뷰에서 만료된 삭제 작업이 같은 경로에 재생성된 파일을 지울 수 있는 P1 한 건을 재현했다. 논리 키 중복은 유지하고 실제 경로를 원장 UUID별로 분리해 수정했다. 실패 재현→DB26/26·Worker7/7, 실제 Worker/SDK와 격리 DB의 지연 삭제 재현도 통과했다. 실제 커밋 훅에서는 임시 Git 시험의 환경 상속 결함을 발견해 이 통합 브랜치 상태를 복구하고 격리 회귀15/15를 통과했다. 최종 전체 `pnpm verify` exit0: 루트181·웹364·AI101·결정57와 Next 빌드·타입·린트·계층·생성물 검사. 로컬 Gateway 실제 Redis/BullMQ 왕복·제한30/5·멱등1건·401/200·경로 차단, private Storage 각각50MiB 업로드/다운로드/삭제·anon 거부·signed URL 만료도 통과했다. 전체 브라우저/인증 E2E는 실행하지 않았다.
+
+외부 `https://acropolissg.com/redis/health`는 2026-10-21 22:59 KST 읽기 전용 확인에서502였다. Redis PONG 보고와 HTTP Gateway 상태는 구분한다. main 병합·push, 클라우드 새00700/00701·bucket 생성, 회사 프로세스/Nginx·Vercel 배포·모델 학습은 실행하지 않았다. 다음은 운영 적용안 검토·Gateway upstream 확인, 이후 documents 소비자·실파서·durable dispatch/quota 예약이다. [계획](plans/2026-10-21-first-bundle-integration.md)·[구현/검증/리뷰](evidence/first-bundle/20261021-implementation.md)·[적용/복구안](evidence/first-bundle/20261021-release-plan.md).
+
 ## Vercel 다중 서비스 구성 (2026-10-21, 사용자 승인)
 
 - 사용자 요청으로 루트 `vercel.json`에 `web`(전체 공개 경로)·`ai`(내부 전용), `web → ai`의 `AI_GATEWAY_URL` 바인딩을 구성했다. 기존 웹 코드는 같은 변수를 요청 시점에 읽는다. AI ASGI 진입점과 공용 데이터 번들링 빌드를 추가했다. `eval`은 CLI로, `decision`·worker·Redis·MinIO·Qdrant는 기존 외부 환경으로 유지한다. 외부 worker는 Compose AI gateway를 계속 쓴다. 사용자가 구성 제시 뒤 커밋·푸시를 요청했다.
@@ -36,6 +44,43 @@ updated: 2026-10-21
 사용자 요청으로 히어로·마지막 CTA의 MVP/로그인 한정 안내, 주요 기능의 개발 예정 표시, 이용 흐름·비교표의 개발 중 문구를 제거했다. FAQ의 데이터 활용 설명도 현재형으로 정리했다. 예시 데이터 고지는 유지하고 관련 E2E 기대 문구를 갱신했다. 기존 미커밋 디자인 변경은 별도로 보존했다.
 
 격리 작업 폴더에서 웹 `verify:quick` 통과(219파일·6,830테스트, 서식·타입·린트·구조·토큰·색 검사). 첫 샌드박스 실행은 테스트의 로컬 포트 열기 `EPERM`으로 실패했고, 제한 밖 동일 명령은 통과했다. [검증 로그](evidence/landing/20261021-copy-web-verify.txt). 전체 `pnpm verify`·빌드·브라우저 E2E는 이번 문구 수정에서 실행하지 않았다.
+## Redis HTTP Gateway Phase 1 로컬 구현·검증 완료 (2026-10-21, 운영 미배포)
+
+사용자 승인에 따라 기존 [전환 계획](plans/2026-10-21-redis-gateway-supabase-storage-migration.md)의 Task 2를 Phase 1로 수행했다. 별도 Redis 명령 서버 대신 Next.js API를 frontend/redis-api 역할로 재사용하고 서비스 token+사용자 JWT·현재 조직/RBAC/RLS 재검증을 적용했다(ADR-045). frontend의 분석/수집 POST는 HTTPS만 사용하며 Redis TCP·service role을 금지한다. 회사용 Compose는 기존 Redis6379 유지·HTTP loopback6380 publish·external network로 준비했고 실행하지 않았다.
+
+웹 전체 검증은222파일·6,900테스트와 타입·린트·계층·Next 빌드가 통과했다. 실제 로컬 Redis7.2.5/Next smoke에서30·5회/분 제한, 동시 멱등 선점1건·TTL, quota 카운터, BullMQ 왕복, HTTP token401/200·10개 경로 차단·실제 정적 파일/Next-Action·선행308 목적지를 확인했다. 독립 리뷰3건은 실패 시험으로 재현한 뒤 인증 포함 deadline·응답 body 유실 재시도·AI-only degraded health를 수정했다. 최종 전체 `pnpm verify`도 exit0으로 공통774·웹6,900·AI1,517·decision152테스트와 빌드가 통과했다. 별도 검증 담당자의 Gateway/auth/기존 계약222테스트도 통과했다.
+
+회사 운영 서버·Docker 컨테이너·Nginx·운영 DB·Storage·Vercel production 변경은 없다. MinIO 제거·Storage·parser·durable dispatch·quota 예약 보강은 다음 단계로 남겼다. 검증 당시 미커밋 상태였으며 이후 사용자 지시로200명 부모 커밋 위의 `feat/redis-http-gateway`에 별도 정리한다. 데모 기본은 Compose/MinIO이며 새 경로는10-24 22:00 freeze 전 green 뒤 env로 선택한다. 3e 승인용 지침 문안·요금제·조건② 예외·S0 보완은 [병합 조건](plans/2026-10-21-redis-vercel-merge-conditions.md)에 기록했다. [API·수정 파일·검증·남은 작업](evidence/redis/20261021-phase1-redis-gateway.md).
+
+## Redis HTTPS·Supabase Storage 전환 조사·계획 (2026-10-21, 최초 조사 기록)
+
+후속 포트 조사 반영: 사용자가 Redis `127.0.0.1:6379`/PONG, Gateway용 `127.0.0.1:6380` 미점유, Nginx `/redis/` 프록시 설정 완료·`nginx -t` 통과를 확인했다. 같은 계획을 유지하면서6380을 HTTP 전용으로 고정하고 Nginx 설정 변경·reload/restart 제안을 제외했다. 기존 API 재사용·MinIO/Storage 전환·문서 미구현 범위는 유지한다. 운영 컨테이너 생성·중지·삭제·network/env/설정 변경은 별도 승인 전 실행하지 않는다. 아래는 최초 조사 기록이다.
+
+사용자 요청에 따라 [[2026-10-21-redis-gateway-supabase-storage-migration|Redis 외부 연동·MinIO 제거·Storage·문서 파이프라인 계획]]을 작성했다. 현재 Redis 클라이언트/생산자/소비자·limiter·멱등·quota·DB/AI 경계를 확인하고 기존 Next.js 접수 API를 회사 loopback6380에서 재사용하는 안을 권장했다. 외부 `/redis/health`는 TLS 검증 성공·HTTP502다. 저장소 Redis 호스트 기본6380과 회사 HTTP6380의 충돌, 예산 조회/사후 증가의 동시성 한계, DB/큐 crash 구간을 별도 보강 작업으로 기록했다.
+
+MinIO 저장 어댑터·실제 downloader·documents 소비자·형식별 parser는 아직 없어 신규 구현으로 구분했다. 회사 MinIO object 존재는 미검증이므로 inventory/백업/데이터 삭제 승인 게이트를 뒀다. private Storage·JWT signed URL·메타데이터/업로드 복구·캐시 입력 버전·Worker 운영·Nginx 최소 변경·환경변수·7개 작업·테스트/보안/롤백을 포함한다. 200명 자격증/개인 실적은 저장/API와 분석 입력 연결 상태를 구분하고 미완성 인력 배치·포트폴리오를 이전 완료로 분류하지 않았다.
+
+검증: 필수15항목·Task7개·위키링크18개·현재 소스 참조48개·코드펜스4개·Bash 블록1개의 구문을 확인했고 `pnpm format:check`와 `git diff --check`가 통과했다. Markdown은 저장소 설정상 Prettier 대상에서 제외된다. 기존 변경72개 파일의 hash를 대조해 이번 계획 외 작업 보존을 확인했다. 전체 제품 verify·Storage/GPU E2E·SSH inventory는 실행하지 않았다. 이번 수정은 계획서와 이 진행 기록뿐이며 코드·DB·bucket·Secret·회사 서버·Vercel 배포는 변경하지 않았다. 사용자 계획 검토·구현 승인 후 실행한다.
+
+## Vercel Services 구성·검증 (2026-10-21, 사용자 승인)
+
+사용자 요청에 따라 루트 `vercel.json`에 공개 `web`과 내부 `ai`, `web → ai`의 `AI_GATEWAY_URL` binding을 구성했다. FastAPI 진입점은 import 시 모델에 접속하지 않고 lifespan에서 기존 설정 검증을 실행한다. 빌드 스크립트가 정본 실행 규칙·mock 자료를 서비스 안으로 복사하며 `src`·`_vendor` 독립 배치 시험을 통과했다. eval은 HTTP 서버 없는 CLI, decision은 회사 GPU 서버라 배포 서비스에서 제외했다. 외부 worker는 기존 Compose gateway를 사용하므로 웹의 AI 상태는 외부 worker gateway 상태를 보증하지 않는다. 서비스명·공개 경로·binding·외부 worker 유지 구성은 사용자가 최종 승인했다(ADR-044).
+
+`pnpm verify` exit 0: 루트 770·웹 6,831·AI 1,517·decision 152 테스트와 웹 빌드 통과. `vercel dev -L`에서 두 서비스가 기동했고 공개 `/health/ready`가 내부 AI를 호출해 `checks.ai=mock`과 200을 반환했다. 공개 `/parse`는 웹 HTML 응답으로 처리했다. 독립 코드 검토에서 필수 수정 결함은 없었다. 실제 배포·실모델 호출·DB 변경·커밋은 하지 않았다. [설계](../polaris/specs/done/2026-10-21-vercel-services.md), [계획](plans/2026-10-21-vercel-services.md), [검증 증거](evidence/20261021-vercel-services.md).
+
+## Bosun 파인튜닝과 인력 배치 조사 (2026-10-21)
+
+HEAD `086ac1e`의 문서21~23·ADR-034·042, Bosun 학습·평가 코드, 인력 fixture를 대조해 [[BOSUN_FINETUNING_GPT_HANDOFF|GPT 전달용 조사서]]를 작성했다. 공개 LoRA 이어 학습, 회사 Qwen API 재사용, 별도 인력 적합성 데이터·평가 제안과 GPT 요청문을 포함한다. 현행 API 구조화 필드 빌더만으로는 RFP 기술·개별 직원 배치 학습 데이터가 부족하다. 명부200명 중 계산 대상27명, fixture 배정7건과 기간 가용20 FTE를 집계했다. 문서의 배정2건·availability 차감 설명과 fixture의 차이를 조사서에 남겼으며 정본·데이터는 변경하지 않았다.
+
+회사 Qwen `/vllm/v1/models`는 미인증 조회 HTTP401이었다. 사용자 호칭3.5-Flash-Next 128B와 레지스트리3.8-Flash-Next의 실제 모델ID 일치는 인증 뒤 확인해야 한다. 회사 GPU 작업·인증된 추론·데이터 생성·학습·배포는 실행하지 않았다. 이번 변경은 조사 문서와 이 진행 기록이며, 모델 품질 향상이나 GPU 실행 성공을 뜻하지 않는다.
+
+검증: `pnpm format:check` exit0(기존 설정상 Markdown은 서식 대상 제외), 조사서의 로컬 링크11개·위키링크 대상 존재, JSON 예시1개의 현행 학습 레코드 파서 호환, Bash 블록2개의 `bash -n`, 학습 CLI 인자9개 존재를 확인했다. 제품 코드를 바꾸지 않아 전체 `pnpm verify`·GPU 모델 시험은 실행하지 않았다.
+
+## 가상 직원200명 전체 속성과 점수 검증 확대 및 클라우드 적용 (2026-10-21)
+
+사용자 요청(“200명 전부한테 임의적으로 자격증이나 기술, 실적, 가용성”, “기존 점수 검증도200명 전부”)으로 ADR-043을 채택했다. 정본 명부200명 모두 계산 대상으로 전환하고 ID 기반 가상 속성 생성기·검증·seed를 갱신했다. 기술·가용성 누락0명, 자격증200건·개인 실적401건이며 SYNTHETIC 출처·버전·가상 증거 참조를 보존한다. 기존200명 신원·사진과27명 원래 속성·배정7건은 보존했다. team_member_scoring에 자격증·실적·출처·버전4개 열을 추가하고 상세 API도 반환한다.
+
+200명 입력의 고정 기간 가용95.5 FTE와 FX-01/02/03의94/72/68, FX-15의58→68(WATCH)을 독립 검증했다. 최초 검증의 제약 재실행 충돌·옛27명 seed 기대값을 고친 최종 `pnpm verify`는 루트770·웹6830·AI1511·decision152 및 빌드까지 exit0이다. 독립 테스트·코드 리뷰 후 클라우드 `pnpm db:push`로20261021000600을 적용했고 `pnpm db:verify`가31개 마이그레이션·RLS·권한 검증을 통과했다. 실제200행 속성의 fixture 완전 일치·실제 점수 함수95.5 FTE·기존 명부200/Auth5/프로필5/score_runs18의 전후 지문 동일성을 확인했다. 기존 분석 스냅샷은 덮어쓰지 않았다. 브라우저·인증 E2E 전체·GPU 학습·커밋은 하지 않았다. [변경·검증·클라우드 증거](evidence/people/20261021-all-people-capabilities.md), [[BOSUN_FINETUNING_GPT_HANDOFF|갱신한 GPT 전달 자료]].
 
 ## 구현 Phase
 

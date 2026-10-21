@@ -1,7 +1,7 @@
 # 첫 배포 안내
 
-> [!warning] 보류 문서 (2026-10-19)
-> 웹 배포처가 아직 정해지지 않아([16 ADR](../16-DECISIONS.md) 미결정 8번) 이 문서는 보류 상태입니다. 아래 본문이 가리키는 `pnpm vercel-build`(`web/package.json`)·`web/scripts/vercel-build.sh`·`web/scripts/verify-db.mjs` 는 2026-10-19 에 지웠습니다(해당 줄에 "삭제됨" 표시). 배포처가 정해지면 다시 만들고 이 문서를 그때 고칩니다. 나머지 본문은 템플릿 원문 그대로입니다. 서비스 실행은 [10 배포](../10-DEPLOYMENT.md)(Docker Compose)가 우선입니다.
+> [!warning] 과거 템플릿 문서 (2026-10-21)
+> 현재 배포 구성은 **Vercel Services: 공개 web + 내부 ai**입니다(ADR-044). 프로젝트 루트·환경 변수·빌드 설정은 [10 배포](../10-DEPLOYMENT.md)의 Vercel Services 절과 저장소 루트 `vercel.json`을 따르세요. 아래는 단일 웹 배포의 과거 기록이며, `pnpm vercel-build`·`web/scripts/vercel-build.sh`·`web/scripts/verify-db.mjs`는 삭제된 상태입니다.
 
 이 문서는 웹(Vercel)의 **첫 배포를 사람이 직접 설정하는 순서**입니다. 시작 순서와 로컬 실행은
 [README](../../README.md) 에 있습니다. 이 저장소의 시험은 아래 설정 파일과 빌드 스크립트의 연결만 확인합니다.

@@ -21,6 +21,7 @@ dist/
 .env
 .env.*
 !.env.example
+.env.vercel.local
 
 # 내 컴퓨터에서만 쓰는 설정. 팀·프로젝트 공통 규칙은 .claude/settings.json 에 둔다
 .claude/settings.local.json

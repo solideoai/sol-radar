@@ -1,0 +1,61 @@
+✖ 커밋 훅의 Git 환경에서도 임시 저장소 시험은 호출 저장소를 바꾸지 않는다 (315.395208ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 403.4835
+
+✖ failing tests:
+
+test at scripts/verify-changed.test.mjs:132:1
+✖ 커밋 훅의 Git 환경에서도 임시 저장소 시험은 호출 저장소를 바꾸지 않는다 (315.395208ms)
+  AssertionError [ERR_ASSERTION]: ✖ 실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다 (44.777333ms)
+  ℹ tests 1
+  ℹ suites 0
+  ℹ pass 0
+  ℹ fail 1
+  ℹ cancelled 0
+  ℹ skipped 0
+  ℹ todo 0
+  ℹ duration_ms 129.028875
+  
+  ✖ failing tests:
+  
+  test at ../../../../../../../Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/verify-changed.test.mjs:164:1
+  ✖ 실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다 (44.777333ms)
+    Error: Command failed: git -c user.name=Test -c user.email=test@example.invalid commit -qm chore: baseline
+        at genericNodeError (node:internal/errors:985:15)
+        at wrappedFn (node:internal/errors:539:14)
+        at checkExecSyncError (node:child_process:925:11)
+        at execFileSync (node:child_process:961:15)
+        at git (file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/verify-changed.test.mjs:116:28)
+        at gitRepo (file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/verify-changed.test.mjs:120:3)
+        at TestContext.<anonymous> (file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/verify-changed.test.mjs:166:25)
+        at async Test.run (node:internal/test_runner/test:1313:7)
+        at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+      status: 1,
+      signal: null,
+      output: [ null, 'On branch main\nnothing to commit, working tree clean\n', '' ],
+      pid: 73735,
+      stdout: 'On branch main\nnothing to commit, working tree clean\n',
+      stderr: ''
+    }
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/verify-changed.test.mjs:160:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.start (node:internal/test_runner/test:1177:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

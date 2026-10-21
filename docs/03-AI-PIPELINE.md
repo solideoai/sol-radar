@@ -581,7 +581,7 @@ COMPANY (profile revision 2)
 - not held: information-communication construction license, defense contractor designation, ISMS-P, CSAP
 - past performance: 3 public-sector projects completed within 3 years (1,200,000,000 / 2,800,000,000 / 300,000,000 KRW), largest 2,800,000,000 KRW
 - single-project cap: 5,000,000,000 KRW
-- staff availability (2026-12 to 2027-06): 20 FTE available out of 27 scoring-eligible staff
+- staff availability (2026-12 to 2027-06): 95.5 FTE available out of 200 scoring-eligible staff
 - financial: annual revenue 18,000,000,000 KRW, employees 200
 ```
 

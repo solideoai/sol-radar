@@ -1,0 +1,42 @@
+▶ SOL RADAR 표 정책 — 업무 역할·조직 격리
+  ✔ public의 모든 일반 테이블에 RLS가 켜져 있다 (415.2055ms)
+  ✔ G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만 (617.296458ms)
+  ✔ 공고 다섯 표는 조직 소유가 아니다 — org-02 VIEWER 와 비멤버 운영자도 활동 중이면 읽고, ADMIN 이라도 넣기·고치기·지우기는 권한 오류다 (417.825375ms)
+  ✔ 운영자(profiles.is_admin)는 멤버가 아닌 조직의 SOL 표를 하나도 읽지 못한다 — 조직 표 아홉 개와 운영 표 셋 모두 0행이고 정책 도우미도 빈 목록이다 (379.450375ms)
+  ✔ outbox_events 는 내부 표다 — ADMIN·VIEWER·org-02·로그아웃 누구도 읽지도 쓰지도 못한다(권한 오류) (336.715875ms)
+  ✔ 로그아웃한 사람(anon)은 SOL 표 열여덟 개를 읽지도 쓰지도 못하고 정책 도우미 my_sol_org_ids 도 부르지 못한다 — 모두 권한 오류 (281.332125ms)
+  ✔ 운영 표(수집 run·수집 오류·평가 결과)는 어느 조직에서든 ADMIN 인 사람만 읽는다 — SALES·ANALYST·VIEWER·org-02 는 0행이고 ADMIN 도 쓰지는 못한다 (268.282542ms)
+  ✔ 감사 기록은 그 조직의 ADMIN 만 읽는다 — SALES·ANALYST·VIEWER·org-02·운영자는 0행이고, ADMIN 도 org-02 것은 보지 못하며 아무도 직접 쓰지 못한다 (261.708ms)
+  ✔ 분석 요청은 ADMIN·SALES·ANALYST 가 QUEUED 행으로만 넣는다 — VIEWER·org-02 는 정책 오류, 상태·결과·요청자·스냅샷 열은 권한이 없고, 상태 전이·지우기는 worker 몫이며 ANALYSIS_REQUEST 감사가 남는다 (248.23725ms)
+  ✔ 결정 기록은 ADMIN·SALES 만 넣는다 — ANALYST·VIEWER·org-02 는 정책 오류, 권고·불일치 플래그·검토자·시각은 열 권한이 없고 트리거가 채우며, REVIEW_DECIDE 감사와 담당자가 있을 때 REVIEW_ASSIGNED outbox 1건이 같은 트랜잭션에 남는다 (318.778792ms)
+  ✔ 결정의 분석 run 은 같은 조직·같은 공고의 것만이고(score_run_mismatch) 담당자는 같은 조직 멤버만이다(bid_reviews_assignee_fkey) — 담당자가 조직을 나가면 담당자만 비고 결정은 남는다 (237.659625ms)
+  ✔ 업무 역할 변경은 그 조직의 ADMIN 만 한다 — SALES 의 시도와 org-02 owner(VIEWER)의 시도는 0행, ADMIN 은 자기 조직만 바꾸고 org-02 에는 0행이다 (459.439125ms)
+  ✔ 업무 역할 보호 트리거 — update 정책이 실수로 열려도 ADMIN 이 아닌 사람의 sol_role 변경은 42501(sol_role_admin_only)이고, 같은 값·ADMIN·JWT 없는 관리 작업·service_role 은 통과한다 (1183.143875ms)
+  ✔ worker 전용 표(점수 요소·자격 판정·항목 판정·인력 배정)는 조직 전원이 읽고 ADMIN 도 넣기·고치기·지우기는 권한 오류다 (239.746375ms)
+  ✔ 테넌트 혼입은 복합 외래 키가 거절한다(23503) — worker 가 RLS 없이 써도 다른 조직 프로필의 run, run 과 다른 org_id 의 요소·자격·항목 판정, 다른 조직 직원의 배정, 비멤버 수신자의 알림, 다른 공고의 revision 은 들어가지 않는다 (269.200583ms)
+  ▶ 수집 run 열 단위 읽기 (20261019000019, N8 W1)
+    ✔ ② 숨긴 열(job_key·idempotency_key·requested_by·params)은 org-01·org-02 ADMIN 모두 하나씩 고르면 권한 오류(42501)이고, 그 열로 거르기와 select * 도 권한 오류다 (251.956541ms)
+  ✔ 수집 run 열 단위 읽기 (20261019000019, N8 W1) (252.12975ms)
+  ▶ 공고 목록 뷰 조직 격리
+    ✔ bid_list_items 는 security_invoker 다 — org-02 VIEWER 는 공고를 모두 보지만 org-01 의 run·결정은 보지 않고(자기 조직 것만), 비멤버 운영자는 조직 열이 모두 비어 있다 (290.263292ms)
+  ✔ 공고 목록 뷰 조직 격리 (290.528ms)
+✔ SOL RADAR 표 정책 — 업무 역할·조직 격리 (9760.312209ms)
+▶ 솔리데오 카탈로그·명부·점수 정책
+  ✔ other-organization users and platform admins cannot read the roster; anonymous is denied (245.976667ms)
+  ✔ 회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다 (317.268708ms)
+  ✔ ADR021 점수는 같은 조직만 읽고 owner·운영자·일반회원·익명은 쓰지 못한다 (334.415667ms)
+  ✔ 합성 직원 속성은 JSON 배열·출처·완전성을 DB 제약으로 강제한다 (217.008291ms)
+  ✔ ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다 (261.732459ms)
+✔ 솔리데오 카탈로그·명부·점수 정책 (1376.92725ms)
+✔ cloud upgrade enriches all 200 existing demo rows, preserves identities and never rewrites another org (3466.599291ms)
+✔ all 200 synthetic employees have reproducible skills, certificates, projects and capacity (17.27125ms)
+✔ enrichment preserves every approved identity and original business assignment (1.4295ms)
+✔ invalid person identifiers return structured validation errors without throwing (76.090625ms)
+ℹ tests 26
+ℹ suites 4
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11390.454875
