@@ -269,11 +269,15 @@ const bypassesQuery = `
 // - public.latest_ingest_run(text): 업무 역할이 있는 사용자에게 최신 수집 run 한 건의 status·started_at·finished_at·summary 만
 //   준다. ingest_runs 는 ADMIN 만 읽는 운영 표라 security definer 다. 로그인 역할만 실행하고, 업무 역할이 없으면 0행이며
 //   다른 열과 수집 오류는 내주지 않는다. 이유는 20261019000012 마이그레이션 주석에 있다.
+// - public.bid_watch_count(uuid): 공고 상세의 "관심 N명"(N3). bid_watches 는 본인 행만 읽는 표라 같은 조직 사람들의 수를
+//   세려고 security definer 다. 로그인 역할만 실행하고, 부른 사람이 활동 중인 구성원인 조직(my_org_ids)의 행만 세며
+//   누가 표시했는지는 내주지 않는다(정수 하나). 이유는 20261022000100 마이그레이션 주석에 있다.
 const ALLOWED_DEFINER_FUNCTIONS = new Set([
   "public.resolve_solideo_employment(text, text)",
   "public.my_sol_org_ids(text[])",
   "public.release_unqueued_score_run(uuid)",
   "public.latest_ingest_run(text)",
+  "public.bid_watch_count(uuid)",
   "public.is_admin()",
   "public.my_org_ids()",
   "public.my_owner_org_ids()",

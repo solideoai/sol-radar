@@ -519,6 +519,42 @@ export type Database = {
           },
         ]
       }
+      bid_watches: {
+        Row: {
+          bid_id: string
+          created_at: string
+          org_id: string
+          user_id: string
+        }
+        Insert: {
+          bid_id: string
+          created_at?: string
+          org_id: string
+          user_id: string
+        }
+        Update: {
+          bid_id?: string
+          created_at?: string
+          org_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_watches_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_watches_member_fkey"
+            columns: ["org_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["org_id", "user_id"]
+          },
+        ]
+      }
       company_profiles: {
         Row: {
           created_at: string
@@ -1765,6 +1801,47 @@ export type Database = {
         }
         Relationships: []
       }
+      watched_bid_list_items: {
+        Row: {
+          agency: string | null
+          budget_krw: number | null
+          budget_krw_text: string | null
+          deadline_at: string | null
+          docs_download_failed: number | null
+          docs_failed: number | null
+          docs_parsed: number | null
+          docs_partial: number | null
+          docs_pending: number | null
+          docs_total: number | null
+          docs_unsupported: number | null
+          id: string | null
+          is_demo: boolean | null
+          last_synced_at: string | null
+          latest_decided_at: string | null
+          latest_decision: string | null
+          latest_reviewer_display_name: string | null
+          latest_reviewer_email: string | null
+          latest_revision: number | null
+          latest_run_basis: string | null
+          latest_run_created_at: string | null
+          latest_run_flags: string[] | null
+          latest_run_id: string | null
+          latest_run_recommendation: string | null
+          latest_run_score: number | null
+          latest_run_status: string | null
+          notice_id: string | null
+          plan_ref: string | null
+          published_at: string | null
+          scored_recommendation: string | null
+          scored_score: number | null
+          source: string | null
+          source_url: string | null
+          stage: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       activity_name_of: {
@@ -1782,6 +1859,10 @@ export type Database = {
       avatar_url_from_metadata: {
         Args: { meta: Json }
         Returns: string
+      }
+      bid_watch_count: {
+        Args: { p_bid_id: string }
+        Returns: number
       }
       create_personal_org: {
         Args: { owner_id: string }
@@ -1834,6 +1915,10 @@ export type Database = {
       resolve_solideo_employment: {
         Args: { p_department: string; p_job_title: string }
         Returns: { department_code: string; department_id: string; department_name: string; job_title_code: string; job_title_id: string; job_title_label: string }[]
+      }
+      send_deadline_reminders: {
+        Args: { p_now: string }
+        Returns: number
       }
       task_dashboard_stats: {
         Args: { as_of?: string; target_org: string }

@@ -5469,6 +5469,555 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
       );
     });
   });
+
+  // ────────────────────────────────────────────────────────────────
+  // N3 관심 공고(20261022000100) — bid_watches 표(본인 행 RLS)·관심 인원 수 bid_watch_count·관심 공고 뷰 watched_bid_list_items.
+  // 근거: polaris/specs/in-progress/2026-10-21-n3-watchlist.md §3·§9, docs/plans/2026-10-21-n3-watchlist-plan.md Task 1·
+  // Review Focus 1·2. 시드에는 관심 행이 없다. 시험마다 필요한 행을 넣는다.
+  // ────────────────────────────────────────────────────────────────
+  describe("관심 공고 (20261022000100, N3)", () => {
+    const functionDenied = (name) => ({
+      code: "42501",
+      message: new RegExp(`permission denied for function ${name}`),
+    });
+    // 서비스(watchlistRepo.addWatch 의 upsert ignoreDuplicates)가 쓰는 충돌 절.
+    const IGNORE_DUPLICATES = "on conflict (org_id, user_id, bid_id) do nothing";
+    // 지금 역할 그대로 넣는다. suffix 에 충돌 절을 붙일 수 있다.
+    const insertWatch = (pglite, org, user, bid, suffix = "") =>
+      rowsOf(
+        pglite,
+        `insert into public.bid_watches (org_id, user_id, bid_id) values ($1, $2, $3) ${suffix} returning bid_id`,
+        [org, user, bid],
+      );
+    // returning 없이 넣는다. returning 이 있으면 select 정책이 새 행을 다시 검사해, insert 정책이 빠져도 거부돼 그 빈틈을
+    // 가린다. 서비스의 upsert(return=minimal)는 returning 을 쓰지 않으므로 거부 시험은 이것으로 본다.
+    const insertWatchQuietly = (pglite, org, user, bid) =>
+      pglite.query("insert into public.bid_watches (org_id, user_id, bid_id) values ($1, $2, $3)", [
+        org,
+        user,
+        bid,
+      ]);
+    // 본인이 자기 조직에 넣는다(화면 역할·RLS 를 거친다).
+    const watchAs = async (pglite, who, org, bid) => {
+      await as(pglite, who);
+      return insertWatch(pglite, org, WHO[who], bid);
+    };
+    const watchCountOf = async (pglite, who, bid) => {
+      await as(pglite, who);
+      return (await rowsOf(pglite, "select public.bid_watch_count($1) as n", [bid]))[0].n;
+    };
+    const watchedIdsOf = async (pglite, who) => {
+      await as(pglite, who);
+      return (await rowsOf(pglite, "select id from public.watched_bid_list_items order by id")).map(
+        (row) => row.id,
+      );
+    };
+    // RLS 없이 본 관심 행 전부.
+    const allWatches = async (pglite) => {
+      await asWorker(pglite);
+      return rowsOf(
+        pglite,
+        "select org_id, user_id, bid_id from public.bid_watches order by org_id, user_id, bid_id",
+      );
+    };
+
+    it("관심 공고(20261022000100) — 본인 행만 읽고 넣고 지운다 — 같은 조직의 다른 사람·다른 조직·비멤버 운영자는 0행이고, 남의 행을 지우려 하면 0행이 지워진다", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(await watchAs(pglite, "admin", ORG1, BID1), [{ bid_id: BID1 }]);
+      await as(pglite, "admin");
+      assert.deepEqual(
+        await rowsOf(pglite, "select org_id, user_id, bid_id from public.bid_watches"),
+        [{ org_id: ORG1, user_id: WHO.admin, bid_id: BID1 }],
+      );
+      for (const who of ["sales", "viewer", "outsider", "operator"]) {
+        await as(pglite, who);
+        assert.equal(await countOf(pglite, "bid_watches"), 0, who);
+      }
+      // where·returning 이 없는 지우기 — 둘 중 하나라도 있으면 select 정책이 함께 걸려 delete 정책의 빈틈을 가린다.
+      await as(pglite, "sales");
+      await pglite.query("delete from public.bid_watches");
+      assert.equal((await allWatches(pglite)).length, 1, "sales 의 지우기 뒤");
+      await as(pglite, "admin");
+      assert.deepEqual(
+        await rowsOf(pglite, "delete from public.bid_watches where bid_id = $1 returning bid_id", [
+          BID1,
+        ]),
+        [{ bid_id: BID1 }],
+      );
+      assert.deepEqual(await allWatches(pglite), []);
+    });
+
+    it("관심 공고(20261022000100) — 남의 user_id·내가 없는 조직·정지된 계정으로 넣으면 RLS 거부이고, 로그아웃은 읽기·넣기·지우기 모두 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "sales");
+      await assert.rejects(
+        insertWatchQuietly(pglite, ORG1, WHO.admin, BID1),
+        POLICY,
+        "남의 user_id",
+      );
+      await as(pglite, "admin");
+      await assert.rejects(
+        insertWatchQuietly(pglite, ORG2, WHO.admin, BID1),
+        POLICY,
+        "내가 없는 조직",
+      );
+      await asWorker(pglite);
+      await pglite.query("update public.profiles set status = 'suspended' where id = $1", [
+        WHO.viewer,
+      ]);
+      await as(pglite, "viewer");
+      await assert.rejects(
+        insertWatchQuietly(pglite, ORG1, WHO.viewer, BID1),
+        POLICY,
+        "정지된 계정",
+      );
+      await asAnon(pglite);
+      for (const [sql, params] of [
+        ["select * from public.bid_watches", []],
+        [
+          "insert into public.bid_watches (org_id, user_id, bid_id) values ($1, $2, $3)",
+          [ORG1, WHO.admin, BID1],
+        ],
+        ["delete from public.bid_watches", []],
+      ])
+        await assert.rejects(pglite.query(sql, params), PERMISSION, sql);
+      assert.deepEqual(await allWatches(pglite), []);
+    });
+
+    it("관심 공고(20261022000100) — 같은 행을 두 번 넣으면 기본 키 충돌(23505)이고, 서비스가 쓰는 on conflict do nothing 은 오류 없이 0행이다 — 두 창에서 동시에 ★ 해도 행은 하나", async (t) => {
+      const pglite = await solDb(t);
+      await as(pglite, "admin");
+      assert.deepEqual(await insertWatch(pglite, ORG1, WHO.admin, BID1, IGNORE_DUPLICATES), [
+        { bid_id: BID1 },
+      ]);
+      assert.deepEqual(await insertWatch(pglite, ORG1, WHO.admin, BID1, IGNORE_DUPLICATES), []);
+      await assert.rejects(insertWatch(pglite, ORG1, WHO.admin, BID1), { code: "23505" });
+      assert.deepEqual(await allWatches(pglite), [
+        { org_id: ORG1, user_id: WHO.admin, bid_id: BID1 },
+      ]);
+    });
+
+    it("관심 공고(20261022000100) — 화면 역할 권한은 authenticated 의 SELECT·DELETE 와 org_id·user_id·bid_id 열 INSERT 뿐이다 — 고치기와 created_at 넣기는 권한 오류", async (t) => {
+      const pglite = await solDb(t);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select grantee, privilege_type from information_schema.role_table_grants
+           where table_schema = 'public' and table_name = 'bid_watches' and grantee in ('anon', 'authenticated', 'PUBLIC')
+           order by 1, 2`,
+        ),
+        [
+          { grantee: "authenticated", privilege_type: "DELETE" },
+          { grantee: "authenticated", privilege_type: "SELECT" },
+        ],
+      );
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select grantee, privilege_type, column_name from information_schema.column_privileges
+           where table_schema = 'public' and table_name = 'bid_watches' and grantee in ('anon', 'authenticated', 'PUBLIC')
+             and privilege_type in ('INSERT', 'UPDATE', 'REFERENCES')
+           order by 1, 2, 3`,
+        ),
+        ["bid_id", "org_id", "user_id"].map((column_name) => ({
+          grantee: "authenticated",
+          privilege_type: "INSERT",
+          column_name,
+        })),
+      );
+      await watchAs(pglite, "admin", ORG1, BID1);
+      await assert.rejects(
+        pglite.query("update public.bid_watches set created_at = now()"),
+        PERMISSION,
+      );
+      await assert.rejects(
+        pglite.query(
+          "insert into public.bid_watches (org_id, user_id, bid_id, created_at) values ($1, $2, $3, now())",
+          [ORG1, WHO.admin, BID2],
+        ),
+        PERMISSION,
+      );
+    });
+
+    it("관심 공고(20261022000100) — 구성원이 조직에서 빠지면 그 사람의 관심 행이, 공고가 지워지면 그 공고의 관심 행이 함께 지워진다", async (t) => {
+      const pglite = await solDb(t);
+      await watchAs(pglite, "admin", ORG1, BID1);
+      await watchAs(pglite, "admin", ORG1, BID2);
+      await watchAs(pglite, "sales", ORG1, BID1);
+      await asWorker(pglite);
+      await pglite.query("delete from public.memberships where org_id = $1 and user_id = $2", [
+        ORG1,
+        WHO.sales,
+      ]);
+      assert.deepEqual(await allWatches(pglite), [
+        { org_id: ORG1, user_id: WHO.admin, bid_id: BID1 },
+        { org_id: ORG1, user_id: WHO.admin, bid_id: BID2 },
+      ]);
+      await pglite.query("delete from public.bid_notices where id = $1", [BID2]);
+      assert.deepEqual(await allWatches(pglite), [
+        { org_id: ORG1, user_id: WHO.admin, bid_id: BID1 },
+      ]);
+    });
+
+    it("bid_watch_count — 부른 사람 조직 안의 관심 인원만 센다 — 다른 조직의 관심·없는 공고는 세지 않고, 정지된 회원·조직 없는 운영자는 0, 로그아웃은 실행 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await watchAs(pglite, "admin", ORG1, BID1);
+      await watchAs(pglite, "sales", ORG1, BID1);
+      await watchAs(pglite, "outsider", ORG2, BID1);
+      // 관심 등록을 안 한 같은 조직 사람(analyst·viewer)도 조직의 수를 본다.
+      for (const who of ["admin", "sales", "analyst", "viewer"])
+        assert.equal(await watchCountOf(pglite, who, BID1), 2, who);
+      assert.equal(await watchCountOf(pglite, "outsider", BID1), 1, "org-02");
+      assert.equal(await watchCountOf(pglite, "operator", BID1), 0, "조직 없는 운영자");
+      assert.equal(await watchCountOf(pglite, "admin", BID2), 0, "관심 없는 공고");
+      assert.equal(
+        await watchCountOf(pglite, "admin", "b1d00000-0000-0000-0000-0000000000ff"),
+        0,
+        "없는 공고",
+      );
+      await asWorker(pglite);
+      await pglite.query("update public.profiles set status = 'suspended' where id = $1", [
+        WHO.viewer,
+      ]);
+      assert.equal(await watchCountOf(pglite, "viewer", BID1), 0, "정지된 회원");
+      await asAnon(pglite);
+      await assert.rejects(
+        pglite.query("select public.bid_watch_count($1)", [BID1]),
+        functionDenied("bid_watch_count"),
+      );
+      // 정수 하나만 돌려준다(누가 표시했는지는 내주지 않는다). security definer 라 search_path 를 고정한다.
+      await asWorker(pglite);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select prosecdef, provolatile, proconfig, pg_get_function_result(oid) as result
+           from pg_proc where oid = to_regprocedure('public.bid_watch_count(uuid)')`,
+        ),
+        [{ prosecdef: true, provolatile: "s", proconfig: ['search_path=""'], result: "integer" }],
+      );
+    });
+
+    it("watched_bid_list_items — 부른 사람이 관심 등록한 공고만 bid_list_items 와 같은 열·같은 값으로 보인다 — 같은 조직 다른 사람·다른 조직의 관심은 보이지 않고, 화면 역할 권한은 authenticated 의 SELECT 하나이며 로그아웃은 권한 오류다", async (t) => {
+      const pglite = await solDb(t);
+      await watchAs(pglite, "admin", ORG1, BID1);
+      await watchAs(pglite, "outsider", ORG2, BID2);
+      assert.deepEqual(await watchedIdsOf(pglite, "admin"), [BID1]);
+      assert.deepEqual(await watchedIdsOf(pglite, "outsider"), [BID2]);
+      for (const who of ["sales", "viewer", "operator"])
+        assert.deepEqual(await watchedIdsOf(pglite, who), [], who);
+      // 관심 뷰는 목록 뷰의 행을 거르기만 한다 — 같은 사람이 읽으면 같은 행이다.
+      await as(pglite, "admin");
+      assert.deepEqual(
+        await rowsOf(pglite, "select * from public.watched_bid_list_items"),
+        await rowsOf(pglite, "select * from public.bid_list_items where id = $1", [BID1]),
+      );
+      await asWorker(pglite);
+      const columnsOf = (name) =>
+        rowsOf(
+          pglite,
+          `select column_name, data_type from information_schema.columns
+           where table_schema = 'public' and table_name = $1 order by ordinal_position`,
+          [name],
+        );
+      const listColumns = await columnsOf("bid_list_items");
+      assert.ok(listColumns.length > 0);
+      assert.deepEqual(await columnsOf("watched_bid_list_items"), listColumns);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          `select grantee, privilege_type from information_schema.role_table_grants
+           where table_schema = 'public' and table_name = 'watched_bid_list_items' and grantee in ('anon', 'authenticated', 'PUBLIC')
+           order by 1, 2`,
+        ),
+        [{ grantee: "authenticated", privilege_type: "SELECT" }],
+      );
+      await asAnon(pglite);
+      await assert.rejects(
+        rowsOf(pglite, "select id from public.watched_bid_list_items"),
+        /permission denied for view watched_bid_list_items/,
+      );
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // N3 마감 알림(20261022000110) — send_deadline_reminders(p_now). worker 주기 작업(기본 5분)이 service role 로 부른다.
+  // 근거: 스펙 §6·§9, 계획 Task 2·Review Focus 3·4. 시각은 모두 인자(p_now)로 고정한다 — 함수는 now() 를 읽지 않는다.
+  // BID1 마감은 2026-10-25T09:00:00Z(KST 10-25 18:00, 시각 없는 마감이 저장되는 자리)다. KST 날짜로 D-3 = 10-22, D-1 = 10-24.
+  // 시드의 결정(REVIEW1·REVIEW2)은 담당자가 없다. 담당자는 시험마다 새 결정으로 준다.
+  // ────────────────────────────────────────────────────────────────
+  describe("마감 알림 (20261022000110, N3)", () => {
+    const DEADLINE = "2026-10-25T09:00:00Z";
+    const D3_0900 = "2026-10-22T00:00:00Z"; // KST 10-22 09:00:00
+    const D1_0930 = "2026-10-24T00:30:00Z"; // KST 10-24 09:30:00
+    const functionDenied = (name) => ({
+      code: "42501",
+      message: new RegExp(`permission denied for function ${name}`),
+    });
+    // worker 자리 — 화면 역할을 벗고 service_role claim 을 싣는다(ingest_save_revision 묶음과 같다).
+    const asServiceRole = async (pglite) => {
+      await pglite.exec("reset role");
+      await pglite.query("select set_config('request.jwt.claims', $1, false)", [
+        JSON.stringify({ role: "service_role" }),
+      ]);
+    };
+    const send = async (pglite, now) => {
+      await asServiceRole(pglite);
+      return (
+        await rowsOf(pglite, "select public.send_deadline_reminders($1::timestamptz) as n", [now])
+      )[0].n;
+    };
+    const keyOf = (who, n) => `${BID1}:${WHO[who]}:DEADLINE_APPROACHING:D-${n}`;
+    const reminder = (who, n, org = ORG1) => ({
+      org_id: org,
+      user_id: WHO[who],
+      idempotency_key: keyOf(who, n),
+    });
+    // RLS 없이 본 마감 알림 전부(키 순 = 사용자 id 순).
+    const remindersOf = async (pglite) => {
+      await asWorker(pglite);
+      return rowsOf(
+        pglite,
+        "select org_id, user_id, idempotency_key from public.notifications where type = 'DEADLINE_APPROACHING' order by idempotency_key",
+      );
+    };
+    const setBid1 = async (pglite, deadline, status = "OPEN") => {
+      await asWorker(pglite);
+      await pglite.query(
+        "update public.bid_notices set deadline_at = $2, status = $3 where id = $1",
+        [BID1, deadline, status],
+      );
+    };
+    const watch = async (pglite, who, org = ORG1) => {
+      await asWorker(pglite);
+      await pglite.query(
+        "insert into public.bid_watches (org_id, user_id, bid_id) values ($1, $2, $3)",
+        [org, WHO[who], BID1],
+      );
+    };
+    // 그 조직의 BID1 새 결정. minutes 가 클수록 나중 결정이다(decided_at = now() + minutes 분 — 시드 결정보다 늘 나중).
+    const assign = async (pglite, who, { org = ORG1, minutes = 1 } = {}) => {
+      await asWorker(pglite);
+      await pglite.query(
+        `insert into public.bid_reviews (org_id, bid_id, revision_id, decision, reason, assignee_id, decided_at)
+         values ($1, $2, $3, 'BID', '마감 알림 시험용 결정 사유', $4, now() + make_interval(mins => $5))`,
+        [org, BID1, REV1, who === null ? null : WHO[who], minutes],
+      );
+    };
+    // 기본 장면: BID1 마감 DEADLINE, org-01 담당자 admin, 관심 등록 admin·sales(admin 은 담당자이면서 관심 등록자).
+    const prepare = async (t) => {
+      const pglite = await solDb(t);
+      await setBid1(pglite, DEADLINE);
+      await assign(pglite, "admin");
+      await watch(pglite, "admin");
+      await watch(pglite, "sales");
+      return pglite;
+    };
+
+    it("send_deadline_reminders(20261022000110) — D-3 09:00 KST 이후 첫 회차에 담당자 ∪ 관심 등록자에게 1건씩 넣고 넣은 수를 돌려준다 — 담당자이면서 관심 등록자인 사람도 1건이고 인앱·SENT·키 …:D-3·공고 링크다", async (t) => {
+      const pglite = await prepare(t);
+      assert.equal(await send(pglite, D3_0900), 2);
+      await asWorker(pglite);
+      const rows = await rowsOf(
+        pglite,
+        `select org_id, user_id, type, channel, status, sent_at, read_at, idempotency_key, payload
+         from public.notifications where type = 'DEADLINE_APPROACHING' order by idempotency_key`,
+      );
+      assert.deepEqual(
+        rows.map((row) => ({ ...row, sent_at: row.sent_at.toISOString() })),
+        ["admin", "sales"].map((who) => ({
+          org_id: ORG1,
+          user_id: WHO[who],
+          type: "DEADLINE_APPROACHING",
+          channel: "IN_APP",
+          status: "SENT",
+          sent_at: "2026-10-22T00:00:00.000Z",
+          read_at: null,
+          idempotency_key: keyOf(who, 3),
+          payload: {
+            bidId: BID1,
+            title: "클라우드 통합 플랫폼 구축",
+            message: "마감 3일 전입니다.",
+            link: `/bids/${BID1}`,
+          },
+        })),
+      );
+      // 받은 사람은 RLS 로 자기 알림 하나만 본다.
+      await as(pglite, "sales");
+      assert.equal(await countOf(pglite, "notifications", "type = 'DEADLINE_APPROACHING'"), 1);
+    });
+
+    it("send_deadline_reminders(20261022000110) — 같은 날 5분 주기로 다시·세 번 돌려도 0건이고 행은 그대로 2건이다 — 멱등 키가 막는다", async (t) => {
+      const pglite = await prepare(t);
+      assert.equal(await send(pglite, D3_0900), 2);
+      for (const now of ["2026-10-22T00:05:00Z", "2026-10-22T05:00:00Z", "2026-10-22T14:59:59Z"])
+        assert.equal(await send(pglite, now), 0, now);
+      assert.deepEqual(await remindersOf(pglite), [reminder("admin", 3), reminder("sales", 3)]);
+    });
+
+    it("send_deadline_reminders(20261022000110) — 09:00 KST 직전(08:59:59)과 그 전 회차는 0건이고 09:00:00 정각 회차가 넣는다", async (t) => {
+      const pglite = await prepare(t);
+      // KST 10-22 00:00:00 과 08:59:59.
+      for (const now of ["2026-10-21T15:00:00Z", "2026-10-21T23:59:59Z"])
+        assert.equal(await send(pglite, now), 0, now);
+      assert.deepEqual(await remindersOf(pglite), []);
+      assert.equal(await send(pglite, D3_0900), 2);
+      assert.deepEqual(await remindersOf(pglite), [reminder("admin", 3), reminder("sales", 3)]);
+    });
+
+    it("send_deadline_reminders(20261022000110) — 놓친 D-3 은 D-2 에 늦게 내지 않고, D-1 은 그날 따로 1건씩(문구 '마감 하루 전입니다.'), 마감 당일(D-0)은 0건이다", async (t) => {
+      const pglite = await prepare(t);
+      assert.equal(await send(pglite, "2026-10-23T01:00:00Z"), 0, "D-2 (KST 10-23 10:00)");
+      assert.deepEqual(await remindersOf(pglite), []);
+      assert.equal(await send(pglite, D1_0930), 2, "D-1");
+      assert.equal(await send(pglite, "2026-10-24T03:00:00Z"), 0, "D-1 다시");
+      assert.equal(await send(pglite, "2026-10-25T00:30:00Z"), 0, "D-0 (KST 10-25 09:30)");
+      assert.deepEqual(await remindersOf(pglite), [reminder("admin", 1), reminder("sales", 1)]);
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select distinct payload ->> 'message' as message from public.notifications where type = 'DEADLINE_APPROACHING'",
+        ),
+        [{ message: "마감 하루 전입니다." }],
+      );
+    });
+
+    it("send_deadline_reminders(20261022000110) — 취소·마감 상태, 마감 시각 없음, 이미 지난 마감의 공고는 보내지 않고 정정 공고(AMENDED)는 보낸다", async (t) => {
+      const pglite = await prepare(t);
+      for (const [deadline, status] of [
+        [DEADLINE, "CANCELLED"],
+        [DEADLINE, "CLOSED"],
+        [null, "OPEN"],
+        ["2026-10-21T23:00:00Z", "OPEN"],
+      ]) {
+        await setBid1(pglite, deadline, status);
+        assert.equal(await send(pglite, D3_0900), 0, `${status} ${deadline}`);
+      }
+      assert.deepEqual(await remindersOf(pglite), []);
+      await setBid1(pglite, DEADLINE, "AMENDED");
+      assert.equal(await send(pglite, D3_0900), 2);
+    });
+
+    it("send_deadline_reminders(20261022000110) — 정지된 계정(profiles.status='suspended')은 받지 않는다 — 관심 등록자가 정지되면 담당자만, 담당자가 정지되면 관심 등록자만", async (t) => {
+      const pglite = await prepare(t);
+      const setStatus = async (who, status) => {
+        await asWorker(pglite);
+        await pglite.query("update public.profiles set status = $2 where id = $1", [
+          WHO[who],
+          status,
+        ]);
+      };
+      await setStatus("sales", "suspended");
+      assert.equal(await send(pglite, D3_0900), 1);
+      assert.deepEqual(await remindersOf(pglite), [reminder("admin", 3)]);
+      await setStatus("sales", "active");
+      await setStatus("admin", "suspended");
+      assert.equal(await send(pglite, D1_0930), 1);
+      assert.deepEqual(await remindersOf(pglite), [reminder("admin", 3), reminder("sales", 1)]);
+    });
+
+    it("send_deadline_reminders(20261022000110) — 조직마다 따로 센다 — org-02 관심 등록자는 org-02 행으로 받고 org-01 담당자는 org-02 몫을 받지 않으며, 각자 자기 알림만 본다", async (t) => {
+      const pglite = await prepare(t);
+      await watch(pglite, "outsider", ORG2);
+      assert.equal(await send(pglite, D3_0900), 3);
+      assert.deepEqual(await remindersOf(pglite), [
+        reminder("admin", 3),
+        reminder("sales", 3),
+        reminder("outsider", 3, ORG2),
+      ]);
+      await as(pglite, "outsider");
+      assert.deepEqual(
+        await rowsOf(
+          pglite,
+          "select org_id, user_id, idempotency_key from public.notifications where type = 'DEADLINE_APPROACHING'",
+        ),
+        [reminder("outsider", 3, ORG2)],
+      );
+    });
+
+    it("send_deadline_reminders(20261022000110) — 담당자는 조직마다 최신 결정(decided_at desc, id desc)의 assignee_id 하나다 — 예전 결정의 담당자는 받지 않고, 최신 결정에 담당자가 없으면 관심 등록자만 받는다", async (t) => {
+      const pglite = await solDb(t);
+      await setBid1(pglite, DEADLINE);
+      await assign(pglite, "analyst", { minutes: 1 });
+      await assign(pglite, "viewer", { minutes: 2 });
+      assert.equal(await send(pglite, D3_0900), 1);
+      assert.deepEqual(await remindersOf(pglite), [reminder("viewer", 3)]);
+      await assign(pglite, null, { minutes: 3 });
+      await watch(pglite, "sales");
+      assert.equal(await send(pglite, D1_0930), 1);
+      assert.deepEqual(await remindersOf(pglite), [reminder("sales", 1), reminder("viewer", 3)]);
+    });
+
+    it("send_deadline_reminders(20261022000110) — 담당자도 관심 등록자도 없는 공고는 보내지 않는다 — 다른 공고의 관심 등록은 이 공고의 수신자가 아니다", async (t) => {
+      const pglite = await solDb(t);
+      await setBid1(pglite, DEADLINE);
+      await asWorker(pglite);
+      await pglite.query(
+        "insert into public.bid_watches (org_id, user_id, bid_id) values ($1, $2, $3)",
+        [ORG1, WHO.admin, BID2],
+      );
+      assert.equal(await send(pglite, D3_0900), 0);
+      assert.deepEqual(await remindersOf(pglite), []);
+    });
+
+    it("send_deadline_reminders(20261022000110) — p_now 가 null 이면 22004 오류이고 알림이 생기지 않는다", async (t) => {
+      const pglite = await prepare(t);
+      await asServiceRole(pglite);
+      await assert.rejects(pglite.query("select public.send_deadline_reminders(null)"), {
+        code: "22004",
+      });
+      assert.deepEqual(await remindersOf(pglite), []);
+    });
+
+    it("send_deadline_reminders(20261022000110) — 로그인한 사용자(운영자 포함)와 로그아웃(anon)은 실행 권한 오류이고 알림이 생기지 않는다", async (t) => {
+      const pglite = await prepare(t);
+      for (const who of ["admin", "operator", "anon"]) {
+        if (who === "anon") await asAnon(pglite);
+        else await as(pglite, who);
+        await assert.rejects(
+          pglite.query("select public.send_deadline_reminders($1::timestamptz)", [D3_0900]),
+          functionDenied("send_deadline_reminders"),
+          who,
+        );
+      }
+      assert.deepEqual(await remindersOf(pglite), []);
+    });
+
+    it("send_deadline_reminders(20261022000110) — 실행 권한은 service_role 에만 있다(anon·authenticated·PUBLIC 없음) — security definer 이고 search_path 를 빈 값으로 고정한다", async (t) => {
+      // 실제 Supabase 에는 service_role 역할이 있다. 흉내 DB 에 없으면 마이그레이션 전에 만들어 같은 조건에서 grant 를 본다.
+      const fresh = await freshDb(t);
+      await fresh.exec(`
+        do $$ begin
+          if not exists (select 1 from pg_roles where rolname = 'service_role') then
+            create role service_role nologin;
+          end if;
+        end $$;
+      `);
+      await applyMigrations(fresh, migrations);
+      assert.deepEqual(
+        (
+          await fresh.query(
+            `select
+               exists (select 1 from aclexplode(p.proacl) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') as public,
+               has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+               has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated,
+               has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role,
+               p.prosecdef, p.proconfig
+             from pg_proc p where p.oid = to_regprocedure('public.send_deadline_reminders(timestamptz)')`,
+          )
+        ).rows,
+        [
+          {
+            public: false,
+            anon: false,
+            authenticated: false,
+            service_role: true,
+            prosecdef: true,
+            proconfig: ['search_path=""'],
+          },
+        ],
+      );
+    });
+  });
 });
 
 // ────────────────────────────────────────────────────────────────
