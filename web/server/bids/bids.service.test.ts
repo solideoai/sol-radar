@@ -53,6 +53,7 @@ function fake(overrides: Partial<BidsRepo> = {}): Fake {
     getLatestScoredAnalysis: async () => null,
     listAnalyses: async () => ({ items: [], hasNext: false, last: null }),
     getAnalysis: async () => null,
+    getAnalysisSnapshot: async () => null,
     findRunningAnalysis: async () => null,
     findCompletedSameInput: async () => null,
     resolveAnalysisInput: async () => input,
