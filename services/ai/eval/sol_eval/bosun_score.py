@@ -9,6 +9,9 @@
   뒤 Bosun 공개 API `model.predict(state=, instructions=, candidates=, decision_type=, seed=, row_id=)["probabilities"]`
   (후보 순서 리스트)를 부른다. 네트워크·모델 다운로드는 하지 않는다. **실모델 경로는 2026-10-20 미검증**이다
   (candidates 인자에 {id,label,description} 목록을 그대로 넘기는 것, decision_type 값이 questionType 과 같다는 것은 가정).
+- `--device {auto,cpu,cuda}`(기본 auto: CUDA 가 있으면 cuda)·`--dtype {auto,fp32,bf16}`(기본 auto: cuda 는 bf16,
+  cpu 는 fp32)는 services/decision 의 CLI(parity·train·calibrate·serve)와 같은 규칙이다. 실제로 쓴 값은
+  report.json environment 의 device·dtype 에 남는다. GPU 사용 승인은 ADR-034 10번대로 사람이 실행 전에 한다(코드 게이트 아님).
 - `--backend fake` 는 sha256(rowId:seed) 로 만드는 결정적 분포다. 모델이 아니다. 지표 계산·파일 모양 시험에만 쓴다.
 - `--suite` 는 보조 회귀 평가 입력 자리(ADR-034 9번)다. DecisionBench 행(instruction·state_json·candidates_json·
   gold_candidate_id)을 같은 predict 경로로 채점한다. **실행은 DecisionBench 라이선스(`other`)·우리 데이터와의 중복·
@@ -62,6 +65,16 @@ DECISION_TYPE_BY_QUESTION_TYPE = {
     kev_wire.NOUL: "noul",
 }
 ENVIRONMENT_PACKAGES = ("torch", "transformers", "peft", "safetensors")
+DEVICE_AUTO = "auto"
+DEVICE_CPU = "cpu"
+DEVICE_CUDA = "cuda"
+DEVICE_CHOICES = (DEVICE_AUTO, DEVICE_CPU, DEVICE_CUDA)
+DTYPE_AUTO = "auto"
+DTYPE_FP32 = "fp32"
+DTYPE_BF16 = "bf16"
+DTYPE_CHOICES = (DTYPE_AUTO, DTYPE_FP32, DTYPE_BF16)
+# torch 의 dtype 속성 이름. torch 는 BosunBackend 안에서만 import 한다
+TORCH_DTYPE_NAMES = {DTYPE_FP32: "float32", DTYPE_BF16: "bfloat16"}
 
 
 class ScoreInputError(ValueError):
@@ -127,23 +140,59 @@ class FakeBackend:
         return [w / total for w in weights]
 
 
+def resolve_device(choice: str, *, cuda_available: bool) -> str:
+    """auto 는 CUDA 가 있으면 cuda, 없으면 cpu. cuda 를 골랐는데 없으면 오류.
+
+    services/decision `trainer/params.resolve_device` 와 같은 규칙이다(sol_eval 은 sol_decision 을 import 하지 않는다).
+    """
+    if choice not in DEVICE_CHOICES:
+        raise ScoreInputError(f"알 수 없는 --device: {choice} (가능: {', '.join(DEVICE_CHOICES)})")
+    if choice == DEVICE_AUTO:
+        return DEVICE_CUDA if cuda_available else DEVICE_CPU
+    if choice == DEVICE_CUDA and not cuda_available:
+        raise ScoreInputError("--device cuda 를 골랐지만 CUDA 를 쓸 수 없다")
+    return choice
+
+
+def resolve_dtype(device: str, choice: str) -> str:
+    """auto 는 cuda 면 bf16, cpu 면 fp32. 고르면 그대로(services/decision `resolve_dtype` 의 --bf16/--no-bf16 과 같다)."""
+    if choice not in DTYPE_CHOICES:
+        raise ScoreInputError(f"알 수 없는 --dtype: {choice} (가능: {', '.join(DTYPE_CHOICES)})")
+    if choice == DTYPE_AUTO:
+        return DTYPE_BF16 if device == DEVICE_CUDA else DTYPE_FP32
+    return choice
+
+
 class BosunBackend:
     """Bosun 패키지(HF 레이아웃)를 로컬에서만 올린다. torch·transformers 는 여기서만 import 한다.
 
     `trust_remote_code=True` 는 패키지의 `modeling_bosun.py` 를 실행하므로 검증(manifest sha256·최상위 *.py)을
     지난 디렉터리만 올린다. 위반이면 PackageVerificationError 를 내고 transformers 는 import 하지 않는다.
+    입력 텐서는 Bosun 공개 API `predict` 가 모델 안에서 만든다. 여기서는 모델을 device 로 옮기기만 한다
+    (services/decision `backend.BosunBackend` 와 같다).
     """
 
     name = BACKEND_BOSUN
 
-    def __init__(self, package_dir: Path) -> None:
+    def __init__(
+        self, package_dir: Path, device: str = DEVICE_AUTO, dtype: str = DTYPE_AUTO
+    ) -> None:
         verify_package_dir(package_dir)
+        if dtype not in DTYPE_CHOICES:
+            raise ScoreInputError(f"알 수 없는 --dtype: {dtype} (가능: {', '.join(DTYPE_CHOICES)})")
+        import torch
         from transformers import AutoModelForCausalLM
 
         self.package_dir = package_dir
-        self.model = AutoModelForCausalLM.from_pretrained(
-            str(package_dir), trust_remote_code=True, local_files_only=True
+        self.device = resolve_device(device, cuda_available=torch.cuda.is_available())
+        self.dtype = resolve_dtype(self.device, dtype)
+        model = AutoModelForCausalLM.from_pretrained(
+            str(package_dir),
+            trust_remote_code=True,
+            local_files_only=True,
+            dtype=getattr(torch, TORCH_DTYPE_NAMES[self.dtype]),
         )
+        self.model = model.to(self.device)
         self.model.eval()
 
     def predict(
@@ -301,14 +350,21 @@ def _package_info(package_dir: Path | None) -> dict[str, Any]:
     }
 
 
-def _environment() -> dict[str, Any]:
+def _environment(engine: Backend) -> dict[str, Any]:
     versions: dict[str, str | None] = {}
     for name in ENVIRONMENT_PACKAGES:
         try:
             versions[name] = metadata.version(name)
         except metadata.PackageNotFoundError:
             versions[name] = None
-    return {"python": sys.version.split()[0], "platform": platform.platform(), "packages": versions}
+    return {
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "packages": versions,
+        # 실제로 올린 device·dtype(BosunBackend). 모델이 없는 백엔드(fake 등)는 None 이다
+        "device": getattr(engine, "device", None),
+        "dtype": getattr(engine, "dtype", None),
+    }
 
 
 def scored_row(item: ScoreInput, probabilities: Sequence[float]) -> ScoredRow:
@@ -450,6 +506,8 @@ class ScoreOptions:
     package_dir: Path | None = None
     suite_format: str | None = None
     primary_seed: int = PRIMARY_SEED
+    device: str = DEVICE_AUTO
+    dtype: str = DTYPE_AUTO
 
 
 def make_backend(options: ScoreOptions) -> Backend:
@@ -460,7 +518,7 @@ def make_backend(options: ScoreOptions) -> Backend:
     if options.package_dir is None or not options.package_dir.is_dir():
         raise ScoreInputError("--package <dir> 가 필요하다(backend bosun)")
     try:
-        return BosunBackend(options.package_dir)
+        return BosunBackend(options.package_dir, device=options.device, dtype=options.dtype)
     except PackageVerificationError as error:
         raise ScoreInputError(f"--package 검증 실패: {error.summary}") from error
 
@@ -488,7 +546,7 @@ def score(options: ScoreOptions, backend: Backend | None = None) -> dict[str, An
             "suiteFormat": options.suite_format,
         },
         "seeds": list(options.seeds),
-        "environment": _environment(),
+        "environment": _environment(engine),
         "metrics": metrics_report(rows_by_seed, options.primary_seed),
         "notes": [
             "smoke 6건은 성능 평가에 쓰지 않는다(ADR-034 7번)",
