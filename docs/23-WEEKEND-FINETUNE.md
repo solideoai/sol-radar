@@ -30,7 +30,7 @@ updated: 2026-10-21
 
 | 항목 | 결정 |
 |---|---|
-| 언제 | 10-21~22 B1 코드·B2 서버 준비, 10-22~23 B3 번들·EX0·E3 측정, **10-24(토) F1 smoke → F2 학습, 10-25(일) E4·E1' 오프라인 채점**, 10-26(월) 오전 제출물 반영·같은 날 제출([[16-DECISIONS|ADR-042]]로 마감 10-26, §1·ADR-034 12번) |
+| 언제 | 10-21~22 B1 코드·B2 서버 준비, 10-22~23 B3 번들·EX0·E3 측정, **10-24(토) F1 smoke → F2 학습, 10-25(일) E4·E1' 오프라인 채점**, 10-26(월) 오전 제출물 반영·같은 날 제출 목표([[16-DECISIONS\|ADR-042]]. 공식 마감 10-27, §1·ADR-034 12번) |
 | 어디서 | 회사 GPU 서버 `sol-NF5280M6`(외부 접근 불가. 셸은 계정 `bim`), **물리 GPU 1(A40 46,068 MiB), PaddleOCR 와 공유**. GPU 0·2 는 회사 서비스라 건드리지 않는다(§2.4). 실행은 회사 측, 우리는 코드·번들·요청서·평가([[16-DECISIONS\|ADR-025]]) |
 | 모델 | 결정 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`(백본 `Qwen/Qwen3-0.6B@c1899de`, 동결). 추출·설명 `Qwen/Qwen3.8-Flash-Next` = **회사 운영 vLLM API**(GPU 1 에 띄우지 않음, 학습 없음). 백업(미사용) `Qwen/Qwen3-4B-Instruct-2507@cdbee75f`(§3) |
 | 데이터 | 오픈 데이터. **A** 나라장터 Open API 실공고(서비스키 보유, 이용허락 제한 없음) × **C** 우리가 만든 가상 기업 원형 6개의 구성 라벨 → **질문 하나 = 레코드 하나**(§4). Kev 공개 replay(옛 **B**)는 퇴역 |
@@ -49,12 +49,12 @@ updated: 2026-10-21
 | 10-21(수)~22(목) | B1 | 우리 | `services/decision`(`sol_decision.serve`·`train`, 호환성 테스트), 레지스트리·settings·`local_setup`, `sol_eval` `--format bosun`·`bosun_score`·`leakage`, `infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`, UI 문구 중립화, 테스트 갱신. `pnpm verify`·`uv run pytest` 초록, `kev-no-override`·`review.independent` **무수정 통과** | 코드, 핀 목록, 22 §3.2 명령의 인자 확정 |
 | 10-21(수)~22(목) | B2 | 회사 | `.venv-bosun` 핀 `uv pip install --dry-run` → 설치(torch 불변), Bosun·백본 다운로드 + sha256 대조(22 §2.2), `bosun-preflight.sh` 통과. **사용자 승인 뒤** `sol_decision.serve`(8009) 기동(GPU 1, PaddleOCR 공존). 라우터 그대로. 회사 Qwen3.8-Flash-Next API 는 키 전달·`GET /v1/models` id·guided JSON·`prompt_logprobs` 확인만 | `runs/preflight-*.log`, `venv-bosun-freeze.txt`, 서버 안 `curl …/sol-radar/kev/v1/models` 응답 |
 | 10-22(목)~23(금) | B3 | 우리 | **번들 확정** `sol-dataset-v0.1/` 폴더(`bosun/` 레코드·manifest·leakage 리포트) + 파일별 sha256(tar 로 묶지 않는다, 미결정 29-3), 학습 요청서(22 §6) 전송. `bosun_score` 를 가짜 출력으로 시험(§6). EX0(회사 Qwen API)·E3 기준선을 노트북에서 엔드포인트로 측정(E2 는 보조. E1' 은 B5 오프라인 채점, [[16-DECISIONS\|16]] 미결정 29-1). 밖에서 C1 ③ G1~G6 재실행 | 번들, 요청서, `docs/evidence/eval/`(EX0·E3), `docs/evidence/phase-5/endpoint-bosun-<일시>.md` |
-| 10-23(금) | — | 우리 | 회사 답(§8) 받기. 기능 freeze는 10-24(토) 22:00([[16-DECISIONS|ADR-042]]) | — |
+| 10-23(금) | — | 우리 | 회사 답(§8) 받기. 기능 freeze는 10-24(토) 22:00([[16-DECISIONS\|ADR-042]]) | — |
 | 10-24(토) 09:00~12:00 | B4 | 회사 | **F1** `bosun-f1.sh`(기본 `--max-steps 20`, 22 §4.2): 격자 1→2(→3). 물리 GPU 1(공유). 앞 칸 PASS 때만 다음 칸. 결과 표 전송 | `runs/f1-results.md`, `runs/bosun-f1-*.summary.md`, `nvidia-smi` csv |
 | 10-24(토) 13:00~ | B4 | 회사 | **F2** 학습(22 §4.3), F1 PASS 설정으로. 소요 시간은 F1 의 step 시간(`training_metrics.json` 의 `metrics.meanStepSeconds`. f1 요약 칸은 로딩 포함 wall/step 이다, 미결정 26-15)으로 재추정한다(**미확정**). 토요일 안에 끝나지 않으면 일요일 오전으로 넘기고 채점을 뒤로 민다. 패키지 저장·재로딩 확인. **18:00 까지 F2 미시작이면 사용자 보고** | `runs/bosun-sol-lora-v0.1/`, `train.log`, 메트릭 |
 | 10-25(일) 09:00~ | B5 | 회사 | **F3** dev 보정 → 서버 안 `sol_eval bosun_score` 4회(E4·E1' × test·dev, `--seeds 0-5`, 한 모델씩 순차. 언어 짝 비교용 E2 는 `bosun/{split}.ko.jsonl` 내보내기(B2 뒤 ed)가 생기면 같은 방식으로 더한다, 미결정 29-6) → 출력 폴더 4개를 통째로 전송(§2.2). 엔드포인트·라우터 변경 없음 | `MODEL_CARD.md`, `report.json`·`rows.json`·`predictions.jsonl` 4벌, `calibration.json`, sha256 |
 | 10-25(일) 오후 | B5 | 우리 | 받은 출력의 패키지 sha256·test 파일 sha256 을 번들 manifest 와 대조 → `sol_eval` 오프라인 지표 → 사업 클러스터 짝 부트스트랩 Δ·95% CI | `docs/evidence/eval/e4-<일시>.md`, 레지스트리 `bosun-sol-lora-v0.1.reports` |
-| 10-26(월) 오전 | B6 | 우리 | `experiment-tables.md` (c)·`limitations.md` E4 문장·슬라이드. 같은 날 제출(ADR-042) | 제출물 |
+| 10-26(월) 오전 | B6 | 우리 | `experiment-tables.md` (c)·`limitations.md` E4 문장·슬라이드. 같은 날 제출 목표(ADR-042, 공식 마감 10-27) | 제출물 |
 
 Qwen 학습 일정은 **없다**(2026-10-20 저녁 개정. 옛 "10-25 조건부 Qwen 4B QLoRA" 행 삭제).
 
