@@ -183,6 +183,6 @@ describe("G3 · 08 §6 worked examples (FX-01 94 BID · FX-02 72 WATCH · FX-03 
     expect(result.score).toBe(68);
     expect(result.recommendation).toBe("NO_BID");
     expect(result.explanation).toContain("68점은 참고용");
-    expect(result.explanation).toContain("Kev는 BID를 제시했지만 규칙 판정이 우선");
+    expect(result.explanation).toContain("결정 모델은 BID를 제시했지만 규칙 판정이 우선");
   });
 });

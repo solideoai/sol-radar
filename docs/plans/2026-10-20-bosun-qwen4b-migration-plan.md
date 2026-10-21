@@ -84,7 +84,7 @@ updated: 2026-10-20
 | 어댑터 | PEFT LoRA r=16, alpha 32, dropout 0.05, target 7개(`q_proj k_proj v_proj o_proj gate_proj up_proj down_proj`), `inference_mode: true`. 28층 × 7 × (A,B) = **392 텐서**, 파라미터 수 계산값 **10,092,544** — 지시서의 서버 실측과 일치 | `adapter/adapter_config.json`, 계산 |
 | 파일 sha256 | `adapter/adapter_model.safetensors` `961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5`, `decision_embeddings.safetensors` `88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188` | `manifest.json`(content-addressed) |
 | decision token | 256개 `<|decision_000|>`~`<|decision_255|>`, id 151669~151924, `max_runtime_choices 255`, `null_token_index 255`, `decision_token_assignment: presented_slot`, `prompt_schema: bosun-decision-prompt-v3-stable-slots` | `serving.json`·`config.json` |
-| 공개 API | `BosunForDecision.from_pretrained(path, revision=…)`(`trust_remote_code=True`, `AutoModelForCausalLM` auto_map), `predict(*, state, instructions, candidates, decision_type="choice", seed=0, row_id="0") → {"probabilities": [...]}`(**`torch.inference_mode()` 안**), `decision_logits(*, input_ids, attention_mask) → [B, 256]`(no_grad 아님 → 학습용), `render_decision_prompt(...) → (prompt, slot_token_ids, candidate_to_slot)`, `forward`(PEFT causal LM 그대로) | `modeling_bosun.py` |
+| 공개 API | `BosunForDecision.from_pretrained(path, revision=…)`(`trust_remote_code=True`, `AutoModelForCausalLM` auto_map), `predict(*, state, instructions, candidates, decision_type="choice", seed=0, row_id="0") → {"probabilities": [...]}`(**`torch.inference_mode()` 안**), `decision_logits(*, input_ids, attention_mask) → [B, 256]`(no_grad 아님 → 학습용), `render_decision_prompt(...) → (content, presentation_order, candidate_to_slot)`, `forward`(PEFT causal LM 그대로) | `modeling_bosun.py` |
 | 프롬프트 | 시스템 "Choose exactly one supplied decision token. Return only that token. Do not explain the answer." + 유저 메시지 = canonical JSON `{"schema","state","question":{"instructions","type","criteria_fields","criteria":[[token, 원래 index, label, description…],…]}}`. 후보 제시 순서는 `sha256(f"{seed}:{row_id}:candidate-order")` 로 섞고 `candidate_to_slot` 으로 되돌린다. 후보 2~255개 | `modeling_bosun.py` |
 | 타입 | `_DECISION_TYPES = {"choice","score","noul"}` 은 프롬프트의 `type` 문자열로만 들어간다. **noul 전용 null slot 구현은 없다**(noul = 후보 2개 true/false 로 표현, §1.3) | `modeling_bosun.py` |
 | state 길이 | 제한 없음(`truncation=False`). 백본 ctx 40,960. 우리 state 최대 6,000 토큰(03 §5.6) 은 들어간다. DecisionBench state 는 14~18.9k 자 | `modeling_bosun.py`, 데이터셋 카드 |
@@ -212,7 +212,7 @@ Kev 는 "state 1 + 질문 N" 을 한 요청으로 받고, Bosun 은 **질문 하
 
 **학습 대상**: 공개 LoRA 392 텐서(10,092,544)만 `requires_grad=True`. decision token 임베딩(입·출력 256행)·백본·토크나이저 동결. 처음부터 새 LoRA 를 만들지 않는다(Kev `--init_from` 과 같은 원칙).
 
-**손실**: `render_decision_prompt(...)` → (prompt, slot_token_ids, candidate_to_slot) → `decision_logits(input_ids, attention_mask)[:, :K]`(K = 후보 수) 에 CE(one-hot) 또는 soft-CE(`gold.probabilities`). 에폭마다 `seed=epoch` 로 제시 순서를 바꿔 slot 편향을 막는다. 왼쪽 패딩 필수(`decision_logits` 가 마지막 열 attention 1 요구). `predict()` 는 `inference_mode` 라 학습에 쓰지 않는다.
+**손실**: `render_decision_prompt(...)` → (content, presentation_order, candidate_to_slot) → `decision_logits(input_ids, attention_mask)[:, :K]`(K = 후보 수) 에 CE(one-hot) 또는 soft-CE(`gold.probabilities`). 에폭마다 `seed=epoch` 로 제시 순서를 바꿔 slot 편향을 막는다. 왼쪽 패딩 필수(`decision_logits` 가 마지막 열 attention 1 요구). `predict()` 는 `inference_mode` 라 학습에 쓰지 않는다.
 
 **레코드 형식** `bosun/{split}.en.jsonl`(한 줄 = 질문 하나. `EvalItem`·`Label` 필드를 보존):
 

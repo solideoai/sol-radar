@@ -10,7 +10,7 @@ updated: 2026-10-21
 
 # SOL RADAR — 구현 문서 인덱스
 
-> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen3.5-27B, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
+> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen3.8-Flash-Next, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
 
 ## 10줄 요약
 
@@ -108,7 +108,7 @@ updated: 2026-10-21
 > 퇴역(2026-10-20 ADR-034). 현재 결정 모델은 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`), 검증은 [계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §1. 위는 Kev 당시 기록이다.
 
 - 조달청 데이터: https://www.data.go.kr/ — 입찰공고정보서비스(15129394)·사전규격(15129437)·발주계획(15129462)·업종 및 근거법규(15129467)의 오퍼레이션·필드 이름은 2026-10-16 서비스 페이지 명세로 확인했다. 서비스키로 받은 실제 응답은 2026-10-19 C1 ①(공공 API A1~A9)·②(첨부 B1~B4)에서 확인했다. 마스킹한 응답 14건은 `fixtures/recorded/`, 호출 기록과 설계 가정과 다른 점 8건은 `docs/evidence/phase-0/external-deps-api-20261019.md`에 있다([[16-DECISIONS]] 미결정 1번).
-- Kev 학습·평가 도구(`kev.train`·`kev.benchmark`·`kev.compare`, `--init_from`)는 2026-10-16 저장소 main `1f04cfa`에서 확인했다([[22-FINETUNE-RUNBOOK]] §2). 기본 모델은 Kev-9B@v1.0이었다(ADR-020, 당시 기록). **퇴역(2026-10-20 ADR-034)**: 결정 모델은 Bosun v3.1 0.6B, 학습·채점 도구는 우리 `sol_eval.bosun_score`(B1 예정)다. 추출·설명은 회사 운영 vLLM API의 Qwen3.5-27B다.
+- Kev 학습·평가 도구(`kev.train`·`kev.benchmark`·`kev.compare`, `--init_from`)는 2026-10-16 저장소 main `1f04cfa`에서 확인했다([[22-FINETUNE-RUNBOOK]] §2). 기본 모델은 Kev-9B@v1.0이었다(ADR-020, 당시 기록). **퇴역(2026-10-20 ADR-034)**: 결정 모델은 Bosun v3.1 0.6B, 학습·채점 도구는 우리 `sol_eval.bosun_score`(B1 예정)다. 추출·설명은 회사 운영 vLLM API의 Qwen3.8-Flash-Next다.
 - 현재 문서는 구현용 설계안이다. 외부 API 필드/호출 한도, 모델 성능, 카카오 발송 조건은 검증 전 확정 사실로 취급하지 않는다. 검증 상태는 [[16-DECISIONS|16 ADR]]에 날짜와 함께 기록한다.
 
 ## 솔리데오 가상 인력·가입 결정

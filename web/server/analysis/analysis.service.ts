@@ -110,7 +110,10 @@ async function prepareExtraction(
   }
 
   const source = await deps.extraction.loadSource(context);
-  const reading = readExtractResult(await deps.gateway.extract(toExtractRequest(context, source)));
+  // 근거의 빈 fetchedAt 은 이 revision 의 수집 시각(bid.fetchedAt = bid_revisions.fetched_at)으로 채운다.
+  const reading = readExtractResult(await deps.gateway.extract(toExtractRequest(context, source)), {
+    fetchedAt: context.bid.fetchedAt,
+  });
   if (reading.kind === "EXTRACTED") {
     const saved = await deps.extraction.save(
       toExtractionRecord(context, reading.response, reading.extraction),

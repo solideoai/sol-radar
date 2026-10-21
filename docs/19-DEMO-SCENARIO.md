@@ -75,15 +75,15 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | 모드 | 공고 | AI | 이 데모에서 쓰는 곳 |
 |---|---|---|---|
 | `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`) | **기본 시연 모드.** S2~S7 전부. 위 표의 기대 수치(94·72·68, 결정 모델 분포)는 mock 기준이며 골든과 같다 |
-| `fixture` | fixture 20건 | 회사 vLLM API의 Qwen3.5-27B·회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론(HTTPS) | S0 기동 확인. 공공 API가 안 될 때의 대체 |
-| `live` | 실제 나라장터 공고 | 회사 vLLM API의 Qwen3.5-27B·회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론(HTTPS) | S0 기동 확인. S-LIVE용 사전 run(§3 4번) |
+| `fixture` | fixture 20건 | 회사 vLLM API의 Qwen3.8-Flash-Next·회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론(HTTPS) | S0 기동 확인. 공공 API가 안 될 때의 대체 |
+| `live` | 실제 나라장터 공고 | 회사 vLLM API의 Qwen3.8-Flash-Next·회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론(HTTPS) | S0 기동 확인. S-LIVE용 사전 run(§3 4번) |
 
-- 화면 표시: 머리말 "실행 모드: mock", fixture 공고의 `DEMO` 배지, 상세의 분석 요약 띠 "분석 실행 모드: mock|fixture|live"와 "AI: mock" 또는 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자 그대로, [[16-DECISIONS|ADR-029]] A6 D12), 모든 모드의 "가상 회사 프로필로 분석" 배지. 분석마다 그때의 모드가 기록되므로 모드를 바꿔도 지난 분석의 표시는 그대로다.
+- 화면 표시: 머리말 "실행 모드: mock", fixture 공고의 `DEMO` 배지, 상세의 분석 요약 띠 "분석 실행 모드: mock|fixture|live"와 "AI: mock" 또는 "AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자 그대로, [[16-DECISIONS|ADR-029]] A6 D12), 모든 모드의 "가상 회사 프로필로 분석" 배지. 분석마다 그때의 모드가 기록되므로 모드를 바꿔도 지난 분석의 표시는 그대로다.
 - `fixture`·`live` 모드의 실모델 결과는 mock과 다를 수 있다. S3 "규칙이 결정 모델을 이긴다"는 mock Kev의 v0.1 `recommendation`(FX-03 BID 0.55)에 기대므로 `mock` 모드에서만 보장된다.
 - 장애 대체 순서는 `live` → `fixture` → `mock`이다. 모드 전환은 env(`SOL_RUN_MODE`)를 바꾸고 worker·ai-gateway를 재시작해서 한다. 자동으로 바뀌지 않고(`AI_FALLBACK_TO_MOCK=true`는 세 모드 모두 기동 거부, [[16-DECISIONS|ADR-030]] B11), 바꿨으면 청중에게 말한다.
 - 회사 GPU 추론 엔드포인트([[16-DECISIONS|ADR-025]])에 닿지 않으면 `live`·`fixture` 분석은 `PARTIAL`·`RULES_ONLY`로 끝난다. 숨기지 않고 S6처럼 보여 준다(§4 S6 엔드포인트 미접속).
 - S5의 "live 배치"는 fixture의 두 번째 배치(`batch:"live"`)이며 실행 모드 `live`와 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH`라 S5는 `fixture`·`mock` 모드에서만 된다.
-- **S-LIVE는 발표 중 모드 전환 없이 한다**([[16-DECISIONS|ADR-023]]). S0에서 `live` 모드로 실공고 1건을 수집·파싱·분석해 둔 run을, `mock` 모드로 돌아온 앱에서 `/bids?origin=all`로 연다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장되므로 분석 요약 띠는 "분석 실행 모드: live"와 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"을 그대로 보인다(머리말은 "실행 모드: mock"). `pnpm demo:reset`은 데모 조직 두 곳의 조직 소유 행(`score_runs` 포함)을 `org_id`로 모두 지운다(`scripts/demo-reset.mjs` `ORG_SCOPED_TABLES`, [[04-DATABASE|04]] §6). 그래서 reset 하면 S-LIVE run도 지워진다. S-LIVE는 리허설 뒤 reset 하지 말고, 지웠으면 다시 돌린다. 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]]) 4갈래 중 어느 것으로 시연하는지 §3 `run-modes.md`에 적고 발표에서 말한다. 녹화·fixture 결과를 live라고 말하지 않는다.
+- **S-LIVE는 발표 중 모드 전환 없이 한다**([[16-DECISIONS|ADR-023]]). S0에서 `live` 모드로 실공고 1건을 수집·파싱·분석해 둔 run을, `mock` 모드로 돌아온 앱에서 `/bids?origin=all`로 연다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장되므로 분석 요약 띠는 "분석 실행 모드: live"와 "AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"을 그대로 보인다(머리말은 "실행 모드: mock"). `pnpm demo:reset`은 데모 조직 두 곳의 조직 소유 행(`score_runs` 포함)을 `org_id`로 모두 지운다(`scripts/demo-reset.mjs` `ORG_SCOPED_TABLES`, [[04-DATABASE|04]] §6). 그래서 reset 하면 S-LIVE run도 지워진다. S-LIVE는 리허설 뒤 reset 하지 말고, 지웠으면 다시 돌린다. 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]]) 4갈래 중 어느 것으로 시연하는지 §3 `run-modes.md`에 적고 발표에서 말한다. 녹화·fixture 결과를 live라고 말하지 않는다.
 
 **live 공고가 데모 DB에 남는 경우** (2026-10-16)
 - `live` 모드로 수집한 실제 공고(`is_demo=false`)는 같은 DB에 남는다. `pnpm demo:reset`은 live 공고(`is_demo=false`)와 그 revision·첨부는 지우지 않는다. 다만 그 공고를 데모 조직에서 분석한 run은 지운다. reset 하면 S-LIVE run도 지워진다. S-LIVE는 리허설 뒤 reset 하지 말고, 지웠으면 다시 돌린다.
@@ -152,7 +152,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 ### S-LIVE 실제 공고 (3:30~4:15, ADR-023)
 
 1. `/bids` 필터 출처 `all`(또는 `?origin=all`). 실제 공고 1건(`DEMO` 배지 없음, 출처 `g2b-bid-notice`)을 연다. 공고번호는 S0 4번의 `run-modes.md`와 같아야 한다.
-2. 보여야 하는 것: 상단 요약에 실제 발주기관·예산·마감·원문 링크(실제 나라장터 URL), "가상 회사 프로필로 분석" 배지. 분석 요약 띠에 "분석 실행 모드: live", "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c", 분석 시각(머리말은 "실행 모드: mock" 그대로). 자격 체크리스트는 3값 + 사유 코드(`NEEDS_REVIEW`가 많아도 그대로), 점수 분해 5행, 결정 모델 참고 지표(고지 문구. 보정 상태 `UNCALIBRATED` 표시는 미구현, [[03-AI-PIPELINE|03]] §5.7), 근거 서랍에 공고 본문·API 필드 인용. 첨부 처리(다운로드·파싱)는 미구현이라 첨부 인용과 `DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED` 배지는 나오지 않는다(첨부는 `PENDING`, [[18-HACKATHON|18]] §7).
+2. 보여야 하는 것: 상단 요약에 실제 발주기관·예산·마감·원문 링크(실제 나라장터 URL), "가상 회사 프로필로 분석" 배지. 분석 요약 띠에 "분석 실행 모드: live", "AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c", 분석 시각(머리말은 "실행 모드: mock" 그대로). 자격 체크리스트는 3값 + 사유 코드(`NEEDS_REVIEW`가 많아도 그대로), 점수 분해 5행, 결정 모델 참고 지표(고지 문구. 보정 상태 `UNCALIBRATED` 표시는 미구현, [[03-AI-PIPELINE|03]] §5.7), 근거 서랍에 공고 본문·API 필드 인용. 첨부 처리(다운로드·파싱)는 미구현이라 첨부 인용과 `DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED` 배지는 나오지 않는다(첨부는 `PENDING`, [[18-HACKATHON|18]] §7).
 3. 말할 것: "지금까지는 가상 공고였다. 이 건은 실제 공고를 회사가 제공한 GPU 추론 엔드포인트에서 추론한 결과다. 머리말은 mock이지만 이 분석은 live 모드에서 돌린 것이고 화면이 그 사실을 기록한다. 회사 프로필은 가상이다." 외부 의존성 컷 규칙으로 규칙만 `PARTIAL`이거나 fixture 실추론이거나 녹화면 그 말을 그대로 한다.
 4. 보이지 않으면: 녹화 영상(같은 입력·실행 로그 기반)으로 대체하고 "녹화"라고 말한다. 실시간 추론으로 포장하지 않는다.
 

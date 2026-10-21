@@ -16,17 +16,17 @@ updated: 2026-10-21
 
 > [!warning] 범위 (2026-10-20, [[16-DECISIONS|ADR-034]] 개정)
 > - **Bosun v3.1 0.6B LoRA 이어 학습**: 해커톤 비교 실험이다. 데모·S-LIVE 모델은 **공개 Bosun** `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c` 그대로다(ADR-034 9번, Q7). 학습본은 같은 test 세트에서 개선·회귀 안정성을 보이고 **사용자 승인**을 받은 뒤에만 교체 후보가 된다.
-> - **Qwen 파인튜닝은 하지 않는다**(2026-10-20 저녁 사용자 결정, ADR-034 8번 개정). 추출·설명 모델은 회사가 이미 운영 중인 vLLM API 의 `Qwen/Qwen3.5-27B` 를 재사용한다(게이트웨이 `QWEN_BASE_URL`·`QWEN_API_KEY`, 주소·키 확정은 [[03-AI-PIPELINE|03]]·[[10-DEPLOYMENT|10]]). 처음 안이던 Qwen3-4B-Instruct-2507 은 **백업으로만 보존**하고 다운로드·venv·서빙·학습 작업을 중단한다. 이 문서의 Qwen 몫은 EX0(회사 API 추출 품질 기준 측정)만이다.
+> - **Qwen 파인튜닝은 하지 않는다**(2026-10-20 저녁 사용자 결정, ADR-034 8번 개정). 추출·설명 모델은 회사가 이미 운영 중인 vLLM API 의 `Qwen/Qwen3.8-Flash-Next` 를 재사용한다(2026-10-21 사용자 보고로 Qwen3.5-27B 에서 교체. 게이트웨이 `QWEN_BASE_URL`·`QWEN_API_KEY`, 주소·키 확정은 [[03-AI-PIPELINE|03]]·[[10-DEPLOYMENT|10]]). 처음 안이던 Qwen3-4B-Instruct-2507 은 **백업으로만 보존**하고 다운로드·venv·서빙·학습 작업을 중단한다. 이 문서의 Qwen 몫은 EX0(회사 API 추출 품질 기준 측정)만이다.
 > - Kev-9B·Qwen3.5-9B 경로(`kev.train`·`kev.benchmark`·`kev.compare`·`kev.serve`, `.venv-kev`, `infra/gpu/kev-preflight.sh`·`kev-f1.sh`)는 **퇴역(2026-10-20)** 이다. 스크립트·증거 파일은 지우지 않고 보존한다(ADR-034 10·11번). 이 문서에서는 이력 표기로만 남는다.
 > - 이 문서가 부르는 우리 쪽 도구 중 `services/decision`(`sol_decision.serve`·`sol_decision.train`), `sol_eval.bosun_score`·`sol_eval.export --format bosun`·`sol_eval.leakage`, `infra/gpu/bosun-preflight.sh`·`infra/gpu/bosun-f1.sh` 는 **2026-10-20 기준 미구현**이고 B1(10-21~22)에서 만든다([분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §6·§9). 아래에서 이 도구를 쓰는 단계는 그 구현을 전제로 하며, 인자 이름은 B1 에서 확정한다.
 > - GPU 학습·모델 서빙 시작·nginx 변경은 **사용자 승인 전까지 하지 않는다**(ADR-034 10번). 아래 명령은 승인 뒤 회사가 실행한다.
 
 ## 1. 한눈에
 
-| | Bosun v3.1 0.6B | Qwen3.5-27B(회사 API, 학습 없음) |
+| | Bosun v3.1 0.6B | Qwen3.8-Flash-Next(회사 API, 학습 없음) |
 |---|---|---|
 | 하는 일 | 요구사항별 충족 분류·기술 적합성·리스크 확률([[03-AI-PIPELINE\|03]] §5.10). 점수 입력이 아니고 `review_flags` 만 더한다 | 공고문 요구조건 추출·영어 표기(`translations`)·설명([[03-AI-PIPELINE\|03]] §4) |
-| 출발 모델 | `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`(백본 `Qwen/Qwen3-0.6B@c1899de`, 256 decision token) | 회사가 운영하는 vLLM API 의 `Qwen/Qwen3.5-27B`(리비전·서빙 설정은 회사 운영, 우리가 고정하지 않음). 백업: `Qwen/Qwen3-4B-Instruct-2507@cdbee75f`(미사용) |
+| 출발 모델 | `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`(백본 `Qwen/Qwen3-0.6B@c1899de`, 256 decision token) | 회사가 운영하는 vLLM API 의 `Qwen/Qwen3.8-Flash-Next`(리비전·서빙 설정은 회사 운영, 우리가 고정하지 않음). 백업: `Qwen/Qwen3-4B-Instruct-2507@cdbee75f`(미사용) |
 | 학습 방식 | 공개 LoRA(r=16, 392 텐서, 10,092,544 파라미터) 이어 학습, decision 임베딩·백본 동결 + dev 로 온도 보정 | **없음** |
 | 도구 | 우리 `services/decision`(`sol_decision.train`), 채점 `sol_eval.bosun_score` — **B1 미구현** | 없음(게이트웨이 어댑터 그대로, `QWEN_BASE_URL` 값만 갱신) |
 | 학습 데이터 | 실제 공고 × 가상 기업 변형의 영어 state + `kev-qs/v0.2` 라벨을 **질문 하나 = 레코드 하나**로 변환(§4.1). 공개 replay 없음 | 없음 |
@@ -37,7 +37,7 @@ updated: 2026-10-21
 
 | 우리(SOL RADAR) | 회사(GPU 서버) |
 |---|---|
-| 평가셋·학습셋 번들(`sol-dataset-{version}.tar`, sha256)·이 실행서·학습 요청서(§6)·`services/decision` 코드·`bosun-*.sh` 를 만든다(B1) | Bosun·백본을 받고(§2) `.venv-bosun` 환경을 만든다(§3). 사용자 승인 뒤 `sol_decision.serve`(8009)를 띄운다. 회사 Qwen3.5-27B API 는 키 전달·`GET /v1/models` 확인만 |
+| 평가셋·학습셋 번들(`sol-dataset-{version}.tar`, sha256)·이 실행서·학습 요청서(§6)·`services/decision` 코드·`bosun-*.sh` 를 만든다(B1) | Bosun·백본을 받고(§2) `.venv-bosun` 환경을 만든다(§3). 사용자 승인 뒤 `sol_decision.serve`(8009)를 띄운다. 회사 Qwen3.8-Flash-Next API 는 키 전달·`GET /v1/models` 확인만 |
 | 사람 라벨(사용자 직접, ADR-027 에서 보존) | F1 smoke·F2 학습·F3 보정·E4·E1' 채점을 **물리 GPU 1(PaddleOCR 와 공유)** 에서 돌린다(§4) |
 | 돌려받은 채점 출력을 노트북에서 오프라인으로 읽어 E4 지표를 내고(21 §4.1) 레지스트리 항목을 쓴다 | 서버 안에서 `sol_eval.bosun_score` 를 E4·E1' × test·dev 로 돌린다(ADR-034 7번). 학습본을 HTTPS 로 서빙하지 않는다 |
 | 결과를 제출물에 적는다 | 돌려줄 것(§4.5)을 넘긴다. 데이터셋은 학습이 끝나면 지운다 |
@@ -54,7 +54,7 @@ updated: 2026-10-21
 |---|---|---|---|---|
 | **결정 모델** Bosun v3.1 0.6B(공개 LoRA 어댑터 + decision 임베딩 + 모델 코드) | https://huggingface.co/Hanno-Labs/bosun-v3.1-0.6b | `5e78a37c8d86860ebac9ef2d5327d6299498498e`(= main, 2026-10-09) | Apache-2.0(Clause Logic Inc.) | `adapter/adapter_model.safetensors` sha256 `961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5`, `decision_embeddings.safetensors` sha256 `88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188`(`manifest.json`, content-addressed). PEFT LoRA r=16, alpha 32, dropout 0.05, target 7개(`q_proj k_proj v_proj o_proj gate_proj up_proj down_proj`), 28층 × 7 × (A,B) = 392 텐서, 10,092,544 파라미터 |
 | Bosun 백본(동결) | https://huggingface.co/Qwen/Qwen3-0.6B | `c1899de289a04d12100db370d81485cdf75e47ca` | Apache-2.0 | 28층, hidden 1024, inter 3072, ctx 40,960. 파일 크기·sha256 은 미확인(B2 에서 기록) |
-| **추출·설명 모델** Qwen3.5-27B | 회사가 운영하는 vLLM API(게이트웨이 `QWEN_BASE_URL`, [[03-AI-PIPELINE\|03]]·[[10-DEPLOYMENT\|10]] 참조) | 회사 운영 값(우리가 고정하지 않음) | 회사 운영 | 받지 않는다. 게이트웨이가 `GET /v1/models` 의 `id` 를 레지스트리 `run: Qwen/Qwen3.5-27B` 와 대조만 한다. 키는 회사가 `QWEN_API_KEY` 로 제공 |
+| **추출·설명 모델** Qwen3.8-Flash-Next | 회사가 운영하는 vLLM API(게이트웨이 `QWEN_BASE_URL`, [[03-AI-PIPELINE\|03]]·[[10-DEPLOYMENT\|10]] 참조) | 회사 운영 값(우리가 고정하지 않음) | 회사 운영 | 받지 않는다. 게이트웨이가 `GET /v1/models` 의 `id` 를 레지스트리 `run: Qwen/Qwen3.8-Flash-Next` 와 대조만 한다. 키는 회사가 `QWEN_API_KEY` 로 제공 |
 | ~~Qwen3-4B-Instruct-2507~~ `Qwen/Qwen3-4B-Instruct-2507` | — | **백업(미사용, 2026-10-20 저녁)**. 리비전 `cdbee75f17c01a7cc42f958dc650907174af0554` 기록만 | Apache-2.0 | 다운로드·venv·서빙·학습 작업 중단. 레지스트리 `status: backup` |
 | ~~Kev-9B 체크포인트~~ `jaredpalmer/kev-9b` | — | **퇴역(2026-10-20)**. 가중치는 2026-10-20 오후 서버에 받았다(snapshot `db029f08`, 사용자 보고). `kev` 패키지 설치·`kev.serve`·F1 은 미실행 | Apache-2.0 | 서빙·학습·비교에 쓰지 않는다. 캐시는 지우지 않아도 된다(회사 결정) |
 | ~~Qwen3.5-9B·Qwen3.5-9B-Base·`kev-suites` replay·LLaMA-Factory~~ | — | **퇴역(2026-10-20)** | — | 받지 않는다 |
@@ -70,13 +70,13 @@ updated: 2026-10-21
 > [!success] 검증됨 (2026-10-20, Hugging Face API `api/models/*`·파일 원문. 확인 주체는 [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §1 세션)
 > - 리비전 존재: `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c…`(main), `Qwen/Qwen3-0.6B@c1899de…`(백업 `Qwen/Qwen3-4B-Instruct-2507@cdbee75f…` 도 존재 확인됨).
 > - Bosun 파일 원문: `modeling_bosun.py`·`configuration_bosun.py`·`config.json`·`serving.json`·`manifest.json`·`adapter/adapter_config.json`. decision token 256개 `<|decision_000|>`~`<|decision_255|>`(id 151669~151924), `max_runtime_choices 255`, `null_token_index 255`, `prompt_schema: bosun-decision-prompt-v3-stable-slots`.
-> - 공개 API: `BosunForDecision.from_pretrained(path, revision=…)`(`trust_remote_code=True`), `predict(*, state, instructions, candidates, decision_type="choice", seed=0, row_id="0") → {"probabilities": [...]}`(**`torch.inference_mode()` 안**), `decision_logits(*, input_ids, attention_mask) → [B, 256]`(no_grad 아님 → 학습용), `render_decision_prompt(...) → (prompt, slot_token_ids, candidate_to_slot)`. state 길이 제한 없음(`truncation=False`). 어댑터는 `PeftModel.from_pretrained(..., is_trainable=False)` 로 올라오므로 학습 때 LoRA 파라미터의 `requires_grad=True` 를 직접 켠다.
+> - 공개 API: `BosunForDecision.from_pretrained(path, revision=…)`(`trust_remote_code=True`), `predict(*, state, instructions, candidates, decision_type="choice", seed=0, row_id="0") → {"probabilities": [...]}`(**`torch.inference_mode()` 안**), `decision_logits(*, input_ids, attention_mask) → [B, 256]`(no_grad 아님 → 학습용), `render_decision_prompt(...) → (content, presentation_order, candidate_to_slot)`. state 길이 제한 없음(`truncation=False`). 어댑터는 `PeftModel.from_pretrained(..., is_trainable=False)` 로 올라오므로 학습 때 LoRA 파라미터의 `requires_grad=True` 를 직접 켠다.
 > - 공개 성능(DecisionBench 23,900행): acc 0.8118, ECE 0.0659. 후보 2개 0.946, 3개 0.983, 5개 0.953. 가장 약한 가족 `rubric_scoring_prioritization` 0.707(우리 `score` 문항과 가장 비슷).
 > - Bosun **학습 코드는 공개되지 않았다**(모델 카드·Hanno GitHub 11개 저장소). 우리 trainer 를 만든다(§4.3).
 
 > [!warning] 미검증 가정 (2026-10-20)
 > - 리비전 `5e78a37c`(main) 와 Hanno 레지스트리 핀 `87cea31`(2026-09-22) 사이 6개 커밋은 메시지 기준 README·LICENSE·`.eval_results` 만이다(diff 는 보지 않았다). B2 에서 두 리비전의 `manifest.json` sha256 이 같은지 확인한다.
-> - 회사 서버 사실(PaddleOCR 약 9,167 MiB, `.venv-bosun`, Bosun CPU 2-step 학습 성공, `datasets/decision/smoke.jsonl` 6건)과 회사 Qwen3.5-27B API(주소·키 별도 제공)는 **사용자 보고**다. B2 에서 `nvidia-smi`·`pip list`·`GET /v1/models` 기록으로 교차 확인한다.
+> - 회사 서버 사실(PaddleOCR 약 9,167 MiB, `.venv-bosun`, Bosun CPU 2-step 학습 성공, `datasets/decision/smoke.jsonl` 6건)과 회사 Qwen3.8-Flash-Next API(주소·키 별도 제공)는 **사용자 보고**다. B2 에서 `nvidia-smi`·`pip list`·`GET /v1/models` 기록으로 교차 확인한다.
 
 ### 2.2 받는 법과 무결성 확인
 
@@ -185,10 +185,10 @@ curl -s -H "Authorization: Bearer $DECISION_API_KEY" http://127.0.0.1:8009/v1/mo
 
 ### 3.3 Qwen 환경: 불필요(백업)
 
-Qwen 은 회사가 운영하는 vLLM API(`Qwen/Qwen3.5-27B`)를 쓰므로 GPU 서버에 우리 Qwen 런타임·학습 환경을 만들지 않는다(2026-10-20 저녁 결정). `.venv-qwen`(사용자 보고로 존재)과 Qwen 4B 다운로드 작업은 **중단**한다 — 지우지 않고 백업으로 둔다. 회사 측 확인은 키 전달과 아래 한 줄이다(주소·키 이름의 정본은 [[03-AI-PIPELINE|03]]·[[10-DEPLOYMENT|10]]. 게이트웨이 어댑터가 `QWEN_BASE_URL` 끝의 `/v1` 중복을 정규화해 `/models`·`/chat/completions` 를 붙인다(B1)).
+Qwen 은 회사가 운영하는 vLLM API(`Qwen/Qwen3.8-Flash-Next`)를 쓰므로 GPU 서버에 우리 Qwen 런타임·학습 환경을 만들지 않는다(2026-10-20 저녁 결정). `.venv-qwen`(사용자 보고로 존재)과 Qwen 4B 다운로드 작업은 **중단**한다 — 지우지 않고 백업으로 둔다. 회사 측 확인은 키 전달과 아래 한 줄이다(주소·키 이름의 정본은 [[03-AI-PIPELINE|03]]·[[10-DEPLOYMENT|10]]. 게이트웨이 어댑터가 `QWEN_BASE_URL` 끝의 `/v1` 중복을 정규화해 `/models`·`/chat/completions` 를 붙인다(B1)).
 
 ```bash
-# 노트북(우리) 또는 회사. 키 값은 셸 변수로만. id 가 Qwen/Qwen3.5-27B 이어야 레지스트리 대조가 통과한다
+# 노트북(우리) 또는 회사. 키 값은 셸 변수로만. id 가 Qwen/Qwen3.8-Flash-Next 이어야 레지스트리 대조가 통과한다
 curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"   # 값이 /v1 로 끝나므로(https://acropolissg.com/vllm/v1) /models 만 붙인다
 ```
 
@@ -231,7 +231,7 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"   # 값
 | 구성 | 어디서 오나 | 규칙 |
 |---|---|---|
 | 공고 | `live` 모드로 수집한 실제 나라장터 정보화사업 공고·RFP(`is_demo=false`, 첨부 파싱 성공). Supabase·MinIO 에 있다 | 개인정보 마스킹(21 §3.6). fixture `FX-01`~`FX-20` 은 넣지 않는다(회귀용) |
-| 추출 | train 은 회사 Qwen3.5-27B API `/extract` 출력(B2 에서 키 확인 뒤), dev·test 는 사람이 확정한 gold(21 §3.7) | 인용 검증 통과 값만 `KNOWN` |
+| 추출 | train 은 회사 Qwen3.8-Flash-Next API `/extract` 출력(B2 에서 키 확인 뒤), dev·test 는 사람이 확정한 gold(21 §3.7) | 인용 검증 통과 값만 `KNOWN` |
 | 회사 | 가상 기업 원형 6개(`fixtures/eval/companies/*.json`, 21 §3.2)와 항목별 변형(21 §3.3) | 실제 회사 이름·실적은 쓰지 않는다. 원형 하나는 train 에서 뺀다(처음 보는 기업 지표) |
 | state | `services/ai/kev` 의 state 빌더(서빙과 **같은 코드**), 템플릿 `en.v0.2` | `ko` state 는 E2 평가 전용이다. 학습은 `en` 만(ADR-012 규칙 유지) |
 | 질문 | `v0.2.json` 의 `instructions`·`criteria` **원문 그대로** | 서빙과 문구가 다르면 학습 효과가 줄어든다 |
@@ -271,7 +271,7 @@ F1 은 세 단계다(A 환경 사전 검증 → B 20 step smoke → D 측정·�
 
 **출발 체크포인트는 검증한 로컬 snapshot 으로 준다.** `bosun-preflight.sh` 가 `$snap`(§2.2)의 `adapter/adapter_model.safetensors`·`decision_embeddings.safetensors` sha256 을 §2.2 값과 대조해 다르거나 없으면 **FAIL**. `bosun-f1.sh`·F2·채점은 실행 직전에 다시 대조하고 그 **로컬 디렉터리**를 `--package` 에 주며 `HF_HUB_OFFLINE=1` 로 돌린다. 처음부터 새 LoRA 를 만드는 변경은 하지 않는다(공개 LoRA 이어 학습, ADR-034 7번).
 
-**F1-A 환경 사전 검증** — `bash infra/gpu/bosun-preflight.sh`(§3.2 끝). 확인 항목: `CUDA_VISIBLE_DEVICES=1`·`CUDA_DEVICE_ORDER=PCI_BUS_ID`, nvidia-smi GPU 1 uuid 와 `cuda:0` uuid 일치, GPU 1 프로세스 목록(PaddleOCR 허용, 그 밖은 멈춤)·여유 메모리 ≥ B1 에서 정한 기준, torch 2.8.0+cu128·CUDA·bf16, transformers·peft·safetensors 핀, Bosun snapshot 파일 sha256(§2.2 값)·백본 캐시(없으면 FAIL), `sol_decision` import, 학습 데이터 형식(`bosun/*.en.jsonl` 각 줄 §4.1 스키마)·라벨 비율·state 토큰 최대값, `predict()` 와 `decision_logits()` 경로의 확률 동일성 smoke(seed 고정, 계획 §10 4번), 디스크. 통과하면 `runs/preflight-ok` 를 남기고 `bosun-f1.sh` 가 그것을 요구한다.
+**F1-A 환경 사전 검증** — `bash infra/gpu/bosun-preflight.sh`(§3.2 끝). 확인 항목: `CUDA_VISIBLE_DEVICES=1`·`CUDA_DEVICE_ORDER=PCI_BUS_ID`, nvidia-smi GPU 1 uuid 와 `cuda:0` uuid 일치, GPU 1 프로세스 목록(PaddleOCR 허용, 그 밖은 멈춤)·여유 메모리 ≥ B1 에서 정한 기준, torch 2.8.0+cu128·CUDA·bf16, transformers·peft·safetensors 핀, Bosun snapshot 파일 sha256(§2.2 값)·백본 캐시(없으면 FAIL), `sol_decision` import, 학습 데이터 형식(`bosun/*.en.jsonl` 각 줄 §4.1 스키마)·라벨 비율·state 토큰 최대값, `predict()` 와 `decision_logits()` 경로의 확률 동일성 smoke(seed 고정, 계획 §10 4번), 디스크. 통과하면 `runs/bosun-preflight-ok` 를 남기고 `bosun-f1.sh` 가 그것을 요구한다.
 
 **F1-B 20 step smoke** — `bosun-f1.sh --max_steps 20` 이 아래를 돌리고 `nvidia-smi -i 1 … -l 1` 기록을 함께 남긴다. 기본 후보: bf16, gradient checkpointing, batch 1, accum 8(Kev 레시피에서 가져온 출발값. Bosun 전용 값은 F1·dev 로 정한다).
 
@@ -306,7 +306,7 @@ F1 이 전부 실패하면 이 순서로 검토하고 결과를 사용자에게 
 F1 을 통과한 설정만 쓴다. batch·accum 은 F1-D 의 PASS 칸 값이다. F1 값과 다르게 바꾸면 그 근거를 `MODEL_CARD.md` 와 `docs/evidence/bosun-train-feasibility.md` 에 적는다. 물리 GPU 1(공유)만 쓴다. `sol_decision.train`(B1 미구현)의 설계는 계획 §4.2 다:
 
 - **loader**: `BosunForDecision.from_pretrained(<snapshot>)` → 어댑터는 `is_trainable=False` 로 올라오므로 LoRA 파라미터(392 텐서)만 `requires_grad=True` 를 켠다. decision token 임베딩(입·출력 256행)·백본·토크나이저는 **동결**(초기 단계, ADR-034 7번).
-- **손실**: `render_decision_prompt(...)` → (prompt, slot_token_ids, candidate_to_slot) → `decision_logits(input_ids, attention_mask)[:, :K]`(K = 후보 수)에 CE(one-hot) 또는 soft-CE(`gold.probabilities`). 에폭마다 `seed=epoch` 로 제시 순서를 바꿔 slot 편향을 막는다. **왼쪽 패딩 필수**(`decision_logits` 가 마지막 열 attention 1 요구). `predict()` 는 `inference_mode` 라 학습에 쓰지 않는다.
+- **손실**: `render_decision_prompt(...)` → (content, presentation_order, candidate_to_slot) → `decision_logits(input_ids, attention_mask)[:, :K]`(K = 후보 수)에 CE(one-hot) 또는 soft-CE(`gold.probabilities`). 에폭마다 `seed=epoch` 로 제시 순서를 바꿔 slot 편향을 막는다. **왼쪽 패딩 필수**(`decision_logits` 가 마지막 열 attention 1 요구). `predict()` 는 `inference_mode` 라 학습에 쓰지 않는다.
 - **저장**: `runs/bosun-sol-lora-v0.1/` 에 HF 레이아웃 그대로(`config.json`·`adapter/`·`decision_embeddings.safetensors`(복사, 변경 없음)·`tokenizer/`·`serving.json`·`manifest.json` 에 파일 sha256). `BosunForDecision.from_pretrained(<dir>)` 로 **재로딩**되고 `predict` 가 도는지 확인한다.
 
 ```bash
@@ -367,7 +367,7 @@ python -m sol_eval.bosun_score --package "$snap"                  --data sol-dat
 
 ## 5. Qwen 파인튜닝: 하지 않음 (2026-10-20 사용자 결정)
 
-추출·설명 모델은 회사가 운영하는 vLLM API 의 `Qwen/Qwen3.5-27B` 를 재사용하고 **파인튜닝하지 않는다**([[16-DECISIONS|ADR-034]] 8번 개정). 처음 안(Qwen3-4B-Instruct-2507 을 EX0 뒤 조건부 QLoRA SFT → 병합 → vLLM 서빙)은 철회했고 Qwen 4B 는 백업으로만 보존한다. 이 절에 있던 데이터 계약·LLaMA-Factory yaml·병합 절차는 지웠다(이력은 git 과 [[16-DECISIONS|ADR-027]] 폐기 본문).
+추출·설명 모델은 회사가 운영하는 vLLM API 의 `Qwen/Qwen3.8-Flash-Next` 를 재사용하고 **파인튜닝하지 않는다**([[16-DECISIONS|ADR-034]] 8번 개정). 처음 안(Qwen3-4B-Instruct-2507 을 EX0 뒤 조건부 QLoRA SFT → 병합 → vLLM 서빙)은 철회했고 Qwen 4B 는 백업으로만 보존한다. 이 절에 있던 데이터 계약·LLaMA-Factory yaml·병합 절차는 지웠다(이력은 git 과 [[16-DECISIONS|ADR-027]] 폐기 본문).
 
 남는 것은 **EX0 한 건**이다: B3(10-22~23)에서 회사 API 의 추출 품질을 기준 측정한다 — 21 §4.3 추출 지표(필드 state 정확도·값 일치·필수 항목 재현율·인용 정확도·근거 없는 `KNOWN` 비율·`(untranslated)` 비율), fixture `FX-01`~`FX-20` 인용 검증 통과율, 인젝션 fixture 의 `INJECTION_SUSPECTED` 유지, JSON 스키마 위반률, 지연 p50·p95. 결과는 `docs/evidence/eval/` 에 적고 EX1 은 없다. 추출·설명 SFT 의 데이터 계약 설계는 해커톤 뒤 후속 과제로만 남긴다.
 
@@ -384,7 +384,7 @@ python -m sol_eval.bosun_score --package "$snap"                  --data sol-dat
 2. GPU 서버에서 huggingface.co·pypi.org 로 나갈 수 있는지(없으면 §2.2 2안).
 3. `.venv-bosun` 의 현재 핀 목록(`pip list --format=freeze`)과 Python·torch 버전.
 4. 토·일(10-24~25)에 F1·F2·채점을 돌리고 출력 폴더(`report.json`·`rows.json`·`predictions.jsonl`, 수십 MB)를 보내 줄 수 있는지. 라우터·nginx 변경은 요청하지 않는다([[23-WEEKEND-FINETUNE|23]] §8).
-5. 회사 Qwen3.5-27B API 의 `QWEN_API_KEY` 전달 방법, `GET /v1/models` 의 `id`, 호출 한도·추가 인증·guided JSON·`prompt_logprobs` 지원 여부(주소·키 정본은 03·10).
+5. 회사 Qwen3.8-Flash-Next API 의 `QWEN_API_KEY` 전달 방법, `GET /v1/models` 의 `id`, 호출 한도·추가 인증·guided JSON·`prompt_logprobs` 지원 여부(주소·키 정본은 03·10).
 
 돌려받을 것: §4.5.
 
@@ -396,7 +396,7 @@ python -m sol_eval.bosun_score --package "$snap"                  --data sol-dat
 | GPU 1 공유 상태(PaddleOCR 약 9,167 MiB)·`.venv-bosun`·Bosun CPU 2-step 성공·`smoke.jsonl` 6건 | **사용자 보고, 미검증** | B2 `nvidia-smi`·`pip list` 기록(계획 §10 9번) |
 | 외부망(Hugging Face·PyPI)·학습 시간대·PaddleOCR 피크 | 미확인 | §6 물을 것(16 미결정 22) |
 | 모델 라우터·`:8009` 런타임의 실제 실행 상태 | 미확인(2026-10-20 기준 SOL RADAR 런타임은 아직 띄우지 않았다. 기동은 사용자 승인 뒤) | B2 → C1 ③ G1·G2 |
-| 회사 Qwen3.5-27B API: `/v1/models` 의 `id` 가 `Qwen/Qwen3.5-27B` 인지, 추가 인증·호출 한도·지연(`AI_TIMEOUT_MS` 60000 안), guided JSON(G4)·`prompt_logprobs`(E3) 지원, 27B 추출·번역 품질 | **미검증**(사용자 보고) | B2 확인, B3 EX0(계획 §10 6·7번) |
+| 회사 Qwen3.8-Flash-Next API: `/v1/models` 의 `id` 가 `Qwen/Qwen3.8-Flash-Next` 인지, 추가 인증·호출 한도·지연(`AI_TIMEOUT_MS` 60000 안), guided JSON(G4)·`prompt_logprobs`(E3) 지원, Qwen3.8-Flash-Next 추출·번역 품질 | **미검증**(사용자 보고) | B2 확인, B3 EX0(계획 §10 6·7번) |
 | `.venv-bosun` 핀(transformers·peft·safetensors·fastapi) 과 torch 2.8.0+cu128 유지, `uv` 설치 여부 | 미확인 | §3.2 `--dry-run` → 설치 → `bosun-preflight.sh` |
 | Bosun snapshot·백본 다운로드와 sha256, `BosunForDecision` 로딩 | 미실행 | §2.2 → `bosun-preflight.sh`. 백본 크기·shard sha256 은 B2 에서 기록 |
 | 리비전 `5e78a37c` 와 jev 레지스트리 핀 `87cea31` 의 `manifest.json` 동일성 | 미확인(커밋 메시지 기준 문서 차이만) | B2 두 리비전 `manifest.json` sha256 대조(계획 §10 13번) |
@@ -415,7 +415,7 @@ python -m sol_eval.bosun_score --package "$snap"                  --data sol-dat
 - [[21-MODEL-TRAINING|21 모델 학습]] — 데이터셋·라벨·평가 지표·오류 분석·착수 판단·레지스트리 반입
 - [[23-WEEKEND-FINETUNE|23 주말 파인튜닝 계획]] — 10-24~25 일정·GPU 공유 표·회사에 물을 것
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — Qwen 추출 명세·프롬프트·회사 API 주소, 질문 세트 `kev-qs/v0.2`·state 템플릿, 레지스트리 서빙 검증
-- [[16-DECISIONS|16 ADR]] — ADR-034(Bosun 전환·Qwen3.5-27B 회사 API 재사용), ADR-010(유료 승인), ADR-025(회사 GPU 엔드포인트), ADR-027(폐기, 이력), 미결정 22·24
+- [[16-DECISIONS|16 ADR]] — ADR-034(Bosun 전환·Qwen3.8-Flash-Next 회사 API 재사용), ADR-010(유료 승인), ADR-025(회사 GPU 엔드포인트), ADR-027(폐기, 이력), 미결정 22·24
 - [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) — 외부 사실 §1, Qwen3.5-27B 개정 §0.2, 학습 계약 §4, 서버·env §5, GPU 공유 §8, 일정 §9, 위험 §10
 - [[12-ROADMAP|12 로드맵]] — 일정
 - [[10-DEPLOYMENT|10 배포]] — 회사 GPU 추론 엔드포인트·모델 라우터·`QWEN_BASE_URL`

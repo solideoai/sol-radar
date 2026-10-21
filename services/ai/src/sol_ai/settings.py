@@ -17,6 +17,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from sol_ai.run_mode import rule_env_keys
 
+# 회사 운영 vLLM API 주소는 끝에 /v1 이 붙어 온다(https://acropolissg.com/vllm/v1). 어댑터는 /v1/chat/completions·/v1/models 를
+# 붙이므로 끝의 /v1 을 한 번 뗀다(ADR-034 4번, B1 정규화). Qwen 전용이다. KEV_BASE_URL 은 그대로 쓴다
+_QWEN_V1_SUFFIX = "/v1"
+
+
+def normalize_qwen_base_url(url: str) -> str:
+    """QWEN_BASE_URL 끝의 "/"·"/v1"·"/v1/" 을 뗀 base URL. 호스트·경로 앞부분은 바꾸지 않는다.
+
+    "https://acropolissg.com/vllm/v1", "…/vllm/v1/", "…/vllm" 은 모두 "https://acropolissg.com/vllm" 이 되어
+    GET …/vllm/v1/models · POST …/vllm/v1/chat/completions 로 간다.
+    """
+    return url.rstrip("/").removesuffix(_QWEN_V1_SUFFIX).rstrip("/")
+
 
 class Settings(BaseSettings):
     # extra="allow": 생성자에 직접 준 규칙 키(forbidden 등)도 model_extra 로 보존한다.
@@ -52,7 +65,8 @@ class Settings(BaseSettings):
     QWEN_API_KEY: SecretStr | None = None
     KEV_BASE_URL: str | None = None
     KEV_API_KEY: SecretStr | None = None
-    KEV_MODEL_ID: str = "kev-9b-v1.0"
+    # 결정 모델 레지스트리 항목(kind: decision). 이름은 KEV_* 호환 유지(ADR-034 4번). status: active 항목만 고를 수 있다
+    KEV_MODEL_ID: str = "bosun-v3.1-0.6b"
     # 요청 하나의 마감(/extract·/kev, 재시도·묶음 포함). 호출마다 새로 쓰지 않는다(C5-A S1)
     AI_TIMEOUT_MS: PositiveInt = 60_000
     KEV_TIMEOUT_MS: PositiveInt = 5_000

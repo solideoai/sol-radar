@@ -224,10 +224,10 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 ## 실데이터와 회사 GPU 서버 (ADR-020)
 
-해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.5-27B·Bosun v3.1 0.6B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020·034]]). 이 절은 그때 지킬 경계를 정한다.
+해커톤 MVP는 나라장터 실제 공고를 수집하고, 실추론(Qwen3.8-Flash-Next·Bosun v3.1 0.6B)은 회사 GPU 서버에서 한다([[16-DECISIONS|ADR-020·034]]). 이 절은 그때 지킬 경계를 정한다.
 
 ### 회사 GPU 추론 엔드포인트 연결 (ADR-025)
-- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen3.5-27B는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, 결정 모델 Bosun은 우리 `sol_decision` 서버 `127.0.0.1:8009`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
+- gateway는 노트북 Compose에 그대로 둔다. 모델 런타임(Qwen3.8-Flash-Next는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, 결정 모델 Bosun은 우리 `sol_decision` 서버 `127.0.0.1:8009`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
 - 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). 회사가 HTTPS 엔드포인트 `https://acropolissg.com/sol-radar` 아래로 모델 런타임을 제공하고, gateway는 거기에만 붙는다. `KEV_BASE_URL`은 엔드포인트 아래 경로(`/kev`)이고 `QWEN_BASE_URL`은 회사 vLLM API(`https://acropolissg.com/vllm/v1`. `/sol-radar/qwen`은 백업)다. 경로는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)가 나누고, 인증은 라우터가 아니라 각 런타임(vLLM `--api-key`, `sol_decision` `DECISION_API_KEY`(노트북 `KEV_API_KEY`와 같은 값))이 한다([[16-DECISIONS|ADR-025]]). 라우터는 `Authorization` 헤더를 통과시키고 로그에 `$uri`만 남겨 키·쿼리를 기록하지 않는다. `/sol-radar/healthz`는 인증 없음·비밀 없음의 접속 확인용이다. 터널 전제는 폐기했다.
 - 엔드포인트는 공개 인터넷에 있다. TLS 필수이고 인증서 검증을 끄지 않는다(`curl -k`, `verify=False` 금지). API 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 필수이고 `infra/.env`에만 둔다. 키 값은 문서·로그·커밋·스크린샷·증거에 남기지 않는다. 엔드포인트 URL은 비밀이 아니다. 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다.
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).

@@ -1,0 +1,43 @@
+[project]
+name = "sol-decision"
+version = "0.1.0"
+description = "SOL RADAR 결정 모델 서버 — Bosun v3.1 0.6B 를 Kev wire 호환 HTTP 로 서빙한다(docs/03 §5.3·§5.4, ADR-034 3번)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.144.0",
+    "pydantic>=2.11",
+    "pydantic-settings>=2.10",
+    "uvicorn>=0.54.0",
+]
+
+# 모델 백엔드(--backend bosun) 전용. 회사 GPU 서버에서만 `uv sync --frozen --extra model`.
+# 노트북·CI 는 extras 없이 설치하고 torch 를 import 하지 않는다(README).
+[project.optional-dependencies]
+model = [
+    "torch>=2.8",
+    "transformers>=4.57,<5",
+    "peft>=0.21",
+    "safetensors>=0.5",
+    "accelerate>=1.10",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = [".", "src"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    # jsonschema 는 parity 시험이 게이트웨이 모듈(sol_ai.adapters.kev_local)을 import 할 때만 필요하다
+    "jsonschema>=4.26.0",
+    "pytest>=9.1.1",
+    "pyyaml>=6.0.3",
+    "ruff>=0.17.1",
+]
