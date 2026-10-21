@@ -471,7 +471,7 @@ JSON Schema:
 > [!warning] 미검증 가정 (2026-10-20)
 > - hannolabs.ai "Introducing Bosun"(2026-06-11)은 Qwen3-Reranker 기반 yes/no 크로스인코더 Bosun-XS/4B를 설명한다. v3.1 0.6B(decision token)는 다른 세대다. 인용 때 섞지 않는다.
 > - 리비전 `5e78a37c`(우리 핀)와 Hanno `jev-compatible-server` 레지스트리 핀 `87cea31`은 커밋 메시지 기준 문서 차이만이다. B2에서 두 리비전의 `manifest.json` sha256을 대조한다.
-> - 우리 도메인 zero-shot 품질·6,000 토큰 장문·질문당 지연 p95는 미측정이다(B2 G3·B3 E1', [[16-DECISIONS|16 ADR]] 미결정 24번).
+> - 우리 도메인 zero-shot 품질·6,000 토큰 장문·질문당 지연 p95는 미측정이다(B2 G3·B5 E1' 오프라인 채점, [[16-DECISIONS|16 ADR]] 미결정 24번·29-1).
 
 > [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev README·docs/model-cards/kev-4b.md·kev-9b.md(main `1f04cfa`), https://huggingface.co/jaredpalmer/kev-9b. 리비전·학습 길이는 2026-10-19 재확인)
 > - Kev는 Qwen3.5/Qwen3.8 기반의 소형 결정 모델 패밀리다. Apache-2.0. 텍스트를 생성하지 않고 질문별 calibrated probability를 돌려준다.
@@ -661,7 +661,7 @@ interface KevAssist {
 
 - 우리가 하는 검증은 gateway 기동 시 레지스트리 대조(§11)와 지연 실측(아래 G3)이다. 결정 모델 서버 기동·GPU 메모리 배분·패키지 sha256 대조·`nvidia-smi` 실측은 회사 측이 한다(서버 자체도 기동 시 `manifest.json` sha256을 대조한다, §5.3). Qwen은 회사 API라 키 수령·`GET /v1/models` `id`·guided JSON·`prompt_logprobs` 확인만 한다.
 - 엔드포인트에 접속하지 못하면 §8의 모델 서버 미접속 경로로 끝난다. 필요하면 사람이 `mock` 모드로 전환한다.
-- 평가·학습: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(`sol_decision` 서버 직접) 또는 평가용 gateway에 붙여 E1'·E2·E3·EX0을 돌린다. F1(`infra/gpu/bosun-f1.sh`)·F2(`sol_decision.train`)·오프라인 채점(`sol_eval.bosun_score`, E1'·E4)은 GPU 서버 셸이 필요하므로 회사가 실행한다(B4·B5. 도구는 main `1b68f9b`(B1)에 있고 실행은 아직 없다). 데모 모델은 공개 Bosun이고 학습본은 E4 비교로만 쓴다(ADR-034 9번, [[21-MODEL-TRAINING|21 모델 학습]]). 회사에 넘기는 실행서는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다.
+- 평가·학습: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(`sol_decision` 서버 직접) 또는 평가용 gateway에 붙여 E3·EX0(과 보조로 E2)을 돌린다(엔드포인트 실행기 `sol_eval.run`은 main에 없다). F1(`infra/gpu/bosun-f1.sh`)·F2(`sol_decision.train`)·오프라인 채점(`sol_eval.bosun_score`, E1'·E4와 언어 짝 비교용 E2. E1' 정본은 이 경로다, [[16-DECISIONS|16]] 미결정 29-1)은 GPU 서버 셸이 필요하므로 회사가 실행한다(B4·B5. 도구는 main `1b68f9b`(B1)에 있고 실행은 아직 없다). 데모 모델은 공개 Bosun이고 학습본은 E4 비교로만 쓴다(ADR-034 9번, [[21-MODEL-TRAINING|21 모델 학습]]). 회사에 넘기는 실행서는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다.
 - 노트북에서 Bosun을 직접 띄우는 CPU 경로는 쓰지 않는다(모델은 회사 GPU, ADR-025). GPU 접속 실패의 대체 경로는 `mock` 모드 또는 사전 실행 run 조회다([[16-DECISIONS|16 ADR]] 미결정 8번, ADR-023). Kev-0.8B CPU 경로 문구는 퇴역했다.
 
 > [!warning] 미검증 가정 (2026-10-20)
