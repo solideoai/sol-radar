@@ -102,7 +102,7 @@ erDiagram
 카카오톡 알림 연결 RPC([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", 구현 중 `feat/kakao-notify` `d327894`, `20261021000001`): 넷 다 `security definer`·`set search_path = ''`이고 `authenticated`만 실행한다. 로그인하지 않았으면 `UNAUTHENTICATED`로 거절한다. `scripts/db-verify.mjs` 허용 목록에 올렸다.
 - `save_kakao_notify_link(text, text, timestamptz, timestamptz)`: 연결 콜백이 부른다. 본인 행에 암호문 둘·만료 둘을 넣거나 바꾸고 `status=CONNECTED`·`enabled=true`로 둔다.
 - `set_kakao_notify_enabled(boolean)`: 켜기는 본인 행이 `CONNECTED`일 때만 된다(아니면 `KAKAO_NOT_CONNECTED`). 끄기는 늘 된다.
-- `disconnect_kakao_notify()`: 연결 해제. 본인 행을 지운다.
+- `disconnect_kakao_notify()`: 연결 해제. 본인 행을 지운다(설계 §7은 `enabled=false`·토큰 열 비우기였으나 구현은 행 삭제다).
 - `request_kakao_notify_test() returns boolean`: 본인 행이 `CONNECTED`이고 켜져 있을 때만(아니면 `KAKAO_NOT_READY`) outbox `KAKAO_TEST` 1건을 넣는다(`org_id` null, `aggregate_type` `kakao_notify_link`, 키 `<userId>:<UTC YYYY-MM-DDTHH:MI>:KAKAO_TEST`). 같은 분에 이미 있으면 false다.
 
 **없는 것**: `users`·`refresh_tokens` 표, 비밀번호 해시·계정 잠금·마지막 로그인 열. 로그인·세션·토큰·잠금은 Supabase Auth(`auth.users`, `auth.sessions`, `auth.refresh_tokens`)가 맡는다. 계정 비활성화는 `disabled_at` 대신 템플릿 `profiles.status = 'suspended'`를 쓴다(템플릿 `20261015000001_account_status_and_deletion.sql`). 정지하면 로그인이 막히고 세션이 끊기며, `my_org_ids()`가 빈 목록을 돌려줘 조직 데이터가 모두 닫힌다.
