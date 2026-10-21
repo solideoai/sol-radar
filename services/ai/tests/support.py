@@ -32,10 +32,12 @@ KEV_RUN = "Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"
 KEV_MODEL_ID = "bosun-v3.1-0.6b"
 # 결정 모델 서버 POST /v1/systemone 요청 본문의 "model"(레지스트리 requestModel)
 KEV_REQUEST_MODEL = "bosun-v3.1-0.6b"
-# 결정 모델 서버 GET /v1/models 가 내는 값(레지스트리 base·lora·revision 과 같아야 기동한다)
+# 결정 모델 서버 GET /v1/models 가 내는 값(레지스트리 base·lora·decision_embeddings_sha256·revision 과 같아야 기동한다)
 KEV_BASE = "Qwen/Qwen3-0.6B@c1899de2"
 KEV_LORA_SHA256 = "961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5"
 KEV_REVISION = "5e78a37c8d86860ebac9ef2d5327d6299498498e"
+# decision_embeddings.safetensors 의 sha256(레지스트리 decision_embeddings_sha256 과 같다)
+KEV_EMBEDDINGS_SHA256 = "88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188"
 # 퇴역·백업 항목(기동 대조 대상이 아니다)
 RETIRED_KEV_MODEL_ID = "kev-9b-v1.0"
 RETIRED_QWEN_RUN = "Qwen/Qwen3.5-9B"
