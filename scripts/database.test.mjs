@@ -31,6 +31,181 @@ const migratedDb = async (t) => {
   return pglite;
 };
 
+describe("Supabase Storage — immutable objects and private access", () => {
+  const bid = "b1d00000-0000-0000-0000-000000000011";
+  const rev = "be500000-0000-0000-0000-000000000011";
+  const sha = "a".repeat(64);
+  const objectPath = `raw/bids/${bid}/${rev}/${sha}.pdf`;
+  const lease = "1ea5e000-0000-0000-0000-000000000001";
+  const claimInput = {
+    bucket: "bid-documents",
+    path: objectPath,
+    sha256: sha,
+    sizeBytes: 9,
+    mimeType: "application/pdf",
+    leaseToken: lease,
+  };
+  async function setup(t) {
+    const db = await migratedDb(t);
+    await db.query(
+      "insert into public.bid_notices(id,source,notice_id,title,agency,stage,status,budget_krw,source_url,content_hash,is_demo) values($1,'fixture','STORAGE-1','시험','기관','NOTICE','OPEN',100,'https://fixture.invalid/1','hash',true)",
+      [bid],
+    );
+    await db.query(
+      "insert into public.bid_revisions(id,bid_id,revision,raw_payload,normalized,checksum) values($1,$2,1,'{}','{}','sum')",
+      [rev, bid],
+    );
+    const docs = (
+      await db.query(
+        "insert into public.bid_documents(bid_id,revision_id,name,original_url) values($1,$2,'a.pdf','https://www.g2b.go.kr/a'),($1,$2,'b.pdf','https://www.g2b.go.kr/b') returning id",
+        [bid, rev],
+      )
+    ).rows;
+    return { db, docs };
+  }
+  const claim = async (db, input = claimInput) =>
+    (
+      await db.query("select public.claim_document_storage($1::jsonb) as value", [
+        JSON.stringify(input),
+      ])
+    ).rows[0].value;
+  const finish = (db, object, documentId, token = lease) =>
+    db.query("select public.finish_document_storage($1::jsonb)", [
+      JSON.stringify({
+        objectId: object.id,
+        documentId,
+        leaseToken: token,
+        kind: "raw",
+        format: "PDF",
+      }),
+    ]);
+
+  it("keeps two document references to the same checksum, and serializes upload ownership", async (t) => {
+    const { db, docs } = await setup(t);
+    const object = await claim(db);
+    assert.equal(object.status, "UPLOADING");
+    await assert.rejects(
+      claim(db, { ...claimInput, leaseToken: "1ea5e000-0000-0000-0000-000000000002" }),
+      /storage_busy/,
+    );
+    await finish(db, object, docs[0].id);
+    const reused = await claim(db);
+    assert.equal(reused.id, object.id);
+    await finish(db, reused, docs[1].id);
+    assert.equal(
+      (
+        await db.query(
+          "select id from public.bid_documents where raw_storage_id=$1 and download_status='OK'",
+          [object.id],
+        )
+      ).rows.length,
+      2,
+    );
+    await assert.rejects(claim(db, { ...claimInput, sizeBytes: 10 }), /storage_metadata_mismatch/);
+  });
+
+  it("only active business members can read referenced raw objects; anonymous, parsed, unreferenced and direct writes stay closed", async (t) => {
+    const { db, docs } = await setup(t);
+    const object = await claim(db);
+    await finish(db, object, docs[0].id);
+    await db.exec(
+      "insert into storage.buckets(id,name,public) values('bid-documents','bid-documents',false),('bid-parsed','bid-parsed',false)",
+    );
+    await db.query(
+      "insert into storage.objects(bucket_id,name) values('bid-documents',$1),('bid-documents','unreferenced'),('bid-parsed','private.json')",
+      [objectPath],
+    );
+    await db.query(
+      "insert into public.organizations(id,slug,name) values('0e000000-0000-0000-0000-000000000011','storage-test','시험')",
+    );
+    await db.query(
+      "insert into public.memberships(org_id,user_id,org_role,sol_role) values('0e000000-0000-0000-0000-000000000011',$1,'member','VIEWER')",
+      [users[0]],
+    );
+    await actAs(db, users[0]);
+    assert.deepEqual((await db.query("select name from storage.objects")).rows, [
+      { name: objectPath },
+    ]);
+    await assert.rejects(
+      db.query("insert into storage.objects(bucket_id,name) values('bid-documents','forged')"),
+      /policy|permission denied/,
+    );
+    await assert.rejects(
+      db.query("select * from public.document_storage_objects"),
+      /permission denied/,
+    );
+    await assert.rejects(claim(db), /permission denied/);
+    await actAs(db, users[1]);
+    assert.equal((await db.query("select name from storage.objects")).rows.length, 0);
+    await actAs(db, null, "anon");
+    assert.equal((await db.query("select name from storage.objects")).rows.length, 0);
+  });
+
+  it("upload/DB failure preserves the object and expired ownership recovers; deleting objects cannot gain references", async (t) => {
+    const { db, docs } = await setup(t);
+    const object = await claim(db);
+    await assert.rejects(
+      finish(db, object, "d0c00000-0000-0000-0000-000000000099"),
+      /storage_document_missing/,
+    );
+    assert.equal(
+      (
+        await db.query("select status from public.document_storage_objects where id=$1", [
+          object.id,
+        ])
+      ).rows[0].status,
+      "UPLOADING",
+    );
+    await db.query(
+      "update public.document_storage_objects set lease_until=now()-interval '1 minute' where id=$1",
+      [object.id],
+    );
+    const recovered = await claim(db, {
+      ...claimInput,
+      leaseToken: "1ea5e000-0000-0000-0000-000000000002",
+    });
+    await finish(db, recovered, docs[0].id, "1ea5e000-0000-0000-0000-000000000002");
+    await db.query(
+      "update public.document_storage_objects set created_at=now()-interval '25 hours' where id=$1",
+      [object.id],
+    );
+    assert.equal(
+      (await db.query("select id from public.document_storage_candidates()")).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query("select public.claim_document_storage_delete($1,$2) as value", [
+          object.id,
+          lease,
+        ])
+      ).rows[0].value,
+      null,
+    );
+    await db.query("delete from public.bid_documents where raw_storage_id=$1", [object.id]);
+    assert.equal(
+      (await db.query("select id from public.document_storage_candidates()")).rows.length,
+      1,
+    );
+    assert.ok(
+      (
+        await db.query("select public.claim_document_storage_delete($1,$2) as value", [
+          object.id,
+          lease,
+        ])
+      ).rows[0].value,
+    );
+    await assert.rejects(claim(db), /storage_busy/);
+    await assert.rejects(finish(db, object, docs[1].id), /storage_lease_lost/);
+    await db.query("select public.finish_document_storage_delete($1,$2)", [object.id, lease]);
+    assert.equal(
+      (await db.query("select id from public.document_storage_objects where id=$1", [object.id]))
+        .rows.length,
+      0,
+    );
+  });
+});
+
 describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
   const ORG1 = "0e000000-0000-0000-0000-000000000001";
   const ORG2 = "0e000000-0000-0000-0000-000000000002";

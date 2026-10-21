@@ -28,7 +28,7 @@ test("히어로에 제목·설명·두 버튼이 있고, 시작하기는 가입 
     hero.getByText(/공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원 플랫폼입니다/),
   ).toBeVisible();
   await expect(hero.getByRole("heading", { level: 1 })).toHaveText(
-    /수많은 공고 속,\s*우리 회사가 검토할 사업부터\./,
+    /^수많은 공고 속,\s*솔리데오가 검토할 사업부터$/,
   );
   await expect(hero.getByText(/참가 자격, 사업 적합도, 추가 확인 사항을 한눈에/)).toBeVisible();
   await expect(hero.getByRole("listitem")).toHaveCount(0);

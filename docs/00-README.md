@@ -10,7 +10,7 @@ updated: 2026-10-21
 
 # SOL RADAR — 구현 문서 인덱스
 
-> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen3.8-Flash-Next, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
+> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + Supabase Storage + Python AI Service(Qwen3.8-Flash-Next, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
 
 ## 10줄 요약
 
@@ -54,7 +54,7 @@ updated: 2026-10-21
 | 07 | [[07-DATA-PIPELINE]] | 나라장터 Open API 수집·첨부 다운로드·문서 파서 / Connector·정규화·변경 감지 / fixture 20건 명세(`FX-01`~`FX-20`)·mock 추출·mock Kev 값 |
 | 08 | [[08-SCORING]] | SOL Score 정규화 함수·missing 정책·결정 정책·솔리데오 프로필(단일 원천)·worked example 3건 |
 | 09 | [[09-SECURITY]] | 인증(Supabase Auth)·RLS·RBAC 표(`sol_role`)·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
-| 10 | [[10-DEPLOYMENT]] | Docker Compose(redis·minio·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
+| 10 | [[10-DEPLOYMENT]] | Docker Compose(redis·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
 | 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path·D-day까지 일정 |
 | 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, 구현 중)·알림톡 P1 |

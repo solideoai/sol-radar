@@ -6,7 +6,7 @@
 ## 지침 우선순위
 
 1. **`docs/CLAUDE.md` 와 SOL RADAR 설계 문서(`docs/00-README.md` 의 문서 표에 있는 설계 문서)가 정본이다.**
-   기술 스택은 Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen3.8-Flash-Next·Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017·034).
+   기술 스택은 Next.js + Supabase(Postgres·RLS·Auth·Storage) + Redis/BullMQ + Qdrant + Python AI(Qwen3.8-Flash-Next·Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017·034).
    해커톤 뒤에는 API·worker 를 NestJS 로 옮긴다(ADR-028). 그 전에는 위 스택 그대로다.
 2. `AGENTS.md` 는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히지 않는 것만 따른다
    — 커밋 메시지 형식, 커밋 게이트·훅·린트를 끄거나 돌아가지 않기, pnpm, `pnpm verify`.

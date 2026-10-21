@@ -6,7 +6,7 @@ import {
   type Readiness,
   toReadiness,
 } from "./health.model";
-import { probeAi, probeDb, probeRedis, probeStorage } from "./health.repo";
+import { probeDb, probeRedis, readDependencyReport } from "./health.repo";
 
 export type Probes = {
   db: () => Promise<CheckState>;
@@ -17,11 +17,17 @@ export type Probes = {
 
 // 환경 변수는 호출 때 읽는다. 모듈을 불러올 때 읽으면 빌드 시점 값이 굳는다.
 function defaultProbes(): Probes {
+  const report = readDependencyReport(process.env.REDIS_URL, {
+    runMode: process.env.SOL_RUN_MODE?.trim() || "mock",
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "") || "",
+    rawBucket: process.env.SUPABASE_STORAGE_RAW_BUCKET?.trim() || "bid-documents",
+    parsedBucket: process.env.SUPABASE_STORAGE_PARSED_BUCKET?.trim() || "bid-parsed",
+  });
   return {
     db: probeDb,
     redis: () => probeRedis(process.env.REDIS_URL),
-    storage: () => probeStorage(process.env.MINIO_ENDPOINT),
-    ai: () => probeAi(process.env.AI_GATEWAY_URL),
+    storage: async () => (await report)?.storage ?? "unavailable",
+    ai: async () => (await report)?.ai ?? "unavailable",
   };
 }
 

@@ -15,6 +15,8 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: `pnpm start --hostname 127.0.0.1 --port ${port}`,
+    // 로컬 E2E 서버는 화면과 API를 함께 실행한다. 운영 배포 역할과 분리한다.
+    env: { SOL_DEPLOYMENT_ROLE: "standalone" },
     url: baseURL,
     reuseExistingServer: false,
     timeout: 60_000,

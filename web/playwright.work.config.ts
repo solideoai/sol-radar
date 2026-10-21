@@ -58,6 +58,7 @@ export default defineConfig({
   ],
   webServer: {
     command: `pnpm start --hostname ${hostname} --port ${port}`,
+    env: { SOL_DEPLOYMENT_ROLE: "standalone" },
     url: `${baseURL}/health/live`,
     reuseExistingServer: false,
     timeout: 60_000,

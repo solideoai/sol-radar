@@ -1,0 +1,37 @@
+# 별도 운영 승인 후에만 실행한다. 기존 Nginx/Redis는 재생성하거나 변경하지 않는다.
+name: sol-radar-gateway
+services:
+  redis-api:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    init: true
+    env_file: .env.redis-api.local
+    environment:
+      SOL_DEPLOYMENT_ROLE: redis-api
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    ports:
+      - "127.0.0.1:6380:3000"
+    networks:
+      - redis-existing
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health',{headers:{'X-Sol-Service-Token':process.env.REDIS_API_TOKEN},signal:AbortSignal.timeout(5000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 30s
+networks:
+  redis-existing:
+    external: true
+    name: ${SOL_RADAR_REDIS_NETWORK:?기존 Redis의 전용 network 이름을 확인해 지정한다}

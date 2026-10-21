@@ -1,6 +1,6 @@
 """POST /parse 형식 판정과 미지원 응답(docs/03 §10, K7). 모델을 쓰지 않으므로 세 모드에서 같다.
 
-형식은 확장자·Content-Type 이 아니라 내용(매직 바이트)으로 판정한다. 네트워크·DB·MinIO 접근 없음.
+형식은 확장자·Content-Type 이 아니라 내용(매직 바이트)으로 판정한다. 네트워크·DB·Supabase Storage 접근 없음.
 파서 어댑터는 아직 없다(형식별 선택은 03 §10.3 비교 뒤). 알려진 형식도 UNSUPPORTED + PARSER_NOT_CONFIGURED 다.
 """
 

@@ -9,8 +9,12 @@ const script = fileURLToPath(import.meta.url);
 
 export const changedFiles = (root, base = "HEAD") => {
   if (!base || base.startsWith("-")) throw new Error("변경 파일 기준 커밋이 필요합니다");
+  // Git hooks export repository-local variables. Explicit root must always win over the caller's repository.
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+  );
   const read = (args) => {
-    const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const result = spawnSync("git", args, { cwd: root, env, encoding: "utf8" });
     if (result.error || result.status !== 0)
       throw new Error(
         `변경 파일을 읽을 수 없습니다: ${result.error?.message ?? result.stderr.trim()}`,

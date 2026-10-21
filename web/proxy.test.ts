@@ -26,7 +26,7 @@ vi.mock("@supabase/ssr", () => ({
     },
   }),
 }));
-import { config, proxy } from "./proxy";
+import { proxy } from "./proxy";
 it("실제 요청 경로를 전달하고 외부 입력 헤더를 덮어쓴다", async () => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
@@ -57,7 +57,9 @@ it.each([
         headers: { "x-sol-radar-path": "/forged/tasks" },
       }),
     );
-    expect(response.headers.get("x-middleware-request-x-sol-radar-path")).toBe("");
+    expect(response.headers.get("x-middleware-request-x-sol-radar-path")).toBe(
+      path.startsWith("/api/") ? null : "",
+    );
   } finally {
     vi.unstubAllEnvs();
   }
@@ -99,12 +101,18 @@ it("세션 갱신 뒤에도 업무 경로·쿠키·CSP를 함께 전달하고 �
   }
 });
 
-it("matcher 는 /health/* 를 프록시에서 빼고 화면 경로는 거친다", () => {
-  const matcher = config.matcher[0];
-  // Next 의 matcher 는 path-to-regexp 형식이지만 이 식은 정규식과 같아 ^...$ 로 감싸 검사한다.
-  const pattern = new RegExp(`^${matcher}$`);
-  expect(pattern.test("/health/ready")).toBe(false);
-  expect(pattern.test("/health/live")).toBe(false);
-  expect(pattern.test("/dashboard")).toBe(true);
-  expect(pattern.test("/healthy-team/dashboard")).toBe(true);
+it("화면 런타임은 health의 세션/CSP를 생략하고 회사 API 런타임은 화면을 차단한다", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+  vi.stubEnv("SOL_DEPLOYMENT_ROLE", "standalone");
+  try {
+    const health = await proxy(new NextRequest("http://localhost/health/ready"));
+    expect(health.headers.get("content-security-policy")).toBeNull();
+    const page = await proxy(new NextRequest("http://localhost/dashboard"));
+    expect(page.headers.get("content-security-policy")).toContain("script-src");
+    vi.stubEnv("SOL_DEPLOYMENT_ROLE", "redis-api");
+    const blocked = await proxy(new NextRequest("http://localhost/dashboard"));
+    expect(blocked.status).toBe(404);
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });

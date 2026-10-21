@@ -309,3 +309,16 @@ Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영20
 `fix/p1-docs-reconcile-last-admin`에 main `4895010`의 수집 closeAll·등록 구조를 반영하고, DB의 PENDING 첨부를 시작 시·60초마다 커서 조회해 documents 큐를 복구하도록 했다. 조정 세션(e8)이 배정한 `20261019000014_protect_last_sol_admin.sql`로 마지막 업무 ADMIN의 강등·삭제·계정 탈퇴를 차단한다. 계정·프로필·조직 잠금으로 동시 초대 수락과 탈퇴의 경쟁도 보호한다. API 409 `sole_admin`과 기존 설정 화면 안내를 추가했다. DB 타입은 재생성했으며 바이트 변경이 없다.
 
 수정 전 회귀 실패와 실제 임시 PostgreSQL 동시성 실패를 재현한 뒤 초점 검증(동시성 2·웹 111·새 DB 8)을 통과했다. 독립 리뷰 지적을 반영하고 기존 owner 테스트 2개의 ADMIN 인계 fixture를 보완한 최종 전체 `pnpm verify`는 루트 647·웹 4884·AI 894 및 프로덕션 빌드까지 exit 0이다. 무거운 검증은 공용 `verify-slot.sh`로 감쌌다. P2 owner/ADMIN 화면 기준 정리·문서 소비자 구현·공개/인증 E2E·브라우저 화면 검사·전체 Compose·실모델 추론은 이번 범위가 아니다. main 커밋·병합, 공유 DB 적용·seed/reset·push·배포는 하지 않았다. [변경·검증·한계](evidence/project-check/20261019-p1-fixes.md).
+
+### 2026-10-21 MinIO → Supabase Storage 전환 (ADR-048)
+
+사용자 전환 지시에 따라 기존 Gateway 소스를 현재 main 위에 재사용하고 계획 Task 3·4를 구현 중이다. private raw/parsed 저장·물리 원장/lease·중복 문서 보존·원본60초 URL·Worker 실검사 보고·MinIO 없는 Compose/env/smoke·문서 동기화를 포함한다. 새 migration은 `20261021000700`·`00701`, 생성 타입을 함께 갱신한다.
+로컬 검증·독립 리뷰 결과는 `docs/evidence/storage/`에 기록한다. **클라우드 DDL/bucket/실파일 이전·회사 서버·Vercel production은 아직 변경하지 않았다.** documents 소비자·실파서는 후속 단계이며 구현 완료라고 보고하지 않는다.
+
+Storage 로컬 통합 검증 완료: 전체 `pnpm verify`(root172/web323/AI101/decision57·빌드), 실제 로컬 Storage50MiB/private/URL 만료, 실제 Redis+Next Gateway smoke PASS. 독립 리뷰의 redis-api env 요구사항을 재현 후 수정했다. [정리](evidence/storage/20261021-transition.md). 운영 cloud migration2개/bucket2개 승인 대기, 회사/Vercel production 변경 없음.
+
+최종 통합: 최신 main7133636 반영·ADR-048 번호 충돌 해소, 커밋 훅에서 드러난 verify-changed Git 환경 누수를 재현 시험으로 수정. 최종 전체 verify root173/web323/AI101/decision57·빌드 PASS. cloud 적용 확인 대기.
+
+### 2026-10-21 GitHub E2E·필수 검사 실패 수정
+
+Storage PR의 E2E 서버 역할 누락과 main의 솔리데오 제목 변경 뒤 남은 기대값 불일치를 확인했다. Playwright 로컬 서버 4종에 `standalone` 역할을 지정하고 제목 E2E를 승인된 문구로 갱신했다. 수정 전 제목 실패 재현 후, 외부 역할 설정 없이 공개 E2E45·브라우저48 및 `pnpm verify:changed`(웹323·타입·린트·구조 등) PASS. `required`의 `project: failure`는 E2E 실패의 집계 결과다. [원인·변경·검증 범위](evidence/verification/20261021-ci-e2e.md).

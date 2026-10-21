@@ -47,7 +47,7 @@ import { toIssueList } from "./gateway.model";
 // gateway 실패 상세(오류 메시지·주소)는 레코드에 싣지 않는다. 코드만 result.errorCode·플래그로 남는다.
 // 실패 종류와 issue 경로(값 없음)는 diagnostics 에 둔다. worker 로그만 읽고 DB 에는 넣지 않는다.
 
-/** 추출 port. 캐시를 쓸 수 없을 때만 부른다. Supabase·MinIO 구현은 C2 병합 뒤다. */
+/** 추출 port. 캐시를 쓸 수 없을 때만 부른다. Supabase·Supabase Storage 구현은 C2 병합 뒤다. */
 export type ExtractionStore = {
   loadSource(context: AnalysisContext): Promise<ExtractSource>;
   /** 성공 추출만 받는다. 저장한 requirement_extractions.id 를 돌려준다(score_runs.extraction_id). */

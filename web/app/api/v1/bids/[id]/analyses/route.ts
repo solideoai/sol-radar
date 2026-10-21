@@ -7,6 +7,8 @@ import {
   rawQueryOf,
 } from "@/app/api/v1/_lib/work-route";
 import { workDeps } from "@/app/_lib/work-deps";
+import { deploymentRole } from "@/app/_lib/deployment-role";
+import { relayRedisApi } from "@/app/_lib/redis-api-client";
 import { isUuid, listBidAnalyses, parsePageQuery, requestAnalysis } from "@/server/bids";
 
 // 05 §2 GET /bids/:id/analyses — 이 조직의 분석 이력(HMAC 커서).
@@ -33,9 +35,12 @@ export async function POST(
   request: Request,
   context: RouteContext<"/api/v1/bids/[id]/analyses">,
 ): Promise<Response> {
-  return businessRoute(request, async (ctx) => {
+  return businessRoute(request, async (ctx, signal) => {
     const { id } = await context.params;
     if (!isUuid(id)) return pathNotFound("bid");
+    if (deploymentRole() === "frontend") {
+      return relayRedisApi(request, `/api/v1/bids/${id}/analyses`, { signal });
+    }
     const deps = workDeps();
     return serviceResponse(
       await requestAnalysis(

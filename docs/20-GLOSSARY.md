@@ -90,7 +90,7 @@ updated: 2026-10-21
 | DLQ | Dead-letter queue. 재시도 소진 작업 보관 | [[02-ARCHITECTURE]] |
 | circuit breaker | 연속 실패 시 외부 호출을 잠시 끊는 보호 장치 | [[02-ARCHITECTURE]] |
 | BullMQ | Redis 기반 작업 큐. 수집·분석·알림 job. 소비자는 worker 진입점 `web/worker` | [[02-ARCHITECTURE]] |
-| MinIO | S3 호환 사설 객체 저장소. 첨부 원본 | [[02-ARCHITECTURE]] |
+| Supabase Storage | 비공개 객체 저장소. 공고 원본·파싱 결과(ADR-048) | [[02-ARCHITECTURE]] |
 | presigned URL | 서버가 권한 검사 후 발급하는 짧은 수명의 파일 접근 URL | [[09-SECURITY]] |
 | HWP / HWPX | 한국 공공 문서 형식. 파서 선택은 미결정 | [[16-DECISIONS]] |
 
@@ -98,7 +98,7 @@ updated: 2026-10-21
 
 | 용어 | 정의 | 주 문서 |
 |---|---|---|
-| Supabase | DB(Postgres)와 인증(Auth)을 맡는 관리형 서비스. SOL RADAR는 이 둘만 쓴다. Storage·pgvector·Queues는 쓰지 않는다(첨부는 MinIO, 검색은 Qdrant, 큐는 Redis/BullMQ). 개발·데모 기본은 Supabase 클라우드 프로젝트. 웹 배포처는 미결정(데모 대체 경로는 [[19-DEMO-SCENARIO\|19]] §5) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
+| Supabase | DB(Postgres)·Auth·private Storage를 맡는 관리형 서비스(ADR-048). 검색은 Qdrant, 큐는 Redis/BullMQ다. 개발·데모 기본은 Supabase 클라우드 프로젝트. 웹 배포처는 Vercel(데모 대체 경로는 [[19-DEMO-SCENARIO\|19]] §5) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
 | Supabase Auth | 이메일 + 비밀번호·간편 로그인, 공개 가입(업무 조직 합류는 초대), 토큰 발급·갱신을 맡는 Supabase 인증 기능. 사용자 원본은 `auth.users`. 자체 로그인·토큰 엔드포인트는 두지 않는다. 토큰 만료·로그인 제한 같은 세부 값은 대시보드 설정이고 미검증 | [[09-SECURITY]] |
 | 간편 로그인 | 구글·카카오·네이버 계정으로 가입·로그인하는 방식. Supabase Auth 제공자로 받는다(구글·카카오는 기본 제공자, 네이버는 사용자 정의 OIDC `custom:naver`). 버튼은 `NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`로 켜고, 제공자 설정은 해커톤 후순위다 | [[16-DECISIONS]] |
 | Route Handler | Next.js App Router의 서버 HTTP 핸들러(`web/app/api/v1/**/route.ts`). 외부 API 계약 `/api/v1/...`과 헬스체크 `/health/live`·`/health/ready`를 낸다 | [[05-API-SPEC]] |
@@ -110,7 +110,7 @@ updated: 2026-10-21
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |
 | 정책 시험 (PGlite) | `scripts/database.test.mjs`를 `node --test` + PGlite로 돌려 RLS·권한·제약·seed 멱등을 본다(`pnpm test:db`) | [[11-TESTING]] |
 | `pnpm demo:reset` | 데모 seed 스크립트. service role로 Supabase 프로젝트에 데모 데이터를 `is_demo=true`로 멱등 적재한다. 적재 내용(조직·계정·공고 fixture·명부 200·사진 검증·사전 리뷰)은 [[10-DEPLOYMENT]] seed 절 | [[10-DEPLOYMENT]], [[19-DEMO-SCENARIO]] |
-| Compose 서비스 | `infra/compose.yaml`의 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`. Compose에 정의 없음, [[10-DEPLOYMENT]] 표 참조). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다 | [[10-DEPLOYMENT]] |
+| Compose 서비스 | `infra/compose.yaml`의 `redis`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`. Compose에 정의 없음, [[10-DEPLOYMENT]] 표 참조). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다 | [[10-DEPLOYMENT]] |
 
 ## 권한·보안
 

@@ -12,14 +12,31 @@ updated: 2026-10-21
 
 상태 값: `제안` → `채택` → `검증됨`(근거 URL·날짜 필수). 외부 사실 확인 전이면 `미검증`, 철회는 `폐기`. 검증 결과는 날짜·근거 URL·결정자와 함께 이 문서에 갱신한다. 폐기한 결정도 행을 지우지 않고 상태만 바꿔 이력으로 남긴다.
 
+## ADR-044·045 Vercel과 회사 Redis Gateway
+
+기존 Vercel 구성은 공개 web·내부 ai와 AI_GATEWAY_URL binding이다(ADR-044). Redis 업무 접수는 같은 Next.js API를 frontend/redis-api 역할로 나누어 HTTPS로 전달한다(ADR-045). 기존 Redis6379와 Nginx /redis/→loopback6380을 재사용한다. 서비스 token과 사용자 JWT를 모두 검증하고 limiter/멱등/큐 의미는 기존대로다.
+Gateway 로컬 구현을 재사용했으며 운영 배포는 대기다. Storage probe의 현행 계약은 아래 ADR-048을 따른다. 검증되지 않은 회사 운영 경로를 완료로 표시하지 않는다.
+
+## ADR-048 MinIO를 private Supabase Storage로 교체
+
+2026-10-21 사용자 지시 “전환 계획에 따라서 전환하자”에 따라 전환 계획 Task 3·4를 구현한다.
+원본 `bid-documents`, 결과 `bid-parsed`는 private다. Worker/운영 CLI만 service role로 쓰고 웹은 사용자 JWT와 RLS로60초 signed URL을 발급한다.
+물리 object 원장·lease/CAS·checksum 검증으로 immutable upload/DB 확정/24시간 고아 정리를 직렬화한다. 같은 원본을 참조하는 논리 문서는 보존한다.
+Worker Storage 실검사 보고는30초 주기·Redis TTL120초다. 웹에 Storage 비밀키를 추가하지 않는다. 보고가 없거나 만료되면503이다.
+
+ADR-005·017·028의 파일 저장소 조항을 대체한다. Redis/BullMQ·Qdrant·점수/큐/RPC 계약은 유지한다.
+기존 ADR 문장은 당시 이력이며 현행 파일 저장은 이 결정을 따른다. Gateway Phase 1은 ADR-045의 기존 구현을 재사용한다.
+**코드 전환과 운영 전환은 별개다. 클라우드 migration·bucket 준비·기존 파일 inventory/이전·실연결 검증 전에는 운영 완료로 표시하지 않는다. 기존 MinIO 컨테이너·볼륨·파일을 자동 삭제하지 않는다.**
+
 ## 결정 사항
 |ID|결정|상태|날짜|근거|
 |---|---|---|---|---|
+|ADR-048|첨부 원본·파싱 결과는 private Supabase Storage, 웹은 사용자 JWT/RLS·Worker만 저장, object lease/복구|채택·운영 적용 대기|2026-10-21|사용자 전환 지시, 전환 계획 Task 3·4|
 |ADR-001|Next.js App Router(UI)와 NestJS(API·Worker) 역할 분리|폐기 (ADR-017로 대체)|2026-10-14|UI/도메인 로직 분리, OpenAPI 단일 원천 ([[02-ARCHITECTURE\|02 아키텍처]])|
 |ADR-002|self-managed PostgreSQL + Prisma. Supabase 서비스 미사용|폐기 (ADR-017로 대체)|2026-10-14|테넌트 격리·감사 로그를 스키마로 통제, Compose 단일 배포|
 |ADR-003|Docker Compose 배포. Kubernetes는 MVP 대상 아님|채택|2026-10-14|노트북 1대 데모와 GPU 호스트를 같은 Compose 프로필로 커버 ([[10-DEPLOYMENT\|10 배포]]). Supabase(DB·Auth)는 Compose 밖(클라우드 프로젝트)이고, Compose는 redis·minio·qdrant·ai-gateway·worker(+ 선택 web)를 띄운다(ADR-017, 2026-10-16). 2026-10-19 현재 GPU 호스트는 회사가 운영하고(ADR-025), 그 참고 구성은 별도 파일 `infra/compose.gpu.yaml`(모델 라우터)이다|
 |ADR-004|Kev는 의사결정 보조, Qwen은 추출·설명, 점수는 규칙 엔진이 최종|채택 (ADR-020으로 개정. 2026-10-20 ADR-034로 결정 모델이 Kev-9B에서 Bosun v3.1 0.6B로 바뀌었다. "결정 모델은 보조, 점수는 규칙 엔진이 최종"은 그대로)|2026-10-14|설명 가능성·감사 가능성. Kev는 텍스트 생성 없이 확률만 반환하므로 보조 신호에 적합 ([[03-AI-PIPELINE\|03 AI 파이프라인]], [[08-SCORING\|08 스코어링]]). 2026-10-16 ADR-020: Kev 결과를 "참고 지표"로 표시하는 것을 명시적으로 허용. 점수·자격·권고를 바꾸지 못하는 것은 그대로|
-|ADR-005|MinIO 사설 객체 저장소, Qdrant는 재생성 가능한 검색 보조|채택|2026-10-14|원본 보존과 파생 인덱스 분리|
+|ADR-005|MinIO 사설 객체 저장소, Qdrant는 재생성 가능한 검색 보조|파일 저장 조항은 ADR-048로 대체, Qdrant 유지|2026-10-14|원본 보존과 파생 인덱스 분리|
 |ADR-006|인앱 알림 P0, 카카오톡 P1 (승인 전 mock)|채택 (2026-10-21 ADR-038로 해커톤 조항 개정: 카카오는 개인 설정에서 켠 사용자에게 "나에게 보내기"로 실발송한다(`NOTIFY_KAKAO_PROVIDER=memo`, 기본 `mock`). 알림톡(비즈메시지)은 운영 전환 때)|2026-10-14|비즈메시지 계약·템플릿 승인 미확보 ([[13-NOTIFICATIONS\|13 알림]])|
 |ADR-007|모바일(레이아웃·네이티브 앱)·결제/구독 기능을 구현하지 않는다(해커톤 이후 포함). 데스크톱 1280~1920 전용|채택|2026-10-16|사용자 제약(해커톤 이후도 제외, 2026-10-16 사용자 확인). 5분 데모는 데스크톱 1대. 범위를 줄여 자격·점수·결정 기록 완성도에 집중 ([[01-PRD\|01 PRD]])|
 |ADR-008|데모 기본 실행은 `AI_PROVIDER=mock`. 실모델은 `ai-local` / `ai-hosted` 선택 프로필|채택 (ADR-020으로 개정: 해커톤 MVP 목표는 `live`, `mock`은 CI·골든·장애 대체 모드로 유지)|2026-10-16|데모 노트북에 GPU 없음. 모델 호출의 네트워크 의존 제거(DB·Auth는 Supabase 클라우드라 데모 중에도 인터넷이 필요하다, ADR-017). mock은 fixture 기반 결정적 응답으로 재현 가능 ([[10-DEPLOYMENT\|10 배포]], [[03-AI-PIPELINE\|03 AI 파이프라인]])|

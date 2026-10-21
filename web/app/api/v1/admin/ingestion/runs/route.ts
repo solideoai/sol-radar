@@ -6,6 +6,8 @@ import {
   rawQueryOf,
 } from "@/app/api/v1/_lib/work-route";
 import { ingestionDeps } from "@/app/_lib/ingestion-deps";
+import { deploymentRole } from "@/app/_lib/deployment-role";
+import { relayRedisApi } from "@/app/_lib/redis-api-client";
 import { parsePageQuery } from "@/server/bids";
 import {
   canManageIngestion,
@@ -29,14 +31,17 @@ export async function GET(request: Request): Promise<Response> {
 // 권한·Idempotency-Key·본문 크기·속도 제한·실행 모드·멱등·진행 중 판정은 서비스가 정한 순서로 본다.
 // 본문은 서비스가 권한·키·속도 제한을 본 뒤에 읽는다(16KB 상한, 보안 L5).
 export async function POST(request: Request): Promise<Response> {
-  return businessRoute(request, async (ctx) =>
-    serviceResponse(
+  return businessRoute(request, async (ctx, signal) => {
+    if (deploymentRole() === "frontend") {
+      return relayRedisApi(request, "/api/v1/admin/ingestion/runs", { signal });
+    }
+    return serviceResponse(
       await requestIngestionRun(
         ctx,
         lazyJsonBody(request),
         request.headers.get("Idempotency-Key"),
         ingestionDeps(ctx.orgId),
       ),
-    ),
-  );
+    );
+  });
 }

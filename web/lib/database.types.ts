@@ -185,6 +185,7 @@ export type Database = {
           bid_id: string
           created_at: string
           download_error_code: string | null
+          download_error_message: string | null
           download_status: string
           format: string | null
           id: string
@@ -194,18 +195,28 @@ export type Database = {
           original_url: string
           page_count: number | null
           parse_error_code: string | null
+          parse_error_message: string | null
           parse_quality: Json | null
           parse_status: string | null
+          parsed_at: string | null
+          parsed_storage_id: string | null
           parser_id: string | null
+          processing_attempt_id: string | null
+          processing_lease_until: string | null
+          raw_storage_id: string | null
           revision_id: string
           sha256: string | null
           size_bytes: number | null
+          storage_bucket: string | null
           text_object_key: string | null
+          text_storage_bucket: string | null
+          uploaded_at: string | null
         }
         Insert: {
           bid_id: string
           created_at?: string
           download_error_code?: string | null
+          download_error_message?: string | null
           download_status?: string
           format?: string | null
           id?: string
@@ -215,18 +226,28 @@ export type Database = {
           original_url: string
           page_count?: number | null
           parse_error_code?: string | null
+          parse_error_message?: string | null
           parse_quality?: Json | null
           parse_status?: string | null
+          parsed_at?: string | null
+          parsed_storage_id?: string | null
           parser_id?: string | null
+          processing_attempt_id?: string | null
+          processing_lease_until?: string | null
+          raw_storage_id?: string | null
           revision_id: string
           sha256?: string | null
           size_bytes?: number | null
+          storage_bucket?: string | null
           text_object_key?: string | null
+          text_storage_bucket?: string | null
+          uploaded_at?: string | null
         }
         Update: {
           bid_id?: string
           created_at?: string
           download_error_code?: string | null
+          download_error_message?: string | null
           download_status?: string
           format?: string | null
           id?: string
@@ -236,13 +257,22 @@ export type Database = {
           original_url?: string
           page_count?: number | null
           parse_error_code?: string | null
+          parse_error_message?: string | null
           parse_quality?: Json | null
           parse_status?: string | null
+          parsed_at?: string | null
+          parsed_storage_id?: string | null
           parser_id?: string | null
+          processing_attempt_id?: string | null
+          processing_lease_until?: string | null
+          raw_storage_id?: string | null
           revision_id?: string
           sha256?: string | null
           size_bytes?: number | null
+          storage_bucket?: string | null
           text_object_key?: string | null
+          text_storage_bucket?: string | null
+          uploaded_at?: string | null
         }
         Relationships: [
           {
@@ -251,6 +281,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bid_notices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_documents_parsed_storage_fk"
+            columns: ["parsed_storage_id", "text_storage_bucket", "text_object_key"]
+            isOneToOne: false
+            referencedRelation: "document_storage_objects"
+            referencedColumns: ["id", "bucket", "path"]
+          },
+          {
+            foreignKeyName: "bid_documents_raw_storage_fk"
+            columns: ["raw_storage_id", "storage_bucket", "object_key"]
+            isOneToOne: false
+            referencedRelation: "document_storage_objects"
+            referencedColumns: ["id", "bucket", "path"]
           },
           {
             foreignKeyName: "bid_documents_revision_fkey"
@@ -644,6 +688,48 @@ export type Database = {
             referencedColumns: ["id", "org_id"]
           },
         ]
+      }
+      document_storage_objects: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: string
+          lease_token: string
+          lease_until: string
+          mime_type: string
+          path: string
+          sha256: string
+          size_bytes: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: string
+          lease_token: string
+          lease_until: string
+          mime_type: string
+          path: string
+          sha256: string
+          size_bytes: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: string
+          lease_token?: string
+          lease_until?: string
+          mime_type?: string
+          path?: string
+          sha256?: string
+          size_bytes?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       eval_runs: {
         Row: {
@@ -1783,6 +1869,14 @@ export type Database = {
         Args: { meta: Json }
         Returns: string
       }
+      claim_document_storage: {
+        Args: { p: Json }
+        Returns: Json
+      }
+      claim_document_storage_delete: {
+        Args: { p_id: string; p_token: string }
+        Returns: Json
+      }
       create_personal_org: {
         Args: { owner_id: string }
         Returns: string
@@ -1794,6 +1888,18 @@ export type Database = {
       display_name_from_metadata: {
         Args: { meta: Json }
         Returns: string
+      }
+      document_storage_candidates: {
+        Args: { p_limit?: number }
+        Returns: Database["public"]["Tables"]["document_storage_objects"]["Row"][]
+      }
+      finish_document_storage: {
+        Args: { p: Json }
+        Returns: undefined
+      }
+      finish_document_storage_delete: {
+        Args: { p_id: string; p_token: string }
+        Returns: undefined
       }
       finish_score_run: {
         Args: { p: Json }

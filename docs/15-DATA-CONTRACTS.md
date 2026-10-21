@@ -105,7 +105,7 @@ interface CompanyEvidenceRef {
   profileRevision: number;
   kind: "LICENSE" | "INDUSTRY_CODE" | "TECHNOLOGY" | "PROJECT" | "STAFF" | "FINANCIAL";
   recordKey: string;                       // 예: "licenses[2]", "past_projects[0]"
-  documentId: string | null;               // 회사 증빙 파일(MinIO)이 있으면
+  documentId: string | null;               // 회사 증빙 파일(Supabase Storage)이 있으면
   quotedText: string | null;
 }
 
@@ -134,7 +134,7 @@ interface KevStateTrace {
 
 ## 3. `NormalizedBid`
 
-Connector가 원본 응답을 그대로 보존한 뒤(`bid_revisions.raw_payload`, MinIO 원본) 만든 통일 형태. [[07-DATA-PIPELINE|07 수집]]의 통일 필드와 이름이 같다.
+Connector가 원본 응답을 그대로 보존한 뒤(`bid_revisions.raw_payload`, Supabase Storage 원본) 만든 통일 형태. [[07-DATA-PIPELINE|07 수집]]의 통일 필드와 이름이 같다.
 
 ```ts
 interface NormalizedBid {
@@ -193,7 +193,7 @@ interface StructuredRequirement {
 - **`auxLookup`**(main `c6b16e3`, [[16-DECISIONS|ADR-035]] F7): checksum에 포함된다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부르고(다시 채우기), 셋 다 받으면 `CHANGED` revision으로 저장한다. 또 실패하면 revision을 늘리지 않는다. 같은 공고의 재수집이 `DUPLICATE`로 걸러지도록, 변경 판정의 1차 비교는 저장된 revision에서 보조 조회 유래 부분(면허제한·지역 행, e발주 첨부, `auxLookup`)을 뺀 "목록만" 모양으로 한다([[07-DATA-PIPELINE|07 수집]] §2.2·§5). 규칙 엔진은 `auxLookup`이 `OK`가 아니면 `structured:AUX_LOOKUP` 한 건을 `NEEDS_REVIEW`(`NOTICE_INFO_MISSING`)로 둔다. 구조화 자격이 비어 있어도 "제한 없음"으로 읽지 않는다(`web/server/scoring/qualification.ts` `auxLookupChecks`, [[08-SCORING|08 점수]]).
 
 - live 공고의 원본 필드 → `NormalizedBid` 매핑은 [[07-DATA-PIPELINE|07 수집]] §3.1이다.
-- **개인정보**: 공공 API 응답의 담당자 필드(이름·전화·이메일)는 `NormalizedBid`·`StructuredRequirement.value`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
+- **개인정보**: 공공 API 응답의 담당자 필드(이름·전화·이메일)는 `NormalizedBid`·`StructuredRequirement.value`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 Supabase Storage에만 보관한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
 - **`seq`**: `StructuredRequirement`에는 `seq`가 없다. 수집(Connector)은 `seq` 없이 내고 `structuredQualifications`의 순서를 결정적으로(안정 정렬) 만든다. 분석 쪽 변환이 배열 index(0부터)로 `seq`([[04-DATABASE|04 DB]] `bid_structured_requirements.seq`)를 채운다([[16-DECISIONS|ADR-030]] B13).
 - **`status` 매핑**: 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 원본 값은 §6 격리다. fixture 레코드에 `status`가 없고 revision ≥ 2면 `AMENDED`다([[07-DATA-PIPELINE|07 수집]] §3.1·§6.5, [[16-DECISIONS|ADR-030]] B14). 목록의 기본 상태 필터와 취소 공고 표시는 [[05-API-SPEC|05 API]] §3이다.
 - **API 구조화 필드 우선**: 같은 조건을 API 구조화 필드(`structuredQualifications`, 금액 `budgetKrw`, 마감 `deadlineAt`)와 Qwen 추출이 둘 다 주면 API 구조화 필드가 우선이다. 두 값이 다르면 그 필드를 `CONFLICTED`로 두고 사람이 본다(§4). 이때 API 쪽 근거는 `EvidenceRef(kind=API_FIELD)`로 남긴다(§2). 지금 코드: 면허제한은 규칙 엔진이 API 근거와 추출 근거를 한 판정(`NEEDS_REVIEW`·`NOTICE_CONFLICTED`)에 함께 남긴다(`web/server/scoring/qualification.ts`). 예산·마감은 gateway가 추출 필드를 `CONFLICTED`로 바꾸고 추출 근거만 둔다(API 근거를 필드에 더하지 않는다). 규칙 엔진의 판정 방식은 [[08-SCORING|08 점수]] §5.1.
@@ -256,7 +256,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 - 파싱에 실패했거나(`FAILED`·`UNSUPPORTED`) 다운로드하지 못한 첨부는 텍스트가 없다. 그 문서를 가리키는 인용은 검증을 통과할 수 없으므로 값은 `UNKNOWN`이 된다. 실패한 문서의 내용을 추측해 채우지 않는다([[07-DATA-PIPELINE|07 수집]] §2.6).
 - 데이터셋 내보내기의 개인정보 마스킹은 전화·이메일 패턴을 같은 길이의 문자로 바꾸므로 오프셋이 바뀌지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §3.6).
 
-**`ParseResult` 오프셋 규칙** ([[16-DECISIONS|ADR-020]]): `/parse`는 블록마다 위 `norm`을 적용한 뒤 직렬화해 `text`를 만든다. 그래서 `ParseResult.text`는 이미 정규화된 텍스트이고(`norm(text) = text`), `pages[].charOffset`·`blocks`·표 셀의 `charStart/charEnd`는 모두 이 텍스트 기준이다. 별도 변환 표는 두지 않는다. 표의 행 구분 줄바꿈은 3단계에서 공백이 되지만 셀 구분자 ` | `와 `blocks`의 셀 오프셋으로 구조를 유지한다. 원본 파일은 MinIO에 그대로 둔다.
+**`ParseResult` 오프셋 규칙** ([[16-DECISIONS|ADR-020]]): `/parse`는 블록마다 위 `norm`을 적용한 뒤 직렬화해 `text`를 만든다. 그래서 `ParseResult.text`는 이미 정규화된 텍스트이고(`norm(text) = text`), `pages[].charOffset`·`blocks`·표 셀의 `charStart/charEnd`는 모두 이 텍스트 기준이다. 별도 변환 표는 두지 않는다. 표의 행 구분 줄바꿈은 3단계에서 공백이 되지만 셀 구분자 ` | `와 `blocks`의 셀 오프셋으로 구조를 유지한다. 원본 파일은 Supabase Storage에 그대로 둔다.
 
 ### 5.2 절차
 
@@ -301,7 +301,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 - 같으면 `match=EXACT`, 다르거나 필드가 없으면 `match=FAILED`다. 실패했을 때의 상태 전이는 §5.3과 같다.
 - `documentId`·`page`·`charStart`·`charEnd`가 null이 아니거나 `apiField`·`apiSource`가 비어 있으면 형식 오류로 `FAILED`다.
 - §5.2 0단계의 길이 규칙(5~300자)은 적용하지 않는다. 필드 값은 짧을 수 있다(예: 지역명).
-- 검증은 원본 응답을 가진 worker가 한다. gateway는 DB·MinIO에 접근하지 않는다.
+- 검증은 원본 응답을 가진 worker가 한다. gateway는 DB·Supabase Storage에 접근하지 않는다.
 - 면허제한처럼 응답이 여러 행이면 행마다 `EvidenceRef` 하나를 만들고 행 단위로 대조한다. 여러 행의 의미(AND·OR)는 미검증이라 그 판정은 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다([[16-DECISIONS|16 ADR]] 미결정 19번).
 - 이 검증도 결정론적이고 단위 테스트로 고정한다.
 

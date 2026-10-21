@@ -83,12 +83,12 @@ updated: 2026-10-21
 |CSRF|위 인증 절의 **CSRF** 항목과 세션 쿠키 표(SameSite=Lax)|
 |XSS|위 인증 절의 **XSS** 항목. 세션 쿠키가 HttpOnly가 아니라서 XSS는 곧 세션 탈취다|
 |SQL injection|supabase-js 질의 빌더(값은 파라미터로 전달). SQL은 마이그레이션·DB 함수에만 두고 문자열을 이어 붙여 만들지 않는다. DB 함수는 `search_path`를 고정한다(템플릿 `20261013000002_function_search_path.sql`)|
-|SSRF|첨부 다운로드(worker의 `G2bAttachmentFetcher`)는 `https://www.g2b.go.kr`만 허용한다(allowlist. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트). 리다이렉트는 같은 allowlist 안에서만 따르고, 연결 전에 DNS를 다시 확인해 사설 IP로 풀리면 거부한다. timeout 30 s, 최대 50 MB(넘으면 받지 않는다), 형식은 확장자가 아니라 매직 바이트로 판정한다. 공공 API는 `infra/sources/registry.yaml`에 등록한 data.go.kr 엔드포인트만 부른다([[15-DATA-CONTRACTS\|15 데이터 계약]] §8). gateway(`/parse`)는 네트워크·MinIO에 접근하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.4)|
+|SSRF|첨부 다운로드(worker의 `G2bAttachmentFetcher`)는 `https://www.g2b.go.kr`만 허용한다(allowlist. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트). 리다이렉트는 같은 allowlist 안에서만 따르고, 연결 전에 DNS를 다시 확인해 사설 IP로 풀리면 거부한다. timeout 30 s, 최대 50 MB(넘으면 받지 않는다), 형식은 확장자가 아니라 매직 바이트로 판정한다. 공공 API는 `infra/sources/registry.yaml`에 등록한 data.go.kr 엔드포인트만 부른다([[15-DATA-CONTRACTS\|15 데이터 계약]] §8). gateway(`/parse`)는 네트워크·Supabase Storage에 접근하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.4)|
 |LLM prompt injection|아래 "책임 있는 AI" 절|
 |문서 악성코드|MIME/sniff(매직 바이트), 확장자/크기 제한(50 MB), 격리 처리, 필요한 경우 AV 스캔. 파서는 gateway 안에서만 돌고 네트워크 권한이 없다|
 |비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키는 서비스마다 하나씩 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, [[16-DECISIONS\|ADR-022]])이고 모두 worker 전용 서버 env다. 로그 마스킹은 네 값을 모두 가린다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 추론 엔드포인트의 `QWEN_API_KEY`·`KEV_API_KEY`는 gateway의 서버 env(`infra/.env`)에만 둔다([[16-DECISIONS\|ADR-025]]). 카카오톡 알림의 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`는 Supabase가 아니라 웹 서버·worker의 서버 env에만 둔다(ADR-018 예외, [[16-DECISIONS\|ADR-038]]. 구현 중)|
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
-|MinIO|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
+|Supabase Storage|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
 |열린 리다이렉트|알림 `payload.link`는 앱 안 경로만 쓴다. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC\|05 API]] §4.6, [[13-NOTIFICATIONS\|13 알림]], [[16-DECISIONS\|ADR-030]] B23)|
 |카카오 토큰 유출·연결 위조|카카오톡 알림 토큰은 서버에서 암호화해 저장하고 worker만 복호화한다. 화면 역할은 토큰 열을 읽지 못한다. 연결 콜백은 `state`를 서버에서 검증한다. 토큰·본문·공고명은 로그에 싣지 않는다. 아래 "카카오톡 알림" 절([[16-DECISIONS\|ADR-038]], 구현 중)|
 
@@ -223,7 +223,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
 - 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "Compose 서비스" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
 - seed 데모 계정(목록·역할은 [[04-DATABASE|04 DB]] §6)은 `.invalid` TLD라 실제 메일이 가지 않는다. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
-- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 MinIO(Compose)에 둔다. 웹 배포처만 미결정이다([[16-DECISIONS|16 ADR]] 미결정 8번). 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
+- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 Supabase Storage(Compose)에 둔다. 웹 배포처만 미결정이다([[16-DECISIONS|16 ADR]] 미결정 8번). 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
 - OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
 
@@ -248,7 +248,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 ### 공공 API 응답의 개인정보
 - 입찰공고 응답에는 담당자 이름·전화·이메일이 있다.
 - 담당자 필드는 `NormalizedBid`, `bid_revisions.normalized`·`raw_payload`, `bid_structured_requirements`, 모델 입력(Qwen·결정 모델), 데이터셋에 넣지 않는다([[15-DATA-CONTRACTS|15 데이터 계약]] §3, [[04-DATABASE|04 DB]]).
-- 담당자 필드가 든 원본 응답(`rawPayload` 원본)은 사설 MinIO에만 보관한다. public bucket 금지와 presigned URL 규칙(위 MinIO 행)은 그대로다.
+- 담당자 필드가 든 원본 응답(`rawPayload` 원본)은 사설 Supabase Storage에만 보관한다. public bucket 금지와 presigned URL 규칙(위 Supabase Storage 행)은 그대로다.
 - 데이터셋을 내보내기 전에 본문·첨부 텍스트의 전화·이메일 패턴을 같은 길이의 마스킹 문자로 바꾼다. 길이를 지켜서 인용 오프셋이 그대로 맞게 한다([[21-MODEL-TRAINING|21 모델 학습]] §3.6).
 - 증거(`docs/evidence/`)·시험 fixture·registry `sampleResponses`에 실제 응답을 둘 때도 담당자 필드를 빼거나 마스킹하고, 서비스키가 든 요청 URL은 남기지 않는다.
 
@@ -268,7 +268,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - **카카오 정책**: 카카오는 서비스가 사용자에게 보내는 자동 안내에 알림톡을 안내한다. 나에게 보내기는 해커톤 시연용이고 운영은 알림톡이다. 발표·제출물에서 이렇게 밝힌다.
 
 ## 정보 보존
-원본 공공 문서와 회사 자료를 분리. 회사 정보 삭제 요청 및 보존 기한은 실제 운영 조직 정책/법령 확인 후 정의; 백업에도 같은 절차 적용. 로그에는 원문/토큰/PII 미기록. 기본 TLS, DB/오브젝트 스토리지 주기적 백업 및 복구 테스트. Supabase 프로젝트의 백업 범위·보존 기간은 플랜 설정으로 확인한다(미검증). MinIO 첨부 원본(Compose volume)은 Supabase 백업에 들어가지 않는다.
+원본 공공 문서와 회사 자료를 분리. 회사 정보 삭제 요청 및 보존 기한은 실제 운영 조직 정책/법령 확인 후 정의; 백업에도 같은 절차 적용. 로그에는 원문/토큰/PII 미기록. 기본 TLS, DB/오브젝트 스토리지 주기적 백업 및 복구 테스트. Supabase 프로젝트의 백업 범위·보존 기간은 플랜 설정으로 확인한다(미검증). DB 백업과 Storage 파일 바이트의 백업·복원은 별도로 확인한다. DB 백업만으로 파일 보존을 보장하지 않는다.
 
 ## 솔리데오 명부·가입 신고 정보·공개 가상 이미지 (ADR-019)
 
@@ -276,7 +276,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 회사는 솔리데오 고정이지만 공개 가입만으로 업무 조직에 합류하지 않는다. 부서·직급/직책은 자기 신고 정보이며 Auth 메타데이터를 `org_role`·`sol_role`·`is_admin`이나 소속 증명으로 사용하지 않는다. 이름이 같아도 가상 직원 명부와 자동 연결하지 않는다.
 - OAuth·기존 사용자에게 null 가입 정보가 있을 수 있다. 서버가 이름·부서·직급의 유효성을 검사하고 보완 전 업무 화면/API를 차단한다. 본인 신고 정보 조회·저장은 조직 합류 전에도 허용하되 RLS로 본인만, 쿠키 쓰기는 CSRF 헤더를 요구한다. 기존 초대·권한·RLS 정책은 유지한다.
 - 공개 가입 카탈로그는 승인 fixture의 회사명·ID·표시명·버전만 반환한다. 원본 인원·명부·연락처를 함께 반환하거나 `departments`의 RLS를 익명 전체 읽기로 열지 않는다.
-- 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 MinIO public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다. 점수 계산 속성(직무·등급·스킬·가용성)은 `team_member_scoring`(seed 전용)에 있고 화면 역할은 쓰지 못한다([[16-DECISIONS|ADR-021]]).
+- 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 Supabase Storage public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다. 점수 계산 속성(직무·등급·스킬·가용성)은 `team_member_scoring`(seed 전용)에 있고 화면 역할은 쓰지 못한다([[16-DECISIONS|ADR-021]]).
 - 200명의 가상 직원·사진은 `isDemo` 및 가상 인물 표시를 유지한다. 회사 이름과 부서가 실제라고 해서 가상 직원·수치가 실제 회사 정보인 것처럼 소개하지 않는다.
 
 ## 관련 문서

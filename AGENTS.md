@@ -1,11 +1,11 @@
 # 먼저: SOL RADAR 설계 문서가 이 파일보다 우선한다
 
 이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` 의 문서 표에 있는 설계 문서)다.
-기술 스택은 Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen3.8-Flash-Next·Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017·034).
+기술 스택은 Next.js + Supabase(Postgres·RLS·Auth·Storage) + Redis/BullMQ + Qdrant + Python AI(Qwen3.8-Flash-Next·Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017·034).
 해커톤 뒤에는 API·worker 를 NestJS 로 옮긴다(ADR-028). 그 전에는 위 스택 그대로다.
 모바일(1280px 미만 레이아웃·`mobile/` Expo 앱)과 결제·구독은 만들지 않는다. 화면은 데스크톱 1280px 이상이다(`docs/16-DECISIONS.md` ADR-007).
 이 파일의 나머지는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히면 설계 문서를 따른다.
-아래의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조 규칙은 설계와 일치하므로 따른다(ADR-017). Vercel 배포(배포처 미결정)는 템플릿 기준이다.
+아래의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조 규칙은 설계와 일치하므로 따른다(ADR-017). Vercel frontend·회사 Gateway 배포는 ADR-044·045·047과 docs/10-DEPLOYMENT.md를 따른다.
 템플릿의 Expo 앱(`mobile/`)과 그 규칙은 지웠다. 다시 만들지 않는다.
 커밋 메시지 형식과 "결정적 강제 장치"(커밋 게이트·훅·린트를 끄거나 돌아가지 않기)는 그대로 지킨다.
 
@@ -95,7 +95,7 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
   단계별 구현(단계마다 관련 검사) → 통합 검증(전체 `pnpm verify`·변경 흐름 E2E·독립 리뷰 1회) → `/predeploy-review` → 배포
   - 화면이 새로 생기거나 흐름이 바뀌면 구현 전에 `web-designer` 에게 디자인 스펙을 받는다.
   - 서로 독립인 단계는 Claude Code 의 worktree 에이전트에 병렬로 맡길 수 있다. 같은 파일은 한 작업자가 맡는다.
-  - 작은 작업은 구현자가 관련 검증까지 맡는다. 독립 리뷰는 통합 단위로 한 번 모으고, 데모 전에 `demo-verifier` 의 GO/NO-GO 를 받는다(Compose 데모. 웹 배포처는 미결정). 작은 단계마다 test·e2e·qa 에이전트와 다중 프로필 리뷰를 연달아 실행하지 않는다.
+  - 작은 작업은 구현자가 관련 검증까지 맡는다. 독립 리뷰는 통합 단위로 한 번 모으고, 데모 전에 `demo-verifier` 의 GO/NO-GO 를 받는다(Compose 데모. 웹 배포처는 Vercel). 작은 단계마다 test·e2e·qa 에이전트와 다중 프로필 리뷰를 연달아 실행하지 않는다.
 
 ## 서버·저장 구조 (요약)
 - 서버 코드는 `web/server/<도메인>/` 에 `model`·`repo`·`service`·`index`(배럴)로 둔다. 견본은 `web/server/profile/`·`web/server/organization/`·`web/server/task/`·`web/server/activity/`·`web/server/admin/` → `architecture` 스킬.

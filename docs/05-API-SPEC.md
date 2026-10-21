@@ -35,7 +35,7 @@ updated: 2026-10-21
 |Method|Path|권한|기능|요청 → 응답|
 |---|---|---|---|---|
 |GET|`/health/live`|public|프로세스 생존|`200 {status:"ok"}`|
-|GET|`/health/ready`|public|의존성 상태|`200 {status:"ok"\|"degraded", checks:{db,redis,storage,ai}}`. `checks.db` = Supabase(Postgres) 연결, `checks.storage` = MinIO, `checks.ai ∈ "mock"\|"local"\|"hosted"\|"unavailable"`. db·redis·storage 중 하나라도 불가 = `503` + `status:"unavailable"`(같은 형태의 본문), AI만 불가 = `200` + `status:"degraded"`|
+|GET|`/health/ready`|public|의존성 상태|`200 {status:"ok"\|"degraded", checks:{db,redis,storage,ai}}`. `checks.db` = Supabase(Postgres) 연결, `checks.storage` = Supabase Storage, `checks.ai ∈ "mock"\|"local"\|"hosted"\|"unavailable"`. db·redis·storage 중 하나라도 불가 = `503` + `status:"unavailable"`(같은 형태의 본문), AI만 불가 = `200` + `status:"degraded"`|
 |GET|`/signup-options`|public|솔리데오 고정 가입 선택 목록(ID·표시명·버전만)|`SignupOptions`|
 |GET|`/me/employment`|session(본인)|조직 합류 전에도 가입 신고 정보·완료 여부 조회|`EmploymentState`|
 |PATCH|`/me/employment`|session(본인)|부서·직급/직책 필수 보완|`EmploymentInput` → `200 EmploymentState`|
@@ -553,7 +553,7 @@ interface PeoplePage {
 |429|`RATE_LIMITED`|속도 제한(Redis로 세는 §1의 API 제한)|`Retry-After` 헤더|
 |429|`KAKAO_TEST_THROTTLED`|구현 중([[16-DECISIONS\|ADR-038]]). 시험 메시지를 같은 분에 다시 요청(1분에 한 번, §9)|—|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
-|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(MinIO) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20). 수동 수집의 큐 등록이 실패하면 잡은 Redis 멱등 키를 지운 뒤 이 응답을 준다. `redis`는 속도 제한·멱등 저장소에 닿지 못함, `cursor`는 커서 서명 비밀(`API_CURSOR_SECRET`)이 없거나 짧음이다|`{component:"queue"\|"db"\|"storage"\|"redis"\|"cursor"}`|
+|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(Supabase Storage) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20). 수동 수집의 큐 등록이 실패하면 잡은 Redis 멱등 키를 지운 뒤 이 응답을 준다. `redis`는 속도 제한·멱등 저장소에 닿지 못함, `cursor`는 커서 서명 비밀(`API_CURSOR_SECRET`)이 없거나 짧음이다|`{component:"queue"\|"db"\|"storage"\|"redis"\|"cursor"}`|
 
 로그인 실패·시도 제한·토큰 갱신 실패는 이 API가 아니라 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
 
@@ -798,3 +798,9 @@ interface KakaoNotifyEnabledInput { enabled: boolean }
 - [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.8-Flash-Next), ADR-035(수동 수집 계약·`AiStatus` 보완)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalRunReport` 지표, 모델 레지스트리, 운영자 CLI
 - [[07-DATA-PIPELINE|07 수집]] — `IngestionRunInput` 소스, 나라장터 Connector·정규화
+
+## 원본 다운로드 URL (ADR-048)
+
+`GET /api/v1/bids/{bidId}/documents/{documentId}/download-url`: 기존 업무 인증/가입 완료/조직 검사 후 사용자 JWT+RLS로 문서와 공고 연결을 확인한다. download OK·Storage 원장 참조가 있어야 한다. bucket/path는 요청에서 받지 않는다.
+성공200 `{url,expiresIn:60}`·`Cache-Control:no-store`, 파일명 attachment로 발급한다. 없는/읽을 수 없는 문서는404, Storage 오류는503 `{component:"storage"}`다. signed URL을 로그에 기록하지 않는다.
+Readiness의 `checks.storage`는 private Storage에 대한 Worker 실검사 보고다. Redis TTL120초와 scope(DB URL·모드·bucket) 검사를 통과한 보고만 사용하며 보고 없음/만료는503이다.

@@ -6,6 +6,7 @@ export {
   completeOAuthSignIn,
   confirmEmailLink,
   getMyLoginMethods,
+  getMyAccessToken,
   signOutEverywhere,
   unlinkMyLoginMethod,
 } from "./auth.service";

@@ -1,4 +1,6 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { guardRedisApiRequest } from "@/app/_lib/redis-api-auth";
+import { deploymentRole } from "@/app/_lib/deployment-role";
 import { buildContentSecurityPolicy } from "@/server/csp";
 import { refreshSession } from "@/server/supabase";
 
@@ -7,13 +9,25 @@ import { refreshSession } from "@/server/supabase";
 // 2. 요청마다 새 nonce 로 CSP 를 만들어 요청과 응답에 싣는다. Next 는 요청의 CSP 에서 nonce 를 꺼내 자기 스크립트에 붙인다.
 //    그래서 모든 화면이 동적 렌더링이어야 한다(루트 app/layout.tsx 가 connection() 을 부른다).
 export async function proxy(request: NextRequest) {
+  const rejected = guardRedisApiRequest(request);
+  if (rejected)
+    return new NextResponse(rejected.body, { status: rejected.status, headers: rejected.headers });
+  if (deploymentRole() === "redis-api") return NextResponse.next();
+  const path = request.nextUrl.pathname;
+  // Gateway는 모든 경로를 검사한다. 화면 런타임은 기존 API/health/정적 자산의 세션 검사 생략을 유지한다.
+  if (
+    /^\/(?:api|health)(?:\/|$)|^\/_next\/(?:static|image)(?:\/|$)|^\/favicon\.ico$|\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/.test(
+      path,
+    )
+  ) {
+    return NextResponse.next();
+  }
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const policy = buildContentSecurityPolicy({
     nonce,
     isDevelopment: process.env.NODE_ENV === "development",
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
   });
-  const path = request.nextUrl.pathname;
   const isBusinessPath =
     /^\/[^/]+\/(?:dashboard|tasks|settings(?:\/(?:members|team))?)\/?$/.test(path) &&
     !/^\/(?:auth|api|account|admin|teams|invitations)\//.test(path);
@@ -29,14 +43,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // /api/* 는 각 Route Handler가 인증한다(기존 API는 Bearer 전용, v1은 쿠키/Bearer). JSON 응답에는 HTML CSP가 필요 없다.
-  // API는 이 페이지용 프록시를 거치지 않는다. 정적 파일·이미지도 제외한다.
-  // api 뒤에 / 나 끝을 붙인다 — 조직 주소는 apiary 처럼 api 로 시작할 수 있다(api 자체는 예약어).
-  // /health/* (live·ready)는 로그인 없이 외부 감시(Compose healthcheck·smoke)가 부른다. 토큰 갱신·CSP 가 필요 없고,
-  // 의존성이 죽었을 때 프록시의 Supabase 호출이 상태 검사를 막으면 안 된다. api 와 같이 health 뒤에도 / 나 끝을 붙인다(healthy-team 은 조직 주소다).
-  // 문서가 권하는 prefetch 제외(missing: next-router-prefetch)는 두지 않는다. prefetch 도 서버 렌더라 여기서 토큰을
-  // 갱신하지 않으면 서버 컴포넌트가 갱신한 토큰을 쿠키에 쓰지 못해 다음 요청에서 로그아웃될 수 있다.
-  matcher: [
-    "/((?!api(?:/|$)|health(?:/|$)|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
-  ],
+  // redis-api의 비허용 경로(구형 API·Server Action·정적 파일 포함)를 렌더 전에 차단한다.
+  // frontend/standalone의 API·health·자산은 함수 안에서 세션 갱신/CSP만 생략한다.
+  matcher: ["/:path*"],
 };
