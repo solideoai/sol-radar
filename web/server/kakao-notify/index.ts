@@ -52,3 +52,20 @@ export type {
 
 // 연결 저장 port 의 Supabase 구현. worker 가 service role 클라이언트를 넘긴다. 던지는 오류는 모두 KakaoLinkStoreError 다.
 export { KakaoLinkStoreError, createKakaoLinkStore } from "./kakao-link.repo";
+
+// 개인 설정 "카카오톡 알림"의 웹 서버 쪽(계획 Task 6). Route Handler·설정 화면이 부른다. 사용자 세션(anon 키 + RLS)으로만 읽고 쓴다.
+// 연결은 OAuth state(HMAC, 10분)를 쿠키와 대조한 뒤 받은 토큰을 사용자에 묶어 암호화해 저장한다.
+export {
+  KAKAO_CONNECT_OUTCOMES,
+  KAKAO_STATE_COOKIE,
+  completeKakaoConnect,
+  disconnectMyKakaoNotify,
+  getMyKakaoNotify,
+  isKakaoStateCookieSecure,
+  loadMyKakaoNotify,
+  requestMyKakaoNotifyTest,
+  setMyKakaoNotifyEnabled,
+  startKakaoConnect,
+  toKakaoConnectOutcome,
+} from "./kakao-notify.service";
+export type { KakaoConnectOutcome, KakaoConnectResult } from "./kakao-notify.service";

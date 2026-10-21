@@ -21,6 +21,9 @@ type ApiErrorCode =
   | "IDEMPOTENCY_KEY_REUSED"
   | "HOSTED_NOT_APPROVED"
   | "RATE_LIMITED"
+  | "KAKAO_NOT_CONNECTED"
+  | "KAKAO_NOT_READY"
+  | "KAKAO_TEST_THROTTLED"
   | "NOT_FOUND"
   | "SERVICE_UNAVAILABLE"
   | "INTERNAL_ERROR";
@@ -32,6 +35,9 @@ const dbUnavailable = (): Response =>
   apiError(503, "SERVICE_UNAVAILABLE", "DB가 연결되지 않았습니다.", { component: "db" });
 export const json = (body: unknown, status = 200): Response =>
   Response.json(body, { status, headers: responseHeaders(crypto.randomUUID()) });
+/** 본문 없는 성공(204 바꿈 완료). 머리는 json 과 같다. */
+export const noContent = (): Response =>
+  new Response(null, { status: 204, headers: responseHeaders(crypto.randomUUID()) });
 export function apiError(
   status: number,
   code: ApiErrorCode,
