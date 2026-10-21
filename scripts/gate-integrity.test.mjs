@@ -80,7 +80,8 @@ const GUARDED_TOOLS = ["Bash", "Edit", "Write"];
 // 에이전트가 고치지 못하게 .claude/settings.json 의 permissions.deny 에 있어야 하는 게이트 파일(더 있는 것은 허용).
 // .claude/ 에서 편집 금지는 settings·hooks 만 막는다. .claude/skills·commands·agents 는 지침이라 세션이 고칠 수 있게
 // 열어 둔다. Edit(/web/…) 은 그 폴더가 디스크에 있을 때만 요구한다(아래 appOf).
-// 막는 것은 금지 자체(settings·hooks)와 다른 검사가 약화를 잡지 못하는 파일(.husky·.github·lodestar 설정)뿐이다.
+// 막는 것은 금지 자체(settings·hooks)와 다른 검사가 약화를 잡지 못하는 파일(.husky·lodestar 설정)뿐이다.
+// .github/ 편집 금지는 2026-10-21 사용자 지시로 해제했다. CI 필수 검사 자체는 유지한다.
 // package.json·verify.config.json·eslint 설정·scripts/ 는 세션이 고칠 수 있다. 약화는 이 시험의 본문 고정,
 // check:lint-guards, 커밋 게이트의 `pnpm test`, 커밋된 diff 검토가 잡는다.
 const DENY_EDITS = [
@@ -88,7 +89,6 @@ const DENY_EDITS = [
   "Edit(/.claude/settings.json)",
   "Edit(/.claude/settings.local.json)",
   "Edit(/.claude/hooks/**)",
-  "Edit(/.github/**)",
   "Edit(/web/lodestar.config.*)",
 ];
 
@@ -505,14 +505,12 @@ describe("판정의 가까운 변형", () => {
     assert.deepEqual(denyProblems(settings(["Bash(sudo *)", ...DENY_EDITS]), apps), []);
     assert.deepEqual(denyProblems(settings(without(webRules)), []), []);
     assert.equal(denyProblems(settings(without(webRules)), apps).length, webRules.length);
-    assert.deepEqual(denyProblems(settings(without(["Edit(/.github/**)"])), apps), [
-      "permissions.deny 에 Edit(/.github/**) 이 없습니다",
-    ]);
+    assert.deepEqual(denyProblems(settings(without(["Edit(/.github/**)"])), apps), []);
     // 앱 폴더가 없어도 루트 규칙은 그대로 요구한다.
     assert.equal(denyProblems({}, []).length, DENY_EDITS.filter((rule) => !appOf(rule)).length);
     [
-      // `/` 를 빼면 클로드를 연 폴더 기준이 아니라 어느 깊이의 .github/ 로 뜻이 바뀐다.
-      DENY_EDITS.map((rule) => rule.replace("Edit(/.github/**)", "Edit(.github/**)")),
+      // `/` 를 빼면 클로드를 연 폴더 기준이 아니라 어느 깊이의 .husky/ 로 뜻이 바뀐다.
+      DENY_EDITS.map((rule) => rule.replace("Edit(/.husky/**)", "Edit(.husky/**)")),
       DENY_EDITS.map((rule) => rule.replace("Edit(/.husky/**)", "Read(/.husky/**)")),
       DENY_EDITS.join(","),
     ].forEach((deny) => assert.ok(denyProblems(settings(deny), apps).length > 0, String(deny)));
@@ -612,7 +610,7 @@ describe("편집 금지는 스테이징본을 본다", () => {
     Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
   );
   const FULL = { permissions: { deny: ["Bash(sudo *)", ...DENY_EDITS] } };
-  const DROPPED = ["Edit(/.claude/hooks/**)", "Edit(/.github/**)"];
+  const DROPPED = ["Edit(/.husky/**)", "Edit(/.claude/hooks/**)"];
   const DROPPED_PROBLEMS = DROPPED.map((rule) => `permissions.deny 에 ${rule} 이 없습니다`);
   const without = (rules) => ({
     permissions: { deny: FULL.permissions.deny.filter((rule) => !rules.includes(rule)) },

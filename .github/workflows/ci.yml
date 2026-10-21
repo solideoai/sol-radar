@@ -115,9 +115,14 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - run: corepack enable
-      # Python 프로젝트(ai)만 uv 가 필요하다
+      - name: 웹 검증용 루트 의존성 설치
+        if: matrix.project.name == 'web'
+        run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: "0"
+      # Python 프로젝트(ai·decision)는 uv 가 필요하다
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        if: matrix.project.name == 'ai'
+        if: matrix.project.name == 'ai' || matrix.project.name == 'decision'
       - name: 설정된 프로젝트 설치·검증·E2E
         env:
           PROJECT_NAME: ${{ matrix.project.name }}
