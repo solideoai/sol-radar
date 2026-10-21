@@ -318,3 +318,7 @@ Task5~8 및 각 수정의 독립 리뷰, Task9 실제 격리 QA 통과. 운영20
 Storage 로컬 통합 검증 완료: 전체 `pnpm verify`(root172/web323/AI101/decision57·빌드), 실제 로컬 Storage50MiB/private/URL 만료, 실제 Redis+Next Gateway smoke PASS. 독립 리뷰의 redis-api env 요구사항을 재현 후 수정했다. [정리](evidence/storage/20261021-transition.md). 운영 cloud migration2개/bucket2개 승인 대기, 회사/Vercel production 변경 없음.
 
 최종 통합: 최신 main7133636 반영·ADR-048 번호 충돌 해소, 커밋 훅에서 드러난 verify-changed Git 환경 누수를 재현 시험으로 수정. 최종 전체 verify root173/web323/AI101/decision57·빌드 PASS. cloud 적용 확인 대기.
+
+### 2026-10-21 GitHub E2E·필수 검사 실패 수정
+
+Storage PR의 E2E 서버 역할 누락과 main의 솔리데오 제목 변경 뒤 남은 기대값 불일치를 확인했다. Playwright 로컬 서버 4종에 `standalone` 역할을 지정하고 제목 E2E를 승인된 문구로 갱신했다. 수정 전 제목 실패 재현 후, 외부 역할 설정 없이 공개 E2E45·브라우저48 및 `pnpm verify:changed`(웹323·타입·린트·구조 등) PASS. `required`의 `project: failure`는 E2E 실패의 집계 결과다. [원인·변경·검증 범위](evidence/verification/20261021-ci-e2e.md).

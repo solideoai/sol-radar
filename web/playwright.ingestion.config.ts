@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 // 실행: `pnpm -C web test:e2e:ingestion`. 같은 env 로 만든 빌드(`pnpm -C web build`)가 먼저 있어야 한다.
 // globalSetup(e2e-auth/support/ingestion-setup.ts)이 대상(N8 Supabase·웹 서버 env·빌드·Redis DB 번호)을 확인한 뒤
 // demo:reset 하나만 넣고 analyst 를 이 실행 동안 운영자로 켠다. 끝에 운영자 표시를 되돌리고 Redis 의 N8 키만 지운다.
-// 필요한 env 목록은 ingestion-setup.ts 머리에 있다. 웹 서버(webServer)는 이 프로세스의 env 를 그대로 받는다.
+// 필요한 env 목록은 ingestion-setup.ts 머리에 있다. 웹 서버는 이 프로세스의 env 와 로컬 standalone 역할을 받는다.
 // 격리 DB 를 다시 seed 하므로 verify·CI·test:e2e:auth·test:e2e:work 에는 넣지 않는다.
 //
 // 포트는 3210 이다(N8 Supabase 의 site_url 이 http://localhost:3210). 바꾸려면 E2E_PORT.
@@ -39,6 +39,7 @@ export default defineConfig({
   ],
   webServer: {
     command: `pnpm start --hostname ${hostname} --port ${port}`,
+    env: { SOL_DEPLOYMENT_ROLE: "standalone" },
     url: `${baseURL}/health/live`,
     reuseExistingServer: false,
     timeout: 60_000,
