@@ -146,7 +146,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
   - 503 `{"errorCode":"AI_UNAVAILABLE","message"}`(시험 전용 예외): `AI_PROVIDER=mock` + `AI_FAULT_INJECT=gateway_down`일 때만 `/extract`·`/kev`·`/explain`이 gateway 연결 불가를 흉내 낸다(§3 env 표, [[16-DECISIONS|ADR-029]] A3). 데모·운영에서는 생기지 않는다
   - 422 `KO_STATE_NOT_ALLOWED`: `/kev`에 `stateLanguage="ko"`가 왔는데 `KEV_ALLOW_KO_STATE`가 `true`가 아닐 때(§5.11)
 - `AI_PROVIDER=hosted`인데 승인이 없으면 gateway가 기동을 거부한다(exit 78, §3·§8). 요청 단계의 503은 없다(B8, Phase 0 불일치 #12의 구현 방식).
-- 결정 모델 서버(`sol_decision.serve`, Bosun)는 state 길이 제한이 없다(Bosun `truncation=False`, 백본 ctx 40,960. Kev 의 65,536 토큰 422 는 퇴역). 우리 상한 6,000 토큰(§5.6)은 그대로 지킨다. 서버가 4xx(요청 `model`이 서버 alias와 다를 때 422, 질문 24개·후보 255개·본문 1 MiB 초과)를 내면 gateway가 `kev.enabled=false`·`KEV_UNAVAILABLE`로 바꿔 200으로 돌려준다.
+- 결정 모델 Bosun 자체에는 state 길이 제한이 없다(Bosun `truncation=False`, 백본 ctx 40,960. Kev 의 65,536 토큰 422 는 퇴역). 우리 상한 6,000 토큰(§5.6)은 그대로 지키고, 결정 서버(`sol_decision.serve`)는 hardening(main `36edfb6`) 뒤 state를 24,000자(6,000 토큰 × 4자)까지만 받는다. 서버가 4xx·5xx(요청 `model`이 서버 alias와 다를 때·state 24,000자 초과·한글 state·질문 24개·후보 255개 초과 422, 본문 128 KiB 초과 413, 대기열이 차면 503, 마감 504, §5.3)를 내면 gateway가 `kev.enabled=false`·`KEV_UNAVAILABLE`로 바꿔 200으로 돌려준다.
 - `/parse`는 50 MB를 넘는 본문을 처리하지 않고 `status=UNSUPPORTED`, `errorCode=TOO_LARGE`로 돌려준다. Worker는 다운로드 단계에서 먼저 거른다(§10.5).
 - 재사용: Worker가 호출 전에 `requirement_extractions`에서 `(revision_id, model_name, prompt_hash)` 행을 찾고, 있으면 `/extract`를 부르지 않는다. 모델 이름·프롬프트 해시는 `GET /health`(gateway)로 미리 받아 둔다. `translations`도 같은 행에서 재사용한다.
 - Worker analysis job 순서: ① 캐시된 추출 로드(없으면 같은 job 안에서 `/extract`. 별도 extract job은 없다) → ② 추출 + API 구조화 필드 + 프로필로 자격 판정·SOL Score·권고 계산(규칙) → ③ `KEV_ENABLED`면 `/kev`(질문이 많으면 24개씩 나눠 같은 state로 여러 번, §5.10) → ④ 결정 모델 답을 규칙 결과와 비교해 `reviewFlags` 추가·항목별 결정 모델 분포 기록(§5.5·§5.13) → ⑤ `/explain` → ⑥ `score_runs`·`requirement_assessments` 저장(service role, 요청 조직의 `org_id` 지정). gateway는 요청 하나를 `AI_TIMEOUT_MS`(`/extract`)·`KEV_TIMEOUT_MS`(`/kev`) 마감 안에 끝내고(§3), Worker는 그보다 긴 HTTP timeout과 circuit breaker를 가진다. `/explain`이 실패하거나 시간을 넘기면 템플릿 문장으로 대체하고 분석을 실패시키지 않는다.
@@ -470,7 +470,7 @@ JSON Schema:
 
 > [!warning] 미검증 가정 (2026-10-20)
 > - hannolabs.ai "Introducing Bosun"(2026-06-11)은 Qwen3-Reranker 기반 yes/no 크로스인코더 Bosun-XS/4B를 설명한다. v3.1 0.6B(decision token)는 다른 세대다. 인용 때 섞지 않는다.
-> - 리비전 `5e78a37c`(우리 핀)와 Hanno `jev-compatible-server` 레지스트리 핀 `87cea31`은 커밋 메시지 기준 문서 차이만이다. B2에서 두 리비전의 `manifest.json` sha256을 대조한다.
+> - 리비전 `5e78a37c`(우리 핀)와 Hanno `jev-compatible-server` 레지스트리 핀 `87cea31`은 커밋 메시지 기준 문서 차이만이다. B2에서 두 리비전의 `manifest.json` sha256을 대조한다(레지스트리·`/v1/models` 대조에 manifest sha256을 넣을지는 [[16-DECISIONS|16]] 미결정 28).
 > - 우리 도메인 zero-shot 품질·6,000 토큰 장문·질문당 지연 p95는 미측정이다(B2 G3·B5 E1' 오프라인 채점, [[16-DECISIONS|16 ADR]] 미결정 24번·29-1).
 
 > [!success] 검증됨 (2026-10-16, https://github.com/jaredpalmer/kev README·docs/model-cards/kev-4b.md·kev-9b.md(main `1f04cfa`), https://huggingface.co/jaredpalmer/kev-9b. 리비전·학습 길이는 2026-10-19 재확인)
@@ -495,7 +495,7 @@ Bosun은 0.6B 한 크기다(Kev의 0.8B/4B/9B/27B 선택은 퇴역. 이력은 [[
 
 ### 5.3 실행 명령
 
-기동 명령의 정본은 [[10-DEPLOYMENT|10 배포]] "회사 GPU 추론 엔드포인트"다: `python -m sol_decision.serve --package <snapshot or run dir> --host 127.0.0.1 --port 8009`(venv `.venv-bosun`, `DECISION_API_KEY` 필수, `HF_HUB_OFFLINE=1`). 서버 패키지 `services/decision`(`sol_decision.serve`·`contract`·`wire`·`package`·`train`·`parity`)은 main `1b68f9b`(B1)에 있다. 기본 바인딩은 `127.0.0.1:8009`다(`serve.py`). 기동은 회사 측이 사용자 승인 뒤에 하고 우리는 하지 않는다([[16-DECISIONS|ADR-025]], ADR-034 10번). `kev.serve`·stock vLLM·Hanno `jev-compatible-server`(LICENSE 없음, 인증·`/v1/models` 없음, `0.0.0.0:8000` 고정)로 Bosun을 띄우지 않는다(ADR-034 3번).
+기동 명령의 정본은 [[10-DEPLOYMENT|10 배포]] "회사 GPU 추론 엔드포인트"다: `python -m sol_decision.serve --package <snapshot or run dir> --host 127.0.0.1 --port 8009`(venv `.venv-bosun`, `DECISION_API_KEY` 필수, `HF_HUB_OFFLINE=1`). 서버 패키지 `services/decision`(`sol_decision.serve`·`contract`·`wire`·`package`·`train`·`parity`)은 main `1b68f9b`(B1)에 있고, 상한·대기열·패키지 검증 보강(보안 후속 `fix/decision-hardening`)은 main `36edfb6`에 있다. 기본 바인딩은 `127.0.0.1:8009`다(`serve.py`). 기동은 회사 측이 사용자 승인 뒤에 하고 우리는 하지 않는다([[16-DECISIONS|ADR-025]], ADR-034 10번). `kev.serve`·stock vLLM·Hanno `jev-compatible-server`(LICENSE 없음, 인증·`/v1/models` 없음, `0.0.0.0:8000` 고정)로 Bosun을 띄우지 않는다(ADR-034 3번).
 
 서버 계약(계획 §5.1):
 
@@ -503,10 +503,14 @@ Bosun은 0.6B 한 크기다(Kev의 0.8B/4B/9B/27B 선택은 퇴역. 이력은 [[
 |---|---|
 |`POST /v1/systemone`|요청 = Kev wire(§5.4). `model`은 서버 alias(`bosun-v3.1-0.6b`)와 같아야 한다(다르면 422). 질문별 `predict`(또는 `decision_logits` 배치) → **응답 = Kev wire** `{responses{qid: …}, usage{input_tokens,output_tokens}, latency_ms}` + 헤더 `x-typesafe-request-id`|
 |`GET /v1/models`|`{"data":[{"id":"bosun-v3.1-0.6b","run":"Hanno-Labs/bosun-v3.1-0.6b@5e78a37c…","base":"Qwen/Qwen3-0.6B@c1899de…","lora":"<adapter sha256>","revision":"5e78a37c…","questionTypes":["choice","score","noul"]}]}` — 레지스트리 대조 필드(§11)|
-|`GET /health`|`{status, model, device, loadedAt}`|
+|`GET /health`|`{status, model, backend, device, loadedAt}`. 인증 없음|
 |인증|`Authorization: Bearer $DECISION_API_KEY`(값은 노트북 `KEV_API_KEY`와 같음). 없으면 401|
-|기동 검사|패키지 `manifest.json`의 sha256과 파일 대조(실패 시 기동 거부), 리비전 고정, 네트워크 다운로드 금지|
-|바인딩·상한|`127.0.0.1`만. 요청 본문 1 MiB, 질문 ≤ 24, 후보 ≤ 255|
+|기동 검사|패키지 `manifest.json`의 sha256과 파일 대조(실패 시 기동 거부, exit 78), 리비전 고정, 네트워크 다운로드 금지. 패키지 최상위 `*.py`(`trust_remote_code`가 실행하는 `modeling_bosun.py` 등)가 manifest에 없으면 `REMOTE_CODE_NOT_IN_MANIFEST`로 거부한다. 학습기·parity·`sol_eval bosun_score`도 같은 검증을 지난 디렉터리만 올린다(main `36edfb6`)|
+|바인딩·상한|`127.0.0.1`만. 요청 본문 128 KiB(413 `PAYLOAD_TOO_LARGE`), state 24,000자(422 `STATE_TOO_LARGE`, 객체면 JSON 직렬화 길이), 질문 ≤ 24, 후보 ≤ 255|
+|state 언어|한글 음절·자모가 있으면 422 `STATE_NOT_ENGLISH`(§5.6). 평가 전용 `DECISION_ALLOW_KO_STATE=true`면 검사하지 않는다. 공유 8009에는 켜지 않는다(켜면 운영 가드가 같이 꺼진다, [[16-DECISIONS\|16]] 미결정 27)|
+|대기열·마감|추론은 스레드 하나에서 한 요청씩 돈다. 처리 중·대기 중 요청이 `DECISION_MAX_QUEUE`(기본 4)개면 503 `QUEUE_FULL` + `Retry-After: 1`. 요청 전체 마감 `DECISION_TIMEOUT_MS`(기본 4,500, 본문을 읽기 전부터 센다)를 넘기면 504 `DEADLINE_EXCEEDED`. forward 하나가 마감을 넘기면 스레드를 기다리지 않고 응답하고, 그 스레드는 끝날 때까지 대기열 한 자리를 쓴다|
+
+오류 코드·env 전체는 `services/decision/README.md`(계약·오류 코드 표, main `36edfb6`)가 정본이다.
 
 - `score_runs.kev_model` 기록값은 `GET /v1/models` 응답의 `run`(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)으로 채운다. 그 값이 레지스트리 `KEV_MODEL_ID` 항목과 같은지 gateway가 기동할 때 확인한다(§11). 화면·`/api/v1/admin/ai/status`는 이 값을 그대로 보인다([[16-DECISIONS|ADR-029]] A6 D12, ADR-034 4번).
 
@@ -707,6 +711,7 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
   - 원문의 숫자 토큰이 번역에 그대로 있지 않으면 그 값은 번역하지 않고 `(untranslated)`로 표시한다.
 - `ko`(평가 전용): 같은 템플릿의 한국어판에 원문 값을 넣는다. gateway env `KEV_ALLOW_KO_STATE=true`일 때만 받고, 아니면 `422 KO_STATE_NOT_ALLOWED`다([[16-DECISIONS|ADR-012]] 개정).
   - `KEV_ALLOW_KO_STATE=true`는 `SOL_RUN_MODE=live`와 함께 쓸 수 없다. `AI_PROVIDER=hosted`와 함께여도 모든 모드에서 쓸 수 없다(`KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[16-DECISIONS|ADR-030]] B11). 둘 다 gateway와 `pnpm check:env`가 기동을 거부한다.
+  - 결정 서버(8009)도 한글 state를 기본으로 422 `STATE_NOT_ENGLISH`로 거절한다(main `36edfb6`, §5.3). 공유 8009에는 `DECISION_ALLOW_KO_STATE`를 켜지 않으므로, gateway `KEV_ALLOW_KO_STATE=true`로 보낸 ko state는 8009에서 거절돼 `KEV_UNAVAILABLE`이 된다. E2는 회사 서버 안 오프라인 `sol_eval bosun_score`로 한다(HTTP를 거치지 않는다. [[16-DECISIONS|16]] 미결정 27·29-6).
   - 한국어 state 평가(E2)는 두 경로로만 한다: 노트북에서 `sol_eval`이 `KEV_BASE_URL` 엔드포인트에 직접 붙거나, `SOL_RUN_MODE=fixture`로 띄운 평가용 gateway를 쓴다([[16-DECISIONS|ADR-025]], [[21-MODEL-TRAINING|21 모델 학습]] §4).
   - 한국어 운영 사용은 평가 결과(E2)를 보고 다시 검토한다.
 - 규칙 결과(자격 판정·점수·권고)는 지금처럼 state에 넣지 않는다.
@@ -957,7 +962,7 @@ interface ParseResult {
   - 목록 밖이면 gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). [[09-SECURITY|09 보안]] "회사 GPU 추론 엔드포인트 연결"의 "gateway는 거기에만 붙는다"를 이 목록으로 강제한다.
   - 구현은 main `0a32e47`에 병합됐다(3b `c5/gateway-hardening-3`, `services/ai/models/registry.yaml` `allowedHosts`).
 - **서빙 검증**
-  - 회사 GPU 서버는 `sol_decision.serve`를 호스트에 직접 띄운다(ADR-025·034). 서버가 기동할 때 패키지 `manifest.json`의 sha256(`adapter_model.safetensors`·`decision_embeddings.safetensors` 등)과 파일을 대조하고 다르면 기동을 거부한다(§5.3). 회사는 다운로드 뒤 같은 sha256을 레지스트리 `lora`·`decision_embeddings_sha256`과 대조한다(`infra/gpu/bosun-preflight.sh`가 레지스트리 값을 읽어 대조, [[22-FINETUNE-RUNBOOK|22]] §2.2).
+  - 회사 GPU 서버는 `sol_decision.serve`를 호스트에 직접 띄운다(ADR-025·034). 서버가 기동할 때 패키지 `manifest.json`의 sha256(`adapter_model.safetensors`·`decision_embeddings.safetensors` 등)과 파일을 대조하고 다르면 기동을 거부한다(§5.3). 최상위 코드 파일(`modeling_bosun.py`·`configuration_bosun.py`)도 manifest에 있어야 하고 sha256을 대조한다(main `36edfb6`). 이 검사는 manifest 자기 일관성 검사라 폴더 쓰기 권한이 있으면 manifest까지 고쳐 통과할 수 있다. 아래 gateway 대조는 `run`과 레지스트리 값이 null이 아닌 `base`·`lora`·`temperature`, 양쪽에 있을 때 `revision`을 본다(`services/ai/src/sol_ai/registry.py` `KEV_MATCH_FIELDS`). 이 가운데 패키지 파일 내용의 해시로 묶인 값은 `lora`(어댑터 sha256)뿐이다(`base`는 CLI·env 값이 없으면 `config.json`의 이름 문자열이다). `/v1/models`의 `decision_embeddings_sha256`은 레지스트리에 적혀 있지만 gateway가 대조하지 않고, 코드 파일·manifest 해시는 identity에 없다(대조 추가는 [[16-DECISIONS|16]] 미결정 28). 회사는 다운로드 뒤 같은 sha256을 레지스트리 `lora`·`decision_embeddings_sha256`과 대조한다(`infra/gpu/bosun-preflight.sh`가 레지스트리 값을 읽어 대조, [[22-FINETUNE-RUNBOOK|22]] §2.2).
   - gateway는 기동할 때 결정 모델 서버 `GET /v1/models`의 `run`·`base`·`lora`(non-null 비교. `revision`이 있으면 함께)가 레지스트리 `KEV_MODEL_ID` 항목과 같은지, 회사 Qwen API `GET /v1/models`의 `id`에 `QWEN_MODEL`이 있는지 확인하고, 다르면 기동을 거부한다(`REGISTRY_MISMATCH`, exit 78). 응답이 없으면 기동 뒤 첫 요청 때 lazy 대조한다.
   - 이 검사가 필요한 이유: 레지스트리와 다른 패키지(다른 리비전·학습본)가 같은 alias로 조용히 서빙되는 것을 막는다. Kev `kev.serve`의 `runs/smoke` 대체 경고는 퇴역했고, 그 자리를 서버의 sha256 대조와 gateway의 `run` 대조가 맡는다.
 - **호환성**: 레지스트리 항목의 `questionSet`·`stateTemplate`이 gateway 설정과 다르면 기동을 거부한다. 학습셋 state와 서빙 state는 같은 코드·같은 템플릿 버전으로 만든다(§5.11). 구현 상태(main `4e62170`): `questionSet`은 값이 있을 때 `KEV_QUESTION_SET`과 다르면 `QUESTION_SET_MISMATCH`로 거부하지만(`local_setup.py`) 이 경로의 시험은 없다. `stateTemplate` 대조는 없다. 지금 `bosun-v3.1-0.6b` 항목은 둘 다 null이라 대조하지 않는다.
