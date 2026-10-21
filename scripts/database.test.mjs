@@ -8606,3 +8606,475 @@ it("ADR021 가입 변경은 이전 개인 조직·소유권·작업을 그대로
     users.slice(0, 2).map((id) => ({ id })),
   );
 });
+
+// 부처 지원사업 공고(20261021000500). 공고는 조직 소유가 아니라 bid_notices 처럼 활동 중 회원 누구나 읽고,
+// 쓰기는 worker(service role)만 한다. 수집 회차(program_notice_runs)는 화면 역할에 아무것도 열지 않는다.
+// 근거: 스펙 polaris/specs/in-progress/2026-10-21-agency-program-notices.md §5, 계획 Task 3 Interfaces.
+// 시험마다 새 DB 를 쓴다. 가입자는 migratedDb 의 셋이고 누구도 조직에 속하지 않는다(공고 읽기는 멤버십과 상관없다).
+describe("부처 지원사업 공고 표 (20261021000500)", () => {
+  const TABLES = ["program_notices", "program_notice_runs"];
+  const STRANGER = "00000000-0000-0000-0000-000000000009"; // 가입자가 아닌 sub(탈퇴 뒤 남은 토큰의 자리)
+  const CHECK = { code: "23514" };
+  const UNIQUE = { code: "23505" };
+  const NOT_NULL = { code: "23502" };
+  const denied = (table) => new RegExp(`permission denied for table ${table}`);
+
+  // JWT 없는 관리 작업 — worker(service role)·seed 의 자리. RLS 를 거치지 않는다.
+  const asWorker = async (pglite) => {
+    await pglite.exec("reset role");
+    await pglite.query("select set_config('request.jwt.claims', '', false)");
+  };
+  const rowsOf = async (pglite, sql, params = []) => (await pglite.query(sql, params)).rows;
+  // 값이 undefined 인 열은 문장에서 빼서 기본값을 쓰게 한다.
+  const insert = (pglite, table, row) => {
+    const entries = Object.entries(row).filter(([, value]) => value !== undefined);
+    return pglite.query(
+      `insert into public.${table} (${entries.map(([column]) => column).join(", ")}) values (${entries.map((_, i) => `$${i + 1}`).join(", ")})`,
+      entries.map(([, value]) => value),
+    );
+  };
+  const pad = (n, width) => String(n).padStart(width, "0");
+  // 명세 모양의 가상 기업마당 공고 한 줄. 모든 열이 유효하므로 fields 로 열 하나만 바꾸면 그 열의 제약만 걸린다.
+  const notice = (n, fields = {}) => ({
+    id: `9a000000-0000-4000-8000-${pad(n, 12)}`,
+    source: "bizinfo",
+    source_notice_id: `PBLN_${pad(n, 15)}`,
+    title: `가상 지원사업 공고 ${n}`,
+    agency: "중소벤처기업부",
+    source_url: `https://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/view.do?pblancId=PBLN_${pad(n, 15)}`,
+    published_at: "2026-10-20T09:00:00+09:00",
+    apply_start_on: "2026-10-01",
+    apply_end_on: "2026-10-31",
+    summary: "가상 사업개요",
+    apply_method: "온라인 접수",
+    target: "중소기업",
+    tags: "{기술,창업}",
+    dedupe_key: `가상지원사업공고${n}|중소벤처기업부`,
+    fetched_at: "2026-10-21T00:00:00Z",
+    is_demo: false,
+    ...fields,
+  });
+  const run = (n, fields = {}) => ({
+    id: `9b000000-0000-4000-8000-${pad(n, 12)}`,
+    source: "bizinfo",
+    run_mode: "LIVE",
+    status: "SUCCEEDED",
+    error_code: null,
+    fetched_count: 2,
+    saved_count: 2,
+    dropped_count: 0,
+    finished_at: "2026-10-21T00:01:00Z",
+    ...fields,
+  });
+  // 기본 장면: worker 가 기업마당 공고 1건·중기부 공고 1건과 수집 회차 1건을 넣었다.
+  const SEEN = [
+    { source: "bizinfo", source_notice_id: `PBLN_${pad(1, 15)}` },
+    { source: "mss", source_notice_id: "1001" },
+  ];
+  const programDb = async (t) => {
+    const pglite = await migratedDb(t);
+    await asWorker(pglite);
+    await insert(pglite, "program_notices", notice(1));
+    // 중기부 RSS 는 신청기간·개요·방법·대상·태그가 없다(계획 "이름과 값").
+    await insert(
+      pglite,
+      "program_notices",
+      notice(2, {
+        source: "mss",
+        source_notice_id: "1001",
+        source_url: "https://mss.go.kr/site/smba/ex/bbs/View.do?cbIdx=310&bcIdx=1001",
+        apply_start_on: null,
+        apply_end_on: null,
+        summary: null,
+        apply_method: null,
+        target: null,
+        tags: "{}",
+      }),
+    );
+    await insert(pglite, "program_notice_runs", run(1));
+    return pglite;
+  };
+  const visibleTo = async (pglite, id) => {
+    await actAs(pglite, id);
+    const rows = await rowsOf(
+      pglite,
+      "select source, source_notice_id from public.program_notices order by source, source_notice_id",
+    );
+    await asWorker(pglite);
+    return rows;
+  };
+
+  it("활동 중 회원은 worker 가 넣은 부처 공고를 두 소스 모두 읽는다 — 조직 멤버십이 없어도 읽는다", async (t) => {
+    const pglite = await programDb(t);
+    assert.deepEqual(await visibleTo(pglite, users[0]), SEEN);
+    assert.deepEqual(await visibleTo(pglite, users[1]), SEEN);
+  });
+
+  it("정지된 회원(profiles.status='suspended')은 부처 공고를 0행으로 보고, 정지를 풀면 다시 두 행을 읽는다", async (t) => {
+    const pglite = await programDb(t);
+    await pglite.query("update public.profiles set status = 'suspended' where id = $1", [users[0]]);
+    assert.deepEqual(await visibleTo(pglite, users[0]), []);
+    // 다른 활동 회원은 그대로 읽는다(정지는 그 사람만 닫는다).
+    assert.deepEqual(await visibleTo(pglite, users[1]), SEEN);
+    await pglite.query("update public.profiles set status = 'active' where id = $1", [users[0]]);
+    assert.deepEqual(await visibleTo(pglite, users[0]), SEEN);
+  });
+
+  it("프로필이 없는 로그인 JWT(가입자가 아닌 sub)는 부처 공고를 0행으로 본다", async (t) => {
+    const pglite = await programDb(t);
+    assert.deepEqual(await visibleTo(pglite, STRANGER), []);
+  });
+
+  it("로그아웃한 사람(anon)은 부처 공고·수집 회차를 읽지도 쓰지도 못한다 — 모두 권한 오류", async (t) => {
+    const pglite = await programDb(t);
+    await actAs(pglite, null, "anon");
+    for (const table of TABLES) {
+      await assert.rejects(pglite.query(`select * from public.${table}`), denied(table), table);
+      for (const sql of [
+        `update public.${table} set source = 'mss'`,
+        `delete from public.${table}`,
+        `truncate public.${table}`,
+      ])
+        await assert.rejects(pglite.query(sql), denied(table), sql);
+    }
+    await assert.rejects(insert(pglite, "program_notices", notice(10)), denied("program_notices"));
+    await assert.rejects(
+      insert(pglite, "program_notice_runs", run(10)),
+      denied("program_notice_runs"),
+    );
+    await asWorker(pglite);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select (select count(*)::int from public.program_notices) as notices, (select count(*)::int from public.program_notice_runs) as runs",
+      ),
+      [{ notices: 2, runs: 1 }],
+    );
+  });
+
+  it("활동 중 회원도 부처 공고를 넣기·고치기·지우기·비우기 못한다 — 권한 오류이고 두 행은 그대로다", async (t) => {
+    const pglite = await programDb(t);
+    await actAs(pglite, users[0]);
+    await assert.rejects(insert(pglite, "program_notices", notice(10)), denied("program_notices"));
+    for (const sql of [
+      "update public.program_notices set title = '바꾼 제목'",
+      "delete from public.program_notices",
+      "truncate public.program_notices",
+    ])
+      await assert.rejects(pglite.query(sql), denied("program_notices"), sql);
+    await asWorker(pglite);
+    assert.deepEqual(
+      await rowsOf(pglite, "select id, title from public.program_notices order by id"),
+      [1, 2].map((n) => ({ id: notice(n).id, title: notice(n).title })),
+    );
+  });
+
+  it("수집 회차(program_notice_runs)는 service role 전용이다 — 활동 중 회원의 읽기·넣기·고치기·지우기·비우기 모두 권한 오류", async (t) => {
+    const pglite = await programDb(t);
+    await actAs(pglite, users[0]);
+    for (const sql of [
+      "select * from public.program_notice_runs",
+      "select count(*) from public.program_notice_runs",
+      "update public.program_notice_runs set status = 'FAILED'",
+      "delete from public.program_notice_runs",
+      "truncate public.program_notice_runs",
+    ])
+      await assert.rejects(pglite.query(sql), denied("program_notice_runs"), sql);
+    await assert.rejects(
+      insert(pglite, "program_notice_runs", run(10)),
+      denied("program_notice_runs"),
+    );
+    await asWorker(pglite);
+    assert.deepEqual(await rowsOf(pglite, "select id, status from public.program_notice_runs"), [
+      { id: run(1).id, status: "SUCCEEDED" },
+    ]);
+  });
+
+  it("화면 역할의 권한은 program_notices 의 authenticated SELECT 하나뿐이다 — anon·열 단위·PUBLIC·상속 어디에도 다른 권한이 없고 program_notice_runs 에는 아무것도 없다", async (t) => {
+    const pglite = await programDb(t);
+    // has_*_privilege 는 PUBLIC 과 상속받은 권한까지 본다. 표 단위와 열 단위(어느 열에든)를 따로 본다.
+    const granted = (fn, privileges) =>
+      rowsOf(
+        pglite,
+        `select t.name as table_name, r.name as role, p.name as privilege
+         from unnest($1::text[]) t(name), unnest(array['anon','authenticated']) r(name), unnest($2::text[]) p(name)
+         where ${fn}(r.name, 'public.' || t.name, p.name)
+         order by 1, 2, 3`,
+        [TABLES, privileges],
+      );
+    const onlyAuthenticatedSelect = [
+      { table_name: "program_notices", role: "authenticated", privilege: "SELECT" },
+    ];
+    assert.deepEqual(
+      await granted("has_table_privilege", [
+        "SELECT",
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "TRUNCATE",
+        "REFERENCES",
+        "TRIGGER",
+      ]),
+      onlyAuthenticatedSelect,
+    );
+    assert.deepEqual(
+      await granted("has_any_column_privilege", ["SELECT", "INSERT", "UPDATE", "REFERENCES"]),
+      onlyAuthenticatedSelect,
+    );
+  });
+
+  it("두 표 모두 RLS 가 켜져 있고 정책은 program_notices 의 '활동 중 회원은 부처 공고 읽기'(SELECT, authenticated) 하나뿐이며 식은 bid_notices 읽기 정책과 같다", async (t) => {
+    const pglite = await programDb(t);
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select relname, relrowsecurity from pg_class where relnamespace = 'public'::regnamespace and relname = any($1) order by 1",
+        [TABLES],
+      ),
+      [
+        { relname: "program_notice_runs", relrowsecurity: true },
+        { relname: "program_notices", relrowsecurity: true },
+      ],
+    );
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select tablename, policyname, permissive, cmd, array_to_string(roles, ',') as roles from pg_policies where schemaname = 'public' and tablename = any($1) order by 1, 2",
+        [TABLES],
+      ),
+      [
+        {
+          tablename: "program_notices",
+          policyname: "활동 중 회원은 부처 공고 읽기",
+          permissive: "PERMISSIVE",
+          cmd: "SELECT",
+          roles: "authenticated",
+        },
+      ],
+    );
+    // 스펙 §5: 읽기 권한은 지금 bids 의 읽기 정책과 같은 대상에게 연다.
+    const [bids, programs] = await rowsOf(
+      pglite,
+      `select tablename, qual from pg_policies where schemaname = 'public'
+         and ((tablename = 'bid_notices' and policyname = '활동 중 회원은 공고 읽기')
+           or (tablename = 'program_notices' and policyname = '활동 중 회원은 부처 공고 읽기'))
+       order by 1`,
+    );
+    assert.equal(bids.tablename, "bid_notices");
+    assert.equal(programs.tablename, "program_notices");
+    assert.equal(programs.qual, bids.qual);
+  });
+
+  it("worker 쓰기도 source 는 bizinfo·mss 뿐이다 — 'g2b'·'fixture'·대문자·빈 값은 check 위반", async (t) => {
+    const pglite = await programDb(t);
+    for (const source of ["g2b", "fixture", "BIZINFO", ""])
+      await assert.rejects(
+        insert(pglite, "program_notices", notice(10, { source })),
+        CHECK,
+        JSON.stringify(source),
+      );
+    assert.equal(
+      (await rowsOf(pglite, "select count(*)::int as n from public.program_notices"))[0].n,
+      2,
+    );
+  });
+
+  it("worker 쓰기도 원문 URL 은 https:// 로 시작해야 한다 — http://·javascript:·상대경로는 check 위반", async (t) => {
+    const pglite = await programDb(t);
+    for (const source_url of [
+      "http://www.bizinfo.go.kr/web/lay1/bbs/S1T122C128/AS/74/view.do?pblancId=PBLN_000000000000010",
+      "javascript:alert(1)",
+      "/web/lay1/bbs/S1T122C128/AS/74/view.do?pblancId=PBLN_000000000000010",
+    ])
+      await assert.rejects(
+        insert(pglite, "program_notices", notice(10, { source_url })),
+        CHECK,
+        source_url,
+      );
+    assert.equal(
+      (await rowsOf(pglite, "select count(*)::int as n from public.program_notices"))[0].n,
+      2,
+    );
+  });
+
+  it("같은 (source, source_notice_id) 두 번째 insert 는 unique 위반이고, 소스가 다르면 같은 내부 ID 도 들어간다", async (t) => {
+    const pglite = await programDb(t);
+    // id·제목·URL 이 달라도 소스와 내부 ID 가 같으면 같은 공고다.
+    await assert.rejects(
+      insert(
+        pglite,
+        "program_notices",
+        notice(10, { source_notice_id: notice(1).source_notice_id }),
+      ),
+      UNIQUE,
+    );
+    await assert.rejects(
+      insert(
+        pglite,
+        "program_notices",
+        notice(11, {
+          source: "mss",
+          source_notice_id: "1001",
+          source_url: "https://mss.go.kr/site/smba/ex/bbs/View.do?cbIdx=310&bcIdx=1001",
+        }),
+      ),
+      UNIQUE,
+    );
+    await insert(
+      pglite,
+      "program_notices",
+      notice(12, {
+        source: "mss",
+        source_notice_id: notice(1).source_notice_id,
+        source_url: "https://mss.go.kr/site/smba/ex/bbs/View.do?cbIdx=310&bcIdx=12",
+      }),
+    );
+    assert.deepEqual(
+      await rowsOf(pglite, "select id from public.program_notices order by id"),
+      [1, 2, 12].map((n) => ({ id: notice(n).id })),
+    );
+  });
+
+  it("선택 열은 비울 수 있다 — 기관·등록일·신청기간·개요·방법·대상이 null 이고, 태그·is_demo 를 빼면 빈 배열·false 다", async (t) => {
+    const pglite = await programDb(t);
+    await insert(
+      pglite,
+      "program_notices",
+      notice(10, {
+        agency: null,
+        published_at: null,
+        apply_start_on: null,
+        apply_end_on: null,
+        summary: null,
+        apply_method: null,
+        target: null,
+        tags: undefined,
+        is_demo: undefined,
+      }),
+    );
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select agency, published_at, apply_start_on, apply_end_on, summary, apply_method, target, tags, is_demo from public.program_notices where id = $1",
+        [notice(10).id],
+      ),
+      [
+        {
+          agency: null,
+          published_at: null,
+          apply_start_on: null,
+          apply_end_on: null,
+          summary: null,
+          apply_method: null,
+          target: null,
+          tags: [],
+          is_demo: false,
+        },
+      ],
+    );
+  });
+
+  it("필수 열에 null 을 넣으면 not null 위반이다 — 공고의 소스·내부 ID·제목·원문 URL·정규화 키·수집 시각·태그·is_demo, 회차의 소스·모드·상태·세 건수·시작 시각", async (t) => {
+    const pglite = await programDb(t);
+    // source 는 null 이면 check 를 지나고 unique 도 null 끼리는 겹치지 않는다. not null 만이 막는다.
+    for (const column of [
+      "source",
+      "source_notice_id",
+      "title",
+      "source_url",
+      "dedupe_key",
+      "fetched_at",
+      "tags",
+      "is_demo",
+    ])
+      await assert.rejects(
+        insert(pglite, "program_notices", notice(10, { [column]: null })),
+        NOT_NULL,
+        `program_notices.${column}`,
+      );
+    for (const column of [
+      "source",
+      "run_mode",
+      "status",
+      "fetched_count",
+      "saved_count",
+      "dropped_count",
+      "started_at",
+    ])
+      await assert.rejects(
+        insert(pglite, "program_notice_runs", run(10, { [column]: null })),
+        NOT_NULL,
+        `program_notice_runs.${column}`,
+      );
+  });
+
+  it("수집 회차의 source·run_mode·status 는 정해진 값만, 세 건수는 0 이상만 받는다 — 건수와 시작 시각을 빼면 0·지금이다", async (t) => {
+    const pglite = await programDb(t);
+    for (const fields of [
+      { source: "g2b" },
+      { run_mode: "DEMO" },
+      { run_mode: "live" },
+      { status: "RUNNING" },
+      { status: "succeeded" },
+      { fetched_count: -1 },
+      { saved_count: -1 },
+      { dropped_count: -1 },
+    ])
+      await assert.rejects(
+        insert(pglite, "program_notice_runs", run(10, fields)),
+        CHECK,
+        JSON.stringify(fields),
+      );
+    // 정해진 값은 모두 받는다(check 가 너무 좁지 않다).
+    const allowed = [
+      ["bizinfo", "LIVE", "SUCCEEDED"],
+      ["mss", "FIXTURE", "PARTIAL"],
+      ["bizinfo", "MOCK", "FAILED"],
+      ["mss", "LIVE", "SKIPPED"],
+    ];
+    for (const [i, [source, run_mode, status]] of allowed.entries())
+      await insert(
+        pglite,
+        "program_notice_runs",
+        run(20 + i, {
+          source,
+          run_mode,
+          status,
+          fetched_count: undefined,
+          saved_count: undefined,
+          dropped_count: undefined,
+          finished_at: undefined,
+        }),
+      );
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select fetched_count, saved_count, dropped_count, finished_at, started_at > now() - interval '1 hour' as recent from public.program_notice_runs where id = any($1) order by id",
+        [allowed.map((_, i) => run(20 + i).id)],
+      ),
+      allowed.map(() => ({
+        fetched_count: 0,
+        saved_count: 0,
+        dropped_count: 0,
+        finished_at: null,
+        recent: true,
+      })),
+    );
+  });
+
+  it("부처 공고를 고치면 updated_at 이 지금으로 바뀐다(touch_updated_at 트리거)", async (t) => {
+    const pglite = await programDb(t);
+    await pglite.query(
+      "update public.program_notices set title = '고친 제목', updated_at = '2000-01-01'::timestamptz where id = $1",
+      [notice(1).id],
+    );
+    assert.deepEqual(
+      await rowsOf(
+        pglite,
+        "select title, updated_at > '2000-01-01'::timestamptz as touched from public.program_notices where id = $1",
+        [notice(1).id],
+      ),
+      [{ title: "고친 제목", touched: true }],
+    );
+  });
+});
