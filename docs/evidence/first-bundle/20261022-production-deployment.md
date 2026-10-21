@@ -49,7 +49,7 @@ updated: 2026-10-22
 - 프로젝트 root를 저장소 루트, framework를 `services`로 맞췄다. web/AI 각각의 빌드와 내부 `AI_GATEWAY_URL` 바인딩은 기존 `vercel.json`을 따른다. [공식 Services 설정](https://vercel.com/kb/guide/vercel-services)을 대조했다.
 - 운영 환경은 `frontend`, `SOL_RUN_MODE=mock`, 회사 HTTPS Gateway 주소, 공유 service token, private 버킷 이름을 사용한다. 파인튜닝이나 live 모드 전환은 하지 않았다.
 - Worker 전용 DB URI와 수집 키는 로컬 운영 원본 보존을 확인한 뒤 Vercel Production/Preview에서 제거했다. Vercel 프로젝트에 Redis TCP URL·DB URI·Storage service role·수집 키가 없음을 재확인했다. 값은 로그·문서에 기록하지 않았다.
-- 배포: [`dpl_FdYbW4HriSfVWT2HEC81ouauxhj6`](https://vercel.com/gwanghui97s-projects/sol-radar/FdYbW4HriSfVWT2HEC81ouauxhj6), **READY**. Next.js와 Python AI 빌드가 모두 성공했다.
+- CLI 배포 [`dpl_FdYbW4HriSfVWT2HEC81ouauxhj6`](https://vercel.com/gwanghui97s-projects/sol-radar/FdYbW4HriSfVWT2HEC81ouauxhj6)는 **READY**이며 Next.js와 Python AI 빌드가 모두 성공했다. 최종 확인 시 운영 alias는 같은 커밋의 재배포 [`dpl_6ZZZyhgF17v8VQ1QZPjkjfE6jDTH`](https://vercel.com/gwanghui97s-projects/sol-radar/6ZZZyhgF17v8VQ1QZPjkjfE6jDTH)로 이동했다. API의 `gitCommitSha=3fded9990f56fb311be37ee39a558f5f7cb466f0`·Services 설정·web/AI 바인딩·READY를 대조해 같은 release임을 확인했다.
 - 운영 주소: **https://www.solideos-radar.com**. apex는www로308 이동한다.
 - 실제 VIEWER 로그인 → `/dashboard`, `/bids` 200, `/people` 200을 브라우저에서 확인했다. 인력 화면에 전체200명·점수 계산 대상200명이 표시된다.
 - [인력 화면 증거](20261022-production-people.png)와 [운영 검증 요약](20261022-production-results.json)을 함께 보존했다.

@@ -91,8 +91,8 @@
     "documentReferences": 0
   },
   "vercel": {
-    "id": "dpl_FdYbW4HriSfVWT2HEC81ouauxhj6",
-    "url": "sol-radar-1txdc0kbi-gwanghui97s-projects.vercel.app",
+    "id": "dpl_6ZZZyhgF17v8VQ1QZPjkjfE6jDTH",
+    "url": "sol-radar-gnp5l801r-gwanghui97s-projects.vercel.app",
     "readyState": "READY",
     "alias": [
       "www.solideos-radar.com",
@@ -100,8 +100,29 @@
       "solideos-radar.com",
       "sol-radar-gwanghui97s-projects.vercel.app"
     ],
-    "meta": {},
-    "services": ["0", "1"]
+    "source": "redeploy",
+    "gitCommitSha": "3fded9990f56fb311be37ee39a558f5f7cb466f0",
+    "framework": "services",
+    "services": [
+      {
+        "name": "ai",
+        "root": "services/ai",
+        "framework": "fastapi"
+      },
+      {
+        "name": "web",
+        "root": "web",
+        "framework": "nextjs",
+        "bindings": [
+          {
+            "type": "service",
+            "service": "ai",
+            "format": "url",
+            "env": "AI_GATEWAY_URL"
+          }
+        ]
+      }
+    ]
   },
   "upload": {
     "framework": "services",
@@ -171,5 +192,18 @@
     "dockerContexts": "local_only",
     "selfHostedGithubRunners": 0,
     "requires": "Existing internal terminal or SSH host and port"
+  },
+  "vercelInitial": {
+    "id": "dpl_FdYbW4HriSfVWT2HEC81ouauxhj6",
+    "url": "sol-radar-1txdc0kbi-gwanghui97s-projects.vercel.app",
+    "readyState": "READY",
+    "alias": [
+      "www.solideos-radar.com",
+      "sol-radar-khaki.vercel.app",
+      "solideos-radar.com",
+      "sol-radar-gwanghui97s-projects.vercel.app"
+    ],
+    "meta": {},
+    "services": ["0", "1"]
   }
 }
