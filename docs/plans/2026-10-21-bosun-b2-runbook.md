@@ -165,19 +165,22 @@ curl -sS http://127.0.0.1:8000/health | python3 -m json.tool      # kev.registry
 
 판정: `registryMatch: true`(03 §11. `/v1/models` 의 run·base·lora·revision 과 레지스트리가 글자 그대로 같을 때만). false 면 어느 필드가 다른지 `/health` 본문으로 보고. 그 다음 11 §4 G3(24묶음 p50/p95)·G6 은 `demo-verifier` 가 맡는다. worker 는 `SOL_RUN_MODE=fixture` 로만(live 는 수집 예산 ≈266회를 쓴다 — 별도 결정).
 
-## 8. 회사 Qwen3.5-27B API 실연결 확인 (probe, 호출 3회)
+## 8. 회사 Qwen API(Qwen3.8-Flash-Next) 실연결 확인 (probe, 호출 3회)
+
+> [!warning] served id 는 미확인
+> 사용자 보고(2026-10-21)는 "Qwen3.8-Flash-Next" 까지다. 레지스트리의 `Qwen/Qwen3.8-Flash-Next`(`Qwen/` 접두사)는 추정이고, 실제 `/v1/models` id 는 이 절의 probe 로만 확인한다. `models.hasRequestedModel: false` 면 `ids` 의 실제 값으로 `services/ai/models/registry.yaml` 의 `run` 과 `infra/env/ai-local.env.example` 의 `QWEN_MODEL` 만 고친다(그 전까지 게이트웨이는 `QWEN_MODEL(NOT_IN_REGISTRY)` 또는 `REGISTRY_MISMATCH` 로 기동을 거부한다 — 안전한 실패).
 
 노트북 `services/ai` 에서. 먼저 `--dry-run`(네트워크 없음)으로 요청 모양·URL 검사 통과를 보고, 그 다음 실호출 **한 번**(= HTTP 3회: `GET /v1/models`, guided JSON `POST /v1/chat/completions`(max_tokens 64), `--logprobs` 로 `prompt_logprobs` 1회). 예산: 24h ≈260회 중 3회.
 
 ```bash
 cd /Users/leegwanghui/dev/hackathon/sol-radar/services/ai
 read -rs -p "QWEN_API_KEY: " QWEN_API_KEY && export QWEN_API_KEY && echo
-export QWEN_BASE_URL=https://acropolissg.com/vllm/v1 QWEN_MODEL=Qwen/Qwen3.5-27B
+export QWEN_BASE_URL=https://acropolissg.com/vllm/v1 QWEN_MODEL=Qwen/Qwen3.8-Flash-Next
 uv run python scripts/probe-qwen-api.py --dry-run                                  # 요청 계획만. authorization 은 bearer(set) 로만 찍힌다
 uv run python scripts/probe-qwen-api.py --logprobs --timeout 30 | tee "../../docs/evidence/phase-5/qwen-probe-$(date +%Y%m%d-%H%M).json"
 ```
 
-판정(출력 JSON): `models.hasRequestedModel: true`(`ids` 에 `Qwen/Qwen3.5-27B`), `chatCompletions.guidedJson: supported`(03 §4.3 guided JSON. `rejected` 면 게이트웨이 어댑터의 대체 경로(26-3)가 쓰이므로 EX0 품질을 따로 본다), `promptLogprobs: present|absent`(E3 가능 여부, 미결정 26-x), `latencyMs` 세 개. exit 0 = 보냈다, 1 = 전송 실패(예외 종류만), 2 = 키 없음, 3 = URL 거부. 출력에 키는 없다(스크립트가 찍지 않는다). 그래도 저장 전에 `grep -c "$QWEN_API_KEY"` 로 0 을 확인하지 **않는다**(키를 명령줄에 올리게 된다) — 스크립트 설계로 충분하다.
+판정(출력 JSON): `models.hasRequestedModel: true`(`ids` 에 `Qwen/Qwen3.8-Flash-Next`. false 면 위 경고대로 레지스트리 값을 실제 id 로), `chatCompletions.guidedJson: supported`(03 §4.3 guided JSON. `rejected` 면 게이트웨이 어댑터의 대체 경로(26-3)가 쓰이므로 EX0 품질을 따로 본다), `promptLogprobs: present|absent`(E3 가능 여부, 미결정 26-x), `latencyMs` 세 개. exit 0 = 보냈다, 1 = 전송 실패(예외 종류만), 2 = 키 없음, 3 = URL 거부. 출력에 키는 없다(스크립트가 찍지 않는다). 그래도 저장 전에 `grep -c "$QWEN_API_KEY"` 로 0 을 확인하지 **않는다**(키를 명령줄에 올리게 된다) — 스크립트 설계로 충분하다.
 
 ## 9. 증거
 
