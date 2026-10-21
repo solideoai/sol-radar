@@ -217,7 +217,7 @@ interface StructuredRequirement {
 
 ### 4.1 결정 모델 학습 레코드 `bosun/{split}.en.jsonl` (ADR-034)
 
-Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev 레코드 "state 1 + 질문 N"과 다르다). `sol_eval.export --format bosun`(`bosun_export.py`·`bosun_records.py`, main `1b68f9b`)이 `EvalItem`·`Label`과 질문 세트 `kev-qs/v0.2`에서 만든다. 서빙(`sol_decision`)과 학습이 같은 변환 함수를 쓴다(계획 §4.1).
+Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev 레코드 "state 1 + 질문 N"과 다르다). `sol_eval.export --format bosun`(`bosun_export.py`·`bosun_records.py`, main `1b68f9b`)이 `EvalItem`·`Label`과 질문 세트 `kev-qs/v0.2`에서 만든다. `services/decision` 안에서는 서빙(`wire.py`)과 학습(`train.py`·`trainer/data.py`)이 같은 `render_decision_prompt`(`trainer/prompting.py`)를 쓴다(계획 §4.1). 다만 질문별 후보 목록 `candidates_for`는 이 레코드를 만드는 `sol_eval/bosun_records.py`와 서버 `sol_decision/contract.py`에 따로 구현돼 있고 둘을 비교하는 시험이 없다([[16-DECISIONS|16]] 미결정 26-12, F1 학습 전 교차 시험).
 
 | 필드 | 뜻 | 출처 |
 |---|---|---|

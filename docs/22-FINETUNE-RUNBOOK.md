@@ -200,7 +200,7 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"   # 값
 
 ### 4.1 학습 데이터: 무엇을 학습하나
 
-**질문 하나 = 레코드 하나**다. Kev 는 "state 1 + 질문 N" 을 한 요청으로 받았지만 Bosun 은 질문마다 forward 1회다. 변환 규칙은 서빙(`sol_decision.serve`)과 학습(`sol_decision.train`)이 **같은 함수**를 쓴다(계획 §4.1).
+**질문 하나 = 레코드 하나**다. Kev 는 "state 1 + 질문 N" 을 한 요청으로 받았지만 Bosun 은 질문마다 forward 1회다. 변환 규칙은 서빙(`sol_decision.serve`)과 학습(`sol_decision.train`)이 **같은 함수**(`trainer/prompting.py`의 `render_decision_prompt`)를 쓴다(계획 §4.1). 학습 레코드를 만드는 `sol_eval/bosun_records.py`의 후보 목록(`candidates_for`)은 서버 `contract.py`와 따로 구현돼 있어, F1 학습 전에 교차 시험을 더한다([[16-DECISIONS|16]] 미결정 26-12).
 
 | v0.2 타입 | 후보 `candidates` | gold | 응답(Kev wire) | 후처리 |
 |---|---|---|---|---|
