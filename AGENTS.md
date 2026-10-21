@@ -1,11 +1,11 @@
 # 먼저: SOL RADAR 설계 문서가 이 파일보다 우선한다
 
 이 저장소는 SOL RADAR 다. 정본은 `docs/CLAUDE.md` 와 설계 문서(`docs/00-README.md` 의 문서 표에 있는 설계 문서)다.
-기술 스택은 Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen3.8-Flash-Next·Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지) + Docker Compose 다(`docs/16-DECISIONS.md` ADR-015·017·034).
+기술 스택은 Next.js 16 + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen3.8-Flash-Next·Bosun 결정 모델, `KEV_*`·`/kev` 호환 유지)다. 데모 기본 실행은 기존 Docker Compose다. ADR-044·045에 따라 Vercel frontend와 회사 Redis HTTPS Gateway를 env로 선택하는 경로를 해커톤 안에 완성한다. 회사 Redis 6379는 유지하고 HTTP는 127.0.0.1:6380에만 게시하며 기존 Nginx `/redis/`를 사용한다. Supabase Storage는 별도 전환 검증·승인 후 적용하고 그 전까지 MinIO를 유지한다. 상시 Worker·문서 처리·GPU 추론은 회사 서버에 둔다. API·Worker의 NestJS 이전은 해커톤 뒤다(ADR-028).
 해커톤 뒤에는 API·worker 를 NestJS 로 옮긴다(ADR-028). 그 전에는 위 스택 그대로다.
 모바일(1280px 미만 레이아웃·`mobile/` Expo 앱)과 결제·구독은 만들지 않는다. 화면은 데스크톱 1280px 이상이다(`docs/16-DECISIONS.md` ADR-007).
 이 파일의 나머지는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히면 설계 문서를 따른다.
-아래의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조 규칙은 설계와 일치하므로 따른다(ADR-017). Vercel 배포(배포처 미결정)는 템플릿 기준이다.
+아래의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조 규칙은 설계와 일치하므로 따른다(ADR-017). 웹 배포처는 Vercel로 결정했다(ADR-044·045). 데모 기본은 Compose이며 검증된 새 경로는 env로 선택한다. 실제 배포·운영 변경은 별도 사용자 승인을 받는다.
 템플릿의 Expo 앱(`mobile/`)과 그 규칙은 지웠다. 다시 만들지 않는다.
 커밋 메시지 형식과 "결정적 강제 장치"(커밋 게이트·훅·린트를 끄거나 돌아가지 않기)는 그대로 지킨다.
 

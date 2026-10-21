@@ -13,9 +13,9 @@ updated: 2026-10-21
 
 반드시 `docs/00-README.md`부터 읽고 `docs/17-CLAUDE-IMPLEMENTATION.md`에 따른다. 해커톤 범위와 데모 흐름은 `docs/18-HACKATHON.md`, `docs/19-DEMO-SCENARIO.md`, `docs/12-ROADMAP.md`의 해커톤 컷을 따른다.
 
-- 기술 스택: Next.js + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python(Qwen3.8-Flash-Next + Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) + Docker Compose(`docs/16-DECISIONS.md` ADR-017). 이외로 임의 변경하지 않는다.
+- 기술 스택은 Next.js 16 + Supabase(Postgres·RLS·Auth) + Redis/BullMQ + MinIO + Qdrant + Python AI(Qwen3.8-Flash-Next·Bosun 결정 모델, `KEV_*`·`/kev` 호환 유지)다. 데모 기본 실행은 기존 Docker Compose다. ADR-044·045에 따라 Vercel frontend와 회사 Redis HTTPS Gateway를 env로 선택하는 경로를 해커톤 안에 완성한다. 회사 Redis 6379는 유지하고 HTTP는 127.0.0.1:6380에만 게시하며 기존 Nginx `/redis/`를 사용한다. Supabase Storage는 별도 전환 검증·승인 후 적용하고 그 전까지 MinIO를 유지한다. 상시 Worker·문서 처리·GPU 추론은 회사 서버에 둔다. API·Worker의 NestJS 이전은 해커톤 뒤다(ADR-028). 이외로 임의 변경하지 않는다(`docs/16-DECISIONS.md` ADR-017·034·044·045).
   - 코드는 `web/`(화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`), worker는 `web/worker`, 스키마·RLS는 `supabase/migrations/`(새 파일로만)에 둔다. 별도 API 서버·ORM은 두지 않는다(ADR-001·002 폐기). 해커톤 뒤에는 API·worker를 NestJS로 옮긴다(ADR-028). 그 전에는 위 구조로 구현한다.
-  - Supabase가 맡는 것은 DB와 Auth뿐이다. 첨부는 MinIO, 검색은 Qdrant, 큐는 Redis/BullMQ, 모델 호출은 AI gateway(`services/ai`)다.
+  - 현재 Supabase는 DB·Auth를 맡는다. 파일은 현행 MinIO를 유지하며 Supabase Storage 전환은 별도 단계의 검증·승인 뒤 적용한다. 큐는 Redis/BullMQ, 검색은 Qdrant, 모델 호출은 회사 AI gateway(`services/ai`)다.
   - ADR-045 Phase 1은 기존 Next.js API를 회사 `redis-api`로 재사용한다. Vercel `frontend`는 서비스 token+사용자 JWT로 HTTPS 호출하며 Redis TCP·service role을 쓰지 않는다. 회사 HTTP host publish는127.0.0.1:6380, Redis는 기존6379, Nginx는 그대로다. Storage 전환·문서 신규 구현·운영 배포는 다음 승인 단계이며 현재 MinIO probe를 유지한다.
   - 조직 데이터는 `org_id` + RLS, 업무 역할은 `memberships.sol_role`이다. service role 키는 worker·seed 스크립트와 사람이 로컬에서 직접 돌리는 운영자 CLI(`scripts/ops/`)만 쓴다. 웹 서버(Route Handler·서버 컴포넌트)와 클라이언트 번들에서는 쓰지 않는다. 클라우드 DB 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.
 - 순서: Phase 0 저장소 정리/인프라 구현 → 검증 → 보고 → 다음 Phase. 핵심 컷(`docs/12-ROADMAP.md` Critical Path)을 먼저 끝낸다.
