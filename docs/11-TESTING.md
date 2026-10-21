@@ -108,6 +108,8 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 | `FX-19` | 제목 유사도만 → 후보 표시, 병합 없음 | `web/server/ingestion/stage-link.test.ts` |
 | `FX-01`~`FX-03` | [[08-SCORING\|08 SOL Score]] §6 worked example 수치 일치 | `web/server/scoring/worked-examples.golden.test.ts` |
 | 전체 | 재현성: 같은 `input_snapshot_hash` + `algorithm_version` → 같은 `score`·같은 요소별 `points`(두 번 계산 byte-동일) | `web/server/scoring/reproducibility.test.ts` |
+| `FX-01`~`FX-03` | 가정 재계산([[16-DECISIONS\|ADR-037]], 브랜치 `feat/boost2-what-if`): 정보통신공사업 등록 보유 가정 → 권고 `NO_BID` → `WATCH`, SOL Score 68 → 68, 자격 종합 `SATISFIED`. 가정 0개면 원래와 같다(`FX-01`·`FX-02`·`FX-03`), 가정 가능 목록은 `FX-03` `[ICT_CONSTRUCTION]`·`FX-01` 빈 배열, 이미 충족·사전 밖 코드 거절, 저장된 `kev`가 있어도 결과 같음, 입력 스냅샷 불변, 스키마 위반 스냅샷 → `null` | `web/server/scoring/what-if.test.ts` |
+| `FX-03` | 가정 재계산 API: 비로그인 401, CSRF 헤더 없음 403 `CSRF_REJECTED`, UUID 아닌 id 404(저장소 안 부름), 다른 조직 run 404, 본문 오류 400, `QUEUED`·`RUNNING` 409 `ANALYSIS_IN_PROGRESS`, `FAILED`·스냅샷 위반 404 `NO_SNAPSHOT`, 가정 불가 400 `rejected`, 200 `assumable`·`before`·`after`, 어떤 경우에도 저장소 쓰기 메서드 호출 0 | `web/server/bids/what-if.service.test.ts`, `web/app/api/v1/what-if-contract.test.ts` |
 
 ### 3.2 실데이터·실행 모드 시험 (ADR-020)
 
@@ -174,6 +176,8 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 
 **ADR-023 핵심 컷과의 대응**(2026-10-19): 핵심 컷의 통과 조건은 Phase 0(C0·C1), Phase 1(C2), Phase 2 중 fixture 수집·revision·격리와 live 1건 수집·파싱(C3), Phase 3 중 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications` E2E·G8·V2-02(C6), Phase 4 전부(C4), Phase 5 중 G6·G9·V2-04·V2-07·V2-08·V2-13과 실추론 1건 증거(C5·C8), Phase 6(C7), Phase 7 중 §5 체크리스트·세 모드·대체 경로 리허설(C9), 평가 트랙 중 E0·E1'·E2·E3 축소 규모 리포트(X1)다. NAV-01~NAV-09, S5(G2 변경 감지 화면), P0-8은 확장 컷이다. 전체 평가셋·P0-11·E4는 X6([[16-DECISIONS|ADR-034]])이고 핵심 컷 통과 조건에 들어가지 않는다([[12-ROADMAP|12 로드맵]]).
 
+**ADR-037 데모 강화 컷(BOOST-2 가정 재계산)의 통과 조건**(2026-10-20): ① 단위·계약 시험(§3.1 `FX-03` 두 행). 핵심은 `FX-03` 정보통신공사업 가정 → NO-BID → WATCH, 68 → 68과 쓰기 0이다. ② 브라우저 시험: 띠가 원래·가정 권고와 점수를 그리고, 고정 문구 두 줄("가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다." / "결정 모델 의견은 가정에 포함하지 않았습니다.")이 정확히 일치하고, 띠·스위치·안내·낭독 문구에 "확률"·"승률"·"가능성"·"수주"·"%"가 없고, 스위치를 연타하면 마지막 응답만 그리고, 결정 패널 권고가 바뀌지 않는다. ③ E2E(`pnpm -C web test:e2e:work`, 격리 Supabase·격리 compose. globalSetup 이 `demo:reset` → `demo:preanalyze` 를 한다. `web/e2e-auth/what-if.write.spec.ts`): sales 로그인 → `FX-03` → "정보통신공사업 등록" 스위치 → 띠 "NO-BID → WATCH"·"68 → 68" → 결정 패널 NO-BID 유지 → 새로 고침 뒤 띠 없음 → `GET /api/v1/bids/{FX-03}/reviews` 건수가 전후 같다. 1440·1280 스크린샷. ④ `pnpm verify` 통과, 골든 94/72/68 불변. 증거는 `docs/evidence/boost2/`. 10-23 freeze까지 ①~④가 green이 아니면 데모에서 뺀다. 핵심 컷 통과 조건에는 들어가지 않는다. 2026-10-21 상태: 브랜치 `feat/boost2-what-if`에서 ①~④가 green이다. ①·②는 `c9a1a49`의 단위·계약·브라우저 시험, ③은 `c9a1a49`에서 `test:e2e:work` 전체 36개 통과(증거 `docs/evidence/boost2/20261020-boost2-what-if-e2e.md`), ④는 main `5628c35` 병합 `faa707b`에서 `pnpm verify` 통과(root 765·web 6814·빌드·AI 1369)다. main 병합 전이다.
+
 ## 5. 데모 당일 수용 체크리스트
 
 데모 시작 전 한 번, 리허설 때 한 번 통과시킨다. 결과는 `docs/evidence/demo-day/YYYYMMDD-HHMM/checklist.md`에 ✅/❌와 스크린샷 이름으로 기록한다. 장면 번호는 [[19-DEMO-SCENARIO|19 데모 시나리오]]와 같다: `S0` 사전 준비(§3), `S1` 문제 슬라이드(조작 없음, 체크리스트 대상 아님), `S2`~`S7` 클릭 경로(§4). 데모 계정은 `admin@soltech.invalid`, `sales@soltech.invalid`, `analyst@soltech.invalid`, `viewer@soltech.invalid`(`org-01`), `viewer@other.invalid`(`org-02`). 비밀번호는 루트 `.env.local`의 `DEMO_SEED_PASSWORD`(`pnpm demo:reset`이 읽는다, [[10-DEPLOYMENT|10 배포]])에만 두고 문서·저장소에 실제 값을 쓰지 않는다.
@@ -193,6 +197,7 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 | 7 | S2 | 목록 | `/bids`, 권고 `BID` 필터, 점수 내림차순([[16-DECISIONS\|ADR-031]] C3. 단계 NOTICE 필터는 사전규격 `FX-18`을 뺀다) | `FX-01` 최상단 94, `FX-12` 미노출, 모든 행 `DEMO` 칩, 1280px에서 가로 스크롤 없음 | — |
 | 8 | S3 | 상세 BID | `FX-01` 열기 | 자격 3건 `충족`, 점수 94, 분해 5행(24.0/25.0/20.0/15.0/10.0), 결정 모델 71/24/5 + 09 고지 문구, 분석 패널 "AI: mock"·"가상 회사 프로필로 분석" 배지, 근거 3건 → 드로어에 원문 하이라이트, 결정 패널 "마지막 결정: BID"(seed 리뷰) | 드로어 실패 시 원문 링크 새 탭 |
 | 9 | S3 | 규칙 우선 | 권고 필터를 풀고 결정 `NO-BID` 필터 → `FX-03` 열기 | 권고 `NO-BID`, 자격 1건 `미충족` + 근거 문장, 점수 68 "참고" 표시, 결정 모델 섹션 `규칙 우선` 배지와 "결정 모델은 BID를 제시했지만…" 문구, "마지막 결정: NO-BID"(seed 리뷰) | — |
+| 9a | S3 | 가정 재계산(데모 강화 컷, [[16-DECISIONS\|ADR-037]]) | 9번에 이어 `FX-03` 필수자격 "정보통신공사업 등록" 행의 "보유 가정" 스위치를 한 번 켠다 → 띠를 읽는다 → [가정 지우기] | 1초 안에 분석 요약 띠 아래 점선 "가정 시나리오" 띠: 권고 NO-BID → WATCH, SOL Score 68 → 68 "변화 없음", 필수자격 미충족 → 충족, 고정 문구 두 줄. 오른쪽 결정 패널은 NO-BID 68·"마지막 결정: NO-BID" 그대로. 띠·스위치에 확률·승률 글자 없음. 지우면 띠가 사라지고 스위치가 꺼진다. `bid_reviews` 2건 그대로 | 스위치가 없거나(미병합·`NO_SNAPSHOT`) 계산이 실패하면 9번까지만 하고 넘어간다. freeze까지 green이 아니면 "미구현"으로 적는다 |
 | 10 | S4 | 라이브 분석 | `FX-02`(미분석) → [분석 실행] | 202 → `대기 중` → `분석 중` → `완료` 10초 이내. 점수 72, WATCH, 분해 15.0/18.3/14.0/15.0/10.0, 결정 모델 36/52/12 | 60초 초과 시 새로고침, 사유 기록 |
 | 11 | S4 | 사람 결정 | `FX-02` 결정 패널에서 WATCH 유지 또는 BID 선택 + 사유 + 담당자에 발표자 자신(`sales@soltech.invalid`) 지정 → [결정 기록] | "마지막 결정: … · 담당자 · 시각", 결정 패널 상단 "사람 검토 권장"(`KEV_NEEDS_REVIEW`). `bid_reviews` +1(총 3건), 감사로그 1건. Topbar 알림 벨에 `REVIEW_ASSIGNED`가 들어 있다. 분석 요청자에게 가는 `ANALYSIS_COMPLETE`도 올 수 있어 벨은 1~2건이다([[16-DECISIONS\|ADR-029]] A6 D5). `analyst@soltech.invalid`로 보면 패널 읽기 전용 | — |
 | 11a | S-LIVE | 실제 공고 | `/bids?origin=all` → S0 4번에서 기록한 실제 공고 1건 열기 | `DEMO` 배지 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL. 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자, ADR-029 A6 D12)·"가상 회사 프로필로 분석". Topbar는 `실행 모드: mock` 그대로다. 자격 3값 + 사유 코드, 점수 분해 5행, 결정 모델 `UNCALIBRATED` + 고지 문구, 근거 서랍 실제 첨부 인용. 외부 의존성 컷 규칙 갈래가 `run-modes.md`와 같다 | 녹화 영상으로 대체하고 "녹화"라고 말한다. 녹화도 없으면 장면 제외 |
@@ -224,6 +229,7 @@ docs/evidence/
   phase-5/  test-ai.txt  ai-fallback.txt  e2e/partial.png
             (실추론 로그)                  # P0-4 인용 검증 통과율·실공고 1건 E2E, P0-6 결정 모델 응답·stateTrace 표본
   phase-6/  test-notifications.txt  e2e/*.png
+  boost2/   (E2E 출력·1440·1280 스크린샷)  # ADR-037 가정 재계산 통과 조건 ③ (§4)
   eval/                                    # E0·E1'·E2 리포트 숫자 요약·오류 분석 요약 (21 §4, RFP 원문 금지)
   kev-train-feasibility.md                 # LoRA 메모리 검증 결과 (22 §4.2, 회사 측 실행 뒤. Kev 당시 기록. Bosun은 bosun-train-feasibility.md, ADR-034)
   demo-day/ rehearsal-log.md               # 17: 매일 리허설 날짜·소요 시간·실패 단계·엔드포인트 재접속 확인 소요 시간

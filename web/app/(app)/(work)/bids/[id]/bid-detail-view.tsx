@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import { AppPage } from "@/components/app-page";
@@ -32,6 +32,17 @@ import { ScoreFactors } from "@/components/bids/score-factors";
 import { SourceLink } from "@/components/bids/source-link";
 import { StageTimeline } from "@/components/bids/stage-timeline";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
+import {
+  isAssumptionCandidate,
+  matchesStoredRun,
+  WHAT_IF_CLEARED_MESSAGE,
+  WHAT_IF_FAILED_MESSAGE,
+  WhatIfBand,
+  whatIfLiveMessage,
+  WhatIfNotice,
+  type WhatIfCalcState,
+  type WhatIfFailure,
+} from "@/components/bids/what-if-band";
 import { refreshTopbarStatus } from "@/components/topbar-status";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,13 +55,16 @@ import type {
   Recommendation,
   RunMode,
 } from "@/server/bids";
+import type { WhatIfSummary } from "@/server/scoring";
 import { EmptyState } from "@/app/(app)/(work)/empty-state";
 import { DETAIL_CONTENT_CLASS } from "./detail-copy";
+import { requestWhatIf, type WhatIfResult } from "./request-what-if";
 import { recheckTopbarAfterReview, submitReview } from "./submit-review";
 import { useAnalysisRun, type ActiveRun, type RunState } from "./use-analysis-run";
 
 // /bids/[id] 본문(스펙 §5.4). 정보 위계는 06 §6 순서로 고정이다:
-// ① 상단 요약 → ② 분석 요약 띠(+배너) → ③ 단계 이력 → ④ 필수자격 → ⑤ SOL Score 분해 → ⑥ Kev 참고 지표 → ⑦ 근거 인용.
+// ① 상단 요약 → ② 분석 요약 띠(+배너) → ②' 가정 시나리오 띠(BOOST-2, 켠 가정이 있을 때만) → ③ 단계 이력 → ④ 필수자격
+// → ⑤ SOL Score 분해 → ⑥ Kev 참고 지표 → ⑦ 근거 인용.
 // 오른쪽 레일은 결정 패널이다. 분석 실행 상태를 머리(버튼)와 본문(skeleton)이 함께 써서 한 클라이언트 부품으로 그린다.
 
 /** 화면에 내려보내는 공고. 본문 근거 하이라이트에 쓰는 content 는 싣고, 화면이 쓰지 않는 큰 칸은 뺀다. */
@@ -138,6 +152,183 @@ function liveMessageOf(state: RunState, polling: PollingView | null): string {
   ].filter((part) => part !== null);
   return parts.length === 0 ? "분석이 끝났습니다." : `분석이 끝났습니다. ${parts.join(", ")}`;
 }
+
+// ── 가정 재계산(BOOST-2, 디자인 스펙 docs/plans/2026-10-20-boost2-what-if-ui.md §4.4~§4.6) ──
+// 가정은 화면 상태에만 둔다(저장·공유 없음). 새로 고치거나 떠나면 버린다. 결정 패널은 저장된 run 그대로다.
+
+type WhatIfEntry =
+  | { phase: "ready"; assumable: string[]; before: WhatIfSummary }
+  | { phase: "no-snapshot" }
+  | { phase: "load-error"; failure: WhatIfFailure };
+
+type WhatIfStore = {
+  /** 이 상태가 속한 점수 run. 바뀌면(새 run·재분석 시작) 상태를 버린다. */
+  scope: string | null;
+  /** 진입 호출(빈 가정) 결과. null 이면 부르는 중이거나 대상이 아니다. */
+  entry: WhatIfEntry | null;
+  /** 켠 자격 코드(정렬). 요청 본문 순서도 이것이다. */
+  codes: string[];
+  /** 마지막으로 보낸 계산 요청 번호. 이 번호의 응답만 그린다. */
+  seq: number;
+  calc: { seq: number; value: WhatIfCalcState } | null;
+  live: string;
+};
+
+const emptyWhatIf = (scope: string | null): WhatIfStore => ({
+  scope,
+  entry: null,
+  codes: [],
+  seq: 0,
+  calc: null,
+  live: "",
+});
+
+const failureView = (result: Extract<WhatIfResult, { ok: false }>): WhatIfFailure => ({
+  code: result.code,
+  message: result.message,
+  ...(result.requestId === undefined ? {} : { requestId: result.requestId }),
+});
+
+// 404 NO_SNAPSHOT 은 다시 해도 같으므로 다시 시도 없이 안내만 한다. 그 밖 실패는 다시 시도할 수 있다.
+const entryOf = (result: WhatIfResult): WhatIfEntry =>
+  result.ok
+    ? { phase: "ready", assumable: result.data.assumable, before: result.data.before }
+    : result.status === 404 && result.details.reason === "NO_SNAPSHOT"
+      ? { phase: "no-snapshot" }
+      : { phase: "load-error", failure: failureView(result) };
+
+type WhatIfView = {
+  assumable: ReadonlySet<string> | undefined;
+  assumed: ReadonlySet<string>;
+  notice: React.ReactNode;
+  /** 띠 상태. 켠 가정이 없으면 null(띠 없음). */
+  calc: WhatIfCalcState | null;
+  live: string;
+  toggle: (code: string) => void;
+  clear: () => void;
+  retry: () => void;
+};
+
+/**
+ * 가정 재계산 상태. scored 가 진입 대상(scope)일 때만 빈 가정으로 한 번 부르고, 스위치를 바꿀 때마다 앞 요청을 취소한 뒤
+ * 새로 보낸다. 응답은 마지막 요청 번호와 같을 때만 그린다(취소가 늦어 도착한 응답도 버린다). 지연(debounce)은 두지 않는다.
+ */
+function useWhatIf(scored: AnalysisView | null, scope: string | null): WhatIfView {
+  const [store, setStore] = useState(() => emptyWhatIf(scope));
+  const [entryAttempt, setEntryAttempt] = useState(0);
+  const seqRef = useRef(0);
+  const calcRef = useRef<AbortController | null>(null);
+
+  // 최신 run 이 바뀌거나 재분석이 시작되면 가정을 버린다. 렌더 중에 맞춰 옛 띠가 한 번도 보이지 않게 한다.
+  const current = store.scope === scope ? store : emptyWhatIf(scope);
+  if (store.scope !== scope) setStore(current);
+
+  // 같은 때 진행 중인 계산 요청을 취소하고, 늦게 와도 버리도록 번호를 넘긴다. 화면을 떠날 때도 같다.
+  useEffect(
+    () => () => {
+      seqRef.current += 1;
+      calcRef.current?.abort();
+      calcRef.current = null;
+    },
+    [scope],
+  );
+
+  // 진입 호출: 가정 가능 목록과 다시 계산한 원래 값(D9 비교용). 불러오는 중에는 화면을 바꾸지 않는다(D6).
+  useEffect(() => {
+    if (scope === null) return;
+    const controller = new AbortController();
+    void requestWhatIf(scope, [], controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      setStore((prev) => (prev.scope === scope ? { ...prev, entry: entryOf(result) } : prev));
+    });
+    return () => controller.abort();
+  }, [scope, entryAttempt]);
+
+  const send = (codes: string[]) => {
+    if (scope === null) return;
+    calcRef.current?.abort();
+    seqRef.current += 1;
+    const seq = seqRef.current;
+    if (codes.length === 0) {
+      calcRef.current = null;
+      setStore((prev) => ({ ...prev, codes, seq, calc: null, live: WHAT_IF_CLEARED_MESSAGE }));
+      return;
+    }
+    const controller = new AbortController();
+    calcRef.current = controller;
+    setStore((prev) => ({ ...prev, codes, seq }));
+    void requestWhatIf(scope, codes, controller.signal).then((result) => {
+      if (seqRef.current !== seq) return;
+      calcRef.current = null;
+      const value: WhatIfCalcState = result.ok
+        ? { phase: "result", before: result.data.before, after: result.data.after }
+        : { phase: "error", failure: failureView(result) };
+      const live = result.ok
+        ? whatIfLiveMessage(result.data.before, result.data.after)
+        : WHAT_IF_FAILED_MESSAGE;
+      setStore((prev) => (prev.seq === seq ? { ...prev, calc: { seq, value }, live } : prev));
+    });
+  };
+
+  const { entry } = current;
+  // D9: 다시 계산한 원래 값이 저장된 run 과 다르면 띠의 "원래"와 결정 패널이 달라 보이므로 스위치를 내지 않는다.
+  const mismatch =
+    entry?.phase === "ready" && (scored === null || !matchesStoredRun(entry.before, scored));
+  const assumable =
+    entry?.phase === "ready" && !mismatch && entry.assumable.length > 0
+      ? new Set(entry.assumable)
+      : undefined;
+  const notice =
+    entry?.phase === "no-snapshot" ? (
+      <WhatIfNotice kind="no-snapshot" />
+    ) : entry?.phase === "load-error" ? (
+      <WhatIfNotice
+        kind="load-error"
+        failure={entry.failure}
+        onRetry={() => {
+          setStore((prev) => ({ ...prev, entry: null }));
+          setEntryAttempt((attempt) => attempt + 1);
+        }}
+      />
+    ) : mismatch ? (
+      <WhatIfNotice kind="mismatch" />
+    ) : null;
+  const calc: WhatIfCalcState | null =
+    assumable === undefined || current.codes.length === 0
+      ? null
+      : current.calc?.seq === current.seq
+        ? current.calc.value
+        : { phase: "calculating" };
+
+  return {
+    assumable,
+    assumed: new Set(current.codes),
+    notice,
+    calc,
+    live: current.live,
+    toggle: (code) =>
+      send(
+        current.codes.includes(code)
+          ? current.codes.filter((item) => item !== code)
+          : [...current.codes, code].sort(),
+      ),
+    clear: () => send([]),
+    retry: () => send(current.codes),
+  };
+}
+
+// 켠 가정 칩: 필수자격 목록 순서, 이름은 같은 코드의 첫 행 이름이다(스펙 §5).
+const assumptionsOf = (
+  checks: AnalysisView["qualification"]["checks"],
+  assumed: ReadonlySet<string>,
+): { code: string; name: string }[] =>
+  checks.flatMap((check, index) =>
+    check.requirementCode !== null &&
+    assumed.has(check.requirementCode) &&
+    checks.findIndex((other) => other.requirementCode === check.requirementCode) === index
+      ? [{ code: check.requirementCode, name: check.requirementName }]
+      : [],
+  );
 
 function Dot() {
   return (
@@ -505,14 +696,21 @@ function Attachments({ documents, sourceUrl }: { documents: BidDocument[]; sourc
   return <AttachmentStatus documents={documents} sourceUrl={sourceUrl} />;
 }
 
+type ChecklistAssumptionProps = Pick<
+  React.ComponentProps<typeof QualificationChecklist>,
+  "assumable" | "assumed" | "onToggleAssumption" | "notice"
+>;
+
 function AnalysisResult({
   analysis,
   bid,
   assessmentLabels,
+  assumption,
 }: {
   analysis: AnalysisView;
   bid: DetailBid;
   assessmentLabels: Record<string, string>;
+  assumption: ChecklistAssumptionProps;
 }) {
   const openWith = useEvidenceStore((store) => store.openWith);
   const assessments = analysis.requirementAssessments.map((assessment) => ({
@@ -526,6 +724,7 @@ function AnalysisResult({
           qualification={analysis.qualification}
           onOpenEvidence={openWith}
           documents={bid.documents}
+          {...assumption}
         />
       </Section>
       <Section>
@@ -612,6 +811,24 @@ export function BidDetailView({
   const decisionAnalysis = scored ?? previousScored;
   const reanalyze = canAnalyze && !cancelled ? () => void run.start(true) : undefined;
 
+  // 가정 재계산은 최신 run 이 점수 run 이고 진행 중이 아니며, 필수 항목에 미충족·회사 증빙 없음이 있을 때만 한다(§4.5 대상 아님).
+  const whatIfScope =
+    progress === null && scored !== null && scored.qualification.checks.some(isAssumptionCandidate)
+      ? scored.id
+      : null;
+  const whatIf = useWhatIf(scored, whatIfScope);
+  const assumptions =
+    scored === null ? [] : assumptionsOf(scored.qualification.checks, whatIf.assumed);
+  // 가정 지우기 뒤 초점은 켰던 스위치 중 목록 순서 첫 번째로 옮긴다(띠와 함께 버튼이 사라진다).
+  const clearAssumptions = () => {
+    const first = assumptions[0]?.code;
+    whatIf.clear();
+    if (first === undefined) return;
+    document
+      .querySelector<HTMLElement>(`[data-slot="what-if-switch"][data-code="${CSS.escape(first)}"]`)
+      ?.focus();
+  };
+
   // 결정 기록 뒤 상단바 두 번째 읽기(5초 뒤). 화면을 떠나면 취소한다.
   const recheck = useRef<(() => void) | null>(null);
   useEffect(() => {
@@ -655,6 +872,10 @@ export function BidDetailView({
         <p data-slot="analysis-live" role="status" aria-live="polite" className="sr-only">
           {liveMessageOf(state, polling)}
         </p>
+        {/* 띠가 생길 때 첫 알림을 놓치지 않게 띠 밖에 늘 둔다(§4.1). 마지막 결과만 알린다. */}
+        <p data-slot="what-if-live" role="status" aria-live="polite" className="sr-only">
+          {whatIf.live}
+        </p>
         <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-6">
           <div data-slot="bid-detail-main" className="flex min-w-0 flex-col gap-6">
             <AnalysisBand bid={bid} latest={latest} polling={progress} history={history} />
@@ -668,6 +889,14 @@ export function BidDetailView({
               onReanalyze={reanalyze}
               onRefresh={run.refresh}
             />
+            {whatIf.calc !== null && (
+              <WhatIfBand
+                assumptions={assumptions}
+                state={whatIf.calc}
+                onClear={clearAssumptions}
+                onRetry={whatIf.retry}
+              />
+            )}
             <section
               aria-labelledby="stage-history-title"
               className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-6"
@@ -688,7 +917,17 @@ export function BidDetailView({
             ) : scored === null ? (
               <NoResult title="분석 결과가 없습니다" bid={bid} />
             ) : (
-              <AnalysisResult analysis={scored} bid={bid} assessmentLabels={assessmentLabels} />
+              <AnalysisResult
+                analysis={scored}
+                bid={bid}
+                assessmentLabels={assessmentLabels}
+                assumption={{
+                  assumable: whatIf.assumable,
+                  assumed: whatIf.assumed,
+                  onToggleAssumption: whatIf.toggle,
+                  notice: whatIf.notice,
+                }}
+              />
             )}
           </div>
           <div

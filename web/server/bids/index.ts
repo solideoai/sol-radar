@@ -11,6 +11,7 @@ export * from "./bid-query";
 export * from "./bids.repo";
 export * from "./bids.service";
 export * from "./review.service";
+export * from "./what-if.service";
 export * from "./notification.service";
 export * from "./dashboard.service";
 export { keysetFilter, likePattern, quoteValue, uniqueViolation } from "./postgrest";

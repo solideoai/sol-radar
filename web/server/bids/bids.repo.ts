@@ -57,6 +57,11 @@ export interface BidsRepo {
   // 이 조직의 최신 점수 run(COMPLETED·PARTIAL). 없으면 null
   getLatestScoredAnalysis(orgId: string, bidId: string): Promise<AnalysisView | null>;
   getAnalysis(orgId: string, id: string): Promise<AnalysisView | null>;
+  // 가정 재계산(BOOST-2)용: run 의 상태와 입력 스냅샷만 읽는다. 없거나 다른 조직이면 null
+  getAnalysisSnapshot(
+    orgId: string,
+    id: string,
+  ): Promise<{ status: AnalysisStatus; inputSnapshot: unknown } | null>;
   // 같은 입력(공고 revision·프로필 revision·알고리즘, 04 §5 부분 UNIQUE)의 QUEUED·RUNNING run
   findRunningAnalysis(orgId: string, bidId: string, input: AnalysisInput): Promise<RunRef | null>;
   // 같은 입력의 완료(COMPLETED·PARTIAL) run 중 최신
