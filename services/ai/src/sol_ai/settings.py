@@ -1,7 +1,7 @@
 """환경 변수 설정.
 
 비밀값은 모델 서버 키(QWEN_API_KEY·KEV_API_KEY)뿐이다. SecretStr 로 받아 Authorization 헤더에만 쓰고
-로그·응답·예외 메시지에 넣지 않는다. Supabase·MinIO 키는 받지 않는다.
+로그·응답·예외 메시지에 넣지 않는다. Supabase·Supabase Storage 키는 받지 않는다.
 
 판정에 쓰는 키 집합은 규칙 파일(infra/run-modes.json)에서 나온다. 여기에는 키를 따로 적지 않는다.
 키 이름은 Node 처럼 대소문자를 구분해 읽는다(case_sensitive=True).

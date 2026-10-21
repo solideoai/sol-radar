@@ -17,10 +17,10 @@ updated: 2026-10-21
 > 해커톤 제출(공식 마감 2026-10-27, 완료 목표 10-26, [[16-DECISIONS|ADR-042]]) 뒤 `/api/v1` Route Handler와 worker를 NestJS 앱으로 옮기고, Next.js는 화면만 맡는다. Supabase(Postgres·RLS·Auth)와 나머지 구성은 그대로다. 아래는 해커톤 동안의 현재 구조다.
 
 - Next.js (`web/`, :3000): 화면(App Router, server components), Route Handler(`/api/v1/**`, 헬스체크 `/health/live`·`/health/ready`), 서버 도메인 `web/server/<도메인>/`(model·repo·service·index 배럴, `import "server-only"`). 요청 처리 경로는 사용자 세션(anon 키 + 로그인 쿠키, 스크립트는 `Authorization: Bearer <Supabase access token>`)으로 Supabase를 부르고, 권한은 DB의 RLS가 정한다. 분석·수동 수집 요청은 BullMQ job으로 넣는다(producer). 외부 API 계약의 단일 원천은 zod 스키마(`web/server/<도메인>/*.model.ts`, [[16-DECISIONS|16 ADR]] ADR-016·017).
-- Supabase (클라우드 프로젝트, Compose 밖): **Postgres + RLS**(정형 데이터·점수·감사 이력, 조직 격리)와 **Auth**(이메일+비밀번호·간편 로그인, 공개 가입 + 초대로 조직 합류, ADR-018)만 맡는다. 스키마·RLS·함수는 `supabase/migrations/*.sql`(append-only), 타입은 생성물 `web/lib/database.types.ts`(`pnpm db:types`). Supabase Storage·pgvector·Supabase Queues는 쓰지 않는다.
+- Supabase (클라우드 프로젝트, Compose 밖): **Postgres + RLS**(정형 데이터·점수·감사 이력, 조직 격리)와 **Auth**(이메일+비밀번호·간편 로그인, 공개 가입 + 초대로 조직 합류, ADR-018)를 맡고, 파일은 private Storage에 둔다. 스키마·RLS·함수는 `supabase/migrations/*.sql`(append-only), 타입은 생성물 `web/lib/database.types.ts`(`pnpm db:types`). 파일은 private Supabase Storage에 둔다(ADR-047). pgvector·Supabase Queues는 쓰지 않는다.
 - Worker (`web/worker/`, 별도 Node(TypeScript) 프로세스): BullMQ consumer(설계: ingest job·documents job·extract job·analysis job·outbox 처리). 지금 소비자는 system·ingest·analysis 셋이고 outbox는 DB 주기 처리다. documents 큐는 생산·복구만 있고 소비자가 없다(첨부 다운로드·파싱 미구현). 별도 extract job도 없고 `/extract`는 analysis job 안에서 부른다. `live` 모드에서 나라장터 Open API(data.go.kr)를 부르고 첨부를 `www.g2b.go.kr` allowlist로 내려받는 유일한 컴포넌트다(서비스별 서비스키 4개 `G2B_*_SERVICE_KEY`는 worker env에만, [[07-DATA-PIPELINE|07 수집]] §2.2, [[16-DECISIONS|ADR-022]]). 같은 코드베이스의 `web/server` 도메인 코드를 같이 쓴다. Supabase는 service role 키(`SUPABASE_SERVICE_ROLE_KEY`)로 부르므로 RLS를 거치지 않는다. 그래서 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다([[09-SECURITY|09 보안]]).
 - Python AI gateway (FastAPI :8000): 첨부 파싱(`/parse`, 형식별 `DocumentParser`. 미구현: 파서 어댑터가 없어 모든 형식에 `UNSUPPORTED`), 문서 요구조건 구조화(Qwen `/extract`), 근거 설명(Qwen `/explain`. 미구현: 지금은 모든 모드가 템플릿), 임베딩(미구현), 결정 모델(Bosun) 호출 어댑터(`/kev`), JSON schema 검증, `AI_PROVIDER=mock|local|hosted` 분기. **결정 모델과 Qwen 런타임을 호출하는 유일한 컴포넌트**다. Worker·Next 서버는 결정 모델에 직접 접근하지 않는다. 실행 모드(`SOL_RUN_MODE=live|fixture|mock`)는 [[03-AI-PIPELINE|03 AI 파이프라인]]과 [[16-DECISIONS|ADR-020]].
-- Qdrant: 임베딩 검색(미구현. 컨테이너만 띄운다); MinIO: 첨부파일(첨부 처리 미구현이라 지금은 쓰지 않는다); Redis: job queue/cache·호출 예산 카운터. 세 서비스와 AI gateway·worker는 Docker Compose로 띄운다([[10-DEPLOYMENT|10 배포]]).
+- Qdrant: 임베딩 검색(미구현. 컨테이너만 띄운다); Supabase Storage: 비공개 첨부 원본·파싱 결과(저장 어댑터·권한·URL 발급 구현, documents 소비자는 후속); Redis: job queue/cache·호출 예산 카운터. Redis·Qdrant와 AI gateway·worker는 Docker Compose로 띄운다([[10-DEPLOYMENT|10 배포]]).
 
 > [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`, 커밋 `fa92254`)
 > `web/server` 모듈은 `import "server-only"`로 시작한다. worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `web/server` 코드를 그대로 불러온다(`pnpm -C web worker:check` → `worker modules loaded`). `--conditions` 없이 띄우면 `server-only`가 "This module cannot be imported from a Client Component module" 오류로 멈춘다. [[16-DECISIONS|16 ADR]] 미결정 9번 종결.
@@ -28,7 +28,7 @@ updated: 2026-10-21
 ## AI 호출 경로 (단일)
 |호출자|대상|방식|비고|
 |---|---|---|---|
-|Worker `web/worker` (documents job, 소비자 미구현)|AI gateway|HTTP `POST /parse` (바이트 본문)|첨부 1건 단위. worker가 MinIO에서 읽은 바이트를 보내고 결과 텍스트를 MinIO에 쓴다. gateway는 MinIO에 접근하지 않는다|
+|Worker `web/worker` (documents job, 소비자 미구현)|AI gateway|HTTP `POST /parse` (바이트 본문)|첨부 1건 단위. worker가 Supabase Storage에서 읽은 바이트를 보내고 결과 텍스트를 Supabase Storage에 쓴다. gateway는 Supabase Storage에 접근하지 않는다|
 |Worker `web/worker` (설계는 extract job. 지금은 analysis job이 캐시된 추출이 없을 때)|AI gateway|HTTP `POST /extract` (Compose 내부 네트워크)|공고 **revision 단위**, 조직 무관. 결과(+ 영어 표기 `translations`, 미구현이라 늘 null)는 `requirement_extractions`에 저장해 모든 조직이 재사용. timeout은 `AI_TIMEOUT_MS`(기본 60000) + 5초|
 |Worker `web/worker` (analysis job)|AI gateway|HTTP `POST /kev`, `POST /explain`|**조직 × revision × 프로필 revision** 단위. 추출 결과 + 프로필 요약 + 질문 세트 `kev-qs/v0.1`·`v0.2`를 보낸다. timeout은 `KEV_TIMEOUT_MS`(기본 5000) + 2초. circuit breaker는 Worker가 가진다|
 |AI gateway|결정 모델 서버(`sol_decision`, Bosun v3.1 0.6B, `127.0.0.1:8009`)|HTTP(S) `POST /v1/systemone` (Kev wire·TypeSafe System One 호환), `KEV_API_KEY` Bearer|`AI_PROVIDER=local`일 때(기본값은 실행 모드가 정한다). 해커톤은 회사가 제공하는 HTTPS 엔드포인트(`https://acropolissg.com/sol-radar` 아래, [[16-DECISIONS\|ADR-025·034]])의 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`에 연결. 기동 시 모델 레지스트리와 `/v1/models` 대조. `mock`은 gateway 안에서 `fixtures/kev/FX-xx.json` 고정 응답|
@@ -48,7 +48,8 @@ flowchart TB
  N -- 세션 검증 --> SA
  N -- 사용자 세션 · RLS --> PG[("Supabase Postgres · 클라우드")]
  N --> R[("Redis BullMQ")]
- N --> MIN[("MinIO")]
+ N -- 사용자 JWT · signed URL --> ST[("Supabase private Storage")]
+ WORK -- 원본/결과 · service role --> ST
  N --> QD[("Qdrant")]
  R --> WORK["Worker web/worker"]
  WORK --> AI["AI gateway FastAPI :8000"]
@@ -70,7 +71,7 @@ web/worker/               # BullMQ 소비자 진입점(지금 system·ingest·an
 supabase/migrations/      # 스키마·RLS·함수(append-only, 이미 있는 파일은 고치지 않는다)
 services/ai/              # Python AI gateway (FastAPI :8000), adapters/mock.py·kev.py·qwen.py
 services/decision/        # 결정 모델 서버 sol_decision(Bosun v3.1 0.6B, Kev wire POST /v1/systemone, :8009)과 학습기. 회사 GPU 서버에서 띄운다. main 1b68f9b(B1)
-infra/compose.yaml        # redis, minio, qdrant, ai-gateway, worker 5개. web 은 호스트 실행(Compose 에 없음). 실행 프로필은 env 묶음(infra/env/)
+infra/compose.yaml        # redis, minio, qdrant, ai-gateway, worker 4개. web 은 호스트 실행(Compose 에 없음). 실행 프로필은 env 묶음(infra/env/)
 fixtures/                 # FX-01 ~ FX-20
 scripts/                  # 검증·seed(템플릿 scripts 재사용: db-seed, db-push, db-types, database.test 등)
 design/tokens.json        # 디자인 토큰 정본 → web/app/globals.css 생성(pnpm tokens)
@@ -81,7 +82,7 @@ docs/                     # 이 vault, docs/evidence/
 - 프로필별 env 예시(`infra/env/*.env.example`)와 회사 GPU 서버용 참고 구성(`infra/compose.gpu.yaml`, 모델 라우터만, [[16-DECISIONS|ADR-025]])은 [[10-DEPLOYMENT|10 배포]]에서 다룬다.
 
 ## 서비스 책임과 데이터 소유
-공고/회사/검토 정보의 단일 기록원은 **Supabase Postgres**다. 조직 소유 데이터는 `org_id`를 갖고 RLS(`org_id in (select public.my_org_ids())`)로 거른다. 공고처럼 조직 소유가 없는 공용 데이터는 로그인 사용자(`authenticated`)에게 읽기만 열고, 쓰기는 worker(service role)만 한다. 다른 조직 자원은 RLS로 행이 보이지 않아 `404`가 된다([[09-SECURITY|09 보안]]). Qdrant는 재생성 가능한 파생 인덱스. MinIO는 원본 바이트 저장, Supabase Postgres에 키·해시·접근 권한 기록. 점수 재계산은 비동기 job이며 결과에는 알고리즘 버전·프롬프트 해시·모델 식별자를 남긴다. 결정 모델 출력은 규칙 점수와 별도 컬럼에 저장한다 ([[04-DATABASE|04 DB]]).
+공고/회사/검토 정보의 단일 기록원은 **Supabase Postgres**다. 조직 소유 데이터는 `org_id`를 갖고 RLS(`org_id in (select public.my_org_ids())`)로 거른다. 공고처럼 조직 소유가 없는 공용 데이터는 로그인 사용자(`authenticated`)에게 읽기만 열고, 쓰기는 worker(service role)만 한다. 다른 조직 자원은 RLS로 행이 보이지 않아 `404`가 된다([[09-SECURITY|09 보안]]). Qdrant는 재생성 가능한 파생 인덱스. Supabase Storage는 원본 바이트 저장, Supabase Postgres에 키·해시·접근 권한 기록. 점수 재계산은 비동기 job이며 결과에는 알고리즘 버전·프롬프트 해시·모델 식별자를 남긴다. 결정 모델 출력은 규칙 점수와 별도 컬럼에 저장한다 ([[04-DATABASE|04 DB]]).
 
 ## 흐름
 설계의 job은 넷이다. 지금은 ingest·analysis(와 system) job만 소비자가 있고, documents job은 생산만 되며, `/extract`는 analysis job 안에서 캐시가 없을 때 부른다([[03-AI-PIPELINE|03]] §2 구현 상태). **ingest job**(수집·정규화·revision) → **documents job**(첨부 다운로드·`/parse`) → **extract job**(`/extract`, 공고 revision 단위)이 공고 쪽을 끝내고, **analysis job**은 조직 × revision × 프로필 revision 단위로 규칙 판정·결정 모델·점수를 만든다. 용어는 [[03-AI-PIPELINE|03 AI 파이프라인]] §2와 같다.
@@ -167,7 +168,7 @@ flowchart TB
  AI -. AI_PROVIDER=local · QWEN_BASE_URL .-> QW
  AI -. AI_PROVIDER=hosted, 사용자 승인 후 .-> OR
 ```
-- 노트북에서는 Compose 서비스(redis·minio·qdrant·ai-gateway·worker)와 web이 돈다. web은 호스트에서 `pnpm -C web start`로 띄운다. `infra/compose.yaml`에 `web` 서비스는 없다([[16-DECISIONS|ADR-024]] D1, [[10-DEPLOYMENT|10 배포]]). DB·Auth는 노트북 밖 Supabase 클라우드 프로젝트다.
+- 노트북에서는 Compose 서비스(redis·qdrant·ai-gateway·worker)와 web이 돈다. web은 호스트에서 `pnpm -C web start`로 띄운다. `infra/compose.yaml`에 `web` 서비스는 없다([[16-DECISIONS|ADR-024]] D1, [[10-DEPLOYMENT|10 배포]]). DB·Auth는 노트북 밖 Supabase 클라우드 프로젝트다.
 - 실행 모드([[16-DECISIONS|ADR-020]]): `live` = 공공 API + 회사 GPU 실추론(해커톤 MVP 목표), `fixture` = fixture 20건 + 회사 GPU 실추론(공공 API 장애 대체), `mock` = fixture 20건 + mock AI(모델 장애 대체·CI·골든). 장애 대체 순서는 `live` → `fixture` → `mock`이고, 모드 전환은 env 교체와 worker·gateway 재시작으로 한다. 자동으로 바꾸지 않는다.
 - 현재 실행 모드와 `AI_PROVIDER` 값은 `/health/ready`의 `checks.ai`와 화면 우상단 표시(`실행 모드` + `AI: mock | local | hosted`)로 노출된다. gateway가 불가하면 `AI: unavailable`. 심사위원이 지금 보는 것이 실데이터·실모델인지 항상 알 수 있다.
 - mock 응답은 fixture ID별로 고정된 결정적 값이다. 같은 입력에 같은 출력이 나와야 골든 테스트가 성립하므로 골든은 `mock` 모드에서만 단언한다.
@@ -189,13 +190,13 @@ flowchart TB
 |Redis/큐 장애|BullMQ 연결 오류, `/health/ready` 503|분석 요청 시 `503 SERVICE_UNAVAILABLE` (`component: queue`), 기존 결과 조회 가능|job 유실 없음 (재시도·DLQ)|
 |Qdrant 불가(미구현, 설계)|gateway 검색 호출 실패|키워드 검색으로 대체, "의미 검색 비활성" 표시|근거 인용은 문자열 매칭 경로로 유지|
 |Supabase(Postgres) 불가·네트워크 끊김|Supabase 연결 오류·timeout, `/health/ready` `checks.db` 불가 → 503 `status:"unavailable"`|조회·쓰기 요청에 `503 SERVICE_UNAVAILABLE` (`component: db`)과 명확한 오류 메시지. Supabase Auth도 같은 클라우드 프로젝트라 로그인·세션 갱신도 실패한다|쓰기 불가, 복구 후 재시도. Redis에 들어간 job은 남아 재시도된다|
-|MinIO 불가|presigned URL 발급 실패|첨부 다운로드 버튼 비활성 + 사유|원문 텍스트는 Supabase Postgres에 있어 분석 지속|
+|Supabase Storage 불가|presigned URL 발급 실패|첨부 다운로드 버튼 비활성 + 사유|원문 텍스트는 Supabase Postgres에 있어 분석 지속|
 
 네트워크 호출은 모두 timeout 및 circuit breaker 적용. 장애 상태 노출 방식은 [[06-UI-UX|06 UI]], 지표는 [[14-OBSERVABILITY|14 관측성]].
 
 ## 솔리데오 인력·가입 경계 (ADR-019)
 
-사용 회사는 솔리데오 하나이며 `org-02`는 RLS 격리 시험 전용이다. 부서를 별도 테넌트(`organizations`)로 만들지 않는다. 이름·사진·직급 선택으로 Auth 계정·멤버십·권한을 자동 생성하지 않는다. 공개 가상 사진(`web/public/demo/people/<personId>.png`)은 정적 공개 자산이고, 공고 첨부는 MinIO 사설 저장이다. 둘을 섞지 않는다([[09-SECURITY|09 보안]]).
+사용 회사는 솔리데오 하나이며 `org-02`는 RLS 격리 시험 전용이다. 부서를 별도 테넌트(`organizations`)로 만들지 않는다. 이름·사진·직급 선택으로 Auth 계정·멤버십·권한을 자동 생성하지 않는다. 공개 가상 사진(`web/public/demo/people/<personId>.png`)은 정적 공개 자산이고, 공고 첨부는 Supabase Storage 사설 저장이다. 둘을 섞지 않는다([[09-SECURITY|09 보안]]).
 
 명부 정본(`fixtures/people/solideo.*.json`)과 생성·배분은 [[07-DATA-PIPELINE]], 표(`team_members`·`team_member_scoring`, [[16-DECISIONS|ADR-021]])와 가입 신고 열은 [[04-DATABASE]], 가입 API(`GET /api/v1/signup-options`·`GET·PATCH /api/v1/me/employment`)와 `/auth/complete-profile` 보완 규칙은 [[05-API-SPEC]] §8이 정의한다. 구현 상태는 [[PROGRESS]]를 따른다.
 

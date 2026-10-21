@@ -2,6 +2,11 @@ import "server-only";
 import { Redis } from "ioredis";
 import { getSupabaseAnon } from "@/server/supabase";
 import { type AiState, type CheckState, PROBE_TIMEOUT_MS } from "./health.model";
+import {
+  DEPENDENCY_HEALTH_KEY,
+  parseDependencyReport,
+  type DependencyScope,
+} from "./dependency-report";
 
 // ── 의존성 검사. 어떤 실패도 밖으로 던지지 않고 unavailable 로 바꾼다 ──
 // 오류 메시지·URL 은 남기지 않는다(Redis URL 에 비밀번호가 들어 있을 수 있다).
@@ -42,16 +47,22 @@ export async function probeRedis(url: string | undefined): Promise<CheckState> {
   }
 }
 
-export async function probeStorage(endpoint: string | undefined): Promise<CheckState> {
-  if (!endpoint) return "unavailable";
+export async function readDependencyReport(url: string | undefined, scope: DependencyScope) {
+  if (!url) return null;
+  const client = new Redis(url, {
+    lazyConnect: true,
+    connectTimeout: PROBE_TIMEOUT_MS,
+    commandTimeout: PROBE_TIMEOUT_MS,
+    maxRetriesPerRequest: 0,
+  });
+  client.on("error", () => {});
   try {
-    const response = await fetch(`${endpoint.replace(/\/+$/, "")}/minio/health/live`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-    });
-    return response.status === 200 ? "ok" : "unavailable";
+    await client.connect();
+    return parseDependencyReport(await client.get(DEPENDENCY_HEALTH_KEY), scope);
   } catch {
-    return "unavailable";
+    return null;
+  } finally {
+    client.disconnect();
   }
 }
 

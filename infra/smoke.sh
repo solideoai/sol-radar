@@ -13,12 +13,12 @@ TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 trap 'echo "smoke 실패: ${STEP}" >&2; exit 1' ERR
 
-STEP="1 서비스 5개 healthy"
+STEP="1 서비스 4개 healthy"
 HEALTH="$("${COMPOSE[@]}" ps --format '{{.Service}} {{.Health}}')"
-for svc in redis minio qdrant ai-gateway worker; do
+for svc in redis qdrant ai-gateway worker; do
   echo "$HEALTH" | grep -qx "$svc healthy"
 done
-echo "ok 1 서비스 5개 healthy"
+echo "ok 1 서비스 4개 healthy"
 
 STEP="2 web /health/live"
 curl -fsS "$WEB_URL/health/live" >/dev/null

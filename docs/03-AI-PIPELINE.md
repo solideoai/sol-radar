@@ -41,7 +41,7 @@ flowchart TD
  B --> N[NormalizedBid + 구조화 자격 필드]
  L --> N
  N --> R1[revision diff]
- R1 --> D[첨부 다운로드<br/>allowlist·크기 제한·sha256 → MinIO]
+ R1 --> D[첨부 다운로드<br/>allowlist·크기 제한·sha256 → Supabase Storage]
  D --> P[gateway /parse<br/>PDF·HWPX·HWP]
  P -->|UNSUPPORTED/FAILED| PE[parse_error_code + 확인 필요]
  P --> E[gateway /extract<br/>Qwen3.8-Flash-Next 회사 vLLM API + 인용 검증 + translations]
@@ -59,7 +59,7 @@ flowchart TD
 
 worker job 순서:
 1. **ingest**(source `g2b`, `fixture` 모드는 `fixture`): 목록 조회 → 정보화사업 필터 → 공고별 보조 조회(면허제한·참가가능지역·e발주 첨부) → 정규화 → revision diff([[07-DATA-PIPELINE|07 수집]]).
-2. **documents**: 새 revision의 첨부를 다운로드하고 `POST /parse`를 부른다. 텍스트는 MinIO에 쓰고 `bid_documents`에 다운로드·파싱 상태를 기록한다. **(미구현)** ingest가 첨부 있는 revision마다 documents job을 넣고 1분마다 `PENDING` 첨부를 다시 넣지만(`web/worker/documents-reconcile.ts`), 이 큐를 처리하는 Worker가 없다. 첨부는 `PENDING`으로 남고 추출은 본문만으로 한다.
+2. **documents**: 새 revision의 첨부를 다운로드하고 `POST /parse`를 부른다. 텍스트는 Supabase Storage에 쓰고 `bid_documents`에 다운로드·파싱 상태를 기록한다. **(미구현)** ingest가 첨부 있는 revision마다 documents job을 넣고 1분마다 `PENDING` 첨부를 다시 넣지만(`web/worker/documents-reconcile.ts`), 이 큐를 처리하는 Worker가 없다. 첨부는 `PENDING`으로 남고 추출은 본문만으로 한다.
 3. **extract**: `POST /extract`. 재사용 키는 `(revision_id, model_name, prompt_hash)` 그대로다. 지금은 별도 extract job이 없다. analysis job이 캐시된 추출이 없을 때 같은 job 안에서 `/extract`를 부른다(`web/server/analysis/analysis.service.ts`).
 4. **analysis**: 규칙 → `POST /kev` → 플래그 병합 → 점수·권고 → `POST /explain` → 저장.
 
@@ -74,11 +74,11 @@ worker job 순서:
 
 ### 2.1 gateway 내부 계약: `/parse`, `/extract`, `/kev`, `/explain`, `/health`
 
-Compose 내부 네트워크 전용 엔드포인트다([[02-ARCHITECTURE|02 아키텍처]], [[16-DECISIONS|16 ADR]] ADR-011). gateway는 DB(Supabase Postgres)·MinIO에 접근하지 않는다. 텍스트·바이트는 Worker가 보내고 결과도 Worker가 저장한다. Worker는 service role 키로 Supabase 표에 쓰므로 RLS를 거치지 않는다. 그래서 조직 데이터(`score_runs` 등)를 쓸 때 `org_id`를 직접 지정한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
+Compose 내부 네트워크 전용 엔드포인트다([[02-ARCHITECTURE|02 아키텍처]], [[16-DECISIONS|16 ADR]] ADR-011). gateway는 DB(Supabase Postgres)·Supabase Storage에 접근하지 않는다. 텍스트·바이트는 Worker가 보내고 결과도 Worker가 저장한다. Worker는 service role 키로 Supabase 표에 쓰므로 RLS를 거치지 않는다. 그래서 조직 데이터(`score_runs` 등)를 쓸 때 `org_id`를 직접 지정한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
 
 |엔드포인트|호출자|단위|하는 일|v0.2|
 |---|---|---|---|---|
-|`POST /parse`|documents job(Worker, 소비자 미구현), 새 revision의 첨부마다|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·MinIO 접근 없음. Worker가 텍스트를 MinIO에 쓰고 `bid_documents`에 상태를 기록|새로|
+|`POST /parse`|documents job(Worker, 소비자 미구현), 새 revision의 첨부마다|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·Supabase Storage 접근 없음. Worker가 텍스트를 Supabase Storage에 쓰고 `bid_documents`에 상태를 기록|새로|
 |`POST /extract`|analysis job(Worker)이 캐시된 추출이 없을 때(설계는 별도 extract job)|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations`(미구현, 늘 `null`) 반환. Worker가 `requirement_extractions`에 저장|확장|
 |`POST /kev`|analysis job(Worker)|조직 × revision × 프로필 revision|추출 `KNOWN` 값 + 프로필 요약으로 state 구성(§5.6·§5.11) → 결정 모델 질문 세트 → `KevAssist` + `stateTrace`·`stateHash` 반환|확장|
 |`POST /explain`|analysis job(Worker)|조직 × revision × 프로필 revision|규칙 판정·점수 분해·인용·결정 모델 참고 요약 → 한국어 설명. 입력에 없는 숫자가 있으면 템플릿 문장으로 대체(§6). 지금은 모든 모드가 템플릿이다(Qwen 설명 미구현)|새로|
@@ -581,7 +581,7 @@ COMPANY (profile revision 2)
 - not held: information-communication construction license, defense contractor designation, ISMS-P, CSAP
 - past performance: 3 public-sector projects completed within 3 years (1,200,000,000 / 2,800,000,000 / 300,000,000 KRW), largest 2,800,000,000 KRW
 - single-project cap: 5,000,000,000 KRW
-- staff availability (2026-12 to 2027-06): 20 FTE available out of 27 scoring-eligible staff
+- staff availability (2026-12 to 2027-06): 95.5 FTE available out of 200 scoring-eligible staff
 - financial: annual revenue 18,000,000,000 KRW, employees 200
 ```
 
@@ -756,7 +756,7 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 
 |저장 위치|내용|
 |---|---|
-|`bid_documents.download_status`, `download_error_code`, `format`, `parse_status`, `parse_error_code`, `parser_id`, `parse_quality`|첨부 다운로드·파싱 결과(§10). 텍스트는 MinIO, 키는 `text_object_key`|
+|`bid_documents.download_status`, `download_error_code`, `format`, `parse_status`, `parse_error_code`, `parser_id`, `parse_quality`|첨부 다운로드·파싱 결과(§10). 텍스트는 Supabase Storage, 키는 `text_object_key`|
 |`requirement_extractions.payload`|`RequirementExtraction` 전체(검증 후). `FAILED` 추출은 저장하지 않는다([[16-DECISIONS\|ADR-030]] B10)|
 |`requirement_extractions.prompt_hash`, `model_name`, `schema_version`|재사용 키|
 |`requirement_extractions.provider`|추출 공급자. env·API 값은 소문자(`mock`·`local`·`hosted`), 저장값은 대문자(`MOCK`·`LOCAL`·`HOSTED`, [[04-DATABASE\|04 DB]] `ai_provider`)|
@@ -860,7 +860,7 @@ interface ParseResult {
 - 표는 행마다 한 줄로 쓰고 셀 사이에 ` | `를 넣어 `text`에 직렬화한다. 셀마다 `charStart/charEnd`를 남겨서 표 안 문장도 인용 검증([[15-DATA-CONTRACTS|15 데이터 계약]] §5)을 그대로 통과할 수 있게 한다.
 - 어댑터는 **예정**이다(아직 없다. `services/ai/src/sol_ai/parse.py`는 형식 판정과 미지원 응답만 한다). 만들 때 `services/ai/parsers/{pdf,hwpx,hwp}/` 아래 후보마다 하나씩 둔다. 형식마다 사용할 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다(§3). 기본값은 §10.3 비교가 끝난 뒤 정한다.
 - Python 밖 런타임이 필요한 후보는 gateway 안에서 상주 하위 프로세스로 부른다(Node·JVM). 이미지 크기와 기동 시간은 비교 표에 함께 적는다([[10-DEPLOYMENT|10 배포]] 파서 런타임). 하위 프로세스의 운영 방식(상주 워커 수, 재시작 정책)은 구현 때 정한다.
-- gateway는 지금처럼 DB·MinIO에 접근하지 않고, `/parse`는 네트워크도 쓰지 않는다. 형식은 확장자가 아니라 내용(매직 바이트)으로 판단한다.
+- gateway는 지금처럼 DB·Supabase Storage에 접근하지 않고, `/parse`는 네트워크도 쓰지 않는다. 형식은 확장자가 아니라 내용(매직 바이트)으로 판단한다.
 - 어댑터가 아직 정해지지 않은 형식과 모르는 형식은 `UNSUPPORTED` + `UNSUPPORTED_FORMAT`이고 `warnings`에 `PARSER_NOT_CONFIGURED:<fmt>`, `parserId`는 `"none"`이다. 50 MB를 넘으면 `UNSUPPORTED` + `TOO_LARGE`다([[16-DECISIONS|ADR-030]] B6).
 
 ### 10.2 후보 (2026-10-16 조사)

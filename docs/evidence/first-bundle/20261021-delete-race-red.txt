@@ -1,0 +1,29 @@
+▶ Supabase Storage — immutable objects and private access
+  ✖ a delayed expired deleter cannot target a new document with the same logical checksum key (178.626334ms)
+✖ Supabase Storage — immutable objects and private access (1653.138375ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1859.593958
+
+✖ failing tests:
+
+test at scripts/database.test.mjs:208:3
+✖ a delayed expired deleter cannot target a new document with the same logical checksum key (178.626334ms)
+  AssertionError [ERR_ASSERTION]: each physical object incarnation needs a distinct Storage key
+      at TestContext.<anonymous> (file:///Users/leegwanghui/.codex/worktrees/f572/sol-radar/scripts/database.test.mjs:228:12)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Promise.all (index 3)
+      at async Suite.run (node:internal/test_runner/test:1771:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'raw/bids/b1d00000-0000-0000-0000-000000000011/be500000-0000-0000-0000-000000000011/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.pdf',
+    expected: 'raw/bids/b1d00000-0000-0000-0000-000000000011/be500000-0000-0000-0000-000000000011/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.pdf',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }

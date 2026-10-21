@@ -10,7 +10,7 @@ updated: 2026-10-21
 
 # SOL RADAR — 구현 문서 인덱스
 
-> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + MinIO + Python AI Service(Qwen3.8-Flash-Next, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
+> 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + Supabase Storage + Python AI Service(Qwen3.8-Flash-Next, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
 
 ## 10줄 요약
 
@@ -54,7 +54,7 @@ updated: 2026-10-21
 | 07 | [[07-DATA-PIPELINE]] | 나라장터 Open API 수집·첨부 다운로드·문서 파서 / Connector·정규화·변경 감지 / fixture 20건 명세(`FX-01`~`FX-20`)·mock 추출·mock Kev 값 |
 | 08 | [[08-SCORING]] | SOL Score 정규화 함수·missing 정책·결정 정책·솔리데오 프로필(단일 원천)·worked example 3건 |
 | 09 | [[09-SECURITY]] | 인증(Supabase Auth)·RLS·RBAC 표(`sol_role`)·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
-| 10 | [[10-DEPLOYMENT]] | Docker Compose(redis·minio·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
+| 10 | [[10-DEPLOYMENT]] | Docker Compose(redis·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
 | 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path·D-day까지 일정 |
 | 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, 구현 중)·알림톡 P1 |
@@ -95,7 +95,7 @@ updated: 2026-10-21
 ## Obsidian 규약
 
 - 이 폴더가 vault이자 저장소의 `docs/` 폴더다. 파일 이름은 바꾸지 않는다 (위키링크가 파일명 기준).
-- `boilerplate/`는 저장소를 시작한 템플릿(agentic-boilerplate)의 문서다. vault 규약 대상이 아니며 검색·그래프에서 제외한다(`.obsidian/app.json`). ADR-017 이후 Supabase(DB·RLS·인증)와 `web/server/<도메인>` 구조를 다루는 템플릿 문서는 SOL RADAR에도 적용된다. Expo(`mobile/`) 문서는 적용하지 않고, Vercel·EAS 배포 문서는 배포처가 정해질 때까지 보류한다([[16-DECISIONS|16 ADR]] 미결정 8번). 이 vault의 문서와 다르면 이 vault의 문서가 우선한다. 분류는 `boilerplate/README.md`.
+- `boilerplate/`는 저장소를 시작한 템플릿(agentic-boilerplate)의 문서다. vault 규약 대상이 아니며 검색·그래프에서 제외한다(`.obsidian/app.json`). ADR-017 이후 Supabase(DB·RLS·인증)와 `web/server/<도메인>` 구조를 다루는 템플릿 문서는 SOL RADAR에도 적용된다. Expo(`mobile/`) 문서는 적용하지 않고, Vercel Services 배포는 [[10-DEPLOYMENT|10 배포]]·[[16-DECISIONS|ADR-044]]를 따른다. 템플릿의 단일 웹 배포·EAS 문서는 적용하지 않는다. 이 vault의 문서와 다르면 이 vault의 문서가 우선한다. 분류는 `boilerplate/README.md`.
 - 모든 문서에 frontmatter(`title`, `doc`, `status`, `tags`, `updated`)를 둔다. `status`는 `draft → review → final`. 태그는 `sol-radar` + 주제 1~3개(`product`, `architecture`, `ai`, `pipeline`, `db`, `api`, `ui`, `scoring`, `security`, `ops`, `test`, `decision`, `hackathon`, `demo`, `glossary`, `moc`).
 - 문서 간 참조는 `[[05-API-SPEC|05 API 명세]]` 형식의 위키링크. 문서 끝에 `## 관련 문서`를 둔다.
 - 콜아웃: `> [!warning] 미검증 가정`, `> [!success] 검증됨 (날짜, URL)`, `> [!todo]`, `> [!tip] 심사 포인트`.

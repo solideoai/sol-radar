@@ -9,6 +9,10 @@ import { tempDir } from "./test-support.mjs";
 const source = dirname(fileURLToPath(import.meta.url));
 const runner = join(source, "verify-changed.mjs");
 const config = JSON.parse(readFileSync(join(source, "../verify.config.json"), "utf8"));
+// 커밋 훅의 Git 저장소/index 선택값을 임시 저장소로 넘기지 않는다.
+const gitEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+);
 
 const sandbox = (t) => {
   const root = tempDir("verify-changed-");
@@ -113,7 +117,7 @@ it("미분류 코드와 검증 설정 변경은 전체 quick 검사로 넓힌다
 
 const gitRepo = (t) => {
   const root = sandbox(t);
-  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
+  const git = (...args) => execFileSync("git", args, { cwd: root, env: gitEnv, encoding: "utf8" });
   git("init", "-q");
   for (const name of ["edit.ts", "old.ts", "delete.ts"]) writeFileSync(join(root, name), name);
   git("add", ".");
@@ -129,8 +133,60 @@ const gitRepo = (t) => {
   return { root, git };
 };
 
-it("실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다", async (t) => {
-  const { changedFiles } = await import("./verify-changed.mjs");
+// changedFiles 내부의 Git 호출도 같은 격리 환경에서 실제로 실행한다.
+const changedFiles = (root, base) =>
+  JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `import { changedFiles } from ${JSON.stringify(new URL("./verify-changed.mjs", import.meta.url).href)};
+process.stdout.write(JSON.stringify(changedFiles(process.argv[1], process.argv[2])));`,
+        root,
+        ...(base === undefined ? [] : [base]),
+      ],
+      { env: gitEnv, encoding: "utf8" },
+    ),
+  );
+
+it("커밋 훅의 Git 환경에서도 임시 저장소 시험은 호출 저장소를 바꾸지 않는다", (t) => {
+  const { root, git } = gitRepo(t);
+  const snapshot = () => [
+    git("rev-parse", "HEAD"),
+    git("ls-files", "--stage"),
+    git("config", "--local", "--list"),
+  ];
+  const before = snapshot();
+  const child = spawnSync(
+    process.execPath,
+    ["--test", "--test-name-pattern=^실제 Git에서", fileURLToPath(import.meta.url)],
+    {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(
+            ([key]) => !key.startsWith("GIT_") && key !== "NODE_TEST_CONTEXT",
+          ),
+        ),
+        GIT_DIR: join(root, ".git"),
+        GIT_COMMON_DIR: join(root, ".git"),
+        GIT_WORK_TREE: root,
+        GIT_INDEX_FILE: join(root, ".git", "index"),
+      },
+    },
+  );
+  assert.deepEqual(
+    snapshot(),
+    before,
+    "임시 저장소 시험이 호출 저장소의 HEAD/index/config를 바꿨습니다",
+  );
+  assert.equal(child.status, 0, child.stdout + child.stderr);
+  assert.match(child.stdout, /실제 Git에서 staged/, child.stdout + child.stderr);
+});
+
+it("실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다", (t) => {
   const { root, git } = gitRepo(t);
   writeFileSync(join(root, "edit.ts"), "changed");
   git("mv", "old.ts", "renamed.ts");
@@ -146,8 +202,7 @@ it("실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽�
   assert.throws(() => changedFiles(root, "missing-branch"), /변경 파일/);
 });
 
-it("기준 커밋을 지정하면 이미 커밋한 변경도 검사한다", async (t) => {
-  const { changedFiles } = await import("./verify-changed.mjs");
+it("기준 커밋을 지정하면 이미 커밋한 변경도 검사한다", (t) => {
   const { root, git } = gitRepo(t);
   const base = git("rev-parse", "HEAD").trim();
   writeFileSync(join(root, "edit.ts"), "committed");
@@ -190,6 +245,7 @@ it("CLI dry-run은 실행 없이 명령을 보여 주고 실제 실행은 첫 �
   );
   const run = (...args) =>
     spawnSync(process.execPath, [join(root, "scripts", "verify-changed.mjs"), ...args], {
+      env: gitEnv,
       encoding: "utf8",
     });
   const dry = run("--dry-run");

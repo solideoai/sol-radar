@@ -1,0 +1,1167 @@
+
+> sol-radar@0.1.0 verify /Users/leegwanghui/dev/hackathon/sol-radar
+> node scripts/verify.mjs
+
+
+> sol-radar@0.1.0 format:check /Users/leegwanghui/dev/hackathon/sol-radar
+> prettier --check . "!web/**"
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar@0.1.0 test /Users/leegwanghui/dev/hackathon/sol-radar
+> node --test "scripts/**/*.test.mjs"
+
+▶ Dependabot 작성자 판별
+  ✔ GitHub 이 봇에 주는 noreply 주소를 알아본다 (1.991625ms)
+  ✔ 사람·다른 봇·비슷한 글자의 주소는 아니다 (3.385959ms)
+✔ Dependabot 작성자 판별 (6.3345ms)
+▶ 메시지 문제 모으기
+  ✔ Dependabot 커밋은 제목이 길어도 문제로 잡지 않는다 (3.0435ms)
+  ✔ 사람이 쓴 같은 제목은 그대로 잡는다 (1.486583ms)
+  ✔ Dependabot 커밋이어도 PR 제목은 사람 몫이라 검사한다 (5.87575ms)
+  ✔ 작성자가 없는 커밋(옛 호출자)은 사람이 쓴 것으로 본다 (0.528583ms)
+  ✔ squash 병합이 붙인 ' (#번호)' 는 첫 줄 끝에서 한 번만 뗀다 (0.337667ms)
+  ✔ PR 제목에는 병합·autosquash 예외가 없고 되돌리기만 남는다 (4.794833ms)
+✔ 메시지 문제 모으기 (17.112166ms)
+▶ 임시 저장소에서 검사
+  ✔ 범위의 커밋마다 작성자 이메일을 함께 읽는다 (764.0795ms)
+  ✔ Dependabot 커밋 + 50자 이내 PR 제목은 통과하고, 제외했다고 알린다 (493.938292ms)
+  ✔ Dependabot 커밋이어도 PR 제목이 길면 막는다 (942.5995ms)
+  ✔ 사람이 쓴 긴 커밋은 Dependabot 커밋과 섞여 있어도 막는다 (1598.508916ms)
+  ✔ 사람 커밋만 있으면 제외 안내가 붙지 않는다 (1161.81725ms)
+✔ 임시 저장소에서 검사 (4961.880958ms)
+✔ checkEnv: frontend requires HTTPS service API, not Redis TCP/MinIO/AI direct URLs (77.080084ms)
+✔ checkEnv: redis-api needs a server token and rejects an unknown role (48.490542ms)
+✔ resolveRunMode: 미지정이면 mock (3.558375ms)
+✔ resolveRunMode: 빈 문자열은 미지정과 같다 (0.334791ms)
+✔ resolveRunMode: 정상 조합 통과 (0.585459ms)
+✔ resolveRunMode: 모순은 키 이름으로 알린다 (0.863958ms)
+✔ resolveRunMode: 세 모드 모두 KEV_ENABLED=false 를 허용한다 (0.586667ms)
+✔ resolveRunMode: KEV_ENABLED 미지정이면 세 모드 모두 true (0.148667ms)
+✔ resolveRunMode: KEV_ENABLED 대소문자·공백 변형은 모순 (0.25025ms)
+✔ resolveRunMode: M2 fixture 의 hosted + 한국어 state 는 FORBIDDEN_WITH_HOSTED (0.131792ms)
+✔ resolveRunMode: M2 live 는 모드 금지 → hosted 금지 → 승인 순서 (0.091541ms)
+✔ resolveRunMode: M2 mock 에 hosted 값 + 한국어 state (0.069917ms)
+✔ resolveRunMode: M2 fixture 의 local + 한국어 state 는 위반 없음 (0.054459ms)
+✔ resolveRunMode: 알 수 없는 모드는 mode·effective 가 null (0.053625ms)
+✔ resolveRunMode: 금지 키는 값이 금지 값과 정확히 같을 때만 위반 (0.049208ms)
+✔ checkEnv: infra/.env 가 없으면 MISSING_FILE (4.928708ms)
+✔ checkEnv: 정상 mock 구성은 통과 (2.188375ms)
+✔ checkEnv: CHANGE_ME 와 minioadmin 을 placeholder 로 센다 (4.127ms)
+✔ checkEnv: web/.env.local 의 SUPABASE_SERVICE_ROLE_KEY 는 FORBIDDEN_KEY (3.645417ms)
+✔ checkEnv: live 인데 빠진 서비스키마다 MISSING_KEY, mock 은 통과 (78.406708ms)
+✔ checkEnv: web/.env.local 의 서비스키 4종은 FORBIDDEN_KEY (19.565083ms)
+✔ checkEnv: infra 가 fixture 인데 web 에 SOL_RUN_MODE 가 없으면 CONTRADICTS_MODE (8.099292ms)
+✔ checkEnv: web SOL_RUN_MODE 가 infra 와 같으면 통과한다 (5.657375ms)
+✔ checkEnv: 알 수 없는 모드면 모드별 필수 키를 보지 않는다 (3.628167ms)
+✔ checkEnv: 필수 키가 빈 문자열이면 MISSING_KEY (9.034708ms)
+✔ checkEnv: 루트 .env.local 은 있으면 placeholder 만 센다 (5.519167ms)
+✔ CLI: 통과하면 exit 0 과 정해진 마지막 줄 (460.792625ms)
+✔ CLI: 실패하면 exit 1 과 요약 줄 (183.420625ms)
+✔ CLI 출력에 비밀값이 없다 (113.806167ms)
+✔ resolveRunMode: 위반 여러 건은 판정 순서대로 나온다 (0.643375ms)
+✔ checkEnv: fixture 에서 QWEN_API_KEY 가 빠지거나 비면 MISSING_KEY (14.579958ms)
+✔ checkEnv: live 에서 QWEN_API_KEY 가 빠지면 MISSING_KEY (4.338416ms)
+✔ checkEnv: fixture 에서 KEV_API_KEY 가 빠지면 MISSING_KEY (16.019958ms)
+✔ checkEnv: 승인된 hosted 에서 HOSTED_API_* 가 빠지면 MISSING_KEY (11.951125ms)
+✔ checkEnv: web/.env.local 이 없으면 MISSING_FILE (4.112292ms)
+✔ checkEnv: web 필수 키가 빠지면 MISSING_KEY (7.9445ms)
+✔ checkEnv: web 금지 키는 대소문자를 구분하지 않는다 (6.366709ms)
+✔ checkEnv: process.env 는 판정에 쓰지 않는다 (5.31675ms)
+✔ checkEnv: web/.env.production 의 금지 키는 그 파일 이름으로 FORBIDDEN_KEY (7.149834ms)
+✔ checkEnv: web/.env.example 의 금지 키는 무시한다 (7.376833ms)
+✔ checkEnv: web 의 QWEN_API_KEY·KEV_API_KEY·HOSTED_API_KEY 는 FORBIDDEN_KEY (26.851208ms)
+✔ checkEnv: REDIS_PASSWORD 에 영숫자 외 문자가 있으면 INVALID_FORMAT, 16진수는 통과 (226.063583ms)
+✔ checkEnv: web 에 API_CURSOR_SECRET 이 없으면 MISSING_KEY (54.340375ms)
+✔ checkEnv: API_CURSOR_SECRET 이 32자 미만이면 INVALID_FORMAT, 값은 출력하지 않는다 (751.152292ms)
+✔ checkEnv: API_CURSOR_SECRET 은 앞뒤 공백을 뗀 길이로 잰다(공백만 32자 이상이면 INVALID_FORMAT) (18.451125ms)
+▶ 마지막 업무 ADMIN 보호
+  ✔ 마지막 ADMIN은 자기 업무 역할을 내리지 못한다 (4247.568417ms)
+  ✔ 다른 멤버가 남는 조직의 마지막 ADMIN은 스스로 나가지 못한다 (3152.039209ms)
+  ✔ ADMIN 둘을 한 문장으로 update해도 마지막 ADMIN을 없애지 못한다 (4671.103541ms)
+  ✔ ADMIN 둘을 한 문장으로 delete해도 마지막 ADMIN을 없애지 못한다 (5321.017084ms)
+  ✔ 다른 ADMIN이 있으면 자기 강등·탈퇴를 허용하고 남은 마지막 ADMIN은 보호한다 (2269.30725ms)
+  ✔ 계정 탈퇴가 JWT를 비우기 전에 마지막 ADMIN을 보호하고 계정·멤버십·JWT를 보존한다 (2934.470792ms)
+  ✔ 다른 멤버에게 ADMIN을 넘기면 기존 ADMIN은 나갈 수 있다 (1675.561042ms)
+  ✔ 혼자인 조직은 계정 탈퇴와 함께 지울 수 있다 (1460.6735ms)
+✔ 마지막 업무 ADMIN 보호 (25737.870917ms)
+▶ DB 접근 정책
+  ✔ public의 모든 일반 테이블에 RLS가 켜져 있다 (7.779875ms)
+  ✔ 로그아웃한 사용자는 프로필을 읽지도 만들지도 못한다 (5.291583ms)
+  ✔ 로그인한 사용자는 본인 프로필만 읽고 남의 행을 수정하지 못한다 (6.5205ms)
+  ✔ 본인 프로필의 email 과 is_admin 도 바꾸지 못한다 (3.863916ms)
+  ✔ 본인 프로필의 표시 이름은 고치고, 남의 것은 운영자도 고치지 못한다 (9.556833ms)
+  ✔ 표시 이름은 앞뒤 공백 없이 1~40자다 — 서버 검증을 건너뛴 요청도 DB 가 막는다 (8.538542ms)
+  ✔ 화면 역할의 profiles 표 권한은 읽기(SELECT)뿐이고, 열 권한은 이름·신고 FK 수정뿐이다 — RLS 를 무시하는 TRUNCATE 도 없다 (19.372167ms)
+  ✔ 가입 이메일이 바뀌면 프로필 email 도 따라간다 (2.269125ms)
+  ✔ 운영자는 전체 프로필을 조회할 수 있다 (2.901917ms)
+  ✔ 메모 견본은 지워졌다 — memos 표와 그 기본값 함수 personal_org_id() 가 없다 (3.016833ms)
+  ✔ 로그인한 사용자는 자기 조직의 작업·활동만 읽는다 — 운영자도 남의 조직 것은 못 읽는다 (22.139ms)
+  ✔ 작업을 넣으면 만든 사람은 DB 가 로그인한 사람으로 채우고, 남의 조직이나 남의 이름으로는 넣지 못한다 (13.357417ms)
+  ✔ 남의 작업은 지워지지 않고(오류가 아니라 0행) 본인 것은 지워진다 (8.646834ms)
+  ✔ 로그아웃한 사용자는 작업·활동을 읽지도 쓰지도 못하고 대시보드 집계도 부르지 못한다 — 모두 권한 오류다 (5.844917ms)
+  ✔ 작업 제목은 앞뒤 공백 없이 1~120자, 설명은 비우거나(null) 1~2000자, 상태는 셋 중 하나다 — 서버 검증을 건너뛴 요청도 DB 가 막는다 (7.654ms)
+  ✔ 화면 역할의 tasks 권한은 로그인 역할의 읽기·지우기와 열 단위 넣기·고치기뿐이고, activities 는 읽기뿐이다 — 활동을 직접 넣거나 고치거나 지우지 못한다 (17.828042ms)
+  ✔ 대시보드 집계 함수는 부른 사람의 권한으로 돌고(security invoker) 로그인 역할만 부르며, 활동의 이름 사본 함수는 어느 화면 역할도 부르지 못한다 (6.388958ms)
+✔ DB 접근 정책 (152.079208ms)
+▶ 조직·멤버십·초대 정책
+  ✔ 새 가입은 프로필만 만들고 조직·멤버십은 만들지 않는다 (1555.604125ms)
+  ✔ 팀을 만든 사람은 owner 가 되고, 개인 조직의 주인은 화면에서 지정하지 못한다 (1081.579041ms)
+  ✔ 팀은 운영자(profiles.is_admin)만 만든다 — 팀의 owner+ADMIN·member·조직 없는 가입자의 넣기는 정책 오류(42501)이고 행이 남지 않으며, 운영자는 만들고 add_team_owner 로 owner+ADMIN 이 된다 (753.061125ms)
+  ✔ 정지된 운영자는 팀을 만들지 못한다 — is_admin() 이 false 라 정책 오류(42501)이고 행이 남지 않으며, 정지를 풀면 다시 만든다 (810.269625ms)
+  ✔ 주소 이름은 소문자·숫자·하이픈 3~32자이고, 최상위 경로 이름과 이미 쓰는 이름은 못 쓴다 (764.572667ms)
+  ✔ 조직 밖의 사람은 운영자라도 그 조직의 조직·멤버십·초대·작업·활동을 읽지 못하고, 멤버는 읽는다 (895.498417ms)
+  ✔ 조직 밖의 사람은 운영자라도 그 조직의 조직·멤버십·초대·작업·활동을 쓰지 못한다 — 넣기는 정책 오류, 바꾸기·지우기는 0행, 활동은 권한 오류다 (748.197792ms)
+  ✔ 로그아웃한 사람은 조직 표를 읽지도 쓰지도 못한다 — 모두 권한 오류다 (704.3605ms)
+  ✔ 멤버는 조직의 작업을 읽고 추가하고, 남이 만든 작업의 제목·설명·상태·마감일·담당자를 고친다 — 남의 조직에는 넣지 못한다 (673.082958ms)
+  ✔ 작업은 만든 사람이나 owner 가 지운다 — member 는 남이 만든 작업을, 나간 사람은 자기가 만든 작업도 지우지 못한다 (675.810916ms)
+  ✔ 담당자는 그 조직의 멤버만 된다 — 다른 조직 사람은 넣을 때도 고칠 때도 외래 키가 거절한다(23503, tasks_assignee_fkey) (783.404333ms)
+  ✔ 상태가 완료로 바뀌면 완료 시각을 DB 가 채우고 완료에서 벗어나면 비운다 — 할 일↔진행 중은 빈 채, 완료인 채 다른 칸을 고치면 그대로다 (683.426416ms)
+  ✔ 역할 바꾸기와 내보내기는 owner 만 한다 — member 의 시도는 0행이다 (698.224375ms)
+  ✔ 마지막 owner 는 나가거나 member 로 내려가지 못하고, owner 가 둘이면 한 명은 나간다 (726.915791ms)
+  ✔ 개인 조직의 주인은 자기 역할을 member 로 내리지 못한다 (760.012833ms)
+  ✔ owner 둘을 한 문장으로 함께 내리거나 내보내도 owner 가 0명이 되지 않는다 (774.877959ms)
+  ✔ 들어오는 길은 본인의 초대 수락뿐이다 — owner 도 초대받은 사람을 대신 넣지 못하고, 개인 조직에는 아무도 못 들어온다 (773.468917ms)
+  ✔ 초대는 owner 가 팀에만 한다 — member·개인 조직·이미 멤버인 이메일(자기 이메일 포함)은 막는다 (648.709875ms)
+  ✔ 초대받은 이메일로 로그인한 사람만 받은 초대와 그 조직을 보고, 만료 전에 초대받은 역할로만 수락한다 (759.659667ms)
+  ✔ 다른 이메일로 온 초대는 수락하지 못한다 — 로그인 이메일이 초대 이메일과 같을 때만 들어온다 (730.341292ms)
+  ✔ 초대받은 사람은 수락 전에 그 조직의 이름만 본다 — 멤버·다른 초대·작업·활동·팀원 프로필은 읽지 못한다 (698.220208ms)
+  ✔ 초대의 역할은 owner 만 다시 적는다 — 받은 사람이 자기 초대를 owner 로 올려 들어오지 못한다 (663.610875ms)
+  ✔ 만료된 초대는 수락하지 못하고, 같은 이메일을 다시 초대하면 만료가 7일로 새로 늘어난다 (689.896ms)
+  ✔ 받은 사람은 초대를 거절하고, owner 는 취소한다 — 상관없는 사람은 지우지 못한다 (690.375667ms)
+  ✔ 같은 조직의 멤버끼리는 프로필을 읽고, 조직 밖의 프로필은 읽지 못한다 (666.191041ms)
+  ✔ 팀을 나가거나 내보내지면 그 조직의 멤버·작업·활동과 서로의 프로필이 닫히고, 같은 초대로 다시 들어오지 못한다 (1369.288709ms)
+  ✔ 멤버가 나가거나 내보내지면 맡던 작업의 담당자만 비고 작업은 남는다 — 활동은 나감·내보냄 한 줄뿐이고 담당자 비움은 남지 않는다 (1333.623833ms)
+  ✔ 계정을 지우는 관리 작업은 마지막 owner 보호를 통과하고, 팀의 작업은 만든 사람·담당자만 비운 채 남는다 — 연쇄로 지워지는 행은 활동을 남기지 않는다 (676.672833ms)
+  ✔ 조직을 지우는 관리 작업은 작업·멤버십·초대·활동이 있어도 실패하지 않고, 지우는 동안 아무 기록도 남기지 않는다 (719.852583ms)
+  ✔ 정책 도우미는 부른 사람의 조직만 돌려주고, 로그아웃한 사람은 부르지 못하며, 개인 조직 만들기는 화면 역할이 못 부른다 (661.785792ms)
+  ✔ 화면 역할의 조직 표 권한은 로그인 역할의 읽기·지우기와 열 단위 쓰기뿐이다 — anon 에는 없다 (675.159625ms)
+  ✔ 조직 밖의 사람이 초대를 넣어 보면 이유와 상관없이 같은 정책 오류다 — 멤버 여부·개인 조직 여부를 알려 주지 않는다 (658.541875ms)
+  ✔ 로그인 이메일이 프로필 이메일과 달라도 수락한 초대는 지워진다 — 남은 초대로 다시 들어오지 못한다 (691.168917ms)
+  ✔ 마이그레이션 전에 가입한 계정(프로필이 없는 계정 포함)을 개인 조직으로 채운다 (678.687666ms)
+  ▶ 작업·활동 기록
+    ✔ 작업을 만들고·완료하고·다시 열고·지우면 활동이 남는다 — 만들 때 정한 담당자, 할 일↔진행 중, 제목·설명·마감일 고치기는 남지 않는다 (704.044542ms)
+    ✔ 담당자를 바꾸면 새 담당자의 이름 사본이 남고, 스스로 맡으면 행위자와 대상이 같으며, 비우면 담당자 비움이 남는다 — 같은 값을 다시 적으면 남지 않는다 (663.548541ms)
+    ✔ 초대를 보내면 역할만 남고(이메일 없음), 수락하면 들어옴, 역할을 바꾸면 전후 역할이 남는다 — 가입·팀 만들기의 첫 멤버는 남지 않는다 (663.742375ms)
+    ✔ 대시보드 집계는 서울 날짜로 오늘·이번 주 월요일을 잡고, 지금 남은 작업으로 열린·기한 지남·이번 주 완료·내 담당과 최근 14일의 추가·완료를 센다 (684.269125ms)
+    ✔ 대시보드 집계는 부른 사람의 권한으로 돈다 — 조직 밖의 사람은 운영자라도 모두 0 이다 (685.713917ms)
+    ✔ 대시보드 집계의 오늘과 이번 주는 서울 0시에 바뀐다 — 일요일 밤은 지난주, 월요일 0시부터 이번 주다 (752.126916ms)
+  ✔ 작업·활동 기록 (4153.835208ms)
+  ▶ 회원 상태·탈퇴·제공자 프로필
+    ✔ 가입하면 제공자의 full_name·name·nickname 순으로 처음 비지 않은 값을 앞뒤 공백 없이 40자 안으로 다듬어 표시 이름으로 쓴다 (711.695833ms)
+    ✔ 가입하면 제공자의 avatar_url·picture 순으로 https 이고 2048자 이하인 첫 값을 이미지로 쓴다 — http·javascript:·data:·객체·2049자는 건너뛴다 (730.256375ms)
+    ✔ 메타데이터가 없어도(null) 가입은 실패하지 않는다 — 표시 이름·이미지가 빈 활성 프로필만 생긴다 (957.582625ms)
+    ✔ 이미 가입한 사람은 마이그레이션이 비어 있는 표시 이름·이미지만 제공자 정보로 채운다 — 본인이 정한 이름은 그대로다 (856.091333ms)
+    ✔ 이미지는 https 로 시작하는 2048자 이하이거나 비어 있고, 상태는 active·suspended 둘뿐이다 — 관리 작업이 넣어도 DB 가 막는다 (765.758541ms)
+    ✔ 화면 역할은 본인 행이라도 상태·이미지·고친 시각을 고치지 못한다 — 권한 오류(42501)이고 값은 그대로다 (751.688416ms)
+    ✔ 표시 이름을 고치면 고친 시각이 바뀌고, 다른 사람의 고친 시각은 그대로다 (1040.885458ms)
+    ✔ 상태 열의 수정 권한이 열려도 운영자가 아닌 사람의 변경은 트리거가 되돌린다 — 정지된 사람은 스스로 풀지 못하고, JWT 없는 관리 작업과 service_role 은 바꾼다 (1259.586708ms)
+    ✔ 제공자 정보 도우미는 어느 화면 역할도 부르지 못한다 — 가입 트리거와 마이그레이션만 쓴다 (997.544417ms)
+    ✔ 회원 상태는 운영자만 바꾼다 — 운영자가 아니면 권한 오류(42501)이고 로그아웃한 사람은 실행 권한이 없다 (1010.416166ms)
+    ✔ 자기 자신·다른 운영자·없는 회원·잘못된 상태는 hint 로 이유를 알리고 아무것도 바꾸지 않는다 (914.247917ms)
+    ✔ 정지하면 상태·로그인 차단(100년 뒤)·그 사람의 세션 삭제를 한꺼번에 하고, 풀면 상태와 로그인 차단을 되돌린다 — 다른 사람의 세션은 남는다 (815.269291ms)
+    ✔ 정지된 운영자는 운영자가 아니다 — is_admin() 이 false 라 남의 프로필을 읽지 못하고 회원 상태도 바꾸지 못하며, 풀면 다시 운영자다 (771.7555ms)
+    ✔ 정지된 사람에게 정책 도우미는 빈 목록이다 — 자기 조직의 조직·멤버십·초대·작업·활동과 팀원 프로필을 읽지도 쓰지도 못하고, 본인 프로필만 읽는다 (812.522125ms)
+    ✔ 정지된 사람은 본인 표시 이름을 고치지 못한다 — 오류가 아니라 0행이고 이름은 그대로다 (832.418292ms)
+    ✔ 정지를 풀면 정책 도우미가 다시 조직을 돌려주고 본인 표시 이름도 다시 고친다 (773.62ms)
+    ✔ 정지된 사람은 팀을 새로 만들지 못한다 — 주소 이름을 차지하고 owner 가 되는 길이 닫힌다 (731.056583ms)
+    ✔ 정지된 사람은 받은 초대를 수락하지 못한다 (699.133ms)
+    ✔ 탈퇴는 로그인한 사람만 한다 — 로그아웃한 사람은 실행 권한이 없고, JWT 에 본인 id 가 없으면 권한 오류(42501)다 (691.268791ms)
+    ✔ 정지된 사람은 탈퇴하지 못한다 — hint suspended 로 거절하고 아무것도 지우지 않으며, 다른 멤버가 있는 팀의 유일한 owner 여도 정지를 먼저 알린다 (701.071458ms)
+    ✔ 다른 멤버가 있는 팀의 유일한 owner 는 탈퇴하지 못한다 — hint sole_owner 로 거절하고 아무것도 지우지 않는다 (672.345333ms)
+    ✔ member 로 있는 팀은 탈퇴를 막지 않는다 — 팀과 owner 는 그대로다 (706.676208ms)
+    ✔ owner 가 둘인 팀은 한 owner 의 탈퇴를 막지 않는다 — 팀은 남은 owner 와 그대로다 (749.190125ms)
+    ✔ 혼자인 팀은 함께 지워지고 본인의 계정·프로필·개인 조직·멤버십·세션이 지워진다 — 다른 사람의 행은 그대로이고 팀에 남은 작업은 만든 사람·담당자만 빈다 (703.994708ms)
+    ✔ 탈퇴 함수가 비운 JWT claim 은 그 트랜잭션에서만 빈다 — 호출 뒤 같은 연결의 claim 은 원래대로다 (809.455417ms)
+  ✔ 회원 상태·탈퇴·제공자 프로필 (20467.286042ms)
+  ▶ 팀 설정 — 이름 바꾸기·지우기
+    ✔ 팀 owner 는 팀 이름을 바꾼다 — 1행이고 주소는 그대로다 (823.391333ms)
+    ✔ member·조직 밖의 운영자(초대받아 이름은 읽는다)의 이름 바꾸기·지우기는 오류 없이 0행이고 팀은 그대로다 (706.726ms)
+    ✔ 정지된 owner 는 이름을 바꾸지도 팀을 지우지도 못하고(0행), 다시 활동하면 바꾼다 (721.312625ms)
+    ✔ 개인 조직은 주인도 이름을 바꾸거나 지우지 못한다(0행) (707.880208ms)
+    ✔ 이름 말고 다른 열(주소·개인 조직 주인·id·만든 시각)은 owner 도 바꾸지 못한다 — 권한 오류다 (695.099292ms)
+    ✔ 팀 이름은 앞뒤 공백 없이 1~40자다 — owner 의 바꾸기도 DB 제약이 막는다 (688.127834ms)
+    ✔ owner 가 팀을 지우면 멤버십·초대·작업·활동이 함께 지워지고 실패하지 않는다 — 마지막 owner 보호·활동 기록에 걸리지 않고 다른 조직은 그대로다 (760.442042ms)
+    ✔ owner 가 둘이면 어느 owner 든 팀을 지운다 (1615.848459ms)
+    ✔ 이름까지 맞춰 지우면 그새 바뀐 이름으로는 지워지지 않는다(0행) — 서버의 deleteTeam 이 쓰는 모양 (699.067916ms)
+    ✔ 로그아웃한 사람은 팀 이름을 바꾸거나 팀을 지우지 못한다 — 권한 오류다 (747.416334ms)
+  ✔ 팀 설정 — 이름 바꾸기·지우기 (8165.956667ms)
+✔ 조직·멤버십·초대 정책 (59663.242333ms)
+▶ SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)
+  ✔ G5 — org-02 VIEWER 는 org-01 의 조직 표 아홉 개를 0행으로 보고 자기 조직 행만 읽는다 — 회사 프로필·분석 run·점수 요소·자격 판정·항목 판정·결정 이력·인력 배정·감사·알림 (728.548167ms)
+  ✔ G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만 (810.6ms)
+  ✔ 공고 다섯 표는 조직 소유가 아니다 — org-02 VIEWER 와 비멤버 운영자도 활동 중이면 읽고, ADMIN 이라도 넣기·고치기·지우기는 권한 오류다 (726.809417ms)
+  ✔ 운영자(profiles.is_admin)는 멤버가 아닌 조직의 SOL 표를 하나도 읽지 못한다 — 조직 표 아홉 개와 운영 표 셋 모두 0행이고 정책 도우미도 빈 목록이다 (695.821167ms)
+  ✔ outbox_events 는 내부 표다 — ADMIN·VIEWER·org-02·로그아웃 누구도 읽지도 쓰지도 못한다(권한 오류) (689.332708ms)
+  ✔ 로그아웃한 사람(anon)은 SOL 표 열여덟 개를 읽지도 쓰지도 못하고 정책 도우미 my_sol_org_ids 도 부르지 못한다 — 모두 권한 오류 (727.491417ms)
+  ✔ 정지된 회원(profiles.status='suspended')은 공고도 조직 표도 운영 표도 0행이고 my_sol_org_ids 는 빈 목록이다 — 쓰기는 정책 오류이고 정지를 풀면 다시 읽는다 (732.696791ms)
+  ✔ my_sol_org_ids(roles) 는 부른 사람이 그 역할 중 하나로 속한 조직만 돌려준다 — owner 여도 역할이 다르면 빈 목록이다 (697.252042ms)
+  ✔ 운영 표(수집 run·수집 오류·평가 결과)는 어느 조직에서든 ADMIN 인 사람만 읽는다 — SALES·ANALYST·VIEWER·org-02 는 0행이고 ADMIN 도 쓰지는 못한다 (671.913458ms)
+  ▶ 수집 run 열 단위 읽기 (20261019000019, N8 W1)
+    ✔ ① 허용 열 열한 개만 고르면 org-01 ADMIN 과 org-02 ADMIN 모두 두 run 을 그 열 그대로 읽는다 — 행 정책은 그대로라 SALES·ANALYST·VIEWER 는 같은 질의가 오류 없이 0행이다 (674.706167ms)
+    ✔ ② 숨긴 열(job_key·idempotency_key·requested_by·params)은 org-01·org-02 ADMIN 모두 하나씩 고르면 권한 오류(42501)이고, 그 열로 거르기와 select * 도 권한 오류다 (700.049959ms)
+    ✔ ② 화면 역할의 ingest_runs 권한은 authenticated 의 열 단위 SELECT 열한 개뿐이다 — 표 단위 권한은 없고 anon 에는 아무것도 없다 (732.26275ms)
+    ✔ ③ latest_ingest_run(security definer)은 열 권한과 상관없이 그대로 돈다 — org-01 ADMIN·org-02 ADMIN·SALES 모두 최신 fixture run 한 줄의 상태·시각·요약을 받는다 (721.62275ms)
+    ✔ ④ 로그아웃(anon)은 ingest_runs 를 허용 열로도 숨긴 열로도 읽지 못한다 — 모두 권한 오류(42501)다 (698.061416ms)
+    ✔ 요청자는 조직 소유 감사(INGEST_MANUAL·ingest_run)로 읽는다 — org-01 ADMIN 은 그 run 의 actor_id 를 읽고, org-02 ADMIN·org-01 SALES·운영자는 0행이다 (687.018375ms)
+  ✔ 수집 run 열 단위 읽기 (20261019000019, N8 W1) (4214.104667ms)
+  ✔ 감사 기록은 그 조직의 ADMIN 만 읽는다 — SALES·ANALYST·VIEWER·org-02·운영자는 0행이고, ADMIN 도 org-02 것은 보지 못하며 아무도 직접 쓰지 못한다 (691.046333ms)
+  ✔ 알림은 본인 것만 읽는다 — 같은 조직 ADMIN 도 남의 알림은 0행이고, 조직을 나가면 알림도 함께 지워진다 (683.250708ms)
+  ✔ 회사 프로필 개정은 ADMIN 만 넣는다 — SALES·ANALYST·VIEWER·org-02 는 정책 오류, ADMIN 도 다른 조직에는 못 넣고 is_demo·created_by 는 열 권한이 없으며, 행은 불변이고 PROFILE_CREATE_REVISION 감사가 남는다 (729.397666ms)
+  ✔ 분석 요청은 ADMIN·SALES·ANALYST 가 QUEUED 행으로만 넣는다 — VIEWER·org-02 는 정책 오류, 상태·결과·요청자·스냅샷 열은 권한이 없고, 상태 전이·지우기는 worker 몫이며 ANALYSIS_REQUEST 감사가 남는다 (717.663416ms)
+  ✔ 같은 입력(조직·공고·revision·프로필·알고리즘)의 진행 중 요청은 하나다 — 두 번째 QUEUED 와 RUNNING 중의 요청은 23505(score_runs_active_input_key)이고 완료된 뒤에는 다시 요청한다 (704.924916ms)
+  ✔ 결정 기록은 ADMIN·SALES 만 넣는다 — ANALYST·VIEWER·org-02 는 정책 오류, 권고·불일치 플래그·검토자·시각은 열 권한이 없고 트리거가 채우며, REVIEW_DECIDE 감사와 담당자가 있을 때 REVIEW_ASSIGNED outbox 1건이 같은 트랜잭션에 남는다 (714.30775ms)
+  ✔ 결정의 분석 run 은 같은 조직·같은 공고의 것만이고(score_run_mismatch) 담당자는 같은 조직 멤버만이다(bid_reviews_assignee_fkey) — 담당자가 조직을 나가면 담당자만 비고 결정은 남는다 (675.631375ms)
+  ✔ 알림은 본인의 read_at 만 고친다 — 남의 알림은 0행, 다른 열·넣기·지우기는 권한 오류, 읽음 처리는 NOTIFICATION_READ 감사를 남기고 같은 값은 다시 남기지 않는다 (675.261292ms)
+  ✔ 업무 역할 변경은 그 조직의 ADMIN 만 한다 — SALES 의 시도와 org-02 owner(VIEWER)의 시도는 0행, ADMIN 은 자기 조직만 바꾸고 org-02 에는 0행이다 (675.262292ms)
+  ✔ 업무 역할 보호 트리거 — update 정책이 실수로 열려도 ADMIN 이 아닌 사람의 sol_role 변경은 42501(sol_role_admin_only)이고, 같은 값·ADMIN·JWT 없는 관리 작업·service_role 은 통과한다 (688.700792ms)
+  ✔ 초대의 업무 역할은 수락할 때 멤버십으로 옮겨진다 — ADMIN 이 ANALYST 로 초대하면 수락한 멤버십이 ANALYST 이고 USER_INVITE 감사가 남는다; 초대는 owner 가 아니라 ADMIN 이 하고(SALES·VIEWER·org-02 owner 는 정책 오류), 받은 사람은 sol_role 을 직접 쓰지 못한다 (674.546916ms)
+  ✔ worker 전용 표(점수 요소·자격 판정·항목 판정·인력 배정)는 조직 전원이 읽고 ADMIN 도 넣기·고치기·지우기는 권한 오류다 (663.187291ms)
+  ✔ 테넌트 혼입은 복합 외래 키가 거절한다(23503) — worker 가 RLS 없이 써도 다른 조직 프로필의 run, run 과 다른 org_id 의 요소·자격·항목 판정, 다른 조직 직원의 배정, 비멤버 수신자의 알림, 다른 공고의 revision 은 들어가지 않는다 (682.11875ms)
+  ✔ ADR-020 check 제약 — 완료 run 의 스냅샷, mock 대체 사유, 점수 범위·플래그 값, 첨부 다운로드·파싱 상태, NEEDS_REVIEW 의 사유 코드, 결정 사유 길이, 업무 역할 값은 관리 작업이 넣어도 DB 가 막는다(23514) (691.476084ms)
+  ✔ idempotency 키와 자연 키는 유일하다 — outbox·알림·수집 run 의 같은 키, 같은 공고 번호·revision, 분석 요청의 같은 Idempotency-Key 는 23505 (731.215667ms)
+  ✔ 화면 역할의 SOL 표 권한은 로그인 역할의 읽기(수집 run 은 열 단위)와 열 단위 넣기(회사 프로필·분석 요청·결정)·알림 read_at 고치기뿐이다 — anon 에는 없고 outbox_events 에는 아무것도 없다 (702.989709ms)
+  ▶ 화면 표시용 저장 열(20261019000010) — score_factors.missing_reason·score_runs.kev_assist
+    ✔ score_factors.missing_reason 은 null 허용 text, score_runs.kev_assist 는 null 허용 jsonb 이고 기본값이 없어 두 열 없이 넣은 행은 null 이다 (676.369417ms)
+    ✔ missing_reason 은 C4 MissingReason 8값과 null 만 받는다 — 모르는 값·소문자·빈 문자열·뒤 공백은 관리 작업이 넣어도 23514(score_factors_missing_reason_check)다 (677.375125ms)
+    ✔ org-01 의 네 역할은 자기 조직 run 의 kev_assist·요소의 missing_reason 을 읽고 org-02 행은 0행이다 — org-02 VIEWER 는 org-01 것을, 비멤버 운영자는 둘 다 0행으로 보고 로그아웃은 권한 오류다 (699.118625ms)
+    ✔ 두 열은 worker 만 쓴다 — 분석 요청 insert 에 kev_assist 를 넣으면 권한 오류이고 열 목록 그대로의 요청은 QUEUED·kev_assist null 로 들어가며, ADMIN 도 두 열을 고치거나 넣지 못하고 화면 역할의 열 권한은 authenticated 의 SELECT 뿐이다 (848.76925ms)
+  ✔ 화면 표시용 저장 열(20261019000010) — score_factors.missing_reason·score_runs.kev_assist (2901.909209ms)
+  ▶ C6 화면 읽기·분석 요청 보조 (20261019000012)
+    ✔ 분석 요청은 request_hash(null 허용 text, 기본값 없음)를 함께 넣고, 넣은 뒤에는 ADMIN·SALES 도 고치지 못한다(42501) (700.813959ms)
+    ✔ 같은 입력의 두 번째 QUEUED 요청은 23505(score_runs_active_input_key), 같은 멱등 키의 두 번째 요청은 다른 입력·다른 요청자라도 23505(score_runs_idempotency_key_key)다 (691.874208ms)
+    ✔ 요청자는 자기 QUEUED run 을 release_unqueued_score_run 으로 푼다 — true 이고 FAILED·ENQUEUE_FAILED·멱등 키 null·finished_at 만 바뀌며, 두 번째 호출은 false, 같은 키·같은 입력의 새 QUEUED run 은 들어간다 (746.064542ms)
+    ✔ 남의 run·RUNNING run·업무 역할이 VIEWER 인 요청자·org-02 사용자·없는 run 은 false 이고 행이 그대로다 — 로그아웃은 실행 권한 오류다 (759.583083ms)
+    ✔ latest_ingest_run 은 업무 역할이 있는 사용자(다른 조직 포함)에게 출처별 최신 수집 run 한 줄의 상태·시각·요약만 준다 — demo 는 fixture, live 는 g2b, all 은 전부이고, 조직 없는 사용자는 0행, 로그아웃은 실행 권한 오류다 (712.376708ms)
+    ✔ bid_list_items 의 열 이름·타입은 화면 계약 그대로이고, 화면 역할 권한은 authenticated 의 SELECT 하나다 — 로그아웃은 권한 오류다 (733.563375ms)
+    ✔ bid_list_items — org-01 VIEWER 는 BID1 의 최신 run RUN1·점수·결정을 보고, 새 QUEUED run 이 생기면 최신 run 은 그것이지만 점수는 마지막 완료 run 의 것이며, 최신 결정은 검토자 이름·이메일과 함께 나온다 (738.69475ms)
+    ✔ bid_list_items 는 security_invoker 다 — org-02 VIEWER 는 공고를 모두 보지만 org-01 의 run·결정은 보지 않고(자기 조직 것만), 비멤버 운영자는 조직 열이 모두 비어 있다 (738.922667ms)
+    ✔ bid_list_items 의 status 는 OPEN·AMENDED 이고 마감이 지났으면 CLOSED, 아니면 저장 값이다(B14) — 마감 없음·남은 마감·CANCELLED 는 그대로다 (756.965458ms)
+    ✔ bid_list_items 의 첨부 집계는 최신 revision 의 첨부만 센다 — 대기(다운로드 PENDING 또는 OK + 파싱 null·PENDING)·PARSED·PARTIAL·UNSUPPORTED·파싱 FAILED·다운로드 FAILED (702.719708ms)
+  ✔ C6 화면 읽기·분석 요청 보조 (20261019000012) (7282.189417ms)
+✔ SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1) (31981.168834ms)
+▶ 수집 저장 함수 — ingest_save_revision (C3 Stage 6)
+  ✔ 실행 권한은 service_role 에만 있다 — anon·authenticated·PUBLIC 은 없다 (746.175583ms)
+  ✔ 함수는 security invoker 이고 search_path 를 빈 값으로 고정한다 (845.848083ms)
+  ✔ 로그아웃한 사용자(anon)가 부르면 권한 오류이고 아무 행도 생기지 않는다 (949.227834ms)
+  ✔ 로그인한 사용자(authenticated)는 운영자라도 부르면 권한 오류이고 아무 행도 생기지 않는다 (826.871625ms)
+  ✔ service_role 한 번 호출로 공고·revision·첨부 2개·outbox 이벤트를 함께 쓰고 그것을 잇는 (bid_id, revision_id) 한 행을 돌려준다 (731.829375ms)
+  ✔ revision 1 의 공고 행은 notice 필드를 그대로 담고 latest_revision 은 1, content_hash 는 checksum, last_synced_at 은 fetched_at 이다 (704.002208ms)
+  ✔ notice 의 빈 값(plan_ref·pre_spec_ref·agency·budget_krw·published_at·deadline_at 이 null)은 null 로 저장한다 (802.163541ms)
+  ✔ revision 행은 p.revision 의 차수·amendment_no·원본·정규화·checksum·changed_fields·fetched_at 을 그대로 담는다 (692.457708ms)
+  ✔ 첨부 2개는 그 revision 에 묶인 bid_documents 2행이 되고 download_status 는 PENDING 이다 (732.719791ms)
+  ✔ 첨부가 없으면 bid_documents 행 없이 공고·revision·outbox 이벤트만 쓴다 (709.554208ms)
+  ✔ outbox 이벤트는 org_id null·aggregate_type bid_notice·aggregate_id 공고 id 로 event_type·payload·idempotency_key 를 그대로 담고 PENDING 이다 (723.966125ms)
+  ✔ bid_id·revision_id 를 주면 그 id 로 저장하고 그대로 돌려준다 — revision 2 도 같은 bid_id 와 새 revision_id 로 (889.959125ms)
+  ✔ revision 2 는 같은 공고 행의 필드·latest_revision·content_hash·last_synced_at 을 갱신하고 revision 행이 2개가 된다 (747.7975ms)
+  ✔ revision 2 는 (source, notice_id) 로 공고를 찾는다 — notice_id 가 같아도 source 가 다른 공고는 그대로다 (712.683ms)
+  ✔ 같은 idempotency_key 의 outbox 이벤트는 무시하지만 그 revision 은 저장한다 — 이벤트 행은 처음 것 하나 그대로다 (742.314875ms)
+  ✔ 같은 (source, notice_id) 에 revision 1 을 다시 주면 INGEST_BID_EXISTS 이고 덮어쓰지도 행을 늘리지도 않는다 (729.441208ms)
+  ✔ revision 2 인데 bid_id 가 저장된 공고와 다르면 INGEST_BID_ID_MISMATCH 이고 아무 행도 늘지 않는다 (859.50475ms)
+  ✔ latest_revision 이 1 인데 revision 3 을 주면 INGEST_REVISION_CONFLICT 이고 아무 행도 늘지 않는다 (666.358209ms)
+  ✔ 이미 저장한 revision 2 를 다시 주면 INGEST_REVISION_CONFLICT 이고 아무 행도 늘지 않는다 (753.92025ms)
+  ✔ 저장된 적 없는 공고에 revision 2 를 주면 INGEST_BID_NOT_FOUND 이고 아무 행도 생기지 않는다 (1043.541542ms)
+  ✔ 첨부 원소의 name 이 null 이면 NOT NULL 위반으로 실패하고 네 표 모두 롤백된다 — 행 수 0 그대로 (1253.933583ms)
+  ✔ revision 2 저장 중 첨부 name 이 null 이면 공고 갱신까지 되돌아간다 — 공고 행·네 표 행 수가 revision 1 그대로다 (846.420625ms)
+✔ 수집 저장 함수 — ingest_save_revision (C3 Stage 6) (17712.1555ms)
+▶ 분석 마감 함수 — finish_score_run (C5-B 보안 후속)
+  ✔ 실행 권한은 service_role 에만 있다 — anon·authenticated·PUBLIC 은 없다 (844.015959ms)
+  ✔ 함수는 security invoker 이고 search_path 를 빈 값으로 고정하며 uuid 를 돌려준다 (732.286625ms)
+  ✔ 로그아웃한 사용자(anon)가 부르면 권한 오류이고 run·자식 행이 그대로다 (770.904542ms)
+  ✔ 로그인한 사용자(authenticated)는 그 조직의 ADMIN·운영자라도 부르면 권한 오류이고 run·자식 행이 그대로다 (757.934417ms)
+  ✔ service_role 이 RUNNING·같은 시도의 run 에 부르면 그 run id 한 행을 돌려준다 (756.392417ms)
+  ✔ 마감 열 24개를 p.run 값으로 쓰고 started_at 은 이 시도의 시작 시각 그대로다 (997.894375ms)
+  ✔ 요소 다섯 행·항목 판정·자격 판정을 p 의 행 그대로 그 run·조직에 쓴다 (2078.319958ms)
+  ✔ 앞 시도가 남긴 자식 행이 있으면 요소는 (score_run_id, factor) 로 고쳐 쓰고(중복 없음) 항목·자격 판정은 지운 뒤 p 의 행만 남긴다 (1426.813292ms)
+  ✔ 항목·자격 판정이 빈 배열이면 그 run 의 옛 행을 지우고 넣지 않는다 — 요소와 마감은 쓴다 (1009.866292ms)
+  ✔ 같은 조직의 다른 run 과 그 자식 행은 건드리지 않는다 (1137.353083ms)
+  ✔ 자식 행이 다른 조직의 run 을 가리켜도 그 run 에는 자식 행이 생기지 않는다(p 의 run 으로 쓰거나 23503 으로 거절) (924.041ms)
+  ✔ 자격 판정 행이 다른 공고·revision 을 가리켜도 그 run 의 bid_id·revision_id 로 저장한다 (1156.695708ms)
+  ✔ p.run 에 마감 밖 열(started_at·org_id·idempotency_key·company_profile_id·queued_at·requested_by)을 넣어도 그 열은 바뀌지 않는다 (1234.940416ms)
+  ✔ 끝난 run(COMPLETED)에 늦은 시도가 같은 시도 식별자로 부르면 SCORE_RUN_NOT_RUNNING 이고 run·자식 행이 그대로다(행 수·값) (1228.7115ms)
+  ✔ 끝난 run(PARTIAL)에 늦은 시도가 같은 시도 식별자로 부르면 SCORE_RUN_NOT_RUNNING 이고 run·자식 행이 그대로다(행 수·값) (1076.230292ms)
+  ✔ 끝난 run(FAILED)에 늦은 시도가 같은 시도 식별자로 부르면 SCORE_RUN_NOT_RUNNING 이고 run·자식 행이 그대로다(행 수·값) (1020.220292ms)
+  ✔ 아무 시도도 잡지 않은 QUEUED run 이면 SCORE_RUN_NOT_RUNNING 이고 run 이 그대로다 (1207.319041ms)
+  ✔ 다른 시도가 다시 잡은 RUNNING run(started_at 이 1ms 다르다)이면 SCORE_RUN_NOT_RUNNING 이고 그 시도의 자식 행·run 이 그대로다 (1504.714667ms)
+  ✔ attempt_started_at 이 없거나 null 이면 SCORE_RUN_NOT_RUNNING 이고 run 이 그대로다 (1575.043417ms)
+  ✔ 같은 시도로 두 번 부르면 두 번째는 SCORE_RUN_NOT_RUNNING 이고 첫 결과가 그대로다 (1317.612ms)
+  ✔ p.org_id 가 그 run 의 조직이 아니면 SCORE_RUN_NOT_FOUND 이고 두 조직의 run·자식 행이 그대로다 (1367.190833ms)
+  ✔ 없는 run 이면 SCORE_RUN_NOT_FOUND 이고 아무 행도 생기지 않는다 (1968.594708ms)
+  ✔ 자격 판정 한 행이 check 위반이면 23514 로 실패하고 앞서 쓴 요소·항목 판정과 옛 행 지우기까지 모두 되돌아간다 (1209.846ms)
+  ✔ 마감 열이 check 위반이면(COMPLETED 인데 입력 스냅샷 없음) 자식 3표 쓰기가 모두 되돌아가고 run 은 RUNNING 그대로다 (882.454916ms)
+  ✔ p.run.status 가 FAILED 이면 SCORE_RUN_INVALID_STATUS 이고 자식 3표·score_runs 가 그대로다 (790.200083ms)
+  ✔ p.run.status 가 RUNNING 이면 SCORE_RUN_INVALID_STATUS 이고 자식 3표·score_runs 가 그대로다 (815.797583ms)
+  ✔ p.run.status 가 QUEUED 이면 SCORE_RUN_INVALID_STATUS 이고 자식 3표·score_runs 가 그대로다 (867.409541ms)
+  ✔ p.run.status 가 없음(지금 값 RUNNING 그대로) 이면 SCORE_RUN_INVALID_STATUS 이고 자식 3표·score_runs 가 그대로다 (912.347209ms)
+  ✔ p.run.status 가 COMPLETED 이면 지금처럼 마감하고 그 run id 를 돌려준다 (763.573958ms)
+  ✔ p.run.status 가 PARTIAL 이면 지금처럼 마감하고 그 run id 를 돌려준다 (805.258708ms)
+  ▶ score_runs.idempotency_key 조직 접두어 check
+    ✔ 제약 score_runs_idempotency_key_org_check 가 score_runs 의 check 로 있다 (703.017291ms)
+    ✔ 다른 조직의 접두어 키는 23514(score_runs_idempotency_key_org_check)로 거절한다 (1331.692541ms)
+    ✔ 조직 접두어가 없다 키는 23514(score_runs_idempotency_key_org_check)로 거절한다 (5258.431417ms)
+    ✔ org_id 뒤에 ':' 가 없다 키는 23514(score_runs_idempotency_key_org_check)로 거절한다 (5431.528959ms)
+    ✔ 접두어가 맨 앞이 아니다 키는 23514(score_runs_idempotency_key_org_check)로 거절한다 (3489.375209ms)
+    ✔ null·`<org>:demo-pre-FX-01-r01`·`<org>:<uuid>` 키는 넣을 수 있다 (2729.580375ms)
+    ✔ C6 요청(로그인 ADMIN 의 열 단위 insert)은 `<org>:<uuid>` 면 통과하고 다른 조직 접두어면 23514 다 (3686.362542ms)
+    ✔ 이미 있는 run 의 키를 다른 조직 접두어로 바꾸면 23514 로 거절하고 키가 그대로다 (2588.888541ms)
+  ✔ score_runs.idempotency_key 조직 접두어 check (25219.875416ms)
+  ▶ ANALYSIS_COMPLETE outbox (C7)
+    ✔ 요청자가 있는 run 을 COMPLETED 로 마감하면 ANALYSIS_COMPLETE outbox 1건을 org_id·aggregate·payload·키 그대로 PENDING 으로 쓴다 (1481.265959ms)
+    ✔ PARTIAL 로 마감하면 payload.status 가 PARTIAL 이다 (2135.09925ms)
+    ✔ outbox 의 payload 키는 scoreRunId·bidId·orgId·requestedBy·status 다섯 개뿐이다(결과·점수·스냅샷을 싣지 않는다) (1644.761542ms)
+    ✔ 다른 조직의 run 을 마감하면 그 run 의 조직(org_id)으로 쓴다 (1851.9835ms)
+    ✔ 요청자가 없는 run(requested_by null)은 마감해도 outbox 를 쓰지 않는다 (3195.997875ms)
+    ✔ 거절되면(끝난 run(COMPLETED) — SCORE_RUN_NOT_RUNNING) 요청자가 있어도 outbox 를 쓰지 않는다 (3997.573709ms)
+    ✔ 거절되면(QUEUED run — SCORE_RUN_NOT_RUNNING) 요청자가 있어도 outbox 를 쓰지 않는다 (2265.763625ms)
+    ✔ 거절되면(다른 시도 — SCORE_RUN_NOT_RUNNING) 요청자가 있어도 outbox 를 쓰지 않는다 (3586.224458ms)
+    ✔ 거절되면(마감 status FAILED — SCORE_RUN_INVALID_STATUS) 요청자가 있어도 outbox 를 쓰지 않는다 (3847.61425ms)
+    ✔ 거절되면(다른 조직의 p.org_id — SCORE_RUN_NOT_FOUND) 요청자가 있어도 outbox 를 쓰지 않는다 (1714.760584ms)
+    ✔ 거절되면(마감 열 check 위반(COMPLETED 인데 입력 스냅샷 없음) — 23514) 요청자가 있어도 outbox 를 쓰지 않는다 (1273.179708ms)
+    ✔ 같은 시도로 두 번 부르면 두 번째는 거절되고 outbox 는 첫 마감의 1건 그대로다 (1087.376458ms)
+    ✔ 같은 키의 outbox 행이 이미 있으면 마감은 성공하고 그 행이 그대로 1건이다(on conflict do nothing) (855.489208ms)
+    ✔ 같은 조직의 다른 run 마감은 그 run 의 키로 따로 1건씩이다 (989.910959ms)
+    ✔ notifications 에 같은 idempotency_key 를 두 번 on conflict do nothing 으로 넣으면 1건이고 처음 행이 그대로다 (823.224375ms)
+  ✔ ANALYSIS_COMPLETE outbox (C7) (30755.965625ms)
+✔ 분석 마감 함수 — finish_score_run (C5-B 보안 후속) (89118.010417ms)
+▶ 알림 outbox 부분 인덱스 — outbox_events_notify_due_idx (C7)
+  ✔ pg_indexes 에 public.outbox_events 의 outbox_events_notify_due_idx 가 있다 (824.532083ms)
+  ✔ btree 이고 unique 가 아니며 키 열은 (created_at, id) 순서다(findDue 의 정렬과 같다) (904.51375ms)
+  ✔ WHERE 는 status PENDING·FAILED 이면서 event_type REVIEW_ASSIGNED·ANALYSIS_COMPLETE 인 행만 덮는다 (784.881917ms)
+  ✔ 인덱스는 20261019000017 마이그레이션이 만든다 — 그 앞까지 적용하면 없고, 그 파일을 적용하면 생긴다 (860.104917ms)
+✔ 알림 outbox 부분 인덱스 — outbox_events_notify_due_idx (C7) (3374.386209ms)
+▶ 마이그레이션 재실행
+  ✔ 전체를 두 번 적용해도 실패하지 않고 RLS·권한·정책·트리거가 같다 (958.934625ms)
+✔ 마이그레이션 재실행 (959.06225ms)
+▶ 배포 전 DB 검증
+  ✔ 연결되더라도 적용 이력이 없으면 실패한다 (4.972208ms)
+  ✔ 이력이 있지만 필요한 마이그레이션이 빠졌으면 실패한다 (32.576875ms)
+  ✔ RLS가 빠진 테이블이 생기면 실패한다 (1.990334ms)
+✔ 배포 전 DB 검증 (39.759459ms)
+▶ 화면 역할의 위험한 표 권한
+  ✔ 전체 마이그레이션을 적용한 새 DB 에는 위험 권한이 없다 (777.0665ms)
+  ✔ 새 표에 RLS 만 켜고 기본 권한(all)을 남기면 실패하고, 필요한 CRUD 만 남기면 통과한다 (701.014417ms)
+  ✔ 역할마다 위험 권한 하나만 줘도 그 역할·권한을 짚는다 (592.55875ms)
+  ✔ PUBLIC 에 준 권한은 두 화면 역할 모두에 잡힌다 (606.049042ms)
+  ✔ 다른 역할에서 상속받은 권한도 잡는다 (583.006709ms)
+  ✔ 열 단위 REFERENCES 는 잡고, 열 단위 읽기·쓰기는 허용한다 (591.57025ms)
+  ✔ 파티션 부모와 리프를 각각 본다 (631.129084ms)
+✔ 화면 역할의 위험한 표 권한 (4482.857416ms)
+▶ Supabase 흉내 — public 의 새 함수·시퀀스 기본 권한
+  ✔ bigserial 표에 정책이 허용한 insert 는 시퀀스 권한에 막히지 않는다 (878.091459ms)
+  ✔ 새 함수는 PUBLIC 만 거둬도 화면 역할에 실행 권한이 남는다 (579.428375ms)
+✔ Supabase 흉내 — public 의 새 함수·시퀀스 기본 권한 (1457.691167ms)
+▶ 뷰·함수로 RLS 를 거치지 않는 길
+  ✔ 전체 마이그레이션을 적용한 새 DB 에는 없다 — 허용 목록의 함수(정책 도우미·탈퇴·회원 상태)는 통과한다 (688.019042ms)
+  ✔ security_invoker 가 아닌 뷰는 anon 에게 모든 이메일을 보여 주고, 검사기와 배포 검증이 잡는다 (702.292916ms)
+  ✔ security_invoker 의 값 변형은 켜진 것으로 보고, security_barrier 만 켜거나 끈 뷰는 잡는다 (901.542584ms)
+  ✔ 화면 역할이 못 읽는 뷰는 통과하고, 열 하나·PUBLIC 으로만 읽어도 잡는다 (821.945167ms)
+  ✔ 읽기를 거둬도 쓰기 권한이 남은 security_invoker 아닌 뷰는 정책 없이 남의 행을 바꾼다 — 검사기가 잡는다 (797.847958ms)
+  ✔ 외부 표(foreign table)는 RLS 를 켤 수 없으니 화면 역할이 읽거나 쓸 수 있으면 잡는다 (945.625625ms)
+  ✔ 머티리얼라이즈드 뷰는 화면 역할이 읽을 수 있으면 잡는다(RLS 를 걸 수 없다) (1016.3795ms)
+  ✔ PUBLIC 만 거둔 SECURITY DEFINER 함수는 화면 역할이 여전히 부르고, 검사기와 배포 검증이 잡는다 (1213.094291ms)
+  ✔ 허용 목록은 이름이 아니라 시그니처로 맞춘다 — 허용한 함수와 이름이 같아도 인자가 다르면 잡는다 (1095.342333ms)
+  ✔ 모든 SECURITY DEFINER 함수는 search_path 를 고정해야 한다 — 허용 목록도 예외가 아니다 (3123.619667ms)
+  ✔ 트리거 함수는 /rpc 로 못 부르니 실행 권한은 보지 않지만 search_path 는 본다 (1732.481042ms)
+  ✔ 화면 역할이 없는 DB 는 통과로 처리하지 않는다 (1096.097083ms)
+✔ 뷰·함수로 RLS 를 거치지 않는 길 (14135.273167ms)
+▶ 확장이 깐 객체
+  ✔ 확장이 public 에 깐 뷰는 화면 역할이 읽어도 잡지 않아 배포 검증이 통과하고, 그 옆에 만든 뷰는 잡는다 (1220.289042ms)
+  ✔ 확장 구성원이 된(alter extension ... add) 머티리얼라이즈드 뷰·외부 표·SECURITY DEFINER 함수는 빠지고, 빼면 다시 잡힌다 (1115.372458ms)
+✔ 확장이 깐 객체 (2335.948083ms)
+▶ RLS 정책 성능 — 질의마다 값이 같은 호출은 (select ...) 로 감싼다
+  ✔ 전체 마이그레이션을 적용한 DB 의 public 정책은 모두 감쌌다 (1037.8775ms)
+  ✔ 프로필 읽기는 is_admin()·auth.uid() 를 행마다가 아니라 질의마다 한 번 부른다(InitPlan) (875.155292ms)
+  ✔ 감싸지 않은 호출은 잡고, 감싼 호출은 통과시킨다 (987.227916ms)
+✔ RLS 정책 성능 — 질의마다 값이 같은 호출은 (select ...) 로 감싼다 (2900.69675ms)
+▶ 솔리데오 카탈로그·가입 신고
+  ▶ people business roles
+    ✔ upgrades existing memberships with VIEWER while preserving all prior policies and grants (1233.078292ms)
+    ✔ 20261019000001 backfills ADMIN only for the owner of a team organization that has no ADMIN (1143.050125ms)
+    ✔ defaults every existing owner/member to VIEWER without granting business ADMIN (1013.843666ms)
+    ✔ VIEWER can read its catalog but cannot write people or promote itself (1027.475167ms)
+    ✔ ANALYST can read its catalog but cannot write people or promote itself (1172.121792ms)
+    ✔ SALES can read its catalog but cannot write people or promote itself (1162.359417ms)
+    ✔ ADMIN can read its catalog but cannot write people, reach another organization, or insert a sol_role directly (1861.686291ms)
+    ✔ an owner without ADMIN cannot change roles, while a member with ADMIN changes org_role and sol_role stays (2505.177958ms)
+    ✔ other-organization users and platform admins cannot read the roster; anonymous is denied (6358.490958ms)
+  ✔ people business roles (17486.605583ms)
+  ✔ 회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다 (10647.467833ms)
+  ✔ 비멤버는 공개 필드만 변환하고 본인 이름·신고 FK를 한 번에 갱신한다 (9385.8815ms)
+  ✔ 다른 회사·미지 코드 및 UUID는 resolver와 본인 UPDATE 모두 거절한다 (8810.879459ms)
+  ✔ DIVISION은 signup에서 거절한다 (6322.271083ms)
+  ✔ DIVISION은 RPC에서 거절한다 (1282.561709ms)
+  ✔ DIVISION은 UPDATE에서 거절한다 (1154.416125ms)
+  ✔ GROUP은 signup에서 거절한다 (1611.209792ms)
+  ✔ GROUP은 RPC에서 거절한다 (2511.074958ms)
+  ✔ GROUP은 UPDATE에서 거절한다 (4261.009584ms)
+  ✔ TEAM은 조직 없는 계정의 가입·RPC·직접 UPDATE를 허용한다 (3335.19375ms)
+  ✔ legacy null은 조직 없는 계정의 가입·RPC·직접 UPDATE를 허용한다 (8630.940417ms)
+  ✔ 명부의 복합 FK·이름·성별·카탈로그 최소 인원 제약을 강제한다 (9505.907833ms)
+  ✔ 유효 메타데이터만 신고 FK로 옮기며 관리자·멤버십을 부여하지 않는다 (8943.823875ms)
+  ✔ 신고 키가 모두 없는 OAuth는 nullable이며 HTTPS 사진·이름만 보존한다 (5889.307542ms)
+  ✔ ADR021 점수는 같은 조직만 읽고 owner·운영자·일반회원·익명은 쓰지 못한다 (6925.140416ms)
+  ✔ 합성 직원 속성은 JSON 배열·출처·완전성을 DB 제약으로 강제한다 (2683.407541ms)
+  ✔ ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다 (1864.326916ms)
+  ✔ ADR021 legacy null kind도 팀의 null 인원을 허용하지 않는다 (1688.335292ms)
+  ✔ ADR021 계층은 부모 조직·종류·인원 제약과 양방향 TEAM 소속을 강제한다 (1312.10975ms)
+  ✔ 카탈로그 삭제는 일반 Auth 계정을 남기고 신고 FK만 null로 만든다 (1166.668125ms)
+✔ 솔리데오 카탈로그·가입 신고 (115443.4025ms)
+✔ 솔리데오 조직 삭제도 신고한 일반 계정·개인 조직을 보존한다 (989.8715ms)
+✔ ADR021 가입 변경은 이전 개인 조직·소유권·작업을 그대로 보존한다 (1170.506417ms)
+▶ 시드 주소 검사
+  ✔ 로컬 주소는 통과시킨다 (1.603834ms)
+  ✔ 클라우드 주소·빈 값은 거부한다 (0.87875ms)
+✔ 시드 주소 검사 (3.945167ms)
+▶ 시드 날짜
+  ✔ 서울 날짜로 가르고 달을 넘겨 더한다 (70.148583ms)
+  ✔ n 일 전의 시각은 자정 직후·직전에도 그 서울 날짜 안이고, 오늘이면 지금보다 앞이다 (3.6625ms)
+✔ 시드 날짜 (74.010917ms)
+▶ 시드 계획
+  ✔ 이메일과 작업 제목이 겹치지 않는다 (0.298041ms)
+  ✔ 운영자 계정은 seed-admin(정운영)이고 팀 작업에 나오지 않는다 (1.654ms)
+  ✔ 계정은 소유자·멤버·조직 밖 사람·초대받은 사람·운영자 순서로 만든다 (0.187959ms)
+  ✔ 만든 날·완료한 날은 최근 14일 안이고, 완료는 만든 뒤다 (2.094ms)
+  ✔ 대시보드 수치는 어느 요일 어느 시각에 돌려도 열린 8 · 기한 지남 2 · 이번 주 완료 2 · 내 담당 3 이다 (145.198458ms)
+✔ 시드 계획 (149.976ms)
+✔ 개인 조직 기존: 재시드는 다섯 계정·팀을 보존하고 개인 공간을 만들지 않는다 (343.590583ms)
+✔ 개인 조직 없음: 재시드는 다섯 계정·팀을 보존하고 개인 공간을 만들지 않는다 (85.386917ms)
+✔ 빈 DB(시드 팀 없음): 팀은 관리 키로 만들고 소유자 멤버십을 직접 넣는다 — ADR-026 으로 팀 만들기가 운영자만이라 소유자 토큰이면 RLS 403 이다 (25.189417ms)
+✔ 수락된 시드 초대는 두 번 재시드해도 미수락 상태로 복원하고 다른 멤버십을 보존한다 (209.654958ms)
+✔ 비시드 회원이 있는 팀은 초대 수락 복원 전 거절하고 모든 팀 데이터를 보존한다 (24.209958ms)
+✔ saved fixtures pass every check (176.910083ms)
+✔ manifest carries the required scenario tags (13.230125ms)
+✔ mock extractions cover every non-quarantined fixture and nothing else (0.178125ms)
+✔ FX-01 extraction: 5 required + 2 preferred skills, 3 qualifications, 12 staff, quotes in content (0.162375ms)
+✔ FX-02 extraction: 6 required + 2 preferred skills, staffing UNKNOWN, quotes in content (13.489333ms)
+✔ FX-03 extraction quotes the mandatory 정보통신공사업 registration (0.12475ms)
+✔ FX-04 extraction has no citations and every field UNKNOWN (0.067625ms)
+✔ FX-05 extraction records the attachment parse failure and quotes only the body (0.292167ms)
+✔ FX-13 extraction has exactly one quote that is not in the content (0.272417ms)
+✔ FX-07 latest extraction keeps Kubernetes that the first revision lacks (0.609708ms)
+✔ FX-11 extraction: staffing KNOWN, budget UNKNOWN (0.085ms)
+✔ every extraction date stays UNKNOWN because content has no absolute dates (0.457042ms)
+✔ FX-01 Kev mock carries the fixed 07 §6.3 values (0.15725ms)
+✔ FX-02 Kev mock carries the fixed 07 §6.3 values (0.029958ms)
+✔ FX-03 Kev mock carries the fixed 07 §6.3 values (0.022917ms)
+✔ FX-16 Kev mock carries the fixed 07 §6.3 values (0.021125ms)
+✔ FX-01 golden carries the fixed 08 §6.5 values (0.059834ms)
+✔ FX-02 golden carries the fixed 08 §6.5 values (0.026ms)
+✔ FX-03 golden carries the fixed 08 §6.5 values (0.022209ms)
+✔ FX-07 keeps an r01 extraction made from the first revision (no Kubernetes) (0.108ms)
+✔ FX-07 keeps an r01 Kev response for the first revision (WATCH, rule score 68) (0.041458ms)
+✔ an rNN Kev response for an earlier revision passes like an rNN extraction (9.128375ms)
+✔ a prototype-named key in a mock folder is rejected without throwing (28.077ms)
+✔ rejects isDemo false (10.295917ms)
+✔ rejects real source url (4.441291ms)
+✔ rejects real email address (4.258291ms)
+✔ rejects phone number (35.98575ms)
+✔ rejects absolute deadline (4.547667ms)
+✔ rejects missing title (2.816125ms)
+✔ rejects blank title (7.770542ms)
+✔ rejects fixture dropped from manifest (3.996041ms)
+✔ rejects duplicate manifest id (6.565333ms)
+✔ rejects LIVE batch drift (17.644625ms)
+✔ rejects wrong schema version (19.72ms)
+✔ rejects outcome distribution drift (118.108875ms)
+✔ rejects stage distribution drift (41.876458ms)
+✔ rejects budget text without budget-text tag (23.146292ms)
+✔ rejects budget-text tag does not allow arbitrary text (10.355459ms)
+✔ rejects cancelled outcome without CANCELLED status (7.644625ms)
+✔ rejects CANCELLED status on another fixture (9.790708ms)
+✔ rejects unknown status (6.44175ms)
+✔ rejects fixtureId differs from file name (6.425875ms)
+✔ rejects unknown stage (62.146208ms)
+✔ rejects unknown connector behavior (2.26275ms)
+✔ rejects one-digit amendment number (2.029708ms)
+✔ rejects ingest batch differs from manifest (2.033667ms)
+✔ rejects LIVE fixture missing its LIVE record (1.932875ms)
+✔ rejects real-looking notice id (2.537583ms)
+✔ rejects malformed plan reference (51.910166ms)
+✔ rejects required tag removed (6.906416ms)
+✔ rejects malformed bids container (1.720083ms)
+✔ rejects quote that is not in the content (3.625041ms)
+✔ rejects FX-13 mismatching quote replaced by a content sentence (4.522041ms)
+✔ rejects FX-13 with two mismatching quotes (41.252875ms)
+✔ rejects extraction for the quarantined FX-12 (16.106ms)
+✔ rejects FX-05 extraction removed (5.624708ms)
+✔ rejects extraction bidId differs from its file name (8.310375ms)
+✔ rejects extraction revisionId is not the last amendment (8.190875ms)
+✔ rejects extraction evidence with a document id (9.190166ms)
+✔ rejects KNOWN field with the value removed (3.52275ms)
+✔ rejects KNOWN field with its evidence emptied (76.929208ms)
+✔ rejects quote shorter than 5 characters (4.190875ms)
+✔ rejects quote longer than 300 characters (3.684125ms)
+✔ rejects FX-01.r02 extraction for a revision the fixture does not have (7.593ms)
+✔ rejects rNN extraction for the last revision duplicates the main file (2.146333ms)
+✔ rejects rNN extraction whose revisionId differs from its name (6.319625ms)
+✔ rejects rNN extraction quoting text only the later revision has (1.995083ms)
+✔ rejects malformed rNN file name (2.469833ms)
+✔ rejects FX-07.r01 extraction removed (3.675667ms)
+✔ rejects email address in an extraction note (2.798083ms)
+✔ rejects email address in an rNN extraction (2.061333ms)
+✔ rejects phone number in a Kev file (2.850417ms)
+✔ rejects email address in a golden file (2.393083ms)
+✔ rejects phone number in the manifest (3.639584ms)
+✔ rejects real url in a bid content (2.468042ms)
+✔ rejects main extraction quoting text that the earlier revision lacks (no rNN file) (2.004041ms)
+✔ rejects extraction budget differs from the record budget (3.1985ms)
+✔ rejects budget-text extraction not converted to won (2.35325ms)
+✔ rejects amendment numbers going down (2.161125ms)
+✔ rejects record stage differs from the file stage (4.295208ms)
+✔ rejects exception tag on a fixture that may not carry it (6.400666ms)
+✔ rejects FX-09.r01 duplicates the main file (both records are 01) (2.111291ms)
+✔ rejects prototype-named manifest id (5.466875ms)
+✔ rejects Kev FX-16 removed (2.882083ms)
+✔ rejects Kev recommendation probabilities sum to 0.9 (3.056625ms)
+✔ rejects Kev fit probabilities do not sum to 1 (2.390166ms)
+✔ rejects Kev choice is not the top probability (2.339375ms)
+✔ rejects Kev noul outside 0..1 (2.22325ms)
+✔ rejects Kev fit legend renamed (1.923333ms)
+✔ rejects Kev fixtureId differs from its file name (192.212292ms)
+✔ rejects Kev fit score is not the mean grade index (69.660209ms)
+✔ rejects Kev fit score above 4 (5.16575ms)
+✔ rejects Kev rNN key with a one-digit revision (7.639083ms)
+✔ rejects Kev FX-01.r02 for a revision the fixture does not have (2.0845ms)
+✔ rejects Kev rNN for the last revision duplicates the main file (11.835625ms)
+✔ rejects Kev rNN for the quarantined fixture (25.533667ms)
+✔ rejects Kev rNN without its main file (31.643333ms)
+✔ rejects Kev rNN fixtureId differs from its file name (11.851958ms)
+✔ rejects golden FX-03 removed (35.969042ms)
+✔ rejects golden points changed without total (3.586541ms)
+✔ rejects golden score is not the rounded total (3.678625ms)
+✔ rejects golden score differs from the manifest design score (4.945708ms)
+✔ rejects golden recommendation differs from the manifest outcome (1.900041ms)
+✔ rejects golden calculation date differs from the manifest (15.448125ms)
+✔ rejects golden factors out of order (5.67725ms)
+✔ rejects golden maxPoints changed (6.213125ms)
+✔ unreadable root fails safely without disclosing its path (35.113417ms)
+✔ CLI exits 0 and prints one JSON line (867.200333ms)
+✔ projects exactly the four public fields and only id/label options (1.706167ms)
+✔ saved data passes without claiming source comparison or requiring planned images (108.553084ms)
+✔ rejects public projection leaks metadata (18.185083ms)
+✔ rejects duplicate person IDs (42.419625ms)
+✔ rejects invalid name (8.794125ms)
+✔ rejects duplicate name (9.568167ms)
+✔ rejects unknown department (5.836333ms)
+✔ rejects unknown title (11.509542ms)
+✔ rejects wrong gender totals (7.129584ms)
+✔ rejects incorrect allocation target (107.909625ms)
+✔ rejects incorrect source title weight (6.9105ms)
+✔ rejects incorrect score role (11.974417ms)
+✔ rejects excluded scoring member (19.502958ms)
+✔ rejects wrong availability interval (9.681959ms)
+✔ rejects wrong assignment percentage (14.23075ms)
+✔ rejects duplicate assignment (30.331125ms)
+✔ rejects portrait identity drift (25.596666ms)
+✔ rejects portrait path traversal (11.010917ms)
+✔ rejects wrong company (1.912833ms)
+✔ rejects missing roster (2.295791ms)
+✔ rejects unapproved source totals (36.729875ms)
+✔ rejects invalid catalog ID (25.042125ms)
+✔ release requires original source and rejects the planned manifest (14.644959ms)
+✔ unreadable source fails safely without disclosing its path (108.683708ms)
+✔ canonical strict CLI fails SOURCE_REQUIRED without --input (2251.684125ms)
+✔ fixture CLI explicitly reports source comparison not-run (2539.150875ms)
+✔ READY flags cannot pass release without human approval, original source and actual files (3246.580958ms)
+✔ fixture mode rejects fabricated READY without documented human PASS (28.85575ms)
+✔ malformed READY metadata returns safe errors instead of throwing (2654.842958ms)
+✔ malformed null entry fails closed (4.443666ms)
+✔ malformed array department entry fails closed (5.561833ms)
+✔ malformed missing assignments fails closed (6.26525ms)
+✔ strict CLI does not accept fixture mode mixed with release (825.804834ms)
+✔ v2 upper catalog preserves every public option and fixture validation; legacy v1 still works (14.897334ms)
+✔ known-team names and allocation weights cannot drift even with a matching public projection (9.932209ms)
+▶ mock 추출 fixture
+  ✔ FX-xx.rNN.json 은 그 revision, FX-xx.json 은 나머지 revision 에 쓴다(07 §6.5) (0.598917ms)
+  ✔ 자리표시 FX-xx·FX-xx#NN 을 UUID 로 깊이 바꾼다 (0.516375ms)
+  ✔ 첨부 파싱 실패 경고가 있으면 PENDING_REVIEW, 아니면 COMPLETED (0.209958ms)
+✔ mock 추출 fixture (2.397041ms)
+▶ 회사 프로필 revision
+  ✔ revision 2 는 fixture 그대로, revision 1 은 초기 기술 4·2024년 실적 2·목록 불완전 (1.188042ms)
+  ✔ org-02 는 빈 프로필 revision 1 이고 is_demo 다 (0.088292ms)
+  ✔ org-01 revision 2 fixture 가 아니면 멈춘다 (0.218708ms)
+✔ 회사 프로필 revision (1.855375ms)
+▶ 사전 리뷰·배정·계정
+  ✔ 리뷰 2건은 FX-01 BID·FX-03 NO_BID 이고 사유는 10~2000자(05·19 §3) (0.933292ms)
+  ✔ 배정 2건의 직원은 명부 fixture 에서 이미 100% 배정된 계산 대상이라 가용 95.5 FTE 가 바뀌지 않는다 (0.698792ms)
+  ✔ 계정 5개는 19 §1 과 같고 admin@ 은 owner+ADMIN, org-02 는 VIEWER 1명 (0.309958ms)
+  ✔ 마지막 줄은 10 기동 절차 6 과 글자 그대로 같다 (0.309583ms)
+✔ 사전 리뷰·배정·계정 (2.570875ms)
+▶ 환경 변수·인자
+  ✔ 셸 환경이 파일보다 우선하고 origin·비밀번호 길이를 검사한다 (0.628459ms)
+  ✔ 실행 모드는 대문자 저장값으로, 인자는 -- 를 건너뛰고 모르는 것은 거절한다 (0.272166ms)
+✔ 환경 변수·인자 (8.310958ms)
+▶ REST 클라이언트
+  ✔ 필터는 PostgREST 문법으로, 특수 문자 값은 따옴표로 감싼다 (1.766958ms)
+  ✔ 키는 헤더에만 싣고, upsert 는 on_conflict 와 merge-duplicates 로, delete 는 조건 없이 거부한다 (15.940084ms)
+  ✔ 오류에는 상태·코드·사유만 담고 토큰처럼 보이는 것은 가린다 (1.698584ms)
+  ✔ functionExists 는 POST /rest/v1/rpc/<이름> 에 probeArgs 를 본문으로 보내고(키는 헤더에만) 200 이면 true 다 (0.315333ms)
+  ✔ functionExists 는 404·PGRST202(함수 없음)면 false, 함수가 거절한 400·P0001 이나 코드가 다른 404 면 true 다 (0.38225ms)
+  ✔ functionExists 는 네트워크 오류(fetch 가 던짐)를 삼키지 않고 던진다 (0.256125ms)
+  ✔ 표가 없으면(404) tableExists 가 false 이고, 사용자 목록은 쪽을 넘긴다 (7.681625ms)
+✔ REST 클라이언트 (33.606625ms)
+▶ PGlite 위에서 demo:reset
+  ✔ 두 번 돌려도 마지막 줄·ID 가 같고, live 공고는 남고, org-02 사용자는 org-01 행을 못 본다 (13236.952333ms)
+  ✔ 두 번째 실행은 지난 실행의 데모 공고 outbox 이벤트(LIVE BID_CHANGED 포함)를 지우고, live 공고·bid_review 이벤트는 남긴다 — 데모 BID_CREATED 는 19건 (4916.431375ms)
+  ✔ C4 availableFte: DB 에서 읽은 팀과 fixture 팀의 가용 FTE 가 FX-01·02·03 기간마다 같다(95.5 FTE, 투입 7명은 0) (8098.431291ms)
+  ℹ C4 scoring.model.ts availableFte 를 tsx 자식 프로세스로 직접 호출
+✔ PGlite 위에서 demo:reset (26253.0045ms)
+▶ 공고 적재 주입 — ingestBids (C3 6-5)
+  ✔ demoIdFor 는 공고면 bidUuid(source, noticeId), revision 이면 revisionUuid(source, noticeId, revision) 와 같은 값이다 (0.364958ms)
+  ✔ seedDemo 는 ingestBids 를 한 번 부르고 anchor·runMode·idFor(demoIdFor 와 같은 값)를 넘긴다 (2972.203458ms)
+  ✔ seedDemo 의 반환 quarantined·ingestRun·bids 는 ingestBids 가 돌려준 것이다 (3464.333333ms)
+✔ 공고 적재 주입 — ingestBids (C3 6-5) (6437.517125ms)
+▶ 함수 확인 — ingest_save_revision (C3 8-2)
+  ✔ ingest_save_revision 이 없는 DB 에서 seedDemo 는 '함수가 없습니다: ingest_save_revision' 으로 멈추고 데모 공고·조직·명부 행을 하나도 쓰거나 지우지 않는다 (1991.0925ms)
+  ✔ seedDemo 는 어떤 쓰기·지우기보다 먼저 functionExists('ingest_save_revision', { p: {} }) 로 확인하고, 함수가 있으면 끝까지 돈다 (2000.757708ms)
+  ✔ 확인 호출과 같은 인자 p = {} 로 함수를 불러도 INGEST_BID_NOT_FOUND 로 거절되고 네 표에 행이 생기지 않는다 (1222.997333ms)
+✔ 함수 확인 — ingest_save_revision (C3 8-2) (5215.126333ms)
+▶ 공통 검증
+  ✔ verify.config.json 의 verification.common 이 최소 검사를 포함한다 (더 있는 것은 허용) (2.916125ms)
+  ✔ 루트 package.json 의 공통 검사·verify 본문이 고정한 그대로다 (0.5315ms)
+✔ 공통 검증 (8.564375ms)
+▶ web 검증
+  ✔ verify 가 최소 검사를 && 로만 잇는다 (0.329167ms)
+  ✔ verify:quick 이 빌드를 뺀 같은 집합을 && 로만 잇는다 (1.573042ms)
+  ✔ 검사 이름이 가리키는 스크립트 본문이 고정한 그대로다 (도구·인자 모두) (0.514542ms)
+  ✔ verify.config.json 이 이 폴더를 pnpm verify·verify:quick 으로 검증한다 (0.4455ms)
+✔ web 검증 (3.087792ms)
+▶ Claude 가드 훅
+  ✔ .claude/settings.json 의 PreToolUse 훅이 Bash·Edit·Write 에서 guard.sh 를 부른다 (0.903834ms)
+  ✔ .claude/settings.json(스테이징본)의 permissions.deny 가 게이트 파일 편집 금지를 포함한다 (79.85525ms)
+✔ Claude 가드 훅 (81.085709ms)
+▶ 커밋 게이트
+  ✔ .husky/pre-commit 이 변경분 정책과 바뀐 폴더 검증을 부르고, 실패하면 막는다 (2.648833ms)
+  ✔ .husky/pre-push 가 push 전 검사를 원격 인자와 함께 부르고, 실패하면 막는다 (0.32075ms)
+✔ 커밋 게이트 (3.087167ms)
+▶ 판정의 가까운 변형
+  ✔ 검사를 더하는 것은 허용한다 (0.126792ms)
+  ✔ 빠진 검사를 이름 단위로 잡는다 (type-check 안의 test 같은 부분 일치에 속지 않는다) (0.185042ms)
+  ✔ 실패를 삼키거나 건너뛰는 셸 구문을 잡는다 (0.121916ms)
+  ✔ 이름만 남기고 내용을 비운 스크립트를 잡고, 다른 스크립트를 더하는 것은 허용한다 (0.137125ms)
+  ✔ 도구 이름은 맞아도 범위를 좁히는 인자를 붙이면 잡는다 (0.073166ms)
+  ✔ 공통 검증에서 검사를 빼거나 인자로 좁히면 잡는다 (0.561333ms)
+  ✔ 설정에서 프로젝트를 지우거나 marker·명령을 바꾸면 잡는다 (0.081875ms)
+  ✔ 가드 훅: 도구가 빠지거나 실패를 삼키면 잡고, 거부 목록 추가·matcher * 는 허용한다 (0.290583ms)
+  ✔ 편집 금지: 규칙을 빼거나 바꾸면 잡고, 더하는 것과 없는 앱 폴더의 규칙이 빠진 것은 허용한다 (0.138625ms)
+  ✔ 커밋 게이트: 주석 처리·실패 삼키기·앞선 exit 를 잡는다 (0.196375ms)
+  ✔ push 전 검사: 인자 빼기·실패 삼키기·앞선 exit·블록 안의 호출을 잡는다 (0.067208ms)
+  ✔ 커밋 게이트: 앞선 종료의 가까운 변형과 블록·heredoc 안의 호출을 잡는다 (0.171916ms)
+  ✔ 커밋 게이트: 앞선 함수·블록·heredoc·실패로 끝내는 exit 1 과 호출 뒤의 exit 0 은 허용한다 (0.071416ms)
+✔ 판정의 가까운 변형 (2.376375ms)
+▶ 편집 금지는 스테이징본을 본다
+  ✔ 작업 폴더에서만 지운 것은 통과하고, 지운 채 스테이징하면 작업 폴더를 되돌려도 잡는다 (422.2035ms)
+  ✔ 커밋된 settings.json 을 인덱스에서 빼면(git rm --cached) 작업 폴더로 넘어가지 않고 막는다 (378.095583ms)
+  ✔ git 저장소가 아니거나 인덱스에 그 파일이 없으면 작업 폴더를 본다 (382.299792ms)
+  ✔ 디스크에 없는 앱 폴더의 규칙은 요구하지 않는다 (247.328375ms)
+✔ 편집 금지는 스테이징본을 본다 (1432.414542ms)
+✔ explicit target uses exact workdir and matching origin (4.441333ms)
+✔ ordinary local command unchanged (0.356958ms)
+✔ invalid isolated context fails before CLI (0.464375ms)
+✔ invalid isolated context fails before CLI (0.115583ms)
+✔ invalid isolated context fails before CLI (0.105667ms)
+✔ invalid isolated context fails before CLI (0.103542ms)
+✔ invalid isolated context fails before CLI (0.180125ms)
+✔ invalid isolated context fails before CLI (0.123083ms)
+✔ invalid isolated context fails before CLI (0.150958ms)
+✔ invalid isolated context fails before CLI (0.207084ms)
+✔ wrong returned origin refuses without fallback or secret leak (0.416ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.6935ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.209791ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.381125ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.17475ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.278208ms)
+✔ root db-seed: selected project validated before any seed writes (0.546584ms)
+✔ people seed: selected project validated before any seed writes (0.342625ms)
+▶ parseArgs
+  ✔ 기본값은 dry-run·30분이고 --env-file 은 경로를 그대로 받는다 (2.483875ms)
+  ✔ --apply·--older-than-minutes 를 받고 pnpm 의 -- 는 건너뛴다 (0.257667ms)
+  ✔ --env-file 이 없으면 거부한다(기본값 없음) (0.458625ms)
+  ✔ 30분 미만이나 정수가 아닌 기준은 거부한다 (0.308625ms)
+  ✔ 모르는 인자는 거부한다 (0.199167ms)
+✔ parseArgs (5.190709ms)
+▶ close-stale-ingest-runs — dry-run
+  ✔ g2b·RUNNING 만 조회하고 PATCH 는 한 번도 보내지 않는다 (2.479875ms)
+  ✔ 대상 목록에 id·started_at·경과 분을 적고, 마지막 줄에 집계를 적는다 (0.345708ms)
+  ✔ --env-file 경로를 그대로 읽는다 (0.157875ms)
+  ✔ 대상이 없으면 found=0 이다 (0.166708ms)
+✔ close-stale-ingest-runs — dry-run (3.341333ms)
+▶ close-stale-ingest-runs — --apply
+  ✔ 대상 행마다 id 와 status=RUNNING 조건으로 PATCH 해 FAILED·finished_at 을 쓴다 (3.571625ms)
+  ✔ --older-than-minutes 로 기준을 바꾸면 그보다 오래된 run 만 닫는다 (0.230917ms)
+  ✔ 그 사이 끝난 run(PATCH 가 0행)은 닫은 것으로 세지 않는다 (0.228166ms)
+✔ close-stale-ingest-runs — --apply (4.126708ms)
+▶ close-stale-ingest-runs — 오류와 비밀값
+  ✔ --env-file 이 없으면 아무것도 읽거나 요청하지 않고 exit 1 이다 (0.122ms)
+  ✔ env 파일이 없으면 exit 1 이다(다른 파일로 대신하지 않는다) (0.165417ms)
+  ✔ 키가 빠졌거나 URL 이 http(s) 가 아니면 요청 전에 exit 1 이다 (0.161667ms)
+  ✔ 대상 호스트는 출력하고 키 값은 stdout·stderr·URL 어디에도 싣지 않는다 (0.141959ms)
+  ✔ 서버 오류 사유가 키를 되돌려도 가리고 exit 1 이다 (0.204708ms)
+  ✔ --apply 도중 PATCH 가 실패하면 exit 1 이고 남은 행은 건드리지 않는다 (22.949041ms)
+✔ close-stale-ingest-runs — 오류와 비밀값 (34.027333ms)
+▶ close-stale-ingest-runs — 프로세스
+  ✔ --env-file 없이 띄우면 exit 1 이다 (252.421708ms)
+  ✔ env 파일 오류로 끝나도 키 값을 출력하지 않는다 (430.881834ms)
+  ✔ 없는 env 파일이면 exit 1 이다 (188.919875ms)
+  ✔ "--" 없이 불러도 없는 env 파일이면 0 이 아닌 코드로 끝난다 (30.469583ms)
+✔ close-stale-ingest-runs — 프로세스 (907.040416ms)
+▶ selectStaleRuns — 경계
+  ✔ 기본값과 하한은 30분이다 (1.624042ms)
+  ✔ 정확히 30분 지난 run 은 고른다 (1.032334ms)
+  ✔ 29분 59초 지난 run 은 고르지 않는다 (0.154459ms)
+  ✔ 31분 지난 run 은 고르고 경과 분과 원래 값을 돌려준다 (0.095625ms)
+  ✔ 경과 분은 내림이고, 기준 분을 키우면 그만큼 덜 고른다 (0.097417ms)
+  ✔ 다른 시간대 표기와 마이크로초 표기도 같은 시각으로 읽는다 (0.085708ms)
+  ✔ 미래 시각(시계 차이)의 run 은 고르지 않는다 (0.060875ms)
+✔ selectStaleRuns — 경계 (5.568958ms)
+▶ selectStaleRuns — 대상 밖
+  ✔ g2b 가 아닌 run 은 아무리 오래돼도 고르지 않는다 (4.007875ms)
+  ✔ RUNNING 이 아닌 run 은 고르지 않는다 (0.145375ms)
+  ✔ 날짜가 깨진 run 은 고르지 않는다 (0.131958ms)
+  ✔ 행이 객체가 아니어도 멈추지 않고 건너뛴다 (0.068583ms)
+✔ selectStaleRuns — 대상 밖 (5.261584ms)
+▶ selectStaleRuns — 인자
+  ✔ 30분 미만·정수 아님은 거부한다 (1.874417ms)
+  ✔ now 가 올바른 Date 가 아니면 거부한다 (1.636083ms)
+  ✔ rows 가 배열이 아니면 거부한다 (1.835416ms)
+✔ selectStaleRuns — 인자 (5.49575ms)
+✔ reserves one per team before proportional largest-remainder allocation (5.123708ms)
+✔ breaks department, gender and title remainders by stable ID (0.609125ms)
+✔ allocates exactly one person to every team at the 200-team boundary (2.009167ms)
+✔ rejects invalid allocation input ([]) (0.989959ms)
+✔ rejects invalid allocation input ([{"id":"D0","sourceCount":1,"titleCounts":{"SOL-J010":1}},{"id":"D1",") (0.407709ms)
+✔ rejects invalid allocation input ([{"id":"A","sourceCount":0,"titleCounts":{"SOL-J010":0}}]) (0.14125ms)
+✔ rejects invalid allocation input ([{"id":"A","sourceCount":-1,"titleCounts":{"SOL-J010":-1}}]) (0.113083ms)
+✔ rejects invalid allocation input ([{"id":"A","sourceCount":null,"titleCounts":{"SOL-J010":null}}]) (0.153541ms)
+✔ rejects invalid allocation input ([{"id":"A","sourceCount":null,"titleCounts":{"SOL-J010":null}}]) (0.217167ms)
+✔ rejects invalid allocation input ([{"id":"A","sourceCount":1.5,"titleCounts":{"SOL-J010":1.5}}]) (0.206042ms)
+✔ rejects invalid allocation input ([{"id":"A","sourceCount":1,"titleCounts":{"SOL-J010":1}},{"id":"A","so) (0.268083ms)
+✔ rejects invalid allocation input ([{"id":"A","sourceCount":2,"titleCounts":{"J":1}}]) (0.208041ms)
+✔ rejects invalid allocation input ([{"id":"A","sourceCount":1,"titleCounts":{"J":-1}}]) (0.215958ms)
+✔ counts two synthetic same-name workbook rows as two weights (526.34825ms)
+✔ upper rows never receive reserved employees or source weights (0.7975ms)
+✔ human approval binds the exact roster, catalogs, fixed paths and all 200 actual PNG hashes (5639.214416ms)
+✔ prior AI reviews and historical pending audit remain separate from human approval (59.047458ms)
+▶ foldAssignmentsIntoAvailability
+  ✔ 배정이 창 전체를 덮으면 그 창의 fte 가 0 이 된다(창 경계와 같은 날짜) (4.284125ms)
+  ✔ 배정이 창 일부만 덮으면 앞·뒤 구간은 원래 fte 로 남고 덮인 구간만 줄어든다 (0.415625ms)
+  ✔ 창 경계와 같은 날짜에서 시작하거나 끝나는 배정은 한쪽만 쪼갠다 (0.321416ms)
+  ✔ 같은 기간에 배정이 여럿이면 비율을 합산한다(부동소수 찌꺼기 없음) (0.287541ms)
+  ✔ 비율 합이 fte 를 넘으면 음수가 아니라 0 으로 자른다 (0.24925ms)
+  ✔ 겹치지 않는 배정(앞·뒤·경계에 맞닿음)은 창을 바꾸지 않는다 — 끝은 열린 경계다 (0.249542ms)
+  ✔ 창이 여럿이면 각각 접고, 덮는 창이 없는 구간은 만들지 않는다 (1.186375ms)
+  ✔ 입력 배열·객체를 바꾸지 않고, 잘못된 날짜·비율·빈 구간은 RangeError 로 거절한다 (1.063208ms)
+  ✔ 명부 fixture: 투입 7명은 2026-12~2027-07 이 fte 0 이고 나머지 193명은 그대로다 (17.81125ms)
+✔ foldAssignmentsIntoAvailability (27.945708ms)
+✔ cloud upgrade enriches all 200 existing demo rows, preserves identities and never rewrites another org (10660.020375ms)
+✔ all 200 synthetic employees have reproducible skills, certificates, projects and capacity (29.149708ms)
+✔ enrichment preserves every approved identity and original business assignment (0.983792ms)
+✔ invalid person identifiers return structured validation errors without throwing (93.439209ms)
+✔ legacy absent/null kinds remain TEAM and absent parents are allowed (6.726ms)
+✔ counts descendant employees for DIVISION→GROUP→TEAM and DIVISION→TEAM (0.246041ms)
+✔ rejects PARENT_MISSING with safe stable diagnostics (0.241833ms)
+✔ rejects PARENT_SELF with safe stable diagnostics (0.7885ms)
+✔ rejects PARENT_KIND_INVALID with safe stable diagnostics (0.657833ms)
+✔ rejects PARENT_CYCLE with safe stable diagnostics (0.13875ms)
+✔ rejects DEPTH_EXCEEDED with safe stable diagnostics (0.11225ms)
+✔ rejects UPPER_TARGET_INVALID with safe stable diagnostics (0.346084ms)
+✔ rejects UPPER_SOURCE_INVALID with safe stable diagnostics (0.508458ms)
+✔ rejects KIND_INVALID with safe stable diagnostics (0.350834ms)
+✔ rejects upper employee affiliations without reflecting private identifiers (0.201625ms)
+✔ v2 source hierarchy must match upper evidence and every TEAM parent; v1 is compatible (0.296209ms)
+✔ normalizes whitespace and ASCII, full-width and bracket annotations (94.281583ms)
+✔ skips normalized source names and tracks uniqueness across genders (9.294416ms)
+✔ fails candidate exhaustion atomically without disclosing private input (1.119583ms)
+✔ rejects invalid name request {"gender":"UNKNOWN","count":1} (0.269417ms)
+✔ rejects invalid name request {"gender":"MALE","count":-1} (1.625ms)
+✔ rejects invalid name request {"gender":"FEMALE","count":1.5} (0.233042ms)
+✔ generates stable IDs, valid references and one planned portrait per unique person (85.075625ms)
+✔ generates 200 independent scoring members and preserves seven fake assignments (14.916ms)
+✔ preserves an existing roster and rejects mismatches without private diagnostics (118.14475ms)
+✔ rejects unknown title references before generating records (0.917167ms)
+✔ CLI regenerates safely, preserves reviewed/failed/candidate portrait state and refuses incompatible fixtures (19688.697208ms)
+✔ pending queue resumes only PLANNED and FAILED IDs (3.554417ms)
+✔ imports selected PNG to fixed path and persists resumable generated metadata (344.35125ms)
+✔ rejects non-PNG and records FAILED for retry (17.987166ms)
+✔ rejects rectangle and records FAILED for retry (27.566458ms)
+✔ rejects zero dimensions and records FAILED for retry (72.328125ms)
+✔ rejects wrong IHDR and records FAILED for retry (119.67575ms)
+✔ rejects identical PNG bytes for another person (53.655292ms)
+✔ refuses manifest gender drift before file mutation (7.101042ms)
+✔ refuses manifest path drift before file mutation (6.437541ms)
+✔ only documented human PASS for the current hash can promote READY (17.037875ms)
+✔ READY replacement preserves prior bytes and metadata through failure/rejection then promotes candidate (51.406834ms)
+✔ tampered generated file cannot be marked READY (22.897625ms)
+✔ failed generation and prompt changes resume without allowing manual READY (91.531625ms)
+✔ asset validation catches gender/path/hash/duplicate and fabricated review (14.381583ms)
+✔ gallery uses selected actual candidate image outside repo and escapes names (332.792708ms)
+✔ CLI supports pending, JSON prompt/status update, import, review and reports safe failures (3383.100708ms)
+✔ generated replacement prompt cannot change without marking candidate failed (35.990167ms)
+✔ fixture validator rejects malformed replacement lifecycle and AI READY candidate (83.986541ms)
+✔ direct asset validator fails closed for malformed envelopes and null records (0.214875ms)
+✔ missing tool output records retryable failure without its source path (25.020666ms)
+✔ fixed destination rejects symlink escape without touching outside directory (28.744667ms)
+✔ busy writer refuses changes and dead writer lock permits retry (37.045292ms)
+✔ reimport does not erase a generated image awaiting human review (87.396459ms)
+✔ 계층 카탈로그와 운영 200명·점수 200명을 두 번 넣어도 동일 UUID·값이며 Auth를 호출하지 않는다 (9921.489083ms)
+✔ 구 스키마의 실제 200행을 업그레이드하면서 eligible 200행의 모든 점수 값을 검증·backfill한다 (5785.757792ms)
+✔ 잘못된 계층은 두 seed 진입점 모두 조직을 포함한 쓰기 전에 거절한다 (7.567875ms)
+✔ 로컬 HTTP adapter는 점수에 member_id 충돌 키를 쓰고 카탈로그를 명부보다 먼저 전송한다 (71.750917ms)
+✔ people seed는 비로컬 요청을 HTTP 전에 거절한다 (0.337125ms)
+✔ combines exact repeated teams across four pairs and keeps every original name in memory (263.768875ms)
+✔ reports unclassified personnel only as cell addresses while retaining their names privately (127.092ms)
+✔ counts all 12 title labels verbatim without persisting personnel (17.982917ms)
+✔ does not merge visually similar team names (34.544959ms)
+✔ rejects team overlap using safe cell diagnostics (560.70825ms)
+✔ rejects team/exclusion overlap using safe cell diagnostics (16.661917ms)
+✔ rejects exclusion overlap using safe cell diagnostics (116.735709ms)
+✔ rejects ranges with mismatched columns before reading personnel (43.658667ms)
+✔ verifies a team's display label against the source header (126.194792ms)
+✔ does not inherit a team past a non-team heading but keeps worksite and address headings (52.565792ms)
+✔ rejects unsupported personnel titles with cell-only diagnostics (96.140375ms)
+✔ retains complete compound team headers without aliasing (99.714083ms)
+✔ keeps a team across a worksite heading and address (19.406042ms)
+✔ sanitizes missing-file and missing-sheet errors (119.257667ms)
+✔ does not classify adjacent phone numbers or address text as personnel (32.72425ms)
+✔ ends team inheritance at merged non-team headings even without font styling (37.128083ms)
+✔ ends team inheritance at a non-worksite business unit (신규프로젝트 사업단, styled=false) (51.319709ms)
+✔ ends team inheritance at a non-worksite business unit (신규프로젝트 사업단, styled=true) (168.440542ms)
+✔ ends team inheritance at a non-worksite business unit (신규 사업단, styled=false) (24.950834ms)
+✔ retains team continuity across the audited worksite business-unit heading (184.806291ms)
+✔ ends team inheritance at an explicit organization heading containing location words (주소정보팀) (51.692417ms)
+✔ ends team inheritance at an explicit organization heading containing location words (청사관리팀) (25.679833ms)
+✔ ends team inheritance at an explicit organization heading containing location words (청사관리팀 2층) (206.207084ms)
+✔ preserves team continuity for explicit location declarations containing organization words (근무지: 연구소 2층) (177.413125ms)
+✔ preserves team continuity for explicit location declarations containing organization words (주소: 사업본부 3층) (133.723167ms)
+✔ preserves team continuity for explicit location declarations containing organization words (근무지 연구소 2층) (132.869834ms)
+✔ preserves team continuity for explicit location declarations containing organization words (주소 사업본부 3층) (71.233416ms)
+✔ augmented catalog keeps source comparison and personnel counts on TEAM rows (33.967541ms)
+✔ extracts evidenced upper headings and rejects conflicting repeated-team parents (135.423125ms)
+✔ contact and phone headings containing organization words never become hierarchy evidence (66.099875ms)
+✔ a team-name prefix cannot replace conflicting accepted source-range parents (59.851708ms)
+▶ push 참조 읽기
+  ✔ git 이 넘긴 줄에서 로컬·원격 SHA 를 읽고, 지우는 push 와 같은 커밋 중복을 뺀다 (8.330458ms)
+✔ push 참조 읽기 (11.924542ms)
+▶ 검사할 프로젝트 고르기
+  ✔ 비교할 커밋이 없으면(files 가 null) 전부 돈다 (0.902291ms)
+  ✔ 바뀐 프로젝트 폴더만 돈다 (1.684208ms)
+  ✔ 프로젝트 폴더 밖의 문서 아닌 파일은 모든 프로젝트에 걸린다 (0.137792ms)
+  ✔ 문서만 바뀌면 프로젝트 검사는 돌지 않는다 (0.486208ms)
+  ✔ 폴더 이름이 앞부분만 같은 경로(web-old/)는 그 프로젝트로 치지 않는다 (0.368083ms)
+✔ 검사할 프로젝트 고르기 (5.357959ms)
+▶ CI 와 같은 자리값
+  ✔ Supabase 자리값이 ci.yml 의 프로젝트 검증 단계와 같다 (5.011042ms)
+✔ CI 와 같은 자리값 (5.291292ms)
+▶ push 전 검사 실행
+  ✔ gate.prePush 를 켜지 않으면 아무것도 돌리지 않고 통과한다 (2141.482458ms)
+  ✔ gate.prePush 값이 불리언이 아니면 막는다 (1874.713625ms)
+  ✔ web 만 바뀌면 커밋·정책·설치 뒤 공통·감사·web 을 돌리고, api 는 건너뛴다 (3558.882084ms)
+  ✔ 문서만 바뀌면 프로젝트 검사 없이 공통 검사와 루트 감사만 돈다 (2241.475667ms)
+  ✔ 공유 파일이 바뀌거나 새 브랜치면 모든 프로젝트를 돈다 (4567.968042ms)
+  ✔ 검사가 하나라도 실패하면 막고, 로그를 남기고, worktree 는 지운다 (4827.080791ms)
+  ✔ 앞 단계(커밋 메시지)가 실패하면 설치와 나머지 검사를 돌리지 않는다 (2042.64275ms)
+  ✔ 원격 커밋이 로컬 이력에 없으면 fetch 하라고 알리고 막는다 (1670.269959ms)
+  ✔ 원격 참조를 지우는 push 는 검사할 커밋이 없어 통과한다 (864.092792ms)
+  ✔ 실제 git push 에서 .husky/pre-push 가 참조 목록을 넘기고, 실패하면 push 를 막는다 (4439.104208ms)
+✔ push 전 검사 실행 (28232.699625ms)
+✔ splitG2bWindow: 2026-08-20 00:00 ~ 10-19 23:59 KST 는 1일 창 61개, 틈 없이 이어진다 (59.602459ms)
+✔ listParams·buildG2bUrl: 키는 한 번만 인코딩되고 params 에는 없다 (35.590625ms)
+✔ auxParams: inqryDiv=2 + 공고번호·차수, 기간은 등록일 -1일 00:00 ~ +6일 23:59 KST(8일) (5.982125ms)
+✔ parseG2bEnvelope: 정상·조달청 오류·비정상 코드·깨진 모양 (12.830792ms)
+✔ parseG2bGatewayError: XML 키 오류의 코드와 고정 메시지만 읽는다 (1.001875ms)
+✔ retryDelayMs: 1·2·4초 + jitter(<250ms) (0.354959ms)
+✔ isInfoBizNoticeBroad: infoBizYn=Y, SW사업 표기, 정보시스템·소프트웨어 분류 중 하나면 참 (0.326958ms)
+✔ latestByNotice: 공고번호마다 가장 큰 차수만 남긴다 (0.382125ms)
+✔ 예산·마감 구간 (0.251708ms)
+✔ sampleStratified: 같은 seed 면 같은 순서, 층을 돌며 뽑는다 (1.91925ms)
+✔ maskItem: 이름 필드는 ***, 연락처 필드는 같은 길이의 * (5.257708ms)
+✔ maskItem: 본문 전화·이메일 패턴은 같은 길이로 가리고 날짜·URL·번호는 그대로다 (0.294625ms)
+✔ maskItem: 입력을 바꾸지 않는다 (0.339708ms)
+✔ maskItem: 목록에 없는 담당자 필드도 이름 규칙으로 잡는다(Ofcl·TelNo·FaxNo·HpNo) (0.163084ms)
+✔ maskPatterns: 패턴이 없으면 changed=false 이고 문자열이 그대로다 (0.137708ms)
+✔ maskItems: 가린 필드의 합집합을 정렬해 돌려준다 (0.245667ms)
+✔ scanLeaks: 이메일·전화·servicekey·키 흔적을 센다 (0.346125ms)
+✔ buildRecording: 정본 스키마 키 집합·마스킹·rawSha256 을 채우고 params 에 serviceKey 가 없다 (1.147625ms)
+✔ buildRecording: 담당자 필드가 없는 응답은 서비스 기준 마스킹 대상 목록과 구분 메모를 적는다 (0.164333ms)
+✔ assertRecordedShape: serviceKey 파라미터·낯선 키·response 봉투의 totalCount null 을 거부한다 (0.434083ms)
+✔ clusterNotices: 사전규격·발주계획·이전 공고 번호로 묶인다(표본 밖 공고를 거쳐도) (1.866542ms)
+✔ buildClusters: 표본만 클러스터가 되고 clusterId 는 최소 공고번호 순, 후보 조건은 보조 조회 + 면허제한·e발주 (1.6075ms)
+✔ selectSplits: 결정적이고 test 20·dev 10 을 채우며 기관이 겹치지 않는다 (3.077083ms)
+✔ selectSplits: 같은 기관의 후보는 하나만 들어간다 (0.297917ms)
+✔ selectSplits: 이전 배정(existing)을 먼저 지킨다 (0.361958ms)
+✔ leakCheck: 묶여야 할 공고가 다른 분할에 있으면 잡는다 (0.187375ms)
+✔ summarizeAux: 조회한 공고의 행 수를 세고 0건 응답도 조회됨으로 둔다 (0.144333ms)
+✔ toSplitFile: 지시서 형식의 키만 낸다(분류·층 같은 내부 값은 빠진다) (0.11925ms)
+✔ company Compose publishes only the HTTP service on loopback6380 and reuses external Redis (247.763833ms)
+✔ Gateway image cannot copy local secret files and starts the existing Next standalone server (15.339459ms)
+▶ typographyScales
+  ✔ 범위 선택자와 rem 크기를 만든다 (549.486042ms)
+  ✔ 범위 변형은 굵기·자간을 내지 않는다 (342.333584ms)
+  ✔ typography 에 없는 눈금 이름은 거절한다 (398.311667ms)
+  ✔ weight 키는 거절한다 (467.842125ms)
+  ✔ 범위 이름 형식이 틀리면 거절한다 (304.056666ms)
+  ✔ size 가 숫자가 아니면 거절한다 (334.4035ms)
+✔ typographyScales (2400.509042ms)
+ℹ tests 774
+ℹ suites 58
+ℹ pass 774
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 382108.955584
+
+> sol-radar@0.1.0 check:tokens /Users/leegwanghui/dev/hackathon/sol-radar
+> node scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar@0.1.0 check:colors /Users/leegwanghui/dev/hackathon/sol-radar
+> bash scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용
+
+> sol-radar@0.1.0 check:db-types /Users/leegwanghui/dev/hackathon/sol-radar
+> node scripts/db-types-gen.mjs --check
+
+✓ DB 타입 일치 — 정본 supabase/migrations
+
+> sol-radar-web@0.1.0 verify /Users/leegwanghui/dev/hackathon/sol-radar/web
+> pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors && pnpm build
+
+
+> sol-radar-web@0.1.0 format:check /Users/leegwanghui/dev/hackathon/sol-radar/web
+> prettier --check . --ignore-path ../.gitignore --ignore-path ../.prettierignore
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar-web@0.1.0 type-check /Users/leegwanghui/dev/hackathon/sol-radar/web
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> sol-radar-web@0.1.0 lint /Users/leegwanghui/dev/hackathon/sol-radar/web
+> eslint
+
+
+> sol-radar-web@0.1.0 check:lint-guards /Users/leegwanghui/dev/hackathon/sol-radar/web
+> node ../scripts/check-lint-guards.mjs
+
+✓ 린트 가드레일 유지 — 주석·any·@ts-ignore·.only·.skip 으로 검사를 끌 수 없습니다
+
+> sol-radar-web@0.1.0 test /Users/leegwanghui/dev/hackathon/sol-radar/web
+> vitest run
+
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+
+ Test Files  222 passed (222)
+      Tests  6900 passed (6900)
+   Start at  18:10:42
+   Duration  25.95s (transform 24.33s, setup 0ms, import 93.78s, tests 77.90s, environment 24ms)
+
+
+> sol-radar-web@0.1.0 lodestar /Users/leegwanghui/dev/hackathon/sol-radar/web
+> lodestar check
+
+  [32m✓[0m architecture/layers  [2m739 files, 7 layers[0m  [2m359ms[0m
+  [32m✓[0m architecture/no-circular  [2m810 modules[0m  [2m383ms[0m
+  2 rules passed, 0 errors, 0 warnings [2m(384ms)[0m
+
+> sol-radar-web@0.1.0 check:tokens /Users/leegwanghui/dev/hackathon/sol-radar/web
+> node ../scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar-web@0.1.0 check:colors /Users/leegwanghui/dev/hackathon/sol-radar/web
+> bash ../scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용
+
+> sol-radar-web@0.1.0 build /Users/leegwanghui/dev/hackathon/sol-radar/web
+> next build
+
+▲ Next.js 16.4.1 (Turbopack)
+- Environments: .env.local
+✓ Running next.config.ts took 130ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.2s
+  Running TypeScript ...
+  Finished TypeScript in 5.1s ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/41) ...
+  Generating static pages using 10 workers (10/41) 
+  Generating static pages using 10 workers (20/41) 
+  Generating static pages using 10 workers (30/41) 
+✓ Generating static pages using 10 workers (41/41) in 1268ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /[slug]
+├ ƒ /[slug]/dashboard
+├ ƒ /[slug]/settings
+├ ƒ /[slug]/settings/members
+├ ƒ /[slug]/settings/team
+├ ƒ /[slug]/tasks
+├ ƒ /admin
+├ ƒ /admin/ingestion
+├ ƒ /api/admin/users/[id]/status
+├ ƒ /api/auth/identities/[id]
+├ ƒ /api/auth/logout-all
+├ ƒ /api/auth/me
+├ ƒ /api/auth/providers
+├ ƒ /api/users/me
+├ ƒ /api/v1/admin/ai/status
+├ ƒ /api/v1/admin/ingestion/runs
+├ ƒ /api/v1/admin/ingestion/runs/[id]
+├ ƒ /api/v1/analyses/[id]
+├ ƒ /api/v1/analyses/[id]/what-if
+├ ƒ /api/v1/bids
+├ ƒ /api/v1/bids/[id]
+├ ƒ /api/v1/bids/[id]/analyses
+├ ƒ /api/v1/bids/[id]/qualification-checks
+├ ƒ /api/v1/bids/[id]/reviews
+├ ƒ /api/v1/company-profile
+├ ƒ /api/v1/company-profile/revisions
+├ ƒ /api/v1/dashboard/summary
+├ ƒ /api/v1/departments
+├ ƒ /api/v1/job-titles
+├ ƒ /api/v1/me/employment
+├ ƒ /api/v1/notifications
+├ ƒ /api/v1/notifications/[id]/read
+├ ƒ /api/v1/signup-options
+├ ƒ /api/v1/team-members
+├ ƒ /api/v1/team-members/[id]
+├ ƒ /auth/account
+├ ƒ /auth/callback
+├ ƒ /auth/complete-profile
+├ ƒ /auth/confirm
+├ ƒ /auth/login
+├ ƒ /auth/organization-state
+├ ƒ /auth/password
+├ ƒ /auth/reset
+├ ƒ /auth/sign-up
+├ ƒ /bids
+├ ƒ /bids/[id]
+├ ƒ /company
+├ ƒ /dashboard
+├ ƒ /health
+├ ƒ /health/live
+├ ƒ /health/ready
+├ ○ /icon.svg
+├ ƒ /invitations
+├ ƒ /memos
+├ ƒ /notifications
+├ ƒ /org-chart
+├ ƒ /people
+├ ƒ /settings
+└ ƒ /teams/new
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+All checks passed!
+92 files already formatted
+============================= test session starts ==============================
+platform darwin -- Python 3.12.8, pytest-9.1.1, pluggy-1.7.0
+rootdir: /Users/leegwanghui/dev/hackathon/sol-radar/services/ai
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1
+collected 1517 items
+
+tests/test_citation_verify.py .......................................... [  2%]
+.............                                                            [  3%]
+tests/test_explain.py ...................                                [  4%]
+tests/test_extraction_schema.py ........................................ [  7%]
+........................................................................ [ 12%]
+........................................................................ [ 17%]
+...........................................                              [ 19%]
+tests/test_gateway_fallback.py ....................                      [ 21%]
+tests/test_health.py ....                                                [ 21%]
+tests/test_injection.py ................................................ [ 24%]
+..........................                                               [ 26%]
+tests/test_kev_adapter.py .............................................. [ 29%]
+........................................................................ [ 34%]
+....................................................................     [ 38%]
+tests/test_local_deadline.py ........................                    [ 40%]
+tests/test_local_hardening.py .......................................... [ 42%]
+........................................................................ [ 47%]
+................................................................         [ 51%]
+tests/test_local_hardening2.py ......................................... [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 64%]
+....                                                                     [ 64%]
+tests/test_local_hardening3.py ......................................... [ 67%]
+......................................                                   [ 69%]
+tests/test_local_health.py .....                                         [ 69%]
+tests/test_local_kev.py ........................................         [ 72%]
+tests/test_local_kev_v02.py ............................................ [ 75%]
+......                                                                   [ 75%]
+tests/test_local_qwen.py ............................................... [ 78%]
+...........................                                              [ 80%]
+tests/test_local_security.py ...........                                 [ 81%]
+tests/test_local_startup.py ............................................ [ 84%]
+...                                                                      [ 84%]
+tests/test_mock_identity.py ........                                     [ 85%]
+tests/test_model_registry.py ........................................... [ 87%]
+.....                                                                    [ 88%]
+tests/test_model_unavailable.py ......                                   [ 88%]
+tests/test_parse.py .........................                            [ 90%]
+tests/test_probe_qwen_script.py ........                                 [ 90%]
+tests/test_question_sets.py ......................                       [ 92%]
+tests/test_request_limits.py .......                                     [ 92%]
+tests/test_rules_parity.py ....                                          [ 92%]
+tests/test_run_mode.py ......................................            [ 95%]
+tests/test_sol_eval_bosun.py ........................................... [ 98%]
+.....                                                                    [ 98%]
+tests/test_startup.py ...............                                    [ 99%]
+tests/test_vercel.py ......                                              [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/leegwanghui/dev/hackathon/sol-radar/services/ai/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================= 1517 passed, 1 warning in 388.69s (0:06:28) ==================
+All checks passed!
+38 files already formatted
+============================= test session starts ==============================
+platform darwin -- Python 3.12.8, pytest-9.1.1, pluggy-1.7.0
+rootdir: /Users/leegwanghui/dev/hackathon/sol-radar/services/decision
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1
+collected 152 items
+
+tests/test_app.py ..........................................             [ 27%]
+tests/test_backend.py .....                                              [ 30%]
+tests/test_contract.py ...............                                   [ 40%]
+tests/test_mapping.py ...                                                [ 42%]
+tests/test_models_endpoint.py ....                                       [ 45%]
+tests/test_package.py .............                                      [ 53%]
+tests/test_params_loading.py ....                                        [ 56%]
+tests/test_parity.py ...                                                 [ 58%]
+tests/test_serve_cli.py .........                                        [ 64%]
+tests/test_train_pure.py .................................               [ 86%]
+tests/test_wire.py ..................                                    [ 98%]
+tests/test_worker_compat.py ...                                          [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/leegwanghui/dev/hackathon/sol-radar/services/decision/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 152 passed, 1 warning in 0.83s ========================

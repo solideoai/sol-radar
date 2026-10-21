@@ -1,0 +1,9 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/.codex/worktrees/f572/sol-radar/web
+
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  23:06:03
+   Duration  903ms (transform 206ms, setup 0ms, import 463ms, tests 306ms, environment 0ms)
+

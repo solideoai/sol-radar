@@ -1,5 +1,6 @@
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 const { refreshed } = vi.hoisted(() => ({ refreshed: { enabled: false } }));
 vi.mock("@supabase/ssr", () => ({
   createServerClient: (
@@ -27,6 +28,36 @@ vi.mock("@supabase/ssr", () => ({
   }),
 }));
 import { config, proxy } from "./proxy";
+afterEach(() => vi.unstubAllEnvs());
+
+it.each(["/", "/api/people", "/api/v1/team-members", "/_next/static/private.js", "/health/live"])(
+  "redis-api rejects non-allowlisted path %s before rendering or session refresh",
+  async (path) => {
+    vi.stubEnv("SOL_DEPLOYMENT_ROLE", "redis-api");
+    vi.stubEnv("REDIS_API_TOKEN", "test-only-service-token-0123456789-abcdefghijklmnopqrstuvwxyz");
+    const response = await proxy(new NextRequest(`http://localhost${path}`));
+    expect(response.status).toBe(404);
+    expect(response.headers.has("content-security-policy")).toBe(false);
+  },
+);
+
+it("redis-api health requires service authentication and a valid token reaches the handler", async () => {
+  const token = "test-only-service-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  vi.stubEnv("SOL_DEPLOYMENT_ROLE", "redis-api");
+  vi.stubEnv("REDIS_API_TOKEN", token);
+  expect((await proxy(new NextRequest("http://localhost/health"))).status).toBe(401);
+  const allowed = await proxy(
+    new NextRequest("http://localhost/health", {
+      headers: { "X-Sol-Service-Token": token },
+    }),
+  );
+  expect(allowed.headers.get("x-middleware-next")).toBe("1");
+});
+
+it("an unknown deployment role fails closed", async () => {
+  vi.stubEnv("SOL_DEPLOYMENT_ROLE", "invalid-role");
+  expect((await proxy(new NextRequest("http://localhost/api/v1/bids"))).status).toBe(503);
+});
 it("실제 요청 경로를 전달하고 외부 입력 헤더를 덮어쓴다", async () => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
@@ -44,24 +75,22 @@ it("실제 요청 경로를 전달하고 외부 입력 헤더를 덮어쓴다", 
   }
 });
 
-it.each([
-  "/auth/callback?code=private",
-  "/auth/confirm?token_hash=private",
-  "/api/v1/me/employment",
-  "/",
-])("비업무 경로 %s의 쿼리는 전달하지 않는다", async (path) => {
-  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
-  try {
-    const response = await proxy(
-      new NextRequest(`http://localhost${path}`, {
-        headers: { "x-sol-radar-path": "/forged/tasks" },
-      }),
-    );
-    expect(response.headers.get("x-middleware-request-x-sol-radar-path")).toBe("");
-  } finally {
-    vi.unstubAllEnvs();
-  }
-});
+it.each(["/auth/callback?code=private", "/auth/confirm?token_hash=private", "/"])(
+  "비업무 경로 %s의 쿼리는 전달하지 않는다",
+  async (path) => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    try {
+      const response = await proxy(
+        new NextRequest(`http://localhost${path}`, {
+          headers: { "x-sol-radar-path": "/forged/tasks" },
+        }),
+      );
+      expect(response.headers.get("x-middleware-request-x-sol-radar-path")).toBe("");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  },
+);
 
 it("세션 갱신 뒤에도 업무 경로·쿠키·CSP를 함께 전달하고 경로를 공개 응답 헤더로 내보내지 않는다", async () => {
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://test.supabase.co");
@@ -99,12 +128,22 @@ it("세션 갱신 뒤에도 업무 경로·쿠키·CSP를 함께 전달하고 �
   }
 });
 
-it("matcher 는 /health/* 를 프록시에서 빼고 화면 경로는 거친다", () => {
-  const matcher = config.matcher[0];
-  // Next 의 matcher 는 path-to-regexp 형식이지만 이 식은 정규식과 같아 ^...$ 로 감싸 검사한다.
-  const pattern = new RegExp(`^${matcher}$`);
-  expect(pattern.test("/health/ready")).toBe(false);
-  expect(pattern.test("/health/live")).toBe(false);
-  expect(pattern.test("/dashboard")).toBe(true);
-  expect(pattern.test("/healthy-team/dashboard")).toBe(true);
+it.each(["/health/ready", "/api/v1/bids", "/_next/static/file.js", "/dashboard"])(
+  "matcher includes %s so redis-api can deny routes before their handlers",
+  (url) => {
+    expect(unstable_doesMiddlewareMatch({ config, nextConfig: {}, url })).toBe(true);
+  },
+);
+
+it.each([
+  "/health/ready",
+  "/health/live",
+  "/api/v1/me/employment",
+  "/_next/static/file.js",
+  "/icon.svg",
+])("standalone keeps API/health/assets %s outside cookie refresh and CSP", async (path) => {
+  vi.stubEnv("SOL_DEPLOYMENT_ROLE", "standalone");
+  const response = await proxy(new NextRequest(`http://localhost${path}`));
+  expect(response.headers.has("content-security-policy")).toBe(false);
+  expect(response.headers.has("x-middleware-request-x-sol-radar-path")).toBe(false);
 });

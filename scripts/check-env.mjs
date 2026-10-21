@@ -16,13 +16,7 @@ const INFRA_FILE = "infra/.env";
 const WEB_FILE = "web/.env.local";
 const ROOT_FILE = ".env.local";
 
-const INFRA_REQUIRED = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "REDIS_PASSWORD",
-  "MINIO_ROOT_USER",
-  "MINIO_ROOT_PASSWORD",
-];
+const INFRA_REQUIRED = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "REDIS_PASSWORD"];
 // local(실추론)은 QWEN_API_KEY 도 필수다(03 §3·09, C5-A S3). gateway 기동 검사와 같은 집합이다
 const AI_REQUIRED = ["QWEN_BASE_URL", "QWEN_API_KEY", "KEV_BASE_URL", "KEV_API_KEY"];
 const HOSTED_REQUIRED = ["HOSTED_API_BASE_URL", "HOSTED_API_KEY"];
@@ -30,10 +24,17 @@ const WEB_REQUIRED = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "REDIS_URL",
-  "MINIO_ENDPOINT",
   "AI_GATEWAY_URL",
   "API_CURSOR_SECRET",
 ];
+const FRONTEND_REQUIRED = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "API_CURSOR_SECRET",
+  "REDIS_API_BASE_URL",
+  "REDIS_API_TOKEN",
+];
+const SERVICE_TOKEN_FORMAT = /^[A-Za-z0-9_-]{43,256}$/;
 // 목록 HMAC 커서 키는 32자 이상이어야 한다(짧으면 서비스가 503 {component:"cursor"} 를 낸다).
 const CURSOR_SECRET_MIN_LENGTH = 32;
 // G2B 서비스키 4개 이름은 실행 모드 규칙(infra/run-modes.json)에서 가져온다.
@@ -51,7 +52,11 @@ const isForbiddenWebKey = (key) => {
   const upper = key.toUpperCase();
   return (
     WEB_FORBIDDEN.includes(upper) ||
-    (upper.startsWith("NEXT_PUBLIC_") && (upper.includes("SERVICE_ROLE") || upper.includes("G2B")))
+    (upper.startsWith("NEXT_PUBLIC_") &&
+      (upper.includes("SERVICE_ROLE") ||
+        upper.includes("G2B") ||
+        upper.includes("REDIS_API_TOKEN") ||
+        upper.includes("JOB_DISPATCH_SIGNING")))
   );
 };
 
@@ -127,8 +132,48 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
   if (web === null) {
     missingFile(WEB_FILE);
   } else {
-    for (const key of missingKeys(web, WEB_REQUIRED)) {
+    const role = web.SOL_DEPLOYMENT_ROLE?.trim() || "standalone";
+    if (!["standalone", "frontend", "redis-api"].includes(role)) {
+      problems.push({ file: WEB_FILE, key: "SOL_DEPLOYMENT_ROLE", code: "INVALID_FORMAT" });
+    }
+    const required =
+      role === "frontend"
+        ? FRONTEND_REQUIRED
+        : role === "redis-api"
+          ? [...WEB_REQUIRED.filter((key) => key !== "AI_GATEWAY_URL"), "REDIS_API_TOKEN"]
+          : WEB_REQUIRED;
+    for (const key of missingKeys(web, required)) {
       problems.push({ file: WEB_FILE, key, code: "MISSING_KEY" });
+    }
+    if (role === "frontend" && web.REDIS_URL)
+      problems.push({ file: WEB_FILE, key: "REDIS_URL", code: "FORBIDDEN_KEY" });
+    if (["frontend", "redis-api"].includes(role)) {
+      for (const key of [
+        "REDIS_API_TOKEN",
+        ...(web.REDIS_API_TOKEN_PREVIOUS ? ["REDIS_API_TOKEN_PREVIOUS"] : []),
+      ]) {
+        if (web[key] && !SERVICE_TOKEN_FORMAT.test(web[key]))
+          problems.push({ file: WEB_FILE, key, code: "INVALID_FORMAT" });
+      }
+    }
+    if (role === "frontend" && web.REDIS_API_BASE_URL) {
+      const url = URL.parse(web.REDIS_API_BASE_URL);
+      if (
+        !url ||
+        url.protocol !== "https:" ||
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        !/^\/[A-Za-z0-9/_-]*$/.test(url.pathname)
+      ) {
+        problems.push({ file: WEB_FILE, key: "REDIS_API_BASE_URL", code: "INVALID_FORMAT" });
+      }
+    }
+    if (web.REDIS_API_TIMEOUT_MS !== undefined && web.REDIS_API_TIMEOUT_MS !== "") {
+      const timeout = Number(web.REDIS_API_TIMEOUT_MS);
+      if (!Number.isInteger(timeout) || timeout < 100 || timeout > 15000)
+        problems.push({ file: WEB_FILE, key: "REDIS_API_TIMEOUT_MS", code: "INVALID_FORMAT" });
     }
     // 런타임(readCursorSecret)처럼 앞뒤 공백을 뗀 길이로 잰다. 공백뿐이면 0자다(M7).
     const cursorSecret = web.API_CURSOR_SECRET;

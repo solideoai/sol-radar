@@ -1,4 +1,9 @@
 import "server-only";
+import { guardRedisApiRequest } from "@/app/_lib/redis-api-auth";
+import { deploymentRole, redisApiConnection } from "@/app/_lib/deployment-role";
+import { withRedisApiDeadline } from "@/app/_lib/redis-api-deadline";
+import { redisApiOperation } from "@/app/_lib/redis-api-path";
+import { redisApiUnavailable } from "@/app/_lib/redis-api-response";
 import {
   MAX_BODY_BYTES,
   type AnalysisContext,
@@ -13,9 +18,31 @@ import { apiError, handleApiRequest, requireBusinessUser } from "./http";
 // 순서: 예상 밖 예외 → 500 봉투(handleApiRequest) → 로그인·CSRF·가입 완료·업무 조직(requireBusinessUser) → 본 처리.
 export function businessRoute(
   request: Request,
-  work: (ctx: AnalysisContext) => Promise<Response>,
+  work: (ctx: AnalysisContext, signal?: AbortSignal) => Promise<Response>,
 ): Promise<Response> {
   return handleApiRequest(request, async () => {
+    const rejected = guardRedisApiRequest(request);
+    if (rejected) return rejected;
+    const operation = redisApiOperation(request.method, new URL(request.url).pathname);
+    if (
+      deploymentRole() === "frontend" &&
+      (operation === "analysis-submit" || operation === "ingest-submit")
+    ) {
+      try {
+        const { timeoutMs } = redisApiConnection(process.env);
+        return await withRedisApiDeadline(
+          timeoutMs,
+          async (signal) => {
+            const guarded = await requireBusinessUser(request);
+            signal.throwIfAborted();
+            return guarded.ok ? work(guarded.ctx, signal) : guarded.response;
+          },
+          request.signal,
+        );
+      } catch {
+        return redisApiUnavailable();
+      }
+    }
     const guarded = await requireBusinessUser(request);
     return guarded.ok ? work(guarded.ctx) : guarded.response;
   });

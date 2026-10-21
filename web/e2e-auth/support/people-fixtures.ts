@@ -43,7 +43,8 @@ const coreFields = {
   job_titles: "id,org_id,code,label,sort_order",
   team_members:
     "id,org_id,person_code,name,gender,department_id,job_title_id,portrait_path,is_demo",
-  team_member_scoring: "member_id,org_id,role,grade,skills,availability",
+  team_member_scoring:
+    "member_id,org_id,role,grade,skills,availability,certifications,past_projects,capability_source,capability_version",
 };
 const canonical = (value: unknown): unknown =>
   Array.isArray(value)
@@ -169,7 +170,7 @@ async function preparePeople(worker: WorkerInfo, browserName: string) {
     before.cores.team_members.count,
     "Run the normal seed first; this helper never seeds org01",
   ).toBe(200);
-  expect(before.cores.team_member_scoring.count).toBe(27);
+  expect(before.cores.team_member_scoring.count).toBe(200);
   expect(before.cores.departments.count).toBe(48);
   expect(before.cores.job_titles.count).toBe(12);
   const preexistingOrgIds = new Set(

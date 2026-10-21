@@ -20,7 +20,7 @@ updated: 2026-10-21
 
 | 테넌트 | ID | 내용 |
 |---|---|---|
-| 솔리데오 (고정 회사명의 가상 데모 프로필) | `org-01` | 프로필 revision 2. 상세는 [[08-SCORING\|08]]이 단일 원천. 데모에 영향을 주는 값: 소프트웨어사업자·직접생산확인·**중소기업확인서(중기업)** 보유(FX-01 중소기업 제한경쟁 충족), ISO 27001·CMMI L3 보유, **정보통신공사업 등록 없음, 방산업체 지정 없음**, ISMS-P·CSAP 미보유, 단일 사업 수행 상한 50억, 기술 스택 Java/Spring·Next.js·NestJS·PostgreSQL·Kubernetes(FX-07 정정 후 BID 전환에 필요), 선호 분야 데이터 플랫폼·AX·민원·**교육**(FX-02 72 성립에 필요), 전체 가상 명부 200명(남녀 100/100), 그 안의 점수 계산 하위 27명 중 2026-12~2027-06 가용 20 FTE, 실적 3건 완료일 2024-11 / 2024-03 / 2025-09(모두 증빙 있음) |
+| 솔리데오 (고정 회사명의 가상 데모 프로필) | `org-01` | 프로필 revision 2. 상세는 [[08-SCORING\|08]]이 단일 원천. 데모에 영향을 주는 값: 소프트웨어사업자·직접생산확인·**중소기업확인서(중기업)** 보유(FX-01 중소기업 제한경쟁 충족), ISO 27001·CMMI L3 보유, **정보통신공사업 등록 없음, 방산업체 지정 없음**, ISMS-P·CSAP 미보유, 단일 사업 수행 상한 50억, 기술 스택 Java/Spring·Next.js·NestJS·PostgreSQL·Kubernetes(FX-07 정정 후 BID 전환에 필요), 선호 분야 데이터 플랫폼·AX·민원·**교육**(FX-02 72 성립에 필요), 전체 가상 명부 200명(남녀 100/100), 200명 전원 계산 대상, 2026-12~2027-06 가용95.5 FTE, 실적 3건 완료일 2024-11 / 2024-03 / 2025-09(모두 증빙 있음) |
 | 비교조직 | `org-02` | 사용자 1명(VIEWER), 프로필 revision 1, 리뷰 0건. 격리 시연(S7) 전용 |
 
 | 역할 | 계정 | 데모에서 하는 일 |
@@ -91,13 +91,17 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 
 ## 3. S0 사전 준비 (발표 60분 전)
 
+**실행 경로 선택(ADR-044·045): 기본은 현재 Docker Compose Redis/BullMQ·MinIO + standalone web이다.** 생산 빌드 web에는 `SOL_DEPLOYMENT_ROLE=standalone`을 명시한다. 선택 경로인 Vercel frontend+회사 Gateway는10-24(토)22:00 freeze 전 `pnpm verify`와 실제 HTTPS 업무 E2E가 green이고 운영/요금제 승인이 있을 때만10-25 리허설에서 고른다. 자동 전환은 없다. 코드·기동 절차·이 S0·[[11-TESTING|11]] §5가 함께 와야 한다([병합 조건](plans/2026-10-21-redis-vercel-merge-conditions.md)).
+
+선택 경로를 고르면 아래2번의 로컬 Compose 기동 대신 승인된 회사 Redis6379·Gateway host127.0.0.1:6380·기존 Nginx `/redis/`·회사 Worker 상태와 Vercel frontend의 동일 소스/모드를 확인한다. `/redis/health` 무토큰/오토큰401, 정상 token의 readiness, 실제202→Vercel pollUrl→Worker 결과, 잘못된 JWT401·타 조직404·role403·429를 기록한다. API token은 서버 전용이고 Vercel web에 service role을 넣지 않는다. seed·DB 적용·회사 컨테이너/Nginx·production 배포는 별도 승인 후 수행한다. 운영 검증이 없거나 실패하면 기존 Compose 기본 경로를 유지하고 미검증으로 표시한다.
+
 장면 번호 규약: 데모 장면은 `S0`(준비)~`S7`, 테스트 골든 시나리오는 `G1`~`G10`([[11-TESTING|11]]). 둘을 섞어 쓰지 않는다. [[21-MODEL-TRAINING|21 모델 학습]]의 평가 비교 대상은 `E0`~`E4`로 부르고 데모 장면 번호와 섞지 않는다.
 
 > [!success] 네트워크 의존과 대체 경로 (결정됨 2026-10-19, [[16-DECISIONS|ADR-023]])
 > DB와 인증이 Supabase 클라우드 프로젝트라 기본 시연은 인터넷이 필요하다. 끊기면 로그인과 조회가 멈추고 `/health/ready`가 `503`을 낸다. 대체 경로는 §5 표의 6종이다(인터넷 → 로컬 Supabase CLI, 공공 API → `fixture`, GPU → `mock` 또는 사전 run, Supabase → 로컬 CLI, 첨부 → 실패 화면 그대로, 시간 초과 → `PARTIAL`). 자동 fallback은 없고 사람이 전환하며, 전환하면 화면의 실행 모드·출처 표시와 발표에서 밝힌다. 로컬 CLI 전환은 최종 리허설(10-24, [[12-ROADMAP|12 로드맵]]) 항목이다(§6).
 
 1. 인터넷 연결과 Supabase 프로젝트를 확인한다. 환경 변수에 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`(서버 전용 비밀, worker·seed만 쓴다)가 들어 있고, Supabase 대시보드에서 프로젝트에 접속되는지 본다. SOL RADAR 마이그레이션은 미리 적용돼 있어야 한다(`pnpm db:push`는 운영 DB를 바꾸므로 사용자 확인 뒤에만 실행한다). env는 `SOL_RUN_MODE=mock`, `AI_FALLBACK_TO_MOCK=false`로 시작한다. `live`·`fixture`를 확인하려면 나라장터 서비스키 4개(`G2B_*_SERVICE_KEY`, 서버 전용, 값은 출력하지 않는다)가 모두 들어 있고 `pnpm check:env`가 모드 모순 없이 통과하는지, 회사 GPU 추론 엔드포인트에 접속되는지(`GET /v1/models`, 방식은 [[10-DEPLOYMENT|10 배포]]) 본다.
-2. `docker compose -f infra/compose.yaml up -d --build`로 redis·minio·qdrant·ai-gateway·worker를 띄운다. DB 컨테이너는 없다(DB는 Supabase). web도 Compose 서비스가 아니라 호스트에서 `pnpm -C web start`로 띄운다([[10-DEPLOYMENT|10 배포]] 기동 절차 5). `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 확인한다. `checks.db`는 Supabase(Postgres) 연결이다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]].
+2. `docker compose -f infra/compose.yaml up -d --build`로 redis·qdrant·ai-gateway·worker를 띄운다. DB 컨테이너는 없다(DB는 Supabase). web도 Compose 서비스가 아니라 호스트에서 `pnpm -C web start`로 띄운다([[10-DEPLOYMENT|10 배포]] 기동 절차 5). `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 확인한다. `checks.db`는 Supabase(Postgres) 연결이다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]].
 3. `pnpm demo:reset`으로 seed를 적용한다(Compose 서비스가 아니라 스크립트. service role 키로 Supabase 프로젝트에 조직·계정·구성원·프로필·fixture를 적재, 멱등). 출력 마지막 줄(§1)과 `--write-summary <경로>` JSON의 `ingestRun.summary`(SEED 배치, `ingest_runs` 행과 같다)가 `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}`인지 확인한다 (격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번). `/admin/ingestion` 화면(확장 컷)이 있으면 같은 값을 거기서도 본다.
 4. **세 모드 확인**: `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순서로 바꾸며 worker·ai-gateway를 재시작한다. 모드마다 기동 거부가 없는지, 머리말 "실행 모드"와 `GET /api/v1/admin/ai/status`(admin@soltech.invalid)의 `runMode`·`gateway.runMode`가 맞는지, `live`·`fixture`에서는 `qwen.healthy`·`kev.registryMatch`가 `true`인지 본다. 새 `ai-local` 값으로 `live`·`fixture`를 띄우는 것은 [[16-DECISIONS|ADR-034]] 16번 조건(레지스트리 항목, `/v1/models` 대조·호환성 시험 통과) 뒤다. 레지스트리 항목(`bosun-v3.1-0.6b`·`qwen3.8-flash-next`)은 B1과 함께 main `1b68f9b`에 들어갔다. 결정 서버(`sol_decision`) 회사 기동은 사용자가 승인한 뒤다. 보안 후속(`fix/decision-hardening`)은 main `36edfb6`에 들어갔다([[16-DECISIONS|16]] 미결정 24번, ADR-034 12번). 그 기동과 실제 `/v1/models` 대조 기록은 2026-10-21 현재 없다. 두 값은 gateway 기동 시점의 판정이다(`qwen.healthy` = gateway 생존 + Qwen 모델 설정, `kev.registryMatch` = 기동 때 잰 레지스트리 대조). 실시간 탐침이 아니므로 모델 서버가 그 뒤에 죽은 것은 여기서 잡히지 않는다([[05-API-SPEC|05 API]] `AiStatus`, [[16-DECISIONS|ADR-035]] F6). `live`에서는 오늘 호출량(개발계정 서비스당 1,000건/일)을 Redis 호출 예산 카운터(`docker compose -f infra/compose.yaml exec redis redis-cli GET quota:<serviceId>:<YYYYMMDD>`, 날짜는 KST, [[07-DATA-PIPELINE|07]] §2.2)와 `/admin/ingestion` 실행 상세의 호출 수(`quotaUsed`)로 확인한다(`/admin/sources`는 미구현). 실패한 모드는 시연에서 빼고 기록한다. **`live`에 있는 동안 S-LIVE용 실공고 1건의 수집·파싱·분석(C8)을 실행하고 공고번호·`score_runs` id·상태(`COMPLETED`/`PARTIAL`)·외부 의존성 컷 규칙의 갈래를 `run-modes.md`에 적는다.** 마지막은 `mock`으로 두고 2의 `/health/ready`(`checks.ai:"mock"`)를 다시 확인한다. 결과는 `docs/evidence/demo-day/<일시>/run-modes.md`에 남긴다([[11-TESTING|11 테스트]] §5).
 5. `mock` 모드에서 **FX-02를 뺀 적재 공고 18건을 전부 미리 분석**해 둔다(FX-12는 격리라 공고가 없다). S2 대시보드의 BID 권고 3건(FX-01·FX-18·FX-06), 목록 상단 순서(94·82·78), 분석 현황 (완료) 카드 18, [[14-OBSERVABILITY|14 관측성]] 지표 #2·#3이 이 사전 분석 건수에 기댄다. **FX-02는 분석 없음(`latestAnalysis=null`, 화면 `미분석`)으로 남겨** S4에서 라이브 분석한다. FX-06·FX-07의 r1 분석도 이때 들어간다. 수집은 분석을 자동으로 넣지 않으므로 r2 분석은 S5에서 사람이 [재분석]을 눌러야 보인다. 사전 분석은 별도 명령 `pnpm demo:preanalyze`가 한다(대상 18건, `mock` 모드·gateway 필수, 18건 모두 `COMPLETED`, 순서는 Compose → `pnpm demo:reset` → 모드 확인·mock 복귀 → `pnpm demo:preanalyze` → S2, [[10-DEPLOYMENT|10 배포]] 기동 절차 12~14번, [[16-DECISIONS|ADR-030]] B22·ADR-031 C12(f)). 4번에서 `live`·`fixture`를 확인했으면 `mock`으로 돌아온 다음에 돈다. `pnpm demo:reset`은 사전 분석을 지우므로 이 뒤에 reset을 다시 돌렸으면 사전 분석도 다시 한다. 실행은 사용자 확인 뒤다.
@@ -126,7 +130,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 1. 창 A `/dashboard`.
 2. 보여야 하는 것: 머리말 "실행 모드: mock", `DEMO` 배지, `AI: mock` 표시, "마지막 수집" 시각, 카드 5개: BID 권고, 검토 대기, **마감 임박 7일(FX-14 포함)**, 수집(격리 1건 FX-12), 분석 현황 (완료) 18 · 부분 0 · 실패 0(§3 5번 사전 분석 기준. S6 뒤에는 17 · 부분 1. 카드 이름 "(완료)"는 [[16-DECISIONS|16]] 미결정 30-6, 구현 전). 최근 변경 목록과 관리자 격리 요약은 지금 화면에 없다(대시보드 응답에 `recentChanges`가 없다, [[05-API-SPEC|05]] §4). 격리 1건은 수집 카드의 "적재 19 · 격리 1"과 `/admin/ingestion` 실행 상세(격리 FX-12, 제목 누락)로 본다. 이 기대값은 Phase 3에서 [[11-TESTING|11 테스트]] 체크리스트에도 적는다([[16-DECISIONS|ADR-021]]).
 3. 말할 것: 지금 모드가 `mock`(가상 공고 + 고정 AI 응답)이고 회사 프로필도 가상 솔리데오라는 것을 먼저 밝힌다. "깨진 데이터는 숨기지 않고 격리한다."
-4. (선택, 시간이 남을 때 15초) 사이드바 → 조직·인력: 200명 조직도와 "점수 계산 대상" 27명 배지. 말할 것: "사진과 사람은 모두 가상이고, 점수 계산에는 이 27명만 쓴다." 기존 시각표는 바꾸지 않는다([[16-DECISIONS|ADR-021]]).
+4. (선택, 시간이 남을 때 15초) 사이드바 → 조직·인력: 200명 조직도와 "점수 계산 대상"200명 배지. 말할 것: "사진과 사람은 모두 가상이고, 점수 계산에는 가상200명 전원의 속성을 쓴다." 기존 시각표는 바꾸지 않는다([[16-DECISIONS|ADR-021]]).
 
 ### S3 자격 판정과 규칙 우선 (1:00~2:15)
 
@@ -240,7 +244,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 
 ## 솔리데오 직원·사진 준비 체크 (ADR-019)
 
-명부·카탈로그·사진·가입·27명/20 FTE 검사는 [[11-TESTING|11 테스트]] §8 PPL-01~07을 그대로 쓴다. `/people`에서 사진 200장이 누락 없이 보이는지는 `/people`이 확장 컷이라([[16-DECISIONS|ADR-021]]·ADR-023) 그 화면을 노출할 때의 리허설에서 본다.
+명부·카탈로그·사진·가입·200명/95.5 FTE 검사는 [[11-TESTING|11 테스트]] §8 PPL-01~07을 그대로 쓴다. `/people`에서 사진 200장이 누락 없이 보이는지는 `/people`이 확장 컷이라([[16-DECISIONS|ADR-021]]·ADR-023) 그 화면을 노출할 때의 리허설에서 본다.
 
 원본 엑셀은 배포물·발표 화면에 넣지 않는다. 직원 명부·사진 저장 위치는 [[07-DATA-PIPELINE]]을 따른다.
 

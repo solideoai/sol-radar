@@ -31,6 +31,234 @@ const migratedDb = async (t) => {
   return pglite;
 };
 
+describe("Supabase Storage — immutable objects and private access", () => {
+  const bid = "b1d00000-0000-0000-0000-000000000011";
+  const rev = "be500000-0000-0000-0000-000000000011";
+  const sha = "a".repeat(64);
+  const objectPath = `raw/bids/${bid}/${rev}/${sha}.pdf`;
+  const lease = "1ea5e000-0000-0000-0000-000000000001";
+  const claimInput = {
+    bucket: "bid-documents",
+    path: objectPath,
+    sha256: sha,
+    sizeBytes: 9,
+    mimeType: "application/pdf",
+    leaseToken: lease,
+  };
+  async function setup(t) {
+    const db = await migratedDb(t);
+    await db.query(
+      "insert into public.bid_notices(id,source,notice_id,title,agency,stage,status,budget_krw,source_url,content_hash,is_demo) values($1,'fixture','STORAGE-1','시험','기관','NOTICE','OPEN',100,'https://fixture.invalid/1','hash',true)",
+      [bid],
+    );
+    await db.query(
+      "insert into public.bid_revisions(id,bid_id,revision,raw_payload,normalized,checksum) values($1,$2,1,'{}','{}','sum')",
+      [rev, bid],
+    );
+    const docs = (
+      await db.query(
+        "insert into public.bid_documents(bid_id,revision_id,name,original_url) values($1,$2,'a.pdf','https://www.g2b.go.kr/a'),($1,$2,'b.pdf','https://www.g2b.go.kr/b') returning id",
+        [bid, rev],
+      )
+    ).rows;
+    return { db, docs };
+  }
+  const claim = async (db, input = claimInput) =>
+    (
+      await db.query("select public.claim_document_storage($1::jsonb) as value", [
+        JSON.stringify(input),
+      ])
+    ).rows[0].value;
+  const finish = (db, object, documentId, token = lease) =>
+    db.query("select public.finish_document_storage($1::jsonb)", [
+      JSON.stringify({
+        objectId: object.id,
+        documentId,
+        leaseToken: token,
+        kind: "raw",
+        format: "PDF",
+      }),
+    ]);
+
+  it("keeps two document references to the same checksum, and serializes upload ownership", async (t) => {
+    const { db, docs } = await setup(t);
+    const object = await claim(db);
+    assert.equal(object.status, "UPLOADING");
+    await assert.rejects(
+      claim(db, { ...claimInput, leaseToken: "1ea5e000-0000-0000-0000-000000000002" }),
+      /storage_busy/,
+    );
+    await finish(db, object, docs[0].id);
+    const reused = await claim(db);
+    assert.equal(reused.id, object.id);
+    await finish(db, reused, docs[1].id);
+    assert.equal(
+      (
+        await db.query(
+          "select id from public.bid_documents where raw_storage_id=$1 and download_status='OK'",
+          [object.id],
+        )
+      ).rows.length,
+      2,
+    );
+    await assert.rejects(claim(db, { ...claimInput, sizeBytes: 10 }), /storage_metadata_mismatch/);
+  });
+
+  it("only active business members can read referenced raw objects; anonymous, parsed, unreferenced and direct writes stay closed", async (t) => {
+    const { db, docs } = await setup(t);
+    const object = await claim(db);
+    await finish(db, object, docs[0].id);
+    await db.exec(
+      "insert into storage.buckets(id,name,public) values('bid-documents','bid-documents',false),('bid-parsed','bid-parsed',false)",
+    );
+    await db.query(
+      "insert into storage.objects(bucket_id,name) values('bid-documents',$1),('bid-documents','unreferenced'),('bid-parsed','private.json')",
+      [object.path],
+    );
+    await db.query(
+      "insert into public.organizations(id,slug,name) values('0e000000-0000-0000-0000-000000000011','storage-test','시험')",
+    );
+    await db.query(
+      "insert into public.memberships(org_id,user_id,org_role,sol_role) values('0e000000-0000-0000-0000-000000000011',$1,'member','VIEWER')",
+      [users[0]],
+    );
+    await actAs(db, users[0]);
+    assert.deepEqual((await db.query("select name from storage.objects")).rows, [
+      { name: object.path },
+    ]);
+    await assert.rejects(
+      db.query("insert into storage.objects(bucket_id,name) values('bid-documents','forged')"),
+      /policy|permission denied/,
+    );
+    await assert.rejects(
+      db.query("select * from public.document_storage_objects"),
+      /permission denied/,
+    );
+    await assert.rejects(claim(db), /permission denied/);
+    await actAs(db, users[1]);
+    assert.equal((await db.query("select name from storage.objects")).rows.length, 0);
+    await actAs(db, null, "anon");
+    assert.equal((await db.query("select name from storage.objects")).rows.length, 0);
+  });
+
+  it("upload/DB failure preserves the object and expired ownership recovers; deleting objects cannot gain references", async (t) => {
+    const { db, docs } = await setup(t);
+    const object = await claim(db);
+    await assert.rejects(
+      finish(db, object, "d0c00000-0000-0000-0000-000000000099"),
+      /storage_document_missing/,
+    );
+    assert.equal(
+      (
+        await db.query("select status from public.document_storage_objects where id=$1", [
+          object.id,
+        ])
+      ).rows[0].status,
+      "UPLOADING",
+    );
+    await db.query(
+      "update public.document_storage_objects set lease_until=now()-interval '1 minute' where id=$1",
+      [object.id],
+    );
+    const recovered = await claim(db, {
+      ...claimInput,
+      leaseToken: "1ea5e000-0000-0000-0000-000000000002",
+    });
+    await finish(db, recovered, docs[0].id, "1ea5e000-0000-0000-0000-000000000002");
+    await db.query(
+      "update public.document_storage_objects set created_at=now()-interval '25 hours' where id=$1",
+      [object.id],
+    );
+    assert.equal(
+      (await db.query("select id from public.document_storage_candidates()")).rows.length,
+      0,
+    );
+    assert.equal(
+      (
+        await db.query("select public.claim_document_storage_delete($1,$2) as value", [
+          object.id,
+          lease,
+        ])
+      ).rows[0].value,
+      null,
+    );
+    await db.query("delete from public.bid_documents where raw_storage_id=$1", [object.id]);
+    assert.equal(
+      (await db.query("select id from public.document_storage_candidates()")).rows.length,
+      1,
+    );
+    assert.ok(
+      (
+        await db.query("select public.claim_document_storage_delete($1,$2) as value", [
+          object.id,
+          lease,
+        ])
+      ).rows[0].value,
+    );
+    await assert.rejects(claim(db), /storage_busy/);
+    await assert.rejects(finish(db, object, docs[1].id), /storage_lease_lost/);
+    await db.query("select public.finish_document_storage_delete($1,$2)", [object.id, lease]);
+    assert.equal(
+      (await db.query("select id from public.document_storage_objects where id=$1", [object.id]))
+        .rows.length,
+      0,
+    );
+  });
+
+  it("a delayed expired deleter cannot target a new document with the same logical checksum key", async (t) => {
+    const { db, docs } = await setup(t);
+    const first = await claim(db);
+    await finish(db, first, docs[0].id);
+    const oldPath = (
+      await db.query("select object_key from public.bid_documents where id=$1", [docs[0].id])
+    ).rows[0].object_key;
+    const bytes = new Set([oldPath]);
+    await db.query("delete from public.bid_documents where id=$1", [docs[0].id]);
+    await db.query(
+      "update public.document_storage_objects set created_at=now()-interval '25 hours' where id=$1",
+      [first.id],
+    );
+    const remove = async (token) =>
+      (
+        await db.query("select public.claim_document_storage_delete($1,$2) as value", [
+          first.id,
+          token,
+        ])
+      ).rows[0].value;
+    const delayed = await remove(lease);
+    await db.query(
+      "update public.document_storage_objects set lease_until=now()-interval '1 minute' where id=$1",
+      [first.id],
+    );
+    const takeoverToken = "1ea5e000-0000-0000-0000-000000000002";
+    const takeover = await remove(takeoverToken);
+    bytes.delete(takeover.path);
+    await db.query("select public.finish_document_storage_delete($1,$2)", [
+      first.id,
+      takeoverToken,
+    ]);
+    const recreated = await claim(db);
+    await finish(db, recreated, docs[1].id);
+    const newPath = (
+      await db.query("select object_key from public.bid_documents where id=$1", [docs[1].id])
+    ).rows[0].object_key;
+    bytes.add(newPath);
+    bytes.delete(delayed.path);
+    assert.notEqual(
+      newPath,
+      oldPath,
+      "each physical object incarnation needs a distinct Storage key",
+    );
+    assert.ok(bytes.has(newPath), "the referenced recreated bytes must survive the old delete");
+    assert.equal(recreated.path, newPath);
+    assert.equal(
+      (await claim(db)).path,
+      newPath,
+      "logical duplicates still reuse the current physical object",
+    );
+  });
+});
+
 describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
   const ORG1 = "0e000000-0000-0000-0000-000000000001";
   const ORG2 = "0e000000-0000-0000-0000-000000000002";
@@ -1065,6 +1293,10 @@ describe("솔리데오 카탈로그·명부·점수 정책", () => {
       for (const sql of [
         "insert into public.team_member_scoring(member_id,org_id,role) values (gen_random_uuid(),$1,'DEV')",
         "update public.team_member_scoring set org_id=$1",
+        "update public.team_member_scoring set certifications='[]'::jsonb where org_id=$1",
+        "update public.team_member_scoring set past_projects='[]'::jsonb where org_id=$1",
+        "update public.team_member_scoring set capability_source='UNSPECIFIED' where org_id=$1",
+        "update public.team_member_scoring set capability_version='tampered' where org_id=$1",
         "delete from public.team_member_scoring where org_id=$1",
       ])
         await assert.rejects(fresh.query(sql, [solideo]), /permission denied/);
@@ -1082,6 +1314,32 @@ describe("솔리데오 카탈로그·명부·점수 정책", () => {
       /permission denied/,
     );
   });
+
+  it("합성 직원 속성은 JSON 배열·출처·완전성을 DB 제약으로 강제한다", async (t) => {
+    const fresh = await setup(t);
+    await fresh.exec(
+      "insert into public.team_member_scoring(member_id,org_id,role) select id,org_id,'DEV' from public.team_members",
+    );
+    for (const sql of [
+      "update public.team_member_scoring set certifications='{}'::jsonb",
+      "update public.team_member_scoring set past_projects='null'::jsonb",
+      "update public.team_member_scoring set capability_source='REAL'",
+      "update public.team_member_scoring set capability_source='SYNTHETIC'",
+    ])
+      await assert.rejects(fresh.exec(sql), /check constraint/);
+    const row = (
+      await fresh.query(
+        "select certifications,past_projects,capability_source,capability_version from public.team_member_scoring",
+      )
+    ).rows[0];
+    assert.deepEqual(row, {
+      certifications: [],
+      past_projects: [],
+      capability_source: "UNSPECIFIED",
+      capability_version: null,
+    });
+  });
+
   it("ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다", async (t) => {
     const fresh = await setup(t);
     const member = (await fresh.query("select id from public.team_members")).rows[0].id;

@@ -28,6 +28,10 @@ const people = fixture<{
     role: string;
     grade: string | null;
     skills: string[];
+    certifications: unknown[];
+    pastProjects: unknown[];
+    capabilitySource: string;
+    capabilityVersion: string;
     availability: { startsAt: string; endsAt: string; fte: number }[];
   }[];
 }>("people").people;
@@ -59,5 +63,9 @@ export const rows: PeopleRows = {
       grade: p.grade,
       skills: p.skills,
       availability: p.availability,
+      certifications: p.certifications,
+      past_projects: p.pastProjects,
+      capability_source: p.capabilitySource,
+      capability_version: p.capabilityVersion,
     })),
 };

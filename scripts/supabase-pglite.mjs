@@ -18,6 +18,18 @@ export const mimicSupabase = async (pglite) => {
   await pglite.exec(`
     create role anon nologin;
     create role authenticated nologin;
+    create role service_role nologin bypassrls;
+    create schema storage;
+    create table storage.buckets (id text primary key, name text not null, public boolean not null default false);
+    create table storage.objects (
+      id uuid primary key default gen_random_uuid(),
+      bucket_id text not null references storage.buckets(id), name text not null,
+      unique(bucket_id, name)
+    );
+    alter table storage.objects enable row level security;
+    grant usage on schema storage to anon, authenticated, service_role;
+    grant select, insert, update, delete on storage.objects to anon, authenticated;
+    grant all on storage.objects, storage.buckets to service_role;
     create schema auth;
     create table auth.users (
       id uuid primary key,
@@ -38,6 +50,8 @@ export const mimicSupabase = async (pglite) => {
     -- Supabase 는 확장을 public 이 아니라 extensions 스키마에 깔고 화면 역할에 usage 를 준다(database 스킬).
     create schema extensions;
     grant usage on schema public, auth, extensions to anon, authenticated;
+    grant usage on schema public, auth, extensions to service_role;
+    alter default privileges for role postgres in schema public grant all on tables to service_role;
     -- Supabase 처럼 public 의 새 표·함수·시퀀스에 화면 역할의 권한이 전부(all) 기본으로 붙게 한다.
     -- 마이그레이션이 거둔 권한만 빠진다. 출처(초기화 SQL·그 SQL 을 postgres 역할로 돌리는 스크립트·문서):
     --   https://github.com/supabase/postgres/blob/develop/migrations/db/init-scripts/00000000000000-initial-schema.sql

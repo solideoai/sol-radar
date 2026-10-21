@@ -10,6 +10,7 @@ import {
 } from "./departments.mjs";
 import { allocatePeople } from "./allocation.mjs";
 import { generatePeople, projectSignupOptions } from "./generate.mjs";
+import { generateCapabilities } from "./capabilities.mjs";
 import { normalizeSourceName } from "./names.mjs";
 import { readOrganizationWorkbook } from "./workbook.mjs";
 import { validatePortraitAssets } from "./portraits.mjs";
@@ -189,32 +190,14 @@ function checkRoster(fixtures, add) {
     people.filter((person) => person.gender === "FEMALE").length !== 100
   )
     add("GENDER_COUNTS_INVALID");
-  const roleCounts = { PM: 2, PL: 4, DEVELOPER: 18, DATA_AI: 3 };
-  if (
-    people.filter((person) => person.scoringEligible === true).length !== 27 ||
-    people.filter((person) => person.scoringEligible === false).length !== 173 ||
-    Object.entries(roleCounts).some(
-      ([role, count]) =>
-        people.filter((person) => person.scoringEligible === true && person.role === role)
-          .length !== count,
-    )
-  )
-    add("SCORING_INVALID");
   for (const person of people) {
-    const eligible = person.scoringEligible === true;
-    const expectedAvailability = eligible ? [{ startsAt: STARTS_AT, endsAt: ENDS_AT, fte: 1 }] : [];
-    if (
-      !isDeepStrictEqual(person.availability, expectedAvailability) ||
-      (eligible
-        ? !Object.hasOwn(roleCounts, person.role) ||
-          typeof person.grade !== "string" ||
-          !person.grade ||
-          !Array.isArray(person.skills) ||
-          !person.skills.length ||
-          person.skills.some((skill) => typeof skill !== "string" || !skill)
-        : person.role !== "OTHER" || person.grade !== null || !isDeepStrictEqual(person.skills, []))
-    )
+    try {
+      const expected = generateCapabilities(person.personId);
+      if (Object.entries(expected).some(([key, value]) => !isDeepStrictEqual(person[key], value)))
+        add("SCORING_INVALID", person.personId);
+    } catch {
       add("SCORING_INVALID", person.personId);
+    }
   }
   const expectedAssignments = Array.from({ length: 7 }, (_, index) => ({
     personId: idAt("SOL-P", (index * 37 + 11) % 200, 4),

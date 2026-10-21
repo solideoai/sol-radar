@@ -1,0 +1,35 @@
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+ ❯ server/supabase/client.test.ts (55 tests | 3 failed) 195ms
+     × rejects JWT decoding failures before the SDK (invalid.jwt.test) 5ms
+     × rejects JWT decoding failures before the SDK (bm90LWpzb24.e30.c2ln) 1ms
+     × rejects JWT decoding failures before the SDK (bnVsbA.e30.c2ln) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  server/supabase/client.test.ts > getAuthContext > rejects JWT decoding failures before the SDK (invalid.jwt.test)
+ FAIL  server/supabase/client.test.ts > getAuthContext > rejects JWT decoding failures before the SDK (bm90LWpzb24.e30.c2ln)
+ FAIL  server/supabase/client.test.ts > getAuthContext > rejects JWT decoding failures before the SDK (bnVsbA.e30.c2ln)
+AssertionError: promise rejected "Error: Invalid UTF-8 sequence" instead of resolving
+ ❯ server/supabase/client.test.ts:234:42
+    232|     auth.getClaims.mockImplementation(async () => { throw new Error("I…
+    233|     const { getAuthContext } = await import("./client");
+    234|     await expect(getAuthContext("bearer")).resolves.toBeNull();
+       |                                          ^
+    235|     expect(auth.getClaims).not.toHaveBeenCalled();
+    236|   });
+
+Caused by: Error: Invalid UTF-8 sequence
+ ❯ Object.<anonymous> server/supabase/client.test.ts:232:59
+ ❯ getAuthContext server/supabase/client.ts:88:47
+ ❯ server/supabase/client.test.ts:234:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 52 passed (55)
+   Start at  18:02:28
+   Duration  390ms (transform 66ms, setup 0ms, import 78ms, tests 195ms, environment 0ms)
+

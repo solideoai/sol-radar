@@ -23,7 +23,7 @@ updated: 2026-10-21
 ```mermaid
 flowchart LR
  A[OfficialApiConnector 또는 FixtureConnector] --> B[목록·보조 조회]
- B --> C[Raw response archival<br/>사설 MinIO]
+ B --> C[Raw response archival<br/>사설 Supabase Storage]
  C --> D[Schema mapping<br/>NormalizedBid]
  D --> E[Validation/quarantine]
  E --> F[Idempotent upsert<br/>Supabase, service role]
@@ -82,7 +82,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - worker는 `SUPABASE_SERVICE_ROLE_KEY`로 Supabase에 쓴다. 공고 표(`bid_notices`, `bid_revisions`, `bid_documents`)와 `ingest_runs`·`ingest_errors`·`outbox_events`는 화면 역할에 쓰기 권한이 없고 worker만 쓴다([[04-DATABASE|04 DB]] §3). `outbox_events`는 DB 표이고, worker가 부르는 저장 RPC(`ingest_save_revision`·`finish_score_run`)와 화면 쓰기에 붙은 트리거(`20261019000007`)가 행을 넣는다.
 - service role은 RLS를 무시한다. 공고는 공용 데이터라 `org_id`가 없다. 조직이 걸리는 행(수동 수집 감사 `INGEST_MANUAL`, 조직 사용자에게 가는 알림)은 job 데이터의 `orgId`를 직접 넣는다. 조직 표에 쓰는 worker 코드에는 테넌트 혼입 시험을 둔다.
 - 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다(§2.7).
-- 첨부 원본·추출 텍스트는 MinIO에 쓰고 DB에는 키만 둔다.
+- 첨부 원본·추출 텍스트는 Supabase Storage에 쓰고 DB에는 키만 둔다.
 - 공고·revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 한 번에(원자적으로) 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘겨 리허설마다 공고 id를 보존한다([[16-DECISIONS|ADR-030]] B18).
 - 변경 감지 뒤 공고 이벤트(`BID_CREATED`·`BID_CHANGED`)는 저장 RPC(`ingest_save_revision`)가 DB 표 `outbox_events`에 함께 쓰고, Redis/BullMQ에는 `documents` 큐 job만 넣는다(documents 소비자는 미구현). 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집 주기는 기본 30분이고 env `G2B_INGEST_INTERVAL_MINUTES`로 바꾼다(B18, §2.2).
 
@@ -149,17 +149,17 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 ### 2.3 서비스키 없이 개발하기
 
 - `OfficialApiConnector`의 응답 해석 시험은 `fixtures/recorded/<serviceId>/`의 녹음 응답(2026-10-19 실호출, 마스킹)을 네트워크 없이 재생해 만든다. 경로는 registry `sampleResponses`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)에 적는다.
-- 실제 응답에는 담당자 이름·전화·이메일이 있다. 저장소에 두는 사본은 담당자 필드를 빼거나 마스킹하고, 서비스키가 든 요청 URL은 남기지 않는다. 원본은 사설 MinIO에만 둔다([[09-SECURITY|09 보안]], [[11-TESTING|11 테스트]]).
+- 실제 응답에는 담당자 이름·전화·이메일이 있다. 저장소에 두는 사본은 담당자 필드를 빼거나 마스킹하고, 서비스키가 든 요청 URL은 남기지 않는다. 원본은 사설 Supabase Storage에만 둔다([[09-SECURITY|09 보안]], [[11-TESTING|11 테스트]]).
 - 회사 GPU 추론 엔드포인트가 없을 때의 AI 쪽 개발(mock과 wire 계약 시험)은 [[03-AI-PIPELINE|03 AI 파이프라인]].
 
 ### 2.4 첨부 다운로드 (`AttachmentFetcher`)
 
-documents job이 새 revision의 첨부를 내려받아 MinIO에 쓰고, 바이트를 gateway `POST /parse`로 보낸다. 추출 텍스트도 MinIO에 쓰고 `bid_documents`에 상태를 기록한다([[04-DATABASE|04 DB]]). 다운로드는 worker만 한다. gateway는 네트워크·MinIO에 접근하지 않는다. job 모양·재시도·보존·복구 대상은 이 문서 끝 "documents 큐 소비자 계약"이 정본이다(소비자는 아직 없다).
+documents job이 새 revision의 첨부를 내려받아 Supabase Storage에 쓰고, 바이트를 gateway `POST /parse`로 보낸다. 추출 텍스트도 Supabase Storage에 쓰고 `bid_documents`에 상태를 기록한다([[04-DATABASE|04 DB]]). 다운로드는 worker만 한다. gateway는 네트워크·Supabase Storage에 접근하지 않는다. job 모양·재시도·보존·복구 대상은 이 문서 끝 "documents 큐 소비자 계약"이 정본이다(소비자는 아직 없다).
 
 - 첨부 목록: 입찰공고 응답의 `ntceSpecDocUrl1~10`·`ntceSpecFileNm1~10`과 e발주 첨부 오퍼레이션 결과.
 - 허용 호스트는 `www.g2b.go.kr`(https)뿐이다. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트다.
 - 리다이렉트는 같은 allowlist 안에서만 따른다. DNS를 다시 확인하고 사설 IP는 거부한다. timeout 30 s, 최대 50 MB다([[09-SECURITY|09 보안]] SSRF).
-- 저장 키는 `raw/bids/{bidId}/{revisionId}/{sha256}.{ext}`다. 형식은 확장자가 아니라 내용(매직 바이트)으로 판단한다.
+- 논리 저장 키는 `raw/bids/{bidId}/{revisionId}/{sha256}.{ext}`다. Storage의 실제 키에는 파일명 앞에 원장 UUID 디렉터리를 넣는다(`.../{revisionId}/{objectId}/{sha256}.{ext}`). 삭제 뒤 새 원장 UUID로 재생성하여 오래된 삭제가 새 파일을 지우지 못하게 한다. 형식은 확장자가 아니라 내용(매직 바이트)으로 판단한다.
 - 다운로드와 파싱은 따로 기록한다. 다운로드는 `download_status`(`PENDING`·`OK`·`FAILED`)·`download_error_code`, 파싱은 `parse_status`·`parse_error_code`다. 다운로드가 `OK`가 아니면 `parse_status`는 NULL(파싱 시도 안 함)이다([[04-DATABASE|04 DB]]).
 
 지원 범위와 처리할 수 없는 경우(형식별 처리·표시)는 [[03-AI-PIPELINE|03 AI 파이프라인]] §10.5 표가 정본이다. 수집 쪽 기록 규칙은 위 다운로드·파싱 상태 줄과 같다.
@@ -247,7 +247,7 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 | 계약 방식 | `cntrctCnclsMthdNm`, `sucsfbidMthdNm` |
 
 - 같은 조건을 API 구조화 필드와 Qwen 추출이 둘 다 주면 **API 구조화 필드가 우선**이다(면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt`). 두 값이 다르면 그 필드를 `CONFLICTED`로 둔다([[15-DATA-CONTRACTS|15 데이터 계약]] §3·§4, [[08-SCORING|08 점수]] §5.1).
-- **개인정보**: 담당자 필드(이름·전화·이메일)는 `NormalizedBid`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관하고, 모델 입력과 데이터셋 내보내기에서도 뺀다([[09-SECURITY|09 보안]], [[21-MODEL-TRAINING|21 모델 학습]]).
+- **개인정보**: 담당자 필드(이름·전화·이메일)는 `NormalizedBid`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 Supabase Storage에만 보관하고, 모델 입력과 데이터셋 내보내기에서도 뺀다([[09-SECURITY|09 보안]], [[21-MODEL-TRAINING|21 모델 학습]]).
 - 업종 코드는 업종 및 근거법규 마스터(15129467)를 받아 만든 사전으로 이름과 잇는다. 실제 값은 C1 ① 업종 마스터 응답으로 확인했다(소프트웨어사업자 `1468`·`1426`, 정보통신공사업 `0036`, [[08-SCORING|08]] §5.1 콜아웃).
 - 상태: `ntceKindNm` 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 값은 [[15-DATA-CONTRACTS|15]] §6 격리다([[16-DECISIONS|ADR-030]] B14).
 
@@ -344,7 +344,7 @@ fixture 한 건의 형태:
 | `FX-12` | NOTICE | (제목 없음) | 경상북도 | 3억 | +10d | 필수 필드 `title` 누락 | 격리. `ingest_errors` 1건, 목록 미노출, 관리자 화면에 오류 1건 | — | S2 격리 1건 |
 | `FX-13` | NOTICE | 울산광역시 산업안전 모니터링 플랫폼 | 울산광역시 | `"1,500백만원"` | +19d | 금액 텍스트 정규화 + 추출 fixture에 원문과 불일치하는 인용 1건 | `budgetKrw="1500000000"`, 원본 문자열 보존. 인용 검증 실패 → 해당 필드(`qualifications`) `UNKNOWN` + `note="CITATION_FAILED"`, 실패 인용은 `match=FAILED`로 남고 화면에 보이지 않음, `warnings`에 `CITATION_FAILED:qualifications`, `reviewFlags`에 `CITATION_FAILED`(`CONFLICTED` 아님, ADR-029 A1), 자격 NEEDS_REVIEW. WATCH | — | — |
 | `FX-14` | NOTICE | 광주광역시 AI 행정 비서 시범사업 | 광주광역시 | 5억 | +2d (KST 18:00) | 마감 임박, 타임존 변환 | UTC 09:00 저장. 대시보드 "마감 임박" 카드, `DEADLINE_APPROACHING` 1건(미구현: 만드는 곳이 없다, [[13-NOTIFICATIONS\|13]]). WATCH (일정 감점) | — | S2 마감 임박 |
-| `FX-15` | NOTICE | 행정안전부 차세대 지방행정 공통기반 구축 | 행정안전부 | 80억 | +30d | 규모 초과(솔리데오 수행 상한 50억) | 규모 적합 0점 + `SCALE_LIMIT_EXCEEDED` 경고. WATCH (58) | — | — |
+| `FX-15` | NOTICE | 행정안전부 차세대 지방행정 공통기반 구축 | 행정안전부 | 80억 | +30d | 규모 초과(솔리데오 수행 상한 50억) | 규모 적합 0점 + `SCALE_LIMIT_EXCEEDED` 경고. WATCH (68) | — | — |
 | `FX-16` | NOTICE | 국방부 군 지휘통제체계 SW 유지보수 | 국방부 | 40억 | +20d | 비선호 분야(국방) + 방산업체 지정 필수 미충족. mock Kev도 `NO_BID 0.70` | **NO-BID** (자격). 규칙·결정 모델 일치 | G3 일치 사례 | — |
 | `FX-17` | PLAN | 과학기술정보통신부 2027년 AI 행정서비스 구축 발주계획 | 과학기술정보통신부 | 50억 (예정) | 없음 (2027-03 예정) | 발주계획 단계. `planRef=DEMO-PLAN-0042` | 자격 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`), WATCH (조기 추적). StageTimeline 1단계 | — | — |
 | `FX-18` | PRE_SPEC | 과학기술정보통신부 AI 행정서비스 구축 사전규격 | 과학기술정보통신부 | 48억 | 의견등록 +7d | `planRef=DEMO-PLAN-0042`로 `FX-17`과 연결 | 연결 확정(식별자). **BID** (82). StageTimeline 2단계 | — | — |
@@ -449,7 +449,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 
 고정 인물 ID는 `SOL-P0001`~`SOL-P0200`이며 이름을 파일명에 쓰지 않는다. 같은 팀명은 앞뒤 공백만 제거해 정확 일치로 합산한다. 본부·근무지·주소를 팀으로 오인하지 않고, 분류할 수 없는 인력 행은 임의 부서 생성 대신 오류로 보고한다. 각 팀 1명 배치 후 남은 인원을 원본 인력 행 수에 비례해 최대 나머지 방식으로 나눈다. 동률은 부서 ID 순으로 고정한다. 부서 내 직급 비율도 최대 나머지 방식(동률은 직급 ID 순)으로 맞추고 남녀를 각각 정확히 100명으로 맞춘다. 원본 동명이인만으로 같은 인물이라고 추정하지 않는다.
 
-부서 계층([[16-DECISIONS|ADR-021]]): `solideo.departments.json`의 항목에 선택 필드 `parentId`(상위 부서 `id` 또는 `null`)와 `kind`(`DIVISION`·`GROUP`·`TEAM` 또는 생략)를 둔다. 계층은 본부 → 그룹 → 팀이고 깊이는 3 이하다. 본부·그룹 항목은 `targetCount`가 없고(오류 아님) 팀만 `targetCount`를 가진다. 가입 선택 목록과 200명 배분 검사는 팀(`kind`가 `TEAM`이거나 생략)만 대상이고, 직원의 `departmentId`는 팀만 가리킨다. 상위를 확정할 수 없으면 지어내지 않고 `parentId: null`로 두며 검증 보고에 남긴다(화면은 "상위 미지정"). 존재하지 않는 `parentId`·자기 참조·순환·깊이 3 초과·팀이 아닌 직원 소속은 검증 오류다. 검증 보고에는 팀별 목표·실제·차이 표를 남기고, 정본 JSON을 처음 만들 때는 차이가 0이어야 한다. 기존 부서 `id`·직원 연결·`personId`는 바꾸지 않는다. 명부 JSON은 한 파일이고 seed가 `team_members`(운영)와 `team_member_scoring`(점수 계산 속성 27명) 두 표로 나눠 넣는다.
+부서 계층([[16-DECISIONS|ADR-021]]): `solideo.departments.json`의 항목에 선택 필드 `parentId`(상위 부서 `id` 또는 `null`)와 `kind`(`DIVISION`·`GROUP`·`TEAM` 또는 생략)를 둔다. 계층은 본부 → 그룹 → 팀이고 깊이는 3 이하다. 본부·그룹 항목은 `targetCount`가 없고(오류 아님) 팀만 `targetCount`를 가진다. 가입 선택 목록과 200명 배분 검사는 팀(`kind`가 `TEAM`이거나 생략)만 대상이고, 직원의 `departmentId`는 팀만 가리킨다. 상위를 확정할 수 없으면 지어내지 않고 `parentId: null`로 두며 검증 보고에 남긴다(화면은 "상위 미지정"). 존재하지 않는 `parentId`·자기 참조·순환·깊이 3 초과·팀이 아닌 직원 소속은 검증 오류다. 검증 보고에는 팀별 목표·실제·차이 표를 남기고, 정본 JSON을 처음 만들 때는 차이가 0이어야 한다. 기존 부서 `id`·직원 연결·`personId`는 바꾸지 않는다. 명부 JSON은 한 파일이고 seed가 `team_members`(운영)와 `team_member_scoring`(점수 계산 속성200명) 두 표로 나눠 넣는다.
 
 이름은 실제 사용되는 두 글자 이름 통계와 한 글자 성씨를 참고한 자연스러운 한글 세 글자로 한다. 출처: [남성 이름 통계](https://www.namechart.kr/chart/2008?gender=m), [여성 이름 통계](https://www.namechart.kr/chart/2008?gender=f)(2026-10-16 확인). 최종 200개 이름은 중복 0·원본 이름 교집합 0이어야 한다. 원본 이름 제외 집합은 로컬 검사 중에만 사용하며 로그·fixture·프롬프트에 남기지 않는다. 원본 파일이 없으면 제외 검사는 실패로 보고한다.
 

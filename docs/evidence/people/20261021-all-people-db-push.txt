@@ -1,0 +1,8 @@
+
+> sol-radar@0.1.0 db:push /Users/leegwanghui/dev/hackathon/sol-radar
+> bash scripts/db-push.sh
+
+▶ 마이그레이션 적용(직접 pg 연결, 대시보드 직접 SQL 아님)
+  이미 적용된 30개는 건너뜁니다
+  ✓ 20261021000600_enrich_all_demo_people.sql
+✅ 적용 완료

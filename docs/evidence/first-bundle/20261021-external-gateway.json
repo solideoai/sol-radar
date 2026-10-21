@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-10-21T13:59:35.471445+00:00",
+  "url": "https://acropolissg.com/redis/health",
+  "method": "GET",
+  "authenticated": false,
+  "tlsVerification": true,
+  "httpStatus": 502,
+  "contentType": "text/html"
+}

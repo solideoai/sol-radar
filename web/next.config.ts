@@ -19,6 +19,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   turbopack: { root: __dirname },
   // X-Powered-By: Next.js 를 빼서 쓰는 프레임워크를 알리지 않는다.
   poweredByHeader: false,
