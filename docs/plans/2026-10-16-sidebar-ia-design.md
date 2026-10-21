@@ -7,7 +7,7 @@ tags:
   - ui
   - product
   - hackathon
-updated: 2026-10-18
+updated: 2026-10-21
 ---
 
 # 설계: 사이드바 정보 구조와 입찰 업무 확장
@@ -186,8 +186,8 @@ flowchart LR
 | 5 | 진행 중 입찰 프로젝트 (N6 이후) | `bid_projects.status`가 종료가 아닌 수 | 진행 중 입찰 프로젝트 |
 
 **분석 현황 집계 규칙**
-- 조직의 **공고별 최신 `score_runs` 1건**(가장 최근 `created_at`)만 센다. 같은 공고를 여러 번 분석해도(재분석·`force`) 한 번만 센다. `force=false` 중복 요청은 새 행을 만들지 않는다(05 §7).
-- 그 1건의 `status`가 `COMPLETED`면 완료, `PARTIAL`이면 부분(규칙만), `FAILED`면 실패다. `QUEUED`·`RUNNING`은 세지 않는다.
+- 조직의 **공고별로 끝난 `score_runs`(`COMPLETED`·`PARTIAL`·`FAILED`) 가운데 최신 1건**(가장 최근 `created_at`)만 센다. 같은 공고를 여러 번 분석해도(재분석·`force`) 한 번만 센다. `force=false` 중복 요청은 새 행을 만들지 않는다(05 §7).
+- 그 1건의 `status`가 `COMPLETED`면 완료, `PARTIAL`이면 부분(규칙만), `FAILED`면 실패다. 진행 중(`QUEUED`·`RUNNING`) run은 세지 않고 건너뛰어, 재분석이 도는 동안에도 그 앞의 끝난 분석을 센다. BID 권고·검토 대기 카드([[16-DECISIONS|ADR-029]] A6 D10·D11)와 같은 기준이다. (2026-10-21 구현 `web/server/bids/dashboard.service.ts`에 맞춰 고침. "최신 1건이 진행 중이면 세지 않는다"로 읽히던 문장이었다. sol-radar-54 제안, 12 위임 추천안)
 - 대시보드 `origin` 필터(05, ADR-020)를 그대로 따른다.
 - 분석이 하나도 없으면 0을 보이고 빈 상태 문구 "아직 분석한 공고가 없습니다"를 단다. 임의 값은 쓰지 않는다.
 
