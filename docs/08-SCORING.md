@@ -272,6 +272,12 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 3. **새 알고리즘 버전 `sol-v0.2.x`**: 가중치·임계값과 함께 새 버전으로 만든다. 기존 `score_runs`는 덮어쓰지 않는다(§2).
 4. **ADR**: [[16-DECISIONS|16 ADR]]에 결정을 기록한다. 결정은 사람이 한다.
 
+### 5.6 가정 재계산 (ADR-037)
+
+가정 재계산(`whatIf`, `web/server/scoring/what-if.ts`)은 저장된 `score_runs.input_snapshot`(§7)을 `AnalysisInput` 스키마로 검증한 뒤, 가정한 자격 코드만 `profile.licenses`에서 `HELD`로 바꾸거나 더한 사본(`applyAssumptions`)으로 `analyze()`를 다시 부른다. 원래와 가정 모두 `kev=null`로 계산하고, `config`(`today`·`thresholds`)·`bid`·`extraction`·`team`과 계산식·가중치·임계값(75/50)은 그대로다. 가정할 수 있는 항목은 원래 결과의 필수 항목 가운데 자격 코드 사전(`QUALIFICATION_CODES`)에 있는 코드이면서 `NOT_SATISFIED`이거나 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)인 것뿐이다. 결과는 저장하지 않고 `analyze()`도 고치지 않는다. 점수·권고·자격 판정은 결정 모델 영향을 받지 않으므로(§5.4) `kev=null`로 다시 계산한 원래 값은 저장값과 같다([[16-DECISIONS|ADR-037]], API는 [[05-API-SPEC|05]] §4.5 "가정 재계산").
+
+`FX-03`(§6.4)에 정보통신공사업 등록을 가정하면 자격 종합이 `SATISFIED`가 되어 §5.2의 "명확히 미충족" 갈래를 지나고, 점수 68이 50~75 구간이라 권고는 NO-BID → WATCH다. 자격 판정은 점수에 들어가지 않으므로 SOL Score는 68 그대로다(골든 `web/server/scoring/what-if.test.ts`).
+
 ## 6. Worked example: 솔리데오의 가상 데모 프로필
 
 > [!warning] 가상 데이터
@@ -396,6 +402,6 @@ ADR-019는 전체 직원 명부·프로필 `employeeCount`를 200으로 통일�
 - [[05-API-SPEC|05 API]] — `AnalysisResult` DTO
 - [[06-UI-UX|06 UI]] — 점수 분해·missing 배지·결정 모델 상이 배너 표시
 - [[11-TESTING|11 테스트]] — 골든 시나리오 G3·G4
-- [[16-DECISIONS|16 ADR]] — ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B)
+- [[16-DECISIONS|16 ADR]] — ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6)
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋 라벨, 결정 모델 반영 전 신뢰성 기준·오류 분석
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 결정 모델 출력은 플래그·참고 지표만
