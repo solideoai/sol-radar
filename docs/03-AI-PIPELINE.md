@@ -402,9 +402,12 @@ JSON Schema:
 - 메타데이터(`<notice>` 속성)는 구조화 값이며 모델이 바꾸지 않는다. 추출값과 다르면 모델은 `CONFLICTED`를 내야 하고, 다르게 내도 gateway가 §4.4에서 `CONFLICTED`로 바꾼다.
 - `charOffset`을 주는 이유: 모델이 chunk 내 상대 위치를 내면 gateway가 절대 오프셋으로 환산한다. 환산 실패는 인용 검증(§4.4)이 잡는다.
 - 첨부는 `/parse`가 낸 텍스트만 넣는다. 다운로드·파싱에 실패한 첨부는 넣지 않고 `warnings += ATTACHMENT_PARSE_FAILED:{documentId}`만 남긴다. "첨부가 있었다"는 사실로 내용을 추정하게 하는 지시는 프롬프트에 넣지 않는다(§8).
-- 추론 설정: `temperature=0`, `top_p=1`, `max_tokens=4096`, 런타임이 지원하면 `seed=42`와 JSON Schema 기반 구조화 출력(guided decoding). 지원하지 않으면 텍스트 파싱 + 검증으로 대체. **지금 코드는 다르다**: gateway(`adapters/qwen.py`)는 `seed=42`와 `response_format: json_schema`를 늘 보내고, 서버가 400·422로 거부하면 대체 없이 `EXTRACTION_FAILED`다. 응답 본문은 언제나 텍스트 JSON으로 받아 파싱·스키마 검증한다([[16-DECISIONS|16]] 미결정 26번).
-  - 비사고 모드(`chat_template_kwargs: {"enable_thinking": false}`)로 부른다(설계. 지금 main `adapters/qwen.py`는 이 값을 보내지 않는다. 미결정 26번). 근거는 Qwen3.5 모델 카드다: Qwen3.5는 기본이 사고(thinking) 모드라 답 앞에 `<think>…</think>`를 낸다("Qwen3.5 models operate in thinking mode by default", 2026-10-19 확인). 회사 API의 지금 모델 Qwen3.8-Flash-Next(2026-10-21 사용자 보고)의 사고 모드 기본값은 **미확인**이다. 이 값을 보내는 설계는 그대로 둔다([[16-DECISIONS|ADR-034]]. ADR-034 초안의 Qwen3-4B-Instruct-2507(non-thinking 전용)은 백업으로만 보존). Qwen 파인튜닝은 하지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.6).
-  - 미검증: 회사 vLLM API에서 이 값과 guided JSON(`response_format: json_schema`)이 함께 동작하는지는 B2 C1 ③ G4(§5.9)에서 확인한다. 2026-10-20 main `554b34c` 기준 gateway(`adapters/qwen.py`)는 `response_format`은 보내고 `enable_thinking`은 보내지 않는다.
+- 추론 설정: `temperature=0`, `top_p=1`, `max_tokens=4096`, `seed=42`, JSON Schema 기반 구조화 출력(guided decoding, `response_format: json_schema`). 런타임이 guided 요청을 받지 못하면 텍스트 파싱 + 검증으로 대체한다. main `adapters/qwen.py`(`326aff6`, main 병합 `1b68f9b`, [[16-DECISIONS|16]] 미결정 26-3)는 이렇게 한다:
+  - 첫 호출은 `response_format`을 넣는다. 서버가 400·422로 거부하면 같은 `AI_TIMEOUT_MS` 마감 안에서 `response_format`만 빼고 한 번 다시 부른다. 그 답은 `<think>…</think>`를 지우고, 전체가 코드펜스면 그 안을, 아니면 첫 `{`부터 마지막 `}`까지를 JSON 본문으로 넘긴다. 스키마·인용 검증은 guided 답과 같다. guided 호출이 200으로 답하면 벗기지 않고 그대로 파싱한다.
+  - 두 번째도 400·422면 `EXTRACTION_FAILED`다. 대체 호출의 연결 실패·timeout·마감 초과·3xx·5xx·401·403·404는 아래 재시도 정책대로 `QWEN_UNAVAILABLE`이다.
+  - 대체는 모델 호출마다 한 번이고 서버 능력을 기억하지 않는다. guided JSON을 못 받는 서버에서는 추출 한 번에 호출이 2번이고, 스키마 위반 재시도도 guided로 시작해 다시 대체하므로 최대 4번이다(`services/ai/tests/test_local_qwen.py`의 guided JSON 대체 시험).
+  - 비사고 모드: guided·대체 호출 모두 `chat_template_kwargs: {"enable_thinking": false}`를 보낸다(`326aff6`, 미결정 26-7). 근거는 Qwen3.5 모델 카드다: Qwen3.5는 기본이 사고(thinking) 모드라 답 앞에 `<think>…</think>`를 낸다("Qwen3.5 models operate in thinking mode by default", 2026-10-19 확인). 회사 API의 지금 모델 Qwen3.8-Flash-Next(2026-10-21 사용자 보고)의 사고 모드 기본값은 **미확인**이라 이 값을 그대로 보낸다([[16-DECISIONS|ADR-034]]. ADR-034 초안의 Qwen3-4B-Instruct-2507(non-thinking 전용)은 백업으로만 보존). Qwen 파인튜닝은 하지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.6).
+  - 미검증: 회사 vLLM API에서 이 값과 guided JSON(`response_format: json_schema`)이 함께 동작하는지, 대체 경로를 타는지는 B2 C1 ③ G4(§5.9)에서 확인한다. 회사 vLLM 실호출은 사용자 승인 뒤다.
 
 **재시도 정책**:
 
