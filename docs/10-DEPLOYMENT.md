@@ -59,6 +59,15 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 - worker의 선택 env `G2B_INGEST_INTERVAL_MINUTES`(일정 수집 주기, 기본 `30`분, 양의 정수, [[07-DATA-PIPELINE|07 수집]] §2.2)와 `ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(멈춘 분석 복구, [[03-AI-PIPELINE|03]] §3)는 main `4895010`부터 `compose.yaml`이 worker `environment`에 키만 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에 변수가 없어 코드 기본값이 쓰인다(`compose.yaml` 주석, [[16-DECISIONS|ADR-031]] C12(e)·C13).
 - `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`(모델 호출 시간 제한, 기본 `5000`·`60000`)는 main `01fa51a`(병합 `9f71244`)부터 `compose.yaml`이 ai-gateway와 worker **둘 다**에 값 없는 키로 넘긴다. `infra/.env`에 값이 있으면 두 서비스가 같은 값을 받고, 없으면 둘 다 기본값이다. 빈 문자열을 넘기면 gateway 설정 검증이 실패해 기동하지 않으므로 값 없는 키여야 한다. 기본값을 바꿀 때는 gateway `settings.py`와 worker `gateway.model.ts`를 함께 바꾼다([[03-AI-PIPELINE|03]] §3, [[16-DECISIONS|ADR-033]] E4).
 - worker의 선택 env `NOTIFY_POLL_INTERVAL_MS`(인앱 알림 outbox 처리 간격, ms, 500~60000 10진 정수, 기본 `2000`, [[13-NOTIFICATIONS|13 알림]] "인앱 알림 2종"). 값이 틀리면 worker가 키 이름만 알리고 기동을 멈춘다. main `301f2a5`(`fix/compose-notify-poll` @ `574aaad`)부터 `compose.yaml`이 worker `environment`에 값 없는 키로 넘긴다. `infra/.env`·셸에 값이 없으면 기본값 2000을 쓴다([[16-DECISIONS|ADR-033]] E5).
+- 카카오톡 알림(나에게 보내기, [[16-DECISIONS|ADR-038]]) env. 구현 중(`feat/kakao-notify`, main 병합 전)이다.
+  - worker(`infra/.env`): `NOTIFY_KAKAO_PROVIDER`·`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`. `52adabb`부터 `compose.yaml`이 worker `environment`에 값 없는 키 다섯 개로 넘기고, 이름은 `.env.example`·`infra/env/demo.env.example`에 주석으로만 있다(값 없음).
+  - `NOTIFY_KAKAO_PROVIDER`가 비거나 `mock`이면 mock(외부 호출 없이 보낸 것으로 친다), `memo`면 나에게 보내기 실발송이다. 그 밖의 값이면 worker가 키 이름만 알리고 기동을 멈춘다.
+  - `memo`면 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL` 넷이 모두 있어야 하고 `KAKAO_TOKEN_ENC_KEY`는 base64 32바이트여야 한다. 틀리면 worker가 Redis·큐 연결을 만들기 전에 키 이름만 알리고 멈춘다. 나에게 보내기 요청 시간 제한은 5000ms다.
+  - `SITE_URL`은 피드 링크의 웹 주소(http·https)다. mock에서 비면 `http://localhost:3000`이다. 근거는 `web/worker/notify-outbox.ts` `readKakaoSettings`와 시험 `notify-outbox.test.ts`·`main.test.ts`(`52adabb`)다.
+  - web(`web/.env.local`): `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`·`SITE_URL`. 연결 Route Handler가 아직 없어 계획의 이름이다. 확정되면 env 예시 파일과 이 줄을 맞춘다.
+  - `KAKAO_TOKEN_ENC_KEY`는 카카오 토큰 암호화 키(base64 32바이트, AES-256-GCM)다. web이 암호화해 저장하고 worker가 복호화하므로 두 쪽이 같은 값을 쓴다. 바꾸면 모든 연결을 다시 해야 한다.
+  - 카카오 키·시크릿·암호화 키는 서버 전용이다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다([[16-DECISIONS|ADR-018]] 예외, [[09-SECURITY|09 보안]] "카카오톡 알림").
+  - 실발송은 사용자가 `NOTIFY_KAKAO_PROVIDER=memo`로 바꿀 때만 일어난다. 시험·CI는 `mock`이다([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고").
 
 **Phase 0 확정 사항**: 결정과 이유는 [[16-DECISIONS|ADR-024]] 상세 표가 정본이다(placeholder `CHANGE_ME`·`minioadmin` 금지·Redis 비밀번호 영숫자·MinIO 길이, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 실행 모드 규칙 원천 `infra/run-modes.json`과 빈 문자열은 미지정). 여기에는 운영에 필요한 것만 적는다.
 - gateway 이미지는 `AI_HOST=0.0.0.0`·`SOL_RUN_MODES_FILE=/app/infra/run-modes.json`을 이미지 ENV로 가지고, 저장소 루트를 빌드 컨텍스트로 쓴다(`context: ..`). Compose는 실행 모드 키를 `${VAR:-}`로 넘긴다.
@@ -298,6 +307,19 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 > - 첫 기동 때 패키지 로딩 시간·VRAM은 재지 않았다. 기동은 회사 측이 하므로 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"로 남긴다(ADR-025). GPU 자체는 2026-10-20 확인했다(A40 46,068 MiB ×3, 위 "GPU 1 공유").
 > - Bosun 질문당 지연 p95(`KEV_TIMEOUT_MS` 5000)는 B2 G3에서 잰다(16 미결정 24번).
 
+## 카카오 앱 설정 ([[16-DECISIONS|ADR-038]], 구현 중)
+카카오톡 알림을 `memo`로 실발송하려면 사용자가 카카오 디벨로퍼스에서 아래를 한다. 작업 세션은 카카오 API 호출·키 발급·외부 계정 연동을 하지 않는다. 원천은 [설계](plans/2026-10-20-kakao-memo-notify-design.md) §6 "카카오 앱 설정"·§11(S0)·§12-6(사용자가 할 일)이다.
+1. 앱을 하나 만든다. 간편 로그인과 같은 앱을 써도 된다. 같은 앱이면 카카오 `unlink`가 로그인 연결도 끊으므로, 연결 해제는 `unlink`를 부르지 않는다.
+2. 카카오 로그인을 활성화한다.
+3. Redirect URI에 콜백 주소 `<앱 주소>/api/v1/me/kakao-notify/callback`을 등록한다. `KAKAO_REDIRECT_URI` 값과 같아야 한다([[05-API-SPEC|05 API]] §9).
+4. 동의항목에서 "카카오톡 메시지 전송(`talk_message`)"을 선택 동의로 켠다.
+5. 플랫폼 웹 도메인에 앱 주소를 등록한다. 메시지 링크(`web_url`·`mobile_web_url`)의 도메인은 여기 등록한 도메인과 같아야 한다. 공고 원문 도메인(나라장터 등)을 등록할 수 있는지는 아래 카카오 S0 수신 시험에서 확인한다.
+6. 클라이언트 시크릿을 발급한다. 시크릿을 켜면 토큰 요청에 필수다.
+7. REST API 키·시크릿·암호화 키 값은 사용자가 서버 env 파일(`web/.env.local`·`infra/.env`)에 직접 넣는다. 키 이름은 위 "env 파일 위치"의 카카오 줄을 따른다. 값은 문서·커밋·로그에 쓰지 않는다.
+
+- **카카오 S0 수신 시험(설계 §11, 코드보다 먼저, 사용자 몫. 데모 당일 S0 사전 준비와 다르다)**: 사용자 휴대폰으로 나에게 보내기 한 통을 보내 휴대폰 알림이 울리는지, `talk_message`가 검수 없이 되는지, 피드 모양이 시안과 같은지, 원문 도메인을 등록할 수 있는지 본다. 결과는 `docs/evidence/`에 적는다. 2026-10-21 현재 하지 않았다. 알림이 울리지 않으면 멈추고 사용자에게 묻는다.
+- 수동 실발송 1회(U10): `NOTIFY_KAKAO_PROVIDER=memo`로 실제 분석 한 건을 돌려 휴대폰 수신을 녹화하고 `docs/evidence/`에 둔다([[19-DEMO-SCENARIO|19 데모]] 녹화 장면).
+
 ## 운영
 - Compose 서비스: healthcheck, restart policy, log rotation, 비root 실행(MinIO UID 65532, qdrant `-unprivileged` 태그), 포트는 외부 인터페이스에 열지 않는다, 볼륨(redisdata·qdrantdata·miniodata) 백업 및 복구 리허설. 서비스 시작 시 Supabase·Redis readiness 확인, 무한 재시작 대신 명확한 오류 출력.
 - 마이그레이션 선행: 새 마이그레이션은 `supabase/migrations/`에 새 파일로만 더하고, `pnpm db:push`(클라우드 DB를 바꾸므로 사용자 확인 뒤에만)로 적용한 뒤 `pnpm db:verify`로 확인하고 나서 worker·web을 새 코드로 띄운다. 타입 생성물은 `pnpm db:types`.
@@ -328,7 +350,8 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 - [[09-SECURITY|09 보안]]
 - [[11-TESTING|11 테스트]]
 - [[12-ROADMAP|12 로드맵]]
-- [[13-NOTIFICATIONS|13 알림]] — worker 인앱 알림 처리(`NOTIFY_POLL_INTERVAL_MS`)
+- [[13-NOTIFICATIONS|13 알림]] — worker 인앱 알림 처리(`NOTIFY_POLL_INTERVAL_MS`), 카카오톡 추천 공고(`NOTIFY_KAKAO_PROVIDER`)
+- [카카오 나에게 보내기 설계](plans/2026-10-20-kakao-memo-notify-design.md) — 카카오 앱 설정(§6)·S0 수신 시험(§11)·남은 위험(§12)
 - [[14-OBSERVABILITY|14 관측성]]
 - [[16-DECISIONS|16 ADR]]
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]

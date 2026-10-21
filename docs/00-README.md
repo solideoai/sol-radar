@@ -57,7 +57,7 @@ updated: 2026-10-21
 | 10 | [[10-DEPLOYMENT]] | Docker Compose(redis·minio·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
 | 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path·D-day까지 일정 |
-| 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오 P1(mock) |
+| 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, 구현 중)·알림톡 P1 |
 | 14 | [[14-OBSERVABILITY]] | 모니터링·운영·데모 지표 |
 | 15 | [[15-DATA-CONTRACTS]] | `EvidenceRef`·`FieldState`·`NormalizedBid` 정식 정의 / 인용 검증 알고리즘 / 격리 규칙 / registry 키 |
 | 16 | [[16-DECISIONS]] | ADR / 검증 상태 / 미결정 사항 |

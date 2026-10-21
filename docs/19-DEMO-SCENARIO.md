@@ -186,6 +186,16 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 3. 대조: 같은 토큰으로 `GET http://localhost:3000/api/v1/bids/{FX-01 id}` → `200`. 공고는 공용 데이터이고, 회사 점수·판정·검토·인력은 조직 밖에서 보이지 않는다.
 4. 마무리 슬라이드: 정직성 표([[18-HACKATHON|18]] §7)와 범위 외 항목.
 
+### 녹화 전용: 카카오톡 추천 공고 수신 ([[16-DECISIONS|ADR-038]], 구현 중)
+
+라이브 발표 흐름(S1~S7)과 시간은 바꾸지 않는다. 이 장면은 3분 영상과 `docs/evidence/`에만 쓴다(U10: 발표 중 실시간 수신 장면은 필요 없다). 기능이 10-23 freeze까지 green이 아니면 영상에서도 뺀다.
+
+1. 준비: 녹화할 데모 계정이 개인 설정 "카카오톡 알림"을 사용자 본인 카카오 계정과 연결하고 켠다([[06-UI-UX|06]] §5.10.1). `infra/.env`의 `NOTIFY_KAKAO_PROVIDER=memo`로 worker를 다시 띄운다([[10-DEPLOYMENT|10 배포]] "카카오 앱 설정"). `pnpm demo:reset` 뒤라 `FX-02`는 미분석이다.
+2. S4처럼 `FX-02` "분석 요청" → 완료(권고 WATCH, 72).
+3. 휴대폰 카카오톡 "나와의 채팅"에 피드 한 통(제목 공고명, 설명 `WATCH 권고 · <사유 한 줄>`, 발주처·마감·추정금액·점수, 버튼 [분석 보기]·[공고 원문])이 오는 장면을 녹화한다. 앱 주소가 `localhost`면 휴대폰에서 버튼이 열리지 않으므로 수신까지만 보여 준다.
+4. 말할 것: "추천 공고는 알림을 켠 사람의 카카오톡으로도 간다. 해커톤에서는 카카오 '나에게 보내기'로 보내고, 운영에서는 알림톡으로 바꾼다."
+5. 같은 공고는 조직마다 처음 한 번만 보낸다. 다시 찍으려면 `pnpm demo:reset` 뒤 1번부터 한다. 녹화가 끝나면 기본값 `NOTIFY_KAKAO_PROVIDER=mock`으로 되돌린다.
+
 ## 5. 장면별 실패 대응
 
 | 장면 | 실패 양상 | 대응 |
@@ -218,6 +228,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [ ] S7 `404` 응답 캡처, S3 `MODEL_RULE_DISAGREEMENT` 화면, S6 `PARTIAL` 화면을 `docs/evidence/`에 저장
 - [ ] S3 가정 재계산(ADR-037): 1440·1280에서 `FX-03` 스위치 → 띠 NO-BID → WATCH·68 → 68이 1초 안에 보이고 가로 넘침이 없는지, 결정 패널이 NO-BID 68 그대로인지, 새로 고침 뒤 띠가 없는지, `bid_reviews` 건수가 그대로인지 확인. `pnpm demo:preanalyze`가 만든 `FX-03` run에 `input_snapshot`이 있어야 스위치가 보인다. S0에서 한 번 열어 둔다
 - [ ] 백업 영상 3분 녹화 (S2~S7)
+- [ ] 카카오톡 수신 녹화 1회([[16-DECISIONS|ADR-038]], 기능이 green일 때만): §4 "녹화 전용" 절차대로 찍어 `docs/evidence/`에 두고, 끝나면 `NOTIFY_KAKAO_PROVIDER=mock`으로 되돌렸는지 확인
 - [ ] 1440px에서 상세 화면 상단 요약·자격·점수가 스크롤 없이 보이는지 확인
 - [ ] 머리말 "실행 모드: mock"과 `AI: mock` 표시가 모든 화면에, "가상 회사 프로필로 분석" 배지가 분석 화면에 보이는지 확인
 - [ ] 세 모드(`live`·`fixture`·`mock`) 기동 각 1회, 머리말·`runMode` 일치, 마지막은 `mock`
@@ -242,6 +253,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [[10-DEPLOYMENT|10 배포·프로필]]
 - [[11-TESTING|11 테스트·수용 체크리스트]]
 - [[09-SECURITY|09 보안·격리]]
-- [[16-DECISIONS|16 ADR]] — ADR-020(실행 모드·실데이터), ADR-037(데모 강화 컷·S3 가정 재계산)
+- [[16-DECISIONS|16 ADR]] — ADR-020(실행 모드·실데이터), ADR-037(데모 강화 컷·S3 가정 재계산), ADR-038(카카오톡 추천 공고 녹화 장면)
+- [[13-NOTIFICATIONS|13 알림]] — 카카오톡 추천 공고(나에게 보내기)
 - [[12-ROADMAP|12 로드맵]] — 해커톤 컷, freeze~D-day 리허설
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가 비교 대상(E0~E4)
