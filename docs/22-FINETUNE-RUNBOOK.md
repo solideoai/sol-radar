@@ -159,6 +159,8 @@ python -m pip list --format=freeze > "$SOL_WORK/runs/venv-bosun-freeze.txt"     
 # sol_eval 은 services/ai/kev/·fixtures/ 를 소스 트리 경로로 읽으므로 wheel 이 아니라 저장소 체크아웃 + editable 이어야 한다
 PY="$SOL_WORK/.venv-bosun/bin/python"
 "$PY" --version                        # 3.12 이상(services/ai·services/ai/eval 의 requires-python). 아니면 멈추고 보고(별도 venv 는 사용자 결정)
+export HF_HOME="$SOL_WORK/hf"                    # preflight 기본값과 같게
+snap=$HF_HOME/hub/models--Hanno-Labs--bosun-v3.1-0.6b/snapshots/5e78a37c8d86860ebac9ef2d5327d6299498498e   # §2.2 와 같은 고정 snapshot. 4) 에서 쓴다
 SOL_REPO="$SOL_WORK/sol-radar"; cd "$SOL_REPO"   # 저장소 체크아웃(services/decision·services/ai·services/ai/eval). 경로가 다르면 바꾼다. 아래 스크립트도 이 위치 기준이다
 # 1) 계획만 본다(설치 안 함). torch·transformers·peft·safetensors·accelerate 줄이 있으면 멈추고 보고
 uv pip install --python "$PY" --dry-run --no-deps -e services/decision -e services/ai -e services/ai/eval 2>&1 | tee "$SOL_WORK/runs/install-plan-bosun.txt"
@@ -167,13 +169,16 @@ uv pip install --python "$PY" --no-deps -e services/decision -e services/ai -e s
 # 3) 빠진 순수 파이썬 의존성만 넣는다. 설치 전 dry-run 에 torch 계열 줄이 없어야 한다
 uv pip check --python "$PY"            # 여기서는 빠진 의존성 때문에 실패가 정상이다. torch 계열 충돌 줄만 본다
 uv pip install --python "$PY" --dry-run "pydantic>=2.11" "pydantic-settings>=2.16" "pyyaml>=6.0.3" "jsonschema>=4.26" "rapidfuzz>=3.14.6" "httpx>=0.28.1" "httpcore>=1.0.9,<2" "fastapi>=0.144" "uvicorn>=0.54" 2>&1 | tee "$SOL_WORK/runs/install-plan-deps.txt"
-grep -E '^\s*[-+] (torch|transformers|peft|safetensors|accelerate)==' "$SOL_WORK/runs/install-plan-deps.txt" && echo "바뀐다. 설치하지 말고 보고"
-uv pip install --python "$PY" "pydantic>=2.11" "pydantic-settings>=2.16" "pyyaml>=6.0.3" "jsonschema>=4.26" "rapidfuzz>=3.14.6" "httpx>=0.28.1" "httpcore>=1.0.9,<2" "fastapi>=0.144" "uvicorn>=0.54"
+if grep -qE '^\s*[-+] (torch|transformers|peft|safetensors|accelerate)==' "$SOL_WORK/runs/install-plan-deps.txt"; then
+  echo "바뀐다. 설치하지 말고 보고"
+else
+  uv pip install --python "$PY" "pydantic>=2.11" "pydantic-settings>=2.16" "pyyaml>=6.0.3" "jsonschema>=4.26" "rapidfuzz>=3.14.6" "httpx>=0.28.1" "httpcore>=1.0.9,<2" "fastapi>=0.144" "uvicorn>=0.54"
+fi
 uv pip check --python "$PY"            # 충돌 0
 "$PY" -c "import torch, transformers, peft, safetensors, sol_decision, sol_eval; print(torch.__version__, transformers.__version__, peft.__version__, safetensors.__version__)"   # torch 2.8.0+cu128 그대로
 # 4) 동작 확인(네트워크·GPU 없이)
 "$PY" -m sol_eval --help
-"$PY" -c "from pathlib import Path; from sol_eval.package_check import verify_package_dir; verify_package_dir(Path('$snap')); print('package ok')"   # $snap 은 §2.2. package_check 는 hardening 024aa89 에 있다. main 에 들어가기 전에는 건너뛴다
+"$PY" -c "from pathlib import Path; from sol_eval.package_check import verify_package_dir; verify_package_dir(Path('$snap')); print('package ok')"   # $snap 은 이 블록 머리에서 정했다(§2.2 와 같다). package_check 는 hardening 024aa89 에 있다. main 에 들어가기 전에는 건너뛴다
 
 # 5) F1-A: GPU 1 매핑·bf16·snapshot sha256·데이터 형식까지 한 번에(§4.2). SOL_GPU_SHARE_APPROVED=1 은 회사 공유 승인을 사용자가 확인한 뒤에만 준다
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
