@@ -233,7 +233,7 @@ flowchart TD
 |---|---|
 | 섹션 | ① 요약 카드 5개(한 줄): BID 권고 N건(공고별 최신 분석 1건 기준), 검토 대기 N건(최신 분석이 있고 사람 결정이 없는 공고 수. 두 정의는 [[16-DECISIONS\|ADR-029]] A6 D10·D11), 마감 임박(7일) N건, 수집 카드(마지막 수집 시각 + "적재 N · 격리 N", 값은 `DashboardSummary.dataFreshness.lastIngestSummary`), 분석 현황(공고별 최신 분석 1건 기준 완료·부분·실패 건수, 중복 실행 이중 집계 없음, 값은 `DashboardSummary.analyses.latestByStatus`). 다섯 번째 슬롯은 입찰 프로젝트([[16-DECISIONS\|ADR-021]] P1)가 들어오면 "진행 중 입찰 프로젝트"로 바꾼다. ② "BID 권고" 표(상위 5, 점수순). ③ "마감 임박" 표(마감순). ④ 최근 변경(revision 이벤트 10건, **미구현**: 응답에 `recentChanges`가 없고 화면에도 없다, [[05-API-SPEC\|05]] §4) |
 | 주요 액션 | 각 행 클릭 → `/bids/[id]`. "전체 보기" → `/bids?decision=…` 필터 적용 링크 |
-| 빈 상태 | 공고 0건: "아직 수집된 공고가 없습니다" + [수집 실행](ADMIN만) 또는 "관리자에게 요청". 지금 코드는 다르다: ADMIN에게 "관리자에게 수집을 요청하세요" 안내만 붙고 버튼이 없으며, 다른 역할에는 안내가 없다(`web/app/(app)/(work)/empty-state.tsx`, [[16-DECISIONS\|16]] 미결정 26번). 권고 0건: "BID 권고 공고가 없습니다". 분석 0건: 분석 현황 카드에 0을 보이고 "아직 분석한 공고가 없습니다" |
+| 빈 상태 | 공고 0건: "아직 수집된 공고가 없습니다". ADMIN에게는 [수집 실행] 단추(`/admin/ingestion`으로 가는 `outline` 링크, 그 화면의 [수동 수집 실행]으로 돌린다), 다른 역할에게는 단추 없이 "관리자에게 수집을 요청하세요"를 보인다(`web/app/(app)/(work)/empty-state.tsx`, main `a546b89`, [[16-DECISIONS\|16]] 미결정 26-6). 권고 0건: "BID 권고 공고가 없습니다". 분석 0건: 분석 현황 카드에 0을 보이고 "아직 분석한 공고가 없습니다" |
 | 로딩 | 카드 5개 + 표 skeleton |
 | 오류 | §5.1 |
 | 권한 | 모든 역할 |
@@ -408,7 +408,7 @@ flowchart TD
 │           │ 모델 선택지 신뢰 분포 (충족·수주 확률 아님)│                                 │
 │           │ BID 71% · WATCH 24% · NO-BID 5%           │                                 │
 │           │ 낙찰 확률 아님 · 규칙 판정을 뒤집지 않음   │                                 │
-│           │ mock(데모 응답) · kev-qs/v0.1 · 규칙 일치 │                                 │
+│           │ Mock 응답(데모 데이터) · kev-qs/v0.1      │                                 │
 │           │                                          │                                 │
 │           │ ■ 근거 인용 (EvidenceDrawer 트리거)        │                                 │
 │           │ "요구기술: Java, Spring Boot…"  p.4 [열기] │                                 │
@@ -483,7 +483,7 @@ flowchart TD
 | `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("12분 전"). 60분 초과면 warning 색 + "수집 지연" 텍스트, 수집 실패 시 danger + 관리자 링크 |
 | `AnalysisStatus` | 상세·목록 | §7 상태 + 실시간 polling |
 | AI 불가 배너 | 상세 상단, 대시보드 상단 | `analysis.status=PARTIAL` 또는 `/health/ready` `status: degraded`일 때. 문구는 09 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" + `recommendationBasis: RULES_ONLY` |
-| 결정 모델 섹션 제목·고지 | 결정 모델 섹션 | 섹션 이름은 "결정 모델 참고 지표"(ADR-034로 "Kev 참고 지표"에서 개정)이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"(03·05·08·09의 영역 이름)를 함께 보인다([[16-DECISIONS\|ADR-029]] A6 D13, ADR-034 5번). 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" 결정 모델 블록 3줄을 그대로. `{kevModel}`·`{questionSetVersion}`은 `AnalysisResult.kev.model`·`kev.questionSetVersion`으로 치환. 둘 다 생략 금지 |
+| 결정 모델 섹션 제목·고지 | 결정 모델 섹션 | 섹션 이름은 "결정 모델 참고 지표"(ADR-034로 "Kev 참고 지표"에서 개정)이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"(03·05·08·09의 영역 이름)를 함께 보인다([[16-DECISIONS\|ADR-029]] A6 D13, ADR-034 5번). 분포 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)" 고정. 점수 미반영 문구 필수. 본문 하단에 09 "모델 한계 고지 문구" 결정 모델 블록 3줄을 그대로. `{kev.model}`·`{kev.questionSetVersion}`·`{kev.provider}`는 `AnalysisResult.kev.model`·`kev.questionSetVersion`·`kev.provider`로 치환. 셋 다 생략 금지. `kev.provider`가 `mock`이면 `모델: {kev.model}` 자리에 "Mock 응답(데모 데이터)"를 쓰고 모델명을 쓰지 않는다([[16-DECISIONS\|ADR-034]] 15번, `web/components/bids/kev-opinion.tsx`). 분석 요약 띠는 "AI: mock"이다(아래 "분석 출처") |
 | 변경 diff | 상세 단계 이력 → revision 클릭 | 예산·마감·자격·첨부 변경 전/후 나란히(`FX-06`, `FX-07`) |
 
 ## 9. 컴포넌트
