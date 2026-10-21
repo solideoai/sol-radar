@@ -15,7 +15,7 @@ export function Hero({ startHref }: { startHref: string }) {
         <h1 id="hero-title" className="type-display text-foreground">
           수많은 공고 속,
           <br />
-          우리 회사가 검토할 사업부터.
+          솔리데오가 검토할 사업부터
         </h1>
         <p className="mx-auto mt-5 max-w-190 type-lead text-pretty text-muted-foreground">
           공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원 플랫폼입니다. 기업의 기술·자격·실적과 공고
