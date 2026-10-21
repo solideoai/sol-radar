@@ -4308,6 +4308,78 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리 (Phase 1)", () =
     );
   });
 
+  it("업무 역할 변경 감사(20261021000300) — ADMIN 이 바꾸면 USER_ROLE_CHANGE 한 행(행위자·대상·전후 값)이 남고, 같은 값·거절된 변경·JWT 없는 관리 작업은 남지 않으며, 감사는 그 조직 ADMIN 만 읽는다", async (t) => {
+    const pglite = await solDb(t);
+    const setRole = (org, user, role) =>
+      rowsOf(
+        pglite,
+        "update public.memberships set sol_role = $3 where org_id = $1 and user_id = $2 returning sol_role",
+        [org, user, role],
+      );
+    const roleChanges = async () => {
+      await asWorker(pglite);
+      return rowsOf(
+        pglite,
+        `select org_id, actor_id, target_type, target_id, before_after -> 'before' ->> 'solRole' as before_role,
+                before_after -> 'after' ->> 'solRole' as after_role
+           from public.audit_logs where action = 'USER_ROLE_CHANGE' order by created_at, id`,
+      );
+    };
+    await as(pglite, "admin");
+    assert.deepEqual(await setRole(ORG1, WHO.viewer, "ANALYST"), [{ sol_role: "ANALYST" }]);
+    // 값이 그대로인 update 는 남기지 않는다.
+    assert.deepEqual(await setRole(ORG1, WHO.viewer, "ANALYST"), [{ sol_role: "ANALYST" }]);
+    // 정책이 거르는 변경(SALES 가 남의 역할을 바꿈)은 0행이라 남지 않는다.
+    await as(pglite, "sales");
+    assert.deepEqual(await setRole(ORG1, WHO.viewer, "ADMIN"), []);
+    // 마지막 ADMIN 보호가 거절한 변경도 남지 않는다.
+    await as(pglite, "admin");
+    await assert.rejects(setRole(ORG1, WHO.admin, "VIEWER"), { code: "P0001", hint: "last_admin" });
+    // seed·worker(JWT 없음)는 행위자가 없어 남기지 않는다.
+    await asWorker(pglite);
+    assert.deepEqual(await setRole(ORG1, WHO.analyst, "SALES"), [{ sol_role: "SALES" }]);
+    assert.deepEqual(await roleChanges(), [
+      {
+        org_id: ORG1,
+        actor_id: WHO.admin,
+        target_type: "membership",
+        target_id: WHO.viewer,
+        before_role: "VIEWER",
+        after_role: "ANALYST",
+      },
+    ]);
+    const visible = async (who) => {
+      await as(pglite, who);
+      return countOf(pglite, "audit_logs", "action = 'USER_ROLE_CHANGE'");
+    };
+    assert.equal(await visible("admin"), 1, "org-01 ADMIN");
+    for (const who of ["sales", "viewer", "outsider", "operator"]) {
+      assert.equal(await visible(who), 0, who);
+    }
+    // 화면 역할은 감사를 직접 쓰지 못한다(트리거만 쓴다).
+    await as(pglite, "admin");
+    await assert.rejects(
+      pglite.query(
+        "insert into public.audit_logs (org_id, action, target_type, target_id) values ($1, 'USER_ROLE_CHANGE', 'membership', $2)",
+        [ORG1, WHO.viewer],
+      ),
+      PERMISSION,
+    );
+    // 기존 action 값은 그대로 받고, 모르는 값은 check 가 거절한다.
+    await asWorker(pglite);
+    await pglite.query(
+      "insert into public.audit_logs (org_id, action, target_type, target_id) values ($1, 'USER_DISABLE', 'membership', $2)",
+      [ORG1, WHO.viewer],
+    );
+    await rejectsWith(
+      pglite.query(
+        "insert into public.audit_logs (org_id, action, target_type, target_id) values ($1, 'ROLE_CHANGE', 'membership', $2)",
+        [ORG1, WHO.viewer],
+      ),
+      "audit_logs_action_check",
+    );
+  });
+
   it("초대의 업무 역할은 수락할 때 멤버십으로 옮겨진다 — ADMIN 이 ANALYST 로 초대하면 수락한 멤버십이 ANALYST 이고 USER_INVITE 감사가 남는다; 초대는 owner 가 아니라 ADMIN 이 하고(SALES·VIEWER·org-02 owner 는 정책 오류), 받은 사람은 sol_role 을 직접 쓰지 못한다", async (t) => {
     const pglite = await solDb(t);
     const invite = (org, email, role) =>
