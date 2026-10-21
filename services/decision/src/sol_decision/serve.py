@@ -86,6 +86,8 @@ def main(argv: list[str] | None = None) -> int:
             alias=args.alias,
             timeout_ms=settings.DECISION_TIMEOUT_MS,
             seed=args.seed,
+            max_queue=settings.DECISION_MAX_QUEUE,
+            allow_ko_state=settings.DECISION_ALLOW_KO_STATE,
         ),
     )
     uvicorn.run(app, host=args.host, port=args.port)

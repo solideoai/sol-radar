@@ -10,7 +10,8 @@ dependencies = [
     "uvicorn>=0.54.0",
 ]
 
-# 모델 백엔드(--backend bosun) 전용. 회사 GPU 서버에서만 `uv sync --frozen --extra model`.
+# 모델 백엔드(--backend bosun) 전용 의존성 목록. 회사 GPU 서버에는 이 extra 로 설치하지 않는다 — 기존 .venv-bosun(torch 2.8.0+cu128)에
+# `pip install -e . --no-deps` 로만 올린다(README "설치", 사용자 결정 2026-10-21). uv.lock 의 이 extra 는 torch 2.14.1 이라 서버 torch 를 바꾼다.
 # 노트북·CI 는 extras 없이 설치하고 torch 를 import 하지 않는다(README).
 [project.optional-dependencies]
 model = [
