@@ -17,7 +17,7 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 �
 ## 절대 규칙
 - 스택은 [[16-DECISIONS|16 ADR]] ADR-017을 따른다. 화면·Route Handler(`/api/v1`)·서버 도메인은 Next.js(`web/`, `web/server/<도메인>`)로만 만든다. 다른 웹 프레임워크나 별도 API 서버·ORM을 들이지 않는다. Worker는 `web/worker` 진입점(BullMQ)이다. 해커톤 뒤 API·worker의 NestJS 전환은 ADR-028이고, 그 전에는 NestJS 코드를 만들지 않는다.
 - DB·Auth·첨부 원본은 Supabase(Postgres·RLS·Auth·Storage)다(ADR-048), 작업 큐는 Supabase Queues가 아니라 Redis/BullMQ, 벡터 검색은 pgvector가 아니라 Qdrant를 쓴다.
-- service role 키(`SUPABASE_SERVICE_ROLE_KEY`, RLS 무시)는 worker와 seed 스크립트(서버 전용)만 쓴다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 쿠키 또는 Bearer 토큰)으로 DB를 부르고 권한은 RLS가 정한다. service role 키를 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다 ([[09-SECURITY|09 보안]]).
+- service role 키(`SUPABASE_SERVICE_ROLE_KEY`, RLS 무시)는 worker·seed 스크립트와 사람이 로컬에서 직접 실행하는 운영자 CLI(`scripts/ops/`)만 쓴다. 운영자 CLI의 클라우드 변경 적용은 사용자 확인 뒤다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 쿠키 또는 Bearer 토큰)으로 DB를 부르고 권한은 RLS가 정한다. service role 키를 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다 ([[09-SECURITY|09 보안]]).
 - 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 조직 데이터는 `org_id` + `org_id in (select public.my_org_ids())`, 업무 역할은 `memberships.sol_role`. 마이그레이션은 `supabase/migrations/`에 새 파일로만 쌓고(이미 있는 파일 수정 금지), 클라우드 적용(`pnpm db:push`)은 사용자 확인 뒤에만 한다.
 - 결정 모델(Bosun. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) 대신 Laya 적용 금지. 결정 모델을 낙찰 확률 모델로 오용 금지. 결정 모델 호출은 AI gateway만 한다. Worker·Next 서버의 직접 호출 금지 ([[02-ARCHITECTURE|02 아키텍처]]).
 - **모바일 레이아웃·1280px 미만 breakpoint·네이티브 앱 코드 작성 금지.** 데스크톱 1280~1920만 ([[16-DECISIONS|16 ADR]] ADR-007).
@@ -50,7 +50,7 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 �
 6. Phase 0 완료(C0) 시점부터 `mock` 모드 Compose 기동(`docker compose -f infra/compose.yaml up -d --build`, [[10-DEPLOYMENT|10 배포]] 기동 절차)이 항상 되어야 한다. 기동 절차 1~7은 Compose·Dockerfile·환경변수 계약·런타임 의존성·컨테이너 진입점을 바꾸거나 데모 스택을 통합할 때 실행한다. 일반 화면·문구·순수 계산 변경마다 다시 기동하지 않는다(ADR-046). C9에는 세 실행 모드 기동 리허설, 엔드포인트 재접속 확인, 로컬 Supabase CLI 전환 리허설을 넣는다.
 7. 제출물(`docs/submission/`) 구조는 지금부터 병렬로 채우되, 미구현 화면을 완성품으로, 미검증 수치를 성과로 쓰지 않는다.
 8. 파인튜닝 트랙 X6([[16-DECISIONS|ADR-034]]. ADR-027은 폐기)는 핵심 컷과 나란히 돈다. 작업자가 겹치면 핵심 컷이 먼저다. 학습(F1·F2·F3)은 회사가 실행하고, 우리는 평가셋·학습셋 번들·학습 요청서·E4 평가를 맡는다. Bosun LoRA는 E4로 공개 Bosun(E1')과 비교만 한다. 데모 앱과 레지스트리 서빙 항목(`bosun-v3.1-0.6b`)은 바꾸지 않고, 데모·S-LIVE 모델은 공개 Bosun v3.1 0.6B 그대로다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정). 실행 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다.
-9. 데모 강화 컷([[16-DECISIONS|ADR-037]], 이번에는 BOOST-2 가정 재계산)과 확장 컷 4건([[16-DECISIONS|ADR-039]]: S5 변경 감지·N9 분석 현황 카드·N2 설정 조직 탭과 N8 수집 화면 마무리·P0-8 사전규격·발주계획 연결), 확장 컷에 더한 부처 지원사업 공고 수집·목록([[16-DECISIONS|ADR-040]])과 메일 알림([[16-DECISIONS|ADR-041]]), P1 다섯 화면([[16-DECISIONS|ADR-042]])은 핵심 컷과 나란히 돈다. 작업자가 겹치면 핵심 컷 → 확장 컷 → P1 순서다. 추가형으로만 만든다: 핵심 컷 코드 경로와 계약(수집 저장 RPC, analysis job, `analyze()` 계산식, 골든 94/72/68)을 바꾸지 않는다. 새 띠·스위치에 확률·승률·"수주 가능성"처럼 읽히는 수치·문구를 두지 않는다(ADR-007). 10-24(토) 22:00 기능 freeze([[16-DECISIONS|ADR-042]])까지 green이 아니면 데모에서 뺀다(P1은 사이드바 "준비 중" 유지).
+9. 데모 강화 컷([[16-DECISIONS|ADR-037]], 이번에는 BOOST-2 가정 재계산)과 확장 컷 4건([[16-DECISIONS|ADR-039]]: S5 변경 감지·N9 분석 현황 카드·N2 설정 조직 탭과 N8 수집 화면 마무리·P0-8 사전규격·발주계획 연결), 확장 컷에 더한 부처 지원사업 공고 수집·목록([[16-DECISIONS|ADR-040]])과 메일 알림([[16-DECISIONS|ADR-041]]), P1 다섯 화면([[16-DECISIONS|ADR-042]])은 핵심 컷과 나란히 돈다. 작업자가 겹치면 핵심 컷 → 확장 컷 → P1 순서다. 추가형으로만 만든다: 핵심 컷 코드 경로와 계약(수집 저장 RPC, analysis job, `analyze()` 계산식, 골든 94/72/68)을 바꾸지 않는다. 새 띠·스위치에 확률·승률·"수주 가능성"처럼 읽히는 수치·문구를 두지 않는다(ADR-007). 10-24(토) 22:00 기능 freeze([[16-DECISIONS|ADR-042]])까지 green이 아니면 데모에서 뺀다(P1은 사이드바는 이름만 비링크로 유지(준비 중 배지 없음)).
 
 ### 해커톤 검증 정책 (ADR-046, 2026-10-21 사용자 승인)
 

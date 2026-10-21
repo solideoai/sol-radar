@@ -46,8 +46,7 @@ PowerShell·cmd 에서는 `bash` 가 잡히지 않거나 WSL 의 bash 가 잡혀
 줄바꿈은 `.gitattributes` 가 LF 로 고정하므로 `core.autocrlf` 설정을 바꾸지 않아도 됩니다.
 
 Node 범위(`^22.13.0 || ^24.3.0`)는 루트 `package.json` 에 적은 LTS 두 줄이고, Next 16(`>=20.9.0`)이 받는 범위 안입니다.
-`.nvmrc`(22)는 CI·배포가 쓰는 고정값이라 Node 24 로 돌리면 doctor 가 경고만 합니다. `web` 에 범위를 적지 않는 이유는
-[첫 배포 안내](first-deployment.md#2-웹--vercel)(보류 문서 — 배포처 미결정, 16 ADR 미결정 8번) 에 있습니다.
+`.nvmrc`(22)는 CI·배포가 쓰는 고정값이라 Node 24로 돌리면 doctor가 경고만 합니다. `engines`는 루트 `package.json`에만 두고 `web/package.json`에 중복 정의하지 않습니다. 현재 Vercel 웹·AI 서비스 구성과 배포 안내는 [10 배포](../10-DEPLOYMENT.md)와 [첫 배포 안내](first-deployment.md)에 있습니다.
 
 ## 시작하기
 
@@ -55,7 +54,7 @@ Node 범위(`^22.13.0 || ^24.3.0`)는 루트 `package.json` 에 적은 LTS 두 �
 2. 루트와 `web` 을 각각 설치합니다(아래 "1. 설치").
 3. `pnpm run doctor` 로 설치 상태를 읽기만 하는 점검을 합니다.
 4. env 파일 없이 `pnpm -C web dev` 로 시작 화면을 엽니다. DB 는 나중에 붙여도 됩니다.
-5. 코드를 바꾸면 `pnpm verify` 가 통과할 때까지 고칩니다.
+5. 개발 중 코드 변경은 `pnpm verify:changed`, 통합·제출 전은 전체 `pnpm verify`를 실행합니다. 문서만 바꾸면 경로·계약·사실관계를 직접 대조합니다([17 검증 정책](../17-CLAUDE-IMPLEMENTATION.md), ADR-046).
 6. 배포 전에 클로드에서 `/predeploy-review` 로 점검합니다.
 7. 첫 배포는 사람이 직접 설정합니다 — [첫 배포 안내](first-deployment.md).
 

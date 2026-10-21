@@ -223,7 +223,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
 - 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "Compose 서비스" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
 - seed 데모 계정(목록·역할은 [[04-DATABASE|04 DB]] §6)은 `.invalid` TLD라 실제 메일이 가지 않는다. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
-- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 Supabase Storage(Compose)에 둔다. 웹 배포처만 미결정이다([[16-DECISIONS|16 ADR]] 미결정 8번). 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
+- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 private Supabase Storage(Compose 밖, ADR-048)에 둔다. 웹·AI Vercel 구성은 승인됐으며 외부 worker·Supabase와의 연결·키 분리는 [[10-DEPLOYMENT|10 배포]] Vercel 절을 따른다. 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
 - OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
 
@@ -278,6 +278,10 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 공개 가입 카탈로그는 승인 fixture의 회사명·ID·표시명·버전만 반환한다. 원본 인원·명부·연락처를 함께 반환하거나 `departments`의 RLS를 익명 전체 읽기로 열지 않는다.
 - 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 Supabase Storage public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다. 점수 계산 속성(직무·등급·스킬·가용성)은 `team_member_scoring`(seed 전용)에 있고 화면 역할은 쓰지 못한다([[16-DECISIONS|ADR-021]]).
 - 200명의 가상 직원·사진은 `isDemo` 및 가상 인물 표시를 유지한다. 회사 이름과 부서가 실제라고 해서 가상 직원·수치가 실제 회사 정보인 것처럼 소개하지 않는다.
+
+## 이메일 알림 승인 범위 (ADR-041, 구현 전)
+
+데모용 Gmail 앱 비밀번호와 SMTP 인증값은 서버 전용 env에만 둔다. `NEXT_PUBLIC_`·브라우저·문서·로그에 넣지 않고, 받는 주소·제목·공고명·본문도 로그·증거에 남기지 않는다. 개인 설정 opt-in 사용자의 로그인 이메일만 쓰며 별도 받는 주소를 입력받지 않는다. 로컬·시험은 외부 실발송을 하지 않는다. 실제 수신 검증 전에는 발송 완료를 주장하지 않는다([[13-NOTIFICATIONS|13]]).
 
 ## 관련 문서
 - [[03-AI-PIPELINE|03 AI 파이프라인]]

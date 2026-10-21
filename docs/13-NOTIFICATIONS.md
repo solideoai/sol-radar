@@ -26,7 +26,7 @@ updated: 2026-10-21
 |`KAKAO_TEST`|개인 설정의 [시험 메시지 보내기](RPC `request_kakao_notify_test()`)|본인|카카오톡(나에게 보내기)|구현 중: RPC·outbox(`20261021000001`). 알림 행은 만들지 않고 결과는 `kakao_notify_links.last_result`|
 |`KAKAO_EXPIRED`|카카오 연결이 `EXPIRED`로 바뀌는 순간 한 번(outbox 이벤트가 아니라 worker가 쓰는 알림 종류)|본인|in-app|구현 중. 링크 `/settings`|
 
-발송 수단: in-app(P0), 카카오톡 나에게 보내기(ADR-038. `NOTIFY_KAKAO_PROVIDER=mock|memo`, 구현 중 `feat/kakao-notify`), 카카오 알림톡(운영 전환 경로. 비즈메시지 계약·템플릿 승인과 동의 필요, 미결정 5번), 이메일은 확장 예정. 아래 시퀀스의 카카오 경로는 구현 중이다.
+발송 수단: in-app(P0), 카카오톡 나에게 보내기(ADR-038. `NOTIFY_KAKAO_PROVIDER=mock|memo`, 구현 중 `feat/kakao-notify`), 카카오 알림톡(운영 전환 경로. 비즈메시지 계약·템플릿 승인과 동의 필요, 미결정 5번), 이메일은 ADR-041로 승인된 해커톤 확장 컷이며 main 미구현이다(아래 이메일 절). 아래 시퀀스의 카카오 경로는 구현 중이다.
 
 ```mermaid
 sequenceDiagram
@@ -46,7 +46,7 @@ sequenceDiagram
   - `outbox_events.idempotency_key` = `source + noticeId + revision + eventType` (UNIQUE). 같은 변경이 두 번 수집돼도 이벤트는 하나. 사용자 요청에서 생기는 두 종은 `<reviewId>:<assigneeId>:REVIEW_ASSIGNED`, `<scoreRunId>:<requestedBy>:ANALYSIS_COMPLETE`다(아래 "인앱 알림 2종").
   - `notifications.idempotency_key` = `outboxEventId + userId + channel` (UNIQUE). 같은 이벤트가 같은 사용자·채널에 두 번 전달되지 않는다.
 - 마감 임박 수신자(P1, [[16-DECISIONS|ADR-021]]): 공고 담당자와 관심 등록자의 합집합이고 사용자 ID로 중복을 없앤다. idempotency 키는 `bidId + userId + DEADLINE_APPROACHING + D-n`이다. 담당자이면서 관심 등록자인 사람도 한 번만 받는다.
-- 상태 전이: `outbox_events.status` `PENDING → PROCESSED`, 실패 시 재시도 후 `FAILED → DEAD`. `notifications.status` `PENDING → SENT`, 실패 시 `FAILED → DEAD`(DLQ). 읽음은 `read_at`. 채널 값은 `IN_APP`, `KAKAO`. ENUM 원천은 04 §4.
+- 상태 전이: `outbox_events.status` `PENDING → PROCESSED`, 실패 시 재시도 후 `FAILED → DEAD`. `notifications.status` `PENDING → SENT`, 실패 시 `FAILED → DEAD`(DLQ). 읽음은 `read_at`. 현재 main 채널 값은 `IN_APP`, `KAKAO`다. `EMAIL`은 ADR-041 승인 설계이며 마이그레이션·구현 전이다. 적용 값의 원천은 04 §4와 실제 마이그레이션이다.
 - 트랜잭션 경계: Supabase 클라이언트(PostgREST)는 요청 하나를 트랜잭션 하나로 처리한다. 그래서 데이터 변경과 `outbox_events` 기록을 한 트랜잭션에 묶는다([[04-DATABASE|04 DB]] §1). 사용자 요청에서 생기는 이벤트(검토 배정 → `REVIEW_ASSIGNED`)는 `bid_reviews` insert 트리거(`log_bid_review_audit`, `security definer`)로 구현했다(마이그레이션 `20261019000007`). 이 트리거는 감사(`REVIEW_DECIDE`)와, 담당자가 있을 때 outbox 1건을 같은 트랜잭션에 쓴다. 같은 키가 다시 오면 outbox는 한 건만 남는다. 호출자의 `org_id`·`sol_role`(ADMIN·SALES)은 `bid_reviews` insert 정책이 확인한다(마이그레이션 `20261019000005`).
 - 발송·상태 전이는 `web/worker`가 service role로 한다. service role은 RLS를 거치지 않으므로 `notifications` 행을 만들 때 `org_id`·`user_id`를 직접 지정하고, 수신자가 그 `org_id`의 구성원(`memberships`)인지 확인한다. 공고 이벤트(`outbox_events.org_id` null)는 조직별로 fan-out하고 각 알림 행에 받는 조직의 `org_id`를 넣는다. 테넌트 혼입 방지 시험은 `web/worker/*.test.ts`와 `scripts/database.test.mjs`에 둔다([[11-TESTING|11 테스트]]).
 - RLS:
@@ -76,7 +76,7 @@ sequenceDiagram
 - **소비자**: worker 안의 주기 처리다(`web/worker/notify-outbox.ts`, Redis를 쓰지 않는다). 기동 때 한 번, 그 뒤 `NOTIFY_POLL_INTERVAL_MS`(500~60000, 기본 2000)마다 두 종의 `PENDING`과 재시도 시각이 된 `FAILED`를 (`created_at`, `id`) 순으로 50건까지 읽어 하나씩 처리한다. 조회는 부분 인덱스 `outbox_events_notify_due_idx`(`20261019000017`)를 탄다. outbox 상태 갱신은 읽은 상태 그대로일 때만 바꾼다(compare-and-set).
 - **실패**: 저장 실패는 5·10·20·40초 뒤 다시 하고, 5번째 실패면 `DEAD`다. payload 오류(종류·조직·형식이 틀림)는 다시 해도 같으므로 바로 `DEAD`다. 회차 전체가 실패하면(DB 장애 등) 다음 회차를 `min(간격 × 2^연속 실패 수, 60초)` 뒤로 미룬다.
 - **로그**: 이벤트마다 JSON 한 줄(`outboxEventId`·종류·결과·시도 수·오류 이름). 수신자·조직·공고명·문구는 싣지 않는다([[14-OBSERVABILITY|14 관측성]]).
-- **시험**: `web/server/notifications/outbox.service.test.ts`·`outbox-dedupe.test.ts`(G2), `outbox.model.test.ts`·`outbox.repo.test.ts`, `web/worker/notify-outbox.test.ts`. 증거 `docs/evidence/phase-6/test-notifications.txt`.
+- **현재 시험**: `web/server/notifications/outbox-dedupe.test.ts`가 남아 있는 알림 멱등 시험이다. DB 역할·감사·outbox 핵심 경계는 `scripts/database.test.mjs`를 따른다. 나머지 outbox service/model/repo·worker 개별 시험은 ADR-046으로 삭제됐고, `docs/evidence/phase-6/test-notifications.txt`는 축소 전 실행 이력이다. 현재 자동 검증 범위는 [[11-TESTING|11]] 현재 MVP 목록을 따른다. 삭제 시험을 복구하거나 지금 전수 회귀가 보장된다고 쓰지 않는다.
 
 ## 카카오톡 추천 공고 (나에게 보내기, [[16-DECISIONS|ADR-038]])
 
@@ -92,6 +92,16 @@ sequenceDiagram
 - **인앱 목록**: 인앱 알림 목록과 안 읽음 수는 `channel = 'IN_APP'`만 센다(카카오 행이 안 읽음 수를 부풀리지 않게, 구현 중).
 - **로그**: 이벤트마다 JSON 한 줄인 규칙은 그대로다. 토큰·메시지 본문·공고명·카카오 사용자 ID는 싣지 않는다.
 - **구현 상태(2026-10-21)**: `feat/kakao-notify`에 DB(`d327894`, 마이그레이션 `20261021000001`·`20261021000002`)와 도메인(`ced705f`, `web/server/kakao-notify`)을 커밋했다. 알림 소비자(`web/server/notifications/kakao.*`)와 worker 연결·env(`web/worker/notify-outbox.ts`, `compose.yaml` worker 키 다섯 개)는 `52adabb`로 커밋했다. Route Handler·설정 화면·인앱 목록 필터는 구현 중이고, 보강 커밋도 진행 중이다. 카카오 S0 수신 시험(실제 휴대폰 수신, 알림 울림, `talk_message` 검수 필요 여부, 설계 §11)은 사용자 몫이고 아직이다. 알림이 울리지 않으면 멈추고 사용자가 정한다. 10-24 22:00 freeze 전에 끝내지 못하면 해커톤에서는 기능을 빼고 문서·ADR만 남긴다.
+
+## 이메일 추천 공고 알림 (ADR-041, 승인 설계·main 미구현)
+
+2026-10-21 사용자 승인으로 해커톤 확장 컷에 포함됐다. 카카오 뒤 같은 작업자가 구현하며 기존 인앱·카카오 실패 처리를 막지 않는다. 승인된 범위는 다음과 같고, 현재 DB·API·발송 성공을 뜻하지 않는다.
+
+- **조건·수신자:** 사람이 요청한 분석에서 BID·WATCH 권고가 처음 나온 공고마다, 개인 설정에서 켠 사용자의 로그인 이메일로 한 통을 보낸다. 기본 OFF다. 별도 수신 주소 입력·묶음 발송·공고 변경·마감 임박·부처 지원사업 메일은 제외한다.
+- **내용:** 공고명·권고·발주처·마감·추정금액·점수·분석 보기 링크. 제목은 `[SOL RADAR] <권고> · <공고명>`이고 텍스트·이스케이프한 HTML 본문을 쓴다. AI 자유 서술은 넣지 않는다.
+- **채널·멱등성:** 승인 설계는 `EMAIL`, 키 `<outboxEventId>:<userId>:EMAIL`이다. 적용된 채널·정책은 [[04-DATABASE|04]]와 실제 마이그레이션을 따른다.
+- **발송·실패:** `NOTIFY_EMAIL_PROVIDER=mock|smtp`, 기본 `mock`. 사용자 선택은 데모용 Gmail 앱 비밀번호·기존 SMTP 재사용이다. 시험·로컬은 외부 실발송 없이 mock 또는 Mailpit으로 확인한다. smtp 설정 누락은 보내지 않고 원인을 남긴다. timeout 10초, 기존 outbox 재시도·DEAD 규칙을 따른다.
+- **보안·완료:** SMTP 비밀값은 서버 env에만 두고 받는 주소·본문을 로그에 넣지 않는다. `.invalid` 데모 이메일의 실제 수신을 주장하지 않는다. 기능·수신 검증 후만 완료로 기록하며 10-24 22:00 freeze까지 green이 아니면 데모에서 뺀다(ADR-042). 웹훅은 만들지 않는다.
 
 ## 관련 문서
 - [[01-PRD|01 PRD]]

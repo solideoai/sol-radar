@@ -12,6 +12,9 @@ updated: 2026-10-21
 
 # 결정 모델 Kev-9B → Bosun v3.1 0.6B, 추출 모델 Qwen3.5-9B → Qwen3-4B-Instruct-2507 — 분석과 변경 계획 (ADR-034 초안)
 
+> [!note] 후속 개정 (2026-10-21)
+> 현재 추출 모델은 회사 API의 **Qwen3.8-Flash-Next**, 결정 모델은 **Bosun v3.1 0.6B**다([[16-DECISIONS|ADR-034]] 10-21 개정). `QWEN_MODEL=Qwen/Qwen3.8-Flash-Next`, 레지스트리 활성 항목은 `qwen3.8-flash-next`이며 실제 served id는 B2에서 확인한다. 아래 10-20 채택 콜아웃과 본문은 당시 기록이다. 현재 서버 준비·API 점검은 [[2026-10-21-bosun-b2-runbook|B2 런북]], 계약·URL 정규화는 [[03-AI-PIPELINE|03]]을 따른다. Qwen 파인튜닝과 4B 신규 서빙은 하지 않는다.
+
 > [!success] 채택·개정 (2026-10-20)
 > - 사용자가 Q1~Q7 을 전부 ①로 확정하고 추가 지시 8건을 줬다(LoRA r=16·392 텐서 유지·decision 임베딩 동결, `EvalItem` 기반 변환·`datasets/decision/smoke.jsonl` 6건은 기능 검증용, `/v1/systemone` 호환성 테스트, GPU 1 은 PaddleOCR 공유·보호 최우선, `kev-preflight.sh` 보존·Bosun 전용 경로 분리, `docs/evidence/` Kev 기록 보존, 주말 재계획, ADR-034). ADR-034 는 [[16-DECISIONS|16]] 에 **채택**으로 올렸다.
 > - **같은 날 저녁 개정 — 추출·설명 모델은 Qwen3-4B 가 아니라 회사가 이미 운영 중인 vLLM API 의 `Qwen/Qwen3.5-27B`** 다(공개 주소 `https://acropolissg.com/vllm/v1`, 키는 회사 제공 별도 환경변수). 게이트웨이 어댑터는 지금 `QWEN_BASE_URL` 뒤에 `/v1/chat/completions`·`/v1/models` 를 그대로 붙이므로(`adapters/http.py:107`, `qwen.py:27`, `local_setup.py:33`) B1 에서 끝의 `/v1` 중복을 정규화한다. env 값은 사용자 확정 그대로 **`QWEN_BASE_URL=https://acropolissg.com/vllm/v1`**, `QWEN_MODEL=Qwen/Qwen3.5-27B`. **Qwen 파인튜닝은 하지 않는다.** Qwen 4B 는 백업으로만 보존(다운로드·venv·서빙·학습 중단). 이 문서의 Qwen 4B 문장(§0 표·§1.2·§3·§4.3·§5·§8·§9·§10)은 이 콜아웃과 아래 §0.2 가 우선한다. Bosun 쪽은 그대로.

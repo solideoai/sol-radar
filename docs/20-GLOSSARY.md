@@ -98,7 +98,7 @@ updated: 2026-10-21
 
 | 용어 | 정의 | 주 문서 |
 |---|---|---|
-| Supabase | DB(Postgres)·Auth·private Storage를 맡는 관리형 서비스(ADR-048). 검색은 Qdrant, 큐는 Redis/BullMQ다. 개발·데모 기본은 Supabase 클라우드 프로젝트. 웹 배포처는 Vercel(데모 대체 경로는 [[19-DEMO-SCENARIO\|19]] §5) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
+| Supabase | DB(Postgres)·Auth·private Storage를 맡는 관리형 서비스(ADR-048). 검색은 Qdrant, 큐는 Redis/BullMQ다. 개발·데모 기본은 Supabase 클라우드 프로젝트. Vercel 웹·AI 구성이 승인됐고 이 Vercel 구성의 클라우드 배포 성공은 구성 증거에서 미확인([[10-DEPLOYMENT\|10]]). 데모 대체 경로는 [[19-DEMO-SCENARIO\|19]] §5 | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
 | Supabase Auth | 이메일 + 비밀번호·간편 로그인, 공개 가입(업무 조직 합류는 초대), 토큰 발급·갱신을 맡는 Supabase 인증 기능. 사용자 원본은 `auth.users`. 자체 로그인·토큰 엔드포인트는 두지 않는다. 토큰 만료·로그인 제한 같은 세부 값은 대시보드 설정이고 미검증 | [[09-SECURITY]] |
 | 간편 로그인 | 구글·카카오·네이버 계정으로 가입·로그인하는 방식. Supabase Auth 제공자로 받는다(구글·카카오는 기본 제공자, 네이버는 사용자 정의 OIDC `custom:naver`). 버튼은 `NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`로 켜고, 제공자 설정은 해커톤 후순위다 | [[16-DECISIONS]] |
 | Route Handler | Next.js App Router의 서버 HTTP 핸들러(`web/app/api/v1/**/route.ts`). 외부 API 계약 `/api/v1/...`과 헬스체크 `/health/live`·`/health/ready`를 낸다 | [[05-API-SPEC]] |
@@ -126,7 +126,7 @@ updated: 2026-10-21
 | 테넌트 격리 | 조직 소유 데이터에 `org_id`를 두고 RLS로 내 조직 행만 보이게 한다. 다른 조직 자원은 행이 안 보여 `404`(403 아님). 공용 공고 표는 `authenticated` 읽기 전용 | [[04-DATABASE]], [[09-SECURITY]] |
 | 공용 데이터 / 조직 데이터 | 공용: 조직 소유가 없는 공고 표(`bid_notices`·`bid_revisions`·`bid_documents`·`requirement_extractions` 등), 쓰기는 worker만. 조직: `company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews`·`notifications`·`audit_logs` 등, `org_id` + RLS | [[04-DATABASE]] |
 | anon 키 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`. 브라우저에 나가도 되는 공개 키이고 권한은 RLS가 정한다. Next 요청 처리는 anon 키 + 사용자 세션으로 DB를 부른다 | [[09-SECURITY]], [[10-DEPLOYMENT]] |
-| service role 키 | `SUPABASE_SERVICE_ROLE_KEY`. RLS를 무시하는 비밀 키. worker와 seed 스크립트(서버 전용)만 쓰고, 쓸 때 `org_id`를 직접 지정한다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다 | [[09-SECURITY]], [[10-DEPLOYMENT]] |
+| service role 키 | `SUPABASE_SERVICE_ROLE_KEY`. RLS를 무시하는 비밀 키. worker·seed·사람이 로컬에서 직접 실행하는 `scripts/ops/` CLI만 쓴다. 조직 데이터를 쓸 때 `org_id`를 직접 지정한다. 웹 서버·클라이언트에서는 사용하지 않는다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다 | [[09-SECURITY]], [[10-DEPLOYMENT]] |
 | 세션 쿠키 | `@supabase/ssr`가 관리하는 Supabase 로그인 쿠키. 브라우저 클라이언트가 같은 쿠키를 읽어야 해서 HttpOnly가 아니다. SameSite=Lax, 운영에서 Secure. XSS 방어는 CSP nonce가 맡는다 | [[09-SECURITY]] |
 | Bearer access token | `Authorization: Bearer <Supabase access token>`. 스크립트·시연(격리 시연, 스모크)이 Route Handler를 부를 때 쓴다. 서버가 Supabase로 검증하고 그 사용자 권한으로 RLS가 적용된다 | [[05-API-SPEC]], [[09-SECURITY]] |
 | CSRF 헤더 | 쿠키 인증의 상태 변경 요청(POST/PUT/PATCH/DELETE)에 필요한 `X-Requested-With: sol-radar`. 없으면 `403 CSRF_REJECTED`. Bearer 요청은 제외 | [[05-API-SPEC]], [[09-SECURITY]] |

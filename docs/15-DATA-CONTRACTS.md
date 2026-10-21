@@ -236,7 +236,7 @@ Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev �
 - 평가 출력(`python -m sol_eval bosun_score`, main `1b68f9b`)은 `predictions.jsonl`(`rowId`, `qid`, `seed`, `probabilities[]`, `argmax`)·`rows.json`·`report.json`(패키지 경로·manifest sha256, 데이터 파일 sha256, seed 목록, 환경)이고, 지표는 [[21-MODEL-TRAINING|21]] §4.3 그대로다.
 
 > [!warning] 미검증 가정 (2026-10-21)
-> 이 계약은 Bosun 공개 API(`render_decision_prompt`·`decision_logits`)와 Hanno `jev-compatible-server`의 타입 매핑을 읽고 정했다. 학습 코드(`trainer.prompting.render_record`)가 모델 모듈의 `render_decision_prompt`를 그대로 부르는지는 `services/decision/tests/test_train_pure.py`가 모델 없이 확인한다(B1). 실제 확률이 `predict()`와 같은지는 `python -m sol_decision.parity`(모델 필요)로 회사 서버에서 확인하며 아직 실행하지 않았다.
+> 이 계약은 Bosun 공개 API(`render_decision_prompt`·`decision_logits`)와 Hanno `jev-compatible-server`의 타입 매핑을 읽고 정했다. 학습 코드(`trainer.prompting.render_record`)의 `render_decision_prompt` 호출을 확인했던 B1 시험 `services/decision/tests/test_train_pure.py`는 ADR-046으로 삭제됐다. 현재 자동 검증 근거로 안내하지 않으며, 학습 경로를 다시 변경할 때 필요한 대표 확인을 선택한다([[11-TESTING|11]] 현재 MVP 범위). 실제 확률이 `predict()`와 같은지는 `python -m sol_decision.parity`(모델 필요)로 회사 서버에서 확인하며 아직 실행하지 않았다.
 
 ## 5. 인용 검증 알고리즘
 
@@ -379,7 +379,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 > - 업종 및 근거법규: https://www.data.go.kr/data/15129467/openapi.do
 
 > [!warning] 미검증 가정
-> 조회 기간 상한(8일까지만 확인), 키 오류 응답(`resultCode` 30·31·22)의 형식, 면허제한 여러 행의 뜻(§3), `g2b-attachment` 자동 다운로드의 약관상 허용 여부는 확인하지 않았다. `infra/sources/registry.yaml`(녹음 응답으로 채운 `fieldMapping`·`sampleResponses`)과 `OfficialApiConnector` 계약 시험(`web/server/ingestion/official-api-connector.test.ts`·`source-registry.test.ts`)은 있다([[16-DECISIONS|16 ADR]] 미결정 1·16번).
+> 조회 기간 상한(8일까지만 확인), 키 오류 응답(`resultCode` 30·31·22)의 형식, 면허제한 여러 행의 뜻(§3), `g2b-attachment` 자동 다운로드의 약관상 허용 여부는 확인하지 않았다. `infra/sources/registry.yaml`의 `fieldMapping`·`sampleResponses`와 녹음 응답은 있다. 당시 `OfficialApiConnector`·source registry 계약 시험은 ADR-046으로 삭제됐다. 현재 자동 검증이 그 계약 전체를 보장한다고 안내하지 않으며 [[11-TESTING|11]] 현재 MVP 목록을 따른다([[16-DECISIONS|16 ADR]] 미결정 1·16번).
 
 ## 9. 수용 기준
 

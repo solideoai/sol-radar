@@ -244,6 +244,8 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 - 호출 예산으로 run을 멈춘 기록: 목록 쪽 호출 전에 그날 예산이 소진됐으면 목록을 부르지 않고 `QUOTA_EXCEEDED`, 예산 저장소를 읽지 못하면 `QUOTA_STORE_UNAVAILABLE`(main `2db27c1`), 에러코드 22를 받아 남은 호출을 멈추면 그 호출의 `API_QUOTA_EXCEEDED`와 함께 `QUOTA_EXCEEDED`(`result_code` 22)가 남는다. 모두 `source_key` `g2b:quota`다.
 - 공공 API 실패(HTTP 오류, `resultCode` 비정상, 일일 한도 초과, timeout)는 `ingest_runs.status`와 `ingest_errors`(`error_code`·`result_code`)에 기록한다. 기존 공고는 그대로 둔다. `error_code`는 `API_HTTP_ERROR`(HTTP 오류)·`API_RESULT_CODE`(`resultCode` 비정상, 원래 코드는 `result_code`)·`API_QUOTA_EXCEEDED`(에러코드 22)·`API_SERVICE_KEY_INVALID`(data.go.kr 게이트웨이 오류 30 등록되지 않은 키·31 기한 만료)·`API_TIMEOUT`을 쓴다(`web/server/ingestion/connector.model.ts` `INGEST_ERROR_CODE`, `g2b-http.ts`). 위 값 목록의 `ATTACHMENT_PARSE_FAILED`·`ATTACHMENT_REJECTED`는 지금 수집 코드가 쓰지 않는다(첨부 파싱 미구현. `ATTACHMENT_PARSE_FAILED:`는 추출 경고 접두어로만 쓰인다, [[03-AI-PIPELINE|03]] §4.4).
 
+**이메일 승인 설계(ADR-041, main 미구현):** 추천 공고 발송에 `EMAIL` 채널과 `<outboxEventId>:<userId>:EMAIL` 멱등 키를 추가할 계획이다. 개인 설정 opt-in과 로그인 이메일을 사용한다. 현재 적용된 `notification_channel` 값·정책·생성 타입은 그대로이며 EMAIL이 이미 저장 가능하다는 뜻은 아니다. 필요한 새 마이그레이션·정책은 구현 단계에서 추가한다([[13-NOTIFICATIONS|13 알림]]).
+
 ### 3.7 모델 평가 (플랫폼, ADR-020)
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
@@ -254,7 +256,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 
 ### 3.8 입찰 업무 (P1, ADR-021)
 
-[[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단 기능의 표다. 데모 필수가 모두 끝난 뒤 P1 착수 때 따로 새 마이그레이션으로 만든다([[16-DECISIONS|ADR-021]]).
+ADR-021 P1 표다. 2026-10-21 [[16-DECISIONS|ADR-042]]로 핵심 컷·확장 컷과 조건부 병행한다. 새 표·정책은 새 마이그레이션으로 만들고, 클라우드 적용은 사용자 확인 뒤다. 구현·적용 완료 여부는 각 마이그레이션과 [[PROGRESS]]로 확인한다.
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
@@ -334,7 +336,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 
 - 키: `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`(서버 전용). 키 값은 출력하지 않는다.
 - 계정 5개는 Supabase Auth 관리 API(`POST /auth/v1/admin/users`, `email_confirm: true`)로 만든다. 템플릿 `scripts/db-seed.mjs`와 같은 방법이다. 비밀번호는 `.env.example`의 `DEMO_SEED_PASSWORD`로만 지정하고, 문서와 저장소에 실제 값을 쓰지 않는다. `profiles` 행은 가입 트리거가 만든다.
-- **멱등**: 다시 돌리면 데모 데이터만 지우고 처음 상태로 다시 만든다. 지우는 범위는 `is_demo=true` 조직·공고와 그 하위 행, 데모 계정 5개(이메일로 찾는다)다. 다른 데이터는 건드리지 않는다. live 모드로 수집한 공고(`is_demo=false`)와 그 하위 행(revision·첨부), `eval_runs`도 지우지 않는다. **다만 데모 조직 두 곳의 조직 소유 행**(`score_runs`·`bid_reviews`·`assignments`·`company_profiles`·`notifications`·`outbox_events`·`audit_logs`·`invitations`)은 공고 출처와 상관없이 `org_id`로 모두 지운다(`scripts/demo-reset.mjs` `ORG_SCOPED_TABLES`). 그래서 live 공고의 분석 run(S-LIVE 사전 run 포함)도 지워진다([[19-DEMO-SCENARIO|19]] §2). 실행 모드와 무관하게 동작한다(`live` 시연에도 데모 계정·가상 회사 프로필이 필요하다, [[16-DECISIONS|ADR-020]]). 실공고(`is_demo=false`) 자체는 잃지 않지만, 그 공고를 데모 조직에서 분석한 결과는 잃는다. 배포(운영) 프로젝트에서 막는 장치는 배포처 결정(미결정 8번) 때 정한다.
+- **멱등**: 다시 돌리면 데모 데이터만 지우고 처음 상태로 다시 만든다. 지우는 범위는 `is_demo=true` 조직·공고와 그 하위 행, 데모 계정 5개(이메일로 찾는다)다. 다른 데이터는 건드리지 않는다. live 모드로 수집한 공고(`is_demo=false`)와 그 하위 행(revision·첨부), `eval_runs`도 지우지 않는다. **다만 데모 조직 두 곳의 조직 소유 행**(`score_runs`·`bid_reviews`·`assignments`·`company_profiles`·`notifications`·`outbox_events`·`audit_logs`·`invitations`)은 공고 출처와 상관없이 `org_id`로 모두 지운다(`scripts/demo-reset.mjs` `ORG_SCOPED_TABLES`). 그래서 live 공고의 분석 run(S-LIVE 사전 run 포함)도 지워진다([[19-DEMO-SCENARIO|19]] §2). 실행 모드와 무관하게 동작한다(`live` 시연에도 데모 계정·가상 회사 프로필이 필요하다, [[16-DECISIONS|ADR-020]]). 실공고(`is_demo=false`) 자체는 잃지 않지만, 그 공고를 데모 조직에서 분석한 결과는 잃는다. 배포(운영) 프로젝트의 reset 차단 장치는 현재 구현·검증된 것으로 주장하지 않는다. Vercel 구성 승인과 별개인 운영 후속이며 사용자 확인 없이 운영 reset을 실행하지 않는다.
 - 템플릿 `pnpm db:seed`는 로컬 Supabase 전용(로컬이 아닌 주소면 멈춘다)이므로 SOL RADAR 데모 seed로 쓰지 않는다.
 - 모든 공고는 `is_demo=true`, 조직은 `is_demo=true`. UI는 이 플래그로 `DEMO` 배지를 보여 준다.
 

@@ -19,14 +19,13 @@ flowchart TB
  subgraph laptop[데모 노트북 · Docker Compose]
   B["브라우저 1440px"] --> W["Next.js web :3000<br/>화면 · Route Handler /api/v1 · web/server"]
   W --> R[("Redis · BullMQ")]
-  W --> MIN[("MinIO · 첨부 원본")]
   W --> QD[("Qdrant · 근거 검색")]
   R --> WK["worker (web/worker)<br/>ingest · documents · extract · analysis · outbox"]
   WK --> AI["AI gateway FastAPI :8000<br/>/parse /extract /kev /explain"]
   AI --> QD
-  WK --> MIN
  end
  subgraph supabase[Supabase 클라우드]
+  ST[("private Storage · 첨부 원본·파싱 결과")]
   SA["Auth"]
   PG[("Postgres · RLS<br/>org_id 격리")]
  end
@@ -38,6 +37,8 @@ flowchart TB
   QW["회사 운영 vLLM API · Qwen/Qwen3.8-Flash-Next<br/>/vllm/v1 (회사 운영 · 응답 미확인)"]
   KV["sol_decision.serve · Bosun v3.1 0.6B<br/>/sol-radar/kev → 127.0.0.1:8009 · 물리 GPU 1<br/>(Kev wire 호환 · 라우터 기준 결정 · 응답 미확인)"]
  end
+ W -- 사용자 JWT · signed URL --> ST
+ WK -- service role --> ST
  B -- 로그인 --> SA
  W -- 세션 검증 --> SA
  W -- 사용자 세션 · RLS --> PG
@@ -49,7 +50,7 @@ flowchart TB
 ```
 
 - 모델을 부르는 컴포넌트는 AI gateway 하나다. web과 worker는 Qwen·결정 모델에 직접 닿지 않는다.
-- DB·Auth는 Supabase 클라우드(Compose 밖)라 데모 중 인터넷이 필요하다. 대체 경로는 `limitations.md`.
+- DB·Auth·Storage는 Supabase 클라우드(Compose 밖, ADR-048)라 데모 중 인터넷이 필요하다. 대체 경로는 `limitations.md`.
 - 회사 GPU 서버는 외부에서 접근할 수 없다. 추출·설명은 회사가 이미 운영하는 vLLM API(`QWEN_BASE_URL=https://acropolissg.com/vllm/v1`, `Qwen/Qwen3.8-Flash-Next`)를 쓰고, 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision.serve`가 회사 GPU 서버 `127.0.0.1:8009`에서 Kev wire 호환으로 서빙해 `https://acropolissg.com/sol-radar/kev`로 나간다. 노트북의 AI gateway가 TLS·API 키로 붙는다([[16-DECISIONS|ADR-025]]·[[16-DECISIONS|ADR-034]]). `KEV_BASE_URL`의 하위 경로 `/kev`는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`) 기준으로 **결정**했고(`/sol-radar/qwen`은 백업 경로, 미사용), 인증은 각 런타임의 Bearer 키(`QWEN_API_KEY`·`KEV_API_KEY`)다([[16-DECISIONS|16 ADR]] 미결정 17번). 바깥(회사) nginx의 `/sol-radar` 접두어 처리·회사 측 추가 인증·실제 응답과 지연은 아직 **미확인**이다(B2에서 `GET /v1/models`·지연을 기록한다). 엔드포인트로 가는 데이터는 실제 공고(개인정보 마스킹)와 가상 회사 프로필뿐이다.
 - GPU 하드웨어와 메모리 배분은 회사 측 운영이다. 결정 모델은 물리 GPU 1을 회사 PaddleOCR 서비스와 공유하고, 우리가 올리는 것은 Bosun 서빙·학습뿐이다(ADR-034 10번, 사용자 보고. B2에서 교차 확인). Qwen3.8-Flash-Next는 회사 API라 GPU 1을 쓰지 않는다. 우리 쪽 점검은 `GET /v1/models` 레지스트리 대조와 지연 실측뿐이다(P0-0 ③ G1~G6, [[10-DEPLOYMENT|10 배포]]).
 
@@ -59,10 +60,11 @@ flowchart TB
 flowchart TD
  A["수집 (ingest job)<br/>OfficialApiConnector · FixtureConnector"] --> N["정규화 NormalizedBid<br/>API 구조화 자격 필드"]
  N --> R1["revision diff<br/>sha256 · 멱등 · 격리"]
- R1 --> D["첨부 다운로드 (documents job)<br/>allowlist → MinIO"]
+ R1 -. "설계 · 소비자 미구현" .-> D["첨부 다운로드 (documents job)<br/>allowlist → private Supabase Storage"]
  D --> P["gateway /parse<br/>PDF · HWPX · HWP → ParseResult"]
  P -->|UNSUPPORTED · FAILED| PE["parse_error_code<br/>확인 필요 · 추측 금지"]
- P --> E["gateway /extract (extract job)<br/>Qwen3.8-Flash-Next(회사 API) · 스키마 검증 · 인용 검증 · translations"]
+ R1 -->|현재: 공고 본문·API 필드| E["gateway /extract (analysis job 내부)<br/>Qwen3.8-Flash-Next(회사 API) · 스키마 검증 · 인용 검증 · translations"]
+ P -. "파서 연결 후" .-> E
  PE --> E
  E --> X[("requirement_extractions<br/>revision 단위 재사용")]
  X --> RE["규칙 엔진 (analysis job)<br/>자격 판정 SATISFIED / NOT_SATISFIED / NEEDS_REVIEW + 사유 코드<br/>API 필드 우선"]
@@ -72,16 +74,16 @@ flowchart TD
  CP --> K
  S --> F["플래그 병합<br/>MODEL_RULE_DISAGREEMENT 등<br/>점수 · 권고 불변"]
  K --> F
- F --> EX["gateway /explain<br/>한국어 설명 · 입력 밖 숫자면 템플릿"]
+ F --> EX["gateway /explain<br/>현재 모든 모드 템플릿 · fallback=true<br/>Qwen 설명 생성 미구현"]
  EX --> Z[("score_runs · score_factors<br/>qualification_checks · requirement_assessments<br/>run_mode · 모델 · prompt_hash · input_snapshot")]
  Z --> UI["화면 /bids/[id]<br/>자격 · 점수 분해 · 결정 모델 참고 · 근거 서랍"]
  UI --> H["사람 최종 결정<br/>bid_reviews (결정자 · 사유 · 시각)"]
  H --> O["outbox_events → notifications<br/>REVIEW_ASSIGNED · ANALYSIS_COMPLETE"]
 ```
 
-- AI 단계 어느 것이 실패해도 규칙 판정·점수·권고는 규칙만으로 끝나고 `status=PARTIAL`, `recommendationBasis=RULES_ONLY`다.
+- Qwen 추출을 사용할 수 없거나 gateway 연결이 끊기면 `PARTIAL`·`RULES_ONLY`로 끝낸다. 추출은 정상이고 결정 모델만 불가하면 `COMPLETED`·`RULES_ONLY`다. `/explain` 실패는 템플릿 설명으로 대체하며 분석을 실패시키지 않는다([[03-AI-PIPELINE|03]] §8).
 - 결정 모델 출력은 `reviewFlags` 추가와 "모델 참고 지표 (점수 미반영)" 표시만 한다. 자격·점수·권고를 바꾸는 코드 경로는 없다.
-- 실패 유형(공공 API · 첨부 다운로드 · 파싱 · Qwen 미접속 · 결정 모델 미접속 · gateway 미접속)은 각각 다른 코드로 기록하고 따로 보인다.
+- 공공 API·Qwen·결정 모델·gateway 실패를 구분한다. 첨부 다운로드·파싱 오류 코드는 설계이며, 현재 첨부는 목록만 저장돼 PENDING이다. 이 오류 배지가 이미 표시된다고 주장하지 않는다.
 
 ## 실행 모드 3종
 

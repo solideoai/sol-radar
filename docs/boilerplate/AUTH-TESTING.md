@@ -4,14 +4,16 @@
 
 ## 자동 시험
 
-| 시험 | 명령 | 보는 것 |
-|---|---|---|
-| DB 정책 (PGlite) | 루트 `pnpm test:db` (`scripts/database.test.mjs` 의 "회원 상태·탈퇴·제공자 프로필") | 가입 트리거의 이름·사진, 본인 프로필만 읽고 고침, `status`·`avatar_url`·`is_admin` 을 화면 역할이 못 바꿈, 정지·해제 함수(운영자만·자기 자신·다른 운영자·없는 회원), 정지된 사람의 조직 데이터·팀 만들기·초대 수락 차단, 탈퇴(유일한 owner·정지된 회원 거절, 연쇄 삭제, 남은 팀 작업) |
-| 웹 단위 (Vitest) | `pnpm -C web exec vitest run` | 토큰 검증 규칙(iss·aud·role·sub, Bearer 모양), 쿠키·Bearer 통로, 4xx/5xx 구분, 콜백의 성공·실패·정지·연결 결과, open redirect, 로그인 수단 목록·해제 규칙, 탈퇴·정지 서비스, `/api/*` 라우트 계약(상태 코드·오류 코드·`no-store`·`WWW-Authenticate`) |
-| 브라우저 E2E | `pnpm -C web test:e2e` | 로그인 전 화면(로그인 버튼 표시 여부 등) |
-| 로그인 뒤 E2E | `pnpm -C web test:e2e:auth` (로컬 Supabase 필요, verify·CI 밖) | `e2e-auth/settings-account*.spec.ts` — 마이페이지 구역·로그인 수단·연결 결과 안내·`?next=`·정지 안내·이 기기/모든 기기 로그아웃(refresh 무효)·탈퇴(확인 낱말·유일한 소유자 거절). `e2e-auth/admin*.spec.ts` — 상태 열·폭별 표시·정지/해제(새 로그인 거절·남은 토큰 403·갱신 실패·로그인해 둔 기기는 정지 안내로)·운영자 아닌 회원의 상태 API 403·토큰 없음 401. 정지·탈퇴 대상은 시험마다 만든 계정이고 끝나면 지운다 |
+2026-10-21 ADR-046으로 템플릿 회귀를 실제 삭제했습니다. 현재 범위는 [11 테스트의 현재 MVP 자동 시험](../11-TESTING.md#현재-mvp-자동-시험-adr-046-개정-2026-10-21)과 [축소 목록](../evidence/verification/20261021-pruned-tests.json)이 정본입니다. 아래 명령이 통과해도 삭제된 OAuth 콜백·계정 설정·탈퇴 등의 전수 회귀가 검증됐다고 해석하지 않습니다.
 
-OAuth 제공자(구글·카카오·네이버)는 자동 시험에서 부르지 않습니다. 콜백 처리는 Supabase Auth 를 가짜 저장 자리로 바꾼 단위 시험이 봅니다(코드 있음·없음·제공자 오류·`user_banned`·`identity_already_exists`·교환 실패·바깥 `next`).
+| 시험 | 명령 | 현재 범위 |
+|---|---|---|
+| DB 정책 | 루트 `pnpm test:db` | `scripts/database.test.mjs`의 현재 핵심 RLS·역할·조직 격리·저장 경계. 과거 인증 세부 정책 전체 목록과 다릅니다 |
+| 웹 단위 | `pnpm -C web exec vitest run` | 현재 남은 핵심 계약·조직 격리 시험. 구 callback·identities·계정 설정 단위 파일은 삭제됐습니다 |
+| 공개 E2E | `pnpm -C web test:e2e` | 현재 공개 화면·접근 흐름. 실행 여부와 결과는 해당 실행 기록으로 확인합니다 |
+| 로그인 뒤 E2E | `pnpm -C web test:e2e:auth` | 현재 기본 인증의 `web/e2e-auth/isolation.spec.ts`·`permissions.spec.ts` 등 설정이 선택하는 시험. 로컬 Supabase가 필요하며 verify·CI 밖입니다. 삭제된 settings-account·관리자 계정 설정 회귀를 포함하지 않습니다 |
+
+실제 OAuth 제공자 연동은 아래 수동 확인 대상입니다. 과거 콜백 단위 시험이 현재 남아 있다고 안내하지 않습니다. 아래 2026-10-15 실호출 기록도 당시 검증 이력이며 현재 자동 회귀 보장과 구분합니다.
 
 ## 로컬 Supabase 실호출 (2026-10-15 에 한 확인)
 
@@ -24,7 +26,7 @@ OAuth 제공자(구글·카카오·네이버)는 자동 시험에서 부르지 �
 - 네이버: `custom:naver` 를 가짜 Client ID 로 OIDC 등록 → `/auth/v1/authorize?provider=custom:naver` 가 `https://nid.naver.com/oauth2/authorize` 로 PKCE(S256)·state·`scope=openid profile` 을 붙여 보냄.
 - 화면(375·1280px): `?next=` 로그인, 로그인 수단 목록·연결 시작 실패 안내·돌아온 실패 안내(초점·주소 정리)·해제 대화상자, 운영자 정지 대화상자·상태 열, 정지된 계정의 로그인 거절 문구, 탈퇴(틀린 확인 낱말·성공 뒤 쿠키 삭제).
 
-만료 시각이 지난 토큰은 서명이 맞는 진짜 만료 토큰이 아니라 `exp` 를 고친 토큰입니다(서명 키가 없어 만들 수 없음). 진짜 만료는 `getClaims` 의 만료 검사가 맡고, 단위 시험이 그 오류를 401 로 바꾸는지 봅니다.
+만료 시각이 지난 토큰은 서명이 맞는 진짜 만료 토큰이 아니라 `exp` 를 고친 토큰입니다(서명 키가 없어 만들 수 없음). 진짜 만료는 `getClaims`의 만료 검사가 맡습니다. 당시 단위 시험 결과는 이력이며 현재 자동 범위는 위 MVP 목록을 따릅니다.
 
 ## 실제 OAuth 수동 확인
 
