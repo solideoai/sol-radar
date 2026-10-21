@@ -352,7 +352,7 @@ python -m sol_decision.train \
 
 ```bash
 export SOL_WORK=/data/www/ai_workspace/sol-radar
-export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1    # 지금 bosun_score 는 장치를 지정하지 않아 CPU fp32 로 돈다(E1'·E4 가 같은 CPU fp32 라 비교는 성립, 느림). GPU 1 사용은 미결정 26-16 뒤
+export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1    # 지금 bosun_score 는 장치를 지정하지 않아 CPU fp32 로 돈다(E1'·E4 가 같은 CPU fp32 라 비교는 성립, 느림). GPU 1 은 미결정 26-16·26-20 브랜치가 main 에 들어간 뒤 --device cuda + SOL_GPU_SHARE_APPROVED=1 로만
 export HF_HOME="$SOL_WORK/hf"                                                 # preflight 기본값과 같게
 source "$SOL_WORK/.venv-bosun/bin/activate"                                   # sol_eval 설치는 §3.2·미결정 29-2
 cd "$SOL_WORK"
