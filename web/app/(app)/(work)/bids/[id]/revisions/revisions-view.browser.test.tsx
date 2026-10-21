@@ -50,11 +50,10 @@ const FX07: RevisionComparison = {
           op: "same",
           text: "한국도로공사가 교통정보 데이터플랫폼 고도화 사업의 제안사를 모집한다. 사업 분야는 데이터 플랫폼이며 사업예산은 ",
         },
-        { op: "removed", text: "18억원이다." },
-        { op: "added", text: "21.6억원이다." },
-        { op: "same", text: " 필수 기술은 Hadoop, " },
-        { op: "removed", text: "Spark" },
-        { op: "added", text: "Spark," },
+        { op: "removed", text: "18억원이다" },
+        { op: "added", text: "21.6억원이다" },
+        { op: "same", text: ". 필수 기술은 Hadoop, Spark" },
+        { op: "added", text: "," },
         { op: "same", text: " " },
         { op: "added", text: "Kubernetes " },
         { op: "same", text: "이다. 우대 기술은 PostgreSQL, Airflow 이다." },
@@ -177,6 +176,18 @@ describe.each([1440, 1280])("RevisionsView %ipx", (width) => {
     expect(host.textContent).toContain("차수 02");
     // 접을 곳이 없으니 펼치기 버튼이 없다
     expect(page.getByRole("button", { name: "본문 전체 펼치기" }).elements()).toHaveLength(0);
+  });
+
+  it("삭제 바로 뒤 추가는 앞에 틈이 있고 공백 뒤 추가는 틈이 없다", () => {
+    const host = render(FX07, width);
+    const inses = Array.from(host.querySelectorAll('[data-slot="revision-content-diff"] ins'));
+    const gapOf = (el: Element | undefined): string | undefined =>
+      el === undefined ? undefined : getComputedStyle(el).marginInlineStart;
+    const afterDel = inses.find((el) => el.textContent?.includes("21.6억원이다"));
+    expect(afterDel?.previousElementSibling?.tagName).toBe("DEL");
+    expect(gapOf(afterDel)).not.toBe("0px");
+    const afterSpace = inses.find((el) => el.textContent?.includes("Kubernetes") === true);
+    expect(gapOf(afterSpace)).toBe("0px");
   });
 
   it("FX-07 첫 화면(스크롤 없이)에 예산 줄과 Kubernetes 가 들어온다", async () => {

@@ -29,7 +29,10 @@ const DISPLAY_ORDER = [
   "preSpecRef",
 ] as const;
 
-const tokensOf = (text: string): string[] => text.match(/\s+|\S+/g) ?? [];
+// 공백 / 숫자로 시작하는 낱말(소수점·천 단위 쉼표 포함, 뒤 글자까지) / 글자·숫자 낱말 / 구두점 한 글자.
+// 구두점을 떼어 "Spark" 와 "Spark," 가 다른 낱말로 겹쳐 보이지 않게 한다.
+const TOKEN = /\s+|\d+(?:[.,]\d+)*\p{L}*|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu;
+const tokensOf = (text: string): string[] => text.match(TOKEN) ?? [];
 
 function pushSegment(segments: TextSegment[], op: TextSegment["op"], text: string): void {
   const last = segments.at(-1);

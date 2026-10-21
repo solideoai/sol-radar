@@ -63,10 +63,10 @@ export function foldSegments(segments: readonly TextSegment[]): {
 
 const DIFF_ID = "revision-content-diff";
 
-function renderPart(part: FoldedPart, key: number) {
+function renderPart(part: FoldedPart, key: number, parts: readonly FoldedPart[]) {
   switch (part.op) {
     case "added":
-      return <Added key={key} text={part.text} />;
+      return <Added key={key} text={part.text} afterRemoved={parts[key - 1]?.op === "removed"} />;
     case "removed":
       return <Removed key={key} text={part.text} />;
     case "fold":
@@ -126,7 +126,7 @@ function TextDiff({ segments }: { segments: readonly TextSegment[] }) {
             <span className="sr-only">없음</span>
           </>
         ) : (
-          shown.map(renderPart)
+          shown.map((part, key) => renderPart(part, key, shown))
         )}
       </div>
     </div>

@@ -43,6 +43,30 @@ describe("diffText", () => {
     expect(added[0].text).toContain("Kubernetes");
   });
 
+  it("쉼표가 붙은 낱말은 구두점을 따로 떼어 같은 단어가 두 번 보이지 않는다", () => {
+    const segments = diffText(
+      "필수 기술은 Hadoop, Spark 이다.",
+      "필수 기술은 Hadoop, Spark, Kubernetes 이다.",
+    );
+    expect(segments.filter((segment) => segment.op === "removed")).toEqual([]);
+    const added = segments.filter((segment) => segment.op === "added");
+    expect(added.some((segment) => segment.text === ",")).toBe(true);
+    expect(added.some((segment) => segment.text.includes("Kubernetes"))).toBe(true);
+    expect(join(segments, ["same", "added"])).toBe("필수 기술은 Hadoop, Spark, Kubernetes 이다.");
+    expect(added.some((segment) => segment.text.includes("Spark"))).toBe(false);
+  });
+
+  it("소수점 숫자와 뒤 글자는 한 토큰이고 마침표는 따로 남는다", () => {
+    const segments = diffText("사업예산은 18억원이다.", "사업예산은 21.6억원이다.");
+    expect(segments.filter((segment) => segment.op === "removed")).toEqual([
+      { op: "removed", text: "18억원이다" },
+    ]);
+    expect(segments.filter((segment) => segment.op === "added")).toEqual([
+      { op: "added", text: "21.6억원이다" },
+    ]);
+    expect(segments.at(-1)).toEqual({ op: "same", text: "." });
+  });
+
   it("같은 글은 same 하나다", () => {
     expect(diffText("같은 글", "같은 글")).toEqual([{ op: "same", text: "같은 글" }]);
   });

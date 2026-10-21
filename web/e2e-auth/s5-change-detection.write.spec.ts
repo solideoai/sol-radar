@@ -498,8 +498,8 @@ test.describe("S5 변경 이력 화면 (SALES sales@soltech.invalid)", () => {
     await expect(kubernetes.first()).toHaveCSS("text-decoration-line", "underline");
     await expect(kubernetes.first().getByText("추가됨", { exact: true })).toBeAttached();
     await expect(kubernetes.first().getByText("추가 끝", { exact: true })).toBeAttached();
-    await expect(diff.locator("del").filter({ hasText: "18억원이다." })).toHaveCount(1);
-    await expect(diff.locator("ins").filter({ hasText: "21.6억원이다." })).toHaveCount(1);
+    await expect(diff.locator("del").filter({ hasText: "18억원이다" })).toHaveCount(1);
+    await expect(diff.locator("ins").filter({ hasText: "21.6억원이다" })).toHaveCount(1);
     // 짧은 본문은 접을 곳이 없어 펼치기 버튼이 없다.
     await expect(page.getByRole("button", { name: "본문 전체 펼치기" })).toHaveCount(0);
 

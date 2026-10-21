@@ -10,13 +10,16 @@ function splitEdges(text: string): [string, string, string] {
   return match === null ? ["", text, ""] : [match[1] ?? "", match[2] ?? "", match[3] ?? ""];
 }
 
-function Added({ text }: { text: string }) {
+// 삭제 바로 뒤에 공백 없이 오는 추가는 한 단어처럼 붙어 보이므로 앞에 틈을 둔다.
+const AFTER_REMOVED_CLASS = "ms-1";
+
+function Added({ text, afterRemoved = false }: { text: string; afterRemoved?: boolean }) {
   const [head, core, tail] = splitEdges(text);
   if (core === "") return <>{text}</>;
   return (
     <>
       {head}
-      <ins className={ADDED_CLASS}>
+      <ins className={cn(ADDED_CLASS, afterRemoved && head === "" && AFTER_REMOVED_CLASS)}>
         <span className="sr-only">추가됨 </span>
         {core}
         <span className="sr-only"> 추가 끝</span>
