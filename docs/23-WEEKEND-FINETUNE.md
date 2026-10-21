@@ -48,10 +48,10 @@ updated: 2026-10-21
 | 10-20(화) | — | 회사 | **당시 기록**: 오전 서버 환경 확인(A40 ×3, torch 2.8.0+cu128, 당시 `.venv-kev`), 오후 Kev-9B 가중치 다운로드(`db029f08`, 퇴역)·`.venv-bosun` 에서 Bosun CPU 2-step 학습 성공(장난감 6건)·PaddleOCR 가 GPU 1 약 9,167 MiB 사용 보고 | [F1 기록](evidence/kev-train-feasibility.md) §0, 사용자 보고(미검증) |
 | 10-21(수)~22(목) | B1 | 우리 | `services/decision`(`sol_decision.serve`·`train`, 호환성 테스트), 레지스트리·settings·`local_setup`, `sol_eval` `--format bosun`·`bosun_score`·`leakage`, `infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`, UI 문구 중립화, 테스트 갱신. `pnpm verify`·`uv run pytest` 초록, `kev-no-override`·`review.independent` **무수정 통과** | 코드, 핀 목록, 22 §3.2 명령의 인자 확정 |
 | 10-21(수)~22(목) | B2 | 회사 | `.venv-bosun` 핀 `uv pip install --dry-run` → 설치(torch 불변), Bosun·백본 다운로드 + sha256 대조(22 §2.2), `bosun-preflight.sh` 통과. **사용자 승인 뒤** `sol_decision.serve`(8009) 기동(GPU 1, PaddleOCR 공존). 라우터 그대로. 회사 Qwen3.8-Flash-Next API 는 키 전달·`GET /v1/models` id·guided JSON·`prompt_logprobs` 확인만 | `runs/preflight-*.log`, `venv-bosun-freeze.txt`, 서버 안 `curl …/sol-radar/kev/v1/models` 응답 |
-| 10-22(목)~23(금) | B3 | 우리 | **번들 확정** `sol-dataset-v0.1/` 폴더(`bosun/` 레코드·manifest·leakage 리포트) + 파일별 sha256(tar 로 묶지 않는다, 미결정 29-3), 학습 요청서(22 §6) 전송. `bosun_score` 를 가짜 출력으로 시험(§6). EX0(회사 Qwen API)·E3 기준선을 노트북에서 엔드포인트로 측정(E2 는 보조. E1' 은 B5 오프라인 채점, [[16-DECISIONS\|16]] 미결정 29-1). 밖에서 C1 ③ G1~G6 재실행 | 번들, 요청서, `docs/evidence/eval/`(EX0·E1'·E3), `docs/evidence/phase-5/endpoint-bosun-<일시>.md` |
+| 10-22(목)~23(금) | B3 | 우리 | **번들 확정** `sol-dataset-v0.1/` 폴더(`bosun/` 레코드·manifest·leakage 리포트) + 파일별 sha256(tar 로 묶지 않는다, 미결정 29-3), 학습 요청서(22 §6) 전송. `bosun_score` 를 가짜 출력으로 시험(§6). EX0(회사 Qwen API)·E3 기준선을 노트북에서 엔드포인트로 측정(E2 는 보조. E1' 은 B5 오프라인 채점, [[16-DECISIONS\|16]] 미결정 29-1). 밖에서 C1 ③ G1~G6 재실행 | 번들, 요청서, `docs/evidence/eval/`(EX0·E3), `docs/evidence/phase-5/endpoint-bosun-<일시>.md` |
 | 10-23(금) | — | 우리 | 기능 freeze. 회사 답(§8) 받기 | — |
 | 10-24(토) 09:00~12:00 | B4 | 회사 | **F1** `bosun-f1.sh`(기본 `--max-steps 20`, 22 §4.2): 격자 1→2(→3). 물리 GPU 1(공유). 앞 칸 PASS 때만 다음 칸. 결과 표 전송 | `runs/f1-results.md`, `runs/bosun-f1-*.summary.md`, `nvidia-smi` csv |
-| 10-24(토) 13:00~ | B4 | 회사 | **F2** 학습(22 §4.3), F1 PASS 설정으로. 소요 시간은 F1 의 step 시간으로 재추정한다(**미확정**). 토요일 안에 끝나지 않으면 일요일 오전으로 넘기고 채점을 뒤로 민다. 패키지 저장·재로딩 확인. **18:00 까지 F2 미시작이면 사용자 보고** | `runs/bosun-sol-lora-v0.1/`, `train.log`, 메트릭 |
+| 10-24(토) 13:00~ | B4 | 회사 | **F2** 학습(22 §4.3), F1 PASS 설정으로. 소요 시간은 F1 의 step 시간(`training_metrics.json` 의 `metrics.meanStepSeconds`. f1 요약 칸은 로딩 포함 wall/step 이다, 미결정 26-15)으로 재추정한다(**미확정**). 토요일 안에 끝나지 않으면 일요일 오전으로 넘기고 채점을 뒤로 민다. 패키지 저장·재로딩 확인. **18:00 까지 F2 미시작이면 사용자 보고** | `runs/bosun-sol-lora-v0.1/`, `train.log`, 메트릭 |
 | 10-25(일) 09:00~ | B5 | 회사 | **F3** dev 보정 → 서버 안 `sol_eval bosun_score` 4회(E4·E1' × test·dev, `--seeds 0-5`, 한 모델씩 순차. 언어 짝 비교용 E2 는 `bosun/{split}.ko.jsonl` 내보내기(B2 뒤 ed)가 생기면 같은 방식으로 더한다, 미결정 29-6) → 출력 폴더 4개를 통째로 전송(§2.2). 엔드포인트·라우터 변경 없음 | `MODEL_CARD.md`, `report.json`·`rows.json`·`predictions.jsonl` 4벌, `calibration.json`, sha256 |
 | 10-25(일) 오후 | B5 | 우리 | 받은 출력의 패키지 sha256·test 파일 sha256 을 번들 manifest 와 대조 → `sol_eval` 오프라인 지표 → 사업 클러스터 짝 부트스트랩 Δ·95% CI | `docs/evidence/eval/e4-<일시>.md`, 레지스트리 `bosun-sol-lora-v0.1.reports` |
 | 10-26(월) | B6 | 우리 | `experiment-tables.md` (c)·`limitations.md` E4 문장·슬라이드 | 제출물 |
@@ -99,7 +99,7 @@ python -m sol_eval bosun_score --package "$snap"                  --data "$D/tes
 python -m sol_eval bosun_score --package "$snap"                  --data "$D/dev.en.jsonl"  --seeds 0-5 --out "$R/e1p-dev"
 ```
 
-- 지금(main `4e62170`) `bosun_score` 는 장치를 지정하지 않아 CPU fp32 로 돈다. 결과는 같고 느리다. GPU 1 사용은 [[16-DECISIONS|16]] 미결정 26-16 뒤다.
+- 지금(main `4e62170`) `bosun_score` 는 장치를 지정하지 않아 CPU fp32 로 돈다. 10-25 B5 채점도 CPU fp32 로 돌리고, 소요 시간은 미측정이다. read-check(§4.5) 때 시간을 재서 일정을 다시 잡는다. E1'·E4 가 같은 CPU fp32 로 돌아 비교는 성립하고 느리다. GPU bf16 으로 바꾸면(해커톤 뒤, [[16-DECISIONS|16]] 미결정 26-16) E1'·E4 를 같은 장치·dtype 으로 다시 잰다.
 - 선택지 순서 민감도는 Kev 의 `permute`·`--rotations` 대신 Bosun 의 제시 순서 seed(`--seeds 0-5`, 6회)로 잰다(22 §4.1).
 - 요청당 지연 p50·p95 는 서빙이 없으므로 **E4 에서는 재지 않는다.** 지연은 B2 의 G3(공개 Bosun 서빙)에서 잰다.
 - 돌려받은 `report.json` 의 패키지 sha256·test 파일 sha256 이 번들 manifest 와 같은지 대조한다. 다르면 그 결과는 쓰지 않는다.
@@ -136,7 +136,7 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"        
 | PaddleOCR vLLM(회사) | 약 9.2 GB | 건드리지 않음. 피크 미확인(§8) |
 | `sol_decision.serve` Bosun bf16 서빙 | 약 1.5~3 GB | 6k 토큰 state 활성값 포함 |
 | Bosun LoRA 학습(bf16, batch 1, 6k 토큰, gradient checkpointing) | 약 6~10 GB | F1 20 step 으로 실측 |
-| `sol_eval bosun_score` 채점(패키지 하나씩) | 서빙과 비슷(추정) | 4회를 순서대로 돌리면 동시 점유는 1회분 |
+| `sol_eval bosun_score` 채점(패키지 하나씩) | 지금은 CPU fp32 라 GPU 메모리를 쓰지 않는다(26-16 뒤 GPU 로 바꾸면 서빙과 비슷, 추정) | 4회를 순서대로 돌리면 동시 점유는 1회분 |
 | ~~vLLM Qwen3-4B·Qwen 4B QLoRA~~ | — | 철회(2026-10-20 저녁). Qwen 은 회사 API, GPU 1 에 올리지 않는다 |
 
 **전부 추정, F1 실측 전**([분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §8). 합계 약 17~22 GB 로 가용 약 36,900 MiB 안에 들어간다고 **가정**한다. PaddleOCR 피크가 크면 달라진다.
@@ -312,7 +312,7 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 
 ### 5.2 F1 격자 (토요일 오전)
 
-22 §4.2 의 F1-A → B → D 를 그대로 따른다. F1-A(`infra/gpu/bosun-preflight.sh`)는 B2 에서 끝내 둔다. 토요일 오전은 F1-B 다. 칸마다 `SOL_GPU_SHARE_APPROVED=1 SOL_TRAIN_APPROVED=1 bash infra/gpu/bosun-f1.sh`(저장소 루트, 기본 `--max-steps 20`. 두 승인 env 가 없으면 시작하지 않는다)가 최대 GPU 메모리 두 값(torch `max_memory_allocated`·`nvidia-smi -i 1` 전체 최대 — PaddleOCR·서빙 포함. torch 값은 `training_metrics.json` 의 `metrics.peakMemoryMb` 이고, 지금 summary 칸은 키 이름이 달라 `-` 다, 미결정 26-15)과 우리 증가분·step 시간·OOM·패키지 저장·재로딩 parity 를 `runs/f1-results.md` 에 적는다. 앞 칸이 PASS 일 때만 다음 칸이고, OOM 이면 더 큰 값을 시도하지 않는다. Kev 의 state 토큰 상한(`--max_state`) 격자는 없다. 학습기는 state 를 자르지 않고 `--max-state-tokens`(기본 6,144)를 넘는 레코드를 건너뛴다.
+22 §4.2 의 F1-A → B → D 를 그대로 따른다. F1-A(`infra/gpu/bosun-preflight.sh`)는 B2 에서 끝내 둔다. 토요일 오전은 F1-B 다. 칸마다 `SOL_GPU_SHARE_APPROVED=1 SOL_TRAIN_APPROVED=1 bash infra/gpu/bosun-f1.sh`(저장소 루트, 기본 `--max-steps 20`. 두 승인 env 가 없으면 시작하지 않는다)가 최대 GPU 메모리 두 값(torch `max_memory_allocated`·`nvidia-smi -i 1` 전체 최대 — PaddleOCR·서빙 포함. torch 값은 `training_metrics.json` 의 `metrics.peakMemoryMb` 이고, 지금 summary 칸은 키 이름이 달라 `-` 다. step 시간 칸도 로딩을 포함한 wall/step 이라 F2 소요 재추정에는 `metrics.meanStepSeconds` 를 본다, 미결정 26-15)과 우리 증가분·step 시간·OOM·패키지 저장·재로딩 parity 를 `runs/f1-results.md` 에 적는다. 앞 칸이 PASS 일 때만 다음 칸이고, OOM 이면 더 큰 값을 시도하지 않는다. Kev 의 state 토큰 상한(`--max_state`) 격자는 없다. 학습기는 state 를 자르지 않고 `--max-state-tokens`(기본 6,144)를 넘는 레코드를 건너뛴다.
 
 | 순서 | 값 | 통과 기준 |
 |---|---|---|
@@ -320,7 +320,7 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 | 2 | batch 2 · accum 4(속도) | 같다 |
 | 3(선택) | batch 4 · accum 2 | 같다. 들어가면 F2 에 쓴다 |
 
-합격선은 `bosun-f1.sh` 의 메모리 예산이다: 학습 중 우리 증가분(GPU 전체 `memory.used` 최대 − 시작 직전 used) ≤ 시작 직전 `memory.free` − 3,000 MiB(`SOL_RESERVE_MIB`). 예산을 직접 정하려면 `SOL_MEM_BUDGET_MIB` 를 준다. 시작 전 여유는 `SOL_REQUIRED_MIB`(기본 16,000) 이상이어야 한다(22 §4.2. Kev 판의 41,000 MiB 는 전용 전제라 쓰지 않는다). 학습 전에 `python -m sol_decision.parity --package "$snap" --data "$SOL_WORK/sol-dataset-v0.1/bosun/test.en.jsonl" --n 8` 을 통과시킨다(넘으면 exit 1, 학습 금지). F1 의 20 step 패키지로 F3 보정·`bosun_score` 채점 경로도 dev 로 한 번 돌려 출력이 읽히는지 확인한다. 격자 1번부터 OOM 이면 22 §4.2 의 ①~③(state 축약·accum·서빙 잠시 내리기)을 먼저 검토하고, 그 밖(다중 GPU·클라우드 GPU·GPU 0·2)은 사용자 승인 대상이다. 모델 변경(다른 결정 모델로 전환) 경로는 이 문서에 없다.
+합격선은 `bosun-f1.sh` 의 메모리 예산이다: 학습 중 우리 증가분(GPU 전체 `memory.used` 최대 − 시작 직전 used) ≤ 시작 직전 `memory.free` − 3,000 MiB(`SOL_RESERVE_MIB`). 예산을 직접 정하려면 `SOL_MEM_BUDGET_MIB` 를 준다. 시작 전 여유는 `SOL_REQUIRED_MIB`(기본 16,000) 이상이어야 한다(22 §4.2. Kev 판의 41,000 MiB 는 전용 전제라 쓰지 않는다). 학습 전에 `python -m sol_decision.parity --package "$snap" --data "$SOL_WORK/sol-dataset-v0.1/bosun/test.en.jsonl" --n 8 --device cpu` 를 통과시킨다(preflight 와 같이 CPU, 승인 불필요. `--device` 기본값 `auto` 는 GPU 1 을 승인 검사 없이 쓰므로 빼지 않는다, 미결정 26-20. 넘으면 exit 1, 학습 금지). F1 의 20 step 패키지로 F3 보정·`bosun_score` 채점 경로도 dev 로 한 번 돌려 출력이 읽히는지 확인한다. 격자 1번부터 OOM 이면 22 §4.2 의 ①~③(state 축약·accum·서빙 잠시 내리기)을 먼저 검토하고, 그 밖(다중 GPU·클라우드 GPU·GPU 0·2)은 사용자 승인 대상이다. 모델 변경(다른 결정 모델로 전환) 경로는 이 문서에 없다.
 
 ### 5.3 F2 받아들이는 기준
 

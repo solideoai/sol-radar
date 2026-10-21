@@ -661,7 +661,7 @@ interface KevAssist {
 
 - 우리가 하는 검증은 gateway 기동 시 레지스트리 대조(§11)와 지연 실측(아래 G3)이다. 결정 모델 서버 기동·GPU 메모리 배분·패키지 sha256 대조·`nvidia-smi` 실측은 회사 측이 한다(서버 자체도 기동 시 `manifest.json` sha256을 대조한다, §5.3). Qwen은 회사 API라 키 수령·`GET /v1/models` `id`·guided JSON·`prompt_logprobs` 확인만 한다.
 - 엔드포인트에 접속하지 못하면 §8의 모델 서버 미접속 경로로 끝난다. 필요하면 사람이 `mock` 모드로 전환한다.
-- 평가·학습: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(`sol_decision` 서버 직접) 또는 평가용 gateway에 붙여 E3·EX0(과 보조로 E2)을 돌린다(엔드포인트 실행기 `sol_eval.run`은 main에 없다). F1(`infra/gpu/bosun-f1.sh`)·F2(`sol_decision.train`)·오프라인 채점(`sol_eval.bosun_score`, E1'·E4와 언어 짝 비교용 E2. E1' 정본은 이 경로다, [[16-DECISIONS|16]] 미결정 29-1)은 GPU 서버 셸이 필요하므로 회사가 실행한다(B4·B5. 도구는 main `1b68f9b`(B1)에 있고 실행은 아직 없다). 데모 모델은 공개 Bosun이고 학습본은 E4 비교로만 쓴다(ADR-034 9번, [[21-MODEL-TRAINING|21 모델 학습]]). 회사에 넘기는 실행서는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다.
+- 평가·학습: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(`sol_decision` 서버 직접) 또는 평가용 gateway에 붙여 E3·EX0(과 보조로 E2)을 돌릴 예정이다(엔드포인트 실행기 `sol_eval.run`은 main에 없다). F1(`infra/gpu/bosun-f1.sh`)·F2(`sol_decision.train`)·오프라인 채점(`sol_eval bosun_score`, E1'·E4와 언어 짝 비교용 E2. E1' 정본은 이 경로다, [[16-DECISIONS|16]] 미결정 29-1)은 GPU 서버 셸이 필요하므로 회사가 실행한다(B4·B5. 도구는 main `1b68f9b`(B1)에 있고 실행은 아직 없다). 데모 모델은 공개 Bosun이고 학습본은 E4 비교로만 쓴다(ADR-034 9번, [[21-MODEL-TRAINING|21 모델 학습]]). 회사에 넘기는 실행서는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다.
 - 노트북에서 Bosun을 직접 띄우는 CPU 경로는 쓰지 않는다(모델은 회사 GPU, ADR-025). GPU 접속 실패의 대체 경로는 `mock` 모드 또는 사전 실행 run 조회다([[16-DECISIONS|16 ADR]] 미결정 8번, ADR-023). Kev-0.8B CPU 경로 문구는 퇴역했다.
 
 > [!warning] 미검증 가정 (2026-10-20)
@@ -720,7 +720,7 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
 ### 5.13 표시와 플래그
 
 - 결정 모델 결과는 화면의 "모델 참고 지표 (점수 미반영)" 영역에만 보인다. 화면 구역 제목은 "결정 모델 참고 지표"(모델 중립 문구. 2026-10-20 ADR-034 Q3로 "Kev 참고 지표"에서 바꿈, ADR-029 A6 D13 개정. 실제 모델명은 `KevAssist.model` 값으로 함께 보인다)이고 바로 아래 꼬리 글자로 "모델 참고 지표 (점수 미반영)"를 함께 보인다([[06-UI-UX|06 UI]] §8, [[16-DECISIONS|ADR-029]] A6 D13). 질문별 분포 막대, 리스크 목록, 항목별 분류가 들어간다([[06-UI-UX|06 UI]]).
-- 고지 문구: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다." `KevAssist.disclaimer`로 내려 준다. 이 literal은 API·DB 호환(zod literal로 저장 행 파싱)을 위해 ADR-034 뒤에도 유지한다(ADR-034 5번).
+- 고지 문구: "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다." `KevAssist.disclaimer`로 내려 준다. 이 literal은 API·DB 호환(zod literal로 저장 행 파싱)을 위해 ADR-034 뒤에도 유지한다(ADR-034 5번). 화면은 이 literal을 그대로 보이지 않고 [[09-SECURITY|09]]의 모델 중립 문구("결정 모델 확률은 …")를 쓴다([[16-DECISIONS|16]] 미결정 30-2, 구현 전).
 - 보정 상태를 표시한다: `UNCALIBRATED`(기본) / `CALIBRATED`(데이터셋 버전 표기). **미구현**: worker가 `calibration`을 늘 null로 저장해 지금은 표시되지 않는다(§5.7 구현 상태).
 - 임계값 τ는 처음에 0.70이고 "미보정"으로 표시한다. 베이스라인 평가 뒤 dev 분할로 다시 정한다. 값은 `services/ai/kev/thresholds.v0.x.json`에 버전으로 둔다.
 
@@ -949,7 +949,7 @@ interface ParseResult {
   - `requestModel`(wire 요청의 `model` 값), `dataset`(버전·sha256), `questionSet`, `stateTemplate`, `reports`, `default`
 - 항목(계획 §5.3):
   - `bosun-v3.1-0.6b` — 기본 결정 모델. `kind: decision`, `run: Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`, `revision: 5e78a37c8d86860ebac9ef2d5327d6299498498e`, `base: Qwen/Qwen3-0.6B@c1899de2`, `base_revision: c1899de289a04d12100db370d81485cdf75e47ca`, `lora: 961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5`, `decision_embeddings_sha256: 88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188`, `requestModel: bosun-v3.1-0.6b`, `status: active`, `temperature`·`questionSet`·`stateTemplate`는 null. gateway env `KEV_MODEL_ID`로 고른다(§3).
-  - `bosun-sol-lora-v0.1` — F2 뒤. `kind: decision`, `init_from: bosun-v3.1-0.6b`, `run`은 회사가 돌려준 manifest로 채움. 사용자 승인 전까지 `status`를 `active`가 아닌 값으로 둔다(결정 모델은 `KEV_MODEL_ID`와 `status: active`로 고른다. `default`는 qwen 항목에만 효과가 있다).
+  - `bosun-sol-lora-v0.1` — F2 뒤. `kind: decision`, `init_from: bosun-v3.1-0.6b`, `run`은 회사가 돌려준 manifest로 채움. 사용자 승인 전까지 `status: backup`으로 둔다(허용값은 `active`·`retired`·`backup`뿐이고 그 밖의 값은 게이트웨이 기동을 거부한다. 결정 모델은 `KEV_MODEL_ID`와 `status: active`로 고른다. `default`는 qwen 항목에만 효과가 있다).
   - `qwen3.8-flash-next` — 기본 Qwen. `kind: qwen`, `run: Qwen/Qwen3.8-Flash-Next`(2026-10-21 사용자 보고), `revision: null`(회사 운영 값 미확인), `default: true`, `status: active`. `QWEN_MODEL`과 같아야 한다.
   - 퇴역·백업: `kev-9b-v1.0`(`jaredpalmer/kev-9b@v1.0`, 옛 `kind: kev`)·`qwen3.5-27b`(`Qwen/Qwen3.5-27B`, 2026-10-21 교체 전 기본)·`qwen3.5-9b`는 `status: retired`, `qwen3-4b-instruct-2507`(`revision cdbee75f17c01a7cc42f958dc650907174af0554`)은 `status: backup`. 이력 보존용이고 기동 대조에서 뺀다. 롤백은 이 항목과 env 값 3개(`KEV_MODEL_ID`·`QWEN_BASE_URL`·`QWEN_MODEL`), 8009 런타임만 바꾼다(ADR-034 13번).
 - **호스트 허용 목록**: 레지스트리 최상위 `allowedHosts`는 `local` 모델 서버 URL(`QWEN_BASE_URL`·`KEV_BASE_URL`)의 호스트가 가질 수 있는 이름 목록이다. 값은 `acropolissg.com` 하나다([[16-DECISIONS|ADR-032]] D2). 회사 Qwen API `https://acropolissg.com/vllm/v1`도 같은 호스트라 목록 변경이 없다(ADR-034 4번).
