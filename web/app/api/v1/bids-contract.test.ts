@@ -503,6 +503,27 @@ describe("업무 Route Handler 계약", () => {
     expect(d.bids.listBids).toHaveBeenCalledTimes(2);
   });
 
+  // N3(05 §3): watched 는 me 하나만 받는다. 없으면 조건에 키가 없어 기존 목록 그대로다(ADR-042 ②).
+  it("8. watched=me 는 200 이고 조건에 watched 가 실리며, 다른 값은 400 path watched 다", async () => {
+    const d = install();
+    expect((await send(GET_BIDS, { query: "?watched=me" })).status).toBe(200);
+    expect(d.bids.listBids).toHaveBeenCalledWith(
+      ORG_01,
+      expect.objectContaining({ watched: "me" }),
+      null,
+    );
+    expect((await send(GET_BIDS)).status).toBe(200);
+    expect(vi.mocked(d.bids.listBids).mock.calls[1]?.[1]).not.toHaveProperty("watched");
+
+    const watchedError = await errorOf(
+      await send(GET_BIDS, { query: "?watched=all" }),
+      400,
+      "VALIDATION_ERROR",
+    );
+    expect(watchedError.details.issues).toEqual([{ path: "watched", message: expect.any(String) }]);
+    expect(d.bids.listBids).toHaveBeenCalledTimes(2);
+  });
+
   it("8. 커서 비밀이 없으면 커서 목록 셋 모두 503 {component:cursor} 이다", async () => {
     const d = install({ cursorSecret: null });
     for (const endpoint of [GET_BIDS, GET_ANALYSES, GET_NOTIFICATIONS]) {

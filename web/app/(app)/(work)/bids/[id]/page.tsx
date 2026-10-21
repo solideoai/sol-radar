@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { loadWatchSummaryOrNull } from "@/app/_lib/work-data";
 import { workDeps } from "@/app/_lib/work-deps";
 import { requireWork } from "@/app/(app)/(work)/work";
 import {
@@ -35,12 +36,14 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   if (!isUuid(id)) notFound();
 
   const deps = workDeps();
-  const [detail, history, membersPage] = await Promise.all([
+  // 관심(N3)은 머리의 보조 정보라 읽지 못하면 null 이고 ★ 없이 그린다(D15). 로그는 로더가 한 줄 남긴다.
+  const [detail, history, membersPage, watch] = await Promise.all([
     getBid(work.orgId, id, { repo: deps.bids }),
     listBidAnalyses(work.orgId, id, { cursor: null, limit: HISTORY_LIMIT }, deps.cursorSecret, {
       repo: deps.bids,
     }),
     getMembersPage({ org: work.org, userId: work.userId }),
+    loadWatchSummaryOrNull({ orgId: work.orgId, userId: work.userId }, id),
   ]);
   if (!detail.ok) {
     if (detail.status === 404) notFound();
@@ -87,6 +90,7 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       canDecide={canRecordReview(work.role)}
       backHref={backHrefOf((await searchParams).list, work.runMode)}
       now={new Date().toISOString()}
+      watch={watch}
     />
   );
 }

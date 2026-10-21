@@ -31,6 +31,8 @@ export default function Loading() {
               </div>
               {Array.from({ length: 10 }, (_, key) => (
                 <div key={key} className="flex h-14 items-center gap-4 px-3">
+                  {/* ★ 자리(N3 D11). 읽은 뒤 맨 앞 관심 열이 생기며 행 내용이 밀리지 않게 한다. */}
+                  <Skeleton className={`size-4 shrink-0 ${pulse}`} />
                   <Skeleton className={`h-5 w-14 shrink-0 ${pulse}`} />
                   <Skeleton className={`h-5 w-14 shrink-0 ${pulse}`} />
                   <Skeleton className={`h-5 min-w-0 flex-1 ${pulse}`} />

@@ -24,7 +24,7 @@ describe("NAV_GROUPS", () => {
         [
           ["/dashboard", "LayoutDashboard", "released"],
           ["/bids", "FileText", "released"],
-          ["/watchlist", "Star", "planned"],
+          ["/watchlist", "Star", "released"],
           ["/notifications", "Bell", "released"],
         ],
       ],
@@ -114,7 +114,7 @@ describe("currentNavGroupId", () => {
     ["/admin/ingestion", "system"],
     ["/solideo/settings", "system"],
     ["/org-chart", null],
-    ["/watchlist", null],
+    ["/watchlist", "work"],
   ])("%s belongs to %s", (pathname, id) => {
     expect(currentNavGroupId(groups, pathname, "solideo")).toBe(id);
   });
@@ -130,7 +130,7 @@ describe("screenLabelOf", () => {
     ["/solideo/settings", "설정"],
     ["/solideo/tasks", "작업"],
     ["/solideo/dashboard", "대시보드"],
-    ["/watchlist", null],
+    ["/watchlist", "관심 공고"],
     ["/unknown", null],
   ])("%s → %s", (pathname, label) => {
     expect(screenLabelOf(pathname, "solideo")).toBe(label);

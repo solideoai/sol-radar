@@ -48,7 +48,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: "/dashboard", label: "대시보드", icon: LayoutDashboardIcon, status: "released" },
       { href: "/bids", label: "입찰 공고", icon: FileTextIcon, status: "released" },
-      { href: "/watchlist", label: "관심 공고", icon: StarIcon, status: "planned" },
+      { href: "/watchlist", label: "관심 공고", icon: StarIcon, status: "released" },
       { href: "/notifications", label: "알림", icon: BellIcon, status: "released" },
     ],
   },

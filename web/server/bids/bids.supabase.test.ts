@@ -216,6 +216,32 @@ describe("listBids", () => {
     fakeDb.on("bid_list_items", { error: new Error("db down") });
     await expect(repo.listBids(ORG, query(), null)).rejects.toThrow("db down");
   });
+
+  // N3: watched=me 는 같은 열의 관심 공고 뷰를 읽는다. 필터·정렬·쪽은 bid_list_items 와 같은 길이다.
+  it("watched=me 면 watched_bid_list_items 만 읽고 같은 필터·정렬을 건다", async () => {
+    const filters = query({ stage: ["NOTICE"], decision: ["NONE"], origin: "demo" });
+    fakeDb.on("bid_list_items", fakeDb.rows([]));
+    await repo.listBids(ORG, filters, null);
+    const all = only("bid_list_items");
+
+    fakeDb.reset();
+    fakeDb.on("watched_bid_list_items", fakeDb.rows([]));
+    await repo.listBids(ORG, { ...filters, watched: "me" }, null);
+    expect(fakeDb.queries("bid_list_items")).toHaveLength(0);
+    const watched = only("watched_bid_list_items");
+    for (const method of ["select", "in", "eq", "or", "gte", "lte", "order", "limit"]) {
+      expect(callsOf(watched, method), method).toEqual(callsOf(all, method));
+    }
+  });
+
+  it("watched=me 건수도 관심 공고 뷰에서 센다", async () => {
+    fakeDb.on("watched_bid_list_items", { data: null, count: 2 });
+    expect(await repo.countBids(ORG, query({ watched: "me" }))).toBe(2);
+    expect(fakeDb.queries("bid_list_items")).toHaveLength(0);
+    expect(callsOf(only("watched_bid_list_items"), "select")).toEqual([
+      ["*", { count: "exact", head: true }],
+    ]);
+  });
 });
 
 // M4: 대시보드 "BID 권고" 카드는 BID 표와 같은 조건(같은 BidListQuery)의 건수다. 필터는 listBids 와 같은 길을 쓴다.

@@ -28,3 +28,11 @@ export { NotificationStoreError, createNotificationOutboxStore } from "./outbox.
 // 한 회차. 주기 실행(타이머)은 worker 의 몫이다.
 export { processOutboxBatch } from "./outbox.service";
 export type { OutboxBatchDeps, OutboxBatchSummary } from "./outbox.service";
+
+// 관심 공고 마감 알림(N3). DB 함수가 대상·수신자·멱등 키를 정하고 notifications 에 바로 넣는다(outbox 를 거치지 않는다).
+export {
+  DeadlineReminderStoreError,
+  createDeadlineReminderStore,
+  runDeadlineReminders,
+} from "./deadline";
+export type { DeadlineReminderDeps, DeadlineReminderStore } from "./deadline";

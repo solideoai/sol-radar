@@ -17,6 +17,8 @@ import type { BidListItem } from "@/server/bids";
 
 // 스펙 §5.3 (10열 표) · §5.2 (대시보드 compact 표). 데이터를 가져오지 않고 props 만 그린다.
 // 서버 모듈은 타입으로만 가져온다.
+// 관심 열(N3 디자인 §4.1)은 watch 슬롯을 준 전체 표에만 맨 앞에 붙는다. ★ 토글(요청·토스트)은 화면 층(app)에 있어
+// 이 부품은 칸 자리만 내준다(components 는 app 을 부르지 않는다).
 
 type ColumnKey =
   | "origin"
@@ -98,6 +100,11 @@ type BidTableProps = {
   busy?: boolean;
   /** 표 아래 자리(더 보기 단추 등). */
   footer?: React.ReactNode;
+  /**
+   * 관심 열(맨 앞) 칸에 그릴 것. titleId 는 같은 행 제목 링크의 id 다(★ 의 aria-describedby).
+   * 없거나 compact 표면 관심 열을 그리지 않는다.
+   */
+  watch?: (item: BidListItem, titleId: string) => React.ReactNode;
   className?: string;
 };
 
@@ -126,12 +133,14 @@ function Cell({
   now,
   compact,
   listQuery,
+  titleId,
 }: {
   column: Column;
   item: BidListItem;
   now: Date;
   compact: boolean;
   listQuery: string | undefined;
+  titleId: string;
 }) {
   const analysis = item.latestAnalysis;
   switch (column.key) {
@@ -153,6 +162,7 @@ function Cell({
       return (
         <div className="flex min-w-0 items-start gap-1">
           <Link
+            id={titleId}
             href={detailHref(item.id, listQuery)}
             title={item.title}
             className={cn(
@@ -230,6 +240,9 @@ function Cell({
 // 머리 글자(약 62px)가 기본 여백(12px)으로는 내용 폭(56px)을 넘는다. 머리와 몸통 여백이 같아야 오른쪽 끝이 맞는다.
 const NUMERIC_CELL = "px-2 text-right";
 
+// 관심 열: 40px 안에 32px 버튼. 좌우 4px 여백이 3px 초점 고리를 담아 overflow-hidden 칸에서도 잘리지 않는다(§9 M3).
+const WATCH_CELL = "w-10 px-1 text-center";
+
 // compact 표의 첫·끝 칸: 기본 여백(12px, origin 은 6px) 대신 카드 여백 24px.
 const edgeClass = (compact: boolean, index: number, count: number): string | false =>
   compact && (index === 0 ? "pl-6" : index === count - 1 && "pr-6");
@@ -243,10 +256,15 @@ function BidTable({
   listQuery,
   busy = false,
   footer,
+  watch,
   className,
 }: BidTableProps) {
   const columns: readonly Column[] = compact ? COMPACT_COLUMNS[compactKind] : FULL_COLUMNS;
+  const watchCell = compact ? undefined : watch;
   const noteId = useId();
+  // 행마다 고유한 제목 링크 id. 더 보기로 붙은 행도 같은 규칙이라 겹치지 않는다.
+  const rowsId = useId();
+  const titleIdOf = (index: number): string => `${rowsId}-title-${index}`;
   return (
     <div aria-busy={busy || undefined} className={className}>
       <p id={noteId} className="sr-only">
@@ -257,6 +275,11 @@ function BidTable({
           <caption className="sr-only">{caption}</caption>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              {watchCell && (
+                <TableHead scope="col" className={WATCH_CELL}>
+                  관심
+                </TableHead>
+              )}
               {columns.map((column, index) => (
                 <TableHead
                   key={column.key}
@@ -274,8 +297,17 @@ function BidTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((item) => (
+            {items.map((item, row) => (
               <TableRow key={item.id} className="h-11">
+                {watchCell && (
+                  // 위아래 6px: 행 h-11(44px) = 32px 버튼 + 12px. 기본 py-2.5 면 52px 라 한 줄 행이 커진다(§9 M4).
+                  <TableCell className={cn(WATCH_CELL, "overflow-hidden py-1.5")}>
+                    {/* 글줄 안 inline 버튼은 글자 기준선 아래 여백만큼 위로 떠 칸 가운데에서 벗어난다. 상자로 감싸 가운데에 둔다. */}
+                    <div className="flex items-center justify-center">
+                      {watchCell(item, titleIdOf(row))}
+                    </div>
+                  </TableCell>
+                )}
                 {columns.map((column, index) => (
                   <TableCell
                     key={column.key}
@@ -294,6 +326,7 @@ function BidTable({
                       now={now}
                       compact={compact}
                       listQuery={listQuery}
+                      titleId={titleIdOf(row)}
                     />
                   </TableCell>
                 ))}

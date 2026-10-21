@@ -23,8 +23,18 @@ describe("backHrefOf", () => {
     expect(backHrefOf("origin=live&isDemo=true", "mock")).toBe("/bids");
   });
 
-  it("여러 번 오면 첫 값만 쓰고, 경로는 늘 /bids 다", () => {
+  it("여러 번 오면 첫 값만 쓰고, 경로는 /bids 다(관심 공고에서 왔을 때만 /watchlist)", () => {
     expect(backHrefOf(["sort=score%3Adesc", "sort=bogus"], "mock")).toBe("/bids?sort=score%3Adesc");
     expect(backHrefOf("//evil.example/x", "mock").startsWith("/bids")).toBe(true);
+  });
+
+  // N3 D14: 관심 공고 목록은 상세 링크의 list 에 watched=me 를 싣는다. 그 조건이면 /watchlist 로 돌아가고 watched 는 뺀다.
+  it("watched=me 가 있으면 나머지 조건으로 /watchlist 에 돌아간다", () => {
+    expect(backHrefOf("watched=me", "mock")).toBe("/watchlist");
+    expect(backHrefOf("sort=deadlineAt%3Aasc&watched=me&stage=NOTICE", "mock")).toBe(
+      "/watchlist?sort=deadlineAt%3Aasc&stage=NOTICE",
+    );
+    expect(backHrefOf("watched=all", "mock")).toBe("/bids");
+    expect(backHrefOf("watched=me&sort=bogus", "mock")).toBe("/bids");
   });
 });

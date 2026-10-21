@@ -48,6 +48,8 @@ export default function Loading() {
       }
       actions={
         <div aria-hidden="true" className="flex gap-2">
+          {/* ★ 자리(N3 D11) */}
+          <Block className="size-9" />
           <Block className="h-9 w-28" />
           <Block className="h-9 w-24" />
         </div>

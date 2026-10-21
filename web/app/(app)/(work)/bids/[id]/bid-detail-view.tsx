@@ -56,8 +56,11 @@ import type {
   RunMode,
 } from "@/server/bids";
 import type { WhatIfSummary } from "@/server/scoring";
+import type { WatchSummary } from "@/server/watchlist";
 import { EmptyState } from "@/app/(app)/(work)/empty-state";
+import { WATCHLIST_TITLE } from "@/app/(app)/(work)/watchlist/watchlist-copy";
 import { DETAIL_CONTENT_CLASS } from "./detail-copy";
+import { DetailWatch } from "./detail-watch";
 import { requestWhatIf, type WhatIfResult } from "./request-what-if";
 import { recheckTopbarAfterReview, submitReview } from "./submit-review";
 import { useAnalysisRun, type ActiveRun, type RunState } from "./use-analysis-run";
@@ -100,6 +103,8 @@ type BidDetailViewProps = {
   backHref: string;
   /** 서버가 요청마다 한 번 만든 시각(ISO). D-n 의 기준이다(하이드레이션 차이 없음). */
   now: string;
+  /** 내 관심 여부와 조직 관심 인원 수(N3). 없거나 null(읽기 실패, D15)이면 머리에 ★·인원 글자를 그리지 않는다. */
+  watch?: WatchSummary | null;
 };
 
 // 09 고정
@@ -338,6 +343,10 @@ function Dot() {
   );
 }
 
+// 관심 공고 목록에서 연 상세는 그 목록으로 돌아간다(N3 D14, back-href). 이름도 그 화면 이름이다(T15).
+const backLabelOf = (backHref: string): string =>
+  backHref === "/watchlist" || backHref.startsWith("/watchlist?") ? WATCHLIST_TITLE : "공고 목록";
+
 // ① 제목 위: 뒤로 링크와 배지 줄(DEMO·단계·취소·출처).
 function DetailEyebrow({ bid, backHref }: { bid: DetailBid; backHref: string }) {
   return (
@@ -350,7 +359,7 @@ function DetailEyebrow({ bid, backHref }: { bid: DetailBid; backHref: string }) 
         )}
       >
         <ArrowLeftIcon aria-hidden="true" className="size-4 shrink-0" />
-        공고 목록
+        {backLabelOf(backHref)}
       </Link>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {bid.isDemo && <DemoBadge withTooltip />}
@@ -405,6 +414,7 @@ function HeaderActions({
   hasAnalysis,
   canAnalyze,
   onAnalyze,
+  watch,
 }: {
   bid: DetailBid;
   state: RunState;
@@ -413,6 +423,7 @@ function HeaderActions({
   hasAnalysis: boolean;
   canAnalyze: boolean;
   onAnalyze: () => void;
+  watch: WatchSummary | null;
 }) {
   const requesting = state.phase === "requesting";
   const label = requesting
@@ -424,7 +435,9 @@ function HeaderActions({
         : "분석 실행";
   return (
     <div className="flex max-w-sm flex-col items-end gap-2">
-      <div className="flex flex-wrap justify-end gap-2">
+      {/* items-center: 인원 글자(20px)가 36px 버튼 줄 가운데에 온다. ★ 는 취소 공고·VIEWER 에서도 쓴다(N3 §4.3). */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {watch !== null && <DetailWatch bidId={bid.id} watch={watch} />}
         <SourceLink
           href={bid.sourceUrl}
           ariaLabel="원문 보기 (새 탭)"
@@ -786,6 +799,7 @@ export function BidDetailView({
   canDecide,
   backHref,
   now,
+  watch = null,
 }: BidDetailViewProps) {
   const router = useRouter();
   const at = useMemo(() => new Date(now), [now]);
@@ -866,6 +880,7 @@ export function BidDetailView({
             hasAnalysis={latest !== null}
             canAnalyze={canAnalyze}
             onAnalyze={() => void run.start(latest !== null)}
+            watch={watch}
           />
         }
         contentClassName={DETAIL_CONTENT_CLASS}

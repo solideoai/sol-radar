@@ -126,6 +126,7 @@ describe("sidebar tree (NAV-10)", () => {
     expect(linkHrefs()).toEqual([
       "/dashboard",
       "/bids",
+      "/watchlist",
       "/notifications",
       "/company",
       "/people",
@@ -135,7 +136,6 @@ describe("sidebar tree (NAV-10)", () => {
       (item) => item.textContent,
     );
     expect(planned).toEqual([
-      "관심 공고준비 중",
       "분석 결과 비교준비 중",
       "인력 배치 시뮬레이션준비 중",
       "입찰 프로젝트준비 중",
@@ -169,6 +169,7 @@ describe("sidebar tree (NAV-10)", () => {
     expect(linkHrefs()).toEqual([
       "/dashboard",
       "/bids",
+      "/watchlist",
       "/notifications",
       "/company",
       "/people",
@@ -295,6 +296,7 @@ describe("sidebar tree (NAV-10)", () => {
     expect(linkHrefs()).toEqual([
       "/dashboard",
       "/bids",
+      "/watchlist",
       "/notifications",
       "/company",
       "/people",
@@ -305,7 +307,7 @@ describe("sidebar tree (NAV-10)", () => {
       expect(link.getAttribute("aria-label")).toBeTruthy();
       expect(link.querySelector("svg")).not.toBeNull();
     }
-    expect(mainNav().element().querySelectorAll("[data-planned] svg").length).toBe(4);
+    expect(mainNav().element().querySelectorAll("[data-planned] svg").length).toBe(3);
     // 아이콘 줄에서도 준비 중 메뉴는 화면 낭독기에 "준비 중"을 읽힌다(sr-only: 보이지 않지만 display 는 남는다).
     for (const item of mainNav().element().querySelectorAll("[data-planned]")) {
       const status = Array.from(item.querySelectorAll("span")).find(

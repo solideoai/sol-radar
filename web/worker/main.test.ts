@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import type IORedis from "ioredis";
 import {
   analysisWorkerRegistration,
+  deadlineWorkerRegistration,
   defaultWorkerDeps,
   errorCode,
   ingestWorkerRegistration,
@@ -623,12 +624,13 @@ describe("WORKER_REGISTRATIONS — analysis 등록 (C5-B)", () => {
 });
 
 describe("WORKER_REGISTRATIONS — notify 등록 (C7)", () => {
-  it("system·ingest·analysis 를 그 순서로 두고 마지막에 notifyWorkerRegistration 을 담는다", () => {
+  it("system·ingest·analysis 를 그 순서로 두고 그 뒤에 notifyWorkerRegistration, 마지막에 deadlineWorkerRegistration(N3)을 담는다", () => {
     expect(WORKER_REGISTRATIONS).toStrictEqual([
       systemWorkerRegistration,
       ingestWorkerRegistration,
       analysisWorkerRegistration,
       notifyWorkerRegistration,
+      deadlineWorkerRegistration,
     ]);
   });
 });
@@ -1145,5 +1147,93 @@ describe("notifyWorkerRegistration (C7)", () => {
       const shared = analysisFakes.redis[0];
       expect(shared?.disconnect).toHaveBeenCalledOnce();
     });
+  });
+});
+
+describe("deadlineWorkerRegistration (N3)", () => {
+  const DEADLINE_KEY = "DEADLINE_REMINDER_INTERVAL_MS";
+  const RPC = "POST /rest/v1/rpc/send_deadline_reminders";
+  const opened: Closable[] = [];
+  const rpcCalls = () => analysisFakes.requests.filter((request) => request === RPC);
+
+  beforeEach(() => {
+    for (const [key, value] of Object.entries(analysisEnv)) vi.stubEnv(key, value);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("시험은 네트워크에 붙지 않는다");
+      }),
+    );
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+  });
+
+  afterEach(async () => {
+    for (const closable of opened.splice(0)) await closable.close();
+    vi.useRealTimers();
+    vi.doUnmock("bullmq");
+    vi.doUnmock("ioredis");
+    vi.doUnmock("@supabase/supabase-js");
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("DEADLINE_REMINDER_INTERVAL_MS 가 틀리면 그 키 이름만 담아 던진다(값은 싣지 않는다)", async () => {
+    const main = await loadMainWithAnalysisFakes();
+    const error = await rejectionOf(
+      main.deadlineWorkerRegistration({ ...analysisEnv, [DEADLINE_KEY]: "SECRETVALUE" }),
+    );
+    const message = error instanceof Error ? error.message : "";
+    expect(message).toContain(DEADLINE_KEY);
+    expect(message).not.toContain("SECRETVALUE");
+  });
+
+  it("설정이 맞으면 연결·Worker 를 만들지 않고 DB 함수도 부르지 않은 채 2단계 시작 함수를 돌려준다", async () => {
+    const main = await loadMainWithAnalysisFakes();
+    const start = await main.deadlineWorkerRegistration(analysisEnv);
+    expect(start).toBeTypeOf("function");
+    expect([analysisFakes.redis, analysisFakes.workers, analysisFakes.queues, rpcCalls()]).toEqual([
+      [],
+      [],
+      [],
+      [],
+    ]);
+  });
+
+  it("시작하면 service role 로 send_deadline_reminders 를 한 번 부르고, 공유 연결은 쓰지도 끊지도 않는다", async () => {
+    const main = await loadMainWithAnalysisFakes();
+    const shared = fakeConnection("공유");
+    const start = await main.deadlineWorkerRegistration(analysisEnv);
+    const closable = await start(shared as unknown as IORedis);
+    opened.push(closable);
+    await vi.waitFor(() => {
+      expect(rpcCalls()).toHaveLength(1);
+    });
+    await closable.close();
+    expect(shared.duplicate).not.toHaveBeenCalled();
+    expect(shared.disconnect).not.toHaveBeenCalled();
+    expect([analysisFakes.workers, analysisFakes.queues]).toEqual([[], []]);
+  });
+
+  it("interval 마다 다시 부르고, close 뒤에는 부르지 않는다", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const main = await loadMainWithAnalysisFakes();
+    const start = await main.deadlineWorkerRegistration({
+      ...analysisEnv,
+      [DEADLINE_KEY]: "60000",
+    });
+    const closable = await start(fakeConnection("공유") as unknown as IORedis);
+    await vi.waitFor(() => {
+      expect(rpcCalls()).toHaveLength(1);
+    });
+    vi.advanceTimersByTime(60_000);
+    await vi.waitFor(() => {
+      expect(rpcCalls()).toHaveLength(2);
+    });
+    await closable.close();
+    vi.advanceTimersByTime(180_000);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(rpcCalls()).toHaveLength(2);
   });
 });

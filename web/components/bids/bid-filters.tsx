@@ -39,6 +39,9 @@ type FilterKey = (typeof FILTER_KEYS)[number];
 const ACTIVE = "active";
 const WITH_CANCELLED = "withCancelled";
 const WITH_CANCELLED_STATUS = ["OPEN", "AMENDED", "CANCELLED"] as const;
+// N3 D10: 관심 공고 화면에만 있는 선택지. "취소 포함"은 CLOSED 를 더하지 않으므로(ADR-031 C15) 네 값을 모두 적는다.
+const WITH_CLOSED = "withClosed";
+const WITH_CLOSED_STATUS = ["OPEN", "AMENDED", "CANCELLED", "CLOSED"] as const;
 
 type Origin = "demo" | "live";
 type Item = { value: string; label: string };
@@ -60,6 +63,26 @@ const STATUS_ITEMS: Item[] = [
   { value: ACTIVE, label: "진행 중 (기본)" },
   { value: WITH_CANCELLED, label: "취소 포함" },
 ];
+const statusItems = (closedLabel: string | undefined): Item[] =>
+  closedLabel === undefined
+    ? STATUS_ITEMS
+    : [...STATUS_ITEMS, { value: WITH_CLOSED, label: closedLabel }];
+
+// 마감 선택지가 있으면 CLOSED 를 먼저 본다 — 네 값 주소에는 CANCELLED 도 들어 있다(N3 디자인 §8.5).
+const statusOf = (statuses: readonly string[], hasClosed: boolean): string =>
+  hasClosed && statuses.includes("CLOSED")
+    ? WITH_CLOSED
+    : statuses.includes("CANCELLED")
+      ? WITH_CANCELLED
+      : ACTIVE;
+
+const statusQueryOf = (value: string): readonly string[] | null =>
+  value === WITH_CLOSED
+    ? WITH_CLOSED_STATUS
+    : value === WITH_CANCELLED
+      ? WITH_CANCELLED_STATUS
+      : null;
+
 const SORT_ITEMS: Item[] = [
   { value: DEFAULT_SORT, label: "최근 공고 순" },
   { value: "score:desc", label: "점수 높은 순" },
@@ -85,9 +108,18 @@ type BidFiltersProps = {
    * 없으면 React 의 startTransition 을 쓴다.
    */
   startTransition?: TransitionStartFunction;
+  /**
+   * 있으면 상태 선택지 끝에 이 이름으로 "마감·취소 포함"(OPEN·AMENDED·CANCELLED·CLOSED)을 더한다.
+   * 관심 공고 화면만 넘긴다(N3 D10). /bids 는 넘기지 않아 지금 그대로다.
+   */
+  closedStatusLabel?: string;
 };
 
-function BidFilters({ defaultOrigin, startTransition = defaultStartTransition }: BidFiltersProps) {
+function BidFilters({
+  defaultOrigin,
+  startTransition = defaultStartTransition,
+  closedStatusLabel,
+}: BidFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -96,10 +128,11 @@ function BidFilters({ defaultOrigin, startTransition = defaultStartTransition }:
   const params = new URLSearchParams(search);
 
   const origins = originItems(defaultOrigin);
+  const statuses = statusItems(closedStatusLabel);
   const q = params.get("q") ?? "";
   const current = {
     stage: known(STAGE_ITEMS, params.get("stage"), ALL),
-    status: params.getAll("status").includes("CANCELLED") ? WITH_CANCELLED : ACTIVE,
+    status: statusOf(params.getAll("status"), closedStatusLabel !== undefined),
     recommendation: known(RECOMMENDATION_ITEMS, params.get("recommendation"), ALL),
     decision: known(DECISION_ITEMS, params.get("decision"), ALL),
     origin: known(origins, params.get("origin"), defaultOrigin),
@@ -172,11 +205,9 @@ function BidFilters({ defaultOrigin, startTransition = defaultStartTransition }:
       <FilterSelect
         id="bid-filter-status"
         label="상태"
-        items={STATUS_ITEMS}
+        items={statuses}
         value={current.status}
-        onChange={(value) =>
-          go({ status: value === WITH_CANCELLED ? WITH_CANCELLED_STATUS : null })
-        }
+        onChange={(value) => go({ status: statusQueryOf(value) })}
       />
       <FilterSelect
         id="bid-filter-recommendation"

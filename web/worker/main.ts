@@ -22,12 +22,13 @@ import {
   type IngestQuota,
   type JobQueue,
 } from "@/server/ingestion";
-import { createNotificationOutboxStore } from "@/server/notifications";
+import { createDeadlineReminderStore, createNotificationOutboxStore } from "@/server/notifications";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { readReconcileSettings } from "@/worker/analysis-reconcile";
 import { startAnalysisRuntime } from "@/worker/analysis-runtime";
 import { readG2bServiceKey, readWorkerEnv, type WorkerEnv } from "@/worker/env";
 import { errorNameOf } from "@/worker/error-name";
+import { readDeadlineSettings, startDeadlineReminders } from "@/worker/deadline-reminders";
 import { startDocumentsReconciler } from "@/worker/documents-reconcile";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
 import { readNotifySettings, startNotifier } from "@/worker/notify-outbox";
@@ -382,11 +383,28 @@ export const notifyWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   };
 };
 
+// 관심 공고 마감 알림(N3). DB 함수 send_deadline_reminders 를 주기로 부른다. Redis 연결은 쓰지 않는다(notify 와 같다).
+export const deadlineWorkerRegistration: WorkerRegistration = async (rawEnv) => {
+  const settings = readDeadlineSettings(rawEnv);
+  return async () => {
+    const reminders = startDeadlineReminders({
+      store: createDeadlineReminderStore(getSupabaseAdmin()),
+      now: () => new Date(),
+      log: (line) => {
+        console.log(line);
+      },
+      settings,
+    });
+    return { close: () => reminders.stop() };
+  };
+};
+
 export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
   systemWorkerRegistration,
   ingestWorkerRegistration,
   analysisWorkerRegistration,
   notifyWorkerRegistration,
+  deadlineWorkerRegistration,
 ];
 
 /**

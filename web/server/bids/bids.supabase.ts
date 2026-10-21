@@ -66,8 +66,10 @@ function decisionFilter(decisions: BidListQuery["decision"]): string {
 
 // 목록 조건(커서·정렬·페이지 크기 제외). 목록과 건수(countBids)가 같은 길을 써서 정의가 갈라지지 않는다(M4).
 // countOnly 를 주면 행 없이 건수만 읽는다(head + count exact).
+// watched=me(N3)는 관심 공고 뷰를 읽는다. 그 뷰는 bid_list_items 와 행·열이 같고 부른 사람이 관심 등록한 공고만 남긴다.
 function filteredBids(db: Db, query: BidListQuery, countOnly?: { count: "exact"; head: true }) {
-  const base = db.from("bid_list_items").select("*", countOnly).in("status", query.status);
+  const source = query.watched === "me" ? "watched_bid_list_items" : "bid_list_items";
+  const base = db.from(source).select("*", countOnly).in("status", query.status);
   const byOrigin = query.origin === "all" ? base : base.eq("is_demo", query.origin === "demo");
   const byStage = query.stage.length === 0 ? byOrigin : byOrigin.in("stage", query.stage);
   const byText = query.q === null ? byStage : byStage.or(searchFilter(query.q));

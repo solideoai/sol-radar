@@ -40,6 +40,8 @@ export type BidListQuery = {
   sort: BidSort;
   cursor: string | null;
   limit: number;
+  // P1 N3: 본인 관심 공고만(05 §3 watched=me). 없으면 키 자체가 없다 — 기존 조건·커서 지문이 그대로다(ADR-042 ②).
+  watched?: "me";
 };
 
 export type QueryIssue = { path: string; message: string };
@@ -67,6 +69,7 @@ const parsedSchema = z.strictObject({
   sort: z.enum(BID_SORTS),
   cursor: z.string().min(1).optional(),
   limit: limitSchema,
+  watched: z.literal("me").optional(),
 });
 
 function repeated(value: string | string[] | undefined): string[] {
@@ -123,6 +126,7 @@ export function parseBidListQuery(query: RawQuery, runMode: RunMode): ParseResul
     sort: scalar(query.sort) ?? "publishedAt:desc",
     cursor: scalar(query.cursor),
     limit: scalar(query.limit) ?? "20",
+    watched: scalar(query.watched),
   });
   if (!result.success) return { ok: false, issues: issuesOf(result.error) };
   const parsed = result.data;
@@ -155,6 +159,7 @@ export function parseBidListQuery(query: RawQuery, runMode: RunMode): ParseResul
       sort: parsed.sort,
       cursor: parsed.cursor ?? null,
       limit: parsed.limit,
+      ...(parsed.watched === undefined ? {} : { watched: parsed.watched }),
     },
   };
 }
@@ -253,6 +258,8 @@ export function fingerprintOf(orgId: string, query: BidListQuery): string {
     [...query.decision].sort(),
     query.origin,
     query.sort,
+    // watched 가 없으면 항목을 더하지 않는다. 그래야 이미 발급된 전체 목록 커서의 지문이 바뀌지 않는다.
+    ...(query.watched === undefined ? [] : [`watched:${query.watched}`]),
   ]);
 }
 

@@ -271,3 +271,60 @@ describe("defaultOrigin", () => {
     expect(defaultOrigin("mock")).toBe("demo");
   });
 });
+
+// N3 관심 공고: GET /bids 의 선택 파라미터 watched=me(05 §3). 없으면 결과·지문이 바뀌기 전과 같아야 한다(ADR-042 조건 ②).
+describe("watched=me (N3)", () => {
+  it("watched 가 없으면 결과에 watched 키 자체가 없다(기존 목록 조건 그대로)", () => {
+    const value = parsed({ q: "클라우드", sort: "deadlineAt:asc" });
+    expect("watched" in value).toBe(false);
+    expect(value).toEqual({
+      q: "클라우드",
+      stage: [],
+      status: ["OPEN", "AMENDED"],
+      deadlineFrom: null,
+      deadlineTo: null,
+      recommendation: [],
+      decision: [],
+      origin: "demo",
+      sort: "deadlineAt:asc",
+      cursor: null,
+      limit: 20,
+    });
+  });
+
+  it("watched=me 는 'me' 로 읽고 다른 조건은 그대로다", () => {
+    const value = parsed({ watched: "me", q: "클라우드" });
+    expect(value.watched).toBe("me");
+    expect(value.q).toBe("클라우드");
+  });
+
+  it.each([["all"], ["ME"], [["me", "me"]]])("watched=%s 는 path watched 인 오류다", (watched) => {
+    const result = parseBidListQuery({ watched }, "mock");
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.issues.map((issue) => issue.path)).toEqual(["watched"]);
+  });
+
+  it("watched 가 없는 쿼리의 커서 지문은 바뀌기 전 열 개 항목의 지문과 같다(이미 발급된 커서가 그대로 쓰인다)", () => {
+    const value = parsed({ q: "클라우드", stage: ["PLAN", "NOTICE"] });
+    expect(fingerprintOf(ORG, value)).toBe(
+      cursorScope("bids", [
+        ORG,
+        "클라우드",
+        ["NOTICE", "PLAN"],
+        ["AMENDED", "OPEN"],
+        null,
+        null,
+        [],
+        [],
+        "demo",
+        "publishedAt:desc",
+      ]),
+    );
+  });
+
+  it("watched=me 면 지문이 달라 전체 목록 커서를 관심 목록에 쓰지 못한다", () => {
+    const all = parsed({ q: "클라우드" });
+    const watched = parsed({ q: "클라우드", watched: "me" });
+    expect(fingerprintOf(ORG, watched)).not.toBe(fingerprintOf(ORG, all));
+  });
+});
