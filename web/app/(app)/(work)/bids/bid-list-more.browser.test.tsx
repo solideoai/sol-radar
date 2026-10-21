@@ -343,7 +343,7 @@ describe("BidListView", () => {
           nextCursor="c1"
           query=""
           now={NOW}
-          showIngestHint={false}
+          canRunIngestion={false}
           {...props}
         />
       </NavHarness>,
@@ -382,11 +382,32 @@ describe("BidListView", () => {
     expect(nav.push).toHaveBeenLastCalledWith("/bids", { scroll: false });
   });
 
-  it("조건 없이 0건이면 아직 수집된 공고가 없다고 하고, 요청 안내는 showIngestHint 일 때만 보인다", async () => {
-    view({ items: [], nextCursor: null, showIngestHint: true });
+  it("조건 없이 0건이면 ADMIN(canRunIngestion)에게 [수집 실행] 단추를 두고 /admin/ingestion 으로 보낸다", async () => {
+    view({ items: [], nextCursor: null, canRunIngestion: true });
+    await expect.element(page.getByText("아직 수집된 공고가 없습니다")).toBeVisible();
+    const action = page.getByRole("link", { name: "수집 실행", exact: true });
+    await expect.element(action).toHaveAttribute("href", "/admin/ingestion");
+    // 버튼 모양(outline, 기본 36px)의 링크다
+    expect(action.element().getBoundingClientRect().height).toBe(36);
+    expect(page.getByText("관리자에게 수집을 요청하세요").query()).toBeNull();
+    expect(page.getByText("조건에 맞는 공고가 없습니다").query()).toBeNull();
+    expect(page.getByRole("button", { name: "필터 초기화" }).query()).toBeNull();
+  });
+
+  it("조건 없이 0건이면 ADMIN 이 아닌 역할에게 단추 없이 '관리자에게 수집을 요청하세요'를 보인다", async () => {
+    view({ items: [], nextCursor: null, canRunIngestion: false });
     await expect.element(page.getByText("아직 수집된 공고가 없습니다")).toBeVisible();
     await expect.element(page.getByText("관리자에게 수집을 요청하세요")).toBeVisible();
-    expect(page.getByText("조건에 맞는 공고가 없습니다").query()).toBeNull();
+    expect(page.getByRole("link", { name: "수집 실행" }).query()).toBeNull();
+    expect(page.getByRole("button", { name: "수집 실행" }).query()).toBeNull();
+    expect(document.querySelector('a[href="/admin/ingestion"]')).toBeNull();
+  });
+
+  it("조건이 있는 0건은 ADMIN 이어도 [필터 초기화]만 두고 [수집 실행]은 두지 않는다", async () => {
+    view({ items: [], nextCursor: null, query: "recommendation=BID", canRunIngestion: true });
+    await expect.element(page.getByText("조건에 맞는 공고가 없습니다")).toBeVisible();
+    expect(page.getByRole("link", { name: "수집 실행" }).query()).toBeNull();
+    expect(page.getByText("관리자에게 수집을 요청하세요").query()).toBeNull();
   });
 
   it("결과 줄은 표 위에 있고 행 링크에 목록 조건을 붙인다", async () => {

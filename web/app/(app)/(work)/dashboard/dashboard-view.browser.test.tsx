@@ -72,7 +72,7 @@ const render = (overrides: Partial<ViewProps> = {}, width = 960) => {
     recommendedTotal: 3,
     deadline: BID_LIST.slice(1, 3),
     now: NOW,
-    showIngestHint: false,
+    canRunIngestion: false,
     ...overrides,
   };
   flushSync(() => root.render(<DashboardView {...props} />));
@@ -174,26 +174,31 @@ describe("DashboardView", () => {
     expect(page.getByRole("table").query()).toBeNull();
   });
 
+  const noBids = { ...SUMMARY, bids: { ...SUMMARY.bids, total: 0 } };
+
   it("공고가 0건이면 표 두 개 대신 빈 상태 하나를 보인다", async () => {
-    render({
-      summary: { ...SUMMARY, bids: { ...SUMMARY.bids, total: 0 } },
-      recommended: [],
-      deadline: [],
-      showIngestHint: true,
-    });
+    render({ summary: noBids, recommended: [], deadline: [] });
     await expect.element(page.getByText("아직 수집된 공고가 없습니다")).toBeVisible();
-    await expect.element(page.getByText("관리자에게 수집을 요청하세요")).toBeVisible();
     expect(page.getByText("BID 권고 공고가 없습니다").query()).toBeNull();
+    expect(page.getByRole("table").query()).toBeNull();
   });
 
-  it("showIngestHint 가 아니면 공고 0건 안내에 요청 문구를 붙이지 않는다", async () => {
-    render({
-      summary: { ...SUMMARY, bids: { ...SUMMARY.bids, total: 0 } },
-      recommended: [],
-      deadline: [],
-    });
+  it("ADMIN(canRunIngestion)이면 공고 0건 빈 상태에 [수집 실행] 단추가 /admin/ingestion 으로 가고 요청 문구는 없다", async () => {
+    render({ summary: noBids, recommended: [], deadline: [], canRunIngestion: true });
     await expect.element(page.getByText("아직 수집된 공고가 없습니다")).toBeVisible();
+    const action = page.getByRole("link", { name: "수집 실행", exact: true });
+    await expect.element(action).toHaveAttribute("href", "/admin/ingestion");
+    // 버튼 모양(outline, 기본 36px)의 링크다
+    expect(action.element().getBoundingClientRect().height).toBe(36);
     expect(page.getByText("관리자에게 수집을 요청하세요").query()).toBeNull();
+  });
+
+  it("ADMIN 이 아니면 공고 0건 빈 상태에 단추 없이 '관리자에게 수집을 요청하세요'를 보인다", async () => {
+    render({ summary: noBids, recommended: [], deadline: [], canRunIngestion: false });
+    await expect.element(page.getByText("관리자에게 수집을 요청하세요")).toBeVisible();
+    expect(page.getByRole("link", { name: "수집 실행" }).query()).toBeNull();
+    expect(page.getByRole("button", { name: "수집 실행" }).query()).toBeNull();
+    expect(document.querySelector('a[href="/admin/ingestion"]')).toBeNull();
   });
 
   it("상단바 AI 가 unavailable 일 때만 09 고정 PARTIAL 배너를 카드 위에 보인다", async () => {

@@ -140,10 +140,19 @@ describe("sidebar tree (NAV-10)", () => {
       "인력 배치 시뮬레이션준비 중",
       "입찰 프로젝트준비 중",
     ]);
-    // 준비 중 메뉴는 누를 곳이 없다: 링크도 버튼도 아니고 초점을 받지 않는다.
+    // 준비 중 메뉴는 누를 곳이 없다: 링크도 버튼도 아니고(역할 포함) 초점을 받지 않는다.
+    // 화면 시험이 이름으로 버튼·링크를 찾을 때 준비 중 메뉴가 걸리지 않는다.
     for (const item of mainNav().element().querySelectorAll("[data-planned]")) {
-      expect(item.querySelector("a, button, [tabindex]")).toBeNull();
+      expect(
+        item.querySelector('a, button, [tabindex], [role="button"], [role="link"]'),
+      ).toBeNull();
     }
+    expect(
+      mainNav()
+        .getByRole("button")
+        .elements()
+        .map((button) => button.textContent),
+    ).toEqual(["업무", "AI 분석", "입찰 관리", "조직", "시스템"]);
     await expect
       .element(page.getByRole("link", { name: "입찰 공고", exact: true }))
       .toHaveAttribute("aria-current", "page");

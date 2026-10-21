@@ -40,6 +40,9 @@ it.each([1440, 1280])(
     await page.getByRole("textbox", { name: "이름 (필수)" }).click();
     await userEvent.keyboard("{Tab}{ArrowDown}");
     await expect.element(page.getByRole("option", { name: longLabel.trim() })).toBeVisible();
+    // 목록이 그려진 뒤에 초점이 첫 항목으로 옮겨 간다. 그 전에 누른 키는 선택칸이 받아서 Enter 가 고르지 않고
+    // 목록을 닫는다(부하 때만 실패하던 원인). 첫 항목이 초점을 받은 뒤에 키를 누른다.
+    await expect.element(page.getByRole("option", { name: longLabel.trim() })).toHaveFocus();
     const popup = page.getByRole("listbox").element();
     expect(popup.scrollWidth).toBe(popup.clientWidth);
     await userEvent.keyboard("{End}{Enter}");
