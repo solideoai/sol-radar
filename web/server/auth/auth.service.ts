@@ -65,6 +65,11 @@ async function activeSession(repo: AuthRepo) {
   return auth.status === "ready" ? session : null;
 }
 
+/** 서버 간 전달용 access token만 반환한다. refresh token이나 쿠키는 전달하지 않는다. */
+export async function getMyAccessToken(repo: AuthRepo = authRepo): Promise<string | null> {
+  return (await activeSession(repo))?.accessToken ?? null;
+}
+
 export async function getMyLoginMethods(repo: AuthRepo = authRepo): Promise<MyLoginMethods> {
   const session = await activeSession(repo);
   if (!session) return { status: "signed-out" };

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "ai": {
+      "root": "services/ai",
+      "framework": "fastapi",
+      "entrypoint": "app:app",
+      "buildCommand": "python prepare_vercel.py",
+      "functions": {
+        "app.py": {
+          "maxDuration": 120,
+          "excludeFiles": "{tests/**,eval/**,.venv/**,__pycache__/**,**/__pycache__/**}"
+        }
+      }
+    },
+    "web": {
+      "root": "web",
+      "framework": "nextjs",
+      "installCommand": "pnpm install --frozen-lockfile",
+      "buildCommand": "pnpm build",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "ai",
+          "format": "url",
+          "env": "AI_GATEWAY_URL"
+        }
+      ]
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": { "service": "web" }
+    }
+  ]
+}

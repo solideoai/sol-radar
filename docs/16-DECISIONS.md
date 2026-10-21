@@ -12,6 +12,32 @@ updated: 2026-10-21
 
 상태 값: `제안` → `채택` → `검증됨`(근거 URL·날짜 필수). 외부 사실 확인 전이면 `미검증`, 철회는 `폐기`. 검증 결과는 날짜·근거 URL·결정자와 함께 이 문서에 갱신한다. 폐기한 결정도 행을 지우지 않고 상태만 바꿔 이력으로 남긴다.
 
+## ADR-045 Redis HTTPS 접수에 기존 Next.js API 재사용
+
+2026-10-21 사용자 승인 범위는 [[2026-10-21-redis-gateway-supabase-storage-migration|전환 계획]]의 **Phase 1 Gateway 로컬 구현·테스트**다. 운영 컨테이너·Nginx·DB·배포 변경과 Storage/parser 다음 단계는 별도 승인 대상이다.
+
+2026-10-21 추가 결정: **Gateway·Vercel은 해커톤 안에 완료하며10-24(토)22:00 freeze 전 green이어야10-25 리허설에서 선택한다.** 기본 데모는 기존 Compose Redis/BullMQ·MinIO이고 새 경로는 env로 선택한다. ADR-037·039·042 조건②의 예외는 frontend HTTPS → 회사의 기존 접수 API로 나누는 전송/배포 경로에 한정한다. analysis job payload·처리 의미와 수집 저장 RPC `ingest_save_revision` signature·원자성, 규칙 엔진·골든94/72/68은 유지한다. 기존 함수 모양 변경이 필요하면 먼저 사용자에게 알린다. durable dispatch·quota 예약·Storage 신규 구현은 이 예외로 자동 승인되지 않는다. [세션45 병합 조건·지침 문안·요금제](plans/2026-10-21-redis-vercel-merge-conditions.md)를 함께 검토하며 지침 문안과 유료 Pro 전환은3e에서 사용자 승인 전 적용하지 않는다.
+
+- 같은 Next.js 코드를 `frontend`와 `redis-api` 역할로 실행한다. Vercel frontend는 분석·수집 POST를 인증된 HTTPS로 전달하고 DB 조회/WHAT-IF는 기존 RLS 경로를 유지한다. 별도 Redis 명령 Gateway를 만들지 않는다.
+- 회사 Redis는 기존 `127.0.0.1:6379`, HTTP host publish는 `127.0.0.1:6380`, 기존 Nginx `/redis/` 접두어 제거 프록시를 유지한다. 회사 Redis를 추가 생성하거나 포트를 공개하지 않는다.
+- redis-api는 `/health`·분석 접수/조회·수집 접수/조회만 허용하고 서비스 토큰을 검증한다. 업무 요청에는 사용자 Bearer도 필요하며 기존 Auth/RBAC/RLS를 다시 검사한다. 웹 런타임에 service role을 주지 않는다.
+- 기존 limiter·멱등·BullMQ·Worker·quota 로직을 재사용한다. durable dispatch·동시 예산 예약 보강은 후속 단계이며 이번 완료 범위로 주장하지 않는다.
+- ADR-044의 Vercel ai/binding과 MinIO는 이번 Phase 1에서 제거하지 않는다. frontend readiness는 회사 Gateway의 현재 probe를 사용하지만 상세 AI 관리 API의 Vercel ai 연결은 아직 기존 구성이다. Storage 전환 후 배포 정본을 다시 갱신한다.
+- 운영 배포는 역할 명시·서버 전용 API token·HTTPS 설정을 필수로 하고, Gateway 서비스 전체를 loopback에만 게시한다. 로컬 개발/시험은 `standalone` 호환 역할을 사용한다.
+
+## ADR-044 Vercel Services에 공개 web·내부 ai 배포
+
+2026-10-21 사용자가 최종 `vercel.json`의 서비스 이름·공개 범위·바인딩·배포 제외 항목을 승인했다. ADR-017의 웹 배포처 미결정을 해소한다.
+
+Gateway와 함께 해커톤 안에 완료한다(10-24 22:00 freeze,10-25 리허설). ADR-037·039·042 조건②의 예외는 Vercel web/내부 ai 배치와 회사 API로의 HTTPS 접수 전송이며 analysis job·수집 저장 RPC의 기존 의미/계약은 유지한다. 기본 Compose/MinIO 경로는 검증·승인된 env 전환 전까지 유지한다. 루트 지침3개 파일의 교체 문안·Hobby/Pro 조건·함수/대역폭 한도와 회사 Gateway의 인증/허용 host/노출 범위는 [병합 조건](plans/2026-10-21-redis-vercel-merge-conditions.md)을 따른다. 실제 배포와 유료 플랜 승인은 별도다.
+
+- 프로젝트 Root Directory는 저장소 루트 `.`이며 `web`(`web/`, Next.js)과 `ai`(`services/ai/`, FastAPI)를 독립 빌드한다.
+- 공개 rewrite는 `/(.*) → web` 하나다. ai는 내부 전용이며 web이 `AI_GATEWAY_URL` URL binding으로 호출한다. 바인딩 변수는 수동 설정하지 않는다.
+- eval은 평가 CLI라 서비스에서 제외한다. decision은 회사 GPU에서 실행하고 worker·Redis·MinIO·Qdrant는 기존 외부 환경을 유지한다.
+- 외부 worker는 기존 Compose gateway를 사용한다. 웹 AI 상태 검사는 Vercel gateway 상태이며 외부 worker gateway 상태를 보증하지 않는다. 실행 모드·모델·프롬프트 버전을 맞춘다.
+- 기존 실행 모드·모델 승인·RLS 검사를 유지한다. 실제 Vercel 배포·모델 호출·DB 변경은 이번 구성 작업에 포함하지 않는다.
+- 검증: `pnpm verify`와 `vercel dev -L` 내부 호출 통과. [검증 기록](evidence/20261021-vercel-services.md), [[10-DEPLOYMENT|배포 안내]], [완료 스펙](../polaris/specs/done/2026-10-21-vercel-services.md).
+
 ## ADR-043 가상 직원200명 전체 계산 속성과 점수 검증 확대
 
 2026-10-21 사용자 요청으로 채택했다. “200명 전부한테 임의적으로 자격증이나 기술, 실적, 가용성 넣어. DB 테이블에 없으면 테이블 고치고 db:push 해”에 이어 “기존 점수 검증도200명 전부 하자”를 반영한다. 이 결정이 ADR-019·021·042의 계산 대상27명 제한을 대체한다.
@@ -25,6 +51,8 @@ updated: 2026-10-21
 ## 결정 사항
 |ID|결정|상태|날짜|근거|
 |---|---|---|---|---|
+|ADR-045|Redis HTTPS 접수는 기존 Next.js API의 frontend/redis-api 역할로 재사용. 회사6379 유지·HTTP6380 loopback·Nginx 불변|검증됨(로컬)·운영 배포 별도 승인|2026-10-21|사용자 Phase 1 구현 지시, [[2026-10-21-redis-gateway-supabase-storage-migration\|계획]], [[20261021-phase1-redis-gateway\|검증]]|
+|ADR-044|Vercel Services 공개 web·내부 ai, web→ai URL binding. eval 제외·decision과 worker 외부 유지|채택·로컬 검증됨 (클라우드 배포 미실행)|2026-10-21|사용자 최종 승인, [검증 기록](evidence/20261021-vercel-services.md), [[10-DEPLOYMENT\|10 배포]]|
 |ADR-001|Next.js App Router(UI)와 NestJS(API·Worker) 역할 분리|폐기 (ADR-017로 대체)|2026-10-14|UI/도메인 로직 분리, OpenAPI 단일 원천 ([[02-ARCHITECTURE\|02 아키텍처]])|
 |ADR-002|self-managed PostgreSQL + Prisma. Supabase 서비스 미사용|폐기 (ADR-017로 대체)|2026-10-14|테넌트 격리·감사 로그를 스키마로 통제, Compose 단일 배포|
 |ADR-003|Docker Compose 배포. Kubernetes는 MVP 대상 아님|채택|2026-10-14|노트북 1대 데모와 GPU 호스트를 같은 Compose 프로필로 커버 ([[10-DEPLOYMENT\|10 배포]]). Supabase(DB·Auth)는 Compose 밖(클라우드 프로젝트)이고, Compose는 redis·minio·qdrant·ai-gateway·worker(+ 선택 web)를 띄운다(ADR-017, 2026-10-16). 2026-10-19 현재 GPU 호스트는 회사가 운영하고(ADR-025), 그 참고 구성은 별도 파일 `infra/compose.gpu.yaml`(모델 라우터)이다|
@@ -108,7 +136,7 @@ updated: 2026-10-21
 |5|카카오 비즈메시지 발신 계약과 승인된 템플릿|미검증 (해커톤 대체안 ADR-038 채택, 2026-10-21)|2026-10-21|해커톤 범위 밖. 알림톡은 비즈니스 채널(사업자 서류)·딜러사·템플릿 검수(보통 2~3일)가 필요하다(2026-10-20 확인). 해커톤 실발송은 ADR-038 "나에게 보내기"(시연용)로 대체하고, 비즈메시지는 운영 전환 때 다시 연다 ([[13-NOTIFICATIONS\|13 알림]])|
 |6|한국어 검색 품질(Qdrant 임베딩과 PostgreSQL full text 병행)|미검증|-|데모 필수 아님. 키워드 검색 fallback이 기본|
 |7|초기 스코어 가중치와 결정 임계값(75/50), 조직별 판정 기준|미검증|-|[[08-SCORING\|08 스코어링]] worked example로 fixture 3건 일치 확인. 조직별 config versioning|
-|8|데모·배포 실행 환경: Supabase 클라우드 그대로 / 로컬 Supabase CLI(`pnpm db:start`) 대체 / 웹 배포처|결정 (ADR-023, 데모 부분)|2026-10-19|데모 기본은 Supabase 클라우드 + 정상 네트워크. 대체 경로 6종을 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5에 고정: 인터넷 실패 → 로컬 Supabase CLI(`pnpm db:start` + `pnpm demo:reset`, D-1 리허설), 공공 API 장애 → `fixture`, GPU 접속 실패 → `mock` 또는 사전 실행 run 조회, Supabase 클라우드 장애 → 로컬 CLI, 첨부 실패 → `DOCUMENT_DOWNLOAD_FAILED` 화면 그대로, 추론 시간 초과 → `PARTIAL`. 자동 fallback 없음, 화면에 모드·출처 표시, 발표에서 밝힌다. 웹 배포처는 여전히 미결정(해커톤은 노트북 1대) ([[10-DEPLOYMENT\|10 배포]])|
+|8|데모·배포 실행 환경: Supabase 클라우드 그대로 / 로컬 Supabase CLI(`pnpm db:start`) 대체 / 웹 배포처|결정 (ADR-023·044)|2026-10-19|데모 기본은 Supabase 클라우드 + 정상 네트워크. 대체 경로 6종을 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5에 고정: 인터넷 실패 → 로컬 Supabase CLI(`pnpm db:start` + `pnpm demo:reset`, D-1 리허설), 공공 API 장애 → `fixture`, GPU 접속 실패 → `mock` 또는 사전 실행 run 조회, Supabase 클라우드 장애 → 로컬 CLI, 첨부 실패 → `DOCUMENT_DOWNLOAD_FAILED` 화면 그대로, 추론 시간 초과 → `PARTIAL`. 자동 fallback 없음, 화면에 모드·출처 표시, 발표에서 밝힌다. 웹 배포처는 Vercel Services로 확정(2026-10-21 사용자 승인, ADR-044). 외부 worker·저장소·회사 GPU는 유지하며 실제 클라우드 배포는 아직 실행하지 않음 ([[10-DEPLOYMENT\|10 배포]])|
 |9|worker가 `server-only` 도메인 코드를 쓰는 실행 방식(`node --conditions=react-server` 또는 같은 효과의 방식)|검증됨|2026-10-18|`node --conditions=react-server --import tsx worker/main.ts`로 띄운다(조건이 없으면 `server-only` 오류로 멈춘다). 2026-10-19에 Compose worker 이미지 안 기동·큐 왕복·정상 종료까지 확인해 종결했다(이미지 CMD는 ADR-024 D2). 증거 `docs/evidence/phase-0/worker-conditions.txt`·`smoke.txt`·`worker-stop.txt`·`c0-integration-20261019.md`, 커밋 `fa92254`·`d170aba` ([[02-ARCHITECTURE\|02 아키텍처]], [[10-DEPLOYMENT\|10 배포]])|
 |10|Supabase Auth 세부 설정값(토큰 만료·refresh 재사용 탐지·로그인 시도 제한·비밀번호 정책)|미검증|-|Supabase 대시보드 설정으로 정하고 확인한다. 확인 전에는 값을 문서에 적지 않는다(지어내지 않는다) ([[09-SECURITY\|09 보안]])|
 |11|현재 조직 고르기: 템플릿 가입 트리거는 계정마다 개인 조직을 만들고 화면은 `/[slug]/…`로 조직을 고른다. 05 `Me`·06 경로(`/dashboard`·`/bids`)는 업무 조직 하나와 slug 없는 경로를 전제한다|결정 (ADR-021)|2026-10-16|조직 주소 없는 경로. 서버가 현재 조직을 정한다(업무 멤버십 0개 안내 / 1개 진입 / 2개 이상 지원 안 함). 조직 전환 UI 없음. 가입 시 개인 조직 생성 중단, 기존 개인 조직은 보존 ([[05-API-SPEC\|05 API]] §1)|

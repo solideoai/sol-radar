@@ -182,6 +182,17 @@ describe("getReadiness", () => {
 });
 
 describe("getAiState", () => {
+  it("함수 호출마다 주입된 binding URL을 읽고 base path를 보존한다", async () => {
+    for (const baseUrl of [
+      "http://preview-one.internal/ai/",
+      "http://preview-two.internal/services/ai/",
+    ]) {
+      vi.stubEnv("AI_GATEWAY_URL", baseUrl);
+      expect(await getAiState()).toBe("mock");
+      expect(fetch).toHaveBeenLastCalledWith(`${baseUrl}health`, expect.any(Object));
+    }
+  });
+
   it("AI 검사 하나만 부른다", async () => {
     const probes = {
       db: vi.fn(async () => "ok" as const),

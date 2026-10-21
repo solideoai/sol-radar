@@ -785,6 +785,24 @@ interface KakaoNotifyEnabledInput { enabled: boolean }
 - 켜기·끄기·해제는 RPC `set_kakao_notify_enabled`·`disconnect_kakao_notify`를 부른다. 시험 메시지는 `request_kakao_notify_test`가 outbox `KAKAO_TEST`를 넣고 worker가 보낸다(1분에 한 번).
 - 응답 코드(204·202·302·409·429)는 [계획](plans/2026-10-20-kakao-memo-notify-plan.md) Task 6의 값이다. 구현이 바뀌면 이 절을 고친다.
 
+## Redis HTTPS 접수 경계 (ADR-045, Phase 1)
+
+사용자용 `/api/v1` 경로·Supabase 세션·업무 RBAC/RLS 계약은 유지한다. Vercel `frontend`의 분석/수집 POST만 회사 Next.js `redis-api`로 전달한다. 외부 prefix는 `https://acropolissg.com/redis`, Nginx는 `/redis/`를 제거하며 설정을 변경하지 않는다.
+
+| 회사 Gateway 외부 경로 | 메서드 | 인증 | 응답 |
+| --- | --- | --- | --- |
+| `/redis/health` | GET | `X-Sol-Service-Token` | 기존 readiness 상태, 200/503; 토큰 실패401 |
+| `/redis/api/v1/bids/{id}/analyses` | POST | 서비스 token + 사용자 Bearer | 기존202 AnalysisAccepted·pollUrl |
+| `/redis/api/v1/analyses/{id}` | GET | 동일 | 기존 분석 상태/결과·타 조직404 |
+| `/redis/api/v1/admin/ingestion/runs` | POST | 동일 + 업무 ADMIN | 기존202 IngestionRun |
+| `/redis/api/v1/admin/ingestion/runs/{id}` | GET | 동일 + 업무 ADMIN | 기존 수집 실행, Worker 행 생성 전404 가능 |
+
+서비스 token은 서버 전용32바이트 이상 난수이며 사용자 JWT와 별도다. token만으로 업무 권한을 만들지 않는다. 비허용 경로·임의 Redis 명령은404다. Cookie·refresh token·신뢰되지 않은 org/role 헤더는 전달하지 않는다. 요청16KiB, 접수 HTTP 전체15초 상한, 최대1회 재시도 시 동일 Idempotency-Key/본문을 쓴다. 429/Retry-After·409는 보존하고 upstream 502/HTML/잘못된 응답은503 `SERVICE_UNAVAILABLE`(`component:redis-api`)로 정규화한다.
+
+현재 수집/분석의 Redis·DB crash 경계는 기존대로다. durable dispatch와 예산 예약 정확성 보강은 후속 단계이므로 무손실/정확히1회 실행을 이 API의 검증 결과로 주장하지 않는다. 자세한 운영·승인 경계는 [[10-DEPLOYMENT|10 배포]]와 [[2026-10-21-redis-gateway-supabase-storage-migration|전환 계획]]을 따른다.
+
+Next 설정의 기존 별칭(`/account`, `/favicon.ico`)과 trailing slash 정규화는 Proxy 이전308일 수 있으며 목적지에서 허용 경로·인증을 다시 적용한다. Gateway client는 redirect를 따라가지 않는다. Readiness는 backend2초 probe에 전송 여유를 준 별도5초 상한이며 AI만 지연되면200/degraded를 유지한다.
+
 ## 관련 문서
 
 - [[15-DATA-CONTRACTS|15 데이터 계약]] — `EvidenceRef`, `NormalizedBid`

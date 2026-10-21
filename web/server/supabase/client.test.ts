@@ -223,6 +223,18 @@ describe("Bearer 로 온 요청의 DB 연결", () => {
 });
 
 describe("getAuthContext", () => {
+  it.each(["invalid.jwt.test", "bm90LWpzb24.e30.c2ln", "bnVsbA.e30.c2ln"])(
+    "rejects JWT decoding failures before the SDK (%s)",
+    async (token) => {
+      withAuthorization(`Bearer ${token}`);
+      auth.getClaims.mockImplementation(async () => {
+        throw new Error("Invalid UTF-8 sequence");
+      });
+      const { getAuthContext } = await import("./client");
+      await expect(getAuthContext("bearer")).resolves.toBeNull();
+      expect(auth.getClaims).not.toHaveBeenCalled();
+    },
+  );
   it("쿠키 세션의 토큰을 getClaims 로 확인하고 그 사람과 토큰을 돌려준다", async () => {
     auth.getSession.mockResolvedValue(cookieSession("cookie-token"));
     auth.getClaims.mockResolvedValue(validClaims());

@@ -95,7 +95,7 @@ updated: 2026-10-21
 ## Obsidian 규약
 
 - 이 폴더가 vault이자 저장소의 `docs/` 폴더다. 파일 이름은 바꾸지 않는다 (위키링크가 파일명 기준).
-- `boilerplate/`는 저장소를 시작한 템플릿(agentic-boilerplate)의 문서다. vault 규약 대상이 아니며 검색·그래프에서 제외한다(`.obsidian/app.json`). ADR-017 이후 Supabase(DB·RLS·인증)와 `web/server/<도메인>` 구조를 다루는 템플릿 문서는 SOL RADAR에도 적용된다. Expo(`mobile/`) 문서는 적용하지 않고, Vercel·EAS 배포 문서는 배포처가 정해질 때까지 보류한다([[16-DECISIONS|16 ADR]] 미결정 8번). 이 vault의 문서와 다르면 이 vault의 문서가 우선한다. 분류는 `boilerplate/README.md`.
+- `boilerplate/`는 저장소를 시작한 템플릿(agentic-boilerplate)의 문서다. vault 규약 대상이 아니며 검색·그래프에서 제외한다(`.obsidian/app.json`). ADR-017 이후 Supabase(DB·RLS·인증)와 `web/server/<도메인>` 구조를 다루는 템플릿 문서는 SOL RADAR에도 적용된다. Expo(`mobile/`) 문서는 적용하지 않고, Vercel Services 배포는 [[10-DEPLOYMENT|10 배포]]·[[16-DECISIONS|ADR-044]]를 따른다. 템플릿의 단일 웹 배포·EAS 문서는 적용하지 않는다. 이 vault의 문서와 다르면 이 vault의 문서가 우선한다. 분류는 `boilerplate/README.md`.
 - 모든 문서에 frontmatter(`title`, `doc`, `status`, `tags`, `updated`)를 둔다. `status`는 `draft → review → final`. 태그는 `sol-radar` + 주제 1~3개(`product`, `architecture`, `ai`, `pipeline`, `db`, `api`, `ui`, `scoring`, `security`, `ops`, `test`, `decision`, `hackathon`, `demo`, `glossary`, `moc`).
 - 문서 간 참조는 `[[05-API-SPEC|05 API 명세]]` 형식의 위키링크. 문서 끝에 `## 관련 문서`를 둔다.
 - 콜아웃: `> [!warning] 미검증 가정`, `> [!success] 검증됨 (날짜, URL)`, `> [!todo]`, `> [!tip] 심사 포인트`.

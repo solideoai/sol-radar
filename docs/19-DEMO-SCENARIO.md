@@ -91,6 +91,10 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 
 ## 3. S0 사전 준비 (발표 60분 전)
 
+**실행 경로 선택(ADR-044·045): 기본은 현재 Docker Compose Redis/BullMQ·MinIO + standalone web이다.** 생산 빌드 web에는 `SOL_DEPLOYMENT_ROLE=standalone`을 명시한다. 선택 경로인 Vercel frontend+회사 Gateway는10-24(토)22:00 freeze 전 `pnpm verify`와 실제 HTTPS 업무 E2E가 green이고 운영/요금제 승인이 있을 때만10-25 리허설에서 고른다. 자동 전환은 없다. 코드·기동 절차·이 S0·[[11-TESTING|11]] §5가 함께 와야 한다([병합 조건](plans/2026-10-21-redis-vercel-merge-conditions.md)).
+
+선택 경로를 고르면 아래2번의 로컬 Compose 기동 대신 승인된 회사 Redis6379·Gateway host127.0.0.1:6380·기존 Nginx `/redis/`·회사 Worker 상태와 Vercel frontend의 동일 소스/모드를 확인한다. `/redis/health` 무토큰/오토큰401, 정상 token의 readiness, 실제202→Vercel pollUrl→Worker 결과, 잘못된 JWT401·타 조직404·role403·429를 기록한다. API token은 서버 전용이고 Vercel web에 service role을 넣지 않는다. seed·DB 적용·회사 컨테이너/Nginx·production 배포는 별도 승인 후 수행한다. 운영 검증이 없거나 실패하면 기존 Compose 기본 경로를 유지하고 미검증으로 표시한다.
+
 장면 번호 규약: 데모 장면은 `S0`(준비)~`S7`, 테스트 골든 시나리오는 `G1`~`G10`([[11-TESTING|11]]). 둘을 섞어 쓰지 않는다. [[21-MODEL-TRAINING|21 모델 학습]]의 평가 비교 대상은 `E0`~`E4`로 부르고 데모 장면 번호와 섞지 않는다.
 
 > [!success] 네트워크 의존과 대체 경로 (결정됨 2026-10-19, [[16-DECISIONS|ADR-023]])

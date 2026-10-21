@@ -12,7 +12,7 @@ updated: 2026-10-21
 # 10. Docker Compose 배포·실행 프로필
 
 ## 원칙
-DB·Auth는 Compose 밖의 **Supabase 클라우드 프로젝트**다(개발 환경, [[16-DECISIONS|16 ADR]] ADR-017). Compose는 그 둘레의 서비스만 띄운다: `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`, 그리고 선택으로 `web`. 데모 기본은 Supabase 클라우드 그대로다. 네트워크·클라우드 장애 때의 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5에 정했다(16 미결정 8번). **웹 배포처만 미결정**이다.
+DB·Auth는 Compose 밖의 **Supabase 클라우드 프로젝트**다(개발 환경, [[16-DECISIONS|16 ADR]] ADR-017). Compose는 그 둘레의 서비스만 띄운다: `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`, 그리고 선택으로 `web`. 데모 기본은 Supabase 클라우드 그대로다. 네트워크·클라우드 장애 때의 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5에 정했다(16 미결정 8번). **웹 배포처는 Vercel Services로 확정**했다(2026-10-21 사용자 승인, ADR-044). 공개 web과 내부 ai를 배포하고 worker·저장소·회사 GPU는 기존 외부 환경을 유지한다(아래 Vercel Services 절).
 
 Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 묶음(`infra/env/<profile>.env.example` → `infra/.env`)이다. `infra/compose.yaml`에는 Compose `profiles`가 없어서 어느 프로필이든 같은 5개 서비스가 뜬다. Redis·Qdrant·MinIO는 named volume. 이미지는 각각 버전(태그 또는 digest)을 고정한다. GPU가 없으면 `demo` 프로필로 구동한다. 모델 런타임이 도는 회사 GPU 서버는 회사가 운영한다([[16-DECISIONS|ADR-025]]). NVIDIA Container Toolkit·`nvidia-smi` 확인은 회사 측 몫이다.
 
@@ -235,7 +235,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 - 모델 런타임은 어느 Compose 파일에도 없다. `Qwen/Qwen3.8-Flash-Next`는 회사가 운영하는 vLLM API이고, `sol_decision.serve`(Bosun)는 회사가 GPU 서버 호스트에 직접 띄운다(위 "회사 GPU 추론 엔드포인트").
 - MinIO는 Docker Hub `minio/minio`가 404라(2026-10-16 확인) Chainguard 이미지를 digest로 고정한다(비root 65532, 검증됨).
 - web을 호스트에서 띄우면 Next 서버가 redis·qdrant·minio·ai-gateway에 닿아야 하므로 이 네 서비스만 `127.0.0.1`에 포트를 연다(외부 인터페이스에는 열지 않는다). Compose `web`을 쓰면 호스트 노출은 필요 없다. 기본은 호스트 실행(`pnpm -C web start`)으로 확정했다(Phase 0, [[16-DECISIONS|ADR-024]] D1 제안). Phase 0 `infra/compose.yaml` 에는 `web` 서비스가 없다.
-- HTTPS reverse proxy와 웹 배포처는 데모·배포 실행 환경 결정(미결정, ADR-017) 뒤에 정한다.
+- 웹과 내부 AI gateway의 배포처는 Vercel Services다(ADR-044). 외부 Compose 서비스의 접속 주소·HTTPS reverse proxy 설정은 별도로 정한다.
 - healthcheck(Phase 0 구현): `worker` 는 heartbeat 파일을 본다. worker 가 `WORKER_HEARTBEAT_FILE`(기본 `/tmp/sol-worker-heartbeat`)을 10초마다 갱신하고, healthcheck 는 파일 수정 시각이 30초 이내인지 판정한다([[16-DECISIONS|ADR-024]] D3 제안). `ai-gateway` 는 `GET /health` 200 이고 `start_period: 20s`(기동 4~8초). `minio`·`qdrant` 이미지에는 curl·wget 이 없어 bash `/dev/tcp` 로 `GET /minio/health/live`·`GET /readyz` 의 200 을 확인한다. `redis` 는 `redis-cli ping`(비밀번호는 `REDISCLI_AUTH` 로만 전달).
 - redis 비밀번호는 프로세스 인자·`docker inspect` 에 남지 않게 설정을 stdin 으로 넘기고, 컨테이너는 `setpriv` 로 `redis` 사용자로 내려 실행한다. worker 이미지의 CMD 는 pnpm 이 아니라 `node --conditions=react-server --import tsx worker/main.ts` 이고 Compose 는 `init: true` 다.
 
@@ -332,7 +332,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
   - 클라우드 적용은 2026-10-20에 했다. 첫 `pnpm db:push`(29개, `20261019000017`까지, dd 세션·사용자 승인)는 클라우드에 `score_runs` 표가 아직 없어 이 질의를 건너뛰었고([`migrate.log`](evidence/phase-1/migrate.log) 3행), `20261019000019`는 sol-radar-3e가 20:48 KST에 적용했다([[04-DATABASE|04]] §7).
 - 오래 남은 g2b 수집 run 정리([[16-DECISIONS|16 ADR]] 미결정 25번, [[07-DATA-PIPELINE|07 수집]] §2.7): `pnpm ops:close-stale-runs -- --env-file <path>`로 대상(30분 이상 `RUNNING`)을 먼저 보고, 맞으면 같은 명령에 `--apply`를 붙인다. `--env-file`은 기본값이 없고 그 파일의 `NEXT_PUBLIC_SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`만 읽는다(셸 환경 변수로 덮지 않는다). 인자 앞의 `--`를 빼면 Node 24가 `--env-file`을 자기 옵션으로 읽는다. 클라우드 Supabase를 가리키는 파일로 `--apply`하는 것은 클라우드 DB를 바꾸므로 사용자 확인 뒤에만 한다. 기준 분은 `--older-than-minutes N`(기본 30, 30 미만 거부)이다.
 - DB 백업·복구는 Supabase가 관리한다. 플랜별 백업 주기·보존 기간·PITR 여부는 **미검증**이다. Supabase 대시보드에서 확인해 이 절에 기록한다.
-- HTTPS reverse proxy·웹 배포처는 미결정(ADR-017 미결정 표).
+- 웹 배포처는 Vercel Services(ADR-044). 외부 Compose 서비스의 접속 주소·HTTPS reverse proxy 설정은 별도 운영 항목이다.
 - 운영 모델 교체(Bosun 학습본 `bosun-sol-lora-v0.1` 등)는 레지스트리 항목 추가 → 패키지 sha256 대조(회사)·gateway 대조 통과 → ADR 순서로 하고, 사용자 승인 뒤에만 한다([[21-MODEL-TRAINING|21 모델 학습]] §5.4, [[16-DECISIONS|ADR-034]] 9번).
 
 ## 솔리데오 인력·사진 준비 (ADR-019)
@@ -344,6 +344,84 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 - 데모 전에 `pnpm people:check:release`(원본 대조·READY 200·파일 해시)를 확인한다([[11-TESTING|11 테스트]]).
 - 원본 엑셀을 배포 이미지에 넣지 않는다.
 - seed 로그의 `people=200 portraits=200`은 실제 명부 건수와 READY 파일 검증 결과다. 파일 이름만 200개 있다고 성공 처리하지 않는다. 미완성 자산은 미완료로 표시하고 데모 수용 조건 통과로 보고하지 않는다.
+
+## Vercel Services 구성 (2026-10-21 사용자 승인, ADR-044)
+
+루트 `vercel.json`에 `web`(Next.js)·`ai`(FastAPI)를 등록했다. **Vercel 프로젝트 Root Directory는 저장소 루트 `.`**다. `web`으로 설정하면 이 구성을 읽지 못한다. 각 서비스의 root·빌드 명령은 JSON이 정한다. 이전 템플릿의 `pnpm vercel-build`는 삭제된 명령이므로 사용하지 않는다.
+
+|서비스|공개 경로|호출 관계|
+|---|---|---|
+|`web` (`web/`)|`/(.*)` — 페이지·`/api/v1`·`/auth`·`/health/*` 모두 기존 경로 유지|`ai`에 `AI_GATEWAY_URL` URL 바인딩|
+|`ai` (`services/ai/`)|없음. 내부 전용. `/parse`·`/extract`·`/kev`·`/explain`을 인터넷에 노출하지 않는다|실추론 시 기존 회사 `QWEN_BASE_URL`·`KEV_BASE_URL` 사용|
+
+바인딩은 **호출자인 web**에 선언한다. `AI_GATEWAY_URL`은 Vercel이 함수 실행 시 주입하므로 프로젝트 환경 변수에 수동 입력하지 않는다. Next의 proxy·브라우저·빌드에서 사용하지 않는다. 기존 health 서비스가 요청 때 env를 읽는다. AI에는 경로 접두어를 붙이지 않으므로 내부 호출 경로도 `/health` 등 기존 계약 그대로다.
+
+### 배포 서비스에 넣지 않은 구성 요소
+
+- `services/ai/eval`: HTTP 서버가 없는 평가 CLI다. Python 프로젝트 자동 감지만으로 배포 서비스를 만들지 않는다.
+- `services/decision`: 회사 GPU의 검증된 모델 패키지를 로드하는 추론 서버다. `KEV_BASE_URL`로 연결하는 기존 배치를 유지한다. Vercel에서 fake backend로 조용히 대체하지 않는다.
+- BullMQ worker·Redis·MinIO·Qdrant: 기존 Compose 등 별도 실행 환경에 둔다. worker는 같은 Supabase와 Redis에 연결해야 한다.
+- **외부 worker는 내부 Vercel `ai` 바인딩을 사용할 수 없다.** worker는 기존 Compose gateway(`AI_GATEWAY_URL=http://ai-gateway:8000`)를 쓴다. Vercel `ai`와 Compose gateway의 실행 모드·모델·프롬프트 버전을 맞춰야 한다. 웹의 AI 상태 화면이 검사하는 대상은 Vercel gateway이며, 외부 worker gateway의 상태를 보증하지 않는다. worker까지 통합하려면 별도 배포 설계가 필요하다.
+
+### 환경 변수
+
+기본: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `API_CURSOR_SECRET`(32자 이상), `SOL_RUN_MODE`. ADR-044 원안은 작업 기능에 외부 Redis의 `REDIS_URL`, 상태 검사에 `MINIO_ENDPOINT`를 사용했다. **ADR-045의 `frontend`로 전환할 때에는 아래 Redis HTTPS Gateway 환경을 따른다. Vercel에 `REDIS_URL`을 넣지 않는다.** 회사 `redis-api`와 기존 standalone의 Redis/MinIO 설정은 유지한다.
+
+mock은 `SOL_RUN_MODE=mock`이며 유료 모델이나 모델 키가 필요 없다. fixture/live는 기존 `AI_PROVIDER=local`, `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY`, `KEV_BASE_URL`, `KEV_MODEL_ID`, `KEV_API_KEY` 및 선택 `KEV_ENABLED`·`KEV_QUESTION_SET` 등을 회사 gateway와 맞춘다. 기존 레지스트리·호스트 검증을 그대로 적용한다. hosted는 여전히 미구현이고 승인 검사를 끄지 않는다.
+
+환경 변수는 프로젝트 안에서 공유된다. `SUPABASE_SERVICE_ROLE_KEY`, 공공 API 서비스키, MinIO root 키는 이 Vercel 프로젝트에 넣지 않는다. worker 전용 비밀은 외부 worker에만 둔다. 모델 API 키는 서버 전용이고 `NEXT_PUBLIC_`를 붙이지 않는다. 메일·소셜 로그인은 기존 선택 설정을 따른다. Supabase Auth URL Configuration에는 배포 도메인을 등록한다.
+
+### 패키징과 로컬 확인
+
+`ai`의 빌드 명령 `python prepare_vercel.py`는 정본 `infra/run-modes.json`과 `fixtures/extractions`·`fixtures/kev`만 `services/ai/_vercel_data/`에 복사한다. 생성물은 커밋하지 않는다. 서비스 안의 schemas·prompts·guards·dictionaries·kev·models도 런타임에 필요하므로 제외하지 않는다. 개발 시에는 저장소 정본, 독립 번들에서는 복사본을 읽으며 명시한 `SOL_RUN_MODES_FILE`·`SOL_FIXTURES_DIR`이 항상 우선한다.
+
+`app.py`는 FastAPI 진입점이다. 설정·모델 검사는 ASGI lifespan에서 실행하여 빌드의 앱 탐색이 모델에 접속하지 않게 한다. maxDuration은 120초로, 기본 추출 deadline 60초보다 길다. `/parse`의 대용량 첨부 경로는 외부 Compose gateway에 유지한다. Vercel Functions의 요청 크기 제한을 기존 50 MB 파싱 계약과 동일하다고 가정하지 않는다.
+
+루트에서 `pnpm dlx vercel@65.0.0 dev -L --listen 127.0.0.1:3108`로 로그인·실제 배포 없이 서비스와 바인딩을 실행한다. `web`의 Supabase 설정은 로컬 개발 설정을 사용하고, AI는 `SOL_RUN_MODE=mock`으로 확인한다. `/health/ready`의 `checks.ai`가 mock인지 확인한다. 외부 DB·Redis·MinIO가 꺼져 있으면 전체 readiness는 503일 수 있다. `/parse`를 공개 도메인으로 호출하면 Python parser에 도달하지 않아야 한다.
+
+공식 근거: [Services](https://vercel.com/docs/services), [Bindings](https://vercel.com/docs/services/bindings), [Configuration](https://vercel.com/docs/services/config-reference), [FastAPI](https://vercel.com/docs/frameworks/backend/fastapi). 서비스명·공개 범위·바인딩·외부 worker 유지 구성은 2026-10-21 사용자가 최종 승인했다. 실제 Vercel 배포와 회사 모델 접속은 이 변경의 검증 범위 밖이다.
+
+## Redis HTTPS Gateway — Phase 1 (ADR-045)
+
+회사 Redis는 기존 `127.0.0.1:6379`, HTTP Gateway host publish는 `127.0.0.1:6380`, 외부 주소는 `https://acropolissg.com/redis/`다. 기존 Nginx가 접두어를 제거하므로 upstream은 `/health`와 기존 `/api/v1`을 사용한다. **기존 Nginx 설정·reload·회사 컨테이너 작업은 이번 로컬 구현 범위 밖**이다. 운영 배포 성공 기록은 없다.
+
+별도 Gateway 프레임워크 대신 같은 Next.js 빌드가 역할을 나눈다.
+
+| 런타임 | 역할·설정 | 동작 |
+| --- | --- | --- |
+| Vercel web | `SOL_DEPLOYMENT_ROLE=frontend`, `REDIS_API_BASE_URL=https://acropolissg.com/redis`, `REDIS_API_TOKEN`, 선택 `REDIS_API_TIMEOUT_MS=15000` | 기존 세션/CSRF/업무 조직 검증 후 분석·수집 POST만 HTTPS 전달. `REDIS_URL`·service role 금지 |
+| 회사 Next.js | `SOL_DEPLOYMENT_ROLE=redis-api`, 기존 Redis TCP URL, 같은 `REDIS_API_TOKEN`, Supabase URL/anon·cursor secret·실행 모드 | 서비스 토큰+사용자 JWT를 검사하고 기존 limiter·멱등·큐/DB를 실행. 비허용 화면/구형 API/정적 파일 차단 |
+| 기존 로컬 web | `SOL_DEPLOYMENT_ROLE=standalone` | 기존 동작. 개발/시험에서 역할 생략은 호환되지만 production은 명시해야 함 |
+
+서비스 토큰은 `openssl rand -hex 32` 등으로 생성한32바이트 이상 난수다. 값은 문서/명령 로그에 넣지 않는다. 헤더는 `X-Sol-Service-Token`, 사용자 인증은 별도의 `Authorization: Bearer`다. 이전 서비스 토큰은 회사의 `REDIS_API_TOKEN_PREVIOUS`로 짧게 병행한 뒤 폐기한다. 실제 Token·GPU/G2B/DB Secret은 `NEXT_PUBLIC_`에 넣지 않는다.
+
+`infra/compose.company.yaml`·`web/Dockerfile`은 **배포 준비 파일**이다. Compose는 Redis를 만들지 않고 확인된 external network만 사용한다. `infra/env/redis-api.env.example`을 바탕으로 운영자가 `infra/.env.redis-api.local`을 준비한다. `SOL_RADAR_REDIS_NETWORK`의 실제 이름과 기존 Redis 인증을 먼저 확인해야 하며, 현재 예시의 CHANGE_ME로 운영하지 않는다. Docker 내부3000 listener와 host의loopback6380 publish를 구분한다. 예전 `infra/compose.yaml`의 Redis host 기본6380을 회사 설정에 그대로 적용하지 않는다.
+
+회사 HTTP에서 허용하는 경로는 `/health` GET, `/api/v1/bids/{id}/analyses` POST, `/api/v1/analyses/{id}` GET, `/api/v1/admin/ingestion/runs` POST, `/api/v1/admin/ingestion/runs/{id}` GET이다. `/health`만 사용자 JWT 없이 서비스 토큰으로 조회한다. 작업 조회의 정본은 기존 DB/RLS이며 public pollUrl은 Vercel `/api/v1`을 가리킨다.
+
+Compose의 `env_file`은 컨테이너 환경 주입용이며 network 이름의 `${SOL_RADAR_REDIS_NETWORK}` 보간을 대신하지 않는다. **별도 운영 승인 후** 저장소 루트에서 `docker compose --env-file infra/.env.redis-api.local -f infra/compose.company.yaml up -d --build redis-api`처럼 동일 파일을 명시한다. 현재 단계에서 이 명령은 실행하지 않았다. 기존 Redis network에 gateway가 접근할 수 있는지, 이미지 빌드와 현재 readiness 의존성이 준비됐는지 먼저 확인한다.
+
+Next 설정의 기존 `/account`·`/favicon.ico` 별칭과 trailing slash 정규화는 Proxy보다 먼저308을 반환할 수 있다. 그 목적지에서도 Gateway allowlist와 인증이 다시 적용되며 페이지·정적 파일을 제공하지 않는다. HTTPS client는 redirect를 따라가지 않는다.
+
+접수는16KiB·전체15초 상한이며 네트워크/502/503/504는 같은 업무 멱등 키·본문으로 최대1회 재시도한다. 인증/권한/409/429는 자동 재시도하지 않는다. HTML/redirect/잘못된 DTO는 안전한503으로 바꾸고 외부 주소·Cookie·refresh token을 반환하지 않는다. backend rate limit은 분석30회/분·수집5회/분이며 frontend에 같은 limiter를 추가하지 않는다.
+
+Phase 1의 `/health`는 현재 MinIO·AI·DB·Redis probe를 재사용한다. 인증 전에는401, 인증 후 핵심 의존성 장애면503이다. Vercel readiness/대시보드 AI 요약은 이 HTTPS 결과를 사용한다. 상세 ADMIN AI 상태 API와 기존 Vercel ai binding은 아직 ADR-044 구성이며 후속 전환 때 정리한다. **Storage·parser·documents 소비자·durable dispatch·quota 예약 보강을 완료한 것으로 표시하지 않는다.**
+
+Readiness의 원격 전송 상한은5초이며 backend probe의2초 상한에 네트워크 여유를 준다. AI만 시간 초과이면 핵심 의존성은 유지한200/degraded다. 작업 접수의 `REDIS_API_TIMEOUT_MS`와 별도이며 최초 인증부터 적용하는 접수 상한은 기본15초다.
+
+로컬 회귀는 `pnpm verify`와 `pnpm -C web exec vitest run app/api/v1/redis-gateway-contract.test.ts app/_lib proxy.test.ts`다. 빌드 후 `pnpm -C web exec node --conditions=react-server --import tsx ../scripts/redis-gateway-local-smoke.mjs`는 Docker 없이 임시 로컬 Redis·가짜 DB/MinIO/AI HTTP·실제 Next standalone을 검사하고 자신이 띄운 프로세스만 종료한다. 로컬 빈 포트를 사용하며 회사6379/6380을 조작하지 않는다. 회사 HTTPS 경유 인증/작업 E2E는 별도 배포 승인 후 수행한다.
+
+## 기동 경로 선택과 freeze 수용 조건 (ADR-044·045)
+
+데모 기본은 기존 `infra/compose.yaml`의 Redis/BullMQ·MinIO·AI gateway·Worker와 standalone web이다. 생산 빌드를 호스트에서 실행할 때는 `SOL_DEPLOYMENT_ROLE=standalone pnpm -C web start`로 기존 경로를 명시한다. 새 Vercel/frontend 경로를 자동으로 켜지 않는다. 예전 Compose의 Redis host 기본6380과 회사 Gateway6380을 같은 설정으로 섞지 않는다.
+
+선택 경로의 순서는 **운영 승인 → 기존 회사 Redis/network/auth 확인 → 회사 API를 host127.0.0.1:6380에 실행 → 기존 Nginx `https://acropolissg.com/redis/` 인증 검사 → 별도 승인된 Vercel frontend 연결**이다. 기존 Nginx 설정·reload는 하지 않는다. 위 회사 Compose 명령의 `--env-file`은 운영자가 Secret을 관리하는 파일 지정이며 에이전트가 `.env`를 읽거나 출력하지 않는다. Redis6379/HTTP6380을 인터넷에 공개하지 않는다.
+
+frontend는 `SOL_DEPLOYMENT_ROLE=frontend`, 서버 전용 `REDIS_API_BASE_URL=https://acropolissg.com/redis`, `REDIS_API_TOKEN`을 사용한다. 운영 설정 허용 host는acropolissg.com:443이며 다른 host는 별도 승인 대상이다. 코드가 hostname을 하드코딩해 제한한다고 주장하지 않는다. 회사 API의 allowlist5경로·서비스 token+업무 JWT·RLS를 지키며 Vercel web에는 Redis TCP URL·service role·GPU/G2B 키를 넣지 않는다. Worker는 회사 서버에서 기존 TCP 큐를 소비한다.
+
+10-24(토)22:00 전 `pnpm verify`, 실제 HTTPS401/403/404·202→polling→Worker 완료·멱등/429·비공개 포트 확인이 green이어야10-25 리허설에서 선택한다. 로컬 Phase 1 통과만으로 이 운영 조건을 완료 처리하지 않는다. 실패하면 새 경로 활성화를 보류하고 기존 Compose로 수동 복귀한다. S0는 [[19-DEMO-SCENARIO|19]] §3, 실행별 체크는 [[11-TESTING|11]] §5에 기록한다.
+
+Hobby는 개인·비상업 조건과 월100GB, Pro는 현재 $20/월·기본 Flat Rate CDN1TB 용량이며 실제 사용 팀의 계약을 확인한다. 함수는 Fluid Compute 기준 Hobby 최대300초·Pro 일반 최대800초, 요청/응답4.5MB다. [공식 근거·요금표·지침 승인 문안](plans/2026-10-21-redis-vercel-merge-conditions.md)에서 세부 조건을 확인한다. 회사 업무용 Pro가 필요하면 비용·예산 상한을 사용자에게 확인한 뒤 진행한다. 이번 정리는 결제·업그레이드·실배포 승인이 아니다.
 
 ## 관련 문서
 - [[02-ARCHITECTURE|02 아키텍처]]

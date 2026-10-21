@@ -70,6 +70,24 @@ const isRejectedToken = (error: unknown): boolean =>
 /** 검증을 마친 로그인. accessToken 은 그 사람으로 Auth 를 부를 때(연결 해제·모든 기기 로그아웃) 쓴다. */
 export type AuthContext = { claims: AuthClaims; accessToken: string };
 
+// SDK decodeJWT의 JSON/UTF-8 오류는 AuthError가 아닌 예외로 나온다.
+// 세 부분이 있는 토큰의 인코딩만 먼저 확인한다. 구조·서명·만료 검증은 SDK가 맡는다.
+function hasUnreadableJwt(token: string): boolean {
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    for (const part of parts.slice(0, 2)) {
+      const raw: unknown = JSON.parse(
+        new TextDecoder("utf-8", { fatal: true }).decode(Buffer.from(part, "base64url")),
+      );
+      if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * 지금 요청의 로그인. 서명·만료(getClaims)와 발급자·대상·역할(toAuthClaims)을 확인한 토큰만 믿고, 아니면 null 이다.
  * 쿠키의 세션(getSession)은 쿠키를 그대로 믿으므로 토큰을 꺼내는 데만 쓰고, 그 토큰도 같은 검증을 거친다.
@@ -85,6 +103,7 @@ export async function getAuthContext(
   if (session?.error && !isRejectedToken(session.error)) throw session.error;
   const accessToken = bearer ?? session?.data.session?.access_token ?? null;
   if (!accessToken) return null;
+  if (hasUnreadableJwt(accessToken)) return null;
   const { data, error } = await supabase.auth.getClaims(accessToken);
   if (error) {
     if (isRejectedToken(error)) return null;

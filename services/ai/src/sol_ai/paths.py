@@ -6,6 +6,7 @@ from pathlib import Path
 AI_ROOT = Path(__file__).resolve().parents[2]
 # src/sol_ai/paths.py -> 저장소 루트
 REPO_ROOT = Path(__file__).resolve().parents[4]
+DEPLOYMENT_DATA_DIR = AI_ROOT / "_vercel_data"
 
 SCHEMA_FILE = AI_ROOT / "schemas" / "requirement-extraction.v0.1.json"
 PROMPT_FILE = AI_ROOT / "prompts" / "req-extract.v0.1.md"
@@ -18,5 +19,8 @@ THRESHOLDS_FILE = AI_ROOT / "kev" / "thresholds.v0.1.json"
 
 
 def fixtures_dir(override: str | None) -> Path:
-    """mock 이 읽는 fixture 루트. env SOL_FIXTURES_DIR 이 우선이고, 없으면 저장소의 fixtures/."""
-    return Path(override) if override else REPO_ROOT / "fixtures"
+    """명시 경로 → 저장소 정본 → 독립 배포 번들. 개발 때 오래된 빌드 복사본을 읽지 않는다."""
+    if override:
+        return Path(override)
+    source = REPO_ROOT / "fixtures"
+    return source if source.is_dir() else DEPLOYMENT_DATA_DIR / "fixtures"

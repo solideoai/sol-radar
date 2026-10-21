@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from sol_ai.paths import DEPLOYMENT_DATA_DIR, REPO_ROOT
+
 CHECKED_KEYS = ("DEMO_MODE", "AI_PROVIDER", "KEV_ENABLED")
 # M2(보안 점검): 한국어 state(평가 전용)는 hosted 공급자와 함께 쓸 수 없다. 모든 모드에 같은 판정이라 규칙 파일 밖에 둔다
 KO_STATE_KEY = "KEV_ALLOW_KO_STATE"
@@ -26,11 +28,12 @@ class RunModeResult:
 
 
 def rules_path() -> Path:
-    """규칙 파일 경로. env SOL_RUN_MODES_FILE 이 우선이고, 없으면 저장소의 infra/run-modes.json."""
+    """명시 경로 → 저장소 정본 → 독립 배포 번들의 실행 규칙."""
     override = os.environ.get("SOL_RUN_MODES_FILE")
     if override:
         return Path(override)
-    return Path(__file__).resolve().parents[4] / "infra" / "run-modes.json"
+    source = REPO_ROOT / "infra" / "run-modes.json"
+    return source if source.is_file() else DEPLOYMENT_DATA_DIR / "run-modes.json"
 
 
 def load_rules() -> dict:
