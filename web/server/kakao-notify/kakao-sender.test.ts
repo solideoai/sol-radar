@@ -492,7 +492,8 @@ describe("createMemoKakaoSender · TOKEN_INVALID", () => {
     });
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual({ kind: "EXPIRED", changed: false });
-    expect(resultsOf(links)).toEqual(["FAILED", "EXPIRED"]);
+    // LINK_CHANGED 는 마지막 발송 줄을 적지 않는다 — 바뀐 행(다시 연결한 새 행일 수 있다)에 FAILED 를 남기지 않는다.
+    expect(resultsOf(links)).toEqual(["EXPIRED"]);
   });
 
   it("다시 보낸 결과가 RETRYABLE 이면 그대로 돌려준다", async () => {
@@ -780,7 +781,7 @@ describe("createMemoKakaoSender · 갱신 경합", () => {
     const row = links.rows[USER_ID];
     expect(row.status).toBe("CONNECTED");
     expect(decryptKakaoToken(row.accessTokenEnc ?? "", key, accessOf(USER_ID))).toBe(NEWER_ACCESS);
-    expect(resultsOf(links)).toEqual(["FAILED"]);
+    expect(resultsOf(links)).toEqual([]);
   });
 
   it("다음 발송은 새 연결의 토큰으로 보낸다", async () => {
@@ -817,7 +818,7 @@ describe("createMemoKakaoSender · 갱신 경합", () => {
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
     expect(links.callsOf("markExpired")).toHaveLength(1);
     expect(links.rows[USER_ID].status).toBe("CONNECTED");
-    expect(resultsOf(links)).toEqual(["FAILED"]);
+    expect(resultsOf(links)).toEqual([]);
   });
 
   it("변조된 암호문이어도 만료가 0행이면(그 사이 다시 연결) RETRYABLE LINK_CHANGED", async () => {
@@ -831,6 +832,7 @@ describe("createMemoKakaoSender · 갱신 경합", () => {
     expect(await sender.send(USER_ID, TEMPLATE)).toEqual(LINK_CHANGED);
     expect(api.sendCalls).toEqual([]);
     expect(links.rows[USER_ID].status).toBe("CONNECTED");
+    expect(resultsOf(links)).toEqual([]);
   });
 
   it("연결 해제로 행이 사라졌으면 저장이 0행이라 RETRYABLE LINK_CHANGED 이고, 다음 발송은 EXPIRED(changed false)다", async () => {

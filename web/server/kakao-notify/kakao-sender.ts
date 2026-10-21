@@ -65,6 +65,7 @@ const toSendRecord = (result: KakaoSenderResult): KakaoSendRecord => {
 /**
  * 마지막 발송 줄을 적고 결과를 그대로 돌려준다.
  * 그 줄은 설정 칸의 표시용이다. 적다가 실패해도 결과를 바꾸지 않는다 — 이미 간 메시지를 실패로 보이게 해 다시 보내게 하지 않는다.
+ * LINK_CHANGED 는 적지 않는다. 그 사이 다시 연결한 새 행(또는 해제로 없는 행)이라, 보내지도 않은 FAILED 를 새 연결에 남기게 된다.
  */
 async function finish(
   links: KakaoLinkStore,
@@ -72,6 +73,7 @@ async function finish(
   result: KakaoSenderResult,
   now: () => Date,
 ): Promise<KakaoSenderResult> {
+  if (result.kind === "RETRYABLE" && result.code === "LINK_CHANGED") return result;
   try {
     await links.markResult(userId, toSendRecord(result), now());
   } catch {

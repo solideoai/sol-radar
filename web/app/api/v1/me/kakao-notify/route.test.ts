@@ -56,9 +56,17 @@ async function errorOf(response: Response, status: number, code: string) {
   return body.error;
 }
 
-function navigation(path: string, cookie?: string): NextRequest {
+// 브라우저 이동. 설정 화면의 링크에서 오면 Sec-Fetch-Site 가 same-origin 이다(null 이면 머리를 싣지 않는다).
+function navigation(
+  path: string,
+  cookie?: string,
+  fetchSite: string | null = "same-origin",
+): NextRequest {
   const request = new NextRequest(`https://app.example${path}`, {
-    headers: cookie === undefined ? {} : { cookie },
+    headers: {
+      ...(cookie === undefined ? {} : { cookie }),
+      ...(fetchSite === null ? {} : { "Sec-Fetch-Site": fetchSite }),
+    },
   });
   fakeSession.headers = request.headers;
   return request;
@@ -254,6 +262,46 @@ describe("GET /me/kakao-notify/connect", () => {
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/SameSite=lax/i);
     expect(cookie).not.toMatch(/Secure/i);
+  });
+
+  // 보안 검토(중): 다른 사이트가 이 주소로 최상위 이동시켜 끈 연결을 몰래 다시 켜지 못하게 한다.
+  it.each([
+    ["cross-site", "cross-site"],
+    ["same-site(다른 하위 도메인)", "same-site"],
+    ["머리 없음", null],
+  ] as const)(
+    "%s 에서 온 이동은 설정 화면으로(failed), 쿠키·카카오 이동 없음",
+    async (_label, fetchSite) => {
+      signIn();
+      service.startKakaoConnect.mockResolvedValue({
+        kind: "REDIRECT",
+        redirectTo: KAKAO_AUTHORIZE,
+        state: STATE,
+        isSecureCookie: false,
+      });
+      const response = await connect(
+        navigation("/api/v1/me/kakao-notify/connect", undefined, fetchSite),
+      );
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toBe("https://app.example/settings?kakao=failed");
+      expect(setCookieOf(response)).toBe("");
+      expect(service.startKakaoConnect).not.toHaveBeenCalled();
+    },
+  );
+
+  it("주소창·북마크로 직접 연 이동(none)은 카카오로 보낸다", async () => {
+    signIn();
+    service.startKakaoConnect.mockResolvedValue({
+      kind: "REDIRECT",
+      redirectTo: KAKAO_AUTHORIZE,
+      state: STATE,
+      isSecureCookie: false,
+    });
+    const response = await connect(
+      navigation("/api/v1/me/kakao-notify/connect", undefined, "none"),
+    );
+    expect(response.headers.get("location")).toBe(KAKAO_AUTHORIZE);
+    expect(setCookieOf(response)).toContain(`kakao_notify_state=${STATE}`);
   });
 
   it("콜백 주소가 https 면 Secure 쿠키", async () => {

@@ -18,10 +18,15 @@ export type KakaoConnectConfig = {
 
 const valueOf = (env: Env, key: string): string => env[key]?.trim() ?? "";
 
-const isWebUrl = (value: string): boolean => {
+const LOOPBACK_HOSTS: readonly string[] = ["localhost", "127.0.0.1", "[::1]"];
+
+// 콜백 주소는 https 다. http 는 개발에서, 그리고 운영 빌드라도 이 컴퓨터 안(loopback, 로컬 데모 녹화)일 때만 받는다.
+// 운영에서 다른 http 주소면 state 쿠키에 Secure 가 빠지므로 설정이 틀린 것으로 본다(보안 검토 하).
+const isCallbackUrl = (value: string, isProduction: boolean): boolean => {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
+    if (url.protocol === "https:") return true;
+    return url.protocol === "http:" && (!isProduction || LOOPBACK_HOSTS.includes(url.hostname));
   } catch {
     return false;
   }
@@ -42,7 +47,9 @@ export function missingKakaoConnectSettings(env: Env): string[] {
     valueOf(env, "KAKAO_REST_API_KEY") === "" ? "KAKAO_REST_API_KEY" : null,
     valueOf(env, "KAKAO_CLIENT_SECRET") === "" ? "KAKAO_CLIENT_SECRET" : null,
     isTokenKey(valueOf(env, "KAKAO_TOKEN_ENC_KEY")) ? null : "KAKAO_TOKEN_ENC_KEY",
-    isWebUrl(valueOf(env, "KAKAO_REDIRECT_URI")) ? null : "KAKAO_REDIRECT_URI",
+    isCallbackUrl(valueOf(env, "KAKAO_REDIRECT_URI"), valueOf(env, "NODE_ENV") === "production")
+      ? null
+      : "KAKAO_REDIRECT_URI",
   ];
   return problems.filter((name): name is string => name !== null);
 }

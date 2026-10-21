@@ -101,7 +101,7 @@ describe("상태 넷", () => {
     await expect.element(page.getByText("마지막 발송: 아직 없음")).toBeVisible();
   });
 
-  it("연결 만료: 스위치 켬, 경고, 다시 연결", async () => {
+  it("연결 만료: 스위치 켬, 경고, 다시 연결과 연결 해제", async () => {
     render(VIEWS.EXPIRED);
     await expect.element(toggle()).toBeChecked();
     await expect
@@ -110,6 +110,8 @@ describe("상태 넷", () => {
     await expect
       .element(page.getByRole("link", { name: "다시 연결" }))
       .toHaveAttribute("href", "/api/v1/me/kakao-notify/connect");
+    // 보안 검토(하): 다시 연결하지 않을 사람도 저장된 토큰 암호문을 화면에서 지울 수 있어야 한다.
+    await expect.element(page.getByRole("button", { name: "연결 해제" })).toBeVisible();
   });
 });
 
@@ -143,6 +145,14 @@ describe("동작", () => {
     await expect.poll(() => router.refresh.mock.calls.length).toBe(1);
     expect(requestOf().init?.method).toBe("DELETE");
     expect(requestOf().headers.get("X-Requested-With")).toBe("sol-radar");
+    expect(toast.success).toHaveBeenCalledWith("카카오톡 알림 연결을 해제했습니다");
+  });
+
+  it("연결 만료에서도 연결 해제는 DELETE", async () => {
+    render(VIEWS.EXPIRED);
+    await page.getByRole("button", { name: "연결 해제" }).click();
+    await expect.poll(() => router.refresh.mock.calls.length).toBe(1);
+    expect(requestOf().init?.method).toBe("DELETE");
     expect(toast.success).toHaveBeenCalledWith("카카오톡 알림 연결을 해제했습니다");
   });
 

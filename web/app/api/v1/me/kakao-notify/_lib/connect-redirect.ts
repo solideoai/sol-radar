@@ -14,6 +14,15 @@ export function settingsRedirect(request: Request, outcome: KakaoConnectOutcome)
   return response;
 }
 
+// 이 사이트 안의 링크(same-origin)나 주소창·북마크(none)로 연 이동만 연결을 시작한다. 다른 사이트(same-site 하위 도메인 포함)가
+// 최상위 이동으로 /connect 를 열면, 카카오가 동의 화면 없이 돌려보낼 때 꺼 둔 알림이 몰래 다시 켜진다(보안 검토 중 1).
+// 이 머리는 브라우저가 붙이고 페이지 스크립트가 바꿀 수 없다. 머리가 없으면(오래된 브라우저·직접 호출) 막는다.
+const OWN_NAVIGATION_SITES: readonly string[] = ["same-origin", "none"];
+
+/** /connect 를 연 이동이 이 사이트 안에서 시작했는지. */
+export const isOwnNavigation = (request: Request): boolean =>
+  OWN_NAVIGATION_SITES.includes(request.headers.get("Sec-Fetch-Site") ?? "");
+
 const stateCookieOptions = (isSecure: boolean) => ({
   httpOnly: true,
   sameSite: "lax" as const,

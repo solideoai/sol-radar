@@ -167,6 +167,18 @@ export function KakaoNotifySection({
   const isConnected = view.state !== "DISCONNECTED";
   const isChecked = view.state === "ON" || view.state === "EXPIRED";
   const notice = error ?? returnedNotice;
+  // 연결됨·꺼짐과 연결 만료에서 보인다. 만료에서 다시 연결하지 않을 사람도 저장된 토큰을 지울 수 있게 한다.
+  const disconnectButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      className="self-start"
+      disabled={pending !== null}
+      onClick={() => void onDisconnect()}
+    >
+      {pending === "disconnect" ? "해제하는 중…" : "연결 해제"}
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -210,17 +222,7 @@ export function KakaoNotifySection({
             카카오톡 알림 연결
           </a>
         ) : null}
-        {view.state === "OFF" ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="self-start"
-            disabled={pending !== null}
-            onClick={() => void onDisconnect()}
-          >
-            {pending === "disconnect" ? "해제하는 중…" : "연결 해제"}
-          </Button>
-        ) : null}
+        {view.state === "OFF" ? disconnectButton : null}
         {view.state === "ON" ? (
           <Button
             variant="outline"
@@ -233,9 +235,12 @@ export function KakaoNotifySection({
           </Button>
         ) : null}
         {view.state === "EXPIRED" ? (
-          <a href={CONNECT_HREF} className={kakaoLinkClass}>
-            다시 연결
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <a href={CONNECT_HREF} className={kakaoLinkClass}>
+              다시 연결
+            </a>
+            {disconnectButton}
+          </div>
         ) : null}
       </div>
     </div>

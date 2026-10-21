@@ -7873,6 +7873,32 @@ describe("카카오톡 알림 연결 — kakao_notify_links", () => {
     assert.equal(await requestTest(pglite, ME), true);
     assert.equal(await testOutboxCountOf(pglite, ME), 11);
   });
+
+  // ── ⑪ 20261021000004: 상한을 세는 질의가 outbox 전체를 읽지 않는다(보안 검토 하) ──
+  it("⑪ outbox_events_kakao_test_idx 는 (aggregate_id, created_at) 이고 KAKAO_TEST 행만 덮는다", async (t) => {
+    const pglite = await migratedDb(t);
+    const { rows } = await pglite.query(
+      "select tablename, indexdef from pg_indexes where schemaname = 'public' and indexname = 'outbox_events_kakao_test_idx'",
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].tablename, "outbox_events");
+    assert.match(rows[0].indexdef, /\(aggregate_id, created_at\)/);
+    assert.match(rows[0].indexdef, /WHERE \(event_type = 'KAKAO_TEST'::text\)/);
+  });
+
+  it("⑪ request_kakao_notify_test 의 상한 세기 질의는 순차 읽기를 끄면 그 인덱스를 쓴다", async (t) => {
+    const pglite = await migratedDb(t);
+    await seedTestOutbox(pglite, ME, 10, 30);
+    await pglite.query("set enable_seqscan = off");
+    const { rows } = await pglite.query(
+      `explain select count(*) from public.outbox_events o
+       where o.aggregate_id = $1 and o.event_type = 'KAKAO_TEST'
+         and o.created_at > now() - interval '24 hours'`,
+      [ME],
+    );
+    const plan = rows.map((row) => row["QUERY PLAN"]).join("\n");
+    assert.match(plan, /outbox_events_kakao_test_idx/);
+  });
 });
 
 describe("마이그레이션 재실행", () => {
