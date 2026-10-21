@@ -1,0 +1,14 @@
+Failed run: https://github.com/gwanghui97/sol-radar/actions/runs/39595693719
+Commit: cb972ce2b488af56a36c3f6fbf07d49478db8d53
+Common job: 119207305669
+Annotation: The job has exceeded the maximum execution time of 10m0s
+Root tests: 765 passed, 0 failed, duration_ms=576524.56317
+The common job was cancelled before policy validation and project discovery; project was skipped.
+The required-results checker correctly rejected common=cancelled and project=skipped.
+
+Fix: Integrate the already user-approved 21 core database tests, with migrations applied once and an independent PGlite snapshot clone for every test. Other pending test pruning and product changes are not included.
+Workflow limits and required-result criteria are unchanged.
+
+Local reproduction of the CI command: node scripts/verify.mjs --common
+Result: exit 0, 502 root tests passed, 0 failed, 0 skipped, 24.41 seconds including formatting, tokens, colors, and DB types.
+Log: 20261021-ci-common-verify.txt
