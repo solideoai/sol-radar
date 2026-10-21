@@ -1,0 +1,7 @@
+# $ curl -s -w 'http %{http_code}' http://localhost:3216/health/ready — 2026-10-21 11:46:29 KST · 커밋 4e62170
+{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"mock"}}
+http 200
+
+$ curl -s -w 'http %{http_code}' http://localhost:3216/health/live
+{"status":"ok"}
+http 200

@@ -199,7 +199,7 @@ fi
 PARITY_EXIT="-"
 if [ "$PKG" = yes ] && [ "$PARITY" = 1 ]; then
   set +e
-  "$PY" -m sol_decision.parity --package "$OUT" --data "$SOL_TRAIN_DATA" --n 8 > "$OUT.parity.log" 2>&1
+  "$PY" -m sol_decision.parity --package "$OUT" --data "$SOL_TRAIN_DATA" --n 8 --device cuda --bf16 > "$OUT.parity.log" 2>&1
   PARITY_EXIT=$?
   set -e
   tail -n 5 "$OUT.parity.log" | sed 's/^/     parity: /'
