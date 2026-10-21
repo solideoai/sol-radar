@@ -1,5 +1,4 @@
 import { cn } from "cn";
-import { InboxIcon } from "lucide-react";
 import Link from "next/link";
 import { BidTable } from "@/components/bids/bid-table";
 import { formatRelative } from "@/components/bids/format";
@@ -7,7 +6,7 @@ import { StatCard } from "@/components/stat-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { BidListItem, DashboardSummary } from "@/server/bids";
-import { EmptyState, NO_BIDS_HINT, NO_BIDS_TITLE } from "@/app/(app)/(work)/empty-state";
+import { NoBidsEmptyState } from "@/app/(app)/(work)/empty-state";
 import { DashboardAiBanner } from "./dashboard-ai-banner";
 
 // /dashboard 본문(스펙 §5.2). 데이터를 읽지 않고 page.tsx 가 서버에서 읽은 값만 그린다.
@@ -27,8 +26,8 @@ type DashboardViewProps = {
   deadline: BidListItem[];
   /** 서버가 요청마다 한 번 만든 시각. 상대 시각·D-n 의 기준이다. */
   now: Date;
-  /** 공고 0건 안내에 "관리자에게 수집을 요청하세요"를 붙일지(ADMIN). */
-  showIngestHint: boolean;
+  /** 공고 0건 빈 상태에 [수집 실행] 단추를 둘지(ADMIN). 아니면 "관리자에게 수집을 요청하세요"를 보인다. */
+  canRunIngestion: boolean;
 };
 
 const EMPTY = "—";
@@ -148,18 +147,14 @@ export function DashboardView({
   recommendedTotal,
   deadline,
   now,
-  showIngestHint,
+  canRunIngestion,
 }: DashboardViewProps) {
   return (
     <>
       <DashboardAiBanner />
       <SummaryCards summary={summary} recommendedTotal={recommendedTotal} now={now} />
       {summary.bids.total === 0 ? (
-        <EmptyState
-          icon={InboxIcon}
-          title={NO_BIDS_TITLE}
-          description={showIngestHint ? NO_BIDS_HINT : undefined}
-        />
+        <NoBidsEmptyState canRun={canRunIngestion} />
       ) : (
         <div className="flex flex-col gap-6">
           <BidTableCard
