@@ -7,7 +7,7 @@ tags:
   - ai
   - decision
   - plan
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 결정 모델 Kev-9B → Bosun v3.1 0.6B, 추출 모델 Qwen3.5-9B → Qwen3-4B-Instruct-2507 — 분석과 변경 계획 (ADR-034 초안)
@@ -489,7 +489,7 @@ grep(`kev|Kev|KEV|Qwen3\.5`) 결과 288파일. 처리 코드: **A** 로직 변�
 |---|---|---|---|---|
 | **B0 결정** | 10-20~21 | 이 문서 검토, Q1~Q7 결정, ADR-034 채택 여부 | 사용자 결정 기록 → 16 ADR-034·미결정 갱신, GPU 1 공유 정정(§8 표의 문서 9곳) | 사용자·우리 |
 | **B1 코드(노트북)** | 10-21~22 | 레지스트리·settings·`local_setup`(§6.1), `services/decision` 서버+테스트(§6.2), `sol_eval` `--format bosun`·`bosun_score`·`leakage`, 문구 중립화(§6.4), env 예시·infra 스크립트 개명(§6.3), 테스트 갱신(§6.6) | `pnpm verify` 초록, `uv run pytest` 초록, `kev-no-override`·`review.independent` **무수정 통과**, mock 모드 Compose 기동 + FX-01~03·16 의 점수·판정·플래그가 goldens 와 동일(설명 문장만 `explanation.ts` 변경에 맞춰 갱신), fake Bosun 서버로 게이트웨이 `/kev` 계약 테스트(`/v1/models` 대조·422·wire 변환·24묶음) | ai-gateway·backend·frontend·test 에이전트 |
-| **B2 서버 준비(회사)** | 10-21~23(venv·다운로드·preflight 10-21~22, `sol_decision` 기동은 B1 뒤 10-22~23) | `.venv-bosun` 에 핀 설치(`uv pip install --dry-run` 뒤), Bosun·Qwen3-0.6B 백본 다운로드 + sha256 대조, `bosun-preflight.sh` 통과, `sol_decision.serve`(8009) 기동(GPU 1, PaddleOCR 공존, **사용자 승인 뒤**), 라우터 그대로. 회사 Qwen3.5-27B API 는 키 수령·`GET /v1/models` id·guided JSON·`prompt_logprobs` 확인만(개정 §0.2) | 서버 안 `curl 127.0.0.1:8080/sol-radar/{qwen,kev}/v1/models`; 밖에서 C1 ③ G1~G6 재실행(`/healthz` 200, 무인증 401/403, 게이트웨이 `registryMatch: true`, guided JSON G4, p50/p95 G3). 증거 `docs/evidence/phase-5/endpoint-bosun-<일시>.md` | 회사 실행, 우리 확인 |
+| **B2 서버 준비(회사)** | 10-21~23(venv·다운로드·preflight 10-21~22, `sol_decision` 기동은 B1 뒤 10-22~23) | `.venv-bosun` 에 핀 설치(`uv pip install --dry-run` 뒤), Bosun·Qwen3-0.6B 백본 다운로드 + sha256 대조, `bosun-preflight.sh` 통과, `sol_decision.serve`(8009) 기동(GPU 1, PaddleOCR 공존, **사용자 승인 뒤**, 그리고 **3e 보안 검토 M1 — state 24,000자·본문 128 KiB·`DECISION_MAX_QUEUE` 503·마감 뒤 즉시 504 — 가 main 에 들어간 뒤에만**. 12 지시 2026-10-21. `fix/decision-hardening` 이 M1·L1(한글 state 422)·L2(학습기·parity·`bosun_score` 가 `verify_package` 뒤에만 `trust_remote_code` 로드)·L3(`probe-qwen-api.py` 허용 호스트 검사)를 담는다), 라우터 그대로. `.venv-bosun` 은 `uv sync --frozen --extra model` 로 바꾸지 않는다(`uv.lock` 의 torch 2.14.1 ≠ 서버 2.8.0+cu128) — `pip install -e . --no-deps` 로만 올린다. 회사 Qwen3.5-27B API 는 키 수령·`GET /v1/models` id·guided JSON·`prompt_logprobs` 확인만(개정 §0.2) | 서버 안 `curl 127.0.0.1:8080/sol-radar/{qwen,kev}/v1/models`; 밖에서 C1 ③ G1~G6 재실행(`/healthz` 200, 무인증 401/403, 게이트웨이 `registryMatch: true`, guided JSON G4, p50/p95 G3). 증거 `docs/evidence/phase-5/endpoint-bosun-<일시>.md` | 회사 실행, 우리 확인 |
 | **B3 데이터·하네스** | 10-22~23 | 번들 `sol-dataset-v0.1.tar`(`bosun/` 레코드, manifest, leakage 리포트), 요청서(22 §6 개정판), `bosun_score` 를 가짜 출력으로 시험, EX0·E1'·E3 기준선을 노트북에서 엔드포인트로 측정 | train ≥ 1,000행, 누수 0, 선택지 ≥ 5%; EX0/E1'/E3 리포트 `docs/evidence/eval/` | fixture·pipeline·test 에이전트, 사용자 라벨 |
 | **B4 주말 학습(회사)** | 10-24(토) | **F1** `bosun-f1.sh --max_steps 20`(메모리·step 시간) → PASS 면 **F2** 학습(`sol_decision.train`, 에폭·seed 순열) → 패키지 저장·재로딩 확인 | `runs/f1-results.md`, `train.log`, 메모리 최대값 < 예산, 재로딩 후 `predict` 동작. 18:00 KST 까지 F2 미시작이면 보고(23 중단선 유지) | 회사 |
 | **B5 채점(회사→우리)** | 10-25(일) | 서버 안 `sol_eval.bosun_score` 로 E4·E1' × test·dev(seed 0~5) → 출력 폴더 전송. Qwen 학습 없음(개정 §0.2) | 우리: manifest sha256 대조 → 지표·짝 부트스트랩 Δ 95% CI → `docs/evidence/eval/e4-<일시>.md`, 레지스트리 `bosun-sol-lora-v0.1.reports` | 회사·우리 |

@@ -90,3 +90,30 @@ def test_bosun_without_model_dependencies_refuses(monkeypatch, tmp_path, capsys)
     monkeypatch.setattr(builtins, "__import__", no_torch)
     assert serve.main(["--backend", "bosun", "--package", str(make_package(tmp_path))]) == 78
     assert "MODEL_DEPENDENCIES_MISSING" in capsys.readouterr().err
+
+
+def test_queue_and_ko_state_settings_reach_server_config(monkeypatch, tmp_path):
+    monkeypatch.setenv("DECISION_API_KEY", "k")
+    monkeypatch.setenv("DECISION_MAX_QUEUE", "2")
+    monkeypatch.setenv("DECISION_ALLOW_KO_STATE", "true")
+    captured = {}
+
+    def fake_create_app(backend, config, **_):
+        captured["config"] = config
+        return object()
+
+    monkeypatch.setattr(serve, "create_app", fake_create_app)
+    monkeypatch.setattr(serve.uvicorn, "run", lambda app, **kwargs: None)
+    assert serve.main(["--backend", "fake", "--package", str(make_package(tmp_path))]) == 0
+    assert (captured["config"].max_queue, captured["config"].allow_ko_state) == (2, True)
+
+
+def test_queue_and_ko_state_defaults_are_safe(monkeypatch, tmp_path):
+    monkeypatch.setenv("DECISION_API_KEY", "k")
+    captured = {}
+    monkeypatch.setattr(
+        serve, "create_app", lambda backend, config, **_: captured.setdefault("config", config)
+    )
+    monkeypatch.setattr(serve.uvicorn, "run", lambda app, **kwargs: None)
+    assert serve.main(["--backend", "fake", "--package", str(make_package(tmp_path))]) == 0
+    assert (captured["config"].max_queue, captured["config"].allow_ko_state) == (4, False)

@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     DECISION_API_KEY: SecretStr | None = None
     # 요청 하나(질문 전부)의 마감. 넘으면 504
     DECISION_TIMEOUT_MS: PositiveInt = 4_500
+    # 추론 스레드에 넘겼고 아직 끝나지 않은 요청(처리 중 1 + 대기)의 상한. 차면 503 QUEUE_FULL
+    DECISION_MAX_QUEUE: PositiveInt = 4
+    # 평가 전용(게이트웨이 KEV_ALLOW_KO_STATE 와 짝). true 면 state 의 한글을 422 로 거절하지 않는다
+    DECISION_ALLOW_KO_STATE: bool = False
     # /v1/models 의 run·revision·base. 비우면 패키지 config.json 과 공개 Bosun 값(package.PUBLIC_*)을 쓴다.
     # 학습본 패키지를 올릴 때 run(예: bosun-sol-lora-v0.1)·revision 을 여기로 준다
     DECISION_RUN: str | None = None

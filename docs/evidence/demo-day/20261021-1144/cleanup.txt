@@ -1,0 +1,11 @@
+# C9 2차 리허설 정리 (2026-10-21, 메인 세션 sol-radar-54)
+
+1. web `next start -p 3216` 백그라운드 작업을 멈췄다. 3216 LISTEN 없음 확인.
+2. docker compose -p sol-radar-c9-54 -f infra/compose.yaml down -v
+   → 컨테이너 5개(redis·minio·qdrant·ai-gateway·worker), 볼륨 3개(redisdata·miniodata·qdrantdata), 네트워크 삭제.
+3. supabase stop --workdir <scratchpad>/sbc9 --no-backup
+   → {"project_id_filter":"sol-radar-c9-54","backup":false,"message":"Stopped supabase local development setup."}
+4. 남은 것 확인: `docker ps -a` 의 c9-54 컨테이너 0, `docker volume ls` 의 c9-54 볼륨 0.
+5. 일회용 env 파일 세 개(infra·web·루트, gitignore 대상)는 리허설 worktree 를 지울 때 함께 지운다.
+
+다른 Compose 프로젝트(sol-radar-stack 등)와 공용 Supabase(54321)는 건드리지 않았다.
