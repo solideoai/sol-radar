@@ -15,6 +15,10 @@ from sol_eval.bosun_score import (
     BACKEND_BOSUN,
     BACKEND_FAKE,
     DEFAULT_SEEDS,
+    DEVICE_AUTO,
+    DEVICE_CHOICES,
+    DTYPE_AUTO,
+    DTYPE_CHOICES,
     SUITE_FORMAT_DECISIONBENCH,
     SUITE_FORMATS,
     ScoreInputError,
@@ -139,6 +143,8 @@ def cmd_bosun_score(args: argparse.Namespace) -> int:
         backend=args.backend,
         package_dir=resolve(args.package) if args.package else None,
         suite_format=args.suite_format if args.suite else None,
+        device=args.device,
+        dtype=args.dtype,
     )
     report = score(options)
     shown = {k: v for k, v in report.items() if k != "metrics"}
@@ -277,6 +283,18 @@ def parser() -> argparse.ArgumentParser:
     )
     bs.add_argument("--suite", help="외부 보조 평가 JSONL(ADR-034 9번). 라이선스 확인 뒤에만 실행")
     bs.add_argument("--suite-format", default=SUITE_FORMAT_DECISIONBENCH, choices=SUITE_FORMATS)
+    bs.add_argument(
+        "--device",
+        default=DEVICE_AUTO,
+        choices=DEVICE_CHOICES,
+        help="auto(기본, CUDA 가 있으면 cuda)·cpu·cuda. services/decision CLI 와 같다",
+    )
+    bs.add_argument(
+        "--dtype",
+        default=DTYPE_AUTO,
+        choices=DTYPE_CHOICES,
+        help="auto(기본, cuda 는 bf16·cpu 는 fp32)·fp32·bf16",
+    )
     bs.set_defaults(func=cmd_bosun_score)
 
     cp = sub.add_parser("compare", help="두 bosun_score 출력의 짝 부트스트랩 Δ·95%% CI")
