@@ -383,3 +383,7 @@ Storage PR의 E2E 서버 역할 누락과 main의 솔리데오 제목 변경 뒤
 ## Qwen 실제 모델 ID 정정 (2026-10-21)
 
 회사 API 실응답에서 `Qwen3.8-Flash-Next-AWQ-INT4`를 확인하고 사용자 지시에 따라 레지스트리·환경 예시·probe 사용법·AI/Web 시험 데이터·현재 기동/시연 문서에 반영했다. Bearer 인증 `/models` 200(125ms), 짧은 guided JSON 추론200(253ms)·`{"ok": true}`를 확인했다. [실연결 증거](evidence/phase-5/qwen-probe-20261021-2343.json). 전체 추출·Bosun·앱 실분석·배포는 이번 검증에 포함하지 않았다. `pnpm verify:changed` 통과: 웹365·AI101·결정57, 타입·린트·계층·서식 검사 포함([검증 로그](evidence/phase-5/qwen-model-id-20261021-verify-changed.txt)). 전체 `pnpm verify`·빌드·E2E는 미실행이다.
+
+### Qwen 모델 ID main 통합 검증
+
+사용자 요청으로 `ea2bf01`을 main에 fast-forward 병합했다. 진행 기록의 추가 위치를 분리한 뒤 충돌0, 기존 미커밋29파일·미추적27파일을 보존했다. 로컬 `infra/.env`의 `QWEN_MODEL`도 실제 served id로 맞췄고 다른 설정값은 보존했다. 커밋 게이트 최초 실패(증거 JSON 서식)는 formatter로 수정 후 재통과했다. 기존 작업을 복원한 main 작업 폴더에서 전체 `pnpm verify` exit0: 루트187·웹367·AI101·결정57·Next 빌드·타입·린트·계층·생성물 검사 통과. E2E·push·배포는 실행하지 않았다. [통합 요약](evidence/phase-5/qwen-model-id-20261021-main-integration.json)·[전체 검증 로그](evidence/phase-5/qwen-model-id-20261021-main-verify.txt).

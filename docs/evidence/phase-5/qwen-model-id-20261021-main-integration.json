@@ -1,0 +1,27 @@
+{
+  "mainBefore": "1432aa9f618e3cdebff279a3ad4c5378be6c1dec",
+  "mainAfter": "ea2bf015579eed38529a9564b7f116844418e1d4",
+  "merge": "fast-forward",
+  "conflicts": 0,
+  "preservedTrackedFiles": 29,
+  "preservedUntrackedFiles": 27,
+  "verifiedAt": "2026-10-21T14:58:59.626129+00:00",
+  "verification": {
+    "command": "pnpm verify",
+    "exitCode": 0,
+    "rootTests": 187,
+    "webTests": 367,
+    "aiTests": 101,
+    "decisionTests": 57,
+    "nextBuild": "passed",
+    "scope": "main working tree including preserved pre-existing changes",
+    "e2e": "not run"
+  },
+  "commitGate": {
+    "initial": "blocked by probe evidence JSON formatting",
+    "retry": "passed after formatting"
+  },
+  "localQwenModel": "Qwen3.8-Flash-Next-AWQ-INT4",
+  "remotePush": false,
+  "deployment": false
+}
