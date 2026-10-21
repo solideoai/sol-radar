@@ -1,0 +1,28 @@
+# CLI uploads must exclude local credentials and agent scratch independently of git.
+.superpowers/
+**/.superpowers/
+.env*
+**/.env*
+**/*.pem
+**/*.key
+**/*.p12
+.claude/
+.agents/
+.codex/
+.github/
+.husky/
+.playwright-mcp/
+**/.auth/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/coverage/
+**/playwright-report/
+**/test-results/
+**/*.tsbuildinfo
+
+# Design sources and runtime fixtures remain available to the service builds.
+docs/
+polaris/
+datasets/
