@@ -1,7 +1,6 @@
 import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 
-// 질문과 답은 요청 문구 그대로다. 실제 연동 범위처럼 개발 상태에 따라 바뀌는 답은 상태가 바뀌면 같이 고친다.
 const FAQS = [
   {
     question: "어떤 기업을 위한 서비스인가요?",
@@ -23,8 +22,7 @@ const FAQS = [
   },
   {
     question: "어떤 데이터를 활용하나요?",
-    answer:
-      "공식 API로 수집하는 공공사업 정보와 사용자가 등록한 기업 정보를 활용하도록 설계하고 있습니다. 실제 연동 범위는 개발 상태에 맞춰 안내합니다.",
+    answer: "공식 API로 수집한 공공사업 정보와 사용자가 등록한 기업 정보를 활용합니다.",
   },
 ];
 

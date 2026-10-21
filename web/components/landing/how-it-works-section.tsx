@@ -34,7 +34,6 @@ export function HowItWorksSection() {
           <SectionHeading
             id="analysis-title"
             title="기업 정보를 등록하면, 검토할 사업이 명확해집니다."
-            description="SOL RADAR MVP에서 만들고 있는 검토 흐름입니다. 아직 이용할 수 없습니다."
           />
         </Reveal>
         {/* 공공 문서의 업무 흐름도처럼 한 줄 띠로 잇는다. 시작은 2px 검정 선, 칸 사이는 가는 선이다. */}

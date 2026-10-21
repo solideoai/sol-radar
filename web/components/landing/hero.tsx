@@ -1,5 +1,4 @@
 import { cn } from "cn";
-import { InfoIcon } from "lucide-react";
 import Link from "next/link";
 import { DEMO_HREF } from "@/components/landing/landing-links";
 import { buttonVariants } from "@/components/ui/button";
@@ -34,11 +33,6 @@ export function Hero({ startHref }: { startHref: string }) {
             분석 예시 보기
           </Link>
         </div>
-        {/* 시작하기 바로 곁에서 지금 쓸 수 있는 범위를 밝힌다. 맨 아래 CTA 의 안내만으로는 첫 화면에서 보이지 않는다. */}
-        <p role="note" className="mt-4 flex items-center gap-2 type-ui-lg text-muted-foreground">
-          <InfoIcon aria-hidden className="size-5 shrink-0 text-brand" />
-          MVP 개발 중 · 지금은 계정 만들기와 로그인만 이용할 수 있습니다.
-        </p>
       </div>
     </section>
   );

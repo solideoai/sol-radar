@@ -74,11 +74,6 @@ export function DemoBadge({ className }: { className?: string }) {
   );
 }
 
-// 아직 만들지 않은 기능에 붙인다. 이용할 수 있는 것처럼 보이지 않게 한다.
-export function PlannedBadge() {
-  return <span className={cn(BADGE, "border-border text-muted-foreground")}>개발 예정</span>;
-}
-
 // 판단 옆에 붙이는 공고문 인용. 낫표는 글자로 그린다 — 연한 바탕색만으로 인용임을 전하지 않는다.
 // 쪽수는 줄지 않게 두고, 긴 인용은 쪽수 옆 칸 안에서 줄을 바꾼다.
 export function EvidenceQuote({ evidence }: { evidence: Evidence }) {

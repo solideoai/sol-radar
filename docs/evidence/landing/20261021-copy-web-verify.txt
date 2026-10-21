@@ -1,0 +1,55 @@
+
+> sol-radar-web@0.1.0 verify:quick /private/tmp/sol-radar-landing-copy-20261021/web
+> pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors
+
+
+> sol-radar-web@0.1.0 format:check /private/tmp/sol-radar-landing-copy-20261021/web
+> prettier --check . --ignore-path ../.gitignore --ignore-path ../.prettierignore
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar-web@0.1.0 type-check /private/tmp/sol-radar-landing-copy-20261021/web
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> sol-radar-web@0.1.0 lint /private/tmp/sol-radar-landing-copy-20261021/web
+> eslint
+
+
+> sol-radar-web@0.1.0 check:lint-guards /private/tmp/sol-radar-landing-copy-20261021/web
+> node ../scripts/check-lint-guards.mjs
+
+✓ 린트 가드레일 유지 — 주석·any·@ts-ignore·.only·.skip 으로 검사를 끌 수 없습니다
+
+> sol-radar-web@0.1.0 test /private/tmp/sol-radar-landing-copy-20261021/web
+> vitest run
+
+
+ RUN  v4.1.11 /private/tmp/sol-radar-landing-copy-20261021/web
+
+
+ Test Files  219 passed (219)
+      Tests  6830 passed (6830)
+   Start at  20:53:16
+   Duration  24.57s (transform 17.18s, setup 0ms, import 82.14s, tests 76.00s, environment 51ms)
+
+
+> sol-radar-web@0.1.0 lodestar /private/tmp/sol-radar-landing-copy-20261021/web
+> lodestar check
+
+  [32m✓[0m architecture/layers  [2m727 files, 7 layers[0m  [2m271ms[0m
+  [32m✓[0m architecture/no-circular  [2m798 modules[0m  [2m277ms[0m
+  2 rules passed, 0 errors, 0 warnings [2m(278ms)[0m
+
+> sol-radar-web@0.1.0 check:tokens /private/tmp/sol-radar-landing-copy-20261021/web
+> node ../scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar-web@0.1.0 check:colors /private/tmp/sol-radar-landing-copy-20261021/web
+> bash ../scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용

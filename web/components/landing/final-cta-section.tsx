@@ -1,11 +1,9 @@
 import { cn } from "cn";
-import { InfoIcon } from "lucide-react";
 import Link from "next/link";
 import { DEMO_HREF } from "@/components/landing/landing-links";
 import { Reveal } from "@/components/landing/reveal";
 import { buttonVariants } from "@/components/ui/button";
 
-// 마지막 권유. 지금 이용할 수 있는 것(계정)과 개발 중인 것(공고 분석)을 나눠 밝힌다.
 // 화면 폭 회색 띠는 히어로 아래 제품 화면 무대와 같은 재료다 — 처음과 끝이 맞물린다. 카드로 감싸지 않는다.
 export function FinalCtaSection({ startHref }: { startHref: string }) {
   return (
@@ -34,11 +32,6 @@ export function FinalCtaSection({ startHref }: { startHref: string }) {
               분석 예시 보기
             </Link>
           </div>
-          <p role="note" className="mt-6 flex items-center gap-2 type-ui-lg text-foreground/80">
-            <InfoIcon aria-hidden className="size-5 shrink-0 text-brand" />
-            SOL RADAR는 MVP를 개발하고 있습니다. 지금은 계정 만들기와 로그인을 이용할 수 있고, 공고
-            분석 기능은 개발 중입니다.
-          </p>
         </Reveal>
       </div>
     </section>

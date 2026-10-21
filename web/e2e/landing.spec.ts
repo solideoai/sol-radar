@@ -21,7 +21,7 @@ test("제목과 설명 메타데이터가 SOL RADAR 의 것이다", async ({ pag
   );
 });
 
-test("히어로에 제목·설명·두 버튼·안내가 있고, 시작하기는 가입 화면으로 간다", async ({ page }) => {
+test("히어로에 제목·설명·두 버튼이 있고, 시작하기는 가입 화면으로 간다", async ({ page }) => {
   await page.goto("/");
   const hero = heroOf(page);
   await expect(
@@ -32,8 +32,7 @@ test("히어로에 제목·설명·두 버튼·안내가 있고, 시작하기는
   );
   await expect(hero.getByText(/참가 자격, 사업 적합도, 추가 확인 사항을 한눈에/)).toBeVisible();
   await expect(hero.getByRole("listitem")).toHaveCount(0);
-  // 시작하기 곁에서 개발 중임을 밝힌다. 공고 분석을 지금 쓸 수 있는 것처럼 읽히지 않게 한다.
-  await expect(hero.getByRole("note")).toHaveText(/MVP 개발 중.*계정 만들기와 로그인만/);
+  await expect(page.getByText(/MVP|개발 중|개발 예정|로그인만 이용/)).toHaveCount(0);
   await expect(hero.getByRole("link", { name: "분석 예시 보기" })).toHaveAttribute(
     "href",
     "/#demo",
