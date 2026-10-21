@@ -14,6 +14,12 @@ updated: 2026-10-21
 - 사용자 요청으로 루트 `vercel.json`에 `web`(전체 공개 경로)·`ai`(내부 전용), `web → ai`의 `AI_GATEWAY_URL` 바인딩을 구성했다. 기존 웹 코드는 같은 변수를 요청 시점에 읽는다. AI ASGI 진입점과 공용 데이터 번들링 빌드를 추가했다. `eval`은 CLI로, `decision`·worker·Redis·MinIO·Qdrant는 기존 외부 환경으로 유지한다. 외부 worker는 Compose AI gateway를 계속 쓴다. 사용자가 구성 제시 뒤 커밋·푸시를 요청했다.
 - 검증: 공식 Vercel schema 오류 0, `pnpm verify:changed` 통과(루트 163·웹 286·AI 101·decision 57), CLI 65.0.0 `vercel dev -L` 별도 복사본 smoke(첫 화면 200·API 인증 401·내부 AI 상태 `mock`), 웹 프로덕션 빌드 통과. DB·Redis·MinIO를 연결하지 않은 smoke라 `/health/ready` 전체는 503이다. 커밋 전 최신 원격 `main`(`cb972ce`) 기준 별도 작업 폴더에서 전체 `pnpm verify`도 통과했다(루트 765·웹 6,830·AI 1,512·decision 152, 웹 빌드 포함, [로그](evidence/vercel/20261021-commit-verify.txt)). 로그인 E2E·클라우드 배포는 미실행. 최초 임시 검증 실패와 재검증 근거는 [증거](evidence/vercel/20261021-configuration.md)에 기록했다. 구성·환경변수 안내는 [[10-DEPLOYMENT|10 배포]]의 Vercel 절이다.
 
+## CI 프로젝트 준비 단계 수정 (2026-10-21)
+
+공통 검증을 단축한 `5efb9fa`의 [Actions 실행](https://github.com/gwanghui97/sol-radar/actions/runs/39598452427)에서 `common`은 1분 43초에 통과했다. 이후 결정 서버는 `uv` 설치 대상에서 빠져 `spawnSync uv ENOENT`, 웹은 루트 의존성 설치 없이 루트 DB 시험 도구를 불러 `@electric-sql/pglite` 모듈 누락으로 실패했다. CI에 결정 서버의 uv 준비와 웹 작업의 루트 의존성 설치를 추가했다.
+
+사용자의 명시 지시로 `.github/` 편집 금지를 설정·지침·가드 무결성 검사에서 해제했다. 다른 편집 제한과 필수 검사·훅은 유지한다. 변경된 권한 정책의 실패를 먼저 확인한 뒤 가드 무결성 27개와 공통 검증 502개를 통과했다. 공통 명령은 21.51초에 완료됐다. [검증 로그](evidence/verification/20261021-ci-setup-verify.txt).
+
 ## CI 공통 검증 시간 초과 수정 (2026-10-21)
 
 랜딩 커밋 `cb972ce`의 [Actions 실행](https://github.com/gwanghui97/sol-radar/actions/runs/39595693719)은 `common`의 10분 제한을 초과했다. 루트 시험 765개는 모두 통과했지만 576.5초를 사용해 후속 DB 타입 검사 직후 취소됐고, 프로젝트 탐색에 도달하지 못해 `project`도 건너뛰었다. `ci-required.mjs`의 실패 판정은 정상이다.

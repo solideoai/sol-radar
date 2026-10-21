@@ -14,8 +14,7 @@
       "Edit(/.claude/settings.json)",
       "Edit(/.claude/settings.local.json)",
       "Edit(/.claude/hooks/**)",
-      "Edit(/web/lodestar.config.*)",
-      "Edit(/.github/**)"
+      "Edit(/web/lodestar.config.*)"
     ],
     "allow": [
       "Bash(pnpm test *)",

@@ -93,7 +93,7 @@ E2E 브라우저 설치는 하지 않습니다. 브라우저가 없으면 E2E �
   템플릿 CRUD·인력/사진 생성·fixture 전수 변형·기타 도구 회귀를 일괄 복구하지 않는다. 현재 범위와 실제 삭제 목록은
   `docs/evidence/verification/20261021-pruned-tests.json`, 검증 기준은 [[../11-TESTING|11 테스트]] "현재 MVP 자동 시험"이 정본이다.
 - **게이트 파일 편집 금지** — 클로드는 검증이 기대는 파일을 고치지 못합니다(`.claude/settings.json` 의 `deny`):
-  `.husky/`, `.claude/settings*.json`·`.claude/hooks/`, `.github/`, `web/lodestar.config.*`. 검사를 고쳐 초록불을 만드는 길을 막기 위해서이고,
+  `.husky/`, `.claude/settings*.json`·`.claude/hooks/`, `web/lodestar.config.*`. `.github/` 편집 금지는 2026-10-21 사용자 지시로 해제했다. CI 필수 검사 자체는 유지한다. 검사를 고쳐 초록불을 만드는 길을 막기 위해서이고,
   권한 모드와 상관없이(`bypassPermissions` 에서도) 묻지 않고 막습니다. `package.json`·`.npmrc`·`verify.config.json`·`scripts/`·`eslint.config.*` 는
   막지 않습니다. 이 파일들에서 검사를 빼거나 약하게 만드는 수정은 `scripts/gate-integrity.test.mjs`·`check:lint-guards`·커밋 때의 `pnpm test` 가 잡습니다.
   고쳐야 하면 **사람이 해당 `deny` 줄을 잠시 지우고** 작업한 뒤

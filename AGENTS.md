@@ -110,7 +110,7 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 검사가 막으면 원인을 고친다. 끄거나 돌아가지 않는다. 장치마다의 상세와 CI 구성은 `docs/boilerplate/guardrails.md` 가 정본이다.
 
 - **커밋 게이트**(`.husky/`): 검사는 작업 폴더를 읽는다. 파일은 통째로 스테이징한다.
-- **편집 금지 파일**(`.claude/settings.json` 의 `deny`): `.husky/`·`.claude/settings*.json`·`.claude/hooks/`·`.github/`·`web/lodestar.config.*`.
+- **편집 금지 파일**(`.claude/settings.json` 의 `deny`): `.husky/`·`.claude/settings*.json`·`.claude/hooks/`·`web/lodestar.config.*`. `.github/`는 2026-10-21 사용자 지시로 편집 금지를 해제했다. CI 필수 검사와 훅은 유지한다.
   막히면 다른 길(스크립트로 파일 쓰기 등)로 돌아가지 말고 사용자에게 알린다.
 - **약하게 만들지 않는 파일**: `package.json`·`.npmrc`·`verify.config.json`·`scripts/`·`eslint.config.*` 는 고칠 수 있지만, 검사를 빼거나 약하게 만들지 않는다.
 - **린트·계층**: 검사를 끄는 길이 없다(`eslint-disable`·`any`·`@ts-ignore`·테스트 `.only`·`.skip`). 도메인은 배럴로만, 부모 상대경로(`../`) 대신 `@/`,
