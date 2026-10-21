@@ -1,12 +1,12 @@
 "use client";
 
-import { InboxIcon, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { BidFilters } from "@/components/bids/bid-filters";
 import { Button } from "@/components/ui/button";
 import type { BidListItem } from "@/server/bids";
-import { EmptyState, NO_BIDS_HINT, NO_BIDS_TITLE } from "@/app/(app)/(work)/empty-state";
+import { EmptyState, NoBidsEmptyState } from "@/app/(app)/(work)/empty-state";
 import { BidListMore } from "./bid-list-more";
 
 // /bids 본문: 필터 막대 → 결과 줄 → 표 → 더 보기(스펙 §5.3 정보 위계).
@@ -19,8 +19,8 @@ type BidListViewProps = {
   /** 목록 조건(cursor 없는 쿼리 문자열). 비었으면 조건 없는 기본 목록이다. */
   query: string;
   now: string;
-  /** 공고 0건 안내에 "관리자에게 수집을 요청하세요"를 붙일지(ADMIN). */
-  showIngestHint: boolean;
+  /** 조건 없는 0건 빈 상태에 [수집 실행] 단추를 둘지(ADMIN). 아니면 "관리자에게 수집을 요청하세요"를 보인다. */
+  canRunIngestion: boolean;
 };
 
 export function BidListView({
@@ -29,7 +29,7 @@ export function BidListView({
   nextCursor,
   query,
   now,
-  showIngestHint,
+  canRunIngestion,
 }: BidListViewProps) {
   const router = useRouter();
   const [isNavigating, startTransition] = useTransition();
@@ -37,11 +37,7 @@ export function BidListView({
 
   const empty =
     query === "" ? (
-      <EmptyState
-        icon={InboxIcon}
-        title={NO_BIDS_TITLE}
-        description={showIngestHint ? NO_BIDS_HINT : undefined}
-      />
+      <NoBidsEmptyState canRun={canRunIngestion} />
     ) : (
       <EmptyState
         icon={SearchIcon}
