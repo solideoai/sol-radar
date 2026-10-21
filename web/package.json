@@ -22,6 +22,7 @@
     "test:e2e:auth": "node ../scripts/db-seed.mjs && playwright test -c playwright.auth.config.ts",
     "test:e2e:work": "playwright test -c playwright.work.config.ts",
     "test:e2e:ingestion": "playwright test -c playwright.ingestion.config.ts",
+    "test:e2e:s5": "playwright test -c playwright.s5.config.ts",
     "test:browser": "vitest run --config vitest.browser.config.ts",
     "worker": "node --conditions=react-server --import tsx worker/main.ts",
     "worker:check": "node --conditions=react-server --import tsx worker/main.ts --check",
