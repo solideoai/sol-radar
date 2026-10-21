@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-10-21T14:43:01.542997+00:00",
+  "endpoint": "https://acropolissg.com/vllm/v1",
+  "configuredModel": "Qwen/Qwen3.8-Flash-Next",
+  "keyConfigured": true,
+  "models": {
+    "status": 200,
+    "error": null,
+    "latencyMs": 125,
+    "ids": ["Qwen3.8-Flash-Next-AWQ-INT4"],
+    "maxModelLen": {
+      "Qwen3.8-Flash-Next-AWQ-INT4": 256000
+    },
+    "hasRequestedModel": false
+  },
+  "inferenceCheckedAt": "2026-10-21T14:43:33.664211+00:00",
+  "requestedModel": "Qwen3.8-Flash-Next-AWQ-INT4",
+  "chatCompletions": {
+    "status": 200,
+    "error": null,
+    "latencyMs": 253,
+    "guidedJson": "supported",
+    "contentConformsToSchema": true,
+    "contentChars": 12,
+    "validatedContent": {
+      "ok": true
+    }
+  },
+  "applicationConfigurationChanged": false,
+  "requestsMade": {
+    "models": 1,
+    "chatCompletions": 1
+  },
+  "repositoryConfiguration": {
+    "registryRun": "Qwen3.8-Flash-Next-AWQ-INT4",
+    "matchesObservedModel": true,
+    "logicalRegistryId": "qwen3.8-flash-next",
+    "runtimeModeChanged": false
+  }
+}

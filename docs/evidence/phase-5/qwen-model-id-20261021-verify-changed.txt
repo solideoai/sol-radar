@@ -1,0 +1,130 @@
+
+> sol-radar@0.1.0 verify:changed /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar
+> node scripts/verify-changed.mjs
+
+변경 16개 · 검사 4개 (기준 HEAD)
+▶ .: pnpm format:check
+
+> sol-radar@0.1.0 format:check /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar
+> prettier --check . "!web/**"
+
+Checking formatting...
+All matched files use Prettier code style!
+✓ .: pnpm format:check (5.0초)
+▶ web: pnpm verify:quick
+
+> sol-radar-web@0.1.0 verify:quick /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors
+
+
+> sol-radar-web@0.1.0 format:check /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> prettier --check . --ignore-path ../.gitignore --ignore-path ../.prettierignore
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar-web@0.1.0 type-check /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> sol-radar-web@0.1.0 lint /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> eslint
+
+
+> sol-radar-web@0.1.0 check:lint-guards /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> node ../scripts/check-lint-guards.mjs
+
+✓ 린트 가드레일 유지 — 주석·any·@ts-ignore·.only·.skip 으로 검사를 끌 수 없습니다
+
+> sol-radar-web@0.1.0 test /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> vitest run
+
+
+ RUN  v4.1.11 /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+
+
+ Test Files  29 passed (29)
+      Tests  365 passed (365)
+   Start at  23:48:14
+   Duration  5.33s (transform 6.64s, setup 0ms, import 15.30s, tests 9.40s, environment 7ms)
+
+
+> sol-radar-web@0.1.0 lodestar /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> lodestar check
+
+  [32m✓[0m architecture/layers  [2m524 files, 7 layers[0m  [2m539ms[0m
+  [32m✓[0m architecture/no-circular  [2m569 modules[0m  [2m542ms[0m
+  2 rules passed, 0 errors, 0 warnings [2m(543ms)[0m
+
+> sol-radar-web@0.1.0 check:tokens /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> node ../scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar-web@0.1.0 check:colors /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/web
+> bash ../scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용
+✓ web: pnpm verify:quick (40.5초)
+▶ services/ai: bash verify.sh
+All checks passed!
+77 files already formatted
+============================= test session starts ==============================
+platform darwin -- Python 3.12.8, pytest-9.1.1, pluggy-1.7.0
+rootdir: /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/services/ai
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1
+collected 101 items
+
+tests/test_citation_verify.py ......                                     [  5%]
+tests/test_extraction_schema.py ......                                   [ 11%]
+tests/test_gateway_fallback.py ....................                      [ 31%]
+tests/test_health.py ....                                                [ 35%]
+tests/test_injection.py ....                                             [ 39%]
+tests/test_local_kev_v02.py ...                                          [ 42%]
+tests/test_local_qwen.py ....                                            [ 46%]
+tests/test_local_security.py ...........                                 [ 57%]
+tests/test_mock_identity.py ........                                     [ 65%]
+tests/test_parse.py ........                                             [ 73%]
+tests/test_request_limits.py .......                                     [ 80%]
+tests/test_rules_parity.py ....                                          [ 84%]
+tests/test_startup.py ...............                                    [ 99%]
+tests/test_vercel.py .                                                   [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/services/ai/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 101 passed, 1 warning in 21.94s ========================
+✓ services/ai: bash verify.sh (27.9초)
+▶ services/decision: bash verify.sh
+All checks passed!
+31 files already formatted
+============================= test session starts ==============================
+platform darwin -- Python 3.12.8, pytest-9.1.1, pluggy-1.7.0
+rootdir: /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/services/decision
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1
+collected 57 items
+
+tests/test_app.py ..........................................             [ 73%]
+tests/test_backend.py .....                                              [ 82%]
+tests/test_models_endpoint.py ....                                       [ 89%]
+tests/test_parity.py ...                                                 [ 94%]
+tests/test_worker_compat.py ...                                          [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/leegwanghui/.codex/worktrees/b2f9/sol-radar/services/decision/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 57 passed, 1 warning in 1.29s =========================
+✓ services/decision: bash verify.sh (3.9초)
+변경 범위 검사 종료. 전체 검증은 통합·제출 전에 pnpm verify로 실행합니다.

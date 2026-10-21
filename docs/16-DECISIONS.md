@@ -12,6 +12,9 @@ updated: 2026-10-21
 
 상태 값: `제안` → `채택` → `검증됨`(근거 URL·날짜 필수). 외부 사실 확인 전이면 `미검증`, 철회는 `폐기`. 검증 결과는 날짜·근거 URL·결정자와 함께 이 문서에 갱신한다. 폐기한 결정도 행을 지우지 않고 상태만 바꿔 이력으로 남긴다.
 
+> [!success] ADR-034 모델 식별자 확인 (2026-10-21)
+> 회사 vLLM API 실응답의 served id는 `Qwen3.8-Flash-Next-AWQ-INT4`다. 사용자 지시에 따라 레지스트리 `run`·환경변수 `QWEN_MODEL`·실행 예시를 이 값으로 정정했다. Bearer 인증 조회200·짧은 guided JSON 추론200을 확인했다([실연결 증거](evidence/phase-5/qwen-probe-20261021-2343.json)). 아래 날짜가 붙은 기존 `Qwen/Qwen3.8-Flash-Next` 추정 기록은 이 결과로 갱신하며, 과거 실행 증거는 보존한다. 전체 추출 품질·Bosun·`prompt_logprobs`는 미검증이다.
+
 ## ADR-045 Redis HTTPS 접수에 기존 Next.js API 재사용
 
 2026-10-21 사용자 승인 범위는 [[2026-10-21-redis-gateway-supabase-storage-migration|전환 계획]]의 **Phase 1 Gateway 로컬 구현·테스트**다. 운영 컨테이너·Nginx·DB·배포 변경과 Storage/parser 다음 단계는 별도 승인 대상이다.

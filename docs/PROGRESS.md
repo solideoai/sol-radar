@@ -379,3 +379,7 @@ Storage 로컬 통합 검증 완료: 전체 `pnpm verify`(root172/web323/AI101/d
 ### 2026-10-21 GitHub E2E·필수 검사 실패 수정
 
 Storage PR의 E2E 서버 역할 누락과 main의 솔리데오 제목 변경 뒤 남은 기대값 불일치를 확인했다. Playwright 로컬 서버 4종에 `standalone` 역할을 지정하고 제목 E2E를 승인된 문구로 갱신했다. 수정 전 제목 실패 재현 후, 외부 역할 설정 없이 공개 E2E45·브라우저48 및 `pnpm verify:changed`(웹323·타입·린트·구조 등) PASS. `required`의 `project: failure`는 E2E 실패의 집계 결과다. [원인·변경·검증 범위](evidence/verification/20261021-ci-e2e.md).
+
+## Qwen 실제 모델 ID 정정 (2026-10-21)
+
+회사 API 실응답에서 `Qwen3.8-Flash-Next-AWQ-INT4`를 확인하고 사용자 지시에 따라 레지스트리·환경 예시·probe 사용법·AI/Web 시험 데이터·현재 기동/시연 문서에 반영했다. Bearer 인증 `/models` 200(125ms), 짧은 guided JSON 추론200(253ms)·`{"ok": true}`를 확인했다. [실연결 증거](evidence/phase-5/qwen-probe-20261021-2343.json). 전체 추출·Bosun·앱 실분석·배포는 이번 검증에 포함하지 않았다. `pnpm verify:changed` 통과: 웹365·AI101·결정57, 타입·린트·계층·서식 검사 포함([검증 로그](evidence/phase-5/qwen-model-id-20261021-verify-changed.txt)). 전체 `pnpm verify`·빌드·E2E는 미실행이다.

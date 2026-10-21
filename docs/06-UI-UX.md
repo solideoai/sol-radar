@@ -477,7 +477,7 @@ flowchart TD
 - 상태 변화는 `aria-live="polite"` 영역으로 읽어 준다.
 - 상태 이름은 [[05-API-SPEC|05 API]]의 값(`QUEUED`·`RUNNING`·`COMPLETED`·`PARTIAL`·`FAILED`)을 쓴다. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`이고 화면 글자는 `미분석`이다([[16-DECISIONS|ADR-029]] A6 D17).
 - 분석 결과에는 항상 `createdAt`, `algorithmVersion`, 프로필 revision, 결정 모델 식별자(또는 `mock`)를 표시한다.
-- 분석 출처는 상세의 분석 요약 띠에 "분석 실행 모드: live|fixture|mock"과 "AI: local · {qwen 모델 식별자} · {kev 모델 식별자}"(또는 "AI: mock")로 보인다. Topbar의 "실행 모드"(앱의 지금 모드)와 구분하려고 "분석"을 붙인다. run 에 `AI_UNAVAILABLE` 플래그가 있으면 기록된 출처 뒤에 "· 응답 없음(규칙만)"을 덧붙인다(예 "AI: mock · 응답 없음(규칙만)". Topbar "AI: unavailable"·PARTIAL 배너와 맞춘다. [[16-DECISIONS|16]] 미결정 30-1, 구현 전). 모델 이름은 받은 식별자 그대로 쓰고(예 `Qwen/Qwen3.8-Flash-Next`·`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`) 표시 이름 대응표는 만들지 않는다. S-LIVE에서는 Topbar `실행 모드: mock`과 `분석 실행 모드: live`가 함께 보이는 것이 정상이다([[16-DECISIONS|ADR-029]] A6 D12).
+- 분석 출처는 상세의 분석 요약 띠에 "분석 실행 모드: live|fixture|mock"과 "AI: local · {qwen 모델 식별자} · {kev 모델 식별자}"(또는 "AI: mock")로 보인다. Topbar의 "실행 모드"(앱의 지금 모드)와 구분하려고 "분석"을 붙인다. run 에 `AI_UNAVAILABLE` 플래그가 있으면 기록된 출처 뒤에 "· 응답 없음(규칙만)"을 덧붙인다(예 "AI: mock · 응답 없음(규칙만)". Topbar "AI: unavailable"·PARTIAL 배너와 맞춘다. [[16-DECISIONS|16]] 미결정 30-1, 구현 전). 모델 이름은 받은 식별자 그대로 쓰고(예 `Qwen3.8-Flash-Next-AWQ-INT4`·`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`) 표시 이름 대응표는 만들지 않는다. S-LIVE에서는 Topbar `실행 모드: mock`과 `분석 실행 모드: live`가 함께 보이는 것이 정상이다([[16-DECISIONS|ADR-029]] A6 D12).
 
 ## 8. 데모 친화 요소
 

@@ -5,7 +5,7 @@ tests/test_probe_qwen_script.py 는 이 파일을 subprocess 로 띄워 URL 거�
 외부 네트워크를 부르므로 실요청은 시험·검증 명령에 끼우지 않는다. 실행마다 회사 API 호출 예산을 쓴다.
 
 사용법(services/ai 에서):
-    QWEN_BASE_URL=https://acropolissg.com/vllm/v1 QWEN_MODEL=Qwen/Qwen3.8-Flash-Next QWEN_API_KEY=… \\
+    QWEN_BASE_URL=https://acropolissg.com/vllm/v1 QWEN_MODEL=Qwen3.8-Flash-Next-AWQ-INT4 QWEN_API_KEY=… \\
         uv run python scripts/probe-qwen-api.py [--dry-run] [--logprobs] [--timeout 30]
 
 - env: QWEN_BASE_URL(끝의 /v1 유무 무관. settings.normalize_qwen_base_url 로 정규화), QWEN_MODEL, QWEN_API_KEY.

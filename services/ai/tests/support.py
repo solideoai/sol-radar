@@ -27,7 +27,7 @@ SRC_DIR = AI_ROOT / "src" / "sol_ai"
 
 PROMPT_VERSION = "req-extract/v0.1"
 # local 어댑터 시험(가짜 모델 서버). 키는 가짜 값이다. 모델 식별자는 레지스트리(03 §11, ADR-034 6번)의 active 항목이다
-QWEN_RUN = "Qwen/Qwen3.8-Flash-Next"
+QWEN_RUN = "Qwen3.8-Flash-Next-AWQ-INT4"
 KEV_RUN = "Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"
 KEV_MODEL_ID = "bosun-v3.1-0.6b"
 # 결정 모델 서버 POST /v1/systemone 요청 본문의 "model"(레지스트리 requestModel)
