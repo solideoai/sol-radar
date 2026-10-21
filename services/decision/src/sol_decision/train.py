@@ -28,6 +28,7 @@ from typing import Any
 
 import torch
 
+from sol_decision.package import PackageError
 from sol_decision.trainer import checkpoint
 from sol_decision.trainer.batching import forward_batch
 from sol_decision.trainer.data import (
@@ -440,6 +441,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         RecordError,
         TrainingError,
         ParameterContractError,
+        PackageError,
         checkpoint.CheckpointError,
     ) as error:
         log.error("%s", error)

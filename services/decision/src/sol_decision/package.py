@@ -3,6 +3,8 @@
 패키지 = Hugging Face snapshot 또는 학습본 run 디렉터리. `manifest.json`(content-addressed, files → sha256)과
 `config.json` 을 읽고, manifest 의 모든 파일을 실제 sha256 과 대조한다. 어댑터(`<adapter_subfolder>/adapter_model.safetensors`)와
 decision 임베딩(`config.decision_embeddings_file`)은 manifest 에 꼭 있어야 한다. 누락·불일치면 PackageError(기동 거부, exit 78).
+패키지 최상위의 `*.py`(`modeling_bosun.py` 등. `trust_remote_code=True` 가 실행한다)도 모두 manifest 에 있어야 한다
+(REMOTE_CODE_NOT_IN_MANIFEST). 서버(serve)·학습기·parity·sol_eval 은 이 검증을 지난 디렉터리만 `from_pretrained` 에 넘긴다.
 
 ModelIdentity: run·revision·base 는 CLI/env 값, 없으면 config.json(base)·공개 Bosun 값(PUBLIC_*). lora 와
 decision_embeddings_sha256 은 실제 파일 sha256 이다(manifest 값과 같음을 대조한 뒤). 학습본 패키지도 같은 코드로 올린다.
@@ -121,6 +123,10 @@ def verify_package(directory: Path) -> PackageInfo:
     for required in (adapter_path, embeddings_path):
         if required not in files:
             raise PackageError("REQUIRED_FILE_NOT_IN_MANIFEST", required)
+    # trust_remote_code 가 실행하는 코드 파일이 manifest 밖에 있으면 심어 둔 모듈일 수 있다
+    for script in sorted(path.name for path in directory.glob("*.py")):
+        if script not in files:
+            raise PackageError("REMOTE_CODE_NOT_IN_MANIFEST", script)
 
     for relative, expected in files.items():
         path = _relative_in(directory, relative)

@@ -28,7 +28,7 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 
 - 모드가 `DEMO_MODE`·`AI_PROVIDER`·`KEV_ENABLED`의 기본값을 정한다(`live` → `DEMO_MODE=false`·`AI_PROVIDER=local`·`KEV_ENABLED=true`, `fixture` → `true`·`local`·`true`, `mock` → `true`·`mock`·`true`(mock adapter가 응답)). `KEV_ENABLED`는 세 모드 모두 `false`도 허용한다. `false`면 결정 모델 없이 `RULES_ONLY`이고 분석은 `COMPLETED`다(`infra/run-modes.json`, [[16-DECISIONS|ADR-029]] A5). 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. 예: `live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`. 모드와 상관없이 `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`)도 거부한다([[16-DECISIONS|ADR-030]] B11).
 - 모드 전환은 env를 바꾸고 worker·ai-gateway를 재시작해서 한다. 시연 중 장애 대체 순서는 `live` → `fixture` → `mock`이고 사람이 전환한다. 자동 대체(`AI_FALLBACK_TO_MOCK`)는 기본 `false`이고 `live`에서는 켤 수 없다([[03-AI-PIPELINE|03]] §8). 해커톤 동안은 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다([[16-DECISIONS|ADR-030]] B11).
-- 한국어 state 평가(E2, [[21-MODEL-TRAINING|21 모델 학습]])는 노트북에서 `sol_eval`이 `KEV_BASE_URL` 엔드포인트에 직접 붙거나, `SOL_RUN_MODE=fixture` + `KEV_ALLOW_KO_STATE=true`로 띄운 평가용 gateway에서만 한다(ADR-025). 데모용 gateway에는 켜지 않는다.
+- 한국어 state 평가(E2, [[21-MODEL-TRAINING|21 모델 학습]])는 회사 GPU 서버 안에서 오프라인 `sol_eval bosun_score`로 한다([[16-DECISIONS|16]] 미결정 27·29-6). 결정 서버(8009)는 한글 state를 422 `STATE_NOT_ENGLISH`로 거절하고(main `36edfb6`), 공유 8009에는 `DECISION_ALLOW_KO_STATE`를 켜지 않는다. 그래서 `SOL_RUN_MODE=fixture` + `KEV_ALLOW_KO_STATE=true` 평가용 gateway로 보낸 ko state도 8009에서 `KEV_UNAVAILABLE`이 된다. 데모용 gateway에는 `KEV_ALLOW_KO_STATE`를 켜지 않는다.
 - 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(ADR-019). live 분석은 "실제 공고 × 가상 회사 프로필"이다.
 
 ## 실행 프로필 3단
@@ -59,6 +59,15 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 - worker의 선택 env `G2B_INGEST_INTERVAL_MINUTES`(일정 수집 주기, 기본 `30`분, 양의 정수, [[07-DATA-PIPELINE|07 수집]] §2.2)와 `ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(멈춘 분석 복구, [[03-AI-PIPELINE|03]] §3)는 main `4895010`부터 `compose.yaml`이 worker `environment`에 키만 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에 변수가 없어 코드 기본값이 쓰인다(`compose.yaml` 주석, [[16-DECISIONS|ADR-031]] C12(e)·C13).
 - `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`(모델 호출 시간 제한, 기본 `5000`·`60000`)는 main `01fa51a`(병합 `9f71244`)부터 `compose.yaml`이 ai-gateway와 worker **둘 다**에 값 없는 키로 넘긴다. `infra/.env`에 값이 있으면 두 서비스가 같은 값을 받고, 없으면 둘 다 기본값이다. 빈 문자열을 넘기면 gateway 설정 검증이 실패해 기동하지 않으므로 값 없는 키여야 한다. 기본값을 바꿀 때는 gateway `settings.py`와 worker `gateway.model.ts`를 함께 바꾼다([[03-AI-PIPELINE|03]] §3, [[16-DECISIONS|ADR-033]] E4).
 - worker의 선택 env `NOTIFY_POLL_INTERVAL_MS`(인앱 알림 outbox 처리 간격, ms, 500~60000 10진 정수, 기본 `2000`, [[13-NOTIFICATIONS|13 알림]] "인앱 알림 2종"). 값이 틀리면 worker가 키 이름만 알리고 기동을 멈춘다. main `301f2a5`(`fix/compose-notify-poll` @ `574aaad`)부터 `compose.yaml`이 worker `environment`에 값 없는 키로 넘긴다. `infra/.env`·셸에 값이 없으면 기본값 2000을 쓴다([[16-DECISIONS|ADR-033]] E5).
+- 카카오톡 알림(나에게 보내기, [[16-DECISIONS|ADR-038]]) env. 구현 중(`feat/kakao-notify`, main 병합 전)이다.
+  - worker(`infra/.env`): `NOTIFY_KAKAO_PROVIDER`·`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`. `52adabb`부터 `compose.yaml`이 worker `environment`에 값 없는 키 다섯 개로 넘기고, 이름은 `.env.example`·`infra/env/demo.env.example`에 주석으로만 있다(값 없음).
+  - `NOTIFY_KAKAO_PROVIDER`가 비거나 `mock`이면 mock(외부 호출 없이 보낸 것으로 친다), `memo`면 나에게 보내기 실발송이다. 그 밖의 값이면 worker가 키 이름만 알리고 기동을 멈춘다.
+  - `memo`면 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL` 넷이 모두 있어야 하고 `KAKAO_TOKEN_ENC_KEY`는 base64 32바이트여야 한다. 틀리면 worker가 Redis·큐 연결을 만들기 전에 키 이름만 알리고 멈춘다. 나에게 보내기 요청 시간 제한은 5000ms다.
+  - `SITE_URL`은 피드 링크의 웹 주소(http·https)다. mock에서 비면 `http://localhost:3000`이다. 근거는 `web/worker/notify-outbox.ts` `readKakaoSettings`와 시험 `notify-outbox.test.ts`·`main.test.ts`(`52adabb`)다.
+  - web(`web/.env.local`): `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`·`SITE_URL`. 연결 Route Handler가 아직 없어 계획의 이름이다. 확정되면 env 예시 파일과 이 줄을 맞춘다.
+  - `KAKAO_TOKEN_ENC_KEY`는 카카오 토큰 암호화 키(base64 32바이트, AES-256-GCM)다. web이 암호화해 저장하고 worker가 복호화하므로 두 쪽이 같은 값을 쓴다. 바꾸면 모든 연결을 다시 해야 한다.
+  - 카카오 키·시크릿·암호화 키는 서버 전용이다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다([[16-DECISIONS|ADR-018]] 예외, [[09-SECURITY|09 보안]] "카카오톡 알림").
+  - 실발송은 사용자가 `NOTIFY_KAKAO_PROVIDER=memo`로 바꿀 때만 일어난다. 시험·CI는 `mock`이다([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고").
 
 **Phase 0 확정 사항**: 결정과 이유는 [[16-DECISIONS|ADR-024]] 상세 표가 정본이다(placeholder `CHANGE_ME`·`minioadmin` 금지·Redis 비밀번호 영숫자·MinIO 길이, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 실행 모드 규칙 원천 `infra/run-modes.json`과 빈 문자열은 미지정). 여기에는 운영에 필요한 것만 적는다.
 - gateway 이미지는 `AI_HOST=0.0.0.0`·`SOL_RUN_MODES_FILE=/app/infra/run-modes.json`을 이미지 ENV로 가지고, 저장소 루트를 빌드 컨텍스트로 쓴다(`context: ..`). Compose는 실행 모드 키를 `${VAR:-}`로 넘긴다.
@@ -77,11 +86,11 @@ KEV_ENABLED=true
 AI_FALLBACK_TO_MOCK=false         # live 에서 true 면 기동 거부
 KEV_ALLOW_KO_STATE=false          # live 에서 true 면 기동 거부. 평가용 fixture gateway 에서만 true
 QWEN_BASE_URL=https://acropolissg.com/vllm/v1   # 회사가 운영하는 vLLM API(2026-10-20 사용자 결정). 회사 안내 값 그대로. 게이트웨이가 끝의 /v1 을 인식해 /chat/completions·/models 를 붙인다(B1 정규화). 라우터의 /sol-radar/qwen(→8001)은 백업 경로(미사용)
-QWEN_MODEL=Qwen/Qwen3.8-Flash-Next           # 회사 vLLM /v1/models 의 id 와 같아야 레지스트리 대조를 통과한다(2026-10-21 사용자 보고 값). 레지스트리 항목 qwen3.8-flash-next 는 코드 반영 전(지금 코드는 qwen3.5-27b) — 반영·검증 전에는 이 env 로 live·fixture 를 기동하지 않는다(ADR-034 16번)
+QWEN_MODEL=Qwen/Qwen3.8-Flash-Next           # 회사 vLLM /v1/models 의 id 와 같아야 레지스트리 대조를 통과한다(2026-10-21 사용자 보고 값. served id 는 B2 probe 에서 확인, 16 ADR-034 2026-10-21 개정). 레지스트리 항목 qwen3.8-flash-next(default, active)는 main 1b68f9b 에 있고 qwen3.5-27b 는 retired 다. 회사 /v1/models 실대조(B2 G2)를 통과하기 전에는 이 env 로 live·fixture 를 기동하지 않는다(ADR-034 16번)
 KEV_BASE_URL=https://acropolissg.com/sol-radar/kev     # /kev 도 라우터 기준. 바깥 nginx 가 접두어를 떼도 라우터가 받는다. TLS 검증을 끄지 않는다
 QWEN_API_KEY=<placeholder>        # 회사가 제공하는 vLLM API 키(별도 환경변수, 값은 infra/.env 에만)
 KEV_API_KEY=<placeholder>         # 결정 서버(sol_decision)의 DECISION_API_KEY 와 같은 값
-KEV_MODEL_ID=bosun-v3.1-0.6b      # services/ai/models/registry.yaml 항목 → Hanno-Labs/bosun-v3.1-0.6b@5e78a37c(결정 모델. KEV_* 이름은 호환 유지, ADR-034. 항목은 B1 에서 추가)
+KEV_MODEL_ID=bosun-v3.1-0.6b      # services/ai/models/registry.yaml 항목 → Hanno-Labs/bosun-v3.1-0.6b@5e78a37c(결정 모델. KEV_* 이름은 호환 유지, ADR-034. 항목은 main 1b68f9b(B1)에 있다)
 KEV_QUESTION_SET=kev-qs/v0.2
 # data.go.kr 서비스키 — 서비스마다 하나씩(ADR-022). worker 전용, live 에서만 필수. 로그 금지
 # 값은 포털의 Encoding 키 그대로. worker 가 decodeURIComponent 로 한 번 디코딩해 Decoding 키로 쓴다(07 §2.2)
@@ -133,13 +142,13 @@ flowchart LR
 
 - **gateway는 노트북 Compose에 그대로 둔다.** 아키텍처(Worker → gateway → 모델)와 실행 모드(`live`·`fixture`·`mock`)·`AI_PROVIDER=local`은 바뀌지 않는다. 모델 런타임은 둘 다 회사 GPU 서버에 있다: `Qwen/Qwen3.8-Flash-Next`는 회사가 운영하는 vLLM API(우리가 띄우지 않는다), Bosun은 우리 `sol_decision.serve`(회사가 기동한다. 사용자 승인 뒤, ADR-034 10번).
 - **env 이름은 그대로다**: `QWEN_BASE_URL`·`KEV_BASE_URL`·`QWEN_API_KEY`·`KEV_API_KEY`·`QWEN_MODEL`·`KEV_MODEL_ID`(`KEV_*` 이름은 해커톤 동안 호환 유지, ADR-034 4번). 값: `QWEN_BASE_URL=https://acropolissg.com/vllm/v1`(회사 안내 값 그대로. 게이트웨이 어댑터가 끝의 `/v1`을 인식해 `/chat/completions`·`/models`를 붙인다, B1 정규화), `QWEN_MODEL=Qwen/Qwen3.8-Flash-Next`, `QWEN_API_KEY`는 회사 제공 키(값 미기재), `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev`, `KEV_MODEL_ID=bosun-v3.1-0.6b`, `KEV_API_KEY`는 결정 서버 `DECISION_API_KEY`와 같은 값. 호스트가 `acropolissg.com` 그대로라 레지스트리 `allowedHosts`는 바꾸지 않는다. 남은 미확인은 바깥 nginx의 접두어 처리·회사 측 추가 인증 여부·실제 응답이다(아래 콜아웃).
-- **모델 라우터(ADR-025 추가 결정 2026-10-19, ADR-034 뒤에도 변경 없음)**: 회사 nginx는 location 하나(`https://acropolissg.com/sol-radar`)만 등록할 수 있어, GPU 서버 안에 경로 분기용 nginx 라우터를 둔다. 설정은 `infra/gpu/model-router.conf`(`127.0.0.1:8080` 바인딩). `/sol-radar/kev/<path>` → `sol_decision.serve` `127.0.0.1:8009/<path>`. `/sol-radar/qwen/<path>` → `127.0.0.1:8001/<path>` 규칙은 남겨 두되 **백업 경로(미사용)**다 — 추출·설명은 회사 vLLM API `/vllm`을 쓰고 `:8001`에는 아무것도 띄우지 않는다(Qwen 4B 백업용). 학습본(E4)은 HTTPS로 서빙하지 않고 서버 안 오프라인 `sol_eval.bosun_score` 채점으로 평가한다(2026-10-20 기준 미구현, B1. [[16-DECISIONS|ADR-034]] 7번, [[23-WEEKEND-FINETUNE|23]] §2.2). 그래서 `infra/gpu/model-router.conf`는 `qwen`·`kev` 두 경로가 전부이고 주말에도 바꾸지 않는다. `/sol-radar/kev-lora/*`(`:8010`) B안은 퇴역했다(ADR-034). 데모 gateway는 `/kev`(공개 Bosun v3.1)만 쓴다. 바깥 nginx가 `/sol-radar` 접두어를 떼고 넘겨도(`/qwen/…`·`/kev/…`) 같은 곳으로 간다. `/sol-radar/healthz`(인증 없음)는 라우터 자체 확인용으로 `200 ok`, 그 외 404. 인증은 라우터가 아니라 각 런타임이 한다(`Authorization` 헤더 통과, 로그에는 `$uri`만 기록해 키·쿼리를 남기지 않는다).
-- **회사 GPU 서버에서 띄우는 것(회사 운영, 인수 문서 `infra/gpu/README.md`)**: 라우터는 `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, 서비스 `model-router` = `nginx:1.27-alpine`, `network_mode: host`, Linux 전용)로 띄우거나 호스트 nginx에 `model-router.conf`를 넣는다. `sol_decision.serve`는 아래 명령으로 호스트 `127.0.0.1:8009`에 직접 띄운다(`DECISION_API_KEY` 필수, 물리 GPU 1, PaddleOCR와 공유). vLLM은 띄우지 않는다(회사 운영 API 사용). `services/decision`은 노트북 Compose에도 `compose.gpu.yaml`에도 넣지 않는다(회사 호스트 실행. 2026-10-20 기준 미구현, B1).
+- **모델 라우터(ADR-025 추가 결정 2026-10-19, ADR-034 뒤에도 변경 없음)**: 회사 nginx는 location 하나(`https://acropolissg.com/sol-radar`)만 등록할 수 있어, GPU 서버 안에 경로 분기용 nginx 라우터를 둔다. 설정은 `infra/gpu/model-router.conf`(`127.0.0.1:8080` 바인딩). `/sol-radar/kev/<path>` → `sol_decision.serve` `127.0.0.1:8009/<path>`. `/sol-radar/qwen/<path>` → `127.0.0.1:8001/<path>` 규칙은 남겨 두되 **백업 경로(미사용)**다 — 추출·설명은 회사 vLLM API `/vllm`을 쓰고 `:8001`에는 아무것도 띄우지 않는다(Qwen 4B 백업용). 학습본(E4)은 HTTPS로 서빙하지 않고 서버 안 오프라인 `sol_eval.bosun_score` 채점으로 평가한다(main `1b68f9b`, 실모델 경로는 미검증. [[16-DECISIONS|ADR-034]] 7번, [[23-WEEKEND-FINETUNE|23]] §2.2). 그래서 `infra/gpu/model-router.conf`는 `qwen`·`kev` 두 경로가 전부이고 주말에도 바꾸지 않는다. `/sol-radar/kev-lora/*`(`:8010`) B안은 퇴역했다(ADR-034). 데모 gateway는 `/kev`(공개 Bosun v3.1)만 쓴다. 바깥 nginx가 `/sol-radar` 접두어를 떼고 넘겨도(`/qwen/…`·`/kev/…`) 같은 곳으로 간다. `/sol-radar/healthz`(인증 없음)는 라우터 자체 확인용으로 `200 ok`, 그 외 404. 인증은 라우터가 아니라 각 런타임이 한다(`Authorization` 헤더 통과, 로그에는 `$uri`만 기록해 키·쿼리를 남기지 않는다).
+- **회사 GPU 서버에서 띄우는 것(회사 운영, 인수 문서 `infra/gpu/README.md`)**: 라우터는 `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, 서비스 `model-router` = `nginx:1.27-alpine`, `network_mode: host`, Linux 전용)로 띄우거나 호스트 nginx에 `model-router.conf`를 넣는다. `sol_decision.serve`는 아래 명령으로 호스트 `127.0.0.1:8009`에 직접 띄운다(`DECISION_API_KEY` 필수, 물리 GPU 1, PaddleOCR와 공유). vLLM은 띄우지 않는다(회사 운영 API 사용). `services/decision`은 노트북 Compose에도 `compose.gpu.yaml`에도 넣지 않는다(회사 호스트 실행. 코드는 main `1b68f9b`(B1), 보안 후속(`fix/decision-hardening`)은 main `36edfb6`에 있다. 회사 서버 기동은 사용자가 승인한 뒤다).
 - **회사 nginx에 요청할 설정**: `location /sol-radar/ { proxy_pass http://127.0.0.1:8080; }` + `Authorization` 헤더 통과, `proxy_read_timeout 300s`(기본 60s면 긴 RFP 추출이 504), `client_max_body_size 20m`(기본 1m면 첨부 본문을 담은 추출 요청이 413), `proxy_buffering off`. 전체 블록은 `infra/gpu/README.md`. ADR-034 뒤에도 변경 없음.
 - **운영 책임**: 모델 런타임 기동, GPU 메모리 배분, Bosun 패키지 sha256 대조, `nvidia-smi` 실측은 회사 측이 한다. 우리는 하지 않는다. 우리가 하는 검증은 gateway 기동 시 결정 서버 `GET /v1/models`의 `run`·`base`·`lora`(응답에 있으면 `revision`도)와 회사 vLLM `GET /v1/models`의 모델 `id`(= `QWEN_MODEL`)를 레지스트리(`services/ai/models/registry.yaml`)와 대조하는 것([[03-AI-PIPELINE|03 AI 파이프라인]] §11)과 지연 실측(03 §5.9 G3)이다.
 - **참고 구성**: `infra/compose.gpu.yaml`·`infra/gpu/`, 아래 `sol_decision.serve` 기동 명령은 회사 GPU 서버용 참고 구성으로 남긴다. 우리가 기동하지 않는다. 검증(2026-10-19): `docker run --rm -v "$PWD/infra/gpu/model-router.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t` 통과, `docker compose -f infra/compose.gpu.yaml config --quiet` 통과. 실제 GPU 서버 기동은 미실행.
 - **보안**: 엔드포인트는 공개 인터넷에 있으므로 TLS 필수(인증서 검증을 끄지 않는다), API 키 필수, 키는 `infra/.env`에만 둔다. 엔드포인트 URL은 비밀이 아니라 문서에 적지만 키 값은 적지 않는다. 회사 GPU(회사 vLLM API·결정 서버)로 가는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다([[09-SECURITY|09 보안]]).
-- **평가**: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(결정 서버 직접)·`QWEN_BASE_URL`(회사 vLLM API) 또는 평가용 gateway에 붙여 돌린다(E0~E3·EX0. E3 대조군은 Qwen3.8-Flash-Next logprob — 회사 vLLM의 `prompt_logprobs` 지원은 B2에서 확인). E4는 엔드포인트에 붙지 않고 회사가 서버 안에서 돌린 오프라인 채점 `sol_eval.bosun_score`(2026-10-20 기준 미구현, B1) 출력을 읽는다. 기준선 E1'은 공개 Bosun v3.1 0.6B zero-shot(같은 test 분할·state·질문)이다. F1(메모리 smoke)·F2(LoRA 학습)·채점(E1'·E4)은 GPU 서버 셸이 필요하므로 회사가 **물리 GPU 1에서** 실행한다(아래 "GPU 1 공유"). 결과는 E4 비교로만 쓴다(데모 모델은 공개 Bosun, [[16-DECISIONS|ADR-034]] 7·9번, [[21-MODEL-TRAINING|21 모델 학습]]). Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정).
+- **평가**: `sol_eval`은 노트북에서 `KEV_BASE_URL` 엔드포인트(결정 서버 직접)·`QWEN_BASE_URL`(회사 vLLM API) 또는 평가용 gateway에 붙여 돌린다(E0~E3·EX0. E3 대조군은 Qwen3.8-Flash-Next logprob — 회사 vLLM의 `prompt_logprobs` 지원은 B2에서 확인). E4는 엔드포인트에 붙지 않고 회사가 서버 안에서 돌린 오프라인 채점 `sol_eval.bosun_score`(main `1b68f9b`, 실모델 경로는 미검증) 출력을 읽는다. 기준선 E1'은 공개 Bosun v3.1 0.6B zero-shot(같은 test 분할·state·질문)이다. F1(메모리 smoke)·F2(LoRA 학습)·채점(E1'·E4)은 GPU 서버 셸이 필요하므로 회사가 **물리 GPU 1에서** 실행한다(아래 "GPU 1 공유"). 결과는 E4 비교로만 쓴다(데모 모델은 공개 Bosun, [[16-DECISIONS|ADR-034]] 7·9번, [[21-MODEL-TRAINING|21 모델 학습]]). Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정).
 - 클라우드 GPU 임대는 비용이 들어 hosted와 같은 사용자 승인 대상이다(ADR-010). 승인 전에는 임대하지 않는다.
 
 회사 GPU 서버의 결정 서버 기동 명령(회사 측이 실행하는 참고 구성. 키 값은 셸 변수로만):
@@ -149,7 +158,7 @@ flowchart LR
 # 추출·설명(Qwen3.8-Flash-Next)은 회사가 운영하는 vLLM API(https://acropolissg.com/vllm/v1)를 쓴다 — 우리가 띄우지 않는다. :8001 은 비워 둔다(백업 경로)
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1        # 물리 GPU 1 (PaddleOCR 와 공유). 가시성만 제한한다
 # .venv-bosun. --package 는 고정 snapshot(리비전 5e78a37c) 또는 학습본 run 디렉터리. manifest.json sha256 대조 실패 시 기동 거부, 다운로드 금지
-# DECISION_API_KEY 는 셸 변수로만(노트북 KEV_API_KEY 와 같은 값). sol_decision 은 2026-10-20 기준 미구현(B1) — 기동은 사용자 승인 뒤
+# DECISION_API_KEY 는 셸 변수로만(노트북 KEV_API_KEY 와 같은 값). sol_decision 은 main 1b68f9b(B1), 보안 후속(상한·대기열·패키지 검증)은 main 36edfb6 에 있다 — 기동은 사용자 승인 뒤
 HF_HUB_OFFLINE=1 DECISION_API_KEY="$DECISION_API_KEY" python -m sol_decision.serve --package <snapshot dir> --host 127.0.0.1 --port 8009
 docker compose -f infra/compose.gpu.yaml up -d        # model-router (Linux, host 네트워크. 설정 변경 없음)
 ```
@@ -164,13 +173,15 @@ curl -sS --fail -H "Authorization: Bearer $KEV_API_KEY"  "$KEV_BASE_URL/v1/model
 curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"       # https://acropolissg.com/vllm/v1/models (값이 /v1 로 끝나므로 /models 만 붙인다)
 ```
 
+회사 Qwen API는 `services/ai/scripts/probe-qwen-api.py`(main `36edfb6`. 사용자 확인 뒤 손으로만, 호출 예산을 쓴다)로도 확인한다: ① `GET /v1/models`의 `id` ② guided JSON(G4) ③ `--logprobs`면 `prompt_logprobs`(E3). `--dry-run`은 요청 계획만 낸다. 종료 코드는 0 요청 보냄(지원 여부는 출력 JSON), 1 전송 실패, 2 키 없음, 3 URL 거부(https 아님·계정 정보·레지스트리 `allowedHosts` 밖 호스트. `--dry-run`이어도 거부)다. 키 값·Authorization 헤더는 출력하지 않는다. 절차는 [B2 런북](plans/2026-10-21-bosun-b2-runbook.md) §8이다.
+
 > [!warning] 미검증 가정 (2026-10-20)
-> - 결정 서버 엔드포인트(`/sol-radar/kev`)는 회사가 제공 예정이며 2026-10-20 기준 응답을 확인하지 않았다(16 미결정 17번). 선행 조건은 P2(회사가 경로·인증 방식 통보)·P3(회사 측 모델 기동 완료 통보)다. `sol_decision`은 미구현(B1)이다.
-> - 회사 vLLM API(`https://acropolissg.com/vllm/v1`)는 2026-10-20, 그 모델 `Qwen/Qwen3.8-Flash-Next`(이전 `Qwen/Qwen3.5-27B`)는 2026-10-21 사용자 안내다. 응답·`/v1/models`의 `id`·인증 방식·guided JSON(C1 ③ G4)·지연은 이 세션이 확인하지 않았다. B2에서 잰다. 어댑터의 `enable_thinking: false`([[03-AI-PIPELINE|03]] §4.3)는 그대로 둔다(새 모델의 사고 모드 기본값은 미확인).
+> - 결정 서버 엔드포인트(`/sol-radar/kev`)는 회사가 제공 예정이며 2026-10-20 기준 응답을 확인하지 않았다(16 미결정 17번). 선행 조건은 P2(회사가 경로·인증 방식 통보)·P3(회사 측 모델 기동 완료 통보)다. `sol_decision` 코드는 main `1b68f9b`(B1)에 있고, 보안 후속(`fix/decision-hardening`)은 main `36edfb6`에 들어갔다(2026-10-21). 회사 서버 기동은 사용자가 승인한 뒤다.
+> - 회사 vLLM API(`https://acropolissg.com/vllm/v1`)는 2026-10-20, 그 모델 `Qwen/Qwen3.8-Flash-Next`(128B, 이전 `Qwen/Qwen3.5-27B`)는 2026-10-21 사용자 안내다(served id 는 B2 probe 에서 확인, [[16-DECISIONS|16]] ADR-034 2026-10-21 개정). 이 모델은 회사 vLLM 에서 돌고 우리 GPU 1 은 쓰지 않는다. Bosun v3.1 0.6B 를 A40 GPU 1 에서 쓰는 것은 2026-10-21 사용자가 다시 확인했다. 응답·`/v1/models`의 `id`·인증 방식·guided JSON(C1 ③ G4)·지연은 이 세션이 확인하지 않았다. B2에서 잰다. 어댑터의 `enable_thinking: false`([[03-AI-PIPELINE|03]] §4.3)는 그대로 둔다(새 모델의 사고 모드 기본값은 미확인).
 > - 경로 분리(`/kev`, 백업 `/qwen`)는 우리 모델 라우터가 정한 값이라 결정이다. 남은 미확인: 바깥(회사) nginx가 `/sol-radar` 접두어를 떼고 넘기는지(떼도 라우터가 받는다), 회사 측 추가 인증 여부(Bearer 키 외), 실제 응답. 다르면 ADR-025 상세를 갱신한다.
 > - 노트북 `ai-gateway` 컨테이너에서 공개 인터넷 HTTPS로 나가는 경로(데모 장소 회선·프록시)는 C1 ③ G1에서 확인한다.
 > - Bosun 질문당 지연(6,000 토큰 state × 11+N 문항 순차 prefill)이 `KEV_TIMEOUT_MS` 5000 안인지는 미측정이다(16 미결정 24번, G3 p95). 넘으면 [[16-DECISIONS|ADR-033]] E4 규칙대로 기본값을 함께 바꾼다.
-> - 회사 vLLM의 E3용 `prompt_logprobs` 지원·호출 한도·리비전·양자화는 회사 운영 사항이라 미확인이다(ADR-034 1·8번). 우리는 `GET /v1/models`의 `id`를 레지스트리 `qwen3.8-flash-next`(`run: Qwen/Qwen3.8-Flash-Next`, `revision: null`. 코드 반영 전, 지금 코드는 `qwen3.5-27b`)와 대조만 한다.
+> - 회사 vLLM의 E3용 `prompt_logprobs` 지원·호출 한도·리비전·양자화는 회사 운영 사항이라 미확인이다(ADR-034 1·8번). 우리는 `GET /v1/models`의 `id`를 레지스트리 `qwen3.8-flash-next`(`run: Qwen/Qwen3.8-Flash-Next`, `revision: null`, main `1b68f9b`)와 대조만 한다.
 
 ### GPU 1 공유(학습·추론·PaddleOCR) (ADR-034, 2026-10-20)
 
@@ -194,7 +205,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 | 합계 | 약 17~22 GB | 가용 약 36,900 MiB(46,068 − 9,167, 사용자 보고 기준) 안. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정) |
 
 - 서버 `sol-NF5280M6`, 계정 `bim`, 작업 경로 `/data/www/ai_workspace/sol-radar`. venv는 `.venv-bosun`(Bosun 서빙·학습. 2026-10-20 사용자 보고, 패키지 핀은 B2에서 기록 — 미확인). `.venv-qwen`과 Qwen 4B 다운로드는 중단하고 백업으로 보존한다(ADR-034 10번, 삭제하지 않는다). 이전 `.venv-kev`(Python 3.12.3, torch 2.8.0+cu128, triton 3.4.0)는 Kev용 기록이다. 드라이버 580.173.02(CUDA 13.0), CUDA Toolkit 12.8, `/data` 가용 약 1,011 GB(2026-10-20 오전 확인).
-- **GPU 선택**: 매 셸 세션마다 `export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1`. 프로세스 안에서는 GPU 1이 `cuda:0`으로 보인다(정상). SSH 재접속·새 세션·`nohup`·`tmux`에서는 다시 적어야 한다. `PCI_BUS_ID`를 두는 이유는 nvidia-smi 번호와 CUDA 번호를 같게 하기 위해서다. 이 변수는 **가시성만 제한하고 독점이 아니다**. 보존한 `infra/gpu/kev-preflight.sh`·`kev-f1.sh`(Kev-9B용, ADR-034로 퇴역)가 하던 값 확인·GPU uuid 대조는 Bosun 전용 `infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`(B1 예정, 2026-10-20 기준 미구현)가 이어받는다.
+- **GPU 선택**: 매 셸 세션마다 `export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1`. 프로세스 안에서는 GPU 1이 `cuda:0`으로 보인다(정상). SSH 재접속·새 세션·`nohup`·`tmux`에서는 다시 적어야 한다. `PCI_BUS_ID`를 두는 이유는 nvidia-smi 번호와 CUDA 번호를 같게 하기 위해서다. 이 변수는 **가시성만 제한하고 독점이 아니다**. 보존한 `infra/gpu/kev-preflight.sh`·`kev-f1.sh`(Kev-9B용, ADR-034로 퇴역)가 하던 값 확인·GPU uuid 대조는 Bosun 전용 `infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`(main `1b68f9b`, 회사 서버 실행은 아직)가 이어받는다.
 - **격리·공존**: 실행 전후 `nvidia-smi -i 1`로 점유 프로세스·메모리를 확인하고 기록한다(`*.pre.txt`·`*.post.txt`). GPU 1의 PaddleOCR 프로세스는 정상 상주라 **FAIL 사유도 종료 대상도 아니다**. 그 외 미지의 프로세스가 있으면 종료하지 않고 멈춘 뒤 회사에 확인한다. GPU 0·1·2 어느 프로세스에도 `kill`·`pkill`·`docker compose down`을 쓰지 않는다(스크립트가 끝낼 때 멈추는 것은 자기가 띄운 `nvidia-smi -l 1` 기록 프로세스뿐). 3장의 VRAM을 합산하지 않고 다중 GPU 학습을 하지 않는다. `kev-preflight.sh`의 전용 전제(`SOL_MIN_FREE_MIB=40000`, GPU 1에 다른 프로세스 → FAIL)는 공유 GPU 1에서 PaddleOCR 때문에 FAIL하므로 그대로 쓰지 않는다. `bosun-preflight.sh`는 `SOL_MIN_FREE_MIB`를 위 계획 합계 + 여유로 재산정하고 PaddleOCR를 허용 목록에 둔다(계획 §8).
 - **추론 런타임과의 관계**: `sol_decision.serve`(약 1.5~3 GB)와 Bosun LoRA 학습(약 6~10 GB)은 PaddleOCR(약 9.2 GB)와 함께 GPU 1에 **동시 상주**하는 계획이다(위 표). 학습 시간에 추론 런타임을 내리는 절차는 두지 않는다 — 어떤 프로세스도 종료·이동하지 않는다. 메모리가 계획을 넘으면 회사에 보고하고 멈춘다. 추출·설명 `Qwen/Qwen3.8-Flash-Next`는 회사 vLLM API라 GPU 1 계획에 들어가지 않는다. 포트 8080·8009의 실제 실행 여부는 미검증이다(C1 ③ G1·G2).
 - **금지**(계획 §8, ADR-034 10번): GPU 0·2 사용, 프로세스 종료·이동, `docker compose down`, nginx 변경, 사용자·회사 승인 전 GPU 학습·모델 서빙 시작·배포, 학습본 HTTPS 서빙, `score_runs`·`analyses` 덮어쓰기.
@@ -203,7 +214,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 > [!warning] 미검증 가정 (2026-10-20)
 > - PaddleOCR 약 9,167 MiB·`.venv-bosun`·CPU 2-step 성공은 사용자 보고다. B2에서 `nvidia-smi`·`pip list` 기록으로 교차 확인한다.
 > - 위 메모리 계획은 추정이다. PaddleOCR 피크 메모리·지연 간섭은 미지라(16 미결정 24번) F1 실측과 회사 점유 추이로 확정한다.
-> - `bosun-preflight.sh`·`bosun-f1.sh`·`sol_decision`·`sol_eval.bosun_score`는 2026-10-20 기준 미구현이다(B1).
+> - `bosun-preflight.sh`·`bosun-f1.sh`·`sol_decision`·`sol_eval.bosun_score`는 main `1b68f9b`(B1)에 있다. 회사 서버에서 돌린 기록은 아직 없다(2026-10-21).
 
 ### 데모 날 위험
 
@@ -277,7 +288,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 
 |단계|명령|기대 결과|
 |---|---|---|
-|주입|`docker compose -f infra/compose.yaml stop ai-gateway`|Worker의 `/kev` 호출이 연결 거부로 즉시 실패(재시도 없음). FX-01 재분석이 1~2초 안에 `PARTIAL`, `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 상세 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY\|09 보안]] 원문), 우상단 `AI: unavailable`, `/health/ready` `status: degraded`, `checks.ai: unavailable`|
+|주입|`docker compose -f infra/compose.yaml stop ai-gateway`|Worker의 `/kev` 호출이 연결 거부로 즉시 실패(재시도 없음). FX-01 재분석 run 이 1~2초 안에 `PARTIAL`(화면 반영은 분석 상세 폴링 2초 간격이라 수 초, [[16-DECISIONS\|16]] 미결정 30-5), `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 상세 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY\|09 보안]] 원문), 우상단 `AI: unavailable`, `/health/ready` `status: degraded`, `checks.ai: unavailable`|
 |복구|`docker compose -f infra/compose.yaml start ai-gateway` → `docker compose -f infra/compose.yaml ps`에서 ai-gateway `healthy`|FX-01 재분석 `COMPLETED`, 우상단 `AI: mock`(실모델 모드는 `AI: local`). 분석 1건으로는 circuit이 열리지 않으므로 대기 시간 없음|
 
 후보 (b) `AI_FAULT_INJECT` env 토글은 컨테이너 재시작이 필요하고 (c) mock adapter의 장애 fixture는 "실제로 꺼졌다"는 인상이 약하다. 둘은 테스트([[11-TESTING|11 테스트]] 골든 시나리오 `G6`)에서만 쓴다. `AI_FAULT_INJECT` 값(`kev_timeout`·`qwen_error`·`qwen_unreachable`·`kev_unreachable`·`gateway_down`)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §3. 실모델 모드의 엔드포인트 미접속은 장애 주입 장면이 아니라 리허설 항목이다(기동 절차 10번).
@@ -288,15 +299,28 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 
 데모 결정 서버는 공개 Bosun v3.1 0.6B를 리비전 `5e78a37c8d86860ebac9ef2d5327d6299498498e`(main, 2026-10-09)로 고정한다([[16-DECISIONS|ADR-034]] 1·9번). 학습본(`runs/bosun-sol-lora-v0.1`)으로 바꾸는 것은 E4에서 Δ 95% CI가 0을 배제하고 사용자가 승인한 뒤에만이다.
 
-- **기동 전 sha256 대조**: `--package` 디렉터리의 `manifest.json`에 적힌 sha256과 파일을 대조한다. 공개본 기준값은 `adapter/adapter_model.safetensors` `961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5`, `decision_embeddings.safetensors` `88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188`(계획 §1.1, Hugging Face `manifest.json`)이고 레지스트리(`services/ai/models/registry.yaml` `bosun-v3.1-0.6b` 항목, B1에서 추가)의 `lora`·`decision_embeddings_sha256`과 같아야 한다. 다르면 `sol_decision.serve`가 기동을 거부하도록 만든다(B1). `HF_HUB_OFFLINE=1`로 다운로드를 막고 리비전을 고정한다. 회사 측이 한다. 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §2다.
+- **기동 전 sha256 대조**: `--package` 디렉터리의 `manifest.json`에 적힌 sha256과 파일을 대조한다. 공개본 기준값은 `adapter/adapter_model.safetensors` `961d237bc60a88f133bc723dd3cbf1133f743a7fde673cee96d1171c67b425d5`, `decision_embeddings.safetensors` `88f9e856054f78ac521ba0180052d25720c3786d1db4e80aa7a8ecf39be01188`(계획 §1.1, Hugging Face `manifest.json`)이고 레지스트리(`services/ai/models/registry.yaml` `bosun-v3.1-0.6b` 항목, main `1b68f9b`)의 `lora`·`decision_embeddings_sha256`과 같아야 한다. manifest와 파일이 다르거나 어댑터·decision 임베딩이 manifest에 없으면 `sol_decision.serve`가 기동을 거부한다(exit 78, `services/decision/src/sol_decision/package.py`). `HF_HUB_OFFLINE=1`로 다운로드를 막고 리비전을 고정한다. 회사 측이 한다. 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §2다.
 - **gateway의 레지스트리 대조**: gateway는 기동할 때 결정 서버 `GET /v1/models`의 `run`(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)·`base`(`Qwen/Qwen3-0.6B@c1899de`)·`lora`(어댑터 sha256)·응답에 있으면 `revision`이 레지스트리 `KEV_MODEL_ID` 항목과 같은지 확인하고, 다르면 기동을 거부한다(`KEV_MODEL_ID(REGISTRY_MISMATCH)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §11). `POST /v1/systemone`의 `model`은 서버 alias `bosun-v3.1-0.6b`와 같아야 하며 다르면 422다(계획 §5.1).
 - 두 검사가 필요한 이유: 공개본과 학습본 패키지의 레이아웃이 같아 `--package` 경로 실수가 가능하다. 검사가 없으면 다른 패키지의 확률이 공개 Bosun 결과처럼 저장된다. (`kev.serve`가 `--run` 경로가 틀리면 오류 없이 `runs/smoke`로 대체하던 경고는 퇴역했다.)
 
 > [!warning] 미검증 가정 (2026-10-20)
-> - `sol_decision.serve`·`bosun-preflight.sh`·레지스트리 `bosun-v3.1-0.6b` 항목은 2026-10-20 기준 미구현이다(B1). 위 기동 거부·422 동작은 설계이고 테스트는 `services/decision/tests`에 둔다(ADR-034 3번).
+> - `sol_decision.serve`·`bosun-preflight.sh`·레지스트리 `bosun-v3.1-0.6b` 항목은 main `1b68f9b`(B1)에 있다. 위 기동 거부·422(`MODEL_MISMATCH`) 동작의 시험은 `services/decision/tests`(`test_package.py`·`test_app.py` 등)에 있다(ADR-034 3번). 회사 서버의 실제 패키지로 돌린 기록은 아직 없다(2026-10-21).
 > - 리비전 `5e78a37c`와 Hanno 레지스트리 핀 `87cea31`은 커밋 메시지 기준 문서 차이만이다. B2에서 두 리비전의 `manifest.json` sha256을 대조한다.
 > - 첫 기동 때 패키지 로딩 시간·VRAM은 재지 않았다. 기동은 회사 측이 하므로 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"로 남긴다(ADR-025). GPU 자체는 2026-10-20 확인했다(A40 46,068 MiB ×3, 위 "GPU 1 공유").
 > - Bosun 질문당 지연 p95(`KEV_TIMEOUT_MS` 5000)는 B2 G3에서 잰다(16 미결정 24번).
+
+## 카카오 앱 설정 ([[16-DECISIONS|ADR-038]], 구현 중)
+카카오톡 알림을 `memo`로 실발송하려면 사용자가 카카오 디벨로퍼스에서 아래를 한다. 작업 세션은 카카오 API 호출·키 발급·외부 계정 연동을 하지 않는다. 원천은 [설계](plans/2026-10-20-kakao-memo-notify-design.md) §6 "카카오 앱 설정"·§11(S0)·§12-6(사용자가 할 일)이다.
+1. 앱을 하나 만든다. 간편 로그인과 같은 앱을 써도 된다. 같은 앱이면 카카오 `unlink`가 로그인 연결도 끊으므로, 연결 해제는 `unlink`를 부르지 않는다.
+2. 카카오 로그인을 활성화한다.
+3. Redirect URI에 콜백 주소 `<앱 주소>/api/v1/me/kakao-notify/callback`을 등록한다. `KAKAO_REDIRECT_URI` 값과 같아야 한다([[05-API-SPEC|05 API]] §9).
+4. 동의항목에서 "카카오톡 메시지 전송(`talk_message`)"을 선택 동의로 켠다.
+5. 플랫폼 웹 도메인에 앱 주소를 등록한다. 메시지 링크(`web_url`·`mobile_web_url`)의 도메인은 여기 등록한 도메인과 같아야 한다. 공고 원문 도메인(나라장터 등)을 등록할 수 있는지는 아래 카카오 S0 수신 시험에서 확인한다.
+6. 클라이언트 시크릿을 발급한다. 시크릿을 켜면 토큰 요청에 필수다.
+7. REST API 키·시크릿·암호화 키 값은 사용자가 서버 env 파일(`web/.env.local`·`infra/.env`)에 직접 넣는다. 키 이름은 위 "env 파일 위치"의 카카오 줄을 따른다. 값은 문서·커밋·로그에 쓰지 않는다.
+
+- **카카오 S0 수신 시험(설계 §11, 코드보다 먼저, 사용자 몫. 데모 당일 S0 사전 준비와 다르다)**: 사용자 휴대폰으로 나에게 보내기 한 통을 보내 휴대폰 알림이 울리는지, `talk_message`가 검수 없이 되는지, 피드 모양이 시안과 같은지, 원문 도메인을 등록할 수 있는지 본다. 결과는 `docs/evidence/`에 적는다. 2026-10-21 현재 하지 않았다. 알림이 울리지 않으면 멈추고 사용자에게 묻는다.
+- 수동 실발송 1회(U10): `NOTIFY_KAKAO_PROVIDER=memo`로 실제 분석 한 건을 돌려 휴대폰 수신을 녹화하고 `docs/evidence/`에 둔다([[19-DEMO-SCENARIO|19 데모]] 녹화 장면).
 
 ## 운영
 - Compose 서비스: healthcheck, restart policy, log rotation, 비root 실행(MinIO UID 65532, qdrant `-unprivileged` 태그), 포트는 외부 인터페이스에 열지 않는다, 볼륨(redisdata·qdrantdata·miniodata) 백업 및 복구 리허설. 서비스 시작 시 Supabase·Redis readiness 확인, 무한 재시작 대신 명확한 오류 출력.
@@ -328,7 +352,8 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 - [[09-SECURITY|09 보안]]
 - [[11-TESTING|11 테스트]]
 - [[12-ROADMAP|12 로드맵]]
-- [[13-NOTIFICATIONS|13 알림]] — worker 인앱 알림 처리(`NOTIFY_POLL_INTERVAL_MS`)
+- [[13-NOTIFICATIONS|13 알림]] — worker 인앱 알림 처리(`NOTIFY_POLL_INTERVAL_MS`), 카카오톡 추천 공고(`NOTIFY_KAKAO_PROVIDER`)
+- [카카오 나에게 보내기 설계](plans/2026-10-20-kakao-memo-notify-design.md) — 카카오 앱 설정(§6)·S0 수신 시험(§11)·남은 위험(§12)
 - [[14-OBSERVABILITY|14 관측성]]
 - [[16-DECISIONS|16 ADR]]
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]
