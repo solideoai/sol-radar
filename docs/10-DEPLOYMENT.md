@@ -175,7 +175,7 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"
 
 > [!warning] 미검증 가정 (2026-10-20)
 > - 결정 서버 엔드포인트(`/sol-radar/kev`)는 회사가 제공 예정이며 2026-10-20 기준 응답을 확인하지 않았다(16 미결정 17번). 선행 조건은 P2(회사가 경로·인증 방식 통보)·P3(회사 측 모델 기동 완료 통보)다. `sol_decision` 코드는 main `1b68f9b`(B1)에 있고, 회사 서버 기동은 보안 후속(`fix/decision-hardening`, main 병합 전)이 main에 들어가고 사용자가 승인한 뒤다.
-> - 회사 vLLM API(`https://acropolissg.com/vllm/v1`)는 2026-10-20, 그 모델 `Qwen/Qwen3.8-Flash-Next`(이전 `Qwen/Qwen3.5-27B`)는 2026-10-21 사용자 안내다. 응답·`/v1/models`의 `id`·인증 방식·guided JSON(C1 ③ G4)·지연은 이 세션이 확인하지 않았다. B2에서 잰다. 어댑터의 `enable_thinking: false`([[03-AI-PIPELINE|03]] §4.3)는 그대로 둔다(새 모델의 사고 모드 기본값은 미확인).
+> - 회사 vLLM API(`https://acropolissg.com/vllm/v1`)는 2026-10-20, 그 모델 `Qwen/Qwen3.8-Flash-Next`(128B, 이전 `Qwen/Qwen3.5-27B`)는 2026-10-21 사용자 안내다. 이 모델은 회사 vLLM 에서 돌고 우리 GPU 1 은 쓰지 않는다. Bosun v3.1 0.6B 를 A40 GPU 1 에서 쓰는 것은 2026-10-21 사용자가 다시 확인했다. 응답·`/v1/models`의 `id`·인증 방식·guided JSON(C1 ③ G4)·지연은 이 세션이 확인하지 않았다. B2에서 잰다. 어댑터의 `enable_thinking: false`([[03-AI-PIPELINE|03]] §4.3)는 그대로 둔다(새 모델의 사고 모드 기본값은 미확인).
 > - 경로 분리(`/kev`, 백업 `/qwen`)는 우리 모델 라우터가 정한 값이라 결정이다. 남은 미확인: 바깥(회사) nginx가 `/sol-radar` 접두어를 떼고 넘기는지(떼도 라우터가 받는다), 회사 측 추가 인증 여부(Bearer 키 외), 실제 응답. 다르면 ADR-025 상세를 갱신한다.
 > - 노트북 `ai-gateway` 컨테이너에서 공개 인터넷 HTTPS로 나가는 경로(데모 장소 회선·프록시)는 C1 ③ G1에서 확인한다.
 > - Bosun 질문당 지연(6,000 토큰 state × 11+N 문항 순차 prefill)이 `KEV_TIMEOUT_MS` 5000 안인지는 미측정이다(16 미결정 24번, G3 p95). 넘으면 [[16-DECISIONS|ADR-033]] E4 규칙대로 기본값을 함께 바꾼다.

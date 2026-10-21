@@ -319,7 +319,7 @@ Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 �
 | 회사 서버 보고(PaddleOCR 약 9,167 MiB, `.venv-bosun`(`.venv-qwen` 은 중단·백업), CPU 2-step 성공, `datasets/decision/smoke.jsonl`) | 미검증(사용자 보고) | B2 `nvidia-smi`·`pip list` 기록으로 교차 |
 | 회사 2-step 학습 코드가 저장소 밖 | 미반입. B1 학습기 `services/decision/src/sol_decision/train.py` 가 대체했다(`services/decision/docs/TRAINING.md`. 계획 §10 10번의 "반입 뒤 흡수"에서 바뀜) | B2 에서 결과 비교 |
 | 리비전 `5e78a37c`(지시서·레지스트리 핀)와 Hanno `jev-compatible-server` 핀 `87cea31` 의 가중치 동일 여부 | 커밋 메시지 기준 문서 차이만 | B2 두 리비전 `manifest.json` sha256 대조 |
-| 회사 vLLM API(`Qwen/Qwen3.8-Flash-Next`)의 guided JSON(`response_format: json_schema`)·`prompt_logprobs` 지원, 추출·번역 품질, 서빙 파라미터·리비전 | 미검증(회사 운영) | B2 G2·G4, B3 EX0·E3 |
+| 회사 vLLM API(`Qwen/Qwen3.8-Flash-Next`, 128B: 2026-10-21 사용자 보고)의 guided JSON(`response_format: json_schema`)·`prompt_logprobs` 지원, 추출·번역 품질, 서빙 파라미터·양자화·리비전 | 미검증(회사 운영) | B2 G2·G4, B3 EX0·E3 |
 | 학습 시간대(10-24~25)·외부망·출력 폴더 전송 | 미확인 | 회사에 요청([[16-DECISIONS\|16 ADR]] 미결정 22·24번) |
 | 첨부 원문의 학습 사용 권리 | 미확인 | 법무 |
 

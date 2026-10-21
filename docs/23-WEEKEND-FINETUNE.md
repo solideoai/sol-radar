@@ -99,7 +99,7 @@ python -m sol_eval bosun_score --package "$snap"                  --data "$D/tes
 python -m sol_eval bosun_score --package "$snap"                  --data "$D/dev.en.jsonl"  --seeds 0-5 --out "$R/e1p-dev"
 ```
 
-- 지금(main `4e62170`) `bosun_score` 는 장치를 지정하지 않아 CPU fp32 로 돈다. 10-25 B5 채점도 CPU fp32 로 돌리고, 소요 시간은 미측정이다. read-check(§4.5) 때 시간을 재서 일정을 다시 잡는다. E1'·E4 가 같은 CPU fp32 로 돌아 비교는 성립하고 느리다. B5 전에 `bosun_score` 에 `--device`·`--dtype`(기본 cpu·fp32)을 더하는 브랜치가 준비 중이다([[16-DECISIONS|16]] 미결정 26-16·26-20, 구현 전). 그 브랜치가 main 에 들어가면 GPU 1 bf16 은 `--device cuda` + `SOL_GPU_SHARE_APPROVED=1` 로 쓴다. 못 들어가면 CPU fp32 로 돌린다. 어느 쪽이든 E1'·E4 는 같은 장치·dtype 으로 잰다.
+- 지금(main `4e62170`) `bosun_score` 는 장치를 지정하지 않아 CPU fp32 로 돈다. E1'·E4 가 같은 CPU fp32 로 돌면 비교는 성립하지만 느리고, 소요 시간은 미측정이다. B5 전에 `bosun_score` 에 `--device`·`--dtype`(기본 `auto`, 서버에서는 GPU 1 bf16)을 더하는 브랜치가 준비 중이다([[16-DECISIONS|16]] 미결정 26-16, 구현 전). Bosun 은 회사 A40 GPU 1 에서 돈다(2026-10-21 사용자 확인). 그 브랜치가 main 에 들어가면 10-25 B5 채점은 GPU 1 bf16 으로 돌리고, 못 들어가면 CPU fp32 로 돌린다. CPU fp32 로 돌리게 되면 read-check(§4.5) 때 시간을 재서 일정을 다시 잡는다. 어느 쪽이든 E1'·E4 는 같은 장치·dtype 으로 잰다.
 - 선택지 순서 민감도는 Kev 의 `permute`·`--rotations` 대신 Bosun 의 제시 순서 seed(`--seeds 0-5`, 6회)로 잰다(22 §4.1).
 - 요청당 지연 p50·p95 는 서빙이 없으므로 **E4 에서는 재지 않는다.** 지연은 B2 의 G3(공개 Bosun 서빙)에서 잰다.
 - 돌려받은 `report.json` 의 패키지 sha256·test 파일 sha256 이 번들 manifest 와 같은지 대조한다. 다르면 그 결과는 쓰지 않는다.
@@ -136,7 +136,7 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"        
 | PaddleOCR vLLM(회사) | 약 9.2 GB | 건드리지 않음. 피크 미확인(§8) |
 | `sol_decision.serve` Bosun bf16 서빙 | 약 1.5~3 GB | 6k 토큰 state 활성값 포함 |
 | Bosun LoRA 학습(bf16, batch 1, 6k 토큰, gradient checkpointing) | 약 6~10 GB | F1 20 step 으로 실측 |
-| `sol_eval bosun_score` 채점(패키지 하나씩) | CPU fp32 면 GPU 메모리를 쓰지 않는다(26-16·26-20 브랜치가 들어가 `--device cuda` 로 돌리면 서빙과 비슷, 추정) | 4회를 순서대로 돌리면 동시 점유는 1회분 |
+| `sol_eval bosun_score` 채점(패키지 하나씩) | 26-16 브랜치가 들어가 GPU 1 bf16 으로 돌리면 서빙과 비슷(추정). CPU fp32 대체면 GPU 메모리를 쓰지 않는다 | 4회를 순서대로 돌리면 동시 점유는 1회분 |
 | ~~vLLM Qwen3-4B·Qwen 4B QLoRA~~ | — | 철회(2026-10-20 저녁). Qwen 은 회사 API, GPU 1 에 올리지 않는다 |
 
 **전부 추정, F1 실측 전**([분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §8). 합계 약 17~22 GB 로 가용 약 36,900 MiB 안에 들어간다고 **가정**한다. PaddleOCR 피크가 크면 달라진다.
@@ -320,7 +320,7 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 | 2 | batch 2 · accum 4(속도) | 같다 |
 | 3(선택) | batch 4 · accum 2 | 같다. 들어가면 F2 에 쓴다 |
 
-합격선은 `bosun-f1.sh` 의 메모리 예산이다: 학습 중 우리 증가분(GPU 전체 `memory.used` 최대 − 시작 직전 used) ≤ 시작 직전 `memory.free` − 3,000 MiB(`SOL_RESERVE_MIB`). 예산을 직접 정하려면 `SOL_MEM_BUDGET_MIB` 를 준다. 시작 전 여유는 `SOL_REQUIRED_MIB`(기본 16,000) 이상이어야 한다(22 §4.2. Kev 판의 41,000 MiB 는 전용 전제라 쓰지 않는다). 학습 전에 `python -m sol_decision.parity --package "$snap" --data "$SOL_WORK/sol-dataset-v0.1/bosun/test.en.jsonl" --n 8 --device cpu` 를 통과시킨다(preflight 와 같이 CPU, 승인 불필요. `--device` 기본값 `auto` 는 GPU 1 을 승인 검사 없이 쓰므로 빼지 않는다, 미결정 26-20. 넘으면 exit 1, 학습 금지). F1 의 20 step 패키지로 F3 보정·`bosun_score` 채점 경로도 dev 로 한 번 돌려 출력이 읽히는지 확인한다. 격자 1번부터 OOM 이면 22 §4.2 의 ①~③(state 축약·accum·서빙 잠시 내리기)을 먼저 검토하고, 그 밖(다중 GPU·클라우드 GPU·GPU 0·2)은 사용자 승인 대상이다. 모델 변경(다른 결정 모델로 전환) 경로는 이 문서에 없다.
+합격선은 `bosun-f1.sh` 의 메모리 예산이다: 학습 중 우리 증가분(GPU 전체 `memory.used` 최대 − 시작 직전 used) ≤ 시작 직전 `memory.free` − 3,000 MiB(`SOL_RESERVE_MIB`). 예산을 직접 정하려면 `SOL_MEM_BUDGET_MIB` 를 준다. 시작 전 여유는 `SOL_REQUIRED_MIB`(기본 16,000) 이상이어야 한다(22 §4.2. Kev 판의 41,000 MiB 는 전용 전제라 쓰지 않는다). 학습 전에 `python -m sol_decision.parity --package "$snap" --data "$SOL_WORK/sol-dataset-v0.1/bosun/test.en.jsonl" --n 8 --device cuda --bf16` 을 GPU 1 에서 통과시킨다(서빙과 같은 장치·dtype, 2026-10-21 사용자 확인, 미결정 26-20 닫음. 실행은 ADR-034 10번 승인 절차. 넘으면 exit 1, 학습 금지). F1 의 20 step 패키지로 F3 보정·`bosun_score` 채점 경로도 dev 로 한 번 돌려 출력이 읽히는지 확인한다. 격자 1번부터 OOM 이면 22 §4.2 의 ①~③(state 축약·accum·서빙 잠시 내리기)을 먼저 검토하고, 그 밖(다중 GPU·클라우드 GPU·GPU 0·2)은 사용자 승인 대상이다. 모델 변경(다른 결정 모델로 전환) 경로는 이 문서에 없다.
 
 ### 5.3 F2 받아들이는 기준
 
