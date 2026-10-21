@@ -5,7 +5,16 @@ export { runProgramNoticeRound } from "./collect.service";
 export type { CollectRunMode, RoundDeps } from "./collect.service";
 export { loadProgramNoticesConfig } from "./config";
 export type { LoadConfigResult, ProgramNoticesConfig } from "./config";
+export { kstToday } from "./dates";
 export type { FetchLike } from "./http";
+export { LIST_MAX_ITEMS, listProgramNotices, parseProgramNoticeListQuery } from "./list.service";
+export type {
+  ProgramNoticeList,
+  ProgramNoticeListItem,
+  ProgramNoticeListQuery,
+  ProgramNoticeSort,
+} from "./list.service";
+export { programNoticesRepo } from "./program-notices.repo";
 export { createSupabaseProgramNoticesStore } from "./program-notices.store";
 export type { ProgramNoticesStore, ProgramRun } from "./program-notices.store";
 export {
