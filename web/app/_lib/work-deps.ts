@@ -13,7 +13,7 @@ import {
   type NotificationRepo,
   type ReviewRepo,
 } from "@/server/bids";
-import { getAiState } from "@/server/health";
+import { getApplicationAiState } from "./application-health";
 import { ALGORITHM_VERSION } from "@/server/scoring";
 import { createAnalysisQueue, describeQueueError } from "./analysis-queue";
 import { createAnalysisRateLimiter } from "./rate-limit";
@@ -43,7 +43,7 @@ export function workDeps(): WorkDeps {
     notifications: notificationRepo,
     dashboard: createDashboardRepo({
       aiStatus: async () => {
-        const state = await getAiState();
+        const state = await getApplicationAiState();
         return {
           provider: state === "unavailable" ? (runMode === "mock" ? "mock" : "local") : state,
           kevEnabled: process.env.KEV_ENABLED !== "false",

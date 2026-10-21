@@ -45,9 +45,9 @@ updated: 2026-10-21
 
 | 구성 | 출처 | 저장 |
 |---|---|---|
-| 공고·RFP | `live` 모드로 수집한 실제 공고(`is_demo=false`, 정보화사업, 첨부 파싱 성공) | Supabase + MinIO. 저장소에는 넣지 않는다 |
+| 공고·RFP | `live` 모드로 수집한 실제 공고(`is_demo=false`, 정보화사업, 첨부 파싱 성공) | Supabase + Supabase Storage. 저장소에는 넣지 않는다 |
 | 가상 기업 | 직접 설계한 원형 6개와 항목별 변형 | `fixtures/eval/companies/*.json`(가상이라 커밋) |
-| 라벨 | 구성 라벨(`CONSTRUCTED`) + 사람 라벨(`HUMAN`) + 규칙 실버 라벨(`RULE_SILVER`) | 데이터셋 번들(MinIO). 사람 라벨 원본은 `datasets/labels/`(gitignore) |
+| 라벨 | 구성 라벨(`CONSTRUCTED`) + 사람 라벨(`HUMAN`) + 규칙 실버 라벨(`RULE_SILVER`) | 데이터셋 번들(Supabase Storage). 사람 라벨 원본은 `datasets/labels/`(gitignore) |
 | fixture `FX-01`~`FX-20` | 회귀 확인용 | 평가 통계에서 뺀다 |
 
 ### 3.2 가상 기업 원형
@@ -135,7 +135,7 @@ interface EvalItem {
   - `manifest.json`: 데이터셋 버전, git commit, 질문 세트·state 템플릿·라벨 스키마·마스킹 버전, 분할·라벨·출처별 개수, 파일별 sha256, train∩(dev∪test) 클러스터 0건 확인, 질문별·선택지별 분포(각 ≥ 5%)
   - `bosun/{split}.en.jsonl`(`kev/` 디렉터리는 만들지 않는다)
   - `MODEL_TRAINING.md`(§5 절차)
-- 빌더는 두 단계다. Node 스크립트(`pnpm dataset:build`(예정), service role, seed 스크립트와 같은 지위)가 Supabase·MinIO 에서 `EvalItem` 을 만들고, Python(`services/ai`, DB 접근 없음)이 Bosun 레코드로 바꾼다(`python -m sol_eval export --format bosun`, main `1b68f9b`). Node 빌더는 아직 없다. 지금 `EvalItem` 은 `sol_eval build`(갈래 ①)가 녹음 구조화 필드 × 가상 기업 변형으로 만든다. `sol_eval` 은 DB 를 읽지 않는다.
+- 빌더는 두 단계다. Node 스크립트(`pnpm dataset:build`(예정), service role, seed 스크립트와 같은 지위)가 Supabase·Supabase Storage 에서 `EvalItem` 을 만들고, Python(`services/ai`, DB 접근 없음)이 Bosun 레코드로 바꾼다(`python -m sol_eval export --format bosun`, main `1b68f9b`). Node 빌더는 아직 없다. 지금 `EvalItem` 은 `sol_eval build`(갈래 ①)가 녹음 구조화 필드 × 가상 기업 변형으로 만든다. `sol_eval` 은 DB 를 읽지 않는다.
 
 Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 
@@ -284,7 +284,7 @@ Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 �
 
 | 명령 | 위치 | 하는 일 |
 |---|---|---|
-| `pnpm dataset:build --version sol-eval/v0.1`(예정) | 루트 스크립트(service role) | live 공고·추출·가상 기업 → `EvalItem` + 분할 + 마스킹 → MinIO |
+| `pnpm dataset:build --version sol-eval/v0.1`(예정) | 루트 스크립트(service role) | live 공고·추출·가상 기업 → `EvalItem` + 분할 + 마스킹 → Supabase Storage |
 | `uv run python -m sol_eval export --format bosun [--version v0.1] [--out <폴더>]` | `services/ai` | `EvalItem` → Bosun 질문 단위 레코드(`bosun/{split}.en.jsonl`)·index·`manifest.json`(기본 출력 `datasets/sol-eval/<version>/`). main `1b68f9b`. 이 폴더를 통째로 `sol-dataset-v0.1/` 이름으로 보낸다(또는 `--out` 으로 그 이름을 준다. 서버 스크립트 기본 경로가 `$SOL_WORK/sol-dataset-v0.1/` 다. tar 로 묶지 않는다, 16 미결정 29-3). `--format` 을 빼면 퇴역 Kev 형식이다 |
 | `uv run python -m sol_eval leakage --bundle <폴더> [--out <리포트.json>]` | `services/ai` | 클러스터 교차·held-out 기업·fixture 포함·같은/유사 state·선택지 분포(각 ≥ 5%)·manifest sha256 검사 → 리포트(위반이면 exit 1). main `1b68f9b` |
 | `uv run python -m sol_eval labels check <file>` | `services/ai` | 사람 라벨 파일 검증 |

@@ -67,3 +67,6 @@ datasets/
 
 sample.pdf
 sol-radar-deck.pptx
+
+# Per-plan agent scratch and progress ledgers
+.superpowers/

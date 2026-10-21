@@ -1,7 +1,7 @@
-# SOL RADAR 로컬 데모 스택 (ADR-017). DB·Auth 는 Supabase 클라우드라 postgres 서비스가 없다.
+# SOL RADAR 로컬 데모 스택 (ADR-017). DB·Auth·Storage 는 Supabase 클라우드라 postgres 서비스가 없다.
 # 사용: cp infra/env/demo.env.example infra/.env 후 값을 채우고
 #   docker compose -f infra/compose.yaml up -d --build
-# 프로필을 붙이지 않는다. 같은 5개 서비스가 뜬다.
+# 프로필을 붙이지 않는다. 같은 4개 서비스가 뜬다.
 # 호스트 포트는 127.0.0.1 에만 열고, 충돌하면 *_HOST_PORT 로 바꾼다.
 # 프로젝트 이름은 sol-radar 가 아니다. 로컬 Supabase CLI 가 supabase/config.toml 의 project_id(sol-radar)를
 # 같은 Compose 라벨로 쓰므로, 같은 이름이면 서로를 orphan 으로 보고 --remove-orphans 가 상대 컨테이너를 지운다.
@@ -40,33 +40,6 @@ services:
     logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  minio:
-    image: cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8
-    command: ["server", "/data"]
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER 를 infra/.env 에 채운다}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD 를 infra/.env 에 채운다}
-    ports:
-      - "127.0.0.1:${MINIO_HOST_PORT:-9000}:9000"
-    volumes:
-      - miniodata:/data
-    restart: unless-stopped
-    logging: *default-logging
-    # 이미지에 curl·wget 이 없다. bash 의 /dev/tcp 로 GET /minio/health/live 200 을 본다.
-    healthcheck:
-      test:
-        - CMD
-        - bash
-        - -c
-        - |
-          exec 3<>/dev/tcp/127.0.0.1/9000
-          printf 'GET /minio/health/live HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3
-          read -r line <&3
-          [[ "$$line" == *" 200"* ]]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -147,8 +120,8 @@ services:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?NEXT_PUBLIC_SUPABASE_URL 를 infra/.env 에 채운다}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?SUPABASE_SERVICE_ROLE_KEY 를 infra/.env 에 채운다}
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD 를 infra/.env 에 채운다}@redis:6379
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER 를 infra/.env 에 채운다}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD 를 infra/.env 에 채운다}
+      SUPABASE_STORAGE_RAW_BUCKET: ${SUPABASE_STORAGE_RAW_BUCKET:-bid-documents}
+      SUPABASE_STORAGE_PARSED_BUCKET: ${SUPABASE_STORAGE_PARSED_BUCKET:-bid-parsed}
       AI_GATEWAY_URL: http://ai-gateway:8000
       SOL_RUN_MODE: ${SOL_RUN_MODE:-}
       DEMO_MODE: ${DEMO_MODE:-}
@@ -194,5 +167,4 @@ services:
 
 volumes:
   redisdata:
-  miniodata:
   qdrantdata:

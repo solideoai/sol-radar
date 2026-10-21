@@ -146,7 +146,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |---|---|---|
 |`bid_notices`|`id`, `source` text(bid_source), `notice_id` text, `plan_ref` text nullable, `pre_spec_ref` text nullable, `title`, `agency` nullable, `stage` text(bid_stage), `status` text(bid_status), `budget_krw` numeric(18,0) nullable, `published_at` nullable, `deadline_at` nullable, `source_url`, `latest_revision` int, `content_hash` text, `is_demo` boolean default false, `last_synced_at`, `created_at`, `updated_at`|UNIQUE(`source`,`notice_id`). `budget_krw >= 0`|
 |`bid_revisions`|`id`, `bid_id` FK, `revision` int, `amendment_no` text nullable, `raw_payload` JSONB, `normalized` JSONB(`NormalizedBid`), `checksum` text, `changed_fields` text[], `fetched_at`, `created_at`|UNIQUE(`bid_id`,`revision`). `checksum` = `NormalizedBid.checksum`|
-|`bid_documents`|`id`, `bid_id` FK, `revision_id` FK, `name`, `original_url`, `download_status` text(document_download_status) default `PENDING`, `download_error_code` text nullable, `format` text nullable, `object_key` text nullable, `sha256` nullable, `mime_type` nullable, `size_bytes` bigint nullable, `parse_status` text(document_parse_status) nullable, `parse_error_code` text(document_parse_error) nullable, `parser_id` text nullable, `parse_quality` JSONB nullable, `text_object_key` nullable, `page_count` int nullable, `created_at`|UNIQUE(`revision_id`,`sha256`). `download_status='OK'`이면 `object_key`·`sha256`·`size_bytes`가 NOT NULL(check). `parse_status ∈ (UNSUPPORTED, FAILED)`이면 `parse_error_code` NOT NULL(check). 원본·추출 텍스트는 MinIO, 키만 저장. 다운로드는 서버가 권한을 확인한 뒤 짧은 presigned URL을 준다([[09-SECURITY\|09 보안]])|
+|`bid_documents`|`id`, `bid_id` FK, `revision_id` FK, `name`, `original_url`, `download_status` text(document_download_status) default `PENDING`, `download_error_code` text nullable, `format` text nullable, `object_key` text nullable, `sha256` nullable, `mime_type` nullable, `size_bytes` bigint nullable, `parse_status` text(document_parse_status) nullable, `parse_error_code` text(document_parse_error) nullable, `parser_id` text nullable, `parse_quality` JSONB nullable, `text_object_key` nullable, `page_count` int nullable, `created_at`|UNIQUE(`revision_id`,`sha256`). `download_status='OK'`이면 `object_key`·`sha256`·`size_bytes`가 NOT NULL(check). `parse_status ∈ (UNSUPPORTED, FAILED)`이면 `parse_error_code` NOT NULL(check). 원본·추출 텍스트는 Supabase Storage, 키만 저장. 다운로드는 서버가 권한을 확인한 뒤 짧은 presigned URL을 준다([[09-SECURITY\|09 보안]])|
 |`bid_structured_requirements`|`id`, `bid_id` FK, `revision_id` FK, `kind` text(structured_requirement_kind), `seq` smallint, `code` text nullable, `name` text nullable, `value` JSONB, `source_operation` text, `created_at`|UNIQUE(`revision_id`,`kind`,`seq`). 공고 API가 구조화 필드로 준 자격 조건 한 행. 조직과 무관|
 |`requirement_extractions`|`id`, `bid_id` FK, `revision_id` FK, `provider` text(ai_provider), `model_name` text, `prompt_version` text, `prompt_hash` text, `schema_version` text, `status` text(extraction_status), `payload` JSONB(`RequirementExtraction`), `translations` JSONB nullable, `warnings` JSONB(코드 목록은 [[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4 표), `latency_ms` int, `retries` smallint, `created_at`|UNIQUE(`revision_id`,`model_name`,`prompt_hash`). 조직과 무관, 재사용|
 
@@ -170,7 +170,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 - `plan_ref`는 발주계획 공개 식별자(예: `DEMO-PLAN-0042`)다. PLAN·PRE_SPEC·NOTICE 행이 같은 값을 가지면 UI가 한 묶음으로 보여 준다. 제목 유사도로 자동 병합하지 않는다.
 - `source_url` 예: `https://demo.sol-radar.invalid/notices/FX-02`. `.invalid` TLD라 실제로 열리지 않는다.
 
-식별자 규칙(live, 나라장터 입찰공고): `notice_id` = `bidNtceNo`, `amendment_no` = `bidNtceOrd`, `plan_ref` = `orderPlanUntyNo`, `pre_spec_ref` = `bfSpecRgstNo`. 식별자로 이어지지 않는 단계 연결은 "연결 후보"로만 표시한다([[07-DATA-PIPELINE|07 수집]]). 응답의 담당자 필드(이름·전화·이메일)는 `normalized`·`raw_payload`·`bid_structured_requirements`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 MinIO에만 보관한다([[07-DATA-PIPELINE|07 수집]], [[09-SECURITY|09 보안]]).
+식별자 규칙(live, 나라장터 입찰공고): `notice_id` = `bidNtceNo`, `amendment_no` = `bidNtceOrd`, `plan_ref` = `orderPlanUntyNo`, `pre_spec_ref` = `bfSpecRgstNo`. 식별자로 이어지지 않는 단계 연결은 "연결 후보"로만 표시한다([[07-DATA-PIPELINE|07 수집]]). 응답의 담당자 필드(이름·전화·이메일)는 `normalized`·`raw_payload`·`bid_structured_requirements`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 Supabase Storage에만 보관한다([[07-DATA-PIPELINE|07 수집]], [[09-SECURITY|09 보안]]).
 
 ### 3.4 분석 결과 (조직별)
 
@@ -415,3 +415,11 @@ ADR-021 P1 표·열(§3.1 `tasks.bid_project_id`, §3.5 `employment_status`·ADM
 - [[13-NOTIFICATIONS|13 알림]] — outbox
 - [[16-DECISIONS|16 ADR]] — ADR-017 아키텍처 전환, ADR-020 실데이터 MVP와 AI 파이프라인 v0.2(실행 모드·첨부 파싱·항목 판정·평가 표), ADR-033 정본 반영 4차(활동 계정 기준·인앱 알림)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `eval_runs`에 올리는 평가 리포트, 비교 대상·지표
+
+## Supabase Storage 참조 확장 (ADR-048)
+
+`20261021000700_document_storage.sql`은 `bid_documents`에 raw/parsed bucket·원장 ID·업로드/파싱 시각·오류 요약·처리 lease를 추가한다. 기존 원본 key와 문서 행은 보존한다. revision+sha256 UNIQUE는 일반 인덱스로 바꿔 같은 파일을 가리키는 서로 다른 문서를 보존한다.
+`document_storage_objects`는 bucket/path UNIQUE, checksum/size/MIME, UPLOADING/STORED/DELETE_PENDING/ERROR, lease token/기한을 갖는 Worker 전용 원장이다. 사용자 역할의 직접 읽기/쓰기는 닫는다.
+`claim_document_storage`→실제 immutable upload/바이트 검증→`finish_document_storage` 순서로 확정한다. 업로드 후 DB 실패는 파일 삭제 없이 원장 lease 재획득으로 복구한다. 참조 확정과 삭제 claim은 같은 object row를 잠근다.
+`document_storage_candidates`는24시간 이상·lease 만료·무참조만 반환한다. 삭제는 Storage API 뒤 원장 확정 순서다. 기존 파일이나 bucket 전체 삭제는 하지 않는다.
+`20261021000701_document_storage_access.sql`은 활동 중 업무 멤버가 DB에서 참조한 download OK 원본만 읽는 Storage SELECT 정책을 추가한다. parsed·health·학습 파일과 사용자 쓰기는 열지 않는다. bucket 준비는 DB migration과 별도의 API 운영 명령이다.

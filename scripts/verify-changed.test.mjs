@@ -113,7 +113,14 @@ it("미분류 코드와 검증 설정 변경은 전체 quick 검사로 넓힌다
 
 const gitRepo = (t) => {
   const root = sandbox(t);
-  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
+  const git = (...args) =>
+    execFileSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+      ),
+    });
   git("init", "-q");
   for (const name of ["edit.ts", "old.ts", "delete.ts"]) writeFileSync(join(root, name), name);
   git("add", ".");
@@ -128,6 +135,30 @@ const gitRepo = (t) => {
   );
   return { root, git };
 };
+
+it("훅의 Git 환경변수가 다른 저장소의 변경 조회와 시험 커밋을 오염시키지 않는다", async (t) => {
+  const { changedFiles } = await import("./verify-changed.mjs");
+  const parent = gitRepo(t);
+  const child = gitRepo(t);
+  writeFileSync(join(child.root, "edit.ts"), "child change");
+  const before = parent.git("rev-parse", "HEAD").trim();
+  const names = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"];
+  const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  try {
+    process.env.GIT_DIR = join(parent.root, ".git");
+    process.env.GIT_WORK_TREE = parent.root;
+    process.env.GIT_INDEX_FILE = join(parent.root, ".git", "index");
+    assert.deepEqual(changedFiles(child.root), ["edit.ts"]);
+    const isolated = gitRepo(t);
+    assert.equal(isolated.git("rev-parse", "--show-toplevel").trim(), isolated.root);
+    assert.equal(parent.git("rev-parse", "HEAD").trim(), before);
+  } finally {
+    for (const name of names) {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    }
+  }
+});
 
 it("실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다", async (t) => {
   const { changedFiles } = await import("./verify-changed.mjs");
@@ -191,6 +222,9 @@ it("CLI dry-run은 실행 없이 명령을 보여 주고 실제 실행은 첫 �
   const run = (...args) =>
     spawnSync(process.execPath, [join(root, "scripts", "verify-changed.mjs"), ...args], {
       encoding: "utf8",
+      env: Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+      ),
     });
   const dry = run("--dry-run");
   assert.equal(dry.status, 0, dry.stderr);

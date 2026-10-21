@@ -78,8 +78,8 @@ SOL RADAR는 이 검토 과정을 데이터와 AI 분석으로 지원합니다.
 | AI 서비스 | Python · FastAPI | AI 모델 연동 및 분석 파이프라인(`services/ai`) |
 | AI 모델 | Qwen3.8-Flash-Next(회사 운영 vLLM API) · Bosun v3.1 0.6B(결정 모델) | 요구사항 구조화 및 의사결정 보조. `KEV_*`·`/kev` 이름은 호환 유지(ADR-034) |
 | 벡터 검색 | Qdrant | 관련 문서 및 근거 검색 |
-| 파일 저장 | MinIO | 공고 첨부파일 및 원본 문서 보관 |
-| 실행 환경 | Docker Compose | Redis·MinIO·Qdrant·AI 서비스·worker 실행. 웹은 호스트에서 `pnpm -C web start` |
+| 파일 저장 | Supabase Storage | 공고 첨부파일 및 원본 문서 보관 |
+| 실행 환경 | Docker Compose | Redis·Supabase Storage·Qdrant·AI 서비스·worker 실행. 웹은 호스트에서 `pnpm -C web start` |
 
 DB·인증은 Supabase 클라우드 프로젝트를 씁니다. 데모는 Docker Compose([배포](docs/10-DEPLOYMENT.md))로 돌리고, 웹 배포처는 아직 정하지 않았습니다([결정 기록](docs/16-DECISIONS.md) ADR-017·미결정 8번).
 모델의 구체적인 버전과 연동 방식은 검증 후 확정합니다.
@@ -102,7 +102,7 @@ DB·인증은 Supabase 클라우드 프로젝트를 씁니다. 데모는 Docker 
 - 설치: 루트와 `web/`에서 각각 `pnpm install`.
 - 로컬 DB: `pnpm db:start`(Docker·Supabase CLI 필요. 마이그레이션을 적용하고 `web/.env.local`을 채웁니다). 시험 계정은 `pnpm db:seed`, 데모 데이터는 `pnpm demo:reset`.
 - 웹 실행: `pnpm -C web dev`.
-- Compose(Redis·MinIO·Qdrant·AI gateway·worker)와 데모 당일 기동 절차: [배포](docs/10-DEPLOYMENT.md). 환경변수 키 이름은 `.env.example`·`web/.env.example`·`infra/env/*.env.example`.
+- Compose(Redis·Supabase Storage·Qdrant·AI gateway·worker)와 데모 당일 기동 절차: [배포](docs/10-DEPLOYMENT.md). 환경변수 키 이름은 `.env.example`·`web/.env.example`·`infra/env/*.env.example`.
 - 검증: `pnpm verify`(빌드를 뺀 빠른 검증은 `pnpm verify:quick`).
 
 API 키, Supabase service role 키, 데이터베이스 연결 문자열 등 비밀 값은 Git에 커밋하지 않습니다.

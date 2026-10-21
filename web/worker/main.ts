@@ -24,6 +24,16 @@ import {
 } from "@/server/ingestion";
 import { createNotificationOutboxStore } from "@/server/notifications";
 import { getSupabaseAdmin } from "@/server/supabase";
+import { readStorageSettings } from "@/server/documents";
+import { probeAi } from "@/server/health";
+import {
+  createDependencyReporter,
+  createStorageProbe,
+  dependencyPublish,
+  startDependencyReporter,
+} from "@/worker/dependency-health";
+import { createWorkerStorageClient } from "@/worker/storage-client";
+import { createDocumentStorage } from "@/worker/document-storage";
 import { readReconcileSettings } from "@/worker/analysis-reconcile";
 import { startAnalysisRuntime } from "@/worker/analysis-runtime";
 import { readG2bServiceKey, readWorkerEnv, type WorkerEnv } from "@/worker/env";
@@ -387,6 +397,61 @@ export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
   ingestWorkerRegistration,
   analysisWorkerRegistration,
   notifyWorkerRegistration,
+  async (rawEnv) => {
+    const settings = readStorageSettings(rawEnv);
+    return async (connection) => {
+      const redis = connection.duplicate({ maxRetriesPerRequest: 1, commandTimeout: 3_000 });
+      redis.on("error", () => {});
+      const reporter = startDependencyReporter(
+        createDependencyReporter({
+          scope: {
+            runMode: rawEnv.SOL_RUN_MODE?.trim() || "mock",
+            supabaseUrl: rawEnv.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "") || "",
+            ...settings,
+          },
+          now: Date.now,
+          storage: createStorageProbe(createWorkerStorageClient(rawEnv, 5_000), settings),
+          ai: () => probeAi(rawEnv.AI_GATEWAY_URL),
+          publish: dependencyPublish(redis),
+        }),
+      );
+      return {
+        async close() {
+          try {
+            await reporter.close();
+          } finally {
+            redis.disconnect();
+          }
+        },
+      };
+    };
+  },
+  async (rawEnv) => {
+    const settings = readStorageSettings(rawEnv);
+    return async () => {
+      const storage = createDocumentStorage(createWorkerStorageClient(rawEnv), settings);
+      let running: Promise<unknown> | null = null;
+      const tick = () => {
+        if (running) return;
+        running = storage
+          .reconcile()
+          .catch(() => {
+            console.error("worker storage reconcile 실패");
+          })
+          .finally(() => {
+            running = null;
+          });
+      };
+      tick();
+      const timer = setInterval(tick, 10 * 60_000);
+      return {
+        async close() {
+          clearInterval(timer);
+          await running;
+        },
+      };
+    };
+  },
 ];
 
 /**

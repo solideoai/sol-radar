@@ -33,7 +33,7 @@ updated: 2026-10-20
 
 ## 상태 기준
 - `/health/live`: Next.js 프로세스 살아있음(`web/app/health/live/route.ts`).
-- `/health/ready`(`web/app/health/ready/route.ts`): 응답 `{status, checks:{db, redis, storage, ai}}` ([[05-API-SPEC|05 API]]). `db` = Supabase(Postgres) 연결, `redis` = Redis, `storage` = MinIO, `ai` ∈ `mock | local | hosted | unavailable`.
+- `/health/ready`(`web/app/health/ready/route.ts`): 응답 `{status, checks:{db, redis, storage, ai}}` ([[05-API-SPEC|05 API]]). `db` = Supabase(Postgres) 연결, `redis` = Redis, `storage` = Supabase Storage, `ai` ∈ `mock | local | hosted | unavailable`.
   - db·redis·storage 중 하나라도 불가 → HTTP `503`, `status: "unavailable"`.
   - AI만 불가 → HTTP 200, `status: "degraded"`, `checks.ai: "unavailable"`. AI는 선택 의존성이다.
   - 모두 정상 → HTTP 200, `status: "ok"`.

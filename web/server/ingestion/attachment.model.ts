@@ -57,7 +57,7 @@ export type AttachmentFetcher = { fetch(ref: AttachmentRef): Promise<AttachmentF
 const OBJECT_ID = /^[A-Za-z0-9-]+$/;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
-/** MinIO 키. 경로 조각에 '/'·'..' 가 섞이면 다른 공고의 원본을 덮어쓸 수 있어 프로그램 오류로 던진다. */
+/** Supabase Storage 키. 경로 조각에 '/'·'..' 가 섞이면 다른 공고의 원본을 덮어쓸 수 있어 프로그램 오류로 던진다. */
 export function attachmentObjectKey(input: {
   bidId: string;
   revisionId: string;

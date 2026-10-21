@@ -667,3 +667,23 @@ test("checkEnv: API_CURSOR_SECRET 은 앞뒤 공백을 뗀 길이로 잰다(공�
     },
   );
 });
+
+test("Supabase Storage replacement does not require MinIO credentials or endpoint", async () => {
+  const infra = { ...INFRA_BASE };
+  delete infra.MINIO_ROOT_USER;
+  delete infra.MINIO_ROOT_PASSWORD;
+  const web = { ...WEB_BASE };
+  delete web.MINIO_ENDPOINT;
+  await withRoot({ infra, web }, async (root) => {
+    assert.equal((await checkEnv({ root })).ok, true);
+  });
+});
+
+test("redis-api accepts Worker health reports without a direct AI gateway URL", async () => {
+  const web = { ...WEB_BASE, SOL_DEPLOYMENT_ROLE: "redis-api", REDIS_API_TOKEN: "a".repeat(64) };
+  delete web.MINIO_ENDPOINT;
+  delete web.AI_GATEWAY_URL;
+  await withRoot({ web }, async (root) => {
+    assert.equal((await checkEnv({ root })).ok, true);
+  });
+});
