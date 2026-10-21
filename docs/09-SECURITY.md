@@ -179,7 +179,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 |출력 강제|JSON Schema 검증. 실패 시 1회 재시도, 재실패 시 `requirement_extractions.status=FAILED`, 분석은 `PARTIAL`. 스키마 밖 필드는 폐기|
 |권한 없음|모델에는 도구·파일·네트워크 호출 권한이 없다. gateway는 모델 출력을 실행하지 않고 값으로만 다룬다|
 |인용 검증|AI가 만든 인용은 원문 문자열 매칭에 실패하면 무효 ([[15-DATA-CONTRACTS\|15 데이터 계약]])|
-|결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 자유 텍스트 값은 `/extract`의 `translations`(숫자 보존 검사 통과분)만 쓴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`)|
+|결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 자유 텍스트 값은 `/extract`의 `translations`(숫자 보존 검사 통과분)만 쓴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`). 결정 서버(8009)도 한글 state를 422 `STATE_NOT_ENGLISH`로 거절한다(`DECISION_ALLOW_KO_STATE`는 공유 8009에 켜지 않는다. main `36edfb6`, [[16-DECISIONS\|16]] 미결정 27)|
 |파싱 실패 처리|읽지 못한 첨부의 내용을 추정하라는 지시를 프롬프트에 넣지 않는다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`이 된다([[15-DATA-CONTRACTS\|15 데이터 계약]] §5.1)|
 
 ### 감사 가능성
@@ -237,6 +237,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·실제 `/v1/models` 응답·지연은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번, C1 ③ G1~G6에서 확인).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
 - 호스트 허용 목록: "gateway는 거기에만 붙는다"를 모델 레지스트리(`services/ai/models/registry.yaml`)의 `allowedHosts`로 강제한다. 값은 `acropolissg.com` 하나다([[03-AI-PIPELINE|03]] §11, [[16-DECISIONS|ADR-032]] D2). `QWEN_BASE_URL`·`KEV_BASE_URL`의 호스트가 목록의 값과 정확히 같지 않으면(하위 도메인 포함) gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). 루프백은 시험용으로 허용한다. 구현은 main `0a32e47`에 병합됐다(3b `c5/gateway-hardening-3`).
+- 결정 서버(`sol_decision.serve`) 방어(main `36edfb6`): 요청 본문 128 KiB, state 24,000자, 대기열 `DECISION_MAX_QUEUE` 4(넘으면 503), 요청 마감 `DECISION_TIMEOUT_MS` 4,500ms(넘으면 504), 한글 state 거절, 패키지 최상위 `*.py`의 manifest 대조(`trust_remote_code`가 실행하는 코드). 세부는 [[03-AI-PIPELINE|03]] §5.3, 대조 범위의 한계와 임베딩 sha256 대조 추가(2026-10-21 사용자 결정, 구현 전)는 [[16-DECISIONS|16]] 미결정 28이다.
 
 ### 회사 GPU로 가는 데이터
 - 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
