@@ -26,6 +26,7 @@ import type {
   AnalysisStatus,
   AnalysisView,
   BidStage,
+  BidStatus,
   FactorKey,
   KevView,
   MissingReason,
@@ -186,6 +187,15 @@ export const STAGE_LABEL = {
   PRE_SPEC: "사전규격",
   NOTICE: "입찰공고",
 } as const satisfies Record<BidStage, string>;
+
+// 변경 이력의 공고 상태 값(스펙 docs/plans/2026-10-21-s5-revisions-ui-spec.md §8.5, D4).
+// 취소 글자는 상태 배지와 같은 EXTRA_STATUS_LABEL 을 쓴다.
+export const BID_STATUS_LABEL = {
+  OPEN: "공고",
+  AMENDED: "정정 공고",
+  CANCELLED: EXTRA_STATUS_LABEL.CANCELLED,
+  CLOSED: "마감",
+} as const satisfies Record<BidStatus, string>;
 
 type NotificationType = Notification["type"];
 

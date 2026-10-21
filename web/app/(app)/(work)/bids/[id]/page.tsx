@@ -86,6 +86,7 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       canAnalyze={canRequestAnalysis(work.role)}
       canDecide={canRecordReview(work.role)}
       backHref={backHrefOf((await searchParams).list, work.runMode)}
+      revisionsHref={detail.data.revisions.length >= 2 ? `/bids/${id}/revisions` : null}
       now={new Date().toISOString()}
     />
   );

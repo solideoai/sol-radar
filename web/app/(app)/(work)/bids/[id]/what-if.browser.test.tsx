@@ -133,6 +133,7 @@ const props = (latestAnalysis: AnalysisView | null): ViewProps => ({
   history: null,
   assessmentLabels: {},
   members: [{ id: "user-sales", name: "김영업" }],
+  revisionsHref: null,
   currentUserId: "user-sales",
   canAnalyze: true,
   canDecide: true,

@@ -92,6 +92,7 @@ const props = (overrides: Partial<ViewProps> = {}): ViewProps => ({
   canAnalyze: true,
   canDecide: true,
   backHref: "/bids",
+  revisionsHref: null,
   now: NOW,
   ...overrides,
 });
@@ -176,6 +177,24 @@ describe("BidDetailView 버튼과 권한(스펙 §5.4.1·§5.4.10)", () => {
     await expect
       .element(page.getByText("이 공고는 취소되었습니다. 기존 분석·결정 기록은 보존됩니다"))
       .toBeVisible();
+  });
+});
+
+describe("BidDetailView 단계 이력의 변경 이력 진입점(S5 스펙 §4.6)", () => {
+  it("revisionsHref 가 있으면 r{N} 이 변경 이력 링크다", async () => {
+    const { host } = render({
+      bid: detail({ latestRevision: 2 }),
+      revisionsHref: `/bids/${BID_ID}/revisions`,
+    });
+    const link = page.getByRole("link", { name: "r2 변경 이력 보기" });
+    await expect.element(link).toHaveAttribute("href", `/bids/${BID_ID}/revisions`);
+    expect(host.querySelector('[aria-label="단계 이력"] a')?.textContent).toContain("r2");
+  });
+
+  it("revisionsHref 가 없으면 r{N} 은 링크가 아니다", async () => {
+    const { host } = render({ bid: detail({ latestRevision: 1 }), revisionsHref: null });
+    expect(host.querySelector('[aria-label="단계 이력"] a')).toBeNull();
+    expect(host.querySelector('[aria-label="단계 이력"]')?.textContent).toContain("r1");
   });
 });
 

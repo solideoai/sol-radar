@@ -21,6 +21,16 @@ import {
 } from "@/components/bids/test-data";
 import type { AnalysisView, KevView, RequirementAssessmentView } from "@/server/bids";
 
+// StageTimeline 이 next/link 를 쓴다. 시험 번들에는 Next 런타임이 없어 앵커로 바꾼다.
+vi.mock("next/link", () => ({
+  __esModule: true,
+  default: ({ href, children, ...rest }: React.ComponentProps<"a">) => (
+    <a href={String(href)} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 // 분석 표시 부품을 진짜 브라우저로 잰다. 컨테이너 폭은 상세 주 영역(1280 = 616px)과 776px(1440)이다.
 
 const mounted: Root[] = [];
@@ -657,6 +667,7 @@ describe("StageTimeline", () => {
         stage="NOTICE"
         stageLinks={{ planRef: "PLAN-77", preSpecRef: null }}
         latestRevision={3}
+        revisionsHref={null}
       />,
     );
     expect(text(host)).toContain("발주계획PLAN-77");
@@ -682,6 +693,7 @@ describe("공통", () => {
           stage="NOTICE"
           stageLinks={{ planRef: "PLAN-2026-000123", preSpecRef: "PRESPEC-2026-000456" }}
           latestRevision={12}
+          revisionsHref={null}
         />
       </div>,
       width,

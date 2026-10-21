@@ -98,6 +98,8 @@ type BidDetailViewProps = {
   canDecide: boolean;
   /** "← 공고 목록"이 돌아갈 주소. 목록에서 왔으면 그 조건을 보존한다. */
   backHref: string;
+  /** 단계 이력 r{N} 이 가는 변경 이력 주소. revision 이 하나뿐이면 null. */
+  revisionsHref: string | null;
   /** 서버가 요청마다 한 번 만든 시각(ISO). D-n 의 기준이다(하이드레이션 차이 없음). */
   now: string;
 };
@@ -785,6 +787,7 @@ export function BidDetailView({
   canAnalyze,
   canDecide,
   backHref,
+  revisionsHref,
   now,
 }: BidDetailViewProps) {
   const router = useRouter();
@@ -909,6 +912,7 @@ export function BidDetailView({
                 stage={bid.stage}
                 stageLinks={bid.stageLinks}
                 latestRevision={bid.latestRevision}
+                revisionsHref={revisionsHref}
               />
             </section>
             {progress !== null ? (
