@@ -10,6 +10,7 @@ import type {
   Review,
   ScoreFactorView,
 } from "@/server/bids";
+import type { WhatIfSummary } from "@/server/scoring";
 
 // 부품 시험과 스토리용 데이터. 숫자의 정본은 fixtures/goldens/FX-0n.json 과 fixtures/kev/FX-0n.json 이다.
 // fit.score 는 wire 값(0~4)이고 표시 n/5 는 부품이 floor+1 로 만든다.
@@ -337,6 +338,42 @@ export const FX01_PARTIAL_VIEW: AnalysisView = {
   fallbackReason: "KEV_UNAVAILABLE",
   model: { ...baseView.model, kev: null },
 };
+
+// BOOST-2 가정 재계산 시험용. FX-03 의 정보통신공사업 등록 행에 자격 코드를 붙였다(스위치는 코드가 있는 행에만 붙는다).
+export const FX03_WHAT_IF_VIEW: AnalysisView = {
+  ...FX03_VIEW,
+  qualification: {
+    ...FX03_VIEW.qualification,
+    checks: FX03_VIEW.qualification.checks.map((check) =>
+      check.id === "q2" ? { ...check, requirementCode: "ICT_CONSTRUCTION" } : check,
+    ),
+  },
+};
+
+// 가정 재계산 응답의 before·after 한쪽. 저장된 run 과 같은 값에서 시작해 바꿀 칸만 덮는다.
+export const whatIfSummaryOf = (
+  view: AnalysisView,
+  overrides: Partial<WhatIfSummary> = {},
+): WhatIfSummary => ({
+  score: view.solScore ?? 0,
+  recommendation: view.recommendation ?? "NO_BID",
+  qualificationStatus: view.qualification.status,
+  factors: view.scoreBreakdown.map(({ factor, points, maxPoints }) => ({
+    factor,
+    points,
+    maxPoints,
+  })),
+  checks: view.qualification.checks.map(
+    ({ id, requirementName, requirementCode, outcome, reasonCode }) => ({
+      id,
+      requirementName,
+      requirementCode,
+      outcome,
+      reasonCode,
+    }),
+  ),
+  ...overrides,
+});
 
 const docsOk = {
   total: 2,

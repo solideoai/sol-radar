@@ -22,8 +22,11 @@ export default defineConfig({
   },
   // 시험 파일을 미리 훑어 의존성을 한 번에 묶는다. 이 줄이 없으면 경로 묶음 폴더(`app/(app)/…`) 안의 시험은 미리 훑이지 않아,
   // 캐시가 없는 첫 실행(CI·새 복제본)에서 의존성을 뒤늦게 묶고 화면을 다시 불러온다. 그 사이 React 가 둘이 되어 시험이 실패한다.
+  // 캐시가 이미 있는 복제본은 미리 훑기를 건너뛰어, 새로 들인 의존성(switch)을 실행 중에 묶고 다시 불러온다. 그 사이 React 가 둘이 된다.
+  // 그래서 뒤늦게 들어온 부품의 의존성은 include 에 적어 처음부터 묶는다.
   optimizeDeps: {
     entries: ["**/*.browser.test.tsx"],
+    include: ["@base-ui/react/switch"],
   },
   resolve: {
     alias: {
