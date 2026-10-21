@@ -42,7 +42,7 @@ test("서비스 소개는 지금 방식과 SOL RADAR 를 비교하는 표다", a
   await expect(about.getByRole("columnheader")).toHaveText([
     "검토 단계",
     "지금은",
-    "SOL RADAR에서는 (개발 중)",
+    "SOL RADAR에서는",
   ]);
   await expect(about.getByRole("rowheader")).toHaveText([
     "요구사항 파악",
@@ -61,7 +61,7 @@ test("구역 제목 위에 작은 머리글이 없다", async ({ page }) => {
   }
 });
 
-test("주요 기능은 네 가지이고, 모두 개발 예정이라고 밝힌다", async ({ page }) => {
+test("주요 기능은 네 가지이고, 화면이 예시 데이터임을 밝힌다", async ({ page }) => {
   await page.goto("/");
   const features = page.getByRole("region", { name: SECTIONS[0].title });
   await expect(features.getByRole("heading", { level: 3 })).toHaveText([
@@ -70,9 +70,7 @@ test("주요 기능은 네 가지이고, 모두 개발 예정이라고 밝힌다
     "SOL Score와 판단 근거",
     "검토 이력과 변경 알림",
   ]);
-  await expect(features.getByText("개발 예정", { exact: true })).toHaveCount(4);
-  await expect(features.getByRole("note")).toContainText("MVP를 개발하고 있습니다");
-  await expect(features.getByRole("note")).toContainText("아직 이용할 수 없습니다");
+  await expect(features.getByRole("note")).toHaveText("화면은 예시 데이터로 그렸습니다.");
   // 점수 조각은 demo-3 의 판단 근거를 보인다(판에서 옮겨 왔다).
   await expect(features.getByText(/필수 실적 요건 미충족/)).toBeVisible();
 });
@@ -166,7 +164,7 @@ test("주소에 #faq 를 붙여 열면 FAQ 제목이 머리말 아래에 보인�
   await expectBelowHeader(page, page.getByRole("heading", { level: 2, name: "자주 묻는 질문" }));
 });
 
-test("마지막 구역에 시작하기·분석 예시 보기와 MVP 개발 중 안내가 있다", async ({ page }) => {
+test("마지막 구역에 시작하기·분석 예시 보기가 있다", async ({ page }) => {
   await page.goto("/");
   const cta = page.getByRole("region", { name: "다음 사업 검토, 근거부터 확인하세요." });
   await expect(cta.getByText(/검토할 사업의 우선순위를 정리하세요/)).toBeVisible();
@@ -178,7 +176,7 @@ test("마지막 구역에 시작하기·분석 예시 보기와 MVP 개발 중 �
     "height",
     "56px",
   );
-  await expect(cta.getByRole("note")).toContainText("MVP를 개발하고 있습니다");
+  await expect(cta.getByRole("note")).toHaveCount(0);
   const demo = cta.getByRole("link", { name: "분석 예시 보기" });
   await expect(demo).toHaveAttribute("href", "/#demo");
   await demo.click();

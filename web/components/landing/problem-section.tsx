@@ -3,7 +3,6 @@ import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 
 // 공공 SI 의 제안서·평가표가 쓰는 비교표 형식이다. 문제(지금은)와 해법(SOL RADAR)을 한 줄에 짝지어 읽게 한다.
-// SOL RADAR 칸은 아직 만들지 않은 것이라 열 이름에 "개발 중"을 밝힌다.
 const ROWS = [
   {
     stage: "요구사항 파악",
@@ -50,7 +49,7 @@ export function ProblemSection() {
                   지금은
                 </th>
                 <th scope="col" className={HEAD_CELL}>
-                  SOL RADAR에서는 (개발 중)
+                  SOL RADAR에서는
                 </th>
               </tr>
             </thead>

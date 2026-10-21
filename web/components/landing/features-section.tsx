@@ -1,4 +1,3 @@
-import { InfoIcon } from "lucide-react";
 import {
   CollectPreview,
   HistoryPreview,
@@ -7,7 +6,6 @@ import {
 } from "@/components/landing/feature-previews";
 import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
-import { PlannedBadge } from "@/components/landing/status-badges";
 
 type Feature = {
   id: string;
@@ -17,7 +15,6 @@ type Feature = {
 };
 
 // 한 줄에 기능 하나다. 같은 크기 상자를 격자로 늘어놓지 않고, 왼쪽 글과 오른쪽 큰 조각을 짝짓는다.
-// 지금은 어느 기능도 구현되지 않았다(Phase 0 전). 줄마다 "개발 예정"을 붙이고, 구현되면 그 줄에서 뗀다.
 const FEATURES: Feature[] = [
   {
     id: "collect",
@@ -57,9 +54,7 @@ export function FeaturesSection() {
             description="공고 수집부터 참여 결정 기록까지, 담당자가 되풀이하던 확인 작업을 줄이는 데 집중합니다."
           />
           <p role="note" className="mt-5 flex items-center gap-2 type-ui-lg text-muted-foreground">
-            <InfoIcon aria-hidden className="size-5 shrink-0 text-brand" />
-            SOL RADAR는 MVP를 개발하고 있습니다. 아래 기능은 모두 개발 예정이며 아직 이용할 수
-            없습니다. 화면은 예시 데이터로 그렸습니다.
+            화면은 예시 데이터로 그렸습니다.
           </p>
         </Reveal>
         <ul className="mt-16 flex flex-col gap-24">
@@ -68,9 +63,6 @@ export function FeaturesSection() {
               <div className="col-span-4 pt-2">
                 <h3 className="type-subhead text-foreground">{feature.title}</h3>
                 <p className="mt-3.5 type-body-lg text-muted-foreground">{feature.body}</p>
-                <p className="mt-5">
-                  <PlannedBadge />
-                </p>
               </div>
               {/* 그림이다. 무엇을 그린 것인지는 왼쪽 제목과 설명이 말한다. */}
               <div
