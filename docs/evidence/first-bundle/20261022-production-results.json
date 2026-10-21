@@ -1,0 +1,175 @@
+{
+  "recordedAt": "2026-10-21T15:23:22.319Z",
+  "runtimeRelease": "3fded9990f56fb311be37ee39a558f5f7cb466f0",
+  "verification": {
+    "command": "pnpm verify",
+    "exitCode": 0,
+    "counts": {
+      "root": 183,
+      "web": 365,
+      "ai": 101,
+      "decision": 57
+    },
+    "ci": "https://github.com/gwanghui97/sol-radar/actions/runs/39623895645",
+    "ciConclusion": "success"
+  },
+  "database": {
+    "target": "brtysdocxemrqhdezzqg.supabase.co",
+    "migrationCountBefore": 31,
+    "migrationCountAfter": 34,
+    "applied": [
+      {
+        "version": "20261021000700",
+        "name": "document_storage"
+      },
+      {
+        "version": "20261021000701",
+        "name": "document_storage_access"
+      },
+      {
+        "version": "20261021000702",
+        "name": "document_storage_incarnations"
+      }
+    ],
+    "preservation": {
+      "auth.users": {
+        "count": 5,
+        "preserved": true
+      },
+      "public.profiles": {
+        "count": 5,
+        "preserved": true
+      },
+      "public.team_members": {
+        "count": 200,
+        "preserved": true
+      },
+      "public.team_member_scoring": {
+        "count": 200,
+        "preserved": true
+      },
+      "public.score_runs": {
+        "count": 18,
+        "preserved": true
+      },
+      "public.bid_documents": {
+        "count": 18,
+        "preserved": true
+      }
+    },
+    "dbVerifyExitCode": 0
+  },
+  "storage": {
+    "private": true,
+    "fileLimitBytes": 52428800,
+    "largeRoundTripBytesPerBucket": 52428800,
+    "access": {
+      "at": "2026-10-21T15:10:06.975Z",
+      "buckets": [
+        {
+          "name": "bid-documents",
+          "anonDenied": true,
+          "unreferencedUserDenied": true,
+          "markerDenied": true,
+          "userWriteDenied": true,
+          "signedRoundTrip": true,
+          "expiredDenied": true
+        },
+        {
+          "name": "bid-parsed",
+          "anonDenied": true,
+          "unreferencedUserDenied": true,
+          "markerDenied": true,
+          "userWriteDenied": true,
+          "signedRoundTrip": true,
+          "expiredDenied": true
+        }
+      ],
+      "testCorrection": "Use a 60-second URL for download and a separate 1-second URL for expiration; measured round trip 634–920ms crosses a 1-second TTL boundary.",
+      "userAuthenticated": true
+    },
+    "documentReferences": 0
+  },
+  "vercel": {
+    "id": "dpl_FdYbW4HriSfVWT2HEC81ouauxhj6",
+    "url": "sol-radar-1txdc0kbi-gwanghui97s-projects.vercel.app",
+    "readyState": "READY",
+    "alias": [
+      "www.solideos-radar.com",
+      "sol-radar-khaki.vercel.app",
+      "solideos-radar.com",
+      "sol-radar-gwanghui97s-projects.vercel.app"
+    ],
+    "meta": {},
+    "services": ["0", "1"]
+  },
+  "upload": {
+    "framework": "services",
+    "fileCount": 1170,
+    "totalSize": 453146875,
+    "forbiddenFiles": [],
+    "required": {
+      "vercel.json": true,
+      "web/package.json": true,
+      "services/ai/app.py": true,
+      "infra/run-modes.json": true,
+      "fixtures/extractions/FX-01.json": true
+    }
+  },
+  "browser": {
+    "at": "2026-10-21T15:19:58.058Z",
+    "domain": "https://www.solideos-radar.com",
+    "pages": [
+      {
+        "path": "/bids",
+        "status": 200,
+        "finalPath": "/bids",
+        "headings": ["입찰 공고"],
+        "elapsedMs": 3892,
+        "errorBoundary": false
+      },
+      {
+        "path": "/people",
+        "status": 200,
+        "finalPath": "/people",
+        "headings": ["조직·인력"],
+        "elapsedMs": 5057,
+        "errorBoundary": false
+      }
+    ],
+    "serverErrors": [
+      {
+        "path": "/health/ready",
+        "status": 503
+      },
+      {
+        "path": "/health/ready",
+        "status": 503
+      }
+    ],
+    "login": true,
+    "landingPath": "/dashboard"
+  },
+  "readiness": {
+    "path": "/health/ready",
+    "status": 503,
+    "location": null,
+    "body": {
+      "status": "unavailable",
+      "checks": {
+        "db": "unavailable",
+        "redis": "unavailable",
+        "storage": "unavailable",
+        "ai": "unavailable"
+      }
+    }
+  },
+  "company": {
+    "applied": false,
+    "publicGatewayStatus": 502,
+    "sshResult": "connection_timeout",
+    "dockerContexts": "local_only",
+    "selfHostedGithubRunners": 0,
+    "requires": "Existing internal terminal or SSH host and port"
+  }
+}
