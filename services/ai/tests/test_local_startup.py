@@ -16,6 +16,7 @@ from support import (
     QWEN_KEY,
     QWEN_RUN,
     RETIRED_KEV_MODEL_ID,
+    RETIRED_QWEN27B_RUN,
     RETIRED_QWEN_RUN,
     run_main,
 )
@@ -224,7 +225,7 @@ def test_retired_kev_model_id_is_not_reported_as_unknown():
 
 
 def test_qwen_entry_is_not_a_kev_model_id():
-    result = run_main(env_for(closed_url(), closed_url(), KEV_MODEL_ID="qwen3.5-27b"))
+    result = run_main(env_for(closed_url(), closed_url(), KEV_MODEL_ID="qwen3.8-flash-next"))
     assert refused_with(result, "KEV_MODEL_ID(NOT_IN_REGISTRY)") == (EX_CONFIG, True)
 
 
@@ -233,6 +234,16 @@ def test_retired_qwen_model_is_refused(fake_server):
         fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN_RUN))
     )
     result = run_main(env_for(qwen.url, kev.url, QWEN_MODEL=RETIRED_QWEN_RUN))
+    assert refused_with(result, "QWEN_MODEL(RETIRED)") == (EX_CONFIG, True)
+    assert qwen.calls("GET", "/v1/models") == []
+
+
+def test_retired_qwen27b_model_is_refused(fake_server):
+    # 2026-10-21 회사 vLLM 모델 교체로 퇴역한 Qwen/Qwen3.5-27B 를 QWEN_MODEL 로 주면 /v1/models 를 부르기 전에 거부한다
+    qwen, kev = model_servers(
+        fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN27B_RUN))
+    )
+    result = run_main(env_for(qwen.url, kev.url, QWEN_MODEL=RETIRED_QWEN27B_RUN))
     assert refused_with(result, "QWEN_MODEL(RETIRED)") == (EX_CONFIG, True)
     assert qwen.calls("GET", "/v1/models") == []
 
@@ -246,18 +257,18 @@ def test_backup_qwen_model_is_refused(fake_server):
     assert qwen.calls("GET", "/v1/models") == []
 
 
-def test_qwen_default_is_active_27b_not_retired_9b(fake_server):
-    # QWEN_MODEL 미지정 → active default(Qwen/Qwen3.5-27B). 퇴역 9B 만 서빙하는 vLLM 은 불일치다
+def test_qwen_default_is_active_flash_next_not_retired_27b(fake_server):
+    # QWEN_MODEL 미지정 → active default(Qwen/Qwen3.8-Flash-Next). 퇴역 27B 만 서빙하는 vLLM 은 불일치다
     qwen, kev = model_servers(
-        fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN_RUN))
+        fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN27B_RUN))
     )
     result = run_main(env_for(qwen.url, kev.url))
     assert refused_with(result, "기동 거부: QWEN_MODEL(REGISTRY_MISMATCH)") == (EX_CONFIG, True)
 
 
-def test_qwen_default_matches_27b_served(fake_server):
+def test_qwen_default_matches_flash_next_served(fake_server):
     qwen, kev = model_servers(
-        fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN_RUN, QWEN_RUN))
+        fake_server, qwen_models=Reply(json_body=vllm_models(RETIRED_QWEN27B_RUN, QWEN_RUN))
     )
     assert started(run_main(env_for(qwen.url, kev.url))) == (0, False)
 

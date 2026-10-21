@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - hackathon
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 18. 해커톤 출품 전략
@@ -45,17 +45,17 @@ updated: 2026-10-20
 
 ### 3.1 핵심 흐름
 
-실제 나라장터 공고 수집(정보화사업) → 변경 감지(revision) → 첨부 다운로드·파싱 → 요구조건 추출(Qwen3.5-27B, 근거 인용 필수) → 명시 조건 규칙 판정(API 구조화 필드 우선) → SOL Score(결정론적, 분해 가능) → 결정 모델(Bosun v3.1 0.6B) 참고 지표(점수 미반영) → 근거 설명 → BID / WATCH / NO-BID **권고** → 사람 최종 결정 기록 → 인앱 알림. 세 실행 모드(`live` 실제 공고 + 실추론, `fixture` 가상 공고 + 실추론, `mock` 가상 공고 + 고정 AI 응답)가 같은 흐름을 탄다([[16-DECISIONS|ADR-020]]). 상세는 [[02-ARCHITECTURE|02 아키텍처]], [[03-AI-PIPELINE|03 AI 파이프라인]], [[08-SCORING|08 SOL Score]], [[21-MODEL-TRAINING|21 모델 학습]].
+실제 나라장터 공고 수집(정보화사업) → 변경 감지(revision) → 첨부 다운로드·파싱 → 요구조건 추출(Qwen3.8-Flash-Next, 근거 인용 필수) → 명시 조건 규칙 판정(API 구조화 필드 우선) → SOL Score(결정론적, 분해 가능) → 결정 모델(Bosun v3.1 0.6B) 참고 지표(점수 미반영) → 근거 설명 → BID / WATCH / NO-BID **권고** → 사람 최종 결정 기록 → 인앱 알림. 세 실행 모드(`live` 실제 공고 + 실추론, `fixture` 가상 공고 + 실추론, `mock` 가상 공고 + 고정 AI 응답)가 같은 흐름을 탄다([[16-DECISIONS|ADR-020]]). 상세는 [[02-ARCHITECTURE|02 아키텍처]], [[03-AI-PIPELINE|03 AI 파이프라인]], [[08-SCORING|08 SOL Score]], [[21-MODEL-TRAINING|21 모델 학습]].
 
 ### 3.2 차별점 다섯 가지
 
 | # | 차별점 | 흔한 접근 | SOL RADAR | 근거 위치 |
 |---|---|---|---|---|
-| D1 | **우리 회사 기준 자격 판정** | 공고 수집·키워드 알림까지 | 회사 프로필(기술·자격·실적·인력)과 공고 요구조건을 대조해 `SATISFIED / NOT_SATISFIED / NEEDS_REVIEW` 판정, 항목마다 원문 인용 | [[08-SCORING]], [[15-DATA-CONTRACTS]] |
+| D1 | **우리 회사 기준 자격 판정** | 공고 수집·키워드 알림까지 | 회사 프로필(기술·자격·실적·인력)과 공고 요구조건을 대조해 `SATISFIED / NOT_SATISFIED / NEEDS_REVIEW` 판정, 항목마다 원문 인용. 부족한 자격을 "보유 가정"으로 켜면 저장하지 않고 권고·점수를 다시 계산해 무엇이 있으면 들어갈 수 있는지 보여 준다(가정 재계산, 결정 모델 재호출 없음, [[16-DECISIONS]] ADR-037) | [[08-SCORING]], [[15-DATA-CONTRACTS]] |
 | D2 | **설명 가능한 점수** | 블랙박스 "적합도 87%" | 5개 요소·가중치·입력 스냅샷·알고리즘 버전을 저장하는 결정론적 점수. 같은 입력이면 같은 점수 | [[08-SCORING]], [[04-DATABASE]] |
 | D3 | **정직한 AI** | "낙찰 확률 73%" 같은 근거 없는 수치 | 수주확률을 표시하지 않는다. 결정 모델 분포는 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"로만, 점수에 넣지 않는 참고 지표로 표시. 근거 부족은 `INSUFFICIENT_DATA`/`NEEDS_REVIEW`이고 정보 부족을 미충족으로 판정하지 않는다. 실행 모드와 데이터 출처를 화면에 표시하고 mock으로 몰래 대체하지 않는다 | [[03-AI-PIPELINE]], [[06-UI-UX]], [[08-SCORING]] |
 | D4 | **사람이 최종 결정, 기록이 남는다** | AI가 결정을 대신하거나 결정이 메신저에 흩어짐 | 권고와 결정을 분리. `bid_reviews`에 결정자·사유·시각 저장, 규칙과 모델이 충돌하면 `MODEL_RULE_DISAGREEMENT`로 사람 검토 강제 | [[08-SCORING]], [[09-SECURITY]] |
-| D5 | **작은 결정 모델 + 규칙 엔진 조합** | 대형 LLM에 전부 맡김 | 추출·설명은 Qwen3.5-27B(회사 운영 vLLM API), 요구사항·기술 적합성·수행 리스크 분류는 Bosun v3.1 0.6B(Qwen3-0.6B 기반 소형 결정 모델, 텍스트 생성 없이 decision token 분포로 질문별 확률 반환, 우리 도메인 보정 전에는 `UNCALIBRATED` 표시, [[16-DECISIONS]] ADR-034), 명시 조건과 최종 판정은 규칙. 모델이 꺼져도 규칙만으로 완결(`PARTIAL`). 모델이 쓸모 있는지는 실제 공고 평가셋에서 규칙만 쓴 경우(E0)와 비교해 잰다 | [[03-AI-PIPELINE]], [[11-TESTING]] G6, [[21-MODEL-TRAINING]] |
+| D5 | **작은 결정 모델 + 규칙 엔진 조합** | 대형 LLM에 전부 맡김 | 추출·설명은 Qwen3.8-Flash-Next(회사 운영 vLLM API), 요구사항·기술 적합성·수행 리스크 분류는 Bosun v3.1 0.6B(Qwen3-0.6B 기반 소형 결정 모델, 텍스트 생성 없이 decision token 분포로 질문별 확률 반환, 우리 도메인 보정 전에는 `UNCALIBRATED` 표시, [[16-DECISIONS]] ADR-034), 명시 조건과 최종 판정은 규칙. 모델이 꺼져도 규칙만으로 완결(`PARTIAL`). 모델이 쓸모 있는지는 실제 공고 평가셋에서 규칙만 쓴 경우(E0)와 비교해 잰다 | [[03-AI-PIPELINE]], [[11-TESTING]] G6, [[21-MODEL-TRAINING]] |
 
 ### 3.2.1 경쟁 서비스 비교 (2026-10-19, 공개 페이지 기준)
 
@@ -118,14 +118,16 @@ AI 심사자는 저장소 전체를 읽고 **내부 일관성, 주장과 근거�
 | 0:00 | 문제 | "영업팀은 매일 공고를 눈으로 거르고, 자격 하나를 놓치면 제안서 작업이 무효가 된다" | 슬라이드 1장 |
 | 0:30 | 대시보드 | "수집 최신화 시각, 검토 대기, 마감 임박. 지금 실행 모드는 mock이고, 데이터는 DEMO 배지가 붙은 가상 공고, 회사는 가상 솔리데오 프로필이다" | `/dashboard`, 머리말 "실행 모드: mock", `DEMO` 배지, 신선도 표시 |
 | 1:00 | 공고 탐색·자격 근거 | "단계·점수로 거른다. 필수 자격마다 원문 인용이 붙고, 대조에 실패한 인용은 무효다" | `/bids` 필터 → FX-01(BID 94) 상세 → 자격 3건 `SATISFIED` → 근거 서랍 |
-| 1:30 | 규칙 우선 | "모델이 BID라고 해도 필수 자격 미충족은 규칙이 이긴다. 결정 모델 분포는 수주확률이 아니다" | FX-03(NO-BID) 상세 → `NOT_SATISFIED` → 결정 모델 BID 0.55 → `MODEL_RULE_DISAGREEMENT` 배지 |
+| 1:30 | 규칙 우선 + 가정 재계산 | "모델이 BID라고 해도 필수 자격 미충족은 규칙이 이긴다. 결정 모델 분포는 수주확률이 아니다. 그럼 정보통신공사업 등록이 있다면? 저장하지 않고 다시 계산하면 권고는 WATCH가 되고 점수는 68 그대로다. 자격은 점수가 아니라 관문이다" | FX-03(NO-BID) 상세 → `NOT_SATISFIED` → 결정 모델 BID 0.55 → `MODEL_RULE_DISAGREEMENT` 배지 → "정보통신공사업 등록" 행의 "보유 가정" 스위치 1회 → 점선 "가정 시나리오" 띠: NO-BID → WATCH, 68 → 68, 고정 문구 "가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다." → 오른쪽 결정 패널은 NO-BID 68 그대로 → [가정 지우기]([[16-DECISIONS\|ADR-037]]) |
 | 2:15 | 라이브 분석·점수 | "점수는 5개 요소로 분해되고 버전이 남는다. 50~75 구간은 사람 검토" | FX-02 분석 요청 → `QUEUED → COMPLETED` → 72점 분해, 결정 모델 WATCH 0.52 |
 | 3:00 | 사람 결정 | "권고는 WATCH, 결정은 사람이 사유와 함께 기록한다" | 결정 패널(담당자 = 발표자) → `bid_reviews` 기록 → 알림 벨에 `REVIEW_ASSIGNED`(`ANALYSIS_COMPLETE`도 올 수 있다, [[16-DECISIONS\|ADR-029]] A6 D5) |
-| 3:30 | **실제 공고(S-LIVE)** | "지금까지는 가상 공고였다. 이건 어제 나라장터에 올라온 실제 정보화사업 공고다. 회사 GPU의 Qwen이 요구조건을 뽑고, 규칙이 자격을 판정하고, 결정 모델(Bosun)은 참고 지표만 낸다. 실행 모드와 모델 이름이 화면에 남는다" | `/bids?origin=all` → 실제 공고 1건 상세 → 분석 요약 띠 "분석 실행 모드: live · AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c" + "가상 회사 프로필로 분석" 배지 → 자격 판정(사유 코드)·점수·결정 모델 참고 지표(`UNCALIBRATED`)·근거 서랍(실제 첨부 인용). 사전 실행 run 조회, 모드 전환 없음 |
+| 3:30 | **실제 공고(S-LIVE)** | "지금까지는 가상 공고였다. 이건 어제 나라장터에 올라온 실제 정보화사업 공고다. 회사 GPU의 Qwen이 요구조건을 뽑고, 규칙이 자격을 판정하고, 결정 모델(Bosun)은 참고 지표만 낸다. 실행 모드와 모델 이름이 화면에 남는다" | `/bids?origin=all` → 실제 공고 1건 상세 → 분석 요약 띠 "분석 실행 모드: live · AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c" + "가상 회사 프로필로 분석" 배지 → 자격 판정(사유 코드)·점수·결정 모델 참고 지표(`UNCALIBRATED`)·근거 서랍(실제 첨부 인용). 사전 실행 run 조회, 모드 전환 없음 |
 | 4:15 | 장애 대체 | "AI를 끄면 규칙만으로 PARTIAL 결과를 내고 상태를 숨기지 않는다" | `docker compose stop ai-gateway` → `AI: unavailable` → FX-01 재분석 → `PARTIAL` 배너, 이전 run 보존 |
 | 4:45 | 격리와 마무리 | "다른 조직 토큰으로는 404. 결제·모바일·자동 투찰은 범위 밖" | API 호출 404 응답(RLS가 다른 조직 행을 숨김) → 마무리 슬라이드 |
 
 S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[16-DECISIONS|ADR-023]]). 구현되고 시간이 남으면 3:30 앞에 30초로 넣는다. 장애 대체와 격리는 D3·D4의 증거라 생략하지 않는다.
+
+1:30의 가정 재계산은 데모 강화 컷이다([[16-DECISIONS|ADR-037]]). 장면 시간(45초)과 5분 합계는 늘리지 않는다. 10-23 freeze까지 green이 아니면 스위치 단계를 빼고 그 앞까지만 한다. 설계 단계의 실공고 선별 장면(BOOST-1, 0:30 대체)은 2026-10-20 게이트 결과로 빠졌으므로 0:30 장면과 3:30 이후 시각은 그대로다.
 
 - 기본 시연 모드는 `mock`이고 위 수치(94·72·68, 결정 모델 분포)는 mock 기준이다([[19-DEMO-SCENARIO|19 데모 시나리오]] §2.1).
 - S-LIVE는 S0에서 `live` 모드로 사전 실행한 run을 `mock` 모드 앱에서 조회한다. 분석마다 `run_mode`·모델이 기록되므로 표시가 그대로다([[03-AI-PIPELINE|03]] §3.3). 발표 중 모드 전환·재시작은 하지 않는다. 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]])에 따라 이 장면은 실공고·실추론 / 실공고·규칙만 `PARTIAL` / fixture·실추론 / 녹화·증거만 중 하나가 되고, 어느 쪽인지 말로 밝힌다. 녹화를 실시간이라고 말하지 않는다.
@@ -140,7 +142,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 공고 데이터 | **실제 나라장터 공고**(입찰공고 용역 중 정보화사업, `is_demo=false`) | **가상 fixture 20건**(`DEMO` 배지) | **가상 fixture 20건**(`DEMO` 배지) | 두 종류가 같은 DB에 함께 있을 수 있어 출처(`source`)·`DEMO` 배지·목록 `origin` 필터로 구분한다. 서비스키로 받은 실제 응답은 P0-0에서 확인했다(2026-10-19, `docs/evidence/phase-0/external-deps.md` ①, [[07-DATA-PIPELINE]]) |
 | 첨부(RFP)·파싱 | **미구현**. 설계는 실제 첨부를 allowlist(`www.g2b.go.kr`)로 내려받아 파싱 | **미구현**(fixture 첨부 샘플 `fixtures/docs/` 없음) | **미구현** | 지금은 첨부 목록만 저장하고 내려받지도 파싱하지도 않는다. 첨부는 `PENDING`으로 남고 추출은 본문만으로 한다(파서 어댑터 0개, documents 소비자 없음, [[03-AI-PIPELINE]] §2). 설계: 처리할 수 없는 형식·다운로드 실패는 `PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`와 `확인 필요`로 표시하고 AI가 내용을 추측하지 않는다. g2b 첨부는 공고 3건 모두 로그인·세션 없이 내려받았다(P0-0 ② B1~B4, 2026-10-19). 이용약관상 제한은 미확인이다([[16-DECISIONS]] 미결정 16) |
 | 회사 프로필 | **가상 솔리데오** | **가상 솔리데오** | **가상 솔리데오** | 회사명·부서/직급은 솔리데오, 직원 200명·사진·자격·실적·재무는 가상 데모 설정(ADR-019). live 분석도 "실제 공고 × 가상 회사 프로필"이며 분석 화면에 "가상 회사 프로필로 분석" 배지가 붙는다 |
-| Qwen 요구조건 추출·설명 | **회사가 운영하는 vLLM API의 Qwen3.5-27B 실추론** | **회사가 운영하는 vLLM API의 Qwen3.5-27B 실추론** | **고정 응답**(사전 작성 추출) | 실추론은 데모 노트북의 gateway가 HTTPS로 회사 GPU 추론 엔드포인트에 붙는다(ADR-025). 분석 패널에 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c" 또는 "AI: mock" |
+| Qwen 요구조건 추출·설명 | **회사가 운영하는 vLLM API의 Qwen3.8-Flash-Next 실추론** | **회사가 운영하는 vLLM API의 Qwen3.8-Flash-Next 실추론** | **고정 응답**(사전 작성 추출) | 실추론은 데모 노트북의 gateway가 HTTPS로 회사 GPU 추론 엔드포인트에 붙는다(ADR-025). 분석 패널에 "AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c" 또는 "AI: mock" |
 | 결정 모델(Bosun) | **회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론**(우리 `sol_decision` 서버, `kev-qs/v0.2`, 영어 state) | **회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론** | **고정 응답**(`fixtures/kev/FX-xx.json`, `kev-qs/v0.1`) | **참고 지표이며 점수·자격·권고에 반영하지 않는다.** 확률은 선택지에 대한 모델 분포이고 충족 확률·수주확률이 아니다. 우리 도메인 보정 전이라 `UNCALIBRATED`로 표시. 한국어 입력 성능은 E1'·E2로 잰다(§8 2번) |
 | mock 대체 | 금지(켜면 기동 거부) | 금지(켜면 기동 거부) | 금지(처음부터 mock이며, 켜면 기동 거부) | 해커톤 동안 자동 대체는 구현하지 않는다([[16-DECISIONS]] ADR-030 B11, `infra/run-modes.json`). 모델이 안 되면 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모드 전환은 사람이 한다 |
 | 네트워크 의존 | 인터넷(Supabase) + 공공 API + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase) + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase)만 | DB·인증이 Supabase 클라우드라 회장 회선이 끊기면 모든 모드에서 로그인·조회가 멈춘다. 그때는 로컬 Supabase CLI로 전환한다([[19-DEMO-SCENARIO]] §5 대체 경로 ①, [[16-DECISIONS]] ADR-023). 엔드포인트·공공 API가 끊겼을 때의 대응은 §9 |
@@ -149,7 +151,8 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 |---|---|---|
 | 수집·정규화·revision·변경 감지 | 실제 구현 | live·fixture 모두 같은 Connector 인터페이스로 흘려 동작 |
 | 자격 판정·SOL Score·결정 정책 | 실제 구현 | 결정론적 규칙, 골든셋 테스트. 골든 수치(94/72/68)는 `mock` 모드에서만 단언([[11-TESTING]]) |
-| 모델 평가 | 해커톤 범위 | 실제 공고 × 가상 기업 원형 6개 평가셋(test 20·dev 10 사업)으로 E0(규칙만)·E1'(공개 Bosun 영어 zero-shot)·E2(Bosun 한국어, 평가 전용)·E4(Bosun+LoRA, X6)를 비교한다. E3(Qwen3.5-27B logprob 분류 대조군)는 축소 규모(fixture 20 + 실공고 5)로 필수다([[16-DECISIONS]] ADR-023). 수치는 `docs/evidence/eval/` 리포트가 나온 뒤에만 말한다([[21-MODEL-TRAINING]]) |
+| 가정 재계산(데모 강화 컷, ADR-037) | **구현·E2E 통과(2026-10-21 main 병합 `d48c7a2`)** | 저장된 분석 입력 스냅샷에 "보유 가정"을 얹어 같은 규칙 엔진으로 다시 계산한다. DB에 쓰지 않는다(결정 기록·알림·감사 로그 불변). 결정 모델을 다시 부르지 않고, 원래·가정 결과 모두 결정 모델 의견을 뺀다. 결정 패널은 원래 값. 확률·승률 표시 없음. 공동수급 적법성은 판정하지 않는다. 10-23 freeze까지 green이 아니면 시연하지 않는다([[16-DECISIONS]] ADR-037) |
+| 모델 평가 | 해커톤 범위 | 실제 공고 × 가상 기업 원형 6개 평가셋(test 20·dev 10 사업)으로 E0(규칙만)·E1'(공개 Bosun 영어 zero-shot)·E2(Bosun 한국어, 평가 전용)·E4(Bosun+LoRA, X6)를 비교한다. E3(Qwen3.8-Flash-Next logprob 분류 대조군)는 축소 규모(fixture 20 + 실공고 5)로 필수다([[16-DECISIONS]] ADR-023). 수치는 `docs/evidence/eval/` 리포트가 나온 뒤에만 말한다([[21-MODEL-TRAINING]]) |
 | 파인튜닝 | **Bosun LoRA 비교 실험(X6)** | 회사 GPU에서 회사가 학습·보정하고 E4로 공개 Bosun(E1')과 비교한다([[16-DECISIONS]] ADR-034). 데모·S-LIVE는 공개 Bosun v3.1 0.6B다. 결과를 못 받으면 "회사 측 미실행"으로 적는다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정). 실행 절차는 [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]] |
 | hosted 모델 API·클라우드 GPU 임대 | **사용하지 않음** | 비용이 드는 경로는 사용자 승인 전 쓰지 않는다(ADR-010) |
 | 인앱 알림 | 실제 구현 | outbox + 멱등키 |
@@ -168,7 +171,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 3. **"왜 Qwen과 Bosun을 둘 다 쓰나?"** 역할이 다르다. Qwen은 비정형 공고문에서 구조화된 요구조건과 근거 span을 뽑고 한국어 설명을 만든다. Bosun은 정형화된 상태를 읽고 빠르고 일관된 보조 판단을 준다. 둘 다 없어도 규칙 엔진만으로 결과가 나온다.
 4. **"실제 데이터인가?"** `live` 모드는 나라장터 Open API로 실제 입찰공고(용역 중 정보화사업)와 첨부를 수집해 분석한다. 화면 머리말에 실행 모드가 보이고, 공고마다 출처와 `DEMO` 배지로 실제·가상을 구분한다. 회사 프로필은 모든 모드에서 가상 솔리데오라 live 분석은 "실제 공고 × 가상 회사 프로필"이다. 발표 본편 장면은 같은 수치를 재현하려고 `mock` 모드의 가상 fixture로 진행한다(§7, [[19-DEMO-SCENARIO]] §2.1). 실제 응답·첨부 다운로드 확인 결과는 `docs/evidence/phase-0/external-deps.md`에 있다. 그 파일이 없거나 막힌 항목이 있으면 그대로 말한다. 엔드포인트는 공식 명세로 확인해 `registry.yaml`에 등록한 것만 부르고 지어내지 않는다.
 5. **"HWP 첨부는 어떻게 하나?"** 지금은 파싱하지 않는다(미구현, §7). 설계: 형식별 파서(`DocumentParser`)로 PDF(텍스트 레이어)·HWPX·HWP를 파싱한다. HWP 파서는 오픈소스 후보의 라이선스와 추출 품질(본문·표·금액·자격 조건·요구사항 누락)을 실제 RFP 샘플로 비교한 뒤 정한다([[16-DECISIONS]] 미결정 4). 스캔 PDF·zip·암호 문서처럼 처리할 수 없는 첨부는 `PARSE_UNSUPPORTED`와 "첨부 원문 확인"으로 표시하고, 읽지 못한 내용을 AI가 추측해 채우지 않는다. 원문 다운로드는 유지하고 AI 추출은 `PENDING_REVIEW`로 표시한다. 실공고 형식별 파싱 성공률을 증거로 낸다(P0-3).
-6. **"GPU 없으면 못 쓰나?"** `mock` 모드는 GPU 없이 고정 AI 응답으로 전 기능이 돈다. `live`·`fixture` 모드의 실추론은 회사 GPU 서버(Qwen3.5-27B는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, Bosun은 우리 `sol_decision` 서버)에서 돌고, 데모 노트북의 gateway(`ai-local`)가 회사가 HTTPS로 제공하는 두 접속점에 API 키로 붙는다. 결정 모델은 GPU 추론 엔드포인트 `https://acropolissg.com/sol-radar`(`/kev`), Qwen은 회사 vLLM API `https://acropolissg.com/vllm/v1`이다. GPU 서버 자체는 외부에서 접근할 수 없고 모델 런타임 기동·GPU 배분은 회사가 운영한다 ([[10-DEPLOYMENT]], [[16-DECISIONS|ADR-025]]).
+6. **"GPU 없으면 못 쓰나?"** `mock` 모드는 GPU 없이 고정 AI 응답으로 전 기능이 돈다. `live`·`fixture` 모드의 실추론은 회사 GPU 서버(Qwen3.8-Flash-Next는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, Bosun은 우리 `sol_decision` 서버)에서 돌고, 데모 노트북의 gateway(`ai-local`)가 회사가 HTTPS로 제공하는 두 접속점에 API 키로 붙는다. 결정 모델은 GPU 추론 엔드포인트 `https://acropolissg.com/sol-radar`(`/kev`), Qwen은 회사 vLLM API `https://acropolissg.com/vllm/v1`이다. GPU 서버 자체는 외부에서 접근할 수 없고 모델 런타임 기동·GPU 배분은 회사가 운영한다 ([[10-DEPLOYMENT]], [[16-DECISIONS|ADR-025]]).
 7. **"기존 입찰 정보 서비스와 뭐가 다른가?"** 수집·알림은 기존 서비스도 한다. 우리는 **우리 회사 프로필 기준 자격 판정과 설명 가능한 점수, 사람 결정 기록**까지 간다 (§3.2 D1·D2·D4).
 8. **"AI가 틀리면?"** 근거 없는 인용은 무효 처리하고, 저신뢰·모순은 `NEEDS_REVIEW`로 사람에게 넘긴다. 사람 판정과 AI 차이를 지표로 추적한다 ([[14-OBSERVABILITY]]). 얼마나 틀리는지는 실제 공고 평가셋으로 잰다. 특히 정보 부족을 미충족으로 잘못 판정하는 비율을 따로 보고, 오답은 원인 단계(파싱·추출·번역·state·규칙·라벨·모델)로 나눠 고친다 ([[21-MODEL-TRAINING]]).
 9. **"보안은?"** 테넌트 격리는 Supabase RLS(`org_id`, 다른 조직 자원은 `404`)와 정책 시험으로 강제한다. 인증은 Supabase Auth이고, 토큰 만료·refresh 회전·로그인 시도 제한·비밀번호 정책은 Supabase Auth 설정으로 다룬다(구체 값은 대시보드에서 정하고 확인할 항목, 미검증). 쿠키 인증의 상태 변경 요청은 `X-Requested-With` 헤더 검사(CSRF), XSS는 CSP nonce, RLS를 무시하는 service role 키는 worker·seed 전용이고 브라우저·`NEXT_PUBLIC_` 변수·로그에 넣지 않는다. 그 밖에 SSRF allowlist, 외부 문서는 불신 데이터로 처리, 로그 마스킹 ([[09-SECURITY]]).
@@ -217,7 +220,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 - [[01-PRD|01 PRD]]
 - [[19-DEMO-SCENARIO|19 데모 시나리오]]
 - [[11-TESTING|11 테스트]]
-- [[16-DECISIONS|16 ADR]] — ADR-020(실행 모드·실데이터·평가)
+- [[16-DECISIONS|16 ADR]] — ADR-020(실행 모드·실데이터·평가), ADR-037(데모 강화 컷·가정 재계산)
 - [[20-GLOSSARY|20 용어집]]
 - [[12-ROADMAP|12 로드맵]] — 해커톤 컷(P0-0~P0-11), 파인튜닝 트랙 X6
 - [[21-MODEL-TRAINING|21 모델 학습]] — E0~E4, 파인튜닝 착수 판단

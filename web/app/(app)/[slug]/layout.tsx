@@ -10,6 +10,7 @@ import { AppShell } from "@/components/app-shell";
 import { AuthFrame } from "@/components/auth-frame";
 import { buttonVariants } from "@/components/ui/button";
 import { nameOf } from "@/server/shared";
+import { getMyBusinessAccess } from "@/server/organization";
 import { getMyProfile } from "@/server/profile";
 import { loadWorkspace } from "./workspace";
 
@@ -61,6 +62,9 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[slu
     case "ready": {
       // 멤버라면 프로필이 있다(멤버십이 프로필을 가리킨다). 그래도 없으면 계정 화면이 안내한다.
       if (me.status !== "ready") redirect("/auth/login");
+      // 업무 역할은 사이드바의 역할 메뉴(데이터 수집 관리)만 정한다. 업무 조직이 없거나 못 읽으면 그 메뉴를 숨긴다.
+      // 가입 정보 보완·멤버 확인이 끝난 뒤에만 읽는다(보완 전에는 업무 조회를 하지 않는다).
+      const business = await getMyBusinessAccess();
       // sidebar 부품이 여닫을 때 적는 쿠키다(components/ui/sidebar.tsx 의 SIDEBAR_COOKIE_NAME).
       const isSidebarOpen = (await cookies()).get("sidebar_state")?.value !== "false";
       return (
@@ -76,6 +80,7 @@ export default async function OrgLayout({ children, params }: LayoutProps<"/[slu
             orgs: workspace.orgs,
             pendingInvitationCount: workspace.pendingInvitationCount,
           }}
+          solRole={business.status === "ready" ? business.current.solRole : null}
           defaultSidebarOpen={isSidebarOpen}
         >
           {children}

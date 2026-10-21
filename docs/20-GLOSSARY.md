@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - glossary
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 20. 용어집
@@ -189,8 +189,8 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 대조 변형 | 같은 공고에 대해 기업 기록만 바꿔 충족·미충족·정보 부족 사례를 만든 가상 기업 | [[21-MODEL-TRAINING]] |
 | 라벨 출처 | `CONSTRUCTED`(변형으로 정해짐), `HUMAN`(사람 검수 확정), `RULE_SILVER`(규칙 계산, 학습셋 전용) | [[21-MODEL-TRAINING]] |
 | 오류 원인 코드 | 오답의 원인 단계. `PARSE`·`EXTRACTION`·`TRANSLATION`·`STATE`·`RULE`·`LABEL`·`MODEL`. `MODEL`이 주된 원인일 때만 파인튜닝 검토 | [[21-MODEL-TRAINING]] |
-| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어(퇴역, 미측정), E1' 공개 Bosun 영어 state zero-shot, E2 Bosun 한국어 state(평가 전용), E3 Qwen3.5-27B logprob 분류(필수, 축소 규모), E4 Bosun + LoRA(해커톤 X6 비교 실험, ADR-034). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
-| EX0 | 회사 운영 Qwen3.5-27B API 추출 품질의 기준 측정(추출 지표·인용 충실도·`(untranslated)` 비율). EX1(파인튜닝 뒤 비교)은 삭제 — Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정, ADR-034) | [[21-MODEL-TRAINING]] |
+| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어(퇴역, 미측정), E1' 공개 Bosun 영어 state zero-shot, E2 Bosun 한국어 state(평가 전용), E3 Qwen3.8-Flash-Next logprob 분류(필수, 축소 규모), E4 Bosun + LoRA(해커톤 X6 비교 실험, ADR-034). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
+| EX0 | 회사 운영 Qwen3.8-Flash-Next API 추출 품질의 기준 측정(추출 지표·인용 충실도·`(untranslated)` 비율). EX1(파인튜닝 뒤 비교)은 삭제 — Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정, ADR-034) | [[21-MODEL-TRAINING]] |
 | 파인튜닝 실행서 | 회사 GPU 서버에서 Bosun LoRA(X6)를 **어떻게** 돌리는지 적은 절차서. 모델·자료 출처와 가중치 sha256 확인, 학습 환경, F1~F3, 회사에 넘기는 학습 요청서를 담는다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정). 무엇을 왜 학습하는지는 [[21-MODEL-TRAINING\|21]] | [[22-FINETUNE-RUNBOOK]] |
 | fixture 배치 `live` vs 실행 모드 `live` | fixture 두 번째 배치(`batch:"live"`, 데모 S5 변경분)와 실제 공공 API 실행 모드(`SOL_RUN_MODE=live`)는 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH` | [[19-DEMO-SCENARIO]] |
 | P0-0 | 외부 의존성 조기 점검. 실제 API 응답·첨부 다운로드·회사 GPU 추론 엔드포인트 접속·파서 비교 | [[12-ROADMAP]] |

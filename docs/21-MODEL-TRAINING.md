@@ -7,7 +7,7 @@ tags:
   - ai
   - evaluation
   - hackathon
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 21. 모델 학습: 데이터셋·평가·파인튜닝
@@ -25,9 +25,9 @@ updated: 2026-10-20
 | F1 | 회사 GPU 에서 Bosun LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행, [[16-DECISIONS\|ADR-025]]). 물리 GPU 1(NVIDIA A40 46,068 MiB) 한 장만 쓰고, 회사 PaddleOCR vLLM(약 9,167 MiB, 2026-10-20 사용자 보고)과 **공유**한다. 서버 환경(venv `.venv-bosun`, torch 2.8.0+cu128·CUDA·bf16)은 2026-10-20 확인, GPU 에서의 Bosun 학습은 미실행([[22-FINETUNE-RUNBOOK\|22]] §3.1) | B4(10-24, 회사 측 실행, [[16-DECISIONS\|ADR-034]] 12번). 학습 가능 여부는 F1 결과로만 확정. 결과를 받으면 기록 |
 | F2 | Bosun v3.1 0.6B LoRA 이어 학습(`en`. 공개 LoRA 392 텐서만, decision 임베딩 동결) | B4(회사 측 실행, ADR-034). 비교 실험이라 §4.4 착수 조건을 기다리지 않는다 |
 | F3 | 온도 보정·평가·반입·운영 모델 교체 | 보정·E4 평가(E1' 대비)는 B5(10-25). 반입·운영 모델 교체는 후속이고 §4.4 판단·사용자 승인·ADR 을 거친다(ADR-034 9번) |
-| — | Qwen 파인튜닝 | **하지 않는다**(2026-10-20 사용자 결정, §5.6). 추출·설명 모델은 회사가 운영하는 vLLM API 의 `Qwen/Qwen3.5-27B` 다 |
+| — | Qwen 파인튜닝 | **하지 않는다**(2026-10-20 사용자 결정, §5.6). 추출·설명 모델은 회사가 운영하는 vLLM API 의 `Qwen/Qwen3.8-Flash-Next` 다 |
 
-모델 역할(Qwen3.5-27B(회사 vLLM API) = 추출·설명, Bosun v3.1 0.6B = typed decision 확률 분류, 규칙 = 명시 조건, SOL Score = 별도 산식)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §1, 라벨 값과 사유 코드는 [[08-SCORING|08 점수]], 결정 모델 질문 세트 `kev-qs/v0.2`(이름은 호환 유지, ADR-034)와 state 는 03 §5 를 따른다. 실제 낙찰 결과는 학습 목표로 쓰지 않는다(승률 예측은 범위 밖, [[01-PRD|01 PRD]]).
+모델 역할(Qwen3.8-Flash-Next(회사 vLLM API) = 추출·설명, Bosun v3.1 0.6B = typed decision 확률 분류, 규칙 = 명시 조건, SOL Score = 별도 산식)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §1, 라벨 값과 사유 코드는 [[08-SCORING|08 점수]], 결정 모델 질문 세트 `kev-qs/v0.2`(이름은 호환 유지, ADR-034)와 state 는 03 §5 를 따른다. 실제 낙찰 결과는 학습 목표로 쓰지 않는다(승률 예측은 범위 밖, [[01-PRD|01 PRD]]).
 
 ## 2. 라벨
 
@@ -158,7 +158,7 @@ Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 
 ### 4.1 하네스
 
-- 위치: `services/ai/eval/`(Python, `uv run python -m sol_eval …`). 노트북에서 회사 추론 엔드포인트에 붙여 돌린다([[16-DECISIONS|ADR-025]]): 결정 모델은 `KEV_BASE_URL`(`/sol-radar/kev` → `sol_decision.serve`, Kev wire 호환) 직접 또는 평가용 gateway URL, Qwen 은 회사가 운영하는 vLLM API(`QWEN_BASE_URL=https://acropolissg.com/vllm/v1`, 모델 `Qwen/Qwen3.5-27B`). E4·E1' 는 엔드포인트에 붙지 않는다. 회사가 서버 안에서 `sol_eval.bosun_score --package <dir> --data test.en.jsonl --seeds 0-5 --out runs/e4-test`(**B1 예정, 2026-10-20 미구현**)로 채점한 출력 폴더(`predictions.jsonl`·`rows.json`·`report.json`)를 받아 `sol_eval` 이 오프라인으로 지표를 내고, 실행 전에 `report.json` 의 패키지 `manifest.json` sha256·test 파일 sha256 을 번들 manifest 와 대조한다([[16-DECISIONS|ADR-034]] 7번, [[23-WEEKEND-FINETUNE|23]] §2.2). 요청당 지연은 E4 에서 재지 않는다.
+- 위치: `services/ai/eval/`(Python, `uv run python -m sol_eval …`). 노트북에서 회사 추론 엔드포인트에 붙여 돌린다([[16-DECISIONS|ADR-025]]): 결정 모델은 `KEV_BASE_URL`(`/sol-radar/kev` → `sol_decision.serve`, Kev wire 호환) 직접 또는 평가용 gateway URL, Qwen 은 회사가 운영하는 vLLM API(`QWEN_BASE_URL=https://acropolissg.com/vllm/v1`, 모델 `Qwen/Qwen3.8-Flash-Next`). E4·E1' 는 엔드포인트에 붙지 않는다. 회사가 서버 안에서 `sol_eval.bosun_score --package <dir> --data test.en.jsonl --seeds 0-5 --out runs/e4-test`(**B1 예정, 2026-10-20 미구현**)로 채점한 출력 폴더(`predictions.jsonl`·`rows.json`·`report.json`)를 받아 `sol_eval` 이 오프라인으로 지표를 내고, 실행 전에 `report.json` 의 패키지 `manifest.json` sha256·test 파일 sha256 을 번들 manifest 와 대조한다([[16-DECISIONS|ADR-034]] 7번, [[23-WEEKEND-FINETUNE|23]] §2.2). 요청당 지연은 E4 에서 재지 않는다.
 - 결과: `report.json`·`report.md`. 숫자 요약만 `docs/evidence/eval/` 에 둔다. 실제 RFP 원문은 증거 폴더에 넣지 않는다.
 - 결정 모델 지표(acc·nll·brier·ece·selective 등, 보정 전후)와 체크포인트 비교(같은 데이터 해시끼리 짝지은 부트스트랩)는 `sol_eval` 이 직접 계산한다. Kev 저장소의 `kev.benchmark`·`kev.compare` 는 쓰지 않는다(퇴역, ADR-034).
 
@@ -178,9 +178,9 @@ Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 | E1 | Kev-9B@v1.0, `en` state | **퇴역·미측정**([[16-DECISIONS\|ADR-034]] Q5). Kev-9B 는 가중치만 받았고 `kev.serve`·F1 은 실행하지 않았다. 범위 밖 |
 | E1' | 공개 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`) zero-shot, `en` state | 필수. E4 의 기준선 |
 | E2 | 공개 Bosun v3.1 0.6B, `ko` state(`KEV_ALLOW_KO_STATE=true`, 평가 전용) | 필수 |
-| E3 | Qwen3.5-27B(회사 vLLM API) 프롬프트 분류(같은 질문, 선택지 토큰 logprob 으로 분포) | **필수**([[16-DECISIONS\|ADR-023]], 2026-10-19. 모델은 2026-10-20 사용자 결정으로 회사 API 의 Qwen3.5-27B). "결정 모델이 꼭 필요한가"를 판단하는 대조군. 해커톤은 축소 규모(§3.5)로 E0·E1'·E2·E3 를 같은 입력에서 비교한다. 설계·판정 규칙·3안(유지/축소/제외)은 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md). 회사 vLLM 이 `prompt_logprobs` 를 주는지는 미검증 |
+| E3 | Qwen3.8-Flash-Next(회사 vLLM API) 프롬프트 분류(같은 질문, 선택지 토큰 logprob 으로 분포) | **필수**([[16-DECISIONS\|ADR-023]], 2026-10-19. 모델은 회사 API 의 Qwen3.8-Flash-Next. 회사 API 사용은 2026-10-20 사용자 결정, 모델 교체는 2026-10-21 사용자 보고). "결정 모델이 꼭 필요한가"를 판단하는 대조군. 해커톤은 축소 규모(§3.5)로 E0·E1'·E2·E3 를 같은 입력에서 비교한다. 설계·판정 규칙·3안(유지/축소/제외)은 [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md). 회사 vLLM 이 `prompt_logprobs` 를 주는지는 미검증 |
 | E4 | Bosun v3.1 0.6B + LoRA(`en`, 공개 LoRA 이어 학습) | B5(ADR-034). E1' 과 같은 test 분할·데이터셋 버전·state 템플릿·질문 세트·평가 코드·seed 0~5·지표에서 짝 부트스트랩 95% CI(사업 클러스터 단위 우선, §4.3)로 비교. 서버 안 오프라인 채점(§4.1), 물리 GPU 1 에서 E4·E1' 순차. `ko` 는 후속 |
-| EX0 | Qwen3.5-27B(회사 vLLM API) 추출 원본 | 회사 API 추출 품질 기준 측정만(§4.3 추출 행 + `(untranslated)` 비율). 파인튜닝 비교(EX1)는 하지 않는다(§5.6) |
+| EX0 | Qwen3.8-Flash-Next(회사 vLLM API) 추출 원본 | 회사 API 추출 품질 기준 측정만(§4.3 추출 행 + `(untranslated)` 비율). 파인튜닝 비교(EX1)는 하지 않는다(§5.6) |
 
 ### 4.3 지표
 
@@ -278,7 +278,7 @@ F1 은 GPU 1 에서 `infra/gpu/bosun-f1.sh`(**B1 예정, 2026-10-20 미구현**.
 
 ### 5.6 Qwen 파인튜닝 — 하지 않는다
 
-Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 채택 당시의 "EX0 뒤 조건부 QLoRA" 는 같은 날 사용자 결정으로 철회). 추출·설명 모델은 회사가 이미 운영하는 vLLM API 의 `Qwen/Qwen3.5-27B`(`https://acropolissg.com/vllm/v1`)이고 우리는 띄우지도 학습하지도 않는다. EX0 은 그 API 의 추출 품질 기준 측정(§4.2)이며, 추출 지표 미달의 `EXTRACTION` 원인은 프롬프트·스키마·용어집·인용 검증으로 고친다. `Qwen/Qwen3-4B-Instruct-2507`(ADR-034 초안의 추출 모델)과 `/sol-radar/qwen`→8001 경로는 **백업용으로 보존**하고 쓰지 않는다. Qwen SFT JSONL 은 내보내지 않는다(§3.7). `sol_decision.train` 은 생성 모델 학습용이 아니다. [[22-FINETUNE-RUNBOOK|22]] §5 의 Qwen 절은 이력이다.
+Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 채택 당시의 "EX0 뒤 조건부 QLoRA" 는 같은 날 사용자 결정으로 철회). 추출·설명 모델은 회사가 이미 운영하는 vLLM API 의 `Qwen/Qwen3.8-Flash-Next`(`https://acropolissg.com/vllm/v1`)이고 우리는 띄우지도 학습하지도 않는다. EX0 은 그 API 의 추출 품질 기준 측정(§4.2)이며, 추출 지표 미달의 `EXTRACTION` 원인은 프롬프트·스키마·용어집·인용 검증으로 고친다. `Qwen/Qwen3-4B-Instruct-2507`(ADR-034 초안의 추출 모델)과 `/sol-radar/qwen`→8001 경로는 **백업용으로 보존**하고 쓰지 않는다. Qwen SFT JSONL 은 내보내지 않는다(§3.7). `sol_decision.train` 은 생성 모델 학습용이 아니다. [[22-FINETUNE-RUNBOOK|22]] §5 의 Qwen 절은 이력이다.
 
 ## 6. 운영자 CLI
 
@@ -318,7 +318,7 @@ Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 �
 | 회사 서버 보고(PaddleOCR 약 9,167 MiB, `.venv-bosun`(`.venv-qwen` 은 중단·백업), CPU 2-step 성공, `datasets/decision/smoke.jsonl`) | 미검증(사용자 보고) | B2 `nvidia-smi`·`pip list` 기록으로 교차 |
 | 회사 2-step 학습 코드가 저장소 밖 | 재현 불가 | 반입·리뷰 뒤 `services/decision/train.py` 로 흡수 |
 | 리비전 `5e78a37c`(지시서·레지스트리 핀)와 Hanno `jev-compatible-server` 핀 `87cea31` 의 가중치 동일 여부 | 커밋 메시지 기준 문서 차이만 | B2 두 리비전 `manifest.json` sha256 대조 |
-| 회사 vLLM API(`Qwen/Qwen3.5-27B`)의 guided JSON(`response_format: json_schema`)·`prompt_logprobs` 지원, 추출·번역 품질, 서빙 파라미터·리비전 | 미검증(회사 운영) | B2 G2·G4, B3 EX0·E3 |
+| 회사 vLLM API(`Qwen/Qwen3.8-Flash-Next`)의 guided JSON(`response_format: json_schema`)·`prompt_logprobs` 지원, 추출·번역 품질, 서빙 파라미터·리비전 | 미검증(회사 운영) | B2 G2·G4, B3 EX0·E3 |
 | 학습 시간대(10-24~25)·외부망·출력 폴더 전송 | 미확인 | 회사에 요청([[16-DECISIONS\|16 ADR]] 미결정 22·24번) |
 | 첨부 원문의 학습 사용 권리 | 미확인 | 법무 |
 

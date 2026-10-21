@@ -507,7 +507,7 @@ def test_kev_base_url_is_not_normalized(make_client, local_models, monkeypatch):
 
 
 def test_qwen_request_disables_thinking(make_client, local_models):
-    """Qwen3.5 는 기본이 사고 모드라 chat_template_kwargs.enable_thinking=false 를 보낸다(26-7)."""
+    """Qwen3.5 계열은 기본이 사고 모드였다. Qwen3.8-Flash-Next 는 미확인이라 enable_thinking=false 를 그대로 보낸다(03 §4.3, 26-7)."""
     run_extract(make_client, local_models)
     assert sent(local_models)[0]["chat_template_kwargs"] == {"enable_thinking": False}
 

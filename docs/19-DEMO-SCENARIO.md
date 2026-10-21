@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - demo
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 19. 데모 시나리오
@@ -49,6 +49,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | S2 대시보드 | FX-12 (제목 없음) 경상북도 | NOTICE | 필수 필드 누락 → 격리 | — | — | 목록 미노출, 관리자 오류 1건 | — |
 | S3 자격·근거 | **FX-01 세종특별자치시 차세대 행정정보시스템 고도화** (12억, +21일) | NOTICE | 정상, RFP 파싱 성공 | 3건 `SATISFIED`, 근거 인용 있음 | 94 | BID | 0.71 / 0.24 / 0.05 (일치) |
 | S3 규칙 우선 | **FX-03 부산광역시 지능형 CCTV 통합관제센터 구축** (45억, +15일) | NOTICE | 정보통신공사업 등록 필수 | `NOT_SATISFIED` 1건 | 68 (참고 표시) | NO-BID | 0.55 / 0.30 / 0.15 → `MODEL_RULE_DISAGREEMENT`, mandatoryRisk 0.85 |
+| S3 가정 재계산(데모 강화 컷, [[16-DECISIONS\|ADR-037]]) | **FX-03** 같은 공고, "정보통신공사업 등록" 보유 가정 스위치 1회 | NOTICE | 저장 없는 재계산, 원래·가정 모두 결정 모델 의견 제외 | 가정 띠에서 `NOT_SATISFIED` → `SATISFIED`(행 배지는 원래 그대로) | 68 → 68 (변화 없음) | 가정 띠 NO-BID → WATCH. 결정 패널은 NO-BID 그대로 | 가정에 포함하지 않음 |
 | S4 라이브 분석·결정 | **FX-02 경기도교육청 통합 LMS 구축** (28억, +10일) | NOTICE | 요구기술 6개 중 3개 보유(Vue.js·SCORM·WebRTC 없음), 마감 촉박 | `SATISFIED` | 72 (15.0+18.3+14.0+15.0+10.0) | WATCH | 0.36 / 0.52 / 0.12 (일치), needsHumanReview 0.74 → `KEV_NEEDS_REVIEW` |
 | **S-LIVE 실제 공고** | 실제 나라장터 정보화사업 공고 1건(`is_demo=false`, C8에서 선정, 공고번호는 `run-modes.md`에 기록) | NOTICE | `live` 모드 사전 실행 run. 실모델 결과라 값을 미리 정하지 않는다 | 규칙 판정 3값 + 사유 코드 | 실값 | 실값 | Bosun v3.1 0.6B 실추론 `kev-qs/v0.2`, `UNCALIBRATED`. 엔드포인트 미접속이면 `PARTIAL`·`RULES_ONLY` 그대로 |
 | S5 변경 감지(확장 컷, 2순위) | FX-07 한국도로공사 교통정보 데이터플랫폼 고도화 (18억 → r2 21.6억) | NOTICE 정정 | 예산 증액 + Kubernetes 추가 | 변동 없음 | 68 → 77 (엔진 77.3) | WATCH → BID, 재분석 1회(사람이 상세 [재분석]), 알림 1건 | — |
@@ -74,15 +75,15 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | 모드 | 공고 | AI | 이 데모에서 쓰는 곳 |
 |---|---|---|---|
 | `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`) | **기본 시연 모드.** S2~S7 전부. 위 표의 기대 수치(94·72·68, 결정 모델 분포)는 mock 기준이며 골든과 같다 |
-| `fixture` | fixture 20건 | 회사 vLLM API의 Qwen3.5-27B·회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론(HTTPS) | S0 기동 확인. 공공 API가 안 될 때의 대체 |
-| `live` | 실제 나라장터 공고 | 회사 vLLM API의 Qwen3.5-27B·회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론(HTTPS) | S0 기동 확인. S-LIVE용 사전 run(§3 4번) |
+| `fixture` | fixture 20건 | 회사 vLLM API의 Qwen3.8-Flash-Next·회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론(HTTPS) | S0 기동 확인. 공공 API가 안 될 때의 대체 |
+| `live` | 실제 나라장터 공고 | 회사 vLLM API의 Qwen3.8-Flash-Next·회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론(HTTPS) | S0 기동 확인. S-LIVE용 사전 run(§3 4번) |
 
-- 화면 표시: 머리말 "실행 모드: mock", fixture 공고의 `DEMO` 배지, 상세의 분석 요약 띠 "분석 실행 모드: mock|fixture|live"와 "AI: mock" 또는 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자 그대로, [[16-DECISIONS|ADR-029]] A6 D12), 모든 모드의 "가상 회사 프로필로 분석" 배지. 분석마다 그때의 모드가 기록되므로 모드를 바꿔도 지난 분석의 표시는 그대로다.
+- 화면 표시: 머리말 "실행 모드: mock", fixture 공고의 `DEMO` 배지, 상세의 분석 요약 띠 "분석 실행 모드: mock|fixture|live"와 "AI: mock" 또는 "AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"(받은 모델 식별자 그대로, [[16-DECISIONS|ADR-029]] A6 D12), 모든 모드의 "가상 회사 프로필로 분석" 배지. 분석마다 그때의 모드가 기록되므로 모드를 바꿔도 지난 분석의 표시는 그대로다.
 - `fixture`·`live` 모드의 실모델 결과는 mock과 다를 수 있다. S3 "규칙이 결정 모델을 이긴다"는 mock Kev의 v0.1 `recommendation`(FX-03 BID 0.55)에 기대므로 `mock` 모드에서만 보장된다.
 - 장애 대체 순서는 `live` → `fixture` → `mock`이다. 모드 전환은 env(`SOL_RUN_MODE`)를 바꾸고 worker·ai-gateway를 재시작해서 한다. 자동으로 바뀌지 않고(`AI_FALLBACK_TO_MOCK=true`는 세 모드 모두 기동 거부, [[16-DECISIONS|ADR-030]] B11), 바꿨으면 청중에게 말한다.
 - 회사 GPU 추론 엔드포인트([[16-DECISIONS|ADR-025]])에 닿지 않으면 `live`·`fixture` 분석은 `PARTIAL`·`RULES_ONLY`로 끝난다. 숨기지 않고 S6처럼 보여 준다(§4 S6 엔드포인트 미접속).
 - S5의 "live 배치"는 fixture의 두 번째 배치(`batch:"live"`)이며 실행 모드 `live`와 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH`라 S5는 `fixture`·`mock` 모드에서만 된다.
-- **S-LIVE는 발표 중 모드 전환 없이 한다**([[16-DECISIONS|ADR-023]]). S0에서 `live` 모드로 실공고 1건을 수집·파싱·분석해 둔 run을, `mock` 모드로 돌아온 앱에서 `/bids?origin=all`로 연다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장되므로 분석 요약 띠는 "분석 실행 모드: live"와 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"을 그대로 보인다(머리말은 "실행 모드: mock"). `pnpm demo:reset`은 데모 조직 두 곳의 조직 소유 행(`score_runs` 포함)을 `org_id`로 모두 지운다(`scripts/demo-reset.mjs` `ORG_SCOPED_TABLES`, [[04-DATABASE|04]] §6). 그래서 reset 하면 S-LIVE run도 지워진다. S-LIVE는 리허설 뒤 reset 하지 말고, 지웠으면 다시 돌린다. 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]]) 4갈래 중 어느 것으로 시연하는지 §3 `run-modes.md`에 적고 발표에서 말한다. 녹화·fixture 결과를 live라고 말하지 않는다.
+- **S-LIVE는 발표 중 모드 전환 없이 한다**([[16-DECISIONS|ADR-023]]). S0에서 `live` 모드로 실공고 1건을 수집·파싱·분석해 둔 run을, `mock` 모드로 돌아온 앱에서 `/bids?origin=all`로 연다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장되므로 분석 요약 띠는 "분석 실행 모드: live"와 "AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"을 그대로 보인다(머리말은 "실행 모드: mock"). `pnpm demo:reset`은 데모 조직 두 곳의 조직 소유 행(`score_runs` 포함)을 `org_id`로 모두 지운다(`scripts/demo-reset.mjs` `ORG_SCOPED_TABLES`, [[04-DATABASE|04]] §6). 그래서 reset 하면 S-LIVE run도 지워진다. S-LIVE는 리허설 뒤 reset 하지 말고, 지웠으면 다시 돌린다. 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]]) 4갈래 중 어느 것으로 시연하는지 §3 `run-modes.md`에 적고 발표에서 말한다. 녹화·fixture 결과를 live라고 말하지 않는다.
 
 **live 공고가 데모 DB에 남는 경우** (2026-10-16)
 - `live` 모드로 수집한 실제 공고(`is_demo=false`)는 같은 DB에 남는다. `pnpm demo:reset`은 live 공고(`is_demo=false`)와 그 revision·첨부는 지우지 않는다. 다만 그 공고를 데모 조직에서 분석한 run은 지운다. reset 하면 S-LIVE run도 지워진다. S-LIVE는 리허설 뒤 reset 하지 말고, 지웠으면 다시 돌린다.
@@ -135,6 +136,9 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 4. 뒤로 → 권고 필터를 풀고 결정 `NO-BID` 선택 → **FX-03** 클릭. 1번의 권고 `BID` 필터가 FX-03(권고 NO-BID)을 거르기 때문이다.
 5. 자격 체크리스트: 정보통신공사업 등록 `NOT_SATISFIED`(사유: 프로필에 등록 없음). 권고 `NO-BID`. 결정 모델 패널: `모델 선택지 신뢰 분포 (충족·수주 확률 아님)` 문구, BID 0.55 / WATCH 0.30 / NO_BID 0.15, 배지 `MODEL_RULE_DISAGREEMENT`.
 6. 말할 것: "모델이 BID라고 해도 필수 자격 미충족은 규칙이 이긴다. 모델 분포는 수주확률이 아니다."
+7. (데모 강화 컷, [[16-DECISIONS|ADR-037]]) 필수자격 "정보통신공사업 등록" 행 첫 줄 오른쪽의 "보유 가정" 스위치를 한 번 켠다. 1초 안에 분석 요약 띠 아래에 점선 "가정 시나리오" 띠가 나온다: 권고 NO-BID → WATCH, SOL Score 68 → 68 "변화 없음", 필수자격 미충족 → 충족, 요소별 점수 "바뀐 요소 없음", 고정 문구 "가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다."·"결정 모델 의견은 가정에 포함하지 않았습니다." 오른쪽 결정 패널은 NO-BID 68과 "마지막 결정: NO-BID" 그대로다. 행이 화면 밖이라 스크롤했으면 행의 "가정 시나리오 보기"로 띠에 간다.
+8. 말할 것: "정보통신공사업 등록이 있다면? 저장하지 않고 같은 규칙으로 다시 계산하면 권고가 WATCH로 바뀌고 점수는 68 그대로다. 자격은 점수가 아니라 관문이다. 이 결과는 결정 기록에 쓰이지 않는다."
+9. [가정 지우기] → 띠가 사라지고 스위치가 꺼진다. 스위치가 없거나(브랜치 미병합, 입력 기록 없음) 계산이 실패하면 7~9를 건너뛰고 S4로 간다. 10-23 freeze까지 green이 아니면 7~9를 빼고 1~6만 한다(ADR-037 ③). 장면 시간(1:00~2:15)은 늘리지 않는다.
 
 ### S4 라이브 분석과 사람 결정 (2:15~3:30)
 
@@ -148,7 +152,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 ### S-LIVE 실제 공고 (3:30~4:15, ADR-023)
 
 1. `/bids` 필터 출처 `all`(또는 `?origin=all`). 실제 공고 1건(`DEMO` 배지 없음, 출처 `g2b-bid-notice`)을 연다. 공고번호는 S0 4번의 `run-modes.md`와 같아야 한다.
-2. 보여야 하는 것: 상단 요약에 실제 발주기관·예산·마감·원문 링크(실제 나라장터 URL), "가상 회사 프로필로 분석" 배지. 분석 요약 띠에 "분석 실행 모드: live", "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c", 분석 시각(머리말은 "실행 모드: mock" 그대로). 자격 체크리스트는 3값 + 사유 코드(`NEEDS_REVIEW`가 많아도 그대로), 점수 분해 5행, 결정 모델 참고 지표(고지 문구. 보정 상태 `UNCALIBRATED` 표시는 미구현, [[03-AI-PIPELINE|03]] §5.7), 근거 서랍에 공고 본문·API 필드 인용. 첨부 처리(다운로드·파싱)는 미구현이라 첨부 인용과 `DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED` 배지는 나오지 않는다(첨부는 `PENDING`, [[18-HACKATHON|18]] §7).
+2. 보여야 하는 것: 상단 요약에 실제 발주기관·예산·마감·원문 링크(실제 나라장터 URL), "가상 회사 프로필로 분석" 배지. 분석 요약 띠에 "분석 실행 모드: live", "AI: local · Qwen/Qwen3.8-Flash-Next · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c", 분석 시각(머리말은 "실행 모드: mock" 그대로). 자격 체크리스트는 3값 + 사유 코드(`NEEDS_REVIEW`가 많아도 그대로), 점수 분해 5행, 결정 모델 참고 지표(고지 문구. 보정 상태 `UNCALIBRATED` 표시는 미구현, [[03-AI-PIPELINE|03]] §5.7), 근거 서랍에 공고 본문·API 필드 인용. 첨부 처리(다운로드·파싱)는 미구현이라 첨부 인용과 `DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED` 배지는 나오지 않는다(첨부는 `PENDING`, [[18-HACKATHON|18]] §7).
 3. 말할 것: "지금까지는 가상 공고였다. 이 건은 실제 공고를 회사가 제공한 GPU 추론 엔드포인트에서 추론한 결과다. 머리말은 mock이지만 이 분석은 live 모드에서 돌린 것이고 화면이 그 사실을 기록한다. 회사 프로필은 가상이다." 외부 의존성 컷 규칙으로 규칙만 `PARTIAL`이거나 fixture 실추론이거나 녹화면 그 말을 그대로 한다.
 4. 보이지 않으면: 녹화 영상(같은 입력·실행 로그 기반)으로 대체하고 "녹화"라고 말한다. 실시간 추론으로 포장하지 않는다.
 
@@ -186,6 +190,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 
 | 장면 | 실패 양상 | 대응 |
 |---|---|---|
+| S3 가정 재계산 | 스위치가 없음(미병합·`NO_SNAPSHOT`·원래 값 불일치 안내) 또는 띠에 "가정 결과를 계산하지 못했습니다" | 7~9단계를 건너뛰고 S4로 간다. 가정 결과를 말로 지어내지 않는다. 결정 패널·저장 결과는 가정과 무관하므로 그대로 진행한다 |
 | S4 분석 | `RUNNING`(분석 중)에서 멈춤 | 미리 분석된 FX-01·FX-03으로 점수·자격 설명을 이어 간다. 라이브 분석은 S6 재분석에서 다시 시도 |
 | S4 저장 | 결정 저장 실패 | 오류 코드와 `requestId`를 그대로 보여 주고 "오류를 숨기지 않는 설계"로 설명. 백업 영상 해당 구간 |
 | S5 수집 | 변경이 감지되지 않음 | 생략하고 S6으로. Q&A에서 [[07-DATA-PIPELINE\|07]] 변경 감지 설계로 답 |
@@ -211,6 +216,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [ ] seed 재적용 포함 전체 경로 2회 연속 통과
 - [ ] 각 장면 소요 시간 기록, 합계 5분 이내
 - [ ] S7 `404` 응답 캡처, S3 `MODEL_RULE_DISAGREEMENT` 화면, S6 `PARTIAL` 화면을 `docs/evidence/`에 저장
+- [ ] S3 가정 재계산(ADR-037): 1440·1280에서 `FX-03` 스위치 → 띠 NO-BID → WATCH·68 → 68이 1초 안에 보이고 가로 넘침이 없는지, 결정 패널이 NO-BID 68 그대로인지, 새로 고침 뒤 띠가 없는지, `bid_reviews` 건수가 그대로인지 확인. `pnpm demo:preanalyze`가 만든 `FX-03` run에 `input_snapshot`이 있어야 스위치가 보인다. S0에서 한 번 열어 둔다
 - [ ] 백업 영상 3분 녹화 (S2~S7)
 - [ ] 1440px에서 상세 화면 상단 요약·자격·점수가 스크롤 없이 보이는지 확인
 - [ ] 머리말 "실행 모드: mock"과 `AI: mock` 표시가 모든 화면에, "가상 회사 프로필로 분석" 배지가 분석 화면에 보이는지 확인
@@ -236,6 +242,6 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - [[10-DEPLOYMENT|10 배포·프로필]]
 - [[11-TESTING|11 테스트·수용 체크리스트]]
 - [[09-SECURITY|09 보안·격리]]
-- [[16-DECISIONS|16 ADR]] — ADR-020(실행 모드·실데이터)
+- [[16-DECISIONS|16 ADR]] — ADR-020(실행 모드·실데이터), ADR-037(데모 강화 컷·S3 가정 재계산)
 - [[12-ROADMAP|12 로드맵]] — 해커톤 컷, freeze~D-day 리허설
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가 비교 대상(E0~E4)

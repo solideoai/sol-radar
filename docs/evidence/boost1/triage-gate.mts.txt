@@ -1,0 +1,242 @@
+// BOOST-1 0단계 게이트: X6a 녹음(fixtures/recorded/train) → 실제 정규화 코드 → assessQualifications(extraction=null) → 칸 분포.
+// 읽기 전용. 공공 API 를 부르지 않는다(녹음 재생 fetch 만). 출력은 이 스크립트 옆 out/ 에만 쓴다.
+import { readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+
+const REPO = "/Users/leegwanghui/dev/hackathon/sol-radar";
+const WEB = `${REPO}/web/server`;
+const REC = `${REPO}/fixtures/recorded/train`;
+const OUT = new URL("./out/", import.meta.url).pathname;
+const TODAY = "2026-10-20";
+
+const recordedApi = await import(`${WEB}/ingestion/recorded-api.ts`);
+const g2bModel = await import(`${WEB}/ingestion/g2b.model.ts`);
+const normalizeG2b = await import(`${WEB}/ingestion/normalize-g2b.ts`);
+const aux = await import(`${WEB}/ingestion/normalize-g2b-aux.ts`);
+const filter = await import(`${WEB}/ingestion/g2b-filter.ts`);
+const inputModel = await import(`${WEB}/scoring/analysis-input.model.ts`);
+const qualification = await import(`${WEB}/scoring/qualification.ts`);
+const factors = await import(`${WEB}/scoring/factors.ts`);
+const codes = await import(`${WEB}/scoring/qualification-codes.ts`);
+
+type Item = Record<string, unknown>;
+type Check = {
+  id: string;
+  requirementCode: string | null;
+  requirementName: string;
+  mandatory: boolean;
+  basis: string;
+  outcome: "SATISFIED" | "NOT_SATISFIED" | "NEEDS_REVIEW" | "NOT_APPLICABLE";
+  reasonCode: string | null;
+  reason: string;
+};
+type Bucket = "EXCLUDED" | "REVIEW" | "PASS";
+type Tri = "SATISFIED" | "NOT_SATISFIED" | "NEEDS_REVIEW";
+
+const profile = inputModel.companyProfileSchema.parse(
+  JSON.parse(readFileSync(`${REPO}/fixtures/company/solideo-profile.json`, "utf8")),
+);
+
+// ── 1. 목록 61창 → (공고번호, 차수) → 목록 행 ──
+const dir = `${REC}/15129394`;
+const files = readdirSync(dir);
+const listByKey = new Map<string, { item: Item; fetchedAt: string }[]>();
+for (const name of files.filter((f) => f.startsWith("getBidPblancListInfoServc."))) {
+  const recorded = await recordedApi.loadRecordedResponse(join(dir, name));
+  const envelope = g2bModel.parseG2bEnvelope(recordedApi.toG2bEnvelopeBody(recorded));
+  if (!envelope.ok) throw new Error(`list envelope not ok: ${name}`);
+  for (const raw of envelope.items as Item[]) {
+    const item = g2bModel.stripContactFields(raw) as Item;
+    const key = `${item.bidNtceNo}-${item.bidNtceOrd}`;
+    const list = listByKey.get(key) ?? [];
+    list.push({ item, fetchedAt: recorded.fetchedAt });
+    listByKey.set(key, list);
+  }
+}
+
+// ── 2. 보조 조회 녹음 3종을 공고별로 묶는다 ──
+const auxRecordings = new Map<string, unknown[]>();
+for (const name of files.filter((f) => /\.(lic|rgn|eorder)-/.test(f))) {
+  const key = /\.(?:lic|rgn|eorder)-(.+)\.masked\.json$/.exec(name)?.[1];
+  if (!key) continue;
+  const recorded = await recordedApi.loadRecordedResponse(join(dir, name));
+  const list = auxRecordings.get(key) ?? [];
+  list.push(recorded);
+  auxRecordings.set(key, list);
+}
+
+const sample = JSON.parse(readFileSync(`${REC}/sample.v0.1.json`, "utf8")) as {
+  picked: { bidNtceNo: string; bidNtceOrd: string; rgstDt: string; stratum: string }[];
+};
+
+const retry = { sleep: async () => {}, random: () => 0 };
+const results: Record<string, unknown>[] = [];
+const skipped: string[] = [];
+const notInfo: string[] = [];
+
+// 한 면허제한 행을 엔진이 단독으로 어떻게 판정하는지(사전 대응·회사 프로필) — what-if 용. 엔진 함수를 그대로 쓴다.
+function judgeSingleLicenseRow(bid: Record<string, unknown>, row: unknown): { outcome: Tri; check: Check } {
+  const single = { ...bid, structuredQualifications: [{ ...(row as object), seq: 0 }] };
+  const parsed = inputModel.normalizedBidSummarySchema.parse(single);
+  const result = qualification.assessQualifications({ bid: parsed, extraction: null, profile, today: TODAY });
+  const check = (result.checks as Check[]).find((c) => c.id.startsWith("structured:LICENSE_LIMIT"));
+  if (!check) throw new Error("no license check");
+  return { outcome: check.outcome as Tri, check };
+}
+
+const or3 = (values: Tri[]): Tri =>
+  values.includes("SATISFIED") ? "SATISFIED" : values.includes("NEEDS_REVIEW") ? "NEEDS_REVIEW" : "NOT_SATISFIED";
+const and3 = (values: Tri[]): Tri =>
+  values.includes("NOT_SATISFIED") ? "NOT_SATISFIED" : values.includes("NEEDS_REVIEW") ? "NEEDS_REVIEW" : "SATISFIED";
+
+function bucketOf(outcomes: Tri[], noAux: boolean): Bucket {
+  if (outcomes.includes("NOT_SATISFIED")) return "EXCLUDED";
+  if (outcomes.includes("NEEDS_REVIEW") || noAux) return "REVIEW";
+  return "PASS";
+}
+
+for (const pick of sample.picked) {
+  const key = `${pick.bidNtceNo}-${pick.bidNtceOrd}`;
+  const recordings = auxRecordings.get(key);
+  if (!recordings) continue; // 보조 조회 전(10-21 몫)
+  const candidates = listByKey.get(key) ?? [];
+  const chosen = candidates.find((c) => c.item.rgstDt === pick.rgstDt) ?? candidates[0];
+  if (!chosen) {
+    skipped.push(`${key}: 목록 행 없음`);
+    continue;
+  }
+  const { item } = chosen;
+  if (!filter.isInfoBizNoticeBroad(item)) notInfo.push(key);
+  const fetchedAt = new Date(chosen.fetchedAt);
+
+  // ingestion.service.ts:167-176 normalizeRecord → normalizeG2bBidNotice
+  const outcome = normalizeG2b.normalizeG2bBidNotice(item, { fetchedAt });
+  if (!outcome.ok) {
+    skipped.push(`${key}: 정규화 격리 ${outcome.issue?.code}`);
+    continue;
+  }
+  const draft = outcome.draft ?? outcome.value ?? outcome.bid;
+  if (!draft) throw new Error(`unknown outcome shape: ${Object.keys(outcome)}`);
+
+  // ingestion.service.ts:286-306 withAux: 실제 fetcher(createG2bAuxFetcher)를 녹음 재생 fetch 로 부른다
+  const fetcher = recordedApi.createRecordedAuxFetcher({ recordings, retry });
+  const fetched = await fetcher.fetchAux({
+    noticeId: draft.noticeId,
+    amendmentNo: draft.amendmentNo ?? null,
+    registeredAt: aux.registeredAtOf(item, fetchedAt),
+  });
+  const lookup = aux.auxLookupOf(fetched);
+  const merged = aux.withAuxLookup(aux.mergeG2bAux(draft, fetched.rows), lookup);
+
+  // ingestion.store.ts:147-157 seq=index → analysis-store.model.ts toBidSummary/toStructuredQualifications
+  const structured = (merged.structuredQualifications as Record<string, unknown>[])
+    .map((row, seq) => ({
+      kind: row.kind as string,
+      seq,
+      code: row.code ?? null,
+      name: row.name ?? null,
+      value: row.value,
+      sourceOperation: row.sourceOperation,
+    }))
+    .toSorted((l, r) => (l.kind < r.kind ? -1 : l.kind > r.kind ? 1 : l.seq - r.seq));
+  const bidRaw = {
+    noticeId: merged.noticeId,
+    revisionId: `recorded:${key}`,
+    title: merged.title,
+    agency: merged.agency,
+    stage: merged.stage,
+    budgetKrw: merged.budgetKrw,
+    deadlineAt: merged.deadlineAt,
+    noticeDate: merged.noticeDate,
+    fetchedAt: merged.fetchedAt,
+    structuredQualifications: structured,
+    ...(merged.auxLookup === undefined ? {} : { auxLookup: merged.auxLookup }),
+  };
+  const bid = inputModel.normalizedBidSummarySchema.parse(bidRaw);
+
+  const assessment = qualification.assessQualifications({ bid, extraction: null, profile, today: TODAY });
+  const checks = assessment.checks as Check[];
+  const apiChecks = checks.filter((c) => c.mandatory && c.basis === "API_FIELD");
+  const noAux = bid.auxLookup === undefined; // live revision 이므로 auxLookup 없음 = 보조 조회 전
+  const bucket = bucketOf(apiChecks.map((c) => c.outcome as Tri), noAux);
+  const scale = factors.scaleFit(bid, null, profile);
+  const scaleExceeded = (scale.reviewFlags as string[]).includes("SCALE_LIMIT_EXCEEDED");
+
+  // ── what-if: 미결정 19 (면허제한 여러 행) ──
+  const licenseRows = structured.filter((r) => r.kind === "LICENSE_LIMIT").toSorted((l, r) => l.seq - r.seq);
+  const rowInfo = licenseRows.map((row) => {
+    const v = row.value as Item;
+    const single = judgeSingleLicenseRow(bidRaw, row);
+    return {
+      lmtGrpNo: String(v.lmtGrpNo ?? ""),
+      lmtSno: String(v.lmtSno ?? ""),
+      lcnsLmtNm: String(v.lcnsLmtNm ?? ""),
+      name: row.name as string | null,
+      code: row.code as string | null,
+      resolved: codes.resolveQualificationCode(row.code as string | null, row.name as string | null),
+      single: single.outcome,
+      singleReason: single.check.reasonCode ?? single.check.reason,
+    };
+  });
+  const groups = [...new Set(rowInfo.map((r) => r.lmtGrpNo))];
+  const otherApi = apiChecks.filter((c) => !c.id.startsWith("structured:LICENSE_LIMIT")).map((c) => c.outcome as Tri);
+  const whatIf = (inner: (v: Tri[]) => Tri, outer: (v: Tri[]) => Tri): { bucket: Bucket; license: Tri | null } => {
+    if (rowInfo.length <= 1) return { bucket, license: null };
+    const perGroup = groups.map((g) => inner(rowInfo.filter((r) => r.lmtGrpNo === g).map((r) => r.single)));
+    const license = outer(perGroup);
+    return { bucket: bucketOf([license, ...otherApi], noAux), license };
+  };
+  const hypA = whatIf(or3, and3); // 그룹 안 OR, 그룹끼리 AND
+  const hypB = whatIf(and3, or3); // 그룹 안 AND, 그룹끼리 OR (08 §… "읽히는" 해석)
+  const hypB2 = whatIf(and3, and3); // 그룹 안 AND, 그룹끼리 AND (전부 AND)
+
+  results.push({
+    key,
+    noticeId: bid.noticeId,
+    ord: pick.bidNtceOrd,
+    title: bid.title,
+    agency: bid.agency,
+    ntceKindNm: item.ntceKindNm,
+    infoBizYn: item.infoBizYn,
+    bsnsDivNm: rowInfo.length > 0 ? (licenseRows[0].value as Item).bsnsDivNm : null,
+    pubPrcrmntClsfcNm: item.pubPrcrmntClsfcNm,
+    listFlags: {
+      indstrytyLmtYn: item.indstrytyLmtYn ?? null,
+      bidPrtcptLmtYn: item.bidPrtcptLmtYn ?? null,
+      rgnDutyJntcontrctRt: item.rgnDutyJntcontrctRt ?? null,
+      rgnDutyJntcontrctYn: item.rgnDutyJntcontrctYn ?? null,
+      cmmnSpldmdMethdNm: item.cmmnSpldmdMethdNm ?? null,
+      sucsfbidMthdNm: item.sucsfbidMthdNm ?? null,
+    },
+    budgetKrw: bid.budgetKrw,
+    deadlineAt: bid.deadlineAt,
+    auxLookup: bid.auxLookup ?? null,
+    auxCalls: fetched.calls,
+    auxFailures: fetched.failures.length,
+    kinds: structured.reduce<Record<string, number>>((acc, r) => ({ ...acc, [r.kind]: (acc[r.kind] ?? 0) + 1 }), {}),
+    licenseRows: rowInfo,
+    licenseGroups: groups.length,
+    regionRows: structured.filter((r) => r.kind === "PARTICIPATION_REGION").map((r) => r.name),
+    industryRows: structured.filter((r) => r.kind === "PERMITTED_INDUSTRY").map((r) => `${r.name}/${r.code}`),
+    overallStatus: assessment.status,
+    apiChecks: apiChecks.map((c) => ({
+      id: c.id,
+      name: c.requirementName,
+      code: c.requirementCode,
+      outcome: c.outcome,
+      reasonCode: c.reasonCode,
+      reason: c.reason,
+    })),
+    extractionChecks: checks.filter((c) => c.basis !== "API_FIELD").map((c) => `${c.requirementName}:${c.outcome}:${c.reasonCode}`),
+    bucket,
+    scaleExceeded,
+    hypA,
+    hypB,
+    hypB2,
+  });
+}
+
+mkdirSync(OUT, { recursive: true });
+writeFileSync(`${OUT}/results.json`, JSON.stringify({ today: TODAY, skipped, notInfo, results }, null, 1));
+console.log(`results ${results.length}, skipped ${skipped.length}, notInfoBroad ${notInfo.length}`);
+for (const s of skipped) console.log("skip", s);

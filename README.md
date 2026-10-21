@@ -76,7 +76,7 @@ SOL RADAR는 이 검토 과정을 데이터와 AI 분석으로 지원합니다.
 | 데이터베이스·인증 | Supabase (Postgres · RLS · Auth) | 공고·기업·분석·검토 이력 저장, 조직별 접근 제어(RLS), 로그인 |
 | 큐·캐시 | Redis · BullMQ | 비동기 수집 및 분석 작업(worker `web/worker`) |
 | AI 서비스 | Python · FastAPI | AI 모델 연동 및 분석 파이프라인(`services/ai`) |
-| AI 모델 | Qwen3.5-27B(회사 운영 vLLM API) · Bosun v3.1 0.6B(결정 모델) | 요구사항 구조화 및 의사결정 보조. `KEV_*`·`/kev` 이름은 호환 유지(ADR-034) |
+| AI 모델 | Qwen3.8-Flash-Next(회사 운영 vLLM API) · Bosun v3.1 0.6B(결정 모델) | 요구사항 구조화 및 의사결정 보조. `KEV_*`·`/kev` 이름은 호환 유지(ADR-034) |
 | 벡터 검색 | Qdrant | 관련 문서 및 근거 검색 |
 | 파일 저장 | MinIO | 공고 첨부파일 및 원본 문서 보관 |
 | 실행 환경 | Docker Compose | Redis·MinIO·Qdrant·AI 서비스·worker 실행. 웹은 호스트에서 `pnpm -C web start` |

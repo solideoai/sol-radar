@@ -1,7 +1,7 @@
 """모델 레지스트리 파일(03 §11, ADR-034 6번)과 읽기(sol_ai.registry). 값을 모르는 항목은 null 로 두고 지어내지 않는다.
 
-- active 항목: bosun-v3.1-0.6b(kind decision), qwen3.5-27b(kind qwen, default)
-- retired: kev-9b-v1.0(내용 보존)·qwen3.5-9b(default 제거), backup: qwen3-4b-instruct-2507(리비전 기록만)
+- active 항목: bosun-v3.1-0.6b(kind decision), qwen3.8-flash-next(kind qwen, default)
+- retired: kev-9b-v1.0(내용 보존)·qwen3.5-27b·qwen3.5-9b(default 제거), backup: qwen3-4b-instruct-2507(리비전 기록만)
 - mock 항목은 두지 않는다(ADR-034 15번)
 """
 
@@ -18,6 +18,7 @@ from support import (
     QWEN_RUN,
     REGISTRY_FILE,
     RETIRED_KEV_MODEL_ID,
+    RETIRED_QWEN27B_RUN,
     RETIRED_QWEN_RUN,
 )
 
@@ -118,7 +119,7 @@ def test_registry_decision_reports_are_empty():
 
 
 def test_registry_qwen_default_entry():
-    qwen = entry("qwen3.5-27b")
+    qwen = entry("qwen3.8-flash-next")
     assert (qwen["kind"], qwen["run"], qwen["default"], qwen["status"]) == (
         "qwen",
         QWEN_RUN,
@@ -135,7 +136,7 @@ def test_registry_has_exactly_one_active_qwen_default():
         for e in registry()["entries"]
         if e["kind"] == "qwen" and e.get("default") and e.get("status", "active") == "active"
     ]
-    assert [e["id"] for e in defaults] == ["qwen3.5-27b"]
+    assert [e["id"] for e in defaults] == ["qwen3.8-flash-next"]
 
 
 def test_registry_retired_kev_entry_is_preserved():
@@ -146,6 +147,18 @@ def test_registry_retired_kev_entry_is_preserved():
         KEV_V1_0_HEAD_SHA256,
     )
     assert kev["requestModel"] == "kev-latest"
+
+
+def test_registry_retired_qwen27b_entry_has_no_default():
+    # 2026-10-21 회사 vLLM 모델 교체로 퇴역. 리비전은 그때도 몰랐다(null)
+    qwen = entry("qwen3.5-27b")
+    assert (qwen["kind"], qwen["run"], qwen["status"], qwen["revision"]) == (
+        "qwen",
+        RETIRED_QWEN27B_RUN,
+        "retired",
+        None,
+    )
+    assert "default" not in qwen
 
 
 def test_registry_retired_qwen_entry_has_no_default():
@@ -202,13 +215,13 @@ def test_load_unknown_decision_entry_is_none():
 
 
 def test_load_qwen_entry_is_not_a_decision_entry():
-    assert loaded().decision("qwen3.5-27b") is None
+    assert loaded().decision("qwen3.8-flash-next") is None
 
 
-def test_load_qwen_default_is_active_27b():
+def test_load_qwen_default_is_active_flash_next():
     default = loaded().qwen_default()
     assert default is not None
-    assert (default.id, default.run, default.revision) == ("qwen3.5-27b", QWEN_RUN, None)
+    assert (default.id, default.run, default.revision) == ("qwen3.8-flash-next", QWEN_RUN, None)
 
 
 def test_load_qwen_runs_exclude_retired_and_backup():
@@ -216,7 +229,12 @@ def test_load_qwen_runs_exclude_retired_and_backup():
 
 
 @pytest.mark.parametrize(
-    ("run", "status"), [(RETIRED_QWEN_RUN, "retired"), (BACKUP_QWEN_RUN, "backup")]
+    ("run", "status"),
+    [
+        (RETIRED_QWEN27B_RUN, "retired"),
+        (RETIRED_QWEN_RUN, "retired"),
+        (BACKUP_QWEN_RUN, "backup"),
+    ],
 )
 def test_load_inactive_qwen_entry_is_found_with_status(run, status):
     qwen = loaded().qwen_entry(run)

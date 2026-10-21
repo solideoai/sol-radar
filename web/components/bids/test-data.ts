@@ -10,6 +10,7 @@ import type {
   Review,
   ScoreFactorView,
 } from "@/server/bids";
+import type { WhatIfSummary } from "@/server/scoring";
 
 // 부품 시험과 스토리용 데이터. 숫자의 정본은 fixtures/goldens/FX-0n.json 과 fixtures/kev/FX-0n.json 이다.
 // fit.score 는 wire 값(0~4)이고 표시 n/5 는 부품이 floor+1 로 만든다.
@@ -304,9 +305,9 @@ export const FX03_VIEW: AnalysisView = {
 
 // 실모델 식별자(ADR-034 1·9번, 레지스트리 run 값). 화면은 받은 식별자를 그대로 보이고 대응표를 두지 않는다.
 export const BOSUN_MODEL_ID = "Hanno-Labs/bosun-v3.1-0.6b@5e78a37c";
-export const QWEN_MODEL_ID = "Qwen/Qwen3.5-27B";
+export const QWEN_MODEL_ID = "Qwen/Qwen3.8-Flash-Next";
 
-// S-LIVE: 실제 공고를 local 공급자(Qwen3.5-27B + Bosun v3.1 0.6B, kev-qs/v0.2)로 분석한 FX-01. 숫자는 FX-01 과 같다.
+// S-LIVE: 실제 공고를 local 공급자(Qwen3.8-Flash-Next + Bosun v3.1 0.6B, kev-qs/v0.2)로 분석한 FX-01. 숫자는 FX-01 과 같다.
 export const FX01_LIVE_VIEW: AnalysisView = {
   ...FX01_VIEW,
   id: "run-fx-01-live",
@@ -337,6 +338,42 @@ export const FX01_PARTIAL_VIEW: AnalysisView = {
   fallbackReason: "KEV_UNAVAILABLE",
   model: { ...baseView.model, kev: null },
 };
+
+// BOOST-2 가정 재계산 시험용. FX-03 의 정보통신공사업 등록 행에 자격 코드를 붙였다(스위치는 코드가 있는 행에만 붙는다).
+export const FX03_WHAT_IF_VIEW: AnalysisView = {
+  ...FX03_VIEW,
+  qualification: {
+    ...FX03_VIEW.qualification,
+    checks: FX03_VIEW.qualification.checks.map((check) =>
+      check.id === "q2" ? { ...check, requirementCode: "ICT_CONSTRUCTION" } : check,
+    ),
+  },
+};
+
+// 가정 재계산 응답의 before·after 한쪽. 저장된 run 과 같은 값에서 시작해 바꿀 칸만 덮는다.
+export const whatIfSummaryOf = (
+  view: AnalysisView,
+  overrides: Partial<WhatIfSummary> = {},
+): WhatIfSummary => ({
+  score: view.solScore ?? 0,
+  recommendation: view.recommendation ?? "NO_BID",
+  qualificationStatus: view.qualification.status,
+  factors: view.scoreBreakdown.map(({ factor, points, maxPoints }) => ({
+    factor,
+    points,
+    maxPoints,
+  })),
+  checks: view.qualification.checks.map(
+    ({ id, requirementName, requirementCode, outcome, reasonCode }) => ({
+      id,
+      requirementName,
+      requirementCode,
+      outcome,
+      reasonCode,
+    }),
+  ),
+  ...overrides,
+});
 
 const docsOk = {
   total: 2,
