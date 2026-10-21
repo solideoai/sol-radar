@@ -303,14 +303,25 @@ def test_kev_models_missing_lora_is_registry_mismatch(fake_server):
     assert refused_with(result, "기동 거부: KEV_MODEL_ID(REGISTRY_MISMATCH)") == (EX_CONFIG, True)
 
 
+def test_kev_models_different_embeddings_is_registry_mismatch(fake_server):
+    # 미결정 28 ①: decision_embeddings.safetensors 가 레지스트리와 다르면 어댑터가 같아도 기동하지 않는다
+    qwen, kev = model_servers(
+        fake_server,
+        kev_reply=Reply(json_body=kev_models(decision_embeddings_sha256="0" * 64)),
+    )
+    result = run_main(env_for(qwen.url, kev.url))
+    assert refused_with(result, "기동 거부: KEV_MODEL_ID(REGISTRY_MISMATCH)") == (EX_CONFIG, True)
+
+
 def test_refusal_hides_registry_hashes(fake_server):
-    from support import KEV_LORA_SHA256, KEV_REVISION
+    from support import KEV_EMBEDDINGS_SHA256, KEV_LORA_SHA256, KEV_REVISION
 
     qwen, kev = model_servers(fake_server, kev_reply=Reply(json_body=kev_models(lora="x" * 64)))
     result = run_main(env_for(qwen.url, kev.url))
     output = result.stdout + result.stderr
     assert result.returncode == EX_CONFIG
-    assert [v for v in (KEV_LORA_SHA256, KEV_REVISION, "x" * 64) if v in output] == []
+    hashes = (KEV_LORA_SHA256, KEV_REVISION, KEV_EMBEDDINGS_SHA256, "x" * 64)
+    assert [v for v in hashes if v in output] == []
 
 
 # ---------------------------------------------------------------- URL 보안(3). 같은 프로세스(연결 차단)
