@@ -7,6 +7,7 @@
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,10 +29,17 @@ from sol_eval.bosun_metrics import (
     recall_of,
 )
 from sol_eval.bosun_records import V0_1_QIDS, row_id
-from sol_eval.bosun_score import ScoreInputError, ScoreOptions, parse_seeds, score
+from sol_eval.bosun_score import (
+    ScoreInputError,
+    ScoreOptions,
+    make_backend,
+    parse_seeds,
+    score,
+)
 from sol_eval.compare import CompareError, CompareOptions, compare
 from sol_eval.dataset import EvalItem, write_items
 from sol_eval.leakage import LeakageOptions, check_bundle
+from sol_eval.package_check import PackageVerificationError, verify_package_dir
 
 REVISION_SUFFIX = "#01"
 FETCHED_AT = "2026-10-01T00:00:00Z"
@@ -736,6 +744,71 @@ def test_bosun_score_cli_with_fake_backend(bundle: Path, tmp_path: Path) -> None
     assert code == 0
     assert (out / "report.json").exists()
     assert main(["bosun_score", "--backend", "fake", "--out", str(out)]) == 2
+
+
+def _bosun_package(root: Path, *, files: dict[str, bytes] | None = None) -> Path:
+    """가짜 Bosun 패키지(HF 레이아웃 + manifest.json). 모델이 아니다."""
+    root.mkdir(parents=True, exist_ok=True)
+    files = files or {
+        "config.json": b'{"architectures": ["BosunForDecision"]}',
+        "modeling_bosun.py": b"# model",
+        "configuration_bosun.py": b"# config",
+        "adapter/adapter_model.safetensors": b"adapter-bytes",
+        "decision_embeddings.safetensors": b"embedding-bytes",
+    }
+    manifest = {}
+    for relative, data in files.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        manifest[relative] = hashlib.sha256(data).hexdigest()
+    (root / "manifest.json").write_text(json.dumps({"files": manifest}), encoding="utf-8")
+    return root
+
+
+def test_verify_package_dir_passes_and_returns_manifest_files(tmp_path: Path) -> None:
+    root = _bosun_package(tmp_path / "pkg")
+    files = verify_package_dir(root)
+    assert set(files) >= {"config.json", "modeling_bosun.py", "configuration_bosun.py"}
+
+
+@pytest.mark.parametrize(
+    ("tamper", "summary"),
+    [
+        (
+            lambda r: (r / "modeling_bosun.py").write_bytes(b"# tampered"),
+            "SHA256_MISMATCH(modeling_bosun.py)",
+        ),
+        (
+            lambda r: (r / "planted.py").write_bytes(b"# planted"),
+            "REMOTE_CODE_NOT_IN_MANIFEST(planted.py)",
+        ),
+        (
+            lambda r: (r / "decision_embeddings.safetensors").unlink(),
+            "FILE_MISSING(decision_embeddings.safetensors)",
+        ),
+        (lambda r: (r / "manifest.json").unlink(), "MANIFEST_MISSING(manifest.json)"),
+    ],
+)
+def test_verify_package_dir_rejects_tampered_package(tmp_path: Path, tamper, summary: str) -> None:
+    root = _bosun_package(tmp_path / "pkg")
+    tamper(root)
+    with pytest.raises(PackageVerificationError) as error:
+        verify_package_dir(root)
+    assert error.value.summary == summary
+    # 요약은 코드(경로)만. 해시 값(64 hex)은 담지 않는다
+    assert not re.search(r"[0-9a-f]{64}", str(error.value))
+
+
+def test_bosun_backend_refuses_tampered_package_before_loading(tmp_path: Path) -> None:
+    """--backend bosun 은 검증 실패 시 transformers 를 import 하지 않고 ScoreInputError 로 끝난다(exit 2)."""
+    root = _bosun_package(tmp_path / "pkg")
+    (root / "modeling_bosun.py").write_bytes(b"# tampered")
+    options = ScoreOptions(
+        out_dir=tmp_path / "out", data_path=tmp_path / "x.jsonl", seeds=[0], package_dir=root
+    )
+    with pytest.raises(ScoreInputError, match=r"SHA256_MISMATCH\(modeling_bosun\.py\)"):
+        make_backend(options)
 
 
 def test_bosun_score_decisionbench_suite_adapter(tmp_path: Path) -> None:
