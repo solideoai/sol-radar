@@ -31,6 +31,7 @@ import { errorNameOf } from "@/worker/error-name";
 import { startDocumentsReconciler } from "@/worker/documents-reconcile";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
 import { readNotifySettings, startNotifier } from "@/worker/notify-outbox";
+import { programNoticesWorkerRegistration } from "@/worker/program-notices";
 import {
   processIngestJob,
   readIngestIntervalMinutes,
@@ -387,6 +388,8 @@ export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
   ingestWorkerRegistration,
   analysisWorkerRegistration,
   notifyWorkerRegistration,
+  // 부처 지원사업 공고 주기 수집(ADR-040). env·설정이 틀려도 던지지 않고 꺼진 채로 둔다(worker/program-notices.ts).
+  programNoticesWorkerRegistration,
 ];
 
 /**
