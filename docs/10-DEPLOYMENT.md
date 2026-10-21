@@ -18,6 +18,38 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 
 실행 모드 `SOL_RUN_MODE=live|fixture|mock`([[16-DECISIONS|ADR-020]], [[03-AI-PIPELINE|03 AI 파이프라인]] §3)은 **데이터 출처와 AI 공급자**를 정하고, 프로필은 **어떤 env 묶음을 쓰는지**(모델 런타임 주소·키 포함)를 정한다. 해커톤 실추론의 모델 런타임(추출·설명 `Qwen/Qwen3.8-Flash-Next`는 회사가 운영하는 vLLM API, 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision` 서버)은 노트북 Compose 밖, **회사 GPU 서버**에 있고, 회사가 제공하는 HTTPS 엔드포인트로 붙는다([[16-DECISIONS|ADR-025]]·[[16-DECISIONS|ADR-034]], 2026-10-20 사용자 결정. 아래 "회사 GPU 추론 엔드포인트").
 
+## Vercel 웹·AI 서비스 배포
+
+2026-10-21 사용자 요청으로 루트 `vercel.json`에 다중 서비스 배포 구성을 추가했다. 아래 서비스 이름·공개 범위·바인딩과 외부 worker 운영 방식은 2026-10-21 커밋·푸시 요청으로 승인되었다. 기존 Compose 데모 구성은 유지한다.
+
+|서비스|위치|공개 경로|내부 호출|
+|---|---|---|---|
+|`web`|`web/`, Next.js|`/(.*)` — 화면·`/api/v1/*`·`/health/*` 모두 기존 주소|`AI_GATEWAY_URL` 바인딩으로 `ai` 호출|
+|`ai`|`services/ai/`, FastAPI|없음(내부 전용)|실추론 모드에서는 기존 `QWEN_BASE_URL`·`KEV_BASE_URL`의 회사 모델 서버 호출|
+
+- 자동 감지 예시의 `eval`은 HTTP 서버가 없는 오프라인 CLI(`services/ai/eval/README.md`)라 서비스에서 제외했다. `decision`은 모델 패키지·torch 및 회사 GPU 운영을 전제로 하므로 기존 회사 서버에 둔다. `ai → decision` Vercel 바인딩은 만들지 않는다. `mock` 모드는 두 모델 서버를 호출하지 않는다.
+- BullMQ worker·Redis·MinIO·Qdrant는 Vercel HTTP 서비스에 포함하지 않는다. 외부 worker는 기존 Compose의 `AI_GATEWAY_URL=http://ai-gateway:8000`을 계속 쓴다. 외부 worker에는 Vercel 내부 바인딩 URL이 주입되지 않으며, 내부 전용 `ai`를 직접 호출할 수 없다. Vercel의 `web`과 외부 worker가 **같은 Redis·Supabase와 실행 모드**를 사용해야 분석 요청과 처리가 이어진다.
+- `web`의 상태 확인·관리자 AI 상태 코드는 이미 요청 시점에 `process.env.AI_GATEWAY_URL`을 읽는다. 바인딩은 기존 변수 이름을 그대로 사용하며 빌드·`proxy.ts`에서 호출하지 않는다. 브라우저는 기존 Next.js API를 호출한다. AI의 `/parse`·`/extract`·`/kev`·`/explain`에는 공개 rewrite를 추가하지 않는다.
+- `services/ai/app.py`가 ASGI `app`을 내보낸다. `python vercel_build.py`가 저장소 정본 `infra/run-modes.json`·`fixtures/extractions/`·`fixtures/kev/`만 `services/ai/runtime_data/`로 복사하고, 진입점이 기존 `SOL_RUN_MODES_FILE`·`SOL_FIXTURES_DIR`에 기본 경로를 제공한다. 생성물은 git에서 제외한다. 기존 Dockerfile·`python -m sol_ai` 실행 방식은 그대로다.
+
+### 프로젝트 설정과 환경변수
+
+1. Vercel 프로젝트의 **Root Directory를 저장소 루트**(`.` 또는 기본 빈 값)로 설정한다. `web/`로 설정하면 루트 `vercel.json`의 다른 서비스를 사용할 수 없다. 프로젝트 전체에 지정한 Framework·Install·Build·Output 설정 대신 서비스별 설정을 사용한다. `web` 의존성은 `web/pnpm-lock.yaml`로 별도 설치한다.
+2. `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`를 프로젝트에 등록한다(Next.js 빌드에도 필요). 서버용으로 `REDIS_URL`·`MINIO_ENDPOINT`·`API_CURSOR_SECRET`(32자 이상)을 등록한다. Vercel에서 접근 가능한 외부 주소를 써야 한다. 노트북의 `localhost`·Compose의 `redis`·`minio` 이름은 사용할 수 없다. `SUPABASE_SERVICE_ROLE_KEY`·`G2B_*_SERVICE_KEY`는 외부 worker 전용이며 Vercel 프로젝트에 등록하지 않는다.
+3. `AI_GATEWAY_URL`은 **직접 등록하지 않는다**. Vercel이 `web → ai` 바인딩으로 생성한다. 기존 프로젝트에 수동 등록한 값이 있으면 제거한다. 로컬 Next.js·Compose가 쓰는 각 env 파일의 기존 값은 그대로 사용한다.
+4. 처음에는 `SOL_RUN_MODE=mock`으로 확인한다. `fixture`·`live`로 바꾸면 기존 회사 모델 접속 변수(`QWEN_BASE_URL`·`QWEN_MODEL`·`QWEN_API_KEY`·`KEV_BASE_URL`·`KEV_MODEL_ID`·`KEV_API_KEY`)를 설정하고 외부 worker/Compose와 모드를 맞춘다. 기존 모델 레지스트리의 호스트·모델 식별자 검증을 그대로 적용한다.
+5. Supabase Auth의 Site URL·Redirect URLs에 배포 도메인과 `/auth/callback`을 기존 [[09-SECURITY|인증 규칙]]에 맞게 등록한다. 실제 배포 URL이 정해진 뒤 적용한다.
+
+로컬 서비스 라우팅·바인딩 확인은 **저장소 루트**에서 실행한다:
+
+```bash
+SOL_RUN_MODE=mock pnpm dlx vercel@latest dev -L
+```
+
+`-L`은 Vercel 프로젝트 연결 없이 로컬에서 실행하는 옵션이다. 실제 연결 프로젝트 환경변수로 확인할 때는 `vercel dev`를 사용한다. 외부 Redis·MinIO·worker가 준비되지 않으면 `/health/ready`는 해당 항목을 `unavailable`로 보고한다. 첫 화면 표시와 전체 분석 파이프라인 준비 여부를 구분한다.
+
+근거(2026-10-21 확인): [Vercel Services](https://vercel.com/docs/services), [Service bindings](https://vercel.com/docs/services/bindings), [FastAPI](https://vercel.com/docs/frameworks/backend/fastapi). 실제 클라우드 배포는 이 설정의 로컬 검증과 별개이며, 외부 인프라 연결과 프로젝트 환경변수를 확인한 뒤 진행한다.
+
 ## 실행 모드와 프로필
 
 |`SOL_RUN_MODE`|프로필|모델 런타임 위치|공고|추가로 필요한 것|

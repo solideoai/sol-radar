@@ -1,0 +1,30 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "ai": {
+      "root": "services/ai",
+      "framework": "fastapi",
+      "entrypoint": "app:app",
+      "buildCommand": "python vercel_build.py"
+    },
+    "web": {
+      "root": "web",
+      "framework": "nextjs",
+      "installCommand": "pnpm install --frozen-lockfile",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "ai",
+          "format": "url",
+          "env": "AI_GATEWAY_URL"
+        }
+      ]
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": { "service": "web" }
+    }
+  ]
+}
