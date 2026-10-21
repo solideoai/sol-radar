@@ -10,7 +10,7 @@ updated: 2026-10-21
 
 # 시스템 아키텍처·데이터 흐름
 
-[[02-ARCHITECTURE|02 아키텍처]]와 [[03-AI-PIPELINE|03 AI 파이프라인]]을 발표용으로 줄인 그림이다. 둘과 다르면 02·03이 맞다. 구현 상태는 그림이 아니라 [[PROGRESS|진행 상황]]과 `evidence-list.md`가 말한다. 이 그림은 **설계**다. 2026-10-20 기준 main에 있는 것: DB·RLS(C2), 수집·정규화·revision·보조 조회(C3), 규칙 엔진·SOL Score(C4), AI gateway 4 엔드포인트 mock·`local` 어댑터·worker 분석 클라이언트·`PARTIAL` 대체(C5), 화면 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`(C6), 결정 기록·인앱 알림(C7). 구현 전: 첨부 다운로드 소비자·파싱, 실모델 추론(엔드포인트 응답 대기). 모델은 2026-10-20 [[16-DECISIONS|ADR-034]]로 바뀌었다: 결정 모델 Bosun v3.1 0.6B(우리 `sol_decision` 서버), 추출·설명 모델은 회사 vLLM API(`https://acropolissg.com/vllm/v1`)의 `Qwen/Qwen3.8-Flash-Next`(2026-10-21 사용자 보고, `/v1/models` 대조는 B2)다. 전환 코드(B1)는 main 병합 전이다. 그림의 `/kev`·`KV`·`kev_model` 같은 이름은 식별자라 그대로 둔다.
+[[02-ARCHITECTURE|02 아키텍처]]와 [[03-AI-PIPELINE|03 AI 파이프라인]]을 발표용으로 줄인 그림이다. 둘과 다르면 02·03이 맞다. 구현 상태는 그림이 아니라 [[PROGRESS|진행 상황]]과 `evidence-list.md`가 말한다. 이 그림은 **설계**다. 2026-10-20 기준 main에 있는 것: DB·RLS(C2), 수집·정규화·revision·보조 조회(C3), 규칙 엔진·SOL Score(C4), AI gateway 4 엔드포인트 mock·`local` 어댑터·worker 분석 클라이언트·`PARTIAL` 대체(C5), 화면 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`(C6), 결정 기록·인앱 알림(C7). 구현 전: 첨부 다운로드 소비자·파싱, 실모델 추론(엔드포인트 응답 대기). 모델은 2026-10-20 [[16-DECISIONS|ADR-034]]로 바뀌었다: 결정 모델 Bosun v3.1 0.6B(우리 `sol_decision` 서버), 추출·설명 모델은 회사 vLLM API(`https://acropolissg.com/vllm/v1`)의 `Qwen/Qwen3.8-Flash-Next`(2026-10-21 사용자 보고, `/v1/models` 대조는 B2)다. 전환 코드(B1: `sol_decision` 서버·gateway 어댑터·모델 레지스트리·`sol_eval.bosun_score`·`infra/gpu/bosun-*.sh`)는 main `1b68f9b`(2026-10-21)에 들어갔고, Qwen 레지스트리의 활성 항목은 `qwen3.8-flash-next`다. 회사 서버 기동 확인과 실추론은 아직 없다. 그림의 `/kev`·`KV`·`kev_model` 같은 이름은 식별자라 그대로 둔다.
 
 ## (a) 시스템 아키텍처
 

@@ -43,7 +43,7 @@ updated: 2026-10-21
 
 ## 3. 미완성·범위 밖
 
-**해커톤 안 미완성(2026-10-20)**: 첨부 다운로드 소비자(documents job)·`AttachmentTextReader`(C3 남은 것), 실모델 추론(C1 ③ 엔드포인트 응답 대기. `local` 어댑터 코드는 있다. Bosun·Qwen 전환 코드(ADR-034 B1)는 main 병합 전), 실추론 S-LIVE(C8. 규칙만 `PARTIAL`인 사전 run은 있다), 평가 하네스(X1), 파서 후보 비교(C1 ④). main 에 있는 것: 공고 스키마·RLS·`pnpm demo:reset`(`48b20a5`), 수집 핵심(`d933c9e`)·보조 조회 3종·호출 예산(`c6b16e3`·`2db27c1`), 규칙 엔진·골든(`e22de09`), gateway 4 엔드포인트 mock(`daf07a6`)·worker 분석 클라이언트·`PARTIAL` 대체(`c2b12d3`)·`local` 어댑터(`b4a23fc`)·보안 후속(`cfe8f0a`·`0a32e47`), 화면 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`와 Route Handler(C6 `4ae09f9`), 결정 기록·인앱 알림 2종(C7 `841b064`), `/people`·`/org-chart`(`7641ee4`), 수집 관리 `/admin/ingestion`(N8 `81249f0`). 진행 상태는 [[PROGRESS|진행 상황]].
+**해커톤 안 미완성(2026-10-20)**: 첨부 다운로드 소비자(documents job)·`AttachmentTextReader`(C3 남은 것), 실모델 추론(C1 ③ 엔드포인트 응답 대기. `local` 어댑터 코드는 있다. Bosun·Qwen 전환 코드(ADR-034 B1)는 main `1b68f9b`(2026-10-21)에 들어갔고 Qwen 레지스트리의 활성 항목은 `qwen3.8-flash-next`다), 실추론 S-LIVE(C8. 규칙만 `PARTIAL`인 사전 run은 있다), 평가 하네스(X1), 파서 후보 비교(C1 ④). main 에 있는 것: 공고 스키마·RLS·`pnpm demo:reset`(`48b20a5`), 수집 핵심(`d933c9e`)·보조 조회 3종·호출 예산(`c6b16e3`·`2db27c1`), 규칙 엔진·골든(`e22de09`), gateway 4 엔드포인트 mock(`daf07a6`)·worker 분석 클라이언트·`PARTIAL` 대체(`c2b12d3`)·`local` 어댑터(`b4a23fc`)·보안 후속(`cfe8f0a`·`0a32e47`), 화면 `/dashboard`·`/bids`·`/bids/[id]`·`/notifications`와 Route Handler(C6 `4ae09f9`), 결정 기록·인앱 알림 2종(C7 `841b064`), `/people`·`/org-chart`(`7641ee4`), 수집 관리 `/admin/ingestion`(N8 `81249f0`). 진행 상태는 [[PROGRESS|진행 상황]].
 
 **확장 컷으로 이월**(핵심 컷 green 뒤에만): 조직도·직원 목록 데모 노출, 설정 조직 탭, 인력 배치 시뮬레이션, 직원 편집, `/ops`, 사전규격·발주계획 단계 연결(P0-8), S5 변경 감지 장면. 평가셋 v0.1·학습셋 번들(P0-9·P0-11)은 파인튜닝 트랙 X6로 옮겼다(ADR-027. ADR-027 폐기 뒤 X6는 Bosun LoRA 트랙으로 남는다, [[16-DECISIONS|ADR-034]]).
 

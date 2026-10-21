@@ -44,7 +44,7 @@ updated: 2026-10-21
 
 **측정 전. 값 없음.**
 
-입력: 평가셋 v0.1 test 20 사업(21 §3.5, X6a). E1' = 공개 Bosun v3.1 0.6B zero-shot, E4 = Bosun + LoRA(`en`, 공개 LoRA 이어 학습, dev 온도 보정). 데이터셋 버전·commit·질문 세트·state 템플릿·seed 0~5가 같다. 둘 다 회사 서버 안 오프라인 채점(`sol_eval.bosun_score`, B1 예정)이고 물리 GPU 1에서 순차로 돈다. 학습 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §4.
+입력: 평가셋 v0.1 test 20 사업(21 §3.5, X6a). E1' = 공개 Bosun v3.1 0.6B zero-shot, E4 = Bosun + LoRA(`en`, 공개 LoRA 이어 학습, dev 온도 보정). 데이터셋 버전·commit·질문 세트·state 템플릿·seed 0~5가 같다. 둘 다 회사 서버 안 오프라인 채점(`sol_eval.bosun_score`, main `1b68f9b`. 실모델 경로는 미검증)이고 물리 GPU 1에서 순차로 돈다. 학습 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §4.
 
 | 지표 | E1' | E4 | Δ(E4−E1') | 95% CI(짝 부트스트랩) | n |
 |---|---|---|---|---|---|
