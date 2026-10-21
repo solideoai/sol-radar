@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 가상 샘플 — 시험 전용. 중기부 사업공고 RSS(310.do)의 모양만 따른다. 실제 공고가 아니다. -->
+<rss version="2.0">
+  <channel>
+    <title>중소벤처기업부 사업공고</title>
+    <link>https://mss.go.kr/site/smba/ex/bbs/List.do?cbIdx=310</link>
+    <item>
+      <title><![CDATA[[중기부] 2026년 스마트공장 구축 지원사업 공고]]></title>
+      <link>https://mss.go.kr/site/smba/ex/bbs/View.do?cbIdx=310&amp;bcIdx=1065432&amp;parentSeq=1065432</link>
+      <pubDate>20261021093000</pubDate>
+      <id>310</id>
+    </item>
+    <item>
+      <title>2026년 소상공인 디지털 전환 &amp; 판로 지원</title>
+      <link>http://mss.go.kr/site/smba/ex/bbs/View.do?cbIdx=310&amp;bcIdx=1065433</link>
+      <pubDate>2026-10-20</pubDate>
+      <id>310</id>
+    </item>
+    <item>
+      <title>날짜가 깨진 공고</title>
+      <link>/site/smba/ex/bbs/View.do?cbIdx=310&amp;bcIdx=1065434</link>
+      <pubDate>not-a-date</pubDate>
+      <id>310</id>
+    </item>
+    <item>
+      <title></title>
+      <link>https://mss.go.kr/site/smba/ex/bbs/View.do?cbIdx=310&amp;bcIdx=1065435</link>
+      <pubDate>20261019100000</pubDate>
+      <id>310</id>
+    </item>
+    <item>
+      <title>남의 호스트 링크</title>
+      <link>https://evil.example/View.do?bcIdx=1</link>
+      <pubDate>20261019100000</pubDate>
+      <id>310</id>
+    </item>
+  </channel>
+</rss>
