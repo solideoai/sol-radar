@@ -13,10 +13,21 @@
 ```bash
 cd services/decision
 uv sync --frozen                # 노트북·CI: 서버·시험만(torch 없음)
-uv sync --frozen --extra model  # 회사 GPU 서버: torch·transformers·peft 포함
+```
+
+회사 GPU 서버(사용자 결정 2026-10-21, `docs/10` 이 정본): **기존 `.venv-bosun`(torch 2.8.0+cu128, transformers·peft 설치됨)에
+`pip install -e . --no-deps` 로만 올린다.** `uv sync --frozen --extra model` 은 쓰지 않는다 — `uv.lock` 의 `model` extra 가 torch 2.14.1 을
+가리켜 서버 torch 를 바꾼다. 설치 뒤 `pip check` 와 `python -c "import sol_decision, fastapi, pydantic_settings, uvicorn"` 으로
+의존성(fastapi·pydantic·pydantic-settings·uvicorn)이 venv 에 있는지 본다. 없으면 그 네 개만 `pip install` 한다(torch 계열은 건드리지 않는다).
+
+```bash
+source /data/www/ai_workspace/sol-radar/.venv-bosun/bin/activate
+pip install -e /path/to/sol-radar/services/decision --no-deps
+pip check
 ```
 
 Python ≥ 3.12. 코어 모듈은 torch 를 import 하지 않는다. `--extra model` 없이도 `--backend fake` 로 wire·인증·마감을 점검할 수 있다.
+결정 서버 기동은 **`fix/decision-hardening`(상한·대기열·패키지 검증 보강)이 main 에 들어간 뒤**에만 한다(사용자 결정 2026-10-21, 계획 문서 B2 행).
 
 ## 기동 (회사 GPU 서버)
 
