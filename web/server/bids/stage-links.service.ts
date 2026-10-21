@@ -13,6 +13,8 @@ import type { StageLinkCandidateItem, StageLinkItem, StageLinksView } from "./st
 export const STAGE_LINK_POOL_LIMIT = 300;
 /** 화면에 내는 연결 후보 최대 건수. */
 export const STAGE_LINK_CANDIDATE_LIMIT = 3;
+/** 식별자 질의 하나가 읽는 건수이자 화면에 내는 연결 최대 건수(가정값). 같은 planRef 공고가 많아도 한 번 읽기를 묶는다. */
+export const STAGE_LINK_LINKED_LIMIT = 50;
 
 const STAGE_ORDER: Readonly<Record<BidStage, number>> = { PLAN: 0, PRE_SPEC: 1, NOTICE: 2 };
 
@@ -50,7 +52,10 @@ export async function getStageLinks(
   if (anchor === null) {
     return fail(404, "NOT_FOUND", "공고를 찾을 수 없습니다", { resource: "bid" });
   }
-  const related = await deps.repo.findRelated(anchor, STAGE_LINK_POOL_LIMIT);
+  const related = await deps.repo.findRelated(anchor, {
+    pool: STAGE_LINK_POOL_LIMIT,
+    identifier: STAGE_LINK_LINKED_LIMIT,
+  });
   const now = deps.now ?? new Date();
   // repo 가 같은 is_demo 만 주지만, 가상 공고와 실공고가 섞이지 않게 여기서도 한 번 더 거른다.
   const judged = related
@@ -69,7 +74,8 @@ export async function getStageLinks(
       status: effectiveStatus(row.status, row.deadline_at, now),
       basis,
     }))
-    .sort(byStageThenNotice);
+    .sort(byStageThenNotice)
+    .slice(0, STAGE_LINK_LINKED_LIMIT);
 
   // 취소된 공고는 후보로 내지 않는다(사람이 이어 볼 까닭이 없다). 식별자로 이어진 취소 공고는 linked 에 남는다.
   // 같은 유사도는 repo 순서(최근 게시일 먼저)를 지킨다(Array.prototype.sort 는 안정 정렬이다).

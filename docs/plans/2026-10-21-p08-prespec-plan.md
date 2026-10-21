@@ -128,6 +128,12 @@ updated: 2026-10-21
 ### Task 4 (freeze 뒤, 이 브랜치 밖): worker 연결
 
 별도 계획으로 쓴다. 들어갈 것: 사전규격 일정 실행·발주계획 하루 1회 job, 서비스별 호출 예산 카운터(`quota:15129437:*`·`quota:15129462:*`), env 기본 꺼짐(`G2B_STAGE_INGEST_ENABLED`, 이름은 그때 확정), 발주계획은 입찰공고와 이어지는 행만 저장(D8), 저장은 기존 `ingest_save_revision` 그대로. live 호출이 생기므로 켜는 것은 사용자 결정이다.
+같이 할 것(3e 보안 검토 Low, 2026-10-21):
+
+- `bid_notices.plan_ref`·`pre_spec_ref` 인덱스를 새 마이그레이션(대역 `000640~`)으로 더한다. fixture 20건에서는 필요 없고 live 행이 쌓일 때 필요하다.
+- 발주계획 `orderPlanDtlUrl`(`normalize-g2b-order-plan.ts`)은 지금 http·https 만 본다(기존 정규화와 같은 방식, 화면 `SourceLink` 가 `isHttpUrl` 로 한 번 더 거른다). live 녹음 응답의 실제 호스트를 확인한 뒤 허용 목록을 둔다(정보 수준).
+
+이미 고친 것(같은 검토 Low 1): 식별자 질의마다 최근 게시일 순 50건 상한, 화면 연결 목록 50건 상한(`STAGE_LINK_LINKED_LIMIT`, 가정값). 시험 "같은 planRef 공고가 60건이어도 연결은 공고번호 순 50건까지다"·"식별자 질의도 최근 게시일 순으로 identifier 건만 읽는다".
 
 ## freeze(10-24 22:00) 전 최소 범위
 

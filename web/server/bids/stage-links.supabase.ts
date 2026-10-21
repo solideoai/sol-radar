@@ -32,7 +32,16 @@ async function rowsOf(query: PromiseLike<Settled>): Promise<StageLinkRow[]> {
 const sameOrigin = (db: Db, anchor: StageLinkRow) =>
   db.from("bid_notices").select(COLUMNS).eq("is_demo", anchor.is_demo).neq("id", anchor.id);
 
-function identifierQueries(db: Db, anchor: StageLinkRow): PromiseLike<Settled>[] {
+type Query = ReturnType<typeof sameOrigin>;
+
+// 최근 게시일 순(게시일 없는 행은 뒤로)으로 limit 건만 읽는다. 같은 식별자 행이 많아도 한 번 읽기가 묶인다.
+const newestFirst = (query: Query, limit: number) =>
+  query
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .limit(limit);
+
+function identifierQueries(db: Db, anchor: StageLinkRow, limit: number): PromiseLike<Settled>[] {
   // 같은 발주계획 번호(PLAN_REF).
   const byPlanRef = hasValue(anchor.plan_ref)
     ? [sameOrigin(db, anchor).eq("plan_ref", anchor.plan_ref)]
@@ -46,7 +55,9 @@ function identifierQueries(db: Db, anchor: StageLinkRow): PromiseLike<Settled>[]
     anchor.stage === "PRE_SPEC"
       ? [sameOrigin(db, anchor).eq("pre_spec_ref", anchor.notice_id)]
       : [];
-  return [...byPlanRef, ...preSpecOfAnchor, ...referringToAnchor];
+  return [...byPlanRef, ...preSpecOfAnchor, ...referringToAnchor].map((query) =>
+    newestFirst(query, limit),
+  );
 }
 
 const uniqueById = (rows: StageLinkRow[]): StageLinkRow[] => [
@@ -65,15 +76,12 @@ export const stageLinksRepo: StageLinksRepo = {
     return data === null ? null : toRow(data);
   },
 
-  async findRelated(anchor, poolLimit) {
+  async findRelated(anchor, limits) {
     const db = await getSupabase();
-    // 후보 풀: 단계가 다른 최근 공고. 게시일 없는 행은 뒤로.
-    const pool = sameOrigin(db, anchor)
-      .neq("stage", anchor.stage)
-      .order("published_at", { ascending: false, nullsFirst: false })
-      .order("id", { ascending: false })
-      .limit(poolLimit);
-    const groups = await Promise.all([...identifierQueries(db, anchor), pool].map(rowsOf));
+    // 후보 풀: 단계가 다른 최근 공고.
+    const pool = newestFirst(sameOrigin(db, anchor).neq("stage", anchor.stage), limits.pool);
+    const identifiers = identifierQueries(db, anchor, limits.identifier);
+    const groups = await Promise.all([...identifiers, pool].map(rowsOf));
     return uniqueById(groups.flat());
   },
 };

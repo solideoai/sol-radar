@@ -4,8 +4,12 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { BidStage } from "./bid.model";
-import type { StageLinkRow, StageLinksRepo } from "./stage-links.repo";
-import { STAGE_LINK_POOL_LIMIT, getStageLinks } from "./stage-links.service";
+import type { StageLinkLimits, StageLinkRow, StageLinksRepo } from "./stage-links.repo";
+import {
+  STAGE_LINK_LINKED_LIMIT,
+  STAGE_LINK_POOL_LIMIT,
+  getStageLinks,
+} from "./stage-links.service";
 
 // P0-8 단계 연결(07 §4). fixture FX-17(발주계획)·FX-18(사전규격)은 planRef 로 이어지고,
 // FX-19(사전규격)는 FX-01(입찰공고)과 제목만 비슷해 후보로만 나온다(07 §6.2).
@@ -63,15 +67,15 @@ const row = (id: string, patch: Partial<StageLinkRow> = {}): StageLinkRow => ({
 
 // 메모리 가짜 저장소. findRelated 는 지금 공고만 빼고 전부 준다(is_demo 거르기는 서비스도 하는지 본다).
 function memoryRepo(rows: StageLinkRow[]) {
-  const poolLimits: number[] = [];
+  const limitsSeen: StageLinkLimits[] = [];
   const repo: StageLinksRepo = {
     findAnchor: async (bidId) => rows.find((candidate) => candidate.id === bidId) ?? null,
-    findRelated: async (anchor, poolLimit) => {
-      poolLimits.push(poolLimit);
+    findRelated: async (anchor, limits) => {
+      limitsSeen.push(limits);
       return rows.filter((candidate) => candidate.id !== anchor.id);
     },
   };
-  return { repo, poolLimits };
+  return { repo, limitsSeen };
 }
 
 async function linksOf(rows: StageLinkRow[], bidId: string, now?: Date) {
@@ -127,11 +131,12 @@ describe("getStageLinks — fixture", () => {
     expect(await linksOf(fixtureRows(), "FX-02")).toEqual({ linked: [], candidates: [] });
   });
 
-  it("후보 풀 상한 300 을 저장소에 넘긴다", async () => {
-    const { repo, poolLimits } = memoryRepo(fixtureRows());
+  it("후보 풀 300·식별자 질의 50 상한을 저장소에 넘긴다", async () => {
+    const { repo, limitsSeen } = memoryRepo(fixtureRows());
     await getStageLinks("FX-18", { repo });
     expect(STAGE_LINK_POOL_LIMIT).toBe(300);
-    expect(poolLimits).toEqual([300]);
+    expect(STAGE_LINK_LINKED_LIMIT).toBe(50);
+    expect(limitsSeen).toEqual([{ pool: 300, identifier: 50 }]);
   });
 });
 
@@ -210,6 +215,18 @@ describe("getStageLinks — 규칙", () => {
     expect((await linksOf(fixtures, "FX-18")).linked).toMatchObject([
       { bidId: "FX-17", status: "CANCELLED" },
     ]);
+  });
+
+  it("같은 planRef 공고가 60건이어도 연결은 공고번호 순 50건까지다", async () => {
+    const plan = row("plan", { stage: "PLAN", notice_id: "P-1", plan_ref: "P-1" });
+    const notices = Array.from({ length: 60 }, (_, index) => {
+      const id = `n${String(index).padStart(2, "0")}`;
+      return row(id, { notice_id: `N-${String(index).padStart(2, "0")}`, plan_ref: "P-1" });
+    });
+    const view = await linksOf([plan, ...notices], "plan");
+    expect(view.linked).toHaveLength(50);
+    expect(view.linked[0]).toMatchObject({ noticeId: "N-00", basis: "PLAN_REF" });
+    expect(view.linked.at(-1)).toMatchObject({ noticeId: "N-49" });
   });
 
   it("없는 공고는 404 다", async () => {
