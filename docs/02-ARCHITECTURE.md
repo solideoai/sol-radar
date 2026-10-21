@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - architecture
   - pipeline
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 02. 시스템 아키텍처
@@ -32,7 +32,7 @@ updated: 2026-10-20
 |Worker `web/worker` (설계는 extract job. 지금은 analysis job이 캐시된 추출이 없을 때)|AI gateway|HTTP `POST /extract` (Compose 내부 네트워크)|공고 **revision 단위**, 조직 무관. 결과(+ 영어 표기 `translations`, 미구현이라 늘 null)는 `requirement_extractions`에 저장해 모든 조직이 재사용. timeout은 `AI_TIMEOUT_MS`(기본 60000) + 5초|
 |Worker `web/worker` (analysis job)|AI gateway|HTTP `POST /kev`, `POST /explain`|**조직 × revision × 프로필 revision** 단위. 추출 결과 + 프로필 요약 + 질문 세트 `kev-qs/v0.1`·`v0.2`를 보낸다. timeout은 `KEV_TIMEOUT_MS`(기본 5000) + 2초. circuit breaker는 Worker가 가진다|
 |AI gateway|결정 모델 서버(`sol_decision`, Bosun v3.1 0.6B, `127.0.0.1:8009`)|HTTP(S) `POST /v1/systemone` (Kev wire·TypeSafe System One 호환), `KEV_API_KEY` Bearer|`AI_PROVIDER=local`일 때(기본값은 실행 모드가 정한다). 해커톤은 회사가 제공하는 HTTPS 엔드포인트(`https://acropolissg.com/sol-radar` 아래, [[16-DECISIONS\|ADR-025·034]])의 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`에 연결. 기동 시 모델 레지스트리와 `/v1/models` 대조. `mock`은 gateway 안에서 `fixtures/kev/FX-xx.json` 고정 응답|
-|AI gateway|Qwen runtime(Qwen3.5-27B)|회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`(OpenAI 호환, guided JSON. 우리가 띄우지 않는다. `/sol-radar/qwen` 경로는 백업), HTTPS + `QWEN_API_KEY` Bearer(ADR-025·034)|`AI_PROVIDER=local` 또는 `hosted`([[10-DEPLOYMENT\|10 배포]])|
+|AI gateway|Qwen runtime(Qwen3.8-Flash-Next)|회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`(OpenAI 호환, guided JSON. 우리가 띄우지 않는다. `/sol-radar/qwen` 경로는 백업), HTTPS + `QWEN_API_KEY` Bearer(ADR-025·034)|`AI_PROVIDER=local` 또는 `hosted`([[10-DEPLOYMENT\|10 배포]])|
 |Worker `web/worker` (ingest job)|data.go.kr Open API|HTTPS GET, `serviceKey`(서비스마다 다른 키)|`live` 모드만. 입찰공고·사전규격·발주계획·업종 코드. 호출 예산은 Redis 카운터([[07-DATA-PIPELINE\|07 수집]])|
 |Worker `web/worker` (documents job, 소비자 미구현)|g2b 첨부 다운로드|HTTPS GET, `www.g2b.go.kr` allowlist|DNS 재검증·사설 IP 거부·30 s·50 MB([[09-SECURITY\|09 보안]])|
 |AI gateway|Qdrant|HTTP/gRPC|근거 chunk 적재·검색. **미구현**(gateway는 Qdrant를 부르지 않는다)|
@@ -151,7 +151,7 @@ flowchart TB
   RT -. /sol-radar/qwen 백업·미사용 .-> QB["vLLM :8001 · 백업"]
  end
  subgraph vllm[회사 운영 vLLM API · HTTPS acropolissg.com/vllm/v1]
-  QW["Qwen3.5-27B"]
+  QW["Qwen3.8-Flash-Next"]
  end
  subgraph hosted[선택 · profile ai-hosted · 미검증 · 비용]
   OR["hosted API"]
