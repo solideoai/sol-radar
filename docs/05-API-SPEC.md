@@ -428,7 +428,7 @@ interface MetricValue {            // 평가 지표 하나. 작은 평가셋이�
 }
 interface EvalRunSummary {         // 04 eval_runs
   id: string; datasetVersion: string; datasetSha256: string;
-  systemId: string;                // 비교 대상 ID. 예: "E0"(규칙만), "E1'"(공개 Bosun 영어 state zero-shot), "E2"(Bosun 한국어 state, 평가 전용), "E3"(Qwen3.5-27B logprob 분류), "E4"(Bosun + LoRA)
+  systemId: string;                // 비교 대상 ID. 예: "E0"(규칙만), "E1'"(공개 Bosun 영어 state zero-shot), "E2"(Bosun 한국어 state, 평가 전용), "E3"(Qwen3.8-Flash-Next logprob 분류), "E4"(Bosun + LoRA)
   split: "train" | "dev" | "test";
   keyMetrics: { macroF1: MetricValue; needsReviewToNotSatisfiedRate: MetricValue; ece: MetricValue };   // 21 §4.4 초기 목표 지표 세 개
   gitCommit: string; createdAt: string;
@@ -636,7 +636,7 @@ GET /api/v1/analyses/7d2c...
 
 위 값은 **DEMO fixture FX-02의 가상 데이터**이며 [[08-SCORING|08 점수]] worked example과 같은 숫자다. 요소 합 15.0+18.3+14.0+15.0+10.0 = 72.3 → `solScore` 72(정수 반올림). 자격은 전부 충족이고 WATCH는 점수가 50~75 구간이기 때문이다. `kev.needsHumanReview=0.74`가 임계값 0.7 이상이라 `reviewFlags`에 `KEV_NEEDS_REVIEW`가 들어갔고, 결정 모델 권고(WATCH)가 규칙 권고와 같아 `MODEL_RULE_DISAGREEMENT`는 없다. 다른 fixture의 mock Kev 값은 [[07-DATA-PIPELINE|07 수집]] §6.3. 예시의 `scoreBreakdown.evidence`와 `requirementAssessments`는 지면상 비웠다.
 
-이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.5-27B·Bosun v3.1 0.6B, `kev-qs/v0.2`)을 쓰므로 추출과 결정 모델 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
+이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.8-Flash-Next·Bosun v3.1 0.6B, `kev-qs/v0.2`)을 쓰므로 추출과 결정 모델 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
 
 ### 6.4 AI 장애 시 재분석 (데모 장면)
 
@@ -742,6 +742,6 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 - [[09-SECURITY|09 보안]] — 세션 쿠키·CSRF·RBAC·RLS
 - [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트
 - [[11-TESTING|11 테스트]] — Route Handler 계약 시험·RLS 정책 시험
-- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.5-27B), ADR-035(수동 수집 계약·`AiStatus` 보완)
+- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.8-Flash-Next), ADR-035(수동 수집 계약·`AiStatus` 보완)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalRunReport` 지표, 모델 레지스트리, 운영자 CLI
 - [[07-DATA-PIPELINE|07 수집]] — `IngestionRunInput` 소스, 나라장터 Connector·정규화

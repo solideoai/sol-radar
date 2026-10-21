@@ -27,7 +27,7 @@ updated: 2026-10-21
 |2|공고 Connector 인터페이스 + `FixtureConnector` + `OfficialApiConnector`(나라장터 입찰공고 용역 중 정보화사업, 면허제한·참가가능지역·e발주 첨부 조회, P0-2) + 정규화 + revision. documents job·첨부 다운로드·`/parse`(PDF·HWPX·HWP, P0-3). 사전규격·발주계획 수집과 단계 연결(P0-8)|재실행 멱등 + 변경 감지 테스트. 서비스키·첨부 다운로드가 되면 live 수집 `ingest_runs` 요약과 실공고 형식별 파싱 성공률|
 |3|Next.js 대시보드/검색/상세·가입 부서/직급 필수 선택·간편 가입 정보 보완·가상 정장 사진 200장 연결 (1440 기준). 실행 모드·출처 배지, 공고 목록 `origin` 필터, "가상 회사 프로필로 분석" 배지. 앱 셸(사이드바 정보 구조·조직 주소 없는 경로·서버 조직 결정), 설정(개인·조직 탭), 조직·인력 조회(200명 조직도·명부·상세, 사진 연결 자리), 데이터 수집 관리(`/admin/ingestion`), 대시보드 카드 5개([[16-DECISIONS\|ADR-021]])|fixture 실제 API로 화면 E2E, PPL-01~06, NAV-01~NAV-09([[11-TESTING\|11 테스트]] §9)|
 |4|기업 프로필·필수 자격·규칙 점수. 규칙은 API 구조화 필드 우선 + 업종 코드 사전 + 3값·사유 코드(P0-5), SOL Score v0.1(P0-7의 점수 부분)|골든셋 일치(`mock` 모드), 근거 저장, worked example 3건 일치, 정보 부족 ≠ 미충족 단위 시험|
-|5|AI gateway: mock adapter(CI용, 먼저) → 장애 대체(`PARTIAL`) → Qwen3.5-27B(회사 운영 vLLM API) `/extract` local + `translations`(P0-4) → Bosun v3.1 0.6B `kev-qs/v0.2` 참고 지표·`stateTrace`·레지스트리 검증(P0-6) → `/explain`(P0-7)|mock/실모델 switch, PARTIAL 경로, 실패 유형 구분, 인용 검증 통과율·실공고 1건 E2E 로그, 결정 모델 응답 원문 저장·규칙 불변 시험|
+|5|AI gateway: mock adapter(CI용, 먼저) → 장애 대체(`PARTIAL`) → Qwen3.8-Flash-Next(회사 운영 vLLM API) `/extract` local + `translations`(P0-4) → Bosun v3.1 0.6B `kev-qs/v0.2` 참고 지표·`stateTrace`·레지스트리 검증(P0-6) → `/explain`(P0-7)|mock/실모델 switch, PARTIAL 경로, 실패 유형 구분, 인용 검증 통과율·실공고 1건 E2E 로그, 결정 모델 응답 원문 저장·규칙 불변 시험|
 |6|최종 권고 + 영업 리뷰 + 인앱 알림|엔드투엔드 검토 완료|
 |7|보안·성능·로그·배포. 세 모드 기동 리허설, 엔드포인트 재접속 확인 리허설|릴리즈 체크리스트 PASS|
 |평가 트랙|평가셋 v0.1(P0-9), 평가 하네스와 E0·E1'·E2 리포트(P0-10), 학습셋 번들 내보내기와 LoRA 메모리 검증 스크립트·절차(P0-11). 평가셋 라벨은 10-19부터, 학습셋 번들은 Phase 5 local이 동작한 뒤. Bosun LoRA 학습(F1·F2·F3)은 회사 GPU 서버의 물리 GPU 1(A40 46,068 MiB, PaddleOCR과 공유)에서 회사 측 실행(X6, [[16-DECISIONS\|ADR-034]]. 서버 환경 확인 2026-10-20, `sol_decision`·F1 미완)|[[21-MODEL-TRAINING\|21 모델 학습]] §7 수용 기준|
@@ -43,7 +43,7 @@ updated: 2026-10-21
 |P0-1|실행 모드 3종 + 출처·모드 기록 + 모드 모순 기동 거부|0 (기록 필드는 1)|모순 env 기동 거부 시험, 세 모드 기동 로그. 골든은 Phase 4에서 고정된 뒤 `mock` 모드로만 단언|
 |P0-2|서비스키 발급(사용자 작업) → 실제 응답 3건 저장·registry 검증 → 입찰공고 용역 수집(정보화사업) + 면허제한·참가지역·e발주 첨부 조회 + 첨부 다운로드 가능성 확인|2|`ingest_runs` 요약, 공고 목록에 live 공고 노출|
 |P0-3|첨부 다운로드 + `/parse`(PDF·HWPX·HWP) + 미지원 표시|2|실공고 30건 형식별 파싱 성공률 증거|
-|P0-4|Qwen3.5-27B(회사 운영 vLLM API) 실추출(`/extract` local) + `translations`|5|인용 검증 통과율 증거, 실공고 1건 E2E 로그|
+|P0-4|Qwen3.8-Flash-Next(회사 운영 vLLM API) 실추출(`/extract` local) + `translations`|5|인용 검증 통과율 증거, 실공고 1건 E2E 로그|
 |P0-5|규칙: API 구조화 필드 우선 + 업종 코드 사전 + 3값·사유 코드|4|단위 시험(정보 부족 ≠ 미충족)|
 |P0-6|Bosun v3.1 0.6B(`sol_decision`) `kev-qs/v0.2` 실추론(en) + 참고 지표·플래그 + `stateTrace` + 레지스트리 검증|5|결정 모델 응답 원문·trace 저장, 규칙 불변 시험|
 |P0-7|SOL Score v0.1 + `/explain` + 대시보드(모드·출처 배지, 결정 모델 참고 패널, 근거 서랍)|3 (화면)·4 (점수)·5 (`/explain`)|1440·1280 스크린샷|
@@ -115,7 +115,7 @@ C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장
 ## freeze ~ D-day
 |시점|할 일|
 |---|---|
-|freeze (10-23)|기능 freeze. fixture·seed 고정. 모델 레지스트리(`services/ai/models/registry.yaml`)·질문 세트·state 템플릿 버전 고정(데모 서빙 항목 `bosun-v3.1-0.6b`·`qwen3.5-27b` 기준, `kev-9b-v1.0`·`qwen3.5-9b`는 `retired` 보존. E4 학습본 항목(기록용) 추가는 예외이고 데모 gateway 설정은 바꾸지 않는다, ADR-034). 전체 테스트 green. `docs/evidence/` 갱신. 공공 API 오늘 호출량 확인(개발계정 서비스당 1,000건/일)|
+|freeze (10-23)|기능 freeze. fixture·seed 고정. 모델 레지스트리(`services/ai/models/registry.yaml`)·질문 세트·state 템플릿 버전 고정(데모 서빙 항목 `bosun-v3.1-0.6b`·`qwen3.8-flash-next`(코드 반영 전, 지금 코드는 `qwen3.5-27b`) 기준, `kev-9b-v1.0`·`qwen3.5-9b`는 `retired` 보존. E4 학습본 항목(기록용) 추가는 예외이고 데모 gateway 설정은 바꾸지 않는다, ADR-034). 전체 테스트 green. `docs/evidence/` 갱신. 공공 API 오늘 호출량 확인(개발계정 서비스당 1,000건/일)|
 |최종 리허설 (10-24)|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~15 리허설 2회 (재부팅 1회 포함). 로컬 Supabase CLI 전환 리허설([[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 세 모드(`live`·`fixture`·`mock`) 기동 리허설 각 1회(모드 전환은 env 변경 + worker·ai-gateway 재시작). 회사 GPU 추론 엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속 확인(`GET /v1/models`) 리허설, 재접속 확인 소요 시간 기록. live 리허설 호출 수가 일일 한도 안인지 확인. 학습은 물리 GPU 1 만 쓴다. GPU 1 에 있는 우리 추론 런타임은 `sol_decision` Bosun(8009)뿐이고 학습과 공존하는 것이 기본 계획이다. 우리 절차로 8009 를 내리지 않는다. F1 에서 메모리 합계가 넘치면 멈추고 회사에 보고한 뒤 사람이 정한다. 리허설과 학습 시간대(X6c·X6d, 토 09:00~)가 겹치면 그때 사람이 정한다([[10-DEPLOYMENT\|10]] GPU 절 "추론 런타임과의 관계"·[[23-WEEKEND-FINETUNE\|23]] §1·§2.4)|
 |10-25~26|X6e F3 보정·회사 서버 안 채점·우리 오프라인 E4 평가(10-25), X6f 제출물 반영(10-26), 예비일. freeze 뒤라 앱 기능을 더하지 않고 리허설에서 나온 결함만 고친다. 고쳤으면 기동 절차 1~15를 한 번 다시 돈다|
 |D-day (제출 10-27, 발표일 미입력)|기동 절차 1~15. 엔드포인트 접속(`GET /v1/models`)과 `GET /api/v1/admin/ai/status`(Qwen healthy, Bosun `registryMatch`) 확인. 시연 모드는 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §2.1(기본 `mock`), 장애 대체 순서는 `live` → `fixture` → `mock`. 리허설 후 `pnpm demo:reset`(seed 재실행, 멱등)으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
@@ -158,7 +158,7 @@ gantt
 - [[01-PRD|01 PRD]] — FR별 P0·P1·P2
 - [[10-DEPLOYMENT|10 배포]]
 - [[11-TESTING|11 테스트]]
-- [[16-DECISIONS|16 ADR]] — ADR-017(Next.js + Supabase), ADR-020(실데이터 MVP·P0 순서), ADR-023(3단 컷·대체 경로), ADR-027(파인튜닝 X6·일정 2일 당김, 폐기), ADR-034(결정 모델 Bosun·추출 Qwen3.5-27B)
+- [[16-DECISIONS|16 ADR]] — ADR-017(Next.js + Supabase), ADR-020(실데이터 MVP·P0 순서), ADR-023(3단 컷·대체 경로), ADR-027(파인튜닝 X6·일정 2일 당김, 폐기), ADR-034(결정 모델 Bosun·추출 Qwen3.8-Flash-Next)
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]
 - [[18-HACKATHON|18 해커톤]]
 - [[19-DEMO-SCENARIO|19 데모 시나리오]]
