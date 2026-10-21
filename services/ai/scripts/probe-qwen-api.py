@@ -4,7 +4,7 @@ pytest(testpaths=tests)·verify.sh·CI 어디서도 저절로 돌지 않는다(s
 외부 네트워크를 부르므로 시험·검증 명령에 끼우지 않는다. 실행마다 회사 API 호출 예산을 쓴다.
 
 사용법(services/ai 에서):
-    QWEN_BASE_URL=https://acropolissg.com/vllm/v1 QWEN_MODEL=Qwen/Qwen3.5-27B QWEN_API_KEY=… \\
+    QWEN_BASE_URL=https://acropolissg.com/vllm/v1 QWEN_MODEL=Qwen/Qwen3.8-Flash-Next QWEN_API_KEY=… \\
         uv run python scripts/probe-qwen-api.py [--dry-run] [--logprobs] [--timeout 30]
 
 - env: QWEN_BASE_URL(끝의 /v1 유무 무관. settings.normalize_qwen_base_url 로 정규화), QWEN_MODEL, QWEN_API_KEY.

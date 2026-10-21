@@ -3,7 +3,7 @@
 회사 nginx 가 `https://acropolissg.com/sol-radar` 하나만 등록할 수 있어, 그 뒤에서 경로를 나누는 작은 nginx 를 둔다.
 노트북 ai-gateway 는 `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev` 로 붙는다. `QWEN_BASE_URL` 은 이 라우터가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1` 이다(아래).
 
-2026-10-20 ADR-034: `:8009` 런타임은 `kev.serve` 대신 우리 결정 서버 `sol_decision.serve`(Bosun v3.1 0.6B, Kev wire 호환)다. 추출·설명 `Qwen/Qwen3.5-27B` 는 회사가 이미 운영하는 vLLM API(`https://acropolissg.com/vllm/v1`, env 값은 회사 안내 그대로 `https://acropolissg.com/vllm/v1`, 게이트웨이가 `/v1` 중복을 정규화한다(B1))를 쓰므로 `:8001` 에는 아무것도 띄우지 않고 `/qwen` 규칙은 백업(미사용)으로 남긴다. 라우터 설정·경로·포트·회사 nginx 는 바꾸지 않는다.
+2026-10-20 ADR-034: `:8009` 런타임은 `kev.serve` 대신 우리 결정 서버 `sol_decision.serve`(Bosun v3.1 0.6B, Kev wire 호환)다. 추출·설명 `Qwen/Qwen3.8-Flash-Next`(2026-10-21 `Qwen/Qwen3.5-27B` 에서 교체)는 회사가 이미 운영하는 vLLM API(`https://acropolissg.com/vllm/v1`, env 값은 회사 안내 그대로 `https://acropolissg.com/vllm/v1`, 게이트웨이가 `/v1` 중복을 정규화한다(B1))를 쓰므로 `:8001` 에는 아무것도 띄우지 않고 `/qwen` 규칙은 백업(미사용)으로 남긴다. 라우터 설정·경로·포트·회사 nginx 는 바꾸지 않는다.
 
 ## 회사 nginx 에 부탁할 것 (location 하나)
 
@@ -41,7 +41,7 @@ curl -s -H "Authorization: Bearer $DECISION_API_KEY" http://127.0.0.1:8080/sol-r
 #         lora == 어댑터 sha256(961d237b…), revision == 5e78a37c8d86860ebac9ef2d5327d6299498498e
 # /sol-radar/qwen/* 은 백업 경로(미사용). :8001 이 비어 있으면 라우터가 연결 실패(502)를 돌려주는 것이 정상이다
 # 추출 모델 확인은 회사 운영 vLLM API 로 한다(키는 회사 제공):
-curl -s -H "Authorization: Bearer $QWEN_API_KEY" https://acropolissg.com/vllm/v1/models     # data[].id 에 Qwen/Qwen3.5-27B
+curl -s -H "Authorization: Bearer $QWEN_API_KEY" https://acropolissg.com/vllm/v1/models     # data[].id 에 Qwen/Qwen3.8-Flash-Next
 ```
 
 ## 밖에서 확인 (우리 쪽 C1 ③ G1·G2)
@@ -57,7 +57,7 @@ curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/vllm/v1/m
 - 바깥 nginx 가 접두어를 떼는지(둘 다 동작하지만 기록한다)
 - 라우터 포트(8080)·런타임 포트(8001·8009)를 바꿨는지
 - 회사 프록시 단의 추가 인증(기본 인증·IP 허용·별도 헤더)이 있는지
-- 회사 운영 vLLM API(`/vllm/v1`)의 주소·모델 id(`Qwen/Qwen3.5-27B`)·키·인증 방식·호출 한도가 바뀌는지
+- 회사 운영 vLLM API(`/vllm/v1`)의 주소·모델 id(`Qwen/Qwen3.8-Flash-Next`)·키·인증 방식·호출 한도가 바뀌는지
 
 ## GPU 1 공유: Bosun v3.1 0.6B LoRA F1 (ADR-034, 2026-10-20)
 
@@ -69,7 +69,7 @@ curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/vllm/v1/m
 | 1 | NVIDIA A40 (CC 8.6) | 46,068 MiB | 5 MiB | PaddleOCR vLLM 약 9,167 MiB 상주 | **공유**: 회사 PaddleOCR + SOL RADAR `sol_decision` 서빙·Bosun LoRA 학습·채점. 어떤 프로세스도 종료·이동 금지 |
 | 2 | NVIDIA A40 | 46,068 MiB | 9,240 MiB | — | 회사 기존 서비스. **쓰지 않는다** |
 
-GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8. 추출·설명 Qwen3.5-27B 는 회사 vLLM API 라 여기 없다):
+GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8. 추출·설명 Qwen3.8-Flash-Next 는 회사 vLLM API 라 여기 없다):
 
 | 상주·작업 | 추정 | 비고 |
 |---|---|---|

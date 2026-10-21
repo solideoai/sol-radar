@@ -4,7 +4,8 @@
 - user: <notice/> + <document> 블록. 데이터는 <document> 안에만 넣고, 데이터 속 <document·</document·<notice 의
   "<" 는 전각 "＜"(U+FF1C)로 바꾼다(길이가 같고 NFKC 가 "<" 로 되돌려 인용 오프셋에 영향이 없다).
 - 추론 설정(03 §4.3): temperature 0·top_p 1·max_tokens 4096·seed 42, 비사고 모드(chat_template_kwargs
-  enable_thinking=false — Qwen3.5 는 기본이 사고 모드라 답 앞에 <think> 를 낸다), JSON Schema guided JSON(response_format).
+  enable_thinking=false — Qwen3.5 계열은 기본이 사고 모드였다. Qwen3.8-Flash-Next 는 미확인이라 enable_thinking=false 를
+  그대로 보낸다(03 §4.3)), JSON Schema guided JSON(response_format).
 - 응답은 언제나 텍스트 JSON 으로 받아 파이프라인이 파싱·스키마 검증한다.
 - guided JSON 대체(03 §4.3 "지원하지 않으면 텍스트 파싱 + 검증으로 대체", 미결정 26-3): 서버가 response_format 이 든
   요청을 400·422 로 거부하면 같은 마감 안에서 response_format 없이 한 번 다시 부른다. 그 답은 코드펜스·<think> 를 벗기고

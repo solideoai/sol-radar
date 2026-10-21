@@ -35,9 +35,9 @@ entries:
     reports: []
   # 추출·설명 모델: 회사 운영 vLLM API https://acropolissg.com/vllm/v1 (ADR-034 1·4번).
   # 리비전·양자화·서빙 설정은 회사 운영 값이라 고정하지 않고, GET /v1/models 의 id 만 run 과 대조한다
-  - id: qwen3.5-27b
+  - id: qwen3.8-flash-next
     kind: qwen
-    run: Qwen/Qwen3.5-27B
+    run: Qwen/Qwen3.8-Flash-Next
     revision: null
     default: true
     status: active
@@ -66,6 +66,12 @@ entries:
     requestModel: kev-latest
     status: retired
     reports: []
+  # 2026-10-21 회사 vLLM 모델 교체(Qwen/Qwen3.8-Flash-Next)로 퇴역
+  - id: qwen3.5-27b
+    kind: qwen
+    run: Qwen/Qwen3.5-27B
+    revision: null
+    status: retired
   - id: qwen3.5-9b
     kind: qwen
     run: Qwen/Qwen3.5-9B

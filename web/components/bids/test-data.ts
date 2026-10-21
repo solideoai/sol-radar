@@ -305,9 +305,9 @@ export const FX03_VIEW: AnalysisView = {
 
 // 실모델 식별자(ADR-034 1·9번, 레지스트리 run 값). 화면은 받은 식별자를 그대로 보이고 대응표를 두지 않는다.
 export const BOSUN_MODEL_ID = "Hanno-Labs/bosun-v3.1-0.6b@5e78a37c";
-export const QWEN_MODEL_ID = "Qwen/Qwen3.5-27B";
+export const QWEN_MODEL_ID = "Qwen/Qwen3.8-Flash-Next";
 
-// S-LIVE: 실제 공고를 local 공급자(Qwen3.5-27B + Bosun v3.1 0.6B, kev-qs/v0.2)로 분석한 FX-01. 숫자는 FX-01 과 같다.
+// S-LIVE: 실제 공고를 local 공급자(Qwen3.8-Flash-Next + Bosun v3.1 0.6B, kev-qs/v0.2)로 분석한 FX-01. 숫자는 FX-01 과 같다.
 export const FX01_LIVE_VIEW: AnalysisView = {
   ...FX01_VIEW,
   id: "run-fx-01-live",
