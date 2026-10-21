@@ -17,8 +17,9 @@ const baseURL = `http://${hostname}:${port}`;
 const WRITE = /\.write\.spec\.ts$/;
 // C6 업무 화면 E2E 는 데모 seed(demo:reset·demo:preanalyze)를 쓴다. 이 설정의 템플릿 seed 로는 돌지 않는다(playwright.work.config.ts).
 // N8 수집 관리 E2E(admin-ingestion)도 데모 seed 를 쓰고 따로 돈다(playwright.ingestion.config.ts).
+// 부처 지원사업 공고 E2E(program-notices)도 데모 seed + 부처 공고 적재를 쓰고 따로 돈다(playwright.programs.config.ts).
 const WORK =
-  /(demo-badge|run-mode-badge|no-evidence|bid-isolation|work-screens|work-guard|bid-decision\.write|fx01-flow\.write|notifications\.write|what-if\.write|admin-ingestion)\.spec\.ts$/;
+  /(demo-badge|run-mode-badge|no-evidence|bid-isolation|work-screens|work-guard|bid-decision\.write|fx01-flow\.write|notifications\.write|what-if\.write|admin-ingestion|program-notices)\.spec\.ts$/;
 
 export default defineConfig({
   // Shared Node tooling uses native ESM (including import.meta for checkout-root cwd).

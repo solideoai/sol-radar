@@ -1105,6 +1105,108 @@ export type Database = {
           },
         ]
       }
+      program_notice_runs: {
+        Row: {
+          dropped_count: number
+          error_code: string | null
+          fetched_count: number
+          finished_at: string | null
+          id: string
+          run_mode: string
+          saved_count: number
+          source: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          dropped_count?: number
+          error_code?: string | null
+          fetched_count?: number
+          finished_at?: string | null
+          id?: string
+          run_mode: string
+          saved_count?: number
+          source: string
+          started_at?: string
+          status: string
+        }
+        Update: {
+          dropped_count?: number
+          error_code?: string | null
+          fetched_count?: number
+          finished_at?: string | null
+          id?: string
+          run_mode?: string
+          saved_count?: number
+          source?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      program_notices: {
+        Row: {
+          agency: string | null
+          apply_end_on: string | null
+          apply_method: string | null
+          apply_start_on: string | null
+          created_at: string
+          dedupe_key: string
+          fetched_at: string
+          id: string
+          is_demo: boolean
+          published_at: string | null
+          source: string
+          source_notice_id: string
+          source_url: string
+          summary: string | null
+          tags: string[]
+          target: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency?: string | null
+          apply_end_on?: string | null
+          apply_method?: string | null
+          apply_start_on?: string | null
+          created_at?: string
+          dedupe_key: string
+          fetched_at: string
+          id?: string
+          is_demo?: boolean
+          published_at?: string | null
+          source: string
+          source_notice_id: string
+          source_url: string
+          summary?: string | null
+          tags?: string[]
+          target?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency?: string | null
+          apply_end_on?: string | null
+          apply_method?: string | null
+          apply_start_on?: string | null
+          created_at?: string
+          dedupe_key?: string
+          fetched_at?: string
+          id?: string
+          is_demo?: boolean
+          published_at?: string | null
+          source?: string
+          source_notice_id?: string
+          source_url?: string
+          summary?: string | null
+          tags?: string[]
+          target?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       qualification_checks: {
         Row: {
           basis: string

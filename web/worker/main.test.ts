@@ -19,6 +19,7 @@ import {
   type StartWorkers,
   type WorkerDeps,
 } from "@/worker/main";
+import { programNoticesWorkerRegistration } from "@/worker/program-notices";
 
 const env = {
   REDIS_URL: "redis://example-host/0",
@@ -623,12 +624,25 @@ describe("WORKER_REGISTRATIONS — analysis 등록 (C5-B)", () => {
 });
 
 describe("WORKER_REGISTRATIONS — notify 등록 (C7)", () => {
-  it("system·ingest·analysis 를 그 순서로 두고 마지막에 notifyWorkerRegistration 을 담는다", () => {
+  it("system·ingest·analysis 를 그 순서로 두고 그 뒤에 notifyWorkerRegistration 을 담는다", () => {
+    expect(WORKER_REGISTRATIONS.slice(0, 4)).toStrictEqual([
+      systemWorkerRegistration,
+      ingestWorkerRegistration,
+      analysisWorkerRegistration,
+      notifyWorkerRegistration,
+    ]);
+  });
+});
+
+// 부처 지원사업 공고 주기 수집(ADR-040)을 같은 규칙대로 끝에 더했다.
+describe("WORKER_REGISTRATIONS — 부처 공고 등록 (ADR-040)", () => {
+  it("notify 뒤 마지막에 programNoticesWorkerRegistration 을 담는다", () => {
     expect(WORKER_REGISTRATIONS).toStrictEqual([
       systemWorkerRegistration,
       ingestWorkerRegistration,
       analysisWorkerRegistration,
       notifyWorkerRegistration,
+      programNoticesWorkerRegistration,
     ]);
   });
 });

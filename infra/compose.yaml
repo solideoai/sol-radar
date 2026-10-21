@@ -171,6 +171,11 @@ services:
       # 컨테이너 안 경로는 여기서 고정한다(infra/.env 로 바꾸지 않는다). 호스트에서 직접 돌릴 때는 코드 기본값(저장소 경로)을 쓴다.
       FIXTURES_DIR: /srv/sol-radar/fixtures
       SOURCES_REGISTRY_FILE: /srv/sol-radar/infra/sources/registry.yaml
+      # 부처 지원사업 공고 수집(ADR-040, web/worker/program-notices.ts). 기업마당 인증키는 선택이고 live 에서만 쓴다(없으면 기업마당만 건너뛴다).
+      # 간격은 1~1440분이고 없으면 60분. 값이 틀리거나 설정 파일이 없으면 부처 수집만 꺼지고 worker 는 그대로 뜬다.
+      BIZINFO_API_KEY: ${BIZINFO_API_KEY:-}
+      PROGRAM_NOTICES_INTERVAL_MINUTES:
+      PROGRAM_NOTICES_CONFIG_FILE: /srv/sol-radar/infra/sources/program-notices.yaml
     volumes:
       - ../fixtures:/srv/sol-radar/fixtures:ro
       # infra/sources/registry.yaml 은 C3 병합 때 들어온다. 폴더가 없으면 Compose 가 빈 폴더를 만들고 live 모드는 registry 가 없어 기동을 거부한다.

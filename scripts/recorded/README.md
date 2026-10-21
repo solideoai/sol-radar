@@ -14,6 +14,8 @@
 | `masking.mjs` | 담당자 필드·전화·이메일 마스킹(같은 길이), 저장 뒤 흔적 검사 |
 | `recording-file.mjs` | 녹음 객체 만들기·형식 검사·읽기 |
 | `split-lib.mjs` | 클러스터·결정적 선택·누수 검사(순수 함수) |
+| `record-program-notices.mjs` | 부처 지원사업 공고 녹음 CLI(`pnpm record:program-notices`, ADR-040). 아래 "부처 공고 녹음" |
+| `program-notices-lib.mjs` | 부처 공고 요청 URL·가림·녹음 형식·흔적 검사(순수 함수) |
 
 ## 서비스키
 
@@ -66,3 +68,28 @@ const connector = createRecordedApiConnector({ recordings: [recorded] });
 
 표본 순서·분할 결정은 seed(`sol-eval/v0.1`)와 `hash(clusterId)`로 정해져 같은 입력이면 같은 결과다. 분할 스크립트는 이전 출력의
 test·dev 배정을 먼저 지켜 사람 라벨이 붙은 공고가 움직이지 않게 한다.
+
+## 부처 공고 녹음 (ADR-040)
+
+`record-program-notices.mjs`는 부처 지원사업 공고 응답을 한 번 부르고, 연락처를 가려 `fixtures/recorded/program-notices/<소스>/`에
+저장한다. 형식은 `web/server/program-notices/recording.ts`의 `sol-program-recorded/v0.1`이고, worker 의 mock·fixture 모드가
+네트워크 대신 이 파일을 재생한다. 파일 이름은 `rss-310.<KST YYYYMMDD>.masked.json`(중기부)·`api.<KST YYYYMMDD>.masked.json`(기업마당)이고,
+같은 날 다시 돌리면 그 파일을 덮는다.
+
+```bash
+pnpm record:program-notices -- --source mss --dry-run   # 부르지 않고 params 만
+pnpm record:program-notices -- --source mss             # 중기부 사업공고 RSS(키 없음)
+```
+
+기업마당(`--source bizinfo`)은 `BIZINFO_API_KEY`가 필요하다. 이 스크립트는 키를 `process.env`로만 받고 `.env` 파일을 읽지 않는다.
+사용자가 자기 터미널에서 Node 의 `--env-file`로 한 번 돌린다(worktree 에는 `infra/.env`가 없으니 main 저장소의 절대경로를 준다).
+
+```bash
+node --env-file=/Users/leegwanghui/dev/hackathon/sol-radar/infra/.env scripts/recorded/record-program-notices.mjs --source bizinfo
+```
+
+- 가림: 기업마당 문의처(`refrncNm`)는 통째로 `***`, 다른 칸의 전화·이메일·대표번호(15xx·16xx·18xx)는 같은 길이 `*`. 중기부 RSS 는 원문 글자에서 패턴만 가린다.
+- 저장 전·뒤 두 번 이메일·전화·대표번호·`crtfcKey`·키 네 형태(원문·1회·2회 인코딩·소문자 인코딩)를 세어 0건이 아니면 멈춘다. 녹음 `params`에는 키가 없다.
+- 출력은 파일 경로·상태 코드·크기·항목 수·가린 필드뿐이다. 키·요청 URL·응답 본문은 출력하지 않는다. 요청 예외도 이름만 남긴다.
+- `www.bizinfo.go.kr`·`mss.go.kr`의 https 만 부른다. 리다이렉트는 따르지 않고(3xx 면 멈춘다), 2 MiB·10초 상한이다.
+- 기업마당 요청 값(분야 `02`, 최대 100건)은 `infra/sources/program-notices.yaml`의 기본값과 같다.
