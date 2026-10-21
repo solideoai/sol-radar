@@ -432,13 +432,13 @@ interface AiStatus {
   questionSetVersion: string | null;                  // 예: "kev-qs/v0.2"
   parsers: { format: string; parserId: string }[];    // gateway /parse가 지원하는 형식과 어댑터·버전. parserId 가 null(어댑터 없음)인 형식은 뺀다. 지금은 []
 }
-interface ModelRegistryEntry {     // services/ai/models/registry.yaml 항목(21 §5.4). 가중치는 없다
-  id: string; kind: "decision" | "qwen" | "kev";   // ADR-034: 결정 모델은 kind=decision(Bosun). kev 는 퇴역 항목 읽기 호환(B1 예정)
+interface ModelRegistryEntry {     // services/ai/models/registry.yaml 항목(21 §5.4). 가중치는 없다. 아래 ADR-034 필드는 B1 `c6097be`(main `1b68f9b`)부터 파일·gateway `registry.py`에 있다. 이 응답을 내는 `/admin/ai/models`는 미구현
+  id: string; kind: "decision" | "qwen" | "kev";   // ADR-034: 결정 모델은 kind=decision(Bosun). kev 는 퇴역 항목 읽기 호환
   run: string; base: string | null; baseRevision: string | null; initFrom: string | null;
-  revision: string | null;         // ADR-034: 모델 저장소 커밋 sha 전체(run 의 @뒤는 앞 8자). 회사 운영 Qwen API 는 null (B1 예정)
-  status: "active" | "retired" | "backup" | null;   // ADR-034: retired(kev-9b-v1.0·qwen3.5-9b)·backup(qwen3-4b-instruct-2507)은 기동 대조 대상에서 제외 (B1 예정)
+  revision: string | null;         // ADR-034: 모델 저장소 커밋 sha 전체(run 의 @뒤는 앞 8자). 회사 운영 Qwen API 는 null
+  status: "active" | "retired" | "backup" | null;   // ADR-034: retired(kev-9b-v1.0·qwen3.5-27b·qwen3.5-9b)·backup(qwen3-4b-instruct-2507)은 기동 대조 대상에서 제외
   lora: string | number | null;    // Bosun 은 어댑터 safetensors sha256(문자열), Kev 이력 항목은 rank(숫자)
-  weightsSha256: string | null; headSha256: string | null; decisionEmbeddingsSha256: string | null;   // 마지막 필드는 Bosun decision_embeddings.safetensors (B1 예정)
+  weightsSha256: string | null; headSha256: string | null; decisionEmbeddingsSha256: string | null;   // 마지막 필드는 Bosun decision_embeddings.safetensors
   temperature: number | null;
   dataset: { version: string; sha256: string } | null;
   questionSet: string | null; stateTemplate: string | null; requestModel: string | null; reports: string[];
