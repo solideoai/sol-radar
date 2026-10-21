@@ -351,7 +351,7 @@ python -m sol_decision.trainer.calibrate --data sol-dataset-v0.1/bosun/dev.en.js
 - 출력은 폴더마다 `predictions.jsonl`·`rows.json`·`report.json`(계획 §4.2). `report.json` 에는 패키지 경로·어댑터 sha256·`--data` 파일 sha256·seeds·환경(torch·transformers·peft 버전, 장치, dtype)을 적는다. E1'·E4 의 환경이 같아야 비교가 성립한다.
 - 우리 쪽 E4 리포트(21 §4.3 지표 전부: Macro-F1·정보부족→미충족 혼동률·Brier·ECE·`argmax_stable`·`spread`)는 `sol_eval` 이 위 출력 폴더를 통째로 돌려받아 **오프라인**으로 낸다(ADR-034 7번). 엔드포인트에 붙지 않는다. 실행 전에 `report.json` 의 패키지 sha256 과 test 파일 sha256 이 번들 manifest 와 같은지 대조한다. 요청당 지연은 E4 에서 재지 않는다(지연은 B2 G3 p50/p95).
 - 신뢰구간: 같은 사업에서 파생된 회사 변형·질문은 독립 표본이 아니다. `sol_eval` 이 사업 클러스터 단위 paired bootstrap 95% CI 를 우선 낸다(21 §4.3). 표본이 작으면 개선을 확정하지 않고 탐색적 결과로 적는다.
-- 받아들이는 기준: dev·test 모두 E1' 대비 회귀 없음(ADR-034 9번 회귀 안정성), 보정 뒤 ECE ≤ 0.08(21 §4.4 초기 목표), 확신 오류율(p ≥ 0.9 오답)이 기준선 이하. 하나라도 어기면 결과는 보고하되 서빙 후보로 올리지 않는다.
+- 받아들이는 기준: dev·test 모두 E1' 대비 회귀 없음(ADR-034 9번 회귀 안정성), E1' 대비 개선은 Δ 95% CI가 0을 배제할 때만(ADR-034 9번), 보정 뒤 ECE ≤ 0.08(21 §4.4 초기 목표), 확신 오류율(p ≥ 0.9 오답)이 기준선 이하(출처 미정, [[16-DECISIONS|16]] 미결정 29-5). 하나라도 어기면 결과는 보고하되 서빙 후보로 올리지 않는다. 서빙 후보라도 교체는 사용자 승인 뒤다(ADR-034 9번).
 - "E4 가 E1' 보다 낫다"는 Δ 의 95% 신뢰구간이 0 을 포함하지 않을 때만 말한다(ADR-027 에서 보존한 원칙). 데모 교체는 그 뒤에도 **사용자 승인**이 필요하다(Q7).
 
 학습본은 HTTPS 로 서빙하지 않는다(회사 nginx 의 SOL RADAR location 은 `https://acropolissg.com/sol-radar` 하나다). 평가 전용 서빙 인스턴스(옛 B안 `/kev-lora`·8010)는 **없다**.
