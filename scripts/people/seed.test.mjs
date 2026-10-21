@@ -66,7 +66,7 @@ const foldedAvailability = (person) =>
     assignmentsOf(fixtures.people.assignments, person.personId),
   );
 
-it("계층 카탈로그와 운영 200명·점수 27명을 두 번 넣어도 동일 UUID·값이며 Auth를 호출하지 않는다", async (t) => {
+it("계층 카탈로그와 운영 200명·점수 200명을 두 번 넣어도 동일 UUID·값이며 Auth를 호출하지 않는다", async (t) => {
   assert.equal(personUuid("SOL-P0001"), "591e9ea0-0946-5534-89ea-5b4ad722a820");
   const fresh = await migratedDb(t);
   await insertOrg(fresh);
@@ -90,7 +90,23 @@ it("계층 카탈로그와 운영 200명·점수 27명을 두 번 넣어도 동�
   assert.equal(before.length, 200);
   assert.deepEqual(await roster(fresh), before);
   assert.deepEqual(await scoring(fresh), scoresBefore);
-  assert.equal(scoresBefore.length, 27);
+  assert.equal(scoresBefore.length, 200);
+  assert.deepEqual(
+    (
+      await fresh.query(
+        "select member_id, certifications, past_projects, capability_source, capability_version from public.team_member_scoring order by member_id",
+      )
+    ).rows,
+    fixtures.people.people
+      .map((person) => ({
+        member_id: personUuid(person.personId),
+        certifications: person.certifications,
+        past_projects: person.pastProjects,
+        capability_source: person.capabilitySource,
+        capability_version: person.capabilityVersion,
+      }))
+      .sort((a, b) => a.member_id.localeCompare(b.member_id)),
+  );
   assert.deepEqual(
     (
       await fresh.query(
@@ -156,12 +172,13 @@ it("계층 카탈로그와 운영 200명·점수 27명을 두 번 넣어도 동�
       row.availability,
       busy.includes(row.member_id)
         ? [{ startsAt: "2026-12-01", endsAt: "2027-07-01", fte: 0 }]
-        : [{ startsAt: "2026-12-01", endsAt: "2027-07-01", fte: 1 }],
+        : fixtures.people.people.find((person) => personUuid(person.personId) === row.member_id)
+            .availability,
       row.member_id,
     );
 });
 
-it("구 스키마의 실제 200행을 업그레이드하면서 eligible 27행의 모든 점수 값을 검증·backfill한다", async (t) => {
+it("구 스키마의 실제 200행을 업그레이드하면서 eligible 200행의 모든 점수 값을 검증·backfill한다", async (t) => {
   const db = await freshDb(t);
   await applyMigrations(
     db,
@@ -222,7 +239,7 @@ it("구 스키마의 실제 200행을 업그레이드하면서 eligible 27행의
       "select id as member_id,org_id,role,grade,skills,availability,created_at from public.team_members where scoring_eligible order by id",
     )
   ).rows;
-  assert.equal(eligible.length, 27);
+  assert.equal(eligible.length, 200);
   assert.ok(eligible.some((row) => row.skills.length > 0 && row.availability.length > 0));
   // A conflicting partial backfill must abort transactionally, never erase the old input.
   await db.exec(
@@ -316,7 +333,7 @@ it("로컬 HTTP adapter는 점수에 member_id 충돌 키를 쓰고 카탈로그
     );
   assert.equal(requests.at(-2).url.pathname, "/rest/v1/team_members");
   assert.equal(requests.at(-1).url.pathname, "/rest/v1/team_member_scoring");
-  assert.equal(requests.at(-1).rows.length, 27);
+  assert.equal(requests.at(-1).rows.length, 200);
 });
 
 it("people seed는 비로컬 요청을 HTTP 전에 거절한다", async () => {

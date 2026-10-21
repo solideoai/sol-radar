@@ -8,6 +8,7 @@ import { allocatePeople } from "./allocation.mjs";
 import { selectNames } from "./names.mjs";
 import { readOrganizationWorkbook } from "./workbook.mjs";
 import { validatePortraitAssets } from "./portraits.mjs";
+import { enrichPeople } from "./capabilities.mjs";
 
 const STARTS_AT = "2026-12-01";
 const ENDS_AT = "2027-07-01";
@@ -77,7 +78,8 @@ export function generatePeople({ departments, jobTitles, excludedNames, existing
       });
     }
   }
-  if (existingPeople !== undefined && !isDeepStrictEqual(existingPeople, people))
+  const enriched = enrichPeople(people);
+  if (existingPeople !== undefined && !isDeepStrictEqual(existingPeople, enriched))
     throw new Error("Existing roster mismatch");
   const portraits = people.map((person) => ({
     personId: person.personId,
@@ -95,7 +97,7 @@ export function generatePeople({ departments, jobTitles, excludedNames, existing
     endsAt: ENDS_AT,
     allocationPercent: 100,
   }));
-  return { people, portraits, assignments };
+  return { people: enriched, portraits, assignments };
 }
 
 /** Public signup projection deliberately selects fields instead of spreading private catalogs. */
@@ -241,8 +243,7 @@ async function generateFromWorkbook(filename) {
       people: result.people.length,
       male: 100,
       female: 100,
-      scoringMembers: 27,
-      availableFte: 20,
+      scoringMembers: result.people.filter((person) => person.scoringEligible).length,
     }),
   );
 }

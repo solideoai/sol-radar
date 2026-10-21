@@ -707,7 +707,7 @@ describe("fixture 별 규칙에서 바로 따라오는 기대 (07 §6.2 · 08 §
     );
   });
 
-  it("FX-15: 80억 > 상한 50억 → scaleFit 0점(missing 아님) + SCALE_LIMIT_EXCEEDED, 자격 SATISFIED, 58 WATCH", () => {
+  it("FX-15: 80억 > 상한 50억 → scaleFit 0점(missing 아님) + SCALE_LIMIT_EXCEEDED, 자격 SATISFIED, 68 WATCH", () => {
     const { result } = RESULTS.find((entry) => entry.label === "FX-15")!;
     expect(factorOf(result, "scaleFit")).toMatchObject({
       normalized: 0,
@@ -717,7 +717,7 @@ describe("fixture 별 규칙에서 바로 따라오는 기대 (07 §6.2 · 08 §
     expect(result.reviewFlags).toEqual(["SCALE_LIMIT_EXCEEDED"]);
     expect(result.missingFactors).toEqual([]);
     expect(result.qualificationStatus).toBe("SATISFIED");
-    expect(result.score).toBe(58);
+    expect(result.score).toBe(68);
     expect(result.recommendation).toBe("WATCH");
   });
 

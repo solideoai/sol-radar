@@ -46,24 +46,46 @@ test("saved data passes without claiming source comparison or requiring planned 
     Array.from({ length: 200 }, (_, index) => `SOL-P${String(index + 1).padStart(4, "0")}`),
   );
   const eligible = people.filter((person) => person.scoringEligible);
-  assert.equal(eligible.length, 27);
-  assert.equal(people.length - eligible.length, 173);
+  assert.equal(eligible.length, 200);
+  assert.equal(people.length - eligible.length, 0);
   assert.deepEqual(
     Object.fromEntries(
-      ["PM", "PL", "DEVELOPER", "DATA_AI"].map((role) => [
-        role,
-        eligible.filter((person) => person.role === role).length,
-      ]),
+      [
+        "PM",
+        "PL",
+        "DEVELOPER",
+        "DATA_AI",
+        "DEVOPS",
+        "QA",
+        "DESIGNER",
+        "BUSINESS_ANALYST",
+        "SECURITY",
+        "DBA",
+      ].map((role) => [role, eligible.filter((person) => person.role === role).length]),
     ),
-    { PM: 2, PL: 4, DEVELOPER: 18, DATA_AI: 3 },
+    {
+      PM: 19,
+      PL: 21,
+      DEVELOPER: 35,
+      DATA_AI: 20,
+      DEVOPS: 17,
+      QA: 17,
+      DESIGNER: 17,
+      BUSINESS_ANALYST: 18,
+      SECURITY: 18,
+      DBA: 18,
+    },
   );
   assert.equal(fixtures.people.assignments.length, 7);
-  // These are fixed-window inputs, not an FTE implementation. The pure scoring
-  // regression computes interval-aware capacity separately in web/server/scoring.
-  for (const person of eligible)
-    assert.deepEqual(person.availability, [
-      { startsAt: "2026-12-01", endsAt: "2027-07-01", fte: 1 },
-    ]);
+  for (const person of eligible) {
+    assert.ok(
+      person.skills.length > 0 &&
+        person.certifications.length > 0 &&
+        person.pastProjects.length > 0,
+    );
+    assert.ok(person.availability.length > 0);
+    assert.equal(person.capabilitySource, "SYNTHETIC");
+  }
   assert.equal(new Set(fixtures.people.assignments.map((row) => row.personId)).size, 7);
   for (const assignment of fixtures.people.assignments) {
     assert.ok(eligible.some((person) => person.personId === assignment.personId));
@@ -149,9 +171,9 @@ for (const [name, mutate, expected] of [
     "SCORING_INVALID",
   ],
   [
-    "eligible off role",
+    "excluded scoring member",
     (value) => {
-      value.people.people.find((person) => !person.scoringEligible).scoringEligible = true;
+      value.people.people[0].scoringEligible = false;
     },
     "SCORING_INVALID",
   ],

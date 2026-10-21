@@ -180,7 +180,13 @@ for (const hasPersonal of [true, false]) {
     assert.ok(calls.findIndex((call) => call.path === "/rest/v1/job_titles") < authIndex);
     const scoringIndex = calls.findIndex((call) => call.path === "/rest/v1/team_member_scoring");
     assert.ok(scoringIndex >= 0 && scoringIndex < authIndex);
-    assert.equal(calls[scoringIndex].body.length, 27);
+    assert.equal(calls[scoringIndex].body.length, 200);
+    for (const row of calls[scoringIndex].body) {
+      assert.ok(row.skills.length > 0 && row.availability.length > 0);
+      assert.ok(row.certifications.length > 0 && row.past_projects.length > 0);
+      assert.equal(row.capability_source, "SYNTHETIC");
+      assert.equal(row.capability_version, "synthetic-people/v1");
+    }
     const declarations = calls.filter(
       (call) =>
         call.method === "PATCH" &&

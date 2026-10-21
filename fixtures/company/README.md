@@ -20,4 +20,4 @@
   점수·권고(94/72/68, BID/WATCH/NO-BID)에는 영향이 없다(08 §6.1 todo 와 같음).
 - `industryCodes`: **빈 배열**. 나라장터 업종 마스터 코드를 아직 받지 않았다(ADR-020 P0-0). 비어 있으면 허용 업종 조건은
   `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)로 사람이 본다. 코드를 받으면 `{code, name, status}` 행을 채운다.
-- 점수 계산 대상 인력(27명·20 FTE)은 이 파일이 아니라 `fixtures/people/solideo.people.json`에서 `toScoringTeam`으로 만든다(08 §9).
+- 점수 계산 대상 인력(200명·고정 기간95.5 FTE)은 이 파일이 아니라 `fixtures/people/solideo.people.json`에서 `toScoringTeam`으로 만든다(08 §9).

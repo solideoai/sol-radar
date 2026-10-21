@@ -1616,28 +1616,40 @@ export type Database = {
       team_member_scoring: {
         Row: {
           availability: Json
+          capability_source: string
+          capability_version: string | null
+          certifications: Json
           created_at: string
           grade: string | null
           member_id: string
           org_id: string
+          past_projects: Json
           role: string
           skills: Json
         }
         Insert: {
           availability?: Json
+          capability_source?: string
+          capability_version?: string | null
+          certifications?: Json
           created_at?: string
           grade?: string | null
           member_id: string
           org_id: string
+          past_projects?: Json
           role: string
           skills?: Json
         }
         Update: {
           availability?: Json
+          capability_source?: string
+          capability_version?: string | null
+          certifications?: Json
           created_at?: string
           grade?: string | null
           member_id?: string
           org_id?: string
+          past_projects?: Json
           role?: string
           skills?: Json
         }

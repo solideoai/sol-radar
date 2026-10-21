@@ -109,33 +109,49 @@ test("generates stable IDs, valid references and one planned portrait per unique
   );
 });
 
-test("keeps 27 independent scoring members and seven fake assignments leaving 20 FTE", () => {
+test("generates 200 independent scoring members and preserves seven fake assignments", () => {
   const result = generatePeople(input());
   const scoring = result.people.filter((person) => person.scoringEligible);
-  assert.equal(scoring.length, 27);
+  assert.equal(scoring.length, 200);
   assert.deepEqual(
     Object.fromEntries(
-      ["PM", "PL", "DEVELOPER", "DATA_AI"].map((role) => [
-        role,
-        scoring.filter((person) => person.role === role).length,
-      ]),
+      [
+        "PM",
+        "PL",
+        "DEVELOPER",
+        "DATA_AI",
+        "DEVOPS",
+        "QA",
+        "DESIGNER",
+        "BUSINESS_ANALYST",
+        "SECURITY",
+        "DBA",
+      ].map((role) => [role, scoring.filter((person) => person.role === role).length]),
     ),
-    { PM: 2, PL: 4, DEVELOPER: 18, DATA_AI: 3 },
+    {
+      PM: 19,
+      PL: 21,
+      DEVELOPER: 35,
+      DATA_AI: 20,
+      DEVOPS: 17,
+      QA: 17,
+      DESIGNER: 17,
+      BUSINESS_ANALYST: 18,
+      SECURITY: 18,
+      DBA: 18,
+    },
   );
   assert.ok(
     scoring.every(
       (person) =>
-        person.availability.length === 1 &&
-        person.availability[0].startsAt === "2026-12-01" &&
-        person.availability[0].endsAt === "2027-07-01" &&
-        person.availability[0].fte === 1,
+        person.skills.length > 0 &&
+        person.availability.length > 0 &&
+        person.certifications.length > 0 &&
+        person.pastProjects.length > 0,
     ),
   );
-  assert.ok(
-    result.people
-      .filter((person) => !person.scoringEligible)
-      .every((person) => person.role === "OTHER" && person.availability.length === 0),
-  );
+  assert.equal(scoring.filter((person) => person.availability.length === 1).length, 27);
+  assert.equal(scoring.filter((person) => person.availability.length === 2).length, 173);
   assert.equal(result.assignments.length, 7);
   assert.equal(new Set(result.assignments.map((assignment) => assignment.personId)).size, 7);
   assert.ok(
@@ -148,9 +164,11 @@ test("keeps 27 independent scoring members and seven fake assignments leaving 20
     ),
   );
   assert.equal(
-    scoring.reduce((sum, person) => sum + person.availability[0].fte, 0) -
-      result.assignments.reduce((sum, assignment) => sum + assignment.allocationPercent / 100, 0),
-    20,
+    scoring.reduce(
+      (sum, person) => sum + Math.min(...person.availability.map((window) => window.fte)),
+      0,
+    ) - result.assignments.reduce((sum, assignment) => sum + assignment.allocationPercent / 100, 0),
+    95.5,
   );
   const altered = generatePeople({
     ...input(),
@@ -197,7 +215,15 @@ test("CLI regenerates safely, preserves reviewed/failed/candidate portrait state
   try {
     await mkdir(path.join(directory, "scripts/people"), { recursive: true });
     await mkdir(path.join(directory, "fixtures/people"), { recursive: true });
-    for (const name of ["generate", "allocation", "departments", "names", "workbook", "portraits"])
+    for (const name of [
+      "generate",
+      "allocation",
+      "departments",
+      "names",
+      "workbook",
+      "portraits",
+      "capabilities",
+    ])
       await cp(
         path.join(root, `scripts/people/${name}.mjs`),
         path.join(directory, `scripts/people/${name}.mjs`),

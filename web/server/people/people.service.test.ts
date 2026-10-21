@@ -99,7 +99,7 @@ describe("independently authorized read services", () => {
       const storage = repo();
       const directory = ready(await getPeopleDirectory(auth, storage));
       expect(directory.members).toHaveLength(200);
-      expect(directory.summary).toEqual({ totalCount: 200, scoringCount: 27 });
+      expect(directory.summary).toEqual({ totalCount: 200, scoringCount: 200 });
       expect(storage.listMembers).toHaveBeenCalledWith(orgId);
       expect(ready(await getDepartments(auth, new URLSearchParams(), storage))).toHaveLength(48);
       expect(ready(await getJobTitles(auth, new URLSearchParams(), storage))).toEqual(
@@ -118,7 +118,7 @@ describe("independently authorized read services", () => {
         await listTeamMembers(auth, new URLSearchParams(cursor ? { cursor } : {}), storage),
       );
       expect(page.totalCount).toBe(200);
-      expect(page.summary).toEqual({ totalCount: 200, scoringCount: 27 });
+      expect(page.summary).toEqual({ totalCount: 200, scoringCount: 200 });
       expect(page.pageInfo.startIndex).toBe(ids.length);
       ids.push(...page.items.map((p) => p.id));
       if (page.pageInfo.startIndex === 20) second = page;
@@ -144,20 +144,28 @@ describe("independently authorized read services", () => {
     expect(back.items).toEqual(second!.items);
     expect(back.pageInfo.startIndex).toBe(20);
   });
-  it("keeps non-scoring staff, applies filters and returns scoring only in detail", async () => {
+  it("applies scoring filters and returns all calculation details only in detail", async () => {
     const auth = access(),
       storage = repo();
     expect(
       ready(await listTeamMembers(auth, new URLSearchParams("scoring=0&limit=100"), storage))
         .totalCount,
-    ).toBe(173);
+    ).toBe(0);
     expect(
       ready(await listTeamMembers(auth, new URLSearchParams("scoring=1&limit=100"), storage)).items,
-    ).toHaveLength(27);
+    ).toHaveLength(100);
+    expect(
+      ready(await listTeamMembers(auth, new URLSearchParams("scoring=1&limit=100"), storage))
+        .totalCount,
+    ).toBe(200);
     const detail = ready(
       await getTeamMember(auth, rows.scoring[0].member_id, new URLSearchParams(), storage),
     );
     expect(detail.scoring).not.toBeNull();
+    expect(
+      ready(await getTeamMember(auth, rows.members[0].id, new URLSearchParams(), storage)).scoring,
+    ).not.toBeNull();
+    storage.findScoring = async () => null;
     expect(
       ready(await getTeamMember(auth, rows.members[0].id, new URLSearchParams(), storage)).scoring,
     ).toBeNull();

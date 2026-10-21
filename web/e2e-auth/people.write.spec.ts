@@ -266,7 +266,7 @@ test.describe("[people-read-qa] independent access and denied-write integration"
         ["departments", 48, "id"],
         ["job_titles", 12, "id"],
         ["team_members", 200, "id"],
-        ["team_member_scoring", 27, "member_id"],
+        ["team_member_scoring", 200, "member_id"],
       ] as const) {
         const ownResponse = await direct(
           request,
@@ -442,7 +442,7 @@ test.describe("[people-read-qa] independent access and denied-write integration"
     });
     expect(memberPageSchema.parse(await still.json()).summary).toEqual({
       totalCount: 200,
-      scoringCount: 27,
+      scoringCount: 200,
     });
   });
 });

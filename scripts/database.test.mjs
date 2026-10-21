@@ -8349,6 +8349,10 @@ describe("솔리데오 카탈로그·가입 신고", () => {
       for (const sql of [
         "insert into public.team_member_scoring(member_id,org_id,role) values (gen_random_uuid(),$1,'DEV')",
         "update public.team_member_scoring set org_id=$1",
+        "update public.team_member_scoring set certifications='[]'::jsonb where org_id=$1",
+        "update public.team_member_scoring set past_projects='[]'::jsonb where org_id=$1",
+        "update public.team_member_scoring set capability_source='UNSPECIFIED' where org_id=$1",
+        "update public.team_member_scoring set capability_version='tampered' where org_id=$1",
         "delete from public.team_member_scoring where org_id=$1",
       ])
         await assert.rejects(fresh.query(sql, [solideo]), /permission denied/);
@@ -8365,6 +8369,31 @@ describe("솔리데오 카탈로그·가입 신고", () => {
       fresh.query("delete from public.team_member_scoring"),
       /permission denied/,
     );
+  });
+
+  it("합성 직원 속성은 JSON 배열·출처·완전성을 DB 제약으로 강제한다", async (t) => {
+    const fresh = await setup(t);
+    await fresh.exec(
+      "insert into public.team_member_scoring(member_id,org_id,role) select id,org_id,'DEV' from public.team_members",
+    );
+    for (const sql of [
+      "update public.team_member_scoring set certifications='{}'::jsonb",
+      "update public.team_member_scoring set past_projects='null'::jsonb",
+      "update public.team_member_scoring set capability_source='REAL'",
+      "update public.team_member_scoring set capability_source='SYNTHETIC'",
+    ])
+      await assert.rejects(fresh.exec(sql), /check constraint/);
+    const row = (
+      await fresh.query(
+        "select certifications,past_projects,capability_source,capability_version from public.team_member_scoring",
+      )
+    ).rows[0];
+    assert.deepEqual(row, {
+      certifications: [],
+      past_projects: [],
+      capability_source: "UNSPECIFIED",
+      capability_version: null,
+    });
   });
 
   it("ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다", async (t) => {

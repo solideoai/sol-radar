@@ -27,20 +27,42 @@ const capacity = (windows = person.availability, assignments: typeof fixture.ass
 // A regression that counts every roster row, leaks identity fields, ignores intervals, or
 // hardcodes 20 FTE must fail these independent input mutations.
 describe("people scoring snapshot", () => {
-  it("counts all 200 employees while projecting only the 27 eligible members and their assignments", () => {
+  it("projects all 200 employees and their seven assignments into the scoring snapshot", () => {
     const profile = toPeopleProfile(fixture.people, fixture.assignments, fixture.asOf);
     expect(profile.financials.employeeCount).toBe(200);
-    expect(profile.team.members).toHaveLength(27);
+    expect(profile.team.members).toHaveLength(200);
     expect(profile.team.assignments).toHaveLength(7);
     expect(profile.team.asOf).toBe("2026-10-16T00:00:00.000Z");
     expect(
       Object.fromEntries(
-        ["PM", "PL", "DEVELOPER", "DATA_AI"].map((role) => [
+        [
+          "PM",
+          "PL",
+          "DEVELOPER",
+          "DATA_AI",
+          "DEVOPS",
+          "QA",
+          "DESIGNER",
+          "BUSINESS_ANALYST",
+          "SECURITY",
+          "DBA",
+        ].map((role) => [
           role,
           profile.team.members.filter((member) => member.role === role).length,
         ]),
       ),
-    ).toEqual({ PM: 2, PL: 4, DEVELOPER: 18, DATA_AI: 3 });
+    ).toEqual({
+      PM: 19,
+      PL: 21,
+      DEVELOPER: 35,
+      DATA_AI: 20,
+      DEVOPS: 17,
+      QA: 17,
+      DESIGNER: 17,
+      BUSINESS_ANALYST: 18,
+      SECURITY: 18,
+      DBA: 18,
+    });
     expect(Object.keys(profile.team.members[0]).sort()).toEqual([
       "availability",
       "grade",
@@ -48,14 +70,18 @@ describe("people scoring snapshot", () => {
       "role",
       "skills",
     ]);
-    expect(availableFte(profile.team, period)).toBe(20);
+    expect(availableFte(profile.team, period)).toBe(95.5);
     expect(
       toPeopleProfile(fixture.people.slice(1), fixture.assignments, fixture.asOf).financials
         .employeeCount,
     ).toBe(199);
   });
-  it("excludes the 173 nonparticipants before validating capacity and removes all identity fields", () => {
-    const changed = fixture.people.map((member) => ({
+  it("excludes explicitly disabled people before validating capacity and removes identity fields", () => {
+    const baseline = fixture.people.map((member, index) => ({
+      ...member,
+      scoringEligible: index >= 3,
+    }));
+    const changed = baseline.map((member) => ({
       ...member,
       name: "changed",
       gender: "changed",
@@ -70,16 +96,18 @@ describe("people scoring snapshot", () => {
           }),
     }));
     const extraAssignment = {
-      personId: fixture.people.find((member) => !member.scoringEligible)!.personId,
+      personId: baseline[0].personId,
       startsAt: "invalid",
       endsAt: "invalid",
       allocationPercent: -9,
     };
+    const expected = toScoringTeam(baseline, fixture.assignments, fixture.asOf);
+    expect(expected.members).toHaveLength(197);
     expect(toScoringTeam(changed, [...fixture.assignments, extraAssignment], fixture.asOf)).toEqual(
-      toScoringTeam(fixture.people, fixture.assignments, fixture.asOf),
+      expected,
     );
     expect(availableFte(toScoringTeam(changed, fixture.assignments, fixture.asOf), period)).toBe(
-      20,
+      availableFte(expected, period),
     );
   });
   it("copies calculation arrays so later source mutations cannot change a saved snapshot", () => {
@@ -149,12 +177,12 @@ describe("guaranteed full-period FTE, half-open intervals", () => {
   });
   it("reflects eligible availability and assignment changes", () => {
     const team = toScoringTeam(fixture.people, fixture.assignments, fixture.asOf);
-    expect(availableFte({ ...team, assignments: [] }, period)).toBe(27);
+    expect(availableFte({ ...team, assignments: [] }, period)).toBe(102.5);
     const unassigned = team.members.find(
       (member) => !team.assignments.some((assignment) => assignment.personId === member.personId),
     )!;
-    unassigned.availability[0].fte = 0.5;
-    expect(availableFte(team, period)).toBe(19.5);
+    unassigned.availability = unassigned.availability.map((window) => ({ ...window, fte: 0 }));
+    expect(availableFte(team, period)).toBe(95);
   });
   it("rejects invalid periods and capacity values instead of returning misleading FTE", () => {
     const team = toScoringTeam([person], [], fixture.asOf);
@@ -204,11 +232,11 @@ describe("limited capacity plus separately declared worked-example factors", () 
   it("changes unsaturated staff factors and aggregates when computed capacity changes", () => {
     const changed = fixture.people.map((member) => ({
       ...member,
-      availability: member.availability.map((window) => ({ ...window, fte: 0.5 })),
+      availability: member.availability.map((window) => ({ ...window, fte: 0.05 })),
     }));
     const fte = availableFte(toScoringTeam(changed, fixture.assignments, fixture.asOf), period);
-    expect(fte).toBe(10);
-    expect(workedTotals(fte)).toEqual([91, 65, 58]);
-    expect(workedTotals(fte)).not.toEqual(workedTotals(20));
+    expect(fte).toBeCloseTo(9.65);
+    expect(workedTotals(fte)).toEqual([90, 65, 58]);
+    expect(workedTotals(fte)).not.toEqual(workedTotals(95.5));
   });
 });

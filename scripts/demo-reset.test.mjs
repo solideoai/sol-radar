@@ -263,7 +263,7 @@ describe("사전 리뷰·배정·계정", () => {
     assert.throws(() => toReviewRows({ bids: [], reviewerId: "u", decidedAt: "" }), /FX-01/);
   });
 
-  it("배정 2건의 직원은 명부 fixture 에서 이미 100% 배정된 계산 대상이라 가용 20 FTE 가 바뀌지 않는다", () => {
+  it("배정 2건의 직원은 명부 fixture 에서 이미 100% 배정된 계산 대상이라 가용 95.5 FTE 가 바뀌지 않는다", () => {
     const preAssigned = new Set(peopleFixtures.people.assignments.map((entry) => entry.personId));
     for (const assignment of DEMO_ASSIGNMENTS) {
       const person = peopleFixtures.people.people.find(
@@ -1038,9 +1038,9 @@ describe("PGlite 위에서 demo:reset", () => {
     );
 
     // 인력 단계: 명부의 기존 투입 7건은 공고가 없어 assignments 표(bid_id not null)에 못 넣고 availability 에 접힌다
-    // (people/availability.mjs). 투입 7명은 그 기간 fte 0, 나머지 20명은 fixture 그대로다.
+    // (people/availability.mjs). 투입 7명은 그 기간 fte 0, 나머지 193명은 fixture 그대로다.
     const folded = await scoringAvailability(db);
-    assert.equal(folded.size, 27);
+    assert.equal(folded.size, 200);
     const prior = new Map(peopleFixtures.people.assignments.map((row) => [row.personId, row]));
     assert.equal(prior.size, 7);
     for (const person of peopleFixtures.people.people.filter((row) => row.scoringEligible)) {
@@ -1328,7 +1328,7 @@ describe("PGlite 위에서 demo:reset", () => {
     assert.equal(await count(db, "select count(*) from public.outbox_events"), 19 + 2);
   });
 
-  it("C4 availableFte: DB 에서 읽은 팀과 fixture 팀의 가용 FTE 가 FX-01·02·03 기간마다 같다(20 FTE, 투입 7명은 0)", async (t) => {
+  it("C4 availableFte: DB 에서 읽은 팀과 fixture 팀의 가용 FTE 가 FX-01·02·03 기간마다 같다(95.5 FTE, 투입 7명은 0)", async (t) => {
     const db = await migratedDb(t);
     await seedDemo({
       client: sqlClient(db),
@@ -1339,7 +1339,7 @@ describe("PGlite 위에서 demo:reset", () => {
       ingestBids: fakeIngestBids(db),
     });
     const teams = { db: await teamFromDb(db), fixture: teamFromFixture() };
-    assert.equal(teams.db.people.length, 27);
+    assert.equal(teams.db.people.length, 200);
     assert.equal(teams.db.assignments.length, 2);
     assert.equal(teams.fixture.assignments.length, 9);
     // DB 경로에는 명부 투입 7건이 assignments 로 없다 — 접힌 availability 만으로 같은 답이 나와야 한다.
@@ -1361,8 +1361,8 @@ describe("PGlite 위에서 demo:reset", () => {
 
     const busy = peopleFixtures.people.assignments.map((row) => row.personId);
     for (const fixtureId of Object.keys(EXPECTED_PERIODS)) {
-      assert.equal(result.totals.db[fixtureId], 20, `${fixtureId} DB 팀 가용 합`);
-      assert.equal(result.totals.fixture[fixtureId], 20, `${fixtureId} fixture 팀 가용 합`);
+      assert.equal(result.totals.db[fixtureId], 95.5, `${fixtureId} DB 팀 가용 합`);
+      assert.equal(result.totals.fixture[fixtureId], 95.5, `${fixtureId} fixture 팀 가용 합`);
       assert.deepEqual(result.members.db[fixtureId], result.members.fixture[fixtureId], fixtureId);
       for (const personId of busy)
         assert.equal(result.members.db[fixtureId][personId], 0, `${fixtureId} ${personId}`);

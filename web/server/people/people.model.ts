@@ -46,6 +46,10 @@ export type ScoringRow = {
   grade: string | null;
   skills: unknown;
   availability: unknown;
+  certifications?: unknown;
+  past_projects?: unknown;
+  capability_source?: string;
+  capability_version?: string | null;
 };
 const departmentSchema = z.object({
   id: z.uuid(),
@@ -75,6 +79,39 @@ const scoringSchema = z.object({
   grade: z.string().nullable(),
   skills: z.array(z.string()),
   availability: z.array(capacitySchema),
+  certifications: z
+    .array(
+      z
+        .object({
+          code: z.string().min(1),
+          name: z.string().min(1),
+          issuedAt: z.iso.date(),
+          expiresAt: z.iso.date().nullable(),
+          isDemo: z.boolean(),
+          evidenceRef: z.string().min(1),
+        })
+        .refine((value) => value.expiresAt === null || value.issuedAt < value.expiresAt),
+    )
+    .optional(),
+  pastProjects: z
+    .array(
+      z
+        .object({
+          projectId: z.string().min(1),
+          name: z.string().min(1),
+          domain: z.string().min(1),
+          role: z.string().min(1),
+          startsAt: z.iso.date(),
+          endsAt: z.iso.date(),
+          skills: z.array(z.string().min(1)),
+          isDemo: z.boolean(),
+          evidenceRef: z.string().min(1),
+        })
+        .refine((value) => value.startsAt < value.endsAt),
+    )
+    .optional(),
+  capabilitySource: z.enum(["UNSPECIFIED", "SYNTHETIC"]).optional(),
+  capabilityVersion: z.string().nullable().optional(),
 });
 export type Department = z.infer<typeof departmentSchema>;
 export type JobTitle = z.infer<typeof jobTitleSchema>;
@@ -163,7 +200,18 @@ export function toTeamMemberListItem(row: MemberRow, scoringEligible: boolean): 
 export function toTeamMemberDetail(row: MemberRow, scoring: ScoringRow | null): TeamMemberDetail {
   return {
     ...toTeamMemberListItem(row, scoring !== null),
-    scoring: scoring ? scoringSchema.parse(scoring) : null,
+    scoring: scoring
+      ? scoringSchema.parse({
+          ...scoring,
+          ...(scoring.past_projects !== undefined ? { pastProjects: scoring.past_projects } : {}),
+          ...(scoring.capability_source !== undefined
+            ? { capabilitySource: scoring.capability_source }
+            : {}),
+          ...(scoring.capability_version !== undefined
+            ? { capabilityVersion: scoring.capability_version }
+            : {}),
+        })
+      : null,
   };
 }
 export function buildPeopleDirectory(rows: PeopleRows): PeopleDirectory {

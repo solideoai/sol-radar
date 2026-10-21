@@ -157,13 +157,13 @@ describe("foldAssignmentsIntoAvailability", () => {
       assert.throws(() => foldAssignmentsIntoAvailability(badWindows, badAssignments), RangeError);
   });
 
-  it("명부 fixture: 투입 7명은 2026-12~2027-07 이 fte 0 이고 나머지 20명은 그대로다", async () => {
+  it("명부 fixture: 투입 7명은 2026-12~2027-07 이 fte 0 이고 나머지 193명은 그대로다", async () => {
     const { people, assignments } = JSON.parse(
       await readFile(new URL("../../fixtures/people/solideo.people.json", import.meta.url), "utf8"),
     );
     const eligible = people.filter((person) => person.scoringEligible);
     const busy = new Set(assignments.map((row) => row.personId));
-    assert.equal(eligible.length, 27);
+    assert.equal(eligible.length, 200);
     assert.equal(busy.size, 7);
     for (const person of eligible) {
       const folded = foldAssignmentsIntoAvailability(

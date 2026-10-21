@@ -192,7 +192,7 @@ E2E가 화면의 요청을 기다릴 때, 화면이 응답 본문을 읽지 않�
 | 0 | S0 | 환경 | env에 `SOL_RUN_MODE=mock`(이 값이 `DEMO_MODE=true`·`AI_PROVIDER=mock`의 기본값을 정한다), `AI_FALLBACK_TO_MOCK=false`, 기본 비밀값 아님 확인. `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`·`SUPABASE_SERVICE_ROLE_KEY`가 채워져 있고 모드 모순이 없는지 `pnpm check:env`로 확인(값은 출력하지 않는다). 인터넷 연결(Supabase 클라우드 프로젝트 접속). 포트 3000 비어 있음 | — | 포트 충돌 프로세스 종료. 네트워크 불가면 2번의 대체로 |
 | 1 | S0 | 엔드포인트 | 회사 GPU 추론 엔드포인트(`QWEN_BASE_URL`·`KEV_BASE_URL`, HTTPS + API 키, [[16-DECISIONS\|ADR-025]]) 접속을 확인한다(방식은 [[10-DEPLOYMENT\|10 배포]]) | 노트북에서 `GET /v1/models`로 회사 vLLM API·`sol_decision` 응답과 레지스트리 대조 | 엔드포인트 미접속이면 `live`·`fixture`를 빼고 `mock`만으로 진행하고 사실대로 말한다 |
 | 2 | S0 | 기동 | `docker compose -f infra/compose.yaml up -d --build` 후 `docker compose -f infra/compose.yaml ps` | `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(web을 Compose로 띄우면 `web` 포함) 전부 `healthy`. web `GET /health/ready` 200, `checks.db: ok`(Supabase 연결), `checks.ai: mock` | 1회 재기동. `checks.db` 불가(503)면 네트워크·Supabase 프로젝트 상태 확인. 그래도 실패면 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로 ①(로컬 Supabase CLI), 그것도 안 되면 사전 녹화 영상 |
-| 3 | S0 | seed | `pnpm demo:reset` (스크립트. service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`. `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`. `GET /api/v1/bids` 총 19건. `bid_reviews` 2건(`FX-01` BID, `FX-03` NO-BID). 조직·인력 편집(ADR-021 P1)이 생긴 뒤에는 점수 계산 대상 27명이 모두 재직(`ACTIVE`)인지 확인 | seed 재실행(멱등) |
+| 3 | S0 | seed | `pnpm demo:reset` (스크립트. service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | 로그 마지막 줄 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true`. `ingest_runs.summary` `{created:19, quarantined:1, retried:2}`. `GET /api/v1/bids` 총 19건. `bid_reviews` 2건(`FX-01` BID, `FX-03` NO-BID). 조직·인력 편집(ADR-021 P1)이 생긴 뒤에는 점수 계산 대상 200명이 모두 재직(`ACTIVE`)인지 확인 | seed 재실행(멱등) |
 | 4 | S0 | 세 모드 | `SOL_RUN_MODE`를 `live` → `fixture` → `mock` 순으로 바꾸며 worker·ai-gateway 재시작. `live`에만 서비스키 4개(`G2B_*_SERVICE_KEY`)가 필요하다([[16-DECISIONS\|ADR-024]] D5). 모드마다 `GET /api/v1/admin/ai/status`(ADMIN)와 머리말 확인. 마지막은 `mock` | 각 모드에서 기동 거부 없음, 머리말 "실행 모드: live\|fixture\|mock", `runMode` 일치. `live`·`fixture`는 `qwen.healthy: true`, `kev.registryMatch: true`. 두 값은 실시간 탐침이 아니라 gateway `/health` 기준이다(`qwen.healthy` = gateway 생존 + Qwen 모델 설정, `kev.registryMatch` = gateway 기동 때 잰 레지스트리 대조, [[05-API-SPEC\|05 API]] `AiStatus`, [[16-DECISIONS\|ADR-035]] F6). 모델 서버가 기동 뒤에 죽은 것은 이 확인으로 잡히지 않는다. `live`에서 오늘 호출량(개발계정 서비스당 1,000건/일)이 리허설·시연 예상 호출 수보다 넉넉하다. `/admin/sources`는 미구현이라 Redis 호출 예산 카운터(`docker compose -f infra/compose.yaml exec redis redis-cli GET quota:<serviceId>:<YYYYMMDD>`, 날짜는 KST, [[07-DATA-PIPELINE\|07]] §2.2)와 `/admin/ingestion` 실행 상세의 호출 수(`quotaUsed`)로 본다. 결과를 `run-modes.md`에 기록 | 기동 거부면 거부 메시지의 모순 키를 고친다. 실패한 모드는 시연에서 빼고 기록한다. 한도 부족이면 `live` 장면을 빼거나 `fixture`로. live 공고가 DB에 남아 6·7번 수치가 달라지면 기록한다([[19-DEMO-SCENARIO\|19]] §2.1 결정 필요) |
 | 4a | S0 | 사전 분석 | 세 모드 확인이 `mock`으로 끝난 뒤 `pnpm demo:preanalyze`(`mock`·gateway 필수, 실행은 사용자 확인 뒤, [[19-DEMO-SCENARIO\|19]] §3 5번). 이 뒤로 `pnpm demo:reset`을 돌렸으면 다시 한다([[16-DECISIONS\|ADR-031]] C12(f)) | 대상 18건(`FX-02`·격리 `FX-12` 제외) 모두 `COMPLETED`. 기대 플래그: `MODEL_RULE_DISAGREEMENT`는 `FX-03`에만, `KEV_NEEDS_REVIEW`는 `FX-04`·`05`·`11`·`13`·`17`·`19`·`20`(mock Kev needsHumanReview 0.70 ≥ 임계 0.7, ADR-031 C11). 11번의 `FX-02` `KEV_NEEDS_REVIEW`(0.74)는 S4 라이브 분석 결과다 | 실패한 건은 기록하고 S2 기대값(6번) 차이를 함께 적는다 |
 | 5 | S0 | 로그인 | `sales@soltech.invalid`로 `/auth/login`(Supabase Auth) | `/dashboard` 이동. Topbar에 "실행 모드: mock"·`DEMO` 배지·`AI: mock`·수집 시각·🔔 | `admin@soltech.invalid`로 대체 |
@@ -292,7 +292,7 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 
 | 명령 | 검사 범위 / 원본 대조 표시 |
 |---|---|
-| `pnpm people:check:fixtures` | 저장된 카탈로그·공개 투영·명부·manifest 구조, 승인 배분·참조·남녀 100/100·27명 역할·기존 가상 100% 배정 7건·20 FTE 기간 검사. PLANNED 허용, 원본과 이미지 파일은 요구하지 않으며 `sourceComparison: "not-run"` |
+| `pnpm people:check:fixtures` | 저장된 카탈로그·공개 투영·명부·manifest 구조, 승인 배분·참조·남녀 100/100·200명 가상 역할·자격증·개인실적·가용성·기존 가상 100% 배정 7건·95.5 FTE 고정 기간 검사. PLANNED 허용, 원본과 이미지 파일은 요구하지 않으며 `sourceComparison: "not-run"` |
 | `pnpm people:check -- --input /절대경로/people.xlsx` | fixture 검사 + 원본 해시·250행(팀 가중치 175 + 제외 75)·미분류/범위·정확한 팀명/직급 가중치·ID/명부 재현·정규화 원본 이름 일치 0. 성공 시 `sourceComparison: "passed"`. 원본 누락은 `SOURCE_REQUIRED` 실패 |
 | `pnpm people:check:release -- --input /절대경로/people.xlsx` | 원본 필수 대조 + READY 200·고유 경로/해시 200·생성 metadata·PNG 파일/정사각형/실제 SHA-256 검사. PLANNED는 `PORTRAITS_INCOMPLETE` 실패 |
 
@@ -313,7 +313,7 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 | NAV-01 | 역할 4개(ADMIN·SALES·ANALYST·VIEWER)별 사이드바 노출과 URL 직접 접근 거부(403·404) |
 | NAV-02 | `/ops`: 비운영자·조직 ADMIN 모두 404, 운영자 정지 기능 회귀 없음 |
 | NAV-03 | 현재 조직: 업무 멤버십 0개 초대 안내 / 1개 진입 / 2개 이상 `403 UNSUPPORTED_ACCOUNT_STATE`. 요청에 실은 조직 ID는 무시·거부. S7 격리 404 유지 |
-| NAV-04 | 조직·인력 조회: 200명·27명 수 일치, 3단 트리, 본부·그룹 표시 인원 = 하위 팀 실제 인원 합(중복 없음), 본부·그룹 `targetCount` 없음이 정상, 상위 부서 없음·사진 없음에서 오류 없음, 검색·필터, 다른 조직 0행 |
+| NAV-04 | 조직·인력 조회: 200명·200명 수 일치, 3단 트리, 본부·그룹 표시 인원 = 하위 팀 실제 인원 합(중복 없음), 본부·그룹 `targetCount` 없음이 정상, 상위 부서 없음·사진 없음에서 오류 없음, 검색·필터, 다른 조직 0행 |
 | NAV-05 | 데이터 수집 관리: ADMIN 외 403(서버 가드 + RLS), 기록이 없는 항목은 빈 상태, 출처·실행 모드 표시 |
 | NAV-06 | 대시보드 분석 현황: 공고별 최신 1건 집계, 같은 공고 `force` 재분석 뒤 이중 집계 없음 |
 | NAV-07 | 설정 조직 탭: 비ADMIN 403·RLS 거부, 업무 역할 변경 감사 기록 |
@@ -327,7 +327,7 @@ P1([[12-ROADMAP|12 로드맵]] "있으면 좋음" 최상단, 데모 필수가 �
 |---|---|
 | NAV-P1-01 | 관심 공고: RLS(본인만·다른 조직 0행), 멱등 토글, 관심 인원 수 집계만 공개, 담당자 겸 관심 등록자에게 마감 알림 1건(중복 0) |
 | NAV-P1-02 | 입찰 프로젝트: BID 결정 없이 생성 거부, 수명 규칙(결정 변경 시 경고·상태 전진 차단, 자동 종료 없음), 상태 이력·감사 기록, 체크리스트 쓰기는 SALES·ADMIN만(정책 시험), 결과가 점수·결정 모델에 쓰이지 않음 |
-| NAV-P1-03 | 인력 배치 시뮬레이션: 단일 공고 가용 FTE = 그 공고 최신 `score_runs` 스냅샷 값, 기간 충돌 1건 탐지, 후보는 27명 안에서만, 저장 없음 |
+| NAV-P1-03 | 인력 배치 시뮬레이션: 단일 공고 가용 FTE = 그 공고 최신 `score_runs` 스냅샷 값, 기간 충돌 1건 탐지, 후보는 200명 안에서만, 저장 없음 |
 | NAV-P1-04 | 조직·인력 편집: ADMIN만(다른 역할 403·RLS 거부), 감사 기록, 편집 뒤 골든 94/72/68 그대로, 기존 `score_runs` 불변 |
 
 ### 9.1 ADR-021 가입·인력 저장 정합화 검증 (2026-10-17)

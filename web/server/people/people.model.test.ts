@@ -10,16 +10,30 @@ import {
 import { rows } from "./people.test-data";
 
 describe("safe full people directory", () => {
-  it("preserves all 200 people, 27 eligible and 173 null details", () => {
+  it("preserves all 200 people with calculation details", () => {
     const directory = buildPeopleDirectory(rows);
-    expect(directory.summary).toEqual({ totalCount: 200, scoringCount: 27 });
+    expect(directory.summary).toEqual({ totalCount: 200, scoringCount: 200 });
     expect(directory.members).toHaveLength(200);
-    expect(directory.members.filter((p) => p.scoringEligible)).toHaveLength(27);
+    expect(directory.members.filter((p) => p.scoringEligible)).toHaveLength(200);
     expect(
       rows.members
         .map((p) => toTeamMemberDetail(p, rows.scoring.find((s) => s.member_id === p.id) ?? null))
         .filter((p) => p.scoring === null),
-    ).toHaveLength(173);
+    ).toHaveLength(0);
+    for (const scoring of rows.scoring) {
+      const detail = toTeamMemberDetail(
+        rows.members.find((member) => member.id === scoring.member_id)!,
+        scoring,
+      );
+      expect(detail.scoring).toMatchObject({
+        skills: scoring.skills,
+        certifications: scoring.certifications,
+        pastProjects: scoring.past_projects,
+        availability: scoring.availability,
+        capabilitySource: "SYNTHETIC",
+        capabilityVersion: "synthetic-people/v1",
+      });
+    }
     expect(directory.jobTitles).toEqual(rows.jobTitles);
     expect(Object.keys(directory.members[0]).sort()).toEqual([
       "departmentId",
@@ -129,6 +143,10 @@ describe("safe full people directory", () => {
       grade: scoring.grade,
       skills: scoring.skills,
       availability: scoring.availability,
+      certifications: scoring.certifications,
+      pastProjects: scoring.past_projects,
+      capabilitySource: scoring.capability_source,
+      capabilityVersion: scoring.capability_version,
     });
     for (const invalid of [
       { ...scoring, skills: [7] },
@@ -142,7 +160,8 @@ describe("strict directory query", () => {
   it("normalizes search and filters with a stable personCode/id sort", () => {
     const query = parsePeopleQuery(new URLSearchParams("q=%20김%20&scoring=0&limit=100"));
     expect(query).toEqual({ q: "김", scoring: "0", limit: 100 });
-    const members = buildPeopleDirectory(rows).members;
+    const members = buildPeopleDirectory({ ...rows, scoring: rows.scoring.slice(20) }).members;
+    expect(members.filter((p) => !p.scoringEligible)).toHaveLength(20);
     const found = filterTeamMembers([...members].reverse(), query);
     expect(found.every((p) => p.name.includes("김") && !p.scoringEligible)).toBe(true);
     expect(found.map((p) => p.personCode)).toEqual(found.map((p) => p.personCode).toSorted());

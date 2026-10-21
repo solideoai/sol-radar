@@ -70,7 +70,7 @@ updated: 2026-10-21
 |GET|`/team-members/:id`|`ADMIN, SALES, ANALYST, VIEWER`|개인 상세(ADR-021). 점수 계산 대상이면 직무·등급·스킬·가용성|`TeamMemberDetail`(§4.7)|
 |PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|P1 착수 때 zod 계약으로 정한다|
 |GET|`/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|조직 분석 이력. 비교는 `GET /analyses/:id`를 최대 4번 부른다(P1, ADR-021)|`?bidId&status&recommendation&runMode&cursor` → `Page`(항목 형태는 P1 착수 때 정한다)|
-|GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 27명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=` → P1 착수 때 정한다|
+|GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 200명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=` → P1 착수 때 정한다|
 |POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사). 점수 속성은 받지 않는다(P1, ADR-021)|P1 착수 때 정한다|
 |GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 BID 결정(`reviewId`) 필수(P1, ADR-021)|BID 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
 |GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 BID가 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
@@ -494,11 +494,11 @@ interface TeamMemberListItem {
   id: string; personCode: string; name: string;  // personCode = SOL-P0001~SOL-P0200
   departmentId: string; jobTitleId: string;      // 소속은 팀만
   portraitUrl: string | null;                    // 없으면 이니셜로 대신 표시
-  scoringEligible: boolean;                      // team_member_scoring 행이 있는 27명
+  scoringEligible: boolean;                      // team_member_scoring 행이 있는 200명
   isDemo: true;
 }
 interface TeamMemberDetail extends TeamMemberListItem {
-  scoring: { role: string; grade: string | null; skills: unknown[]; availability: unknown[] } | null;  // 점수 계산 대상만. 원소 형태는 SOL Score 입력 `AnalysisInput.team.members`(15)·`TeamAvailability`(08 §3.3)와 같은 zod 스키마를 쓴다. 조직 구성원 누구나 읽는다(RLS로 다른 조직 0행)
+  scoring: { role: string; grade: string | null; skills: unknown[]; availability: unknown[]; certifications?: unknown[]; pastProjects?: unknown[]; capabilitySource?: "UNSPECIFIED" | "SYNTHETIC"; capabilityVersion?: string | null } | null;  // 점수 계산 대상만. 원소 형태는 SOL Score 입력 `AnalysisInput.team.members`(15)·`TeamAvailability`(08 §3.3)와 같은 zod 스키마를 쓴다. 조직 구성원 누구나 읽는다(RLS로 다른 조직 0행)
 }
 ```
 

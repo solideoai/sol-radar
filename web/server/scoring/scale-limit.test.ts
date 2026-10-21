@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { analyze } from "./analyze";
 import { buildInput, withPatch } from "./test-support";
 
-// FX-15: 예산 80억 > 단일 사업 수행 상한 50억 → scaleFit 0 + SCALE_LIMIT_EXCEEDED, 58 WATCH (08 §3.4, 11 §3.1).
+// FX-15: 예산 80억 > 단일 사업 수행 상한 50억 → scaleFit 0 + SCALE_LIMIT_EXCEEDED, 68 WATCH (08 §3.4, 11 §3.1).
 
 describe("FX-15 · 수행 상한 초과 → scaleFit 0점 + SCALE_LIMIT_EXCEEDED", () => {
-  it("상한 초과면 normalized 0·points 0·플래그, 점수 58, WATCH. 플래그가 권고를 직접 바꾸지 않는다", () => {
+  it("상한 초과면 normalized 0·points 0·플래그, 점수 68, WATCH. 플래그가 권고를 직접 바꾸지 않는다", () => {
     const result = analyze(buildInput("FX-15"));
     const scale = result.factors[3];
     expect(scale).toMatchObject({
@@ -21,8 +21,8 @@ describe("FX-15 · 수행 상한 초과 → scaleFit 0점 + SCALE_LIMIT_EXCEEDED
       limitExceeded: true,
     });
     expect(result.reviewFlags).toContain("SCALE_LIMIT_EXCEEDED");
-    expect(result.factors.map((factor) => factor.points)).toEqual([20, 20.1, 10, 0, 8]);
-    expect(result.score).toBe(58);
+    expect(result.factors.map((factor) => factor.points)).toEqual([20, 20.1, 20, 0, 8]);
+    expect(result.score).toBe(68);
     expect(result.recommendation).toBe("WATCH");
     expect(result.qualificationStatus).toBe("SATISFIED");
     expect(result.explanation).toContain("수행 상한을 넘어");
