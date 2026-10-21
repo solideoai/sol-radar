@@ -91,7 +91,7 @@ sequenceDiagram
 - **연결**: Supabase 간편 로그인과 따로 카카오 OAuth(`scope=talk_message`)를 받는다. 토큰은 웹 서버가 암호화해 RPC로 본인 행(`kakao_notify_links`, [[04-DATABASE|04 DB]])에 저장하고 worker만 복호화한다. 카카오 `unlink`는 부르지 않는다(같은 앱을 간편 로그인에 쓰면 로그인 연결도 끊긴다). 화면은 [[06-UI-UX|06 UI]] 개인 설정 "카카오톡 알림", API는 [[05-API-SPEC|05 API]] `/me/kakao-notify`, 비밀값·토큰 보관은 [[09-SECURITY|09 보안]].
 - **인앱 목록**: 인앱 알림 목록과 안 읽음 수는 `channel = 'IN_APP'`만 센다(카카오 행이 안 읽음 수를 부풀리지 않게, 구현 중).
 - **로그**: 이벤트마다 JSON 한 줄인 규칙은 그대로다. 토큰·메시지 본문·공고명·카카오 사용자 ID는 싣지 않는다.
-- **구현 상태(2026-10-21)**: `feat/kakao-notify`에 DB(`d327894`, 마이그레이션 `20261021000001`·`20261021000002`)와 도메인(`ced705f`, `web/server/kakao-notify`)을 커밋했다. 알림 소비자(`web/server/notifications/kakao.*`)와 worker 연결·env(`web/worker/notify-outbox.ts`, `compose.yaml` worker 키 다섯 개)는 `52adabb`로 커밋했다. Route Handler·설정 화면·인앱 목록 필터는 구현 중이고, 보강 커밋도 진행 중이다. 카카오 S0 수신 시험(실제 휴대폰 수신, 알림 울림, `talk_message` 검수 필요 여부, 설계 §11)은 사용자 몫이고 아직이다. 알림이 울리지 않으면 멈추고 사용자가 정한다. 10-23 freeze 전에 끝내지 못하면 해커톤에서는 기능을 빼고 문서·ADR만 남긴다.
+- **구현 상태(2026-10-21)**: `feat/kakao-notify`에 DB(`d327894`, 마이그레이션 `20261021000001`·`20261021000002`)와 도메인(`ced705f`, `web/server/kakao-notify`)을 커밋했다. 알림 소비자(`web/server/notifications/kakao.*`)와 worker 연결·env(`web/worker/notify-outbox.ts`, `compose.yaml` worker 키 다섯 개)는 `52adabb`로 커밋했다. Route Handler·설정 화면·인앱 목록 필터는 구현 중이고, 보강 커밋도 진행 중이다. 카카오 S0 수신 시험(실제 휴대폰 수신, 알림 울림, `talk_message` 검수 필요 여부, 설계 §11)은 사용자 몫이고 아직이다. 알림이 울리지 않으면 멈추고 사용자가 정한다. 10-24 22:00 freeze 전에 끝내지 못하면 해커톤에서는 기능을 빼고 문서·ADR만 남긴다.
 
 ## 관련 문서
 - [[01-PRD|01 PRD]]

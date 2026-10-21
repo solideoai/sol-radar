@@ -177,18 +177,18 @@ flowchart TD
 |---|---|---|---|---|
 | 업무 | 대시보드 | `/dashboard` | `layout-dashboard` | 예 |
 | 업무 | 입찰 공고 | `/bids` | `file-text` | 예 |
-| 업무 | 관심 공고 | `/watchlist` | `star` | 준비 중 (P1) |
+| 업무 | 관심 공고 | `/watchlist` | `star` | 준비 중 (P1 N3, [[16-DECISIONS\|ADR-042]]로 구현 중. 10-24 freeze까지 green이면 예) |
 | 업무 | 알림 | `/notifications` | `bell` | 예 |
-| AI 분석 | 분석 결과 비교 | `/analysis` | `git-compare-arrows` | 준비 중 (P1) |
-| AI 분석 | 인력 배치 시뮬레이션 | `/workforce` | `users-round` | 준비 중 (P1) |
-| 입찰 관리 | 입찰 프로젝트 | `/projects` | `folder-kanban` | 준비 중 (P1) |
+| AI 분석 | 분석 결과 비교 | `/analysis` | `git-compare-arrows` | 준비 중 (P1 N5, [[16-DECISIONS\|ADR-042]]로 구현 중. 10-24 freeze까지 green이면 예) |
+| AI 분석 | 인력 배치 시뮬레이션 | `/workforce` | `users-round` | 준비 중 (P1 N7, [[16-DECISIONS\|ADR-042]]로 구현 중. 10-24 freeze까지 green이면 예) |
+| 입찰 관리 | 입찰 프로젝트 | `/projects` | `folder-kanban` | 준비 중 (P1 N6, [[16-DECISIONS\|ADR-042]]로 구현 중. 10-24 freeze까지 green이면 예) |
 | 조직 | 회사 역량 | `/company` | `award` | 예 |
 | 조직 | 조직·인력 | `/people` | `users` | 예 |
 | 시스템 | 설정 | `/settings` | `settings` | 예 (조직 탭은 확장 컷) |
 | 시스템 | 데이터 수집 관리 | `/admin/ingestion` | `database` | 예 (ADMIN만) |
 | 맨 아래 고정 칸 | 조직도 | `/org-chart` | `network` | 예 |
 
-"해커톤 노출"은 2026-10-21 main(`app-nav.ts`) 기준이다. "예"는 링크로 보이고, "준비 중"은 링크 없이 보인다. 설정의 조직 탭은 아직 확장 컷이다([[16-DECISIONS|ADR-023]], [[12-ROADMAP|12 로드맵]]). 아이콘 이름은 `web/`에 설치된 `lucide-react`에서 확인했다. React에서는 `LayoutDashboardIcon`처럼 `Icon` 접미사 이름으로 부른다.
+"해커톤 노출"은 2026-10-21 main(`app-nav.ts`) 기준이다. "예"는 링크로 보이고, "준비 중"은 링크 없이 보인다. P1 메뉴 4개는 2026-10-21 [[16-DECISIONS|ADR-042]]로 구현에 들어갔고, 10-24 22:00 freeze까지 완료 기준(설계 §3.2)을 채운 것만 `released`로 바꿔 "예"가 된다. 설정의 조직 탭은 아직 확장 컷이다([[16-DECISIONS|ADR-023]], [[12-ROADMAP|12 로드맵]]). 아이콘 이름은 `web/`에 설치된 `lucide-react`에서 확인했다. React에서는 `LayoutDashboardIcon`처럼 `Icon` 접미사 이름으로 부른다.
 
 ## 5. 라우트별 명세
 
