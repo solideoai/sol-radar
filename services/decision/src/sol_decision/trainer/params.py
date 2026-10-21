@@ -1,7 +1,9 @@
 """모델 로딩·동결·학습 파라미터 집계(ADR-034 7번). torch 가 필요하다.
 
-- 로딩: `AutoModelForCausalLM.from_pretrained(package_dir, trust_remote_code=True, local_files_only=True, dtype=…)`.
+- 로딩: `package.verify_package(package_dir)`(manifest sha256·최상위 *.py 대조) 를 지난 뒤에만
+  `AutoModelForCausalLM.from_pretrained(package_dir, trust_remote_code=True, local_files_only=True, dtype=…)`.
   패키지의 `modeling_bosun.py` 가 백본(HF 캐시)·어댑터(`is_trainable=False`)·decision 임베딩을 조립한다.
+  위반이면 PackageError(train·parity 는 exit 2).
 - 동결: 이름에 `lora_` 가 든 PEFT 파라미터만 `requires_grad=True`. 백본·decision token 임베딩(입·출력 256행)·토크나이저 동결.
 - 집계: 공개 r=16 어댑터 기준 392 텐서 · 10,092,544 파라미터와 다르면 중단한다.
 """
@@ -13,6 +15,8 @@ from pathlib import Path
 from typing import Any
 
 import torch
+
+from sol_decision.package import verify_package
 
 EXPECTED_LORA_TENSORS = 392
 EXPECTED_LORA_PARAMS = 10_092_544
@@ -53,12 +57,15 @@ def resolve_dtype(device: torch.device, bf16: bool | None) -> torch.dtype:
 
 
 def load_bosun(package_dir: Path, *, device: torch.device, dtype: torch.dtype) -> Any:
-    """패키지 디렉터리에서 Bosun 을 올린다(네트워크 없이. 백본은 HF 캐시, `HF_HUB_OFFLINE=1` 권장)."""
+    """패키지 디렉터리에서 Bosun 을 올린다(네트워크 없이. 백본은 HF 캐시, `HF_HUB_OFFLINE=1` 권장).
+
+    `trust_remote_code=True` 는 패키지의 `modeling_bosun.py` 를 실행하므로, 먼저 manifest 의 sha256 과
+    최상위 `*.py` 목록을 대조한다(위반이면 PackageError. `config.json` 누락도 여기서 CONFIG_MISSING 으로 잡힌다).
+    """
 
     from transformers import AutoModelForCausalLM
 
-    if not (package_dir / "config.json").is_file():
-        raise ParameterContractError(f"{package_dir} is not a Bosun package (config.json missing)")
+    verify_package(package_dir)
     model = AutoModelForCausalLM.from_pretrained(
         str(package_dir),
         trust_remote_code=True,

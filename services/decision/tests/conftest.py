@@ -51,6 +51,8 @@ def _isolate_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
         "DECISION_API_KEY",
         "DECISION_TIMEOUT_MS",
+        "DECISION_MAX_QUEUE",
+        "DECISION_ALLOW_KO_STATE",
         "DECISION_RUN",
         "DECISION_REVISION",
         "DECISION_BASE",
@@ -66,10 +68,17 @@ def make_client() -> Callable[..., TestClient]:
         timeout_ms: int = 4_500,
         alias: str = ALIAS,
         seed: int = 0,
+        max_queue: int = 4,
+        allow_ko_state: bool = False,
         clock=None,
     ) -> TestClient:
         config = ServerConfig(
-            api_key=SecretStr(API_KEY), alias=alias, timeout_ms=timeout_ms, seed=seed
+            api_key=SecretStr(API_KEY),
+            alias=alias,
+            timeout_ms=timeout_ms,
+            seed=seed,
+            max_queue=max_queue,
+            allow_ko_state=allow_ko_state,
         )
         kwargs = {} if clock is None else {"clock": clock}
         app = create_app(backend or FakeBackend(), config, **kwargs)
