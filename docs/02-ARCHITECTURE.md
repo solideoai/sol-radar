@@ -69,6 +69,7 @@ web/app/health/{live,ready}/route.ts  # 헬스체크 /health/live, /health/ready
 web/worker/               # BullMQ 소비자 진입점(지금 system·ingest·analysis 소비자 + documents 큐 생산·복구 + DB outbox 주기 처리. documents·extract 소비자 없음). web/server 도메인 코드를 같이 쓴다(같은 코드베이스의 별도 프로세스)
 supabase/migrations/      # 스키마·RLS·함수(append-only, 이미 있는 파일은 고치지 않는다)
 services/ai/              # Python AI gateway (FastAPI :8000), adapters/mock.py·kev.py·qwen.py
+services/decision/        # 결정 모델 서버 sol_decision(Bosun v3.1 0.6B, Kev wire POST /v1/systemone, :8009)과 학습기. 회사 GPU 서버에서 띄운다. main 1b68f9b(B1)
 infra/compose.yaml        # redis, minio, qdrant, ai-gateway, worker 5개. web 은 호스트 실행(Compose 에 없음). 실행 프로필은 env 묶음(infra/env/)
 fixtures/                 # FX-01 ~ FX-20
 scripts/                  # 검증·seed(템플릿 scripts 재사용: db-seed, db-push, db-types, database.test 등)
