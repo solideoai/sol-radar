@@ -31,6 +31,8 @@ supabase/.branches/
 
 # 배포
 .vercel
+# Vercel AI 빌드가 정본(infra/·fixtures/)에서 복사하는 런타임 데이터
+services/ai/runtime_data/
 
 # 브라우저 확인 도구가 남기는 스크린샷·로그
 .playwright-mcp/

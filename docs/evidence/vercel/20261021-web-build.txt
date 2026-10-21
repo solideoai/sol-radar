@@ -1,0 +1,20 @@
+
+> sol-radar-web@0.1.0 build /private/var/folders/sw/xzng6l391rq76yj720bq6c1r0000gn/T/sol-radar-vercel-check-fqddbbcz/web
+> next build
+
+▲ Next.js 16.4.1 (Turbopack)
+✓ Running next.config.ts took 18ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.3s
+  Running TypeScript ...
+e2e-auth/support/local-status.ts(2,33): error TS2307: Cannot find module '@test-harness/local-test-target.mjs' or its corresponding type declarations.
+server/analysis/preanalyze.test-support.ts(7,39): error TS2307: Cannot find module '@test-harness/demo-plan.mjs' or its corresponding type declarations.
+server/analysis/store.test-support.ts(15,8): error TS2307: Cannot find module '@test-harness/demo-bid-notices.mjs' or its corresponding type declarations.
+server/analysis/store.test-support.ts(23,8): error TS2307: Cannot find module '@test-harness/demo-plan.mjs' or its corresponding type declarations.
+server/analysis/store.test-support.ts(24,64): error TS2307: Cannot find module '@test-harness/people-seed.mjs' or its corresponding type declarations.
+server/analysis/store.test-support.ts(29,8): error TS2307: Cannot find module '@test-harness/supabase-pglite.mjs' or its corresponding type declarations.
+server/notifications/outbox-db.test-support.ts(15,8): error TS2307: Cannot find module '@test-harness/supabase-pglite.mjs' or its corresponding type declarations.
+Failed to type check.
+
+ ELIFECYCLE  Command failed with exit code 1.
