@@ -1,0 +1,35 @@
+$ docker context inspect --format {{.Endpoints.docker.Host}}
+unix:///Users/leegwanghui/.docker/run/docker.sock
+$ docker network create --opt com.docker.network.bridge.enable_ip_masquerade=false --label sol.f08=sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f
+ad6b4cf1ecdd8f05f0512a9f8ed6405064f21398b828575bb9bf2cfb9019465a
+$ docker run --detach --name sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f --network sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f --label sol.f08=sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f --publish 127.0.0.1::16379 --read-only --user redis --tmpfs /data:rw,noexec,nosuid,size=16m,mode=1777 --cap-drop ALL --security-opt no-new-privileges --memory 128m --cpus 1 redis:7.4-alpine redis-server --port 16379 --save  --appendonly no --protected-mode no
+660a6a57f06570d63893262ad1a31f955491f169e00488af09a79aa3479f1a32
+$ docker inspect --format {"running":{{json .State.Running}},"labels":{{json .Config.Labels}},"networks":{{json .NetworkSettings.Networks}},"mounts":{{json .Mounts}},"ports":{{json .NetworkSettings.Ports}}} sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f
+{"running":true,"labels":{"sol.f08":"sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f"},"networks":{"sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f":{"IPAMConfig":null,"Links":null,"Aliases":null,"MacAddress":"02:42:ac:1d:00:02","DriverOpts":null,"NetworkID":"ad6b4cf1ecdd8f05f0512a9f8ed6405064f21398b828575bb9bf2cfb9019465a","EndpointID":"5906bf1d8cf4b6b8763da429745c53eeb5cd344c347fa4f179f07f01836e7139","Gateway":"172.29.0.1","IPAddress":"172.29.0.2","IPPrefixLen":16,"IPv6Gateway":"","GlobalIPv6Address":"","GlobalIPv6PrefixLen":0,"DNSNames":["sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f","660a6a57f065"]}},"mounts":[],"ports":{"16379/tcp":[{"HostIp":"127.0.0.1","HostPort":"61589"}],"6379/tcp":null}}
+ISOLATED redis=127.0.0.1:61589, internal container port=16379
+$ docker image inspect redis:7.4-alpine --format {{.Id}} {{json .RepoDigests}}
+sha256:db1bf92695ab04a675308ded995fb54f73a8dafdc4b7b5dbe60a62e8c7c94039 ["redis@sha256:892022f9f18c26c92c30e15194d132f90044af87b94a491a75429bbc3982eab1"]
+Redis 7.4.11
+PASS reserve actual Lua: used=1 TTL=172800s (2 days)
+PASS exhaustion actual Lua: used=10 denied=true TTL=172800s; above-limit=12 preserved
+PASS accelerated physical expiration: absent -> reserve=1, TTL reset to 2 days
+PASS KST 23:59:59 -> 00:00:00: quota:midnight:20261022=1 quota:midnight:20261023=1, HTTP=2
+PASS last-slot race: 16 independent clients x 20 rounds, overshoots=0
+PASS 16 simultaneous manual/scheduled live job handlers: HTTP=1, SUCCEEDED=1 FAILED=15
+PASS 503 retry with final slot: HTTP=1 FAILED, second HTTP blocked
+FAULT disconnect: {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]} used=0 elapsed=2004ms
+FAULT response-loss: {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]} used=1 elapsed=2004ms
+FAULT timeout: {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]} used=0 elapsed=2006ms
+PASS ACL no EVAL/EVALSHA: live g2b/MANUAL {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]}
+PASS ACL no EVAL/EVALSHA: live g2b/SCHEDULED {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]}
+PASS ACL no EVAL/EVALSHA: live lh/MANUAL {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]}
+PASS ACL no EVAL/EVALSHA: live lh/SCHEDULED {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]}
+PASS minimum quota ACL: GET EVAL INCR EXPIRE SET (+client handshake); EVALSHA not used by current store
+AUX READ DISCONNECT: {"status":"FAILED","http":1,"errors":["QUOTA_STORE_UNAVAILABLE"]}
+PASS Redis disconnect after list: list HTTP=1, auxiliary HTTP=0, FAILED with QUOTA_STORE_UNAVAILABLE
+ALL ISOLATED REDIS CHECKS PASSED; no external HTTP or operational services used
+$ docker rm --force sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f
+sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f
+$ docker network rm sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f
+sol-f08-63b88e07-e026-4f89-afff-9a51a9e63d3f
+CLEANUP: disposable Redis container and its dedicated network removed

@@ -39,6 +39,8 @@ export function createExternalApiConnector(options: ExternalConnectorOptions): E
     if (!request.ok) return request;
     const capturePartition = `${request.partition}:${request.window.from}:${request.window.to}:page:${request.pageNo}`;
     try {
+      const denied = await input.beforeRequest?.();
+      if (denied) return { ok: false, failure: denied };
       const response = await options.fetch(request.url, {
         signal: AbortSignal.timeout(timeoutMs),
         redirect: "error",

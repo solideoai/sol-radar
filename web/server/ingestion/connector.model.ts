@@ -5,7 +5,14 @@ import type { FixtureRecord } from "./fixture.model";
 // ── 07 §2 Connector 계약: 출처마다 페이지 하나를 받아 오는 방법만 다르고, 결과 모양은 같다 ──
 export const CONNECTOR_TIMEOUT_MS = 15_000;
 
-export type FetchPageInput = { from: string | null; to: string | null; cursor: string | null };
+/** 내부 HTTP 경계용. 실패는 송신 전에 반환하며 URL/키를 전달하지 않는다. */
+export type BeforeApiRequest = () => Promise<ConnectorFailure | null>;
+export type FetchPageInput = {
+  from: string | null;
+  to: string | null;
+  cursor: string | null;
+  beforeRequest?: BeforeApiRequest;
+};
 
 export type RateLimitInfo = {
   limit: number | null;
@@ -49,6 +56,7 @@ export const CONNECTOR_FAILURE_KINDS = [
   "HTTP_ERROR",
   "RESULT_CODE",
   "QUOTA_EXCEEDED",
+  "QUOTA_UNAVAILABLE",
   "TIMEOUT",
   "FIXTURE_INVALID",
   // data.go.kr 게이트웨이가 키를 거부했다(등록 안 됨·기한 만료). 다시 불러도 같아 재시도하지 않는다(5-A)
@@ -98,6 +106,7 @@ const INGEST_ERROR_CODE: Readonly<Record<ConnectorFailureKind, string>> = {
   HTTP_ERROR: "API_HTTP_ERROR",
   RESULT_CODE: "API_RESULT_CODE",
   QUOTA_EXCEEDED: "API_QUOTA_EXCEEDED",
+  QUOTA_UNAVAILABLE: "QUOTA_STORE_UNAVAILABLE",
   TIMEOUT: "API_TIMEOUT",
   FIXTURE_INVALID: "SCHEMA_INVALID",
   SERVICE_KEY_INVALID: "API_SERVICE_KEY_INVALID",

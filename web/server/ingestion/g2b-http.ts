@@ -1,5 +1,5 @@
 import "server-only";
-import type { ConnectorFailure, ConnectorFailureKind } from "./connector.model";
+import type { BeforeApiRequest, ConnectorFailure, ConnectorFailureKind } from "./connector.model";
 import {
   G2B_GATEWAY_KEY_ERROR_CODES,
   G2B_RESPONSE_MAX_BYTES,
@@ -34,6 +34,7 @@ export type G2bHttp = {
     url: string,
     operation: string,
     parseEnvelope: (body: unknown) => G2bEnvelope,
+    beforeRequest?: BeforeApiRequest,
   ): Promise<G2bEnvelopeResult>;
 };
 
@@ -190,7 +191,10 @@ export function createG2bHttp(options: {
     url: string,
     operation: string,
     parseEnvelope: (body: unknown) => G2bEnvelope,
+    beforeRequest?: BeforeApiRequest,
   ): Promise<G2bEnvelopeResult> {
+    const denied = await beforeRequest?.();
+    if (denied) return { ok: false, failure: denied };
     const requested = await request(url, operation);
     if (!requested.ok) return requested;
     const { response } = requested;

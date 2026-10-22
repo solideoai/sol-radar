@@ -9,6 +9,10 @@ updated: 2026-10-22
 
 # 진행 상황
 
+## 외부 수집 F08 일일 호출 예산 원자적 예약 (2026-10-22, 로컬)
+
+`fix/ingestion-quota-reservation`에 최신 `origin/main@02fc7c9`를 fast-forward하고 기존 F08 변경을 복원했다. 진행 문서는 양쪽 기록을 보존했고 main에는 쓰지 않았다. 실제 HTTP 직전 Lua 예약을 일회용 Redis7.4.11에서 검증했다. TTL2일·KST 자정·16클라이언트 경합20회 초과0·503 마지막 슬롯·전송 장애·ACL 거부를 확인했다. 실검증에서 발견한 미응답 EVAL 자동 재전송과 보조 조회 전 저장소 장애의 성공 처리를 RED→GREEN으로 수정했다. [격리 Redis 명령·출력·한계](evidence/ingestion/20261022-f08-isolated-redis.md), [최종 변경 범위 검사 출력](evidence/ingestion/20261022-f08-verify-changed.txt), [최초 구현 기록](evidence/ingestion/20261022-f08-quota-reservation.md)을 따른다. 옛 Worker 먼저 정지 후 새 Worker 기동 절차와 quota 최소 ACL은 회사 실행서에 기록했다. 기존 미커밋 외부 수집 계획 문서는 별도 변경이므로 커밋 범위에서 제외한다. F07/F13/F14·Registry 활성화·운영 접속/변경·커밋·push는 수행하지 않았다.
+
 ## 미발행 커밋 push·main 통합 (2026-10-22)
 
 사용자의 “커밋은 했는데 push 안 된 것들 push 하고 main에 합쳐” 요청으로 미발행 제품 브랜치17개를 origin에 보존하고 최신 main `d57fcae` 기준 native 격리 작업 트리에서 기능/이력을 통합한다. AI 번역·N2·S5·P0-8·카카오·지원사업·회사 runtime 준비를 이식하며 기존 공공조달 UI·N3/N5/N6/N7·Storage·인력200·모델/점수를 보존한다. 기존 main의 미커밋40개는 이미 별도 커밋된 사본과 byte일치를 확인했고 원본/안전 사본을 보존한다. 새 migration8개는 forward로 추가하고 운영 DB에는 실행하지 않는다. 전체 `pnpm verify`(루트202·웹469·AI153·결정57·Next빌드), 격리 localhost DB49개/기존 데이터 불변, 변경 화면18개·14스크린샷과 독립 리뷰를 통과했다. 기능 `6b4ff0a`·원본 이력 `73eac5a`를 main에 병합·push했고 원격 일치·제품21개 tip 도달·제품 미발행0을 확인했다. 기존40개는 커밋 사본과 안전 stash에 보존했다. 완료 결과는 [통합 기록](evidence/committed-integrations/integration.md)을 따른다. 아래는 각 작업 시점 기록이다.

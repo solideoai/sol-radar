@@ -1,0 +1,327 @@
+
+> sol-radar@0.1.0 verify:changed /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations
+> node scripts/verify-changed.mjs
+
+변경 23개 · 검사 3개 (기준 HEAD)
+▶ .: pnpm format:check
+
+> sol-radar@0.1.0 format:check /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations
+> prettier --check . "!web/**"
+
+Checking formatting...
+All matched files use Prettier code style!
+✓ .: pnpm format:check (2.9초)
+▶ .: pnpm test
+
+> sol-radar@0.1.0 test /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations
+> node --test "scripts/**/*.test.mjs"
+
+▶ Dependabot 작성자 판별
+  ✔ GitHub 이 봇에 주는 noreply 주소를 알아본다 (2.198ms)
+  ✔ 사람·다른 봇·비슷한 글자의 주소는 아니다 (0.23875ms)
+✔ Dependabot 작성자 판별 (3.920542ms)
+▶ 메시지 문제 모으기
+  ✔ Dependabot 커밋은 제목이 길어도 문제로 잡지 않는다 (1.6365ms)
+  ✔ 사람이 쓴 같은 제목은 그대로 잡는다 (0.814125ms)
+  ✔ Dependabot 커밋이어도 PR 제목은 사람 몫이라 검사한다 (0.663125ms)
+  ✔ 작성자가 없는 커밋(옛 호출자)은 사람이 쓴 것으로 본다 (0.296125ms)
+  ✔ squash 병합이 붙인 ' (#번호)' 는 첫 줄 끝에서 한 번만 뗀다 (0.172958ms)
+  ✔ PR 제목에는 병합·autosquash 예외가 없고 되돌리기만 남는다 (0.737ms)
+✔ 메시지 문제 모으기 (4.672958ms)
+▶ 임시 저장소에서 검사
+  ✔ 범위의 커밋마다 작성자 이메일을 함께 읽는다 (469.928917ms)
+  ✔ Dependabot 커밋 + 50자 이내 PR 제목은 통과하고, 제외했다고 알린다 (466.087458ms)
+  ✔ Dependabot 커밋이어도 PR 제목이 길면 막는다 (500.940333ms)
+  ✔ 사람이 쓴 긴 커밋은 Dependabot 커밋과 섞여 있어도 막는다 (709.656708ms)
+  ✔ 사람 커밋만 있으면 제외 안내가 붙지 않는다 (330.912958ms)
+✔ 임시 저장소에서 검사 (2479.56975ms)
+✔ checkEnv: frontend requires HTTPS service API, not Redis TCP/MinIO/AI direct URLs (65.279042ms)
+✔ checkEnv: redis-api needs a server token and rejects an unknown role (22.24625ms)
+✔ resolveRunMode: 미지정이면 mock (1.468917ms)
+✔ resolveRunMode: 빈 문자열은 미지정과 같다 (0.591875ms)
+✔ resolveRunMode: 정상 조합 통과 (0.685375ms)
+✔ resolveRunMode: 모순은 키 이름으로 알린다 (0.4725ms)
+✔ resolveRunMode: 세 모드 모두 KEV_ENABLED=false 를 허용한다 (0.141792ms)
+✔ resolveRunMode: KEV_ENABLED 미지정이면 세 모드 모두 true (0.13275ms)
+✔ resolveRunMode: KEV_ENABLED 대소문자·공백 변형은 모순 (0.23275ms)
+✔ resolveRunMode: M2 fixture 의 hosted + 한국어 state 는 FORBIDDEN_WITH_HOSTED (0.127375ms)
+✔ resolveRunMode: M2 live 는 모드 금지 → hosted 금지 → 승인 순서 (0.093208ms)
+✔ resolveRunMode: M2 mock 에 hosted 값 + 한국어 state (0.351041ms)
+✔ resolveRunMode: M2 fixture 의 local + 한국어 state 는 위반 없음 (0.380375ms)
+✔ resolveRunMode: 알 수 없는 모드는 mode·effective 가 null (0.065875ms)
+✔ resolveRunMode: 금지 키는 값이 금지 값과 정확히 같을 때만 위반 (0.140084ms)
+✔ checkEnv: infra/.env 가 없으면 MISSING_FILE (10.6885ms)
+✔ checkEnv: 정상 mock 구성은 통과 (4.844625ms)
+✔ checkEnv: CHANGE_ME 와 minioadmin 을 placeholder 로 센다 (6.072042ms)
+✔ checkEnv: web/.env.local 의 SUPABASE_SERVICE_ROLE_KEY 는 FORBIDDEN_KEY (14.167459ms)
+✔ checkEnv: live 인데 빠진 서비스키마다 MISSING_KEY, mock 은 통과 (12.784375ms)
+✔ checkEnv: web/.env.local 의 서비스키 4종은 FORBIDDEN_KEY (4.813458ms)
+✔ checkEnv: infra 가 fixture 인데 web 에 SOL_RUN_MODE 가 없으면 CONTRADICTS_MODE (3.126958ms)
+✔ checkEnv: web SOL_RUN_MODE 가 infra 와 같으면 통과한다 (3.389458ms)
+✔ checkEnv: 알 수 없는 모드면 모드별 필수 키를 보지 않는다 (3.553083ms)
+✔ checkEnv: 필수 키가 빈 문자열이면 MISSING_KEY (4.856084ms)
+✔ checkEnv: 루트 .env.local 은 있으면 placeholder 만 센다 (23.663333ms)
+✔ CLI: 통과하면 exit 0 과 정해진 마지막 줄 (131.254ms)
+✔ CLI: 실패하면 exit 1 과 요약 줄 (181.414834ms)
+✔ CLI 출력에 비밀값이 없다 (149.415583ms)
+✔ resolveRunMode: 위반 여러 건은 판정 순서대로 나온다 (0.272209ms)
+✔ checkEnv: fixture 에서 QWEN_API_KEY 가 빠지거나 비면 MISSING_KEY (9.011333ms)
+✔ checkEnv: live 에서 QWEN_API_KEY 가 빠지면 MISSING_KEY (8.41225ms)
+✔ checkEnv: fixture 에서 KEV_API_KEY 가 빠지면 MISSING_KEY (17.853292ms)
+✔ checkEnv: 승인된 hosted 에서 HOSTED_API_* 가 빠지면 MISSING_KEY (15.992625ms)
+✔ checkEnv: web/.env.local 이 없으면 MISSING_FILE (7.383209ms)
+✔ checkEnv: web 필수 키가 빠지면 MISSING_KEY (4.754333ms)
+✔ checkEnv: web 금지 키는 대소문자를 구분하지 않는다 (8.708875ms)
+✔ checkEnv: process.env 는 판정에 쓰지 않는다 (9.956042ms)
+✔ checkEnv: web/.env.production 의 금지 키는 그 파일 이름으로 FORBIDDEN_KEY (7.875208ms)
+✔ checkEnv: web/.env.example 의 금지 키는 무시한다 (9.094583ms)
+✔ checkEnv: web 의 QWEN_API_KEY·KEV_API_KEY·HOSTED_API_KEY 는 FORBIDDEN_KEY (4.830209ms)
+✔ checkEnv: REDIS_PASSWORD 에 영숫자 외 문자가 있으면 INVALID_FORMAT, 16진수는 통과 (252.389542ms)
+✔ checkEnv: web 에 API_CURSOR_SECRET 이 없으면 MISSING_KEY (3.971417ms)
+✔ checkEnv: API_CURSOR_SECRET 이 32자 미만이면 INVALID_FORMAT, 값은 출력하지 않는다 (239.920208ms)
+✔ checkEnv: API_CURSOR_SECRET 은 앞뒤 공백을 뗀 길이로 잰다(공백만 32자 이상이면 INVALID_FORMAT) (53.613583ms)
+✔ Supabase Storage replacement does not require MinIO credentials or endpoint (10.848375ms)
+✔ redis-api accepts Worker health reports without a direct AI gateway URL (13.330041ms)
+✔ durable Kakao claims serialize organizations and test-event retries without exposing the ledger to users (2895.910833ms)
+✔ Kakao connection RPCs expose only the caller's safe columns and keep encrypted tokens private (886.757292ms)
+✔ public programs allow active members to read notices while all client writes and private run reads stay closed (855.2555ms)
+✔ score completion preserves organization and attempt guards, the translation flag, and one recommendation event per bid (880.121ms)
+✔ RLS 검사기는 긴 함수 서명을 자르지 않고 허용 함수와 위험 함수를 구별한다 (3111.212208ms)
+▶ Supabase Storage — immutable objects and private access
+  ✔ 00702 preserves existing raw/parsed paths and references while new incarnations use UUID paths (903.385709ms)
+  ✔ keeps two document references to the same checksum, and serializes upload ownership (181.036416ms)
+  ✔ only active business members can read referenced raw objects; anonymous, parsed, unreferenced and direct writes stay closed (198.430083ms)
+  ✔ upload/DB failure preserves the object and expired ownership recovers; deleting objects cannot gain references (202.682791ms)
+  ✔ a delayed expired deleter cannot target a new document with the same logical checksum key (198.59225ms)
+✔ Supabase Storage — immutable objects and private access (1685.134209ms)
+▶ SOL RADAR 표 정책 — 업무 역할·조직 격리
+  ✔ public의 모든 일반 테이블에 RLS가 켜져 있다 (172.848041ms)
+  ✔ 번역 누락 결과를 검토 플래그와 함께 마감하고 알 수 없는 플래그는 거절한다 (203.195083ms)
+  ✔ ADR047 — 출처 사본을 한 기회로 묶어도 공고·분석·사람 결정 FK와 조직 격리를 보존한다 (245.825375ms)
+  ✔ ADR047 — 재분석·단계 연결·출처 충돌·재판정에도 현재 결과와 집계가 정확하다 (251.168125ms)
+  ✔ G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만 (200.609292ms)
+  ✔ 공고 다섯 표는 조직 소유가 아니다 — org-02 VIEWER 와 비멤버 운영자도 활동 중이면 읽고, ADMIN 이라도 넣기·고치기·지우기는 권한 오류다 (190.493125ms)
+  ✔ 운영자(profiles.is_admin)는 멤버가 아닌 조직의 SOL 표를 하나도 읽지 못한다 — 조직 표 아홉 개와 운영 표 셋 모두 0행이고 정책 도우미도 빈 목록이다 (194.379708ms)
+  ✔ outbox_events 는 내부 표다 — ADMIN·VIEWER·org-02·로그아웃 누구도 읽지도 쓰지도 못한다(권한 오류) (185.894167ms)
+  ✔ 로그아웃한 사람(anon)은 SOL 표 열여덟 개를 읽지도 쓰지도 못하고 정책 도우미 my_sol_org_ids 도 부르지 못한다 — 모두 권한 오류 (192.034292ms)
+  ✔ 운영 표(수집 run·수집 오류·평가 결과)는 어느 조직에서든 ADMIN 인 사람만 읽는다 — SALES·ANALYST·VIEWER·org-02 는 0행이고 ADMIN 도 쓰지는 못한다 (199.696542ms)
+  ✔ 감사 기록은 그 조직의 ADMIN 만 읽는다 — SALES·ANALYST·VIEWER·org-02·운영자는 0행이고, ADMIN 도 org-02 것은 보지 못하며 아무도 직접 쓰지 못한다 (194.071042ms)
+  ✔ 분석 요청은 ADMIN·SALES·ANALYST 가 QUEUED 행으로만 넣는다 — VIEWER·org-02 는 정책 오류, 상태·결과·요청자·스냅샷 열은 권한이 없고, 상태 전이·지우기는 worker 몫이며 ANALYSIS_REQUEST 감사가 남는다 (252.863458ms)
+  ✔ 결정 기록은 ADMIN·SALES 만 넣는다 — ANALYST·VIEWER·org-02 는 정책 오류, 권고·불일치 플래그·검토자·시각은 열 권한이 없고 트리거가 채우며, REVIEW_DECIDE 감사와 담당자가 있을 때 REVIEW_ASSIGNED outbox 1건이 같은 트랜잭션에 남는다 (198.36ms)
+  ✔ 결정의 분석 run 은 같은 조직·같은 공고의 것만이고(score_run_mismatch) 담당자는 같은 조직 멤버만이다(bid_reviews_assignee_fkey) — 담당자가 조직을 나가면 담당자만 비고 결정은 남는다 (198.111833ms)
+  ✔ N2 audits changed roles and renewed invitations once, retaining project actions (196.559583ms)
+  ✔ 업무 역할 변경은 그 조직의 ADMIN 만 한다 — SALES 의 시도와 org-02 owner(VIEWER)의 시도는 0행, ADMIN 은 자기 조직만 바꾸고 org-02 에는 0행이다 (187.77175ms)
+  ✔ 업무 역할 보호 트리거 — update 정책이 실수로 열려도 ADMIN 이 아닌 사람의 sol_role 변경은 42501(sol_role_admin_only)이고, 같은 값·ADMIN·JWT 없는 관리 작업·service_role 은 통과한다 (195.661625ms)
+  ✔ worker 전용 표(점수 요소·자격 판정·항목 판정·인력 배정)는 조직 전원이 읽고 ADMIN 도 넣기·고치기·지우기는 권한 오류다 (188.937792ms)
+  ✔ 테넌트 혼입은 복합 외래 키가 거절한다(23503) — worker 가 RLS 없이 써도 다른 조직 프로필의 run, run 과 다른 org_id 의 요소·자격·항목 판정, 다른 조직 직원의 배정, 비멤버 수신자의 알림, 다른 공고의 revision 은 들어가지 않는다 (193.208375ms)
+  ▶ 수집 run 열 단위 읽기 (20261019000019, N8 W1)
+    ✔ ② 숨긴 열(job_key·idempotency_key·requested_by·params)은 org-01·org-02 ADMIN 모두 하나씩 고르면 권한 오류(42501)이고, 그 열로 거르기와 select * 도 권한 오류다 (195.740917ms)
+  ✔ 수집 run 열 단위 읽기 (20261019000019, N8 W1) (195.871459ms)
+  ▶ 공고 목록 뷰 조직 격리
+    ✔ bid_list_items 는 security_invoker 다 — org-02 VIEWER 는 공고를 모두 보지만 org-01 의 run·결정은 보지 않고(자기 조직 것만), 비멤버 운영자는 조직 열이 모두 비어 있다 (218.103125ms)
+  ✔ 공고 목록 뷰 조직 격리 (218.192625ms)
+  ▶ N3 관심 공고와 마감 알림
+    ✔ 본인 목록·사업기회 공고 연결·조직별 관심 수와 중복 등록을 보장한다 (207.592125ms)
+    ✔ 다른 사용자·조직으로 관심 등록할 수 없고 비회원은 조회할 수 없다 (189.525416ms)
+    ✔ D-3·D-1 09시 이후 담당자와 관심 등록자에게 중복 없이 보내고 화면 역할 실행은 거부한다 (187.904667ms)
+  ✔ N3 관심 공고와 마감 알림 (585.2435ms)
+  ▶ 입찰 프로젝트 — 핵심 저장·권한·원자성
+    ✔ BID만 생성·중복 방지·다른 조직 격리·체크리스트 ADMIN SALES 쓰기 (193.976625ms)
+    ✔ 혼합 PATCH 거절은 상태·담당자·마감·이력·감사를 그대로 보존하고 WATCH는 전진만 막는다 (198.493625ms)
+  ✔ 입찰 프로젝트 — 핵심 저장·권한·원자성 (392.646625ms)
+✔ SOL RADAR 표 정책 — 업무 역할·조직 격리 (5234.8795ms)
+▶ 솔리데오 카탈로그·명부·점수 정책
+  ✔ other-organization users and platform admins cannot read the roster; anonymous is denied (168.957375ms)
+  ✔ 회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다 (165.148ms)
+  ✔ ADR021 점수는 같은 조직만 읽고 owner·운영자·일반회원·익명은 쓰지 못한다 (180.983125ms)
+  ✔ 합성 직원 속성은 JSON 배열·출처·완전성을 DB 제약으로 강제한다 (165.437083ms)
+  ✔ ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다 (174.13225ms)
+✔ 솔리데오 카탈로그·명부·점수 정책 (854.949ms)
+▶ 공통 검증
+  ✔ verify.config.json 의 verification.common 이 최소 검사를 포함한다 (더 있는 것은 허용) (1.289167ms)
+  ✔ 루트 package.json 의 공통 검사·verify 본문이 고정한 그대로다 (0.162042ms)
+✔ 공통 검증 (2.103459ms)
+▶ web 검증
+  ✔ verify 가 최소 검사를 && 로만 잇는다 (0.387709ms)
+  ✔ verify:quick 이 빌드를 뺀 같은 집합을 && 로만 잇는다 (0.1185ms)
+  ✔ 검사 이름이 가리키는 스크립트 본문이 고정한 그대로다 (도구·인자 모두) (0.090042ms)
+  ✔ verify.config.json 이 이 폴더를 pnpm verify·verify:quick 으로 검증한다 (0.123834ms)
+✔ web 검증 (0.831292ms)
+▶ Claude 가드 훅
+  ✔ .claude/settings.json 의 PreToolUse 훅이 Bash·Edit·Write 에서 guard.sh 를 부른다 (0.347833ms)
+  ✔ .claude/settings.json(스테이징본)의 permissions.deny 가 게이트 파일 편집 금지를 포함한다 (31.069833ms)
+✔ Claude 가드 훅 (31.602583ms)
+▶ 커밋 게이트
+  ✔ .husky/pre-commit 이 변경분 정책과 바뀐 폴더 검증을 부르고, 실패하면 막는다 (2.835958ms)
+  ✔ .husky/pre-push 가 push 전 검사를 원격 인자와 함께 부르고, 실패하면 막는다 (0.256375ms)
+✔ 커밋 게이트 (3.212375ms)
+▶ 판정의 가까운 변형
+  ✔ 검사를 더하는 것은 허용한다 (0.27225ms)
+  ✔ 빠진 검사를 이름 단위로 잡는다 (type-check 안의 test 같은 부분 일치에 속지 않는다) (0.167709ms)
+  ✔ 실패를 삼키거나 건너뛰는 셸 구문을 잡는다 (0.083417ms)
+  ✔ 이름만 남기고 내용을 비운 스크립트를 잡고, 다른 스크립트를 더하는 것은 허용한다 (0.11125ms)
+  ✔ 도구 이름은 맞아도 범위를 좁히는 인자를 붙이면 잡는다 (0.361375ms)
+  ✔ 공통 검증에서 검사를 빼거나 인자로 좁히면 잡는다 (0.177792ms)
+  ✔ 설정에서 프로젝트를 지우거나 marker·명령을 바꾸면 잡는다 (0.108417ms)
+  ✔ 가드 훅: 도구가 빠지거나 실패를 삼키면 잡고, 거부 목록 추가·matcher * 는 허용한다 (0.29575ms)
+  ✔ 편집 금지: 규칙을 빼거나 바꾸면 잡고, 더하는 것과 없는 앱 폴더의 규칙이 빠진 것은 허용한다 (0.149833ms)
+  ✔ 커밋 게이트: 주석 처리·실패 삼키기·앞선 exit 를 잡는다 (0.217542ms)
+  ✔ push 전 검사: 인자 빼기·실패 삼키기·앞선 exit·블록 안의 호출을 잡는다 (0.078083ms)
+  ✔ 커밋 게이트: 앞선 종료의 가까운 변형과 블록·heredoc 안의 호출을 잡는다 (0.20525ms)
+  ✔ 커밋 게이트: 앞선 함수·블록·heredoc·실패로 끝내는 exit 1 과 호출 뒤의 exit 0 은 허용한다 (0.290417ms)
+✔ 판정의 가까운 변형 (4.345625ms)
+▶ 편집 금지는 스테이징본을 본다
+  ✔ 작업 폴더에서만 지운 것은 통과하고, 지운 채 스테이징하면 작업 폴더를 되돌려도 잡는다 (247.777625ms)
+  ✔ 커밋된 settings.json 을 인덱스에서 빼면(git rm --cached) 작업 폴더로 넘어가지 않고 막는다 (346.900125ms)
+  ✔ git 저장소가 아니거나 인덱스에 그 파일이 없으면 작업 폴더를 본다 (317.798ms)
+  ✔ 디스크에 없는 앱 폴더의 규칙은 요구하지 않는다 (160.159208ms)
+✔ 편집 금지는 스테이징본을 본다 (1072.81875ms)
+✔ explicit target uses exact workdir and matching origin (4.180584ms)
+✔ ordinary local command unchanged (0.225541ms)
+✔ invalid isolated context fails before CLI (0.442083ms)
+✔ invalid isolated context fails before CLI (0.163917ms)
+✔ invalid isolated context fails before CLI (0.127916ms)
+✔ invalid isolated context fails before CLI (0.111333ms)
+✔ invalid isolated context fails before CLI (0.215875ms)
+✔ invalid isolated context fails before CLI (0.137416ms)
+✔ invalid isolated context fails before CLI (0.677792ms)
+✔ invalid isolated context fails before CLI (0.125417ms)
+✔ wrong returned origin refuses without fallback or secret leak (0.17225ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.350583ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.103292ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.066834ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.056041ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.078042ms)
+✔ root db-seed: selected project validated before any seed writes (0.941208ms)
+✔ people seed: selected project validated before any seed writes (0.344833ms)
+✔ 데모 계정 사전 확인은 DB와 Auth를 변경하지 않는다 (1.468625ms)
+✔ 기존 계정 ID를 유지하고 명부·공고·분석을 건드리지 않는다 (0.411792ms)
+✔ 새 이메일이 다른 계정에 있으면 기존 계정을 덮어쓰지 않는다 (0.24325ms)
+✔ Auth 이메일 변경 요청에 새 이메일과 확인 상태를 전달한다 (101.994042ms)
+✔ cloud upgrade enriches all 200 existing demo rows, preserves identities and never rewrites another org (2823.729209ms)
+✔ all 200 synthetic employees have reproducible skills, certificates, projects and capacity (6.505292ms)
+✔ enrichment preserves every approved identity and original business assignment (0.846959ms)
+✔ invalid person identifiers return structured validation errors without throwing (38.652833ms)
+▶ push 참조 읽기
+  ✔ git 이 넘긴 줄에서 로컬·원격 SHA 를 읽고, 지우는 push 와 같은 커밋 중복을 뺀다 (1.3035ms)
+✔ push 참조 읽기 (1.939709ms)
+▶ 검사할 프로젝트 고르기
+  ✔ 비교할 커밋이 없으면(files 가 null) 전부 돈다 (0.151ms)
+  ✔ 바뀐 프로젝트 폴더만 돈다 (0.213417ms)
+  ✔ 프로젝트 폴더 밖의 문서 아닌 파일은 모든 프로젝트에 걸린다 (0.098458ms)
+  ✔ 문서만 바뀌면 프로젝트 검사는 돌지 않는다 (0.111958ms)
+  ✔ 폴더 이름이 앞부분만 같은 경로(web-old/)는 그 프로젝트로 치지 않는다 (0.060584ms)
+✔ 검사할 프로젝트 고르기 (0.779625ms)
+▶ CI 와 같은 자리값
+  ✔ Supabase 자리값이 ci.yml 의 프로젝트 검증 단계와 같다 (0.850459ms)
+✔ CI 와 같은 자리값 (0.960875ms)
+▶ push 전 검사 실행
+  ✔ gate.prePush 를 켜지 않으면 아무것도 돌리지 않고 통과한다 (1047.322458ms)
+  ✔ gate.prePush 값이 불리언이 아니면 막는다 (1060.974833ms)
+  ✔ web 만 바뀌면 커밋·정책·설치 뒤 공통·감사·web 을 돌리고, api 는 건너뛴다 (1505.9685ms)
+  ✔ 문서만 바뀌면 프로젝트 검사 없이 공통 검사와 루트 감사만 돈다 (711.019292ms)
+  ✔ 공유 파일이 바뀌거나 새 브랜치면 모든 프로젝트를 돈다 (1358.113292ms)
+  ✔ 검사가 하나라도 실패하면 막고, 로그를 남기고, worktree 는 지운다 (707.7875ms)
+  ✔ 앞 단계(커밋 메시지)가 실패하면 설치와 나머지 검사를 돌리지 않는다 (468.212208ms)
+  ✔ 원격 커밋이 로컬 이력에 없으면 fetch 하라고 알리고 막는다 (418.646542ms)
+  ✔ 원격 참조를 지우는 push 는 검사할 커밋이 없어 통과한다 (274.42175ms)
+  ✔ 실제 git push 에서 .husky/pre-push 가 참조 목록을 넘기고, 실패하면 push 를 막는다 (1675.445875ms)
+✔ push 전 검사 실행 (9228.406708ms)
+✔ maskItem: 이름 필드는 ***, 연락처 필드는 같은 길이의 * (3.242292ms)
+✔ maskItem: 본문 전화·이메일 패턴은 같은 길이로 가리고 날짜·URL·번호는 그대로다 (0.127417ms)
+✔ maskItem: 입력을 바꾸지 않는다 (0.1605ms)
+✔ maskItem: 목록에 없는 담당자 필드도 이름 규칙으로 잡는다(Ofcl·TelNo·FaxNo·HpNo) (0.063792ms)
+✔ maskPatterns: 패턴이 없으면 changed=false 이고 문자열이 그대로다 (0.057792ms)
+✔ maskItems: 가린 필드의 합집합을 정렬해 돌려준다 (0.097875ms)
+✔ scanLeaks: 이메일·전화·servicekey·키 흔적을 센다 (0.142083ms)
+✔ buildRecording: 정본 스키마 키 집합·마스킹·rawSha256 을 채우고 params 에 serviceKey 가 없다 (2.358916ms)
+✔ buildRecording: 담당자 필드가 없는 응답은 서비스 기준 마스킹 대상 목록과 구분 메모를 적는다 (0.191583ms)
+✔ assertRecordedShape: serviceKey 파라미터·낯선 키·response 봉투의 totalCount null 을 거부한다 (0.915666ms)
+✔ company runtime exposes only the authenticated HTTP API and reuses existing Redis (23.267459ms)
+✔ Vercel web-only deployment cannot include model runtimes or AI bindings (1.845083ms)
+✔ Gateway image cannot copy local secret files and starts the existing Next standalone server (3.530416ms)
+✔ bucket provisioning defaults to read-only and refuses public/foreign buckets (1.831667ms)
+✔ explicit provisioning creates only private, size-limited buckets and immutable owner sentinels (1.586833ms)
+✔ 웹 변경에는 웹 검사만 실행하고 루트 DB·Python 검사를 넣지 않는다 (9.504458ms)
+✔ Python 변경에는 해당 서비스 검사만 실행한다 (6.337042ms)
+✔ 실행 중 읽는 Markdown 프롬프트는 AI 서비스 검사를 실행한다 (1.8045ms)
+✔ AI 결정 모델 계약 변경은 decision의 서비스 간 호환 시험도 실행한다 (6.745417ms)
+✔ 결정 서버의 worker 응답 fixture 변경은 웹 wire 호환 시험도 실행한다 (1.744625ms)
+✔ 실행 모드 계약 변경은 Node 환경변수·승인 정책 시험도 실행한다 (1.814542ms)
+✔ 새 마이그레이션은 DB 정책·타입과 의존 프로젝트 검사를 포함한다 (1.64225ms)
+✔ DB 타입 생성물을 직접 바꿔도 정본 일치 검사를 실행한다 (1.202ms)
+✔ 파서 입력 PDF fixture는 문서로 제외하지 않고 의존 검사를 실행한다 (1.05675ms)
+✔ 문서·증거·발표자료만 바뀌면 코드 검사를 실행하지 않는다 (2.457875ms)
+✔ 미분류 코드와 검증 설정 변경은 전체 quick 검사로 넓힌다 (5.216375ms)
+✔ 훅의 Git 환경변수가 다른 저장소의 변경 조회와 시험 커밋을 오염시키지 않는다 (728.250375ms)
+✔ 커밋 훅의 Git 환경에서도 임시 저장소 시험은 호출 저장소를 바꾸지 않는다 (1044.213375ms)
+✔ 실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다 (267.185458ms)
+✔ 기준 커밋을 지정하면 이미 커밋한 변경도 검사한다 (217.799417ms)
+✔ CLI dry-run은 실행 없이 명령을 보여 주고 실제 실행은 첫 실패에서 멈춘다 (570.678458ms)
+ℹ tests 202
+ℹ suites 20
+ℹ pass 202
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11082.648125
+✓ .: pnpm test (11.4초)
+▶ web: pnpm verify:quick
+
+> sol-radar-web@0.1.0 verify:quick /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors
+
+
+> sol-radar-web@0.1.0 format:check /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> prettier --check . --ignore-path ../.gitignore --ignore-path ../.prettierignore
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar-web@0.1.0 type-check /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> sol-radar-web@0.1.0 lint /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> eslint
+
+
+> sol-radar-web@0.1.0 check:lint-guards /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> node ../scripts/check-lint-guards.mjs
+
+✓ 린트 가드레일 유지 — 주석·any·@ts-ignore·.only·.skip 으로 검사를 끌 수 없습니다
+
+> sol-radar-web@0.1.0 test /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> vitest run
+
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+
+
+ Test Files  58 passed (58)
+      Tests  490 passed (490)
+   Start at  18:24:55
+   Duration  3.85s (transform 4.52s, setup 0ms, import 17.33s, tests 6.36s, environment 4ms)
+
+
+> sol-radar-web@0.1.0 lodestar /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> lodestar check
+
+  [32m✓[0m architecture/layers  [2m731 files, 7 layers[0m  [2m192ms[0m
+  [32m✓[0m architecture/no-circular  [2m774 modules[0m  [2m191ms[0m
+  2 rules passed, 0 errors, 0 warnings [2m(193ms)[0m
+
+> sol-radar-web@0.1.0 check:tokens /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> node ../scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar-web@0.1.0 check:colors /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/web
+> bash ../scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용
+✓ web: pnpm verify:quick (28.5초)
+변경 범위 검사 종료. 전체 검증은 통합·제출 전에 pnpm verify로 실행합니다.

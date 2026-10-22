@@ -126,7 +126,7 @@ export function createOfficialApiConnector(
       numOfRows,
       slice: slices[cursor.sliceIndex],
     });
-    const result = await http.fetchEnvelope(url, OPERATION, parseG2bEnvelope);
+    const result = await http.fetchEnvelope(url, OPERATION, parseG2bEnvelope, input.beforeRequest);
     if (!result.ok) return result;
 
     // 필터는 담당자 필드가 있는 원본 행으로 판정하고, 담는 것은 담당자 필드를 뺀 행이다.
