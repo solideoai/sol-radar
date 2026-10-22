@@ -9,6 +9,8 @@ updated: 2026-10-22
 
 # 진행 상황
 
+- 2026-10-22 F08 Redis A~F 검증: 예약·32클라이언트 경합(성공10/초과0)·재시도·TTL/KST·장애 차단·공유/분리 예산·이중 계수0 통과. 미검증: 회사 ACL·다중 호스트 Worker·failover. [증거](evidence/ingestion/20261022-f08-abcdef-redis.md).
+
 ## 외부 수집 F08 일일 호출 예산 원자적 예약 (2026-10-22, 로컬)
 
 `fix/ingestion-quota-reservation`에 최신 `origin/main@02fc7c9`를 fast-forward하고 기존 F08 변경을 복원했다. 진행 문서는 양쪽 기록을 보존했고 main에는 쓰지 않았다. 실제 HTTP 직전 Lua 예약을 일회용 Redis7.4.11에서 검증했다. TTL2일·KST 자정·16클라이언트 경합20회 초과0·503 마지막 슬롯·전송 장애·ACL 거부를 확인했다. 실검증에서 발견한 미응답 EVAL 자동 재전송과 보조 조회 전 저장소 장애의 성공 처리를 RED→GREEN으로 수정했다. [격리 Redis 명령·출력·한계](evidence/ingestion/20261022-f08-isolated-redis.md), [최종 변경 범위 검사 출력](evidence/ingestion/20261022-f08-verify-changed.txt), [최초 구현 기록](evidence/ingestion/20261022-f08-quota-reservation.md)을 따른다. 옛 Worker 먼저 정지 후 새 Worker 기동 절차와 quota 최소 ACL은 회사 실행서에 기록했다. 기존 미커밋 외부 수집 계획 문서는 별도 변경이므로 커밋 범위에서 제외한다. F07/F13/F14·Registry 활성화·운영 접속/변경·커밋·push는 수행하지 않았다.
