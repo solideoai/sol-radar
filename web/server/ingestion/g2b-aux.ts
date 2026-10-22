@@ -1,5 +1,10 @@
 import "server-only";
-import { CONNECTOR_TIMEOUT_MS, type ConnectorFailure, type G2bItem } from "./connector.model";
+import {
+  CONNECTOR_TIMEOUT_MS,
+  type BeforeApiRequest,
+  type ConnectorFailure,
+  type G2bItem,
+} from "./connector.model";
 import { createG2bHttp, validateG2bTimeout, type FetchLike } from "./g2b-http";
 import { buildG2bAuxUrl } from "./g2b-request";
 import {
@@ -26,6 +31,7 @@ export type G2bAuxRequest = {
   amendmentNo: string | null;
   /** 공고 등록 시각. 보조 조회 기간(−1일~+6일)의 기준 */
   registeredAt: Date;
+  beforeRequest?: BeforeApiRequest;
 };
 
 export type G2bAuxRows = {
@@ -44,7 +50,7 @@ export type G2bAuxOutcome = {
   /** 성공한 오퍼레이션의 행(담당자 필드 제거, 다른 공고의 행 제외). 실패·미호출 오퍼레이션은 빈 배열 */
   rows: G2bAuxRows;
   failures: G2bAuxFailure[];
-  /** 일일 한도(결과코드 22)를 받은 뒤 부르지 않은 오퍼레이션의 registryKey(호출 순서대로). 22 를 받은 것 자체는 failures 에 있다 */
+  /** 공급자 일일 한도/로컬 예약 실패 후 부르지 않은 operation의 registryKey. 실패한 operation은 failures에 있다. */
   skipped: G2bAuxRegistryKey[];
   /** 이 요청에서 나간 공공 API 호출 수(재시도·쪽 포함). quota_used 에 더한다 */
   calls: number;
@@ -113,12 +119,18 @@ export function createG2bAuxFetcher(options: G2bAuxFetcherOptions): G2bAuxFetche
         pageNo,
         numOfRows,
       });
+      const callsBeforePage = calls;
       const attempt = await withRetry(
-        () => http.fetchEnvelope(url, operation, parseG2bAuxEnvelope),
+        () =>
+          http.fetchEnvelope(url, operation, parseG2bAuxEnvelope, async () => {
+            const denied = await request.beforeRequest?.();
+            if (!denied) calls++;
+            return denied ?? null;
+          }),
         options.retry,
       );
-      calls += attempt.retried + 1;
-      retried += attempt.retried;
+      // 예약 거절로 HTTP를 보내지 않은 시도는 재시도 수에도 더하지 않는다.
+      retried += Math.max(0, calls - callsBeforePage - 1);
       const { outcome } = attempt;
       if (!outcome.ok) return { ok: false, failure: outcome.failure, calls, retried };
       items.push(...outcome.items);
@@ -141,8 +153,11 @@ export function createG2bAuxFetcher(options: G2bAuxFetcherOptions): G2bAuxFetche
       retried += result.retried;
       if (!result.ok) {
         failures.push({ operation, registryKey, failure: result.failure });
-        // 일일 한도(22)는 같은 서비스의 다음 호출도 같은 답이다(07 §2.2). 남은 오퍼레이션을 부르지 않는다.
-        if (result.failure.kind === "QUOTA_EXCEEDED") {
+        // 공급자 일일 한도/예약 실패 뒤에는 같은 서비스의 남은 operation도 부르지 않는다.
+        if (
+          result.failure.kind === "QUOTA_EXCEEDED" ||
+          result.failure.kind === "QUOTA_UNAVAILABLE"
+        ) {
           skipped.push(...G2B_AUX_OPERATIONS.slice(index + 1).map((entry) => entry.registryKey));
           break;
         }

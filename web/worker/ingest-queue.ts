@@ -278,6 +278,7 @@ export async function processIngestJob(
       ? (deps.externalSourceGate?.(job) ??
         (deps.externalSourceGate === undefined ? "NOT_VERIFIED" : null))
       : null;
+  const quota = isExternalJob(job) ? deps.quotaForExternal?.(job) : deps.quota;
   const reason =
     modeReason ??
     (externalReason === null
@@ -286,8 +287,14 @@ export async function processIngestJob(
           sourceKey: `${job.source}:readiness`,
           errorCode: `SOURCE_${externalReason}`,
           detail: `source readiness: ${externalReason}`,
-        });
-  const quota = isExternalJob(job) ? deps.quotaForExternal?.(job) : deps.quota;
+        }) ??
+    (deps.runMode === "live" && quota === undefined
+      ? {
+          sourceKey: `${job.source}:quota`,
+          errorCode: "QUOTA_STORE_UNAVAILABLE",
+          detail: "live 수집의 호출 예산 저장소가 구성되지 않았다",
+        }
+      : null);
 
   const result =
     reason === null

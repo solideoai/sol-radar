@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   EMPTY_INGEST_SUMMARY,
+  createMemoryQuotaStore,
   type IngestionRepo,
   type StartRunInput,
   type IngestErrorInput,
@@ -14,7 +15,7 @@ const job = {
   jobKey: "kepco-test",
   window: { from: "2026-10-20T00:00:00.000Z", to: "2026-10-21T00:00:00.000Z" },
 };
-function deps(mode: "mock" | "live", reason: string | null) {
+function deps(mode: "mock" | "fixture" | "live", reason: string | null) {
   const errors: IngestErrorInput[] = [];
   const starts: StartRunInput[] = [];
   const repo: IngestionRepo = {
@@ -63,6 +64,45 @@ function deps(mode: "mock" | "live", reason: string | null) {
 }
 
 describe("external ingest job gates", () => {
+  it.each(["mock", "fixture"] as const)("keeps %s jobs off HTTP and quota paths", async (mode) => {
+    const scenario = deps(mode, null);
+    const store = createMemoryQuotaStore({ dailyLimit: 1 });
+    const reserve = vi.spyOn(store, "reserve");
+    scenario.input.quota = { store, serviceId: "15129394", dailyLimit: 1 };
+    scenario.input.createFixtureConnector = async () => ({
+      source: "fixture",
+      fetchPage: async () => ({
+        ok: true,
+        page: { records: [], nextCursor: null, rateLimitInfo: null },
+      }),
+    });
+    expect(
+      (
+        await processIngestJob(
+          { source: "fixture", batch: "SEED", trigger: "DEMO", jobKey: mode },
+          scenario.input,
+        )
+      ).status,
+    ).toBe("SUCCEEDED");
+    expect(
+      (
+        await processIngestJob(
+          { source: "g2b", trigger: "SCHEDULED", jobKey: "blocked" },
+          scenario.input,
+        )
+      ).status,
+    ).toBe("FAILED");
+    expect(scenario.calls()).toBe(0);
+    expect(reserve).not.toHaveBeenCalled();
+  });
+
+  it("rejects a live job without quota before constructing its connector", async () => {
+    const scenario = deps("live", null);
+    expect((await processIngestJob(job, scenario.input)).status).toBe("FAILED");
+    expect(scenario.calls()).toBe(0);
+    expect(scenario.errors.at(-1)?.errorCode).toBe("QUOTA_STORE_UNAVAILABLE");
+  });
+
   it("keeps legacy G2B bid windows separate from procurement-request runs and tags new bid runs", async () => {
     const scenario = deps("mock", null);
     const scopes: Array<{ serviceKey?: string } | undefined> = [];

@@ -1,0 +1,55 @@
+$ pnpm -C web exec node --conditions=react-server --import tsx ../scripts/verify-quota-redis.mjs
+$ docker network create --opt com.docker.network.bridge.enable_ip_masquerade=false --label sol.f08=sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1 sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1
+a37cbcf1e0c181fa6d9065a224198a960e7bb17ffa55048f34b536b056000f48
+$ docker run --detach --name sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1 --network sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1 --label sol.f08=sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1 --publish 127.0.0.1::16379 --read-only --user redis --tmpfs /data:rw,noexec,nosuid,size=16m,mode=1777 --cap-drop ALL --security-opt no-new-privileges --memory 128m --cpus 1 redis:7.4-alpine redis-server --port 16379 --save  --appendonly no --protected-mode no
+7b356590d9347e853e16e60c25311d4260b8c29135b0420a9f697aff7c1ace3f
+$ docker inspect --format {"running":{{json .State.Running}},"labels":{{json .Config.Labels}},"networks":{{json .NetworkSettings.Networks}},"mounts":{{json .Mounts}},"ports":{{json .NetworkSettings.Ports}}} sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1
+{"running":true,"labels":{"sol.f08":"sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1"},"networks":{"sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1":{"IPAMConfig":null,"Links":null,"Aliases":null,"MacAddress":"02:42:ac:1d:00:02","DriverOpts":null,"NetworkID":"a37cbcf1e0c181fa6d9065a224198a960e7bb17ffa55048f34b536b056000f48","EndpointID":"2777ddaac61f777485f32c1abecdbe6c861a9ac4d01331c2dff4a8df39883b0a","Gateway":"172.29.0.1","IPAddress":"172.29.0.2","IPPrefixLen":16,"IPv6Gateway":"","GlobalIPv6Address":"","GlobalIPv6PrefixLen":0,"DNSNames":["sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1","7b356590d934"]}},"mounts":[],"ports":{"16379/tcp":[{"HostIp":"127.0.0.1","HostPort":"61040"}],"6379/tcp":null}}
+ISOLATED redis=127.0.0.1:61040, internal container port=16379
+$ docker image inspect redis:7.4-alpine --format {{.Id}} {{json .RepoDigests}}
+sha256:db1bf92695ab04a675308ded995fb54f73a8dafdc4b7b5dbe60a62e8c7c94039 ["redis@sha256:892022f9f18c26c92c30e15194d132f90044af87b94a491a75429bbc3982eab1"]
+Redis 7.4.11
+PASS reserve actual Lua: used=1 TTL=172800s (2 days)
+PASS exhaustion actual Lua: used=10 denied=true TTL=172800s; above-limit=12 preserved
+PASS accelerated physical expiration: absent -> reserve=1, TTL reset to 2 days
+PASS KST 23:59:59 -> 00:00:00: quota:midnight:20261022=1 quota:midnight:20261023=1, HTTP=2
+PASS last-slot race: 16 independent clients x 20 rounds, overshoots=0
+PASS 16 simultaneous manual/scheduled live job handlers: HTTP=1, SUCCEEDED=1 FAILED=15
+PASS 503 retry with final slot: HTTP=1 FAILED, second HTTP blocked
+FAULT disconnect: {"status":"SUCCEEDED","http":1,"errors":[]} used=1 elapsed=121ms
+FAULT response-loss: {"status":"SUCCEEDED","http":1,"errors":[]} used=2 elapsed=244ms
+FAULT timeout: {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]} used=0 elapsed=2005ms
+PASS ACL no EVAL/EVALSHA: live g2b/MANUAL {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]}
+PASS ACL no EVAL/EVALSHA: live g2b/SCHEDULED {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]}
+PASS ACL no EVAL/EVALSHA: live lh/MANUAL {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]}
+PASS ACL no EVAL/EVALSHA: live lh/SCHEDULED {"status":"FAILED","http":0,"errors":["QUOTA_STORE_UNAVAILABLE","QUOTA_STORE_UNAVAILABLE"]}
+PASS minimum quota ACL: GET EVAL INCR EXPIRE SET (+client handshake); EVALSHA not used by current store
+$ docker rm --force sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1
+sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1
+$ docker network rm sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1
+sol-f08-99aac431-7b0f-4320-8fac-7fa7fd8b45f1
+CLEANUP: disposable Redis container and its dedicated network removed
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Redis faults must fail closed without replaying EVAL
++ actual - expected
+
++ [
++   'disconnect',
++   'response-loss'
++ ]
+- []
+
+    at <anonymous> (/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations/scripts/verify-quota-redis.mjs:317:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [ 'disconnect', 'response-loss' ],
+  expected: [],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.16.0
