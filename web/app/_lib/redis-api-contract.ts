@@ -84,6 +84,7 @@ export const backendErrorSchema = z.object({
       "IDEMPOTENCY_KEY_REUSED",
       "RATE_LIMITED",
       "NOT_FOUND",
+      "HOSTED_NOT_APPROVED",
     ]),
     message: z.string().max(500),
     details: z.record(z.string(), z.unknown()),

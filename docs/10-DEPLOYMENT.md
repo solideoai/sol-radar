@@ -11,6 +11,12 @@ updated: 2026-10-21
 
 # 10. Docker Compose 배포·실행 프로필
 
+## 현재 배포 코드와 회사 기동 (2026-10-22, ADR-049)
+
+`vercel.json`은 web 하나이며 내부 ai/binding을 제거했다. 회사 `infra/compose.company.yaml`은 기존 Redis external network를 사용하는 redis-api·AI gateway·Worker를 정의한다. 모델 키는 AI gateway, service role·수집 키는 Worker만 받으며 실행 모드와 내부 gateway 주소는 Compose가 통일한다. 관리자 상태도 회사 GET을 거친다. [회사 실행서](../infra/company/README.md)에 환경 파일·읽기 전용 조사·설정 확인·신규 앱 기동·복구 범위를 적었다.
+
+현재 mock을 유지한다. 실제 회사 접속 경로·Redis network·6380 점유 확인 전에는 기동하지 않으며, 회사 readiness 확인 뒤 Vercel web-only를 전환한다. 아래 web+ai Vercel 구성은 ADR-044 당시 이력으로 보존하고 새 실행 기준으로 사용하지 않는다. 기존 DB/Storage 적용 성공과 회사 runtime 미적용은 [첫 운영 적용 기록](evidence/first-bundle/20261022-production-deployment.md)에서 구분한다.
+
 ## Storage 전환·Vercel 환경 (ADR-048)
 
 코드는 MinIO 의존성을 제거했다. 기존 서버/볼륨은 자동 정리하지 않는다. **클라우드 migration·bucket·파일 이전은 적용/검증 전까지 대기 상태**다. documents 소비자/파서는 후속 작업이다.
@@ -24,7 +30,7 @@ updated: 2026-10-21
 
 Vercel/redis-api에 service role·G2B/GPU 키를 넣지 않는다. Vercel frontend에는 `REDIS_URL`도 넣지 않는다. `MINIO_*`는 제거한다.
 회사 Gateway는 기존 Nginx `/redis/`→loopback6380·기존 Redis6379를 재사용한다. 준비된 `infra/compose.company.yaml`은 기존 Redis external network를 사용하고 새 Redis를 만들지 않는다. Nginx를 수정/reload하지 않는다.
-현재 `vercel.json`의 ai 서비스/binding은 기존 ADR-044 구성을 보존한다. 실제 회사 Gateway/Worker health를 검증하고 Vercel 단일 web 배포로 정리하는 것은 운영 전환 단계다.
+현재 `vercel.json`은 ADR-049의 web-only다. 회사 Gateway/Worker health를 검증한 뒤 운영 Vercel을 같은 release로 전환한다.
 
 ### 적용 순서
 
@@ -44,7 +50,7 @@ Compose 정의는 하나의 `infra/compose.yaml`이다. 실행 프로필은 env 
 
 실행 모드 `SOL_RUN_MODE=live|fixture|mock`([[16-DECISIONS|ADR-020]], [[03-AI-PIPELINE|03 AI 파이프라인]] §3)은 **데이터 출처와 AI 공급자**를 정하고, 프로필은 **어떤 env 묶음을 쓰는지**(모델 런타임 주소·키 포함)를 정한다. 해커톤 실추론의 모델 런타임(추출·설명 `Qwen3.8-Flash-Next-AWQ-INT4`는 회사가 운영하는 vLLM API, 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision` 서버)은 노트북 Compose 밖, **회사 GPU 서버**에 있고, 회사가 제공하는 HTTPS 엔드포인트로 붙는다([[16-DECISIONS|ADR-025]]·[[16-DECISIONS|ADR-034]], 2026-10-20 사용자 결정. 아래 "회사 GPU 추론 엔드포인트").
 
-## Vercel 웹·AI 서비스 배포
+## Vercel 웹·AI 서비스 배포 (ADR-044 이전 구성 이력)
 
 2026-10-21 사용자 요청으로 루트 `vercel.json`에 다중 서비스 배포 구성을 추가했다. 아래 서비스 이름·공개 범위·바인딩과 외부 worker 운영 방식은 2026-10-21 커밋·푸시 요청으로 승인되었다. 기존 Compose 데모 구성은 유지한다.
 

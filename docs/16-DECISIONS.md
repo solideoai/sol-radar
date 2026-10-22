@@ -12,6 +12,12 @@ updated: 2026-10-21
 
 상태 값: `제안` → `채택` → `검증됨`(근거 URL·날짜 필수). 외부 사실 확인 전이면 `미검증`, 철회는 `폐기`. 검증 결과는 날짜·근거 URL·결정자와 함께 이 문서에 갱신한다. 폐기한 결정도 행을 지우지 않고 상태만 바꿔 이력으로 남긴다.
 
+## ADR-049 Vercel web 단독·회사 분석 런타임
+
+2026-10-22 사용자의 배포 책임 확정과 남은 구현 지시를 반영한다. Vercel은 web만, 회사는 기존 Redis·Next redis-api·AI gateway·Worker를 맡는다. ADR-044의 내부 ai 서비스/binding 배치 조항을 대체한다. 회사 API의 allowlist에 정확한 관리자 AI 상태 GET만 추가하고 서비스 token·사용자 JWT·ADMIN 재검증·응답 schema 검증을 유지한다. 실패 readiness의 원인은 비밀·URL·원문 없이 분류/상태/소요시간/요청ID만 기록한다.
+
+새 Redis·Qdrant·Nginx·DB를 추가하지 않는다. 기존 회사 모델 프로세스와 Redis를 재시작/수정하지 않으며 실제 network·포트 확인 전 기동하지 않는다. 학습본 미반입 상태이므로 mock을 유지한다. [회사 실행서](../infra/company/README.md)의 코드/이미지 검증과 회사 운영 배포를 구분한다.
+
 > [!success] ADR-034 모델 식별자 확인 (2026-10-21)
 > 회사 vLLM API 실응답의 served id는 `Qwen3.8-Flash-Next-AWQ-INT4`다. 사용자 지시에 따라 레지스트리 `run`·환경변수 `QWEN_MODEL`·실행 예시를 이 값으로 정정했다. Bearer 인증 조회200·짧은 guided JSON 추론200을 확인했다([실연결 증거](evidence/phase-5/qwen-probe-20261021-2343.json)). 아래 날짜가 붙은 기존 `Qwen/Qwen3.8-Flash-Next` 추정 기록은 이 결과로 갱신하며, 과거 실행 증거는 보존한다. 전체 추출 품질·Bosun·`prompt_logprobs`는 미검증이다.
 
@@ -73,6 +79,7 @@ ADR-005·017·028의 파일 저장소 조항을 대체한다. Redis/BullMQ·Qdra
 ## 결정 사항
 |ID|결정|상태|날짜|근거|
 |---|---|---|---|---|
+|ADR-049|Vercel web 단독, 회사 redis-api·AI gateway·Worker, 기존 Redis와 인증된 관리자 상태 GET 재사용|채택·로컬 검증됨, 회사 적용 대기|2026-10-22|사용자 배포 책임 확정·남은 작업 구현 지시, [회사 실행서](../infra/company/README.md), [검증](evidence/deployment/20261022-company-runtime-implementation.md)|
 |ADR-045|Redis HTTPS 접수는 기존 Next.js API의 frontend/redis-api 역할로 재사용. 회사6379 유지·HTTP6380 loopback·Nginx 불변|검증됨(로컬)·운영 배포 별도 승인|2026-10-21|사용자 Phase 1 구현 지시, [[2026-10-21-redis-gateway-supabase-storage-migration\|계획]], [[20261021-phase1-redis-gateway\|검증]]|
 |ADR-044|Vercel Services 공개 web·내부 ai, web→ai URL binding. eval 제외·decision과 worker 외부 유지|채택·로컬 검증됨 (클라우드 배포 미실행)|2026-10-21|사용자 최종 승인, [검증 기록](evidence/20261021-vercel-services.md), [[10-DEPLOYMENT\|10 배포]]|
 |ADR-048|첨부 원본·파싱 결과는 private Supabase Storage, 웹은 사용자 JWT/RLS·Worker만 저장, object lease/복구|채택·운영 적용 대기|2026-10-21|사용자 전환 지시, 전환 계획 Task 3·4|

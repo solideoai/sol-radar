@@ -9,6 +9,10 @@ updated: 2026-10-21
 
 # 진행 상황
 
+## 회사 runtime 후속 구현 (2026-10-22)
+
+Redis만 실행 중이라는 사용자 확인에 따라 격리 브랜치 `feat/company-runtime-deployment`에서 회사 Compose의 redis-api·AI gateway·Worker와 서비스별 env, Vercel web-only, 관리자 AI 상태의 인증된 회사 GET과 readiness 오류 분류를 구현했다(ADR-049). 변경 범위 검사·전체 `pnpm verify` 764개·Next 빌드·Docker 이미지3개·격리 API401/404/AI mock/Worker 모듈 검사를 통과했다. 독립 리뷰의 요청ID 계약·과거 문구2건도 수정했다. [구현/검증 증거](evidence/deployment/20261022-company-runtime-implementation.md)와 [회사 실행서](../infra/company/README.md)를 따른다. 모델 학습본/서버 접속 정보가 없어 mock을 유지하고 실제 회사 기동·Vercel 운영 전환은 미실행이다. 회사 Redis·Nginx·모델·MinIO는 변경하지 않았다.
+
 ## 공공조달 운영 적용 진행 (2026-10-22, 사용자 추가 승인)
 
 커밋·main 병합·운영 DB·배포를 승인받아 최신 Storage/Gateway/Qwen main과 통합 중이다. [적용 기록](evidence/procurement-expansion/20261022-release.md)에 SHA·검증·적용/미적용을 구분한다. 아래 10-21 로컬/설계 로그는 당시 기록이다. 신규6 API는 비활성·실인증 미검증을 유지한다.

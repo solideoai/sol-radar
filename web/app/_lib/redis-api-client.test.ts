@@ -25,6 +25,52 @@ const request = (body = "{}") =>
 afterEach(() => vi.useRealTimers());
 
 describe("Redis HTTPS client boundary", () => {
+  it("preserves hosted-not-approved status and matching error request IDs for ADMIN GET", async () => {
+    const path = "/api/v1/admin/ai/status";
+    const response = await relayRedisApi(new Request(`https://app.invalid${path}`), path, {
+      env,
+      accessToken,
+      send: async () =>
+        Response.json(
+          {
+            error: {
+              code: "HOSTED_NOT_APPROVED",
+              message: "hosted AI 사용 미승인",
+              details: {},
+              requestId: RUN,
+            },
+          },
+          { status: 422 },
+        ),
+    });
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("HOSTED_NOT_APPROVED");
+    expect(response.headers.get("X-Request-Id")).toBe(body.error.requestId);
+  });
+  it("fails closed for malformed AI status and a timed out ADMIN GET", async () => {
+    const path = "/api/v1/admin/ai/status";
+    const request = new Request(`https://app.invalid${path}`);
+    const malformed = await relayRedisApi(request, path, {
+      env,
+      accessToken,
+      send: async () => Response.json({ gateway: { healthy: true } }),
+    });
+    expect(malformed.status).toBe(503);
+    vi.useFakeTimers();
+    let signal: AbortSignal | null | undefined;
+    const pending = relayRedisApi(request, path, {
+      env: { ...env, REDIS_API_TIMEOUT_MS: "100" },
+      accessToken,
+      send: async (_url, init) => {
+        signal = init?.signal;
+        return new Promise(() => undefined);
+      },
+    });
+    await vi.advanceTimersByTimeAsync(101);
+    expect((await pending).status).toBe(503);
+    expect(signal?.aborted).toBe(true);
+  });
   it("preserves external ingestion sources and safe run metadata", async () => {
     for (const [source, serviceKey] of [
       ["kwater", "kwater-bid-notice"],
@@ -328,6 +374,20 @@ describe("Redis HTTPS client boundary", () => {
 
 describe("remote readiness does not need Redis TCP", () => {
   const healthy = { status: "ok", checks: { db: "ok", redis: "ok", storage: "ok", ai: "mock" } };
+  it("reports an upstream 502 without logging credentials or upstream response text", async () => {
+    const diagnose = vi.fn();
+    const response = await readRedisApiReadiness({
+      env,
+      diagnose,
+      send: async () => new Response(`private ${TOKEN}`, { status: 502 }),
+    });
+    expect(response.httpStatus).toBe(503);
+    expect(diagnose).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "UPSTREAM_HTTP", httpStatus: 502 }),
+    );
+    expect(JSON.stringify(diagnose.mock.calls)).not.toContain(TOKEN);
+    expect(JSON.stringify(diagnose.mock.calls)).not.toContain("acropolissg.com");
+  });
   it("preserves degraded readiness when only the backend AI probe times out", async () => {
     vi.useFakeTimers();
     const pending = readRedisApiReadiness({

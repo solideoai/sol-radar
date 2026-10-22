@@ -9,3 +9,7 @@ services/ai/tests
 services/ai/**/__pycache__
 services/ai/.pytest_cache
 services/ai/.ruff_cache
+**/.env*
+**/*.pem
+**/*.key
+**/*.p12

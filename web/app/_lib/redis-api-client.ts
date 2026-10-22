@@ -1,5 +1,5 @@
 import "server-only";
-import { type Readiness } from "@/server/health";
+import { aiStatusSchema, type Readiness } from "@/server/health";
 import { redisApiConnection, type DeploymentEnv } from "./deployment-role";
 import {
   analysisAcceptedSchema,
@@ -74,7 +74,7 @@ export async function relayRedisApi(
     ...overrides,
   };
   const operation = redisApiOperation(request.method, targetPath);
-  if (operation !== "analysis-submit" && operation !== "ingest-submit")
+  if (operation !== "analysis-submit" && operation !== "ingest-submit" && operation !== "ai-status")
     return redisApiError(404, "NOT_FOUND", "요청 경로를 찾을 수 없습니다.");
   try {
     const settings = redisApiConnection(deps.env);
@@ -84,6 +84,9 @@ export async function relayRedisApi(
         const accessToken = await deps.accessToken();
         signal.throwIfAborted();
         if (!accessToken) return redisApiError(401, "UNAUTHENTICATED", "로그인이 필요합니다.");
+        if (operation === "ai-status") {
+          return relayAiStatus(settings, accessToken, deps.send, signal);
+        }
         if (Number(request.headers.get("Content-Length")) > MAX_REQUEST_BYTES)
           return bodyTooLarge();
         let body: Uint8Array;
@@ -182,6 +185,44 @@ export async function relayRedisApi(
   }
 }
 
+async function relayAiStatus(
+  settings: ReturnType<typeof redisApiConnection>,
+  accessToken: string,
+  send: typeof fetch,
+  signal: AbortSignal,
+): Promise<Response> {
+  const upstream = await send(`${settings.baseUrl}/api/v1/admin/ai/status`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "X-Sol-Service-Token": settings.token,
+    },
+    signal,
+    cache: "no-store",
+    redirect: "manual",
+  });
+  if (![200, 401, 403, 422].includes(upstream.status)) {
+    void upstream.body?.cancel().catch(() => undefined);
+    return redisApiUnavailable();
+  }
+  const text = new TextDecoder().decode(
+    await limitedBody(upstream.body, MAX_RESPONSE_BYTES, signal),
+  );
+  if (text.includes(settings.token) || text.includes(accessToken)) return redisApiUnavailable();
+  const schema = upstream.status === 200 ? aiStatusSchema : backendErrorSchema;
+  const result = schema.safeParse(JSON.parse(text));
+  if (!result.success) return redisApiUnavailable();
+  if (
+    upstream.status === 422 &&
+    (!("error" in result.data) || result.data.error.code !== "HOSTED_NOT_APPROVED")
+  )
+    return redisApiUnavailable();
+  return Response.json(result.data, {
+    status: upstream.status,
+    headers: responseHeaders("error" in result.data ? result.data.error.requestId : undefined),
+  });
+}
+
 function sourceReadinessResponse(text: string): Response | null {
   try {
     const parsed = sourceReadinessErrorSchema.safeParse(JSON.parse(text));
@@ -232,22 +273,47 @@ const UNAVAILABLE: Readiness = {
   checks: { db: "unavailable", redis: "unavailable", storage: "unavailable", ai: "unavailable" },
 };
 
+type ReadinessDiagnostic = {
+  reason:
+    | "CONFIG_INVALID"
+    | "UPSTREAM_HTTP"
+    | "TIMEOUT"
+    | "NETWORK"
+    | "INVALID_RESPONSE"
+    | "INCONSISTENT_RESPONSE";
+  httpStatus?: number;
+  elapsedMs: number;
+  requestId: string;
+};
+
 export async function readRedisApiReadiness(
-  overrides: Partial<Pick<ClientDeps, "env" | "send">> = {},
+  overrides: Partial<Pick<ClientDeps, "env" | "send">> & {
+    diagnose?: (diagnostic: ReadinessDiagnostic) => void;
+  } = {},
 ): Promise<{ httpStatus: 200 | 503; body: Readiness }> {
+  const started = Date.now();
+  const requestId = crypto.randomUUID();
+  let reason: ReadinessDiagnostic["reason"] = "CONFIG_INVALID";
+  let httpStatus: number | undefined;
   try {
     const { env = process.env, send = fetch } = overrides;
     const settings = redisApiConnection(env);
+    reason = "NETWORK";
     // 서버 probe 상한2초에 전송 여유를 더한다. AI만 늦으면200/degraded를 유지한다.
     return await withRedisApiDeadline(5000, async (signal) => {
       const response = await send(`${settings.baseUrl}/health`, {
-        headers: { "X-Sol-Service-Token": settings.token },
+        headers: { "X-Sol-Service-Token": settings.token, "X-Request-Id": requestId },
         cache: "no-store",
         redirect: "manual",
         signal,
       });
-      if (response.status !== 200 && response.status !== 503)
+      httpStatus = response.status;
+      if (response.status !== 200 && response.status !== 503) {
+        reason = "UPSTREAM_HTTP";
+        void response.body?.cancel().catch(() => undefined);
         throw new Error("BACKEND_HEALTH_STATUS");
+      }
+      reason = "INVALID_RESPONSE";
       const raw: unknown = JSON.parse(
         new TextDecoder().decode(await limitedBody(response.body, 16 * 1024, signal)),
       );
@@ -260,11 +326,18 @@ export async function readRedisApiReadiness(
         : body.checks.ai === "unavailable"
           ? "degraded"
           : "ok";
-      if (body.status !== status || response.status !== (coreDown ? 503 : 200))
+      if (body.status !== status || response.status !== (coreDown ? 503 : 200)) {
+        reason = "INCONSISTENT_RESPONSE";
         throw new Error("BACKEND_HEALTH_INCONSISTENT");
+      }
       return { httpStatus: coreDown ? 503 : 200, body };
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "REDIS_API_TIMEOUT") reason = "TIMEOUT";
+    const diagnose =
+      overrides.diagnose ??
+      ((value: ReadinessDiagnostic) => console.warn("redis-api readiness", value));
+    diagnose({ reason, httpStatus, elapsedMs: Date.now() - started, requestId });
     return { httpStatus: 503, body: structuredClone(UNAVAILABLE) };
   }
 }

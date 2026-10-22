@@ -10,6 +10,9 @@ updated: 2026-10-21
 
 # SOL RADAR — 구현 문서 인덱스
 
+> [!note] 2026-10-22 배포 기준 (ADR-049)
+> Vercel은 web 하나, 회사는 기존 Redis·redis-api·AI gateway·Worker를 맡는다. web의 AI binding은 제거하며 관리자 AI 상태는 인증된 회사 API로 조회한다. [회사 실행서](../infra/company/README.md)와 [[10-DEPLOYMENT]]를 따른다. 코드 준비와 회사 기동·실추론 완료는 구분한다. 아래 날짜가 붙은 web/AI Vercel 구성은 이전 실행 이력이다.
+
 > 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + Supabase Storage + Python AI Service(Qwen3.8-Flash-Next, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
 
 ## 10줄 요약

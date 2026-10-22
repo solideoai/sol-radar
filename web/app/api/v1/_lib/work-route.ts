@@ -26,7 +26,9 @@ export function businessRoute(
     const operation = redisApiOperation(request.method, new URL(request.url).pathname);
     if (
       deploymentRole() === "frontend" &&
-      (operation === "analysis-submit" || operation === "ingest-submit")
+      (operation === "analysis-submit" ||
+        operation === "ingest-submit" ||
+        operation === "ai-status")
     ) {
       try {
         const { timeoutMs } = redisApiConnection(process.env);

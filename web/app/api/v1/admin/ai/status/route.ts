@@ -1,6 +1,8 @@
 import { apiError, json } from "@/app/api/v1/_lib/http";
 import { businessRoute } from "@/app/api/v1/_lib/work-route";
 import { currentRunMode } from "@/app/_lib/run-mode";
+import { deploymentRole } from "@/app/_lib/deployment-role";
+import { relayRedisApi } from "@/app/_lib/redis-api-client";
 import { getAiStatus, type AiStatusResult } from "@/server/health";
 
 // 05 §2 GET /admin/ai/status — 실행 모드·AI 공급자·Qwen·Kev 상태(ADMIN). 값은 gateway /health 에서만 읽는다(05 §7).
@@ -19,7 +21,12 @@ function aiStatusResponse(result: AiStatusResult): Response {
 }
 
 export async function GET(request: Request): Promise<Response> {
-  return businessRoute(request, async (ctx) =>
-    aiStatusResponse(await getAiStatus(ctx.role, currentRunMode)),
-  );
+  return businessRoute(request, async (ctx, signal) => {
+    if (deploymentRole() === "frontend") {
+      if (ctx.role !== "ADMIN")
+        return aiStatusResponse({ status: "forbidden", required: ["ADMIN"] });
+      return relayRedisApi(request, "/api/v1/admin/ai/status", { signal });
+    }
+    return aiStatusResponse(await getAiStatus(ctx.role, currentRunMode));
+  });
 }
