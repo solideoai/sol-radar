@@ -18,11 +18,15 @@ const { createExternalSourceConnector } =
 const { createOfficialApiConnector } =
   await import("../web/server/ingestion/official-api-connector.ts");
 const { createG2bAuxFetcher } = await import("../web/server/ingestion/g2b-aux.ts");
+const { G2B_AUX_OPERATIONS, G2B_BID_NOTICE_LIST_OPERATION } =
+  await import("../web/server/ingestion/g2b.model.ts");
 const { quotaKey } = await import("../web/server/ingestion/quota.ts");
 const { processIngestJob } = await import("../web/worker/ingest-queue.ts");
 
 assert.equal(process.argv.length, 2, "This harness takes no connection arguments");
+let realHttpAttempts = 0;
 globalThis.fetch = async () => {
+  realHttpAttempts++;
   throw new Error("Real HTTP is forbidden in this isolated verification");
 };
 const id = `sol-f08-${randomUUID()}`;
@@ -30,6 +34,7 @@ const image = "redis:7.4-alpine";
 const containerPort = 16379;
 const clients = new Set();
 const proxies = new Set();
+const allowedPorts = new Set();
 let networkCreated = false;
 let containerCreated = false;
 let port;
@@ -44,6 +49,8 @@ function docker(...args) {
 }
 
 async function connect(options = {}) {
+  assert.equal(options.host, undefined, "Redis host overrides are forbidden");
+  assert.ok(allowedPorts.has(options.port ?? port), "Only harness-owned ports are permitted");
   const client = new Redis({
     ...QUOTA_REDIS_OPTIONS,
     host: "127.0.0.1",
@@ -107,6 +114,7 @@ async function faultProxy(mode) {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const proxyPort = server.address().port;
   assert.ok(![6379, 6380].includes(proxyPort));
+  allowedPorts.add(proxyPort);
   const proxy = {
     port: proxyPort,
     injected,
@@ -123,10 +131,10 @@ async function faultProxy(mode) {
 async function liveRun(store, serviceId, name, options = {}) {
   const repo = createMemoryIngestionRepo();
   let http = 0;
-  const fetch = async () => {
+  const fetch = async (url) => {
     http++;
     return (
-      options.fetch?.(http) ??
+      options.fetch?.(http, url) ??
       Response.json({
         response: { header: { resultCode: "00" }, body: { items: [], totalCount: 0 } },
       })
@@ -182,7 +190,12 @@ async function liveRun(store, serviceId, name, options = {}) {
       secrets: [],
     },
   );
-  return { status: result.status, http, errors: repo.state.errors.map((error) => error.errorCode) };
+  return {
+    status: result.status,
+    http,
+    quotaUsed: [...repo.state.runs.values()].find((run) => run.runId === result.runId)?.quotaUsed,
+    errors: repo.state.errors.map((error) => error.errorCode),
+  };
 }
 
 function blocked(outcome) {
@@ -259,6 +272,7 @@ try {
   assert.equal(binding.HostIp, "127.0.0.1");
   port = Number(binding.HostPort);
   assert.ok(Number.isSafeInteger(port) && port > 1024 && ![6379, 6380].includes(port));
+  allowedPorts.add(port);
   console.log(`ISOLATED redis=127.0.0.1:${port}, internal container port=${containerPort}`);
   docker("image", "inspect", image, "--format", "{{.Id}} {{json .RepoDigests}}");
   const admin = await connect();
@@ -274,6 +288,11 @@ try {
   );
 
   const store = createRedisQuotaStore(admin, { dailyLimit: 10 });
+  const single = createRedisQuotaStore(admin, { dailyLimit: 1 });
+  assert.equal(await single.reserve("single-slot", at), true);
+  assert.equal(await single.reserve("single-slot", at), false);
+  assert.equal(await single.get("single-slot", at), 1);
+  console.log("PASS A dailyLimit=1: reserve=true,false final counter=1");
   const key = quotaKey("ttl", at);
   assert.equal(await store.reserve("ttl", at), true);
   assert.equal(await admin.get(key), "1");
@@ -318,11 +337,23 @@ try {
   assert.equal(crossed.http, 2);
   assert.equal(await midnight.get("midnight", before), 1);
   assert.equal(await midnight.get("midnight", after), 1);
+  for (const date of [before, after]) assert.ok((await admin.ttl(quotaKey("midnight", date))) > 0);
   console.log(
     `PASS KST 23:59:59 -> 00:00:00: ${quotaKey("midnight", before)}=1 ${quotaKey("midnight", after)}=1, HTTP=2`,
   );
 
-  const contenders = await Promise.all(Array.from({ length: 16 }, () => connect()));
+  const contenders = await Promise.all(Array.from({ length: 32 }, () => connect()));
+  const parallel = await Promise.all(
+    contenders.map((client) =>
+      createRedisQuotaStore(client, { dailyLimit: 10 }).reserve("parallel-32", at),
+    ),
+  );
+  assert.equal(parallel.filter(Boolean).length, 10);
+  assert.equal(parallel.filter((reserved) => !reserved).length, 22);
+  assert.equal(await store.get("parallel-32", at), 10);
+  console.log(
+    "PASS B 32 simultaneous independent clients: successes=10 denied=22 counter=10 overshoots=0",
+  );
   let overshoots = 0;
   for (let round = 0; round < 20; round++) {
     const serviceId = `race-${round}`;
@@ -336,7 +367,7 @@ try {
     if (winners !== 1 || (await store.get(serviceId, at)) !== 10) overshoots++;
   }
   assert.equal(overshoots, 0);
-  console.log("PASS last-slot race: 16 independent clients x 20 rounds, overshoots=0");
+  console.log("PASS last-slot race: 32 independent clients x 20 rounds, overshoots=0");
   const runs = await Promise.all(
     contenders.map((client, index) =>
       liveRun(
@@ -352,9 +383,9 @@ try {
     1,
   );
   assert.equal(runs.filter((run) => run.status === "SUCCEEDED").length, 1);
-  assert.equal(runs.filter((run) => run.status === "FAILED").length, 15);
+  assert.equal(runs.filter((run) => run.status === "FAILED").length, 31);
   console.log(
-    "PASS 16 simultaneous manual/scheduled live job handlers: HTTP=1, SUCCEEDED=1 FAILED=15",
+    "PASS 32 simultaneous manual/scheduled live job handlers: HTTP=1, SUCCEEDED=1 FAILED=31",
   );
   const retry = await liveRun(createRedisQuotaStore(admin, { dailyLimit: 1 }), "retry", "retry", {
     dailyLimit: 1,
@@ -362,7 +393,69 @@ try {
   });
   assert.equal(retry.status, "FAILED");
   assert.equal(retry.http, 1);
+  assert.equal(await single.get("retry", at), 1);
+  assert.equal(retry.quotaUsed, 1);
   console.log("PASS 503 retry with final slot: HTTP=1 FAILED, second HTTP blocked");
+
+  for (const dailyLimit of [4, 5]) {
+    const serviceId = `verify-g2b-shared-${dailyLimit}`;
+    const sharedStore = createRedisQuotaStore(admin, { dailyLimit });
+    const operations = [];
+    const shared = await liveRun(sharedStore, serviceId, serviceId, {
+      source: "g2b",
+      aux: true,
+      dailyLimit,
+      fetch: (calls, url) => {
+        const operation = new URL(url).pathname.split("/").at(-1);
+        operations.push(operation); // Keep only operation names; never log URL/query or credentials.
+        if (calls === 2) return new Response("unavailable", { status: 503 });
+        const items =
+          operation === G2B_BID_NOTICE_LIST_OPERATION
+            ? [
+                {
+                  bidNtceNo: "SHARED-QUOTA-TEST",
+                  bidNtceOrd: "000",
+                  bidNtceNm: "데이터 시스템 용역",
+                  ntceKindNm: "등록공고",
+                  dminsttNm: "시험기관",
+                  infoBizYn: "Y",
+                  bidNtceDt: "2026-10-22 09:00:00",
+                  bidClseDt: "2026-10-23 18:00:00",
+                  bidNtceDtlUrl: "https://www.g2b.go.kr/pn/test",
+                },
+              ]
+            : [];
+        return Response.json({
+          response: {
+            header: { resultCode: "00" },
+            body: { items, totalCount: items.length },
+          },
+        });
+      },
+    });
+    assert.deepEqual(operations, [
+      G2B_BID_NOTICE_LIST_OPERATION,
+      G2B_AUX_OPERATIONS[0].operation,
+      G2B_AUX_OPERATIONS[0].operation,
+      G2B_AUX_OPERATIONS[1].operation,
+      ...(dailyLimit === 5 ? [G2B_AUX_OPERATIONS[2].operation] : []),
+    ]);
+    assert.equal(shared.status, dailyLimit === 5 ? "SUCCEEDED" : "FAILED");
+    assert.equal(shared.http, dailyLimit);
+    assert.equal(shared.quotaUsed, dailyLimit);
+    assert.equal(await sharedStore.get(serviceId, at), dailyLimit);
+    const otherId = `verify-other-service-${dailyLimit}`;
+    assert.equal(await single.get(otherId, at), 0);
+    const other = await liveRun(single, otherId, otherId, { dailyLimit: 1 });
+    assert.equal(other.status, "SUCCEEDED");
+    assert.equal(other.http, 1);
+    assert.equal(other.quotaUsed, 1);
+    assert.equal(await single.get(otherId, at), 1);
+    assert.equal(await sharedStore.get(serviceId, at), dailyLimit);
+    console.log(
+      `PASS F shared G2B list/3 auxiliaries/retry: limit=${dailyLimit} HTTP=${shared.http} quota_used=${shared.quotaUsed} counter=${dailyLimit}; other-service HTTP=1 counter=1 unaffected`,
+    );
+  }
 
   const failedFaults = [];
   for (const mode of ["disconnect", "response-loss", "timeout"]) {
@@ -430,6 +523,29 @@ try {
   console.log(
     "PASS minimum quota ACL: GET EVAL INCR EXPIRE SET (+client handshake); EVALSHA not used by current store",
   );
+  await admin.acl(
+    "SETUSER",
+    "f08-no-incr",
+    ...minimal.filter((grant) => grant !== "+incr"),
+    "+eval",
+  );
+  const noIncrement = await connect({ username: "f08-no-incr" });
+  const failedEvalKey = quotaKey("eval-runtime-failure", at);
+  assert.equal(await noIncrement.get(failedEvalKey), null);
+  await assert.rejects(
+    noIncrement.eval("return redis.call('INCR', KEYS[1])", 1, failedEvalKey),
+    /ACL|NOPERM/i,
+  );
+  const evalFailure = await liveRun(
+    createRedisQuotaStore(noIncrement, { dailyLimit: 10 }),
+    "eval-runtime-failure",
+    "eval-runtime-failure",
+  );
+  blocked(evalFailure);
+  assert.equal(await store.get("eval-runtime-failure", at), 0);
+  console.log(
+    `PASS E actual Lua command failure (EVAL allowed, INCR denied): ${JSON.stringify(evalFailure)}`,
+  );
   const auxClient = await connect();
   const auxReadFailure = await liveRun(
     createRedisQuotaStore(auxClient, { dailyLimit: 10 }),
@@ -472,6 +588,50 @@ try {
     "PASS Redis disconnect after list: list HTTP=1, auxiliary HTTP=0, FAILED with QUOTA_STORE_UNAVAILABLE",
   );
   assert.deepEqual(failedFaults, [], "Redis faults must fail closed without replaying EVAL");
+  const stats = await admin.info("commandstats");
+  const evalCalls = Number(stats.match(/^cmdstat_eval:calls=(\d+)/m)?.[1]);
+  assert.ok(evalCalls > 0, "Redis itself must report actual EVAL executions");
+  const incrbyCalls = Number(stats.match(/^cmdstat_incrby:calls=(\d+)/m)?.[1] ?? 0);
+  assert.equal(incrbyCalls, 0, "Reservations must not be counted again with INCRBY");
+  console.log(`PASS actual Redis INFO commandstats: EVAL calls=${evalCalls}; INCRBY calls=0`);
+
+  // Remove only this harness's server from service, then fail an actual TCP connection to its port.
+  docker("stop", "--time", "1", id);
+  assert.equal(docker("inspect", "--format", "{{.State.Running}}", id), "false");
+  const refused = new Redis({ ...QUOTA_REDIS_OPTIONS, host: "127.0.0.1", port, lazyConnect: true });
+  clients.add(refused);
+  let connectionErrorCode;
+  let connectionClosed = false;
+  let becameReady = false;
+  refused.on("close", () => {
+    connectionClosed = true;
+  });
+  refused.on("ready", () => {
+    becameReady = true;
+  });
+  refused.on("error", (error) => {
+    // IORedis connect() rejects with a generic close error; the socket error event retains its code.
+    if (["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT"].includes(error.code))
+      connectionErrorCode = error.code;
+  });
+  await assert.rejects(refused.connect());
+  // Docker Desktop may accept TCP and close it when the stopped container has no Redis behind it.
+  assert.equal(connectionClosed, true);
+  assert.equal(becameReady, false);
+  const connectionFailure = await liveRun(
+    createRedisQuotaStore(refused, { dailyLimit: 1 }),
+    "connection-failed",
+    "connection-failed",
+    { dailyLimit: 1 },
+  );
+  blocked(connectionFailure);
+  console.log(
+    `PASS E actual Redis connection failure (${connectionErrorCode ?? "closed-before-ready"}): ${JSON.stringify(connectionFailure)}`,
+  );
+  assert.equal(realHttpAttempts, 0);
+  console.log(
+    "PASS isolation: actual external HTTP attempts=0; Redis targets restricted to owned loopback ports",
+  );
   console.log("ALL ISOLATED REDIS CHECKS PASSED; no external HTTP or operational services used");
 } finally {
   for (const client of clients) client.disconnect();
