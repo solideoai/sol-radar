@@ -20,6 +20,73 @@ const window = { from: "2026-10-20T00:00:00.000Z", to: "2026-10-21T00:00:00.000Z
 const retry = { sleep: async () => undefined, random: () => 0 };
 
 describe("external ingestion persistence", () => {
+  it("persists no revision or event for elapsed time, but saves a supplier-only change with evidence", async () => {
+    const repo = createMemoryIngestionRepo();
+    let item = {
+      ...valid,
+      progressState: "PreAttendProgress",
+      bidAttendReqBeginDatetime: "2026-10-22 09:00:00",
+      bidAttendReqCloseDatetime: "2026-10-22 18:00:00",
+      placeName: "서울",
+    };
+    const connector: BidSourceConnector = {
+      source: "kepco",
+      fetchPage: async () => ({
+        ok: true,
+        page: {
+          records: [{ kind: "external", sourceKey: "kepco-ebid-contract", item }],
+          nextCursor: null,
+          rateLimitInfo: null,
+          completeness: "COMPLETE",
+          capture: {
+            serviceKey: "kepco-ebid-contract",
+            operation: "electContract",
+            partitionKey: "COM01",
+            contentType: "application/json",
+            sanitizedPayload: JSON.stringify({ data: [item] }),
+          },
+        },
+      }),
+    };
+    const runAt = (jobKey: string, at: string) =>
+      runIngest({
+        repo,
+        connector,
+        run: {
+          source: "kepco",
+          serviceKey: "kepco-ebid-contract",
+          operation: "electContract",
+          partitionKey: "COM01",
+          runMode: "LIVE",
+          trigger: "SCHEDULED",
+          batch: null,
+          params: { window },
+          jobKey,
+        },
+        now: () => new Date(at),
+        retry,
+      });
+    expect(await runAt("f09-before", "2026-10-22T08:59:00+09:00")).toMatchObject({
+      summary: { created: 1, changed: 0 },
+    });
+    expect(await runAt("f09-after", "2026-10-22T09:01:00+09:00")).toMatchObject({
+      summary: { created: 0, changed: 0, skippedDuplicate: 1 },
+    });
+    expect(repo.state.revisions).toHaveLength(1);
+    expect(repo.state.outbox.map(({ type }) => type)).toEqual(["BID_CREATED"]);
+    item = { ...item, placeName: "부산" };
+    expect(await runAt("f09-provider-change", "2026-10-22T09:02:00+09:00")).toMatchObject({
+      summary: { changed: 1 },
+    });
+    expect(repo.state.revisions).toHaveLength(2);
+    expect(repo.state.revisions[1].changes).toContainEqual({
+      field: "sourceMetadata",
+      before: expect.objectContaining({ attributes: { placeName: "서울" } }),
+      after: expect.objectContaining({ attributes: { placeName: "부산" } }),
+    });
+    expect(repo.state.outbox.map(({ type }) => type)).toEqual(["BID_CREATED", "BID_CHANGED"]);
+  });
+
   it("reads historical untagged G2B bid windows without widening new service scopes", async () => {
     const requests: URL[] = [];
     const client = createClient<Database>("https://ingestion.invalid", "test-only-placeholder", {

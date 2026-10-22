@@ -1,10 +1,23 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import type { NormalizedBid, NormalizedBidDraft } from "./normalized-bid.model";
+import {
+  EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION,
+  type NormalizedBid,
+  type NormalizedBidDraft,
+} from "./normalized-bid.model";
 
 // ── 15 §3 checksum: 같은 공고를 다시 받았는지 판단하는 유일한 근거 ──
 // 수집 시각은 같은 공고를 다시 받아도 매번 달라지므로 해시에서 뺀다. checksum 자신도 뺀다.
 const UNHASHED_KEYS: ReadonlySet<string> = new Set(["fetchedAt", "checksum"]);
+
+/** v0.3의 관측 시점 파생 상태만 제외한다. 공급자의 상태·날짜·금액·속성은 그대로 비교한다. */
+export function revisionSourceMetadata(bid: NormalizedBidDraft): unknown {
+  if (bid.sourceMetadata === undefined) return null;
+  if (bid.schemaVersion !== EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION) return bid.sourceMetadata;
+  return Object.fromEntries(
+    Object.entries(bid.sourceMetadata).filter(([key]) => key !== "participationStatus"),
+  );
+}
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -34,7 +47,16 @@ export function canonicalJson(value: unknown): string {
 }
 
 export function computeBidChecksum(bid: Omit<NormalizedBid, "checksum">): string {
-  const hashed = Object.fromEntries(Object.entries(bid).filter(([key]) => !UNHASHED_KEYS.has(key)));
+  const hashed: Record<string, unknown> = Object.fromEntries(
+    Object.entries(bid).filter(([key]) => !UNHASHED_KEYS.has(key)),
+  );
+  // v0.2의 직렬화와 hash는 유지한다. 원본 스냅샷도 수정하지 않는다.
+  if (
+    bid.schemaVersion === EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION &&
+    bid.sourceMetadata !== undefined
+  ) {
+    hashed.sourceMetadata = revisionSourceMetadata(bid);
+  }
   return createHash("sha256").update(canonicalJson(hashed), "utf8").digest("hex");
 }
 

@@ -75,6 +75,12 @@ const fx06 = () => {
 };
 
 describe("G2 — FX-06 마감 변경", () => {
+  it("preserves the pre-F09 v0.2 fixture checksum golden", () => {
+    expect(finalizeRevision(draftOf("FX-09", "SEED"), 1).checksum).toBe(
+      "6e11084d231e7ebadcf9ee9f08e8eeb0135adb5e830aaa920b15bae1c1eb9c6e",
+    );
+  });
+
   it("처음 받은 r1 은 CREATED·revision 1·BID_CREATED 다", () => {
     const { created } = fx06();
     const decision = changed(created);

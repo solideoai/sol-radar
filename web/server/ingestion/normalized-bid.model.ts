@@ -101,6 +101,8 @@ export const sourceMetadataSchema = z.strictObject({
   applicationDeadlineAt: isoUtcDateTime.nullable(),
   biddingStartsAt: isoUtcDateTime.nullable(),
   biddingEndsAt: isoUtcDateTime.nullable(),
+  // fetchedAt 시점의 파생 스냅샷. 공급자 공식 상태가 아니며 v0.3 revision hash/diff에서는 제외한다.
+  // 현재 참여 상태가 필요하면 providerStatus·정밀도가 확인된 dates와 조회 시각으로 계산해야 한다.
   participationStatus: z.enum([
     "NOT_STARTED",
     "APPLICATION_OPEN",

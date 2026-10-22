@@ -1,6 +1,15 @@
 import "server-only";
-import { canonicalJson, finalizeRevision } from "./checksum";
-import type { NormalizedBid, NormalizedBidDraft } from "./normalized-bid.model";
+import {
+  canonicalJson,
+  computeBidChecksum,
+  finalizeRevision,
+  revisionSourceMetadata,
+} from "./checksum";
+import {
+  EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION,
+  type NormalizedBid,
+  type NormalizedBidDraft,
+} from "./normalized-bid.model";
 import { sourceKeyOf } from "./validation";
 
 // ── 07 §4·§5 이력 연결·변경 감지: 이전 revision 과 새 draft 로 저장·이벤트·재분석을 정한다 ──
@@ -28,7 +37,7 @@ export const TRACKED_FIELDS = [
   "attachments",
   "structuredQualifications",
 ] as const;
-export type TrackedField = (typeof TRACKED_FIELDS)[number];
+export type TrackedField = (typeof TRACKED_FIELDS)[number] | "sourceMetadata";
 
 export type FieldChange = { field: TrackedField; before: unknown; after: unknown };
 
@@ -92,10 +101,18 @@ export function diffRevisions(
   before: NormalizedBidDraft,
   after: NormalizedBidDraft,
 ): FieldChange[] {
-  return TRACKED_FIELDS.flatMap((field) => {
+  // 기존 v0.2 변경 목록은 유지하고 v0.3 공급자 메타데이터의 변경 근거를 더한다.
+  const fields: readonly TrackedField[] =
+    before.schemaVersion === EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION ||
+    after.schemaVersion === EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION
+      ? [...TRACKED_FIELDS, "sourceMetadata"]
+      : TRACKED_FIELDS;
+  return fields.flatMap((field) => {
     // 선택 키가 없는 것과 null 은 같은 "값 없음" 으로 본다.
-    const previous: unknown = before[field] ?? null;
-    const next: unknown = after[field] ?? null;
+    const previous: unknown =
+      field === "sourceMetadata" ? revisionSourceMetadata(before) : (before[field] ?? null);
+    const next: unknown =
+      field === "sourceMetadata" ? revisionSourceMetadata(after) : (after[field] ?? null);
     return canonicalJson(previous) === canonicalJson(next)
       ? []
       : [{ field, before: previous, after: next }];
@@ -132,8 +149,13 @@ export function decideRevision(
     return { kind: "STALE", revision: previous.revision, amendmentNo: draftAmendmentNo };
   }
 
-  // 같은 revision 번호로 확정했을 때 checksum 이 같으면 수집 시각만 다른 같은 공고다(FX-09).
-  if (finalizeAt(draft, previous.revision).checksum === previous.checksum) {
+  // v0.3의 구 hash에도 participationStatus가 들어 있다. 저장 스냅샷을 같은 정책으로
+  // 메모리에서만 다시 계산해 정책 전환만으로 revision을 만들지 않는다. v0.2 비교는 그대로다.
+  const previousChecksum =
+    previous.normalized.schemaVersion === EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION
+      ? computeBidChecksum(previous.normalized)
+      : previous.checksum;
+  if (finalizeAt(draft, previous.revision).checksum === previousChecksum) {
     return { kind: "DUPLICATE", revision: previous.revision };
   }
 

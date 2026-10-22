@@ -190,6 +190,9 @@ interface StructuredRequirement {
 
 `checksum`은 canonical JSON(키 정렬, 공백 없음, `fetchedAt`·`checksum` 제외)의 sha256이다. 같은 `source+noticeId`에서 checksum이 바뀌면 새 revision이다.
 
+- **v0.3 외부 공고의 시간 파생 상태(F09)**: 위 v0.2 규칙은 유지한다. `normalized-bid/v0.3`은 추가로 `sourceMetadata.participationStatus`를 hash와 변경 상세에서 제외한다. 공급자의 `providerStatus`·공식 날짜/정밀도·원문 금액/단위·사업 속성은 계속 비교하며, 변경 시 `changes`에 `sourceMetadata`의 전후 값을 기록한다. 기존 v0.3 저장 행은 정규화 스냅샷을 같은 새 규칙으로 메모리에서 비교하므로 정책 전환만으로 revision이 생기지 않는다. 저장된 checksum·원문·revision 번호는 갱신하지 않는다.
+- **참여 상태의 조회 경계**: 저장된 `participationStatus`는 `fetchedAt` 당시 관측 스냅샷이다. 현재 참여 가능 여부의 근거로 사용하지 않는다. 현재 값을 제공할 때는 공식 `providerStatus`와 정밀도가 확인된 `dates`를 조회 시각과 함께 계산하고, revision 저장·이벤트와 분리한다. 현재 API에는 이 계산을 새로 연결하지 않았다. DATE 정밀도 처리(F10)는 이번 F09에서 변경하지 않는다.
+
 - **`auxLookup`**(main `c6b16e3`, [[16-DECISIONS|ADR-035]] F7): checksum에 포함된다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부르고(다시 채우기), 셋 다 받으면 `CHANGED` revision으로 저장한다. 또 실패하면 revision을 늘리지 않는다. 같은 공고의 재수집이 `DUPLICATE`로 걸러지도록, 변경 판정의 1차 비교는 저장된 revision에서 보조 조회 유래 부분(면허제한·지역 행, e발주 첨부, `auxLookup`)을 뺀 "목록만" 모양으로 한다([[07-DATA-PIPELINE|07 수집]] §2.2·§5). 규칙 엔진은 `auxLookup`이 `OK`가 아니면 `structured:AUX_LOOKUP` 한 건을 `NEEDS_REVIEW`(`NOTICE_INFO_MISSING`)로 둔다. 구조화 자격이 비어 있어도 "제한 없음"으로 읽지 않는다(`web/server/scoring/qualification.ts` `auxLookupChecks`, [[08-SCORING|08 점수]]).
 
 - live 공고의 원본 필드 → `NormalizedBid` 매핑은 [[07-DATA-PIPELINE|07 수집]] §3.1이다.
