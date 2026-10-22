@@ -231,7 +231,17 @@ def _fill_gateway_values(
             "latencyMs": attempt.latency,
             "retries": attempt.retries,
         }
+    # 스키마 검증 후 복사본에만 적용한다. 실제 첨부 ID "null"이 있으면 문자열을 보존한다.
+    # 문서/인용 검증은 그대로 수행하므로 ID 정규화가 근거를 만들어 주지는 않는다.
+    normalize_body_id = not any(a.documentId == "null" for a in request.attachments)
     for name in FIELDS:
+        for ref in payload[name]["evidence"]:
+            if (
+                normalize_body_id
+                and ref.get("kind", "TEXT") == "TEXT"
+                and ref["documentId"] == "null"
+            ):
+                ref["documentId"] = None
         payload[name]["evidence"] = [
             _ordered_ref(ref, request.revisionId) for ref in payload[name]["evidence"]
         ]
