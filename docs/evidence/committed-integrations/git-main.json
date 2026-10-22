@@ -1,0 +1,15 @@
+{
+  "checkpoint": "기능/원본 이력 main 첫 push 완료; 후속 문서 commit은 이 상태에 추가된다.",
+  "baseline": "d57fcae7a10ab12e99d5941a2cc4296991f262fe",
+  "functionalMerge": "6b4ff0a",
+  "ancestryMerge": "73eac5a819a19156de12bfd3ac731808d814345b",
+  "observedRemoteMain": "73eac5a819a19156de12bfd3ac731808d814345b",
+  "productBranchHeadsVerified": 21,
+  "allProductHeadsReachableFromMain": true,
+  "unmergedLocalBranches": ["recovery/first-bundle-hook-baseline-20261021"],
+  "unpublishedProductCommits": 0,
+  "excludedRefReason": "Git 훅 시험이 만든 synthetic 복구 ref. 제품 변경이 아니며 원본 부모는 main 조상. 로컬 ref 보존.",
+  "sourceBranchPushes": 17,
+  "safetyStash": "a3446713c1b874bc81b2cbc9b336b84ff2305bcd",
+  "productionDbOrServerChanged": false
+}

@@ -11,7 +11,7 @@ updated: 2026-10-22
 
 ## 미발행 커밋 push·main 통합 (2026-10-22)
 
-사용자의 “커밋은 했는데 push 안 된 것들 push 하고 main에 합쳐” 요청으로 미발행 제품 브랜치17개를 origin에 보존하고 최신 main `d57fcae` 기준 native 격리 작업 트리에서 기능/이력을 통합한다. AI 번역·N2·S5·P0-8·카카오·지원사업·회사 runtime 준비를 이식하며 기존 공공조달 UI·N3/N5/N6/N7·Storage·인력200·모델/점수를 보존한다. 기존 main의 미커밋40개는 이미 별도 커밋된 사본과 byte일치를 확인했고 원본/안전 사본을 보존한다. 새 migration8개는 forward로 추가하고 운영 DB에는 실행하지 않는다. 전체 `pnpm verify`(루트202·웹469·AI153·결정57·Next빌드), 격리 localhost DB49개/기존 데이터 불변, 변경 화면18개·14스크린샷과 독립 리뷰를 통과했다. main 원격 통합은 후속 실행하며 완료 결과는 [통합 기록](evidence/committed-integrations/integration.md)을 따른다. 아래는 각 작업 시점 기록이다.
+사용자의 “커밋은 했는데 push 안 된 것들 push 하고 main에 합쳐” 요청으로 미발행 제품 브랜치17개를 origin에 보존하고 최신 main `d57fcae` 기준 native 격리 작업 트리에서 기능/이력을 통합한다. AI 번역·N2·S5·P0-8·카카오·지원사업·회사 runtime 준비를 이식하며 기존 공공조달 UI·N3/N5/N6/N7·Storage·인력200·모델/점수를 보존한다. 기존 main의 미커밋40개는 이미 별도 커밋된 사본과 byte일치를 확인했고 원본/안전 사본을 보존한다. 새 migration8개는 forward로 추가하고 운영 DB에는 실행하지 않는다. 전체 `pnpm verify`(루트202·웹469·AI153·결정57·Next빌드), 격리 localhost DB49개/기존 데이터 불변, 변경 화면18개·14스크린샷과 독립 리뷰를 통과했다. 기능 `6b4ff0a`·원본 이력 `73eac5a`를 main에 병합·push했고 원격 일치·제품21개 tip 도달·제품 미발행0을 확인했다. 기존40개는 커밋 사본과 안전 stash에 보존했다. 완료 결과는 [통합 기록](evidence/committed-integrations/integration.md)을 따른다. 아래는 각 작업 시점 기록이다.
 
 ## 회사 runtime 후속 구현 (2026-10-22)
 

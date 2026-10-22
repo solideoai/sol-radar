@@ -1,0 +1,10 @@
+{
+  "originalPaths": 40,
+  "unchangedSinceSnapshot": true,
+  "identicalToExistingCommit": "26f0f90",
+  "identicalPathCount": 40,
+  "mainOriginalSha": "d57fcae7a10ab12e99d5941a2cc4296991f262fe",
+  "safetyStash": "a3446713c1b874bc81b2cbc9b336b84ff2305bcd",
+  "originalWorkAlreadyCommitted": true,
+  "action": "통합된 기존 사본26f0f90에 이미 포함된 40개를 되돌리지 않는다. 안전 stash는 삭제하지 않는다."
+}

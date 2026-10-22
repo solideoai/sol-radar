@@ -71,3 +71,11 @@ DB 타입은 전체 migration에서 `pnpm db:types`로 생성한다. 새 worker 
 변경 화면은 격리 localhost DB의 기존 계정/데이터로 1440·1280에서 확인했다. N2 ADMIN 화면/SALES 차단, P0-8 단계 연결, S5 첫 revision, 카카오 미연결 설정, 지원사업 빈 상태·필터/API 권한 등18개 확인과 화면14장을 남겼다. 브라우저 오류·외부/변경 요청·가로 넘침은0이다. 로컬 DB는49개 migration 검증 통과, 기존7개 주요 표 지문이 같다. [브라우저 결과](browser.json).
 
 이번 로컬 브라우저는 revision1과 지원사업0건 데이터로 실행했으므로 다중 revision diff·지원사업 채워진 목록/drawer는 단위/API 시험과 과거 화면 증거를 참고한다. 실제 운영/외부 검사를 통과했다고 주장하지 않는다. main push/원격 ancestry 결과는 최종 후속 기록으로 남긴다.
+
+## main push 완료
+
+기능 통합 `6b4ff0a`와 원본 이력 연결 `73eac5a`를 정상 커밋 게이트로 저장하고 통합 브랜치와 main에 push했다. 첫 원격 확인에서 main/origin main 모두 `73eac5a819a19156de12bfd3ac731808d814345b`다. [Git 감사](git-main.json)는 제품 브랜치21개 tip의 main 도달과 제품 미발행 commit0을 확인한다. 이후 이 문서 완료 기록 commit이 main에 추가된다. 최종 ref는 `git rev-parse main`과 `git ls-remote origin refs/heads/main`으로 확인한다.
+
+원본 작업 폴더40개는 기존 커밋 `26f0f90`과 모두 byte일치했고 그 커밋이 main에 포함됐다. 35개는 최종 파일도 동일하며5개 정본은 승인된 번역/runtime/통합 설명을 추가했다. main을 안전 stash 후 fast-forward했고 이미 반영된 과거 사본을 재적용해 새 설명을 되돌리지 않았다. [원본 보존](original-work-preservation.json), stash `a3446713c1b874bc81b2cbc9b336b84ff2305bcd`와 원본 브랜치를 삭제하지 않는다. 이력 연결 commit의 내용 변경은 가져온 문서/로그의 끝 공백 정리4개뿐이며 검증된 소스는 같다.
+
+운영 새 SQL8개 적용·회사 프로세스 기동·실 API 인증/수집·카카오 실발송·모델 교체·운영 배포는 이번 Git 작업에서 실행하지 않았다. 로컬 검증용 DB 적용49개와 운영 적용을 구분한다.
