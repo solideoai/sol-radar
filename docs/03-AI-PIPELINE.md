@@ -22,7 +22,7 @@ updated: 2026-10-21
 |---|---|---|---|---|
 |나라장터 Connector(worker, [[07-DATA-PIPELINE\|07 수집]])|공고·사전규격·발주계획·면허제한·참가가능지역·첨부 목록 수집|data.go.kr Open API(`fixture`·`mock` 모드는 fixture 20건)|`NormalizedBid` + 구조화 자격 필드|없음|
 |문서 파서(`POST /parse`, §10)|첨부 바이트 → 텍스트·페이지·표. **(미구현)** 파서 어댑터가 없어 지금은 형식만 판정하고 모든 형식에 `UNSUPPORTED` + 경고 `PARSER_NOT_CONFIGURED:<형식>`을 돌려준다(`parse.py`)|PDF·HWPX·HWP 바이트|`ParseResult`(텍스트, 페이지 오프셋, 블록, 품질 신호, 오류 코드)|없음|
-|Qwen3.8-Flash-Next 추출(`POST /extract`, 회사 운영 vLLM API)|요구사항 구조화 추출, 자유 텍스트 값의 영어 표기|`NormalizedBid.content` + 첨부 텍스트 chunk|`RequirementExtraction`(§4.1) + `translations`(§5.11. **미구현**: 지금은 늘 `null`)|없음. 값마다 `state`와 인용|
+|Qwen3.8-Flash-Next 추출(`POST /extract`, 회사 운영 vLLM API)|요구사항 구조화 추출, 자유 텍스트 값의 영어 표기|`NormalizedBid.content` + 첨부 텍스트 chunk|`RequirementExtraction`(§4.1) + `translations`(§5.11. local 번역, mock은 `null`)|없음. 값마다 `state`와 인용|
 |규칙 엔진([[08-SCORING\|08 점수]])|명시 조건 검증(업종·면허, 지역, 금액, 인력 수, 자격증, 마감)|API 구조화 필드 > 추출값, 회사 프로필|항목별 `SATISFIED`/`NOT_SATISFIED`/`NEEDS_REVIEW` + 사유 코드 + 양쪽 근거|**있음**(자격 판정)|
 |결정 모델 Bosun v3.1 0.6B(`POST /kev`. 경로 이름은 호환 유지, ADR-034)|비정형 요구사항의 충족 분류, 기술 적합성, 실적 연관성, 수행 리스크|영어 state 텍스트(§5.6·§5.11) + 질문 세트(§5.5·§5.10)|질문별 확률(선택지 분포·yes 확률·등급. typed decision `choice`/`score`/`noul`)|없음. 참고 지표·`reviewFlags`만|
 |SOL Score 엔진([[08-SCORING\|08 점수]])|`sol-v0.1.0` 결정론 점수, BID/WATCH/NO-BID 권고|규칙 결과 + 추출 + 회사 프로필|`AnalysisResult`(점수 분해, 권고)|**있음**(권고까지). 결정 모델 확률은 입력이 아니다|
@@ -64,7 +64,7 @@ worker job 순서:
 4. **analysis**: 규칙 → `POST /kev` → 플래그 병합 → 점수·권고 → `POST /explain` → 저장.
 
 > [!warning] 구현 상태 (2026-10-21, main `4e62170` 기준)
-> 위 그림과 job 순서는 v0.2 설계다. 지금 동작하는 것은 ingest·analysis 두 job(과 system job)이다. 첨부 파싱(`/parse` 어댑터·documents 소비자), `translations`, Qwen 설명(`/explain`), Qdrant 색인·검색은 미구현이다. 추출은 공고 본문만으로 하고, 설명은 템플릿 문장이다.
+> 위 그림과 job 순서는 v0.2 설계다. 지금 동작하는 것은 ingest·analysis 두 job(과 system job)이다. 첨부 파싱(`/parse` 어댑터·documents 소비자), Qwen 설명(`/explain`), Qdrant 색인·검색은 미구현이다. 추출은 공고 본문만으로 하고, 설명은 템플릿 문장이다.
 
 - job은 따로 재시도할 수 있게 나눈다. 앞 단계가 실패해도 다음 단계는 가진 정보로 진행한다. 예: 첨부가 실패하면 본문만으로 추출하고 경고를 단다.
 - 추출(`/extract`)은 **공고 revision 단위**로 1회 실행하고 조직과 무관하게 재사용한다(ADR-011). 파싱(`/parse`)은 첨부 문서 단위다. 자격 판정·점수·결정 모델·설명은 **조직 × revision × 프로필 revision** 단위다.
@@ -79,7 +79,7 @@ Compose 내부 네트워크 전용 엔드포인트다([[02-ARCHITECTURE|02 아�
 |엔드포인트|호출자|단위|하는 일|v0.2|
 |---|---|---|---|---|
 |`POST /parse`|documents job(Worker, 소비자 미구현), 새 revision의 첨부마다|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·Supabase Storage 접근 없음. Worker가 텍스트를 Supabase Storage에 쓰고 `bid_documents`에 상태를 기록|새로|
-|`POST /extract`|analysis job(Worker)이 캐시된 추출이 없을 때(설계는 별도 extract job)|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations`(미구현, 늘 `null`) 반환. Worker가 `requirement_extractions`에 저장|확장|
+|`POST /extract`|analysis job(Worker)이 캐시된 추출이 없을 때(설계는 별도 extract job)|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations`(local 번역, mock은 `null`) 반환. Worker가 `requirement_extractions`에 저장|확장|
 |`POST /kev`|analysis job(Worker)|조직 × revision × 프로필 revision|추출 `KNOWN` 값 + 프로필 요약으로 state 구성(§5.6·§5.11) → 결정 모델 질문 세트 → `KevAssist` + `stateTrace`·`stateHash` 반환|확장|
 |`POST /explain`|analysis job(Worker)|조직 × revision × 프로필 revision|규칙 판정·점수 분해·인용·결정 모델 참고 요약 → 한국어 설명. 입력에 없는 숫자가 있으면 템플릿 문장으로 대체(§6). 지금은 모든 모드가 템플릿이다(Qwen 설명 미구현)|새로|
 |`GET /health`|Worker(기동·주기), Route Handler `GET /api/v1/admin/ai/status`|—|실행 모드, Qwen 모델·프롬프트 해시, 결정 모델 id(`kev.modelId`)·레지스트리 일치, 질문 세트, 파서 목록|확장|
@@ -99,7 +99,7 @@ interface ExtractRequest {
 interface ExtractResponse {
   status: "COMPLETED" | "PENDING_REVIEW" | "FAILED";   // PENDING_REVIEW: 인젝션 의심, ATTACHMENT_PARSE_FAILED 경고, FAILED 인용 비율 > 50%(§4.4 9단계, ADR-029)
   payload: RequirementExtraction | null;   // FAILED면 null
-  translations: Record<string, string> | null;  // v0.2. fieldPath → 영어 표기. 숫자 보존 검사를 통과한 값만(§5.11). 미구현: gateway가 늘 null을 돌려준다
+  translations: Record<string, string> | null;  // v0.2. fieldPath → 영어 표기. 숫자 보존 검사를 통과한 값만(§5.11). local: 검증된 State 값 번역; mock: null
   errorCode: "EXTRACTION_FAILED" | "QWEN_UNAVAILABLE" | null;   // QWEN_UNAVAILABLE = gateway → Qwen 미접속(§8)
   injectionSuspected: boolean;             // §4.4
   warnings: string[];
@@ -133,7 +133,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 ```
 
 **계약 세부 결정** (2026-10-16)
-- `translations`는 `ExtractResponse`의 최상위 필드다. `RequirementExtraction` 스키마(v0.1)는 바꾸지 않고, 저장은 별도 열 `requirement_extractions.translations`다([[04-DATABASE|04 DB]]). **미구현**: gateway(`extraction.py`)는 늘 `translations=None`을 돌려준다. worker 저장·재사용 경로는 있으나 값이 늘 `null`이다.
+- `translations`는 `ExtractResponse`의 최상위 필드다. `RequirementExtraction` 스키마(v0.1)는 바꾸지 않고, 저장은 별도 열 `requirement_extractions.translations`다([[04-DATABASE|04 DB]]). local gateway는 최종 추출 검증 뒤 별도 번역 호출로 채운다(§5.11). mock은 기존 `null` 계약을 유지한다. Worker는 같은 행에 번역과 경고를 저장·재사용한다.
 - `KevResponse.requirements`(요구사항 항목별 분포)와 `wire`(Kev wire 응답 원문. ADR-034 뒤에는 `sol_decision` 서버가 같은 형식으로 낸다)는 위 정의대로 둔다. Worker가 `requirement_assessments`와 `score_runs.kev_output`(§7)에 저장한다.
 - 면허·업종·지역 대조는 gateway가 아니라 규칙 엔진(`web/server/scoring`)이 한다. gateway는 판정하지 않는다.
 
@@ -709,9 +709,14 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
 
 - 구조는 하나이고 언어만 둘이다: `services/ai/kev/state-templates/{en,ko}.v0.2.txt`. 줄 순서·항목 id·숫자는 두 언어가 같다. 그래서 한국어/영어 비교가 언어 효과만 잰다.
 - `en`(운영 기본): 고정 라벨은 템플릿으로 쓴다. 자유 텍스트 값은 `/extract`가 돌려준 `translations`를 쓴다. 대상은 실적 설명, 인력 조건, 사전 밖 자격명, 영문 표기가 없는 기술명이다.
-  - 번역은 Qwen이 용어집(`services/ai/kev/glossary.ko-en.yaml`)을 보고 `/extract`에서 함께 한다(revision 단위 1회, 추출과 같은 재사용 키).
-  - **미구현**: 용어집 파일이 없고 `/extract`는 늘 `translations=null`이다. 그래서 지금 영어 state의 한글 자유 텍스트 값은 모두 `(untranslated)`다(`kev_state.py`). 고정 라벨·사전 영어 라벨만 영어로 들어간다.
-  - 원문의 숫자 토큰이 번역에 그대로 있지 않으면 그 값은 번역하지 않고 `(untranslated)`로 표시한다.
+  - local Qwen 추출의 스키마·인용·상태·정규화·메타데이터 검증을 마친 뒤 `prompts/state-translate.v0.1.md`와 `schemas/state-translation.v0.1.json`으로 별도 호출한다. 기존 추출 prompt/schema는 유지한다. 추출·재시도·번역은 같은 `AI_TIMEOUT_MS` Deadline이다. endpoint·인증·TLS·redirect/응답 크기 방어는 기존 Qwen 연결을 재사용한다. 별도 용어집은 없고 자격 코드 사전의 영어 라벨만 재사용한다.
+  - 대상 경로의 정본은 `StateBuilder.text()`의 실제 호출이다. `requiredSkills[i]`, `preferredSkills[i]`, `restrictions[i]`, `qualifications[i].name/.detail`, `pastPerformance[i].description`, `staffing[i].role/.grade/.condition`이다. 사전 영어 라벨이 버전·세부 조건을 보존하지 못하면 원문 전체를 번역한다. `KNOWN` 값만 번역하고 summary/domain/quotedText 등 State에서 쓰지 않는 값은 보내지 않는다.
+  - 기업 프로필은 `/extract`에 없으므로 `/kev`에서 `profileSummary.technologies[i].name`, `profileSummary.licenses[i].name`, `profileSummary.staffAvailability.from/.to` 경로로 보충한다. 기존 `KEV_TIMEOUT_MS` Deadline을 번역과 Bosun 호출이 나눠 쓰며 새 예산은 만들지 않는다. 기업 번역은 추출 행에 저장하지 않으며 revision별 재사용 캐시는 아직 없다. COMPANY trace의 `recordKey`는 기존 `technologies[i]`, `licenses[i]` 등을 유지한다.
+  - 엄격 JSON(중복 키 거부)·허용 경로·ASCII 영어·숫자 다중집합·ASCII 식별자·숫자 단위 및 주요 비교/필수/부정 조건·기존 인젝션 패턴을 검증한다. 한 번에 최대64개, 값당2,000자, 번역 HTTP 요청/응답 각각64KiB다. 예산/크기 초과는 자르거나 추측하지 않고 누락으로 남긴다. guided JSON 거부 시 같은 Deadline 안에서 형식 대체 1회만 하며 내용 재시도는 없다.
+  - 번역 실패는 추출 `payload`/`payload.warnings`/`quotedText`를 바꾸지 않는다. 응답 최상위 `warnings`에 `TRANSLATION_MISSING:<path>`와 실패 코드(`TRANSLATION_TIMEOUT`, `TRANSLATION_UNAVAILABLE`, `TRANSLATION_INVALID`)를 기록하고 `PENDING_REVIEW`를 반환한다. translations에는 통과한 값만 남는다.
+  - 실제 Bosun은 필요한 영문 값이 하나라도 없으면 호출하지 않는다. `/kev`는 기존 `enabled=false`, `KEV_UNAVAILABLE`과 추가 `warnings`를 반환한다. Worker는 `TRANSLATION_INCOMPLETE` 검토 플래그·경로 진단을 남기고 기존 규칙만 사용한다. 예전 `/kev` 응답에 warnings가 없어도 호환된다. mock은 결정적인 fixture 결과를 유지하며 실제 모델 판단으로 취급하지 않는다.
+  - 기존 번역 없는 캐시는 자동으로 재추출하지 않는다. `/kev`에서 명시적으로 차단되므로, 새 번역을 채우려면 별도 재분석/캐시 갱신 절차가 필요하다(이 작업에서 운영 DB 변경 없음).
+  - 검증은 의미 동치 전체를 증명하지 못한다. 번역 성공은 최종 결정이나 모델 품질 검증이 아니며 사람이 원문 근거와 함께 검토한다. 실제 회사 Qwen/Bosun 연결·영문 번역 품질·추가 지연은 별도 실측 대상이다.
 - `ko`(평가 전용): 같은 템플릿의 한국어판에 원문 값을 넣는다. gateway env `KEV_ALLOW_KO_STATE=true`일 때만 받고, 아니면 `422 KO_STATE_NOT_ALLOWED`다([[16-DECISIONS|ADR-012]] 개정).
   - `KEV_ALLOW_KO_STATE=true`는 `SOL_RUN_MODE=live`와 함께 쓸 수 없다. `AI_PROVIDER=hosted`와 함께여도 모든 모드에서 쓸 수 없다(`KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[16-DECISIONS|ADR-030]] B11). 둘 다 gateway와 `pnpm check:env`가 기동을 거부한다.
   - 결정 서버(8009)도 한글 state를 기본으로 422 `STATE_NOT_ENGLISH`로 거절한다(main `36edfb6`, §5.3). 공유 8009에는 `DECISION_ALLOW_KO_STATE`를 켜지 않으므로, gateway `KEV_ALLOW_KO_STATE=true`로 보낸 ko state는 8009에서 거절돼 `KEV_UNAVAILABLE`이 된다. E2는 회사 서버 안 오프라인 `sol_eval bosun_score`로 한다(HTTP를 거치지 않는다. [[16-DECISIONS|16]] 미결정 27·29-6).
@@ -763,7 +768,7 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 |`requirement_extractions.payload`|`RequirementExtraction` 전체(검증 후). `FAILED` 추출은 저장하지 않는다([[16-DECISIONS\|ADR-030]] B10)|
 |`requirement_extractions.prompt_hash`, `model_name`, `schema_version`|재사용 키|
 |`requirement_extractions.provider`|추출 공급자. env·API 값은 소문자(`mock`·`local`·`hosted`), 저장값은 대문자(`MOCK`·`LOCAL`·`HOSTED`, [[04-DATABASE\|04 DB]] `ai_provider`)|
-|`requirement_extractions.translations`|자유 텍스트 값의 영어 표기(숫자 보존 검사 통과분만, §5.11). 미구현: 늘 null|
+|`requirement_extractions.translations`|자유 텍스트 값의 영어 표기(검증 통과분만, §5.11). mock은 null|
 |`score_runs.input_snapshot`|`AnalysisInput`: `NormalizedBid` 요약, `extractionId`, 프로필 스냅샷, 점수 계산 대상 `team.members`·기간 배정 `team.assignments`·고정 기준 시각 `team.asOf`, 규칙 설정 버전. 인력 이름·성별·사진은 제외|
 |`score_runs.kev_output`|Kev wire 응답 원문(분할 요청이면 전부, `wire`) + `questionSetVersion` + `stateHash` + `stateTrace`(§5.12) + `requirements`. v0.2 필드는 여기에만 남는다(§5.7 구현 상태)|
 |`score_runs.run_mode`, `ai_provider`, `qwen_model`, `kev_model`, `question_set_version`, `prompt_hash`, `input_snapshot_hash`, `injection_suspected`|감사용 평문 컬럼([[09-SECURITY\|09 보안]] 감사 필드 표와 이름 일치). `input_snapshot_hash = sha256(canonical input_snapshot)`|

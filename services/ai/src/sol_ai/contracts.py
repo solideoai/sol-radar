@@ -291,6 +291,8 @@ class KevTimings(BaseModel):
 
 
 class KevResponse(BaseModel):
+    # 추가 진단. 기존 errorCode/disabled 계약을 유지하며 원문 대신 안전한 필드 경로만 싣는다.
+    warnings: list[str] = Field(default_factory=list)
     kev: KevAssist
     stateHash: str | None
     # v0.2 Kev 담당 항목별 분포. v0.1 run·Kev 실패면 null

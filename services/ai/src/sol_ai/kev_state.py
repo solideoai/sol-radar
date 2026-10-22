@@ -1,7 +1,7 @@
 """Kev state 빌더(docs/03 §5.6·§5.11). 어댑터가 구조화된 사실을 템플릿에 채운다.
 
-- en(운영): 한글이 든 자유 텍스트 값은 translations[fieldPath] 가 있고 그 번역에 한글이 없고 원문 숫자를
-  보존할 때만 그것을, 아니면 "(untranslated)". 자격은 사전 영어 라벨. 기관명은 역할명, 회사 이름은 넣지 않는다.
+- en(운영): 한글이 든 자유 텍스트 값은 translations[fieldPath] 가 있고 그 번역에 ASCII 영어이고 숫자·식별자·단위·조건 검증을
+  통과할 때만 그것을, 아니면 "(untranslated)". 자격은 사전 영어 라벨. 기관명은 역할명, 회사 이름은 넣지 않는다.
 - ko(평가 전용, KEV_ALLOW_KO_STATE=true): 같은 구조의 한국어 라벨에 원문 값을 넣는다.
 - 규칙 결과(자격 판정·점수·권고)는 넣지 않는다. KevRequest 에 그런 필드가 없다.
 - KNOWN 값만 넣는다. UNKNOWN·CONFLICTED·NOT_APPLICABLE 은 표기로 바꾼다.
@@ -14,12 +14,14 @@ from typing import Any
 
 from sol_ai.citation import norm
 from sol_ai.contracts import KevRequest, ProfileSummary
+from sol_ai.guards import InjectionGuard
+from sol_ai.paths import INJECTION_PATTERNS_FILE
 from sol_ai.qualifications import QualificationDictionary
 from sol_ai.timeutil import parse_instant
+from sol_ai.translation_validation import HANGUL, valid_translation
 
 # 03 §5.6 한글 범위(음절·자모·호환 자모)
-HANGUL = re.compile("[\uac00-\ud7a3\u1100-\u11ff\u3130-\u318f]")
-NUMBER_TOKEN = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
 # 길이 상한 6,000 토큰. 토큰 수는 글자 수 / 4 로 근사한다
 TOKEN_LIMIT = 6_000
 CHARS_PER_TOKEN = 4
@@ -158,10 +160,6 @@ KO = Labels(
 UNTRANSLATED = "(untranslated)"
 
 
-def _numbers(text: str) -> set[str]:
-    return {token.replace(",", "") for token in NUMBER_TOKEN.findall(text)}
-
-
 def _number(value: float) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
@@ -190,19 +188,21 @@ class StateBuilder:
         # v0.1 은 코드의 EN·KO 라벨, v0.2 는 템플릿 파일(kev/state-templates)의 라벨
         self.labels = labels if labels is not None else (EN if self.english else KO)
         self.dictionary = dictionary
+        self.translation_sources: dict[str, str] = {}
+        self.guard = InjectionGuard.load(INJECTION_PATTERNS_FILE)
 
     # ------------------------------------------------------------ 값 표기
 
     def text(self, value: str, path: str | None) -> str:
-        """자유 텍스트 값. en 은 한글이 있으면 번역(숫자 보존·한글 없음)만 쓴다. 줄바꿈은 공백으로 접는다."""
+        """자유 텍스트 값. en의 한국어 값은 공통 검증을 통과한 번역만 쓴다. 줄바꿈은 접는다."""
         text = norm(value)
         if not self.english or not HANGUL.search(text):
             return text
+        if path:
+            self.translation_sources[path] = text
         candidate = self.translations.get(path) if path else None
-        if candidate is not None:
-            translated = norm(candidate)
-            if not HANGUL.search(translated) and _numbers(text) <= _numbers(translated):
-                return translated
+        if valid_translation(text, candidate, self.guard):
+            return norm(candidate)
         return UNTRANSLATED
 
     def field(self, name: str, render: Callable[[Any], str]) -> str:
@@ -236,13 +236,32 @@ class StateBuilder:
             ),
         )
 
+    def dictionary_label(self, code: str | None, name: str) -> str | None:
+        entry = self.dictionary.get(code)
+        if entry is None:
+            return None
+        if not self.english:
+            return entry.name
+        # 부분 일치 사전 코드는 판단용이다. 추가 버전/등급/조건까지 영어 라벨로 덮어쓰지 않는다.
+        aliases = {re.sub(r"\s+", "", a).casefold() for a in (entry.name, *entry.aliases)}
+        exact = re.sub(r"\s+", "", name).casefold() in aliases
+        qualifier_preserved = "(" not in norm(name) or "(" in entry.en
+        return (
+            entry.en
+            if exact and qualifier_preserved and valid_translation(name, entry.en, self.guard)
+            else None
+        )
+
     def qualification_label(self, index: int, item: dict) -> str:
-        entry = self.dictionary.get(self.dictionary.lookup(item["name"]))
-        if entry is not None:
-            label = entry.en if self.english else entry.name
-        else:
+        label = self.dictionary_label(self.dictionary.lookup(item["name"]), item["name"])
+        if label is None:
             label = self.text(item["name"], f"qualifications[{index}].name")
-        return f"{label} ({item['kind']}, {self.mandatory(item['mandatory'])})"
+        detail = (
+            "; " + self.text(item["detail"], f"qualifications[{index}].detail")
+            if item.get("detail")
+            else ""
+        )
+        return f"{label} ({item['kind']}, {self.mandatory(item['mandatory'])}{detail})"
 
     def qualifications(self, mandatory: bool) -> str:
         return self.field(
@@ -326,17 +345,17 @@ class StateBuilder:
 
     # ------------------------------------------------------------ COMPANY
 
-    def license_label(self, code: str, name: str | None) -> str:
-        entry = self.dictionary.get(code)
-        if entry is not None:
-            return entry.en if self.english else entry.name
-        return self.text(name or code, None)
+    def license_label(self, code: str, name: str | None, index: int) -> str:
+        label = self.dictionary_label(code, name or code)
+        if label is not None:
+            return label
+        return self.text(name or code, f"profileSummary.licenses[{index}].name")
 
     def licenses(self, status: str) -> str:
         return self.joined(
             [
-                self.license_label(lic.code, lic.name)
-                for lic in self.profile.licenses
+                self.license_label(lic.code, lic.name, i)
+                for i, lic in enumerate(self.profile.licenses)
                 if lic.status == status
             ]
         )
@@ -356,7 +375,10 @@ class StateBuilder:
         staff = self.profile.staffAvailability
         if staff is None:
             return f"- {lab.staff}: {lab.unknown}"
-        start, end = self.text(staff.from_, None), self.text(staff.to, None)
+        start, end = (
+            self.text(staff.from_, "profileSummary.staffAvailability.from"),
+            self.text(staff.to, "profileSummary.staffAvailability.to"),
+        )
         heading = lab.staff_period.format(start=start, end=end)
         value = lab.staff_value.format(
             fte=_number(staff.availableFte), eligible=staff.eligibleStaff
@@ -393,7 +415,12 @@ class StateBuilder:
             if financials is not None and financials.maxContractKrw is not None
             else lab.unknown
         )
-        technologies = self.joined([self.text(t.name, None) for t in self.profile.technologies])
+        technologies = self.joined(
+            [
+                self.text(t.name, f"profileSummary.technologies[{i}].name")
+                for i, t in enumerate(self.profile.technologies)
+            ]
+        )
         return [
             lab.company.format(revision=revision),
             f"- {lab.technologies}: {technologies}",

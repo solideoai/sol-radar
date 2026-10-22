@@ -9,6 +9,10 @@ updated: 2026-10-22
 
 # 진행 상황
 
+## Bosun 영어 State 번역 파이프라인 (2026-10-22, 격리 브랜치)
+
+`feat/bosun-english-translations`에서 검증 뒤 공고 번역과 `/kev` 기업 번역을 구현했다. 추출 prompt/schema 및 payload/evidence를 유지하며 기존 Deadline을 공유한다. 번역 누락은 실제 Bosun을 차단하고 Worker에 검토 플래그/경로 진단을 기록한다. mock의 고정 fixture 동작은 유지한다. [계획](plans/2026-10-22-bosun-translations.md), [검증 및 변경 목록](evidence/ai/20261022-bosun-translations.md). 전체 로컬 `pnpm verify`(루트191·웹446·AI138·결정57·Next 빌드)와 독립 리뷰를 통과했다. 실제 회사 모델 연결, 운영 기동/배포, DB/env/GPU 변경은 하지 않았다. 기존 translations=null 캐시는 안전하게 차단되며 자동 갱신하지 않는다.
+
 ## 대시보드 네 화면 main 로컬 병합 완료 (2026-10-22)
 
 사용자 선택1로 구현 `546a997`·증거 `0b6ece1`을 main에 fast-forward 병합했다. 기존 미커밋42파일을 백업하고 겹치는 문서 수정까지 보존했다. 복원된 main에서 전체 `pnpm verify`(루트195·웹443·AI101·결정57·Next 빌드), 로그인 E2E17건, axe14회 위반0을 확인했다. 최초 의존성 누락은 잠금 파일 기준 설치로 해결했고 제품 코드를 바꾸지 않았다. push·클라우드 DB·운영 배포는 하지 않았다. [병합·보존·검증 기록](evidence/navigation/20261022-main-merge.md). 아래 로컬 구현 절의 main 미병합 서술은 당시 기록이다.
