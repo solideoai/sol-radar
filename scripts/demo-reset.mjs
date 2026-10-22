@@ -48,6 +48,7 @@ import {
 import { createRestClient } from "./demo/rest-client.mjs";
 import { readPortraitState, validatePortraitAssets } from "./people/portraits.mjs";
 import { catalogUuid, loadPeopleFixtures, orgUuid, seedSolideoPeople } from "./people/seed.mjs";
+import { upsertDemoAdminCatalog } from "./ops/demo-admin.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -173,6 +174,7 @@ const deleteOrgScopedRows = async (client, orgIds) => {
 // 가입 트리거는 처음 만들 때만 신고(부서·직급)를 채운다. 그래서 이미 있는 계정도 신고 열을 카탈로그 id 로 다시 맞춘다
 // (예전 seed 로 신고 없이 만든 org-02 계정이 가입 정보 미완료로 남지 않게). 카탈로그는 앞 단계에서 넣었다.
 const seedAccounts = async (client, password) => {
+  await upsertDemoAdminCatalog(client);
   const existing = await client.auth.listUsers();
   const users = {};
   for (const account of DEMO_ACCOUNTS) {

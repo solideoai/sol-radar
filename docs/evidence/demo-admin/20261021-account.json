@@ -1,0 +1,15 @@
+{
+  "apply": true,
+  "userId": "25caa3c1-8b70-477f-a359-32905674f94a",
+  "created": false,
+  "host": "brtysdocxemrqhdezzqg.supabase.co",
+  "login": "admin",
+  "email": "admin@soltech.invalid",
+  "name": "이광희",
+  "department": "정보기술연구소",
+  "jobTitle": "관리자",
+  "orgRole": "owner",
+  "solRole": "ADMIN",
+  "peopleBefore": 200,
+  "peopleAfter": 200
+}

@@ -1,0 +1,301 @@
+{
+  "recordedAt": "2026-10-21T15:34:46.390322+00:00",
+  "mode": "read-only review; documentation additions only",
+  "reviewedGitHead": "4ca804d10bdc70c422626f580882e57a8d133b10",
+  "vercel": {
+    "project": {
+      "id": "prj_i1QhzEUmo98jdaNx829YIVEVTVug",
+      "name": "sol-radar",
+      "framework": "services",
+      "rootDirectory": null,
+      "buildCommand": null,
+      "installCommand": null,
+      "outputDirectory": null,
+      "nodeVersion": "24.x"
+    },
+    "deployment": {
+      "id": "dpl_6ZZZyhgF17v8VQ1QZPjkjfE6jDTH",
+      "url": "sol-radar-gnp5l801r-gwanghui97s-projects.vercel.app",
+      "readyState": "READY",
+      "target": "production",
+      "createdAt": 1792596100491,
+      "source": "redeploy",
+      "gitCommitSha": "3fded9990f56fb311be37ee39a558f5f7cb466f0",
+      "projectSettings": {
+        "framework": "services"
+      },
+      "services": [
+        {
+          "name": "ai",
+          "root": "services/ai",
+          "framework": "fastapi"
+        },
+        {
+          "name": "web",
+          "root": "web",
+          "framework": "nextjs",
+          "bindings": [
+            {
+              "type": "service",
+              "service": "ai",
+              "format": "url",
+              "env": "AI_GATEWAY_URL"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "productionEnvMetadata": [
+    {
+      "key": "QWEN_API_KEY",
+      "type": "sensitive",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "QWEN_MODEL",
+      "type": "sensitive",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "QWEN_BASE_URL",
+      "type": "sensitive",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "AI_PROVIDER",
+      "type": "sensitive",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "REDIS_API_TOKEN",
+      "type": "sensitive",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "REDIS_API_BASE_URL",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "SUPABASE_STORAGE_PARSED_BUCKET",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "SUPABASE_STORAGE_RAW_BUCKET",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "REDIS_API_TIMEOUT_MS",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "SOL_RUN_MODE",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "SOL_DEPLOYMENT_ROLE",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "API_CURSOR_SECRET",
+      "type": "sensitive",
+      "target": ["production"],
+      "present": true,
+      "valueVerified": false
+    },
+    {
+      "key": "NEXT_PUBLIC_AUTH_NAVER",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true
+    },
+    {
+      "key": "NEXT_PUBLIC_AUTH_KAKAO",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true
+    },
+    {
+      "key": "NEXT_PUBLIC_AUTH_GOOGLE",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "type": "encrypted",
+      "target": ["production"],
+      "present": true
+    }
+  ],
+  "productionNonSecretValues": [
+    {
+      "key": "REDIS_API_BASE_URL",
+      "present": true,
+      "type": "encrypted",
+      "value": "https://acropolissg.com/redis"
+    },
+    {
+      "key": "SUPABASE_STORAGE_PARSED_BUCKET",
+      "present": true,
+      "type": "encrypted",
+      "value": "bid-parsed"
+    },
+    {
+      "key": "SUPABASE_STORAGE_RAW_BUCKET",
+      "present": true,
+      "type": "encrypted",
+      "value": "bid-documents"
+    },
+    {
+      "key": "REDIS_API_TIMEOUT_MS",
+      "present": true,
+      "type": "encrypted",
+      "value": "15000"
+    },
+    {
+      "key": "SOL_RUN_MODE",
+      "present": true,
+      "type": "encrypted",
+      "value": "mock"
+    },
+    {
+      "key": "SOL_DEPLOYMENT_ROLE",
+      "present": true,
+      "type": "encrypted",
+      "value": "frontend"
+    }
+  ],
+  "networkProbes": [
+    {
+      "url": "https://www.solideos-radar.com/health/live",
+      "utc": "2026-10-21T15:25:58.223665+00:00",
+      "status": 200,
+      "contentType": "application/json",
+      "server": "Vercel",
+      "location": null,
+      "body": {
+        "status": "ok"
+      },
+      "keys": ["status"],
+      "elapsedMs": 2096
+    },
+    {
+      "url": "https://www.solideos-radar.com/health/ready",
+      "utc": "2026-10-21T15:26:00.319836+00:00",
+      "status": 503,
+      "contentType": "application/json",
+      "server": "Vercel",
+      "location": null,
+      "body": {
+        "status": "unavailable",
+        "checks": {
+          "db": "unavailable",
+          "redis": "unavailable",
+          "storage": "unavailable",
+          "ai": "unavailable"
+        }
+      },
+      "keys": ["status", "checks"],
+      "elapsedMs": 1665
+    },
+    {
+      "url": "https://acropolissg.com/redis/health",
+      "utc": "2026-10-21T15:26:01.985283+00:00",
+      "status": 502,
+      "contentType": "text/html",
+      "server": "nginx/1.24.0 (Ubuntu)",
+      "location": null,
+      "nonJson": true,
+      "elapsedMs": 60
+    },
+    {
+      "url": "https://acropolissg.com/sol-radar/healthz",
+      "utc": "2026-10-21T15:26:02.045320+00:00",
+      "status": 404,
+      "contentType": "text/html",
+      "server": "nginx/1.24.0 (Ubuntu)",
+      "location": null,
+      "nonJson": true,
+      "elapsedMs": 40
+    },
+    {
+      "url": "https://acropolissg.com/sol-radar/kev/v1/models",
+      "utc": "2026-10-21T15:26:02.085646+00:00",
+      "status": 404,
+      "contentType": "text/html",
+      "server": "nginx/1.24.0 (Ubuntu)",
+      "location": null,
+      "nonJson": true,
+      "elapsedMs": 40
+    },
+    {
+      "host": "acropolissg.com",
+      "port": 6379,
+      "state": "TimeoutError",
+      "elapsedMs": 4003
+    }
+  ],
+  "tests": {
+    "command": "pnpm -C web exec vitest run app/_lib/deployment-role.test.ts app/_lib/redis-api-client.test.ts app/api/v1/redis-gateway-contract.test.ts worker/dependency-health.test.ts",
+    "exitCode": 0,
+    "files": 4,
+    "passed": 54
+  },
+  "runtimeLogs": {
+    "oneHourQuery": "rejected by plan retention",
+    "fiveMinuteQuery": "completed; no matching runtime log records"
+  },
+  "notPerformed": [
+    "deployment",
+    "production environment mutation",
+    "SSH login",
+    "Nginx reload or configuration edit",
+    "container or model lifecycle changes",
+    "database writes",
+    "model inference",
+    "full verify/build/E2E"
+  ],
+  "limits": [
+    "REDIS_API_TOKEN is sensitive; registration verified, value/format/company equality not verified",
+    "company HTTPS returns 502; exact upstream socket/container cause requires server access",
+    "all-unavailable frontend response is also used when the upstream cannot be read",
+    "public TCP 6379 timed out only from this vantage point",
+    "Bosun external path returned 404; internal process/checkpoint unknown",
+    "project env values and immutable deployment env snapshots are not identical evidence"
+  ]
+}

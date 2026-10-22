@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { signInSchema, type Credentials, type SignInValues } from "@/app/auth/login/sign-in-schema";
 import { PasswordInput } from "@/components/password-input";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -12,16 +12,10 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { SUSPENDED_NOTICE } from "@/app/auth/notices";
 
 // 화면의 검증은 편의다. 맞는 비밀번호인지는 Supabase Auth 가, 무엇을 읽을 수 있는지는 RLS 가 판단한다.
-const schema = z.object({
-  email: z.email("이메일 형식이 아닙니다"),
-  password: z.string().min(6, "비밀번호는 6자 이상입니다"),
-});
-type Credentials = z.infer<typeof schema>;
-
 export function SignInForm() {
   const router = useRouter();
-  const form = useForm<Credentials>({
-    resolver: zodResolver(schema),
+  const form = useForm<SignInValues, unknown, Credentials>({
+    resolver: zodResolver(signInSchema),
     defaultValues: { email: "", password: "" },
   });
   const { errors, isSubmitting } = form.formState;
@@ -32,7 +26,7 @@ export function SignInForm() {
       form.setError("root", {
         message:
           error.code === "invalid_credentials"
-            ? "이메일 또는 비밀번호가 맞지 않습니다"
+            ? "아이디·이메일 또는 비밀번호가 맞지 않습니다"
             : error.code === "user_banned"
               ? SUSPENDED_NOTICE
               : `로그인하지 못했습니다: ${error.message}`,
@@ -47,12 +41,12 @@ export function SignInForm() {
     <form method="post" onSubmit={form.handleSubmit(onSubmit)} noValidate>
       <FieldGroup>
         <Field data-invalid={Boolean(errors.email)}>
-          <FieldLabel htmlFor="email">이메일</FieldLabel>
+          <FieldLabel htmlFor="email">아이디 또는 이메일</FieldLabel>
           <Input
             id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="이메일을 입력해 주세요"
+            type="text"
+            autoComplete="username"
+            placeholder="아이디 또는 이메일을 입력해 주세요"
             aria-invalid={Boolean(errors.email)}
             {...form.register("email")}
           />

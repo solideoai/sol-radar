@@ -167,7 +167,7 @@ G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 1512946
 ### seed
 seed 적용·재적용은 스크립트 `pnpm demo:reset`이다(Compose 서비스가 아니다). 루트 `.env.local`의 service role 키로 Supabase 프로젝트에 seed를 넣고, 다시 돌려도 같은 상태가 된다(멱등). 마이그레이션은 적용하지 않는다. 스키마 적용은 `pnpm db:push`(사용자 확인 뒤에만)이고, seed 전에 `pnpm db:verify`로 미적용 마이그레이션이 없는지 본다.
 
-적재 내용: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(Supabase Auth 계정 + `profiles` + `memberships`. `org-01`에 `sol_role` ADMIN/SALES/ANALYST/VIEWER 각 1, 그중 `admin@soltech.invalid`는 `org_role=owner`. `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 적재 + FX-12 1건 격리(title 누락 → `ingest_errors`), 사전 리뷰 2건(FX-01 BID·FX-03 NO-BID), 부서·직급 카탈로그와 가상 인력 명부 200명·인력 기간 배정(`assignments`, 아래 "솔리데오 인력·사진 준비"). 사진 200장은 DB에 넣지 않고 READY 검증만 한다. 추출(`requirement_extractions`)도 넣지 않는다. seed는 gateway 출력을 지어내지 않는다. 검증된 추출은 기동 절차 14번 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장한다(`fixtures/extractions/`는 gateway mock이 읽는 정본, [[16-DECISIONS|ADR-031]] C16). 공고는 공용 데이터라 조직 소유가 없다. 계정 비밀번호는 `DEMO_SEED_PASSWORD`로만 정한다. 템플릿의 `pnpm db:seed`는 로컬 Supabase에서만 쓰는 시험 계정용이라 데모 seed로 쓰지 않는다. seed는 live로 수집한 공고(`is_demo=false`)를 지우지 않는다([[04-DATABASE|04 DB]] §6).
+적재 내용: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(Supabase Auth 계정 + `profiles` + `memberships`. `org-01`에 `sol_role` ADMIN/SALES/ANALYST/VIEWER 각 1, 그중 `admin@admin.com`는 `org_role=owner`. `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 적재 + FX-12 1건 격리(title 누락 → `ingest_errors`), 사전 리뷰 2건(FX-01 BID·FX-03 NO-BID), 부서·직급 카탈로그와 가상 인력 명부 200명·인력 기간 배정(`assignments`, 아래 "솔리데오 인력·사진 준비"). 사진 200장은 DB에 넣지 않고 READY 검증만 한다. 추출(`requirement_extractions`)도 넣지 않는다. seed는 gateway 출력을 지어내지 않는다. 검증된 추출은 기동 절차 14번 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장한다(`fixtures/extractions/`는 gateway mock이 읽는 정본, [[16-DECISIONS|ADR-031]] C16). 공고는 공용 데이터라 조직 소유가 없다. 계정 비밀번호는 `DEMO_SEED_PASSWORD`로만 정한다. 템플릿의 `pnpm db:seed`는 로컬 Supabase에서만 쓰는 시험 계정용이라 데모 seed로 쓰지 않는다. seed는 live로 수집한 공고(`is_demo=false`)를 지우지 않는다([[04-DATABASE|04 DB]] §6).
 
 **`live` 모드의 seed**: `pnpm demo:reset`은 실행 모드와 무관하게 데모 조직·계정 5개·가상 회사 프로필·fixture 공고·사전 리뷰를 넣는다. `is_demo=true` 데이터만 지우고 다시 만들므로 live 공고는 그대로다([[04-DATABASE|04 DB]] §6). 목록 기본 필터는 실행 모드를 따르므로 `live` 모드에서는 fixture 공고가 기본 목록에 섞이지 않는다([[05-API-SPEC|05 API]] §3).
 
@@ -480,6 +480,12 @@ frontend는 `SOL_DEPLOYMENT_ROLE=frontend`, 서버 전용 `REDIS_API_BASE_URL=ht
 10-24(토)22:00 전 `pnpm verify`, 실제 HTTPS401/403/404·202→polling→Worker 완료·멱등/429·비공개 포트 확인이 green이어야10-25 리허설에서 선택한다. 로컬 Phase 1 통과만으로 이 운영 조건을 완료 처리하지 않는다. 실패하면 새 경로 활성화를 보류하고 기존 Compose로 수동 복귀한다. S0는 [[19-DEMO-SCENARIO|19]] §3, 실행별 체크는 [[11-TESTING|11]] §5에 기록한다.
 
 Hobby는 개인·비상업 조건과 월100GB, Pro는 현재 $20/월·기본 Flat Rate CDN1TB 용량이며 실제 사용 팀의 계약을 확인한다. 함수는 Fluid Compute 기준 Hobby 최대300초·Pro 일반 최대800초, 요청/응답4.5MB다. [공식 근거·요금표·지침 승인 문안](plans/2026-10-21-redis-vercel-merge-conditions.md)에서 세부 조건을 확인한다. 회사 업무용 Pro가 필요하면 비용·예산 상한을 사용자에게 확인한 뒤 진행한다. 이번 정리는 결제·업그레이드·실배포 승인이 아니다.
+
+## 검토 중 확장: 서비스별 활성화와 실행 모드
+
+ADR-047 [계획](plans/2026-10-21-public-procurement-expansion-plan.md)I2/I7은 신규 서비스를 disabled 상태로 준비하고 키/승인/실응답/완전성을 검증한 뒤 하나씩 live에서만 활성화하는 안이다. 기존 live/fixture/mock·DEMO/AI표시·자동fallback금지·호스팅 승인 규칙을 유지한다. 신규 env6개와 KEPCO endpoint는 스펙§3의 이름을 사용하되 이번에는 실제 env/배포 설정을 바꾸지 않았다.
+
+현재 Vercel Services 구성과 별도 회사 Redis Gateway/Storage 전환 작업의 완료 범위를 구분한다([[20261021-review|조사]]). Nginx·운영Compose·Redis·Gateway·bucket·모델을 이번 확장으로 변경하지 않는다. 배포 전 실제SHA/검사/기간/복구안을 준비하고 `/predeploy-review`·운영DB/배포 확인을 받는다. 기존 데이터/볼륨을 삭제하는 롤백은 제안하지 않는다.
 
 ## 이메일 알림 설정 (ADR-041, 승인 설계·구현 전)
 

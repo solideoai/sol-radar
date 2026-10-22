@@ -221,7 +221,7 @@ async function expectApiForbidden(page: Page) {
   expect(await readIngestJob(`manual:${context.orgId}:${key}`), "403 요청의 job").toBeNull();
 }
 
-test.describe("ADMIN(admin@soltech.invalid)", () => {
+test.describe("ADMIN(admin@admin.com)", () => {
   test.use({ storageState: ingestionStorageOf("admin") });
 
   test("권한: ADMIN 은 /admin/ingestion 을 200 으로 열고 실행 이력과 SEED run 행을 본다", async ({

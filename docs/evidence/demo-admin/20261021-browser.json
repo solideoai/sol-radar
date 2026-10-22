@@ -1,0 +1,17 @@
+{
+  "login": "admin",
+  "path": "/dashboard",
+  "employment": {
+    "name": "이광희",
+    "employment": {
+      "companyName": "솔리데오",
+      "departmentId": "SOL-D049",
+      "departmentName": "정보기술연구소",
+      "jobTitleId": "SOL-J013",
+      "jobTitleLabel": "관리자"
+    },
+    "profileComplete": true
+  },
+  "desktopWidths": [1440, 1280],
+  "horizontalOverflow": false
+}

@@ -7,6 +7,9 @@
 // scripts/demo-reset.mjs·scripts/demo/bid-notices.mjs 가 한다. 시험은 scripts/demo-reset.test.mjs.
 import { createHash } from "node:crypto";
 import { orgUuid, personUuid } from "../people/seed.mjs";
+import demoAdminCatalog from "../../web/server/profile/demo-admin-catalog.json" with { type: "json" };
+
+export const DEMO_ADMIN_CATALOG = demoAdminCatalog;
 
 // ── 1. 고정 식별자 ─────────────────────────────────────────────
 //
@@ -42,13 +45,13 @@ export const demoOrgIds = () => DEMO_ORGS.map((org) => orgUuid(org.code));
 export const DEMO_ACCOUNTS = [
   {
     key: "admin",
-    email: "admin@soltech.invalid",
-    displayName: "김관리",
+    email: "admin@admin.com",
+    displayName: "이광희",
     org: "org-01",
     orgRole: "owner",
     solRole: "ADMIN",
-    departmentCode: "SOL-D025",
-    jobTitleCode: "SOL-J007",
+    departmentCode: demoAdminCatalog.department.id,
+    jobTitleCode: demoAdminCatalog.jobTitle.id,
   },
   {
     key: "sales",

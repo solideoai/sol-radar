@@ -348,7 +348,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |---|---:|---|
 |`organizations`|2|`org-01` = 사용자 회사 "솔리데오"의 가상 데모 조직(공공 SI 중견 설정, 프로필 상세는 [[08-SCORING\|08 점수]]·[[19-DEMO-SCENARIO\|19 데모 시나리오]]). `org-02` = 비교 조직(테넌트 격리 시연용, 프로필 1개). 값은 `slug`이며 `id`는 seed가 고정 UUID로 만든다. 둘 다 팀 조직(`personal_owner_id is null`)이다|
 |`auth.users` / `profiles`|5|`org-01`에 역할당 1명(4), `org-02`에 VIEWER 1명(`viewer@other.invalid`, [[19-DEMO-SCENARIO\|19 데모 시나리오]] S7 격리 시연)|
-|`memberships`|5|`org-01`: `admin@soltech.invalid` = `owner` + `ADMIN`, `sales@`·`analyst@`·`viewer@soltech.invalid` = `member` + 각 `sol_role`. `org-02`: `viewer@other.invalid` = `member` + `VIEWER`|
+|`memberships`|5|`org-01`: `admin@admin.com` = `owner` + `ADMIN`, `sales@`·`analyst@`·`viewer@soltech.invalid` = `member` + 각 `sol_role`. `org-02`: `viewer@other.invalid` = `member` + `VIEWER`|
 |`company_profiles`|3|`org-01` revision 1(초기)·revision 2(기술·실적 추가)와 `org-02` 격리 시연용 프로필 1개(`scripts/demo/plan.mjs`). 마지막 줄의 `profileRevisions=2`는 `org-01` 것만 센다. 데모에서 revision 차이를 보여 준다. 모두 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
 |`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재. `source=fixture`|
 |`bid_revisions`|19 (`LIVE` 뒤 23)|seed 직후는 공고 19건의 r1. 정정·기한변경·취소 fixture(`FX-06`·`FX-07`·`FX-08`·`FX-10`)는 `batch=LIVE` 수집에서 revision 2를 얻어 23이 된다([[16-DECISIONS\|ADR-030]] B15)|

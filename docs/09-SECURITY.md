@@ -279,6 +279,12 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 Supabase Storage public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다. 점수 계산 속성(직무·등급·스킬·가용성)은 `team_member_scoring`(seed 전용)에 있고 화면 역할은 쓰지 못한다([[16-DECISIONS|ADR-021]]).
 - 200명의 가상 직원·사진은 `isDemo` 및 가상 인물 표시를 유지한다. 회사 이름과 부서가 실제라고 해서 가상 직원·수치가 실제 회사 정보인 것처럼 소개하지 않는다.
 
+## 검토 중 확장: 외부키·원본·수집 권한
+
+ADR-047 [제안](../polaris/specs/planned/2026-10-21-public-procurement-expansion.md)§5.1/12는 서비스별 서버 env, KEPCO `apiKey` URL/오류 마스킹, private 정제 원문, HTTPS기관별 첨부allowlist를 요구한다. 현재 `redaction.ts`의 serviceKey 이름 마스킹만으로 신규 apiKey 보호가 완료됐다고 간주하지 않는다. HTTP첨부는 자동 다운로드하지 않고 byte 원본 전체 보관 예외는 별도 승인이다.
+
+기존 업무 ADMIN만 수동수집·CSRF/멱등/감사를 유지한다. 일반 구성원 Source summary는 비밀/오류상세를 제외한 읽기이며 외부 탐침을 실행하지 않는다. org별 분석/사람결정/관심/프로젝트 RLS와 웹 service role 금지는 바뀌지 않는다. 보안 정책/운영 설정은 이번에 변경하지 않았다.
+
 ## 이메일 알림 승인 범위 (ADR-041, 구현 전)
 
 데모용 Gmail 앱 비밀번호와 SMTP 인증값은 서버 전용 env에만 둔다. `NEXT_PUBLIC_`·브라우저·문서·로그에 넣지 않고, 받는 주소·제목·공고명·본문도 로그·증거에 남기지 않는다. 개인 설정 opt-in 사용자의 로그인 이메일만 쓰며 별도 받는 주소를 입력받지 않는다. 로컬·시험은 외부 실발송을 하지 않는다. 실제 수신 검증 전에는 발송 완료를 주장하지 않는다([[13-NOTIFICATIONS|13]]).

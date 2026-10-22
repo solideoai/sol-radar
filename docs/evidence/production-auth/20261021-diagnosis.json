@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-10-21T14:02:09.967Z",
+  "site": "https://www.solideos-radar.com",
+  "appProviders": {
+    "status": 200,
+    "body": {
+      "providers": []
+    }
+  },
+  "screens": [
+    {
+      "width": 1440,
+      "url": "https://www.solideos-radar.com/auth/login",
+      "socialButtons": {
+        "google": 0,
+        "kakao": 0,
+        "naver": 0
+      }
+    },
+    {
+      "width": 1280,
+      "url": "https://www.solideos-radar.com/auth/login",
+      "socialButtons": {
+        "google": 0,
+        "kakao": 0,
+        "naver": 0
+      }
+    }
+  ],
+  "supabaseAuthorize": [
+    {
+      "provider": "google",
+      "status": 400,
+      "body": {
+        "code": 400,
+        "error_code": "validation_failed",
+        "msg": "Unsupported provider: provider is not enabled"
+      }
+    },
+    {
+      "provider": "kakao",
+      "status": 400,
+      "body": {
+        "code": 400,
+        "error_code": "validation_failed",
+        "msg": "Unsupported provider: provider is not enabled"
+      }
+    },
+    {
+      "provider": "custom:naver",
+      "status": 400,
+      "body": {
+        "code": 400,
+        "error_code": "validation_failed",
+        "msg": "Unsupported provider: custom provider custom:naver not found"
+      }
+    }
+  ],
+  "conclusion": "No social providers enabled in the deployed application; Google and Kakao are disabled in Supabase Auth and custom:naver is not registered.",
+  "changesApplied": false
+}

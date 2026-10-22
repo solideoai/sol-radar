@@ -1,0 +1,5 @@
+
+> sol-radar@0.1.0 db:verify /Users/leegwanghui/dev/hackathon/sol-radar
+> bash scripts/db-verify.sh
+
+✓ DB 연결·마이그레이션 30개·RLS 활성화·화면 역할 권한·뷰·함수 확인
