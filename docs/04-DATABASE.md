@@ -10,6 +10,13 @@ updated: 2026-10-21
 
 # 04. Supabase Postgres 데이터 설계
 
+## 2026-10-22 커밋 통합 현행
+
+카카오 연결·추천 outbox는 이번 통합의 `20261023000700`~`00704`, 지원사업은 `20261023000800`, 조직 감사는 `20261023000600`, 번역 검토 flag는 `20261023000500`을 따른다. 아래의 구 `20261021000001`~`000004`/`000601`~`000604` 표기는 채택 전 브랜치의 설계 이력이다. 해당 구 파일은 main에 새로 도입하지 않는다. 기존 main migration 41개는 불변이며 운영 적용 여부는 별도다. [기능/SQL 대응표](evidence/committed-integrations/integration.md)를 참고한다.
+
+`program_notices`는 지원사업 공개 정보 전용 공용 표이며 인증 사용자 읽기, Worker 쓰기다. 입찰 점수/권고/분석 표와 섞지 않는다. 카카오 전송 의도 claim은 Worker만 실행하며 송신 성공 후 DB 실패에도 같은 사용자·공고를 자동 재발송하지 않는다.
+
+
 ## 1. 정책
 
 - DB는 **Supabase Postgres**다(개발: Supabase 클라우드 프로젝트, [[16-DECISIONS|16 ADR]] ADR-017). 인증은 Supabase Auth가 맡고, 이 문서의 표는 `public` 스키마에 둔다.
@@ -160,7 +167,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
   - `parse_status`·`parse_error_code`: `/parse` 결과. 다운로드가 `OK`가 되면 `PENDING`으로 두고 파싱 뒤 결과 값으로 바꾼다. 다운로드가 `PENDING`·`FAILED`인 동안은 NULL(파싱 시도 안 함)이다. 형식별 파서는 실제 RFP 샘플 비교로 정한다([[03-AI-PIPELINE|03 AI 파이프라인]] 문서 파싱 절). 50 MB 초과는 다운로드하지 않으므로 `download_status=FAILED` + `download_error_code=TOO_LARGE`이고 `parse_status`는 NULL이다.
   - `parser_id`: 파서 어댑터와 버전. `parse_quality`: 파서가 낸 품질 신호.
 - `bid_structured_requirements`: 면허제한(`lcnsLmtNm`)·허용 업종(`permsnIndstrytyList`)·참가가능지역(`prtcptPsblRgnNm`)·지역의무공동도급(`rgnDutyJntcontrctRt`) 행. 같은 조건을 이 표와 Qwen 추출이 둘 다 주면 **이 표가 우선**이고, 둘이 다르면 그 조건은 `CONFLICTED`다([[08-SCORING|08 점수]] §5.1). `source_operation`은 값을 받은 오퍼레이션 이름, `value`는 그 행의 원본 필드다(담당자 필드는 넣지 않는다).
-- `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 원문의 숫자가 그대로 남은 번역만 들어간다. 결정 모델 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
+- `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 숫자·식별자·단위·조건 검증을 통과한 공고 번역만 들어간다. 기업 프로필 보충 번역은 `/kev` 요청에서만 사용하며 이 열에 저장하지 않는다. 결정 모델 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 
 > [!warning] 미검증 가정
 > `bid_structured_requirements`의 원천 필드 이름은 data.go.kr 서비스 페이지 명세(Swagger·참고문서, 2026-10-16)로 확인했다. 서비스키로 실제 응답을 받아 본 것은 아니다. 면허제한이 여러 행일 때 AND/OR 중 무엇인지도 모른다. 확인 전에는 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다. 검증 방법: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건을 저장하고 매핑을 확인한다([[07-DATA-PIPELINE|07 수집]]).
@@ -348,7 +355,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |---|---:|---|
 |`organizations`|2|`org-01` = 사용자 회사 "솔리데오"의 가상 데모 조직(공공 SI 중견 설정, 프로필 상세는 [[08-SCORING\|08 점수]]·[[19-DEMO-SCENARIO\|19 데모 시나리오]]). `org-02` = 비교 조직(테넌트 격리 시연용, 프로필 1개). 값은 `slug`이며 `id`는 seed가 고정 UUID로 만든다. 둘 다 팀 조직(`personal_owner_id is null`)이다|
 |`auth.users` / `profiles`|5|`org-01`에 역할당 1명(4), `org-02`에 VIEWER 1명(`viewer@other.invalid`, [[19-DEMO-SCENARIO\|19 데모 시나리오]] S7 격리 시연)|
-|`memberships`|5|`org-01`: `admin@soltech.invalid` = `owner` + `ADMIN`, `sales@`·`analyst@`·`viewer@soltech.invalid` = `member` + 각 `sol_role`. `org-02`: `viewer@other.invalid` = `member` + `VIEWER`|
+|`memberships`|5|`org-01`: `admin@admin.com` = `owner` + `ADMIN`, `sales@`·`analyst@`·`viewer@soltech.invalid` = `member` + 각 `sol_role`. `org-02`: `viewer@other.invalid` = `member` + `VIEWER`|
 |`company_profiles`|3|`org-01` revision 1(초기)·revision 2(기술·실적 추가)와 `org-02` 격리 시연용 프로필 1개(`scripts/demo/plan.mjs`). 마지막 줄의 `profileRevisions=2`는 `org-01` 것만 센다. 데모에서 revision 차이를 보여 준다. 모두 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
 |`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재. `source=fixture`|
 |`bid_revisions`|19 (`LIVE` 뒤 23)|seed 직후는 공고 19건의 r1. 정정·기한변경·취소 fixture(`FX-06`·`FX-07`·`FX-08`·`FX-10`)는 `batch=LIVE` 수집에서 revision 2를 얻어 23이 된다([[16-DECISIONS\|ADR-030]] B15)|

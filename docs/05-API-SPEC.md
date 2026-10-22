@@ -10,6 +10,11 @@ updated: 2026-10-21
 
 # 05. REST API 명세 (Next.js Route Handler)
 
+## 2026-10-22 통합 API 추가
+
+기존 점수·판단·조직 계약을 유지하면서 조직 설정, `/api/v1/bids/[id]/revisions`, `/api/v1/program-notices` 및 `/api/v1/me/kakao-notify`(연결/콜백/시험 하위 경로 포함)를 통합한다. 공개 공고 읽기와 조직별 분석/결정은 계속 분리하며 ADMIN 조직 설정·개인 카카오 본인 전용 권한을 서버/RLS에서 검사한다. 지원사업은 SOL Score/권고/분석 대상이 아니다. 현재 코드와 원본 브랜치 대응은 [통합 기록](evidence/committed-integrations/integration.md), 계약 검증은 변경 흐름 증거를 따른다.
+
+
 외부 API 계약의 단일 원천은 **zod 스키마**(`web/server/<도메인>/*.model.ts`, [[16-DECISIONS|16 ADR]] ADR-016)다. Route Handler(`web/app/api/v1/**/route.ts`)는 요청을 이 스키마로 검증하고, 응답 타입도 같은 스키마에서 얻는다(`z.infer`). 이 문서는 그 스키마가 담아야 할 내용을 사람이 읽는 형태로 적은 것이며, 둘이 다르면 zod 스키마를 고치고 이 문서를 맞춘다. 상태 코드와 응답 형태는 Route Handler 계약 시험(Vitest, [[11-TESTING|11 테스트]])이 검사한다. 구조 결정은 ADR-017(Next.js + Supabase)이다.
 
 ## 1. 규칙

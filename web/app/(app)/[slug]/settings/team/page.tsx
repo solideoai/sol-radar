@@ -1,3 +1,4 @@
+import { canSeeOrganizationTab } from "@/app/(app)/[slug]/settings/show-organization";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
@@ -19,6 +20,7 @@ export default async function TeamSettingsPage({ params }: PageProps<"/[slug]/se
     `/${(await params).slug}/settings/team`,
   );
   if (current.isPersonal) notFound();
+  const showOrganization = await canSeeOrganizationTab(current.id);
   const isOwner = current.myRole === "owner";
   // 지운 뒤에는 공통 진입점에서 남은 업무 조직 또는 조직 상태 화면으로 보낸다.
   const homeHref = "/dashboard";
@@ -38,7 +40,7 @@ export default async function TeamSettingsPage({ params }: PageProps<"/[slug]/se
     >
       {/* AppPage 의 간격이 사이에 끼지 않게 하위 메뉴와 구역을 한 묶음으로 둔다. */}
       <div>
-        <SettingsNav slug={current.slug} isTeam />
+        <SettingsNav showOrganization={showOrganization} slug={current.slug} isTeam />
         <div className="@container">
           <div className="divide-y divide-border">
             {isOwner ? (

@@ -1,4 +1,6 @@
 "use client";
+import type { StageLinksView } from "@/server/bids";
+import { StageLinks } from "@/components/bids/stage-links";
 
 import {
   ArrowLeftIcon,
@@ -90,6 +92,8 @@ export type AnalysisHistoryRow = {
 
 type BidDetailViewProps = {
   bid: DetailBid;
+  relatedStages?: StageLinksView | null;
+  revisionsHref?: string | null;
   /** 최신 run 이 점수 run(COMPLETED·PARTIAL)이 아닐 때 결정 패널이 쓸 직전 점수 run(§5.4.10). */
   previousScored: AnalysisView | null;
   /** 분석 이력 첫 쪽. 읽지 못했으면 null. */
@@ -538,13 +542,10 @@ function ProfileBadge() {
   );
 }
 
-function aiText(model: AnalysisView["model"]): string {
-  // mock 응답은 실제 모델이 추론한 것처럼 보이면 안 된다(ADR-034 15번). 모델명 없이 "AI: mock" 만 쓴다.
-  if (model.provider === "mock") return "AI: mock";
-  // 모델 이름은 받은 식별자 그대로 보인다(스펙 D12, 예 Hanno-Labs/bosun-v3.1-0.6b@5e78a37c).
-  return [`AI: ${model.provider}`, model.qwen?.name, model.kev?.model]
-    .filter((part) => part !== undefined)
-    .join(" · ");
+function aiText({ model, reviewFlags }: Pick<AnalysisView, "model" | "reviewFlags">): string {
+  const unanswered = reviewFlags.includes("AI_UNAVAILABLE") ? " · 응답 없음(규칙만)" : "";
+  if (model.provider === "mock") return `AI: mock${unanswered}`;
+  return `${[`AI: ${model.provider}`, model.qwen?.name, model.kev?.model].filter((part) => part !== undefined).join(" · ")}${unanswered}`;
 }
 
 function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
@@ -641,7 +642,7 @@ function AnalysisBand({
             <Dot />
             <span>분석 실행 모드: {shown.runMode}</span>
             <Dot />
-            <span className="min-w-0 wrap-anywhere">{aiText(shown.model)}</span>
+            <span className="min-w-0 wrap-anywhere">{aiText(shown)}</span>
           </>
         )}
       </div>
@@ -787,6 +788,8 @@ function NoResult({ title, bid }: { title: string; bid: DetailBid }) {
 }
 
 export function BidDetailView({
+  relatedStages = null,
+  revisionsHref = null,
   bid,
   previousScored,
   history,
@@ -923,7 +926,9 @@ export function BidDetailView({
                 stage={bid.stage}
                 stageLinks={bid.stageLinks}
                 latestRevision={bid.latestRevision}
+                revisionsHref={revisionsHref}
               />
+              <StageLinks stageLinks={relatedStages} />
             </section>
             {progress !== null ? (
               <AnalysisSkeleton />

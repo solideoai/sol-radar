@@ -87,7 +87,8 @@ export type AnalysisContext = {
 };
 
 /** C4 ReviewFlag 에 없는 파이프라인 플래그. */
-export type ExtraReviewFlag = "CITATION_FAILED" | "EXTRACTION_LOW_CONFIDENCE" | "KEV_UNAVAILABLE";
+export type ExtraReviewFlag =
+  "CITATION_FAILED" | "EXTRACTION_LOW_CONFIDENCE" | "KEV_UNAVAILABLE" | "TRANSLATION_INCOMPLETE";
 
 export type AnalysisRunMeta = {
   runMode: RunMode;
@@ -517,14 +518,28 @@ function hasCitationFailure(extraction: RequirementExtraction): boolean {
   return inWarnings || EXTRACTED_FIELD_KEYS.some((key) => extraction[key].note === CITATION_FAILED);
 }
 
-/** C4 reviewFlags 에 없는 파이프라인 플래그. 순서는 CITATION_FAILED → EXTRACTION_LOW_CONFIDENCE → KEV_UNAVAILABLE. */
+/** 번역 진단에는 gateway가 생성한 경로/코드만 허용한다. 받은 원문/임의 경고는 로그에 옮기지 않는다. */
+export function readTranslationWarnings(warnings: readonly string[]): string[] {
+  const path =
+    /^(?:(?:requiredSkills|preferredSkills|restrictions)\[\d{1,6}\]|qualifications\[\d{1,6}\]\.(?:name|detail)|pastPerformance\[\d{1,6}\]\.description|staffing\[\d{1,6}\]\.(?:role|grade|condition)|profileSummary\.(?:(?:technologies|licenses)\[\d{1,6}\]\.name|staffAvailability\.(?:from|to)))$/;
+  return warnings.filter(
+    (warning) =>
+      ["TRANSLATION_TIMEOUT", "TRANSLATION_UNAVAILABLE", "TRANSLATION_INVALID"].includes(warning) ||
+      (warning.startsWith("TRANSLATION_MISSING:") &&
+        path.test(warning.slice("TRANSLATION_MISSING:".length))),
+  );
+}
+
+/** C4 reviewFlags 에 없는 파이프라인 플래그. 번역 누락·인용·모델 사용 불가 순으로 기록한다. */
 export function extraReviewFlags(input: {
   extraction: RequirementExtraction | null;
   kev: KevOutcome | null;
   resultFlags: readonly string[];
+  translationWarnings?: readonly string[];
 }): ExtraReviewFlag[] {
   const { extraction, kev, resultFlags } = input;
   const candidates: [ExtraReviewFlag, boolean][] = [
+    ["TRANSLATION_INCOMPLETE", readTranslationWarnings(input.translationWarnings ?? []).length > 0],
     ["CITATION_FAILED", extraction !== null && hasCitationFailure(extraction)],
     // 3b 통보: 인용 검증이 대량으로 실패하면 gateway 가 이 경고를 낸다(03 §8).
     [

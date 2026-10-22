@@ -30,6 +30,7 @@
     "people:check:fixtures": "node scripts/people/check.mjs --fixtures",
     "people:check:release": "node scripts/people/check.mjs --release",
     "record:g2b": "node scripts/recorded/record-g2b.mjs",
+    "record:program-notices": "node scripts/recorded/record-program-notices.mjs",
     "eval:split": "node scripts/recorded/split-eval.mjs",
     "record:check": "pnpm -C web exec node --conditions=react-server --import tsx ../scripts/recorded/replay-check.mjs",
     "ops:close-stale-runs": "node scripts/ops/close-stale-ingest-runs.mjs",

@@ -146,7 +146,7 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
         <p>이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.</p>
         <p>충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.</p>
         <p className="wrap-anywhere">최종 결정은 담당자가 기록합니다. {modelInfoText(kev)}</p>
-        <p>{kev.disclaimer}</p>
+        <p>{"결정 모델 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."}</p>
       </div>
     </div>
   );

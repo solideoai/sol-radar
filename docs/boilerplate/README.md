@@ -5,7 +5,7 @@ SOL RADAR 설계 문서는 상위 `docs/` 의 번호 문서(`00-README.md` ~ `20
 
 - SOL RADAR 는 [16 ADR](../16-DECISIONS.md) ADR-017(2026-10-16)부터 템플릿과 같은 Next.js(`web/`) + Supabase(Postgres·RLS·Auth) 구조를 씁니다.
   그래서 Supabase 데이터·인증 문서는 번호 문서와 부딪히지 않는 범위에서 그대로 적용합니다. Expo 앱(`mobile/`)은 지웠고(ADR-007) 문서에 남아 있던 앱(Expo·EAS) 내용도 걷어 냈습니다(2026-10-18).
-  Vercel 웹·AI 다중 서비스 구성은 2026-10-21 승인됐습니다. 현재 실행 기준은 [10 배포](../10-DEPLOYMENT.md)의 Vercel 절이며 Vercel 구성 작업의 증거는 로컬 검증까지입니다. 운영 사이트 관찰과 이 Vercel 구성의 배포 성공 증거는 구분합니다. Compose 데모 경로는 유지합니다.
+  Vercel 웹·AI 다중 서비스 구성은 2026-10-21 승인됐습니다. 현재 실행 기준은 [10 배포](../10-DEPLOYMENT.md)의 Vercel 절이며 Vercel 구성 작업의 증거는 로컬 검증까지입니다. 별도 운영 도메인 조회 기록은 [진행 상황](../PROGRESS.md)을 따릅니다. Compose 데모 경로는 유지합니다.
 - 템플릿 원본에만 있는 도구(`pnpm bootstrap`·`pnpm smoke:template`·`scripts/template/`·`.github/workflows/template.yml`)의 사용법도 걷어 냈습니다. 이 저장소에는 그 도구가 없습니다.
 - 지우지 않고 둔 이유: 템플릿 코드(`web/`·`supabase/`·`scripts/`)와 스킬·에이전트(`.claude/`)·`AGENTS.md` 가 이 문서를 가리키고, SOL RADAR 도 같은 구조를 씁니다.
   템플릿 견본 도메인(작업 `tasks` 등)을 정리할 때 해당 절을 함께 정리합니다.

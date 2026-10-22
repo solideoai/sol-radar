@@ -1441,6 +1441,112 @@ export type Database = {
           },
         ]
       }
+      kakao_notify_links: {
+        Row: {
+          access_expires_at: string | null
+          access_token_enc: string | null
+          created_at: string
+          enabled: boolean
+          last_result: string | null
+          last_sent_at: string | null
+          refresh_expires_at: string | null
+          refresh_token_enc: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_expires_at?: string | null
+          access_token_enc?: string | null
+          created_at?: string
+          enabled?: boolean
+          last_result?: string | null
+          last_sent_at?: string | null
+          refresh_expires_at?: string | null
+          refresh_token_enc?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_expires_at?: string | null
+          access_token_enc?: string | null
+          created_at?: string
+          enabled?: boolean
+          last_result?: string | null
+          last_sent_at?: string | null
+          refresh_expires_at?: string | null
+          refresh_token_enc?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakao_notify_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kakao_send_claims: {
+        Row: {
+          bid_id: string | null
+          claim_key: string
+          claimed_at: string
+          notification_id: string | null
+          outbox_event_id: string | null
+          user_id: string
+        }
+        Insert: {
+          bid_id?: string | null
+          claim_key: string
+          claimed_at?: string
+          notification_id?: string | null
+          outbox_event_id?: string | null
+          user_id: string
+        }
+        Update: {
+          bid_id?: string | null
+          claim_key?: string
+          claimed_at?: string
+          notification_id?: string | null
+          outbox_event_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakao_send_claims_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kakao_send_claims_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kakao_send_claims_outbox_event_id_fkey"
+            columns: ["outbox_event_id"]
+            isOneToOne: false
+            referencedRelation: "outbox_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kakao_send_claims_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memberships: {
         Row: {
           created_at: string
@@ -1804,6 +1910,108 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      program_notice_runs: {
+        Row: {
+          dropped_count: number
+          error_code: string | null
+          fetched_count: number
+          finished_at: string | null
+          id: string
+          run_mode: string
+          saved_count: number
+          source: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          dropped_count?: number
+          error_code?: string | null
+          fetched_count?: number
+          finished_at?: string | null
+          id?: string
+          run_mode: string
+          saved_count?: number
+          source: string
+          started_at?: string
+          status: string
+        }
+        Update: {
+          dropped_count?: number
+          error_code?: string | null
+          fetched_count?: number
+          finished_at?: string | null
+          id?: string
+          run_mode?: string
+          saved_count?: number
+          source?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      program_notices: {
+        Row: {
+          agency: string | null
+          apply_end_on: string | null
+          apply_method: string | null
+          apply_start_on: string | null
+          created_at: string
+          dedupe_key: string
+          fetched_at: string
+          id: string
+          is_demo: boolean
+          published_at: string | null
+          source: string
+          source_notice_id: string
+          source_url: string
+          summary: string | null
+          tags: string[]
+          target: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency?: string | null
+          apply_end_on?: string | null
+          apply_method?: string | null
+          apply_start_on?: string | null
+          created_at?: string
+          dedupe_key: string
+          fetched_at: string
+          id?: string
+          is_demo?: boolean
+          published_at?: string | null
+          source: string
+          source_notice_id: string
+          source_url: string
+          summary?: string | null
+          tags?: string[]
+          target?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency?: string | null
+          apply_end_on?: string | null
+          apply_method?: string | null
+          apply_start_on?: string | null
+          created_at?: string
+          dedupe_key?: string
+          fetched_at?: string
+          id?: string
+          is_demo?: boolean
+          published_at?: string | null
+          source?: string
+          source_notice_id?: string
+          source_url?: string
+          summary?: string | null
+          tags?: string[]
+          target?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       qualification_checks: {
         Row: {
@@ -2650,11 +2858,23 @@ export type Database = {
         Args: { p_id: string; p_token: string }
         Returns: Json
       }
+      claim_kakao_notification: {
+        Args: { p_notification_id: string }
+        Returns: boolean
+      }
+      claim_kakao_test: {
+        Args: { p_outbox_event_id: string }
+        Returns: boolean
+      }
       create_personal_org: {
         Args: { owner_id: string }
         Returns: string
       }
       delete_my_account: {
+        Args: never
+        Returns: undefined
+      }
+      disconnect_kakao_notify: {
         Args: never
         Returns: undefined
       }
@@ -2750,13 +2970,25 @@ export type Database = {
         Args: { p_score_run_id: string }
         Returns: boolean
       }
+      request_kakao_notify_test: {
+        Args: never
+        Returns: boolean
+      }
       resolve_solideo_employment: {
         Args: { p_department: string; p_job_title: string }
         Returns: { department_code: string; department_id: string; department_name: string; job_title_code: string; job_title_id: string; job_title_label: string }[]
       }
+      save_kakao_notify_link: {
+        Args: { p_access_expires_at: string; p_access_token_enc: string; p_refresh_expires_at: string; p_refresh_token_enc: string }
+        Returns: undefined
+      }
       send_deadline_reminders: {
         Args: { p_now: string }
         Returns: number
+      }
+      set_kakao_notify_enabled: {
+        Args: { p_enabled: boolean }
+        Returns: undefined
       }
       task_dashboard_stats: {
         Args: { as_of?: string; target_org: string }

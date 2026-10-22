@@ -1,6 +1,7 @@
 import { AppPage } from "@/components/app-page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BIDS_DESCRIPTION, BIDS_TITLE } from "./bids-copy";
+import { BidsSourceNav } from "./bids-source-nav";
 
 // 최초 진입은 필터·11열 표 자리를 유지하고, 조건 변경은 기존 표만 busy 상태로 보인다.
 // 필터 칸 자리는 화면과 같은 크기다(라벨 20 + 간격 8 + 칸 40px, 검색 240·선택 144px).
@@ -20,6 +21,7 @@ export default function Loading() {
   const pulse = "motion-reduce:animate-none";
   return (
     <AppPage title={BIDS_TITLE} description={BIDS_DESCRIPTION} contentClassName="max-w-360">
+      <BidsSourceNav current="g2b" />
       {/* 본문 랜드마크(main)는 AppPage 가 그린다. 읽는 중 알림은 안쪽 요소가 맡는다. */}
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">입찰 공고를 불러오는 중…</span>

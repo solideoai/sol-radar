@@ -1,0 +1,39 @@
+-- 관심 행
+                bid_id                |                        title                        | deadline_kst |         email         
+--------------------------------------+-----------------------------------------------------+--------------+-----------------------
+ d6a7d9d4-f567-5226-a467-9986cf50e5b8 | 인천광역시 민원 챗봇 고도화 (가상)                  |              | sales@soltech.invalid
+ f1b8fdee-7493-542e-b800-3a60b6ee7032 | 세종특별자치시 행정정보 연계 플랫폼 사전규격 (가상) | 2026-10-28   | sales@soltech.invalid
+(2 rows)
+
+-- 08:59 KST(10-25) → 0 이어야 한다
+SET
+ sent_before_9 
+---------------
+             0
+(1 row)
+
+-- 10:00 KST(10-25) = 10-28 마감의 D-3
+ sent_first 
+------------
+          1
+(1 row)
+
+-- 같은 시각 다시 → 0(중복 키)
+ sent_again 
+------------
+          0
+(1 row)
+
+RESET
+-- 들어간 알림
+psql:/private/tmp/claude-501/-Users-leegwanghui-dev-hackathon-sol-radar/33647e67-02a2-4b0d-9b76-81a228661150/scratchpad/n3-notify.sql:15: ERROR:  column n.dedupe_key does not exist
+LINE 1: select n.dedupe_key, u.email, n.payload->>'message' as messa...
+               ^
+-- authenticated 는 실행 못 한다
+SET
+psql:/private/tmp/claude-501/-Users-leegwanghui-dev-hackathon-sol-radar/33647e67-02a2-4b0d-9b76-81a228661150/scratchpad/n3-notify.sql:18: ERROR:  permission denied for function send_deadline_reminders
+                                          idempotency_key                                           | status |         email         |      message       |                    link                    
+----------------------------------------------------------------------------------------------------+--------+-----------------------+--------------------+--------------------------------------------
+ f1b8fdee-7493-542e-b800-3a60b6ee7032:bf816951-b912-4949-b073-3b41ff1aa4f2:DEADLINE_APPROACHING:D-3 | SENT   | sales@soltech.invalid | 마감 3일 전입니다. | /bids/f1b8fdee-7493-542e-b800-3a60b6ee7032
+(1 row)
+

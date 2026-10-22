@@ -1,5 +1,10 @@
 # 별도 운영 승인 후에만 실행한다. 기존 Nginx/Redis는 재생성하거나 변경하지 않는다.
 name: sol-radar-gateway
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 services:
   redis-api:
     build:
@@ -11,16 +16,15 @@ services:
       SOL_DEPLOYMENT_ROLE: redis-api
       HOSTNAME: 0.0.0.0
       PORT: "3000"
+      SOL_RUN_MODE: ${SOL_RUN_MODE:?웹과 회사 runtime의 실행 모드를 맞춘다}
+      AI_GATEWAY_URL: http://ai-gateway:8000
     ports:
       - "127.0.0.1:6380:3000"
     networks:
       - redis-existing
+      - app
     restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *logging
     healthcheck:
       test:
         - CMD
@@ -31,7 +35,64 @@ services:
       timeout: 6s
       retries: 3
       start_period: 30s
+
+  ai-gateway:
+    build:
+      context: ..
+      dockerfile: services/ai/Dockerfile
+    init: true
+    env_file: .env.ai-gateway.local
+    environment:
+      SOL_RUN_MODE: ${SOL_RUN_MODE:?웹과 회사 runtime의 실행 모드를 맞춘다}
+    networks:
+      - app
+    restart: on-failure:3
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).close()"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    build:
+      context: ../web
+      dockerfile: worker/Dockerfile
+    init: true
+    env_file: .env.worker.local
+    environment:
+      SOL_RUN_MODE: ${SOL_RUN_MODE:?웹과 회사 runtime의 실행 모드를 맞춘다}
+      AI_GATEWAY_URL: http://ai-gateway:8000
+      FIXTURES_DIR: /srv/sol-radar/fixtures
+      SOURCES_REGISTRY_FILE: /srv/sol-radar/infra/sources/registry.yaml
+    volumes:
+      - ../fixtures:/srv/sol-radar/fixtures:ro
+      - ../infra/sources:/srv/sol-radar/infra/sources:ro
+    networks:
+      - redis-existing
+      - app
+    restart: on-failure:3
+    depends_on:
+      ai-gateway:
+        condition: service_healthy
+    stop_grace_period: 180s
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('fs').statSync(process.env.WORKER_HEARTBEAT_FILE||'/tmp/sol-worker-heartbeat');process.exit(Date.now()-s.mtimeMs<30000?0:1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
 networks:
   redis-existing:
     external: true
     name: ${SOL_RADAR_REDIS_NETWORK:?기존 Redis의 전용 network 이름을 확인해 지정한다}
+  app: {}

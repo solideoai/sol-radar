@@ -28,7 +28,12 @@ import {
   type IngestQuota,
   type JobQueue,
 } from "@/server/ingestion";
-import { createDeadlineReminderStore, createNotificationOutboxStore } from "@/server/notifications";
+import {
+  createDeadlineReminderStore,
+  createNotificationOutboxStore,
+  createKakaoOutboxStore,
+} from "@/server/notifications";
+import { createKakaoLinkStore } from "@/server/kakao-notify";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { readStorageSettings } from "@/server/documents";
 import { probeAi } from "@/server/health";
@@ -52,7 +57,13 @@ import { errorNameOf } from "@/worker/error-name";
 import { startDocumentsReconciler } from "@/worker/documents-reconcile";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
 import { readDeadlineSettings, startDeadlineReminders } from "@/worker/deadline-reminders";
-import { readNotifySettings, startNotifier } from "@/worker/notify-outbox";
+import {
+  createKakaoSender,
+  readKakaoSettings,
+  readNotifySettings,
+  startNotifier,
+} from "@/worker/notify-outbox";
+import { programNoticesWorkerRegistration } from "@/worker/program-notices";
 import {
   processIngestJob,
   readIngestIntervalMinutes,
@@ -502,10 +513,26 @@ export const analysisWorkerRegistration: WorkerRegistration = async (rawEnv) => 
 // 쓰지도 끊지도 않는다(공유 연결은 기본 createWorker 가 끊는다). close 는 타이머를 멈추고 진행 중 회차를 최대 5초 기다린다.
 export const notifyWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   const settings = readNotifySettings(rawEnv);
+  const kakaoSettings = readKakaoSettings(rawEnv);
   return async () => {
+    const admin = getSupabaseAdmin();
+    const now = () => new Date();
     const notifier = startNotifier({
-      store: createNotificationOutboxStore(getSupabaseAdmin()),
-      now: () => new Date(),
+      store: createNotificationOutboxStore(admin),
+      kakao: {
+        store: createKakaoOutboxStore(admin),
+        sender: createKakaoSender(kakaoSettings, {
+          links: createKakaoLinkStore(admin),
+          fetch: (input, init) => globalThis.fetch(input, init),
+          now,
+          sleep: (ms) =>
+            new Promise<void>((resolve) => {
+              setTimeout(resolve, ms);
+            }),
+        }),
+        siteUrl: kakaoSettings.siteUrl,
+      },
+      now,
       log: (line) => {
         console.log(line);
       },
@@ -536,6 +563,7 @@ export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
   analysisWorkerRegistration,
   notifyWorkerRegistration,
   deadlineWorkerRegistration,
+  programNoticesWorkerRegistration,
   async (rawEnv) => {
     const settings = readStorageSettings(rawEnv);
     return async (connection) => {

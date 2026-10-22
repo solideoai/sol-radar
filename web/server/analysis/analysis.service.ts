@@ -20,6 +20,7 @@ import {
   toExtractionRecord,
   toIdempotencyKey,
   readKevWire,
+  readTranslationWarnings,
   toKevRequest,
   toKstDate,
   toModelMeta,
@@ -85,6 +86,7 @@ type ExtractionStep = {
   extractionId: string | null;
   /** /extract 를 불렀고 호출 실패·payload 스키마 위반이었을 때만 있다. */
   diagnostic: FailureDiagnostic | null;
+  warnings: string[];
 };
 
 /**
@@ -101,6 +103,7 @@ async function prepareExtraction(
   // readCachedExtraction(null) 은 늘 null 이다. row 비교는 row.id 를 읽으려고 타입을 좁히는 것이다.
   if (row !== null && cached !== null) {
     return {
+      warnings: [],
       extraction: cached,
       outcome: null,
       translations: row.translations,
@@ -119,6 +122,7 @@ async function prepareExtraction(
       toExtractionRecord(context, reading.response, reading.extraction),
     );
     return {
+      warnings: readTranslationWarnings(reading.response.warnings),
       extraction: reading.extraction,
       outcome: { kind: "EXTRACTED", response: reading.response },
       translations: reading.response.translations,
@@ -128,6 +132,7 @@ async function prepareExtraction(
   }
   // 쓸 수 없던 캐시 행의 id 는 이 run 이 쓰지 않았으므로 남기지 않는다.
   return {
+    warnings: [],
     extraction: null,
     outcome: { kind: "UNAVAILABLE", reason: reading.reason },
     translations: null,
@@ -144,9 +149,16 @@ type KevStep = {
   output: KevOutput | null;
   /** /kev 를 불렀고 호출 실패·wire 스키마 위반이었을 때만 있다. */
   diagnostic: FailureDiagnostic | null;
+  warnings: string[];
 };
 
-const KEV_NOT_USED: KevStep = { outcome: null, wire: null, output: null, diagnostic: null };
+const KEV_NOT_USED: KevStep = {
+  outcome: null,
+  wire: null,
+  output: null,
+  diagnostic: null,
+  warnings: [],
+};
 
 /** ③ KEV_ENABLED 이고 추출이 있을 때만 /kev 를 부른다. 요청에 규칙 결과를 넣지 않는다(03 §5.6). */
 async function consultKev(
@@ -158,6 +170,15 @@ async function consultKev(
 
   const request = toKevRequest(context, step.extraction, step.translations);
   const result = await deps.gateway.kev(request);
+  const warnings = readTranslationWarnings(result.ok ? (result.value.warnings ?? []) : []);
+  if (warnings.length > 0) {
+    return {
+      ...KEV_NOT_USED,
+      outcome: { kind: "DISABLED", kevUnavailable: true },
+      warnings,
+      diagnostic: { failure: "TRANSLATION_INCOMPLETE", issues: warnings },
+    };
+  }
   const outcome = toKevOutcome(result);
   if (outcome.kind !== "USED") {
     const diagnostic = result.ok ? null : toFailureDiagnostic(result.failure);
@@ -175,6 +196,7 @@ async function consultKev(
     };
   }
   return {
+    warnings: [],
     outcome,
     wire: reading.kevWire,
     output: {
@@ -248,6 +270,7 @@ export async function runAnalysis(
     extraction,
     kev: kevStep.outcome,
     resultFlags: result.reviewFlags,
+    translationWarnings: [...extractionStep.warnings, ...kevStep.warnings],
   });
   const evidence = collectEvidence(result);
 

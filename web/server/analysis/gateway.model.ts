@@ -110,6 +110,8 @@ export const extractResponseSchema = z
 const kevLabel = z.enum(["SATISFIED", "NOT_SATISFIED", "NEEDS_REVIEW"]);
 
 export const kevResponseSchema = z.object({
+  // 추가 진단이다. 예전 gateway 응답에는 없어도 된다.
+  warnings: z.array(z.string()).optional(),
   // 안쪽 KevAssist 는 2단계에서 검증한다. 그때까지 나머지 필드를 버리지 않는다.
   kev: z.looseObject({ enabled: z.boolean() }),
   stateHash: z.string().nullable(),

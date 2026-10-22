@@ -1,0 +1,17 @@
+{
+  "baseline": "d57fcae7a10ab12e99d5941a2cc4296991f262fe",
+  "existingMigrationFiles": 41,
+  "existingMigrationModified": [],
+  "prunedTestPathsRestored": [],
+  "forwardMigrations": [
+    "supabase/migrations/20261023000500_translation_review_flag.sql",
+    "supabase/migrations/20261023000600_role_audit_triggers.sql",
+    "supabase/migrations/20261023000700_kakao_notify_links.sql",
+    "supabase/migrations/20261023000701_bid_recommended_outbox.sql",
+    "supabase/migrations/20261023000702_kakao_notify_hardening.sql",
+    "supabase/migrations/20261023000703_kakao_test_count_index.sql",
+    "supabase/migrations/20261023000704_kakao_send_claims.sql",
+    "supabase/migrations/20261023000800_program_notices.sql"
+  ],
+  "unresolvedMergePaths": []
+}

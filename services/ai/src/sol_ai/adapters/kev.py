@@ -12,10 +12,10 @@
 
 import hashlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sol_ai.adapters import kev_wire
-from sol_ai.adapters.base import KevClient, KevReply, KevUnavailable
+from sol_ai.adapters.base import KevClient, KevReply, KevUnavailable, TranslationAdapter
 from sol_ai.contracts import (
     FitScore,
     KevAssist,
@@ -28,8 +28,10 @@ from sol_ai.contracts import (
     StateTraceLine,
 )
 from sol_ai.deadline import Deadline
+from sol_ai.guards import InjectionGuard
 from sol_ai.kev_state import build_state
 from sol_ai.kev_state_v02 import StateDocument, StateTemplate, build_state_v02
+from sol_ai.paths import INJECTION_PATTERNS_FILE
 from sol_ai.qualifications import QualificationDictionary
 from sol_ai.question_sets import (
     Q_FIT,
@@ -44,6 +46,13 @@ from sol_ai.question_sets import (
     requirement_qid,
 )
 from sol_ai.thresholds import Thresholds
+from sol_ai.translation import (
+    checked_translations,
+    collect_notice_texts,
+    collect_profile_texts,
+    missing_warnings,
+    translate_texts,
+)
 
 logger = logging.getLogger("sol_ai.kev")
 
@@ -67,6 +76,7 @@ class KevOutcome:
     wire: list[dict] | None
     error_code: str | None
     requirements: list[RequirementDistribution] | None = None
+    warnings: list[str] = field(default_factory=list)
 
 
 def disabled_assist() -> KevAssist:
@@ -171,6 +181,7 @@ class KevAdapter:
         korean_question_sets: dict[str, QuestionSet] | None = None,
         state_templates: dict[str, StateTemplate] | None = None,
         thresholds: Thresholds | None = None,
+        translator: TranslationAdapter | None = None,
     ) -> None:
         self._client = client
         self._question_sets = question_sets
@@ -179,12 +190,37 @@ class KevAdapter:
         self._allow_ko_state = allow_ko_state
         self._templates = state_templates or {}
         self._thresholds = thresholds
+        self._translator = translator
+        self._guard = InjectionGuard.load(INJECTION_PATTERNS_FILE)
 
     def _question_set(self, requested: str) -> QuestionSet | None:
         """요청 버전을 이 Kev 가 답하면 그것, 아니면 Kev 의 기본 버전(mock 은 v0.2 요청에도 v0.1)."""
         supported = self._client.question_sets if self._client else ()
         version = requested if requested in supported else next(iter(supported), None)
         return self._question_sets.get(version) if version else None
+
+    def _english_request(
+        self, request: KevRequest, deadline: Deadline
+    ) -> tuple[KevRequest, list[str]]:
+        """공고 누락은 재번역하지 않는다. 기업만 /kev 기존 마감 내에서 번역한다."""
+        candidates = request.translations or {}
+        notice = collect_notice_texts(request.extraction, self._dictionary)
+        accepted = checked_translations(notice, candidates, self._guard)
+        missing = missing_warnings(notice, accepted)
+        if missing:
+            return request, missing
+        profile = collect_profile_texts(request, self._dictionary)
+        company = checked_translations(profile, candidates, self._guard)
+        pending = {p: v for p, v in profile.items() if p not in company}
+        warnings: list[str] = []
+        if pending and self._translator is not None:
+            translated = translate_texts(pending, self._translator, self._guard, deadline=deadline)
+            company.update(translated.values)
+            warnings = translated.warnings
+        elif pending:
+            warnings = missing_warnings(pending, company)
+        # 입력 객체·추출·기업 프로필은 그대로다. 번역 사본만 State 구성에 사용한다.
+        return request.model_copy(update={"translations": {**accepted, **company}}), warnings
 
     def assess(self, request: KevRequest, *, deadline: Deadline) -> KevOutcome:
         if request.stateLanguage == "ko" and not self._allow_ko_state:
@@ -199,12 +235,19 @@ class KevAdapter:
         if request.extraction.get("injectionSuspected") is True:
             # 인젝션이 의심되는 추출로 state 를 만들지 않는다. 서버를 부르지 않는다(보안 점검 결정)
             return KevOutcome(disabled_assist(), None, None, INJECTION_SUSPECTED)
+        # mock은 기록된 고정 분포 계약을 유지한다. 실제 모델에는 불완전한 영어 State를 보내지 않는다.
+        if request.stateLanguage == "en" and self._client.provider != "mock":
+            request, warnings = self._english_request(request, deadline)
+            if warnings:
+                return KevOutcome(disabled_assist(), None, None, KEV_UNAVAILABLE, warnings=warnings)
         question_set = self._question_set(request.questionSetVersion)
         if question_set is None:
             return unavailable
         if question_set.version == V0_2:
             return self._assess_v02(request, question_set, deadline)
         state = build_state(request, request.stateLanguage, self._dictionary)
+        if self._guard.matches(state):
+            return KevOutcome(disabled_assist(), None, None, INJECTION_SUSPECTED)
         wire_request = kev_wire.build_request(
             state, self._client.request_model, question_set.questions
         )
@@ -234,6 +277,8 @@ class KevAdapter:
             self._korean_question_sets.get(V0_2, english) if language == "ko" else english
         )
         document = build_state_v02(request, template, self._dictionary)
+        if self._guard.matches(document.text):
+            return KevOutcome(disabled_assist(), None, None, INJECTION_SUSPECTED)
         questions = {
             **question_set.notice_questions(),
             **{requirement_qid(i): question_set.item_question(i) for i in document.item_ids},

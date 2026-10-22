@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-22T01:09:00.650Z",
+  "base": "c9bc4964732cc8800a2286c2fac30bc7a7b55945",
+  "branch": "feat/company-runtime-deployment",
+  "mode": "mock",
+  "verification": {
+    "changedExitCode": 0,
+    "fullExitCode": 0,
+    "tests": {
+      "root": 186,
+      "web": 420,
+      "ai": 101,
+      "decision": 57,
+      "total": 764
+    },
+    "focusedTests": 43,
+    "topologyTests": 3,
+    "build": true
+  },
+  "containerSmoke": {
+    "at": "2026-10-22T01:00:09.600Z",
+    "scope": "isolated local containers; no production DB or model credentials",
+    "checks": {
+      "apiUnauthenticated": 401,
+      "apiDeniedPage": 404,
+      "ai": {
+        "status": "ok",
+        "runMode": "mock",
+        "provider": "mock"
+      },
+      "workerModules": "worker modules loaded"
+    }
+  },
+  "images": {
+    "api": "sha256:56155897aa637e3875d87daff197e3e663a28e52034bf03bcb8013b6989df02a",
+    "ai": "sha256:7c0162ca2261452654739f631b388155bbb44761059b23cfa694a62025568881",
+    "worker": "sha256:c70ad6dc4fda88b91d70a6a884fbb0877c90de897885b91c70549e525e9c513c"
+  },
+  "vercelDryRun": {
+    "framework": "services",
+    "services": ["web"],
+    "bindingPresent": false,
+    "forbiddenFiles": [],
+    "fileCount": 1217
+  },
+  "review": {
+    "critical": 0,
+    "important": 0,
+    "minor": 2,
+    "minorAddressed": 2
+  },
+  "production": {
+    "companyRuntimeStarted": false,
+    "vercelPromoted": false,
+    "dbChanged": false,
+    "existingRedisOrNginxChanged": false,
+    "redisHttpsHealth": 502,
+    "ssh": "connection_refused",
+    "needs": "SSH host/port/account or an internal terminal, existing Redis network/auth inventory"
+  },
+  "models": {
+    "fineTuningDone": false,
+    "actualInferenceVerified": false
+  }
+}

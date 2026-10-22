@@ -9,6 +9,8 @@ import {
   canRecordReview,
   canRequestAnalysis,
   getBid,
+  getStageLinks,
+  stageLinksRepo,
   isUuid,
   listBidAnalyses,
   type AnalysisView,
@@ -38,7 +40,7 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   if (!isUuid(id)) notFound();
 
   const deps = workDeps();
-  const [detail, history, membersPage, watch, projectEntry] = await Promise.all([
+  const [detail, history, membersPage, watch, projectEntry, relatedStages] = await Promise.all([
     getBid(work.orgId, id, { repo: deps.bids }),
     listBidAnalyses(work.orgId, id, { cursor: null, limit: HISTORY_LIMIT }, deps.cursorSecret, {
       repo: deps.bids,
@@ -49,6 +51,10 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       return null;
     }),
     getProjectEntry(work, id, projectDeps()),
+    getStageLinks(id, { repo: stageLinksRepo }).catch(() => {
+      console.error(JSON.stringify({ event: "bid_detail_stage_links_failed", bidId: id }));
+      return null;
+    }),
   ]);
   if (!detail.ok) {
     if (detail.status === 404) notFound();
@@ -82,6 +88,8 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   return (
     <BidDetailView
       bid={bid}
+      relatedStages={relatedStages?.ok ? relatedStages.data : null}
+      revisionsHref={bid.latestRevision > 1 ? `/bids/${id}/revisions` : null}
       previousScored={previousScored}
       history={
         history.ok

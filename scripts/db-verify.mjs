@@ -271,6 +271,12 @@ const bypassesQuery = `
 //   준다. ingest_runs 는 ADMIN 만 읽는 운영 표라 security definer 다. 로그인 역할만 실행하고, 업무 역할이 없으면 0행이며
 //   다른 열과 수집 오류는 내주지 않는다. 이유는 20261019000012 마이그레이션 주석에 있다.
 const ALLOWED_DEFINER_FUNCTIONS = new Set([
+  // ADR-038: auth.uid() 본인 연결만 전이하며 토큰열은 반환하지 않는다.
+  // PUBLIC/anon 실행은 닫고 활동 계정·조직·24시간 시험 한도는 함수 내부에서 검사한다.
+  "public.save_kakao_notify_link(text, text, timestamp with time zone, timestamp with time zone)",
+  "public.set_kakao_notify_enabled(boolean)",
+  "public.disconnect_kakao_notify()",
+  "public.request_kakao_notify_test()",
   // N3: 본인의 소속 조직 관심 수만 반환; 사용자 명단은 노출하지 않는다.
   "public.bid_watch_count(uuid)",
   // N6: 함수 안에서 세션 조직·ADMIN/SALES 및 최신 BID 결정을 검사한다.

@@ -39,7 +39,8 @@ ENV PATH="/app/services/ai/.venv/bin:$PATH" \
     SOL_FIXTURES_DIR=/app/fixtures \
     AI_HOST=0.0.0.0
 
-RUN useradd --system --uid 10001 --no-create-home sol
+RUN useradd --system --uid 10001 --no-create-home sol \
+    && chown -R sol:sol /app/services/ai /app/fixtures /app/infra
 USER sol
 
 EXPOSE 8000

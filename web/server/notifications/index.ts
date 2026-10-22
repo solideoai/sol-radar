@@ -29,6 +29,32 @@ export { NotificationStoreError, createNotificationOutboxStore } from "./outbox.
 export { processOutboxBatch } from "./outbox.service";
 export type { OutboxBatchDeps, OutboxBatchSummary } from "./outbox.service";
 
+export { createKakaoOutboxStore } from "./kakao.repo";
+export { processKakaoEvent } from "./kakao.service";
+export type { KakaoEventDeps } from "./kakao.service";
+export {
+  KAKAO_EVENT_TYPES,
+  TIMEOUT_UNKNOWN,
+  isKakaoEventType,
+  toBidFeedInput,
+  toKakaoEvent,
+  toKakaoExpiredRow,
+  toKakaoNotificationRow,
+  toKakaoRowUpdate,
+} from "./kakao.model";
+export type {
+  KakaoChannelDeps,
+  KakaoEvent,
+  KakaoEventOutcome,
+  KakaoEventResult,
+  KakaoEventType,
+  KakaoFeedSource,
+  KakaoNotificationRow,
+  KakaoOutboxStore,
+  KakaoRowStatus,
+  KakaoRowUpdate,
+} from "./kakao.model";
+
 export {
   createDeadlineReminderStore,
   runDeadlineReminders,

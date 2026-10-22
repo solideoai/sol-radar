@@ -45,7 +45,7 @@ updated: 2026-10-20
 - 로그·오류에 토큰·메시지 본문·공고명·카카오 사용자 ID를 싣지 않는다(기존 `notify.outbox` 한 줄 모양 유지).
 - 카톡에 AI 서술(`score_runs.explanation`, Qwen 출력)을 싣지 않는다. 사유 줄은 `qualification_checks` 에서만 만든다.
 - 문구(고정): 설정 설명 "추천 공고(BID·WATCH 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다." · 연결 전 "카카오 계정을 먼저 연결해야 켤 수 있습니다. 연결할 때 카카오 화면에서 '카카오톡 메시지 전송' 동의를 한 번 묻습니다." · 만료 "카카오 연결이 만료되어 보내지 못하고 있습니다. 앱 안 알림으로도 알려 드립니다." · 만료 인앱 "카카오 연결이 만료되어 카카오톡 알림을 보내지 못하고 있습니다. 설정에서 다시 연결해 주세요." · 동의 거부 "메시지 전송에 동의해야 켤 수 있습니다." · 버튼 "카카오톡 알림 연결"·"시험 메시지 보내기"·"다시 연결"·"연결 해제".
-- 마이그레이션은 새 파일로만. 번호는 착수 날 main 과 열린 브랜치의 마지막 번호(2026-10-20 기준 `20261019000019`) 뒤. 아래에서는 `20261021000001`·`20261021000002` 로 적는다. 마이그레이션과 `web/lib/database.types.ts`(`pnpm db:types`)는 같은 커밋.
+- 마이그레이션은 새 파일로만. 번호는 착수 날 main 과 열린 브랜치의 마지막 번호(2026-10-20 기준 `20261019000019`) 뒤. 아래에서는 `20261023000700`·`20261023000701` 로 적는다. 마이그레이션과 `web/lib/database.types.ts`(`pnpm db:types`)는 같은 커밋.
 - 서버 파일은 `import "server-only";` 로 시작, 도메인은 배럴(`@/server/<도메인>`)로만, `../` 대신 `@/`.
 - 색은 `design/tokens.json` 만. 노란 버튼은 `bg-kakao text-kakao-foreground`.
 - 화면 확인은 1440·1280. 무거운 검증(`pnpm verify`·e2e·build)은 사용자 환경의 검증 슬롯 스크립트로 감싼다.
@@ -74,8 +74,8 @@ updated: 2026-10-20
 ### Task 1: DB — 연결 표·RPC·이벤트 종류·`finish_score_run`
 
 **Files:**
-- Create: `supabase/migrations/20261021000001_kakao_notify_links.sql`
-- Create: `supabase/migrations/20261021000002_bid_recommended_outbox.sql`
+- Create: `supabase/migrations/20261023000700_kakao_notify_links.sql`
+- Create: `supabase/migrations/20261023000701_bid_recommended_outbox.sql`
 - Modify: `web/lib/database.types.ts`(생성물, `pnpm db:types`)
 - Test: `scripts/database.test.mjs` (새 `describe("카카오톡 알림 연결 — kakao_notify_links")`, `describe("추천 공고 outbox — BID_RECOMMENDED")`)
 
@@ -94,7 +94,7 @@ updated: 2026-10-20
 - [ ] **Step 2: 실패 확인** — Run: `pnpm test:db` · Expected: 새 시험이 표·함수 없음으로 FAIL.
 - [ ] **Step 3: 두 마이그레이션 작성** — 위 Produces 그대로. 파일 머리 주석은 기존 마이그레이션처럼 근거·담은 것·되돌리기를 적는다.
 - [ ] **Step 4: 통과 확인** — Run: `pnpm test:db && pnpm db:types && pnpm check:db-types` · Expected: 전부 PASS, 생성물 갱신.
-- [ ] **Step 5: Commit** — `git add supabase/migrations/20261021000001_kakao_notify_links.sql supabase/migrations/20261021000002_bid_recommended_outbox.sql web/lib/database.types.ts scripts/database.test.mjs && git commit -m "feat(db): 카카오 알림 연결 표와 추천 공고 outbox"`
+- [ ] **Step 5: Commit** — `git add supabase/migrations/20261023000700_kakao_notify_links.sql supabase/migrations/20261023000701_bid_recommended_outbox.sql web/lib/database.types.ts scripts/database.test.mjs && git commit -m "feat(db): 카카오 알림 연결 표와 추천 공고 outbox"`
 
 ### Task 2: 카카오 도메인 순수 규칙 — 토큰 암호화·피드·사유 줄·화면 상태
 

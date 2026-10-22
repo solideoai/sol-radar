@@ -26,3 +26,20 @@ export type { PendingBidCard, PendingSourceRow } from "./review-pending";
 export * from "./analysis-history.model";
 export { analysisHistoryRepo } from "./analysis-history.repo";
 export { listAnalysisHistory } from "./analysis-history.service";
+
+export {
+  compareBidRevision,
+  getBidRevision,
+  listBidRevisions,
+  parseRevisionParam,
+} from "./revision.service";
+export type {
+  RevisionSnapshot,
+  RevisionComparison,
+  RevisionFieldChange,
+  RevisionRef,
+  TextSegment,
+} from "./revision.model";
+export { getStageLinks } from "./stage-links.service";
+export { stageLinksRepo } from "./stage-links.supabase";
+export type { StageLinksView, StageLinkItem, StageLinkCandidateItem } from "./stage-links.model";

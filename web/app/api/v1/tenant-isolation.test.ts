@@ -86,6 +86,8 @@ const notUsed = async (): Promise<never> => {
 
 function orgScopedBids(): BidsRepo {
   return {
+    getRevisionHistory: async () => null,
+    getRevisionSnapshots: async () => [],
     listBids: vi.fn(async (orgId: string) => {
       const latest = runsOf(orgId, FX01)[0] ?? null;
       const item = {

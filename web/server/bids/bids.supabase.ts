@@ -379,6 +379,47 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
       return pageOf(data, limit, toAnalysis, (row) => ({ sortValue: row.created_at, id: row.id }));
     },
 
+    async getRevisionHistory(bidId) {
+      const db = await getSupabase();
+      const { data: bid, error: bidError } = await db
+        .from("bid_notices")
+        .select("title")
+        .eq("id", bidId)
+        .maybeSingle();
+      if (bidError) throw bidError;
+      if (bid === null) return null;
+      const { data, error } = await db
+        .from("bid_revisions")
+        .select("id,revision,amendment_no,changed_fields,fetched_at,checksum")
+        .eq("bid_id", bidId)
+        .order("revision", { ascending: false });
+      if (error) throw error;
+      return {
+        title: bid.title,
+        revisions: data.map((row) => ({
+          id: row.id,
+          checksum: row.checksum,
+          revision: row.revision,
+          amendmentNo: row.amendment_no,
+          changedFields: row.changed_fields,
+          fetchedAt: row.fetched_at,
+        })),
+      };
+    },
+
+    async getRevisionSnapshots(bidId, revisions) {
+      if (revisions.length === 0) return [];
+      const { data, error } = await (
+        await getSupabase()
+      )
+        .from("bid_revisions")
+        .select("revision,normalized")
+        .eq("bid_id", bidId)
+        .in("revision", revisions);
+      if (error) throw error;
+      return data;
+    },
+
     async getLatestScoredAnalysis(orgId, bidId) {
       return latestAnalysis(await getSupabase(), orgId, bidId, SCORED);
     },

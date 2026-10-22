@@ -11,6 +11,10 @@ updated: 2026-10-21
 
 # 02. 시스템 아키텍처
 
+## 배포 책임 (2026-10-22, ADR-049)
+
+Vercel은 `web`만 실행한다. 회사 `redis-api`는 서비스 token+사용자 JWT를 검사하고 분석/수집을 기존 Redis에 접수한다. 관리자 AI 상태 GET도 같은 회사 handler를 사용한다. Worker와 redis-api는 회사 `ai-gateway`를 공유하고 모델 키는 AI gateway, Storage service role과 수집 키는 Worker가 소유한다. 회사 Compose는 기존 Redis external network를 재사용하고 HTTP는loopback6380만 게시한다. [회사 실행서](../infra/company/README.md)를 따른다. mock 유지·회사 접속 정보 확보 전에는 실제 runtime 배포/실모델 연결 완료로 판정하지 않는다. ADR-044의 Vercel 내부 ai/binding 설명은 이전 배치 이력이다.
+
 ## 경계
 
 > [!note] 해커톤 뒤 전환 예정 ([[16-DECISIONS|ADR-028]])

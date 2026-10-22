@@ -4,8 +4,10 @@
 응답 매핑(scores·risks·calibration·requirements·stateTrace)을 본다.
 """
 
+import json
+
 import pytest
-from fake_models import Reply
+from fake_models import Reply, chat_completion
 from support import (
     AI_ROOT,
     LEGEND,
@@ -173,12 +175,35 @@ def v02(make_client, local_models, monkeypatch):
         responder = KevResponder()
 
         def client(self):
+            local_models.qwen.route(
+                "POST",
+                "/v1/chat/completions",
+                Reply(
+                    json_body=chat_completion(
+                        json.dumps(
+                            {
+                                "translations": {
+                                    "profileSummary.licenses[2].name": "SME confirmation (medium enterprise)",
+                                    "profileSummary.technologies[2].name": "e-Government Framework",
+                                    "profileSummary.technologies[7].name": "RAG/LLM application",
+                                },
+                            }
+                        )
+                    )
+                ),
+            )
             local_models.kev.respond_with("POST", SYSTEMONE, self.responder)
             return make_client(SOL_RUN_MODE="fixture")
 
         def call(self, request=None, client=None):
             response = (client or self.client()).post(
-                "/kev", json=request or kev_request("FX-01", extraction=v02_extraction())
+                "/kev",
+                json=request
+                or kev_request(
+                    "FX-01",
+                    extraction=v02_extraction(),
+                    translations={"restrictions[0]": "SME restricted competition"},
+                ),
             )
             assert response.status_code == 200
             return response.json()

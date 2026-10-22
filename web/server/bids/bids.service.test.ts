@@ -12,6 +12,8 @@ describe("분석 단계 호환성", () => {
       throw new Error("분석 단계 검증에서 호출하지 않는 저장 동작");
     };
     const repo: BidsRepo = {
+      getRevisionHistory: async () => null,
+      getRevisionSnapshots: async () => [],
       listBids: unused,
       countBids: unused,
       getBid: unused,

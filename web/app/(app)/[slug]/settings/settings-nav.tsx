@@ -5,11 +5,20 @@ import { usePathname } from "next/navigation";
 
 // 경로를 옮기는 메뉴라서 탭(role="tablist")이 아니라 링크와 aria-current 다.
 // "팀"은 팀 조직에서만 둔다(개인 조직은 이름을 바꾸거나 지우지 않는다). 맨 끝에 두어 "멤버" 자리가 두 조직에서 같다.
-export function SettingsNav({ slug, isTeam }: { slug: string; isTeam: boolean }) {
+export function SettingsNav({
+  slug,
+  isTeam,
+  showOrganization = false,
+}: {
+  slug: string;
+  isTeam: boolean;
+  showOrganization?: boolean;
+}) {
   const pathname = usePathname();
   const items = [
     { href: `/${slug}/settings`, label: "계정" },
     { href: `/${slug}/settings/members`, label: "멤버" },
+    ...(showOrganization ? [{ href: "/settings/organization", label: "조직" }] : []),
     ...(isTeam ? [{ href: `/${slug}/settings/team`, label: "팀" }] : []),
   ];
 

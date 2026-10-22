@@ -23,6 +23,8 @@ import {
 } from "@/server/bids";
 import * as analysisRoute from "./analyses/[id]/route";
 import * as bidAnalysesRoute from "./bids/[id]/analyses/route";
+import * as revisionRoute from "./bids/[id]/revisions/[rev]/route";
+import * as revisionsRoute from "./bids/[id]/revisions/route";
 import * as qualificationRoute from "./bids/[id]/qualification-checks/route";
 import * as reviewsRoute from "./bids/[id]/reviews/route";
 import * as bidRoute from "./bids/[id]/route";
@@ -115,6 +117,8 @@ const emptyPage = async () => ({ items: [], hasNext: false, last: null });
 
 function fakeBids(): BidsRepo {
   return {
+    getRevisionHistory: async () => null,
+    getRevisionSnapshots: async () => [],
     listBids: vi.fn(emptyPage),
     countBids: vi.fn(async () => 0),
     getBid: vi.fn(async () => BID),
@@ -789,5 +793,63 @@ describe("업무 Route Handler 조회 연결", () => {
     );
     expect((await send(PATCH_READ)).status).toBe(200);
     expect(d.notifications.markRead).toHaveBeenCalledWith(FAKE_USERS.sales.id, NOTE_ID);
+  });
+});
+
+describe("revision read API", () => {
+  it("returns stored revision history and nullable structured snapshots for an authenticated viewer", async () => {
+    fakeSession.cookie = FAKE_USERS.viewer.token;
+    install({
+      bids: {
+        getRevisionHistory: async () => ({
+          title: "공고",
+          revisions: [
+            {
+              id: "revision-1",
+              checksum: "sum",
+              revision: 1,
+              amendmentNo: null,
+              fetchedAt: "2026-10-22T00:00:00Z",
+              changedFields: [],
+            },
+          ],
+        }),
+        getRevisionSnapshots: async () => [
+          {
+            revision: 1,
+            normalized: {
+              agency: null,
+              structuredQualifications: [{ name: null, value: { amount: 3 } }],
+            },
+          },
+        ],
+      },
+    });
+    const list = await revisionsRoute.GET(
+      fakeRequest("/api/v1/bids/" + BID_ID + "/revisions"),
+      ctx(BID_ID),
+    );
+    expect(list.status).toBe(200);
+    expect(await list.json()).toMatchObject([{ revision: 1 }]);
+    const snapshot = await revisionRoute.GET(
+      fakeRequest("/api/v1/bids/" + BID_ID + "/revisions/1"),
+      { params: Promise.resolve({ id: BID_ID, rev: "1" }) },
+    );
+    expect(snapshot.status).toBe(200);
+    expect(await snapshot.json()).toMatchObject({
+      agency: null,
+      structuredQualifications: [{ name: null, value: { amount: 3 } }],
+    });
+  });
+  it("rejects a malformed revision path before reading the repository", async () => {
+    fakeSession.cookie = FAKE_USERS.sales.token;
+    const history = vi.fn(async () => null);
+    install({ bids: { getRevisionHistory: history } });
+    const response = await revisionRoute.GET(
+      fakeRequest("/api/v1/bids/" + BID_ID + "/revisions/01"),
+      { params: Promise.resolve({ id: BID_ID, rev: "01" }) },
+    );
+    await errorOf(response, 404, "NOT_FOUND");
+    expect(history).not.toHaveBeenCalled();
   });
 });

@@ -1,0 +1,19 @@
+# 부처 지원사업 공고 수집 설정(ADR-040, 스펙 polaris/specs/in-progress/2026-10-21-agency-program-notices.md §3).
+# 나라장터 registry(registry.yaml)와 따로 둔다. 그 계약(source-registry.ts·OfficialApiConnector)을 고치지 않는다.
+# 읽는 곳: web/server/program-notices/config.ts. 틀리면 그 소스만 꺼지고 worker 기동·나라장터 수집은 그대로다.
+# 주소는 www.bizinfo.go.kr·mss.go.kr 의 https 만 받는다(http.ts PROGRAM_NOTICE_HOSTS). 리다이렉트는 따르지 않는다.
+# 기업마당 인증키는 값이 아니라 env 이름만 둔다. 키 값은 사용자가 infra/.env 에 넣고 worker 만 읽는다.
+schemaVersion: program-notices/v0.1
+sources:
+  bizinfo:
+    # 기업마당 지원사업정보 API. 공식 명세 https://www.bizinfo.go.kr/apiDetail.do?id=bizinfoApi
+    enabled: true
+    baseUrl: https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do
+    keyEnv: BIZINFO_API_KEY
+    # 분야 코드(searchLclasId): 01 금융, 02 기술, 03 인력, 04 수출, 05 내수, 06 창업, 07 경영, 09 기타.
+    categories: ["02"]
+    maxItems: 100
+  mss:
+    # 중소벤처기업부 사업공고 RSS(최신 20건). 키 없음.
+    enabled: true
+    baseUrl: https://mss.go.kr/rss/smba/board/310.do

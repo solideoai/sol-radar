@@ -27,9 +27,10 @@ export type AnsweredFailureName = "HTTP_4XX" | "INVALID_RESPONSE";
 export type KevUnusableFailure = AnsweredFailureName | "WIRE_INVALID";
 
 /** PAYLOAD_INVALID 는 /extract 200 응답의 payload 가 추출 스키마를 어긴 경우다. */
-export type DiagnosticFailure = TransportFailureName | KevUnusableFailure | "PAYLOAD_INVALID";
+export type DiagnosticFailure =
+  TransportFailureName | KevUnusableFailure | "PAYLOAD_INVALID" | "TRANSLATION_INCOMPLETE";
 
-/** issues 는 "경로: 코드"(zod toIssueList, 최대 10)뿐이다. 받은 값·오류 message·주소는 싣지 않는다. */
+/** issues 는 검증 경로·코드 또는 안전한 번역 경고다. 받은 값·오류 message·주소는 싣지 않는다. */
 export type FailureDiagnostic = { failure: DiagnosticFailure; issues: string[] };
 
 /** 전송 실패면 그 이름, 아니면 null. 1단계 isAvailabilityFailure(UNREACHABLE·TIMEOUT·5xx) + CIRCUIT_OPEN 이다. */

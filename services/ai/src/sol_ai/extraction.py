@@ -18,7 +18,13 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from sol_ai import strict_json
-from sol_ai.adapters.base import ExtractionFailed, ModelOutput, ModelUnavailable, QwenAdapter
+from sol_ai.adapters.base import (
+    ExtractionFailed,
+    ModelOutput,
+    ModelUnavailable,
+    QwenAdapter,
+    TranslationAdapter,
+)
 from sol_ai.citation import DocumentText, norm, threshold_of, verify_fields
 from sol_ai.contracts import ExtractMeta, ExtractRequest, ExtractResponse, ExtractTimings
 from sol_ai.deadline import Deadline
@@ -26,6 +32,7 @@ from sol_ai.guards import InjectionGuard
 from sol_ai.qualifications import QualificationDictionary
 from sol_ai.schema import ExtractionSchema
 from sol_ai.timeutil import parse_instant, to_utc_z
+from sol_ai.translation import collect_notice_texts, translate_texts
 
 logger = logging.getLogger("sol_ai.extract")
 
@@ -224,7 +231,17 @@ def _fill_gateway_values(
             "latencyMs": attempt.latency,
             "retries": attempt.retries,
         }
+    # 스키마 검증 후 복사본에만 적용한다. 실제 첨부 ID "null"이 있으면 문자열을 보존한다.
+    # 문서/인용 검증은 그대로 수행하므로 ID 정규화가 근거를 만들어 주지는 않는다.
+    normalize_body_id = not any(a.documentId == "null" for a in request.attachments)
     for name in FIELDS:
+        for ref in payload[name]["evidence"]:
+            if (
+                normalize_body_id
+                and ref.get("kind", "TEXT") == "TEXT"
+                and ref["documentId"] == "null"
+            ):
+                ref["documentId"] = None
         payload[name]["evidence"] = [
             _ordered_ref(ref, request.revisionId) for ref in payload[name]["evidence"]
         ]
@@ -420,12 +437,22 @@ def run_extraction(
         "injectionSuspected": injection,
         "warnings": all_warnings,
     }
+    # 번역은 인용/상태/정규화/사전 검증을 마친 값만 사용한다. payload 경고도 원본 추출 그대로다.
+    translations = None
+    response_warnings = all_warnings
+    if isinstance(qwen, TranslationAdapter):
+        sources = collect_notice_texts(ordered, config.dictionary)
+        translated = translate_texts(sources, qwen, config.guard, deadline=deadline)
+        translations = translated.values
+        response_warnings = _dedupe(all_warnings + translated.warnings)
+        if translated.warnings:
+            status = "PENDING_REVIEW"
     return ExtractResponse(
         status=status,
         payload=ordered,
-        translations=None,
+        translations=translations,
         errorCode=None,
         injectionSuspected=injection,
-        warnings=all_warnings,
+        warnings=response_warnings,
         timings=ExtractTimings(extractMs=_elapsed_ms(started)),
     )

@@ -87,7 +87,21 @@ def test_local_health_kev_model_id_is_registry_entry(make_client, local_models):
 
 def test_local_kev_response_model_is_registry_run(make_client, local_models):
     local_models.kev.route("POST", "/v1/systemone", Reply(json_body=kev_answer()))
-    result = post_ok(make_client(SOL_RUN_MODE="fixture"), "/kev", kev_request("FX-01"))
+    result = post_ok(
+        make_client(SOL_RUN_MODE="fixture"),
+        "/kev",
+        kev_request(
+            "FX-01",
+            translations={
+                "requiredSkills[3]": "e-Government Framework",
+                "staffing[2].role": "Development",
+                "restrictions[0]": "SME restricted competition",
+                "profileSummary.technologies[2].name": "e-Government Framework",
+                "profileSummary.technologies[7].name": "RAG/LLM application",
+                "profileSummary.licenses[2].name": "SME confirmation (medium enterprise)",
+            },
+        ),
+    )
     assert (result["kev"]["provider"], result["kev"]["model"]) == ("local", KEV_RUN)
     assert MOCK not in (result["kev"]["provider"], result["kev"]["model"])
 

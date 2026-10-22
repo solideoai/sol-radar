@@ -1,0 +1,31 @@
+{
+  "baseline": "d57fcae7a10ab12e99d5941a2cc4296991f262fe",
+  "command": "pnpm verify",
+  "exitCode": 0,
+  "rootTests": 202,
+  "webTestFiles": 56,
+  "webTests": 469,
+  "aiTests": 153,
+  "decisionTests": 57,
+  "nextProductionBuild": "passed",
+  "checks": [
+    "format",
+    "type-check",
+    "eslint",
+    "lint-guards",
+    "lodestar",
+    "tokens",
+    "colors",
+    "database-types"
+  ],
+  "initialAttempt": "새 scripts/committed-integrations-db.test.mjs의 Prettier 서식 실패. 서식 수정·동결 후 전체 재실행 통과.",
+  "externalProbesRun": false,
+  "productionMigrationsApplied": false,
+  "independentReview": {
+    "blockingFound": 1,
+    "blockingResolved": 1,
+    "remainingBlocking": 0,
+    "regression": "송신후 상태 저장 실패·동시 poll·cross-org claim·TEST replay 차단",
+    "limitation": "claim 후 전송 전 중단은 누락 가능; 최대1회 우선"
+  }
+}

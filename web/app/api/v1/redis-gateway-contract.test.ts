@@ -9,6 +9,7 @@ import {
 import { POST as requestAnalysis } from "./bids/[id]/analyses/route";
 import { POST as requestIngestion } from "./admin/ingestion/runs/route";
 import { GET as getAnalysis } from "./analyses/[id]/route";
+import { GET as getAdminAiStatus } from "./admin/ai/status/route";
 
 const { tcpDeps, authGate } = vi.hoisted(() => ({
   authGate: { wait: null as Promise<void> | null },
@@ -68,6 +69,58 @@ afterEach(() => {
 });
 
 describe("frontend → existing company API", () => {
+  it("reads ADMIN AI status through the company handler with JWT and service token", async () => {
+    fakeSession.cookie = FAKE_USERS.admin.token;
+    vi.stubEnv("AI_GATEWAY_URL", "http://ai-gateway:8000");
+    const path = "/api/v1/admin/ai/status";
+    const send = vi.fn<typeof fetch>(async (url, init) => {
+      if (String(url) === `https://acropolissg.com/redis${path}`) {
+        expect(init?.method).toBe("GET");
+        expect(init?.body).toBeUndefined();
+        expect(new Headers(init?.headers).get("Idempotency-Key")).toBeNull();
+        vi.stubEnv("SOL_DEPLOYMENT_ROLE", "redis-api");
+        return getAdminAiStatus(fakeRequest(path, { headers: init?.headers }));
+      }
+      expect(url).toBe("http://ai-gateway:8000/health");
+      return Response.json({
+        status: "ok",
+        runMode: "mock",
+        provider: "mock",
+        kevEnabled: true,
+        qwen: null,
+        kev: null,
+        questionSets: [],
+        parsers: [],
+      });
+    });
+    vi.stubGlobal("fetch", send);
+    const response = await getAdminAiStatus(fakeRequest(path));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ gateway: { healthy: true }, provider: "mock" });
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(tcpDeps).not.toHaveBeenCalled();
+  });
+
+  it("denies AI status for non-ADMIN and unauthenticated requests before dispatch", async () => {
+    const send = vi.fn();
+    vi.stubGlobal("fetch", send);
+    fakeSession.cookie = FAKE_USERS.sales.token;
+    expect((await getAdminAiStatus(fakeRequest("/api/v1/admin/ai/status"))).status).toBe(403);
+    fakeSession.cookie = null;
+    expect((await getAdminAiStatus(fakeRequest("/api/v1/admin/ai/status"))).status).toBe(401);
+    expect(send).not.toHaveBeenCalled();
+    vi.stubEnv("SOL_DEPLOYMENT_ROLE", "redis-api");
+    expect(
+      (
+        await getAdminAiStatus(
+          fakeRequest("/api/v1/admin/ai/status", {
+            headers: { Authorization: `Bearer ${FAKE_USERS.admin.token}` },
+          }),
+        )
+      ).status,
+    ).toBe(401);
+  });
+
   it("rechecks an account suspended between frontend authentication and backend submission", async () => {
     fakeSession.cookie = FAKE_USERS.sales.token;
     const send = vi.fn<typeof fetch>(async (_url, init) => {

@@ -1,3 +1,4 @@
+import { canSeeOrganizationTab } from "@/app/(app)/[slug]/settings/show-organization";
 import { cn } from "cn";
 import { UsersIcon } from "lucide-react";
 import type { Metadata } from "next";
@@ -25,6 +26,7 @@ export default async function MembersPage({ params }: PageProps<"/[slug]/setting
     `/${(await params).slug}/settings/members`,
   );
   const { current, userId } = workspace;
+  const showOrganization = await canSeeOrganizationTab(current.id);
   const page = await getMembersPage({ org: current, userId });
 
   const description =
@@ -38,7 +40,11 @@ export default async function MembersPage({ params }: PageProps<"/[slug]/setting
     <AppPage title="설정" description={description}>
       {/* AppPage 의 간격이 사이에 끼지 않게 하위 메뉴와 카드를 한 묶음으로 둔다. */}
       <div>
-        <SettingsNav slug={current.slug} isTeam={!current.isPersonal} />
+        <SettingsNav
+          showOrganization={showOrganization}
+          slug={current.slug}
+          isTeam={!current.isPersonal}
+        />
         <div className="flex flex-col gap-6 pt-6">
           {page.status === "personal" ? (
             <PersonalNotice />

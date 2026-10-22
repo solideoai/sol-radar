@@ -1,0 +1,22 @@
+# 2026-10-21T05:29:55.554Z pnpm -C web test:e2e:programs
+# env: 격리 Supabase http://127.0.0.1:59771(키 생략) · E2E_PORT=3230 · SOL_RUN_MODE=fixture · REDIS·MinIO·AI gateway 없음
+
+> sol-radar-web@0.1.0 test:e2e:programs /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/program-notices/web
+> playwright test -c playwright.programs.config.ts
+
+programs-setup: seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true
+programs-setup: program-notices-load: notices=20 runs=bizinfo:SKIPPED/NO_RECORDING(saved=0),mss:SUCCEEDED(saved=20)
+
+Running 8 tests using 2 workers
+
+  ✓  1 [programs-1280] › e2e-auth/program-notices.spec.ts:79:5 › 링크 줄: /bids 에서 '부처 지원사업'을 누르면 /bids/programs 로 옮기고 지금 화면 표시(aria-current)가 따라간다 (1.2s)
+  ✓  2 [programs-1440] › e2e-auth/program-notices.spec.ts:79:5 › 링크 줄: /bids 에서 '부처 지원사업'을 누르면 /bids/programs 로 옮기고 지금 화면 표시(aria-current)가 따라간다 (1.3s)
+  ✓  4 [programs-1440] › e2e-auth/program-notices.spec.ts:106:5 › 목록: 중기부 녹음 항목이 모두 표에 보이고(행 수·결과 줄 건수 = 녹음 <item 수) 가로 넘침이 없다 (632ms)
+  ✓  3 [programs-1280] › e2e-auth/program-notices.spec.ts:106:5 › 목록: 중기부 녹음 항목이 모두 표에 보이고(행 수·결과 줄 건수 = 녹음 <item 수) 가로 넘침이 없다 (770ms)
+  ✓  5 [programs-1440] › e2e-auth/program-notices.spec.ts:131:5 › 서랍: 첫 행 공고명을 누르면 480px 서랍에 그 공고와 원문 보기(새 창) 링크·제목만 제공 안내가 보이고, Esc 로 닫으면 초점이 공고명 단추로 돌아온다 (1.7s)
+  ✓  6 [programs-1280] › e2e-auth/program-notices.spec.ts:131:5 › 서랍: 첫 행 공고명을 누르면 480px 서랍에 그 공고와 원문 보기(새 창) 링크·제목만 제공 안내가 보이고, Esc 로 닫으면 초점이 공고명 단추로 돌아온다 (1.6s)
+  ✓  8 [programs-1280] › e2e-auth/program-notices.spec.ts:191:5 › 빈 상태: ?source=bizinfo 는 '조건에 맞는 공고가 없습니다'이고, 빈 상태의 [필터 초기화]로 녹음 전체 목록으로 돌아온다 (1.1s)
+  ✓  7 [programs-1440] › e2e-auth/program-notices.spec.ts:191:5 › 빈 상태: ?source=bizinfo 는 '조건에 맞는 공고가 없습니다'이고, 빈 상태의 [필터 초기화]로 녹음 전체 목록으로 돌아온다 (1.2s)
+
+  8 passed (13.3s)
+# exit 0

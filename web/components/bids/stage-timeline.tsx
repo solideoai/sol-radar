@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "cn";
 import { STAGE_LABEL } from "@/components/bids/labels";
 import type { BidStage } from "@/server/bids";
@@ -7,6 +8,7 @@ type StageTimelineProps = {
   stage: BidStage;
   stageLinks: { planRef: string | null; preSpecRef: string | null };
   latestRevision: number;
+  revisionsHref?: string | null;
 };
 
 const STEPS = [
@@ -19,7 +21,12 @@ const STEPS = [
   "CONTRACT",
 ] as const satisfies readonly BidStage[];
 
-function StageTimeline({ stage, stageLinks, latestRevision }: StageTimelineProps) {
+function StageTimeline({
+  stage,
+  stageLinks,
+  latestRevision,
+  revisionsHref = null,
+}: StageTimelineProps) {
   const refs: Record<BidStage, string | null> = {
     PLAN: stageLinks.planRef,
     PROCUREMENT_REQUEST: null,
@@ -52,7 +59,19 @@ function StageTimeline({ stage, stageLinks, latestRevision }: StageTimelineProps
               />
               <span className={cn(!current && "text-muted-foreground")}>{STAGE_LABEL[step]}</span>
               <span className="min-w-0 wrap-anywhere tabular-nums text-muted-foreground">
-                {current ? `r${latestRevision}` : (refs[step] ?? "—")}
+                {current && revisionsHref !== null ? (
+                  <Link
+                    href={revisionsHref}
+                    aria-label={`현재 r${latestRevision}, 변경 이력 보기`}
+                    className="rounded-sm underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    r{latestRevision}
+                  </Link>
+                ) : current ? (
+                  `r${latestRevision}`
+                ) : (
+                  (refs[step] ?? "—")
+                )}
               </span>
             </li>
           );

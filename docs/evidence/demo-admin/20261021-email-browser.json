@@ -1,0 +1,19 @@
+{
+  "login": "admin@admin.com",
+  "userId": "25caa3c1-8b70-477f-a359-32905674f94a",
+  "name": "이광희",
+  "path": "/dashboard",
+  "employment": {
+    "name": "이광희",
+    "employment": {
+      "companyName": "솔리데오",
+      "departmentId": "SOL-D049",
+      "departmentName": "정보기술연구소",
+      "jobTitleId": "SOL-J013",
+      "jobTitleLabel": "관리자"
+    },
+    "profileComplete": true
+  },
+  "profileApiStatus": 200,
+  "adminApiStatus": 200
+}

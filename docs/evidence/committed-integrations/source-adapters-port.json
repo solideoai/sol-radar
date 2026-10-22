@@ -1,0 +1,944 @@
+{
+  "task": "Port committed program-notices and Kakao feature implementations onto current main without restoring deleted test matrices",
+  "sourceTips": {
+    "programNotices": "9fc38fe225883fd299786b65bdb48ec67496c5d4",
+    "kakaoNotify": "50c1b78a9c97209fe12ac7796e9cd63792a0b3bd"
+  },
+  "supersededRaw": {
+    "feat/program-notices": "ad811c85b8556d7ae3bb3bcc64b764f92bb1a33c",
+    "feat/program-notices-ui": "4c2f550a448327e4383c1994a05698814e1dca51",
+    "feat/kakao-notify": "90823f3eef4207d50e559f8a74ccd487247acef5",
+    "docs/kakao-notify-design": "c659a354d16fb94e53e426a0aa4c2e5ef044b886"
+  },
+  "equivalence": {
+    "programRawPaths": 82,
+    "programIdenticalBlobs": 75,
+    "remainingProgramChanges": "Migration filename/reference renumbering only",
+    "kakaoRawPaths": 88,
+    "kakaoIdenticalBlobs": 73,
+    "remainingKakaoChanges": "Migration filename/reference renumbering only",
+    "migrationSqlEqualIgnoringComments": true,
+    "programUiPatchEquivalentToRaw": true,
+    "kakaoDesignThreePatchesEquivalentToMain": true
+  },
+  "forwardMigrationVersions": {
+    "20261021000601": "20261023000700",
+    "20261021000602": "20261023000701",
+    "20261021000603": "20261023000702",
+    "20261021000604": "20261023000703",
+    "20261021000650": "20261023000800"
+  },
+  "sourceToTarget": [
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-bids-list-loaded-1280.png",
+      "target": "docs/evidence/program-notices/20261021-task9-bids-list-loaded-1280.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "720c9b0d508f401a755745b652025876d87ef8fb85c5526203df9618612aeb67"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-bids-list-loaded-1440.png",
+      "target": "docs/evidence/program-notices/20261021-task9-bids-list-loaded-1440.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "be698fc544a7517f0a5469491c57539efe4361720e9056d9c340bf8f5caf917d"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-bids-programs-drawer-loaded-1280.png",
+      "target": "docs/evidence/program-notices/20261021-task9-bids-programs-drawer-loaded-1280.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "2bce2c52684e904f10faa629e9f3eb5d394c58a6c74dcc3b05f2cadd8c7a0195"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-bids-programs-drawer-loaded-1440.png",
+      "target": "docs/evidence/program-notices/20261021-task9-bids-programs-drawer-loaded-1440.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "4e0255ab2046070525e724037ee60205542c265012caec5503515b2573079b79"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-bids-programs-empty-1280.png",
+      "target": "docs/evidence/program-notices/20261021-task9-bids-programs-empty-1280.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "0186978fb9d577f02636efef6ecb3a34f8161958c4089027c4c29a179ba73a17"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-bids-programs-empty-1440.png",
+      "target": "docs/evidence/program-notices/20261021-task9-bids-programs-empty-1440.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "1e7454024d9cdee37a623170944e5b522323e1f076fd78beb2db27c7f85c1026"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-bids-programs-loaded-1280.png",
+      "target": "docs/evidence/program-notices/20261021-task9-bids-programs-loaded-1280.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "51040e8ce58642324522cca7b9e03ae6ee940543e3f1f2ccc5576e86c8fa0e6e"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-bids-programs-loaded-1440.png",
+      "target": "docs/evidence/program-notices/20261021-task9-bids-programs-loaded-1440.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "9bd9c8a17e6fcc61c6a7b1f7509967f94a4af6adaa67fc237ef2911c683a8f76"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/20261021-task9-e2e.log",
+      "target": "docs/evidence/program-notices/20261021-task9-e2e.log",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "fd0cf35d7260452bfd26ee5575bbbb60337b9b9c67f794752095b52fd9444c5d"
+    },
+    {
+      "source": "9fc38fe:docs/evidence/program-notices/recording-20261021.md",
+      "target": "docs/evidence/program-notices/recording-20261021.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "168e2cf9a1455c5c252f1f89343e4cffb82fcffefb279f40b0881d2fedfe4b78"
+    },
+    {
+      "source": "9fc38fe:docs/plans/2026-10-21-program-notices-design.md",
+      "target": "docs/plans/2026-10-21-program-notices-design.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "4863cd24d684e1a5f68f9ddae3da1d26996f327d60c791476aee2417b1f78fb4"
+    },
+    {
+      "source": "9fc38fe:docs/plans/2026-10-21-program-notices-plan.md",
+      "target": "docs/plans/2026-10-21-program-notices-plan.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "bf63bc8bd29fdbd3ff8c98e4b486107e788ac402c0871fee9015e1c8606b15c9"
+    },
+    {
+      "source": "9fc38fe:fixtures/recorded/program-notices/mss/rss-310.20261021.masked.json",
+      "target": "fixtures/recorded/program-notices/mss/rss-310.20261021.masked.json",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "95fdd30e7c47f1ea53378326645f515265286c988abc47aef3aa777f9adebb7e"
+    },
+    {
+      "source": "9fc38fe:infra/compose.yaml",
+      "target": "infra/compose.yaml",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "b96f10415bb4ac709a58adbde05c11ef7ed6704d072e1d3d0e910538523a90fa"
+    },
+    {
+      "source": "9fc38fe:infra/env/ai-local.env.example",
+      "target": "infra/env/ai-local.env.example",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "9f5e2b162d7fe22366cbc816122080f9b3d69bd991b942bed6c3ba01555d2a21"
+    },
+    {
+      "source": "9fc38fe:infra/env/demo.env.example",
+      "target": "infra/env/demo.env.example",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "61f5fca70b8afa068c31f081f3a3bfa9d09325bed4415367bad1a358dbafdddb"
+    },
+    {
+      "source": "9fc38fe:infra/sources/program-notices.yaml",
+      "target": "infra/sources/program-notices.yaml",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b22843727c54e161f87e1e3511ea67481516bb9b7a32c7d8cfd53227265aa8d4"
+    },
+    {
+      "source": "9fc38fe:package.json",
+      "target": "package.json",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "ff982d84604008bdea9ef3193b562e294e5a6eb48b1961400a1a1c03b72ff3c9"
+    },
+    {
+      "source": "9fc38fe:polaris/specs/in-progress/2026-10-21-agency-program-notices.md",
+      "target": "polaris/specs/in-progress/2026-10-21-agency-program-notices.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "25628334b0d8be5e66f442394514ac6f143eecba305c9ce2eaae904425535021"
+    },
+    {
+      "source": "9fc38fe:scripts/recorded/README.md",
+      "target": "scripts/recorded/README.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "5eac18360cffe6f116ac5e69dc920b7672fb133ff1fb109b3a386f167dab4f45"
+    },
+    {
+      "source": "9fc38fe:scripts/recorded/program-notices-lib.mjs",
+      "target": "scripts/recorded/program-notices-lib.mjs",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "c96b1c889e1048a980c71153d62f145507d12b6564814afd58209945b8a3766f"
+    },
+    {
+      "source": "9fc38fe:scripts/recorded/record-program-notices.mjs",
+      "target": "scripts/recorded/record-program-notices.mjs",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "888d672d37794c8a2f998d10a1f311e490e2c1c393b7118fe90c7cf8eaca4451"
+    },
+    {
+      "source": "9fc38fe:supabase/migrations/20261021000650_program_notices.sql",
+      "target": "supabase/migrations/20261023000800_program_notices.sql",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "a51a22320c10e5f3b8bcc65d51ff4cae68a21af282a91ccb005f9b800d9f66a0"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/bids-source-nav.tsx",
+      "target": "web/app/(app)/(work)/bids/bids-source-nav.tsx",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "6fe107a548e9b10aae3be8344ec218616415fac4643a71972ce3ea104eb1f4de"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/loading.tsx",
+      "target": "web/app/(app)/(work)/bids/loading.tsx",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "c4f72f7fe1df9a36bc3d1a5e52323adfcbf3b0f299e136ee224d0db8a031faf5"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/page.tsx",
+      "target": "web/app/(app)/(work)/bids/page.tsx",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "453f7619c178d02b3092d3db7a9922a660e5fed3b03e95833f2850262d760042"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/error.tsx",
+      "target": "web/app/(app)/(work)/bids/programs/error.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "e77343700685a6bda1cfa54857ea958c2492ac6ddcb19a78e3d83eb280cf4f7c"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/list-query.ts",
+      "target": "web/app/(app)/(work)/bids/programs/list-query.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "cb6a65acfcbbbd522491fb3ed7be2efad4aefc76ca688de1e22bcd58d0a14854"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/loading.tsx",
+      "target": "web/app/(app)/(work)/bids/programs/loading.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b2a95b733493d32bfae152f2866289f79fd57259a0ea049185264a3ac123c960"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/page.tsx",
+      "target": "web/app/(app)/(work)/bids/programs/page.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "549b17d14d52dd7b2d24533753a6aa6f1c55ad955b1e0f70ba5bb2522e2cc722"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/program-filters.tsx",
+      "target": "web/app/(app)/(work)/bids/programs/program-filters.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b8f67fa70f886873eb48142f50cf652675640267c9207ecbe6c69872024a7aba"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/program-format.ts",
+      "target": "web/app/(app)/(work)/bids/programs/program-format.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b617e8f14174608a4273ddabe156f08b06ba91bbc390e55676317b3b90df0eef"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/program-list-view.tsx",
+      "target": "web/app/(app)/(work)/bids/programs/program-list-view.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "2f14f18ecee78ce884a468f6fc9292582ede19606b1c362b738d20442706bd73"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/program-notice-drawer.tsx",
+      "target": "web/app/(app)/(work)/bids/programs/program-notice-drawer.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "8de22cf4db6a0c04bf86f77708e26b04e7464f8803096f12c89bcd2eb893163f"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/program-table.tsx",
+      "target": "web/app/(app)/(work)/bids/programs/program-table.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "6698210b107c26dc809ab2b86982e9c53f17f1813c4aaa924b73c1316e865923"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/programs-copy.ts",
+      "target": "web/app/(app)/(work)/bids/programs/programs-copy.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "6d129c09ffb4a9d8ffc235b4390b4f1deef9d8da3697512879bfc9e058b9aa1a"
+    },
+    {
+      "source": "9fc38fe:web/app/api/v1/program-notices/route.ts",
+      "target": "web/app/api/v1/program-notices/route.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "e19f518340d123bff89301629f93fd05de0bc30e62748b3b2b2d4d699dddd898"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/bizinfo.ts",
+      "target": "web/server/program-notices/bizinfo.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "8e6f5ea42aad6a4fde20b028cab8ecfd180593e3b67539b99625e2a88af3dfe3"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/collect.service.ts",
+      "target": "web/server/program-notices/collect.service.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "12f42b3cc8db04801cb03df30ff65fed4f8a5fac93e15c6b6ee0c125beb30cc1"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/config.ts",
+      "target": "web/server/program-notices/config.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "17a2234dbeb1bcd3f9fbaa8a7f6185d5dc597cb14b253787fc178086f7092263"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/dates.ts",
+      "target": "web/server/program-notices/dates.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "2df315012d9382ffbf5728732b9a6552ac2a66fa7637b95fc12c67d2531e0870"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/http.ts",
+      "target": "web/server/program-notices/http.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b27377b44f5b894e7664dfa604aec388b2ba95afee55d81944e10e4ae4a7f2af"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/index.ts",
+      "target": "web/server/program-notices/index.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "2fd052c41e487b77b13f947c68df5be473a8e900a54a010ebea176e171dc5e57"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/list.service.ts",
+      "target": "web/server/program-notices/list.service.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "260b447c9beba1f4b56040fe9e255f3b547ac405778816c54faab55d0b5ebbfb"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/mss-rss.ts",
+      "target": "web/server/program-notices/mss-rss.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "567c0788c6d2e0474e43b4a0b5c56ee1cf44cb742c8b52771402d53f27bf0c54"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/program-notice.model.ts",
+      "target": "web/server/program-notices/program-notice.model.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "ce87f6d95c0a5a5165340f2594d1d18ae0292184200c9d6cbaab93ea9fb2493d"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/program-notices.repo.ts",
+      "target": "web/server/program-notices/program-notices.repo.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "24cd0257197aa6590e2fc7adfc6ebe8296249c637c3af6455ca1e91e2fbc664b"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/program-notices.store.ts",
+      "target": "web/server/program-notices/program-notices.store.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "299902c1cf7d14712ecf4f86f7b31e75eac54e353feca12462fb8932d23aaca3"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/recording.ts",
+      "target": "web/server/program-notices/recording.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "f04d0de097093802db55fb63677502877849790f49eb1bf7670a0a452efcc962"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/test-data/bizinfo-sample.json",
+      "target": "web/server/program-notices/test-data/bizinfo-sample.json",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "a094d16790aab7d06913651ea73dfa099d971f82a0cda608d38551b0c4edccc2"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/test-data/mss-sample.xml",
+      "target": "web/server/program-notices/test-data/mss-sample.xml",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "61ddde8fbf96dd860c00d28787349e7239a18ba9abd71451ec26c3e303535f59"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/text.ts",
+      "target": "web/server/program-notices/text.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "75764598cd57cd1a23571ba7e62a3e29b776da84f4b3908603ecf0e08a70c5ac"
+    },
+    {
+      "source": "9fc38fe:web/worker/main.ts",
+      "target": "web/worker/main.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "44c43e007eb15ee5802f286612124894de2f7d0e58da2f92ea871b77ce88c6ab"
+    },
+    {
+      "source": "9fc38fe:web/worker/program-notices.ts",
+      "target": "web/worker/program-notices.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "014a1704e0406ac10ea9dc5d8149bcb7ef6c354f82d47f9535ff24f2107153a8"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/live-send.md",
+      "target": "docs/evidence/kakao-notify/live-send.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "1ee2de80c780965044f63284e5b12eb210b564396cbc2e4f86e7a8037690f967"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-1-disconnected-1280.png",
+      "target": "docs/evidence/kakao-notify/settings-1-disconnected-1280.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "fb1585c73779ae9ac0562d2fe301ff814a8d62a22640a97941cbb7001f5a792b"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-1-disconnected-1440.png",
+      "target": "docs/evidence/kakao-notify/settings-1-disconnected-1440.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "3a438b34f54a3ebf6f9134b3410fcc94845b6611d3d6f276cede624d64e67654"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-2-on-connected-1280.png",
+      "target": "docs/evidence/kakao-notify/settings-2-on-connected-1280.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "fbb2471392b4109ef3437953dc7fbfa5f2197128814094f5f31fe838f9ce4ae8"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-2-on-connected-1440.png",
+      "target": "docs/evidence/kakao-notify/settings-2-on-connected-1440.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "f27ed364e6785b0e76b591145d991d8c249dfd9295c4b944167e6e3cd7edb56f"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-3-off-1280.png",
+      "target": "docs/evidence/kakao-notify/settings-3-off-1280.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "f1f411a7a0503d37456e8a46d2987a6e5d792fdf939d500a6bee2fe5f4834306"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-3-off-1440.png",
+      "target": "docs/evidence/kakao-notify/settings-3-off-1440.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b40e83e0074ea44349c6a085d9f5bc8bcc5a295474c7318d9b89cbe6e8563854"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-4-expired-1280.png",
+      "target": "docs/evidence/kakao-notify/settings-4-expired-1280.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "0401b87bd7f23afde0396f443d16fb6a34d649a7b97b8de778582e6e56c9c586"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-4-expired-1440.png",
+      "target": "docs/evidence/kakao-notify/settings-4-expired-1440.png",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "29207ee99e0287a435af5d0128725ea21da7a97c569acb15f364926d5df7e39e"
+    },
+    {
+      "source": "50c1b78:docs/evidence/kakao-notify/settings-ui.md",
+      "target": "docs/evidence/kakao-notify/settings-ui.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "37491402d874ab775cf5ab7e1874d8572b0f45dabbf3e7c3407839a8edd1121a"
+    },
+    {
+      "source": "50c1b78:docs/plans/2026-10-20-kakao-memo-notify-design.md",
+      "target": "docs/plans/2026-10-20-kakao-memo-notify-design.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "eafbc044bc4af36cd0a87e3f9c1c3ecf738e68c9262710c11a9fa3e9f53b0dca"
+    },
+    {
+      "source": "50c1b78:docs/plans/2026-10-20-kakao-memo-notify-plan.md",
+      "target": "docs/plans/2026-10-20-kakao-memo-notify-plan.md",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "fd4b5f2cfd48477bc3e09670ce191d3e12debe2c1250241b30046d047271682b"
+    },
+    {
+      "source": "50c1b78:infra/compose.yaml",
+      "target": "infra/compose.yaml",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "b96f10415bb4ac709a58adbde05c11ef7ed6704d072e1d3d0e910538523a90fa"
+    },
+    {
+      "source": "50c1b78:infra/env/demo.env.example",
+      "target": "infra/env/demo.env.example",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "61f5fca70b8afa068c31f081f3a3bfa9d09325bed4415367bad1a358dbafdddb"
+    },
+    {
+      "source": "50c1b78:supabase/migrations/20261021000601_kakao_notify_links.sql",
+      "target": "supabase/migrations/20261023000700_kakao_notify_links.sql",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "55d77747c275487d795f68671da22075c1d5d3b347bcc6bb8d8db76c0132b281"
+    },
+    {
+      "source": "50c1b78:supabase/migrations/20261021000602_bid_recommended_outbox.sql",
+      "target": "supabase/migrations/20261023000701_bid_recommended_outbox.sql",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "215d26099cf7aa086a5936e5ec29453c04d03130c3460a9537cb3b9126906d20"
+    },
+    {
+      "source": "50c1b78:supabase/migrations/20261021000603_kakao_notify_hardening.sql",
+      "target": "supabase/migrations/20261023000702_kakao_notify_hardening.sql",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b4be3b9bb026cba4a5f001c8a8c8b6b4027206152c186423b577161074863427"
+    },
+    {
+      "source": "50c1b78:supabase/migrations/20261021000604_kakao_test_count_index.sql",
+      "target": "supabase/migrations/20261023000703_kakao_test_count_index.sql",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b49e74a2926d8fa1b47fca67ffae2c6ec27e7fb456d5eb8a217f8cabf37500c0"
+    },
+    {
+      "source": "50c1b78:web/app/(app)/[slug]/settings/kakao-notify-section.tsx",
+      "target": "web/app/(app)/[slug]/settings/kakao-notify-section.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "36c6d69d6a268187a34cc79df21ad4a3d3f0304b4e5d3cdcdc68468674586ce3"
+    },
+    {
+      "source": "50c1b78:web/app/(app)/[slug]/settings/page.tsx",
+      "target": "web/app/(app)/[slug]/settings/page.tsx",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "a2dd153c912716e54236b9baaa55f56bea6103ac6ef39693f095ae3db16173f0"
+    },
+    {
+      "source": "50c1b78:web/app/(app)/home.ts",
+      "target": "web/app/(app)/home.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "e6a35b473a1f86831b9713456b55bf9804a15edb30f307ab194130f2449517fc"
+    },
+    {
+      "source": "50c1b78:web/app/(app)/settings/page.tsx",
+      "target": "web/app/(app)/settings/page.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "f71676f4e73b1cfc7245971c1cf630131eee6671bde710bee8b3fd9b5ff9701e"
+    },
+    {
+      "source": "50c1b78:web/app/account/account-settings.tsx",
+      "target": "web/app/account/account-settings.tsx",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "30c79b25f9afe169093bdcd66124b3c16bf1240f9ec1f1c4a5f12470dc4dbf55"
+    },
+    {
+      "source": "50c1b78:web/app/api/v1/_lib/http.ts",
+      "target": "web/app/api/v1/_lib/http.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "aa6f72ea81fe0b38a1782f4c4a852266b208aba18ff187e028c40703149403be"
+    },
+    {
+      "source": "50c1b78:web/app/api/v1/me/kakao-notify/_lib/connect-redirect.ts",
+      "target": "web/app/api/v1/me/kakao-notify/_lib/connect-redirect.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "0727e54bfa13819e696ba1112919309bba1426211cef992df351e4cc706991de"
+    },
+    {
+      "source": "50c1b78:web/app/api/v1/me/kakao-notify/callback/route.ts",
+      "target": "web/app/api/v1/me/kakao-notify/callback/route.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "e7416bad645eff9a56dec1bff131fa2b4d0fcf89178ee0a102f10a2c8e97d6b0"
+    },
+    {
+      "source": "50c1b78:web/app/api/v1/me/kakao-notify/connect/route.ts",
+      "target": "web/app/api/v1/me/kakao-notify/connect/route.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "53a86987d4a0a435d27e89284d40b381bf6052da14b5a002280f07fba811f8c7"
+    },
+    {
+      "source": "50c1b78:web/app/api/v1/me/kakao-notify/route.ts",
+      "target": "web/app/api/v1/me/kakao-notify/route.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "3b233a4075c15d82439c89c07f338ffae558611f8c7e46999891c082ab742e7b"
+    },
+    {
+      "source": "50c1b78:web/app/api/v1/me/kakao-notify/test/route.ts",
+      "target": "web/app/api/v1/me/kakao-notify/test/route.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "c98389294d377749bfd0a1ec019720cd24ced030bacf163e64851adecde1a362"
+    },
+    {
+      "source": "50c1b78:web/components/bids/labels.ts",
+      "target": "web/components/bids/labels.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "7e697a6b4707143df6e8036e966bbb06976c2e8dd7747fa1efd2e8f90953ad9e"
+    },
+    {
+      "source": "50c1b78:web/server/bids/dashboard.supabase.ts",
+      "target": "web/server/bids/dashboard.supabase.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "aa9a169d6b3f8f68b56350c390dd71bb5c8c52e3d052ab3b1e59a7b90aa4d821"
+    },
+    {
+      "source": "50c1b78:web/server/bids/notification.model.ts",
+      "target": "web/server/bids/notification.model.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "a198b06b50a3cc4920b265c4ec49bf6fa48693bc339c24e39b5077e305cf3920"
+    },
+    {
+      "source": "50c1b78:web/server/bids/notification.supabase.ts",
+      "target": "web/server/bids/notification.supabase.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "5e2865f609a205606e76dba3ad67fc25697eadc55a27dcdf4153041c70b6d84c"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/feed.model.ts",
+      "target": "web/server/kakao-notify/feed.model.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "44c089e7a4830c3857c52af1011cc9978a26ffed86b43a523892d822e894f564"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/index.ts",
+      "target": "web/server/kakao-notify/index.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "b6e9e457e0991d0bba2b29e2a19fb8f67b01d400bb170394b68f7bd50441add0"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-api.ts",
+      "target": "web/server/kakao-notify/kakao-api.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "977b204b4a689ef1605659dcf0e297a766acaa3baf529042380edd45ca7168c9"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-connect.config.ts",
+      "target": "web/server/kakao-notify/kakao-connect.config.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "3759fc5af527ecb05805f73978636e63088aae72d2e050204489e4686551e39e"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-link.repo.ts",
+      "target": "web/server/kakao-notify/kakao-link.repo.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "af5b3196f828761d83bcfe4d5ba8c2608107b5156abf55f7b2a8eb811431753b"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-notify.model.ts",
+      "target": "web/server/kakao-notify/kakao-notify.model.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "aae12396b9d042306c14d313ca576f875f0c2984d97a42606656f7f26b1ea31a"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-notify.repo.ts",
+      "target": "web/server/kakao-notify/kakao-notify.repo.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "c35000ac617fdae413b8e4d35858b12006448983cc04ea0cb54e685c27453fff"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-notify.service.ts",
+      "target": "web/server/kakao-notify/kakao-notify.service.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "aee49aad859082befff6d0900aa9dc2ee096c9a269937d37c362401d16b2365a"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-sender.ts",
+      "target": "web/server/kakao-notify/kakao-sender.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "27b6f3e9a7f8bdadc17a40b401c917aa68b4dd7d1f86ae45768fc6cb7d5eb12a"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-token.crypto.ts",
+      "target": "web/server/kakao-notify/kakao-token.crypto.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "7930fa0b8e5a28c0710ec7d8727800e480c1f6d3b85ff162659148f22fc04eb0"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/oauth-state.ts",
+      "target": "web/server/kakao-notify/oauth-state.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "35730b2598951806925ba83d158d8309961932c90f1dac41a3a3a3246a53b042"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/index.ts",
+      "target": "web/server/notifications/index.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "82b809ebd3edfbc80bdcd79a33f24cfdbdbdca1099651aeb2086d6c6c06434e1"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/kakao.model.ts",
+      "target": "web/server/notifications/kakao.model.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "baeac1f960ac38ce27dd0594a44776bdd6cb693b4940d4187004f5733313d187"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/kakao.repo.ts",
+      "target": "web/server/notifications/kakao.repo.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "0328481d10d6850c455391781bd19ec8b753e585f90942bee5c28081dcb1b833"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/kakao.service.ts",
+      "target": "web/server/notifications/kakao.service.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "0e587b179256d861031f1e330e0fc30a3dc41b5c9e0415c835760b1adbd43ff1"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox.model.ts",
+      "target": "web/server/notifications/outbox.model.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "778e42535bf28dd42541e7293c7ea4ab8535e16532af4d6abaab90e8ac8d44f6"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox.repo.ts",
+      "target": "web/server/notifications/outbox.repo.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "9566ff7e1973f702af2d373aa78fd3ce97a431df6c7519e6b1b35dcb7baef8fd"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox.service.ts",
+      "target": "web/server/notifications/outbox.service.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "89546a45ffb674eb5b6613ea55f59b862291a92421ac3254ec1140d83cf26d29"
+    },
+    {
+      "source": "50c1b78:web/worker/main.ts",
+      "target": "web/worker/main.ts",
+      "method": "INTEGRATED_WITH_CURRENT_MAIN",
+      "sha256": "44c43e007eb15ee5802f286612124894de2f7d0e58da2f92ea871b77ce88c6ab"
+    },
+    {
+      "source": "50c1b78:web/worker/notify-outbox.ts",
+      "target": "web/worker/notify-outbox.ts",
+      "method": "PORTED_WITH_MIGRATION_REFERENCE_UPDATES",
+      "sha256": "f7a8f93fcdbeb085b1847912e23150f952e3e413a5dd13e1c26acb5465e9ee21"
+    }
+  ],
+  "omittedOldTests": [
+    {
+      "source": "9fc38fe:scripts/database.test.mjs",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:scripts/recorded/program-notices-lib.test.mjs",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:scripts/recorded/record-program-notices.test.mjs",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/list-query.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/program-format.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/app/(app)/(work)/bids/programs/program-list.browser.test.tsx",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/app/api/v1/program-notices/route.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/e2e-auth/program-notices.spec.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/e2e-auth/support/program-notices-load.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/e2e-auth/support/programs-fixtures.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/e2e-auth/support/programs-setup.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/ingestion/recorded-api.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/bizinfo.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/collect.service.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/config.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/dates.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/http.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/list.service.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/mss-rss.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/program-notice.model.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/recording.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/server/program-notices/text.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/worker/main.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "9fc38fe:web/worker/program-notices.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:scripts/database.test.mjs",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/app/(app)/[slug]/settings/kakao-notify-section.browser.test.tsx",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/app/(app)/home.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/app/api/v1/me/kakao-notify/route.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/components/bids/labels.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/bids/dashboard.supabase.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/bids/notification.model.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/bids/notification.supabase.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/feed.model.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-api.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-connect.config.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-link.repo.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-notify.model.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-notify.repo.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-notify.service.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-sender.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/kakao-token.crypto.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/kakao-notify/oauth-state.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/kakao.model.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/kakao.repo.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/kakao.service.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/kakao.test-support.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox-db.test-support.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox-dedupe.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox.model.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox.repo.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox.service.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/server/notifications/outbox.test-support.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/worker/main.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    },
+    {
+      "source": "50c1b78:web/worker/notify-outbox.test.ts",
+      "reason": "ADR-046 existing pruned paths and old matrices excluded; replaced by focused integration smoke"
+    }
+  ],
+  "newCoreTests": [
+    "web/worker/committed-features.test.ts",
+    "scripts/committed-integrations-db.test.mjs"
+  ],
+  "integrationChanges": [
+    "Preserve current main external procurement adapters, broad G2B, Storage health/reconcile, N3 deadline notifier and analysis workers",
+    "Preserve deadline exports and IN_APP-only notification reads/counts",
+    "Use current finish_score_run body with one added BID_RECOMMENDED insertion; keep TRANSLATION_INCOMPLETE constraint",
+    "Kakao sender reads enabled and checks it before token work and again after message spacing before HTTP",
+    "Preserve existing in-app callers without Kakao dependency; missing Kakao channel leaves an explicit retry instead of dropping events",
+    "Label the existing multi-provider list as public procurement notices"
+  ],
+  "validation": {
+    "featureSmokeAndExistingOutboxDedupe": "30 PASS",
+    "newDatabaseCore": "3 PASS",
+    "typescript": "PASS",
+    "lodestar": "2 rules PASS",
+    "network": "No real API calls, credentials or operational environment reads",
+    "targetedWorkerStorageAndExternalIntegration": "44 PASS in 5 files",
+    "scopedEslint": "PASS",
+    "scopedFormatting": "PASS"
+  },
+  "secretAudit": {
+    "unpublishedCommits": 71,
+    "uniqueChangedBlobs": 642,
+    "textBlobsScanned": 574,
+    "binaryBlobsNotTextScanned": 68,
+    "actualEnvFiles": 0,
+    "knownSecretPrefixesOrJwt": 0,
+    "remainingCandidates": "Synthetic test values and documentation placeholders only; screenshot OCR not performed"
+  },
+  "rootOwnedFinalization": [
+    "web/.env.example and company Worker environment examples",
+    "scripts/db-verify.mjs exact Kakao RPC allowlist",
+    "generated web/lib/database.types.ts",
+    "canonical documentation and Kakao brand-token exception wording",
+    "Git ancestry linking, staging, commits, publication and final integrated verification"
+  ],
+  "p1DurableDelivery": {
+    "migration": "supabase/migrations/20261023000704_kakao_send_claims.sql",
+    "privateLedger": "kakao_send_claims",
+    "claimKeys": ["BID:<userId>:<bidId>", "TEST:<outboxEventId>"],
+    "workerOnlyRpcs": ["claim_kakao_notification(uuid)", "claim_kakao_test(uuid)"],
+    "neverAutomaticallyReleased": true,
+    "risk": "Crash after claim but before external send may omit one message; unknown outcomes are never resent automatically.",
+    "regressions": "3 observed RED (2 sends each) then GREEN: successful send followed by final DB write failure, concurrent pollers, replayed test event. Real PostgreSQL unique-key boundary also checks different organizations and test claims.",
+    "focusedVitest": "33 PASS",
+    "databaseCore": "4 PASS",
+    "typescriptAndScopedEslint": "PASS",
+    "finalIntegratedVerification": "root owns final run after freeze"
+  }
+}

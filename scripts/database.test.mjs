@@ -578,6 +578,39 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
     );
     assert.deepEqual(rows, []);
   });
+  it("번역 누락 결과를 검토 플래그와 함께 마감하고 알 수 없는 플래그는 거절한다", async (t) => {
+    const pglite = await solDb(t);
+    const startedAt = "2026-10-22T00:00:00.000Z";
+    await pglite.query("update public.score_runs set status='RUNNING', started_at=$2 where id=$1", [
+      RUN1,
+      startedAt,
+    ]);
+    const flags = ["TRANSLATION_INCOMPLETE", "KEV_UNAVAILABLE"];
+    const result = await rowsOf(pglite, "select public.finish_score_run($1::jsonb) id", [
+      JSON.stringify({
+        score_run_id: RUN1,
+        org_id: ORG1,
+        attempt_started_at: startedAt,
+        run: { status: "PARTIAL", review_flags: flags },
+      }),
+    ]);
+    assert.equal(result[0].id, RUN1);
+    assert.deepEqual(
+      (
+        await rowsOf(pglite, "select status, review_flags from public.score_runs where id=$1", [
+          RUN1,
+        ])
+      )[0],
+      { status: "PARTIAL", review_flags: flags },
+    );
+    await rejectsWith(
+      pglite.query(
+        "update public.score_runs set review_flags=array['UNRECOGNIZED_FLAG'] where id=$1",
+        [RUN1],
+      ),
+      "score_runs_review_flags_check",
+    );
+  });
   it("ADR047 — 출처 사본을 한 기회로 묶어도 공고·분석·사람 결정 FK와 조직 격리를 보존한다", async (t) => {
     const pglite = await solDb(t);
     const opportunity = (
@@ -1133,6 +1166,58 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       ),
       [{ assignee_id: null, decision: "BID", system_recommendation: "BID" }],
     );
+  });
+  it("N2 audits changed roles and renewed invitations once, retaining project actions", async (t) => {
+    const db = await solDb(t);
+    await as(db, "admin");
+    const setRole = () =>
+      db.query("update public.memberships set sol_role='ANALYST' where org_id=$1 and user_id=$2", [
+        ORG1,
+        WHO.viewer,
+      ]);
+    await setRole();
+    await setRole();
+    await db.query(
+      "insert into public.invitations(org_id,email,org_role,sol_role) values($1,'audit-invite@example.invalid','member','VIEWER')",
+      [ORG1],
+    );
+    const renew = () =>
+      db.query(
+        "update public.invitations set sol_role='SALES' where org_id=$1 and email='audit-invite@example.invalid'",
+        [ORG1],
+      );
+    await renew();
+    await renew();
+    const changes = await rowsOf(
+      db,
+      "select action,before_after from public.audit_logs where (action='USER_ROLE_CHANGE' and target_id=$1) or (action='USER_INVITE' and before_after->'before'->>'solRole'='VIEWER') order by action",
+      [WHO.viewer],
+    );
+    assert.deepEqual(
+      changes.map((row) => [
+        row.action,
+        row.before_after.before.solRole,
+        row.before_after.after.solRole,
+      ]),
+      [
+        ["USER_INVITE", "VIEWER", "SALES"],
+        ["USER_ROLE_CHANGE", "VIEWER", "ANALYST"],
+      ],
+    );
+    await as(db, "outsider");
+    assert.equal(await countOf(db, "audit_logs", "action='USER_ROLE_CHANGE'"), 0);
+    await asWorker(db);
+    const [{ definition }] = await rowsOf(
+      db,
+      "select pg_get_constraintdef(oid) as definition from pg_constraint where conname='audit_logs_action_check'",
+    );
+    for (const action of ["PROJECT_OPEN", "PROJECT_STATUS_CHANGE", "PROJECT_RESULT_RECORD"])
+      assert.ok(definition.includes(action), action);
+    const [{ membership, invitation }] = await rowsOf(
+      db,
+      "select has_function_privilege('authenticated','public.log_membership_sol_role_audit()','EXECUTE') or has_function_privilege('anon','public.log_membership_sol_role_audit()','EXECUTE') as membership, has_function_privilege('authenticated','public.log_invitation_sol_role_audit()','EXECUTE') or has_function_privilege('anon','public.log_invitation_sol_role_audit()','EXECUTE') as invitation",
+    );
+    assert.deepEqual({ membership, invitation }, { membership: false, invitation: false });
   });
   it("업무 역할 변경은 그 조직의 ADMIN 만 한다 — SALES 의 시도와 org-02 owner(VIEWER)의 시도는 0행, ADMIN 은 자기 조직만 바꾸고 org-02 에는 0행이다", async (t) => {
     const pglite = await solDb(t);

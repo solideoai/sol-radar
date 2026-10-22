@@ -163,9 +163,9 @@ export const createRestClient = ({ apiUrl, serviceKey, fetchImpl = globalThis.fe
         });
         return { id: created.id, email: created.email };
       },
-      async updateUser(id, { password, userMetadata }) {
+      async updateUser(id, { email, password, userMetadata }) {
         const updated = await call("PUT", `/auth/v1/admin/users/${id}`, {
-          body: { password, email_confirm: true, user_metadata: userMetadata },
+          body: { email, password, email_confirm: true, user_metadata: userMetadata },
         });
         return { id: updated.id, email: updated.email };
       },

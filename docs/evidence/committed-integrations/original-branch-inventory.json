@@ -1,0 +1,288 @@
+{
+  "note": "통합 전 로컬 브랜치 감사. main 미도달 수는 baseline d57fcae 시점이다. Git 시험용 recovery는 제외한다.",
+  "branches": [
+    {
+      "branch": "docs/current-code-reconcile",
+      "head": "0febdc9c3de0dc5809f755ed45708debd69177f8",
+      "notInMain": 1,
+      "unpublished": 1,
+      "newPatches": 1,
+      "equivalentPatches": 0,
+      "commits": ["0febdc9 docs: 현행 구현 기준 문서 정정"]
+    },
+    {
+      "branch": "docs/hackathon-deck",
+      "head": "a8c24d30f7f3ab6ec46f7d5d5401aab24d61ed04",
+      "notInMain": 1,
+      "unpublished": 1,
+      "newPatches": 1,
+      "equivalentPatches": 0,
+      "commits": ["a8c24d3 docs: 발표 덱 제작 명세와 pptx 초안 추가"]
+    },
+    {
+      "branch": "docs/kakao-notify-design",
+      "head": "c659a354d16fb94e53e426a0aa4c2e5ef044b886",
+      "notInMain": 3,
+      "unpublished": 3,
+      "newPatches": 0,
+      "equivalentPatches": 3,
+      "commits": [
+        "c659a35 docs: 카카오 알림 ADR-038 번호·반영 순서 반영",
+        "4525435 docs: 카카오톡 추천 공고 알림 구현 계획 추가",
+        "2d29dbf docs: 카카오톡 추천 공고 알림 설계 추가"
+      ]
+    },
+    {
+      "branch": "docs/sync-28",
+      "head": "95bf81c2bb906e03079b9bf5b6735ddc2a28dc69",
+      "notInMain": 1,
+      "unpublished": 1,
+      "newPatches": 1,
+      "equivalentPatches": 0,
+      "commits": ["95bf81c docs: 미결정 28 ① 해결(main 2adabed) 반영"]
+    },
+    {
+      "branch": "feat/bosun-english-translations",
+      "head": "11907f34b14afc95f2856382aaf7fb3513c27ece",
+      "notInMain": 2,
+      "unpublished": 0,
+      "newPatches": 2,
+      "equivalentPatches": 0,
+      "commits": [
+        "11907f3 docs: 번역 커밋과 main 통합 준비 기록",
+        "1950202 feat(ai): Bosun 영어 State 번역 추가"
+      ]
+    },
+    {
+      "branch": "feat/company-runtime-deployment",
+      "head": "5d03a0ac300f77325e1f846ee3feacd5041b2aaa",
+      "notInMain": 1,
+      "unpublished": 0,
+      "newPatches": 1,
+      "equivalentPatches": 0,
+      "commits": ["5d03a0a feat: 회사 Gateway와 Worker 배포 묶음 준비"]
+    },
+    {
+      "branch": "feat/fx01-vertical",
+      "head": "5adf4425e01f2411bc03e9345987726c07c34623",
+      "notInMain": 1,
+      "unpublished": 1,
+      "newPatches": 1,
+      "equivalentPatches": 0,
+      "commits": ["5adf442 feat: 분석 계약과 mock Gateway 가져오기"]
+    },
+    {
+      "branch": "feat/kakao-notify",
+      "head": "90823f3eef4207d50e559f8a74ccd487247acef5",
+      "notInMain": 11,
+      "unpublished": 11,
+      "newPatches": 10,
+      "equivalentPatches": 0,
+      "commits": [
+        "90823f3 docs: 카카오 알림 mock 끝까지 확인 증거",
+        "b392cb7 test: 카카오 알림 변형 확인 시험 보강",
+        "ce134b0 fix: 카카오 연결 출처 검사와 보안 검토 후속",
+        "da93917 docs: 카카오톡 알림 설정 칸 화면 증거",
+        "96ea0e4 feat(web): 개인 설정에 카카오톡 알림 칸 추가",
+        "805392e feat: 카카오톡 알림 연결 API",
+        "60e3fa9 fix: 카카오 토큰 암호화·연결 갱신 보안 보강",
+        "52adabb feat: 추천 공고 카카오 알림 펼치기와 worker 연결",
+        "ced705f feat: 카카오 나에게 보내기 도메인과 발송 수단",
+        "d327894 feat(db): 카카오 알림 연결 표와 추천 공고 outbox"
+      ]
+    },
+    {
+      "branch": "feat/kakao-notify-r2",
+      "head": "50c1b78a9c97209fe12ac7796e9cd63792a0b3bd",
+      "notInMain": 1,
+      "unpublished": 1,
+      "newPatches": 1,
+      "equivalentPatches": 0,
+      "commits": ["50c1b78 feat: 카카오톡 추천 공고 알림(ADR-038)"]
+    },
+    {
+      "branch": "feat/n2-org-settings",
+      "head": "02efedccbcc80cde27d740d71154557ebcf3c751",
+      "notInMain": 7,
+      "unpublished": 7,
+      "newPatches": 5,
+      "equivalentPatches": 0,
+      "commits": [
+        "02efedc fix(db): 재초대 업무 역할 변경 감사 추가",
+        "abee328 docs: N2 조직 탭 계획·검증 기록 추가",
+        "82d754e feat(web): 수집 관리 소스별 카드 추가",
+        "d774a1d feat(web): 설정 조직 탭(ADMIN) 추가",
+        "d57f5c7 feat(db): 업무 역할 변경 감사 기록 추가"
+      ]
+    },
+    {
+      "branch": "feat/n3-watchlist",
+      "head": "3ac48b3579334d53c318c9cdbb7a617b826151b8",
+      "notInMain": 3,
+      "unpublished": 3,
+      "newPatches": 3,
+      "equivalentPatches": 0,
+      "commits": [
+        "3ac48b3 docs: N3 관심 공고 스펙·계획·검증 기록 추가",
+        "6a59f3d feat(web): 관심 공고 화면·API·마감 알림 작업 추가",
+        "52b50c2 feat(db): 관심 공고 표와 마감 알림 함수 추가"
+      ]
+    },
+    {
+      "branch": "feat/n6-bid-projects",
+      "head": "5b21e77bb2633e1efdaa738bf84e95c52dd40bdf",
+      "notInMain": 2,
+      "unpublished": 2,
+      "newPatches": 2,
+      "equivalentPatches": 0,
+      "commits": [
+        "5b21e77 feat(web): N6 입찰 프로젝트 서버 도메인·체크리스트",
+        "390d35f feat(db): N6 입찰 프로젝트 표·함수·정책"
+      ]
+    },
+    {
+      "branch": "feat/n9-analysis-card",
+      "head": "224fb29b23617c30dc3ec4c3ae229c61c4cc4167",
+      "notInMain": 3,
+      "unpublished": 3,
+      "newPatches": 1,
+      "equivalentPatches": 0,
+      "commits": ["b0be7e3 feat(web): 대시보드 카드 슬롯 정의와 NAV-06 시험"]
+    },
+    {
+      "branch": "feat/p08-prespec-plan",
+      "head": "afa20a816cf28155ce454b3af402c089a46d75e9",
+      "notInMain": 7,
+      "unpublished": 7,
+      "newPatches": 4,
+      "equivalentPatches": 0,
+      "commits": [
+        "afa20a8 fix(web): 단계 연결 식별자 질의·연결 50건 상한",
+        "6419b21 docs: P0-8 기준점 검증 결과·freeze 날짜 갱신",
+        "da04af1 docs: P0-8 작업 로그 추가",
+        "3592e3d feat: P0-8 사전규격·발주계획 단계 연결"
+      ]
+    },
+    {
+      "branch": "feat/program-notices",
+      "head": "ad811c85b8556d7ae3bb3bcc64b764f92bb1a33c",
+      "notInMain": 14,
+      "unpublished": 14,
+      "newPatches": 12,
+      "equivalentPatches": 0,
+      "commits": [
+        "cf90dba test(e2e): 부처 지원사업 공고 격리 E2E",
+        "e82d58c feat(web): 부처 지원사업 공고 목록과 상세 서랍",
+        "daaed95 feat(recorded): 중기부 사업공고 RSS 녹음",
+        "b007708 docs(plan): 부처 공고 결정 반영과 디자인 스펙",
+        "730234b feat(program-notices): 목록 조회와 목록 API",
+        "b73c665 feat(worker): 부처 지원사업 공고 주기 수집 등록",
+        "4079f18 feat(program-notices): 설정·녹음·수집 회차",
+        "ac1cdf1 feat(db): 부처 지원사업 공고 표와 RLS",
+        "0d61631 feat(program-notices): 기업마당·중기부 응답 해석",
+        "b08c6d4 feat(program-notices): 평문·날짜·정규화 키 규칙",
+        "bcd324c docs(plan): 부처 지원사업 공고 구현 계획",
+        "7f558d3 docs(spec): 부처 지원사업 공고 수집 스펙 추가"
+      ]
+    },
+    {
+      "branch": "feat/program-notices-r2",
+      "head": "9fc38fe225883fd299786b65bdb48ec67496c5d4",
+      "notInMain": 1,
+      "unpublished": 1,
+      "newPatches": 1,
+      "equivalentPatches": 0,
+      "commits": ["9fc38fe feat: 부처 지원사업 공고 수집과 목록 화면(ADR-040)"]
+    },
+    {
+      "branch": "feat/program-notices-ui",
+      "head": "4c2f550a448327e4383c1994a05698814e1dca51",
+      "notInMain": 11,
+      "unpublished": 11,
+      "newPatches": 10,
+      "equivalentPatches": 0,
+      "commits": [
+        "4c2f550 feat(web): 부처 지원사업 공고 목록과 상세 서랍",
+        "b007708 docs(plan): 부처 공고 결정 반영과 디자인 스펙",
+        "730234b feat(program-notices): 목록 조회와 목록 API",
+        "b73c665 feat(worker): 부처 지원사업 공고 주기 수집 등록",
+        "4079f18 feat(program-notices): 설정·녹음·수집 회차",
+        "ac1cdf1 feat(db): 부처 지원사업 공고 표와 RLS",
+        "0d61631 feat(program-notices): 기업마당·중기부 응답 해석",
+        "b08c6d4 feat(program-notices): 평문·날짜·정규화 키 규칙",
+        "bcd324c docs(plan): 부처 지원사업 공고 구현 계획",
+        "7f558d3 docs(spec): 부처 지원사업 공고 수집 스펙 추가"
+      ]
+    },
+    {
+      "branch": "feat/s5-change-detection",
+      "head": "66adf826d62d6ae1b39d3c2f32cff8f2aa13fedb",
+      "notInMain": 9,
+      "unpublished": 9,
+      "newPatches": 7,
+      "equivalentPatches": 0,
+      "commits": [
+        "66adf82 fix(web): 변경 이력 본문 diff 를 구두점·숫자로 나눔",
+        "97ce4e7 docs: S5 변경 이력 E2E 증거 요약 추가",
+        "6005a80 test(web): S5 변경 이력 격리 E2E 와 증거 추가",
+        "f4759e4 feat(web): 공고 변경 이력 화면 추가",
+        "8860464 docs: S5 변경 이력 화면 디자인 스펙 추가",
+        "9c85c3f feat(web): 공고 변경 이력 비교 도메인과 API 추가",
+        "ab2b353 docs: S5 변경 감지 구현 계획 추가"
+      ]
+    },
+    {
+      "branch": "fix/c9-followups-ui",
+      "head": "8e99f2a3cb3cf766cf5de47d307ce70aa196c64d",
+      "notInMain": 7,
+      "unpublished": 7,
+      "newPatches": 3,
+      "equivalentPatches": 0,
+      "commits": [
+        "8e99f2a docs: C9 후속 화면 고침 진행 기록과 증거 보강",
+        "9a07ae2 fix(web): C9 후속 화면 고침(미결정 30)",
+        "b0be7e3 feat(web): 대시보드 카드 슬롯 정의와 NAV-06 시험"
+      ]
+    },
+    {
+      "branch": "fix/qwen-body-document-id",
+      "head": "20cb79fa61df2e1d4ebf430e2bd8e9f65f484ceb",
+      "notInMain": 8,
+      "unpublished": 0,
+      "newPatches": 7,
+      "equivalentPatches": 0,
+      "commits": [
+        "20cb79f feat(worker): add dependency reporter",
+        "d6433fd fix(ai): grant container file access",
+        "0cb51f4 fix(ai): normalize qwen body document ID for citations",
+        "a4a9511 docs: Bosun 격리 통합 해시와 보존 검사 기록",
+        "26f0f90 chore: main 미커밋 작업의 통합용 사본 보존",
+        "11907f3 docs: 번역 커밋과 main 통합 준비 기록",
+        "1950202 feat(ai): Bosun 영어 State 번역 추가"
+      ]
+    },
+    {
+      "branch": "integration/bosun-english-translations",
+      "head": "a4a9511c6dfb1c78f30ef2dc9c267cb481af1d7d",
+      "notInMain": 5,
+      "unpublished": 0,
+      "newPatches": 4,
+      "equivalentPatches": 0,
+      "commits": [
+        "a4a9511 docs: Bosun 격리 통합 해시와 보존 검사 기록",
+        "26f0f90 chore: main 미커밋 작업의 통합용 사본 보존",
+        "11907f3 docs: 번역 커밋과 main 통합 준비 기록",
+        "1950202 feat(ai): Bosun 영어 State 번역 추가"
+      ]
+    },
+    {
+      "branch": "recovery/first-bundle-hook-baseline-20261021",
+      "head": "613f706bffde01bbd8056537f4dd7b552a2129b5",
+      "notInMain": 1,
+      "unpublished": 1,
+      "newPatches": 0,
+      "equivalentPatches": 0,
+      "commits": []
+    }
+  ]
+}

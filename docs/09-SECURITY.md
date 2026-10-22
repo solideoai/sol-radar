@@ -11,6 +11,11 @@ updated: 2026-10-21
 
 # 09. 인증·권한·보안·책임 있는 AI
 
+## 2026-10-22 커밋 통합 보안 경계
+
+개인 카카오 연결은 본인 전용 RPC 4개·토큰 열 비공개·AES-256-GCM을 유지한다. 전송 의도 원장과 claim 함수2개는 Worker만 접근하며 화면 역할에는 권한을 주지 않는다(ADR-050). 아래 구 브랜치의 “구현 중”과 env 주석 위치 대신 현행 `web/.env.example`·`infra/env/company-worker.env.example` 및 `20261023000700`~`00704`를 따른다. 실제 env/키 값은 Git/로그/증거에 포함하지 않는다. 지원사업 원문은 공개 정보이고 별도 RLS 공용 표로 읽는다. 조직 설정은 현재 조직 ADMIN, revision·단계 연결은 공고/DEMO/provider 경계를 검사한다. [검증·운영 경계](evidence/committed-integrations/integration.md).
+
+
 ## 인증
 가입·로그인·로그아웃·비밀번호 재설정·초대 수락은 **Supabase Auth**(이메일 + 비밀번호, 간편 로그인 구글·카카오·네이버)가 맡는다([[16-DECISIONS|16 ADR]] ADR-017·018). 화면은 템플릿의 `/auth/login` 등, 서버 쪽은 템플릿 `web/server/auth`·`web/server/supabase`다. 자체 로그인·토큰 발급 엔드포인트와 비밀번호 해시 저장은 없다(계정은 Supabase의 `auth.users`). 템플릿의 판단 근거는 `docs/boilerplate/AUTH-SECURITY.md`([[05-API-SPEC|05 API]] §1과 같은 내용).
 
@@ -180,7 +185,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 |출력 강제|JSON Schema 검증. 실패 시 1회 재시도, 재실패 시 `requirement_extractions.status=FAILED`, 분석은 `PARTIAL`. 스키마 밖 필드는 폐기|
 |권한 없음|모델에는 도구·파일·네트워크 호출 권한이 없다. gateway는 모델 출력을 실행하지 않고 값으로만 다룬다|
 |인용 검증|AI가 만든 인용은 원문 문자열 매칭에 실패하면 무효 ([[15-DATA-CONTRACTS\|15 데이터 계약]])|
-|결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 자유 텍스트 값은 `/extract`의 `translations`(숫자 보존 검사 통과분)만 쓴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`). 결정 서버(8009)도 한글 state를 422 `STATE_NOT_ENGLISH`로 거절한다(`DECISION_ALLOW_KO_STATE`는 공유 8009에 켜지 않는다. main `36edfb6`, [[16-DECISIONS\|16]] 미결정 27)|
+|결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 공고 자유 텍스트는 `/extract`의 `translations`, 기업 값은 기존 시간 예산 안의 `/kev` 보충 번역을 쓴다(숫자·식별자·조건 검증 통과분). 필요한 번역 누락 시 실제 Bosun을 호출하지 않고 `TRANSLATION_INCOMPLETE` 검토 플래그와 경로 진단을 남긴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`). 결정 서버(8009)도 한글 state를 422 `STATE_NOT_ENGLISH`로 거절한다(`DECISION_ALLOW_KO_STATE`는 공유 8009에 켜지 않는다. main `36edfb6`, [[16-DECISIONS\|16]] 미결정 27)|
 |파싱 실패 처리|읽지 못한 첨부의 내용을 추정하라는 지시를 프롬프트에 넣지 않는다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`이 된다([[15-DATA-CONTRACTS\|15 데이터 계약]] §5.1)|
 
 ### 감사 가능성
@@ -278,6 +283,12 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 공개 가입 카탈로그는 승인 fixture의 회사명·ID·표시명·버전만 반환한다. 원본 인원·명부·연락처를 함께 반환하거나 `departments`의 RLS를 익명 전체 읽기로 열지 않는다.
 - 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 Supabase Storage public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다. 점수 계산 속성(직무·등급·스킬·가용성)은 `team_member_scoring`(seed 전용)에 있고 화면 역할은 쓰지 못한다([[16-DECISIONS|ADR-021]]).
 - 200명의 가상 직원·사진은 `isDemo` 및 가상 인물 표시를 유지한다. 회사 이름과 부서가 실제라고 해서 가상 직원·수치가 실제 회사 정보인 것처럼 소개하지 않는다.
+
+## 검토 중 확장: 외부키·원본·수집 권한
+
+ADR-047 [제안](../polaris/specs/planned/2026-10-21-public-procurement-expansion.md)§5.1/12는 서비스별 서버 env, KEPCO `apiKey` URL/오류 마스킹, private 정제 원문, HTTPS기관별 첨부allowlist를 요구한다. 현재 `redaction.ts`의 serviceKey 이름 마스킹만으로 신규 apiKey 보호가 완료됐다고 간주하지 않는다. HTTP첨부는 자동 다운로드하지 않고 byte 원본 전체 보관 예외는 별도 승인이다.
+
+기존 업무 ADMIN만 수동수집·CSRF/멱등/감사를 유지한다. 일반 구성원 Source summary는 비밀/오류상세를 제외한 읽기이며 외부 탐침을 실행하지 않는다. org별 분석/사람결정/관심/프로젝트 RLS와 웹 service role 금지는 바뀌지 않는다. 보안 정책/운영 설정은 이번에 변경하지 않았다.
 
 ## 이메일 알림 승인 범위 (ADR-041, 구현 전)
 

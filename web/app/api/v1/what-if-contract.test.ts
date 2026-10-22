@@ -105,6 +105,8 @@ function bidsWith(getAnalysisSnapshot: BidsRepo["getAnalysisSnapshot"]): BidsRep
     throw new Error("가정 재계산이 부르지 않는 저장소 함수다");
   };
   return {
+    getRevisionHistory: async () => null,
+    getRevisionSnapshots: async () => [],
     listBids: notUsed,
     countBids: notUsed,
     getBid: notUsed,

@@ -14,6 +14,7 @@ updated: 2026-10-21
 반드시 `docs/00-README.md`부터 읽고 `docs/17-CLAUDE-IMPLEMENTATION.md`에 따른다. 해커톤 범위와 데모 흐름은 `docs/18-HACKATHON.md`, `docs/19-DEMO-SCENARIO.md`, `docs/12-ROADMAP.md`의 해커톤 컷을 따른다.
 
 - 기술 스택: Next.js + Supabase(Postgres·RLS·Auth·Storage) + Redis/BullMQ + Qdrant + Python(Qwen3.8-Flash-Next + Bosun 결정 모델. `KEV_*`·`/kev` 이름은 호환 유지, ADR-034) + Docker Compose(`docs/16-DECISIONS.md` ADR-017). 이외로 임의 변경하지 않는다.
+  - 2026-10-22 배포 기준(ADR-049): Vercel은 web만 실행하고 AI binding을 두지 않는다. 회사 Compose는 기존 Redis를 재사용하는 redis-api·AI gateway·Worker를 맡는다. 관리자 AI 상태도 서비스 token+업무 JWT로 회사 API에 전달한다. 회사 기동·실모델 연결 확인과 코드 준비를 구분하며 현재 mock을 유지한다. 실행서는 `infra/company/README.md`다.
   - 코드는 `web/`(화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`), worker는 `web/worker`, 스키마·RLS는 `supabase/migrations/`(새 파일로만)에 둔다. 별도 API 서버·ORM은 두지 않는다(ADR-001·002 폐기). 해커톤 뒤에는 API·worker를 NestJS로 옮긴다(ADR-028). 그 전에는 위 구조로 구현한다.
   - Supabase가 맡는 것은 DB·Auth·private Storage다. 첨부는 Supabase Storage, 검색은 Qdrant, 큐는 Redis/BullMQ, 모델 호출은 AI gateway(`services/ai`)다.
   - Vercel `frontend`는 회사 Gateway에 서비스 token+사용자 JWT로 HTTPS 접수한다. 회사 `redis-api`만 Redis TCP를 사용하고 웹에 service role을 넣지 않는다. 회사 Redis6379·HTTP loopback6380·기존 Nginx `/redis/`는 유지한다(ADR-045). 운영 전환은 검증 결과를 준비한 뒤 확인받는다.
@@ -31,7 +32,7 @@ updated: 2026-10-21
 - 해커톤 검증은 [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] "해커톤 검증 정책"(ADR-046)을 우선한다. 개발 중 `pnpm verify:changed`, 통합·제출 전 전체 `pnpm verify`를 실행한다. 같은 코드·입력·환경에서 통과한 검사를 중복 실행하지 않는다. Compose·전체 E2E·독립 리뷰는 변경 영향과 통합 시점에 맞춰 실행한다. 이 정책이 템플릿 및 개별 스킬의 매 단계 전체 검증 지시보다 우선한다.
 - 이 `docs/` 폴더는 Obsidian vault다. 문서를 고칠 때 frontmatter와 위키링크 규약(`docs/00-README.md` Obsidian 규약 절)을 유지한다.
 - 2026-10-21 사용자 추가 지시로 시험 자체도 MVP 핵심으로 축소했다(ADR-046 개정). 이전 문서·스킬의 전수 행렬·템플릿 회귀를 다시 만들지 않는다. 현재 목록과 삭제 범위는 `docs/evidence/verification/20261021-pruned-tests.json`, 기준은 [[11-TESTING|11 테스트]] "현재 MVP 자동 시험"이다.
-- `docs/boilerplate/`는 출발 템플릿(agentic-boilerplate)의 문서다. Supabase·인증·DB 정책 문서는 적용하고, Expo·EAS 문서는 적용하지 않는다. Vercel은 2026-10-21 승인된 웹·AI 다중 서비스 구성을 [[10-DEPLOYMENT|10 배포]]에 따라 사용한다. 로컬 검증과 실제 클라우드 배포 완료는 구분하며, Compose 데모 구성은 유지한다. 이 vault의 문서와 충돌하면 이 vault의 문서를 따른다(분류: `docs/boilerplate/README.md`).
+- `docs/boilerplate/`는 출발 템플릿(agentic-boilerplate)의 문서다. Supabase·인증·DB 정책 문서는 적용하고, Expo·EAS 문서는 적용하지 않는다. Vercel의 현재 배포 코드는 ADR-049의 web 단독이며 회사 AI runtime을 [[10-DEPLOYMENT|10 배포]]에 따라 사용한다. 2026-10-21 웹·AI 다중 서비스 구성은 이전 배포 이력이다. 로컬 검증과 실제 클라우드 배포 완료는 구분하며, Compose 데모 구성은 유지한다. 이 vault의 문서와 충돌하면 이 vault의 문서를 따른다(분류: `docs/boilerplate/README.md`).
 
 ## 관련 문서
 

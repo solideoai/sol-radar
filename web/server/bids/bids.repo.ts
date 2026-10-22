@@ -1,7 +1,7 @@
 import "server-only";
 import type { AnalysisView } from "./analysis-view.model";
 import type { BidListQuery, CursorPayload } from "./bid-query";
-import type { AnalysisStatus, BidListItem, Recommendation } from "./bid.model";
+import type { AnalysisStatus, BidListItem, BidRevisionSummary, Recommendation } from "./bid.model";
 import type { BidDetail } from "./bid-detail.model";
 import type { Notification } from "./notification.model";
 import type { Review } from "./review.model";
@@ -43,6 +43,13 @@ export type CreateRunResult =
   { created: RunRef } | { conflict: "ACTIVE_INPUT"; run: RunRef } | { conflict: "IDEMPOTENCY_KEY" };
 
 export interface BidsRepo {
+  getRevisionHistory(
+    bidId: string,
+  ): Promise<{ title: string; revisions: BidRevisionSummary[] } | null>;
+  getRevisionSnapshots(
+    bidId: string,
+    revisions: number[],
+  ): Promise<{ revision: number; normalized: unknown }[]>;
   listBids(orgId: string, query: BidListQuery, after: ListAfter): Promise<PagedRows<BidListItem>>;
   // listBids 와 같은 조건(커서·정렬·페이지 크기 제외)의 전체 건수
   countBids(orgId: string, query: BidListQuery): Promise<number>;

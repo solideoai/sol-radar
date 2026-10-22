@@ -8,6 +8,7 @@ import { canRunIngestion } from "@/app/(app)/(work)/empty-state";
 import { requireWork } from "@/app/(app)/(work)/work";
 import { BIDS_DESCRIPTION, BIDS_TITLE } from "./bids-copy";
 import { BidListView } from "./bid-list-view";
+import { BidsSourceNav } from "./bids-source-nav";
 import { listQueryOf } from "./list-query";
 
 export const metadata: Metadata = { title: BIDS_TITLE };
@@ -48,6 +49,7 @@ export default async function BidsPage({ searchParams }: PageProps<"/bids">) {
   );
   return (
     <AppPage title={BIDS_TITLE} description={BIDS_DESCRIPTION} contentClassName="max-w-360">
+      <BidsSourceNav current="g2b" />
       <BidListView
         defaultOrigin={defaultOrigin(work.runMode) === "live" ? "live" : "demo"}
         watchedIds={watchedIds}

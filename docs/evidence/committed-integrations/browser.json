@@ -1,0 +1,345 @@
+{
+  "localDatabase": {
+    "checkedAt": "2026-10-22T08:35:07.430Z",
+    "target": {
+      "api": "http://127.0.0.1:59981",
+      "databaseHost": "127.0.0.1",
+      "databasePort": "59982"
+    },
+    "applied": [
+      "20261023000500_translation_review_flag.sql",
+      "20261023000600_role_audit_triggers.sql",
+      "20261023000700_kakao_notify_links.sql",
+      "20261023000701_bid_recommended_outbox.sql",
+      "20261023000702_kakao_notify_hardening.sql",
+      "20261023000703_kakao_test_count_index.sql",
+      "20261023000704_kakao_send_claims.sql",
+      "20261023000800_program_notices.sql"
+    ],
+    "verification": {
+      "applied": 49
+    },
+    "before": {
+      "bid_notices": {
+        "count": 19,
+        "fingerprint": "d36a87166239edadbf6f00de28d63fbe"
+      },
+      "bid_revisions": {
+        "count": 19,
+        "fingerprint": "6855e94cd53fc85d831f3f76044d7f2a"
+      },
+      "bid_documents": {
+        "count": 18,
+        "fingerprint": "22c536db49f095d85d4af67d0e886324"
+      },
+      "score_runs": {
+        "count": 18,
+        "fingerprint": "a2c3f67b8d5509283f81c0fc61c2e345"
+      },
+      "bid_reviews": {
+        "count": 2,
+        "fingerprint": "2978f8cd939c9d029c61af9c9ee84e34"
+      },
+      "company_profiles": {
+        "count": 3,
+        "fingerprint": "bbce57aa386a4b91fde1b73b9d5abe1e"
+      },
+      "team_members": {
+        "count": 200,
+        "fingerprint": "99c0efea07c306e5f1dbf63e82deb932"
+      }
+    },
+    "after": {
+      "bid_notices": {
+        "count": 19,
+        "fingerprint": "d36a87166239edadbf6f00de28d63fbe"
+      },
+      "bid_revisions": {
+        "count": 19,
+        "fingerprint": "6855e94cd53fc85d831f3f76044d7f2a"
+      },
+      "bid_documents": {
+        "count": 18,
+        "fingerprint": "22c536db49f095d85d4af67d0e886324"
+      },
+      "score_runs": {
+        "count": 18,
+        "fingerprint": "a2c3f67b8d5509283f81c0fc61c2e345"
+      },
+      "bid_reviews": {
+        "count": 2,
+        "fingerprint": "2978f8cd939c9d029c61af9c9ee84e34"
+      },
+      "company_profiles": {
+        "count": 3,
+        "fingerprint": "bbce57aa386a4b91fde1b73b9d5abe1e"
+      },
+      "team_members": {
+        "count": 200,
+        "fingerprint": "99c0efea07c306e5f1dbf63e82deb932"
+      }
+    },
+    "preserved": true
+  },
+  "startedAt": "2026-10-22T08:39:31.733Z",
+  "target": {
+    "application": "http://localhost:3281",
+    "supabase": "http://127.0.0.1:59981",
+    "database": "127.0.0.1:59982"
+  },
+  "actions": "Read-only pages, URL filters, existing-account login; no seed/reset, application writes, Kakao connection/send, or collection.",
+  "results": [
+    {
+      "name": "organization-forbidden",
+      "width": 1440,
+      "path": "/settings/organization",
+      "checks": ["SALES cannot read ADMIN organization settings"],
+      "overflow": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      },
+      "screenshot": "organization-forbidden-1440.png"
+    },
+    {
+      "name": "stage-links-detail",
+      "width": 1440,
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "checks": [
+        "stage timeline and related-stage UI render",
+        "model-distribution disclaimer is visible",
+        {
+          "linked": 0,
+          "candidates": 1
+        }
+      ],
+      "overflow": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      },
+      "screenshot": "stage-links-detail-1440.png"
+    },
+    {
+      "name": "revision-first",
+      "width": 1440,
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163/revisions",
+      "checks": ["first revision empty comparison renders", "revision list shows r1"],
+      "overflow": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      },
+      "screenshot": "revision-first-1440.png"
+    },
+    {
+      "name": "kakao-settings",
+      "width": 1440,
+      "path": "/org-01/settings",
+      "checks": [
+        "disconnected notice and disabled switch render",
+        "connection link is shown but never followed"
+      ],
+      "overflow": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      },
+      "screenshot": "kakao-settings-1440.png"
+    },
+    {
+      "name": "programs-empty",
+      "width": 1440,
+      "path": "/bids/programs",
+      "checks": [
+        "support-program mode explicitly excludes SOL Score/recommendation",
+        "empty collection state renders"
+      ],
+      "overflow": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      },
+      "screenshot": "programs-empty-1440.png"
+    },
+    {
+      "name": "programs-filtered",
+      "width": 1440,
+      "path": "/bids/programs",
+      "checks": ["source=bizinfo, agency search and includeClosed update the URL"],
+      "overflow": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      },
+      "screenshot": "programs-filtered-1440.png"
+    },
+    {
+      "name": "programs-api-and-filter-reset",
+      "width": 1440,
+      "status": 200,
+      "checks": [
+        "both bizinfo/mss source options update the URL",
+        "filter clear resets URL, search and closed switch",
+        "authenticated SALES API is readable"
+      ]
+    },
+    {
+      "name": "organization-admin",
+      "width": 1440,
+      "path": "/settings/organization",
+      "checks": [
+        "ADMIN member/invitation/audit sections render",
+        "last ADMIN guard is visible",
+        "no role/invitation writes submitted"
+      ],
+      "overflow": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      },
+      "screenshot": "organization-admin-1440.png"
+    },
+    {
+      "name": "organization-forbidden",
+      "width": 1280,
+      "path": "/settings/organization",
+      "checks": ["SALES cannot read ADMIN organization settings"],
+      "overflow": {
+        "viewport": 1280,
+        "document": 1280,
+        "body": 1280
+      },
+      "screenshot": "organization-forbidden-1280.png"
+    },
+    {
+      "name": "stage-links-detail",
+      "width": 1280,
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "checks": [
+        "stage timeline and related-stage UI render",
+        "model-distribution disclaimer is visible",
+        {
+          "linked": 0,
+          "candidates": 1
+        }
+      ],
+      "overflow": {
+        "viewport": 1280,
+        "document": 1280,
+        "body": 1280
+      },
+      "screenshot": "stage-links-detail-1280.png"
+    },
+    {
+      "name": "revision-first",
+      "width": 1280,
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163/revisions",
+      "checks": ["first revision empty comparison renders", "revision list shows r1"],
+      "overflow": {
+        "viewport": 1280,
+        "document": 1280,
+        "body": 1280
+      },
+      "screenshot": "revision-first-1280.png"
+    },
+    {
+      "name": "kakao-settings",
+      "width": 1280,
+      "path": "/org-01/settings",
+      "checks": [
+        "disconnected notice and disabled switch render",
+        "connection link is shown but never followed"
+      ],
+      "overflow": {
+        "viewport": 1280,
+        "document": 1280,
+        "body": 1280
+      },
+      "screenshot": "kakao-settings-1280.png"
+    },
+    {
+      "name": "programs-empty",
+      "width": 1280,
+      "path": "/bids/programs",
+      "checks": [
+        "support-program mode explicitly excludes SOL Score/recommendation",
+        "empty collection state renders"
+      ],
+      "overflow": {
+        "viewport": 1280,
+        "document": 1280,
+        "body": 1280
+      },
+      "screenshot": "programs-empty-1280.png"
+    },
+    {
+      "name": "programs-filtered",
+      "width": 1280,
+      "path": "/bids/programs",
+      "checks": ["source=bizinfo, agency search and includeClosed update the URL"],
+      "overflow": {
+        "viewport": 1280,
+        "document": 1280,
+        "body": 1280
+      },
+      "screenshot": "programs-filtered-1280.png"
+    },
+    {
+      "name": "programs-api-and-filter-reset",
+      "width": 1280,
+      "status": 200,
+      "checks": [
+        "both bizinfo/mss source options update the URL",
+        "filter clear resets URL, search and closed switch",
+        "authenticated SALES API is readable"
+      ]
+    },
+    {
+      "name": "organization-admin",
+      "width": 1280,
+      "path": "/settings/organization",
+      "checks": [
+        "ADMIN member/invitation/audit sections render",
+        "last ADMIN guard is visible",
+        "no role/invitation writes submitted"
+      ],
+      "overflow": {
+        "viewport": 1280,
+        "document": 1280,
+        "body": 1280
+      },
+      "screenshot": "organization-admin-1280.png"
+    },
+    {
+      "name": "programs-api-viewer",
+      "status": 200,
+      "checks": ["VIEWER can read support-program notices"]
+    },
+    {
+      "name": "programs-api-anonymous",
+      "status": 401,
+      "checks": ["anonymous read denied"]
+    }
+  ],
+  "errors": [],
+  "blocked": [],
+  "limits": [
+    "Existing 19 bids have only revision 1; previous/current revision comparison is covered by unit/API tests.",
+    "No program-notice rows were inserted; drawer/populated-list behavior is outside this local smoke."
+  ],
+  "status": "PASS",
+  "finishedAt": "2026-10-22T08:39:51.632Z",
+  "visualReview": {
+    "width": 1280,
+    "reviewed": [
+      "organization-admin-1280.png",
+      "programs-filtered-1280.png",
+      "stage-links-detail-1280.png",
+      "kakao-settings-1280.png",
+      "revision-first-1280.png"
+    ],
+    "result": "PASS: text, wrapping, spacing, and card/table overlap inspected"
+  },
+  "sessionRecovery": "Stale pre-existing storageState returned refresh_token_not_found; signed in to existing local accounts. No seed/reset/account or role mutation."
+}
