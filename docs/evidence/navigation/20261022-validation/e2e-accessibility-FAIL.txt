@@ -1,3 +1,7 @@
+Command: pnpm -C web test:e2e:work
+Base: c9bc496 + dashboard working tree before N5 accessibility label fix
+Result: FAIL (axe button-name; controlled-checkbox immediate check). Final green run: e2e-work.txt
+
 
 > sol-radar-web@0.1.0 test:e2e:work /Users/leegwanghui/.codex/worktrees/43f8/sol-radar/web
 > playwright test -c playwright.work.config.ts
