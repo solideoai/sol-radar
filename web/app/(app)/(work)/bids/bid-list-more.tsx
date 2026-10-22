@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, type TransitionStartFunction } from "react";
+import { useEffect, useMemo, useRef, useState, type TransitionStartFunction } from "react";
 import { OpportunityTable } from "@/components/work/opportunities-table";
 import type { OpportunityItem } from "@/server/opportunities";
+import { WatchToggle } from "@/app/(app)/(work)/watch-toggle";
 import { LoadMoreFooter, useLoadMore } from "@/app/(app)/(work)/load-more";
 
 export function BidListMore({
@@ -15,7 +16,11 @@ export function BidListMore({
   busy,
   empty,
   startTransition,
+  basePath = "/bids",
+  watchedIds,
 }: {
+  basePath?: "/bids" | "/watchlist";
+  watchedIds?: string[] | null;
   initialItems: OpportunityItem[];
   initialNextCursor: string | null;
   total: number;
@@ -26,6 +31,7 @@ export function BidListMore({
   startTransition: TransitionStartFunction;
 }) {
   const router = useRouter();
+  const [removedWatchIds, setRemovedWatchIds] = useState<string[]>([]);
   const at = useMemo(() => new Date(now), [now]);
   const { items, hasNext, status, appendedFrom, loadMore } = useLoadMore({
     endpoint: `/api/v1/opportunities?${query}`,
@@ -43,7 +49,8 @@ export function BidListMore({
   const restart = () => {
     const params = new URLSearchParams(query);
     params.delete("asOf");
-    startTransition(() => router.push(`/bids?${params.toString()}`, { scroll: false }));
+    if (basePath === "/watchlist") params.delete("watched");
+    startTransition(() => router.push(`${basePath}?${params.toString()}`, { scroll: false }));
   };
   return (
     <div className="flex min-w-0 flex-col gap-3" ref={tableRef}>
@@ -55,7 +62,38 @@ export function BidListMore({
       {items.length === 0 ? (
         empty
       ) : (
-        <OpportunityTable items={items} now={at} listQuery={query} busy={busy} />
+        <OpportunityTable
+          items={items}
+          now={at}
+          listQuery={query}
+          busy={busy}
+          caption={
+            basePath === "/watchlist"
+              ? "내 관심 공고 사업기회 목록. DEMO는 데모용 가상 공고입니다."
+              : undefined
+          }
+          removedWatchIds={basePath === "/watchlist" ? removedWatchIds : undefined}
+          watchColumn={
+            watchedIds
+              ? (item, titleId) => (
+                  <WatchToggle
+                    key={`${item.bidId}:${watchedIds.includes(item.bidId)}`}
+                    bidId={item.bidId}
+                    initialWatched={watchedIds.includes(item.bidId)}
+                    size="row"
+                    describedBy={titleId}
+                    onSettled={({ watched }) =>
+                      setRemovedWatchIds((current) =>
+                        watched
+                          ? current.filter((id) => id !== item.bidId)
+                          : [...new Set([...current, item.bidId])],
+                      )
+                    }
+                  />
+                )
+              : undefined
+          }
+        />
       )}
       <LoadMoreFooter
         status={status}

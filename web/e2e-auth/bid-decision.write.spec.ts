@@ -40,21 +40,22 @@ test("S3 취소 공고는 상태 '취소 포함'을 고를 때만 보인다(ADR-
   // seed 에는 취소 공고가 없다(FX-08 취소는 S5 LIVE 배치). 로컬 service role 로 잠깐 취소로 바꾸고 되돌린다.
   await admin.call("PATCH", `/rest/v1/bid_notices?id=eq.${bids["FX-08"]}`, { status: "CANCELLED" });
   try {
+    // 현재 기본 목록은 NOTICE 15건이다(예정 사업 4건 제외).
     await page.goto("/bids");
-    const table = page.getByRole("table", { name: "입찰 공고 목록" });
-    await expect(table.locator("tbody tr")).toHaveCount(18);
+    const table = page.getByRole("table", { name: /입찰 공고 사업기회 목록/ });
+    await expect(table.locator("tbody tr")).toHaveCount(14);
     expect((await tableRows(table)).map((row) => row.id)).not.toContain(bids["FX-08"]);
 
     await choose(page, "상태", "취소 포함");
     await expect(page).toHaveURL(/status=CANCELLED/);
-    await expect(table.locator("tbody tr")).toHaveCount(19);
+    await expect(table.locator("tbody tr")).toHaveCount(15);
     const cancelled = table.locator("tbody tr", {
       has: page.locator(`a[href^="/bids/${bids["FX-08"]}"]`),
     });
     await expect(cancelled).toContainText("취소됨");
 
     await choose(page, "상태", "진행 중 (기본)");
-    await expect(table.locator("tbody tr")).toHaveCount(18);
+    await expect(table.locator("tbody tr")).toHaveCount(14);
   } finally {
     await admin.call("PATCH", `/rest/v1/bid_notices?id=eq.${bids["FX-08"]}`, { status: "OPEN" });
   }

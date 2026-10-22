@@ -55,6 +55,10 @@ import type {
   Recommendation,
   RunMode,
 } from "@/server/bids";
+import type { WatchSummary } from "@/server/watchlist";
+import { BidProjectEntry } from "@/components/projects/bid-project-entry";
+import type { ProjectEntryState } from "@/server/projects";
+import { DetailWatch } from "./detail-watch";
 import type { WhatIfSummary } from "@/server/scoring";
 import { EmptyState } from "@/app/(app)/(work)/empty-state";
 import { DETAIL_CONTENT_CLASS } from "./detail-copy";
@@ -100,6 +104,8 @@ type BidDetailViewProps = {
   backHref: string;
   /** 서버가 요청마다 한 번 만든 시각(ISO). D-n 의 기준이다(하이드레이션 차이 없음). */
   now: string;
+  watch?: WatchSummary | null;
+  projectEntry?: ProjectEntryState | null;
 };
 
 // 09 고정
@@ -350,7 +356,9 @@ function DetailEyebrow({ bid, backHref }: { bid: DetailBid; backHref: string }) 
         )}
       >
         <ArrowLeftIcon aria-hidden="true" className="size-4 shrink-0" />
-        공고 목록
+        {backHref === "/watchlist" || backHref.startsWith("/watchlist?")
+          ? "관심 공고"
+          : "공고 목록"}
       </Link>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {bid.isDemo && <DemoBadge withTooltip />}
@@ -405,6 +413,7 @@ function HeaderActions({
   hasAnalysis,
   canAnalyze,
   onAnalyze,
+  watch,
 }: {
   bid: DetailBid;
   state: RunState;
@@ -413,6 +422,7 @@ function HeaderActions({
   hasAnalysis: boolean;
   canAnalyze: boolean;
   onAnalyze: () => void;
+  watch: WatchSummary | null;
 }) {
   const requesting = state.phase === "requesting";
   const label = requesting
@@ -424,7 +434,8 @@ function HeaderActions({
         : "분석 실행";
   return (
     <div className="flex max-w-sm flex-col items-end gap-2">
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {watch !== null && <DetailWatch bidId={bid.id} watch={watch} />}
         <SourceLink
           href={bid.sourceUrl}
           ariaLabel="원문 보기 (새 탭)"
@@ -786,6 +797,8 @@ export function BidDetailView({
   canDecide,
   backHref,
   now,
+  watch = null,
+  projectEntry = null,
 }: BidDetailViewProps) {
   const router = useRouter();
   const at = useMemo(() => new Date(now), [now]);
@@ -866,6 +879,7 @@ export function BidDetailView({
             hasAnalysis={latest !== null}
             canAnalyze={canAnalyze}
             onAnalyze={() => void run.start(latest !== null)}
+            watch={watch}
           />
         }
         contentClassName={DETAIL_CONTENT_CLASS}
@@ -933,8 +947,9 @@ export function BidDetailView({
           </div>
           <div
             data-slot="bid-detail-rail"
-            className="sticky top-18 max-h-[calc(100dvh-5.5rem)] min-w-0 overflow-y-auto"
+            className="sticky top-18 flex max-h-[calc(100dvh-5.5rem)] min-w-0 flex-col gap-4 overflow-y-auto"
           >
+            {projectEntry !== null && <BidProjectEntry entry={projectEntry} />}
             {/* 새 분석이면 라디오 기본값(시스템 권고)도 새로 잡는다(P2). */}
             <DecisionPanel
               key={decisionAnalysis?.id ?? "none"}

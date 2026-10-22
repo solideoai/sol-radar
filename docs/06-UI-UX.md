@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ui
   - hackathon
-updated: 2026-10-21
+updated: 2026-10-22
 ---
 
 # 06. Next.js 화면 및 UX
@@ -163,7 +163,7 @@ flowchart TD
 ```
 
 - 사이드바는 256px 고정(템플릿 `Sidebar` 폭 `16rem`, [[16-DECISIONS|ADR-029]] A6 D15). 접으면 아이콘만 남는 64px 아이콘 줄이 된다(§4.1, N1 사이드바 main `9e6d8e2`). 묶음과 메뉴는 트리로 보인다(§4.1). 활성 항목은 `sidebar-accent` 배경 + 좌측 3px `brand` 바(트리 세로선 자리).
-- 사이드바 묶음은 업무·AI 분석·입찰 관리·조직·시스템이다. 그 아래 선으로 나눈 맨 아래 고정 칸에 조직도(`/org-chart`)가 있다. 노출 조건 5개([[16-DECISIONS|ADR-021]])를 채운 메뉴는 링크로, 아직 화면이 없는 메뉴는 링크 없이 메뉴 이름만 보인다. 2026-10-21 사용자 후속 요청으로 "준비 중" 배지와 툴팁 문구를 제거한다. 미출시 메뉴는 초점을 받지 않고 경로는 404 그대로다. 메뉴 정의는 `web/components/app-nav.ts` 한 곳(`released`·`planned`)이다. 메뉴 숨김은 권한이 아니며, 서버가 라우트마다 권한을 따로 검사한다. 미인증은 기존 인증 정책, 미출시 경로 404, 출시 경로에 권한 없음 403이다. 2026-10-21 main 기준 미출시는 관심 공고·분석 결과 비교·인력 배치 시뮬레이션·입찰 프로젝트 4개다. 그림의 "수집 관리"는 데이터 수집 관리(`/admin/ingestion`, ADMIN만)다. 사용자 메뉴: 설정, 서비스 운영(`/ops`, 운영자만. `/ops` 분리는 해커톤 이후, [[16-DECISIONS|ADR-023]]), 로그아웃([[16-DECISIONS|ADR-021]]). Topbar의 회사 이름 "솔리데오"는 고정 표시이고 조직 전환 메뉴가 없다.
+- 사이드바 묶음은 업무·AI 분석·입찰 관리·조직·시스템이다. 그 아래 선으로 나눈 맨 아래 고정 칸에 조직도(`/org-chart`)가 있다. 노출 조건 5개([[16-DECISIONS|ADR-021]])를 채운 메뉴는 링크로, 아직 화면이 없는 메뉴는 링크 없이 메뉴 이름만 보인다. 2026-10-21 사용자 후속 요청으로 "준비 중" 배지와 툴팁 문구를 제거한다. 미출시 메뉴는 초점을 받지 않고 경로는 404 그대로다. 메뉴 정의는 `web/components/app-nav.ts` 한 곳(`released`·`planned`)이다. 메뉴 숨김은 권한이 아니며, 서버가 라우트마다 권한을 따로 검사한다. 미인증은 기존 인증 정책, 미출시 경로 404, 출시 경로에 권한 없음 403이다. 2026-10-22 통합 브랜치 `feat/dashboard-pages-20261022`에서는 관심 공고·분석 결과 비교·인력 배치 시뮬레이션·입찰 프로젝트를 포함한 12개 메뉴가 모두 `released`다. 이 코드 상태와 클라우드 배포 완료는 구분한다. 그림의 "수집 관리"는 데이터 수집 관리(`/admin/ingestion`, ADMIN만)다. 사용자 메뉴: 설정, 서비스 운영(`/ops`, 운영자만. `/ops` 분리는 해커톤 이후, [[16-DECISIONS|ADR-023]]), 로그아웃([[16-DECISIONS|ADR-021]]). Topbar의 회사 이름 "솔리데오"는 고정 표시이고 조직 전환 메뉴가 없다.
 - Topbar 우측 순서는 고정: `DemoBadge` → `RunModeIndicator` → `AiModeIndicator` → `DataFreshnessIndicator` → `NotificationBell` → 사용자 메뉴. `DEMO` 배지는 실행 모드 바로 앞에 두고, 실행 모드가 `fixture`·`mock`일 때만 보인다(`live`에서는 숨긴다). 템플릿 사이드바는 접으면 숨어서 로고 옆 배지가 사라지므로 Topbar에 둔다([[16-DECISIONS|ADR-029]] A6 D3). 행 단위 `DEMO` 배지는 모드와 무관하게 `isDemo=true` 레코드에 붙는다.
 - Topbar 지표(`RunModeIndicator`·`AiModeIndicator`·`DataFreshnessIndicator`)의 값·색·갱신 주기는 §8이 정본이다.
 - 1280px에서 `/bids` 표의 기본 열이 가로 스크롤 없이 모두 보여야 한다(열 목록은 §5.3).
@@ -171,7 +171,7 @@ flowchart TD
 
 ### 4.1 사이드바 트리와 메뉴 아이콘
 
-**2026-10-21 사용자 후속 요청 — 표시 변경**: 미출시 메뉴는 이름만 링크 없이 표시한다. "준비 중" 배지와 접힌 사이드바의 툴팁 접미사는 모두 제거한다. `planned` 상태·초점 제외·미출시 경로 404·권한 가드는 유지한다. 아래 표와 이전 노출 설명의 "준비 중"은 내부 개발 상태를 뜻하며 화면에 붙이는 문구가 아니다.
+**2026-10-21 사용자 후속 요청 — 표시 변경**: 미출시 메뉴는 이름만 링크 없이 표시한다. "준비 중" 배지와 접힌 사이드바의 툴팁 접미사는 모두 제거한다. `planned` 상태·초점 제외·미출시 경로 404·권한 가드는 유지한다. 2026-10-22 현재 통합 코드에는 `planned` 메뉴가 없으며, 이 규칙은 향후 미출시 메뉴에도 적용한다.
 
 2026-10-18 사용자 결정이다. 근거와 시안 비교는 [조직도 설계](plans/2026-10-18-org-chart-sidebar-design.md) §4다. 구조(트리·아이콘·고정 칸·64px 아이콘 줄)는 N1 사이드바 작업이 만들었다(main `9e6d8e2`, 증거 [N1 사이드바 트리](evidence/phase-3/n1-sidebar-tree/README.md), 시험 [[11-TESTING|11]] NAV-10).
 
@@ -185,18 +185,18 @@ flowchart TD
 |---|---|---|---|---|
 | 업무 | 대시보드 | `/dashboard` | `layout-dashboard` | 예 |
 | 업무 | 입찰 공고 | `/bids` | `file-text` | 예 |
-| 업무 | 관심 공고 | `/watchlist` | `star` | 준비 중 (P1 N3, [[16-DECISIONS\|ADR-042]]로 구현 중. 10-24 freeze까지 green이면 예) |
+| 업무 | 관심 공고 | `/watchlist` | `star` | 예 (P1 N3, `released`) |
 | 업무 | 알림 | `/notifications` | `bell` | 예 |
-| AI 분석 | 분석 결과 비교 | `/analysis` | `git-compare-arrows` | 준비 중 (P1 N5, [[16-DECISIONS\|ADR-042]]로 구현 중. 10-24 freeze까지 green이면 예) |
-| AI 분석 | 인력 배치 시뮬레이션 | `/workforce` | `users-round` | 준비 중 (P1 N7, [[16-DECISIONS\|ADR-042]]로 구현 중. 10-24 freeze까지 green이면 예) |
-| 입찰 관리 | 입찰 프로젝트 | `/projects` | `folder-kanban` | 준비 중 (P1 N6, [[16-DECISIONS\|ADR-042]]로 구현 중. 10-24 freeze까지 green이면 예) |
+| AI 분석 | 분석 결과 비교 | `/analysis` | `git-compare-arrows` | 예 (P1 N5, `released`) |
+| AI 분석 | 인력 배치 시뮬레이션 | `/workforce` | `users-round` | 예 (P1 N7, `released`) |
+| 입찰 관리 | 입찰 프로젝트 | `/projects` | `folder-kanban` | 예 (P1 N6, `released`) |
 | 조직 | 회사 역량 | `/company` | `award` | 예 |
 | 조직 | 조직·인력 | `/people` | `users` | 예 |
 | 시스템 | 설정 | `/settings` | `settings` | 예 (조직 탭은 확장 컷) |
 | 시스템 | 데이터 수집 관리 | `/admin/ingestion` | `database` | 예 (ADMIN만) |
 | 맨 아래 고정 칸 | 조직도 | `/org-chart` | `network` | 예 |
 
-"해커톤 노출"은 2026-10-21 main(`app-nav.ts`) 기준이다. "예"는 링크로 보이고, 표의 "준비 중"은 내부 개발 상태로서 사이드바에는 메뉴 이름만 링크 없이 보인다. P1 메뉴 4개는 2026-10-21 [[16-DECISIONS|ADR-042]]로 구현에 들어갔고, 10-24 22:00 freeze까지 완료 기준(설계 §3.2)을 채운 것만 `released`로 바꿔 "예"가 된다. 설정의 조직 탭은 아직 확장 컷이다([[16-DECISIONS|ADR-023]], [[12-ROADMAP|12 로드맵]]). 아이콘 이름은 `web/`에 설치된 `lucide-react`에서 확인했다. React에서는 `LayoutDashboardIcon`처럼 `Icon` 접미사 이름으로 부른다.
+"해커톤 노출"은 2026-10-22 통합 브랜치 `feat/dashboard-pages-20261022`의 `app-nav.ts` 기준이다. 12개 메뉴 모두 `released`이며 "예"는 역할에 맞게 링크로 보인다는 뜻이다. P1 네 화면의 구현·개발 검증·독립 리뷰를 마쳤고, 통합 E2E와 최종 판정은 [[2026-10-22-dashboard-missing-pages-plan|구현 계획]] Task 5에서 관리한다. 실제 검증·배포 상태는 [통합 기록](evidence/navigation/20261022-implementation.md)을 따른다. 설정의 조직 탭은 아직 확장 컷이다([[16-DECISIONS|ADR-023]], [[12-ROADMAP|12 로드맵]]). 아이콘 이름은 `web/`에 설치된 `lucide-react`에서 확인했다. React에서는 `LayoutDashboardIcon`처럼 `Icon` 접미사 이름으로 부른다.
 
 ## 5. 라우트별 명세
 
@@ -375,14 +375,16 @@ flowchart TD
 
 ### 5.12 P1 화면 (ADR-021)
 
-아래 다섯 화면은 2026-10-21 [[16-DECISIONS|ADR-042]]로 핵심 컷·확장 컷과 조건부 병행한다. 메뉴 이름은 §4.1대로 링크 없이 보일 수 있지만 구현·검증 전 경로는 404다. 10-24 22:00 freeze까지 green인 화면만 released로 바꾼다. 화면별 책임은 [사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md) §2.2다.
+아래 네 화면은 2026-10-21 [[16-DECISIONS|ADR-042]]에 따라 핵심 컷·확장 컷과 조건부 병행으로 착수했고, 2026-10-22 현재 통합 코드에서는 모두 `released`다. 10-24 22:00 freeze와 출시 조건은 유지하며, 통합 E2E·최종 판정은 구현 계획 Task 5에서 관리한다. 미출시 경로 404와 역할 가드 정책은 바뀌지 않는다. 화면별 책임은 [사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md) §2.2다.
 
 | 경로 | 화면 | 요지 |
 |---|---|---|
-| `/watchlist` | 관심 공고 | 내 관심 공고만 미리 거른 공고 표. `/bids`와 같은 `BidTable`·`BidFilters`를 쓴다 |
+| `/watchlist` | 관심 공고 | 내 관심 공고만 미리 거른 공고 표. `/bids`와 같은 현재 `OpportunityTable`·`OpportunityFilters`를 쓴다 |
 | `/analysis` | 분석 결과 비교 | 조직의 분석 이력과 2~4건 비교. 분석 실행은 `/bids/[id]`에서만 |
 | `/projects` | 입찰 프로젝트 | BID 결정 이후 업무(담당자·체크리스트·제출 마감·상태·결과 기록) |
 | `/workforce` | 인력 배치 시뮬레이션 | 점수 계산 대상 200명 안의 규칙 매칭 후보와 기간 충돌. 저장하지 않는다 |
+
+2026-10-22 구현의 상세 배치는 [[2026-10-22-dashboard-pages-ui-spec|네 화면 UI 설계]]를 따른다. 관심 목록은 해제 직후 행을 유지한다. 분석 비교는 2~4열·열별 오류 복구·PARTIAL/FAILED 빈 값 보존, 인력 시뮬레이션은 분석 스냅샷과 현재 배정의 기준 시각 분리, 프로젝트는 5열 보드·ADMIN/SALES 변경·읽기 전용 조회다. 최신 공공조달 대시보드 첫 4카드와 수집 상태 패널을 유지하고 슬롯5를 진행 중 프로젝트로 바꾼다.
 
 ## 6. `/bids/[id]` 와이어프레임 (1440px)
 

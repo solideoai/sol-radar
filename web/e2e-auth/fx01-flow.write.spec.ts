@@ -46,26 +46,29 @@ async function cellOf(table: Locator, row: Locator, header: string): Promise<Loc
 
 test.use({ storageState: storageOf("sales"), viewport: { width: 1440, height: 900 } });
 
-test("FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보존까지", async ({ page }) => {
+test("FX-01: 현재 대시보드부터 94점 근거 확인, WATCH 결정과 이력 보존까지", async ({ page }) => {
   const { bids } = readWorkContext();
   const bidId = bids["FX-01"];
 
-  await test.step("S2: 대시보드 BID 권고에 FX-01 94점이 보인다", async () => {
+  await test.step("S2: 현재 공공조달 대시보드와 우선 검토 목록이 보인다", async () => {
     await page.goto("/dashboard");
     await expect(
       page.getByRole("heading", { level: 1, name: "대시보드", exact: true }),
     ).toBeVisible();
-    const row = page
-      .getByRole("table", { name: "BID 권고 (점수 높은 순)", exact: true })
-      .getByRole("row")
-      .filter({ has: page.getByRole("link", { name: FX01_TITLE, exact: true }) });
-    await expect(row).toHaveCount(1);
-    await expect(row.getByRole("link", { name: FX01_TITLE, exact: true })).toHaveAttribute(
-      "href",
-      `/bids/${bidId}`,
-    );
-    await expect(row.getByRole("cell", { name: "94", exact: true })).toBeVisible();
-    await expect(row.getByRole("cell", { name: "BID", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "우선 검토할 입찰", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "수집 소스 상태", exact: true })).toBeVisible();
+    const summary = page.getByRole("region", { name: "공공조달 요약" });
+    for (const label of [
+      "신규 발견",
+      "분석 대기",
+      "BID 권고",
+      "마감 임박 (7일)",
+      "진행 중 입찰 프로젝트",
+    ])
+      await expect(summary.getByText(label, { exact: true })).toBeVisible();
+    // 현재 우선 검토는 최근순 5건이다. FX-01의 94점·BID는 아래 전체 목록에서 확인한다.
   });
 
   await test.step("S3: 공고 목록에서 FX-01 상세를 연다", async () => {
@@ -77,7 +80,7 @@ test("FX-01: 대시보드 94점부터 근거 확인, WATCH 결정과 이력 보�
     await expect(
       page.getByRole("heading", { level: 1, name: "입찰 공고", exact: true }),
     ).toBeVisible();
-    const table = page.getByRole("table", { name: "입찰 공고 목록", exact: true });
+    const table = page.getByRole("table", { name: /입찰 공고 사업기회 목록/ });
     const row = table
       .getByRole("row")
       .filter({ has: page.getByRole("link", { name: FX01_TITLE, exact: true }) });

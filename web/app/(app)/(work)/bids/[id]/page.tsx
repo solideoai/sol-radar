@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { projectDeps } from "@/app/_lib/project-deps";
+import { getProjectEntry } from "@/server/projects";
 import { workDeps } from "@/app/_lib/work-deps";
 import { requireWork } from "@/app/(app)/(work)/work";
 import {
@@ -12,6 +14,7 @@ import {
   type AnalysisView,
   type BidDetail,
 } from "@/server/bids";
+import { getWatchSummary } from "@/server/watchlist";
 import { getMembersPage } from "@/server/organization";
 import { assessmentLabel } from "./assessment-labels";
 import { backHrefOf } from "./back-href";
@@ -35,12 +38,17 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   if (!isUuid(id)) notFound();
 
   const deps = workDeps();
-  const [detail, history, membersPage] = await Promise.all([
+  const [detail, history, membersPage, watch, projectEntry] = await Promise.all([
     getBid(work.orgId, id, { repo: deps.bids }),
     listBidAnalyses(work.orgId, id, { cursor: null, limit: HISTORY_LIMIT }, deps.cursorSecret, {
       repo: deps.bids,
     }),
     getMembersPage({ org: work.org, userId: work.userId }),
+    getWatchSummary({ orgId: work.orgId, userId: work.userId }, id).catch(() => {
+      console.error(JSON.stringify({ event: "bid_detail_watch_failed", bidId: id }));
+      return null;
+    }),
+    getProjectEntry(work, id, projectDeps()),
   ]);
   if (!detail.ok) {
     if (detail.status === 404) notFound();
@@ -87,6 +95,8 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       canDecide={canRecordReview(work.role)}
       backHref={backHrefOf((await searchParams).list, work.runMode)}
       now={new Date().toISOString()}
+      watch={watch}
+      projectEntry={projectEntry.ok ? projectEntry.data : null}
     />
   );
 }

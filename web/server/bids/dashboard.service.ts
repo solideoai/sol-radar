@@ -116,6 +116,7 @@ export async function getDashboardSummary(
     bids: { total: views.length, byStage, byStatus, deadlineWithin7Days },
     analyses: { total, byRecommendation, partial, withReviewFlags, latestByStatus },
     reviews: { pending, byDecision, disagreementWithSystem },
+    projects: { active: source.activeProjects },
     upcoming,
     unreadNotifications: source.unreadNotifications,
   };

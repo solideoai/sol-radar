@@ -21,6 +21,9 @@ export function BidListView({
   companies,
   notice,
   hasFilters,
+  basePath = "/bids",
+  watchedIds,
+  empty: emptyOverride,
 }: {
   defaultOrigin: "live" | "demo";
   items: OpportunityItem[];
@@ -33,25 +36,30 @@ export function BidListView({
   companies: { id: string; name: string }[];
   notice: string | null;
   hasFilters: boolean;
+  basePath?: "/bids" | "/watchlist";
+  watchedIds?: string[] | null;
+  empty?: React.ReactNode;
 }) {
   const router = useRouter();
   const [isNavigating, startTransition] = useTransition();
-  const empty = hasFilters ? (
-    <EmptyState
-      icon={SearchIcon}
-      title="조건에 맞는 공고가 없습니다"
-      action={
-        <Button
-          variant="outline"
-          onClick={() => startTransition(() => router.push("/bids", { scroll: false }))}
-        >
-          필터 초기화
-        </Button>
-      }
-    />
-  ) : (
-    <NoBidsEmptyState canRun={canRunIngestion} />
-  );
+  const empty =
+    emptyOverride ??
+    (hasFilters ? (
+      <EmptyState
+        icon={SearchIcon}
+        title="조건에 맞는 공고가 없습니다"
+        action={
+          <Button
+            variant="outline"
+            onClick={() => startTransition(() => router.push(basePath, { scroll: false }))}
+          >
+            필터 초기화
+          </Button>
+        }
+      />
+    ) : (
+      <NoBidsEmptyState canRun={canRunIngestion} />
+    ));
   return (
     <>
       <OpportunityFilters
@@ -66,6 +74,9 @@ export function BidListView({
         <p className="type-caption text-muted-foreground">DEMO · 예시 공고 기준</p>
       )}
       <BidListMore
+        key={`${basePath}:${query}`}
+        basePath={basePath}
+        watchedIds={watchedIds}
         initialItems={items}
         initialNextCursor={nextCursor}
         total={total}

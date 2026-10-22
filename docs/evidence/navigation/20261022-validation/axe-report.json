@@ -1,0 +1,149 @@
+{
+  "schemaVersion": "sol-axe-report/v0.1",
+  "generatedAt": "2026-10-22T00:57:27.492Z",
+  "lastCommand": "pnpm -C web test:e2e:work",
+  "axeVersion": "4.14.0",
+  "totals": { "scans": 14, "violations": 0, "nodes": 0 },
+  "scans": [
+    {
+      "state": "bid-detail-org02-loaded",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-22T00:56:57.043Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bids-list-demo-badge",
+      "project": "work-1280",
+      "width": 1280,
+      "scannedAt": "2026-10-22T00:56:58.494Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids?includeEarly=true",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-org02-loaded",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:56:53.245Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bids-list-demo-badge",
+      "project": "work-1440",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:56:54.291Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids?includeEarly=true",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-error-1280",
+      "project": "work-write",
+      "width": 1280,
+      "scannedAt": "2026-10-22T00:57:13.487Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-error-1440",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:57:13.321Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-loading-1280",
+      "project": "work-write",
+      "width": 1280,
+      "scannedAt": "2026-10-22T00:57:04.023Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-loading-1440",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:57:03.897Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids/687bd892-941f-56a9-9ea9-9754ea5e5f1a",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "bid-detail-what-if",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:57:26.915Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/bids/dcb0a308-6f3b-5457-8d0a-fbdf4be684b9",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "p1-analysis-four",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:57:20.294Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/analysis?compare=f1dbdf3c-aad6-4235-a37e-08f3c48eb1aa,130cba59-20c7-48f0-b1cf-ec9c709679cd,f4caebd7-056f-4d09-a6cb-109bcfc96d84,5fcda71b-c3ec-4771-a783-139a38cf96bd",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "p1-project-board",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:57:24.210Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/projects",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "p1-project-detail",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:57:23.326Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/projects/25def4a8-328c-4980-9e65-7dc6b63c0857",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "p1-watchlist",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:57:17.577Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/watchlist",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "p1-workforce-three",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-22T00:57:25.727Z",
+      "command": "pnpm -C web test:e2e:work",
+      "path": "/workforce?bidIds=b9f00c0b-96e2-5949-9fc7-ef7bb7aea163,dcb0a308-6f3b-5457-8d0a-fbdf4be684b9,9036e273-d51b-5090-8c89-53161dbb6714",
+      "axeVersion": "4.14.0",
+      "violations": []
+    }
+  ]
+}

@@ -182,6 +182,7 @@ describe("공공조달 업무 화면", () => {
     render(
       <AppPage title="대시보드" contentClassName="max-w-360" typeScale="dashboard">
         <DashboardView
+          activeProjects={0}
           summary={{
             ...SUMMARY,
             portfolio: { ...SUMMARY.portfolio, BID: 0, NO_BID: 0 },
@@ -195,14 +196,19 @@ describe("공공조달 업무 화면", () => {
           earlyQuery="origin=demo&includeEarly=true"
           now={NOW}
           canRunIngestion={false}
-          runMode="mock"
         />
       </AppPage>,
     );
     await expect.element(page.getByRole("heading", { name: "우선 검토할 입찰" })).toBeVisible();
     await expect.element(page.getByText("출처 간 확인 필요", { exact: true })).toBeVisible();
     await expect.element(page.getByText("검토 필요", { exact: true })).toBeVisible();
-    for (const label of ["신규 발견", "분석 대기", "BID 권고", "마감 임박 (7일)", "수집 상태"])
+    for (const label of [
+      "신규 발견",
+      "분석 대기",
+      "BID 권고",
+      "마감 임박 (7일)",
+      "진행 중 입찰 프로젝트",
+    ])
       await expect.element(page.getByText(label, { exact: true }).first()).toBeVisible();
     const card = (name: string) => {
       const element = page

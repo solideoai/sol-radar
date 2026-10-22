@@ -73,12 +73,19 @@ export function createDashboardRepo(config: {
         .eq("score_runs.org_id", orgId)
         .eq("bid_reviews.org_id", orgId);
       const bidsQuery = origin === "all" ? base : base.eq("is_demo", origin === "demo");
-      const [bids, status, ai] = await Promise.all([
+      const projectQuery = db
+        .from("bid_projects")
+        .select("id,bid:bid_notices!inner(is_demo)", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .neq("status", "CLOSED");
+      const [bids, status, ai, projects] = await Promise.all([
         bidsQuery,
         readStatus(db, origin),
         config.aiStatus(),
+        origin === "all" ? projectQuery : projectQuery.eq("bid.is_demo", origin === "demo"),
       ]);
       if (bids.error) throw bids.error;
+      if (projects.error) throw projects.error;
       const now = new Date();
       return {
         bids: bids.data.map((bid) => ({
@@ -101,6 +108,7 @@ export function createDashboardRepo(config: {
             decidedAt: review.decided_at,
           })),
         })),
+        activeProjects: projects.count ?? 0,
         dataFreshness: status.dataFreshness,
         ai,
         unreadNotifications: status.unreadNotifications,

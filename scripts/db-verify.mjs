@@ -186,7 +186,8 @@ const bypassesQuery = `
     from pg_catalog.pg_roles r
     where r.rolname in (${sqlList(SCREEN_ROLES)})
   ), relations as materialized (
-    select c.oid, n.nspname as schema_name, c.relname as name, c.relkind,
+    -- UNION must resolve this column to text. pg_catalog.name truncates long function signatures at 63 bytes.
+    select c.oid, n.nspname as schema_name, c.relname::text as name, c.relkind,
       exists (
         select 1 from pg_catalog.pg_options_to_table(c.reloptions) o
         where case when o.option_name = 'security_invoker' then o.option_value::boolean else false end
@@ -270,6 +271,13 @@ const bypassesQuery = `
 //   준다. ingest_runs 는 ADMIN 만 읽는 운영 표라 security definer 다. 로그인 역할만 실행하고, 업무 역할이 없으면 0행이며
 //   다른 열과 수집 오류는 내주지 않는다. 이유는 20261019000012 마이그레이션 주석에 있다.
 const ALLOWED_DEFINER_FUNCTIONS = new Set([
+  // N3: 본인의 소속 조직 관심 수만 반환; 사용자 명단은 노출하지 않는다.
+  "public.bid_watch_count(uuid)",
+  // N6: 함수 안에서 세션 조직·ADMIN/SALES 및 최신 BID 결정을 검사한다.
+  "public.open_bid_project(uuid)",
+  "public.change_bid_project_status(uuid, text, text)",
+  "public.record_bid_project_result(uuid, text, text)",
+  "public.patch_bid_project(uuid, text, text, boolean, uuid, boolean, timestamp with time zone)",
   // ADR-047: 업무 역할의 수집 상태만 투영. 요청자·params·job_key·오류본문·payload는 반환하지 않는다.
   "public.procurement_source_health(text)",
   "public.resolve_solideo_employment(text, text)",

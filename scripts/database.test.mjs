@@ -2,6 +2,7 @@
 // 마이그레이션은 한 번 적용하고, 각 시험은 같은 기준 스냅샷을 복제한 독립 DB에서 실행한다.
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
+import { findRlsBypasses } from "./db-verify.mjs";
 import { PGlite } from "@electric-sql/pglite";
 import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
 import { migrations, recordHistory, users } from "./database-test-support.mjs";
@@ -30,6 +31,26 @@ const migratedDb = async (t) => {
   await pglite.waitReady;
   return pglite;
 };
+
+it("RLS 검사기는 긴 함수 서명을 자르지 않고 허용 함수와 위험 함수를 구별한다", async (t) => {
+  const db = await migratedDb(t);
+  const signature =
+    "long_signature_probe(uuid, text, text, boolean, uuid, boolean, timestamp with time zone)";
+  await db.exec(`create function public.long_signature_probe(uuid,text,text,boolean,uuid,boolean,timestamptz)
+    returns void language sql security definer set search_path='' as 'select';
+    revoke execute on function public.long_signature_probe(uuid,text,text,boolean,uuid,boolean,timestamptz) from public,anon;
+    grant execute on function public.long_signature_probe(uuid,text,text,boolean,uuid,boolean,timestamptz) to authenticated;`);
+  const findings = await findRlsBypasses(db);
+  assert.deepEqual(findings, [
+    {
+      schema: "public",
+      name: signature,
+      kind: "function",
+      role: "authenticated",
+      problem: "EXECUTE",
+    },
+  ]);
+});
 
 describe("Supabase Storage — immutable objects and private access", () => {
   const bid = "b1d00000-0000-0000-0000-000000000011";
@@ -1446,6 +1467,186 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         { ...BID1_ROW, ...NO_ORG_DATA },
         { ...BID2_ROW, ...NO_ORG_DATA },
       ]);
+    });
+  });
+  describe("N3 관심 공고와 마감 알림", () => {
+    const addWatch = (db, org, user) =>
+      db.query(
+        "insert into public.bid_watches (org_id,user_id,bid_id) values ($1,$2,$3) on conflict do nothing",
+        [org, user, BID1],
+      );
+    it("본인 목록·사업기회 공고 연결·조직별 관심 수와 중복 등록을 보장한다", async (t) => {
+      const db = await solDb(t);
+      await as(db, "admin");
+      await addWatch(db, ORG1, WHO.admin);
+      await addWatch(db, ORG1, WHO.admin);
+      assert.equal(await countOf(db, "bid_watches"), 1);
+      assert.deepEqual(
+        (
+          await rowsOf(
+            db,
+            "select bid_id from public.watched_opportunity_list_items where org_id=$1",
+            [ORG1],
+          )
+        ).map((r) => r.bid_id),
+        [BID1],
+      );
+      await as(db, "sales");
+      assert.equal(await countOf(db, "bid_watches"), 0);
+      assert.equal(await countOf(db, "watched_opportunity_list_items"), 0);
+      await db.query("delete from public.bid_watches");
+      await addWatch(db, ORG1, WHO.sales);
+      assert.equal((await rowsOf(db, "select public.bid_watch_count($1) n", [BID1]))[0].n, 2);
+      await as(db, "outsider");
+      assert.equal(await countOf(db, "bid_watches"), 0);
+      await addWatch(db, ORG2, WHO.outsider);
+      assert.equal((await rowsOf(db, "select public.bid_watch_count($1) n", [BID1]))[0].n, 1);
+      await as(db, "admin");
+      assert.equal(await countOf(db, "bid_watches"), 1);
+      await db.query("delete from public.bid_watches");
+      assert.equal(await countOf(db, "bid_watches"), 0);
+    });
+    it("다른 사용자·조직으로 관심 등록할 수 없고 비회원은 조회할 수 없다", async (t) => {
+      const db = await solDb(t);
+      await as(db, "sales");
+      await assert.rejects(addWatch(db, ORG1, WHO.admin), POLICY);
+      await assert.rejects(addWatch(db, ORG2, WHO.sales), POLICY);
+      await as(db, "operator");
+      assert.equal(await countOf(db, "bid_watches"), 0);
+      await asAnon(db);
+      await assert.rejects(db.query("select * from public.bid_watches"), PERMISSION);
+    });
+    it("D-3·D-1 09시 이후 담당자와 관심 등록자에게 중복 없이 보내고 화면 역할 실행은 거부한다", async (t) => {
+      const db = await solDb(t);
+      await asWorker(db);
+      await db.query(
+        "update public.bid_notices set deadline_at='2026-10-25T09:00:00Z' where id=$1",
+        [BID1],
+      );
+      await db.query(
+        "insert into public.bid_reviews (org_id,bid_id,revision_id,decision,reason,assignee_id,decided_at) values ($1,$2,$3,'BID','마감 알림의 담당자와 관심 중복 검증',$4,now()+interval '1 minute')",
+        [ORG1, BID1, REV1, WHO.admin],
+      );
+      await addWatch(db, ORG1, WHO.admin);
+      await addWatch(db, ORG1, WHO.sales);
+      const send = async (now) => {
+        await asWorker(db);
+        await db.query("select set_config('request.jwt.claims', $1, false)", [
+          JSON.stringify({ role: "service_role" }),
+        ]);
+        return (
+          await rowsOf(db, "select public.send_deadline_reminders($1::timestamptz) n", [now])
+        )[0].n;
+      };
+      assert.equal(await send("2026-10-21T23:59:59Z"), 0);
+      assert.equal(await send("2026-10-22T00:00:00Z"), 2);
+      assert.equal(await send("2026-10-22T00:05:00Z"), 0);
+      assert.equal(await send("2026-10-23T00:00:00Z"), 0);
+      assert.equal(await send("2026-10-24T00:00:00Z"), 2);
+      await as(db, "sales");
+      assert.equal(await countOf(db, "notifications", "type='DEADLINE_APPROACHING'"), 2);
+      await assert.rejects(
+        db.query("select public.send_deadline_reminders('2026-10-24T00:05:00Z')"),
+        /permission denied for function/,
+      );
+    });
+  });
+
+  describe("입찰 프로젝트 — 핵심 저장·권한·원자성", () => {
+    const openProject = async (db) =>
+      (await rowsOf(db, "select * from public.open_bid_project($1)", [REVIEW1]))[0].project_id;
+    it("BID만 생성·중복 방지·다른 조직 격리·체크리스트 ADMIN SALES 쓰기", async (t) => {
+      const db = await solDb(t);
+      await as(db, "outsider");
+      await assert.rejects(db.query("select public.open_bid_project($1)", [REVIEW2]), /FORBIDDEN/);
+      await asWorker(db);
+      await db.query("update public.memberships set sol_role='SALES' where org_id=$1", [ORG2]);
+      await as(db, "outsider");
+      await assert.rejects(
+        db.query("select public.open_bid_project($1)", [REVIEW2]),
+        /PROJECT_REQUIRES_BID_DECISION/,
+      );
+      await as(db, "sales");
+      const id = await openProject(db);
+      await assert.rejects(openProject(db), /PROJECT_ALREADY_OPEN/);
+      const item = (
+        await rowsOf(
+          db,
+          "insert into public.tasks(org_id,bid_project_id,title) values($1,$2,'제출 서류') returning id",
+          [ORG1, id],
+        )
+      )[0].id;
+      await as(db, "admin");
+      await db.query("update public.tasks set status='done' where id=$1", [item]);
+      await as(db, "viewer");
+      assert.equal(
+        (await rowsOf(db, "update public.tasks set status='todo' where id=$1 returning id", [item]))
+          .length,
+        0,
+      );
+      await assert.rejects(
+        db.query("insert into public.tasks(org_id,bid_project_id,title) values($1,$2,'거절')", [
+          ORG1,
+          id,
+        ]),
+        /row-level security/,
+      );
+      await as(db, "outsider");
+      assert.equal(
+        (await rowsOf(db, "select id from public.bid_projects where id=$1", [id])).length,
+        0,
+      );
+      await assert.rejects(
+        db.query("select public.patch_bid_project($1,'SUBMITTED')", [id]),
+        /NOT_FOUND/,
+      );
+    });
+    it("혼합 PATCH 거절은 상태·담당자·마감·이력·감사를 그대로 보존하고 WATCH는 전진만 막는다", async (t) => {
+      const db = await solDb(t);
+      await as(db, "sales");
+      const id = await openProject(db);
+      const state = async () => ({
+        project: (
+          await rowsOf(
+            db,
+            "select status,owner_id,submission_due_override from public.bid_projects where id=$1",
+            [id],
+          )
+        )[0],
+        events: await countOf(db, "bid_project_events", "bid_project_id=$1", [id]),
+        audits: await countOf(db, "audit_logs", "target_id=$1", [id]),
+      });
+      const before = await state();
+      await assert.rejects(
+        db.query("select public.patch_bid_project($1,'SUBMITTED',null,true,$2,true,now())", [
+          id,
+          WHO.outsider,
+        ]),
+        /OWNER_NOT_MEMBER/,
+      );
+      assert.deepEqual(await state(), before);
+      // Constraint failure occurs AFTER the nested status/event/audit RPC and proves rollback.
+      await assert.rejects(
+        db.query("select public.patch_bid_project($1,'SUBMITTED',$2,true,null,true,now())", [
+          id,
+          "x".repeat(501),
+        ]),
+        /check constraint/,
+      );
+      assert.deepEqual(await state(), before);
+      await asWorker(db);
+      await db.query(
+        "insert into public.bid_reviews(org_id,bid_id,revision_id,decision,reason,decided_at) values($1,$2,$3,'WATCH','최신 결정 재검토 기록입니다',now()+interval '1 second')",
+        [ORG1, BID1, REV1],
+      );
+      await as(db, "sales");
+      await assert.rejects(
+        db.query("select public.patch_bid_project($1,'SUBMITTED',null,true,null,true,now())", [id]),
+        /LATEST_DECISION_NOT_BID/,
+      );
+      assert.deepEqual(await state(), before);
+      await db.query("select public.patch_bid_project($1,'CLOSED')", [id]);
+      assert.equal((await state()).project.status, "CLOSED");
     });
   });
 });

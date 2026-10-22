@@ -24,9 +24,9 @@ test("V2-02 Topbar 실행 모드·AI 가 mock 이고 FX-01 분석 띠에 분석 
 test("V2-02 /bids?origin=all 이면 출처 필터 값이 전체다", async ({ page }) => {
   await page.goto("/bids?origin=all");
   const origin = page
-    .getByRole("combobox", { name: "출처", exact: true })
+    .getByRole("combobox", { name: "데이터 구분", exact: true })
     .locator('[data-slot="select-value"]');
   await expect(origin).toHaveText("전체");
   await page.goto("/bids");
-  await expect(origin).toHaveText("데모 공고 (기본)");
+  await expect(origin).toHaveText("데모 공고");
 });

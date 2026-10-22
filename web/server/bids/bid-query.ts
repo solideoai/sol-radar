@@ -40,6 +40,7 @@ export type BidListQuery = {
   sort: BidSort;
   cursor: string | null;
   limit: number;
+  watched?: "me";
 };
 
 export type QueryIssue = { path: string; message: string };
@@ -67,6 +68,7 @@ const parsedSchema = z.strictObject({
   sort: z.enum(BID_SORTS),
   cursor: z.string().min(1).optional(),
   limit: limitSchema,
+  watched: z.literal("me").optional(),
 });
 
 function repeated(value: string | string[] | undefined): string[] {
@@ -123,6 +125,7 @@ export function parseBidListQuery(query: RawQuery, runMode: RunMode): ParseResul
     sort: scalar(query.sort) ?? "publishedAt:desc",
     cursor: scalar(query.cursor),
     limit: scalar(query.limit) ?? "20",
+    watched: scalar(query.watched),
   });
   if (!result.success) return { ok: false, issues: issuesOf(result.error) };
   const parsed = result.data;
@@ -155,6 +158,7 @@ export function parseBidListQuery(query: RawQuery, runMode: RunMode): ParseResul
       sort: parsed.sort,
       cursor: parsed.cursor ?? null,
       limit: parsed.limit,
+      ...(parsed.watched === undefined ? {} : { watched: parsed.watched }),
     },
   };
 }
@@ -241,7 +245,7 @@ export function cursorScope(kind: CursorKind, parts: readonly unknown[]): string
 }
 
 // 조직과, 커서와 페이지 크기를 뺀 필터·정렬의 지문. 이것이 바뀌면 커서를 버린다.
-export function fingerprintOf(orgId: string, query: BidListQuery): string {
+export function fingerprintOf(orgId: string, query: BidListQuery, userId?: string): string {
   return cursorScope("bids", [
     orgId,
     query.q,
@@ -253,6 +257,7 @@ export function fingerprintOf(orgId: string, query: BidListQuery): string {
     [...query.decision].sort(),
     query.origin,
     query.sort,
+    ...(query.watched === undefined ? [] : [`watched:${query.watched}`, userId]),
   ]);
 }
 

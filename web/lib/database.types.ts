@@ -501,6 +501,148 @@ export type Database = {
           },
         ]
       }
+      bid_project_events: {
+        Row: {
+          actor_id: string | null
+          bid_project_id: string
+          created_at: string
+          from_status: string | null
+          id: string
+          note: string | null
+          org_id: string
+          to_status: string
+        }
+        Insert: {
+          actor_id?: string | null
+          bid_project_id: string
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          org_id: string
+          to_status: string
+        }
+        Update: {
+          actor_id?: string | null
+          bid_project_id?: string
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_project_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_project_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_project_events_project_fkey"
+            columns: ["bid_project_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id", "org_id"]
+          },
+        ]
+      }
+      bid_projects: {
+        Row: {
+          bid_id: string
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          opened_by_review_id: string
+          org_id: string
+          owner_id: string | null
+          result: string | null
+          result_note: string | null
+          result_recorded_at: string | null
+          status: string
+          submission_due_override: string | null
+          updated_at: string
+        }
+        Insert: {
+          bid_id: string
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opened_by_review_id: string
+          org_id: string
+          owner_id?: string | null
+          result?: string | null
+          result_note?: string | null
+          result_recorded_at?: string | null
+          status?: string
+          submission_due_override?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bid_id?: string
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opened_by_review_id?: string
+          org_id?: string
+          owner_id?: string | null
+          result?: string | null
+          result_note?: string | null
+          result_recorded_at?: string | null
+          status?: string
+          submission_due_override?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_projects_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_opened_by_review_fkey"
+            columns: ["opened_by_review_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "bid_reviews"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "bid_projects_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_projects_owner_fkey"
+            columns: ["org_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["org_id", "user_id"]
+          },
+        ]
+      }
       bid_relevance_assessments: {
         Row: {
           categories: string[]
@@ -740,6 +882,42 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bid_revisions"
             referencedColumns: ["id", "bid_id"]
+          },
+        ]
+      }
+      bid_watches: {
+        Row: {
+          bid_id: string
+          created_at: string
+          org_id: string
+          user_id: string
+        }
+        Insert: {
+          bid_id: string
+          created_at?: string
+          org_id: string
+          user_id: string
+        }
+        Update: {
+          bid_id?: string
+          created_at?: string
+          org_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bid_watches_bid_id_fkey"
+            columns: ["bid_id"]
+            isOneToOne: false
+            referencedRelation: "bid_notices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bid_watches_member_fkey"
+            columns: ["org_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["org_id", "user_id"]
           },
         ]
       }
@@ -2074,6 +2252,7 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          bid_project_id: string | null
           completed_at: string | null
           created_at: string
           created_by: string | null
@@ -2087,6 +2266,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          bid_project_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -2100,6 +2280,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          bid_project_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -2118,6 +2299,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "memberships"
             referencedColumns: ["org_id", "user_id"]
+          },
+          {
+            foreignKeyName: "tasks_bid_project_fkey"
+            columns: ["bid_project_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "bid_projects"
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "tasks_created_by_fkey"
@@ -2343,6 +2531,91 @@ export type Database = {
         }
         Relationships: []
       }
+      watched_bid_list_items: {
+        Row: {
+          agency: string | null
+          budget_krw: number | null
+          budget_krw_text: string | null
+          deadline_at: string | null
+          docs_download_failed: number | null
+          docs_failed: number | null
+          docs_parsed: number | null
+          docs_partial: number | null
+          docs_pending: number | null
+          docs_total: number | null
+          docs_unsupported: number | null
+          id: string | null
+          is_demo: boolean | null
+          last_synced_at: string | null
+          latest_decided_at: string | null
+          latest_decision: string | null
+          latest_reviewer_display_name: string | null
+          latest_reviewer_email: string | null
+          latest_revision: number | null
+          latest_run_basis: string | null
+          latest_run_created_at: string | null
+          latest_run_flags: string[] | null
+          latest_run_id: string | null
+          latest_run_recommendation: string | null
+          latest_run_score: number | null
+          latest_run_status: string | null
+          notice_id: string | null
+          plan_ref: string | null
+          published_at: string | null
+          scored_recommendation: string | null
+          scored_score: number | null
+          source: string | null
+          source_url: string | null
+          stage: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
+      watched_opportunity_list_items: {
+        Row: {
+          agency: string | null
+          agency_id: string | null
+          agency_ids: string[] | null
+          analysis_id: string | null
+          analysis_status: string | null
+          bid_id: string | null
+          budget_krw: string | null
+          budget_krw_value: number | null
+          categories: string[] | null
+          changed_at: string | null
+          company_id: string | null
+          company_ids: string[] | null
+          deadline_at: string | null
+          first_seen_at: string | null
+          id: string | null
+          is_demo: boolean | null
+          latest_decision: string | null
+          latest_decision_at: string | null
+          latest_run_id: string | null
+          latest_run_status: string | null
+          notice_id: string | null
+          org_id: string | null
+          published_at: string | null
+          recommendation: string | null
+          relevance_rank: number | null
+          relevance_score: number | null
+          relevance_state: string | null
+          revision_id: string | null
+          sol_score: number | null
+          source: string | null
+          source_conflict: boolean | null
+          source_count: number | null
+          source_families: string[] | null
+          source_family: string | null
+          source_url: string | null
+          sources: Json | null
+          stage: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       activity_name_of: {
@@ -2360,6 +2633,14 @@ export type Database = {
       avatar_url_from_metadata: {
         Args: { meta: Json }
         Returns: string
+      }
+      bid_watch_count: {
+        Args: { p_bid_id: string }
+        Returns: number
+      }
+      change_bid_project_status: {
+        Args: { p_note: string; p_project_id: string; p_to_status: string }
+        Returns: undefined
       }
       claim_document_storage: {
         Args: { p: Json }
@@ -2429,6 +2710,14 @@ export type Database = {
         Args: { roles: string[] }
         Returns: string[]
       }
+      open_bid_project: {
+        Args: { p_review_id: string }
+        Returns: { project_id: string; reopened: boolean }[]
+      }
+      patch_bid_project: {
+        Args: { p_due_at?: string; p_due_changed?: boolean; p_note?: string; p_owner_changed?: boolean; p_owner_id?: string; p_project_id: string; p_status?: string }
+        Returns: undefined
+      }
       procurement_dataset_version: {
         Args: { p_org_id: string }
         Returns: string
@@ -2449,6 +2738,10 @@ export type Database = {
         Args: { p_as_of?: string; p_org_id: string; p_origin: string }
         Returns: Json
       }
+      record_bid_project_result: {
+        Args: { p_note: string; p_project_id: string; p_result: string }
+        Returns: undefined
+      }
       refresh_bid_opportunity: {
         Args: { p_id: string }
         Returns: undefined
@@ -2460,6 +2753,10 @@ export type Database = {
       resolve_solideo_employment: {
         Args: { p_department: string; p_job_title: string }
         Returns: { department_code: string; department_id: string; department_name: string; job_title_code: string; job_title_id: string; job_title_label: string }[]
+      }
+      send_deadline_reminders: {
+        Args: { p_now: string }
+        Returns: number
       }
       task_dashboard_stats: {
         Args: { as_of?: string; target_org: string }

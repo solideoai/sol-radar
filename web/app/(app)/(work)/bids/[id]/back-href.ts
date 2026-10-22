@@ -11,9 +11,12 @@ export function backHrefOf(list: string | string[] | undefined, runMode: RunMode
   const raw = Object.fromEntries(
     [...new Set(params.keys())].map((key) => [key, params.getAll(key)]),
   );
-  if (!parseOpportunityQuery(raw, runMode).ok) return "/bids";
+  const parsed = parseOpportunityQuery(raw, runMode);
+  if (!parsed.ok) return "/bids";
+  const path = parsed.value.watched === "me" ? "/watchlist" : "/bids";
+  params.delete("watched");
   params.delete("cursor");
   params.delete("limit");
   const search = params.toString();
-  return search === "" ? "/bids" : `/bids?${search}`;
+  return search === "" ? path : `${path}?${search}`;
 }

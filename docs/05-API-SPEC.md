@@ -68,13 +68,13 @@ updated: 2026-10-21
 |GET|`/job-titles`|`ADMIN, SALES, ANALYST, VIEWER`|현재 조직 직급 카탈로그. UUID와 표시 코드 분리|`{id:string,code:string,label:string}[]`(§4.7)|
 |GET|`/team-members`|`ADMIN, SALES, ANALYST, VIEWER`|가상 직원 명부(ADR-021). 사진 경로(없으면 null)와 점수 계산 대상 여부. 연락처 없음|`?q&departmentId&jobTitleId&scoring&cursor` → `Page<TeamMemberListItem>`(§4.7)|
 |GET|`/team-members/:id`|`ADMIN, SALES, ANALYST, VIEWER`|개인 상세(ADR-021). 점수 계산 대상이면 직무·등급·스킬·가용성|`TeamMemberDetail`(§4.7)|
-|PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|P1 착수 때 zod 계약으로 정한다|
-|GET|`/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|조직 분석 이력. 비교는 `GET /analyses/:id`를 최대 4번 부른다(P1, ADR-021)|`?bidId&status&recommendation&runMode&cursor` → `Page`(항목 형태는 P1 착수 때 정한다)|
-|GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 200명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=` → P1 착수 때 정한다|
+|PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|`200 {bidId, watched, watcherCount}`. 조직·사용자는 세션에서 결정한다|
+|GET|`/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|조직 분석 이력. 비교는 `GET /analyses/:id`를 최대 4번 부른다(P1, ADR-021)|`?bidId&status&recommendation&runMode&cursor&limit` → `Page<AnalysisHistoryItem>`|
+|GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 200명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=<UUID,...>` → `WorkforceResult` (중복 없는 1~3건)|
 |POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사). 점수 속성은 받지 않는다(P1, ADR-021)|P1 착수 때 정한다|
 |GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 BID 결정(`reviewId`) 필수(P1, ADR-021)|BID 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
 |GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 BID가 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
-|POST|`/projects/:id/result`|`ADMIN, SALES`|결과 기록(수동). 점수·결정 모델·학습에 쓰지 않는다(P1, ADR-021)|P1 착수 때 정한다|
+|POST|`/projects/:id/result`|`ADMIN, SALES`|결과 기록(수동). 점수·결정 모델·학습에 쓰지 않는다(P1, ADR-021)|`{result, note?}` → `200 ProjectDetail`. `WON, LOST, CANCELLED, NOT_SUBMITTED`; 메모 최대 2000자|
 |GET|`/admin/users`|`ADMIN`|**(미구현)** 이 조직의 구성원 목록(템플릿 `memberships` + `profiles`)|`User[]`|
 |POST|`/admin/users/invite`|`ADMIN`|**(미구현)** 초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
 |PATCH|`/admin/users/:id`|`ADMIN`|**(미구현)** 업무 역할 변경(`memberships.sol_role`). `:id`는 구성원의 사용자 ID(`profiles.id`). 이 조직 구성원이 아니면 `404`|`UserPatch` → `200 User`|
@@ -88,7 +88,9 @@ updated: 2026-10-21
 |GET|`/admin/ai/eval-runs`|`ADMIN`|**(미구현)** 평가 실행 요약 목록(해커톤 선택)|`?cursor&limit` → `Page<EvalRunSummary>`|
 |GET|`/admin/ai/eval-runs/:id`|`ADMIN`|**(미구현)** 평가 리포트 전체(해커톤 선택)|`EvalRunReport`|
 
-**구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. `/me/kakao-notify` 6개([[16-DECISIONS|ADR-038]])는 설계이고 `feat/kakao-notify`에서 구현 중이다(main에는 없다). **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개 가운데 `GET /company-profile`·`GET /company-profile/revisions`는 main `bf16806`(2026-10-20, `feat/company-read`)로 들어왔고 `PUT /company-profile`(새 revision 저장)은 **(미구현)**이다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다. `POST /analyses/:id/what-if`([[16-DECISIONS|ADR-037]])도 구현됐다(브랜치 `feat/boost2-what-if` `faa707b`, 2026-10-21 main 병합 `d48c7a2`). 위 목록은 `554b34c` 기준이라 따로 적는다.
+**당시 구현 상태(2026-10-20, main `554b34c` 기준 `web/app/api/v1/**/route.ts`)**: 구현된 것은 `/health/live`·`/health/ready`(`web/app/health`), `/signup-options`, `/me/employment`(GET·PATCH), `/bids`, `/bids/:id`, `/bids/:id/analyses`(GET·POST), `/analyses/:id`, `/bids/:id/qualification-checks`, `/bids/:id/reviews`(GET·POST), `/dashboard/summary`, `/notifications`, `/notifications/:id/read`, `/departments`, `/job-titles`, `/team-members`, `/team-members/:id`, `/admin/ingestion/runs`(GET·POST), `/admin/ingestion/runs/:id`, `/admin/ai/status`다. `/me/kakao-notify` 6개([[16-DECISIONS|ADR-038]])는 설계이고 `feat/kakao-notify`에서 구현 중이다(main에는 없다). **(미구현)**을 붙인 12개(그중 `eval-runs` 2개는 해커톤 선택)와 P1 행은 Route Handler가 없어 404다. `/company-profile` 3개 가운데 `GET /company-profile`·`GET /company-profile/revisions`는 main `bf16806`(2026-10-20, `feat/company-read`)로 들어왔고 `PUT /company-profile`(새 revision 저장)은 **(미구현)**이다. 구성원 관리·계정 정지는 지금 템플릿 화면(`/[slug]/settings/members`)과 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)가 맡는다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다. `POST /analyses/:id/what-if`([[16-DECISIONS|ADR-037]])도 구현됐다(브랜치 `feat/boost2-what-if` `faa707b`, 2026-10-21 main 병합 `d48c7a2`). 위 목록은 `554b34c` 기준이라 따로 적는다.
+
+**2026-10-22 로컬 구현 갱신:** `feat/dashboard-pages-20261022`에는 `/bids/:id/watch`, 조직 이력 `GET /analyses`, `/projects`·`/projects/:id`·`/projects/:id/result`, `/workforce/simulation`이 구현됐다. 위 10-20 기록의 P1 전체 404 설명은 당시 상태이며 이 브랜치의 네 기능에는 적용하지 않는다. 클라우드 적용·배포 여부는 [통합 기록](evidence/navigation/20261022-implementation.md)에서 구분한다.
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
@@ -97,6 +99,16 @@ updated: 2026-10-21
 [[16-DECISIONS|ADR-020]]으로 더하거나 넓힌 것: `/bids`(`origin` 필터·`origin`·`documentsStatus`), `/bids/:id`(첨부 상태·`stageLinks`·`structuredQualifications`), `/analyses/:id`(`runMode`·`requirementAssessments`·결정 모델 v0.2·`fallbackReason`), `/bids/:id/qualification-checks`(`reasonCode`·`companyEvidence`·`basis`), `/admin/ingestion/runs`(본문 확장), `/admin/sources`·`/admin/ai/models`·`/admin/ai/eval-runs`(새로), `/admin/ai/status`(응답 확장). 데이터셋 빌드·내보내기와 평가 실행은 운영자 CLI가 한다([[21-MODEL-TRAINING|21 모델 학습]] §6). 웹에서 이것들을 시작하는 엔드포인트는 해커톤에 두지 않는다. 평가 결과는 `pnpm eval:publish`(예정)가 `eval_runs` 표([[04-DATABASE|04 DB]] §3.7)에 올리고 웹은 읽기만 한다.
 
 [[16-DECISIONS|ADR-021]]으로 더하거나 넓힌 것: `/departments`·`/team-members`·`/team-members/:id`(데모 필수, 조직·인력 조회), `/dashboard/summary`(`analyses.latestByStatus`), §1 현재 조직 규칙과 `403 UNSUPPORTED_ACCOUNT_STATE`. "P1, ADR-021" 행은 2026-10-21 [[16-DECISIONS|ADR-042]]에 따라 핵심 컷·확장 컷과 조건부 병행한다. 구현 전 엔드포인트는 계속 404이며 승인만으로 구현 완료로 바뀌지 않는다.
+
+### P1 조회·저장 계약 (2026-10-22 로컬 통합)
+
+구현 기준은 [[2026-10-22-dashboard-missing-pages-plan|실행 계획]]과 N5/N7 `polaris/specs/in-progress/` 스펙이다. 배포·클라우드 적용과 로컬 구현을 구분한다.
+
+- 관심 PUT·DELETE는 멱등이며 본인 행만 저장한다. `watched=me` 커서는 조직·사용자·필터에 묶는다. 현재 `/opportunities`도 같은 본인 범위를 지원한다.
+- 분석 이력은 `created_at desc, id desc`, limit 기본20·최대100이다. 항목은 공고 제목·DEMO와 분석 ID/revision/프로필 revision/상태/모드/점수/권고/실패 사유/reviewFlags/시각/알고리즘 버전이며 입력 스냅샷은 싣지 않는다. 커서는 조직·필터에 묶는다. 비교는 기존 단건 조회 2~4회, 분석 실행·저장 없음이다.
+- 프로젝트 POST `{reviewId}`는 `201` 상세를 반환한다. PATCH는 상태·담당자·제출 마감 변경을 원자적으로 처리한다. 다른 조직 자원404, 읽기 전용 역할의 변경403, 최신 결정이 BID가 아닐 때 전진409다. 종료는 허용한다. 수동 결과는 점수·모델·학습 입력에 연결하지 않는다. 체크리스트는 인증된 서버 액션과 기존 task 서비스/RLS를 쓴다.
+- 인력 시뮬레이션은 검증된 최신 완료/부분 분석 스냅샷의 FTE·기준 시각과 현재 배정의 기준 시각·과부하·공유 후보를 분리한다. 스냅샷이 없으면 분석 필요로 표시한다. 연락처·성별을 응답하지 않고 배정·분석·점수를 저장하지 않는다.
+- `DashboardSummary.projects.active`는 현재 origin과 같은 범위에서 종료를 제외한 프로젝트 수다. 기존 분석 요약 필드는 유지한다.
 
 ## 3. `GET /bids` 쿼리 파라미터
 

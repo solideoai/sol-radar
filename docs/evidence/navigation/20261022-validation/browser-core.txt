@@ -1,0 +1,16 @@
+Command: Chromium: watch-toggle, procurement, analysis-comparison
+Base: c9bc496 + dashboard implementation working tree; branch feat/dashboard-pages-20261022
+Target: isolated local runtime only
+
+
+ RUN  v4.1.11 /Users/leegwanghui/.codex/worktrees/43f8/sol-radar/web
+
+Loaded  vitest@4.1.11  and  @vitest/browser@4.1.12 .
+Running mixed versions is not supported and may lead into bugs
+Update your dependencies and make sure the versions match.
+
+ Test Files  3 passed (3)
+      Tests  6 passed (6)
+   Start at  09:43:41
+   Duration  2.41s (transform 0ms, setup 531ms, import 950ms, tests 1.27s, environment 0ms)
+

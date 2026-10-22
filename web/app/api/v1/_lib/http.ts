@@ -23,7 +23,11 @@ type ApiErrorCode =
   | "RATE_LIMITED"
   | "NOT_FOUND"
   | "SERVICE_UNAVAILABLE"
-  | "INTERNAL_ERROR";
+  | "INTERNAL_ERROR"
+  | "PROJECT_REQUIRES_BID_DECISION"
+  | "PROJECT_ALREADY_OPEN"
+  | "LATEST_DECISION_NOT_BID"
+  | "INVALID_PROJECT_TRANSITION";
 const responseHeaders = (requestId: string) => ({
   "Cache-Control": "no-store",
   "X-Request-Id": requestId,

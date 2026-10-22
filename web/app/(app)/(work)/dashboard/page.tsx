@@ -4,6 +4,8 @@ import { AppPage } from "@/components/app-page";
 import { formatKst } from "@/components/bids/format";
 import { OpportunityRefresh } from "@/components/work/opportunities-refresh";
 import { defaultOrigin } from "@/server/bids";
+import { countActiveProjects } from "@/server/projects";
+import { projectDeps } from "@/app/_lib/project-deps";
 import {
   loadOpportunityPage,
   loadOpportunitySources,
@@ -25,12 +27,14 @@ export default async function DashboardPage() {
   const now = new Date();
   const queries = dashboardQueries(now, work.runMode);
   // "BID 권고" 카드는 BID 표와 같은 조건(queries.bid)으로 센다. 표·전체 보기와 숫자가 갈라지지 않는다(M4).
-  const [summaryResult, reviewResult, earlyResult, sourcesResult] = await Promise.allSettled([
-    loadOpportunitySummary(work.orgId, defaultOrigin(work.runMode), now.toISOString()),
-    loadOpportunityPage(work.orgId, queries.review),
-    loadOpportunityPage(work.orgId, queries.early),
-    loadOpportunitySources(defaultOrigin(work.runMode)),
-  ]);
+  const [summaryResult, reviewResult, earlyResult, sourcesResult, projectsResult] =
+    await Promise.allSettled([
+      loadOpportunitySummary(work.orgId, defaultOrigin(work.runMode), now.toISOString()),
+      loadOpportunityPage(work.orgId, queries.review),
+      loadOpportunityPage(work.orgId, queries.early),
+      loadOpportunitySources(defaultOrigin(work.runMode)),
+      countActiveProjects(work.orgId, projectDeps(), defaultOrigin(work.runMode)),
+    ]);
   if (summaryResult.status === "rejected") throw summaryResult.reason;
   const summary = summaryResult.value;
   return (
@@ -53,6 +57,7 @@ export default async function DashboardPage() {
     >
       <DashboardView
         summary={summary}
+        activeProjects={projectsResult.status === "fulfilled" ? projectsResult.value : null}
         review={reviewResult.status === "fulfilled" ? reviewResult.value.items : null}
         early={earlyResult.status === "fulfilled" ? earlyResult.value.items : null}
         sources={sourcesResult.status === "fulfilled" ? sourcesResult.value : null}
@@ -60,7 +65,6 @@ export default async function DashboardPage() {
         earlyQuery={dashboardListQuery(queries.early)}
         now={now}
         canRunIngestion={canRunIngestion(work.role)}
-        runMode={work.runMode}
       />
     </AppPage>
   );

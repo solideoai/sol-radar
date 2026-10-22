@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
+import { listMyWatchedBidIds } from "@/server/watchlist";
 import { defaultOrigin } from "@/server/bids";
 import { loadOpportunityFilters, loadOpportunityPage } from "@/app/_lib/opportunity-data";
 import { canRunIngestion } from "@/app/(app)/(work)/empty-state";
@@ -20,9 +21,13 @@ export default async function BidsPage({ searchParams }: PageProps<"/bids">) {
   const { query, search, notice } = listQueryOf(raw, work.runMode);
   // D-n 의 기준. 요청마다 한 번 만들어 내린다(P1, 하이드레이션 차이 없음).
   const now = new Date();
-  const [first, filters] = await Promise.all([
-    loadOpportunityPage(work.orgId, query),
+  const [first, filters, watchedIds] = await Promise.all([
+    loadOpportunityPage(work.orgId, query, work.userId),
     loadOpportunityFilters(query.origin),
+    listMyWatchedBidIds({ orgId: work.orgId, userId: work.userId }).catch(() => {
+      console.error(JSON.stringify({ event: "bid_list_watches_failed" }));
+      return null;
+    }),
   ]);
   const stableQuery = new URLSearchParams(search);
   stableQuery.set("asOf", first.asOf);
@@ -45,6 +50,7 @@ export default async function BidsPage({ searchParams }: PageProps<"/bids">) {
     <AppPage title={BIDS_TITLE} description={BIDS_DESCRIPTION} contentClassName="max-w-360">
       <BidListView
         defaultOrigin={defaultOrigin(work.runMode) === "live" ? "live" : "demo"}
+        watchedIds={watchedIds}
         items={first.items}
         total={first.total}
         nextCursor={first.pageInfo.nextCursor}

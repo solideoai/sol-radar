@@ -200,6 +200,7 @@ export function OpportunityFilters({
       if (value === null) continue;
       for (const item of typeof value === "string" ? [value] : value) next.append(key, item);
     }
+    if (pathname === "/watchlist") next.delete("watched");
     const nextQuery = next.toString();
     startTransition(() => {
       setSearch(nextQuery);
@@ -472,7 +473,7 @@ export function OpportunityFilters({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => startTransition(() => router.push("/bids", { scroll: false }))}
+            onClick={() => startTransition(() => router.push(pathname, { scroll: false }))}
           >
             <FilterXIcon aria-hidden className="size-4" />
             필터 초기화

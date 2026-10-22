@@ -28,3 +28,10 @@ export { NotificationStoreError, createNotificationOutboxStore } from "./outbox.
 // 한 회차. 주기 실행(타이머)은 worker 의 몫이다.
 export { processOutboxBatch } from "./outbox.service";
 export type { OutboxBatchDeps, OutboxBatchSummary } from "./outbox.service";
+
+export {
+  createDeadlineReminderStore,
+  runDeadlineReminders,
+  DeadlineReminderStoreError,
+} from "./deadline";
+export type { DeadlineReminderStore, DeadlineReminderDeps } from "./deadline";

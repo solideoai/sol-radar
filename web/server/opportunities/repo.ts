@@ -96,7 +96,7 @@ export function opportunityKeyset(q: OpportunityQuery, c: OpportunityCursor): st
 
 function filtered(client: Client, orgId: string, q: OpportunityQuery, asOf: string) {
   let r = client
-    .from("opportunity_list_items")
+    .from(q.watched === "me" ? "watched_opportunity_list_items" : "opportunity_list_items")
     .select("*", { count: "exact" })
     .eq("org_id", orgId)
     .lte("first_seen_at", asOf);
@@ -139,9 +139,11 @@ export async function listOpportunities(
   orgId: string,
   q: OpportunityQuery,
   secret: string | null,
+  userId?: string,
 ): Promise<OpportunityPage> {
   if (!secret || secret.length < 32) throw fail();
-  const scope = fingerprint(orgId, q);
+  if (q.watched && !userId) throw fail();
+  const scope = fingerprint(orgId, q, userId);
   const c = q.cursor ? verifyOpportunityCursor(q.cursor, scope, secret) : null;
   if (q.cursor && !c)
     throw new OpportunityReadError(

@@ -16,7 +16,6 @@ import {
 import { OpportunityReviewRows } from "@/components/work/opportunities-review-rows";
 import { OpportunitySourceStatus } from "@/components/work/opportunities-source-status";
 import type { OpportunityItem, OpportunitySummary, SourceSummary } from "@/server/opportunities";
-import type { RunMode } from "@/server/bids";
 import { NoBidsEmptyState } from "@/app/(app)/(work)/empty-state";
 import { DashboardAiBanner } from "./dashboard-ai-banner";
 
@@ -118,6 +117,7 @@ function Portfolio({ summary }: { summary: OpportunitySummary }) {
 
 export function DashboardView({
   summary,
+  activeProjects,
   review,
   early,
   sources,
@@ -125,9 +125,9 @@ export function DashboardView({
   earlyQuery,
   now,
   canRunIngestion,
-  runMode,
 }: {
   summary: OpportunitySummary;
+  activeProjects: number | null;
   review: OpportunityItem[] | null;
   early: OpportunityItem[] | null;
   sources: SourceSummary | null;
@@ -135,18 +135,17 @@ export function DashboardView({
   earlyQuery: string;
   now: Date;
   canRunIngestion: boolean;
-  runMode: RunMode;
 }) {
-  const healthy = sources?.groups.reduce((total, group) => total + group.healthyServices, 0) ?? 0;
-  const enabled = sources?.groups.reduce((total, group) => total + group.enabledServices, 0) ?? 0;
-  const isExternal = runMode === "live";
   return (
     <>
       <DashboardAiBanner />
       {summary.isDemo && (
         <p className="type-caption text-muted-foreground">DEMO · 예시 공고 기준</p>
       )}
-      <section aria-label="공공조달 요약" className="grid grid-cols-5 gap-4 [&_p]:wrap-anywhere">
+      <section
+        aria-label="공공조달 요약"
+        className="grid grid-cols-5 gap-4 [&_p]:wrap-anywhere [&_.type-label]:min-h-12"
+      >
         <StatCard
           label="신규 발견"
           value={count(summary.newlyDiscovered)}
@@ -172,18 +171,16 @@ export function DashboardView({
           className="min-w-0 shadow-none"
         />
         <StatCard
-          label="수집 상태"
-          value={!isExternal || sources === null || enabled === 0 ? "—" : `${healthy}/${enabled}`}
+          label="진행 중 입찰 프로젝트"
+          value={activeProjects === null ? "—" : count(activeProjects)}
           hint={
-            !isExternal
-              ? `${runMode} 모드 · 외부 수집 없음`
-              : sources === null
-                ? "수집 현황 조회 실패"
-                : enabled === 0
-                  ? "활성 수집 서비스 없음"
-                  : healthy < enabled
-                    ? "일부 미완료 · 소스 상태 확인"
-                    : "정상 · 활성 서비스 기준"
+            activeProjects === null ? (
+              "프로젝트 현황 조회 실패"
+            ) : (
+              <Link href="/projects" className="underline underline-offset-4">
+                종료 제외 · 프로젝트 보기
+              </Link>
+            )
           }
           className="min-w-0 shadow-none"
         />

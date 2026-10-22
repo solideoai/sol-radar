@@ -3,7 +3,7 @@
 import { cn } from "cn";
 import { CircleDashedIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { dDay, formatKrwCompact, formatKst, formatKstShort } from "@/components/bids/format";
 import { SourceBadge } from "@/components/bids/source-badge";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
@@ -92,11 +92,17 @@ export function OpportunityTable({
   now,
   listQuery,
   busy = false,
+  watchColumn,
+  caption = "입찰 공고 사업기회 목록. DEMO는 데모용 가상 공고입니다.",
+  removedWatchIds = [],
 }: {
   items: OpportunityItem[];
   now: Date;
   listQuery?: string;
   busy?: boolean;
+  watchColumn?: (item: OpportunityItem, titleId: string) => ReactNode;
+  caption?: string;
+  removedWatchIds?: readonly string[];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const hintId = useId();
@@ -127,20 +133,25 @@ export function OpportunityTable({
       >
         <table
           className={cn(
-            "w-full min-w-[1184px] table-fixed border-collapse type-body",
+            "w-full table-fixed border-collapse type-body",
+            watchColumn ? "min-w-[1224px]" : "min-w-[1184px]",
             busy && "opacity-60",
           )}
         >
-          <caption className="sr-only">
-            입찰 공고 사업기회 목록. DEMO는 데모용 가상 공고입니다.
-          </caption>
+          <caption className="sr-only">{caption}</caption>
           <colgroup>
+            {watchColumn && <col style={{ width: 40 }} />}
             {COLUMNS.map(([label, width]) => (
               <col key={label} style={{ width: label === "제목" ? undefined : width }} />
             ))}
           </colgroup>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              {watchColumn && (
+                <TableHead scope="col">
+                  <span className="sr-only">관심 공고</span>
+                </TableHead>
+              )}
               {COLUMNS.map(([label]) => (
                 <TableHead
                   key={label}
@@ -160,6 +171,11 @@ export function OpportunityTable({
               const isEarly = EARLY_STAGES.includes(item.stage);
               return (
                 <TableRow key={item.id} className="h-16">
+                  {watchColumn && (
+                    <TableCell className="px-1">
+                      {watchColumn(item, `opportunity-title-${item.id}`)}
+                    </TableCell>
+                  )}
                   <TableCell className="py-2">
                     <div className="flex flex-col items-start gap-1">
                       <SourceBadge family={item.sourceFamily} />
@@ -187,12 +203,18 @@ export function OpportunityTable({
                       {item.isDemo && <DemoBadge dense />}
                       {item.sourceConflict && <OpportunityConflictNotice />}
                       <Link
+                        id={`opportunity-title-${item.id}`}
                         href={opportunityHref(item.bidId, listQuery)}
                         title={item.title}
                         className="line-clamp-2 rounded-sm break-words outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
                       >
                         {item.title}
                       </Link>
+                      {removedWatchIds.includes(item.bidId) && (
+                        <span role="status" className="type-caption text-muted-foreground">
+                          관심 해제됨
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

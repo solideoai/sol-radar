@@ -101,3 +101,5 @@ export type { AgencyType, Domain } from "./domain-keywords";
 export { businessDaysBetween, defaultProjectPeriod, kstDate } from "./calendar";
 export { whatIf } from "./what-if";
 export type { Assumption, WhatIfOutcome, WhatIfSummary } from "./what-if";
+
+export { companySkillSet, matchSkill } from "./skill-aliases";

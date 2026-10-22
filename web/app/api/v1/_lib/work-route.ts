@@ -48,9 +48,10 @@ export function businessRoute(
   });
 }
 
-type PathResource = "bid" | "analysis" | "notification" | "ingestionRun";
+type PathResource = "bid" | "analysis" | "notification" | "ingestionRun" | "project";
 const NOT_FOUND_MESSAGES: Record<PathResource, string> = {
   bid: "공고를 찾을 수 없습니다",
+  project: "입찰 프로젝트를 찾을 수 없습니다",
   analysis: "분석을 찾을 수 없습니다",
   notification: "알림을 찾을 수 없습니다",
   ingestionRun: "수집 실행을 찾을 수 없습니다",

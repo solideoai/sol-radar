@@ -22,15 +22,15 @@ test("G8 목록 모든 행과 Topbar·상세 제목 앞에 DEMO 가 있고 초�
 }) => {
   const width = widthOf(page);
   const { bids } = readWorkContext();
-  await page.goto("/bids");
+  // NOTICE 15건과 예정 사업 4건을 모두 열어 전체 DEMO 표시를 검증한다.
+  await page.goto("/bids?includeEarly=true");
   await expect(page.getByRole("heading", { level: 1, name: "입찰 공고" })).toBeVisible();
 
-  const rows = page.getByRole("table", { name: "입찰 공고 목록" }).locator("tbody tr");
+  const rows = page.getByRole("table", { name: /입찰 공고 사업기회 목록/ }).locator("tbody tr");
   await expect(rows).toHaveCount(19);
-  const originCells = await rows.evaluateAll((trs) =>
-    trs.map((tr) => tr.querySelector("td")?.textContent?.trim()),
-  );
-  expect(originCells).toEqual(Array(19).fill("DEMO"));
+  // 현재 사업기회 표는 관심·출처 열을 앞에 두고 DEMO는 제목 셀에 표시한다.
+  for (const row of await rows.all())
+    await expect(row.getByText("DEMO", { exact: true })).toBeVisible();
 
   const badge = topbar(page).locator('[data-indicator="demo"]').getByText("DEMO", { exact: true });
   await expect(badge).toBeVisible();

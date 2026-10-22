@@ -292,9 +292,11 @@ export function listBids(
   orgId: string,
   query: BidListQuery,
   cursorSecret: string | null,
-  deps: { repo: BidsRepo },
+  deps: { repo: BidsRepo; userId?: string },
 ): Promise<ServiceResult<Page<BidListItem>>> {
-  return paginate(fingerprintOf(orgId, query), query, cursorSecret, (after) =>
+  if (query.watched && !deps.userId)
+    return Promise.resolve(fail(403, "FORBIDDEN", "사용자 범위가 없습니다"));
+  return paginate(fingerprintOf(orgId, query, deps.userId), query, cursorSecret, (after) =>
     deps.repo.listBids(orgId, query, after),
   );
 }

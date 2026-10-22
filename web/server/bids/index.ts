@@ -19,3 +19,10 @@ export { createBidsRepo } from "./bids.supabase";
 export { reviewRepo } from "./review.supabase";
 export { notificationRepo } from "./notification.supabase";
 export { createDashboardRepo } from "./dashboard.supabase";
+
+export { reviewPendingBids, compareDueOrder } from "./review-pending";
+export type { PendingBidCard, PendingSourceRow } from "./review-pending";
+
+export * from "./analysis-history.model";
+export { analysisHistoryRepo } from "./analysis-history.repo";
+export { listAnalysisHistory } from "./analysis-history.service";

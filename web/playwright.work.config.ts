@@ -9,9 +9,8 @@ import { defineConfig, devices } from "@playwright/test";
 // globalSetup 이 돌려준 globalTeardown 은 끝에 axe 보고를 모으고 공용 DB 를 다시 기준선(demo:reset → demo:preanalyze 18/18)으로 되돌린다.
 //
 // 쓰기 프로젝트(work-write)는 두 읽기 프로젝트에 의존한다(dependencies). 읽기 시험이 하나라도 실패하면 쓰기 시험은
-// "did not run" 으로 건너뛰어진다 — 읽기 화면이 바뀐 데이터를 보지 않게 하려는 순서 보장이다. 읽기 실패와 상관없이
-// 쓰기 흐름만 확인하려면 의존을 끊고 그 프로젝트만 돌린다(globalSetup 이 처음부터 다시 seed 하므로 안전하다):
-//   pnpm -C web test:e2e:work --project=work-write --no-deps
+// "did not run" 으로 건너뛰어진다 — 읽기 화면이 바뀐 데이터를 보지 않게 하려는 순서 보장이다.
+// 새 쓰기 흐름도 이 의존성을 유지한다.
 //
 // 포트는 3200 이다(test:e2e:auth 와 같다. 둘을 동시에 돌리지 않는다). 바꾸려면 E2E_PORT.
 const port = Number(process.env.E2E_PORT) || 3200;
@@ -22,7 +21,7 @@ const baseURL = `http://${hostname}:${port}`;
 const READ = /(demo-badge|run-mode-badge|no-evidence|bid-isolation|work-screens)\.spec\.ts$/;
 // 데이터를 바꾸는 spec(분석 실행·결정 기록·알림 읽음·취소 공고). 읽기 spec 이 모두 끝난 뒤 한 작업자로 차례로 돈다.
 // 두 폭 증거는 시험 안에서 폭을 바꿔 찍는다(같은 데이터 상태를 두 번 만들 수 없어서).
-const WRITE = /(bid-decision|fx01-flow|notifications|what-if)\.write\.spec\.ts$/;
+const WRITE = /(bid-decision|fx01-flow|notifications|what-if|p1-navigation)\.write\.spec\.ts$/;
 
 const desktop = (width: 1440 | 1280) => ({
   ...devices["Desktop Chrome"],

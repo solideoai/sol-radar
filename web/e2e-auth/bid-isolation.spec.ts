@@ -4,6 +4,7 @@ import {
   ISOLATION_EVIDENCE_PATH,
   assertNoAxe,
   readWorkContext,
+  localAdmin,
   shot,
   storageOf,
   widthOf,
@@ -50,6 +51,33 @@ test("G5 org-02 VIEWER 는 FX-01 상세를 200 으로 보되 분석 없음이고
   expect(detailBody.latestAnalysis).toBeNull();
   expect(detailBody.latestReview).toBeNull();
   expect(detailBody.reviews).toEqual([]);
+
+  // 새로운 읽기 경계는 기능 폭(1440)에서 한 번만 검증한다.
+  if (width === 1440) {
+    const history = await page.request.get("/api/v1/analyses");
+    expect(history.status()).toBe(200);
+    expect(await history.json()).toMatchObject({ items: [] });
+    const { orgs } = readWorkContext();
+    const privateRuns = z
+      .array(z.object({ id: z.uuid() }))
+      .parse(
+        await localAdmin().call(
+          "GET",
+          `/rest/v1/score_runs?select=id&org_id=eq.${orgs.org01}&limit=1`,
+        ),
+      );
+    expect(privateRuns).toHaveLength(1);
+    expect((await page.request.get(`/api/v1/analyses/${privateRuns[0].id}`)).status()).toBe(404);
+    const simulation = await page.request.get(
+      `/api/v1/workforce/simulation?bidIds=${bids["FX-01"]}`,
+    );
+    expect(simulation.status()).toBe(200);
+    expect(await simulation.json()).toMatchObject({
+      bids: [{ analysisId: null, availableFte: null, candidates: [] }],
+      overloads: [],
+      sharedCandidates: [],
+    });
+  }
 
   // 두 폭이 같은 응답을 낸다. 1440 실행이 증거 파일을 쓴다.
   if (width === 1440)

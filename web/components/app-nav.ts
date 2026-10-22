@@ -48,7 +48,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: "/dashboard", label: "대시보드", icon: LayoutDashboardIcon, status: "released" },
       { href: "/bids", label: "입찰 공고", icon: FileTextIcon, status: "released" },
-      { href: "/watchlist", label: "관심 공고", icon: StarIcon, status: "planned" },
+      { href: "/watchlist", label: "관심 공고", icon: StarIcon, status: "released" },
       { href: "/notifications", label: "알림", icon: BellIcon, status: "released" },
     ],
   },
@@ -60,13 +60,13 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         href: "/analysis",
         label: "분석 결과 비교",
         icon: GitCompareArrowsIcon,
-        status: "planned",
+        status: "released",
       },
       {
         href: "/workforce",
         label: "인력 배치 시뮬레이션",
         icon: UsersRoundIcon,
-        status: "planned",
+        status: "released",
       },
     ],
   },
@@ -74,7 +74,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     id: "bid-management",
     label: "입찰 관리",
     items: [
-      { href: "/projects", label: "입찰 프로젝트", icon: FolderKanbanIcon, status: "planned" },
+      { href: "/projects", label: "입찰 프로젝트", icon: FolderKanbanIcon, status: "released" },
     ],
   },
   {

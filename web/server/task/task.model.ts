@@ -148,6 +148,34 @@ export type DeleteTaskResult =
   | { status: "gone" }
   | { status: "forbidden" };
 
+// ── 입찰 프로젝트 체크리스트(P1 N6) ──
+// 체크리스트는 bid_project_id 가 있는 작업이다(M11). 쓰기(넣기·고치기·지우기)는 restrictive 정책이 ADMIN·SALES 만 연다(M13,
+// 마이그레이션 20261022000300). canManage 는 화면이 sol_role 로 정해 넘긴다. 지우기 표시만 정하고 권한은 DB 가 강제한다.
+export type ChecklistScope = { orgId: string; userId: string; canManage: boolean };
+
+export const CHECKLIST_FORBIDDEN_MESSAGE = "체크리스트를 고칠 권한이 없습니다";
+// 정책이 거절했다(멤버이지만 ADMIN·SALES 가 아니다). 던지지 않고 이 값으로 돌려준다.
+export type ChecklistForbidden = { status: "forbidden"; message: string };
+export const checklistForbidden = (): ChecklistForbidden => ({
+  status: "forbidden",
+  message: CHECKLIST_FORBIDDEN_MESSAGE,
+});
+
+// gone: 프로젝트(넣기) 또는 항목(고치기·지우기)이 그새 없어졌거나 다른 조직의 것이다.
+export type AddChecklistItemResult = AddTaskResult | ChecklistForbidden | { status: "gone" };
+export type UpdateChecklistItemResult = UpdateTaskResult | ChecklistForbidden;
+export type ToggleChecklistItemResult = ChangeTaskStatusResult | ChecklistForbidden;
+export type DeleteChecklistItemResult =
+  Exclude<DeleteTaskResult, { status: "forbidden" }> | ChecklistForbidden;
+
+// 서버 함수는 객체(TaskFormDialog)로도 FormData(폼 action)로도 불릴 수 있다. 칸 이름은 같다.
+export function formFieldsOf(input: unknown): unknown {
+  if (!(input instanceof FormData)) return input;
+  return Object.fromEntries(
+    [...input.entries()].filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
+}
+
 // ── 입력 규칙 ──
 // 같은 규칙을 DB 제약(tasks_title_check·tasks_description_check·tasks_status_check)이 한 번 더 지킨다.
 
@@ -383,6 +411,20 @@ export function toTaskView(row: TaskRow, { scope, today, names }: TaskViewContex
     completedAtText: row.completed_at === null ? null : formatDateTime(row.completed_at),
     canDelete: scope.isOwner || isMine,
   };
+}
+
+// 체크리스트 줄. 지우기 표시는 만든 사람이 아니라 역할로 정한다 — 프로젝트 행은 ADMIN·SALES 가 누가 만든 행이든 지우고,
+// 다른 역할은 자기가 만든 행도 못 지운다(마이그레이션 20261022000300 의 체크리스트 삭제 정책).
+export function toChecklistView(
+  row: TaskRow,
+  { scope, today, names }: Omit<TaskViewContext, "scope"> & { scope: ChecklistScope },
+): TaskView {
+  const view = toTaskView(row, {
+    scope: { orgId: scope.orgId, userId: scope.userId, isOwner: false },
+    today,
+    names,
+  });
+  return { ...view, canDelete: scope.canManage };
 }
 
 // 수치는 DB 가 셌다 — 여기서는 세지 않는다.

@@ -98,6 +98,7 @@ const NOTIFICATION: Notification = {
 };
 const DASHBOARD_SOURCE: DashboardSource = {
   bids: [],
+  activeProjects: 3,
   dataFreshness: { lastIngestAt: null, lastIngestStatus: null, lastIngestSummary: null },
   ai: { provider: "mock", kevEnabled: true, lastGatewayCheckAt: null, healthy: true },
   unreadNotifications: 0,
@@ -771,6 +772,7 @@ describe("업무 Route Handler 조회 연결", () => {
     expect(await response.json()).toMatchObject({
       dataFreshness: { isDemo: true },
       bids: { total: 0 },
+      projects: { active: 3 },
       unreadNotifications: 0,
     });
     expect(d.dashboard.load).toHaveBeenCalledWith(ORG_01, "demo");

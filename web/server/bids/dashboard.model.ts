@@ -47,6 +47,7 @@ export const dashboardSummarySchema = z.strictObject({
     byDecision: z.record(recommendationSchema, count),
     disagreementWithSystem: count,
   }),
+  projects: z.strictObject({ active: count }),
   upcoming: z.array(
     z.strictObject({
       bidId: z.string().min(1),

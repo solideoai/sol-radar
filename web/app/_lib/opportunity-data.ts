@@ -15,10 +15,10 @@ async function opportunityClient() {
   return client;
 }
 
-export async function loadOpportunityPage(orgId: string, query: OpportunityQuery) {
+export async function loadOpportunityPage(orgId: string, query: OpportunityQuery, userId?: string) {
   const secret = readCursorSecret(process.env.API_CURSOR_SECRET);
   if (secret === null) throw new Error("목록을 읽을 준비가 되지 않았습니다");
-  return listOpportunities(await opportunityClient(), orgId, query, secret);
+  return listOpportunities(await opportunityClient(), orgId, query, secret, userId);
 }
 
 export async function loadOpportunitySummary(

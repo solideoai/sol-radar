@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  fingerprint,
   parseOpportunityQuery,
   serializeOpportunityQuery,
   signOpportunityCursor,
@@ -37,5 +38,32 @@ describe("사업기회 검색 경계", () => {
     expect(verifyOpportunityCursor(signed, "other-org", key, now)).toBeNull();
     expect(verifyOpportunityCursor(signed, "org-filter", key, now + 86400000)).toBeNull();
     expect(verifyOpportunityCursor(signed + "0", "org-filter", key, now)).toBeNull();
+  });
+});
+
+describe("본인 관심 사업기회 범위", () => {
+  it("관심 조건을 URL에 보존하고 다른 사용자의 커서를 거부한다", () => {
+    const parsed = parseOpportunityQuery({ watched: "me", sourceFamily: "LH" }, "mock");
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(new URLSearchParams(serializeOpportunityQuery(parsed.value)).get("watched")).toBe("me");
+    const key = "x".repeat(32);
+    const now = Date.now();
+    const signed = signOpportunityCursor(
+      {
+        scope: fingerprint("org", parsed.value, "user-a"),
+        version: "v1",
+        asOf: new Date(now).toISOString(),
+        issuedAt: now,
+        rank: 0,
+        id: "00000000-0000-4000-8000-000000000001",
+        value: null,
+      },
+      key,
+    );
+    expect(
+      verifyOpportunityCursor(signed, fingerprint("org", parsed.value, "user-b"), key, now),
+    ).toBeNull();
+    expect(parseOpportunityQuery({ watched: "other-user" }, "mock").ok).toBe(false);
   });
 });

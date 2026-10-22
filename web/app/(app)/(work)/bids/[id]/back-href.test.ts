@@ -19,3 +19,9 @@ describe("공공조달 목록 복귀", () => {
     expect(backHrefOf("sourceFamily=unknown-provider", "live")).toBe("/bids");
   });
 });
+
+it("관심 목록의 공공조달 필터를 유지해 돌아간다", () => {
+  expect(backHrefOf("watched=me&sourceFamily=LH&category=AI_AX&cursor=old", "live")).toBe(
+    "/watchlist?sourceFamily=LH&category=AI_AX",
+  );
+});

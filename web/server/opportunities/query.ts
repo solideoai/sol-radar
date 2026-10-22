@@ -31,6 +31,7 @@ const schema = z.object({
   cursor: z.string().max(4096).nullable(),
   limit: z.coerce.number().int().min(1).max(100),
   asOf: z.iso.datetime({ offset: true }).nullable(),
+  watched: z.literal("me").optional(),
 });
 type Parsed = z.infer<typeof schema>;
 export type OpportunityQuery = Omit<Parsed, "siAiFirst" | "includeEarly"> & {
@@ -66,6 +67,7 @@ export function parseOpportunityQuery(
     cursor: scalar(raw.cursor) || null,
     limit: scalar(raw.limit) || 20,
     asOf: scalar(raw.asOf) || null,
+    watched: scalar(raw.watched),
   });
   if (!r.success)
     return {
@@ -95,7 +97,7 @@ export function parseOpportunityQuery(
 }
 export function serializeOpportunityQuery(q: OpportunityQuery): string {
   const p = new URLSearchParams();
-  for (const k of ["q", "origin", "cursor", "asOf"] as const) if (q[k]) p.set(k, q[k]);
+  for (const k of ["q", "origin", "cursor", "asOf", "watched"] as const) if (q[k]) p.set(k, q[k]);
   for (const k of [
     "sourceFamily",
     "agencyId",
@@ -113,9 +115,15 @@ export function serializeOpportunityQuery(q: OpportunityQuery): string {
   if (q.sortExplicit) p.set("sort", q.sort);
   return p.toString();
 }
-export const fingerprint = (org: string, q: OpportunityQuery) =>
+export const fingerprint = (org: string, q: OpportunityQuery, userId?: string) =>
   createHash("sha256")
-    .update(JSON.stringify([org, { ...q, cursor: null, limit: 0, asOf: null }]))
+    .update(
+      JSON.stringify([
+        org,
+        { ...q, cursor: null, limit: 0, asOf: null },
+        ...(q.watched ? [userId] : []),
+      ]),
+    )
     .digest("hex");
 const cursorSchema = z.object({
   scope: z.string(),

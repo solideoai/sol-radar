@@ -22,6 +22,7 @@ export async function GET(request: Request): Promise<Response> {
           ctx.orgId,
           q.value,
           readCursorSecret(process.env.API_CURSOR_SECRET),
+          ctx.userId,
         ),
       );
     } catch (error) {

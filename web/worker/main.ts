@@ -28,7 +28,7 @@ import {
   type IngestQuota,
   type JobQueue,
 } from "@/server/ingestion";
-import { createNotificationOutboxStore } from "@/server/notifications";
+import { createDeadlineReminderStore, createNotificationOutboxStore } from "@/server/notifications";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { readStorageSettings } from "@/server/documents";
 import { probeAi } from "@/server/health";
@@ -51,6 +51,7 @@ import {
 import { errorNameOf } from "@/worker/error-name";
 import { startDocumentsReconciler } from "@/worker/documents-reconcile";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
+import { readDeadlineSettings, startDeadlineReminders } from "@/worker/deadline-reminders";
 import { readNotifySettings, startNotifier } from "@/worker/notify-outbox";
 import {
   processIngestJob,
@@ -514,11 +515,27 @@ export const notifyWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   };
 };
 
+export const deadlineWorkerRegistration: WorkerRegistration = async (rawEnv) => {
+  const settings = readDeadlineSettings(rawEnv);
+  return async () => {
+    const reminders = startDeadlineReminders({
+      store: createDeadlineReminderStore(getSupabaseAdmin()),
+      now: () => new Date(),
+      log: (line) => {
+        console.log(line);
+      },
+      settings,
+    });
+    return { close: () => reminders.stop() };
+  };
+};
+
 export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
   systemWorkerRegistration,
   ingestWorkerRegistration,
   analysisWorkerRegistration,
   notifyWorkerRegistration,
+  deadlineWorkerRegistration,
   async (rawEnv) => {
     const settings = readStorageSettings(rawEnv);
     return async (connection) => {

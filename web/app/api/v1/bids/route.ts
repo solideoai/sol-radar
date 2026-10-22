@@ -10,7 +10,10 @@ export async function GET(request: Request): Promise<Response> {
     const query = parseBidListQuery(rawQueryOf(request), deps.runMode);
     if (!query.ok) return invalidQuery(query.issues);
     return serviceResponse(
-      await listBids(ctx.orgId, query.value, deps.cursorSecret, { repo: deps.bids }),
+      await listBids(ctx.orgId, query.value, deps.cursorSecret, {
+        repo: deps.bids,
+        userId: ctx.userId,
+      }),
     );
   });
 }

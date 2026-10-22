@@ -19,7 +19,7 @@ updated: 2026-10-21
 |---|---|---|---|---|
 |`BID_CREATED`|신규 공고 적재|조직의 SALES, ANALYST (`memberships.sol_role`)|in-app|outbox만 쌓는다(`ingest_save_revision`). 조직별 알림 펼치기는 S5·확장 컷이라 `PENDING`으로 둔다|
 |`BID_CHANGED`|revision 생성 (마감·금액·정정·취소)|해당 공고 담당자 + 검토 참여자|in-app|위와 같다|
-|`DEADLINE_APPROACHING`|마감 D-3, D-1 09:00 KST (초기값)|담당자 + 관심 등록자(P1, [[16-DECISIONS\|ADR-021]])|in-app|만드는 곳이 없다|
+|`DEADLINE_APPROACHING`|마감 D-3, D-1 09:00 KST (초기값)|담당자 + 관심 등록자(P1, [[16-DECISIONS\|ADR-021]])|in-app|N3 로컬 통합: worker 주기 작업 → `send_deadline_reminders(p_now)` 직접 삽입|
 |`ANALYSIS_COMPLETE`|score_run `COMPLETED` 또는 `PARTIAL`|분석 요청자|in-app|알림 보냄(아래 "인앱 알림 2종"). `FAILED`는 알리지 않는다|
 |`REVIEW_ASSIGNED`|담당자 배정|배정 대상|in-app|알림 보냄(아래 "인앱 알림 2종")|
 |`BID_RECOMMENDED`|사람이 요청한 분석이 `COMPLETED`·`PARTIAL`로 끝나고 권고가 BID·WATCH(조직·공고마다 처음 한 번)|그 조직 구성원 중 카카오톡 알림을 켜고 연결이 정상인 활성 계정|카카오톡(나에게 보내기)|구현 중(`feat/kakao-notify`): `finish_score_run`이 outbox를 쓴다(`20261021000002`). worker 펼치기·발송은 아직(아래 "카카오톡 추천 공고")|
@@ -58,6 +58,10 @@ sequenceDiagram
 - 재전송 시 provider idempotency 지원 여부 확인.
 - 데모 수용 기준: 골든 시나리오 `G2`가 [[11-TESTING|11 테스트]]에서 green. 해커톤에서는 공고 알림 펼치기가 없으므로 G2를 **이벤트 단위**(마감일 변경 → `BID_CHANGED` outbox 정확히 1건, 다시 수집해도 1건)와 **알림 단계 멱등**(같은 outbox 이벤트를 다시·동시에 처리해도 알림 1건)으로 본다([[16-DECISIONS|ADR-033]] E3).
 - 열린 리다이렉트 방지: `notifications.payload.link`는 앱 안 경로만 쓴다. 이를 위해 알림 목록 서비스(서버)가 앱 안 경로만 내려 보내고, 그 밖의 값이면 `/bids/{bidId}`로 바꾼다([[05-API-SPEC|05 API]] §4.6, [[09-SECURITY|09 보안]], [[16-DECISIONS|ADR-030]] B23).
+
+## N3 마감 알림 (2026-10-22 로컬 통합)
+
+`worker/deadline-reminders.ts`가 기본 5분마다 service role 전용 `send_deadline_reminders(p_now)`를 호출한다. KST D-3·D-1의 09:00 이후 당일에만 최신 담당자와 관심 등록자의 합집합으로 인앱 알림을 직접 만든다. 같은 사용자는 한 건이며 `bidId:userId:DEADLINE_APPROACHING:D-n` 고유 키로 재호출 중복을 막는다. 놓친 D-3을 D-2에 뒤늦게 보내지 않는다. 이 경로는 기존 C7 outbox 소비자와 분리된 마감 일정 경로이며 화면 역할은 함수를 실행할 수 없다. 기존 두 알림 종류는 아래와 같다. 클라우드 적용·운영 발송 여부는 [[PROGRESS]]를 따른다.
 
 ## 인앱 알림 2종 (C7, [[16-DECISIONS|ADR-033]] E3)
 

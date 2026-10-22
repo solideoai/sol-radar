@@ -161,6 +161,7 @@ export type DashboardBidRow = {
 };
 export type DashboardSource = {
   bids: DashboardBidRow[];
+  activeProjects: number;
   dataFreshness: {
     lastIngestAt: string | null;
     lastIngestStatus: "RUNNING" | "SUCCEEDED" | "PARTIAL" | "FAILED" | null;

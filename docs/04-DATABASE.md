@@ -264,6 +264,10 @@ ADR-021 P1 표다. 2026-10-21 [[16-DECISIONS|ADR-042]]로 핵심 컷·확장 컷
 |`bid_projects`|`id`, `org_id`, `bid_id`, `opened_by_review_id` FK `bid_reviews`, `status`(bid_project_status), `owner_id`(로그인 계정), `submission_due_override` nullable, `result`(bid_project_result) nullable, `result_note`, `result_recorded_at`, `closed_at`, `created_by`, `created_at`, `updated_at`|UNIQUE(`org_id`,`bid_id`), UNIQUE(`id`,`org_id`). 여는 결정은 `decision=BID`(DB 함수가 검사). 마감은 공고 값을 읽고 덮어쓸 때만 override(복제 금지)|읽기: 조직 전원. 쓰기: SALES·ADMIN. 결정이 바뀌면 경고만 하고 자동 종료하지 않는다. 결과는 점수·결정 모델·평가셋·학습셋에 쓰지 않는다|
 |`bid_project_events`|`id`, `org_id`, `bid_project_id`, `actor_id`, `from_status`, `to_status`, `note`, `created_at`|추가만|읽기: 조직 전원. 쓰기: 상태를 바꾸는 DB 함수만. 같은 함수가 `audit_logs`도 쓴다|
 
+로컬 통합 브랜치 `feat/dashboard-pages-20261022`는 원본 마이그레이션 `20261022000100`·`20261022000110`·`20261022000300`을 보존하고 `20261023000300`(현재 사업기회 관심 뷰), `20261023000400`(프로젝트 원자적 PATCH)를 추가한다. 클라우드 적용 여부는 [[PROGRESS]]의 실행 기록과 구분한다.
+
+`watched_opportunity_list_items`는 `security_invoker`이며 본인 `bid_watches`와 원본 `bid_id`로 연결한다. 사업기회 ID를 관심 키로 쓰지 않는다. `patch_bid_project`는 상태·담당자·마감을 한 트랜잭션으로 바꾸고 실패하면 상태 이력·감사도 되돌린다. 프로젝트 RPC는 세션의 조직·ADMIN/SALES·최신 BID를 검사한다. 최신 결정이 BID가 아니어도 수동 종료는 가능하다.
+
 체크리스트는 템플릿 `tasks`에 `bid_project_id`를 더해 쓴다(§3.1). 추적성: 프로젝트 → 여는 결정(`bid_reviews`) → 그 결정의 `score_run_id` → `input_snapshot_hash`.
 
 ## 4. 값 집합(ENUM)
@@ -272,7 +276,7 @@ PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 �
 
 생성 타입(`web/lib/database.types.ts`)에서 이 열들은 `string`으로 나온다. 값 union은 zod 스키마(`web/server/<도메인>/*.model.ts`)가 정의하며, 값은 이 표와 같아야 한다. 값은 API에 그대로 노출된다.
 
-DB check로 거는 값 집합은 33개(ADR-021 P1 표가 생기면 36개)이고, `field_state`는 JSON 안의 값이다. `employment_status`·`bid_project_status`·`bid_project_result`는 [[16-DECISIONS|ADR-021]] P1 표·열의 값이라 P1 마이그레이션 전에는 DB에 없다.
+`field_state`는 JSON 안의 값이다. `bid_project_status`·`bid_project_result`는 로컬 통합 브랜치의 `20261022000300`에 check 제약으로 구현됐다. `employment_status`는 별도 인력 편집 P1 범위이며 이번 네 화면 구현에는 포함하지 않는다. 값 집합의 실제 적용 상태는 마이그레이션과 생성 타입으로 확인한다.
 
 |값 집합|값|사용 컬럼|비고|
 |---|---|---|---|
@@ -323,7 +327,7 @@ DB check로 거는 값 집합은 33개(ADR-021 P1 표가 생기면 36개)이고,
 - **null이 걸리지 않는 UNIQUE**: `bid_documents(revision_id, sha256)`는 다운로드 전·실패 행(`sha256` null)에 걸리지 않는다.
 - **검색**: 공고 제목·기관은 `pg_trgm` trigram 인덱스다. 한국어 검색 품질은 따로 잰다([[16-DECISIONS|16 ADR]] 6번).
 - **복합 외래 키(테넌트 혼입 방지)**: worker는 service role로 RLS 없이 쓴다. 그래서 자식 행의 `org_id`가 부모와 다르면 DB가 거절하게 한다. 부모 표에 UNIQUE(`id`,`org_id`)를 두고 자식이 (`<부모>_id`,`org_id`)로 가리킨다. 템플릿 `tasks_assignee_fkey`(`(org_id, assignee_id) → memberships`)와 같은 방식이다.
-- **P1 표**(아직 마이그레이션 없음): 관심 인원 수 집계용 `bid_watches(org_id, bid_id)` 인덱스, `bid_projects` UNIQUE(`id`,`org_id`)와 `tasks(bid_project_id, org_id)` 복합 외래 키(§3.1·§3.8).
+- **P1 관심·프로젝트 표**(`20261022000100`·`20261022000300`에 구현): 관심 인원 수 집계용 `bid_watches(org_id, bid_id)` 인덱스, `bid_projects` UNIQUE(`id`,`org_id`)와 `tasks(bid_project_id, org_id)` 복합 외래 키(§3.1·§3.8).
 
 soft-delete는 쓰지 않는다. 계정 정지는 `profiles.status`, 탈퇴는 즉시 삭제(템플릿 `delete_my_account`)다. 계정이 지워지면 이력 열(`requested_by`, `reviewer_id`, `actor_id`, `created_by`)은 비우고 행은 남긴다(on delete set null). 프로필·검토·점수는 append-only. 개인정보 보존 정책은 [[09-SECURITY|09 보안]].
 
@@ -395,7 +399,7 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 - `20261019000015`·`20261019000018`이라는 파일은 main에 없다.
 - 적용 상태(2026-10-20): 로컬과 클라우드 모두 `20261019000019`까지 30개가 적용됐다. 클라우드는 sol-radar-3e가 사용자 확인("적용")을 받고 main `9048995`에서 `pnpm db:push`로 적용했고 `pnpm db:verify`가 통과했다(20:48 KST).
 
-ADR-021 P1 표·열(§3.1 `tasks.bid_project_id`, §3.5 `employment_status`·ADMIN 쓰기 정책, §3.8)은 P1 착수 때 새 파일로 만든다.
+ADR-021 관심·프로젝트 표와 `tasks.bid_project_id`는 §3.8의 로컬 통합 마이그레이션으로 구현했다. §3.5 `employment_status`·ADMIN 인력 편집 정책은 별도 P1 착수 때 새 파일로 만든다.
 
 템플릿 견본 정리: `tasks`와 그 함수·트리거(`task_dashboard_stats`, 작업 활동 기록)는 지우지 않는다. ADR-021 P1 입찰 프로젝트 체크리스트로 재사용하고(`bid_project_id` 열은 P1 마이그레이션), 사이드바의 "작업" 메뉴만 뺀다([[16-DECISIONS|ADR-021]]). `memos`는 템플릿 `20261014000004_tasks_and_activity.sql`이 이미 지웠다.
 
