@@ -1,0 +1,23 @@
+{
+  "scenario": "S7 / G5 — org-02 VIEWER 가 org-01 분석이 있는 FX-01 의 자격 API 를 부른다",
+  "account": "viewer@other.invalid (org-02, VIEWER)",
+  "capturedAt": "2026-10-22T01:36:49.215Z",
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163/qualification-checks",
+    "auth": "Supabase 세션 쿠키(브라우저 컨텍스트)"
+  },
+  "response": {
+    "status": 404,
+    "contentType": "application/json",
+    "xRequestId": "ed05e420-115d-40d5-9ec6-7c79fac9b0c7",
+    "rawBody": "{\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"분석을 찾을 수 없습니다\",\"details\":{\"resource\":\"analysis\"},\"requestId\":\"ed05e420-115d-40d5-9ec6-7c79fac9b0c7\"}}"
+  },
+  "sameAccountDetail": {
+    "path": "/api/v1/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163",
+    "status": 200,
+    "latestAnalysis": null,
+    "latestReview": null,
+    "reviews": []
+  }
+}
