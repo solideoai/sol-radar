@@ -1,0 +1,3 @@
+PASS: Python /extract mock/local responses accepted by Worker envelope and payload validators
+PASS: Python /kev mock/v0.2 wire accepted; warnings absent remains compatible
+PASS: Missing-translation response disables Bosun and exposes safe paths; persisted review flag accepted

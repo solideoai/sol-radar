@@ -1,0 +1,258 @@
+{
+  "mainHead": "d57fcae7a10ab12e99d5941a2cc4296991f262fe",
+  "mainIndexSha256": "a35bd9816067122b40d752edca4f45bd6591b5816399ee0fb95e2fafc4f4a8ba",
+  "mainOriginalChangedFiles": 40,
+  "snapshotCommit": "26f0f906f4918cf7032d3de1ebf54d8c9d71642c",
+  "sourceBackup": "/var/folders/sw/xzng6l391rq76yj720bq6c1r0000gn/T/sol-radar-bosun-integration-preservation-qpa_4eli",
+  "preservationChecks": {
+    "head": true,
+    "branch": true,
+    "index": true,
+    "status": true,
+    "all_40_file_hashes": true
+  },
+  "snapshotCommitByteEqualForAll40": true,
+  "files": [
+    {
+      "path": "docs/04-DATABASE.md",
+      "status": " M",
+      "sha256": "796faeb2cd9e4405196cf9557cde459728dd176a00d5267203b5d095df98ac89",
+      "size": 89555
+    },
+    {
+      "path": "docs/09-SECURITY.md",
+      "status": " M",
+      "sha256": "ecb2097b9f82d4697d351e4fd32986bfda1bd8002e65248743ac265ad71676d7",
+      "size": 50459
+    },
+    {
+      "path": "docs/10-DEPLOYMENT.md",
+      "status": " M",
+      "sha256": "d71615642b3c2d666aadad65778546ea386fe4be03108ccfa305b97e9491fa97",
+      "size": 98788
+    },
+    {
+      "path": "docs/11-TESTING.md",
+      "status": " M",
+      "sha256": "c2fa2bba454f138bd3db15118b514da2202d21ded80b02e710ef68393980a64a",
+      "size": 91490
+    },
+    {
+      "path": "docs/19-DEMO-SCENARIO.md",
+      "status": " M",
+      "sha256": "b5aaea42af51ebb340fa71591cd332841c61934eb2207452520430e5029d5928",
+      "size": 44708
+    },
+    {
+      "path": "docs/20-GLOSSARY.md",
+      "status": " M",
+      "sha256": "05ece2dd96b7a3204e44c1588c5fd4644904f96a9f2f9fa7347b650b512b317c",
+      "size": 31382
+    },
+    {
+      "path": "docs/PROGRESS.md",
+      "status": " M",
+      "sha256": "7f3e14a657f17f1beb0bde22fa252803b649700b59074b5b65c0f67c245f00fb",
+      "size": 212060
+    },
+    {
+      "path": "docs/boilerplate/README.md",
+      "status": " M",
+      "sha256": "5986759ccac1b37a5d12a1db10683f00d530132bf19cc865effea727531f8041",
+      "size": 6380
+    },
+    {
+      "path": "docs/boilerplate/first-deployment.md",
+      "status": " M",
+      "sha256": "76d3071bf5b375440a8f6e342ef463340c31df9146ae700acf6a88f3ae4a4524",
+      "size": 2958
+    },
+    {
+      "path": "scripts/demo-reset.mjs",
+      "status": " M",
+      "sha256": "c9903f53996b5f923a524e06a678129bf54dc04ea70ee457714c575a66ea544c",
+      "size": 18595
+    },
+    {
+      "path": "scripts/demo/plan.mjs",
+      "status": " M",
+      "sha256": "ffbc0bb14c17130a4a59aa3f783b59ff26e436b39d5f9bb491d1d7094f70ddb9",
+      "size": 18330
+    },
+    {
+      "path": "scripts/demo/rest-client.mjs",
+      "status": " M",
+      "sha256": "7f4c06fc333e9abd3a33e450caa2e3d79997e63ed33d282cc7ef96bec378cd93",
+      "size": 6962
+    },
+    {
+      "path": "web/app/auth/login/sign-in-form.tsx",
+      "status": " M",
+      "sha256": "ca159b110bef81a44535fe3ed0e3699c2ba025457103447cde1dec1ebc7943db",
+      "size": 2970
+    },
+    {
+      "path": "web/e2e-auth/admin-ingestion.spec.ts",
+      "status": " M",
+      "sha256": "8953f89ba0e3bf3b1998271533a661f29121fda9efc122da44c53c64521e1fc0",
+      "size": 22130
+    },
+    {
+      "path": "web/e2e-auth/support/ingestion-fixtures.ts",
+      "status": " M",
+      "sha256": "12b4669fff29f2dccc9a1f0a786cbaa9921aa7eb67b38baf0c596374c1fcb88d",
+      "size": 13495
+    },
+    {
+      "path": "web/server/profile/profile.catalog.ts",
+      "status": " M",
+      "sha256": "2ae9cd52c0e3a55cf3861522fe1a3adf7adc279fc54300a36d11ba90e61ac649",
+      "size": 591
+    },
+    {
+      "path": "docs/SOL_RADAR_BOSUN_QWEN4B_MIGRATION_BRIEF.md",
+      "status": "??",
+      "sha256": "0d6a4a22f29cf3078ebafb9f0b50f23ad65f763e8dcbdfa0cf79b2a7d74bdbcd",
+      "size": 11961
+    },
+    {
+      "path": "docs/evidence/database/20261021-supabase-ca-verify.txt",
+      "status": "??",
+      "sha256": "ad4ad763f594d2f1494293166f73e721ab39585366904e2c6732f49e58760343",
+      "size": 198
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-account.json",
+      "status": "??",
+      "sha256": "2b1d3fa2298c39f3bbeee1ddcb32b0af5b7ce9de1a97eef2793d5e2283cd9750",
+      "size": 374
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-browser.json",
+      "status": "??",
+      "sha256": "c2a67ee93d879042e371d6f02ef0075c7d14708523af634d40aea25f30e3aa24",
+      "size": 401
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-dashboard-1280.png",
+      "status": "??",
+      "sha256": "efe57dfb3e3cd1c3791ad66eaf5d2693399bdedede60db07ee357b79def78160",
+      "size": 152626
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-dashboard-1440.png",
+      "status": "??",
+      "sha256": "037d9368cf02db89b5fdabd0662783388e1d1993eb165e6d578542c69fe6d7f7",
+      "size": 155417
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-email-account.json",
+      "status": "??",
+      "sha256": "d5185db07c0a67e77510a616a07853115147ebc0299a3b7ba4a87923c6c35828",
+      "size": 412
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-email-browser.json",
+      "status": "??",
+      "sha256": "b42aaa7161205924102c3ddf403a943c86d138685ced173dd495863b3d5a6e13",
+      "size": 474
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-email-dashboard-1440.png",
+      "status": "??",
+      "sha256": "560b7b9b5b2876d17f4beb78ecd3c599bc9cc74cf0d890dab32aa156943263ad",
+      "size": 154816
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-email-verify.txt",
+      "status": "??",
+      "sha256": "a34291c4c29a9b063ed26e1d53a5c886ee71ac33fa0de9dbe404c72da178a831",
+      "size": 21389
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-login-1440.png",
+      "status": "??",
+      "sha256": "d9628d5e679125b49d1e8f2a7710020ac567b127eac45af4aee95686d26425d8",
+      "size": 34296
+    },
+    {
+      "path": "docs/evidence/demo-admin/20261021-verify-changed.txt",
+      "status": "??",
+      "sha256": "decde5ae4a6efb423dad77e13df5b029bfafe733255e6b867913ec7d7db6bc61",
+      "size": 21214
+    },
+    {
+      "path": "docs/evidence/deployment/20261022-readonly-review.json",
+      "status": "??",
+      "sha256": "c72891f6203028774753aedb28e414c59e6591484c7e86c3029de82cdabe1ec3",
+      "size": 7774
+    },
+    {
+      "path": "docs/evidence/production-auth/20261021-diagnosis.json",
+      "status": "??",
+      "sha256": "968f94b8e030ab511ad67652fdc7bb7d95d94731281233594e62731a6df83c97",
+      "size": 1439
+    },
+    {
+      "path": "docs/evidence/production-auth/20261021-login-1280.png",
+      "status": "??",
+      "sha256": "cb71846c67f205df79262c7ced7fc047a804a4fcfba42f9435e1b33d23ef8598",
+      "size": 22520
+    },
+    {
+      "path": "docs/evidence/production-auth/20261021-login-1440.png",
+      "status": "??",
+      "sha256": "79b7ed554f64f7302b12929b59cf66d80033258151f0ec7c17351a9b007eb5a7",
+      "size": 23203
+    },
+    {
+      "path": "docs/plans/2026-10-22-web-company-deployment-review.md",
+      "status": "??",
+      "sha256": "1bed39aeab7cc8a5dcbc7d09c75371b818aa12d2516f8d781f09361482a4cf76",
+      "size": 19925
+    },
+    {
+      "path": "polaris/specs/planned/2026-10-21-public-procurement-expansion.md",
+      "status": "??",
+      "sha256": "4648c0418fd6c725f109e0aa0179f9471e26624c7b8e8a06a203709d1cb39e1a",
+      "size": 45425
+    },
+    {
+      "path": "polaris/specs/planned/2026-10-22-web-company-deployment.md",
+      "status": "??",
+      "sha256": "b0244d941b27ab81596c6c94ed8697dca944e99730d420f1816896496612e541",
+      "size": 4844
+    },
+    {
+      "path": "scripts/ops/demo-admin.mjs",
+      "status": "??",
+      "sha256": "e556038bdc42fe620dd4183bf1e7a4ffe87bae249a19697e552e71a9f662569a",
+      "size": 5452
+    },
+    {
+      "path": "scripts/ops/demo-admin.test.mjs",
+      "status": "??",
+      "sha256": "452fac7439b2030ffcd63878ba2ecd92b0f297e243f6b7bf872f70bfbdf56be5",
+      "size": 3335
+    },
+    {
+      "path": "web/app/auth/login/sign-in-schema.test.ts",
+      "status": "??",
+      "sha256": "109d61e751298c8fb2b2a33c5611220afef57e0a743132ab96c9ddce6117de43",
+      "size": 893
+    },
+    {
+      "path": "web/app/auth/login/sign-in-schema.ts",
+      "status": "??",
+      "sha256": "f9e4933400dfa9ab0158a2276a915190425959809a5736081489802b1d5330b3",
+      "size": 480
+    },
+    {
+      "path": "web/server/profile/demo-admin-catalog.json",
+      "status": "??",
+      "sha256": "ed757c659382b16467bd421922f36b5dbc4341b742b4cfd94a24fc7b768db474",
+      "size": 133
+    }
+  ],
+  "limits": "No checkout/add/stash/merge/reset/clean was run against main. Backup is local private data, not a shared remote backup. No environment file read/copied."
+}

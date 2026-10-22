@@ -16,6 +16,7 @@
 - 호출은 요청 마감(AI_TIMEOUT_MS, 핸들러가 만든다)의 남은 시간만 쓴다. 재시도도 같은 마감을 나눠 쓴다(C5-A S1).
 """
 
+import json
 import logging
 import re
 import time
@@ -26,6 +27,7 @@ from sol_ai.adapters import http
 from sol_ai.adapters.base import ExtractionFailed, ModelOutput, ModelUnavailable
 from sol_ai.contracts import Attachment, ExtractRequest
 from sol_ai.deadline import Deadline
+from sol_ai.paths import AI_ROOT
 from sol_ai.strict_json import parse_json
 
 logger = logging.getLogger("sol_ai.qwen")
@@ -172,11 +174,19 @@ class LocalQwen:
         self.model_name: str | None = model
         self.prompt_hash: str | None = prompt_hash
 
-    def _body(self, user: str, *, guided: bool = True) -> dict:
+    def _body(
+        self,
+        user: str,
+        *,
+        guided: bool = True,
+        system: str | None = None,
+        schema: dict | None = None,
+        name: str = RESPONSE_FORMAT_NAME,
+    ) -> dict:
         body = {
             "model": self.model_name,
             "messages": [
-                {"role": "system", "content": self._system},
+                {"role": "system", "content": self._system if system is None else system},
                 {"role": "user", "content": user},
             ],
             **INFERENCE,
@@ -185,7 +195,7 @@ class LocalQwen:
         if guided:
             body["response_format"] = {
                 "type": "json_schema",
-                "json_schema": {"name": RESPONSE_FORMAT_NAME, "schema": self._schema},
+                "json_schema": {"name": name, "schema": self._schema if schema is None else schema},
             }
         return body
 
@@ -235,3 +245,42 @@ class LocalQwen:
             latency=latency,
             warnings=(TRUNCATED_INPUT,) if truncated else (),
         )
+
+    def translate(self, values: dict[str, str], *, deadline: Deadline) -> str:
+        """동일 endpoint/인증/HTTP 방어, 별도 prompt/schema. 새 Deadline이나 의미 재시도는 없다."""
+        from sol_ai.translation import MAX_REQUEST_BYTES, MAX_RESPONSE_BYTES
+
+        system = (AI_ROOT / "prompts/state-translate.v0.1.md").read_text(encoding="utf-8")
+        schema = json.loads((AI_ROOT / "schemas/state-translation.v0.1.json").read_text())
+        schema["properties"]["translations"]["properties"] = {
+            path: {"type": "string", "minLength": 1, "maxLength": 2000} for path in values
+        }
+        schema["properties"]["translations"]["additionalProperties"] = False
+        user = json.dumps({"values": values}, ensure_ascii=True)
+        for guided in (True, False):
+            body = self._body(
+                user, guided=guided, system=system, schema=schema, name="state_translation"
+            )
+            if len(json.dumps(body).encode("utf-8")) > MAX_REQUEST_BYTES:
+                raise ExtractionFailed("translation request too large")
+            try:
+                reply = http.call(
+                    self._endpoint,
+                    "POST",
+                    CHAT_COMPLETIONS,
+                    deadline=deadline,
+                    json_body=body,
+                    max_bytes=MAX_RESPONSE_BYTES,
+                )
+            except http.TransportFailure:
+                raise ModelUnavailable("translation transport failure") from None
+            if guided and reply.status in BAD_REQUEST_STATUSES:
+                continue
+            if not reply.ok:
+                raise ModelUnavailable("translation unavailable")
+            content = _content(reply.text)
+            if content is None:
+                raise ExtractionFailed("translation reply has no content")
+            # 추출의 관대한 unwrap 경로와 다르게 번역은 JSON 객체 전체를 엄격히 검증한다.
+            return content
+        raise ExtractionFailed("translation request rejected")

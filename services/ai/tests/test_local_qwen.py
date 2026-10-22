@@ -37,7 +37,24 @@ def valid_reply(fixture_id: str = "FX-01") -> Reply:
 
 
 def run_extract(make_client, local_models, *replies: Reply, request: dict | None = None) -> dict:
-    local_models.qwen.route("POST", COMPLETIONS, *(replies or (valid_reply(),)))
+    local_models.qwen.route(
+        "POST",
+        COMPLETIONS,
+        *(replies or (valid_reply(),)),
+        Reply(
+            json_body=chat_completion(
+                json.dumps(
+                    {
+                        "translations": {
+                            "requiredSkills[3]": "e-Government Framework",
+                            "staffing[2].role": "Development",
+                            "restrictions[0]": "SME restricted competition",
+                        },
+                    }
+                )
+            )
+        ),
+    )
     response = make_client(SOL_RUN_MODE="fixture").post(
         "/extract", json=request or extract_request("FX-01")
     )
@@ -99,7 +116,7 @@ def schema_violation_reply() -> Reply:
 
 def test_qwen_invalid_json_is_retried_with_violation_note(make_client, local_models):
     run_extract(make_client, local_models, NOT_JSON, valid_reply())
-    first, second = (user_content(b) for b in sent(local_models))
+    first, second = (user_content(b) for b in sent(local_models)[:2])
     assert second.startswith(first + RETRY_NOTE)
     summary = second[len(first + RETRY_NOTE) :]
     assert 0 < len(summary) <= 200

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from sol_ai.adapters.base import Adapters
+from sol_ai.adapters.base import Adapters, TranslationAdapter
 from sol_ai.adapters.factory import build_adapters
 from sol_ai.adapters.kev import KevAdapter, KoStateNotAllowed
 from sol_ai.contracts import (
@@ -123,6 +123,7 @@ def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str,
         korean_question_sets=load_question_sets(QUESTION_SETS_DIR, language="ko"),
         state_templates=load_state_templates(STATE_TEMPLATES_DIR),
         thresholds=Thresholds.load(THRESHOLDS_FILE),
+        translator=adapters.qwen if isinstance(adapters.qwen, TranslationAdapter) else None,
     )
     return Runtime(run_mode, adapters, extraction, kev)
 
@@ -210,6 +211,7 @@ def create_app(settings: Settings) -> FastAPI:
             requirements=outcome.requirements,
             wire=outcome.wire,
             errorCode=outcome.error_code,
+            warnings=outcome.warnings,
             timings=KevTimings(kevMs=_elapsed_ms(started)),
         )
         logger.info(

@@ -180,7 +180,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 |출력 강제|JSON Schema 검증. 실패 시 1회 재시도, 재실패 시 `requirement_extractions.status=FAILED`, 분석은 `PARTIAL`. 스키마 밖 필드는 폐기|
 |권한 없음|모델에는 도구·파일·네트워크 호출 권한이 없다. gateway는 모델 출력을 실행하지 않고 값으로만 다룬다|
 |인용 검증|AI가 만든 인용은 원문 문자열 매칭에 실패하면 무효 ([[15-DATA-CONTRACTS\|15 데이터 계약]])|
-|결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 자유 텍스트 값은 `/extract`의 `translations`(숫자 보존 검사 통과분)만 쓴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`). 결정 서버(8009)도 한글 state를 422 `STATE_NOT_ENGLISH`로 거절한다(`DECISION_ALLOW_KO_STATE`는 공유 8009에 켜지 않는다. main `36edfb6`, [[16-DECISIONS\|16]] 미결정 27)|
+|결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 공고 자유 텍스트는 `/extract`의 `translations`, 기업 값은 기존 시간 예산 안의 `/kev` 보충 번역을 쓴다(숫자·식별자·조건 검증 통과분). 필요한 번역 누락 시 실제 Bosun을 호출하지 않고 `TRANSLATION_INCOMPLETE` 검토 플래그와 경로 진단을 남긴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`). 결정 서버(8009)도 한글 state를 422 `STATE_NOT_ENGLISH`로 거절한다(`DECISION_ALLOW_KO_STATE`는 공유 8009에 켜지 않는다. main `36edfb6`, [[16-DECISIONS\|16]] 미결정 27)|
 |파싱 실패 처리|읽지 못한 첨부의 내용을 추정하라는 지시를 프롬프트에 넣지 않는다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`이 된다([[15-DATA-CONTRACTS\|15 데이터 계약]] §5.1)|
 
 ### 감사 가능성

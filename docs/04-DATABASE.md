@@ -160,7 +160,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
   - `parse_status`·`parse_error_code`: `/parse` 결과. 다운로드가 `OK`가 되면 `PENDING`으로 두고 파싱 뒤 결과 값으로 바꾼다. 다운로드가 `PENDING`·`FAILED`인 동안은 NULL(파싱 시도 안 함)이다. 형식별 파서는 실제 RFP 샘플 비교로 정한다([[03-AI-PIPELINE|03 AI 파이프라인]] 문서 파싱 절). 50 MB 초과는 다운로드하지 않으므로 `download_status=FAILED` + `download_error_code=TOO_LARGE`이고 `parse_status`는 NULL이다.
   - `parser_id`: 파서 어댑터와 버전. `parse_quality`: 파서가 낸 품질 신호.
 - `bid_structured_requirements`: 면허제한(`lcnsLmtNm`)·허용 업종(`permsnIndstrytyList`)·참가가능지역(`prtcptPsblRgnNm`)·지역의무공동도급(`rgnDutyJntcontrctRt`) 행. 같은 조건을 이 표와 Qwen 추출이 둘 다 주면 **이 표가 우선**이고, 둘이 다르면 그 조건은 `CONFLICTED`다([[08-SCORING|08 점수]] §5.1). `source_operation`은 값을 받은 오퍼레이션 이름, `value`는 그 행의 원본 필드다(담당자 필드는 넣지 않는다).
-- `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 원문의 숫자가 그대로 남은 번역만 들어간다. 결정 모델 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
+- `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 숫자·식별자·단위·조건 검증을 통과한 공고 번역만 들어간다. 기업 프로필 보충 번역은 `/kev` 요청에서만 사용하며 이 열에 저장하지 않는다. 결정 모델 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 
 > [!warning] 미검증 가정
 > `bid_structured_requirements`의 원천 필드 이름은 data.go.kr 서비스 페이지 명세(Swagger·참고문서, 2026-10-16)로 확인했다. 서비스키로 실제 응답을 받아 본 것은 아니다. 면허제한이 여러 행일 때 AND/OR 중 무엇인지도 모른다. 확인 전에는 여러 행이면 규칙이 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다. 검증 방법: ADR-020 P0-0에서 오퍼레이션별 실제 응답 3건을 저장하고 매핑을 확인한다([[07-DATA-PIPELINE|07 수집]]).

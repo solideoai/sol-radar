@@ -1,7 +1,7 @@
 """어댑터 계약과 실패 예외. 엔드포인트·검증 파이프라인은 이 계약만 보고 공급자(mock·local·hosted)를 모른다."""
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from sol_ai.contracts import ExtractRequest, KevRequest
 from sol_ai.deadline import Deadline
@@ -58,6 +58,13 @@ class QwenAdapter(Protocol):
         deadline 은 요청 하나의 마감이다. 첫 호출과 재시도가 같은 객체를 받는다(C5-A S1).
         """
         ...
+
+
+@runtime_checkable
+class TranslationAdapter(Protocol):
+    """추출과 독립적인 번역 기능. mock/미구현 어댑터는 이 기능을 제공하지 않는다."""
+
+    def translate(self, values: dict[str, str], *, deadline: Deadline) -> str: ...
 
 
 @dataclass(frozen=True)

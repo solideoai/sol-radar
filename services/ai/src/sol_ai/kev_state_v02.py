@@ -259,7 +259,12 @@ class _V02Builder(StateBuilder):
         financial_known = financials is not None and (
             financials.annualRevenueKrw is not None or financials.employeeCount is not None
         )
-        technologies = self.joined([self.text(t.name, None) for t in profile.technologies])
+        technologies = self.joined(
+            [
+                self.text(t.name, f"profileSummary.technologies[{i}].name")
+                for i, t in enumerate(profile.technologies)
+            ]
+        )
         return [
             TraceLine(lab.company.format(revision=self.revision)),
             TraceLine(
