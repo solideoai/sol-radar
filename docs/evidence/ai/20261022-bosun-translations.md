@@ -164,6 +164,8 @@ main 작업 중첩은 `docs/PROGRESS.md`뿐이다. main의 조사/관리자/기�
 
 사용자 추가 지시에 따라 **`integration/bosun-english-translations`**를 새 worktree `/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-bosun-english-translations`에 만들었다. main 원본은 읽기 전용으로 유지했다. 내장 worktree 도구가 저장소를 찾지 못해 실패한 뒤 Git worktree로 생성했다.
 
+**통합 병합 커밋:** `3e6b18004ef25bbd0a3d4115f6ea3c12f96ec66e` (`feat: 기존 작업과 Bosun 영어 번역 격리 통합`). 부모는 사본 `26f0f90` 및 번역 `11907f3`이며, 사본 커밋 대비37개 파일을 반영했다. main 대비 누적 변경 파일은73개(기존40 + 번역30 - 중첩 PROGRESS1 + 통합 증거4)다. 커밋 뒤 main 보존 검사를 다시 통과했고 통합 worktree는 clean이었다. 이 해시를 기록하는 후속 문서 커밋은 별도로 남긴다.
+
 ### 보존 및 통합 범위
 
 - 기준 main: `d57fcae7a10ab12e99d5941a2cc4296991f262fe`.
@@ -189,7 +191,7 @@ main 작업 중첩은 `docs/PROGRESS.md`뿐이다. main의 조사/관리자/기�
 | 독립 통합 리뷰 | 중대한 미해결 없음. 기존 코드 의존성/API/trace/원본 보존 확인 |
 | main 보존 | HEAD/branch/index/status40개/파일40개 SHA-256 모두 시작 시점과 동일 |
 
-[통합 전체 검증 로그](20261022-bosun-integration-verify.txt), [서비스 간 계약 검사 결과](20261022-bosun-integration-contract.txt), [Python gateway 응답 사본](20261022-bosun-integration-contract-sample.json). 기존 Starlette TestClient/httpx deprecation 경고는 남아 있다. commit hook도 우회하지 않는다. 최초 병합 커밋 시도는 제품 검사 통과 뒤 허용되지 않는 `merge:` 메시지 타입 때문에 commit-msg가 거부했다. 허용된 `feat:` 타입으로 고쳐 훅을 다시 실행한다. 제품 코드나 검사를 약하게 바꾸지 않았다. 운영 Supabase/Redis/DB를 사용하지 않고, DB 관련 자동 시험은 기존 in-memory PGlite 검사만 수행했다. 로그인 E2E는 외부 서비스 조작 금지 범위 때문에 실행하지 않았다.
+[통합 전체 검증 로그](20261022-bosun-integration-verify.txt), [서비스 간 계약 검사 결과](20261022-bosun-integration-contract.txt), [Python gateway 응답 사본](20261022-bosun-integration-contract-sample.json). 기존 Starlette TestClient/httpx deprecation 경고는 남아 있다. commit hook도 우회하지 않는다. 최초 병합 커밋 시도는 제품 검사 통과 뒤 허용되지 않는 `merge:` 메시지 타입 때문에 commit-msg가 거부했다. 허용된 `feat:` 타입으로 고쳐 훅을 다시 실행했고 모든 검사와 커밋이 통과했다. 제품 코드나 검사를 약하게 바꾸지 않았다. 운영 Supabase/Redis/DB를 사용하지 않고, DB 관련 자동 시험은 기존 in-memory PGlite 검사만 수행했다. 로그인 E2E는 외부 서비스 조작 금지 범위 때문에 실행하지 않았다.
 
 ### API 계약 대조
 
