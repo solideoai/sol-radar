@@ -85,9 +85,14 @@ updated: 2026-10-24
 4. **메일 알림(ADR-041)** — 해커톤에서 뺀다. ADR 상태 갱신은 P3 문서 작업에서 한다.
 5. **E4 채점** — 10-26 오전으로 확정한다.
 6. **카카오 실수신 녹화** — 한다(2026-10-24 사용자 재결정: "실제 공고를 받아야 해. 시연 영상도 찍어야 하니까"). 실제 나라장터 공고를 분석해 BID·WATCH가 나오면 "나에게 보내기"로 실발송하고 휴대폰 수신을 영상에 담는다. 발표 본편(FX-01·02·03, 94/72/68)은 고정 데이터 그대로다. S0 수신 시험은 10-25 오전이고 오늘은 env·Worker만 준비한다. 앞선 "mock으로 둬" 결정은 이것으로 바뀐다.
-   - 키 4개(`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`)는 Vercel에 넣는다. 연결·콜백 라우트가 Vercel에서 돈다. 회사 Worker에는 `NOTIFY_KAKAO_PROVIDER=memo` 와 같은 값의 키 3개를 넣는다. 토큰 암호화 키는 두 곳이 같아야 한다.
-   - `KAKAO_REDIRECT_URI` 는 `https://www.solideos-radar.com/api/v1/me/kakao-notify/callback` 이다. 카카오 개발자 앱에 이 주소, 사이트 도메인, `talk_message` 동의 항목을 등록한다(사용자).
-   - 녹화가 끝나면 Worker를 `mock` 으로 되돌린다.
+   - Vercel에는 키 4개(`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`)를 넣고 재배포한다. 연결·콜백 라우트가 Vercel에서 돈다. Vercel env는 새 배포부터 적용된다.
+   - 회사 Worker에는 `NOTIFY_KAKAO_PROVIDER=memo` 와 키 4개(`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL=https://www.solideos-radar.com`)를 넣는다. 하나라도 비면 Worker가 기동하지 않는다(`web/worker/notify-outbox.ts` `MEMO_REQUIRED_KEYS`). `KAKAO_TOKEN_ENC_KEY` 는 두 곳이 같은 값이어야 한다. 다르면 `KAKAO_TOKEN_KEY_MISMATCH` 로 발송이 실패한다.
+   - `KAKAO_REDIRECT_URI` 는 `https://www.solideos-radar.com/api/v1/me/kakao-notify/callback` 이다. 카카오 개발자 앱에 이 주소, 사이트 도메인, `talk_message` 동의 항목, 클라이언트 시크릿을 등록한다(사용자). [공고 원문] 버튼의 `https://www.g2b.go.kr` 도메인 등록 가능 여부는 미확인이다.
+   - **live 전환은 회사 쪽만 한다. Vercel은 `mock` 그대로 둔다.** 분석 run의 `run_mode` 는 회사 redis-api가 정하고, Vercel `SOL_RUN_MODE` 는 머리말 표시와 목록 기본 출처에만 쓰인다. S-LIVE 장면("머리말 mock, 분석 띠 live")과 맞고 Vercel 재배포 2회가 필요 없다.
+   - **리허설 동안 개인 설정 "카카오톡 알림"을 끈다.** 리허설의 FX-02·FX-01 재분석이 실제로 발송되기 때문이다. 녹화 직전에 다시 켠다.
+   - 녹화가 끝나면 회사 세 서비스를 `mock` 으로 되돌린다(`NOTIFY_KAKAO_PROVIDER=mock` 포함).
+   - 실행 절차·후보 공고·호출 수 계산은 [10-25 절차서](../evidence/demo-day/20261024-slive-check/20261025-slive-kakao-runbook.md)를 따른다.
+7. **10-27 발표 전 reset** — 10-25 S-LIVE run을 만든 뒤에는 `pnpm demo:reset` 을 돌리지 않는다(추천). reset은 데모 조직 `score_runs`·`outbox_events`·`notifications` 를 지워 S-LIVE run도 사라진다. 발표 전에 reset이 꼭 필요하면 S-LIVE는 녹화 화면으로 보여 준다.
 
 ## 3. 시간표
 
@@ -100,16 +105,15 @@ updated: 2026-10-24
 | 18:00~20:00 | 병합, 운영 migration 적용(승인 뒤), 운영 재확인 |
 | 20:00~22:00 | P2 freeze 체크 |
 | **22:00** | **기능 freeze** |
-| 10-25(일) 오전 | 카카오 S0 수신 시험(사용자) → C9 최종 리허설 2회(`mock`, reset 포함, 재부팅 1회 포함) |
-| 10-25(일) 리허설 뒤 | `live` 전환 → S-LIVE 실공고 분석과 카카오 실수신 녹화 → `mock` 복귀. reset이 S-LIVE run을 지우므로 마지막 reset 뒤에 한다 → X4 영상 촬영 |
+| 10-24 저녁 | 회사 `mock` 정렬(정체 해결), Vercel 카카오 키 4개·재배포, 카카오 앱 설정(사용자) |
+| 10-25(일) 오전 | 카카오 S0 수신 시험(사용자) → 카카오톡 알림 끄기 → C9 최종 리허설 2회(`mock`, reset 포함, 재부팅 1회 포함) |
+| 10-25(일) 리허설 뒤 | 마지막 `demo:reset`·`demo:preanalyze` → 회사만 `live` 전환 → 카카오톡 알림 켜기 → S-LIVE 실공고 분석과 카카오 실수신 녹화 → 회사 `mock` 복귀(약 45~60분) → X4 영상 촬영 |
 | 10-25(일) 오후 | 회사 GPU F1 → F2, P3 문서 정합화 |
 | 10-26(월) 오전 | F3·E4·E1' 채점, 제출물 숫자 반영, 기동 절차 1~15, **완료 목표** |
 | 10-27(화) | 발표자료 마무리·발표 연습·**공식 제출** |
 
 ## 4. 세션 배정안
 
-| 세션 | 상태(10:00) | 맡을 일 |
-|---|---|---|
 10:00 배정을 보냈다. migration 번호는 81이 `20261024000200`~`000399`, a2가 `20261024000400`부터 쓴다.
 
 | 세션 | 상태(10:05) | 맡을 일 |

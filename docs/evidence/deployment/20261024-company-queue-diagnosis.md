@@ -72,7 +72,7 @@ $DC exec -T worker node -e 'fetch(process.env.AI_GATEWAY_URL+"/health").then(r=>
 
 ## 고치는 방향 (추천, 사용자 실행)
 
-목표는 오늘 회사 쪽을 웹과 같은 `mock` 으로 맞추는 것이다. 10-25 S-LIVE·카카오 녹화 때만 Vercel과 회사를 함께 `live` 로 바꾼다([[2026-10-24-freeze-priorities|10-24 우선순위]] §2-6·§3).
+목표는 오늘 회사 쪽을 웹과 같은 `mock` 으로 맞추는 것이다. 10-25 S-LIVE·카카오 녹화 때만 회사 쪽을 `live` 로 바꾸고 Vercel은 `mock` 그대로 둔다([[2026-10-24-freeze-priorities|10-24 우선순위]] §2-6·§3).
 
 1. 위 1·2번 결과를 보고 옛 컨테이너나 다른 Worker가 있는지 확인한다.
 2. 회사 셸에 `SOL_RUN_MODE` 가 export돼 있으면 `unset SOL_RUN_MODE` 한다. `infra/.env.company.local` 은 `SOL_RUN_MODE=mock`, `infra/.env.ai-gateway.local` 은 `AI_PROVIDER=mock` 으로 둔다.

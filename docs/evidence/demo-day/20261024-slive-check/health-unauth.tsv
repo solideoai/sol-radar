@@ -1,0 +1,4 @@
+2026-10-24T01:12:25Z	200	https://www.solideos-radar.com/health/live	{"status":"ok"}
+2026-10-24T01:12:25Z	200	https://www.solideos-radar.com/health/ready	{"status":"ok","checks":{"db":"ok","redis":"ok","storage":"ok","ai":"local"}}
+2026-10-24T01:12:26Z	401	https://acropolissg.com/redis/health	{"error":{"code":"UNAUTHENTICATED","message":"서비스 인증이 필요합니다.","details":{},"requestId":"534c08ab-f7cd-4e92-8f04-465e5359192c"}}
+2026-10-24T01:12:26Z	401	https://www.solideos-radar.com/api/v1/admin/ai/status	{"error":{"code":"UNAUTHENTICATED","message":"로그인이 필요합니다.","details":{},"requestId":"7257418f-ac52-455b-8d74-25fa0bfaa4ef"}}
