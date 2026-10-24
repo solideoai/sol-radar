@@ -3014,11 +3014,11 @@ export type Database = {
         Returns: undefined
       }
       set_member_photo: {
-        Args: { p_member: string; p_path: string }
+        Args: { p_member: string; p_path?: string }
         Returns: undefined
       }
       set_my_photo: {
-        Args: { p_path: string }
+        Args: { p_path?: string }
         Returns: undefined
       }
       task_dashboard_stats: {

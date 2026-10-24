@@ -2050,6 +2050,11 @@ describe("프로필 사진 — 경로·권한 (20261024000200)", () => {
     await actAs(db, users[0]);
     await setMember(member, null);
     assert.deepEqual((await state()).roster, null);
+    // 웹은 사진 지우기를 p_path 생략(기본값 null, 20261024000210)으로 부른다.
+    await actAs(db, users[1]);
+    await setMine(own(users[1], 7));
+    await db.query("select public.set_my_photo()");
+    assert.deepEqual((await state()).roster, null);
     await actAs(db, null, "anon");
     await assert.rejects(setMine(null), /permission denied/);
   });

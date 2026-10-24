@@ -7,6 +7,7 @@ import {
   type MyProfile,
   type EmploymentResult,
   toEmploymentState,
+  ownPhotoPathOf,
   parseDisplayName,
   toMyProfile,
 } from "./profile.model";
@@ -18,7 +19,9 @@ export async function getMyProfile(repo: ProfileRepo = profileRepo): Promise<MyP
   if (!repo.isConfigured()) return { status: "no-database" };
   const id = await repo.currentUserId();
   if (!id) return { status: "signed-out" };
-  return toMyProfile(await repo.findById(id));
+  const row = await repo.findById(id);
+  const photoPath = row?.status === "active" ? ownPhotoPathOf(row) : null;
+  return toMyProfile(row, photoPath ? await repo.signPhoto(photoPath) : null);
 }
 
 // 누구의 행인지는 입력이 아니라 로그인에서 읽는다 — 서버 함수는 화면 밖에서 직접 POST 로도 불린다.

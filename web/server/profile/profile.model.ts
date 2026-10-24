@@ -9,17 +9,38 @@ import type { Database } from "@/lib/database.types";
 // 계정 화면이 읽는 열만. 표의 다른 열이 늘어도 이 도메인은 바뀌지 않는다.
 export type ProfileRow = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
-  "email" | "is_admin" | "display_name" | "avatar_url" | "status" | "created_at"
-> & { employment: EmploymentInfo | null };
+  | "id"
+  | "email"
+  | "is_admin"
+  | "display_name"
+  | "avatar_url"
+  | "photo_path"
+  | "status"
+  | "created_at"
+> & {
+  employment: EmploymentInfo | null;
+  // 가입 신청 승인으로 연결된 명부 행(team_members.user_id). 연결 전이면 null.
+  linked_member: LinkedMember | null;
+};
+export type LinkedMember = Pick<
+  Database["public"]["Tables"]["team_members"]["Row"],
+  "photo_path" | "person_code" | "portrait_path" | "is_demo"
+>;
 
 // 화면이 그리는 모양. DB 행을 그대로 내보내지 않는다.
 // isAdmin 은 관리자 화면 링크를 보일지만 정한다. 관리자 화면은 따로 다시 확인한다(@/server/admin).
 export type ProfileView = {
+  userId: string;
   // 이메일을 주지 않는 제공자(카카오 비즈 앱이 아님·네이버)로 가입하면 없다.
   email: string | null;
   displayName: string | null;
-  // 제공자가 준 https 주소(DB 제약 profiles_avatar_url_check). 없으면 화면이 이름 첫 글자를 그린다.
+  // 화면에 그릴 사진 주소(설계 C10): 올린 사진의 signed URL → 연결된 데모 직원의 정장 사진 → 제공자 사진(https).
+  // 없으면 화면이 이름 첫 글자를 그린다.
   avatarUrl: string | null;
+  // 직접 올린 사진이 있는가(사진 지우기 버튼을 보일지).
+  hasOwnPhoto: boolean;
+  // 조직도 명부에 연결됐는가. 연결되면 내 사진이 조직도 사진이다(설계 C9).
+  orgChartLinked: boolean;
   role: "운영자" | "회원";
   isAdmin: boolean;
   joinedAt: string;
@@ -37,10 +58,25 @@ export type MyProfile =
   | { status: "suspended" }
   | { status: "ready"; profile: ProfileView };
 
-export const toProfileView = (row: ProfileRow): ProfileView => ({
+/** 내 사진의 Storage 경로. 명부에 연결되면 조직도 사진이 곧 내 사진이다. */
+export const ownPhotoPathOf = (row: ProfileRow): string | null =>
+  row.linked_member ? row.linked_member.photo_path : row.photo_path;
+
+const linkedPortraitOf = (member: LinkedMember | null): string | null =>
+  member?.is_demo &&
+  /^SOL-P\d{4}$/.test(member.person_code) &&
+  member.portrait_path === `/demo/people/${member.person_code}.png`
+    ? member.portrait_path
+    : null;
+
+/** photoUrl 은 ownPhotoPathOf 를 서명한 주소다. 서명하지 못했으면 null 이고 다음 순위로 내려간다. */
+export const toProfileView = (row: ProfileRow, photoUrl: string | null = null): ProfileView => ({
+  userId: row.id,
   email: row.email,
   displayName: row.display_name,
-  avatarUrl: row.avatar_url,
+  avatarUrl: photoUrl ?? linkedPortraitOf(row.linked_member) ?? row.avatar_url,
+  hasOwnPhoto: ownPhotoPathOf(row) !== null,
+  orgChartLinked: row.linked_member !== null,
   role: row.is_admin ? "운영자" : "회원",
   isAdmin: row.is_admin,
   joinedAt: row.created_at,
@@ -48,10 +84,10 @@ export const toProfileView = (row: ProfileRow): ProfileView => ({
   profileComplete: toEmploymentState(row).profileComplete,
 });
 
-export const toMyProfile = (row: ProfileRow | null): MyProfile => {
+export const toMyProfile = (row: ProfileRow | null, photoUrl: string | null = null): MyProfile => {
   if (!row) return { status: "missing" };
   return row.status === "active"
-    ? { status: "ready", profile: toProfileView(row) }
+    ? { status: "ready", profile: toProfileView(row, photoUrl) }
     : { status: "suspended" };
 };
 

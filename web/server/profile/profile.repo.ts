@@ -1,4 +1,5 @@
 import "server-only";
+import { signPhotoPaths } from "@/server/photos";
 import { getAuthClaims, getSupabase, isSupabaseConfigured } from "@/server/supabase";
 import type { Database } from "@/lib/database.types";
 import type { EmploymentInfo, EmploymentInput } from "@/server/shared";
@@ -46,7 +47,7 @@ export const profileRepo = {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "email, is_admin, display_name, avatar_url, status, created_at, declared_department_id, declared_job_title_id",
+        "id, email, is_admin, display_name, avatar_url, photo_path, status, created_at, declared_department_id, declared_job_title_id, linked_member:team_members!team_members_user_id_fkey(photo_path, person_code, portrait_path, is_demo)",
       )
       .eq("id", id)
       .maybeSingle();
@@ -65,7 +66,11 @@ export const profileRepo = {
         employment = toEmploymentInfo(resolved.data[0]);
       }
     }
-    return { ...data, employment };
+    return { ...data, linked_member: data.linked_member ?? null, employment };
+  },
+  // 사용자 JWT 로 서명한다(profile_photos_read 정책). 서명하지 못하면 null.
+  async signPhoto(path: string): Promise<string | null> {
+    return (await signPhotoPaths([path])).get(path) ?? null;
   },
   // 고친 행이 있었는지 돌려준다. 남의 id 를 넘기거나 정지된 사람이면 RLS 가 걸러 오류 없이 0행이 된다.
   async updateDisplayName(id: string, displayName: string): Promise<boolean> {
