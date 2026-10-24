@@ -277,6 +277,10 @@ const ALLOWED_DEFINER_FUNCTIONS = new Set([
   "public.set_kakao_notify_enabled(boolean)",
   "public.disconnect_kakao_notify()",
   "public.request_kakao_notify_test()",
+  // 프로필 사진(20261024000200): 사진 포인터만 바꾼다. 경로는 본인 uid·대상 직원 id 접두사로 함수 안에서 검사하고,
+  // 직원 사진은 그 조직 ADMIN 만 바꾼다. PUBLIC/anon 실행은 닫는다.
+  "public.set_my_photo(text)",
+  "public.set_member_photo(uuid, text)",
   // N3: 본인의 소속 조직 관심 수만 반환; 사용자 명단은 노출하지 않는다.
   "public.bid_watch_count(uuid)",
   // N6: 함수 안에서 세션 조직·ADMIN/SALES 및 최신 BID 결정을 검사한다.

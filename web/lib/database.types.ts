@@ -1867,6 +1867,7 @@ export type Database = {
           email: string | null
           id: string
           is_admin: boolean
+          photo_path: string | null
           status: string
           updated_at: string
         }
@@ -1879,6 +1880,7 @@ export type Database = {
           email?: string | null
           id: string
           is_admin?: boolean
+          photo_path?: string | null
           status?: string
           updated_at?: string
         }
@@ -1891,6 +1893,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_admin?: boolean
+          photo_path?: string | null
           status?: string
           updated_at?: string
         }
@@ -2593,43 +2596,49 @@ export type Database = {
           created_at: string
           department_id: string
           email: string | null
-          gender: string
+          gender: string | null
           id: string
           is_demo: boolean
           job_title_id: string
           name: string
           org_id: string
           person_code: string
-          portrait_path: string
+          photo_path: string | null
+          portrait_path: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           department_id: string
           email?: string | null
-          gender: string
+          gender?: string | null
           id?: string
           is_demo?: boolean
           job_title_id: string
           name: string
           org_id: string
           person_code: string
-          portrait_path: string
+          photo_path?: string | null
+          portrait_path?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           department_id?: string
           email?: string | null
-          gender?: string
+          gender?: string | null
           id?: string
           is_demo?: boolean
           job_title_id?: string
           name?: string
           org_id?: string
           person_code?: string
-          portrait_path?: string
+          photo_path?: string | null
+          portrait_path?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2651,6 +2660,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2933,6 +2949,10 @@ export type Database = {
         Args: { roles: string[] }
         Returns: string[]
       }
+      next_new_hire_person_code: {
+        Args: { p_org: string }
+        Returns: string
+      }
       open_bid_project: {
         Args: { p_review_id: string }
         Returns: { project_id: string; reopened: boolean }[]
@@ -2991,6 +3011,14 @@ export type Database = {
       }
       set_kakao_notify_enabled: {
         Args: { p_enabled: boolean }
+        Returns: undefined
+      }
+      set_member_photo: {
+        Args: { p_member: string; p_path: string }
+        Returns: undefined
+      }
+      set_my_photo: {
+        Args: { p_path: string }
         Returns: undefined
       }
       task_dashboard_stats: {
