@@ -5,12 +5,23 @@ status: draft
 tags:
   - sol-radar
   - decision
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # 16. 아키텍처 결정 기록 (ADR)
 
 상태 값: `제안` → `채택` → `검증됨`(근거 URL·날짜 필수). 외부 사실 확인 전이면 `미검증`, 철회는 `폐기`. 검증 결과는 날짜·근거 URL·결정자와 함께 이 문서에 갱신한다. 폐기한 결정도 행을 지우지 않고 상태만 바꿔 이력으로 남긴다.
+
+## ADR-051 프로필 사진과 명부 연결(ADR-019 개정, Storage 예외)
+
+**채택 (2026-10-24 사용자 설계 승인).** 사용자가 회원가입·간편 로그인·설정에 프로필 사진 등록이 없다고 지적하고, 사진은 연결된 Supabase 클라우드에 저장하며 본인과 다른 사람이 조직도에서 보게 해 달라고 했다. 신규 입사자와 가상 직원 200명의 사진 변경, 가입 때 명부 연결 + 관리자 승인도 요구했다. 세션 sol-radar-81이 [설계](../polaris/specs/in-progress/2026-10-24-profile-photo-member-link.md)를 보였고 사용자가 "응 진행해"로 승인했다. 설계 C15에 따라 이 승인을 ADR 채택으로 본다(ADR-037 선례). [구현 계획](plans/2026-10-24-profile-photo-member-link-plan.md)은 실행 방식을 사용자의 상시 위임("추천안대로 진행해")에 따라 정했다.
+
+- **ADR-019 개정 — 명부와 계정은 관리자 승인으로만 잇는다.** 명부(`team_members`)와 Auth 계정은 여전히 다른 행이다. 가입만으로 멤버십이 생기지 않는다. 조직이 없는 계정은 가입 신청(`member_join_requests`, 신규 입사자·기존 직원)을 낸다. org-01 ADMIN이 `/settings/organization`에서 승인·거절한다. 승인은 한 트랜잭션이다: 멤버십(업무 역할 기본 VIEWER)을 만들고, 신규 입사자는 `team_members`에 비데모 행(`SOL-N0001` 대역)을 만들며, 기존 직원은 그 행의 `user_id`에 계정을 잇는다. 한 직원에게는 계정 하나만 이어진다. 쓰기는 security definer RPC(`submit_join_request`·`decide_join_request`·`find_unlinked_member`)로만 한다. "이름이 같아도 자동 연결하지 않는다"(ADR-019)는 그대로다.
+- **Storage 예외 — 비공개 버킷 `profile-photos`.** ADR-019의 "공개 자산은 가상 정장 사진뿐"은 유지한다. 올린 사진은 공개하지 않는다. 버킷은 private이고 2MB, `image/jpeg`·`image/png`·`image/webp`만 받는다. 경로는 본인 `users/{uid}/`, 관리자 `members/{team_member_id}/`다. 읽기·쓰기는 사용자 JWT와 `storage.objects` 정책이 정한다. 웹은 사용자 JWT로 1시간짜리 signed URL을 만든다. 웹 서버·클라이언트는 service role을 쓰지 않는다(ADR-017·048). 버킷 생성은 사람이 `node scripts/ops/ensure-storage-buckets.mjs --apply`로 한다.
+- **사진 표시 순서(설계 C10).** 올린 사진 → 가상 직원의 정장 사진 → 간편 로그인 제공자 사진 → 머리글자다. 본인은 설정에서, 관리자는 조직도 상세에서 바꾼다. 연결된 사람은 계정 사진과 조직도 사진이 같다.
+- **시연 초기화(설계 C12).** `pnpm demo:reset`이 신규 입사자 행·연결·신청·사진 포인터를 처음 상태로 돌린다. Storage 파일은 지우지 않는다.
+
+마이그레이션은 `20261024000200`·`000210`·`000300` 세 개다. 클라우드 적용과 버킷 생성은 사용자 확인 뒤 통합 순서(sol-radar-78)에 따른다. 구현 범위와 검증은 [[PROGRESS]]의 "프로필 사진과 명부 연결" 절과 [증거](evidence/profile-photo/)에 있다.
 
 ## ADR-050 카카오 전송 의도 선점과 불확실 결과 처리
 
@@ -85,6 +96,7 @@ ADR-005·017·028의 파일 저장소 조항을 대체한다. Redis/BullMQ·Qdra
 ## 결정 사항
 |ID|결정|상태|날짜|근거|
 |---|---|---|---|---|
+|ADR-051|프로필 사진(비공개 Storage 버킷 `profile-photos`, 사용자 JWT·정책·signed URL)과 가입 신청 → org-01 ADMIN 승인으로만 명부·계정 연결(ADR-019 개정)|채택·로컬 구현, 클라우드 적용 대기|2026-10-24|사용자 설계 승인("응 진행해"), [설계](../polaris/specs/in-progress/2026-10-24-profile-photo-member-link.md), [증거](evidence/profile-photo/)|
 |ADR-049|Vercel web 단독, 회사 redis-api·AI gateway·Worker, 기존 Redis와 인증된 관리자 상태 GET 재사용|채택·로컬 검증됨, 회사 적용 대기|2026-10-22|사용자 배포 책임 확정·남은 작업 구현 지시, [회사 실행서](../infra/company/README.md), [검증](evidence/deployment/20261022-company-runtime-implementation.md)|
 |ADR-045|Redis HTTPS 접수는 기존 Next.js API의 frontend/redis-api 역할로 재사용. 회사6379 유지·HTTP6380 loopback·Nginx 불변|검증됨(로컬)·운영 배포 별도 승인|2026-10-21|사용자 Phase 1 구현 지시, [[2026-10-21-redis-gateway-supabase-storage-migration\|계획]], [[20261021-phase1-redis-gateway\|검증]]|
 |ADR-044|Vercel Services 공개 web·내부 ai, web→ai URL binding. eval 제외·decision과 worker 외부 유지|채택·로컬 검증됨 (클라우드 배포 미실행)|2026-10-21|사용자 최종 승인, [검증 기록](evidence/20261021-vercel-services.md), [[10-DEPLOYMENT\|10 배포]]|
@@ -107,7 +119,7 @@ ADR-005·017·028의 파일 저장소 조항을 대체한다. Redis/BullMQ·Qdra
 |ADR-016|웹 클라이언트 공유 상태는 zustand, 입력 검증 스키마는 zod(4.x). Next.js 앱 `web/`에 설치(zustand 5.0.15, zod 4.6.5). 외부 API 계약(`/api/v1` Route Handler)의 DTO도 같은 zod 스키마(`web/server/<도메인>/*.model.ts`)가 단일 원천이고, worker(`web/worker`)도 같은 스키마를 쓴다|채택|2026-10-16|사용자 결정. zod는 DTO 단일 원천([[05-API-SPEC\|05 API]] §7)과 같은 라이브러리라 화면·Route Handler·worker가 스키마 표현을 공유한다. zustand는 여러 클라이언트 컴포넌트가 함께 쓰는 UI 상태만 담고, 서버 데이터와 URL 쿼리 필터는 담지 않는다 ([[06-UI-UX\|06 UI]] §11)|
 |ADR-017|아키텍처 전환: Next.js(`web/`, 화면·Route Handler·서버 도메인 `web/server/<도메인>`) + **Supabase(Postgres·RLS·Auth)**. NestJS·Prisma·자체 JWT 인증은 쓰지 않는다. Worker는 `web/worker` 진입점(같은 코드베이스의 별도 프로세스, BullMQ). MinIO·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose는 유지. 조직 데이터 열은 `org_id`, 업무 역할은 `memberships.sol_role`(ADMIN·SALES·ANALYST·VIEWER). service role 키는 worker·seed만. 개발 DB·Auth는 Supabase 클라우드 프로젝트(Pro)|채택 (해커톤 동안 유지. ADR-028로 해커톤 뒤 API·worker는 NestJS로 옮긴다)|2026-10-16|사용자 결정(2026-10-16). 출발 템플릿(agentic-boilerplate)이 Next.js + Supabase(조직·역할·RLS·인증 견본, 정책 시험·타입 생성 게이트)라 그대로 쓰면 인증·격리를 새로 만들지 않는다. ADR-001·002를 대체한다([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
 |ADR-018|가입·로그인 방식: 공개 가입 + 초대. 누구나 이메일 + 비밀번호(`/auth/sign-up`) 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만들고, 업무 조직 합류는 초대 수락으로 한다. 간편 로그인 제공자 설정은 해커톤 안에서 하되 다른 기능을 모두 끝낸 뒤 한다(후순위)|채택 (ADR-021로 개정: 가입 시 개인 조직 생성 중단, 이미 있는 개인 조직은 보존. 2026-10-21 ADR-038 예외 승인: 카카오 알림용 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`는 Supabase가 아니라 웹 서버·worker env에 두고 서버에서만 읽는다. `NEXT_PUBLIC_`·브라우저 번들에 넣지 않는다)|2026-10-16|사용자 결정(2026-10-16). 랜딩의 시작하기가 이미 `/auth/sign-up`으로 가고, 버튼·콜백·계정 연결 코드가 템플릿에 있어 새로 만들 것이 없다. 미결정 13번을 닫는다 ([[09-SECURITY\|09 보안]], [[12-ROADMAP\|12 로드맵]])|
-|ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명(남녀 100/100)·고유 정장 사진 200장, 엑셀 팀명 합산·비례 배분·자연스러운 세 글자 가상 이름, 가입 부서·직급/직책 필수|채택 (데이터·DB·가입 구현됨, 2026-10-17 main `42a4ead`. 화면 `/people`·`/org-chart`와 클라우드 DB 적용은 미완. ADR-021로 개정: 인력 표를 운영 `team_members`와 점수 `team_member_scoring`으로 분리, 사람이 고르는 규칙 매칭 후보 표시 허용)|2026-10-16|사용자 인터뷰 및 저장 경로 최종 승인. 상세는 아래 ADR-019·[[07-DATA-PIPELINE\|07 데이터]]·[[06-UI-UX\|06 UI]]·[[PROGRESS]]|
+|ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명(남녀 100/100)·고유 정장 사진 200장, 엑셀 팀명 합산·비례 배분·자연스러운 세 글자 가상 이름, 가입 부서·직급/직책 필수|채택 (데이터·DB·가입 구현됨, 2026-10-17 main `42a4ead`. 화면 `/people`·`/org-chart`와 클라우드 DB 적용은 미완. ADR-021로 개정: 인력 표를 운영 `team_members`와 점수 `team_member_scoring`으로 분리, 사람이 고르는 규칙 매칭 후보 표시 허용. 2026-10-24 ADR-051로 개정: 명부와 계정은 관리자 승인으로만 연결, 올린 사진은 비공개 Storage)|2026-10-16|사용자 인터뷰 및 저장 경로 최종 승인. 상세는 아래 ADR-019·[[07-DATA-PIPELINE\|07 데이터]]·[[06-UI-UX\|06 UI]]·[[PROGRESS]]|
 |ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 Open API 실수집·첨부 파싱, Qwen3.5-9B·Kev-9B 실추론(회사 GPU 서버), Kev `kev-qs/v0.2` 참고 지표(SOL Score 미반영), 평가셋·평가 체계, Kev-9B LoRA 는 오류 분석 뒤 후속|채택 (설계 승인. 구현 일부 `15f5214`·`caf0abd`, 구현 상태는 [[PROGRESS]]. **ADR-023으로 해커톤 범위 재배치: live 실수집·실추론 1건·E3는 핵심 컷, P0-8·전체 평가셋·P0-11은 확장 컷. 설계는 불변**. ADR-027으로 Kev-9B LoRA 학습·E4 비교는 해커톤 X6. **2026-10-20 ADR-034로 모델·런타임 개정**: 추출·설명은 회사 운영 vLLM API의 Qwen3.5-27B, 결정 모델은 Bosun v3.1 0.6B(우리 `sol_decision` 서버). 실행 모드·`kev-qs/v0.2`·"분포는 점수 입력이 아니다"는 그대로)|2026-10-16|사용자 결정(2026-10-16): "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP". ADR-004·008·012를 개정한다. 상세는 아래 ADR-020·[[21-MODEL-TRAINING\|21 모델 학습]]·[[03-AI-PIPELINE\|03 AI 파이프라인]]·[[07-DATA-PIPELINE\|07 수집]]. 승인 설계: [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)|
 |ADR-022|data.go.kr 서비스키를 서비스마다 따로 둔다: env 4개(`G2B_BID_NOTICE_SERVICE_KEY` 15129394·`G2B_PRE_SPEC_SERVICE_KEY` 15129437·`G2B_ORDER_PLAN_SERVICE_KEY` 15129462·`G2B_INDUSTRY_MASTER_SERVICE_KEY` 15129467). 소스 registry의 `serviceKeyEnv`가 소스별 env 이름을 가리킨다. 단일 `G2B_SERVICE_KEY`는 쓰지 않는다|채택 (구현 일부 `15f5214`, 구현 상태는 [[PROGRESS]])|2026-10-18|사용자 결정(2026-10-18): 서비스 4개에 키를 각각 받았고 API마다 키를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있고, 호출 예산 카운터(`quota:{serviceId}:{YYYYMMDD}`)와 단위가 같다. ADR-020 승인 설계의 단일 키 표기를 대체한다. 상세는 아래 ADR-022·[[07-DATA-PIPELINE\|07 수집]] §2.2·[[15-DATA-CONTRACTS\|15 데이터 계약]] §8|
 |ADR-021|사이드바 정보 구조와 입찰 업무 확장: 데모 필수 화면(앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개)과 P1(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 편집), 조직 주소 없는 경로, 서비스 운영자 `/ops` 분리|채택 (설계 승인. 2026-10-21 ADR-042로 P1 착수 조건 개정. 구현 일부 main `42a4ead`, 구현 상태는 [[PROGRESS]]. **ADR-023으로 해커톤 범위 재배치: 데모 필수 화면이 확장 컷으로 이동, 설계는 불변**. 2026-10-20 사용자 결정으로 노출 조건 개정: 화면 없는 메뉴는 링크 없는 "준비 중", 상세 사이드바 항목)|2026-10-16|사용자 승인 4차(2026-10-16). ADR-018·019를 개정하고 미결정 11·12번을 닫는다. 상세는 아래 ADR-021·[사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md)|
@@ -256,6 +268,9 @@ sol-radar-54가 main `4e62170`·`mock`으로 11 §5 0~18번을 돌린 2차 리�
 |30-8|대시보드 "BID 권고" 표는 공고의 최신 run(진행 중 포함)을 써서, 재분석이 `RUNNING`인 공고(FX-18)는 점수·권고가 "—"로 보인다. 카드("BID 권고 3")는 끝난 분석 중 최신 1건이라 표와 카드가 엇갈린다|06 §5.3 ①·②, ADR-029 A6 D10|45: 표도 카드처럼 끝난 분석(`COMPLETED`·`PARTIAL`) 중 최신 1건을 쓰고, 재분석 중이면 "재분석 중" 표시를 더한다|**결정**(12 추천안, 2026-10-21). 12 보충: 대시보드 서비스 안에서만 끝난 분석을 읽을 수 있으면 추천안대로, `bid_list_items`·`/api/v1/bids`를 바꿔야 하면 freeze 전에는 "재분석 중" 표시만 넣고 "끝난 분석 중 최신"은 freeze 뒤로 미룬다(ADR-039 ①). 54가 기준점 보고에 어느 쪽인지 적는다. 06을 맞췄다. 구현 전. 담당 54|
 
 ## ADR-019 상세 — 솔리데오 고정·가상 인력·가입 신고 정보
+
+> [!note] 2026-10-24 ADR-051 개정
+> 가입 신청과 org-01 ADMIN 승인으로 계정을 명부에 잇는다(신규 입사자는 새 비데모 행, 기존 직원은 `user_id` 연결). 올린 프로필 사진은 비공개 버킷 `profile-photos`에 둔다. 아래 "공개 자산은 가상 정장 사진뿐"과 "이름이 같아도 자동 연결하지 않는다"는 그대로다.
 
 2026-10-16 인터뷰 후 사용자 최종 승인. 아래는 **설계 결정**이다. 구현 상태는 위 행과 [[PROGRESS]]에 있다. 승인 스펙은 [솔리데오 인력·가입](../polaris/specs/done/2026-10-16-solideo-people-signup.md)이다.
 

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "sol-axe-report/v0.1",
+  "generatedAt": "2026-10-24T02:37:59.990Z",
+  "axeVersion": "4.14.0",
+  "totals": {
+    "scans": 4,
+    "violations": 0
+  },
+  "scans": [
+    {
+      "state": "profile-photo-admin-join-requests",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-24T02:37:50.452Z",
+      "command": "pnpm -C web test:e2e:work --project=work-write --no-deps profile-photo\\.write",
+      "path": "/settings/organization",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "profile-photo-join-pending",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-24T02:37:47.978Z",
+      "command": "pnpm -C web test:e2e:work --project=work-write --no-deps profile-photo\\.write",
+      "path": "/auth/organization-state",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "profile-photo-org-chart-admin-photo",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-24T02:37:59.433Z",
+      "command": "pnpm -C web test:e2e:work --project=work-write --no-deps profile-photo\\.write",
+      "path": "/org-chart?team=a6c0f1fc-aeba-5e54-a20c-f6f4d1609f84",
+      "axeVersion": "4.14.0",
+      "violations": []
+    },
+    {
+      "state": "profile-photo-org-chart-new-hire",
+      "project": "work-write",
+      "width": 1440,
+      "scannedAt": "2026-10-24T02:37:52.318Z",
+      "command": "pnpm -C web test:e2e:work --project=work-write --no-deps profile-photo\\.write",
+      "path": "/org-chart?team=a6c0f1fc-aeba-5e54-a20c-f6f4d1609f84",
+      "axeVersion": "4.14.0",
+      "violations": []
+    }
+  ]
+}
