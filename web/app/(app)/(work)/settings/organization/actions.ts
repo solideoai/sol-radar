@@ -11,6 +11,7 @@ import {
   type OrgInviteResult,
   type OrgRoleChangeResult,
 } from "@/server/organization";
+import { type DecideJoinResult, decideOrgJoinRequest } from "@/server/join-request";
 import { ORG_SETTINGS_PATH } from "./org-settings-copy";
 
 // 얇게 둔다 — 검증·로그인·ADMIN 확인·저장은 도메인(@/server/organization)이, 최종 권한은 DB 정책과 트리거가 정한다.
@@ -47,5 +48,14 @@ export async function cancelOrgInvite(invitationId: unknown): Promise<OrgInvitat
   await requireCompleteEmployment(ORG_SETTINGS_PATH);
   const result = await cancelOrgInvitation(invitationId);
   if (result.status === "done" || result.status === "forbidden") refresh();
+  return result;
+}
+
+// 가입 신청 승인·거절. ADMIN 확인은 도메인이, 최종 판정(대상 직원·경쟁)은 DB 함수가 한다.
+// 이미 처리된 신청·권한 잃음도 화면이 낡은 것이라 다시 그린다.
+export async function decideJoin(input: unknown): Promise<DecideJoinResult> {
+  await requireCompleteEmployment(ORG_SETTINGS_PATH);
+  const result = await decideOrgJoinRequest(input);
+  if (result.status !== "signed-out" && result.status !== "invalid") refresh();
   return result;
 }
