@@ -1,0 +1,234 @@
+{
+  "generatedAt": "2026-10-24T01:57:00Z",
+  "target": "https://www.solideos-radar.com",
+  "runner": "sol-radar-9b (Playwright MCP, 1440·1280)",
+  "account": "admin@admin.com (ADMIN, 솔리데오 org-01) — 브라우저에 남아 있던 세션. 비밀번호·토큰은 쓰지도 저장하지도 않음",
+  "productionWrites": [
+    "FX-02 분석 요청 1건: analysisId 6a90acc4-3709-41af-850d-594c6549ad02 (QUEUED 로 정지)",
+    "FX-02 결정 기록 1건: WATCH, 2026-10-24T01:11:50Z, 사유 '[운영 smoke 9b 2026-10-24] … 리허설 전 reset 대상'",
+    "멱등·429 확인용 POST 33건: 전부 같은 run 으로 dedup 되거나 409·429, 새 run 0"
+  ],
+  "scenes": [
+    {
+      "name": "login",
+      "result": "PARTIAL",
+      "note": "기존 admin 세션 사용. 로그인 화면 200 만 확인, 비밀번호 로그인은 미실행(비밀번호 없음)"
+    },
+    {
+      "name": "dashboard_1440",
+      "result": "PASS",
+      "overflowPx": 0,
+      "header": "DEMO · 실행 모드: mock · AI: local · 수집 지연 3일 전"
+    },
+    {
+      "name": "bids_1280",
+      "result": "PASS",
+      "overflowPx": 0,
+      "shown": 14,
+      "note": "Early Opportunity 끔 기준 14건, API 18건(열림) + FX-14 CLOSED"
+    },
+    {
+      "name": "fx01_detail",
+      "result": "PASS",
+      "solScore": 94,
+      "recommendation": "BID",
+      "qualifications": "3건 모두 충족",
+      "citations": "8건 원문 대조 통과",
+      "evidenceDrawer": "열림, 원문 대조: 정규화 후 일치"
+    },
+    {
+      "name": "fx03_detail",
+      "result": "PASS",
+      "solScore": 68,
+      "recommendation": "NO_BID",
+      "reviewFlags": ["MODEL_RULE_DISAGREEMENT"]
+    },
+    {
+      "name": "fx03_what_if",
+      "result": "PASS",
+      "before": "NO-BID 68 미충족",
+      "after": "WATCH 68 충족(정보통신공사업 등록 보유 가정)",
+      "note": "스위치는 원래대로 끔"
+    },
+    { "name": "fx02_request", "result": "PASS", "http": 202, "ms": 6391, "deduplicated": false },
+    {
+      "name": "fx02_polling_completed_72",
+      "result": "FAIL",
+      "defect": "D1",
+      "note": "01:05:10Z QUEUED 이후 01:56Z 까지 startedAt null"
+    },
+    {
+      "name": "decision_record",
+      "result": "PASS",
+      "decision": "WATCH",
+      "decidedAt": "2026-10-24T01:11:50Z",
+      "note": "분석 완료 전 기록. 화면 '마지막 결정: WATCH · 이광희'"
+    },
+    {
+      "name": "notification_bell",
+      "result": "BLOCKED",
+      "note": "알림 0건. 분석 완료·outbox 처리가 Worker 몫(D1)"
+    },
+    {
+      "name": "other_org_404",
+      "result": "PASS",
+      "checks": [
+        "/org-02/settings 404",
+        "/org-02/settings/members 404",
+        "/org-02/settings/team 404"
+      ]
+    }
+  ],
+  "deploymentConditions": [
+    {
+      "name": "unauthenticated_401",
+      "result": "PASS",
+      "checks": [
+        "GET /api/v1/bids 401",
+        "GET /api/v1/dashboard/summary 401",
+        "GET /api/v1/bids/:id 401",
+        "POST /api/v1/bids/:id/analyses 401",
+        "GET /dashboard 307 -> /auth/login"
+      ]
+    },
+    {
+      "name": "csrf_403",
+      "result": "PASS",
+      "note": "X-Requested-With 없는 쿠키 POST 는 403 CSRF_REJECTED"
+    },
+    { "name": "other_role_403", "result": "BLOCKED", "note": "비ADMIN 계정 비밀번호 없음" },
+    {
+      "name": "other_org_404_api",
+      "result": "PARTIAL",
+      "note": "임의 UUID bids·analyses 404 NOT_FOUND. org-02 실제 자원 id 로는 미실행(org-02 계정 없음)"
+    },
+    { "name": "accepted_202_polling_worker", "result": "FAIL", "defect": "D1" },
+    {
+      "name": "idempotency",
+      "result": "PASS",
+      "sameKeySameBody": "202 같은 analysisId",
+      "sameKeyOtherBody": "409 IDEMPOTENCY_KEY_REUSED",
+      "newKeyForceFalse": "202 deduplicated:true 같은 run"
+    },
+    {
+      "name": "rate_limit_429",
+      "result": "PASS",
+      "burst": 31,
+      "accepted": 30,
+      "limited": 1,
+      "code": "RATE_LIMITED",
+      "retryAfter": "53",
+      "newRuns": 0
+    },
+    {
+      "name": "private_ports",
+      "result": "PASS",
+      "checks": [
+        "acropolissg.com:6379 closed/filtered",
+        "acropolissg.com:6380 closed/filtered",
+        "https://acropolissg.com/redis/health 무토큰 401",
+        "Vercel /health 404 (redis-api 역할 전용, 설계대로)"
+      ]
+    },
+    {
+      "name": "health_ready",
+      "result": "PASS",
+      "body": {
+        "status": "ok",
+        "checks": { "db": "ok", "redis": "ok", "storage": "ok", "ai": "local" }
+      }
+    }
+  ],
+  "newScreens": [
+    { "path": "/watchlist", "result": "PASS", "http": 200, "overflowPx": { "1440": 0, "1280": 0 } },
+    { "path": "/analysis", "result": "PASS", "http": 200, "overflowPx": { "1440": 0, "1280": 0 } },
+    { "path": "/projects", "result": "PASS", "http": 200, "overflowPx": { "1440": 0, "1280": 0 } },
+    { "path": "/workforce", "result": "PASS", "http": 200, "overflowPx": { "1440": 0, "1280": 0 } },
+    {
+      "path": "/org-01/settings 카카오톡 알림",
+      "result": "PASS",
+      "state": "DISCONNECTED",
+      "provider": "확인 불가(화면·API 에 발송 수단 표시 없음)",
+      "note": "연결·발송 버튼은 누르지 않음. admin 은 미연결이라 실발송 대상 아님"
+    },
+    {
+      "path": "/bids/programs (부처 지원사업 탭)",
+      "result": "PASS",
+      "overflowPx": 0,
+      "note": "열림, 공고 0건 '수집된 부처 지원사업 공고가 없습니다'"
+    },
+    {
+      "path": "/people",
+      "result": "PASS",
+      "people": 200,
+      "scoringTargets": 200,
+      "note": "표에는 메일 열 없음(설계상 조직도·인물 서랍)"
+    },
+    {
+      "path": "/org-chart",
+      "result": "PASS",
+      "overflowPx": { "1440": 0, "1280": 0 },
+      "mailDomain": "solideos.com",
+      "mailsVisible": 14
+    }
+  ],
+  "demoData": [
+    {
+      "name": "fixtures_19_plus_fx12_quarantine",
+      "result": "PASS",
+      "lastIngestSummary": {
+        "created": 19,
+        "changed": 0,
+        "cancelled": 0,
+        "skippedDuplicate": 0,
+        "quarantined": 1,
+        "retried": 2
+      },
+      "bidsTotal": 19,
+      "fx12Listed": false
+    },
+    { "name": "people_200", "result": "PASS" },
+    { "name": "golden_94", "result": "PASS" },
+    { "name": "golden_72", "result": "BLOCKED", "note": "FX-02 분석이 QUEUED 에 멈춤(D1)" },
+    { "name": "golden_68", "result": "PASS" }
+  ],
+  "defects": [
+    {
+      "id": "D1",
+      "severity": "차단",
+      "title": "회사 Worker 가 analysis job 을 소비하지 않음",
+      "repro": "FX-02 '분석 실행' → 202 analysisId 6a90acc4… → GET /api/v1/analyses/6a90acc4… 가 50분 넘게 QUEUED, startedAt null"
+    },
+    {
+      "id": "D2",
+      "severity": "중",
+      "title": "QUEUED run 의 runMode 'live' 와 머리말 '실행 모드: mock' 불일치",
+      "note": "Worker 시작 때 다시 적는 자리값일 수 있음(78 지적). Worker 기동 뒤 재확인"
+    },
+    {
+      "id": "D3",
+      "severity": "하",
+      "title": "GET /api/v1/admin/ai/status 503 SERVICE_UNAVAILABLE {component:'redis-api'}",
+      "note": "Gateway 허용 경로 밖. 10-DEPLOYMENT 의 알려진 차이로 보임"
+    },
+    {
+      "id": "D4",
+      "severity": "데이터",
+      "title": "FX-15 저장 점수 58 (ADR-043 뒤 기대 68)",
+      "note": "저장된 score_runs 불변 규칙. reset·사전 분석 뒤 68 확인 필요. 19 표 64행은 아직 58"
+    },
+    {
+      "id": "D5",
+      "severity": "데이터",
+      "title": "FX-14 마감 2026-10-22 지나 CLOSED",
+      "note": "기본 목록·마감 임박 카드에서 빠짐. reset 이 날짜를 다시 잡는지 확인 필요"
+    },
+    {
+      "id": "D6",
+      "severity": "관찰",
+      "title": "머리말 'AI: local'·'수집 지연 3일 전'",
+      "note": "19 S2 기대 'AI: mock'. 마지막 수집 2026-10-20 PARTIAL"
+    }
+  ],
+  "toolingNote": "결정 기록 클릭을 감싼 Playwright 대기 코드가 40분간 응답하지 않았음. 기록 자체는 01:11:50Z 에 1건 저장됨(앱 결함 아님)"
+}

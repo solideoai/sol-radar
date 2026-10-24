@@ -29,6 +29,7 @@ updated: 2026-10-24
 | S-LIVE 사전 run | 발표용 Supabase에 없다(10-21 기준). 격리 로컬 1건(`PARTIAL`·`RULES_ONLY`)만 있다 | [[18-HACKATHON]] §7 |
 | 회사 GPU 학습 | `sol_decision` 서버·preflight 미완(문서 기준). `bosun-train-feasibility.md` 없음 | [[12-ROADMAP]] X6 |
 | **운영 분석 처리(차단)** | 10:05 9b 점검: FX-02 분석 요청은 202를 받았지만 5분 넘게 `QUEUED` 다(`startedAt` null, 오류 없음). 회사 Worker가 job을 가져가지 않는다. 코드 진단: 회사 redis-api는 `SOL_RUN_MODE=live` 이고 웹은 `mock` 이다. 옛 컨테이너가 섞였을 가능성이 가장 크다. 확인 명령과 고치는 순서는 [진단](../evidence/deployment/20261024-company-queue-diagnosis.md)에 있고, 사용자가 회사 터미널에서 실행한다. `GET /api/v1/admin/ai/status` 는 503 `redis-api` 다(Gateway 허용 경로 밖, 알려진 차이) | 9b 중간 보고, run `6a90acc4` |
+| 운영 smoke(P0-2·P0-3) | **분석 완료 단계만 실패**(11:00, 9b). 통과: dashboard·bids(1280 넘침 0)·FX-01 94 BID·근거 서랍·FX-03 68 NO-BID·가정 재계산 WATCH·FX-02 요청 202·결정 기록·다른 조직 404·비로그인 401·CSRF 403·멱등(같은 run·409)·429(30건 수락·1건 거절, 새 run 0)·회사 포트 비공개·새 화면 6개·인력 200·적재 19+격리 1. 실패: FX-02 완료 72(정체). 미실행: 다른 역할 403(비ADMIN 계정 비밀번호 없음), 알림 벨(Worker 몫). 데이터: FX-15 저장 점수 58(ADR-043 뒤 68, reset·사전 분석으로 다시 계산), FX-14 마감 지남(`+2d` 상대 날짜라 reset이 다시 잡는다). 관리자 AI 상태 503 `redis-api`(회사 정렬 뒤 재확인). 운영 쓰기: run 1건·결정 1건·멱등 확인 POST 33건(새 run 0), 리허설 전 reset 대상 | [smoke 결과](../evidence/deployment/20261024-prod-smoke/results.json) |
 | `docs/PROGRESS.md` | 마지막 기록은 10-22다 | 파일 |
 
 ## 1. 우선순위

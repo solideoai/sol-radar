@@ -81,6 +81,11 @@ $DC exec -T worker node -e 'fetch(process.env.AI_GATEWAY_URL+"/health").then(r=>
 
 멈춘 run `6a90acc4` 는 Worker가 정상화되면 처리되고, 리허설 전 `pnpm demo:reset` 으로 정리된다.
 
+## 함께 다시 볼 것 (9b 최종 보고 11:00)
+
+- `GET /api/v1/admin/ai/status` 503 `{component:"redis-api"}`: Vercel은 회사 응답이 200·401·403·422가 아니거나 응답 모양이 다르면 503 `redis-api` 로 바꾼다(`web/app/_lib/redis-api-client.ts` `relayAiStatus`). 옛 redis-api 이미지에 이 경로가 없거나 Nginx `/redis/` 가 넘기지 않으면 이렇게 된다(추정). 회사 정렬 뒤 다시 본다. 그래도 503이면 회사 터미널에서 redis-api 로그를 본다.
+- 머리말 "AI: local" 은 회사 Worker 보고값이다. 회사가 `mock` 으로 정렬되면 "AI: mock" 이 된다([[19-DEMO-SCENARIO|19]] S2 기대값).
+
 ## 관련 문서
 
 - [[2026-10-24-freeze-priorities|10-24 freeze 전 우선순위]]
