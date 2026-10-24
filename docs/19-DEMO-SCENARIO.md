@@ -61,7 +61,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | S7 격리 | FX-01 자격 판정을 `org-02` access token으로 조회 | — | — | — | — | `404 NOT_FOUND`(RLS가 `org-01` 행을 숨김). 공고 자체 조회는 공용이라 `200` | — |
 | Q&A 예비 | FX-04 NIA 데이터 거버넌스 컨설팅 (첨부 없음) | NOTICE | 자격 요건 본문에 없음 | `NEEDS_REVIEW`, 인용 0건 | — | WATCH | 0.60 WATCH |
 | Q&A 예비 | FX-05 건보공단 대국민 포털 재구축 (HWP 손상) | NOTICE | 첨부 파싱 실패 | `NEEDS_REVIEW`, 추출 `PENDING_REVIEW` | — | WATCH, "첨부 원문 확인" 배지 | 0.60 WATCH |
-| Q&A 예비 | FX-15 행정안전부 차세대 지방행정 공통기반 (80억) | NOTICE | 수행 상한 50억 초과 | `SATISFIED` | 58 | WATCH, `SCALE_LIMIT_EXCEEDED` | 0.60 WATCH |
+| Q&A 예비 | FX-15 행정안전부 차세대 지방행정 공통기반 (80억) | NOTICE | 수행 상한 50억 초과 | `SATISFIED` | 68 | WATCH, `SCALE_LIMIT_EXCEEDED` | 0.60 WATCH |
 | Q&A 예비 | FX-17 → FX-18 과기정통부 AI 행정서비스 (발주계획 → 사전규격) | PLAN → PRE_SPEC | 식별자 `DEMO-PLAN-0042`로 연결 | PLAN은 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`, 화면 `확인 필요` · 사유 `해당 없음`) | 82 (PRE_SPEC) | WATCH → BID, StageTimeline 2단계 | — |
 | Q&A 예비 | FX-19 세종 행정정보 연계 플랫폼 사전규격 | PRE_SPEC | 식별자 없음, FX-01과 제목만 유사 | — | — | "연결 후보"만 표시, 자동 병합 없음 | — |
 
