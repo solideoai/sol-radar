@@ -24,7 +24,7 @@ updated: 2026-10-24
 | 운영 DB migration | **완료(10:00)**. 처음 확인 때 미적용 14개였다(N3·N6·카카오·부처 공고·번역 플래그·역할 감사·회사 메일 등). sol-radar-6c가 사용자 승인으로 적용해(`e7f12f3b` 기록) 이력 50개·미적용 0이다. `db-verify`(연결·이력·RLS·화면 역할 권한·뷰·함수) 통과. TLS 검증은 `NODE_EXTRA_CA_CERTS=~/.supabase/prod-ca-2021.crt` 로 켜 둔다 | `db-push.sh --check`, `db-verify.sh` |
 | main | `1fd58ff3`(회사 메일 추가, 다른 세션 커밋) = `origin/main` | `git log` |
 | 프로필 사진·명부 연결 | sol-radar-81 담당. 스펙·계획만 있고 코드는 시작 전이다 | `git status`, [스펙](../../polaris/specs/in-progress/2026-10-24-profile-photo-member-link.md) |
-| N4b 조직·인력 편집 | 시작 전이다. `web/app/api/v1/team-members` 에 `GET` 만 있다 | 코드 |
+| N4b 조직·인력 편집 | **구현 완료, 병합 대기**(a2, `feat/n4b-team-members-edit` `7b5faefb`). migration `000400`(재직 상태·ADMIN 전용 DB 함수·감사·퇴사자 숨김)·`000410`, `POST`·`PATCH /team-members`, `/people` 추가·이동·퇴사. 전체 `pnpm verify` exit 0, 골든 94/72/68 통과. 78이 diff를 검토했다. 81 브랜치 위에 쌓여 병합 순서는 81 → a2다. 서랍 편집 연결은 뺐다(행 메뉴로 충분) | a2 보고, `git diff` |
 | 메일 알림(ADR-041) | 구현 커밋 없음 | `git log` |
 | S-LIVE 사전 run | 발표용 Supabase에 없다(10-21 기준). 격리 로컬 1건(`PARTIAL`·`RULES_ONLY`)만 있다 | [[18-HACKATHON]] §7 |
 | 회사 GPU 학습 | `sol_decision` 서버·preflight 미완(문서 기준). `bosun-train-feasibility.md` 없음 | [[12-ROADMAP]] X6 |
@@ -103,7 +103,7 @@ updated: 2026-10-24
 | 11:00~13:00 | P0-2·P0-3 |
 | 13:00~18:00 | P1-1·P1-2 병렬, P0-4 S-LIVE |
 | 18:00 | 중간 점검: 사진·N4b를 22:00까지 green으로 만들 수 있는지 보고 빼기를 판단한다 |
-| 18:00~20:00 | 병합, 운영 migration 적용(승인 뒤), 운영 재확인 |
+| 18:00~20:00 | 병합(81 → a2), 운영 migration 적용(승인 뒤), main push, 운영 재확인. **순서: 운영 migration을 먼저 적용하고 main을 push한다.** main push가 Vercel 운영 배포를 부르고, 새 코드는 `000200`~`000410` 열·함수를 읽는다. migration은 모두 더하기만 해서 옛 코드에 먼저 적용해도 안전하다 |
 | 20:00~22:00 | P2 freeze 체크 |
 | **22:00** | **기능 freeze** |
 | 10-24 저녁 | 회사 `mock` 정렬(정체 해결), Vercel 카카오 키 4개·재배포, 카카오 앱 설정(사용자) |
