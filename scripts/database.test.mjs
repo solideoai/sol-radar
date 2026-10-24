@@ -2513,6 +2513,24 @@ describe("가입 신청과 명부 연결 (20261024000300)", () => {
     await assert.rejects(find("SOL-D002", "김민준"), /permission denied/);
   });
 
+  it("find_unlinked_member 는 퇴사(LEFT) 직원을 찾지 않는다 (N4b 20261024000410)", async (t) => {
+    const db = await setup(t);
+    const find = async () =>
+      (await db.query("select id from public.find_unlinked_member('SOL-D002','김민준')")).rows;
+    await asSystem(db);
+    await db.query("update public.team_members set employment_status='LEFT' where id=$1", [
+      memberA,
+    ]);
+    await actAs(db, users[2]);
+    assert.deepEqual(await find(), []);
+    await asSystem(db);
+    await db.query("update public.team_members set employment_status='ACTIVE' where id=$1", [
+      memberA,
+    ]);
+    await actAs(db, users[2]);
+    assert.deepEqual(await find(), [{ id: memberA }]);
+  });
+
   it("ADMIN 은 대기 신청자의 사진을 읽고 다른 사람은 읽지 못한다", async (t) => {
     const db = await setup(t);
     await declare(db, users[2], "박신입");
