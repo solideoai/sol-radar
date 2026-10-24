@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { type UnlinkResult, unlinkMyLoginMethod } from "@/server/auth";
+import { type PhotoSaveResult, saveMyPhoto } from "@/server/photos";
 import {
   type DeleteAccountResult,
   deleteMyAccount,
@@ -27,4 +28,11 @@ export async function unlinkLoginMethod(identityId: unknown): Promise<UnlinkResu
 // 즉시 삭제다. 이 브라우저의 로그인 쿠키는 화면이 지운다(getSupabaseBrowser().auth.signOut({ scope: "local" })).
 export async function deleteAccount(): Promise<DeleteAccountResult> {
   return deleteMyAccount();
+}
+
+// 내 사진 포인터를 바꾼다(null 은 지우기). 파일은 브라우저가 먼저 Storage 에 올린다. 사이드바·조직도 사진도 다시 그린다.
+export async function saveMyPhotoAction(path: unknown): Promise<PhotoSaveResult> {
+  const result = await saveMyPhoto(path);
+  if (result.status === "saved") refresh();
+  return result;
 }

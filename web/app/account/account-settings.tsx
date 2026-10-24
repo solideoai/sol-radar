@@ -1,6 +1,8 @@
 import { cn } from "cn";
 import Link from "next/link";
+import { saveMyPhotoAction } from "@/app/account/actions";
 import { DisplayNameForm } from "@/app/account/display-name-form";
+import { PhotoPicker } from "@/components/photo/photo-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -115,22 +117,30 @@ export function AccountSettings({
         <SettingsSection
           id="settings-profile"
           title="프로필"
-          description="사진·이메일·계정 유형을 확인하고 표시 이름을 바꿉니다."
+          description="사진과 표시 이름을 바꾸고 이메일·계정 유형을 확인합니다."
         >
           <div className="flex items-center gap-3">
             <Avatar size="lg" aria-hidden>
               {profile.avatarUrl ? (
-                // 제공자의 이미지 주소다. 다른 사이트로 이 화면 주소를 보내지 않는다.
+                // 올린 사진(signed URL)이나 제공자 사진이다. 다른 사이트로 이 화면 주소를 보내지 않는다.
                 <AvatarImage src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" />
               ) : null}
               <AvatarFallback>{initialOf(name)}</AvatarFallback>
             </Avatar>
-            <div className="grid min-w-0">
+            <div className="grid min-w-0 gap-1.5">
               <span className="truncate type-body font-medium text-foreground" title={name}>
                 {name}
               </span>
+              <PhotoPicker
+                objectPrefix={`users/${profile.userId}`}
+                hasPhoto={profile.hasOwnPhoto}
+                save={saveMyPhotoAction}
+                subject="내 사진"
+              />
               <span className="type-caption text-muted-foreground">
-                사진은 처음 가입한 로그인 수단의 것을 쓰며, 여기서 바꿀 수 없습니다.
+                {profile.orgChartLinked
+                  ? "올린 사진은 조직도에도 함께 보입니다."
+                  : "올린 사진이 없으면 로그인 수단의 사진을 씁니다. JPG·PNG·WEBP, 10MB 이하."}
               </span>
             </div>
           </div>
