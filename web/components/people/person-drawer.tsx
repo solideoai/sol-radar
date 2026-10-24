@@ -9,7 +9,9 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PhotoPicker } from "@/components/photo/photo-picker";
 import type { Department, JobTitle, TeamMemberDetail, TeamMemberListItem } from "@/server/people";
+import type { PhotoSaveResult } from "@/server/photos";
 import { PersonAvatar } from "./person-avatar";
 export function PersonDrawer({
   person,
@@ -17,12 +19,17 @@ export function PersonDrawer({
   jobTitles,
   onClose,
   returnFocus,
+  canManagePhotos = false,
+  savePhoto,
 }: {
   person: TeamMemberListItem | null;
   departments: Department[];
   jobTitles: JobTitle[];
   onClose: () => void;
   returnFocus: () => HTMLElement | null;
+  /** 업무 역할 ADMIN 이면 참이다. 연결 여부와 관계없이 아무나의 사진을 바꾼다(설계 U4·U6). */
+  canManagePhotos?: boolean;
+  savePhoto?: (memberId: string, path: string | null) => Promise<PhotoSaveResult>;
 }) {
   const department = departments.find((item) => item.id === person?.departmentId);
   const title = jobTitles.find((item) => item.id === person?.jobTitleId);
@@ -46,11 +53,21 @@ export function PersonDrawer({
               className="size-20"
             />
           ) : null}
+          {person && canManagePhotos && savePhoto ? (
+            <PhotoPicker
+              objectPrefix={`members/${person.id}`}
+              hasPhoto={person.hasUploadedPhoto}
+              save={(path) => savePhoto(person.id, path)}
+              subject={`${person.name} 사진`}
+              size="xs"
+            />
+          ) : null}
           <SheetTitle>{person?.name ?? "인력 상세"}</SheetTitle>
           <SheetDescription>
             {department?.name ?? "부서 정보 없음"} · {title?.label ?? "직급 정보 없음"}
           </SheetDescription>
-          <p className="type-caption text-demo">DEMO · 가상 인물</p>
+          {/* 신규 입사자(비데모 직원)에는 꼬리표를 붙이지 않는다(계획 판단 R3). */}
+          {person?.isDemo ? <p className="type-caption text-demo">DEMO · 가상 인물</p> : null}
           {person ? (
             <p className="type-caption">{person.scoringEligible ? "점수 계산 대상" : "비대상"}</p>
           ) : null}

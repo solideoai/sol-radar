@@ -5,10 +5,17 @@ import { AppPage } from "@/components/app-page";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PeopleDirectory, TeamMemberListItem } from "@/server/people";
+import type { PhotoSaveResult } from "@/server/photos";
 import type { PeopleUiResult } from "./people-directory";
 import { OrgChart } from "./org-chart";
 import { PersonDrawer } from "./person-drawer";
-export function OrgChartDirectory({ directory }: { directory: PeopleUiResult<PeopleDirectory> }) {
+export function OrgChartDirectory({
+  directory,
+  savePhoto,
+}: {
+  directory: PeopleUiResult<PeopleDirectory>;
+  savePhoto?: (memberId: string, path: string | null) => Promise<PhotoSaveResult>;
+}) {
   const router = useRouter();
   const query = useSearchParams().toString();
   const [isPending, startTransition] = useTransition();
@@ -30,6 +37,12 @@ export function OrgChartDirectory({ directory }: { directory: PeopleUiResult<Peo
         <OrgChartFailure onRetry={retry} requestId={directory.requestId} />
       </AppPage>
     );
+  // 사진을 바꾸면 서버가 목록을 다시 그린다. 열린 서랍도 새 목록의 같은 사람을 보여 준다.
+  const selected =
+    selection.query === query && selection.person
+      ? (directory.data.members.find((member) => member.id === selection.person?.id) ??
+        selection.person)
+      : null;
   return (
     <>
       <OrgChart
@@ -41,9 +54,11 @@ export function OrgChartDirectory({ directory }: { directory: PeopleUiResult<Peo
         }}
       />
       <PersonDrawer
-        person={selection.query === query ? selection.person : null}
+        person={selected}
         departments={directory.data.departments}
         jobTitles={directory.data.jobTitles}
+        canManagePhotos={directory.data.canManagePhotos}
+        savePhoto={savePhoto}
         onClose={close}
         returnFocus={() =>
           trigger.current?.isConnected

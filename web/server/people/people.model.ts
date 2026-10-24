@@ -79,6 +79,8 @@ const memberSchema = z.object({
   scoringEligible: z.boolean(),
   // 데모 200명은 true, 가입 승인·N4b 로 들어온 사람은 false 다.
   isDemo: z.boolean(),
+  // 올린 사진 포인터가 있는가(서명 실패와 관계없이). 관리자 서랍의 "사진 지우기" 를 보일지 정한다.
+  hasUploadedPhoto: z.boolean(),
 });
 const capacitySchema = z
   .object({ startsAt: z.iso.date(), endsAt: z.iso.date(), fte: z.number().min(0).max(1) })
@@ -229,6 +231,7 @@ export function toTeamMemberListItem(
     portraitUrl,
     scoringEligible,
     isDemo: row.is_demo,
+    hasUploadedPhoto: row.photo_path !== null,
   });
 }
 export function toTeamMemberDetail(
