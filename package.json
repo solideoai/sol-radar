@@ -37,6 +37,7 @@
     "test": "node --test \"scripts/**/*.test.mjs\"",
     "test:package": "node --test scripts/gate-integrity.test.mjs",
     "test:db": "node --test scripts/database.test.mjs",
+    "storage:local": "node scripts/storage-local-buckets.mjs",
     "verify": "node scripts/verify.mjs",
     "verify:quick": "node scripts/verify.mjs --quick",
     "verify:changed": "node scripts/verify-changed.mjs"
