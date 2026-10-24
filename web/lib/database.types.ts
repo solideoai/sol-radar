@@ -2696,6 +2696,7 @@ export type Database = {
           created_at: string
           department_id: string
           email: string | null
+          employment_status: string
           gender: string | null
           id: string
           is_demo: boolean
@@ -2712,6 +2713,7 @@ export type Database = {
           created_at?: string
           department_id: string
           email?: string | null
+          employment_status?: string
           gender?: string | null
           id?: string
           is_demo?: boolean
@@ -2728,6 +2730,7 @@ export type Database = {
           created_at?: string
           department_id?: string
           email?: string | null
+          employment_status?: string
           gender?: string | null
           id?: string
           is_demo?: boolean
@@ -2953,6 +2956,10 @@ export type Database = {
         Args: { next_status: string; target: string }
         Returns: undefined
       }
+      assert_team_member_placement: {
+        Args: { p_department_id: string; p_job_title_id: string; p_org_id: string }
+        Returns: undefined
+      }
       audit_request_id: {
         Args: never
         Returns: string
@@ -2988,6 +2995,10 @@ export type Database = {
       create_personal_org: {
         Args: { owner_id: string }
         Returns: string
+      }
+      create_team_member: {
+        Args: { p_department_id: string; p_email?: string; p_job_title_id: string; p_name: string; p_org_id: string }
+        Returns: Json
       }
       decide_join_request: {
         Args: { p_approve: boolean; p_request: string; p_sol_role?: string }
@@ -3136,6 +3147,14 @@ export type Database = {
       task_dashboard_stats: {
         Args: { as_of?: string; target_org: string }
         Returns: { completed_this_week: number; daily_added: number[]; daily_completed: number[]; daily_dates: string[]; my_open_count: number; open_count: number; overdue_count: number; today: string; week_start: string }[]
+      }
+      team_member_edit_json: {
+        Args: { m: Database["public"]["Tables"]["team_members"]["Row"] }
+        Returns: Json
+      }
+      update_team_member: {
+        Args: { p_department_id?: string; p_employment_status?: string; p_job_title_id?: string; p_member_id: string }
+        Returns: Json
       }
     }
     Enums: {

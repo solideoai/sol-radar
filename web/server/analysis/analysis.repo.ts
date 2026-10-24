@@ -128,6 +128,15 @@ function createLoader(client: Client, attachments: AttachmentTextReader): Analys
         .order("starts_at");
       if (assignments.error) throw storeError("assignments", "select", assignments.error);
 
+      // 퇴사자(LEFT)는 다음 분석의 가용 인력에서 뺀다(설계 M16 ⑤). 점수 속성 행은 지우지 않고 그대로 둔다.
+      const departed = await client
+        .from("team_members")
+        .select("id")
+        .eq("org_id", target.orgId)
+        .eq("employment_status", "LEFT");
+      if (departed.error) throw storeError("team_members", "select", departed.error);
+      const leftIds = new Set(departed.data.map((row) => row.id));
+
       const documents = await attachments.readRevisionDocuments(scoreRun.revision_id);
 
       return toLoadedContext({
@@ -136,8 +145,8 @@ function createLoader(client: Client, attachments: AttachmentTextReader): Analys
         structured: structured.data,
         extraction,
         profile: profile.data,
-        teamScoring: teamScoring.data,
-        assignments: assignments.data,
+        teamScoring: teamScoring.data.filter((row) => !leftIds.has(row.member_id)),
+        assignments: assignments.data.filter((row) => !leftIds.has(row.member_id)),
         documents,
       });
     },

@@ -16,11 +16,14 @@ export function PeopleTable({
   departments,
   jobTitles,
   onSelect,
+  renderActions,
 }: {
   members: TeamMemberListItem[];
   departments: Department[];
   jobTitles: JobTitle[];
   onSelect: SelectPerson;
+  // ADMIN 의 줄 관리 메뉴(N4b). 없으면 열을 그리지 않는다.
+  renderActions?: (person: TeamMemberListItem) => React.ReactNode;
 }) {
   const departmentNames = new Map(departments.map((item) => [item.id, item.name]));
   const titleNames = new Map(jobTitles.map((item) => [item.id, item.label]));
@@ -41,6 +44,11 @@ export function PeopleTable({
             <TableHead scope="col" className="w-1/5 whitespace-normal">
               점수 계산 대상
             </TableHead>
+            {renderActions ? (
+              <TableHead scope="col" className="w-14">
+                <span className="sr-only">관리</span>
+              </TableHead>
+            ) : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -83,6 +91,7 @@ export function PeopleTable({
                   {person.scoringEligible ? "점수 계산 대상" : "비대상"}
                 </span>
               </TableCell>
+              {renderActions ? <TableCell>{renderActions(person)}</TableCell> : null}
             </TableRow>
           ))}
         </TableBody>

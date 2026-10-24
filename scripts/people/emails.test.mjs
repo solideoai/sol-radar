@@ -45,7 +45,10 @@ test("클라우드 업그레이드는 기존 데모 200명에 메일을 채우�
       async upsert(table, rows, key) {
         if (table === "team_member_scoring") return;
         for (const row of rows) {
-          const columns = Object.keys(row).filter((column) => column !== "email");
+          // 업그레이드 전 스키마에는 메일·재직 상태(20261024000400) 열이 없다.
+          const columns = Object.keys(row).filter(
+            (column) => column !== "email" && column !== "employment_status",
+          );
           await db.query(
             `insert into public.${table} (${columns.join(",")}) values (${columns.map((_, index) => "$" + (index + 1)).join(",")}) on conflict (${key}) do nothing`,
             columns.map((column) => row[column]),

@@ -293,6 +293,10 @@ const ALLOWED_DEFINER_FUNCTIONS = new Set([
   "public.change_bid_project_status(uuid, text, text)",
   "public.record_bid_project_result(uuid, text, text)",
   "public.patch_bid_project(uuid, text, text, boolean, uuid, boolean, timestamp with time zone)",
+  // N4b(20261024000400): 직원 추가·부서/직급 이동·퇴사. 함수 안에서 세션 조직과 sol_role ADMIN 을 검사하고
+  // 같은 트랜잭션에서 감사를 남긴다. 점수 계산 속성·score_runs 는 건드리지 않는다. PUBLIC/anon 실행은 닫는다.
+  "public.create_team_member(uuid, text, uuid, uuid, text)",
+  "public.update_team_member(uuid, uuid, uuid, text)",
   // ADR-047: 업무 역할의 수집 상태만 투영. 요청자·params·job_key·오류본문·payload는 반환하지 않는다.
   "public.procurement_source_health(text)",
   "public.resolve_solideo_employment(text, text)",

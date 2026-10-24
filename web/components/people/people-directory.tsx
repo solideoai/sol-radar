@@ -9,14 +9,21 @@ import { PeopleFilters } from "./people-filters";
 import { PersonDrawer } from "./person-drawer";
 import { PeopleTable } from "./people-table";
 import { peopleHref } from "./people-query";
+import {
+  TeamMemberEditDialog,
+  TeamMemberRowActions,
+  type TeamMemberEditTarget,
+} from "./team-member-edit-dialog";
 export type PeopleUiResult<T> =
   { status: "ready"; data: T } | { status: "error"; code: string; requestId?: string };
 export type PeopleDirectoryProps = {
   query: string;
   directory: PeopleUiResult<Directory>;
   list: PeopleUiResult<PeoplePage>;
+  // sol_role ADMIN 이면 직원 추가·이동·퇴사(N4b) 진입점을 보인다. 서버와 DB 가 다시 확인한다.
+  canEdit?: boolean;
 };
-export function PeopleDirectory({ query, directory, list }: PeopleDirectoryProps) {
+export function PeopleDirectory({ query, directory, list, canEdit = false }: PeopleDirectoryProps) {
   const router = useRouter();
   const triggerRef = useRef<HTMLElement | null>(null);
   const [selection, setSelection] = useState<{ query: string; person: TeamMemberListItem | null }>({
@@ -37,12 +44,26 @@ export function PeopleDirectory({ query, directory, list }: PeopleDirectoryProps
     startTransition(() => router.push(href, { scroll: false }));
   };
   const retry = () => startTransition(() => router.refresh());
+  // 열 때마다 key 를 바꿔 폼을 새로 그린다(지난 입력값·오류를 남기지 않는다).
+  const [edit, setEdit] = useState<{ key: number; target: TeamMemberEditTarget; open: boolean }>({
+    key: 0,
+    target: { mode: "create" },
+    open: false,
+  });
+  const openEdit = (target: TeamMemberEditTarget) =>
+    setEdit((current) => ({ key: current.key + 1, target, open: true }));
+  const closeEdit = () => setEdit((current) => ({ ...current, open: false }));
   const isReady = directory.status === "ready" && list.status === "ready";
   const summary = list.status === "ready" ? list.data.summary : null;
   return (
     <AppPage
       title="조직·인력"
       description="솔리데오 가상 인물 명부입니다. 점수 계산 대상 인력만 분석에 사용됩니다."
+      actions={
+        canEdit && directory.status === "ready" ? (
+          <Button onClick={() => openEdit({ mode: "create" })}>직원 추가</Button>
+        ) : null
+      }
     >
       <div className="flex flex-wrap items-center gap-3 type-body">
         <span className="text-demo">DEMO · 가상 인물</span>
@@ -84,6 +105,11 @@ export function PeopleDirectory({ query, directory, list }: PeopleDirectoryProps
                 departments={directory.data.departments}
                 jobTitles={directory.data.jobTitles}
                 onSelect={selectPerson}
+                renderActions={
+                  canEdit
+                    ? (member) => <TeamMemberRowActions member={member} onEdit={openEdit} />
+                    : undefined
+                }
               />
             ) : (
               <div className="rounded-lg border border-border p-6 type-body">
@@ -129,6 +155,20 @@ export function PeopleDirectory({ query, directory, list }: PeopleDirectoryProps
           </>
         )}
       </section>
+      {canEdit && directory.status === "ready" ? (
+        <TeamMemberEditDialog
+          key={edit.key}
+          target={edit.target}
+          departments={directory.data.departments}
+          jobTitles={directory.data.jobTitles}
+          open={edit.open}
+          onOpenChange={(open) => (open ? undefined : closeEdit())}
+          onSaved={() => {
+            closeEdit();
+            retry();
+          }}
+        />
+      ) : null}
       <PersonDrawer
         person={isPending ? null : person}
         departments={directory.status === "ready" ? directory.data.departments : []}
