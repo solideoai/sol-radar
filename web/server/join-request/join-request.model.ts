@@ -49,6 +49,8 @@ export type JoinRequestView = {
   jobTitleLabel: string;
   memberName: string | null;
   memberPersonCode: string | null;
+  /** 기존 직원 신청인데 연결 직원이 보이지 않는다. 신청 뒤 퇴사 처리되면 RLS 가 그 직원을 숨긴다(N4b). */
+  memberUnavailable: boolean;
   photoUrl: string | null;
   createdAt: string;
 };
@@ -163,15 +165,17 @@ export function toJoinRequestView(
   row: JoinRequestRow,
   photoUrls: ReadonlyMap<string, string>,
 ): JoinRequestView {
+  const kind = asKind(row.kind);
   return {
     id: row.id,
-    kind: asKind(row.kind),
+    kind,
     applicantName: row.applicant_name,
     applicantEmail: row.applicant_email,
     departmentName: row.department?.name ?? "",
     jobTitleLabel: row.job_title?.label ?? "",
     memberName: row.member?.name ?? null,
     memberPersonCode: row.member?.person_code ?? null,
+    memberUnavailable: kind === "EXISTING" && row.member === null,
     photoUrl: row.applicant_photo_path ? (photoUrls.get(row.applicant_photo_path) ?? null) : null,
     createdAt: row.created_at,
   };
