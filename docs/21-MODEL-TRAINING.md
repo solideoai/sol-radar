@@ -7,7 +7,7 @@ tags:
   - ai
   - evaluation
   - hackathon
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # 21. 모델 학습: 데이터셋·평가·파인튜닝
@@ -22,9 +22,9 @@ updated: 2026-10-21
 | 단계 | 내용 | 해커톤 |
 |---|---|---|
 | F0 | 결정 모델(공개 Bosun v3.1 0.6B) 베이스라인 추론 E1', 한국어/영어 입력 비교, 평가셋 구축, 평가·비교 하네스, 학습셋 내보내기(Bosun 질문 단위 레코드), LoRA 메모리 검증 스크립트 | **완료 조건**. 하네스의 Bosun 부분(`python -m sol_eval` 의 `export --format bosun`·`bosun_score`·`leakage`·`compare`)은 main `1b68f9b`(B1)에 있다. 실측 결과는 아직 없다 |
-| F1 | 회사 GPU 에서 Bosun LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행, [[16-DECISIONS\|ADR-025]]). 물리 GPU 1(NVIDIA A40 46,068 MiB) 한 장만 쓰고, 회사 PaddleOCR vLLM(약 9,167 MiB, 2026-10-20 사용자 보고)과 **공유**한다. 서버의 torch 2.8.0+cu128·CUDA·bf16 은 2026-10-20 오전 `.venv-kev` 에서 확인했다. Bosun 용 `.venv-bosun` 은 사용자 보고이고 B2 에서 확인한다. GPU 에서의 Bosun 학습은 미실행([[22-FINETUNE-RUNBOOK\|22]] §3.1) | B4(10-24, 회사 측 실행, [[16-DECISIONS\|ADR-034]] 12번). 학습 가능 여부는 F1 결과로만 확정. 결과를 받으면 기록 |
+| F1 | 회사 GPU 에서 Bosun LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행, [[16-DECISIONS\|ADR-025]]). 물리 GPU 1(NVIDIA A40 46,068 MiB) 한 장만 쓰고, 회사 PaddleOCR vLLM(약 9,167 MiB, 2026-10-20 사용자 보고)과 **공유**한다. 서버의 torch 2.8.0+cu128·CUDA·bf16 은 2026-10-20 오전 `.venv-kev` 에서 확인했다. Bosun 용 `.venv-bosun` 은 사용자 보고이고 B2 에서 확인한다. GPU 에서의 Bosun 학습은 미실행([[22-FINETUNE-RUNBOOK\|22]] §3.1) | B4(10-25 오후, 2026-10-24 개정으로 하루 미룸. 회사 측 실행, [[16-DECISIONS\|ADR-034]] 12번). 학습 가능 여부는 F1 결과로만 확정. 결과를 받으면 기록 |
 | F2 | Bosun v3.1 0.6B LoRA 이어 학습(`en`. 공개 LoRA 392 텐서만, decision 임베딩 동결) | B4(회사 측 실행, ADR-034). 비교 실험이라 §4.4 착수 조건을 기다리지 않는다 |
-| F3 | 온도 보정·평가·반입·운영 모델 교체 | 보정·E4 평가(E1' 대비)는 B5(10-25). 반입·운영 모델 교체는 후속이고 §4.4 판단·사용자 승인·ADR 을 거친다(ADR-034 9번) |
+| F3 | 온도 보정·평가·반입·운영 모델 교체 | 보정·E4 평가(E1' 대비)는 B5(10-26 오전, 2026-10-24 개정). 반입·운영 모델 교체는 후속이고 §4.4 판단·사용자 승인·ADR 을 거친다(ADR-034 9번) |
 | — | Qwen 파인튜닝 | **하지 않는다**(2026-10-20 사용자 결정, §5.6). 추출·설명 모델은 회사가 운영하는 vLLM API 의 `Qwen/Qwen3.8-Flash-Next` 다 |
 
 모델 역할(Qwen3.8-Flash-Next(회사 vLLM API) = 추출·설명, Bosun v3.1 0.6B = typed decision 확률 분류, 규칙 = 명시 조건, SOL Score = 별도 산식)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §1, 라벨 값과 사유 코드는 [[08-SCORING|08 점수]], 결정 모델 질문 세트 `kev-qs/v0.2`(이름은 호환 유지, ADR-034)와 state 는 03 §5 를 따른다. 실제 낙찰 결과는 학습 목표로 쓰지 않는다(승률 예측은 범위 밖, [[01-PRD|01 PRD]]).
@@ -320,7 +320,7 @@ Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 �
 | 회사 2-step 학습 코드가 저장소 밖 | 미반입. B1 학습기 `services/decision/src/sol_decision/train.py` 가 대체했다(`services/decision/docs/TRAINING.md`. 계획 §10 10번의 "반입 뒤 흡수"에서 바뀜) | B2 에서 결과 비교 |
 | 리비전 `5e78a37c`(지시서·레지스트리 핀)와 Hanno `jev-compatible-server` 핀 `87cea31` 의 가중치 동일 여부 | 커밋 메시지 기준 문서 차이만 | B2 두 리비전 `manifest.json` sha256 대조 |
 | 회사 vLLM API(`Qwen/Qwen3.8-Flash-Next`, 128B: 2026-10-21 사용자 보고)의 guided JSON(`response_format: json_schema`)·`prompt_logprobs` 지원, 추출·번역 품질, 서빙 파라미터·양자화·리비전 | 미검증(회사 운영) | B2 G2·G4, B3 EX0·E3 |
-| 학습 시간대(10-24~25)·외부망·출력 폴더 전송 | 미확인 | 회사에 요청([[16-DECISIONS\|16 ADR]] 미결정 22·24번) |
+| 학습 시간대(10-25 오후~10-26 오전, 2026-10-24 개정)·외부망·출력 폴더 전송 | 미확인 | 회사에 요청([[16-DECISIONS\|16 ADR]] 미결정 22·24번) |
 | 첨부 원문의 학습 사용 권리 | 미확인 | 법무 |
 
 ## 검토 중 확장: 신규 출처 평가 데이터

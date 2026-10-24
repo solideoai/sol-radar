@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - research
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # Bosun 파인튜닝과 인력 배치 조사 및 GPT 전달 자료
@@ -21,7 +21,7 @@ Bosun v3.1 0.6B의 **공개 LoRA를 이어 학습**하고, Qwen은 회사 vLLM A
 |---|---|
 | [[21-MODEL-TRAINING]] | 학습 목적, 라벨, 사업 단위 분할, 평가, 운영 반영 기준 |
 | [[22-FINETUNE-RUNBOOK]] | 고정 모델 리비전, 회사 GPU 환경, 학습·보정·반입 명령 |
-| [[23-WEEKEND-FINETUNE]] | 회사 실행 순서, 데이터의 두 갈래, 10-24~25 학습 계획 |
+| [[23-WEEKEND-FINETUNE]] | 회사 실행 순서, 데이터의 두 갈래, 학습 계획(10-25 오후 F1·F2, 10-26 오전 채점. 2026-10-24 개정) |
 | [[03-AI-PIPELINE]] §5 | 질문 세트, 영어 state, Bosun 확률과 기존 `KEV_*`·`/kev` 호환 계약 |
 | [[15-DATA-CONTRACTS]] | 추출 근거, 입력 스냅샷, 학습 레코드 계약 |
 | [[16-DECISIONS]] ADR-034·042 | Bosun 전환, Qwen API 재사용, 현재 일정과 인력 시뮬레이션 범위 |

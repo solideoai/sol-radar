@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - moc
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # SOL RADAR — 구현 문서 인덱스
@@ -62,7 +62,7 @@ updated: 2026-10-21
 | 10 | [[10-DEPLOYMENT]] | Vercel 웹·AI 다중 서비스 구성 / Docker Compose(redis·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·Supabase 클라우드 연결·데모 당일 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
 | 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path·D-day까지 일정 |
-| 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, 구현 중)·알림톡 P1 |
+| 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, main 병합·해커톤은 `mock` 발송)·알림톡 P1 |
 | 14 | [[14-OBSERVABILITY]] | 모니터링·운영·데모 지표 |
 | 15 | [[15-DATA-CONTRACTS]] | `EvidenceRef`·`FieldState`·`NormalizedBid` 정식 정의 / 인용 검증 알고리즘 / 격리 규칙 / registry 키 |
 | 16 | [[16-DECISIONS]] | ADR / 검증 상태 / 미결정 사항 |
@@ -72,7 +72,7 @@ updated: 2026-10-21
 | 20 | [[20-GLOSSARY]] | 용어집 (단일 원천) |
 | 21 | [[21-MODEL-TRAINING]] | 평가셋(실제 공고 × 가상 기업)·평가 지표·오류 분석·Bosun LoRA 파인튜닝 전략(착수 판단·E4 비교. 실행 절차는 22)·모델 레지스트리 |
 | 22 | [[22-FINETUNE-RUNBOOK]] | 회사 GPU 파인튜닝 실행서: 모델 출처(Hugging Face·GitHub 리비전)·학습 환경·Bosun 학습 데이터 제작·학습·보정·병합·반입 명령(Qwen 파인튜닝은 하지 않는다) |
-| 23 | [[23-WEEKEND-FINETUNE]] | 주말(10-24~25) 회사 GPU 파인튜닝 계획: 엔드포인트(등록 location 하나, 학습본은 서버 안 오프라인 채점)·오픈 데이터 출처(나라장터 API × 가상 기업 구성 라벨. Kev 공개 replay 는 퇴역)·Hugging Face 모델(Bosun v3.1 0.6B, Qwen 은 회사 API) 선택·시간표·대체 경로 |
+| 23 | [[23-WEEKEND-FINETUNE]] | 10-25~26 회사 GPU 파인튜닝 계획(2026-10-24 개정, 처음은 주말 10-24~25): 엔드포인트(등록 location 하나, 학습본은 서버 안 오프라인 채점)·오픈 데이터 출처(나라장터 API × 가상 기업 구성 라벨. Kev 공개 replay 는 퇴역)·Hugging Face 모델(Bosun v3.1 0.6B, Qwen 은 회사 API) 선택·시간표·대체 경로 |
 | — | [[CLAUDE]] | Claude Code 지침 (루트 `CLAUDE.md`가 `@docs/CLAUDE.md`로 먼저 불러온다, ADR-015) |
 | — | [[PROGRESS]] | 진행 상황·작업 로그 (저장소 경로 `docs/PROGRESS.md`) |
 

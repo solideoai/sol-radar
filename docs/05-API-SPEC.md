@@ -45,10 +45,10 @@ updated: 2026-10-24
 |GET|`/me/employment`|session(본인)|조직 합류 전에도 가입 신고 정보·완료 여부 조회|`EmploymentState`|
 |PATCH|`/me/employment`|session(본인)|부서·직급/직책 필수 보완|`EmploymentInput` → `200 EmploymentState`|
 |GET|`/me`|auth|**(미구현)** 세션 사용자·현재 조직·역할(`orgRole`·`solRole`)|`Me`|
-|GET|`/me/kakao-notify`|session(본인)|**(구현 중, `feat/kakao-notify`)** 개인 설정 "카카오톡 알림" 칸 상태([[16-DECISIONS\|ADR-038]], §9)|`KakaoNotifyView`|
-|PATCH|`/me/kakao-notify`|session(본인)|**(구현 중)** 카카오톡 알림 켜기·끄기|`KakaoNotifyEnabledInput` → `204`. 연결 전 켜기는 `409 KAKAO_NOT_CONNECTED`|
-|DELETE|`/me/kakao-notify`|session(본인)|**(구현 중)** 연결 해제(본인 연결 행을 지운다. 카카오 `unlink`는 부르지 않는다)|`204`|
-|GET|`/me/kakao-notify/connect`|session(본인)|**(구현 중)** `state`를 만들어 카카오 인가 주소(`scope=talk_message`)로 보낸다|`302` 카카오 인가|
+|GET|`/me/kakao-notify`|session(본인)|**(main 병합 2026-10-22)** 개인 설정 "카카오톡 알림" 칸 상태([[16-DECISIONS\|ADR-038]], §9)|`KakaoNotifyView`|
+|PATCH|`/me/kakao-notify`|session(본인)|**(main 병합)** 카카오톡 알림 켜기·끄기|`KakaoNotifyEnabledInput` → `204`. 연결 전 켜기는 `409 KAKAO_NOT_CONNECTED`|
+|DELETE|`/me/kakao-notify`|session(본인)|**(main 병합)** 연결 해제(본인 연결 행을 지운다. 카카오 `unlink`는 부르지 않는다)|`204`|
+|GET|`/me/kakao-notify/connect`|session(본인)|**(main 병합)** `state`를 만들어 카카오 인가 주소(`scope=talk_message`)로 보낸다|`302` 카카오 인가|
 |GET|`/me/kakao-notify/callback`|session(본인)|**(구현 중)** `state` 확인 → 코드를 토큰으로 → `talk_message` 동의 확인 → 암호화 저장|`302 /settings?kakao=connected\|consent_denied\|state_mismatch\|failed`|
 |POST|`/me/kakao-notify/test`|session(본인)|**(구현 중)** 시험 메시지 이벤트(`KAKAO_TEST`)를 쌓는다|`202`. 연결·켬이 아니면 `409 KAKAO_NOT_READY`, 같은 분에 다시 누르면 `429 KAKAO_TEST_THROTTLED`|
 |GET|`/bids`|`ADMIN, SALES, ANALYST, VIEWER`|목록·검색·필터·커서. 출처 필터 `origin=live\|demo\|all`. P1: `watched=me`([[16-DECISIONS\|ADR-021]])|§3 → `Page<BidListItem>`|
@@ -787,7 +787,7 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 
 `profileComplete`는 이름·두 신고 값의 현재 유효성으로 서버에서 계산하며 클라이언트의 boolean을 신뢰하지 않는다. OAuth 콜백·기존 미완료 계정 로그인은 `/auth/complete-profile`로 보낸다. 업무 화면과 업무 API에서 모두 보완 전 접근을 막는다. Auth 콜백·가입 옵션·본인 신고 정보 조회/저장·로그아웃·초대 안내는 보완 전에도 허용해 반복 이동을 막는다. 보완을 끝내도 멤버십·RLS 확인과 기존 초대 정책은 그대로 적용한다.
 
-## 9. 카카오톡 알림 설정 계약 ([[16-DECISIONS|ADR-038]], 구현 중 `feat/kakao-notify`)
+## 9. 카카오톡 알림 설정 계약 ([[16-DECISIONS|ADR-038]], main 병합 2026-10-22, 해커톤은 `mock` 발송)
 
 개인 설정의 "카카오톡 알림" 칸([[06-UI-UX|06 UI]])이 쓰는 본인 전용 경로다. 설계는 [카카오 알림 설계](plans/2026-10-20-kakao-memo-notify-design.md) §6·§9·§10, 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고"다. 화면 상태 모양(`KakaoNotifyView`)은 `web/server/kakao-notify`(`ced705f`)에 있고, Route Handler는 아직 없다. 세션 쿠키 + 상태 변경에 `X-Requested-With: sol-radar`(§1 CSRF)다. 남의 연결은 다루지 않는다. 경로마다 본인 것만이다.
 

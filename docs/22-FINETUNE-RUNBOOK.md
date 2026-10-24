@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - ops
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # 22. 회사 GPU 파인튜닝 실행서: Bosun v3.1 0.6B LoRA (Qwen 은 회사 API, 학습 없음)
@@ -31,7 +31,7 @@ updated: 2026-10-21
 | 도구 | 우리 `services/decision`(`sol_decision.train`), 채점 `sol_eval bosun_score`(main `1b68f9b`) | 없음(게이트웨이 어댑터 그대로, `QWEN_BASE_URL` 값만 갱신) |
 | 학습 데이터 | 실제 공고 × 가상 기업 변형의 영어 state + `kev-qs/v0.2` 라벨을 **질문 하나 = 레코드 하나**로 변환(§4.1). 공개 replay 없음 | 없음 |
 | 비교 | E4(학습본) 대 **E1'(공개 Bosun zero-shot)**, 같은 test·seed 0~5([[21-MODEL-TRAINING\|21]] §4.2) | EX0 기준 측정만(EX1 없음, §5) |
-| 해커톤 | 실행(10-24~25, [[23-WEEKEND-FINETUNE\|23]]) | 학습 없음 |
+| 해커톤 | 실행(F1·F2 10-25 오후, 채점 10-26 오전. 2026-10-24 개정, [[23-WEEKEND-FINETUNE\|23]]) | 학습 없음 |
 
 역할은 [[16-DECISIONS|ADR-025]]·ADR-034 대로 나눈다.
 
@@ -411,7 +411,7 @@ python -m sol_decision.trainer.calibrate --data "$D/dev.en.jsonl" --predictions 
 1. GPU 1 의 PaddleOCR **피크 메모리와 시간대**(nvidia-smi 추이). 우리 Bosun 서빙·학습이 공존해도 되는 시간대와 메모리 상한.
 2. GPU 서버에서 huggingface.co·pypi.org 로 나갈 수 있는지(없으면 §2.2 2안).
 3. `.venv-bosun` 의 현재 핀 목록(`pip list --format=freeze`)과 Python·torch 버전.
-4. 토·일(10-24~25)에 F1·F2·채점을 돌리고 출력 폴더(`report.json`·`rows.json`·`predictions.jsonl`, 수십 MB)를 보내 줄 수 있는지. 라우터·nginx 변경은 요청하지 않는다([[23-WEEKEND-FINETUNE|23]] §8).
+4. F1·F2(10-25 일 오후)와 채점(10-26 월 오전)을 돌리고(처음 물은 날짜는 토·일 10-24~25, 2026-10-24 개정) 출력 폴더(`report.json`·`rows.json`·`predictions.jsonl`, 수십 MB)를 보내 줄 수 있는지. 라우터·nginx 변경은 요청하지 않는다([[23-WEEKEND-FINETUNE|23]] §8).
 5. 회사 Qwen3.8-Flash-Next API 의 `QWEN_API_KEY` 전달 방법, `GET /v1/models` 의 `id`, 호출 한도·추가 인증·guided JSON·`prompt_logprobs` 지원 여부(주소·키 정본은 03·10).
 
 돌려받을 것: §4.5.
@@ -441,7 +441,7 @@ python -m sol_decision.trainer.calibrate --data "$D/dev.en.jsonl" --predictions 
 ## 관련 문서
 
 - [[21-MODEL-TRAINING|21 모델 학습]] — 데이터셋·라벨·평가 지표·오류 분석·착수 판단·레지스트리 반입
-- [[23-WEEKEND-FINETUNE|23 주말 파인튜닝 계획]] — 10-24~25 일정·GPU 공유 표·회사에 물을 것
+- [[23-WEEKEND-FINETUNE|23 주말 파인튜닝 계획]] — 10-25~26 일정(2026-10-24 개정)·GPU 공유 표·회사에 물을 것
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — Qwen 추출 명세·프롬프트·회사 API 주소, 질문 세트 `kev-qs/v0.2`·state 템플릿, 레지스트리 서빙 검증
 - [[16-DECISIONS|16 ADR]] — ADR-034(Bosun 전환·Qwen3.8-Flash-Next 회사 API 재사용), ADR-010(유료 승인), ADR-025(회사 GPU 엔드포인트), ADR-027(폐기, 이력), 미결정 22·24
 - [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) — 외부 사실 §1, Qwen3.5-27B 개정 §0.2, 학습 계약 §4, 서버·env §5, GPU 공유 §8, 일정 §9, 위험 §10

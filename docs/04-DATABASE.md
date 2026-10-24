@@ -67,7 +67,7 @@ erDiagram
  ORGANIZATION ||--o{ AUDIT_LOG : records
  PROFILE ||--o{ BID_REVIEW : performs
  PROFILE ||--o{ NOTIFICATION : reads
- PROFILE ||--o| KAKAO_NOTIFY_LINK : "카카오톡 알림 연결 (ADR-038, 구현 중)"
+ PROFILE ||--o| KAKAO_NOTIFY_LINK : "카카오톡 알림 연결 (ADR-038, main 병합)"
  PROFILE ||--o{ AUDIT_LOG : acts
  BID_NOTICE ||--o{ BID_REVISION : versions
  BID_REVISION ||--o{ BID_DOCUMENT : includes
@@ -106,7 +106,7 @@ erDiagram
 |`tasks`|템플릿 그대로(`20261014000004_tasks_and_activity.sql`: `title`, `description`, `status`, `due_date`, `assignee_id` 등). P1: `bid_project_id` nullable 열, (`bid_project_id`,`org_id`) → `bid_projects(id, org_id)` 복합 FK([[16-DECISIONS\|ADR-021]])|템플릿 그대로|템플릿 정책(조직 구성원 쓰기). P1: `bid_project_id`가 있는 행(입찰 프로젝트 체크리스트)은 SALES·ADMIN만 쓰는 제한 정책. 담당자는 로그인 계정|
 |`kakao_notify_links`|`user_id` UUID PK FK profiles(on delete cascade), `enabled` boolean default false, `status` text, `access_token_enc`·`refresh_token_enc` text(웹 서버가 AES-256-GCM으로 암호화한 값. 평문을 두지 않는다), `access_expires_at`·`refresh_expires_at`(카카오 응답의 초 값으로 계산), `last_sent_at` nullable, `last_result` text nullable, `created_at`, `updated_at`(트리거). 사용자 개인 설정이라 `org_id`가 없다([[16-DECISIONS\|ADR-038]])|`status` ∈ `CONNECTED`·`EXPIRED`, `last_result` ∈ `SENT`·`FAILED`·`EXPIRED`(check)|읽기: 본인 행(`user_id = auth.uid()`)만, 열 여섯 개(`user_id`·`enabled`·`status`·`last_sent_at`·`last_result`·`updated_at`)만. 토큰 열은 화면 역할이 읽지 못한다. 쓰기: 화면 역할은 표 권한이 없고 아래 RPC 넷으로만 한다. anon은 권한이 없다. worker(service role)가 읽기·상태·토큰 갱신을 한다. 구현 중(`feat/kakao-notify` `d327894`, `20261021000001`)|
 
-카카오톡 알림 연결 RPC([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", 구현 중 `feat/kakao-notify` `d327894`, `20261021000001`): 넷 다 `security definer`·`set search_path = ''`이고 `authenticated`만 실행한다. 로그인하지 않았으면 `UNAUTHENTICATED`로 거절한다. `scripts/db-verify.mjs` 허용 목록에 올렸다.
+카카오톡 알림 연결 RPC([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", 2026-10-22 main 병합. 처음 커밋 `d327894`의 `20261021000001`은 `20261023000700`으로 번호를 바꿨다): 넷 다 `security definer`·`set search_path = ''`이고 `authenticated`만 실행한다. 로그인하지 않았으면 `UNAUTHENTICATED`로 거절한다. `scripts/db-verify.mjs` 허용 목록에 올렸다.
 - `save_kakao_notify_link(text, text, timestamptz, timestamptz)`: 연결 콜백이 부른다. 본인 행에 암호문 둘·만료 둘을 넣거나 바꾸고 `status=CONNECTED`·`enabled=true`로 둔다.
 - `set_kakao_notify_enabled(boolean)`: 켜기는 본인 행이 `CONNECTED`일 때만 된다(아니면 `KAKAO_NOT_CONNECTED`). 끄기는 늘 된다.
 - `disconnect_kakao_notify()`: 연결 해제. 본인 행을 지운다(설계 §7은 `enabled=false`·토큰 열 비우기였으나 구현은 행 삭제다).
@@ -304,7 +304,7 @@ PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 �
 |`ingest_batch`|`SEED`, `LIVE`|`ingest_runs.batch`|fixture 배치. `SEED` = 기동 시 revision 1, `LIVE` = 데모 중 변경분. API `IngestionRunInput.batch`는 소문자 `"seed"\|"live"`이며 Route Handler의 zod 스키마가 대문자로 바꾼다|
 |`ingest_status`|`RUNNING`, `SUCCEEDED`, `PARTIAL`, `FAILED`|`ingest_runs.status`|`PARTIAL` = 일부 격리|
 |`notification_type`|`BID_CREATED`, `BID_CHANGED`, `DEADLINE_APPROACHING`, `ANALYSIS_COMPLETE`, `REVIEW_ASSIGNED`, `BID_RECOMMENDED`, `KAKAO_TEST`, `KAKAO_EXPIRED`|`outbox_events.event_type`, `notifications.type`|[[13-NOTIFICATIONS\|13 알림]]. 카카오 셋은 ADR-038(`20261021000002`, 구현 중 `feat/kakao-notify`)이다. `KAKAO_TEST`는 `outbox_events.event_type`에만, `KAKAO_EXPIRED`는 `notifications.type`에만 있다|
-|`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 카카오톡 나에게 보내기다(ADR-038. `NOTIFY_KAKAO_PROVIDER` 기본 `mock`, `memo`면 실발송. 구현 중)|
+|`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 카카오톡 나에게 보내기다(ADR-038. `NOTIFY_KAKAO_PROVIDER` 기본 `mock`, `memo`면 실발송. 2026-10-22 main 병합, 해커톤은 `mock` 발송·실발송 미확인, 2026-10-24 사용자 결정)|
 |`notification_status`|`PENDING`, `SENT`, `FAILED`, `DEAD`|`notifications.status`|`DEAD` = 재시도 소진(DLQ). 읽음은 `read_at`|
 |`outbox_status`|`PENDING`, `PROCESSED`, `FAILED`, `DEAD`|`outbox_events.status`|—|
 |`bid_source`|`fixture`, `g2b-bid-notice`, `g2b-pre-spec`, `g2b-order-plan`|`bid_notices.source`|소문자. 수집 소스 registry `key`와 같은 값([[15-DATA-CONTRACTS\|15 데이터 계약]] §8)|
