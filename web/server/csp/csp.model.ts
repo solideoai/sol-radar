@@ -63,7 +63,15 @@ export function buildContentSecurityPolicy({
     // - 서버가 그린 HTML 의 style="…" 속성(사이드바 폭 변수·막대그래프 높이 등)은 nonce 로 열 수 없다.
     // 스타일은 스크립트를 실행하지 못한다. 스크립트는 nonce 로만 연다.
     ["style-src", "'self'", "'unsafe-inline'"],
-    ["img-src", "'self'", "blob:", "data:", ...AVATAR_ORIGINS],
+    // 올린 프로필 사진은 Supabase Storage 의 signed URL 이다(profile-photos 버킷, 20261024000200).
+    [
+      "img-src",
+      "'self'",
+      "blob:",
+      "data:",
+      ...AVATAR_ORIGINS,
+      ...(supabaseOrigin ? [supabaseOrigin] : []),
+    ],
     ["font-src", "'self'"],
     ["connect-src", "'self'", ...(supabaseOrigin ? [supabaseOrigin] : [])],
     ["frame-src", POSTCODE_FRAME_HOST],

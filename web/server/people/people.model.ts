@@ -40,6 +40,12 @@ export type MemberRow = {
   job_title_id: string;
   portrait_path: string | null;
   is_demo: boolean;
+  // 가입 신청 승인으로 연결된 계정(20261024000200). 연결 전이면 null.
+  user_id: string | null;
+  // 올린 사진의 Storage 경로. 화면에는 서명한 주소로 바꿔 준다.
+  photo_path: string | null;
+  // 연결된 계정의 간편 로그인 제공자 사진(profiles.avatar_url, https 만).
+  linked_avatar_url: string | null;
 };
 export type ScoringRow = {
   member_id: string;
@@ -71,7 +77,8 @@ const memberSchema = z.object({
   jobTitleId: z.uuid(),
   portraitUrl: z.string().nullable(),
   scoringEligible: z.boolean(),
-  isDemo: z.literal(true),
+  // 데모 200명은 true, 가입 승인·N4b 로 들어온 사람은 false 다.
+  isDemo: z.boolean(),
 });
 const capacitySchema = z
   .object({ startsAt: z.iso.date(), endsAt: z.iso.date(), fte: z.number().min(0).max(1) })
@@ -127,12 +134,17 @@ export type PeopleDirectory = {
   jobTitles: JobTitle[];
   members: TeamMemberListItem[];
   summary: PeopleSummary;
+  // ADMIN 이면 조직도에서 직원 사진을 바꿀 수 있다. 실제 권한은 DB 함수(set_member_photo)가 본다.
+  canManagePhotos: boolean;
 };
 export type PeopleRows = {
   departments: DepartmentRow[];
   jobTitles: JobTitle[];
   members: MemberRow[];
   scoring: ScoringRow[];
+  // photo_path → signed URL. 서명하지 못한 경로는 없다.
+  photoUrls: ReadonlyMap<string, string>;
+  canManagePhotos: boolean;
 };
 export type PeoplePage = {
   items: TeamMemberListItem[];
@@ -182,12 +194,31 @@ export function requireEmptyPeopleQuery(params: URLSearchParams): void {
     });
 }
 export const isPeopleId = (id: string): boolean => z.uuid().safeParse(id).success;
-export function toTeamMemberListItem(row: MemberRow, scoringEligible: boolean): TeamMemberListItem {
-  const portraitUrl =
+/**
+ * 조직도에 그릴 사진(설계 C10). 올린 사진 → 데모 정장 사진 → 연결 계정의 제공자 사진 → null(머리글자).
+ * 올린 사진을 서명하지 못하면(지워짐·만료) 다음 순위로 내려간다.
+ */
+export function resolveMemberPortrait(
+  row: MemberRow,
+  photoUrls: ReadonlyMap<string, string>,
+): string | null {
+  const uploaded = row.photo_path ? photoUrls.get(row.photo_path) : undefined;
+  if (uploaded) return uploaded;
+  if (
+    row.is_demo &&
     /^SOL-P\d{4}$/.test(row.person_code) &&
     row.portrait_path === `/demo/people/${row.person_code}.png`
-      ? row.portrait_path
-      : null;
+  )
+    return row.portrait_path;
+  if (row.linked_avatar_url?.startsWith("https://")) return row.linked_avatar_url;
+  return null;
+}
+export function toTeamMemberListItem(
+  row: MemberRow,
+  scoringEligible: boolean,
+  photoUrls: ReadonlyMap<string, string>,
+): TeamMemberListItem {
+  const portraitUrl = resolveMemberPortrait(row, photoUrls);
   return memberSchema.parse({
     id: row.id,
     personCode: row.person_code,
@@ -200,9 +231,13 @@ export function toTeamMemberListItem(row: MemberRow, scoringEligible: boolean): 
     isDemo: row.is_demo,
   });
 }
-export function toTeamMemberDetail(row: MemberRow, scoring: ScoringRow | null): TeamMemberDetail {
+export function toTeamMemberDetail(
+  row: MemberRow,
+  scoring: ScoringRow | null,
+  photoUrls: ReadonlyMap<string, string>,
+): TeamMemberDetail {
   return {
-    ...toTeamMemberListItem(row, scoring !== null),
+    ...toTeamMemberListItem(row, scoring !== null, photoUrls),
     scoring: scoring
       ? scoringSchema.parse({
           ...scoring,
@@ -221,7 +256,7 @@ export function buildPeopleDirectory(rows: PeopleRows): PeopleDirectory {
   const unique = [...new Map(rows.members.map((row) => [row.id, row])).values()];
   const scoringIds = new Set(rows.scoring.map((row) => row.member_id));
   const members = unique
-    .map((row) => toTeamMemberListItem(row, scoringIds.has(row.id)))
+    .map((row) => toTeamMemberListItem(row, scoringIds.has(row.id), rows.photoUrls))
     .toSorted(comparePeople);
   const departments = rows.departments.map((row) => {
     const descendants = new Set([row.id]);
@@ -250,6 +285,7 @@ export function buildPeopleDirectory(rows: PeopleRows): PeopleDirectory {
       totalCount: members.length,
       scoringCount: members.filter((member) => member.scoringEligible).length,
     },
+    canManagePhotos: rows.canManagePhotos,
   };
 }
 export function comparePeople(

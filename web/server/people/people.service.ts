@@ -19,6 +19,7 @@ import {
   toTeamMemberDetail,
   type Department,
   type JobTitle,
+  type MemberRow,
   type PeopleDirectory,
   type PeoplePage,
   type PeopleResult,
@@ -33,7 +34,8 @@ const unavailable = () =>
   new PeopleReadError(503, "SERVICE_UNAVAILABLE", "DB가 연결되지 않았습니다.", { component: "db" });
 const signedOut = () => new PeopleReadError(401, "UNAUTHENTICATED", "로그인이 필요합니다.");
 const disabled = () => new PeopleReadError(403, "ACCOUNT_DISABLED", "정지된 계정입니다.");
-async function currentPeopleOrganization(access: PeopleAccess): Promise<string> {
+type PeopleOrganization = { id: string; canManagePhotos: boolean };
+async function currentPeopleOrganization(access: PeopleAccess): Promise<PeopleOrganization> {
   const auth = await access.authenticate();
   if (auth.status === "no-database") throw unavailable();
   if (auth.status === "unauthenticated") throw signedOut();
@@ -68,12 +70,12 @@ async function currentPeopleOrganization(access: PeopleAccess): Promise<string> 
         !["VIEWER", "ANALYST", "SALES", "ADMIN"].includes(business.current.solRole)
       )
         throw new PeopleReadError(403, "FORBIDDEN", "조회 권한이 없습니다.");
-      return business.current.id;
+      return { id: business.current.id, canManagePhotos: business.current.solRole === "ADMIN" };
   }
 }
 async function read<T>(
   access: PeopleAccess,
-  work: (orgId: string) => Promise<T>,
+  work: (org: PeopleOrganization) => Promise<T>,
 ): Promise<PeopleResult<T>> {
   try {
     return { status: "ready", data: await work(await currentPeopleOrganization(access)) };
@@ -82,29 +84,39 @@ async function read<T>(
     throw error;
   }
 }
-async function directoryFor(orgId: string, repo: PeopleRepo): Promise<PeopleDirectory> {
+const photoPathsOf = (members: readonly MemberRow[]): string[] =>
+  members.flatMap((member) => (member.photo_path ? [member.photo_path] : []));
+async function directoryFor(org: PeopleOrganization, repo: PeopleRepo): Promise<PeopleDirectory> {
   const [departments, jobTitles, members, scoring] = await Promise.all([
-    repo.listDepartments(orgId),
-    repo.listJobTitles(orgId),
-    repo.listMembers(orgId),
-    repo.listScoring(orgId),
+    repo.listDepartments(org.id),
+    repo.listJobTitles(org.id),
+    repo.listMembers(org.id),
+    repo.listScoring(org.id),
   ]);
-  return buildPeopleDirectory({ departments, jobTitles, members, scoring });
+  const photoUrls = await repo.signPhotos(photoPathsOf(members));
+  return buildPeopleDirectory({
+    departments,
+    jobTitles,
+    members,
+    scoring,
+    photoUrls,
+    canManagePhotos: org.canManagePhotos,
+  });
 }
 export async function getPeopleDirectory(
   access: PeopleAccess,
   repo: PeopleRepo = peopleRepo,
 ): Promise<PeopleResult<PeopleDirectory>> {
-  return read(access, (orgId) => directoryFor(orgId, repo));
+  return read(access, (org) => directoryFor(org, repo));
 }
 export async function getDepartments(
   access: PeopleAccess,
   params: URLSearchParams = new URLSearchParams(),
   repo: PeopleRepo = peopleRepo,
 ): Promise<PeopleResult<Department[]>> {
-  return read(access, async (orgId) => {
+  return read(access, async (org) => {
     requireEmptyPeopleQuery(params);
-    return (await directoryFor(orgId, repo)).departments;
+    return (await directoryFor(org, repo)).departments;
   });
 }
 export async function getJobTitles(
@@ -112,9 +124,9 @@ export async function getJobTitles(
   params: URLSearchParams = new URLSearchParams(),
   repo: PeopleRepo = peopleRepo,
 ): Promise<PeopleResult<JobTitle[]>> {
-  return read(access, async (orgId) => {
+  return read(access, async (org) => {
     requireEmptyPeopleQuery(params);
-    return (await directoryFor(orgId, repo)).jobTitles;
+    return (await directoryFor(org, repo)).jobTitles;
   });
 }
 export async function listTeamMembers(
@@ -122,12 +134,12 @@ export async function listTeamMembers(
   params: URLSearchParams = new URLSearchParams(),
   repo: PeopleRepo = peopleRepo,
 ): Promise<PeopleResult<PeoplePage>> {
-  return read(access, async (orgId) => {
+  return read(access, async (org) => {
     const query = parsePeopleQuery(params);
     assertPeopleCursorConfigured();
-    const binding = { orgId, query };
+    const binding = { orgId: org.id, query };
     const position = query.cursor ? readPeopleCursor(query.cursor, binding) : null;
-    const directory = await directoryFor(orgId, repo);
+    const directory = await directoryFor(org, repo);
     if (query.departmentId) {
       const department = directory.departments.find((row) => row.id === query.departmentId);
       if (!department) throw new PeopleReadError(404, "NOT_FOUND", "부서를 찾을 수 없습니다.");
@@ -165,14 +177,18 @@ export async function getTeamMember(
   params: URLSearchParams = new URLSearchParams(),
   repo: PeopleRepo = peopleRepo,
 ): Promise<PeopleResult<TeamMemberDetail>> {
-  return read(access, async (orgId) => {
+  return read(access, async (org) => {
     requireEmptyPeopleQuery(params);
     if (!isPeopleId(id))
       throw new PeopleReadError(400, "VALIDATION_ERROR", "직원 ID를 확인하세요.", {
         issues: [{ path: "id", message: "UUID가 필요합니다." }],
       });
-    const member = await repo.findMember(orgId, id);
+    const member = await repo.findMember(org.id, id);
     if (!member) throw new PeopleReadError(404, "NOT_FOUND", "직원을 찾을 수 없습니다.");
-    return toTeamMemberDetail(member, await repo.findScoring(orgId, id));
+    const [scoring, photoUrls] = await Promise.all([
+      repo.findScoring(org.id, id),
+      repo.signPhotos(photoPathsOf([member])),
+    ]);
+    return toTeamMemberDetail(member, scoring, photoUrls);
   });
 }

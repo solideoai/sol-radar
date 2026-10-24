@@ -1917,3 +1917,481 @@ describe("솔리데오 카탈로그·명부·점수 정책", () => {
     assert.equal((await fresh.query("select * from public.team_members")).rows.length, 0);
   });
 });
+
+describe("프로필 사진 — 경로·권한 (20261024000200)", () => {
+  const solideo = "db4c863c-cb6a-593d-93ff-709a17e0157a";
+  const other = "33a80d95-1a64-5fe0-ad6d-e768657e9034";
+  const department = "a6c0f1fc-aeba-5e54-a20c-f6f4d1609f84";
+  const title = "33e315b9-aee8-5ea8-96eb-f9055af4eef2";
+  const otherDepartment = "10000000-0000-0000-0000-000000000001";
+  const otherTitle = "10000000-0000-0000-0000-000000000002";
+  const member = "5e000000-0000-0000-0000-000000000001";
+  const photo = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const own = (user, n) => `users/${user}/${photo(n)}.jpg`;
+  const memberPath = (id, n) => `members/${id}/${photo(n)}.jpg`;
+  const putObject = (db, name) =>
+    db.query("insert into storage.objects(bucket_id,name) values('profile-photos',$1)", [name]);
+  const asSystem = async (db) => {
+    await db.exec("reset role");
+    await db.query("select set_config('request.jwt.claims','',false)");
+  };
+  // users[0] = org-01 ADMIN, users[1] = org-01 VIEWER, users[2] = 조직 없음(가입 신청 전 신규 입사자).
+  const setup = async (t) => {
+    const db = await migratedDb(t);
+    await db.exec(
+      "insert into storage.buckets(id,name,public) values('profile-photos','profile-photos',false)",
+    );
+    await db.query(
+      "insert into public.organizations (id,slug,name) values ($1,'org-01','솔리데오'),($2,'org-02','격리 조직')",
+      [solideo, other],
+    );
+    await db.query(
+      "insert into public.departments (id,org_id,code,name,source_count,target_count,is_demo) values ($1,$2,'SOL-D001','시험부서',3,4,true),($3,$4,'OTHER-D001','다른부서',1,1,true)",
+      [department, solideo, otherDepartment, other],
+    );
+    await db.query(
+      "insert into public.job_titles (id,org_id,code,label,sort_order) values ($1,$2,'SOL-J007','팀장',7),($3,$4,'OTHER-J001','다른직급',1)",
+      [title, solideo, otherTitle, other],
+    );
+    await db.query(
+      "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'owner','ADMIN'),($1,$3,'member','VIEWER')",
+      [solideo, users[0], users[1]],
+    );
+    await db.query(
+      "insert into public.team_members (id,org_id,person_code,name,gender,department_id,job_title_id,portrait_path,is_demo) values ($1,$2,'SOL-P0001','김민준','MALE',$3,$4,'/demo/people/SOL-P0001.png',true)",
+      [member, solideo, department, title],
+    );
+    return db;
+  };
+
+  it("본인은 users/<내 id>/ 에만 사진을 올리고, members/ 는 그 조직 ADMIN 만 올린다", async (t) => {
+    const db = await setup(t);
+    await actAs(db, users[1]);
+    await putObject(db, own(users[1], 1));
+    for (const name of [
+      own(users[0], 2),
+      memberPath(member, 3),
+      `users/${users[1]}/${photo(4)}.gif`,
+      `users/${users[1]}/../${photo(5)}.jpg`,
+    ])
+      await assert.rejects(putObject(db, name), /row-level security/);
+    // 조직이 없는 신규 입사자도 가입 신청 전에 자기 사진을 올린다.
+    await actAs(db, users[2]);
+    await putObject(db, own(users[2], 6));
+    await assert.rejects(putObject(db, memberPath(member, 7)), /row-level security/);
+    await actAs(db, users[0]);
+    await putObject(db, memberPath(member, 8));
+    await assert.rejects(
+      putObject(db, memberPath("5e000000-0000-0000-0000-000000000099", 9)),
+      /row-level security/,
+    );
+    await actAs(db, null, "anon");
+    await assert.rejects(putObject(db, own(users[1], 10)), /permission denied|row-level security/);
+  });
+
+  it("같은 조직은 명부에 연결된 사진을 읽고 다른 조직·비멤버는 0행이다", async (t) => {
+    const db = await setup(t);
+    await db.query(
+      "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'member','VIEWER')",
+      [other, users[2]],
+    );
+    await putObject(db, memberPath(member, 1));
+    await putObject(db, memberPath(member, 2));
+    await putObject(db, own(users[1], 3));
+    await db.query("update public.team_members set photo_path=$1 where id=$2", [
+      memberPath(member, 1),
+      member,
+    ]);
+    const visible = async () =>
+      (
+        await db.query(
+          "select name from storage.objects where bucket_id='profile-photos' order by name",
+        )
+      ).rows.map((row) => row.name);
+    await actAs(db, users[0]);
+    assert.deepEqual(await visible(), [memberPath(member, 1)]);
+    await actAs(db, users[1]);
+    assert.deepEqual(await visible(), [memberPath(member, 1), own(users[1], 3)]);
+    await actAs(db, users[2]);
+    assert.deepEqual(await visible(), []);
+  });
+
+  it("set_my_photo 는 내 경로만 받고 연결된 직원 행을 바꾸며 set_member_photo 는 ADMIN 만 한다", async (t) => {
+    const db = await setup(t);
+    const setMine = (path) => db.query("select public.set_my_photo($1)", [path]);
+    const setMember = (id, path) => db.query("select public.set_member_photo($1,$2)", [id, path]);
+    const state = async () => {
+      await asSystem(db);
+      const profile = (
+        await db.query("select photo_path from public.profiles where id=$1", [users[1]])
+      ).rows[0].photo_path;
+      const roster = (
+        await db.query("select photo_path from public.team_members where id=$1", [member])
+      ).rows[0].photo_path;
+      return { profile, roster };
+    };
+    await actAs(db, users[1]);
+    await assert.rejects(setMine(own(users[0], 1)), /invalid_photo_path/);
+    await setMine(own(users[1], 2));
+    assert.deepEqual(await state(), { profile: own(users[1], 2), roster: null });
+    await db.query("update public.team_members set user_id=$1 where id=$2", [users[1], member]);
+    await actAs(db, users[1]);
+    await setMine(own(users[1], 3));
+    assert.deepEqual(await state(), { profile: own(users[1], 2), roster: own(users[1], 3) });
+    await actAs(db, users[1]);
+    await assert.rejects(setMember(member, memberPath(member, 4)), /forbidden/);
+    await actAs(db, users[0]);
+    await assert.rejects(
+      setMember(member, memberPath("5e000000-0000-0000-0000-000000000099", 5)),
+      /invalid_photo_path/,
+    );
+    await setMember(member, memberPath(member, 6));
+    assert.deepEqual((await state()).roster, memberPath(member, 6));
+    await actAs(db, users[0]);
+    await setMember(member, null);
+    assert.deepEqual((await state()).roster, null);
+    // 웹은 사진 지우기를 p_path 생략(기본값 null, 20261024000210)으로 부른다.
+    await actAs(db, users[1]);
+    await setMine(own(users[1], 7));
+    await db.query("select public.set_my_photo()");
+    assert.deepEqual((await state()).roster, null);
+    await actAs(db, null, "anon");
+    await assert.rejects(setMine(null), /permission denied/);
+  });
+
+  it("비데모 직원은 한글 3자가 아니어도·같은 이름이어도·성별과 정장 사진 없이 들어가고 데모 직원 제약은 그대로다", async (t) => {
+    const db = await setup(t);
+    const insert = (code, name, demo, gender = null, portrait = null) =>
+      db.query(
+        "insert into public.team_members (org_id,person_code,name,gender,department_id,job_title_id,portrait_path,is_demo) values ($1,$2,$3,$4,$5,$6,$7,$8)",
+        [solideo, code, name, gender, department, title, portrait, demo],
+      );
+    await insert("SOL-N0001", "Lee Gwanghui", false);
+    await insert("SOL-N0002", "Lee Gwanghui", false);
+    await insert("SOL-N0003", "이광", false);
+    await assert.rejects(insert("SOL-N0004", " ", false), /check constraint/);
+    await assert.rejects(insert("SOL-N0005", "가".repeat(41), false), /check constraint/);
+    await assert.rejects(
+      insert("SOL-P0002", "Lee", true, "MALE", "/demo/people/SOL-P0002.png"),
+      /check constraint/,
+    );
+    await assert.rejects(
+      insert("SOL-P0003", "김민준", true, "MALE", "/demo/people/SOL-P0003.png"),
+      /duplicate key/,
+    );
+    await assert.rejects(insert("SOL-P0004", "박서준", true), /check constraint/);
+  });
+
+  it("신규 입사자 번호는 조직마다 SOL-N0001 부터 이어지고 화면 역할은 직접 부르지 못한다", async (t) => {
+    const db = await setup(t);
+    const next = async (org) =>
+      (await db.query("select public.next_new_hire_person_code($1) as code", [org])).rows[0].code;
+    assert.equal(await next(solideo), "SOL-N0001");
+    await db.query(
+      "insert into public.team_members (org_id,person_code,name,department_id,job_title_id,is_demo) values ($1,'SOL-N0001','신규',$2,$3,false),($1,'SOL-N0009','신규',$2,$3,false)",
+      [solideo, department, title],
+    );
+    assert.equal(await next(solideo), "SOL-N0010");
+    assert.equal(await next(other), "SOL-N0001");
+    await actAs(db, users[0]);
+    await assert.rejects(next(solideo), /permission denied/);
+  });
+});
+
+describe("가입 신청과 명부 연결 (20261024000300)", () => {
+  const solideo = "db4c863c-cb6a-593d-93ff-709a17e0157a";
+  const other = "33a80d95-1a64-5fe0-ad6d-e768657e9034";
+  const department = "a6c0f1fc-aeba-5e54-a20c-f6f4d1609f84";
+  const department2 = "a6c0f1fc-aeba-5e54-a20c-f6f4d1609f85";
+  const title = "33e315b9-aee8-5ea8-96eb-f9055af4eef2";
+  const otherDepartment = "10000000-0000-0000-0000-000000000001";
+  const otherTitle = "10000000-0000-0000-0000-000000000002";
+  const memberA = "5e000000-0000-4000-8000-000000000001";
+  const memberB = "5e000000-0000-4000-8000-000000000002";
+  const otherMember = "5e000000-0000-4000-8000-000000000003";
+  // users[0] = org-01 ADMIN(owner), users[1] = org-01 VIEWER, users[2]·applicant2 = 조직 없음, otherAdmin = org-02 ADMIN.
+  const applicant2 = "00000000-0000-0000-0000-000000000004";
+  const otherAdmin = "00000000-0000-0000-0000-000000000005";
+  const photo = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  const own = (user, n) => `users/${user}/${photo(n)}.jpg`;
+  const asSystem = async (db) => {
+    await db.exec("reset role");
+    await db.query("select set_config('request.jwt.claims','',false)");
+  };
+  const declare = (db, id, name, dept = department) =>
+    db.query(
+      "update public.profiles set display_name=$2, declared_department_id=$3, declared_job_title_id=$4 where id=$1",
+      [id, name, dept, title],
+    );
+  const setup = async (t) => {
+    const db = await migratedDb(t);
+    await db.exec(
+      "insert into storage.buckets(id,name,public) values('profile-photos','profile-photos',false)",
+    );
+    for (const [id, email] of [
+      [applicant2, "applicant2@example.invalid"],
+      [otherAdmin, "other-admin@example.invalid"],
+    ])
+      await db.query("insert into auth.users values ($1, $2)", [id, email]);
+    await db.query(
+      "insert into public.organizations (id,slug,name) values ($1,'org-01','솔리데오'),($2,'org-02','격리 조직')",
+      [solideo, other],
+    );
+    await db.query(
+      "insert into public.departments (id,org_id,code,name,source_count,target_count,is_demo) values ($1,$2,'SOL-D001','시험부서',3,4,true),($3,$2,'SOL-D002','둘째부서',3,4,true),($4,$5,'OTHER-D001','다른부서',1,1,true)",
+      [department, solideo, department2, otherDepartment, other],
+    );
+    await db.query(
+      "insert into public.job_titles (id,org_id,code,label,sort_order) values ($1,$2,'SOL-J007','팀장',7),($3,$4,'OTHER-J001','다른직급',1)",
+      [title, solideo, otherTitle, other],
+    );
+    await db.query(
+      "insert into public.memberships (org_id,user_id,org_role,sol_role) values ($1,$2,'owner','ADMIN'),($1,$3,'member','VIEWER'),($4,$5,'owner','ADMIN')",
+      [solideo, users[0], users[1], other, otherAdmin],
+    );
+    await db.query(
+      "insert into public.team_members (id,org_id,person_code,name,gender,department_id,job_title_id,portrait_path,is_demo) values ($1,$2,'SOL-P0001','김민준','MALE',$3,$4,'/demo/people/SOL-P0001.png',true),($5,$2,'SOL-P0002','이서연','FEMALE',$3,$4,'/demo/people/SOL-P0002.png',true),($6,$7,'SOL-P0001','김민준','MALE',$8,$9,'/demo/people/SOL-P0001.png',true)",
+      [
+        memberA,
+        solideo,
+        department2,
+        title,
+        memberB,
+        otherMember,
+        other,
+        otherDepartment,
+        otherTitle,
+      ],
+    );
+    return db;
+  };
+  const submit = async (db, kind, member = null, name = null) =>
+    (await db.query("select public.submit_join_request($1,$2,$3) as id", [kind, member, name]))
+      .rows[0].id;
+  const decide = async (db, id, approve, role) =>
+    (
+      await (role === undefined
+        ? db.query("select public.decide_join_request($1,$2) as result", [id, approve])
+        : db.query("select public.decide_join_request($1,$2,$3) as result", [id, approve, role]))
+    ).rows[0].result;
+  const memberOf = async (db, user) => {
+    await asSystem(db);
+    return (
+      await db.query(
+        "select person_code,name,is_demo,department_id,photo_path from public.team_members where user_id=$1",
+        [user],
+      )
+    ).rows;
+  };
+  const membership = async (db, user) => {
+    await asSystem(db);
+    return (
+      await db.query(
+        "select org_role,sol_role from public.memberships where org_id=$1 and user_id=$2",
+        [solideo, user],
+      )
+    ).rows;
+  };
+  const request = async (db, id) => {
+    await asSystem(db);
+    return (
+      await db.query(
+        "select status,sol_role,decided_by,applicant_name,applicant_photo_path from public.member_join_requests where id=$1",
+        [id],
+      )
+    ).rows[0];
+  };
+
+  it("비멤버 신규 입사자 신청을 ADMIN 이 승인하면 VIEWER 멤버십과 SOL-N0001 비데모 직원이 생긴다", async (t) => {
+    const db = await setup(t);
+    await actAs(db, users[2]);
+    await assert.rejects(submit(db, "NEW_HIRE"), /profile_incomplete/);
+    await asSystem(db);
+    await declare(db, users[2], "Lee Gwanghui");
+    await declare(db, applicant2, "Lee Gwanghui");
+    await actAs(db, users[2]);
+    const first = await submit(db, "NEW_HIRE");
+    // 대기 중에 다시 신청하면 같은 행을 고친다.
+    assert.equal(await submit(db, "NEW_HIRE"), first);
+    assert.equal(
+      (await db.query("select count(*)::int as n from public.member_join_requests")).rows[0].n,
+      1,
+    );
+    await actAs(db, applicant2);
+    const second = await submit(db, "NEW_HIRE");
+    await actAs(db, users[0]);
+    assert.equal(await decide(db, first, true), "APPROVED");
+    await actAs(db, users[0]);
+    assert.equal(await decide(db, second, true, "VIEWER"), "APPROVED");
+    assert.deepEqual(await membership(db, users[2]), [{ org_role: "member", sol_role: "VIEWER" }]);
+    assert.deepEqual(await memberOf(db, users[2]), [
+      {
+        person_code: "SOL-N0001",
+        name: "Lee Gwanghui",
+        is_demo: false,
+        department_id: department,
+        photo_path: null,
+      },
+    ]);
+    assert.equal((await memberOf(db, applicant2))[0].person_code, "SOL-N0002");
+    assert.deepEqual(await request(db, first), {
+      status: "APPROVED",
+      sol_role: "VIEWER",
+      decided_by: users[0],
+      applicant_name: "Lee Gwanghui",
+      applicant_photo_path: null,
+    });
+    await actAs(db, users[2]);
+    await assert.rejects(submit(db, "NEW_HIRE"), /already_linked/);
+  });
+
+  it("VIEWER·다른 조직 ADMIN 은 결정하지 못하고 이미 결정된 신청은 다시 결정하지 못한다", async (t) => {
+    const db = await setup(t);
+    await declare(db, users[2], "박신입");
+    await actAs(db, users[2]);
+    const id = await submit(db, "NEW_HIRE");
+    const visibleTo = async (user) => {
+      await actAs(db, user);
+      return (await db.query("select count(*)::int as n from public.member_join_requests")).rows[0]
+        .n;
+    };
+    assert.deepEqual(
+      [await visibleTo(users[0]), await visibleTo(users[1]), await visibleTo(otherAdmin)],
+      [1, 0, 0],
+    );
+    for (const user of [users[1], otherAdmin, users[2]]) {
+      await actAs(db, user);
+      await assert.rejects(decide(db, id, true), /forbidden/);
+    }
+    await actAs(db, users[0]);
+    await assert.rejects(
+      db.query("update public.member_join_requests set status='APPROVED' where id=$1", [id]),
+      /permission denied/,
+    );
+    await assert.rejects(decide(db, id, true, "OWNER"), /invalid_sol_role/);
+    assert.equal(await decide(db, id, false), "REJECTED");
+    await actAs(db, users[0]);
+    await assert.rejects(decide(db, id, true), /request_not_pending/);
+    assert.deepEqual(await membership(db, users[2]), []);
+    assert.deepEqual(await memberOf(db, users[2]), []);
+    // 반려된 사람은 다시 신청한다.
+    await actAs(db, users[2]);
+    assert.notEqual(await submit(db, "NEW_HIRE"), id);
+  });
+
+  it("같은 가상 직원에 대한 신청 둘은 먼저 승인된 것만 연결되고 두 번째는 member_taken 이다", async (t) => {
+    const db = await setup(t);
+    await declare(db, users[2], "김민준");
+    await declare(db, applicant2, "김민준");
+    await db.query("update public.profiles set photo_path=$2 where id=$1", [
+      users[2],
+      own(users[2], 1),
+    ]);
+    await actAs(db, users[2]);
+    await assert.rejects(submit(db, "EXISTING", memberA, "김민"), /invalid_member/);
+    await assert.rejects(submit(db, "EXISTING", otherMember, "김민준"), /invalid_member/);
+    await assert.rejects(submit(db, "EXISTING"), /invalid_member/);
+    const first = await submit(db, "EXISTING", memberA, " 김민준 ");
+    await actAs(db, applicant2);
+    const second = await submit(db, "EXISTING", memberA, "김민준");
+    await actAs(db, users[0]);
+    assert.equal(await decide(db, first, true), "APPROVED");
+    await actAs(db, users[0]);
+    await assert.rejects(decide(db, second, true), /member_taken/);
+    assert.equal((await request(db, second)).status, "PENDING");
+    assert.deepEqual(await memberOf(db, users[2]), [
+      {
+        person_code: "SOL-P0001",
+        name: "김민준",
+        is_demo: true,
+        department_id: department2,
+        photo_path: own(users[2], 1),
+      },
+    ]);
+    // 승인되면 부서·직급은 명부 값을 따른다(U6).
+    assert.equal(
+      (await db.query("select declared_department_id from public.profiles where id=$1", [users[2]]))
+        .rows[0].declared_department_id,
+      department2,
+    );
+    assert.deepEqual(await memberOf(db, applicant2), []);
+    await actAs(db, applicant2);
+    await assert.rejects(submit(db, "EXISTING", memberA, "김민준"), /invalid_member/);
+  });
+
+  it("find_unlinked_member 는 부서·이름이 정확히 맞는 미연결 데모 직원 하나만 주고 anon 은 거부한다", async (t) => {
+    const db = await setup(t);
+    await db.query(
+      "insert into public.team_members (org_id,person_code,name,department_id,job_title_id,is_demo) values ($1,'SOL-N0001','김민준',$2,$3,false)",
+      [solideo, department2, title],
+    );
+    const find = async (dept, name) =>
+      (await db.query("select * from public.find_unlinked_member($1,$2)", [dept, name])).rows;
+    await actAs(db, users[2]);
+    const hit = [
+      { id: memberA, person_code: "SOL-P0001", name: "김민준", job_title_label: "팀장" },
+    ];
+    assert.deepEqual(await find("SOL-D002", "김민준"), hit);
+    assert.deepEqual(await find("SOL-D002", " 김민준 "), hit);
+    assert.deepEqual(await find("SOL-D001", "김민준"), []);
+    assert.deepEqual(await find("SOL-D002", "김민"), []);
+    assert.deepEqual(await find("OTHER-D001", "김민준"), []);
+    await asSystem(db);
+    await db.query("update public.team_members set user_id=$1 where id=$2", [users[1], memberA]);
+    await actAs(db, users[2]);
+    assert.deepEqual(await find("SOL-D002", "김민준"), []);
+    await actAs(db, null, "anon");
+    await assert.rejects(find("SOL-D002", "김민준"), /permission denied/);
+  });
+
+  it("ADMIN 은 대기 신청자의 사진을 읽고 다른 사람은 읽지 못한다", async (t) => {
+    const db = await setup(t);
+    await declare(db, users[2], "박신입");
+    const put = (name) =>
+      db.query("insert into storage.objects(bucket_id,name) values('profile-photos',$1)", [name]);
+    const visible = async (user) => {
+      await actAs(db, user);
+      return (
+        await db.query(
+          "select name from storage.objects where bucket_id='profile-photos' order by name",
+        )
+      ).rows.map((row) => row.name);
+    };
+    await actAs(db, users[2]);
+    await put(own(users[2], 1));
+    await db.query("select public.set_my_photo($1)", [own(users[2], 1)]);
+    const id = await submit(db, "NEW_HIRE");
+    assert.equal((await request(db, id)).applicant_photo_path, own(users[2], 1));
+    assert.deepEqual(await visible(users[0]), [own(users[2], 1)]);
+    assert.deepEqual(await visible(users[1]), []);
+    assert.deepEqual(await visible(otherAdmin), []);
+    // 신청 뒤에 사진을 바꾸면 신청의 사진도 따라간다.
+    await actAs(db, users[2]);
+    await put(own(users[2], 2));
+    await db.query("select public.set_my_photo($1)", [own(users[2], 2)]);
+    assert.equal((await request(db, id)).applicant_photo_path, own(users[2], 2));
+    assert.deepEqual(await visible(users[0]), [own(users[2], 2)]);
+    await actAs(db, users[0]);
+    await decide(db, id, false);
+    assert.deepEqual(await visible(users[0]), []);
+  });
+
+  it("이미 멤버인 계정의 신청 승인은 멤버십·업무 역할을 바꾸지 않고 연결만 한다", async (t) => {
+    const db = await setup(t);
+    await declare(db, users[0], "이광희");
+    await declare(db, users[1], "이서연");
+    await actAs(db, users[0]);
+    const mine = await submit(db, "NEW_HIRE");
+    await actAs(db, users[0]);
+    assert.equal(await decide(db, mine, true, "VIEWER"), "APPROVED");
+    assert.deepEqual(await membership(db, users[0]), [{ org_role: "owner", sol_role: "ADMIN" }]);
+    assert.equal((await memberOf(db, users[0]))[0].person_code, "SOL-N0001");
+    await actAs(db, users[1]);
+    const viewer = await submit(db, "EXISTING", memberB, "이서연");
+    await actAs(db, users[0]);
+    assert.equal(await decide(db, viewer, true, "SALES"), "APPROVED");
+    assert.deepEqual(await membership(db, users[1]), [{ org_role: "member", sol_role: "VIEWER" }]);
+    assert.equal((await memberOf(db, users[1]))[0].person_code, "SOL-P0002");
+    assert.equal((await request(db, viewer)).sol_role, "VIEWER");
+  });
+});

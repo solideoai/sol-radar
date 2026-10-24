@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ensureStorageBuckets } from "./ops/ensure-storage-buckets.mjs";
+import { ensureProfilePhotoBucket, ensureStorageBuckets } from "./ops/ensure-storage-buckets.mjs";
 
 test("bucket provisioning defaults to read-only and refuses public/foreign buckets", async () => {
   const storage = {
@@ -61,4 +61,53 @@ test("explicit provisioning creates only private, size-limited buckets and immut
     (await ensureStorageBuckets({ storage })).map((row) => row.status),
     ["ready", "ready"],
   );
+});
+
+test("photo bucket is private, 2MB, image-only and refuses public or mismatched buckets", async () => {
+  const PHOTO = {
+    public: false,
+    fileSizeLimit: 2_097_152,
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+  };
+  const calls = [];
+  const storage = {
+    listBuckets: async () => ({ data: [], error: null }),
+    createBucket: async (name, options) => {
+      calls.push([name, options]);
+      return { error: null };
+    },
+  };
+  assert.deepEqual(await ensureProfilePhotoBucket({ storage }), {
+    name: "profile-photos",
+    status: "missing",
+  });
+  assert.deepEqual(calls, []);
+  assert.deepEqual(await ensureProfilePhotoBucket({ storage }, { apply: true }), {
+    name: "profile-photos",
+    status: "created",
+  });
+  assert.deepEqual(calls, [["profile-photos", PHOTO]]);
+  const listed = (bucket) => async () => ({
+    data: [
+      {
+        name: "profile-photos",
+        public: false,
+        file_size_limit: PHOTO.fileSizeLimit,
+        allowed_mime_types: PHOTO.allowedMimeTypes,
+        ...bucket,
+      },
+    ],
+    error: null,
+  });
+  storage.listBuckets = listed({});
+  assert.deepEqual(await ensureProfilePhotoBucket({ storage }, { apply: true }), {
+    name: "profile-photos",
+    status: "ready",
+  });
+  storage.listBuckets = listed({ public: true });
+  await assert.rejects(ensureProfilePhotoBucket({ storage }), /storage_bucket_public/);
+  storage.listBuckets = listed({ file_size_limit: 50 * 1024 * 1024 });
+  await assert.rejects(ensureProfilePhotoBucket({ storage }), /storage_bucket_limits_mismatch/);
+  storage.listBuckets = listed({ allowed_mime_types: ["image/jpeg", "image/gif"] });
+  await assert.rejects(ensureProfilePhotoBucket({ storage }), /storage_bucket_limits_mismatch/);
 });

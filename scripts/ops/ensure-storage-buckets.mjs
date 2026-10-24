@@ -74,6 +74,40 @@ export async function ensureStorageBuckets(
   return result;
 }
 
+// 프로필 사진 버킷(20261024000200). 사진은 이미지 MIME 만 받으므로 JSON 소유 표지(sentinel)를 둘 수 없다.
+// 대신 private·2MB·이미지 세 형식이 정확히 맞을 때만 ready 로 본다.
+const PHOTO_LIMIT = 2 * 1024 * 1024;
+const PHOTO_MIME = ["image/jpeg", "image/png", "image/webp"];
+
+export async function ensureProfilePhotoBucket(
+  client,
+  { apply = false, bucket = "profile-photos" } = {},
+) {
+  if (!/^[a-z][a-z0-9-]{2,62}$/.test(bucket)) throw new Error("storage_bucket_names_invalid");
+  const listed = await client.storage.listBuckets();
+  if (listed.error) throw new Error("storage_bucket_inventory_failed");
+  const existing = listed.data.find((row) => row.name === bucket);
+  if (existing) {
+    if (existing.public) throw new Error("storage_bucket_public");
+    const mime = Array.isArray(existing.allowed_mime_types) ? existing.allowed_mime_types : [];
+    if (
+      Number(existing.file_size_limit) !== PHOTO_LIMIT ||
+      mime.length !== PHOTO_MIME.length ||
+      PHOTO_MIME.some((value) => !mime.includes(value))
+    )
+      throw new Error("storage_bucket_limits_mismatch");
+    return { name: bucket, status: "ready" };
+  }
+  if (!apply) return { name: bucket, status: "missing" };
+  const created = await client.storage.createBucket(bucket, {
+    public: false,
+    fileSizeLimit: PHOTO_LIMIT,
+    allowedMimeTypes: PHOTO_MIME,
+  });
+  if (created.error) throw new Error("storage_bucket_create_failed");
+  return { name: bucket, status: "created" };
+}
+
 export async function storageRoundTrip(
   client,
   bucket,
@@ -147,6 +181,9 @@ async function run() {
     JSON.stringify(
       await ensureStorageBuckets(client, { ...settings, apply: args.includes("--apply") }),
     ),
+  );
+  console.log(
+    JSON.stringify(await ensureProfilePhotoBucket(client, { apply: args.includes("--apply") })),
   );
   if (args.includes("--smoke")) {
     if (!args.includes("--apply")) throw new Error("storage_smoke_requires_apply");

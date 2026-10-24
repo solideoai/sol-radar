@@ -56,6 +56,9 @@ export const rows: PeopleRows = {
     job_title_id: uuid(p.jobTitleId),
     portrait_path: p.portraitPath,
     is_demo: p.isDemo,
+    user_id: null,
+    photo_path: null,
+    linked_avatar_url: null,
   })),
   scoring: people
     .filter((p) => p.scoringEligible)
@@ -70,4 +73,6 @@ export const rows: PeopleRows = {
       capability_source: p.capabilitySource,
       capability_version: p.capabilityVersion,
     })),
+  photoUrls: new Map(),
+  canManagePhotos: false,
 };

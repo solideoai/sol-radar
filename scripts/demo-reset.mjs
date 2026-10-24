@@ -62,6 +62,7 @@ export const REQUIRED_TABLES = [
   "job_titles",
   "team_members",
   "team_member_scoring",
+  "member_join_requests",
   "company_profiles",
   "bid_notices",
   "bid_revisions",
@@ -85,6 +86,7 @@ export const REQUIRED_FUNCTIONS = [
 
 // 데모 조직 두 곳의 조직 소유 행. 지우는 순서는 FK 를 따른다(score_runs 가 먼저, 결정은 run 을 가리킨다).
 const ORG_SCOPED_TABLES = [
+  "member_join_requests",
   "score_runs",
   "bid_reviews",
   "assignments",
@@ -163,6 +165,12 @@ const seedPeople = async (client, fixtures) => {
     org_id: orgUuid("org-01"),
     person_code: { notIn: fixtures.people.people.map((person) => person.personId) },
   });
+  // 가입 신청으로 연결한 계정과 올린 사진을 풀어 처음 상태(연결 0, 정장 사진)로 돌린다(설계 C12).
+  await client.update(
+    "team_members",
+    { org_id: orgUuid("org-01") },
+    { user_id: null, photo_path: null },
+  );
   return result;
 };
 
@@ -193,6 +201,7 @@ const seedAccounts = async (client, password) => {
         status: "active",
         declared_department_id: catalogUuid(account.departmentCode),
         declared_job_title_id: catalogUuid(account.jobTitleCode),
+        photo_path: null,
       },
     );
     users[account.key] = { ...account, id: user.id, created: !found };
