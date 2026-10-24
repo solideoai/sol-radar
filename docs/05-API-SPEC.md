@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -376,7 +376,7 @@ interface WhatIfResult {                                    // 200 본문(그대
 
 ### 4.6 검토·알림·대시보드·수집
 
-이메일 추천 공고 알림은 [[16-DECISIONS|ADR-041]]로 해커톤 확장 컷에 승인됐다. 개인 설정 opt-in·로그인 이메일·`EMAIL` 채널은 승인 설계이며 main 구현 전이다. 아래 현재 알림 DTO와 적용된 DB 채널에 EMAIL을 이미 추가했다고 해석하지 않는다. 메일 설정의 새 경로·DTO는 이 문서에서 임의로 만들지 않고 구현 계약 확정 때 반영한다([[13-NOTIFICATIONS|13 알림]]).
+이메일 추천 공고 알림은 [[16-DECISIONS|ADR-041]]로 해커톤 확장 컷에 승인됐다가 2026-10-24 사용자 결정으로 해커톤에서 뺐다. 개인 설정 opt-in·로그인 이메일·`EMAIL` 채널은 설계 기록이며 구현이 없다. 아래 현재 알림 DTO와 적용된 DB 채널에 EMAIL을 이미 추가했다고 해석하지 않는다. 메일 설정의 새 경로·DTO는 이 문서에서 임의로 만들지 않고 구현 계약 확정 때 반영한다([[13-NOTIFICATIONS|13 알림]]).
 
 ```ts
 interface ReviewInput {

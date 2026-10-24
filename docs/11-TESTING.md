@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # 11. 검증·테스트 전략
@@ -108,7 +108,7 @@ fixture ID는 [[07-DATA-PIPELINE|07 수집]] §6.2. 테스트 파일은 Phase 1~
 | G10 | 데이터 계약 수용 기준 전체 ([[15-DATA-CONTRACTS\|15 데이터 계약]] §9) | `FX-11`, `FX-12`, `FX-13`, `FX-14` | `web/server/ingestion/normalized-bid.contract.test.ts`(`EvidenceRef` 계약 시험은 예정) | `vitest contract` | 15 §9의 각 항목 통과. `NormalizedBid` 스키마, `fieldState` 4종, 원본·정규화 값 병기, null 대체 금지 | `phase-2/test-contracts.txt` |
 | G11 | 추천 공고 카카오톡: 이벤트 멱등·받는 사람·한 사람 한 통 ([[16-DECISIONS\|ADR-038]], 구현 중 `feat/kakao-notify`) | `FX-02`(S4 라이브 분석, 녹화 장면). DB 정책 시험은 시험 안에서 만든 행 | `scripts/database.test.mjs`의 "추천 공고 outbox"·"카카오톡 알림 연결"(`d327894`), `web/server/kakao-notify/*.test.ts`(피드 변환·카카오 응답 분류·토큰 암호화·발송 수단, `ced705f`), `web/server/notifications/kakao.*.test.ts`(받는 사람·한 사람 한 통·만료 인앱 1건·재시도)·`web/worker/notify-outbox.test.ts`·`main.test.ts`(발송 수단 env, `52adabb`) | `pnpm test:db`, `vitest server/kakao-notify server/notifications worker` | 사람이 요청한 run이 BID·WATCH로 끝나면 `BID_RECOMMENDED` outbox 1건(키 `<orgId>:<bidId>:BID_RECOMMENDED`). 같은 공고를 다시 분석해도 1건이고 다른 조직은 따로 1건이다. 데모 사전 분석(`requested_by` null)·NO_BID·권고 없음은 0건. 받는 사람은 같은 조직·켬·`CONNECTED`·활성 계정만이고, 같은 이벤트를 다시·동시에 처리해도 한 사람 한 통(`<outboxEventId>:<userId>:KAKAO` UNIQUE). 같은 공고를 다른 조직에서 이미 받았으면(`SENT` 또는 결과 불분명 `DEAD`) 다시 보내지 않는다. 본인 연결 행은 허용 열 6개만 읽히고 남의 행은 0행. 로그에 토큰·메시지 본문 없음. 시험·CI는 `NOTIFY_KAKAO_PROVIDER=mock` | `phase-6/test-kakao-notify.txt`(예정) |
 
-G11은 [[16-DECISIONS|ADR-038]] 구현 중(`feat/kakao-notify`, main 병합 전)이라 위 "2026-10-19 기준" 집계와 "G1~G10은 mock에서만 단언" 문장 밖에 둔다. 모델을 부르지 않고, 카카오도 시험에서 부르지 않는다(`mock` 발송 수단과 가짜 `fetch`). 실발송은 사용자가 하는 수동 1회뿐이다([[10-DEPLOYMENT|10 배포]] "카카오 앱 설정").
+G11은 [[16-DECISIONS|ADR-038]] 구현 중(`feat/kakao-notify`, main 병합 전)이라 위 "2026-10-19 기준" 집계와 "G1~G10은 mock에서만 단언" 문장 밖에 둔다. 모델을 부르지 않고, 카카오도 시험에서 부르지 않는다(`mock` 발송 수단과 가짜 `fetch`). 실발송은 사용자가 하는 수동 1회뿐이다([[10-DEPLOYMENT|10 배포]] "카카오 앱 설정"). 2026-10-24 사용자 결정으로 해커톤에서는 그 1회도 하지 않고 `mock`으로 둔다([[16-DECISIONS|ADR-038]] 개정).
 
 `web/e2e-auth/isolation.spec.ts`는 템플릿이 이미 가진 조직 화면 격리 시험이라 이름이 겹치지 않게 G5 E2E는 `bid-isolation.spec.ts`로 둔다.
 

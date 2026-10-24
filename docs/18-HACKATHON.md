@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - hackathon
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # 18. 해커톤 출품 전략
@@ -66,7 +66,7 @@ updated: 2026-10-21
 |---|---|---|---|---|---|
 | ① 공고 검색 | 확인 | 확인 | 확인 | 확인 | 제공 |
 | ② 조건별 필터 | 확인 | 확인 | 확인 | 미확인 | 제공 |
-| ③ 관심 공고·알림 | 확인(알림톡·SMS) | 확인(문자) | 확인(이메일·카카오톡) | 확인(찜·앱 푸시) | 인앱 + 카카오톡(나에게 보내기, 구현 중, ADR-038) |
+| ③ 관심 공고·알림 | 확인(알림톡·SMS) | 확인(문자) | 확인(이메일·카카오톡) | 확인(찜·앱 푸시) | 인앱 + 카카오톡(나에게 보내기, main 병합. 해커톤 발송 수단은 `mock`이고 실발송 안 함, ADR-038) |
 | ④ 공고 요약(AI) | 미확인 | 미확인 | 확인(산군AI 정리) | 미확인 | Qwen 추출 어댑터 구현·실접속 검증 대기(원문 인용 필수), 설명은 템플릿 |
 | ⑤ 기업 맞춤형 분석·적합도 | 확인(투찰가·발주처 분석, 적격심사 계산) | 확인(적격심사 기준 맞춤 수집) | 미확인 | 미확인 | SOL Score 5요소·입력 스냅샷 |
 | ⑥ 참가자격 검증(우리 회사 기준) | 미확인 | 확인(검수팀 수작업 분류, 시설업종) | 미확인 | 미확인 | 규칙 3값 + 사유 코드 + 양쪽 근거 |
@@ -91,7 +91,7 @@ updated: 2026-10-21
 
 | 기준 | 배점 | 심사위원이 확인할 것 | 우리가 보여 줄 것 | 근거 위치 |
 |---|---:|---|---|---|
-| 실용성 | 30 | 실제 업무에 바로 적용 가능한 수준인가. 기존 시스템과 연동 가능한가 | 나라장터 공식 Open API 실수집(`live`)과 실제 RFP 첨부 파싱(첨부 파싱은 미구현, §7). 공고 발견 → 자격 확인 → 점수 → 사람 결정 기록이 영업팀의 실제 검토 순서와 같다. 연동 지점: Route Handler `/api/v1`(zod 계약), Bearer 토큰 인증, outbox 이벤트(인앱·카카오톡 "나에게 보내기", 기본 `mock`), 입찰 프로젝트 체크리스트(P1). ERP 실연동과 카카오 알림톡(운영 경로, 사업자·템플릿 검수 필요)은 범위 밖이고, 카카오톡은 해커톤 시연용 "나에게 보내기"로만 보낸다고 밝힌다([[16-DECISIONS\|ADR-038]]) | [[01-PRD]] FR 표, [[05-API-SPEC]], [[07-DATA-PIPELINE]], [[13-NOTIFICATIONS]] |
+| 실용성 | 30 | 실제 업무에 바로 적용 가능한 수준인가. 기존 시스템과 연동 가능한가 | 나라장터 공식 Open API 실수집(`live`)과 실제 RFP 첨부 파싱(첨부 파싱은 미구현, §7). 공고 발견 → 자격 확인 → 점수 → 사람 결정 기록이 영업팀의 실제 검토 순서와 같다. 연동 지점: Route Handler `/api/v1`(zod 계약), Bearer 토큰 인증, outbox 이벤트(인앱·카카오톡 "나에게 보내기", 발송 수단 `mock`), 입찰 프로젝트 체크리스트(P1). ERP 실연동과 카카오 알림톡(운영 경로, 사업자·템플릿 검수 필요)은 범위 밖이다. 카카오톡 "나에게 보내기"는 구현돼 있지만 해커톤에서는 `mock` 발송 수단으로 두고, 실발송·휴대폰 수신은 주장하지 않는다(2026-10-24 사용자 결정, [[16-DECISIONS\|ADR-038]]) | [[01-PRD]] FR 표, [[05-API-SPEC]], [[07-DATA-PIPELINE]], [[13-NOTIFICATIONS]] |
 | 사업적 창의성 | 25 | 기존 방식 대비 새로운 접근인가. 시간·비용·품질 향상에 기여하는가 | §3.2 D1~D5. 기존 서비스는 수집·키워드 알림까지, 우리는 우리 회사 기준 자격 판정·설명 가능한 점수·사람 결정 기록까지. 시간: 공고 1건 검토 30분 → 10분(가설, 측정 방법 명시). 품질: 필수 자격 누락 0, 정보 부족 ≠ 미충족. 비용: 오픈 가중치 모델을 회사 GPU에서 돌려 외부 모델 API 비용 0, 회사 기밀 외부 송출 0 | §3.2, §3.3, [[01-PRD]] 차별점·성공 측정 |
 | 완성도 | 25 | 시연 가능한 프로토타입인가. 오류 없이 흐름이 완결되는가 | 5분 데모 S2·S3·S4·S-LIVE·S6·S7이 끝까지 돈다(§6, 기본 `mock`. S5는 확장 컷). 골든 G1~G10 PASS, 데모 당일 체크리스트 전항목, `pnpm verify`·`pnpm test:db`·E2E·pytest·smoke PASS. AI를 꺼도 `PARTIAL`로 완결되고 오류를 숨기지 않는다 | [[19-DEMO-SCENARIO]], [[11-TESTING]] §4·§5, `docs/evidence/` |
 | 확장 가능성 | 20 | 전사 확산·고도화 가능한 구조인가 | 전사 확산: 조직 격리(`org_id` + Supabase RLS)로 조직을 더해도 코드 변경 없음, 업무 역할 `sol_role` 4종, Compose 프로필로 노트북·GPU 서버 같은 구성. 고도화: 알고리즘 버전·입력 스냅샷으로 과거 분석 재현, 모델 레지스트리·평가셋·오류 분석 절차(Bosun LoRA·`sol-v0.2.x`), Connector·`DocumentParser`·`ModelClient` 인터페이스로 수집 소스·파서·모델 교체 | [[04-DATABASE]], [[08-SCORING]] §5.5, [[21-MODEL-TRAINING]], [[03-AI-PIPELINE]] §2.2, [[10-DEPLOYMENT]] |
@@ -142,7 +142,7 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | 공고 데이터 | **실제 나라장터 공고**(입찰공고 용역 중 정보화사업, `is_demo=false`) | **가상 fixture 20건**(`DEMO` 배지) | **가상 fixture 20건**(`DEMO` 배지) | 두 종류가 같은 DB에 함께 있을 수 있어 출처(`source`)·`DEMO` 배지·목록 `origin` 필터로 구분한다. 서비스키로 받은 실제 응답은 P0-0에서 확인했다(2026-10-19, `docs/evidence/phase-0/external-deps.md` ①, [[07-DATA-PIPELINE]]) |
 | 첨부(RFP)·파싱 | **미구현**. 설계는 실제 첨부를 allowlist(`www.g2b.go.kr`)로 내려받아 파싱 | **미구현**(fixture 첨부 샘플 `fixtures/docs/` 없음) | **미구현** | 지금은 첨부 목록만 저장하고 내려받지도 파싱하지도 않는다. 첨부는 `PENDING`으로 남고 추출은 본문만으로 한다(파서 어댑터 0개, documents 소비자 없음, [[03-AI-PIPELINE]] §2). 설계: 처리할 수 없는 형식·다운로드 실패는 `PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`와 `확인 필요`로 표시하고 AI가 내용을 추측하지 않는다. g2b 첨부는 공고 3건 모두 로그인·세션 없이 내려받았다(P0-0 ② B1~B4, 2026-10-19). 이용약관상 제한은 미확인이다([[16-DECISIONS]] 미결정 16) |
 | 회사 프로필 | **가상 솔리데오** | **가상 솔리데오** | **가상 솔리데오** | 회사명·부서/직급은 솔리데오, 직원 200명·사진·자격·실적·재무는 가상 데모 설정(ADR-019). live 분석도 "실제 공고 × 가상 회사 프로필"이며 분석 화면에 "가상 회사 프로필로 분석" 배지가 붙는다 |
-| Qwen 요구조건 추출 | 회사 vLLM API의 Qwen3.8-Flash-Next를 호출하는 `local` 어댑터 구현, 실접속 검증 대기 | 같은 실모델 경로, 검증 대기 | **고정 응답**(사전 작성 추출) | 실추론 성공은 C1 ③·C8 증거 확보 뒤에만 주장한다. `/explain`은 모든 모드가 템플릿(`fallback=true`)이고 Qwen 설명 생성은 미구현이다([[03-AI-PIPELINE]] §2.1·§6) |
+| Qwen 요구조건 추출 | 회사 vLLM API의 Qwen3.8-Flash-Next를 호출하는 `local` 어댑터 구현. 엔드포인트 probe 통과(2026-10-21), 앱 경로 실추론 미확인 | 같은 실모델 경로, 앱 경로 실추론 미확인 | **고정 응답**(사전 작성 추출) | 엔드포인트 probe: `/v1/models` 200(served id `Qwen3.8-Flash-Next-AWQ-INT4`), chat completions 200·guided JSON 지원(`docs/evidence/phase-5/qwen-probe-20261021-2343.json`). 실추론 성공은 C1 ③·C8 증거 확보 뒤에만 주장한다. `/explain`은 모든 모드가 템플릿(`fallback=true`)이고 Qwen 설명 생성은 미구현이다([[03-AI-PIPELINE]] §2.1·§6) |
 | 결정 모델(Bosun) | **회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론**(우리 `sol_decision` 서버, `kev-qs/v0.2`, 영어 state) | **회사 GPU 추론 엔드포인트의 Bosun v3.1 0.6B 실추론** | **고정 응답**(`fixtures/kev/FX-xx.json`, `kev-qs/v0.1`) | **참고 지표이며 점수·자격·권고에 반영하지 않는다.** 확률은 선택지에 대한 모델 분포이고 충족 확률·수주확률이 아니다. 우리 도메인 보정 전이며 `UNCALIBRATED` UI 표시는 미구현이다([[03-AI-PIPELINE]] §5.7). 한국어 입력 성능은 E1'·E2로 잰다(§8 2번) |
 | mock 대체 | 금지(켜면 기동 거부) | 금지(켜면 기동 거부) | 금지(처음부터 mock이며, 켜면 기동 거부) | 해커톤 동안 자동 대체는 구현하지 않는다([[16-DECISIONS]] ADR-030 B11, `infra/run-modes.json`). 모델이 안 되면 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모드 전환은 사람이 한다 |
 | 네트워크 의존 | 인터넷(Supabase) + 공공 API + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase) + 회사 GPU 추론 엔드포인트(HTTPS) | 인터넷(Supabase)만 | DB·인증이 Supabase 클라우드라 회장 회선이 끊기면 모든 모드에서 로그인·조회가 멈춘다. 그때는 로컬 Supabase CLI로 전환한다([[19-DEMO-SCENARIO]] §5 대체 경로 ①, [[16-DECISIONS]] ADR-023). 엔드포인트·공공 API가 끊겼을 때의 대응은 §9 |
@@ -157,13 +157,13 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 | hosted 모델 API·클라우드 GPU 임대 | **사용하지 않음** | 비용이 드는 경로는 사용자 승인 전 쓰지 않는다(ADR-010) |
 | 인앱 알림 | 실제 구현 | outbox + 멱등키 |
 | 테넌트 격리 | 실제 구현 | Supabase RLS(`org_id in (select public.my_org_ids())`) + 정책 시험. 다른 조직 자원은 `404`. 단 worker·seed는 RLS를 무시하는 service role 키를 쓰므로 `org_id`를 직접 지정하고 혼입 방지 시험을 둔다 ([[09-SECURITY]]) |
-| DB·인증 실행 위치 | **Supabase 클라우드 프로젝트(개발 환경)** | 로컬 Compose가 아니라 클라우드다. Compose는 redis·qdrant·ai-gateway·worker를 띄우고 DB·Storage와 web은 띄우지 않는다(web은 호스트에서 `pnpm -C web start`, [[10-DEPLOYMENT]]). 데모 실행 환경과 대체 경로는 정했고([[16-DECISIONS]] ADR-023, [[19-DEMO-SCENARIO]] §5), Vercel 웹·AI 구성도 승인됐다(2026-10-21, [[10-DEPLOYMENT]]). 이 Vercel 구성의 클라우드 배포 성공은 구성 증거에서 미확인이다 |
+| DB·인증·웹 실행 위치 | **Supabase 클라우드 프로젝트 + Vercel 운영(`https://www.solideos-radar.com`)** | 로컬 Compose가 아니라 클라우드다. 데모 Compose는 redis·qdrant·ai-gateway·worker를 띄우고 DB·Storage와 web은 띄우지 않는다(web은 호스트에서 `pnpm -C web start`, [[10-DEPLOYMENT]]). 데모 실행 환경과 대체 경로는 정했다([[16-DECISIONS]] ADR-023, [[19-DEMO-SCENARIO]] §5). Vercel 운영 배포는 READY이고 운영 주소로 전환했다(2026-10-22, `docs/evidence/first-bundle/20261022-production-deployment.md`). Vercel은 web만 실행하고 AI·Worker는 회사 Compose가 맡는다([[16-DECISIONS]] ADR-049). 2026-10-24 10:04 KST 운영 `/health/live` 200, `/health/ready` 200(`db`·`redis`·`storage` ok, `ai: local`). `ai: local`은 회사 AI gateway가 보고한 provider 값이고, 운영 경로의 실모델 추론 성공은 미확인이다. 운영 DB는 2026-10-24 migration 50개 적용·`db:verify` 통과(`docs/evidence/people-email/20261024-verify.md`) |
 | 세션 쿠키 | **설계상 HttpOnly 아님** | `@supabase/ssr`가 관리하고 브라우저 클라이언트가 같은 쿠키를 읽어 로그인·로그아웃한다. SameSite=Lax, 운영에서 Secure. XSS 방어는 CSP nonce가 맡는다 ([[09-SECURITY]]) |
 | 첨부(RFP) 다운로드·파싱 | **미구현** | 파서 어댑터가 없어 `/parse`는 모든 형식에 `UNSUPPORTED`를 돌려주고, worker에 documents 소비자가 없다. 첨부는 목록만 저장된다(`PENDING`). 분석은 공고 본문과 API 구조화 필드로만 한다. "HWP 파싱"을 시연·주장하지 않는다([[03-AI-PIPELINE]] §2) |
-| 카카오톡 알림 | **구현 중(확장 컷, `feat/kakao-notify`)** | 개인 설정에서 켠 사람에게 추천 공고(BID·WATCH 권고)를 카카오 "나에게 보내기"로 보낸다. 기본 `mock`이고 실발송은 `NOTIFY_KAKAO_PROVIDER=memo`일 때만이다. 라이브 발표 흐름은 그대로이고 휴대폰 수신은 녹화 장면 하나로 보인다([[19-DEMO-SCENARIO]]). 나에게 보내기는 해커톤 시연용이고, 운영 경로인 알림톡(사업자·비즈니스 채널·템플릿 검수)은 범위 외다. 휴대폰 알림 울림은 카카오 S0 수신 시험 전이라 미확인이다. 10-24 22:00 freeze까지 못 끝내면 빼고 문서·ADR만 남긴다([[16-DECISIONS]] ADR-038) |
-| P1 화면 5개(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 ADMIN 편집) | **구현 전(2026-10-21 [[16-DECISIONS]] ADR-042로 핵심 컷·확장 컷과 병행 착수)** | ADR-021 P1을 M20 순서로 10-24 22:00 freeze까지 만든다. freeze까지 green이 아닌 화면은 사이드바에 이름만 비링크로 남고(준비 중 배지 없음) 경로는 404다. 발표 5분 시간표(§6)에는 넣지 않았고, 어느 장면에서 보일지는 10-25 리허설 전에 사용자가 정한다. 확률·승률 표시 없음, 인력 배치 후보는 27명 안·저장 없음 |
+| 카카오톡 알림 | **main 병합(확장 컷, 2026-10-22 `73eac5a8`). 발송 수단 `mock` 유지, 실발송·휴대폰 수신 녹화 안 함(2026-10-24 사용자 결정)** | 개인 설정에서 켠 사람에게 추천 공고(BID·WATCH 권고)를 카카오 "나에게 보내기"로 보낸다. 기본 `mock`이고 실발송은 `NOTIFY_KAKAO_PROVIDER=memo`일 때만이다. 구현 커밋 `50c1b78a`, mock 끝까지 확인 증거 `90823f3e`. 운영 DB에는 카카오 migration 5개(`20261023000700`~`000704`)를 2026-10-24 적용했다. 라이브 발표 흐름은 그대로다. 2026-10-24 사용자 결정("카카오 수신 시험은 오늘 못 해, mock으로 둬")으로 휴대폰 수신 녹화 장면은 뺐다([[19-DEMO-SCENARIO]] §4). 나에게 보내기는 해커톤 시연용이고, 운영 경로인 알림톡(사업자·비즈니스 채널·템플릿 검수)은 범위 외다. S0 수신 시험을 하지 않으므로 `memo` 실발송·휴대폰 수신·알림 울림은 확인하지 않았고 주장하지 않는다([[16-DECISIONS]] ADR-038 2026-10-24 개정) |
+| P1 화면 5개(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 ADMIN 편집) | **N3·N5·N6·N7 main 병합(2026-10-22 `546a997d`). N4b 진행 중(main 미병합)** | N3 관심 공고·N5 분석 결과 비교·N6 입찰 프로젝트·N7 인력 배치 시뮬레이션은 전체 `pnpm verify`·`test:e2e:work` 17/17 통과 뒤 병합했고(`docs/evidence/navigation/20261022-implementation.md`), 관련 migration은 2026-10-24 운영 DB에 적용했다. N4b 조직·인력 ADMIN 편집은 2026-10-24 배정이고 아직 main에 없다. ADR-021 P1을 M20 순서로 10-24 22:00 freeze까지 만든다([[16-DECISIONS]] ADR-042). freeze까지 green이 아닌 화면은 사이드바에 이름만 비링크로 남고(준비 중 배지 없음) 경로는 404다. 발표 5분 시간표(§6)에는 넣지 않았고, 어느 장면에서 보일지는 10-25 리허설 전에 사용자가 정한다. 확률·승률 표시 없음, 인력 배치 후보는 27명 안·저장 없음 |
 | 결제·모바일·자동 투찰·승률 예측 | **범위 외** | 구현하지 않음 |
-| S-LIVE 실제 공고 장면 | **`live` 모드 사전 실행 run의 조회**(ADR-023) | S0에서 실공고를 수집하고 공고 본문·API 필드로 분석한다. Qwen·결정 모델 실추론은 연결 검증 뒤에 실행하며 첨부 다운로드·파싱은 미구현이다. 발표 중에는 `mock` 모드 앱에서 그 run을 연다. 실시간 추론을 못 했으면 같은 입력의 실행 로그 기반 녹화이고 그렇게 말한다. 외부 의존성 컷 규칙 4갈래 중 어느 것인지 이 표에 적는다(현재: "API 정상·GPU 불가" 갈래로 사전 run 1건을 돌렸다. 2026-10-20 격리 로컬 Supabase, 실공고 R26BK01774434, `PARTIAL`·`RULES_ONLY`·`QWEN_UNAVAILABLE`, `docs/evidence/demo-day/20261020-1434/run-modes.md`. 발표용 Supabase에는 아직 없고, 회사 GPU 실추론(C1 ③)은 B1·B2 뒤다) |
+| S-LIVE 실제 공고 장면 | **`live` 모드 사전 실행 run의 조회**(ADR-023) | S0에서 실공고를 수집하고 공고 본문·API 필드로 분석한다. Qwen·결정 모델 실추론은 연결 검증 뒤에 실행하며 첨부 다운로드·파싱은 미구현이다. 발표 중에는 `mock` 모드 앱에서 그 run을 연다. 실시간 추론을 못 했으면 같은 입력의 실행 로그 기반 녹화이고 그렇게 말한다. 외부 의존성 컷 규칙 4갈래 중 어느 것인지 이 표에 적는다(현재: "API 정상·GPU 불가" 갈래로 사전 run 1건을 돌렸다. 2026-10-20 격리 로컬 Supabase, 실공고 R26BK01774434, `PARTIAL`·`RULES_ONLY`·`QWEN_UNAVAILABLE`, `docs/evidence/demo-day/20261020-1434/run-modes.md`. 2026-10-24 기준 발표용(운영) Supabase의 S-LIVE run은 미확인이다. 10-24 사전 점검(P0-4) 결과는 아직 이 표에 반영하지 않았고, 최종 run은 10-25 리허설의 마지막 `demo:reset` 뒤에 만든다. 회사 Qwen 엔드포인트 probe는 통과했고(2026-10-21), Bosun `sol_decision` 서버와 회사 GPU 실추론(C1 ③)은 미확인이다) |
 
 ## 8. 예상 질문과 답
 
@@ -205,14 +205,14 @@ S5 변경 감지(FX-07 revision diff, FX-09 중복 0건)는 확장 컷이다([[1
 |---|---|---|---|---|
 | 저장소 링크(README가 [[00-README\|00 인덱스]] 역할, 기동 절차는 [[10-DEPLOYMENT\|10 배포]]) | `README.md`, `docs/00-README.md` | 있음 | 완성도·확장성 | 미확인 |
 | 아키텍처 다이어그램: Next.js(`web/`) + Supabase + Compose + AI gateway + 회사 GPU 추론 엔드포인트(Qwen·Bosun, HTTPS)([[02-ARCHITECTURE]], ADR-017·020·025) + 데이터 흐름 | `docs/submission/architecture.md` | 초안 | 확장성·실용성 | 미확인 |
-| 발표 슬라이드(§1 → §2 → §3.2 → 데모 → §7 → 이후 계획) | `docs/submission/slides-outline.md` → 슬라이드 파일 | 구조 초안 | 4항목 전부 | 미확인 |
+| 발표 슬라이드(§1 → §2 → §3.2 → 데모 → §7 → 이후 계획) | `docs/submission/slides-outline.md`·`slides-spec.md` → 슬라이드 파일 | 구조 초안·슬라이드 명세 있음. 슬라이드 파일은 로컬 `docs/submission/deck/sol-radar-deck.pptx`(git 제외, 2026-10-22 수정)만 있고 완성 여부 미확인 | 4항목 전부 | 미확인 |
 | 데모 영상 3분(백업·제출용) | `docs/submission/video-storyboard.md` → 영상 파일 | 스토리보드 초안 | 완성도·실용성 | 미확인 |
-| 실제 AI 검증 증거 목록 | `docs/submission/evidence-list.md`, `docs/evidence/README.md` | 목록 있음. 실제 API 응답·첨부 다운로드 증거는 있음(C1 ①②, 2026-10-19). S-LIVE 사전 run 증거는 규칙만(`PARTIAL`) 1건 있음(C8, `demo-day/20261020-1434/`). 회사 GPU 엔드포인트·실추론 증거(C1 ③·C5)는 아직 없음 | 실용성 | 미확인 |
+| 실제 AI 검증 증거 목록 | `docs/submission/evidence-list.md`, `docs/evidence/README.md` | 목록 있음. 실제 API 응답·첨부 다운로드 증거는 있음(C1 ①②, 2026-10-19). S-LIVE 사전 run 증거는 규칙만(`PARTIAL`) 1건 있음(C8, `demo-day/20261020-1434/`). 회사 Qwen 엔드포인트 probe 증거는 있음(2026-10-21, `phase-5/qwen-probe-20261021-2343.json`). 앱 경로 실추론·Bosun 엔드포인트 증거(C1 ③·C5)는 아직 없음 | 실용성 | 미확인 |
 | 실험 결과 표(E0·E1'·E2·E3·E4, 임팩트 n=3) | `docs/submission/experiment-tables.md`, `docs/evidence/eval/`, `docs/evidence/impact/` | 빈 템플릿 | 창의성·실용성 | 미확인 |
 | 경쟁 서비스 비교 표 | §3.2.1, `docs/evidence/competitors/` | 완료(X3, 2026-10-19) | 창의성 | 미확인 |
 | 기술적 한계·실행 모드 구분·정직성 표(§7)를 슬라이드와 README에 동일하게 | `docs/submission/limitations.md` | 초안 | 완성도 | 미확인 |
-| `docs/evidence/` 테스트·E2E·기동 로그 | `docs/evidence/phase-*/`, `demo-day/` | 일부 있음: `phase-0/`(C0 통합 기동·보완 항목·`pnpm verify` 출력), `phase-1/`(`demo:reset` 2회·`pnpm test:db`), `phase-4/goldens-report.txt`, 인력·랜딩·경쟁 비교, `phase-3/e2e/`(C6 화면 E2E), `fx01/`(FX-01 E2E), `demo-day/20261020-1009/`(C9 mock 리허설 1차, 스크린샷 포함)·`20261020-1434/`(C8 S-LIVE 사전 run) | 완성도 | 미확인 |
-| 외부 의존성 점검 결과 | `docs/evidence/phase-0/external-deps.md` | ① API(A1~A9)·② 첨부(B1~B4) 통과(2026-10-19). ③ 회사 GPU 엔드포인트는 회사 응답 대기, ④ 파서 비교는 미착수 | 실용성 | 미확인 |
+| `docs/evidence/` 테스트·E2E·기동 로그 | `docs/evidence/phase-*/`, `demo-day/` | 일부 있음: `phase-0/`(C0 통합 기동·보완 항목·`pnpm verify` 출력), `phase-1/`(`demo:reset` 2회·`pnpm test:db`), `phase-4/goldens-report.txt`, 인력·랜딩·경쟁 비교, `phase-3/e2e/`(C6 화면 E2E), `fx01/`(FX-01 E2E), `demo-day/20261020-1009/`(C9 mock 리허설 1차, 스크린샷 포함)·`20261020-1434/`(C8 S-LIVE 사전 run)·`20261021-1144/`(C9 mock 리허설 2차), `navigation/20261022-implementation.md`(N3·N5·N6·N7), `first-bundle/20261022-production-deployment.md`(운영 DB·Storage·Vercel), `people-email/20261024-verify.md`(운영 migration 50개·`db:verify`) | 완성도 | 미확인 |
+| 외부 의존성 점검 결과 | `docs/evidence/phase-0/external-deps.md` | ① API(A1~A9)·② 첨부(B1~B4) 통과(2026-10-19). ③ 회사 GPU 엔드포인트는 이 파일에 아직 대기로 적혀 있다. 회사 Qwen vLLM probe는 별도 증거로 통과(2026-10-21, `phase-5/qwen-probe-20261021-2343.json`), Bosun `sol_decision` 서버는 미확인. ④ 파서 비교는 미착수 | 실용성 | 미확인 |
 | 공식 심사 기준 확인 후 §4 갱신 | §4 | ✅ 2026-10-18 | — | ✅ |
 
 ## 관련 문서

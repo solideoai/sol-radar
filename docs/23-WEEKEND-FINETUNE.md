@@ -7,13 +7,18 @@ tags:
   - ai
   - ops
   - hackathon
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # 23. 주말 파인튜닝 계획: Bosun v3.1 0.6B 평가·학습 — 회사 GPU 엔드포인트·오픈 데이터·Hugging Face 모델
 
 > [!tip] 이 문서의 역할
-> 회사 GPU 서버에서 **2026-10-24(토)~10-25(일)** 에 돌릴 Bosun v3.1 0.6B LoRA 이어 학습과 오프라인 평가([[16-DECISIONS|ADR-034]] 7·12번)에 대해 ① 엔드포인트, ② 학습 데이터를 **오픈 데이터**에서 어떻게 가져오는지, ③ Hugging Face 에서 어떤 모델을 받는지를 확정하고, 주중 준비(B1~B3)와 주말 시간표를 정한다. [[21-MODEL-TRAINING|21 모델 학습]]은 "무엇을 왜", [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]는 "어떤 명령으로"가 정본이다. 이 문서는 그 둘을 주말 한 번의 실행에 맞게 고른 **선택과 일정**이다. 21·22와 다르면 주말 실행에 한해 이 문서를 따르고, 끝나면 §9의 상태대로 정본에 되돌린다.
+> 회사 GPU 서버에서 **2026-10-25(일)~10-26(월)**(2026-10-24 개정. 처음 계획은 10-24~25) 에 돌릴 Bosun v3.1 0.6B LoRA 이어 학습과 오프라인 평가([[16-DECISIONS|ADR-034]] 7·12번)에 대해 ① 엔드포인트, ② 학습 데이터를 **오픈 데이터**에서 어떻게 가져오는지, ③ Hugging Face 에서 어떤 모델을 받는지를 확정하고, 주중 준비(B1~B3)와 주말 시간표를 정한다. [[21-MODEL-TRAINING|21 모델 학습]]은 "무엇을 왜", [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]는 "어떤 명령으로"가 정본이다. 이 문서는 그 둘을 주말 한 번의 실행에 맞게 고른 **선택과 일정**이다. 21·22와 다르면 주말 실행에 한해 이 문서를 따르고, 끝나면 §9의 상태대로 정본에 되돌린다.
+
+> [!warning] 2026-10-24 개정 — 학습·채점 하루 연기 (사용자 지시)
+> 사용자 지시(2026-10-24)로 회사 GPU 일정을 하루 미룬다. F1 smoke → F2 학습은 **10-25(일) 오후**(회사), F3 보정·E4·E1' 오프라인 채점은 **10-26(월) 오전**, 제출물 반영(B6·X6f)은 **10-26 오후**다. 선행 조건(`sol_decision` 서버, preflight)은 10-25 오전에 확인한다.
+> - §0·§1·§7 표는 새 날짜로 고쳤다. 그 밖의 본문에 남은 "토요일(F1·F2)"은 10-25(일) 오후로, "일요일(F3·채점)"은 10-26(월) 오전으로 읽는다.
+> - 토요일(10-24) 18:00 중단선은 학습이 옮겨져 더 쓰지 않는다. 새 중단 시각은 정하지 않았다. F2를 못 끝내면 "회사 측 미실행"으로 적는다([[16-DECISIONS|ADR-034]] 12번 개정, [[2026-10-24-freeze-priorities|10-24 freeze 우선순위]]).
 
 > [!success] 채택 (2026-10-20, 사용자. [[16-DECISIONS|ADR-034]])
 > ① 결정 모델은 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`, 학습은 공개 LoRA 이어 학습, 기준선은 E1'(공개 Bosun zero-shot), 채점은 서버 안 오프라인 `sol_eval.bosun_score`. ② 추출·설명 모델은 회사가 이미 운영 중인 vLLM API 의 `Qwen/Qwen3.8-Flash-Next`(같은 날 저녁 개정. 모델은 2026-10-21 사용자 보고로 Qwen3.5-27B 에서 교체) — **Qwen 파인튜닝은 하지 않는다**. ③ GPU 1 은 PaddleOCR 와 공유. ④ 엔드포인트·라우터·`/kev` 경로·`KEV_*` 이름은 변경 없음. ⑤ 주말 10-24~25 는 Bosun 평가·학습 일정으로 재계획(ADR-034 12번).
@@ -30,13 +35,13 @@ updated: 2026-10-21
 
 | 항목 | 결정 |
 |---|---|
-| 언제 | 10-21~22 B1 코드·B2 서버 준비, 10-22~23 B3 번들·EX0·E3 측정, **10-24(토) F1 smoke → F2 학습, 10-25(일) E4·E1' 오프라인 채점**, 10-26(월) 오전 제출물 반영·완료 목표([[16-DECISIONS\|ADR-042]]. 공식 제출은 10-27, §1·ADR-034 12번) |
+| 언제 | 10-21~22 B1 코드·B2 서버 준비, 10-22~23 B3 번들·EX0·E3 측정, **10-25(일) 오후 F1 smoke → F2 학습, 10-26(월) 오전 F3 보정·E4·E1' 오프라인 채점**, 10-26(월) 오후 제출물 반영·완료 목표([[16-DECISIONS\|ADR-042]]. 공식 제출은 10-27, §1·ADR-034 12번). 2026-10-24 사용자 지시로 하루 미뤘다(처음은 10-24 F1·F2, 10-25 채점, 10-26 오전 반영) |
 | 어디서 | 회사 GPU 서버 `sol-NF5280M6`(외부 접근 불가. 셸은 계정 `bim`), **물리 GPU 1(A40 46,068 MiB), PaddleOCR 와 공유**. GPU 0·2 는 회사 서비스라 건드리지 않는다(§2.4). 실행은 회사 측, 우리는 코드·번들·요청서·평가([[16-DECISIONS\|ADR-025]]) |
 | 모델 | 결정 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`(백본 `Qwen/Qwen3-0.6B@c1899de`, 동결). 추출·설명 `Qwen/Qwen3.8-Flash-Next` = **회사 운영 vLLM API**(GPU 1 에 띄우지 않음, 학습 없음). 백업(미사용) `Qwen/Qwen3-4B-Instruct-2507@cdbee75f`(§3) |
 | 데이터 | 오픈 데이터. **A** 나라장터 Open API 실공고(서비스키 보유, 이용허락 제한 없음) × **C** 우리가 만든 가상 기업 원형 6개의 구성 라벨 → **질문 하나 = 레코드 하나**(§4). Kev 공개 replay(옛 **B**)는 퇴역 |
 | 엔드포인트 | **변경 없음**. 회사 nginx 의 SOL RADAR location `https://acropolissg.com/sol-radar` 하나, 라우터 `/kev`→`127.0.0.1:8009`(런타임만 `sol_decision` Bosun). Qwen 호출은 회사가 운영하는 vLLM API(`QWEN_BASE_URL`, 03·10). 학습본은 HTTPS 로 서빙하지 않고 **서버 안 오프라인 채점**(§2.2) |
 | 결과 | `docs/evidence/bosun-train-feasibility.md`(F1·F2), `docs/evidence/eval/e4-<일시>.md`(E4 Δ·95% CI), `docs/evidence/phase-5/endpoint-bosun-<일시>.md`(B2), `docs/submission/experiment-tables.md` 표 (c). Kev 기록(`docs/evidence/kev-train-feasibility.md`)은 보존 |
-| 중단선 | **토요일 18:00 KST 까지 F2 가 시작되지 않으면 사용자에게 보고한다**(ADR-034 12번). 그 뒤 선택은 사용자 몫이고 이 문서는 대체 모델 경로를 두지 않는다 |
+| 중단선 | 처음 정한 **토요일(10-24) 18:00 중단선**(F2 미시작이면 사용자 보고)은 2026-10-24 개정으로 학습이 10-25(일) 오후로 옮겨져 더 쓰지 않는다. 새 중단 시각은 정하지 않았다. F2를 못 끝내면 "회사 측 미실행"으로 적는다(ADR-034 12번 개정). 그 뒤 선택은 사용자 몫이고 이 문서는 대체 모델 경로를 두지 않는다 |
 
 ## 1. 시간표
 
@@ -50,15 +55,16 @@ updated: 2026-10-21
 | 10-21(수)~22(목) | B2 | 회사 | `.venv-bosun` 핀 `uv pip install --dry-run` → 설치(torch 불변), Bosun·백본 다운로드 + sha256 대조(22 §2.2), `bosun-preflight.sh` 통과. **사용자 승인 뒤** `sol_decision.serve`(8009) 기동(GPU 1, PaddleOCR 공존). 라우터 그대로. 회사 Qwen3.8-Flash-Next API 는 키 전달·`GET /v1/models` id·guided JSON·`prompt_logprobs` 확인만 | `runs/preflight-*.log`, `venv-bosun-freeze.txt`, 서버 안 `curl …/sol-radar/kev/v1/models` 응답 |
 | 10-22(목)~23(금) | B3 | 우리 | **번들 확정** `sol-dataset-v0.1/` 폴더(`bosun/` 레코드·manifest·leakage 리포트) + 파일별 sha256(tar 로 묶지 않는다, 미결정 29-3), 학습 요청서(22 §6) 전송. `bosun_score` 를 가짜 출력으로 시험(§6). EX0(회사 Qwen API)·E3 기준선을 노트북에서 엔드포인트로 측정(E2 는 보조. E1' 은 B5 오프라인 채점, [[16-DECISIONS\|16]] 미결정 29-1). 밖에서 C1 ③ G1~G6 재실행 | 번들, 요청서, `docs/evidence/eval/`(EX0·E3), `docs/evidence/phase-5/endpoint-bosun-<일시>.md` |
 | 10-23(금) | — | 우리 | 회사 답(§8) 받기. 기능 freeze는 10-24(토) 22:00([[16-DECISIONS\|ADR-042]]) | — |
-| 10-24(토) 09:00~12:00 | B4 | 회사 | **F1** `bosun-f1.sh`(기본 `--max-steps 20`, 22 §4.2): 격자 1→2(→3). 물리 GPU 1(공유). 앞 칸 PASS 때만 다음 칸. 결과 표 전송 | `runs/f1-results.md`, `runs/bosun-f1-*.summary.md`, `nvidia-smi` csv |
-| 10-24(토) 13:00~ | B4 | 회사 | **F2** 학습(22 §4.3), F1 PASS 설정으로. 소요 시간은 F1 의 step 시간(`training_metrics.json` 의 `metrics.meanStepSeconds`. f1 요약 칸은 로딩 포함 wall/step 이다, 미결정 26-15)으로 재추정한다(**미확정**). 토요일 안에 끝나지 않으면 일요일 오전으로 넘기고 채점을 뒤로 민다. 패키지 저장·재로딩 확인. **18:00 까지 F2 미시작이면 사용자 보고** | `runs/bosun-sol-lora-v0.1/`, `train.log`, 메트릭 |
-| 10-25(일) 09:00~ | B5 | 회사 | **F3** dev 보정 → 서버 안 `sol_eval bosun_score` 4회(E4·E1' × test·dev, `--seeds 0-5`, 한 모델씩 순차. 언어 짝 비교용 E2 는 `bosun/{split}.ko.jsonl` 내보내기(B2 뒤 ed)가 생기면 같은 방식으로 더한다, 미결정 29-6) → 출력 폴더 4개를 통째로 전송(§2.2). 엔드포인트·라우터 변경 없음 | `MODEL_CARD.md`, `report.json`·`rows.json`·`predictions.jsonl` 4벌, `calibration.json`, sha256 |
-| 10-25(일) 오후 | B5 | 우리 | 받은 출력의 패키지 sha256·test 파일 sha256 을 번들 manifest 와 대조 → `sol_eval` 오프라인 지표 → 사업 클러스터 짝 부트스트랩 Δ·95% CI | `docs/evidence/eval/e4-<일시>.md`, 레지스트리 `bosun-sol-lora-v0.1.reports` |
-| 10-26(월) 오전 | B6 | 우리 | `experiment-tables.md` (c)·`limitations.md` E4 문장·슬라이드. 완료 목표(ADR-042, 공식 제출은 10-27) | 제출물 |
+| 10-25(일) 오전 | B4 준비 | 우리·회사 | 선행 조건 확인: `sol_decision` 서버, preflight(`bosun-preflight.sh`). 2026-10-24 사용자 지시로 F1 이 이날 오후로 옮겨졌다 | 확인 결과 |
+| 10-25(일) 오후 | B4 | 회사 | **F1** `bosun-f1.sh`(기본 `--max-steps 20`, 22 §4.2): 격자 1→2(→3). 물리 GPU 1(공유). 앞 칸 PASS 때만 다음 칸. 결과 표 전송 | `runs/f1-results.md`, `runs/bosun-f1-*.summary.md`, `nvidia-smi` csv |
+| 10-25(일) 오후, F1 PASS 뒤 | B4 | 회사 | **F2** 학습(22 §4.3), F1 PASS 설정으로. 소요 시간은 F1 의 step 시간(`training_metrics.json` 의 `metrics.meanStepSeconds`. f1 요약 칸은 로딩 포함 wall/step 이다, 미결정 26-15)으로 재추정한다(**미확정**). 10-25 안에 끝나지 않으면 10-26 오전으로 넘기고 채점을 뒤로 민다. 패키지 저장·재로딩 확인. F2를 못 끝내면 "회사 측 미실행"으로 적는다(토요일 18:00 중단선은 2026-10-24 개정으로 폐기) | `runs/bosun-sol-lora-v0.1/`, `train.log`, 메트릭 |
+| 10-26(월) 오전 | B5 | 회사 | **F3** dev 보정 → 서버 안 `sol_eval bosun_score` 4회(E4·E1' × test·dev, `--seeds 0-5`, 한 모델씩 순차. 언어 짝 비교용 E2 는 `bosun/{split}.ko.jsonl` 내보내기(B2 뒤 ed)가 생기면 같은 방식으로 더한다, 미결정 29-6) → 출력 폴더 4개를 통째로 전송(§2.2). 엔드포인트·라우터 변경 없음 | `MODEL_CARD.md`, `report.json`·`rows.json`·`predictions.jsonl` 4벌, `calibration.json`, sha256 |
+| 10-26(월) 오전, 출력 받은 뒤 | B5 | 우리 | 받은 출력의 패키지 sha256·test 파일 sha256 을 번들 manifest 와 대조 → `sol_eval` 오프라인 지표 → 사업 클러스터 짝 부트스트랩 Δ·95% CI | `docs/evidence/eval/e4-<일시>.md`, 레지스트리 `bosun-sol-lora-v0.1.reports` |
+| 10-26(월) 오후 | B6 | 우리 | `experiment-tables.md` (c)·`limitations.md` E4 문장·슬라이드. 완료 목표(ADR-042, 공식 제출은 10-27) | 제출물 |
 
 Qwen 학습 일정은 **없다**(2026-10-20 저녁 개정. 옛 "10-25 조건부 Qwen 4B QLoRA" 행 삭제).
 
-C9 3차는 10-23이다. 10-24 학습은 P1 병합·기능 freeze(22:00)와 같은 날이고, 10-25 채점은 최종 리허설(C9)과 겹친다([[16-DECISIONS|ADR-042]]). 우리 추론 런타임 중 GPU 1 에 있는 것은 `sol_decision` Bosun(8009)뿐이고, 학습과 같은 GPU 에 공존하는 것이 기본 계획이다(§2.4 추정 합계 안). 우리 절차로 8009 를 내리지 않는다 — 어떤 프로세스도 종료·이동하지 않는다([[10-DEPLOYMENT|10]] GPU 절 "추론 런타임과의 관계", ADR-034 10번). F1 에서 합계가 넘치면 멈추고 회사에 보고한다. 8009 를 내릴지·언제 내릴지와 그때의 `live`·`fixture` 리허설 시간은 사람이 정한다. 데모 본편은 `mock` 이라 영향이 없다.
+C9 3차는 10-23이다. 2026-10-24 개정 뒤 F1·F2(10-25 오후)는 최종 리허설(C9, 10-25)과 같은 날이고, 채점(10-26 오전)과 제출물 반영(10-26 오후)은 완료 목표일과 같은 날이다([[16-DECISIONS|ADR-042]]). 기능 freeze(10-24 22:00)와는 겹치지 않는다. 우리 추론 런타임 중 GPU 1 에 있는 것은 `sol_decision` Bosun(8009)뿐이고, 학습과 같은 GPU 에 공존하는 것이 기본 계획이다(§2.4 추정 합계 안). 우리 절차로 8009 를 내리지 않는다 — 어떤 프로세스도 종료·이동하지 않는다([[10-DEPLOYMENT|10]] GPU 절 "추론 런타임과의 관계", ADR-034 10번). F1 에서 합계가 넘치면 멈추고 회사에 보고한다. 8009 를 내릴지·언제 내릴지와 그때의 `live`·`fixture` 리허설 시간은 사람이 정한다. 데모 본편은 `mock` 이라 영향이 없다.
 
 ## 2. 엔드포인트
 
@@ -345,7 +351,7 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 
 | 위험 | 판단 시점 | 대체 |
 |---|---|---|
-| **Bosun 0.6B zero-shot 품질(E1')이 낮다**(DecisionBench `rubric_scoring` 가족 0.707) | B5 E1' 오프라인 채점(10-25) | 그대로 보고한다. τ 재조정은 dev 로만. 플래그 노이즈는 규칙이 최종이라 점수에 영향 없음. 모델 변경은 사용자 결정 |
+| **Bosun 0.6B zero-shot 품질(E1')이 낮다**(DecisionBench `rubric_scoring` 가족 0.707) | B5 E1' 오프라인 채점(10-26 오전) | 그대로 보고한다. τ 재조정은 dev 로만. 플래그 노이즈는 규칙이 최종이라 점수에 영향 없음. 모델 변경은 사용자 결정 |
 | **질문당 지연**: 6k 토큰 × 20문항 순차 prefill 이 `KEV_TIMEOUT_MS` 5000 을 넘는다 | B2 G3 p95 | 질문 배치 forward(왼쪽 패딩)·ADR-033 E4 산식 개정(`settings.py`·`gateway.model.ts` 함께). state KV 공유는 후속 |
 | **GPU 1 공유 간섭**: PaddleOCR 피크로 OOM·지연 | F1·B2 `nvidia-smi` | 종료·이동하지 않고 멈춘다. 회사에 시간대 확인(§8). 합계가 넘쳐도 우리 절차로 8009 를 내리지 않는다. 그다음은 사람이 정한다(§2.4) |
 | **회사 Qwen3.8-Flash-Next API**: `/v1/models` id 불일치·guided JSON·`prompt_logprobs` 미지원·호출 한도·지연 | B2 | 레지스트리 `run` 값 조정은 사용자 결정. guided JSON 없으면 추출 PARTIAL 경로(02 장애 원칙), `prompt_logprobs` 없으면 E3 방법 재설계. 백업 Qwen 4B 로 돌아가는 것도 사용자 결정 |
@@ -354,10 +360,10 @@ hf download Qwen/Qwen3-0.6B            --revision c1899de289a04d12100db370d81485
 | `.venv-bosun` 핀 설치가 torch 를 바꾼다 | B2 `--dry-run` | 설치하지 않고 보고. 별도 venv 는 사용자 결정 |
 | 10-22 까지 회사 Qwen API·`/parse` 가 없다 | 10-22 저녁 | **갈래 ①** 로 번들 확정. 갈래 ② 는 하지 않는다 |
 | 10-22 까지 test 20 사람 라벨이 없다 | 10-22 | 축소판 test(fixture 20 + 실공고 5)로 E4. 리포트에 명시 |
-| 토요일 18:00 까지 F2 미시작 | 10-24 18:00 | 사용자 보고(ADR-034 12번). 대체 모델 경로는 없다. 미실행이면 "회사 측 미실행" 문장(`limitations.md`) |
-| 회사가 `report.json` 만 보내고 `rows.json`·`predictions.jsonl` 을 못 보낸다 | 10-25 | E4 Δ·CI 는 `report.json` 의 요약으로 적고, 행 단위 지표(정보부족→미충족 혼동률·사유별)는 "미측정" 으로 남긴다 |
-| 돌려받은 출력을 우리가 다시 재현해야 한다(출력 누락·의심) | 10-25 | 0.6B 라 노트북(Apple M3 Pro, 18 GB)에서 `bosun_score` 재실행을 **시도할 수 있다**(mps 지원·속도 미확인, §10). 결과가 다르면 서버 출력을 쓰지 않는다 |
-| 결과가 E1' 보다 나쁘다 | 10-25 | 그대로 보고한다. 데모 모델은 어차피 공개 Bosun 이다. 오류 분석(21 §4.4 원인 코드)을 한 줄 붙인다 |
+| F2 를 못 끝낸다 | 10-26 오전 채점 전 | "회사 측 미실행" 문장(`limitations.md`). 대체 모델 경로는 없다. 처음 정한 토요일 18:00 중단선은 2026-10-24 개정으로 폐기했고 새 중단 시각은 정하지 않았다(ADR-034 12번) |
+| 회사가 `report.json` 만 보내고 `rows.json`·`predictions.jsonl` 을 못 보낸다 | 10-26 | E4 Δ·CI 는 `report.json` 의 요약으로 적고, 행 단위 지표(정보부족→미충족 혼동률·사유별)는 "미측정" 으로 남긴다 |
+| 돌려받은 출력을 우리가 다시 재현해야 한다(출력 누락·의심) | 10-26 | 0.6B 라 노트북(Apple M3 Pro, 18 GB)에서 `bosun_score` 재실행을 **시도할 수 있다**(mps 지원·속도 미확인, §10). 결과가 다르면 서버 출력을 쓰지 않는다 |
+| 결과가 E1' 보다 나쁘다 | 10-26 | 그대로 보고한다. 데모 모델은 어차피 공개 Bosun 이다. 오류 분석(21 §4.4 원인 코드)을 한 줄 붙인다 |
 
 ## 8. 회사에 보낼 것·물을 것 (10-22 목요일까지)
 
