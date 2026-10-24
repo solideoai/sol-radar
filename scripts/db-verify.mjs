@@ -281,6 +281,11 @@ const ALLOWED_DEFINER_FUNCTIONS = new Set([
   // 직원 사진은 그 조직 ADMIN 만 바꾼다. PUBLIC/anon 실행은 닫는다.
   "public.set_my_photo(text)",
   "public.set_member_photo(uuid, text)",
+  // 가입 신청(20261024000300): 신청 표는 화면 역할에 쓰기 권한이 없고 이 세 함수로만 쓴다. 찾기는 부서·이름이
+  // 정확히 맞는 미연결 가상 직원 하나만 돌려주고, 결정은 그 조직 ADMIN 만 한다. PUBLIC/anon 실행은 닫는다.
+  "public.find_unlinked_member(text, text)",
+  "public.submit_join_request(text, uuid, text)",
+  "public.decide_join_request(uuid, boolean, text)",
   // N3: 본인의 소속 조직 관심 수만 반환; 사용자 명단은 노출하지 않는다.
   "public.bid_watch_count(uuid)",
   // N6: 함수 안에서 세션 조직·ADMIN/SALES 및 최신 BID 결정을 검사한다.

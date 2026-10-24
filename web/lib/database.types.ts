@@ -1547,6 +1547,106 @@ export type Database = {
           },
         ]
       }
+      member_join_requests: {
+        Row: {
+          applicant_email: string
+          applicant_name: string
+          applicant_photo_path: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          department_id: string
+          id: string
+          job_title_id: string
+          kind: string
+          org_id: string
+          sol_role: string | null
+          status: string
+          team_member_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          applicant_email: string
+          applicant_name: string
+          applicant_photo_path?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          department_id: string
+          id?: string
+          job_title_id: string
+          kind: string
+          org_id: string
+          sol_role?: string | null
+          status?: string
+          team_member_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          applicant_email?: string
+          applicant_name?: string
+          applicant_photo_path?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          department_id?: string
+          id?: string
+          job_title_id?: string
+          kind?: string
+          org_id?: string
+          sol_role?: string | null
+          status?: string
+          team_member_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_join_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_join_requests_department_fkey"
+            columns: ["department_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "member_join_requests_job_title_fkey"
+            columns: ["job_title_id", "org_id"]
+            isOneToOne: false
+            referencedRelation: "job_titles"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "member_join_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_join_requests_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_join_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memberships: {
         Row: {
           created_at: string
@@ -2889,6 +2989,10 @@ export type Database = {
         Args: { owner_id: string }
         Returns: string
       }
+      decide_join_request: {
+        Args: { p_approve: boolean; p_request: string; p_sol_role?: string }
+        Returns: string
+      }
       delete_my_account: {
         Args: never
         Returns: undefined
@@ -2904,6 +3008,10 @@ export type Database = {
       document_storage_candidates: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Tables"]["document_storage_objects"]["Row"][]
+      }
+      find_unlinked_member: {
+        Args: { p_department: string; p_name: string }
+        Returns: { id: string; job_title_label: string; name: string; person_code: string }[]
       }
       finish_document_storage: {
         Args: { p: Json }
@@ -3020,6 +3128,10 @@ export type Database = {
       set_my_photo: {
         Args: { p_path?: string }
         Returns: undefined
+      }
+      submit_join_request: {
+        Args: { p_kind: string; p_name?: string; p_team_member?: string }
+        Returns: string
       }
       task_dashboard_stats: {
         Args: { as_of?: string; target_org: string }
