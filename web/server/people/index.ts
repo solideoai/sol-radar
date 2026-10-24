@@ -8,6 +8,7 @@ export {
 } from "./people.service";
 export type { PeopleAccess } from "./people.service";
 export { parsePeopleQuery } from "./people.model";
+export { createTeamMember, updateTeamMember, type EditedTeamMember } from "./people-edit.service";
 export type {
   Department,
   JobTitle,

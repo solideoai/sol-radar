@@ -49,6 +49,7 @@ test("cloud upgrade enriches all 200 existing demo rows, preserves identities an
                 "past_projects",
                 "capability_source",
                 "capability_version",
+                "employment_status",
               ].includes(column),
           );
           await db.query(

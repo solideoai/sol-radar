@@ -76,7 +76,7 @@ updated: 2026-10-24
 |PUT·DELETE|`/bids/:id/watch`|auth(본인)|관심 등록·해제. 멱등(P1, ADR-021)|`200 {bidId, watched, watcherCount}`. 조직·사용자는 세션에서 결정한다|
 |GET|`/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|조직 분석 이력. 비교는 `GET /analyses/:id`를 최대 4번 부른다(P1, ADR-021)|`?bidId&status&recommendation&runMode&cursor&limit` → `Page<AnalysisHistoryItem>`|
 |GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 200명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=<UUID,...>` → `WorkforceResult` (중복 없는 1~3건)|
-|POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사). 점수 속성은 받지 않는다(P1, ADR-021)|P1 착수 때 정한다|
+|POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사, N4b). 점수 속성은 받지 않는다(ADR-021). 계약은 §4.7.1|POST `{name,departmentId,jobTitleId,email?}` → `201 EditedTeamMember`, PATCH `{departmentId?,jobTitleId?,employmentStatus?}` → `200 EditedTeamMember`|
 |GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 BID 결정(`reviewId`) 필수(P1, ADR-021)|BID 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
 |GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 BID가 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
 |POST|`/projects/:id/result`|`ADMIN, SALES`|결과 기록(수동). 점수·결정 모델·학습에 쓰지 않는다(P1, ADR-021)|`{result, note?}` → `200 ProjectDetail`. `WON, LOST, CANCELLED, NOT_SUBMITTED`; 메모 최대 2000자|
@@ -523,7 +523,9 @@ interface TeamMemberDetail extends TeamMemberListItem {
 
 ### 4.7.1 인력 조회 계약 보완
 
-네 GET 경로는 쿠키·Bearer 인증, 활성 계정, 가입 정보 완료, 현재 업무 조직 하나와 네 업무 역할을 각각 확인한다. Authorization 헤더가 있으면 유효하지 않은 Bearer를 쿠키로 대체하지 않는다. 업무 조직이 없으면 `403 FORBIDDEN`, `details={reason:"ORGANIZATION_REQUIRED",organizationStatePath:"/auth/organization-state"}`다. 두 개 이상은 `403 UNSUPPORTED_ACCOUNT_STATE`, 역할 없음은 `403 FORBIDDEN`이다. 조직 ID 헤더는 조직 선택에 쓰지 않으며 `orgId` 쿼리는 `400 VALIDATION_ERROR`다. 현재 스키마에는 `employment_status`가 없으며 현재 명부 전체를 재직 인원으로 조회한다.
+네 GET 경로는 쿠키·Bearer 인증, 활성 계정, 가입 정보 완료, 현재 업무 조직 하나와 네 업무 역할을 각각 확인한다. Authorization 헤더가 있으면 유효하지 않은 Bearer를 쿠키로 대체하지 않는다. 업무 조직이 없으면 `403 FORBIDDEN`, `details={reason:"ORGANIZATION_REQUIRED",organizationStatePath:"/auth/organization-state"}`다. 두 개 이상은 `403 UNSUPPORTED_ACCOUNT_STATE`, 역할 없음은 `403 FORBIDDEN`이다. 조직 ID 헤더는 조직 선택에 쓰지 않으며 `orgId` 쿼리는 `400 VALIDATION_ERROR`다. 조회는 재직(`employment_status=ACTIVE`) 직원만 돌려준다. 퇴사(`LEFT`) 직원은 RLS 제한 정책이 숨겨 목록·상세·조직도·인원 수에 나오지 않는다.
+
+N4b 편집(`POST /team-members`, `PATCH /team-members/:id`)은 같은 업무 경로 입구를 쓴다(쿠키 요청은 `X-Requested-With: sol-radar` 필요, 없으면 `403 CSRF_REJECTED`). `ADMIN`이 아니면 본문 검사 전에 `403 FORBIDDEN`이다. 조직은 세션의 업무 조직이고 본문의 `orgId`를 받지 않는다. 본문은 엄격 객체라 알 수 없는 키(점수 속성 `skills`·`role` 등 포함)는 `400 VALIDATION_ERROR`다. POST 본문은 `name`(trim 1~40자)·`departmentId`(팀 UUID)·`jobTitleId`(UUID)·`email`(선택, 소문자 형식)이다. PATCH 본문은 `departmentId`·`jobTitleId`·`employmentStatus`(`ACTIVE`·`LEFT`) 중 하나 이상이다. 경로 ID 형식 오류는 400, 현재 조직에 없거나 다른 조직의 직원은 `404 NOT_FOUND`다. 본부·그룹이나 다른 조직의 부서·직급은 `400 VALIDATION_ERROR`(`details.issues[].path`가 `departmentId`·`jobTitleId`)다. 이미 쓰는 메일은 `400`(`path=email`)이다. 응답 `EditedTeamMember`는 `{id,personCode,name,email,departmentId,jobTitleId,employmentStatus,isDemo}`다. 바뀐 값이 없는 PATCH는 감사 행 없이 `200`이다.
 
 `Department.id`·`TeamMemberListItem.id`·`departmentId`·`jobTitleId`와 `JobTitle.id`는 DB UUID다. 표시 코드는 `Department.code=SOL-Dxxx`, `JobTitle.code=SOL-Jxxx`, `personCode=SOL-Pxxxx`다. `GET /job-titles`는 `{id,code,label}[]`를 직급 순서로 반환한다. 본부의 `parentId:null`은 정상 루트이고, 그룹·팀의 null은 상위 미지정이다. `memberCount`는 전체 명부의 하위 직원 ID 중복을 제거해 계산한다.
 

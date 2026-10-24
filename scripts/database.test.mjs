@@ -1734,6 +1734,175 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       assert.equal((await state()).project.status, "CLOSED");
     });
   });
+
+  describe("N4b 직원 추가·이동·퇴사 (20261024000400)", () => {
+    const GROUP1 = "d0000000-0000-0000-0000-000000000012";
+    const TEAM2 = "d0000000-0000-0000-0000-000000000013";
+    const ORG2_TEAM = "d0000000-0000-0000-0000-000000000014";
+    const TITLE2 = "d0000000-0000-0000-0000-000000000022";
+    const MISSING_TITLE = "d0000000-0000-0000-0000-000000000029";
+    const create = (db, org, name, department = DEPT1, title = TITLE1, email = null) =>
+      db.query("select public.create_team_member($1,$2,$3,$4,$5) as m", [
+        org,
+        name,
+        department,
+        title,
+        email,
+      ]);
+    const update = (db, id, department = null, title = null, status = null) =>
+      db.query("select public.update_team_member($1,$2,$3,$4) as m", [
+        id,
+        department,
+        title,
+        status,
+      ]);
+    const editDb = async (t) => {
+      const db = await solDb(t);
+      await asWorker(db);
+      await db.query(
+        `insert into public.departments (id, org_id, code, name, kind, source_count, target_count, is_demo) values
+           ($1, $4, 'SOL-G001', '시험그룹', 'GROUP', null, null, true),
+           ($2, $4, 'SOL-D002', '이동부서', 'TEAM', 1, 1, true),
+           ($3, $5, 'OTHER-D001', '다른부서', 'TEAM', 1, 1, true)`,
+        [GROUP1, TEAM2, ORG2_TEAM, ORG1, ORG2],
+      );
+      await db.query(
+        "insert into public.job_titles (id, org_id, code, label, sort_order) values ($1, $2, 'SOL-J004', '선임', 4)",
+        [TITLE2, ORG1],
+      );
+      await db.query(
+        "insert into public.team_member_scoring (member_id, org_id, role) values ($1, $2, 'PM')",
+        [MEMBER1, ORG1],
+      );
+      return db;
+    };
+    const audits = async (db) => {
+      await asWorker(db);
+      return rowsOf(
+        db,
+        "select action, actor_id, target_id, before_after from public.audit_logs where action like 'TEAM_MEMBER_%' order by created_at, id",
+      );
+    };
+
+    it("ADMIN 만 직원을 추가한다 — SOL-N 번호·비데모·재직과 감사 1건, 다른 역할 FORBIDDEN·다른 조직 NOT_FOUND·표 직접 쓰기는 권한 오류", async (t) => {
+      const db = await editDb(t);
+      for (const who of ["sales", "analyst", "viewer"]) {
+        await as(db, who);
+        await rejectsWith(create(db, ORG1, "새직원"), "FORBIDDEN", who);
+      }
+      await as(db, "outsider");
+      await rejectsWith(create(db, ORG1, "새직원"), "NOT_FOUND", "다른 조직");
+      await asAnon(db);
+      await assert.rejects(create(db, ORG1, "새직원"), /permission denied for function/);
+      await as(db, "admin");
+      await assert.rejects(
+        db.query(
+          "insert into public.team_members (org_id, person_code, name, department_id, job_title_id, is_demo) values ($1, 'SOL-N0099', '직접', $2, $3, false)",
+          [ORG1, DEPT1, TITLE1],
+        ),
+        PERMISSION,
+      );
+      await rejectsWith(create(db, ORG1, "새직원", ORG2_TEAM), "DEPARTMENT_NOT_FOUND");
+      await rejectsWith(create(db, ORG1, "새직원", GROUP1), "DEPARTMENT_NOT_TEAM");
+      await rejectsWith(create(db, ORG1, "새직원", DEPT1, MISSING_TITLE), "JOB_TITLE_NOT_FOUND");
+      await rejectsWith(create(db, ORG1, " "), "INVALID_INPUT");
+      const created = (
+        await create(db, ORG1, " Lee Gwanghui ", DEPT1, TITLE1, "gwanghui@solideos.com")
+      ).rows[0].m;
+      assert.equal(created.personCode, "SOL-N0001");
+      assert.equal(created.name, "Lee Gwanghui");
+      assert.equal(created.isDemo, false);
+      assert.equal(created.employmentStatus, "ACTIVE");
+      await rejectsWith(
+        create(db, ORG1, "다른사람", DEPT1, TITLE1, "gwanghui@solideos.com"),
+        "EMAIL_TAKEN",
+      );
+      // 실패한 시도는 행·감사를 남기지 않는다.
+      await asWorker(db);
+      assert.equal(await countOf(db, "team_members", "org_id = $1", [ORG1]), 2);
+      const logged = await audits(db);
+      assert.equal(logged.length, 1);
+      assert.equal(logged[0].action, "TEAM_MEMBER_CREATE");
+      assert.equal(logged[0].actor_id, WHO.admin);
+      assert.equal(logged[0].target_id, created.id);
+      assert.equal(logged[0].before_after.after.personCode, "SOL-N0001");
+    });
+
+    it("ADMIN 만 부서·직급을 옮기고 퇴사 처리한다 — 바뀔 때마다 감사, 같은 값은 감사 없음, 다른 역할 FORBIDDEN·다른 조직 NOT_FOUND", async (t) => {
+      const db = await editDb(t);
+      for (const who of ["sales", "analyst", "viewer"]) {
+        await as(db, who);
+        await rejectsWith(update(db, MEMBER1, TEAM2), "FORBIDDEN", who);
+      }
+      await as(db, "outsider");
+      await rejectsWith(update(db, MEMBER1, TEAM2), "NOT_FOUND", "다른 조직");
+      await as(db, "admin");
+      await assert.rejects(
+        db.query("update public.team_members set employment_status = 'LEFT' where id = $1", [
+          MEMBER1,
+        ]),
+        PERMISSION,
+      );
+      await rejectsWith(update(db, MEMBER1, GROUP1), "DEPARTMENT_NOT_TEAM");
+      await rejectsWith(update(db, MEMBER1, ORG2_TEAM), "DEPARTMENT_NOT_FOUND");
+      await rejectsWith(update(db, MEMBER1, null, null, "RETIRED"), "INVALID_INPUT");
+      const moved = (await update(db, MEMBER1, TEAM2, TITLE2)).rows[0].m;
+      assert.deepEqual([moved.departmentId, moved.jobTitleId], [TEAM2, TITLE2]);
+      await update(db, MEMBER1, TEAM2);
+      const left = (await update(db, MEMBER1, null, null, "LEFT")).rows[0].m;
+      assert.equal(left.employmentStatus, "LEFT");
+      const logged = await audits(db);
+      assert.deepEqual(
+        logged.map((row) => [row.action, row.actor_id, row.target_id]),
+        [
+          ["TEAM_MEMBER_UPDATE", WHO.admin, MEMBER1],
+          ["TEAM_MEMBER_UPDATE", WHO.admin, MEMBER1],
+        ],
+      );
+      assert.deepEqual(logged[0].before_after, {
+        before: { departmentId: DEPT1, jobTitleId: TITLE1, employmentStatus: "ACTIVE" },
+        after: { departmentId: TEAM2, jobTitleId: TITLE2, employmentStatus: "ACTIVE" },
+      });
+      assert.equal(logged[1].before_after.after.employmentStatus, "LEFT");
+    });
+
+    it("퇴사자는 화면 역할에서 명부·점수 속성 모두 0행이고, 행·점수 속성·기존 score_runs 는 그대로며 계정 연결도 막힌다", async (t) => {
+      const db = await editDb(t);
+      const runs = async () => {
+        await asWorker(db);
+        return rowsOf(
+          db,
+          "select id, status, score, recommendation, input_snapshot, input_snapshot_hash, finished_at from public.score_runs order by id",
+        );
+      };
+      const runsBefore = await runs();
+      await as(db, "admin");
+      await update(db, MEMBER1, TEAM2, TITLE2);
+      await update(db, MEMBER1, null, null, "LEFT");
+      for (const who of ["admin", "viewer"]) {
+        await as(db, who);
+        assert.equal(await countOf(db, "team_members", "id = $1", [MEMBER1]), 0, who);
+        assert.equal(await countOf(db, "team_member_scoring", "member_id = $1", [MEMBER1]), 0, who);
+      }
+      await asWorker(db);
+      assert.equal(await countOf(db, "team_members", "id = $1", [MEMBER1]), 1);
+      assert.equal(await countOf(db, "team_member_scoring", "member_id = $1", [MEMBER1]), 1);
+      assert.deepEqual(await runs(), runsBefore);
+      await assert.rejects(
+        db.query("update public.team_members set user_id = $1 where id = $2", [
+          WHO.viewer,
+          MEMBER1,
+        ]),
+        /member_left/,
+      );
+      // 재직 복귀(API)하면 다시 보인다.
+      await as(db, "admin");
+      await update(db, MEMBER1, null, null, "ACTIVE");
+      await as(db, "viewer");
+      assert.equal(await countOf(db, "team_members", "id = $1", [MEMBER1]), 1);
+      assert.equal(await countOf(db, "team_member_scoring", "member_id = $1", [MEMBER1]), 1);
+    });
+  });
 });
 
 describe("솔리데오 카탈로그·명부·점수 정책", () => {
@@ -2342,6 +2511,24 @@ describe("가입 신청과 명부 연결 (20261024000300)", () => {
     assert.deepEqual(await find("SOL-D002", "김민준"), []);
     await actAs(db, null, "anon");
     await assert.rejects(find("SOL-D002", "김민준"), /permission denied/);
+  });
+
+  it("find_unlinked_member 는 퇴사(LEFT) 직원을 찾지 않는다 (N4b 20261024000410)", async (t) => {
+    const db = await setup(t);
+    const find = async () =>
+      (await db.query("select id from public.find_unlinked_member('SOL-D002','김민준')")).rows;
+    await asSystem(db);
+    await db.query("update public.team_members set employment_status='LEFT' where id=$1", [
+      memberA,
+    ]);
+    await actAs(db, users[2]);
+    assert.deepEqual(await find(), []);
+    await asSystem(db);
+    await db.query("update public.team_members set employment_status='ACTIVE' where id=$1", [
+      memberA,
+    ]);
+    await actAs(db, users[2]);
+    assert.deepEqual(await find(), [{ id: memberA }]);
   });
 
   it("ADMIN 은 대기 신청자의 사진을 읽고 다른 사람은 읽지 못한다", async (t) => {

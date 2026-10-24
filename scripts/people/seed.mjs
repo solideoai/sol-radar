@@ -102,6 +102,8 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
       job_title_id: catalogUuid(person.jobTitleId),
       portrait_path: person.portraitPath,
       is_demo: person.isDemo,
+      // 시연 중 퇴사 처리(N4b)한 명부 직원도 재직으로 되돌린다(설계 M16 ④).
+      employment_status: "ACTIVE",
     })),
     "id",
   );
