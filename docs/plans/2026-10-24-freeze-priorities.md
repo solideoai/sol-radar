@@ -28,7 +28,7 @@ updated: 2026-10-24
 | 메일 알림(ADR-041) | 구현 커밋 없음 | `git log` |
 | S-LIVE 사전 run | 발표용 Supabase에 없다(10-21 기준). 격리 로컬 1건(`PARTIAL`·`RULES_ONLY`)만 있다 | [[18-HACKATHON]] §7 |
 | 회사 GPU 학습 | `sol_decision` 서버·preflight 미완(문서 기준). `bosun-train-feasibility.md` 없음 | [[12-ROADMAP]] X6 |
-| **운영 분석 처리(차단)** | 10:05 9b 점검: FX-02 분석 요청은 202를 받았지만 5분 넘게 `QUEUED` 다(`startedAt` null, 오류 없음). 회사 Worker가 job을 가져가지 않는다. 회사 서버 Worker·AI gateway 기동은 사용자 확인 대상이다. `GET /api/v1/admin/ai/status` 는 503 `redis-api` 다(Gateway 허용 경로 밖, 알려진 차이) | 9b 중간 보고, run `6a90acc4` |
+| **운영 분석 처리(차단)** | 10:05 9b 점검: FX-02 분석 요청은 202를 받았지만 5분 넘게 `QUEUED` 다(`startedAt` null, 오류 없음). 회사 Worker가 job을 가져가지 않는다. 코드 진단: 회사 redis-api는 `SOL_RUN_MODE=live` 이고 웹은 `mock` 이다. 옛 컨테이너가 섞였을 가능성이 가장 크다. 확인 명령과 고치는 순서는 [진단](../evidence/deployment/20261024-company-queue-diagnosis.md)에 있고, 사용자가 회사 터미널에서 실행한다. `GET /api/v1/admin/ai/status` 는 503 `redis-api` 다(Gateway 허용 경로 밖, 알려진 차이) | 9b 중간 보고, run `6a90acc4` |
 | `docs/PROGRESS.md` | 마지막 기록은 10-22다 | 파일 |
 
 ## 1. 우선순위
@@ -60,7 +60,7 @@ updated: 2026-10-24
 - [ ] 공공 API 오늘 호출량 확인(서비스당 1,000건/일)
 - [ ] green 판정: BOOST-2, 확장 컷, P1 화면, 사진, N4b. green이 아니면 데모에서 빼고 사이드바는 비링크로 둔다
 - [ ] `docs/evidence/` 갱신
-- [ ] 카카오 발송 수단이 운영에서 `mock` 인지 확인한다(실발송 없음, §2-6)
+- [ ] 카카오 실수신 준비(§2-6): Vercel·회사 Worker env 키 이름 확인(값은 사용자가 넣는다), 카카오 앱 설정, 10-25 실행 절차서
 
 ### P3 — freeze 뒤: 문서·제출물 (기능 추가 아님)
 
@@ -84,7 +84,10 @@ updated: 2026-10-24
 3. **시연 환경** — P0-2를 통과하면 운영 Vercel(`www.solideos-radar.com`)을 쓴다. 로컬 Compose는 대체 경로로 둔다.
 4. **메일 알림(ADR-041)** — 해커톤에서 뺀다. ADR 상태 갱신은 P3 문서 작업에서 한다.
 5. **E4 채점** — 10-26 오전으로 확정한다.
-6. **카카오 실발송 녹화** — 하지 않는다. 사용자가 오늘 S0 수신 시험을 할 수 없다(2026-10-24 사용자). 발송 수단은 `mock` 으로 두고 휴대폰 수신 녹화 장면은 뺀다. 발표에서 실발송을 주장하지 않는다.
+6. **카카오 실수신 녹화** — 한다(2026-10-24 사용자 재결정: "실제 공고를 받아야 해. 시연 영상도 찍어야 하니까"). 실제 나라장터 공고를 분석해 BID·WATCH가 나오면 "나에게 보내기"로 실발송하고 휴대폰 수신을 영상에 담는다. 발표 본편(FX-01·02·03, 94/72/68)은 고정 데이터 그대로다. S0 수신 시험은 10-25 오전이고 오늘은 env·Worker만 준비한다. 앞선 "mock으로 둬" 결정은 이것으로 바뀐다.
+   - 키 4개(`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`)는 Vercel에 넣는다. 연결·콜백 라우트가 Vercel에서 돈다. 회사 Worker에는 `NOTIFY_KAKAO_PROVIDER=memo` 와 같은 값의 키 3개를 넣는다. 토큰 암호화 키는 두 곳이 같아야 한다.
+   - `KAKAO_REDIRECT_URI` 는 `https://www.solideos-radar.com/api/v1/me/kakao-notify/callback` 이다. 카카오 개발자 앱에 이 주소, 사이트 도메인, `talk_message` 동의 항목을 등록한다(사용자).
+   - 녹화가 끝나면 Worker를 `mock` 으로 되돌린다.
 
 ## 3. 시간표
 
@@ -97,7 +100,8 @@ updated: 2026-10-24
 | 18:00~20:00 | 병합, 운영 migration 적용(승인 뒤), 운영 재확인 |
 | 20:00~22:00 | P2 freeze 체크 |
 | **22:00** | **기능 freeze** |
-| 10-25(일) 오전 | C9 최종 리허설 2회(재부팅 1회 포함), X4 영상 촬영 |
+| 10-25(일) 오전 | 카카오 S0 수신 시험(사용자) → C9 최종 리허설 2회(`mock`, reset 포함, 재부팅 1회 포함) |
+| 10-25(일) 리허설 뒤 | `live` 전환 → S-LIVE 실공고 분석과 카카오 실수신 녹화 → `mock` 복귀. reset이 S-LIVE run을 지우므로 마지막 reset 뒤에 한다 → X4 영상 촬영 |
 | 10-25(일) 오후 | 회사 GPU F1 → F2, P3 문서 정합화 |
 | 10-26(월) 오전 | F3·E4·E1' 채점, 제출물 숫자 반영, 기동 절차 1~15, **완료 목표** |
 | 10-27(화) | 발표자료 마무리·발표 연습·**공식 제출** |
