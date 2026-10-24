@@ -44,6 +44,7 @@ test("cloud upgrade enriches all 200 existing demo rows, preserves identities an
           const columns = Object.keys(row).filter(
             (column) =>
               ![
+                "email",
                 "certifications",
                 "past_projects",
                 "capability_source",

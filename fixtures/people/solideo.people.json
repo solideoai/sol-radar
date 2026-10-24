@@ -50,6 +50,7 @@
     {
       "personId": "SOL-P0001",
       "name": "김민준",
+      "email": "minjunkim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J007",
@@ -111,6 +112,7 @@
     {
       "personId": "SOL-P0002",
       "name": "이지훈",
+      "email": "jihoonlee@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J009",
@@ -183,6 +185,7 @@
     {
       "personId": "SOL-P0003",
       "name": "박현우",
+      "email": "hyunwoopark@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J009",
@@ -233,6 +236,7 @@
     {
       "personId": "SOL-P0004",
       "name": "최준서",
+      "email": "junseochoi@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J010",
@@ -289,6 +293,7 @@
     {
       "personId": "SOL-P0005",
       "name": "정우진",
+      "email": "woojinjung@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J010",
@@ -361,6 +366,7 @@
     {
       "personId": "SOL-P0006",
       "name": "강건우",
+      "email": "geonwookang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J010",
@@ -411,6 +417,7 @@
     {
       "personId": "SOL-P0007",
       "name": "조예준",
+      "email": "yejuncho@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J010",
@@ -472,6 +479,7 @@
     {
       "personId": "SOL-P0008",
       "name": "김서연",
+      "email": "seoyeonkim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J010",
@@ -544,6 +552,7 @@
     {
       "personId": "SOL-P0009",
       "name": "이민서",
+      "email": "minseolee@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J010",
@@ -594,6 +603,7 @@
     {
       "personId": "SOL-P0010",
       "name": "박지민",
+      "email": "jiminpark@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J010",
@@ -655,6 +665,7 @@
     {
       "personId": "SOL-P0011",
       "name": "최서현",
+      "email": "seohyunchoi@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J010",
@@ -727,6 +738,7 @@
     {
       "personId": "SOL-P0012",
       "name": "정서윤",
+      "email": "seoyoonjung@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J011",
@@ -772,6 +784,7 @@
     {
       "personId": "SOL-P0013",
       "name": "강예은",
+      "email": "yeeunkang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J011",
@@ -833,6 +846,7 @@
     {
       "personId": "SOL-P0014",
       "name": "조하은",
+      "email": "haeuncho@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D001",
       "jobTitleId": "SOL-J011",
@@ -905,6 +919,7 @@
     {
       "personId": "SOL-P0015",
       "name": "윤준혁",
+      "email": "junhyukyoon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D002",
       "jobTitleId": "SOL-J011",
@@ -955,6 +970,7 @@
     {
       "personId": "SOL-P0016",
       "name": "윤수빈",
+      "email": "soobinyoon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D002",
       "jobTitleId": "SOL-J011",
@@ -1016,6 +1032,7 @@
     {
       "personId": "SOL-P0017",
       "name": "장현준",
+      "email": "hyunjunjang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D003",
       "jobTitleId": "SOL-J007",
@@ -1088,6 +1105,7 @@
     {
       "personId": "SOL-P0018",
       "name": "임동현",
+      "email": "donghyunlim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D003",
       "jobTitleId": "SOL-J010",
@@ -1138,6 +1156,7 @@
     {
       "personId": "SOL-P0019",
       "name": "한도현",
+      "email": "dohyunhan@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D003",
       "jobTitleId": "SOL-J010",
@@ -1194,6 +1213,7 @@
     {
       "personId": "SOL-P0020",
       "name": "장지우",
+      "email": "jiwoojang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D003",
       "jobTitleId": "SOL-J010",
@@ -1266,6 +1286,7 @@
     {
       "personId": "SOL-P0021",
       "name": "임윤서",
+      "email": "yoonseolim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D003",
       "jobTitleId": "SOL-J011",
@@ -1316,6 +1337,7 @@
     {
       "personId": "SOL-P0022",
       "name": "오민재",
+      "email": "minjaeoh@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D004",
       "jobTitleId": "SOL-J007",
@@ -1377,6 +1399,7 @@
     {
       "personId": "SOL-P0023",
       "name": "서승현",
+      "email": "seunghyunseo@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D004",
       "jobTitleId": "SOL-J010",
@@ -1449,6 +1472,7 @@
     {
       "personId": "SOL-P0024",
       "name": "신서준",
+      "email": "seojunshin@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D004",
       "jobTitleId": "SOL-J010",
@@ -1499,6 +1523,7 @@
     {
       "personId": "SOL-P0025",
       "name": "한유진",
+      "email": "yujinhan@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D004",
       "jobTitleId": "SOL-J010",
@@ -1560,6 +1585,7 @@
     {
       "personId": "SOL-P0026",
       "name": "오은서",
+      "email": "eunseooh@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D004",
       "jobTitleId": "SOL-J011",
@@ -1627,6 +1653,7 @@
     {
       "personId": "SOL-P0027",
       "name": "권민성",
+      "email": "minsungkwon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D005",
       "jobTitleId": "SOL-J010",
@@ -1677,6 +1704,7 @@
     {
       "personId": "SOL-P0028",
       "name": "서예진",
+      "email": "yejinseo@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D005",
       "jobTitleId": "SOL-J010",
@@ -1738,6 +1766,7 @@
     {
       "personId": "SOL-P0029",
       "name": "황승민",
+      "email": "seungminhwang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D006",
       "jobTitleId": "SOL-J009",
@@ -1810,6 +1839,7 @@
     {
       "personId": "SOL-P0030",
       "name": "안시우",
+      "email": "siwooahn@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D006",
       "jobTitleId": "SOL-J009",
@@ -1860,6 +1890,7 @@
     {
       "personId": "SOL-P0031",
       "name": "송준영",
+      "email": "junyoungsong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D006",
       "jobTitleId": "SOL-J010",
@@ -1921,6 +1952,7 @@
     {
       "personId": "SOL-P0032",
       "name": "전정우",
+      "email": "jungwoojeon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D006",
       "jobTitleId": "SOL-J010",
@@ -1993,6 +2025,7 @@
     {
       "personId": "SOL-P0033",
       "name": "신지윤",
+      "email": "jiyoonshin@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D006",
       "jobTitleId": "SOL-J010",
@@ -2043,6 +2076,7 @@
     {
       "personId": "SOL-P0034",
       "name": "권민지",
+      "email": "minjikwon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D006",
       "jobTitleId": "SOL-J010",
@@ -2099,6 +2133,7 @@
     {
       "personId": "SOL-P0035",
       "name": "황예원",
+      "email": "yewonhwang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D006",
       "jobTitleId": "SOL-J012",
@@ -2171,6 +2206,7 @@
     {
       "personId": "SOL-P0036",
       "name": "홍지호",
+      "email": "jihohong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D007",
       "jobTitleId": "SOL-J007",
@@ -2221,6 +2257,7 @@
     {
       "personId": "SOL-P0037",
       "name": "김지훈",
+      "email": "jihoonkim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D007",
       "jobTitleId": "SOL-J010",
@@ -2282,6 +2319,7 @@
     {
       "personId": "SOL-P0038",
       "name": "이현우",
+      "email": "hyunwoolee@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D007",
       "jobTitleId": "SOL-J010",
@@ -2354,6 +2392,7 @@
     {
       "personId": "SOL-P0039",
       "name": "안지원",
+      "email": "jiwonahn@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D007",
       "jobTitleId": "SOL-J010",
@@ -2404,6 +2443,7 @@
     {
       "personId": "SOL-P0040",
       "name": "송서영",
+      "email": "seoyoungsong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D007",
       "jobTitleId": "SOL-J010",
@@ -2465,6 +2505,7 @@
     {
       "personId": "SOL-P0041",
       "name": "전수민",
+      "email": "soominjeon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D007",
       "jobTitleId": "SOL-J011",
@@ -2532,6 +2573,7 @@
     {
       "personId": "SOL-P0042",
       "name": "박준서",
+      "email": "junseopark@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D008",
       "jobTitleId": "SOL-J009",
@@ -2582,6 +2624,7 @@
     {
       "personId": "SOL-P0043",
       "name": "최우진",
+      "email": "woojinchoi@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D008",
       "jobTitleId": "SOL-J010",
@@ -2643,6 +2686,7 @@
     {
       "personId": "SOL-P0044",
       "name": "홍가은",
+      "email": "gaeunhong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D008",
       "jobTitleId": "SOL-J010",
@@ -2715,6 +2759,7 @@
     {
       "personId": "SOL-P0045",
       "name": "김민서",
+      "email": "minseokim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D008",
       "jobTitleId": "SOL-J010",
@@ -2765,6 +2810,7 @@
     {
       "personId": "SOL-P0046",
       "name": "정건우",
+      "email": "geonwoojung@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D009",
       "jobTitleId": "SOL-J007",
@@ -2826,6 +2872,7 @@
     {
       "personId": "SOL-P0047",
       "name": "강예준",
+      "email": "yejunkang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D009",
       "jobTitleId": "SOL-J009",
@@ -2898,6 +2945,7 @@
     {
       "personId": "SOL-P0048",
       "name": "조준혁",
+      "email": "junhyukcho@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D009",
       "jobTitleId": "SOL-J010",
@@ -2948,6 +2996,7 @@
     {
       "personId": "SOL-P0049",
       "name": "이지민",
+      "email": "jiminlee@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D009",
       "jobTitleId": "SOL-J010",
@@ -3004,6 +3053,7 @@
     {
       "personId": "SOL-P0050",
       "name": "박서현",
+      "email": "seohyunpark@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D009",
       "jobTitleId": "SOL-J010",
@@ -3076,6 +3126,7 @@
     {
       "personId": "SOL-P0051",
       "name": "최서윤",
+      "email": "seoyoonchoi@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D009",
       "jobTitleId": "SOL-J010",
@@ -3126,6 +3177,7 @@
     {
       "personId": "SOL-P0052",
       "name": "윤현준",
+      "email": "hyunjunyoon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D010",
       "jobTitleId": "SOL-J007",
@@ -3187,6 +3239,7 @@
     {
       "personId": "SOL-P0053",
       "name": "정예은",
+      "email": "yeeunjung@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D010",
       "jobTitleId": "SOL-J007",
@@ -3259,6 +3312,7 @@
     {
       "personId": "SOL-P0054",
       "name": "장동현",
+      "email": "donghyunjang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D011",
       "jobTitleId": "SOL-J009",
@@ -3309,6 +3363,7 @@
     {
       "personId": "SOL-P0055",
       "name": "임도현",
+      "email": "dohyunlim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D011",
       "jobTitleId": "SOL-J010",
@@ -3370,6 +3425,7 @@
     {
       "personId": "SOL-P0056",
       "name": "한민재",
+      "email": "minjaehan@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D011",
       "jobTitleId": "SOL-J010",
@@ -3437,6 +3493,7 @@
     {
       "personId": "SOL-P0057",
       "name": "강하은",
+      "email": "haeunkang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D011",
       "jobTitleId": "SOL-J010",
@@ -3487,6 +3544,7 @@
     {
       "personId": "SOL-P0058",
       "name": "조수빈",
+      "email": "soobincho@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D011",
       "jobTitleId": "SOL-J010",
@@ -3548,6 +3606,7 @@
     {
       "personId": "SOL-P0059",
       "name": "오승현",
+      "email": "seunghyunoh@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D012",
       "jobTitleId": "SOL-J009",
@@ -3620,6 +3679,7 @@
     {
       "personId": "SOL-P0060",
       "name": "신민성",
+      "email": "minsungshin@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D012",
       "jobTitleId": "SOL-J010",
@@ -3670,6 +3730,7 @@
     {
       "personId": "SOL-P0061",
       "name": "권승민",
+      "email": "seungminkwon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D012",
       "jobTitleId": "SOL-J010",
@@ -3731,6 +3792,7 @@
     {
       "personId": "SOL-P0062",
       "name": "윤지우",
+      "email": "jiwooyoon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D012",
       "jobTitleId": "SOL-J010",
@@ -3803,6 +3865,7 @@
     {
       "personId": "SOL-P0063",
       "name": "장윤서",
+      "email": "yoonseojang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D012",
       "jobTitleId": "SOL-J010",
@@ -3848,6 +3911,7 @@
     {
       "personId": "SOL-P0064",
       "name": "황시우",
+      "email": "siwoohwang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D013",
       "jobTitleId": "SOL-J009",
@@ -3909,6 +3973,7 @@
     {
       "personId": "SOL-P0065",
       "name": "안준영",
+      "email": "junyoungahn@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D013",
       "jobTitleId": "SOL-J009",
@@ -3981,6 +4046,7 @@
     {
       "personId": "SOL-P0066",
       "name": "송정우",
+      "email": "jungwoosong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D013",
       "jobTitleId": "SOL-J010",
@@ -4031,6 +4097,7 @@
     {
       "personId": "SOL-P0067",
       "name": "전지호",
+      "email": "jihojeon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D013",
       "jobTitleId": "SOL-J010",
@@ -4092,6 +4159,7 @@
     {
       "personId": "SOL-P0068",
       "name": "임유진",
+      "email": "yujinlim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D013",
       "jobTitleId": "SOL-J010",
@@ -4164,6 +4232,7 @@
     {
       "personId": "SOL-P0069",
       "name": "한은서",
+      "email": "eunseohan@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D013",
       "jobTitleId": "SOL-J010",
@@ -4214,6 +4283,7 @@
     {
       "personId": "SOL-P0070",
       "name": "오예진",
+      "email": "yejinoh@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D013",
       "jobTitleId": "SOL-J011",
@@ -4275,6 +4345,7 @@
     {
       "personId": "SOL-P0071",
       "name": "홍준우",
+      "email": "junwoohong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D014",
       "jobTitleId": "SOL-J010",
@@ -4342,6 +4413,7 @@
     {
       "personId": "SOL-P0072",
       "name": "김현우",
+      "email": "hyunwookim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D014",
       "jobTitleId": "SOL-J011",
@@ -4392,6 +4464,7 @@
     {
       "personId": "SOL-P0073",
       "name": "서지윤",
+      "email": "jiyoonseo@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D014",
       "jobTitleId": "SOL-J011",
@@ -4453,6 +4526,7 @@
     {
       "personId": "SOL-P0074",
       "name": "신민지",
+      "email": "minjishin@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D014",
       "jobTitleId": "SOL-J011",
@@ -4525,6 +4599,7 @@
     {
       "personId": "SOL-P0075",
       "name": "이준서",
+      "email": "junseolee@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D015",
       "jobTitleId": "SOL-J010",
@@ -4575,6 +4650,7 @@
     {
       "personId": "SOL-P0076",
       "name": "권예원",
+      "email": "yewonkwon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D015",
       "jobTitleId": "SOL-J010",
@@ -4636,6 +4712,7 @@
     {
       "personId": "SOL-P0077",
       "name": "박우진",
+      "email": "woojinpark@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D016",
       "jobTitleId": "SOL-J009",
@@ -4708,6 +4785,7 @@
     {
       "personId": "SOL-P0078",
       "name": "최건우",
+      "email": "geonwoochoi@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D016",
       "jobTitleId": "SOL-J010",
@@ -4753,6 +4831,7 @@
     {
       "personId": "SOL-P0079",
       "name": "황지원",
+      "email": "jiwonhwang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D016",
       "jobTitleId": "SOL-J010",
@@ -4814,6 +4893,7 @@
     {
       "personId": "SOL-P0080",
       "name": "안서영",
+      "email": "seoyoungahn@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D016",
       "jobTitleId": "SOL-J010",
@@ -4886,6 +4966,7 @@
     {
       "personId": "SOL-P0081",
       "name": "정예준",
+      "email": "yejunjung@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D017",
       "jobTitleId": "SOL-J007",
@@ -4936,6 +5017,7 @@
     {
       "personId": "SOL-P0082",
       "name": "강준혁",
+      "email": "junhyukkang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D017",
       "jobTitleId": "SOL-J009",
@@ -4997,6 +5079,7 @@
     {
       "personId": "SOL-P0083",
       "name": "조현준",
+      "email": "hyunjuncho@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D017",
       "jobTitleId": "SOL-J010",
@@ -5069,6 +5152,7 @@
     {
       "personId": "SOL-P0084",
       "name": "윤동현",
+      "email": "donghyunyoon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D017",
       "jobTitleId": "SOL-J010",
@@ -5119,6 +5203,7 @@
     {
       "personId": "SOL-P0085",
       "name": "송수민",
+      "email": "soominsong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D017",
       "jobTitleId": "SOL-J010",
@@ -5180,6 +5265,7 @@
     {
       "personId": "SOL-P0086",
       "name": "전가은",
+      "email": "gaeunjeon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D017",
       "jobTitleId": "SOL-J010",
@@ -5247,6 +5333,7 @@
     {
       "personId": "SOL-P0087",
       "name": "홍채원",
+      "email": "chaewonhong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D017",
       "jobTitleId": "SOL-J011",
@@ -5297,6 +5384,7 @@
     {
       "personId": "SOL-P0088",
       "name": "이서현",
+      "email": "seohyunlee@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D017",
       "jobTitleId": "SOL-J011",
@@ -5358,6 +5446,7 @@
     {
       "personId": "SOL-P0089",
       "name": "장도현",
+      "email": "dohyunjang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D018",
       "jobTitleId": "SOL-J007",
@@ -5430,6 +5519,7 @@
     {
       "personId": "SOL-P0090",
       "name": "박서윤",
+      "email": "seoyoonpark@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D018",
       "jobTitleId": "SOL-J007",
@@ -5480,6 +5570,7 @@
     {
       "personId": "SOL-P0091",
       "name": "임민재",
+      "email": "minjaelim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J009",
@@ -5541,6 +5632,7 @@
     {
       "personId": "SOL-P0092",
       "name": "한승현",
+      "email": "seunghyunhan@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J009",
@@ -5613,6 +5705,7 @@
     {
       "personId": "SOL-P0093",
       "name": "오서준",
+      "email": "seojunoh@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J009",
@@ -5658,6 +5751,7 @@
     {
       "personId": "SOL-P0094",
       "name": "서민성",
+      "email": "minsungseo@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J010",
@@ -5719,6 +5813,7 @@
     {
       "personId": "SOL-P0095",
       "name": "신승민",
+      "email": "seungminshin@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J010",
@@ -5791,6 +5886,7 @@
     {
       "personId": "SOL-P0096",
       "name": "권시우",
+      "email": "siwookwon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J010",
@@ -5841,6 +5937,7 @@
     {
       "personId": "SOL-P0097",
       "name": "정하은",
+      "email": "haeunjung@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J010",
@@ -5902,6 +5999,7 @@
     {
       "personId": "SOL-P0098",
       "name": "강수빈",
+      "email": "soobinkang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J010",
@@ -5974,6 +6072,7 @@
     {
       "personId": "SOL-P0099",
       "name": "조지우",
+      "email": "jiwoocho@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J010",
@@ -6024,6 +6123,7 @@
     {
       "personId": "SOL-P0100",
       "name": "임은서",
+      "email": "eunseolim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J011",
@@ -6080,6 +6180,7 @@
     {
       "personId": "SOL-P0101",
       "name": "한예진",
+      "email": "yejinhan@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D019",
       "jobTitleId": "SOL-J011",
@@ -6152,6 +6253,7 @@
     {
       "personId": "SOL-P0102",
       "name": "황준영",
+      "email": "junyounghwang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D020",
       "jobTitleId": "SOL-J009",
@@ -6202,6 +6304,7 @@
     {
       "personId": "SOL-P0103",
       "name": "안정우",
+      "email": "jungwooahn@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D020",
       "jobTitleId": "SOL-J009",
@@ -6263,6 +6366,7 @@
     {
       "personId": "SOL-P0104",
       "name": "서민지",
+      "email": "minjiseo@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D020",
       "jobTitleId": "SOL-J010",
@@ -6335,6 +6439,7 @@
     {
       "personId": "SOL-P0105",
       "name": "송지호",
+      "email": "jihosong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D021",
       "jobTitleId": "SOL-J009",
@@ -6385,6 +6490,7 @@
     {
       "personId": "SOL-P0106",
       "name": "신예원",
+      "email": "yewonshin@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D021",
       "jobTitleId": "SOL-J009",
@@ -6446,6 +6552,7 @@
     {
       "personId": "SOL-P0107",
       "name": "전준우",
+      "email": "junwoojeon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D022",
       "jobTitleId": "SOL-J009",
@@ -6518,6 +6625,7 @@
     {
       "personId": "SOL-P0108",
       "name": "홍지환",
+      "email": "jihwanhong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D022",
       "jobTitleId": "SOL-J010",
@@ -6563,6 +6671,7 @@
     {
       "personId": "SOL-P0109",
       "name": "김준서",
+      "email": "junseokim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D022",
       "jobTitleId": "SOL-J010",
@@ -6624,6 +6733,7 @@
     {
       "personId": "SOL-P0110",
       "name": "권지원",
+      "email": "jiwonkwon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D022",
       "jobTitleId": "SOL-J010",
@@ -6696,6 +6806,7 @@
     {
       "personId": "SOL-P0111",
       "name": "황서영",
+      "email": "seoyounghwang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D022",
       "jobTitleId": "SOL-J011",
@@ -6746,6 +6857,7 @@
     {
       "personId": "SOL-P0112",
       "name": "안수민",
+      "email": "soominahn@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D022",
       "jobTitleId": "SOL-J011",
@@ -6807,6 +6919,7 @@
     {
       "personId": "SOL-P0113",
       "name": "송가은",
+      "email": "gaeunsong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D022",
       "jobTitleId": "SOL-J011",
@@ -6879,6 +6992,7 @@
     {
       "personId": "SOL-P0114",
       "name": "이우진",
+      "email": "woojinlee@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D023",
       "jobTitleId": "SOL-J007",
@@ -6929,6 +7043,7 @@
     {
       "personId": "SOL-P0115",
       "name": "박건우",
+      "email": "geonwoopark@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D023",
       "jobTitleId": "SOL-J010",
@@ -6985,6 +7100,7 @@
     {
       "personId": "SOL-P0116",
       "name": "최예준",
+      "email": "yejunchoi@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D023",
       "jobTitleId": "SOL-J010",
@@ -7057,6 +7173,7 @@
     {
       "personId": "SOL-P0117",
       "name": "전채원",
+      "email": "chaewonjeon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D023",
       "jobTitleId": "SOL-J010",
@@ -7107,6 +7224,7 @@
     {
       "personId": "SOL-P0118",
       "name": "홍수아",
+      "email": "sooahhong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D023",
       "jobTitleId": "SOL-J010",
@@ -7168,6 +7286,7 @@
     {
       "personId": "SOL-P0119",
       "name": "김서현",
+      "email": "seohyunkim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D023",
       "jobTitleId": "SOL-J011",
@@ -7240,6 +7359,7 @@
     {
       "personId": "SOL-P0120",
       "name": "정준혁",
+      "email": "junhyukjung@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D024",
       "jobTitleId": "SOL-J009",
@@ -7290,6 +7410,7 @@
     {
       "personId": "SOL-P0121",
       "name": "강현준",
+      "email": "hyunjunkang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D024",
       "jobTitleId": "SOL-J009",
@@ -7351,6 +7472,7 @@
     {
       "personId": "SOL-P0122",
       "name": "조동현",
+      "email": "donghyuncho@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D024",
       "jobTitleId": "SOL-J009",
@@ -7423,6 +7545,7 @@
     {
       "personId": "SOL-P0123",
       "name": "이서윤",
+      "email": "seoyoonlee@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D024",
       "jobTitleId": "SOL-J010",
@@ -7468,6 +7591,7 @@
     {
       "personId": "SOL-P0124",
       "name": "박예은",
+      "email": "yeeunpark@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D024",
       "jobTitleId": "SOL-J010",
@@ -7529,6 +7653,7 @@
     {
       "personId": "SOL-P0125",
       "name": "최하은",
+      "email": "haeunchoi@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D024",
       "jobTitleId": "SOL-J010",
@@ -7601,6 +7726,7 @@
     {
       "personId": "SOL-P0126",
       "name": "정수빈",
+      "email": "soobinjung@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D024",
       "jobTitleId": "SOL-J010",
@@ -7651,6 +7777,7 @@
     {
       "personId": "SOL-P0127",
       "name": "윤도현",
+      "email": "dohyunyoon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D025",
       "jobTitleId": "SOL-J010",
@@ -7712,6 +7839,7 @@
     {
       "personId": "SOL-P0128",
       "name": "강지우",
+      "email": "jiwookang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D025",
       "jobTitleId": "SOL-J010",
@@ -7784,6 +7912,7 @@
     {
       "personId": "SOL-P0129",
       "name": "조윤서",
+      "email": "yoonseocho@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D025",
       "jobTitleId": "SOL-J010",
@@ -7834,6 +7963,7 @@
     {
       "personId": "SOL-P0130",
       "name": "장민재",
+      "email": "minjaejang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D026",
       "jobTitleId": "SOL-J010",
@@ -7890,6 +8020,7 @@
     {
       "personId": "SOL-P0131",
       "name": "임승현",
+      "email": "seunghyunlim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D026",
       "jobTitleId": "SOL-J010",
@@ -7962,6 +8093,7 @@
     {
       "personId": "SOL-P0132",
       "name": "한서준",
+      "email": "seojunhan@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D026",
       "jobTitleId": "SOL-J010",
@@ -8012,6 +8144,7 @@
     {
       "personId": "SOL-P0133",
       "name": "윤유진",
+      "email": "yujinyoon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D026",
       "jobTitleId": "SOL-J011",
@@ -8073,6 +8206,7 @@
     {
       "personId": "SOL-P0134",
       "name": "장은서",
+      "email": "eunseojang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D026",
       "jobTitleId": "SOL-J011",
@@ -8145,6 +8279,7 @@
     {
       "personId": "SOL-P0135",
       "name": "임예진",
+      "email": "yejinlim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D026",
       "jobTitleId": "SOL-J011",
@@ -8195,6 +8330,7 @@
     {
       "personId": "SOL-P0136",
       "name": "한지윤",
+      "email": "jiyoonhan@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D026",
       "jobTitleId": "SOL-J011",
@@ -8256,6 +8392,7 @@
     {
       "personId": "SOL-P0137",
       "name": "오민성",
+      "email": "minsungoh@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D027",
       "jobTitleId": "SOL-J005",
@@ -8323,6 +8460,7 @@
     {
       "personId": "SOL-P0138",
       "name": "서승민",
+      "email": "seungminseo@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D027",
       "jobTitleId": "SOL-J009",
@@ -8373,6 +8511,7 @@
     {
       "personId": "SOL-P0139",
       "name": "신시우",
+      "email": "siwooshin@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D027",
       "jobTitleId": "SOL-J010",
@@ -8434,6 +8573,7 @@
     {
       "personId": "SOL-P0140",
       "name": "오민지",
+      "email": "minjioh@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D027",
       "jobTitleId": "SOL-J010",
@@ -8506,6 +8646,7 @@
     {
       "personId": "SOL-P0141",
       "name": "서예원",
+      "email": "yewonseo@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D027",
       "jobTitleId": "SOL-J010",
@@ -8556,6 +8697,7 @@
     {
       "personId": "SOL-P0142",
       "name": "신지원",
+      "email": "jiwonshin@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D027",
       "jobTitleId": "SOL-J010",
@@ -8617,6 +8759,7 @@
     {
       "personId": "SOL-P0143",
       "name": "권준영",
+      "email": "junyoungkwon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J007",
@@ -8689,6 +8832,7 @@
     {
       "personId": "SOL-P0144",
       "name": "황정우",
+      "email": "jungwoohwang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J009",
@@ -8739,6 +8883,7 @@
     {
       "personId": "SOL-P0145",
       "name": "안지호",
+      "email": "jihoahn@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J009",
@@ -8795,6 +8940,7 @@
     {
       "personId": "SOL-P0146",
       "name": "송준우",
+      "email": "junwoosong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J010",
@@ -8867,6 +9013,7 @@
     {
       "personId": "SOL-P0147",
       "name": "권서영",
+      "email": "seoyoungkwon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J010",
@@ -8917,6 +9064,7 @@
     {
       "personId": "SOL-P0148",
       "name": "황수민",
+      "email": "soominhwang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J010",
@@ -8978,6 +9126,7 @@
     {
       "personId": "SOL-P0149",
       "name": "안가은",
+      "email": "gaeunahn@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J010",
@@ -9050,6 +9199,7 @@
     {
       "personId": "SOL-P0150",
       "name": "송채원",
+      "email": "chaewonsong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J010",
@@ -9100,6 +9250,7 @@
     {
       "personId": "SOL-P0151",
       "name": "전수아",
+      "email": "sooahjeon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D028",
       "jobTitleId": "SOL-J010",
@@ -9161,6 +9312,7 @@
     {
       "personId": "SOL-P0152",
       "name": "전지환",
+      "email": "jihwanjeon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D029",
       "jobTitleId": "SOL-J007",
@@ -9228,6 +9380,7 @@
     {
       "personId": "SOL-P0153",
       "name": "홍수연",
+      "email": "sooyeonhong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D029",
       "jobTitleId": "SOL-J007",
@@ -9278,6 +9431,7 @@
     {
       "personId": "SOL-P0154",
       "name": "김서윤",
+      "email": "seoyoonkim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D029",
       "jobTitleId": "SOL-J010",
@@ -9339,6 +9493,7 @@
     {
       "personId": "SOL-P0155",
       "name": "홍서진",
+      "email": "seojinhong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D030",
       "jobTitleId": "SOL-J007",
@@ -9411,6 +9566,7 @@
     {
       "personId": "SOL-P0156",
       "name": "김우진",
+      "email": "woojinkim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D030",
       "jobTitleId": "SOL-J009",
@@ -9461,6 +9617,7 @@
     {
       "personId": "SOL-P0157",
       "name": "이예은",
+      "email": "yeeunlee@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D030",
       "jobTitleId": "SOL-J009",
@@ -9522,6 +9679,7 @@
     {
       "personId": "SOL-P0158",
       "name": "박하은",
+      "email": "haeunpark@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D030",
       "jobTitleId": "SOL-J009",
@@ -9594,6 +9752,7 @@
     {
       "personId": "SOL-P0159",
       "name": "이건우",
+      "email": "geonwoolee@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D031",
       "jobTitleId": "SOL-J007",
@@ -9644,6 +9803,7 @@
     {
       "personId": "SOL-P0160",
       "name": "박예준",
+      "email": "yejunpark@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D031",
       "jobTitleId": "SOL-J010",
@@ -9700,6 +9860,7 @@
     {
       "personId": "SOL-P0161",
       "name": "최수빈",
+      "email": "soobinchoi@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D031",
       "jobTitleId": "SOL-J010",
@@ -9772,6 +9933,7 @@
     {
       "personId": "SOL-P0162",
       "name": "정지우",
+      "email": "jiwoojung@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D031",
       "jobTitleId": "SOL-J010",
@@ -9822,6 +9984,7 @@
     {
       "personId": "SOL-P0163",
       "name": "강윤서",
+      "email": "yoonseokang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D031",
       "jobTitleId": "SOL-J010",
@@ -9883,6 +10046,7 @@
     {
       "personId": "SOL-P0164",
       "name": "최준혁",
+      "email": "junhyukchoi@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D032",
       "jobTitleId": "SOL-J009",
@@ -9955,6 +10119,7 @@
     {
       "personId": "SOL-P0165",
       "name": "정현준",
+      "email": "hyunjunjung@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D032",
       "jobTitleId": "SOL-J010",
@@ -10005,6 +10170,7 @@
     {
       "personId": "SOL-P0166",
       "name": "조유진",
+      "email": "yujincho@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D032",
       "jobTitleId": "SOL-J010",
@@ -10066,6 +10232,7 @@
     {
       "personId": "SOL-P0167",
       "name": "윤은서",
+      "email": "eunseoyoon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D032",
       "jobTitleId": "SOL-J010",
@@ -10133,6 +10300,7 @@
     {
       "personId": "SOL-P0168",
       "name": "강동현",
+      "email": "donghyunkang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D033",
       "jobTitleId": "SOL-J007",
@@ -10183,6 +10351,7 @@
     {
       "personId": "SOL-P0169",
       "name": "조도현",
+      "email": "dohyuncho@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D033",
       "jobTitleId": "SOL-J009",
@@ -10244,6 +10413,7 @@
     {
       "personId": "SOL-P0170",
       "name": "윤민재",
+      "email": "minjaeyoon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D033",
       "jobTitleId": "SOL-J010",
@@ -10316,6 +10486,7 @@
     {
       "personId": "SOL-P0171",
       "name": "장승현",
+      "email": "seunghyunjang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D033",
       "jobTitleId": "SOL-J010",
@@ -10366,6 +10537,7 @@
     {
       "personId": "SOL-P0172",
       "name": "장예진",
+      "email": "yejinjang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D033",
       "jobTitleId": "SOL-J011",
@@ -10427,6 +10599,7 @@
     {
       "personId": "SOL-P0173",
       "name": "임지윤",
+      "email": "jiyoonlim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D033",
       "jobTitleId": "SOL-J011",
@@ -10499,6 +10672,7 @@
     {
       "personId": "SOL-P0174",
       "name": "한민지",
+      "email": "minjihan@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D033",
       "jobTitleId": "SOL-J011",
@@ -10544,6 +10718,7 @@
     {
       "personId": "SOL-P0175",
       "name": "오예원",
+      "email": "yewonoh@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D033",
       "jobTitleId": "SOL-J011",
@@ -10605,6 +10780,7 @@
     {
       "personId": "SOL-P0176",
       "name": "임서준",
+      "email": "seojunlim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J009",
@@ -10677,6 +10853,7 @@
     {
       "personId": "SOL-P0177",
       "name": "한민성",
+      "email": "minsunghan@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J009",
@@ -10727,6 +10904,7 @@
     {
       "personId": "SOL-P0178",
       "name": "오승민",
+      "email": "seungminoh@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J010",
@@ -10788,6 +10966,7 @@
     {
       "personId": "SOL-P0179",
       "name": "서시우",
+      "email": "siwooseo@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J010",
@@ -10860,6 +11039,7 @@
     {
       "personId": "SOL-P0180",
       "name": "신준영",
+      "email": "junyoungshin@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J010",
@@ -10910,6 +11090,7 @@
     {
       "personId": "SOL-P0181",
       "name": "서지원",
+      "email": "jiwonseo@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J010",
@@ -10971,6 +11152,7 @@
     {
       "personId": "SOL-P0182",
       "name": "신서영",
+      "email": "seoyoungshin@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J010",
@@ -11038,6 +11220,7 @@
     {
       "personId": "SOL-P0183",
       "name": "권수민",
+      "email": "soominkwon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J011",
@@ -11088,6 +11271,7 @@
     {
       "personId": "SOL-P0184",
       "name": "황가은",
+      "email": "gaeunhwang@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J011",
@@ -11149,6 +11333,7 @@
     {
       "personId": "SOL-P0185",
       "name": "안채원",
+      "email": "chaewonahn@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J011",
@@ -11221,6 +11406,7 @@
     {
       "personId": "SOL-P0186",
       "name": "송수아",
+      "email": "sooahsong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D034",
       "jobTitleId": "SOL-J011",
@@ -11271,6 +11457,7 @@
     {
       "personId": "SOL-P0187",
       "name": "권정우",
+      "email": "jungwookwon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D035",
       "jobTitleId": "SOL-J007",
@@ -11332,6 +11519,7 @@
     {
       "personId": "SOL-P0188",
       "name": "전수연",
+      "email": "sooyeonjeon@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D035",
       "jobTitleId": "SOL-J007",
@@ -11404,6 +11592,7 @@
     {
       "personId": "SOL-P0189",
       "name": "황지호",
+      "email": "jihohwang@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D036",
       "jobTitleId": "SOL-J007",
@@ -11449,6 +11638,7 @@
     {
       "personId": "SOL-P0190",
       "name": "홍다은",
+      "email": "daeunhong@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D036",
       "jobTitleId": "SOL-J007",
@@ -11510,6 +11700,7 @@
     {
       "personId": "SOL-P0191",
       "name": "안준우",
+      "email": "junwooahn@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D037",
       "jobTitleId": "SOL-J009",
@@ -11582,6 +11773,7 @@
     {
       "personId": "SOL-P0192",
       "name": "송지환",
+      "email": "jihwansong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D037",
       "jobTitleId": "SOL-J010",
@@ -11632,6 +11824,7 @@
     {
       "personId": "SOL-P0193",
       "name": "김예은",
+      "email": "yeeunkim@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D037",
       "jobTitleId": "SOL-J010",
@@ -11693,6 +11886,7 @@
     {
       "personId": "SOL-P0194",
       "name": "이하은",
+      "email": "haeunlee@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D037",
       "jobTitleId": "SOL-J010",
@@ -11765,6 +11959,7 @@
     {
       "personId": "SOL-P0195",
       "name": "전서진",
+      "email": "seojinjeon@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D038",
       "jobTitleId": "SOL-J010",
@@ -11815,6 +12010,7 @@
     {
       "personId": "SOL-P0196",
       "name": "홍민규",
+      "email": "mingyuhong@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D038",
       "jobTitleId": "SOL-J010",
@@ -11876,6 +12072,7 @@
     {
       "personId": "SOL-P0197",
       "name": "김건우",
+      "email": "geonwookim@solideos.com",
       "gender": "MALE",
       "departmentId": "SOL-D038",
       "jobTitleId": "SOL-J010",
@@ -11943,6 +12140,7 @@
     {
       "personId": "SOL-P0198",
       "name": "박수빈",
+      "email": "soobinpark@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D038",
       "jobTitleId": "SOL-J010",
@@ -11993,6 +12191,7 @@
     {
       "personId": "SOL-P0199",
       "name": "최지우",
+      "email": "jiwoochoi@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D038",
       "jobTitleId": "SOL-J010",
@@ -12054,6 +12253,7 @@
     {
       "personId": "SOL-P0200",
       "name": "정윤서",
+      "email": "yoonseojung@solideos.com",
       "gender": "FEMALE",
       "departmentId": "SOL-D038",
       "jobTitleId": "SOL-J011",

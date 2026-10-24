@@ -16,6 +16,7 @@ const memberSchema = z.strictObject({
   id: z.uuid(),
   personCode: z.string().regex(/^SOL-P\d{4}$/),
   name: z.string(),
+  email: z.email().nullable(),
   departmentId: z.uuid(),
   jobTitleId: z.uuid(),
   portraitUrl: z.string().nullable(),

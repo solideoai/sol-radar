@@ -1,7 +1,7 @@
 import "server-only";
 import type { DepartmentRow, JobTitle, MemberRow, ScoringRow } from "./people.model";
 import { getSupabase } from "@/server/supabase";
-const memberColumns = "id,person_code,name,department_id,job_title_id,portrait_path,is_demo";
+const memberColumns = "id,person_code,name,email,department_id,job_title_id,portrait_path,is_demo";
 const scoringColumns =
   "member_id,role,grade,skills,availability,certifications,past_projects,capability_source,capability_version";
 export const peopleRepo = {

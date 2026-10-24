@@ -20,6 +20,7 @@ const people = fixture<{
   people: {
     personId: string;
     name: string;
+    email: string;
     departmentId: string;
     jobTitleId: string;
     portraitPath: string;
@@ -50,6 +51,7 @@ export const rows: PeopleRows = {
     id: uuid(p.personId),
     person_code: p.personId,
     name: p.name,
+    email: p.email,
     department_id: uuid(p.departmentId),
     job_title_id: uuid(p.jobTitleId),
     portrait_path: p.portraitPath,

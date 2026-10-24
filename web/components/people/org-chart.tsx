@@ -346,7 +346,7 @@ export function OrgChart({
                         type="button"
                         data-highlighted={focusedPerson?.id === person.id ? "true" : undefined}
                         aria-label={`${person.name} 상세 보기`}
-                        aria-describedby={`org-person-${person.id}-title${person.scoringEligible ? ` org-person-${person.id}-scoring` : ""}`}
+                        aria-describedby={`org-person-${person.id}-title${person.email ? ` org-person-${person.id}-email` : ""}${person.scoringEligible ? ` org-person-${person.id}-scoring` : ""}`}
                         onClick={(event) => onSelect(person, event.currentTarget)}
                         className="text-left type-body font-semibold wrap-anywhere outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
                       >
@@ -358,6 +358,14 @@ export function OrgChart({
                       >
                         {titleNames.get(person.jobTitleId) ?? "직급 정보 없음"}
                       </span>
+                      {person.email ? (
+                        <span
+                          id={`org-person-${person.id}-email`}
+                          className="type-caption break-all text-muted-foreground"
+                        >
+                          {person.email}
+                        </span>
+                      ) : null}
                     </span>
                     {person.scoringEligible ? (
                       <span

@@ -155,6 +155,8 @@ function PersonDetail({
           <dd>{department?.name ?? "부서 정보 없음"}</dd>
           <dt className="text-muted-foreground">직급/직책</dt>
           <dd>{title?.label ?? "직급 정보 없음"}</dd>
+          <dt className="text-muted-foreground">이메일</dt>
+          <dd className="break-all">{data.email ?? "등록된 이메일 없음"}</dd>
         </dl>
         {ancestors.length > 1 ? (
           <p className="type-caption text-muted-foreground">

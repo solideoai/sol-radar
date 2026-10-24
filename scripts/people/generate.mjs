@@ -9,6 +9,7 @@ import { selectNames } from "./names.mjs";
 import { readOrganizationWorkbook } from "./workbook.mjs";
 import { validatePortraitAssets } from "./portraits.mjs";
 import { enrichPeople } from "./capabilities.mjs";
+import { assignEmails } from "./emails.mjs";
 
 const STARTS_AT = "2026-12-01";
 const ENDS_AT = "2027-07-01";
@@ -78,7 +79,7 @@ export function generatePeople({ departments, jobTitles, excludedNames, existing
       });
     }
   }
-  const enriched = enrichPeople(people);
+  const enriched = assignEmails(enrichPeople(people));
   if (existingPeople !== undefined && !isDeepStrictEqual(existingPeople, enriched))
     throw new Error("Existing roster mismatch");
   const portraits = people.map((person) => ({

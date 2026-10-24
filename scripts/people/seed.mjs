@@ -96,6 +96,7 @@ export const seedSolideoPeople = async ({ client, orgId, fixtures }) => {
       org_id: orgId,
       person_code: person.personId,
       name: person.name,
+      email: person.email,
       gender: person.gender,
       department_id: catalogUuid(person.departmentId),
       job_title_id: catalogUuid(person.jobTitleId),

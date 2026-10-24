@@ -11,6 +11,7 @@ import {
 import { allocatePeople } from "./allocation.mjs";
 import { generatePeople, projectSignupOptions } from "./generate.mjs";
 import { generateCapabilities } from "./capabilities.mjs";
+import { assignEmails } from "./emails.mjs";
 import { normalizeSourceName } from "./names.mjs";
 import { readOrganizationWorkbook } from "./workbook.mjs";
 import { validatePortraitAssets } from "./portraits.mjs";
@@ -190,6 +191,13 @@ function checkRoster(fixtures, add) {
     people.filter((person) => person.gender === "FEMALE").length !== 100
   )
     add("GENDER_COUNTS_INVALID");
+  try {
+    const expected = assignEmails(people);
+    for (const [index, person] of people.entries())
+      if (person.email !== expected[index].email) add("EMAIL_INVALID", person.personId);
+  } catch {
+    add("EMAIL_INVALID");
+  }
   for (const person of people) {
     try {
       const expected = generateCapabilities(person.personId);

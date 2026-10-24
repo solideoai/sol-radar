@@ -35,6 +35,7 @@ export type MemberRow = {
   id: string;
   person_code: string;
   name: string;
+  email: string | null;
   department_id: string;
   job_title_id: string;
   portrait_path: string | null;
@@ -65,6 +66,7 @@ const memberSchema = z.object({
   id: z.uuid(),
   personCode: z.string(),
   name: z.string(),
+  email: z.email().nullable(),
   departmentId: z.uuid(),
   jobTitleId: z.uuid(),
   portraitUrl: z.string().nullable(),
@@ -190,6 +192,7 @@ export function toTeamMemberListItem(row: MemberRow, scoringEligible: boolean): 
     id: row.id,
     personCode: row.person_code,
     name: row.name,
+    email: row.email,
     departmentId: row.department_id,
     jobTitleId: row.job_title_id,
     portraitUrl,

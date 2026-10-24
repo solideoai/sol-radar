@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-21
+updated: 2026-10-24
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -211,7 +211,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |---|---|---|---|
 |`departments`|`id` UUID PK, `org_id` FK, `code` text, `name` text, `source_count` int, `target_count` int nullable, `is_demo`, `created_at`. [[16-DECISIONS\|ADR-021]]: `parent_id` UUID nullable(상위 부서, 같은 org 복합 FK 자기 참조), `kind` text nullable(`DIVISION`·`GROUP`·`TEAM`)|UNIQUE(`org_id`,`code`), UNIQUE(`org_id`,`name`), UNIQUE(`id`,`org_id`). `target_count >= 1`은 팀(`kind`가 `TEAM`이거나 null)에만 건다. 본부·그룹은 `target_count`가 null인 것이 정상이다. 직원 소속(`team_members.department_id`)은 팀만. 순환·없는 `parent_id`·자기 참조·깊이 3 초과는 seed 전 데이터 검증에서 오류로 잡는다|읽기: 조직 전원. 쓰기: seed만. 공개 가입 옵션은 DB 표를 직접 열지 않고 승인 fixture의 ID·표시명만 반환. 가입 선택 목록은 팀만이다|
 |`job_titles`|`id` UUID PK, `org_id` FK, `code` text, `label` text, `sort_order` int, `created_at`|UNIQUE(`org_id`,`code`), UNIQUE(`org_id`,`label`), UNIQUE(`id`,`org_id`)|`departments`와 같음|
-|`team_members`|운영 정보만([[16-DECISIONS\|ADR-021]]): `id` UUID PK, `org_id` FK, `person_code` text, `name`, `gender` text, `department_id` FK, `job_title_id` FK, `portrait_path` text, `is_demo`, `created_at`, `updated_at`. 점수 계산 속성은 아래 `team_member_scoring`에 둔다. P1: `employment_status` text(`ACTIVE`·`LEFT`, 기본 `ACTIVE`)|UNIQUE(`id`,`org_id`), UNIQUE(`org_id`,`person_code`), UNIQUE(`org_id`,`name`). 부서·직급은 같은 org 복합 FK. 가상 seed 이름은 한글 세 글자, gender는 MALE/FEMALE|읽기: 조직 전원. 쓰기: seed(service role)만. 로그인 계정 자동 생성 없음. 인력 배정 API/화면은 P1. 조회 화면 `/people`(ADR-021)은 해커톤 확장 컷이다([[16-DECISIONS\|ADR-023]]). P1: ADMIN 쓰기 정책(추가·부서/직급 이동·퇴사 처리), 변경마다 `audit_logs`|
+|`team_members`|운영 정보만([[16-DECISIONS\|ADR-021]]): `id` UUID PK, `org_id` FK, `person_code` text, `name`, `email` text(nullable, 2026-10-24), `gender` text, `department_id` FK, `job_title_id` FK, `portrait_path` text, `is_demo`, `created_at`, `updated_at`. 점수 계산 속성은 아래 `team_member_scoring`에 둔다. P1: `employment_status` text(`ACTIVE`·`LEFT`, 기본 `ACTIVE`)|UNIQUE(`id`,`org_id`), UNIQUE(`org_id`,`person_code`), UNIQUE(`org_id`,`name`), UNIQUE(`org_id`,`email`), `email`은 소문자 형식 CHECK. 부서·직급은 같은 org 복합 FK. 가상 seed 이름은 한글 세 글자, gender는 MALE/FEMALE. 가상 인물 메일은 성을 뺀 이름+성 관용 로마자 `@solideos.com`(예: 김민준 → `minjunkim@solideos.com`), 같으면 직원 번호 순으로 2·3…을 붙인다(`scripts/people/emails.mjs`). 명부 속성일 뿐 Auth 계정과 연결하지 않고 발송 대상이 아니다|읽기: 조직 전원. 쓰기: seed(service role)만. 로그인 계정 자동 생성 없음. 인력 배정 API/화면은 P1. 조회 화면 `/people`(ADR-021)은 해커톤 확장 컷이다([[16-DECISIONS\|ADR-023]]). P1: ADMIN 쓰기 정책(추가·부서/직급 이동·퇴사 처리), 변경마다 `audit_logs`|
 |`team_member_scoring`|[[16-DECISIONS\|ADR-021]]: `member_id` UUID PK, `org_id` FK, `role` text, `grade` text nullable, `skills` JSONB, `availability` JSONB, `certifications` JSONB, `past_projects` JSONB, `capability_source` text, `capability_version` text nullable, `created_at`|(`member_id`,`org_id`) → `team_members(id, org_id)` 복합 FK. `member_id` = `team_members.id`(같은 직원 식별자). 행이 있는 200명이 점수 계산 대상(`scoringEligible`)|읽기: 조직 전원. 쓰기: seed(service role)만. 화면 역할에 쓰기 권한을 주지 않는다. 퇴사 처리(P1)는 `team_members`만 바꾸고 이 행은 지우지 않는다|
 |`assignments`|`id`, `org_id` FK, `bid_id` FK, `member_id` FK, `starts_at`, `ends_at`, `allocation_percent` smallint, `created_at`|`allocation_percent BETWEEN 0 AND 100`, `ends_at > starts_at`. (`member_id`,`org_id`) → `team_members(id, org_id)`|`team_members`와 같다|
 
