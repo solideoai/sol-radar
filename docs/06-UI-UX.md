@@ -350,9 +350,9 @@ flowchart TD
 
 회사 선호 설정은 `/company`가 맡는다. 개인 알림 수신 설정은 카카오톡 알림(§5.10.1, ADR-038)을 포함한다. 이메일 추천 공고 알림(ADR-041)은 2026-10-24 사용자 결정으로 해커톤에서 뺐고 화면이 없다. 설계 기록상 이메일은 기본 OFF이고 켠 사용자의 로그인 이메일로 보낸다. 별도 수신 주소 입력·수신 시간대·빈도 설정은 해커톤 범위에 넣지 않는다([[13-NOTIFICATIONS|13]]).
 
-### 5.10.1 개인 설정 "카카오톡 알림" ([[16-DECISIONS|ADR-038]], main 병합 2026-10-22, 해커톤은 `mock` 발송)
+### 5.10.1 개인 설정 "카카오톡 알림" ([[16-DECISIONS|ADR-038]], main 병합 2026-10-22, 기본 `mock`, 10-25 실제 공고 수신 녹화 때만 `memo`)
 
-개인 설정의 "로그인 수단" 절 바로 아래에 새 절 "카카오톡 알림"을 둔다(`web/app/account/account-settings.tsx`의 `SettingsSection`). 설명 문구는 "추천 공고(BID·WATCH 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."다. 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", API는 [[05-API-SPEC|05 API]] §9다. 설정 칸은 2026-10-22 main에 병합됐다(`web/app/(app)/[slug]/settings/kakao-notify-section.tsx`). 해커톤은 `mock` 발송이라 실제 카톡 수신은 확인하지 않았다(2026-10-24 사용자 결정).
+개인 설정의 "로그인 수단" 절 바로 아래에 새 절 "카카오톡 알림"을 둔다(`web/app/account/account-settings.tsx`의 `SettingsSection`). 설명 문구는 "추천 공고(BID·WATCH 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."다. 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", API는 [[05-API-SPEC|05 API]] §9다. 설정 칸은 2026-10-22 main에 병합됐다(`web/app/(app)/[slug]/settings/kakao-notify-section.tsx`). 기본은 `mock` 발송이고, 실제 카톡 수신은 10-25 실제 공고 녹화 때 확인한다(2026-10-24 사용자 재결정, 예정·미확인).
 
 | 상태 | 보이는 것 |
 |---|---|
