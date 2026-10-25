@@ -1957,6 +1957,21 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_photo_folders: {
+        Row: {
+          folder: string
+          touched_at: string
+        }
+        Insert: {
+          folder: string
+          touched_at?: string
+        }
+        Update: {
+          folder?: string
+          touched_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2992,6 +3007,10 @@ export type Database = {
         Args: { p_outbox_event_id: string }
         Returns: boolean
       }
+      claim_own_photo_slot: {
+        Args: { p_bucket: string; p_name: string }
+        Returns: boolean
+      }
       create_personal_org: {
         Args: { owner_id: string }
         Returns: string
@@ -3075,6 +3094,10 @@ export type Database = {
       open_bid_project: {
         Args: { p_review_id: string }
         Returns: { project_id: string; reopened: boolean }[]
+      }
+      own_photo_deletable: {
+        Args: { p_bucket: string; p_name: string }
+        Returns: boolean
       }
       patch_bid_project: {
         Args: { p_due_at?: string; p_due_changed?: boolean; p_note?: string; p_owner_changed?: boolean; p_owner_id?: string; p_project_id: string; p_status?: string }

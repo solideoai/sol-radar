@@ -21,6 +21,13 @@ export function centerSquare(width: number, height: number) {
   };
 }
 
+/**
+ * 정리할 본인 사진 경로. 본인 폴더(users/<id>)만 대상이고 members/ 는 빈 목록이다.
+ * 지금 쓰는 사진도 목록에 들지만 Storage 삭제 정책(20261025000110)이 쓰는 사진은 지우지 않는다.
+ */
+export const ownPhotoCleanupPaths = (prefix: string, names: readonly string[]): string[] =>
+  prefix.startsWith("users/") ? names.map((name) => `${prefix}/${name}`) : [];
+
 /** Storage 경로. 덮어쓰지 않으려고 올릴 때마다 새 id 를 쓴다. */
 export const newPhotoPath = (prefix: string, id: string): string => `${prefix}/${id}.jpg`;
 

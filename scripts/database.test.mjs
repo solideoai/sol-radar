@@ -2265,6 +2265,72 @@ describe("프로필 사진 — 경로·권한 (20261024000200)", () => {
     await actAs(db, users[0]);
     await assert.rejects(next(solideo), /permission denied/);
   });
+
+  // 보안 검토 L2(2026-10-25): 활동 회원이 본인 폴더에 사진을 무제한으로 쌓던 것을 막는다.
+  const removeObject = async (db, name) =>
+    (
+      await db.query("delete from storage.objects where bucket_id='profile-photos' and name=$1", [
+        name,
+      ])
+    ).rowCount;
+
+  it("본인 폴더 사진은 3장까지만 올라가고 쓰지 않는 사진을 지우면 다시 올린다 (20261025000110)", async (t) => {
+    const db = await setup(t);
+    await actAs(db, users[1]);
+    for (const n of [1, 2, 3]) await putObject(db, own(users[1], n));
+    await assert.rejects(putObject(db, own(users[1], 4)), /row-level security/);
+    // 상한은 사람마다 따로다.
+    await actAs(db, users[2]);
+    await putObject(db, own(users[2], 5));
+    await actAs(db, users[1]);
+    assert.equal(await removeObject(db, own(users[1], 1)), 1);
+    await putObject(db, own(users[1], 4));
+    // members/ 경로(ADMIN 전용)는 이 상한과 무관하게 그대로다.
+    await actAs(db, users[0]);
+    for (const n of [6, 7, 8, 9]) await putObject(db, memberPath(member, n));
+  });
+
+  it("본인은 아무 데서도 쓰지 않는 자기 사진만 지우고 남의 사진·쓰는 사진·members 사진은 못 지운다 (20261025000110)", async (t) => {
+    const db = await setup(t);
+    for (const name of [
+      own(users[1], 1),
+      own(users[1], 2),
+      own(users[1], 3),
+      own(users[0], 4),
+      memberPath(member, 5),
+    ])
+      await putObject(db, name);
+    await db.query("update public.profiles set photo_path=$1 where id=$2", [
+      own(users[1], 1),
+      users[1],
+    ]);
+    await db.query("update public.team_members set user_id=$1, photo_path=$2 where id=$3", [
+      users[1],
+      own(users[1], 2),
+      member,
+    ]);
+    await actAs(db, users[1]);
+    // 계정 사진·조직도 사진으로 쓰는 것, 남의 것, members/ 는 0행이다.
+    for (const name of [
+      own(users[1], 1),
+      own(users[1], 2),
+      own(users[0], 4),
+      memberPath(member, 5),
+    ])
+      assert.equal(await removeObject(db, name), 0, name);
+    assert.equal(await removeObject(db, own(users[1], 3)), 1);
+    // ADMIN 도 다른 사람의 users/ 사진은 못 지운다.
+    await actAs(db, users[0]);
+    assert.equal(await removeObject(db, own(users[1], 1)), 0);
+    // anon 은 표 권한이 있어도(Supabase 기본) 정책이 없어 0행이다.
+    await actAs(db, null, "anon");
+    assert.equal(await removeObject(db, own(users[1], 3)), 0);
+    // 쓰지 않게 되면(사진 지우기) 본인이 지운다.
+    await asSystem(db);
+    await db.query("update public.profiles set photo_path=null where id=$1", [users[1]]);
+    await actAs(db, users[1]);
+    assert.equal(await removeObject(db, own(users[1], 1)), 1);
+  });
 });
 
 describe("가입 신청과 명부 연결 (20261024000300)", () => {

@@ -281,6 +281,11 @@ const ALLOWED_DEFINER_FUNCTIONS = new Set([
   // 직원 사진은 그 조직 ADMIN 만 바꾼다. PUBLIC/anon 실행은 닫는다.
   "public.set_my_photo(text)",
   "public.set_member_photo(uuid, text)",
+  // 사진 상한·삭제(20261025000110): profile-photos 의 insert·delete 정책이 부른다. 정책 식은 화면 역할 권한으로 돌아
+  // 실행 권한이 있어야 한다. 둘 다 JWT 본인 폴더(users/<uid>/)가 아니면 아무것도 쓰지 않고 false 다. 자리 확인은
+  // 본인 폴더 잠금 행 하나만 갱신하고, 삭제 가능 여부는 본인 경로의 참조 여부만 돌려준다. PUBLIC/anon 실행은 닫는다.
+  "public.claim_own_photo_slot(text, text)",
+  "public.own_photo_deletable(text, text)",
   // 가입 신청(20261024000300): 신청 표는 화면 역할에 쓰기 권한이 없고 이 세 함수로만 쓴다. 찾기는 부서·이름이
   // 정확히 맞는 미연결 가상 직원 하나만 돌려주고, 결정은 그 조직 ADMIN 만 한다. PUBLIC/anon 실행은 닫는다.
   "public.find_unlinked_member(text, text)",

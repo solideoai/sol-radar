@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centerSquare, checkPhotoFile, newPhotoPath } from "./photo-file";
+import { centerSquare, checkPhotoFile, newPhotoPath, ownPhotoCleanupPaths } from "./photo-file";
 
 describe("checkPhotoFile", () => {
   it("JPG·PNG·WEBP 이고 0바이트 초과 10MB 이하일 때만 받는다", () => {
@@ -30,5 +30,15 @@ describe("centerSquare", () => {
 describe("newPhotoPath", () => {
   it("접두사 아래에 id.jpg 로 만든다", () => {
     expect(newPhotoPath("users/u", "i")).toBe("users/u/i.jpg");
+  });
+});
+
+describe("ownPhotoCleanupPaths", () => {
+  it("본인 폴더만 전체 경로로 돌려주고 members/ 는 정리하지 않는다", () => {
+    const me = "users/00000000-0000-4000-8000-000000000001";
+    expect(ownPhotoCleanupPaths(me, ["a.jpg", "b.jpg"])).toEqual([`${me}/a.jpg`, `${me}/b.jpg`]);
+    expect(ownPhotoCleanupPaths("members/00000000-0000-4000-8000-000000000002", ["a.jpg"])).toEqual(
+      [],
+    );
   });
 });
