@@ -1,11 +1,11 @@
 ---
-title: "10-25 격리 E2E 결과(integration/freeze-1024 1차 @17c55609, 2차 @15c966c6, 3차 @466d2911, 4차 integration/release-1025 @04b4bf3a)"
+title: "10-25 격리 E2E 결과(integration/freeze-1024 1차 @17c55609, 2차 @15c966c6, 3차 @466d2911, 4차 integration/release-1025 @04b4bf3a, 5차 사진 동시 업로드, 6차 수정안 000310, 7차 최종 @7f1cbeca)"
 status: done
 tags: [sol-radar, evidence, e2e, integration]
 updated: 2026-10-25
 ---
 
-# 10-25 격리 E2E 결과(integration/freeze-1024 1차 @17c55609, 2차 @15c966c6, 3차 @466d2911, 4차 integration/release-1025 @04b4bf3a)
+# 10-25 격리 E2E 결과(integration/freeze-1024 1차 @17c55609, 2차 @15c966c6, 3차 @466d2911, 4차 integration/release-1025 @04b4bf3a, 5차 사진 동시 업로드, 6차 수정안 000310, 7차 최종 @7f1cbeca)
 
 근거는 `docs/plans/2026-10-25-integration-finish-plan.md` T3 이고, 40 이 배정했다. 스택은 [[20261025-e2e/stack|stack.md]]에 있다.
 
@@ -348,6 +348,290 @@ globalSetup 은 두 번 모두 통과했다: `demo:reset`(seed 줄 일치) → m
 
 - 없음. 제품 결함 0, 환경 결함 0.
 - 4차가 만든 파일(커밋하지 않음): `screens-4/` 전체, 이 절, e2e-results.txt 4차 절. 앞선 차수의 덮인 증거·미추적 파일도 그대로 두었다.
+
+## 10-25 5차(사진 동시 업로드 Storage API)
+
+40 배정(보안 검토 낮음 1)이다. 같은 격리 스택과 04b4bf3a 에서 돌렸고, 코드·git·스택 설정은 바꾸지 않았다.
+확인할 가설: Storage API 가 업로드 권한을 트랜잭션 안에서 시험한 뒤 롤백하고, 객체 행은 superuser 로 쓴다. 그렇다면 `claim_own_photo_slot` 의 폴더 행 잠금이 시험 끝에 풀려 동시 업로드가 상한 3장을 넘는다.
+
+> [!warning] 결론: 재현됨
+> 동시 업로드는 폴더당 3장 상한을 넘는다. 단순 업로드 8개 동시는 3회 모두 8개 전부 200, 최종 10개였다. TUS 완료 4개 동시는 3회 모두 4개 전부 204, 최종 6개였다. 2개만 동시여도 4개가 된다.
+> 차례로 보내면 상한이 지켜진다(단순 업로드 1개 통과·7개 거부, TUS 완료 1개 통과·3개 거부). 결함은 동시성에서만 나온다.
+
+### 조건
+
+- Storage 이미지: `public.ecr.aws/supabase/storage-api:v1.79.36`(`STORAGE_BACKEND=file`)
+- 함께 쓴 이미지: `postgres:17.11.0.004`, `postgrest:v16.4`, `kong:2.8.1`
+- 시험 계정: `sales@soltech.invalid`(활동 회원). 같은 사용자 JWT 하나(`/auth/v1/token?grant_type=password`)를 썼다.
+- 파일: 48×48 JPEG 1,726 bytes. 경로는 `users/<uid>/<새 uuid>.jpg` 이고 `x-upsert: false` 다.
+- 회차 준비: 같은 JWT 로 폴더를 비운 뒤 2장을 하나씩 올렸다(둘 다 200, 시작 2개).
+- 객체 수: 격리 DB 에서 읽기 전용 SQL(`storage.objects`, bucket `profile-photos`, 폴더 접두)로 셌다.
+- 스크립트(scratchpad): `photo-concurrency-check.mjs`(A·B), `photo-concurrency-control.mjs`(C·D), `photo-concurrency-tus-seq.mjs`(E)
+
+### 결과
+
+|회차|방법|응답|최종 객체(상한 3)|
+|---|---|---|---|
+|A1|`POST /storage/v1/object/profile-photos/…` 8개 동시(`Promise.all`)|200×8|**10**|
+|A2|같음|200×8|**10**|
+|A3|같음|200×8|**10**|
+|B1|TUS `POST /storage/v1/upload/resumable` 4개 → 완료 `PATCH` 4개 동시|생성 201×4(생성 뒤 2개), 완료 204×4|**6**|
+|B2|같음|생성 201×4, 완료 204×4|**6**|
+|B3|같음|생성 201×4, 완료 204×4|**6**|
+|C(대조)|단순 업로드 8개를 하나씩 차례로|200×1, 400×7|3|
+|D1~D3(대조)|단순 업로드 2개 동시(3회)|200×2(3회 모두)|**4**(3회 모두)|
+|E(대조)|TUS 세션 4개 생성 → 완료 `PATCH` 를 하나씩 차례로|생성 201×4, 완료 204×1·403×3|3|
+
+- 거부 응답 본문
+  - 단순 업로드: HTTP 400 `{"statusCode":"403","error":"Unauthorized","message":"new row violates row-level security policy","code":"AccessDenied"}`
+  - TUS: HTTP 403 `new row violates row-level security policy`
+- 값: `screens-5/photo-concurrency-check.json`, `screens-5/photo-concurrency-control.json`, `screens-5/photo-concurrency-tus-seq.json`
+
+### 원인 확인(컨테이너 안 코드 읽기, 수정 없음)
+
+`storage-api:v1.79.36` 의 빌드 결과(`/app/dist`)를 읽었다.
+
+1. `storage/uploader.js` `canUpload` → `db.testPermission(db => db.createObject(...))`
+   - `storage/database/pg.js` `testPermission` 은 트랜잭션 안에서 사용자 권한으로 insert 한 뒤 일부러 오류를 던져 롤백한다.
+   - 그래서 RLS 정책과 `claim_own_photo_slot` 이 돌지만, 폴더 행 upsert 와 시험 insert 는 함께 롤백된다. 폴더 잠금은 롤백 때 풀린다.
+2. 파일을 backend 에 쓴 뒤 `completeUpload` 가 `this.db.asSuperUser()` 트랜잭션에서 `upsertObject` 로 행을 쓴다. 이 insert 에는 RLS 가 걸리지 않는다.
+3. TUS 는 `http/routes/tus/lifecycle.js` `onIncomingRequest` 가 요청마다(생성 POST·완료 PATCH) `canUpload` 를 부른다. 그리고 `onUploadFinish` 에서 `completeUpload`(superuser)를 부른다.
+   - E 처럼 완료를 차례로 보내면, 완료 때 다시 하는 시험이 앞서 확정된 행을 세어 막는다.
+   - B 처럼 동시에 보내면 모두 같은 2개를 본다.
+4. 뒷받침: 수십 번 올린 뒤에도 `public.profile_photo_folders` 는 0행이다. 폴더 행 쓰기가 한 번도 확정되지 않았다는 뜻이다.
+
+정리: 정책 안의 잠금은 "시험 트랜잭션"끼리만 줄 세운다. 시험 트랜잭션은 확정 전에 끝나고 실제 행은 RLS 밖에서 써진다. 그래서 동시에 들어온 요청은 모두 확정된 개수(2)만 보고 통과한다. 개수 상한은 RLS 정책만으로 동시성까지 막을 수 없다.
+
+### 영향(판단은 사람 몫)
+
+- 활동 회원 한 명이 동시 요청으로 자기 폴더에 3장을 넘게 쌓을 수 있다. 파일당 2MB·이미지 형식 제한(버킷 설정)은 그대로이고, 다른 사람 폴더에는 못 쓴다(경로 정규식은 시험 단계에서 막힌다).
+- 웹 화면의 정리(`cleanUpOwnPhotos`)는 저장·지우기 때 쓰지 않는 객체를 지우므로, 정상 사용에서는 다시 1장으로 줄어든다.
+- 차례로 보내는 4번째 업로드는 여전히 막힌다(3차·4차·C·E).
+
+### 기준선 복구
+
+- 회차마다, 그리고 끝에 같은 JWT 로 폴더를 비웠다. 사진 포인터가 없어 `profile_photos_delete_own` 이 허용했다.
+- 복구 뒤(읽기 전용 SQL): `profile-photos` 객체 0, `profile_photo_folders` 0행, 사진 포인터 0(profiles·team_members), 계정 5, team_members 200, score_runs 18
+- 남은 것(객체 아님): Storage file backend 의 TUS 세션 기록이 `sales` 폴더 아래 16개 남아 있다.
+  - 메타 json 16개: B 12개 + E 4개
+  - 0바이트 데이터 파일 3개: E 에서 거부된 세션
+  - `storage.objects` 행이 아니어서 개수·화면에 영향이 없다. 컨테이너 안 파일이라 지우지 않았다.
+
+### 실패 분류
+
+- E2E 는 돌리지 않았다(배정 범위 밖).
+- 보안 검토 낮음 1 은 **재현된 제품 결함**이다(Storage API 동작 + RLS 개수 상한 설계). 고치지 않았다.
+- 5차가 만든 파일(커밋하지 않음): `screens-5/` 전체, 이 절.
+
+## 10-25 6차(수정안 20261025000310 검증)
+
+40 배정이다. 수정안은 `storage.objects` 에 BEFORE INSERT 트리거(`enforce_own_photo_quota`)를 두어, superuser 를 포함한 실제 insert 에서 폴더 잠금과 3장 검사를 한다.
+같은 격리 스택과 04b4bf3a 웹 빌드에서 돌렸다. git·앱 코드·compose 는 바꾸지 않았다.
+
+> [!summary] 결론
+> - 상한은 이제 지켜진다. A·B·C·D 12회 모두 최종 3개다(5차는 10·6·4).
+> - 웹이 쓰는 단순 업로드 경로는 거부돼도 backend 에 파일을 남기지 않는다(9회, 남은 데이터·메타 0).
+> - 바뀐 점: 거부 응답이 차례로 보낸 4번째까지 모두 **HTTP 500** `DatabaseError` "database error, code: P0001" 이다. 5차까지 차례로 보낸 4번째는 400(본문 403 RLS)이었다.
+> - TUS 는 거부된 세션의 `.json` 기록(414 bytes)이 남고, 미리 검사에서 막힌 세션은 0바이트 데이터 파일도 남긴다. 둘 다 수정 전에도 생기던 TUS file store 동작이다(5차 E·정상 TUS 업로드 뒤 삭제에서도 같음).
+
+### 적용
+
+1. 실행 전 권한(읽기 전용 SQL)
+   - `storage.objects` 소유자: `supabase_storage_admin`
+   - `has_table_privilege('postgres','storage.objects','TRIGGER')` = `t`, `current_user` = `postgres`
+   - 역할: `postgres` rolsuper f·rolbypassrls t, `supabase_storage_admin` f·f, `supabase_admin` t·t
+   - 기존 트리거: `update_objects_updated_at`, `protect_objects_delete`. 기본 격리 수준은 `read committed` 다.
+2. 파일 `sol-radar-worktrees/integration-freeze-1024/supabase/migrations/20261025000310_photo_quota_insert_guard.sql`(미커밋, sha256 `424e11a7…a14f`)의 SQL 만 `psql -U postgres -v ON_ERROR_STOP=1 -1` 로 격리 DB 에 실행했다. exit 0 이다.
+   - `migration up` 은 쓰지 않았다. `schema_migrations` 마지막은 그대로 20261025000200 이다.
+   - 결과: 트리거 `enforce_own_photo_quota` 사용 중. `enforce_own_photo_quota`·`claim_own_photo_slot` 은 둘 다 `postgres` 소유 security definer 다.
+   - 트리거는 격리 DB 에 그대로 두었다.
+
+### 결과(시작 2장, 상한 3)
+
+스크립트는 scratchpad `photo-guard-check.mjs` 이고, 5차와 같은 계정·JWT·1,726 bytes JPEG 를 썼다. 값은 `screens-6/photo-guard-check.json` 이다.
+
+|회차|방법|응답(5차 → 6차)|최종 객체(5차 → 6차)|backend 에 남은 것(객체 없는 파일)|
+|---|---|---|---|---|
+|A1~A3|단순 8개 동시|200×8 → **200×1, 500×7**(3회 모두)|10 → **3**|데이터 0·메타 0(3회 모두)|
+|B1|TUS 생성 4개(201×4) → 완료 4개 동시|204×4 → **204×1, 500×3**|6 → **3**|데이터 0, `.json` 3|
+|B2|같음|204×4 → **204×1, 500×3**|6 → **3**|0바이트 데이터 1, `.json` 3|
+|B3|같음|204×4 → **204×1, 500×3**|6 → **3**|데이터 0, `.json` 3|
+|D1~D3|단순 2개 동시|200×2 → **200×1, 500×1**(3회 모두)|4 → **3**|데이터 0·메타 0(3회 모두)|
+|C1~C3|단순 8개 차례로|200×1·400×7 → **200×1, 500×7**(3회 모두)|3 → 3|데이터 0·메타 0(3회 모두)|
+
+거부 본문:
+
+- 단순 업로드: HTTP 500 `{"statusCode":"500","error":"DatabaseError","message":"database error, code: P0001","code":"DatabaseError"}`
+- TUS 완료 PATCH: HTTP 500 `database error, code: P0001`
+- Storage 로그에는 `photo_quota_exceeded` 가 찍혔다. 응답 본문에는 예외 이름이 나오지 않는다.
+
+차례로 보낸 4번째가 403 이 아니라 500 인 이유: Postgres 는 insert 때 BEFORE ROW 트리거를 RLS `WITH CHECK` 보다 먼저 실행한다. 그래서 `canUpload` 의 시험 insert 에서도 정책의 `claim_own_photo_slot` 보다 트리거가 먼저 `P0001` 을 던진다.
+- 수정안 머리 주석의 "차례로 올리는 4번째를 파일을 쓰기 전에 403 으로 막는다"와 다르다.
+- 파일을 쓰기 전에 막는 것은 맞다(C 에서 backend 새 데이터는 통과한 1개뿐).
+
+### 고아 파일(Storage file backend, 컨테이너 `/mnt/stub/stub/profile-photos/users/<uid>/`)
+
+측정 방법: 회차마다 준비(2장) 뒤 backend 파일 목록을 찍고, 동작 1.5초 뒤 다시 찍었다. 새 파일 가운데 `storage.objects` 에 없는 객체 이름의 파일을 셌다.
+
+- 단순 업로드(A·C·D 9회, 웹 경로): 객체 없는 파일 0. 거부된 업로드의 데이터는 남지 않았다.
+- TUS(B 3회): 거부된 세션 3개마다 `<version>.json`(414 bytes) 3개가 남았다. B2 에서는 0바이트 데이터 파일 1개도 남았다.
+  - 0바이트 파일은 TUS 세션 생성 때 file store 가 만든 빈 파일이다. 완료 PATCH 가 요청 단계 검사(`onIncomingRequest` → `canUpload`)에서 거부되어 데이터를 쓰지 않았고, 지우는 단계도 타지 않았다(5차 E 에서도 3개 생김).
+- 지금 backend(이 폴더): `.json` 28개(5차 16 + 6차 12), 데이터 파일 4개(모두 0바이트: 5차 E 3 + 6차 B2 1). `storage.objects` 0행.
+- 5차 기록을 보면 `.json` 은 정상 완료된 TUS 업로드를 API 로 지운 뒤에도 남는다. 수정안이 새로 만든 종류의 잔여물이 아니다.
+
+코드 확인(`storage-api:v1.79.36` `/app/dist`, 읽기만):
+
+1. 단순 업로드 `storage/uploader.js` `upload()`
+   - `prepareUpload`(→ `canUpload` 시험) → backend `uploadObject` → `completeUpload` 순서다.
+   - `try` 블록(파일 쓰기·`completeUpload`)이 실패하면 `catch` 가 `ObjectAdminDelete.send({ name, bucketId, version, … })` 뒤 오류를 다시 던진다.
+   - `canUpload` 실패는 `try` 앞이라 파일을 쓰지 않는다.
+2. `completeUpload()`: `asSuperUser()` 트랜잭션에서 `upsertObject` 를 한다. 실패하면 `catch` 가 `ObjectAdminDelete.send(...)` 뒤 다시 던진다. 트리거 거부(P0001)가 여기서 잡힌다.
+3. `storage/events/objects/object-admin-delete.js` `handle`: `backend.deleteObjects` 로 `<key>/<version>` 와 `<key>/<version>.info` 를 지운다. 실패하면 `[Admin]: ObjectAdminDelete … - FAILED` 를 남기고 다시 던진다.
+4. 전달 방식(`internal/queue/event.js` `send`): `PG_QUEUE_ENABLE`(또는 `ENABLE_QUEUE_EVENTS`)이 `true` 가 아니면 `allowSync` 로 `handle` 을 바로 부른다. 켜져 있으면 pg-boss 큐에 넣는다(`expireInSeconds: 30`, priority 10).
+   - 이 격리 스택은 큐 env 가 없어 동기 삭제다. 6차 동안 `ObjectAdminDelete` 로그는 23건이고 `FAILED` 는 0건이다.
+5. TUS `http/routes/tus/lifecycle.js` `onUploadFinish`
+   - `backend.headObject` → `uploader.completeUpload(...)` 다. `catch` 는 TUS 오류 형식으로 바꿔 다시 던질 뿐 따로 지우지 않는다.
+   - 삭제는 `completeUpload` 의 `catch`(`ObjectAdminDelete`)가 맡는다. 그래서 데이터 `<version>` 은 지워진다.
+   - TUS file store 의 `<version>.json` 은 지우는 목록(`<version>`, `<version>.info`)에 없어 남는다.
+   - `.info` 는 S3 계열 TUS 저장소의 기록 이름이다. 운영(S3 backend)에서 기록이 지워지는지는 실측하지 않았다.
+
+정리: 웹이 쓰는 단순 업로드는 거부돼도 보이지 않는 파일이 쌓이지 않는다. 동기 삭제는 실측했다. 큐를 쓰는 환경에서는 큐가 처리할 때 지운다(코드 근거, 실측 아님). TUS 는 로컬 file backend 에서 세션 기록(`.json`)과, 미리 검사에서 막힌 세션의 빈 파일이 남는다. 이것은 수정 전에도 있던 TUS 동작이다.
+
+### 웹 사진 바꾸기(정상 업로드)
+
+04b4bf3a 웹을 localhost:3210 에 다시 띄우고, 3차 스크립트(`photo-quota-check.mjs`)를 돌렸다. 결과는 `screens-6/photo-quota-check.json` 이다.
+
+- `/settings` 에서 내 사진 3번 바꾸기: 3번 모두 성공. 매번 정리 뒤 객체 1개, `photo_path` 갱신.
+  - Storage 호출은 list 200 → POST 200 → list 200 → DELETE 200 → sign 200 이다.
+- 내 사진 지우기: 성공. 객체 0, `photo_path` null.
+- 같은 JWT 로 직접 3개는 모두 200 이다. 4번째는 **HTTP 500 P0001**(5차까지 400/403)이고, 객체는 3개 그대로다. 직접 올린 3개를 지운 뒤 0개다.
+- 화면: `screens-6/q-settings-photo-third-1440.png`, `screens-6/q-settings-photo-removed-1440.png`
+- 웹 확인 전후 backend 파일 수는 같다(`.json` 28, 0바이트 데이터 4).
+
+### 기준선
+
+- 읽기 전용 SQL: `profile-photos` 객체 0, 사진 포인터 0(profiles·team_members), 계정 5, team_members 200, score_runs 18
+- `profile_photo_folders` 는 1행이다. 트리거가 실제 insert 에서 잠금 행을 확정하기 때문이다(개수 계산에 쓰지 않는 줄 세우기 행).
+- 트리거 `enforce_own_photo_quota` 는 격리 DB 에 그대로 두었다. 3210 은 껐다(내 task 만).
+- backend 의 TUS 잔여물(`.json` 28, 0바이트 4)은 컨테이너 안 파일이라 지우지 않았다.
+
+### 판단할 점(사람 몫)
+
+- 상한 우회는 막혔다. 웹 경로의 고아 파일은 없다.
+- 거부 응답이 500 이 된다. 차례로 보낸 4번째도 같다.
+  - 웹 photo-picker 는 오류 종류와 관계없이 실패로 처리한다(이번 시험 범위에서 화면 문구는 보지 않았다).
+  - 403 을 원하면 트리거 쪽 조정이 필요하다. 예: 사용자 역할 시험 insert 에서는 검사를 정책에 맡기는 방식.
+  - Storage 로그와 모니터링에서는 500 으로 보인다.
+- TUS `.json`·빈 파일 잔여는 수정안과 무관한 기존 동작이다. 웹은 TUS 를 쓰지 않는다(`photo-picker.tsx` 의 `.upload()` = 단순 POST).
+
+### 실패 분류
+
+- E2E 는 돌리지 않았다(웹 확인은 3210 스크립트로 대신).
+- 수정안 검증: 상한 통과. 제품 쪽 알릴 점은 거부 코드 500 과 TUS 잔여물 두 가지다.
+- 6차가 만든 파일(커밋하지 않음): `screens-6/` 전체, 이 절.
+
+## 10-25 7차(최종, integration/release-1025 @7f1cbeca)
+
+40 배정이다. 대상 7f1cbeca 의 코드 커밋은 d2755c66 이다(가입 결정 버전 확인 + 사진 상한 실제 insert 강제).
+000310 트리거는 `current_setting('role', true) = 'authenticated'` 이면 검사를 정책(`claim_own_photo_slot`)에 맡기고 `return new` 한다.
+
+> [!summary] 결론
+> - E2E 18/18 통과(FX-02 72·분석 비교·가정 재계산·프로필 사진 포함).
+> - 사진 상한: A·B·C·D 12회 모두 최종 3장이다. 차례로 보낸 거부는 6차 이전처럼 **400(본문 403 RLS)**으로 돌아왔다. 동시에 시험을 통과한 것만 실제 insert 에서 500 P0001 이다. 단순 업로드는 객체 없는 파일을 남기지 않았다.
+> - 가입 승인 버전: ADMIN 이 새로 고치지 않은 화면에서 승인하면 "신청 내용이 바뀌었습니다…" 토스트가 뜨고 명부는 그대로다. 새로 고침 뒤 승인은 성공하고, 명부 사진은 바뀐 신청 사진이다.
+> - 실패 0(제품 0, 환경 0).
+
+### 적용
+
+1. worktree `e2e-rh1025` 를 `git checkout --detach 7f1cbeca` 로 옮겼다.
+   - 40 이 602b0b52 에 커밋한 이 증거 폴더가 미추적 파일(55개)과 겹쳐, 폴더를 scratchpad(`rh1025/evidence-backup-r7`)로 옮긴 뒤 checkout 했다.
+   - 커밋본과 내 사본의 차이는 JSON 5개의 Prettier 서식뿐이었다. JSON 은 커밋본을 두었다. `summary.md`(5·6차 절 포함)와 `screens-5/`·`screens-6/` 은 내 사본으로 되돌렸다.
+   - 다른 남은 E2E 산출물(추적 파일 10개 수정, 미추적 스크린샷)은 그대로다.
+2. 04b4bf3a..7f1cbeca 는 82파일이다. 락파일·`package.json`·`infra/compose.yaml` 은 그대로라 install 하지 않았다. worker 변경(`main.ts`·`ingest-only-main.ts`)은 live 예산 Redis 연결의 오류 리스너뿐이다.
+3. 격리 DB: `20261025000300_join_request_decide_version`·`20261025000310_photo_quota_insert_guard` 를 `supabase migration up --local` 로 적용했다.
+   - 000310 은 6차 수동 적용분을 다시 덮었다(create or replace·drop trigger if exists).
+   - `schema_migrations` 는 60개, 마지막은 **20261025000310** 이다. 트리거 본문에 `current_setting('role'` 이 있다.
+4. compose 는 override 포함 `up -d --build`(exit 0, 슬롯)이다.
+   - worker·ai-gateway 를 빌드했고 worker·`supabase-forward` 를 다시 만들었다.
+   - 사이드카는 새 worker 네트워크에 붙었다. worker env 는 `127.0.0.1:56321`·mock 이다.
+5. 웹 `pnpm -C web build` exit 0(슬롯).
+
+### E2E: 18/18 통과
+
+`pnpm -C web test:e2e:work` 전체(1.5분, exit 0, 슬롯). 출력은 [[20261025-e2e/e2e-results.txt|e2e-results.txt]] 7차 절이다.
+
+- FX-02 72: `bid-decision.write` S4 통과
+- 분석 비교: `p1-navigation.write` 통과
+- 가정 재계산: `what-if.write` FX-03 통과
+- 프로필 사진: `profile-photo.write`(가입 신청 → 사진 → 관리자 승인 → 조직도) 통과. 승인이 새 버전 인자로 성공한다.
+
+### 사진 상한(photo-guard-check, 시작 2장, 각 3회)
+
+값은 `screens-7/photo-guard-check.json` 이다.
+
+|회차|방법|5차(수정 전)|6차(트리거 v1)|7차(7f1cbeca)|최종 객체|backend 에 남은 것(객체 없는 파일)|
+|---|---|---|---|---|---|---|
+|A1~A3|단순 8개 동시|200×8|200×1·500×7|**200×1·500×7**(3회 모두)|**3**(3회 모두)|데이터 0·메타 0|
+|B1~B3|TUS 생성 4개(201×4) → 완료 4개 동시|204×4|204×1·500×3|**204×1·500×3**(3회 모두)|**3**|데이터 0, `.json` 3(회차마다)|
+|D1~D3|단순 2개 동시|200×2|200×1·500×1|**200×1·500×1**(3회 모두)|**3**|데이터 0·메타 0|
+|C1~C3|단순 8개 차례로|200×1·400×7|200×1·500×7|**200×1·400×7**(3회 모두)|3|데이터 0·메타 0|
+
+거부 본문:
+
+- C(차례로): HTTP 400 `{"statusCode":"403","error":"Unauthorized","message":"new row violates row-level security policy","code":"AccessDenied"}`. 6차 이전 응답으로 돌아왔다.
+- A·D(동시): HTTP 500 `{"statusCode":"500","error":"DatabaseError","message":"database error, code: P0001","code":"DatabaseError"}`. 권한 시험을 함께 통과한 요청이 실제 insert(superuser)에서 트리거에 막혔다.
+- B(TUS 동시 완료): HTTP 500 `database error, code: P0001`
+
+고아 파일:
+
+- 단순 업로드 A·C·D 9회: 객체 없는 데이터·메타 0.
+- TUS B: 거부 세션마다 `.json`(414 bytes)이 남았다(6차와 같은 기존 file store 동작). 이번에는 0바이트 데이터 파일이 생기지 않았다.
+- 지금 `sales` 폴더 backend 에는 `.json` 40개와 0바이트 데이터 4개(5·6차분)가 있다. `storage.objects` 0행이다. 컨테이너 안 파일이라 지우지 않았다.
+
+### 웹 사진(photo-quota-check, localhost:3210)
+
+값은 `screens-7/photo-quota-check.json` 이다.
+
+- `/settings` 내 사진 바꾸기 3번: 모두 성공, 매번 정리 뒤 객체 1개.
+- 내 사진 지우기: 성공, 객체 0, `photo_path` null.
+- 같은 JWT 로 직접 3개는 모두 200 이다. 4번째는 **HTTP 400 `{"statusCode":"403",…,"message":"new row violates row-level security policy"}`** 이고, 객체는 3개 그대로다. 지운 뒤 0개다.
+- 화면: `screens-7/q-settings-photo-third-1440.png`, `screens-7/q-settings-photo-removed-1440.png`
+
+### 가입 승인 버전(브라우저, localhost:3210)
+
+스크립트는 scratchpad `join-version-check.mjs` 이고, 값은 `screens-7/join-version-check.json` 이다.
+
+신청자 계정은 E2E `createTestAccount` 와 같은 방식(로컬 관리 API, 부서 신고 없음)으로 만들고 magiclink 로 로그인했다. 끝에 지웠다.
+
+|단계|결과|
+|---|---|
+|1 신청자: 가입 정보(이름·부서·직급) → 사진 SOL-P0200 → 가입 신청|"관리자 승인 대기 중". 신청 행 `PENDING`, updated_at 08:14:24.193|
+|2 ADMIN(`admin@admin.com`): 설정 → 조직에서 신청 표를 연다|신청 행과 사진이 보임(`join-version-1-admin-list-1440.png`)|
+|3 신청자: 대기 화면에서 "내 사진 바꾸기"(SOL-P0199)|신청 행 updated_at 08:14:25.402 로 바뀜. `applicant_photo_path` 도 새 경로|
+|4 ADMIN: 새로 고치지 않은 화면에서 "승인"|**"신청 내용이 바뀌었습니다. 새로 표시된 내용을 확인한 뒤 다시 처리하세요."** 토스트, 승인 토스트 0. 신청 행 `PENDING` 그대로, 명부 200 → 200, 신청자 연결 없음, 멤버십 0(`join-version-2-stale-approve-1440.png`)|
+|4 뒤 화면|표가 다시 읽혀 사진이 SOL-P0199 로 바뀌어 보인다(1·2 스크린샷 비교)|
+|5 ADMIN: 새로 고침 → "승인"|"…님을 승인했습니다." 토스트, 신청 행 `APPROVED`, 명부 201, 멤버십 1(`join-version-3-approved-1440.png`)|
+|5 명부 사진|신청자 연결 `team_members.photo_path` = 3단계의 바뀐 신청 사진 경로(같음)|
+
+- 다시 신청 경로: 대기 화면에는 "다시 신청" 버튼이 없다(대기 중에는 상태 문구만, 반려 뒤에만 "다시 신청하기"). 그래서 사진 변경 경로로 확인했다.
+- 스크립트의 사진 `src` 비교 줄은 이미지 로드 전에 읽은 값이라 판단에 쓰지 않았다. 사진 변화는 스크린샷으로 확인했다.
+- 이 단계 스크린샷은 1440 만 찍었다. 같은 화면의 1440·1280 넘침은 E2E `profile-photo`(`admin-join-requests`)가 잰다.
+
+### 기준선 복구
+
+1. 3210 을 껐다(내 task 만). `reset-baseline.mjs`: `seed: orgs=2 users=5 … people=200 … bids=19` → worker 주소 확인 → `preanalyze 18/18`
+2. `cleanup-photos.mjs`: 쓰지 않는 사진 객체 3개를 지웠다.
+3. 읽기 전용 SQL
+   - 사진 객체 0, 사진 포인터 0(profiles·team_members), 계정 5, team_members 200, score_runs 18
+   - 가입 신청 0, migration 60(마지막 20261025000310)
+   - `profile_photo_folders` 는 3행이다. 줄 세우기용 잠금 행이라 개수 계산에 쓰지 않는다.
+4. 격리 Supabase·compose(override 포함)는 켜 두었다.
+
+### 실패 분류
+
+- 없음. 제품 결함 0, 환경 결함 0.
+- 알릴 점(결함 아님): 동시 거부는 500 P0001 이다(설계대로 실제 insert 에서 막힘). TUS 거부 세션의 `.json` 은 file backend 에 남는다(기존 동작, 웹은 TUS 를 쓰지 않음).
+- 7차가 만든 파일(커밋하지 않음): `screens-7/` 전체, 이 절, e2e-results.txt 7차 절. E2E 가 다시 덮은 추적 증거 파일은 그대로 두었다.
 
 ## 관련 문서
 

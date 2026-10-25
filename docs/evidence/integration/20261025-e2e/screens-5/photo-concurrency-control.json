@@ -1,0 +1,67 @@
+{
+  "api": "http://127.0.0.1:56321",
+  "user": "sales@soltech.invalid",
+  "control": [
+    {
+      "kind": "sequential-8",
+      "start": 2,
+      "statuses": [200, 400, 400, 400, 400, 400, 400, 400],
+      "end": 3
+    },
+    {
+      "kind": "concurrent-2",
+      "round": 1,
+      "start": 2,
+      "statuses": [200, 200],
+      "end": 4
+    },
+    {
+      "kind": "concurrent-2",
+      "round": 2,
+      "start": 2,
+      "statuses": [200, 200],
+      "end": 4
+    },
+    {
+      "kind": "concurrent-2",
+      "round": 3,
+      "start": 2,
+      "statuses": [200, 200],
+      "end": 4
+    }
+  ],
+  "rows": [
+    {
+      "check": "0 사용자 JWT 발급",
+      "result": "200"
+    },
+    {
+      "check": "0 시험 파일",
+      "result": "JPEG 1726 bytes"
+    },
+    {
+      "check": "C 단순 업로드 8개 차례로(시작 2개)",
+      "result": "응답 [200,400,400,400,400,400,400,400] = 200×1, 400×7, 최종 객체 3개(상한 3)"
+    },
+    {
+      "check": "C 거부 본문",
+      "result": "400 {\"statusCode\":\"403\",\"error\":\"Unauthorized\",\"message\":\"new row violates row-level security policy\",\"code\":\"AccessDenied\"}"
+    },
+    {
+      "check": "D1 단순 업로드 2개 동시(시작 2개)",
+      "result": "응답 [200,200] = 200×2, 최종 객체 4개(상한 3)"
+    },
+    {
+      "check": "D2 단순 업로드 2개 동시(시작 2개)",
+      "result": "응답 [200,200] = 200×2, 최종 객체 4개(상한 3)"
+    },
+    {
+      "check": "D3 단순 업로드 2개 동시(시작 2개)",
+      "result": "응답 [200,200] = 200×2, 최종 객체 4개(상한 3)"
+    },
+    {
+      "check": "정리: 같은 JWT 로 폴더 비우기",
+      "result": "남은 객체 0개"
+    }
+  ]
+}

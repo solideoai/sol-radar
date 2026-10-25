@@ -1,0 +1,310 @@
+{
+  "api": "http://127.0.0.1:56321",
+  "user": "sales@soltech.invalid",
+  "file": "1726 bytes",
+  "cases": [
+    {
+      "label": "A1 단순 8개 동시",
+      "start": 2,
+      "statuses": [200, 500, 500, 500, 500, 500, 500, 500],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    },
+    {
+      "label": "A2 단순 8개 동시",
+      "start": 2,
+      "statuses": [500, 500, 500, 500, 500, 500, 200, 500],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    },
+    {
+      "label": "A3 단순 8개 동시",
+      "start": 2,
+      "statuses": [500, 500, 500, 200, 500, 500, 500, 500],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    },
+    {
+      "label": "B1 TUS 생성 4개 → 완료 4개 동시",
+      "start": 2,
+      "statuses": [500, 204, 500, 500],
+      "end": 3,
+      "rejected": ["500 database error, code: P0001"],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 4,
+        "orphanData": 0,
+        "orphanMeta": 3,
+        "orphanMetaKinds": ["json"]
+      },
+      "create": [201, 201, 201, 201]
+    },
+    {
+      "label": "B2 TUS 생성 4개 → 완료 4개 동시",
+      "start": 2,
+      "statuses": [204, 500, 500, 500],
+      "end": 3,
+      "rejected": ["500 database error, code: P0001"],
+      "backend": {
+        "addedData": 2,
+        "addedMeta": 4,
+        "orphanData": 1,
+        "orphanMeta": 3,
+        "orphanMetaKinds": ["json"]
+      },
+      "create": [201, 201, 201, 201]
+    },
+    {
+      "label": "B3 TUS 생성 4개 → 완료 4개 동시",
+      "start": 2,
+      "statuses": [204, 500, 500, 500],
+      "end": 3,
+      "rejected": ["500 database error, code: P0001"],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 4,
+        "orphanData": 0,
+        "orphanMeta": 3,
+        "orphanMetaKinds": ["json"]
+      },
+      "create": [201, 201, 201, 201]
+    },
+    {
+      "label": "D1 단순 2개 동시",
+      "start": 2,
+      "statuses": [200, 500],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    },
+    {
+      "label": "D2 단순 2개 동시",
+      "start": 2,
+      "statuses": [200, 500],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    },
+    {
+      "label": "D3 단순 2개 동시",
+      "start": 2,
+      "statuses": [500, 200],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    },
+    {
+      "label": "C1 단순 8개 차례로",
+      "start": 2,
+      "statuses": [200, 500, 500, 500, 500, 500, 500, 500],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    },
+    {
+      "label": "C2 단순 8개 차례로",
+      "start": 2,
+      "statuses": [200, 500, 500, 500, 500, 500, 500, 500],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    },
+    {
+      "label": "C3 단순 8개 차례로",
+      "start": 2,
+      "statuses": [200, 500, 500, 500, 500, 500, 500, 500],
+      "end": 3,
+      "rejected": [
+        "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+      ],
+      "backend": {
+        "addedData": 1,
+        "addedMeta": 0,
+        "orphanData": 0,
+        "orphanMeta": 0,
+        "orphanMetaKinds": []
+      }
+    }
+  ],
+  "rows": [
+    {
+      "check": "0 사용자 JWT 발급",
+      "result": "200"
+    },
+    {
+      "check": "0 시험 파일",
+      "result": "JPEG 1726 bytes"
+    },
+    {
+      "check": "0 시작 객체·backend 파일",
+      "result": "객체 0개, backend 파일 19개(5차 TUS 기록 포함)"
+    },
+    {
+      "check": "A1 단순 8개 동시(시작 2개)",
+      "result": "응답 200×1, 500×7, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "A1 단순 8개 동시 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "A2 단순 8개 동시(시작 2개)",
+      "result": "응답 200×1, 500×7, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "A2 단순 8개 동시 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "A3 단순 8개 동시(시작 2개)",
+      "result": "응답 200×1, 500×7, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "A3 단순 8개 동시 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "B1 TUS 생성 4개 → 완료 4개 동시(시작 2개)",
+      "result": "응답 204×1, 500×3, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 4, 객체 없는 데이터 0·메타 3(json)"
+    },
+    {
+      "check": "B1 TUS 생성 4개 → 완료 4개 동시 거부 본문",
+      "result": "500 database error, code: P0001"
+    },
+    {
+      "check": "B2 TUS 생성 4개 → 완료 4개 동시(시작 2개)",
+      "result": "응답 204×1, 500×3, 최종 객체 3개(상한 3), backend 새 데이터 2·메타 4, 객체 없는 데이터 1·메타 3(json)"
+    },
+    {
+      "check": "B2 TUS 생성 4개 → 완료 4개 동시 거부 본문",
+      "result": "500 database error, code: P0001"
+    },
+    {
+      "check": "B3 TUS 생성 4개 → 완료 4개 동시(시작 2개)",
+      "result": "응답 204×1, 500×3, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 4, 객체 없는 데이터 0·메타 3(json)"
+    },
+    {
+      "check": "B3 TUS 생성 4개 → 완료 4개 동시 거부 본문",
+      "result": "500 database error, code: P0001"
+    },
+    {
+      "check": "D1 단순 2개 동시(시작 2개)",
+      "result": "응답 200×1, 500×1, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "D1 단순 2개 동시 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "D2 단순 2개 동시(시작 2개)",
+      "result": "응답 200×1, 500×1, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "D2 단순 2개 동시 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "D3 단순 2개 동시(시작 2개)",
+      "result": "응답 200×1, 500×1, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "D3 단순 2개 동시 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "C1 단순 8개 차례로(시작 2개)",
+      "result": "응답 200×1, 500×7, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "C1 단순 8개 차례로 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "C2 단순 8개 차례로(시작 2개)",
+      "result": "응답 200×1, 500×7, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "C2 단순 8개 차례로 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "C3 단순 8개 차례로(시작 2개)",
+      "result": "응답 200×1, 500×7, 최종 객체 3개(상한 3), backend 새 데이터 1·메타 0, 객체 없는 데이터 0·메타 0"
+    },
+    {
+      "check": "C3 단순 8개 차례로 거부 본문",
+      "result": "500 {\"statusCode\":\"500\",\"error\":\"DatabaseError\",\"message\":\"database error, code: P0001\",\"code\":\"DatabaseError\"}"
+    },
+    {
+      "check": "정리: 같은 JWT 로 폴더 비우기",
+      "result": "남은 객체 0개, backend 파일 32개"
+    }
+  ]
+}

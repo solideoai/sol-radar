@@ -64,3 +64,34 @@ environment {"AI_GATEWAY_URL":"http://172.20.0.1:8000","FIXTURES_DIR":"/srv/sol-
 volumes /srv/sol-radar/fixtures:ro, /srv/sol-radar/infra/sources:ro
 networks redis-existing → {"redis-existing":{"name":"redis_default","ipam":{},"external":true}}
 restart on-failure:3
+
+# ── 재검증: integration/release-1025 @7f1cbeca (통합 2차 보안 수정 d2755c66 포함, 2026-10-25) ──
+
+## pnpm verify (전체, 슬롯)
+ℹ tests 229
+ℹ pass 229
+ℹ fail 0
+ Test Files  72 passed (72)
+      Tests  593 passed (593)
+  2 rules passed, 0 errors, 0 warnings (367ms)
+✓ Compiled successfully in 1595ms
+All checks passed!
+======================= 153 passed, 1 warning in 51.42s ========================
+All checks passed!
+======================== 57 passed, 1 warning in 0.56s =========================
+exit 0
+
+## pnpm -C web test:browser
+ Test Files  7 passed (7)
+      Tests  60 passed (60)
+
+## node --test scripts/database.test.mjs
+ℹ tests 61
+ℹ pass 61
+ℹ fail 0
+
+## node scripts/verify-photo-quota-concurrency.mjs
+통과 — docs/evidence/integration/20261025-photo-quota-concurrency-v2.txt
+
+## 격리 E2E 7차
+18 passed (1.5m) — docs/evidence/integration/20261025-e2e/e2e-results.txt '10-25 7차' 절

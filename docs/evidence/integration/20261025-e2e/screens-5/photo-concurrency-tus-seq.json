@@ -1,0 +1,38 @@
+{
+  "api": "http://127.0.0.1:56321",
+  "user": "sales@soltech.invalid",
+  "seq": [
+    {
+      "start": 2,
+      "create": [201, 201, 201, 201],
+      "finish": [204, 403, 403, 403],
+      "end": 3
+    }
+  ],
+  "rows": [
+    {
+      "check": "0 사용자 JWT 발급",
+      "result": "200"
+    },
+    {
+      "check": "0 시험 파일",
+      "result": "JPEG 1726 bytes"
+    },
+    {
+      "check": "E TUS 세션 4개 생성(시작 2개)",
+      "result": "응답 [201,201,201,201]"
+    },
+    {
+      "check": "E TUS 완료 PATCH 4개 차례로",
+      "result": "응답 [204,403,403,403] = 204×1, 403×3, 최종 객체 3개(상한 3)"
+    },
+    {
+      "check": "E 완료 거부 본문",
+      "result": "403 new row violates row-level security policy"
+    },
+    {
+      "check": "정리: 같은 JWT 로 폴더 비우기",
+      "result": "남은 객체 0개"
+    }
+  ]
+}

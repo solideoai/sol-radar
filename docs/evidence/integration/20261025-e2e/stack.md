@@ -12,7 +12,7 @@ updated: 2026-10-25
 
 ## 코드
 
-- worktree: `sol-radar-worktrees/e2e-rh1025`(detached). 1차는 17c55609, 2차는 15c966c6, 3차는 466d2911, 4차는 04b4bf3a(integration/release-1025) 이다. 커밋하지 않는다.
+- worktree: `sol-radar-worktrees/e2e-rh1025`(detached). 1차는 17c55609, 2차는 15c966c6, 3차는 466d2911, 4차는 04b4bf3a, 7차는 7f1cbeca(integration/release-1025) 이다. 커밋하지 않는다.
 - 루트·`web` 모두 `pnpm install --frozen-lockfile`.
 
 ## 격리 Supabase(CLI)
@@ -55,7 +55,7 @@ updated: 2026-10-25
    - service role 은 로컬 status 값을 이 자식 env 로만 넘긴다. `run-env.mjs` 에는 넣지 않았다(웹 서버가 쓰지 않게).
    - 3차부터 worker 주소 확인은 override 기준이다(`127.0.0.1:56321` + `supabase-forward` 실행 중).
    - 사진까지 비우려면 이어서 `node <scratchpad>/rh1025/cleanup-photos.mjs` 를 돌린다. 쓰지 않는 `profile-photos` 객체를 Storage API 로 지운다.
-   - 격리 DB migration 은 10-25 4차 기준 20261025000200 까지다(58개).
+   - 격리 DB migration 은 10-25 7차 기준 20261025000310 까지다(60개).
 4. 웹: `SOL_DEPLOYMENT_ROLE=standalone node <scratchpad>/rh1025/run-env.mjs pnpm -C web start --hostname localhost --port 3210`
 
 이름 없이 `docker compose` 를 부르면 기본 `sol-radar-stack`(클라우드 대상)을 쓴다. 반드시 `-p sol-radar-rh1025` 를 붙인다.
