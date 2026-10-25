@@ -25,7 +25,10 @@ import {
   enqueueDocuments,
   loadFixtureManifest,
   loadSourceRegistry,
+  type IngestJobData,
   type IngestQuota,
+  type IngestRunResult,
+  type IngestionRepo,
   type JobQueue,
 } from "@/server/ingestion";
 import {
@@ -72,6 +75,11 @@ import {
   type ExternalIngestJobData,
   type RunMode,
 } from "@/worker/ingest-queue";
+import {
+  formatIngestSchedulers,
+  readIngestQueueStatus,
+  type StatusRedis,
+} from "@/worker/ingest-queue-status";
 import { QUOTA_REDIS_OPTIONS, createRedisQuotaStore } from "@/worker/quota-store";
 import { checkReadiness, createReadinessProbes } from "@/worker/readiness";
 import { SYSTEM_QUEUE, processSystemJob } from "@/worker/system-queue";
@@ -318,11 +326,14 @@ function externalScheduledJob(key: ExternalSourceKey): ExternalIngestJobData {
   return { ...common, source: "kepco", serviceKey: key };
 }
 
+// documentsQueue 가 null 이면(ingest 전용 worker) 첨부 job 을 넣지 않는다. 첨부 행은 ingest_save_revision 이
+// bid_documents 에 download_status=PENDING 으로 남기고, 소비자가 생기면 live 복구 회차가 그 행을 다시 찾아 넣는다.
 function ingestJobDepsOf(
   config: IngestConfig,
-  documentsQueue: JobQueue,
+  documentsQueue: JobQueue | null,
   quota: IngestQuota | null,
   externalQuotas: Map<ExternalSourceKey, IngestQuota>,
+  scheduledWindowCap?: IngestJobDeps["scheduledWindowCap"],
 ): IngestJobDeps {
   const admin = getSupabaseAdmin();
   const { g2b, fixturesDir } = config;
@@ -400,7 +411,10 @@ function ingestJobDepsOf(
         retry,
       });
     },
-    enqueueDocuments: (data) => enqueueDocuments(documentsQueue, data),
+    enqueueDocuments:
+      documentsQueue === null
+        ? async () => undefined
+        : (data) => enqueueDocuments(documentsQueue, data),
     recordManualAudit: createSupabaseIngestAudit(admin),
     now: () => new Date(),
     retry,
@@ -409,6 +423,7 @@ function ingestJobDepsOf(
       ...Array.from(config.external.values(), (value) => value.key),
     ],
     ...(quota === null ? {} : { quota }),
+    ...(scheduledWindowCap === undefined ? {} : { scheduledWindowCap }),
   };
 }
 
@@ -441,62 +456,181 @@ export const systemWorkerRegistration: WorkerRegistration = async () => async (c
   return { close: () => worker.close() };
 };
 
+export type IngestRegistrationOptions = {
+  /** documents 큐에 첨부 job 을 넣고 첨부 복구 회차를 돌린다(전체 worker). 끄면 첨부 행은 DB 에 PENDING 으로만 남는다 */
+  documents: boolean;
+  /** 정기 g2b 창의 상한(수집 주기의 배수). 없으면 상한 없음(전체 worker) */
+  scheduledWindowCapIntervals?: number;
+  /** 주면 기동 때 ingest 큐 Job Scheduler 목록과 창을 자른 회차를 이 함수로 남긴다(키 값 없음) */
+  log?: (line: string) => void;
+};
+
+// 기동 로그용이라 읽기에 실패해도 기동은 계속한다. 오류 이름·코드만 남긴다.
+async function logIngestSchedulers(redis: StatusRedis, log: (line: string) => void) {
+  try {
+    const { schedulers } = await readIngestQueueStatus(redis);
+    for (const line of formatIngestSchedulers(schedulers)) log(line);
+  } catch (error) {
+    const code = errorCode(error);
+    log(
+      `ingest 큐 Job Scheduler 목록을 읽지 못했다: ${errorNameOf(error)}${code ? ` ${code}` : ""}`,
+    );
+  }
+}
+
 // 1단계에서 실행 모드·간격·registry·서비스키를 읽는다. 틀리면 Redis 연결을 만들기 전에 기동을 멈춘다.
-export const ingestWorkerRegistration: WorkerRegistration = async (rawEnv) => {
+export const createIngestWorkerRegistration =
+  (options: IngestRegistrationOptions): WorkerRegistration =>
+  async (rawEnv) => {
+    const config = await readIngestConfig(rawEnv);
+    const { log, scheduledWindowCapIntervals } = options;
+    const scheduledWindowCap =
+      scheduledWindowCapIntervals === undefined
+        ? undefined
+        : {
+            maxMs: config.intervalMinutes * scheduledWindowCapIntervals * 60_000,
+            log: log ?? (() => undefined),
+          };
+    return async (connection) => {
+      const quotaParts = config.g2b === null ? null : createIngestQuota(connection, config.g2b);
+      const closeQuota: Closable = quotaParts?.close ?? { close: async () => undefined };
+      const externalQuotaConnection =
+        config.external.size > 0 ? connection.duplicate(QUOTA_REDIS_OPTIONS) : null;
+      const externalQuotas = new Map<ExternalSourceKey, IngestQuota>();
+      if (externalQuotaConnection !== null)
+        for (const [key, source] of config.external)
+          externalQuotas.set(key, {
+            serviceId: EXTERNAL_SERVICES[key].serviceId,
+            dailyLimit: source.dailyLimit,
+            store: createRedisQuotaStore(externalQuotaConnection, {
+              dailyLimit: source.dailyLimit,
+            }),
+          });
+      const closeExternalQuota: Closable = {
+        close: async () => {
+          externalQuotaConnection?.disconnect();
+        },
+      };
+      const documentsQueue = options.documents ? new Queue(DOCUMENTS_QUEUE, { connection }) : null;
+      if (documentsQueue !== null) logErrors(documentsQueue, "documents queue");
+      const closeDocuments: Closable = { close: async () => documentsQueue?.close() };
+      try {
+        const ingest = await createIngestWorker(
+          connection,
+          ingestJobDepsOf(
+            config,
+            documentsQueue,
+            quotaParts?.quota ?? null,
+            externalQuotas,
+            scheduledWindowCap,
+          ),
+          config.intervalMinutes,
+        );
+        const documents =
+          documentsQueue === null
+            ? null
+            : startDocumentsReconciler({
+                finder: createPendingDocumentFinder(getSupabaseAdmin()),
+                queue: documentsQueue,
+                // C6': mock·fixture 는 데모 공고만, live 는 실제 공고만 복구한다
+                isDemo: config.runMode !== "live",
+                log: (line) => {
+                  console.log(line);
+                },
+              });
+        if (log !== undefined) await logIngestSchedulers(connection, log);
+        // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐 → 예산 카운터 연결.
+        return {
+          close: () =>
+            closeAll([
+              closeQuota,
+              closeExternalQuota,
+              closeDocuments,
+              ingest,
+              ...(documents === null ? [] : [{ close: () => documents.stop() }]),
+            ]),
+        };
+      } catch (error) {
+        await closeQuietly([closeQuota, closeExternalQuota, closeDocuments]);
+        throw error;
+      }
+    };
+  };
+
+/** 전체 worker 의 ingest 등록. 첨부 job·복구 회차를 돌리고 정기 창에 상한이 없다 */
+export const ingestWorkerRegistration: WorkerRegistration = createIngestWorkerRegistration({
+  documents: true,
+});
+
+/** 1회 수집 결과. quotaUsed 는 이 run 의 ingest_runs.quota_used(이어 간 run 이면 앞 시도 포함), 모르면 null */
+export type IngestOnceResult = IngestRunResult & { quotaUsed: number | null };
+
+/**
+ * 일정을 만들지 않고 이 프로세스에서 g2b 수집을 1회 돈다(ingest 전용 worker 의 --once). live 에서만 쓴다.
+ * 호출 예산은 정기 수집과 같은 Redis 카운터(F08 예약)를 쓰고, 첨부 job 은 넣지 않는다.
+ */
+export async function runG2bIngestOnce(
+  rawEnv: Env,
+  connection: IORedis,
+  data: IngestJobData,
+): Promise<IngestOnceResult> {
   const config = await readIngestConfig(rawEnv);
-  return async (connection) => {
-    const quotaParts = config.g2b === null ? null : createIngestQuota(connection, config.g2b);
-    const closeQuota: Closable = quotaParts?.close ?? { close: async () => undefined };
-    const externalQuotaConnection =
-      config.external.size > 0 ? connection.duplicate(QUOTA_REDIS_OPTIONS) : null;
-    const externalQuotas = new Map<ExternalSourceKey, IngestQuota>();
-    if (externalQuotaConnection !== null)
-      for (const [key, source] of config.external)
-        externalQuotas.set(key, {
-          serviceId: EXTERNAL_SERVICES[key].serviceId,
-          dailyLimit: source.dailyLimit,
-          store: createRedisQuotaStore(externalQuotaConnection, { dailyLimit: source.dailyLimit }),
-        });
-    const closeExternalQuota: Closable = {
-      close: async () => {
-        externalQuotaConnection?.disconnect();
+  if (config.g2b === null) throw new Error("g2b 1회 수집은 SOL_RUN_MODE=live 에서만 한다");
+  const quotaParts = createIngestQuota(connection, config.g2b);
+  try {
+    const deps = ingestJobDepsOf(config, null, quotaParts.quota, new Map());
+    let quotaUsed: number | null = null;
+    const track = (value: number | undefined) => {
+      if (value !== undefined) quotaUsed = value;
+    };
+    const repo: IngestionRepo = {
+      ...deps.repo,
+      startRun: async (input) => {
+        const started = await deps.repo.startRun(input);
+        track(started.quotaUsed);
+        return started;
+      },
+      saveCheckpoint: async (runId, checkpoint) => {
+        track(checkpoint.quotaUsed);
+        await deps.repo.saveCheckpoint(runId, checkpoint);
+      },
+      finishRun: async (runId, result) => {
+        track(result.quotaUsed);
+        await deps.repo.finishRun(runId, result);
       },
     };
-    const documentsQueue = new Queue(DOCUMENTS_QUEUE, { connection });
-    logErrors(documentsQueue, "documents queue");
-    const closeDocuments: Closable = { close: () => documentsQueue.close() };
-    try {
-      const ingest = await createIngestWorker(
-        connection,
-        ingestJobDepsOf(config, documentsQueue, quotaParts?.quota ?? null, externalQuotas),
-        config.intervalMinutes,
-      );
-      const documents = startDocumentsReconciler({
-        finder: createPendingDocumentFinder(getSupabaseAdmin()),
-        queue: documentsQueue,
-        // C6': mock·fixture 는 데모 공고만, live 는 실제 공고만 복구한다
-        isDemo: config.runMode !== "live",
-        log: (line) => {
-          console.log(line);
-        },
-      });
-      // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐 → 예산 카운터 연결.
-      return {
-        close: () =>
-          closeAll([
-            closeQuota,
-            closeExternalQuota,
-            closeDocuments,
-            ingest,
-            { close: () => documents.stop() },
-          ]),
-      };
-    } catch (error) {
-      await closeQuietly([closeQuota, closeExternalQuota, closeDocuments]);
-      throw error;
-    }
+    const result = await processIngestJob(data, { ...deps, repo });
+    return { ...result, quotaUsed };
+  } finally {
+    await quotaParts.close.close();
+  }
+}
+
+/** --check 용. 기동 1단계(registry·서비스키 env 이름·간격)를 돌려 해석한 소스 이름만 돌려준다. Redis·외부 API 는 부르지 않는다 */
+export async function describeIngestConfig(rawEnv: Env): Promise<{
+  intervalMinutes: number;
+  registryFile: string;
+  g2bSources: string[];
+  externalSources: string[];
+}> {
+  const registryFile = registryFileOf(rawEnv);
+  const config = await readIngestConfig(rawEnv).catch((error: unknown) => {
+    const code = errorCode(error);
+    // 파일을 못 읽은 경우는 경로와 코드만 싣는다(내용·env 값 없음).
+    if (code === "ENOENT" || code === "EACCES" || code === "EISDIR")
+      throw new Error(`수집 소스 registry 를 읽을 수 없다: ${registryFile} (${code})`);
+    throw error;
+  });
+  return {
+    intervalMinutes: config.intervalMinutes,
+    registryFile,
+    g2bSources:
+      config.g2b === null
+        ? []
+        : [G2B_BID_NOTICE_SOURCE, ...G2B_AUX_OPERATIONS.map(({ registryKey }) => registryKey)],
+    externalSources: Array.from(config.external.keys()),
   };
-};
+}
 
 // 1단계에서 복구 주기·gateway·실행 모드를 읽는다(오류는 키 이름만 싣는다). 틀리면 Redis 연결을 만들기 전에 기동을 멈춘다.
 // 2단계의 runtime 은 공유 연결을 duplicate 한 자기 연결을 쓰고 close 때 그것만 끊는다. 공유 연결은 기본 createWorker 가 끊는다.
@@ -641,11 +775,15 @@ export async function startRegistered(
   return { close: () => closeAll(started) };
 }
 
-export const defaultWorkerDeps: WorkerDeps = {
-  checkReadiness: checkReadinessWithCodes,
-  createWorker: async (env, rawEnv) => {
+/**
+ * 등록 목록으로 createWorker 를 만든다. 전체 worker(main.ts)와 ingest 전용 worker(ingest-only-main.ts)가 같이 쓴다.
+ * 모든 등록이 Redis 연결 하나를 같이 쓰고, close 때 그 연결을 끊는다.
+ */
+export const createRegisteredWorker =
+  (registrations: readonly WorkerRegistration[]): WorkerDeps["createWorker"] =>
+  async (env, rawEnv) => {
     // 1단계: 모든 등록의 설정 검증이 통과해야 Redis 에 연결한다.
-    const starts = await Promise.all(WORKER_REGISTRATIONS.map((register) => register(rawEnv)));
+    const starts = await Promise.all(registrations.map((register) => register(rawEnv)));
     const connection = new IORedis(env.redisUrl, { maxRetriesPerRequest: null });
     try {
       const workers = await startRegistered(connection, starts);
@@ -663,7 +801,11 @@ export const defaultWorkerDeps: WorkerDeps = {
       connection.disconnect();
       throw error;
     }
-  },
+  };
+
+export const defaultWorkerDeps: WorkerDeps = {
+  checkReadiness: checkReadinessWithCodes,
+  createWorker: createRegisteredWorker(WORKER_REGISTRATIONS),
   startHeartbeat: (file) => startHeartbeat(file),
 };
 
