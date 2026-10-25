@@ -16,6 +16,10 @@ import { reviewSchema } from "./review.model";
 // 화면은 itemId 경로 조회 함수로만 읽는다.
 export const bidDetailSchema = bidListItemSchema.omit({ latestAnalysis: true }).extend({
   content: z.string(),
+  // 공고기관(G2B ntceInsttNm). 원본 응답에 있을 때만 싣는다. agency 는 수요기관(dminsttNm)이다.
+  noticeAgency: z.string().nullable(),
+  // 저장된 sourceUrl 의 종류. SERVICE_DOCUMENTATION 은 공공데이터 서비스 안내 페이지라 원본 공고가 아니다(external-normalize).
+  sourceUrlKind: z.enum(["NOTICE", "SERVICE_DOCUMENTATION"]),
   original: bidOriginalSchema,
   revisions: z.array(bidRevisionSummarySchema),
   documents: z.array(bidDocumentSchema),

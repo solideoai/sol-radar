@@ -1,8 +1,8 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { currentRunMode } from "@/app/_lib/run-mode";
+import { currentDefaultOrigin, currentRunMode } from "@/app/_lib/run-mode";
 import { completionPath, organizationStatePath } from "@/app/auth/employment-routing";
-import type { RunMode } from "@/server/bids";
+import type { BidListOrigin, RunMode } from "@/server/bids";
 import { getMyBusinessAccess, type CurrentOrg, type SolRole } from "@/server/organization";
 import { getMyProfile } from "@/server/profile";
 
@@ -11,6 +11,8 @@ export type WorkContext = {
   userId: string;
   role: SolRole;
   runMode: RunMode;
+  // 화면의 기본 데이터 출처(SOL_DEFAULT_ORIGIN, 없으면 실행 모드로 정한다). 실행 모드 라벨과 따로다.
+  defaultOrigin: BidListOrigin;
   org: CurrentOrg;
 };
 
@@ -32,13 +34,16 @@ export async function requireWork(next: string): Promise<WorkContext> {
     case "multiple-orgs":
     case "forbidden":
       redirect(organizationStatePath(next));
-    case "ready":
+    case "ready": {
+      const runMode = currentRunMode();
       return {
         orgId: business.current.id,
         userId: business.userId,
         role: business.current.solRole,
-        runMode: currentRunMode(),
+        runMode,
+        defaultOrigin: currentDefaultOrigin(runMode),
         org: business.current,
       };
+    }
   }
 }

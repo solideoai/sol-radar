@@ -15,7 +15,7 @@ describe("사업기회 검색 경계", () => {
     expect(r.value.sortExplicit).toBe(true);
     const p = new URLSearchParams(serializeOpportunityQuery(r.value));
     expect(p.getAll("sourceFamily")).toEqual(["LH", "KEPCO"]);
-    expect(parseOpportunityQuery({ stage: "PLAN" }, "mock").ok).toBe(false);
+    expect(parseOpportunityQuery({ stage: "PLAN" }, "demo").ok).toBe(false);
     const blank = parseOpportunityQuery({ q: "   " }, "live");
     expect(blank.ok && blank.value.q).toBe(null);
   });
@@ -43,7 +43,7 @@ describe("사업기회 검색 경계", () => {
 
 describe("본인 관심 사업기회 범위", () => {
   it("관심 조건을 URL에 보존하고 다른 사용자의 커서를 거부한다", () => {
-    const parsed = parseOpportunityQuery({ watched: "me", sourceFamily: "LH" }, "mock");
+    const parsed = parseOpportunityQuery({ watched: "me", sourceFamily: "LH" }, "demo");
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(new URLSearchParams(serializeOpportunityQuery(parsed.value)).get("watched")).toBe("me");
@@ -64,6 +64,6 @@ describe("본인 관심 사업기회 범위", () => {
     expect(
       verifyOpportunityCursor(signed, fingerprint("org", parsed.value, "user-b"), key, now),
     ).toBeNull();
-    expect(parseOpportunityQuery({ watched: "other-user" }, "mock").ok).toBe(false);
+    expect(parseOpportunityQuery({ watched: "other-user" }, "demo").ok).toBe(false);
   });
 });

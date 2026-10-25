@@ -43,6 +43,8 @@ export type BidDetailParts = {
   notice: BidDetailNotice;
   revisions: BidRevisionSummary[];
   latestRevisionBody: unknown;
+  // 최신 revision 원본(raw_payload)의 공고기관 이름. 원본에 없으면 null 이다.
+  noticeAgency: string | null;
   documents: BidDocument[];
   structured: StructuredRequirement[];
   extraction: { id: string; status: string; result: unknown } | null;
@@ -54,7 +56,15 @@ export type BidDetailParts = {
 const revisionBodySchema = z.looseObject({
   content: z.string(),
   original: bidOriginalSchema,
+  // 외부 계열만 싣는다. 뷰 opportunity_list_items 의 urlKind 와 같은 규칙으로 읽는다.
+  sourceMetadata: z.looseObject({ sourceUrlKind: z.unknown().optional() }).optional(),
 });
+
+// 공백만 있는 원본 값은 없는 값으로 본다. 연속 공백은 하나로 줄인다(정규화의 기관명 규칙과 같다).
+const nonblank = (value: string | null): string | null => {
+  const text = value?.replace(/\s+/g, " ").trim();
+  return text ? text : null;
+};
 
 // 뷰는 모든 열이 null 허용으로 생성된다. 스키마가 필수 열의 null 을 거른다.
 function listItemFields(row: BidListItemRow) {
@@ -123,6 +133,11 @@ export function toBidDetail(parts: BidDetailParts): BidDetail {
     ...listItemFields(notice),
     status,
     content: body.content,
+    noticeAgency: nonblank(parts.noticeAgency),
+    sourceUrlKind:
+      body.sourceMetadata?.sourceUrlKind === "SERVICE_DOCUMENTATION"
+        ? "SERVICE_DOCUMENTATION"
+        : "NOTICE",
     original: body.original,
     revisions: parts.revisions,
     documents: parts.documents,

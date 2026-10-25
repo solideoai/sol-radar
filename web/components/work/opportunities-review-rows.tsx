@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatKrwCompact, formatKstShort } from "@/components/bids/format";
 import { SourceBadge } from "@/components/bids/source-badge";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
+import { isUnverifiedOrigin } from "@/components/bids/notice-origin";
 import { OPPORTUNITY_STAGES, opportunityHref } from "@/components/work/opportunities-copy";
 import { OpportunitySourcesDialog } from "@/components/work/opportunities-sources-dialog";
 import { OpportunityConflictNotice } from "@/components/work/opportunities-conflict-notice";
@@ -29,6 +30,11 @@ export function OpportunityReviewRows({
           </div>
           <div className="flex min-w-0 flex-col items-start gap-1">
             {item.isDemo && <DemoBadge dense />}
+            {isUnverifiedOrigin(item) && (
+              <span data-part="unverified-origin" className="type-caption text-warning">
+                출처 미확인
+              </span>
+            )}
             {item.sourceConflict && <OpportunityConflictNotice />}
             <Link
               href={opportunityHref(item.bidId, query)}

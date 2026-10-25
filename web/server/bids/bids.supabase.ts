@@ -70,7 +70,13 @@ function decisionFilter(decisions: BidListQuery["decision"]): string {
 function filteredBids(db: Db, query: BidListQuery, countOnly?: { count: "exact"; head: true }) {
   const source = query.watched === "me" ? "watched_bid_list_items" : "bid_list_items";
   const base = db.from(source).select("*", countOnly).in("status", query.status);
-  const byOrigin = query.origin === "all" ? base : base.eq("is_demo", query.origin === "demo");
+  // live 는 저장된 source 가 데모 수집기(fixture)가 아닌 것만이다(출처 미확인 행은 실제 공고로 세지 않는다).
+  const byOrigin =
+    query.origin === "all"
+      ? base
+      : query.origin === "demo"
+        ? base.eq("is_demo", true)
+        : base.eq("is_demo", false).neq("source", "fixture");
   const byStage = query.stage.length === 0 ? byOrigin : byOrigin.in("stage", query.stage);
   const byText = query.q === null ? byStage : byStage.or(searchFilter(query.q));
   const byFrom =
@@ -265,7 +271,12 @@ function pickExtraction(
 // 최신 revision 한 건에 딸린 본문·첨부·구조화 자격·추출.
 async function readRevisionParts(db: Db, bidId: string, revisionId: string) {
   const [body, documents, structured, extractions] = await Promise.all([
-    db.from("bid_revisions").select("normalized").eq("id", revisionId).single(),
+    // 원본 전체는 읽지 않는다. 공고기관 이름 한 칸만 DB 에서 꺼낸다(담당자 정보 등이 앱으로 오지 않게).
+    db
+      .from("bid_revisions")
+      .select("normalized, notice_agency:raw_payload->>ntceInsttNm")
+      .eq("id", revisionId)
+      .single(),
     db
       .from("bid_documents")
       .select(DOCUMENT_COLUMNS)
@@ -293,6 +304,7 @@ async function readRevisionParts(db: Db, bidId: string, revisionId: string) {
   if (extractions.error) throw extractions.error;
   return {
     latestRevisionBody: body.data.normalized,
+    noticeAgency: body.data.notice_agency,
     documents: documents.data.map(toDocument),
     structured: structured.data.map(toStructured),
     extraction: pickExtraction(extractions.data),

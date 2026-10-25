@@ -25,7 +25,7 @@ export function BidListView({
   watchedIds,
   empty: emptyOverride,
 }: {
-  defaultOrigin: "live" | "demo";
+  defaultOrigin: "live" | "demo" | "all";
   items: OpportunityItem[];
   nextCursor: string | null;
   total: number;

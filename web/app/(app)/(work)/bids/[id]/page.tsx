@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { loadOpportunityChangedAt } from "@/app/_lib/opportunity-data";
 import { projectDeps } from "@/app/_lib/project-deps";
 import { getProjectEntry } from "@/server/projects";
 import { workDeps } from "@/app/_lib/work-deps";
@@ -40,22 +41,28 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
   if (!isUuid(id)) notFound();
 
   const deps = workDeps();
-  const [detail, history, membersPage, watch, projectEntry, relatedStages] = await Promise.all([
-    getBid(work.orgId, id, { repo: deps.bids }),
-    listBidAnalyses(work.orgId, id, { cursor: null, limit: HISTORY_LIMIT }, deps.cursorSecret, {
-      repo: deps.bids,
-    }),
-    getMembersPage({ org: work.org, userId: work.userId }),
-    getWatchSummary({ orgId: work.orgId, userId: work.userId }, id).catch(() => {
-      console.error(JSON.stringify({ event: "bid_detail_watch_failed", bidId: id }));
-      return null;
-    }),
-    getProjectEntry(work, id, projectDeps()),
-    getStageLinks(id, { repo: stageLinksRepo }).catch(() => {
-      console.error(JSON.stringify({ event: "bid_detail_stage_links_failed", bidId: id }));
-      return null;
-    }),
-  ]);
+  const [detail, history, membersPage, watch, projectEntry, relatedStages, changedAt] =
+    await Promise.all([
+      getBid(work.orgId, id, { repo: deps.bids }),
+      listBidAnalyses(work.orgId, id, { cursor: null, limit: HISTORY_LIMIT }, deps.cursorSecret, {
+        repo: deps.bids,
+      }),
+      getMembersPage({ org: work.org, userId: work.userId }),
+      getWatchSummary({ orgId: work.orgId, userId: work.userId }, id).catch(() => {
+        console.error(JSON.stringify({ event: "bid_detail_watch_failed", bidId: id }));
+        return null;
+      }),
+      getProjectEntry(work, id, projectDeps()),
+      getStageLinks(id, { repo: stageLinksRepo }).catch(() => {
+        console.error(JSON.stringify({ event: "bid_detail_stage_links_failed", bidId: id }));
+        return null;
+      }),
+      // "마지막 변경"은 요약 줄의 보조 값이다. 읽지 못하면 그 칸만 빼고 화면은 그린다.
+      loadOpportunityChangedAt(work.orgId, id).catch(() => {
+        console.error(JSON.stringify({ event: "bid_detail_changed_at_failed", bidId: id }));
+        return null;
+      }),
+    ]);
   if (!detail.ok) {
     if (detail.status === 404) notFound();
     // 예상한 실패도 화면에서는 읽기 실패라 오류 경계(error.tsx)로 던진다. message 는 서비스의 한국어 문장이다.
@@ -101,10 +108,11 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       currentUserId={work.userId}
       canAnalyze={canRequestAnalysis(work.role)}
       canDecide={canRecordReview(work.role)}
-      backHref={backHrefOf((await searchParams).list, work.runMode)}
+      backHref={backHrefOf((await searchParams).list, work.defaultOrigin)}
       now={new Date().toISOString()}
       watch={watch}
       projectEntry={projectEntry.ok ? projectEntry.data : null}
+      changedAt={changedAt}
     />
   );
 }
@@ -116,6 +124,8 @@ const toDetailBid = (detail: BidDetail): DetailBid => ({
   noticeId: detail.noticeId,
   title: detail.title,
   agency: detail.agency,
+  noticeAgency: detail.noticeAgency,
+  sourceUrlKind: detail.sourceUrlKind,
   stage: detail.stage,
   status: detail.status,
   budgetKrw: detail.budgetKrw,

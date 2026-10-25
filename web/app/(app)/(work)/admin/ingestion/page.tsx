@@ -33,10 +33,7 @@ export default async function IngestionPage({ searchParams }: PageProps<"/admin/
   );
   // 예상한 실패(커서 비밀 없음 503 등)도 화면에서는 읽기 실패라 오류 경계(error.tsx)로 던진다.
   if (!result.ok) throw new Error(result.message);
-  const sources = await loadSourceSummary(
-    await getOpportunityClient(),
-    work.runMode === "live" ? "live" : "demo",
-  );
+  const sources = await loadSourceSummary(await getOpportunityClient(), work.defaultOrigin);
   return (
     <IngestionView
       runMode={work.runMode}

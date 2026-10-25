@@ -1,7 +1,7 @@
 import { cn } from "cn";
 import { CircleDashedIcon } from "lucide-react";
 import Link from "next/link";
-import { formatKrwCompact } from "@/components/bids/format";
+import { formatKrwCompact, formatKst } from "@/components/bids/format";
 import { StatusBadge } from "@/components/bids/status-badge";
 import { StatCard } from "@/components/stat-card";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,7 +15,12 @@ import {
 } from "@/components/ui/card";
 import { OpportunityReviewRows } from "@/components/work/opportunities-review-rows";
 import { OpportunitySourceStatus } from "@/components/work/opportunities-source-status";
-import type { OpportunityItem, OpportunitySummary, SourceSummary } from "@/server/opportunities";
+import type {
+  OpportunityItem,
+  OpportunityLiveMetrics,
+  OpportunitySummary,
+  SourceSummary,
+} from "@/server/opportunities";
 import { NoBidsEmptyState } from "@/app/(app)/(work)/empty-state";
 import { DashboardAiBanner } from "./dashboard-ai-banner";
 
@@ -115,8 +120,144 @@ function Portfolio({ summary }: { summary: OpportunitySummary }) {
   );
 }
 
+/** 다음 정기 수집 예정. at 은 마지막 정기 수집 + 주기(없으면 null), failed 는 정기 수집 시각 조회 실패다 */
+export type NextIngest = { at: string | null; failed: boolean };
+
+// "2026-10-25 14:05" → 값 칸에는 시각, 보조 줄에는 날짜·KST. 좁은 카드에서 값이 꺾이지 않게 나눈다.
+function kstParts(iso: string): { time: string; day: string } {
+  const [day = "—", time = "—"] = formatKst(iso).split(" ");
+  return { time, day };
+}
+
+const latestOf = (values: (string | null)[]): string | null =>
+  values
+    .filter((value): value is string => value !== null && !Number.isNaN(Date.parse(value)))
+    .sort((a, b) => Date.parse(a) - Date.parse(b))
+    .at(-1) ?? null;
+
+function TimeStat({
+  label,
+  at,
+  empty,
+  suffix,
+  late,
+}: {
+  label: string;
+  at: string | null;
+  empty: string;
+  suffix?: string;
+  late?: string;
+}) {
+  if (at === null)
+    return <StatCard label={label} value="—" hint={empty} className="min-w-0 shadow-none" />;
+  const { time, day } = kstParts(at);
+  return (
+    <StatCard
+      label={label}
+      value={time}
+      hint={
+        <>
+          <time dateTime={at}>
+            {day} KST{suffix}
+          </time>
+          {late !== undefined && <span className="block text-warning">{late}</span>}
+        </>
+      }
+      className="min-w-0 shadow-none"
+    />
+  );
+}
+
+function TopAgencies({ metrics, wide }: { metrics: OpportunityLiveMetrics | null; wide: boolean }) {
+  return (
+    <Card size="sm" className={cn("min-w-0 shadow-none", wide && "col-span-2")}>
+      <CardContent className="flex flex-col gap-2">
+        <p className="type-label text-muted-foreground">기관별 공고 수</p>
+        {metrics === null ? (
+          <p className="type-caption text-muted-foreground">지표 조회 실패</p>
+        ) : metrics.topAgencies.length === 0 ? (
+          <p className="type-caption text-muted-foreground">기관이 확인된 입찰공고 없음</p>
+        ) : (
+          <ol aria-label="기관별 입찰공고 수 상위" className="flex flex-col gap-1">
+            {metrics.topAgencies.map((agency) => (
+              <li
+                key={agency.name}
+                className="flex items-baseline justify-between gap-2 type-caption"
+              >
+                <span className="min-w-0 truncate" title={agency.name}>
+                  {agency.name}
+                </span>
+                <span className="shrink-0 tabular-nums">{count(agency.count)}건</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// 10-25 실수집 계획 B3. 값은 서버가 센다(procurement_summary·procurement_live_metrics·수집 소스 상태).
+// 출처는 화면이 고른 origin 과 같다. live 는 실제 수집 출처의 공고만 센다(출처 미확인 제외).
+function IngestMetrics({
+  summary,
+  metrics,
+  sources,
+  nextIngest,
+  now,
+}: {
+  summary: OpportunitySummary;
+  metrics: OpportunityLiveMetrics | null;
+  sources: SourceSummary | null;
+  nextIngest: NextIngest | null;
+  now: Date;
+}) {
+  const lastSuccess = latestOf(sources?.groups.map((group) => group.lastSuccessAt) ?? []);
+  const nextAt = nextIngest?.at ?? null;
+  return (
+    <section
+      aria-label="수집 지표"
+      className="grid grid-cols-5 gap-4 [&_p]:wrap-anywhere [&_.type-label]:min-h-12"
+    >
+      <StatCard
+        label="전체 수집 공고"
+        value={count(summary.totalOpportunities)}
+        hint="입찰공고 · 출처 사본은 1건"
+        className="min-w-0 shadow-none"
+      />
+      <StatCard
+        label="진행 중 WATCH"
+        value={metrics === null ? "—" : count(metrics.activeWatch)}
+        hint={metrics === null ? "지표 조회 실패" : "현재 유효 분석 · 진행 중"}
+        className="min-w-0 shadow-none"
+      />
+      <TimeStat
+        label="마지막 수집 성공"
+        at={lastSuccess}
+        empty={sources === null ? "수집 현황 조회 실패" : "성공 기록 없음"}
+      />
+      {nextIngest !== null && (
+        <TimeStat
+          label="다음 수집 예정"
+          at={nextAt}
+          empty={nextIngest.failed ? "조회 실패" : "정기 수집 기록 없음"}
+          suffix=" · 예정"
+          late={
+            nextAt !== null && Date.parse(nextAt) < now.getTime()
+              ? "예정 시각 지남 · 수집 확인 필요"
+              : undefined
+          }
+        />
+      )}
+      <TopAgencies metrics={metrics} wide={nextIngest === null} />
+    </section>
+  );
+}
+
 export function DashboardView({
   summary,
+  metrics,
+  nextIngest,
   activeProjects,
   review,
   early,
@@ -127,6 +268,10 @@ export function DashboardView({
   canRunIngestion,
 }: {
   summary: OpportunitySummary;
+  /** 실수집 지표. null 은 조회 실패다 */
+  metrics: OpportunityLiveMetrics | null;
+  /** 다음 수집 예정. null 은 수집 주기를 몰라(G2B_INGEST_INTERVAL_MINUTES 없음) 카드를 숨긴다 */
+  nextIngest: NextIngest | null;
   activeProjects: number | null;
   review: OpportunityItem[] | null;
   early: OpportunityItem[] | null;
@@ -141,6 +286,11 @@ export function DashboardView({
       <DashboardAiBanner />
       {summary.isDemo && (
         <p className="type-caption text-muted-foreground">DEMO · 예시 공고 기준</p>
+      )}
+      {summary.origin === "all" && (
+        <p className="type-caption text-muted-foreground">
+          전체 출처 · DEMO 예시 공고와 출처 미확인 공고 포함
+        </p>
       )}
       <section
         aria-label="공공조달 요약"
@@ -185,6 +335,13 @@ export function DashboardView({
           className="min-w-0 shadow-none"
         />
       </section>
+      <IngestMetrics
+        summary={summary}
+        metrics={metrics}
+        sources={sources}
+        nextIngest={nextIngest}
+        now={now}
+      />
       {summary.potentialDuplicateCount > 0 && (
         <p className="type-caption text-warning">
           중복 후보 {count(summary.potentialDuplicateCount)}건은 별도 사업기회로 집계됩니다.

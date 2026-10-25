@@ -3111,6 +3111,14 @@ export type Database = {
         Args: { p_origin: string }
         Returns: Json
       }
+      procurement_last_scheduled_ingest: {
+        Args: { p_origin: string }
+        Returns: string
+      }
+      procurement_live_metrics: {
+        Args: { p_agency_limit?: number; p_as_of?: string; p_org_id: string; p_origin: string }
+        Returns: Json
+      }
       procurement_missing_relevance_revisions: {
         Args: { p_limit?: number }
         Returns: { bid_id: string; normalized: Json; raw_payload: Json; revision_id: string }[]

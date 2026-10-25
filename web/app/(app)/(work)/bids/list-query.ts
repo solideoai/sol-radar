@@ -4,13 +4,13 @@ import {
   serializeOpportunityQuery,
   type OpportunityQuery,
 } from "@/server/opportunities";
-import type { RunMode } from "@/server/bids";
+import type { BidListOrigin } from "@/server/bids";
 
 type Raw = Readonly<Record<string, string | string[] | undefined>>;
 
 export function listQueryOf(
   raw: Raw,
-  runMode: RunMode,
+  fallbackOrigin: BidListOrigin,
 ): { query: OpportunityQuery; search: string; notice: string | null } {
   const values: Record<string, string | string[] | undefined> = {
     ...raw,
@@ -20,7 +20,7 @@ export function listQueryOf(
   let notice: string | null = null;
   const attempts = Object.keys(values).length + 2;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const parsed = parseOpportunityQuery(values, runMode);
+    const parsed = parseOpportunityQuery(values, fallbackOrigin);
     if (parsed.ok) {
       const params = new URLSearchParams(serializeOpportunityQuery(parsed.value));
       params.delete("cursor");
@@ -37,7 +37,7 @@ export function listQueryOf(
       values.includeEarly = "true";
     else for (const key of keys) delete values[key];
   }
-  const fallback = parseOpportunityQuery({}, runMode);
+  const fallback = parseOpportunityQuery({}, fallbackOrigin);
   if (!fallback.ok) throw new Error("기본 목록 조건을 만들지 못했습니다");
   return { query: fallback.value, search: "", notice };
 }

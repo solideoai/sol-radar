@@ -83,7 +83,14 @@ function excerptOf(content: string, ref: EvidenceRef) {
   };
 }
 
-type DrawerProps = { content: string | null; sourceUrl: string; documents: BidDocument[] };
+// sourceLabel 은 저장된 sourceUrl 의 종류에 맞춘 링크 글자다. 서비스 안내 페이지를 "원문"이라 부르지 않는다(notice-origin).
+type DrawerProps = {
+  content: string | null;
+  sourceUrl: string;
+  documents: BidDocument[];
+  sourceLabel?: string;
+};
+const SOURCE_LABEL = "원문 보기";
 
 function EvidenceItem({
   evidenceRef,
@@ -123,7 +130,12 @@ function EvidenceItem({
   );
 }
 
-function EvidenceDrawer({ content, sourceUrl, documents }: DrawerProps) {
+function EvidenceDrawer({
+  content,
+  sourceUrl,
+  documents,
+  sourceLabel = SOURCE_LABEL,
+}: DrawerProps) {
   const open = useEvidenceStore((state) => state.open);
   const context = useEvidenceStore((state) => state.context);
   const close = useEvidenceStore((state) => state.close);
@@ -154,7 +166,7 @@ function EvidenceDrawer({ content, sourceUrl, documents }: DrawerProps) {
             href={sourceUrl}
             className={cn(buttonVariants({ variant: "link", size: "sm" }), "self-start")}
           >
-            원문 보기
+            {sourceLabel}
           </SourceLink>
         </div>
       </SheetContent>
@@ -231,7 +243,15 @@ function AttachmentBadge({
   );
 }
 
-function AttachmentRow({ doc, sourceUrl }: { doc: BidDocument; sourceUrl: string }) {
+function AttachmentRow({
+  doc,
+  sourceUrl,
+  sourceLabel,
+}: {
+  doc: BidDocument;
+  sourceUrl: string;
+  sourceLabel: string;
+}) {
   const meta = [doc.format, doc.pageCount === null ? null : `${doc.pageCount}쪽`]
     .filter((part) => part !== null && part !== "")
     .join(" · ");
@@ -269,7 +289,7 @@ function AttachmentRow({ doc, sourceUrl }: { doc: BidDocument; sourceUrl: string
             href={sourceUrl}
             className={cn(buttonVariants({ variant: "link", size: "sm" }), "self-start")}
           >
-            원문 보기
+            {sourceLabel}
           </SourceLink>
         </div>
       )}
@@ -288,9 +308,11 @@ function AttachmentRow({ doc, sourceUrl }: { doc: BidDocument; sourceUrl: string
 function AttachmentStatus({
   documents,
   sourceUrl,
+  sourceLabel = SOURCE_LABEL,
 }: {
   documents: BidDocument[];
   sourceUrl: string;
+  sourceLabel?: string;
 }) {
   return (
     <section aria-labelledby="attachment-status-title" className="flex flex-col gap-1">
@@ -299,7 +321,7 @@ function AttachmentStatus({
       </h3>
       <ul className="divide-y divide-border">
         {documents.map((doc) => (
-          <AttachmentRow key={doc.id} doc={doc} sourceUrl={sourceUrl} />
+          <AttachmentRow key={doc.id} doc={doc} sourceUrl={sourceUrl} sourceLabel={sourceLabel} />
         ))}
       </ul>
     </section>

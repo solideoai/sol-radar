@@ -7,12 +7,14 @@ import {
   OpportunityReadError,
   opportunityItemSchema,
   opportunitySummarySchema,
+  opportunityLiveMetricsSchema,
   type OpportunityPage,
   type SourceFamily,
   type SourceServiceConfig,
   type SourceServiceStatus,
   type SourceSummary,
 } from "./model";
+import { DEFAULT_INGEST_STALE_AFTER_MS } from "./freshness";
 import {
   fingerprint,
   signOpportunityCursor,
@@ -69,6 +71,7 @@ const itemOf = (r: Row) =>
       : null,
     latestDecision: r.latest_decision,
     latestDecisionAt: r.latest_decision_at,
+    changedAt: r.changed_at,
   });
 
 // 관련성 순위·선택 정렬·UUID를 같은 순서로 비교한다. null은 끝에 두며 서명된 값도 PostgREST 문법에 맞게 인용한다.
@@ -100,7 +103,10 @@ function filtered(client: Client, orgId: string, q: OpportunityQuery, asOf: stri
     .select("*", { count: "exact" })
     .eq("org_id", orgId)
     .lte("first_seen_at", asOf);
-  if (q.origin !== "all") r = r.eq("is_demo", q.origin === "demo");
+  // live 는 is_demo=false 이면서 저장된 source 가 데모 수집기(fixture)가 아닌 것만이다. 어느 쪽인지 모르는 행은
+  // 실제 공고로 세지 않고 전체(all)에서만 "출처 미확인"으로 보인다(10-25 계획 B2, 화면 components/bids/notice-origin).
+  if (q.origin === "demo") r = r.eq("is_demo", true);
+  if (q.origin === "live") r = r.eq("is_demo", false).neq("source", "fixture");
   const stages = q.stage.length
     ? q.stage
     : q.includeEarly
@@ -197,6 +203,22 @@ export async function listOpportunities(
     pageInfo: { cursor: q.cursor, nextCursor, hasNext },
   };
 }
+// 상세 "마지막 변경". 이 조직의 사업기회 중 이 공고가 대표 공고인 것의 changed_at 이다. 대표 공고가 아니면 null.
+export async function getOpportunityChangedAt(
+  client: Client,
+  orgId: string,
+  bidId: string,
+): Promise<string | null> {
+  const r = await client
+    .from("opportunity_list_items")
+    .select("changed_at")
+    .eq("org_id", orgId)
+    .eq("bid_id", bidId)
+    .order("changed_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (r.error) throw fail();
+  return r.data[0]?.changed_at ?? null;
+}
 export async function getOpportunitySummary(
   client: Client,
   orgId: string,
@@ -211,11 +233,39 @@ export async function getOpportunitySummary(
   if (r.error) throw fail();
   return opportunitySummarySchema.parse(r.data);
 }
+// 대시보드 실수집 지표: 진행 중 WATCH 수와 기관별 공고 수 상위 N. 범위는 getOpportunitySummary 와 같다(RLS 는 호출자).
+export async function getOpportunityLiveMetrics(
+  client: Client,
+  orgId: string,
+  origin: "live" | "demo" | "all",
+  asOf = new Date().toISOString(),
+  agencyLimit = 5,
+) {
+  const r = await client.rpc("procurement_live_metrics", {
+    p_org_id: orgId,
+    p_origin: origin,
+    p_as_of: asOf,
+    p_agency_limit: agencyLimit,
+  });
+  if (r.error) throw fail();
+  return opportunityLiveMetricsSchema.parse(r.data);
+}
+// 마지막 정기(SCHEDULED) 수집 시작 시각. 업무 역할이 없거나 기록이 없으면 null 이다.
+export async function getLastScheduledIngestAt(
+  client: Client,
+  origin: "live" | "demo" | "all",
+): Promise<string | null> {
+  const r = await client.rpc("procurement_last_scheduled_ingest", { p_origin: origin });
+  if (r.error) throw fail();
+  return z.string().nullable().parse(r.data);
+}
 const numberOf = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 export async function getSourceSummary(
   client: Client,
   origin: "live" | "demo" | "all",
   configs: SourceServiceConfig[],
+  // 마지막 완전 성공이 이보다 오래되면 DEGRADED 다(freshness.ts ingestStaleAfterMs).
+  staleAfterMs = DEFAULT_INGEST_STALE_AFTER_MS,
 ): Promise<SourceSummary> {
   const r = await client.rpc("procurement_source_health", { p_origin: origin });
   if (r.error) throw fail();
@@ -228,7 +278,7 @@ export async function getSourceSummary(
       run?.status === "SUCCEEDED" &&
       run.completeness === "COMPLETE" &&
       run.finished_at !== null &&
-      Date.now() - Date.parse(run.finished_at) <= 60 * 60 * 1000;
+      Date.now() - Date.parse(run.finished_at) <= staleAfterMs;
     const status = !config.enabled ? "NOT_CONFIGURED" : complete ? "HEALTHY" : "DEGRADED";
     // 키 발급과 실제 인증 결과는 별도다. 성공이 보장된 COMPLETE live 응답 또는 고정 인증 오류만 상태 근거다.
     return {

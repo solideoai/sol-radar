@@ -304,6 +304,8 @@ const ALLOWED_DEFINER_FUNCTIONS = new Set([
   "public.update_team_member(uuid, uuid, uuid, text)",
   // ADR-047: 업무 역할의 수집 상태만 투영. 요청자·params·job_key·오류본문·payload는 반환하지 않는다.
   "public.procurement_source_health(text)",
+  // 10-25 B3: 업무 역할에게 마지막 정기(SCHEDULED) 수집 시작 시각 하나만 준다. 다른 열·행은 반환하지 않는다.
+  "public.procurement_last_scheduled_ingest(text)",
   "public.resolve_solideo_employment(text, text)",
   "public.my_sol_org_ids(text[])",
   "public.release_unqueued_score_run(uuid)",

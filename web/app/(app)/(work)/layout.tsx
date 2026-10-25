@@ -3,11 +3,15 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { loadStatusSummary } from "@/app/_lib/work-data";
 import { AppShell } from "@/components/app-shell";
-import { defaultOrigin } from "@/server/bids";
 import { getMyBusinessAccess, getMyWorkspace } from "@/server/organization";
 import { getMyProfile } from "@/server/profile";
 import { nameOf } from "@/server/shared";
-import { currentRunMode } from "@/app/_lib/run-mode";
+import { ingestStaleAfterMs } from "@/server/opportunities";
+import {
+  currentDefaultOrigin,
+  currentIngestIntervalMinutes,
+  currentRunMode,
+} from "@/app/_lib/run-mode";
 
 // layout 은 화면 실행을 막지 못한다. 각 화면이 requireWork 로 다시 확인한다(work.ts).
 // 여기서는 셸(사이드바·상단바)에 쓸 값만 읽는다. 요약이 실패해도 셸은 남긴다.
@@ -22,7 +26,9 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
   if (workspace.status !== "ready") redirect("/auth/organization-state");
 
   const runMode = currentRunMode();
-  const summary = await loadStatusSummary(defaultOrigin(runMode)).catch((error: unknown) => {
+  // 상단바의 DEMO 배지·수집 신선도는 실행 모드가 아니라 화면 기본 출처를 따른다(10-25 계획 B2).
+  const defaultOrigin = currentDefaultOrigin(runMode);
+  const summary = await loadStatusSummary(defaultOrigin).catch((error: unknown) => {
     console.error(
       JSON.stringify({
         event: "work_status_failed",
@@ -48,6 +54,8 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       defaultSidebarOpen={(await cookies()).get("sidebar_state")?.value !== "false"}
       status={{
         runMode,
+        defaultOrigin,
+        staleAfterMs: ingestStaleAfterMs(currentIngestIntervalMinutes()),
         initialSummary: summary,
         initialAi: null,
       }}

@@ -119,6 +119,8 @@ const detail = (latestAnalysis: AnalysisView | null): DetailBid => ({
   noticeId: "DEMO-2026-0003",
   source: "fixture",
   content: "정보통신공사업 등록 업체만 참가할 수 있습니다.",
+  noticeAgency: null,
+  sourceUrlKind: "NOTICE",
   documents: [],
   stageLinks: { planRef: null, preSpecRef: null },
   extractionStatus: "COMPLETED",

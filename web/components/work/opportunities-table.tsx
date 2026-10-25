@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { dDay, formatKrwCompact, formatKst, formatKstShort } from "@/components/bids/format";
 import { SourceBadge } from "@/components/bids/source-badge";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
+import { isUnverifiedOrigin } from "@/components/bids/notice-origin";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   EARLY_STAGES,
@@ -57,6 +58,26 @@ export function OpportunityDeadline({ item, now }: { item: OpportunityItem; now:
         {formatKstShort(item.deadlineAt)}
       </time>
     </div>
+  );
+}
+
+// 제목 칸의 보조 줄: 공고번호·게시일. 열을 늘리지 않으려고 제목 아래 한 줄로 두고, 넘치면 말줄임한다(1280px).
+function NoticeMeta({ item }: { item: OpportunityItem }) {
+  const { noticeId, publishedAt } = item;
+  return (
+    <span
+      data-part="notice-meta"
+      className="block max-w-full truncate type-caption text-muted-foreground tabular-nums"
+      title={publishedAt === null ? noticeId : `${noticeId} · 게시 ${formatKst(publishedAt)} KST`}
+    >
+      <span className="font-mono">{noticeId}</span>
+      {publishedAt !== null && (
+        <>
+          {" · 게시 "}
+          <time dateTime={publishedAt}>{formatKstShort(publishedAt)}</time>
+        </>
+      )}
+    </span>
   );
 }
 
@@ -201,6 +222,11 @@ export function OpportunityTable({
                   <TableCell className="whitespace-normal">
                     <div className="flex flex-col items-start gap-1">
                       {item.isDemo && <DemoBadge dense />}
+                      {isUnverifiedOrigin(item) && (
+                        <span data-part="unverified-origin" className="type-caption text-warning">
+                          출처 미확인
+                        </span>
+                      )}
                       {item.sourceConflict && <OpportunityConflictNotice />}
                       <Link
                         id={`opportunity-title-${item.id}`}
@@ -210,6 +236,7 @@ export function OpportunityTable({
                       >
                         {item.title}
                       </Link>
+                      <NoticeMeta item={item} />
                       {removedWatchIds.includes(item.bidId) && (
                         <span role="status" className="type-caption text-muted-foreground">
                           관심 해제됨

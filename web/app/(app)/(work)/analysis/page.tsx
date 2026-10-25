@@ -35,7 +35,7 @@ export default async function AnalysisPage({ searchParams }: PageProps<"/analysi
   if (!result.ok) throw new Error(result.message);
   const optionsQuery = parseBidListQuery(
     { origin: "all", status: ["OPEN", "AMENDED", "CANCELLED", "CLOSED"], limit: "100" },
-    work.runMode,
+    work.defaultOrigin,
   );
   if (!optionsQuery.ok) throw new Error("공고 선택 조건을 읽지 못했습니다");
   const deps = workDeps();

@@ -7,6 +7,7 @@ import { SOURCE_LABELS } from "@/components/bids/source-badge";
 import { OpportunityTable } from "@/components/work/opportunities-table";
 import type {
   OpportunityItem,
+  OpportunityLiveMetrics,
   OpportunitySummary,
   SourceFamily,
   SourceSummary,
@@ -59,6 +60,7 @@ const BID: OpportunityItem = {
   },
   latestDecision: null,
   latestDecisionAt: null,
+  changedAt: NOW.toISOString(),
   latestRun: { id: "00000000-0000-4000-8000-000000000007", status: "RUNNING" },
 };
 const CONFLICT: OpportunityItem = {
@@ -116,6 +118,34 @@ const SOURCES: SourceSummary = {
   })),
 };
 
+// 실제 수집 공고(G2B)와 출처 미확인 공고(is_demo=false 인데 source 가 데모 수집기)
+const LIVE: OpportunityItem = {
+  ...BID,
+  id: "00000000-0000-4000-8000-000000000011",
+  bidId: "00000000-0000-4000-8000-000000000012",
+  source: "g2b-bid-notice",
+  sourceFamily: "G2B",
+  noticeId: "R25BK01000001",
+  title: "실제 수집 입찰공고",
+  isDemo: false,
+};
+const UNVERIFIED: OpportunityItem = {
+  ...LIVE,
+  id: "00000000-0000-4000-8000-000000000013",
+  bidId: "00000000-0000-4000-8000-000000000014",
+  source: "fixture",
+  title: "출처가 확인되지 않은 공고",
+};
+const METRICS: OpportunityLiveMetrics = {
+  generatedAt: NOW.toISOString(),
+  origin: "demo",
+  activeWatch: 2,
+  topAgencies: [
+    { name: "한국토지주택공사 디지털정보기술사업본부 스마트시티사업처", count: 3 },
+    { name: "조달청", count: 1 },
+  ],
+};
+
 afterEach(() => {
   mounted.splice(0).forEach((root) => root.unmount());
   document.body.replaceChildren();
@@ -168,6 +198,14 @@ describe("공공조달 업무 화면", () => {
     expect(rows[2]?.querySelectorAll("td")[6]?.textContent).toBe("확인 필요");
     expect(rows[2]?.querySelectorAll("td")[8]?.textContent).toBe("검토 필요");
     expect(rows[2]?.querySelectorAll("td")[10]?.textContent).toBe("WATCH");
+    // 공고번호·게시일은 열을 늘리지 않고 제목 칸의 보조 줄로 보이며 칸 밖으로 넘치지 않는다.
+    const titleCell = rows[0]?.querySelectorAll("td")[3];
+    const meta = titleCell?.querySelector('[data-part="notice-meta"]');
+    if (!titleCell || !meta) throw new Error("공고번호·게시일 보조 줄이 없습니다");
+    expect(meta.textContent).toBe("DEMO-LH-001 · 게시 10. 21.");
+    expect(meta.getBoundingClientRect().right).toBeLessThanOrEqual(
+      titleCell.getBoundingClientRect().right,
+    );
     await page.screenshot({
       path: "../../../../test-results/vitest-screenshots/procurement-bids-demo-1280.png",
       fullPage: true,
@@ -175,6 +213,24 @@ describe("공공조달 업무 화면", () => {
     scroll.focus();
     await userEvent.keyboard("{ArrowRight}");
     await expect.poll(() => scroll.scrollLeft).toBeGreaterThan(0);
+  });
+
+  it("실제 수집 공고에는 DEMO 배지가 없고, 출처 미확인 공고는 DEMO 대신 출처 미확인으로 보인다", async () => {
+    await page.viewport(1280, 900);
+    const host = render(<OpportunityTable items={[LIVE, UNVERIFIED, BID]} now={NOW} />);
+    await expect.element(page.getByText("실제 수집 입찰공고")).toBeVisible();
+    const titleCells = [...host.querySelectorAll("tbody tr")].map(
+      (row) => row.querySelectorAll("td")[3],
+    );
+    const [live, unverified, demo] = titleCells;
+    expect(live?.textContent).not.toContain("DEMO");
+    expect(live?.querySelector('[data-part="unverified-origin"]')).toBeNull();
+    expect(unverified?.textContent).not.toContain("DEMO");
+    expect(unverified?.querySelector('[data-part="unverified-origin"]')?.textContent).toBe(
+      "출처 미확인",
+    );
+    expect(demo?.textContent).toContain("DEMO");
+    expect(demo?.querySelector('[data-part="unverified-origin"]')).toBeNull();
   });
 
   it("1440px의 2열 대시보드는 1280px에서 세로 배치되고 KPI5와 +3px 글자를 유지한다", async () => {
@@ -189,9 +245,18 @@ describe("공공조달 업무 화면", () => {
             sourceConflictCount: 1,
             unknownBudgetCount: 1,
           }}
+          metrics={METRICS}
+          nextIngest={{ at: "2026-10-21T06:00:00.000Z", failed: false }}
           review={[CONFLICT]}
           early={[EARLY]}
-          sources={SOURCES}
+          sources={{
+            ...SOURCES,
+            groups: SOURCES.groups.map((group) =>
+              group.sourceFamily === "G2B"
+                ? { ...group, lastSuccessAt: "2026-10-21T04:30:00.000Z" }
+                : group,
+            ),
+          }}
           reviewQuery="origin=demo"
           earlyQuery="origin=demo&includeEarly=true"
           now={NOW}
@@ -210,6 +275,25 @@ describe("공공조달 업무 화면", () => {
       "진행 중 입찰 프로젝트",
     ])
       await expect.element(page.getByText(label, { exact: true }).first()).toBeVisible();
+    // 실수집 지표(B3): 시각은 KST 절대 시각, 다음 수집은 "예정"으로 적는다.
+    const stat = (label: string) => {
+      const element = page
+        .getByRole("region", { name: "수집 지표" })
+        .getByText(label, { exact: true })
+        .element()
+        .closest('[data-slot="card"]');
+      if (element === null) throw new Error(`${label} 카드가 없습니다`);
+      return element as HTMLElement;
+    };
+    expect(stat("전체 수집 공고").textContent).toContain("1");
+    expect(stat("진행 중 WATCH").textContent).toContain("2");
+    expect(stat("마지막 수집 성공").textContent).toBe("마지막 수집 성공13:302026-10-21 KST");
+    expect(stat("다음 수집 예정").textContent).toBe("다음 수집 예정15:002026-10-21 KST · 예정");
+    const agencies = stat("기관별 공고 수");
+    expect([...agencies.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
+      "한국토지주택공사 디지털정보기술사업본부 스마트시티사업처3건",
+      "조달청1건",
+    ]);
     const card = (name: string) => {
       const element = page
         .getByRole("heading", { name, exact: true })
@@ -235,9 +319,40 @@ describe("공공조달 업무 화면", () => {
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth,
     );
+    // 긴 기관 이름은 카드 안에서 말줄임한다(1280px).
+    const agencyName = agencies.querySelector("li span");
+    if (agencyName === null) throw new Error("기관 이름이 없습니다");
+    expect(agencyName.getBoundingClientRect().right).toBeLessThanOrEqual(
+      agencies.getBoundingClientRect().right,
+    );
     await page.screenshot({
       path: "../../../../test-results/vitest-screenshots/procurement-dashboard-demo-1280.png",
       fullPage: true,
     });
+  });
+
+  it("수집 주기를 모르면 다음 수집 예정을 숨기고, 지표 조회 실패는 값을 만들지 않는다", async () => {
+    await page.viewport(1280, 900);
+    render(
+      <DashboardView
+        activeProjects={0}
+        summary={{ ...SUMMARY, origin: "live", isDemo: false }}
+        metrics={null}
+        nextIngest={null}
+        review={[]}
+        early={[]}
+        sources={SOURCES}
+        reviewQuery="origin=live"
+        earlyQuery="origin=live&includeEarly=true"
+        now={NOW}
+        canRunIngestion={false}
+      />,
+    );
+    const metrics = page.getByRole("region", { name: "수집 지표" });
+    await expect.element(metrics.getByText("마지막 수집 성공", { exact: true })).toBeVisible();
+    expect(metrics.element().textContent).not.toContain("다음 수집 예정");
+    expect(metrics.element().textContent).toContain("성공 기록 없음");
+    expect(metrics.getByText("지표 조회 실패", { exact: true }).elements()).toHaveLength(2);
+    expect(document.body.textContent).not.toContain("DEMO · 예시 공고 기준");
   });
 });
