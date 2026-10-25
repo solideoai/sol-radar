@@ -49,12 +49,15 @@ DB 를 먼저 올린다. 새 웹 코드가 8번의 함수와 1~7번의 사진·�
 
 ## 3. 승인 ① 운영 migration
 
-실행 위치는 release 커밋을 깨끗하게 checkout 한 폴더다. 다른 세션의 미커밋 migration 이 `supabase/migrations` 에 있으면 같이 적용되므로 먼저 `git status` 가 비어 있는지 본다.
+`scripts/db-push.sh`·`db-verify.sh` 는 현재 폴더의 `.env.local`(운영 접속 정보, 루트 main 폴더에만 있다)과 현재 폴더의 `supabase/migrations` 를 쓴다. 그래서 main 폴더에서 main 을 release 로 **로컬에서만** fast-forward 한 뒤 실행한다. push 는 ③에서 한다(push 전에는 Vercel 배포가 생기지 않는다). 다른 세션의 미커밋 migration 이 `supabase/migrations` 에 있으면 같이 적용되므로 `git status` 에 migration 이 없어야 한다.
 
 ```bash
-git -C <폴더> status --short                       # 비어 있어야 한다
-NODE_EXTRA_CA_CERTS=$HOME/.supabase/prod-ca-2021.crt bash scripts/db-push.sh --check   # 읽기 전용 목록
+git -C <main 폴더> status --short                          # supabase/ 아래 변경이 없어야 한다
+git -C <main 폴더> merge --ff-only integration/release-1025 # 로컬만, push 하지 않는다
+cd <main 폴더> && NODE_EXTRA_CA_CERTS=$HOME/.supabase/prod-ca-2021.crt bash scripts/db-push.sh --check   # 읽기 전용 목록
 ```
+
+- 로컬 fast-forward 되돌리기(① 을 멈출 때): `git -C <main 폴더> reset --keep 4e84e084`.
 
 - 확인: 목록이 위 표 10개와 정확히 같아야 한다. 다르면 멈춘다.
 - 적용 전 읽기 SQL(Supabase SQL 편집기, 쓰기 없음). 10번 트리거를 만들 수 있는지와, 트리거·정책 함수가 객체를 RLS 없이 셀 수 있는지 본다:
@@ -93,6 +96,7 @@ git -C <main 폴더> merge --ff-only integration/release-1025
 git -C <main 폴더> push origin main
 ```
 
+- ①에서 이미 로컬 fast-forward 했으면 `merge` 는 "Already up to date" 이고 push 만 남는다.
 - main 이 4e84e084 에서 움직이지 않았으면 fast-forward 다. 움직였으면 release 브랜치에 main 을 합쳐 전체 `pnpm verify` 를 다시 돌린 뒤 병합한다.
 - push 하면 Vercel Git 연동이 운영 배포를 만든다(프로젝트 Production Branch 설정 확인 필요).
 - 확인: Vercel 배포 Ready → `/dashboard`·`/dashboard?origin=demo`·`/bids?origin=demo`·공고 상세 1건·`/admin/ingestion` 을 1440·1280 폭으로 본다.
