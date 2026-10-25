@@ -1,0 +1,530 @@
+
+> sol-radar@0.1.0 verify /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024
+> node scripts/verify.mjs
+
+
+> sol-radar@0.1.0 format:check /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024
+> prettier --check . "!web/**"
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar@0.1.0 test /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024
+> node --test "scripts/**/*.test.mjs"
+
+▶ Dependabot 작성자 판별
+  ✔ GitHub 이 봇에 주는 noreply 주소를 알아본다 (1.083625ms)
+  ✔ 사람·다른 봇·비슷한 글자의 주소는 아니다 (0.119791ms)
+✔ Dependabot 작성자 판별 (3.291ms)
+▶ 메시지 문제 모으기
+  ✔ Dependabot 커밋은 제목이 길어도 문제로 잡지 않는다 (0.789625ms)
+  ✔ 사람이 쓴 같은 제목은 그대로 잡는다 (0.475833ms)
+  ✔ Dependabot 커밋이어도 PR 제목은 사람 몫이라 검사한다 (0.730834ms)
+  ✔ 작성자가 없는 커밋(옛 호출자)은 사람이 쓴 것으로 본다 (0.357291ms)
+  ✔ squash 병합이 붙인 ' (#번호)' 는 첫 줄 끝에서 한 번만 뗀다 (0.22775ms)
+  ✔ PR 제목에는 병합·autosquash 예외가 없고 되돌리기만 남는다 (0.957916ms)
+✔ 메시지 문제 모으기 (3.966083ms)
+▶ 임시 저장소에서 검사
+  ✔ 범위의 커밋마다 작성자 이메일을 함께 읽는다 (627.027ms)
+  ✔ Dependabot 커밋 + 50자 이내 PR 제목은 통과하고, 제외했다고 알린다 (1085.410625ms)
+  ✔ Dependabot 커밋이어도 PR 제목이 길면 막는다 (1549.672625ms)
+  ✔ 사람이 쓴 긴 커밋은 Dependabot 커밋과 섞여 있어도 막는다 (1412.968291ms)
+  ✔ 사람 커밋만 있으면 제외 안내가 붙지 않는다 (821.771125ms)
+✔ 임시 저장소에서 검사 (5497.529541ms)
+✔ checkEnv: frontend requires HTTPS service API, not Redis TCP/MinIO/AI direct URLs (38.912667ms)
+✔ checkEnv: redis-api needs a server token and rejects an unknown role (11.18275ms)
+✔ resolveRunMode: 미지정이면 mock (1.429334ms)
+✔ resolveRunMode: 빈 문자열은 미지정과 같다 (0.207125ms)
+✔ resolveRunMode: 정상 조합 통과 (0.421ms)
+✔ resolveRunMode: 모순은 키 이름으로 알린다 (0.958583ms)
+✔ resolveRunMode: 세 모드 모두 KEV_ENABLED=false 를 허용한다 (0.429709ms)
+✔ resolveRunMode: KEV_ENABLED 미지정이면 세 모드 모두 true (0.470208ms)
+✔ resolveRunMode: KEV_ENABLED 대소문자·공백 변형은 모순 (0.638875ms)
+✔ resolveRunMode: M2 fixture 의 hosted + 한국어 state 는 FORBIDDEN_WITH_HOSTED (0.144541ms)
+✔ resolveRunMode: M2 live 는 모드 금지 → hosted 금지 → 승인 순서 (0.096083ms)
+✔ resolveRunMode: M2 mock 에 hosted 값 + 한국어 state (0.08325ms)
+✔ resolveRunMode: M2 fixture 의 local + 한국어 state 는 위반 없음 (0.059708ms)
+✔ resolveRunMode: 알 수 없는 모드는 mode·effective 가 null (0.051084ms)
+✔ resolveRunMode: 금지 키는 값이 금지 값과 정확히 같을 때만 위반 (0.049459ms)
+✔ checkEnv: infra/.env 가 없으면 MISSING_FILE (3.6005ms)
+✔ checkEnv: 정상 mock 구성은 통과 (12.402167ms)
+✔ checkEnv: CHANGE_ME 와 minioadmin 을 placeholder 로 센다 (37.344666ms)
+✔ checkEnv: web/.env.local 의 SUPABASE_SERVICE_ROLE_KEY 는 FORBIDDEN_KEY (39.112ms)
+✔ checkEnv: live 인데 빠진 서비스키마다 MISSING_KEY, mock 은 통과 (82.653167ms)
+✔ checkEnv: web/.env.local 의 서비스키 4종은 FORBIDDEN_KEY (19.767209ms)
+✔ checkEnv: infra 가 fixture 인데 web 에 SOL_RUN_MODE 가 없으면 CONTRADICTS_MODE (9.25025ms)
+✔ checkEnv: web SOL_RUN_MODE 가 infra 와 같으면 통과한다 (66.668416ms)
+✔ checkEnv: 알 수 없는 모드면 모드별 필수 키를 보지 않는다 (6.68775ms)
+✔ checkEnv: 필수 키가 빈 문자열이면 MISSING_KEY (12.174042ms)
+✔ checkEnv: 루트 .env.local 은 있으면 placeholder 만 센다 (5.428708ms)
+✔ CLI: 통과하면 exit 0 과 정해진 마지막 줄 (245.13125ms)
+✔ CLI: 실패하면 exit 1 과 요약 줄 (259.614791ms)
+✔ CLI 출력에 비밀값이 없다 (636.449208ms)
+✔ resolveRunMode: 위반 여러 건은 판정 순서대로 나온다 (10.396916ms)
+✔ checkEnv: fixture 에서 QWEN_API_KEY 가 빠지거나 비면 MISSING_KEY (124.839583ms)
+✔ checkEnv: live 에서 QWEN_API_KEY 가 빠지면 MISSING_KEY (26.666375ms)
+✔ checkEnv: fixture 에서 KEV_API_KEY 가 빠지면 MISSING_KEY (70.429459ms)
+✔ checkEnv: 승인된 hosted 에서 HOSTED_API_* 가 빠지면 MISSING_KEY (144.208ms)
+✔ checkEnv: web/.env.local 이 없으면 MISSING_FILE (10.629417ms)
+✔ checkEnv: web 필수 키가 빠지면 MISSING_KEY (107.743125ms)
+✔ checkEnv: web 금지 키는 대소문자를 구분하지 않는다 (75.798292ms)
+✔ checkEnv: process.env 는 판정에 쓰지 않는다 (68.561958ms)
+✔ checkEnv: web/.env.production 의 금지 키는 그 파일 이름으로 FORBIDDEN_KEY (85.44775ms)
+✔ checkEnv: web/.env.example 의 금지 키는 무시한다 (34.96ms)
+✔ checkEnv: web 의 QWEN_API_KEY·KEV_API_KEY·HOSTED_API_KEY 는 FORBIDDEN_KEY (107.286458ms)
+✔ checkEnv: REDIS_PASSWORD 에 영숫자 외 문자가 있으면 INVALID_FORMAT, 16진수는 통과 (776.786875ms)
+✔ checkEnv: web 에 API_CURSOR_SECRET 이 없으면 MISSING_KEY (90.315292ms)
+✔ checkEnv: API_CURSOR_SECRET 이 32자 미만이면 INVALID_FORMAT, 값은 출력하지 않는다 (748.706167ms)
+✔ checkEnv: API_CURSOR_SECRET 은 앞뒤 공백을 뗀 길이로 잰다(공백만 32자 이상이면 INVALID_FORMAT) (189.991208ms)
+✔ Supabase Storage replacement does not require MinIO credentials or endpoint (89.988584ms)
+✔ redis-api accepts Worker health reports without a direct AI gateway URL (44.57925ms)
+✔ durable Kakao claims serialize organizations and test-event retries without exposing the ledger to users (9249.330667ms)
+✔ Kakao connection RPCs expose only the caller's safe columns and keep encrypted tokens private (1604.919292ms)
+✔ public programs allow active members to read notices while all client writes and private run reads stay closed (1382.83825ms)
+✔ score completion preserves organization and attempt guards, the translation flag, and one recommendation event per bid (3262.393708ms)
+✔ RLS 검사기는 긴 함수 서명을 자르지 않고 허용 함수와 위험 함수를 구별한다 (9339.1305ms)
+▶ Supabase Storage — immutable objects and private access
+  ✔ 00702 preserves existing raw/parsed paths and references while new incarnations use UUID paths (1529.412041ms)
+  ✔ keeps two document references to the same checksum, and serializes upload ownership (267.432708ms)
+  ✔ only active business members can read referenced raw objects; anonymous, parsed, unreferenced and direct writes stay closed (302.517166ms)
+  ✔ upload/DB failure preserves the object and expired ownership recovers; deleting objects cannot gain references (356.467417ms)
+  ✔ a delayed expired deleter cannot target a new document with the same logical checksum key (300.294834ms)
+✔ Supabase Storage — immutable objects and private access (2756.835333ms)
+▶ SOL RADAR 표 정책 — 업무 역할·조직 격리
+  ✔ public의 모든 일반 테이블에 RLS가 켜져 있다 (196.989708ms)
+  ✔ 번역 누락 결과를 검토 플래그와 함께 마감하고 알 수 없는 플래그는 거절한다 (260.554875ms)
+  ✔ ADR047 — 출처 사본을 한 기회로 묶어도 공고·분석·사람 결정 FK와 조직 격리를 보존한다 (821.339875ms)
+  ✔ ADR047 — 재분석·단계 연결·출처 충돌·재판정에도 현재 결과와 집계가 정확하다 (1565.758375ms)
+  ✔ G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만 (600.862792ms)
+  ✔ 공고 다섯 표는 조직 소유가 아니다 — org-02 VIEWER 와 비멤버 운영자도 활동 중이면 읽고, ADMIN 이라도 넣기·고치기·지우기는 권한 오류다 (309.642792ms)
+  ✔ 운영자(profiles.is_admin)는 멤버가 아닌 조직의 SOL 표를 하나도 읽지 못한다 — 조직 표 아홉 개와 운영 표 셋 모두 0행이고 정책 도우미도 빈 목록이다 (404.554166ms)
+  ✔ outbox_events 는 내부 표다 — ADMIN·VIEWER·org-02·로그아웃 누구도 읽지도 쓰지도 못한다(권한 오류) (423.33075ms)
+  ✔ 로그아웃한 사람(anon)은 SOL 표 열여덟 개를 읽지도 쓰지도 못하고 정책 도우미 my_sol_org_ids 도 부르지 못한다 — 모두 권한 오류 (426.59475ms)
+  ✔ 운영 표(수집 run·수집 오류·평가 결과)는 어느 조직에서든 ADMIN 인 사람만 읽는다 — SALES·ANALYST·VIEWER·org-02 는 0행이고 ADMIN 도 쓰지는 못한다 (321.415542ms)
+  ✔ 감사 기록은 그 조직의 ADMIN 만 읽는다 — SALES·ANALYST·VIEWER·org-02·운영자는 0행이고, ADMIN 도 org-02 것은 보지 못하며 아무도 직접 쓰지 못한다 (324.484916ms)
+  ✔ 분석 요청은 ADMIN·SALES·ANALYST 가 QUEUED 행으로만 넣는다 — VIEWER·org-02 는 정책 오류, 상태·결과·요청자·스냅샷 열은 권한이 없고, 상태 전이·지우기는 worker 몫이며 ANALYSIS_REQUEST 감사가 남는다 (358.730917ms)
+  ✔ 결정 기록은 ADMIN·SALES 만 넣는다 — ANALYST·VIEWER·org-02 는 정책 오류, 권고·불일치 플래그·검토자·시각은 열 권한이 없고 트리거가 채우며, REVIEW_DECIDE 감사와 담당자가 있을 때 REVIEW_ASSIGNED outbox 1건이 같은 트랜잭션에 남는다 (253.463042ms)
+  ✔ 결정의 분석 run 은 같은 조직·같은 공고의 것만이고(score_run_mismatch) 담당자는 같은 조직 멤버만이다(bid_reviews_assignee_fkey) — 담당자가 조직을 나가면 담당자만 비고 결정은 남는다 (209.566917ms)
+  ✔ N2 audits changed roles and renewed invitations once, retaining project actions (223.482333ms)
+  ✔ 업무 역할 변경은 그 조직의 ADMIN 만 한다 — SALES 의 시도와 org-02 owner(VIEWER)의 시도는 0행, ADMIN 은 자기 조직만 바꾸고 org-02 에는 0행이다 (210.45575ms)
+  ✔ 업무 역할 보호 트리거 — update 정책이 실수로 열려도 ADMIN 이 아닌 사람의 sol_role 변경은 42501(sol_role_admin_only)이고, 같은 값·ADMIN·JWT 없는 관리 작업·service_role 은 통과한다 (213.203666ms)
+  ✔ worker 전용 표(점수 요소·자격 판정·항목 판정·인력 배정)는 조직 전원이 읽고 ADMIN 도 넣기·고치기·지우기는 권한 오류다 (199.945875ms)
+  ✔ 테넌트 혼입은 복합 외래 키가 거절한다(23503) — worker 가 RLS 없이 써도 다른 조직 프로필의 run, run 과 다른 org_id 의 요소·자격·항목 판정, 다른 조직 직원의 배정, 비멤버 수신자의 알림, 다른 공고의 revision 은 들어가지 않는다 (206.352791ms)
+  ▶ 수집 run 열 단위 읽기 (20261019000019, N8 W1)
+    ✔ ② 숨긴 열(job_key·idempotency_key·requested_by·params)은 org-01·org-02 ADMIN 모두 하나씩 고르면 권한 오류(42501)이고, 그 열로 거르기와 select * 도 권한 오류다 (195.172042ms)
+  ✔ 수집 run 열 단위 읽기 (20261019000019, N8 W1) (195.333834ms)
+  ▶ 공고 목록 뷰 조직 격리
+    ✔ bid_list_items 는 security_invoker 다 — org-02 VIEWER 는 공고를 모두 보지만 org-01 의 run·결정은 보지 않고(자기 조직 것만), 비멤버 운영자는 조직 열이 모두 비어 있다 (201.969083ms)
+  ✔ 공고 목록 뷰 조직 격리 (202.05925ms)
+  ▶ N3 관심 공고와 마감 알림
+    ✔ 본인 목록·사업기회 공고 연결·조직별 관심 수와 중복 등록을 보장한다 (208.430708ms)
+    ✔ 다른 사용자·조직으로 관심 등록할 수 없고 비회원은 조회할 수 없다 (200.298958ms)
+    ✔ D-3·D-1 09시 이후 담당자와 관심 등록자에게 중복 없이 보내고 화면 역할 실행은 거부한다 (206.407042ms)
+  ✔ N3 관심 공고와 마감 알림 (615.351333ms)
+  ▶ 입찰 프로젝트 — 핵심 저장·권한·원자성
+    ✔ BID만 생성·중복 방지·다른 조직 격리·체크리스트 ADMIN SALES 쓰기 (253.293542ms)
+    ✔ 혼합 PATCH 거절은 상태·담당자·마감·이력·감사를 그대로 보존하고 WATCH는 전진만 막는다 (224.049333ms)
+  ✔ 입찰 프로젝트 — 핵심 저장·권한·원자성 (477.550792ms)
+  ▶ N4b 직원 추가·이동·퇴사 (20261024000400)
+    ✔ ADMIN 만 직원을 추가한다 — SOL-N 번호·비데모·재직과 감사 1건, 다른 역할 FORBIDDEN·다른 조직 NOT_FOUND·표 직접 쓰기는 권한 오류 (233.415542ms)
+    ✔ ADMIN 만 부서·직급을 옮기고 퇴사 처리한다 — 바뀔 때마다 감사, 같은 값은 감사 없음, 다른 역할 FORBIDDEN·다른 조직 NOT_FOUND (225.496541ms)
+    ✔ 퇴사자는 화면 역할에서 명부·점수 속성 모두 0행이고, 행·점수 속성·기존 score_runs 는 그대로며 계정 연결도 막힌다 (223.8455ms)
+  ✔ N4b 직원 추가·이동·퇴사 (20261024000400) (683.0125ms)
+✔ SOL RADAR 표 정책 — 업무 역할·조직 격리 (9705.881875ms)
+▶ 솔리데오 카탈로그·명부·점수 정책
+  ✔ other-organization users and platform admins cannot read the roster; anonymous is denied (177.1505ms)
+  ✔ 회원만 자기 조직 카탈로그·명부를 읽고 일반 사용자 쓰기는 전부 거부한다 (177.50375ms)
+  ✔ ADR021 점수는 같은 조직만 읽고 owner·운영자·일반회원·익명은 쓰지 못한다 (205.49225ms)
+  ✔ 합성 직원 속성은 JSON 배열·출처·완전성을 DB 제약으로 강제한다 (182.413ms)
+  ✔ ADR021 점수 복합 FK는 조직 혼입을 막고 직원·조직 삭제는 점수도 삭제한다 (327.405417ms)
+✔ 솔리데오 카탈로그·명부·점수 정책 (1070.382917ms)
+▶ 프로필 사진 — 경로·권한 (20261024000200)
+  ✔ 본인은 users/<내 id>/ 에만 사진을 올리고, members/ 는 그 조직 ADMIN 만 올린다 (298.128292ms)
+  ✔ 같은 조직은 명부에 연결된 사진을 읽고 다른 조직·비멤버는 0행이다 (291.671833ms)
+  ✔ set_my_photo 는 내 경로만 받고 연결된 직원 행을 바꾸며 set_member_photo 는 ADMIN 만 한다 (318.175208ms)
+  ✔ 비데모 직원은 한글 3자가 아니어도·같은 이름이어도·성별과 정장 사진 없이 들어가고 데모 직원 제약은 그대로다 (258.912459ms)
+  ✔ 신규 입사자 번호는 조직마다 SOL-N0001 부터 이어지고 화면 역할은 직접 부르지 못한다 (223.521209ms)
+✔ 프로필 사진 — 경로·권한 (20261024000200) (1390.817375ms)
+▶ 가입 신청과 명부 연결 (20261024000300)
+  ✔ 비멤버 신규 입사자 신청을 ADMIN 이 승인하면 VIEWER 멤버십과 SOL-N0001 비데모 직원이 생긴다 (206.892583ms)
+  ✔ VIEWER·다른 조직 ADMIN 은 결정하지 못하고 이미 결정된 신청은 다시 결정하지 못한다 (198.281791ms)
+  ✔ 같은 가상 직원에 대한 신청 둘은 먼저 승인된 것만 연결되고 두 번째는 member_taken 이다 (308.03275ms)
+  ✔ find_unlinked_member 는 부서·이름이 정확히 맞는 미연결 데모 직원 하나만 주고 anon 은 거부한다 (326.288375ms)
+  ✔ find_unlinked_member 는 퇴사(LEFT) 직원을 찾지 않는다 (N4b 20261024000410) (251.4635ms)
+  ✔ ADMIN 은 대기 신청자의 사진을 읽고 다른 사람은 읽지 못한다 (218.869625ms)
+  ✔ 이미 멤버인 계정의 신청 승인은 멤버십·업무 역할을 바꾸지 않고 연결만 한다 (230.299625ms)
+✔ 가입 신청과 명부 연결 (20261024000300) (1740.61425ms)
+▶ 공통 검증
+  ✔ verify.config.json 의 verification.common 이 최소 검사를 포함한다 (더 있는 것은 허용) (2.871917ms)
+  ✔ 루트 package.json 의 공통 검사·verify 본문이 고정한 그대로다 (0.440292ms)
+✔ 공통 검증 (10.578083ms)
+▶ web 검증
+  ✔ verify 가 최소 검사를 && 로만 잇는다 (0.645791ms)
+  ✔ verify:quick 이 빌드를 뺀 같은 집합을 && 로만 잇는다 (0.167709ms)
+  ✔ 검사 이름이 가리키는 스크립트 본문이 고정한 그대로다 (도구·인자 모두) (0.106958ms)
+  ✔ verify.config.json 이 이 폴더를 pnpm verify·verify:quick 으로 검증한다 (0.148125ms)
+✔ web 검증 (1.225667ms)
+▶ Claude 가드 훅
+  ✔ .claude/settings.json 의 PreToolUse 훅이 Bash·Edit·Write 에서 guard.sh 를 부른다 (0.462167ms)
+  ✔ .claude/settings.json(스테이징본)의 permissions.deny 가 게이트 파일 편집 금지를 포함한다 (61.406875ms)
+✔ Claude 가드 훅 (61.987208ms)
+▶ 커밋 게이트
+  ✔ .husky/pre-commit 이 변경분 정책과 바뀐 폴더 검증을 부르고, 실패하면 막는다 (3.808292ms)
+  ✔ .husky/pre-push 가 push 전 검사를 원격 인자와 함께 부르고, 실패하면 막는다 (0.539ms)
+✔ 커밋 게이트 (4.626917ms)
+▶ 판정의 가까운 변형
+  ✔ 검사를 더하는 것은 허용한다 (0.40275ms)
+  ✔ 빠진 검사를 이름 단위로 잡는다 (type-check 안의 test 같은 부분 일치에 속지 않는다) (0.678958ms)
+  ✔ 실패를 삼키거나 건너뛰는 셸 구문을 잡는다 (0.089792ms)
+  ✔ 이름만 남기고 내용을 비운 스크립트를 잡고, 다른 스크립트를 더하는 것은 허용한다 (0.117583ms)
+  ✔ 도구 이름은 맞아도 범위를 좁히는 인자를 붙이면 잡는다 (0.123375ms)
+  ✔ 공통 검증에서 검사를 빼거나 인자로 좁히면 잡는다 (0.124459ms)
+  ✔ 설정에서 프로젝트를 지우거나 marker·명령을 바꾸면 잡는다 (0.083375ms)
+  ✔ 가드 훅: 도구가 빠지거나 실패를 삼키면 잡고, 거부 목록 추가·matcher * 는 허용한다 (0.299459ms)
+  ✔ 편집 금지: 규칙을 빼거나 바꾸면 잡고, 더하는 것과 없는 앱 폴더의 규칙이 빠진 것은 허용한다 (0.132875ms)
+  ✔ 커밋 게이트: 주석 처리·실패 삼키기·앞선 exit 를 잡는다 (0.193167ms)
+  ✔ push 전 검사: 인자 빼기·실패 삼키기·앞선 exit·블록 안의 호출을 잡는다 (0.068334ms)
+  ✔ 커밋 게이트: 앞선 종료의 가까운 변형과 블록·heredoc 안의 호출을 잡는다 (0.170042ms)
+  ✔ 커밋 게이트: 앞선 함수·블록·heredoc·실패로 끝내는 exit 1 과 호출 뒤의 exit 0 은 허용한다 (0.072834ms)
+✔ 판정의 가까운 변형 (3.678916ms)
+▶ 편집 금지는 스테이징본을 본다
+  ✔ 작업 폴더에서만 지운 것은 통과하고, 지운 채 스테이징하면 작업 폴더를 되돌려도 잡는다 (407.84925ms)
+  ✔ 커밋된 settings.json 을 인덱스에서 빼면(git rm --cached) 작업 폴더로 넘어가지 않고 막는다 (504.178375ms)
+  ✔ git 저장소가 아니거나 인덱스에 그 파일이 없으면 작업 폴더를 본다 (886.894542ms)
+  ✔ 디스크에 없는 앱 폴더의 규칙은 요구하지 않는다 (654.715958ms)
+✔ 편집 금지는 스테이징본을 본다 (2454.038084ms)
+✔ explicit target uses exact workdir and matching origin (6.266792ms)
+✔ ordinary local command unchanged (0.221791ms)
+✔ invalid isolated context fails before CLI (1.01975ms)
+✔ invalid isolated context fails before CLI (0.719375ms)
+✔ invalid isolated context fails before CLI (0.474375ms)
+✔ invalid isolated context fails before CLI (0.178333ms)
+✔ invalid isolated context fails before CLI (0.338334ms)
+✔ invalid isolated context fails before CLI (0.08175ms)
+✔ invalid isolated context fails before CLI (0.082333ms)
+✔ invalid isolated context fails before CLI (0.112084ms)
+✔ wrong returned origin refuses without fallback or secret leak (0.800042ms)
+✔ CLI errors never expose raw message stdout stderr or cause (1.027917ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.177625ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.090625ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.06875ms)
+✔ CLI errors never expose raw message stdout stderr or cause (0.095375ms)
+✔ root db-seed: selected project validated before any seed writes (3.312166ms)
+✔ people seed: selected project validated before any seed writes (0.343167ms)
+✔ 데모 계정 사전 확인은 DB와 Auth를 변경하지 않는다 (1.930042ms)
+✔ 기존 계정 ID를 유지하고 명부·공고·분석을 건드리지 않는다 (0.492542ms)
+✔ 새 이메일이 다른 계정에 있으면 기존 계정을 덮어쓰지 않는다 (0.435291ms)
+✔ Auth 이메일 변경 요청에 새 이메일과 확인 상태를 전달한다 (116.316833ms)
+✔ cloud upgrade enriches all 200 existing demo rows, preserves identities and never rewrites another org (9018.630708ms)
+✔ all 200 synthetic employees have reproducible skills, certificates, projects and capacity (8.458208ms)
+✔ enrichment preserves every approved identity and original business assignment (1.370917ms)
+✔ invalid person identifiers return structured validation errors without throwing (36.694583ms)
+✔ 같은 이름+성이 다시 나오면 직원 번호 순으로 2부터 붙인다 (3.500625ms)
+✔ 클라우드 업그레이드는 기존 데모 200명에 메일을 채우고 다른 조직은 건드리지 않는다 (9468.331375ms)
+▶ push 참조 읽기
+  ✔ git 이 넘긴 줄에서 로컬·원격 SHA 를 읽고, 지우는 push 와 같은 커밋 중복을 뺀다 (1.9005ms)
+✔ push 참조 읽기 (3.676584ms)
+▶ 검사할 프로젝트 고르기
+  ✔ 비교할 커밋이 없으면(files 가 null) 전부 돈다 (0.168125ms)
+  ✔ 바뀐 프로젝트 폴더만 돈다 (0.365584ms)
+  ✔ 프로젝트 폴더 밖의 문서 아닌 파일은 모든 프로젝트에 걸린다 (0.082125ms)
+  ✔ 문서만 바뀌면 프로젝트 검사는 돌지 않는다 (0.153833ms)
+  ✔ 폴더 이름이 앞부분만 같은 경로(web-old/)는 그 프로젝트로 치지 않는다 (0.222667ms)
+✔ 검사할 프로젝트 고르기 (1.239333ms)
+▶ CI 와 같은 자리값
+  ✔ Supabase 자리값이 ci.yml 의 프로젝트 검증 단계와 같다 (0.700291ms)
+✔ CI 와 같은 자리값 (0.823458ms)
+▶ push 전 검사 실행
+  ✔ gate.prePush 를 켜지 않으면 아무것도 돌리지 않고 통과한다 (1667.017542ms)
+  ✔ gate.prePush 값이 불리언이 아니면 막는다 (2747.1715ms)
+  ✔ web 만 바뀌면 커밋·정책·설치 뒤 공통·감사·web 을 돌리고, api 는 건너뛴다 (3859.621416ms)
+  ✔ 문서만 바뀌면 프로젝트 검사 없이 공통 검사와 루트 감사만 돈다 (1303.120417ms)
+  ✔ 공유 파일이 바뀌거나 새 브랜치면 모든 프로젝트를 돈다 (2211.458333ms)
+  ✔ 검사가 하나라도 실패하면 막고, 로그를 남기고, worktree 는 지운다 (1706.995875ms)
+  ✔ 앞 단계(커밋 메시지)가 실패하면 설치와 나머지 검사를 돌리지 않는다 (1775.633208ms)
+  ✔ 원격 커밋이 로컬 이력에 없으면 fetch 하라고 알리고 막는다 (579.010417ms)
+  ✔ 원격 참조를 지우는 push 는 검사할 커밋이 없어 통과한다 (629.975459ms)
+  ✔ 실제 git push 에서 .husky/pre-push 가 참조 목록을 넘기고, 실패하면 push 를 막는다 (2339.485125ms)
+✔ push 전 검사 실행 (18820.617084ms)
+✔ maskItem: 이름 필드는 ***, 연락처 필드는 같은 길이의 * (2.225542ms)
+✔ maskItem: 본문 전화·이메일 패턴은 같은 길이로 가리고 날짜·URL·번호는 그대로다 (0.12375ms)
+✔ maskItem: 입력을 바꾸지 않는다 (0.151292ms)
+✔ maskItem: 목록에 없는 담당자 필드도 이름 규칙으로 잡는다(Ofcl·TelNo·FaxNo·HpNo) (0.064292ms)
+✔ maskPatterns: 패턴이 없으면 changed=false 이고 문자열이 그대로다 (0.056875ms)
+✔ maskItems: 가린 필드의 합집합을 정렬해 돌려준다 (0.087917ms)
+✔ scanLeaks: 이메일·전화·servicekey·키 흔적을 센다 (0.141ms)
+✔ buildRecording: 정본 스키마 키 집합·마스킹·rawSha256 을 채우고 params 에 serviceKey 가 없다 (0.810708ms)
+✔ buildRecording: 담당자 필드가 없는 응답은 서비스 기준 마스킹 대상 목록과 구분 메모를 적는다 (0.150208ms)
+✔ assertRecordedShape: serviceKey 파라미터·낯선 키·response 봉투의 totalCount null 을 거부한다 (0.385ms)
+✔ company runtime exposes only the authenticated HTTP API and reuses existing Redis (16.093167ms)
+✔ Vercel web-only deployment cannot include model runtimes or AI bindings (0.561583ms)
+✔ Gateway image cannot copy local secret files and starts the existing Next standalone server (3.180708ms)
+✔ bucket provisioning defaults to read-only and refuses public/foreign buckets (5.9505ms)
+✔ explicit provisioning creates only private, size-limited buckets and immutable owner sentinels (1.882541ms)
+✔ photo bucket is private, 2MB, image-only and refuses public or mismatched buckets (1.151333ms)
+✔ 웹 변경에는 웹 검사만 실행하고 루트 DB·Python 검사를 넣지 않는다 (29.394084ms)
+✔ Python 변경에는 해당 서비스 검사만 실행한다 (4.531625ms)
+✔ 실행 중 읽는 Markdown 프롬프트는 AI 서비스 검사를 실행한다 (1.543459ms)
+✔ AI 결정 모델 계약 변경은 decision의 서비스 간 호환 시험도 실행한다 (13.104833ms)
+✔ 결정 서버의 worker 응답 fixture 변경은 웹 wire 호환 시험도 실행한다 (2.424208ms)
+✔ 실행 모드 계약 변경은 Node 환경변수·승인 정책 시험도 실행한다 (1.559583ms)
+✔ 새 마이그레이션은 DB 정책·타입과 의존 프로젝트 검사를 포함한다 (6.08575ms)
+✔ DB 타입 생성물을 직접 바꿔도 정본 일치 검사를 실행한다 (3.766833ms)
+✔ 파서 입력 PDF fixture는 문서로 제외하지 않고 의존 검사를 실행한다 (4.61925ms)
+✔ 문서·증거·발표자료만 바뀌면 코드 검사를 실행하지 않는다 (3.265542ms)
+✔ 미분류 코드와 검증 설정 변경은 전체 quick 검사로 넓힌다 (11.836375ms)
+✔ 훅의 Git 환경변수가 다른 저장소의 변경 조회와 시험 커밋을 오염시키지 않는다 (2414.306166ms)
+✔ 커밋 훅의 Git 환경에서도 임시 저장소 시험은 호출 저장소를 바꾸지 않는다 (3102.585625ms)
+✔ 실제 Git에서 staged·unstaged·새 파일·삭제·이름 변경 양쪽을 수집한다 (425.099292ms)
+✔ 기준 커밋을 지정하면 이미 커밋한 변경도 검사한다 (523.346666ms)
+✔ CLI dry-run은 실행 없이 명령을 보여 주고 실제 실행은 첫 실패에서 멈춘다 (1303.208625ms)
+ℹ tests 220
+ℹ suites 23
+ℹ pass 220
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26323.06975
+
+> sol-radar@0.1.0 check:tokens /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024
+> node scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar@0.1.0 check:colors /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024
+> bash scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용
+
+> sol-radar@0.1.0 check:db-types /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024
+> node scripts/db-types-gen.mjs --check
+
+✓ DB 타입 일치 — 정본 supabase/migrations
+
+> sol-radar-web@0.1.0 verify /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors && pnpm build
+
+
+> sol-radar-web@0.1.0 format:check /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> prettier --check . --ignore-path ../.gitignore --ignore-path ../.prettierignore
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar-web@0.1.0 type-check /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> sol-radar-web@0.1.0 lint /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> eslint
+
+
+> sol-radar-web@0.1.0 check:lint-guards /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> node ../scripts/check-lint-guards.mjs
+
+✓ 린트 가드레일 유지 — 주석·any·@ts-ignore·.only·.skip 으로 검사를 끌 수 없습니다
+
+> sol-radar-web@0.1.0 test /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> vitest run
+
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+
+
+ Test Files  67 passed (67)
+      Tests  530 passed (530)
+   Start at  15:25:12
+   Duration  5.45s (transform 6.75s, setup 0ms, import 26.07s, tests 8.76s, environment 9ms)
+
+
+> sol-radar-web@0.1.0 lodestar /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> lodestar check
+
+  [32m✓[0m architecture/layers  [2m759 files, 7 layers[0m  [2m203ms[0m
+  [32m✓[0m architecture/no-circular  [2m803 modules[0m  [2m202ms[0m
+  2 rules passed, 0 errors, 0 warnings [2m(203ms)[0m
+
+> sol-radar-web@0.1.0 check:tokens /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> node ../scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar-web@0.1.0 check:colors /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> bash ../scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용
+
+> sol-radar-web@0.1.0 build /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> next build
+
+▲ Next.js 16.4.1 (Turbopack)
+✓ Running next.config.ts took 78ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.0s
+  Running TypeScript ...
+  Finished TypeScript in 4.2s ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/59) ...
+  Generating static pages using 10 workers (14/59) 
+  Generating static pages using 10 workers (29/59) 
+  Generating static pages using 10 workers (44/59) 
+✓ Generating static pages using 10 workers (59/59) in 398ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /[slug]
+├ ƒ /[slug]/dashboard
+├ ƒ /[slug]/settings
+├ ƒ /[slug]/settings/members
+├ ƒ /[slug]/settings/team
+├ ƒ /[slug]/tasks
+├ ƒ /admin
+├ ƒ /admin/ingestion
+├ ƒ /analysis
+├ ƒ /api/admin/users/[id]/status
+├ ƒ /api/auth/identities/[id]
+├ ƒ /api/auth/logout-all
+├ ƒ /api/auth/me
+├ ƒ /api/auth/providers
+├ ƒ /api/users/me
+├ ƒ /api/v1/admin/ai/status
+├ ƒ /api/v1/admin/ingestion/runs
+├ ƒ /api/v1/admin/ingestion/runs/[id]
+├ ƒ /api/v1/admin/ingestion/services
+├ ƒ /api/v1/analyses
+├ ƒ /api/v1/analyses/[id]
+├ ƒ /api/v1/analyses/[id]/what-if
+├ ƒ /api/v1/bids
+├ ƒ /api/v1/bids/[id]
+├ ƒ /api/v1/bids/[id]/analyses
+├ ƒ /api/v1/bids/[id]/documents/[documentId]/download-url
+├ ƒ /api/v1/bids/[id]/qualification-checks
+├ ƒ /api/v1/bids/[id]/reviews
+├ ƒ /api/v1/bids/[id]/revisions
+├ ƒ /api/v1/bids/[id]/revisions/[rev]
+├ ƒ /api/v1/bids/[id]/watch
+├ ƒ /api/v1/company-profile
+├ ƒ /api/v1/company-profile/revisions
+├ ƒ /api/v1/dashboard/opportunity-summary
+├ ƒ /api/v1/dashboard/summary
+├ ƒ /api/v1/departments
+├ ƒ /api/v1/ingestion/source-summary
+├ ƒ /api/v1/job-titles
+├ ƒ /api/v1/me/employment
+├ ƒ /api/v1/me/kakao-notify
+├ ƒ /api/v1/me/kakao-notify/callback
+├ ƒ /api/v1/me/kakao-notify/connect
+├ ƒ /api/v1/me/kakao-notify/test
+├ ƒ /api/v1/notifications
+├ ƒ /api/v1/notifications/[id]/read
+├ ƒ /api/v1/opportunities
+├ ƒ /api/v1/program-notices
+├ ƒ /api/v1/projects
+├ ƒ /api/v1/projects/[id]
+├ ƒ /api/v1/projects/[id]/result
+├ ƒ /api/v1/signup-options
+├ ƒ /api/v1/team-members
+├ ƒ /api/v1/team-members/[id]
+├ ƒ /api/v1/workforce/simulation
+├ ƒ /auth/account
+├ ƒ /auth/callback
+├ ƒ /auth/complete-profile
+├ ƒ /auth/confirm
+├ ƒ /auth/login
+├ ƒ /auth/organization-state
+├ ƒ /auth/password
+├ ƒ /auth/reset
+├ ƒ /auth/sign-up
+├ ƒ /bids
+├ ƒ /bids/[id]
+├ ƒ /bids/[id]/revisions
+├ ƒ /bids/programs
+├ ƒ /company
+├ ƒ /dashboard
+├ ƒ /health
+├ ƒ /health/live
+├ ƒ /health/ready
+├ ○ /icon.svg
+├ ƒ /invitations
+├ ƒ /memos
+├ ƒ /notifications
+├ ƒ /org-chart
+├ ƒ /people
+├ ƒ /projects
+├ ƒ /projects/[id]
+├ ƒ /settings
+├ ƒ /settings/organization
+├ ƒ /teams/new
+├ ƒ /watchlist
+└ ƒ /workforce
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+All checks passed!
+82 files already formatted
+============================= test session starts ==============================
+platform darwin -- Python 3.12.8, pytest-9.1.1, pluggy-1.7.0
+rootdir: /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/services/ai
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1
+collected 153 items
+
+tests/test_body_document_id.py ...............                           [  9%]
+tests/test_citation_verify.py ......                                     [ 13%]
+tests/test_extraction_schema.py ......                                   [ 17%]
+tests/test_gateway_fallback.py ....................                      [ 30%]
+tests/test_health.py ....                                                [ 33%]
+tests/test_injection.py ....                                             [ 35%]
+tests/test_local_kev_v02.py ...                                          [ 37%]
+tests/test_local_qwen.py ....                                            [ 40%]
+tests/test_local_security.py ...........                                 [ 47%]
+tests/test_mock_identity.py ........                                     [ 52%]
+tests/test_parse.py ........                                             [ 58%]
+tests/test_request_limits.py .......                                     [ 62%]
+tests/test_rules_parity.py ....                                          [ 65%]
+tests/test_startup.py ...............                                    [ 75%]
+tests/test_translation.py .....................................          [ 99%]
+tests/test_vercel.py .                                                   [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/services/ai/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 153 passed, 1 warning in 56.08s ========================
+All checks passed!
+31 files already formatted
+============================= test session starts ==============================
+platform darwin -- Python 3.12.8, pytest-9.1.1, pluggy-1.7.0
+rootdir: /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/services/decision
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.15.1
+collected 57 items
+
+tests/test_app.py ..........................................             [ 73%]
+tests/test_backend.py .....                                              [ 82%]
+tests/test_models_endpoint.py ....                                       [ 89%]
+tests/test_parity.py ...                                                 [ 94%]
+tests/test_worker_compat.py ...                                          [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/services/decision/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 57 passed, 1 warning in 0.62s =========================
+exit=0

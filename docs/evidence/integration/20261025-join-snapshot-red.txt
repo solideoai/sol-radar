@@ -1,0 +1,42 @@
+▶ 가입 신청과 명부 연결 (20261024000300)
+  ✖ 신청 뒤 신청자가 프로필을 바꿔도 승인하면 신청 당시 이름·부서·직급으로 명부에 등록된다 (195.63175ms)
+✖ 가입 신청과 명부 연결 (20261024000300) (1764.726042ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1895.3665
+
+✖ failing tests:
+
+test at scripts/database.test.mjs:2417:3
+✖ 신청 뒤 신청자가 프로필을 바꿔도 승인하면 신청 당시 이름·부서·직급으로 명부에 등록된다 (195.63175ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+  +     department_id: 'a6c0f1fc-aeba-5e54-a20c-f6f4d1609f85',
+  +     job_title_id: '33e315b9-aee8-5ea8-96eb-f9055af4eef3',
+  +     name: '바꾼이름'
+  -     department_id: 'a6c0f1fc-aeba-5e54-a20c-f6f4d1609f84',
+  -     job_title_id: '33e315b9-aee8-5ea8-96eb-f9055af4eef2',
+  -     name: '신청당시이름'
+      }
+    ]
+  
+      at TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/scripts/database.test.mjs:2435:12)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Promise.all (index 1)
+      at async Suite.run (node:internal/test_runner/test:1771:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { name: '바꾼이름', department_id: 'a6c0f1fc-aeba-5e54-a20c-f6f4d1609f85', job_title_id: '33e315b9-aee8-5ea8-96eb-f9055af4eef3' } ],
+    expected: [ { name: '신청당시이름', department_id: 'a6c0f1fc-aeba-5e54-a20c-f6f4d1609f84', job_title_id: '33e315b9-aee8-5ea8-96eb-f9055af4eef2' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
