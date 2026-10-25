@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
 import { listMyWatchedBidIds } from "@/server/watchlist";
-import { defaultOrigin } from "@/server/bids";
 import { loadOpportunityFilters, loadOpportunityPage } from "@/app/_lib/opportunity-data";
 import { canRunIngestion } from "@/app/(app)/(work)/empty-state";
 import { requireWork } from "@/app/(app)/(work)/work";
@@ -14,12 +13,12 @@ import { listQueryOf } from "./list-query";
 export const metadata: Metadata = { title: BIDS_TITLE };
 
 // 스펙 §5.3. 필터 값은 주소 쿼리가 정본이다. 첫 쪽(20건)은 서버가 그리고, 다음 쪽은 "더 보기"가 API 로 읽는다.
-// 누가 무엇을 읽는지는 RLS 가 정한다. 기본 출처는 실행 모드를 따른다(mock·fixture → demo, live → live).
+// 누가 무엇을 읽는지는 RLS 가 정한다. 기본 출처는 SOL_DEFAULT_ORIGIN, 없으면 실행 모드를 따른다(mock·fixture → demo, live → live).
 export default async function BidsPage({ searchParams }: PageProps<"/bids">) {
   await connection();
   const raw = await searchParams;
   const work = await requireWork(nextPathOf(raw));
-  const { query, search, notice } = listQueryOf(raw, work.runMode);
+  const { query, search, notice } = listQueryOf(raw, work.defaultOrigin);
   // D-n 의 기준. 요청마다 한 번 만들어 내린다(P1, 하이드레이션 차이 없음).
   const now = new Date();
   const [first, filters, watchedIds] = await Promise.all([
@@ -45,13 +44,13 @@ export default async function BidsPage({ searchParams }: PageProps<"/bids">) {
     query.includeEarly ||
     !query.siAiFirst ||
     query.sortExplicit ||
-    query.origin !== defaultOrigin(work.runMode),
+    query.origin !== work.defaultOrigin,
   );
   return (
     <AppPage title={BIDS_TITLE} description={BIDS_DESCRIPTION} contentClassName="max-w-360">
       <BidsSourceNav current="g2b" />
       <BidListView
-        defaultOrigin={defaultOrigin(work.runMode) === "live" ? "live" : "demo"}
+        defaultOrigin={work.defaultOrigin}
         watchedIds={watchedIds}
         items={first.items}
         total={first.total}

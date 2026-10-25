@@ -807,6 +807,200 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
     summary = (await rowsOf(db, "select public.procurement_summary($1,'demo') v", [ORG1]))[0].v;
     assert.equal(summary.bidRecommended, 0);
   });
+  it("B3 실수집 지표 — 진행 중 WATCH·기관별 공고 수는 조직과 출처(demo·live)를 섞지 않는다", async (t) => {
+    const db = await solDb(t);
+    const metrics = async (org, origin, limit = 5) =>
+      (
+        await rowsOf(db, "select public.procurement_live_metrics($1,$2,now(),$3) v", [
+          org,
+          origin,
+          limit,
+        ])
+      )[0].v;
+    // 시드 공고 두 건은 DEMO(기관 "시험기관")다. ORG1 의 demo 분석을 WATCH 로 바꿔 demo WATCH 를 하나 둔다.
+    await asWorker(db);
+    await db.query("update public.score_runs set recommendation='WATCH' where id=$1", [RUN1]);
+    const live = [];
+    for (const [index, agency] of ["실제기관A", "실제기관A", "실제기관B"].entries()) {
+      const [bid] = await rowsOf(
+        db,
+        "insert into public.bid_notices(source,notice_id,title,agency,stage,status,source_url,content_hash,deadline_at,is_demo) values ('g2b-bid-notice',$1,'실제 공고','" +
+          agency +
+          "','NOTICE','OPEN','https://www.g2b.go.kr/live',$2,now()+interval '10 days',false) returning id",
+        [`R25BK0000000${index}`, `live-hash-${index}`],
+      );
+      const [rev] = await rowsOf(
+        db,
+        "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,'{}','{}',$2) returning id",
+        [bid.id, `live-sum-${index}`],
+      );
+      live.push({ bid: bid.id, rev: rev.id });
+    }
+    // live WATCH: ORG1 은 첫 공고, ORG2 는 셋째 공고. 서로의 집계에 들어가면 안 된다.
+    for (const [org, profile, target] of [
+      [ORG1, PROFILE1, live[0]],
+      [ORG2, PROFILE2, live[2]],
+    ])
+      await db.query(
+        `insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version,
+           run_mode, ai_provider, status, score, recommendation, recommendation_basis, input_snapshot, input_snapshot_hash)
+         values ($1, $2, $3, $4, 1, 'sol-v0.1.0', 'LIVE', 'LOCAL', 'COMPLETED', 66, 'WATCH', 'RULES_ONLY', '{}', 'live-snap')`,
+        [org, target.bid, target.rev, profile],
+      );
+
+    // 출처 미확인: is_demo=false 인데 저장된 source 가 데모 수집기(fixture)다. ORG1 의 WATCH 도 하나 둔다.
+    // live 지표·live 요약에는 들어가지 않고 전체(all)에만 남는다.
+    const [unverified] = await rowsOf(
+      db,
+      "insert into public.bid_notices(source,notice_id,title,agency,stage,status,source_url,content_hash,deadline_at,is_demo) values ('fixture','DEMO-2026-0099','출처 미확인 공고','확인안된기관','NOTICE','OPEN','https://fixture.invalid/0099','unverified-hash',now()+interval '10 days',false) returning id",
+    );
+    const [unverifiedRev] = await rowsOf(
+      db,
+      "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,'{}','{}','unverified-sum') returning id",
+      [unverified.id],
+    );
+    await db.query(
+      `insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version,
+         run_mode, ai_provider, status, score, recommendation, recommendation_basis, input_snapshot, input_snapshot_hash)
+       values ($1, $2, $3, $4, 1, 'sol-v0.1.0', 'MOCK', 'MOCK', 'COMPLETED', 60, 'WATCH', 'RULES_ONLY', '{}', 'unverified-snap')`,
+      [ORG1, unverified.id, unverifiedRev.id, PROFILE1],
+    );
+
+    await as(db, "viewer");
+    const { generatedAt, ...liveMetrics } = await metrics(ORG1, "live");
+    assert.equal(typeof generatedAt, "string");
+    assert.deepEqual(liveMetrics, {
+      origin: "live",
+      activeWatch: 1,
+      topAgencies: [
+        { name: "실제기관A", count: 2 },
+        { name: "실제기관B", count: 1 },
+      ],
+    });
+    const demo = await metrics(ORG1, "demo");
+    assert.equal(demo.activeWatch, 1);
+    assert.deepEqual(demo.topAgencies, [{ name: "시험기관", count: 2 }]);
+    // 전체는 데모·실제·출처 미확인을 모두 센다. 같은 수면 기관 이름 순이고 기관 수(2)로 자른다.
+    const all = await metrics(ORG1, "all", 2);
+    assert.equal(all.activeWatch, 3);
+    assert.deepEqual(all.topAgencies, [
+      { name: "시험기관", count: 2 },
+      { name: "실제기관A", count: 2 },
+    ]);
+    // 대시보드 요약도 같은 live 범위다: 실제 공고 3건만 세고 출처 미확인 공고는 뺀다.
+    const summaryOf = async (origin) =>
+      (await rowsOf(db, "select public.procurement_summary($1,$2) v", [ORG1, origin]))[0].v;
+    const liveSummary = await summaryOf("live");
+    assert.equal(liveSummary.totalOpportunities, 3);
+    assert.equal(liveSummary.portfolio.WATCH, 1);
+    assert.equal((await summaryOf("demo")).totalOpportunities, 2);
+    assert.equal((await summaryOf("all")).totalOpportunities, 6);
+
+    // 다른 조직: 자기 조직의 live WATCH 만 세고, ORG1 을 넘기면 RLS 로 0건이다.
+    await as(db, "outsider");
+    assert.equal((await metrics(ORG2, "live")).activeWatch, 1);
+    const leaked = await metrics(ORG1, "live");
+    assert.equal(leaked.activeWatch, 0);
+    assert.deepEqual(leaked.topAgencies, []);
+
+    // 마감이 지나면 진행 중이 아니다.
+    await asWorker(db);
+    await db.query(
+      "update public.bid_notices set deadline_at=now()-interval '1 hour' where id=$1",
+      [live[0].bid],
+    );
+    await as(db, "viewer");
+    assert.equal((await metrics(ORG1, "live")).activeWatch, 0);
+  });
+  it("B3 마지막 정기 수집 시각 — 업무 역할에게 출처별 SCHEDULED 시작 시각 하나만 준다", async (t) => {
+    const db = await solDb(t);
+    const lastScheduled = async (origin) =>
+      (await rowsOf(db, "select public.procurement_last_scheduled_ingest($1) v", [origin]))[0].v;
+    await asWorker(db);
+    await db.query(
+      `insert into public.ingest_runs(source,run_mode,trigger,job_key,service_key,status,started_at) values
+         ('g2b','LIVE','SCHEDULED','scheduled-1','g2b-bid-notice','SUCCEEDED','2026-10-25T01:00:00Z'),
+         ('g2b','LIVE','MANUAL','manual-1','g2b-bid-notice','SUCCEEDED','2026-10-25T02:00:00Z')`,
+    );
+    await as(db, "viewer");
+    assert.equal((await lastScheduled("live")).toISOString(), "2026-10-25T01:00:00.000Z");
+    assert.equal((await lastScheduled("all")).toISOString(), "2026-10-25T01:00:00.000Z");
+    // 시드의 fixture run 은 DEMO 수집이라 demo 의 정기 수집은 없다.
+    assert.equal(await lastScheduled("demo"), null);
+    await as(db, "operator");
+    assert.equal(await lastScheduled("live"), null);
+    await asAnon(db);
+    await assert.rejects(lastScheduled("live"), /permission denied/);
+  });
+  it("B2 origin 은 출처만 고른다 — org-01 VIEWER 는 demo·live·all 어디서도 org-02 의 분석·결정을 못 본다", async (t) => {
+    const db = await solDb(t);
+    // 시드: DEMO 공고 BID1 에 org-02 의 분석(RUN2, BID)과 결정(REVIEW2, WATCH)이 있다.
+    // 실제 공고 하나를 더 두고 org-02 만 분석(WATCH)·결정(WATCH)한다.
+    await asWorker(db);
+    const [bid] = await rowsOf(
+      db,
+      "insert into public.bid_notices(source,notice_id,title,agency,stage,status,source_url,content_hash,deadline_at,is_demo) values ('g2b-bid-notice','R25BK00000099','실제 공고','실제기관C','NOTICE','OPEN','https://www.g2b.go.kr/live-99','live-hash-99',now()+interval '10 days',false) returning id",
+    );
+    const [rev] = await rowsOf(
+      db,
+      "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,'{}','{}','live-sum-99') returning id",
+      [bid.id],
+    );
+    const [run] = await rowsOf(
+      db,
+      `insert into public.score_runs (org_id, bid_id, revision_id, company_profile_id, profile_revision, algorithm_version,
+         run_mode, ai_provider, status, score, recommendation, recommendation_basis, input_snapshot, input_snapshot_hash)
+       values ($1, $2, $3, $4, 1, 'sol-v0.1.0', 'LIVE', 'LOCAL', 'COMPLETED', 66, 'WATCH', 'RULES_ONLY', '{}', 'live-snap-99') returning id`,
+      [ORG2, bid.id, rev.id, PROFILE2],
+    );
+    const [review] = await rowsOf(
+      db,
+      "insert into public.bid_reviews (org_id, bid_id, revision_id, score_run_id, decision, reason) values ($1, $2, $3, $4, 'WATCH', '격리 시험 결정 — 다른 조직') returning id",
+      [ORG2, bid.id, rev.id, run.id],
+    );
+    const hidden = [RUN2, REVIEW2, run.id, review.id];
+    // 화면 목록의 출처 조건(web/server/opportunities/repo.ts filtered)과 같다. 조직 조건은 넣지 않는다(RLS 만).
+    const ORIGIN_WHERE = {
+      demo: "is_demo",
+      live: "not is_demo and source<>'fixture'",
+      all: "true",
+    };
+    await as(db, "viewer");
+    for (const [origin, where] of Object.entries(ORIGIN_WHERE)) {
+      const rows = await rowsOf(
+        db,
+        `select org_id,bid_id,analysis_id,latest_run_id,latest_decision,recommendation from public.opportunity_list_items where ${where}`,
+      );
+      assert.ok(rows.length > 0, origin);
+      assert.ok(
+        rows.every((row) => row.org_id === ORG1),
+        origin,
+      );
+      const text = JSON.stringify(rows);
+      for (const id of hidden) assert.equal(text.includes(id), false, `${origin} ${id}`);
+      // BID1 은 org-01 자기 결정(BID)만, 나머지는 org-01 분석·결정이 없어 비어 있다.
+      for (const row of rows)
+        if (row.bid_id === BID1) assert.equal(row.latest_decision, "BID", origin);
+        else {
+          assert.equal(row.analysis_id, null, origin);
+          assert.equal(row.latest_decision, null, origin);
+        }
+      const mine = (
+        await rowsOf(db, "select public.procurement_summary($1,$2) v", [ORG1, origin])
+      )[0].v;
+      assert.equal(mine.portfolio.WATCH, 0, origin);
+      const theirs = (
+        await rowsOf(db, "select public.procurement_summary($1,$2) v", [ORG2, origin])
+      )[0].v;
+      assert.equal(theirs.totalOpportunities, 0, origin);
+      const metricsOf = async (org) =>
+        (await rowsOf(db, "select public.procurement_live_metrics($1,$2) v", [org, origin]))[0].v;
+      assert.equal((await metricsOf(ORG1)).activeWatch, 0, origin);
+      const theirMetrics = await metricsOf(ORG2);
+      assert.equal(theirMetrics.activeWatch, 0, origin);
+      assert.deepEqual(theirMetrics.topAgencies, [], origin);
+    }
+  });
   it("G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만", async (t) => {
     const pglite = await solDb(t);
     const shared = ORG_TABLES.filter((table) => !["audit_logs", "notifications"].includes(table));

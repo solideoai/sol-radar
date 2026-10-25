@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
-import { defaultOrigin, parseBidListQuery } from "@/server/bids";
+import { parseBidListQuery } from "@/server/bids";
 import { simulateWorkforce } from "@/server/workforce";
 import { loadBidPage } from "@/app/_lib/work-data";
 import { requireWork } from "@/app/(app)/(work)/work";
@@ -17,7 +17,7 @@ export default async function WorkforcePage({ searchParams }: PageProps<"/workfo
   );
   const query = parseBidListQuery(
     { status: ["OPEN", "AMENDED", "CLOSED", "CANCELLED"] },
-    work.runMode,
+    work.defaultOrigin,
   );
   if (!query.ok) throw new Error("공고 선택 목록을 준비하지 못했습니다");
   const [options, result] = await Promise.all([
@@ -34,7 +34,7 @@ export default async function WorkforcePage({ searchParams }: PageProps<"/workfo
     >
       <WorkforceView
         key={selection.ids.join(",")}
-        origin={defaultOrigin(work.runMode)}
+        origin={work.defaultOrigin}
         initialOptions={options.items}
         initialNextCursor={options.pageInfo.nextCursor}
         initialResult={result?.ok ? result.data : null}

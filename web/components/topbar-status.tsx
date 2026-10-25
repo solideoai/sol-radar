@@ -5,7 +5,6 @@ import { BellIcon, ClockIcon, CpuIcon, OctagonAlertIcon, ServerIcon } from "luci
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { create } from "zustand";
-import { DemoBadge } from "@/components/bids/status-badge";
 import { formatKst, formatRelative } from "@/components/bids/format";
 import { NOTIFICATION_ICON, NOTIFICATION_TYPE_LABEL } from "@/components/bids/labels";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { DashboardSummary, Notification, RunMode } from "@/server/bids";
 
 // 앱 상단바 오른쪽 지표 묶음(스펙 §4.1·§4.2·§4.3). 순서는 DEMO → 실행 모드 → AI → 수집 → 벨로 고정이다.
+// DEMO 는 지금 보는 데이터 출처(?origin=, 없으면 기본 출처)가 demo 일 때만, 실행 모드는 SOL_RUN_MODE 그대로다(10-25 계획 B2).
 // 지표는 aria-live 를 두지 않는다. 30초마다 읽어 주면 시끄럽기 때문이다. AI 가 끊길 때만 숨은 status 한 곳이 읽는다.
 
 export type TopbarSummary = Pick<DashboardSummary, "dataFreshness" | "unreadNotifications">;
@@ -29,8 +29,11 @@ export type AiIndicator = "mock" | "local" | "hosted" | "unavailable";
 
 const AI_VALUES: readonly AiIndicator[] = ["mock", "local", "hosted", "unavailable"];
 const DEFAULT_POLL_MS = 30_000;
-const STALE_AFTER_MS = 60 * 60_000;
+// 수집 주기를 모를 때의 지연 기준. 서버가 G2B_INGEST_INTERVAL_MINUTES 의 2배를 staleAfterMs 로 내려 준다.
+const DEFAULT_STALE_AFTER_MS = 60 * 60_000;
 const CHECK_FAILED = "상태를 확인하지 못했습니다";
+// 실행 모드와 DEMO 의 뜻을 가른다. DEMO 의 뜻은 DemoBadge 툴팁(09 고정 문구)이 말한다.
+const RUN_MODE_TIP = "AI 분석 런타임 설정입니다. 보는 데이터가 데모인지는 DEMO 표시로 구분합니다.";
 const LIST_LIMIT = 5;
 
 // ── 마지막 값과 실패 여부 ──
@@ -153,7 +156,7 @@ function Indicator({
 
 function RunModeIndicator({ runMode }: { runMode: RunMode }) {
   return (
-    <Indicator name="run-mode" className="text-muted-foreground">
+    <Indicator name="run-mode" className="text-muted-foreground" tip={RUN_MODE_TIP}>
       <ServerIcon aria-hidden="true" className="size-3.5 shrink-0" />
       <span>
         실행 모드:{" "}
@@ -201,6 +204,7 @@ const describeFreshness = (
   summary: TopbarSummary | null,
   now: Date,
   failed: boolean,
+  staleAfterMs: number,
 ): FreshnessView => {
   if (summary === null)
     return { text: "—", className: "text-muted-foreground", tip: failed ? CHECK_FAILED : null };
@@ -221,7 +225,7 @@ const describeFreshness = (
   if (lastIngestStatus === "FAILED")
     return { text: `수집 실패 · ${relative}`, className: "text-destructive", tip };
   const age = now.getTime() - new Date(lastIngestAt).getTime();
-  if (age > STALE_AFTER_MS)
+  if (age > staleAfterMs)
     return { text: `수집 지연 · ${relative}`, className: "text-warning", tip };
   return { text: `수집 ${relative}`, className: "text-muted-foreground", tip };
 };
@@ -230,12 +234,14 @@ function DataFreshnessIndicator({
   summary,
   now,
   failed,
+  staleAfterMs,
 }: {
   summary: TopbarSummary | null;
   now: Date;
   failed: boolean;
+  staleAfterMs: number;
 }) {
-  const view = describeFreshness(summary, now, failed);
+  const view = describeFreshness(summary, now, failed, staleAfterMs);
   return (
     <Indicator name="freshness" className={view.className} tip={view.tip}>
       {summary !== null && <ClockIcon aria-hidden="true" className="size-3.5 shrink-0" />}
@@ -374,11 +380,17 @@ export type TopbarStatusProps = Parameters<typeof TopbarStatus>[0];
 
 export function TopbarStatus({
   runMode,
+  demoIndicator,
+  staleAfterMs = DEFAULT_STALE_AFTER_MS,
   initialSummary,
   initialAi,
   pollIntervalMs = DEFAULT_POLL_MS,
 }: {
   runMode: RunMode;
+  /** 맨 앞 DEMO 배지 자리(topbar-demo-indicator). 보고 있는 출처를 따르며 실행 모드 라벨과 따로다. */
+  demoIndicator?: React.ReactNode;
+  /** 마지막 수집이 이보다 오래되면 "수집 지연"이다(ms). 서버가 수집 주기의 2배를 내려 준다. */
+  staleAfterMs?: number;
   initialSummary: TopbarSummary | null;
   initialAi: AiIndicator | null;
   /** 시험에서 주기를 줄이려고 있다. 앱은 기본 30초를 쓴다. */
@@ -414,26 +426,23 @@ export function TopbarStatus({
     };
   }, [initialSummary, initialAi, pollIntervalMs]);
 
-  const demo = runMode !== "live";
   const divider = <Separator orientation="vertical" className="h-4 data-vertical:self-center" />;
   return (
     <div
       data-slot="topbar-status"
       className="flex items-center gap-3 whitespace-nowrap text-foreground"
     >
-      {demo && (
-        <>
-          <span data-slot="topbar-item" data-indicator="demo" className="inline-flex">
-            <DemoBadge withTooltip />
-          </span>
-          {divider}
-        </>
-      )}
+      {demoIndicator}
       <RunModeIndicator runMode={runMode} />
       {divider}
       <AiModeIndicator ai={ai} healthFailed={healthFailed} />
       {divider}
-      <DataFreshnessIndicator summary={summary} now={now} failed={summaryFailed} />
+      <DataFreshnessIndicator
+        summary={summary}
+        now={now}
+        failed={summaryFailed}
+        staleAfterMs={staleAfterMs}
+      />
       {divider}
       <NotificationBell
         unread={summary?.unreadNotifications ?? null}

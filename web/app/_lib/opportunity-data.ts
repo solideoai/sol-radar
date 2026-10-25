@@ -1,7 +1,10 @@
 import "server-only";
 import { readCursorSecret } from "@/server/bids";
 import {
+  getLastScheduledIngestAt,
+  getOpportunityChangedAt,
   getOpportunityClient,
+  getOpportunityLiveMetrics,
   getOpportunityFilterOptions,
   getOpportunitySummary,
   listOpportunities,
@@ -27,6 +30,22 @@ export async function loadOpportunitySummary(
   asOf: string,
 ) {
   return getOpportunitySummary(await opportunityClient(), orgId, origin, asOf);
+}
+
+export async function loadOpportunityLiveMetrics(
+  orgId: string,
+  origin: OpportunityQuery["origin"],
+  asOf: string,
+) {
+  return getOpportunityLiveMetrics(await opportunityClient(), orgId, origin, asOf);
+}
+
+export async function loadLastScheduledIngestAt(origin: OpportunityQuery["origin"]) {
+  return getLastScheduledIngestAt(await opportunityClient(), origin);
+}
+
+export async function loadOpportunityChangedAt(orgId: string, bidId: string) {
+  return getOpportunityChangedAt(await opportunityClient(), orgId, bidId);
 }
 
 export async function loadOpportunitySources(origin: OpportunityQuery["origin"]) {

@@ -76,6 +76,8 @@ export const opportunityItemSchema = z.object({
     .nullable(),
   latestDecision: recommendationSchema.nullable(),
   latestDecisionAt: z.string().nullable(),
+  // 이 조직에서 본 사업기회의 마지막 변경 시각(공고 갱신·분석·결정·출처 연결 중 가장 늦은 것).
+  changedAt: z.string().nullable(),
 });
 export type SourceFamily = z.infer<typeof sourceFamilySchema>;
 export type OpportunityItem = z.infer<typeof opportunityItemSchema>;
@@ -108,6 +110,14 @@ export const opportunitySummarySchema = z.object({
   earlyCount: z.number(),
 });
 export type OpportunitySummary = z.infer<typeof opportunitySummarySchema>;
+// 대시보드 실수집 지표(procurement_live_metrics, 10-25 계획 B3). 범위는 procurement_summary 와 같다.
+export const opportunityLiveMetricsSchema = z.object({
+  generatedAt: z.string(),
+  origin: z.enum(["live", "demo", "all"]),
+  activeWatch: z.number(),
+  topAgencies: z.array(z.object({ name: z.string(), count: z.number() })),
+});
+export type OpportunityLiveMetrics = z.infer<typeof opportunityLiveMetricsSchema>;
 export type SourceServiceStatus = {
   key: string;
   sourceFamily: SourceFamily;

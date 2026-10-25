@@ -82,8 +82,13 @@ function scalar(value: string | string[] | undefined): string | string[] | undef
   return value === "" ? undefined : value;
 }
 
-export const defaultOrigin = (runMode: RunMode): BidListOrigin =>
-  runMode === "live" ? "live" : "demo";
+// 화면의 기본 출처(10-25 계획 D2). SOL_DEFAULT_ORIGIN(live·demo·all)이 맞는 값이면 그 값이다.
+// 비었거나 틀리면 실행 모드로 정한다(mock·fixture → demo, live → live). env 는 부르는 쪽(app/_lib/run-mode.ts)이 읽어 넘긴다.
+export const defaultOrigin = (runMode: RunMode, configured?: string | null): BidListOrigin => {
+  const parsed = originSchema.safeParse(configured?.trim());
+  if (parsed.success) return parsed.data;
+  return runMode === "live" ? "live" : "demo";
+};
 
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; issues: QueryIssue[] };
 
@@ -95,12 +100,13 @@ const issuesOf = (error: z.ZodError): QueryIssue[] =>
   }));
 
 // origin 과 옛 isDemo 를 하나로 합친다. 둘의 뜻이 다르면 isDemo 의 실패다.
+// fallback 은 origin·isDemo 가 둘 다 없을 때 쓰는 화면 기본 출처(defaultOrigin)다.
 function resolveOrigin(
   origin: BidListOrigin | undefined,
   isDemo: "true" | "false" | undefined,
-  runMode: RunMode,
+  fallback: BidListOrigin,
 ): ParseResult<BidListOrigin> {
-  if (isDemo === undefined) return { ok: true, value: origin ?? defaultOrigin(runMode) };
+  if (isDemo === undefined) return { ok: true, value: origin ?? fallback };
   const fromIsDemo: BidListOrigin = isDemo === "true" ? "demo" : "live";
   if (origin !== undefined && origin !== fromIsDemo) {
     return {
@@ -111,7 +117,10 @@ function resolveOrigin(
   return { ok: true, value: fromIsDemo };
 }
 
-export function parseBidListQuery(query: RawQuery, runMode: RunMode): ParseResult<BidListQuery> {
+export function parseBidListQuery(
+  query: RawQuery,
+  fallbackOrigin: BidListOrigin,
+): ParseResult<BidListQuery> {
   const result = parsedSchema.safeParse({
     q: scalar(query.q),
     stage: repeated(query.stage),
@@ -129,7 +138,7 @@ export function parseBidListQuery(query: RawQuery, runMode: RunMode): ParseResul
   });
   if (!result.success) return { ok: false, issues: issuesOf(result.error) };
   const parsed = result.data;
-  const origin = resolveOrigin(parsed.origin, parsed.isDemo, runMode);
+  const origin = resolveOrigin(parsed.origin, parsed.isDemo, fallbackOrigin);
   if (!origin.ok) return origin;
   const { deadlineFrom, deadlineTo } = parsed;
   if (
@@ -207,14 +216,14 @@ const originOnlySchema = z.strictObject({
 // 대시보드처럼 origin 만 받는 쿼리.
 export function parseOriginQuery(
   query: RawQuery,
-  runMode: RunMode,
+  fallbackOrigin: BidListOrigin,
 ): ParseResult<{ origin: BidListOrigin }> {
   const result = originOnlySchema.safeParse({
     origin: scalar(query.origin),
     isDemo: scalar(query.isDemo),
   });
   if (!result.success) return { ok: false, issues: issuesOf(result.error) };
-  const origin = resolveOrigin(result.data.origin, result.data.isDemo, runMode);
+  const origin = resolveOrigin(result.data.origin, result.data.isDemo, fallbackOrigin);
   return origin.ok ? { ok: true, value: { origin: origin.value } } : origin;
 }
 

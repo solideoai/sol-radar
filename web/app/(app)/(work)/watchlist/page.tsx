@@ -4,7 +4,6 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { AppPage } from "@/components/app-page";
 import { buttonVariants } from "@/components/ui/button";
-import { defaultOrigin } from "@/server/bids";
 import { listMyWatchedBidIds } from "@/server/watchlist";
 import { loadOpportunityFilters, loadOpportunityPage } from "@/app/_lib/opportunity-data";
 import { BidListView } from "@/app/(app)/(work)/bids/bid-list-view";
@@ -33,7 +32,7 @@ export default async function WatchlistPage({ searchParams }: PageProps<"/watchl
     for (const item of value === undefined ? [] : Array.isArray(value) ? value : [value])
       next.append(key, item);
   const work = await requireWork(`/watchlist${next.size ? `?${next}` : ""}`);
-  const { query, search, notice } = listQueryOf({ ...raw, watched: "me" }, work.runMode);
+  const { query, search, notice } = listQueryOf({ ...raw, watched: "me" }, work.defaultOrigin);
   const [first, filters, watchedIds] = await Promise.all([
     loadOpportunityPage(work.orgId, query, work.userId),
     loadOpportunityFilters(query.origin),
@@ -54,7 +53,7 @@ export default async function WatchlistPage({ searchParams }: PageProps<"/watchl
     query.includeEarly ||
     !query.siAiFirst ||
     query.sortExplicit ||
-    query.origin !== defaultOrigin(work.runMode),
+    query.origin !== work.defaultOrigin,
   );
   const empty =
     watchedIds.length === 0 ? (
@@ -87,7 +86,7 @@ export default async function WatchlistPage({ searchParams }: PageProps<"/watchl
       contentClassName="max-w-360"
     >
       <BidListView
-        defaultOrigin={defaultOrigin(work.runMode) === "live" ? "live" : "demo"}
+        defaultOrigin={work.defaultOrigin}
         items={first.items}
         total={first.total}
         nextCursor={first.pageInfo.nextCursor}

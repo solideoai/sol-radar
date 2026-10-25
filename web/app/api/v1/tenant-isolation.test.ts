@@ -274,6 +274,23 @@ describe("11 G5 조직 격리 — Route Handler", () => {
     expect(d.reviews.listReviews).toHaveBeenCalledWith(ORG_02, FX01);
   });
 
+  // 10-25 실수집 B2: ?origin= 은 데이터 출처(demo·live·all)만 고른다. 조직은 언제나 세션의 조직이다.
+  it("origin 은 출처만 고른다 — org-02 VIEWER 는 ?origin=demo·live·all 어디서도 org-01 분석·결정을 못 본다", async () => {
+    const d = install();
+    for (const origin of ["demo", "live", "all"] as const) {
+      const list = await bidsRoute.GET(
+        get(FAKE_USERS.otherViewer, `/api/v1/bids?origin=${origin}`),
+      );
+      expect(list.status, origin).toBe(200);
+      const text = await list.text();
+      expect(text, origin).not.toContain(ORG01_RUN);
+      expect(text, origin).not.toContain(ORG01_REVIEW);
+      const [orgId, query] = vi.mocked(d.bids.listBids).mock.lastCall ?? [];
+      expect(orgId, origin).toBe(ORG_02);
+      expect(query?.origin, origin).toBe(origin);
+    }
+  });
+
   it("org-02 VIEWER 의 응답 본문 어디에도 org-01 run id·결정 id 가 없다", async () => {
     install();
     const responses = await readAll(FAKE_USERS.otherViewer);

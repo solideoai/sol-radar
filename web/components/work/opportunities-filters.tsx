@@ -168,7 +168,7 @@ export function OpportunityFilters({
   startTransition,
 }: {
   query: string;
-  defaultOrigin: "live" | "demo";
+  defaultOrigin: "live" | "demo" | "all";
   agencies: Option[];
   companies: Option[];
   startTransition: TransitionStartFunction;

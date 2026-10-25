@@ -34,6 +34,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { ViewOrigin } from "@/components/bids/notice-origin";
+import { TopbarDemoIndicator } from "@/components/topbar-demo-indicator";
 import { TopbarStatus, useTopbarStore, type TopbarStatusProps } from "@/components/topbar-status";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -88,7 +90,7 @@ export function AppShell({
   solRole: SolRole | null;
   defaultSidebarOpen: boolean;
   // 있으면 위 막대 오른쪽에 상태 묶음(DEMO·실행 모드·AI·수집·알림)을 그린다.
-  status?: TopbarStatusProps;
+  status?: ShellStatus;
   children: React.ReactNode;
 }) {
   return (
@@ -439,7 +441,10 @@ function UserMenu({
   );
 }
 
-function AppTopBar({ current, status }: { current: CurrentOrg; status?: TopbarStatusProps }) {
+// 상단바 상태 값. defaultOrigin 은 화면 기본 데이터 출처로, DEMO 배지가 주소에 ?origin= 이 없을 때 따른다.
+type ShellStatus = Omit<TopbarStatusProps, "demoIndicator"> & { defaultOrigin: ViewOrigin };
+
+function AppTopBar({ current, status }: { current: CurrentOrg; status?: ShellStatus }) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const screenLabel = screenLabelOf(pathname, current.slug);
@@ -473,7 +478,10 @@ function AppTopBar({ current, status }: { current: CurrentOrg; status?: TopbarSt
       ) : null}
       {status ? (
         <div className="ml-auto flex min-w-0 items-center">
-          <TopbarStatus {...status} />
+          <TopbarStatus
+            {...status}
+            demoIndicator={<TopbarDemoIndicator defaultOrigin={status.defaultOrigin} />}
+          />
         </div>
       ) : null}
     </header>

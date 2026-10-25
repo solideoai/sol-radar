@@ -35,6 +35,11 @@ import { SourceLink } from "@/components/bids/source-link";
 import { StageTimeline } from "@/components/bids/stage-timeline";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
 import {
+  agencyLabelOf,
+  isUnverifiedOrigin,
+  sourceLinkLabelOf,
+} from "@/components/bids/notice-origin";
+import {
   isAssumptionCandidate,
   matchesStoredRun,
   WHAT_IF_CLEARED_MESSAGE,
@@ -53,7 +58,6 @@ import type {
   AnalysisStatus as AnalysisStatusValue,
   AnalysisView,
   BidDetail,
-  BidDocument,
   Recommendation,
   RunMode,
 } from "@/server/bids";
@@ -110,6 +114,8 @@ type BidDetailViewProps = {
   now: string;
   watch?: WatchSummary | null;
   projectEntry?: ProjectEntryState | null;
+  /** 이 조직에서 본 사업기회의 마지막 변경 시각(opportunity_list_items.changed_at). 모르면 null 이고 표시하지 않는다. */
+  changedAt?: string | null;
 };
 
 // 09 고정
@@ -366,6 +372,11 @@ function DetailEyebrow({ bid, backHref }: { bid: DetailBid; backHref: string }) 
       </Link>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {bid.isDemo && <DemoBadge withTooltip />}
+        {isUnverifiedOrigin(bid) && (
+          <span data-part="unverified-origin" className="type-caption text-warning">
+            출처 미확인
+          </span>
+        )}
         <span className={CHIP}>{STAGE_LABEL[bid.stage]}</span>
         <StatusBadge kind="bidStatus" value={bid.status} />
         <span className="type-caption text-muted-foreground wrap-anywhere">
@@ -376,13 +387,23 @@ function DetailEyebrow({ bid, backHref }: { bid: DetailBid; backHref: string }) 
   );
 }
 
-// ① 요약 두 줄: 발주기관·예산·마감 / 공고번호·revision·수집 시각.
-function SummaryLines({ bid, now }: { bid: DetailBid; now: Date }) {
+// ① 요약 두 줄: 기관(·공고기관)·예산·마감 / 공고번호·revision·수집·마지막 변경 시각.
+// 기관 라벨은 저장된 source 의 정규화 규칙을 따른다(G2B 는 dminsttNm 수요기관, notice-origin). 공고기관(ntceInsttNm)은 원본에 있을 때만 보인다.
+function SummaryLines({
+  bid,
+  now,
+  changedAt,
+}: {
+  bid: DetailBid;
+  now: Date;
+  changedAt: string | null;
+}) {
   const due = dDay(bid.deadlineAt, now);
   return (
     <>
       <span className="block">
-        발주기관 {bid.agency ?? "—"} · 예산{" "}
+        {agencyLabelOf(bid.source)} {bid.agency ?? "—"}
+        {bid.noticeAgency !== null && ` · 공고기관 ${bid.noticeAgency}`} · 예산{" "}
         <span className="tabular-nums">{formatKrwFull(bid.budgetKrw)}</span>
         {bid.budgetKrw === null && <span className="sr-only">미공개</span>} · 마감{" "}
         {bid.deadlineAt === null ? (
@@ -404,6 +425,15 @@ function SummaryLines({ bid, now }: { bid: DetailBid; now: Date }) {
         >
           {formatKst(bid.lastSyncedAt)} KST
         </time>
+        {changedAt !== null && (
+          <>
+            {" "}
+            · 마지막 변경{" "}
+            <time dateTime={changedAt} title={`UTC ${changedAt}`} className="tabular-nums">
+              {formatKst(changedAt)} KST
+            </time>
+          </>
+        )}
       </span>
     </>
   );
@@ -442,11 +472,11 @@ function HeaderActions({
         {watch !== null && <DetailWatch bidId={bid.id} watch={watch} />}
         <SourceLink
           href={bid.sourceUrl}
-          ariaLabel="원문 보기 (새 탭)"
+          ariaLabel={`${sourceLinkLabelOf(bid.sourceUrlKind)} (새 탭)`}
           className={cn(buttonVariants({ variant: "outline" }))}
         >
           <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />
-          원문 보기
+          {sourceLinkLabelOf(bid.sourceUrlKind)}
         </SourceLink>
         {/* 이 화면의 default 버튼은 하나다. 결과가 없으면 분석, 있으면 결정 기록(스펙 §5.4.9). */}
         <Button
@@ -704,9 +734,15 @@ function AnalysisSkeleton() {
   );
 }
 
-function Attachments({ documents, sourceUrl }: { documents: BidDocument[]; sourceUrl: string }) {
-  if (documents.length === 0) return null;
-  return <AttachmentStatus documents={documents} sourceUrl={sourceUrl} />;
+function Attachments({ bid }: { bid: DetailBid }) {
+  if (bid.documents.length === 0) return null;
+  return (
+    <AttachmentStatus
+      documents={bid.documents}
+      sourceUrl={bid.sourceUrl}
+      sourceLabel={sourceLinkLabelOf(bid.sourceUrlKind)}
+    />
+  );
 }
 
 type ChecklistAssumptionProps = Pick<
@@ -765,7 +801,7 @@ function AnalysisResult({
       <Section>
         <div className="flex flex-col gap-6">
           <EvidenceList title="근거 인용" evidence={analysis.evidence} documents={bid.documents} />
-          <Attachments documents={bid.documents} sourceUrl={bid.sourceUrl} />
+          <Attachments bid={bid} />
         </div>
       </Section>
     </>
@@ -780,7 +816,7 @@ function NoResult({ title, bid }: { title: string; bid: DetailBid }) {
       </Section>
       {bid.documents.length > 0 && (
         <Section>
-          <Attachments documents={bid.documents} sourceUrl={bid.sourceUrl} />
+          <Attachments bid={bid} />
         </Section>
       )}
     </>
@@ -802,6 +838,7 @@ export function BidDetailView({
   now,
   watch = null,
   projectEntry = null,
+  changedAt = null,
 }: BidDetailViewProps) {
   const router = useRouter();
   const at = useMemo(() => new Date(now), [now]);
@@ -872,7 +909,7 @@ export function BidDetailView({
       <AppPage
         eyebrow={<DetailEyebrow bid={bid} backHref={backHref} />}
         title={bid.title}
-        description={<SummaryLines bid={bid} now={at} />}
+        description={<SummaryLines bid={bid} now={at} changedAt={changedAt} />}
         actions={
           <HeaderActions
             bid={bid}
@@ -970,7 +1007,12 @@ export function BidDetailView({
           </div>
         </div>
       </AppPage>
-      <EvidenceDrawer content={bid.content} sourceUrl={bid.sourceUrl} documents={bid.documents} />
+      <EvidenceDrawer
+        content={bid.content}
+        sourceUrl={bid.sourceUrl}
+        documents={bid.documents}
+        sourceLabel={sourceLinkLabelOf(bid.sourceUrlKind)}
+      />
     </>
   );
 }

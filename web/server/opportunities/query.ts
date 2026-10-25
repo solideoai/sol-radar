@@ -44,9 +44,10 @@ const repeated = (v: string | string[] | undefined) =>
   v === undefined ? [] : (Array.isArray(v) ? v : [v]).filter(Boolean);
 const scalar = (v: string | string[] | undefined) =>
   Array.isArray(v) ? (v.length === 1 ? v[0] : v) : v;
+// fallbackOrigin 은 origin 이 없을 때 쓰는 화면 기본 출처다(@/server/bids defaultOrigin 이 정한다).
 export function parseOpportunityQuery(
   raw: Raw,
-  mode: "live" | "fixture" | "mock",
+  fallbackOrigin: "live" | "demo" | "all",
 ):
   | { ok: true; value: OpportunityQuery }
   | { ok: false; issues: { path: string; message: string }[] } {
@@ -60,7 +61,7 @@ export function parseOpportunityQuery(
     recommendation: repeated(raw.recommendation),
     decision: repeated(raw.decision),
     category: repeated(raw.category),
-    origin: scalar(raw.origin) || (mode === "live" ? "live" : "demo"),
+    origin: scalar(raw.origin) || fallbackOrigin,
     siAiFirst: scalar(raw.siAiFirst) || "true",
     includeEarly: scalar(raw.includeEarly) || "false",
     sort: scalar(raw.sort) || "publishedAt:desc",

@@ -3,7 +3,12 @@ import path from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { callableSource, loadSourceRegistry } from "@/server/ingestion";
-import { getSourceSummary, type SourceServiceConfig } from "@/server/opportunities";
+import {
+  getSourceSummary,
+  ingestStaleAfterMs,
+  type SourceServiceConfig,
+} from "@/server/opportunities";
+import { currentIngestIntervalMinutes } from "./run-mode";
 
 const SERVICE_IDS = new Set([
   "15129394",
@@ -51,5 +56,11 @@ export async function loadSourceSummary(
         entry.keyIssuance ?? (entry.approvalStatus === "APPROVED" ? "ISSUED" : "UNKNOWN"),
     });
   }
-  return getSourceSummary(client, origin, configs);
+  // HEALTHY 기준은 수집 주기의 2배(주기 env 가 없으면 60분)다. 상단바 지연 기준과 같다.
+  return getSourceSummary(
+    client,
+    origin,
+    configs,
+    ingestStaleAfterMs(currentIngestIntervalMinutes()),
+  );
 }
