@@ -154,6 +154,8 @@ export function OrgJoinRequestTable({ requests }: { requests: JoinRequestView[] 
                             {request.memberPersonCode}
                           </span>
                         </p>
+                      ) : request.memberUnavailable ? (
+                        <p className="type-label text-destructive">연결할 수 없는 직원</p>
                       ) : (
                         <p className="type-label text-muted-foreground">새 직원</p>
                       )}

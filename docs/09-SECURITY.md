@@ -282,6 +282,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - OAuth·기존 사용자에게 null 가입 정보가 있을 수 있다. 서버가 이름·부서·직급의 유효성을 검사하고 보완 전 업무 화면/API를 차단한다. 본인 신고 정보 조회·저장은 조직 합류 전에도 허용하되 RLS로 본인만, 쿠키 쓰기는 CSRF 헤더를 요구한다. 기존 초대·권한·RLS 정책은 유지한다.
 - 공개 가입 카탈로그는 승인 fixture의 회사명·ID·표시명·버전만 반환한다. 원본 인원·명부·연락처를 함께 반환하거나 `departments`의 RLS를 익명 전체 읽기로 열지 않는다.
 - 공개 자산 예외는 **새로 생성한 가상 정장 사진** `web/public/demo/people/<personId>.png`뿐이다. 실제 임직원 사진·민감 파일을 여기에 두지 않는다. 공고 첨부의 Supabase Storage public bucket 금지와 `profiles.avatar_url` HTTPS 정책은 유지한다. `team_members.portrait_path`로 가상 사진을 별도 연결한다. 점수 계산 속성(직무·등급·스킬·가용성)은 `team_member_scoring`(seed 전용)에 있고 화면 역할은 쓰지 못한다([[16-DECISIONS|ADR-021]]).
+- 사람이 올린 프로필 사진([[16-DECISIONS|ADR-051]])은 공개 자산이 아니다. private 버킷 `profile-photos`(2MB, jpeg·png·webp)에 `users/{uid}/`(본인)·`members/{team_member_id}/`(그 조직 ADMIN)로만 올린다. 읽기는 본인 폴더, 내 조직 명부(`team_members.photo_path`)에 걸린 사진, 대기 가입 신청의 사진(그 조직 ADMIN)만이다. 웹은 사용자 JWT로 1시간 signed URL을 만들고 service role을 쓰지 않는다. 명부와 계정 연결은 가입 신청을 ADMIN이 승인할 때만 생긴다(security definer RPC). 가입만으로 멤버십이 생기지 않는다.
 - 200명의 가상 직원·사진은 `isDemo` 및 가상 인물 표시를 유지한다. 회사 이름과 부서가 실제라고 해서 가상 직원·수치가 실제 회사 정보인 것처럼 소개하지 않는다.
 
 ## 검토 중 확장: 외부키·원본·수집 권한

@@ -1,6 +1,11 @@
 import "server-only";
 import { describe, expect, it } from "vitest";
-import { buildPeopleDirectory, resolveMemberPortrait, type MemberRow } from "./people.model";
+import {
+  buildPeopleDirectory,
+  resolveMemberPortrait,
+  toTeamMemberListItem,
+  type MemberRow,
+} from "./people.model";
 import { rows } from "./people.test-data";
 
 const base: MemberRow = {
@@ -90,5 +95,14 @@ describe("buildPeopleDirectory", () => {
     expect(found).toMatchObject({ isDemo: false, name: "Lee Gwanghui", portraitUrl: null });
     expect(directory.summary.totalCount).toBe(rows.members.length + 1);
     expect(directory.canManagePhotos).toBe(false);
+  });
+});
+
+describe("toTeamMemberListItem", () => {
+  it("올린 사진이 있으면 서명에 실패해도 hasUploadedPhoto 가 참이라 관리자가 지울 수 있다", () => {
+    expect(toTeamMemberListItem(base, false, new Map()).hasUploadedPhoto).toBe(false);
+    expect(
+      toTeamMemberListItem({ ...base, photo_path: uploaded }, false, new Map()).hasUploadedPhoto,
+    ).toBe(true);
   });
 });

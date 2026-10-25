@@ -27,6 +27,16 @@ updated: 2026-10-24
 
 - 2026-10-22 F08 Redis A~F 검증: 예약·32클라이언트 경합(성공10/초과0)·재시도·TTL/KST·장애 차단·공유/분리 예산·이중 계수0 통과. 미검증: 회사 ACL·다중 호스트 Worker·failover. [증거](evidence/ingestion/20261022-f08-abcdef-redis.md).
 
+## 프로필 사진과 명부 연결 (2026-10-24, 로컬 · ADR-051)
+
+세션 sol-radar-81, 브랜치 `feat/profile-photo`. [설계](../polaris/specs/in-progress/2026-10-24-profile-photo-member-link.md) · [계획](plans/2026-10-24-profile-photo-member-link-plan.md) · [[16-DECISIONS|ADR-051]]. 로컬 커밋만 했다. push·클라우드 적용은 하지 않았다.
+
+- **된 것**: 비공개 버킷 `profile-photos`와 Storage 정책, `profiles`·`team_members` 사진 경로(`20261024000200`·`000210`). 설정의 내 사진 올리기·바꾸기·지우기. 조직도·사이드바 사진 표시 순서. 조직이 없는 계정의 가입 신청(신규 입사자)과 `/settings/organization` 승인 표(`20261024000300`). 관리자가 조직도 상세에서 누구의 사진이든 바꾸기. 퇴사 처리된 직원을 가리키는 신청은 승인 표에 "연결할 수 없는 직원"으로 보인다(N4b 연동).
+- **남은 것**: 이미 조직에 있는 계정의 신청 진입점(U10)과 기존 직원 찾기 화면(U8)은 화면이 아직 없다. DB 함수(`find_unlinked_member`·`EXISTING` 신청)는 있다. 넣을지는 sol-radar-78이 정한다.
+- **검증**: `pnpm test:db`(가입 신청 6건 포함) · 웹 단위 시험 · `pnpm verify:changed` 통과. 격리 스택(로컬 Supabase `sol-radar-photo81` + Compose `sol-radar-photo81`)에서 `pnpm -C web test:e2e:work --project=work-write --no-deps profile-photo\.write` 1 passed, axe 4화면 위반 0([실행 기록](evidence/profile-photo/e2e-run.log), [axe](evidence/profile-photo/axe-scans.json), [1440·1280 화면](evidence/profile-photo/e2e/)).
+- **격리 실행 메모**: 이 구성에서는 읽기 E2E 6건이 상단바 "AI: 확인 중"으로 실패했다. worker가 보고하는 Supabase 주소(`http://host.docker.internal:58321`)와 웹 주소(`http://127.0.0.1:58321`)가 글자로 달라 `parseDependencyReport`가 보고를 버린다. 이번 변경과 무관하고 로컬 Supabase로 돌릴 때만 생긴다. 그래서 위 실행은 쓰기 프로젝트만 의존 없이 돌렸다.
+- **클라우드 적용 대상**(사용자 확인 뒤): migration `20261024000200`·`20261024000210`·`20261024000300`, 버킷은 사람이 `node scripts/ops/ensure-storage-buckets.mjs --apply`로 만든다.
+
 ## 외부 수집 F08 일일 호출 예산 원자적 예약 (2026-10-22, 로컬)
 
 `fix/ingestion-quota-reservation`에 최신 `origin/main@02fc7c9`를 fast-forward하고 기존 F08 변경을 복원했다. 진행 문서는 양쪽 기록을 보존했고 main에는 쓰지 않았다. 실제 HTTP 직전 Lua 예약을 일회용 Redis7.4.11에서 검증했다. TTL2일·KST 자정·16클라이언트 경합20회 초과0·503 마지막 슬롯·전송 장애·ACL 거부를 확인했다. 실검증에서 발견한 미응답 EVAL 자동 재전송과 보조 조회 전 저장소 장애의 성공 처리를 RED→GREEN으로 수정했다. [격리 Redis 명령·출력·한계](evidence/ingestion/20261022-f08-isolated-redis.md), [최종 변경 범위 검사 출력](evidence/ingestion/20261022-f08-verify-changed.txt), [최초 구현 기록](evidence/ingestion/20261022-f08-quota-reservation.md)을 따른다. 옛 Worker 먼저 정지 후 새 Worker 기동 절차와 quota 최소 ACL은 회사 실행서에 기록했다. 기존 미커밋 외부 수집 계획 문서는 별도 변경이므로 커밋 범위에서 제외한다. F07/F13/F14·Registry 활성화·운영 접속/변경·커밋·push는 수행하지 않았다.
