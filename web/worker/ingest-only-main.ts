@@ -221,7 +221,10 @@ async function runOnce(env: Env, windowMinutes: number, deps: IngestOnlyDeps): P
   await deps.workerDeps.checkReadiness(readWorkerEnv(env));
   const data = onceG2bJobData(deps.now(), windowMinutes);
   deps.log(`ingest-only 1회 수집 시작: 창 ${data.window.from} ~ ${data.window.to}`);
-  const result = await deps.runOnce(env, data);
+  // 수집 중 Redis·DB 연결 오류의 message 는 접속 주소를 담을 수 있다. 이름·코드만 남긴다(보안 검토 10-25 낮음 2).
+  const result = await deps.runOnce(env, data).catch((error: unknown) => {
+    throw new Error(`ingest-only 1회 수집 실패: ${describeRedisError(error)}`);
+  });
   const { summary } = result;
   deps.log(
     [

@@ -43,6 +43,7 @@ const FAILURE: Record<Exclude<DecideJoinResult["status"], "approved" | "rejected
   "member-left": "퇴사 처리된 직원이라 연결할 수 없습니다.",
   "already-linked": "이미 조직도에 연결된 계정입니다.",
   "already-decided": "이미 처리된 신청입니다.",
+  "request-changed": "신청 내용이 바뀌었습니다. 새로 표시된 내용을 확인한 뒤 다시 처리하세요.",
   invalid: "요청이 올바르지 않습니다.",
   "signed-out": "로그인이 풀렸습니다. 다시 로그인하세요.",
 };
@@ -57,6 +58,7 @@ export function OrgJoinRequestTable({ requests }: { requests: JoinRequestView[] 
       const result = await decideJoin({
         requestId: request.id,
         approve,
+        version: request.version,
         solRole: roles[request.id] ?? "VIEWER",
       });
       if (result.status === "approved")

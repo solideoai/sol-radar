@@ -3020,7 +3020,7 @@ export type Database = {
         Returns: Json
       }
       decide_join_request: {
-        Args: { p_approve: boolean; p_request: string; p_sol_role?: string }
+        Args: { p_approve: boolean; p_request: string; p_seen_updated_at: string; p_sol_role?: string }
         Returns: string
       }
       delete_my_account: {

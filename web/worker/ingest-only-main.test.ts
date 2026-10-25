@@ -353,6 +353,20 @@ describe("ingest 전용 worker 1회 명령", () => {
     expect(fake.schedulers.size).toBe(0);
     expect(fake.workers).toEqual([]);
   });
+
+  it("--once 가 Redis 오류로 실패하면 오류 이름·코드만 남기고 접속 주소는 찍지 않는다", async () => {
+    const runOnce = vi.fn<IngestOnlyDeps["runOnce"]>(async () => {
+      throw Object.assign(new Error("connect ECONNREFUSED 10.9.8.7:6379"), {
+        code: "ECONNREFUSED",
+      });
+    });
+    const { deps } = testDeps({ runOnce });
+    await runIngestOnly(["--once", "--window-minutes", "60"], liveEnv, deps);
+    const output = outputOf(deps);
+    expect(output).toContain("ECONNREFUSED");
+    expect(output).not.toContain("10.9.8.7");
+    expect(deps.exit).toHaveBeenCalledWith(1);
+  });
 });
 
 // processIngestJob 을 가짜 저장소로 돌려 run 에 넘긴 값(jobKey·창·params)을 본다.

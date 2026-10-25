@@ -429,11 +429,24 @@ function ingestJobDepsOf(
 
 // 호출 예산 카운터(07 §2.2)는 live 에서만 만든다. 공유 연결을 duplicate 해 BullMQ 의 blocking 명령 뒤에 줄 서지 않게 한다.
 // 공유 연결의 maxRetriesPerRequest: null 을 그대로 물려받으면 Redis 장애 때 예산 확인이 끝없이 기다린다. 바로 실패하는 옵션으로 덮는다.
+// 예산 카운터용 복제 연결의 오류. 리스너가 없으면 ioredis 가 "Unhandled error event" 로 접속 주소를 찍는다.
+// 이름·코드만 남긴다(보안 검토 10-25 낮음 2). 예약 실패 자체는 quota 저장소가 fail-closed 로 처리한다.
+function quietQuotaErrors(quotaConnection: IORedis, label: string): IORedis {
+  quotaConnection.on("error", (error: unknown) => {
+    const code = errorCode(error);
+    console.error(`${label} 연결 오류: ${errorNameOf(error)}${code ? ` ${code}` : ""}`);
+  });
+  return quotaConnection;
+}
+
 function createIngestQuota(
   connection: IORedis,
   g2b: G2bSource,
 ): { quota: IngestQuota; close: Closable } {
-  const quotaConnection = connection.duplicate(QUOTA_REDIS_OPTIONS);
+  const quotaConnection = quietQuotaErrors(
+    connection.duplicate(QUOTA_REDIS_OPTIONS),
+    "g2b 호출 예산",
+  );
   return {
     quota: {
       store: createRedisQuotaStore(quotaConnection, { dailyLimit: g2b.dailyLimit }),
@@ -495,7 +508,9 @@ export const createIngestWorkerRegistration =
       const quotaParts = config.g2b === null ? null : createIngestQuota(connection, config.g2b);
       const closeQuota: Closable = quotaParts?.close ?? { close: async () => undefined };
       const externalQuotaConnection =
-        config.external.size > 0 ? connection.duplicate(QUOTA_REDIS_OPTIONS) : null;
+        config.external.size > 0
+          ? quietQuotaErrors(connection.duplicate(QUOTA_REDIS_OPTIONS), "외부 호출 예산")
+          : null;
       const externalQuotas = new Map<ExternalSourceKey, IngestQuota>();
       if (externalQuotaConnection !== null)
         for (const [key, source] of config.external)

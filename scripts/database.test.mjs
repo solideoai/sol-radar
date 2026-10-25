@@ -2472,6 +2472,8 @@ describe("프로필 사진 — 경로·권한 (20261024000200)", () => {
     const db = await setup(t);
     await actAs(db, users[1]);
     for (const n of [1, 2, 3]) await putObject(db, own(users[1], n));
+    // 사용자 역할 insert 는 insert 정책이 거부한다. Storage API 는 이 거부를 403 으로 돌려준다.
+    // 트리거(20261025000310)가 여기서 먼저 던지면 차례로 올린 4번째가 HTTP 500 이 된다(격리 스택 6차 실측).
     await assert.rejects(putObject(db, own(users[1], 4)), /row-level security/);
     // 상한은 사람마다 따로다.
     await actAs(db, users[2]);
@@ -2524,6 +2526,40 @@ describe("프로필 사진 — 경로·권한 (20261024000200)", () => {
     await db.query("update public.profiles set photo_path=null where id=$1", [users[1]]);
     await actAs(db, users[1]);
     assert.equal(await removeObject(db, own(users[1], 1)), 1);
+  });
+
+  // Storage API 는 사용자 권한으로 insert 를 시험한 뒤 롤백하고, 실제 행은 superuser 로 쓴다(storage-api v1.79 canUpload·
+  // completeUpload). 그래서 정책 안의 개수 검사는 동시 업로드를 막지 못했다(격리 스택 실측 2개 동시 → 4장).
+  // 상한은 실제 insert 경로(트리거)가 지킨다. members/·다른 버킷은 상관없다.
+  it("RLS 를 거치지 않는 Storage 의 실제 insert 도 본인 폴더 4번째 사진은 거부한다 (20261025000310)", async (t) => {
+    const db = await setup(t);
+    for (const n of [1, 2, 3]) await putObject(db, own(users[1], n));
+    await assert.rejects(putObject(db, own(users[1], 4)), /photo_quota_exceeded/);
+    // 다른 사람 폴더·members/ 경로는 상한과 무관하다.
+    await putObject(db, own(users[2], 5));
+    for (const n of [6, 7, 8, 9]) await putObject(db, memberPath(member, n));
+    // 하나를 지우면 다시 들어간다.
+    await removeObject(db, own(users[1], 1));
+    await putObject(db, own(users[1], 4));
+  });
+
+  it("정지된 계정은 사진 자리 확인 함수를 직접 불러도 false 이고 폴더 행을 만들지 못한다 (20261025000310)", async (t) => {
+    const db = await setup(t);
+    await db.query("update public.profiles set status='suspended' where id=$1", [users[1]]);
+    await actAs(db, users[1]);
+    assert.equal(
+      (
+        await db.query("select public.claim_own_photo_slot('profile-photos', $1) as ok", [
+          own(users[1], 1),
+        ])
+      ).rows[0].ok,
+      false,
+    );
+    await asSystem(db);
+    assert.equal(
+      (await db.query("select count(*)::int as n from public.profile_photo_folders")).rows[0].n,
+      0,
+    );
   });
 });
 
@@ -2597,12 +2633,27 @@ describe("가입 신청과 명부 연결 (20261024000300)", () => {
   const submit = async (db, kind, member = null, name = null) =>
     (await db.query("select public.submit_join_request($1,$2,$3) as id", [kind, member, name]))
       .rows[0].id;
-  const decide = async (db, id, approve, role) =>
-    (
+  // 결정은 지금 역할이 읽은 신청 버전(updated_at, 20261025000300)과 함께 보낸다. 못 읽으면(ADMIN 이 아니면) null 이다.
+  const decide = async (db, id, approve, role) => {
+    const seen =
+      (
+        await db.query(
+          "select updated_at::text as v from public.member_join_requests where id=$1",
+          [id],
+        )
+      ).rows[0]?.v ?? null;
+    return (
       await (role === undefined
-        ? db.query("select public.decide_join_request($1,$2) as result", [id, approve])
-        : db.query("select public.decide_join_request($1,$2,$3) as result", [id, approve, role]))
+        ? db.query(
+            "select public.decide_join_request(p_request => $1, p_approve => $2, p_seen_updated_at => $3::timestamptz) as result",
+            [id, approve, seen],
+          )
+        : db.query(
+            "select public.decide_join_request(p_request => $1, p_approve => $2, p_seen_updated_at => $3::timestamptz, p_sol_role => $4) as result",
+            [id, approve, seen, role],
+          ))
     ).rows[0].result;
+  };
   const memberOf = async (db, user) => {
     await asSystem(db);
     return (
@@ -2710,6 +2761,88 @@ describe("가입 신청과 명부 연결 (20261024000300)", () => {
         )
       ).rows,
       [{ declared_department_id: department, declared_job_title_id: title }],
+    );
+  });
+
+  it("ADMIN 이 본 뒤 신청자가 다시 신청하거나 사진을 바꾸면 그 화면의 결정은 거부되고 새로 읽은 신청으로만 승인한다 (20261025000300)", async (t) => {
+    const db = await setup(t);
+    // ADMIN 화면이 읽은 신청 버전(updated_at). 마이크로초까지 같아야 하므로 문자열로 주고받는다.
+    const seenVersion = async (id) => {
+      await actAs(db, users[0]);
+      return (
+        await db.query(
+          "select updated_at::text as v from public.member_join_requests where id=$1",
+          [id],
+        )
+      ).rows[0].v;
+    };
+    const decideSeen = async (id, approve, version) =>
+      (
+        await db.query(
+          "select public.decide_join_request(p_request => $1, p_approve => $2, p_sol_role => 'VIEWER', p_seen_updated_at => $3::timestamptz) as result",
+          [id, approve, version],
+        )
+      ).rows[0].result;
+
+    // 1. 신규 입사자: ADMIN 이 본 뒤 신청자가 이름·부서를 바꾸고 다시 신청한다(같은 신청 id 를 덮어쓴다).
+    await declare(db, users[2], "처음이름");
+    await actAs(db, users[2]);
+    const id = await submit(db, "NEW_HIRE");
+    const stale = await seenVersion(id);
+    await asSystem(db);
+    await declare(db, users[2], "바꾼이름", department2);
+    await actAs(db, users[2]);
+    assert.equal(await submit(db, "NEW_HIRE"), id);
+    await actAs(db, users[0]);
+    // 버전을 주지 않는 옛 호출로는 결정하지 못한다. 옛 서명은 없고, 세 번째 위치 인자는 버전(timestamptz)으로 읽힌다.
+    await assert.rejects(
+      db.query("select public.decide_join_request($1,$2,$3) as result", [id, true, "VIEWER"]),
+      /does not exist|request_changed|invalid input syntax for type timestamp with time zone/,
+    );
+    await assert.rejects(decideSeen(id, true, stale), /request_changed/);
+    await assert.rejects(decideSeen(id, false, stale), /request_changed/);
+    assert.deepEqual(await memberOf(db, users[2]), []);
+    assert.deepEqual(await membership(db, users[2]), []);
+    // 새로 읽으면 ADMIN 이 지금 보는 값으로 등록된다.
+    const fresh = await seenVersion(id);
+    assert.equal(await decideSeen(id, true, fresh), "APPROVED");
+    assert.deepEqual(
+      (await memberOf(db, users[2])).map(({ name, department_id }) => ({ name, department_id })),
+      [{ name: "바꾼이름", department_id: department2 }],
+    );
+
+    // 2. 기존 직원 연결: ADMIN 이 본 뒤 신청자가 연결 대상을 다른 가상 직원으로 바꾼다.
+    await asSystem(db);
+    await declare(db, applicant2, "Lee Gwanghui");
+    await actAs(db, applicant2);
+    const linkId = await submit(db, "EXISTING", memberA, "김민준");
+    const linkSeen = await seenVersion(linkId);
+    await actAs(db, applicant2);
+    assert.equal(await submit(db, "EXISTING", memberB, "이서연"), linkId);
+    await actAs(db, users[0]);
+    await assert.rejects(decideSeen(linkId, true, linkSeen), /request_changed/);
+    await asSystem(db);
+    assert.deepEqual(
+      (
+        await db.query(
+          "select count(*)::int as n from public.team_members where id = any($1) and user_id is not null",
+          [[memberA, memberB]],
+        )
+      ).rows[0].n,
+      0,
+    );
+
+    // 3. 사진: ADMIN 이 본 뒤 신청자가 사진을 바꾸면 그 화면으로는 승인하지 못하고, 새로 읽은 사진이 명부에 들어간다.
+    const photoSeen = await seenVersion(linkId);
+    await actAs(db, applicant2);
+    await db.query("select public.set_my_photo($1)", [own(applicant2, 7)]);
+    await actAs(db, users[0]);
+    await assert.rejects(decideSeen(linkId, true, photoSeen), /request_changed/);
+    assert.equal(await decideSeen(linkId, true, await seenVersion(linkId)), "APPROVED");
+    await asSystem(db);
+    assert.deepEqual(
+      (await db.query("select photo_path from public.team_members where id=$1", [memberB])).rows,
+      [{ photo_path: own(applicant2, 7) }],
     );
   });
 

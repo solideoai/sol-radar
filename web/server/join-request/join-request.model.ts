@@ -35,6 +35,7 @@ export type DecideJoinResult = {
     | "member-left"
     | "already-linked"
     | "already-decided"
+    | "request-changed"
     | "forbidden"
     | "invalid"
     | "signed-out";
@@ -53,6 +54,8 @@ export type JoinRequestView = {
   memberUnavailable: boolean;
   photoUrl: string | null;
   createdAt: string;
+  /** 이 화면이 읽은 신청 버전(updated_at 원문). 결정할 때 그대로 보내 그 뒤 바뀐 신청을 승인하지 않는다(20261025000300). */
+  version: string;
 };
 
 /** DB 함수가 올린 오류. 무엇인지는 hint 로 가른다. */
@@ -66,6 +69,7 @@ export type JoinRequestRow = {
   applicant_email: string;
   applicant_photo_path: string | null;
   created_at: string;
+  updated_at: string;
   department: { name: string } | null;
   job_title: { label: string } | null;
   member: { name: string; person_code: string } | null;
@@ -97,8 +101,15 @@ export const decideJoinInput = z.object({
   requestId: z.uuid(),
   approve: z.boolean(),
   solRole: z.enum(["VIEWER", "ANALYST", "SALES", "ADMIN"] satisfies SolRole[]).default("VIEWER"),
+  // 화면이 읽은 신청 버전. 마이크로초까지 비교하므로 Date 로 바꾸지 않고 원문 문자열 그대로 보낸다.
+  version: z.iso.datetime({ offset: true }),
 });
-export type DecideJoinInput = { requestId: string; approve: boolean; solRole: SolRole };
+export type DecideJoinInput = {
+  requestId: string;
+  approve: boolean;
+  solRole: SolRole;
+  version: string;
+};
 
 // ── DB 오류 → 결과 ──
 
@@ -129,6 +140,7 @@ const DECIDE_BY_HINT: Record<string, DecideJoinResult["status"]> = {
   not_active: "signed-out",
   forbidden: "forbidden",
   request_not_pending: "already-decided",
+  request_changed: "request-changed",
   member_taken: "member-taken",
   member_left: "member-left",
   already_linked: "already-linked",
@@ -178,5 +190,6 @@ export function toJoinRequestView(
     memberUnavailable: kind === "EXISTING" && row.member === null,
     photoUrl: row.applicant_photo_path ? (photoUrls.get(row.applicant_photo_path) ?? null) : null,
     createdAt: row.created_at,
+    version: row.updated_at,
   };
 }

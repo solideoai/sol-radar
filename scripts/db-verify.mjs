@@ -290,7 +290,8 @@ const ALLOWED_DEFINER_FUNCTIONS = new Set([
   // 정확히 맞는 미연결 가상 직원 하나만 돌려주고, 결정은 그 조직 ADMIN 만 한다. PUBLIC/anon 실행은 닫는다.
   "public.find_unlinked_member(text, text)",
   "public.submit_join_request(text, uuid, text)",
-  "public.decide_join_request(uuid, boolean, text)",
+  // 결정은 ADMIN 화면이 읽은 신청 버전(updated_at)이 같을 때만 한다(20261025000300, 옛 3인자 서명은 지웠다).
+  "public.decide_join_request(uuid, boolean, timestamp with time zone, text)",
   // N3: 본인의 소속 조직 관심 수만 반환; 사용자 명단은 노출하지 않는다.
   "public.bid_watch_count(uuid)",
   // N6: 함수 안에서 세션 조직·ADMIN/SALES 및 최신 BID 결정을 검사한다.

@@ -99,7 +99,7 @@ export async function decideOrgJoinRequest(
     return { status: "signed-out" };
   if (access.status !== "ready" || access.current.solRole !== "ADMIN")
     return { status: "forbidden" };
-  const { requestId, approve, solRole } = parsed.data;
-  const { result, error } = await deps.repo.decide(requestId, approve, solRole);
+  const { requestId, approve, solRole, version } = parsed.data;
+  const { result, error } = await deps.repo.decide(requestId, approve, solRole, version);
   return toDecideJoinResult(result, error);
 }

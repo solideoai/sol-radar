@@ -16,7 +16,7 @@ const asDbError = (error: { code?: string; hint?: string } | null): JoinDbError 
 // 부서·직급은 신청 행과 같은 조직 카탈로그를 가리키는 복합 외래 키로, 연결 대상은 team_member_id 로 붙여 읽는다.
 // 한 문자열 리터럴로 둔다 — 이어 붙이면 supabase-js 가 행 타입을 추론하지 못한다.
 const pendingColumns =
-  "id,kind,applicant_name,applicant_email,applicant_photo_path,created_at,department:departments!member_join_requests_department_fkey(name),job_title:job_titles!member_join_requests_job_title_fkey(label),member:team_members!member_join_requests_team_member_id_fkey(name,person_code)";
+  "id,kind,applicant_name,applicant_email,applicant_photo_path,created_at,updated_at,department:departments!member_join_requests_department_fkey(name),job_title:job_titles!member_join_requests_job_title_fkey(label),member:team_members!member_join_requests_team_member_id_fkey(name,person_code)";
 
 export const joinRequestRepo = {
   isConfigured: isSupabaseConfigured,
@@ -77,6 +77,7 @@ export const joinRequestRepo = {
     requestId: string,
     approve: boolean,
     solRole: string,
+    version: string,
   ): Promise<{ result: string | null; error: JoinDbError | null }> {
     const { data, error } = await (
       await getSupabase()
@@ -84,6 +85,7 @@ export const joinRequestRepo = {
       p_request: requestId,
       p_approve: approve,
       p_sol_role: solRole,
+      p_seen_updated_at: version,
     });
     return { result: data ?? null, error: asDbError(error) };
   },
