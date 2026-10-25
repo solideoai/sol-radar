@@ -1,0 +1,47 @@
+# RED: 차례로 올린 4번째(사용자 역할)를 트리거가 먼저 거부해 Storage 가 403 대신 500 을 돌려준다(격리 스택 6차 실측)
+# 시험 단언을 /row-level security/ 로 되돌린 뒤, 20261025000310 트리거에 사용자 역할 제외가 없는 상태
+# node --test --test-name-pattern="본인 폴더 사진은 3장까지만|RLS 를 거치지 않는 Storage|정지된 계정은 사진 자리" scripts/database.test.mjs
+▶ 프로필 사진 — 경로·권한 (20261024000200)
+  ✖ 본인 폴더 사진은 3장까지만 올라가고 쓰지 않는 사진을 지우면 다시 올린다 (20261025000110) (229.198458ms)
+  ✔ RLS 를 거치지 않는 Storage 의 실제 insert 도 본인 폴더 4번째 사진은 거부한다 (20261025000310) (259.059125ms)
+  ✔ 정지된 계정은 사진 자리 확인 함수를 직접 불러도 false 이고 폴더 행을 만들지 못한다 (20261025000310) (444.075708ms)
+✖ 프로필 사진 — 경로·권한 (20261024000200) (2947.81025ms)
+ℹ tests 3
+ℹ suites 1
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3091.154125
+
+✖ failing tests:
+
+test at scripts/database.test.mjs:2471:3
+✖ 본인 폴더 사진은 3장까지만 올라가고 쓰지 않는 사진을 지우면 다시 올린다 (20261025000110) (229.198458ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /row-level security/. Input:
+  
+  'error: photo_quota_exceeded'
+  
+      at async TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/scripts/database.test.mjs:2477:5)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Promise.all (index 5)
+      at async Suite.run (node:internal/test_runner/test:1771:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: error: photo_quota_exceeded
+        at pe.Oe (file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/chunk-3OMHRXTA.js:1:18162)
+        at pe.tt (file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/chunk-3OMHRXTA.js:1:15548)
+        at pe.parse (file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/chunk-3OMHRXTA.js:1:14222)
+        at p.D_ (file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/index.js:6:1759)
+        at file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/node_modules/.pnpm/@electric-sql+pglite@0.5.10/node_modules/@electric-sql/pglite/dist/index.js:6:1151
+        at wasm://wasm/0280c65e:wasm-function[10964]:0x58cc19
+        at wasm://wasm/0280c65e:wasm-function[3606]:0x2792af
+        at wasm://wasm/0280c65e:wasm-function[3648]:0x2807ba
+        at wasm://wasm/0280c65e:wasm-function[3658]:0x2809ef
+        at wasm://wasm/0280c65e:wasm-function[9946]:0x5393b2,
+    expected: /row-level security/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

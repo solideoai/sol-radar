@@ -8,7 +8,7 @@ updated: 2026-10-25
 # 10-25 운영 반영 실행서(release-1025)
 
 > [!warning] 실행 기록이 아니다
-> 기준은 `integration/release-1025` @04b4bf3a 다. 아직 main 에 들어가지 않았고 운영에 적용한 것은 없다.
+> 기준은 `integration/release-1025` 의 통합 2차 보안 수정 커밋이다(04b4bf3a 위, 해시는 §1). 아직 main 에 들어가지 않았고 운영에 적용한 것은 없다.
 > 아래 7개 승인 항목은 사용자가 항목마다 따로 승인한 뒤에만 실행한다. 실행 전에 영향·되돌리기·확인 방법을 다시 알린다.
 > Analysis Worker·Redis·Redis API Gateway·AI Gateway·Dependency Reporter 는 어느 단계에서도 멈추거나 재시작하지 않는다.
 
@@ -16,7 +16,9 @@ updated: 2026-10-25
 
 브랜치 구성: `integration/freeze-1024`@6c044ffb(프로필 사진·N4b·가입 스냅숏·사진 상한) + `feat/live-ingest-worker`@16e1ab6b + `feat/live-ingest-web`@a261e780. 검증 결과는 [[20261025-release-verify|통합 검증 기록]](`20261025-release-verify.txt`)이다.
 
-운영 DB 에 아직 없는 migration 8개(적용 순서 그대로):
+통합 2차 보안 검토([[20261025-security-review|10-25 보안 검토]] 마지막 절)의 수정 `d2755c66` 이 그 위에 올라간다.
+
+운영 DB 에 아직 없는 migration 10개(적용 순서 그대로):
 
 | # | 파일 | 내용 | 기존 웹과 호환 |
 |---|---|---|---|
@@ -28,14 +30,16 @@ updated: 2026-10-25
 | 6 | `20261025000100_join_request_snapshot_on_approve` | 승인은 신청 당시 스냅숏으로 등록(보안 중간 수정) | 함수만 |
 | 7 | `20261025000110_profile_photo_quota` | 본인 폴더 3장 상한·쓰지 않는 본인 사진 삭제 정책 | 정책·함수·표 1개 |
 | 8 | `20261025000200_procurement_live_metrics` | 대시보드 실수집 지표·live 범위 출처 확인 | 함수만 |
+| 9 | `20261025000300_join_request_decide_version` | 가입 결정은 ADMIN 이 본 신청 버전(`updated_at`)으로만, 옛 3인자 서명 삭제(보안 2차 중간) | 함수만. 지금 운영 웹은 이 함수를 부르지 않는다 |
+| 10 | `20261025000310_photo_quota_insert_guard` | `storage.objects` BEFORE INSERT 트리거로 사진 3장 상한을 실제 insert 에서 강제, 정지 계정 자리 확인 거부(보안 2차 낮음 1·3) | 트리거 1개·함수. `profile-photos` 버킷 `users/` 경로만 검사 |
 
-`decide_join_request` 는 3번이 만들고 6번이 다시 정의한다. 그 뒤 migration 은 이 함수를 건드리지 않는다. 기존 객체·데모 공고·분석 이력을 지우는 문장은 없다.
+`decide_join_request` 는 3번이 만들고 6번이 다시 정의하고, 9번이 서명을 `(uuid, boolean, timestamptz, text)` 로 바꾼다. 새 웹은 9번 서명만 부른다. 기존 객체·데모 공고·분석 이력을 지우는 문장은 없다.
 
 ## 2. 권장 순서
 
-DB 를 먼저 올린다. 새 웹 코드가 8번의 함수와 1~7번의 사진·가입 함수를 부르므로, 웹을 먼저 배포하면 대시보드 지표·사진·가입 화면이 실패한다. 8개 migration 은 추가·완화 변경이라 지금 운영 웹(main 4e84e084)과 같이 돌아도 된다.
+DB 를 먼저 올린다. 새 웹 코드가 8번의 함수와 1~7번의 사진·가입 함수를 부르므로, 웹을 먼저 배포하면 대시보드 지표·사진·가입 화면이 실패한다. 10개 migration 은 추가·완화 변경이고, 9·10번이 바꾸는 가입 결정·사진 업로드는 지금 운영 웹(main 4e84e084)에 없는 화면이라 같이 돌아도 된다.
 
-1. 승인 ① 운영 Supabase migration 8개
+1. 승인 ① 운영 Supabase migration 10개
 2. 승인 ② 사진 버킷 `profile-photos` 생성(Storage 정책은 ①에 들어 있다)
 3. 승인 ③ main 병합·push → Vercel 운영 배포
 4. 승인 ⑥ Vercel env 추가(발표 기본 출처·수집 주기)
@@ -52,11 +56,20 @@ git -C <폴더> status --short                       # 비어 있어야 한다
 NODE_EXTRA_CA_CERTS=$HOME/.supabase/prod-ca-2021.crt bash scripts/db-push.sh --check   # 읽기 전용 목록
 ```
 
-- 확인: 목록이 위 표 8개와 정확히 같아야 한다. 다르면 멈춘다.
+- 확인: 목록이 위 표 10개와 정확히 같아야 한다. 다르면 멈춘다.
+- 적용 전 읽기 SQL(Supabase SQL 편집기, 쓰기 없음). 10번 트리거를 만들 수 있는지와, 트리거·정책 함수가 객체를 RLS 없이 셀 수 있는지 본다:
+
+```sql
+select tableowner from pg_tables where schemaname = 'storage' and tablename = 'objects';
+select has_table_privilege('postgres', 'storage.objects', 'TRIGGER') as can_trigger;
+select rolbypassrls from pg_roles where rolname = 'postgres';
+```
+
+  `can_trigger` 와 `rolbypassrls` 가 둘 다 `true` 여야 한다. 하나라도 `false` 면 적용하지 않고 보고한다(10번이 실패하면 9번까지만 적용된 채 멈춘다).
 - 적용(승인 뒤): `NODE_EXTRA_CA_CERTS=$HOME/.supabase/prod-ca-2021.crt bash scripts/db-push.sh`
 - 적용 뒤 확인: `NODE_EXTRA_CA_CERTS=$HOME/.supabase/prod-ca-2021.crt bash scripts/db-verify.sh`(RLS·security definer 허용 목록 검사).
 - `pnpm db:push -- --check` 대신 `bash scripts/db-push.sh --check` 를 쓴다. 인자가 빠지면 실제로 적용된다.
-- 되돌리기: migration 은 append-only 라 down 이 없다. 문제가 있으면 직전 정의를 복원하는 새 migration 을 만든다. 예: 7번이 정상 업로드를 막으면 `profile_photos_insert` 를 000200 의 정의로 다시 만들고 `profile_photos_delete_own` 을 지운다. 8번은 머리 주석의 drop 문장으로 되돌린다.
+- 되돌리기: migration 은 append-only 라 down 이 없다. 문제가 있으면 직전 정의를 복원하는 새 migration 을 만든다. 예: 7번이 정상 업로드를 막으면 `profile_photos_insert` 를 000200 의 정의로 다시 만들고 `profile_photos_delete_own` 을 지운다. 8번은 머리 주석의 drop 문장으로 되돌린다. 9번은 새 migration 에서 4인자 함수를 지우고 6번 본문의 3인자 함수를 다시 만든다(웹도 직전 배포로 되돌릴 때만). 10번은 `drop trigger enforce_own_photo_quota on storage.objects; drop function public.enforce_own_photo_quota();` 와 `claim_own_photo_slot` 의 7번 본문 재정의로 되돌린다.
 
 ## 4. 승인 ② 사진 버킷
 
@@ -149,7 +162,8 @@ order by s.created_at desc limit 5;
 | 상황 | 대응 | 하지 않는 것 |
 |---|---|---|
 | 웹 배포 뒤 화면 오류 | Vercel 직전 배포로 Instant Rollback. env 2개를 지우고 재배포 | DB 되돌리기 |
-| migration 뒤 사진 업로드 거부 | 새 migration 으로 직전 정책 복원 | 기존 migration 수정 |
+| migration 뒤 사진 업로드 거부 | 3장 미만인데 거부되면 새 migration 으로 10번 트리거를 지우고, 그래도 거부되면 7번 정책을 직전 정의로 복원 | 기존 migration 수정 |
+| 가입 승인이 `request_changed` 로 계속 거부 | 화면을 새로 고쳐 다시 처리한다(신청이 바뀐 경우 정상 거부). 새로 고친 뒤에도 거부되면 웹 직전 배포 확인 | 9번 우회 |
 | Ingest 호출이 예상보다 많음 | `stop ingest-worker` → `--unschedule` → `--status` 로 Scheduler 0개(§7.10) | Redis `FLUSH*`, 큐 키 삭제 |
 | 일 예산 소진 | 할 일 없음. 목록·보조 모두 멈추고 KST 자정에 키가 바뀐다 | 한도 우회 |
 | Ingest Worker 반복 실패 | `restart: on-failure:3` 뒤 멈춘다. 로그 확인 후 `stop` | 전체 `restart`, `down`, `--remove-orphans` |
@@ -158,6 +172,7 @@ order by s.created_at desc limit 5;
 ## 12. 미완료·미검증
 
 - 운영 적용 0건(migration·버킷·main·Vercel env·회사 Worker 모두 승인 대기).
+- 운영 DB 의 `storage.objects` 트리거 권한·`postgres` BYPASSRLS(§3 읽기 SQL 결과 필요).
 - 운영 DB 의 FX-02 72 존재 여부(§10 SQL 결과 필요).
 - data.go.kr 승인 한도 화면, tps 실측.
 - 운영 Storage 업로드·다운로드(§4 `--smoke`).

@@ -1,0 +1,20 @@
+# GREEN: 트리거가 사용자 역할 insert 는 insert 정책(같은 폴더 잠금)에 맡긴다
+# node --test --test-name-pattern="본인 폴더 사진은 3장까지만|RLS 를 거치지 않는 Storage|정지된 계정은 사진 자리" scripts/database.test.mjs
+▶ 프로필 사진 — 경로·권한 (20261024000200)
+  ✔ 본인 폴더 사진은 3장까지만 올라가고 쓰지 않는 사진을 지우면 다시 올린다 (20261025000110) (195.519292ms)
+  ✔ RLS 를 거치지 않는 Storage 의 실제 insert 도 본인 폴더 4번째 사진은 거부한다 (20261025000310) (152.598541ms)
+  ✔ 정지된 계정은 사진 자리 확인 함수를 직접 불러도 false 이고 폴더 행을 만들지 못한다 (20261025000310) (151.415709ms)
+✔ 프로필 사진 — 경로·권한 (20261024000200) (2009.342875ms)
+ℹ tests 3
+ℹ suites 1
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2147.074375
+
+# 전체: node --test scripts/database.test.mjs
+ℹ tests 61
+ℹ pass 61
+ℹ fail 0

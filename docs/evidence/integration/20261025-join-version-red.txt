@@ -1,0 +1,26 @@
+# 가입 결정 버전(20261025000300) RED — 수정 전 HEAD 81459345 + 새 시험만
+# node --test --test-name-pattern=20261025000120 scripts/database.test.mjs (번호는 커밋 전 000120 → 000300 으로 바꿈)
+▶ 가입 신청과 명부 연결 (20261024000300)
+  ✖ ADMIN 이 본 뒤 신청자가 다시 신청하거나 사진을 바꾸면 그 화면의 결정은 거부되고 새로 읽은 신청으로만 승인한다 (20261025000120) (281.158208ms)
+✖ 가입 신청과 명부 연결 (20261024000300) (2154.036ms)
+ℹ tests 1
+ℹ suites 1
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2299.60675
+
+✖ failing tests:
+
+test at scripts/database.test.mjs:2716:3
+✖ ADMIN 이 본 뒤 신청자가 다시 신청하거나 사진을 바꾸면 그 화면의 결정은 거부되고 새로 읽은 신청으로만 승인한다 (20261025000120) (281.158208ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /does not exist|request_changed/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

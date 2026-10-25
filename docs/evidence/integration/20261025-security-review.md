@@ -36,12 +36,32 @@ updated: 2026-10-25
 - 수정: migration `20261025000110_profile_photo_quota.sql`(기존 migration 은 고치지 않음).
   - 상한: 본인 폴더(`users/<id>/`)마다 객체 3개. 근거: 화면은 사람마다 사진 1장만 보여 준다. 바꾸기는 새 객체를 올린 뒤 포인터를 옮겨 잠깐 2개가 되고, 포인터 저장 실패 1개의 여유를 더했다.
   - 강제 위치: Storage insert 정책(RLS). 브라우저가 사용자 JWT 로 Storage API 에 직접 올리므로 프론트 검사가 아니라 DB 가 막는다.
-  - 동시 업로드: `claim_own_photo_slot` 이 폴더마다 `profile_photo_folders` 행 하나를 갱신해 같은 폴더 insert 를 줄 세운 뒤 센다. READ COMMITTED 는 기다린 뒤 새 스냅숏으로 다시 세서 거부하고, REPEATABLE READ 이상은 직렬화 오류로 실패한다. 함수 소유자 postgres 는 BYPASSRLS 라 객체를 RLS 없이 센다(격리 Supabase 에서 `rolbypassrls=t` 확인).
+  - 동시 업로드(아래 "통합 2차 검토" 낮음 1에서 Storage API 실제 경로로는 부족함을 확인해 `20261025000310` 트리거로 보강): `claim_own_photo_slot` 이 폴더마다 `profile_photo_folders` 행 하나를 갱신해 같은 폴더 insert 를 줄 세운 뒤 센다. READ COMMITTED 는 기다린 뒤 새 스냅숏으로 다시 세서 거부하고, REPEATABLE READ 이상은 직렬화 오류로 실패한다. 함수 소유자 postgres 는 BYPASSRLS 라 객체를 RLS 없이 센다(격리 Supabase 에서 `rolbypassrls=t` 확인).
   - 삭제: `profile_photos_delete_own` 정책 — 본인 폴더이면서 계정 사진·조직도 사진·대기 신청 사진 어디에서도 쓰지 않는 객체만 지운다(`own_photo_deletable`). 남의 사진·members/ 사진·쓰는 사진은 0행.
   - 웹: 사진 고르기가 올리기 전과 저장·지우기 뒤에 쓰지 않는 본인 사진을 지운다(`web/components/photo/photo-picker.tsx`). 파일당 2MB·형식 제한은 버킷 설정 그대로다. 기존 객체를 지우는 migration 문장은 없다.
 - 회귀 시험(`scripts/database.test.mjs`): "본인 폴더 사진은 3장까지만 …", "본인은 아무 데서도 쓰지 않는 자기 사진만 지우고 …". 수정 전 실패(`20261025-photo-quota-red.txt`), 수정 후 통과(`20261025-photo-quota-green.txt`, 사진·가입 묶음 15/15).
 - 동시성 검증(`20261025-photo-quota-concurrency.txt`): 일회용 PostgreSQL 17 에 흉내 + migration 57개를 적용하고 연결 두 개로 경합. 두 격리 수준 모두 최종 3장, 잠금을 뺀 대조군은 4장(검증이 경합을 실제로 잡음).
 - 권한 회귀: 기존 사진 경로·읽기·set_my_photo·set_member_photo·가입 신청 시험 그대로 통과. 허용 함수 목록(`scripts/db-verify.mjs`)에 두 함수를 근거와 함께 추가.
+
+## 통합 2차 검토(17c55609..04b4bf3a) — 중간 1·낮음 3, 모두 수정
+
+검토자는 security-auditor(읽기 전용), 범위는 가입 스냅숏(0e956774)·사진 상한(466d2911)·ingest 전용 Worker(16e1ab6b)·DEMO/LIVE 화면(a261e780)이다. 높음은 없다.
+
+| # | 내용 | 수정 | 회귀 시험·증거 |
+|---|---|---|---|
+| 중간 1 | 대기 중 재신청(`submit_join_request`)이 같은 신청 행을 새 이름·부서·연결 직원으로 덮어쓰고, `set_my_photo` 가 대기 신청 사진을 바꾼다. ADMIN 이 새로 고치지 않은 화면에서 승인하면 본 적 없는 값이 명부에 들어갔다(0e956774 의 스냅숏 규칙 우회) | migration `20261025000300` — `decide_join_request` 가 ADMIN 화면이 읽은 신청 버전(`updated_at`)을 꼭 받고 다르면 `request_changed` 로 거부한다. 옛 3인자 서명은 지웠다. 명부 사진도 신청 사본을 쓴다. 웹은 목록의 `updated_at` 원문을 그대로 보낸다 | `scripts/database.test.mjs` "ADMIN 이 본 뒤 신청자가 다시 신청하거나 사진을 바꾸면 …"(신규 입사자·연결 대상 변경·사진 세 경우). RED `20261025-join-version-red.txt`, GREEN `20261025-join-version-green.txt`(가입 묶음 10/10). 웹 `join-request.service.test.ts`(버전 없음·형식 오류 invalid, `request_changed` → request-changed) |
+| 낮음 1 | 사진 상한이 Storage API 실제 경로에서 동시 업로드를 막지 못한다. Storage 는 사용자 역할 insert 로 권한을 시험한 뒤 롤백하고 실제 행은 superuser 로 쓴다. 격리 스택 실측: 동시 2개 → 4장, 8개 → 10장, TUS 완료 4개 → 6장(차례로 보내면 3장) | migration `20261025000310` — `storage.objects` BEFORE INSERT 트리거 `enforce_own_photo_quota` 가 사용자 역할이 아닌 실제 insert(Storage 의 superuser 경로)마다 폴더 잠금 행을 갱신하고 3장이면 `photo_quota_exceeded` 로 거부한다. 사용자 역할 insert 는 정책의 자리 확인(같은 잠금 행)에 맡겨, 차례로 올린 4번째는 파일을 쓰기 전에 403 으로 막힌다. 동시에 시험을 통과한 업로드만 트리거에 막혀 HTTP 500(`DatabaseError P0001`)이 된다 | DB 시험 "RLS 를 거치지 않는 Storage 의 실제 insert 도 본인 폴더 4번째 사진은 거부한다". RED/GREEN `20261025-photo-insert-guard-*.txt`. 403 유지 RED/GREEN `20261025-photo-guard-403-*.txt`(6차 실측에서 트리거가 권한 시험보다 먼저 던져 403 이 500 으로 바뀐 것을 고침). 동시성 `20261025-photo-quota-concurrency-v2.txt`(Storage 순서 재현: 권한 시험 2개 통과 뒤 실제 insert 경합에서 B 는 트리거에 막혀 최종 3장, 트리거 없는 대조군 4장). 실제 Storage API: E2E 6차에서 단순 8개·2개 동시·TUS 완료 4개 동시·차례 8개 모두 3회씩 최종 3장, 거부된 단순 업로드의 backend 파일 0 |
+| 낮음 2 | `--once` 중 Redis 가 끊기면 ioredis 기본 오류 로그·오류 message 에 내부 접속 주소가 찍힐 수 있다 | 예산 카운터 복제 연결에 오류 리스너(이름·코드만), `--once` 실패는 이름·코드로만 출력 | `web/worker/ingest-only-main.test.ts` "--once 가 Redis 오류로 실패하면 … 접속 주소는 찍지 않는다"(수정 전 실패 확인) |
+| 낮음 3 | 정지 계정도 `/rpc/claim_own_photo_slot` 으로 폴더 잠금 행을 만들 수 있다 | 같은 migration `20261025000310` 에서 함수 첫 검사에 `is_active_user()` 추가 | DB 시험 "정지된 계정은 사진 자리 확인 함수를 직접 불러도 false …" RED/GREEN 같은 파일 |
+
+운영 적용 전 확인(읽기 SQL, 실행서 §3):
+
+- `select rolbypassrls from pg_roles where rolname = 'postgres';` — 참이어야 트리거·정책 함수가 객체를 RLS 없이 센다.
+- `select tableowner from pg_tables where schemaname = 'storage' and tablename = 'objects';` 와 `select has_table_privilege('postgres', 'storage.objects', 'TRIGGER');` — migration 이 트리거를 만들 수 있어야 한다. 20261021000701 이 같은 표에 정책을 만든 적이 있어 권한은 있을 것으로 보지만 확인하지 않았다.
+
+거부된 업로드의 파일(E2E 6차, storage-api v1.79.36 코드 확인): 단순 업로드(웹 `photo-picker.tsx` 의 `.upload()`)는 실제 insert 가 실패하면 Storage 가 같은 요청 안에서 backend 파일을 지운다(`completeUpload` 실패 → `ObjectAdminDelete`, 큐가 꺼진 환경은 동기 삭제 실측, 켜진 환경은 pg-boss 큐로 코드 근거). TUS 는 거부 세션마다 메타 `.json`(414 B)과 빈 placeholder 가 남지만 이번 수정 전에도 생기는 기존 동작이고 웹은 TUS 를 쓰지 않는다.
+
+확인한 것: 쓰는 사진과 안 쓰는 사진을 함께 지우는 웹 정리(`cleanUpOwnPhotos`) 뒤에도 쓰는 사진이 남는다(E2E profile-photo 3·4차, 바꾸기 3번 → 객체 1, 화면 사진 유지).
 
 ## 관련 문서
 

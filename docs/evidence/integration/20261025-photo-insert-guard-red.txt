@@ -1,0 +1,18 @@
+# 사진 insert 트리거·정지 계정(20261025000310) RED — 수정 전, 새 시험만
+# 시험 이름의 20261025000130 은 커밋 전 번호다(000310 으로 바꿈).
+## superuser insert 4번째(Storage completeUpload 경로)
+  ✖ RLS 를 거치지 않는 Storage 의 실제 insert 도 본인 폴더 4번째 사진은 거부한다 (20261025000130) (214.547959ms)
+✖ 프로필 사진 — 경로·권한 (20261024000200) (2076.375875ms)
+✖ failing tests:
+✖ RLS 를 거치지 않는 Storage 의 실제 insert 도 본인 폴더 4번째 사진은 거부한다 (20261025000130) (214.547959ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+    actual: undefined,
+    expected: /photo_quota_exceeded/,
+## 정지 계정 claim_own_photo_slot 직접 호출
+  ✖ 정지된 계정은 사진 자리 확인 함수를 직접 불러도 false 이고 폴더 행을 만들지 못한다 (20261025000130) (206.665ms)
+✖ 프로필 사진 — 경로·권한 (20261024000200) (1987.765667ms)
+✖ failing tests:
+✖ 정지된 계정은 사진 자리 확인 함수를 직접 불러도 false 이고 폴더 행을 만들지 못한다 (20261025000130) (206.665ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+    actual: true,
+    expected: false,

@@ -1,0 +1,10 @@
+# node scripts/verify-photo-quota-concurrency.mjs (rls·storage 두 경로, 트리거 대조군)
+# storage 경로는 Storage API 순서 그대로: 권한 시험 트랜잭션 2개가 모두 통과한 뒤 superuser 실제 insert 가 겹친다
+마이그레이션 60개 적용(실제 PostgreSQL postgres:17-alpine)
+rls read committed: B 대기=true, B 결과=new row violates row-level security policy for table "objects", 최종 3장
+rls repeatable read: B 대기=true, B 결과=could not serialize access due to concurrent update, 최종 3장
+storage read committed: B 대기=true, B 결과=photo_quota_exceeded, 최종 3장
+storage repeatable read: B 대기=true, B 결과=could not serialize access due to concurrent update, 최종 3장
+대조군 storage(트리거 없음): B 결과=성공, 최종 4장
+대조군 rls(트리거·잠금 없음): B 결과=성공, 최종 4장
+통과: 동시 업로드로 상한을 넘지 못한다
