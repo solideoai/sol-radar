@@ -85,6 +85,9 @@ node --env-file=<Worker env 절대경로> scripts/ops/ensure-storage-buckets.mjs
 
 - 기대: `bid-documents`·`bid-parsed` 는 `ready`, `profile-photos` 는 처음 `missing` → `--apply` 뒤 `created`(private, 2MB, jpeg·png·webp).
 - 기존 버킷이 public 이거나 한도가 다르면 고치지 않고 `storage_bucket_public`·`storage_bucket_limits_mismatch` 로 멈춘다.
+- 주의(78 인계, 코드 확인): 이 CLI 는 `--apply` 없이도 기존 `bid-documents`·`bid-parsed` 의 소유 표식 `_sol-radar/storage-owner.json` 을 먼저 내려받는다. 사람이 대시보드에서 만든 버킷이라 표식이 없으면 `storage_bucket_owner_unknown` 으로 멈추고 `profile-photos` 단계까지 가지 않는다(쓰기 없음).
+- 그 경우 대체 절차: Supabase 대시보드 Storage → New bucket 에서 이름 `profile-photos`, Public 끔, 파일 크기 한도 2 MB(2097152 바이트), 허용 MIME `image/jpeg`·`image/png`·`image/webp` 세 개로 만든다(CLI 의 `ensureProfilePhotoBucket` 과 같은 값). 기존 버킷에 표식을 써 넣는 것은 운영 Storage 쓰기라 따로 결정한다.
+- 대체 절차의 확인: 대시보드에서 private·2 MB·형식 3개를 본다. ③ 배포 뒤 웹에서 사진 1장을 올리고 지운다.
 - 선택: `--apply --smoke` 는 `bid-documents`·`bid-parsed` 에 임시 객체를 올리고 받고 지운다. 지금 "업로드·다운로드 미검증" 상태를 확인하는 유일한 방법이다. 운영 Storage 에 쓰기이므로 따로 승인받는다.
 - 되돌리기: 빈 버킷은 Supabase 대시보드에서 지운다. 사진이 올라간 뒤에는 지우지 않는다.
 
