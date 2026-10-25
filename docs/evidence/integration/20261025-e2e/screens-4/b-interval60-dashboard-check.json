@@ -1,0 +1,210 @@
+{
+  "base": "http://localhost:3210",
+  "rows": [
+    {
+      "check": "/dashboard?origin=demo 상단바 DEMO 배지",
+      "width": 1440,
+      "result": "보임",
+      "shot": "b-interval60-dashboard-demo-1440.png"
+    },
+    {
+      "check": "/dashboard?origin=demo \"DEMO · 예시 공고 기준\" 문구",
+      "width": 1440,
+      "result": "1",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 수집 지표 줄",
+      "width": 1440,
+      "result": "전체 수집 공고 15 입찰공고 · 출처 사본은 1건 진행 중 WATCH 10 현재 유효 분석 · 진행 중 마지막 수집 성공 — 성공 기록 없음 다음 수집 예정 — 정기 수집 기록 없음 기관별 공고 수 강원특별자치도 1건 경기도교육청 1건 광주광역시 1건 국민건강보험공단 1건 국방부 1건",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 기관 상위 항목 수 / 다음 수집 예정 카드",
+      "width": 1440,
+      "result": "5 / 있음",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 공공조달 요약",
+      "width": 1440,
+      "result": "신규 발견 15 최근 24시간 · 입찰공고 분석 대기 1 현재 입력의 분석 결과 없음 BID 권고 2 현재 유효 분석 · 진행 중 마감 임박 (7일) 1 정확한 마감 확인 · 진행 중 진행 중 입찰 프로젝트 0 종료 제외 · 프로젝트 보기",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 본문 \"DEMO\" 글자 수",
+      "width": 1440,
+      "result": "10",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 상단바 DEMO 배지",
+      "width": 1440,
+      "result": "없음",
+      "shot": "b-interval60-dashboard-live-1440.png"
+    },
+    {
+      "check": "/dashboard?origin=live \"DEMO · 예시 공고 기준\" 문구",
+      "width": 1440,
+      "result": "0",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 수집 지표 줄",
+      "width": 1440,
+      "result": "전체 수집 공고 0 입찰공고 · 출처 사본은 1건 진행 중 WATCH 0 현재 유효 분석 · 진행 중 마지막 수집 성공 — 성공 기록 없음 다음 수집 예정 — 정기 수집 기록 없음 기관별 공고 수 기관이 확인된 입찰공고 없음",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 기관 상위 항목 수 / 다음 수집 예정 카드",
+      "width": 1440,
+      "result": "0 / 있음",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 공공조달 요약",
+      "width": 1440,
+      "result": "신규 발견 0 최근 24시간 · 입찰공고 분석 대기 0 현재 입력의 분석 결과 없음 BID 권고 0 현재 유효 분석 · 진행 중 마감 임박 (7일) 0 정확한 마감 확인 · 진행 중 진행 중 입찰 프로젝트 0 종료 제외 · 프로젝트 보기",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 본문 \"DEMO\" 글자 수",
+      "width": 1440,
+      "result": "0",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "FX-01 상세 기관 줄",
+      "width": 1440,
+      "result": "수요기관 세종특별자치시 · 예산 1,200,000,000원 · 마감 2026-11-15 18:00 (D-21)",
+      "shot": "b-interval60-bid-detail-fx01-1440.png"
+    },
+    {
+      "check": "FX-01 상세 원문 링크",
+      "width": 1440,
+      "result": "글자 \"원문 보기\", aria-label \"원문 보기 (새 탭)\", href https://demo.sol-radar.invalid/notices/FX-01",
+      "shot": ""
+    },
+    {
+      "check": "FX-01 상세 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 상단바 DEMO 배지",
+      "width": 1280,
+      "result": "보임",
+      "shot": "b-interval60-dashboard-demo-1280.png"
+    },
+    {
+      "check": "/dashboard?origin=demo \"DEMO · 예시 공고 기준\" 문구",
+      "width": 1280,
+      "result": "1",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 수집 지표 줄",
+      "width": 1280,
+      "result": "전체 수집 공고 15 입찰공고 · 출처 사본은 1건 진행 중 WATCH 10 현재 유효 분석 · 진행 중 마지막 수집 성공 — 성공 기록 없음 다음 수집 예정 — 정기 수집 기록 없음 기관별 공고 수 강원특별자치도 1건 경기도교육청 1건 광주광역시 1건 국민건강보험공단 1건 국방부 1건",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 기관 상위 항목 수 / 다음 수집 예정 카드",
+      "width": 1280,
+      "result": "5 / 있음",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 공공조달 요약",
+      "width": 1280,
+      "result": "신규 발견 15 최근 24시간 · 입찰공고 분석 대기 1 현재 입력의 분석 결과 없음 BID 권고 2 현재 유효 분석 · 진행 중 마감 임박 (7일) 1 정확한 마감 확인 · 진행 중 진행 중 입찰 프로젝트 0 종료 제외 · 프로젝트 보기",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 본문 \"DEMO\" 글자 수",
+      "width": 1280,
+      "result": "10",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=demo 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 상단바 DEMO 배지",
+      "width": 1280,
+      "result": "없음",
+      "shot": "b-interval60-dashboard-live-1280.png"
+    },
+    {
+      "check": "/dashboard?origin=live \"DEMO · 예시 공고 기준\" 문구",
+      "width": 1280,
+      "result": "0",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 수집 지표 줄",
+      "width": 1280,
+      "result": "전체 수집 공고 0 입찰공고 · 출처 사본은 1건 진행 중 WATCH 0 현재 유효 분석 · 진행 중 마지막 수집 성공 — 성공 기록 없음 다음 수집 예정 — 정기 수집 기록 없음 기관별 공고 수 기관이 확인된 입찰공고 없음",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 기관 상위 항목 수 / 다음 수집 예정 카드",
+      "width": 1280,
+      "result": "0 / 있음",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 공공조달 요약",
+      "width": 1280,
+      "result": "신규 발견 0 최근 24시간 · 입찰공고 분석 대기 0 현재 입력의 분석 결과 없음 BID 권고 0 현재 유효 분석 · 진행 중 마감 임박 (7일) 0 정확한 마감 확인 · 진행 중 진행 중 입찰 프로젝트 0 종료 제외 · 프로젝트 보기",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 본문 \"DEMO\" 글자 수",
+      "width": 1280,
+      "result": "0",
+      "shot": ""
+    },
+    {
+      "check": "/dashboard?origin=live 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "FX-01 상세 기관 줄",
+      "width": 1280,
+      "result": "수요기관 세종특별자치시 · 예산 1,200,000,000원 · 마감 2026-11-15 18:00 (D-21)",
+      "shot": "b-interval60-bid-detail-fx01-1280.png"
+    },
+    {
+      "check": "FX-01 상세 원문 링크",
+      "width": 1280,
+      "result": "글자 \"원문 보기\", aria-label \"원문 보기 (새 탭)\", href https://demo.sol-radar.invalid/notices/FX-01",
+      "shot": ""
+    },
+    {
+      "check": "FX-01 상세 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": ""
+    }
+  ],
+  "serverErrors": []
+}

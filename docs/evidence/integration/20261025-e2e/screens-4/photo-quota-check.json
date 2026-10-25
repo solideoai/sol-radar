@@ -1,0 +1,66 @@
+{
+  "base": "http://localhost:3210",
+  "user": "sales@soltech.invalid",
+  "rows": [
+    {
+      "check": "시작 상태",
+      "result": "객체 0개, profiles.photo_path (null)"
+    },
+    {
+      "check": "1-1 내 사진 바꾸기(SOL-P0006)",
+      "result": "성공, 정리 뒤 객체 1개, photo_path users/<uid>/4433601d-a265-430b-ae3d-c56ee0164486.jpg, Storage 호출 [POST /storage/v1/object/list/profile-photos 200; POST /storage/v1/object/profile-photos/users/<uid>/<id>.jpg 200; POST /storage/v1/object/list/profile-photos 200; DELETE /storage/v1/object/profile-photos 200; GET /storage/v1/object/sign/profile-photos/users/<uid>/<id>.jpg 200]"
+    },
+    {
+      "check": "1-2 내 사진 바꾸기(SOL-P0007)",
+      "result": "성공, 정리 뒤 객체 1개, photo_path users/<uid>/eeb1fd2a-68c3-4ac9-bc61-08d97c722c66.jpg, Storage 호출 [POST /storage/v1/object/list/profile-photos 200; DELETE /storage/v1/object/profile-photos 200; POST /storage/v1/object/profile-photos/users/<uid>/<id>.jpg 200; POST /storage/v1/object/list/profile-photos 200; DELETE /storage/v1/object/profile-photos 200; GET /storage/v1/object/sign/profile-photos/users/<uid>/<id>.jpg 200]"
+    },
+    {
+      "check": "1-3 내 사진 바꾸기(SOL-P0008)",
+      "result": "성공, 정리 뒤 객체 1개, photo_path users/<uid>/9bfcaa0a-d66a-44e6-89c7-b49894f52f86.jpg, Storage 호출 []"
+    },
+    {
+      "check": "1 결과: 3번 바꾼 뒤 users/<id>/ 객체",
+      "result": "1개(기대 1)"
+    },
+    {
+      "check": "2 사진 지우기",
+      "result": "성공, 객체 0개(기대 0), photo_path (null), Storage 호출 [POST /storage/v1/object/list/profile-photos 200; DELETE /storage/v1/object/profile-photos 200]"
+    },
+    {
+      "check": "3-0 사용자 JWT 발급",
+      "result": "200"
+    },
+    {
+      "check": "3-1 시작 객체",
+      "result": "0개"
+    },
+    {
+      "check": "3-2 직접 올리기 1번째",
+      "result": "HTTP 200 "
+    },
+    {
+      "check": "3-2 직접 올리기 2번째",
+      "result": "HTTP 200 "
+    },
+    {
+      "check": "3-2 직접 올리기 3번째",
+      "result": "HTTP 200 "
+    },
+    {
+      "check": "3-3 직접 3개 뒤 객체",
+      "result": "3개(기대 3)"
+    },
+    {
+      "check": "3-4 직접 올리기 4번째",
+      "result": "HTTP 400 {\"statusCode\":\"403\",\"error\":\"Unauthorized\",\"message\":\"new row violates row-level security policy\",\"code\":\"AccessDenied\"}"
+    },
+    {
+      "check": "3-5 4번째 뒤 객체",
+      "result": "3개(기대 3)"
+    },
+    {
+      "check": "3-6 직접 올린 3개를 같은 JWT 로 지우기",
+      "result": "HTTP 200, 지운 수 3, 남은 객체 0개"
+    }
+  ]
+}

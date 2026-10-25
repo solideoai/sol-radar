@@ -1,0 +1,395 @@
+{
+  "base": "http://localhost:3210",
+  "rows": [
+    {
+      "check": "/people ADMIN 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": "01-people-admin-1440.png"
+    },
+    {
+      "check": "/people ADMIN 행 관리 메뉴 수",
+      "width": 1440,
+      "result": "21",
+      "shot": ""
+    },
+    {
+      "check": "/people 직원 추가(공공 마이데이터팀·CFO)",
+      "width": 1440,
+      "result": "검색 1행",
+      "shot": "02-people-add-dialog-1440.png"
+    },
+    {
+      "check": "/people 부서 이동(→ 공공1본부 › 행정정보공동이용팀)",
+      "width": 1440,
+      "result": "통과(행: 통 통합검증18707 행정정보공동이용팀 CFO 비대상 )",
+      "shot": "03-people-moved-1440.png"
+    },
+    {
+      "check": "/people 퇴사 처리 → 목록에서 빠짐(새로 고침 뒤)",
+      "width": 1440,
+      "result": "통과(0행)",
+      "shot": "04-people-leave-confirm-1440.png"
+    },
+    {
+      "check": "/org-chart 사진(펼친 팀)",
+      "width": 1440,
+      "result": "사진 14/14 로드, 대체 0",
+      "shot": "05-org-chart-1440.png"
+    },
+    {
+      "check": "/org-chart 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "ADMIN 서랍에서 김민준 사진 변경",
+      "width": 1440,
+      "result": "통과(서명 URL members/)",
+      "shot": "06-drawer-admin-photo-1440.png"
+    },
+    {
+      "check": "서랍 열림 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "/settings 내 사진 올리기(/org-01/settings)",
+      "width": 1440,
+      "result": "통과(서명 URL users/)",
+      "shot": "07-settings-my-photo-1440.png"
+    },
+    {
+      "check": "/settings 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "/settings/organization 승인 표",
+      "width": 1440,
+      "result": "가입 신청 구역 있음, 표 행 0",
+      "shot": "08-settings-organization-1440.png"
+    },
+    {
+      "check": "/settings/organization 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "FX-01 상세 SOL Score(목록 94, 상세 \"94점 / 100점\")",
+      "width": 1440,
+      "result": "통과",
+      "shot": "09-fx-01-detail-1440.png"
+    },
+    {
+      "check": "FX-01 상세 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "FX-03 상세 SOL Score(목록 68, 상세 \"68점 / 100점 (참고)\")",
+      "width": 1440,
+      "result": "통과",
+      "shot": "10-fx-03-detail-1440.png"
+    },
+    {
+      "check": "FX-03 상세 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "org-01 ADMIN /api/v1/analyses",
+      "width": 1440,
+      "result": "18건(첫 id 를 org-02 시험에 쓴다)",
+      "shot": ""
+    },
+    {
+      "check": "/people ADMIN 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": "11-people-admin-1280.png"
+    },
+    {
+      "check": "/people 직원 추가 대화상자 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": "12-people-add-dialog-1280.png"
+    },
+    {
+      "check": "/people 행 메뉴 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": "13-people-row-menu-1280.png"
+    },
+    {
+      "check": "/org-chart 사진(펼친 팀)",
+      "width": 1280,
+      "result": "사진 14/14 로드, 대체 0",
+      "shot": "14-org-chart-1280.png"
+    },
+    {
+      "check": "/org-chart 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "ADMIN 서랍 사진 버튼(김민준)",
+      "width": 1280,
+      "result": "1",
+      "shot": "15-drawer-admin-1280.png"
+    },
+    {
+      "check": "서랍 열림 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "/settings 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": "16-settings-1280.png"
+    },
+    {
+      "check": "/settings/organization 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": "17-settings-organization-1280.png"
+    },
+    {
+      "check": "FX-01 상세 SOL Score(목록 94, 상세 \"94점 / 100점\")",
+      "width": 1280,
+      "result": "통과",
+      "shot": "18-fx-01-detail-1280.png"
+    },
+    {
+      "check": "FX-01 상세 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "FX-03 상세 SOL Score(목록 68, 상세 \"68점 / 100점 (참고)\")",
+      "width": 1280,
+      "result": "통과",
+      "shot": "19-fx-03-detail-1280.png"
+    },
+    {
+      "check": "FX-03 상세 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "SALES /people 직원 추가·행 관리 버튼",
+      "width": 1440,
+      "result": "직원 추가 0, \" 관리\" 버튼 1",
+      "shot": "20-people-sales-1440.png"
+    },
+    {
+      "check": "SALES /people 가로 넘침",
+      "width": 1440,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "SALES 서랍 사진 버튼(김민준)",
+      "width": 1440,
+      "result": "0",
+      "shot": "21-drawer-sales-1440.png"
+    },
+    {
+      "check": "SALES /settings/organization 승인 버튼",
+      "width": 1440,
+      "result": "0 (/settings/organization)",
+      "shot": "22-settings-organization-sales-1440.png"
+    },
+    {
+      "check": "G8 목록 DEMO(행·상단바 툴팁)",
+      "width": 1440,
+      "result": "행 19/19, 툴팁 일치",
+      "shot": "23-bids-list-demo-1440.png"
+    },
+    {
+      "check": "G8 목록 axe",
+      "width": 1440,
+      "result": "위반 0",
+      "shot": ""
+    },
+    {
+      "check": "G8 FX-01 제목 위 DEMO·툴팁",
+      "width": 1440,
+      "result": "제목 위, 툴팁 일치",
+      "shot": ""
+    },
+    {
+      "check": "V2-02 상단바 실행 모드 / AI(4화면)",
+      "width": 1440,
+      "result": "/dashboard 실행 모드: mock / AI: 확인 중; /bids 실행 모드: mock / AI: 확인 중; /notifications 실행 모드: mock / AI: 확인 중; /bids/FX-01 실행 모드: mock / AI: 확인 중",
+      "shot": "24-topbar-ai-status-1440.png"
+    },
+    {
+      "check": "V2-02 FX-01 분석 띠",
+      "width": 1440,
+      "result": "분석 실행 모드: mock 있음, 가상 회사 프로필로 분석 있음, AI: mock 있음",
+      "shot": ""
+    },
+    {
+      "check": "SALES /people 직원 추가·행 관리 버튼",
+      "width": 1280,
+      "result": "직원 추가 0, \" 관리\" 버튼 1",
+      "shot": "25-people-sales-1280.png"
+    },
+    {
+      "check": "SALES /people 가로 넘침",
+      "width": 1280,
+      "result": "0px",
+      "shot": ""
+    },
+    {
+      "check": "SALES 서랍 사진 버튼(김민준)",
+      "width": 1280,
+      "result": "0",
+      "shot": "26-drawer-sales-1280.png"
+    },
+    {
+      "check": "SALES /settings/organization 승인 버튼",
+      "width": 1280,
+      "result": "0 (/settings/organization)",
+      "shot": "27-settings-organization-sales-1280.png"
+    },
+    {
+      "check": "G8 목록 DEMO(행·상단바 툴팁)",
+      "width": 1280,
+      "result": "행 19/19, 툴팁 일치",
+      "shot": "28-bids-list-demo-1280.png"
+    },
+    {
+      "check": "G8 목록 axe",
+      "width": 1280,
+      "result": "위반 0",
+      "shot": ""
+    },
+    {
+      "check": "G8 FX-01 제목 위 DEMO·툴팁",
+      "width": 1280,
+      "result": "제목 위, 툴팁 일치",
+      "shot": ""
+    },
+    {
+      "check": "V2-02 상단바 실행 모드 / AI(4화면)",
+      "width": 1280,
+      "result": "/dashboard 실행 모드: mock / AI: 확인 중; /bids 실행 모드: mock / AI: 확인 중; /notifications 실행 모드: mock / AI: 확인 중; /bids/FX-01 실행 모드: mock / AI: 확인 중",
+      "shot": "29-topbar-ai-status-1280.png"
+    },
+    {
+      "check": "V2-02 FX-01 분석 띠",
+      "width": 1280,
+      "result": "분석 실행 모드: mock 있음, 가상 회사 프로필로 분석 있음, AI: mock 있음",
+      "shot": ""
+    },
+    {
+      "check": "G5 org-02 VIEWER FX-01 상세",
+      "width": 1440,
+      "result": "HTTP 200, 제목 일치, 미분석 표시, 94 안 보임",
+      "shot": "30-bid-detail-org02-1440.png"
+    },
+    {
+      "check": "G5 org-02 상세 axe",
+      "width": 1440,
+      "result": "위반 0",
+      "shot": ""
+    },
+    {
+      "check": "G5 자격 API",
+      "width": 1440,
+      "result": "404 {\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"분석을 찾을 수 없습니다\",\"details\":{\"resource\":\"analysis\"},\"requestId\":\"136eb9d5-7905-4652",
+      "shot": ""
+    },
+    {
+      "check": "G5 상세 API 조직 칸",
+      "width": 1440,
+      "result": "200 latestAnalysis=null latestReview=null reviews=[]",
+      "shot": ""
+    },
+    {
+      "check": "G5 /api/v1/analyses",
+      "width": 1440,
+      "result": "200 items=[]",
+      "shot": ""
+    },
+    {
+      "check": "G5 org-01 분석 id 직접 조회",
+      "width": 1440,
+      "result": "404",
+      "shot": ""
+    },
+    {
+      "check": "G5 인력 시뮬레이션",
+      "width": 1440,
+      "result": "200 bids=[{\"analysisId\":null,\"availableFte\":null,\"candidates\":[]}] overloads=[] shared=[]",
+      "shot": ""
+    },
+    {
+      "check": "G5 org-02 VIEWER FX-01 상세",
+      "width": 1280,
+      "result": "HTTP 200, 제목 일치, 미분석 표시, 94 안 보임",
+      "shot": "31-bid-detail-org02-1280.png"
+    },
+    {
+      "check": "G5 org-02 상세 axe",
+      "width": 1280,
+      "result": "위반 0",
+      "shot": ""
+    },
+    {
+      "check": "G5 자격 API",
+      "width": 1280,
+      "result": "404 {\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"분석을 찾을 수 없습니다\",\"details\":{\"resource\":\"analysis\"},\"requestId\":\"cb30ce94-f2b5-4ff5",
+      "shot": ""
+    },
+    {
+      "check": "G5 상세 API 조직 칸",
+      "width": 1280,
+      "result": "200 latestAnalysis=null latestReview=null reviews=[]",
+      "shot": ""
+    }
+  ],
+  "consoleErrors": [
+    "admin@admin.com 1440 http://localhost:3210/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "admin@admin.com 1440 http://localhost:3210/settings/organization Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "admin@admin.com 1440 http://localhost:3210/bids Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "admin@admin.com 1440 http://localhost:3210/bids Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "admin@admin.com 1280 http://localhost:3210/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "admin@admin.com 1280 http://localhost:3210/settings/organization Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "admin@admin.com 1280 http://localhost:3210/bids Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "admin@admin.com 1280 http://localhost:3210/bids Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1440 http://localhost:3210/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1440 http://localhost:3210/settings/organization Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1440 http://localhost:3210/bids?includeEarly=true Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1440 http://localhost:3210/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163 Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1440 http://localhost:3210/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1440 http://localhost:3210/bids Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1440 http://localhost:3210/notifications Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1440 http://localhost:3210/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163 Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1280 http://localhost:3210/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1280 http://localhost:3210/settings/organization Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1280 http://localhost:3210/bids?includeEarly=true Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1280 http://localhost:3210/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163 Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1280 http://localhost:3210/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1280 http://localhost:3210/bids Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1280 http://localhost:3210/notifications Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "sales@soltech.invalid 1280 http://localhost:3210/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163 Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "viewer@other.invalid 1440 http://localhost:3210/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "viewer@other.invalid 1440 http://localhost:3210/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163 Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "viewer@other.invalid 1280 http://localhost:3210/bids/b9f00c0b-96e2-5949-9fc7-ef7bb7aea163 Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "serverErrors": ["503 /health/ready"]
+}
