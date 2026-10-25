@@ -1,0 +1,47 @@
+▶ 프로필 사진 — 경로·권한 (20261024000200)
+  ✖ 본인 폴더 사진은 3장까지만 올라가고 쓰지 않는 사진을 지우면 다시 올린다 (20261025000110) (214.884375ms)
+  ✖ 본인은 아무 데서도 쓰지 않는 자기 사진만 지우고 남의 사진·쓰는 사진·members 사진은 못 지운다 (20261025000110) (200.861458ms)
+✖ 프로필 사진 — 경로·권한 (20261024000200) (2185.369583ms)
+ℹ tests 2
+ℹ suites 1
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2337.224917
+
+✖ failing tests:
+
+test at scripts/database.test.mjs:2277:3
+✖ 본인 폴더 사진은 3장까지만 올라가고 쓰지 않는 사진을 지우면 다시 올린다 (20261025000110) (214.884375ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/scripts/database.test.mjs:2281:5)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Promise.all (index 5)
+      at async Suite.run (node:internal/test_runner/test:1771:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /row-level security/,
+    operator: 'rejects',
+    diff: 'simple'
+  }
+
+test at scripts/database.test.mjs:2293:3
+✖ 본인은 아무 데서도 쓰지 않는 자기 사진만 지우고 남의 사진·쓰는 사진·members 사진은 못 지운다 (20261025000110) (200.861458ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/scripts/database.test.mjs:2316:12)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Suite.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

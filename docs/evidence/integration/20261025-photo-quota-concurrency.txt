@@ -1,0 +1,7 @@
+# node scripts/verify-photo-quota-concurrency.mjs (2026-10-25, integration/freeze-1024 466d2911)
+마이그레이션 57개 적용(실제 PostgreSQL postgres:17-alpine)
+read committed: B 대기=true, B 결과=new row violates row-level security policy for table "objects", 최종 3장
+repeatable read: B 대기=true, B 결과=could not serialize access due to concurrent update, 최종 3장
+대조군(잠금 없음): B 결과=성공, 최종 4장
+통과: 동시 업로드로 상한을 넘지 못한다
+exit=0

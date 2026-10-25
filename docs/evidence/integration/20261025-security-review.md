@@ -17,12 +17,12 @@ updated: 2026-10-25
 - 회귀 시험: `scripts/database.test.mjs` "신청 뒤 신청자가 프로필을 바꿔도 승인하면 신청 당시 이름·부서·직급으로 명부에 등록된다". 수정 전 실패(`20261025-join-snapshot-red.txt`), 수정 후 통과(`20261025-join-snapshot-green.txt`).
 - 영향 확인: 같은 묶음 8개 시험 통과 — 다른 조직 ADMIN·VIEWER·신청자 본인 결정 거부(조직 격리·ADMIN 전용), 결정된 신청 재결정 거부(`request_not_pending`), 같은 직원 두 번째 승인 거부(`member_taken`), 반려 뒤 멤버십·명부 없음과 재신청, 기존 멤버 연결 시 역할 불변.
 
-## 낮음 6건 — 해커톤 뒤 개선 과제
+## 낮음 6건 — L2 는 수정, 나머지는 해커톤 뒤 개선 과제
 
 | # | 내용 | 개선 방향 |
 |---|---|---|
 | L1 | 계정 삭제 때 `team_members.user_id` 는 비워지지만 `photo_path` 는 남아 삭제한 계정의 사진이 명부에 계속 보인다 | 삭제 흐름에서 본인 경로(`users/<uid>/…`) 사진 참조를 비우고 객체를 지운다 |
-| L2 | 활동 회원은 본인 경로에 사진(2MB 이하)을 개수 제한 없이 올릴 수 있고 DELETE 정책이 없다 | 아래 "즉시 악용 위험" 참고. 본인 객체 수 상한과 교체 시 이전 객체 삭제 |
+| L2 | 활동 회원은 본인 경로에 사진(2MB 이하)을 개수 제한 없이 올릴 수 있고 DELETE 정책이 없다 | **수정 완료(466d2911)** — 아래 절. members/ 경로 상한은 해커톤 뒤 과제 |
 | L3 | `find_unlinked_member` 로 부서·이름 조합을 반복 조회해 가상 명부를 열거할 수 있다(속도 제한 없음, 가상 데이터) | 호출 속도 제한 또는 신청 화면 단계에서만 허용 |
 | L4 | 버킷의 형식 검사가 Content-Type 만 본다(XSS 경로는 없음) | 업로드 뒤 서버에서 이미지 머리 바이트 확인 |
 | L5 | 서명 URL 유효 시간 1시간(ADR-051 에서 수용) | 화면 체류 시간에 맞춰 줄일지 재검토 |
@@ -30,12 +30,18 @@ updated: 2026-10-25
 
 확인 필요(검토자 표시): 퇴사(LEFT) 직원의 멤버십이 남는 것이 의도인지, `storage.objects.owner` 외래키가 `delete_my_account` 를 막지 않는지.
 
-## 즉시 악용 위험 — 사진 무제한 업로드(L2)
+## 즉시 악용 위험 — 사진 무제한 업로드(L2) → 수정 완료(466d2911)
 
-- 경로: 공개 회원가입(`web/app/auth/sign-up`) → 이메일 확인 → `status='active'` 프로필 → `profile_photos_insert` 정책이 `users/<uid>/<uuid>.(jpg|png|webp)` 경로를 개수 제한 없이 허용한다.
-- 영향: 데이터 노출은 없다. Supabase Storage 용량·전송량을 소모시킬 수 있다(객체당 2MB, uuid 를 바꿔 반복).
-- 현재 상태: 사진 migration 은 운영 DB 에 아직 없다. 운영에 적용하는 순간부터 열린다.
-- 선택지는 운영 적용 전 사용자가 정한다. 수정 코드는 아직 쓰지 않았다.
+- 경로: 공개 회원가입(`web/app/auth/sign-up`) → 이메일 확인 → `status='active'` 프로필 → `profile_photos_insert` 정책이 `users/<uid>/<uuid>.(jpg|png|webp)` 경로를 개수 제한 없이 허용했다. 데이터 노출은 없고 Storage 용량을 소모시킬 수 있었다. 사용자 결정(10-25): 운영 반영 전에 고친다.
+- 수정: migration `20261025000110_profile_photo_quota.sql`(기존 migration 은 고치지 않음).
+  - 상한: 본인 폴더(`users/<id>/`)마다 객체 3개. 근거: 화면은 사람마다 사진 1장만 보여 준다. 바꾸기는 새 객체를 올린 뒤 포인터를 옮겨 잠깐 2개가 되고, 포인터 저장 실패 1개의 여유를 더했다.
+  - 강제 위치: Storage insert 정책(RLS). 브라우저가 사용자 JWT 로 Storage API 에 직접 올리므로 프론트 검사가 아니라 DB 가 막는다.
+  - 동시 업로드: `claim_own_photo_slot` 이 폴더마다 `profile_photo_folders` 행 하나를 갱신해 같은 폴더 insert 를 줄 세운 뒤 센다. READ COMMITTED 는 기다린 뒤 새 스냅숏으로 다시 세서 거부하고, REPEATABLE READ 이상은 직렬화 오류로 실패한다. 함수 소유자 postgres 는 BYPASSRLS 라 객체를 RLS 없이 센다(격리 Supabase 에서 `rolbypassrls=t` 확인).
+  - 삭제: `profile_photos_delete_own` 정책 — 본인 폴더이면서 계정 사진·조직도 사진·대기 신청 사진 어디에서도 쓰지 않는 객체만 지운다(`own_photo_deletable`). 남의 사진·members/ 사진·쓰는 사진은 0행.
+  - 웹: 사진 고르기가 올리기 전과 저장·지우기 뒤에 쓰지 않는 본인 사진을 지운다(`web/components/photo/photo-picker.tsx`). 파일당 2MB·형식 제한은 버킷 설정 그대로다. 기존 객체를 지우는 migration 문장은 없다.
+- 회귀 시험(`scripts/database.test.mjs`): "본인 폴더 사진은 3장까지만 …", "본인은 아무 데서도 쓰지 않는 자기 사진만 지우고 …". 수정 전 실패(`20261025-photo-quota-red.txt`), 수정 후 통과(`20261025-photo-quota-green.txt`, 사진·가입 묶음 15/15).
+- 동시성 검증(`20261025-photo-quota-concurrency.txt`): 일회용 PostgreSQL 17 에 흉내 + migration 57개를 적용하고 연결 두 개로 경합. 두 격리 수준 모두 최종 3장, 잠금을 뺀 대조군은 4장(검증이 경합을 실제로 잡음).
+- 권한 회귀: 기존 사진 경로·읽기·set_my_photo·set_member_photo·가입 신청 시험 그대로 통과. 허용 함수 목록(`scripts/db-verify.mjs`)에 두 함수를 근거와 함께 추가.
 
 ## 관련 문서
 
