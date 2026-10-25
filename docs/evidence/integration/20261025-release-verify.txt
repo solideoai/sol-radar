@@ -1,0 +1,66 @@
+# 10-25 통합 검증 — integration/release-1025 @04b4bf3a (2026-10-25)
+# 구성: integration/freeze-1024@6c044ffb + feat/live-ingest-worker@16e1ab6b + feat/live-ingest-web@a261e780
+
+## pnpm verify (전체, 슬롯)
+ℹ tests 226
+ℹ pass 226
+ℹ fail 0
+ Test Files  72 passed (72)
+      Tests  590 passed (590)
+  2 rules passed, 0 errors, 0 warnings (610ms)
+✓ Compiled successfully in 6.3s
+All checks passed!
+======================= 153 passed, 1 warning in 54.29s ========================
+All checks passed!
+======================== 57 passed, 1 warning in 0.82s =========================
+exit 0
+
+## pnpm -C web test:browser
+ Test Files  7 passed (7)
+      Tests  60 passed (60)
+exit 0
+
+## pnpm db:types (재생성 차이)
+exit 0, git status 변경 없음(생성 타입 = migration 58개)
+
+## node scripts/verify-photo-quota-concurrency.mjs
+마이그레이션 58개 적용(실제 PostgreSQL postgres:17-alpine)
+read committed: B 대기=true, B 결과=new row violates row-level security policy for table "objects", 최종 3장
+repeatable read: B 대기=true, B 결과=could not serialize access due to concurrent update, 최종 3장
+대조군(잠금 없음): B 결과=성공, 최종 4장
+통과: 동시 업로드로 상한을 넘지 못한다
+
+## scripts/verify-worker-queues.mjs (일회용 Redis)
+PASS ingest job: ingest Worker 가 1회 처리(state=completed, attemptsStarted=1, run jobKey=g2b:ONCE:2026-10-25T06:38:00.000Z:2026-10-25T07:38:00.000Z)
+PASS analysis job: analysis runtime 이 1회 처리(state=failed, attemptsStarted=1, failedReason=ANALYSIS_JOB_INVALID, 재시도 없음)
+PASS 교차 소비 없음: ingest 큐 처리 2건(queuecheck-ingest, repeat:g2b-scheduled:1792913897626) 모두 attemptsStarted=1, analysis 큐 job 1건, ingest 처리기 run jobKey=["g2b:SCHEDULED:2026-10-25T07:38:00.000Z","g2b:ONCE:2026-10-25T06:38:00.000Z:2026-10-25T07:38:00.000Z"]
+PASS 재기동: Job Scheduler 1개(g2b-scheduled, every=3600000, next=2026-10-25T08:38:17.626Z), 재기동 직후 추가 정기 회차 0건
+PASS --status 판독 = BullMQ getJobCounts·getJobSchedulers: {"waiting":0,"active":0,"delayed":1,"failed":0,"completed":2,"paused":0,"prioritized":0}
+PASS removeJobScheduler 뒤 Job Scheduler 0개
+PASS 외부 HTTP 시도 0건, Supabase 는 가짜, Redis 는 일회용 컨테이너만 사용
+ALL WORKER QUEUE CHECKS PASSED
+CLEANUP: sol-radar-queuecheck-fcfbb84a 컨테이너 삭제
+
+## ingest 이미지 빌드·--check (가짜 env, --network none)
+build exit 0
+registry: /srv/sol-radar/infra/sources/registry.yaml
+g2b 소스(목록·보조): g2b-bid-notice, g2b-bid-license-limit, g2b-bid-region, g2b-bid-eorder-attach
+ingest-only worker 확인 통과: SOL_RUN_MODE=live, 수집 간격 60분
+check exit 0
+worker/analysis-only-main.ts
+worker/ingest-only-main.ts
+worker/ingest-queue-status.ts
+1000
+Untagged: sol-radar-ingest-worker:release-check-04b4bf3a
+Deleted: sha256:bbaacf27665cda5aa5ec2d9c7f5da98591b34fcf16542e1cbf987f1d209e3ab3
+rm exit 0
+
+## compose.ingest-only.company.yaml config (env_file 줄만 뺀 사본, INGEST_WORKER_TAG=release-check)
+config exit 0
+name sol-radar-ingest
+image sol-radar-ingest-worker:release-check
+command node --conditions=react-server --import tsx worker/ingest-only-main.ts
+environment {"AI_GATEWAY_URL":"http://172.20.0.1:8000","FIXTURES_DIR":"/srv/sol-radar/fixtures","G2B_INGEST_INTERVAL_MINUTES":"60","SOL_RUN_MODE":"live","SOURCES_REGISTRY_FILE":"/srv/sol-radar/infra/sources/registry.yaml"}
+volumes /srv/sol-radar/fixtures:ro, /srv/sol-radar/infra/sources:ro
+networks redis-existing → {"redis-existing":{"name":"redis_default","ipam":{},"external":true}}
+restart on-failure:3
