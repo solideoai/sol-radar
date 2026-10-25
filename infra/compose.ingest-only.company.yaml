@@ -1,0 +1,51 @@
+# Ingest 전용 Worker(회사 서버, 나라장터 live 수집 60분 주기). 실행서: infra/company/README.md "Ingest 전용 Worker".
+# 별도 운영 승인 후에만 실행한다. 기존 sol-radar-gateway 프로젝트·Nginx·Redis 를 건드리지 않는다.
+# down·--remove-orphans 를 쓰지 않는다(같은 프로젝트 이름이 아니어도 다른 컨테이너를 지울 수 있는 명령은 쓰지 않는다).
+# redis·redis-api·ai-gateway 는 여기 정의하지 않는다. 기존 Redis 의 network(redis_default)에만 붙는다.
+name: sol-radar-ingest
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  ingest-worker:
+    # 이미지 이름을 따로 둔다. 회사 analysis 전용 Worker 가 sol-radar-ai-worker-worker:latest 를 쓰므로(compose.analysis-only.company.yaml)
+    # 그 태그를 빌드하거나 덮으면 analysis Worker 가 다음 기동 때 이 코드로 바뀐다. 태그는 배포할 git SHA 로 고정한다.
+    image: sol-radar-ingest-worker:${INGEST_WORKER_TAG:?배포할 git SHA}
+    build:
+      context: ../web
+      dockerfile: worker/Dockerfile
+    init: true
+    env_file: .env.worker.local
+    command: ["node", "--conditions=react-server", "--import", "tsx", "worker/ingest-only-main.ts"]
+    environment:
+      # env_file 보다 우선한다. live 가 아니면 진입점이 Redis 연결 전에 exit 1 로 멈춘다.
+      SOL_RUN_MODE: "live"
+      G2B_INGEST_INTERVAL_MINUTES: "60"
+      # 이미지 작업 디렉터리는 /app 이라 기본 경로(/infra/sources/…)에는 파일이 없다. 아래 볼륨 경로를 직접 준다.
+      SOURCES_REGISTRY_FILE: "/srv/sol-radar/infra/sources/registry.yaml"
+      FIXTURES_DIR: "/srv/sol-radar/fixtures"
+      AI_GATEWAY_URL: "http://172.20.0.1:8000"
+    volumes:
+      # live 는 fixture 를 읽지 않는다(회사 fixtures 는 UID 1001·600/700 이라 Worker UID 1000 이 읽지 못해도 된다).
+      - ../fixtures:/srv/sol-radar/fixtures:ro
+      - ../infra/sources:/srv/sol-radar/infra/sources:ro
+    networks:
+      - redis-existing
+    restart: on-failure:3
+    stop_grace_period: 180s
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('fs').statSync(process.env.WORKER_HEARTBEAT_FILE||'/tmp/sol-worker-heartbeat');process.exit(Date.now()-s.mtimeMs<30000?0:1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+networks:
+  redis-existing:
+    external: true
+    name: redis_default

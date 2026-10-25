@@ -79,7 +79,16 @@ export type IngestJobDeps = {
   secrets: readonly string[];
   /** 호출 예산(07 §2.2). live 에서만 준다. 없으면 g2b 수집이 예산을 보지 않는다 */
   quota?: IngestQuota;
+  /**
+   * ingest 전용 worker 만 준다(10-25 live 수집 계획 B1). 창을 정하지 않은 정기 g2b 회차의 시작을 `지금 − maxMs` 보다
+   * 앞으로 잡지 않는다. 잘라 낸 회차는 params.windowCap 에 남기고 log 로 한 줄 남긴다(키 값 없음).
+   * 없으면(전체 worker) 상한 없이 직전 성공 창 끝(없으면 24시간 전)부터 받는다.
+   */
+  scheduledWindowCap?: { maxMs: number; log: (line: string) => void };
 };
+
+/** 정기 g2b 창을 상한으로 잘랐을 때 params.windowCap 에 남기는 값. 잘라 낸 구간은 previousSuccessEnd ~ window.from 이다 */
+type WindowCapRecord = { maxMinutes: number; previousSuccessEnd: string | null };
 
 const RUN_MODE_OF: Readonly<Record<RunMode, IngestRunMode>> = {
   live: "LIVE",
@@ -109,18 +118,35 @@ function parseJobData(data: unknown, now: Date): IngestJobData {
 // 7-1: 직전 창은 SCHEDULED run 의 것만 본다. MANUAL 의 창(미래일 수 있다)을 이으면 일정 수집이 구간을 건너뛴다.
 // C8: 마지막 SCHEDULED run 이 FAILED 면 그 창을 다시 쓴다. jobKey 가 같아져 저장된 cursor 부터 잇는다(07 §2.6).
 // 새 24h 창을 열면 재기동·일정마다 같은 공고를 다시 받고 호출 예산을 또 쓴다.
+// 10-25 B1: scheduledWindowCap 이 있으면(ingest 전용 worker) 창 시작을 max(직전 성공 창 끝, 지금 − 상한)으로 자른다.
+// 상한보다 오래된 실패 창도 다시 쓰지 않는다. 24시간 백필은 창을 정한 1회 수집(--once)으로만 한다.
 async function g2bWindowOf(
   data: Extract<IngestJobData, { source: "g2b" }>,
   deps: IngestJobDeps,
-): Promise<{ from: string; to: string }> {
-  if (data.window !== undefined) return data.window;
+): Promise<{ window: { from: string; to: string }; cap: WindowCapRecord | null }> {
+  if (data.window !== undefined) return { window: data.window, cap: null };
   const scope = { serviceKey: "g2b-bid-notice" };
+  const capMs = deps.scheduledWindowCap?.maxMs;
   const last = await deps.repo.findLatestRunWindow("g2b", "SCHEDULED", scope);
-  if (last !== null && last.status === "FAILED" && last.window !== null) return last.window;
+  if (
+    last !== null &&
+    last.status === "FAILED" &&
+    last.window !== null &&
+    (capMs === undefined ||
+      Date.parse(last.window.from) >= floorToMinute(deps.now()).getTime() - capMs)
+  )
+    return { window: last.window, cap: null };
   const to = floorToMinute(deps.now());
   const lastEnd = await deps.repo.findLatestRunWindowEnd("g2b", "SCHEDULED", scope);
   const from = lastEnd ?? new Date(to.getTime() - DEFAULT_G2B_LOOKBACK_MS);
-  return { from: from.toISOString(), to: to.toISOString() };
+  if (capMs === undefined || from.getTime() >= to.getTime() - capMs) {
+    return { window: { from: from.toISOString(), to: to.toISOString() }, cap: null };
+  }
+  const floor = new Date(to.getTime() - capMs);
+  return {
+    window: { from: floor.toISOString(), to: to.toISOString() },
+    cap: { maxMinutes: capMs / MINUTE_MS, previousSuccessEnd: lastEnd?.toISOString() ?? null },
+  };
 }
 
 async function runInputOf(data: IngestJobData, deps: IngestJobDeps): Promise<StartRunInput> {
@@ -173,18 +199,27 @@ async function runInputOf(data: IngestJobData, deps: IngestJobDeps): Promise<Sta
     };
   }
   if (data.source !== "g2b") throw new Error("ingest source missing serviceKey");
-  const window = await g2bWindowOf(data, deps);
+  const { window, cap } = await g2bWindowOf(data, deps);
+  if (cap !== null) {
+    deps.scheduledWindowCap?.log(
+      JSON.stringify({ event: "ingest.window.capped", source: "g2b", ...window, ...cap }),
+    );
+  }
   return {
     ...common,
     source: "g2b",
     serviceKey: "g2b-bid-notice",
     operation: G2B_BID_NOTICE_LIST_OPERATION,
     partitionKey: "all",
-    // 반복 job 의 data 는 고정이라 jobKey 를 창 끝으로 나눠야 일정 실행마다 새 run 이 된다.
-    jobKey: data.trigger === "SCHEDULED" ? `g2b:SCHEDULED:${window.to}` : data.jobKey,
+    // 반복 job 의 data 는 고정(창 없음)이라 jobKey 를 창 끝으로 나눠야 일정 실행마다 새 run 이 된다.
+    // 창을 정해 넣은 job(ingest 전용 --once)은 자기 jobKey 를 쓴다. 일정 회차의 jobKey 와 겹치지 않게 한다.
+    jobKey:
+      data.trigger === "SCHEDULED" && data.window === undefined
+        ? `g2b:SCHEDULED:${window.to}`
+        : data.jobKey,
     batch: null,
     // 05: 실제 적용한 기본값을 params 에 남긴다. 지금 수집하는 단계는 공고(NOTICE)뿐이다.
-    params: { window, stages: ["NOTICE"] },
+    params: { window, stages: ["NOTICE"], ...(cap === null ? {} : { windowCap: cap }) },
   };
 }
 

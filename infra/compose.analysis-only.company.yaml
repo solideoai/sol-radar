@@ -1,0 +1,25 @@
+# 회사 운영 원본, 2026-10-25 사용자 제공. 내용을 바꾸면 회사 컨테이너와 어긋난다.
+name: sol-radar-analysis-only
+
+services:
+  analysis-worker:
+    image: sol-radar-ai-worker-worker:latest
+    init: true
+    command:
+      - node
+      - --conditions=react-server
+      - --import
+      - tsx
+      - worker/analysis-only-main.ts
+    env_file:
+      - .env.worker.local
+    environment:
+      AI_GATEWAY_URL: "http://172.20.0.1:8000"
+    networks:
+      - redis-existing
+    restart: "no"
+
+networks:
+  redis-existing:
+    external: true
+    name: redis_default
