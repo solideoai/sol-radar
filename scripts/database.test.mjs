@@ -2414,6 +2414,45 @@ describe("가입 신청과 명부 연결 (20261024000300)", () => {
     await assert.rejects(submit(db, "NEW_HIRE"), /already_linked/);
   });
 
+  it("신청 뒤 신청자가 프로필을 바꿔도 승인하면 신청 당시 이름·부서·직급으로 명부에 등록된다", async (t) => {
+    const db = await setup(t);
+    const title2 = "33e315b9-aee8-5ea8-96eb-f9055af4eef3";
+    await db.query(
+      "insert into public.job_titles (id,org_id,code,label,sort_order) values ($1,$2,'SOL-J008','책임',8)",
+      [title2, solideo],
+    );
+    await declare(db, users[2], "신청당시이름");
+    await actAs(db, users[2]);
+    const id = await submit(db, "NEW_HIRE");
+    // ADMIN 이 신청 내용을 본 뒤 신청자가 본인 권한으로 프로필을 바꾼다.
+    await db.query(
+      "update public.profiles set display_name='바꾼이름', declared_department_id=$2, declared_job_title_id=$3 where id=$1",
+      [users[2], department2, title2],
+    );
+    await actAs(db, users[0]);
+    assert.equal(await decide(db, id, true), "APPROVED");
+    await asSystem(db);
+    assert.deepEqual(
+      (
+        await db.query(
+          "select name,department_id,job_title_id from public.team_members where user_id=$1",
+          [users[2]],
+        )
+      ).rows,
+      [{ name: "신청당시이름", department_id: department, job_title_id: title }],
+    );
+    // 연결 뒤 프로필의 부서·직급도 명부와 같다(LINK 승인과 같은 규칙).
+    assert.deepEqual(
+      (
+        await db.query(
+          "select declared_department_id,declared_job_title_id from public.profiles where id=$1",
+          [users[2]],
+        )
+      ).rows,
+      [{ declared_department_id: department, declared_job_title_id: title }],
+    );
+  });
+
   it("VIEWER·다른 조직 ADMIN 은 결정하지 못하고 이미 결정된 신청은 다시 결정하지 못한다", async (t) => {
     const db = await setup(t);
     await declare(db, users[2], "박신입");
