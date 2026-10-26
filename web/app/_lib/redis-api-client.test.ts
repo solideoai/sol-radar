@@ -437,3 +437,123 @@ describe("remote readiness does not need Redis TCP", () => {
     expect(result.body.status).toBe("unavailable");
   });
 });
+
+// 10-26 운영 전환: 수동 수집 gate 상태 GET 과 새 거절 코드가 frontend 중계를 지나 그대로 전해지는가.
+describe("manual ingestion gate relay", () => {
+  const GATE_PATH = "/api/v1/admin/ingestion/manual-gate";
+  const ISO = "2026-10-26T05:10:00.000Z";
+  const gateView = {
+    cooldownMinutes: 60,
+    nextAvailableAt: ISO,
+    sharedRun: { runId: RUN, requestedAt: "2026-10-26T04:10:00.000Z", until: ISO, mine: true },
+    daily: { used: 1, limit: 20, resetsAt: "2026-10-26T15:00:00.000Z" },
+    schedule: {
+      pattern: "0 */3 * * *",
+      timezone: "Asia/Seoul",
+      slotHoursKst: [0, 3, 6, 9, 12, 15, 18, 21],
+      active: true,
+      nextRunAt: "2026-10-26T06:00:00.000Z",
+    },
+    ingestMode: "live",
+  };
+  const errorOf = (code: string, details: object) => ({
+    error: { code, message: "거절", details, requestId: RUN },
+  });
+
+  it("reads the gate with GET, JWT and service token only, and strips unknown fields", async () => {
+    const send = vi.fn<typeof fetch>(async () =>
+      Response.json({ ...gateView, secretField: "must-not-return" }),
+    );
+    const result = await relayRedisApi(new Request(`https://app.invalid${GATE_PATH}`), GATE_PATH, {
+      env,
+      accessToken,
+      send,
+    });
+    expect(result.status).toBe(200);
+    expect(await result.json()).toEqual(gateView);
+    const [url, init] = send.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`https://acropolissg.com/redis${GATE_PATH}`);
+    expect(init.method).toBe("GET");
+    expect(init.body).toBeUndefined();
+    const headers = new Headers(init.headers);
+    expect(headers.get("authorization")).toBe(`Bearer ${USER_TOKEN}`);
+    expect(headers.get("x-sol-service-token")).toBe(TOKEN);
+    expect(headers.has("idempotency-key")).toBe(false);
+  });
+
+  it("fails closed for a malformed gate body or an upstream Redis outage", async () => {
+    for (const upstream of [
+      Response.json({ ...gateView, ingestMode: "prod" }),
+      Response.json({ ...gateView, sharedRun: { ...gateView.sharedRun, mine: undefined } }),
+      Response.json(errorOf("SERVICE_UNAVAILABLE", { component: "redis" }), { status: 503 }),
+    ]) {
+      const result = await relayRedisApi(
+        new Request(`https://app.invalid${GATE_PATH}`),
+        GATE_PATH,
+        { env, accessToken, send: async () => upstream },
+      );
+      expect(result.status).toBe(503);
+      expect((await result.json()).error.details).toEqual({ component: "redis-api" });
+    }
+  });
+
+  it("passes the scheduler-inactive 503 through without retrying", async () => {
+    const send = vi.fn<typeof fetch>(async () =>
+      Response.json(
+        errorOf("SERVICE_UNAVAILABLE", {
+          component: "ingest-worker",
+          reason: "SCHEDULER_INACTIVE",
+        }),
+        { status: 503 },
+      ),
+    );
+    const result = await relayRedisApi(
+      new Request(`https://app.invalid${INGEST_PATH}`, { method: "POST", body: "{}" }),
+      INGEST_PATH,
+      { env, accessToken, send },
+    );
+    expect(result.status).toBe(503);
+    expect(await result.json()).toMatchObject({
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "수집 Worker 가 아직 켜지지 않았습니다",
+        details: { component: "ingest-worker", reason: "SCHEDULER_INACTIVE" },
+      },
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [INGEST_PATH, 429, "MANUAL_COOLDOWN", { nextAvailableAt: ISO, retryAfterSeconds: 2400 }],
+    [
+      INGEST_PATH,
+      429,
+      "MANUAL_DAILY_LIMIT",
+      { limit: 20, nextAvailableAt: ISO, retryAfterSeconds: 9 },
+    ],
+    [
+      INGEST_PATH,
+      409,
+      "MANUAL_SHARED_RUN",
+      { runId: RUN, requestedAt: ISO, nextAvailableAt: ISO, retryAfterSeconds: 600, mine: false },
+    ],
+    [PATH, 409, "ANALYSIS_SOURCE_MISSING", { reason: "SOURCE_TEXT_MISSING" }],
+  ])("passes %s %i %s with its details", async (path, status, code, details) => {
+    const result = await relayRedisApi(
+      new Request(`https://app.invalid${path}`, { method: "POST", body: "{}" }),
+      path,
+      {
+        env,
+        accessToken,
+        send: async () =>
+          Response.json(errorOf(code, details), {
+            status,
+            headers: status === 429 ? { "Retry-After": "2400" } : {},
+          }),
+      },
+    );
+    expect(result.status).toBe(status);
+    expect((await result.json()).error).toMatchObject({ code, details });
+    expect(result.headers.get("retry-after")).toBe(status === 429 ? "2400" : null);
+  });
+});

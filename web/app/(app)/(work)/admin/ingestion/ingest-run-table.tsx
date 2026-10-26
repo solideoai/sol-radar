@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { QUOTA_CAUSE_TEXT, quotaCauseOf } from "./error-kind";
 import { formatCount, formatDuration, shortRunId } from "./ingest-format";
 import type { AcceptedRun } from "./ingest-runs";
 import { runModeLabel, sourceWithBatch, triggerLabel, type IngestRun } from "./ingestion-copy";
@@ -127,6 +128,8 @@ export function IngestRunTable({
           {items.map((item) => {
             const { run, pending } = item;
             const method = `${runModeLabel(run.runMode)} · ${triggerLabel(run)}`;
+            // 호출 한도 때문에 멈춘 실패는 행에서도 원인을 보인다(실패를 숫자 0 만으로 보이지 않게).
+            const quota = !pending && run.status === "FAILED" ? quotaCauseOf(run.errors) : null;
             return (
               <TableRow key={run.id} className="h-11 align-top">
                 <TableCell className="align-top">
@@ -151,6 +154,11 @@ export function IngestRunTable({
                     <span className="truncate type-caption text-muted-foreground" title={method}>
                       {method}
                     </span>
+                    {quota !== null && (
+                      <span className="type-caption text-destructive">
+                        {QUOTA_CAUSE_TEXT[quota]}
+                      </span>
+                    )}
                   </div>
                 </TableCell>
                 {COUNT_COLUMNS.map((column) => (

@@ -85,14 +85,14 @@ F08 quota 연결에 필요한 명령은 `GET`, `EVAL`, Lua 내부의 `INCR`, `EX
 
 이 절은 별도 운영 승인 후 실행할 절차다. 회사 기동 성공 기록이 아니다. 근거 계획은 `docs/plans/2026-10-25-live-ingest-hourly-plan.md` §4 B1·§6이다. **[승인]** 표시 단계는 사용자 승인 뒤에만 실행한다.
 
-목적: 기존 런타임(redis-api·AI gateway·Analysis Worker)을 그대로 둔 채, 나라장터 입찰공고 목록(`g2b-bid-notice`)과 보조 조회 3종만 실제로 수집하는 Worker를 따로 둔다. 먼저 `--once`로 60분 창을 1회만 수집해 결과를 보고, 그다음 승인을 받아 60분 일정을 켠다. 기존 스케줄러를 확인 없이 실행하지 않는다. Compose 파일은 `infra/compose.ingest-only.company.yaml`(프로젝트 `sol-radar-ingest`, 서비스 `ingest-worker` 하나), 진입점은 `web/worker/ingest-only-main.ts`다.
+목적: 기존 런타임(redis-api·AI gateway·Analysis Worker)을 그대로 둔 채, 나라장터 입찰공고 목록(`g2b-bid-notice`)과 보조 조회 3종만 실제로 수집하는 Worker를 따로 둔다. 먼저 `--once`로 창을 정해 1회만 수집해 결과를 보고, 그다음 승인을 받아 정기 일정(매일 KST 00·03·06·09·12·15·18·21시 정각, `Asia/Seoul` cron `0 */3 * * *`)을 켠다. 기존 스케줄러를 확인 없이 실행하지 않는다. Compose 파일은 `infra/compose.ingest-only.company.yaml`(프로젝트 `sol-radar-ingest`, 서비스 `ingest-worker` 하나), 진입점은 `web/worker/ingest-only-main.ts`다.
 
 - 등록은 ingest 하나다. 의존성 보고·분석·알림·마감·부처 공고·Storage 정리는 돌리지 않는다. 의존성 보고는 scope에 실행 모드가 들어가, live 보고가 다른 모드의 보고를 덮으면 redis-api readiness가 503이 된다.
-- Compose 파일의 `environment`(`SOL_RUN_MODE: live`, `G2B_INGEST_INTERVAL_MINUTES: "60"`, `SOURCES_REGISTRY_FILE`, `FIXTURES_DIR`, `AI_GATEWAY_URL`)는 `infra/.env.worker.local`의 같은 이름보다 우선한다. live가 아니면 진입점이 Redis 연결 전에 exit 1로 멈춘다(mock·fixture로 뜨면 `g2b-scheduled` 일정을 지우기 때문이다).
+- Compose 파일의 `environment`(`SOL_RUN_MODE: live`, `SOURCES_REGISTRY_FILE`, `FIXTURES_DIR`, `AI_GATEWAY_URL`)는 `infra/.env.worker.local`의 같은 이름보다 우선한다. 일정은 코드에 고정이라 env로 바꾸지 않는다. `infra/.env.worker.local`에 옛 `G2B_INGEST_INTERVAL_MINUTES`가 남아 있으면 값과 형식에 상관없이 무시하고 `G2B_INGEST_INTERVAL_MINUTES 무시함: …` 한 줄만 남긴다(값은 찍지 않는다). live가 아니면 진입점이 Redis 연결 전에 exit 1로 멈춘다(mock·fixture로 뜨면 `g2b-scheduled` 일정을 지우기 때문이다).
 - `infra/.env.worker.local`은 §2의 Worker 파일을 같이 쓴다. 수집 키 `G2B_BID_NOTICE_SERVICE_KEY`가 있어야 한다. 키 값을 터미널·로그에 출력하지 않는다. network는 Compose 파일에 `redis_default`(external)로 고정돼 있어 `--env-file`을 주지 않는다.
 - 이미지는 `sol-radar-ingest-worker:<git SHA>`다. 회사 Analysis Worker가 쓰는 `sol-radar-ai-worker-worker:latest`를 빌드하거나 덮지 않는다(덮으면 Analysis Worker가 다음 기동 때 이 코드로 바뀐다). Compose의 모든 명령에 `INGEST_WORKER_TAG`가 필요하다. 없으면 `config`부터 실패한다.
-- 호출 예산은 전체 Worker와 같은 카운터(`quota:15129394:YYYYMMDD`, 일 1000회, 900회부터 보조 조회 중단)를 쓴다. `--once`도 같은 예약을 거친다.
-- 정기 회차의 수집 창은 `max(직전 SCHEDULED 성공 창 끝, 지금 − 2×주기)`부터 지금까지다(60분 주기면 최대 120분). 잘라 낸 구간이 있으면 키 없는 `ingest.window.capped` 로그를 남기고 `ingest_runs.params.windowCap`에 기록한다. 잘린 구간을 자동으로 메우지 않는다. 필요하면 승인 뒤 `--once --window-minutes <N>`(1~1440)으로 받는다.
+- 호출 예산은 전체 Worker와 같은 카운터(`quota:15129394:YYYYMMDD`, 일 1000회, 900회부터 보조 조회 중단)를 쓴다. `--once`도 같은 예약을 거친다. 수동 수집(MANUAL) job은 같은 키를 세되 한도가 `1000 − 200 = 800`이다(`MANUAL_RESERVED_CALLS`, `web/worker/quota-store.ts`). 수동은 720회부터 보조 조회를 멈추고 800회에서 호출을 멈춰, 정기 수집 몫 200회가 남는다.
+- 정기 회차의 수집 창은 `max(직전 SCHEDULED 성공 창 끝, 지금 − 24시간)`부터 지금까지다(최대 1440분). 직전 정기 회차가 실패했고 그 창이 24시간 안에 시작했으면 그 창과 cursor를 그대로 이어 쓴다(예산 소진 뒤 자정 회차가 빈틈 없이 잇는다). 잘라 낸 구간이 있으면 키 없는 `ingest.window.capped` 로그를 남기고 `ingest_runs.params.windowCap`에 기록한다. 잘린 구간을 자동으로 메우지 않는다. 필요하면 승인 뒤 `--once --window-minutes <N>`(1~1440)으로 받는다.
 - 첨부: 이 Worker는 documents job을 넣지 않고 첨부 재확인(reconciler)도 돌리지 않는다. 새 공고의 `bid_documents` 행은 `download_status = 'PENDING'`으로 남는다. 나중에 전체 Worker(live)를 띄우면 그 reconciler가 `is_demo = false`인 PENDING 행을 다시 찾아 documents job을 넣는다.
 - 분석도 하지 않는다. live 공고는 자동 분석되지 않는다.
 - live는 fixture를 읽지 않는다. 회사 `fixtures/`는 UID 1001·600/700이라 Worker(UID 1000)가 읽지 못해도 된다. 권한을 바꾸지 않는다(`chmod` 금지).
@@ -108,11 +108,12 @@ git -C . status --short
 
 **전체 Worker(`worker/main.ts`)가 같은 Redis에서 돌고 있으면 여기서 멈춘다.** 같은 `ingest` 큐를 두 소비자가 나눠 받아, live가 아닌 전체 Worker가 일정 job을 `RUN_MODE_MISMATCH`로 실패시킨다.
 
-Supabase SQL로 직전 g2b 수집을 확인한다. 일정 첫 회차의 창이 직전 `SCHEDULED` 성공 run에서 이어진다(최대 120분으로 잘린다).
+Supabase SQL로 직전 g2b 수집을 확인한다. 일정 첫 회차의 창이 직전 `SCHEDULED` 성공 run에서 이어진다(최대 24시간으로 잘린다).
 
 ```sql
 select started_at, trigger, status, completeness, job_key, service_key,
-       params->'window' as run_window, params->'windowCap' as window_cap, quota_used
+       params->'window' as run_window, params->'windowCap' as window_cap,
+       params->'timing' as timing, quota_used
 from ingest_runs where source = 'g2b' order by started_at desc limit 5;
 ```
 
@@ -177,13 +178,15 @@ ingest 큐 Job Scheduler 0개
 docker compose -f infra/compose.ingest-only.company.yaml run --rm --no-deps ingest-worker node --conditions=react-server --import tsx worker/ingest-only-main.ts --check
 ```
 
-실행 모드(live)·Worker env 이름·registry·수집 키 env 이름·수집 간격만 확인한다. Redis·Supabase·외부 API에는 접속하지 않는다. 통과하면 다음을 출력한다.
+실행 모드(live)·Worker env 이름·registry·수집 키 env 이름과 정기 일정만 확인한다. Redis·Supabase·외부 API에는 접속하지 않는다. 통과하면 다음을 출력한다.
 
 ```text
 registry: /srv/sol-radar/infra/sources/registry.yaml
 g2b 소스(목록·보조): g2b-bid-notice, g2b-bid-license-limit, g2b-bid-region, g2b-bid-eorder-attach
-ingest-only worker 확인 통과: SOL_RUN_MODE=live, 수집 간격 60분
+ingest-only worker 확인 통과: SOL_RUN_MODE=live, 정기 수집 매일 KST 00·03·06·09·12·15·18·21시 정각
 ```
+
+옛 `G2B_INGEST_INTERVAL_MINUTES`가 env에 있으면 마지막 줄 앞에 `G2B_INGEST_INTERVAL_MINUTES 무시함: 정기 수집은 매일 KST 00·03·06·09·12·15·18·21시 정각에 돈다`가 한 줄 더 나온다.
 
 registry 파일이 없으면 경로와 오류 코드만 출력하고 exit 1이다.
 
@@ -207,13 +210,13 @@ ingest-only 1회 수집 결과: status=SUCCEEDED created=… changed=… skipped
 
 7.1의 SQL을 다시 실행해 `g2b:ONCE:` run의 `status`·`completeness`·`quota_used`를 확인한다. `/admin/ingestion`에서 run 이력과 `quotaUsed`, 새 live 공고가 보이는지 확인한다. 호출 수가 예상보다 크게 많으면 일정을 켜지 않고 보고한다.
 
-### 7.8 D6 60분 일정 시작 — **[승인]**
+### 7.8 D6 정기 일정(KST 3시간 정각) 시작 — **[승인]**
 
 ```bash
 docker compose -f infra/compose.ingest-only.company.yaml up -d --no-deps ingest-worker
 ```
 
-**Worker가 일정을 처음 만들면 즉시 1회 수집한다.** 창은 직전 성공 창 끝(보통 D4의 끝)부터 지금까지이고 최대 120분이다. 그 뒤로는 60분마다 돈다. 같은 id(`g2b-scheduled`)로 upsert하므로 다시 기동해도 일정이 하나이고 즉시 회차가 더 생기지 않는다(`scripts/verify-worker-queues.mjs`로 확인한 동작).
+**기동해도 즉시 수집하지 않는다.** 다음 KST 정각(00·03·…·21시)에 첫 회차가 돈다. 기동 로그에 `g2b-scheduled 일정: … 기동 즉시 수집하지 않고 다음 정각 <ISO> 부터 돈다` 한 줄이 남는다. 즉시 수집이 필요하면 7.6의 `--once`나 화면의 수동 수집을 쓴다. 첫 회차의 창은 직전 성공 창 끝(보통 D4의 끝)부터 그 정각까지이고 최대 24시간이다. 같은 id(`g2b-scheduled`)로 upsert하므로 옛 60분 `every` 일정이 남아 있어도 그 대기 회차를 지우고 cron 일정 하나로 바뀐다. 다시 기동해도 일정은 하나다(BullMQ 6.3.17 `addJobScheduler`).
 
 ### 7.9 D7 확인 (운영 영향 없음)
 
@@ -223,7 +226,7 @@ docker compose -f infra/compose.ingest-only.company.yaml logs --tail 50 ingest-w
 docker compose -f infra/compose.ingest-only.company.yaml run --rm --no-deps ingest-worker node --conditions=react-server --import tsx worker/ingest-only-main.ts --status
 ```
 
-기동 로그에 `ingest 큐 Job Scheduler 1개`와 `id=g2b-scheduled every=3600000 next=…`가 보여야 한다. `--status`도 Job Scheduler 1개를 보여야 한다. 상태가 healthy인지, 첫 회차 run이 7.1 SQL에 `g2b:SCHEDULED:` job_key로 생겼는지 확인한다. 창이 잘렸으면 로그의 `ingest.window.capped`와 `params->'windowCap'`을 함께 본다.
+기동 로그에 `ingest 큐 Job Scheduler 1개`와 `id=g2b-scheduled every=- pattern="0 */3 * * *" tz=Asia/Seoul next=…`(next는 KST 정각의 UTC 시각)가 보여야 한다. `every=3600000`이 보이면 옛 일정이 남은 것이다. `--status`도 Job Scheduler 1개를 보여야 한다. 회차마다 `{"event":"ingest.job.timing",…,"scheduledFor":…,"startedAt":…,"queueDelayMs":…}` 한 줄이 남고 같은 값이 `params->'timing'`에 기록된다(수동 job이 앞에서 돌면 정기 회차는 기다렸다 돌고 그 대기가 `queueDelayMs`다). 상태가 healthy인지, 첫 회차 run이 7.1 SQL에 `g2b:SCHEDULED:` job_key로 생겼는지 확인한다. 창이 잘렸으면 로그의 `ingest.window.capped`와 `params->'windowCap'`을 함께 본다.
 
 ### 7.10 되돌리기
 

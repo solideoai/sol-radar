@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "cn";
-import { BellIcon, ClockIcon, CpuIcon, OctagonAlertIcon, ServerIcon } from "lucide-react";
+import { BellIcon, ClockIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { create } from "zustand";
@@ -16,44 +16,38 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { DashboardSummary, Notification, RunMode } from "@/server/bids";
+import type { DashboardSummary, Notification } from "@/server/bids";
 
-// 앱 상단바 오른쪽 지표 묶음(스펙 §4.1·§4.2·§4.3). 순서는 DEMO → 실행 모드 → AI → 수집 → 벨로 고정이다.
-// DEMO 는 지금 보는 데이터 출처(?origin=, 없으면 기본 출처)가 demo 일 때만, 실행 모드는 SOL_RUN_MODE 그대로다(10-25 계획 B2).
-// 지표는 aria-live 를 두지 않는다. 30초마다 읽어 주면 시끄럽기 때문이다. AI 가 끊길 때만 숨은 status 한 곳이 읽는다.
+// 앱 상단바 오른쪽 지표 묶음(스펙 §4.1·§4.3). 순서는 DEMO → 수집 → 벨로 고정이다.
+// DEMO 는 지금 보는 데이터 출처(?origin=, 없으면 기본 출처)가 demo 일 때만 보인다(10-25 계획 B2).
+// 실행 모드(SOL_RUN_MODE)·AI 상태 지표는 10-26 운영 전환에서 뺐다. 배포 설정 값이라 업무 사용자에게 뜻이 없고,
+// 실공고를 보는 운영 화면에 "mock" 이 보여 데모로 오해하게 했다. 진단은 관리자 화면(AI 상태·수집 관리)이 맡는다.
+// 지표는 aria-live 를 두지 않는다. 30초마다 읽어 주면 시끄럽기 때문이다.
 
 export type TopbarSummary = Pick<DashboardSummary, "dataFreshness" | "unreadNotifications">;
-export type AiIndicator = "mock" | "local" | "hosted" | "unavailable";
 
-const AI_VALUES: readonly AiIndicator[] = ["mock", "local", "hosted", "unavailable"];
 const DEFAULT_POLL_MS = 30_000;
-// 수집 주기를 모를 때의 지연 기준. 서버가 G2B_INGEST_INTERVAL_MINUTES 의 2배를 staleAfterMs 로 내려 준다.
-const DEFAULT_STALE_AFTER_MS = 60 * 60_000;
+// staleAfterMs 를 받지 못했을 때의 지연 기준. 보통은 서버가 정기 수집 간격 180분 + 30분(210분)을 내려 준다
+// (@/server/opportunities ingestStaleAfterMs). 웹은 G2B_INGEST_INTERVAL_MINUTES 를 읽지 않는다. 받지 못해도 같은 값을 쓴다.
+const DEFAULT_STALE_AFTER_MS = 210 * 60_000;
 const CHECK_FAILED = "상태를 확인하지 못했습니다";
-// 실행 모드와 DEMO 의 뜻을 가른다. DEMO 의 뜻은 DemoBadge 툴팁(09 고정 문구)이 말한다.
-const RUN_MODE_TIP = "AI 분석 런타임 설정입니다. 보는 데이터가 데모인지는 DEMO 표시로 구분합니다.";
 const LIST_LIMIT = 5;
 
 // ── 마지막 값과 실패 여부 ──
 type TopbarState = {
   summary: TopbarSummary | null;
-  ai: AiIndicator | null;
-  healthFailed: boolean;
   summaryFailed: boolean;
   /** 마지막으로 읽기를 끝낸 시각(ms). 상대 시각("12분 전")의 지금으로 쓴다. */
   checkedAt: number | null;
 };
 type TopbarActions = {
-  seed: (summary: TopbarSummary | null, ai: AiIndicator | null) => void;
+  seed: (summary: TopbarSummary | null) => void;
   reset: () => void;
 };
 
 const EMPTY_STATE: TopbarState = {
   summary: null,
-  ai: null,
-  healthFailed: false,
   summaryFailed: false,
   checkedAt: null,
 };
@@ -61,31 +55,13 @@ const EMPTY_STATE: TopbarState = {
 export const useTopbarStore = create<TopbarState & TopbarActions>()((set) => ({
   ...EMPTY_STATE,
   // 서버가 그린 첫 값. 없는 쪽(null)은 지금 값을 지키고, 실패 표시는 지운다.
-  seed: (summary, ai) =>
-    set((prev) => ({
-      summary: summary ?? prev.summary,
-      ai: ai ?? prev.ai,
-      healthFailed: false,
-      summaryFailed: false,
-    })),
+  seed: (summary) => set((prev) => ({ summary: summary ?? prev.summary, summaryFailed: false })),
   reset: () => set(EMPTY_STATE),
 }));
 
 // ── 읽기 ──
-const isAi = (value: unknown): value is AiIndicator =>
-  typeof value === "string" && AI_VALUES.some((known) => known === value);
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
-
-const readAi = async (): Promise<AiIndicator> => {
-  const res = await fetch("/health/ready", { cache: "no-store" });
-  if (!res.ok) throw new Error(`health ${res.status}`);
-  const body: unknown = await res.json();
-  const ai = isRecord(body) && isRecord(body.checks) ? body.checks.ai : undefined;
-  if (!isAi(ai)) throw new Error("health 응답 모양이 다르다");
-  return ai;
-};
 
 const readSummary = async (): Promise<TopbarSummary> => {
   const res = await fetch("/api/v1/dashboard/summary", { cache: "no-store" });
@@ -102,19 +78,13 @@ const readSummary = async (): Promise<TopbarSummary> => {
   return { dataFreshness, unreadNotifications };
 };
 
-/** 두 주소를 바로 한 번 읽는다. 실패해도 던지지 않고 마지막 값을 지키며 실패 표시만 켠다. */
+/** 상단바 요약(수집 신선도·안 읽은 알림)을 바로 한 번 읽는다. 실패해도 던지지 않고 마지막 값을 지키며 실패 표시만 켠다. */
 export async function refreshTopbarStatus(): Promise<void> {
   const { setState } = useTopbarStore;
-  await Promise.all([
-    readAi().then(
-      (ai) => setState({ ai, healthFailed: false, checkedAt: Date.now() }),
-      () => setState({ healthFailed: true, checkedAt: Date.now() }),
-    ),
-    readSummary().then(
-      (summary) => setState({ summary, summaryFailed: false, checkedAt: Date.now() }),
-      () => setState({ summaryFailed: true, checkedAt: Date.now() }),
-    ),
-  ]);
+  await readSummary().then(
+    (summary) => setState({ summary, summaryFailed: false, checkedAt: Date.now() }),
+    () => setState({ summaryFailed: true, checkedAt: Date.now() }),
+  );
 }
 
 // ── 지표 하나의 껍데기. 설명(tip)이 있으면 초점을 받고 툴팁을 연다. ──
@@ -151,50 +121,6 @@ function Indicator({
       </TooltipTrigger>
       <TooltipContent>{tip}</TooltipContent>
     </Tooltip>
-  );
-}
-
-function RunModeIndicator({ runMode }: { runMode: RunMode }) {
-  return (
-    <Indicator name="run-mode" className="text-muted-foreground" tip={RUN_MODE_TIP}>
-      <ServerIcon aria-hidden="true" className="size-3.5 shrink-0" />
-      <span>
-        실행 모드:{" "}
-        <span data-part="value" className={runMode === "live" ? "text-foreground" : "text-warning"}>
-          {runMode}
-        </span>
-      </span>
-    </Indicator>
-  );
-}
-
-function AiModeIndicator({ ai, healthFailed }: { ai: AiIndicator | null; healthFailed: boolean }) {
-  if (ai === null)
-    return (
-      <Indicator
-        name="ai"
-        tip={healthFailed ? CHECK_FAILED : null}
-        className="text-muted-foreground"
-      >
-        <CpuIcon aria-hidden="true" className="size-3.5 shrink-0" />
-        <span>AI: 확인 중</span>
-        <Skeleton aria-hidden="true" className="h-3 w-16" />
-      </Indicator>
-    );
-  const down = ai === "unavailable";
-  const tip = [down ? "AI gateway에 연결할 수 없습니다" : null, healthFailed ? CHECK_FAILED : null]
-    .filter((line) => line !== null)
-    .join(" · ");
-  const Icon = down ? OctagonAlertIcon : CpuIcon;
-  return (
-    <Indicator
-      name="ai"
-      tip={tip === "" ? null : tip}
-      className={down ? "text-destructive" : "text-muted-foreground"}
-    >
-      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
-      <span>AI: {ai}</span>
-    </Indicator>
   );
 }
 
@@ -379,39 +305,32 @@ function BellList({ list, now }: { list: ListState; now: Date }) {
 export type TopbarStatusProps = Parameters<typeof TopbarStatus>[0];
 
 export function TopbarStatus({
-  runMode,
   demoIndicator,
   staleAfterMs = DEFAULT_STALE_AFTER_MS,
   initialSummary,
-  initialAi,
   pollIntervalMs = DEFAULT_POLL_MS,
 }: {
-  runMode: RunMode;
-  /** 맨 앞 DEMO 배지 자리(topbar-demo-indicator). 보고 있는 출처를 따르며 실행 모드 라벨과 따로다. */
+  /** 맨 앞 DEMO 배지 자리(topbar-demo-indicator). 보고 있는 출처를 따른다. */
   demoIndicator?: React.ReactNode;
   /** 마지막 수집이 이보다 오래되면 "수집 지연"이다(ms). 서버가 수집 주기의 2배를 내려 준다. */
   staleAfterMs?: number;
   initialSummary: TopbarSummary | null;
-  initialAi: AiIndicator | null;
   /** 시험에서 주기를 줄이려고 있다. 앱은 기본 30초를 쓴다. */
   pollIntervalMs?: number;
 }) {
   const storedSummary = useTopbarStore((s) => s.summary);
-  const storedAi = useTopbarStore((s) => s.ai);
-  const healthFailed = useTopbarStore((s) => s.healthFailed);
   const summaryFailed = useTopbarStore((s) => s.summaryFailed);
   const checkedAt = useTopbarStore((s) => s.checkedAt);
   const [mountedAt] = useState(() => Date.now());
   const now = new Date(checkedAt ?? mountedAt);
 
   const summary = storedSummary ?? initialSummary;
-  const ai = storedAi ?? initialAi;
 
   useEffect(() => {
-    useTopbarStore.getState().seed(initialSummary, initialAi);
+    useTopbarStore.getState().seed(initialSummary);
     const refresh = () => void refreshTopbarStatus();
-    // 첫 값이 비어 있으면 바로 읽는다. 둘 다 있으면 첫 주기까지 기다린다.
-    if (initialSummary === null || initialAi === null) refresh();
+    // 마운트 때 한 번 바로 읽는다. 서버가 그린 뒤 바뀐 수집·알림을 맞추고, E2E 는 이 응답으로 첫 효과가 돈 것을 안다.
+    refresh();
     const onFocus = () => refresh();
     const onVisible = () => {
       if (document.visibilityState === "visible") refresh();
@@ -424,7 +343,7 @@ export function TopbarStatus({
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [initialSummary, initialAi, pollIntervalMs]);
+  }, [initialSummary, pollIntervalMs]);
 
   const divider = <Separator orientation="vertical" className="h-4 data-vertical:self-center" />;
   return (
@@ -433,10 +352,6 @@ export function TopbarStatus({
       className="flex items-center gap-3 whitespace-nowrap text-foreground"
     >
       {demoIndicator}
-      <RunModeIndicator runMode={runMode} />
-      {divider}
-      <AiModeIndicator ai={ai} healthFailed={healthFailed} />
-      {divider}
       <DataFreshnessIndicator
         summary={summary}
         now={now}
@@ -449,10 +364,6 @@ export function TopbarStatus({
         failed={summaryFailed}
         now={now}
       />
-      {/* 화면 낭독기용. 지표를 30초마다 읽지 않고, AI 가 끊겼을 때만 한 번 읽는다. */}
-      <span role="status" className="sr-only">
-        {ai === "unavailable" ? "AI 연결이 끊겼습니다" : ""}
-      </span>
     </div>
   );
 }

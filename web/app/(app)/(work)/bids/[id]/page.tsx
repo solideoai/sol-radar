@@ -145,6 +145,7 @@ const toDetailBid = (detail: BidDetail): DetailBid => ({
   extractionStatus: detail.extractionStatus,
   latestAnalysis: detail.latestAnalysis,
   reviews: detail.reviews,
+  analysisReadiness: detail.analysisReadiness,
 });
 
 const SCORED: ReadonlySet<AnalysisView["status"]> = new Set(["COMPLETED", "PARTIAL"]);

@@ -1,0 +1,390 @@
+{
+  "startedAt": "2026-10-26T06:17:39.269Z",
+  "bullmq": "6.3.17",
+  "checks": [
+    {
+      "name": "a. 옛 every 일정을 같은 id upsert 로 cron 하나로 교체(대기 회차 교체, 즉시 회차 없음)",
+      "pass": true,
+      "detail": {
+        "before": {
+          "schedulers": [
+            {
+              "key": "g2b-scheduled",
+              "every": 3600000,
+              "next": 1792995459845
+            }
+          ],
+          "counts": {
+            "wait": 1,
+            "delayed": 0
+          }
+        },
+        "after": {
+          "schedulers": [
+            {
+              "key": "g2b-scheduled",
+              "pattern": "0 */3 * * *",
+              "tz": "Asia/Seoul",
+              "next": 1793005200000
+            }
+          ],
+          "counts": {
+            "wait": 0,
+            "delayed": 1,
+            "active": 0
+          }
+        },
+        "next": "2026-10-26T09:00:00.000Z",
+        "nextKstHour": 18,
+        "delayedJobId": "repeat:g2b-scheduled:1793005200000",
+        "delayedJobDelayMs": 9740114,
+        "statusRead": [
+          {
+            "id": "g2b-scheduled",
+            "every": null,
+            "pattern": "0 */3 * * *",
+            "tz": "Asia/Seoul",
+            "next": "2026-10-26T09:00:00.000Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "b. 새 Queue·createIngestWorker 두 번 재기동해도 일정 1개·대기 1개·즉시 수집 0",
+      "pass": true,
+      "detail": {
+        "after": {
+          "schedulers": [
+            {
+              "key": "g2b-scheduled",
+              "pattern": "0 */3 * * *",
+              "tz": "Asia/Seoul",
+              "next": 1793005200000
+            }
+          ],
+          "counts": {
+            "wait": 0,
+            "delayed": 1,
+            "active": 0,
+            "completed": 0
+          }
+        },
+        "startLog": "g2b-scheduled 일정: 매일 KST 00·03·06·09·12·15·18·21시 정각(Asia/Seoul). 기동 즉시 수집하지 않고 다음 정각 2026-10-26T09:00:00.000Z 부터 돈다(즉시 수집은 --once·수동 요청)"
+      }
+    },
+    {
+      "name": "c1. 정각 직전 수동 job 이 돌아도 정기 회차가 큐에 들어가 수동 뒤에 처리(예시 A·C), 수동 job 은 다음 실행 시각을 바꾸지 않음",
+      "pass": true,
+      "detail": {
+        "manual": {
+          "id": "manual-A",
+          "kind": "MANUAL",
+          "label": "A",
+          "scheduledFor": "2026-10-26T06:17:44.508Z",
+          "enqueuedAt": "2026-10-26T06:17:44.508Z",
+          "startedAt": "2026-10-26T06:17:44.517Z",
+          "queueDelayMs": 9,
+          "timestampPlusDelay": "2026-10-26T06:17:44.508Z",
+          "idMillisAligned3s": null
+        },
+        "scheduled": {
+          "id": "repeat:fast-scheduled:1792995465000",
+          "kind": "SCHEDULED",
+          "label": null,
+          "scheduledFor": "2026-10-26T06:17:45.000Z",
+          "enqueuedAt": "2026-10-26T06:17:42.077Z",
+          "startedAt": "2026-10-26T06:17:46.018Z",
+          "queueDelayMs": 1018,
+          "timestampPlusDelay": "2026-10-26T06:17:42.077Z",
+          "idMillisAligned3s": true
+        },
+        "nextBeforeManual": "2026-10-26T06:17:45.000Z",
+        "nextAfterManual": "2026-10-26T06:17:45.000Z"
+      }
+    },
+    {
+      "name": "c2. 정기 회차 직후 넣은 수동 job 은 정기가 끝난 뒤 처리(예시 B), 수동 예정 시각 = 큐 등록 시각",
+      "pass": true,
+      "detail": {
+        "scheduled": {
+          "id": "repeat:fast-scheduled:1792995468000",
+          "kind": "SCHEDULED",
+          "label": null,
+          "scheduledFor": "2026-10-26T06:17:48.000Z",
+          "enqueuedAt": "2026-10-26T06:17:46.025Z",
+          "startedAt": "2026-10-26T06:17:48.089Z",
+          "queueDelayMs": 89,
+          "timestampPlusDelay": "2026-10-26T06:17:46.025Z",
+          "idMillisAligned3s": true
+        },
+        "manual": {
+          "id": "manual-B",
+          "kind": "MANUAL",
+          "label": "B",
+          "scheduledFor": "2026-10-26T06:17:48.139Z",
+          "enqueuedAt": "2026-10-26T06:17:48.139Z",
+          "startedAt": "2026-10-26T06:17:49.093Z",
+          "queueDelayMs": 954,
+          "timestampPlusDelay": "2026-10-26T06:17:48.139Z",
+          "idMillisAligned3s": null
+        }
+      }
+    },
+    {
+      "name": "c3. 앞 정기 job 이 실행 중일 때 정각이 와도 다음 회차는 기다렸다 처리",
+      "pass": true,
+      "detail": {
+        "long": {
+          "id": "repeat:fast-scheduled:1792995471000",
+          "kind": "SCHEDULED",
+          "label": null,
+          "scheduledFor": "2026-10-26T06:17:51.000Z",
+          "enqueuedAt": "2026-10-26T06:17:48.092Z",
+          "startedAt": "2026-10-26T06:17:51.066Z",
+          "queueDelayMs": 66,
+          "timestampPlusDelay": "2026-10-26T06:17:48.092Z",
+          "idMillisAligned3s": true
+        },
+        "next": {
+          "id": "repeat:fast-scheduled:1792995474000",
+          "kind": "SCHEDULED",
+          "label": null,
+          "scheduledFor": "2026-10-26T06:17:54.000Z",
+          "enqueuedAt": "2026-10-26T06:17:51.073Z",
+          "startedAt": "2026-10-26T06:17:55.075Z",
+          "queueDelayMs": 1075,
+          "timestampPlusDelay": "2026-10-26T06:17:51.073Z",
+          "idMillisAligned3s": true
+        }
+      }
+    },
+    {
+      "name": "c4. 정기 job 실패(throw) 뒤에도 일정이 남고 다음 정각에 다시 돈다",
+      "pass": true,
+      "detail": {
+        "failed": {
+          "id": "repeat:fast-scheduled:1792995480000",
+          "state": "failed",
+          "failedReason": "의도한 정기 job 실패"
+        },
+        "next": {
+          "id": "repeat:fast-scheduled:1792995483000",
+          "kind": "SCHEDULED",
+          "label": null,
+          "scheduledFor": "2026-10-26T06:18:03.000Z",
+          "enqueuedAt": "2026-10-26T06:18:00.054Z",
+          "startedAt": "2026-10-26T06:18:03.029Z",
+          "queueDelayMs": 29,
+          "timestampPlusDelay": "2026-10-26T06:18:00.054Z",
+          "idMillisAligned3s": true
+        }
+      }
+    },
+    {
+      "name": "c5. Worker close → 새 Worker + 재 upsert 에서 일정 중복 없음",
+      "pass": true,
+      "detail": {
+        "counts": {
+          "delayed": 1,
+          "wait": 0,
+          "active": 0
+        },
+        "schedulers": [
+          {
+            "key": "fast-scheduled",
+            "pattern": "*/3 * * * * *",
+            "tz": "Asia/Seoul",
+            "next": 1792995486000
+          }
+        ],
+        "next": {
+          "id": "repeat:fast-scheduled:1792995486000",
+          "kind": "SCHEDULED",
+          "label": null,
+          "scheduledFor": "2026-10-26T06:18:06.000Z",
+          "enqueuedAt": "2026-10-26T06:18:03.386Z",
+          "startedAt": "2026-10-26T06:18:06.026Z",
+          "queueDelayMs": 26,
+          "timestampPlusDelay": "2026-10-26T06:18:03.386Z",
+          "idMillisAligned3s": true
+        }
+      }
+    },
+    {
+      "name": "d. 정기 예정 시각은 job id millis(3초 정각)와 같고 지연 = processedOn − 예정",
+      "pass": true,
+      "detail": {
+        "scheduledCount": 9,
+        "timestampPlusDelayEqualsScheduled": "0/9",
+        "maxDelayMs": 1075
+      }
+    },
+    {
+      "name": "d2. 실제 ingest Worker 처리기가 수동 job 의 timing 을 run params 와 로그 한 줄에 남김(id 없음)",
+      "pass": true,
+      "detail": {
+        "timing": {
+          "scheduledFor": "2026-10-26T06:18:06.161Z",
+          "enqueuedAt": "2026-10-26T06:18:06.161Z",
+          "startedAt": "2026-10-26T06:18:06.169Z",
+          "queueDelayMs": 8
+        },
+        "log": "{\"event\":\"ingest.job.timing\",\"source\":\"g2b\",\"trigger\":\"MANUAL\",\"scheduledFor\":\"2026-10-26T06:18:06.161Z\",\"enqueuedAt\":\"2026-10-26T06:18:06.161Z\",\"startedAt\":\"2026-10-26T06:18:06.169Z\",\"queueDelayMs\":8}"
+      }
+    },
+    {
+      "name": "e. 실 Redis Lua: 수동은 800 에서, 정기는 1000 에서 예약 거절, 수동 22 소진 표시는 1000",
+      "pass": true,
+      "detail": {
+        "manualAt799": true,
+        "manualAt800": false,
+        "scheduledAt800": true,
+        "scheduledAt999": true,
+        "scheduledAt1000": false,
+        "manualAt1000": false,
+        "valueAfter": "1000",
+        "afterManualMarkExhausted": "1000",
+        "ttl": 172800
+      }
+    },
+    {
+      "name": "외부 HTTP 0건, Supabase 미사용, 일회용 Redis 만 사용",
+      "pass": true,
+      "detail": {
+        "realHttp": 0
+      }
+    }
+  ],
+  "jobs": {
+    "fast": [
+      {
+        "id": "repeat:fast-scheduled:1792995462000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:17:42.000Z",
+        "enqueuedAt": "2026-10-26T06:17:40.454Z",
+        "startedAt": "2026-10-26T06:17:42.071Z",
+        "queueDelayMs": 71,
+        "timestampPlusDelay": "2026-10-26T06:17:40.454Z",
+        "idMillisAligned3s": true
+      },
+      {
+        "id": "manual-A",
+        "kind": "MANUAL",
+        "label": "A",
+        "scheduledFor": "2026-10-26T06:17:44.508Z",
+        "enqueuedAt": "2026-10-26T06:17:44.508Z",
+        "startedAt": "2026-10-26T06:17:44.517Z",
+        "queueDelayMs": 9,
+        "timestampPlusDelay": "2026-10-26T06:17:44.508Z",
+        "idMillisAligned3s": null
+      },
+      {
+        "id": "repeat:fast-scheduled:1792995465000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:17:45.000Z",
+        "enqueuedAt": "2026-10-26T06:17:42.077Z",
+        "startedAt": "2026-10-26T06:17:46.018Z",
+        "queueDelayMs": 1018,
+        "timestampPlusDelay": "2026-10-26T06:17:42.077Z",
+        "idMillisAligned3s": true
+      },
+      {
+        "id": "repeat:fast-scheduled:1792995468000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:17:48.000Z",
+        "enqueuedAt": "2026-10-26T06:17:46.025Z",
+        "startedAt": "2026-10-26T06:17:48.089Z",
+        "queueDelayMs": 89,
+        "timestampPlusDelay": "2026-10-26T06:17:46.025Z",
+        "idMillisAligned3s": true
+      },
+      {
+        "id": "manual-B",
+        "kind": "MANUAL",
+        "label": "B",
+        "scheduledFor": "2026-10-26T06:17:48.139Z",
+        "enqueuedAt": "2026-10-26T06:17:48.139Z",
+        "startedAt": "2026-10-26T06:17:49.093Z",
+        "queueDelayMs": 954,
+        "timestampPlusDelay": "2026-10-26T06:17:48.139Z",
+        "idMillisAligned3s": null
+      },
+      {
+        "id": "repeat:fast-scheduled:1792995471000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:17:51.000Z",
+        "enqueuedAt": "2026-10-26T06:17:48.092Z",
+        "startedAt": "2026-10-26T06:17:51.066Z",
+        "queueDelayMs": 66,
+        "timestampPlusDelay": "2026-10-26T06:17:48.092Z",
+        "idMillisAligned3s": true
+      },
+      {
+        "id": "repeat:fast-scheduled:1792995474000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:17:54.000Z",
+        "enqueuedAt": "2026-10-26T06:17:51.073Z",
+        "startedAt": "2026-10-26T06:17:55.075Z",
+        "queueDelayMs": 1075,
+        "timestampPlusDelay": "2026-10-26T06:17:51.073Z",
+        "idMillisAligned3s": true
+      },
+      {
+        "id": "repeat:fast-scheduled:1792995477000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:17:57.000Z",
+        "enqueuedAt": "2026-10-26T06:17:55.078Z",
+        "startedAt": "2026-10-26T06:17:57.073Z",
+        "queueDelayMs": 73,
+        "timestampPlusDelay": "2026-10-26T06:17:55.078Z",
+        "idMillisAligned3s": true
+      },
+      {
+        "id": "repeat:fast-scheduled:1792995480000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:18:00.000Z",
+        "enqueuedAt": "2026-10-26T06:17:57.081Z",
+        "startedAt": "2026-10-26T06:18:00.039Z",
+        "queueDelayMs": 39,
+        "timestampPlusDelay": "2026-10-26T06:17:57.081Z",
+        "idMillisAligned3s": true,
+        "failed": true
+      },
+      {
+        "id": "repeat:fast-scheduled:1792995483000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:18:03.000Z",
+        "enqueuedAt": "2026-10-26T06:18:00.054Z",
+        "startedAt": "2026-10-26T06:18:03.029Z",
+        "queueDelayMs": 29,
+        "timestampPlusDelay": "2026-10-26T06:18:00.054Z",
+        "idMillisAligned3s": true
+      },
+      {
+        "id": "repeat:fast-scheduled:1792995486000",
+        "kind": "SCHEDULED",
+        "label": null,
+        "scheduledFor": "2026-10-26T06:18:06.000Z",
+        "enqueuedAt": "2026-10-26T06:18:03.386Z",
+        "startedAt": "2026-10-26T06:18:06.026Z",
+        "queueDelayMs": 26,
+        "timestampPlusDelay": "2026-10-26T06:18:03.386Z",
+        "idMillisAligned3s": true
+      }
+    ]
+  },
+  "redis": {
+    "container": "sol78-redis-it-482386051",
+    "port": 51063
+  },
+  "ok": true,
+  "finishedAt": "2026-10-26T06:18:06.420Z"
+}

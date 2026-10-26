@@ -28,6 +28,7 @@ export function businessRoute(
       deploymentRole() === "frontend" &&
       (operation === "analysis-submit" ||
         operation === "ingest-submit" ||
+        operation === "ingest-gate-read" ||
         operation === "ai-status")
     ) {
       try {

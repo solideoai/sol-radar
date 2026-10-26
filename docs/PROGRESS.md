@@ -9,6 +9,15 @@ updated: 2026-10-26
 
 # 진행 상황
 
+## 실운영 전환·3시간 정기 수집 로컬 구현 (2026-10-26, 세션 sol-radar-78, 운영 미적용)
+
+브랜치 `feat/live-ops-schedule`(worktree `sol-radar-worktrees/live-ops-78`, base main `52fcc271`, 미커밋). 실행서는 [[plans/2026-10-26-live-ops-cutover|10-26 실운영 전환 실행서]]다.
+
+- **구현**: 상단바에서 실행 모드·AI 표시 제거(값과 연결은 그대로). ingest 정기 수집을 BullMQ Job Scheduler `g2b-scheduled` cron `0 */3 * * *`·`Asia/Seoul`로 바꿈(기동 즉시 수집 없음, 같은 id upsert 로 옛 60분 일정 교체). 관리자 [지금 불러오기]와 서버 gate(사용자 60분·전역 공유 10분·하루 20회, Redis Lua 원자 처리, 거절·실패 때 쿨다운 없음). 수동 job 호출 상한 800(정기 몫 200 보존), 정기 보조 조회 900·전체 1000 그대로. 본문 없는 공고의 분석 요청을 화면과 서버(409 `ANALYSIS_SOURCE_MISSING`) 양쪽에서 막음. 회사 redis-api 에 새 env `SOL_INGEST_MODE=live` 가 필요하다(`SOL_RUN_MODE` 는 그대로).
+- **검증**: 독립 리뷰 4영역(worker·서버·화면·DEMO SQL) 반영 뒤 전체 `pnpm verify` exit 0(web 79파일 689시험·빌드·AI pytest 153·결정 57). 실 Redis 일정 통합 11개·gate 통합 통과. 격리 Supabase·Redis·녹화 응답 worker 위 브라우저 확인 29/29(공공 API 호출 0, [증거](evidence/live-ops/20261026/summary.md)). 격리 스택 수집 관리 E2E 30/30. Compose 가 필요한 `run-mode-badge`·`what-if.write` E2E 는 돌리지 않았다.
+- **DEMO 정리**: 실행서·백업·복구 SQL 과 격리 리허설만 했다(리뷰 반영 뒤 r2 리허설에서 실공고 97건 보존·삭제 뒤 복구 일치·음성 시험 5종 차단, [증거](evidence/demo-cleanup/20261026/summary.md)). Supabase MCP 가 연결되지 않아 운영 DB 는 읽지도 바꾸지도 않았다.
+- **남은 것(모두 승인 대기)**: 운영 DEMO 삭제 → GitHub push(=Vercel 자동 배포) → 회사 redis-api 재생성·`SOL_INGEST_MODE` → ingest worker 이미지·`--check`/`--status` → 3시간 일정 활성화 → 최종 확인.
+
 ## 운영 배포 ①·② 적용과 ③ 준비 (2026-10-25·10-26, 세션 sol-radar-40)
 
 [[20261025-release-runbook|10-25 릴리스 실행서]]의 운영 작업을 단계마다 사용자 승인으로 진행한다. 대상은 운영 Supabase `sol-radar`(ref `brtysdocxemrqhdezzqg`)다.
@@ -286,6 +295,7 @@ HEAD `086ac1e`의 문서21~23·ADR-034·042, Bosun 학습·평가 코드, 인력
 
 | 날짜 | Phase | 변경 | 검증 | 남은 문제 |
 |---|---|---|---|---|
+| 2026-10-26 | 실운영 전환·3시간 정기 수집(로컬) | sol-radar-78. 상단바 실행 모드·AI 표시 제거, cron 정기 수집(KST 00~21시 3시간), 수동 [지금 불러오기]·서버 gate·수동 예산 상한, 본문 없는 공고 분석 차단, `SOL_INGEST_MODE`, DEMO 정리 실행서·리허설, 운영 전환 실행서 | 전체 `pnpm verify` exit 0, 실 Redis 일정·gate 통합, 격리 브라우저 29/29([증거](evidence/live-ops/20261026/summary.md)) | 운영 적용 전부 승인 대기. 바꾼 e2e-auth 시험 중 work 설정(run-mode-badge·what-if.write)은 Compose 가 필요해 미실행 |
 | 2026-10-24 | FX-15 점수 정정(58→68) | sol-radar-78 배정(9b 운영 smoke D4, main `34eeabb1`). [[19-DEMO-SCENARIO]] Q&A 예비 FX-15 행 점수를 [[16-DECISIONS]] ADR-043(200명 입력, 가용 인력 증가로 58→68)에 맞췄다. 권고 WATCH·`SCALE_LIMIT_EXCEEDED`·Kev 0.60 WATCH는 그대로 맞다: `fixtures/manifest.yaml` FX-15 `expected: { outcome: WATCH, designScore: 68 }`, 규칙 엔진 `analyze(buildInput("FX-15"))` 직접 실행 결과 68·WATCH·`SCALE_LIMIT_EXCEEDED`(같은 실행에서 FX-01/02/03 94/72/68 확인). 다른 현재 문서(07·08·16·PROGRESS·18·11·제출물)에 FX-15 58은 없다. 지난 계획 `plans/2026-10-18-phase-0-infra.md`의 58은 기록이라 두었다. 문서만 바꿨다 |
 | 2026-10-24 | 카카오 실제 공고 수신 녹화 재결정 반영 | sol-radar-78 재배정. 사용자 재결정("공고를 해커톤 시연때 mock이 아니라 실제 공고를 받아야 해. 시연 영상도 찍어야 하니까 내 의견 반영해")으로 같은 날 앞선 "mock으로 둬"(`fe83194a`·`3e9ab6ab`)를 바꿨다. 시연 영상에서 실제 나라장터 공고의 BID·WATCH 추천을 `memo`로 실발송해 휴대폰 수신을 녹화하고 `mock`으로 되돌린다. S0 수신 시험 10-25 오전(사용자), 녹화 10-25 마지막 `demo:reset` 뒤 S-LIVE와 함께. 발표 본편(FX-01·02·03, 94/72/68)과 라이브 5분 흐름은 고정 데이터 그대로. [[16-DECISIONS]] ADR-038 재개정, [[19-DEMO-SCENARIO]] 녹화 절차(실제 공고, 버튼 링크 `https://www.solideos-radar.com`)·체크리스트, [[18-HACKATHON]] §3.2.1·§4·§7, [[13-NOTIFICATIONS]], [[10-DEPLOYMENT]]·[[11-TESTING]]·[[12-ROADMAP]]·[[09-SECURITY]], 05·06·04·00 절 제목 표기, 제출물 `slides-spec.md`(카카오 10초 클립을 실제 공고 수신으로 되살림, 총 시간 그대로, 슬라이드 2 문구 유지)·`limitations.md`. 실수신은 **10-25 예정·미확인**이고 녹화 뒤에만 확인으로 적는다. 실행 절차서는 `docs/evidence/demo-day/20261024-slive-check/`(sol-radar-03 작성 중) 링크만 걸었다. 문서만 바꿨다. 검증: `pnpm format:check`, 추가 줄 위키링크 확인 |
 | 2026-10-24 | P3 문서 정합화 후속 | sol-radar-78 추가 배정. 제출물 `docs/submission/slides-spec.md`(카카오 10초 클립·`deck-clip-kakao.mp4` 삭제, 슬라이드 12 시간 2:00 유지, 알림 행·경쟁표·Q&A 13번·E4 날짜), `limitations.md`(메일 제외·카카오 `mock`·E4 10-26 오전), `submission/README.md` E4 날짜. 카카오 "구현 중" 표기를 main 병합으로 정리([[00-README]]·[[04-DATABASE]]·[[05-API-SPEC]]·[[06-UI-UX]]·[[09-SECURITY]]·[[10-DEPLOYMENT]]·[[11-TESTING]]). 남은 10-24 GPU 날짜([[21-MODEL-TRAINING]]·[[22-FINETUNE-RUNBOOK]]·[[00-README]]·[[BOSUN_FINETUNING_GPT_HANDOFF]]) 정리. 중단선은 새 시각 없이 "F2 못 끝내면 회사 측 미실행" 유지 | 서식 검사·추가 위키링크 대상 확인·커밋 게이트 | 슬라이드 2번 4항목("공고를 카카오톡으로 받아본다")은 사용자 원문이라 그대로 두고 노트에 mock 발송을 적었다 |

@@ -121,8 +121,27 @@ function reportInfraError(deps: AnalysisDeps, component: "queue" | "redis", erro
   }
 }
 
-// 분석 요청: 권한 → 키 형식 → 선언된 본문 크기 → 속도 제한 → 본문 읽기 → 공고 → 입력 → 멱등 → 진행 중 → 중복
+/**
+ * 분석 원문(최신 revision 본문·분석 가능한 첨부)이 없는 공고의 분석 요청을 막는다(409 ANALYSIS_SOURCE_MISSING).
+ * 권한이 없거나 공고가 없으면(다른 조직·RLS 로 안 보임 포함) 판정하지 않고 null 이다. 그 응답(403·404)은 원래 순서가 정한다.
+ * redis-api 의 requestAnalysis 와 frontend(Vercel)의 중계 전 확인이 같은 함수를 쓴다.
+ */
+export async function analysisSourceFailure(
+  ctx: AnalysisContext,
+  bidId: string,
+  repo: Pick<BidsRepo, "getAnalysisReadiness">,
+): Promise<ServiceFailure | null> {
+  if (!canRequestAnalysis(ctx.role)) return null;
+  const readiness = await repo.getAnalysisReadiness(ctx.orgId, bidId);
+  if (readiness === null || readiness.ready) return null;
+  return fail(409, "ANALYSIS_SOURCE_MISSING", "공고 본문 미확보 · 분석 준비 중", {
+    reason: readiness.reason ?? "SOURCE_TEXT_MISSING",
+  });
+}
+
+// 분석 요청: 권한 → 키 형식 → 선언된 본문 크기 → 분석 원문 → 속도 제한 → 본문 읽기 → 공고 → 입력 → 멱등 → 진행 중 → 중복
 // → QUEUED 행 → 큐. 본문은 속도 제한을 지난 뒤에 읽는다. 선언만으로 큰 본문은 속도 제한 횟수를 쓰지 않는다(L5).
+// 분석 원문이 없는 공고는 속도 제한을 세기 전에 막는다(횟수·행·큐를 쓰지 않는다).
 export async function requestAnalysis(
   ctx: AnalysisContext,
   bidId: string,
@@ -140,6 +159,8 @@ export async function requestAnalysis(
     });
   }
   if (body.declaredTooLarge) return bodyTooLarge();
+  const sourceMissing = await analysisSourceFailure(ctx, bidId, repo);
+  if (sourceMissing !== null) return sourceMissing;
   let limit: Awaited<ReturnType<AnalysisRateLimiter["hit"]>>;
   try {
     limit = await limiter.hit(ctx.orgId);

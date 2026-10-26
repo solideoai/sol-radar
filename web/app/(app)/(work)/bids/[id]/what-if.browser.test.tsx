@@ -126,6 +126,7 @@ const detail = (latestAnalysis: AnalysisView | null): DetailBid => ({
   extractionStatus: "COMPLETED",
   latestAnalysis,
   reviews: [],
+  analysisReadiness: { ready: true, reason: null },
 });
 
 type ViewProps = React.ComponentProps<typeof BidDetailView>;

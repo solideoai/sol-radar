@@ -9,7 +9,7 @@ import {
   RUNS_ENDPOINT,
   expectNoConsoleErrors,
   expectNoHorizontalOverflow,
-  expectTopbarAiSettled,
+  expectTopbarSettled,
   historyTable,
   ingestionStorageOf,
   readIngestJob,
@@ -163,7 +163,7 @@ async function expectForbiddenScreen(page: Page, role: IngestionRole) {
       ingestionCalls.push(request.url());
   });
 
-  // 상단바는 30초마다 다시 읽어 networkidle 을 기다리지 않는다. 대신 마운트 때의 상단바 읽기 두 개가 끝날 때까지
+  // 상단바는 30초마다 다시 읽어 networkidle 을 기다리지 않는다. 대신 마운트 때의 상단바 읽기가 끝날 때까지
   // (클라이언트 효과가 한 바퀴 돈 뒤까지) 수집 API 요청을 지켜보고, 그 뒤에도 안내 화면이 그대로인지 본다.
   const topbarReads = waitForTopbarReads(page);
   const response = await page.goto(INGESTION_PATH);
@@ -189,7 +189,7 @@ async function expectForbiddenScreen(page: Page, role: IngestionRole) {
   await expectNoHorizontalOverflow(page, `forbidden-${role}`);
 
   await topbarReads;
-  await expectTopbarAiSettled(page, context);
+  await expectTopbarSettled(page);
   await expectNoticeOnly();
   expect(ingestionCalls, "403 화면은 수집 API 를 부르지 않는다").toEqual([]);
   expectNoConsoleErrors(logs, context);

@@ -130,10 +130,10 @@ export const screenshotPath = (route: string, state: string, width: 1440 | 1280)
 
 export async function shot(page: Page, route: string, state: string, width: 1440 | 1280) {
   expect(page.viewportSize()?.width, `${route}-${state} 는 ${width}px 에서 찍는다`).toBe(width);
-  // 상단바 AI 지표는 마운트 뒤 /health/ready 를 읽어 채운다. 첫 값("확인 중")이 증거에 찍히지 않게 기다린다.
-  await expect(page.locator('[data-slot="topbar-status"] [data-indicator="ai"]')).not.toHaveText(
-    /확인 중/,
-  );
+  // 상단바 수집 신선도가 그려진 뒤 찍는다(빈 값 "—"이 증거에 찍히지 않게).
+  await expect(
+    page.locator('[data-slot="topbar-status"] [data-indicator="freshness"]'),
+  ).not.toHaveText("—");
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.screenshot({

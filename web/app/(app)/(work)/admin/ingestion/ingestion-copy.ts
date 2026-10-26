@@ -12,6 +12,18 @@ export const RUNS_ENDPOINT = "/api/v1/admin/ingestion/runs";
 
 export const RUN_BUTTON_LABEL = "수동 수집 실행";
 export const RUN_BUTTON_BUSY_HINT = "실행 중인 수집이 끝나면 다시 실행할 수 있습니다";
+
+// 실수집(수집 모드 live) 머리 단추 [지금 불러오기](10-26 운영 전환). 수집 모드는 manual-gate 응답의 ingestMode 다
+// (Vercel 웹의 SOL_RUN_MODE 는 mock 이라 화면의 runMode 로는 실수집인지 알 수 없다).
+export const MANUAL_GATE_ENDPOINT = "/api/v1/admin/ingestion/manual-gate";
+export const LIVE_RUN_BUTTON_LABEL = "지금 불러오기";
+export const LIVE_RUN_BUTTON_BUSY = "요청 중…";
+export const GATE_CHECKING_LABEL = "상태 확인 중";
+export const GATE_UNKNOWN_NOTICE = "수동 불러오기 상태를 확인할 수 없습니다";
+export const IN_PROGRESS_NOTICE = "수집이 진행 중입니다 · 끝나면 결과가 반영됩니다";
+export const SCHEDULER_INACTIVE_NOTICE = "수집 Worker 가 아직 켜지지 않았습니다 · 운영자에게 문의";
+export const SCHEDULE_OFF = "정기 수집: 꺼짐";
+export const SHOW_RUN_LABEL = "실행 중인 수집 보기";
 export const REANALYZE_HINT =
   "바뀐 공고는 자동으로 다시 분석하지 않습니다. 공고 상세에서 [재분석]을 누르세요.";
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { cn } from "cn";
 import { STATUS_ICON } from "@/components/bids/labels";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { primaryFailureOf, errorCodeLabel } from "./error-kind";
+import { errorCodeLabel, primaryFailureOf, QUOTA_CAUSE_TEXT, quotaCauseOf } from "./error-kind";
 import { formatKstClock, shortRunId } from "./ingest-format";
 import type { StatusLineModel } from "./ingest-runs";
 import {
@@ -59,6 +59,14 @@ const counts = (run: IngestRun, withQuarantine: boolean): string => {
 
 const othersSuffix = (others: number): string => (others > 0 ? ` 외 ${others}건` : "");
 
+// 공공 API 를 부른 run(fixture 아님)은 호출량과 끝난 시각을 덧붙인다(10-26: 불러오기 결과가 상태 줄에서 바로 보이게).
+// fixture 데모 문장은 바꾸지 않는다.
+const liveSuffix = (run: IngestRun): string => {
+  if (run.source === "fixture") return "";
+  const finished = run.finishedAt === null ? "" : ` · ${formatKstClock(run.finishedAt)} 완료`;
+  return ` · 공공 API 호출 ${run.quotaUsed}회${finished}`;
+};
+
 function finishedLine(run: IngestRun): Omit<Line, "action"> {
   const hint = run.summary.changed + run.summary.cancelled > 0 ? REANALYZE_HINT : undefined;
   switch (run.status) {
@@ -66,17 +74,21 @@ function finishedLine(run: IngestRun): Omit<Line, "action"> {
       return {
         tone: "neutral",
         icon: STATUS_ICON.COMPLETED,
-        text: `수집이 끝났습니다 · ${counts(run, true)}`,
+        text: `수집이 끝났습니다 · ${counts(run, true)}${liveSuffix(run)}`,
         hint,
       };
     case "PARTIAL":
       return {
         tone: "neutral",
         icon: STATUS_ICON.PARTIAL,
-        text: `수집이 끝났지만 ${run.summary.quarantined}건을 격리했습니다 · ${counts(run, false)}`,
+        text: `수집이 끝났지만 ${run.summary.quarantined}건을 격리했습니다 · ${counts(run, false)}${liveSuffix(run)}`,
         hint,
       };
     case "FAILED": {
+      // 호출 한도·예산 저장소 때문에 멈췄으면 원인 문장을 그대로 보인다(코드는 서랍에 있다).
+      const quota = quotaCauseOf(run.errors);
+      if (quota !== null)
+        return { tone: "destructive", icon: ALERT, text: QUOTA_CAUSE_TEXT[quota], hint };
       const cause = primaryFailureOf(run.errors);
       return {
         tone: "destructive",

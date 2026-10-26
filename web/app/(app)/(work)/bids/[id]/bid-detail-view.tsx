@@ -77,7 +77,11 @@ import { useAnalysisRun, type ActiveRun, type RunState } from "./use-analysis-ru
 // → ⑤ SOL Score 분해 → ⑥ 결정 모델 참고 지표 → ⑦ 근거 인용.
 // 오른쪽 레일은 결정 패널이다. 분석 실행 상태를 머리(버튼)와 본문(skeleton)이 함께 써서 한 클라이언트 부품으로 그린다.
 
-/** 화면에 내려보내는 공고. 본문 근거 하이라이트에 쓰는 content 는 싣고, 화면이 쓰지 않는 큰 칸은 뺀다. */
+/**
+ * 화면에 내려보내는 공고. 본문 근거 하이라이트에 쓰는 content 는 싣고, 화면이 쓰지 않는 큰 칸은 뺀다.
+ * analysisReadiness(10-26): 분석할 본문·첨부 텍스트가 없으면 ready=false·SOURCE_TEXT_MISSING 이고, 서버도 POST 를
+ * 409 ANALYSIS_SOURCE_MISSING 으로 막는다. DEMO 공고는 본문이 있어 ready 다.
+ */
 export type DetailBid = Omit<
   BidDetail,
   "extraction" | "original" | "structuredQualifications" | "revisions"
@@ -123,6 +127,8 @@ const PROFILE_BADGE = "가상 회사 프로필로 분석";
 // 06 §8
 const PROFILE_TOOLTIP = "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다";
 const ANALYZE_ROLE_HINT = "분석 요청은 ADMIN·SALES·ANALYST 역할만 할 수 있습니다";
+const SOURCE_MISSING_HINT = "공고 본문 미확보 · 분석 준비 중";
+const SOURCE_MISSING_CODE = "ANALYSIS_SOURCE_MISSING";
 const REVIEW_SAVED = "결정을 기록했습니다";
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -459,6 +465,14 @@ function HeaderActions({
   watch: WatchSummary | null;
 }) {
   const requesting = state.phase === "requesting";
+  // 본문이 없으면 분석하지 않는다. 서버 판정(analysisReadiness)이나 요청 거절(409 ANALYSIS_SOURCE_MISSING) 어느 쪽이든 같은 안내다.
+  const sourceRejected =
+    state.phase === "error" && state.stage === "request" && state.code === SOURCE_MISSING_CODE;
+  const sourceMissing = !bid.analysisReadiness.ready || sourceRejected;
+  const hintIds = [
+    canAnalyze ? null : "analyze-role-hint",
+    sourceMissing ? "analyze-source-hint" : null,
+  ].filter((value) => value !== null);
   const label = requesting
     ? "분석 요청 중…"
     : busy
@@ -482,8 +496,8 @@ function HeaderActions({
         <Button
           type="button"
           variant={hasResult ? "outline" : "default"}
-          disabled={!canAnalyze || bid.status === "CANCELLED" || busy}
-          aria-describedby={canAnalyze ? undefined : "analyze-role-hint"}
+          disabled={!canAnalyze || bid.status === "CANCELLED" || busy || sourceMissing}
+          aria-describedby={hintIds.length === 0 ? undefined : hintIds.join(" ")}
           onClick={onAnalyze}
         >
           {busy ? (
@@ -504,8 +518,19 @@ function HeaderActions({
           {ANALYZE_ROLE_HINT}
         </p>
       )}
-      {/* 요청(POST) 실패만 버튼 곁에 둔다. 상태 확인(GET) 실패는 본문의 StatusCheckFailed 가 보인다. */}
-      {state.phase === "error" && state.stage === "request" && (
+      {sourceMissing && (
+        // 요청이 막혀 생긴 안내면 바로 알린다(성공으로 들리지 않게). 처음부터 막힌 공고는 조용히 둔다.
+        <p
+          id="analyze-source-hint"
+          role={sourceRejected ? "alert" : undefined}
+          className="text-right type-label text-muted-foreground"
+        >
+          {SOURCE_MISSING_HINT}
+        </p>
+      )}
+      {/* 요청(POST) 실패만 버튼 곁에 둔다. 상태 확인(GET) 실패는 본문의 StatusCheckFailed 가 보인다.
+          본문 미확보 거절은 위 안내가 같은 뜻을 말하므로 오류 상자를 따로 두지 않는다(성공으로도 보이지 않는다). */}
+      {state.phase === "error" && state.stage === "request" && !sourceRejected && (
         <div
           role="alert"
           className="flex flex-col gap-0.5 rounded-lg border border-destructive p-3 type-label text-destructive"
@@ -863,7 +888,10 @@ export function BidDetailView({
   const scored = isScored(latest) ? latest : null;
   // 결정은 점수 run 에 묶는다. 최신 run 이 진행 중·실패면 직전 점수 run 이다(§5.4.10).
   const decisionAnalysis = scored ?? previousScored;
-  const reanalyze = canAnalyze && !cancelled ? () => void run.start(true) : undefined;
+  const reanalyze =
+    canAnalyze && !cancelled && bid.analysisReadiness.ready
+      ? () => void run.start(true)
+      : undefined;
 
   // 가정 재계산은 최신 run 이 점수 run 이고 진행 중이 아니며, 필수 항목에 미충족·회사 증빙 없음이 있을 때만 한다(§4.5 대상 아님).
   const whatIfScope =

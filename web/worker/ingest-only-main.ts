@@ -3,7 +3,7 @@ import IORedis from "ioredis";
 import { INGEST_QUEUE } from "@/server/ingestion";
 import { readWorkerEnv } from "@/worker/env";
 import { errorNameOf } from "@/worker/error-name";
-import { readIngestIntervalMinutes, readRunMode } from "@/worker/ingest-queue";
+import { INGEST_SCHEDULE_LABEL, readRunMode } from "@/worker/ingest-queue";
 import { formatIngestQueueStatus, readIngestQueueStatus } from "@/worker/ingest-queue-status";
 import {
   G2B_SCHEDULER_ID,
@@ -35,14 +35,18 @@ type G2bOnceJobData = {
   window: { from: string; to: string };
 };
 
-/** 정기 창 상한 = 수집 주기 × 2. 이전 성공 run 이 없거나 오래됐으면 최근 2주기만 받는다(24시간 백필은 --once) */
-const SCHEDULED_WINDOW_CAP_INTERVALS = 2;
+/**
+ * 정기 창 상한(분) = 24시간. 이전 성공 run 이 없거나 24시간보다 오래됐으면 최근 24시간만 받는다(더 긴 백필은 --once).
+ * 3시간 일정에서 상한이 6시간이면, 하루 예산 소진·장애로 실패한 창을 자정 뒤에 다시 쓸 때 6시간 넘은 구간이 잘려 빈틈이 생긴다.
+ * 24시간은 실패 창 재사용(그날 소진 → 다음 날 00시)을 덮고, 10-26 D4 1회 수집(창 24시간, 호출 259회)과 같은 크기다.
+ */
+export const SCHEDULED_WINDOW_CAP_MINUTES = 1440;
 export const ONCE_MAX_WINDOW_MINUTES = 1440;
 
 export const ingestOnlyRegistrations = (log: (line: string) => void): WorkerRegistration[] => [
   createIngestWorkerRegistration({
     documents: false,
-    scheduledWindowCapIntervals: SCHEDULED_WINDOW_CAP_INTERVALS,
+    scheduledWindowCapMinutes: SCHEDULED_WINDOW_CAP_MINUTES,
     log,
   }),
 ];
@@ -176,7 +180,7 @@ const describeRedisError = (error: unknown): string => {
   return code ? `${errorNameOf(error)} ${code}` : errorNameOf(error);
 };
 
-// --check: 등록의 1단계(registry·서비스키 env 이름·수집 간격 확인)까지만 돈다. Redis·Supabase·외부 API 는 부르지 않는다.
+// --check: 등록의 1단계(registry·서비스키 env 이름 확인)까지만 돈다. Redis·Supabase·외부 API 는 부르지 않는다.
 async function checkIngestOnly(env: Env, deps: IngestOnlyDeps): Promise<void> {
   assertLiveRunMode(env);
   readWorkerEnv(env);
@@ -186,9 +190,8 @@ async function checkIngestOnly(env: Env, deps: IngestOnlyDeps): Promise<void> {
   if (config.externalSources.length > 0) {
     deps.log(`외부 소스: ${config.externalSources.join(", ")}`);
   }
-  deps.log(
-    `ingest-only worker 확인 통과: SOL_RUN_MODE=live, 수집 간격 ${config.intervalMinutes}분`,
-  );
+  if (config.ignoredIntervalNotice !== null) deps.log(config.ignoredIntervalNotice);
+  deps.log(`ingest-only worker 확인 통과: SOL_RUN_MODE=live, 정기 수집 ${config.schedule}`);
 }
 
 // --status: 읽기 명령만 쓴다(ingest-queue-status.ts). 기동 전 확인용이다.
@@ -244,9 +247,7 @@ async function runOnce(env: Env, windowMinutes: number, deps: IngestOnlyDeps): P
 async function startIngestOnly(env: Env, deps: IngestOnlyDeps): Promise<void> {
   assertLiveRunMode(env);
   const handle = await startWorker(env, deps.workerDeps);
-  deps.log(
-    `ingest-only worker started: SOL_RUN_MODE=live, 수집 간격 ${readIngestIntervalMinutes(env)}분`,
-  );
+  deps.log(`ingest-only worker started: SOL_RUN_MODE=live, 정기 수집 ${INGEST_SCHEDULE_LABEL}`);
   // SIGTERM 뒤 SIGINT 가 와도 close 는 한 번만 부른다.
   let isClosing = false;
   const shutdown = () => {

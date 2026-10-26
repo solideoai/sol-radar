@@ -1,0 +1,4 @@
+[fake-worker] g2b-scheduled 일정: 매일 KST 00·03·06·09·12·15·18·21시 정각(Asia/Seoul). 기동 즉시 수집하지 않고 다음 정각 2026-10-26T09:00:00.000Z 부터 돈다(즉시 수집은 --once·수동 요청)
+[fake-worker] ingest worker 기동
+[fake-worker] {"event":"ingest.job.timing","source":"g2b","trigger":"MANUAL","scheduledFor":"2026-10-26T06:44:26.048Z","enqueuedAt":"2026-10-26T06:44:26.048Z","startedAt":"2026-10-26T06:44:26.051Z","queueDelayMs":3}
+[fake-worker] {"event":"ingest.job.timing","source":"g2b","trigger":"MANUAL","scheduledFor":"2026-10-26T06:45:23.711Z","enqueuedAt":"2026-10-26T06:45:23.711Z","startedAt":"2026-10-26T06:45:23.723Z","queueDelayMs":12}

@@ -9,8 +9,13 @@ import { setTimeout as pause } from "node:timers/promises";
 
 const requireWeb = createRequire(new URL("../web/package.json", import.meta.url));
 const Redis = requireWeb("ioredis");
-const { createRedisQuotaStore, QUOTA_REDIS_OPTIONS, QUOTA_KEY_TTL_SECONDS } =
-  await import("../web/worker/quota-store.ts");
+const {
+  createRedisQuotaStore,
+  createG2bQuotas,
+  MANUAL_RESERVED_CALLS,
+  QUOTA_REDIS_OPTIONS,
+  QUOTA_KEY_TTL_SECONDS,
+} = await import("../web/worker/quota-store.ts");
 const { createMemoryIngestionRepo } =
   await import("../web/server/ingestion/ingestion.repo.memory.ts");
 const { createExternalSourceConnector } =
@@ -155,6 +160,8 @@ async function liveRun(store, serviceId, name, options = {}) {
       repo,
       runMode: "live",
       quota,
+      // Manual g2b jobs use their own (lower) limit on the same counter; the Worker wires it with createG2bQuotas.
+      ...(options.manualQuota ? { manualQuota: options.manualQuota } : {}),
       quotaForExternal: () => quota,
       externalSourceGate: () => null, // test injection only; registry is never edited
       createFixtureConnector: async () => {
@@ -195,6 +202,20 @@ async function liveRun(store, serviceId, name, options = {}) {
     http,
     quotaUsed: [...repo.state.runs.values()].find((run) => run.runId === result.runId)?.quotaUsed,
     errors: repo.state.errors.map((error) => error.errorCode),
+  };
+}
+
+// Counts reserve calls so a scenario can prove which quota store the job actually reached.
+function countingReserve(quota, counter, label) {
+  return {
+    ...quota,
+    store: {
+      ...quota.store,
+      reserve: (...args) => {
+        counter[label]++;
+        return quota.store.reserve(...args);
+      },
+    },
   };
 }
 
@@ -457,6 +478,33 @@ try {
     );
   }
 
+  // Manual g2b reserves stop 200 calls before the daily limit (1000 -> 800); scheduled ones keep the full limit.
+  const manualBudgetId = "verify-g2b-manual-800";
+  const budget = createG2bQuotas(admin, { serviceId: manualBudgetId, dailyLimit: 1000 });
+  assert.equal(MANUAL_RESERVED_CALLS, 200);
+  assert.equal(budget.manual.dailyLimit, 800);
+  await admin.set(quotaKey(manualBudgetId, at), "799");
+  const g2bBudgetRun = (trigger, name) =>
+    liveRun(budget.scheduled.store, manualBudgetId, name, {
+      source: "g2b",
+      trigger,
+      dailyLimit: budget.scheduled.dailyLimit,
+      manualQuota: budget.manual,
+    });
+  const manualLast = await g2bBudgetRun("MANUAL", "manual-799");
+  assert.deepEqual([manualLast.status, manualLast.http], ["SUCCEEDED", 1]);
+  assert.equal(await budget.scheduled.store.get(manualBudgetId, at), 800);
+  const manualOver = await g2bBudgetRun("MANUAL", "manual-800");
+  assert.deepEqual([manualOver.status, manualOver.http], ["FAILED", 0]);
+  assert.ok(manualOver.errors.includes("QUOTA_EXCEEDED"));
+  assert.equal(await budget.scheduled.store.get(manualBudgetId, at), 800);
+  const scheduledAt800 = await g2bBudgetRun("SCHEDULED", "scheduled-800");
+  assert.deepEqual([scheduledAt800.status, scheduledAt800.http], ["SUCCEEDED", 1]);
+  assert.equal(await budget.scheduled.store.get(manualBudgetId, at), 801);
+  console.log(
+    "PASS manual 800 boundary actual Lua: MANUAL 799->800 HTTP=1 SUCCEEDED, MANUAL at 800 HTTP=0 FAILED QUOTA_EXCEEDED, SCHEDULED at 800 HTTP=1 -> 801",
+  );
+
   const failedFaults = [];
   for (const mode of ["disconnect", "response-loss", "timeout"]) {
     const proxy = await faultProxy(mode);
@@ -502,15 +550,34 @@ try {
   const denied = await connect({ username: "f08-no-eval" });
   await assert.rejects(denied.eval("return 1", 0), /NOPERM/);
   await assert.rejects(denied.evalsha("0".repeat(40), 0), /NOPERM/);
-  const deniedStore = createRedisQuotaStore(denied, { dailyLimit: 10 });
+  // g2b gets both Worker quotas (scheduled + manual) on the denied client, so MANUAL reaches the manual reserve
+  // and fails on NOPERM rather than on a missing manual quota.
+  const deniedQuotas = createG2bQuotas(denied, { serviceId: "acl-g2b", dailyLimit: 1000 });
   for (const source of ["g2b", "lh"]) {
     for (const trigger of ["MANUAL", "SCHEDULED"]) {
-      const result = await liveRun(deniedStore, `acl-${source}`, `acl-${source}-${trigger}`, {
-        source,
-        trigger,
-      });
+      const reserves = { scheduled: 0, manual: 0 };
+      const scheduledQuota = countingReserve(deniedQuotas.scheduled, reserves, "scheduled");
+      const result = await liveRun(
+        scheduledQuota.store,
+        `acl-${source}`,
+        `acl-${source}-${trigger}`,
+        {
+          source,
+          trigger,
+          dailyLimit: scheduledQuota.dailyLimit,
+          manualQuota: countingReserve(deniedQuotas.manual, reserves, "manual"),
+        },
+      );
       blocked(result);
-      console.log(`PASS ACL no EVAL/EVALSHA: live ${source}/${trigger} ${JSON.stringify(result)}`);
+      // External sources always use their own (scheduled) quota; only g2b MANUAL uses the manual reserve.
+      const viaManual = source === "g2b" && trigger === "MANUAL";
+      assert.deepEqual(
+        reserves,
+        viaManual ? { scheduled: 0, manual: 1 } : { scheduled: 1, manual: 0 },
+      );
+      console.log(
+        `PASS ACL no EVAL/EVALSHA: live ${source}/${trigger} reserves=${JSON.stringify(reserves)} ${JSON.stringify(result)}`,
+      );
     }
   }
   await admin.acl("SETUSER", "f08-minimal", ...minimal, "+eval");

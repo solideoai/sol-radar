@@ -1,8 +1,10 @@
 import { EventEmitter } from "node:events";
 import { fileURLToPath } from "node:url";
+import IORedis from "ioredis";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   EMPTY_INGEST_SUMMARY,
+  EXTERNAL_SOURCE_KEYS,
   createFixtureConnector,
   createMemoryQuotaStore,
   loadFixtureManifest,
@@ -14,12 +16,18 @@ import { startAnalysisRuntime } from "@/worker/analysis-runtime";
 import {
   defaultIngestOnlyDeps,
   ingestOnlyRegistrations,
+  SCHEDULED_WINDOW_CAP_MINUTES,
   onceG2bJobData,
   runIngestOnly,
   type IngestOnlyDeps,
 } from "@/worker/ingest-only-main";
 import { processIngestJob, type IngestJobDeps } from "@/worker/ingest-queue";
-import { createRegisteredWorker, type IngestOnceResult, type WorkerDeps } from "@/worker/main";
+import {
+  createIngestWorker,
+  createRegisteredWorker,
+  type IngestOnceResult,
+  type WorkerDeps,
+} from "@/worker/main";
 
 // BullMQ Worker·Queue, ioredis, Supabase createClient 를 가짜로 바꾼다. 실제 Redis·Supabase·외부 API 는 부르지 않는다.
 // schedulers 는 Redis 의 Job Scheduler 를 흉내 낸다(큐 인스턴스 사이에 공유, 같은 id 는 덮어쓴다).
@@ -30,11 +38,19 @@ type FakeQueue = {
   removeJobScheduler: Mock<(...args: unknown[]) => Promise<boolean>>;
   close: Mock<() => Promise<undefined>>;
 };
+// schedulers 는 Redis 의 repeat:<id> 해시(every·pattern·tz)와 다음 예정 시각을 흉내 낸다. upsert 는 해시를 통째로 바꾼다(BullMQ storeJobScheduler 의 DEL + HMSET).
+type FakeScheduler = {
+  every: number | null;
+  pattern: string | null;
+  tz: string | null;
+  next: number;
+};
 const fake = vi.hoisted(() => ({
   workers: [] as string[],
+  processors: [] as ((job: unknown) => Promise<unknown>)[],
   queues: [] as FakeQueue[],
   redis: [] as { disconnect: Mock<() => void> }[],
-  schedulers: new Map<string, { every: number; next: number }>(),
+  schedulers: new Map<string, FakeScheduler>(),
   schedulerNext: Date.parse("2026-10-25T08:00:00.000Z"),
   fsReads: [] as string[],
 }));
@@ -43,8 +59,9 @@ vi.mock("bullmq", async (importOriginal) => {
   class Worker {
     readonly on = vi.fn();
     readonly close = vi.fn(async () => undefined);
-    constructor(name: string) {
+    constructor(name: string, processor: (job: unknown) => Promise<unknown>) {
       fake.workers.push(name);
+      fake.processors.push(processor);
     }
   }
   class Queue {
@@ -55,8 +72,17 @@ vi.mock("bullmq", async (importOriginal) => {
     readonly upsertJobScheduler = vi.fn<(...args: unknown[]) => Promise<void>>(async (...args) => {
       const [id, repeat] = args;
       if (typeof id !== "string" || typeof repeat !== "object" || repeat === null) return;
-      const every = "every" in repeat ? repeat.every : null;
-      if (typeof every === "number") fake.schedulers.set(id, { every, next: fake.schedulerNext });
+      const field = (key: string) => {
+        const value: unknown = key in repeat ? (repeat as Record<string, unknown>)[key] : null;
+        return value ?? null;
+      };
+      const [every, pattern, tz] = [field("every"), field("pattern"), field("tz")];
+      fake.schedulers.set(id, {
+        every: typeof every === "number" ? every : null,
+        pattern: typeof pattern === "string" ? pattern : null,
+        tz: typeof tz === "string" ? tz : null,
+        next: fake.schedulerNext,
+      });
     });
     readonly removeJobScheduler = vi.fn<(...args: unknown[]) => Promise<boolean>>(
       async (...args) => typeof args[0] === "string" && fake.schedulers.delete(args[0]),
@@ -81,7 +107,12 @@ vi.mock("ioredis", async (importOriginal) => {
     );
     readonly hmget = vi.fn(async (key: string) => {
       const scheduler = fake.schedulers.get(key.split(":").at(-1) ?? "");
-      return [scheduler === undefined ? null : String(scheduler.every), null];
+      if (scheduler === undefined) return [null, null, null];
+      return [
+        scheduler.every === null ? null : String(scheduler.every),
+        scheduler.pattern,
+        scheduler.tz,
+      ];
     });
     constructor() {
       fake.redis.push(this);
@@ -175,6 +206,7 @@ const startAndStop = async (times: number) => {
 
 beforeEach(() => {
   fake.workers = [];
+  fake.processors = [];
   fake.queues = [];
   fake.redis = [];
   fake.schedulers.clear();
@@ -197,11 +229,28 @@ describe("ingest 전용 worker 기동", () => {
     expect(fake.workers).toEqual(["ingest"]);
   });
 
-  it("live·60분이면 g2b-scheduled 하나를 1시간 간격으로 두고, 재기동해도 같은 id 하나로 유지하며 목록을 로그로 남긴다", async () => {
+  it("옛 1시간 every 일정이 있어도 같은 id 로 KST 3시간 정각 cron 하나로 바꾸고, 재기동해도 하나이며 목록을 로그로 남긴다", async () => {
+    fake.schedulers.set("g2b-scheduled", {
+      every: 3_600_000,
+      pattern: null,
+      tz: null,
+      next: fake.schedulerNext,
+    });
     const runs = await startAndStop(2);
     expect([...fake.schedulers]).toEqual([
-      ["g2b-scheduled", { every: 3_600_000, next: fake.schedulerNext }],
+      [
+        "g2b-scheduled",
+        { every: null, pattern: "0 */3 * * *", tz: "Asia/Seoul", next: fake.schedulerNext },
+      ],
     ]);
+    // 기동마다 같은 id 로 한 번씩 upsert 한다. 반복 옵션은 pattern·tz 둘뿐이다(every·immediately 없음 = 즉시 회차 없음).
+    const g2bUpserts = fake.queues.flatMap((queue) =>
+      queue.upsertJobScheduler.mock.calls.filter(([id]) => id === "g2b-scheduled"),
+    );
+    expect(g2bUpserts).toHaveLength(2);
+    for (const [, repeat] of g2bUpserts) {
+      expect(repeat).toStrictEqual({ pattern: "0 */3 * * *", tz: "Asia/Seoul" });
+    }
     const g2bRemovals = fake.queues.flatMap((queue) =>
       queue.removeJobScheduler.mock.calls.filter(([id]) => id === "g2b-scheduled"),
     );
@@ -209,9 +258,59 @@ describe("ingest 전용 worker 기동", () => {
     for (const deps of runs) {
       expect(deps.log).toHaveBeenCalledWith("ingest 큐 Job Scheduler 1개");
       expect(deps.log).toHaveBeenCalledWith(
-        "  id=g2b-scheduled every=3600000 next=2026-10-25T08:00:00.000Z",
+        '  id=g2b-scheduled every=- pattern="0 */3 * * *" tz=Asia/Seoul next=2026-10-25T08:00:00.000Z',
+      );
+      expect(deps.log).toHaveBeenCalledWith(
+        "ingest-only worker started: SOL_RUN_MODE=live, 정기 수집 매일 KST 00·03·06·09·12·15·18·21시 정각",
       );
     }
+  });
+
+  it("기동 로그에 즉시 수집하지 않고 다음 KST 정각부터 돈다고 한 줄 남긴다", async () => {
+    // Date 만 고정한다(타이머는 그대로). NOW 는 KST 16:30:15 라 다음 정각은 KST 18:00(UTC 09:00)이다.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    try {
+      const [deps] = await startAndStop(1);
+      expect(deps.log).toHaveBeenCalledWith(
+        "g2b-scheduled 일정: 매일 KST 00·03·06·09·12·15·18·21시 정각(Asia/Seoul). " +
+          "기동 즉시 수집하지 않고 다음 정각 2026-10-25T09:00:00.000Z 부터 돈다(즉시 수집은 --once·수동 요청)",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([["60"], ["not-a-number-77x"], [""]])(
+    "옛 간격 env G2B_INGEST_INTERVAL_MINUTES=%j 는 형식과 상관없이 무시하고 값 없이 한 줄만 남긴다",
+    async (value) => {
+      const { deps, signals } = testDeps();
+      await runIngestOnly([], { ...liveEnv, G2B_INGEST_INTERVAL_MINUTES: value }, deps);
+      expect(deps.exit).not.toHaveBeenCalled();
+      signals.emit("SIGTERM");
+      await vi.waitFor(() => {
+        expect(deps.exit).toHaveBeenCalledWith(0);
+      });
+      const notices = deps.log.mock.calls.flat().filter((line) => line.includes("무시함"));
+      expect(notices).toEqual([
+        "G2B_INGEST_INTERVAL_MINUTES 무시함: 정기 수집은 매일 KST 00·03·06·09·12·15·18·21시 정각에 돈다",
+      ]);
+      // 값은 로그에 싣지 않는다(틀린 값도 그대로 찍지 않는다).
+      if (value === "not-a-number-77x") expect(outputOf(deps)).not.toContain(value);
+    },
+  );
+
+  it("옛 간격 env 가 없으면 무시함 줄을 남기지 않는다", async () => {
+    const withoutInterval = Object.fromEntries(
+      Object.entries(liveEnv).filter(([key]) => key !== "G2B_INGEST_INTERVAL_MINUTES"),
+    );
+    const { deps, signals } = testDeps();
+    await runIngestOnly([], withoutInterval, deps);
+    signals.emit("SIGTERM");
+    await vi.waitFor(() => {
+      expect(deps.exit).toHaveBeenCalledWith(0);
+    });
+    expect(outputOf(deps)).not.toContain("무시함");
   });
 
   it("documents 큐를 만들지 않고, 없는 FIXTURES_DIR 로도 기동하며 fixture 파일을 읽지 않는다", async () => {
@@ -261,6 +360,10 @@ describe("ingest 전용 worker 1회 명령", () => {
     expect(output).toContain(
       "g2b-bid-notice, g2b-bid-license-limit, g2b-bid-region, g2b-bid-eorder-attach",
     );
+    expect(deps.log.mock.calls.flat().slice(-2)).toEqual([
+      "G2B_INGEST_INTERVAL_MINUTES 무시함: 정기 수집은 매일 KST 00·03·06·09·12·15·18·21시 정각에 돈다",
+      "ingest-only worker 확인 통과: SOL_RUN_MODE=live, 정기 수집 매일 KST 00·03·06·09·12·15·18·21시 정각",
+    ]);
     expect(fake.redis).toEqual([]);
     expect(fixtureReads()).toEqual([]);
   });
@@ -278,15 +381,27 @@ describe("ingest 전용 worker 1회 명령", () => {
     ]);
   });
 
-  it("--status 는 Queue 를 만들지 않고(쓰기 없음) job 수와 Job Scheduler 목록만 출력한다", async () => {
-    fake.schedulers.set("g2b-scheduled", { every: 3_600_000, next: fake.schedulerNext });
+  it("--status 는 Queue 를 만들지 않고(쓰기 없음) job 수와 Job Scheduler 목록(옛 every·새 pattern 구분)만 출력한다", async () => {
+    fake.schedulers.set("g2b-scheduled", {
+      every: null,
+      pattern: "0 */3 * * *",
+      tz: "Asia/Seoul",
+      next: fake.schedulerNext,
+    });
+    fake.schedulers.set("old-every", {
+      every: 3_600_000,
+      pattern: null,
+      tz: null,
+      next: fake.schedulerNext,
+    });
     const { deps } = testDeps();
     await runIngestOnly(["--status"], liveEnv, deps);
     expect(deps.exit).toHaveBeenCalledWith(0);
     expect(deps.log.mock.calls.flat()).toEqual([
       "ingest 큐 job 수: waiting=0 active=0 delayed=0 failed=0 completed=0 paused=0 prioritized=0",
-      "ingest 큐 Job Scheduler 1개",
-      "  id=g2b-scheduled every=3600000 next=2026-10-25T08:00:00.000Z",
+      "ingest 큐 Job Scheduler 2개",
+      '  id=g2b-scheduled every=- pattern="0 */3 * * *" tz=Asia/Seoul next=2026-10-25T08:00:00.000Z',
+      "  id=old-every every=3600000 next=2026-10-25T08:00:00.000Z",
     ]);
     expect(fake.queues).toEqual([]);
     expect(fake.workers).toEqual([]);
@@ -440,34 +555,53 @@ describe("ingest job 처리", () => {
     ]);
   });
 
-  const CAP = { maxMs: 2 * 3_600_000 };
-  const FLOOR = "2026-10-25T05:30:00.000Z";
+  // ingest 전용 worker 의 실제 상한(24시간). NOW 는 2026-10-25T07:30:15Z(KST 16:30)라 창 끝은 07:30, 바닥은 하루 전 07:30 이다.
+  const CAP = { maxMs: SCHEDULED_WINDOW_CAP_MINUTES * 60_000 };
+  const FLOOR = "2026-10-24T07:30:00.000Z";
   it.each([
     {
-      name: "상한 + 이전 성공 없음 → 최근 2시간만",
+      name: "상한 + 이전 성공 없음 → 기본 24시간(상한과 같아 자른 기록 없음)",
       cap: true,
       latest: { end: null, last: null },
       from: FLOOR,
-      windowCap: { maxMinutes: 120, previousSuccessEnd: null },
+      jobTo: "2026-10-25T07:30:00.000Z",
+      windowCap: undefined,
     },
     {
-      name: "상한 + 오래된 성공 끝·오래된 실패 창 → 최근 2시간으로 자름",
+      name: "상한 + 30시간 전 성공 끝·25시간 전 시작한 실패 창 → 실패 창을 버리고 최근 24시간으로 자름",
       cap: true,
       latest: {
-        end: new Date("2026-10-25T02:00:00.000Z"),
+        end: new Date("2026-10-24T01:30:00.000Z"),
         last: {
           status: "FAILED" as const,
-          window: { from: "2026-10-24T02:00:00.000Z", to: "2026-10-25T02:00:00.000Z" },
+          window: { from: "2026-10-24T06:30:00.000Z", to: "2026-10-24T09:30:00.000Z" },
         },
       },
       from: FLOOR,
-      windowCap: { maxMinutes: 120, previousSuccessEnd: "2026-10-25T02:00:00.000Z" },
+      jobTo: "2026-10-25T07:30:00.000Z",
+      windowCap: { maxMinutes: 1440, previousSuccessEnd: "2026-10-24T01:30:00.000Z" },
     },
     {
-      name: "상한 + 최근 성공 끝 → 그 끝부터",
+      // 예산 소진(KST 10-24 21시 회차) 뒤 자정을 넘겨 다시 도는 경우. 6시간 상한이면 이 창을 버려 빈틈이 생겼다.
+      name: "상한 + 19시간 전 시작한 실패 창 → 그 창과 jobKey 를 그대로 다시 씀(C8)",
       cap: true,
-      latest: { end: new Date("2026-10-25T07:00:00.000Z"), last: null },
-      from: "2026-10-25T07:00:00.000Z",
+      latest: {
+        end: new Date("2026-10-24T09:00:00.000Z"),
+        last: {
+          status: "FAILED" as const,
+          window: { from: "2026-10-24T12:00:00.000Z", to: "2026-10-24T15:00:00.000Z" },
+        },
+      },
+      from: "2026-10-24T12:00:00.000Z",
+      jobTo: "2026-10-24T15:00:00.000Z",
+      windowCap: undefined,
+    },
+    {
+      name: "상한 + 7시간 전 성공 끝 → 그 끝부터(옛 2주기 상한이면 잘렸다)",
+      cap: true,
+      latest: { end: new Date("2026-10-25T00:30:00.000Z"), last: null },
+      from: "2026-10-25T00:30:00.000Z",
+      jobTo: "2026-10-25T07:30:00.000Z",
       windowCap: undefined,
     },
     {
@@ -475,21 +609,21 @@ describe("ingest job 처리", () => {
       cap: false,
       latest: { end: null, last: null },
       from: "2026-10-24T07:30:00.000Z",
+      jobTo: "2026-10-25T07:30:00.000Z",
       windowCap: undefined,
     },
-  ])("정기 창: $name", async ({ cap, latest, from, windowCap }) => {
+  ])("정기 창: $name", async ({ cap, latest, from, jobTo, windowCap }) => {
     const { repo, starts } = repoWith(latest);
     const log = vi.fn<(line: string) => void>();
     await processIngestJob(
       SCHEDULED_JOB,
       jobDeps(repo, cap ? { scheduledWindowCap: { ...CAP, log } } : {}),
     );
-    const to = "2026-10-25T07:30:00.000Z";
     expect(starts.map(({ jobKey, params }) => ({ jobKey, params }))).toEqual([
       {
-        jobKey: `g2b:SCHEDULED:${to}`,
+        jobKey: `g2b:SCHEDULED:${jobTo}`,
         params: {
-          window: { from, to },
+          window: { from, to: jobTo },
           stages: ["NOTICE"],
           ...(windowCap === undefined ? {} : { windowCap }),
         },
@@ -518,6 +652,99 @@ describe("ingest job 처리", () => {
     expect(errors).toEqual(["RUN_MODE_MISMATCH"]);
     expect(fixtureConnector).not.toHaveBeenCalled();
     expect(fixtureReads()).toEqual([]);
+  });
+});
+
+// createIngestWorker 를 위 BullMQ 가짜로 띄운다. 처리기는 fake.processors 에 남는다.
+describe("ingest Worker 일정과 job 처리", () => {
+  const SLOT_MS = Date.parse("2026-10-25T06:00:00.000Z"); // KST 15:00 정각
+  const schedulerJob = (data: unknown) => ({
+    id: `repeat:g2b-scheduled:${SLOT_MS}`,
+    repeatJobKey: "g2b-scheduled",
+    timestamp: SLOT_MS - 3 * 3_600_000, // 앞 회차(KST 12:00)가 시작할 때 큐에 들어갔다
+    processedOn: SLOT_MS + 4_000, // 앞 job 이 4초 더 돌아 늦게 시작했다
+    data,
+  });
+  const removedIds = () =>
+    fake.queues.flatMap((queue) => queue.removeJobScheduler.mock.calls.map(([id]) => id));
+
+  it.each([["mock"], ["fixture"]] as const)(
+    "%s 면 g2b·외부 소스 일정을 모두 지우고 새로 걸지 않는다(8-1)",
+    async (runMode) => {
+      fake.schedulers.set("g2b-scheduled", {
+        every: null,
+        pattern: "0 */3 * * *",
+        tz: "Asia/Seoul",
+        next: fake.schedulerNext,
+      });
+      const { repo } = repoWith({ end: null, last: null });
+      const worker = await createIngestWorker(new IORedis(), jobDeps(repo, { runMode }));
+      await worker.close();
+      expect(removedIds()).toEqual([
+        "g2b-scheduled",
+        ...EXTERNAL_SOURCE_KEYS.map((key) => `${key}-scheduled`),
+      ]);
+      expect(fake.queues.flatMap((queue) => queue.upsertJobScheduler.mock.calls)).toEqual([]);
+      expect(fake.schedulers.size).toBe(0);
+    },
+  );
+
+  it("live 외부 소스 일정도 같은 KST 3시간 정각 cron 으로 건다(every 없음)", async () => {
+    const { repo } = repoWith({ end: null, last: null });
+    const external = {
+      source: "lh" as const,
+      serviceKey: "lh-bid-notice" as const,
+      trigger: "SCHEDULED" as const,
+      jobKey: "lh-bid-notice:SCHEDULED",
+    };
+    const worker = await createIngestWorker(
+      new IORedis(),
+      jobDeps(repo, { scheduledExternalJobs: [external] }),
+    );
+    await worker.close();
+    const upserts = fake.queues.flatMap((queue) => queue.upsertJobScheduler.mock.calls);
+    expect(upserts.map(([id, repeat]) => ({ id, repeat }))).toStrictEqual([
+      { id: "g2b-scheduled", repeat: { pattern: "0 */3 * * *", tz: "Asia/Seoul" } },
+      { id: "lh-bid-notice-scheduled", repeat: { pattern: "0 */3 * * *", tz: "Asia/Seoul" } },
+    ]);
+  });
+
+  it("job 처리가 던져도 일정을 지우지 않는다(일정 등록은 처리 결과와 무관)", async () => {
+    const { repo } = repoWith({ end: null, last: null });
+    const worker = await createIngestWorker(new IORedis(), jobDeps(repo));
+    const [processor] = fake.processors;
+    await expect(processor(schedulerJob({ source: "g2b" }))).rejects.toThrow(
+      "ingest job data 가 잘못됐다",
+    );
+    await expect(processor(schedulerJob(SCHEDULED_JOB))).resolves.toMatchObject({
+      status: "SUCCEEDED",
+    });
+    await worker.close();
+    expect(removedIds()).not.toContain("g2b-scheduled");
+    expect([...fake.schedulers.keys()]).toEqual(["g2b-scheduled"]);
+  });
+
+  it("처리기는 회차 job 의 정각·등록·시작 시각과 큐 대기를 params.timing 과 로그 한 줄로 남긴다", async () => {
+    const { repo, starts } = repoWith({ end: null, last: null });
+    const log = vi.fn<(line: string) => void>();
+    const worker = await createIngestWorker(new IORedis(), jobDeps(repo, { log }));
+    await fake.processors[0](schedulerJob(SCHEDULED_JOB));
+    await worker.close();
+    const timing = {
+      scheduledFor: "2026-10-25T06:00:00.000Z",
+      enqueuedAt: "2026-10-25T03:00:00.000Z",
+      startedAt: "2026-10-25T06:00:04.000Z",
+      queueDelayMs: 4_000,
+    };
+    expect(starts.map(({ params }) => params?.timing)).toEqual([timing]);
+    expect(log).toHaveBeenCalledWith(
+      JSON.stringify({
+        event: "ingest.job.timing",
+        source: "g2b",
+        trigger: "SCHEDULED",
+        ...timing,
+      }),
+    );
   });
 });
 

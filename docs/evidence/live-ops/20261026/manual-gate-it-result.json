@@ -1,0 +1,56 @@
+{
+  "concurrentDifferentUsers": {
+    "requests": 20,
+    "connections": 4,
+    "statuses": {
+      "CLAIMED": 1,
+      "SHARED_RUN": 19,
+      "USER_COOLDOWN": 0,
+      "DAILY_LIMIT": 0
+    },
+    "dailyCount": 1,
+    "pttlMs": {
+      "user": 3599995,
+      "shared": 599994,
+      "daily": 117415972
+    }
+  },
+  "concurrentSameUser": {
+    "requests": 20,
+    "CLAIMED": 1,
+    "USER_COOLDOWN": 19
+  },
+  "release": {
+    "wrongTicketKept": true,
+    "ownTicketDeleted": true,
+    "dailyAfterRelease": 0,
+    "doubleReleaseFloor": 0
+  },
+  "dailyLimit": {
+    "accepted": 20,
+    "twentyFirst": {
+      "status": "DAILY_LIMIT",
+      "used": 20
+    },
+    "keysWrittenOnReject": 0,
+    "readDailyUsed": 20
+  },
+  "failClosed": {
+    "corruptValueRejected": true,
+    "unreachableRejectedMs": 2
+  },
+  "scheduler": {
+    "before": {
+      "active": false
+    },
+    "after": {
+      "active": true,
+      "nextRunAt": "2026-10-26T09:00:00.000Z"
+    },
+    "kstHour": 18,
+    "readTwiceUnchanged": true,
+    "afterRemove": {
+      "active": false
+    }
+  }
+}

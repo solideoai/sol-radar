@@ -212,31 +212,20 @@ const EVIDENCE_DIR = path.join(WEB_ROOT, "..", "docs", "evidence", "phase-3", "a
 const seoulDate = (now = new Date()) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(now).replaceAll("-", "");
 
-// 상단바 지표는 마운트 뒤 /health/ready·/api/v1/dashboard/summary 를 한 번 읽는다((work) 레이아웃이 initialAi: null 로 넘긴다).
-// 이 두 응답을 기다리면 화면의 클라이언트 효과가 한 바퀴 돈 것이다. goto 전에 불러 둔다(응답을 놓치지 않게).
+// 상단바 지표는 마운트 뒤 /api/v1/dashboard/summary 를 한 번 읽는다(10-26 부터 AI 지표가 없어 /health/ready 는 읽지 않는다).
+// 이 응답을 기다리면 화면의 클라이언트 효과가 한 바퀴 돈 것이다. goto 전에 불러 둔다(응답을 놓치지 않게).
 export const waitForTopbarReads = (page: Page) =>
-  Promise.all(
-    ["/health/ready", "/api/v1/dashboard/summary"].map((pathname) =>
-      page.waitForResponse((response) => new URL(response.url()).pathname === pathname),
-    ),
+  page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/v1/dashboard/summary",
   );
 
 /**
- * 상단바 AI 지표가 이 환경의 기대값으로 정해졌는지 본다(증거에 첫 값이 찍히지 않게).
- * - /health/ready 200(저장소가 있는 환경): 첫 값 "확인 중"이 응답 값(AI: mock·local·unavailable…)으로 바뀐다.
- * - /health/ready 503(이 격리 환경: MinIO 없음): C6 상단바는 503 이면 마지막 값을 지키고 실패 툴팁
- *   "상태를 확인하지 못했습니다"를 붙인다(components/topbar-status.tsx readAi·AiModeIndicator,
- *   components/topbar-status.browser.test.tsx "health 가 503 이면 마지막 값을 유지하고 …"). 첫 값이 null 이라
- *   글자는 "AI: 확인 중" 그대로이고, 툴팁이 붙어 지표가 초점을 받는다(tabindex=0) — 응답을 받아 실패로 정해진 상태다.
+ * 상단바가 수집 신선도를 그렸는지 본다(증거에 빈 값이 찍히지 않게). 실행 모드·AI 지표는 10-26 상단바에서 뺐으므로 없어야 한다.
  */
-export async function expectTopbarAiSettled(page: Page, context: IngestionContext) {
-  const ai = page.locator('[data-slot="topbar-status"] [data-indicator="ai"]');
-  if (context.healthReady) {
-    await expect(ai).not.toHaveText(/확인 중/);
-    return;
-  }
-  await expect(ai).toHaveText("AI: 확인 중");
-  await expect(ai).toHaveAttribute("tabindex", "0");
+export async function expectTopbarSettled(page: Page) {
+  const status = page.locator('[data-slot="topbar-status"]');
+  await expect(status.locator('[data-indicator="freshness"]')).not.toHaveText("—");
+  await expect(status.locator('[data-indicator="run-mode"], [data-indicator="ai"]')).toHaveCount(0);
 }
 
 export async function shotIngestion(
@@ -246,7 +235,7 @@ export async function shotIngestion(
   width: 1440 | 1280,
 ) {
   expect(page.viewportSize()?.width, `${state} 는 ${width}px 에서 찍는다`).toBe(width);
-  await expectTopbarAiSettled(page, context);
+  await expectTopbarSettled(page);
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   mkdirSync(EVIDENCE_DIR, { recursive: true });
   await page.screenshot({

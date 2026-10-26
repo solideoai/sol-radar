@@ -39,6 +39,7 @@ const detail = (overrides: Partial<DetailBid>): DetailBid => ({
   extractionStatus: "COMPLETED",
   latestAnalysis: null,
   reviews: [],
+  analysisReadiness: { ready: true, reason: null },
   ...overrides,
 });
 

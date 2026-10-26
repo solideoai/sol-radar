@@ -1,4 +1,5 @@
 import "server-only";
+import type { z } from "zod";
 import { aiStatusSchema, type Readiness } from "@/server/health";
 import { redisApiConnection, type DeploymentEnv } from "./deployment-role";
 import {
@@ -6,6 +7,8 @@ import {
   backendErrorSchema,
   backendReadinessSchema,
   ingestAcceptedSchema,
+  ingestWorkerUnavailableErrorSchema,
+  manualIngestGateSchema,
   sourceReadinessErrorSchema,
 } from "./redis-api-contract";
 import { redisApiOperation } from "./redis-api-path";
@@ -74,7 +77,12 @@ export async function relayRedisApi(
     ...overrides,
   };
   const operation = redisApiOperation(request.method, targetPath);
-  if (operation !== "analysis-submit" && operation !== "ingest-submit" && operation !== "ai-status")
+  if (
+    operation !== "analysis-submit" &&
+    operation !== "ingest-submit" &&
+    operation !== "ai-status" &&
+    operation !== "ingest-gate-read"
+  )
     return redisApiError(404, "NOT_FOUND", "요청 경로를 찾을 수 없습니다.");
   try {
     const settings = redisApiConnection(deps.env);
@@ -85,7 +93,10 @@ export async function relayRedisApi(
         signal.throwIfAborted();
         if (!accessToken) return redisApiError(401, "UNAUTHENTICATED", "로그인이 필요합니다.");
         if (operation === "ai-status") {
-          return relayAiStatus(settings, accessToken, deps.send, signal);
+          return relayGet(settings, accessToken, deps.send, signal, AI_STATUS_RELAY);
+        }
+        if (operation === "ingest-gate-read") {
+          return relayGet(settings, accessToken, deps.send, signal, MANUAL_GATE_RELAY);
         }
         if (Number(request.headers.get("Content-Length")) > MAX_REQUEST_BYTES)
           return bodyTooLarge();
@@ -143,9 +154,19 @@ export async function relayRedisApi(
           }
           const containsCredential = text.includes(settings.token) || text.includes(accessToken);
           if (upstream.status === 503) {
+            // 다시 보내도 같은 답인 수집 503(소스 미준비·수집 Worker 미기동)은 재시도하지 않고 그대로 전한다.
             const sourceFailure =
               operation === "ingest-submit" && !containsCredential
-                ? sourceReadinessResponse(text)
+                ? (permanentFailureResponse(
+                    text,
+                    sourceReadinessErrorSchema,
+                    "아직 사용할 수 없는 수집 서비스입니다",
+                  ) ??
+                  permanentFailureResponse(
+                    text,
+                    ingestWorkerUnavailableErrorSchema,
+                    "수집 Worker 가 아직 켜지지 않았습니다",
+                  ))
                 : null;
             if (sourceFailure !== null) return sourceFailure;
             if (attempt === 0) {
@@ -185,13 +206,36 @@ export async function relayRedisApi(
   }
 }
 
-async function relayAiStatus(
+// GET 중계 한 종류. statuses 밖의 상태·schema 에 맞지 않는 본문·자격 증명이 섞인 본문은 503 {component:"redis-api"} 다.
+type GetRelay = {
+  path: string;
+  statuses: readonly number[];
+  okSchema: z.ZodType;
+  /** 오류 상태 가운데 이 코드만 그대로 전한다(없으면 statuses 안의 오류 봉투는 모두 전한다) */
+  acceptError?: (status: number, code: string) => boolean;
+};
+
+const AI_STATUS_RELAY: GetRelay = {
+  path: "/api/v1/admin/ai/status",
+  statuses: [200, 401, 403, 422],
+  okSchema: aiStatusSchema,
+  acceptError: (status, code) => status !== 422 || code === "HOSTED_NOT_APPROVED",
+};
+
+const MANUAL_GATE_RELAY: GetRelay = {
+  path: "/api/v1/admin/ingestion/manual-gate",
+  statuses: [200, 401, 403],
+  okSchema: manualIngestGateSchema,
+};
+
+async function relayGet(
   settings: ReturnType<typeof redisApiConnection>,
   accessToken: string,
   send: typeof fetch,
   signal: AbortSignal,
+  relay: GetRelay,
 ): Promise<Response> {
-  const upstream = await send(`${settings.baseUrl}/api/v1/admin/ai/status`, {
+  const upstream = await send(`${settings.baseUrl}${relay.path}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -201,7 +245,7 @@ async function relayAiStatus(
     cache: "no-store",
     redirect: "manual",
   });
-  if (![200, 401, 403, 422].includes(upstream.status)) {
+  if (!relay.statuses.includes(upstream.status)) {
     void upstream.body?.cancel().catch(() => undefined);
     return redisApiUnavailable();
   }
@@ -209,31 +253,32 @@ async function relayAiStatus(
     await limitedBody(upstream.body, MAX_RESPONSE_BYTES, signal),
   );
   if (text.includes(settings.token) || text.includes(accessToken)) return redisApiUnavailable();
-  const schema = upstream.status === 200 ? aiStatusSchema : backendErrorSchema;
-  const result = schema.safeParse(JSON.parse(text));
-  if (!result.success) return redisApiUnavailable();
-  if (
-    upstream.status === 422 &&
-    (!("error" in result.data) || result.data.error.code !== "HOSTED_NOT_APPROVED")
-  )
+  const raw: unknown = JSON.parse(text);
+  if (upstream.status === 200) {
+    const ok = relay.okSchema.safeParse(raw);
+    if (!ok.success) return redisApiUnavailable();
+    return Response.json(ok.data, { status: 200, headers: responseHeaders() });
+  }
+  const failure = backendErrorSchema.safeParse(raw);
+  if (!failure.success) return redisApiUnavailable();
+  if (relay.acceptError && !relay.acceptError(upstream.status, failure.data.error.code))
     return redisApiUnavailable();
-  return Response.json(result.data, {
+  return Response.json(failure.data, {
     status: upstream.status,
-    headers: responseHeaders("error" in result.data ? result.data.error.requestId : undefined),
+    headers: responseHeaders(failure.data.error.requestId),
   });
 }
 
-function sourceReadinessResponse(text: string): Response | null {
+function permanentFailureResponse(
+  text: string,
+  schema: typeof sourceReadinessErrorSchema | typeof ingestWorkerUnavailableErrorSchema,
+  message: string,
+): Response | null {
   try {
-    const parsed = sourceReadinessErrorSchema.safeParse(JSON.parse(text));
+    const parsed = schema.safeParse(JSON.parse(text));
     if (!parsed.success) return null;
     return Response.json(
-      {
-        error: {
-          ...parsed.data.error,
-          message: "아직 사용할 수 없는 수집 서비스입니다",
-        },
-      },
+      { error: { ...parsed.data.error, message } },
       { status: 503, headers: responseHeaders(parsed.data.error.requestId) },
     );
   } catch {

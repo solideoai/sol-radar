@@ -1,10 +1,18 @@
 import type { ApiFailure } from "@/app/(app)/(work)/bids/[id]/api-envelope";
 import type { RunMode } from "@/server/bids";
 import { isUuid } from "./ingest-runs";
-import { SESSION_EXPIRED, sourceLabel, type IngestSource } from "./ingestion-copy";
+import {
+  IN_PROGRESS_NOTICE,
+  SCHEDULER_INACTIVE_NOTICE,
+  SESSION_EXPIRED,
+  sourceLabel,
+  type IngestSource,
+} from "./ingestion-copy";
+import { dailyLimitText, joinNotice, nextAvailableText, sharedRunText } from "./manual-gate";
 
-// 수동 수집 요청(POST) 실패 → 대화상자 안 오류(N8 스펙 §4.11). 서버 message 는 보이지 않는다(영어·내부 표현일 수 있다).
+// 수동 수집 요청(POST) 실패 → 대화상자·[지금 불러오기] 곁 오류(N8 스펙 §4.11, 10-26 manual-gate). 서버 message 는 보이지 않는다(영어·내부 표현일 수 있다).
 // 멱등 키: 같은 제출을 다시 보내도 되는 실패(429·5xx·네트워크)는 같은 키, 내용을 바꾸거나 새로 시작해야 하는 실패는 새 키다.
+// 쿨다운·공유 run·하루 한도(MANUAL_*)는 서버가 정한 시각을 그대로 보인다. 화면 시계로 다시 계산하지 않는다.
 
 export type FormField = "source" | "batch";
 
@@ -23,11 +31,19 @@ export type RequestError = {
 const DEFAULT_RETRY_AFTER_SEC = 60;
 const FIELD_NAME = { source: "소스", batch: "배치" } as const satisfies Record<FormField, string>;
 const RETRY_LATER = "요청을 처리하지 못했습니다. 잠시 뒤 다시 시도하세요.";
+const TRY_AGAIN = "잠시 뒤 다시 시도하세요.";
 const UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ["queue", "수집 작업을 대기열에 넣지 못했습니다. Redis·worker 상태를 확인하세요."],
   ["redis", "요청 수를 확인하지 못했습니다. Redis 상태를 확인하세요."],
   ["db", "데이터베이스에 연결하지 못했습니다."],
+  // Vercel 웹이 회사 redis-api 로 중계하지 못했다(ADR-045·049).
+  ["redis-api", "회사 수집 서버에 연결하지 못했습니다."],
 ]);
+
+const isoOf = (value: unknown): string | null =>
+  typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;
+const positiveIntOf = (value: unknown): number | null =>
+  typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 
 const isFormField = (value: string): value is FormField => value === "source" || value === "batch";
 
@@ -72,7 +88,7 @@ const runModeOf = (value: unknown, fallback: RunMode): RunMode =>
  */
 export function requestErrorOf(
   failure: ApiFailure,
-  context: { retryAfterSec: number | null; submitted: IngestSource; runMode: RunMode },
+  context: { retryAfterSec: number | null; submitted: IngestSource; runMode: RunMode; now: Date },
 ): RequestError {
   const withId = (error: RequestError): RequestError =>
     failure.requestId === undefined ? error : { ...error, requestId: failure.requestId };
@@ -104,11 +120,21 @@ export function requestErrorOf(
       renewKey: true,
     });
   }
-  if (status === 409 && code === "INGESTION_IN_PROGRESS") {
-    const runId = typeof details.runId === "string" && isUuid(details.runId) ? details.runId : null;
+  const runId = typeof details.runId === "string" && isUuid(details.runId) ? details.runId : null;
+  const showRun = runId === null ? {} : { action: { kind: "show-run" as const, runId } };
+  // 정기 수집이 돌고 있을 때도 같은 코드다. 끝나면 그 결과가 목록에 반영된다.
+  if (status === 409 && code === "INGESTION_IN_PROGRESS")
+    return withId({ message: IN_PROGRESS_NOTICE, ...showRun, renewKey: true });
+  if (status === 409 && code === "MANUAL_SHARED_RUN") {
+    const requestedAt = isoOf(details.requestedAt);
     return withId({
-      message: "같은 소스의 수집이 이미 실행 중입니다.",
-      ...(runId === null ? {} : { action: { kind: "show-run" as const, runId } }),
+      message: joinNotice(
+        requestedAt === null
+          ? "다른 관리자가 요청한 수집이 진행 중입니다"
+          : sharedRunText(requestedAt, context.now),
+        nextAvailableText(isoOf(details.nextAvailableAt), context.now),
+      ),
+      ...showRun,
       renewKey: true,
     });
   }
@@ -118,6 +144,18 @@ export function requestErrorOf(
         "같은 요청 번호로 다른 내용이 이미 접수되었습니다. 다시 실행하면 새 번호로 요청합니다.",
       renewKey: true,
     });
+  if (status === 429 && code === "MANUAL_COOLDOWN") {
+    const seconds = positiveIntOf(details.retryAfterSeconds) ?? context.retryAfterSec;
+    return withId({
+      message:
+        nextAvailableText(isoOf(details.nextAvailableAt), context.now) ??
+        "방금 불러오기를 요청했습니다. 잠시 뒤 다시 시도하세요.",
+      ...(seconds === null ? {} : { retryAfterSec: seconds }),
+      renewKey: true,
+    });
+  }
+  if (status === 429 && code === "MANUAL_DAILY_LIMIT")
+    return withId({ message: dailyLimitText(positiveIntOf(details.limit)), renewKey: true });
   if (status === 429) {
     const seconds = context.retryAfterSec ?? DEFAULT_RETRY_AFTER_SEC;
     return withId({
@@ -128,8 +166,12 @@ export function requestErrorOf(
   }
   if (status === 503) {
     const component = typeof details.component === "string" ? details.component : "";
+    // 수집 worker(정기 수집 일정)가 아직 켜지지 않았다. 다시 눌러도 같으므로 시각·재시도 안내를 두지 않는다.
+    if (component === "ingest-worker" && details.reason === "SCHEDULER_INACTIVE")
+      return withId({ message: SCHEDULER_INACTIVE_NOTICE, renewKey: true });
+    const cause = UNAVAILABLE.get(component);
     return withId({
-      message: UNAVAILABLE.get(component) ?? "잠시 뒤 다시 시도하세요.",
+      message: cause === undefined ? RETRY_LATER : `${cause} ${TRY_AGAIN}`,
       renewKey: false,
     });
   }

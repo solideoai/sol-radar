@@ -23,6 +23,20 @@ import {
 } from "./ingestion-admin.model";
 import { EMPTY_INGEST_SUMMARY, type IngestRunSource } from "./ingestion.port";
 import type { IngestJobData } from "./ingestion.queue";
+import {
+  MANUAL_INGEST_DAILY_LIMIT,
+  cooldownEndsAt,
+  manualIngestDayKey,
+  nextKstMidnightAfter,
+  secondsUntil,
+  sharedRunEndsAt,
+  toManualIngestGateView,
+  type IngestSchedulerReader,
+  type ManualIngestClaim,
+  type ManualIngestGate,
+  type ManualIngestGateView,
+  type ManualIngestTicket,
+} from "./manual-ingest-gate.model";
 
 // ── N8 수집 관리 흐름(05 §2 :75-77). 예상한 실패는 결과로 돌려주고 HTTP 로 옮기는 일은 Route Handler 가 한다 ──
 // 의존성(저장·큐·멱등 저장·속도 제한·커서)은 인자로 받는다. 읽기는 사용자 세션(RLS)이고 ingest_runs 행은 worker 가 만든다.
@@ -90,6 +104,10 @@ export type IngestionAdminDeps = {
   newId: () => string;
   /** null 이면 커서 비밀이 없다. 목록은 503 {component:"cursor"} 다 */
   cursor: IngestionRunCursor | null;
+  /** 공공 API 수동 수집 gate(사용자 1시간·전역 10분·하루 상한). fixture 요청에는 쓰지 않는다 */
+  manualGate: ManualIngestGate;
+  /** 정기 수집 Job Scheduler 상태. 공공 API 수동 요청은 이것이 등록돼 있을 때만 받는다 */
+  scheduler: IngestSchedulerReader;
   /** Redis·큐 장애의 원인을 로그로 남기는 곳. 응답에는 싣지 않고, 이 콜백이 던져도 응답은 바뀌지 않는다 */
   onInfraError?: (component: "queue" | "redis", error: unknown) => void;
 };
@@ -125,6 +143,50 @@ const redisUnavailable = (): IngestionAdminFailure =>
   ingestionFailure(503, "SERVICE_UNAVAILABLE", "Redis 에 연결하지 못했습니다", {
     component: "redis",
   });
+
+// 정기 수집 Job Scheduler 가 없으면 ingest 전용 Worker 가 아직 안 켜진 것이다. 소비자 없는 큐에 수동 job 을 넣으면
+// 쌓였다가 Worker 기동 때 한꺼번에 돈다. 쿨다운을 남기기 전에 막는다.
+const schedulerInactive = (): IngestionAdminFailure =>
+  ingestionFailure(503, "SERVICE_UNAVAILABLE", "수집 Worker 가 아직 켜지지 않았습니다", {
+    component: "ingest-worker",
+    reason: "SCHEDULER_INACTIVE",
+  });
+
+// gate 거절 → 응답. details 키 이름은 화면과 맞춘 계약이다(429 는 Route Handler 가 Retry-After 헤더도 단다).
+// MANUAL_SHARED_RUN 의 mine 은 공유 run 을 지금 요청자가 접수했는지다(다른 사용자 id 는 싣지 않는다).
+function manualGateFailure(
+  claim: Exclude<ManualIngestClaim, { status: "CLAIMED" }>,
+  requesterId: string,
+  now: Date,
+): IngestionAdminFailure {
+  switch (claim.status) {
+    case "USER_COOLDOWN": {
+      const next = cooldownEndsAt(claim.entry);
+      return ingestionFailure(429, "MANUAL_COOLDOWN", "1시간에 한 번만 불러올 수 있습니다", {
+        nextAvailableAt: next.toISOString(),
+        retryAfterSeconds: secondsUntil(next, now),
+      });
+    }
+    case "SHARED_RUN": {
+      const next = sharedRunEndsAt(claim.entry);
+      return ingestionFailure(409, "MANUAL_SHARED_RUN", "다른 수동 수집이 방금 접수됐습니다", {
+        runId: claim.entry.runId,
+        requestedAt: claim.entry.requestedAt,
+        nextAvailableAt: next.toISOString(),
+        retryAfterSeconds: secondsUntil(next, now),
+        mine: claim.entry.userId === requesterId,
+      });
+    }
+    case "DAILY_LIMIT": {
+      const next = nextKstMidnightAfter(now);
+      return ingestionFailure(429, "MANUAL_DAILY_LIMIT", "오늘 수동 수집 한도를 다 썼습니다", {
+        limit: MANUAL_INGEST_DAILY_LIMIT,
+        nextAvailableAt: next.toISOString(),
+        retryAfterSeconds: secondsUntil(next, now),
+      });
+    }
+  }
+}
 
 const runNotFound = (): IngestionAdminFailure =>
   ingestionFailure(404, "NOT_FOUND", "수집 실행을 찾을 수 없습니다", {
@@ -282,8 +344,9 @@ async function requesterOf(
 
 /**
  * 수동 수집 요청: 권한 → 키 형식 → 선언된 본문 크기 → 속도 제한 → 본문 읽기 → 본문 검증(+ 미래 창) → 실행 모드
- * → 멱등 재현 → 진행 중 → 키 잡기(SET NX EX) → 큐. 같은 키·같은 본문은 실행 중이어도 첫 202 를 그대로 준다.
- * 큐에 넣지 못하면 잡은 키를 풀어 같은 키로 다시 받게 한다. ingest_runs 행은 worker 가 이 runId 로 만든다.
+ * → 멱등 재현 → 외부 소스 준비 → 진행 중 → (공공 API 요청만) 정기 일정 등록 → gate 잡기 → 키 잡기(SET NX EX) → 큐.
+ * 같은 키·같은 본문은 실행 중이어도 첫 202 를 그대로 준다. 큐에 넣지 못하면 잡은 키와 gate 를 풀어 같은 키로 다시 받게 한다.
+ * gate 는 서버가 정상 접수한 요청에만 남는다(권한·검증·진행 중·큐 실패에는 쿨다운이 없다). ingest_runs 행은 worker 가 이 runId 로 만든다.
  */
 export async function requestIngestionRun(
   ctx: IngestionAdminContext,
@@ -384,7 +447,15 @@ export async function requestIngestionRun(
     });
   }
 
-  // 키를 잡기 전에 읽는다. 여기서 DB 가 실패하면 키도 큐도 건드리지 않은 채 끝난다.
+  // 공공 API 를 부르는 요청만 정기 일정·gate 를 본다. fixture(Compose 데모·E2E)는 예전 그대로다.
+  const isPublicApi = request.source !== "fixture";
+  if (isPublicApi) {
+    const scheduler = await redisCall(deps, () => deps.scheduler.read());
+    if (!scheduler.ok) return redisUnavailable();
+    if (!scheduler.value.active) return schedulerInactive();
+  }
+
+  // 키·gate 를 잡기 전에 읽는다. 여기서 DB 가 실패하면 키도 gate 도 큐도 건드리지 않은 채 끝난다.
   const requester = await requesterOf(ctx, deps.repo, ctx.userId);
   const record: IngestionIdempotencyRecord = {
     requestHash,
@@ -392,11 +463,47 @@ export async function requestIngestionRun(
     startedAt: now.toISOString(),
     requesterId: ctx.userId,
   };
+
+  let ticket: ManualIngestTicket | null = null;
+  if (isPublicApi) {
+    const gate = await redisCall(deps, () =>
+      deps.manualGate.claim({ userId: ctx.userId, runId: record.runId, at: now }),
+    );
+    if (!gate.ok) {
+      // 시간 초과로 끝났어도 Redis 에서는 claim 이 이미 됐을 수 있다. claim 과 같은 값으로 되돌려 접수 없는 쿨다운을 남기지 않는다.
+      // release 는 저장된 값이 이 요청의 것일 때만 지운다(claim 이 안 됐으면 아무것도 바꾸지 않는다).
+      const entry = { runId: record.runId, requestedAt: now.toISOString(), userId: ctx.userId };
+      await redisCall(deps, () =>
+        deps.manualGate.release({ userId: ctx.userId, dayKey: manualIngestDayKey(now), entry }),
+      );
+      return redisUnavailable();
+    }
+    if (gate.value.status !== "CLAIMED") {
+      // 같은 키 더블클릭·HTTP 재시도: 먼저 온 요청이 gate 와 키를 잡았으면 그 202 를 그대로 준다.
+      if (idempotencyKey !== null) {
+        const earlier = await redisCall(deps, () => deps.idempotency.get(redisKey));
+        if (!earlier.ok) return redisUnavailable();
+        if (earlier.value !== null) return replay(earlier.value);
+      }
+      return manualGateFailure(gate.value, ctx.userId, now);
+    }
+    ticket = gate.value.ticket;
+  }
+  // 접수하지 못하고 끝나는 길에서 gate 를 되돌린다. 풀지 못하면 원인만 남긴다(쿨다운 TTL 뒤 만료).
+  const releaseGate = async (): Promise<void> => {
+    const held = ticket;
+    if (held !== null) await redisCall(deps, () => deps.manualGate.release(held));
+  };
+
   const claimed = await redisCall(deps, () =>
     deps.idempotency.claim(redisKey, record, IDEMPOTENCY_TTL_SECONDS),
   );
-  if (!claimed.ok) return redisUnavailable();
+  if (!claimed.ok) {
+    await releaseGate();
+    return redisUnavailable();
+  }
   if (!claimed.value) {
+    await releaseGate();
     // 같은 키의 동시 요청이 먼저 잡았다. 그 값으로 다시 판정한다. 그사이 사라졌으면 판정할 수 없다.
     const winner = await redisCall(deps, () => deps.idempotency.get(redisKey));
     if (!winner.ok || winner.value === null) return redisUnavailable();
@@ -409,6 +516,7 @@ export async function requestIngestionRun(
     reportInfraError(deps, "queue", error);
     // 키가 남으면 같은 키의 재시도가 만들어지지 않은 run 의 202 를 받는다. 풀지 못하면 원인만 남긴다(24시간 뒤 만료).
     await redisCall(deps, () => deps.idempotency.release(redisKey));
+    await releaseGate();
     return ingestionFailure(503, "SERVICE_UNAVAILABLE", "수집 큐에 넣지 못했습니다", {
       component: "queue",
     });
@@ -421,6 +529,38 @@ const accepted = (view: IngestionRunView): IngestionAdminResult<IngestionRunView
   status: 202,
   data: view,
 });
+
+// ── 수동 수집 gate 상태(GET /admin/ingestion/manual-gate) ──
+
+export type ManualIngestGateDeps = Pick<
+  IngestionAdminDeps,
+  "manualGate" | "scheduler" | "runMode" | "now" | "onInfraError"
+>;
+
+/** 이 사용자의 다음 가능 시각·최근 공유 실행·오늘 사용량·정기 일정 실제 등록. ADMIN 만, Redis 오류면 503 {component:"redis"} */
+export async function getManualIngestGate(
+  ctx: IngestionAdminContext,
+  deps: ManualIngestGateDeps,
+): Promise<IngestionAdminResult<ManualIngestGateView>> {
+  if (!canManageIngestion(ctx.role)) return forbidden();
+  const now = deps.now();
+  const [state, scheduler] = await Promise.all([
+    redisCall(deps, () => deps.manualGate.read({ userId: ctx.userId, at: now })),
+    redisCall(deps, () => deps.scheduler.read()),
+  ]);
+  if (!state.ok || !scheduler.ok) return redisUnavailable();
+  return {
+    ok: true,
+    status: 200,
+    data: toManualIngestGateView({
+      state: state.value,
+      scheduler: scheduler.value,
+      ingestMode: deps.runMode,
+      requesterId: ctx.userId,
+      now,
+    }),
+  };
+}
 
 // ── 조회(GET /admin/ingestion/runs·/runs/:id) ──
 

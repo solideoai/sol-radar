@@ -41,6 +41,20 @@ export function formatKstClock(iso: string): string {
   return f === null ? EMPTY : `${f.hour}:${f.minute}`;
 }
 
+/**
+ * 서버가 준 시각을 서울 시각으로 보인다. now 와 같은 날(서울)이면 `14:03`, 아니면 `10월 27일 14:03`.
+ * "다음 불러오기 가능"·"다음 정기 수집"이 쓴다. 쿨다운 계산이 아니라 표시만 한다.
+ */
+export function formatKstMoment(iso: string, now: Date): string {
+  const f = kstFields(iso);
+  if (f === null) return EMPTY;
+  const clock = `${f.hour}:${f.minute}`;
+  const today = Number.isNaN(now.getTime()) ? null : kstFields(now.toISOString());
+  const sameDay =
+    today !== null && today.year === f.year && today.month === f.month && today.day === f.day;
+  return sameDay ? clock : `${Number(f.month)}월 ${Number(f.day)}일 ${clock}`;
+}
+
 /** 걸린 시간 `12초`·`3분 4초`·`1시간 2분`. 끝나지 않았거나 시각이 틀리면 null 이다. */
 export function formatDuration(startedAt: string, finishedAt: string | null): string | null {
   if (finishedAt === null) return null;

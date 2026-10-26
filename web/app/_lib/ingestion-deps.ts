@@ -8,8 +8,9 @@ import {
 import { describeQueueError } from "./analysis-queue";
 import { createIdempotencyStore } from "./idempotency-store";
 import { createIngestQueue } from "./ingest-queue";
+import { createIngestSchedulerReader, createRedisManualIngestGate } from "./manual-ingest-gate";
 import { createAnalysisRateLimiter } from "./rate-limit";
-import { currentRunMode } from "./run-mode";
+import { currentIngestMode } from "./run-mode";
 import { sourceServiceReadiness } from "./opportunity-sources";
 
 // 수집 관리(N8) Route Handler·화면이 서비스에 주입하는 의존성 묶음.
@@ -50,7 +51,10 @@ export function ingestionDeps(orgId: string): IngestionAdminDeps {
       keyPrefix: "ingest",
       limitPerMinute: INGEST_LIMIT_PER_MINUTE,
     }),
-    runMode: currentRunMode(),
+    // 수동 수집 판정·202 의 runMode 는 수집 실행 모드다(SOL_INGEST_MODE, 없으면 SOL_RUN_MODE). 분석·상태 표시는 SOL_RUN_MODE 그대로다.
+    runMode: currentIngestMode(),
+    manualGate: createRedisManualIngestGate({ redisUrl }),
+    scheduler: createIngestSchedulerReader({ redisUrl }),
     serviceReady: sourceServiceReadiness,
     now: () => new Date(),
     newId: () => crypto.randomUUID(),

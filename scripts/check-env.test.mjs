@@ -728,3 +728,24 @@ test("redis-api accepts Worker health reports without a direct AI gateway URL", 
     assert.equal((await checkEnv({ root })).ok, true);
   });
 });
+
+test("redis-api SOL_INGEST_MODE is optional and must name a run mode when set", async () => {
+  const web = { ...WEB_BASE, SOL_DEPLOYMENT_ROLE: "redis-api", REDIS_API_TOKEN: "a".repeat(64) };
+  delete web.AI_GATEWAY_URL;
+  // SOL_RUN_MODE(mock)는 그대로 두고 수동 수집만 live 로 판정한다. 없거나 비면 SOL_RUN_MODE 를 따른다.
+  for (const value of [undefined, "", "live", "fixture", "mock"]) {
+    const values = value === undefined ? web : { ...web, SOL_INGEST_MODE: value };
+    await withRoot({ web: values }, async (root) => {
+      assert.equal((await checkEnv({ root })).ok, true, `SOL_INGEST_MODE=${value}`);
+    });
+  }
+  for (const value of ["LIVE", "real"]) {
+    await withRoot({ web: { ...web, SOL_INGEST_MODE: value } }, async (root) => {
+      const result = await checkEnv({ root });
+      assert.deepEqual(
+        result.problems.filter((p) => p.key === "SOL_INGEST_MODE"),
+        [{ file: "web/.env.local", key: "SOL_INGEST_MODE", code: "INVALID_FORMAT" }],
+      );
+    });
+  }
+});

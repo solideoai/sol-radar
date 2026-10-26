@@ -1,0 +1,240 @@
+{
+  "at": "2026-10-26T06:45:56.314Z",
+  "base": "http://localhost:3279",
+  "failed": 0,
+  "results": [
+    {
+      "name": "topbar-1440-no-run-mode-ai",
+      "ok": true,
+      "detail": {
+        "top1440": "수집 방금 전2"
+      }
+    },
+    {
+      "name": "dashboard-1440-no-overflow",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "gate-before-open",
+      "ok": true,
+      "detail": {
+        "raw": {
+          "cooldownMinutes": 60,
+          "nextAvailableAt": null,
+          "sharedRun": null,
+          "daily": {
+            "used": 0,
+            "limit": 20,
+            "resetsAt": "2026-10-26T15:00:00.000Z"
+          },
+          "schedule": {
+            "pattern": "0 */3 * * *",
+            "timezone": "Asia/Seoul",
+            "slotHoursKst": [0, 3, 6, 9, 12, 15, 18, 21],
+            "active": true,
+            "nextRunAt": "2026-10-26T09:00:00.000Z"
+          },
+          "ingestMode": "live"
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "button-enabled-before",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "schedule-text-visible",
+      "ok": true,
+      "detail": {
+        "scheduleText": "정기 수집: 매일 00·03·06·09·12·15·18·21시(KST) · 다음 18:00"
+      }
+    },
+    {
+      "name": "manual-post-accepted",
+      "ok": true,
+      "detail": {
+        "status": 202,
+        "runId": "94374659-1789-4510-9032-02d98852ed46"
+      }
+    },
+    {
+      "name": "manual-run-finished",
+      "ok": true,
+      "detail": {
+        "finished": "SUCCEEDED|MANUAL|12|2026-10-25T06:45:00.000Z|2026-10-26T06:45:00.000Z|1|{\"changed\": 0, \"created\": 0, \"retried\": 0, \"cancelled\": 0, \"quarantined\": 0, \"skippedDuplicate\": 100}"
+      }
+    },
+    {
+      "name": "cooldown-notice-kst",
+      "ok": true,
+      "detail": {
+        "notice": "다음 불러오기 가능: 16:45 | 수집이 끝났습니다 · 신규 0 · 변경 0 · 취소 0 · 중복 100 · 격리 0 · 재시도 0 · 공공 API 호출 1회 · 15:45 완료 | 수집 실행 6건 표시"
+      }
+    },
+    {
+      "name": "button-disabled-after",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "gate-after-cooldown",
+      "ok": true,
+      "detail": {
+        "raw": {
+          "cooldownMinutes": 60,
+          "nextAvailableAt": "2026-10-26T07:45:23.681Z",
+          "sharedRun": {
+            "runId": "94374659-1789-4510-9032-02d98852ed46",
+            "requestedAt": "2026-10-26T06:45:23.681Z",
+            "until": "2026-10-26T06:55:23.681Z",
+            "mine": true
+          },
+          "daily": {
+            "used": 1,
+            "limit": 20,
+            "resetsAt": "2026-10-26T15:00:00.000Z"
+          },
+          "schedule": {
+            "pattern": "0 */3 * * *",
+            "timezone": "Asia/Seoul",
+            "slotHoursKst": [0, 3, 6, 9, 12, 15, 18, 21],
+            "active": true,
+            "nextRunAt": "2026-10-26T09:00:00.000Z"
+          },
+          "ingestMode": "live"
+        }
+      }
+    },
+    {
+      "name": "tab2-button-disabled",
+      "ok": true,
+      "detail": {
+        "notice": "다음 불러오기 가능: 16:45 |  | 수집 실행 6건 표시"
+      }
+    },
+    {
+      "name": "direct-post-cooldown-429",
+      "ok": true,
+      "detail": {
+        "status": 429,
+        "code": "MANUAL_COOLDOWN",
+        "retryAfter": "3591"
+      }
+    },
+    {
+      "name": "only-one-run-added",
+      "ok": true,
+      "detail": {
+        "runsBefore": 5,
+        "runsAfter": 6
+      }
+    },
+    {
+      "name": "other-admin-button-disabled-shared",
+      "ok": true,
+      "detail": {
+        "otherNotice": "다음 불러오기 가능: 15:55 |  | 수집 실행 6건 표시"
+      }
+    },
+    {
+      "name": "other-admin-post-409-shared",
+      "ok": true,
+      "detail": {
+        "status": 409,
+        "code": "MANUAL_SHARED_RUN",
+        "mine": false
+      }
+    },
+    {
+      "name": "analyst-role-restored",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "admin-ingestion-1280-no-overflow",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "topbar-1280-no-run-mode-ai",
+      "ok": true,
+      "detail": {
+        "top1280": "수집 방금 전2"
+      }
+    },
+    {
+      "name": "found-bids",
+      "ok": true,
+      "detail": {
+        "liveMissing": "ed9b7e6d-44fb-4f4d-b14d-0f3038ee6052",
+        "demoReady": "b9f00c0b-96e2-5949-9fc7-ef7bb7aea163"
+      }
+    },
+    {
+      "name": "live-missing-button-disabled",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "live-missing-hint",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "live-missing-post-409",
+      "ok": true,
+      "detail": {
+        "status": 409,
+        "code": "ANALYSIS_SOURCE_MISSING",
+        "reason": "SOURCE_TEXT_MISSING"
+      }
+    },
+    {
+      "name": "live-missing-no-score-run",
+      "ok": true,
+      "detail": {
+        "scoreRuns": "0"
+      }
+    },
+    {
+      "name": "bid-1280-no-overflow",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "demo-button-enabled",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "demo-no-missing-hint",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "bids-default-live-no-demo-rows",
+      "ok": true,
+      "detail": {
+        "rows": 20,
+        "demoRows": 0,
+        "demoWords": ["입찰 공고 사업기회 목록. DEMO는 데모용 가상 공고입니다."]
+      }
+    }
+  ],
+  "consoleErrors": [
+    "admin@admin.com 1440 http://localhost:3279/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "admin@admin.com 1440 http://localhost:3279/admin/ingestion Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+    "analyst@soltech.invalid 1440 http://localhost:3279/admin/ingestion Failed to load resource: the server responded with a status of 409 (Conflict)",
+    "admin@admin.com 1440 http://localhost:3279/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "analyst@soltech.invalid 1440 http://localhost:3279/dashboard Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+    "analyst@soltech.invalid 1440 http://localhost:3279/bids/ed9b7e6d-44fb-4f4d-b14d-0f3038ee6052 Failed to load resource: the server responded with a status of 409 (Conflict)"
+  ],
+  "serverErrors": [
+    "admin@admin.com 1440 503 /health/ready",
+    "admin@admin.com 1440 503 /health/ready",
+    "analyst@soltech.invalid 1440 503 /health/ready"
+  ]
+}

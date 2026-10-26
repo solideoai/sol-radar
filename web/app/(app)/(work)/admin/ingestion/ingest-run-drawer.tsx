@@ -23,6 +23,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   errorCodeLabel,
   groupErrorsByKind,
+  QUOTA_CAUSE_TEXT,
+  quotaCauseOf,
   type IngestErrorKind,
   type IngestRunError,
 } from "./error-kind";
@@ -305,11 +307,13 @@ const quotaText = (run: IngestRun): string =>
 function RunDetailView({ run }: { run: IngestRun }) {
   const groups = groupErrorsByKind(run.errors);
   const duration = formatDuration(run.startedAt, run.finishedAt);
+  const quota = quotaCauseOf(run.errors);
   const { summary } = run;
   return (
     <>
-      <div>
+      <div className="flex flex-col items-start gap-2">
         <StatusBadge kind="ingestRun" value={run.status} quarantined={summary.quarantined} />
+        {quota !== null && <p className="type-body text-destructive">{QUOTA_CAUSE_TEXT[quota]}</p>}
       </div>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">

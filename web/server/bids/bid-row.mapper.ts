@@ -1,7 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import type { Database } from "@/lib/database.types";
+import { ANALYSIS_READS_ATTACHMENT_TEXT } from "@/server/analysis";
 import { nameOf } from "@/server/shared";
+import { analysisReadinessOf } from "./analysis-readiness.model";
 import type { AnalysisView } from "./analysis-view.model";
 import { bidDetailSchema } from "./bid-detail.model";
 import type { BidDetail } from "./bid-detail.model";
@@ -46,6 +48,9 @@ export type BidDetailParts = {
   // 최신 revision 원본(raw_payload)의 공고기관 이름. 원본에 없으면 null 이다.
   noticeAgency: string | null;
   documents: BidDocument[];
+  // 최신 revision 첨부 가운데 AI 에 넘길 텍스트가 저장된 것(PARSED·PARTIAL + text_object_key)이 있는가.
+  // 판정에 쓰이는 것은 분석이 첨부를 읽을 때(ANALYSIS_READS_ATTACHMENT_TEXT)뿐이다.
+  hasAnalyzableDocument: boolean;
   structured: StructuredRequirement[];
   extraction: { id: string; status: string; result: unknown } | null;
   latestAnalysis: AnalysisView | null;
@@ -149,6 +154,11 @@ export function toBidDetail(parts: BidDetailParts): BidDetail {
     ),
     latestAnalysis: parts.latestAnalysis,
     reviews: parts.reviews,
+    analysisReadiness: analysisReadinessOf({
+      content: body.content,
+      hasAnalyzableDocument: parts.hasAnalyzableDocument,
+      readsAttachmentText: ANALYSIS_READS_ATTACHMENT_TEXT,
+    }),
   });
 }
 

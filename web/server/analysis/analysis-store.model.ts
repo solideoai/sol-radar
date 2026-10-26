@@ -43,6 +43,15 @@ export const EMPTY_ATTACHMENT_READER: AttachmentTextReader = Object.freeze({
   readRevisionDocuments: async () => [],
 });
 
+/**
+ * 분석 job 이 첨부 텍스트를 실제로 AI 에 넘기는가. C3 첨부 reader 연결 전이라 모든 분석 runtime 이
+ * EMPTY_ATTACHMENT_READER 를 쓴다(worker/analysis-runtime.ts). 그래서 본문 없이 파싱된 첨부만 있는 공고도
+ * 분석 원문이 없는 것으로 본다(@/server/bids analysisReadinessOf, 근거 없는 분석을 만들지 않는다).
+ * reader 를 연결하면 true 로 바꾼다. 그때 readiness 시험(본문 없음 + PARSED 첨부 → 409)의 기대도 바뀐다.
+ * 타입을 boolean 으로 적어 두 갈래가 모두 타입 검사를 받게 한다.
+ */
+export const ANALYSIS_READS_ATTACHMENT_TEXT: boolean = false;
+
 // ── 읽기 ──
 
 export type LoaderRows = {

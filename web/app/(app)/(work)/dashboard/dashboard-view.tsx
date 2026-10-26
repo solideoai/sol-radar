@@ -270,7 +270,7 @@ export function DashboardView({
   summary: OpportunitySummary;
   /** 실수집 지표. null 은 조회 실패다 */
   metrics: OpportunityLiveMetrics | null;
-  /** 다음 수집 예정. null 은 수집 주기를 몰라(G2B_INGEST_INTERVAL_MINUTES 없음) 카드를 숨긴다 */
+  /** 다음 수집 예정. null 이면 카드를 숨긴다. 웹은 수집 간격 env 를 읽지 않아(정기 일정은 worker Job Scheduler) 지금은 늘 null 이다 */
   nextIngest: NextIngest | null;
   activeProjects: number | null;
   review: OpportunityItem[] | null;

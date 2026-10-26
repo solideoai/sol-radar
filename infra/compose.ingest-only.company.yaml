@@ -1,4 +1,4 @@
-# Ingest 전용 Worker(회사 서버, 나라장터 live 수집 60분 주기). 실행서: infra/company/README.md "Ingest 전용 Worker".
+# Ingest 전용 Worker(회사 서버, 나라장터 live 수집 매일 KST 00·03·…·21시 정각). 실행서: infra/company/README.md "Ingest 전용 Worker".
 # 별도 운영 승인 후에만 실행한다. 기존 sol-radar-gateway 프로젝트·Nginx·Redis 를 건드리지 않는다.
 # down·--remove-orphans 를 쓰지 않는다(같은 프로젝트 이름이 아니어도 다른 컨테이너를 지울 수 있는 명령은 쓰지 않는다).
 # redis·redis-api·ai-gateway 는 여기 정의하지 않는다. 기존 Redis 의 network(redis_default)에만 붙는다.
@@ -22,7 +22,7 @@ services:
     environment:
       # env_file 보다 우선한다. live 가 아니면 진입점이 Redis 연결 전에 exit 1 로 멈춘다.
       SOL_RUN_MODE: "live"
-      G2B_INGEST_INTERVAL_MINUTES: "60"
+      # 정기 수집 일정은 코드에 고정했다(KST 3시간 정각). .env.worker.local 에 옛 G2B_INGEST_INTERVAL_MINUTES 가 남아 있어도 무시한다.
       # 이미지 작업 디렉터리는 /app 이라 기본 경로(/infra/sources/…)에는 파일이 없다. 아래 볼륨 경로를 직접 준다.
       SOURCES_REGISTRY_FILE: "/srv/sol-radar/infra/sources/registry.yaml"
       FIXTURES_DIR: "/srv/sol-radar/fixtures"

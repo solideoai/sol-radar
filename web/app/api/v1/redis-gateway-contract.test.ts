@@ -10,6 +10,7 @@ import { POST as requestAnalysis } from "./bids/[id]/analyses/route";
 import { POST as requestIngestion } from "./admin/ingestion/runs/route";
 import { GET as getAnalysis } from "./analyses/[id]/route";
 import { GET as getAdminAiStatus } from "./admin/ai/status/route";
+import { GET as getManualGate } from "./admin/ingestion/manual-gate/route";
 
 const { tcpDeps, authGate } = vi.hoisted(() => ({
   authGate: { wait: null as Promise<void> | null },
@@ -278,6 +279,114 @@ describe("frontend → existing company API", () => {
     expect(result.headers.get("retry-after")).toBe("17");
     expect(result.headers.has("set-cookie")).toBe(false);
     expect(tcpDeps).not.toHaveBeenCalled();
+  });
+});
+
+// 10-26 운영 전환: 수동 수집 gate 상태 중계와 분석 원문 미확보 사전 차단.
+describe("frontend → company API: manual gate and analysis source", () => {
+  const GATE_PATH = "/api/v1/admin/ingestion/manual-gate";
+  const gateView = {
+    cooldownMinutes: 60,
+    nextAvailableAt: null,
+    sharedRun: null,
+    daily: { used: 0, limit: 20, resetsAt: "2026-10-26T15:00:00.000Z" },
+    schedule: {
+      pattern: "0 */3 * * *",
+      timezone: "Asia/Seoul",
+      slotHoursKst: [0, 3, 6, 9, 12, 15, 18, 21],
+      active: true,
+      nextRunAt: "2026-10-26T06:00:00.000Z",
+    },
+    ingestMode: "live",
+  };
+  const analysisRequest = () =>
+    requestAnalysis(
+      fakeRequest(ANALYSIS_PATH, {
+        method: "POST",
+        headers: { "X-Requested-With": "sol-radar", "Idempotency-Key": KEY },
+        body: "{}",
+      }),
+      { params: Promise.resolve({ id: BID }) },
+    );
+  const seedBid = (content: string, documents: Record<string, unknown>[] = []) => {
+    const revisionId = "d1000000-0000-4000-8000-000000000001";
+    fakeSession.tables = {
+      bid_notices: [{ id: BID, latest_revision: 2 }],
+      bid_revisions: [{ id: revisionId, bid_id: BID, revision: 2, content }],
+      bid_documents: documents.map((row) => ({ bid_id: BID, revision_id: revisionId, ...row })),
+    };
+  };
+
+  it("relays the ADMIN gate read with JWT and service token, without local Redis deps", async () => {
+    fakeSession.cookie = FAKE_USERS.admin.token;
+    const send = vi.fn<typeof fetch>(async () => Response.json(gateView));
+    vi.stubGlobal("fetch", send);
+    const response = await getManualGate(fakeRequest(GATE_PATH));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(gateView);
+    const [url, init] = send.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`https://acropolissg.com/redis${GATE_PATH}`);
+    expect(init.method).toBe("GET");
+    const headers = new Headers(init.headers);
+    expect(headers.get("authorization")).toBe(`Bearer ${FAKE_USERS.admin.token}`);
+    expect(headers.get("x-sol-service-token")).toBe(TOKEN);
+    expect(tcpDeps).not.toHaveBeenCalled();
+  });
+
+  it("denies the gate read for non-ADMIN and unauthenticated requests before dispatch", async () => {
+    const send = vi.fn();
+    vi.stubGlobal("fetch", send);
+    fakeSession.cookie = FAKE_USERS.sales.token;
+    const forbidden = await getManualGate(fakeRequest(GATE_PATH));
+    expect(forbidden.status).toBe(403);
+    expect((await forbidden.json()).error.code).toBe("FORBIDDEN");
+    fakeSession.cookie = null;
+    expect((await getManualGate(fakeRequest(GATE_PATH))).status).toBe(401);
+    expect(send).not.toHaveBeenCalled();
+    expect(tcpDeps).not.toHaveBeenCalled();
+  });
+
+  // 지금 분석 runtime 은 첨부 텍스트를 AI 에 넘기지 않는다(ANALYSIS_READS_ATTACHMENT_TEXT = false).
+  // 그래서 본문이 없으면 파싱된 첨부가 있어도 막고, 첨부 조회도 하지 않는다. 첨부 reader 를 연결하면 PARSED·PARTIAL 줄의
+  // 기대가 202 로 바뀌고, 첨부 조회가 생기므로 fake-session 에 in·not(is) 흉내도 더해야 한다.
+  it.each([
+    ["no attachment", "", []],
+    [
+      "only unparsed or unstored attachments",
+      "",
+      [
+        { parse_status: "PENDING", text_object_key: "org/doc-1.txt" },
+        { parse_status: "PARSED", text_object_key: null },
+      ],
+    ],
+    ["a parsed attachment", "  ", [{ parse_status: "PARSED", text_object_key: "org/doc-1.txt" }]],
+    ["a partial attachment", "", [{ parse_status: "PARTIAL", text_object_key: "org/doc-2.txt" }]],
+  ])(
+    "blocks analysis of a bid without body text (%s) before contacting the company API",
+    async (_label, content, documents) => {
+      fakeSession.cookie = FAKE_USERS.sales.token;
+      seedBid(content, documents);
+      const send = vi.fn();
+      vi.stubGlobal("fetch", send);
+      const result = await analysisRequest();
+      expect(result.status).toBe(409);
+      expect((await result.json()).error).toMatchObject({
+        code: "ANALYSIS_SOURCE_MISSING",
+        message: "공고 본문 미확보 · 분석 준비 중",
+        details: { reason: "SOURCE_TEXT_MISSING" },
+      });
+      expect(send).not.toHaveBeenCalled();
+      expect(tcpDeps).not.toHaveBeenCalled();
+    },
+  );
+
+  it("relays analysis of a bid with body text", async () => {
+    fakeSession.cookie = FAKE_USERS.sales.token;
+    seedBid("과업 내용", []);
+    const send = vi.fn(async () => accepted());
+    vi.stubGlobal("fetch", send);
+    expect((await analysisRequest()).status).toBe(202);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -170,6 +170,11 @@ export async function checkEnv({ root = DEFAULT_ROOT } = {}) {
         problems.push({ file: WEB_FILE, key: "REDIS_API_BASE_URL", code: "INVALID_FORMAT" });
       }
     }
+    // 수동 수집 판정용 모드(선택, redis-api). 비면 SOL_RUN_MODE 를 따른다. 있으면 실행 모드 이름과 같아야 한다(web/app/_lib/run-mode.ts).
+    const ingestMode = web.SOL_INGEST_MODE?.trim() ?? "";
+    if (ingestMode !== "" && !Object.hasOwn(rules.modes, ingestMode)) {
+      problems.push({ file: WEB_FILE, key: "SOL_INGEST_MODE", code: "INVALID_FORMAT" });
+    }
     if (web.REDIS_API_TIMEOUT_MS !== undefined && web.REDIS_API_TIMEOUT_MS !== "") {
       const timeout = Number(web.REDIS_API_TIMEOUT_MS);
       if (!Number.isInteger(timeout) || timeout < 100 || timeout > 15000)

@@ -57,6 +57,7 @@ const CODE_LABEL: ReadonlyMap<string, string> = new Map([
   ["RATE_LIMITED", "요청 제한(429)이 계속되어 중단"],
   ["SEED_ANCHOR_MISSING", "SEED 수집 기록이 없어 LIVE 배치를 시작할 수 없음"],
   ["QUOTA_EXCEEDED", "일일 호출 예산 소진"],
+  ["API_QUOTA_EXCEEDED", "공공 API 일일 호출 한도 초과"],
   ["QUOTA_STORE_UNAVAILABLE", "호출 예산 확인 실패(저장소 오류)"],
   ["RUN_MODE_MISMATCH", "실행 모드와 소스가 맞지 않음"],
   ["WINDOW_INVALID", "수집 구간이 올바르지 않음"],
@@ -95,4 +96,33 @@ export function groupErrorsByKind(errors: readonly IngestRunError[]): GroupedErr
 export function primaryFailureOf(errors: readonly IngestRunError[]): IngestRunError | null {
   const groups = groupErrorsByKind(errors);
   return groups.FAILURE[0] ?? groups.OTHER[0] ?? null;
+}
+
+// ── 호출 한도 때문에 멈춘 run(10-26 운영 전환). 표·서랍·상태 줄이 원인을 같은 문장으로 보인다 ──
+// 실제 소진: run 수준 QUOTA_EXCEEDED(ingestion.service.ts), 쪽 수준 API_QUOTA_EXCEEDED(connector.model.ts), 공급자 결과 코드 22(quota.ts).
+// 예산 저장소(Redis) 오류: QUOTA_STORE_UNAVAILABLE. 둘이 함께 있으면(코드 22 뒤 소진 표시 실패) 실제 소진이 원인이다.
+// 한도 1,000회는 infra/sources/registry.yaml 의 g2b quota.daily 다.
+
+export type QuotaCause = "EXCEEDED" | "STORE_UNAVAILABLE";
+
+const QUOTA_EXCEEDED_CODES: ReadonlySet<string> = new Set(["QUOTA_EXCEEDED", "API_QUOTA_EXCEEDED"]);
+const DAILY_LIMIT_RESULT_CODE = "22";
+
+export const QUOTA_CAUSE_TEXT = {
+  EXCEEDED:
+    "일일 API 호출 한도(1,000회)를 다 써서 수집하지 못했습니다 · 다음 날 00:00(KST)부터 다시 수집합니다",
+  STORE_UNAVAILABLE:
+    "호출 예산 저장소에 연결하지 못해 수집을 멈췄습니다(안전을 위해 호출하지 않음)",
+} as const satisfies Record<QuotaCause, string>;
+
+export function quotaCauseOf(errors: readonly IngestRunError[]): QuotaCause | null {
+  const exceeded = errors.some(
+    (error) =>
+      QUOTA_EXCEEDED_CODES.has(error.errorCode) ||
+      error.resultCode?.trim() === DAILY_LIMIT_RESULT_CODE,
+  );
+  if (exceeded) return "EXCEEDED";
+  return errors.some((error) => error.errorCode === "QUOTA_STORE_UNAVAILABLE")
+    ? "STORE_UNAVAILABLE"
+    : null;
 }

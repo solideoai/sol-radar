@@ -111,6 +111,7 @@ function bidsWith(getAnalysisSnapshot: BidsRepo["getAnalysisSnapshot"]): BidsRep
     countBids: notUsed,
     getBid: notUsed,
     bidExists: notUsed,
+    getAnalysisReadiness: notUsed,
     listAnalyses: notUsed,
     getLatestScoredAnalysis: notUsed,
     getAnalysis: notUsed,

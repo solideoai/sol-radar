@@ -1,5 +1,13 @@
 import "server-only";
+import { ANALYSIS_READS_ATTACHMENT_TEXT } from "@/server/analysis";
 import { getSupabase } from "@/server/supabase";
+import {
+  ANALYZABLE_PARSE_STATUSES,
+  analysisReadinessOf,
+  hasSourceBody,
+  isAnalyzableDocument,
+  type AnalysisReadiness,
+} from "./analysis-readiness.model";
 import { toAnalysisViewFromRows } from "./analysis-row.mapper";
 import type {
   QualificationCheckRow,
@@ -194,8 +202,11 @@ async function findSameInput(
 // ── 공고 상세 ──
 
 const REVISION_COLUMNS = "id,revision,amendment_no,fetched_at,checksum,changed_fields";
+// text_object_key 는 화면에 싣지 않고 분석 원문 준비(analysisReadiness) 판정에만 쓴다.
+// 지금(ANALYSIS_READS_ATTACHMENT_TEXT = false)은 판정에 쓰이지 않지만, 이미 읽는 질의의 한 칸이라 남겨 둔다.
+// 첨부 reader 를 연결해 상수를 true 로 바꾸면 상세와 분석 요청(readAnalysisReadiness)이 같이 바뀐다.
 const DOCUMENT_COLUMNS =
-  "id,name,mime_type,size_bytes,format,download_status,parse_status,download_error_code,page_count,parse_error_code";
+  "id,name,mime_type,size_bytes,format,download_status,parse_status,download_error_code,page_count,parse_error_code,text_object_key";
 // 분석이 쓰는 추출과 같은 조건(resolveAnalysisInput)이다.
 const USABLE_EXTRACTION = ["COMPLETED", "PENDING_REVIEW"];
 
@@ -306,10 +317,64 @@ async function readRevisionParts(db: Db, bidId: string, revisionId: string) {
     latestRevisionBody: body.data.normalized,
     noticeAgency: body.data.notice_agency,
     documents: documents.data.map(toDocument),
+    hasAnalyzableDocument: documents.data.some(isAnalyzableDocument),
     structured: structured.data.map(toStructured),
     extraction: pickExtraction(extractions.data),
   };
 }
+
+// 분석 원문 준비. 상세(getBid)와 같은 규칙을 가벼운 질의로 본다: 최신 revision 의 본문 한 칸을 먼저 보고,
+// 비었고 분석이 첨부를 읽을 때(ANALYSIS_READS_ATTACHMENT_TEXT)만 분석 가능한 첨부가 하나라도 있는지 센다.
+// 공고가 없거나(RLS 로 보이지 않거나) 하면 null 이다.
+async function readAnalysisReadiness(db: Db, bidId: string): Promise<AnalysisReadiness | null> {
+  const notice = await db
+    .from("bid_notices")
+    .select("latest_revision")
+    .eq("id", bidId)
+    .maybeSingle();
+  if (notice.error) throw notice.error;
+  if (notice.data === null) return null;
+  const revision = await db
+    .from("bid_revisions")
+    .select("id, content:normalized->>content")
+    .eq("bid_id", bidId)
+    .eq("revision", notice.data.latest_revision)
+    .maybeSingle();
+  if (revision.error) throw revision.error;
+  // 최신 revision 행이 없으면 분석에 넘길 글도 없다. 500 대신 원문 미확보로 판정한다(분석 job 도 입력을 만들지 못한다).
+  if (revision.data === null) {
+    return analysisReadinessOf({
+      content: null,
+      hasAnalyzableDocument: false,
+      readsAttachmentText: ANALYSIS_READS_ATTACHMENT_TEXT,
+    });
+  }
+  const { content } = revision.data;
+  const readsAttachmentText = ANALYSIS_READS_ATTACHMENT_TEXT;
+  // 본문이 있으면 첨부를 볼 필요가 없다. 분석이 첨부를 읽지 않는 동안(지금)은 첨부를 세는 질의도 하지 않는다.
+  if (hasSourceBody(content) || !readsAttachmentText) {
+    return analysisReadinessOf({ content, hasAnalyzableDocument: false, readsAttachmentText });
+  }
+  const documents = await db
+    .from("bid_documents")
+    .select("id")
+    .eq("bid_id", bidId)
+    .eq("revision_id", revision.data.id)
+    .in("parse_status", [...ANALYZABLE_PARSE_STATUSES])
+    .not("text_object_key", "is", null)
+    .limit(1);
+  if (documents.error) throw documents.error;
+  return analysisReadinessOf({
+    content,
+    hasAnalyzableDocument: documents.data.length > 0,
+    readsAttachmentText,
+  });
+}
+
+/** frontend(Vercel)가 중계 전에 같은 판정을 하는 자리. 사용자 세션(anon + RLS)으로만 읽는다 */
+export const analysisReadinessRepo: Pick<BidsRepo, "getAnalysisReadiness"> = {
+  getAnalysisReadiness: async (_orgId, bidId) => readAnalysisReadiness(await getSupabase(), bidId),
+};
 
 export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: string }): BidsRepo {
   return {
@@ -371,6 +436,8 @@ export function createBidsRepo(config: { runMode: RunMode; algorithmVersion: str
     async bidExists(_orgId, bidId) {
       return bidExistsIn(await getSupabase(), bidId);
     },
+
+    getAnalysisReadiness: analysisReadinessRepo.getAnalysisReadiness,
 
     // 분석 이력: created_at 내림차순(nulls last), 같은 시각은 id 내림차순 키셋.
     // 동률 순서는 최신 run 조회(latestAnalysis)·뷰와 같다. 이력 첫 줄이 "최신"과 어긋나지 않는다(M11).

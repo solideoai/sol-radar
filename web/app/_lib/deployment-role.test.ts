@@ -88,4 +88,18 @@ describe("deployment boundary", () => {
   ])("does not allow raw/extra path %s", (path) => {
     expect(redisApiOperation("POST", path)).toBeNull();
   });
+  it("allows the manual ingestion gate read only as an exact GET", () => {
+    expect(redisApiOperation("GET", "/api/v1/admin/ingestion/manual-gate")).toBe(
+      "ingest-gate-read",
+    );
+    for (const [method, path] of [
+      ["POST", "/api/v1/admin/ingestion/manual-gate"],
+      ["DELETE", "/api/v1/admin/ingestion/manual-gate"],
+      ["GET", "/api/v1/admin/ingestion/manual-gate/"],
+      ["GET", "/api/v1/admin/ingestion/manual-gate/reset"],
+      ["GET", "/api/v1/admin/ingestion/manual-gate/../runs"],
+    ] as const) {
+      expect(redisApiOperation(method, path)).toBeNull();
+    }
+  });
 });

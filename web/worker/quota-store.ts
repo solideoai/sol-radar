@@ -1,6 +1,12 @@
 import type IORedis from "ioredis";
 import type { RedisOptions } from "ioredis";
-import { quotaKey, validateCalls, validateDailyLimit, type QuotaStore } from "@/server/ingestion";
+import {
+  quotaKey,
+  validateCalls,
+  validateDailyLimit,
+  type IngestQuota,
+  type QuotaStore,
+} from "@/server/ingestion";
 
 // ── Redis 호출 예산 카운터(07 §2.2). 키 quota:{serviceId}:{YYYYMMDD}(KST), Lua 예약 + TTL 2일 ──
 // 같은 서비스를 부르는 worker 가 여럿이어도 한 카운터를 본다. KST 날짜가 바뀌면 키가 바뀌어 0 부터 센다.
@@ -97,5 +103,37 @@ export function createRedisQuotaStore(
         QUOTA_KEY_TTL_SECONDS,
       );
     },
+  };
+}
+
+// ── 수동 수집 몫 나누기(10-26). 정기 목록 수집이 쓸 호출을 수동 수집이 다 쓰지 못하게 한다 ──
+
+/**
+ * 일 한도 중 정기 수집만 쓰는 호출 수. 수동(MANUAL) g2b 수집은 `일 한도 − 이 값`(registry 1000 이면 800)까지만 예약한다.
+ * 수동은 그 한도의 90%(720)부터 보조 조회를 멈추고 800 에서 호출을 멈춘다. 정기는 지금처럼 900·1000 이다.
+ */
+export const MANUAL_RESERVED_CALLS = 200;
+
+/** 수동 수집의 일 한도. 일 한도가 MANUAL_RESERVED_CALLS 이하이면 0(수동 수집은 그날 부르지 않는다) */
+export const manualDailyLimitOf = (dailyLimit: number): number =>
+  Math.max(0, validateDailyLimit(dailyLimit, "manualDailyLimitOf") - MANUAL_RESERVED_CALLS);
+
+export type G2bQuotas = { scheduled: IngestQuota; manual: IngestQuota };
+
+/**
+ * 정기·수동 g2b 예산 둘. 둘 다 같은 키(quota:{serviceId}:{KST 날짜})를 센다. 수동은 예약 Lua 의 한도(ARGV)만 낮다.
+ * 결과코드 22(공급자 한도 소진)는 그날 전체가 끝났다는 뜻이라, 수동도 markExhausted 는 일 한도 값으로 올린다.
+ */
+export function createG2bQuotas(
+  redis: QuotaRedis,
+  options: { serviceId: string; dailyLimit: number },
+): G2bQuotas {
+  const { serviceId, dailyLimit } = options;
+  const store = createRedisQuotaStore(redis, { dailyLimit });
+  const manualLimit = manualDailyLimitOf(dailyLimit);
+  const manualReserve = createRedisQuotaStore(redis, { dailyLimit: manualLimit }).reserve;
+  return {
+    scheduled: { store, serviceId, dailyLimit },
+    manual: { store: { ...store, reserve: manualReserve }, serviceId, dailyLimit: manualLimit },
   };
 }

@@ -15,7 +15,13 @@ export * from "./what-if.service";
 export * from "./notification.service";
 export * from "./dashboard.service";
 export { keysetFilter, likePattern, quoteValue, uniqueViolation } from "./postgrest";
-export { createBidsRepo } from "./bids.supabase";
+export { analysisReadinessRepo, createBidsRepo } from "./bids.supabase";
+export {
+  ANALYSIS_READINESS_REASONS,
+  analysisReadinessOf,
+  analysisReadinessSchema,
+} from "./analysis-readiness.model";
+export type { AnalysisReadiness } from "./analysis-readiness.model";
 export { reviewRepo } from "./review.supabase";
 export { notificationRepo } from "./notification.supabase";
 export { createDashboardRepo } from "./dashboard.supabase";

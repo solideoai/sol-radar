@@ -5,6 +5,7 @@ import {
   type IngestionIdempotencyRecord,
 } from "./ingestion-admin.service";
 import type { IngestJobData } from "./ingestion.queue";
+import { createMemoryManualIngestGate } from "./manual-ingest-gate.memory";
 
 const ctx = {
   orgId: "11111111-1111-4111-8111-111111111111",
@@ -53,6 +54,8 @@ function setup(runMode: "mock" | "live", ready?: IngestionAdminDeps["serviceRead
     },
     limiter: { hit: async () => ({ allowed: true }) },
     serviceReady: ready,
+    manualGate: createMemoryManualIngestGate(),
+    scheduler: { read: async () => ({ active: true, nextRunAt: "2026-10-21T06:00:00.000Z" }) },
   };
   return { deps, jobs, claims: () => claims };
 }

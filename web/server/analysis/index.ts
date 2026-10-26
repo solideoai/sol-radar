@@ -104,5 +104,5 @@ export type {
   PreanalyzeTarget,
   RunState,
 } from "./preanalyze.model";
-export { EMPTY_ATTACHMENT_READER } from "./analysis-store.model";
+export { ANALYSIS_READS_ATTACHMENT_TEXT, EMPTY_ATTACHMENT_READER } from "./analysis-store.model";
 export type { AttachmentTextReader, RevisionDocumentText } from "./analysis-store.model";

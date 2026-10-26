@@ -16,14 +16,18 @@ import {
   type IngestRunResult,
   type RetryDeps,
   type StartRunInput,
+  INGEST_SCHEDULE_SLOT_HOURS_KST,
 } from "@/server/ingestion";
 
 // ── ingest job 처리 규칙(6-4). Redis·Supabase·서비스키 연결은 main.ts 가 하고, 여기는 주입받은 것만 쓴다 ──
 
-/** 07 에 정본값이 없어 정한 값(e8 판정). env G2B_INGEST_INTERVAL_MINUTES 로 바꾼다 */
-export const DEFAULT_G2B_INGEST_INTERVAL_MINUTES = 30;
 /** 직전 성공 창이 없을 때(첫 일정 실행) 거슬러 올라가는 길이 */
 export const DEFAULT_G2B_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
+/** 로그·--check 에 싣는 정기 수집 일정. 정본은 @/server/ingestion 의 INGEST_SCHEDULE_* 다 */
+export const INGEST_SCHEDULE_LABEL = `매일 KST ${INGEST_SCHEDULE_SLOT_HOURS_KST.map((hour) =>
+  String(hour).padStart(2, "0"),
+).join("·")}시 정각`;
 
 const RUN_MODES = ["live", "fixture", "mock"] as const;
 export type RunMode = (typeof RUN_MODES)[number];
@@ -31,9 +35,12 @@ export type RunMode = (typeof RUN_MODES)[number];
 type Env = Record<string, string | undefined>;
 
 const RUN_MODE_ENV = "SOL_RUN_MODE";
-const INTERVAL_ENV = "G2B_INGEST_INTERVAL_MINUTES";
+/**
+ * 10-26 전까지 수집 간격(분)을 정하던 env. 지금은 일정이 INGEST_SCHEDULE_PATTERN(KST 3시간 정각)으로 고정이라 읽지 않는다.
+ * 회사 서버 env 에 남아 있을 수 있어, 값이 틀려도 기동을 멈추지 않고 "무시함" 한 줄만 남긴다(값은 찍지 않는다).
+ */
+export const LEGACY_INGEST_INTERVAL_ENV = "G2B_INGEST_INTERVAL_MINUTES";
 const MINUTE_MS = 60_000;
-const POSITIVE_INTEGER = /^[1-9]\d*$/;
 
 /** 대소문자를 접지 않는다. 값이 틀리면 기동을 멈춘다(오류에는 env 이름만 싣는다) */
 export function readRunMode(env: Env): RunMode {
@@ -44,13 +51,54 @@ export function readRunMode(env: Env): RunMode {
   return mode;
 }
 
-export function readIngestIntervalMinutes(env: Env): number {
-  const value = env[INTERVAL_ENV]?.trim();
-  if (value === undefined || value === "") return DEFAULT_G2B_INGEST_INTERVAL_MINUTES;
-  if (!POSITIVE_INTEGER.test(value)) {
-    throw new Error(`worker env 형식 오류: ${INTERVAL_ENV} (양의 정수 분)`);
-  }
-  return Number(value);
+/** 옛 간격 env 가 있으면(값과 형식은 보지 않는다) 남길 한 줄. 없으면 null */
+export const ignoredIngestIntervalNotice = (env: Env): string | null =>
+  env[LEGACY_INGEST_INTERVAL_ENV] === undefined
+    ? null
+    : `${LEGACY_INGEST_INTERVAL_ENV} 무시함: 정기 수집은 ${INGEST_SCHEDULE_LABEL}에 돈다`;
+
+/**
+ * job 하나의 예정·등록·실제 시작 시각(ISO)과 큐 대기(ms). ingest_runs.params.timing 과 ingest.job.timing 로그에 싣는다.
+ * 예정 시각은 일정 job 이면 그 정각, 수동 job 이면 큐 등록 시각이다. queueDelayMs 가 음수면 시계 차이다(메우지 않는다).
+ */
+export type IngestJobTiming = {
+  scheduledFor: string;
+  enqueuedAt: string;
+  startedAt: string;
+  queueDelayMs: number;
+};
+
+/** BullMQ Job 중 시각을 읽는 데 쓰는 것 */
+export type QueuedIngestJob = {
+  id?: string;
+  repeatJobKey?: string;
+  timestamp: number;
+  processedOn?: number;
+};
+
+const SCHEDULER_JOB_ID = /^repeat:(.+):(\d+)$/;
+
+/**
+ * BullMQ 6.3.17 의 Job Scheduler 는 회차 job id 를 `repeat:<schedulerId>:<예정 millis>` 로 짓는다
+ * (dist/esm/classes/job-scheduler.js getSchedulerNextJobId, commands/addJobScheduler-11.lua·updateJobScheduler-12.lua).
+ * timestamp + delay 는 재시도(backoff)·지난 시각 보정(delay 0)으로 바뀌어 예정 시각으로 쓰지 않는다.
+ * startedAt 은 BullMQ 가 active 로 옮길 때 적은 processedOn, 없으면 now 다.
+ */
+export function ingestJobTimingOf(job: QueuedIngestJob, now: Date): IngestJobTiming | null {
+  if (!Number.isFinite(job.timestamp)) return null;
+  const slot = job.id === undefined ? null : SCHEDULER_JOB_ID.exec(job.id);
+  const isSchedulerJob = slot !== null && job.repeatJobKey === slot[1];
+  const scheduledMs = isSchedulerJob ? Number(slot[2]) : job.timestamp;
+  const startedMs =
+    job.processedOn !== undefined && Number.isFinite(job.processedOn)
+      ? job.processedOn
+      : now.getTime();
+  return {
+    scheduledFor: new Date(scheduledMs).toISOString(),
+    enqueuedAt: new Date(job.timestamp).toISOString(),
+    startedAt: new Date(startedMs).toISOString(),
+    queueDelayMs: startedMs - scheduledMs,
+  };
 }
 
 export type ExternalIngestJobData = Exclude<IngestJobData, { source: "fixture" }> & {
@@ -79,6 +127,13 @@ export type IngestJobDeps = {
   secrets: readonly string[];
   /** 호출 예산(07 §2.2). live 에서만 준다. 없으면 g2b 수집이 예산을 보지 않는다 */
   quota?: IngestQuota;
+  /**
+   * 수동(MANUAL) g2b 입찰공고 수집의 호출 예산. quota 와 같은 카운터 키를 쓰고 한도만 낮다(MANUAL_RESERVED_CALLS 를 뺀 값).
+   * 수동 수집이 정기 목록 수집 몫을 다 쓰지 못하게 한다. live 에서 없으면 수동 g2b job 은 QUOTA_STORE_UNAVAILABLE 로 거절한다.
+   */
+  manualQuota?: IngestQuota;
+  /** 주면 job 마다 ingest.job.timing 한 줄을 남긴다(시각·ms·source·trigger 만, 키 값·id 없음) */
+  log?: (line: string) => void;
   /**
    * ingest 전용 worker 만 준다(10-25 live 수집 계획 B1). 창을 정하지 않은 정기 g2b 회차의 시작을 `지금 − maxMs` 보다
    * 앞으로 잡지 않는다. 잘라 낸 회차는 params.windowCap 에 남기고 log 로 한 줄 남긴다(키 값 없음).
@@ -119,7 +174,7 @@ function parseJobData(data: unknown, now: Date): IngestJobData {
 // C8: 마지막 SCHEDULED run 이 FAILED 면 그 창을 다시 쓴다. jobKey 가 같아져 저장된 cursor 부터 잇는다(07 §2.6).
 // 새 24h 창을 열면 재기동·일정마다 같은 공고를 다시 받고 호출 예산을 또 쓴다.
 // 10-25 B1: scheduledWindowCap 이 있으면(ingest 전용 worker) 창 시작을 max(직전 성공 창 끝, 지금 − 상한)으로 자른다.
-// 상한보다 오래된 실패 창도 다시 쓰지 않는다. 24시간 백필은 창을 정한 1회 수집(--once)으로만 한다.
+// 상한보다 오래된 실패 창도 다시 쓰지 않는다. 상한보다 긴 백필은 창을 정한 1회 수집(--once)으로만 한다.
 async function g2bWindowOf(
   data: Extract<IngestJobData, { source: "g2b" }>,
   deps: IngestJobDeps,
@@ -149,7 +204,15 @@ async function g2bWindowOf(
   };
 }
 
-async function runInputOf(data: IngestJobData, deps: IngestJobDeps): Promise<StartRunInput> {
+// 같은 jobKey 의 run 을 이어 가면 repo 가 처음 저장한 params 를 그대로 둔다(timing 도 첫 시도의 값). 이번 시도는 로그에 남는다.
+const timingParam = (timing: IngestJobTiming | null): { timing?: IngestJobTiming } =>
+  timing === null ? {} : { timing };
+
+async function runInputOf(
+  data: IngestJobData,
+  deps: IngestJobDeps,
+  timing: IngestJobTiming | null,
+): Promise<StartRunInput> {
   const common = {
     runMode: RUN_MODE_OF[deps.runMode],
     trigger: data.trigger,
@@ -195,7 +258,13 @@ async function runInputOf(data: IngestJobData, deps: IngestJobDeps): Promise<Sta
           ? `${data.serviceKey}:${operation}:${partitionKey}:${window.from}:${window.to}`
           : data.jobKey,
       batch: null,
-      params: { window, serviceKey: data.serviceKey, operation, partitionKey },
+      params: {
+        window,
+        serviceKey: data.serviceKey,
+        operation,
+        partitionKey,
+        ...timingParam(timing),
+      },
     };
   }
   if (data.source !== "g2b") throw new Error("ingest source missing serviceKey");
@@ -219,7 +288,12 @@ async function runInputOf(data: IngestJobData, deps: IngestJobDeps): Promise<Sta
         : data.jobKey,
     batch: null,
     // 05: 실제 적용한 기본값을 params 에 남긴다. 지금 수집하는 단계는 공고(NOTICE)뿐이다.
-    params: { window, stages: ["NOTICE"], ...(cap === null ? {} : { windowCap: cap }) },
+    params: {
+      window,
+      stages: ["NOTICE"],
+      ...(cap === null ? {} : { windowCap: cap }),
+      ...timingParam(timing),
+    },
   };
 }
 
@@ -301,19 +375,40 @@ async function auxFor(data: IngestJobData, deps: IngestJobDeps): Promise<{ aux?:
   return { aux: await deps.createG2bAuxFetcher() };
 }
 
+// 수동 g2b 입찰공고 수집은 낮은 한도의 예산을 쓴다. 외부 소스는 소스마다 자기 예산이 있어 trigger 로 나누지 않는다.
+function quotaFor(job: IngestJobData, deps: IngestJobDeps): IngestQuota | undefined {
+  if (isExternalJob(job)) return deps.quotaForExternal?.(job);
+  return job.trigger === "MANUAL" && job.source === "g2b" ? deps.manualQuota : deps.quota;
+}
+
+// 시각·ms 와 source·trigger(고정 값)만 싣는다. jobKey·job id 는 조직 id 를 담을 수 있어 넣지 않는다.
+const timingLine = (job: IngestJobData, timing: IngestJobTiming): string =>
+  JSON.stringify({
+    event: "ingest.job.timing",
+    source: job.source,
+    trigger: job.trigger,
+    ...timing,
+  });
+
+/**
+ * timing 은 큐에서 꺼낸 job 의 시각(ingestJobTimingOf)이다. 큐를 거치지 않는 1회 수집(--once)·시험은 주지 않는다.
+ * 주면 run params.timing 에 넣고 deps.log 로 한 줄 남긴다.
+ */
 export async function processIngestJob(
   data: unknown,
   deps: IngestJobDeps,
+  timing: IngestJobTiming | null = null,
 ): Promise<IngestRunResult> {
   const job = parseJobData(data, deps.now());
-  const run = await runInputOf(job, deps);
+  if (timing !== null) deps.log?.(timingLine(job, timing));
+  const run = await runInputOf(job, deps, timing);
   const modeReason = rejectReasonOf(run, deps.runMode);
   const externalReason =
     modeReason === null && isExternalJob(job)
       ? (deps.externalSourceGate?.(job) ??
         (deps.externalSourceGate === undefined ? "NOT_VERIFIED" : null))
       : null;
-  const quota = isExternalJob(job) ? deps.quotaForExternal?.(job) : deps.quota;
+  const quota = quotaFor(job, deps);
   const reason =
     modeReason ??
     (externalReason === null

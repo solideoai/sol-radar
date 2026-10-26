@@ -100,6 +100,14 @@ export {
   quotaState,
 } from "./quota";
 export type { QuotaState } from "./quota";
+export {
+  INGEST_SCHEDULE_INTERVAL_MINUTES,
+  INGEST_SCHEDULE_PATTERN,
+  INGEST_SCHEDULE_SLOT_HOURS_KST,
+  INGEST_SCHEDULE_TIMEZONE,
+  latestIngestSlotAtOrBefore,
+  nextIngestSlotAfter,
+} from "./ingest-schedule";
 // 호출 예산 저장 포트(07 §2.2). Redis 구현은 web/worker/quota-store.ts, 메모리 구현은 시험·fixture 용
 export { createMemoryQuotaStore, validateCalls, validateDailyLimit } from "./quota-store";
 export type { IngestQuota, MemoryQuotaStore, QuotaStore } from "./quota-store";
@@ -359,6 +367,7 @@ export type {
 } from "./ingestion-admin.model";
 export {
   getIngestionRun,
+  getManualIngestGate,
   ingestionForbidden,
   listIngestionRuns,
   requestIngestionRun,
@@ -366,6 +375,7 @@ export {
 export type {
   IngestionAdminContext,
   IngestionAdminDeps,
+  ManualIngestGateDeps,
   IngestionAdminRepo,
   IngestionBodyRead,
   IngestionIdempotencyRecord,
@@ -375,6 +385,30 @@ export type {
   IngestionRunPosition,
 } from "./ingestion-admin.service";
 export { ingestionAdminRepo } from "./ingestion-admin.repo";
+// 수동 수집 gate(사용자 1시간·전역 10분·하루 상한). Redis 구현은 web/app/_lib/manual-ingest-gate.ts, 메모리 구현은 시험용
+export {
+  INGEST_SCHEDULER_ID,
+  MANUAL_INGEST_COOLDOWN_MINUTES,
+  MANUAL_INGEST_COOLDOWN_MS,
+  MANUAL_INGEST_DAILY_LIMIT,
+  MANUAL_INGEST_SHARED_MINUTES,
+  MANUAL_INGEST_SHARED_MS,
+  manualIngestDayKey,
+  nextKstMidnightAfter,
+  toManualIngestGateView,
+} from "./manual-ingest-gate.model";
+export type {
+  IngestSchedulerReader,
+  IngestSchedulerState,
+  ManualIngestClaim,
+  ManualIngestEntry,
+  ManualIngestGate,
+  ManualIngestGateState,
+  ManualIngestGateView,
+  ManualIngestTicket,
+} from "./manual-ingest-gate.model";
+export { createMemoryManualIngestGate } from "./manual-ingest-gate.memory";
+export type { MemoryManualIngestGate } from "./manual-ingest-gate.memory";
 
 // ADR-047 공공조달 확장. 기존 G2B/fixture 계약은 유지한다.
 export {

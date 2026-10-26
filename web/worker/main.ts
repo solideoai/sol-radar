@@ -14,6 +14,9 @@ import {
   G2B_BID_NOTICE_SERVICE_ID,
   INGEST_JOB_NAME,
   INGEST_QUEUE,
+  INGEST_SCHEDULE_PATTERN,
+  INGEST_SCHEDULE_TIMEZONE,
+  INGEST_SCHEDULER_ID,
   callableSource,
   createFixtureConnector,
   createG2bAuxFetcher,
@@ -25,6 +28,7 @@ import {
   enqueueDocuments,
   loadFixtureManifest,
   loadSourceRegistry,
+  nextIngestSlotAfter,
   type IngestJobData,
   type IngestQuota,
   type IngestRunResult,
@@ -68,8 +72,10 @@ import {
 } from "@/worker/notify-outbox";
 import { programNoticesWorkerRegistration } from "@/worker/program-notices";
 import {
+  INGEST_SCHEDULE_LABEL,
+  ignoredIngestIntervalNotice,
+  ingestJobTimingOf,
   processIngestJob,
-  readIngestIntervalMinutes,
   readRunMode,
   type IngestJobDeps,
   type ExternalIngestJobData,
@@ -80,7 +86,7 @@ import {
   readIngestQueueStatus,
   type StatusRedis,
 } from "@/worker/ingest-queue-status";
-import { QUOTA_REDIS_OPTIONS, createRedisQuotaStore } from "@/worker/quota-store";
+import { QUOTA_REDIS_OPTIONS, createG2bQuotas, createRedisQuotaStore } from "@/worker/quota-store";
 import { checkReadiness, createReadinessProbes } from "@/worker/readiness";
 import { SYSTEM_QUEUE, processSystemJob } from "@/worker/system-queue";
 
@@ -145,33 +151,41 @@ function logErrors(target: ErrorEmitter, label: string): void {
   });
 }
 
-export const G2B_SCHEDULER_ID = "g2b-scheduled";
+/** 운영 Redis 의 기존 일정 id 와 같아야 중복 없이 upsert 된다. 정본은 @/server/ingestion 의 INGEST_SCHEDULER_ID("g2b-scheduled") */
+export const G2B_SCHEDULER_ID = INGEST_SCHEDULER_ID;
 
-/** live 모드의 g2b 일정 실행(6-4). 같은 id 로 다시 부르면 간격만 바뀐다(upsert). 반복 job 의 data 는 고정이다. */
-export async function scheduleG2bIngest(
-  queue: Pick<Queue, "upsertJobScheduler">,
-  intervalMinutes: number,
-): Promise<void> {
-  await queue.upsertJobScheduler(
-    G2B_SCHEDULER_ID,
-    { every: intervalMinutes * 60_000 },
-    {
-      name: INGEST_JOB_NAME,
-      data: { source: "g2b", trigger: "SCHEDULED", jobKey: "g2b:SCHEDULED" },
-    },
-  );
+/**
+ * 정기 수집 일정(10-26): Asia/Seoul 기준 cron(매일 00·03·…·21시 정각). 기동 시각 기준 반복(every)은 쓰지 않는다.
+ * immediately 를 주지 않는다: 일정을 처음 걸거나 다시 걸어도 즉시 수집하지 않고 다음 정각부터 돈다.
+ * 즉시 수집이 필요하면 ingest 전용 worker 의 --once 나 수동 수집 요청을 쓴다(호출 예산을 기동마다 쓰지 않는다).
+ */
+export const INGEST_REPEAT = {
+  pattern: INGEST_SCHEDULE_PATTERN,
+  tz: INGEST_SCHEDULE_TIMEZONE,
+} as const;
+
+/**
+ * live 모드의 g2b 일정 실행(6-4). BullMQ 6.3.17 upsertJobScheduler 는 같은 id 의 일정을 덮어쓴다: 기존 일정의 대기 회차
+ * (delayed·wait·prioritized)를 지우고 새 반복 옵션으로 다음 회차 하나를 넣는다(commands/addJobScheduler-11.lua).
+ * 그래서 옛 every 일정도 같은 id 로 다시 걸면 하나로 바뀌고, 재기동해도 하나만 남는다. 반복 job 의 data 는 고정이다.
+ */
+export async function scheduleG2bIngest(queue: Pick<Queue, "upsertJobScheduler">): Promise<void> {
+  await queue.upsertJobScheduler(G2B_SCHEDULER_ID, INGEST_REPEAT, {
+    name: INGEST_JOB_NAME,
+    data: { source: "g2b", trigger: "SCHEDULED", jobKey: "g2b:SCHEDULED" },
+  });
 }
 
 /**
  * 8-1: live 면 g2b 반복 일정을 걸고, 아니면 지운다(없어도 오류 아님). Redis 가 appendonly·named volume 이라 live 때 건
- * 일정이 남으면 fixture 대체 중에도 30분마다 RUN_MODE_MISMATCH 로 실패한 run 이 쌓인다.
+ * 일정이 남으면 fixture 대체 중에도 정각마다 RUN_MODE_MISMATCH 로 실패한 run 이 쌓인다.
+ * job 처리 결과와 무관하다: 다음 회차는 BullMQ 가 회차 job 을 active 로 옮길 때 넣으므로 job 이 실패해도 일정은 남는다.
  */
 export async function syncG2bSchedule(
   queue: Pick<Queue, "upsertJobScheduler" | "removeJobScheduler">,
   runMode: RunMode,
-  intervalMinutes: number,
 ): Promise<void> {
-  if (runMode === "live") await scheduleG2bIngest(queue, intervalMinutes);
+  if (runMode === "live") await scheduleG2bIngest(queue);
   else await queue.removeJobScheduler(G2B_SCHEDULER_ID);
 }
 
@@ -198,20 +212,32 @@ async function closeAll(closables: readonly Closable[]): Promise<void> {
   if (failures.length > 0) throw failures[0];
 }
 
-/** ingest 큐 Worker(6-4). 저장소·connector·documents 큐·감사 기록은 deps 로 받는다. */
+/**
+ * ingest 큐 Worker(6-4). 저장소·connector·documents 큐·감사 기록은 deps 로 받는다.
+ * concurrency 는 기본값 1 이다: 수동 job 이 도는 중에 정각이 오면 정기 회차는 버려지지 않고 줄에서 기다렸다 돈다.
+ * 그 대기는 params.timing.queueDelayMs 와 ingest.job.timing 로그에 남는다.
+ */
 export async function createIngestWorker(
   connection: IORedis,
   deps: IngestJobDeps,
-  intervalMinutes: number,
 ): Promise<Closable> {
-  const worker = new Worker(INGEST_QUEUE, (job) => processIngestJob(job.data, deps), {
-    connection,
-  });
+  const worker = new Worker(
+    INGEST_QUEUE,
+    (job) => processIngestJob(job.data, deps, ingestJobTimingOf(job, deps.now())),
+    // 수동·정기 회차를 한 번에 하나씩 처리한다(겹친 창·예산 경쟁을 막는다). BullMQ 기본값과 같지만 뜻을 고정한다.
+    { connection, concurrency: 1 },
+  );
   logErrors(worker, "ingest worker");
   const queue = new Queue(INGEST_QUEUE, { connection });
   logErrors(queue, "ingest queue");
   try {
-    await syncG2bSchedule(queue, deps.runMode, intervalMinutes);
+    await syncG2bSchedule(queue, deps.runMode);
+    if (deps.runMode === "live") {
+      deps.log?.(
+        `${G2B_SCHEDULER_ID} 일정: ${INGEST_SCHEDULE_LABEL}(${INGEST_SCHEDULE_TIMEZONE}). ` +
+          `기동 즉시 수집하지 않고 다음 정각 ${nextIngestSlotAfter(deps.now()).toISOString()} 부터 돈다(즉시 수집은 --once·수동 요청)`,
+      );
+    }
     for (const key of EXTERNAL_SOURCE_KEYS) {
       const job =
         deps.runMode === "live"
@@ -220,11 +246,10 @@ export async function createIngestWorker(
       const schedulerId = `${key}-scheduled`;
       if (job === undefined) await queue.removeJobScheduler(schedulerId);
       else
-        await queue.upsertJobScheduler(
-          schedulerId,
-          { every: intervalMinutes * 60_000 },
-          { name: INGEST_JOB_NAME, data: job },
-        );
+        await queue.upsertJobScheduler(schedulerId, INGEST_REPEAT, {
+          name: INGEST_JOB_NAME,
+          data: job,
+        });
     }
   } catch (error) {
     await closeQuietly([{ close: () => worker.close() }, { close: () => queue.close() }]);
@@ -250,7 +275,6 @@ const registryFileOf = (env: Env): string =>
 type G2bSource = { endpoint: string; serviceKey: string; dailyLimit: number };
 type IngestConfig = {
   runMode: RunMode;
-  intervalMinutes: number;
   fixturesDir: string;
   g2b: G2bSource | null;
   registry: SourceRegistry | null;
@@ -308,7 +332,6 @@ async function readIngestConfig(env: Env): Promise<IngestConfig> {
   }
   return {
     runMode,
-    intervalMinutes: readIngestIntervalMinutes(env),
     fixturesDir: fixturesDirOf(env),
     g2b: registry !== null ? await resolveG2bSource(env, registry) : null,
     registry,
@@ -331,8 +354,9 @@ function externalScheduledJob(key: ExternalSourceKey): ExternalIngestJobData {
 function ingestJobDepsOf(
   config: IngestConfig,
   documentsQueue: JobQueue | null,
-  quota: IngestQuota | null,
+  quotas: G2bIngestQuotas | null,
   externalQuotas: Map<ExternalSourceKey, IngestQuota>,
+  log: (line: string) => void,
   scheduledWindowCap?: IngestJobDeps["scheduledWindowCap"],
 ): IngestJobDeps {
   const admin = getSupabaseAdmin();
@@ -422,7 +446,8 @@ function ingestJobDepsOf(
       ...(g2b === null ? [] : [g2b.serviceKey]),
       ...Array.from(config.external.values(), (value) => value.key),
     ],
-    ...(quota === null ? {} : { quota }),
+    log,
+    ...(quotas === null ? {} : { quota: quotas.quota, manualQuota: quotas.manualQuota }),
     ...(scheduledWindowCap === undefined ? {} : { scheduledWindowCap }),
   };
 }
@@ -439,20 +464,24 @@ function quietQuotaErrors(quotaConnection: IORedis, label: string): IORedis {
   return quotaConnection;
 }
 
+/** 정기(quota)·수동(manualQuota) g2b 예산. 같은 Redis 키를 세고 수동은 한도만 낮다(quota-store.ts createG2bQuotas) */
+type G2bIngestQuotas = { quota: IngestQuota; manualQuota: IngestQuota };
+
 function createIngestQuota(
   connection: IORedis,
   g2b: G2bSource,
-): { quota: IngestQuota; close: Closable } {
+): G2bIngestQuotas & { close: Closable } {
   const quotaConnection = quietQuotaErrors(
     connection.duplicate(QUOTA_REDIS_OPTIONS),
     "g2b 호출 예산",
   );
+  const { scheduled, manual } = createG2bQuotas(quotaConnection, {
+    serviceId: G2B_BID_NOTICE_SERVICE_ID,
+    dailyLimit: g2b.dailyLimit,
+  });
   return {
-    quota: {
-      store: createRedisQuotaStore(quotaConnection, { dailyLimit: g2b.dailyLimit }),
-      serviceId: G2B_BID_NOTICE_SERVICE_ID,
-      dailyLimit: g2b.dailyLimit,
-    },
+    quota: scheduled,
+    manualQuota: manual,
     close: {
       close: async () => {
         quotaConnection.disconnect();
@@ -472,10 +501,17 @@ export const systemWorkerRegistration: WorkerRegistration = async () => async (c
 export type IngestRegistrationOptions = {
   /** documents 큐에 첨부 job 을 넣고 첨부 복구 회차를 돌린다(전체 worker). 끄면 첨부 행은 DB 에 PENDING 으로만 남는다 */
   documents: boolean;
-  /** 정기 g2b 창의 상한(수집 주기의 배수). 없으면 상한 없음(전체 worker) */
-  scheduledWindowCapIntervals?: number;
-  /** 주면 기동 때 ingest 큐 Job Scheduler 목록과 창을 자른 회차를 이 함수로 남긴다(키 값 없음) */
+  /** 정기 g2b 창의 상한(분). 없으면 상한 없음(전체 worker) */
+  scheduledWindowCapMinutes?: number;
+  /**
+   * 주면 기동 때 ingest 큐 Job Scheduler 목록과 창을 자른 회차를 이 함수로 남긴다(키 값 없음).
+   * 일정 안내·옛 간격 env 무시·job 시각(ingest.job.timing) 줄은 주지 않아도 console.log 로 남긴다.
+   */
   log?: (line: string) => void;
+};
+
+const consoleLog = (line: string): void => {
+  console.log(line);
 };
 
 // 기동 로그용이라 읽기에 실패해도 기동은 계속한다. 오류 이름·코드만 남긴다.
@@ -496,14 +532,14 @@ export const createIngestWorkerRegistration =
   (options: IngestRegistrationOptions): WorkerRegistration =>
   async (rawEnv) => {
     const config = await readIngestConfig(rawEnv);
-    const { log, scheduledWindowCapIntervals } = options;
+    const { log, scheduledWindowCapMinutes } = options;
+    const jobLog = log ?? consoleLog;
+    const ignoredInterval = ignoredIngestIntervalNotice(rawEnv);
+    if (ignoredInterval !== null) jobLog(ignoredInterval);
     const scheduledWindowCap =
-      scheduledWindowCapIntervals === undefined
+      scheduledWindowCapMinutes === undefined
         ? undefined
-        : {
-            maxMs: config.intervalMinutes * scheduledWindowCapIntervals * 60_000,
-            log: log ?? (() => undefined),
-          };
+        : { maxMs: scheduledWindowCapMinutes * 60_000, log: jobLog };
     return async (connection) => {
       const quotaParts = config.g2b === null ? null : createIngestQuota(connection, config.g2b);
       const closeQuota: Closable = quotaParts?.close ?? { close: async () => undefined };
@@ -535,11 +571,11 @@ export const createIngestWorkerRegistration =
           ingestJobDepsOf(
             config,
             documentsQueue,
-            quotaParts?.quota ?? null,
+            quotaParts,
             externalQuotas,
+            jobLog,
             scheduledWindowCap,
           ),
-          config.intervalMinutes,
         );
         const documents =
           documentsQueue === null
@@ -593,7 +629,7 @@ export async function runG2bIngestOnce(
   if (config.g2b === null) throw new Error("g2b 1회 수집은 SOL_RUN_MODE=live 에서만 한다");
   const quotaParts = createIngestQuota(connection, config.g2b);
   try {
-    const deps = ingestJobDepsOf(config, null, quotaParts.quota, new Map());
+    const deps = ingestJobDepsOf(config, null, quotaParts, new Map(), consoleLog);
     let quotaUsed: number | null = null;
     const track = (value: number | undefined) => {
       if (value !== undefined) quotaUsed = value;
@@ -621,9 +657,13 @@ export async function runG2bIngestOnce(
   }
 }
 
-/** --check 용. 기동 1단계(registry·서비스키 env 이름·간격)를 돌려 해석한 소스 이름만 돌려준다. Redis·외부 API 는 부르지 않는다 */
+/**
+ * --check 용. 기동 1단계(registry·서비스키 env 이름)를 돌려 해석한 소스 이름과 일정만 돌려준다. Redis·외부 API 는 부르지 않는다.
+ * ignoredIntervalNotice 는 옛 간격 env(G2B_INGEST_INTERVAL_MINUTES)가 있을 때의 "무시함" 줄이다(값 없음).
+ */
 export async function describeIngestConfig(rawEnv: Env): Promise<{
-  intervalMinutes: number;
+  schedule: string;
+  ignoredIntervalNotice: string | null;
   registryFile: string;
   g2bSources: string[];
   externalSources: string[];
@@ -637,7 +677,8 @@ export async function describeIngestConfig(rawEnv: Env): Promise<{
     throw error;
   });
   return {
-    intervalMinutes: config.intervalMinutes,
+    schedule: INGEST_SCHEDULE_LABEL,
+    ignoredIntervalNotice: ignoredIngestIntervalNotice(rawEnv),
     registryFile,
     g2bSources:
       config.g2b === null

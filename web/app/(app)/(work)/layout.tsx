@@ -16,7 +16,7 @@ import {
 // layout 은 화면 실행을 막지 못한다. 각 화면이 requireWork 로 다시 확인한다(work.ts).
 // 여기서는 셸(사이드바·상단바)에 쓸 값만 읽는다. 요약이 실패해도 셸은 남긴다.
 // 화면마다(router.refresh() 마다) 돌므로 대시보드 전체 집계·AI 프로브는 기다리지 않는다(M3).
-// AI 상태는 TopbarStatus 가 마운트 때 /health/ready 로 읽는다.
+// 상단바에는 실행 모드·AI 상태를 싣지 않는다(10-26). 실행 모드는 기본 출처를 정하는 데만 쓴다.
 export default async function WorkLayout({ children }: { children: React.ReactNode }) {
   // 로그인 상태는 요청마다 다르다. 빌드 때 미리 그려 두지 않는다.
   await connection();
@@ -53,11 +53,9 @@ export default async function WorkLayout({ children }: { children: React.ReactNo
       solRole={business.current.solRole}
       defaultSidebarOpen={(await cookies()).get("sidebar_state")?.value !== "false"}
       status={{
-        runMode,
         defaultOrigin,
         staleAfterMs: ingestStaleAfterMs(currentIngestIntervalMinutes()),
         initialSummary: summary,
-        initialAi: null,
       }}
     >
       {children}

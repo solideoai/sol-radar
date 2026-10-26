@@ -1,4 +1,5 @@
 import "server-only";
+import type { AnalysisReadiness } from "./analysis-readiness.model";
 import type { AnalysisView } from "./analysis-view.model";
 import type { BidListQuery, CursorPayload } from "./bid-query";
 import type { AnalysisStatus, BidListItem, BidRevisionSummary, Recommendation } from "./bid.model";
@@ -56,6 +57,8 @@ export interface BidsRepo {
   getBid(orgId: string, id: string): Promise<BidDetail | null>;
   // 공고가 있는지(다른 조직의 자원이 아니라 공고 자체). 공고는 모든 조직이 같이 본다.
   bidExists(orgId: string, bidId: string): Promise<boolean>;
+  // 분석 원문 준비(최신 revision 의 본문·분석 가능한 첨부). 공고가 없거나 보이지 않으면 null
+  getAnalysisReadiness(orgId: string, bidId: string): Promise<AnalysisReadiness | null>;
   listAnalyses(
     orgId: string,
     bidId: string,

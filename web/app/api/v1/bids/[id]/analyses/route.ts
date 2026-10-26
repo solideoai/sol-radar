@@ -9,7 +9,14 @@ import {
 import { workDeps } from "@/app/_lib/work-deps";
 import { deploymentRole } from "@/app/_lib/deployment-role";
 import { relayRedisApi } from "@/app/_lib/redis-api-client";
-import { isUuid, listBidAnalyses, parsePageQuery, requestAnalysis } from "@/server/bids";
+import {
+  analysisReadinessRepo,
+  analysisSourceFailure,
+  isUuid,
+  listBidAnalyses,
+  parsePageQuery,
+  requestAnalysis,
+} from "@/server/bids";
 
 // 05 §2 GET /bids/:id/analyses — 이 조직의 분석 이력(HMAC 커서).
 export async function GET(
@@ -30,6 +37,8 @@ export async function GET(
 
 // 05 §2·§5 POST /bids/:id/analyses — 분석 요청(202). 권한·멱등·속도 제한·큐 등록은 서비스가 정한다.
 // Idempotency-Key 헤더가 없으면 null 을 넘기고, 서버가 키를 만든다.
+// frontend(Vercel)는 중계 전에 사용자 세션(RLS)으로 분석 원문을 확인해 409 ANALYSIS_SOURCE_MISSING 으로 막는다.
+// 회사 redis-api 이미지를 바꾸기 전에도 Vercel 배포만으로 막히게 하려는 것이다. redis-api 는 서비스가 같은 판정을 다시 한다.
 // 본문은 서비스가 권한·키·속도 제한을 본 뒤에 읽는다(16KB 상한, 보안 L5).
 export async function POST(
   request: Request,
@@ -39,6 +48,8 @@ export async function POST(
     const { id } = await context.params;
     if (!isUuid(id)) return pathNotFound("bid");
     if (deploymentRole() === "frontend") {
+      const sourceMissing = await analysisSourceFailure(ctx, id, analysisReadinessRepo);
+      if (sourceMissing !== null) return serviceResponse(sourceMissing);
       return relayRedisApi(request, `/api/v1/bids/${id}/analyses`, { signal });
     }
     const deps = workDeps();

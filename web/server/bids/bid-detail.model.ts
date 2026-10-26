@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { analysisReadinessSchema } from "./analysis-readiness.model";
 import { analysisViewSchema } from "./analysis-view.model";
 import {
   bidDocumentSchema,
@@ -29,5 +30,7 @@ export const bidDetailSchema = bidListItemSchema.omit({ latestAnalysis: true }).
   extractionStatus: extractionStatusSchema,
   latestAnalysis: analysisViewSchema.nullable(),
   reviews: z.array(reviewSchema),
+  // 분석 원문(최신 revision 본문·분석 가능한 첨부) 준비. ready=false 면 분석 요청은 409 ANALYSIS_SOURCE_MISSING 이다.
+  analysisReadiness: analysisReadinessSchema,
 });
 export type BidDetail = z.infer<typeof bidDetailSchema>;

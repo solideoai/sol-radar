@@ -111,6 +111,9 @@ function orgScopedBids(): BidsRepo {
     ),
     countBids: notUsed,
     bidExists: vi.fn(async (_orgId: string, bidId: string) => bidId === FX01),
+    getAnalysisReadiness: vi.fn(async (_orgId: string, bidId: string) =>
+      bidId === FX01 ? { ready: true, reason: null } : null,
+    ),
     listAnalyses: vi.fn(async (orgId: string, bidId: string) => ({
       items: runsOf(orgId, bidId),
       hasNext: false,

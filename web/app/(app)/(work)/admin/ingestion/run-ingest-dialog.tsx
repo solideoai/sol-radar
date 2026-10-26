@@ -23,6 +23,7 @@ import { requestIngestionRun, type RunRequestBody } from "./ingestion-api";
 import {
   acceptsSource,
   LOGIN_PATH,
+  SHOW_RUN_LABEL,
   sourceLabel,
   type IngestBatch,
   type IngestRun,
@@ -139,6 +140,7 @@ export function RunIngestDialog({
       retryAfterSec: outcome.retryAfterSec,
       submitted: body.source,
       runMode,
+      now: new Date(),
     });
     if (error.renewKey) keyRef.current = null;
     if (error.retryAfterSec !== undefined) {
@@ -359,7 +361,8 @@ function RunIngestForm({
   );
 }
 
-function ErrorAction({
+/** 요청 오류 곁 단추(새로 고침·로그인·실행 중인 수집 보기). [지금 불러오기] 곁 오류도 같이 쓴다. */
+export function ErrorAction({
   error,
   onRefresh,
   onShowRun,
@@ -386,7 +389,7 @@ function ErrorAction({
     case "show-run":
       return (
         <Button type="button" variant="outline" size="sm" onClick={() => onShowRun(action.runId)}>
-          실행 중인 수집 보기
+          {SHOW_RUN_LABEL}
         </Button>
       );
   }

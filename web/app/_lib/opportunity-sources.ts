@@ -56,7 +56,7 @@ export async function loadSourceSummary(
         entry.keyIssuance ?? (entry.approvalStatus === "APPROVED" ? "ISSUED" : "UNKNOWN"),
     });
   }
-  // HEALTHY 기준은 수집 주기의 2배(주기 env 가 없으면 60분)다. 상단바 지연 기준과 같다.
+  // HEALTHY 기준은 정기 수집 간격 + 30분(210분)이다. 상단바 지연 기준과 같다.
   return getSourceSummary(
     client,
     origin,

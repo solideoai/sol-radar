@@ -67,6 +67,37 @@ export const sourceReadinessErrorSchema = z.object({
   }),
 });
 
+// 정기 수집 Job Scheduler 가 없어 수동 수집을 받지 않는다(회사 ingest 전용 Worker 미기동). 다시 시도해도 같아 그대로 전한다.
+export const ingestWorkerUnavailableErrorSchema = z.object({
+  error: z.object({
+    code: z.literal("SERVICE_UNAVAILABLE"),
+    details: z.object({
+      component: z.literal("ingest-worker"),
+      reason: z.literal("SCHEDULER_INACTIVE"),
+    }),
+    requestId: z.uuid(),
+  }),
+});
+
+const isoInstant = z.iso.datetime({ offset: true });
+// GET /admin/ingestion/manual-gate 200 본문(@/server/ingestion ManualIngestGateView).
+export const manualIngestGateSchema = z.object({
+  cooldownMinutes: count,
+  nextAvailableAt: isoInstant.nullable(),
+  sharedRun: z
+    .object({ runId: z.uuid(), requestedAt: isoInstant, until: isoInstant, mine: z.boolean() })
+    .nullable(),
+  daily: z.object({ used: count, limit: count, resetsAt: isoInstant }),
+  schedule: z.object({
+    pattern: z.string().min(1).max(100),
+    timezone: z.string().min(1).max(100),
+    slotHoursKst: z.array(z.number().int().min(0).max(23)).max(24),
+    active: z.boolean(),
+    nextRunAt: isoInstant.nullable(),
+  }),
+  ingestMode: z.enum(["live", "fixture", "mock"]),
+});
+
 export const backendErrorSchema = z.object({
   error: z.object({
     code: z.enum([
@@ -83,6 +114,10 @@ export const backendErrorSchema = z.object({
       "RUN_MODE_MISMATCH",
       "IDEMPOTENCY_KEY_REUSED",
       "RATE_LIMITED",
+      "MANUAL_COOLDOWN",
+      "MANUAL_SHARED_RUN",
+      "MANUAL_DAILY_LIMIT",
+      "ANALYSIS_SOURCE_MISSING",
       "NOT_FOUND",
       "HOSTED_NOT_APPROVED",
     ]),
