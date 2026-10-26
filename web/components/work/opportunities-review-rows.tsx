@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import Link from "next/link";
 import { formatKrwCompact, formatKstShort } from "@/components/bids/format";
 import { SourceBadge } from "@/components/bids/source-badge";
@@ -12,17 +13,20 @@ export function OpportunityReviewRows({
   items,
   query,
   early = false,
+  className,
 }: {
   items: OpportunityItem[];
   query: string;
   early?: boolean;
+  className?: string;
 }) {
+  // 상자 없이 구분선 행으로 쓴다(대시보드). 바깥 선은 쓰는 쪽이 className 으로 정한다.
   return (
-    <ul className="divide-y divide-border">
+    <ul className={cn("divide-y divide-border", className)}>
       {items.map((item) => (
         <li
           key={item.id}
-          className="grid grid-cols-[92px_minmax(0,1fr)_112px] items-start gap-3 px-6 py-4"
+          className="grid grid-cols-[92px_minmax(0,1fr)_112px] items-start gap-3 py-4"
         >
           <div className="flex flex-col items-start gap-1">
             <SourceBadge family={item.sourceFamily} />

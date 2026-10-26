@@ -1,5 +1,4 @@
 import { cn } from "cn";
-import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 
 // 공공 SI 의 제안서·평가표가 쓰는 비교표 형식이다. 문제(지금은)와 해법(SOL RADAR)을 한 줄에 짝지어 읽게 한다.
@@ -31,49 +30,43 @@ export function ProblemSection() {
     <section
       id="about"
       aria-labelledby="about-title"
-      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 pt-24 pb-4"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 pt-28"
     >
-      <div>
-        <Reveal className="mx-auto max-w-220 text-center">
-          <SectionHeading
-            id="about-title"
-            title="공고 검색보다 오래 걸리는 건, 참여 여부를 판단하는 일입니다."
-            description="SOL RADAR는 이 과정을 하나의 검토 흐름으로 묶습니다. 공고를 모으고, 회사 정보와 대조하고, 판단 근거와 함께 검토 순서를 정리합니다."
-          />
-        </Reveal>
-        <Reveal className="mt-14">
-          {/* 표는 가는 선과 열 정렬로 비교 관계를 드러낸다. */}
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-t border-border">
-                <th scope="col" className={HEAD_CELL}>
-                  검토 단계
-                </th>
-                <th scope="col" className={HEAD_CELL}>
-                  지금은
-                </th>
-                <th scope="col" className={HEAD_CELL}>
-                  SOL RADAR에서는
-                </th>
-              </tr>
-            </thead>
-            <tbody className="border-b border-border">
-              {ROWS.map((row) => (
-                <tr key={row.stage} className="border-t border-border">
-                  <th
-                    scope="row"
-                    className="w-[22%] py-7 pr-6 align-top type-body-lg font-semibold text-foreground"
-                  >
-                    {row.stage}
-                  </th>
-                  <td className={cn(BODY_CELL, "text-muted-foreground")}>{row.now}</td>
-                  <td className={cn(BODY_CELL, "text-foreground")}>{row.planned}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Reveal>
-      </div>
+      <SectionHeading
+        id="about-title"
+        title="공고 검색보다 오래 걸리는 건, 참여 여부를 판단하는 일입니다."
+        description="SOL RADAR는 이 과정을 하나의 검토 흐름으로 묶습니다. 공고를 모으고, 회사 정보와 대조하고, 판단 근거와 함께 검토 순서를 정리합니다."
+      />
+      {/* 표는 가는 선과 열 정렬로 비교 관계를 드러낸다. */}
+      <table className="mt-14 w-full border-collapse text-left">
+        <thead>
+          <tr className="border-t border-border">
+            <th scope="col" className={HEAD_CELL}>
+              검토 단계
+            </th>
+            <th scope="col" className={HEAD_CELL}>
+              지금은
+            </th>
+            <th scope="col" className={HEAD_CELL}>
+              SOL RADAR에서는
+            </th>
+          </tr>
+        </thead>
+        <tbody className="border-b border-border">
+          {ROWS.map((row) => (
+            <tr key={row.stage} className="border-t border-border">
+              <th
+                scope="row"
+                className="w-[22%] py-7 pr-6 align-top type-body-lg font-semibold text-foreground"
+              >
+                {row.stage}
+              </th>
+              <td className={cn(BODY_CELL, "text-muted-foreground")}>{row.now}</td>
+              <td className={cn(BODY_CELL, "text-foreground")}>{row.planned}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }

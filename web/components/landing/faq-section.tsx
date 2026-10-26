@@ -1,4 +1,3 @@
-import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 
 const FAQS = [
@@ -32,25 +31,23 @@ export function FaqSection() {
     <section
       id="faq"
       aria-labelledby="faq-title"
-      className="mx-auto w-full max-w-300 scroll-mt-24 border-t border-border/60 px-10 py-24"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 py-28"
     >
       <div className="grid grid-cols-[320px_minmax(0,1fr)] items-start gap-16">
-        <Reveal className="sticky top-28">
+        <div className="sticky top-28">
           <SectionHeading id="faq-title" title="자주 묻는 질문" />
           <p className="mt-5 type-body-lg text-muted-foreground">
             시작하기 전에 궁금한 점을 확인하세요.
           </p>
-        </Reveal>
-        <Reveal>
-          <dl className="border-t border-border">
-            {FAQS.map((faq) => (
-              <div key={faq.question} className="border-b border-border py-7 first:pt-6">
-                <dt className="type-ui-lg font-semibold text-foreground">{faq.question}</dt>
-                <dd className="mt-3 type-body-lg text-muted-foreground">{faq.answer}</dd>
-              </div>
-            ))}
-          </dl>
-        </Reveal>
+        </div>
+        <dl className="border-t border-border">
+          {FAQS.map((faq) => (
+            <div key={faq.question} className="border-b border-border py-7 first:pt-6">
+              <dt className="type-ui-lg font-semibold text-foreground">{faq.question}</dt>
+              <dd className="mt-3 type-body-lg text-muted-foreground">{faq.answer}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </section>
   );

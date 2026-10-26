@@ -11,12 +11,23 @@ updated: 2026-10-26
 
 ## 실운영 전환·3시간 정기 수집 로컬 구현 (2026-10-26, 세션 sol-radar-78, 운영 미적용)
 
-브랜치 `feat/live-ops-schedule`(worktree `sol-radar-worktrees/live-ops-78`, base main `52fcc271`, 미커밋). 실행서는 [[plans/2026-10-26-live-ops-cutover|10-26 실운영 전환 실행서]]다.
+브랜치 `feat/live-ops-schedule`(worktree `sol-radar-worktrees/live-ops-78`, base main `52fcc271`, 커밋 `e8a4bbb0` 뒤 main `71a51aec` 병합). 실행서는 [[plans/2026-10-26-live-ops-cutover|10-26 실운영 전환 실행서]]다.
 
 - **구현**: 상단바에서 실행 모드·AI 표시 제거(값과 연결은 그대로). ingest 정기 수집을 BullMQ Job Scheduler `g2b-scheduled` cron `0 */3 * * *`·`Asia/Seoul`로 바꿈(기동 즉시 수집 없음, 같은 id upsert 로 옛 60분 일정 교체). 관리자 [지금 불러오기]와 서버 gate(사용자 60분·전역 공유 10분·하루 20회, Redis Lua 원자 처리, 거절·실패 때 쿨다운 없음). 수동 job 호출 상한 800(정기 몫 200 보존), 정기 보조 조회 900·전체 1000 그대로. 본문 없는 공고의 분석 요청을 화면과 서버(409 `ANALYSIS_SOURCE_MISSING`) 양쪽에서 막음. 회사 redis-api 에 새 env `SOL_INGEST_MODE=live` 가 필요하다(`SOL_RUN_MODE` 는 그대로).
 - **검증**: 독립 리뷰 4영역(worker·서버·화면·DEMO SQL) 반영 뒤 전체 `pnpm verify` exit 0(web 79파일 689시험·빌드·AI pytest 153·결정 57). 실 Redis 일정 통합 11개·gate 통합 통과. 격리 Supabase·Redis·녹화 응답 worker 위 브라우저 확인 29/29(공공 API 호출 0, [증거](evidence/live-ops/20261026/summary.md)). 격리 스택 수집 관리 E2E 30/30. Compose 가 필요한 `run-mode-badge`·`what-if.write` E2E 는 돌리지 않았다.
 - **DEMO 정리**: 실행서·백업·복구 SQL 과 격리 리허설만 했다(리뷰 반영 뒤 r2 리허설에서 실공고 97건 보존·삭제 뒤 복구 일치·음성 시험 5종 차단, [증거](evidence/demo-cleanup/20261026/summary.md)). Supabase MCP 가 연결되지 않아 운영 DB 는 읽지도 바꾸지도 않았다.
 - **남은 것(모두 승인 대기)**: 운영 DEMO 삭제 → GitHub push(=Vercel 자동 배포) → 회사 redis-api 재생성·`SOL_INGEST_MODE` → ingest worker 이미지·`--check`/`--status` → 3시간 일정 활성화 → 최종 확인.
+
+## AI 티 걷어내기 — 사이드바·대시보드·랜딩 (2026-10-26, 로컬)
+
+사용자 평가 "지금 디자인이 좀 AI 티가 많이 나는데 … 특히 대시보드의 사이드바"에 따라 rolelink.io·design.actibooky.com 을 직접 비교하고 사용자 결정(묶음 3개·글자만, 64px 아이콘 줄 유지, 흰 사이드바, 랜딩 히어로만 가운데, 마지막 안내 잉크 띠)대로 바꿨다. [[2026-10-26-design-declutter-plan|계획]] · [증거](evidence/design-declutter/README.md). 브랜치 `feat/design-declutter`(worktree `sol-radar-worktrees/design-declutter`, 기준 main `52fcc271`)에서 커밋해 로컬 main 에 병합했다(2026-10-26 사용자 결정). push·배포는 하지 않았다.
+
+- **사이드바**: 업무·분석·회사 묶음(접기 없음), 펼친 상태 글자만, 활성은 `sidebar-accent` 바탕 + 굵기 600 + `aria-current`, 맨 위 SOL RADAR 로고 + 회사 이름, 아래 고정 칸 설정·데이터 수집 관리(ADMIN만)·한 줄 사용자 칸. 접은 64px 줄에서만 아이콘·툴팁. 사이드바 바탕 `#FFFFFF`(`design/tokens.json`). 묶음 접기 스토어 `web/lib/stores/sidebar-groups.ts` 삭제.
+- **대시보드**: `StatCard`·`Card` 상자를 걷고 "공공조달 요약" 숫자 띠 한 줄 + 왼쪽 목록 두 구역 + 오른쪽 수집 지표·수집 소스 상태·기관별 공고 수·입찰 포트폴리오(제목 + 구분선 목록). 값·문구·조회는 그대로다.
+- **랜딩**: 제목 앞 아이콘·지그재그·색 무대·가짜 창 점·그림자·구역별 떠오르기(`reveal.tsx` 삭제)를 없앴다. 기능·원칙은 구분선 행, 3단계 번호는 본문 색 "01", 히어로 밖 제목은 왼쪽, 마지막 안내는 잉크 띠 + 시작하기 하나.
+- **문서**: [[06-UI-UX|06]] §2·§3.4·§4·§4.1·§5.3·§5.9.1·§9, [[11-TESTING|11]] NAV-10, [[16-DECISIONS|16]] ADR-021 개정, [[20-GLOSSARY|20]], design-system 스킬, `tokens.json` `$comment`(wordmark 쓰임).
+- **검증**: 전체 `pnpm verify` exit 0(web 593·빌드 포함), 브라우저 시험 12/12, `web/e2e` 45/45, 대시보드·사이드바 점검 스크립트 통과, 1440·1280 가로 넘침 0, `impeccable detect` 지적 0.
+- **남은 것**: 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`)는 Compose 가 필요해 돌리지 않았다. push·Vercel 배포는 사용자 확인 뒤다.
 
 ## 운영 배포 ①·② 적용과 ③ 준비 (2026-10-25·10-26, 세션 sol-radar-40)
 

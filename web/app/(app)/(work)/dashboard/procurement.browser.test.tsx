@@ -233,9 +233,9 @@ describe("공공조달 업무 화면", () => {
     expect(demo?.querySelector('[data-part="unverified-origin"]')).toBeNull();
   });
 
-  it("1440px의 2열 대시보드는 1280px에서 세로 배치되고 KPI5와 +3px 글자를 유지한다", async () => {
+  it("1440px의 2열 대시보드는 1280px에서 세로 배치되고 숫자 띠 5칸과 +3px 글자를 유지한다", async () => {
     await page.viewport(1440, 1100);
-    render(
+    const host = render(
       <AppPage title="대시보드" contentClassName="max-w-360" typeScale="dashboard">
         <DashboardView
           activeProjects={0}
@@ -244,6 +244,7 @@ describe("공공조달 업무 화면", () => {
             portfolio: { ...SUMMARY.portfolio, BID: 0, NO_BID: 0 },
             sourceConflictCount: 1,
             unknownBudgetCount: 1,
+            potentialDuplicateCount: 2,
           }}
           metrics={METRICS}
           nextIngest={{ at: "2026-10-21T06:00:00.000Z", failed: false }}
@@ -267,43 +268,71 @@ describe("공공조달 업무 화면", () => {
     await expect.element(page.getByRole("heading", { name: "우선 검토할 입찰" })).toBeVisible();
     await expect.element(page.getByText("출처 간 확인 필요", { exact: true })).toBeVisible();
     await expect.element(page.getByText("검토 필요", { exact: true })).toBeVisible();
-    for (const label of [
-      "신규 발견",
-      "분석 대기",
-      "BID 권고",
-      "마감 임박 (7일)",
-      "진행 중 입찰 프로젝트",
-    ])
-      await expect.element(page.getByText(label, { exact: true }).first()).toBeVisible();
+    // 업무 대시보드에는 카드 상자가 없다(2026-10-26 AI 티 걷어내기 수용 기준 2).
+    expect(host.querySelectorAll('[data-slot="card"]')).toHaveLength(0);
+    // 공공조달 요약은 한 줄 숫자 띠다. 칸마다 라벨·값·보조 줄이 있고 값은 +3px 제목 글자(33px)다.
+    const strip = page.getByRole("region", { name: "공공조달 요약" });
+    const figure = (label: string) => {
+      const element = strip.getByText(label, { exact: true }).element().parentElement;
+      if (element === null) throw new Error(`${label} 칸이 없습니다`);
+      return element;
+    };
+    const figures: [string, string, string][] = [
+      ["신규 발견", "1", "최근 24시간 · 입찰공고"],
+      ["마감 임박 (7일)", "1", "정확한 마감 확인 · 진행 중"],
+      ["분석 대기", "0", "현재 입력의 분석 결과 없음"],
+      ["BID 권고", "0", "현재 유효 분석 · 진행 중"],
+      ["진행 중 입찰 프로젝트", "0", "종료 제외 · 프로젝트 보기"],
+    ];
+    for (const [label] of figures)
+      await expect.element(strip.getByText(label, { exact: true })).toBeVisible();
+    const sameRow = () => {
+      const tops = figures.map(([label]) => figure(label).getBoundingClientRect().top);
+      return Math.max(...tops) - Math.min(...tops);
+    };
+    for (const [label, value, hint] of figures) {
+      const [, valueCell, hintCell] = figure(label).children;
+      if (!valueCell || !hintCell) throw new Error(`${label} 칸의 값·보조 줄이 없습니다`);
+      expect(valueCell.textContent).toBe(value);
+      expect(hintCell.textContent).toBe(hint);
+      expect(getComputedStyle(valueCell).fontSize).toBe("33px");
+    }
+    expect(sameRow()).toBeLessThan(1);
+    expect(
+      strip.getByRole("link", { name: "종료 제외 · 프로젝트 보기" }).element().getAttribute("href"),
+    ).toBe("/projects");
+    // 중복 후보 안내는 "우선 검토할 입찰" 설명 줄 끝의 회색 글자다.
+    const duplicate = page.getByText(/중복 후보 2건은 별도 사업기회로 집계됩니다\.$/).element();
+    expect(duplicate.className).toContain("text-muted-foreground");
+    expect(duplicate.closest("section")?.querySelector("h2")?.textContent).toBe("우선 검토할 입찰");
     // 실수집 지표(B3): 시각은 KST 절대 시각, 다음 수집은 "예정"으로 적는다.
     const stat = (label: string) => {
       const element = page
         .getByRole("region", { name: "수집 지표" })
         .getByText(label, { exact: true })
-        .element()
-        .closest('[data-slot="card"]');
-      if (element === null) throw new Error(`${label} 카드가 없습니다`);
-      return element as HTMLElement;
+        .element().parentElement;
+      if (element === null) throw new Error(`${label} 줄이 없습니다`);
+      return element;
     };
     expect(stat("전체 수집 공고").textContent).toContain("1");
     expect(stat("진행 중 WATCH").textContent).toContain("2");
     expect(stat("마지막 수집 성공").textContent).toBe("마지막 수집 성공13:302026-10-21 KST");
     expect(stat("다음 수집 예정").textContent).toBe("다음 수집 예정15:002026-10-21 KST · 예정");
-    const agencies = stat("기관별 공고 수");
+    const section = (name: string) => {
+      const element = page.getByRole("heading", { name, exact: true }).element().closest("section");
+      if (element === null) throw new Error(`${name} 구역이 없습니다`);
+      return element;
+    };
+    const agencies = section("기관별 공고 수");
     expect([...agencies.querySelectorAll("li")].map((li) => li.textContent)).toEqual([
       "한국토지주택공사 디지털정보기술사업본부 스마트시티사업처3건",
       "조달청1건",
     ]);
-    const card = (name: string) => {
-      const element = page
-        .getByRole("heading", { name, exact: true })
-        .element()
-        .closest('[data-slot="card"]');
-      if (element === null) throw new Error(`${name} 카드가 없습니다`);
-      return element.getBoundingClientRect();
-    };
-    expect(Math.abs(card("우선 검토할 입찰").top - card("수집 소스 상태").top)).toBeLessThan(1);
-    expect(card("수집 소스 상태").left).toBeGreaterThan(card("우선 검토할 입찰").right);
+    const box = (name: string) => section(name).getBoundingClientRect();
+    expect(Math.abs(box("우선 검토할 입찰").top - box("수집 지표").top)).toBeLessThan(1);
+    expect(box("수집 지표").left).toBeGreaterThan(box("우선 검토할 입찰").right);
+    expect(box("수집 소스 상태").left).toBeGreaterThan(box("우선 검토할 입찰").right);
+    expect(box("수집 소스 상태").top).toBeGreaterThan(box("수집 지표").bottom);
     expect(
       getComputedStyle(page.getByRole("heading", { name: "대시보드", exact: true }).element())
         .fontSize,
@@ -314,12 +343,15 @@ describe("공공조달 업무 화면", () => {
     });
     await page.viewport(1280, 1100);
     await expect
-      .poll(() => card("수집 소스 상태").top)
-      .toBeGreaterThan(card("우선 검토할 입찰").bottom);
+      .poll(() => box("수집 소스 상태").top)
+      .toBeGreaterThan(box("우선 검토할 입찰").bottom);
+    expect(box("수집 지표").top).toBeGreaterThan(box("예정 사업 및 사전규격").bottom);
+    // 1280px 에서도 숫자 띠는 한 줄 5칸이다.
+    expect(sameRow()).toBeLessThan(1);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth,
     );
-    // 긴 기관 이름은 카드 안에서 말줄임한다(1280px).
+    // 긴 기관 이름은 구역 안에서 말줄임한다(1280px).
     const agencyName = agencies.querySelector("li span");
     if (agencyName === null) throw new Error("기관 이름이 없습니다");
     expect(agencyName.getBoundingClientRect().right).toBeLessThanOrEqual(
@@ -352,7 +384,9 @@ describe("공공조달 업무 화면", () => {
     await expect.element(metrics.getByText("마지막 수집 성공", { exact: true })).toBeVisible();
     expect(metrics.element().textContent).not.toContain("다음 수집 예정");
     expect(metrics.element().textContent).toContain("성공 기록 없음");
-    expect(metrics.getByText("지표 조회 실패", { exact: true }).elements()).toHaveLength(2);
+    // 진행 중 WATCH 줄과 기관별 공고 수 구역 둘 다 값을 만들지 않고 실패를 알린다.
+    expect(metrics.getByText("지표 조회 실패", { exact: true }).elements()).toHaveLength(1);
+    expect(page.getByText("지표 조회 실패", { exact: true }).elements()).toHaveLength(2);
     expect(document.body.textContent).not.toContain("DEMO · 예시 공고 기준");
   });
 });

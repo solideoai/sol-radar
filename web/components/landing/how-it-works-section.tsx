@@ -1,5 +1,4 @@
 import { cn } from "cn";
-import { Reveal } from "@/components/landing/reveal";
 import { SectionHeading } from "@/components/landing/section-heading";
 
 // 단계마다 사용자가 하는 일과 얻는 것을 나란히 적는다. 번호는 글자로만 쓴다(색 원 번호 금지, design-system).
@@ -31,43 +30,34 @@ export function HowItWorksSection() {
     <section
       id="analysis"
       aria-labelledby="analysis-title"
-      className="mx-auto w-full max-w-300 scroll-mt-24 border-t border-border/60 px-10 py-24"
+      className="mx-auto w-full max-w-300 scroll-mt-24 px-10 pt-28"
     >
-      <div>
-        <Reveal className="mx-auto max-w-210 text-center">
-          <SectionHeading
-            id="analysis-title"
-            title="기업 정보를 등록하면, 검토할 사업이 명확해집니다."
-          />
-        </Reveal>
-        {/* 세 단계를 가는 선으로 연결하고, 번호는 강조색 없이 본문 색으로 둔다. */}
-        {/* 번호는 순서라는 정보라서 쓰되, 강조색 없이 본문 색으로 둔다. */}
-        <Reveal className="mt-14">
-          <ol className="grid grid-cols-3 border-y border-border">
-            {STEPS.map((step, index) => (
-              <li
-                key={step.title}
-                className={cn("py-8 pr-8", index > 0 && "border-l border-border pl-8")}
-              >
-                <p className="type-label-lg font-medium text-brand">
-                  0{index + 1} · {index + 1}단계
-                </p>
-                <h3 className="mt-4 type-heading-lg text-foreground">{step.title}</h3>
-                <dl className="mt-5 flex flex-col gap-4">
-                  <div>
-                    <dt className={TERM}>하는 일</dt>
-                    <dd className={VALUE}>{step.action}</dd>
-                  </div>
-                  <div>
-                    <dt className={TERM}>얻는 것</dt>
-                    <dd className={VALUE}>{step.result}</dd>
-                  </div>
-                </dl>
-              </li>
-            ))}
-          </ol>
-        </Reveal>
-      </div>
+      <SectionHeading
+        id="analysis-title"
+        title="기업 정보를 등록하면, 검토할 사업이 명확해집니다."
+      />
+      {/* 세 단계를 가는 선으로 나눈다. 번호는 순서라는 정보라서 쓰되, 강조색 없이 본문 색으로 둔다. */}
+      <ol className="mt-14 grid grid-cols-3 border-y border-border">
+        {STEPS.map((step, index) => (
+          <li
+            key={step.title}
+            className={cn("py-8 pr-8", index > 0 && "border-l border-border pl-8")}
+          >
+            <p className="type-label-lg font-semibold text-foreground tabular-nums">0{index + 1}</p>
+            <h3 className="mt-3 type-heading-lg text-foreground">{step.title}</h3>
+            <dl className="mt-5 flex flex-col gap-4">
+              <div>
+                <dt className={TERM}>하는 일</dt>
+                <dd className={VALUE}>{step.action}</dd>
+              </div>
+              <div>
+                <dt className={TERM}>얻는 것</dt>
+                <dd className={VALUE}>{step.result}</dd>
+              </div>
+            </dl>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

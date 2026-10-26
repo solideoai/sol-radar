@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-24
+updated: 2026-10-26
 ---
 
 # 11. 검증·테스트 전략
@@ -353,7 +353,7 @@ CI에는 원본 엑셀·실명 제외 집합을 넣지 않는다. 루트 `pnpm t
 | NAV-07 | 설정 조직 탭: 비ADMIN 403·RLS 거부, 업무 역할 변경 감사 기록 |
 | NAV-08 | 템플릿 설정·가입 정보 보완(PPL-05·06) 회귀 없음 |
 | NAV-09 | 메뉴 노출과 라우트 접근 분리: 미인증 요청은 출시 여부와 관계없이 기존 인증 정책(화면 로그인 안내, API `401`), 로그인 사용자의 미출시 경로(아직 구현되지 않아 경로 파일이 없는 경로) 직접 접근 404, 구현된 경로는 메뉴 노출 조건과 별개로 열린다(메뉴에 없어도 허용 역할 200, [[16-DECISIONS\|ADR-021]]·[[16-DECISIONS\|ADR-035]] F5), 권한 없는 역할 403, 메뉴에 없는 구현 경로도 서버 권한 검사 적용, 메뉴 정의의 출시 표시만으로 메뉴가 바뀜 |
-| NAV-10 | 사이드바 트리([[06-UI-UX\|06]] §4.1): 묶음 5개 순서, 출시 메뉴는 링크·준비 중 메뉴는 링크 없음(초점 없음), 데이터 수집 관리는 ADMIN만, 활성 메뉴 `aria-current`·3px brand 막대, 묶음 접기 `aria-expanded`·`localStorage`(저장 실패해도 정상)·지금 화면의 묶음은 들어올 때 펼침, 64px 아이콘 줄(툴팁·`aria-label`·묶음 줄 없음), 조직도 고정 칸. **구현됨**: `web/components/app-shell.browser.test.tsx` "sidebar tree (NAV-10)" 11건(main `9e6d8e2`) |
+| NAV-10 | 사이드바([[06-UI-UX\|06]] §4.1, 2026-10-26 묶음 3개·글자만): 묶음 업무·분석·회사 이름과 순서, 맨 아래 고정 칸(설정·데이터 수집 관리는 ADMIN만), 출시 메뉴는 링크·준비 중 메뉴는 링크 없음(초점 없음), 활성 메뉴 `aria-current` + `sidebar-accent` 바탕·굵기 600(brand 막대 없음), 묶음 접기 버튼 없음, 펼친 상태 메뉴 아이콘 없음, 64px 아이콘 줄(툴팁·`aria-label`·묶음 이름 숨김). **현황**: 2026-10-20 브라우저 시험 `web/components/app-shell.browser.test.tsx`(main `9e6d8e2`)는 2026-10-21 시험 축소로 삭제했다([정본 목록](evidence/verification/20261021-pruned-tests.json)). 조직도가 회사 묶음 안에 있고 `aria-current`인지는 `web/e2e-auth/support/people-read-cases.ts`가 본다. 나머지는 2026-10-26 화면 점검으로 확인했다([증거](evidence/design-declutter/README.md)) |
 
 P1(2026-10-21 [[16-DECISIONS|ADR-042]]에 따라 핵심 컷·확장 컷과 조건부 병행, freeze 10-24 22:00):
 
