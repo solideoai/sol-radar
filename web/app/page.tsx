@@ -39,7 +39,8 @@ export default async function Home() {
       <DesktopNotice />
       <SiteHeader startHref={startHref} />
       {/* 루트 layout 의 건너뛰기 링크가 여기로 온다. 머리말을 지나 본문부터 Tab 이 이어진다. */}
-      {/* 본문 바탕은 흰색이다. 구역은 면 색이 아니라 구성과 여백이 나누고, 제품 화면 무대·권유 띠만 muted 를 쓴다. */}
+      {/* 본문 바탕은 흰색이다. 구역은 면 색이 아니라 여백이 나누고, 구역 안의 목록은 1px 선이 나눈다. */}
+      {/* 면 색은 둘뿐이다: 분석 예시 무대(muted)와 마지막 권유 띠(foreground). */}
       <main
         id="main-content"
         tabIndex={-1}

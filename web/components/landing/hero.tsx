@@ -4,7 +4,8 @@ import Link from "next/link";
 import { DEMO_HREF } from "@/components/landing/landing-links";
 import { buttonVariants } from "@/components/ui/button";
 
-// 흰 여백과 브랜드 색 버튼으로 메시지와 제품 화면을 잇는다.
+// 흰 여백과 브랜드 색 버튼으로 메시지와 제품 화면을 잇는다. 첫 화면에서 가운데 정렬은 여기 하나다(나머지 구역 제목은 왼쪽).
+// 등장 움직임은 히어로와 바로 아래 분석 예시에만 둔다 — 구역마다 같은 떠오르기를 되풀이하지 않는다.
 export function Hero({ startHref }: { startHref: string }) {
   return (
     <section
@@ -27,7 +28,7 @@ export function Hero({ startHref }: { startHref: string }) {
             href={startHref}
             className={cn(
               buttonVariants({ size: "xl" }),
-              "bg-brand text-brand-foreground shadow-sm shadow-brand/20 hover:bg-brand/95",
+              "bg-brand text-brand-foreground hover:bg-brand/95",
             )}
           >
             시작하기

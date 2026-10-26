@@ -17,7 +17,7 @@ import {
 // 판은 3단이다(목록 · 공고와 자격 검토 · 점수와 결재란). 패널이 뒤의 두 단을 차지해 공고를 바꾸면 두 단이 함께 바뀐다.
 export function ProductPreview() {
   return (
-    <div className="overflow-hidden rounded-[14px] border border-border bg-background text-left shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-border bg-background text-left">
       <PreviewBar />
       <Tabs.Root
         defaultValue={DEMO_BIDS[0].id}
@@ -56,15 +56,11 @@ export function ProductPreview() {
   );
 }
 
-// 창 머리. 주소 칸 대신 화면 이름과 분석 기준을 적는다 — 실제 서비스 주소처럼 보이지 않게 한다.
+// 판 머리. 주소 칸 대신 화면 이름과 분석 기준을 적는다 — 실제 서비스 주소처럼 보이지 않게 한다.
+// 브라우저 창 흉내(창 점·큰 그림자)는 두지 않는다. 판은 1px 선으로만 나눈다.
 function PreviewBar() {
   return (
     <div className="flex h-13 items-center gap-3.5 border-b border-border bg-muted/30 px-5">
-      <span aria-hidden className="mr-2 flex gap-1.5">
-        <span className="size-2 rounded-full bg-input" />
-        <span className="size-2 rounded-full bg-input" />
-        <span className="size-2 rounded-full bg-input" />
-      </span>
       <p className="type-ui-lg font-semibold text-foreground">공고 분석</p>
       <span aria-hidden className="h-4 w-px bg-border" />
       <p className="type-label-lg text-muted-foreground">분석 기준: 가상 기업 프로필</p>
@@ -78,7 +74,7 @@ function BidTab({ bid }: { bid: DemoBid }) {
   return (
     <Tabs.Tab
       value={bid.id}
-      className="group/tab relative flex w-full flex-col items-start gap-1 rounded-[10px] border border-transparent px-4 py-3.5 text-left outline-none hover:bg-background/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-active:border-border data-active:bg-background data-active:shadow-xs motion-safe:transition-colors"
+      className="group/tab relative flex w-full flex-col items-start gap-1 rounded-[10px] border border-transparent px-4 py-3.5 text-left outline-none hover:bg-background/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-active:border-border data-active:bg-background motion-safe:transition-colors"
     >
       <span
         aria-hidden
@@ -164,6 +160,7 @@ function QualificationList({ bid }: { bid: DemoBid }) {
 
 // 오른쪽 단. 점수와 그 고지를 붙여 두고, 시스템 권고와 담당자 결정을 결재란처럼 나란히 둔다.
 // 결정 칸은 비어 있지 않고 "대기"다 — 권고가 곧 결정으로 읽히지 않게 한다.
+// 결재란은 판 안에 있으므로 상자로 감싸지 않고 위아래 선과 칸 사이 선으로만 나눈다(판 안에 상자를 두지 않는다).
 function DecisionRail({ bid }: { bid: DemoBid }) {
   const noteId = `${bid.id}-score-note`;
   return (
@@ -192,8 +189,8 @@ function DecisionRail({ bid }: { bid: DemoBid }) {
       <hr className="border-border" />
       <div>
         <h4 className="type-label-lg font-medium text-muted-foreground">권고와 결정</h4>
-        <dl className="mt-2.5 grid grid-cols-2 rounded-[10px] border border-input">
-          <div className="min-w-0 px-3 pt-2.5 pb-3">
+        <dl className="mt-2.5 grid grid-cols-2 border-y border-input">
+          <div className="min-w-0 pt-2.5 pr-3 pb-3">
             <dt className="type-body font-semibold text-muted-foreground">시스템 권고</dt>
             <dd className="mt-2 flex min-h-7.5 items-center">
               <RecommendationBadge value={bid.recommendation} />

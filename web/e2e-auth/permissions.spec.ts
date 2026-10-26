@@ -49,7 +49,7 @@ test.describe("멤버(이멤버)", () => {
     ]);
     await expect(page.getByRole("heading", { name: "초대하기" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "대기 중인 초대" })).toHaveCount(0);
-    // 본문(main)에서만 센다. 사이드바 묶음 줄 "입찰 관리"(ADR-021 트리)도 이름이 " 관리"로 끝나는 버튼이다.
+    // 본문(main)에서만 센다. 사이드바·위 막대의 메뉴는 이 시험의 대상이 아니다.
     // 회원 관리 버튼이 본문에 있다는 것은 소유자 시험이 같은 범위로 확인한다.
     await expect(page.getByRole("main").getByRole("button", { name: / 관리$/ })).toHaveCount(0);
     // 나가기는 멤버도 할 수 있다.

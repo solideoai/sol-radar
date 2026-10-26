@@ -70,6 +70,8 @@ test("주요 기능은 네 가지이고, 화면이 예시 데이터임을 밝힌
     "SOL Score와 판단 근거",
     "검토 이력과 변경 알림",
   ]);
+  // 제목 앞에 아이콘을 두지 않는다. 기능 이름은 글자만으로 읽힌다.
+  await expect(features.getByRole("heading", { level: 3 }).locator("svg")).toHaveCount(0);
   await expect(features.getByRole("note")).toHaveText("화면은 예시 데이터로 그렸습니다.");
   // 점수 조각은 demo-3 의 판단 근거를 보인다(판에서 옮겨 왔다).
   await expect(features.getByText(/필수 실적 요건 미충족/)).toBeVisible();
@@ -164,7 +166,8 @@ test("주소에 #faq 를 붙여 열면 FAQ 제목이 머리말 아래에 보인�
   await expectBelowHeader(page, page.getByRole("heading", { level: 2, name: "자주 묻는 질문" }));
 });
 
-test("마지막 구역에 시작하기·분석 예시 보기가 있다", async ({ page }) => {
+// 마지막 안내는 버튼 하나로 끝맺는다. 분석 예시 보기는 히어로에 있다(landing.spec.ts 가 이동을 본다).
+test("마지막 구역에는 시작하기 버튼 하나만 있다", async ({ page }) => {
   await page.goto("/");
   const cta = page.getByRole("region", { name: "다음 사업 검토, 근거부터 확인하세요." });
   await expect(cta.getByText(/검토할 사업의 우선순위를 정리하세요/)).toBeVisible();
@@ -177,14 +180,8 @@ test("마지막 구역에 시작하기·분석 예시 보기가 있다", async (
     "56px",
   );
   await expect(cta.getByRole("note")).toHaveCount(0);
-  const demo = cta.getByRole("link", { name: "분석 예시 보기" });
-  await expect(demo).toHaveAttribute("href", "/#demo");
-  await demo.click();
-  await expect(page).toHaveURL(/\/#demo$/);
-  await expectBelowHeader(
-    page,
-    page.getByRole("region", { name: "공고 분석 예시" }).getByRole("figure"),
-  );
+  await expect(cta.getByRole("link")).toHaveCount(1);
+  await expect(cta.getByRole("link", { name: "분석 예시 보기" })).toHaveCount(0);
 });
 
 test('첫 화면에는 빈 링크(href="#")와 이름 없는 링크·버튼이 없다', async ({ page }) => {

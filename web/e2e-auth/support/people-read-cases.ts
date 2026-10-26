@@ -637,16 +637,25 @@ export function registerPeopleReadTests() {
         const firstTeamId = z.uuid().parse(firstTeam?.id);
         await signIn(page, "viewer", "/org-chart");
         await assertOpenSidebar(page);
-        const footer = page.getByRole("link", { name: "조직도", exact: true });
-        await expect(footer).toHaveAttribute("href", "/org-chart");
-        await expect(footer).toHaveAttribute("aria-current", "page");
-        expect(
-          await footer.evaluate((link) => Boolean(link.closest('[data-slot="sidebar-footer"]'))),
-        ).toBe(true);
+        // 조직도는 주요 메뉴의 "회사" 묶음 마지막 메뉴다(2026-10-26 사이드바 묶음 3개). 페이지 전체에 하나뿐이다.
+        const orgChartLink = page.getByRole("link", { name: "조직도", exact: true });
+        await expect(orgChartLink).toHaveCount(1);
+        const companyGroup = page
+          .getByRole("navigation", { name: "주요 메뉴", exact: true })
+          .getByRole("list", { name: "회사", exact: true });
+        await expect(companyGroup.getByRole("link")).toHaveText([
+          "회사 역량",
+          "조직·인력",
+          "조직도",
+        ]);
+        await expect(
+          companyGroup.getByRole("link", { name: "조직도", exact: true }),
+        ).toHaveAttribute("href", "/org-chart");
+        await expect(orgChartLink).toHaveAttribute("aria-current", "page");
         const userMenu = page.getByRole("button", { name: /^사용자 메뉴/ });
         await expect
           .poll(async () => {
-            const linkBox = await footer.boundingBox();
+            const linkBox = await orgChartLink.boundingBox();
             const userBox = await userMenu.boundingBox();
             return Boolean(linkBox && userBox && linkBox.y + linkBox.height <= userBox.y + 1);
           })
