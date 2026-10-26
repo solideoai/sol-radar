@@ -1,0 +1,15 @@
+
+> sol-radar-web@0.1.0 test:browser /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+> vitest run --config vitest.browser.config.ts
+
+
+ RUN  v4.1.12 /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/integration-freeze-1024/web
+
+오전 9:17:13 [vite] (client) Re-optimizing dependencies because lockfile has changed
+오전 9:17:14 [vite] (client) [optimizer] bundling dependencies...
+
+ Test Files  7 passed (7)
+      Tests  60 passed (60)
+   Start at  09:17:13
+   Duration  6.01s (transform 0ms, setup 1.64s, import 4.37s, tests 8.89s, environment 0ms)
+

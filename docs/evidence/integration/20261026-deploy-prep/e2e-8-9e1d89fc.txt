@@ -1,0 +1,31 @@
+시작 2026-10-26 09:16:01
+
+> sol-radar-web@0.1.0 test:e2e:work /Users/leegwanghui/dev/hackathon/sol-radar-worktrees/e2e-rh1026/web
+> playwright test -c playwright.work.config.ts
+
+[WebServer] ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+
+Running 18 tests using 2 workers
+
+  ✓   1 [work-guard] › e2e-auth/work-guard.spec.ts:8:5 › L7 worker 주소가 로컬 Supabase 와 같을 때만 같다고 본다 (4ms)
+  ✓   2 [work-1440] › e2e-auth/bid-isolation.spec.ts:18:5 › G5 org-02 VIEWER 는 FX-01 상세를 200 으로 보되 분석 없음이고 자격 API 는 404 다 (2.8s)
+  ✓   3 [work-1440] › e2e-auth/demo-badge.spec.ts:20:5 › G8 목록 모든 행과 Topbar·상세 제목 앞에 DEMO 가 있고 초점을 주면 09 툴팁이 보인다 (2.8s)
+  ✓   4 [work-1440] › e2e-auth/no-evidence.spec.ts:11:5 › G4 FX-04 는 자격 확인 필요·권고 WATCH 와 INSUFFICIENT_DATA 문장을 보이고 수주·낙찰 확률을 말하지 않는다 (713ms)
+  ✓   5 [work-1440] › e2e-auth/run-mode-badge.spec.ts:7:5 › V2-02 Topbar 실행 모드·AI 가 mock 이고 FX-01 분석 띠에 분석 실행 모드와 가상 프로필 배지가 있다 (1.5s)
+  ✓   6 [work-1280] › e2e-auth/bid-isolation.spec.ts:18:5 › G5 org-02 VIEWER 는 FX-01 상세를 200 으로 보되 분석 없음이고 자격 API 는 404 다 (1.5s)
+  ✓   7 [work-1440] › e2e-auth/run-mode-badge.spec.ts:24:5 › V2-02 /bids?origin=all 이면 출처 필터 값이 전체다 (1.5s)
+  ✓   9 [work-1280] › e2e-auth/no-evidence.spec.ts:11:5 › G4 FX-04 는 자격 확인 필요·권고 WATCH 와 INSUFFICIENT_DATA 문장을 보이고 수주·낙찰 확률을 말하지 않는다 (497ms)
+  ✓   8 [work-1280] › e2e-auth/demo-badge.spec.ts:20:5 › G8 목록 모든 행과 Topbar·상세 제목 앞에 DEMO 가 있고 초점을 주면 09 툴팁이 보인다 (2.5s)
+  ✓  10 [work-1280] › e2e-auth/run-mode-badge.spec.ts:7:5 › V2-02 Topbar 실행 모드·AI 가 mock 이고 FX-01 분석 띠에 분석 실행 모드와 가상 프로필 배지가 있다 (1.8s)
+  ✓  11 [work-1280] › e2e-auth/run-mode-badge.spec.ts:24:5 › V2-02 /bids?origin=all 이면 출처 필터 값이 전체다 (962ms)
+  ✓  12 [work-write] › e2e-auth/bid-decision.write.spec.ts:37:5 › S3 취소 공고는 상태 '취소 포함'을 고를 때만 보인다(ADR-029 A7) (2.2s)
+  ✓  13 [work-write] › e2e-auth/bid-decision.write.spec.ts:64:5 › S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사람 검토 권장 → WATCH 결정 기록 → 저장 실패 상태 (10.6s)
+  ✓  14 [work-write] › e2e-auth/fx01-flow.write.spec.ts:49:5 › FX-01: 현재 대시보드부터 94점 근거 확인, WATCH 결정과 이력 보존까지 (2.1s)
+  ✓  15 [work-write] › e2e-auth/fx01-flow.write.spec.ts:222:5 › S7: org-01 자격 3건은 조회되지만 다른 조직 VIEWER 에게는 404 다 (131ms)
+  ✓  16 [work-write] › e2e-auth/p1-navigation.write.spec.ts:17:5 › P1 관심 → 분석 4건 비교 → 프로젝트 저장 → 인력 조회 (10.8s)
+  ✓  17 [work-write] › e2e-auth/profile-photo.write.spec.ts:100:5 › 간편 로그인 신규 입사자: 가입 신청 → 사진 → 관리자 승인 → 조직도 사진 → 관리자 사진 변경 (23.1s)
+  ✓  18 [work-write] › e2e-auth/what-if.write.spec.ts:76:5 › FX-03: 정보통신공사업 보유 가정은 NO-BID → WATCH 를 보이지만 저장하지 않는다 (1.7s)
+
+  18 passed (1.4m)
+exit=0
+종료 2026-10-26 09:17:29

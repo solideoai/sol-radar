@@ -4,10 +4,20 @@ status: draft
 tags:
   - sol-radar
   - progress
-updated: 2026-10-24
+updated: 2026-10-26
 ---
 
 # 진행 상황
+
+## 운영 배포 ①·② 적용과 ③ 준비 (2026-10-25·10-26, 세션 sol-radar-40)
+
+[[20261025-release-runbook|10-25 릴리스 실행서]]의 운영 작업을 단계마다 사용자 승인으로 진행한다. 대상은 운영 Supabase `sol-radar`(ref `brtysdocxemrqhdezzqg`)다.
+
+- **① DB migration(2026-10-25 18:40 KST)**: 미적용 10개(`20261024000200`~`20261025000310`)를 `scripts/db-push.sh` 로 순서대로 적용했다. 실패 0. 재 `--check` 미적용 0, `db-verify.sh` 60개 통과, 이력 60행·마지막 `20261025000310`, `storage.objects` 트리거 `enforce_own_photo_quota` 활성([증거](evidence/integration/20261025-prod-apply-db-storage.md)).
+- **② 사진 버킷(2026-10-25 19:01 KST 생성)**: 사용자가 대시보드에서 `profile-photos` 를 만들었다. 첫 크기 한도 52428800 을 2097152 로 고친 뒤 읽기 전용 사후 검증 8개 PASS(private·2097152·jpeg/png/webp·bid 두 버킷 불변·사진 정책 3개).
+- **부수 효과**: Supabase CLI 임시 역할 `cli_login_postgres` 가 운영 DB 에 생성·갱신돼 남아 있다. CLI 연결 파일(`supabase/.temp/linked-project.json`)은 만들어졌다가 지웠다. PITR 은 꺼져 있다.
+- **③ 준비(2026-10-26)**: `integration/release-1025` 에 origin/main(dependabot `e9fbf349`·`1bcaef7d`)을 병합했다(`9e1d89fc`, 충돌 0). 전체 `pnpm verify` exit 0, 브라우저 시험 60/60, 격리 E2E 18/18(Next.js 16.4.2), 대시보드·수집 관리 1440·1280 확인([증거](evidence/integration/20261026-deploy-prep.md)).
+- **남은 것**: ③ push·Vercel 배포와 배포 뒤 사진 1장 올리기·지우기는 승인 대기다. GitHub Actions 는 계정 결제 문제로 job 이 시작되지 않는다. Vercel Production Branch·Instant Rollback 은 대시보드에서 확인해야 한다. 그 뒤 ⑥ Vercel env → ⑤ data.go.kr 첫 호출 → ④ Ingest Worker 순서다.
 
 ## 10-23·10-24 상태 (2026-10-24 10:16 KST 기준)
 
