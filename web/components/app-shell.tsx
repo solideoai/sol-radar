@@ -1,20 +1,22 @@
 "use client";
 
 import {
+  ChevronDownIcon,
+  ChevronRightIcon,
   EllipsisIcon,
   LogOutIcon,
   MailIcon,
   SettingsIcon,
   ShieldCheckIcon,
   TriangleAlertIcon,
-  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import {
+  currentNavGroupId,
   isCurrentItem,
   screenLabelOf,
   visibleFooterNavItems,
@@ -43,7 +45,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuBadge,
@@ -54,6 +55,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useSidebarGroupsStore } from "@/lib/stores/sidebar-groups";
 import { initialOf } from "@/lib/utils";
 import type { CurrentOrg, OrgSummary, SolRole } from "@/server/organization";
 
@@ -132,13 +134,24 @@ function AppSidebar({
   solRole: SolRole | null;
 }) {
   const pathname = usePathname();
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, state, isMobile } = useSidebar();
   // 서랍(좁은 폭)을 닫지 않으면 옮겨 간 화면을 서랍이 가린다.
   const closeDrawer = () => setOpenMobile(false);
   const orgSlug = workspace.current.slug;
   const unread = useTopbarStore((s) => s.summary?.unreadNotifications);
   const groups = visibleNavGroups(solRole);
   const footerItems = visibleFooterNavItems(solRole);
+  const currentGroupId = currentNavGroupId(groups, pathname, orgSlug);
+  const collapsedGroups = useSidebarGroupsStore((s) => s.collapsed);
+  const enterGroup = useSidebarGroupsStore((s) => s.enter);
+  const toggleGroup = useSidebarGroupsStore((s) => s.toggle);
+  // 아이콘만 남긴 접힘(64px)에서는 묶음 줄이 없다. 접어 둔 묶음의 메뉴도 아이콘으로 다 보인다.
+  const hasGroupRows = isMobile || state === "expanded";
+
+  // 저장된 접힘은 마운트 뒤에 읽는다. 지금 화면의 묶음은 들어올 때 펼친다.
+  useEffect(() => {
+    enterGroup(currentGroupId);
+  }, [currentGroupId, enterGroup]);
 
   return (
     // 메뉴 글자는 본문 색이다. 묶음 이름만 회색으로 낮춘다(2026-10-26 사용자 결정).
@@ -150,7 +163,7 @@ function AppSidebar({
       className="text-foreground"
     >
       <SidebarHeader>
-        {/* 글자 왼쪽 끝을 아래 메뉴 글자와 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다. */}
+        {/* 왼쪽 끝을 아래 묶음 화살표·받은 초대·아래 고정 칸 아이콘과 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다. */}
         <div className="flex flex-col gap-1 px-2 pt-1 pb-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
           <Logo wordmarkClassName="group-data-[collapsible=icon]:hidden" />
           <p className="truncate type-caption text-muted-foreground group-data-[collapsible=icon]:hidden">
@@ -165,7 +178,7 @@ function AppSidebar({
                 className={MENU_HOVER}
                 render={<Link href="/invitations" onClick={closeDrawer} />}
               >
-                <CollapsedIcon icon={MailIcon} />
+                <MailIcon aria-hidden />
                 <span>받은 초대</span>
               </SidebarMenuButton>
               <SidebarMenuBadge className="tabular-nums">
@@ -177,9 +190,16 @@ function AppSidebar({
         ) : null}
       </SidebarHeader>
       <SidebarContent>
-        <nav aria-label="주요 메뉴" className="flex flex-col pb-2">
+        <nav aria-label="주요 메뉴" className="flex flex-col pt-1 pb-2">
           {groups.map((group, index) => (
-            <NavGroupSection key={group.id} group={group} hasDivider={index > 0}>
+            <NavGroupSection
+              key={group.id}
+              group={group}
+              hasDivider={index > 0}
+              isOpen={!hasGroupRows || !collapsedGroups.includes(group.id)}
+              hasGroupRow={hasGroupRows}
+              onToggle={() => toggleGroup(group.id)}
+            >
               {group.items.map((item) => (
                 <NavMenuItem
                   key={item.href}
@@ -213,20 +233,28 @@ function AppSidebar({
   );
 }
 
-// 묶음 이름은 접히지 않는 작은 회색 글자다. 위 여백을 아래보다 크게 둬 이름이 제 메뉴에 붙는다.
-// 접은 사이드바(64px)에서는 이름을 숨기고 묶음 사이에 짧은 선을 긋는다. 숨긴 이름도 목록의 이름(aria-labelledby)으로 남는다.
+// 묶음 줄은 접기 버튼이다: 화살표와 회색 굵은 묶음 이름으로 되어 있고 아이콘은 없다. 메뉴는 화살표 아래 1px 세로선 안쪽으로 들여 쓴다.
+// 2026-10-26 사용자 결정으로 "접기 없는 묶음 이름"을 되돌려 71a51aec 이전의 트리를 되살렸다(묶음 3개와 순서는 그대로).
+// 접은 사이드바(64px)에서는 묶음 줄을 숨기고 묶음 사이에 짧은 선을 긋는다. 묶음 줄이 없어도 목록 이름(aria-label)은 남는다.
 function NavGroupSection({
   group,
   hasDivider,
+  isOpen,
+  hasGroupRow,
+  onToggle,
   children,
 }: {
   group: NavGroup;
   hasDivider: boolean;
+  isOpen: boolean;
+  hasGroupRow: boolean;
+  onToggle: () => void;
   children: React.ReactNode;
 }) {
-  const labelId = `sidebar-group-${group.id}`;
+  // 묶음 줄(버튼)에는 id 를 두지 않는다. 목록만 id 를 갖고 버튼의 aria-controls 가 가리킨다.
+  const listId = `sidebar-group-${group.id}-menu`;
   return (
-    <SidebarGroup className="px-2 pt-4 pb-0 first:pt-2 group-data-[collapsible=icon]:pt-0">
+    <SidebarGroup className="py-0.5 group-data-[collapsible=icon]:py-0">
       {hasDivider ? (
         <div
           aria-hidden
@@ -234,15 +262,30 @@ function NavGroupSection({
           className="mx-auto my-2 hidden h-px w-6 bg-sidebar-border group-data-[collapsible=icon]:block"
         />
       ) : null}
-      <SidebarGroupLabel
-        id={labelId}
-        className="h-auto pt-0 pb-1.5 group-data-[collapsible=icon]:hidden"
-      >
-        {group.label}
-      </SidebarGroupLabel>
+      {hasGroupRow ? (
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          aria-controls={listId}
+          onClick={onToggle}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left type-caption font-semibold text-muted-foreground ring-sidebar-ring outline-hidden hover:text-sidebar-accent-foreground focus-visible:ring-2"
+        >
+          {isOpen ? (
+            <ChevronDownIcon aria-hidden className="size-4 shrink-0" />
+          ) : (
+            <ChevronRightIcon aria-hidden className="size-4 shrink-0" />
+          )}
+          <span className="truncate">{group.label}</span>
+        </button>
+      ) : null}
+      {/* 세로선은 화살표 가운데(묶음 왼쪽에서 16px) 아래에 온다. 가장 긴 "인력 배치 시뮬레이션"이 256px 폭과
+          사이드바 글자 눈금(+3px)에서 말줄임 없이 들어가도록 트리 안 메뉴의 왼쪽 여백을 6px 로 줄인다.
+          접은 사이드바에서는 부품의 p-2! 가 이겨 아이콘이 32px 칸 가운데에 온다. */}
       <SidebarMenu
-        aria-labelledby={labelId}
-        className="gap-0.5 group-data-[collapsible=icon]:items-center"
+        id={listId}
+        aria-label={group.label}
+        hidden={!isOpen}
+        className="ml-3.75 w-auto gap-0.5 border-l border-sidebar-border pl-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:border-l-0 group-data-[collapsible=icon]:pl-0 [&_[data-sidebar=menu-button]]:pl-1.5"
       >
         {children}
       </SidebarMenu>
@@ -250,12 +293,8 @@ function NavGroupSection({
   );
 }
 
-// 펼친 사이드바는 글자만 둔다. 메뉴 아이콘은 접은 64px 줄에서만 보인다(2026-10-26 사용자 결정 S1).
-function CollapsedIcon({ icon: Icon }: { icon: LucideIcon }) {
-  return <Icon aria-hidden className="hidden group-data-[collapsible=icon]:block" />;
-}
-
 // 출시된 메뉴는 링크, 미출시 메뉴는 링크 없는 이름만 표시한다(초점도 받지 않는다).
+// 아이콘은 펼친 사이드바에서도 글자 왼쪽에 둔다(2026-10-26 사용자 결정: 트리·아이콘 되돌림).
 // 활성 표시는 하나다: sidebar-accent 바탕 + 굵기 600. 색만으로 알리지 않고 aria-current 를 단다.
 function NavMenuItem({
   item,
@@ -276,7 +315,7 @@ function NavMenuItem({
           render={<span />}
           className="cursor-default text-muted-foreground hover:bg-transparent hover:text-muted-foreground active:bg-transparent active:text-muted-foreground"
         >
-          <CollapsedIcon icon={item.icon} />
+          <item.icon aria-hidden />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -297,7 +336,7 @@ function NavMenuItem({
           />
         }
       >
-        <CollapsedIcon icon={item.icon} />
+        <item.icon aria-hidden />
         <span>{item.label}</span>
       </SidebarMenuButton>
       {badge !== undefined && badge >= 1 ? (

@@ -100,7 +100,7 @@ sidebar(딸려 온 sheet·tooltip)·avatar·table.
 
 - 새 업무 화면은 `web/app/(app)/(work)/` 아래에 두고 본문을 `AppPage`(`web/components/app-page.tsx` — 제목·설명·동작 자리, 단 폭 `max-w-5xl`, 넓은 표는 `contentClassName` 으로 넓힌다. 예: 공고 목록 `max-w-360`)로 감싼다.
   메뉴에는 `web/components/app-nav.ts` 의 `NAV_GROUPS` 묶음(업무·분석·회사)이나 아래 고정 칸 목록에 한 줄 더한다(주소는 조직 없는 `/dashboard` 꼴).
-  펼친 사이드바는 글자만이고 `icon` 은 접은 64px 줄에서만 보인다(`docs/06-UI-UX.md` §4.1). 사이드바에 없는 조직(템플릿) 화면의 이름은 `NAV` 가 아니라 `TEMPLATE_SCREENS` 에 둔다(상단 막대가 읽는다).
+  `icon` 은 펼친 사이드바에서 글자 왼쪽에, 접은 64px 줄에서는 홀로 보인다. 묶음 안 메뉴는 접기 화살표 줄 아래 트리 세로선 안쪽에 들여 쓴다(`docs/06-UI-UX.md` §4.1). 사이드바에 없는 조직(템플릿) 화면의 이름은 `NAV` 가 아니라 `TEMPLATE_SCREENS` 에 둔다(상단 막대가 읽는다).
 - `(work)` 아래 화면은 저마다 `requireWork(next)`(`web/app/(app)/(work)/work.ts`)로 다시 확인한다(조직·인력 화면은 `web/app/_lib/people-data.tsx` 의 `loadPeopleDirectory` 를 쓴다) — 로그인 전은 `/auth/login`, 가입 정보 미완료는 가입 보완 화면, 업무 조직이 없거나 여럿·접근 불가는 조직 상태 화면으로 보내고, DB 없음은 오류를 던진다.
   돌려받은 맥락(`orgId`·`role`(`sol_role`)·`runMode`)으로 화면을 그린다. 역할로 막는 화면은 데이터를 읽기 전에 `role` 을 보고 안내만 그린다(견본 `/admin/ingestion` 의 `IngestionForbidden`). 읽기 권한 자체는 RLS 가 정한다.
 - 조직(템플릿) 화면은 `requireWorkspace`(`web/app/(app)/[slug]/workspace.ts`)로 주소의 조직을 다시 확인한다 — 내 조직이 아니면 404, 로그인 전·DB 없음은 `redirect("/auth/login")`. 로그인 전·DB 없음 안내는 이 틀의 `layout.tsx` 가 그린다.

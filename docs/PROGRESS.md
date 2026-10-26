@@ -9,6 +9,15 @@ updated: 2026-10-26
 
 # 진행 상황
 
+## 사이드바 트리·아이콘 되돌리기 (2026-10-26)
+
+아래 "AI 티 걷어내기" 절의 사이드바(main `71a51aec`)를 본 사용자가 "그 전에 트리랑 아이콘이 글씨 옆에 나오는 게 나은 거 같아"라고 했고, 범위는 "트리·아이콘만"을 골랐다(사이드바 전체를 예전으로 돌리는 안은 고르지 않았다). 펼친 상태 메뉴 아이콘, 접는 묶음 줄(`aria-expanded`·`aria-controls`, 접힘은 `localStorage` `sol-radar.sidebar.collapsed-groups`, 지금 화면의 묶음은 들어올 때 펼침), 트리 세로선을 `71a51aec^`(main `52fcc271`)의 모습으로 되살린다. 묶음 3개와 순서·아래 고정 칸·로고와 회사 이름·흰 바탕·회색 바탕 활성 표시(`brand` 막대 없음)·64px 아이콘 줄은 그대로다.
+
+- **코드**: `web/components/app-shell.tsx`, `web/components/app-nav.ts`(`currentNavGroupId`), `web/lib/stores/sidebar-groups.ts`(되살림). 작업은 세션 4개(코드 4b·문서 47·화면 확인 5e·독립 리뷰 0f)에 나눠 맡기고 마스터 4e 가 통합했다(브랜치 `feat/sidebar-tree`, 기준 main `db796a72`).
+- **문서**: [[06-UI-UX|06]] §4·§4.1·§9, [[16-DECISIONS|16]] ADR-021 2026-10-26 2차 개정, [[11-TESTING|11]] NAV-10, design-system 스킬, [[2026-10-26-design-declutter-plan|계획]]·스펙의 "후속 변경(2026-10-26)" 절, 아래 절의 push 서술 정정.
+- **시험**: 2026-10-21 시험 축소로 지운 `web/components/app-shell.browser.test.tsx`·`web/lib/stores/sidebar-groups.test.ts`는 되살리지 않고 새 시험도 만들지 않는다. 화면 확인은 저장소 밖 점검 스크립트와 1440·1280 스크린샷으로 한다.
+- **검증**: 전체 `pnpm verify` exit 0(web 79파일 689시험·빌드·AI pytest 153·결정 57). 격리 Supabase 위 점검 스크립트 ADMIN `/dashboard` 1440·1280 단언 93개·SALES `/org-chart` 1280 단언 49개 실패 0, "인력 배치 시뮬레이션" 말줄임 없음(132/132px), 가로 넘침 0([증거](evidence/sidebar-tree/README.md)). 독립 리뷰 상·중 0, 하 5건 중 주석·문서 4건 반영(같은 묶음 안 이동 때 다시 펼치지 않는 동작은 예전대로 둠). 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`)는 Compose 가 필요해 돌리지 않았다.
+
 ## 실운영 전환·3시간 정기 수집 로컬 구현 (2026-10-26, 세션 sol-radar-78, 운영 미적용)
 
 브랜치 `feat/live-ops-schedule`(worktree `sol-radar-worktrees/live-ops-78`, base main `52fcc271`, 커밋 `e8a4bbb0` 뒤 main `71a51aec` 병합). 실행서는 [[plans/2026-10-26-live-ops-cutover|10-26 실운영 전환 실행서]]다.
@@ -18,16 +27,16 @@ updated: 2026-10-26
 - **DEMO 정리**: 실행서·백업·복구 SQL 과 격리 리허설만 했다(리뷰 반영 뒤 r2 리허설에서 실공고 97건 보존·삭제 뒤 복구 일치·음성 시험 5종 차단, [증거](evidence/demo-cleanup/20261026/summary.md)). Supabase MCP 가 연결되지 않아 운영 DB 는 읽지도 바꾸지도 않았다.
 - **남은 것(모두 승인 대기)**: 운영 DEMO 삭제 → GitHub push(=Vercel 자동 배포) → 회사 redis-api 재생성·`SOL_INGEST_MODE` → ingest worker 이미지·`--check`/`--status` → 3시간 일정 활성화 → 최종 확인.
 
-## AI 티 걷어내기 — 사이드바·대시보드·랜딩 (2026-10-26, 로컬)
+## AI 티 걷어내기 — 사이드바·대시보드·랜딩 (2026-10-26)
 
-사용자 평가 "지금 디자인이 좀 AI 티가 많이 나는데 … 특히 대시보드의 사이드바"에 따라 rolelink.io·design.actibooky.com 을 직접 비교하고 사용자 결정(묶음 3개·글자만, 64px 아이콘 줄 유지, 흰 사이드바, 랜딩 히어로만 가운데, 마지막 안내 잉크 띠)대로 바꿨다. [[2026-10-26-design-declutter-plan|계획]] · [증거](evidence/design-declutter/README.md). 브랜치 `feat/design-declutter`(worktree `sol-radar-worktrees/design-declutter`, 기준 main `52fcc271`)에서 커밋해 로컬 main 에 병합했다(2026-10-26 사용자 결정). push·배포는 하지 않았다.
+사용자 평가 "지금 디자인이 좀 AI 티가 많이 나는데 … 특히 대시보드의 사이드바"에 따라 rolelink.io·design.actibooky.com 을 직접 비교하고 사용자 결정(묶음 3개·글자만, 64px 아이콘 줄 유지, 흰 사이드바, 랜딩 히어로만 가운데, 마지막 안내 잉크 띠)대로 바꿨다. [[2026-10-26-design-declutter-plan|계획]] · [증거](evidence/design-declutter/README.md). 브랜치 `feat/design-declutter`(worktree `sol-radar-worktrees/design-declutter`, 기준 main `52fcc271`)에서 커밋해 로컬 main 에 병합했다(2026-10-26 사용자 결정). 같은 날 `71a51aec` 를 origin/main 에 push 했다(pre-push 게이트 통과). 이어 세션 sol-radar-78 이 이를 병합한 main `db796a72` 를 push 했고, Vercel Production 배포 성공을 그 세션이 확인했다(위 "실운영 전환" 절).
 
-- **사이드바**: 업무·분석·회사 묶음(접기 없음), 펼친 상태 글자만, 활성은 `sidebar-accent` 바탕 + 굵기 600 + `aria-current`, 맨 위 SOL RADAR 로고 + 회사 이름, 아래 고정 칸 설정·데이터 수집 관리(ADMIN만)·한 줄 사용자 칸. 접은 64px 줄에서만 아이콘·툴팁. 사이드바 바탕 `#FFFFFF`(`design/tokens.json`). 묶음 접기 스토어 `web/lib/stores/sidebar-groups.ts` 삭제.
+- **사이드바**: 업무·분석·회사 묶음(접기 없음), 펼친 상태 글자만, 활성은 `sidebar-accent` 바탕 + 굵기 600 + `aria-current`, 맨 위 SOL RADAR 로고 + 회사 이름, 아래 고정 칸 설정·데이터 수집 관리(ADMIN만)·한 줄 사용자 칸. 접은 64px 줄에서만 아이콘·툴팁. 사이드바 바탕 `#FFFFFF`(`design/tokens.json`). 묶음 접기 스토어 `web/lib/stores/sidebar-groups.ts` 삭제. 이 가운데 펼친 상태 글자만·묶음 접기 없음·스토어 삭제는 같은 날 사용자가 되돌렸다(위 "사이드바 트리·아이콘 되돌리기").
 - **대시보드**: `StatCard`·`Card` 상자를 걷고 "공공조달 요약" 숫자 띠 한 줄 + 왼쪽 목록 두 구역 + 오른쪽 수집 지표·수집 소스 상태·기관별 공고 수·입찰 포트폴리오(제목 + 구분선 목록). 값·문구·조회는 그대로다.
 - **랜딩**: 제목 앞 아이콘·지그재그·색 무대·가짜 창 점·그림자·구역별 떠오르기(`reveal.tsx` 삭제)를 없앴다. 기능·원칙은 구분선 행, 3단계 번호는 본문 색 "01", 히어로 밖 제목은 왼쪽, 마지막 안내는 잉크 띠 + 시작하기 하나.
 - **문서**: [[06-UI-UX|06]] §2·§3.4·§4·§4.1·§5.3·§5.9.1·§9, [[11-TESTING|11]] NAV-10, [[16-DECISIONS|16]] ADR-021 개정, [[20-GLOSSARY|20]], design-system 스킬, `tokens.json` `$comment`(wordmark 쓰임).
 - **검증**: 전체 `pnpm verify` exit 0(web 593·빌드 포함), 브라우저 시험 12/12, `web/e2e` 45/45, 대시보드·사이드바 점검 스크립트 통과, 1440·1280 가로 넘침 0, `impeccable detect` 지적 0.
-- **남은 것**: 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`)는 Compose 가 필요해 돌리지 않았다. push·Vercel 배포는 사용자 확인 뒤다.
+- **남은 것**: 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`)는 Compose 가 필요해 돌리지 않았다. push·배포는 위와 같다. 운영 화면은 이 절의 작업자가 직접 보지 않았다.
 
 ## 운영 배포 ①·② 적용과 ③ 준비 (2026-10-25·10-26, 세션 sol-radar-40)
 

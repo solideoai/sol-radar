@@ -27,7 +27,8 @@ export type NavStatus = "released" | "planned";
 export type NavItem = {
   href: string;
   label: string;
-  // 접은 사이드바(64px 아이콘 줄)에서만 보인다. 펼친 사이드바는 글자만 둔다(2026-10-26 사용자 결정 S1).
+  // 펼친 사이드바에서는 글자 왼쪽에, 접은 사이드바(64px)에서는 혼자 보인다.
+  // 2026-10-26 사용자 결정(트리·아이콘 되돌림)으로 펼친 상태에도 아이콘을 다시 둔다.
   icon: LucideIcon;
   status: NavStatus;
   // 있으면 이 업무 역할만 메뉴를 본다. 다른 역할이 주소로 들어오면 화면이 권한 없음 안내를 그린다.
@@ -128,6 +129,19 @@ export const visibleNavGroups = (role: SolRole | null): NavGroup[] =>
 
 export const visibleFooterNavItems = (role: SolRole | null): NavItem[] =>
   FOOTER_NAV_ITEMS.filter((item) => canSee(item, role));
+
+// 지금 화면이 속한 묶음. 들어올 때 이 묶음은 접혀 있어도 펼친다(06 §4.1).
+// 아래 고정 칸 메뉴(설정 등)는 묶음이 없어 null 이다.
+export const currentNavGroupId = (
+  groups: readonly NavGroup[],
+  pathname: string,
+  orgSlug: string,
+): string | null =>
+  groups.find((group) =>
+    group.items.some(
+      (item) => item.status === "released" && isCurrentItem(pathname, item, orgSlug),
+    ),
+  )?.id ?? null;
 
 // 위 막대의 화면 이름. 역할과 상관없이 출시된 메뉴에서 찾는다 — 주소로 들어온 사람도 어느 화면인지 알아야 한다.
 export const screenLabelOf = (pathname: string, orgSlug: string): string | null => {
