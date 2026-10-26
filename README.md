@@ -9,13 +9,33 @@ SOL RADAR는 공공 SI·AX 기업을 위해 공공 발주·입찰 정보를 수�
 `agentic-boilerplate`에서 출발했습니다. 설계 문서의 정본은 `docs/`([문서 인덱스](docs/00-README.md))이고,
 이 README는 그 인덱스로 가는 입구입니다. 여기 적힌 기능은 목표 범위이며, 구현·검증 여부는 [진행 상황](docs/PROGRESS.md)을 따릅니다.
 
-## 현재 상태 (2026-10-19)
+## 현재 상태 (2026-10-25)
 
-- main에 병합됨: DB 스키마·RLS·`sol_role`·`pnpm demo:reset`(C2), 공고 수집·정규화·revision(C3), 규칙 엔진·SOL Score·골든 시험(C4), AI gateway `/extract`·`/kev` mock과 worker 분석 클라이언트(C5).
-- 미구현: 공고 목록·상세·분석 화면과 Route Handler(C6), 담당자 결정 기록·인앱 알림(C7).
-- 데모는 Docker Compose + Supabase 클라우드로 돌리고 AI는 mock 모드가 기본입니다. 실제 모델 추론(S-LIVE)은 회사 GPU 엔드포인트 확인 결과로 정합니다.
+- main에 병합됨
+  - DB 스키마·RLS·`sol_role`·`pnpm demo:reset`(C2), 공고 수집·정규화·revision(C3), 규칙 엔진·SOL Score·골든 시험(C4), AI gateway mock·`local` 어댑터와 worker 분석 클라이언트(C5).
+  - 대시보드·공고 목록·상세·알림 화면과 Route Handler `/api/v1`(C6), 담당자 결정 기록·인앱 알림(C7), 가정 재계산(ADR-037, `d48c7a2`).
+  - 2026-10-22 기능 묶음 통합(`6b4ff0a4`·`73eac5a8`): 변경 감지(S5), 부처 지원사업 공고(ADR-040), 사전규격·발주계획 단계 연결(P0-8), 카카오톡 "나에게 보내기" 추천 공고 알림(ADR-038), 회사 Gateway·Worker 배포 묶음.
+  - P1 화면 N3 관심 공고·N5 분석 결과 비교·N6 입찰 프로젝트·N7 인력 배치 시뮬레이션(`546a997d`). 가상 인력 200명·고정 기간 가용 95.5 FTE(ADR-043).
+- 웹은 Vercel 운영 주소 https://www.solideos-radar.com 에서 돌고, DB·Auth·Storage는 Supabase 클라우드입니다. AI는 `mock` 모드가 기본이고 골든 수치는 `mock` 기준입니다(FX-01 94 BID · FX-02 72 WATCH · FX-03 68 NO-BID).
+- 진행 중 〔10-25 결과 대기〕: 프로필 사진·N4b 조직·인력 편집(ADR-051) 병합, 회사 runtime 정상화(10-24 운영 분석 job 미소비), S-LIVE 운영 run, 카카오 실제 수신 녹화.
+- 미구현·미측정: 첨부(RFP) 다운로드·파싱, Qwen 설명 생성(설명은 템플릿). 모델 비교 E1'~E4는 회사 GPU 미가용으로 미측정입니다. 메일 알림(ADR-041)은 해커톤에서 뺐습니다.
 
-실제인 것과 mock인 것의 구분은 [해커톤 문서 §7 정직성 표](docs/18-HACKATHON.md), 기술적 한계와 실행 모드 구분은 [제출물 한계 문서](docs/submission/limitations.md)에 있습니다.
+### 실제인 것과 mock인 것 (요약)
+
+정본은 [해커톤 문서 §7 정직성 표](docs/18-HACKATHON.md)이고, 기술적 한계와 실행 모드 구분은 [제출물 한계 문서](docs/submission/limitations.md)에 있습니다. 둘과 다르면 그쪽이 맞습니다.
+
+| 영역 | 상태 |
+| --- | --- |
+| 공고 데이터 | `live`는 실제 나라장터 공고, `fixture`·`mock`은 가상 공고 20건(`DEMO` 배지) |
+| 회사 프로필 | 모든 모드에서 가상 솔리데오(회사명·부서/직급만 실제, 인물 200명·사진·자격·실적·재무는 가상) |
+| 자격 판정·SOL Score·권고 | 실제 구현(결정론적 규칙, 골든 시험). 골든 94/72/68은 `mock`에서만 단언 |
+| Qwen 요구조건 추출 | `mock`은 고정 응답. 회사 vLLM API probe 통과(2026-10-21, served id `Qwen3.8-Flash-Next-AWQ-INT4`), 앱 경로 실추론은 미확인 |
+| 결정 모델 Bosun v3.1 0.6B | `mock`은 고정 응답. 실추론은 미확인. 참고 지표이며 점수·자격·권고에 반영하지 않음 |
+| 첨부(RFP) 다운로드·파싱 | 미구현. 분석은 공고 본문과 API 구조화 필드로만 함 |
+| 카카오톡 알림 | main 병합(`73eac5a8`), 기본 `mock` 발송. 실제 공고 수신 녹화 〔10-25 결과 대기〕 |
+| S-LIVE 실제 공고 장면 | 사전 run 조회 방식. 운영 run 〔10-25 결과 대기〕 |
+| 모델 평가 E1'~E4 | 회사 GPU 미가용으로 미측정 |
+| 결제·모바일·자동 투찰·승률 예측 | 범위 외 |
 
 ## 해결하려는 문제
 
@@ -57,7 +77,9 @@ SOL RADAR는 이 검토 과정을 데이터와 AI 분석으로 지원합니다.
 
 확인이 필요한 필수 자격이 남아 있으면 자동으로 BID를 권고하지 않습니다.
 
-경쟁사·낙찰 이력 분석, 인력 배치 추천, 외부 메시지 알림은 후속 단계에서 확장합니다.
+경쟁사·낙찰 이력 분석, 인력 배치 확정·AI 추천은 후속 단계에서 확장합니다. 인력 배치는 저장하지 않는 규칙 매칭 시뮬레이션(N7)까지 들어가 있습니다.
+
+외부 메시지 알림은 카카오톡 "나에게 보내기"로 추천 공고(BID·WATCH 권고)를 보내는 기능이 main에 병합돼 있습니다(ADR-038, `73eac5a8`). 기본은 `mock` 발송이고, 실제 수신은 〔10-25 결과 대기〕입니다. 운영 경로인 카카오 알림톡과 메일 알림(ADR-041, 해커톤 제외)은 후속입니다.
 
 ## 솔리데오 가상 직원·가입 정보
 
@@ -79,10 +101,12 @@ SOL RADAR는 이 검토 과정을 데이터와 AI 분석으로 지원합니다.
 | AI 모델 | Qwen3.8-Flash-Next(회사 운영 vLLM API) · Bosun v3.1 0.6B(결정 모델) | 요구사항 구조화 및 의사결정 보조. `KEV_*`·`/kev` 이름은 호환 유지(ADR-034) |
 | 벡터 검색 | Qdrant | 관련 문서 및 근거 검색 |
 | 파일 저장 | Supabase Storage | 공고 첨부파일 및 원본 문서 보관 |
-| 실행 환경 | Docker Compose | Redis·Supabase Storage·Qdrant·AI 서비스·worker 실행. 웹은 호스트에서 `pnpm -C web start` |
+| 웹 배포 | Vercel | 운영 web(`https://www.solideos-radar.com`). ADR-049에 따라 web만 실행 |
+| 회사 분석 런타임 | Docker Compose(`infra/compose.company.yaml`) | 회사 서버의 redis-api·AI gateway·Worker. 회사의 기존 Redis를 재사용 |
+| 로컬 데모 실행 환경 | Docker Compose(`infra/compose.yaml`) | redis·qdrant·ai-gateway·worker 4개. DB·Auth·Storage는 Supabase, 웹은 호스트에서 `pnpm -C web start` |
 
-DB·인증은 Supabase 클라우드 프로젝트를 씁니다. 데모는 Docker Compose([배포](docs/10-DEPLOYMENT.md))로 돌리고, 웹 배포처는 아직 정하지 않았습니다([결정 기록](docs/16-DECISIONS.md) ADR-017·미결정 8번).
-모델의 구체적인 버전과 연동 방식은 검증 후 확정합니다.
+DB·인증·Storage는 Supabase 클라우드 프로젝트를 씁니다. 웹은 Vercel 운영 주소 https://www.solideos-radar.com 입니다(첫 운영 배포 2026-10-22 READY, 이후 main push 때 자동 배포). [결정 기록](docs/16-DECISIONS.md) ADR-049에 따라 Vercel은 web만 실행하고, 분석·수집 요청은 서비스 token과 사용자 JWT를 붙여 HTTPS로 회사 Gateway(redis-api)에 넘깁니다. 회사 Compose의 Worker가 큐를 처리하고 AI gateway가 모델을 부릅니다. 회사 runtime 정상화는 〔10-25 결과 대기〕입니다. 로컬 데모 Compose 경로는 대체 경로로 유지합니다([배포](docs/10-DEPLOYMENT.md)).
+모델은 추출·설명용 Qwen3.8-Flash-Next(회사 운영 vLLM API)와 결정 모델 Bosun v3.1 0.6B로 확정했습니다(ADR-034). 앱 경로의 실추론은 미확인입니다.
 
 ## 데이터와 분석 원칙
 
@@ -102,8 +126,20 @@ DB·인증은 Supabase 클라우드 프로젝트를 씁니다. 데모는 Docker 
 - 설치: 루트와 `web/`에서 각각 `pnpm install`.
 - 로컬 DB: `pnpm db:start`(Docker·Supabase CLI 필요. 마이그레이션을 적용하고 `web/.env.local`을 채웁니다). 시험 계정은 `pnpm db:seed`, 데모 데이터는 `pnpm demo:reset`.
 - 웹 실행: `pnpm -C web dev`.
-- Compose(Redis·Supabase Storage·Qdrant·AI gateway·worker)와 데모 당일 기동 절차: [배포](docs/10-DEPLOYMENT.md). 환경변수 키 이름은 `.env.example`·`web/.env.example`·`infra/env/*.env.example`.
+- Compose(redis·qdrant·ai-gateway·worker)와 데모 당일 기동 절차: [배포](docs/10-DEPLOYMENT.md). 환경변수 키 이름은 `.env.example`·`web/.env.example`·`infra/env/*.env.example`.
 - 검증: `pnpm verify`(빌드를 뺀 빠른 검증은 `pnpm verify:quick`).
+
+### `mock` 데모 기동 요약
+
+정본은 [배포 문서의 "데모 당일 기동 절차"](docs/10-DEPLOYMENT.md#데모-당일-기동-절차)입니다. 단계마다 통과 기준과 저장할 증거가 거기 있습니다.
+
+1. env 준비: `cp infra/env/demo.env.example infra/.env` 뒤 값을 채우고 `web/.env.local`·루트 `.env.local`도 채웁니다. `pnpm check:env`가 placeholder 0건이면 통과.
+2. DB 확인: `pnpm db:verify`(마이그레이션·RLS 확인. 당일에 `pnpm db:push`로 고치지 않습니다).
+3. 서비스 기동: `docker compose -f infra/compose.yaml up -d --build` → redis·qdrant·ai-gateway·worker 4개 `healthy`.
+4. 웹 기동: `pnpm -C web build` 뒤 `pnpm -C web start`(:3000).
+5. 데모 데이터: `pnpm demo:reset`(마지막 줄 `seed: orgs=2 … people=200 … bids=19 …` 확인).
+6. 상태 확인: `curl -s http://localhost:3000/health/ready`에서 `checks.ai`가 `mock`.
+7. 사전 분석: `pnpm demo:preanalyze`(18건 `COMPLETED`, 사용자 확인 뒤).
 
 API 키, Supabase service role 키, 데이터베이스 연결 문자열 등 비밀 값은 Git에 커밋하지 않습니다.
 
@@ -127,7 +163,7 @@ API 키, Supabase service role 키, 데이터베이스 연결 문자열 등 비�
 | [데이터 수집](docs/07-DATA-PIPELINE.md) | 공식 API 수집 및 정규화, fixture 20건 |
 | [점수 산정](docs/08-SCORING.md) | SOL Score 및 권고 기준 |
 | [보안](docs/09-SECURITY.md) | 인증·권한·정보 보호·책임 있는 AI |
-| [배포](docs/10-DEPLOYMENT.md) | Docker Compose·Supabase 실행 환경, 기동 절차 |
+| [배포](docs/10-DEPLOYMENT.md) | Vercel·회사 Compose·Supabase 실행 환경, 로컬 Compose 기동 절차 |
 | [테스트](docs/11-TESTING.md) | 검증 및 수용 기준, `docs/evidence/` |
 | [로드맵](docs/12-ROADMAP.md) | 구현 순서 및 해커톤 컷 |
 | [결정 기록](docs/16-DECISIONS.md) | ADR·미결정 사항 |
