@@ -11,37 +11,30 @@ updated: 2026-10-27
 
 # 12. 구현 순서와 해커톤 컷
 
-## 2026-10-22 커밋 통합 후속
-
-커밋됐던 AI 번역/인용·N2·S5·P0-8·카카오·지원사업·회사 runtime 준비를 최신 main으로 모은다. N3/N5/N6/N7과 새 공공조달 대시보드는 기존 main 구현을 유지한다. 이번 범위는 push/main 통합이며 실제 회사 기동·실 API 인증/수집·카카오 실발송·새 SQL 운영 적용 완료를 뜻하지 않는다. 구현 및 검증의 현재 원천은 [통합 기록](evidence/committed-integrations/integration.md)이다. 아래 일정과 과거 “예정” 표기는 해당 시점 기록이며 freeze/제출 일정을 자동 변경하지 않는다.
-
-
 > [!success] 새 마감 (2026-10-27 사용자 결정, [[16-DECISIONS|ADR-054]])
-> 공식 제출 **2026-11-03(화)**, 발표 **2026-11-04(수)**. 사용자 원문: "새 마감일은 11월 3일. 발표일은 11월 4일." 사용자가 정한 날짜는 이 둘뿐이다. 남은 날의 세부 일정은 아래 "남은 일정 제안" 표이고 사용자 확인 전이다. 아래 콜아웃·Critical Path·"freeze ~ D-day" 표·간트의 10-24 freeze·10-25 리허설·10-26 완료 목표·10-27 마감은 **지난 일정**이다. 지우지 않고 당시 기록으로 둔다.
+> 공식 제출 **2026-11-03(화)**, 발표 **2026-11-04(수)**. 사용자 원문: "새 마감일은 11월 3일. 발표일은 11월 4일." 사용자가 정한 날짜는 이 둘뿐이다. 남은 날의 세부 일정은 아래 "남은 일정 제안" 표 한 곳에만 두고, 사용자 확인 전이다. 이전 일정은 ADR-054로 바뀌었다(이력은 [[16-DECISIONS|16 ADR]] ADR-042·054).
 
-> [!note] 마감·배점과 일정 (지난 일정, 2026-10-24 기준)
-> 공식 제출 마감(2026-10-27, 2026-10-18 사용자 입력)·완료 목표(**2026-10-26**, 2026-10-21 사용자 결정. 10-27은 발표자료·발표 연습)·공식 배점과 그 배점이 정하는 우선순위는 [[18-HACKATHON|18 해커톤]] 머리 콜아웃과 §4가 정본이다. 아래 간트는 2026-10-19 ADR-027로 2일 당긴 일정을 2026-10-21 [[16-DECISIONS|ADR-042]]로 다시 당긴 것이다(기능 freeze 10-24 22:00·최종 리허설 10-25·완료 목표 10-26, P1 다섯 화면 병행. 날짜·시각은 f9 조정안을 12가 사용자 위임으로 받아들였다). ADR-027은 2026-10-20 폐기됐고, 그 사이 일정 근거였던 ADR-034 17번은 ADR-042로 개정됐다.
-> **2026-10-24 개정(사용자)**: 회사 GPU 학습(X6)을 하루 미뤘다. F1·F2는 10-25(일) 오후, F3·E4·E1' 채점은 10-26(월) 오전, 제출물 반영은 10-26 오후다([[16-DECISIONS|ADR-034]] 12번 개정). 메일 알림(ADR-041)은 해커톤에서 뺐다. 카카오는 같은 날 사용자 재결정으로 시연 영상에서 실제 공고의 휴대폰 수신을 녹화한다(10-25, 녹화 뒤 `mock` 복귀, 예정·미확인, [[16-DECISIONS|ADR-038]] 재개정). freeze 10-24 22:00·리허설 10-25·완료 목표 10-26·공식 제출 10-27은 그대로다.
-
-[[16-DECISIONS|ADR-020]]으로 해커톤 MVP의 목표가 "fixture 20건 + mock AI"에서 **실제 나라장터 공고를 대상으로 끝까지 동작하는 MVP**로 바뀌었다(사용자 원문: "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP"). 실수집·실추론·평가 트랙(P0-0~P0-11)은 별도 트랙이 아니라 아래 Phase 0~7 안에 들어간다. fixture 경로를 다 만든 뒤 live를 얹는 것이 아니라 같은 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)로 둘을 함께 만든다. 시험과 CI는 `SOL_RUN_MODE=mock`으로 돈다.
+[[16-DECISIONS|ADR-020]]으로 해커톤 MVP의 목표가 "fixture 20건 + mock AI"에서 **실제 나라장터 공고를 대상으로 끝까지 동작하는 MVP**로 바뀌었다(사용자 원문: "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP"). 실수집·실추론·평가 트랙(P0-0~P0-11)은 별도 트랙이 아니라 아래 Phase 0~7 안에 들어간다. fixture 경로와 live 경로는 같은 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)로 함께 만든다. 시험과 CI는 `SOL_RUN_MODE=mock`으로 돈다.
 
 ## 남은 일정 제안 (2026-10-27, 사용자 확인 전)
 
 > [!todo] 제안(사용자 확인 전)
-> 마스터 세션의 제안이다. 사용자가 확인하기 전에는 확정 일정으로 쓰지 않는다. 확정된 것은 11-03 제출·11-04 발표뿐이다([[16-DECISIONS|ADR-054]]).
+> 마스터 세션의 제안이다. 사용자가 확인하기 전에는 확정 일정으로 쓰지 않는다. 확정된 것은 11-03 제출·11-04 발표와 발표 형식(덱 20분 + 녹화 클립)이다([[16-DECISIONS|ADR-054]]).
 
-|날짜|할 일|조건·승인|
+|날짜|할 일|조건·상태|
 |---|---|---|
-|10-27(화)~10-29(목)|첨부 처리 구현·통합(다운로드·파서·documents worker. ADR-054 3번, 2026-10-27 착수)|구현은 다른 작업자. 운영 반영은 승인 뒤. 10-27 진행: 구현·로컬 통합 완료(전체 `pnpm verify` exit 0), 운영 미적용. 승인 대기 항목은 [[PROGRESS]] "10-27 첨부 처리" 절|
-|10-29(목)|DEMO 공고 일정 재설정 운영 적용(발표일 기준, 일정 +15일 안). 10-30 18:00 전|운영 DB 변경이라 사용자 승인 필요. SQL은 다른 작업자가 준비 중|
-|10-30(금)~10-31(토)|회사 반영(redis-api·Worker), 실공고 S-LIVE 분석 run 만들기|회사 변경은 단계마다 승인|
-|11-01(일)|리허설 1, 시연 영상 촬영(S-LIVE·카카오 실수신 컷 포함)|첨부 처리가 운영에 들어간 뒤|
-|11-02(월)|발표 덱·영상 완성, 리허설 2|—|
+|10-27(화)~10-29(목)|첨부 처리(다운로드·파서·documents worker, ADR-054 3번)|코드·운영 DB 적용 완료, 회사 반영 진행 중([[plans/2026-10-27-company-rollout-attachments\|회사 반영 실행서]]). 회사 변경은 단계마다 승인 뒤 사람이 실행한다|
+|10-27(화)|DEMO 공고 16건 마감 +15일(발표일 기준)|완료(10-27 12:57 운영 적용, [기록](evidence/demo-deadline/20261027/prod-run.md))|
+|10-28(수)~11-02(월)|리허설 중 FX-02 재분석 금지|재분석하면 최신 분석이 78 BID가 되어 대시보드 BID 수와 권고 알림이 바뀐다. 촬영·발표의 S4 [재분석]만 한다(예상: 11-02까지 78 BID, 11-03부터 72 WATCH, [점검](evidence/demo-deadline/20261027/README.md) S4 절)|
+|10-30(금)~10-31(토)|실공고 S-LIVE 분석 run 만들기|회사 반영이 끝난 뒤. 그 전 운영 실공고 분석은 0건이다(`409 ANALYSIS_SOURCE_MISSING`)|
+|11-01(일)|리허설 1|D1 운영 사이트 `?origin=demo` 기준. `demo:reset` 안 함|
+|11-01(일)|촬영(녹화 클립): D1 운영 사이트 장면·S-LIVE·카카오 실수신, 로컬 Compose S5·S6|첨부 처리가 운영에 들어간 뒤. 카카오는 사용자 연결·S0 수신 시험이 먼저다(운영 연결 0건). 회사 Worker가 알림을 처리하는지 먼저 확인한다(미확인, 알림 등록은 `web/worker/main.ts:857-914`에만 있다)|
+|11-02(월)|발표 덱(20분)·녹화 클립 완성, 리허설 2|로컬 전체 `pnpm verify` 1회(GitHub Actions가 돌지 않는다)|
 |11-03(화)|공식 제출|확정(사용자)|
-|11-04(수)|발표(D1: 운영 사이트 `?origin=demo`, `demo:reset` 안 함)|확정(사용자). D1은 사용자 결정|
+|11-04(수)|발표: 덱 20분 + 녹화 클립. D1 운영 사이트(`?origin=demo`)는 질의응답 라이브|확정(사용자). `demo:reset` 안 함|
 
 - 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다(ADR-054 2번). 이 표에 넣지 않는다.
-- X6 파인튜닝(회사 GPU 학습) 실행 여부는 미결정이라 이 표에 넣지 않았다. 사용자가 정하면 행을 더한다.
+- X6 파인튜닝(회사 GPU 학습)과 실험 E0~E3·X2의 실행 여부는 미결정이라 이 표에 넣지 않았다. 사용자가 정하면 행을 더한다.
 
 ## 순차 실행 (Claude Code 기준)
 
@@ -57,12 +50,12 @@ updated: 2026-10-27
 |5|AI gateway: mock adapter(CI용, 먼저) → 장애 대체(`PARTIAL`) → Qwen3.8-Flash-Next(회사 운영 vLLM API) `/extract` local + `translations`(P0-4) → Bosun v3.1 0.6B `kev-qs/v0.2` 참고 지표·`stateTrace`·레지스트리 검증(P0-6) → `/explain`(P0-7)|mock/실모델 switch, PARTIAL 경로, 실패 유형 구분, 인용 검증 통과율·실공고 1건 E2E 로그, 결정 모델 응답 원문 저장·규칙 불변 시험|
 |6|최종 권고 + 영업 리뷰 + 인앱 알림|엔드투엔드 검토 완료|
 |7|보안·성능·로그·배포. 세 모드 기동 리허설, 엔드포인트 재접속 확인 리허설|릴리즈 체크리스트 PASS|
-|평가 트랙|평가셋 v0.1(P0-9), 평가 하네스와 E0·E1'·E2 리포트(P0-10), 학습셋 번들 내보내기와 LoRA 메모리 검증 스크립트·절차(P0-11). 평가셋 라벨은 10-19부터, 학습셋 번들은 Phase 5 local이 동작한 뒤. Bosun LoRA 학습(F1·F2·F3)은 회사 GPU 서버의 물리 GPU 1(A40 46,068 MiB, PaddleOCR과 공유)에서 회사 측 실행(X6, [[16-DECISIONS\|ADR-034]]. 서버 환경 확인 2026-10-20, `sol_decision`·F1 미완)|[[21-MODEL-TRAINING\|21 모델 학습]] §7 수용 기준|
+|평가 트랙|평가셋 v0.1(P0-9), 평가 하네스와 E0·E1'·E2 리포트(P0-10), 학습셋 번들 내보내기와 LoRA 메모리 검증 스크립트·절차(P0-11). Bosun LoRA 학습(F1·F2·F3)은 회사 GPU 서버의 물리 GPU 1(A40 46,068 MiB, PaddleOCR과 공유)에서 회사 측 실행(X6, [[16-DECISIONS\|ADR-034]]). 실행 여부는 미결정이다([[16-DECISIONS\|ADR-054]])|[[21-MODEL-TRAINING\|21 모델 학습]] §7 수용 기준|
 |8 (P1)|카카오 알림톡 운영 전환(해커톤은 "나에게 보내기"로 대체, [[16-DECISIONS\|ADR-038]])/경쟁사/인력배치|공식 데이터 및 외부 승인 확보 후|
 
 ## 해커톤 우선순위 (P0)
 
-해커톤 공식 제출 마감일은 2026-10-27이고 2026-10-26은 완료 목표다. 10-27은 발표자료·발표 연습에 쓴다([[16-DECISIONS|ADR-042]], 2026-10-21 사용자 결정). 아래 순서가 곧 잘라낼 순서다. 시간이 모자라도 범위를 임의로 줄이지 않고 선택지를 보고한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]). `E0`~`E2`는 [[21-MODEL-TRAINING|21 모델 학습]]의 평가 비교 대상이며 데모 장면 번호(`S0`~`S7`)와 다르다.
+공식 제출은 2026-11-03, 발표는 2026-11-04다([[16-DECISIONS|ADR-054]]). 아래 순서가 곧 잘라낼 순서다. 시간이 모자라도 범위를 임의로 줄이지 않고 선택지를 보고한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]). `E0`~`E2`는 [[21-MODEL-TRAINING|21 모델 학습]]의 평가 비교 대상이며 데모 장면 번호(`S0`~`S7`)와 다르다.
 
 |순서|항목|Phase|완료 기준|
 |---|---|---|---|
@@ -80,63 +73,53 @@ updated: 2026-10-27
 |P0-11|학습셋 번들 내보내기 + 메모리 검증 스크립트·절차|X6|train 1,000 레코드 이상, 번들 sha256, 학습 요청서. F1·F2·F3 실행은 GPU 서버 셸이 필요해 회사 측(X6, [[16-DECISIONS\|ADR-034]])|
 
 **순서 규칙** ([[16-DECISIONS|ADR-020]], 2026-10-16)
-- **작업 순서는 Phase 순서**(위 Phase 표)다. 의존 관계 때문에 P0-5(Phase 4)·P0-8(Phase 2)이 P0-4·P0-6(Phase 5)보다 먼저 끝날 수 있다.
-- **P0 번호는 우선순위**다. 시간이 모자라면 큰 번호부터 잘라낼 후보로 보고하고 사용자가 정한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
-- P0-0은 서비스키·회사 GPU 추론 엔드포인트가 준비되는 즉시 한다. 그 전에는 인터페이스(`BidSourceConnector`·`AttachmentFetcher`·`DocumentParser`·`ModelClient`)와 fixture·mock으로 다른 Phase를 진행한다. P0-0 항목이 막히면 즉시 보고한다.
-- P0 번호와 Critical Path C-ID의 대응은 아래 Critical Path 표의 "Phase / P0" 열이다. P0-8은 확장 컷(ADR-023), P0-9·P0-11은 X6(ADR-034)이다. P0-10 하네스는 X1·X6이 같이 쓴다.
+- **작업 순서는 Phase 순서**, **P0 번호는 우선순위**다. 시간이 모자라면 큰 번호부터 잘라낼 후보로 보고하고 사용자가 정한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]). P0-0 항목이 막히면 즉시 보고한다.
+- P0 번호와 C-ID의 대응은 아래 Critical Path 표의 "Phase / P0" 열이다. P0-8은 확장 컷(ADR-023), P0-9·P0-11은 X6(ADR-034)이고, P0-10 하네스는 X1·X6이 같이 쓴다.
 
 ## 해커톤 컷 (ADR-023, 2026-10-19)
 
-[[16-DECISIONS|ADR-023]]으로 컷을 3단 + 이후로 다시 정했다. ADR-020·021의 설계는 그대로이고 우선순위와 데모 노출 범위만 바뀐다. 이전 2단 표(데모 필수 / 있으면 좋음)는 이 표로 대체한다.
+[[16-DECISIONS|ADR-023]]으로 컷을 3단 + 이후로 정했다. ADR-020·021의 설계는 그대로이고 우선순위와 데모 노출 범위만 바뀐다.
 
 |구분|포함|이유|
 |---|---|---|
-|**핵심 컷**(데모 필수)|장면: S2 대시보드, S3 FX-01 충족·근거·94 / FX-03 NO-BID·결정 모델 상충, S4 FX-02 분석·72·사람 결정·알림, **S-LIVE 실제 공고 1건 AI 분석 결과**, S6 `PARTIAL`, S7 격리 404. 기능: Phase 0 마감(Compose·gateway 골격·health 병합), Phase 1(공고·프로필·분석·검토·알림·감사 표, RLS, `sol_role`, `pnpm demo:reset`), Phase 2 중 `FixtureConnector`·정규화·revision·격리·documents job·`OfficialApiConnector`(P0-2·P0-3 live 1건), Phase 4 전부(P0-5·P0-7 점수), Phase 5 중 `/extract`·`/kev`·`/explain`·`/parse`(검증 형식만)·mock adapter·`PARTIAL`·`local` 어댑터(P0-4·P0-6, 1건 실추론), Phase 6 결정 기록·인앱 알림 2종, Phase 3 중 앱 셸 최소(메뉴 3개·Topbar 지표)·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Phase 7 중 `check:env`·healthcheck·DEMO 배지·증거·세 모드 기동·대체 경로 리허설. 평가 중 **E3 대조 실험(축소 규모)**. 인력200명 전원·고정 기간95.5 FTE는 점수 입력으로만 쓴다. 아래 Critical Path C0~C9·X1~X4|완료 목표 2026-10-26(ADR-042. 공식 제출 10-27), 배점 실용성 30 + 완성도 25. "이 입찰에 들어가야 하는가"가 끝까지 도는 것이 먼저다|
-|**파인튜닝 트랙 X6**(핵심 컷과 나란히, [[16-DECISIONS\|ADR-034]])|평가셋 v0.1(test 20·dev 10, P0-9), 학습셋 번들 내보내기·학습 요청서(P0-11), Bosun LoRA F1·F2·F3(회사 측 실행), E4 = Bosun+LoRA를 E1'(공개 Bosun zero-shot)과 같은 test 분할에서 짝 부트스트랩 95% CI로 비교. 데모·S-LIVE 모델은 공개 Bosun v3.1 0.6B 그대로|사용자 결정(2026-10-19). 우리 쪽 산출물(평가셋·번들·요청서·E4 하네스)은 완료 조건이다. 회사 측 학습 결과는 받으면 E4로 보고하고, 못 받으면 "회사 측 미실행"으로 적는다. 핵심 컷 green 판정은 학습 결과를 기다리지 않는다. 작업자가 겹치면 핵심 컷이 먼저다|
-|**데모 강화 컷**(핵심 컷과 나란히, [[16-DECISIONS\|ADR-037]])|BOOST-2 가정 재계산: 공고 상세의 미보유 필수 자격에 "보유 가정" 스위치 → 저장된 입력 스냅샷으로 점수·권고·자격 판정을 다시 계산해 원래 → 가정 띠로 보인다(저장 없음, 결정 모델 재호출 없음). 데모는 S3 `FX-03` 스위치 1회(NO-BID → WATCH, 68 그대로). BOOST-1 실공고 선별 깔때기는 2026-10-20 게이트 결과로 뺐다|사용자 판단(2026-10-20): 데모용으로도 기능이 약하다. 조건 4개: ① 작업자가 겹치면 핵심 컷 먼저 ② 핵심 컷 코드 경로·계약을 바꾸지 않는 추가형 ③ 10-24 22:00 freeze까지 green이 아니면 데모에서 빼고 이전 시나리오로 ④ 확률·승률 표시 금지(ADR-007). 핵심 컷 green 판정은 이 컷을 기다리지 않는다|
-|**확장 컷**(핵심 컷 전부 green 뒤, 이 순서. 예외: 카카오 ADR-038, 4건 ADR-039, 부처 지원사업 공고 ADR-040, 메일 알림 ADR-041(2026-10-24 해커톤 제외))|**카카오톡 추천 공고 알림**(나에게 보내기, [[16-DECISIONS\|ADR-038]]. 아래 Critical Path KAKAO 행) → S5 변경 감지(FX-06·07·09·10 LIVE 배치, revision diff, `BID_CHANGED`) → `feat/people-read` 병합과 `/people`·`/org-chart` 메뉴 노출 → `/admin/ingestion` 화면 → 설정 조직 탭 → ADR-021 앱 셸 나머지(N1 전체)·대시보드 카드 5개 완성 → P0-8 사전규격·발주계획 단계 연결 → 부처 지원사업 공고 수집·목록([[16-DECISIONS\|ADR-040]]) → ~~메일 알림~~([[16-DECISIONS\|ADR-041]], 2026-10-24 사용자 결정으로 해커톤에서 뺐다. 구현 없음) → E0·E2·E3 전체 평가셋(test 20) 리포트 → `/admin/ai/eval-runs`|핵심 컷을 해치지 않는 범위에서 "진짜 동작하나"의 추가 증거. 이미 구현된 코드는 보존한다. 카카오는 맨 앞이고(ADR-038. 2026-10-20 추천안 확정, 2026-10-21 사용자 채택), 핵심 컷과 같은 파일(`web/server/notifications`·`finish_score_run`·알림 목록 조회)을 고치므로 핵심 컷 병합 뒤 착수해 10-24 22:00 freeze 전에 끝낸다. 못 끝내면 해커톤에서 기능을 빼고 문서·ADR만 남긴다. 카카오는 2026-10-22 main에 병합됐고(`73eac5a8`), 2026-10-24 사용자 재결정으로 실제 공고 실발송 수신을 10-25 영상에 녹화한다(녹화 뒤 `mock` 복귀, 예정·미확인)|
-|**P1**(ADR-021 P1, [[16-DECISIONS\|ADR-042]]로 지금 병행)|관심 공고(N3) → 분석 결과 비교(N5) → 입찰 프로젝트(N6, 대시보드 다섯 번째 카드 교체 포함) → 인력 배치 시뮬레이션(N7) → 조직·인력 ADMIN 편집(N4b). 순서 M20. 그 뒤(이번에는 하지 않는다): 계약과정통합공개로 사업 묶기, Qdrant 의미 검색, Playwright 전체 E2E 녹화, 공고 revision diff 화면, 간편 로그인 제공자 설정(맨 마지막)|2026-10-21 사용자 결정(ADR-042)으로 착수 게이트 "핵심 컷 + 확장 컷 전부 green"을 풀고 핵심 컷·확장 컷과 나란히 진행한다. 조건 6개는 아래 Critical Path P1 행. 10-24 22:00 freeze까지 green이 아닌 화면은 사이드바에 이름만 비링크로 남긴다(준비 중 배지 없음)|
-|해커톤 이후|API·worker NestJS 전환([[16-DECISIONS\|ADR-028]]. 화면은 Next.js, DB·Auth는 Supabase 그대로). Bosun LoRA 운영 반영(레지스트리 서빙 항목·데모 모델 교체, [[21-MODEL-TRAINING\|21 모델 학습]] §4.4 판단과 ADR. 해커톤 학습·E4 비교는 X6). τ·온도 정식 보정. `sol-v0.2.x`의 결정 모델 반영 검토. Qwen 파인튜닝(2026-10-20 사용자 결정으로 하지 않음. 재검토는 별도 ADR). 낙찰·계약 수집. zip·스캔 PDF·혁신장터 RFP. Phase 5 `ai-hosted`. Phase 7 운영 심화(nginx TLS, 백업·복구 리허설, Sentry/Grafana). Phase 8 P1 전부(카카오 알림톡 운영 전환: 사업자·비즈니스 채널·딜러사·템플릿 검수, [[16-DECISIONS\|ADR-038]]. 경쟁사 통계, 인력 배치 저장·배정 확정). `/ops` 분리, 직원 편집. P2([[01-PRD\|01 PRD]] FR-12 발주 예측·승률 모델, 검증 데이터와 백테스트 뒤 노출). ADR-021 후속: 수주 전략·시장 분석, 입찰 일정, 개인 알림 수신 설정, ANALYST 검토 의견, 멀티 조직 지원(조직 전환 UI 포함)|외부 승인·비용·GPU 의존. 운영 반영은 초기 목표 지표 미달만으로 정하지 않고, 오류 분석에서 모델 판단 오류가 주된 원인일 때 사람이 정한다. 해커톤 X6 학습은 사용자 결정에 따른 비교 실험이다(ADR-034)|
+|**핵심 컷**(데모 필수)|장면: S2 대시보드, S3 FX-01 충족·근거·94 / FX-03 NO-BID·결정 모델 상충, S4 FX-02 분석·사람 결정·알림, **S-LIVE 실제 공고 1건 AI 분석 결과**, S6 `PARTIAL`, S7 격리 404. 기능: Phase 0 마감(Compose·gateway 골격·health 병합), Phase 1(공고·프로필·분석·검토·알림·감사 표, RLS, `sol_role`, `pnpm demo:reset`), Phase 2 중 `FixtureConnector`·정규화·revision·격리·documents job·`OfficialApiConnector`(P0-2·P0-3 live 1건), Phase 4 전부(P0-5·P0-7 점수), Phase 5 중 `/extract`·`/kev`·`/explain`·`/parse`(검증 형식만)·mock adapter·`PARTIAL`·`local` 어댑터(P0-4·P0-6, 1건 실추론), Phase 6 결정 기록·인앱 알림 2종, Phase 3 중 앱 셸 최소(메뉴 3개·상단바 DEMO 배지·수집 신선도)·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Phase 7 중 `check:env`·healthcheck·DEMO 배지·증거·세 모드 기동·대체 경로 리허설. 평가 중 **E3 대조 실험(축소 규모)**. 인력 200명 전원·고정 기간 95.5 FTE는 점수 입력으로만 쓴다. 아래 Critical Path C0~C9·X1~X4|공식 제출 2026-11-03·발표 2026-11-04(ADR-054), 배점 실용성 30 + 완성도 25. "이 입찰에 들어가야 하는가"가 끝까지 도는 것이 먼저다|
+|**파인튜닝 트랙 X6**(핵심 컷과 나란히, [[16-DECISIONS\|ADR-034]])|평가셋 v0.1(test 20·dev 10, P0-9), 학습셋 번들 내보내기·학습 요청서(P0-11), Bosun LoRA F1·F2·F3(회사 측 실행), E4 = Bosun+LoRA를 E1'(공개 Bosun zero-shot)과 같은 test 분할에서 짝 부트스트랩 95% CI로 비교. 데모·S-LIVE 모델은 공개 Bosun v3.1 0.6B 그대로|사용자 결정(2026-10-19). 실행 여부는 미결정이다(ADR-054). 회사 측 학습 결과를 못 받으면 "회사 측 미실행"으로 적는다. 핵심 컷 green 판정은 학습 결과를 기다리지 않는다|
+|**데모 강화 컷**(핵심 컷과 나란히, [[16-DECISIONS\|ADR-037]])|BOOST-2 가정 재계산: 공고 상세의 미보유 필수 자격에 "보유 가정" 스위치 → 저장된 입력 스냅샷으로 점수·권고·자격 판정을 다시 계산해 원래 → 가정 띠로 보인다(저장 없음, 결정 모델 재호출 없음). 데모는 S3 `FX-03` 스위치 1회(NO-BID → WATCH, 68 그대로)|2026-10-21 main 병합, 데모 S3에 포함. 조건: 핵심 컷 코드 경로·계약을 바꾸지 않는 추가형, 확률·승률 표시 금지(ADR-007)|
+|**확장 컷**(예외: 카카오 ADR-038, 4건 ADR-039, 부처 지원사업 공고 ADR-040)|**카카오톡 추천 공고 알림**(나에게 보내기, [[16-DECISIONS\|ADR-038]]) → S5 변경 감지(FX-06·07·09·10 LIVE 배치, revision diff, `BID_CHANGED`) → `/people`·`/org-chart` 메뉴 → `/admin/ingestion` 화면 → 설정 조직 탭 → ADR-021 앱 셸 나머지·대시보드 카드 5개 → P0-8 사전규격·발주계획 단계 연결 → 부처 지원사업 공고 수집·목록([[16-DECISIONS\|ADR-040]]) → E0·E2·E3 전체 평가셋(test 20) 리포트(미결정) → `/admin/ai/eval-runs`(코드 없음)|평가 리포트·`/admin/ai/eval-runs` 밖의 항목은 main에 들어갔다. 카카오는 2026-10-22 main 병합, 운영 연결 0건이다. 실수신 녹화는 첨부 처리 운영 반영 뒤 촬영 때 한다(위 남은 일정 제안 표). 메일 알림([[16-DECISIONS\|ADR-041]])은 해커톤에서 뺐다(코드 없음)|
+|**P1**(ADR-021 P1, [[16-DECISIONS\|ADR-042]]로 병행)|관심 공고(N3) → 분석 결과 비교(N5) → 입찰 프로젝트(N6, 대시보드 다섯 번째 카드 교체 포함) → 인력 배치 시뮬레이션(N7) → 조직·인력 ADMIN 편집(N4b). 그 뒤(이번에는 하지 않는다): 계약과정통합공개로 사업 묶기, Qdrant 의미 검색, Playwright 전체 E2E 녹화, 간편 로그인 제공자 설정(맨 마지막)|다섯 화면 모두 main 병합·운영 배포. 확률·승률 없음|
+|해커톤 이후|API·worker NestJS 전환([[16-DECISIONS\|ADR-028]]. 화면은 Next.js, DB·Auth는 Supabase 그대로). Bosun LoRA 운영 반영(레지스트리 서빙 항목·데모 모델 교체, [[21-MODEL-TRAINING\|21 모델 학습]] §4.4 판단과 ADR). τ·온도 정식 보정. `sol-v0.2.x`의 결정 모델 반영 검토. Qwen 파인튜닝(2026-10-20 사용자 결정으로 하지 않음. 재검토는 별도 ADR). 낙찰·계약 수집. zip·스캔 PDF·혁신장터 RFP. Phase 5 `ai-hosted`. Phase 7 운영 심화(nginx TLS, 백업·복구 리허설, Sentry/Grafana). Phase 8 P1 전부(카카오 알림톡 운영 전환: 사업자·비즈니스 채널·딜러사·템플릿 검수, [[16-DECISIONS\|ADR-038]]. 경쟁사 통계, 인력 배치 저장·배정 확정). `/ops` 분리. P2([[01-PRD\|01 PRD]] FR-12 발주 예측·승률 모델, 검증 데이터와 백테스트 뒤 노출). ADR-021 후속: 수주 전략·시장 분석, 입찰 일정, 개인 알림 수신 설정, ANALYST 검토 의견, 멀티 조직 지원(조직 전환 UI 포함)|외부 승인·비용·GPU 의존. 운영 반영은 초기 목표 지표 미달만으로 정하지 않고, 오류 분석에서 모델 판단 오류가 주된 원인일 때 사람이 정한다|
 
-규칙: 핵심 컷 항목이 하나라도 빨간불이면 확장 컷에 손대지 않는다. 핵심 컷과 확장 컷이 모두 녹색이기 전에는 P1에 손대지 않는다 — 예외: 2026-10-21 사용자 결정([[16-DECISIONS|ADR-042]])으로 P1 다섯 화면(M20 순서)은 아래 Critical Path P1 행의 조건 6개 안에서 지금 나란히 진행한다. 범위를 더 줄여야 하면 선택지를 보고하고 사용자가 결정한다 ([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]). 예외: 데모 강화 컷([[16-DECISIONS|ADR-037]])은 핵심 컷이 빨간불이어도 위 표의 조건 4개 안에서 나란히 진행한다. 확장 컷 맨 앞 카카오톡 추천 공고([[16-DECISIONS|ADR-038]])도 예외다. 핵심 컷이 green이 아니어도, 그것이 고치는 핵심 컷 코드(C5 `finish_score_run`·C7 outbox·인앱 알림)가 main에 들어간 뒤 나란히 진행한다. 작업자가 겹치면 핵심 컷이 먼저다. 확장 컷 가운데 S5 변경 감지·대시보드 카드 5개 완성(N9 "분석 현황" 카드)·설정 조직 탭과 `/admin/ingestion` 마무리(N2·N8)·P0-8 사전규격·발주계획 연결도 예외다([[16-DECISIONS|ADR-039]], 2026-10-21 사용자 결정). 확장 컷에 더한 부처 지원사업 공고 수집·목록([[16-DECISIONS|ADR-040]])과 메일 알림([[16-DECISIONS|ADR-041]], 카카오 뒤 같은 작업자)도 같은 예외다(2026-10-21 사용자 결정). ADR-037과 같은 조건 4개 안에서 지금 나란히 진행하고, 10-24 22:00 freeze까지 green이 아니면 데모에서 뺀다.
+규칙: 핵심 컷 → 확장 컷 → P1 순서다. 예외(데모 강화 컷 ADR-037, 카카오 ADR-038, 확장 컷 4건 ADR-039, 부처 지원사업 공고 ADR-040, P1 ADR-042)는 핵심 컷과 나란히 진행했고 모두 main에 들어갔다. 작업자가 겹치면 핵심 컷이 먼저다. 범위를 더 줄여야 하면 선택지를 보고하고 사용자가 정한다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
 
-### Critical Path (ADR-023, 2026-10-19 승인 · 일정 ADR-034 17번)
+### Critical Path 상태 (ADR-023, 2026-10-27 기준)
 
-> [!note] 일정 열은 지난 일정이다(2026-10-27 [[16-DECISIONS|ADR-054]]). P1 다섯 화면은 모두 끝났다(N3·N5·N6·N7 `546a997d`, N4b `d209eec3`). 남은 일정은 위 "남은 일정 제안" 표를 본다.
+남은 일의 날짜는 위 "남은 일정 제안" 표다. 진행 기록은 [[PROGRESS]]다.
 
-작업자 3~4명(에이전트) 병렬 전제. 상세(난이도·실패 위험·증거·테스트 기준)는 [수상 전략 보고](plans/2026-10-18-hackathon-award-plan.md) §4. 그 문서의 일정은 ADR-027(폐기)로 2일 당긴 일정으로 대체했고, 이 일정은 [[16-DECISIONS|ADR-034]] 17번으로 유지한다. X6 단계별 일정은 ADR-034 12번과 [[23-WEEKEND-FINETUNE|23 주말 파인튜닝]] §1이다. [ADR-027 변경안](plans/2026-10-19-finetune-schedule-pull.md) §3.2는 Kev-9B 기준 이력이다.
+|ID|작업|Phase / P0|상태|
+|---|---|---|---|
+|C0|Phase 0 마감: Compose 통합 기동·증거·main 병합|0 / P0-1|완료|
+|C1|P0-0: ① API 4종 실제 GET ② 첨부 3건 다운로드 ③ 회사 GPU 추론 엔드포인트([[16-DECISIONS\|ADR-025]]) G1~G6 ④ 파서 후보 비교. 체크리스트 `docs/evidence/phase-0/external-deps.md`|0 / P0-0|①② 완료(2026-10-19). ③ Qwen probe 통과(2026-10-21), 운영 실모델 run 1건(2026-10-24 FX-02). ④ 파서는 구현됐고, 실표본 비교·"지원" 판정 규칙은 남음([[03-AI-PIPELINE\|03]] §10.3)|
+|C2|Phase 1 DB·RLS·`sol_role`·`pnpm demo:reset`|1|완료|
+|C3|Phase 2 수집: `FixtureConnector`·정규화·revision·격리·ingest job, documents job, `OfficialApiConnector`·`G2bAttachmentFetcher`|2 / P0-2·P0-3|수집 완료(운영 3시간 정기 수집). documents job·첨부 다운로드는 코드·운영 DB 적용, 회사 반영 진행 중|
+|C4|Phase 4 규칙 엔진(순수 함수)·골든 94/72/68·200명 입력|4 / P0-5·P0-7|완료|
+|C5|Phase 5 gateway `/extract`·`/kev`·`/explain`·`/parse` → worker extract·analysis·`PARTIAL` → `local` 어댑터|5 / P0-4·P0-6|완료. `/parse` 파서(PDF·HWPX·HWP)는 회사 gateway 반영 진행 중|
+|C6|Phase 3 화면: 앱 셸 최소·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Route Handler 10개([[16-DECISIONS\|ADR-029]] A6 D8)|3 / P0-7|완료|
+|C7|Phase 6: 결정 기록 트리거·audit·outbox·인앱 알림 2종|6|완료|
+|C8|S-LIVE: 실공고 1건 `live` E2E, 실행 로그·녹화|5 / P0-4·P0-6|남음. 운영 실공고 분석 0건. 그 전 기록은 2026-10-20 격리 로컬 1건 `PARTIAL`·`RULES_ONLY`([증거](evidence/demo-day/20261020-1434/run-modes.md))|
+|C9|리허설·대체 경로·세 모드 전환·로컬 Supabase CLI 전환·체크리스트|7|로컬 `mock` 리허설 기록 있음(`docs/evidence/demo-day/`). D1 리허설·촬영은 남음|
+|X1|E3 대조 실험(축소 규모)|평가|미결정|
+|X2|임팩트 예비 실험 n=3|—|미결정|
+|X3|경쟁 서비스 비교(공개 페이지)|—|완료(2026-10-19)|
+|X4|제출물: 발표 덱 20분·녹화 클립·기술 자료(`docs/submission/`)|—|초안. 완성은 남음|
+|X5|확장 컷(위 표 순서)|—|위 해커톤 컷 표 "확장 컷" 행|
+|X6|Bosun LoRA 파인튜닝 트랙([[16-DECISIONS\|ADR-034]]): 평가셋 v0.1(P0-9) → 학습셋 번들·학습 요청서(P0-11) → 회사 F1·F2·F3 → E4·E1' 채점|평가 / P0-9·P0-11|실행 여부 미결정([[16-DECISIONS\|ADR-054]]). 회사 서버에서 돈 기록은 없다. 절차는 [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]]|
+|BOOST-2|데모 강화 컷 가정 재계산(`whatIf`·`POST /api/v1/analyses/{id}/what-if`·상세 스위치·띠)|데모 강화 ([[16-DECISIONS\|ADR-037]])|완료(2026-10-21 main 병합)|
+|KAKAO|카카오톡 추천 공고 알림(나에게 보내기). [카카오 설계](plans/2026-10-20-kakao-memo-notify-design.md)·[카카오 계획](plans/2026-10-20-kakao-memo-notify-plan.md)|6 / 확장 컷 ([[16-DECISIONS\|ADR-038]])|main 병합(2026-10-22), 운영 migration 적용. 운영 연결 0건. 사용자 S0 수신 시험과 실수신 녹화는 남음|
+|P1|ADR-021 P1 다섯 화면(N3·N5·N6·N7·N4b, [[16-DECISIONS\|ADR-042]]). 완료 기준은 [설계 §3.2](plans/2026-10-16-sidebar-ia-design.md) 표|3·6 / P1|완료(main 병합·운영 배포)|
 
-|ID|작업|Phase / P0|선행|일정|
-|---|---|---|---|---|
-|C0|Phase 0 마감: `phase0/infra` 통합 기동(`docker compose -f infra/compose.yaml up -d`) → 증거 → main 병합|0 / P0-1|없음|10-19|
-|C1|P0-0: ① API 4종 실제 GET(마스킹 저장) ② 첨부 3건 다운로드 ③ 회사 GPU 추론 엔드포인트([[16-DECISIONS\|ADR-025]]): G1 HTTPS 접속(TLS·인증) → G2 Qwen·Bosun `GET /v1/models`·레지스트리 대조 → G3 지연 실측(결정 모델 state 약 500·6,000토큰 두 가지로 24문항 묶음 10회 p50·p95, Qwen 추출 1회, [[03-AI-PIPELINE\|03]] §5.9) → G4 vLLM guided JSON → G5 회사 제공 GPU 정보가 있으면 기록 → G6 엔드포인트 차단 시 `PARTIAL` ④ 파서 후보 비교 시작. 체크리스트 `docs/evidence/phase-0/external-deps.md`|0 / P0-0|사용자: `infra/.env` 서비스키 4개. 회사: P2 엔드포인트 경로·인증 방식 전달, P3 모델 기동 완료 통보|10-19~20|
-|C2|Phase 1 DB·RLS·`sol_role`(`feat/people-read`의 `20261018000001` 위에)·`pnpm demo:reset`(people seed 흡수)|1|C0|10-19~20|
-|C3|Phase 2 수집: `FixtureConnector`·정규화·revision·격리·ingest job, documents job, `OfficialApiConnector`·`G2bAttachmentFetcher`|2 / P0-2·P0-3|C2, C1 ①|10-19~20|
-|C4|Phase 4 규칙 엔진(순수 함수)·골든 94/72/68·200명 입력|4 / P0-5·P0-7|없음(C2와 병렬)|10-19|
-|C5|Phase 5 gateway `/extract`·`/kev`·`/explain`·`/parse` mock → worker extract·analysis·`PARTIAL` → `local` 어댑터|5 / P0-4·P0-6|C0·C4, local은 C1 ③|10-19~20|
-|C6|Phase 3 화면: 앱 셸 최소·`/dashboard`·`/bids`·`/bids/[id]`·`/notifications`, Route Handler 10개(9개 + 알림 읽음 처리 `PATCH /notifications/:id/read`, [[16-DECISIONS\|ADR-029]] A6 D8)|3 / P0-7|C2|10-19~21|
-|C7|Phase 6: 결정 기록 트리거·audit·outbox·인앱 알림 2종|6|C2·C6|10-21|
-|C8|S-LIVE: 실공고 1건 `live` E2E, 실행 로그·녹화|5 / P0-4·P0-6|C1·C3·C5·C6|10-21~22|
-|C9|리허설·대체 경로 6종·세 모드 전환·로컬 Supabase CLI 전환·체크리스트|7|C6·C7|3차 10-23, 최종 10-25(ADR-042)|
-|X1|E3 대조 실험(축소 규모). 입력·설계는 C4·C5와 병렬로 준비. X6 E4 기준선 E1'(공개 Bosun zero-shot, test 20)은 10-26 오전(2026-10-24 개정, 처음은 10-25) 서버 안 오프라인 채점(`sol_eval.bosun_score`, main `1b68f9b`. 실모델 경로는 미검증)에서 E4와 같이 잰다(ADR-034 7번·12번)|평가|C5 local, C1 ③|설계 10-19~, 실행 10-22~23|
-|X2|임팩트 예비 실험 n=3|—|C8|10-22~23|
-|X3|경쟁 서비스 비교(공개 페이지)|—|없음|완료(10-19)|
-|X4|제출물: 슬라이드·3분 영상·기술 자료. 구조는 지금부터 병렬, 완성은 C8·X1·X2 뒤|—|구조: 없음 / 완성: C8·X1·X2|구조 10-19~, 완성 10-24~25(영상 촬영 10-25), E4 반영 10-26 오후(2026-10-24 개정, 처음은 10-26 오전. ADR-042)|
-|X5|확장 컷(위 표 순서. 맨 앞 카카오는 아래 KAKAO 행. S5·N9·N2·N8·P0-8은 [[16-DECISIONS\|ADR-039]], 부처 지원사업 공고는 [[16-DECISIONS\|ADR-040]]로 병행. 메일 알림 [[16-DECISIONS\|ADR-041]]은 2026-10-24 해커톤에서 뺐다)|—|핵심 컷 green(ADR-038·039·040·041 항목은 예외)|10-24 22:00 freeze 이후는 없다(ADR-039·040·041 항목은 10-21~24, freeze까지 green이 아니면 데모에서 뺀다. ADR-042)|
-|X6|Bosun LoRA 파인튜닝 트랙([[16-DECISIONS\|ADR-034]]. ADR-027 폐기): X6a 평가셋 v0.1(P0-9) → X6b 학습셋 번들·학습 요청서(P0-11) ‖ **X6p 회사 GPU 서버 준비**(10-20 **완료**: 전용 경로·venv `.venv-bosun`·torch 2.8.0+cu128·CUDA·bf16·Bosun LoRA CPU 2-step 확인(사용자 보고). 10-21~23 **미완**: `sol_decision` 서버·모델 다운로드·sha256·`infra/gpu/bosun-preflight.sh`(main `1b68f9b`) 통과. 보안 후속(`fix/decision-hardening`)은 main `36edfb6`에 들어갔고, 서버 기동은 사용자 승인 뒤) → 선행 조건(`sol_decision` 서버, preflight) 확인(**10-25 일 오전**) → X6c F1 smoke(회사, **10-25 일 오후**, `bosun-f1.sh`(main `1b68f9b`)) → X6d F2 Bosun LoRA 학습(회사, **10-25 일 오후**. 시간은 F1 실측으로 재추정, 미확정) → X6e F3 보정·서버 안 오프라인 E4·E1' 채점(`sol_eval.bosun_score`(main `1b68f9b`), **10-26 월 오전**) → X6f 제출물 반영(**10-26 오후**). 2026-10-24 사용자 지시로 하루 미뤘다(처음은 F1·F2 10-24, 채점 10-25, 반영 10-26 오전). F2를 못 끝내면 "회사 측 미실행"으로 적는다. 모든 학습·채점은 물리 GPU 1(PaddleOCR과 공유). 데모 모델은 공개 Bosun v3.1 0.6B 그대로. Qwen 학습 일정은 없다. 실행 절차는 [[22-FINETUNE-RUNBOOK\|22 파인튜닝 실행서]], 주말 계획은 [[23-WEEKEND-FINETUNE\|23]]|평가 / P0-9·P0-11|X6c 는 X6b 번들 + X6p preflight 통과. C3 live·첨부(10-22 까지 안 되면 갈래 ① 구조화 필드만), C5 `local`·C1 ③(갈래 ② 일 때만), 회사 실행|10-19~26(학습 10-25 오후·채점 10-26 오전, ADR-034 12번 2026-10-24 개정)|
-|BOOST-2|데모 강화 컷 가정 재계산: Task 1 순수 함수 `whatIf` → Task 2 `POST /api/v1/analyses/{id}/what-if` → Task 3 화면 디자인 스펙 → Task 4 상세 스위치·띠 → Task 5 E2E·증거. Task 6 기술 보유 가정은 10-22까지 Task 1~5가 green일 때만. 계획 [BOOST-2 계획](plans/2026-10-20-boost2-what-if-plan.md). 2026-10-21 main 병합 `d48c7a2`|데모 강화 ([[16-DECISIONS\|ADR-037]])|C4 규칙 엔진, C5 분석 run의 `input_snapshot`, C6 상세 화면|10-20~22. 10-24 22:00 freeze까지 green이 아니면 데모에서 뺀다|
-|KAKAO|확장 컷 맨 앞 카카오톡 추천 공고 알림(나에게 보내기): Task 0 카카오 S0 수신 시험(사용자, 코드보다 먼저. 2026-10-24 재결정으로 10-25 오전) → Task 1 DB(`kakao_notify_links`·RPC 4개·`BID_RECOMMENDED` outbox) → Task 2·3 도메인 `web/server/kakao-notify`(토큰 암호화·피드·카카오 API·발송 수단 `mock`·`memo`) → Task 4 알림 소비자 → Task 5 worker 연결·env → Task 6 Route Handler `/me/kakao-notify` → Task 7 개인 설정 "카카오톡 알림"·인앱 목록 필터 → Task 8 전체 검증·수동 실발송 1회 녹화(2026-10-24 재결정으로 실제 공고로 10-25 녹화 예정). [카카오 설계](plans/2026-10-20-kakao-memo-notify-design.md)·[카카오 계획](plans/2026-10-20-kakao-memo-notify-plan.md). 2026-10-21 구현 중 `feat/kakao-notify`(Task 1 `d327894`, Task 2·3 `ced705f`, Task 4·5 `52adabb`). 2026-10-22 main 병합(`50c1b78a` → `73eac5a8`), 운영 DB migration은 2026-10-24 적용. 2026-10-24 사용자 재결정("공고를 해커톤 시연때 mock이 아니라 실제 공고를 받아야 해. 시연 영상도 찍어야 하니까 내 의견 반영해"): 실제 나라장터 공고의 BID·WATCH 추천을 `memo`로 실발송해 휴대폰 수신을 10-25 녹화하고 `mock`으로 되돌린다(예정·미확인). 같은 날 앞선 "mock으로 둬" 결정은 바뀌었다|6 / 확장 컷 ([[16-DECISIONS\|ADR-038]])|핵심 컷 병합(C5 `finish_score_run`·C7 outbox·인앱 알림). 사용자: 카카오 앱 설정·서버 env 키·S0 수신 시험|10-21~24. 10-24 22:00 freeze까지 못 끝내면 해커톤에서 기능을 빼고 문서·ADR만 남긴다|
-|P1|ADR-021 P1 다섯 화면([[16-DECISIONS\|ADR-042]], M20 순서): P1-1 N3 관심 공고(`/watchlist`, `bid_watches`, `PUT·DELETE /bids/:id/watch`, ★ 토글, 마감 D7 알림) → P1-2 N5 분석 결과 비교(`/analysis`, `GET /analyses`, 읽기 전용, 비교 4건, `PARTIAL`·`FAILED` 표시) → P1-3 N6 입찰 프로젝트(`/projects`, `bid_projects`·`bid_project_events`, BID 결정 뒤 생성, 결과는 수동 기록. 대시보드 슬롯 5 교체는 N9 병합 뒤 같은 작업자) → P1-4 N7 인력 배치 시뮬레이션(`/workforce`, `GET /workforce/simulation`, 200명 안 후보, 기간 충돌 1건 탐지, 저장 없음) → P1-5 N4b 조직·인력 ADMIN 편집(`POST·PATCH /team-members`, 감사 기록, 골든 94/72/68 회귀). 완료 기준은 [설계 §3.2](plans/2026-10-16-sidebar-ia-design.md) 표. 담당(12 배정 2026-10-21): N3 fa(N2 기준점 뒤)·N5 9c(부처 공고 기준점 뒤)·N6 30(P0-8 Task 1·2 뒤)·N7 54(N9·c9-followups-ui 뒤)·N4b 93(S5 뒤. S5가 늦으면 fa). 97은 닫혔고 aa는 예비|3·6 / P1|조건 6개([[16-DECISIONS\|ADR-042]] 상세): 핵심 컷 → 확장 컷 → P1 순, 추가형, freeze까지 green 아니면 "준비 중" 유지, 확률·승률 금지, 새 표는 새 마이그레이션(`20261022` 대역) + 클라우드 적용은 사용자 확인, 같은 파일은 한 작업자. 선행: N3는 `/bids`, N5는 `score_runs`, N6는 C7 `bid_reviews`·N9 카드, N7은 N4a·C4, N4b는 N4a|N3·N5 10-21~23, N6·N7 10-22~24, N4b 10-23~24. 10-24 22:00 freeze|
+C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`)으로 원자적으로 하고, 하위 job은 outbox와 `documents` 큐만 만든다. **새 공고 자동 분석은 핵심 컷에 없다**. live 정기 수집은 BullMQ cron `0 */3 * * *`(`Asia/Seoul`, KST 00·03·…·21시)이고 옛 `G2B_INGEST_INTERVAL_MINUTES`는 무시한다([[07-DATA-PIPELINE|07 수집]] §2.2).
 
-C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`)으로 원자적으로 하고, 하위 job은 outbox와 `documents` 큐만 만든다. **새 공고 자동 분석은 핵심 컷에 없다**. live 일정 수집 주기는 기본 30분이고 env로 바꾼다([[07-DATA-PIPELINE|07 수집]] §2).
-
-병렬 순서([[16-DECISIONS|ADR-042]], 2026-10-21): 10-19 C0‖C1‖C2‖C3‖C4 보고‖C5‖C6‖X4 구조‖X6a → 10-20 C1 ③‖C2‖C3‖C5‖C6‖X6a·X6b‖X6p 서버 환경 확인(완료), 저녁 외부 의존성 컷 → 10-21 B2 승인·결정 서버 기동‖확장 컷 6건 기준점(카카오·S5·N9·N2+N8·P0-8·부처 공고)‖P1 N3·N5 착수‖X6b → 10-22 확장 컷 병합‖C8 `COMPLETED` 갈래‖C3 잔여‖P1 N3·N5 구현·N6·N7 착수‖X1‖X2‖X6b 번들 마감·회사 전달 → 10-23 핵심 컷 green 판정‖C9 3차(`mock`, 확장 컷 포함)‖P1 N3·N5 병합·N6·N7 구현·N4b 착수‖X4 초안‖X6p 모델 다운로드·preflight 전부 통과 → 10-24 P1 N6·N7·N4b 병합‖X6c·X6d(회사, 주말, GPU 1)‖**22:00 기능 freeze** → 10-25 C9 최종 리허설 2회‖X6e(서버 안 오프라인 E4·E1' 채점)‖X4 완성·영상 촬영 → 10-26 오전 X6f·기동 절차 1~15·**완료 목표** → 10-27 발표자료 마무리·발표 연습·**공식 제출**. 개발 예비일은 없다.
-
-데모 강화 컷 BOOST-2([[16-DECISIONS|ADR-037]])는 10-20~22에 위 줄과 나란히 하고, 작업자가 겹치면 핵심 컷이 먼저다.
-
-확장 컷 맨 앞 KAKAO([[16-DECISIONS|ADR-038]])는 핵심 컷 병합 뒤 10-21~23에 위 줄과 나란히 하고 10-24 22:00 기능 freeze 전에 끝낸다. 카카오 S0 수신 시험(사용자)이 먼저다. 작업자가 겹치면 핵심 컷이 먼저고, freeze까지 못 끝내면 해커톤에서 기능을 빼고 문서·ADR만 남긴다. 결과: 2026-10-22 main 병합. 2026-10-24 사용자 재결정으로 S0 수신 시험은 10-25 오전, 실제 공고 실발송 녹화는 10-25 마지막 `demo:reset` 뒤 S-LIVE와 함께 한다(예정·미확인).
-
-**외부 의존성 컷 규칙**(10-20 저녁, C1 결과 기준. ADR-027으로 하루 당겼고 ADR-034 17번으로 유지한다. 이 시점은 외부 의존성 컷을 정하는 기준이고 핵심 기능 개발은 계속한다):
+**외부 의존성 컷 규칙**(S-LIVE 장면, [[16-DECISIONS|ADR-023]]·[[16-DECISIONS|ADR-025]]):
 
 |C1 결과|S-LIVE 장면|
 |---|---|
@@ -147,84 +130,18 @@ C3 수집의 저장과 하위 job([[16-DECISIONS|ADR-030]] B18): revision 저장
 
 "GPU 정상"은 C1 ③의 G2(`GET /v1/models`·레지스트리 대조)·G3(지연 실측) 통과다([[16-DECISIONS|ADR-025]]). 어느 경우든 실행 모드와 출처를 화면에 표시한다. 실시간 추론을 못 했으면 녹화·fixture 결과를 live라고 표시하지 않는다.
 
-**S0 `live` 전환 비용**(C8 실측 2026-10-20, [증거](evidence/demo-day/20261020-1434/run-modes.md)): `live` worker는 기동 즉시 첫 일정 run(마지막 성공 창 끝 ~ 지금, 없으면 24시간)을 돌고 30분마다 반복한다(당시 설정. 2026-10-26부터 정기 수집은 BullMQ cron `0 */3 * * *`·`Asia/Seoul`이고 기동 즉시 수집하지 않는다, [[07-DATA-PIPELINE|07 수집]]). 24시간 창 하나가 정보화 공고 86건, 공공 API 호출 266회(목록 5 + 보조 조회 87 × 3)였다. 데모 당일 S0에서 `live`로 바꾸면 첫 run이 약 260회를 쓴다. 개발계정 한도(서비스당 1,000건/일)를 쓰는 다른 작업(평가셋 녹음 등)과 같은 날 겹치지 않게 잡는다([[07-DATA-PIPELINE|07 수집]] §2.2 호출 예산, [[16-DECISIONS|ADR-035]] F10).
+## 공공 입찰 확장·업무 UI (ADR-047)
 
-## freeze ~ D-day (지난 일정)
-
-> [!note] 지난 일정
-> 아래 표와 간트는 ADR-042(2026-10-21) 기준 계획이다. 2026-10-27 [[16-DECISIONS|ADR-054]]로 공식 제출 11-03·발표 11-04가 됐다. 남은 일정은 위 "남은 일정 제안" 표를 본다. 당시 기록이라 본문은 고치지 않았다.
-
-|시점|할 일|
-|---|---|
-|freeze (10-24 토 22:00, [[16-DECISIONS\|ADR-042]])|기능 freeze. fixture·seed 고정. 모델 레지스트리(`services/ai/models/registry.yaml`)·질문 세트·state 템플릿 버전 고정(데모 서빙 항목 `bosun-v3.1-0.6b`·`qwen3.8-flash-next`(main `1b68f9b`) 기준, `kev-9b-v1.0`·`qwen3.5-27b`·`qwen3.5-9b`는 `retired` 보존. E4 학습본 항목(기록용) 추가는 예외이고 데모 gateway 설정은 바꾸지 않는다, ADR-034). 전체 테스트 green. `docs/evidence/` 갱신. 공공 API 오늘 호출량 확인(개발계정 서비스당 1,000건/일). 데모 강화 컷 BOOST-2·확장 컷(ADR-038~040. ADR-041 메일은 2026-10-24 해커톤 제외)·P1 다섯 화면(ADR-042) green 판정: 아니면 데모에서 빼고(P1은 사이드바는 이름만 비링크로 유지(준비 중 배지 없음)) 이전 절차로 한다([[16-DECISIONS\|ADR-037]] ③·[[16-DECISIONS\|ADR-042]])|
-|최종 리허설 (10-25 일, ADR-042)|데모 노트북에서 [[10-DEPLOYMENT\|10 배포]] 기동 절차 1~15 리허설 2회 (재부팅 1회 포함). 공개 Bosun의 우리 도메인 품질 숫자(E1'·E2)는 10-26 오전 서버 안 오프라인 채점(2026-10-24 개정) 뒤에 나오므로 이 리허설은 그 숫자 없이 한다([[16-DECISIONS\|16]] 미결정 29-1, 12 추천안). 로컬 Supabase CLI 전환 리허설([[19-DEMO-SCENARIO\|19 데모 시나리오]] §5 대체 경로). 이미지 빌드·pull 완료 확인. 개발 DB·Auth가 Supabase 클라우드 프로젝트라 데모 장소의 인터넷 연결을 확인한다. 세 모드(`live`·`fixture`·`mock`) 기동 리허설 각 1회(모드 전환은 env 변경 + worker·ai-gateway 재시작). 회사 GPU 추론 엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속 확인(`GET /v1/models`) 리허설, 재접속 확인 소요 시간 기록. live 리허설 호출 수가 일일 한도 안인지 확인. 학습은 물리 GPU 1 만 쓴다. GPU 1 에 있는 우리 추론 런타임은 `sol_decision` Bosun(8009)뿐이고 학습과 공존하는 것이 기본 계획이다. 우리 절차로 8009 를 내리지 않는다. F1 에서 메모리 합계가 넘치면 멈추고 회사에 보고한 뒤 사람이 정한다. 리허설(10-25)은 F1·F2(X6c·X6d, 10-25 오후, 2026-10-24 개정)와 같은 날이다. 겹치면 그때 사람이 정한다. C9 3차는 10-23이다. 10-24 P1 병합·freeze는 GPU 일정과 겹치지 않는다([[10-DEPLOYMENT\|10]] GPU 절 "추론 런타임과의 관계"·[[23-WEEKEND-FINETUNE\|23]] §1·§2.4)|
-|10-25 오후~10-26 오후|X6c F1 → X6d F2(회사, 10-25 오후), X6e F3 보정·회사 서버 안 채점·우리 오프라인 E4 평가(10-26 오전), X6f 제출물 반영(10-26 오후, 제출물·발표 대본에 "B5(10-25) 측정 뒤 채움"으로 비워 둔 Bosun 도메인 품질 숫자 자리를 10-26 완료 목표 안에 채운다). 2026-10-24 사용자 지시로 하루 미뤘다. F2를 못 끝내면 "회사 측 미실행"으로 적는다. 10-27은 발표자료·발표 연습과 공식 제출이고, 개발 예비일은 없다(ADR-042). freeze 뒤라 앱 기능을 더하지 않고 리허설에서 나온 결함만 고친다. 고쳤으면 기동 절차 1~15를 한 번 다시 돈다|
-|완료 목표 (10-26 월)|기동 절차 1~15. 엔드포인트 접속(`GET /v1/models`)과 `GET /api/v1/admin/ai/status`(Qwen healthy, Bosun `registryMatch`) 확인. 시연 모드는 [[19-DEMO-SCENARIO\|19 데모 시나리오]] §2.1(기본 `mock`), 장애 대체 순서는 `live` → `fixture` → `mock`. 리허설 후 `pnpm demo:reset`(seed 재실행, 멱등)으로 초기화. 발표 스크립트는 [[18-HACKATHON\|18 해커톤]]|
-|D-day (공식 제출 10-27 화, 발표일 미입력)|발표자료 마무리·발표 연습·공식 제출. 개발 작업은 두지 않는다([[16-DECISIONS\|ADR-042]])|
-
-```mermaid
-gantt
- title 지난 일정 — SOL RADAR 핵심 컷 + 확장 컷 + P1 + 파인튜닝 트랙: 2026-10-26 완료 목표, 10-27 공식 제출 (ADR-023·034·042)
- dateFormat YYYY-MM-DD
- section 기반
- C0 Phase 0 마감 병합 :c0, 2026-10-19, 1d
- C1 P0-0 외부 의존성 :c1, 2026-10-19, 2d
- C2 DB RLS demo reset :c2, 2026-10-19, 2d
- section 핵심
- C4 규칙 엔진 골든 :c4, 2026-10-19, 1d
- C3 수집 fixture live :c3, 2026-10-19, 2d
- C5 gateway mock then local :c5, 2026-10-19, 2d
- C6 화면 4개 :c6, 2026-10-19, 3d
- C7 결정 알림 :c7, 2026-10-21, 1d
- B2 결정 서버 기동 실호출 :b2s, 2026-10-21, 2d
- C8 실공고 1건 E2E :c8, 2026-10-21, 2d
- section 데모 강화 확장
- BOOST-2 가정 재계산 :b2, 2026-10-20, 2d
- 확장 컷 6건 병합 :x5, 2026-10-21, 2d
- section P1 ADR-042
- N3 관심 공고 :p11, 2026-10-21, 3d
- N5 분석 결과 비교 :p12, 2026-10-21, 3d
- N6 입찰 프로젝트 :p13, 2026-10-22, 3d
- N7 인력 배치 시뮬레이션 :p14, 2026-10-22, 3d
- N4b 조직 인력 편집 :p15, 2026-10-23, 2d
- section 파인튜닝 X6
- X6a 평가셋 v0.1 :x6a, 2026-10-19, 3d
- X6b 학습셋 번들 요청서 :x6b, 2026-10-20, 3d
- X6p 서버 환경 Bosun preflight :x6p, 2026-10-20, 4d
- X6c F1 메모리 검증 회사 :x6c, 2026-10-25, 1d
- X6d F2 LoRA 학습 회사 :x6d, 2026-10-25, 1d
- X6e F3 보정 E4 평가 :x6e, 2026-10-26, 1d
- X6f 결과 반영 오후 :x6f, 2026-10-26, 1d
- section 검증 제출
- X1 E3 실험 :x1, 2026-10-22, 2d
- X2 임팩트 n3 :x2, 2026-10-22, 2d
- C9 3차 리허설 mock :c9, 2026-10-23, 1d
- 기능 freeze 22시 :milestone, mf, 2026-10-24, 0d
- X4 제출물 완성 영상 :x4, 2026-10-24, 2d
- C9 최종 리허설 2회 :c9b, 2026-10-25, 1d
- 완료 목표 :milestone, ms, 2026-10-26, 0d
- 발표자료 발표 연습 :pr, 2026-10-27, 1d
- 공식 제출 마감 :milestone, md, 2026-10-27, 0d
-```
-위 간트는 ADR-023 Critical Path를 ADR-027(폐기)로 2일 당기고 2026-10-21 [[16-DECISIONS|ADR-042]]로 완료 목표 10-26(공식 제출 10-27, 발표자료·발표 연습)·freeze 10-24 22:00·리허설 10-25에 맞춘 일정이다(모델·도구는 ADR-034의 Bosun 기준). 2026-10-24 사용자 지시로 X6c·X6d는 10-25 오후, X6e는 10-26 오전, X6f는 10-26 오후로 하루 미뤘다. C1 결과로 10-20 저녁에 한 번 재조정한다. X3 경쟁 비교와 X4 제출물 구조는 10-19부터 병렬이다. 각 작업 중간에 커밋하며 [[PROGRESS]]에 완료·남은 일·검증 결과를 기록한다.
-
-## 승인된 로컬 구현 트랙: 공공 입찰 확장·업무 UI (ADR-047)
-
-2026-10-21 이번 작업은 [설계](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)와 [[2026-10-21-public-procurement-expansion-plan|Phase0~8 계획]]·[[20261021-review|공식명세/현황 조사]]를 작성했다. 후속 승인으로 격리 브랜치 구현을 진행하며 운영 활성화는 서비스별 검증 후 별도다. 기존 ADR-042 freeze10-24 22시·리허설10-25·완료목표10-26·공식제출10-27을 유지한다.
-
-승인 후 순서는 통합기준확정→additive identity/RLS→신규P0(K-water입찰/LH입찰/KEPCO)→중복/관련성→P1(K-water계획/LH사전규격/G2B요청)+기존early→기존AI회귀→UI/운영집계→통합/단계활성화다. key/안정ID/금액의미/실첨부·문서소비자/파서가 미확인인 서비스는 비활성이다. 병렬 Gateway/Storage/N3/N6/N9/P0-8/S5와 공유 파일 담당을 맞추며 운영 일정 단축/전수재수집은 하지 않는다.
+[[16-DECISIONS|ADR-047]]은 채택됐고 2026-10-22 main 통합·운영 적용됐다([기록](evidence/procurement-expansion/20261022-release.md)). 설계는 [스펙](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)과 [[2026-10-21-public-procurement-expansion-plan|Phase0~8 계획]]이다. 기관별 수집 서비스는 서비스별 검증 뒤에 켠다([[plans/2026-10-27-ingest-source-isolation-deploy|서비스별 격리 배포 실행서]]). 기존 모델·점수·권한·DEMO 정책은 그대로다.
 
 ## 관련 문서
 - [[01-PRD|01 PRD]] — FR별 P0·P1·P2
 - [[10-DEPLOYMENT|10 배포]]
 - [[11-TESTING|11 테스트]]
-- [[16-DECISIONS|16 ADR]] — ADR-017(Next.js + Supabase), ADR-020(실데이터 MVP·P0 순서), ADR-023(3단 컷·대체 경로), ADR-027(파인튜닝 X6·일정 2일 당김, 폐기), ADR-034(결정 모델 Bosun·추출 Qwen3.8-Flash-Next), ADR-037(데모 강화 컷), ADR-054(마감 11-03·발표 11-04)
+- [[16-DECISIONS|16 ADR]] — ADR-017(Next.js + Supabase), ADR-020(실데이터 MVP·P0 순서), ADR-023(3단 컷·대체 경로), ADR-034(결정 모델 Bosun·추출 Qwen3.8-Flash-Next), ADR-037(데모 강화 컷), ADR-054(마감 11-03·발표 11-04)
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]
 - [[18-HACKATHON|18 해커톤]]
 - [[19-DEMO-SCENARIO|19 데모 시나리오]]
 - [[21-MODEL-TRAINING|21 모델 학습]]
 - [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] — X6 실행 절차
 - [[PROGRESS]]
-
-
-ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

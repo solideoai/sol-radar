@@ -5,7 +5,7 @@
 해커톤 뒤에는 API·worker 를 NestJS 로 옮긴다(ADR-028). 그 전에는 위 스택 그대로다.
 모바일(1280px 미만 레이아웃·`mobile/` Expo 앱)과 결제·구독은 만들지 않는다. 화면은 데스크톱 1280px 이상이다(`docs/16-DECISIONS.md` ADR-007).
 이 파일의 나머지는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히면 설계 문서를 따른다.
-아래의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조 규칙은 설계와 일치하므로 따른다(ADR-017). Vercel frontend·회사 Gateway 배포는 ADR-044·045·047과 docs/10-DEPLOYMENT.md를 따른다.
+아래의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조 규칙은 설계와 일치하므로 따른다(ADR-017). Vercel frontend·회사 Gateway 배포는 ADR-045·049와 docs/10-DEPLOYMENT.md를 따른다.
 템플릿의 Expo 앱(`mobile/`)과 그 규칙은 지웠다. 다시 만들지 않는다.
 커밋 메시지 형식과 "결정적 강제 장치"(커밋 게이트·훅·린트를 끄거나 돌아가지 않기)는 그대로 지킨다.
 
@@ -43,7 +43,7 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 - 시험 하나만: 웹 `pnpm -C web exec vitest run <파일> -t "<이름>"` · 루트 `node --test scripts/<이름>.test.mjs`. 브라우저 시험은 `pnpm -C web test:browser`, E2E 는 `pnpm -C web test:e2e`.
   로그인 뒤 E2E 는 `pnpm -C web test:e2e:auth`(로컬 Supabase 필요, verify·CI 에는 없다 → `testing` 스킬)
 - 서식: 고친 폴더에서 `pnpm format` (루트·`web` 각자). 손으로 맞추지 않는다.
-- Node 는 루트 `package.json` 의 `engines` 범위를 따른다. `web/package.json` 에는 `engines` 를 두지 않는다(이유는 `docs/boilerplate/first-deployment.md`).
+- Node 는 루트 `package.json` 의 `engines` 범위를 따른다. `web/package.json` 에는 `engines` 를 두지 않는다. 넣으면 Vercel 이 프로젝트 설정의 Node 메이저(22.x, `.nvmrc`)를 덮고 범위 안의 가장 높은 메이저를 고른다. 루트 `engines` 는 Vercel 이 읽지 않는다(원문: git `eca5552b^` 의 `docs/boilerplate/first-deployment.md`).
 
 ## 커밋 메시지: `타입: 작업 내용`
 
@@ -95,7 +95,7 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
   단계별 구현(단계마다 관련 검사) → 통합 검증(전체 `pnpm verify`·변경 흐름 E2E·독립 리뷰 1회) → `/predeploy-review` → 배포
   - 화면이 새로 생기거나 흐름이 바뀌면 구현 전에 `web-designer` 에게 디자인 스펙을 받는다.
   - 서로 독립인 단계는 Claude Code 의 worktree 에이전트에 병렬로 맡길 수 있다. 같은 파일은 한 작업자가 맡는다.
-  - 작은 작업은 구현자가 관련 검증까지 맡는다. 독립 리뷰는 통합 단위로 한 번 모으고, 데모 전에 `demo-verifier` 의 GO/NO-GO 를 받는다(Compose 데모. 웹 배포처는 Vercel). 작은 단계마다 test·e2e·qa 에이전트와 다중 프로필 리뷰를 연달아 실행하지 않는다.
+  - 작은 작업은 구현자가 관련 검증까지 맡는다. 독립 리뷰는 통합 단위로 한 번 모으고, 데모 전에 `demo-verifier` 의 GO/NO-GO 를 받는다(`demo-verifier` 는 로컬 Compose 를 본다. 발표는 D1 운영 사이트, 웹 배포처는 Vercel). 작은 단계마다 test·e2e·qa 에이전트와 다중 프로필 리뷰를 연달아 실행하지 않는다.
 
 ## 서버·저장 구조 (요약)
 - 서버 코드는 `web/server/<도메인>/` 에 `model`·`repo`·`service`·`index`(배럴)로 둔다. 견본은 `web/server/profile/`·`web/server/organization/`·`web/server/task/`·`web/server/activity/`·`web/server/admin/` → `architecture` 스킬.
@@ -110,7 +110,7 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 검사가 막으면 원인을 고친다. 끄거나 돌아가지 않는다. 장치마다의 상세와 CI 구성은 `docs/boilerplate/guardrails.md` 가 정본이다.
 
 - **커밋 게이트**(`.husky/`): 검사는 작업 폴더를 읽는다. 파일은 통째로 스테이징한다.
-- **편집 금지 파일**(`.claude/settings.json` 의 `deny`): `.husky/`·`.claude/settings*.json`·`.claude/hooks/`·`web/lodestar.config.*`. `.github/`는 2026-10-21 사용자 지시로 편집 금지를 해제했다. CI 필수 검사와 훅은 유지한다.
+- **편집 금지 파일**(`.claude/settings.json` 의 `deny`): `.husky/`·`.claude/settings*.json`·`.claude/hooks/`·`web/lodestar.config.*`. `.github/`는 2026-10-21 사용자 지시로 편집 금지를 해제했다. CI 필수 검사와 훅은 유지한다. 지금 GitHub Actions job 은 계정 결제 문제로 시작되지 않으므로 검사는 로컬 pre-push 게이트로 한다.
   막히면 다른 길(스크립트로 파일 쓰기 등)로 돌아가지 말고 사용자에게 알린다.
 - **약하게 만들지 않는 파일**: `package.json`·`.npmrc`·`verify.config.json`·`scripts/`·`eslint.config.*` 는 고칠 수 있지만, 검사를 빼거나 약하게 만들지 않는다.
 - **린트·계층**: 검사를 끄는 길이 없다(`eslint-disable`·`any`·`@ts-ignore`·테스트 `.only`·`.skip`). 도메인은 배럴로만, 부모 상대경로(`../`) 대신 `@/`,

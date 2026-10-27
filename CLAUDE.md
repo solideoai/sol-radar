@@ -11,6 +11,6 @@
 2. `AGENTS.md` 는 저장소를 시작한 템플릿(agentic-boilerplate)의 규칙이다. 설계 문서와 부딪히지 않는 것만 따른다
    — 커밋 메시지 형식, 커밋 게이트·훅·린트를 끄거나 돌아가지 않기, pnpm, `pnpm verify`.
 3. 부딪히면 설계 문서를 따른다. 템플릿의 Supabase(인증·DB·RLS·anon 키)·`web/server/<도메인>/` 구조와, 이것을 다루는 `docs/boilerplate/` 문서·스킬·에이전트(`.claude/`)는
-   설계와 일치하므로 따른다(ADR-017). 템플릿의 Expo·EAS 전제는 적용하지 않는다. Vercel 배포는 SOL RADAR 정본 ADR-044·045와 검증된 env 선택 경로를 따른다. 데모 기본 Compose와 운영 변경 승인 원칙은 유지한다.
+   설계와 일치하므로 따른다(ADR-017). 템플릿의 Expo·EAS 전제는 적용하지 않는다. Vercel 배포는 SOL RADAR 정본 ADR-045·049(web 단독, 회사 Compose가 redis-api·AI gateway·Worker)와 검증된 env 선택 경로를 따른다. 발표는 D1 운영 사이트를 쓰고(ADR-054) 로컬 Compose는 대체 경로다. 운영 변경 승인 원칙은 유지한다.
 
 스킬·명령은 `.claude/` 에서 읽는다. 검증 설정의 정본은 `verify.config.json` 이다.
