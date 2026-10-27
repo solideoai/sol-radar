@@ -230,7 +230,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 
 | 용어 | 뜻 | 원천 |
 |---|---|---|
-| 회사 GPU 추론 엔드포인트 | 회사가 HTTPS로 제공하는 모델 런타임 접속점 `https://acropolissg.com/sol-radar`. ai-gateway가 그 아래 `/kev`(결정 모델, GPU 서버 안 모델 라우터 `infra/gpu/model-router.conf`)에 Bearer 키로 붙는다. `/qwen`은 백업 경로이고 쓰지 않는다. Qwen은 이 엔드포인트가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1`(`QWEN_BASE_URL`)에 붙는다([[16-DECISIONS\|ADR-034]]). 연결 방식·운영 책임·미확인 항목은 ADR-025 상세 | [[16-DECISIONS\|ADR-025]], [[10-DEPLOYMENT]] |
+| 회사 GPU 추론 엔드포인트 | 회사가 HTTPS로 제공하는 모델 런타임 접속점 `https://acropolissg.com/sol-radar`. ai-gateway가 그 아래 `/kev`(결정 모델, GPU 서버 안 모델 라우터 `infra/gpu/model-router.conf`)에 Bearer 키로 붙는다. `/qwen`은 백업 경로이고 쓰지 않는다. Qwen은 이 엔드포인트가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1`(`QWEN_BASE_URL`)에 붙는다([[16-DECISIONS\|ADR-034]]). 연결 방식·운영 책임·미확인 항목은 ADR-025 | [[16-DECISIONS\|ADR-025]], [[10-DEPLOYMENT]] |
 | 엔드포인트 미접속 | `live`·`fixture`에서 gateway는 살아 있는데 회사 GPU 추론 엔드포인트에 닿지 않는 상태(옛 표현 "터널 단절"). `QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. mock 결과로 몰래 바꾸지 않고, 필요하면 사람이 `mock` 모드로 전환 | [[19-DEMO-SCENARIO]], [[03-AI-PIPELINE]] |
 | 엔드포인트 재접속 확인 | 미접속 뒤 `GET /v1/models`로 Qwen·Bosun 응답과 레지스트리 대조를 다시 확인하는 것(옛 표현 "터널 재연결"). 리허설에서 소요 시간을 `rehearsal-log.md`에 적는다 | [[11-TESTING]] |
 

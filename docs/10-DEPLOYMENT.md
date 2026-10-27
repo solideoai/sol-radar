@@ -145,7 +145,7 @@ updated: 2026-10-27
   - `KAKAO_TOKEN_ENC_KEY`는 web이 암호화하고 Worker가 복호화하므로 두 쪽이 같은 값이다. 바꾸면 모든 연결을 다시 해야 한다. 키·시크릿은 서버 전용이다([[09-SECURITY|09 보안]] "카카오톡 알림").
   - 운영 카카오 연결·발송은 0건이다. 실발송은 사용자가 `memo`로 바꿀 때만 일어난다. 시험은 `mock`이다.
 
-**Phase 0 확정 사항**(정본 [[16-DECISIONS|ADR-024]] 상세 표): placeholder `CHANGE_ME` 금지, Redis 비밀번호 영숫자, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 빈 문자열은 미지정.
+**Phase 0 확정 사항**(정본 [[16-DECISIONS|ADR-024]] 표): placeholder `CHANGE_ME` 금지, Redis 비밀번호 영숫자, 호스트 포트 `127.0.0.1`·redis 기본 6380, Compose 프로젝트 이름 `sol-radar-stack`, 빈 문자열은 미지정.
 
 - gateway 이미지는 `AI_HOST=0.0.0.0`·`SOL_RUN_MODES_FILE=/app/infra/run-modes.json`을 이미지 ENV로 가지고 저장소 루트를 빌드 컨텍스트로 쓴다(`context: ..`).
 - `infra/smoke.sh`는 `-p`를 받지 않는다. 격리해 돌리려면 `COMPOSE_PROJECT_NAME`·`COMPOSE_ENV_FILES`를 준다. `REDIS_URL`은 호출한 셸이 준다.
@@ -243,7 +243,7 @@ curl -sS --fail -H "Authorization: Bearer $QWEN_API_KEY" "$QWEN_BASE_URL/models"
 > [!warning] 미검증 가정
 > - 운영 `/health/ready`가 `ai: local`이다. 전체 추출·부하 지연, 호출 한도, 회사 vLLM의 리비전·양자화·`prompt_logprobs` 지원은 미측정이다(ADR-034 1·8번). 우리는 `GET /v1/models`의 `id`를 레지스트리 `qwen3.8-flash-next`와 대조만 한다.
 > - Bosun 질문당 지연이 `KEV_TIMEOUT_MS` 5000 안인지는 미측정이다(16 미결정 24번). 넘으면 [[16-DECISIONS|ADR-033]] E4 규칙대로 기본값을 함께 바꾼다.
-> - 바깥 nginx의 접두어 처리와 Bearer 외 추가 인증 여부는 미확인이다. 다르면 ADR-025 상세를 갱신한다.
+> - 바깥 nginx의 접두어 처리와 Bearer 외 추가 인증 여부는 미확인이다. 다르면 ADR-025를 갱신한다.
 > - 어댑터의 `enable_thinking: false`([[03-AI-PIPELINE|03]] §4.3)는 그대로 둔다. 새 모델의 사고 모드 기본값은 미확인이다.
 > - 결정 모델을 노트북 CPU로 돌리는 경로는 쓰지 않는다(미결정 8번, [[03-AI-PIPELINE|03]] §5.9). Bosun 0.6B CPU 추론은 미측정이다.
 

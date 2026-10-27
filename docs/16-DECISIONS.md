@@ -14,7 +14,7 @@ updated: 2026-10-27
 
 - **대체 표시**: 뒤 ADR이 앞 ADR의 조항을 바꾸면 양쪽(색인 상태 칸과 본문)에 "ADR-NNN로 대체·개정"을 단다.
 - **구현·운영 상태**: 이 문서가 판정하지 않는다. [[PROGRESS]]에 있다.
-- **줄인 기록**: ADR-027(폐기)·ADR-029~033·035·036(정본 반영 기록)과 ADR-042 일정 표·담당 배정은 ADR-057에 따라 한 줄로 줄였다. 원문은 git `5261730f` 의 이 파일에 있다.
+- **줄인 기록**: ADR-027(폐기)·ADR-029~033·035·036(정본 반영 기록)과 ADR-042 일정 표·담당 배정은 ADR-057에 따라 한 줄로 줄였다. 원문은 git `5261730f` 의 이 파일에 있다. 색인 ADR-019 이후 행의 근거 칸은 "본문"으로 줄였고, 색인 근거 원문도 git `5261730f` 의 docs/16-DECISIONS.md에 있다.
 - **순서**: 아래 색인은 번호순이고, 본문은 최신이 위다.
 
 ## 결정 색인
@@ -39,7 +39,7 @@ updated: 2026-10-27
 |ADR-017|아키텍처 전환: Next.js(`web/`, 화면·Route Handler·서버 도메인 `web/server/<도메인>`) + **Supabase(Postgres·RLS·Auth)**. NestJS·Prisma·자체 JWT 인증은 쓰지 않는다. Worker는 `web/worker` 진입점(같은 코드베이스의 별도 프로세스, BullMQ). MinIO·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose는 유지. 조직 데이터 열은 `org_id`, 업무 역할은 `memberships.sol_role`. service role 키는 worker·seed만. 개발 DB·Auth는 Supabase 클라우드 프로젝트(Pro)|채택 (ADR-028로 해커톤 뒤 API·worker는 NestJS. 파일 저장은 ADR-048(Supabase Storage)로, 웹 배포처는 ADR-044·049(Vercel web)로 대체)|2026-10-16|사용자 결정(2026-10-16). 출발 템플릿이 Next.js + Supabase(조직·역할·RLS·인증 견본, 정책 시험·타입 생성 게이트)라 인증·격리를 새로 만들지 않는다. ADR-001·002를 대체한다. 구현 결과는 아래 "ADR-017 구현 결과" ([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
 |ADR-018|가입·로그인 방식: 공개 가입 + 초대. 누구나 이메일 + 비밀번호(`/auth/sign-up`) 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만들고, 업무 조직 합류는 초대 수락으로 한다. 간편 로그인 제공자 설정은 후순위|채택 (ADR-021 개정: 가입 시 개인 조직 생성 중단. ADR-038 예외: 카카오 알림용 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`는 웹 서버·worker env에 두고 서버에서만 읽는다)|2026-10-16|사용자 결정(2026-10-16). 버튼·콜백·계정 연결 코드가 템플릿에 있다. 구현 결과는 아래 "ADR-018 구현 결과" ([[09-SECURITY\|09 보안]])|
 |ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명·고유 정장 사진 200장, 가입 부서·직급/직책 필수|채택 (ADR-021·043·051·052 개정)|2026-10-16|본문|
-|ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 실수집·첨부 파싱, 회사 GPU 실추론, 결정 모델 참고 지표(SOL Score 미반영)|채택 (ADR-023 범위 재배치, ADR-034 모델·런타임, ADR-047 live 사전 필터, ADR-052 회사 프로필, ADR-054 실행 모드 표시 개정)|2026-10-16|본문|
+|ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 실수집·첨부 파싱, 회사 GPU 실추론, 결정 모델 참고 지표(SOL Score 미반영)|채택 (ADR-023 범위 재배치, ADR-034 모델·런타임, ADR-047 live 사전 필터, ADR-052 회사 프로필. 실행 모드 화면 표시는 10-26 화면 변경으로 좁아졌다(ADR-054에 기록, 사용자 승인 미확인))|2026-10-16|본문|
 |ADR-021|사이드바 정보 구조와 입찰 업무 확장(데모 필수 화면·P1 다섯 화면·조직 주소 없는 경로·`/ops` 분리)|채택 (ADR-023·042 범위·착수 조건, ADR-043 인력 계산 대상, 사이드바 노출·묶음 사용자 개정)|2026-10-16|본문|
 |ADR-022|data.go.kr 서비스키를 서비스마다 따로 둔다(env 4개, registry `serviceKeyEnv`)|채택 (서비스 확장은 ADR-047)|2026-10-18|본문|
 |ADR-023|해커톤 데모 컷 재정의(핵심 컷·확장 컷·P1 3단), S-LIVE 실추론 1건·E3 필수, 외부 의존성 컷 규칙|채택 (ADR-034·037·039·040·041·042 개정. ADR-054로 S-LIVE는 첨부 처리 구현, 발표는 D1)|2026-10-19|본문|
@@ -95,7 +95,7 @@ updated: 2026-10-27
 5. **사용자 제공 파일(Q5)**: `docs/error/image.png`(10-21 Vercel 503 로그 캡처, 링크 0)는 지운다. `SOL_RADAR_BOSUN_QWEN4B_MIGRATION_BRIEF.md`(퇴역)와 `BOSUN_FINETUNING_GPT_HANDOFF.md`(X6을 하면 git에서 복원)도 지운다. `plans/SIDEBAR-PLAN.md`(ADR-021 원 요구서)와 `design/references` 2장은 남긴다.
 
 - **원문 찾기**: 지운 파일과 줄인 ADR의 원문은 git 이력에 있다. 정본에는 "원문: git `5261730f` 의 `<경로>`"로 적는다. `5261730f`는 main에 있는 커밋이다.
-- **적용(이 문서)**: ADR-034는 정본 반영 기록이 아니라 지금 쓰는 모델 결정이다. 그래서 한 줄로 줄이지 않고 지난 일정 조항(12·17번)만 지웠다. 다른 ADR 조건의 freeze 날짜도 지우고, 필요한 곳에는 "ADR-054로 일정이 바뀌었다"를 한 줄로 단다.
+- **적용(이 문서)**: ADR-034는 정본 반영 기록이 아니라 지금 쓰는 모델 결정이다. 그래서 한 줄로 줄이지 않고 지난 일정 조항(12·17번)만 지웠다(정리 작업 판단, 사용자 확인 전). 다른 ADR 조건의 freeze 날짜도 지우고, 필요한 곳에는 "ADR-054로 일정이 바뀌었다"를 한 줄로 단다.
 - **바뀌는 것**: ADR-054 §1의 "지난 일정 표와 간트는 지우지 않고 '지난 일정'으로 표시만 한다".
 - **바뀌지 않는 것**: ADR의 상태(채택·제안). 이번 정리에서는 바꾸지 않는다(계획 Q8, 사용자에게 묻지 않고 추천안을 기본으로 했다). 남은 날의 세부 일정은 [[12-ROADMAP|12 로드맵]]의 제안 표 한 곳이다(ADR-054).
 
@@ -143,7 +143,7 @@ updated: 2026-10-27
 3. **S-LIVE는 첨부 처리 구현으로.** 원문 "추천으로". 첨부 처리(다운로드·파서·documents worker)를 구현해 실제 나라장터 공고 분석 경로를 완성한다(ADR-020 목표). "S-LIVE 장면을 빼고 설명으로 대체"하는 대안은 고르지 않았다. 코드는 main `8cfaac31`에 있고, migration `20261027000500`·`000600`은 운영에 적용됐다. 회사 반영(gateway 파서·Analysis Worker·Documents Worker)은 [회사 반영 실행서](plans/2026-10-27-company-rollout-attachments.md)대로 한다. 그 전까지 운영의 실공고 분석은 0건이다. 실공고는 본문이 비어 분석 요청이 `409 ANALYSIS_SOURCE_MISSING`으로 막힌다. 운영 반영·실공고 분석 증거가 나오기 전에는 실공고 분석·첨부 파싱을 했다고 말하지 않는다. 카카오 실수신 녹화도 이 경로 뒤로 미룬다(ADR-038).
 4. **미결정.** X6 파인튜닝(회사 GPU 학습 실행 여부)은 정하지 않았다. 10-25·10-26의 F1·F2·F3·E4 일정은 지났고 회사 서버에서 돈 기록은 없다. 사용자가 정하기 전에는 실행했다고도, 하지 않기로 했다고도 쓰지 않는다.
 
-- **바뀌는 것**: ADR-042의 일정 조항(freeze·리허설·완료 목표·공식 제출 날짜), ADR-034 12·17번 일정, ADR-023 S-LIVE(첨부 처리 구현으로)·발표 경로(D1), ADR-038 실수신 녹화 시점과 "10-27은 개발 예비일 없음"(새 마감에서는 남은 날을 [[12-ROADMAP|12]] 제안 표로 쓴다). [[18-HACKATHON|18]] 머리 콜아웃·§4·§6·§7·§10, [[19-DEMO-SCENARIO|19]] S0(demo:reset 대신 D1 절차), [[10-DEPLOYMENT|10]], `docs/submission/`, [[PROGRESS]].
+- **바뀌는 것**: ADR-042의 일정 조항(freeze·리허설·완료 목표·공식 제출 날짜)과 "10-27은 개발 예비일 없음"(새 마감에서는 남은 날을 [[12-ROADMAP|12]] 제안 표로 쓴다), ADR-034 12·17번 일정, ADR-023 S-LIVE(첨부 처리 구현으로)·발표 경로(D1), ADR-038 실수신 녹화 시점. [[18-HACKATHON|18]] 머리 콜아웃·§4·§6·§7·§10, [[19-DEMO-SCENARIO|19]] S0(demo:reset 대신 D1 절차), [[10-DEPLOYMENT|10]], `docs/submission/`, [[PROGRESS]].
 - **바뀌지 않는 것**: 골든 94/72/68(`mock`), 규칙 엔진·점수 산식, 실행 모드 세 가지, 범위 외(모바일·결제·자동 투찰·승률), 운영 변경은 단계마다 사용자 승인(ADR-044·045·049). P1 다섯 화면은 모두 끝났다(N4b main `d209eec3`, 운영 배포 완료).
 - **함께 적는 10-26 변경(이 ADR의 결정은 아님)**: 상단바에서 실행 모드·AI 표시를 뺐다(`web/components/topbar-status.tsx`, [[plans/2026-10-26-live-ops-cutover|10-26 실행서]] §1). 지금 화면에서 데이터 출처는 상단바 DEMO 배지(보는 출처가 demo일 때만)와 공고 행 DEMO 배지로, 분석의 실행 모드·AI 모델은 공고 상세 분석 요약 띠("분석 실행 모드: …"·"AI: …")와 분석 결과 비교 화면으로 보인다. ADR-020의 "실행 모드를 화면에 표시"는 분석 단위 표시로 좁아졌다. 이 제거의 사용자 승인 원문은 이 기록에서 확인하지 못했다(미확인).
 
@@ -210,7 +210,7 @@ updated: 2026-10-27
 
 2026-10-22 사용자의 배포 책임 확정과 남은 구현 지시를 반영한다. Vercel은 web만, 회사는 기존 Redis·Next redis-api·AI gateway·Worker를 맡는다. ADR-044의 내부 ai 서비스/binding 배치 조항을 대체한다. 회사 API의 allowlist에 정확한 관리자 AI 상태 GET만 추가하고 서비스 token·사용자 JWT·ADMIN 재검증·응답 schema 검증을 유지한다. 실패 readiness의 원인은 비밀·URL·원문 없이 분류/상태/소요시간/요청ID만 기록한다.
 
-새 Redis·Qdrant·Nginx·DB를 추가하지 않는다. 기존 회사 모델 프로세스와 Redis를 재시작/수정하지 않으며 실제 network·포트 확인 전 기동하지 않는다. 학습본 미반입 상태이므로 mock을 유지한다. [회사 실행서](../infra/company/README.md)의 코드/이미지 검증과 회사 운영 배포를 구분한다.
+새 Redis·Qdrant·Nginx·DB를 추가하지 않는다. 기존 회사 모델 프로세스와 Redis를 재시작/수정하지 않으며 실제 network·포트 확인 전 기동하지 않는다. 학습본 미반입 상태이므로 mock을 유지한다. [회사 실행서](../infra/company/README.md)의 코드/이미지 검증과 회사 운영 배포를 구분한다. 검증: [로컬 구현 기록](evidence/deployment/20261022-company-runtime-implementation.md).
 
 ## ADR-048 MinIO를 private Supabase Storage로 교체
 
@@ -284,7 +284,7 @@ API인증·파싱/페이지·정정/취소·중복/단위·원본·관련성·�
 
 ## ADR-045 Redis HTTPS 접수에 기존 Next.js API 재사용
 
-2026-10-21 사용자 승인 범위는 [[2026-10-21-redis-gateway-supabase-storage-migration|전환 계획]]의 **Phase 1 Gateway 로컬 구현·테스트**다. 운영 컨테이너·Nginx·DB·배포 변경과 Storage/parser 다음 단계는 별도 승인 대상이다.
+2026-10-21 사용자 승인 범위는 [[2026-10-21-redis-gateway-supabase-storage-migration|전환 계획]]의 **Phase 1 Gateway 로컬 구현·테스트**다. 운영 컨테이너·Nginx·DB·배포 변경과 Storage/parser 다음 단계는 별도 승인 대상이다. 검증: [[20261021-phase1-redis-gateway|로컬 검증 기록]](2026-10-21).
 
 2026-10-21 추가 결정: **Gateway·Vercel은 해커톤 안에 완료한다.** 당시 붙인 freeze·리허설 날짜 조건은 지난 일정이다(ADR-054·057). 결과: 2026-10-26 운영 전환으로 이 경로가 운영 기본이 됐다([[PROGRESS]]). 당시 기본 데모는 Compose Redis/BullMQ·MinIO였고 새 경로는 env로 선택했다(MinIO는 ADR-048로 제거). ADR-037·039·042 조건②의 예외는 frontend HTTPS → 회사의 기존 접수 API로 나누는 전송/배포 경로에 한정한다. analysis job payload·처리 의미와 수집 저장 RPC `ingest_save_revision` signature·원자성, 규칙 엔진·골든 94/72/68은 유지한다. 기존 함수 모양 변경이 필요하면 먼저 사용자에게 알린다. durable dispatch·quota 예약·Storage 신규 구현은 이 예외로 자동 승인되지 않는다. 병합 조건·지침 문안·요금제(원문: git `5261730f` 의 `docs/plans/2026-10-21-redis-vercel-merge-conditions.md`)를 함께 검토했고, 지침 문안과 유료 Pro 전환은 사용자 승인 전 적용하지 않는다.
 
@@ -298,7 +298,7 @@ API인증·파싱/페이지·정정/취소·중복/단위·원본·관련성·�
 ## ADR-044 Vercel Services에 공개 web·내부 ai 배포
 
 > [!warning] 일부 대체 (ADR-049)
-> 내부 ai 서비스·URL binding 배치 조항은 ADR-049로 대체됐다. 지금 `vercel.json`은 `web` 서비스 하나다. 아래는 2026-10-21 결정 기록이다.
+> 내부 ai 서비스·URL binding 배치 조항은 ADR-049로 대체됐다. 지금 `vercel.json`은 `web` 서비스 하나다. MinIO 조항은 ADR-048로 대체됐다(첨부는 Supabase Storage). 아래는 2026-10-21 결정 기록이다.
 
 2026-10-21 사용자가 최종 `vercel.json`의 서비스 이름·공개 범위·바인딩·배포 제외 항목을 승인했다. ADR-017의 웹 배포처 미결정을 해소한다.
 
@@ -407,6 +407,7 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 - **바뀌는 조항(2026-10-21 채택으로 적용)**: ADR-006 해커톤 조항 → `NOTIFY_KAKAO_PROVIDER=memo` 실발송(기본 `mock`) · ADR-018 예외 → 카카오 비밀값을 웹 서버·worker env에 둔다(브라우저·`NEXT_PUBLIC_` 금지) · 미결정 5번은 운영 전환 때.
 - **카카오 연결**: Supabase 간편 로그인과 따로 OAuth(`scope=talk_message`)를 받는다. 토큰은 서버에서 암호화해 본인 행에 RPC로 저장하고 worker만 복호화한다. 카카오 `unlink` 는 부르지 않는다(같은 앱을 로그인에 쓰면 로그인도 끊긴다).
 - **위험·미검증**: 나에게 보내기의 휴대폰 알림 울림은 공식 문서에 없다(S0에서 확인, 안 울리면 멈추고 사용자 결정) · 카카오는 서비스 자동 알림에 알림톡을 안내하므로 나에게 보내기는 해커톤 시연용이고 운영은 알림톡이다 · 조직 내부 값(권고·점수·규칙 사유)이 카카오를 거쳐 본인 카톡에 남는다(09에 적는다).
+- **카카오 공식 문서(2026-10-20 확인)**: 나에게 발송은 심사 전후 건수 제한 없음, 서비스 자동 알림은 알림톡을 안내. 알림톡은 비즈니스 채널(사업자)·딜러사·템플릿 검수가 필요하다.
 - **반영 범위**: [설계](plans/2026-10-20-kakao-memo-notify-design.md) §13 표, [계획](plans/2026-10-20-kakao-memo-notify-plan.md).
 
 ## ADR-037 데모 강화 컷 (BOOST-2 가정 재계산, ADR-023 개정)
@@ -444,13 +445,15 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 
 ## ADR-034 결정 모델 Bosun v3.1 0.6B·추출 모델은 회사 운영 vLLM API(지금 Qwen3.8-Flash-Next)
 
-상태는 **채택**이다(2026-10-20 사용자 결정. 지시서(원문: git `5261730f` 의 `docs/SOL_RADAR_BOSUN_QWEN4B_MIGRATION_BRIEF.md`), 결정 질문 Q1~Q7은 전부 ①, 추가 지시 8건). 분석·근거·파일 목록은 [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md)이다. 이 ADR은 ADR-027을 폐기하고 ADR-012·020·023·025의 모델·런타임 조항을 개정한다. 구현은 계획 §9의 단계(B0 문서 → B1 코드 → B2 서버 준비 → B3 데이터 → B4·B5 학습·채점 → B6 제출)로 하고 단계마다 사용자 승인을 받는다.
+상태는 **채택**이다(2026-10-20 사용자 결정. 지시서(원문: git `5261730f` 의 `docs/SOL_RADAR_BOSUN_QWEN4B_MIGRATION_BRIEF.md`), 결정 질문 Q1~Q7은 전부 ①, 추가 지시 8건). 분석·근거·파일 목록은 [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md)이다. 이 ADR은 ADR-027을 폐기하고 ADR-012·020·023·025의 모델·런타임 조항을 개정한다. 구현은 계획 §9의 단계(B0 문서 → B1 코드 → B2 서버 준비 → B3 데이터 → B4·B5 학습·채점 → B6 제출)로 하고 단계마다 사용자 승인을 받는다. 같은 날 저녁 사용자 결정 원문: "Qwen 4B 대신 회사에서 이미 운영 중인 Qwen3.5-27B API". 선택 이유: Kev-9B 두 모델 9B는 GPU 1 공유 환경에 학습까지 두기 어렵다. Bosun은 typed decision(choice/score/noul) 공개 API·후보 2~5개 정확도 0.95 안팎·LoRA 학습 CPU 확인이 있다. Qwen3.5-27B는 회사가 운영 중인 API라 GPU 1을 쓰지 않고 기존 어댑터(`/v1/chat/completions`·guided JSON·`enable_thinking:false`)를 그대로 쓴다.
 
 > [!success] 추출·설명 모델 교체와 식별자 확인 (2026-10-21)
 > - 사용자 보고로 회사 vLLM API의 추출·설명 모델이 Qwen3.5-27B에서 Qwen3.8-Flash-Next(128B)로 바뀌었다. 주소 `https://acropolissg.com/vllm/v1`, env 이름(`QWEN_BASE_URL`·`QWEN_MODEL`·`QWEN_API_KEY`), 어댑터 계약은 그대로다.
 > - 회사 vLLM API 실응답의 served id는 `Qwen3.8-Flash-Next-AWQ-INT4`다. 사용자 지시에 따라 레지스트리 `run`(`services/ai/models/registry.yaml` 항목 `qwen3.8-flash-next`, `default`·`active`)·환경변수 `QWEN_MODEL`·실행 예시를 이 값으로 정정했다. Bearer 인증 조회 200·짧은 guided JSON 추론 200을 확인했다([실연결 증거](evidence/phase-5/qwen-probe-20261021-2343.json)). 과거 실행 증거는 보존한다.
 > - 아래 1·2·4·6·8·9·16번과 미검증 가정의 Qwen3.5-27B·`qwen3.5-27b`는 이 모델로 읽는다(`qwen3.5-27b`는 `retired`). 본문은 2026-10-20 결정 기록이다.
-> - 미검증: 전체 추출 품질(EX0), `prompt_logprobs`(E3), 지연·호출 한도, 사고 모드 기본값(`enable_thinking:false`는 그대로 보낸다). 회사 쪽 적재·양자화·GPU 배분은 회사 운영이다(ADR-025).
+
+> [!warning] 미검증
+> 전체 추출 품질(EX0), `prompt_logprobs`(E3), 지연·호출 한도, 사고 모드 기본값(`enable_thinking:false`는 그대로 보낸다). 회사 쪽 적재·양자화·GPU 배분은 회사 운영이다(ADR-025).
 
 1. **모델**: 결정 모델 `Hanno-Labs/bosun-v3.1-0.6b` 리비전 `5e78a37c8d86860ebac9ef2d5327d6299498498e`(백본 `Qwen/Qwen3-0.6B@c1899de289a04d12100db370d81485cdf75e47ca`, Apache-2.0). 두 리비전은 2026-10-20 Hugging Face API로 존재를 확인했다. 레지스트리 `run` 표기는 `<repo>@<sha 앞 8자>`, 전체 sha는 `revision` 필드. **추출·설명 모델은 회사가 이미 운영하는 vLLM API의 `Qwen/Qwen3.5-27B`**(공개 주소 `https://acropolissg.com/vllm/v1`, 회사 제공 키). 리비전·양자화·서빙 설정은 회사 운영이라 우리가 고정하지 않고 `GET /v1/models` 응답의 `id`를 레지스트리 `run`과 대조만 한다. **개정(같은 날 저녁)**: 처음 안이던 `Qwen/Qwen3-4B-Instruct-2507@cdbee75f17c01a7cc42f958dc650907174af0554`(존재 확인됨)는 백업으로만 보존하고 다운로드·venv·서빙·학습 작업을 중단한다.
 2. **역할 경계(불변)**: Bosun은 `kev-qs/v0.2` 질문(요구사항별 충족 `req.{itemId}.status`, `techFit`·`perfRelevance`, `risk.*` 5개, v0.1 4문항)에 확률 분포를 낸다. 점수 입력이 아니고 `review_flags`만 더한다(ADR-004·012·020, 17 절대 규칙). `recommendation`(BID/WATCH/NO_BID)은 참고 질문으로 유지하고 학습하지 않는다(Q4). 최종 입찰 결정은 규칙 엔진·SOL Score·제약·기존 정책이 낸다. Qwen3.5-27B는 `RequirementExtraction` v0.1 구조화 추출·인용 검증(ADR-029 A1)·`translations`·`/explain` 근거 설명을 맡는다. 스키마·프롬프트 `req-extract/v0.1`·검증 체인·어댑터(`/v1/chat/completions`, `temperature 0`, guided JSON, `enable_thinking:false` — Qwen3.5는 thinking 기본)는 불변. 사실(2026-10-20, ADR-036): main과 B1 `7320c3e`의 `adapters/qwen.py`는 `enable_thinking`을 보내지 않는다(미결정 26번 26-7). 2026-10-21 갱신: `326aff6`(main `1b68f9b`)부터 보낸다(26-7 해결).
@@ -463,12 +466,12 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 9. **데모(Q7)**: 데모·S-LIVE 초기 모델은 공개 Bosun v3.1 0.6B. 학습본은 같은 평가셋에서 명확한 개선(Δ CI가 0을 배제)과 회귀 안정성(dev·regression)을 보이고 **사용자 승인**을 받은 뒤에만 교체한다. regression(망각 확인) 세트는 **① 내부 dev 세트가 기본**이다(사용자 결정 2026-10-20). 단 dev 만으로 "Bosun 의 일반 Decision 능력이 망각되지 않았다"고 주장하지 않는다(리포트에 그렇게 적는다). DecisionBench 공개 평가 분할(`Hanno-Labs/decision-bench`, 라이선스 `other`)은 라이선스·우리 데이터와의 중복·재배포 조건을 확인한 뒤 **보조 평가**로 더할 수 있게 `sol_eval.bosun_score` 에 외부 suite 입력 자리만 설계해 둔다(B1, 실행은 별도 승인). Kev 때의 `decision-v7` replay 는 쓰지 않는다. 사업 단위 train/dev/test 분할과 유사 문서 중복 제거는 그대로 유지한다. `mock` 본편은 불변. S-LIVE 칩은 "AI: local · Qwen/Qwen3.5-27B · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"였다. 지금 칩은 레지스트리 `run` 값(`Qwen3.8-Flash-Next-AWQ-INT4`)이다.
 10. **GPU·운영 안전(추가 지시 4·5)**: 물리 GPU 1(A40 46,068 MiB)은 회사 PaddleOCR vLLM 서비스(2026-10-20 사용자 보고 약 9,167 MiB)와 **공유**한다. GPU 1에 올리는 우리 것은 `sol_decision` Bosun 서빙과 Bosun LoRA 학습뿐이다(Qwen은 회사 API). "GPU 1 전용"·"5 MiB" 문구는 정정한다(2026-10-20 오전 스냅샷은 기록으로 남긴다). GPU 0·2 사용 금지, 어떤 프로세스도 종료·이동하지 않는다. GPU 학습·모델 서빙 시작·nginx 변경·배포는 사용자 승인 전까지 하지 않는다. `infra/gpu/kev-preflight.sh`·`kev-f1.sh`는 보존하고 Bosun 전용 preflight·학습 스크립트(`infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`, venv `.venv-bosun`)를 따로 둔다. `.venv-qwen`과 Qwen 4B 다운로드는 중단(백업). 메모리 계획(추정)은 계획 §8이고 F1 실측으로 확정한다.
 11. **증거 보존(추가 지시 6)**: `docs/evidence/`의 Kev 기록(`kev-train-feasibility.md`, phase-5 등)은 삭제·개서하지 않는다. Bosun 결과는 새 파일(`docs/evidence/bosun-train-feasibility.md`, `docs/evidence/eval/e4-<일시>.md`)에 쓴다.
-12. **일정(추가 지시 7)**: 학습·채점 날짜 일정은 지난 일정이라 지웠다(ADR-054·057). X6 학습·채점의 실행 여부는 미결정이다(ADR-054 §4). 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-034" 12번.
+12. **일정(추가 지시 7)**: 학습·채점 날짜 일정은 지난 일정이라 지웠다(ADR-054·057). X6 학습·채점의 실행 여부는 미결정이다(ADR-054 §4). 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-034 상세" 12번.
 13. **롤백**: `retired`·`backup` 항목과 env 값 3개(`KEV_MODEL_ID`·`QWEN_BASE_URL`·`QWEN_MODEL`), 8009 런타임만 바꾸면 이전 구성으로 돌아간다. 코드 경로는 공통이다.
 14. **미결정**: 2번은 "교체됨"으로 종결, 3·22번 갱신, 24번(Bosun 한국어·장문 state 성능, 질문당 지연 p95, GPU 1 공유 간섭)을 더한다.
 15. **mock 과 실제 모델의 구분(사용자 결정 2026-10-20)**: `AI_PROVIDER=mock` 응답은 실제 Bosun·Qwen 이 추론한 것처럼 보이면 안 된다. 게이트웨이 mock 어댑터는 `provider="mock"`·`kev.model="mock"`·`qwen.name="fixture"` 를 내고(지금 코드도 그렇다), 레지스트리에는 mock 항목을 두지 않으며, `score_runs.kev_model`·`model_metadata` 에도 `mock` 이 그대로 기록된다. UI 는 `provider="mock"` 이면 모델 정보 자리에 "Mock 응답(데모 데이터)" 를 보이고 실제 모델명을 쓰지 않는다(06). 문서·API 예시의 mock 응답 모델명은 `mock` 이다. B1 에서 "mock 응답의 모델 식별자는 `mock`·실모델 식별자는 레지스트리 `run`" 을 고정하는 회귀 테스트(gateway `/health`·`/kev`, worker `toModelMeta`, 화면 문구)를 더한다. `KEV_DISCLAIMER` literal·DB CHECK 계약은 그대로. (2026-10-21 사실: B1 `c6097be`(main `1b68f9b`)가 더한 `services/ai/tests/test_mock_identity.py`와 `web/components/bids/analysis-display.browser.test.tsx`의 "Mock 응답(데모 데이터)" 시험, 그 전부터 있던 `web/server/analysis/analysis.model.test.ts`의 `toModelMeta` 시험(`0dd13f9`)이 이 회귀 테스트다.)
 16. **B1 전 기동 금지(사용자 결정 2026-10-20)**: 레지스트리에 `bosun-v3.1-0.6b`·`qwen3.5-27b` 항목이 들어가고 관련 검증(레지스트리·`/v1/models` 대조·호환성 테스트)이 통과하기 전에는 새 `ai-local` env 값으로 `live`·`fixture` 를 기동하지 않는다. 그 전까지 `infra/env/ai-local.env.example` 의 새 값은 설계 값이다.
-17. **일정 유지(사용자 결정 2026-10-20)**: ADR-027이 당긴 일정을 폐기 뒤에도 유지한 조항이다. 지난 일정이라 지웠다(ADR-042·054·057). 원문: 같은 커밋의 "ADR-034" 17번.
+17. **일정 유지(사용자 결정 2026-10-20)**: ADR-027이 당긴 일정을 폐기 뒤에도 유지한 조항이다. 지난 일정이라 지웠다(ADR-042·054·057). 원문: 같은 커밋의 "ADR-034 상세" 17번.
 
 > [!warning] 미검증 가정 (2026-10-20)
 > - 회사 서버 사실(PaddleOCR 약 9,167 MiB, `.venv-bosun`, Bosun CPU 2-step 학습 성공, `datasets/decision/smoke.jsonl`)과 회사 Qwen3.5-27B API(`https://acropolissg.com/vllm/v1`, 키 별도 제공)는 사용자 보고다. B2에서 `nvidia-smi`·`pip list`·`GET /v1/models` 기록으로 교차 확인한다.
@@ -478,15 +481,15 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 
 ## ADR-033 정본 반영 4차 (E1~E11)
 
-**채택 (2026-10-20 사용자 결정, 일괄).** 요지: documents 큐 소비자 계약(E1. 범위 밖 첨부·장애 미루기는 ADR-055(제안)가 개정을 요청했고 main 코드는 055대로 동작한다), 마지막 업무 ADMIN·owner 보호는 활동 계정만 센다, 인앱 알림 2종(`REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`), 결정 모델 시간 제한 판정과 기본값 변경 규칙(E4. Bosun p95 실측으로 재산정), env(`NOTIFY_POLL_INTERVAL_MS`·web env·E2E 메일 env), `saveRevision` 낮은 위험(E6, 미결정 23번), people-read 스펙의 `sol_role` 문장 정정, C6 진행 기록, C6 화면 스펙 차이 4건 수용(E9), Kev v0.2 질문 원문 확정(E10), `score_runs` 직접 insert 위험의 해커톤 동안 수용과 해커톤 뒤 후속 5건(E11). 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-033 상세".
+**채택 (2026-10-20 사용자 결정, 일괄).** 요지: documents 큐 소비자 계약(E1. 범위 밖 첨부·장애 미루기는 ADR-055(제안)가 개정을 요청했고 main 코드는 055대로 동작한다), 마지막 업무 ADMIN·owner 보호는 활동 계정만 센다(E2), C7 인앱 알림 2종(`REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`, E3), 결정 모델 시간 제한 판정과 기본값 변경 규칙(E4. Bosun p95 실측으로 재산정), env(`NOTIFY_POLL_INTERVAL_MS`·web env·E2E 메일 env, E5), `saveRevision` 낮은 위험(E6, 미결정 23번), people-read 스펙의 `sol_role` 문장 정정(E7), C6 진행 기록(E8), C6 화면 스펙 차이 4건 수용(E9), Kev v0.2 질문 원문 확정(E10), `score_runs` 직접 insert 위험의 해커톤 동안 수용과 해커톤 뒤 후속 5건(E11). 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-033 상세".
 
 ## ADR-032 정본 반영 3차 (D1~D9, 사실 정정 F1~F8)
 
-**채택 (2026-10-19 사용자 결정, 일괄. F1~F8은 결정이 아니라 사실 정정).** 요지: gateway 요청 하나의 마감 시계(`KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`), 모델 레지스트리 `allowedHosts`, 클라우드 `pnpm db:push` 전 멱등 키 접두어 사전 질의, ADR-030 B1 주석(D4), 분석 실패 코드·복구, 계정이 지워진 결정자 표시(D6 ① 센티널), `requirement_assessments.kev_distribution` 모양, web env 3개, `KEV_UNAVAILABLE` 화면 라벨. 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-032 상세".
+**채택 (2026-10-19 사용자 결정, 일괄. F1~F8은 결정이 아니라 사실 정정).** 요지: gateway 요청 하나의 마감 시계(`KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`, D1), 모델 레지스트리 `allowedHosts`(D2), 클라우드 `pnpm db:push` 전 멱등 키 접두어 사전 질의(D3), ADR-030 B1 주석(D4), 분석 실패 코드·복구(D5), 계정이 지워진 결정자 표시(D6 ① 센티널), `requirement_assessments.kev_distribution` 모양(D7), web env 3개(D8), `KEV_UNAVAILABLE` 화면 라벨(D9). 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-032 상세".
 
 ## ADR-031 정본 반영 2차 (C1~C16)
 
-**채택 (2026-10-19 사용자 결정, 일괄).** 요지: 사용자 결정 4건(사이드바 글자 +3px 기준 정정 C1, `Review.reviewer.role` null 허용, S3 목록 절차의 필터를 권고 `BID`로, `pnpm demo:reset`의 추출 seed 제거 C16)과 판정 12건(멈춘 분석 복구 축소 C4, 결과 저장 RPC·멱등 키 check, worker 실패 분류, Kev score 답 필수 필드, mock Kev 고정값 규칙, `FX-07` r2 77점, `FX-17` 자격 표기, 사전 분석 기대 플래그, C5-B 후보, 수집 주기 env, 분석 jobId, 목록 `CLOSED`·S5 재분석). 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-031 상세".
+**채택 (2026-10-19 사용자 결정, 일괄).** 요지: 사용자 결정 4건(사이드바 글자 +3px 기준 정정 C1, `Review.reviewer.role` null 허용 C2, S3 목록 절차의 필터를 권고 `BID`로 C3, `pnpm demo:reset`의 추출 seed 제거 C16)과 판정 12건(멈춘 분석 복구 축소 C4, 결과 저장 RPC `finish_score_run`·멱등 키 check C5, worker 실패 분류 C6, Kev score 답 필수 필드 C7, mock Kev 고정값 규칙 C8, `FX-07` r2 77점 C9, `FX-17` 자격 표기 C10, 사전 분석 기대 플래그 C11, C5-B 후보 6건 C12, 수집 주기 env C13, 분석 jobId C14, 목록 `CLOSED`·S5 재분석 C15). 원문: git `5261730f` 의 docs/16-DECISIONS.md "ADR-031 상세".
 
 ## ADR-030 Critical Path 1차 분담의 조정 결정 (B1~B26)
 
@@ -498,13 +501,13 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 
 ## ADR-028 해커톤 뒤 API·worker NestJS 전환
 
-상태는 **채택**이다(사용자 결정 2026-10-19, 원문: "서버는 Nest.js인데 Next.js로 되어 있어"). 사용자는 범위를 API·worker만으로, 시점을 해커톤 뒤로 골랐다. 당시 마감이 가까웠고 C3·C5 서버 작업이 Next.js 구조 위에 있어 지금 옮기면 핵심 컷 일정이 깨진다. 착수는 해커톤 발표 뒤다(일정은 ADR-054). 그 전까지는 ADR-017과 그 구현 결과 절이 현재 구조의 정본이다.
+상태는 **채택**이다(사용자 결정 2026-10-19, 원문: "서버는 Nest.js인데 Next.js로 되어 있어"). 사용자는 범위를 API·worker만으로, 시점을 해커톤 뒤로 골랐다. 당시 마감이 가까웠고 C3·C5 서버 작업이 Next.js 구조 위에 있어 지금 옮기면 핵심 컷 일정이 깨진다. 착수는 해커톤 제출 뒤다(제출일은 ADR-054). 그 전까지는 ADR-017과 그 구현 결과 절이 현재 구조의 정본이다.
 
 - **바뀌는 것**: `/api/v1/**` Route Handler와 헬스체크, 서버 도메인의 repo·service, worker(`web/worker`, BullMQ 소비자)를 NestJS 앱으로 옮긴다. Next.js(`web/`)는 화면만 맡는다. ADR-017의 "NestJS는 쓰지 않는다"는 이 범위에서만 바뀐다.
 - **바뀌지 않는 것**: Supabase(Postgres·RLS·Auth), 조직 격리(`org_id` + RLS), `memberships.sol_role`, append-only 마이그레이션·정책 시험(`pnpm test:db`)·타입 생성, service role은 worker·seed만(운영자 CLI 예외는 미결정 25번), 파일 저장 Supabase Storage(ADR-048로 MinIO 대체)·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose, `/api/v1` 경로와 DTO 계약([[05-API-SPEC|05 API]]). Prisma·자체 JWT 인증은 쓰지 않는다(ADR-002 폐기 그대로).
 - **인증·권한(목표)**: NestJS는 요청의 Supabase access token(`Authorization: Bearer`)을 검증하고, 요청마다 그 토큰으로 Supabase 클라이언트를 만들어 RLS가 권한을 정하게 한다. 요청 처리 경로의 기본 통로는 anon 키 + 사용자 토큰이고, service role 키는 쓰지 않는다.
 - **해커톤 동안**: NestJS 코드·의존성을 만들지 않는다. 현재 구조를 설명하는 문서(02·04·05·07·10·11·17·20, `.claude` 에이전트·스킬, `docs/boilerplate/`)는 Next.js 기준 그대로 둔다.
-- **착수 때 할 일**: 목표 구조 스펙(앱 위치 초안은 루트 `api/`로 `web/`처럼 독립 설치, 모듈 구조, 화면이 데이터를 NestJS로 읽을지 Supabase를 직접 부를지) → 사용자 승인 → `verify.config.json`에 새 프로젝트와 계층 규칙 등록 → Compose `api` 서비스 → 도메인별 이전(시험 먼저) → 문서 갱신(ADR-017 구현 결과 절, 위 문서들, `CLAUDE.md`·`AGENTS.md`·`docs/CLAUDE.md`) → CI(`.github/`는 에이전트 편집 금지라 사람이 고친다).
+- **착수 때 할 일**: 목표 구조 스펙(앱 위치 초안은 루트 `api/`로 `web/`처럼 독립 설치, 모듈 구조, 화면이 데이터를 NestJS로 읽을지 Supabase를 직접 부를지) → 사용자 승인 → `verify.config.json`에 새 프로젝트와 계층 규칙 등록 → Compose `api` 서비스 → 도메인별 이전(시험 먼저) → 문서 갱신(ADR-017 구현 결과 절, 위 문서들, `CLAUDE.md`·`AGENTS.md`·`docs/CLAUDE.md`) → CI(`.github/` 편집 금지는 2026-10-21 사용자 지시로 해제됐다. CI 필수 검사와 훅은 유지).
 - **남은 결정**: NestJS 버전과 모듈 구조, worker를 NestJS 앱의 별도 진입점으로 둘지 별도 앱으로 둘지, 화면의 데이터 경로. 착수 스펙에서 정한다.
 - **되돌리기**: 착수 전이면 이 ADR을 폐기하면 된다.
 
@@ -522,7 +525,7 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 
 ## ADR-025 회사 GPU 추론 엔드포인트
 
-상태는 **채택**이다(사용자 결정 2026-10-19). 엔드포인트 응답은 2026-10-21에 확인했다(미결정 17번). ADR-020의 "실추론 위치" 중 연결 방식만 바꾸고, 아키텍처·실행 모드·장애 처리·데이터 경계는 그대로다. 반영 문서는 [[10-DEPLOYMENT|10 배포]]·[[03-AI-PIPELINE|03 AI 파이프라인]] §5.9·[[02-ARCHITECTURE|02 아키텍처]]·[[09-SECURITY|09 보안]]이다.
+상태는 **채택**이다(사용자 결정 2026-10-19). Qwen 엔드포인트(`/vllm/v1`, ADR-034)는 2026-10-21 조회·짧은 추론으로 응답을 확인했고, 결정 모델은 2026-10-24 운영 분석 1건에 쓰였다(미결정 17번). `/sol-radar` 경로의 바깥 nginx 접두어 처리·회사 측 추가 인증은 미확인이다. ADR-020의 "실추론 위치" 중 연결 방식만 바꾸고, 아키텍처·실행 모드·장애 처리·데이터 경계는 그대로다. 반영 문서는 [[10-DEPLOYMENT|10 배포]]·[[03-AI-PIPELINE|03 AI 파이프라인]] §5.9·[[02-ARCHITECTURE|02 아키텍처]]·[[09-SECURITY|09 보안]]이다.
 
 > [!note] ADR-034로 개정 (2026-10-20)
 > 1번의 모델 런타임(vLLM Qwen3.5-9B, `kev.serve` Kev-9B@v1.0)은 ADR-034로 바뀌었다. Qwen은 회사가 이미 운영하는 vLLM API(`https://acropolissg.com/vllm/v1`, Qwen3.5-27B. 지금 `Qwen3.8-Flash-Next-AWQ-INT4`)로 가고, `/sol-radar/qwen`→8001은 백업(미사용)이다. 8009는 우리 `sol_decision` 서버(Bosun v3.1 0.6B, Kev wire 호환)다. `/sol-radar/` location·라우터·경로·포트·env 이름은 그대로다(ADR-034 4번). 6번의 X6 근거 ADR-027은 ADR-034로 대체됐다(X6 실행 여부는 미결정, ADR-054 §4). 7번 C1 ③ 절차를 Bosun 기준으로 고치는 일은 B1 병합 뒤 정본 반영에서 한다. 본문은 2026-10-19 결정 기록으로 둔다.
@@ -543,7 +546,7 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 8. **미결정 갱신**: 17번을 "회사 엔드포인트 경로·인증·`/v1/models` 응답·지연"으로 재정의했다. 3번의 GPU 메모리 배분은 회사 측 결정으로 이관했고 우리 쪽 남은 결정은 없다.
 
 > [!warning] 미검증 가정 (2026-10-19)
-> - 엔드포인트 응답은 2026-10-21에 확인했다(미결정 17번). 경로(`/qwen`·`/kev`)는 우리 라우터 기준으로 정했고, 바깥 nginx의 접두어 처리·회사 측 추가 인증 여부(Bearer 키 외)는 미확인이다. 회사가 알려 주는 값이 다르면 바꾼다.
+> - Qwen 엔드포인트(`/vllm/v1`, ADR-034)는 2026-10-21 조회·짧은 추론으로 응답을 확인했고, 결정 모델은 2026-10-24 운영 분석 1건에 쓰였다(미결정 17번). 경로(`/qwen`·`/kev`)는 우리 라우터 기준으로 정했고, `/sol-radar` 경로의 바깥 nginx 접두어 처리·회사 측 추가 인증(Bearer 키 외)은 미확인이다. 회사가 알려 주는 값이 다르면 바꾼다.
 > - 노트북 `ai-gateway` 컨테이너에서 공개 인터넷 HTTPS로 나가는 경로(데모 장소 회선·프록시)는 C1 ③ G1에서 확인한다.
 
 ## ADR-024 Phase 0 실행 환경 결정
@@ -604,7 +607,7 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 
 ## ADR-022 서비스별 data.go.kr 서비스키
 
-2026-10-18 사용자 결정이다. 아래는 **설계 결정**이다.
+2026-10-18 사용자 결정이다. 서비스 4개에 키를 각각 받았고 API마다 키를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있고, 호출 예산 카운터(`quota:{serviceId}:{YYYYMMDD}`)와 단위가 같다. 아래는 **설계 결정**이다.
 
 |서비스 (ID)|env|쓰는 registry 키|
 |---|---|---|
@@ -640,13 +643,13 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 > [!note] ADR-052로 개정 (2026-10-27)
 > 아래 "회사 프로필" 줄의 "모든 모드에서 가상 솔리데오 프로필(`is_demo=true`)"은 로컬·시험·`demo:reset`에만 해당한다. 운영 DB는 공개 자료로 만든 프로필(`is_demo=false`)을 새 revision으로 쌓고, 화면은 "가상 회사 프로필" 대신 출처와 확인일을 보인다. 본문은 2026-10-16 설계 결정 기록으로 둔다.
 
-2026-10-16 사용자 대화로 정했고 승인 설계는 실데이터 AI 파이프라인 v0.2(원문: git `5261730f` 의 `docs/plans/2026-10-16-ai-pipeline-finetune-design.md`)다. 아래는 **설계 결정**이다.
+2026-10-16 사용자 대화로 정했고 승인 설계는 실데이터 AI 파이프라인 v0.2(원문: git `5261730f` 의 `docs/plans/2026-10-16-ai-pipeline-finetune-design.md`)다. 사용자 원문: "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP". 아래는 **설계 결정**이다.
 
 > [!note] ADR-034로 개정 (2026-10-20)
 > 아래 "모델 역할"의 Qwen3.5-9B·Kev-9B@v1.0, "실추론 위치"의 vLLM·`kev.serve`, "평가·파인튜닝"의 Kev-9B LoRA·ADR-027 X6은 ADR-034로 바뀌었다. 추출·설명은 회사가 운영하는 vLLM API의 Qwen3.5-27B(지금 `Qwen3.8-Flash-Next-AWQ-INT4`), 결정 모델은 Bosun v3.1 0.6B(우리 `sol_decision` 서버, Kev wire 호환), 학습·E4 비교는 Bosun LoRA다. 실행 모드·`kev-qs/v0.2`·"분포는 점수 입력이 아니다"는 그대로다. 본문은 2026-10-16 설계 결정 기록으로 둔다.
 
-> [!note] ADR-023·047·054로 개정
-> 해커톤 범위는 ADR-023이 재배치했다. live Worker만 사전 정보화 필터를 풀고 수집 뒤 관련성으로 우선 노출한다(ADR-047). "화면에 표시"하는 분석 모드는 공고 상세 분석 요약 띠와 분석 결과 비교 화면의 분석 단위 표시로 좁아졌다(ADR-054).
+> [!note] ADR-023·047로 개정, 10-26 화면 변경 기록(ADR-054)
+> 해커톤 범위는 ADR-023이 재배치했다. live Worker만 사전 정보화 필터를 풀고 수집 뒤 관련성으로 우선 노출한다(ADR-047). "화면에 표시"하는 분석 모드는 공고 상세 분석 요약 띠와 분석 결과 비교 화면의 분석 단위 표시로 좁아졌다(ADR-054에 기록한 10-26 화면 변경, 사용자 승인 원문 미확인).
 
 - **실행 모드**: `SOL_RUN_MODE=live|fixture|mock`(기본 `mock`). `live` = 나라장터 Open API + 실제 AI, `fixture` = fixture 20건 + 실제 AI, `mock` = fixture 20건 + mock AI. 모드와 모순된 env는 기동 거부. 데이터 출처(`source`·`is_demo`)와 분석 모드(`score_runs.run_mode`·`ai_provider`·모델 이름)를 기록하고 화면에 표시한다. 골든은 `mock` 모드에서만 단언한다 ([[03-AI-PIPELINE|03]], [[10-DEPLOYMENT|10]]).
 - **회사 프로필**: 모든 모드에서 가상 솔리데오 프로필(`is_demo=true`)이다. live 분석은 "실제 공고 × 가상 회사 프로필"이고 화면에 배지를 붙인다(ADR-019, [[09-SECURITY|09 보안]]).
@@ -732,9 +735,9 @@ Gateway와 함께 해커톤 안에 완료한다(당시 freeze·리허설 날짜�
 |16|g2b 첨부 자동 다운로드 가능 여부(로그인·세션 요구, 이용약관상 제한)|부분 검증|2026-10-19|**검증됨**(C1 B1~B4, 2026-10-19): 공고 3건의 첨부(공고문·e발주 제안요청서)가 로그인·세션 없이 `www.g2b.go.kr` 익명 GET 200으로 받아진다. 리다이렉트·막힘 0건. **남은 것**: 나라장터 이용약관상 자동 다운로드 허용 여부(18번과 함께 법적 확인), HWP 5.0 표본. 증거 [API 호출 증거](evidence/phase-0/external-deps-api-20261019.md) §9. 막히면 본문·API 필드만으로 진행하고 `DOCUMENT_DOWNLOAD_FAILED`를 표시한다 ([[07-DATA-PIPELINE\|07 수집 파이프라인]])|
 |17|회사 추론 엔드포인트의 경로·인증·`/v1/models` 응답·지연|부분 검증|2026-10-24|경로는 Qwen `QWEN_BASE_URL=https://acropolissg.com/vllm/v1`(회사 운영 vLLM), 결정 모델 `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev`(→ `sol_decision` 8009)다(ADR-025·034). 인증은 각 런타임의 Bearer 키다. **확인**: Bearer 조회 200, served id `Qwen3.8-Flash-Next-AWQ-INT4`, 짧은 guided JSON 추론 200(2026-10-21, [실연결 증거](evidence/phase-5/qwen-probe-20261021-2343.json)). 운영 실모델 분석 1건(2026-10-24, [[PROGRESS]]). **남은 것**: 지연 실측, 장문 guided JSON·`prompt_logprobs`(E3), 바깥 nginx의 `/sol-radar` 접두어 처리([[03-AI-PIPELINE\|03 AI 파이프라인]] §5.9, [[10-DEPLOYMENT\|10 배포]])|
 |18|공고 첨부 원문(공고문·제안요청서)의 저작권·재배포·학습 사용 권리|미검증|-|내부 분석·사내 학습에만 사용. 외부 공개·데이터셋 배포 전 법무 확인 ([[21-MODEL-TRAINING\|21 모델 학습]], [[09-SECURITY\|09 보안]])|
-|19|면허제한 오퍼레이션의 여러 행이 AND인지 OR인지|미검증|-|실제 응답 확인 전에는 여러 행이면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`) ([[08-SCORING\|08 점수]]) BOOST-1 게이트(2026-10-20)가 이 해석의 영향을 쟀다: 지금 제외 0, 그룹 안 AND·그룹끼리 OR 이면 제외 38(144건 중). ADR-037 상세|
+|19|면허제한 오퍼레이션의 여러 행이 AND인지 OR인지|미검증|-|실제 응답 확인 전에는 여러 행이면 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`) ([[08-SCORING\|08 점수]]) BOOST-1 게이트(2026-10-20)가 이 해석의 영향을 쟀다: 지금 제외 0, 그룹 안 AND·그룹끼리 OR 이면 제외 38(144건 중). ADR-037|
 |21|Phase 0 중 발견한 정본 불일치 목록 정리(26건)|일부 해결 (11/26)|2026-10-20|Phase 0 정본 불일치 목록(원문: git `5261730f` 의 `docs/plans/2026-10-19-phase-0-doc-inconsistencies.md`). #1·#2·#3·#4·#7은 ADR-029로, #5·#8·#9·#10·#12·#13은 ADR-030·031·035·036으로 해결했다. #6은 `.claude/` 몫이라 정본 밖이다. #11·#14~#26은 다시 확인하지 않았다|
-|22|회사 GPU 1에서 **Bosun v3.1 0.6B LoRA** 학습(F1·F2)·오프라인 채점(E1'·E4) 실행 가능 여부, PaddleOCR·Bosun 서빙과의 동시 점유, 출력 폴더 전송|미결정 (X6 실행 여부, ADR-054 §4). GPU 실행 미검증|2026-10-20|ADR-034. **확인된 것**(서버 확인·사용자 보고, 2026-10-20): A40 46,068 MiB ×3 가운데 GPU 1만 쓰고 GPU 0·2는 회사 서비스다. GPU 1은 회사 PaddleOCR vLLM(약 9,167 MiB)과 공유한다. torch 2.8.0+cu128·CUDA·bf16, venv `.venv-bosun`, Bosun 392 LoRA 텐서 CPU 2-step 학습·저장·재로딩 성공(장난감 6건, 성능 증거 아님). **남은 미검증**: A40에서 Bosun 로딩·서빙·학습 메모리(F1), PaddleOCR 피크 간섭, 외부망, 출력 전송. E4는 서버 안 오프라인 `sol_eval.bosun_score`(ADR-034 7번). 실행서는 [[22-FINETUNE-RUNBOOK\|22]]|
+|22|회사 GPU 1에서 **Bosun v3.1 0.6B LoRA** 학습(F1·F2)·오프라인 채점(E1'·E4) 실행 가능 여부, PaddleOCR·Bosun 서빙과의 동시 점유, 출력 폴더 전송|미결정 (X6 실행 여부, ADR-054 §4). GPU 실행 미검증|2026-10-20|ADR-034. **확인된 것**(서버 확인, 2026-10-20): A40 46,068 MiB ×3 가운데 GPU 1만 쓰고 GPU 0·2는 회사 서비스다. torch 2.8.0+cu128·CUDA·bf16, venv `.venv-bosun`, Bosun 392 LoRA 텐서 CPU 2-step 학습·저장·재로딩 성공(장난감 6건, 성능 증거 아님). **사용자 보고(미검증)**: GPU 1은 회사 PaddleOCR vLLM(약 9,167 MiB)과 공유한다. **남은 미검증**: A40에서 Bosun 로딩·서빙·학습 메모리(F1), PaddleOCR 피크 간섭, 외부망, 출력 전송. E4는 서버 안 오프라인 `sol_eval.bosun_score`(ADR-034 7번). 실행서는 [[22-FINETUNE-RUNBOOK\|22]]|
 |23|documents 큐 jobId의 `created_at`을 저장과 같은 트랜잭션에서 얻는 방법|미결정|2026-10-20|2026-10-20 documents 큐(`58636d1`): `saveRevision`의 RPC `ingest_save_revision`과 `bid_revisions.created_at` 조회가 한 트랜잭션이 아니다. 둘 사이에서 실패하면 ingest 재시도는 `DUPLICATE`라 documents job을 넣지 않고, 복구기(60초)가 같은 jobId로 메운다. 근본 해결은 RPC가 `created_at`을 돌려주는 새 마이그레이션이다(미결정). 낮은 위험(ee 검토, ADR-033 E6) ([[07-DATA-PIPELINE\|07 수집]] "documents 큐 소비자 계약")|
 |24|Bosun v3.1 0.6B의 우리 도메인 성능(영어 state zero-shot E1', 한국어 state E2, 6,000 토큰 장문)·질문당 지연 p95(`KEV_TIMEOUT_MS` 5000 안인지)·GPU 1 공유 간섭·DecisionBench 보조 회귀 평가 가능 여부(라이선스·중복·재배포)|미검증|2026-10-20|ADR-034 14번. 결정 서버(`sol_decision`)는 운영 실모델 분석 1건에 쓰였다(2026-10-24, `bosun-v3.1-0.6b`, [[PROGRESS]]). 성능 측정(E1'·E2·p50/p95·점유)은 하지 않았다. 회귀(망각) 기본 세트는 내부 dev(ADR-034 9번)이고 DecisionBench는 조건 확인 뒤 보조로만 쓴다. p95가 5000ms를 넘으면 ADR-033 E4 규칙대로 `settings.py`·`gateway.model.ts`를 함께 바꾼다. 측정 기준은 [[21-MODEL-TRAINING\|21]] §4.4|
 
