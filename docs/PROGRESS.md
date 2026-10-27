@@ -22,16 +22,20 @@ updated: 2026-10-27
 - P1 다섯 화면 모두 완료. N3·N5·N6·N7 main `546a997d`, N4b main `d209eec3`(병합·운영 배포).
 - 10-26 화면·설정 변경: 상단바 실행 모드·AI 표시 제거(`web/components/topbar-status.tsx`), 기본 출처 env `SOL_DEFAULT_ORIGIN`(운영은 기본 실공고), 수동 [지금 불러오기] gate(`GET /api/v1/admin/ingestion/manual-gate`), 사이드바 묶음 3개 + 트리·아이콘, 대시보드 "공공조달 요약" 숫자 띠(신규 발견·마감 임박 (7일)·분석 대기·BID 권고·진행 중 입찰 프로젝트).
 - 검증: main `26efefc1`에서 전체 `pnpm verify` exit 0(루트 230·web 689·AI 153·결정 57·빌드). 그 뒤 main은 `43e4e024`(서비스별 수집 격리, 다른 세션)다.
-- 첨부 처리(다운로더·파서·documents worker·분석 연결)와 live 가드(카카오 발송 수단·가입 약관 동의) 구현을 통합 worktree `integration/blockers-1027`에 모았다. 전체 `pnpm verify` exit 0(루트 236·web 85파일 743개·`next build`·AI 166·결정 57). **로컬 통합, 운영 미적용, 커밋 전이다.** 아래 "10-27 첨부 처리·파서·live 가드 구현" 절.
+- 첨부 처리(다운로더·파서·documents worker·분석 연결)와 live 가드(카카오 발송 수단·가입 약관 동의) 구현을 통합했다. 전체 `pnpm verify` exit 0(루트 236·web 85파일 743개·`next build`·AI 166·결정 57). 아래 "10-27 첨부 처리·파서·live 가드 구현" 절.
+- 10-27 운영 반영(사용자 승인 단계별)
+  - main `8cfaac31` push, Vercel Production 배포 성공(12:37 KST). pre-push 게이트 통과.
+  - 운영 DB migration `20261027000500`(첨부 처리 리스 함수 5개)·`20261027000600`(가입 동의 `user_consents`·가입 트리거) 적용. 이력 62개, `db-verify` 통과. [기록](evidence/prod-migrations/20261027/README.md)
+  - DEMO 공고 16건 마감 +15일 적용(12:57 KST). `03-verify` 모두 ok, 11-04 14:00 기준 목록 15·마감 임박 1(FX-14)·마감 0. [기록](evidence/demo-deadline/20261027/prod-run.md). 로그인 화면 확인은 하지 않았다.
 
 **진행 중**
 
-- 첨부 처리(다운로드·파서·documents worker): 구현과 로컬 통합은 끝났다. 격리 스택에서 documents job 한 바퀴(다운로드 → Storage → `/parse` → 텍스트 객체)를 돌린 기록은 아직 없다(다른 작업자 진행 중). 운영 반영은 아래 승인 대기 항목이다. 지금 운영의 실공고 분석은 여전히 0건이다(본문이 비어 `409 ANALYSIS_SOURCE_MISSING`).
-- DEMO 공고 마감 +15일 이동 SQL: 실행서와 로컬 리허설(PGlite·PostgreSQL 17)은 준비됐다([실행서](evidence/demo-deadline/20261027/README.md)). 운영 DB에는 접속하지 않았다. 운영 적용은 별도 승인이고 FX-02 마감 **2026-10-30 18:00 KST** 전에 해야 한다.
+- 회사 반영(AI gateway 파서·Analysis Worker 교체·Documents Worker 기동, 수집 격리 redis-api·ingest Worker 포함): [[plans/2026-10-27-company-rollout-attachments|회사 반영 실행서]]. 회사 서버는 사람이 실행한다. D0 읽기 확인 결과를 기다린다. 그 전까지 운영의 실공고 분석은 0건이다(본문이 비어 `409 ANALYSIS_SOURCE_MISSING`).
+- Analysis Worker 이미지 교체 방법: 원본 Compose 와 `sol-radar-ai-worker-worker:latest` 는 그대로 두고, 덮어쓰기 파일 `infra/compose.analysis-only.sha.company.yaml` 로 같은 서비스를 SHA 태그 이미지로 다시 만든다(10-27, 추천안 적용).
 
 **남은 것**
 
-- 첨부 처리 운영 반영(아래 "10-27 첨부 처리" 절의 승인 대기 8항목) → 실공고 S-LIVE 분석 run → 리허설·촬영(S-LIVE·카카오 실수신 컷) → 덱·영상 → 11-03 제출 → 11-04 발표(D1).
+- 회사 반영 → 실공고 S-LIVE 분석 run → 리허설·촬영(S-LIVE·카카오 실수신 컷) → 덱·영상 → 11-03 제출 → 11-04 발표(D1). 리허설 중 FX-02 재분석은 하지 않는다(마감 이동으로 78 BID 가 된다).
 - 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다. 운영 DEMO 19건 그대로, 운영 DB 안 백업 스키마 `demo_cleanup_20261026` 있음. 카카오 연결 0건.
 - GitHub Actions는 10-24부터 계정 결제 문제로 job이 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다.
 

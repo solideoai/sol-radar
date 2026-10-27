@@ -355,7 +355,26 @@ docker compose -f infra/compose.documents-only.company.yaml logs --tail 100 docu
 
 분석이 첨부 텍스트를 읽으려면 이 SHA의 코드가 세 곳에 모두 있어야 한다. 순서를 지킨다.
 
-1. Analysis Worker: `analysis-only-main.ts`가 쓰는 `startAnalysisRuntime`이 첨부 텍스트 reader를 쓴다. 회사 Analysis Worker는 `sol-radar-ai-worker-worker:latest`(회사 운영 원본)로 돌므로 이미지 교체 방법을 따로 승인받는다(§7.11은 그 태그의 빌드를 금지한다). 교체 전에는 분석이 첨부를 읽지 않는다.
+1. Analysis Worker: `analysis-only-main.ts`가 쓰는 `startAnalysisRuntime`이 첨부 텍스트 reader를 쓴다. 회사 Analysis Worker는 `sol-radar-ai-worker-worker:latest`(회사 운영 원본)로 돈다. §7.11대로 그 태그는 빌드하지 않는다. 대신 덮어쓰기 파일 `infra/compose.analysis-only.sha.company.yaml`을 원본 뒤에 함께 줘서, 같은 서비스를 SHA 태그 이미지 `sol-radar-analysis-worker:<SHA>`로 다시 만든다(2026-10-27 결정). 교체 전에는 분석이 첨부를 읽지 않는다.
+
+   먼저 실행 중인 Analysis Worker가 이 Compose 프로젝트의 컨테이너인지 본다. 라벨이 `sol-radar-analysis-only`·`analysis-worker`가 아니면 멈춘다(아래 `up`이 두 번째 소비자를 만든다). 진행 중 분석(`score_runs.status` 가 `QUEUED`·`RUNNING`)이 없을 때 교체한다.
+
+   ```bash
+   docker ps --filter label=com.docker.compose.project=sol-radar-analysis-only --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
+   export ANALYSIS_WORKER_TAG="$(git -C . rev-parse --short=12 HEAD)"
+   A="docker compose -f infra/compose.analysis-only.company.yaml -f infra/compose.analysis-only.sha.company.yaml"
+   $A config --quiet
+   $A build analysis-worker
+   $A up -d --no-deps analysis-worker
+   $A ps analysis-worker
+   $A logs --tail 30 analysis-worker
+   ```
+
+   기대: 이미지가 `sol-radar-analysis-worker:$ANALYSIS_WORKER_TAG`, 로그에 `analysis-only worker started`. 되돌리기는 덮어쓰기 파일 없이 원본만으로 다시 만든다. `latest` 이미지는 그대로 남아 있다.
+
+   ```bash
+   docker compose -f infra/compose.analysis-only.company.yaml up -d --no-deps analysis-worker
+   ```
 2. redis-api: 분석 요청의 원문 확인(`ANALYSIS_READS_ATTACHMENT_TEXT = true`)이 바뀐다. 교체 전에는 본문 없는 live 공고를 계속 409로 막는다(안전한 쪽).
 3. Vercel web: 같은 확인을 중계 전에 한다. 1·2가 끝난 뒤 배포한다. 먼저 배포해도 redis-api가 막지만, 화면의 분석 준비 표시가 먼저 바뀐다.
 
