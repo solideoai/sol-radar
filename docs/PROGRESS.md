@@ -27,10 +27,10 @@ updated: 2026-10-27
 |---|---|---|
 | web(Vercel) | main `5261730f` Production 배포 성공(그 전 `8cfaac31` 배포는 12:37 KST) | 2026-10-27 |
 | `/health/ready` | 200(`db`·`redis`·`storage` ok, `ai: local`). `ai`는 회사 AI gateway가 보고한 provider 값이다 | 2026-10-27(시각 기록 없음) |
-| 운영 DB | migration 63개, 마지막 `20261027000700`(회사 공개 프로필·`EXECUTIVE`). db-push·`db-verify` 통과. `000500`·`000600`은 [기록](evidence/prod-migrations/20261027/README.md), `000700` 운영 적용 기록은 회사 공개 프로필 작업에서 커밋 예정 | 2026-10-27 |
+| 운영 DB | migration 63개, 마지막 `20261027000700`(회사 공개 프로필·`EXECUTIVE`). db-push·`db-verify` 통과. `000500`·`000600`은 [기록](evidence/prod-migrations/20261027/README.md), `000700`은 [기록](evidence/company-public-profile/20261027/prod-rollout.md) | 2026-10-27 |
 | 나라장터 정기 수집 | 3시간마다(KST 00·03·…·21시). 2026-10-26 13:51부터 7회 모두 `SUCCEEDED`, 실공고 592건 | 2026-10-27 09:03 KST(최신 수집) |
 | 분석 | 실공고 0건. 실모델 run은 FX-02(가상 공고) 1건, 66점 WATCH(`Qwen3.8-Flash-Next-AWQ-INT4` + `bosun-v3.1-0.6b`, [점검](evidence/demo-deadline/20261027/README.md) S4 절) | 2026-10-27 |
-| DEMO 공고 | 19건 그대로. 16건 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)). 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤다. 백업 스키마 `demo_cleanup_20261026`이 있다 | 2026-10-27 12:57 KST |
+| DEMO 공고 | 19건 그대로. 16건 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)). 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤다. 백업 스키마 `demo_cleanup_20261026`이 있다. 회사 공개 프로필을 넣어 DEMO 15건이 "분석 대기"다(회사 Analysis Worker 갱신 뒤 재분석으로 복구) | 2026-10-27 16:22 KST |
 | 회사 반영 | 진행 중(이 행이 정본이다). [[2026-10-27-company-rollout-attachments\|회사 반영 실행서]]의 D0 읽기 확인을 기다린다. 범위는 redis-api·ingest Worker 재생성, gateway 파서, Analysis Worker 교체, Documents Worker 기동이다. 회사 공개 프로필용 gateway·Analysis Worker 갱신도 이때 같이 한다 | 2026-10-27 |
 | 카카오 | 운영 연결·발송 0건 | 2026-10-27 |
 | 알림 처리 | 미확인(문서 밖 발견 1) | 미확인 |
@@ -44,8 +44,8 @@ updated: 2026-10-27
 3. [[16-DECISIONS|ADR-055]](제안): 범위 밖 첨부를 `PENDING`으로 두고 우리 쪽 장애는 미루는 documents 계약 변경을 받아들일지.
 4. [[16-DECISIONS|ADR-056]](제안): 첨부 일부만 파싱된 추출의 재사용을 분석 대기(A)로 막을지, `source_hash` 캐시 키(B)로 막을지.
 5. 파서 "지원" 판정: 코드는 [[03-AI-PIPELINE|03]] §10.3 결정 규칙 4번 판정 없이 `PARSED`를 낸다. 규칙대로 고칠지, 실표본 6건으로 규칙을 바꿀지.
-6. 회사 공개 프로필([[16-DECISIONS|ADR-052]])의 남은 운영 반영. migration `000700`과 웹 배포는 끝났다. 남은 순서는 회사 AI gateway·Analysis Worker 갱신(첨부 반영과 한 번에) → `pnpm ops:company-profile` dry-run·`--apply`(사용자 확인) → DEMO 공고 재분석이다([[16-DECISIONS|ADR-052]] 반영 순서 4·6·7·8단계, [스펙](../polaris/specs/in-progress/2026-10-27-company-public-profile.md) B4).
-   - **영향**: `--apply` 뒤에는 DEMO 분석의 회사 프로필이 바뀐다. 12·18·19의 S4 예상(78 BID·72 WATCH, fixture 프로필 기준)이 달라지고, 옛 분석은 "미분석"으로 보인다(스펙 B4 8단계·D6 개정).
+6. 회사 공개 프로필([[16-DECISIONS|ADR-052]])의 남은 운영 반영. migration `000700`·웹 배포·`--apply`(revision 3·4)는 끝났다. `--apply`는 사용자 결정으로 회사 갱신보다 먼저 했다([기록](evidence/company-public-profile/20261027/prod-rollout.md)). 남은 순서는 회사 AI gateway·Analysis Worker 갱신(첨부 반영과 한 번에) → DEMO 공고 재분석이다([[16-DECISIONS|ADR-052]] 반영 순서 4·8단계, [스펙](../polaris/specs/in-progress/2026-10-27-company-public-profile.md) B4).
+   - **영향**: 지금 운영 DEMO 15건이 "분석 대기"다. 회사 Analysis Worker 갱신 전에는 org-01 새 분석이 실패한다(옛 Worker 가 실적 금액 `null`을 받지 않는다). 12·18·19의 S4 예상(78 BID·72 WATCH, fixture 프로필 기준)은 재분석 뒤 달라진다(스펙 B4 8단계·D6 개정).
 
 ### 남은 일
 
@@ -123,7 +123,7 @@ updated: 2026-10-27
 | live 가드 | live에서 카카오 발송 수단이 비면 발송 끔. 이메일 가입 약관 동의 저장(`user_consents`) | main·운영 DB·Vercel 반영. 간편 가입(OAuth) 동의는 후속 | [검증](evidence/live-guards/20261027.md) |
 | 수집 장애 격리 | 외부 서비스별 키·한도 상태, 준비된 서비스만 정기 수집 | main·Vercel 반영, 회사 반영 대기. 기관별 registry 활성화 남음 | [기록](evidence/ingestion/20261027-source-isolation/summary.md) |
 | 공공 입찰 확장 | 사업기회 연결·11열 목록·수집 운영([[16-DECISIONS\|ADR-047]]) | main·운영 적용. 신규 6개 서비스는 서비스별 검증 뒤 켠다 | [기록](evidence/procurement-expansion/20261022-release.md) |
-| 회사 공개 프로필 | 운영 DB 공개 자료 프로필, `EXECUTIVE` 역할([[16-DECISIONS\|ADR-052]]) | main·운영 DB(`000700`)·Vercel 반영. 회사 반영·CLI `--apply`·DEMO 재분석 남음(사용자 결정 대기 6) | [로컬 확인](evidence/company-public-profile/20261027/local/local-check.md) |
+| 회사 공개 프로필 | 운영 DB 공개 자료 프로필, `EXECUTIVE` 역할([[16-DECISIONS\|ADR-052]]) | main·운영 DB(`000700`, 프로필 revision 4)·Vercel 반영. 회사 반영·DEMO 재분석 남음(사용자 결정 대기 6) | [로컬 확인](evidence/company-public-profile/20261027/local/local-check.md) |
 | 프로필 사진 | 비공개 버킷 `profile-photos`, 가입 신청 승인([[16-DECISIONS\|ADR-051]]) | 운영 적용(migration·버킷·웹 배포). 기존 직원 찾기(U8)·재신청 진입점(U10) 화면은 없다 | [기록](evidence/integration/20261025-prod-apply-db-storage.md) |
 | 인력 200명 | 가상 명부·사진 200장·전원 계산 대상([[16-DECISIONS\|ADR-019·043]]) | 완료, 운영 DB 적용 | [[07-DATA-PIPELINE\|07]] |
 | 화면 정리 | 사이드바 묶음 3개·트리·아이콘, 대시보드 "공공조달 요약" 숫자 띠, 랜딩 | 완료(운영 배포) | [기록](evidence/sidebar-tree/README.md) |
@@ -132,6 +132,7 @@ updated: 2026-10-27
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
 
+- 2026-10-27 · 회사 공개 프로필 운영 `--apply`(revision 3, 실적 설명 내부 표기를 고친 revision 4), 회사 역량 이력 탭 배치 깨짐 수정 · CLI dry-run·apply exit 0, 운영 DB 조회로 revision 4·내부 표기 0건 확인, `pnpm verify:changed` exit 0(web 779), 운영 화면 1440·1280px 확인(이력 행 이름 칸 0px → 수정 구조로 847px 이상). DEMO 15건 "분석 대기"([기록](evidence/company-public-profile/20261027/prod-rollout.md))
 - 2026-10-27 · 문서 정리: 지난 일정·끝난 계획 41개를 지우고 이 문서를 새 형식으로 바꿨다([[16-DECISIONS|ADR-057]], [[2026-10-27-docs-cleanup-plan|계획]]) · 문서 전용. 링크 검사·표 위키링크 검사 통과. 코드 검사·빌드 미실행
 - 2026-10-27 · 회사 공개 프로필 운영 반영: 운영 DB `20261027000700`, main `5261730f` push·Vercel 배포 · db-push·`db-verify` 통과(63개), Vercel 배포 success. 운영 적용 기록은 회사 공개 프로필 작업에서 커밋 예정
 - 2026-10-27 · 회사 공개 자료 프로필·`EXECUTIVE` 역할 main 병합(migration `20261027000700`, ADR-052) · 전체 `pnpm verify` exit 0, 최종 리뷰 Critical 0, 로컬 격리 스택 화면·분석 확인([증거](evidence/company-public-profile/20261027/local/local-check.md))

@@ -243,8 +243,10 @@ export function LicensesPanel({ profile }: { profile: CompanyProfile }) {
                     <span className="w-12 shrink-0 type-body tabular-nums text-muted-foreground">
                       {entry.year}
                     </span>
-                    <span className="min-w-0 flex-1 type-body wrap-anywhere">{entry.name}</span>
-                    <SourceLinks sourceIds={entry.sourceIds} sources={sources} />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5 type-body wrap-anywhere">
+                      {entry.name}
+                      <SourceLinks sourceIds={entry.sourceIds} sources={sources} />
+                    </span>
                   </li>
                 ))}
             </ul>
