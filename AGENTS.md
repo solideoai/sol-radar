@@ -43,7 +43,7 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 - 시험 하나만: 웹 `pnpm -C web exec vitest run <파일> -t "<이름>"` · 루트 `node --test scripts/<이름>.test.mjs`. 브라우저 시험은 `pnpm -C web test:browser`, E2E 는 `pnpm -C web test:e2e`.
   로그인 뒤 E2E 는 `pnpm -C web test:e2e:auth`(로컬 Supabase 필요, verify·CI 에는 없다 → `testing` 스킬)
 - 서식: 고친 폴더에서 `pnpm format` (루트·`web` 각자). 손으로 맞추지 않는다.
-- Node 는 루트 `package.json` 의 `engines` 범위를 따른다. `web/package.json` 에는 `engines` 를 두지 않는다. 넣으면 Vercel 이 프로젝트 설정의 Node 메이저(22.x, `.nvmrc`)를 덮고 범위 안의 가장 높은 메이저를 고른다. 루트 `engines` 는 Vercel 이 읽지 않는다(원문: git `eca5552b^` 의 `docs/boilerplate/first-deployment.md`).
+- Node 는 루트 `package.json` 의 `engines` 범위를 따른다. `web/package.json` 에는 `engines` 를 두지 않는다(이유는 `docs/boilerplate/first-deployment.md`).
 
 ## 커밋 메시지: `타입: 작업 내용`
 
@@ -110,7 +110,7 @@ worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는
 검사가 막으면 원인을 고친다. 끄거나 돌아가지 않는다. 장치마다의 상세와 CI 구성은 `docs/boilerplate/guardrails.md` 가 정본이다.
 
 - **커밋 게이트**(`.husky/`): 검사는 작업 폴더를 읽는다. 파일은 통째로 스테이징한다.
-- **편집 금지 파일**(`.claude/settings.json` 의 `deny`): `.husky/`·`.claude/settings*.json`·`.claude/hooks/`·`web/lodestar.config.*`. `.github/`는 2026-10-21 사용자 지시로 편집 금지를 해제했다. CI 필수 검사와 훅은 유지한다. 지금 GitHub Actions job 은 계정 결제 문제로 시작되지 않으므로 검사는 로컬 pre-push 게이트로 한다.
+- **편집 금지 파일**(`.claude/settings.json` 의 `deny`): `.husky/`·`.claude/settings*.json`·`.claude/hooks/`·`web/lodestar.config.*`. `.github/`는 2026-10-21 사용자 지시로 편집 금지를 해제했다. CI 필수 검사와 훅은 유지한다. 지금 GitHub Actions job 은 계정 결제 문제로 시작되지 않으므로 검사는 로컬 pre-push 게이트(`.husky/pre-push`, `git config gate.prePush true` 로 켠 저장소에서만 돈다, `scripts/pre-push.mjs`)로 한다.
   막히면 다른 길(스크립트로 파일 쓰기 등)로 돌아가지 말고 사용자에게 알린다.
 - **약하게 만들지 않는 파일**: `package.json`·`.npmrc`·`verify.config.json`·`scripts/`·`eslint.config.*` 는 고칠 수 있지만, 검사를 빼거나 약하게 만들지 않는다.
 - **린트·계층**: 검사를 끄는 길이 없다(`eslint-disable`·`any`·`@ts-ignore`·테스트 `.only`·`.skip`). 도메인은 배럴로만, 부모 상대경로(`../`) 대신 `@/`,
