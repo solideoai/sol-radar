@@ -357,7 +357,7 @@ python -m sol_decision.trainer.calibrate --data "$D/dev.en.jsonl" --predictions 
 - 받아들이는 기준: dev·test 모두 E1' 대비 회귀 없음(ADR-034 9번 회귀 안정성), E1' 대비 개선은 Δ 95% CI가 0을 배제할 때만(ADR-034 9번), 보정 뒤 ECE ≤ 0.08(21 §4.4 초기 목표). 확신 오류율(p ≥ 0.9 오답)은 보고만 하는 보조 지표다(출처 없는 문턱으로 합격을 막지 않는다, [[16-DECISIONS|16]] 미결정 29-5). 기준을 하나라도 어기면 결과는 보고하되 서빙 후보로 올리지 않는다. 서빙 후보라도 교체는 사용자 승인 뒤다(ADR-034 9번).
 - "E4 가 E1' 보다 낫다"는 Δ 의 95% 신뢰구간이 0 을 포함하지 않을 때만 말한다(ADR-027 에서 보존한 원칙). 데모 교체는 그 뒤에도 **사용자 승인**이 필요하다(Q7).
 
-학습본은 HTTPS 로 서빙하지 않는다(회사 nginx 의 SOL RADAR location 은 `https://acropolissg.com/sol-radar` 하나다). 평가 전용 서빙 인스턴스(옛 B안 `/kev-lora`·8010)는 **없다**.
+학습본은 HTTPS 로 서빙하지 않는다(설계한 SOL RADAR location `https://acropolissg.com/sol-radar` 는 회사 nginx 에 등록되지 않았다, 2026-10-27). 평가 전용 서빙 인스턴스(옛 B안 `/kev-lora`·8010)는 **없다**.
 
 ### 4.5 돌려받을 것
 
@@ -401,7 +401,7 @@ python -m sol_decision.trainer.calibrate --data "$D/dev.en.jsonl" --predictions 
 | 회사 GPU 사양 | **확인(2026-10-20 오전)**: A40 46,068 MiB ×3, SOL RADAR 는 물리 GPU 1(§3.1) | [F1 기록](evidence/kev-train-feasibility.md) §0(당시 기록) |
 | GPU 1 공유 상태(PaddleOCR 약 9,167 MiB)·`.venv-bosun`·Bosun CPU 2-step 성공·`smoke.jsonl` 6건 | **사용자 보고, 미검증** | B2 `nvidia-smi`·`pip list` 기록(계획 §10 9번) |
 | 외부망(Hugging Face·PyPI)·학습 시간대·PaddleOCR 피크 | 미확인 | §6 물을 것(16 미결정 22) |
-| 모델 라우터·`:8009` 런타임의 실제 실행 상태 | 미확인(회사 서버 확인 전. 기동은 사용자 승인 뒤) | B2 → C1 ③ G1·G2 |
+| 모델 라우터·`:8009` 런타임의 실제 실행 상태 | `:8009` 실행 확인(2026-10-27, 운영 gateway 가 루프백으로 사용). 라우터는 미확인이고 회사 nginx `/sol-radar` 는 등록되지 않았다 | B2 → C1 ③ G1·G2 |
 | 회사 Qwen API: `id`(`Qwen3.8-Flash-Next-AWQ-INT4`)와 짧은 `json_schema` 응답은 확인함([[03-AI-PIPELINE\|03]] §3.2). 추가 인증·호출 한도·지연(`AI_TIMEOUT_MS` 60000 안), 전체 스키마 guided JSON(G4)·`prompt_logprobs`(E3) 지원, 추출·번역 품질 | **미검증** | 회사 확인, EX0(계획 §10 6·7번) |
 | `.venv-bosun` 핀(transformers·peft·safetensors·fastapi) 과 torch 2.8.0+cu128 유지, `uv` 설치 여부 | 미확인(`uv.lock` 은 torch 2.14.1, §3.2) | §3.2 `--dry-run` → 설치 → `bosun-preflight.sh` |
 | Bosun snapshot·백본 다운로드와 sha256, `BosunForDecision` 로딩 | 미실행 | §2.2 → `bosun-preflight.sh`. 백본 크기·shard sha256 은 B2 에서 기록 |

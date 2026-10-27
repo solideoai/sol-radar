@@ -39,7 +39,7 @@ flowchart TB
   end
   R[("기존 Redis 6379 · BullMQ")]
   QW["회사 운영 vLLM API · /vllm/v1<br/>Qwen3.8-Flash-Next-AWQ-INT4<br/>(운영 분석 1건 · 2026-10-24)"]
-  KV["sol_decision.serve · Bosun v3.1 0.6B<br/>/sol-radar/kev → 127.0.0.1:8009<br/>(운영 분석 1건 · 2026-10-24)"]
+  KV["sol_decision.serve · Bosun v3.1 0.6B<br/>같은 호스트 127.0.0.1:8009<br/>(운영 분석 FX-02 1건 · DEMO 17건 · 2026-10-27)"]
  end
  subgraph public[공공 인터넷]
   G2B["data.go.kr Open API<br/>입찰공고 · 사전규격 · 발주계획 · 업종 마스터"]
@@ -59,7 +59,7 @@ flowchart TB
  WK -- service role --> ST
  WK -. "SOL_RUN_MODE=live · 3시간 cron · 수동 불러오기" .-> G2B
  AI -. AI_PROVIDER=local · HTTPS + Bearer .-> QW
- AI -. AI_PROVIDER=local · HTTPS + Bearer .-> KV
+ AI -. AI_PROVIDER=local · 루프백 http + Bearer .-> KV
 ```
 
 - 모델을 부르는 컴포넌트는 AI gateway 하나다. web·redis-api·worker는 Qwen·결정 모델에 직접 닿지 않는다.
@@ -67,7 +67,7 @@ flowchart TB
 - 회사 Compose는 redis-api·AI gateway와 역할별 Worker다. Worker는 수집(`infra/compose.ingest-only.company.yaml`)·분석(`compose.analysis-only.company.yaml`)·첨부(`compose.documents-only.company.yaml`, 회사 반영 전)로 나뉜다. 알림·마감 job 등록은 전체 Worker(`web/worker/main.ts`)에만 있어, 운영에서 알림을 처리하는 Worker가 있는지는 미확인이다. 회사의 기존 Redis와 Nginx를 재사용하고 Redis·Qdrant·DB·모델 서버를 새로 만들지 않는다. 호스트에 여는 포트는 기존 Nginx upstream인 `127.0.0.1:6380` 하나다. 모델 키는 AI gateway만, service role·수집 키는 Worker만 받는다(`infra/company/README.md`).
 - 운영 상태(2026-10-27 기준): Vercel `/health/ready` 200(`db`·`redis`·`storage` ok, `ai: local`). 3시간 정기 수집이 2026-10-26 13:51부터 7회 모두 성공했고 실공고 592건이 쌓였다(최신 수집 10-27 09:03). 2026-10-24 운영 smoke에서는 FX-02 분석 요청이 202를 받고 `QUEUED`에서 멈췄다(결함 W1, 회사 Worker 미소비). 같은 날 운영 실모델 분석 1건이 끝났다(FX-02 66 WATCH). 화면 기본 출처는 Vercel env `SOL_DEFAULT_ORIGIN`이 정하고, 발표는 `?origin=demo`로 연다(D1, ADR-054).
 - DB·Auth·Storage는 Supabase 클라우드(ADR-048)라 데모 중 인터넷이 필요하다. 대체 경로는 `limitations.md`와 아래 (a-2).
-- 회사 GPU 서버는 외부에서 접근할 수 없다. 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision.serve`가 회사 GPU 서버 `127.0.0.1:8009`에서 Kev wire 호환으로 서빙해 `https://acropolissg.com/sol-radar/kev`로 나가는 설계다([[16-DECISIONS|ADR-025]]·[[16-DECISIONS|ADR-034]]). `KEV_BASE_URL`의 하위 경로 `/kev`는 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`) 기준으로 **결정**했고(`/sol-radar/qwen`은 백업 경로, 미사용), 인증은 각 런타임의 Bearer 키(`QWEN_API_KEY`·`KEV_API_KEY`)다([[16-DECISIONS|16 ADR]] 미결정 17번). 회사 vLLM은 Bearer 인증 조회·추론을 확인했다(2026-10-21 probe). 결정 서버의 응답은 2026-10-24 운영 분석 1건으로 확인했고, 지연은 측정하지 않았다. 엔드포인트로 가는 데이터는 실제 공고(개인정보 마스킹)와 가상 회사 프로필뿐이다.
+- 회사 GPU 서버는 외부에서 접근할 수 없다. 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision.serve`가 회사 GPU 서버 `127.0.0.1:8009`에서 Kev wire 호환으로 서빙한다([[16-DECISIONS|ADR-025]]·[[16-DECISIONS|ADR-034]]). 운영 AI gateway는 같은 호스트의 회사 Compose(`network_mode: host`)에서 `KEV_BASE_URL=http://127.0.0.1:8009`로 바로 붙는다(2026-10-27). 처음 설계한 공개 경로 `https://acropolissg.com/sol-radar/kev`(GPU 서버 안 nginx 모델 라우터 `infra/gpu/model-router.conf`)는 회사 nginx에 등록되지 않았다. 인증은 각 런타임의 Bearer 키(`QWEN_API_KEY`·`KEV_API_KEY`)다([[16-DECISIONS|16 ADR]] 미결정 17번). 회사 vLLM은 Bearer 인증 조회·추론을 확인했다(2026-10-21 probe). 결정 서버는 2026-10-24 운영 분석 1건과 2026-10-27 DEMO 17건에서 응답했고, `GET /v1/models` 레지스트리 대조(`registryMatch: true`)를 확인했다. 지연은 측정하지 않았다. 엔드포인트로 가는 데이터는 실제 공고(개인정보 마스킹)와 가상 회사 프로필뿐이다.
 - GPU 하드웨어와 메모리 배분은 회사 측 운영이다. 결정 모델은 물리 GPU 1을 회사 PaddleOCR 서비스와 공유하고, 우리가 올리는 것은 Bosun 서빙·학습뿐이다(ADR-034 10번, 사용자 보고). Qwen3.8-Flash-Next는 회사 API라 GPU 1을 쓰지 않는다. 우리 쪽 점검은 `GET /v1/models` 레지스트리 대조와 지연 실측뿐이다(P0-0 ③ G1~G6, [[10-DEPLOYMENT|10 배포]]).
 
 ## (a-2) 로컬 데모 Compose — 대체 경로

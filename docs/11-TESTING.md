@@ -171,7 +171,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 |---|---|---|
 | ① | data.go.kr 오퍼레이션별 실제 응답 3건, 필드 매핑 | 오퍼레이션·`resultCode`·확인한 필드. 담당자 정보를 마스킹한 뒤 `RecordedApiConnector` 계약 시험에 쓴다 |
 | ② | 공고 3건의 첨부 실제 다운로드 | 로그인·세션 필요 여부, HTTP 상태, 형식([[16-DECISIONS\|16]] 미결정 16) |
-| ③ | 회사 vLLM API(`https://acropolissg.com/vllm/v1`)와 `sol_decision`(`https://acropolissg.com/sol-radar/kev`). 단계 G1~G6은 [[16-DECISIONS\|ADR-025]] 7번 | G1~G6 결과, `/v1/models`·레지스트리 대조, 지연 p50·p95([[03-AI-PIPELINE\|03]] §5.9 G3), guided JSON. GPU 메모리는 회사가 주는 값만 적는다(미결정 3·17·24) |
+| ③ | 회사 vLLM API(`https://acropolissg.com/vllm/v1`)와 `sol_decision`(운영 `http://127.0.0.1:8009`, 회사 호스트 루프백. 공개 경로 `/sol-radar/kev`는 회사 nginx에 없다). 단계 G1~G6은 [[16-DECISIONS\|ADR-025]] 7번 | G1~G6 결과, `/v1/models`·레지스트리 대조, 지연 p50·p95([[03-AI-PIPELINE\|03]] §5.9 G3), guided JSON. GPU 메모리는 회사가 주는 값만 적는다(미결정 3·17·24) |
 | ④ | 실제 RFP 샘플로 파서 후보 비교 | 후보·라이선스·누락 관찰 |
 
 서비스키와 엔드포인트 키 값은 적지 않는다.

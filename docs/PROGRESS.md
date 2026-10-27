@@ -133,6 +133,7 @@ updated: 2026-10-27
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
 
 - 2026-10-27 · 공고 출처 배지를 기관 로고 상징 색으로(나라장터·K-water·LH·KEPCO, [[16-DECISIONS|ADR-058]]) · `pnpm -C web verify:quick` exit 0, 루트 `pnpm test` 259 통과, 출처 배지 브라우저 시험 통과, `next build` 통과, 1440·1280 화면([증거](evidence/source-brand-colors/20261027/README.md)). 배포 전
+- 2026-10-27 · 결정 모델 연결 문서 정정: 회사 nginx에 없는 `/sol-radar/kev` 경로 전제를 02·03·09·11·16·18·20·21·22·제출 문서·`infra/env` 예시·`compose.gpu.yaml`·레지스트리 주석에서 운영 구성(같은 호스트 `http://127.0.0.1:8009`)으로 고침. 지난 계획서 2개는 확인 메모만 추가 · `format:check` 통과
 - 2026-10-27 · 회사 반영(redis-api `aa0c9f9`, AI gateway·Analysis Worker `9bb24b002f9b`, gateway `KEV_BASE_URL` 회사 호스트 Bosun 직결), 회사 공개 프로필 revision 5(기술 이름 영어 1건, Bosun 번역 누락 해소), DEMO 17건 재분석 · 17건 `COMPLETED`·`RULES_WITH_KEV_ASSIST`·대체 0, 모두 WATCH 43~75점, gateway `/health` `registryMatch: true`, 운영 대시보드 1440·1280px 분석 대기 15 → 2([기록](evidence/company-public-profile/20261027/prod-rollout.md)). 10 배포·`infra/gpu`의 없는 Nginx `/sol-radar/kev` 경로 전제를 정정
 - 2026-10-27 · 회사 공개 프로필 운영 `--apply`(revision 3, 실적 설명 내부 표기를 고친 revision 4), 회사 역량 이력 탭 배치 깨짐 수정 · CLI dry-run·apply exit 0, 운영 DB 조회로 revision 4·내부 표기 0건 확인, `pnpm verify:changed` exit 0(web 779), 운영 화면 1440·1280px 확인(이력 행 이름 칸 0px → 수정 구조로 847px 이상). DEMO 15건 "분석 대기"([기록](evidence/company-public-profile/20261027/prod-rollout.md))
 - 2026-10-27 · 문서 정리: 지난 일정·끝난 계획 41개를 지우고 이 문서를 새 형식으로 바꿨다([[16-DECISIONS|ADR-057]], [[2026-10-27-docs-cleanup-plan|계획]]) · 문서 전용. 링크 검사·표 위키링크 검사 통과. 코드 검사·빌드 미실행

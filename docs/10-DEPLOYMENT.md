@@ -164,7 +164,7 @@ AI_FALLBACK_TO_MOCK=false         # true 면 기동 거부
 KEV_ALLOW_KO_STATE=false          # live 에서 true 면 기동 거부. 평가용 fixture gateway 에서만 true
 QWEN_BASE_URL=https://acropolissg.com/vllm/v1   # 회사 vLLM API. 게이트웨이가 끝의 /v1 을 인식해 /chat/completions·/models 를 붙인다
 QWEN_MODEL=Qwen3.8-Flash-Next-AWQ-INT4           # 회사 vLLM /v1/models 의 id. 레지스트리 qwen3.8-flash-next 와 대조한다
-KEV_BASE_URL=https://acropolissg.com/sol-radar/kev     # 모델 라우터 기준. TLS 검증을 끄지 않는다
+KEV_BASE_URL=http://127.0.0.1:8009   # 회사 호스트 Bosun(같은 호스트 루프백). 루프백이 아니면 https 만, TLS 검증을 끄지 않는다
 QWEN_API_KEY=<placeholder>        # 회사가 제공하는 vLLM API 키
 KEV_API_KEY=<placeholder>         # 결정 서버(sol_decision)의 DECISION_API_KEY 와 같은 값
 KEV_MODEL_ID=bosun-v3.1-0.6b      # services/ai/models/registry.yaml → Hanno-Labs/bosun-v3.1-0.6b@5e78a37c(KEV_* 이름은 호환 유지, ADR-034)
@@ -178,7 +178,7 @@ G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 1512946
 ```
 
 - gateway는 `QWEN_API_KEY`·`KEV_API_KEY`를 `Authorization: Bearer`로 보낸다(ADR-025, [[03-AI-PIPELINE|03]] §3).
-- `KEV_BASE_URL` 예시 값은 회사 nginx `/sol-radar` 경로를 전제한 설계 값이다. 운영에는 그 경로가 없다. 운영 회사 Compose gateway는 `http://127.0.0.1:8009`로 붙는다(아래 "회사 GPU 추론 엔드포인트").
+- `KEV_BASE_URL`은 회사 호스트의 Bosun이다. 운영 회사 Compose gateway(`network_mode: host`)가 이 값으로 붙는다. 설계한 공개 경로 `https://acropolissg.com/sol-radar/kev`는 회사 nginx에 없어 노트북 gateway는 결정 모델에 닿지 않는다(아래 "회사 GPU 추론 엔드포인트").
 - `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`는 gateway 선택 env다. 비우면 기본 어댑터(`pdfplumber`·`sol-hwpx`·`sol-hwp5`)가 켜진다. 모르는 값이면 그 형식만 처리하지 않는다([[03-AI-PIPELINE|03]] §10.1).
 
 ### seed
