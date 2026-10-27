@@ -401,9 +401,11 @@ describe("업무 Route Handler 계약", () => {
     expect((await send(PATCH_READ, bearer)).status).toBe(200);
   });
 
-  it("3. VIEWER 의 분석 요청과 ANALYST 의 결정 기록은 403 FORBIDDEN 이고 저장소를 부르지 않는다", async () => {
+  it("3. VIEWER·EXECUTIVE 의 분석 요청·결정 기록과 ANALYST 의 결정 기록은 403 FORBIDDEN 이고 저장소를 부르지 않는다", async () => {
     const d = install();
     await errorOf(await send(POST_ANALYSES, { user: FAKE_USERS.viewer }), 403, "FORBIDDEN");
+    await errorOf(await send(POST_ANALYSES, { user: FAKE_USERS.executive }), 403, "FORBIDDEN");
+    await errorOf(await send(POST_REVIEWS, { user: FAKE_USERS.executive }), 403, "FORBIDDEN");
     await errorOf(await send(POST_REVIEWS, { user: FAKE_USERS.analyst }), 403, "FORBIDDEN");
     expect(backendCalls(d)).toBe(0);
   });

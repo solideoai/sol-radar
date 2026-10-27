@@ -100,7 +100,9 @@ export const findMemberInput = z.object({
 export const decideJoinInput = z.object({
   requestId: z.uuid(),
   approve: z.boolean(),
-  solRole: z.enum(["VIEWER", "ANALYST", "SALES", "ADMIN"] satisfies SolRole[]).default("VIEWER"),
+  solRole: z
+    .enum(["VIEWER", "EXECUTIVE", "ANALYST", "SALES", "ADMIN"] satisfies SolRole[])
+    .default("VIEWER"),
   // 화면이 읽은 신청 버전. 마이크로초까지 비교하므로 Date 로 바꾸지 않고 원문 문자열 그대로 보낸다.
   version: z.iso.datetime({ offset: true }),
 });

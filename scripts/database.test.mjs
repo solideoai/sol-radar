@@ -224,6 +224,34 @@ describe("Supabase Storage — immutable objects and private access", () => {
     assert.equal((await db.query("select name from storage.objects")).rows.length, 0);
   });
 
+  it("an EXECUTIVE member reads referenced raw objects like a VIEWER; unreferenced and writes stay closed", async (t) => {
+    const { db, docs } = await setup(t);
+    const object = await claim(db);
+    await finish(db, object, docs[0].id);
+    await db.exec(
+      "insert into storage.buckets(id,name,public) values('bid-documents','bid-documents',false)",
+    );
+    await db.query(
+      "insert into storage.objects(bucket_id,name) values('bid-documents',$1),('bid-documents','unreferenced')",
+      [object.path],
+    );
+    await db.query(
+      "insert into public.organizations(id,slug,name) values('0e000000-0000-0000-0000-000000000011','storage-test','시험')",
+    );
+    await db.query(
+      "insert into public.memberships(org_id,user_id,org_role,sol_role) values('0e000000-0000-0000-0000-000000000011',$1,'member','EXECUTIVE')",
+      [users[0]],
+    );
+    await actAs(db, users[0]);
+    assert.deepEqual((await db.query("select name from storage.objects")).rows, [
+      { name: object.path },
+    ]);
+    await assert.rejects(
+      db.query("insert into storage.objects(bucket_id,name) values('bid-documents','forged')"),
+      /policy|permission denied/,
+    );
+  });
+
   it("upload/DB failure preserves the object and expired ownership recovers; deleting objects cannot gain references", async (t) => {
     const { db, docs } = await setup(t);
     const object = await claim(db);
@@ -733,6 +761,107 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       values,
     );
   };
+  it("EXECUTIVE 역할 — 멤버십·초대에 저장되고 읽기 함수는 통과, 쓰기 정책은 막힌다", async (t) => {
+    const pglite = await solDb(t);
+    await asWorker(pglite);
+    const EXEC = "00000000-0000-0000-0000-000000000008";
+    await pglite.query("insert into auth.users values ($1, 'executive@example.invalid')", [EXEC]);
+    await pglite.query(
+      "insert into public.memberships (org_id, user_id, org_role, sol_role) values ($1, $2, 'member', 'EXECUTIVE')",
+      [ORG1, EXEC],
+    );
+    await pglite.query(
+      "insert into public.invitations (org_id, email, org_role, sol_role) values ($1, 'exec-invite@example.invalid', 'member', 'EXECUTIVE')",
+      [ORG1],
+    );
+    await rejectsWith(
+      pglite.query(
+        "insert into public.invitations (org_id, email, org_role, sol_role) values ($1, 'owner-invite@example.invalid', 'member', 'OWNER')",
+        [ORG1],
+      ),
+      "invitations_sol_role_check",
+    );
+    await assert.rejects(
+      pglite.query(
+        "update public.memberships set sol_role = 'OWNER' where org_id = $1 and user_id = $2",
+        [ORG1, EXEC],
+      ),
+      { code: "23514" },
+    );
+
+    await actAs(pglite, EXEC, "authenticated", "executive@example.invalid");
+    // 읽기 함수는 역할이 없으면 빈 결과를 준다. EXECUTIVE 도 VIEWER 와 같은 결과를 받아야 한다.
+    const reads = async () => [
+      await rowsOf(pglite, "select * from public.latest_ingest_run('all')"),
+      await rowsOf(pglite, "select * from public.procurement_source_health('all')"),
+      await rowsOf(pglite, "select public.procurement_last_scheduled_ingest('all') as v"),
+    ];
+    const executiveReads = await reads();
+    assert.ok(executiveReads[0].length > 0 && executiveReads[1].length > 0);
+    await as(pglite, "viewer");
+    assert.deepEqual(executiveReads, await reads());
+    await actAs(pglite, EXEC, "authenticated", "executive@example.invalid");
+
+    await assert.rejects(requestRun(pglite, ORG1, PROFILE1, "executive-run"), {
+      code: "42501",
+    });
+    await assert.rejects(decide(pglite), { code: "42501" });
+  });
+  it("EXECUTIVE 는 결정·공고 프로젝트·회사 프로필을 쓰지 못하고, ADMIN 도 sources·public_history 열은 쓰지 못한다", async (t) => {
+    const pglite = await solDb(t);
+    await asWorker(pglite);
+    const EXEC = "00000000-0000-0000-0000-000000000008";
+    await pglite.query("insert into auth.users values ($1, 'executive@example.invalid')", [EXEC]);
+    await pglite.query(
+      "insert into public.memberships (org_id, user_id, org_role, sol_role) values ($1, $2, 'member', 'EXECUTIVE')",
+      [ORG1, EXEC],
+    );
+    await actAs(pglite, EXEC, "authenticated", "executive@example.invalid");
+    // 결정: 열 권한은 열려 있으므로 RLS 정책이 막는다.
+    await assert.rejects(decide(pglite), POLICY);
+    // 공고 프로젝트는 직접 insert 가 아니라 open_bid_project 로만 만든다.
+    await assert.rejects(
+      pglite.query("select public.open_bid_project($1)", [REVIEW1]),
+      /FORBIDDEN/,
+    );
+    // 회사 프로필: insert 열 권한은 (org_id, revision, name)에 열려 있다 → ADMIN 은 성공, EXECUTIVE 는 정책 거부.
+    const insertProfile = (revision) =>
+      pglite.query(
+        "insert into public.company_profiles (org_id, revision, name) values ($1, $2, '개정 시험')",
+        [ORG1, revision],
+      );
+    await assert.rejects(insertProfile(9), POLICY);
+
+    await as(pglite, "admin");
+    await insertProfile(10);
+    // sources·public_history 열에는 insert 열 권한이 없어 ADMIN 도 권한 오류다.
+    for (const column of ["sources", "public_history"])
+      await assert.rejects(
+        pglite.query(
+          `insert into public.company_profiles (org_id, revision, name, ${column}) values ($1, 11, '관리자 개정', '[]')`,
+          [ORG1],
+        ),
+        /permission denied/,
+      );
+  });
+  it("company_profiles 의 sources·public_history 는 기본 빈 배열이고 배열이 아니면 거부한다", async (t) => {
+    const pglite = await solDb(t);
+    await asWorker(pglite);
+    const [row] = await rowsOf(
+      pglite,
+      "insert into public.company_profiles (org_id, revision, name) values ($1, 2, '출처 시험') returning sources, public_history",
+      [ORG1],
+    );
+    assert.deepEqual(row, { sources: [], public_history: [] });
+    for (const column of ["sources", "public_history"])
+      await assert.rejects(
+        pglite.query(
+          `insert into public.company_profiles (org_id, revision, name, ${column}) values ($1, 3, '출처 시험', '{}')`,
+          [ORG1],
+        ),
+        { code: "23514" },
+      );
+  });
   it("public의 모든 일반 테이블에 RLS가 켜져 있다", async (t) => {
     const pglite = await migratedDb(t);
     const { rows } = await pglite.query(
@@ -3155,6 +3284,19 @@ describe("가입 신청과 명부 연결 (20261024000300)", () => {
     await actAs(db, users[0]);
     await decide(db, id, false);
     assert.deepEqual(await visible(users[0]), []);
+  });
+
+  it("ADMIN 은 신청을 EXECUTIVE 로 승인할 수 있고 멤버십·신청 행에 그 역할이 남는다", async (t) => {
+    const db = await setup(t);
+    await declare(db, applicant2, "Lee Gwanghui");
+    await actAs(db, applicant2);
+    const id = await submit(db, "NEW_HIRE");
+    await actAs(db, users[0]);
+    assert.equal(await decide(db, id, true, "EXECUTIVE"), "APPROVED");
+    assert.deepEqual(await membership(db, applicant2), [
+      { org_role: "member", sol_role: "EXECUTIVE" },
+    ]);
+    assert.equal((await request(db, id)).sol_role, "EXECUTIVE");
   });
 
   it("이미 멤버인 계정의 신청 승인은 멤버십·업무 역할을 바꾸지 않고 연결만 한다", async (t) => {

@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
 # 08. SOL Score 및 참여 권고
@@ -77,15 +77,18 @@ function pastPerformance(bid: Bid, projects: Project[], today: Date) {
   if (bid.domain === UNKNOWN) return MISSING;                         // 공고 분야 미확인: 중립
   const sim = (p: Project) => {
     const domain   = sameDomain(p.domain, bid.domain) ? 1 : 0;       // 분야 코드 + 별칭표 (예: CCTV 관제 ≈ 스마트시티)
-    const amount   = bid.budgetKrw ? Math.min(p.amountKrw, bid.budgetKrw) / Math.max(p.amountKrw, bid.budgetKrw) : 0.5;
-    const years    = yearsBetween(p.completedAt, today);
-    const recency  = years <= 3 ? 1.0 : years <= 5 ? 0.6 : 0.2;
+    const amount   = bid.budgetKrw && p.amountKrw ? Math.min(p.amountKrw, bid.budgetKrw) / Math.max(p.amountKrw, bid.budgetKrw) : 0.5;   // 공고 예산이나 실적 금액(null)을 모르면 0.5
+    const years    = p.completedAt === null ? null : yearsBetween(p.completedAt, today);
+    const recency  = years === null ? 0.2 : years <= 3 ? 1.0 : years <= 5 ? 0.6 : 0.2;   // 완료일(null)을 모르면 가장 낮은 구간 0.2
     const evidence = p.evidenceRef ? 1.0 : 0.5;                       // 증빙 없는 실적은 반만 인정
     return (0.4 * domain + 0.3 * amount + 0.3 * recency) * evidence;
   };
   return Math.max(...projects.map(sim));                              // v0.1: 가장 비슷한 실적 1건
 }
 ```
+
+> [!note] 2026-10-27 ADR-052: 금액·완료일을 모르는 실적
+> 공개 자료 프로필(`isDemo=false`)은 금액이나 완료일이 공개되지 않은 실적을 `amountKrw: null`·`completedAt: null`로 담는다. 추정값으로 채우지 않는다. 금액이 `null`이면 금액비는 공고 예산이 없을 때와 같은 0.5다. 완료일이 `null`이면 최근성은 가장 낮은 구간 0.2이고 `years`는 `null`로 기록한다(§4 보수 원칙: 모르는 값이 점수를 올리지 않는다). 기존 가상 fixture는 두 값이 모두 있어 점수가 바뀌지 않는다(골든 94/72/68 그대로). 실적마다 선택 필드 `sourceIds`(출처)와 `note`(비고)가 있지만 점수에는 쓰지 않는다.
 
 ### 3.3 인력 가용성 `staffAvailability`
 
@@ -112,7 +115,7 @@ function scaleFit(bid: Bid, profile: CompanyProfile) {
   if (!bid.budgetKrw) return MISSING;
   const cap = profile.financials?.maxContractKrw;                      // 내부 수행 상한 (선택 필드)
   if (cap && bid.budgetKrw > cap) return { value: 0.0, reviewFlag: "SCALE_LIMIT_EXCEEDED" };
-  const maxPast = Math.max(...profile.pastProjects.map(p => p.amountKrw), 0);
+  const maxPast = Math.max(...profile.pastProjects.map(p => p.amountKrw ?? 0), 0);   // 금액을 모르는(null) 실적은 뺀다
   if (maxPast === 0) return MISSING;
   const ratio = bid.budgetKrw / maxPast;
   return ratio <= 1.5 ? 1.0 : ratio <= 3 ? 0.6 : 0.2;
@@ -120,6 +123,8 @@ function scaleFit(bid: Bid, profile: CompanyProfile) {
 ```
 
 `maxContractKrw`는 [[04-DATABASE|04 DB]]·[[05-API-SPEC|05 API]] `financials`의 선택 필드(KRW 정수 문자열)다.
+
+금액을 아는 실적이 하나도 없으면(`pastProjects`가 모두 `amountKrw: null`) `maxPast`가 0이라 `scaleFit`은 MISSING(0.5, `PROFILE_PROJECTS_EMPTY`)이다(ADR-052). 수행 상한 초과 판정은 `maxContractKrw`만 보므로 영향이 없다.
 
 `SCALE_LIMIT_EXCEEDED` 조건: `company_profiles.financials.maxContractKrw`가 설정되어 있고 `budgetKrw > maxContractKrw`이면 `scaleFit` normalized 0.0(points 0)과 함께 `reviewFlags`에 `SCALE_LIMIT_EXCEEDED`를 넣는다([[04-DATABASE|04 DB]] `review_flags` 값). `FX-15`: 80억 > 50억. 상한이 null이면 플래그 없이 비율만 계산한다. 이 플래그는 권고를 직접 바꾸지 않고 점수(0점)와 화면 경고로만 작용한다.
 
@@ -152,10 +157,12 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 | `skillMatch` | 회사 기술 목록 비어 있음 | 0.0 | 0.0 | `reason:"PROFILE_TECHNOLOGIES_EMPTY"` | "회사 프로필 보완 필요" 링크 |
 | `pastPerformance` | 공고 분야 미확인 | 0.5 | 12.5 | `reason:"BID_DOMAIN_UNKNOWN"` | "미확인" 배지 |
 | `pastPerformance` | 회사 실적 0건 | 0.0 | 0.0 | `reason:"PROFILE_PROJECTS_EMPTY"` | "회사 프로필 보완 필요" 링크 |
+| `pastPerformance` | 실적 금액 `amountKrw`가 `null` (공개 자료에 금액 없음, ADR-052) | 금액비 0.5로 계산 | 실적 유사도 안에서 | 기록 없음(요소 전체가 비지 않는다) | 실적 행 "공개 자료 없음" |
+| `pastPerformance` | 실적 완료일 `completedAt`이 `null` (진행 중이거나 공개 자료에 없음, ADR-052) | 최근성 0.2로 계산(`years: null`) | 실적 유사도 안에서 | 기록 없음 | 실적 행 "공개 자료 없음" |
 | `staffAvailability` | 필요 FTE·예산 모두 없음 | 0.5 | 10.0 | `reason:"REQUIRED_FTE_UNKNOWN"` | "미확인" 배지 |
 | `staffAvailability` | 팀 데이터 없음 | 0.5 | 10.0 | `reason:"TEAM_EMPTY"` | "인력 정보 없음" |
 | `scaleFit` | 예산 null (`FX-11`) | 0.5 | 7.5 | `reason:"BUDGET_UNKNOWN"` | "예산 미기재" 배지 |
-| `scaleFit` | 회사 실적 0건 | 0.5 | 7.5 | `reason:"PROFILE_PROJECTS_EMPTY"` | 위와 동일 |
+| `scaleFit` | 회사 실적 0건, 또는 모든 실적의 금액이 `null` | 0.5 | 7.5 | `reason:"PROFILE_PROJECTS_EMPTY"` | 위와 동일 |
 | `strategicPreference` | 조직 선호 미설정 | 0.5 | 5.0 | `reason:"PREFERENCES_NOT_SET"` | "선호 설정" 링크 (ADMIN) |
 
 규칙: `missingFactors`가 **2개 이상**이면 점수와 무관하게 결정 경로에서 `NEEDS_REVIEW`로 취급해 BID 자동 권고를 막는다. 1개면 점수대로 가되 요소 행에 배지를 붙인다. 이 정책은 요소별 단위 테스트로 고정한다([[11-TESTING|11 테스트]]).
@@ -408,7 +415,7 @@ ADR-047 [설계 제안](../polaris/specs/in-progress/2026-10-21-public-procureme
 - [[05-API-SPEC|05 API]] — `AnalysisResult` DTO
 - [[06-UI-UX|06 UI]] — 점수 분해·missing 배지·결정 모델 상이 배너 표시
 - [[11-TESTING|11 테스트]] — 골든 시나리오 G3·G4
-- [[16-DECISIONS|16 ADR]] — ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6)
+- [[16-DECISIONS|16 ADR]] — ADR-052(금액·완료일을 모르는 실적), ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6)
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋 라벨, 결정 모델 반영 전 신뢰성 기준·오류 분석
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 결정 모델 출력은 플래그·참고 지표만
 

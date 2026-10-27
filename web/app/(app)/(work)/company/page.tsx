@@ -9,7 +9,9 @@ import {
   parseCompanyTab,
 } from "@/components/company/company-tabs";
 import { requireWork } from "@/app/(app)/(work)/work";
+import { CompanyForbidden } from "./company-forbidden";
 import {
+  canReadCompanyProfile,
   getCompanyProfile,
   getCompanyStaffing,
   listCompanyProfileRevisions,
@@ -17,11 +19,13 @@ import {
 
 export const metadata: Metadata = { title: COMPANY_TITLE };
 
-// 06 §5.6. 읽기는 업무 역할 전원이다(RLS "조직 회사 프로필 읽기"). 조회 전용 화면이다.
+// 06 §5.6. 읽기는 ADMIN·EXECUTIVE 만이다(메뉴·페이지·API 제한, RLS 읽기는 조직 전원). 조회 전용 화면이다.
 export default async function CompanyPage({ searchParams }: PageProps<"/company">) {
   await connection();
   const tab = parseCompanyTab((await searchParams).tab);
-  const { orgId } = await requireWork(companyTabHref(tab));
+  const work = await requireWork(companyTabHref(tab));
+  if (!canReadCompanyProfile(work.role)) return <CompanyForbidden role={work.role} />;
+  const { orgId } = work;
   const [profile, revisions, staffing] = await Promise.all([
     getCompanyProfile(orgId),
     listCompanyProfileRevisions(orgId),

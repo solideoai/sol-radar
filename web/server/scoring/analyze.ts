@@ -103,6 +103,7 @@ export function analyze(rawInput: AnalysisInput): AnalysisResult {
     qualificationStatus: qualification.status,
     checks: qualification.checks,
     factors,
+    technologiesComplete: profile.technologiesComplete,
     missingFactors,
     reviewFlags,
     kevSuggestedOption: kev.kev.suggestedOption,

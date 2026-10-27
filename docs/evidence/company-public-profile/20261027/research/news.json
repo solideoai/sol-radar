@@ -1,0 +1,256 @@
+{
+  "area": "news",
+  "sources": [
+    {
+      "id": "news-etnews-2006-gongkong",
+      "kind": "PUBLIC",
+      "title": "전자신문 솔리데오 `공공의 강자`(2006-01-04)",
+      "url": "https://m.etnews.com/200601030139",
+      "retrievedAt": "2026-10-27",
+      "quote": "실제로 솔리데오는 지난해 11억원 규모의 ‘건축행정정보시스템 유지관리’ 프로젝트 참여시, LG엔시스를 주사업자로 한 컨소시엄을 통해 사업을 수주했음에도 불구하고 자사 지분율은 95%였다."
+    },
+    {
+      "id": "news-etnews-2004-jangin",
+      "kind": "PUBLIC",
+      "title": "전자신문 21세기 장인을 찾아서(16) [이름 생략] 솔리데오시스템즈 사장(2004-04-28)",
+      "url": "https://www.etnews.com/200404270061",
+      "retrievedAt": "2026-10-27",
+      "quote": "강남구 종합정보화사업(일명 ‘STAR’ 프로젝트)(2003), 서울시 건축통계지원시스템, 고양시 종합정보화사업(일명 NICE) 등 솔리데오시스템즈가 주도한 주요 정보화 프로젝트에서"
+    },
+    {
+      "id": "news-etnews-2008-tumen",
+      "kind": "PUBLIC",
+      "title": "전자신문 대륙으로 뻗는 `IT 코리아`(2008-11-18)",
+      "url": "https://m.etnews.com/200811170109",
+      "retrievedAt": "2026-10-27",
+      "quote": "행정정보화 전문기업인 솔리데오시스템즈(대표 [이름 생략], 이하 솔리데오)는 중국 길림성 연변자치주 투먼시로부터 두만강 광장 및 부속 시설물 관리를 위한 정보시스템 구축사업을 수주했다고 17일 밝혔다."
+    },
+    {
+      "id": "news-etnews-2013-ganso",
+      "kind": "PUBLIC",
+      "title": "전자신문 [창간 31주년 특집3] 공간정보 분야의 강소기업 `솔리데오시스템즈`(2013-09-25)",
+      "url": "https://www.etnews.com/201309100297",
+      "retrievedAt": "2026-10-27",
+      "quote": "솔리데오시스템즈는 지난 2009년 착수한 국토교통부 초고층복합건물 연구 사업에 참여, 기존 FMS를 초고층복합건물에 맞게 고도화했다."
+    },
+    {
+      "id": "news-ditoday-nutanix",
+      "kind": "PUBLIC",
+      "title": "디지털투데이 뉴타닉스, 솔리데오시스템즈와 MOU 체결(2021-04-21)",
+      "url": "https://ditoday.com/?p=49183",
+      "retrievedAt": "2026-10-27",
+      "quote": "이번 협약에 따라 솔리데오시스템즈는 뉴타닉스의 ‘인증된 파트너(Authorized Partner)’가 됐다."
+    },
+    {
+      "id": "news-etnews-20250216",
+      "kind": "PUBLIC",
+      "title": "전자신문 삼성SDS 컨소, 차세대 지방행정공통시스템 ISMP 수주…본사업 경쟁 귀추 주목(2025-02-16)",
+      "url": "https://v.daum.net/v/20250216170115530",
+      "retrievedAt": "2026-10-27",
+      "quote": "삼성SDS 컨소시엄(삼성SDS, 솔리데오시스템즈, 브이티더블유)은 최근 차세대 지방행정공통시스템 구축을 위한 ISMP 사업을 수주했다."
+    },
+    {
+      "id": "news-ddaily-20260710",
+      "kind": "PUBLIC",
+      "title": "디지털데일리 6614억 규모 하반기 공공 IT 최대어 등장…노후 행정시스템, 클라우드 전면 개편(2026-07-10)",
+      "url": "https://v.daum.net/v/20260710060019705",
+      "retrievedAt": "2026-10-27",
+      "quote": "ISMP 사업은 삼성SDS·솔리데오시스템즈·브이티더블유로 구성된 컨소시엄이 오케스트로·KT·LG CNS 컨소시엄을 제치고 수주했다."
+    },
+    {
+      "id": "news-etnews-20130402",
+      "kind": "PUBLIC",
+      "title": "전자신문 대기업 빠진 공간정보 첫 대형사업, 솔리데오 컨소시엄 수주(2013-04-02)",
+      "url": "https://v.daum.net/v/20130402034109834",
+      "retrievedAt": "2026-10-27",
+      "quote": "솔리데오시스템즈·웨이버스·올포랜드 컨소시엄이 사업자로 선정됐다."
+    },
+    {
+      "id": "news-zdnet-20240620",
+      "kind": "PUBLIC",
+      "title": "지디넷코리아 솔리데오, '부동산 임대차 안심거래 지원 서비스' 수주(2024-06-20)",
+      "url": "https://v.daum.net/v/20240620060142760",
+      "retrievedAt": "2026-10-27",
+      "quote": "2024년 마이데이터 종합기반 조성사업"
+    },
+    {
+      "id": "news-etnews-20240708",
+      "kind": "PUBLIC",
+      "title": "전자신문 5차 공공 마이데이터 유통 체계 구축···장애 방지 초점(2024-07-08)",
+      "url": "https://v.daum.net/v/20240708170105373",
+      "retrievedAt": "2026-10-27",
+      "quote": "ICT 업계에 따르면 NIA는 5차 공공 마이데이터 유통 체계 구축 사업자로 솔리데오시스템즈를 선정했다."
+    },
+    {
+      "id": "news-zdnet-20241205",
+      "kind": "PUBLIC",
+      "title": "지디넷코리아 솔리데오시스템즈, '제3회 대한민국 SW기술인상' 수상(2024-12-05)",
+      "url": "https://v.daum.net/v/20241205104537200",
+      "retrievedAt": "2026-10-27",
+      "quote": "건축·시설·도면 분야의 핵심기술을 국산화하며 해외 의존도를 낮추는 데 집중해왔다."
+    },
+    {
+      "id": "news-zdnet-20241207",
+      "kind": "PUBLIC",
+      "title": "지디넷코리아 \"공공SW사업 우수성 인정\"···솔리데오, SP인증 활성화 NIPA 원장상 수상(2024-12-07)",
+      "url": "https://v.daum.net/v/20241207204050937",
+      "retrievedAt": "2026-10-27",
+      "quote": "데이터 전문기업 솔리데오시스템즈(대표 [이름 생략])는 과학기술정보통신부와 정보통신산업진흥원(NIPA, 원장 허성욱)이 주관한 '오픈소스 페스티벌'에서 SP인증 활성화 부문 우수상을 수상했다고 6일 밝혔다."
+    },
+    {
+      "id": "news-zdnet-20260226",
+      "kind": "PUBLIC",
+      "title": "지디넷코리아 '2026 K-SW 그랑프리' 수상자에 [이름 생략] 솔리데오 대표(2026-02-26)",
+      "url": "https://v.daum.net/v/20260226121726985",
+      "retrievedAt": "2026-10-27",
+      "quote": "부동산 빅데이터 플랫폼 ‘자두(JADO)’와 안심 부동산 서비스 ‘안부(ANBU)’를 통해 임대차 거래 과정에서 발생하는 정보 비대칭을 해소하고"
+    },
+    {
+      "id": "news-zdnet-20230223",
+      "kind": "PUBLIC",
+      "title": "지디넷코리아 솔리데오, '22회 SW기업 경쟁력 대상'서 과기정통부 장관상 수상(2023-02-23)",
+      "url": "https://v.daum.net/v/20230223203218771",
+      "retrievedAt": "2026-10-27",
+      "quote": "부동산 빅데이터기반의 프롭테크 플랫폼 서비스다."
+    },
+    {
+      "id": "news-edaily-20260331",
+      "kind": "PUBLIC",
+      "title": "이데일리 ㈜이노테나-㈜솔리데오, 전략적 업무협약 체결, 문서관리 시장 공략(2026-03-31)",
+      "url": "https://v.daum.net/v/20260331090912676",
+      "retrievedAt": "2026-10-27",
+      "quote": "솔리데오의 PINO 플랫폼은 공인전자문서중계자 인증을 획득한 서비스로, 정부·대학 증명서 등 공문서와 사문서를 아우르는 각종 전자문서의 발행·관리·유통을 통합 처리한다."
+    },
+    {
+      "id": "news-dt-20231221",
+      "kind": "PUBLIC",
+      "title": "디지털타임스 솔리데오시스템즈·비전… EU·한국 데이터 생태계 진출 위해 맞손(2023-12-21)",
+      "url": "https://v.daum.net/v/20231221070311517",
+      "retrievedAt": "2026-10-27",
+      "quote": "솔리데오시스템즈는 정부24, 공공 마이데이터, 전자증명서 등 정부기관의 주요 IT시스템을 구축·운영하는 기업이다."
+    }
+  ],
+  "technologies": [
+    {
+      "name": "ArchiFMS(통합시설물관리 솔루션, 자사 제품)",
+      "sourceIds": ["news-etnews-2013-ganso"]
+    },
+    {
+      "name": "Nutanix HCI",
+      "sourceIds": ["news-ditoday-nutanix"]
+    },
+    {
+      "name": "BIM(자사 건축 BIM 솔루션, 도면 연결 DXD 기술)",
+      "sourceIds": ["news-zdnet-20241205"]
+    },
+    {
+      "name": "JADO(자두, 부동산 빅데이터 플랫폼)",
+      "sourceIds": ["news-zdnet-20230223", "news-zdnet-20260226"]
+    },
+    {
+      "name": "PINO(피노, 전자문서유통 플랫폼)",
+      "sourceIds": ["news-edaily-20260331", "news-dt-20231221"]
+    },
+    {
+      "name": "마이데이터",
+      "sourceIds": ["news-zdnet-20240620", "news-etnews-20240708"]
+    }
+  ],
+  "licenses": [],
+  "industryCodes": [],
+  "pastProjects": [
+    {
+      "id": "pp-news-01",
+      "name": "건축행정정보시스템 유지관리(2005년 수주)",
+      "domain": "민원",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "프로젝트 규모 11억원. LG엔시스 주사업자 컨소시엄에서 솔리데오 지분율 95%라고 보도. 금액은 지분 계산이 되므로 넣지 않음(추정 금지). 발주기관은 기사에 없음(건설교통부 관계자 평가만 있음). profile.json 의 '건축행정시스템 세움터'와 같은 사업인지는 기사로 확인 안 됨.",
+      "sourceIds": ["news-etnews-2006-gongkong"]
+    },
+    {
+      "id": "pp-news-02",
+      "name": "두만강 광장 및 부속 시설물 관리 정보시스템 구축(중국 투먼시)",
+      "domain": "스마트시티",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "2008-11 수주. 발주는 중국 길림성 연변자치주 투먼시. 금액·기간 기사에 없음. 해외 사업. 도메인 분류는 임시.",
+      "sourceIds": ["news-etnews-2008-tumen"]
+    },
+    {
+      "id": "pp-news-03",
+      "name": "강남구 종합정보화사업(STAR)",
+      "domain": "기타",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "2004 기사가 솔리데오 주도 프로젝트로 꼽음(2003). 같은 기사에 민원행정시스템 표준소프트웨어(1999), 건교부 건축행정정보시스템(2000), 서울시 건축통계지원시스템, 고양시 종합정보화사업(NICE), 식·의약품종합정보서비스 ISP도 있음. 금액 없음, 20년 전 실적.",
+      "sourceIds": ["news-etnews-2004-jangin"]
+    },
+    {
+      "id": "pp-news-04",
+      "name": "국토교통부 초고층복합건물 연구개발(BIM·FMS)",
+      "domain": "기타",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "2013 기사: 2009년 착수 6년 과제, 국토부 연구개발. 계약 금액 없음. 기사의 '100억원'은 BIM 누적 개발비이며 사업 금액이 아님.",
+      "sourceIds": ["news-etnews-2013-ganso"]
+    },
+    {
+      "id": "pp-news-05",
+      "name": "차세대 지방행정공통시스템 구축 ISMP",
+      "domain": "기타",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "삼성SDS 컨소시엄(삼성SDS·솔리데오시스템즈·브이티더블유)이 2025-02 수주. ISMP 총액 8억원대(전자신문), 지분 모름. 본사업 6000억원대(2026-07 기사는 6614억원)는 이 건이 아니다. 발주기관은 기사마다 다름(전자신문 행정안전부 공모, 디지털데일리·바이라인 한국지역정보개발원). 솔리데오의 컨소시엄 내 역할은 기사에 없음.",
+      "sourceIds": ["news-etnews-20250216", "news-ddaily-20260710"]
+    },
+    {
+      "id": "pp-news-06",
+      "name": "부동산행정정보일원화 사업(2013)",
+      "domain": "데이터 플랫폼",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "국토교통부 발주, 59억원 규모, 솔리데오시스템즈·웨이버스·올포랜드 컨소시엄 선정(2013-04). 총액이며 지분 모름. 기간·솔리데오 역할 기사에 없음.",
+      "sourceIds": ["news-etnews-20130402"]
+    },
+    {
+      "id": "pp-news-07",
+      "name": "2024년 마이데이터 종합기반 조성사업 중 부동산 임대차 안심거래 지원 서비스",
+      "domain": "데이터 플랫폼",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "과학기술정보통신부·한국데이터산업진흥원(K-DATA) 사업. 2024-06 보도. 금액·기간 기사에 없음.",
+      "sourceIds": ["news-zdnet-20240620"]
+    },
+    {
+      "id": "pp-news-08",
+      "name": "5차 공공 마이데이터 유통 체계 구축",
+      "domain": "데이터 플랫폼",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "한국지능정보사회진흥원(NIA)이 사업자로 선정(2024-07 기사). 금액·기간 기사에 없음. profile.json 의 '공공 마이데이터'(pp-05)와 관련된 사업.",
+      "sourceIds": ["news-etnews-20240708"]
+    }
+  ],
+  "financials": null,
+  "publicHistory": [
+    {
+      "year": 2024,
+      "kind": "AWARD",
+      "name": "오픈소스 페스티벌 SP인증 활성화 부문 우수상(과기정통부·NIPA 주관, 제목은 NIPA 원장상)",
+      "sourceIds": ["news-zdnet-20241207"]
+    },
+    {
+      "year": 2026,
+      "kind": "AWARD",
+      "name": "2026 K-SW 그랑프리(소프트웨어공제조합, [이름 생략] 대표 개인 수상)",
+      "sourceIds": ["news-zdnet-20260226"]
+    },
+    {
+      "year": 2024,
+      "kind": "AWARD",
+      "name": "제3회 대한민국 SW기술인상 전자신문사장상(정보기술연구소 최종현 소장, KOSA)",
+      "sourceIds": ["news-zdnet-20241205"]
+    }
+  ]
+}

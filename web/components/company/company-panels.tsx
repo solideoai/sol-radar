@@ -12,16 +12,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type {
-  CompanyProfile,
-  CompanyProfileSummary,
-  CompanyStaffing,
+import {
+  sortProjectsForDisplay,
+  type CompanyProfile,
+  type CompanyProfileSummary,
+  type CompanyStaffing,
+  type ProfileSource,
 } from "@/server/company-profile";
+import { SourceLinks } from "./source-links";
 
 // 06 §5.6 탭별 본문. 각 탭 머리에 "이 값이 어느 점수 요소에 쓰이는지"를 한 줄로 적는다(08 §3·§4·§5.1).
 // 빈 값은 점수 영향을 문장으로 밝힌다(06 §5.6 빈 상태, 08 §4 missing 정책).
 
 const EMPTY = "—";
+const NO_PUBLIC_DATA = "공개 자료 없음";
 const TABLE_CARD = "gap-0 overflow-hidden py-0";
 
 const kstDate = (iso: string): string => formatKst(iso).slice(0, 10);
@@ -72,7 +76,7 @@ function Factor({ name, points }: { name: string; points: number }) {
 const LEVEL_LABEL = { BASIC: "기초", INTERMEDIATE: "중급", EXPERT: "전문" } as const;
 
 export function TechPanel({ profile }: { profile: CompanyProfile }) {
-  const { technologies, technologiesComplete } = profile;
+  const { technologies, technologiesComplete, sources } = profile;
   return (
     <Panel
       id="tech"
@@ -114,6 +118,7 @@ export function TechPanel({ profile }: { profile: CompanyProfile }) {
                   {detail.length > 0 ? (
                     <span className="type-caption text-muted-foreground">{detail.join(" · ")}</span>
                   ) : null}
+                  <SourceLinks sourceIds={technology.sourceIds} sources={sources} />
                 </li>
               );
             })}
@@ -139,7 +144,7 @@ function HeldStatus({ status }: { status: "HELD" | "NOT_HELD" }) {
 }
 
 export function LicensesPanel({ profile }: { profile: CompanyProfile }) {
-  const { licenses, industryCodes } = profile;
+  const { licenses, industryCodes, sources, publicHistory } = profile;
   const heldCount = licenses.filter((license) => license.status === "HELD").length;
   return (
     <Panel
@@ -175,7 +180,10 @@ export function LicensesPanel({ profile }: { profile: CompanyProfile }) {
               {licenses.map((license) => (
                 <TableRow key={license.code} className="h-11">
                   <TableCell className="pl-4 type-body whitespace-normal wrap-anywhere">
-                    {license.name}
+                    <span className="flex flex-col gap-0.5">
+                      {license.name}
+                      <SourceLinks sourceIds={license.sourceIds} sources={sources} />
+                    </span>
                   </TableCell>
                   <TableCell className="font-mono type-caption text-muted-foreground">
                     {license.code}
@@ -205,7 +213,10 @@ export function LicensesPanel({ profile }: { profile: CompanyProfile }) {
           <ul className="divide-y divide-border">
             {industryCodes.map((industry) => (
               <li key={industry.code} className="flex items-center gap-4 px-4 py-3">
-                <span className="min-w-0 flex-1 type-body wrap-anywhere">{industry.name}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5 type-body wrap-anywhere">
+                  {industry.name}
+                  <SourceLinks sourceIds={industry.sourceIds} sources={sources} />
+                </span>
                 <span className="font-mono type-caption text-muted-foreground">
                   {industry.code}
                 </span>
@@ -215,12 +226,37 @@ export function LicensesPanel({ profile }: { profile: CompanyProfile }) {
           </ul>
         </Card>
       )}
+      {publicHistory.length === 0 ? null : (
+        <>
+          <h3 className="mt-3 type-label font-medium text-foreground">
+            인증·등록 이력(점수 미사용)
+          </h3>
+          <Card className={TABLE_CARD}>
+            <ul className="divide-y divide-border">
+              {[...publicHistory]
+                .sort((left, right) => right.year - left.year)
+                .map((entry) => (
+                  <li
+                    key={`${entry.year}-${entry.kind}-${entry.name}`}
+                    className="flex items-center gap-4 px-4 py-3"
+                  >
+                    <span className="w-12 shrink-0 type-body tabular-nums text-muted-foreground">
+                      {entry.year}
+                    </span>
+                    <span className="min-w-0 flex-1 type-body wrap-anywhere">{entry.name}</span>
+                    <SourceLinks sourceIds={entry.sourceIds} sources={sources} />
+                  </li>
+                ))}
+            </ul>
+          </Card>
+        </>
+      )}
     </Panel>
   );
 }
 
 export function ProjectsPanel({ profile }: { profile: CompanyProfile }) {
-  const { pastProjects } = profile;
+  const { pastProjects, sources } = profile;
   return (
     <Panel
       id="projects"
@@ -262,30 +298,41 @@ export function ProjectsPanel({ profile }: { profile: CompanyProfile }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[...pastProjects]
-                .sort((left, right) => right.completedAt.localeCompare(left.completedAt))
-                .map((project) => {
-                  const amount = formatKrwCompact(project.amountKrw);
-                  return (
-                    <TableRow key={project.id} className="h-11">
-                      <TableCell className="pl-4 type-body whitespace-normal wrap-anywhere">
+              {sortProjectsForDisplay(pastProjects).map((project) => {
+                const amount =
+                  project.amountKrw === null ? null : formatKrwCompact(project.amountKrw);
+                return (
+                  <TableRow key={project.id} className="h-11">
+                    <TableCell className="pl-4 type-body whitespace-normal wrap-anywhere">
+                      <span className="flex flex-col gap-0.5">
                         {project.name}
-                      </TableCell>
-                      <TableCell className="type-body whitespace-normal wrap-anywhere">
-                        {project.domain}
-                      </TableCell>
-                      <TableCell className="text-right type-body tabular-nums">
+                        {project.note ? (
+                          <span className="type-caption text-muted-foreground">{project.note}</span>
+                        ) : null}
+                        <SourceLinks sourceIds={project.sourceIds} sources={sources} />
+                      </span>
+                    </TableCell>
+                    <TableCell className="type-body whitespace-normal wrap-anywhere">
+                      {project.domain}
+                    </TableCell>
+                    <TableCell className="text-right type-body tabular-nums">
+                      {amount === null ? (
+                        <span className="text-muted-foreground">{NO_PUBLIC_DATA}</span>
+                      ) : (
                         <span title={amount.full}>{amount.text}원</span>
-                      </TableCell>
-                      <TableCell className="type-body tabular-nums">
-                        {project.completedAt}
-                      </TableCell>
-                      <TableCell className="pr-4 type-body">
-                        {project.evidenceRef ? "있음" : "없음"}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                      )}
+                    </TableCell>
+                    <TableCell className="type-body tabular-nums">
+                      {project.completedAt ?? (
+                        <span className="text-muted-foreground">{NO_PUBLIC_DATA}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="pr-4 type-body">
+                      {project.evidenceRef ? "있음" : "없음"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>
@@ -362,6 +409,10 @@ function DefinitionList({ rows }: { rows: { term: string; value: string }[] }) {
 
 const listText = (values: string[]): string => (values.length === 0 ? "없음" : values.join(" · "));
 
+// 선호는 공개 자료로 확인한 사실이 아니라 회사가 정한 선택값이다(ADR-052 D13).
+export const PREFERENCES_CHOICE_NOTE =
+  "선호는 공개 자료가 아니라 회사가 정한 선택값입니다(회사 확인).";
+
 export function PreferencesPanel({ profile }: { profile: CompanyProfile }) {
   const { preferences } = profile;
   return (
@@ -388,15 +439,20 @@ export function PreferencesPanel({ profile }: { profile: CompanyProfile }) {
           ]}
         />
       )}
+      {preferences !== null && !profile.isDemo ? (
+        <p className="type-body text-muted-foreground">{PREFERENCES_CHOICE_NOTE}</p>
+      ) : null}
     </Panel>
   );
 }
 
-const krwOrEmpty = (value: string | undefined): string =>
-  value === undefined ? EMPTY : formatKrwFull(value);
+const krwOrBlank = (value: string | undefined, blank: string): string =>
+  value === undefined ? blank : formatKrwFull(value);
 
 export function FinancialsPanel({ profile }: { profile: CompanyProfile }) {
-  const { financials } = profile;
+  const { financials, sources } = profile;
+  // 공개 자료 프로필은 값이 없는 칸을 "공개 자료 없음"으로, 가상 프로필은 "—" 로 보인다(스펙 B3).
+  const blank = profile.isDemo ? EMPTY : NO_PUBLIC_DATA;
   return (
     <Panel
       id="financials"
@@ -416,20 +472,24 @@ export function FinancialsPanel({ profile }: { profile: CompanyProfile }) {
         <DefinitionList
           rows={[
             { term: "회계 연도", value: `${financials.fiscalYear}년` },
-            { term: "연 매출", value: krwOrEmpty(financials.annualRevenueKrw) },
-            { term: "자본금", value: krwOrEmpty(financials.capitalKrw) },
+            { term: "연 매출", value: krwOrBlank(financials.annualRevenueKrw, blank) },
+            { term: "자본금", value: krwOrBlank(financials.capitalKrw, blank) },
             {
               term: "직원 수",
               value:
                 financials.employeeCount === undefined
-                  ? EMPTY
+                  ? blank
                   : `${NUMBER.format(financials.employeeCount)}명`,
             },
-            { term: "신용 등급", value: financials.creditRating ?? EMPTY },
-            { term: "단일 사업 수행 상한", value: krwOrEmpty(financials.maxContractKrw) },
+            { term: "신용 등급", value: financials.creditRating ?? blank },
+            { term: "단일 사업 수행 상한", value: krwOrBlank(financials.maxContractKrw, blank) },
           ]}
         />
       )}
+      {financials?.note ? (
+        <p className="type-body text-muted-foreground">{financials.note}</p>
+      ) : null}
+      {financials ? <SourceLinks sourceIds={financials.sourceIds} sources={sources} /> : null}
     </Panel>
   );
 }
@@ -500,3 +560,45 @@ export function HistoryPanel({
 }
 
 export { kstDate };
+
+const SOURCE_KIND_LABEL = { PUBLIC: "공개 자료", COMPANY_CONFIRMED: "회사 확인" } as const;
+
+// 프로필 아래 "출처" 목록. 출처가 없으면(가상 프로필) 구역 자체를 그리지 않는다.
+export function SourcesSection({ sources }: { sources: ProfileSource[] }) {
+  if (sources.length === 0) return null;
+  return (
+    <section aria-labelledby="sources-heading" className="flex flex-col gap-3">
+      <h2 id="sources-heading" className="type-heading text-foreground">
+        출처 {sources.length}건
+      </h2>
+      <Card className={TABLE_CARD}>
+        <ul className="divide-y divide-border">
+          {sources.map((source) => (
+            <li key={source.id} className="flex items-center gap-4 px-4 py-3">
+              <span className="min-w-0 flex-1 type-body wrap-anywhere">
+                {source.url === null ? (
+                  source.title
+                ) : (
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    {source.title}
+                  </a>
+                )}
+              </span>
+              <span className="type-caption text-muted-foreground">
+                {SOURCE_KIND_LABEL[source.kind]}
+              </span>
+              <span className="type-caption tabular-nums text-muted-foreground">
+                확인일 {source.retrievedAt}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </section>
+  );
+}

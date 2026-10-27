@@ -143,7 +143,7 @@ export const MISSING_REASON_LABEL = {
   NO_REQUIREMENTS_EXTRACTED: "공고에서 요구기술을 찾지 못함",
   PROFILE_TECHNOLOGIES_EMPTY: "회사 기술 목록 없음",
   BID_DOMAIN_UNKNOWN: "사업 분야 미확인",
-  PROFILE_PROJECTS_EMPTY: "회사 실적 없음",
+  PROFILE_PROJECTS_EMPTY: "금액이 확인된 회사 실적 없음",
   REQUIRED_FTE_UNKNOWN: "필요 인력 미확인",
   TEAM_EMPTY: "점수 계산 대상 인력 없음",
   BUDGET_UNKNOWN: "예산 미공개",

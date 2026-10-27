@@ -49,7 +49,7 @@ updated: 2026-10-27
 
 |구분|저장 위치|값|쓰임|
 |---|---|---|---|
-|업무 역할|`memberships.sol_role`|`ADMIN`·`SALES`·`ANALYST`·`VIEWER`(check 제약, 기본 `VIEWER`)|아래 표와 [[05-API-SPEC\|05 API]]의 권한 열|
+|업무 역할|`memberships.sol_role`|`ADMIN`·`SALES`·`ANALYST`·`EXECUTIVE`·`VIEWER`(check 제약, 기본 `VIEWER`)|아래 표와 [[05-API-SPEC\|05 API]]의 권한 열|
 |조직 역할|`memberships.org_role`(템플릿)|`owner`·`member`|템플릿 호환용. 구성원 관리는 업무 역할 `ADMIN`([[16-DECISIONS\|ADR-021]])|
 |서비스 운영자|`profiles.is_admin`(템플릿)|`true`·`false`|계정 정지 등 서비스 운영. 조직 역할과 별개이고, 운영자도 남의 조직 데이터는 못 읽는다. 지금은 템플릿 화면 `/admin`(사용자 관리, 운영자가 아니면 404)과 API `/api/admin/users/:id/status`다. 설계의 `/ops`·`/api/ops/*` 분리([[16-DECISIONS\|ADR-021]])는 해커톤 뒤다([[16-DECISIONS\|ADR-023]], 미구현). 운영자라도 업무 역할이 `ADMIN`이 아니면 조직 ADMIN 화면 `/admin/ingestion`은 403 안내다. 팀(조직) 만들기는 운영자만 한다([[16-DECISIONS\|ADR-026]])|
 
@@ -63,22 +63,27 @@ updated: 2026-10-27
 
 |작업|허용 역할(`sol_role`)|
 |---|---|
-|읽기 전부 (공고·revision·추출·분석·자격·검토 이력·프로필·대시보드)|ADMIN, SALES, ANALYST, VIEWER|
+|읽기 전부 (공고·revision·추출·분석·자격·검토 이력·대시보드)|ADMIN, SALES, ANALYST, EXECUTIVE, VIEWER|
+|회사 역량 열람 (`/company`, `GET /company-profile`·`/revisions`, ADR-052)|ADMIN, EXECUTIVE|
 |분석 실행 요청 (`POST /bids/:id/analyses`)|ADMIN, SALES, ANALYST|
 |사람 최종 결정 기록 (`POST /bids/:id/reviews`)|ADMIN, SALES|
 |회사 프로필 개정 (`PUT /company-profile`)|ADMIN|
 |사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿의 owner 기준 정책을 `sol_role=ADMIN` 기준으로 바꿨다, `20261019000001`, [[16-DECISIONS\|ADR-021]])|
 |수동 수집 실행·수집 결과 조회|ADMIN. 예외: 대시보드 수집 신선도용 `latest_ingest_run(text)`은 업무 역할이 있으면 누구나 출처별 최신 run 한 건의 상태·시각·요약만 읽는다([[04-DATABASE\|04]] §3.6)|
 |본인 알림 조회·읽음 처리|모든 인증 사용자. 남의 알림은 `404`|
-|조직·인력 조회(`/people`, ADR-021)|ADMIN, SALES, ANALYST, VIEWER|
+|조직·인력 조회(`/people`, ADR-021)|ADMIN, SALES, ANALYST, EXECUTIVE, VIEWER|
 |설정 조직 탭(구성원·초대·업무 역할, ADR-021)|ADMIN|
 |데이터 수집 관리 화면(`/admin/ingestion`, ADR-021)|ADMIN|
 |P1(ADR-021): 관심 공고|본인 것만(ADMIN 포함). 조직에는 공고별 관심 인원 수만 공개|
-|P1(ADR-021): 분석 결과 비교·인력 배치 시뮬레이션|ADMIN, SALES, ANALYST, VIEWER. 시뮬레이션은 저장하지 않는다|
+|P1(ADR-021): 분석 결과 비교·인력 배치 시뮬레이션|ADMIN, SALES, ANALYST, EXECUTIVE, VIEWER. 시뮬레이션은 저장하지 않는다|
 |P1(ADR-021): 입찰 프로젝트·체크리스트 생성·관리, 결과 기록|ADMIN, SALES. 조회는 모든 역할|
 |P1(ADR-021): 조직·인력 편집(추가·이동·퇴사)|ADMIN|
 
 표기는 [[05-API-SPEC|05 API]]와 동일하게 허용 역할 나열. 역할이 목록에 없으면 `403 FORBIDDEN`.
+
+**EXECUTIVE(임원, ADR-052).** VIEWER가 하는 일에 회사 역량 열람을 더한 역할이다. 분석 요청·사람 결정·프로젝트·프로필 개정 같은 쓰기 역할 목록(`ADMIN, SALES, …`)에는 넣지 않는다. ADMIN만 초대·가입 승인·역할 변경으로 부여한다.
+
+**회사 프로필 열람은 화면·API에서 제한하고 DB RLS는 조직 전원 읽기 그대로다(ADR-052).** 메뉴·`/company` 페이지·두 GET API가 `ADMIN`·`EXECUTIVE`만 통과시킨다. DB를 잠그지 않은 이유는 같은 내용이 `score_runs.input_snapshot.profile`에 복사돼 조직 전원이 읽고, 그 사본을 가정 재계산·인력 시뮬레이션·목록 뷰 3개가 사용자 세션으로 읽기 때문이다. 표만 잠가도 DB로는 볼 수 있고, 사본까지 잠그려면 경로 여러 곳을 security definer로 옮겨야 한다. 지금 넣는 값은 전부 공개 자료(또는 회사가 확인한 보유 자격)라서 이 일을 하지 않는다. **비공개 자료를 프로필에 넣게 되면 그 전에 DB 수준 잠금을 다시 정한다.** 분석 결과 화면에 인용되는 회사 근거(자격·실적 이름)는 판정 근거로 쓰인 항목 이름만이고 프로필 원본은 아니다.
 
 **조직 격리는 RLS가 강제한다.** 조직 데이터 표(`company_profiles`·`score_runs`·`qualification_checks`·`bid_reviews`·`notifications`·`audit_logs` 등)는 `org_id`를 갖고 RLS `org_id in (select public.my_org_ids())`로 거른다. Next의 요청 처리 경로는 사용자 세션(anon 키 + 로그인 토큰)으로 DB를 부르므로 코드가 조직 조건을 빠뜨려도 RLS가 막는다. 사용자가 보낸 orgId는 신뢰하지 않는다. **다른 조직 자원은 행이 보이지 않아 `404 NOT_FOUND`**가 된다(존재 여부를 숨긴다). 공고(공용) 표는 `authenticated` 읽기만 열고 쓰기는 worker(service role)만 한다. 공용 운영 표 `ingest_runs`는 어느 조직의 `ADMIN`이든 모든 행을 읽으므로, 화면 역할에는 열 11개(`id`·`source`·`run_mode`·`trigger`·`batch`·`cursor`·`status`·`summary`·`quota_used`·`started_at`·`finished_at`)만 select를 준다. 수동 수집의 `job_key`·`idempotency_key`(요청한 조직 id)·`requested_by`(요청자 id)·`params`는 닫아 다른 조직 `ADMIN`에게 조직·요청자 id가 새지 않게 한다(`20261019000019`, N8 보안 점검 W1, [[16-DECISIONS|ADR-035]] F2). 요청자는 조직 소유 감사(`audit_logs` `INGEST_MANUAL`)로 찾는다. 새 표는 만들자마자 RLS를 켜고 필요한 권한·정책만 연다. 정책 시험은 `scripts/database.test.mjs`(PGlite, `pnpm test:db`)에 둔다.
 
@@ -116,7 +121,7 @@ updated: 2026-10-27
 3. 충족 확률·낙찰 확률·수주확률을 표현하지 않는다. 결정 모델 확률은 "선택지에 대한 모델 분포"로만 표기한다(아래 고지 문구).
 4. 사람이 최종 결정을 내리고 사유와 함께 기록한다.
 5. DEMO 데이터는 DEMO로 표시한다. 실데이터처럼 보이게 하지 않는다.
-6. live 모드의 분석은 "실제 공고 × 가상 회사 프로필"이다. 회사 프로필은 모든 실행 모드에서 가상 솔리데오 프로필이고, 화면에 "가상 회사 프로필로 분석" 배지를 붙여 실제 회사의 판단처럼 보이지 않게 한다(ADR-019·020).
+6. 로컬·시험·`demo:reset`의 회사 프로필은 가상 솔리데오 프로필이고, 화면에 "가상 회사 프로필로 분석" 배지를 붙여 실제 회사의 판단처럼 보이지 않게 한다(ADR-019·020). **2026-10-27 ADR-052**: 운영 DB의 프로필은 공개 자료로 만든 `is_demo=false` revision이다. 공고 상세의 배지는 분석에 쓴 프로필의 `is_demo`로 골라 이때 "공개 자료 회사 프로필로 분석"이 되고, 회사 역량 화면(`/company`)은 가상 칩 대신 "공개 자료 기준 · 확인일 …"과 값마다 출처를 보인다. 공개 자료가 말하지 않는 값은 비워 두고 추정하지 않으며, 지금 유효한지 모르는 자격은 `HELD`로 적지 않는다. 비공개 자료(실적증명서·내부 문서)와 직원 개인 정보는 넣지 않는다.
 7. mock 결과를 실제 모델 결과처럼 보이지 않게 한다. mock 자동 대체는 기본 금지다. 자동 대체(`AI_FALLBACK_TO_MOCK=true`)는 미구현이라 세 실행 모드 모두 켜면 기동을 거부한다(`infra/run-modes.json`, [[16-DECISIONS|ADR-030]] B11). 구현하게 되면 실제로 대체된 run은 `reviewFlags`에 `MOCK_FALLBACK`, 감사 필드 `fallback_reason`, 화면 배너로 밝힌다.
 8. 파싱·다운로드에 실패한 내용을 AI가 추측해 채우지 않는다. Qwen에는 파싱된 텍스트만 들어가고, 결정 모델 state에는 "RFP attachment could not be read; requirements may be incomplete" 사실 한 줄만 들어가며, `/explain`은 파싱 실패를 문장에 밝힌다([[07-DATA-PIPELINE|07 수집]] §2.6).
 9. 모델 성능은 평가셋 숫자(표본 수·신뢰구간 포함)로만 주장한다([[21-MODEL-TRAINING|21 모델 학습]]).
@@ -144,7 +149,7 @@ updated: 2026-10-27
 API `KevAssist.disclaimer`와 DB는 호환을 위해 literal "Kev 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."를 그대로 둔다([[16-DECISIONS|ADR-034]] 5번). 화면은 위 모델 중립 문구를 쓴다([[16-DECISIONS|16]] 미결정 30-2, 2026-10-21 12 추천안. 구현 전이라 지금 화면은 API literal을 그대로 보인다).
 
 ```text
-[가상 회사 프로필 배지 — 모든 실행 모드의 분석 화면]
+[가상 회사 프로필 배지 — `is_demo=true`인 프로필로 분석한 공고 상세. 운영의 공개 자료 프로필(`false`)로 분석하면 "공개 자료 회사 프로필로 분석"이다. "공개 자료 기준 · 확인일 …"은 회사 역량 화면(`/company`) 문구, ADR-052]
 가상 회사 프로필로 분석
 ```
 ```text
@@ -231,7 +236,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
 - 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "Compose 서비스" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
 - seed 데모 계정(목록·역할은 [[04-DATABASE|04 DB]] §6)은 `.invalid` TLD라 실제 메일이 가지 않는다. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
-- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 모든 실행 모드에서 가상이다. 첨부 원본은 private Supabase Storage(Compose 밖, ADR-048)에 둔다. 웹·AI Vercel 구성은 승인됐으며 외부 worker·Supabase와의 연결·키 분리는 [[10-DEPLOYMENT|10 배포]] Vercel 절을 따른다. 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
+- 개발·데모의 DB와 Auth는 Supabase 클라우드 프로젝트다. 데모 데이터(가상 공고·데모 회사 프로필·계정)는 노트북 밖(Supabase)에 저장되므로 ADR-019에서 승인한 회사명·부서·직급 명칭 외의 실제 회사 자료나 개인정보를 넣지 않는다. live 모드의 실제 공고(공공 데이터)는 넣되 담당자 개인정보 필드는 넣지 않는다(아래 절). 회사 프로필은 로컬·시험·`demo:reset`에서 가상이고, 운영 DB는 공개 자료 프로필(ADR-052)이다. 첨부 원본은 private Supabase Storage(Compose 밖, ADR-048)에 둔다. 웹·AI Vercel 구성은 승인됐으며 외부 worker·Supabase와의 연결·키 분리는 [[10-DEPLOYMENT|10 배포]] Vercel 절을 따른다. 데모 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]] §5다.
 - OpenAPI 문서를 만들면(선택) 개발 환경에서만 노출.
 - 상세 절차는 [[10-DEPLOYMENT|10 배포]].
 
@@ -249,7 +254,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 결정 서버(`sol_decision.serve`) 방어(main `36edfb6`): 요청 본문 128 KiB, state 24,000자, 대기열 `DECISION_MAX_QUEUE` 4(넘으면 503), 요청 마감 `DECISION_TIMEOUT_MS` 4,500ms(넘으면 504), 한글 state 거절, 패키지 최상위 `*.py`의 manifest 대조(`trust_remote_code`가 실행하는 코드). 세부는 [[03-AI-PIPELINE|03]] §5.3, 대조 범위의 한계와 임베딩 sha256 대조 추가(2026-10-21 사용자 결정, 구현 전)는 [[16-DECISIONS|16]] 미결정 28이다.
 
 ### 회사 GPU로 가는 데이터
-- 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
+- 실제 공고(공공 데이터, 개인정보 마스킹)와 회사 프로필(가상, 또는 운영의 공개 자료 프로필, ADR-052)뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
 - 회사 GPU 서버는 Hugging Face·GitHub에서 공개 가중치·코드를 받기만 한다(쓰기 없음). 외부망이 없으면 다른 기계에서 받아 반입한다([[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §2.2).
 - 평가 하네스(`sol_eval`)는 DB·네트워크를 쓰지 않는다. 평가셋 빌드·내보내기·누수 검사·비교(`compare`)는 노트북에서 돌리고, 실모델 채점(`sol_eval.bosun_score`, E4·E1')은 회사 GPU 서버 안에서 로컬 Bosun 패키지를 올려 오프라인으로 돈다(모델 다운로드 없음, [[16-DECISIONS|ADR-034]] 7번, main `1b68f9b`. 실모델 경로는 미검증). F1 사전 검증·smoke(`infra/gpu/bosun-preflight.sh`·`bosun-f1.sh`)·학습(F2)·보정(F3)은 GPU 서버 셸이 필요해 회사가 실행한다(ADR-025, ADR-034 10번, 사용자 승인 뒤). 실행 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다. 회사 GPU에서 돌려받는 것은 체크포인트·리포트·모델 카드이고 데이터셋 원문은 돌려받지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.4).
 

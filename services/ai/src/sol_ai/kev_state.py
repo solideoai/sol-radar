@@ -362,8 +362,13 @@ class StateBuilder:
 
     def company_past_performance(self, with_amounts: bool) -> str:
         lab = self.labels
-        amounts = [int(project.amountKrw) for project in self.profile.pastProjects]
-        parts = [lab.projects.format(count=len(amounts))]
+        # 금액을 모르는 실적(None)도 건수에는 세고, 금액 목록·최대 금액에서만 뺀다
+        amounts = [
+            int(project.amountKrw)
+            for project in self.profile.pastProjects
+            if project.amountKrw is not None
+        ]
+        parts = [lab.projects.format(count=len(self.profile.pastProjects))]
         if amounts:
             if with_amounts:
                 parts.append(lab.amounts.format(amounts=" / ".join(f"{a:,}" for a in amounts)))

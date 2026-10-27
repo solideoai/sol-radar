@@ -67,7 +67,7 @@ async function currentPeopleOrganization(access: PeopleAccess): Promise<PeopleOr
       if (
         business.userId !== auth.user.id ||
         business.current.isPersonal ||
-        !["VIEWER", "ANALYST", "SALES", "ADMIN"].includes(business.current.solRole)
+        !["VIEWER", "EXECUTIVE", "ANALYST", "SALES", "ADMIN"].includes(business.current.solRole)
       )
         throw new PeopleReadError(403, "FORBIDDEN", "조회 권한이 없습니다.");
       return { id: business.current.id, canManagePhotos: business.current.solRole === "ADMIN" };

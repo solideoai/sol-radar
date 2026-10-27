@@ -20,12 +20,14 @@ export const SOL_ROLE_ORDER = [
   "ADMIN",
   "SALES",
   "ANALYST",
+  "EXECUTIVE",
   "VIEWER",
 ] as const satisfies readonly SolRole[];
 export const SOL_ROLE_ITEMS: Record<SolRole, string> = {
   ADMIN: "ADMIN",
   SALES: "SALES",
   ANALYST: "ANALYST",
+  EXECUTIVE: "EXECUTIVE",
   VIEWER: "VIEWER",
 };
 
@@ -37,6 +39,7 @@ export const SOL_ROLE_GUIDE: readonly { role: SolRole; text: string }[] = [
   },
   { role: "SALES", text: "분석 요청, 참여 결정(BID·WATCH·NO-BID) 기록" },
   { role: "ANALYST", text: "분석 요청" },
+  { role: "EXECUTIVE", text: "임원. VIEWER가 하는 일 + 회사 역량 열람" },
   { role: "VIEWER", text: "읽기만. 모든 역할이 공고·분석 결과·조직·인력을 읽습니다." },
 ];
 

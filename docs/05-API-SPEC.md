@@ -27,7 +27,7 @@ updated: 2026-10-27
 |CSRF|쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수. 없으면 `403 CSRF_REJECTED`. `Authorization: Bearer` 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다|
 |테넌트|`orgId`는 서버가 세션 사용자의 멤버십(`memberships`)에서 정한다. 요청 본문·쿼리의 조직 ID는 무시한다. 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 거르므로 다른 조직 자원은 행이 보이지 않아 `403`이 아니라 `404`|
 |현재 조직|서버가 세션 사용자의 업무 멤버십(`organizations.personal_owner_id is null`인 조직)으로 정한다. 요청 본문·쿼리·헤더로 조직 ID를 받지 않는다. 업무 멤버십이 0개면 업무 API를 열지 않고(화면은 조직 초대 안내), 2개 이상이면 `403 UNSUPPORTED_ACCOUNT_STATE`. 경로에 조직 주소가 없고 조직 전환 UI도 없다. 개인 조직은 업무 멤버십 수에 들지 않는다([[16-DECISIONS\|ADR-021]])|
-|권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 템플릿 호환용이라 이 열에 쓰지 않는다. 구성원 관리도 `sol_role=ADMIN`이다(RLS 정책은 `20261019000001`, [[16-DECISIONS\|ADR-021]]). `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
+|권한|표의 권한 열은 `memberships.sol_role`의 **허용 역할 나열**이다. `ADMIN`이 다른 역할을 포함하는 순서 관계가 아니다([[09-SECURITY\|09 보안]] RBAC). `EXECUTIVE`(임원, ADR-052)는 VIEWER와 같은 읽기 권한에 회사 역량 조회를 더한 역할이다. 이 표에서 `VIEWER`가 있는 읽기 행은 `EXECUTIVE`에게도 열려 있고(행마다 따로 적지 않는다), 쓰기 행에는 `EXECUTIVE`가 없다. `auth` = 로그인한 조직 구성원(역할 무관), `public` = 인증 없음. `org_role`(owner·member)은 템플릿 호환용이라 이 열에 쓰지 않는다. 구성원 관리도 `sol_role=ADMIN`이다(RLS 정책은 `20261019000001`, [[16-DECISIONS\|ADR-021]]). `session`은 활동 중 Supabase 로그인 사용자로 조직 멤버십을 요구하지 않으며 가입 정보 보완 경로에만 사용|
 |오류|`{"error":{"code":"...","message":"...","details":{...},"requestId":"..."}}`. 코드 전체는 §5|
 |목록|`{"items":[...],"pageInfo":{"cursor":"...","nextCursor":"...\|null","hasNext":true}}`. 커서는 불투명 문자열|
 |멱등|`POST /bids/:id/analyses`, `POST /admin/ingestion/runs`는 `Idempotency-Key` 헤더를 받는다. 같은 키 + 같은 본문이면 첫 응답을 다시 준다. 같은 키 + 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`. 키 보존 24시간. 두 엔드포인트 모두 키가 없으면 서버가 UUID를 만든다(분석 [[16-DECISIONS\|ADR-030]] B20, 수동 수집 [[16-DECISIONS\|ADR-035]] F1. 서버가 만든 키는 클라이언트가 모르므로 재현되지 않는다). requestId(`Idempotency-Key` 값 또는 서버가 만든 UUID)는 `^[A-Za-z0-9_-]{1,128}$`만 받는다. 헤더 형식 검사는 엔드포인트마다 다르다. 분석은 UUID가 아니면, 수동 수집은 위 패턴이 아니면 `400 VALIDATION_ERROR`다. 분석의 저장 멱등 키는 `<org_id>:<requestId>`이고, DB check `score_runs_idempotency_key_org_check`가 `<org_id>:`로 시작하는지 강제한다([[04-DATABASE\|04 DB]] §3.4, [[16-DECISIONS\|ADR-031]] C5). 수동 수집의 저장 멱등 키(`ingest_runs.idempotency_key`)는 `<orgId>:<requestId>`, jobKey는 `manual:<orgId>:<requestId>`다. 같은 키 판정은 Redis `idem:ingest:<orgId>:<requestId>`(SET NX, 24시간)로 하고, 큐에 넣다 실패하면 그 키를 지워 같은 키로 다시 받게 한다|
@@ -56,8 +56,8 @@ updated: 2026-10-27
 |GET|`/bids/:id/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 목록·변경 필드(최신 먼저). 2026-10-22 통합으로 구현(`web/app/api/v1/bids/[id]/revisions/route.ts`)|`BidRevisionSummary[]`|
 |GET|`/bids/:id/revisions/:rev`|`ADMIN, SALES, ANALYST, VIEWER`|특정 revision 정규화 본문. 2026-10-22 통합으로 구현(`…/revisions/[rev]/route.ts`)|`NormalizedBid`|
 |GET|`/bids/:id/documents/:docId/download`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 첨부 다운로드|`302` → 60초 presigned URL([[09-SECURITY\|09 보안]])|
-|GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|현재 프로필(최신 revision)|`CompanyProfile`|
-|GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 이력|`CompanyProfileSummary[]`|
+|GET|`/company-profile`|`ADMIN, EXECUTIVE`|현재 프로필(최신 revision). 그 밖의 역할은 `403 FORBIDDEN` "회사 역량은 ADMIN·EXECUTIVE만 조회할 수 있습니다"(ADR-052)|`CompanyProfile`|
+|GET|`/company-profile/revisions`|`ADMIN, EXECUTIVE`|revision 이력. 역할 제한은 위와 같다(ADR-052)|`CompanyProfileSummary[]`|
 |PUT|`/company-profile`|`ADMIN`|**(미구현)** 새 revision 생성|`CompanyProfileInput` → `201 CompanyProfile`|
 |POST|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST`|분석 요청(비동기). 중복·큐 계약은 §4.5|`AnalysisRequest` → `202 AnalysisAccepted`|
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
@@ -153,7 +153,7 @@ interface Page<T> { items: T[]; pageInfo: PageInfo }
 interface ApiError {
   error: { code: ErrorCode; message: string; details?: Record<string, unknown>; requestId: string }
 }
-type Role = "ADMIN" | "SALES" | "ANALYST" | "VIEWER";   // memberships.sol_role. §2 권한 열이 보는 값
+type Role = "ADMIN" | "SALES" | "ANALYST" | "EXECUTIVE" | "VIEWER";   // memberships.sol_role. §2 권한 열이 보는 값. EXECUTIVE = VIEWER + 회사 역량 조회(ADR-052)
 type OrgRole = "owner" | "member";                      // memberships.org_role. 조직 관리(초대·구성원)용, 템플릿 값
 type BidStage = "PLAN" | "PRE_SPEC" | "NOTICE";
 type BidStatus = "OPEN" | "AMENDED" | "CANCELLED" | "CLOSED";
@@ -261,23 +261,33 @@ interface BidDetail extends BidListItem {
 ```ts
 interface CompanyProfile {
   id: string; orgId: string; revision: number; name: string;
-  isDemo: boolean;                 // 가상 프로필. 모든 실행 모드에서 true(ADR-020). 화면 "가상 회사 프로필로 분석" 배지
-  technologies: { name: string; level?: "BASIC" | "INTERMEDIATE" | "EXPERT"; yearsOfExperience?: number }[];
+  isDemo: boolean;                 // true = 가상 프로필(로컬·시험·demo:reset, ADR-020). false = 운영 DB의 공개 자료 프로필(ADR-052). 공고 상세 배지는 분석에 쓴 프로필의 이 값으로 고른다(true면 "가상 회사 프로필로 분석", false면 "공개 자료 회사 프로필로 분석"). 회사 역량 화면(`/company`)은 false일 때 "공개 자료 기준 · 확인일 …"
+  technologies: { name: string; level?: "BASIC" | "INTERMEDIATE" | "EXPERT"; yearsOfExperience?: number; sourceIds?: string[] }[];   // sourceIds: sources[].id (ADR-052). licenses·industryCodes·pastProjects·financials 항목에도 같은 선택 필드
   technologiesComplete: boolean;   // true면 technologies가 전체 목록. 목록에 없는 기술이 명시적 부정 근거가 된다. 기본 false
   licenses: { code: string; name: string; status: "HELD" | "NOT_HELD"; validUntil?: string }[];  // code는 qualification-codes.yaml 키. NOT_HELD = 보유하지 않음을 확인
   industryCodes: { code: string; name: string; status: "HELD" | "NOT_HELD" }[];                  // 나라장터 업종 마스터 코드
-  pastProjects: { title: string; agency?: string; amountKrw: string; startedAt: string; endedAt: string; domain: string; isPublicSector: boolean }[];
+  pastProjects: { title: string; agency?: string; amountKrw: string | null; startedAt: string; endedAt: string | null; domain: string; isPublicSector: boolean }[];   // null = 공개 자료에 없음(추정하지 않는다, ADR-052). 구현 모양은 아래 주석 참고
   financials: { fiscalYear: number; annualRevenueKrw?: string; capitalKrw?: string; employeeCount?: number; creditRating?: string; maxContractKrw?: string } | null;  // maxContractKrw: 단일 사업 수행 상한(scaleFit 입력)
   preferences: { agencies: string[]; agencyTypes: string[]; domains: string[]; excludedDomains: string[]; excludedKeywords: string[] } | null;  // agencyTypes 예: "교육청"; excludedDomains 예: "국방"
+  sources: ProfileSource[];        // 프로필 값의 출처. 없으면 [] (ADR-052)
+  publicHistory: PublicHistoryEntry[];   // 점수에 쓰지 않는 인증·등록·수상 연혁. 없으면 []
   effectiveAt: string; createdBy: { id: string; name: string }; createdAt: string; note: string | null;
 }
+interface ProfileSource { id: string; kind: "PUBLIC" | "COMPANY_CONFIRMED"; title: string; url: string | null; retrievedAt: string; confirmedBy?: string; quote?: string }   // COMPANY_CONFIRMED = 공개 조회로 확인하지 못해 회사가 보유를 확인한 자격
+interface PublicHistoryEntry { year: number; kind: "CERTIFICATION" | "REGISTRATION" | "AWARD"; name: string; sourceIds: string[] }
 type CompanyProfileSummary = Pick<CompanyProfile, "id" | "revision" | "effectiveAt" | "createdBy" | "createdAt" | "note">;   // revision 목록 요약. gateway /kev의 profileSummary(03 §5.7, CompanyProfile 전체 + 선택 staffAvailability)와 이름만 같고 다른 것이다(ADR-030 B5)
 interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "orgId" | "revision" | "isDemo" | "createdBy" | "createdAt"> {
   baseRevision: number;            // 현재 최신 revision. 다르면 409 PROFILE_REVISION_CONFLICT
 }
 ```
 
-명시적 부정 필드(`licenses[].status`, `industryCodes[].status`, `technologiesComplete`)가 있는 이유: 자격 판정의 미충족(`NOT_SATISFIED`)에는 회사 쪽 명시적 부정 근거가 필요하다. 목록에 없다는 사실만으로는 미충족이 아니라 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다([[08-SCORING|08 점수]] §5.1). `isDemo`는 입력에서 받지 않는다. 서버가 `true`로 저장하고, 실제 회사 자료를 넣는 경로는 별도 ADR과 [[09-SECURITY|09 보안]] 개정 전에는 없다.
+명시적 부정 필드(`licenses[].status`, `industryCodes[].status`, `technologiesComplete`)가 있는 이유: 자격 판정의 미충족(`NOT_SATISFIED`)에는 회사 쪽 명시적 부정 근거가 필요하다. 목록에 없다는 사실만으로는 미충족이 아니라 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다([[08-SCORING|08 점수]] §5.1). `isDemo`는 입력에서 받지 않는다. 화면·API 경로는 `true`로만 저장한다. `false`(공개 자료) revision은 운영자 CLI(`pnpm ops:company-profile`, service role)만 넣는다([[16-DECISIONS|ADR-052]]).
+
+2026-10-27 ADR-052로 바뀐 것(코드 정본은 `web/server/company-profile/company-profile.model.ts`와 `web/server/scoring/analysis-input.model.ts`):
+
+- 실적의 `amountKrw`와 완료일(구현 이름 `completedAt`)은 `null`일 수 있다. `null`은 "공개 자료에 없음"이고 점수는 중립값을 쓴다([[08-SCORING|08 점수]] §3.2). 구현의 `pastProjects[]`는 08 §3.2 모양(`id`·`name`·`domain`·`amountKrw`·`completedAt`·`evidenceRef` + 선택 `note`·`sourceIds`)이고 위 `title`·`startedAt`·`endedAt` 표기와 다르다(ADR-030 C4). `financials`에도 선택 `note`가 있다.
+- 응답에 `sources`와 `publicHistory`(`publicHistory`는 DB 열 `public_history`)가 있다. 가상 fixture 프로필은 둘 다 빈 배열이다.
+- 두 GET은 `ADMIN`·`EXECUTIVE`만 읽는다. 다른 역할은 `403 FORBIDDEN`이다. DB RLS는 조직 전원 읽기 그대로다. 분석 요청은 사용자 세션으로 프로필의 `id`·`revision`을 읽고 `score_runs.input_snapshot`에 사본이 남기 때문이다([[16-DECISIONS|ADR-052]]).
 
 ### 4.5 분석
 
@@ -319,7 +329,7 @@ interface RequirementAssessment {                                // 요구사항
   flags: ReviewFlag[];                                           // 예: KEV_REQUIREMENT_DISAGREEMENT, PARSE_UNSUPPORTED
 }
 interface AnalysisResult {
-  id: string; bidId: string; revisionId: string; revision: number; profileRevision: number;
+  id: string; bidId: string; revisionId: string; revision: number; profileRevision: number; profileIsDemo: boolean; // 분석에 쓴 프로필의 is_demo. 알 수 없으면 true
   runMode: RunMode;                                              // 이 분석을 돌린 실행 모드(04 score_runs.run_mode)
   status: AnalysisStatus;
   solScore: number | null;                                       // 0~100. 내부 적합도. 낙찰 확률 아님
@@ -655,7 +665,7 @@ X-Requested-With: sol-radar
 ```json
 GET /api/v1/analyses/7d2c...
 {
- "id":"7d2c...","bidId":"27f3...","revisionId":"9b7c...","revision":1,"profileRevision":2,
+ "id":"7d2c...","bidId":"27f3...","revisionId":"9b7c...","revision":1,"profileRevision":2,"profileIsDemo":true,
  "runMode":"mock",
  "status":"COMPLETED","solScore":72,
  "recommendation":"WATCH","recommendationBasis":"RULES_WITH_KEV_ASSIST",
@@ -845,7 +855,7 @@ ADR-047 [제안](../polaris/specs/in-progress/2026-10-21-public-procurement-expa
 - [[09-SECURITY|09 보안]] — 세션 쿠키·CSRF·RBAC·RLS
 - [[13-NOTIFICATIONS|13 알림]] — `Notification` 이벤트, 카카오톡 추천 공고
 - [[11-TESTING|11 테스트]] — Route Handler 계약 시험·RLS 정책 시험
-- [[16-DECISIONS|16 ADR]] — ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.8-Flash-Next), ADR-035(수동 수집 계약·`AiStatus` 보완)
+- [[16-DECISIONS|16 ADR]] — ADR-052(회사 공개 프로필·EXECUTIVE 역할), ADR-016(zod), ADR-017(Next.js + Supabase), ADR-020(실행 모드·나라장터 수집·결정 모델 v0.2·평가 API), ADR-034(결정 모델 Bosun v3.1 0.6B·추출 Qwen3.8-Flash-Next), ADR-035(수동 수집 계약·`AiStatus` 보완)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalRunReport` 지표, 모델 레지스트리, 운영자 CLI
 - [[07-DATA-PIPELINE|07 수집]] — `IngestionRunInput` 소스, 나라장터 Connector·정규화
 

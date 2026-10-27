@@ -140,6 +140,7 @@ const baseView: AnalysisView = {
   revisionId: "rev-1",
   revision: 1,
   profileRevision: 2,
+  profileIsDemo: true,
   runMode: "fixture",
   status: "COMPLETED",
   solScore: null,

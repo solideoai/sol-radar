@@ -65,6 +65,48 @@ updated: 2026-10-27
 - **바뀌지 않는 것**: 골든 94/72/68(`mock`), 규칙 엔진·점수 산식, 실행 모드 세 가지, 범위 외(모바일·결제·자동 투찰·승률), 운영 변경은 단계마다 사용자 승인(ADR-044·045·049). P1 다섯 화면은 모두 끝났다(N4b main `d209eec3`, 운영 배포 완료).
 - **함께 적는 10-26 변경(이 ADR의 결정은 아님)**: 상단바에서 실행 모드·AI 표시를 뺐다(`web/components/topbar-status.tsx`, [[plans/2026-10-26-live-ops-cutover|10-26 실행서]] §1). 지금 화면에서 데이터 출처는 상단바 DEMO 배지(보는 출처가 demo일 때만)와 공고 행 DEMO 배지로, 분석의 실행 모드·AI 모델은 공고 상세 분석 요약 띠("분석 실행 모드: …"·"AI: …")와 분석 결과 비교 화면으로 보인다. ADR-020의 "실행 모드를 화면에 표시"는 분석 단위 표시로 좁아졌다. 이 제거의 사용자 승인 원문은 이 기록에서 확인하지 못했다(미확인).
 
+## ADR-052 회사 공개 프로필과 EXECUTIVE 역할(ADR-020·019 개정)
+
+**채택 (2026-10-27 사용자 결정 D1~D8).** 사용자가 운영 서버(`https://www.solideos-radar.com`)에서 시연한다며, 회사 역량의 실적·기술·자격이 임의 데이터로 보이니 인터넷에서 찾을 수 있는 정보로 채우자고 했다. 질문 3개(D6·D7·D8)와 앞선 D1~D5는 [스펙](../polaris/specs/in-progress/2026-10-27-company-public-profile.md) §2 표에 기록했다. 구현은 `feat/company-public-profile` 브랜치(커밋 `dcef003f`~`8de16659`)에 있고 운영에는 아직 반영하지 않았다. 구현 상태는 이 ADR이 판정하지 않는다([[PROGRESS]]).
+
+> [!note] D6 개정 (2026-10-27 사용자 결정, ADR-054와 충돌 해소)
+> D6은 "운영 반영 전에 DEMO 정리 실행서 03(DEMO 공고 19건 삭제)을 돌린다"였다. 같은 날 뒤에 사용자가 다른 세션에서 [[#ADR-054 마감 연기(제출 11-03·발표 11-04)·발표 D1 유지·운영 DEMO 삭제 보류·첨부 처리 구현 (ADR-042 개정)|ADR-054]]를 정했다. 발표는 운영 `?origin=demo`로 DEMO 공고를 보이고, 운영 DEMO 삭제는 발표(11-04) 뒤로 미룬다.
+> 새 프로필 revision이 들어가면 목록·대시보드·관심 공고 뷰는 최신 revision으로 만든 분석만 붙이므로 DEMO 공고의 점수도 "미분석"이 된다. 사용자는 추천안(1번)을 골랐다: DEMO를 남기고(ADR-054), 공개 프로필을 반영한 뒤 발표에 쓸 DEMO 공고를 새 프로필로 다시 분석한다(AI 호출 19회 이하, live 24시간 창 예산 안). FX-02의 운영 실모델 점수(66 WATCH)도 바뀐다. 03 삭제는 하지 않는다.
+
+> [!note] 이어진 결정 (2026-10-27 사용자 답)
+> D9 자격: 사용자는 회사가 지금 보유한 자격을 모른다("하나도 몰라"). 공개 조회로 지금 등록이 보이는 정보통신공사업(`ICT_CONSTRUCTION`, 한국정보통신공사협회 공사업체 조회의 2026년 시공능력평가 대상)만 `HELD`다. 나머지 8개는 기록이 없어 공고가 요구하면 "검토 필요"(`NEEDS_REVIEW`)이고 그 공고의 권고는 WATCH를 넘지 않는다([[08-SCORING|08 점수]] 결정 정책). D10 기술: 사용자도 자료가 없어 회사 확인 기술은 없고, 홈페이지·채용공고·기사에서 회사가 쓴다고 밝힌 기술만 넣는다. D11 금액: 솔리데오 몫이 단독으로 보이는 금액만 넣는다. 2026-10-27 기준 0건이며 컨소시엄 총액과 나라장터 3자단가계약 금액은 note에만 둔다. D12: 사용자 승인으로 DART 감사보고서와 자격 공식 공개 조회도 출처로 쓴다. D13 선호: 금액 미공개(`scaleFit` 결측)와 선호 미설정이 겹치면 결측 2개로 모든 공고가 WATCH에 묶인다. 사용자가 고른 선호 분야(민원·데이터 플랫폼·AX·스마트시티)를 회사 선택값으로 넣어 결측을 1개로 줄인다. BID는 필수 자격을 모두 충족하고 점수가 75 이상일 때만 나온다(FX-01 기준 58점 WATCH).
+
+### 결정
+
+1. **회사 프로필은 환경에 따라 가상이거나 공개 자료다(ADR-020 "회사 프로필" 줄 개정).** 로컬·시험·`demo:reset`은 지금처럼 가상 솔리데오 프로필(`is_demo=true`, `fixtures/company/solideo-profile.json`)이다. **운영 DB는 공개 자료로 만든 프로필(`is_demo=false`)을 새 revision으로 쌓는다**(D5). 가상 revision은 변경 이력에 남고, 지난 분석(`score_runs`)은 그때 revision에 고정돼 재계산하지 않는다. 가상 fixture·골든 94/72/68·08 §6.1 worked example은 바뀌지 않는다.
+2. **값마다 출처를 저장하고, 공개되지 않은 칸은 비운다**(D3·D4). 자료는 회사 홈페이지·언론 기사·채용공고 상세·나라장터 계약 기록(공공데이터 API)까지다. 공개 페이지만 읽고 로그인이 필요한 곳과 자동 수집을 막는 곳은 쓰지 않는다. 구조는 `company_profiles.sources`(출처 목록)·`public_history`(점수에 쓰지 않는 인증·등록·수상 연혁) 두 JSONB 열이고, 항목의 선택 필드 `sourceIds`가 출처를 가리킨다([[04-DATABASE|04 DB]] §3.2).
+3. **지금 유효한지 모르는 자격은 `HELD`로 적지 않는다**(D7). 취득 연도만 공개된 것(예: 2014년 CMMI L3)은 `publicHistory`에만 둔다. 공개 조회로 확인하지 못했지만 회사가 보유를 확인한 자격만 `HELD`로 넣고, 출처 종류를 `COMPANY_CONFIRMED`(확인자·확인일)로 구분한다. D3의 예외는 자격 보유 여부 하나뿐이다(회사 확인 기술은 받지 않았다, D10). 운영자 CLI가 `HELD` 자격·업종이 quote 있는 `PUBLIC` 출처나 `confirmedBy` 있는 `COMPANY_CONFIRMED` 출처를 가리키는지 확인한다.
+4. **점수는 "모르는 값"을 중립으로 둔다**([[08-SCORING|08 점수]] §3.2·§3.4·§4). 실적 `amountKrw`·`completedAt`은 `null`일 수 있다. `null` 금액은 금액비 0.5, `null` 완료일은 최근성 0.2(`years: null`)이고 규모 적합성의 최대 과거 실적에서는 `null`을 뺀다. 모르는 값이 점수를 올리지 않는다. AI gateway(`ProfileProject.amountKrw` nullable, `kev_state.py`)도 같이 맞췄다.
+5. **`EXECUTIVE` 업무 역할을 새로 둔다**(D1·D2·D8). 화면 이름은 "임원"이다. 직급으로 판단하는 안은 고르지 않았다. EXECUTIVE = VIEWER 권한 + 회사 역량 열람이다. 쓰기 역할 목록(분석 요청·사람 결정·프로젝트 관리)에는 넣지 않고, `VIEWER`가 있는 읽기 목록에만 더한다. ADMIN이 초대·가입 승인·역할 변경에서 부여한다(마지막 ADMIN 보호 등 기존 규칙 그대로). sol_role CHECK 3곳(`memberships`·`invitations`·`member_join_requests`)은 마이그레이션 `20261027000700`이 바꾼다.
+6. **`/company`는 ADMIN·EXECUTIVE만 본다**(D1). 메뉴 `roles`, 페이지 가드(권한 없음 안내, HTTP 200), `GET /api/v1/company-profile`·`/revisions`(`403 FORBIDDEN`)가 같은 목록(`COMPANY_PROFILE_READ_ROLES`)을 쓴다. 분석 요청 등 다른 화면의 역할 권한은 바뀌지 않는다.
+7. **`company_profiles` RLS는 그대로 둔다(조직 전원 읽기).** 열람 제한은 화면·API에서 한다. 이유 1: 분석할 때마다 프로필 전체가 `score_runs.input_snapshot.profile`에 복사되고 `score_runs`는 조직 멤버 누구나 읽는다. 표만 잠가도 DB로는 볼 수 있고, 사본까지 잠그려면 가정 재계산·인력 배치 시뮬레이션·목록 뷰 3개(`opportunity_list_items`·`watched_opportunity_list_items`·`procurement_summary`)를 모두 security definer 경로로 옮겨야 한다. 막을 대상에 비해 일이 크다. 이유 2: 넣는 값이 전부 공개 자료이거나 회사가 확인한 보유 자격이다. **나중에 비공개 자료를 넣게 되면 그 전에 DB 수준 잠금을 다시 정한다**([[09-SECURITY|09 보안]]). 분석 결과 화면에 인용되는 회사 근거는 판정에 쓰인 항목 이름만이고 프로필 원본은 아니다.
+8. **넣는 길은 운영자 CLI 하나다.** 프로필 편집 화면·`PUT /api/v1/company-profile`은 만들지 않는다(비목표). `pnpm ops:company-profile`(`scripts/ops/company-profile.mjs`)을 사람이 로컬에서 직접 돌린다(service role은 운영자 CLI 허용 범위, [[09-SECURITY|09 보안]]). `--env-file <path> --file <json> --created-by <email> [--apply]`를 받고 기본은 dry-run(넣을 행 요약과 직전 revision과의 차이만 출력)이다. `--apply`가 있을 때만 insert한다. `created-by`가 org-01 ADMIN인지, `isDemo=false`인지, `note`가 비어 있지 않은지, 출처 규칙을 만족하는지 확인하고 revision 중복(23505)이면 안내 후 끝낸다. zod 스키마 전체와 domain 값은 `pnpm -C web exec vitest run server/company-profile/public-profile-file.test.ts`가 보므로 `--apply` 전에 먼저 돌린다. 실제 프로필 JSON은 `fixtures/`(전부 가상)에 두지 않는다.
+9. **실제 직원 수와 가상 명부 200명이 어긋나는 것을 받아들인다**(D5). 공개 재무 자료의 사원 수와 ADR-019 가상 명부는 따로 둔다. 인력 가용성 점수는 바뀌지 않는다.
+
+### 반영 순서 (운영을 바꾸는 단계는 실행 직전마다 사용자 확인)
+
+|단계|내용|상태|
+|---|---|---|
+|1|코드·마이그레이션 병합, 전체 `pnpm verify` 통과|대기 (Task 9)|
+|2|운영 DB 마이그레이션(`pnpm db:push`)|사용자 확인 뒤|
+|3|Vercel web 배포|사용자 확인 뒤|
+|4|회사 Worker·AI gateway를 새 코드로 갱신. 분석 job이 프로필을 `companyProfileSchema`로 검사하므로 옛 Worker는 `null` 금액을 못 읽고 분석이 실패한다. Worker는 실운영 중이라 재시작 시점을 사용자와 정한다|사용자와 시점 합의|
+|5|DEMO 정리 실행서 03(DEMO 공고 19건 삭제)|**하지 않음**(D6 개정, ADR-054. 발표 뒤까지 남긴다)|
+|6|CLI dry-run 결과를 사용자에게 보임|dry-run만|
+|7|사용자 확인 뒤 `--apply`|사용자 확인 뒤|
+|8|새 revision으로 다시 분석. 목록·대시보드는 옛 프로필로 낸 분석을 "미분석"으로 보이고 BID 권고 수도 0부터 다시 쌓인다. live 24시간 창 AI 호출 예산(약 260회) 안에서 발표에 쓸 DEMO 공고(D6 개정)와 우선순위 높은 열린 공고부터 나눠 돌린다|사용자 확인 뒤|
+
+### 결과와 한계
+
+- 구현은 코드 6개 작업(DB·역할·점수·AI gateway·화면·CLI)으로 끝났고, 이 문서는 그 결과를 옮긴 것이다. 전체 `pnpm verify`, 최종 리뷰와 그 수정, 로컬 격리 스택 화면 확인(1440·1280px, [증거](evidence/company-public-profile/20261027/local/local-check.md))을 마쳤다. 운영 반영은 아직이다.
+- 공고 상세 배지는 분석에 쓴 프로필의 `is_demo`로 고른다(Task 8b). `true`는 "가상 회사 프로필로 분석", `false`는 "공개 자료 회사 프로필로 분석"이다.
+- 일정·범위는 [[12-ROADMAP|12 로드맵]]을 따른다. 이 ADR은 날짜를 바꾸지 않는다.
+
 ## ADR-051 프로필 사진과 명부 연결(ADR-019 개정, Storage 예외)
 
 **채택 (2026-10-24 사용자 설계 승인).** 사용자가 회원가입·간편 로그인·설정에 프로필 사진 등록이 없다고 지적하고, 사진은 연결된 Supabase 클라우드에 저장하며 본인과 다른 사람이 조직도에서 보게 해 달라고 했다. 신규 입사자와 가상 직원 200명의 사진 변경, 가입 때 명부 연결 + 관리자 승인도 요구했다. 세션 sol-radar-81이 [설계](../polaris/specs/in-progress/2026-10-24-profile-photo-member-link.md)를 보였고 사용자가 "응 진행해"로 승인했다. 설계 C15에 따라 이 승인을 ADR 채택으로 본다(ADR-037 선례). [구현 계획](plans/2026-10-24-profile-photo-member-link-plan.md)은 실행 방식을 사용자의 상시 위임("추천안대로 진행해")에 따라 정했다.
@@ -152,6 +194,7 @@ ADR-005·017·028의 파일 저장소 조항을 대체한다. Redis/BullMQ·Qdra
 |ADR-056|추출 캐시 키 `(revision_id, model_name, prompt_hash)`에 입력 문서 집합이 없어, 첨부 일부만 파싱된 때의 추출이 뒤에도 재사용된다. 대안 A 처리 중 문서가 있으면 분석 대기(최대 300초) / B 캐시 키에 `source_hash`(계획 §8.4). 둘은 함께 쓸 수 있다. 상세는 위 ADR-056|제안|2026-10-27|코드 읽기(`analysis.repo.ts`·`analysis.service.ts`), [[2026-10-21-redis-gateway-supabase-storage-migration\|10-21 계획]] §8.4. 재현 기록 없음|
 |ADR-055|documents 소비자 계약 변경(07 개정): 범위 밖 첨부는 `PENDING`으로 남기고, 우리 쪽 장애(Storage·DB·gateway·파서 미설정)는 10분씩 최대 12번 미룬 뒤 `PENDING`으로 둔다. 복구 회차는 documents 등록이 갖는다. 상세는 위 ADR-055|제안|2026-10-27|[구현 기록](evidence/attachment-pipeline/20261027-implementation.md), [[07-DATA-PIPELINE\|07]] "documents 큐 소비자 계약". 로컬 통합, 운영 미적용|
 |ADR-054|마감 연기와 발표 경로(ADR-042 일정 조항 개정): 공식 제출 **2026-11-03**, 발표 **2026-11-04**. 발표는 D1 유지(운영 사이트 `?origin=demo`, `demo:reset` 안 함), 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 보류, DEMO 공고 일정은 발표일 기준으로 다시 잡는다(운영 적용은 별도 승인). S-LIVE는 첨부 처리(다운로드·파서·documents worker) 구현으로 실공고 분석 경로를 완성한다(구현 중, 2026-10-27 착수). X6 파인튜닝 실행 여부는 미결정. 상세는 위 ADR-054|채택|2026-10-27|사용자 원문: "새 마감일은 11월 3일. 발표일은 11월 4일." / D1 유지·DEMO 삭제 보류·DEMO 일정 재설정 제안에 "그래" / S-LIVE 선택지에 "추천으로"|
+|ADR-052|운영 DB 회사 프로필은 공개 자료(`is_demo=false`, 출처·공개 이력 저장), 로컬·시험·`demo:reset`은 가상 프로필(ADR-020 개정). `EXECUTIVE` 업무 역할(VIEWER + 회사 역량 열람), `/company`·API는 ADMIN·EXECUTIVE만, `company_profiles` RLS는 조직 전원 읽기 그대로. 실적 금액·완료일 `null`은 중립 점수|채택·코드 구현·전체 verify·최종 리뷰·로컬 화면 확인 완료(main 병합), 운영 반영 대기. D6 개정(DEMO 유지·재분석, ADR-054), D9~D13 이어진 결정|2026-10-27|사용자 결정 D1~D8, [스펙](../polaris/specs/in-progress/2026-10-27-company-public-profile.md)|
 |ADR-051|프로필 사진(비공개 Storage 버킷 `profile-photos`, 사용자 JWT·정책·signed URL)과 가입 신청 → org-01 ADMIN 승인으로만 명부·계정 연결(ADR-019 개정)|채택·로컬 구현, 클라우드 적용 대기|2026-10-24|사용자 설계 승인("응 진행해"), [설계](../polaris/specs/in-progress/2026-10-24-profile-photo-member-link.md), [증거](evidence/profile-photo/)|
 |ADR-049|Vercel web 단독, 회사 redis-api·AI gateway·Worker, 기존 Redis와 인증된 관리자 상태 GET 재사용|채택·로컬 검증됨, 회사 적용 대기|2026-10-22|사용자 배포 책임 확정·남은 작업 구현 지시, [회사 실행서](../infra/company/README.md), [검증](evidence/deployment/20261022-company-runtime-implementation.md)|
 |ADR-045|Redis HTTPS 접수는 기존 Next.js API의 frontend/redis-api 역할로 재사용. 회사6379 유지·HTTP6380 loopback·Nginx 불변|검증됨(로컬)·운영 배포 별도 승인|2026-10-21|사용자 Phase 1 구현 지시, [[2026-10-21-redis-gateway-supabase-storage-migration\|계획]], [[20261021-phase1-redis-gateway\|검증]]|
@@ -175,8 +218,8 @@ ADR-005·017·028의 파일 저장소 조항을 대체한다. Redis/BullMQ·Qdra
 |ADR-016|웹 클라이언트 공유 상태는 zustand, 입력 검증 스키마는 zod(4.x). Next.js 앱 `web/`에 설치(zustand 5.0.15, zod 4.6.5). 외부 API 계약(`/api/v1` Route Handler)의 DTO도 같은 zod 스키마(`web/server/<도메인>/*.model.ts`)가 단일 원천이고, worker(`web/worker`)도 같은 스키마를 쓴다|채택|2026-10-16|사용자 결정. zod는 DTO 단일 원천([[05-API-SPEC\|05 API]] §7)과 같은 라이브러리라 화면·Route Handler·worker가 스키마 표현을 공유한다. zustand는 여러 클라이언트 컴포넌트가 함께 쓰는 UI 상태만 담고, 서버 데이터와 URL 쿼리 필터는 담지 않는다 ([[06-UI-UX\|06 UI]] §11)|
 |ADR-017|아키텍처 전환: Next.js(`web/`, 화면·Route Handler·서버 도메인 `web/server/<도메인>`) + **Supabase(Postgres·RLS·Auth)**. NestJS·Prisma·자체 JWT 인증은 쓰지 않는다. Worker는 `web/worker` 진입점(같은 코드베이스의 별도 프로세스, BullMQ). MinIO·Qdrant·Redis/BullMQ·Python AI gateway·Docker Compose는 유지. 조직 데이터 열은 `org_id`, 업무 역할은 `memberships.sol_role`(ADMIN·SALES·ANALYST·VIEWER). service role 키는 worker·seed만. 개발 DB·Auth는 Supabase 클라우드 프로젝트(Pro)|채택 (해커톤 동안 유지. ADR-028로 해커톤 뒤 API·worker는 NestJS로 옮긴다)|2026-10-16|사용자 결정(2026-10-16). 출발 템플릿(agentic-boilerplate)이 Next.js + Supabase(조직·역할·RLS·인증 견본, 정책 시험·타입 생성 게이트)라 그대로 쓰면 인증·격리를 새로 만들지 않는다. ADR-001·002를 대체한다([[17-CLAUDE-IMPLEMENTATION\|17 구현 규칙]])|
 |ADR-018|가입·로그인 방식: 공개 가입 + 초대. 누구나 이메일 + 비밀번호(`/auth/sign-up`) 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만들고, 업무 조직 합류는 초대 수락으로 한다. 간편 로그인 제공자 설정은 해커톤 안에서 하되 다른 기능을 모두 끝낸 뒤 한다(후순위)|채택 (ADR-021로 개정: 가입 시 개인 조직 생성 중단, 이미 있는 개인 조직은 보존. 2026-10-21 ADR-038 예외 승인: 카카오 알림용 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`는 Supabase가 아니라 웹 서버·worker env에 두고 서버에서만 읽는다. `NEXT_PUBLIC_`·브라우저 번들에 넣지 않는다)|2026-10-16|사용자 결정(2026-10-16). 랜딩의 시작하기가 이미 `/auth/sign-up`으로 가고, 버튼·콜백·계정 연결 코드가 템플릿에 있어 새로 만들 것이 없다. 미결정 13번을 닫는다 ([[09-SECURITY\|09 보안]], [[12-ROADMAP\|12 로드맵]])|
-|ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명(남녀 100/100)·고유 정장 사진 200장, 엑셀 팀명 합산·비례 배분·자연스러운 세 글자 가상 이름, 가입 부서·직급/직책 필수|채택 (데이터·DB·가입 구현됨, 2026-10-17 main `42a4ead`. 화면 `/people`·`/org-chart`와 클라우드 DB 적용은 미완. ADR-021로 개정: 인력 표를 운영 `team_members`와 점수 `team_member_scoring`으로 분리, 사람이 고르는 규칙 매칭 후보 표시 허용. 2026-10-24 ADR-051로 개정: 명부와 계정은 관리자 승인으로만 연결, 올린 사진은 비공개 Storage)|2026-10-16|사용자 인터뷰 및 저장 경로 최종 승인. 상세는 아래 ADR-019·[[07-DATA-PIPELINE\|07 데이터]]·[[06-UI-UX\|06 UI]]·[[PROGRESS]]|
-|ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 Open API 실수집·첨부 파싱, Qwen3.5-9B·Kev-9B 실추론(회사 GPU 서버), Kev `kev-qs/v0.2` 참고 지표(SOL Score 미반영), 평가셋·평가 체계, Kev-9B LoRA 는 오류 분석 뒤 후속|채택 (설계 승인. 구현 일부 `15f5214`·`caf0abd`, 구현 상태는 [[PROGRESS]]. **ADR-023으로 해커톤 범위 재배치: live 실수집·실추론 1건·E3는 핵심 컷, P0-8·전체 평가셋·P0-11은 확장 컷. 설계는 불변**. ADR-027으로 Kev-9B LoRA 학습·E4 비교는 해커톤 X6. **2026-10-20 ADR-034로 모델·런타임 개정**: 추출·설명은 회사 운영 vLLM API의 Qwen3.5-27B, 결정 모델은 Bosun v3.1 0.6B(우리 `sol_decision` 서버). 실행 모드·`kev-qs/v0.2`·"분포는 점수 입력이 아니다"는 그대로)|2026-10-16|사용자 결정(2026-10-16): "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP". ADR-004·008·012를 개정한다. 상세는 아래 ADR-020·[[21-MODEL-TRAINING\|21 모델 학습]]·[[03-AI-PIPELINE\|03 AI 파이프라인]]·[[07-DATA-PIPELINE\|07 수집]]. 승인 설계: [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)|
+|ADR-019|회사 솔리데오 고정, 가상 직원 명부 200명(남녀 100/100)·고유 정장 사진 200장, 엑셀 팀명 합산·비례 배분·자연스러운 세 글자 가상 이름, 가입 부서·직급/직책 필수|채택 (데이터·DB·가입 구현됨, 2026-10-17 main `42a4ead`. 화면 `/people`·`/org-chart`와 클라우드 DB 적용은 미완. ADR-021로 개정: 인력 표를 운영 `team_members`와 점수 `team_member_scoring`으로 분리, 사람이 고르는 규칙 매칭 후보 표시 허용. 2026-10-24 ADR-051로 개정: 명부와 계정은 관리자 승인으로만 연결, 올린 사진은 비공개 Storage. 2026-10-27 ADR-052로 개정: 운영 DB 회사 역량은 공개 자료 프로필, 가상 명부 200명은 그대로)|2026-10-16|사용자 인터뷰 및 저장 경로 최종 승인. 상세는 아래 ADR-019·[[07-DATA-PIPELINE\|07 데이터]]·[[06-UI-UX\|06 UI]]·[[PROGRESS]]|
+|ADR-020|실데이터 MVP와 AI 파이프라인 v0.2: 실행 모드 `live`·`fixture`·`mock`, 나라장터 Open API 실수집·첨부 파싱, Qwen3.5-9B·Kev-9B 실추론(회사 GPU 서버), Kev `kev-qs/v0.2` 참고 지표(SOL Score 미반영), 평가셋·평가 체계, Kev-9B LoRA 는 오류 분석 뒤 후속|채택 (설계 승인. 구현 일부 `15f5214`·`caf0abd`, 구현 상태는 [[PROGRESS]]. **ADR-023으로 해커톤 범위 재배치: live 실수집·실추론 1건·E3는 핵심 컷, P0-8·전체 평가셋·P0-11은 확장 컷. 설계는 불변**. ADR-027으로 Kev-9B LoRA 학습·E4 비교는 해커톤 X6. **2026-10-20 ADR-034로 모델·런타임 개정**: 추출·설명은 회사 운영 vLLM API의 Qwen3.5-27B, 결정 모델은 Bosun v3.1 0.6B(우리 `sol_decision` 서버). 실행 모드·`kev-qs/v0.2`·"분포는 점수 입력이 아니다"는 그대로. **2026-10-27 ADR-052로 "회사 프로필" 줄 개정**: 운영 DB는 공개 자료 프로필, 로컬·시험·`demo:reset`은 가상 프로필)|2026-10-16|사용자 결정(2026-10-16): "해커톤 시연용 가짜 AI가 아니라, 실제 공공입찰 데이터를 대상으로 끝까지 동작하는 SOL RADAR MVP". ADR-004·008·012를 개정한다. 상세는 아래 ADR-020·[[21-MODEL-TRAINING\|21 모델 학습]]·[[03-AI-PIPELINE\|03 AI 파이프라인]]·[[07-DATA-PIPELINE\|07 수집]]. 승인 설계: [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)|
 |ADR-022|data.go.kr 서비스키를 서비스마다 따로 둔다: env 4개(`G2B_BID_NOTICE_SERVICE_KEY` 15129394·`G2B_PRE_SPEC_SERVICE_KEY` 15129437·`G2B_ORDER_PLAN_SERVICE_KEY` 15129462·`G2B_INDUSTRY_MASTER_SERVICE_KEY` 15129467). 소스 registry의 `serviceKeyEnv`가 소스별 env 이름을 가리킨다. 단일 `G2B_SERVICE_KEY`는 쓰지 않는다|채택 (구현 일부 `15f5214`, 구현 상태는 [[PROGRESS]])|2026-10-18|사용자 결정(2026-10-18): 서비스 4개에 키를 각각 받았고 API마다 키를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있고, 호출 예산 카운터(`quota:{serviceId}:{YYYYMMDD}`)와 단위가 같다. ADR-020 승인 설계의 단일 키 표기를 대체한다. 상세는 아래 ADR-022·[[07-DATA-PIPELINE\|07 수집]] §2.2·[[15-DATA-CONTRACTS\|15 데이터 계약]] §8|
 |ADR-021|사이드바 정보 구조와 입찰 업무 확장: 데모 필수 화면(앱 셸·설정·조직·인력 조회·데이터 수집 관리·대시보드 카드 5개)과 P1(관심 공고·분석 결과 비교·입찰 프로젝트·인력 배치 시뮬레이션·조직·인력 편집), 조직 주소 없는 경로, 서비스 운영자 `/ops` 분리|채택 (설계 승인. 2026-10-21 ADR-042로 P1 착수 조건 개정. 구현 일부 main `42a4ead`, 구현 상태는 [[PROGRESS]]. **ADR-023으로 해커톤 범위 재배치: 데모 필수 화면이 확장 컷으로 이동, 설계는 불변**. 2026-10-20 사용자 결정으로 노출 조건 개정: 화면 없는 메뉴는 링크 없는 "준비 중", 상세 사이드바 항목)|2026-10-16|사용자 승인 4차(2026-10-16). ADR-018·019를 개정하고 미결정 11·12번을 닫는다. 상세는 아래 ADR-021·[사이드바 정보 구조 설계](plans/2026-10-16-sidebar-ia-design.md)|
 |ADR-023|해커톤 데모 컷 재정의(3단): **핵심 컷**(S2·S3·S4·S-LIVE·S6·S7과 그에 필요한 Phase 0~6 기능) → **확장 컷**(S5 변경 감지, ADR-021 데모 필수 화면, P0-8, 전체 평가셋·P0-11) → **P1**(ADR-021 P1, 변경 없음). 실제 AI 추론 1건(S-LIVE) 필수, E3 대조 실험 필수(축소 규모), 10-21 외부 의존성 컷 규칙 4갈래, 네트워크 대체 경로 결정(미결정 8번 종결)|채택 (2026-10-19 사용자 승인, 구현 전. 2026-10-21 ADR-042로 P1 게이트·일정 개정. 2026-10-20 ADR-034로 E3 대조군 모델이 회사 API Qwen3.5-27B, S-LIVE 모델이 Qwen3.5-27B·Bosun v3.1로 바뀜. 컷 구조는 그대로. 2026-10-20 ADR-037로 개정: "핵심 컷이 빨간불이면 확장 컷에 손대지 않는다"의 예외로 데모 강화 컷(BOOST-2 가정 재계산)을 핵심 컷과 나란히 허용. 확장 컷·P1 규칙은 그대로. 2026-10-21 ADR-039로 개정: 확장 컷 4건(S5·N9·N2·N8·P0-8)도 같은 조건으로 나란히 허용. 2026-10-21 ADR-040·041로 확장 컷에 부처 지원사업 공고·메일 알림을 더하고 같은 조건으로 나란히 허용)|2026-10-19|마감 2026-10-27, 공식 배점 실용성 30 + 완성도 25 = 55가 "실제 데이터로 돌아가고 흐름이 완결되는가". 2026-10-18 기준 "이 입찰에 들어가야 하는가" 코드가 0이라 Phase 0~7 전부를 데모 필수로 두면 완결이 불가능. ADR-020·021의 설계는 보존하고 우선순위·노출 범위만 바꾼다. 상세는 아래 ADR-023·[수상 전략·최소 데모 컷](plans/2026-10-18-hackathon-award-plan.md)|
@@ -328,6 +371,9 @@ sol-radar-54가 main `4e62170`·`mock`으로 11 §5 0~18번을 돌린 2차 리�
 > [!note] 2026-10-24 ADR-051 개정
 > 가입 신청과 org-01 ADMIN 승인으로 계정을 명부에 잇는다(신규 입사자는 새 비데모 행, 기존 직원은 `user_id` 연결). 올린 프로필 사진은 비공개 버킷 `profile-photos`에 둔다. 아래 "공개 자산은 가상 정장 사진뿐"과 "이름이 같아도 자동 연결하지 않는다"는 그대로다.
 
+> [!note] 2026-10-27 ADR-052 개정
+> 운영 DB의 회사 역량은 공개 자료 프로필이다. 아래 "회사명·부서/직급 외의 직원·자격·실적·재무는 실제 회사 정보로 소개하지 않는다"는 가상 명부 200명과 로컬·시험·`demo:reset` 프로필에 해당한다. 가상 직원 명부는 그대로이고, 공개 재무의 사원 수와 어긋나는 것을 받아들인다.
+
 2026-10-16 인터뷰 후 사용자 최종 승인. 아래는 **설계 결정**이다. 구현 상태는 위 행과 [[PROGRESS]]에 있다. 승인 스펙은 [솔리데오 인력·가입](../polaris/specs/done/2026-10-16-solideo-people-signup.md)이다.
 
 - 사용자 회사명은 솔리데오로 고정하고 회사 선택을 만들지 않는다. `org-01`은 해당 업무 조직, `org-02`는 숨겨진 RLS 격리 시험용이다. 공개 가입 + 초대 합류(ADR-018), 조직 격리는 유지한다. ADR-021로 가입 시 개인 조직 생성은 중단하고, 이미 있는 개인 조직은 지우지 않는다.
@@ -339,6 +385,9 @@ sol-radar-54가 main `4e62170`·`mock`으로 11 §5 0~18번을 돌린 2차 리�
 - 검증은 [[11-TESTING]] PPL-01~07. PPL-01~06은 통과 기록이 있고([[11-TESTING]] §8·§9.1·§10), PPL-07의 전체 점수 파이프라인 골든은 Phase 4에 남아 있다.
 
 ## ADR-020 상세 — 실데이터 MVP와 AI 파이프라인 v0.2
+
+> [!note] ADR-052로 개정 (2026-10-27)
+> 아래 "회사 프로필" 줄의 "모든 모드에서 가상 솔리데오 프로필(`is_demo=true`)"은 로컬·시험·`demo:reset`에만 해당한다. 운영 DB는 공개 자료로 만든 프로필(`is_demo=false`)을 새 revision으로 쌓고, 화면은 "가상 회사 프로필" 대신 출처와 확인일을 보인다. 본문은 2026-10-16 설계 결정 기록으로 둔다.
 
 2026-10-16 사용자 대화로 정했고 승인 설계는 [실데이터 AI 파이프라인 v0.2](plans/2026-10-16-ai-pipeline-finetune-design.md)다. 아래는 **설계 결정**이다.
 

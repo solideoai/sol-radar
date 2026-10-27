@@ -74,7 +74,7 @@ export const missingReasonSchema = z.enum([
 export const runModeSchema = z.enum(["live", "fixture", "mock"]);
 export const bidOriginSchema = z.enum(["live", "demo"]);
 // memberships.sol_role. 도메인 간 런타임 import 를 피해 여기에 두고, 시험이 SolRole 과 같음을 고정한다.
-export const roleSchema = z.enum(["ADMIN", "SALES", "ANALYST", "VIEWER"]);
+export const roleSchema = z.enum(["ADMIN", "SALES", "ANALYST", "EXECUTIVE", "VIEWER"]);
 
 // Route Handler 가 apiError 로 옮기는 서비스 오류 코드(T1 ApiErrorCode 와 같은 문자열).
 export type ServiceErrorCode =

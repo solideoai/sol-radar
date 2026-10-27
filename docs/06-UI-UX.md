@@ -207,7 +207,7 @@ flowchart TD
 | 업무 | 알림 | `/notifications` | `bell` | 예 |
 | 분석 | 분석 결과 비교 | `/analysis` | `git-compare-arrows` | 예 (P1 N5, `released`) |
 | 분석 | 인력 배치 시뮬레이션 | `/workforce` | `users-round` | 예 (P1 N7, `released`) |
-| 회사 | 회사 역량 | `/company` | `award` | 예 |
+| 회사 | 회사 역량 | `/company` | `award` | 예. 메뉴 `roles`는 ADMIN·EXECUTIVE(ADR-052) |
 | 회사 | 조직·인력 | `/people` | `users` | 예 |
 | 회사 | 조직도 | `/org-chart` | `network` | 예 |
 | 맨 아래 고정 칸 | 설정 | `/settings` | `settings` | 예 (조직 탭은 확장 컷) |
@@ -299,8 +299,9 @@ flowchart TD
 | 주요 액션 | ADMIN: [편집] → 폼 → [새 revision 저장]. 저장 시 "기존 분석은 이전 revision 기준입니다. 재분석이 필요합니다" 안내 |
 | 빈 상태 | 항목 0건: "등록된 기술이 없습니다. 점수 요소 `기술 스택 적합`이 0점으로 계산됩니다" + [추가](ADMIN). 점수 영향을 문장으로 명시([[08-SCORING\|08 SOL Score]] missing 정책) |
 | 로딩/오류 | §5.1 |
-| 권한 | 읽기 모든 역할. 편집 ADMIN. 비ADMIN에는 편집 버튼 자체를 숨기지 않고 비활성 + 툴팁 "ADMIN만 편집" |
+| 권한 | **읽기 ADMIN·EXECUTIVE만**(ADR-052). 그 밖의 역할은 메뉴가 없고, 주소로 들어오면 §5.1 권한 없음 화면("이 화면을 볼 권한이 없습니다" + "회사 역량은 업무 역할이 ADMIN 또는 EXECUTIVE인 구성원만 볼 수 있습니다. 지금 역할: {역할}" + [대시보드로], HTTP 200)이고 API는 `403 FORBIDDEN`이다. 편집 화면은 없다(계획상 ADMIN, 아래 구현 상태) |
 | 구현 상태 | 2026-10-21 main `bf16806`은 읽기 전용이다: 링크 탭 7개(기술 스택·보유 자격·수행 실적·인력·선호 설정·재무·변경 이력, `?tab=`), 인력 탭은 200명·200명만(가용 FTE는 공고 기간마다 달라 고정 숫자로 보이지 않는다). 편집·새 revision 저장·[추가]는 미구현이다. 증거 [회사 역량 검증 보고](evidence/phase-3/company/20261020-company-read-report.md) |
+| 공개 자료 프로필 (2026-10-27, [[16-DECISIONS\|ADR-052]]) | `is_demo=false`(운영 DB)인 프로필은 상단의 "가상 회사 프로필" 칩 대신 "공개 자료 기준 · 확인일 {출처 확인일 중 가장 늦은 날}"을 보이고 출처 목록을 둔다. 기술·자격·실적·재무 값 옆에 출처 링크를 둔다(`sourceIds`). 공개 자료가 없어 비운 칸은 "공개 자료 없음"으로 표시한다. 회사가 직접 확인한 자격은 출처 종류를 "회사 확인"(확인자·확인일)으로 구분해 "공개 자료"와 섞이지 않게 한다. 보유 자격 탭 아래에 "인증·등록 이력(점수 미사용)"(`publicHistory`)을 보인다. 수행 실적은 완료일 내림차순이고 완료일을 모르는 실적은 맨 아래에 둔다. 가상 프로필(`is_demo=true`)은 지금처럼 "가상 회사 프로필" 칩이다 |
 
 ### 5.7 `/notifications`
 
@@ -454,7 +455,7 @@ flowchart TD
 - 보정 상태 태그 `미보정`/`보정됨(데이터셋 버전)`
 - 항목을 누르면 그 판단에 쓰인 state 줄과 공고 인용·회사 증빙(`KevStateTrace`)을 근거 서랍에 연다
 
-상단 요약에는 모든 실행 모드에서 "가상 회사 프로필로 분석" 배지를 붙인다(회사 프로필은 언제나 가상 솔리데오 프로필이다. `live` 공고면 "실제 공고 × 가상 회사 프로필"). 우측 레일(결정 패널)은 sticky. 숫자는 [[08-SCORING|08 SOL Score]] §6.2 Example A(`FX-01`)와 같다. 결정 모델 섹션 하단에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 결정 모델 블록 3줄이 그대로 들어간다(와이어프레임에는 지면상 요약).
+상단 요약의 회사 프로필 배지는 분석에 쓴 프로필 revision의 `is_demo`로 고른다(조직의 최신 프로필이 아니다. 프로필을 알 수 없으면 가상으로 본다). `true`(로컬·시험·`demo:reset`의 가상 솔리데오 프로필)면 "가상 회사 프로필로 분석"이고 `live` 공고에는 "실제 공고 × 가상 회사 프로필"을 곁들인다. `false`(운영 DB의 공개 자료 프로필, ADR-052)면 "공개 자료 회사 프로필로 분석"이고 `live` 공고에는 "실제 공고 × 공개 자료 회사 프로필"을 곁들인다. 우측 레일(결정 패널)은 sticky. 숫자는 [[08-SCORING|08 SOL Score]] §6.2 Example A(`FX-01`)와 같다. 결정 모델 섹션 하단에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 결정 모델 블록 3줄이 그대로 들어간다(와이어프레임에는 지면상 요약).
 
 상태별 변형:
 
@@ -506,7 +507,7 @@ flowchart TD
 |---|---|---|
 | `DEMO` 배지 | Topbar 맨 앞(D3), 목록 각 행, 상세 제목 앞 | 행·상세는 `isDemo=true` 레코드에 표시. Topbar는 지금 보는 출처(`?origin=`, 없으면 서버 기본 출처 `SOL_DEFAULT_ORIGIN`)가 `demo`일 때만 표시한다(2026-10-25 계획 B2, `web/components/topbar-demo-indicator.tsx`). 실행 모드와 따로다. 예전 설계의 로그인 카드 배지는 지금 코드(`web/app/auth/login/`)에 없다. 툴팁은 09 문구 그대로: "이 데이터는 데모용 가상 공고입니다. 실제 입찰 공고가 아닙니다." |
 | `RunModeIndicator` | Topbar(**2026-10-26 제거**. 아래는 옛 기준) | `실행 모드: live \| fixture \| mock`([[16-DECISIONS\|ADR-020]]). web 서버가 env `SOL_RUN_MODE`(기본 `mock`)를 읽어 서버 렌더로 넘긴다. `/health/ready`에는 실행 모드 값이 없다([[10-DEPLOYMENT\|10 배포]], [[16-DECISIONS\|ADR-029]] A6 D2). `live`는 중립 색, `fixture`·`mock`은 warning 색 |
-| 가상 회사 프로필 배지 | 상세 상단 요약 | 모든 분석에 "가상 회사 프로필로 분석". 툴팁 "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다" |
+| 회사 프로필 배지 | 상세 상단 요약 | 분석에 쓴 프로필이 `is_demo=true`면 "가상 회사 프로필로 분석", 툴팁 "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다". `false`면 "공개 자료 회사 프로필로 분석", 툴팁 "공개 자료(홈페이지·기사·채용공고·나라장터 계약·DART 공시·협회 등록 조회)로 만든 솔리데오 프로필과 대조한 결과입니다. 선호 분야는 회사가 정한 선택값입니다. 공개되지 않은 실적·자격은 들어 있지 않습니다" |
 | 공고 출처 필터 | `/bids` 필터 바 | `origin=live\|demo\|all`. 기본은 서버 env `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`)이고, 없거나 틀리면 실행 모드를 따른다(`live` 모드 `live`, `fixture`·`mock` 모드 `demo`, `web/server/bids/bid-query.ts` `defaultOrigin`) |
 | `AiModeIndicator` | Topbar(**2026-10-26 제거**. 아래는 옛 기준. 지금 AI 표시는 분석 요약 띠, 런타임 확인은 `GET /api/v1/admin/ai/status`) | `AI: mock \| local \| hosted \| unavailable` 네 값만. `/health/ready` `checks.ai` 값([[14-OBSERVABILITY\|14 관측성]]), 30초 간격 갱신에 더해 창이 초점을 얻을 때와 분석 polling이 `PARTIAL`·`FAILED`로 끝날 때 바로 한 번 더 읽는다(S6 "수 초 안에 `AI: unavailable`", [[16-DECISIONS\|16]] 미결정 30-5, [[16-DECISIONS\|ADR-029]] A6 D4). gateway 불가면 `unavailable` + danger 색 + 툴팁 "AI gateway에 연결할 수 없습니다" |
 | `DataFreshnessIndicator` | Topbar | 마지막 수집 성공 시각 상대 표시("수집 12분 전"). 지연 기준은 정기 수집 간격 180분 + 30분 = **210분**이고(2026-10-26, 서버 `ingestStaleAfterMs`, 받지 못하면 같은 값) 넘으면 warning 색 + "수집 지연 · …", 수집 실패면 danger + "수집 실패 · …", 기록이 없으면 "수집 기록 없음". 30초마다 다시 읽는다. 옛 기준은 60분이었다(정기 수집 30·60분 시절, 지난 설정) |
