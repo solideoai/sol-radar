@@ -35,7 +35,7 @@ updated: 2026-10-27
 - 첨부 처리 운영 반영(아래 "10-27 첨부 처리" 절의 승인 대기 8항목) → 실공고 S-LIVE 분석 run → 리허설·촬영(S-LIVE·카카오 실수신 컷) → 덱·영상 → 11-03 제출 → 11-04 발표(D1).
 - 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다. 운영 DEMO 19건 그대로, 운영 DB 안 백업 스키마 `demo_cleanup_20261026` 있음. 카카오 연결 0건.
 - GitHub Actions는 10-24부터 계정 결제 문제로 job이 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다.
-- LH 입찰공고(15159012) 연동: 실호출 2회(10-27 15:13 첫 녹음은 한글 깨짐, 15:47 다시 녹음 `SUCCESS`). EUC-KR 읽기·`YYYY/MM/DD HH:mm` 일시·금액 단위를 고쳤고(`602d7c2d`), 실응답 10건이 10건 모두 정규화된다(로컬). registry 상태·`enabled` 갱신 → push·회사 반영은 모두 승인 대기다([[plans/2026-10-27-lh-bid-notice-activation|LH 활성화 계획]], [첫 실호출 증거](evidence/ingestion/20261027-lh-bid-notice/first-call.md), [정규화 검증](evidence/ingestion/20261027-lh-bid-notice/normalization-check.md)).
+- LH 입찰공고(15159012) 연동: 실호출 2회(10-27 15:13 첫 녹음은 한글 깨짐, 15:47 다시 녹음 `SUCCESS`). EUC-KR 읽기·`YYYY/MM/DD HH:mm` 일시·금액 단위를 고쳤고(`602d7c2d`), 실응답 10건이 10건 모두 정규화된다(로컬). registry 상태·`enabled` 갱신 → push·회사 반영은 모두 승인 대기다. 운영 활성화 사전 검토(마이그레이션 불필요, 하루 약 8회 호출, 코드 반영과 registry 켜기를 두 단계로)는 활성화 계획 §4 에 있다([[plans/2026-10-27-lh-bid-notice-activation|LH 활성화 계획]], [첫 실호출 증거](evidence/ingestion/20261027-lh-bid-notice/first-call.md), [정규화 검증](evidence/ingestion/20261027-lh-bid-notice/normalization-check.md)).
 
 **사용자 결정 대기**
 

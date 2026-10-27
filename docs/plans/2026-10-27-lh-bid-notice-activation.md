@@ -196,25 +196,105 @@ docker ps -a --filter label=com.docker.compose.project=sol-radar-ingest --filter
 
 ## 4. 운영 활성화 — 단계마다 [승인]
 
-| 단계 | 할 일 | 확인 |
-|---|---|---|
-| 4-1 | 녹음으로 정규화 맞추기(로컬): 날짜 자릿수·금액 단위·`statusOf` 표를 실값으로 고치고, 녹음 재생 시험을 더한다. registry `approvalStatus: APPROVED`, `keyIssuance: ISSUED`, `verification: VERIFIED`, `sampleResponses: [녹음 경로]`, `lastVerifiedAt` 을 바꾼다. **`enabled` 는 이 단계에서 `true` 로 바꾸되 4-5 전에는 회사에 반영되지 않는다** | 전체 `pnpm verify` |
-| 4-2 | main 병합·GitHub push [승인] = Vercel 배포 | 화면은 Worker 상태를 따르므로 LH 단추는 4-5 전까지 비활성 |
-| 4-3 | 회사 서버 Git 갱신 [승인] | 운영 Worker 는 기동 때만 registry 를 읽으므로 아직 바뀌지 않는다 |
-| 4-4 | 새 ingest Worker 이미지 빌드 [승인] → `--check` | `외부 소스 lh-bid-notice: READY · 정기 수집`, 나머지 5종 `NOT_CALLABLE(DISABLED)` |
-| 4-5 | 운영 Worker 만 재생성 [승인]. 시간 창은 [[2026-10-27-ingest-source-isolation-deploy|배포 실행서]] 단계 9 와 같다 | `--status` 에 Job Scheduler 2개(`g2b-scheduled`, `lh-bid-notice-scheduled`), healthy |
-| 4-6 | 다음 정각 지켜보기 | 나라장터 회차가 먼저 `SUCCEEDED`, 그 뒤 LH 회차(우선순위 10). Redis `quota:15129394` 가 평소처럼 늘고 `quota:15159012` 는 LH 쪽 수만큼만 는다. 관리자 서비스 표에서 LH 상태·인증 `VERIFIED`·마지막 성공 시각 |
-| 4-7 | 하루(8회차) 지켜보기 | LH 하루 호출 수, 격리 행 수, 나라장터 `quota_used` 변화 없음 |
+10-27 실응답 녹음(`fixtures/recorded/15159012`, 10/10 정규화)과 코드 사전 검토로 다시 썼다. 이 절은 계획이고, 아래 명령은 아직 실행하지 않았다.
 
-이미지(4-4)와 registry(4-3)는 같은 커밋이어야 한다. 옛 이미지(`43e4e024`·`8cfaac31`)는 LH 정규화가 없어 `enabled: true` registry 로 기동하면 LH 행을 모두 `PROVIDER_STATUS_NOT_VERIFIED` 로 격리하면서 호출만 쓴다.
+### 4.0 사전 검토 결과 (실행 없음)
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| DB | 마이그레이션 필요 없음. `bid_notices.source` 에 `'lh-bid-notice'`, `ingest_runs.source` 에 `'lh'` 가 이미 허용된다. 운영 DB 적용 여부는 10-24 일괄 적용 기록 기준(이번에 직접 보지 않음) | `supabase/migrations/20261023000100_procurement_opportunities.sql:4-14` |
+| EUC-KR | 운영 경로에서 쓰인다: `processIngestJob` → `connectorFor` → `createExternalSourceConnector` → `fetchPage` → `boundedText` → `charsetOf`(`text/xml;charset=EUC-KR` 인식) → `TextDecoder(…, { fatal: true })`. 헤더에 charset 이 없으면 UTF-8 로 읽다 실패한다(깨진 글자는 저장하지 않고 LH 회차만 FAILED) | `web/server/ingestion/external-api-connector.ts` `charsetOf`·`boundedText`, `web/worker/main.ts` `createExternalConnector` |
+| 옛 이미지 | `43e4e024`·`8cfaac31` 은 UTF-8 fatal 로 읽어 LH 쪽이 정규화 전에 HTTP_ERROR 로 끝난다(회차 FAILED, 호출만 씀) | `git show 43e4e024:web/server/ingestion/external-api-connector.ts` |
+| 정기 수집 조건 | `callableSource`(`enabled ≠ false`·`verification ≠ NOT_VERIFIED`·`approvalStatus = APPROVED`·endpoint·fieldMapping·serviceKeyEnv) + `quota.daily ≥ 1` + 키 env 값이 있고 디코드됨 + `verifiedOperations` 에 `getOpenBidInfo`. 모두 맞으면 `READY · 정기 수집` | `web/server/ingestion/source-registry.ts` `callableSource`, `web/worker/main.ts` |
+| 호출 예산 | Redis `quota:15159012:<KST YYYYMMDD>`, 일 1,000, HTTP 시도마다 원자 예약(재시도 포함). 나라장터 `quota:15129394:…` 와 키가 달라 서로 줄이지 않는다. 정기 몫 200 보존은 나라장터만이고 LH 는 정기·수동이 1,000 을 함께 쓴다 | `web/server/ingestion/quota.ts`, `web/worker/quota-store.ts` |
+| 일정 | `lh-bid-notice-scheduled` 를 나라장터와 같은 cron(`0 */3 * * *`, Asia/Seoul)·같은 `ingest` 큐에 우선순위 10 으로 건다. Worker concurrency 1 이라 같은 정각에는 나라장터가 먼저 돌고 LH 가 뒤에 돈다. LH 한 회차 최악 약 67초(15초 × 4회 + 대기) | `web/worker/main.ts`, `web/server/ingestion/ingest-schedule.ts` |
+| 첫 회차·호출량 | 첫 창은 `[지금 − 24시간, 지금]`, 이후 `[직전 창 끝, 지금]`. 창을 KST 등록일로 바꿔 한 번에 묻고 `numOfRows` 100. 하루 12건 안팎이면 회차당 1회 → 하루 8회(재시도를 다 써도 32회) | `web/worker/ingest-queue.ts` `EXTERNAL_WINDOW_CAP_MS`, `web/server/ingestion/external-request.ts` |
+| 중복 | `(source, notice_id)` 고유 키, `noticeId = bidNum`. 낮은 차수는 `STALE`, 같은 내용은 `DUPLICATE`. 같은 jobKey 로 끝난 run 은 다시 부르지 않는다 | `20261019000002_bid_notices.sql:65`, `web/server/ingestion/revision.ts` |
+| 장애 격리 | 20·30·31·32·결과 코드 없는 401·403 → LH 만 `AUTH_FAILED`(다음 회차부터 호출 없음, Worker 재시작으로 풀림). 22 → LH 카운터만 소진. 23·XML 형식 오류·디코드 실패 → LH 회차만 FAILED. 나라장터 job 은 `createOfficialApiConnector` 라 이 경로를 타지 않는다 | `web/server/ingestion/external-connector.model.ts`, `web/worker/main.ts` `withAuthCircuit`, `web/worker/ingest-queue.ts` |
+
+### 4.1 registry 에서 바꿀 칸 (B1 에서 한 커밋으로)
+
+| 칸 | 지금 | 활성화 | 막는 것 |
+|---|---|---|---|
+| `approvalStatus` | `NOT_REQUESTED` | `APPROVED` | 아니면 `NOT_APPROVED` |
+| `verification` | `NOT_VERIFIED` | `VERIFIED` | 아니면 `NOT_VERIFIED` |
+| `enabled` | `false` | `true` | 아니면 `DISABLED` |
+| `keyIssuance` | `UNKNOWN` | `ISSUED` | 표시용 |
+| `lastVerifiedAt` | `"2026-10-21"` | `"2026-10-27"` | 날짜 꼴이 틀리면 registry 전체가 로드 실패 |
+| `quota` | `{ "daily": 1000, "tps": null }` | 그대로 | `daily` 가 null·0 이면 `QUOTA_UNVERIFIED` |
+| `sampleResponses` | 녹음 경로(`b59148f2`) | 그대로 | 코드가 읽지 않음 |
+
+registry 는 strict 스키마라 오타 하나로 **Worker 전체가 기동하지 못한다**(나라장터 포함, `restart: on-failure:3` 뒤 멈춘 채). Vercel 빌드와 redis-api 이미지도 같은 파일을 읽는다. 그래서 재생성 전에 반드시 일회용 컨테이너 `--check` 를 본다.
+
+### 4.2 순서 — 코드와 registry 를 두 단계로 나눈다
+
+코드(이미지)와 registry 를 한 번에 바꾸면 되돌릴 때 둘을 같이 봐야 하고, 회사 Git 갱신과 재생성 사이에 옛 컨테이너가 재시작되면 새 registry 를 옛 이미지(UTF-8)가 읽는다. 먼저 LH 를 끈 채 코드만 반영하고, 그 뒤 registry 한 커밋으로 켠다.
+
+**A단계 — LH 꺼진 채 코드 반영 (`enabled: false` 그대로)**
+
+| 단계 | 할 일 | 확인 / 중단 |
+|---|---|---|
+| A1 | `feat/lh-bid-notice`(`7e4d55cd`…`b59148f2`) main 병합·push [승인] = Vercel 배포 | 화면 외부 서비스 6종 그대로 |
+| A2 | 회사 Git 갱신 [승인]. 경로는 운영 Worker 의 compose 작업 폴더 라벨로 먼저 확인한다(10-27 기준 `/data/www/ai_workspace/sol-radar-app`). [[2026-10-27-ingest-source-isolation-deploy\|배포 실행서]]의 `sol-radar-deploy` 경로를 그대로 쓰지 않는다 | `docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' <ingest-worker>` 와 같은 폴더인지 |
+| A3 | 새 ingest Worker 이미지 빌드(태그 `git rev-parse --short=12 HEAD`) → 일회용 `--check` | 외부 6종 모두 `NOT_CALLABLE(DISABLED)`, 나라장터 정상. 아니면 멈춤 |
+| A4 | ingest Worker 만 재생성 [승인]. KST 정각 +15분 ~ 다음 정각 −30분, 직전 `--status` 의 waiting·active·prioritized 가 0 | Job Scheduler 1개(`g2b-scheduled`), healthy |
+| A5 | 다음 정각 지켜보기 | 나라장터 회차 `SUCCEEDED`, `quota:15129394` 평소대로 |
+
+회사 반영(첨부) 실행서도 ingest Worker·redis-api 를 재생성한다. A4 와 같은 재생성 한 번으로 묶을지, 어느 쪽을 먼저 할지 정한 뒤 진행한다.
+
+**B단계 — registry 한 커밋으로 LH 켜기**
+
+| 단계 | 할 일 | 확인 / 중단 |
+|---|---|---|
+| B1 | 4.1 표대로 registry 만 바꾼 커밋(로컬) → 전체 `pnpm verify` → main push [승인] | registry 외 변경 없음 |
+| B2 | 회사 Git 갱신 [승인] (A2 와 같은 경로) | `git diff --stat` 이 `infra/sources/registry.yaml` 한 파일 |
+| B3 | 같은 이미지로 일회용 `--check` | `외부 소스 lh-bid-notice: READY · 정기 수집`, 나머지 5종 `NOT_CALLABLE(DISABLED)`. registry 로드 오류면 멈춤. 배포 실행서 단계 8 의 "외부 READY 면 중단"은 이 한 줄만 예외 |
+| B4 | ingest Worker 만 재생성 [승인] (A4 와 같은 시간 창 규칙) | Job Scheduler 2개(`g2b-scheduled`, `lh-bid-notice-scheduled`), healthy |
+| B5 | redis-api 재빌드·재생성 [승인] | redis-api 이미지 안 registry 사본(`web/Dockerfile` `COPY infra/sources/`)이 바뀌어야 화면의 LH [증분 수집]이 503 `DISABLED` 가 아니다. 정기 수집과는 무관 |
+| B6 | 다음 정각 지켜보기 | 나라장터 `SUCCEEDED` 먼저, 그 뒤 LH `SUCCEEDED`. `quota:15159012` 가 회차당 1 안팎 |
+| B7 | 하루(8회차) 지켜보기 | LH 호출 ≈ 8회, 격리 행 수, 나라장터 `quota_used` 변화 없음 |
+
+### 4.3 지켜볼 때 쓰는 읽기 명령
+
+- Redis 카운터: [운영 적용 결과](../evidence/ingestion/20261027-ops-apply/summary.md) §3.1 명령 그대로(숫자 두 개만 출력).
+- 운영 DB(읽기):
+
+```sql
+select status, count(*) as runs, sum(quota_used) as calls, max(started_at) as last_started
+from public.ingest_runs
+where source = 'lh' and service_key = 'lh-bid-notice' and started_at > now() - interval '1 day'
+group by status;
+
+select count(*) from public.bid_notices where source = 'lh-bid-notice';
+```
+
+- LH 한도 오류(22)는 오류 기록의 `source_key` 가 `g2b:quota` 로 남는다(`web/server/ingestion/ingestion.service.ts` `QUOTA_SOURCE_KEY`). 나라장터 한도 문제로 읽지 않는다.
+
+### 4.4 활성화 전 남은 위험
+
+| 정도 | 위험 | 줄이는 방법 |
+|---|---|---|
+| 높음 | registry 형식 오류 → Worker 전체(나라장터 포함) 기동 실패 | B3 일회용 `--check` 필수, B1 은 registry 만 바꾼 커밋 |
+| 높음 | 회사 checkout 경로 혼동(`sol-radar-app` 과 `sol-radar-deploy`) → 다른 registry·env 로 재생성 | A2 에서 compose 작업 폴더 라벨 확인 |
+| 높음 | 회사 Git 갱신과 재생성 사이 옛 컨테이너 재시작 | 두 단계 순서(A 뒤 B), 같은 시간 창 안에서 B2~B4 |
+| 중간 | `numOfRows` 100 은 실응답으로 확인하지 않았다(녹음은 10) | B6 에서 `fetched_count`·완결성(PARTIAL 반복 여부) 확인 |
+| 중간 | 일시적인 20·401·403 도 LH 를 `AUTH_FAILED` 로 고정, 풀려면 Worker 재시작 | 재시작도 시간 창 규칙대로 |
+| 중간 | 확인한 상태 값은 일반공고·정정공고·입찰진행중뿐. 취소·마감·유찰은 낱말 추정, 모르는 값은 OPEN + 메모 | B7 에서 메모 수 확인 |
+| 중간 | 등록일 창이라 등록일 뒤 상태 변화(취소·마감)는 다시 받지 못한다 | 별도 과제 |
+| 중간 | 빈 날짜 응답(03·totalCount 0)을 실제로 본 적 없음 | 주말 회차 결과 확인 |
+| 낮음 | 헤더 charset 없음·다른 라벨·잘못된 바이트 → 그 쪽 전체 실패(fail-closed) | 회차 FAILED 수 확인 |
+| 낮음 | 회사 Redis ACL 의 `~quota:*` 허용 여부 미확인. 막히면 LH 만 `QUOTA_STORE_UNAVAILABLE` | B6 |
+| 낮음 | LH 수동 요청이 나라장터와 같은 전역 gate(하루 20회·10분 공유)를 쓴다 | 수동 백필은 승인 뒤 |
+| 낮음 | 같은 정각 우선순위 순서는 실제 Redis 통합 시험이 없다(BullMQ lua 분석 기준) | B6 에서 순서 확인 |
 
 ## 5. 되돌리기
 
-1. registry 의 LH `enabled` 를 `false` 로 되돌린다(회사 저장소에서 해당 커밋 revert 또는 그 줄만 수정).
-2. 운영 Worker 를 같은 이미지로 재생성한다. 기동 때 준비 안 된 서비스의 일정은 지운다(`lh-bid-notice-scheduled` 제거).
+1. B1 커밋을 revert 하는 커밋으로 registry 의 LH 를 `enabled: false` 로 되돌린다. 회사 저장소에서 그 줄만 손으로 고치면 checkout 이 dirty 가 되어 다음 배포의 `git status` 조건에 걸린다.
+2. 회사 Git 을 갱신하고 운영 Worker 를 같은 이미지로 재생성한다. 기동 때 준비 안 된 서비스의 일정은 지운다(`lh-bid-notice-scheduled` 제거).
 3. `--status` 로 Job Scheduler 가 `g2b-scheduled` 1개인지 본다.
+4. A단계(코드)까지 되돌릴 때만 이미지를 `sol-radar-ingest-worker:43e4e02465c2` 로 되돌린다. registry 가 먼저 `enabled: false` 여야 한다.
 
-- **이미지만 되돌리지 않는다.** registry 가 `enabled: true` 인 채로 옛 이미지로 기동하면 위의 격리·호출 낭비가 생긴다. registry 를 먼저 되돌린다.
+- **이미지만 되돌리지 않는다.** registry 가 `enabled: true` 인 채로 옛 이미지로 기동하면 LH 응답을 UTF-8 로 읽다 실패해 회차마다 호출만 쓴다. registry 를 먼저 되돌린다.
 - `--unschedule` 은 쓰지 않는다(나라장터 일정까지 지운다).
 - 이미 저장된 LH 공고(`bid_notices.source = 'lh-bid-notice'`)는 지우지 않는다. 지우려면 별도 승인.
 - LH 인증 실패는 자동으로 LH 만 `AUTH_FAILED` 로 막으므로 나라장터를 위해 급히 되돌릴 필요는 없다.
