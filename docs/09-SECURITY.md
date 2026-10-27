@@ -247,7 +247,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 연결은 운영의 실모델 FX-02 분석 1건으로 확인했다. 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·지연(p95)은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
 - 호스트 허용 목록: "gateway는 거기에만 붙는다"를 모델 레지스트리(`services/ai/models/registry.yaml`)의 `allowedHosts`로 강제한다. 값은 `acropolissg.com` 하나다([[03-AI-PIPELINE|03]] §11, [[16-DECISIONS|ADR-032]] D2). `QWEN_BASE_URL`·`KEV_BASE_URL`의 호스트가 목록의 값과 정확히 같지 않으면(하위 도메인 포함) gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). 루프백은 시험용으로 허용한다.
-- 결정 서버(`sol_decision.serve`) 방어: 요청 본문 128 KiB, state 24,000자, 대기열 `DECISION_MAX_QUEUE` 4(넘으면 503), 요청 마감 `DECISION_TIMEOUT_MS` 4,500ms(넘으면 504), 한글 state 거절, 패키지 최상위 `*.py`의 manifest 대조(`trust_remote_code`가 실행하는 코드). 세부는 [[03-AI-PIPELINE|03]] §5.3, 대조 범위의 한계와 임베딩 sha256 대조 추가(2026-10-21 사용자 결정, 구현 전)는 [[16-DECISIONS|16]] 미결정 28이다.
+- 결정 서버(`sol_decision.serve`) 방어: 요청 본문 128 KiB, state 24,000자, 대기열 `DECISION_MAX_QUEUE` 4(넘으면 503), 요청 마감 `DECISION_TIMEOUT_MS` 4,500ms(넘으면 504), 한글 state 거절, 패키지 최상위 `*.py`의 manifest 대조(`trust_remote_code`가 실행하는 코드). 세부는 [[03-AI-PIPELINE|03]] §5.3, gateway는 `GET /v1/models` 응답의 `decision_embeddings_sha256`을 레지스트리 값과 대조한다(`services/ai/src/sol_ai/registry.py` `KEV_MATCH_FIELDS`). 패키지 무결성 대조 범위의 남은 한계는 [[16-DECISIONS|16]] 미결정 28이다.
 
 ### 회사 GPU로 가는 데이터
 - 실제 공고(공공 데이터, 개인정보 마스킹)와 회사 프로필(가상, 또는 운영의 공개 자료 프로필, ADR-052)뿐이다. Supabase 키와 사용자 계정 정보는 GPU 서버에 두지 않는다.
@@ -294,7 +294,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 ## 외부키·원본·수집 권한 (ADR-047)
 
-ADR-047([스펙](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§5.1/12)은 서비스별 서버 env, KEPCO `apiKey` URL/오류 마스킹, private 정제 원문, HTTPS기관별 첨부allowlist를 요구한다. 구현은 apiKey/서비스키 이름·echo값·URL/실패 payload 마스킹을 더했다. 실제 키/운영 로그를 쓴 검증은 하지 않았다. HTTP첨부는 자동 다운로드하지 않고 byte 원본 전체 보관 예외는 별도 승인이다.
+ADR-047([스펙](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md) §5.1·§12)은 서비스별 서버 env, KEPCO `apiKey` URL/오류 마스킹, private 정제 원문, HTTPS기관별 첨부allowlist를 요구한다. 구현은 apiKey/서비스키 이름·echo값·URL/실패 payload 마스킹을 더했다. 실제 키/운영 로그를 쓴 검증은 하지 않았다. HTTP첨부는 자동 다운로드하지 않고 byte 원본 전체 보관 예외는 별도 승인이다.
 
 기존 업무 ADMIN만 수동수집·CSRF/멱등/감사를 유지한다. 일반 구성원 Source summary는 비밀/오류상세를 제외한 읽기이며 외부 탐침을 실행하지 않는다. org별 분석/사람결정/관심/프로젝트 RLS와 웹 service role 금지는 바뀌지 않는다.
 
