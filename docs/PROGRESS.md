@@ -43,7 +43,7 @@ updated: 2026-10-27
 3. [[16-DECISIONS|ADR-055]](제안): 범위 밖 첨부를 `PENDING`으로 두고 우리 쪽 장애는 미루는 documents 계약 변경을 받아들일지.
 4. [[16-DECISIONS|ADR-056]](제안): 첨부 일부만 파싱된 추출의 재사용을 분석 대기(A)로 막을지, `source_hash` 캐시 키(B)로 막을지.
 5. 파서 "지원" 판정: 코드는 [[03-AI-PIPELINE|03]] §10.3 결정 규칙 4번 판정 없이 `PARSED`를 낸다. 규칙대로 고칠지, 실표본 6건으로 규칙을 바꿀지.
-6. 회사 공개 프로필([[16-DECISIONS|ADR-052]])의 남은 운영 반영. migration `000700`과 웹 배포는 끝났다. 남은 순서는 회사 AI gateway·Analysis Worker 갱신(첨부 반영과 한 번에) → `pnpm ops:company-profile` dry-run·`--apply`(사용자 확인) → DEMO 공고 재분석이다([스펙](../polaris/specs/in-progress/2026-10-27-company-public-profile.md) B4).
+6. 회사 공개 프로필([[16-DECISIONS|ADR-052]])의 남은 운영 반영. migration `000700`과 웹 배포는 끝났다. 남은 순서는 회사 AI gateway·Analysis Worker 갱신(첨부 반영과 한 번에) → `pnpm ops:company-profile` dry-run·`--apply`(사용자 확인) → DEMO 공고 재분석이다([[16-DECISIONS|ADR-052]] 반영 순서 4·6·7·8단계, [스펙](../polaris/specs/in-progress/2026-10-27-company-public-profile.md) B4).
    - **영향**: `--apply` 뒤에는 DEMO 분석의 회사 프로필이 바뀐다. 12·18·19의 S4 예상(78 BID·72 WATCH, fixture 프로필 기준)이 달라지고, 옛 분석은 "미분석"으로 보인다(스펙 B4 8단계·D6 개정).
 
 ### 남은 일
@@ -52,6 +52,27 @@ updated: 2026-10-27
 - 리허설 중 FX-02를 재분석하지 않는다. 하면 최신 분석이 78 BID가 되어 대시보드 BID 수와 권고 알림이 바뀐다. 촬영·발표의 S4 [재분석]만 한다.
 - 카카오 실수신 녹화 전에 사용자 연결과 S0 수신 시험을 한다.
 - 열린 확인: 운영 로그인 화면 확인(DEMO 마감 이동 뒤), 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`, Compose 필요. 수집 장애 격리·사이드바 되돌림·실운영 전환 변경에서 미실행), 배포 뒤 사진 1장 올리기·지우기([릴리스 실행서](evidence/integration/20261025-release-runbook.md) §4).
+
+**16에서 넘어온 할 일**(번호는 [[16-DECISIONS|16]]의 미결정·닫힌 미결정 번호):
+
+- 해커톤 전
+  - 회사 vLLM 장문 guided JSON·지연 실측(미결정 17), Bosun 질문당 지연 p95(미결정 24). `prompt_logprobs` 확인은 E3(X1, 미결정)용이다.
+  - `QUESTION_SET_MISMATCH` 기동 거부(`services/ai/src/sol_ai/adapters/local_setup.py:144-145`)에 시험이 없다. 다르면 거부·`null`이면 통과 시험 2건을 더한다(닫힌 미결정 26-13 (a)).
+  - FX-03 seed 리뷰 사유 "Kev 가 BID 를 제시해도"(`scripts/demo/plan.mjs:323`)를 "결정 모델이 BID 를 제시해도"로 고친다(닫힌 미결정 30-2 (b)). 운영 DEMO 데이터에 이미 든 문구는 그대로다(추정, D1은 `demo:reset`을 하지 않는다).
+  - P1 화면을 어느 데모 장면에서 보일지 정한다([[18-HACKATHON|18]]·[[19-DEMO-SCENARIO|19]], [[16-DECISIONS|ADR-042]]).
+- X6 파인튜닝·평가를 실행할 때(실행 여부 미결정)
+  - F1 전 필수: 후보 목록 교차 시험. `services/ai/eval/sol_eval/bosun_records.py:70`과 `services/decision/src/sol_decision/contract.py:45`의 `candidates_for`가 따로 구현돼 있다(닫힌 미결정 26-12).
+  - F1 전 필수: `infra/gpu/bosun-f1.sh` 결과 파서 키. 로그 `s/step`(214행)과 `training_metrics.json` snake_case 키(236행 등)가 학습기 출력(`metrics` 아래 camelCase)과 다르다(닫힌 미결정 26-15).
+  - 채점 `--data` 파일 sha256을 번들 manifest와 대조한다(닫힌 미결정 26-17).
+  - 회사 GPU 서버에 `sol_eval`을 설치한다. 절차 초안은 [[22-FINETUNE-RUNBOOK|22]] §3.2다(닫힌 미결정 29-2).
+  - E2 한국어 내보내기(`--language ko`)와 언어 짝 비교를 만든다(닫힌 미결정 29-6).
+- 해커톤 뒤·NestJS 전환 때
+  - `X-Request-Id`를 이어 받는다. `web/app/api/v1/_lib/http.ts:45·47·55`가 응답마다 새 UUID를 만든다(닫힌 미결정 26-4, [[16-DECISIONS|ADR-028]] 전환 때).
+  - 오래 남은 g2b `RUNNING` 행의 시간 기준 자동 `FAILED` 전환(닫힌 미결정 25). 지금은 `pnpm ops:close-stale-runs`로 푼다.
+  - `stateTemplate` 대조. F1 산출물부터 의미가 있다(닫힌 미결정 26-13 (b)).
+  - 결정 모델 `manifest.json` sha256 identity 대조(닫힌 미결정 28 ②).
+  - 나라장터 목록과 부처 공고 섞기. 사용자가 원하면 다시 정한다([[16-DECISIONS|ADR-040]]).
+  - 간편 로그인 제공자(구글·카카오·네이버) 설정. 상태는 미확인이다([[16-DECISIONS|ADR-018]] 후순위).
 
 **문서 밖 발견**([[2026-10-27-docs-cleanup-plan|문서 정리 계획]] §3, 따로 정할 것):
 
@@ -84,7 +105,7 @@ updated: 2026-10-27
 | X6 | Bosun LoRA 파인튜닝 트랙 | 실행 여부 미결정([[16-DECISIONS\|ADR-054]]). 도구는 main에 있고 회사 서버 실행 기록은 없다 | [[22-FINETUNE-RUNBOOK\|22]] |
 | BOOST-2 | 가정 재계산 | 완료(main, E2E 통과) | [E2E](evidence/boost2/20261020-boost2-what-if-e2e.md) |
 | KAKAO | 카카오 "나에게 보내기" | main, 운영 migration 적용. 운영 연결 0건. S0 수신 시험·실수신 녹화 남음 | [[16-DECISIONS\|ADR-038]] |
-| S5 | 변경 감지(revision diff·`BID_CHANGED`) | 완료(main). `BID_CHANGED`는 outbox에만 남고 벨 알림은 없다 | [기록](evidence/s5/summary.md) |
+| S5 | 변경 감지(revision diff·`BID_CHANGED`) | 완료(main). `BID_CHANGED`는 outbox에만 남는다. 조직 팬아웃(벨 알림)은 남은 일이다(`web/server/notifications/outbox.model.ts:6`, [[16-DECISIONS\|16]] 닫힌 미결정 30-4) | [기록](evidence/s5/summary.md) |
 | N1 | 앱 셸·사이드바(ADR-021) | 완료(main). `/ops` 분리는 해커톤 뒤 | [[06-UI-UX\|06]] §4 |
 | N2 | 설정 개인·조직 탭 | 완료(main) | [통합 기록](evidence/committed-integrations/integration.md) |
 | N4a | `/people`·`/org-chart` | 완료(main) | [기록](evidence/people/20261019-people-read.md) |
