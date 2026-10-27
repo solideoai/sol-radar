@@ -11,8 +11,8 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "cn";
 import {
@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { ViewOrigin } from "@/components/bids/notice-origin";
 import { Logo } from "@/components/logo";
+import { navHrefOf, useNavOriginStore } from "@/components/nav-origin";
 import { TopbarDemoIndicator } from "@/components/topbar-demo-indicator";
 import { TopbarStatus, useTopbarStore, type TopbarStatusProps } from "@/components/topbar-status";
 import { Separator } from "@/components/ui/separator";
@@ -106,7 +107,12 @@ export function AppShell({
       className="min-h-0 flex-1"
       style={SIDEBAR_ICON_WIDTH}
     >
-      <AppSidebar user={user} workspace={workspace} solRole={solRole} />
+      <AppSidebar
+        user={user}
+        workspace={workspace}
+        solRole={solRole}
+        defaultOrigin={status?.defaultOrigin ?? null}
+      />
       {/* min-w-0 이 없으면 넓은 표·긴 글이 이 단을 밀어 화면이 가로로 넘친다. */}
       <div className="flex min-w-0 flex-1 flex-col">
         <AppTopBar current={workspace.current} status={status} />
@@ -128,12 +134,16 @@ function AppSidebar({
   user,
   workspace,
   solRole,
+  defaultOrigin,
 }: {
   user: AppShellUser;
   workspace: AppShellWorkspace;
   solRole: SolRole | null;
+  // 화면 기본 데이터 출처. 모르면(상태 묶음이 없는 틀) null 이고, 기억한 출처를 그대로 링크에 붙인다.
+  defaultOrigin: ViewOrigin | null;
 }) {
   const pathname = usePathname();
+  const navOrigin = useNavOriginStore((s) => s.origin);
   const { setOpenMobile, state, isMobile } = useSidebar();
   // 서랍(좁은 폭)을 닫지 않으면 옮겨 간 화면을 서랍이 가린다.
   const closeDrawer = () => setOpenMobile(false);
@@ -190,6 +200,9 @@ function AppSidebar({
         ) : null}
       </SidebarHeader>
       <SidebarContent>
+        <Suspense fallback={null}>
+          <NavOriginWatcher />
+        </Suspense>
         <nav aria-label="주요 메뉴" className="flex flex-col pt-1 pb-2">
           {groups.map((group, index) => (
             <NavGroupSection
@@ -204,6 +217,7 @@ function AppSidebar({
                 <NavMenuItem
                   key={item.href}
                   item={item}
+                  href={navHrefOf(item.href, navOrigin, defaultOrigin)}
                   isActive={isCurrentItem(pathname, item, orgSlug)}
                   onNavigate={closeDrawer}
                   badge={item.href === "/notifications" ? unread : undefined}
@@ -231,6 +245,18 @@ function AppSidebar({
       </SidebarFooter>
     </Sidebar>
   );
+}
+
+// 주소의 출처(?origin=)를 사이드바 기억에 옮긴다. 아무것도 그리지 않는다.
+// 주소 읽기(useSearchParams)는 Suspense 안에서만 한다(topbar-demo-indicator 와 같다).
+function NavOriginWatcher() {
+  const pathname = usePathname();
+  const param = useSearchParams().get("origin");
+  const see = useNavOriginStore((s) => s.see);
+  useEffect(() => {
+    see(pathname, param);
+  }, [pathname, param, see]);
+  return null;
 }
 
 // 묶음 줄은 접기 버튼이다: 화살표와 회색 굵은 묶음 이름으로 되어 있고 아이콘은 없다. 메뉴는 화살표 아래 1px 세로선 안쪽으로 들여 쓴다.
@@ -298,11 +324,14 @@ function NavGroupSection({
 // 활성 표시는 하나다: sidebar-accent 바탕 + 굵기 600. 색만으로 알리지 않고 aria-current 를 단다.
 function NavMenuItem({
   item,
+  href = item.href,
   isActive,
   onNavigate,
   badge,
 }: {
   item: NavItem;
+  // 링크 주소. 출처를 읽는 화면은 보던 출처(?origin=)를 붙인 주소다(nav-origin).
+  href?: string;
   isActive: boolean;
   onNavigate: () => void;
   badge?: number;
@@ -329,7 +358,7 @@ function NavMenuItem({
         className={cn(MENU_HOVER, "data-active:font-semibold")}
         render={
           <Link
-            href={item.href}
+            href={href}
             aria-label={item.label}
             aria-current={isActive ? "page" : undefined}
             onClick={onNavigate}

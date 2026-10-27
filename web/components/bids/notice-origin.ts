@@ -8,9 +8,13 @@ export type SourceUrlKind = "NOTICE" | "SERVICE_DOCUMENTATION";
 export type ViewOrigin = "live" | "demo" | "all";
 const VIEW_ORIGINS: readonly ViewOrigin[] = ["live", "demo", "all"];
 
+/** 주소의 ?origin= 값. 맞는 값이 아니면(없음 포함) null 이다 */
+export const parseViewOrigin = (param: string | null): ViewOrigin | null =>
+  VIEW_ORIGINS.find((origin) => origin === param) ?? null;
+
 /** 지금 보고 있는 데이터 출처. 주소의 ?origin= 이 맞는 값이면 그 값, 아니면 서버가 정한 기본 출처다 */
 export const viewedOriginOf = (param: string | null, fallback: ViewOrigin): ViewOrigin =>
-  VIEW_ORIGINS.find((origin) => origin === param) ?? fallback;
+  parseViewOrigin(param) ?? fallback;
 
 /**
  * 실제 공고로 표시하면 안 되는 행. is_demo=false 인데 저장된 source 가 데모 수집기다.
