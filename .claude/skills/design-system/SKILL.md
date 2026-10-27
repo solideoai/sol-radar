@@ -59,6 +59,7 @@ design/tokens.json  ──pnpm tokens──▶  web/app/globals.css
 - `kakao`·`naver`(와 `-foreground`)는 각 회사 로그인 버튼 가이드의 지정 색이다. 간편 로그인 버튼(`web/app/auth/social-sign-in.tsx`)과 로그인 수단 목록의 회사 표시(`web/components/provider-mark.tsx`), 그리고 `kakao` 는 개인 설정의 카카오톡 알림 연결 버튼(`web/app/(app)/[slug]/settings/kakao-notify-section.tsx`, ADR-038)에만 쓰고 값을 바꾸지 않는다.
   네이버 짝(흰 글자/#03A94D)은 대비가 3.09:1 이라 대비 검사에서 예외다 — 대신 가이드 값 그대로인지를 검사한다. 예외는 사람이 정한다(이 짝은 2026-10-15 사용자 결정).
   회사 로고는 브랜드 색 그대로인 정적 파일(`web/public/google.svg`·`kakao.svg`·`naver.svg`)이다.
+- `source-g2b`·`source-kwater`·`source-lh`·`source-kepco`(와 `-foreground`)는 공고 출처 배지(`web/components/bids/source-badge.tsx`) 전용이다. 각 기관 로고의 상징 색이고 다른 곳에 쓰지 않고 값을 바꾸지 않는다(ADR-058).
 - 웹에서는 토큰 Tailwind 클래스(`bg-primary`·`text-muted-foreground`), CSS 에서는 `var(--이름)`(`var(--primary)`).
 - 글자 눈금은 `typography`(`type-<이름>`)에 적는다. 항목에 `tracking` 이 없으면 전역 `tracking` 을 쓴다.
 - 글꼴은 `var(--font-sans)` / `var(--font-mono)`. 지정하지 않고 기본값에 맡기지 않는다.

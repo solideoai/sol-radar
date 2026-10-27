@@ -132,6 +132,7 @@ updated: 2026-10-27
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
 
+- 2026-10-27 · 공고 출처 배지를 기관 로고 상징 색으로(나라장터·K-water·LH·KEPCO, [[16-DECISIONS|ADR-058]]) · `pnpm -C web verify:quick` exit 0, 루트 `pnpm test` 259 통과, 출처 배지 브라우저 시험 통과, `next build` 통과, 1440·1280 화면([증거](evidence/source-brand-colors/20261027/README.md)). 배포 전
 - 2026-10-27 · 회사 공개 프로필 운영 `--apply`(revision 3, 실적 설명 내부 표기를 고친 revision 4), 회사 역량 이력 탭 배치 깨짐 수정 · CLI dry-run·apply exit 0, 운영 DB 조회로 revision 4·내부 표기 0건 확인, `pnpm verify:changed` exit 0(web 779), 운영 화면 1440·1280px 확인(이력 행 이름 칸 0px → 수정 구조로 847px 이상). DEMO 15건 "분석 대기"([기록](evidence/company-public-profile/20261027/prod-rollout.md))
 - 2026-10-27 · 문서 정리: 지난 일정·끝난 계획 41개를 지우고 이 문서를 새 형식으로 바꿨다([[16-DECISIONS|ADR-057]], [[2026-10-27-docs-cleanup-plan|계획]]) · 문서 전용. 링크 검사·표 위키링크 검사 통과. 코드 검사·빌드 미실행
 - 2026-10-27 · 회사 공개 프로필 운영 반영: 운영 DB `20261027000700`, main `5261730f` push·Vercel 배포 · db-push·`db-verify` 통과(63개), Vercel 배포 success. 운영 적용 기록은 회사 공개 프로필 작업에서 커밋 예정
