@@ -59,7 +59,7 @@ updated: 2026-10-27
 | 파일 | 프로젝트 | 서비스·이미지 | 진입점·등록 job | 지킬 것 |
 |---|---|---|---|---|
 | `infra/compose.company.yaml` | `sol-radar-gateway` | `redis-api`(`web/Dockerfile`, `127.0.0.1:6380:3000`), `ai-gateway`(`services/ai/Dockerfile`, 포트 없음), `worker`(전체) | redis-api: `SOL_DEPLOYMENT_ROLE=redis-api`, 허용 7경로. worker: `worker/main.ts` 전체 등록 | 프로젝트 `up` 금지(회사 실행서 §7.11). redis-api만 따로 다시 만든다([격리 배포 실행서](plans/2026-10-27-ingest-source-isolation-deploy.md) 6) |
-| `infra/compose.ingest-only.company.yaml` | `sol-radar-ingest` | `ingest-worker`, `sol-radar-ingest-worker:<SHA>` | `worker/ingest-only-main.ts`. ingest만(`g2b-scheduled` + 외부 `<key>-scheduled`). documents 큐에 넣지 않는다. 창 상한 1440분(`ingest-only-main.ts:46-52`) | `SOL_RUN_MODE=live` 고정. `--check`·`--status`·`--once`·`--unschedule`(회사 실행서 §7) |
+| `infra/compose.ingest-only.company.yaml` | `sol-radar-ingest` | `ingest-worker`, `sol-radar-ingest-worker:<SHA>` | `worker/ingest-only-main.ts`. ingest만(`g2b-scheduled` + 외부 `<key>-scheduled`). documents 큐에 넣지 않는다(`documents: false`, `ingest-only-main.ts:48`). 정기 창 상한 1440분(`SCHEDULED_WINDOW_CAP_MINUTES`, `ingest-only-main.ts:43`), `--once` 창 상한도 1440분(44행) | `SOL_RUN_MODE=live` 고정. `--check`·`--status`·`--once`·`--unschedule`(회사 실행서 §7) |
 | `infra/compose.analysis-only.company.yaml` | `sol-radar-analysis-only` | `analysis-worker`, `sol-radar-ai-worker-worker:latest`(회사 원본) | `worker/analysis-only-main.ts`. analysis 큐 + 멈춘 분석 복구 | 회사가 준 원본 파일이다. `restart: "no"` |
 | + `infra/compose.analysis-only.sha.company.yaml` | (위 덮어쓰기) | 이미지 `sol-radar-analysis-worker:<SHA>`, `web/worker/Dockerfile` 빌드, 종료 유예 180초 | 위와 같다 | `latest` 태그를 빌드·태그하지 않는다(회사 실행서 §8.6) |
 | `infra/compose.documents-only.company.yaml` | `sol-radar-documents` | `documents-worker`, `sol-radar-documents-worker:<SHA>` | `worker/documents-only-main.ts`. documents 큐 소비자 + 60초 복구 회차 | live가 아니면 exit 1. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(회사 실행서 §8) |
@@ -77,11 +77,12 @@ updated: 2026-10-27
 1. `curl -sS https://www.solideos-radar.com/health/ready`가 200이고 `db`·`redis`·`storage` ok, `ai: local`이다. AI만 불가면 `status: degraded`(200)다. 응답을 증거 폴더에 저장한다.
 2. `/dashboard?origin=demo`·`/bids?origin=demo`에 DEMO 배지와 DEMO 공고가 보인다. `/bids`는 11열이고 표 안에서 가로로 스크롤한다.
 3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 10-28~11-02 78 BID, 11-03부터 72 WATCH다. 운영 기록 66 WATCH(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
-4. 하지 않는 것:
+4. S-LIVE는 `/bids?origin=live`에서 분석된 실공고 run을 연다. 지금은 실공고 분석이 0건이라(위 "운영 구성" `409 ANALYSIS_SOURCE_MISSING`) 첨부 처리 회사 반영 뒤에만 찍는다. run이 없으면 찍지 않는다([[19-DEMO-SCENARIO|19]] §3.1).
+5. 하지 않는 것:
    - 운영 DB에 `pnpm demo:reset`을 돌리지 않는다.
    - 리허설 중에 FX-02를 재분석하지 않는다. 하면 최신 분석이 78 BID가 되어 대시보드 BID 수와 권고 알림이 바뀐다.
    - 실행 모드를 바꾸지 않는다([[19-DEMO-SCENARIO|19]] §5).
-5. S5·S6 장애 장면은 녹화 영상으로 보인다. 운영에서 장애를 주입하지 않는다.
+6. S5·S6 장애 장면은 녹화 영상으로 보인다. 운영에서 장애를 주입하지 않는다.
 
 ## 실행 모드와 프로필
 
@@ -213,6 +214,8 @@ flowchart LR
 - **회사 GPU 서버에서 띄우는 것**(회사 운영, 인수 문서 `infra/gpu/README.md`): 라우터는 `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, `model-router` = `nginx:1.27-alpine`, `network_mode: host`, Linux)이다. `sol_decision.serve`는 아래 명령으로 호스트에 직접 띄운다. vLLM은 띄우지 않는다.
 - **회사 nginx 설정**: `location /sol-radar/ { proxy_pass http://127.0.0.1:8080; }` + `Authorization` 헤더 통과, `proxy_read_timeout 300s`, `client_max_body_size 20m`, `proxy_buffering off`. 전체 블록은 `infra/gpu/README.md`다.
 - **운영 책임**: 모델 런타임 기동, GPU 메모리 배분, 패키지 sha256 대조, `nvidia-smi` 실측은 회사가 한다. GPU 배치·메모리 계획·서버 계정은 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §3·§4와 `infra/gpu/README.md` "GPU 1 공유"가 정본이다. 우리가 하는 검증은 gateway 기동 때의 레지스트리 대조([[03-AI-PIPELINE|03]] §11)와 지연 실측이다.
+- **GPU 1 공유**: `sol_decision`이 쓰는 물리 GPU 1은 전용이 아니고 회사 PaddleOCR vLLM이 상주한다. 우리 절차로 GPU 0·1·2의 어떤 프로세스도 종료·이동하지 않고, GPU 0·2는 쓰지 않는다(ADR-034 10번). 메모리가 모자라면 회사에 보고하고 멈춘다.
+- **미확인**: 포트 8080·8009의 실제 실행(G1·G2 직접 확인 기록 없음), 회사 vLLM이 어느 GPU에서 어떤 양자화로 도는지, 노트북 `ai-gateway`에서 공개 HTTPS로 나가는 경로(G1, 대체 경로용)는 미확인이다.
 - **보안**: TLS 필수(검증을 끄지 않는다), API 키 필수, 키는 서버 env 파일에만 둔다. URL은 문서에 적고 키 값은 적지 않는다. 회사 GPU로 가는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다([[09-SECURITY|09 보안]]).
 - **평가·학습**(E0~E4, LoRA F1·F2)은 미결정이다. 절차는 [[21-MODEL-TRAINING|21 모델 학습]]·[[22-FINETUNE-RUNBOOK|22]]다. 데모 모델은 공개 Bosun이다. Qwen 파인튜닝은 하지 않는다. 클라우드 GPU 임대는 비용 승인 대상이다(ADR-010).
 

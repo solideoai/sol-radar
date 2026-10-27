@@ -149,7 +149,7 @@ flowchart LR
  end
  subgraph gpu[회사 GPU 서버 · 회사 운영]
   VL["회사 vLLM /vllm/v1"]
-  RT["model-router /sol-radar"] -- /kev --> KEV["sol_decision :8009"]
+  RT["model-router /sol-radar"] -- "/kev" --> KEV["sol_decision :8009"]
  end
  V -- "HTTPS acropolissg.com/redis" --> NG
  V --> SB
@@ -158,7 +158,7 @@ flowchart LR
  AI -- HTTPS --> RT
 ```
 - Vercel web은 Redis TCP·service role 없이 회사 `redis-api`에 HTTPS로 접수한다. 회사가 받는 경로는 health·AI 상태·분석 접수/조회·수집 접수/조회·수동 수집 gate 7개다(`web/app/_lib/redis-api-path.ts:16-25`). 회사 Compose 프로젝트별 서비스·등록 job은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"다.
-- 회사 Worker는 `AI_GATEWAY_URL=http://172.20.0.1:8000`을(`infra/compose.documents-only.company.yaml:28` 등), redis-api는 `http://ai-gateway:8000`을 부른다(`infra/compose.company.yaml:20`). 두 주소가 같은 gateway인지, gateway가 어떤 형태로 떠 있는지(컨테이너·호스트 프로세스)는 미확인이다([10-27 회사 반영 실행서](plans/2026-10-27-company-rollout-attachments.md) §2 D0).
+- 회사 Worker와 redis-api가 부르는 AI gateway 주소(`AI_GATEWAY_URL`)와 미확인 사항은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"가 정본이다.
 - 회사 GPU 서버는 외부 접근이 불가하고, 회사가 모델 런타임을 HTTPS로 제공한다. gateway는 TLS 검증을 켠 채 API 키(`QWEN_API_KEY`·`KEV_API_KEY`)로 붙는다([[16-DECISIONS|ADR-025]]). 회사 nginx는 `/sol-radar` location 하나를 GPU 서버 안 모델 라우터(`infra/gpu/model-router.conf`)로 넘기고, 라우터가 `/sol-radar/kev`를 `sol_decision`으로 보낸다. `/sol-radar/qwen` 규칙은 쓰지 않는다. 엔드포인트에 접속하지 못하면 gateway가 Qwen·결정 모델 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모델 기동·GPU 배분은 회사 운영이다.
 - 실행 모드([[16-DECISIONS|ADR-020]]): `live` = 공공 API + 회사 실추론, `fixture` = fixture 20건 + 회사 실추론(공공 API 장애 대체), `mock` = fixture 20건 + mock AI(모델 장애 대체·CI·골든). 회사 ingest·documents Worker는 Compose가 `SOL_RUN_MODE=live`로 고정한다(`infra/compose.ingest-only.company.yaml:24`, `infra/compose.documents-only.company.yaml:26`). 모드 전환은 env 교체와 재시작으로 하고 자동으로 바꾸지 않는다.
 - `AI_PROVIDER` 값은 `/health/ready`의 `checks.ai`로 노출된다(2026-10-27 운영 `ai: local`). 상단바에는 실행 모드·AI 표시가 없다([[06-UI-UX|06 UI]] §4). 데이터 출처는 상단 `DEMO` 배지(`?origin=demo`일 때)와 공고 행 `DEMO` 배지로, 분석마다의 실행 모드·AI 모델은 공고 상세 분석 요약 띠("분석 실행 모드: …"·"AI: …")와 분석 결과 비교 화면으로 보인다. 런타임 진단은 `GET /api/v1/admin/ai/status`(ADMIN)와 `/admin/ingestion`이 맡는다.
@@ -166,7 +166,7 @@ flowchart LR
 - **대체 경로(녹화용 S5·S6)**: 노트북 `infra/compose.yaml`(redis·qdrant·ai-gateway·worker 4개)을 띄우고 web은 호스트에서 `SOL_DEPLOYMENT_ROLE=standalone pnpm -C web start`로 띄운다. `infra/compose.yaml`에 `web` 서비스는 없다([[16-DECISIONS|ADR-024]] D1). 절차는 [[10-DEPLOYMENT|10 배포]] "대체 경로·녹화용"이다.
 
 > [!warning] 네트워크 의존
-> 운영과 대체 경로 모두 DB·Auth·Storage가 Supabase 클라우드 프로젝트라 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로는 [[19-DEMO-SCENARIO|19 데모 시나리오]]다([[16-DECISIONS|ADR-023]], 미결정 8번).
+> 운영 DB·Auth·Storage는 Supabase 클라우드 프로젝트라 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로는 격리 로컬 Supabase(`pnpm db:start`)를 쓴다([[19-DEMO-SCENARIO|19 데모 시나리오]] §3.2, [[16-DECISIONS|ADR-023]], 미결정 8번).
 
 ## 장애 원칙
 |장애|감지|사용자에게 보이는 것|데이터 영향|

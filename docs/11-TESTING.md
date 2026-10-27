@@ -196,7 +196,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 | 4 | G3·G4 + worked example 3건, missing 정책, 재현성(`mock`). V2-05, V2-06 점수 부분 | `phase-4/goldens-report.txt`, `coverage-summary.txt` |
 | 5 | G6·G9, V2-04·V2-06~V2-09·V2-13, `mock` 전체 흐름. 실추론: 인용 검증 통과율과 실공고 1건 E2E 로그(P0-4), Bosun 응답 원문·`stateTrace`(P0-6). 실추론 증거가 없는 항목은 미검증으로 적는다 | `phase-5/ai-fallback.txt`, `test-ai.txt`, 실추론 로그 |
 | 6 | 결정 기록 → 감사로그, 알림 1건 규칙, E2E | `phase-6/e2e/*.png`, `test-notifications.txt` |
-| 7 | §5 체크리스트 전 항목, 비밀값 로그 유출 0, `pnpm verify`·E2E·smoke PASS, 대체 경로 리허설(세 모드·엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속) | `demo-day/<일시>/checklist.md`, `run-modes.md` |
+| 7 | §5.1 전 항목(대체 경로는 §5.2의 S5·S6), 비밀값 로그 유출 0, `pnpm verify`·E2E·smoke PASS, 대체 경로 리허설(세 모드·엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속) | `demo-day/<일시>/checklist.md`, `run-modes.md` |
 | 평가 트랙 | P0-9~P0-11과 Bosun LoRA(F1·F2·F3)는 미결정이다. 기준은 [[21-MODEL-TRAINING\|21]] §7 | `eval/`, `bosun-train-feasibility.md`(실행 뒤) |
 
 **가정 재계산(ADR-037 BOOST-2) 통과 조건**: ① 단위·계약 시험(§3.1 `FX-03` 두 행): 정보통신공사업 가정 → NO-BID → WATCH, 68 → 68, 쓰기 0. ② 브라우저 시험: 띠가 원래·가정 권고와 점수를 그리고, 고정 문구 두 줄("가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다." / "결정 모델 의견은 가정에 포함하지 않았습니다.")이 정확히 같고, "확률"·"승률"·"가능성"·"수주"·"%"가 없고, 연타하면 마지막 응답만 그리고, 결정 패널 권고가 그대로다. ③ E2E(`test:e2e:work`, `web/e2e-auth/what-if.write.spec.ts`): sales → `FX-03` → 스위치 → "NO-BID → WATCH"·"68 → 68" → 결정 패널 NO-BID → 새로 고침 뒤 띠 없음 → `GET /api/v1/bids/{FX-03}/reviews` 건수 불변, 1440·1280 스크린샷. ④ `pnpm verify` 통과, 골든 94/72/68 불변. 증거는 `docs/evidence/boost2/`.
@@ -219,7 +219,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 | D3 | S2 | 목록 | `/bids?origin=demo`, 권고 `BID` 필터, 점수 내림차순 | 모든 행 `DEMO` 칩, `FX-12` 미노출. 11열이고 1440·1280에서 표 안에서만 가로 스크롤(페이지 가로 스크롤 없음) | — |
 | D4 | S3 | 상세·규칙 우선 | `FX-01` → `FX-03` | `FX-01` 자격 충족·점수 분해 5행·근거 드로어 원문 하이라이트. `FX-03` 권고 `NO-BID`, 자격 미충족 근거, 결정 모델 섹션 `규칙 우선` 배지 | 드로어 실패 시 원문 링크 새 탭 |
 | D5 | S3 | 가정 재계산 | `FX-03` "정보통신공사업 등록" 보유 가정 → [가정 지우기] | 권고 NO-BID → WATCH, 점수 변화 없음, 고정 문구 두 줄, 결정 패널 그대로, `bid_reviews` 불변 | 스위치가 없거나 실패하면 D4까지만 |
-| D6 | S4 | 즉석 재분석 | `FX-02` → [재분석]. 촬영·발표 때만 누른다 | 202 → `완료`. 예상은 10-28~11-02 78 BID, 11-03부터 72 WATCH다. 시작 화면의 운영 기록 66 WATCH(10-24 1건)는 옛 마감 기준 일정 계수 때문으로 설명한다(추정, [[10-DEPLOYMENT\|10]] "D1 당일 운영 확인") | 60초 넘으면 새로고침하고 사유 기록. 실패하면 66 WATCH 기록으로 설명 |
+| D6 | S4 | 즉석 재분석 | `FX-02` → [재분석]. 촬영·발표 때만 누른다 | 202 → `완료`. 예상 점수와 운영 기록 66 WATCH 설명은 [[10-DEPLOYMENT\|10]] "D1 당일 운영 확인" 3번이다 | 60초 넘으면 새로고침하고 사유 기록. 실패하면 66 WATCH 기록으로 설명 |
 | D7 | S4 | 사람 결정 | `FX-02` 결정 패널에서 결정 + 사유 + 담당자(발표자) → [결정 기록] | "마지막 결정: … · 담당자 · 시각", `bid_reviews` +1, 감사로그 1건, 알림 벨에 `REVIEW_ASSIGNED`. `analyst@soltech.invalid`로 보면 읽기 전용 | — |
 | D8 | S-LIVE | 실공고 | `/bids?origin=live` → 분석된 실공고 1건 | `DEMO` 칩 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL, 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"·"가상 회사 프로필로 분석" | 회사 반영 전에는 실공고 분석이 0건이다(`409 ANALYSIS_SOURCE_MISSING`). 그러면 찍지 않고 발표에서 그렇게 말한다([[19-DEMO-SCENARIO\|19]] §3) |
 | D9 | S7 | 격리 | `viewer@other.invalid` token으로 `GET /api/v1/bids/{FX-01}/qualification-checks`·`GET /api/v1/analyses/{org-01 분석 id}` | 둘 다 404. 화면에서는 `FX-01` 본문만 보이고 점수·자격·검토 없음 | 운영에 `org-02` 계정이 없으면 5.2의 16번으로 찍는다 |
@@ -321,7 +321,7 @@ docs/evidence/
 
 | ID | 자동 검증할 조건 | 시험 파일 |
 |---|---|---|
-| NAV-01 | 역할 4개(ADMIN·SALES·ANALYST·VIEWER)별 사이드바 노출과 URL 직접 접근 거부(403·404) | 자동 시험 없음. 템플릿 역할은 `web/e2e-auth/permissions.spec.ts` |
+| NAV-01 | 업무 역할 5개(ADMIN·SALES·ANALYST·EXECUTIVE·VIEWER, `web/server/organization/business-access.model.ts:5`)별 사이드바 노출과 URL 직접 접근 거부(403·404) | 자동 시험 없음. 템플릿 역할은 `web/e2e-auth/permissions.spec.ts` |
 | NAV-02 | `/ops`: 비운영자·조직 ADMIN 모두 404 | 자동 시험 없음 |
 | NAV-03 | 현재 조직: 업무 멤버십 0개 초대 안내 / 1개 진입 / 2개 이상 `403 UNSUPPORTED_ACCOUNT_STATE`. 요청의 조직 ID는 무시·거부 | 자동 시험 없음. 업무 역할 판정은 `web/server/organization/business-access.service.test.ts` |
 | NAV-04 | 조직·인력 조회: 200명, 3단 트리, 상위 표시 인원 = 하위 팀 합, 검색·필터, 다른 조직 0행 | `scripts/database.test.mjs` "솔리데오 카탈로그·명부·점수 정책". 화면은 자동 시험 없음 |
