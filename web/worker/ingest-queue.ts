@@ -1,4 +1,5 @@
 import {
+  COVERAGE_UNVERIFIED_SOURCES,
   ingestJobDataSchemaAt,
   EXTERNAL_SERVICES,
   G2B_BID_NOTICE_LIST_OPERATION,
@@ -14,6 +15,7 @@ import {
   type IngestQuota,
   type IngestRunMode,
   type IngestRunResult,
+  type LatestRunWindow,
   type RetryDeps,
   type StartRunInput,
   INGEST_SCHEDULE_SLOT_HOURS_KST,
@@ -204,6 +206,64 @@ async function g2bWindowOf(
   };
 }
 
+/**
+ * 외부 정기 창 상한(10-26 0순위). 첫 수집·오래 멈춘 뒤에도 최근 24시간만 받는다. 3시간 일정이면 하루 8회라
+ * 실패 창을 다시 쓰는 동안(같은 날 한도 소진 → 다음 날)도 덮는다. 더 긴 백필은 창을 정한 수동 요청(90일 이하)으로 한다.
+ */
+export const EXTERNAL_WINDOW_CAP_MS = 24 * 60 * 60 * 1000;
+
+/** 외부 창을 상한으로 잘랐을 때 params.windowCap 에 남기는 값. skippedFrom ~ window.from 은 받지 않은 구간이다 */
+type ExternalWindowCap = { maxMinutes: number; skippedFrom: string };
+
+type ExternalScope = { serviceKey: ExternalSourceKey; operation: string; partitionKey: string };
+
+const isValidWindow = (
+  window: { from: string; to: string } | null,
+): window is { from: string; to: string } =>
+  window !== null && Date.parse(window.from) < Date.parse(window.to);
+
+/**
+ * 마지막 정기 run 을 다시 받아야 하는지. 실패·중단(FAILED·RUNNING)과, 끝까지 받지 못한 PARTIAL(잘린 쪽에서 멈춤)이다.
+ * 빠짐없는지 확인할 수 없는 서비스(KEPCO)의 PARTIAL 은 다시 받아도 COMPLETE 가 될 수 없어 다시 쓰지 않는다.
+ * 격리 때문에 PARTIAL 이지만 끝까지 받은 run(completeness COMPLETE)도 다시 쓰지 않는다.
+ */
+const needsRetry = (last: LatestRunWindow, serviceKey: ExternalSourceKey): boolean =>
+  last.status === "FAILED" ||
+  last.status === "RUNNING" ||
+  (last.status === "PARTIAL" &&
+    last.completeness !== "COMPLETE" &&
+    !COVERAGE_UNVERIFIED_SOURCES.has(serviceKey));
+
+/**
+ * 외부 정기 창. 창을 정한 job(수동 백필)은 그대로 쓴다. 정하지 않았으면:
+ * - 마지막 run 을 다시 받아야 하고 그 창이 상한 안이면 그 창을 다시 쓴다(jobKey 가 같아 저장된 cursor 부터 잇는다)
+ * - 아니면 마지막 창 끝(다시 받아야 하는 창이면 그 시작)부터 지금까지. 겹쳐 받지 않는다. 시작은 `지금 − 24시간`보다 앞서지 않는다
+ * - 이력이 없으면 최근 24시간
+ * 외부 API 요청은 KST 날짜 단위라 창 경계가 하루 안에 있으면 같은 날을 다시 부른다(중복은 저장 때 걸러진다).
+ */
+async function externalWindowOf(
+  data: ExternalIngestJobData,
+  deps: IngestJobDeps,
+  scope: ExternalScope,
+): Promise<{ window: { from: string; to: string }; cap: ExternalWindowCap | null }> {
+  if (data.window !== undefined) return { window: data.window, cap: null };
+  const to = floorToMinute(deps.now());
+  const floor = to.getTime() - EXTERNAL_WINDOW_CAP_MS;
+  const last = await deps.repo.findLatestRunWindow(data.source, "SCHEDULED", scope);
+  const lastWindow = last !== null && isValidWindow(last.window) ? last.window : null;
+  const retry = last !== null && lastWindow !== null && needsRetry(last, data.serviceKey);
+  if (retry && Date.parse(lastWindow.from) >= floor) return { window: lastWindow, cap: null };
+  const resumeAt = lastWindow === null ? null : retry ? lastWindow.from : lastWindow.to;
+  const from = resumeAt === null ? floor : Math.max(Date.parse(resumeAt), floor);
+  return {
+    window: { from: new Date(from).toISOString(), to: to.toISOString() },
+    cap:
+      resumeAt !== null && Date.parse(resumeAt) < floor
+        ? { maxMinutes: EXTERNAL_WINDOW_CAP_MS / MINUTE_MS, skippedFrom: resumeAt }
+        : null,
+  };
+}
+
 // 같은 jobKey 의 run 을 이어 가면 repo 가 처음 저장한 params 를 그대로 둔다(timing 도 첫 시도의 값). 이번 시도는 로그에 남는다.
 const timingParam = (timing: IngestJobTiming | null): { timing?: IngestJobTiming } =>
   timing === null ? {} : { timing };
@@ -233,22 +293,18 @@ async function runInputOf(
           ? `request:${data.requestId}`
           : "all";
     const scope = { serviceKey: data.serviceKey, operation, partitionKey };
-    const last = await deps.repo.findLatestRunWindow(data.source, "SCHEDULED", scope);
-    const to = floorToMinute(deps.now());
-    const end = await deps.repo.findLatestRunWindowEnd(data.source, "SCHEDULED", scope);
-    const from =
-      end === null
-        ? new Date(to.getTime() - (data.source === "kepco" ? 89 : 90) * 24 * 60 * 60 * 1000)
-        : new Date(end.getTime() - 24 * 60 * 60 * 1000);
-    const window =
-      data.window ??
-      ((last?.status === "FAILED" ||
-        last?.status === "RUNNING" ||
-        last?.completeness === "PARTIAL" ||
-        last?.completeness === "UNKNOWN") &&
-      last.window !== null
-        ? last.window
-        : { from: from.toISOString(), to: to.toISOString() });
+    const { window, cap } = await externalWindowOf(data, deps, scope);
+    if (cap !== null) {
+      (deps.scheduledWindowCap?.log ?? deps.log)?.(
+        JSON.stringify({
+          event: "ingest.window.capped",
+          source: data.source,
+          serviceKey: data.serviceKey,
+          ...window,
+          ...cap,
+        }),
+      );
+    }
     return {
       ...common,
       source: data.source,
@@ -263,6 +319,7 @@ async function runInputOf(
         serviceKey: data.serviceKey,
         operation,
         partitionKey,
+        ...(cap === null ? {} : { windowCap: cap }),
         ...timingParam(timing),
       },
     };

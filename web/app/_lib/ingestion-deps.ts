@@ -8,7 +8,11 @@ import {
 import { describeQueueError } from "./analysis-queue";
 import { createIdempotencyStore } from "./idempotency-store";
 import { createIngestQueue } from "./ingest-queue";
-import { createIngestSchedulerReader, createRedisManualIngestGate } from "./manual-ingest-gate";
+import {
+  createIngestSchedulerReader,
+  createRedisManualIngestGate,
+  createSourceReadinessReader,
+} from "./manual-ingest-gate";
 import { createAnalysisRateLimiter } from "./rate-limit";
 import { currentIngestMode } from "./run-mode";
 import { sourceServiceReadiness } from "./opportunity-sources";
@@ -55,6 +59,8 @@ export function ingestionDeps(orgId: string): IngestionAdminDeps {
     runMode: currentIngestMode(),
     manualGate: createRedisManualIngestGate({ redisUrl }),
     scheduler: createIngestSchedulerReader({ redisUrl }),
+    // ingest Worker 가 남긴 외부 서비스 상태. 외부 수동 요청은 그 서비스가 Worker 에서 READY 일 때만 받는다.
+    sourceStatus: createSourceReadinessReader({ redisUrl }),
     serviceReady: sourceServiceReadiness,
     now: () => new Date(),
     newId: () => crypto.randomUUID(),

@@ -29,11 +29,15 @@ import {
   loadFixtureManifest,
   loadSourceRegistry,
   nextIngestSlotAfter,
+  type BidSourceConnector,
   type IngestJobData,
   type IngestQuota,
   type IngestRunResult,
   type IngestionRepo,
   type JobQueue,
+  SOURCE_READINESS_KEY,
+  type ServiceReadiness,
+  type SourceReadinessSnapshot,
 } from "@/server/ingestion";
 import {
   createDeadlineReminderStore,
@@ -55,8 +59,8 @@ import { createDocumentStorage } from "@/worker/document-storage";
 import { readReconcileSettings } from "@/worker/analysis-reconcile";
 import { startAnalysisRuntime } from "@/worker/analysis-runtime";
 import {
+  inspectExternalServiceKey,
   readG2bServiceKey,
-  readExternalServiceKey,
   readWorkerEnv,
   type WorkerEnv,
 } from "@/worker/env";
@@ -189,6 +193,22 @@ export async function syncG2bSchedule(
   else await queue.removeJobScheduler(G2B_SCHEDULER_ID);
 }
 
+/** 외부 서비스 정기 수집 일정 id. 서비스마다 하나라 다시 걸어도(upsert) 겹치지 않는다 */
+export const externalSchedulerIdOf = (key: ExternalSourceKey): string => `${key}-scheduled`;
+
+/** 이 worker 가 ingest 큐에 거는 일정 전부(--unschedule 이 지우는 목록) */
+export const INGEST_SCHEDULER_IDS: readonly string[] = [
+  G2B_SCHEDULER_ID,
+  ...EXTERNAL_SOURCE_KEYS.map(externalSchedulerIdOf),
+];
+
+/**
+ * 외부 정기 회차의 BullMQ 우선순위. 우선순위가 없는(0) 나라장터 정기·수동 회차는 wait 목록에 들어가 먼저 돌고,
+ * 이 값을 단 외부 회차는 그 뒤에 돈다(moveToActive-11.lua: wait 를 먼저 꺼내고 비었을 때만 prioritized).
+ * 같은 정각에 여러 서비스가 함께 걸려도 나라장터 회차가 외부 회차 뒤로 밀리지 않는다.
+ */
+export const EXTERNAL_SCHEDULE_PRIORITY = 10;
+
 // 시작이 실패했을 때 이미 만든 것을 닫는다. 원인 오류를 가리지 않으려고 닫는 중의 오류는 버린다.
 const closeQuietly = async (closables: readonly Closable[]): Promise<void> => {
   for (const closable of [...closables].reverse()) {
@@ -238,17 +258,19 @@ export async function createIngestWorker(
           `기동 즉시 수집하지 않고 다음 정각 ${nextIngestSlotAfter(deps.now()).toISOString()} 부터 돈다(즉시 수집은 --once·수동 요청)`,
       );
     }
+    // 준비된 서비스만 같은 3시간 정각 일정을 건다. 키 없음·한도 미정·미검증 서비스는 지워 옛 일정이 남지 않게 한다.
     for (const key of EXTERNAL_SOURCE_KEYS) {
       const job =
         deps.runMode === "live"
           ? deps.scheduledExternalJobs?.find((candidate) => candidate.serviceKey === key)
           : undefined;
-      const schedulerId = `${key}-scheduled`;
+      const schedulerId = externalSchedulerIdOf(key);
       if (job === undefined) await queue.removeJobScheduler(schedulerId);
       else
         await queue.upsertJobScheduler(schedulerId, INGEST_REPEAT, {
           name: INGEST_JOB_NAME,
           data: job,
+          opts: { priority: EXTERNAL_SCHEDULE_PRIORITY },
         });
     }
   } catch (error) {
@@ -273,12 +295,16 @@ const registryFileOf = (env: Env): string =>
 
 /** dailyLimit 은 registry quota.daily(07 §2.2 호출 예산). 없으면 기동을 멈춘다 */
 type G2bSource = { endpoint: string; serviceKey: string; dailyLimit: number };
+type ExternalSourceConfig = { source: CallableSource; key: string; dailyLimit: number };
 type IngestConfig = {
   runMode: RunMode;
   fixturesDir: string;
   g2b: G2bSource | null;
   registry: SourceRegistry | null;
-  external: Map<ExternalSourceKey, { source: CallableSource; key: string; dailyLimit: number }>;
+  /** 키·한도가 갖춰져 부를 수 있는 외부 서비스. 기본 조회 방식이 미검증이어도 넣는다(검증된 조회 방식의 수동 요청용) */
+  external: Map<ExternalSourceKey, ExternalSourceConfig>;
+  /** live 에서만 채운다. 외부 서비스마다 기동 때 정한 상태(키 값 없음, source-readiness.model.ts) */
+  readiness: Map<ExternalSourceKey, ServiceReadiness>;
 };
 
 // live 모드는 기동 때 registry 와 서비스키를 확인한다. 부를 수 없는 소스면 연결을 만들기 전에 멈춘다(사유만 싣는다).
@@ -312,31 +338,147 @@ async function resolveG2bSource(env: Env, registry: SourceRegistry): Promise<G2b
   };
 }
 
+/** 기본 조회 방식이 registry 목록에도 있고 녹음 응답으로 검증된 조회 방식인지 */
+const defaultOperationVerified = (key: ExternalSourceKey, source: CallableSource): boolean => {
+  const operation = EXTERNAL_SERVICES[key].operation;
+  return (
+    source.operations.includes(operation) &&
+    (EXTERNAL_SERVICES[key].verifiedOperations as readonly string[]).includes(operation)
+  );
+};
+
+/**
+ * 외부 서비스 하나의 상태(10-26 0순위). 던지지 않는다: 키가 없거나 한도가 미정인 서비스만 빠지고
+ * 나라장터 수집과 다른 서비스는 그대로 뜬다. 한도(quota.daily)가 없으면 값을 지어내지 않고 부르지 않는다.
+ */
+function externalSourceOf(
+  env: Env,
+  registry: SourceRegistry,
+  key: ExternalSourceKey,
+): { readiness: ServiceReadiness; config: ExternalSourceConfig | null } {
+  const callable = callableSource(registry, key);
+  if (!callable.ok)
+    return {
+      readiness: { state: "NOT_CALLABLE", reason: callable.reason, scheduled: false },
+      config: null,
+    };
+  const dailyLimit = dailyQuotaOf(registry, key);
+  if (dailyLimit === null || dailyLimit < 1)
+    return { readiness: { state: "QUOTA_UNVERIFIED", scheduled: false }, config: null };
+  const read = inspectExternalServiceKey(env, callable.source.serviceKeyEnv);
+  if (!read.ok) return { readiness: { state: read.reason, scheduled: false }, config: null };
+  const verified = defaultOperationVerified(key, callable.source);
+  return {
+    readiness: { state: verified ? "READY" : "OPERATION_UNVERIFIED", scheduled: verified },
+    config: { source: callable.source, key: read.key, dailyLimit },
+  };
+}
+
 async function readIngestConfig(env: Env): Promise<IngestConfig> {
   const runMode = readRunMode(env);
   const registry = runMode === "live" ? await loadSourceRegistry(registryFileOf(env)) : null;
+  // 나라장터 입찰공고는 예전처럼 하나라도 틀리면 기동을 멈춘다(resolveG2bSource). 외부 서비스는 서비스마다 상태만 남긴다.
+  const g2b = registry !== null ? await resolveG2bSource(env, registry) : null;
   const external: IngestConfig["external"] = new Map();
+  const readiness: IngestConfig["readiness"] = new Map();
   if (registry !== null) {
     for (const key of EXTERNAL_SOURCE_KEYS) {
-      const callable = callableSource(registry, key);
-      if (!callable.ok) continue;
-      const dailyLimit = dailyQuotaOf(registry, key);
-      if (dailyLimit === null || dailyLimit < 1)
-        throw new Error(`수집 소스 ${key} quota.daily 미확인`);
-      external.set(key, {
-        source: callable.source,
-        key: readExternalServiceKey(env, callable.source.serviceKeyEnv),
-        dailyLimit,
-      });
+      const source = externalSourceOf(env, registry, key);
+      readiness.set(key, source.readiness);
+      if (source.config !== null) external.set(key, source.config);
     }
   }
+  return { runMode, fixturesDir: fixturesDirOf(env), g2b, registry, external, readiness };
+}
+
+/** 기동 로그·--check 에 남기는 서비스별 한 줄(env 이름·키 값 없음) */
+export const describeExternalReadiness = (
+  key: ExternalSourceKey,
+  readiness: ServiceReadiness,
+): string =>
+  `외부 소스 ${key}: ${readiness.state}${readiness.reason === undefined ? "" : `(${readiness.reason})`}` +
+  (readiness.scheduled ? " · 정기 수집" : " · 정기 수집 제외");
+
+const readinessSnapshotOf = (
+  readiness: ReadonlyMap<ExternalSourceKey, ServiceReadiness>,
+  now: Date,
+): SourceReadinessSnapshot => ({
+  version: 1,
+  updatedAt: now.toISOString(),
+  services: Object.fromEntries(readiness),
+});
+
+/**
+ * 외부 서비스 상태를 Redis 에 남긴다(redis-api 가 읽는다). 실패해도 수집은 계속한다: 이름·코드만 남긴다.
+ * live 에서만 부른다. mock·fixture worker 가 빈 상태로 live 상태를 덮지 않게 한다.
+ */
+export async function publishSourceReadiness(
+  redis: Pick<IORedis, "set">,
+  readiness: ReadonlyMap<ExternalSourceKey, ServiceReadiness>,
+  now: Date,
+  log: (line: string) => void,
+): Promise<void> {
+  try {
+    await redis.set(SOURCE_READINESS_KEY, JSON.stringify(readinessSnapshotOf(readiness, now)));
+  } catch (error) {
+    const code = errorCode(error);
+    log(`외부 수집 상태 기록 실패: ${errorNameOf(error)}${code ? ` ${code}` : ""}`);
+  }
+}
+
+/** 실행 중 외부 서비스 상태. 인증 실패를 받으면 그 서비스만 막는다(Worker 를 다시 띄울 때까지) */
+export type ExternalRuntime = {
+  readiness: Map<ExternalSourceKey, ServiceReadiness>;
+  onAuthFailed: (key: ExternalSourceKey) => void;
+};
+
+/**
+ * 기동 상태를 복사해 실행 중 상태를 만든다. 인증 실패는 서비스마다 한 번만 기록하고 changed 로 알린다
+ * (changed 가 Redis 에 다시 남긴다). 다른 서비스와 나라장터 상태는 바꾸지 않는다.
+ */
+export function createExternalRuntime(
+  initial: ReadonlyMap<ExternalSourceKey, ServiceReadiness>,
+  options: {
+    log: (line: string) => void;
+    changed: (readiness: ReadonlyMap<ExternalSourceKey, ServiceReadiness>) => void;
+  },
+): ExternalRuntime {
+  const readiness = new Map(initial);
   return {
-    runMode,
-    fixturesDir: fixturesDirOf(env),
-    g2b: registry !== null ? await resolveG2bSource(env, registry) : null,
-    registry,
-    external,
+    readiness,
+    onAuthFailed: (key) => {
+      const current = readiness.get(key);
+      if (current === undefined || current.state === "AUTH_FAILED") return;
+      readiness.set(key, { ...current, state: "AUTH_FAILED" });
+      options.log(JSON.stringify({ event: "ingest.source.auth_failed", serviceKey: key }));
+      options.changed(readiness);
+    },
   };
+}
+
+/** 외부 connector 를 감싼다. 인증 오류(resultCode 30·31)를 받으면 runtime 에 알린다. 결과는 그대로 돌려준다 */
+export function withAuthCircuit(
+  connector: BidSourceConnector,
+  key: ExternalSourceKey,
+  runtime: Pick<ExternalRuntime, "onAuthFailed">,
+): BidSourceConnector {
+  return {
+    source: connector.source,
+    async fetchPage(input) {
+      const outcome = await connector.fetchPage(input);
+      if (!outcome.ok && outcome.failure.kind === "SERVICE_KEY_INVALID") runtime.onAuthFailed(key);
+      return outcome;
+    },
+  };
+}
+
+/** gate 가 돌려줄 사유. 준비됐거나(READY) 조회 방식만 미검증이면 registry 판정으로 넘긴다 */
+export function readinessBlockOf(readiness: ServiceReadiness | undefined): string | null {
+  if (readiness === undefined) return null;
+  if (readiness.state === "READY" || readiness.state === "OPERATION_UNVERIFIED") return null;
+  return readiness.state === "NOT_CALLABLE"
+    ? (readiness.reason ?? "NOT_VERIFIED")
+    : readiness.state;
 }
 
 function externalScheduledJob(key: ExternalSourceKey): ExternalIngestJobData {
@@ -357,6 +499,7 @@ function ingestJobDepsOf(
   quotas: G2bIngestQuotas | null,
   externalQuotas: Map<ExternalSourceKey, IngestQuota>,
   log: (line: string) => void,
+  runtime: ExternalRuntime,
   scheduledWindowCap?: IngestJobDeps["scheduledWindowCap"],
 ): IngestJobDeps {
   const admin = getSupabaseAdmin();
@@ -368,19 +511,14 @@ function ingestJobDepsOf(
   return {
     repo: createSupabaseIngestionRepo(admin),
     runMode: config.runMode,
-    scheduledExternalJobs: Array.from(config.external.keys())
-      .filter((key) => {
-        const source = config.external.get(key);
-        const operation = EXTERNAL_SERVICES[key].operation;
-        return (
-          source !== undefined &&
-          source.source.operations.includes(operation) &&
-          (EXTERNAL_SERVICES[key].verifiedOperations as readonly string[]).includes(operation)
-        );
-      })
-      .map(externalScheduledJob),
+    scheduledExternalJobs: EXTERNAL_SOURCE_KEYS.filter(
+      (key) => config.external.has(key) && config.readiness.get(key)?.scheduled === true,
+    ).map(externalScheduledJob),
+    // 기동 상태(키 없음·한도 미정·인증 실패)가 먼저다. 그 사유를 그대로 SOURCE_<사유> 로 남겨 어느 서비스가 왜 막혔는지 보인다.
     externalSourceGate: (job) => {
       if (config.registry === null) return "NOT_VERIFIED";
+      const blocked = readinessBlockOf(runtime.readiness.get(job.serviceKey));
+      if (blocked !== null) return blocked;
       const callable = callableSource(config.registry, job.serviceKey);
       if (!callable.ok) return callable.reason;
       const operation = job.operation ?? EXTERNAL_SERVICES[job.serviceKey].operation;
@@ -397,7 +535,7 @@ function ingestJobDepsOf(
       const external = config.external.get(job.serviceKey);
       if (config.runMode !== "live" || external === undefined)
         throw new Error("external connector source not verified");
-      return createExternalSourceConnector({
+      const connector = createExternalSourceConnector({
         sourceKey: job.serviceKey,
         serviceKey: external.key,
         endpoint: external.source.baseUrl,
@@ -406,6 +544,8 @@ function ingestJobDepsOf(
         requestId: job.source === "g2b" ? job.requestId : undefined,
         fetch: (url, init) => globalThis.fetch(url, init),
       });
+      // 인증 오류(resultCode 30·31)를 받으면 이 서비스만 막는다. 다음 회차는 API 를 부르지 않고 SOURCE_AUTH_FAILED 로 끝난다.
+      return withAuthCircuit(connector, job.serviceKey, runtime);
     },
     quotaForExternal: (job) => externalQuotas.get(job.serviceKey),
     createFixtureConnector: async (batch) =>
@@ -454,6 +594,9 @@ function ingestJobDepsOf(
 
 // 호출 예산 카운터(07 §2.2)는 live 에서만 만든다. 공유 연결을 duplicate 해 BullMQ 의 blocking 명령 뒤에 줄 서지 않게 한다.
 // 공유 연결의 maxRetriesPerRequest: null 을 그대로 물려받으면 Redis 장애 때 예산 확인이 끝없이 기다린다. 바로 실패하는 옵션으로 덮는다.
+/** 상태 기록용 복제 연결. 연결을 기다려 쓰되(오프라인 큐) 한 번만 다시 보내고 2초 안에 끝낸다 */
+const STATUS_REDIS_OPTIONS = { maxRetriesPerRequest: 1, commandTimeout: 2_000 } as const;
+
 // 예산 카운터용 복제 연결의 오류. 리스너가 없으면 ioredis 가 "Unhandled error event" 로 접속 주소를 찍는다.
 // 이름·코드만 남긴다(보안 검토 10-25 낮음 2). 예약 실패 자체는 quota 저장소가 fail-closed 로 처리한다.
 function quietQuotaErrors(quotaConnection: IORedis, label: string): IORedis {
@@ -536,6 +679,8 @@ export const createIngestWorkerRegistration =
     const jobLog = log ?? consoleLog;
     const ignoredInterval = ignoredIngestIntervalNotice(rawEnv);
     if (ignoredInterval !== null) jobLog(ignoredInterval);
+    for (const [key, readiness] of config.readiness)
+      jobLog(describeExternalReadiness(key, readiness));
     const scheduledWindowCap =
       scheduledWindowCapMinutes === undefined
         ? undefined
@@ -557,11 +702,24 @@ export const createIngestWorkerRegistration =
               dailyLimit: source.dailyLimit,
             }),
           });
-      const closeExternalQuota: Closable = {
+      // 외부 서비스 상태 기록용 연결(live 만). 기록이 Redis 장애로 오래 걸리거나 실패해도 수집은 계속한다.
+      const statusConnection =
+        config.runMode === "live"
+          ? quietQuotaErrors(connection.duplicate(STATUS_REDIS_OPTIONS), "외부 수집 상태")
+          : null;
+      const closeExternal: Closable = {
         close: async () => {
           externalQuotaConnection?.disconnect();
+          statusConnection?.disconnect();
         },
       };
+      const runtime = createExternalRuntime(config.readiness, {
+        log: jobLog,
+        changed: (readiness) => {
+          if (statusConnection !== null)
+            void publishSourceReadiness(statusConnection, readiness, new Date(), jobLog);
+        },
+      });
       const documentsQueue = options.documents ? new Queue(DOCUMENTS_QUEUE, { connection }) : null;
       if (documentsQueue !== null) logErrors(documentsQueue, "documents queue");
       const closeDocuments: Closable = { close: async () => documentsQueue?.close() };
@@ -574,9 +732,13 @@ export const createIngestWorkerRegistration =
             quotaParts,
             externalQuotas,
             jobLog,
+            runtime,
             scheduledWindowCap,
           ),
         );
+        // 일정을 건 뒤에 남긴다(scheduled 가 실제 등록과 같다).
+        if (statusConnection !== null)
+          await publishSourceReadiness(statusConnection, runtime.readiness, new Date(), jobLog);
         const documents =
           documentsQueue === null
             ? null
@@ -590,19 +752,19 @@ export const createIngestWorkerRegistration =
                 },
               });
         if (log !== undefined) await logIngestSchedulers(connection, log);
-        // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐 → 예산 카운터 연결.
+        // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐 → 예산·상태 연결.
         return {
           close: () =>
             closeAll([
               closeQuota,
-              closeExternalQuota,
+              closeExternal,
               closeDocuments,
               ingest,
               ...(documents === null ? [] : [{ close: () => documents.stop() }]),
             ]),
         };
       } catch (error) {
-        await closeQuietly([closeQuota, closeExternalQuota, closeDocuments]);
+        await closeQuietly([closeQuota, closeExternal, closeDocuments]);
         throw error;
       }
     };
@@ -629,7 +791,9 @@ export async function runG2bIngestOnce(
   if (config.g2b === null) throw new Error("g2b 1회 수집은 SOL_RUN_MODE=live 에서만 한다");
   const quotaParts = createIngestQuota(connection, config.g2b);
   try {
-    const deps = ingestJobDepsOf(config, null, quotaParts, new Map(), consoleLog);
+    // 1회 수집은 나라장터 입찰공고만 돈다. 외부 서비스 상태는 기동 때 값 그대로 쓰고 바꾸지 않는다.
+    const runtime: ExternalRuntime = { readiness: config.readiness, onAuthFailed: () => undefined };
+    const deps = ingestJobDepsOf(config, null, quotaParts, new Map(), consoleLog, runtime);
     let quotaUsed: number | null = null;
     const track = (value: number | undefined) => {
       if (value !== undefined) quotaUsed = value;
@@ -666,7 +830,10 @@ export async function describeIngestConfig(rawEnv: Env): Promise<{
   ignoredIntervalNotice: string | null;
   registryFile: string;
   g2bSources: string[];
+  /** 부를 수 있는(키·한도가 갖춰진) 외부 서비스 */
   externalSources: string[];
+  /** 외부 서비스마다 "외부 소스 <key>: <상태>" 한 줄(키 값·env 값 없음) */
+  externalReadiness: string[];
 }> {
   const registryFile = registryFileOf(rawEnv);
   const config = await readIngestConfig(rawEnv).catch((error: unknown) => {
@@ -685,6 +852,9 @@ export async function describeIngestConfig(rawEnv: Env): Promise<{
         ? []
         : [G2B_BID_NOTICE_SOURCE, ...G2B_AUX_OPERATIONS.map(({ registryKey }) => registryKey)],
     externalSources: Array.from(config.external.keys()),
+    externalReadiness: Array.from(config.readiness, ([key, readiness]) =>
+      describeExternalReadiness(key, readiness),
+    ),
   };
 }
 

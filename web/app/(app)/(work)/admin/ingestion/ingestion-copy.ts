@@ -27,6 +27,41 @@ export const SHOW_RUN_LABEL = "실행 중인 수집 보기";
 export const REANALYZE_HINT =
   "바뀐 공고는 자동으로 다시 분석하지 않습니다. 공고 상세에서 [재분석]을 누르세요.";
 
+// 서비스별 [증분 수집](10-26 0순위). 막힌 이유는 registry 사유(웹의 사본)이거나 수집 Worker 가 남긴 서비스 상태다.
+export const SERVICE_COLLECT_LABEL = "증분 수집";
+export const SERVICE_COLLECT_BUSY = "접수 중…";
+export const GATE_PENDING_NOTICE = "수집 서버 상태를 확인하는 중입니다";
+export const NOT_LIVE_NOTICE = "DEMO 모드에서는 외부 API를 호출하지 않습니다";
+export const BLOCKED_NOTICE = "지금은 불러올 수 없습니다";
+
+const SOURCE_BLOCK_TEXT: Readonly<Record<string, string>> = {
+  // registry 사유(infra/sources/registry.yaml, callableSource)
+  NOT_REGISTERED: "registry 미등록",
+  DISABLED: "활성화 대기",
+  NOT_VERIFIED: "응답 검증 전",
+  NOT_APPROVED: "활용승인 전",
+  NO_ENDPOINT: "API 주소 미등록",
+  NO_FIELD_MAPPING: "필드 매핑 미구현",
+  NO_SERVICE_KEY_ENV: "키 환경변수 미지정",
+  // 수집 Worker 가 남긴 상태(server/ingestion/source-readiness.model.ts)
+  WORKER_NOT_READY: "수집 Worker 설정 대기",
+  NOT_CALLABLE: "수집 Worker 에서 비활성 · Worker 재시작 필요",
+  OPERATION_UNVERIFIED: "기본 조회 방식 미검증",
+  QUOTA_UNVERIFIED: "호출 한도 미확정",
+  KEY_MISSING: "API 키 없음",
+  KEY_INVALID: "API 키 형식 오류",
+  AUTH_FAILED: "인증 실패 · 키 확인 뒤 Worker 재시작",
+};
+
+/** 서비스가 막힌 이유 한 줄. 모르는 사유는 "연동 조건 확인 필요"다(서버 글자를 그대로 보이지 않는다). */
+export const sourceBlockText = (reason: unknown): string =>
+  (typeof reason === "string" ? SOURCE_BLOCK_TEXT[reason] : undefined) ?? "연동 조건 확인 필요";
+
+// 공고 수집 대상이 아닌 참조 데이터 서비스(업종·근거법규)
+export const REFERENCE_TITLE = "참조 데이터";
+export const REFERENCE_DESCRIPTION =
+  "공고를 수집하지 않는 기준 정보입니다. 업종 코드·근거법규 대조에 쓰며 증분 수집 대상이 아닙니다.";
+
 export const EMPTY_TITLE = "아직 수집을 실행하지 않았습니다";
 export const EMPTY_DESCRIPTION = "수집을 실행하면 실행마다 한 줄씩 여기에 남습니다.";
 

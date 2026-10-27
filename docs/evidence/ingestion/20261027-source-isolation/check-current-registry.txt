@@ -1,0 +1,9 @@
+registry: ../infra/sources/registry.yaml
+g2b 소스(목록·보조): g2b-bid-notice, g2b-bid-license-limit, g2b-bid-region, g2b-bid-eorder-attach
+외부 소스 kwater-bid-notice: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 lh-bid-notice: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 kwater-procurement-plan: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 lh-pre-specification: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 g2b-procurement-request: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 kepco-ebid-contract: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+ingest-only worker 확인 통과: SOL_RUN_MODE=live, 정기 수집 매일 KST 00·03·06·09·12·15·18·21시 정각

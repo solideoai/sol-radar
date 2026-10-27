@@ -122,49 +122,53 @@ describe("Redis HTTPS client boundary", () => {
     }
   });
 
-  it("preserves a whitelisted source-readiness 503 without retrying or echoing upstream details", async () => {
-    const send = vi.fn(async () =>
-      Response.json(
-        {
-          error: {
-            code: "SERVICE_UNAVAILABLE",
-            message: "https://private.invalid/?apiKey=must-not-return",
-            details: {
-              component: "source",
-              source: "kepco",
-              serviceKey: "kepco-ebid-contract",
-              reason: "DISABLED",
-              requestUrl: "https://private.invalid/?apiKey=must-not-return",
+  // registry 사유(DISABLED)와 Worker 상태 사유(WORKER_NOT_READY·KEY_MISSING·AUTH_FAILED)를 모두 그대로 전한다.
+  it.each(["DISABLED", "WORKER_NOT_READY", "KEY_MISSING", "AUTH_FAILED"])(
+    "preserves a whitelisted source-readiness 503 (%s) without retrying or echoing upstream details",
+    async (reason) => {
+      const send = vi.fn(async () =>
+        Response.json(
+          {
+            error: {
+              code: "SERVICE_UNAVAILABLE",
+              message: "https://private.invalid/?apiKey=must-not-return",
+              details: {
+                component: "source",
+                source: "kepco",
+                serviceKey: "kepco-ebid-contract",
+                reason,
+                requestUrl: "https://private.invalid/?apiKey=must-not-return",
+              },
+              requestId: RUN,
             },
-            requestId: RUN,
           },
+          { status: 503, headers: { "Set-Cookie": "must-not-return" } },
+        ),
+      );
+      const result = await relayRedisApi(
+        new Request(`https://app.invalid${INGEST_PATH}`, { method: "POST", body: "{}" }),
+        INGEST_PATH,
+        { env, send, accessToken },
+      );
+      expect(result.status).toBe(503);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(result.headers.get("X-Request-Id")).toBe(RUN);
+      expect(result.headers.has("set-cookie")).toBe(false);
+      expect(await result.json()).toEqual({
+        error: {
+          code: "SERVICE_UNAVAILABLE",
+          message: "아직 사용할 수 없는 수집 서비스입니다",
+          details: {
+            component: "source",
+            source: "kepco",
+            serviceKey: "kepco-ebid-contract",
+            reason,
+          },
+          requestId: RUN,
         },
-        { status: 503, headers: { "Set-Cookie": "must-not-return" } },
-      ),
-    );
-    const result = await relayRedisApi(
-      new Request(`https://app.invalid${INGEST_PATH}`, { method: "POST", body: "{}" }),
-      INGEST_PATH,
-      { env, send, accessToken },
-    );
-    expect(result.status).toBe(503);
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(result.headers.get("X-Request-Id")).toBe(RUN);
-    expect(result.headers.has("set-cookie")).toBe(false);
-    expect(await result.json()).toEqual({
-      error: {
-        code: "SERVICE_UNAVAILABLE",
-        message: "아직 사용할 수 없는 수집 서비스입니다",
-        details: {
-          component: "source",
-          source: "kepco",
-          serviceKey: "kepco-ebid-contract",
-          reason: "DISABLED",
-        },
-        requestId: RUN,
-      },
-    });
-  });
+      });
+    },
+  );
 
   it("normalizes unrecognized source-readiness reasons instead of exposing upstream text", async () => {
     const send = vi.fn(async () =>
@@ -479,6 +483,43 @@ describe("manual ingestion gate relay", () => {
     expect(headers.get("authorization")).toBe(`Bearer ${USER_TOKEN}`);
     expect(headers.get("x-sol-service-token")).toBe(TOKEN);
     expect(headers.has("idempotency-key")).toBe(false);
+  });
+
+  it("passes worker service states through the gate relay", async () => {
+    const services = {
+      "lh-bid-notice": { state: "KEY_MISSING", scheduled: false },
+      "kwater-bid-notice": { state: "NOT_CALLABLE", reason: "DISABLED", scheduled: false },
+    };
+    const result = await relayRedisApi(new Request(`https://app.invalid${GATE_PATH}`), GATE_PATH, {
+      env,
+      accessToken,
+      send: async () => Response.json({ ...gateView, services }),
+    });
+    expect(result.status).toBe(200);
+    expect(await result.json()).toEqual({ ...gateView, services });
+  });
+
+  // redis-api 가 웹보다 새 버전이어도(새 서비스·새 상태) 판정 전체를 거절하지 않는다. [지금 불러오기]가 막히면 안 된다.
+  it("keeps the gate when worker service states come from a newer redis-api", async () => {
+    const relay = (services: unknown) =>
+      relayRedisApi(new Request(`https://app.invalid${GATE_PATH}`), GATE_PATH, {
+        env,
+        accessToken,
+        send: async () => Response.json({ ...gateView, services }),
+      });
+    const newer = await relay({
+      "lh-bid-notice": { state: "READY", scheduled: true },
+      "kwater-bid-notice": { state: "PAUSED_BY_OPERATOR", scheduled: false },
+      "new-agency-notice": { state: "READY", scheduled: true },
+    });
+    expect(newer.status).toBe(200);
+    expect(await newer.json()).toEqual({
+      ...gateView,
+      services: { "lh-bid-notice": { state: "READY", scheduled: true } },
+    });
+    const malformed = await relay("not-an-object");
+    expect(malformed.status).toBe(200);
+    expect(await malformed.json()).toEqual({ ...gateView, services: null });
   });
 
   it("fails closed for a malformed gate body or an upstream Redis outage", async () => {

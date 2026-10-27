@@ -23,6 +23,7 @@ const gate = (overrides: Partial<ManualGate> = {}): ManualGate => ({
     active: true,
     nextRunAt: "2026-10-26T06:00:00.000Z",
   },
+  services: null,
   ...overrides,
 });
 

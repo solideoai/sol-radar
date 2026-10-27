@@ -1,6 +1,10 @@
 import "server-only";
 import { z } from "zod";
-import { EXTERNAL_SOURCE_KEYS } from "@/server/ingestion";
+import {
+  EXTERNAL_SOURCE_KEYS,
+  SOURCE_READINESS_STATES,
+  sourceReadinessServicesSchema,
+} from "@/server/ingestion";
 
 export const analysisAcceptedSchema = z
   .object({
@@ -61,6 +65,9 @@ export const sourceReadinessErrorSchema = z.object({
         "NO_ENDPOINT",
         "NO_FIELD_MAPPING",
         "NO_SERVICE_KEY_ENV",
+        // ingest Worker 가 남긴 서비스 상태(source-readiness.model.ts). WORKER_NOT_READY 는 상태가 아직 없다
+        "WORKER_NOT_READY",
+        ...SOURCE_READINESS_STATES.filter((state) => state !== "READY"),
       ]),
     }),
     requestId: z.uuid(),
@@ -96,6 +103,9 @@ export const manualIngestGateSchema = z.object({
     nextRunAt: isoInstant.nullable(),
   }),
   ingestMode: z.enum(["live", "fixture", "mock"]),
+  // 새 redis-api 만 싣는다. 옛 redis-api 응답에는 없다(화면은 없으면 외부 서비스 단추를 막는다).
+  // 아는 서비스의 올바른 항목만 남기고, 모양이 아예 다르면 null 로 둔다. 판정 전체([지금 불러오기])는 거절하지 않는다.
+  services: sourceReadinessServicesSchema.nullable().optional().catch(null),
 });
 
 export const backendErrorSchema = z.object({

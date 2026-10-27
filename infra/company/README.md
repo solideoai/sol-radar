@@ -93,6 +93,8 @@ F08 quota 연결에 필요한 명령은 `GET`, `EVAL`, Lua 내부의 `INCR`, `EX
 - 이미지는 `sol-radar-ingest-worker:<git SHA>`다. 회사 Analysis Worker가 쓰는 `sol-radar-ai-worker-worker:latest`를 빌드하거나 덮지 않는다(덮으면 Analysis Worker가 다음 기동 때 이 코드로 바뀐다). Compose의 모든 명령에 `INGEST_WORKER_TAG`가 필요하다. 없으면 `config`부터 실패한다.
 - 호출 예산은 전체 Worker와 같은 카운터(`quota:15129394:YYYYMMDD`, 일 1000회, 900회부터 보조 조회 중단)를 쓴다. `--once`도 같은 예약을 거친다. 수동 수집(MANUAL) job은 같은 키를 세되 한도가 `1000 − 200 = 800`이다(`MANUAL_RESERVED_CALLS`, `web/worker/quota-store.ts`). 수동은 720회부터 보조 조회를 멈추고 800회에서 호출을 멈춰, 정기 수집 몫 200회가 남는다.
 - 정기 회차의 수집 창은 `max(직전 SCHEDULED 성공 창 끝, 지금 − 24시간)`부터 지금까지다(최대 1440분). 직전 정기 회차가 실패했고 그 창이 24시간 안에 시작했으면 그 창과 cursor를 그대로 이어 쓴다(예산 소진 뒤 자정 회차가 빈틈 없이 잇는다). 잘라 낸 구간이 있으면 키 없는 `ingest.window.capped` 로그를 남기고 `ingest_runs.params.windowCap`에 기록한다. 잘린 구간을 자동으로 메우지 않는다. 필요하면 승인 뒤 `--once --window-minutes <N>`(1~1440)으로 받는다.
+- 외부 서비스(K-water·LH·KEPCO·나라장터 조달요청)는 서비스마다 따로 판정한다(10-26 0순위). 키가 없거나 한도가 미정인 서비스만 빠지고 Worker는 계속 뜬다. `READY`인 서비스만 `<key>-scheduled` 일정을 같은 cron으로 걸고, 그 회차는 우선순위 10이라 같은 정각의 `g2b-scheduled`(우선순위 없음)가 먼저 돈다. 운영 중 인증 오류(resultCode 30·31)를 받으면 그 서비스만 `AUTH_FAILED`가 되고 다음 회차부터 API를 부르지 않는다(키를 고친 뒤 Worker 재시작으로 풀린다). 기동 때와 상태가 바뀔 때 Redis `ingest:source-readiness`(JSON, 키 값 없음)에 서비스별 상태를 남기고, redis-api는 이 값으로 화면의 서비스별 [증분 수집]을 막는다. 이 기록이 실패해도 수집은 계속하고 `외부 수집 상태 기록 실패: …` 한 줄만 남긴다.
+- 외부 서비스의 정기 창은 최대 24시간이다(`EXTERNAL_WINDOW_CAP_MS`). 직전 창이 실패·실행 중·불완전 PARTIAL이고 24시간 안에 시작했으면 그 창을 다시 쓴다. 아니면 직전 창 끝(재시도가 필요했으면 시작)부터 이어 가되 지금 − 24시간보다 앞이면 자르고 `ingest.window.capped`·`params.windowCap`을 남긴다. KEPCO 전자입찰 계약은 응답 범위를 검증하지 못해 PARTIAL로 남지만 다음 90일 조각으로 cursor를 넘겨 같은 조각을 끝없이 되풀이하지 않는다.
 - 첨부: 이 Worker는 documents job을 넣지 않고 첨부 재확인(reconciler)도 돌리지 않는다. 새 공고의 `bid_documents` 행은 `download_status = 'PENDING'`으로 남는다. 나중에 전체 Worker(live)를 띄우면 그 reconciler가 `is_demo = false`인 PENDING 행을 다시 찾아 documents job을 넣는다.
 - 분석도 하지 않는다. live 공고는 자동 분석되지 않는다.
 - live는 fixture를 읽지 않는다. 회사 `fixtures/`는 UID 1001·600/700이라 Worker(UID 1000)가 읽지 못해도 된다. 권한을 바꾸지 않는다(`chmod` 금지).
@@ -183,8 +185,27 @@ docker compose -f infra/compose.ingest-only.company.yaml run --rm --no-deps inge
 ```text
 registry: /srv/sol-radar/infra/sources/registry.yaml
 g2b 소스(목록·보조): g2b-bid-notice, g2b-bid-license-limit, g2b-bid-region, g2b-bid-eorder-attach
+외부 소스 kwater-bid-notice: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 lh-bid-notice: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 kwater-procurement-plan: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 lh-pre-specification: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 g2b-procurement-request: NOT_CALLABLE(DISABLED) · 정기 수집 제외
+외부 소스 kepco-ebid-contract: NOT_CALLABLE(DISABLED) · 정기 수집 제외
 ingest-only worker 확인 통과: SOL_RUN_MODE=live, 정기 수집 매일 KST 00·03·06·09·12·15·18·21시 정각
 ```
+
+`외부 소스 …` 줄은 외부 서비스마다 기동 때 정한 상태다(env 이름·키 값은 찍지 않는다). 위는 현재 registry(외부 6종 `enabled: false`)의 출력이다. 상태는 다음 중 하나다.
+
+| 상태 | 뜻 | 정기 수집 |
+| --- | --- | --- |
+| `READY` | registry 검증·활용승인·필드 매핑·한도·키가 모두 있고 기본 조회 방식이 녹음 응답으로 검증됐다 | 포함 |
+| `NOT_CALLABLE(<이유>)` | registry 판정(`DISABLED`·`NOT_VERIFIED`·`NOT_APPROVED`·`NO_ENDPOINT`·`NO_FIELD_MAPPING`·`NO_SERVICE_KEY_ENV`) | 제외 |
+| `QUOTA_UNVERIFIED` | `quota.daily`가 없다. 한도를 지어내지 않고 부르지 않는다 | 제외 |
+| `KEY_MISSING`·`KEY_INVALID` | 키 env가 비었거나 형식이 틀렸다 | 제외 |
+| `OPERATION_UNVERIFIED` | 기본 조회 방식이 아직 녹음 검증 전이다 | 제외 |
+| `AUTH_FAILED` | 운영 중 인증 오류(resultCode 30·31)를 받았다. 기동 출력에는 없고 `ingest:source-readiness` 에만 생긴다. 일정은 남아 회차마다 API 호출 0회의 `SOURCE_AUTH_FAILED` run 이 쌓인다. 키를 고친 뒤 Worker 재시작으로 풀린다 | 회차는 돌지만 호출 안 함 |
+
+외부 서비스가 이 중 어느 상태여도 나라장터 입찰공고 수집과 기동은 막히지 않는다. 나라장터 키·registry가 틀릴 때만 예전처럼 exit 1이다.
 
 옛 `G2B_INGEST_INTERVAL_MINUTES`가 env에 있으면 마지막 줄 앞에 `G2B_INGEST_INTERVAL_MINUTES 무시함: 정기 수집은 매일 KST 00·03·06·09·12·15·18·21시 정각에 돈다`가 한 줄 더 나온다.
 
@@ -226,7 +247,7 @@ docker compose -f infra/compose.ingest-only.company.yaml logs --tail 50 ingest-w
 docker compose -f infra/compose.ingest-only.company.yaml run --rm --no-deps ingest-worker node --conditions=react-server --import tsx worker/ingest-only-main.ts --status
 ```
 
-기동 로그에 `ingest 큐 Job Scheduler 1개`와 `id=g2b-scheduled every=- pattern="0 */3 * * *" tz=Asia/Seoul next=…`(next는 KST 정각의 UTC 시각)가 보여야 한다. `every=3600000`이 보이면 옛 일정이 남은 것이다. `--status`도 Job Scheduler 1개를 보여야 한다. 회차마다 `{"event":"ingest.job.timing",…,"scheduledFor":…,"startedAt":…,"queueDelayMs":…}` 한 줄이 남고 같은 값이 `params->'timing'`에 기록된다(수동 job이 앞에서 돌면 정기 회차는 기다렸다 돌고 그 대기가 `queueDelayMs`다). 상태가 healthy인지, 첫 회차 run이 7.1 SQL에 `g2b:SCHEDULED:` job_key로 생겼는지 확인한다. 창이 잘렸으면 로그의 `ingest.window.capped`와 `params->'windowCap'`을 함께 본다.
+기동 로그에 `ingest 큐 Job Scheduler 1개`와 `id=g2b-scheduled every=- pattern="0 */3 * * *" tz=Asia/Seoul next=…`(next는 KST 정각의 UTC 시각)가 보여야 한다. 외부 서비스를 `READY`로 켰다면 그 수만큼 `<key>-scheduled`가 더 보이고, `외부 소스 …` 줄이 7.5와 같은 상태를 보인다. 현재 registry에서는 외부 일정이 없어 1개다. `every=3600000`이 보이면 옛 일정이 남은 것이다. `--status`도 Job Scheduler 1개를 보여야 한다. 회차마다 `{"event":"ingest.job.timing",…,"scheduledFor":…,"startedAt":…,"queueDelayMs":…}` 한 줄이 남고 같은 값이 `params->'timing'`에 기록된다(수동 job이 앞에서 돌면 정기 회차는 기다렸다 돌고 그 대기가 `queueDelayMs`다). 상태가 healthy인지, 첫 회차 run이 7.1 SQL에 `g2b:SCHEDULED:` job_key로 생겼는지 확인한다. 창이 잘렸으면 로그의 `ingest.window.capped`와 `params->'windowCap'`을 함께 본다.
 
 ### 7.10 되돌리기
 
@@ -237,7 +258,7 @@ docker compose -f infra/compose.ingest-only.company.yaml run --rm --no-deps inge
 docker compose -f infra/compose.ingest-only.company.yaml run --rm --no-deps ingest-worker node --conditions=react-server --import tsx worker/ingest-only-main.ts --status
 ```
 
-순서를 지킨다. 먼저 멈추고 나서 일정을 지운다. `--unschedule`은 ingest 큐의 `g2b-scheduled` 일정과 그 다음 예정 job만 지운다(BullMQ `removeJobScheduler`). 이미 대기열에 올라간 job, quota 키, 수집한 live 공고는 지우지 않는다. 마지막 `--status`에서 Job Scheduler 0개를 확인한다. 이전 SHA 이미지는 지우지 않고 남겨 둔다. 다시 켤지는 운영자가 판단한다.
+순서를 지킨다. 먼저 멈추고 나서 일정을 지운다. `--unschedule`은 이 Worker가 거는 ingest 큐 일정 전부(`g2b-scheduled`와 외부 서비스별 `<key>-scheduled`)와 그 다음 예정 job만 지운다(BullMQ `removeJobScheduler`). 출력은 `ingest 큐의 정기 일정을 지웠다: g2b-scheduled, kwater-bid-notice-scheduled, …` 한 줄이다. `ingest:source-readiness` 키는 지우지 않는다(다음 기동이 덮어쓴다). 이미 대기열에 올라간 job, quota 키, 수집한 live 공고는 지우지 않는다. 마지막 `--status`에서 Job Scheduler 0개를 확인한다. 이전 SHA 이미지는 지우지 않고 남겨 둔다. 다시 켤지는 운영자가 판단한다.
 
 ### 7.11 쓰지 않는 명령
 

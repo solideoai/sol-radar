@@ -84,6 +84,15 @@ export const EXTERNAL_SERVICES = {
   },
 } as const;
 
+/**
+ * 응답이 빠짐없는지 확인할 방법이 없는 서비스. KEPCO 는 쪽 번호가 없고(90일 조각마다 한 번 부른다) 건수 상한·
+ * 빠진 회사 범위가 검증되지 않아 모든 쪽이 PARTIAL 이다. 같은 창을 다시 받아도 COMPLETE 가 될 수 없으므로
+ * 조각은 다음 조각으로 넘어가고(external-api-connector.ts), 정기 창도 다시 쓰지 않는다(worker/ingest-queue.ts).
+ */
+export const COVERAGE_UNVERIFIED_SOURCES: ReadonlySet<ExternalSourceKey> = new Set([
+  "kepco-ebid-contract",
+]);
+
 export const KEPCO_COMPANIES: Readonly<Record<string, string>> = {
   COM01: "한국전력공사",
   COM02: "한국서부발전",

@@ -142,15 +142,18 @@ describe("external ingest job gates", () => {
     expect(scenario.calls()).toBe(0);
     expect(scenario.errors.at(-1)?.errorCode).toBe("RUN_MODE_MISMATCH");
   });
-  it("records disabled readiness in live without reading credentials or fetching", async () => {
-    const scenario = deps("live", "DISABLED");
-    expect((await processIngestJob(job, scenario.input)).status).toBe("FAILED");
-    expect(scenario.calls()).toBe(0);
-    expect(scenario.errors.at(-1)?.errorCode).toBe("SOURCE_DISABLED");
-  });
+  it.each(["DISABLED", "KEY_MISSING", "QUOTA_UNVERIFIED", "AUTH_FAILED"])(
+    "records %s readiness in live without reading credentials or fetching",
+    async (reason) => {
+      const scenario = deps("live", reason);
+      expect((await processIngestJob(job, scenario.input)).status).toBe("FAILED");
+      expect(scenario.calls()).toBe(0);
+      expect(scenario.errors.at(-1)?.errorCode).toBe(`SOURCE_${reason}`);
+    },
+  );
   it("reuses an unfinished scheduled window after a checkpoint instead of opening a new job", async () => {
     const scenario = deps("live", "DISABLED");
-    const prior = { from: "2026-10-01T00:00:00.000Z", to: "2026-10-02T00:00:00.000Z" };
+    const prior = { from: "2026-10-20T21:00:00.000Z", to: "2026-10-21T00:00:00.000Z" };
     scenario.repo.findLatestRunWindow = async () => ({
       status: "RUNNING",
       completeness: "COMPLETE",
@@ -161,5 +164,71 @@ describe("external ingest job gates", () => {
       scenario.input,
     );
     expect(scenario.starts[0].params?.window).toEqual(prior);
+    expect(scenario.starts[0].jobKey).toBe(
+      `kepco-ebid-contract:electContract:all:${prior.from}:${prior.to}`,
+    );
+  });
+});
+
+// 외부 정기 창(10-26 0순위): 지금 2026-10-21T03:00Z, 상한 24시간 → 가장 이른 시작은 2026-10-20T03:00Z.
+describe("external scheduled window cap", () => {
+  const NOW = "2026-10-21T03:00:00.000Z";
+  const FLOOR = "2026-10-20T03:00:00.000Z";
+  const recent = { from: "2026-10-20T21:00:00.000Z", to: "2026-10-21T00:00:00.000Z" };
+  const old = { from: "2026-10-01T00:00:00.000Z", to: "2026-10-02T00:00:00.000Z" };
+  type Last = Awaited<ReturnType<IngestionRepo["findLatestRunWindow"]>>;
+  it.each<[string, "kepco-ebid-contract" | "lh-bid-notice", Last, object, object | undefined]>([
+    [
+      "first run looks back 24 hours, not 90 days",
+      "lh-bid-notice",
+      null,
+      { from: FLOOR, to: NOW },
+      undefined,
+    ],
+    [
+      "continues after a finished window without overlap",
+      "lh-bid-notice",
+      { status: "SUCCEEDED", completeness: "COMPLETE", window: recent },
+      { from: recent.to, to: NOW },
+      undefined,
+    ],
+    [
+      "retries a truncated PARTIAL window inside the cap",
+      "lh-bid-notice",
+      { status: "PARTIAL", completeness: "PARTIAL", window: recent },
+      recent,
+      undefined,
+    ],
+    [
+      "moves past a KEPCO PARTIAL window (coverage cannot become COMPLETE)",
+      "kepco-ebid-contract",
+      { status: "PARTIAL", completeness: "PARTIAL", window: recent },
+      { from: recent.to, to: NOW },
+      undefined,
+    ],
+    [
+      "drops a failed window older than the cap and records the skipped range",
+      "lh-bid-notice",
+      { status: "FAILED", completeness: "UNKNOWN", window: old },
+      { from: FLOOR, to: NOW },
+      { maxMinutes: 1440, skippedFrom: old.from },
+    ],
+    [
+      "caps a long gap after the last success",
+      "kepco-ebid-contract",
+      { status: "SUCCEEDED", completeness: "COMPLETE", window: old },
+      { from: FLOOR, to: NOW },
+      { maxMinutes: 1440, skippedFrom: old.to },
+    ],
+  ])("%s", async (_name, serviceKey, last, window, cap) => {
+    const scenario = deps("live", "DISABLED");
+    scenario.repo.findLatestRunWindow = async () => last;
+    const source = serviceKey === "lh-bid-notice" ? "lh" : "kepco";
+    await processIngestJob(
+      { source, serviceKey, trigger: "SCHEDULED", jobKey: `${serviceKey}:SCHEDULED` },
+      scenario.input,
+    );
+    expect(scenario.starts[0].params?.window).toEqual(window);
+    expect(scenario.starts[0].params?.windowCap).toEqual(cap);
   });
 });

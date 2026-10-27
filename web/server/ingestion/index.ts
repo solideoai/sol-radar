@@ -412,10 +412,26 @@ export type { MemoryManualIngestGate } from "./manual-ingest-gate.memory";
 
 // ADR-047 공공조달 확장. 기존 G2B/fixture 계약은 유지한다.
 export {
+  COVERAGE_UNVERIFIED_SOURCES,
   EXTERNAL_SERVICES,
   EXTERNAL_SOURCE_KEYS,
   KEPCO_COMPANIES,
 } from "./external-connector.model";
+// 외부 서비스 준비 상태(Worker 가 Redis 에 남기고 redis-api 가 읽는다)
+export {
+  SOURCE_READINESS_KEY,
+  SOURCE_READINESS_STATES,
+  externalManualBlockOf,
+  parseSourceReadiness,
+  sourceReadinessServicesSchema,
+  sourceReadinessSnapshotSchema,
+} from "./source-readiness.model";
+export type {
+  ServiceReadiness,
+  SourceReadinessReader,
+  SourceReadinessSnapshot,
+  SourceReadinessState,
+} from "./source-readiness.model";
 export type { ExternalSourceKey, ExternalConnectorOptions } from "./external-connector.model";
 export {
   createExternalApiConnector,

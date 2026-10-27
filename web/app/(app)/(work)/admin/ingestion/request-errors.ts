@@ -5,6 +5,7 @@ import {
   IN_PROGRESS_NOTICE,
   SCHEDULER_INACTIVE_NOTICE,
   SESSION_EXPIRED,
+  sourceBlockText,
   sourceLabel,
   type IngestSource,
 } from "./ingestion-copy";
@@ -169,6 +170,12 @@ export function requestErrorOf(
     // 수집 worker(정기 수집 일정)가 아직 켜지지 않았다. 다시 눌러도 같으므로 시각·재시도 안내를 두지 않는다.
     if (component === "ingest-worker" && details.reason === "SCHEDULER_INACTIVE")
       return withId({ message: SCHEDULER_INACTIVE_NOTICE, renewKey: true });
+    // 외부 서비스를 아직 부를 수 없다(registry 사유·Worker 상태). 다시 눌러도 같다.
+    if (component === "source")
+      return withId({
+        message: `${sourceBlockText(details.reason)} · 이 서비스는 지금 수집할 수 없습니다`,
+        renewKey: true,
+      });
     const cause = UNAVAILABLE.get(component);
     return withId({
       message: cause === undefined ? RETRY_LATER : `${cause} ${TRY_AGAIN}`,

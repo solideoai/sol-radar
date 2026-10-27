@@ -60,6 +60,7 @@ describe("수집 신선도 기준", () => {
       enabled: true,
       blockedReason: null,
       keyIssuance: "ISSUED" as const,
+      role: "NOTICE" as const,
     };
     const statusOf = async (staleAfterMs?: number) =>
       (await getSourceSummary(client, "live", [config], staleAfterMs)).groups[0]?.services[0]

@@ -139,6 +139,8 @@ export type SourceServiceStatus = {
   };
   blockedReason: string | null;
   keyIssuance: "ISSUED" | "UNKNOWN";
+  /** 공고를 수집하는 서비스(NOTICE)인지, 공고가 아닌 기준 정보(REFERENCE, 업종·근거법규)인지 */
+  role: "NOTICE" | "REFERENCE";
 };
 export type SourceGroupStatus = {
   sourceFamily: SourceFamily;
@@ -149,10 +151,24 @@ export type SourceGroupStatus = {
   lastSuccessAt: string | null;
   status: "HEALTHY" | "DEGRADED" | "NOT_CONFIGURED";
 };
-export type SourceSummary = { groups: SourceGroupStatus[]; isDemo: boolean; generatedAt: string };
+export type SourceSummary = {
+  /** 출처별 공고 수집 서비스. 참조 데이터는 넣지 않는다(활성 서비스 수에 세지 않는다) */
+  groups: SourceGroupStatus[];
+  /** 참조 데이터 서비스(업종·근거법규). 증분 수집 대상이 아니다 */
+  references: SourceServiceStatus[];
+  isDemo: boolean;
+  generatedAt: string;
+};
 export type SourceServiceConfig = Pick<
   SourceServiceStatus,
-  "key" | "sourceFamily" | "serviceId" | "displayName" | "enabled" | "blockedReason" | "keyIssuance"
+  | "key"
+  | "sourceFamily"
+  | "serviceId"
+  | "displayName"
+  | "enabled"
+  | "blockedReason"
+  | "keyIssuance"
+  | "role"
 >;
 export class OpportunityReadError extends Error {
   constructor(

@@ -107,6 +107,7 @@ const SUMMARY: OpportunitySummary = {
 const SOURCES: SourceSummary = {
   isDemo: true,
   generatedAt: NOW.toISOString(),
+  references: [],
   groups: (["G2B", "KWATER", "LH", "KEPCO"] as SourceFamily[]).map((sourceFamily) => ({
     sourceFamily,
     label: SOURCE_LABELS[sourceFamily],

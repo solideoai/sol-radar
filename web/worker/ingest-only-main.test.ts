@@ -1,6 +1,11 @@
 import { EventEmitter } from "node:events";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import IORedis from "ioredis";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { z } from "zod";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   EMPTY_INGEST_SUMMARY,
@@ -23,8 +28,11 @@ import {
 } from "@/worker/ingest-only-main";
 import { processIngestJob, type IngestJobDeps } from "@/worker/ingest-queue";
 import {
+  createExternalRuntime,
   createIngestWorker,
   createRegisteredWorker,
+  readinessBlockOf,
+  withAuthCircuit,
   type IngestOnceResult,
   type WorkerDeps,
 } from "@/worker/main";
@@ -53,6 +61,9 @@ const fake = vi.hoisted(() => ({
   schedulers: new Map<string, FakeScheduler>(),
   schedulerNext: Date.parse("2026-10-25T08:00:00.000Z"),
   fsReads: [] as string[],
+  // 복제 연결(예산·상태 기록)의 SET. setFails 면 Redis 장애처럼 거절한다
+  sets: [] as [string, string][],
+  setFails: false,
 }));
 
 vi.mock("bullmq", async (importOriginal) => {
@@ -99,7 +110,16 @@ vi.mock("ioredis", async (importOriginal) => {
   class Redis {
     readonly on = vi.fn();
     readonly disconnect = vi.fn(() => undefined);
-    readonly duplicate = vi.fn(() => ({ on: vi.fn(), disconnect: vi.fn() }));
+    readonly duplicate = vi.fn(() => ({
+      on: vi.fn(),
+      disconnect: vi.fn(),
+      set: vi.fn(async (key: string, value: string) => {
+        if (fake.setFails)
+          throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+        fake.sets.push([key, value]);
+        return "OK";
+      }),
+    }));
     readonly llen = vi.fn(async () => 0);
     readonly zcard = vi.fn(async () => 0);
     readonly zrange = vi.fn(async () =>
@@ -189,11 +209,11 @@ const outputOf = (deps: ReturnType<typeof testDeps>["deps"]) =>
 const fixtureReads = () => fake.fsReads.filter((file) => file.startsWith(MISSING_FIXTURES_DIR));
 
 // 기동했다가 SIGTERM 으로 닫는다. times 번 되풀이한다(재기동).
-const startAndStop = async (times: number) => {
+const startAndStop = async (times: number, env: Record<string, string> = liveEnv) => {
   const runs = [];
   for (let round = 1; round <= times; round += 1) {
     const { deps, signals } = testDeps();
-    await runIngestOnly([], liveEnv, deps);
+    await runIngestOnly([], env, deps);
     expect(deps.exit, `${round}회차 기동`).not.toHaveBeenCalled();
     signals.emit("SIGTERM");
     await vi.waitFor(() => {
@@ -211,6 +231,8 @@ beforeEach(() => {
   fake.redis = [];
   fake.schedulers.clear();
   fake.fsReads = [];
+  fake.sets = [];
+  fake.setFails = false;
   noRunOnce.mockClear();
   // getSupabaseAdmin 은 process.env 를 읽는다(createClient 는 위에서 가짜다).
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", liveEnv.NEXT_PUBLIC_SUPABASE_URL);
@@ -264,6 +286,127 @@ describe("ingest 전용 worker 기동", () => {
         "ingest-only worker started: SOL_RUN_MODE=live, 정기 수집 매일 KST 00·03·06·09·12·15·18·21시 정각",
       );
     }
+  });
+
+  // 외부 서비스 4개를 켠 registry 사본: lh-bid-notice 만 키가 맞고, 나머지는 키 없음·키 형식 오류·한도 미정이다.
+  const registryDoc = z.looseObject({ sources: z.array(z.looseObject({ key: z.string() })) });
+  const ENABLED = {
+    enabled: true,
+    verification: "VERIFIED",
+    approvalStatus: "APPROVED",
+    fieldMapping: { title: "title" },
+  };
+  const isolationEnv = async () => {
+    const doc = registryDoc.parse(parseYaml(await readFile(REGISTRY_FILE, "utf8")));
+    const enabled = new Set([
+      "lh-bid-notice",
+      "kwater-bid-notice",
+      "lh-pre-specification",
+      "kepco-ebid-contract",
+    ]);
+    const dir = await mkdtemp(path.join(tmpdir(), "sol-registry-"));
+    const file = path.join(dir, "registry.yaml");
+    await writeFile(
+      file,
+      stringifyYaml({
+        ...doc,
+        sources: doc.sources.map((entry) =>
+          enabled.has(entry.key) ? { ...entry, ...ENABLED } : entry,
+        ),
+      }),
+    );
+    return {
+      dir,
+      env: {
+        ...liveEnv,
+        SOURCES_REGISTRY_FILE: file,
+        LH_BID_NOTICE_SERVICE_KEY: "lh-test-key-VALUE",
+        // URL 인코딩이 깨진 값(형식 오류). K-water 키는 없다. KEPCO 는 registry quota.daily 가 null 이다.
+        LH_PRE_SPECIFICATION_SERVICE_KEY: "%E0%A4%A",
+      },
+    };
+  };
+
+  it("외부 서비스 키 없음·형식 오류·한도 미정이 있어도 나라장터와 준비된 서비스로 기동한다(재기동해도 일정 중복 없음)", async () => {
+    const { dir, env } = await isolationEnv();
+    try {
+      const runs = await startAndStop(2, env);
+      expect([...fake.schedulers.keys()].sort()).toEqual([
+        "g2b-scheduled",
+        "lh-bid-notice-scheduled",
+      ]);
+      const output = runs.map(outputOf).join("\n");
+      for (const line of [
+        "외부 소스 lh-bid-notice: READY · 정기 수집",
+        "외부 소스 kwater-bid-notice: KEY_MISSING · 정기 수집 제외",
+        "외부 소스 lh-pre-specification: KEY_INVALID · 정기 수집 제외",
+        "외부 소스 kepco-ebid-contract: QUOTA_UNVERIFIED · 정기 수집 제외",
+        "외부 소스 g2b-procurement-request: NOT_CALLABLE(DISABLED) · 정기 수집 제외",
+      ])
+        expect(output).toContain(line);
+      expect(output).not.toContain("lh-test-key-VALUE");
+      // 기동마다 상태를 Redis 에 남긴다(키 값 없음)
+      expect(fake.sets).toHaveLength(2);
+      const [key, value] = fake.sets[0];
+      expect(key).toBe("ingest:source-readiness");
+      expect(value).not.toContain("lh-test-key-VALUE");
+      expect(JSON.parse(value)).toMatchObject({
+        version: 1,
+        services: {
+          "lh-bid-notice": { state: "READY", scheduled: true },
+          "kwater-bid-notice": { state: "KEY_MISSING", scheduled: false },
+          "lh-pre-specification": { state: "KEY_INVALID", scheduled: false },
+          "kepco-ebid-contract": { state: "QUOTA_UNVERIFIED", scheduled: false },
+          "kwater-procurement-plan": {
+            state: "NOT_CALLABLE",
+            reason: "DISABLED",
+            scheduled: false,
+          },
+        },
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("상태 기록이 Redis 장애로 실패해도 기동과 일정은 그대로다(이름·코드만 로그)", async () => {
+    fake.setFails = true;
+    const [run] = await startAndStop(1);
+    expect([...fake.schedulers.keys()]).toEqual(["g2b-scheduled"]);
+    expect(outputOf(run)).toContain("외부 수집 상태 기록 실패: Error ECONNREFUSED");
+    expect(outputOf(run)).not.toContain("example-host");
+  });
+
+  it("인증 오류를 받은 외부 서비스만 AUTH_FAILED 로 막고 상태는 한 번만 다시 기록한다", async () => {
+    const changed = vi.fn();
+    const runtime = createExternalRuntime(
+      new Map([
+        ["lh-bid-notice", { state: "READY", scheduled: true }],
+        ["kwater-bid-notice", { state: "READY", scheduled: true }],
+      ] as const),
+      { log: vi.fn(), changed },
+    );
+    const rejected = withAuthCircuit(
+      {
+        source: "lh",
+        fetchPage: async () => ({
+          ok: false,
+          failure: { kind: "SERVICE_KEY_INVALID", resultCode: "30", detail: "SERVICE_KEY" },
+        }),
+      },
+      "lh-bid-notice",
+      runtime,
+    );
+    const page = { from: "2026-10-25T00:00:00.000Z", to: "2026-10-25T03:00:00.000Z", cursor: null };
+    await rejected.fetchPage(page);
+    await rejected.fetchPage(page);
+    expect(runtime.readiness.get("lh-bid-notice")).toEqual({
+      state: "AUTH_FAILED",
+      scheduled: true,
+    });
+    expect(readinessBlockOf(runtime.readiness.get("lh-bid-notice"))).toBe("AUTH_FAILED");
+    expect(readinessBlockOf(runtime.readiness.get("kwater-bid-notice"))).toBeNull();
+    expect(changed).toHaveBeenCalledTimes(1);
   });
 
   it("기동 로그에 즉시 수집하지 않고 다음 KST 정각부터 돈다고 한 줄 남긴다", async () => {
@@ -408,7 +551,7 @@ describe("ingest 전용 worker 1회 명령", () => {
     expect(fake.redis.map((redis) => redis.disconnect.mock.calls.length)).toEqual([1]);
   });
 
-  it("--unschedule 은 ingest 큐의 removeJobScheduler('g2b-scheduled') 만 부르고 연결을 닫는다", async () => {
+  it("--unschedule 은 ingest 큐의 정기 일정(g2b·외부 서비스별)만 지우고 연결을 닫는다", async () => {
     const { deps } = testDeps();
     await runIngestOnly(["--unschedule"], liveEnv, deps);
     expect(deps.exit).toHaveBeenCalledWith(0);
@@ -419,7 +562,14 @@ describe("ingest 전용 worker 1회 명령", () => {
         upserts: queue.upsertJobScheduler.mock.calls.length,
         closes: queue.close.mock.calls.length,
       })),
-    ).toEqual([{ name: "ingest", removed: [["g2b-scheduled"]], upserts: 0, closes: 1 }]);
+    ).toEqual([
+      {
+        name: "ingest",
+        removed: [["g2b-scheduled"], ...EXTERNAL_SOURCE_KEYS.map((key) => [`${key}-scheduled`])],
+        upserts: 0,
+        closes: 1,
+      },
+    ]);
     expect(fake.workers).toEqual([]);
     expect(deps.workerDeps.checkReadiness).not.toHaveBeenCalled();
     expect(fake.redis.map((redis) => redis.disconnect.mock.calls.length)).toEqual([1]);
@@ -689,23 +839,53 @@ describe("ingest Worker 일정과 job 처리", () => {
     },
   );
 
-  it("live 외부 소스 일정도 같은 KST 3시간 정각 cron 으로 건다(every 없음)", async () => {
+  it("여러 외부 서비스도 같은 KST 3시간 정각 cron 으로 걸고, 나라장터보다 뒤에 돌게 우선순위를 단다", async () => {
     const { repo } = repoWith({ end: null, last: null });
-    const external = {
-      source: "lh" as const,
-      serviceKey: "lh-bid-notice" as const,
+    const scheduled = [
+      { source: "lh" as const, serviceKey: "lh-bid-notice" as const },
+      { source: "kepco" as const, serviceKey: "kepco-ebid-contract" as const },
+    ].map((job) => ({
+      ...job,
       trigger: "SCHEDULED" as const,
-      jobKey: "lh-bid-notice:SCHEDULED",
-    };
-    const worker = await createIngestWorker(
-      new IORedis(),
-      jobDeps(repo, { scheduledExternalJobs: [external] }),
-    );
-    await worker.close();
+      jobKey: `${job.serviceKey}:SCHEDULED`,
+    }));
+    // 재기동 두 번: 같은 id 로 덮어써 일정이 늘지 않는다
+    for (let round = 0; round < 2; round += 1) {
+      const worker = await createIngestWorker(
+        new IORedis(),
+        jobDeps(repo, { scheduledExternalJobs: scheduled }),
+      );
+      await worker.close();
+    }
+    const cron = { pattern: "0 */3 * * *", tz: "Asia/Seoul" };
     const upserts = fake.queues.flatMap((queue) => queue.upsertJobScheduler.mock.calls);
-    expect(upserts.map(([id, repeat]) => ({ id, repeat }))).toStrictEqual([
-      { id: "g2b-scheduled", repeat: { pattern: "0 */3 * * *", tz: "Asia/Seoul" } },
-      { id: "lh-bid-notice-scheduled", repeat: { pattern: "0 */3 * * *", tz: "Asia/Seoul" } },
+    expect(
+      upserts.slice(0, 3).map(([id, repeat, template]) => ({ id, repeat, template })),
+    ).toStrictEqual([
+      {
+        id: "g2b-scheduled",
+        repeat: cron,
+        template: {
+          name: "run",
+          data: { source: "g2b", trigger: "SCHEDULED", jobKey: "g2b:SCHEDULED" },
+        },
+      },
+      {
+        id: "lh-bid-notice-scheduled",
+        repeat: cron,
+        template: { name: "run", data: scheduled[0], opts: { priority: 10 } },
+      },
+      {
+        id: "kepco-ebid-contract-scheduled",
+        repeat: cron,
+        template: { name: "run", data: scheduled[1], opts: { priority: 10 } },
+      },
+    ]);
+    expect(upserts).toHaveLength(6);
+    expect([...fake.schedulers.keys()].sort()).toEqual([
+      "g2b-scheduled",
+      "kepco-ebid-contract-scheduled",
+      "lh-bid-notice-scheduled",
     ]);
   });
 

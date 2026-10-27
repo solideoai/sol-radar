@@ -10,9 +10,12 @@ import {
   MANUAL_INGEST_SHARED_MS,
   manualIngestDayKey,
   nextKstMidnightAfter,
+  parseSourceReadiness,
+  SOURCE_READINESS_KEY,
   type IngestSchedulerReader,
   type ManualIngestEntry,
   type ManualIngestGate,
+  type SourceReadinessReader,
 } from "@/server/ingestion";
 import { describeQueueError } from "./analysis-queue";
 import { readyRedis, sharedRedis } from "./redis-client";
@@ -217,6 +220,28 @@ export function createIngestSchedulerReader(options: {
         dropSchedulerQueue(redisUrl, queue);
         throw error;
       }
+    },
+  };
+}
+
+// ── 외부 수집 서비스 상태 읽기 ──
+// ingest Worker 가 기동·인증 실패 때 남긴 서비스별 상태(키 SOURCE_READINESS_KEY, 값 JSON)를 GET 한 번으로 읽는다.
+// 키가 없거나 모양이 다르면 null(새 Worker 가 아직 남기지 않았다). Redis 오류는 던진다(3000ms 안에 끝낸다).
+export function createSourceReadinessReader(options: {
+  redisUrl: string | undefined;
+  timeoutMs?: number;
+}): SourceReadinessReader {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  return {
+    async read() {
+      const redisUrl = options.redisUrl;
+      if (!redisUrl) throw new Error(NO_REDIS_URL);
+      const raw = await withTimeout(
+        readyRedis(redisUrl, timeoutMs).then((client) => client.get(SOURCE_READINESS_KEY)),
+        timeoutMs,
+        "외부 수집 서비스 상태 읽기",
+      );
+      return parseSourceReadiness(raw);
     },
   };
 }

@@ -4,10 +4,18 @@ status: draft
 tags:
   - sol-radar
   - progress
-updated: 2026-10-26
+updated: 2026-10-27
 ---
 
 # 진행 상황
+
+## 외부 수집 서비스별 격리 0순위 로컬 구현 (2026-10-27, 운영 미적용)
+
+브랜치 `feat/ingest-source-isolation`(worktree `sol-radar-worktrees/ingest-source-isolation`, 기준 main `26efefc1`, 커밋 전). 사용자 요청 "0순위 안전 작업"이며 push·Vercel 배포·회사 Docker·운영 Redis Scheduler·운영 DB·외부 API 호출·추가 기관 활성화는 하지 않았다.
+
+- **구현**: 외부 서비스마다 키·한도·조회 방식 상태를 정하고(던지지 않음) 준비된 서비스만 `<key>-scheduled`(우선순위 10)로 건다. 키 없음·한도 미정·인증 실패(resultCode 30·31)는 그 서비스만 막고 나라장터 수집과 Worker 기동은 그대로다. 상태는 Redis `ingest:source-readiness` 에 남기고 redis-api 와 화면의 서비스별 [증분 수집]이 이것으로 막는다(웹 `SOL_RUN_MODE` 를 보지 않는다). 외부 정기 창 최대 24시간·불완전 창만 재사용. KEPCO 는 범위 미검증 PARTIAL 이어도 다음 90일 조각으로 진행하고 `quota.daily: null` 은 부르지 않는다. 업종·근거법규(15129467)는 "참조 데이터"로 분리. `--unschedule` 은 외부 일정까지 모두 지운다. 실행서는 [회사 실행서](../infra/company/README.md) §7.
+- **검증**: 관련 단위·계약 시험 23파일 342개 통과, 새 `service-collect.test.ts`. 독립 리뷰 상·중 0, 하 2건(검증된 조회 방식 수동 요청 차단, 버전이 어긋날 때 상태 응답 전체 거절) 반영. 부품 화면 1440·1280 확인과 현재 registry `--check`(외부 6종 DISABLED, 일정은 `g2b-scheduled` 하나)는 [증거](evidence/ingestion/20261027-source-isolation/summary.md). 전체 `pnpm verify` exit 0(web 80파일 727시험·Next 빌드·AI pytest 153·결정 57). 로그인 뒤 E2E·회사 스택 확인은 하지 않았다.
+- **남은 것(모두 승인 대기)**: main 병합·push → Vercel·redis-api 배포(어느 쪽이 먼저여도 안전) → ingest Worker 이미지 교체·재기동 → 기관별 registry 활성화. 실행서는 [[plans/2026-10-27-ingest-source-isolation-deploy|10-27 배포 실행서]].
 
 ## 사이드바 트리·아이콘 되돌리기 (2026-10-26)
 

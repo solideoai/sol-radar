@@ -1,5 +1,6 @@
 import "server-only";
 import type { IngestionRunMode } from "./ingestion-admin.model";
+import type { SourceReadinessSnapshot } from "./source-readiness.model";
 import {
   INGEST_SCHEDULE_PATTERN,
   INGEST_SCHEDULE_SLOT_HOURS_KST,
@@ -115,6 +116,11 @@ export type ManualIngestGateView = {
   };
   /** redis-api 쪽 수집 실행 모드(SOL_INGEST_MODE, 없으면 SOL_RUN_MODE). live 일 때만 공공 API 수동 수집을 받는다 */
   ingestMode: IngestionRunMode;
+  /**
+   * ingest Worker 가 남긴 외부 서비스별 상태(키 없음·한도 미정·인증 실패 등). Worker 가 아직 남기지 않았거나
+   * 읽지 못했으면 null 이다(외부 서비스 수동 수집 단추를 막는다). 나라장터 입찰공고는 여기 없다(schedule 이 정한다)
+   */
+  services: SourceReadinessSnapshot["services"] | null;
 };
 
 /** 저장소가 돌려준 상태 → 읽기 모델. 저장소 시계와 어긋나 남아 있는 항목도 now 기준으로 지났으면 없는 것으로 본다 */
@@ -125,6 +131,8 @@ export function toManualIngestGateView(input: {
   /** 지금 요청자. sharedRun.mine 계산에만 쓴다 */
   requesterId: string;
   now: Date;
+  /** Worker 가 남긴 외부 서비스 상태. 없거나 읽지 못했으면 null */
+  sources?: SourceReadinessSnapshot | null;
 }): ManualIngestGateView {
   const { state, scheduler, ingestMode, requesterId, now } = input;
   const cooldownEnd = state.user === null ? null : cooldownEndsAt(state.user);
@@ -154,5 +162,6 @@ export function toManualIngestGateView(input: {
       nextRunAt: scheduler.active ? scheduler.nextRunAt : null,
     },
     ingestMode,
+    services: input.sources?.services ?? null,
   };
 }

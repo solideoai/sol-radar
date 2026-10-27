@@ -22,6 +22,9 @@ const SERVICE_IDS = new Set([
   "15129468",
   "15148223",
 ]);
+// 공고가 아닌 기준 정보(업종 및 근거법규, 15129467). 수집 현황에는 참조 데이터로 따로 보이고 증분 수집 대상이 아니다.
+const REFERENCE_SERVICE_IDS: ReadonlySet<string> = new Set(["15129467"]);
+
 export async function sourceServiceReadiness(serviceKey: string) {
   const registry = await loadSourceRegistry(
     process.env.SOURCES_REGISTRY_FILE?.trim() ||
@@ -54,6 +57,7 @@ export async function loadSourceSummary(
       blockedReason: readiness.ok ? null : readiness.reason,
       keyIssuance:
         entry.keyIssuance ?? (entry.approvalStatus === "APPROVED" ? "ISSUED" : "UNKNOWN"),
+      role: REFERENCE_SERVICE_IDS.has(entry.serviceId) ? "REFERENCE" : "NOTICE",
     });
   }
   // HEALTHY 기준은 정기 수집 간격 + 30분(210분)이다. 상단바 지연 기준과 같다.

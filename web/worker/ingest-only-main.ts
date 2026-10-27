@@ -6,7 +6,7 @@ import { errorNameOf } from "@/worker/error-name";
 import { INGEST_SCHEDULE_LABEL, readRunMode } from "@/worker/ingest-queue";
 import { formatIngestQueueStatus, readIngestQueueStatus } from "@/worker/ingest-queue-status";
 import {
-  G2B_SCHEDULER_ID,
+  INGEST_SCHEDULER_IDS,
   createIngestWorkerRegistration,
   createRegisteredWorker,
   defaultWorkerDeps,
@@ -24,7 +24,7 @@ import {
 // live 보고가 다른 모드의 보고를 덮으면 회사 redis-api readiness 가 503 이 된다(server/health/dependency-report.ts).
 // documents 큐에는 소비자가 없어 첨부 job 도 넣지 않는다(첨부 행은 DB 에 PENDING 으로 남는다, main.ts ingestJobDepsOf).
 //
-// 명령: (없음) 정기 수집 기동 · --check 설정 확인 · --status 큐 읽기 · --once --window-minutes N 1회 수집 · --unschedule 일정 삭제
+// 명령: (없음) 정기 수집 기동 · --check 설정 확인 · --status 큐 읽기 · --once --window-minutes N 1회 수집 · --unschedule 정기 일정 전부 삭제
 
 type Env = Record<string, string | undefined>;
 export type ShutdownSignal = "SIGTERM" | "SIGINT";
@@ -187,9 +187,8 @@ async function checkIngestOnly(env: Env, deps: IngestOnlyDeps): Promise<void> {
   const config = await describeIngestConfig(env);
   deps.log(`registry: ${config.registryFile}`);
   deps.log(`g2b 소스(목록·보조): ${config.g2bSources.join(", ")}`);
-  if (config.externalSources.length > 0) {
-    deps.log(`외부 소스: ${config.externalSources.join(", ")}`);
-  }
+  // 외부 서비스는 서비스마다 상태만 알린다. 키가 없거나 한도가 미정인 서비스가 있어도 확인은 통과한다(나라장터만 필수).
+  for (const line of config.externalReadiness) deps.log(line);
   if (config.ignoredIntervalNotice !== null) deps.log(config.ignoredIntervalNotice);
   deps.log(`ingest-only worker 확인 통과: SOL_RUN_MODE=live, 정기 수집 ${config.schedule}`);
 }
@@ -202,20 +201,21 @@ async function printIngestStatus(env: Env, deps: IngestOnlyDeps): Promise<void> 
   for (const line of formatIngestQueueStatus(status)) deps.log(line);
 }
 
-// --unschedule: ingest 큐의 g2b-scheduled 일정만 지운다. 큐에 남은 job·quota 키·수집한 공고는 건드리지 않는다.
-async function unscheduleG2bIngest(env: Env, deps: IngestOnlyDeps): Promise<void> {
+// --unschedule: 이 worker 가 거는 정기 일정(g2b-scheduled 와 외부 서비스별 <key>-scheduled)을 모두 지운다.
+// 없는 일정은 오류가 아니다. 큐에 남은 job·quota 키·수집 상태 키·수집한 공고는 건드리지 않는다.
+async function unscheduleIngest(env: Env, deps: IngestOnlyDeps): Promise<void> {
   await withOneShotRedis(env, async (connection) => {
     const queue = new Queue(INGEST_QUEUE, { connection });
     queue.on("error", ignoreError);
     try {
-      await queue.removeJobScheduler(G2B_SCHEDULER_ID);
+      for (const id of INGEST_SCHEDULER_IDS) await queue.removeJobScheduler(id);
     } finally {
       await queue.close();
     }
   }).catch((error: unknown) => {
-    throw new Error(`${G2B_SCHEDULER_ID} 일정 삭제 실패: ${describeRedisError(error)}`);
+    throw new Error(`정기 수집 일정 삭제 실패: ${describeRedisError(error)}`);
   });
-  deps.log(`ingest 큐의 ${G2B_SCHEDULER_ID} 일정을 지웠다`);
+  deps.log(`ingest 큐의 정기 일정을 지웠다: ${INGEST_SCHEDULER_IDS.join(", ")}`);
 }
 
 // --once: 일정을 만들지 않고 이 프로세스에서 수집을 1회 돈다. 실제 API 를 부른다(F08 예약으로 일 한도를 지킨다).
@@ -278,7 +278,7 @@ export async function runIngestOnly(
     }
     if (command.kind === "check") await checkIngestOnly(env, deps);
     if (command.kind === "status") await printIngestStatus(env, deps);
-    if (command.kind === "unschedule") await unscheduleG2bIngest(env, deps);
+    if (command.kind === "unschedule") await unscheduleIngest(env, deps);
     if (command.kind === "once") {
       deps.exit((await runOnce(env, command.windowMinutes, deps)) ? 0 : 1);
       return;

@@ -364,6 +364,8 @@ describe("GET manual-gate 상태", () => {
           nextRunAt: "2026-10-26T06:00:00.000Z",
         },
         ingestMode: "live",
+        // Worker 상태 읽기를 주지 않았다(외부 서비스 상태 모름)
+        services: null,
       },
     });
     // 같은 공유 실행도 다른 사용자에게는 mine false 이고, ALICE 의 id 는 싣지 않는다.

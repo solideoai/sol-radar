@@ -50,16 +50,28 @@ const EXTERNAL_KEY_ENVS = new Set([
   "G2B_PROCUREMENT_REQUEST_SERVICE_KEY",
   "KEPCO_EBID_CONTRACT_SERVICE_KEY",
 ]);
-/** KEPCO는 data.go.kr 키와 별개다. 공유 fallback 키는 활용승인 증거가 없으므로 추측하지 않는다. */
-export function readExternalServiceKey(
+export type ExternalServiceKeyRead =
+  { ok: true; key: string } | { ok: false; reason: "KEY_MISSING" | "KEY_INVALID" };
+
+/**
+ * 외부 서비스 하나의 키를 읽는다. 던지지 않는다: 키가 없거나 틀린 서비스만 빠지고 Worker 는 계속 뜬다(10-26 0순위).
+ * KEPCO는 data.go.kr 키와 별개다. 공유 fallback 키는 활용승인 증거가 없으므로 추측하지 않는다.
+ * env 이름이 허용 목록 밖이면 값을 읽지 않고 KEY_INVALID 다.
+ */
+export function inspectExternalServiceKey(
   env: Record<string, string | undefined>,
   envName: string,
-): string {
-  if (!EXTERNAL_KEY_ENVS.has(envName))
-    throw new Error("외부 API 인증 환경변수 이름이 허용되지 않았습니다");
-  if (envName !== "KEPCO_EBID_CONTRACT_SERVICE_KEY") return readG2bServiceKey(env, envName);
-  const key = env[envName]?.trim();
-  if (!key || key.length !== 40 || /\s/.test(key))
-    throw new Error(`worker env 형식 오류: ${envName} (40자리 키 필요)`);
-  return key;
+): ExternalServiceKeyRead {
+  if (!EXTERNAL_KEY_ENVS.has(envName)) return { ok: false, reason: "KEY_INVALID" };
+  const raw = env[envName]?.trim();
+  if (!raw) return { ok: false, reason: "KEY_MISSING" };
+  if (envName === "KEPCO_EBID_CONTRACT_SERVICE_KEY")
+    return raw.length === 40 && !/\s/.test(raw)
+      ? { ok: true, key: raw }
+      : { ok: false, reason: "KEY_INVALID" };
+  try {
+    return { ok: true, key: decodeURIComponent(raw) };
+  } catch {
+    return { ok: false, reason: "KEY_INVALID" };
+  }
 }

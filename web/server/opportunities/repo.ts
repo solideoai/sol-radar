@@ -309,11 +309,13 @@ export async function getSourceSummary(
     LH: "LH",
     KEPCO: "KEPCO",
   };
+  const notices = services.filter((s) => s.role === "NOTICE");
   return {
     isDemo: origin === "demo",
     generatedAt: new Date().toISOString(),
+    references: services.filter((s) => s.role === "REFERENCE"),
     groups: (Object.keys(labels) as SourceFamily[]).map((sourceFamily) => {
-      const list = services.filter((s) => s.sourceFamily === sourceFamily);
+      const list = notices.filter((s) => s.sourceFamily === sourceFamily);
       return {
         sourceFamily,
         label: labels[sourceFamily],

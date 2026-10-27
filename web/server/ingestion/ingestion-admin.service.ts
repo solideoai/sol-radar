@@ -37,6 +37,11 @@ import {
   type ManualIngestGateView,
   type ManualIngestTicket,
 } from "./manual-ingest-gate.model";
+import {
+  externalManualBlockOf,
+  type SourceReadinessReader,
+  type SourceReadinessSnapshot,
+} from "./source-readiness.model";
 
 // ── N8 수집 관리 흐름(05 §2 :75-77). 예상한 실패는 결과로 돌려주고 HTTP 로 옮기는 일은 Route Handler 가 한다 ──
 // 의존성(저장·큐·멱등 저장·속도 제한·커서)은 인자로 받는다. 읽기는 사용자 세션(RLS)이고 ingest_runs 행은 worker 가 만든다.
@@ -108,6 +113,11 @@ export type IngestionAdminDeps = {
   manualGate: ManualIngestGate;
   /** 정기 수집 Job Scheduler 상태. 공공 API 수동 요청은 이것이 등록돼 있을 때만 받는다 */
   scheduler: IngestSchedulerReader;
+  /**
+   * ingest Worker 가 남긴 외부 서비스 상태(source-readiness.model.ts). 주면 외부 서비스 수동 요청은 그 서비스가
+   * Worker 에서 READY 일 때만 받고, 판정(GET manual-gate)에 서비스별 상태를 싣는다. 없으면(시험·데모) 보지 않는다
+   */
+  sourceStatus?: SourceReadinessReader;
   /** Redis·큐 장애의 원인을 로그로 남기는 곳. 응답에는 싣지 않고, 이 콜백이 던져도 응답은 바뀌지 않는다 */
   onInfraError?: (component: "queue" | "redis", error: unknown) => void;
 };
@@ -142,6 +152,19 @@ const bodyTooLarge = (): IngestionAdminFailure =>
 const redisUnavailable = (): IngestionAdminFailure =>
   ingestionFailure(503, "SERVICE_UNAVAILABLE", "Redis 에 연결하지 못했습니다", {
     component: "redis",
+  });
+
+// 외부 서비스를 아직 부를 수 없다. reason 은 registry 사유(DISABLED 등)이거나 Worker 상태(KEY_MISSING·AUTH_FAILED·WORKER_NOT_READY 등)다.
+const sourceUnavailable = (
+  source: IngestRunSource,
+  serviceKey: ExternalSourceKey,
+  reason: string,
+): IngestionAdminFailure =>
+  ingestionFailure(503, "SERVICE_UNAVAILABLE", "아직 사용할 수 없는 수집 서비스입니다", {
+    component: "source",
+    source,
+    serviceKey,
+    reason,
   });
 
 // 정기 수집 Job Scheduler 가 없으면 ingest 전용 Worker 가 아직 안 켜진 것이다. 소비자 없는 큐에 수동 job 을 넣으면
@@ -430,12 +453,26 @@ export async function requestIngestionRun(
         readiness.reason !== undefined && /^[A-Z_]{1,50}$/.test(readiness.reason)
           ? readiness.reason
           : "NOT_VERIFIED";
-      return ingestionFailure(503, "SERVICE_UNAVAILABLE", "아직 사용할 수 없는 수집 서비스입니다", {
-        component: "source",
-        source: request.source,
-        serviceKey: externalKey,
-        reason,
+      return sourceUnavailable(request.source, externalKey, reason);
+    }
+    // registry(이 서버의 사본)가 허용해도 Worker 가 키 없음·한도 미정·인증 실패로 막은 서비스는 받지 않는다.
+    // 큐에 넣어도 Worker 가 SOURCE_<사유> 로 바로 끝내고, 그사이 수동 쿨다운만 쓴다.
+    const sourceStatus = deps.sourceStatus;
+    if (sourceStatus !== undefined) {
+      const snapshot = await redisCall(deps, () => sourceStatus.read());
+      if (!snapshot.ok) return redisUnavailable();
+      const operation =
+        request.source === "fixture"
+          ? undefined
+          : (request.operation ?? EXTERNAL_SERVICES[externalKey].operation);
+      const blocked = externalManualBlockOf(snapshot.value, externalKey, {
+        operationVerified:
+          operation !== undefined &&
+          (EXTERNAL_SERVICES[externalKey].verifiedOperations as readonly string[]).includes(
+            operation,
+          ),
       });
+      if (blocked !== null) return sourceUnavailable(request.source, externalKey, blocked);
     }
   }
 
@@ -534,8 +571,18 @@ const accepted = (view: IngestionRunView): IngestionAdminResult<IngestionRunView
 
 export type ManualIngestGateDeps = Pick<
   IngestionAdminDeps,
-  "manualGate" | "scheduler" | "runMode" | "now" | "onInfraError"
+  "manualGate" | "scheduler" | "runMode" | "now" | "onInfraError" | "sourceStatus"
 >;
+
+// 외부 서비스 상태는 덧붙이는 정보다. 읽지 못해도 판정(나라장터 [지금 불러오기])은 그대로 주고 services 만 null 이다.
+async function sourceSnapshotOf(
+  deps: ManualIngestGateDeps,
+): Promise<SourceReadinessSnapshot | null> {
+  const reader = deps.sourceStatus;
+  if (reader === undefined) return null;
+  const snapshot = await redisCall(deps, () => reader.read());
+  return snapshot.ok ? snapshot.value : null;
+}
 
 /** 이 사용자의 다음 가능 시각·최근 공유 실행·오늘 사용량·정기 일정 실제 등록. ADMIN 만, Redis 오류면 503 {component:"redis"} */
 export async function getManualIngestGate(
@@ -544,9 +591,10 @@ export async function getManualIngestGate(
 ): Promise<IngestionAdminResult<ManualIngestGateView>> {
   if (!canManageIngestion(ctx.role)) return forbidden();
   const now = deps.now();
-  const [state, scheduler] = await Promise.all([
+  const [state, scheduler, sources] = await Promise.all([
     redisCall(deps, () => deps.manualGate.read({ userId: ctx.userId, at: now })),
     redisCall(deps, () => deps.scheduler.read()),
+    sourceSnapshotOf(deps),
   ]);
   if (!state.ok || !scheduler.ok) return redisUnavailable();
   return {
@@ -558,6 +606,7 @@ export async function getManualIngestGate(
       ingestMode: deps.runMode,
       requesterId: ctx.userId,
       now,
+      sources,
     }),
   };
 }

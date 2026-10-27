@@ -172,6 +172,17 @@ export function IngestionView({
           ownRunIds,
           rows,
         });
+  // 서비스별 [증분 수집]은 출처별로 실행 중을 따로 본다. 그래서 쿨다운·공유 실행·하루 상한만 본 판정을 쓴다.
+  const serviceLive =
+    liveGate === null
+      ? null
+      : liveControlViewOf({
+          gate: liveGate.gate,
+          checkedAt: liveGate.checkedAt,
+          inProgress: false,
+          ownRunIds,
+          rows,
+        });
 
   const onAccepted = (run: IngestRun) => {
     const acceptedAt = Date.now();
@@ -267,7 +278,15 @@ export function IngestionView({
         onReload={() => router.refresh()}
       />
 
-      <IngestionServices summary={sources} runMode={runMode} onAccepted={onAccepted} />
+      <IngestionServices
+        summary={sources}
+        gate={gate.state.phase === "ready" ? gate.state.gate : null}
+        live={serviceLive}
+        rows={rows}
+        pending={pending}
+        onAccepted={onAccepted}
+        onGateRefresh={gate.refresh}
+      />
       <section aria-labelledby="ingest-history-title" className="flex flex-col gap-3">
         <h2 id="ingest-history-title" className="type-heading text-foreground">
           실행 이력

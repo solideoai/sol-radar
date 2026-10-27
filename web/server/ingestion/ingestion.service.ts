@@ -709,7 +709,11 @@ async function pullPages(context: RunContext, started: StartedRun): Promise<Inge
       await closeFailed(context, cursor, progress);
       return finish("FAILED", progress);
     }
-    if (completeness !== "COMPLETE") {
+    // 빠짐없는지 모르는 쪽(PARTIAL)에서 멈춘다. 다만 connector 가 다음 cursor 를 준 경우(KEPCO 의 겹치지 않는 다음 날짜 조각)는
+    // 이어 받는다. run 은 끝에 PARTIAL 로 남는다. 같은 cursor 를 다시 주면 끝없이 돌지 않게 멈춘다.
+    const advancesPastPartial =
+      outcome.page.nextCursor !== null && outcome.page.nextCursor !== cursor;
+    if (completeness !== "COMPLETE" && !advancesPastPartial) {
       await repo.saveCheckpoint(started.runId, {
         cursor,
         summary: progress.summary,

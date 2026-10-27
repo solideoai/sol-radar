@@ -5,6 +5,7 @@ import {
   type FetchPageInput,
 } from "./connector.model";
 import {
+  COVERAGE_UNVERIFIED_SOURCES,
   EXTERNAL_SERVICES,
   type ExternalConnector,
   type ExternalConnectorOptions,
@@ -94,7 +95,7 @@ export function createExternalApiConnector(options: ExternalConnectorOptions): E
         return failed("HTTP_ERROR", parsed.detail);
       }
       if (!response.ok) return failed("HTTP_ERROR", "HTTP_REQUEST_FAILED");
-      const isKepco = options.sourceKey === "kepco-ebid-contract";
+      const coverageUnverified = COVERAGE_UNVERIFIED_SOURCES.has(options.sourceKey);
       const offset = (request.pageNo - 1) * request.numOfRows;
       const knownTotal = parsed.totalCount;
       const pageValid =
@@ -104,14 +105,18 @@ export function createExternalApiConnector(options: ExternalConnectorOptions): E
         parsed.items.length === Math.min(request.numOfRows, knownTotal - offset);
       const morePages = pageValid && offset + parsed.items.length < knownTotal;
       // KEPCO's response cap and omitted-company coverage have not been verified, even if a count happens to be returned.
-      const complete = !isKepco && pageValid;
+      const complete = !coverageUnverified && pageValid;
+      const nextSlice =
+        request.sliceIndex + 1 < request.sliceCount ? `${request.sliceIndex + 1}:1` : null;
+      // 확인할 수 없는 서비스(KEPCO)는 PARTIAL 이어도 다음 날짜 조각으로 넘어간다. 조각은 서로 겹치지 않아
+      // 넘어가도 다시 받으면 채울 수 있는 구간을 버리지 않는다. 잘린 쪽(그 밖의 PARTIAL)은 cursor 를 주지 않는다.
       const nextCursor = complete
         ? morePages
           ? `${request.sliceIndex}:${request.pageNo + 1}`
-          : request.sliceIndex + 1 < request.sliceCount
-            ? `${request.sliceIndex + 1}:1`
-            : null
-        : null;
+          : nextSlice
+        : coverageUnverified
+          ? nextSlice
+          : null;
       return {
         ok: true,
         page: {

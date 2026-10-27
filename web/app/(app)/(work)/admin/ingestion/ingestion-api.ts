@@ -18,7 +18,11 @@ import {
 // 수집 관리 화면이 부르는 v1 주소(N8 구현 계획 §1 + 10-26 manual-gate). 오류 봉투 읽기는 공고 상세와 같은 api-envelope 를 쓴다.
 // 브라우저 번들이라 서버 모듈을 부르지 않는다. 응답 항목 모양은 같은 서버의 05 IngestionRun 을 믿고 필요한 칸만 확인한다.
 
-export type RunRequestBody = { source: "fixture"; batch: IngestBatch } | { source: "g2b" };
+export type RunRequestBody =
+  | { source: "fixture"; batch: IngestBatch }
+  | { source: "g2b" }
+  // 서비스별 [증분 수집]. 창을 정하지 않으면 서버·Worker 가 정기 창 규칙(최근 24시간 상한)으로 정한다.
+  | { source: "g2b" | "kwater" | "lh" | "kepco"; serviceKey: string };
 
 const ACCEPT_JSON = { Accept: "application/json" } as const;
 
@@ -150,7 +154,14 @@ export type ManualGate = {
     active: boolean;
     nextRunAt: string | null;
   };
+  /**
+   * 수집 Worker 가 남긴 외부 서비스별 상태(키 없음·인증 실패 등). 옛 서버이거나 Worker 가 아직 남기지 않았으면 null 이다
+   * (외부 서비스 [증분 수집]을 막는다). 나라장터 입찰공고는 schedule 이 정한다.
+   */
+  services: Readonly<Record<string, ServiceState>> | null;
 };
+
+export type ServiceState = { state: string; reason?: string; scheduled: boolean };
 
 export type GateOutcome =
   | { kind: "ok"; gate: ManualGate }
@@ -192,6 +203,30 @@ function scheduleOf(value: unknown): ManualGate["schedule"] | undefined {
   return { pattern, timezone, slotHoursKst, active, nextRunAt };
 }
 
+const STATE_TEXT = /^[A-Z_]{1,50}$/;
+
+function serviceStateOf(value: unknown): ServiceState | null {
+  if (!isRecord(value)) return null;
+  const { state, reason, scheduled } = value;
+  if (typeof state !== "string" || !STATE_TEXT.test(state) || typeof scheduled !== "boolean")
+    return null;
+  if (reason !== undefined && (typeof reason !== "string" || !STATE_TEXT.test(reason))) return null;
+  return reason === undefined ? { state, scheduled } : { state, reason, scheduled };
+}
+
+/** 서비스 상태는 덧붙은 정보다. 없거나 모양이 다르면 null(외부 서비스 단추만 막고 판정 전체는 버리지 않는다). */
+function servicesOf(value: unknown): ManualGate["services"] {
+  if (!isRecord(value)) return null;
+  const entries = Object.entries(value).map(
+    ([key, state]) => [key, serviceStateOf(state)] as const,
+  );
+  return entries.every(([, state]) => state !== null)
+    ? Object.fromEntries(
+        entries.filter((entry): entry is [string, ServiceState] => entry[1] !== null),
+      )
+    : null;
+}
+
 /** 응답 본문을 판정으로 읽는다. 화면이 쓰는 칸 중 하나라도 모양이 다르면 null 이다. */
 export function gateOf(body: unknown): ManualGate | null {
   if (!isRecord(body) || !isRecord(body.daily)) return null;
@@ -215,6 +250,7 @@ export function gateOf(body: unknown): ManualGate | null {
     sharedRun,
     daily: { used, limit, resetsAt },
     schedule,
+    services: servicesOf(body.services),
   };
 }
 
