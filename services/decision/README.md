@@ -138,7 +138,7 @@ score → `{id: "0".."N-1", label}`, noul → `true`/`false`(description 기본 
 bash verify.sh     # ruff check · ruff format --check · pytest (torch 없이)
 ```
 
-시험은 가짜 백엔드로 wire 3타입 왕복, 게이트웨이 `kev_wire.parse_response`·`kev_local.kev_registry_match` 와의 parity,
-후보 id 매핑, 인증·상한(본문·state·대기열)·state 언어·마감·오류 코드, 패키지 sha256·remote code 검증, 레지스트리 문자열 일치를 본다.
+시험(`tests/`의 `test_app`·`test_backend`·`test_models_endpoint`·`test_parity`·`test_worker_compat`)은 가짜 백엔드로 HTTP 계약(인증·상한(본문·state·대기열)·state 언어·마감·오류 코드),
+게이트웨이 `kev_wire.parse_response` 와의 parity, worker 재검사 호환, `/v1/models` 와 레지스트리 문자열 일치를 본다.
 **실제 Bosun 로딩·추론·지연은 회사 서버에서만 확인한다**(가중치는 저장소에 없다): 기동 뒤 위 `curl` 셋과
 `docs/03-AI-PIPELINE.md` §5.9 의 절차를 따른다.
