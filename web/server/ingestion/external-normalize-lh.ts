@@ -18,8 +18,9 @@ import {
 import { sourceKeyOf, type WarningIssue } from "./validation";
 
 // ── LH 입찰공고(15159012 getOpenBidInfo) 한 행 → NormalizedBidDraft ──
-// 필드 이름·뜻은 공개 명세(data.go.kr Swagger, 2026-10-27 열람)에서 왔다. 2026-10-27 첫 실응답(10건)으로 날짜 자릿수·
-// 금액 단위를 확인했다. 아직 확인하지 않은 것: bidKind·bidProgrsStatus 값 목록(첫 녹음은 한글이 깨졌다), 공고 상세 URL.
+// 필드 이름·뜻은 공개 명세(data.go.kr Swagger, 2026-10-27 열람)에서 왔다. 2026-10-27 실응답 녹음(10건,
+// fixtures/recorded/15159012)으로 날짜 꼴·금액 단위와 상태 값 일부(일반공고·정정공고·입찰진행중)를 확인했다.
+// 아직 확인하지 않은 것: 취소·마감·유찰 같은 다른 진행 상태 값, 공고 상세 URL.
 // - 상태: "취소"·"정정/변경"·마감류 낱말만 읽는다. 모르는 값은 OPEN 으로 두고 원문과 메모를 남긴다(시간으로 상태를 바꾸지 않는다).
 // - 예산: 추정가격(presmtPrc)을 원 단위로 읽는다. 부가세 별도. 다른 금액도 원 단위로 남긴다.
 // - 출처 URL: 응답에 상세 URL 이 없어 서비스 설명 페이지를 쓴다(sourceUrlKind SERVICE_DOCUMENTATION).
@@ -112,7 +113,8 @@ function lhDate(raw: string | null, fetchedAt: Date): ExternalDate | null {
   return parsed === null ? null : { ...parsed, raw };
 }
 
-// 상태 값 목록은 미검증이다. 뜻이 분명한 낱말만 읽고 시각으로 상태를 만들지 않는다(같은 응답이면 같은 revision).
+// 실응답으로 본 값은 bidKind 일반공고·정정공고, bidProgrsStatus 입찰진행중뿐이다. 나머지 값은 미검증이라
+// 뜻이 분명한 낱말만 읽고 시각으로 상태를 만들지 않는다(같은 응답이면 같은 revision).
 function statusOf(fields: Fields): { status: BidStatus; mapped: boolean } {
   const kind = fields.bidKind ?? "";
   const progress = fields.bidProgrsStatus ?? "";

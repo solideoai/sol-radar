@@ -35,7 +35,7 @@ updated: 2026-10-27
 - 첨부 처리 운영 반영(아래 "10-27 첨부 처리" 절의 승인 대기 8항목) → 실공고 S-LIVE 분석 run → 리허설·촬영(S-LIVE·카카오 실수신 컷) → 덱·영상 → 11-03 제출 → 11-04 발표(D1).
 - 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다. 운영 DEMO 19건 그대로, 운영 DB 안 백업 스키마 `demo_cleanup_20261026` 있음. 카카오 연결 0건.
 - GitHub Actions는 10-24부터 계정 결제 문제로 job이 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다.
-- LH 입찰공고(15159012) 연동: 첫 실호출 1회(10-27 15:13, HTTP 200·`00`·10건) 결과로 EUC-KR 읽기·`YYYY/MM/DD HH:mm` 일시·금액 단위를 고쳤다(로컬, 커밋 전). 고친 스크립트로 다시 녹음 → 상태값 확인·registry 갱신 → push·회사 반영은 모두 승인 대기다([[plans/2026-10-27-lh-bid-notice-activation|LH 활성화 계획]], [첫 실호출 증거](evidence/ingestion/20261027-lh-bid-notice/first-call.md)).
+- LH 입찰공고(15159012) 연동: 실호출 2회(10-27 15:13 첫 녹음은 한글 깨짐, 15:47 다시 녹음 `SUCCESS`). EUC-KR 읽기·`YYYY/MM/DD HH:mm` 일시·금액 단위를 고쳤고(`602d7c2d`), 실응답 10건이 10건 모두 정규화된다(로컬). registry 상태·`enabled` 갱신 → push·회사 반영은 모두 승인 대기다([[plans/2026-10-27-lh-bid-notice-activation|LH 활성화 계획]], [첫 실호출 증거](evidence/ingestion/20261027-lh-bid-notice/first-call.md), [정규화 검증](evidence/ingestion/20261027-lh-bid-notice/normalization-check.md)).
 
 **사용자 결정 대기**
 
@@ -68,6 +68,7 @@ updated: 2026-10-27
 - **검증**: `lh-bid-notice.test.ts` 22개(다른 서비스 회귀 7 포함), 외부 수집 시험 5파일 99개, 녹음 스크립트 시험 5개 통과(main `8cfaac31` 위). 변형 9종이 모두 시험에 걸렸다. 독립 리뷰 상 0·중 7·하 2 를 모두 반영했다(401·403·20·32 판정 LH 한정, 명세 밖 결과 코드 `3` 은 실패로, 차수 필수, 녹음 2 MiB 를 읽는 중에 끊기·명세 밖 태그 가림 등). 전체 `pnpm verify` exit 0(루트 241·web 86파일 766개·`next build`·AI 166·결정 57, 리뷰 반영 뒤). 로그인 뒤 E2E·회사 스택·실 LH 응답 확인은 하지 않았다.
 - **남은 것(모두 승인 대기)**: data.go.kr 15159012 활용신청·한도 확인 → 회사 서버 키 확인(값 출력 없음) → 첫 실호출 1~3회 → 녹음으로 매핑 확정·registry 갱신 → main 병합·push → 회사 Git·Worker 이미지·재생성. 순서·멈춤 조건·되돌리기는 [[plans/2026-10-27-lh-bid-notice-activation|LH 활성화 계획]].
 - **첫 실호출 1회(10-27 15:13 KST, 사용자 승인)**: 회사 서버 일회용 컨테이너로 `--date 20261026 --page 1 --rows 10`. HTTP 200·`00`·`totalCount 12`·10건, 보안 검사 0건, 운영 Worker·Scheduler 그대로. 응답이 `text/xml;charset=EUC-KR` 이라 Worker 의 UTF-8 fatal 읽기로는 LH 쪽이 전부 실패했을 것이고, 녹음 스크립트는 한글을 깨뜨렸다. 접수·개찰 일시는 `2026/11/02 16:00` 꼴이라 마감이 비었을 것이다. 고친 것: Worker·녹음 스크립트의 charset 읽기(EUC-KR, 나머지 UTF-8 그대로), LH 일시 꼴, 금액 원 단위·부가세 구분, 녹음 요약의 CDATA 공백. 새 시험 5개는 고치기 전 실패를 먼저 봤다. `pnpm verify:changed` exit 0(루트 249·web 769). 상태값 목록은 아직 모른다(녹음 한글 깨짐) — 고친 스크립트로 다시 녹음이 다음이다. [첫 실호출 증거](evidence/ingestion/20261027-lh-bid-notice/first-call.md).
+- **실응답 10건 정규화 검증·fixture 분리(10-27, 로컬, 커밋 전)**: 15:47 다시 녹음을 `fixtures/recorded/15159012/` 에 넣고(합성 응답은 `fixtures/synthetic/15159012/` 그대로, 15:13 깨진 녹음은 넣지 않음) 재생 시험 1개를 더했다. 제품 파서·정규화 결과를 XML 원문과 따로 맞춰 10/10 정규화, 어긋난 칸 0, 경고 0. 공고번호·차수·공고명·공고일·마감·추정가격 매핑에 잘못된 곳은 없었고, 낡은 설명(정규화 주석, registry `fieldMapping` 문구, `sampleResponses`)만 고쳤다. registry `enabled: false`·`NOT_VERIFIED` 그대로. 개인정보·키 흔적 0(회사 서버 키 대조는 사용자 실행 결과). 재생 시험은 변형 3종에서 실패를 확인했다. 수집·Worker 시험 28파일 351개 통과. [정규화 검증](evidence/ingestion/20261027-lh-bid-notice/normalization-check.md).
 
 ## 10-27 첨부 처리·파서·live 가드 구현 (로컬 통합, 운영 미적용)
 

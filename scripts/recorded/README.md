@@ -99,7 +99,7 @@ node --env-file=/Users/leegwanghui/dev/hackathon/sol-radar/infra/.env scripts/re
 
 `record-lh-bid-notice.mjs` 는 LH 입찰공고 `getOpenBidInfo` 를 **한 번 실행에 정확히 1회** 부르고 가려 저장한다. 첫 실호출 검증용이다.
 실행은 사용자 승인 뒤에만 하고, 순서·횟수(1~3회)·멈춤 조건은 `docs/plans/2026-10-27-lh-bid-notice-activation.md` §3 을 따른다.
-2026-10-27 15:13 KST 회사 서버에서 1회 실행했다(HTTP 200·`00`·10건). 응답이 EUC-KR 이라 그 녹음의 한글은 깨졌고, 스크립트를 고쳐 다시 녹음할 차례다(`docs/evidence/ingestion/20261027-lh-bid-notice/first-call.md`). `fixtures/recorded/15159012/` 는 아직 없다.
+2026-10-27 15:13 KST 회사 서버에서 1회 실행했다(HTTP 200·`00`·10건). 응답이 EUC-KR 이라 그 녹음의 한글은 깨졌다. 스크립트를 고쳐 15:47 KST 에 1회 다시 녹음했고(`SUCCESS`), 그 파일을 `fixtures/recorded/15159012/` 에 넣었다(`docs/evidence/ingestion/20261027-lh-bid-notice/first-call.md`).
 
 ```bash
 # 회사 서버, 일회용 컨테이너(운영 Worker 재시작 없음). 키는 infra/.env.worker.local 의 LH_BID_NOTICE_SERVICE_KEY

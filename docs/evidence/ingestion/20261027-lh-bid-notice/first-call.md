@@ -51,12 +51,33 @@ updated: 2026-10-27
 - 운영 Worker 이미지(Node 22.23.4, ICU 78.3)에서 `new TextDecoder("euc-kr", { fatal: true })` 가 `한글` 을 디코드했다(`docker run --network none`, env 없음).
 - `pnpm verify:changed` exit 0(루트 249·web 86파일 769개). 전체 `pnpm verify` 는 돌리지 않았다.
 
-## 4. 아직 모르는 것
+## 4. 다시 녹음 1회 — 15:47 KST (사용자 승인)
 
-- `bidKind`·`bidProgrsStatus`·`tndrCtrctMedCd` 등의 한글 값 목록. 첫 녹음은 깨졌다. `statusOf` 는 그대로 두었다.
+`602d7c2d` 의 녹음 스크립트(sha256 `c5cead2a…`)로 계획 §3 "다시 녹음"을 했다. 1회차 결과는 서버 `/tmp/sol-lh-rec/out-1`·`run-output-1.txt` 로 옮겨 두었다(지우지 않음). 오늘 LH 호출은 이것까지 **2회**다.
+
+| 단계 | 결과 |
+|---|---|
+| ② 사전 검증 | 해시 3개 `성공`, 이미지 `43e4e02465c2`, 재시작 0·healthy, Scheduler `g2b-scheduled` 1개(`failed=0`), 키 SET·decodable, dry-run `calls 0`·`outWritable true` |
+| ③ 호출 1회 | HTTP 200, `00`, `totalCount 12`, 항목 10. 판정 **`SUCCESS`**. `bidnmKor 10/10`, 정규화 가능 10/10, 명세 밖 태그 0, 빠진 명세 태그 0 |
+| ④ 보안 검사 | `out`·`out-1` 포함 12개 파일 모두 `keyHits 0`·`serviceKeyParam 0`·`email 0`. `worker unchanged`·`status unchanged`. 일회용 컨테이너 없음 |
+
+녹음 `contentType text/xml;charset=EUC-KR`, `U+FFFD` 0개. 한글 상태류 값:
+
+| 칸 | 값 |
+|---|---|
+| `bidKind` | 일반공고, 정정공고 |
+| `bidProgrsStatus` | 입찰진행중 |
+| `zoneHqCd` | 강원·경기남부·경기북부·대구경북·대전충남·인천 지역본부 |
+| `cstrtnJobGbNm` | 시설공사, 용역, 지급자재 |
+| `tndrCtrctMedCd` | 수의공고, 일반경쟁, 제한경쟁 |
+
+개발 PC 에서 `602d7c2d` 의 `parseExternalPayload`·`normalizeLhBidNotice` 에 넣었다. 10/10 정규화, 격리 0. 마감(`deadlineAt`) 10/10 채워짐(예: `2026/11/02 16:00` → `2026-11-02T07:00:00.000Z`). 상태는 9건 `OPEN`(입찰진행중), 정정공고 1건(`2603787`, 차수 `01`)은 `AMENDED`. "상태 값을 읽지 못해" 메모 0건. 지금 `statusOf` 그대로 맞는다.
+
+## 5. 아직 모르는 것
+
+- 취소·마감·유찰 같은 다른 `bidProgrsStatus` 값. 이번 10건은 모두 "입찰진행중"이었다.
 - 2쪽(`totalCount 12` 의 나머지 2건)과 빈 날짜의 응답.
-
-다음은 고친 녹음 스크립트로 1회 다시 녹음하는 것이다(시도 표식 삭제·호출 모두 승인 뒤). 순서는 계획 §3 "다시 녹음".
+- 녹음을 `fixtures/recorded/15159012/` 에 넣는 것, 재생 시험, registry 갱신(계획 §4 4-1)은 승인 뒤다.
 
 ## 관련 문서
 

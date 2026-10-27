@@ -9,6 +9,7 @@ import { runIngest } from "./ingestion.service";
 import { createMemoryQuotaStore } from "./quota-store";
 
 // LH 입찰공고(15159012). 응답은 fixtures/synthetic/15159012 의 합성(SYNTHETIC) 파일이다. 실응답 녹음이 아니다.
+// 실응답 녹음(fixtures/recorded/15159012)은 아래 "LH 실응답 녹음 재생" 한 곳에서만 읽는다.
 const synthetic = (name: string): string =>
   readFileSync(
     new URL(`../../../fixtures/synthetic/15159012/${name}.synthetic.xml`, import.meta.url),
@@ -279,6 +280,71 @@ describe("LH 입찰공고 정규화", () => {
     ).toMatchObject({
       ok: false,
       issue: { code: "SCHEMA_INVALID", detail: "invalid: amendmentNo" },
+    });
+  });
+});
+
+// 2026-10-27 15:47 KST 실호출 녹음(가린 실응답, 등록일 2026-10-26·1쪽·10행). 값을 고치거나 지어 넣지 않는다.
+const recording = JSON.parse(
+  readFileSync(
+    new URL(
+      "../../../fixtures/recorded/15159012/getOpenBidInfo.20261026.p1.masked.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+) as { contentType: string; fetchedAt: string; maskedBody: string };
+
+describe("LH 실응답 녹음 재생", () => {
+  it("10건 모두 격리·경고 없이 정규화하고 공고번호·차수·공고명·공고일·마감·추정가격을 원문대로 옮긴다", () => {
+    // 한글이 깨진 녹음(U+FFFD)은 fixture 로 쓰지 않는다
+    expect(recording.contentType).toBe("text/xml;charset=EUC-KR");
+    expect(recording.maskedBody).not.toContain("�");
+    const parsed = parseExternalPayload(recording.maskedBody);
+    if (!parsed.ok) throw new Error("recorded LH page must parse");
+    expect(parsed.totalCount).toBe(12);
+    const results = parsed.items.map((item) =>
+      normalizeExternalNotice("lh-bid-notice", item, { fetchedAt: new Date(recording.fetchedAt) }),
+    );
+    const drafts = results.flatMap((result) => (result.ok ? [result] : []));
+    expect(drafts).toHaveLength(10);
+    expect(drafts.flatMap(({ warnings }) => warnings)).toEqual([]);
+    // 상태를 못 읽었거나 마감 시각이 없다는 메모가 한 건도 없다
+    expect(
+      drafts
+        .flatMap(({ draft }) => draft.normalizationNotes ?? [])
+        .filter((note) => /^(status|deadlineAt):/.test(note)),
+    ).toEqual([]);
+    expect(
+      drafts.map(({ draft }) => `${draft.noticeId}:${draft.amendmentNo}:${draft.status}`),
+    ).toEqual([
+      "2603833:00:OPEN",
+      "2603815:00:OPEN",
+      "2603802:00:OPEN",
+      "2603800:00:OPEN",
+      "2603792:00:OPEN",
+      "2603789:00:OPEN",
+      "2603787:01:AMENDED",
+      "2603774:00:OPEN",
+      "2603750:00:OPEN",
+      "2603734:00:OPEN",
+    ]);
+    expect(drafts.every(({ draft }) => draft.deadlineAt !== null && draft.budgetKrw !== null)).toBe(
+      true,
+    );
+    expect(drafts[0].draft).toMatchObject({
+      title: "(자활용사촌)양주회천 택지개발사업 조성공사(2단계) 디자인형울타리 제작 및 설치",
+      agency: "한국토지주택공사",
+      // 20261026(날짜만)은 KST 18:00, 2026/11/02 16:00 KST = 07:00Z
+      noticeDate: "2026-10-26T09:00:00.000Z",
+      deadlineAt: "2026-11-02T07:00:00.000Z",
+      budgetKrw: "607100000",
+      sourceMetadata: {
+        providerRecordKey: "2603833:00",
+        providerStatus: "입찰진행중",
+        agencyCode: "경기북부지역본부",
+        biddingStartsAt: "2026-10-28T01:00:00.000Z",
+      },
     });
   });
 });
