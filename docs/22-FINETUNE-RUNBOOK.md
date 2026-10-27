@@ -174,7 +174,7 @@ uv pip check --python "$PY"            # 충돌 0
 "$PY" -c "import torch, transformers, peft, safetensors, sol_decision, sol_eval; print(torch.__version__, transformers.__version__, peft.__version__, safetensors.__version__)"   # torch 2.8.0+cu128 그대로
 # 4) 동작 확인(네트워크·GPU 없이)
 "$PY" -m sol_eval --help
-"$PY" -c "from pathlib import Path; from sol_eval.package_check import verify_package_dir; verify_package_dir(Path('$snap')); print('package ok')"   # $snap 은 이 블록 머리에서 정했다(§2.2 와 같다). package_check 는 main 36edfb6(hardening)에 있다
+"$PY" -c "from pathlib import Path; from sol_eval.package_check import verify_package_dir; verify_package_dir(Path('$snap')); print('package ok')"   # $snap 은 이 블록 머리에서 정했다(§2.2 와 같다). package_check 는 `services/ai/eval/sol_eval/package_check.py` 다
 
 # 5) F1-A: GPU 1 매핑·bf16·snapshot sha256·데이터 형식까지 한 번에(§4.2). SOL_GPU_SHARE_APPROVED=1 은 회사 공유 승인을 사용자가 확인한 뒤에만 준다
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1
