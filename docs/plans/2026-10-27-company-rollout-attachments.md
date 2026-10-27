@@ -95,6 +95,8 @@ git -C . log --oneline -3
 
 격리 배포 실행서 단계 7~10 그대로다. 시간 창(KST 정각 +15분 ~ 다음 정각 −30분)과 `--status` 의 waiting·active·prioritized 0 을 지킨다.
 
+2026-10-27 18:09 완료. 실행 중인 Worker 가 `sol-radar-app/infra` 에서 떠 있어 그 checkout 에서 했다. 21:00 회차 `SUCCEEDED`([[../evidence/company-rollout/20261027/ingest-worker-recreate|재생성 기록]]).
+
 ## 6. AI gateway 파서 반영 — [승인]
 
 D0 결과로 명령을 확정한다. 지켜야 할 것:

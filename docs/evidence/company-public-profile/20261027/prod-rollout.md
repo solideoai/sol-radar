@@ -47,7 +47,7 @@ updated: 2026-10-27
 | redis-api | `sol-radar-gateway`(`/data/www/ai_workspace/sol-radar-app`) | main `aa0c9f9` 로 fast-forward, 이미지 `9458368e` 로 재생성. healthy, 토큰 없는 `/health` 401, `SOL_RUN_MODE=live`·`SOL_INGEST_MODE=live` |
 | AI gateway | `sol-radar-ai-worker`(`/data/www/ai_workspace/sol-radar-deploy`) | 이미지 `f0ad424a63c3`(14:22 교체, 파서는 있으나 실적 금액 `null` 미지원) → `9bb24b002f9b`. 배포 checkout 은 `05f9572` + 회사 전용 carry 커밋(`4750a18` 을 cherry-pick 한 `9bb24b0`) |
 | Analysis Worker | `sol-radar-analysis-only`(같은 checkout) | `9bb24b002f9b` 로 재생성 |
-| ingest Worker | — | 하지 않았다. 이 작업과 무관하다(실행서 D0). 운영 중인 정기 수집은 그대로다 |
+| ingest Worker | — | 이 작업에서는 하지 않았다(실행서 D0). 같은 날 18:09 에 `sol-radar-app` 에서 따로 재생성했다([[../../company-rollout/20261027/ingest-worker-recreate\|재생성 기록]]) |
 | Documents Worker | — | 시작하지 않았다(실행서 §8 남음) |
 
 배포 checkout 에 diff 목록을 pager 로 저장한 파일 `d` 가 생겨 브랜치 전환이 멈췄다. 사용자가 `~/sol-radar-deploy-stray-d-20261027` 로 옮긴 뒤 진행했다.
