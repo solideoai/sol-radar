@@ -1,5 +1,6 @@
 ---
 title: "Kev 대조 실험 설계 — E0·E1·E2·E3 (해커톤 규모)"
+doc: "plan-20261019-e3-experiment-design"
 status: draft
 tags:
   - sol-radar

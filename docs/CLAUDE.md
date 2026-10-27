@@ -1,5 +1,6 @@
 ---
 title: "Claude Code 지침 — SOL RADAR"
+doc: "claude"
 status: draft
 tags:
   - sol-radar

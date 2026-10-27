@@ -31,7 +31,7 @@ color: green
   `docs/15-DATA-CONTRACTS.md` §2 공통 타입, §5 인용 검증(`norm(s)`, `CITATION_FUZZY_MIN_RATIO` 0.92, §5.3 실패 전이). `docs/09-SECURITY.md` 프롬프트 인젝션 대응.
 - **위치**: `services/ai/`(uv 프로젝트), 어댑터는 `services/ai/adapters/`. Python 버전·의존성은 `pyproject.toml` 을 따른다. 폴더가 없으면 Phase 0 미완료로 보고한다.
 - **바꿀 수 없는 규칙**
-  - gateway 는 Supabase(Postgres)·MinIO 에 접근하지 않고 Supabase 키도 받지 않는다. 텍스트는 worker 가 보내고 저장도 worker 가 한다.
+  - gateway 는 Supabase(Postgres·Storage)에 접근하지 않고 Supabase 키도 받지 않는다. 텍스트는 worker 가 보내고 저장도 worker 가 한다.
   - HTTP 200 은 "gateway 가 응답했다"는 뜻이다. 추출·결정 모델 실패는 본문 `status`·`errorCode`·`kev.enabled` 로 표현한다.
   - `mock` 은 모델 호출만 고정 응답으로 바꾼다. `fixtures/extractions/FX-xx.json` 도 스키마·인용 검증을 **실제로** 통과시켜 반환한다. Kev mock 은 `fixtures/kev/FX-xx.json`(wire 형식 그대로), 파일이 없을 때만 §5.7 공식.
   - 결정 모델 입력은 어댑터가 만든 **영어 템플릿 state** 만. 한국어 원문·자유 텍스트·규칙 결과(자격·점수·권고)를 넣지 않는다. 질문 세트는 코드에 고정한다.

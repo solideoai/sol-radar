@@ -1,5 +1,6 @@
 ---
 title: "N6 입찰 프로젝트 구현 계획 (2026-10-21)"
+doc: "plan-20261021-n6-bid-projects"
 status: done
 tags:
   - sol-radar

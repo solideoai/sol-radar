@@ -1,5 +1,6 @@
 ---
 title: "N8 /admin/ingestion — 구현 계획(서버)"
+doc: "plan-20261020-n8-admin-ingestion"
 status: done
 tags:
   - sol-radar

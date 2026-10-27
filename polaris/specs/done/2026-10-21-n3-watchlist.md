@@ -76,7 +76,7 @@
 - **Q1 마감 알림 생산자 → ①**: worker 주기 작업(기본 5분)이 DB 함수 하나를 불러 `notifications` 에 바로 넣는다. 키가 unique 라 멱등이다. notify-outbox 와 같은 안전 규칙을 지킨다: 함수가 `org_id`·`user_id` 를 직접 넣고, 수신자가 그 조직 구성원인지와 `profiles.status = 'active'` 인지 확인한다. 채널은 `IN_APP` 만이다. 카카오·메일 마감 알림은 범위 밖이다(ADR-041 비목표). 13 의 "outbox 두 단계"와 다른 길이라, 45 에 보낼 절 목록에 "마감 알림은 직접 삽입 + 키 멱등"을 넣는다. [12 판단]
 - **Q2 목록의 ★ 상태 → ①**: 목록 응답(`BidListItem`)은 그대로 두고 화면이 본인 관심 id 목록을 서버에서 따로 읽는다. 05 계약은 그대로다. [12 판단]
 - **Q3 `/watchlist` 기본 조건 → ①**: `/bids` 와 같다(진행 중만). 마감·취소된 관심 공고는 상태 필터로 본다. [12 판단]
-- **디자인 스펙 열린 질문(`docs/plans/2026-10-21-n3-watchlist-design.md` §11) → 추천안**: (1) ★ 이름을 "관심 공고"로 고정하고 `aria-pressed` 로 상태를 알린다. 상태마다 이름을 바꾸면 낭독이 "관심 공고에서 빼기, 눌림"처럼 동작과 상태를 두 번 말한다(WAI-ARIA APG 토글 버튼 규칙). (2) Q3 ①을 지키려고 `/watchlist` 상태 필터에만 "마감·취소 포함"(`status` 네 값)을 더한다. `/bids` 는 그대로다(ADR-031 C15). (3) `/watchlist` 에 `BidsSourceNav` 를 두지 않는다. (4) 1280px·사이드바 펼침에서 제목 열이 184→144px 로 주는 것을 받아들인다. [fa 판단, 12 보고]
+- **디자인 스펙 열린 질문(`docs/plans/2026-10-21-n3-watchlist-design.md` §11, 원문: git `5261730f` 의 같은 경로) → 추천안**: (1) ★ 이름을 "관심 공고"로 고정하고 `aria-pressed` 로 상태를 알린다. 상태마다 이름을 바꾸면 낭독이 "관심 공고에서 빼기, 눌림"처럼 동작과 상태를 두 번 말한다(WAI-ARIA APG 토글 버튼 규칙). (2) Q3 ①을 지키려고 `/watchlist` 상태 필터에만 "마감·취소 포함"(`status` 네 값)을 더한다. `/bids` 는 그대로다(ADR-031 C15). (3) `/watchlist` 에 `BidsSourceNav` 를 두지 않는다. (4) 1280px·사이드바 펼침에서 제목 열이 184→144px 로 주는 것을 받아들인다. [fa 판단, 12 보고]
 - 공유 파일: `web/components/app-nav.ts` 는 P1 담당(N5 9c·N6 30·N7 54·N4b 93)이 각자 자기 메뉴 줄만 planned 에서 푼다. 먼저 병합된 쪽 위에 다시 맞춘다. `web/worker/main.ts` 는 dc·9c 와, `bid-detail-view.tsx`·`web/server/bids/index.ts` 는 93 과 미리 맞춘다. [12 판단]
 
 ## 9. 엣지 케이스

@@ -1,5 +1,6 @@
 ---
 title: "제출물 색인"
+doc: "submission-readme"
 status: draft
 tags:
   - sol-radar
@@ -20,7 +21,7 @@ updated: 2026-10-27
 |---|---|---|---|---|
 | 저장소 링크(README가 00 인덱스 역할, 기동 절차는 10) | 루트 `README.md`, [[00-README\|00 인덱스]], [[10-DEPLOYMENT\|10 배포]] | 있음: 마감 · 발표일, 현재 상태, 정직성 표 요약, Vercel 운영 주소 · ADR-049 배포, `mock` 기동 요약 | 완성도 · 확장성 | 미확인(제출 형식 미입력) |
 | 아키텍처 다이어그램 1장 | `docs/submission/architecture.md` | 있음: ADR-049 운영 배포 그림, 3시간 정기 수집, 첨부 처리(코드 있음 · 회사 반영 전), 로컬 Compose 대체 경로, 데이터 흐름(Mermaid 3개) | 확장성 · 실용성 | 미확인 |
-| 데모 영상 3분(백업용) | `docs/submission/slides-spec.md` 부록 A(덱 삽입 클립 6개 + 카카오 10초, A.4 3분 백업 영상 컷 표). 영상 파일 없음 | 촬영 전. 촬영 일정은 [[12-ROADMAP\|12 로드맵]] 남은 일정 제안 표. 카카오 10초는 녹화 전이다(운영 카카오 연결 0건) | 완성도 | 미확인 |
+| 데모 영상 3분(예비물. 18 §10 제출물 밖, 대회 제출 형식이 영상을 요구하면 제출용) | `docs/submission/slides-spec.md` 부록 A(덱 삽입 클립 6개 + 카카오 10초, A.4 3분 백업 영상 컷 표). 영상 파일 없음 | 촬영 전. 촬영 일정은 [[12-ROADMAP\|12 로드맵]] 남은 일정 제안 표. 카카오 10초는 녹화 전이다(운영 카카오 연결 0건) | 완성도 | 미확인 |
 | 발표 슬라이드 | 정본은 `docs/submission/slides-spec.md`(제작 명세, 18장 · 20분, 부록 D 캡처 매핑). 덱 파일 `docs/submission/deck/sol-radar-deck.pptx`(git 제외, 별도 제출) | 덱 초안은 이 명세보다 옛 내용이다. 이 명세 기준으로 다시 만든다 | 네 기준 전부 | 미확인 |
 | `docs/evidence/` 테스트 · E2E · 기동 로그 | [`docs/evidence/README.md`](../evidence/README.md)(증거 색인), `docs/submission/evidence-list.md`(AI 검증 증거 목록) | 있음. 폴더 목록은 증거 색인을 본다. 10-24 운영 실모델 분석 1건(FX-02 66 WATCH)은 따로 남긴 증거 파일이 없고 `docs/evidence/demo-deadline/20261027/prod-run.md` 조회 결과에만 있다. 실공고 live E2E 는 회사 반영 뒤 | 완성도 | 미확인 |
 | 외부 의존성 점검 결과 · 평가 리포트 요약 | `docs/evidence/phase-0/external-deps.md` · `external-deps-api-20261019.md`(①②), ③ 회사 vLLM Qwen probe `docs/evidence/phase-5/qwen-probe-20261021-2343.json`, ④ 파서 `docs/evidence/parser/20261027-parser-check.md`, `docs/evidence/competitors/2026-10-19-competitors.md`(X3), `docs/evidence/eval/`(X6a 평가셋), `docs/submission/experiment-tables.md`(빈 표) | 일부. ①② · ③ Qwen probe · ④ 파서 선택과 실표본 · X3 는 있다. Bosun 엔드포인트 점검 리포트 · X1 리포트는 없다. E1'~E4 는 미측정이다. X6 회사 GPU 학습 실행 여부는 미결정이다 | 실용성 · 창의성 | 미확인 |

@@ -1,6 +1,6 @@
 ---
 name: infra-developer
-description: SOL RADAR 실행 환경 구현 담당 — infra/compose.yaml 과 프로필(demo·ai-local·ai-hosted·production)·compose.gpu.yaml, redis·qdrant·ai-gateway·worker 서비스의 Dockerfile·healthcheck·named volume·포트 바인딩, .env.example·infra/env/*.env.example(Supabase 키 이름 포함), pnpm check:env·pnpm demo:reset 진입점·infra/smoke.sh, verify.config.json 에 새 스택 등록. 10 배포·09 데모 보안 최소선·ADR-017 대로 옮긴다. 애플리케이션 로직, seed 내용, 테스트 판정, 원격 배포, 클라우드 DB 변경은 하지 않는다.
+description: SOL RADAR 실행 환경 구현 담당 — infra/compose.yaml 과 프로필(demo·ai-local, 회사 Compose 의 company-*)·compose.gpu.yaml, redis·qdrant·ai-gateway·worker 서비스의 Dockerfile·healthcheck·named volume·포트 바인딩, .env.example·infra/env/*.env.example(Supabase 키 이름 포함), pnpm check:env·pnpm demo:reset 진입점·infra/smoke.sh, verify.config.json 에 새 스택 등록. 10 배포·09 데모 보안 최소선·ADR-017 대로 옮긴다. 애플리케이션 로직, seed 내용, 테스트 판정, 원격 배포, 클라우드 DB 변경은 하지 않는다.
 model: inherit
 color: blue
 ---

@@ -467,8 +467,9 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 |`20261025000200`|대시보드 실수집 지표 함수|
 |`20261027000500`|documents job 문서별 처리 lease·실패 기록·처리 대상 함수 다섯|
 |`20261027000600`|가입 약관 동의 `user_consents`, `handle_new_user` 동의 검사|
+|`20261027000700`|`EXECUTIVE` 업무 역할, `company_profiles.sources`·`public_history`(ADR-052)|
 
-`20261019000015`·`20261019000018`이라는 파일은 없다. 운영 DB에는 62개가 모두 적용됐다(2026-10-27, [적용 기록](evidence/prod-migrations/20261027/README.md)).
+`20261019000015`·`20261019000018`이라는 파일은 없다. 운영 DB에는 63개가 모두 적용됐다(`000500`·`000600`은 2026-10-27 [적용 기록](evidence/prod-migrations/20261027/README.md), `000700`은 [[PROGRESS]] 운영 상태).
 
 `20261027000500`의 함수 다섯은 표·열·제약을 바꾸지 않는다. 모두 `security invoker`·`set search_path = ''`이고 service_role만 실행한다.
 - `claim_document_processing(document_id, attempt_id, lease_seconds)`: 처리할 상태(다운로드 대기, 또는 다운로드 OK + 파싱 대기)인 행만 lease를 잡는다. lease가 없거나 끝났거나 같은 시도의 것일 때만 잡고, 못 잡으면 사유 `MISSING`·`DONE`·`BUSY`를 돌려준다. lease는 30~3600초.

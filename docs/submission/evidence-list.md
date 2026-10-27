@@ -1,5 +1,6 @@
 ---
 title: "실제 AI 검증 증거 목록"
+doc: "submission-evidence-list"
 status: draft
 tags:
   - sol-radar

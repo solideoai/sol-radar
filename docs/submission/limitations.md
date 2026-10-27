@@ -1,5 +1,6 @@
 ---
 title: "기술적 한계·미완성 항목·실행 모드 구분"
+doc: "submission-limitations"
 status: draft
 tags:
   - sol-radar

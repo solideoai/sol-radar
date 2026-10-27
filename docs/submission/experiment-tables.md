@@ -1,5 +1,6 @@
 ---
 title: "실험 결과 표 (빈 틀)"
+doc: "submission-experiment-tables"
 status: draft
 tags:
   - sol-radar

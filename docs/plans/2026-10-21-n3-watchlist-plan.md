@@ -1,5 +1,6 @@
 ---
 title: "N3 관심 공고 — 구현 계획"
+doc: "plan-20261021-n3-watchlist"
 status: done
 tags:
   - sol-radar

@@ -1,5 +1,6 @@
 ---
 title: "시스템 아키텍처·데이터 흐름 (제출용)"
+doc: "submission-architecture"
 status: draft
 tags:
   - sol-radar

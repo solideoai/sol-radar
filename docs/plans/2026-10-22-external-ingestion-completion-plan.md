@@ -1,5 +1,6 @@
 ---
 title: "외부 공공데이터 수집 파이프라인 — 현황 분석 및 완성 계획"
+doc: "plan-20261022-external-ingestion-completion"
 status: active
 tags:
   - sol-radar

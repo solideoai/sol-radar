@@ -1,5 +1,6 @@
 ---
 title: "진행 상황"
+doc: "progress"
 status: draft
 tags:
   - sol-radar
