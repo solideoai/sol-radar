@@ -33,7 +33,7 @@ updated: 2026-10-27
 | DEMO 공고 | 19건 그대로. 16건 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)). 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤다. 백업 스키마 `demo_cleanup_20261026`이 있다. 회사 공개 프로필(revision 5)로 17건을 다시 분석했다. FX-02·FX-03은 옛 분석(revision 2)이라 대시보드 "분석 대기" 2로 보인다(사용자 결정 대기 6) | 2026-10-27 17:27 KST |
 | 회사 반영 | 일부 완료(이 행이 정본이다). redis-api `aa0c9f9`(이미지 `9458368e`), AI gateway·Analysis Worker `9bb24b002f9b`로 갱신했다. gateway의 `KEV_BASE_URL`은 회사 호스트 Bosun `http://127.0.0.1:8009`로 바꿨다(Nginx `/sol-radar/kev` 경로는 없다). 남은 것: [[2026-10-27-company-rollout-attachments\|회사 반영 실행서]] §8 Documents Worker 기동. ingest Worker는 이 작업에서 다시 만들지 않았다([기록](evidence/company-public-profile/20261027/prod-rollout.md)) | 2026-10-27 17:27 KST |
 | 카카오 | 운영 연결·발송 0건 | 2026-10-27 |
-| 알림 처리 | 처리되지 않는다(코드 확인, 문서 밖 발견 1). 회사 Worker(ingest·analysis·documents 전용)에 알림·마감 등록이 없다. 알림 전용 Worker를 준비했다(브랜치 `feat/notify-nav-1027`, 실행서 `infra/company/README.md` §9). 회사 기동 전이다. 쌓인 outbox 수는 운영에서 세지 않았다 | 2026-10-27 |
+| 알림 처리 | 처리되지 않는다(코드 확인, 문서 밖 발견 1). 회사 Worker(ingest·analysis·documents 전용)에 알림·마감 등록이 없다. 알림 전용 Worker를 main에 넣었다(`c2d5d0b7`, 실행서 `infra/company/README.md` §9). 회사 기동 전이다. 쌓인 outbox 수는 운영에서 세지 않았다 | 2026-10-27 |
 | CI | GitHub Actions job이 2026-10-24부터 계정 결제 문제로 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다 | 2026-10-27 |
 | hosted 모델 API | 승인 0건, 쓰지 않는다([[16-DECISIONS\|ADR-010]]). 승인하면 최근 작업 로그에 한 줄로 남긴다 | — |
 
@@ -77,7 +77,7 @@ updated: 2026-10-27
 **문서 밖 발견**([[2026-10-27-docs-cleanup-plan|문서 정리 계획]] §3, 따로 정할 것):
 
 1. 운영 알림이 처리되지 않는다(코드 확인). 회사 Worker는 수집·분석·첨부 전용 셋이고, 알림·마감 등록(`notifyWorkerRegistration`·`deadlineWorkerRegistration`)은 전체 Worker `web/worker/main.ts:857-914`에만 있다. 알림 전용 Worker(`web/worker/notify-only-main.ts`, `infra/compose.notify-only.company.yaml`)와 실행서(`infra/company/README.md` §9)를 준비했다. 회사 기동은 승인 뒤다. 처음 기동하면 쌓인 outbox가 나이 제한 없이 처리되어 지난 분석·배정 알림이 한꺼번에 벨에 뜬다. 기동 전에 실행서 §9.1의 읽기 전용 SQL로 센다. 카카오 실수신 녹화(§9.6)는 이 Worker가 떠야 한다.
-2. 발표 중 데이터 출처가 바뀔 수 있다(브랜치 `feat/notify-nav-1027`에서 고침, 배포 전). 사이드바 링크에 출처(`?origin=`)가 없어 운영 기본 출처(실공고)로 바뀌었다. 이제 마지막으로 본 목록 화면(`/dashboard`·`/bids`·`/watchlist`)의 출처를 창 안에 기억해 사이드바의 같은 세 링크에 붙인다(`web/components/nav-origin.ts`). 공고 상세를 거쳐도 이어지고, 새로 고치면 잊는다. 상단바 DEMO 배지는 여전히 주소의 `?origin=`만 읽는다(`web/components/topbar-demo-indicator.tsx:25`). 그래서 운영 공고 상세에서는 상단바 배지가 없다(제목 위 DEMO 배지는 있다).
+2. 발표 중 데이터 출처가 바뀔 수 있다(main `5a9030dd`에서 고침, Vercel 배포). 사이드바 링크에 출처(`?origin=`)가 없어 운영 기본 출처(실공고)로 바뀌었다. 이제 마지막으로 본 목록 화면(`/dashboard`·`/bids`·`/watchlist`)의 출처를 창 안에 기억해 사이드바의 같은 세 링크에 붙인다(`web/components/nav-origin.ts`). 공고 상세를 거쳐도 이어지고, 새로 고치면 잊는다. 상단바 DEMO 배지는 여전히 주소의 `?origin=`만 읽는다(`web/components/topbar-demo-indicator.tsx:25`). 그래서 운영 공고 상세에서는 상단바 배지가 없다(제목 위 DEMO 배지는 있다).
 3. ADR-044 때 코드가 남아 있다: `services/ai/app.py`·`services/ai/vercel_build.py`·`services/ai/tests/test_vercel.py`.
 4. 회사 AI 모드 서술이 운영과 다르다. ADR-049·회사 실행서는 "mock 유지"라고 쓰고, 운영 readiness는 `ai: local`을 보고한다. 확인하려면 운영 조회 승인이 필요하다(미확인).
 5. CI가 돌지 않는다(위 운영 상태).
@@ -132,7 +132,7 @@ updated: 2026-10-27
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
 
-- 2026-10-27 · 브랜치 `feat/notify-nav-1027`(main 미병합). 회사 서버 접속 없이 할 수 있는 일을 했다.
+- 2026-10-27 · main `c2d5d0b7`·`5a9030dd`·`80affcf0` push·Vercel 배포 success. 회사 서버 접속 없이 할 수 있는 일을 했다.
   - 알림 전용 Worker 진입점·Compose·회사 실행서 §9를 준비했다. 회사 기동 전이다.
   - 사이드바 링크가 보던 출처(`?origin=`)를 이어 가게 했다.
   - `QUESTION_SET_MISMATCH` 기동 거부 시험 2건을 더했다.
