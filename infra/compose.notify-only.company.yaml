@@ -1,0 +1,57 @@
+# Notify 전용 Worker(회사 서버, 인앱 알림 outbox·카카오 추천 공고 알림·관심 공고 마감 알림).
+# 실행서: infra/company/README.md "Notify 전용 Worker". 별도 운영 승인 후에만 실행한다.
+# 기존 sol-radar-gateway 프로젝트·Nginx·Redis·ingest 전용·analysis 전용·documents 전용 Worker 를 건드리지 않는다.
+# down·--remove-orphans 를 쓰지 않는다. redis·redis-api·ai-gateway 는 여기 정의하지 않는다. 기존 Redis 의 network(redis_default)에만 붙는다.
+# 알림 처리는 Redis 를 쓰지 않지만(outbox 표·DB 함수만 부른다) 공용 기동 단계가 REDIS_URL 을 읽고 Redis 를 ping 한 뒤 연결 하나를
+# 열어 둔다(web/worker/notify-only-main.ts 머리 주석). 그래서 Redis network 에 붙는다. 큐·키는 만들지 않는다.
+# 전체 Worker(worker/main.ts)와 같은 DB 에서 함께 띄우지 않는다. 같은 알림을 두 번 보내지는 않지만 카카오 설정이 다르면 섞인다.
+name: sol-radar-notify
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  notify-worker:
+    # 이미지 이름을 따로 둔다. 회사 analysis 전용 Worker 가 쓰는 sol-radar-ai-worker-worker:latest 를 빌드하거나 덮지 않는다.
+    # 태그는 배포할 git SHA 로 고정한다.
+    image: sol-radar-notify-worker:${NOTIFY_WORKER_TAG:?배포할 git SHA}
+    build:
+      context: ../web
+      dockerfile: worker/Dockerfile
+    init: true
+    env_file: .env.worker.local
+    command: ["node", "--conditions=react-server", "--import", "tsx", "worker/notify-only-main.ts"]
+    environment:
+      # env_file 보다 우선한다. live 가 아니면 진입점이 Redis 연결 전에 exit 1 로 멈춘다.
+      SOL_RUN_MODE: "live"
+      # 카카오 발송 수단. env_file 보다 우선한다(infra/env/company-worker.env.example 은 mock 이다). 기본은 빈 값 = live 에서 꺼짐이다.
+      #   꺼짐: 카카오 이벤트(BID_RECOMMENDED·KAKAO_TEST)는 보내지 않고 재시도 5회(약 80초) 뒤 DEAD 다. 나중에 켜도 다시 보내지 않는다.
+      #   memo: 카카오 "나에게 보내기" 실발송. S0 수신 시험 때만 셸에서 켠다(실행서 "카카오 S0 수신 시험").
+      #     NOTIFY_KAKAO_PROVIDER=memo docker compose -f infra/compose.notify-only.company.yaml up -d --no-deps notify-worker
+      #     필요한 env(.env.worker.local, 값은 출력하지 않는다): KAKAO_REST_API_KEY·KAKAO_CLIENT_SECRET·KAKAO_TOKEN_ENC_KEY·SITE_URL.
+      #     KAKAO_TOKEN_ENC_KEY 는 웹(Vercel)과 같아야 한다. 다르면 연결 토큰을 풀지 못한다. 하나라도 비면 진입점이 이름만 출력하고 exit 1 이다.
+      #   mock 은 쓰지 않는다. 보내지 않은 카카오를 SENT 로 적고 사람·공고마다 claim 을 잡아, 나중에 memo 로도 그 공고를 다시 보내지 않는다.
+      NOTIFY_KAKAO_PROVIDER: "${NOTIFY_KAKAO_PROVIDER:-}"
+      # 주기. 비우면 코드 기본값(outbox 2000ms, 마감 300000ms)이다. 범위 밖이면 진입점이 키 이름만 출력하고 exit 1 이다.
+      NOTIFY_POLL_INTERVAL_MS: "${NOTIFY_POLL_INTERVAL_MS:-}"
+      DEADLINE_REMINDER_INTERVAL_MS: "${DEADLINE_REMINDER_INTERVAL_MS:-}"
+    networks:
+      - redis-existing
+    restart: on-failure:3
+    # close 는 진행 중 회차를 등록마다 최대 5초 기다린다(outbox·마감 둘). 기본 10초에 여유를 둔다.
+    stop_grace_period: 30s
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('fs').statSync(process.env.WORKER_HEARTBEAT_FILE||'/tmp/sol-worker-heartbeat');process.exit(Date.now()-s.mtimeMs<30000?0:1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+networks:
+  redis-existing:
+    external: true
+    name: redis_default

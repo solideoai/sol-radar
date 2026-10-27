@@ -397,3 +397,217 @@ docker compose -f infra/compose.documents-only.company.yaml stop documents-worke
 - 전체 Worker(`worker/main.ts`)를 같은 Redis에서 함께 기동
 - `documents` 큐 키 삭제, `bid_documents` 상태를 SQL로 일괄 `PENDING`으로 되돌리기(필요하면 문서 id를 정해 따로 승인받는다)
 - `DOCUMENTS_CONCURRENCY`를 2보다 크게(진입점이 거부한다)
+
+## 9. Notify 전용 Worker
+
+이 절은 별도 운영 승인 후 실행할 절차다. 회사 기동 성공 기록이 아니다. **[승인]** 표시 단계는 사용자 승인 뒤에만 실행한다.
+
+목적: 인앱 알림(화면의 벨)·카카오 추천 공고 알림·관심 공고 마감 알림을 처리한다. 회사 서버의 ingest·analysis·documents 전용 Worker는 알림을 처리하지 않는다. 알림 등록(`notifyWorkerRegistration`·`deadlineWorkerRegistration`)은 전체 Worker(`web/worker/main.ts`)에만 있어서, 이 Worker가 없으면 운영 `outbox_events`가 쌓이기만 한다. Compose 파일은 `infra/compose.notify-only.company.yaml`(프로젝트 `sol-radar-notify`, 서비스 `notify-worker` 하나), 진입점은 `web/worker/notify-only-main.ts`다.
+
+- 등록은 둘이다. outbox 회차는 2초마다 최대 50건을 처리한다. 대상은 인앱 `REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`와 카카오 `BID_RECOMMENDED`·`KAKAO_TEST`다. 마감 회차는 5분마다 돌고, KST 09:00 뒤에 그날 D-3·D-1 인앱 알림을 넣는다. 수집·분석·documents·부처 공고·의존성 보고·Storage 정리는 돌리지 않는다.
+- Redis: 알림 처리는 Redis를 쓰지 않는다. `outbox_events` 표와 DB 함수 `send_deadline_reminders`만 service role로 부른다. 다만 공용 기동 단계가 `REDIS_URL`을 요구하고, 준비 확인에서 Redis를 ping하고, 연결 하나를 열어 둔다. 그래서 `redis_default` network에 붙고 Redis가 닿아야 뜬다. 큐와 키는 만들지 않는다.
+- 카카오: Compose가 `NOTIFY_KAKAO_PROVIDER`를 빈 값으로 덮는다. `infra/.env.worker.local`에 `mock`(예시 파일 값)이 있어도 Compose 값이 우선한다. live에서 빈 값이면 카카오 발송이 꺼진다. 기동 로그에 `notify.kakao.disabled` 경고가 한 줄 남는다. 꺼진 동안 카카오 이벤트는 claim·발송 없이 재시도(5·10·20·40초)를 거쳐 다섯 번째 실패에서 `DEAD`가 된다(약 80초). 나중에 `memo`로 켜도 이미 `DEAD`가 된 이벤트는 보내지 않는다. 인앱·마감 알림은 그대로 나간다.
+- `mock`은 쓰지 않는다. `mock`은 보내지 않은 카카오를 `SENT`로 적는다. 또 사람·공고마다 영속 claim(`kakao_send_claims`)을 잡아서, 나중에 `memo`로 바꿔도 그 공고는 그 사람에게 다시 보내지 않는다.
+- live에서만 뜬다. `SOL_RUN_MODE`가 live가 아니면 진입점이 Redis·Supabase에 닿기 전에 exit 1이다. mock·fixture 실행 모드는 빈 발송 수단을 `mock`으로 읽기 때문이다.
+- `infra/.env.worker.local`은 §2의 Worker 파일을 같이 쓴다(`REDIS_URL`·`NEXT_PUBLIC_SUPABASE_URL`·service role 키). 카카오를 켤 때만 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`이 필요하다(§9.6). 키 값을 터미널·로그에 출력하지 않는다. 로그에는 이벤트 id·종류·결과·시도 수·오류 이름만 남고 수신자·공고명·문구는 남지 않는다.
+- 이미지는 `sol-radar-notify-worker:<git SHA>`다. `sol-radar-ai-worker-worker:latest`를 빌드하거나 덮지 않는다. Compose의 모든 명령에 `NOTIFY_WORKER_TAG`가 필요하다.
+- **전체 Worker(`worker/main.ts`)를 같은 Supabase에 대고 함께 띄우지 않는다.** 회사 밖(로컬 Compose 등)에서 운영 Supabase를 가리키는 전체 Worker도 포함한다. 같은 알림을 두 번 보내지는 않는다. 인앱은 `notifications.idempotency_key`, 카카오는 claim, 마감은 `on conflict do nothing`이 막는다. 하지만 두 프로세스의 카카오 설정이 다르면 섞인다. `mock` 쪽이 claim을 먼저 잡으면 실제로 안 간 카카오가 `SENT`로 남고, 꺼진 쪽은 시도 수를 올려 `DEAD`를 앞당긴다.
+
+### 9.1 D0 읽기 확인 (운영 영향 없음)
+
+```bash
+cd /data/www/ai_workspace/sol-radar-deploy
+docker ps --no-trunc --format '{{.Names}}\t{{.Image}}\t{{.Command}}\t{{.Status}}'
+git -C . log --oneline -1
+```
+
+- 전체 Worker(`worker/main.ts`)나 다른 `notify-only-main.ts` 컨테이너가 있으면 멈춘다.
+- 아래 "기동 전 확인" SQL을 Supabase SQL 편집기에서 실행한다. 모두 읽기 전용이다. 결과를 보고한 뒤 §9.4 기동 승인을 받는다.
+
+#### 기동 전 확인 1 — 쌓인 outbox
+
+운영에서는 지금까지 알림 outbox가 한 번도 처리되지 않았다. 처음 기동하면 다음처럼 된다.
+
+- 나이 제한이 없다. `PENDING`과 재시도 시각이 된 `FAILED`를 오래된 것부터 회차(2초)마다 50건씩 처리한다. 분당 최대 1,500건이다.
+- 인앱 두 종: 받는 사람(`REVIEW_ASSIGNED`는 배정 대상, `ANALYSIS_COMPLETE`는 분석 요청자)이 그 조직 구성원이고 활동 계정이며 공고가 있으면 알림 1건을 넣는다. 아니면 알림 없이 `PROCESSED`로 닫는다. 알림의 `sent_at`·`created_at`은 처리한 시각이다. 그래서 며칠 전 분석·배정도 새 알림으로 한꺼번에 벨에 뜬다(읽지 않음).
+- 카카오 두 종: 기본(꺼짐)이면 약 80초 안에 모두 `DEAD`가 된다. 발송·claim·`notifications` 행은 생기지 않는다. 처음부터 `memo`로 띄우면 쌓인 `BID_RECOMMENDED`마다 지금 연결(`enabled`·`CONNECTED`)한 그 조직 구성원에게 보낸다. 마감이 지난 공고도 `마감 지남` 표기로 보낸다. 이미 받은 사람·공고는 건너뛴다.
+- 공고 이벤트(`BID_CREATED`·`BID_CHANGED`)는 고르지 않는다. `PENDING`으로 그대로 남는다.
+
+```sql
+-- 종류·상태·데모 여부별 이벤트 수(KAKAO_TEST 는 공고가 없어 is_demo 가 비어 있다)
+select e.event_type, e.status, b.is_demo, count(*) as events,
+       min(e.created_at) as oldest, max(e.created_at) as newest
+from public.outbox_events e
+left join public.bid_notices b on b.id::text = e.payload->>'bidId'
+where e.event_type in ('REVIEW_ASSIGNED', 'ANALYSIS_COMPLETE', 'BID_RECOMMENDED', 'KAKAO_TEST')
+group by 1, 2, 3 order by 1, 2, 3;
+
+-- 인앱으로 한꺼번에 받을 사람(상위 20명). 실제 알림 수는 구성원·활동 계정·공고 확인 뒤라 이보다 작거나 같다
+select e.event_type, coalesce(e.payload->>'assigneeUserId', e.payload->>'requestedBy') as user_id,
+       count(*) as events, min(e.created_at) as oldest
+from public.outbox_events e
+where e.status in ('PENDING', 'FAILED') and e.event_type in ('REVIEW_ASSIGNED', 'ANALYSIS_COMPLETE')
+group by 1, 2 order by events desc limit 20;
+
+-- 카카오 연결 수. CONNECTED·enabled 가 0 이면 memo 로 켜도 BID_RECOMMENDED 는 받을 사람이 없어 닫힌다
+select status, enabled, count(*) from public.kakao_notify_links group by 1, 2 order by 1, 2;
+```
+
+한 사람이 받을 인앱 알림이 많거나 오래된 이벤트가 많으면 멈추고 보고한다. 오래된 이벤트를 미리 닫을지는 범위(기간·종류)를 정해 따로 승인받는다. 이 실행서에는 쓰기 SQL을 두지 않는다.
+
+#### 기동 전 확인 2 — 마감 알림 첫 회차
+
+- 첫 회차는 기동하자마자 돈다. KST 09:00 전이면 0건이고, 09:00 뒤 첫 회차가 그날 몫을 넣는다. 놓친 날(어제의 D-3 등)은 메우지 않는다.
+- 대상 공고: `deadline_at`이 지금보다 뒤이고 상태가 `OPEN`·`AMENDED`이며, 마감의 KST 날짜가 오늘부터 3일 또는 1일 뒤인 공고 전부다. 실공고·데모 공고를 가리지 않는다(`is_demo` 조건 없음).
+- 받는 사람: 공고·조직마다 그 공고의 관심 등록자(`bid_watches`)와 최신 결정(`bid_reviews`, `decided_at` 최신 한 행)의 담당자다. 그 조직 구성원이고 활동 계정인 사람만 받는다. 그래서 관심·담당이 없는 실공고는 0건이다. 같은 사람·공고·D-n은 조직이 달라도 한 건이다.
+
+```sql
+-- 지금이 KST 09:00 뒤인가(아니면 첫 회차는 0건)
+select ((now() at time zone 'UTC') + interval '9 hours')::time >= time '09:00' as after_0900_kst;
+
+-- 마감이 3일 안인 공고 수(받는 사람과 상관없이). 1·3 이 오늘 대상이다
+with t as (
+  select now() as p_now, (now() at time zone 'UTC') + interval '9 hours' as kst_now
+), due as (
+  select b.id as bid_id, b.is_demo,
+         ((b.deadline_at at time zone 'UTC') + interval '9 hours')::date - t.kst_now::date as days_left
+  from public.bid_notices b cross join t
+  where b.deadline_at is not null and b.deadline_at > t.p_now and b.status in ('OPEN', 'AMENDED')
+)
+select days_left, is_demo, count(*) as bids from due where days_left between 0 and 3
+group by 1, 2 order by 1, 2;
+
+-- 오늘 첫 회차가 넣을 알림 수. send_deadline_reminders(now()) 의 규칙을 그대로 옮긴 읽기 전용 질의다
+with t as (
+  select now() as p_now, (now() at time zone 'UTC') + interval '9 hours' as kst_now
+), due as (
+  select b.id as bid_id, b.is_demo,
+         ((b.deadline_at at time zone 'UTC') + interval '9 hours')::date - t.kst_now::date as days_left
+  from public.bid_notices b cross join t
+  where b.deadline_at is not null and b.deadline_at > t.p_now and b.status in ('OPEN', 'AMENDED')
+), due13 as (
+  select * from due where days_left in (3, 1)
+), latest_reviews as (
+  select distinct on (r.org_id, r.bid_id) r.org_id, r.bid_id, r.assignee_id
+  from public.bid_reviews r join due13 on due13.bid_id = r.bid_id
+  order by r.org_id, r.bid_id, r.decided_at desc, r.id desc
+), recipients as (
+  select org_id, bid_id, assignee_id as user_id from latest_reviews where assignee_id is not null
+  union
+  select w.org_id, w.bid_id, w.user_id from public.bid_watches w join due13 on due13.bid_id = w.bid_id
+)
+select due13.days_left, due13.is_demo,
+       count(distinct due13.bid_id) as bids,
+       count(distinct (due13.bid_id, rc.user_id)) as reminders,
+       count(distinct rc.user_id) as users
+from recipients rc
+join due13 on due13.bid_id = rc.bid_id
+join public.memberships m on m.org_id = rc.org_id and m.user_id = rc.user_id
+join public.profiles p on p.id = rc.user_id and p.status = 'active'
+where not exists (
+  select 1 from public.notifications n
+  where n.idempotency_key = due13.bid_id::text || ':' || rc.user_id::text
+        || ':DEADLINE_APPROACHING:D-' || due13.days_left::text
+)
+group by 1, 2 order by 1, 2;
+```
+
+### 9.2 D1 이미지 빌드 (외부 호출 없음)
+
+```bash
+export NOTIFY_WORKER_TAG="$(git -C . rev-parse --short=12 HEAD)"
+docker compose -f infra/compose.notify-only.company.yaml config --quiet
+docker compose -f infra/compose.notify-only.company.yaml build notify-worker
+docker image ls sol-radar-notify-worker
+```
+
+### 9.3 D2 설정 확인 `--check` (외부 호출 없음)
+
+```bash
+docker compose -f infra/compose.notify-only.company.yaml run --rm --no-deps notify-worker node --conditions=react-server --import tsx worker/notify-only-main.ts --check
+```
+
+Redis·Supabase·카카오에 접속하지 않는다. 통과하면 다음 모양이다.
+
+```text
+알림 outbox: 2000ms 마다 최대 50건(인앱 REVIEW_ASSIGNED·ANALYSIS_COMPLETE, 카카오 BID_RECOMMENDED·KAKAO_TEST)
+카카오 발송: 꺼짐(NOTIFY_KAKAO_PROVIDER 빈 값. 카카오 이벤트는 재시도 뒤 DEAD)
+마감 알림: 300000ms 마다(KST 09:00 뒤 그날 D-3·D-1, 관심 등록자·최신 결정 담당자)
+notify-only worker 확인 통과: SOL_RUN_MODE=live
+```
+
+`카카오 발송:` 줄이 `꺼짐`이 아니면 멈춘다. 셸 변수나 `infra/.env`에 `NOTIFY_KAKAO_PROVIDER`가 남아 있다는 뜻이다(셸이면 `unset NOTIFY_KAKAO_PROVIDER`).
+
+### 9.4 D3 기동 — **[승인] 쌓인 알림 처리 시작**
+
+```bash
+docker compose -f infra/compose.notify-only.company.yaml up -d --no-deps notify-worker
+```
+
+기동하면 바로 outbox 회차와 마감 회차가 돈다. §9.1에서 센 이벤트가 인앱 알림으로 들어가고, 카카오 이벤트는 약 80초 안에 `DEAD`가 된다.
+
+### 9.5 D4 확인 (운영 영향 없음)
+
+```bash
+docker compose -f infra/compose.notify-only.company.yaml ps notify-worker
+docker compose -f infra/compose.notify-only.company.yaml logs --tail 100 notify-worker
+```
+
+- 기동 로그에 `{"event":"notify.kakao.disabled",…}`와 `notify-only worker started: SOL_RUN_MODE=live`가 보인다.
+- 처리한 이벤트마다 `{"event":"notify.outbox","outboxEventId":…,"eventType":…,"outcome":…}` 한 줄, 회차마다 `{"event":"notify.outbox.summary",…}` 한 줄이 남는다. 빈 회차는 줄을 남기지 않는다. 카카오 이벤트는 `"outcome":"RETRY"`가 네 번 남은 뒤 `"outcome":"DEAD"`로 끝난다.
+- `{"event":"notify.outbox.failed",…}`가 이어지면(DB 오류, 최대 60초 간격으로 늦춘다) 멈추고 보고한다.
+- 마감 알림을 넣으면 `{"event":"notify.deadline.sent","inserted":…}`가 남는다.
+- §9.1 첫 SQL을 다시 실행해 인앱 두 종의 `PENDING`이 0이 되고 `PROCESSED`가 늘었는지 본다. 넣은 알림은 다음으로 센다.
+
+```sql
+select type, channel, status, count(*) from public.notifications
+where created_at > now() - interval '1 hour' group by 1, 2, 3 order by 1, 2, 3;
+```
+
+### 9.6 카카오 S0 수신 시험·실수신 녹화 — **[승인] 카카오 실발송**
+
+카카오 "나에게 보내기"를 실제로 보낸다. 켜 둔 동안에는 사람이 요청한 분석이 `BID`·`WATCH`로 끝날 때마다 그 조직에서 카카오를 켠 구성원에게 간다. 시험이 끝나면 바로 끈다.
+
+1. `infra/.env.worker.local`에 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`을 넣는다. 값은 웹(Vercel)과 같아야 한다. 특히 `KAKAO_TOKEN_ENC_KEY`가 다르면 웹이 저장한 연결 토큰을 풀지 못한다. 값을 출력하지 않는다.
+2. memo 설정을 확인한다. 하나라도 비면 이름만 출력하고 exit 1이다.
+
+   ```bash
+   NOTIFY_KAKAO_PROVIDER=memo docker compose -f infra/compose.notify-only.company.yaml run --rm --no-deps notify-worker node --conditions=react-server --import tsx worker/notify-only-main.ts --check
+   ```
+
+   `카카오 발송: memo(카카오 나에게 보내기 실발송)`이 보여야 한다.
+3. §9.1의 카카오 SQL로 `PENDING`·`FAILED`인 `BID_RECOMMENDED`가 없는지 본다. 있으면 켜는 순간 보내므로 멈추고 보고한다.
+4. 켠다. 설정이 바뀌어 컨테이너를 다시 만든다.
+
+   ```bash
+   NOTIFY_KAKAO_PROVIDER=memo docker compose -f infra/compose.notify-only.company.yaml up -d --no-deps notify-worker
+   ```
+
+5. 사용자가 개인 설정에서 카카오를 연결하고 시험 메시지를 보낸다(사용자당 24시간 10건). 휴대폰 수신과 알림 울림을 확인한다. 로그에 `"eventType":"KAKAO_TEST","outcome":"SENT","sent":1`이 남는다. `"failed":1`이면 연결 표의 `last_result`를 본다.
+6. 끈다. 셸 변수 없이 다시 만들면 빈 값(꺼짐)으로 돌아간다.
+
+   ```bash
+   docker compose -f infra/compose.notify-only.company.yaml up -d --no-deps notify-worker
+   docker compose -f infra/compose.notify-only.company.yaml logs --tail 20 notify-worker
+   ```
+
+   기동 로그에 `notify.kakao.disabled`가 다시 보여야 한다.
+
+### 9.7 되돌리기
+
+```bash
+export NOTIFY_WORKER_TAG=<기동한 SHA>   # docker ps 의 이미지 태그
+docker compose -f infra/compose.notify-only.company.yaml stop notify-worker
+```
+
+- 멈추면 진행 중 회차를 등록마다 최대 5초 기다린다. 처리하지 못한 이벤트는 `PENDING`·`FAILED`로 남고 다음 기동이 이어 받는다.
+- 이미 넣은 알림 행, `DEAD`가 된 이벤트, 카카오 claim(`kakao_send_claims`)은 지우지 않는다. 모두 사실 그대로의 기록이다.
+- 이전 SHA 이미지는 지우지 않고 남겨 둔다.
+
+### 9.8 쓰지 않는 명령
+
+§7.11과 같다. 그리고 다음을 더한다.
+
+- 전체 Worker(`worker/main.ts`)를 같은 Supabase에 대고 함께 기동
+- `NOTIFY_KAKAO_PROVIDER=mock`으로 기동
+- `outbox_events`·`notifications`·`kakao_send_claims`의 일괄 `update`·`delete`(필요하면 범위를 정해 따로 승인받는다)
