@@ -128,7 +128,7 @@ updated: 2026-10-27
 |`recommendation`|`BID\|WATCH\|NO_BID`, 반복 가능|—|ENUM|최신 분석의 시스템 권고|
 |`decision`|`BID\|WATCH\|NO_BID\|NONE`, 반복 가능|—|ENUM|최신 사람 결정. `NONE` = 미결정|
 |`hasAnalysis`|boolean|—|—|**(미구현)** 분석 존재 여부|
-|`origin`|`live\|demo\|all`|서버 env `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`). 없거나 틀리면 실행 모드: `live`면 `live`, `fixture`·`mock`이면 `demo`(`web/server/bids/bid-query.ts` `defaultOrigin`)|ENUM|출처 필터([[16-DECISIONS\|ADR-020]]). 실행 모드와 따로 둔 이유는 회사 런타임이 `live`여도 화면 기본 출처를 정할 수 있게 하려는 것이다(10-25 계획 D2). 운영 Production에는 2026-10-26 이 env가 추가돼 기본이 실공고로 보인다. 원래 기본값이 실행 모드를 따르는 이유는 모드마다 그 모드의 데이터만 기본으로 보여 live 공고와 fixture 공고가 섞이지 않게 하려는 것이다. 둘 다 보려면 `all`([[19-DEMO-SCENARIO\|19 데모]] §2.1). `live` = 나라장터에서 수집한 공고(`is_demo=false`), `demo` = fixture 등 가상 공고(`is_demo=true`)|
+|`origin`|`live\|demo\|all`|서버 env `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`). 없거나 틀리면 실행 모드: `live`면 `live`, `fixture`·`mock`이면 `demo`(`web/server/bids/bid-query.ts` `defaultOrigin`)|ENUM|출처 필터([[16-DECISIONS\|ADR-020]]). 실행 모드와 따로 둔 이유는 회사 런타임이 `live`여도 화면 기본 출처를 정할 수 있게 하려는 것이다). 운영 Production은 `SOL_DEFAULT_ORIGIN=live`라 기본이 실공고다. 원래 기본값이 실행 모드를 따르는 이유는 모드마다 그 모드의 데이터만 기본으로 보여 live 공고와 fixture 공고가 섞이지 않게 하려는 것이다. 둘 다 보려면 `all`([[19-DEMO-SCENARIO\|19 데모]] §2.1). `live` = 나라장터에서 수집한 공고(`is_demo=false`), `demo` = fixture 등 가상 공고(`is_demo=true`)|
 |`isDemo`|boolean|—|—|DEMO 공고만/제외. 생략 시 둘 다. `isDemo=true`는 `origin=demo`, `false`는 `origin=live`와 같다. 둘을 함께 주고 뜻이 다르면 `400 VALIDATION_ERROR`|
 |`sort`|`publishedAt:desc\|publishedAt:asc\|deadlineAt:asc\|deadlineAt:desc\|score:desc\|budgetKrw:desc`|`publishedAt:desc`|ENUM|정렬. `score:desc`는 분석 없는 공고를 뒤로|
 |`cursor`|string|—|서버 발급 값|이전 응답의 `nextCursor`. 변조는 `400 INVALID_CURSOR`|
@@ -281,7 +281,7 @@ interface CompanyProfileInput extends Omit<CompanyProfile, "id" | "orgId" | "rev
 
 명시적 부정 필드(`licenses[].status`, `industryCodes[].status`, `technologiesComplete`)가 있는 이유: 자격 판정의 미충족(`NOT_SATISFIED`)에는 회사 쪽 명시적 부정 근거가 필요하다. 목록에 없다는 사실만으로는 미충족이 아니라 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다([[08-SCORING|08 점수]] §5.1). `isDemo`는 입력에서 받지 않는다. 화면·API 경로는 `true`로만 저장한다. `false`(공개 자료) revision은 운영자 CLI(`pnpm ops:company-profile`, service role)만 넣는다([[16-DECISIONS|ADR-052]]).
 
-2026-10-27 ADR-052로 바뀐 것(코드 정본은 `web/server/company-profile/company-profile.model.ts`와 `web/server/scoring/analysis-input.model.ts`):
+ADR-052 반영 사항(코드 정본은 `web/server/company-profile/company-profile.model.ts`와 `web/server/scoring/analysis-input.model.ts`):
 
 - 실적의 `amountKrw`와 완료일(구현 이름 `completedAt`)은 `null`일 수 있다. `null`은 "공개 자료에 없음"이고 점수는 중립값을 쓴다([[08-SCORING|08 점수]] §3.2). 구현의 `pastProjects[]`는 08 §3.2 모양(`id`·`name`·`domain`·`amountKrw`·`completedAt`·`evidenceRef` + 선택 `note`·`sourceIds`)이고 위 `title`·`startedAt`·`endedAt` 표기와 다르다(ADR-030 C4). `financials`에도 선택 `note`가 있다.
 - 응답에 `sources`와 `publicHistory`(`publicHistory`는 DB 열 `public_history`)가 있다. 가상 fixture 프로필은 둘 다 빈 배열이다.

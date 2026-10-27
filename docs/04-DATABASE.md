@@ -26,7 +26,7 @@ updated: 2026-10-27
 - 원본 공고는 `bid_revisions`로 버전화한다. 외부 공고는 `source + notice_id`로 유일하고, 내용이 바뀌면 revision이 늘어난다. 기존 revision은 수정·삭제하지 않는다.
 - AI·점수 결과는 덮어쓰지 않고 새 `score_runs` 행으로 쌓는다. 재현에 필요한 입력은 `input_snapshot`에 넣는다([[15-DATA-CONTRACTS|15 데이터 계약]] §7).
 - **실행 모드와 출처 기록**: 실행 모드는 env `SOL_RUN_MODE=live|fixture|mock`(기본 `mock`)이다([[16-DECISIONS|ADR-020]]). 분석 run(`score_runs.run_mode`·`ai_provider`·`qwen_model`·`kev_model`·`question_set_version`), 추출(`requirement_extractions.provider`·`model_name`), 수집 run(`ingest_runs.run_mode`·`source`)마다 그때의 모드와 출처를 남긴다. mock 자동 대체가 일어난 run은 `fallback_reason`과 `MOCK_FALLBACK` 플래그를 함께 남긴다(§3.4).
-- **회사 프로필은 로컬·시험·`demo:reset`에서 가상**이다(`company_profiles.is_demo=true`, ADR-020 M19). 그 환경의 live 분석은 "실제 공고 × 가상 회사 프로필"이다. **운영 DB는 2026-10-27 ADR-052로 공개 자료 프로필(`is_demo=false`)을 새 revision으로 쌓는다.** 출처는 `sources`·`public_history`에 남기고 비공개 자료는 넣지 않는다([[09-SECURITY|09 보안]]).
+- **회사 프로필은 로컬·시험·`demo:reset`에서 가상**이다(`company_profiles.is_demo=true`, ADR-020 M19). 그 환경의 live 분석은 "실제 공고 × 가상 회사 프로필"이다. **운영 DB는 ADR-052로 공개 자료 프로필(`is_demo=false`)을 새 revision으로 쌓는다.** 출처는 `sources`·`public_history`에 남기고 비공개 자료는 넣지 않는다([[09-SECURITY|09 보안]]).
 - **모델 평가 결과**(`eval_runs`)는 플랫폼 표다. 조직·공고와 외래 키가 없고, 운영자 CLI(`pnpm eval:publish`(예정))가 service role로 쓴다(§3.7).
 - 금액은 `numeric(18,0)`(KRW 정수)로 저장하고 API에서는 문자열로 내보낸다.
 - 여러 표를 한 번에 쓰는 일(검토 결정 → 감사 → outbox)은 트리거나 SQL 함수로 한 트랜잭션에 묶는다. PostgREST 요청 하나가 트랜잭션 하나이기 때문이다. 화면 역할이 직접 쓰지 못하는 표(`audit_logs`, `outbox_events`)에 쓰는 트리거는 `security definer`다(템플릿 `activities` 트리거와 같은 방식).
@@ -138,7 +138,7 @@ Phase 1 조직·사용자 결정(마이그레이션 머리 주석의 "§3.1 결�
 
 굵게 쓴 열 설명([[16-DECISIONS|ADR-020]]):
 
-- `is_demo`: 로컬·시험·`demo:reset`의 회사 프로필은 가상 솔리데오 프로필(`true`)이다(§1). 화면은 이 값으로 "가상 회사 프로필로 분석" 배지를 붙인다. **2026-10-27 ADR-052 개정**: 운영 DB는 공개 자료로 만든 프로필(`false`)을 새 revision으로 쌓는다. `false` 행은 운영자 CLI만 만들고 화면·API에는 만드는 경로가 없다. 가상 revision은 이력에 남는다.
+- `is_demo`: 로컬·시험·`demo:reset`의 회사 프로필은 가상 솔리데오 프로필(`true`)이다(§1). 화면은 이 값으로 "가상 회사 프로필로 분석" 배지를 붙인다. **ADR-052 개정**: 운영 DB는 공개 자료로 만든 프로필(`false`)을 새 revision으로 쌓는다. `false` 행은 운영자 CLI만 만들고 화면·API에는 만드는 경로가 없다. 가상 revision은 이력에 남는다.
 - `sources`: 프로필 값이 기대는 출처 목록 `{id, kind: PUBLIC|COMPANY_CONFIRMED, title, url|null, retrievedAt, confirmedBy?, quote?}[]`. 기술·자격·업종·실적·재무 항목의 선택 필드 `sourceIds`가 이 `id`를 가리킨다. `COMPANY_CONFIRMED`는 공개 조회로 확인하지 못해 회사가 보유를 확인한 자격이다(`confirmedBy`·확인일 표시). 마이그레이션 주석의 `{id,title,url,publisher?,retrievedAt}` 표기는 옛 초안이고 정본은 `company-profile.model.ts`의 `profileSourceSchema`다.
 - `public_history`: 점수에 쓰지 않고 화면에만 보이는 인증·등록·수상 연혁 `{year, kind: CERTIFICATION|REGISTRATION|AWARD, name, sourceIds}[]`. 취득 연도만 공개돼 지금 유효한지 모르는 자격(예: 2014년 CMMI L3)은 `licenses`가 아니라 여기에 둔다.
 - **명시적 부정 기록**: 자격 판정에서 `NOT_SATISFIED`(미충족)는 공고 쪽 근거와 회사 쪽 **명시적 부정 근거**가 둘 다 있어야 한다. 정보가 없다는 사실만으로는 미충족이 되지 않고 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다([[08-SCORING|08 점수]] §5.1). 그래서 프로필이 "없다"를 적을 수 있어야 한다.
@@ -286,7 +286,7 @@ ADR-021 P1 표다(`20261022000100`·`20261022000300`).
 
 ### 3.9 조달 확장·지원사업·기타 표
 
-표마다 목적, `org_id`·RLS, 만든 migration만 적는다. 열은 migration이 정본이다. 모두 조직 소유가 아닌 공용 표이고 쓰기는 worker(service role)만 한다.
+표마다 목적, `org_id`·RLS, 만든 migration만 적는다. 열은 migration이 정본이다. 모두 `org_id` 열이 없다. 공고 계열과 지원사업 표는 공용이고 `ingest_*`·`kakao_send_claims`·`profile_photo_folders`는 내부 표다. 쓰기는 worker(service role)만 한다(`profile_photo_folders`는 `claim_own_photo_slot` 함수가 쓴다).
 
 |테이블|목적|RLS (읽기)|migration|
 |---|---|---|---|
@@ -306,7 +306,7 @@ ADR-021 P1 표다(`20261022000100`·`20261022000300`).
 
 공고 표 확장: `bid_notices`에 `source_family`·`service_id`·`provider_company_id`·`provider_record_key`·`procuring_agency_id`를 더하고 `source`·`stage` 값 집합을 넓혔다(§4, `20261023000100`). 수집 정책은 [[07-DATA-PIPELINE|07 수집]]이다.
 
-Storage 원장(ADR-048): `claim_document_storage` → 불변 업로드·바이트 검증 → `finish_document_storage` 순서로 확정한다. 업로드 뒤 DB가 실패하면 원장 lease를 다시 잡아 복구한다. `document_storage_candidates`는 24시간 이상 지난 lease 만료·무참조 파일만 돌려주고, 삭제는 Storage API 뒤 원장 확정 순서다. 실제 `path`는 원장 UUID 디렉터리를 포함해 늦게 끝난 이전 삭제가 새 파일을 지우지 못한다(`20261021000702`). `20261021000701`은 활동 중 업무 멤버가 DB로 참조한 download OK 원본만 읽는 Storage SELECT 정책을 더한다. parsed 파일과 사용자 쓰기는 열지 않는다. bucket 준비는 migration이 아니라 API 운영 명령이다.
+Storage 원장(`document_storage_objects`)의 claim·확정·삭제 절차와 접근 정책은 [[16-DECISIONS|ADR-048]]과 `20261021000700`~`000702`가 정본이다. bucket 준비는 migration이 아니라 API 운영 명령이다.
 
 뷰 4개는 모두 `security_invoker`다. `bid_list_items`(§3.4), `watched_bid_list_items`(§3.8), `opportunity_list_items`(`20261023000200`, 조직별 현재 유효 분석을 붙인 사업기회 목록), `watched_opportunity_list_items`(§3.8).
 

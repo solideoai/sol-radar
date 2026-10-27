@@ -44,7 +44,7 @@ flowchart LR
 | 단계 연결 보조 | 계약과정통합공개 (15129459) | — | `getCntrctProcssIntgOpenServc` | 후속 (평가셋 사업 묶기에 선택 사용) |
 | 후속 | 낙찰정보 (15129397), 계약정보 (15129427), 사용자정보 (15129466) | — | — | 해커톤 밖. 낙찰은 학습 목표 아님 |
 
-registry 키(`g2b-bid-notice` 등 15개: 나라장터 9개 + 외부 6개, 외부는 `enabled:false`)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다. 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). registry 파일은 `infra/sources/registry.yaml`이고, Connector는 endpoint를 생성자로 받는다.
+registry 키(`g2b-bid-notice` 등 15개: `g2b-*` 8개 + `fixture` 1개 + 외부 6개(이름이 `g2b-`인 `g2b-procurement-request` 포함), 외부 6개는 `enabled:false`)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다. 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). registry 파일은 `infra/sources/registry.yaml`이고, Connector는 endpoint를 생성자로 받는다.
 
 > [!success] 검증됨 (2026-10-16 명세 확인, 2026-10-19 실응답 확인)
 > 위 서비스 ID·기본 URL·오퍼레이션과 §2.2·§3.1의 요청 파라미터·응답 필드 이름은 각 서비스 페이지의 명세에서 확인했다. 무료이고 개발·운영 계정 모두 자동승인이며, 개발계정 호출 한도는 서비스마다 1,000이다(사용자정보·개방표준은 10,000). 2026-10-19에 서비스키로 네 서비스를 37회 실제 호출했고, 담당자 필드를 마스킹한 녹음 응답 14건을 `fixtures/recorded/<serviceId>/`에 저장했다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md)). 명세와 실제가 다른 점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8 콜아웃이 정본이다.
@@ -482,7 +482,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 
 ### documents 큐 소비자 계약 ([[16-DECISIONS|ADR-033]] E1)
 
-생산 쪽(수집 job·복구 회차)과 소비자(`web/worker/documents-job.ts`)는 main에 있다. 운영은 회사 documents Worker 반영 뒤부터다([[10-DEPLOYMENT|10 배포]]). 근거는 [첨부 처리 구현 증거](evidence/attachment-pipeline/20261027-implementation.md)다. 아래 "끝내기 전 상태"와 "장애 시 미루기"는 옛 계약과 다르다. 이 차이는 [[16-DECISIONS|ADR-055]]에 있다.
+생산 쪽(수집 job·복구 회차)과 소비자(`web/worker/documents-job.ts`)는 main에 있다. 운영은 회사 documents Worker 반영 뒤부터다([[10-DEPLOYMENT|10 배포]]). 근거는 [첨부 처리 구현 증거](evidence/attachment-pipeline/20261027-implementation.md)다. 아래 "끝내기 전 상태"와 "장애 시 미루기"는 옛 계약과 다르다. 이 차이는 [[16-DECISIONS|ADR-055]](제안)에 있다.
 
 - **job 모양**: 큐 `documents`, job 이름 `fetch`, data `{bidId, revisionId, revisionCreatedAt}`. jobId는 `documents-<revisionId>-<revision created_at epoch ms>`다(`web/server/ingestion/ingestion.queue.ts` `toDocumentsJobId`). PostgREST가 돌려주는 `created_at`의 마이크로초는 ms로 자른다. `demo:reset`이 같은 revision id를 다시 만들어도 `created_at`이 바뀌어 새 jobId가 되므로, BullMQ에 남은 이전 job에 막히지 않는다.
 - **보존 옵션**: attempts 3, backoff exponential 2초, `removeOnComplete` 86400초(1일), `removeOnFail` 604800초(7일). 옵션은 `enqueueDocuments` 한 곳에서만 붙인다(`DOCUMENTS_JOB_OPTIONS`).

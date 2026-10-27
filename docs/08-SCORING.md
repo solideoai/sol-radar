@@ -87,7 +87,7 @@ function pastPerformance(bid: Bid, projects: Project[], today: Date) {
 }
 ```
 
-> [!note] 2026-10-27 ADR-052: 금액·완료일을 모르는 실적
+> [!note] ADR-052: 금액·완료일을 모르는 실적
 > 공개 자료 프로필(`isDemo=false`)은 금액이나 완료일이 공개되지 않은 실적을 `amountKrw: null`·`completedAt: null`로 담는다. 추정값으로 채우지 않는다. 금액이 `null`이면 금액비는 공고 예산이 없을 때와 같은 0.5다. 완료일이 `null`이면 최근성은 가장 낮은 구간 0.2이고 `years`는 `null`로 기록한다(§4 보수 원칙: 모르는 값이 점수를 올리지 않는다). 기존 가상 fixture는 두 값이 모두 있어 점수가 바뀌지 않는다(골든 94/72/68 그대로). 실적마다 선택 필드 `sourceIds`(출처)와 `note`(비고)가 있지만 점수에는 쓰지 않는다.
 
 ### 3.3 인력 가용성 `staffAvailability`
@@ -299,7 +299,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 | 기술 (`technologies`) | Java, Spring Boot, 전자정부 표준프레임워크, NestJS, Next.js, PostgreSQL, Kubernetes, RAG/LLM 적용 |
 | 보유 자격 (`licenses`, `status: HELD`) | 소프트웨어사업자 신고확인서, 직접생산확인증명서(소프트웨어개발), 중소기업확인서(중기업), ISO 27001, CMMI L3 |
 | 미보유 자격 (`licenses`, `status: NOT_HELD`) | 정보통신공사업 등록, 방산업체 지정, ISMS-P, CSAP. 보유하지 않음을 프로필에 명시적으로 기록한다(§5.1). 이 기록이 있어야 `FX-03`이 `NOT_SATISFIED`가 된다 |
-| 프로필 구분 | `isDemo=true`(가상 프로필, 모든 실행 모드 공통) |
+| 프로필 구분 | `isDemo=true`(이 절의 fixture·시험 가상 프로필). 운영 공개 자료 프로필은 `isDemo=false`([[16-DECISIONS\|ADR-052]]) |
 | 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 200, 단일 사업 수행 상한 `maxContractKrw` 50억 |
 | 인력 (`team_members` + `team_member_scoring`) | 전체 가상 직원 200명 전원이 계산 대상. PM19·PL21·개발35·데이터AI20·DevOps17·QA17·디자인17·업무분석18·보안18·DBA18. 200명 전원의 속성은 가상으로 생성했고 기존 배정7건을 보존한다. 2026-12-01 이상 2027-07-01 미만 기간의 최소 가용 합은95.5 FTE. seed와 마이그레이션은 기존 배정7건을 availability에 한 번 접고, DB assignments의 데모2건은 별도로 차감한다(ADR-043). |
 | 선호 (`preferences`) | `agencies: []`, `agencyTypes: [지자체, 교육청]`, `domains: [데이터 플랫폼, AX, 민원, 교육]`, `excludedDomains: [국방]`, `excludedKeywords: [무기체계]` |

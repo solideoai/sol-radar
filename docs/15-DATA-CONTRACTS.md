@@ -364,7 +364,7 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 
 |키|예시|비고|
 |---|---|---|
-|`key`|`g2b-bid-notice`|아래 표의 15개. 공고를 만드는 키(`fixture`·`g2b-*` 공고 단계 키·외부 6개)만 `NormalizedBid.source`·`bid_notices.source`에 들어간다([[04-DATABASE\|04 DB]] `bid_source`). 나머지는 보조 조회·코드 마스터·첨부 다운로드 키로 `ingest_errors.source_key`와 호출 예산에 쓴다|
+|`key`|`g2b-bid-notice`|아래 표의 15개(`g2b-*` 8개 + `fixture` 1개 + 외부 6개, 외부 중 `g2b-procurement-request`는 이름만 `g2b-`). 공고를 만드는 키(`fixture`·`g2b-bid-notice`·`g2b-pre-spec`·`g2b-order-plan`·외부 6개)만 `NormalizedBid.source`·`bid_notices.source`에 들어간다([[04-DATABASE\|04 DB]] `bid_source`). 나머지는 보조 조회·코드 마스터·첨부 다운로드 키로 `ingest_errors.source_key`와 호출 예산에 쓴다|
 |`displayName`|나라장터 입찰공고정보서비스|서비스 이름 수준만 적는다|
 |`provider`|조달청 / data.go.kr|—|
 |`serviceId`|`15129394`|data.go.kr 서비스 ID. 호출 예산 카운터 `quota:{serviceId}:{YYYYMMDD}`의 키([[07-DATA-PIPELINE\|07 수집]] §2.2)|
