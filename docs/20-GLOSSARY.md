@@ -89,7 +89,7 @@ updated: 2026-10-27
 | 격리 (quarantine) | 검증 실패 레코드를 적재하지 않고 따로 보관 | [[07-DATA-PIPELINE]] |
 | DLQ | Dead-letter queue. 재시도 소진 작업 보관 | [[02-ARCHITECTURE]] |
 | circuit breaker | 연속 실패 시 외부 호출을 잠시 끊는 보호 장치 | [[02-ARCHITECTURE]] |
-| BullMQ | Redis 기반 작업 큐. 수집·분석·documents job. 알림은 BullMQ가 아니라 DB 폴링이다([[13-NOTIFICATIONS|13]]). 소비자는 worker 진입점 `web/worker` | [[02-ARCHITECTURE]] |
+| BullMQ | Redis 기반 작업 큐. 수집·분석·documents job. 알림은 BullMQ가 아니라 DB 폴링이다([[13-NOTIFICATIONS\|13]]). 소비자는 worker 진입점 `web/worker` | [[02-ARCHITECTURE]] |
 | Supabase Storage | 비공개 객체 저장소. 공고 원본·파싱 결과(ADR-048) | [[02-ARCHITECTURE]] |
 | signed URL | 서버가 권한 검사 후 Supabase Storage `createSignedUrl`로 발급하는 짧은 수명의 파일 접근 URL | [[09-SECURITY]] |
 | HWP / HWPX | 한국 공공 문서 형식. 파서는 gateway `POST /parse`가 맡는다(PDF `pdfplumber`, HWPX·HWP 5.0 자체 파서). "지원" 판정 규칙(03 §10.3 4번)은 미결정 | [[03-AI-PIPELINE]] |
