@@ -61,11 +61,13 @@ console.log(JSON.stringify({
 
 `scripts/recorded/record-lh-bid-notice.mjs` 를 쓴다. 한 번 실행에 정확히 1회 부르고 재시도하지 않는다. 담당자 칸·이메일·전화를 가려 저장하고, 키의 어떤 형태도 남지 않는지 저장 전·뒤에 검사한다. 출력은 결과 코드·건수·필드 모양·상태 값 목록뿐이다.
 
-시간: KST 정각을 피해 HH:20~HH:40(예: 13:20~13:40). 나라장터 회차와 겹치지 않게 한다.
+시간: KST 정각을 피해 HH:20~HH:40(예: 13:20~13:40). 나라장터 회차와 겹치지 않게 한다. §2 의 `INGEST_WORKER_TAG`·`W` 를 그대로 쓴다.
+
+날짜: 가장 최근 평일 하루(KST)를 고른다. 2026-10-27 기준 `20261026`(월). 주말·공휴일은 공고가 적어 `03`·`totalCount 0` 이 나올 수 있다.
 
 ```bash
 mkdir -p /tmp/sol-lh-record && sudo chown 1000:1000 /tmp/sol-lh-record && chmod 700 /tmp/sol-lh-record
-D=$(TZ=Asia/Seoul date -d yesterday +%Y%m%d)     # 어제 KST 하루
+D=20261026                                        # 최근 평일 KST 하루
 R="$W run --rm --no-deps -v $PWD/scripts/recorded:/rec:ro -v /tmp/sol-lh-record:/out ingest-worker node /rec/record-lh-bid-notice.mjs"
 
 $R --date "$D" --page 1 --rows 10 --out /out --dry-run   # 0회. 키·저장 경로만 본다
@@ -80,6 +82,17 @@ $R --date "$D" --page 1 --rows 10 --out /out             # 1회차
 | 1 | 항상 | 위 `--page 1 --rows 10` | `resultCode`, `totalCount`, `fieldShapes`(날짜 자릿수·금액 모양), `enumValues`(`bidKind`·`bidProgrsStatus`·`zoneHqCd` 등) |
 | 2 | 1회가 `00` 이고 `totalCount` > 10 | `--date "$D" --page 2 --rows 10` | 둘째 쪽이 이어지는지, 같은 공고번호가 겹치지 않는지 |
 | 3 | 선택. 1회가 `00` | `--date <미래 날짜, 예: 20261231> --page 1 --rows 10` | 빈 창이 `03` 인지 `00`·`totalCount 0` 인지 |
+
+판정 기준(1회차 출력 JSON):
+
+| 판정 | 조건 | 다음 |
+|---|---|---|
+| 성공 | `httpStatus` 200, `resultCode` `00`, `totalCount` 숫자, `items` 1~10, `fieldShapes` 에 `bidNum`·`bidDegree`·`bidnmKor`·`tndrbidRegDt`·`tndrdocAcptEndDtm`·`presmtPrc` 가 있음, 파일 저장 | 2회차 조건을 본다 |
+| 빈 날 | `resultCode` `03`, 또는 `00` 이면서 `totalCount` 0 | 성공으로 보되 매핑 확인이 안 된다. 다른 평일 하루로 1회만 더(총 3회 안) |
+| 형식 이상 | `resultCode` 가 비었거나, XML 이 아니거나, `bidNum`·`bidDegree`·`bidnmKor` 중 하나가 `fieldShapes` 에 없음 | 멈춘다. 저장된 가린 파일을 사람이 보고 정규화를 고친다 |
+| 실패 | 아래 멈춤 조건 | 멈춘다 |
+
+- 녹음 스크립트는 Redis `quota:15159012` 를 쓰지 않는다. 포털 하루 한도(1,000)에서만 1~3회가 빠진다. 나라장터(15129394) 한도와는 따로다.
 
 멈춤 조건(그 뒤 호출 없음):
 
