@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — P1 N6 입찰 프로젝트 화면"
 doc: "design-n6-bid-projects-ui"
-status: draft
+status: done
 tags:
   - sol-radar
   - ui

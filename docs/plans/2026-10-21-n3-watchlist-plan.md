@@ -1,5 +1,6 @@
 ---
 title: "N3 관심 공고 — 구현 계획"
+status: done
 tags:
   - sol-radar
   - plan

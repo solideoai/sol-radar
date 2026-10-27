@@ -1,7 +1,7 @@
 ---
 title: "10-25 운영 실데이터 1시간 주기 수집 전환 계획"
 doc: "plan-20261025-live-ingest-hourly"
-status: active
+status: done
 tags:
   - sol-radar
   - hackathon

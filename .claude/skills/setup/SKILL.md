@@ -95,9 +95,8 @@ docker info >/dev/null # Docker Desktop 이 켜져 있는지 확인
 
 `pnpm db:start` 는 여기서 실행하지 않는다(환경변수 파일을 쓰는 명령이다). 사용자가 직접 돌리도록 알려만 준다.
 
-배포처는 미결정이다(`docs/16-DECISIONS.md` 미결정 8번). 데모는 Docker Compose 로 돌린다(`docs/10-DEPLOYMENT.md`).
-`docs/boilerplate/first-deployment.md`(Vercel)는 배포처가 정해질 때까지 보류 문서라 안내하지 않는다.
-그러니 여기서 "push만 하면 올라간다"고 말하지 않는다. 실제 로그인 검증은 별도다.
+배포처는 정해졌다. Vercel 은 web 하나만 배포하고(ADR-049) 회사 서버가 redis-api·AI gateway·Worker 를 맡는다(`docs/10-DEPLOYMENT.md`). 안내는 `docs/boilerplate/first-deployment.md` 다. 데모는 Docker Compose 로 돌린다.
+그래도 여기서 "push만 하면 올라간다"고 말하지 않는다. 실제 로그인 검증은 별도다.
 
 ### 3단계: 다음 걸음 안내
 

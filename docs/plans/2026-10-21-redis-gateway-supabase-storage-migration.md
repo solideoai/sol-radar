@@ -1,7 +1,7 @@
 ---
 title: "SOL RADAR — Redis HTTPS 연동·Supabase Storage 전환 계획"
 doc: "plan-redis-storage-20261021"
-status: in-progress
+status: done
 tags:
   - sol-radar
   - architecture

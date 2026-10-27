@@ -1,6 +1,6 @@
 ---
 title: "프로필 사진 등록과 명부 연결(신규 입사자·기존 직원)"
-status: draft
+status: done
 tags:
   - sol-radar
   - people
@@ -11,7 +11,7 @@ updated: 2026-10-24
 
 # 프로필 사진 등록과 명부 연결(신규 입사자·기존 직원)
 
-> 2026-10-24 사용자 대화(Claude Code 세션 81, brainstorming)로 정한 설계다. 구현·DB 적용·배포는 아직 하지 않았다. "사용자 결정"과 "Claude 판단"을 구분해 적는다. Claude 판단은 사용자가 검토 중이며 바뀔 수 있다.
+> 2026-10-24 사용자 대화(Claude Code 세션 81, brainstorming)로 정한 설계다. 구현은 main에 들어갔고 운영에 배포됐다. "사용자 결정"과 "Claude 판단"을 구분해 적는다. Claude 판단은 사용자가 검토 중이며 바뀔 수 있다.
 
 ## 1. 의도와 이유
 

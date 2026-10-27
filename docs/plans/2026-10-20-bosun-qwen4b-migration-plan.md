@@ -1,7 +1,7 @@
 ---
 title: "결정 모델 Kev-9B → Bosun v3.1 0.6B, 추출 모델 Qwen3.5-9B → Qwen3-4B-Instruct-2507 — 분석과 변경 계획 (ADR-034 초안)"
 doc: plan
-status: draft
+status: done
 tags:
   - sol-radar
   - ai

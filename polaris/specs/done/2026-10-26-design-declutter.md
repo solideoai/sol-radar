@@ -95,5 +95,5 @@ updated: 2026-10-26
 
 ## 관련 문서
 
-- [구현 계획](../../../docs/plans/2026-10-26-design-declutter-plan.md)
+- 구현 계획(원문: git `f0ad424a` `docs/plans/2026-10-26-design-declutter-plan.md`)
 - [06 UI](../../../docs/06-UI-UX.md)

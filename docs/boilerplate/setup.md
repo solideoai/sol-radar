@@ -46,7 +46,7 @@ PowerShell·cmd 에서는 `bash` 가 잡히지 않거나 WSL 의 bash 가 잡혀
 줄바꿈은 `.gitattributes` 가 LF 로 고정하므로 `core.autocrlf` 설정을 바꾸지 않아도 됩니다.
 
 Node 범위(`^22.13.0 || ^24.3.0`)는 루트 `package.json` 에 적은 LTS 두 줄이고, Next 16(`>=20.9.0`)이 받는 범위 안입니다.
-`.nvmrc`(22)는 CI·배포가 쓰는 고정값이라 Node 24로 돌리면 doctor가 경고만 합니다. `engines`는 루트 `package.json`에만 두고 `web/package.json`에 중복 정의하지 않습니다. 현재 Vercel 웹·AI 서비스 구성과 배포 안내는 [10 배포](../10-DEPLOYMENT.md)와 [첫 배포 안내](first-deployment.md)에 있습니다.
+`.nvmrc`(22)는 CI·배포가 쓰는 고정값이라 Node 24로 돌리면 doctor가 경고만 합니다. `engines`는 루트 `package.json`에만 두고 `web/package.json`에 중복 정의하지 않습니다. `engines`를 두지 않는 이유와 현재 배포(Vercel web 단독·회사 런타임) 안내는 [첫 배포 안내](first-deployment.md)와 [10 배포](../10-DEPLOYMENT.md)에 있습니다.
 
 ## 시작하기
 

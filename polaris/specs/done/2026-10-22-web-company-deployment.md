@@ -1,12 +1,12 @@
 ---
 title: "SOL RADAR web 단독 Vercel·회사 분석 런타임 배포 기준"
-status: planned
+status: done
 updated: 2026-10-22
 ---
 
 # 배포 아키텍처 확정 기준
 
-사용자의 2026-10-22 지시를 반영한다. **아키텍처는 확정, 구현 변경·운영 전환은 검토 단계**다. ADR-044의 Vercel AI 배치는 이 지시로 대체한다. 기존 문서의 당시 배포 성공 기록은 삭제하지 않는다.
+사용자의 2026-10-22 지시를 반영한다. **아키텍처는 확정됐고 구현·운영 전환은 끝났다**(ADR-049). ADR-044의 Vercel AI 배치는 이 지시로 대체한다. 기존 문서의 당시 배포 성공 기록은 삭제하지 않는다.
 
 ## 책임과 호출 경로
 
@@ -52,11 +52,11 @@ flowchart LR
 - 관리자 상태는 Vercel에서 모델/gateway에 직접 접근하지 않고 회사 redis-api의 같은 handler를 재사용한다.
 - 캐시가 없는 승인된 시험 공고 1건의 접수 202 → worker → Qwen 추출 → Bosun 참고 지표 → 결과 조회를 확인한다. 실모델 추론 비용·DB 쓰기가 발생하므로 이번 읽기 전용 조사에서는 실행하지 않는다.
 - `/health/ready`의 DB·Redis·Storage 실패와 AI 단독 장애를 구분한다. 전자는 503, 후자는 기존 계약대로 200/degraded다. 모델 상세 health의 기동 당시 정보와 실제 추론 성공을 구분한다.
-- 첨부 파서/소비자 미구현은 별도 기능 작업이다. 인프라 green만으로 전체 첨부 분석 완료를 주장하지 않는다.
+- 첨부 파서·소비자는 별도 기능 작업이며 main에 구현됐다(회사 반영은 별도 실행서). 인프라 green만으로 전체 첨부 분석 완료를 주장하지 않는다.
 
 ## 조사와 실행 계획
 
-- [현재 상태·최소 변경 계획](../../../docs/plans/2026-10-22-web-company-deployment-review.md)
+- 현재 상태·최소 변경 계획(원문: git `f0ad424a` `docs/plans/2026-10-22-web-company-deployment-review.md`)
 - [읽기 전용 증거](../../../docs/evidence/deployment/20261022-readonly-review.json)
 
 기존 배포 정본 `docs/02-ARCHITECTURE.md`, `docs/10-DEPLOYMENT.md`, `docs/16-DECISIONS.md`, `docs/CLAUDE.md`, 문서 인덱스의 Vercel AI 설명은 구현 변경과 함께 이 기준에 맞춘다. 해당 파일에는 다른 세션의 미커밋 변경이 있어 이번 조사에서 덮어쓰지 않았다.

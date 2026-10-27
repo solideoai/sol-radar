@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — S5 공고 변경 이력 (/bids/[id]/revisions)"
 doc: "design-s5-revisions-ui"
-status: draft
+status: done
 tags:
   - sol-radar
   - ui

@@ -1,7 +1,7 @@
 ---
 title: "설계 — 사이드바 정보 구조와 입찰 업무 확장"
 doc: "design-sidebar-ia"
-status: final
+status: done
 tags:
   - sol-radar
   - ui

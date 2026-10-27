@@ -1,7 +1,7 @@
 ---
 title: "공공 입찰 확장 — Phase 0~8 및 승인 후 구현 계획"
 doc: "plan-public-procurement-20261021"
-status: review
+status: done
 tags:
   - sol-radar
   - pipeline

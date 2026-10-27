@@ -139,7 +139,7 @@ OAuth는 가입 폼을 건너뛸 수 있으므로 DB의 두 열은 처음에 nul
 - [가입 UI 스펙](2026-10-16-solideo-signup-ui.md)의 ADR-021 부록과 `/auth/organization-state`를 사용한다. 기존 slug 화면은 서버 단일 조직과 일치할 때만 연결한다. 완전한 slug 없는 앱 셸(N1)·sol_role/ADMIN 정책 전환(N2)·sidebar/people/ops/P1은 이번 호환 구현의 완료 범위에 포함하지 않는다.
 - fixture 구조1/2를 읽고 신규 구조는2, 동일한 팀 공개 투영의 catalogVersion은 v1.0을 유지한다. 별도 Supabase 환경 전에는 새 migration/seed를 공유 DB에 적용하지 않는다. 기존 작업 초기화·main 병합·다른 세션 파일 수정 금지다.
 
-검증은 [기존 계획 후속 Task5~9](../../../docs/plans/2026-10-16-solideo-people-signup.md)에 따른다. 계층 합성/원본 익명 대조·populated migration backfill·RLS·직접 Auth와 신고·seed2회·현재 조직0/1/2+·실제 별도 로컬 가입 E2E·1440/1280을 각각 검사한다. 사진 사람 승인과 전체 점수 파이프라인은 별도 상태로 보고한다.
+검증은 기존 계획 후속 Task5~9(원문: git `f0ad424a` `docs/plans/2026-10-16-solideo-people-signup.md`)에 따른다. 계층 합성/원본 익명 대조·populated migration backfill·RLS·직접 Auth와 신고·seed2회·현재 조직0/1/2+·실제 별도 로컬 가입 E2E·1440/1280을 각각 검사한다. 사진 사람 승인과 전체 점수 파이프라인은 별도 상태로 보고한다.
 
 ## 관련 문서
 

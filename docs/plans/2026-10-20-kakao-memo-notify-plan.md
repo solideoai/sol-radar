@@ -1,7 +1,7 @@
 ---
 title: "구현 계획 — 카카오톡 추천 공고 알림(나에게 보내기)"
 doc: "plan-kakao-memo-notify"
-status: draft
+status: done
 tags:
   - sol-radar
   - pipeline
