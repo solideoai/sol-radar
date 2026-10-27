@@ -1,7 +1,9 @@
 # 회사 GPU 서버 모델 라우터 (ADR-025)
 
 회사 nginx 가 `https://acropolissg.com/sol-radar` 하나만 등록할 수 있어, 그 뒤에서 경로를 나누는 작은 nginx 를 둔다.
-노트북 ai-gateway 는 `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev` 로 붙는다. `QWEN_BASE_URL` 은 이 라우터가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1` 이다(아래).
+노트북 ai-gateway 는 회사 nginx 등록 뒤 `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev` 로 붙는다. `QWEN_BASE_URL` 은 이 라우터가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1` 이다(아래).
+
+> 2026-10-27 확인: 회사 nginx 에 아래 `location /sol-radar/` 는 등록되지 않았다(사용자 확인, 공개 `/sol-radar/kev/v1/models`·`/sol-radar/healthz` 404). 운영 회사 Compose gateway 는 같은 호스트의 결정 서버에 `KEV_BASE_URL=http://127.0.0.1:8009` 로 직결한다. 이 라우터와 아래 nginx 절은 노트북 대체 경로용 설계다.
 
 2026-10-20 ADR-034: `:8009` 런타임은 `kev.serve` 대신 우리 결정 서버 `sol_decision.serve`(Bosun v3.1 0.6B, Kev wire 호환)다. 추출·설명 `Qwen3.8-Flash-Next-AWQ-INT4`(2026-10-21 `Qwen/Qwen3.5-27B` 에서 교체)는 회사가 이미 운영하는 vLLM API(`https://acropolissg.com/vllm/v1`, env 값은 회사 안내 그대로 `https://acropolissg.com/vllm/v1`, 게이트웨이가 `/v1` 중복을 정규화한다(B1))를 쓰므로 `:8001` 에는 아무것도 띄우지 않고 `/qwen` 규칙은 백업(미사용)으로 남긴다. 라우터 설정·경로·포트·회사 nginx 는 바꾸지 않는다.
 
@@ -45,6 +47,8 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" https://acropolissg.com/vllm/v1
 ```
 
 ## 밖에서 확인 (우리 쪽 C1 ③ G1·G2)
+
+회사 nginx 등록 뒤에만 쓴다. 2026-10-27 운영에서는 앞의 두 줄이 404 다.
 
 ```bash
 curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/healthz    # 200, TLS 유효(-k 금지)

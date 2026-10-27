@@ -178,6 +178,7 @@ G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 1512946
 ```
 
 - gateway는 `QWEN_API_KEY`·`KEV_API_KEY`를 `Authorization: Bearer`로 보낸다(ADR-025, [[03-AI-PIPELINE|03]] §3).
+- `KEV_BASE_URL` 예시 값은 회사 nginx `/sol-radar` 경로를 전제한 설계 값이다. 운영에는 그 경로가 없다. 운영 회사 Compose gateway는 `http://127.0.0.1:8009`로 붙는다(아래 "회사 GPU 추론 엔드포인트").
 - `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`는 gateway 선택 env다. 비우면 기본 어댑터(`pdfplumber`·`sol-hwpx`·`sol-hwp5`)가 켜진다. 모르는 값이면 그 형식만 처리하지 않는다([[03-AI-PIPELINE|03]] §10.1).
 
 ### seed
@@ -191,7 +192,7 @@ seed는 스크립트 `pnpm demo:reset`이다(Compose 서비스가 아니다). �
 
 ## 회사 GPU 추론 엔드포인트
 
-추출·설명은 회사가 운영하는 vLLM API(`https://acropolissg.com/vllm/v1`, `Qwen3.8-Flash-Next-AWQ-INT4`)다. 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision.serve`가 GPU 서버 `127.0.0.1:8009`에서 Kev wire 호환으로 제공한다([[16-DECISIONS|ADR-025·034]]). GPU 서버는 외부에서 접근할 수 없어 회사가 `https://acropolissg.com` 아래로 연다(`/vllm`은 회사 vLLM, `/sol-radar`는 우리 모델 라우터).
+추출·설명은 회사가 운영하는 vLLM API(`https://acropolissg.com/vllm/v1`, `Qwen3.8-Flash-Next-AWQ-INT4`)다. 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision.serve`가 GPU 서버 `127.0.0.1:8009`에서 Kev wire 호환으로 제공한다([[16-DECISIONS|ADR-025·034]]). GPU 서버는 외부에서 접근할 수 없어 회사가 `https://acropolissg.com` 아래로 연다(`/vllm`은 회사 vLLM). 우리 모델 라우터용 `/sol-radar` 경로는 설계만 있고 회사 nginx에 등록되지 않았다(2026-10-27 사용자 확인, 공개 `/sol-radar/kev/v1/models`·`/sol-radar/healthz` 404). 운영 회사 Compose gateway는 같은 호스트의 결정 서버에 루프백 `KEV_BASE_URL=http://127.0.0.1:8009`로 붙는다(루프백 http는 gateway URL 검사가 허용한다, `services/ai/src/sol_ai/adapters/local_setup.py`).
 
 ```mermaid
 flowchart LR
@@ -201,21 +202,22 @@ flowchart LR
  LG["노트북 ai-gateway<br/>(대체 경로)"]
  subgraph GPU["회사 GPU 서버 · 회사 운영 · 외부 접근 불가"]
   V["회사 vLLM API<br/>/vllm/v1 · Qwen3.8-Flash-Next-AWQ-INT4"]
-  EP["회사 nginx · /sol-radar"] --> RT["model-router 127.0.0.1:8080<br/>infra/gpu"]
+  EP["회사 nginx · /sol-radar<br/>(설계만, 미등록)"] --> RT["model-router 127.0.0.1:8080<br/>infra/gpu"]
   RT -- "/kev" --> K["sol_decision.serve 127.0.0.1:8009<br/>Bosun v3.1 0.6B"]
   P["PaddleOCR vLLM (회사)"]
  end
  G & LG -- "HTTPS · Bearer QWEN_API_KEY<br/>/extract /explain" --> V
- G & LG -- "HTTPS · Bearer KEV_API_KEY<br/>/kev" --> EP
+ G -- "같은 호스트 루프백 http · Bearer KEV_API_KEY<br/>/kev (운영)" --> K
+ LG -.->|"HTTPS · Bearer KEV_API_KEY<br/>/kev (경로 없음)"| EP
 ```
 
 - **env 이름**: `QWEN_BASE_URL`·`QWEN_MODEL`·`QWEN_API_KEY`·`KEV_BASE_URL`·`KEV_MODEL_ID`·`KEV_API_KEY`(`KEV_*`는 호환 유지, ADR-034). 값은 위 env 예시다. 호스트가 `acropolissg.com`이라 레지스트리 `allowedHosts`는 그대로다.
-- **모델 라우터**: 회사 nginx는 location 하나(`/sol-radar`)만 등록할 수 있어 GPU 서버 안에 경로 분기 nginx를 둔다(`infra/gpu/model-router.conf`, `127.0.0.1:8080`). `/sol-radar/kev/<path>` → `127.0.0.1:8009/<path>`다. `/sol-radar/qwen/*`(`:8001`) 규칙은 남아 있지만 쓰지 않는다. 바깥 nginx가 접두어를 떼도 같은 곳으로 간다. `/sol-radar/healthz`(인증 없음)는 `200 ok`, 그 밖은 404다. 인증은 각 런타임이 하고 라우터 로그에는 `$uri`만 남긴다.
+- **모델 라우터**(설계. 회사 nginx 등록 전이라 운영은 거치지 않는다): 회사 nginx는 location 하나(`/sol-radar`)만 등록할 수 있어 GPU 서버 안에 경로 분기 nginx를 둔다(`infra/gpu/model-router.conf`, `127.0.0.1:8080`). `/sol-radar/kev/<path>` → `127.0.0.1:8009/<path>`다. `/sol-radar/qwen/*`(`:8001`) 규칙은 남아 있지만 쓰지 않는다. 바깥 nginx가 접두어를 떼도 같은 곳으로 간다. `/sol-radar/healthz`(인증 없음)는 `200 ok`, 그 밖은 404다. 인증은 각 런타임이 하고 라우터 로그에는 `$uri`만 남긴다.
 - **회사 GPU 서버에서 띄우는 것**(회사 운영, 인수 문서 `infra/gpu/README.md`): 라우터는 `infra/compose.gpu.yaml`(`name: sol-radar-gpu`, `model-router` = `nginx:1.27-alpine`, `network_mode: host`, Linux)이다. `sol_decision.serve`는 아래 명령으로 호스트에 직접 띄운다. vLLM은 띄우지 않는다.
-- **회사 nginx 설정**: `location /sol-radar/ { proxy_pass http://127.0.0.1:8080; }` + `Authorization` 헤더 통과, `proxy_read_timeout 300s`, `client_max_body_size 20m`, `proxy_buffering off`. 전체 블록은 `infra/gpu/README.md`다.
+- **회사 nginx 설정**(등록되지 않았다, 2026-10-27 사용자 확인): `location /sol-radar/ { proxy_pass http://127.0.0.1:8080; }` + `Authorization` 헤더 통과, `proxy_read_timeout 300s`, `client_max_body_size 20m`, `proxy_buffering off`. 전체 블록은 `infra/gpu/README.md`다.
 - **운영 책임**: 모델 런타임 기동, GPU 메모리 배분, 패키지 sha256 대조, `nvidia-smi` 실측은 회사가 한다. GPU 배치·메모리 계획·서버 계정은 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §3·§4와 `infra/gpu/README.md` "GPU 1 공유"가 정본이다. 우리가 하는 검증은 gateway 기동 때의 레지스트리 대조([[03-AI-PIPELINE|03]] §11)와 지연 실측이다.
 - **GPU 1 공유**: `sol_decision`이 쓰는 물리 GPU 1은 전용이 아니고 회사 PaddleOCR vLLM이 상주한다. 우리 절차로 GPU 0·1·2의 어떤 프로세스도 종료·이동하지 않고, GPU 0·2는 쓰지 않는다(ADR-034 10번). 메모리가 모자라면 회사에 보고하고 멈춘다.
-- **미확인**: 포트 8080·8009의 실제 실행(G1·G2 직접 확인 기록 없음), 회사 vLLM이 어느 GPU에서 어떤 양자화로 도는지, 노트북 `ai-gateway`에서 공개 HTTPS로 나가는 경로(G1, 대체 경로용)는 미확인이다.
+- **미확인**: 포트 8080 라우터의 실제 실행(8009 결정 서버는 2026-10-27 회사 호스트에서 실행 중임을 확인했고, gateway `/health`가 `registryMatch: true`였다. [기록](evidence/company-public-profile/20261027/prod-rollout.md)), 회사 vLLM이 어느 GPU에서 어떤 양자화로 도는지, 노트북 `ai-gateway`에서 공개 HTTPS로 나가는 경로(G1, 대체 경로용)는 미확인이다.
 - **보안**: TLS 필수(검증을 끄지 않는다), API 키 필수, 키는 서버 env 파일에만 둔다. URL은 문서에 적고 키 값은 적지 않는다. 회사 GPU로 가는 데이터는 실제 공고(공공 데이터, 개인정보 마스킹)와 가상 회사 프로필뿐이다([[09-SECURITY|09 보안]]).
 - **평가·학습**(E0~E4, LoRA F1·F2)은 미결정이다. 절차는 [[21-MODEL-TRAINING|21 모델 학습]]·[[22-FINETUNE-RUNBOOK|22]]다. 데모 모델은 공개 Bosun이다. Qwen 파인튜닝은 하지 않는다. 클라우드 GPU 임대는 비용 승인 대상이다(ADR-010).
 
@@ -231,7 +233,7 @@ docker compose -f infra/compose.gpu.yaml up -d        # model-router (Linux, hos
 연결 확인(G1·G2. 키 값은 env 변수 참조만 쓴다):
 
 ```bash
-# G1: 라우터 healthz 200 + TLS 유효. -k 금지
+# G1: 라우터 healthz 200 + TLS 유효. -k 금지. 회사 nginx 에 /sol-radar 를 등록한 뒤에만 쓴다(2026-10-27 운영은 404)
 curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/healthz
 # G2: 결정 서버 data[0].run == Hanno-Labs/bosun-v3.1-0.6b@5e78a37c, 회사 vLLM data[].id 에 Qwen3.8-Flash-Next-AWQ-INT4
 curl -sS --fail -H "Authorization: Bearer $KEV_API_KEY"  "$KEV_BASE_URL/v1/models"
