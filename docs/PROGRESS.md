@@ -22,6 +22,7 @@ updated: 2026-10-27
 - P1 다섯 화면 모두 완료. N3·N5·N6·N7 main `546a997d`, N4b main `d209eec3`(병합·운영 배포).
 - 10-26 화면·설정 변경: 상단바 실행 모드·AI 표시 제거(`web/components/topbar-status.tsx`), 기본 출처 env `SOL_DEFAULT_ORIGIN`(운영은 기본 실공고), 수동 [지금 불러오기] gate(`GET /api/v1/admin/ingestion/manual-gate`), 사이드바 묶음 3개 + 트리·아이콘, 대시보드 "공공조달 요약" 숫자 띠(신규 발견·마감 임박 (7일)·분석 대기·BID 권고·진행 중 입찰 프로젝트).
 - 검증: main `26efefc1`에서 전체 `pnpm verify` exit 0(루트 230·web 689·AI 153·결정 57·빌드). 그 뒤 main은 `43e4e024`(서비스별 수집 격리, 다른 세션)다.
+- 서비스별 수집 격리 운영 적용(10-27): main `43e4e024` Vercel Production 배포(10:36 KST), 회사 redis-api·ingest 전용 Worker 갱신·healthy, 외부 6종 `NOT_CALLABLE(DISABLED)`, Job Scheduler `g2b-scheduled` 1개(회사 쪽은 사용자 보고). 12:00 회차 `SUCCEEDED` 생성 195·변경 2·취소 18·`quota_used` 585. 아래 "10-27 서비스별 격리 운영 적용·LH 입찰공고 로컬 구현" 절.
 - 첨부 처리(다운로더·파서·documents worker·분석 연결)와 live 가드(카카오 발송 수단·가입 약관 동의) 구현을 통합 worktree `integration/blockers-1027`에 모았다. 전체 `pnpm verify` exit 0(루트 236·web 85파일 743개·`next build`·AI 166·결정 57). **로컬 통합, 운영 미적용, 커밋 전이다.** 아래 "10-27 첨부 처리·파서·live 가드 구현" 절.
 
 **진행 중**
@@ -34,6 +35,7 @@ updated: 2026-10-27
 - 첨부 처리 운영 반영(아래 "10-27 첨부 처리" 절의 승인 대기 8항목) → 실공고 S-LIVE 분석 run → 리허설·촬영(S-LIVE·카카오 실수신 컷) → 덱·영상 → 11-03 제출 → 11-04 발표(D1).
 - 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다. 운영 DEMO 19건 그대로, 운영 DB 안 백업 스키마 `demo_cleanup_20261026` 있음. 카카오 연결 0건.
 - GitHub Actions는 10-24부터 계정 결제 문제로 job이 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다.
+- LH 입찰공고(15159012) 연동: 로컬 구현·합성 응답 시험만 끝났다. 활용신청·키 확인 → 첫 실호출 1~3회 → 매핑 확정 → push·회사 반영은 모두 승인 대기다([[plans/2026-10-27-lh-bid-notice-activation|LH 활성화 계획]]).
 
 **사용자 결정 대기**
 
@@ -46,7 +48,7 @@ updated: 2026-10-27
 
 **아래 옛 절의 승인 대기·미적용 서술 중 해결된 것** (옛 절 본문은 당시 기록이라 고치지 않았다)
 
-- "외부 수집 서비스별 격리 0순위 로컬 구현"의 "커밋 전·운영 미적용": 코드 `162a09ab`·실행서 `43e4e024`가 main에 들어갔고 로컬 원격 참조 기준 origin/main에도 있다. Vercel·회사 반영 여부는 미확인이다.
+- "외부 수집 서비스별 격리 0순위 로컬 구현"의 "커밋 전·운영 미적용": 코드 `162a09ab`·실행서 `43e4e024`가 main에 들어갔고, 10-27 Vercel·회사 redis-api·ingest Worker에 반영됐다(아래 "10-27 서비스별 격리 운영 적용" 절).
 - "실운영 전환·3시간 정기 수집 로컬 구현"의 제목 "운영 미적용"·"남은 것(모두 승인 대기)": push·Vercel 배포, 회사 redis-api `SOL_INGEST_MODE=live`, 3시간 정기 일정은 운영에서 돈다(위 "된 것"). A단계 DEMO 삭제만 남았고 발표 뒤로 미뤘다. F단계 최종 확인 기록은 미확인이다.
 - 같은 절의 "운영 DB는 읽지도 바꾸지도 않았다": 그 뒤 운영 DB에 백업 스키마 `demo_cleanup_20261026`이 생겼다. 삭제는 하지 않았다(DEMO 19건 그대로).
 - "운영 배포 ①·② 적용과 ③ 준비"의 "③ push·Vercel 배포는 승인 대기": 10-26에 배포됐고, 이어 main `db796a72` push·Vercel Production 배포 성공이 확인됐다("AI 티 걷어내기" 절).
@@ -55,6 +57,16 @@ updated: 2026-10-27
 - "구현 Phase" 절 Phase 0 줄의 "CI(GitHub Actions)는 … 통과": 10-24부터 job이 시작되지 않는다. 지금 CI 통과를 근거로 쓰지 않는다.
 - "작업 로그"의 2026-10-26 "실운영 전환·3시간 정기 수집(로컬)" 행의 승인 대기: 위 둘째 줄과 같다.
 - 10-24 freeze·10-25 리허설·10-26 완료 목표·10-27 마감과 X6 10-25·10-26 일정은 지난 일정이다(ADR-054).
+
+## 10-27 서비스별 격리 운영 적용·LH 입찰공고 로컬 구현 (2026-10-27)
+
+브랜치 `feat/lh-bid-notice`(worktree `sol-radar-worktrees/ingest-source-isolation`, 기준 main `8cfaac31`, 커밋 전). 이 절을 쓰면서 운영 Worker·redis-api 재시작, Redis Scheduler·운영 DB 변경, 공공 API 호출, registry LH 활성화, push·Vercel 배포는 하지 않았다.
+
+- **운영 적용 결과**: main `43e4e024` → Vercel Production `dpl_HgpVjqZVF1Cui96gkEqKpTmuYkpM`(GitHub 커밋 상태 10:36 KST). 회사 redis-api·ingest 전용 Worker 최신 이미지·healthy, 외부 6종 `NOT_CALLABLE(DISABLED)`, Job Scheduler `g2b-scheduled` 1개, 12:00 회차 runId `91dbf7ab-8a0b-41d2-bbb2-4156fde2187d` `SUCCEEDED`·생성 195·변경 2·취소 18·`quota_used` 585(회사 쪽은 사용자 보고). 12:55 KST `/health/ready` 200(`db`·`redis`·`storage` ok). 그 뒤 다른 세션이 main `8cfaac31` 을 push 해 Vercel이 12:37 KST에 다시 배포했다. [증거](evidence/ingestion/20261027-ops-apply/summary.md).
+- **조달청 입찰공고 호출 사용량**: Supabase MCP 재로그인이 필요해 운영 DB·Redis 숫자는 **미측정**이다. 코드로 확인한 한도 구조(목록·보조 조회 3종이 한 카운터, 정기 보조 조회 900에서 멈춤, 목록 1000, 1000에 닿으면 다음 날 같은 창부터)와 추정(12:00 회차 585회 중 대부분이 보조 조회, 15시 이후에도 목록은 받을 가능성이 높고 오후 공고의 면허·지역·첨부 정보는 `SKIPPED_QUOTA` 가능성이 높음)을 적었다. 읽기 전용 SQL 8문장(로컬 PGlite에서 실행 확인)과 Redis 카운터 읽기 명령도 같은 증거에 있다. `SKIPPED_QUOTA` 공고는 같은 공고가 다음 목록 창에 다시 나올 때만 다시 채워져 대부분 남는다. 자정 직후 보완 회차 등 개선안은 제안만 했다.
+- **LH 입찰공고 로컬 구현**: 공개 명세(data.go.kr Swagger, 10-27 열람)로 정규화(`external-normalize-lh.ts`)를 만들었다. 공고번호 `bidNum`·차수 `bidDegree`(필수, 낮은 차수 STALE)·공고명·발주기관 "한국토지주택공사"(지역본부는 `agencyCode`)·공고일·마감·추정가격 예산·서비스 설명 페이지 URL, 상태는 취소·정정·마감 낱말로 판정하고 모르는 값은 OPEN + 메모. 공통 코드: LH 의 데이터 없음 `03` 은 빈 COMPLETE 쪽, LH 의 인증 결과 코드 20·30·31·32·결과 코드 없는 401·403 은 LH 만 `AUTH_FAILED`(다른 외부 서비스 판정은 예전 그대로). 합성 응답 9개는 `fixtures/synthetic/15159012/`(실녹음 자리 `fixtures/recorded/15159012/` 는 비어 있음), 첫 실호출용 녹음 스크립트 `scripts/recorded/record-lh-bid-notice.mjs`(한 번 실행에 1회). registry 는 `fieldMapping` 만 채우고 `enabled: false`·`NOT_VERIFIED`·`NOT_REQUESTED`·`keyIssuance: UNKNOWN` 그대로다. 관리자 화면은 바꾸지 않았다(서비스별 상태·인증·마지막 성공은 기존 표). 새 env 이름 `LH_BID_NOTICE_SERVICE_KEY`(Worker 전용)를 `infra/env/company-worker.env.example` 에 주석으로 적었다. [증거](evidence/ingestion/20261027-lh-bid-notice/summary.md).
+- **검증**: `lh-bid-notice.test.ts` 22개(다른 서비스 회귀 7 포함), 외부 수집 시험 5파일 99개, 녹음 스크립트 시험 5개 통과(main `8cfaac31` 위). 변형 9종이 모두 시험에 걸렸다. 독립 리뷰 상 0·중 7·하 2 를 모두 반영했다(401·403·20·32 판정 LH 한정, 명세 밖 결과 코드 `3` 은 실패로, 차수 필수, 녹음 2 MiB 를 읽는 중에 끊기·명세 밖 태그 가림 등). 전체 `pnpm verify` exit 0(루트 241·web 86파일 766개·`next build`·AI 166·결정 57, 리뷰 반영 뒤). 로그인 뒤 E2E·회사 스택·실 LH 응답 확인은 하지 않았다.
+- **남은 것(모두 승인 대기)**: data.go.kr 15159012 활용신청·한도 확인 → 회사 서버 키 확인(값 출력 없음) → 첫 실호출 1~3회 → 녹음으로 매핑 확정·registry 갱신 → main 병합·push → 회사 Git·Worker 이미지·재생성. 순서·멈춤 조건·되돌리기는 [[plans/2026-10-27-lh-bid-notice-activation|LH 활성화 계획]].
 
 ## 10-27 첨부 처리·파서·live 가드 구현 (로컬 통합, 운영 미적용)
 
@@ -401,6 +413,7 @@ HEAD `086ac1e`의 문서21~23·ADR-034·042, Bosun 학습·평가 코드, 인력
 
 | 날짜 | Phase | 변경 | 검증 | 남은 문제 |
 |---|---|---|---|---|
+| 2026-10-27 | 서비스별 격리 운영 적용 기록·LH 입찰공고 로컬 구현 | 운영 적용 결과·조달청 사용량 점검 증거(읽기 전용 SQL·Redis 명령), LH 정규화·인증/데이터 없음 판정(LH 한정)·합성 응답 9개·녹음 스크립트·활성화 계획, Worker env 예시에 `LH_BID_NOTICE_SERVICE_KEY` | 전체 `pnpm verify` exit 0, LH 22·외부 수집 99·녹음 5 시험, 변형 9종, 독립 리뷰 반영 | 운영 DB·Redis 사용량 미측정(Supabase MCP 재로그인), LH 실호출·활성화·push 승인 대기 |
 | 2026-10-27 | 전체 점검·결정 반영(문서) | ADR-054(마감 11-03·발표 11-04, D1 유지·운영 DEMO 삭제 보류, 첨부 처리 구현, X6 미결정). 12 남은 일정 제안 표, 18·19 D1·66/72 구분·상단바 표시 제거, 02·05·06·07·10·11·submission·README 정정, 완료 스펙 6개 `done/`, 위 "현재 상태" 요약, hosted 표 정정 | 문서 전용(ADR-046). 링크 경로·frontmatter 확인. 코드 검사·빌드 미실행 | 커밋 전. X6 실행 여부·남은 일정 제안·D1의 S5·S6 방식은 사용자 결정 대기 |
 | 2026-10-26 | 실운영 전환·3시간 정기 수집(로컬) | sol-radar-78. 상단바 실행 모드·AI 표시 제거, cron 정기 수집(KST 00~21시 3시간), 수동 [지금 불러오기]·서버 gate·수동 예산 상한, 본문 없는 공고 분석 차단, `SOL_INGEST_MODE`, DEMO 정리 실행서·리허설, 운영 전환 실행서 | 전체 `pnpm verify` exit 0, 실 Redis 일정·gate 통합, 격리 브라우저 29/29([증거](evidence/live-ops/20261026/summary.md)) | 운영 적용 전부 승인 대기. 바꾼 e2e-auth 시험 중 work 설정(run-mode-badge·what-if.write)은 Compose 가 필요해 미실행 |
 | 2026-10-24 | FX-15 점수 정정(58→68) | sol-radar-78 배정(9b 운영 smoke D4, main `34eeabb1`). [[19-DEMO-SCENARIO]] Q&A 예비 FX-15 행 점수를 [[16-DECISIONS]] ADR-043(200명 입력, 가용 인력 증가로 58→68)에 맞췄다. 권고 WATCH·`SCALE_LIMIT_EXCEEDED`·Kev 0.60 WATCH는 그대로 맞다: `fixtures/manifest.yaml` FX-15 `expected: { outcome: WATCH, designScore: 68 }`, 규칙 엔진 `analyze(buildInput("FX-15"))` 직접 실행 결과 68·WATCH·`SCALE_LIMIT_EXCEEDED`(같은 실행에서 FX-01/02/03 94/72/68 확인). 다른 현재 문서(07·08·16·PROGRESS·18·11·제출물)에 FX-15 58은 없다. 지난 계획 `plans/2026-10-18-phase-0-infra.md`의 58은 기록이라 두었다. 문서만 바꿨다 |

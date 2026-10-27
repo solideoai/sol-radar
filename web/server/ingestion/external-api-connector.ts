@@ -7,6 +7,9 @@ import {
 import {
   COVERAGE_UNVERIFIED_SOURCES,
   EXTERNAL_SERVICES,
+  NO_DATA_RESULT_CODES,
+  authResultCodesOf,
+  treatsHttpUnauthorizedAsAuth,
   type ExternalConnector,
   type ExternalConnectorOptions,
   type ExternalFetchOutcome,
@@ -47,12 +50,16 @@ export function createExternalApiConnector(options: ExternalConnectorOptions): E
         redirect: "error",
       });
       const failed = (
-        kind: "HTTP_ERROR" | "RATE_LIMITED",
+        kind: "HTTP_ERROR" | "RATE_LIMITED" | "SERVICE_KEY_INVALID",
         detail: string,
       ): ExternalFetchOutcome => ({
         ok: false,
         failure: { kind, status: response.status, detail },
       });
+      // 결과 코드 없이 401·403 만 오면 키·승인·접속 허용 문제다. 정한 서비스(LH)만 인증 실패로 막는다.
+      const unauthorized =
+        treatsHttpUnauthorizedAsAuth(options.sourceKey) &&
+        (response.status === 401 || response.status === 403);
       if (response.status === 429) {
         await response.body?.cancel().catch(() => undefined);
         return failed("RATE_LIMITED", "HTTP_RATE_LIMITED");
@@ -64,13 +71,15 @@ export function createExternalApiConnector(options: ExternalConnectorOptions): E
       }
       const text = await boundedText(response);
       if (text === null) return failed("HTTP_ERROR", "RESPONSE_TOO_LARGE");
-      const parsed = parseExternalPayload(text, [options.serviceKey]);
+      const parsed = parseExternalPayload(text, [options.serviceKey], {
+        noDataCodes: NO_DATA_RESULT_CODES[options.sourceKey] ?? [],
+      });
       if (!parsed.ok) {
         if (parsed.kind === "RESULT_CODE") {
           const kind =
             parsed.resultCode === "22"
               ? "QUOTA_EXCEEDED"
-              : ["30", "31"].includes(parsed.resultCode ?? "")
+              : authResultCodesOf(options.sourceKey).includes(parsed.resultCode ?? "")
                 ? "SERVICE_KEY_INVALID"
                 : "RESULT_CODE";
           return {
@@ -92,8 +101,11 @@ export function createExternalApiConnector(options: ExternalConnectorOptions): E
             },
           };
         }
-        return failed("HTTP_ERROR", parsed.detail);
+        return unauthorized
+          ? failed("SERVICE_KEY_INVALID", "HTTP_UNAUTHORIZED")
+          : failed("HTTP_ERROR", parsed.detail);
       }
+      if (unauthorized) return failed("SERVICE_KEY_INVALID", "HTTP_UNAUTHORIZED");
       if (!response.ok) return failed("HTTP_ERROR", "HTTP_REQUEST_FAILED");
       const coverageUnverified = COVERAGE_UNVERIFIED_SOURCES.has(options.sourceKey);
       const offset = (request.pageNo - 1) * request.numOfRows;

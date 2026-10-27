@@ -91,6 +91,7 @@ export type ExternalPayload =
 export function parseExternalPayload(
   text: string,
   secrets: readonly string[] = [],
+  options: { noDataCodes?: readonly string[] } = {},
 ): ExternalPayload {
   const malformed = (): ExternalPayload => ({
     ok: false,
@@ -153,6 +154,16 @@ export function parseExternalPayload(
         : field(root, "resultCode");
     if (codeValue !== undefined) {
       const code = String(codeValue);
+      // 명세가 "데이터 없음"이라고 한 코드는 빈 쪽이다. 함께 온 행이 있어도 쓰지 않는다.
+      if (options.noDataCodes?.includes(code))
+        return {
+          ok: true,
+          items: [],
+          totalCount: 0,
+          successCodeVerified: true,
+          contentType,
+          sanitizedPayload,
+        };
       successCodeVerified = ["00", "0000", "0", "200", "INFO-000"].includes(code);
       if (!successCodeVerified)
         return {

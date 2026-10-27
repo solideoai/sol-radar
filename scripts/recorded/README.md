@@ -16,6 +16,7 @@
 | `split-lib.mjs` | 클러스터·결정적 선택·누수 검사(순수 함수) |
 | `record-program-notices.mjs` | 부처 지원사업 공고 녹음 CLI(`pnpm record:program-notices`, ADR-040). 아래 "부처 공고 녹음" |
 | `program-notices-lib.mjs` | 부처 공고 요청 URL·가림·녹음 형식·흔적 검사(순수 함수) |
+| `record-lh-bid-notice.mjs` | LH 입찰공고(15159012) 첫 실호출 녹음. 한 번 실행에 1회. 아래 "LH 입찰공고 녹음" |
 
 ## 서비스키
 
@@ -93,3 +94,24 @@ node --env-file=/Users/leegwanghui/dev/hackathon/sol-radar/infra/.env scripts/re
 - 출력은 파일 경로·상태 코드·크기·항목 수·가린 필드뿐이다. 키·요청 URL·응답 본문은 출력하지 않는다. 요청 예외도 이름만 남긴다.
 - `www.bizinfo.go.kr`·`mss.go.kr`의 https 만 부른다. 리다이렉트는 따르지 않고(3xx 면 멈춘다), 2 MiB·10초 상한이다.
 - 기업마당 요청 값(분야 `02`, 최대 100건)은 `infra/sources/program-notices.yaml`의 기본값과 같다.
+
+## LH 입찰공고 녹음 (15159012, 2026-10-27)
+
+`record-lh-bid-notice.mjs` 는 LH 입찰공고 `getOpenBidInfo` 를 **한 번 실행에 정확히 1회** 부르고 가려 저장한다. 첫 실호출 검증용이다.
+실행은 사용자 승인 뒤에만 하고, 순서·횟수(1~3회)·멈춤 조건은 `docs/plans/2026-10-27-lh-bid-notice-activation.md` §3 을 따른다.
+2026-10-27 현재 한 번도 실행하지 않았다(`fixtures/recorded/15159012/` 없음).
+
+```bash
+# 회사 서버, 일회용 컨테이너(운영 Worker 재시작 없음). 키는 infra/.env.worker.local 의 LH_BID_NOTICE_SERVICE_KEY
+node scripts/recorded/record-lh-bid-notice.mjs --date 20261026 --page 1 --rows 10 --out <폴더> --dry-run   # 0회
+node scripts/recorded/record-lh-bid-notice.mjs --date 20261026 --page 1 --rows 10 --out <폴더>             # 1회
+```
+
+- 키는 `process.env.LH_BID_NOTICE_SERVICE_KEY` 로만 받는다. 이 스크립트는 `.env` 파일을 읽지 않는다. Encoding·Decoding 키 모두 한 번 풀어 `URLSearchParams` 가 한 번 인코딩한다.
+- 인자 범위: `--date` KST 하루(YYYYMMDD, 등록일 시작·끝을 같은 날로), `--page` 1~5, `--rows` 1~100. 모르는 인자는 멈춘다.
+- 재시도하지 않는다. 결과 코드가 오류여도 그 응답을 가려 남기고 끝난다. 같은 이름의 녹음이 있으면 부르기 전에 멈춘다.
+- `https://apis.data.go.kr/B552555/OpenBidInfoList/getOpenBidInfo` 만 부른다. 리다이렉트는 따르지 않고, 2 MiB(받은 바이트를 세며 읽다 넘으면 끊음)·10초 상한이다.
+- 가림: 담당자 계열 태그(`ofcl`·`charger`·`chpsn`·`email`·`telno` 등)와 공개 명세(Swagger 응답 필드 178개·게이트웨이 오류 태그)에 없는 태그는 값을 `***` 로, 본문의 이메일·전화는 같은 길이 `*`. 명세에는 담당자 칸이 없으므로 실응답에 이름·연락처 칸이 더 있어도 원문이 저장되지 않는다. 저장 전·뒤 흔적 검사(키 네 형태 포함)가 0건이 아니면 파일을 지우고 멈춘다.
+- 출력은 결과 코드·`totalCount`·항목 수·필드 모양(`digits:N`·`text`·`empty`)·상태류 값 목록(`bidKind`·`bidProgrsStatus`·`zoneHqCd`·`cstrtnJobGbNm`·`tndrCtrctMedCd`)뿐이다. 키·요청 URL 은 출력하지 않는다.
+- 녹음 형식은 `sol-external-recorded/v0.1`(`params`·`fetchedAt`·`httpStatus`·`rawSha256`·`maskedFields`·`maskedBody`). 시험용 합성 응답은 `fixtures/synthetic/15159012/` 에 따로 있고 녹음과 섞지 않는다.
+- 시험: `node --test scripts/recorded/record-lh-bid-notice.test.mjs`(가짜 fetch, 호출 0회).

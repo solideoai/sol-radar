@@ -93,6 +93,34 @@ export const COVERAGE_UNVERIFIED_SOURCES: ReadonlySet<ExternalSourceKey> = new S
   "kepco-ebid-contract",
 ]);
 
+/**
+ * 결과 코드가 "데이터 없음"인 서비스. 공개 명세(15159012 Swagger, 2026-10-27 열람)에 03 "데이터없음 에러"가 있다.
+ * 빈 창을 실패로 세지 않고 빈 쪽(COMPLETE)으로 받는다. 실응답으로는 아직 확인하지 않았다.
+ */
+export const NO_DATA_RESULT_CODES: Readonly<Partial<Record<ExternalSourceKey, readonly string[]>>> =
+  { "lh-bid-notice": ["03"] };
+
+/**
+ * 인증·승인 문제라 다시 불러도 같은 결과. 받으면 그 서비스만 AUTH_FAILED 로 막는다(worker/main.ts withAuthCircuit).
+ * 기본은 30 미등록 키·31 기한 만료뿐이다. 서비스별로 넓힐 때만 여기에 적는다(다른 서비스 동작을 바꾸지 않는다).
+ * LH 입찰공고: 명세의 data.go.kr 게이트웨이 코드 20 접근 거부(활용신청 미승인)·32 미등록 IP 도 인증 실패로 보고,
+ * 결과 코드 없는 HTTP 401·403 도 같게 본다. 실응답으로는 아직 확인하지 않았다.
+ */
+const AUTH_FAILURE_POLICY: Readonly<
+  Partial<Record<ExternalSourceKey, { resultCodes: readonly string[]; httpUnauthorized: boolean }>>
+> = { "lh-bid-notice": { resultCodes: ["20", "30", "31", "32"], httpUnauthorized: true } };
+const DEFAULT_AUTH_RESULT_CODES: readonly string[] = ["30", "31"];
+
+export const authResultCodesOf = (key: ExternalSourceKey): readonly string[] =>
+  AUTH_FAILURE_POLICY[key]?.resultCodes ?? DEFAULT_AUTH_RESULT_CODES;
+
+/** HTTP 401·403 을 인증 실패로 볼 서비스인지. 아니면 예전처럼 HTTP_ERROR 다(일시적인 403 으로 막히지 않게) */
+export const treatsHttpUnauthorizedAsAuth = (key: ExternalSourceKey): boolean =>
+  AUTH_FAILURE_POLICY[key]?.httpUnauthorized === true;
+
+/** LH 입찰공고는 LH 가 직접 발주한다. 담당 지역본부(zoneHqCd)는 agencyCode 로 따로 남긴다 */
+export const LH_AGENCY_NAME = "한국토지주택공사";
+
 export const KEPCO_COMPANIES: Readonly<Record<string, string>> = {
   COM01: "한국전력공사",
   COM02: "한국서부발전",

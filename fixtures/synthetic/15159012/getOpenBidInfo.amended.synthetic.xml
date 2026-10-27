@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <bidNum>2026100001</bidNum>
+        <bidDegree>1</bidDegree>
+        <bidKind>정정공고</bidKind>
+        <bidnmKor>합성 데이터 정보화 유지관리 용역</bidnmKor>
+        <bidProgrsStatus>공고중</bidProgrsStatus>
+        <tndrbidRegDt>20261021</tndrbidRegDt>
+        <presmtPrc>150000000</presmtPrc>
+        <tndrdocAcptEndDtm>202611071000</tndrdocAcptEndDtm>
+      </item>
+    </items>
+    <numOfRows>10</numOfRows>
+    <pageNo>1</pageNo>
+    <totalCount>1</totalCount>
+  </body>
+</response>

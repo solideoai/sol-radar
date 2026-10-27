@@ -6,9 +6,10 @@ import {
   type ExternalItem,
   type ExternalSourceKey,
 } from "./external-connector.model";
+import { dateMetadata } from "./external-dates";
+import { normalizeLhBidNotice } from "./external-normalize-lh";
 import { sanitizeExternalValue } from "./external-payload";
 import { collapseSpaces, finishDraft, type NormalizeOutcome } from "./normalize-common";
-import { parseKstDateTime } from "./normalize-date";
 import {
   EXTERNAL_NORMALIZED_BID_SCHEMA_VERSION,
   type BidStatus,
@@ -86,21 +87,6 @@ function kepcoFields(
   }
   return { ok: true, fields };
 }
-function dateMetadata(
-  raw: string | null,
-  fetchedAt: Date,
-): { raw: string; precision: "DATE" | "MINUTE" | "SECOND" | "UNKNOWN"; utc: string | null } | null {
-  if (raw === null) return null;
-  const precision = /^\d{4}(?:[-.]?\d{2}){2}$/.test(raw)
-    ? "DATE"
-    : /^\d{12}$|[ T]\d{2}:\d{2}$/.test(raw)
-      ? "MINUTE"
-      : /[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/.test(raw)
-        ? "SECOND"
-        : "UNKNOWN";
-  const parsed = parseKstDateTime(raw, fetchedAt);
-  return { raw, precision, utc: parsed.ok ? parsed.value : null };
-}
 function participation(
   fields: Record<string, string | null>,
   dates: SourceMetadata["dates"],
@@ -144,6 +130,7 @@ export function normalizeExternalNotice(
     return rejected(sourceKey, "IDENTITY_NOT_VERIFIED");
   if (sourceKey === "g2b-procurement-request")
     return rejected(sourceKey, "OPERATION_INPUTS_NOT_VERIFIED");
+  if (sourceKey === "lh-bid-notice") return normalizeLhBidNotice(item, context);
   if (sourceKey !== "kepco-ebid-contract")
     return rejected(sourceKey, "PROVIDER_STATUS_NOT_VERIFIED");
   const safe = sanitizeExternalValue(item);

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <bidNum>2026100004</bidNum>
+        <bidDegree>0</bidDegree>
+        <bidKind>일반공고</bidKind>
+        <tndrbidRegDt>20261021</tndrbidRegDt>
+      </item>
+      <item>
+        <bidNum>2026100005</bidNum>
+        <bidDegree>0</bidDegree>
+        <bidnmKor>합성 데이터 정상 행</bidnmKor>
+        <bidProgrsStatus>공고중</bidProgrsStatus>
+        <tndrbidRegDt>20261021</tndrbidRegDt>
+      </item>
+    </items>
+    <numOfRows>10</numOfRows>
+    <pageNo>1</pageNo>
+    <totalCount>2</totalCount>
+  </body>
+</response>

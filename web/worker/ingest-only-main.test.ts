@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import {
   EMPTY_INGEST_SUMMARY,
   EXTERNAL_SOURCE_KEYS,
+  createExternalSourceConnector,
   createFixtureConnector,
   createMemoryQuotaStore,
   loadFixtureManifest,
@@ -802,6 +803,55 @@ describe("ingest job 처리", () => {
     expect(errors).toEqual(["RUN_MODE_MISMATCH"]);
     expect(fixtureConnector).not.toHaveBeenCalled();
     expect(fixtureReads()).toEqual([]);
+  });
+
+  // 같은 정각에 LH(우선순위 10)와 나라장터가 차례로 돈다. 같은 Redis 예산 저장소를 서비스 번호로 나눠 쓴다(운영과 같은 모양).
+  it("같은 정각의 LH 인증 실패는 LH 만 막고, 나라장터 job·예산은 그대로다", async () => {
+    const { repo, errors } = repoWith({ end: null, last: null });
+    // 결과 코드 응답은 가린 원본을 증거로 남긴다(ingest_payloads)
+    repo.recordPayload = async () => "payload-1";
+    const store = createMemoryQuotaStore({ dailyLimit: 1000 });
+    const runtime = createExternalRuntime(
+      new Map([["lh-bid-notice", { state: "READY", scheduled: true }]] as const),
+      { log: vi.fn(), changed: vi.fn() },
+    );
+    let lhCalls = 0;
+    // 합성 응답: data.go.kr 게이트웨이 30(미등록 키). 실응답 아님
+    const unregistered =
+      "<OpenAPI_ServiceResponse><cmmMsgHeader><returnReasonCode>30</returnReasonCode></cmmMsgHeader></OpenAPI_ServiceResponse>";
+    const deps = jobDeps(repo, {
+      quota: { store, serviceId: "15129394", dailyLimit: 1000 },
+      quotaForExternal: () => ({ store, serviceId: "15159012", dailyLimit: 1000 }),
+      externalSourceGate: (job) => readinessBlockOf(runtime.readiness.get(job.serviceKey)),
+      createExternalConnector: async (job) =>
+        withAuthCircuit(
+          createExternalSourceConnector({
+            sourceKey: job.serviceKey,
+            serviceKey: "synthetic-lh-key",
+            fetch: async () => {
+              lhCalls++;
+              return new Response(unregistered, { headers: { "content-type": "application/xml" } });
+            },
+          }),
+          job.serviceKey,
+          runtime,
+        ),
+    });
+    const lhJob = {
+      source: "lh",
+      serviceKey: "lh-bid-notice",
+      trigger: "SCHEDULED",
+      jobKey: "lh-bid-notice:SCHEDULED",
+    };
+    expect((await processIngestJob(lhJob, deps)).status).toBe("FAILED");
+    expect((await processIngestJob(SCHEDULED_JOB, deps)).status).toBe("SUCCEEDED");
+    expect(runtime.readiness.get("lh-bid-notice")?.state).toBe("AUTH_FAILED");
+    // 다음 정각의 LH job 은 API 를 부르지 않고 사유만 남긴다
+    expect((await processIngestJob(lhJob, deps)).status).toBe("FAILED");
+    expect(errors.at(-1)).toBe("SOURCE_AUTH_FAILED");
+    expect(lhCalls).toBe(1);
+    expect(await store.get("15159012", NOW)).toBe(1);
+    expect(await store.get("15129394", NOW)).toBe(0);
   });
 });
 

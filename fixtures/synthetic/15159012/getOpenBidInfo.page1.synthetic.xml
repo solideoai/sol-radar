@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header>
+  <body>
+    <items>
+      <item>
+        <bidNum>2026100001</bidNum>
+        <bidDegree>0</bidDegree>
+        <cstrtnJobGbNm>용역</cstrtnJobGbNm>
+        <bidKind>일반공고</bidKind>
+        <bidnmKor>합성 데이터 정보화 유지관리 용역</bidnmKor>
+        <zoneHqCd>서울지역본부</zoneHqCd>
+        <bidProgrsStatus>공고중</bidProgrsStatus>
+        <tndrCtrctMedCd>제한경쟁</tndrCtrctMedCd>
+        <tndrbidRegDt>20261021</tndrbidRegDt>
+        <presmtPrc>150000000</presmtPrc>
+        <addtTax>15000000</addtTax>
+        <fdmtlAmt>165000000</fdmtlAmt>
+        <sunjungNm>협상에의한계약</sunjungNm>
+        <tndrdocAcptBgninDtm>202610280900</tndrdocAcptBgninDtm>
+        <tndrdocAcptEndDtm>202611031000</tndrdocAcptEndDtm>
+        <openDtm>202611031100</openDtm>
+        <zoneRstrct1>서울특별시</zoneRstrct1>
+        <req1Reqlic1Nm>소프트웨어사업자</req1Reqlic1Nm>
+        <chpsnEmail>synthetic-contact@example.test</chpsnEmail>
+      </item>
+      <item>
+        <bidNum>2026100002</bidNum>
+        <bidDegree>0</bidDegree>
+        <bidKind>일반공고</bidKind>
+        <bidnmKor>합성 데이터 설계 용역</bidnmKor>
+        <bidProgrsStatus>공고중</bidProgrsStatus>
+        <tndrbidRegDt>20261021</tndrbidRegDt>
+        <presmtPrc>80000000</presmtPrc>
+        <tndrdocAcptEndDtm>202611041000</tndrdocAcptEndDtm>
+      </item>
+    </items>
+    <numOfRows>2</numOfRows>
+    <pageNo>1</pageNo>
+    <totalCount>3</totalCount>
+  </body>
+</response>
