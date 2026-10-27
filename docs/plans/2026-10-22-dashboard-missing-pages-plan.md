@@ -56,8 +56,8 @@ updated: 2026-10-22
 
 | 기능 | 로컬 자산 | 현재 확인한 한계 |
 |---|---|---|
-| N3 | [스펙](../../polaris/specs/in-progress/2026-10-21-n3-watchlist.md), [계획](2026-10-21-n3-watchlist-plan.md), [디자인](2026-10-21-n3-watchlist-design.md), 기존 브랜치의 `docs/evidence/phase-3/n3-watchlist/20261021-n3-watchlist-report.md` | 기록의 전체 `pnpm verify`·브라우저 시험 결과가 `(채움)`으로 남았다. 단위·DB·격리 실앱 기록은 있으나 현재 main 통합 성공 근거로 쓰지 않는다 |
-| N6 | [스펙](../../polaris/specs/in-progress/2026-10-21-n6-bid-projects.md), [계획](2026-10-21-n6-bid-projects-plan.md), [디자인](2026-10-21-n6-bid-projects-ui-spec.md) | 디자인은 draft이고 API·화면·통합 검증이 남았다. 현재 `dashboard-card-slots.ts`는 없으므로 옛 계획의 파일 존재 가정을 그대로 쓰지 않는다 |
+| N3 | [스펙](../../polaris/specs/done/2026-10-21-n3-watchlist.md), [계획](2026-10-21-n3-watchlist-plan.md), [디자인](2026-10-21-n3-watchlist-design.md), 기존 브랜치의 `docs/evidence/phase-3/n3-watchlist/20261021-n3-watchlist-report.md` | 기록의 전체 `pnpm verify`·브라우저 시험 결과가 `(채움)`으로 남았다. 단위·DB·격리 실앱 기록은 있으나 현재 main 통합 성공 근거로 쓰지 않는다 |
+| N6 | [스펙](../../polaris/specs/done/2026-10-21-n6-bid-projects.md), [계획](2026-10-21-n6-bid-projects-plan.md), [디자인](2026-10-21-n6-bid-projects-ui-spec.md) | 디자인은 draft이고 API·화면·통합 검증이 남았다. 현재 `dashboard-card-slots.ts`는 없으므로 옛 계획의 파일 존재 가정을 그대로 쓰지 않는다 |
 
 두 작업 폴더는 조사 당시 `git status --short` 출력이 없었다. 원격 최신 상태나 담당자의 현재 활동 여부까지 확인한 것은 아니다.
 

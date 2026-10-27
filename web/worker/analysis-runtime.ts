@@ -2,7 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import type { Database } from "@/lib/database.types";
-import { ANALYSIS_QUEUE, EMPTY_ATTACHMENT_READER, createAnalysisStores } from "@/server/analysis";
+import { ANALYSIS_QUEUE, createAnalysisStores } from "@/server/analysis";
+import {
+  createAttachmentTextReader,
+  readAttachmentTextSettings,
+  readStorageSettings,
+} from "@/server/documents";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { createAnalysisJobDeps, createAnalysisWorker } from "@/worker/analysis-job";
 import {
@@ -15,7 +20,7 @@ import { errorNameOf } from "@/worker/error-name";
 // ── analysis 런타임 조립: Worker(분석 job) + 주기 복구(멈춘 run) ──
 // 설정(복구 주기·gateway·실행 모드)을 모두 읽은 뒤에 Redis 연결을 만든다. 설정 오류는 키 이름만 담아 던진다.
 // Worker 와 Queue 는 연결을 따로 쓴다(Worker 는 blocking 명령을 쓴다). 넘겨준 연결은 BullMQ 가 닫지 않으므로 close 가 끊는다.
-// 첨부 텍스트는 C3 구현 전이라 EMPTY_ATTACHMENT_READER 다.
+// 첨부 텍스트는 documents worker 가 bid-parsed 에 저장한 PARSED·PARTIAL 텍스트를 읽는다(문서당·전체 글자 상한, 2026-10-27).
 
 export type AnalysisRuntimeFactories = {
   /** 새 연결. BullMQ Worker 가 요구하는 maxRetriesPerRequest: null. */
@@ -80,7 +85,12 @@ export function startAnalysisRuntime(
 ): { close(): Promise<void> } {
   const make: AnalysisRuntimeFactories = { ...defaultFactories(env), ...factories };
   const settings = readReconcileSettings(env);
-  const stores = createAnalysisStores(make.supabase(), EMPTY_ATTACHMENT_READER);
+  const attachmentSettings = readAttachmentTextSettings(env, readStorageSettings(env).parsedBucket);
+  const supabase = make.supabase();
+  const attachments = createAttachmentTextReader(supabase, attachmentSettings, (line) => {
+    console.log(line);
+  });
+  const stores = createAnalysisStores(supabase, attachments);
   // gateway 클라이언트는 여기서 하나만 만든다(프로세스당 하나, breaker 를 job 사이에 이어 쓴다).
   const deps = createAnalysisJobDeps(env, stores);
 

@@ -3,10 +3,11 @@ import type { SignupOptions } from "@/server/shared";
 import { createEmploymentSchema } from "@/app/auth/employment-schema";
 
 // ── 회원가입 폼의 규칙. 화면의 검증은 편의다 ──
-// 서버로 보내는 것은 이메일·비밀번호·이름·부서·직급 코드다. 비밀번호 규칙의 정본은 Supabase Auth 설정(최소 길이 등)이고,
+// 서버로 보내는 것은 이메일·비밀번호·이름·부서·직급 코드와 약관 동의 네 항목이다. 비밀번호 규칙의 정본은 Supabase Auth 설정(최소 길이 등)이고,
 // 이름은 가입 트리거가 표시 이름 규칙(앞뒤 공백 없이 1~40자)으로 다듬어 저장한다.
+// 약관 동의는 가입 트리거가 user_consents 에 항목별 시각과 함께 남긴다. 필수 셋 중 하나라도 true 가 아니면 트리거가 가입을 거절한다
+// (supabase/migrations/20261027000600_signup_consents.sql). 여기의 필수 검사는 그 전에 칸 아래 오류를 보이는 편의다.
 // 휴대폰·주소·생년월일은 화면에서 받기만 하고 보내지 않는다 — 암호화 저장을 붙일 때 함께 저장한다.
-// 약관 동의도 아직 저장하지 않는다(동의 기록은 저장을 붙일 때 시각과 함께 남긴다).
 
 const PHONE = /^01[016789]-?\d{3,4}-?\d{4}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -104,6 +105,7 @@ export const SIGN_UP_DEFAULTS: SignUpValues = {
 
 // 가입 요청에 실을 것. 민감 정보(휴대폰·주소·생년월일)는 여기 없다 — 저장을 붙일 때 이 함수만 넓힌다.
 // 이름은 user_metadata.name 으로 가서 가입 트리거가 표시 이름으로 옮긴다(로그인 토큰에도 실린다).
+// consents 의 키 이름은 가입 트리거가 읽는 이름과 같아야 한다. 동의 시각은 트리거가 정한다(화면 시계를 믿지 않는다).
 export const toSignUpRequest = (values: SignUpValues) => ({
   email: values.email,
   password: values.password,
@@ -112,6 +114,12 @@ export const toSignUpRequest = (values: SignUpValues) => ({
       name: values.name.trim(),
       department_code: values.departmentId,
       job_title_code: values.jobTitleId,
+      consents: {
+        terms: values.agreeTerms,
+        privacy: values.agreePrivacy,
+        age_over_14: values.agreeAge,
+        marketing: values.agreeMarketing,
+      },
     },
   },
 });

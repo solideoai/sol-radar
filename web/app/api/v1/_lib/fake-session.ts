@@ -1,6 +1,6 @@
 // 업무 Route Handler 계약 시험용 가짜 Supabase 전송(people `team-members/route.test.ts` 방식).
 // 인증(getClaims)·가입 완료(profiles)·업무 조직(memberships + sol_role) 코드는 진짜를 그대로 돌리고,
-// SDK 가 서버와 주고받는 자리만 바꾼다. 업무 표(notifications 등)는 시험이 넣은 행을 eq·is 로 걸러 돌려준다.
+// SDK 가 서버와 주고받는 자리만 바꾼다. 업무 표(notifications 등)는 시험이 넣은 행을 eq·is·in·not(is) 로 걸러 돌려준다.
 // SQL·RLS 는 흉내 내지 않는다(정책은 scripts/database.test.mjs 가 본다).
 //
 // 쓰는 법(시험 파일 머리, vi.mock 은 끌어올려지므로 이 모듈은 factory 안에서 동적으로 부른다):
@@ -143,6 +143,8 @@ function membershipsOf(user: FakeUser, columns: string, filters: Map<string, unk
 function query(token: string | null, table: string) {
   const user = userOf(token);
   const filters = new Map<string, unknown>();
+  // eq·is 밖의 조건(in·not is). 행 하나를 받아 남길지 정한다.
+  const predicates: ((row: Row) => boolean)[] = [];
   let columns = "*";
   let patch: Row | null = null;
   let limit: number | null = null;
@@ -151,8 +153,10 @@ function query(token: string | null, table: string) {
     if (user === null) return [];
     if (table === "profiles") return filters.get("id") === user.id ? [profileOf(user)] : [];
     if (table === "memberships") return membershipsOf(user, columns, filters);
-    const matched = (fakeSession.tables[table] ?? []).filter((row) =>
-      [...filters].every(([key, value]) => row[key] === value),
+    const matched = (fakeSession.tables[table] ?? []).filter(
+      (row) =>
+        [...filters].every(([key, value]) => row[key] === value) &&
+        predicates.every((keep) => keep(row)),
     );
     if (patch !== null) for (const row of matched) Object.assign(row, patch);
     return matched.map((row) => ({ ...row }));
@@ -173,6 +177,17 @@ function query(token: string | null, table: string) {
     },
     is: (key: string, value: unknown) => {
       filters.set(key, value);
+      return builder;
+    },
+    in: (key: string, values: readonly unknown[]) => {
+      predicates.push((row) => values.includes(row[key]));
+      return builder;
+    },
+    // not(열, "is", null) 만 흉내 낸다. 다른 연산자는 조용히 무시하지 않고 시험을 깨뜨린다.
+    not: (key: string, operator: string, value: unknown) => {
+      if (operator !== "is" || value !== null)
+        throw new Error(`fake-session: not(${operator}) 은 흉내 내지 않는다`);
+      predicates.push((row) => row[key] !== null && row[key] !== undefined);
       return builder;
     },
     // 키셋 커서·정렬은 흉내 내지 않는다(저장소 시험이 본다).

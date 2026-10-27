@@ -218,10 +218,12 @@ const listSeedUsers = async (call, serviceKey) => {
 };
 
 const createAccount = async (call, keys, account, existing) => {
+  // 부서·직급을 실은 가입은 필수 약관 동의 셋도 실어야 가입 트리거가 계정을 만든다(20261027000600).
   const metadata = {
     name: account.displayName,
     department_code: "SOL-D001",
     job_title_code: "SOL-J007",
+    consents: { terms: true, privacy: true, age_over_14: true, marketing: false },
   };
   const created = await call(
     existing ? "PUT" : "POST",

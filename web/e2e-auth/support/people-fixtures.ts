@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test as base, expect, type APIRequestContext, type WorkerInfo } from "@playwright/test";
 import { z } from "zod";
 import { readLocalStatus } from "./local-status";
-import { SEED_ACCOUNTS, SEED_TEAM, SOLIDEO_ORG_ID, type SeedRole } from "./seed";
+import { SEED_ACCOUNTS, SEED_TEAM, SIGNUP_CONSENTS, SOLIDEO_ORG_ID, type SeedRole } from "./seed";
 
 type Role = "VIEWER" | "ANALYST" | "SALES" | "ADMIN";
 type Account = {
@@ -371,7 +371,11 @@ async function preparePeople(worker: WorkerInfo, browserName: string) {
             name: "조회시험",
             ...(spec.name === "incomplete"
               ? {}
-              : { department_code: "SOL-D001", job_title_code: "SOL-J007" }),
+              : {
+                  department_code: "SOL-D001",
+                  job_title_code: "SOL-J007",
+                  consents: SIGNUP_CONSENTS,
+                }),
           },
         }),
       );

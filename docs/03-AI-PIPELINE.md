@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - pipeline
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
 # 03. AI 파이프라인: Qwen + Bosun
@@ -78,7 +78,7 @@ Compose 내부 네트워크 전용 엔드포인트다([[02-ARCHITECTURE|02 아�
 
 |엔드포인트|호출자|단위|하는 일|v0.2|
 |---|---|---|---|---|
-|`POST /parse`|documents job(Worker, 소비자 미구현), 새 revision의 첨부마다|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·Supabase Storage 접근 없음. Worker가 텍스트를 Supabase Storage에 쓰고 `bid_documents`에 상태를 기록|새로|
+|`POST /parse`|documents job(Worker, 2026-10-27 구현·로컬 통합, 운영 미적용), 처리 범위 안 첨부마다([[07-DATA-PIPELINE\|07]] "documents 큐 소비자 계약")|첨부 문서 1개|바이트 → `ParseResult`(§10.1). 50 MB 상한. 네트워크·Supabase Storage 접근 없음. Worker가 텍스트를 Supabase Storage에 쓰고 `bid_documents`에 상태를 기록|새로|
 |`POST /extract`|analysis job(Worker)이 캐시된 추출이 없을 때(설계는 별도 extract job)|공고 revision(조직 무관)|chunk → Qdrant 색인(미구현, 해커톤 컷 밖) → Qwen 추출 → 검증(§4.4) → `RequirementExtraction` + `translations`(local 번역, mock은 `null`) 반환. Worker가 `requirement_extractions`에 저장|확장|
 |`POST /kev`|analysis job(Worker)|조직 × revision × 프로필 revision|추출 `KNOWN` 값 + 프로필 요약으로 state 구성(§5.6·§5.11) → 결정 모델 질문 세트 → `KevAssist` + `stateTrace`·`stateHash` 반환|확장|
 |`POST /explain`|analysis job(Worker)|조직 × revision × 프로필 revision|규칙 판정·점수 분해·인용·결정 모델 참고 요약 → 한국어 설명. 입력에 없는 숫자가 있으면 템플릿 문장으로 대체(§6). 지금은 모든 모드가 템플릿이다(Qwen 설명 미구현)|새로|
@@ -204,7 +204,8 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`KEV_TIMEOUT_MS`|정수|`5000`|`/kev` 요청 하나의 단조 시계 마감. 레지스트리 대조와 모든 묶음(§5.10 분할 요청)을 이 안에 끝내고, 넘으면 결정 모델 없이 진행한다(`KEV_UNAVAILABLE`, ADR-032 D1). Bosun 은 질문 하나당 forward 1회라 묶음 지연이 Kev 와 다르다. 기본값이 v0.2 묶음 2개를 담는지는 실측이 없어 B2 C1 ③ G3(§5.9)에서 다시 재고 산식을 개정한다([[16-DECISIONS\|ADR-033]] E4·ADR-034)|
 |`KEV_QUESTION_SET`|문자열|`kev-qs/v0.1`|질문 세트 버전. `mock` 모드·데모 S3는 v0.1(§5.5), `live`·`fixture` 실추론은 v0.2(§5.10)|
 |`KEV_ALLOW_KO_STATE`|`true`/`false`|`false`|`/kev`의 `stateLanguage="ko"` 허용. **평가(E2, [[21-MODEL-TRAINING\|21]]) 전용, §5.11.** `false`면 ko 요청은 `422 KO_STATE_NOT_ALLOWED`. `AI_PROVIDER=hosted`와 함께면 모든 모드에서 기동 거부([[16-DECISIONS\|ADR-030]] B11)|
-|`PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`|어댑터 id|(비교 뒤 결정)|형식별 파서 어댑터(§10.1). 기본값은 실제 RFP 샘플 비교(§10.3) 뒤 정한다([[16-DECISIONS\|16 ADR]] 미결정 4·20번)|
+|`PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`|어댑터 id|(비우면 기본 어댑터)|gateway 전용, 선택. 형식별 파서 어댑터(§10.1). 비우면 `pdfplumber`·`sol-hwpx`·`sol-hwp5`가 켜진다(2026-10-27, `services/ai/src/sol_ai/settings.py`). 등록되지 않은 값이면 그 형식만 `UNSUPPORTED`+`PARSER_NOT_CONFIGURED:<fmt>`이고 `/health`의 그 형식 `parserId`는 null이다. 형식별 최종 선택은 §10.3 비교 뒤다([[16-DECISIONS\|16 ADR]] 미결정 4·20번)|
+|`PARSE_TIMEOUT_MS`|정수(ms) 1~3600000|`180000`|worker 전용, 선택. `/parse` 호출 하나의 시간 제한. 실제 HTTP 제한은 +5000 ms(185 s)다. gateway 쪽 파서 처리 90 s와 자리 대기를 덮는다(§10.1). `/extract`의 `AI_TIMEOUT_MS`와 따로다(`web/server/analysis/gateway.model.ts`)|
 |`AI_HOSTED_APPROVED`|`true`/`false`|`false`|`hosted`는 비용이 든다. **사용자가 명시 승인해야 `true`**. `false`면 `hosted` 지정 시 기동 실패|
 |`HOSTED_API_BASE_URL`, `HOSTED_API_KEY`|URL, 비밀|(없음)|hosted 공급자. 키는 서버 env만|
 |`CITATION_FUZZY_MIN_RATIO`|0~1|`0.92`|인용 검증 임계값([[15-DATA-CONTRACTS\|15 데이터 계약]] §5)|
@@ -845,7 +846,9 @@ v0.2에서 더한 플래그. 어느 것도 규칙 판정·점수·권고를 바�
 
 ## 10. 문서 파싱 (`POST /parse`)
 
-이 절이 문서 파서의 **gateway 계약 정본**이다. [[07-DATA-PIPELINE|07 수집 파이프라인]]은 documents job 관점에서 이 절을 요약하고 링크한다. 파서는 **형식별 어댑터 인터페이스**로 두고, 어떤 라이브러리를 쓸지는 실제 RFP 샘플 비교로 정한다. 특정 구현을 미리 확정하지 않는다([[16-DECISIONS|ADR-020]], 미결정 4·20번).
+이 절이 문서 파서의 **gateway 계약 정본**이다. [[07-DATA-PIPELINE|07 수집 파이프라인]]은 documents job 관점에서 이 절을 요약하고 링크한다. 파서는 **형식별 어댑터 인터페이스**로 두고, 어떤 라이브러리를 쓸지는 실제 RFP 샘플 비교로 정한다([[16-DECISIONS|ADR-020]], 미결정 4·20번).
+
+2026-10-27 형식마다 기본 어댑터 하나를 구현했다(로컬 통합, 운영 미적용). 근거는 [파서 실표본 확인](evidence/parser/20261027-parser-check.md)이다. §10.3 비교는 아직 하지 않았으므로 이 어댑터는 "비교로 고른 결과"가 아니다. `/parse` 요청·응답 계약(`ParseResult` 필드·상태 값·사유 코드)은 바꾸지 않았다.
 
 ### 10.1 인터페이스
 
@@ -869,10 +872,14 @@ interface ParseResult {
 ```
 
 - 표는 행마다 한 줄로 쓰고 셀 사이에 ` | `를 넣어 `text`에 직렬화한다. 셀마다 `charStart/charEnd`를 남겨서 표 안 문장도 인용 검증([[15-DATA-CONTRACTS|15 데이터 계약]] §5)을 그대로 통과할 수 있게 한다.
-- 어댑터는 **예정**이다(아직 없다. `services/ai/src/sol_ai/parse.py`는 형식 판정과 미지원 응답만 한다). 만들 때 `services/ai/parsers/{pdf,hwpx,hwp}/` 아래 후보마다 하나씩 둔다. 형식마다 사용할 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다(§3). 기본값은 §10.3 비교가 끝난 뒤 정한다.
-- Python 밖 런타임이 필요한 후보는 gateway 안에서 상주 하위 프로세스로 부른다(Node·JVM). 이미지 크기와 기동 시간은 비교 표에 함께 적는다([[10-DEPLOYMENT|10 배포]] 파서 런타임). 하위 프로세스의 운영 방식(상주 워커 수, 재시작 정책)은 구현 때 정한다.
-- gateway는 지금처럼 DB·Supabase Storage에 접근하지 않고, `/parse`는 네트워크도 쓰지 않는다. 형식은 확장자가 아니라 내용(매직 바이트)으로 판단한다.
-- 어댑터가 아직 정해지지 않은 형식과 모르는 형식은 `UNSUPPORTED` + `UNSUPPORTED_FORMAT`이고 `warnings`에 `PARSER_NOT_CONFIGURED:<fmt>`, `parserId`는 `"none"`이다. 50 MB를 넘으면 `UNSUPPORTED` + `TOO_LARGE`다([[16-DECISIONS|ADR-030]] B6).
+- **구현(2026-10-27)**: `services/ai/src/sol_ai/parsers/`(`pdf.py`·`hwpx.py`·`hwp.py`, 공통 `document.py`, 격리 진입점 `worker.py`)와 `services/ai/src/sol_ai/parse.py`(형식 판정·실행)다. 형식마다 사용할 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다(§3). **env를 비우면 기본 어댑터가 켜진다.** `parserId` 예: `pdfplumber@0.11.10`, `sol-hwpx@1`, `sol-hwp5@1+olefile@0.47`. `GET /health`의 `parsers`가 형식마다 `parserId`를 보인다.
+- **격리 실행**: 어댑터는 요청마다 하위 프로세스에서 돈다(`python -I`, 빈 환경 변수, stderr 버림. 파서 예외에 문서 조각이 섞일 수 있어서다). 상주 워커는 없다. 동시 실행은 2개이고 넘는 요청은 차례를 기다린다. 처리 시간 상한은 90 s다. 넘으면 프로세스를 죽이고 `FAILED`+`PARSER_ERROR`(`PARSE_TIMEOUT`)다. 프로세스가 비정상 종료하면 `PARSER_EXIT:<코드>`, 출력이 계약과 다르면 `PARSER_OUTPUT_INVALID`다(모두 `warnings`). Linux에서는 프로세스 주소 공간을 2 GiB로 묶는다.
+- **worker 쪽 시간 제한**: worker의 `/parse` 호출은 `PARSE_TIMEOUT_MS`(기본 180000) + 5000 = 185 s다. 파서 90 s와 자리 대기를 덮는다(§3).
+- gateway는 지금처럼 DB·Supabase Storage에 접근하지 않고, `/parse`는 네트워크도 쓰지 않는다. 형식은 확장자·Content-Type이 아니라 내용(매직 바이트)으로 판단한다.
+- 등록되지 않은 어댑터 값과 모르는 형식은 `UNSUPPORTED` + `UNSUPPORTED_FORMAT`이다. 앞의 경우 `warnings`에 `PARSER_NOT_CONFIGURED:<fmt>`가 붙고 `parserId`는 `"none"`이다. 50 MB를 넘으면 `UNSUPPORTED` + `TOO_LARGE`다([[16-DECISIONS|ADR-030]] B6).
+- **`text`**: 블록마다 `norm`([[15-DATA-CONTRACTS|15]] §5.1)을 적용해 공백 하나로 잇는다. 빈 셀도 자리를 남기되 공백이 겹치지 않게 써서 `norm(text) == text`다. 칸이 하나뿐인 표(안내 상자·쪽 테두리)는 표가 아니라 안의 문단으로 편다. 머리말·꼬리말은 본문에서 뺀다.
+- **`pages`**: PDF만 채운다. HWP·HWPX는 쪽 개념을 읽지 않아 빈 배열이고, worker가 기록하는 `bid_documents.page_count`는 null이다.
+- **안전 상한**: zip 항목 5,000개(`ZIP_ENTRY_LIMIT`), 압축 해제 총량 200 MiB(`UNPACKED_LIMIT`), 둘 다 넘으면 `UNSUPPORTED`+`TOO_LARGE`. XML DTD·엔티티 선언은 바로 거부(`FAILED`+`CORRUPTED`, `XML_DTD_REJECTED`). 중첩 64·XML 깊이 1,000 초과는 `FAILED`+`CORRUPTED`(`NESTING_LIMIT`). `text` 2,000,000자 초과는 블록 경계에서 자르고 `PARTIAL`(`TEXT_TRUNCATED`), 첫 블록부터 넘으면 `UNSUPPORTED`+`TOO_LARGE`(`TEXT_LIMIT`). PDF 300쪽 초과는 앞 300쪽만 읽고 `PARTIAL`(`PAGE_LIMIT:300`), 쪽 오류는 `PAGE_ERROR:<n>`이다.
 
 ### 10.2 후보 (2026-10-16 조사)
 
@@ -897,7 +904,21 @@ interface ParseResult {
 - **배포용(보호) HWP는 복호화하지 않는다.** 일부 후보(kordoc·rhwp·pyhwp·hwplib)는 배포용 문서를 풀 수 있다. 하지만 작성자가 건 보호를 푸는 것이 저작권법상 기술적 보호조치 해제에 해당하는지 확인하지 않았다. 법무 확인 전에는 `UNSUPPORTED`(`DISTRIBUTION_PROTECTED`)로 처리한다. 열기 암호 문서도 `ENCRYPTED`다.
 - 스캔 PDF(텍스트 레이어 없음)는 OCR을 하지 않고 `NO_TEXT_LAYER`로 둔다. zip·xlsx는 `UNSUPPORTED_FORMAT`이다(후속).
 
+**2026-10-27 구현한 기본 어댑터** (§10.3 비교 결과가 아니다):
+
+|형식|어댑터 id|쓴 것|라이선스|위 후보 대신 고른 이유|
+|---|---|---|---|---|
+|PDF|`pdfplumber`|pdfplumber 0.11.10(의존: pdfminer.six 20260107, pypdfium2 5.14.0, Pillow 13.0.0, cryptography 50.0.2 등)|MIT. 의존은 MIT·Apache-2.0·BSD 계열(pypdfium2는 Apache-2.0 또는 BSD-3-Clause)|1순위 후보 그대로|
+|HWPX|`sol-hwpx`|Python 표준 라이브러리(zipfile·xml.parsers.expat)로 직접 읽기|PSF(표준 라이브러리)|python-hwpx(lxml 의존) 대신. 의존성이 없고 DTD·엔티티 거부를 직접 강제할 수 있다|
+|HWP 5.0|`sol-hwp5`|olefile 0.47 + 자체 레코드 해석(한글과컴퓨터 공개 "HWP 5.0 파일 구조" 문서 기준)|BSD-2-Clause|kordoc·rhwp-python은 Node·Rust 런타임이 필요하다|
+
+- AGPL·GPL 패키지는 없다(PyMuPDF·pyhwp·poppler·ghostscript 미사용). pypdfium2·Pillow는 pdfplumber 의존이지만 `/parse` 경로에서 import하지 않는다. 패키지별 상세는 [파서 실표본 확인](evidence/parser/20261027-parser-check.md) "라이브러리·라이선스"다.
+- 배포용 HWP는 FileHeader 속성 비트 2 또는 본문이 ViewText에만 있으면 `DISTRIBUTION_PROTECTED`, 열기 암호·DRM 비트(1·4·8·10)는 `ENCRYPTED`다. 복호화하지 않는다. 합성 시험만 있고 실표본은 없다.
+
 ### 10.3 실제 RFP 샘플 비교 (P0-0 ④ → P0-3)
+
+> [!warning] 미작성 (2026-10-27)
+> 아래 사람 작성 기준표(형식마다 10건 이상)와 지표 비교는 아직 없다. 2026-10-27에는 실표본 6건(PDF·HWPX·HWP 각 2건)으로 동작만 확인했다(6건 모두 `PARSED`, 표 셀·병합 주소 보존, 같은 공고의 HWP↔PDF 낱말 일치 0.980·0.957, [파서 실표본 확인](evidence/parser/20261027-parser-check.md)). 통합 worktree에서 실제 gateway `/parse`에 실표본 6건을 다시 보내 worker 쪽 응답 계약(zod)을 모두 통과했다(전부 `PARSED`, 문서당 0.2~1.7초). 표본 6건에 `SFR-001` 꼴 요구사항 번호가 없어 번호 재현율은 재지 못했다. 아래 4번 결정 규칙("조건을 못 넘은 형식은 언제나 `PARTIAL`")은 **구현되지 않았다**. 지금 코드는 §10.4 품질 신호에 걸리지 않으면 `PARSED`를 낸다. 이 차이를 어떻게 할지는 사람이 정한다.
 
 1. **샘플**: live 공고 첨부에서 형식마다 10건 이상 고른다(HWP·HWPX·PDF 각각).
    - 표가 많은 문서(요구사항 총괄표, 평가표, 금액표)와 자격 조항이 긴 문서를 일부러 넣는다.
@@ -931,8 +952,11 @@ interface ParseResult {
 |대체 문자(`�`) 비율|1% 초과|
 |요구사항 번호 연속성|`SFR-001`~`SFR-020`처럼 같은 접두어 번호에 빈 번호가 있음|
 |표 캡션 대비 표 수|본문에 "<표" 캡션이 있는데 검출 표가 0개|
-|빈 셀 비율|표의 빈 셀이 50% 초과|
+|빈 셀 비율|표의 빈 셀이 50% 초과. **PDF에만 적용**(2026-10-27 조정)|
 
+- **구현(2026-10-27)**: 위 다섯 신호를 모두 계산한다. 쪽당 글자 수는 PDF만이다(HWP 계열은 쪽이 없다). 요구사항 번호 연속성은 같은 접두어 번호가 3개 이상이고 촘촘할 때만 본다. 값은 `quality`(`medianCharsPerPage`·`emptyCellRatio` 등)에, 걸린 사유는 `warnings`와 `quality.partialReasons`에 같이 남긴다. §10.1 안전 상한의 `TEXT_TRUNCATED`·`PAGE_LIMIT:300`·`PAGE_ERROR:<n>`도 `PARTIAL` 사유다.
+- **빈 셀 조정**: HWP·HWPX는 셀 구조를 원문 그대로 읽어 빈 셀이 서식의 기입란이다. 실표본 hwp-2(59.7%)·hwpx-2(87.0%)가 이 신호만으로 `PARTIAL`이 되었는데, 같은 내용의 PDF·원문과 대조해 빠진 글자가 없었다. 그래서 PDF에만 적용한다. 값은 `quality.emptyCellRatio`에 그대로 남긴다.
+- 요구사항 번호 연속성 신호는 실표본으로 확인하지 못했다(표본에 번호가 없었다).
 - `PARTIAL`인 문서는 화면에 "일부만 읽음" 배지를 붙인다. 그 문서에서 나온 값은 인용이 검증되면 쓰되, 그 문서가 다뤄야 할 항목 중 근거가 없는 것은 `NEEDS_REVIEW`(`PARSE_UNSUPPORTED`)로 둔다.
 - 파싱 실패·부분 파싱의 빈자리를 AI가 추측으로 채우지 않는다(§8).
 
@@ -942,8 +966,8 @@ interface ParseResult {
 |---|---|---|
 |정보화사업이 아닌 공고([[07-DATA-PIPELINE\|07]] §2.2 필터 밖: `infoBizYn='Y'`·`sucsfbidMthdNm` "SW사업"·`pubPrcrmntClsfcNm` 정보시스템·SW 분류 중 어느 것에도 맞지 않음)|수집 단계에서 제외|—|
 |첨부 다운로드 실패(인증 요구·4xx·5xx·timeout)|`download_status=FAILED`, 본문으로만 추출|`DOCUMENT_DOWNLOAD_FAILED`, 관련 자격 `확인 필요`|
-|PDF(텍스트 레이어 있음)·HWPX·HWP 5.0|파싱(그 형식의 어댑터가 정해진 뒤)|—|
-|어댑터가 아직 정해지지 않은 형식(§10.3 비교 전)|`parse_status=UNSUPPORTED`, `UNSUPPORTED_FORMAT` + `PARSER_NOT_CONFIGURED:<fmt>`, `parserId "none"`([[16-DECISIONS\|ADR-030]] B6)|`PARSE_UNSUPPORTED`, "첨부 원문 확인" 배지|
+|PDF(텍스트 레이어 있음)·HWPX·HWP 5.0|파싱(기본 어댑터, 2026-10-27. §10.3 판정 전)|`PARTIAL`이면 "일부만 읽음"|
+|`PARSER_*` 값이 등록된 어댑터가 아닌 형식|`parse_status=UNSUPPORTED`, `UNSUPPORTED_FORMAT` + `PARSER_NOT_CONFIGURED:<fmt>`, `parserId "none"`([[16-DECISIONS\|ADR-030]] B6). documents job은 이 응답을 기록하지 않고 미룬다([[07-DATA-PIPELINE\|07]] 계약)|`PARSE_UNSUPPORTED`, "첨부 원문 확인" 배지|
 |스캔 PDF(텍스트 없음)·zip·xlsx·암호 문서·배포용 HWP·기타|`parse_status=UNSUPPORTED`|`PARSE_UNSUPPORTED`, "첨부 원문 확인" 배지|
 |50 MB 초과|다운로드하지 않음(`download_status=FAILED`, `download_error_code=TOO_LARGE`, `parse_status` NULL)|`DOCUMENT_DOWNLOAD_FAILED`|
 |첨부 없음|본문만|FX-04 경로|

@@ -203,8 +203,8 @@ async function findSameInput(
 
 const REVISION_COLUMNS = "id,revision,amendment_no,fetched_at,checksum,changed_fields";
 // text_object_key 는 화면에 싣지 않고 분석 원문 준비(analysisReadiness) 판정에만 쓴다.
-// 지금(ANALYSIS_READS_ATTACHMENT_TEXT = false)은 판정에 쓰이지 않지만, 이미 읽는 질의의 한 칸이라 남겨 둔다.
-// 첨부 reader 를 연결해 상수를 true 로 바꾸면 상세와 분석 요청(readAnalysisReadiness)이 같이 바뀐다.
+// 분석이 첨부 텍스트를 읽으므로(ANALYSIS_READS_ATTACHMENT_TEXT = true) 본문이 빈 공고의 판정에 쓰인다.
+// 상세와 분석 요청(readAnalysisReadiness)이 같은 규칙을 본다.
 const DOCUMENT_COLUMNS =
   "id,name,mime_type,size_bytes,format,download_status,parse_status,download_error_code,page_count,parse_error_code,text_object_key";
 // 분석이 쓰는 추출과 같은 조건(resolveAnalysisInput)이다.
@@ -351,7 +351,7 @@ async function readAnalysisReadiness(db: Db, bidId: string): Promise<AnalysisRea
   }
   const { content } = revision.data;
   const readsAttachmentText = ANALYSIS_READS_ATTACHMENT_TEXT;
-  // 본문이 있으면 첨부를 볼 필요가 없다. 분석이 첨부를 읽지 않는 동안(지금)은 첨부를 세는 질의도 하지 않는다.
+  // 본문이 있으면 첨부를 볼 필요가 없다. 분석이 첨부를 읽지 않으면(상수 false) 첨부를 세는 질의도 하지 않는다.
   if (hasSourceBody(content) || !readsAttachmentText) {
     return analysisReadinessOf({ content, hasAnalyzableDocument: false, readsAttachmentText });
   }

@@ -188,6 +188,8 @@ export {
   isPublicAddress,
 } from "./attachment-allowlist";
 export { createFixtureAttachmentFetcher } from "./fixture-attachment-fetcher";
+export { createG2bAttachmentFetcher, httpsAttachmentTransport } from "./g2b-attachment-fetcher";
+export type { AttachmentResponse, AttachmentTransport } from "./g2b-attachment-fetcher";
 
 export { EMPTY_INGEST_SUMMARY } from "./ingestion.port";
 export { createSupabaseIngestAudit, createSupabaseIngestionRepo } from "./ingestion.repo";
@@ -327,6 +329,7 @@ export {
   ingestJobDataSchema,
   ingestJobDataSchemaAt,
   toBullJobId,
+  toDocumentsJobId,
 } from "./ingestion.queue";
 export type { DocumentsJobData, IngestJobData, JobQueue } from "./ingestion.queue";
 export {

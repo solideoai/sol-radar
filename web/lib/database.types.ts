@@ -2789,6 +2789,38 @@ export type Database = {
           },
         ]
       }
+      user_consents: {
+        Row: {
+          age_confirmed_at: string
+          marketing_agreed_at: string | null
+          privacy_agreed_at: string
+          terms_agreed_at: string
+          user_id: string
+        }
+        Insert: {
+          age_confirmed_at: string
+          marketing_agreed_at?: string | null
+          privacy_agreed_at: string
+          terms_agreed_at: string
+          user_id: string
+        }
+        Update: {
+          age_confirmed_at?: string
+          marketing_agreed_at?: string | null
+          privacy_agreed_at?: string
+          terms_agreed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_consents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       bid_list_items: {
@@ -2991,6 +3023,10 @@ export type Database = {
         Args: { p_note: string; p_project_id: string; p_to_status: string }
         Returns: undefined
       }
+      claim_document_processing: {
+        Args: { p_attempt_id: string; p_document_id: string; p_lease_seconds: number }
+        Returns: Json
+      }
       claim_document_storage: {
         Args: { p: Json }
         Returns: Json
@@ -3035,9 +3071,21 @@ export type Database = {
         Args: { meta: Json }
         Returns: string
       }
+      document_processing_candidates: {
+        Args: { p_after: string; p_is_demo: boolean; p_limit: number; p_max_per_bid: number }
+        Returns: { bid_id: string; revision_created_at: string; revision_id: string }[]
+      }
       document_storage_candidates: {
         Args: { p_limit?: number }
         Returns: Database["public"]["Tables"]["document_storage_objects"]["Row"][]
+      }
+      fail_document_download: {
+        Args: { p_attempt_id: string; p_document_id: string; p_error_code: string; p_error_message: string }
+        Returns: boolean
+      }
+      fail_document_parse: {
+        Args: { p_attempt_id: string; p_document_id: string; p_error_code: string; p_error_message: string; p_parse_status: string; p_parser_id: string }
+        Returns: boolean
       }
       find_unlinked_member: {
         Args: { p_department: string; p_name: string }
@@ -3138,6 +3186,10 @@ export type Database = {
       refresh_bid_opportunity: {
         Args: { p_id: string }
         Returns: undefined
+      }
+      release_document_processing: {
+        Args: { p_attempt_id: string; p_document_id: string }
+        Returns: boolean
       }
       release_unqueued_score_run: {
         Args: { p_score_run_id: string }

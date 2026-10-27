@@ -342,6 +342,168 @@ describe("Supabase Storage — immutable objects and private access", () => {
   });
 });
 
+describe("documents job — 문서별 처리 리스·실패 기록·처리 대상(20261027000500)", () => {
+  const ATTEMPT = [
+    "a0000000-0000-4000-8000-000000000001",
+    "a0000000-0000-4000-8000-000000000002",
+    "a0000000-0000-4000-8000-000000000003",
+  ];
+  // 공고 하나 + revision 하나 + 첨부. 기본은 live·접수 중·마감 전·최신 revision 이다.
+  async function notice(db, n, options = {}) {
+    const bid = `b2d00000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+    const rev = `be600000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+    const {
+      isDemo = false,
+      status = "OPEN",
+      deadline = "now()+interval '7 days'",
+      latest = 1,
+      names = ["공고서.pdf"],
+    } = options;
+    await db.query(
+      `insert into public.bid_notices(id,source,notice_id,title,stage,status,source_url,content_hash,is_demo,deadline_at,latest_revision)
+       values($1,'g2b-bid-notice',$2,'시험','NOTICE',$3,'https://www.g2b.go.kr/x','h',$4,${deadline},$5)`,
+      [bid, `DOC-${n}`, status, isDemo, latest],
+    );
+    await db.query(
+      "insert into public.bid_revisions(id,bid_id,revision,raw_payload,normalized,checksum) values($1,$2,1,'{}','{}','sum')",
+      [rev, bid],
+    );
+    const docs = [];
+    for (const name of names)
+      docs.push(
+        (
+          await db.query(
+            "insert into public.bid_documents(bid_id,revision_id,name,original_url) values($1,$2,$3,'https://www.g2b.go.kr/pn/a') returning id",
+            [bid, rev, name],
+          )
+        ).rows[0].id,
+      );
+    return { bid, rev, docs };
+  }
+  const asWorker = (db) => db.exec("reset role; set role service_role");
+  const call = async (db, sql, params) => (await db.query(sql, params)).rows[0].value;
+  const claim = (db, id, attempt) =>
+    call(db, "select public.claim_document_processing($1,$2,60) as value", [id, attempt]);
+  const failDownload = (db, id, attempt, code = "HTTP_4XX") =>
+    call(db, "select public.fail_document_download($1,$2,$3,'HTTP 404') as value", [
+      id,
+      attempt,
+      code,
+    ]);
+
+  it("리스는 한 시도만 잡고, 끝난 리스는 다음 시도가 이어 받으며, 실패 기록은 리스를 가진 시도만 남긴다", async (t) => {
+    const db = await migratedDb(t);
+    const { docs } = await notice(db, 1, { names: ["공고서.pdf", "제안요청서.hwpx"] });
+    await asWorker(db);
+    const first = await claim(db, docs[0], ATTEMPT[0]);
+    assert.equal(first.claimed, true);
+    assert.equal(first.document.originalUrl, "https://www.g2b.go.kr/pn/a");
+    const busy = await claim(db, docs[0], ATTEMPT[1]);
+    assert.deepEqual([busy.claimed, busy.reason], [false, "BUSY"]);
+    assert.equal(await failDownload(db, docs[0], ATTEMPT[1]), false);
+    // 같은 시도는 기한을 늘린다.
+    assert.equal((await claim(db, docs[0], ATTEMPT[0])).claimed, true);
+
+    await db.exec("reset role");
+    await db.query(
+      "update public.bid_documents set processing_lease_until=now()-interval '1 second' where id=$1",
+      [docs[0]],
+    );
+    await asWorker(db);
+    assert.equal((await claim(db, docs[0], ATTEMPT[1])).claimed, true);
+    assert.equal(await failDownload(db, docs[0], ATTEMPT[0]), false, "만료된 시도는 쓰지 못한다");
+    await assert.rejects(failDownload(db, docs[0], ATTEMPT[1], "NOT_FOUND"), /invalid_code/);
+    assert.equal(await failDownload(db, docs[0], ATTEMPT[1]), true);
+    const failed = (
+      await db.query(
+        "select download_status,download_error_code,processing_attempt_id from public.bid_documents where id=$1",
+        [docs[0]],
+      )
+    ).rows[0];
+    assert.deepEqual(failed, {
+      download_status: "FAILED",
+      download_error_code: "HTTP_4XX",
+      processing_attempt_id: null,
+    });
+    assert.equal((await claim(db, docs[0], ATTEMPT[2])).reason, "DONE");
+
+    // 파싱 실패 기록은 다운로드 OK·파싱 대기 행에만 쓴다(파일 열은 시험용 값).
+    await db.exec("reset role");
+    await db.query(
+      "update public.bid_documents set download_status='OK',object_key='raw/bids/x.hwpx',sha256=$2,size_bytes=1,parse_status='PENDING' where id=$1",
+      [docs[1], "e".repeat(64)],
+    );
+    await asWorker(db);
+    assert.equal((await claim(db, docs[1], ATTEMPT[0])).document.parseStatus, "PENDING");
+    assert.equal(
+      await call(
+        db,
+        "select public.fail_document_parse($1,$2,'UNSUPPORTED','UNSUPPORTED_FORMAT','none','PARSER_NOT_CONFIGURED:HWPX') as value",
+        [docs[1], ATTEMPT[0]],
+      ),
+      true,
+    );
+    assert.deepEqual(
+      (
+        await db.query(
+          "select parse_status,parse_error_code,parser_id,processing_lease_until from public.bid_documents where id=$1",
+          [docs[1]],
+        )
+      ).rows[0],
+      {
+        parse_status: "UNSUPPORTED",
+        parse_error_code: "UNSUPPORTED_FORMAT",
+        parser_id: "none",
+        processing_lease_until: null,
+      },
+    );
+  });
+
+  it("처리 대상은 최신 revision·접수 중·마감 전 실제 공고의 파서 형식 첨부가 남은 revision 이고, 공고당 상한을 채우면 빠진다", async (t) => {
+    const db = await migratedDb(t);
+    const open = await notice(db, 11, { names: ["공고서.pdf", "제안요청서.hwpx", "내역.xlsx"] });
+    await notice(db, 12, { deadline: "now()-interval '1 hour'" });
+    await notice(db, 13, { status: "CLOSED" });
+    await notice(db, 14, { names: ["가격.xlsx", "첨부.zip"] });
+    await notice(db, 15, { isDemo: true });
+    await notice(db, 16, { latest: 2 });
+    const amended = await notice(db, 17, { status: "AMENDED", deadline: "null" });
+    await asWorker(db);
+    const candidates = async (maxPerBid) =>
+      (
+        await db.query(
+          "select revision_id from public.document_processing_candidates(false,null,100,$1)",
+          [maxPerBid],
+        )
+      ).rows.map((row) => row.revision_id);
+    assert.deepEqual((await candidates(3)).toSorted(), [open.rev, amended.rev].toSorted());
+
+    assert.equal((await claim(db, open.docs[0], ATTEMPT[0])).claimed, true);
+    assert.equal(await failDownload(db, open.docs[0], ATTEMPT[0]), true);
+    assert.ok((await candidates(3)).includes(open.rev), "상한 전이면 남은 hwpx 로 다시 넣는다");
+    assert.ok(!(await candidates(1)).includes(open.rev), "끝난 파서 형식 첨부가 상한을 채웠다");
+  });
+
+  it("화면 역할(authenticated·anon)은 리스·실패 기록·처리 대상 함수를 실행하지 못한다", async (t) => {
+    const db = await migratedDb(t);
+    const { docs } = await notice(db, 21);
+    for (const role of ["authenticated", "anon"]) {
+      await actAs(db, users[0], role);
+      for (const [sql, params] of [
+        ["select public.claim_document_processing($1,$2,60)", [docs[0], ATTEMPT[0]]],
+        ["select public.fail_document_download($1,$2,'HTTP_4XX','x')", [docs[0], ATTEMPT[0]]],
+        [
+          "select public.fail_document_parse($1,$2,'FAILED','PARSER_ERROR','p','x')",
+          [docs[0], ATTEMPT[0]],
+        ],
+        ["select public.release_document_processing($1,$2)", [docs[0], ATTEMPT[0]]],
+        ["select * from public.document_processing_candidates(false,null,10,3)", []],
+      ])
+        await assert.rejects(db.query(sql, params), /permission denied/, `${role}: ${sql}`);
+    }
+  });
+});
+
 describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
   const ORG1 = "0e000000-0000-0000-0000-000000000001";
   const ORG2 = "0e000000-0000-0000-0000-000000000002";
@@ -3012,5 +3174,107 @@ describe("가입 신청과 명부 연결 (20261024000300)", () => {
     assert.deepEqual(await membership(db, users[1]), [{ org_role: "member", sol_role: "VIEWER" }]);
     assert.equal((await memberOf(db, users[1]))[0].person_code, "SOL-P0002");
     assert.equal((await request(db, viewer)).sol_role, "VIEWER");
+  });
+});
+
+describe("가입 약관 동의 기록 (20261027000600)", () => {
+  const solideo = "db4c863c-cb6a-593d-93ff-709a17e0157a";
+  const department = "a6c0f1fc-aeba-5e54-a20c-f6f4d1609f84";
+  const title = "33e315b9-aee8-5ea8-96eb-f9055af4eef2";
+  const alice = "00000000-0000-4000-8000-0000000000a1";
+  const bob = "00000000-0000-4000-8000-0000000000b2";
+  const agreed = { terms: true, privacy: true, age_over_14: true, marketing: false };
+  // 이메일 가입 화면이 보내는 가입 정보(sign-up-schema.ts toSignUpRequest)와 같은 모양이다.
+  const signUp = (db, id, extra) =>
+    db.query("insert into auth.users (id, email, raw_user_meta_data) values ($1, $2, $3::jsonb)", [
+      id,
+      `${id}@example.invalid`,
+      JSON.stringify({
+        name: "가입자",
+        department_code: "SOL-D001",
+        job_title_code: "SOL-J007",
+        ...extra,
+      }),
+    ]);
+  const setup = async (t) => {
+    const db = await migratedDb(t);
+    await db.query(
+      "insert into public.organizations (id,slug,name) values ($1,'org-01','솔리데오')",
+      [solideo],
+    );
+    await db.query(
+      "insert into public.departments (id,org_id,code,name,source_count,target_count,is_demo) values ($1,$2,'SOL-D001','시험부서',1,1,true)",
+      [department, solideo],
+    );
+    await db.query(
+      "insert into public.job_titles (id,org_id,code,label,sort_order) values ($1,$2,'SOL-J007','팀장',7)",
+      [title, solideo],
+    );
+    return db;
+  };
+  const countFor = async (db, table, column, id) =>
+    (await db.query(`select count(*)::int as n from ${table} where ${column} = $1`, [id])).rows[0]
+      .n;
+
+  it("이메일 가입은 필수 동의 셋이 모두 true 가 아니면 계정을 만들지 않는다", async (t) => {
+    const db = await setup(t);
+    // 화면을 거치지 않고 동의를 빼거나(키 없음) 하나를 거짓으로 보낸 가입.
+    for (const extra of [{}, { consents: { ...agreed, age_over_14: false } }])
+      await assert.rejects(signUp(db, alice, extra), /consent_required/);
+    assert.equal(await countFor(db, "auth.users", "id", alice), 0);
+    assert.equal(await countFor(db, "public.profiles", "id", alice), 0);
+    assert.equal(await countFor(db, "public.user_consents", "user_id", alice), 0);
+  });
+
+  it("필수 동의를 하면 항목별 시각을 남기고, 마케팅은 동의했을 때만 시각이 있다", async (t) => {
+    const db = await setup(t);
+    await signUp(db, alice, { consents: { ...agreed, marketing: true } });
+    await signUp(db, bob, { consents: agreed });
+    const { rows } = await db.query(
+      `select user_id, terms_agreed_at is not null as terms, privacy_agreed_at is not null as privacy,
+         age_confirmed_at is not null as age, marketing_agreed_at is not null as marketing
+       from public.user_consents order by user_id`,
+    );
+    assert.deepEqual(rows, [
+      { user_id: alice, terms: true, privacy: true, age: true, marketing: true },
+      { user_id: bob, terms: true, privacy: true, age: true, marketing: false },
+    ]);
+    const profile = await db.query(
+      "select declared_department_id, declared_job_title_id from public.profiles where id = $1",
+      [alice],
+    );
+    assert.deepEqual(profile.rows, [
+      { declared_department_id: department, declared_job_title_id: title },
+    ]);
+  });
+
+  it("본인 기록만 읽고, 본인도 service_role 도 동의 기록을 고치거나 지우지 못한다", async (t) => {
+    const db = await setup(t);
+    await signUp(db, alice, { consents: agreed });
+    await signUp(db, bob, { consents: agreed });
+    await actAs(db, alice);
+    assert.deepEqual(
+      (await db.query("select user_id from public.user_consents")).rows.map((row) => row.user_id),
+      [alice],
+    );
+    await assert.rejects(
+      db.query("update public.user_consents set terms_agreed_at = now() where user_id = $1", [
+        alice,
+      ]),
+      /permission denied for table user_consents/,
+    );
+    await assert.rejects(
+      db.query("delete from public.user_consents where user_id = $1", [alice]),
+      /permission denied for table user_consents/,
+    );
+    await db.exec("reset role");
+    await db.exec("set role service_role");
+    await assert.rejects(
+      db.query("update public.user_consents set terms_agreed_at = now() where user_id = $1", [
+        alice,
+      ]),
+      /permission denied for table user_consents/,
+    );
+    await db.exec("reset role");
   });
 });

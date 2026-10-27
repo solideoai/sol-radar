@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-24
+updated: 2026-10-27
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -105,12 +105,21 @@ erDiagram
 |`activities`|템플릿 그대로: `org_id`, `actor_id`, `kind`, `target_user_id`, `target_name`, `old_role`, `new_role`, `task_title`, `created_at`|`kind` check(템플릿)|읽기: 조직 전원. 쓰기: 트리거만. 멤버 합류·역할 변경·초대 피드다. SOL RADAR의 업무 감사는 `audit_logs`(§3.6)가 맡는다|
 |`tasks`|템플릿 그대로(`20261014000004_tasks_and_activity.sql`: `title`, `description`, `status`, `due_date`, `assignee_id` 등). P1: `bid_project_id` nullable 열, (`bid_project_id`,`org_id`) → `bid_projects(id, org_id)` 복합 FK([[16-DECISIONS\|ADR-021]])|템플릿 그대로|템플릿 정책(조직 구성원 쓰기). P1: `bid_project_id`가 있는 행(입찰 프로젝트 체크리스트)은 SALES·ADMIN만 쓰는 제한 정책. 담당자는 로그인 계정|
 |`kakao_notify_links`|`user_id` UUID PK FK profiles(on delete cascade), `enabled` boolean default false, `status` text, `access_token_enc`·`refresh_token_enc` text(웹 서버가 AES-256-GCM으로 암호화한 값. 평문을 두지 않는다), `access_expires_at`·`refresh_expires_at`(카카오 응답의 초 값으로 계산), `last_sent_at` nullable, `last_result` text nullable, `created_at`, `updated_at`(트리거). 사용자 개인 설정이라 `org_id`가 없다([[16-DECISIONS\|ADR-038]])|`status` ∈ `CONNECTED`·`EXPIRED`, `last_result` ∈ `SENT`·`FAILED`·`EXPIRED`(check)|읽기: 본인 행(`user_id = auth.uid()`)만, 열 여섯 개(`user_id`·`enabled`·`status`·`last_sent_at`·`last_result`·`updated_at`)만. 토큰 열은 화면 역할이 읽지 못한다. 쓰기: 화면 역할은 표 권한이 없고 아래 RPC 넷으로만 한다. anon은 권한이 없다. worker(service role)가 읽기·상태·토큰 갱신을 한다. 구현 중(`feat/kakao-notify` `d327894`, `20261021000001`)|
+|`user_consents`|`user_id` UUID PK FK profiles(on delete cascade), `terms_agreed_at`·`privacy_agreed_at`·`age_confirmed_at` timestamptz not null, `marketing_agreed_at` timestamptz nullable(null = 마케팅 수신 동의 안 함). 시각은 가입 트리거가 행을 넣는 순간(`now()`)이고 화면이 보낸 시각을 믿지 않는다(`20261027000600`, 2026-10-27 로컬 통합, 운영 미적용)|사람 하나에 한 행. 탈퇴(`auth.users` 삭제)하면 `profiles`와 함께 지워진다|읽기: 본인 행(`user_id = auth.uid()`)만. service_role도 읽기만 한다. 쓰기: 가입 트리거 `handle_new_user`(security definer)만 넣는다. 고치기·지우기 권한은 화면 역할에도 service_role에도 없다. anon은 권한이 없다|
 
 카카오톡 알림 연결 RPC([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", 2026-10-22 main 병합. 처음 커밋 `d327894`의 `20261021000001`은 `20261023000700`으로 번호를 바꿨다): 넷 다 `security definer`·`set search_path = ''`이고 `authenticated`만 실행한다. 로그인하지 않았으면 `UNAUTHENTICATED`로 거절한다. `scripts/db-verify.mjs` 허용 목록에 올렸다.
 - `save_kakao_notify_link(text, text, timestamptz, timestamptz)`: 연결 콜백이 부른다. 본인 행에 암호문 둘·만료 둘을 넣거나 바꾸고 `status=CONNECTED`·`enabled=true`로 둔다.
 - `set_kakao_notify_enabled(boolean)`: 켜기는 본인 행이 `CONNECTED`일 때만 된다(아니면 `KAKAO_NOT_CONNECTED`). 끄기는 늘 된다.
 - `disconnect_kakao_notify()`: 연결 해제. 본인 행을 지운다(설계 §7은 `enabled=false`·토큰 열 비우기였으나 구현은 행 삭제다).
 - `request_kakao_notify_test() returns boolean`: 본인 행이 `CONNECTED`이고 켜져 있을 때만(아니면 `KAKAO_NOT_READY`) outbox `KAKAO_TEST` 1건을 넣는다(`org_id` null, `aggregate_type` `kakao_notify_link`, 키 `<userId>:<UTC YYYY-MM-DDTHH:MI>:KAKAO_TEST`). 같은 분에 이미 있으면 false다.
+
+가입 약관 동의 검사(`20261027000600`, 2026-10-27 로컬 통합, 운영 미적용. 근거 [live 가드 검증](evidence/live-guards/20261027.md)):
+- `handle_new_user`를 다시 만들었다. 이메일 가입(가입 정보에 `department_code`·`job_title_code` 키가 있음)은 `consents`의 `terms`·`privacy`·`age_over_14`가 모두 JSON `true`일 때만 계정을 만든다. 아니면 `consent_required`(22023)로 거절하고 `auth.users` 삽입이 통째로 되돌아간다. 문자열 `"true"`·`1`은 동의가 아니다.
+- 통과하면 같은 트리거가 `user_consents` 한 행을 넣는다. `consents.marketing`은 JSON `true`일 때만 동의 시각을 적는다.
+- 화면 검증(`sign-up-schema.ts`)은 편의이고 DB가 막는다. 2026-10-27 코드의 가입 화면은 `options.data.consents`를 보낸다. 운영자 스크립트(admin API)로 같은 키를 쓰는 계정도 같은 규칙을 지난다. `scripts/db-seed.mjs`·E2E seed도 `consents`를 보낸다.
+- 간편 가입(OAuth, 두 키가 없음)은 지금처럼 동의 없이 미완료 프로필만 만든다. 동의 화면은 후속 과제다([[09-SECURITY|09 보안]] 인증).
+- 부서·직급 확인과 프로필 삽입은 `20261016000004` 본문 그대로다. 되돌리기는 새 마이그레이션으로 그 본문을 다시 만들고 `user_consents`를 drop 한다.
+- 운영 순서 주의: 이 마이그레이션을 먼저 적용하고 웹 배포가 늦으면, 그 사이 운영 이메일 가입이 `consent_required`로 막힌다([[10-DEPLOYMENT|10 배포]] "첨부 처리 운영 반영").
 
 **없는 것**: `users`·`refresh_tokens` 표, 비밀번호 해시·계정 잠금·마지막 로그인 열. 로그인·세션·토큰·잠금은 Supabase Auth(`auth.users`, `auth.sessions`, `auth.refresh_tokens`)가 맡는다. 계정 비활성화는 `disabled_at` 대신 템플릿 `profiles.status = 'suspended'`를 쓴다(템플릿 `20261015000001_account_status_and_deletion.sql`). 정지하면 로그인이 막히고 세션이 끊기며, `my_org_ids()`가 빈 목록을 돌려줘 조직 데이터가 모두 닫힌다.
 
@@ -166,6 +175,8 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
   - `format`: 확장자가 아니라 내용(매직 바이트)으로 판정한 형식. gateway `POST /parse` 응답의 `format` 값이다.
   - `parse_status`·`parse_error_code`: `/parse` 결과. 다운로드가 `OK`가 되면 `PENDING`으로 두고 파싱 뒤 결과 값으로 바꾼다. 다운로드가 `PENDING`·`FAILED`인 동안은 NULL(파싱 시도 안 함)이다. 형식별 파서는 실제 RFP 샘플 비교로 정한다([[03-AI-PIPELINE|03 AI 파이프라인]] 문서 파싱 절). 50 MB 초과는 다운로드하지 않으므로 `download_status=FAILED` + `download_error_code=TOO_LARGE`이고 `parse_status`는 NULL이다.
   - `parser_id`: 파서 어댑터와 버전. `parse_quality`: 파서가 낸 품질 신호.
+  - `processing_attempt_id`·`processing_lease_until`(`20261021000700`이 만든 열): documents job의 문서별 처리 리스다. `20261027000500`부터 처음 쓴다(아래 §7). 화면은 읽지 않는다.
+  - 2026-10-27 코드(로컬 통합, 운영 미적용)의 documents job이 실제로 채운다. 처리 범위 밖 첨부(형식 밖, 공고당 상한 밖, 마감 지난 공고)는 `download_status=PENDING`으로 남는다([[07-DATA-PIPELINE|07 수집]] "documents 큐 소비자 계약", [[16-DECISIONS|ADR-055]]).
 - `bid_structured_requirements`: 면허제한(`lcnsLmtNm`)·허용 업종(`permsnIndstrytyList`)·참가가능지역(`prtcptPsblRgnNm`)·지역의무공동도급(`rgnDutyJntcontrctRt`) 행. 같은 조건을 이 표와 Qwen 추출이 둘 다 주면 **이 표가 우선**이고, 둘이 다르면 그 조건은 `CONFLICTED`다([[08-SCORING|08 점수]] §5.1). `source_operation`은 값을 받은 오퍼레이션 이름, `value`는 그 행의 원본 필드다(담당자 필드는 넣지 않는다).
 - `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 숫자·식별자·단위·조건 검증을 통과한 공고 번역만 들어간다. 기업 프로필 보충 번역은 `/kev` 요청에서만 사용하며 이 열에 저장하지 않는다. 결정 모델 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 
@@ -361,7 +372,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`company_profiles`|3|`org-01` revision 1(초기)·revision 2(기술·실적 추가)와 `org-02` 격리 시연용 프로필 1개(`scripts/demo/plan.mjs`). 마지막 줄의 `profileRevisions=2`는 `org-01` 것만 센다. 데모에서 revision 차이를 보여 준다. 모두 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
 |`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재. `source=fixture`|
 |`bid_revisions`|19 (`LIVE` 뒤 23)|seed 직후는 공고 19건의 r1. 정정·기한변경·취소 fixture(`FX-06`·`FX-07`·`FX-08`·`FX-10`)는 `batch=LIVE` 수집에서 revision 2를 얻어 23이 된다([[16-DECISIONS\|ADR-030]] B15)|
-|`bid_documents`|07 표 기준|첨부가 있는 fixture만. 수집 흐름 그대로 넣으므로 지금은 모두 `download_status=PENDING`, `parse_status` NULL이다(reset 뒤 18행, `docs/evidence/phase-5/preanalyze-local-c2b12d3.md` 7차). documents 소비자가 없어 그대로 남는다([[03-AI-PIPELINE\|03]] §2). 설계 목표: `download_status=OK`, 파싱 실패 케이스(`parse_status` `UNSUPPORTED` 또는 `FAILED`) 1건 이상 포함|
+|`bid_documents`|07 표 기준|첨부가 있는 fixture만. 수집 흐름 그대로 넣으므로 지금은 모두 `download_status=PENDING`, `parse_status` NULL이다(reset 뒤 18행, `docs/evidence/phase-5/preanalyze-local-c2b12d3.md` 7차). mock·fixture 모드에는 documents 소비자가 없어 그대로 남는다(2026-10-27 코드도 live 공고만 처리한다. 데모 첨부를 처리하면 골든이 바뀐다, [[07-DATA-PIPELINE\|07]] "documents 큐 소비자 계약"). 설계 목표: `download_status=OK`, 파싱 실패 케이스(`parse_status` `UNSUPPORTED` 또는 `FAILED`) 1건 이상 포함|
 |`bid_structured_requirements`|07 표 기준|API 구조화 자격 필드를 담은 fixture만|
 |`requirement_extractions`|0|seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다). 검증된 추출은 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장하고(인용 검증 포함, [[03-AI-PIPELINE\|03]] §4.4), `FX-02`는 S4 라이브 분석 때 저장한다. `fixtures/extractions/` 파일 20개는 gateway mock이 읽는 정본으로 그대로다([[16-DECISIONS\|ADR-031]] C16)|
 |`score_runs` / `requirement_assessments`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 `pnpm demo:preanalyze`로 18건을 사전 분석해 채운다([[16-DECISIONS\|ADR-030]] B22)|
@@ -406,6 +417,14 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 - `20261019000019`: `ingest_runs`의 `authenticated` select를 열 11개로 줄인다(§3.6, N8 보안 점검 W1, main `81249f0`). 되돌리기는 새 마이그레이션으로 표 단위 select를 다시 준다.
 - `20261021000001`·`20261021000002`([[16-DECISIONS|ADR-038]], 구현 중 `feat/kakao-notify` `d327894`, main 병합 전): 카카오톡 알림 연결 표 `kakao_notify_links`와 RPC 넷(§3.1), 이벤트·알림 종류 check 확장, 부분 인덱스 다시 만들기, `finish_score_run`의 `BID_RECOMMENDED` 쓰기(§3.4·§3.6). 클라우드 적용은 병합 뒤 사용자 확인으로 한다.
 - `20261019000015`·`20261019000018`이라는 파일은 main에 없다.
+- `20261027000500_document_processing_lease`(2026-10-27, 로컬 통합, 운영 미적용): documents job의 문서별 처리 함수 다섯 개. 표·열·제약은 바꾸지 않는다. 다섯 다 `security invoker`·`set search_path = ''`이고 service_role만 실행한다(anon·authenticated·public은 못 한다).
+  - `claim_document_processing(document_id, attempt_id, lease_seconds)`: 처리할 상태(다운로드 대기, 또는 다운로드 OK + 파싱 대기)인 행만 리스를 잡는다. 리스가 없거나 끝났거나 같은 시도의 것일 때만 잡는다. 못 잡으면 사유 `MISSING`·`DONE`·`BUSY`를 돌려준다. 리스는 30~3600초.
+  - `fail_document_download`: 그 시도가 리스를 가진 다운로드 대기 행만 `FAILED` + 사유 코드로 닫는다. 사유는 화면 계약의 일곱 값만 받는다.
+  - `fail_document_parse`: 그 시도가 리스를 가진 파싱 대기 행만 `UNSUPPORTED`·`FAILED` + 사유 코드로 닫는다.
+  - `release_document_processing`: 그 시도의 리스만 푼다(성공 뒤, 또는 일시 오류로 다음 시도에 넘길 때).
+  - `document_processing_candidates(is_demo, after, limit, max_per_bid)`: 복구 회차가 job을 넣을 revision을 고른다. 최신 revision·접수 중(`OPEN`·`AMENDED`)·마감 전이고, `.pdf`·`.hwp`·`.hwpx` 첨부 가운데 끝난 것이 공고당 상한(1~20)보다 적고 처리할 것이 남은 것만이다. 한 번에 최대 100.
+  - 원본·텍스트 확정은 기존 `finish_document_storage`가 그대로 한다. 정책 시험은 `scripts/database.test.mjs` "documents job — 문서별 처리 리스·실패 기록·처리 대상(20261027000500)"이다.
+- `20261027000600_signup_consents`(2026-10-27, 로컬 통합, 운영 미적용): `user_consents` 표(§3.1)와 `handle_new_user` 동의 검사(§3.1 "가입 약관 동의 검사"). 정책 시험은 `scripts/database.test.mjs` "가입 약관 동의 기록 (20261027000600)"이다.
 - 적용 상태(2026-10-20): 로컬과 클라우드 모두 `20261019000019`까지 30개가 적용됐다. 클라우드는 sol-radar-3e가 사용자 확인("적용")을 받고 main `9048995`에서 `pnpm db:push`로 적용했고 `pnpm db:verify`가 통과했다(20:48 KST).
 
 ADR-021 관심·프로젝트 표와 `tasks.bid_project_id`는 §3.8의 로컬 통합 마이그레이션으로 구현했다. §3.5 `employment_status`·ADMIN 인력 편집 정책은 별도 P1 착수 때 새 파일로 만든다.

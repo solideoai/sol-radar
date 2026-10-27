@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
 # 07. 조달청 데이터 수집
@@ -75,7 +75,7 @@ registry 키(`g2b-bid-notice` 등 9개)와 호출 시점은 [[15-DATA-CONTRACTS|
 
 ## 2. Connector 계약
 
-Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage({from,to,cursor}) -> {records,nextCursor,rateLimitInfo}`다. 요청 timeout 15s, 오류 시 지수 backoff + jitter(1s·2s·4s, 최대 3회), 429는 `Retry-After` 헤더를 존중한다. 일정 실행은 BullMQ repeatable scheduler로 구성하되 `job_key`로 중복 예약을 막는다. data.go.kr 서비스키 4개(`G2B_*_SERVICE_KEY`, §2.2)는 worker 전용 서버 env이고 로그·오류 메시지·`ingest_errors`에 남기지 않는다. 쿼리 파라미터로 가므로 요청 URL도 기록 전에 가린다([[09-SECURITY|09 보안]]).
+Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage({from,to,cursor}) -> {records,nextCursor,rateLimitInfo}`다. 요청 timeout 15s, 오류 시 지수 backoff + jitter(1s·2s·4s, 최대 3회), 429는 `Retry-After` 헤더를 존중한다. 일정 실행은 BullMQ Job Scheduler로 구성하되 `job_key`로 중복 예약을 막는다(2026-10-26부터 `g2b-scheduled`, KST 3시간 정각 cron, §2.2). data.go.kr 서비스키 4개(`G2B_*_SERVICE_KEY`, §2.2)는 worker 전용 서버 env이고 로그·오류 메시지·`ingest_errors`에 남기지 않는다. 쿼리 파라미터로 가므로 요청 URL도 기록 전에 가린다([[09-SECURITY|09 보안]]).
 
 실행 위치와 DB 쓰기:
 - 수집 job(ingest job)은 **`web/worker`**가 돌린다. BullMQ 소비자이고, 같은 코드베이스의 별도 Node(TypeScript) 프로세스다. Connector·정규화·변경 감지 코드는 `web/server/ingestion`에 두고 worker가 import한다.
@@ -84,7 +84,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다(§2.7).
 - 첨부 원본·추출 텍스트는 Supabase Storage에 쓰고 DB에는 키만 둔다.
 - 공고·revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 한 번에(원자적으로) 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘겨 리허설마다 공고 id를 보존한다([[16-DECISIONS|ADR-030]] B18).
-- 변경 감지 뒤 공고 이벤트(`BID_CREATED`·`BID_CHANGED`)는 저장 RPC(`ingest_save_revision`)가 DB 표 `outbox_events`에 함께 쓰고, Redis/BullMQ에는 `documents` 큐 job만 넣는다(documents 소비자는 미구현). 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집 주기는 기본 30분이고 env `G2B_INGEST_INTERVAL_MINUTES`로 바꾼다(B18, §2.2).
+- 변경 감지 뒤 공고 이벤트(`BID_CREATED`·`BID_CHANGED`)는 저장 RPC(`ingest_save_revision`)가 DB 표 `outbox_events`에 함께 쓰고, Redis/BullMQ에는 `documents` 큐 job만 넣는다(documents 소비자는 2026-10-27 구현, 로컬 통합·운영 미적용. 이 문서 끝 "documents 큐 소비자 계약"). 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집 주기는 기본 30분이고 env `G2B_INGEST_INTERVAL_MINUTES`로 바꾼다(B18, §2.2. 지난 설정: 2026-10-26부터 KST 3시간 정각 cron 고정이고 이 env는 무시한다).
 
 > [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`)
 > worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `import "server-only"`인 `web/server` 모듈을 불러온다. 지금 처리하는 job과 종결 증거는 [[16-DECISIONS|16 ADR]] 미결정 9번이다.
@@ -98,9 +98,9 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 | `BidSourceConnector` | `OfficialApiConnector` | `SOL_RUN_MODE=live` + registry 항목([[15-DATA-CONTRACTS\|15]] §8) + 그 소스의 서비스키(registry `serviceKeyEnv`, §2.2) | data.go.kr 실제 HTTP 호출(§2.2) |
 | | `FixtureConnector` | `SOL_RUN_MODE=fixture` 또는 `mock` | `fixtures/manifest.yaml` 순서대로 페이지 반환, 네트워크 호출 없음 |
 | | `RecordedApiConnector` | 시험·개발 | 저장한 실제 응답(`fixtures/recorded/`, §2.3)을 재생한다. 네트워크 호출 없음 |
-| `AttachmentFetcher` | `G2bAttachmentFetcher` | `live` | `www.g2b.go.kr` allowlist 다운로드(§2.4) |
-| | `FixtureAttachmentFetcher` | `fixture`·`mock`·시험 | `createFixtureAttachmentFetcher`는 `web/server/ingestion/fixture-attachment-fetcher.ts`에 구현돼 있다. `fixtures/docs/` 샘플과 documents 소비자 연결은 미완이며, 현재 제품에서 첨부 다운로드·파싱이 실행된다는 뜻은 아니다 |
-| `DocumentParser` | 형식별 어댑터 | 모든 모드 | gateway `POST /parse` 안에서 동작(§2.5) |
+| `AttachmentFetcher` | `G2bAttachmentFetcher` | `live` | `www.g2b.go.kr` allowlist 다운로드(§2.4). `createG2bAttachmentFetcher`(`web/server/ingestion/g2b-attachment-fetcher.ts`, 2026-10-27) |
+| | `FixtureAttachmentFetcher` | 시험 | `createFixtureAttachmentFetcher`는 `web/server/ingestion/fixture-attachment-fetcher.ts`에 있다. `fixture`·`mock` 모드는 documents 소비자를 띄우지 않으므로 제품에서는 쓰이지 않는다(데모 첨부를 처리하면 골든이 바뀐다, 이 문서 끝 계약) |
+| `DocumentParser` | 형식별 어댑터 | 모든 모드 | gateway `POST /parse` 안에서 동작(§2.5). 기본 어댑터 `pdfplumber`·`sol-hwpx`·`sol-hwp5`(2026-10-27) |
 
 - 세 실행 모드는 `RecordedApiConnector`를 고르지 않는다. `OfficialApiConnector`의 응답 해석(정규화·오류 처리)을 네트워크 없이 시험하는 데 쓴다.
 - `OfficialApiConnector`는 registry 항목이나 서비스키 4개 중 하나라도 없으면 기동할 때 빠진 env 이름을 알리고 멈춘다(값은 출력하지 않는다). 다른 Connector로 조용히 바꾸지 않고, 다른 서비스의 키를 대신 쓰지 않는다.
@@ -124,7 +124,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
   - 정정·취소: `inqryDiv=3`(변경일시). **미구현**: 지금 목록 요청은 `inqryDiv=1`만 보낸다(`web/server/ingestion/g2b-request.ts`)
   - 기간: `inqryBgnDt`·`inqryEndDt`(`YYYYMMDDHHMM`)
 - 수집 창
-  - 일정 실행(BullMQ repeatable job)과 `window` 없는 수동 실행: 직전에 성공한 일정 run의 창 끝 ~ 지금(분 내림). 일정 run이 없으면 지금 − 1일부터다. 마지막 일정 run이 `FAILED`면 새 창을 열지 않고 그 창을 다시 쓴다. worker를 다시 띄울 때도 같다(일정 run은 jobKey `g2b:SCHEDULED:<창 끝>`이 같아져 저장된 cursor부터 잇는다, §2.6). 요청 한 번은 최대 1일 단위로 나눠 조회한다.
+  - 일정 실행(BullMQ Job Scheduler, 2026-10-26부터 3시간 정각)과 `window` 없는 수동 실행: 직전에 성공한 일정 run의 창 끝 ~ 지금(분 내림). 일정 run이 없으면 지금 − 1일부터다. 마지막 일정 run이 `FAILED`면 새 창을 열지 않고 그 창을 다시 쓴다. worker를 다시 띄울 때도 같다(일정 run은 jobKey `g2b:SCHEDULED:<창 끝>`이 같아져 저장된 cursor부터 잇는다, §2.6). 요청 한 번은 최대 1일 단위로 나눠 조회한다.
   - 수동 실행(`POST /api/v1/admin/ingestion/runs`의 `window`, [[05-API-SPEC|05 API]]): 최대 7일, `from < to`, `to`는 지금 + 5분까지(§2.7).
   - API가 허용하는 조회 기간 상한은 미확인이다(§1.1 콜아웃). 실측해서 나눠 조회하는 단위를 조정한다.
 - 정보화사업 필터: `infoBizYn`은 요청 파라미터가 아니다. 어느 오퍼레이션의 명세에도 없고, 요청에 넣어도 오류 없이 무시된다(2026-10-19 실호출). 그래서 응답의 `infoBizYn`으로 클라이언트 쪽에서 거른다. 7일 100건 표본에서 `Y`는 6건이고 약 93%가 빈값(`""`)이라 `Y`만 받으면 대부분을 놓친다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md) §10-4). 그래서 필터를 넓힌다([[16-DECISIONS|ADR-029]] A4): `infoBizYn='Y'` **또는** `sucsfbidMthdNm`에 "SW사업" 포함 **또는** `pubPrcrmntClsfcNm`이 정보시스템·SW 분류. 필터는 교체할 수 있는 순수 함수로 두고 기본값이 이 규칙이다. 업종코드 필터는 쓰지 않는다.
@@ -140,12 +140,17 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
   - 예산 저장소(Redis) 조회 또는 예약을 확인하지 못하면 해당 HTTP를 보내지 않고 run을 `FAILED`로 닫는다(`g2b:quota` `QUOTA_STORE_UNAVAILABLE`, 사용자 결정 2026-10-20). live Worker의 quota 구성 누락과 EVAL 권한 거부도 같은 정책이다. worker 예산 연결은 `enableOfflineQueue: false`·`maxRetriesPerRequest: 1`·`autoResendUnfulfilledCommands: false`·`commandTimeout` 2000ms를 사용한다. 응답이 유실된 예약은 자동 재전송하지 않는다. 매 요청의 KST 날짜를 확인하며 예약 응답을 기다리는 사이 날짜가 바뀌면 새 날짜에도 예약한다. 이전 날짜 슬롯은 환불하지 않는다.
   - 사후 합산 방식의 옛 Worker와 사전 예약 방식의 새 Worker를 혼합 운용하면 초과 방지가 보장되지 않는다. [회사 실행서](../infra/company/README.md)의 순서대로 옛 Worker를 먼저 정지하고 새 Worker를 기동한다. 키·TTL·정수 카운터는 유지하며 전환 때 기존 예산을 초기화하지 않는다. 신규 API의 Registry 비활성 상태는 이 변경으로 해제하지 않는다.
   - 실패한 일정 run의 창은 다음 일정 실행과 worker 재기동 때 다시 쓴다(위 "수집 창").
-  - **운영 결정**([[16-DECISIONS|ADR-035]] F11, 사용자 결정 2026-10-20): `live` 영구 실패(서비스키 거부 등)면 `FAILED` 창을 다시 써서 같은 창에 머문다. 예산이 소진된 날에는 일정 주기(30분)마다 `g2b:quota` 기록이 1건씩 쌓인다(호출 0). 해커톤 동안 받아들인다. 해커톤 뒤 후속: 같은 오류는 하루 1건으로 줄이고, 영구 실패면 그 창을 포기하는 규칙을 둔다.
+  - **운영 결정**([[16-DECISIONS|ADR-035]] F11, 사용자 결정 2026-10-20): `live` 영구 실패(서비스키 거부 등)면 `FAILED` 창을 다시 써서 같은 창에 머문다. 예산이 소진된 날에는 일정 주기(당시 30분, 2026-10-26부터 3시간)마다 `g2b:quota` 기록이 1건씩 쌓인다(호출 0). 해커톤 동안 받아들인다. 해커톤 뒤 후속: 같은 오류는 하루 1건으로 줄이고, 영구 실패면 그 창을 포기하는 규칙을 둔다.
   - data.go.kr XML 오류 봉투의 `returnReasonCode`는 22 = 일일 한도 초과(호출 자체의 오류 코드는 `API_QUOTA_EXCEEDED`, 위 처리), 30·31 = 키 오류(재시도하지 않는다)로 읽는다([[16-DECISIONS|ADR-030]] B17). 실측 표본이 없는 **미검증 가정**이다(16 미결정 1번).
 - 용량 추정(가정): 목록 1회당 100건, 정보화 공고 1건당 보조 조회 3회. 그러면 개발계정 1,000건/일로 하루 약 300건의 정보화 공고를 처리할 수 있다. 부족하면 운영계정으로 올린다(자동승인).
   - 실측(2026-10-20 C8, [증거](evidence/demo-day/20261020-1434/run-modes.md)): 24시간 창 하나에 정보화 공고 86건, 호출 266회(목록 쪽 5 + 새 revision 87 × 보조 3, 재시도 0). `live`로 바꾸면 worker 기동 직후 첫 일정 run이 이만큼(약 260회) 쓴다([[12-ROADMAP|12 로드맵]] S0 `live` 전환 비용).
 - 초당 30 tps(참고문서)를 넘지 않는다.
-- 일정 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(worker 전용, 선택): 기본 `30`(분)이고 양의 정수만 받는다. 틀리면 worker가 env 이름만 알리고 멈춘다(`web/worker/ingest-queue.ts`의 `DEFAULT_G2B_INGEST_INTERVAL_MINUTES`, main `9da17c4`). main `4895010`부터 `infra/compose.yaml`이 이 키를 worker `environment`에 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에서는 기본값 30분이 쓰인다([[10-DEPLOYMENT|10 배포]] env 파일 위치 표, [[16-DECISIONS|ADR-031]] C13).
+- **정기 수집 일정(2026-10-26부터)**: worker가 BullMQ Job Scheduler `g2b-scheduled`를 `pattern "0 */3 * * *"`, `tz "Asia/Seoul"`로 건다(매일 KST 00·03·06·09·12·15·18·21시). `every`를 쓰지 않고, 기동 즉시 수집하지 않는다. 같은 id로 upsert해 옛 일정을 바꾼다. 운영은 회사 ingest 전용 Worker가 맡는다. 근거는 [[plans/2026-10-26-live-ops-cutover|10-26 실운영 전환 실행서]] §1·§3·§9다.
+  - 수동 [지금 불러오기](관리자)는 회사 redis-api의 gate를 거친다. 같은 사용자 60분, 누가 했든 전역 공유 실행 10분, KST 하루 20회다(Redis Lua 한 번으로 원자 처리, 거절·실패 때 쿨다운 없음, `web/server/ingestion/manual-ingest-gate.model.ts`). 상태는 `GET /api/v1/admin/ingestion/manual-gate`([[05-API-SPEC|05]] §2).
+  - 예산은 같은 카운터 `quota:15129394:YYYYMMDD`를 쓴다. 정기 수집은 900부터 보조 조회를 멈추고 1000에서 막는다. 수동 job은 720부터 보조 조회를 멈추고 800에서 막는다(정기 몫 200 보호). 정기 창 상한은 24시간이다.
+  - 운영 결과(2026-10-27 메인 세션 확인): 2026-10-26 13:51부터 7회 모두 `SUCCEEDED`, 실공고 592건, 최신 수집 2026-10-27 09:03.
+  - 화면의 "수집 지연" 기준은 정기 간격 180분 + 30분 = 210분이다([[06-UI-UX|06]] §8).
+- (지난 설정, 2026-10-26까지) 일정 수집 주기 env `G2B_INGEST_INTERVAL_MINUTES`(worker 전용, 선택): 기본 `30`(분)이고 양의 정수만 받는다. 틀리면 worker가 env 이름만 알리고 멈춘다(`web/worker/ingest-queue.ts`의 `DEFAULT_G2B_INGEST_INTERVAL_MINUTES`, main `9da17c4`). main `4895010`부터 `infra/compose.yaml`이 이 키를 worker `environment`에 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에서는 기본값 30분이 쓰인다([[10-DEPLOYMENT|10 배포]] env 파일 위치 표, [[16-DECISIONS|ADR-031]] C13).
 
 ### 2.3 서비스키 없이 개발하기
 
@@ -155,11 +160,12 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 
 ### 2.4 첨부 다운로드 (`AttachmentFetcher`)
 
-documents job이 새 revision의 첨부를 내려받아 Supabase Storage에 쓰고, 바이트를 gateway `POST /parse`로 보낸다. 추출 텍스트도 Supabase Storage에 쓰고 `bid_documents`에 상태를 기록한다([[04-DATABASE|04 DB]]). 다운로드는 worker만 한다. gateway는 네트워크·Supabase Storage에 접근하지 않는다. job 모양·재시도·보존·복구 대상은 이 문서 끝 "documents 큐 소비자 계약"이 정본이다(소비자는 아직 없다).
+documents job이 새 revision의 첨부를 내려받아 Supabase Storage에 쓰고, 바이트를 gateway `POST /parse`로 보낸다. 추출 텍스트도 Supabase Storage에 쓰고 `bid_documents`에 상태를 기록한다([[04-DATABASE|04 DB]]). 다운로드는 worker만 한다. gateway는 네트워크·Supabase Storage에 접근하지 않는다. job 모양·처리 범위·재시도·보존·복구 대상은 이 문서 끝 "documents 큐 소비자 계약"이 정본이다(소비자는 2026-10-27 구현, 로컬 통합·운영 미적용).
 
 - 첨부 목록: 입찰공고 응답의 `ntceSpecDocUrl1~10`·`ntceSpecFileNm1~10`과 e발주 첨부 오퍼레이션 결과.
-- 허용 호스트는 `www.g2b.go.kr`(https)뿐이다. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트다.
-- 리다이렉트는 같은 allowlist 안에서만 따른다. DNS를 다시 확인하고 사설 IP는 거부한다. timeout 30 s, 최대 50 MB다([[09-SECURITY|09 보안]] SSRF).
+- 허용 호스트는 `www.g2b.go.kr`(https)뿐이다. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트다. 포트·userinfo가 붙은 URL은 받지 않는다.
+- 리다이렉트는 같은 allowlist로 매번 다시 보고 최대 3회만 따른다. 같은 호스트의 `login`·`sso` 경로로 가면 `AUTH_REQUIRED`다. DNS 결과에 공인 주소가 아닌 것이 하나라도 섞이면 연결 전에 끊고(`HOST_NOT_ALLOWED`), 확인한 주소로만 연결한다(DNS rebinding 방어). 리다이렉트를 포함해 30 s, 50 MiB를 넘으면 받는 도중에 끊는다(`TOO_LARGE`). 빈 200은 `HTTP_5XX`다. 세션·쿠키는 보내지 않는다([[09-SECURITY|09 보안]] SSRF).
+- 기록하는 다운로드 사유는 화면 계약의 일곱 값(`AUTH_REQUIRED`·`HTTP_4XX`·`HTTP_5XX`·`REDIRECT_BLOCKED`·`HOST_NOT_ALLOWED`·`TOO_LARGE`·`TIMEOUT`)뿐이다.
 - 논리 저장 키는 `raw/bids/{bidId}/{revisionId}/{sha256}.{ext}`다. Storage의 실제 키에는 파일명 앞에 원장 UUID 디렉터리를 넣는다(`.../{revisionId}/{objectId}/{sha256}.{ext}`). 삭제 뒤 새 원장 UUID로 재생성하여 오래된 삭제가 새 파일을 지우지 못하게 한다. 형식은 확장자가 아니라 내용(매직 바이트)으로 판단한다.
 - 00702 적용 전 존재하던 raw/parsed 파일은 경로와 문서 참조를 옮기지 않는다. 원장은 기존 경로를 논리 경로로 채우며 claim이 반환하는 기존 실제 경로도 Worker가 재사용한다. 새 파일만 UUID 경로를 사용한다.
 - 다운로드와 파싱은 따로 기록한다. 다운로드는 `download_status`(`PENDING`·`OK`·`FAILED`)·`download_error_code`, 파싱은 `parse_status`·`parse_error_code`다. 다운로드가 `OK`가 아니면 `parse_status`는 NULL(파싱 시도 안 함)이다([[04-DATABASE|04 DB]]).
@@ -176,16 +182,16 @@ documents job이 새 revision의 첨부를 내려받아 Supabase Storage에 쓰�
 
 gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 [[03-AI-PIPELINE|03 AI 파이프라인]]이 정본이다. 이 절은 수집 쪽에서 알아야 할 것과 파서를 고르는 절차만 적는다.
 
-- 파서는 **형식별 어댑터 인터페이스**로 둔다. 어떤 라이브러리를 쓸지는 미리 정하지 않고, 실제 RFP 샘플 비교로 형식마다 정한다([[16-DECISIONS|16 ADR]] 미결정 4·20번).
-- 어댑터는 `services/ai/parsers/{pdf,hwpx,hwp}/` 아래 후보마다 하나씩 둔다. 형식마다 쓸 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다. 기본값은 03 §10.3 비교가 끝난 뒤 정한다.
+- 파서는 **형식별 어댑터 인터페이스**로 둔다([[16-DECISIONS|16 ADR]] 미결정 4·20번).
+- 2026-10-27 구현: `services/ai/src/sol_ai/parsers/`(`pdf.py`·`hwpx.py`·`hwp.py`)다. 형식마다 쓸 어댑터는 env `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`로 고른다. 비우면 기본 어댑터 `pdfplumber`·`sol-hwpx`·`sol-hwp5`가 켜진다. 모르는 값이면 그 형식만 `UNSUPPORTED`(`PARSER_NOT_CONFIGURED:<fmt>`)다(03 §10.1).
 - 결과 상태는 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED`다. 형식은 매직 바이트로 판정한다.
 - 표는 행마다 한 줄로, 셀 사이에 ` | `(공백·세로 막대·공백)를 넣어 `ParseResult.text`에 직렬화한다. 이 `text`가 첨부 인용 오프셋의 기준이라 표 안 문장도 인용 검증([[15-DATA-CONTRACTS|15 데이터 계약]] §5)을 그대로 통과할 수 있다.
-- Python 밖 런타임이 필요한 후보(Node·JVM)는 gateway 안에서 상주 하위 프로세스로 부른다. 이미지 크기와 기동 시간을 비교 표에 함께 적는다. 하위 프로세스 운영 방식(상주 워커 수, 재시작 정책)은 구현자가 정한다.
+- Python 밖 런타임(Node·JVM)은 쓰지 않았다. 어댑터는 요청마다 격리 하위 프로세스에서 돈다(동시 2개, 문서당 90 s, 03 §10.1). worker의 `/parse` 호출 timeout은 185 s다(`PARSE_TIMEOUT_MS` 기본 180000 + 5000, 이 문서 끝 계약).
 
 파서 후보와 라이선스(2026-10-16 조사), 실제 RFP 샘플 비교와 결정 규칙(P0-0 → P0-3), 운영 중 부분 파싱 신호, 수용 기준은 [[03-AI-PIPELINE|03 AI 파이프라인]] §10.2~10.6이 정본이다. 수집 쪽에서 알아야 할 요지만 적는다.
 
 - AGPL·GPL 후보(pyhwp·PyMuPDF·poppler 등)와 상업 이용이 제한된 가중치는 쓰지 않는다(라이선스 기준은 [[09-SECURITY|09 보안]]). 배포용(보호) HWP는 복호화하지 않고 `UNSUPPORTED`(`DISTRIBUTION_PROTECTED`), 열기 암호 문서는 `ENCRYPTED`, 스캔 PDF는 OCR 없이 `NO_TEXT_LAYER`다.
-- 형식마다 live 공고 첨부 10건 이상으로 어댑터를 비교해 고른다. 샘플에서 자격 조항 누락 0건·요구사항 번호 재현율 0.95 이상을 못 넘은 형식은 언제나 `PARTIAL`이다. 결과는 `docs/evidence/phase-0/parser-benchmark.md`, 형식별 선택은 16 미결정 4·20번에 적는다.
+- 형식마다 live 공고 첨부 10건 이상으로 어댑터를 비교해 고르는 절차(03 §10.3)는 아직 하지 않았다. 사람 작성 기준표가 없다. 2026-10-27에는 실표본 6건(PDF·HWPX·HWP 각 2건)으로 동작만 확인했다([파서 실표본 확인](evidence/parser/20261027-parser-check.md)). 그래서 "지원" 판정을 받은 형식은 아직 없다. 03 §10.3 규칙(판정 전 형식은 언제나 `PARTIAL`)과 달리 지금 코드는 품질 신호에 걸리지 않으면 `PARSED`를 낸다(03 §10.3 경고).
 - 파싱이 성공해도 품질 신호(쪽당 글자 수·대체 문자·요구사항 번호 연속성·표 캡션 대비 표 수·빈 셀)로 `PARTIAL`을 판정해 `bid_documents.parse_quality`에 저장하고, 화면에 "일부만 읽음" 배지를 붙인다. 빈자리를 AI가 추측으로 채우지 않는다(§2.6).
 
 ### 2.6 실패 유형별 처리 (수집·첨부·파싱)
@@ -461,21 +467,53 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 
 ## 문서 큐 등록 복구
 
-공고 저장과 함께 생성하는 `bid_documents.download_status='PENDING'` 행을 문서 처리의 영속 상태로 사용한다. 저장 뒤 `documents` 큐 등록에 실패하거나 worker가 중단되어도 이 행은 남는다. ingest worker는 기동 시와 60초마다 미처리 첨부를 ID 순 keyset 페이지(100행)로 읽고 revision별 job을 등록한다(jobId는 아래 계약). 같은 job ID로 등록하므로 대기·진행 중 작업은 중복 생성하지 않는다. 큐·DB 장애는 다음 회차에 재시도하며 첨부 상태를 완료로 바꾸지 않는다. 페이지 커서는 다음 회차로 이어 첫 페이지에 대기 중인 첨부가 많아도 뒤 페이지에 도달하고, 끝에 도달하면 처음부터 다시 훑는다. 복구기는 worker 종료 시 진행 중 회차를 마친 뒤 큐보다 먼저 멈춘다.
+공고 저장과 함께 생성하는 `bid_documents.download_status='PENDING'` 행을 문서 처리의 영속 상태로 사용한다. 저장 뒤 `documents` 큐 등록에 실패하거나 worker가 중단되어도 이 행은 남는다. 복구 회차는 기동 시와 60초마다 돌고 revision별 job을 등록한다(jobId는 아래 계약). 같은 job ID로 등록하므로 대기·진행 중 작업은 중복 생성하지 않는다. 큐·DB 장애는 다음 회차에 재시도하며 첨부 상태를 완료로 바꾸지 않는다. 복구 회차는 worker 종료 시 진행 중 회차를 마친 뒤 큐보다 먼저 멈춘다.
+
+2026-10-27부터 복구 회차는 ingest 등록이 아니라 **documents 등록**이 맡는다(`web/worker/documents-job.ts` `createDocumentsWorkerRegistration`, 로컬 통합·운영 미적용).
+
+- `live`: documents 소비자와 함께 DB 함수 `document_processing_candidates`로 처리 범위 안의 revision만 고른다(회차당 `DOCUMENTS_ROUND_MAX_REVISIONS`, 기본 10).
+- `mock`·`fixture`: 소비자 없이 예전 복구만 돈다. 데모 공고의 미처리 첨부를 ID 순 keyset 페이지(100행)로 읽어 큐에 넣기만 한다. 페이지 커서는 다음 회차로 이어 뒤 페이지에 도달하고, 끝에 도달하면 처음부터 다시 훑는다.
 
 ### documents 큐 소비자 계약 ([[16-DECISIONS|ADR-033]] E1)
 
-생산 쪽(수집 job·복구기)은 main `58636d1`(병합 `a955a41`)에 있다. **소비자(다운로드·파싱 worker)는 아직 없다.** 소비자를 만들 때 아래 계약을 따른다.
+생산 쪽(수집 job·복구 회차)은 main `58636d1`(병합 `a955a41`)에 있다. **소비자는 2026-10-27 구현했다**(`web/worker/documents-job.ts`, 통합 worktree `integration/blockers-1027`, 로컬 통합·운영 미적용). 근거는 [첨부 처리 구현 증거](evidence/attachment-pipeline/20261027-implementation.md)다. 아래 "끝내기 전 상태"와 "장애 시 미루기"는 옛 계약과 다르다. 이 차이는 [[16-DECISIONS|ADR-055]](제안)에 올렸다.
 
 - **job 모양**: 큐 `documents`, job 이름 `fetch`, data `{bidId, revisionId, revisionCreatedAt}`. jobId는 `documents-<revisionId>-<revision created_at epoch ms>`다(`web/server/ingestion/ingestion.queue.ts` `toDocumentsJobId`). PostgREST가 돌려주는 `created_at`의 마이크로초는 ms로 자른다. `demo:reset`이 같은 revision id를 다시 만들어도 `created_at`이 바뀌어 새 jobId가 되므로, BullMQ에 남은 이전 job에 막히지 않는다.
 - **보존 옵션**: attempts 3, backoff exponential 2초, `removeOnComplete` 86400초(1일), `removeOnFail` 604800초(7일). 옵션은 `enqueueDocuments` 한 곳에서만 붙인다(`DOCUMENTS_JOB_OPTIONS`).
-- **끝내기 전 상태**: 소비자는 job을 끝내기 전에 그 revision의 `bid_documents` 행을 모두 `PENDING` 밖으로 옮긴다. 다운로드는 `OK` 또는 `FAILED`(화면·플래그 `DOCUMENT_DOWNLOAD_FAILED`, 사유는 `download_error_code`)다. 다운로드가 `OK`인 행의 파싱은 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED` 중 하나다(§2.4·§2.5).
-- **재시도와 마지막 시도**: 재시도할 오류는 throw해 BullMQ가 다시 돌게 한다. 마지막 시도(3번째)에서 실패하면 throw 대신 해당 행을 `FAILED`와 오류 코드(`download_error_code` 또는 `parse_error_code`)로 남기고 job을 끝낸다.
-- **행이 없을 때**: 그 revision의 행이 없으면(리셋 등으로 지워졌다) 아무것도 하지 않고 완료하고 로그 한 줄을 남긴다.
-- **복구기 대상**: `download_status='PENDING'`, 또는 `download_status='OK'`이면서 `parse_status='PENDING'`인 첨부(`web/server/ingestion/pending-documents.repo.ts`).
-- **실행 모드 범위**: 실행 모드가 `live`가 아니면(`mock`·`fixture`) `bid_notices.is_demo=true` 공고만, `live`면 `is_demo=false` 공고만 다룬다. 복구기 조회와 소비자 양쪽에 같은 범위를 건다.
-- **상한**: 마지막 시도 중 worker가 강제 종료되어 행이 `PENDING`으로 남으면, 그 failed job이 남아 있는 최대 7일(`removeOnFail`) 동안은 같은 jobId라 복구기가 다시 넣지 못한다.
-- **옛 jobId**: 계약 전 모양(`documents-<uuid>`)으로 들어간 job은 소비자가 생기면 no-op으로 끝나고, 보존 기간 뒤 지워진다.
+- **실행 모드 범위**: 소비자는 `live`에서만 돈다. `is_demo=false` 공고만 다룬다. `mock`·`fixture`는 소비자가 없다. 데모 첨부를 처리하면 `attachmentsIncomplete`가 붙어 골든(94/72/68)이 바뀌기 때문이다.
+- **처리 범위**: 최신 revision, 상태 `OPEN`·`AMENDED`, 마감 전(마감 없음 포함) 공고만 다룬다. 이름이 `.pdf`·`.hwp`·`.hwpx`인 첨부만 받는다. 공고마다 우선순위(공고서·공고문·제안요청서·과업지시서·입찰공고·RFP → 규격서·과업·설명서 → 기타 → 서식·서약서 같은 양식) 상위 N건만 받는다. 같은 정렬이 분석 입력 순서다. 받은 뒤 매직 바이트가 파서 형식이 아니면 gateway에 보내지 않고 `UNSUPPORTED`(`UNSUPPORTED_FORMAT`, parser `none`)로 끝낸다.
+- **끝내기 전 상태(바뀜)**: 처리 범위 안의 첨부만 `PENDING` 밖으로 옮긴다. 다운로드는 `OK` 또는 `FAILED`(사유는 `download_error_code`), 다운로드가 `OK`인 행의 파싱은 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`FAILED` 중 하나다(§2.4·§2.5). 범위 밖 첨부(xlsx·zip·docx, 공고당 상한 밖, 마감 지난 공고)는 받지 않고 `PENDING`으로 남는다.
+- **리스**: 문서마다 DB 리스(`claim_document_processing`, `DOCUMENTS_LEASE_SECONDS` 기본 600초)를 잡고 단계(내려받기 뒤·파싱 전·저장 전)마다 다시 잡아 늘린다. 다른 시도가 잡고 있으면(`BUSY`) 그 리스가 끝나는 시각으로 job을 옮긴다(시도 횟수를 쓰지 않는다). 리스를 잃으면 그 문서는 쓰지 않는다. 실패 기록 함수도 리스 소유를 확인한다([[04-DATABASE|04 DB]] §7).
+- **원본과 텍스트**: 원본은 `bid-documents`에 올리고 `finish_document_storage`로 다운로드 `OK`·파싱 `PENDING`을 기록한다. 이미 원본이 있으면 나라장터를 다시 부르지 않고 Storage에서 읽어 sha256을 확인한다. `PARSED`·`PARTIAL`이면 텍스트 객체를 `bid-parsed`에 확정한다(형식은 [[15-DATA-CONTRACTS|15]] §5.5). HWP·HWPX는 `pages`가 비어 `page_count`가 null이다. 성공인데 글자가 없으면 `FAILED`·`PARSER_ERROR`(`EMPTY_TEXT`)다.
+- **재시도와 마지막 시도**: 나라장터 `TIMEOUT`·`HTTP_5XX`와 파서 `FAILED`·`PARSER_ERROR`(시간 초과 등)는 throw해 BullMQ 재시도(attempts 3)에 맡기고, 마지막 시도면 `FAILED`와 오류 코드로 남긴다. 영구 다운로드 사유(`AUTH_REQUIRED`·`HTTP_4XX`·`REDIRECT_BLOCKED`·`HOST_NOT_ALLOWED`·`TOO_LARGE`), `UNSUPPORTED` 전부(`NO_TEXT_LAYER`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED`·`TOO_LARGE`), `FAILED`·`CORRUPTED`, gateway 4xx·계약 위반 응답은 다시 부르지 않고 바로 남긴다.
+- **장애 시 미루기(바뀜)**: 우리 쪽이 준비되지 않은 경우(Storage·DB 오류, gateway 접속 실패·timeout·5xx·breaker, `PARSER_NOT_CONFIGURED` 경고)는 기록하지 않고 10분씩 최대 12번(약 2시간) 미룬다. 그 뒤에는 `PENDING`으로 두고 job을 끝낸다. 그 revision은 jobId 보존(1일)이 끝난 뒤 복구 회차가 다시 넣는다.
+- **실패 격리**: 문서 하나의 실패는 그 문서에만 남고 다음 문서를 계속 처리한다.
+- **행이 없을 때·범위 밖**: 행 없음, 범위 밖 revision, 옛 jobId(계약 전 모양 `documents-<uuid>`), revision 재생성은 문서를 잡지 않고 끝낸다. 로그 한 줄을 남긴다.
+- **상한**: 마지막 시도 중 worker가 강제 종료되어 행이 `PENDING`으로 남으면, 그 failed job이 남아 있는 최대 7일(`removeOnFail`) 동안은 같은 jobId라 복구 회차가 다시 넣지 못한다.
+- **로그**: 문서 id·결과 코드만 싣는다(`documents.job`). 첨부 이름·URL·본문은 싣지 않는다.
+
+처리량 상한(env, 값이 틀리면 키 이름만 알리고 기동을 멈춘다):
+
+| env | 기본 | 범위 | 뜻 |
+|---|---|---|---|
+| `DOCUMENTS_MAX_PER_BID` | 3 | 1~20 | 공고당 받는 첨부 수. Qwen 입력 예산이 12,000자 근사라 뒤 문서는 거의 쓰이지 않는다 |
+| `DOCUMENTS_ROUND_MAX_REVISIONS` | 10 | 1~100 | 복구 회차(60초)마다 job을 넣는 revision 수 |
+| `DOCUMENTS_FETCH_INTERVAL_MS` | 2000 | 500~60000 | 나라장터 요청 사이 최소 간격(프로세스 단위) |
+| `DOCUMENTS_CONCURRENCY` | 2 | 1~2 | 동시 처리. gateway `/parse`의 동시 파서 수와 같다 |
+| `DOCUMENTS_LEASE_SECONDS` | 600 | 60~3600 | 문서 리스 길이 |
+| `PARSE_TIMEOUT_MS` | 180000 | 1~3600000 | `/parse` 호출 하나. 실제 HTTP 시간 제한은 +5000 ms(185 s). `/extract`의 `AI_TIMEOUT_MS`를 쓰지 않는다 |
+| `ANALYSIS_ATTACHMENT_MAX_CHARS` | 200000 | 1000~2000000 | 분석에 넣는 문서당 글자 상한(앞에서 자른다) |
+| `ANALYSIS_ATTACHMENT_TOTAL_CHARS` | 600000 | 1000~2000000 | 분석에 넣는 첨부 전체 글자 상한. 상한에 닿은 문서는 남은 만큼만 넣고, 그 뒤 문서는 뺀다(`TOTAL_CAP`) |
+
+`DOCUMENTS_*`·`PARSE_TIMEOUT_MS`는 documents 등록이, `ANALYSIS_ATTACHMENT_*`는 분석 runtime이 읽는다. 회사 documents 전용 Compose는 `DOCUMENTS_` 앞의 네 키(`MAX_PER_BID`·`ROUND_MAX_REVISIONS`·`FETCH_INTERVAL_MS`·`CONCURRENCY`)를 셸 변수로 넘긴다(회사 실행서 §8). 기본 `infra/compose.yaml`은 이 키들을 넘기지 않아 코드 기본값이다.
+
+실행 위치:
+
+- 전체 Worker(`web/worker/main.ts`)는 live에서 documents 등록을 함께 가진다.
+- 회사에서는 documents 전용 Worker(`web/worker/documents-only-main.ts`, live 강제, `--check` 지원)를 `infra/compose.documents-only.company.yaml`(프로젝트 `sol-radar-documents`)로 띄운다. ingest 전용 Worker와 Analysis Worker는 건드리지 않는다. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(나라장터 요청 간격이 프로세스마다 따로 계산된다). 절차는 [회사 실행서](../infra/company/README.md) §8, 반영 순서는 [[10-DEPLOYMENT|10 배포]] "첨부 처리 운영 반영".
+- documents 전용 Worker에는 의존성 보고·Storage 정리(10분)가 없다. 회사에서 고아 객체 정리를 돌릴 곳은 정하지 않았다.
+
+분석 연결: 분석 runtime은 첨부 텍스트 reader(`createAttachmentTextReader`, `web/server/documents/document-text.repo.ts`)로 `PARSED`·`PARTIAL` 첨부 텍스트를 우선순위 순으로 읽는다(`ANALYSIS_READS_ATTACHMENT_TEXT = true`). 텍스트 객체가 계약과 다르면 넣지 않고 그 문서를 `FAILED`·`PARSER_ERROR`로 보인다(DB는 바꾸지 않는다). 본문이 비어도 파싱된 첨부가 있으면 분석 요청을 받는다(202). 미파싱 첨부만 있으면 `409 ANALYSIS_SOURCE_MISSING` 그대로다. 추출 캐시 키에 입력 문서 집합이 없는 문제는 [[16-DECISIONS|ADR-056]](제안)이다.
 - `pnpm demo:reset`은 `documents` 큐(Redis)를 건드리지 않는다.
 - 알려진 낮은 위험: `saveRevision`의 RPC `ingest_save_revision`과 `bid_revisions.created_at` 조회는 한 트랜잭션이 아니다. 둘 사이에서 실패하면 ingest 재시도는 `DUPLICATE`라 job을 넣지 않고, 복구기(60초)가 같은 jobId로 메운다. 근본 해결(RPC가 `created_at`을 돌려주는 새 마이그레이션)은 [[16-DECISIONS|16 ADR]] 미결정 23번이다.
 
@@ -491,7 +529,8 @@ ADR-047 [승인용 설계](../polaris/specs/in-progress/2026-10-21-public-procur
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — 실행 모드 전체 표, gateway `POST /parse` 계약(`ParseResult`), 모델 장애와 대체
 - [[04-DATABASE|04 DB]] — `bid_notices`, `bid_revisions`, `bid_documents`, `bid_structured_requirements`, `ingest_runs`, seed 범위
 - [[09-SECURITY|09 보안]] — SSRF allowlist, 서비스키, 공공 API 응답 개인정보, 첨부 저작권·파서 라이선스
-- [[16-DECISIONS|16 ADR]] — ADR-020·033, 미결정 1·4·16·19·20·23번
+- [[16-DECISIONS|16 ADR]] — ADR-020·033·055·056, 미결정 1·4·16·19·20·23번
+- [[10-DEPLOYMENT|10 배포]] — documents 전용 Worker, 첨부 처리 운영 반영 순서
 - [[21-MODEL-TRAINING|21 모델 학습]] — live 공고로 만드는 평가셋
 - [[08-SCORING|08 SOL Score]] — fixture별 기대 점수의 계산 근거
 - [[11-TESTING|11 테스트]] — 골든 시나리오 ↔ FX-ID 매핑

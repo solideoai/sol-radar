@@ -1,9 +1,14 @@
 import "server-only";
 
 // ── analysis 도메인 배럴. 바깥(worker·화면)은 이 파일만 부른다 ──
-export { createGatewayClient } from "./gateway.client";
-export type { GatewayClient, GatewayClientDeps } from "./gateway.client";
-export { extractRequestSchema, readGatewayConfig } from "./gateway.model";
+export { createGatewayClient, createParseClient } from "./gateway.client";
+export type { GatewayClient, GatewayClientDeps, ParseClient } from "./gateway.client";
+export {
+  extractRequestSchema,
+  parseResponseSchema,
+  readGatewayConfig,
+  readParseConfig,
+} from "./gateway.model";
 export type {
   ExplainResponse,
   ExtractRequest,
@@ -14,6 +19,8 @@ export type {
   GatewayRequestBody,
   GatewayResult,
   KevResponse,
+  ParseClientConfig,
+  ParseResponse,
 } from "./gateway.model";
 export type { BreakerState } from "./circuit-breaker.model";
 export {

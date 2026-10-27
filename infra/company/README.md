@@ -95,7 +95,7 @@ F08 quota 연결에 필요한 명령은 `GET`, `EVAL`, Lua 내부의 `INCR`, `EX
 - 정기 회차의 수집 창은 `max(직전 SCHEDULED 성공 창 끝, 지금 − 24시간)`부터 지금까지다(최대 1440분). 직전 정기 회차가 실패했고 그 창이 24시간 안에 시작했으면 그 창과 cursor를 그대로 이어 쓴다(예산 소진 뒤 자정 회차가 빈틈 없이 잇는다). 잘라 낸 구간이 있으면 키 없는 `ingest.window.capped` 로그를 남기고 `ingest_runs.params.windowCap`에 기록한다. 잘린 구간을 자동으로 메우지 않는다. 필요하면 승인 뒤 `--once --window-minutes <N>`(1~1440)으로 받는다.
 - 외부 서비스(K-water·LH·KEPCO·나라장터 조달요청)는 서비스마다 따로 판정한다(10-26 0순위). 키가 없거나 한도가 미정인 서비스만 빠지고 Worker는 계속 뜬다. `READY`인 서비스만 `<key>-scheduled` 일정을 같은 cron으로 걸고, 그 회차는 우선순위 10이라 같은 정각의 `g2b-scheduled`(우선순위 없음)가 먼저 돈다. 운영 중 인증 오류(resultCode 30·31)를 받으면 그 서비스만 `AUTH_FAILED`가 되고 다음 회차부터 API를 부르지 않는다(키를 고친 뒤 Worker 재시작으로 풀린다). 기동 때와 상태가 바뀔 때 Redis `ingest:source-readiness`(JSON, 키 값 없음)에 서비스별 상태를 남기고, redis-api는 이 값으로 화면의 서비스별 [증분 수집]을 막는다. 이 기록이 실패해도 수집은 계속하고 `외부 수집 상태 기록 실패: …` 한 줄만 남긴다.
 - 외부 서비스의 정기 창은 최대 24시간이다(`EXTERNAL_WINDOW_CAP_MS`). 직전 창이 실패·실행 중·불완전 PARTIAL이고 24시간 안에 시작했으면 그 창을 다시 쓴다. 아니면 직전 창 끝(재시도가 필요했으면 시작)부터 이어 가되 지금 − 24시간보다 앞이면 자르고 `ingest.window.capped`·`params.windowCap`을 남긴다. KEPCO 전자입찰 계약은 응답 범위를 검증하지 못해 PARTIAL로 남지만 다음 90일 조각으로 cursor를 넘겨 같은 조각을 끝없이 되풀이하지 않는다.
-- 첨부: 이 Worker는 documents job을 넣지 않고 첨부 재확인(reconciler)도 돌리지 않는다. 새 공고의 `bid_documents` 행은 `download_status = 'PENDING'`으로 남는다. 나중에 전체 Worker(live)를 띄우면 그 reconciler가 `is_demo = false`인 PENDING 행을 다시 찾아 documents job을 넣는다.
+- 첨부: 이 Worker는 documents job을 넣지 않고 첨부 재확인(reconciler)도 돌리지 않는다. 새 공고의 `bid_documents` 행은 `download_status = 'PENDING'`으로 남는다. 첨부 처리는 §8 Documents 전용 Worker가 맡는다. 그 복구 회차가 처리 범위 안의 PENDING 행을 다시 찾아 documents job을 넣는다.
 - 분석도 하지 않는다. live 공고는 자동 분석되지 않는다.
 - live는 fixture를 읽지 않는다. 회사 `fixtures/`는 UID 1001·600/700이라 Worker(UID 1000)가 읽지 못해도 된다. 권한을 바꾸지 않는다(`chmod` 금지).
 
@@ -269,3 +269,112 @@ docker compose -f infra/compose.ingest-only.company.yaml run --rm --no-deps inge
 - `sol-radar-ai-worker-worker:latest`를 만드는 빌드·태그(`docker build -t sol-radar-ai-worker-worker:latest`, `docker tag … sol-radar-ai-worker-worker:latest`)
 - `fixtures/` 권한 변경(`chmod`·`chown`)
 - 키 값을 출력하는 명령(`--quiet` 없는 `config`, 컨테이너 안 `env`·`printenv`, `.env*` 파일 열람)
+
+## 8. Documents 전용 Worker
+
+이 절은 별도 운영 승인 후 실행할 절차다. 회사 기동 성공 기록이 아니다. 근거는 `docs/evidence/attachment-pipeline/20261027-implementation.md`다. **[승인]** 표시 단계는 사용자 승인 뒤에만 실행한다.
+
+목적: ingest 전용 Worker(§7)가 남긴 live 공고 첨부(`bid_documents.download_status = 'PENDING'`)를 나라장터에서 내려받아 Supabase Storage(`bid-documents`)에 두고, 회사 AI gateway `POST /parse`로 텍스트를 뽑아 `bid-parsed`에 저장한다. 분석은 이 텍스트를 읽는다. Compose 파일은 `infra/compose.documents-only.company.yaml`(프로젝트 `sol-radar-documents`, 서비스 `documents-worker` 하나), 진입점은 `web/worker/documents-only-main.ts`다. `infra/compose.company.yaml`(`sol-radar-gateway`)에는 넣지 않았다. 그 프로젝트의 `up`은 §7.11에서 쓰지 않는 명령이기 때문이다.
+
+- 등록은 documents 하나다. documents 큐 소비자와 처리 범위 복구 회차(60초마다)만 돈다. 수집·분석·알림·의존성 보고·Storage 정리는 돌리지 않는다.
+- 처리 범위: `is_demo = false`, 최신 revision, 상태 `OPEN`·`AMENDED`, 마감 전(마감 없음 포함) 공고만 다룬다. 공고마다 이름이 `.pdf`·`.hwp`·`.hwpx`인 첨부 가운데 공고서·공고문·제안요청서·과업지시서를 먼저, 서식·서약서 같은 양식을 맨 뒤로 정렬한 상위 `DOCUMENTS_MAX_PER_BID`(기본 3)건만 받는다. 그 밖의 첨부(xlsx·zip·docx, 상한 밖, 마감 지난 공고)는 받지 않고 `PENDING`으로 남는다. 받은 뒤 내용이 파서 형식이 아니면(매직 바이트) gateway에 보내지 않고 `UNSUPPORTED`(`UNSUPPORTED_FORMAT`)로 끝낸다.
+- 속도: 나라장터 요청 사이 최소 `DOCUMENTS_FETCH_INTERVAL_MS`(기본 2000ms), 동시 처리 `DOCUMENTS_CONCURRENCY`(기본 2, 최대 2. gateway `/parse`의 동시 파서 수가 2다), 복구 회차마다 job을 넣는 revision `DOCUMENTS_ROUND_MAX_REVISIONS`(기본 10). 회차당 최대 10공고 × 3건 = 30건이고 분당 내려받기도 최대 30건이다. 값은 Compose `environment`(셸 변수)로만 바꾼다. 틀린 값이면 진입점이 키 이름만 출력하고 exit 1이다.
+- 내려받기: `https://www.g2b.go.kr/pn/…`만 받는다. 리다이렉트는 같은 허용 목록 안에서 최대 3회다. 로그인·SSO 경로로 가면 `AUTH_REQUIRED`다. DNS 결과에 사설 주소가 섞이면 연결하지 않는다. 리다이렉트를 포함해 30초, 50 MiB를 넘으면 받는 도중에 끊는다. 세션·쿠키를 보내지 않는다.
+- 상태 기록: 문서마다 DB 리스(`claim_document_processing`, 600초)를 잡는다. `AUTH_REQUIRED`·`HTTP_4XX`·`REDIRECT_BLOCKED`·`HOST_NOT_ALLOWED`·`TOO_LARGE`는 바로 `download_status = 'FAILED'`다. `TIMEOUT`·`HTTP_5XX`와 파서 시간 초과(`FAILED`·`PARSER_ERROR`)는 BullMQ 재시도(3회) 뒤 마지막 시도에서 `FAILED`로 남는다. `/parse`의 `UNSUPPORTED`(`NO_TEXT_LAYER`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED`·`TOO_LARGE`)와 `FAILED`·`CORRUPTED`는 다시 부르지 않고 그대로 남긴다. Storage·gateway를 못 쓰면 기록하지 않고 10분씩 최대 12번(약 2시간) 미룬 뒤 `PENDING`으로 둔다. 그 job은 보존 기간(1일) 뒤 복구 회차가 다시 넣는다.
+- `infra/.env.worker.local`은 §2의 Worker 파일을 같이 쓴다(`REDIS_URL`·`NEXT_PUBLIC_SUPABASE_URL`·service role 키·Storage 버킷 이름). 새 키는 없다. 키 값을 터미널·로그에 출력하지 않는다. 로그에는 문서 id·결과 코드만 남고 첨부 이름·URL·본문은 남지 않는다.
+- 이미지는 `sol-radar-documents-worker:<git SHA>`다. `sol-radar-ai-worker-worker:latest`를 빌드하거나 덮지 않는다. Compose의 모든 명령에 `DOCUMENTS_WORKER_TAG`가 필요하다.
+- **전체 Worker(`worker/main.ts`)를 같은 Redis에서 함께 띄우지 않는다.** 전체 Worker도 live에서 같은 documents 소비자·복구 회차를 가진다. 같은 첨부를 두 번 처리하지는 않지만(문서 리스·jobId 중복 제거), 나라장터 요청 간격이 프로세스마다 따로 계산된다.
+
+### 8.1 D0 읽기 확인 (운영 영향 없음)
+
+```bash
+cd /data/www/ai_workspace/sol-radar-deploy
+docker ps --no-trunc --format '{{.Names}}\t{{.Image}}\t{{.Command}}\t{{.Status}}'
+curl -sS http://172.20.0.1:8000/health
+```
+
+- 전체 Worker(`worker/main.ts`)가 있으면 멈춘다.
+- `/health`의 `parsers`가 형식마다 parserId(예: `pdfplumber@0.11.10`, `sol-hwpx@1`, `sol-hwp5@1+olefile@0.47`)를 보여야 한다. `null`이면 파서가 배포되지 않은 gateway다. 그 상태로 띄우면 원본만 받고 파싱은 미루다(약 2시간) `PENDING`으로 남는다. 파서 배포 뒤에 띄운다.
+- Supabase SQL로 migration `20261027000500` 적용(함수 5개)과 처리 대상 수를 본다.
+
+```sql
+select proname from pg_proc where proname in ('claim_document_processing','fail_document_download',
+  'fail_document_parse','release_document_processing','document_processing_candidates') order by 1;
+select count(*) as revisions from public.document_processing_candidates(false, '00000000-0000-0000-0000-000000000000', 100, 3);
+select download_status, parse_status, count(*) from bid_documents d join bid_notices n on n.id = d.bid_id
+ where not n.is_demo group by 1, 2 order by 1, 2;
+select id, public from storage.buckets where id in ('bid-documents', 'bid-parsed');
+```
+
+함수가 5개가 아니거나 버킷 두 개(`public = false`)가 없으면 멈춘다.
+
+### 8.2 D1 이미지 빌드 (외부 호출 없음)
+
+```bash
+export DOCUMENTS_WORKER_TAG="$(git -C . rev-parse --short=12 HEAD)"
+docker compose -f infra/compose.documents-only.company.yaml config --quiet
+docker compose -f infra/compose.documents-only.company.yaml build documents-worker
+docker image ls sol-radar-documents-worker
+```
+
+### 8.3 D2 설정 확인 `--check` (외부 호출 없음)
+
+```bash
+docker compose -f infra/compose.documents-only.company.yaml run --rm --no-deps documents-worker node --conditions=react-server --import tsx worker/documents-only-main.ts --check
+```
+
+Redis·Supabase·gateway·나라장터에 접속하지 않는다. 통과하면 다음 모양이다.
+
+```text
+documents 처리 범위: 공고당 3건, 회차(60초)당 revision 10개
+나라장터 요청 간격 2000ms, 동시 처리 2, 리스 600초
+Storage 버킷: 원본 bid-documents, 텍스트 bid-parsed
+documents-only worker 확인 통과: SOL_RUN_MODE=live
+```
+
+### 8.4 D3 기동 — **[승인] 나라장터 첨부 실다운로드**
+
+```bash
+docker compose -f infra/compose.documents-only.company.yaml up -d --no-deps documents-worker
+```
+
+기동하면 바로 복구 회차가 돌아 처리 대상 revision 최대 10개를 큐에 넣고 내려받기를 시작한다. 처음 한 번은 2026-10-27 기준 PENDING 1,975행 가운데 범위 안의 것만 받는다(마감 전 공고 × 공고당 3건).
+
+### 8.5 D4 확인 (운영 영향 없음)
+
+```bash
+docker compose -f infra/compose.documents-only.company.yaml ps documents-worker
+docker compose -f infra/compose.documents-only.company.yaml logs --tail 100 documents-worker
+```
+
+- 기동 로그에 `{"event":"documents.enabled",…}`, 60초마다 `{"event":"documents.reconcile",…}`가 보인다.
+- job마다 `{"event":"documents.job",…,"documents":[{"documentId":…,"outcome":…}]}` 한 줄이 남는다. `outcome`은 `PARSED`·`PARTIAL`·`UNSUPPORTED`·`PARSE_FAILED`·`DOWNLOAD_FAILED`·`DEFERRED`·`BUSY`·`RETRY` 등이다. `DEFERRED`가 계속되면 `detail`(`GATEWAY_UNREACHABLE`·`storage_upload_failed` 등)을 보고 멈춘다.
+- 8.1의 상태별 SQL을 다시 실행해 `OK`·`PARSED`가 늘고 `FAILED`의 `download_error_code`가 한쪽으로 몰리지 않는지 본다. `AUTH_REQUIRED`·`HTTP_4XX`가 대부분이면 나라장터가 자동 다운로드를 막는 것이다. 멈추고 보고한다(07 §2.4 미검증 가정).
+
+### 8.6 분석 연결 — **[승인]**
+
+분석이 첨부 텍스트를 읽으려면 이 SHA의 코드가 세 곳에 모두 있어야 한다. 순서를 지킨다.
+
+1. Analysis Worker: `analysis-only-main.ts`가 쓰는 `startAnalysisRuntime`이 첨부 텍스트 reader를 쓴다. 회사 Analysis Worker는 `sol-radar-ai-worker-worker:latest`(회사 운영 원본)로 돌므로 이미지 교체 방법을 따로 승인받는다(§7.11은 그 태그의 빌드를 금지한다). 교체 전에는 분석이 첨부를 읽지 않는다.
+2. redis-api: 분석 요청의 원문 확인(`ANALYSIS_READS_ATTACHMENT_TEXT = true`)이 바뀐다. 교체 전에는 본문 없는 live 공고를 계속 409로 막는다(안전한 쪽).
+3. Vercel web: 같은 확인을 중계 전에 한다. 1·2가 끝난 뒤 배포한다. 먼저 배포해도 redis-api가 막지만, 화면의 분석 준비 표시가 먼저 바뀐다.
+
+### 8.7 되돌리기
+
+```bash
+export DOCUMENTS_WORKER_TAG=<기동한 SHA>   # docker ps 의 이미지 태그
+docker compose -f infra/compose.documents-only.company.yaml stop documents-worker
+```
+
+- 멈추면 진행 중 job이 끝나기를 최대 180초 기다린다. 넘으면 그 문서의 리스(600초)가 끝난 뒤 다음 기동이 이어 받는다. 큐에 남은 job·이미 저장한 원본·텍스트·`bid_documents` 상태는 지우지 않는다. 모두 사실 그대로의 기록이다.
+- 분석 연결(8.6)을 되돌릴 때는 이전 SHA의 web·redis-api·Analysis Worker 이미지로 돌린다. 저장된 텍스트는 남아도 읽는 쪽이 없다.
+- DB 함수(migration `20261027000500`)는 두어도 된다. 지워야 하면 새 migration으로 함수 5개만 drop한다(열·행은 이 migration이 만들지 않았다).
+- 이전 SHA 이미지는 지우지 않고 남겨 둔다.
+
+### 8.8 쓰지 않는 명령
+
+§7.11과 같다. 그리고 다음을 더한다.
+
+- 전체 Worker(`worker/main.ts`)를 같은 Redis에서 함께 기동
+- `documents` 큐 키 삭제, `bid_documents` 상태를 SQL로 일괄 `PENDING`으로 되돌리기(필요하면 문서 id를 정해 따로 승인받는다)
+- `DOCUMENTS_CONCURRENCY`를 2보다 크게(진입점이 거부한다)

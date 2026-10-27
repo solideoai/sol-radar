@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { analysisReadinessRepo } from "./bids.supabase";
 
-// 분석이 첨부 텍스트를 읽는지(ANALYSIS_READS_ATTACHMENT_TEXT). null 이면 실제 값(지금 false)을 쓴다.
-// 첨부 reader 연결 뒤의 질의(true)도 미리 확인하려고 시험만 값을 바꾼다.
+// 분석이 첨부 텍스트를 읽는지(ANALYSIS_READS_ATTACHMENT_TEXT). null 이면 실제 값(2026-10-27 부터 true)을 쓴다.
+// 첨부를 읽지 않는 runtime(false)의 질의도 확인하려고 시험만 값을 바꾼다.
 const flag = vi.hoisted(() => ({ readsAttachmentText: null as boolean | null }));
 vi.mock("@/server/analysis", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/analysis")>();
@@ -78,8 +78,8 @@ describe("분석 원문 준비 읽기(사용자 세션)", () => {
     expect(tablesRead()).not.toContain("bid_documents");
   });
 
-  // 지금 분석 runtime 은 첨부 텍스트를 AI 에 넘기지 않는다. 상수를 true 로 바꾸면 이 시험의 기대가 바뀐다.
-  it("지금은 본문이 비면 파싱된 첨부가 있어도 SOURCE_TEXT_MISSING 이고 첨부를 조회하지 않는다", async () => {
+  it("분석이 첨부를 읽지 않는 runtime 이면 본문이 빌 때 파싱된 첨부가 있어도 SOURCE_TEXT_MISSING 이고 첨부를 조회하지 않는다", async () => {
+    flag.readsAttachmentText = false;
     db.rows = {
       bid_notices: [{ latest_revision: 1 }],
       bid_revisions: [{ id: "rev-1", content: "" }],
@@ -92,8 +92,7 @@ describe("분석 원문 준비 읽기(사용자 세션)", () => {
     expect(tablesRead()).toEqual(["bid_notices", "bid_revisions"]);
   });
 
-  it("첨부를 읽게 되면, 본문이 빌 때 그 revision 의 PARSED·PARTIAL + 텍스트 객체 첨부를 찾고 없으면 SOURCE_TEXT_MISSING 이다", async () => {
-    flag.readsAttachmentText = true;
+  it("본문이 빌 때 그 revision 의 PARSED·PARTIAL + 텍스트 객체 첨부를 찾고 없으면 SOURCE_TEXT_MISSING 이다", async () => {
     db.rows = {
       bid_notices: [{ latest_revision: 1 }],
       bid_revisions: [{ id: "rev-1", content: "" }],
@@ -114,8 +113,7 @@ describe("분석 원문 준비 읽기(사용자 세션)", () => {
     );
   });
 
-  it("첨부를 읽게 되면, 본문이 비어도 분석 가능한 첨부가 하나 있으면 분석할 수 있다", async () => {
-    flag.readsAttachmentText = true;
+  it("본문이 비어도 분석 가능한 첨부가 하나 있으면 분석할 수 있다", async () => {
     db.rows = {
       bid_notices: [{ latest_revision: 1 }],
       bid_revisions: [{ id: "rev-1", content: null }],

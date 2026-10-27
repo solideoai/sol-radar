@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # 실추론 Kev 어댑터가 쓸 질문 세트 버전. mock 은 kev-qs/v0.1 만 답한다(docs/03 §5.7).
     KEV_QUESTION_SET: str = "kev-qs/v0.1"
     QWEN_MODEL: str | None = None
+    # 형식별 파서 어댑터 id(sol_ai.parsers). 비우면 기본 pdfplumber·sol-hwpx·sol-hwp5, 모르는 값이면 그 형식만 미처리
     PARSER_PDF: str | None = None
     PARSER_HWPX: str | None = None
     PARSER_HWP: str | None = None

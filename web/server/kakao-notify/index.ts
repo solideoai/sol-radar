@@ -40,7 +40,7 @@ export type {
 export { KakaoTokenError, createKakaoApi } from "./kakao-api";
 export type { KakaoApi, KakaoApiDeps, KakaoSendResult, KakaoTokenSet } from "./kakao-api";
 
-// 발송 port. worker 가 NOTIFY_KAKAO_PROVIDER(mock 기본 | memo)로 고른다(설계 §8).
+// 발송 port. worker 가 NOTIFY_KAKAO_PROVIDER(mock | memo)로 고른다(설계 §8). 비면 live 밖은 mock, live 는 발송 꺼짐(worker/notify-outbox.ts).
 export { createMemoKakaoSender, createMockKakaoSender } from "./kakao-sender";
 export type {
   KakaoExpiredResult,

@@ -6,10 +6,49 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-24
+updated: 2026-10-27
 ---
 
 # 10. Docker Compose 배포·실행 프로필
+
+## 운영 현황과 발표 경로 (2026-10-27)
+
+> [!note] 2026-10-27 현재 (메인 세션 확인)
+> - 운영 `https://www.solideos-radar.com` `/health/ready` 200(`db`·`redis`·`storage` ok, `ai: local`). `ai: local`은 회사 AI gateway가 보고한 provider 값이다.
+> - 정기 수집은 회사 ingest 전용 Worker의 BullMQ Job Scheduler `g2b-scheduled`(`pattern "0 */3 * * *"`, `tz "Asia/Seoul"`, KST 00·03·…·21시, 기동 즉시 수집 없음)다. 2026-10-26 13:51부터 7회 모두 `SUCCEEDED`, 실공고 592건, 최신 수집 10-27 09:03. 옛 30분·60분 주기는 지난 설정이다([[07-DATA-PIPELINE|07 수집]] §2.2).
+> - 회사 redis-api에는 `SOL_INGEST_MODE=live`가 있다(수동 수집 판정만 live. `SOL_RUN_MODE`는 그대로). 관리자 [지금 불러오기]는 `GET /api/v1/admin/ingestion/manual-gate`의 gate(사용자 60분·전역 공유 10분·하루 20회)를 거친다([[05-API-SPEC|05]] §2).
+> - Vercel Production에 기본 출처 env `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`)이 2026-10-26 14:27 무렵 추가됐고, 운영 기본 출처는 실공고로 보인다(10-26 운영 확인, 증거는 미커밋). 값이 없거나 틀리면 실행 모드를 따른다(`live` → `live`, `mock`·`fixture` → `demo`).
+> - 상단바의 실행 모드·AI 표시는 2026-10-26 뺐다. 화면 확인은 공고 상세 분석 요약 띠("분석 실행 모드: …"·"AI: …")로 한다([[06-UI-UX|06]] §4).
+> - 운영 DEMO 19건은 그대로다. 실운영 전환 A단계(운영 DEMO 삭제)는 실행하지 않았고 발표 뒤로 미뤘다([[16-DECISIONS|ADR-054]]). 운영 DB 안 백업 스키마 `demo_cleanup_20261026`은 있다.
+> - GitHub Actions는 2026-10-24부터 계정 결제 문제로 job이 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다. CI green을 근거로 쓰지 않는다.
+
+**발표 경로 D1(2026-10-27 사용자 "그래", [[16-DECISIONS|ADR-054]])**: 발표(2026-11-04)는 로컬 Compose가 아니라 운영 사이트에서 `?origin=demo`로 운영 DB의 DEMO 데이터를 보인다(`/dashboard?origin=demo`, `/bids?origin=demo`). 발표 전 `pnpm demo:reset`은 하지 않는다. 즉석 분석(FX-02)은 회사 실모델 결과이고, 운영 기록은 10-24 1건 66점 WATCH다(`mock` 골든 72와 다르다). DEMO 공고 마감일 등 일정은 발표일 기준으로 다시 잡는다. 그 SQL의 운영 적용은 별도 승인이다. 아래 "데모 당일 기동 절차"는 로컬 Compose 대체 경로·리허설 기준이다.
+
+## 첨부 처리 운영 반영 (2026-10-27, 로컬 통합·운영 미적용)
+
+> [!warning] 아직 운영에 적용하지 않았다
+> 첨부 다운로드·파서·documents worker·가입 동의 저장·카카오 live 가드는 통합 worktree `integration/blockers-1027`(기준 main `43e4e024`)에서 전체 `pnpm verify` exit 0까지 확인했다(2026-10-27). 운영 DB·회사 서버·Vercel에는 아무것도 반영하지 않았다. 아래 단계는 모두 사용자 승인 뒤에 한다. 근거: [첨부 처리 구현 증거](evidence/attachment-pipeline/20261027-implementation.md), [파서 실표본 확인](evidence/parser/20261027-parser-check.md), [live 가드 검증](evidence/live-guards/20261027.md), [회사 실행서](../infra/company/README.md) §8.
+
+반영 순서:
+
+1. **migration 2개 적용**: `20261027000500`(documents 처리 함수 5개)·`20261027000600`(가입 동의 `user_consents`, `handle_new_user` 재정의). `pnpm db:push`, 사용자 확인 뒤([[04-DATABASE|04 DB]] §7). 아래 "판단 필요" 콜아웃을 먼저 본다.
+2. **버킷 확인**: `bid-documents`·`bid-parsed`가 있고 `public = false`인지 회사 실행서 §8.1 SQL로 본다(읽기 전용). 2026-10-27 운영 `/health/ready`의 `storage`는 ok다.
+3. **AI gateway 이미지 재빌드·교체**: 파서 의존성(pdfplumber·olefile, `services/ai/uv.lock`)이 이미지에 들어가야 한다. Dockerfile은 바뀌지 않았다. 교체 뒤 `GET /health`의 `parsers`가 형식마다 `parserId`를 보여야 한다(null이면 파서 없는 이미지다). 회사 실행서에는 gateway 교체 절차가 아직 없다. §7.11이 `sol-radar-gateway` 프로젝트의 `up`을 쓰지 않는 명령으로 두므로, redis-api처럼 그 컨테이너만 다시 만드는 방식([[2026-10-27-ingest-source-isolation-deploy|10-27 배포 실행서]] 6))을 쓸지 승인 때 정한다.
+4. **documents 전용 Worker 기동**: `infra/compose.documents-only.company.yaml`(프로젝트 `sol-radar-documents`, 서비스 `documents-worker`, 이미지 `sol-radar-documents-worker:<git SHA>`), 진입점 `web/worker/documents-only-main.ts`. 회사 실행서 §8.1 D0 읽기 → §8.2 D1 빌드 → §8.3 D2 `--check` → §8.4 D3 기동(**[승인] 나라장터 첨부 실다운로드**) → §8.5 D4 확인. 새 키는 없다(§2 Worker 환경 파일을 같이 쓴다). 처리량 env는 [[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약" 표다. 전체 Worker(`worker/main.ts`)와 같은 Redis에서 함께 띄우지 않는다. 3번 전에 띄우면 원본만 받고 파싱은 약 2시간 미루다 `PENDING`으로 남는다.
+5. **Analysis Worker 이미지 교체(승인, 방법 미정)**: 회사 Analysis Worker는 `sol-radar-ai-worker-worker:latest`(회사 운영 원본)로 돈다. §7.11이 이 태그의 빌드·태그를 금지하므로 교체 방법을 따로 정해 승인받는다. 교체 전에는 분석이 첨부 텍스트를 읽지 않는다.
+6. **redis-api 이미지 교체**: 분석 요청의 원문 확인(`ANALYSIS_READS_ATTACHMENT_TEXT = true`)이 바뀐다. 교체 전에는 본문 없는 live 공고를 계속 `409 ANALYSIS_SOURCE_MISSING`으로 막는다(안전한 쪽). 방법은 [[2026-10-27-ingest-source-isolation-deploy|10-27 배포 실행서]] 6)의 단일 컨테이너 재생성과 같다.
+7. **Vercel 배포**: web도 중계 전에 같은 확인을 한다. 5·6 뒤에 배포한다. 먼저 배포해도 redis-api가 막지만 화면의 분석 준비 표시가 먼저 바뀐다. 가입 화면이 `consents` 네 항목을 보내기 시작한다.
+
+- 반영 전에 회사 Worker의 `NOTIFY_KAKAO_PROVIDER` 값을 확인한다. 새 코드에서 live + 빈 값은 카카오 발송 꺼짐이다(아래 env 절, [[13-NOTIFICATIONS|13 알림]]).
+- 되돌리기는 이전 SHA의 web·redis-api·Analysis Worker 이미지로 돌린다. documents Worker는 `stop`만 한다. 저장한 원본·텍스트·`bid_documents` 상태는 지우지 않는다(회사 실행서 §8.7).
+
+> [!warning] 판단 필요 — migration `20261027000600`과 Vercel 배포 사이
+> 새 `handle_new_user`는 부서·직급 키가 있는 이메일 가입에서 `consents`의 필수 셋(`terms`·`privacy`·`age_over_14`)이 JSON true가 아니면 `consent_required`(22023)로 거절한다. 지금 운영 web은 `consents`를 보내지 않는다. 그래서 1번에서 000600을 적용하면 7번 Vercel 배포 전까지 운영 이메일 가입이 막힌다(간편 가입은 영향 없음). 거꾸로 새 web은 옛 트리거에서도 가입된다(동의만 저장되지 않는다). 고를 수 있는 것:
+> 1. 1번에서 둘 다 적용하고 7번까지의 이메일 가입 공백을 받아들인다.
+> 2. 000600만 7번 직후에 적용한다. `pnpm db:push`는 남은 migration을 모두 적용하므로 000500만 먼저 적용하는 방법을 따로 정해야 한다.
+> 3. 7번을 1번보다 먼저 한다. 그 사이 화면의 분석 준비 표시가 redis-api보다 먼저 바뀐다.
+>
+> 사람이 정한다.
 
 ## 현재 배포 코드와 회사 기동 (2026-10-22, ADR-049)
 
@@ -19,12 +58,12 @@ updated: 2026-10-24
 
 ## Storage 전환·Vercel 환경 (ADR-048)
 
-코드는 MinIO 의존성을 제거했다. 기존 서버/볼륨은 자동 정리하지 않는다. **클라우드 migration·bucket·파일 이전은 적용/검증 전까지 대기 상태**다. documents 소비자/파서는 후속 작업이다.
+코드는 MinIO 의존성을 제거했다. 기존 서버/볼륨은 자동 정리하지 않는다. 2026-10-27 메인 세션 확인으로 운영 `/health/ready`의 `storage`가 ok다. `checks.storage`는 회사 Worker의 Storage 실검사 보고다(아래 적용 순서 5번). 기존 MinIO 파일 이전 여부는 이 확인으로 알 수 없다. 아래 적용 순서는 당시 계획으로 남긴다. documents 소비자·파서는 2026-10-27 구현했고 운영 반영 전이다(위 "첨부 처리 운영 반영").
 
 | 실행 위치 | 필수 설정 |
 | --- | --- |
-| Vercel web | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `API_CURSOR_SECRET`(32자 이상), `SOL_RUN_MODE`, `SOL_DEPLOYMENT_ROLE=frontend`, `REDIS_API_BASE_URL=https://acropolissg.com/redis`, `REDIS_API_TOKEN`(32바이트 난수) |
-| 회사 redis-api | `SOL_DEPLOYMENT_ROLE=redis-api`, 같은 Supabase URL/anon·모드·cursor secret, 사설 TCP `REDIS_URL`, 같은 `REDIS_API_TOKEN` |
+| Vercel web | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `API_CURSOR_SECRET`(32자 이상), `SOL_RUN_MODE`, 선택 `SOL_DEFAULT_ORIGIN`(화면 기본 출처, 2026-10-26), `SOL_DEPLOYMENT_ROLE=frontend`, `REDIS_API_BASE_URL=https://acropolissg.com/redis`, `REDIS_API_TOKEN`(32바이트 난수) |
+| 회사 redis-api | `SOL_DEPLOYMENT_ROLE=redis-api`, 같은 Supabase URL/anon·모드·cursor secret, 사설 TCP `REDIS_URL`, 같은 `REDIS_API_TOKEN`, `SOL_INGEST_MODE=live`(수동 수집 판정, 2026-10-26. 없으면 `SOL_RUN_MODE`) |
 | 회사 Worker | Supabase URL, `SUPABASE_SERVICE_ROLE_KEY`, 사설 TCP `REDIS_URL`, 실제 `AI_GATEWAY_URL`, 같은 실행 모드, 필요 시 G2B 키 |
 | 공통 Storage 이름 | `SUPABASE_STORAGE_RAW_BUCKET=bid-documents`, `SUPABASE_STORAGE_PARSED_BUCKET=bid-parsed`(기본값, runtime 간 동일) |
 
@@ -115,20 +154,21 @@ SOL_RUN_MODE=mock pnpm dlx vercel@latest dev -L
 |파일|읽는 쪽|담는 값 (요지)|
 |---|---|---|
 |`infra/.env`|`docker compose -f infra/compose.yaml`의 변수 치환. Compose는 `--project-directory`가 없으면 첫 `-f` 파일의 디렉터리(`infra/`)를 프로젝트 디렉터리로 삼고 거기서 `.env`를 찾는다(https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/, 2026-10-16 확인). 컨테이너에 넘기는 값은 `compose.yaml`의 `environment`가 정한다. 아래는 지금 `compose.yaml`이 넘기는 키만 적었다|`worker`: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SOL_RUN_MODE`, `DEMO_MODE`, `G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`(서비스별 서비스키 4개, `live`만 필수, 서버 전용·로그 금지), 선택 `G2B_INGEST_INTERVAL_MINUTES`·`ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`·`KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`·`NOTIFY_POLL_INTERVAL_MS`(아래). worker의 `REDIS_URL`은 Compose가 `REDIS_PASSWORD`로 만들고 `AI_GATEWAY_URL`은 `http://ai-gateway:8000` 고정이다. `redis`: 각 비밀번호. `ai-gateway`: `SOL_RUN_MODE`, `DEMO_MODE`, `AI_PROVIDER`, `AI_HOSTED_APPROVED`, `AI_FALLBACK_TO_MOCK`, `KEV_ENABLED`, `KEV_ALLOW_KO_STATE`, `QWEN_BASE_URL`·`QWEN_MODEL`·`QWEN_API_KEY`, `KEV_BASE_URL`·`KEV_MODEL_ID`·`KEV_QUESTION_SET`·`KEV_API_KEY`, 선택 `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`(아래). 호스트 포트 선택: `REDIS_HOST_PORT`(기본 6380)·`QDRANT_HOST_PORT`(6333)·`AI_GATEWAY_HOST_PORT`(8000)|
-|`web/.env.local`|Next.js `web/`(템플릿 위치)|`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`(분석 요청 큐 등록과 속도 제한), `AI_GATEWAY_URL`, `API_CURSOR_SECRET`(목록 커서 HMAC 키, 32자 이상, [[05-API-SPEC\|05 API]] §3. 아니면 커서 목록 API가 503 `{component:"cursor"}`), `SOL_RUN_MODE`(없으면 `mock`. Topbar 실행 모드 표시와 `/bids`·`/dashboard/summary`의 `origin` 기본값에 쓴다. web env 예시와 `pnpm check:env`에 등록하고 구현은 C6 B단계, [[16-DECISIONS\|ADR-029]] A6 D2. `infra/.env`의 값과 같게 둔다. 다르면 `pnpm check:env`가 `CONTRADICTS_MODE`로 실패한다). `REDIS_URL`의 쓰임·`API_CURSOR_SECRET` 503·`SOL_RUN_MODE` 검사는 적용됨(main `4ae09f9`, [[16-DECISIONS\|ADR-032]] D8·[[16-DECISIONS\|ADR-033]] E5). 선택 `AI_PROVIDER`·`AI_HOSTED_APPROVED`·`KEV_ENABLED`(`GET /api/v1/admin/ai/status`가 읽는다. gateway에 닿지 못할 때 보이는 값이고 `infra/.env`와 같은 값을 둔다, main `c5c91b5`): hosted는 gateway와 web **둘 다** `AI_HOSTED_APPROVED=true`여야 한다. web 쪽 값이 `true`가 아니면 gateway가 hosted로 떠 있어도 `422 HOSTED_NOT_APPROVED`다([[05-API-SPEC\|05 API]] §5, [[16-DECISIONS\|ADR-035]] F6). **`SUPABASE_SERVICE_ROLE_KEY`와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 넣지 않는다**(요청 처리는 사용자 세션 + RLS, 공공 API 호출은 worker만)|
+|`web/.env.local`|Next.js `web/`(템플릿 위치)|`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `REDIS_URL`(분석 요청 큐 등록과 속도 제한), `AI_GATEWAY_URL`, `API_CURSOR_SECRET`(목록 커서 HMAC 키, 32자 이상, [[05-API-SPEC\|05 API]] §3. 아니면 커서 목록 API가 503 `{component:"cursor"}`), `SOL_RUN_MODE`(없으면 `mock`. Topbar 실행 모드 표시(2026-10-26 제거)와 `/bids`·`/dashboard/summary`의 `origin` 기본값(선택 env `SOL_DEFAULT_ORIGIN`이 있으면 그것이 먼저)에 쓴다. web env 예시와 `pnpm check:env`에 등록하고 구현은 C6 B단계, [[16-DECISIONS\|ADR-029]] A6 D2. `infra/.env`의 값과 같게 둔다. 다르면 `pnpm check:env`가 `CONTRADICTS_MODE`로 실패한다). `REDIS_URL`의 쓰임·`API_CURSOR_SECRET` 503·`SOL_RUN_MODE` 검사는 적용됨(main `4ae09f9`, [[16-DECISIONS\|ADR-032]] D8·[[16-DECISIONS\|ADR-033]] E5). 선택 `AI_PROVIDER`·`AI_HOSTED_APPROVED`·`KEV_ENABLED`(`GET /api/v1/admin/ai/status`가 읽는다. gateway에 닿지 못할 때 보이는 값이고 `infra/.env`와 같은 값을 둔다, main `c5c91b5`): hosted는 gateway와 web **둘 다** `AI_HOSTED_APPROVED=true`여야 한다. web 쪽 값이 `true`가 아니면 gateway가 hosted로 떠 있어도 `422 HOSTED_NOT_APPROVED`다([[05-API-SPEC\|05 API]] §5, [[16-DECISIONS\|ADR-035]] F6). **`SUPABASE_SERVICE_ROLE_KEY`와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 넣지 않는다**(요청 처리는 사용자 세션 + RLS, 공공 API 호출은 worker만)|
 |루트 `.env.local`|`pnpm db:push`·`pnpm db:verify`(템플릿 `scripts/db-push.sh`·`scripts/db-verify.sh`가 `SUPABASE_DB_URL`을 여기서 읽는다), `pnpm demo:reset`|`SUPABASE_DB_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DEMO_SEED_PASSWORD`|
 
 - service role 키와 서비스키 4개(`G2B_*_SERVICE_KEY`)는 `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 절대 넣지 않는다([[09-SECURITY|09 보안]]). 서비스키는 worker의 `OfficialApiConnector`만 읽고, 소스마다 registry `serviceKeyEnv`가 가리키는 키 하나만 쓴다([[07-DATA-PIPELINE|07 수집]] §2.2). gateway에도 넘기지 않는다.
 - `pnpm check:env`는 세 파일의 placeholder를 세고, 실행 모드와 모순된 값(위 "실행 모드와 프로필")이 있으면 실패한다. Phase 0에서 구현했다(`scripts/check-env.mjs`). `process.env`가 아니라 `infra/.env`·`web/.env*` **파일**을 읽으므로 셸에서 env 만 주어서는 검사되지 않는다.
-- worker의 선택 env `G2B_INGEST_INTERVAL_MINUTES`(일정 수집 주기, 기본 `30`분, 양의 정수, [[07-DATA-PIPELINE|07 수집]] §2.2)와 `ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(멈춘 분석 복구, [[03-AI-PIPELINE|03]] §3)는 main `4895010`부터 `compose.yaml`이 worker `environment`에 키만 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에 변수가 없어 코드 기본값이 쓰인다(`compose.yaml` 주석, [[16-DECISIONS|ADR-031]] C12(e)·C13).
+- worker의 선택 env `G2B_INGEST_INTERVAL_MINUTES`(일정 수집 주기, 기본 `30`분, 양의 정수, [[07-DATA-PIPELINE|07 수집]] §2.2. **지난 설정**: 2026-10-26부터 g2b 정기 수집은 코드에 고정한 KST 3시간 정각 cron(`0 */3 * * *`, `Asia/Seoul`)이고 worker는 이 env를 무시하며 "무시함" 한 줄만 남긴다, `infra/compose.yaml`·`infra/compose.ingest-only.company.yaml` 주석)와 `ANALYSIS_STALE_QUEUED_MS`·`ANALYSIS_STALE_RUNNING_MS`·`ANALYSIS_RECONCILE_INTERVAL_MS`(멈춘 분석 복구, [[03-AI-PIPELINE|03]] §3)는 main `4895010`부터 `compose.yaml`이 worker `environment`에 키만 둔다. `infra/.env`·셸에 값이 있으면 그 값이 넘어가고, 없으면 컨테이너에 변수가 없어 코드 기본값이 쓰인다(`compose.yaml` 주석, [[16-DECISIONS|ADR-031]] C12(e)·C13).
 - `KEV_TIMEOUT_MS`·`AI_TIMEOUT_MS`(모델 호출 시간 제한, 기본 `5000`·`60000`)는 main `01fa51a`(병합 `9f71244`)부터 `compose.yaml`이 ai-gateway와 worker **둘 다**에 값 없는 키로 넘긴다. `infra/.env`에 값이 있으면 두 서비스가 같은 값을 받고, 없으면 둘 다 기본값이다. 빈 문자열을 넘기면 gateway 설정 검증이 실패해 기동하지 않으므로 값 없는 키여야 한다. 기본값을 바꿀 때는 gateway `settings.py`와 worker `gateway.model.ts`를 함께 바꾼다([[03-AI-PIPELINE|03]] §3, [[16-DECISIONS|ADR-033]] E4).
 - worker의 선택 env `NOTIFY_POLL_INTERVAL_MS`(인앱 알림 outbox 처리 간격, ms, 500~60000 10진 정수, 기본 `2000`, [[13-NOTIFICATIONS|13 알림]] "인앱 알림 2종"). 값이 틀리면 worker가 키 이름만 알리고 기동을 멈춘다. main `301f2a5`(`fix/compose-notify-poll` @ `574aaad`)부터 `compose.yaml`이 worker `environment`에 값 없는 키로 넘긴다. `infra/.env`·셸에 값이 없으면 기본값 2000을 쓴다([[16-DECISIONS|ADR-033]] E5).
-- 카카오톡 알림(나에게 보내기, [[16-DECISIONS|ADR-038]]) env. 2026-10-22 main에 병합됐다. 기본은 `NOTIFY_KAKAO_PROVIDER=mock`이고, 2026-10-24 사용자 재결정으로 10-25 시연 영상 녹화 때만 회사 Worker를 `memo`로 바꾼다(녹화 뒤 `mock` 복귀, 아래 "카카오 앱 설정").
+- 카카오톡 알림(나에게 보내기, [[16-DECISIONS|ADR-038]]) env. 2026-10-22 main에 병합됐다. 기본은 `NOTIFY_KAKAO_PROVIDER=mock`이고, 2026-10-24 사용자 재결정으로 시연 영상 녹화 때만 회사 Worker를 `memo`로 바꾼다(녹화 뒤 `mock` 복귀, 아래 "카카오 앱 설정"). 10-25 녹화는 하지 않았고, 첨부 처리 구현 뒤 S-LIVE와 함께 찍는다([[16-DECISIONS|ADR-054]]). 2026-10-27 운영 카카오 연결은 0건이다.
   - worker(`infra/.env`): `NOTIFY_KAKAO_PROVIDER`·`KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL`. `52adabb`부터 `compose.yaml`이 worker `environment`에 값 없는 키 다섯 개로 넘기고, 이름은 `.env.example`·`infra/env/demo.env.example`에 주석으로만 있다(값 없음).
-  - `NOTIFY_KAKAO_PROVIDER`가 비거나 `mock`이면 mock(외부 호출 없이 보낸 것으로 친다), `memo`면 나에게 보내기 실발송이다. 그 밖의 값이면 worker가 키 이름만 알리고 기동을 멈춘다.
+  - `NOTIFY_KAKAO_PROVIDER`가 `mock`이면 mock(외부 호출 없이 보낸 것으로 친다), `memo`면 나에게 보내기 실발송이다. 그 밖의 값이면 worker가 키 이름만 알리고 기동을 멈춘다.
+  - 빈 값은 실행 모드에 따라 다르다(2026-10-27 코드, 로컬 통합·운영 미적용, [live 가드 검증](evidence/live-guards/20261027.md)). `mock`·`fixture` 실행 모드는 mock 그대로다. `SOL_RUN_MODE=live`면 카카오 발송을 끈다. 기동은 막지 않고 경고 한 줄(`notify.kakao.disabled`)만 남긴다. 카카오 이벤트는 재시도(5·10·20·40초) 뒤 `DEAD`가 되고, 발송 기록(`kakao_send_claims`·KAKAO 알림 행)은 생기지 않는다. 인앱 알림은 그대로다. live에서 `mock`을 직접 적으면 받되 경고 한 줄(`notify.kakao.mock_in_live`)을 남긴다. 경고에는 키 이름만 싣는다. 이전 코드는 live에서도 빈 값을 mock으로 보고 `SENT`로 적었다.
   - `memo`면 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`SITE_URL` 넷이 모두 있어야 하고 `KAKAO_TOKEN_ENC_KEY`는 base64 32바이트여야 한다. 틀리면 worker가 Redis·큐 연결을 만들기 전에 키 이름만 알리고 멈춘다. 나에게 보내기 요청 시간 제한은 5000ms다.
   - `SITE_URL`은 피드 링크의 웹 주소(http·https)다. mock에서 비면 `http://localhost:3000`이다. 근거는 `web/worker/notify-outbox.ts` `readKakaoSettings`와 시험 `notify-outbox.test.ts`·`main.test.ts`(`52adabb`)다.
-  - web(`web/.env.local`): `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`·`SITE_URL`. 연결 Route Handler가 아직 없어 계획의 이름이다. 확정되면 env 예시 파일과 이 줄을 맞춘다.
+  - web(`web/.env.local`): `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`·`KAKAO_REDIRECT_URI`·`SITE_URL`. 연결 Route Handler(`/api/v1/me/kakao-notify/connect`·`callback`·`test`)는 main에 있다(2026-10-27 확인). 이 이름이 코드와 같은지는 이 정리에서 다시 대조하지 않았다.
   - `KAKAO_TOKEN_ENC_KEY`는 카카오 토큰 암호화 키(base64 32바이트, AES-256-GCM)다. web이 암호화해 저장하고 worker가 복호화하므로 두 쪽이 같은 값을 쓴다. 바꾸면 모든 연결을 다시 해야 한다.
   - 카카오 키·시크릿·암호화 키는 서버 전용이다. `NEXT_PUBLIC_` 변수·브라우저 번들·로그에 넣지 않는다([[16-DECISIONS|ADR-018]] 예외, [[09-SECURITY|09 보안]] "카카오톡 알림").
   - 실발송은 사용자가 `NOTIFY_KAKAO_PROVIDER=memo`로 바꿀 때만 일어난다. 시험·CI는 `mock`이다([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고").
@@ -167,7 +207,7 @@ G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 1512946
 ```
 
 - gateway는 `QWEN_API_KEY`·`KEV_API_KEY`를 `Authorization: Bearer`로 보낸다(회사 vLLM API의 키·`sol_decision.serve`의 `DECISION_API_KEY`와 같은 값). 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다(ADR-025, [[03-AI-PIPELINE|03 AI 파이프라인]] §3).
-- `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`는 예정이라 env 예시 파일에 아직 없다. 기본값은 실제 RFP 샘플 비교(03 §10.3) 뒤 정한다.
+- `PARSER_PDF`·`PARSER_HWPX`·`PARSER_HWP`는 gateway의 선택 env다. 비우면 기본 어댑터(`pdfplumber`·`sol-hwpx`·`sol-hwp5`)가 켜지므로 env 예시 파일과 Compose에 두지 않았다(2026-10-27). 다른 값을 쓸 때는 등록된 어댑터 id만 쓴다. 모르는 값이면 그 형식만 처리하지 않는다([[03-AI-PIPELINE|03]] §3·§10.1). 형식별 최종 선택은 03 §10.3 비교 뒤다.
 - `KEV_ENABLED=true`는 기본값이다. `false`로 두면 결정 모델 없이 규칙만으로 분석을 끝낸다(`RULES_ONLY`, 분석 `COMPLETED`). `live`·`fixture`·`mock` 모두 허용한다([[16-DECISIONS|ADR-029]] A5).
 
 ### seed
@@ -175,7 +215,7 @@ seed 적용·재적용은 스크립트 `pnpm demo:reset`이다(Compose 서비스
 
 적재 내용: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(Supabase Auth 계정 + `profiles` + `memberships`. `org-01`에 `sol_role` ADMIN/SALES/ANALYST/VIEWER 각 1, 그중 `admin@admin.com`는 `org_role=owner`. `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 적재 + FX-12 1건 격리(title 누락 → `ingest_errors`), 사전 리뷰 2건(FX-01 BID·FX-03 NO-BID), 부서·직급 카탈로그와 가상 인력 명부 200명·인력 기간 배정(`assignments`, 아래 "솔리데오 인력·사진 준비"). 사진 200장은 DB에 넣지 않고 READY 검증만 한다. 추출(`requirement_extractions`)도 넣지 않는다. seed는 gateway 출력을 지어내지 않는다. 검증된 추출은 기동 절차 14번 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장한다(`fixtures/extractions/`는 gateway mock이 읽는 정본, [[16-DECISIONS|ADR-031]] C16). 공고는 공용 데이터라 조직 소유가 없다. 계정 비밀번호는 `DEMO_SEED_PASSWORD`로만 정한다. 템플릿의 `pnpm db:seed`는 로컬 Supabase에서만 쓰는 시험 계정용이라 데모 seed로 쓰지 않는다. seed는 live로 수집한 공고(`is_demo=false`)를 지우지 않는다([[04-DATABASE|04 DB]] §6).
 
-**`live` 모드의 seed**: `pnpm demo:reset`은 실행 모드와 무관하게 데모 조직·계정 5개·가상 회사 프로필·fixture 공고·사전 리뷰를 넣는다. `is_demo=true` 데이터만 지우고 다시 만들므로 live 공고는 그대로다([[04-DATABASE|04 DB]] §6). 목록 기본 필터는 실행 모드를 따르므로 `live` 모드에서는 fixture 공고가 기본 목록에 섞이지 않는다([[05-API-SPEC|05 API]] §3).
+**`live` 모드의 seed**: `pnpm demo:reset`은 실행 모드와 무관하게 데모 조직·계정 5개·가상 회사 프로필·fixture 공고·사전 리뷰를 넣는다. `is_demo=true` 데이터만 지우고 다시 만들므로 live 공고는 그대로다([[04-DATABASE|04 DB]] §6). 목록 기본 필터는 `SOL_DEFAULT_ORIGIN`(없으면 실행 모드)을 따르므로 `live` 모드에서는 fixture 공고가 기본 목록에 섞이지 않는다([[05-API-SPEC|05 API]] §3). 운영 DB에는 `demo:reset`을 돌리지 않는다(발표 경로 D1, [[16-DECISIONS|ADR-054]]).
 
 > [!warning] 미검증 가정
 > - `ai-hosted`: hosted 공급자, 요청·응답 포맷, 가격 모두 미확인. Kev README의 Modal 배포 스크립트도 비용이 든다. 승인(`AI_HOSTED_APPROVED=true`) 전에는 구현·호출하지 않는다. 검증 방법은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5.8.
@@ -305,13 +345,16 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 
 ## 파서 런타임
 
-`POST /parse`의 형식별 어댑터는 실제 RFP 샘플 비교([[03-AI-PIPELINE|03 AI 파이프라인]] §10.3) 뒤 정한다. 후보에 따라 gateway 이미지에 Python 밖 런타임이 들어갈 수 있다.
-- Node 20: kordoc(HWP·HWPX·PDF 단일 엔진 후보)
-- JVM(Java 11+): hwplib·hwpxlib·opendataloader-pdf
-- 이런 후보는 gateway 안의 상주 하위 프로세스로 부른다. 이미지 크기 증가분과 기동 시간을 비교 표에 함께 적고, 선택이 끝나면 이 절과 `services/ai` Dockerfile을 확정한다.
-- gateway는 파서가 들어가도 DB·Supabase Storage·외부 네트워크에 접근하지 않는다. AGPL·GPL 후보(pyhwp·PyMuPDF·poppler 등)는 이미지에 넣지 않는다(03 §10.2).
+2026-10-27 형식마다 기본 어댑터를 구현했다(로컬 통합, 운영 미적용, [[03-AI-PIPELINE|03 AI 파이프라인]] §10.1·§10.2). 형식별 최종 선택은 실제 RFP 샘플 비교(03 §10.3) 뒤다.
+- Python 밖 런타임(Node·JVM)은 넣지 않았다. 의존성은 `services/ai/pyproject.toml`의 pdfplumber·olefile 두 개(와 그 의존)뿐이다. Dockerfile은 바뀌지 않았고 `uv sync --frozen`이 `uv.lock`대로 설치한다. 그래서 **gateway 이미지를 다시 빌드해야 파서가 들어간다**.
+- 어댑터는 요청마다 격리 하위 프로세스(`python -I`, 빈 환경 변수)로 돈다. 상주 워커는 없다. 동시 2개, 문서당 90 s, Linux에서 주소 공간 2 GiB다.
+- gateway는 파서가 들어가도 DB·Supabase Storage·외부 네트워크에 접근하지 않는다. AGPL·GPL 패키지(pyhwp·PyMuPDF·poppler 등)는 이미지에 넣지 않았다(03 §10.2).
+- 회사 gateway를 바꾸는 순서는 위 "첨부 처리 운영 반영" 3번이다.
 
 ## 데모 당일 기동 절차
+> [!warning] 2026-11-04 발표는 D1 경로다 ([[16-DECISIONS|ADR-054]])
+> 본 발표는 위 "운영 현황과 발표 경로"대로 운영 사이트 `?origin=demo`로 한다. 이 절의 `pnpm demo:reset`(6·12번)·mock 복귀(13번)·`pnpm demo:preanalyze`(14번)는 운영 발표에 쓰지 않는다. 운영 DB에 `demo:reset`을 돌리지 않는다. 이 절은 네트워크·운영 장애 때의 로컬 Compose 대체 경로와 리허설 기준으로 남긴다. 상단바 실행 모드·AI 표시는 2026-10-26 뺐으므로 아래 9·10번과 "장애 주입"의 우상단 `AI: …` 확인은 공고 상세 분석 요약 띠·PARTIAL 배너·`/health/ready` `checks.ai`로 대신한다.
+
 전제: D-1에 이미지 빌드·pull, `pnpm -C web build`, 마이그레이션 적용(`pnpm db:push`, 사용자 확인 뒤), 전체 리허설을 끝냈다 ([[12-ROADMAP|12 로드맵]]). 당일에는 스키마를 바꾸지 않는다. 증거는 `docs/evidence/demo-day/YYYYMMDD-HHMM/`에 저장한다([[11-TESTING|11 테스트]]). 어느 실행 모드로 시연할지는 [[19-DEMO-SCENARIO|19 데모 시나리오]]를 따른다. 아래 단계에서 **[live·fixture]** 표시는 `ai-local`일 때만 한다. 순서의 뼈대는 Compose(4) → `pnpm demo:reset`(12) → 모드 확인·mock 복귀(13) → `pnpm demo:preanalyze`(14) → S2다. `pnpm demo:reset`은 사전 분석을 지우므로(직후 `score_runs` 0건, [[04-DATABASE|04 DB]] §6) 마지막 reset 뒤에 사전 분석을 만든다([[16-DECISIONS|ADR-031]] C12(f)).
 
 > [!warning] 데모 네트워크 의존
@@ -328,8 +371,8 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 6. seed: `pnpm demo:reset` 마지막 줄이 `seed: orgs=2 users=5 profileRevisions=2 people=200 portraits=200 bids=19 quarantined=1 reviews=2 isDemo=true` 형식인지 확인(사전 리뷰 2건은 FX-01, FX-03). 숫자가 다르면 중단. 사전 분석은 아직 하지 않는다. 7~11번 리허설 뒤 12번 초기화가 지우므로 14번에서 만든다.
 7. `curl -s http://localhost:3000/health/ready`: `status` ok, `checks.db`(Supabase)·`checks.redis`·`checks.storage`(Supabase Storage) ok, `checks.ai`가 모드와 맞는지 본다(`mock` → `mock`, `live`·`fixture` → `local`). AI만 불가면 `status` degraded(HTTP 200)로 통과. db·redis·storage 중 하나라도 불가면 503 `status:"unavailable"`이므로 중단. 응답을 `health-ready.json`으로 저장. **[live·fixture]** gateway `GET /health`의 `runMode`가 2번에서 정한 모드이고 `kev.registryMatch=true`인지도 확인해 `gateway-health.json`으로 저장. 응답 형식은 [[05-API-SPEC|05 API]], `checks.ai` 의미는 [[14-OBSERVABILITY|14 관측성]].
 8. API 스모크: `org-01` 계정으로 Supabase Auth 비밀번호 로그인을 해 access token을 받는다(`supabase-js` `signInWithPassword` 또는 Auth REST `POST /auth/v1/token?grant_type=password`). `Authorization: Bearer <token>`으로 `GET /api/v1/bids` 19건(`live` 모드는 기본 필터가 `origin=live`라 fixture가 안 보이므로 `origin=demo`로 19건) → `POST /api/v1/bids/:id/analyses` 202 → poll이 10초 안에 `COMPLETED`(`mock` 기준, [[19-DEMO-SCENARIO|19 데모 시나리오]] S4·[[11-TESTING|11 테스트]] §5와 같은 값. 실모델 모드의 소요 시간은 리허설 실측값으로 판단). Bearer 요청은 CSRF 헤더 검사 대상이 아니다([[05-API-SPEC|05 API]]).
-9. 브라우저(폭 1440px, 줌 100%)에서 `/auth/login` → 머리말 "실행 모드: …"가 2번의 모드와 같은지, 우상단 `AI: mock`(또는 `live`·`fixture`면 `AI: local`, 분석 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c". 모델명은 저장된 `kev_model`·`QWEN_MODEL` 값이다)과 DEMO 배지 확인 → 목록 19건(`live`는 `origin=demo` 필터), 격리 1건(FX-12)은 관리자 수집 현황에만 표시 → 상세 1건이 자격·점수·근거·결정 모델 참고 지표 영역까지 렌더. 화면 캡처를 `run-mode-header.png`로 저장.
-10. 장애 대체 리허설 (아래 "장애 주입" 절): `docker compose -f infra/compose.yaml stop ai-gateway` → FX-01 재분석 → 상세에 `PARTIAL` 배너, 우상단 `AI: unavailable` → `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` 확인 → FX-01 재분석 `COMPLETED`. **[live·fixture]** 엔드포인트 미접속 리허설도 한다(C1 ③ G6과 같은 경로): 엔드포인트 접속을 끊는다(예: `QWEN_BASE_URL`·`KEV_BASE_URL`을 닿지 않는 주소로 바꿔 ai-gateway 재시작, 또는 노트북 방화벽으로 `acropolissg.com` 차단) → FX-01 재분석이 `PARTIAL`·`RULES_ONLY`(`QWEN_UNAVAILABLE` 또는 `KEV_UNAVAILABLE`)로 끝나고 mock 결과가 나오지 않는지 확인 → 원래 값으로 되돌려 ai-gateway를 재시작하고 4번 ②·③의 curl로 재접속을 확인 → FX-01 재분석 `COMPLETED`. 재접속 확인 소요 시간을 기록한다.
+9. 브라우저(폭 1440px, 줌 100%)에서 `/auth/login` → (2026-10-26 전 기준: 머리말 "실행 모드: …"가 2번의 모드와 같은지, 우상단 `AI: mock`. 지금 상단바에는 이 둘이 없으므로 분석 1건을 열어 분석 요약 띠로 본다) 분석 요약 띠 "분석 실행 모드: mock"·"AI: mock"(또는 `live`·`fixture`면 "분석 실행 모드: live"·"AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c". 모델명은 저장된 `kev_model`·`QWEN_MODEL` 값이다)과 DEMO 배지 확인 → 목록 19건(`live`는 `origin=demo` 필터), 격리 1건(FX-12)은 관리자 수집 현황에만 표시 → 상세 1건이 자격·점수·근거·결정 모델 참고 지표 영역까지 렌더. 화면 캡처를 `run-mode-header.png`로 저장.
+10. 장애 대체 리허설 (아래 "장애 주입" 절): `docker compose -f infra/compose.yaml stop ai-gateway` → FX-01 재분석 → 상세에 `PARTIAL` 배너, 분석 요약 띠 "· 응답 없음(규칙만)"·`/health/ready` `checks.ai: unavailable`(2026-10-26 전에는 우상단 `AI: unavailable`) → `docker compose -f infra/compose.yaml start ai-gateway` → `ps`에서 ai-gateway `healthy` 확인 → FX-01 재분석 `COMPLETED`. **[live·fixture]** 엔드포인트 미접속 리허설도 한다(C1 ③ G6과 같은 경로): 엔드포인트 접속을 끊는다(예: `QWEN_BASE_URL`·`KEV_BASE_URL`을 닿지 않는 주소로 바꿔 ai-gateway 재시작, 또는 노트북 방화벽으로 `acropolissg.com` 차단) → FX-01 재분석이 `PARTIAL`·`RULES_ONLY`(`QWEN_UNAVAILABLE` 또는 `KEV_UNAVAILABLE`)로 끝나고 mock 결과가 나오지 않는지 확인 → 원래 값으로 되돌려 ai-gateway를 재시작하고 4번 ②·③의 curl로 재접속을 확인 → FX-01 재분석 `COMPLETED`. 재접속 확인 소요 시간을 기록한다.
 11. 테넌트 격리 리허설: `org-02` VIEWER(`viewer@other.invalid`)로 Supabase Auth 로그인해 받은 access token을 `Authorization: Bearer`로 붙여 `GET /api/v1/bids/{FX-01 id}/qualification-checks` → `404 NOT_FOUND`(RLS가 `org-01` 행을 보여 주지 않는다). 공고 자체(`GET /api/v1/bids/{FX-01 id}`)는 공용이라 200. 404 응답을 `isolation-404.json`으로 저장. 절차는 [[19-DEMO-SCENARIO|19 데모 시나리오]] S7.
 12. 리허설로 생긴 리뷰·알림·분석 run 초기화: `pnpm demo:reset` (멱등, DEMO 데이터 재생성). 마지막 줄이 6번과 같은지 확인한다. 이 reset 뒤에는 `score_runs`가 0건이다.
 13. 모드 확인·mock 복귀: `infra/.env`의 `SOL_RUN_MODE`가 `mock`인지 본다. `live`·`fixture`로 리허설했으면 `mock`으로 바꾸고 worker·ai-gateway를 재시작한다. `ps`에서 ai-gateway `healthy`, `/health/ready`의 `checks.ai`가 `mock`이면 통과.
@@ -342,7 +385,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 ## D-1 리허설 추가 항목 (ADR-020)
 
 위 1~15에 더해 D-1에 한다. 결과는 `docs/evidence/demo-day/rehearsal-log.md`에 날짜·소요 시간·실패 단계와 함께 적는다([[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]]).
-- **세 모드 전환**: `live` → `fixture` → `mock` 순서로 env의 `SOL_RUN_MODE`를 바꾸고 worker·ai-gateway를 재시작한다. 모드마다 머리말 "실행 모드", 우상단 `AI: …`, 새로 적재되는 공고의 DEMO 배지, gateway `/health`의 `runMode`를 확인한다. 전환 소요 시간을 기록한다.
+- **세 모드 전환**: `live` → `fixture` → `mock` 순서로 env의 `SOL_RUN_MODE`를 바꾸고 worker·ai-gateway를 재시작한다. 모드마다 `/health/ready`의 `checks.ai`, 새 분석의 분석 요약 띠("분석 실행 모드: …"·"AI: …"), 새로 적재되는 공고의 DEMO 배지, gateway `/health`의 `runMode`를 확인한다(머리말 "실행 모드"·우상단 `AI: …`는 2026-10-26 제거). 전환 소요 시간을 기록한다.
 - **모순 env 거부**: `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`, `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`(모든 모드, B11)로 `pnpm check:env`와 gateway가 기동을 거부하는지 본다.
 - **엔드포인트 미접속과 재접속 확인**: 기동 절차 10번의 엔드포인트 단계를 반복하고 재접속 확인(`GET /v1/models` curl) 소요 시간을 잰다. 회사 측이 런타임을 재시작했다고 알려 오면 gateway `/health`의 `kev.registryMatch`가 다시 `true`인지도 본다.
 - **live 호출 예산**: 리허설의 공공 API 호출 수가 일일 한도(개발계정 서비스당 1,000건/일) 안인지 관리자 수집 화면으로 확인한다([[07-DATA-PIPELINE|07 수집]]).
@@ -352,8 +395,8 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 
 |단계|명령|기대 결과|
 |---|---|---|
-|주입|`docker compose -f infra/compose.yaml stop ai-gateway`|Worker의 `/kev` 호출이 연결 거부로 즉시 실패(재시도 없음). FX-01 재분석 run 이 1~2초 안에 `PARTIAL`(화면 반영은 분석 상세 폴링 2초 간격이라 수 초, [[16-DECISIONS\|16]] 미결정 30-5), `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 상세 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY\|09 보안]] 원문), 우상단 `AI: unavailable`, `/health/ready` `status: degraded`, `checks.ai: unavailable`|
-|복구|`docker compose -f infra/compose.yaml start ai-gateway` → `docker compose -f infra/compose.yaml ps`에서 ai-gateway `healthy`|FX-01 재분석 `COMPLETED`, 우상단 `AI: mock`(실모델 모드는 `AI: local`). 분석 1건으로는 circuit이 열리지 않으므로 대기 시간 없음|
+|주입|`docker compose -f infra/compose.yaml stop ai-gateway`|Worker의 `/kev` 호출이 연결 거부로 즉시 실패(재시도 없음). FX-01 재분석 run 이 1~2초 안에 `PARTIAL`(화면 반영은 분석 상세 폴링 2초 간격이라 수 초, [[16-DECISIONS\|16]] 미결정 30-5), `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 상세 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY\|09 보안]] 원문), 분석 요약 띠 "· 응답 없음(규칙만)"(2026-10-26 전에는 우상단 `AI: unavailable`), `/health/ready` `status: degraded`, `checks.ai: unavailable`|
+|복구|`docker compose -f infra/compose.yaml start ai-gateway` → `docker compose -f infra/compose.yaml ps`에서 ai-gateway `healthy`|FX-01 재분석 `COMPLETED`, 분석 요약 띠 `AI: mock`(실모델 모드는 `AI: local · …`, 2026-10-26 전에는 우상단 표시). 분석 1건으로는 circuit이 열리지 않으므로 대기 시간 없음|
 
 후보 (b) `AI_FAULT_INJECT` env 토글은 컨테이너 재시작이 필요하고 (c) mock adapter의 장애 fixture는 "실제로 꺼졌다"는 인상이 약하다. 둘은 테스트([[11-TESTING|11 테스트]] 골든 시나리오 `G6`)에서만 쓴다. `AI_FAULT_INJECT` 값(`kev_timeout`·`qwen_error`·`qwen_unreachable`·`kev_unreachable`·`gateway_down`)은 [[03-AI-PIPELINE|03 AI 파이프라인]] §3. 실모델 모드의 엔드포인트 미접속은 장애 주입 장면이 아니라 리허설 항목이다(기동 절차 10번).
 
@@ -373,7 +416,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 > - 첫 기동 때 패키지 로딩 시간·VRAM은 재지 않았다. 기동은 회사 측이 하므로 회사가 주는 값이 있으면 적고 없으면 "회사 운영, 측정 불가"로 남긴다(ADR-025). GPU 자체는 2026-10-20 확인했다(A40 46,068 MiB ×3, 위 "GPU 1 공유").
 > - Bosun 질문당 지연 p95(`KEV_TIMEOUT_MS` 5000)는 B2 G3에서 잰다(16 미결정 24번).
 
-## 카카오 앱 설정 ([[16-DECISIONS|ADR-038]], 10-25 실제 공고 수신 녹화 때 실발송)
+## 카카오 앱 설정 ([[16-DECISIONS|ADR-038]], 실제 공고 수신 녹화 때 실발송. 10-25 예정은 미실행, 첨부 처리 구현 뒤로 ADR-054)
 카카오톡 알림을 `memo`로 실발송하려면 사용자가 카카오 디벨로퍼스에서 아래를 한다. 작업 세션은 카카오 API 호출·키 발급·외부 계정 연동을 하지 않는다. 원천은 [설계](plans/2026-10-20-kakao-memo-notify-design.md) §6 "카카오 앱 설정"·§11(S0)·§12-6(사용자가 할 일)이다.
 1. 앱을 하나 만든다. 간편 로그인과 같은 앱을 써도 된다. 같은 앱이면 카카오 `unlink`가 로그인 연결도 끊으므로, 연결 해제는 `unlink`를 부르지 않는다.
 2. 카카오 로그인을 활성화한다.
@@ -384,7 +427,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8의 값. vLLM Qwen 4
 7. REST API 키·시크릿·암호화 키 값은 사용자가 서버 env 파일(`web/.env.local`·`infra/.env`)에 직접 넣는다. 키 이름은 위 "env 파일 위치"의 카카오 줄을 따른다. 값은 문서·커밋·로그에 쓰지 않는다.
 
 - **카카오 S0 수신 시험(설계 §11, 코드보다 먼저, 사용자 몫. 데모 당일 S0 사전 준비와 다르다)**: 사용자 휴대폰으로 나에게 보내기 한 통을 보내 휴대폰 알림이 울리는지, `talk_message`가 검수 없이 되는지, 피드 모양이 시안과 같은지, 원문 도메인을 등록할 수 있는지 본다. 결과는 `docs/evidence/`에 적는다. 2026-10-21 현재 하지 않았다. 알림이 울리지 않으면 멈추고 사용자에게 묻는다. 2026-10-24 사용자 재결정("공고를 해커톤 시연때 mock이 아니라 실제 공고를 받아야 해. 시연 영상도 찍어야 하니까 내 의견 반영해")으로 이 시험은 10-25 오전에 한다. 같은 날 앞선 "mock으로 둬" 결정은 바뀌었다([[16-DECISIONS|ADR-038]] 재개정).
-- 수동 실발송 1회(U10): `NOTIFY_KAKAO_PROVIDER=memo`로 실제 나라장터 공고 한 건을 분석해 휴대폰 수신을 녹화하고 `docs/evidence/`에 둔다([[19-DEMO-SCENARIO|19 데모]] 녹화 장면). 10-25 마지막 `demo:reset` 뒤 S-LIVE와 함께 하고(예정·미확인), 녹화 뒤 `mock`으로 되돌린다. 실행 절차서는 `docs/evidence/demo-day/20261024-slive-check/`(sol-radar-03 작성 중)다.
+- 수동 실발송 1회(U10): `NOTIFY_KAKAO_PROVIDER=memo`로 실제 나라장터 공고 한 건을 분석해 휴대폰 수신을 녹화하고 `docs/evidence/`에 둔다([[19-DEMO-SCENARIO|19 데모]] 녹화 장면). 10-25 마지막 `demo:reset` 뒤 S-LIVE와 함께 할 예정이었으나 하지 않았다. 2026-10-27 결정으로 첨부 처리 구현 뒤 실공고 S-LIVE와 함께 찍는다(D1이라 `demo:reset`은 하지 않는다, [[16-DECISIONS|ADR-054]]). 녹화 뒤 `mock`으로 되돌린다. 실행 절차서는 `docs/evidence/demo-day/20261024-slive-check/`(sol-radar-03 작성 중)다.
 
 ## 운영
 - Compose 서비스: healthcheck, restart policy, log rotation, 비root 실행(qdrant `-unprivileged` 태그), 포트는 외부 인터페이스에 열지 않는다, 볼륨(redisdata·qdrantdata) 백업 및 복구 리허설. 서비스 시작 시 Supabase·Redis readiness 확인, 무한 재시작 대신 명확한 오류 출력.
@@ -469,7 +512,7 @@ Next 설정의 기존 `/account`·`/favicon.ico` 별칭과 trailing slash 정규
 
 접수는16KiB·전체15초 상한이며 네트워크/502/503/504는 같은 업무 멱등 키·본문으로 최대1회 재시도한다. 인증/권한/409/429는 자동 재시도하지 않는다. HTML/redirect/잘못된 DTO는 안전한503으로 바꾸고 외부 주소·Cookie·refresh token을 반환하지 않는다. backend rate limit은 분석30회/분·수집5회/분이며 frontend에 같은 limiter를 추가하지 않는다.
 
-Phase 1의 `/health`는 현재 MinIO·AI·DB·Redis probe를 재사용한다. 인증 전에는401, 인증 후 핵심 의존성 장애면503이다. Vercel readiness/대시보드 AI 요약은 이 HTTPS 결과를 사용한다. 상세 ADMIN AI 상태 API와 기존 Vercel ai binding은 아직 ADR-044 구성이며 후속 전환 때 정리한다. **Storage·parser·documents 소비자·durable dispatch·quota 예약 보강을 완료한 것으로 표시하지 않는다.**
+Phase 1의 `/health`는 현재 MinIO·AI·DB·Redis probe를 재사용한다. 인증 전에는401, 인증 후 핵심 의존성 장애면503이다. Vercel readiness/대시보드 AI 요약은 이 HTTPS 결과를 사용한다. 상세 ADMIN AI 상태 API와 기존 Vercel ai binding은 아직 ADR-044 구성이며 후속 전환 때 정리한다. **Storage·parser·documents 소비자·durable dispatch·quota 예약 보강을 완료한 것으로 표시하지 않는다.** (2026-10-27: parser·documents 소비자는 코드가 있고 운영 반영 전이다. 위 "첨부 처리 운영 반영".)
 
 Readiness의 원격 전송 상한은5초이며 backend probe의2초 상한에 네트워크 여유를 준다. AI만 시간 초과이면 핵심 의존성은 유지한200/degraded다. 작업 접수의 `REDIS_API_TIMEOUT_MS`와 별도이며 최초 인증부터 적용하는 접수 상한은 기본15초다.
 
@@ -483,7 +526,7 @@ Readiness의 원격 전송 상한은5초이며 backend probe의2초 상한에 �
 
 frontend는 `SOL_DEPLOYMENT_ROLE=frontend`, 서버 전용 `REDIS_API_BASE_URL=https://acropolissg.com/redis`, `REDIS_API_TOKEN`을 사용한다. 운영 설정 허용 host는acropolissg.com:443이며 다른 host는 별도 승인 대상이다. 코드가 hostname을 하드코딩해 제한한다고 주장하지 않는다. 회사 API의 allowlist5경로·서비스 token+업무 JWT·RLS를 지키며 Vercel web에는 Redis TCP URL·service role·GPU/G2B 키를 넣지 않는다. Worker는 회사 서버에서 기존 TCP 큐를 소비한다.
 
-10-24(토)22:00 전 `pnpm verify`, 실제 HTTPS401/403/404·202→polling→Worker 완료·멱등/429·비공개 포트 확인이 green이어야10-25 리허설에서 선택한다. 로컬 Phase 1 통과만으로 이 운영 조건을 완료 처리하지 않는다. 실패하면 새 경로 활성화를 보류하고 기존 Compose로 수동 복귀한다. S0는 [[19-DEMO-SCENARIO|19]] §3, 실행별 체크는 [[11-TESTING|11]] §5에 기록한다.
+10-24(토)22:00 전 `pnpm verify`, 실제 HTTPS401/403/404·202→polling→Worker 완료·멱등/429·비공개 포트 확인이 green이어야10-25 리허설에서 선택한다(지난 일정. 그 뒤 운영은 Vercel frontend + 회사 redis-api 경로로 돌고 있다, 위 "운영 현황과 발표 경로"). 로컬 Phase 1 통과만으로 이 운영 조건을 완료 처리하지 않는다. 실패하면 새 경로 활성화를 보류하고 기존 Compose로 수동 복귀한다. S0는 [[19-DEMO-SCENARIO|19]] §3, 실행별 체크는 [[11-TESTING|11]] §5에 기록한다.
 
 Hobby는 개인·비상업 조건과 월100GB, Pro는 현재 $20/월·기본 Flat Rate CDN1TB 용량이며 실제 사용 팀의 계약을 확인한다. 함수는 Fluid Compute 기준 Hobby 최대300초·Pro 일반 최대800초, 요청/응답4.5MB다. [공식 근거·요금표·지침 승인 문안](plans/2026-10-21-redis-vercel-merge-conditions.md)에서 세부 조건을 확인한다. 회사 업무용 Pro가 필요하면 비용·예산 상한을 사용자에게 확인한 뒤 진행한다. 이번 정리는 결제·업그레이드·실배포 승인이 아니다.
 

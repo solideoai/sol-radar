@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-24
+updated: 2026-10-27
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -49,12 +49,12 @@ updated: 2026-10-24
 |PATCH|`/me/kakao-notify`|session(본인)|**(main 병합)** 카카오톡 알림 켜기·끄기|`KakaoNotifyEnabledInput` → `204`. 연결 전 켜기는 `409 KAKAO_NOT_CONNECTED`|
 |DELETE|`/me/kakao-notify`|session(본인)|**(main 병합)** 연결 해제(본인 연결 행을 지운다. 카카오 `unlink`는 부르지 않는다)|`204`|
 |GET|`/me/kakao-notify/connect`|session(본인)|**(main 병합)** `state`를 만들어 카카오 인가 주소(`scope=talk_message`)로 보낸다|`302` 카카오 인가|
-|GET|`/me/kakao-notify/callback`|session(본인)|**(구현 중)** `state` 확인 → 코드를 토큰으로 → `talk_message` 동의 확인 → 암호화 저장|`302 /settings?kakao=connected\|consent_denied\|state_mismatch\|failed`|
-|POST|`/me/kakao-notify/test`|session(본인)|**(구현 중)** 시험 메시지 이벤트(`KAKAO_TEST`)를 쌓는다|`202`. 연결·켬이 아니면 `409 KAKAO_NOT_READY`, 같은 분에 다시 누르면 `429 KAKAO_TEST_THROTTLED`|
+|GET|`/me/kakao-notify/callback`|session(본인)|**(main 병합)** `state` 확인 → 코드를 토큰으로 → `talk_message` 동의 확인 → 암호화 저장|`302 /settings?kakao=connected\|consent_denied\|state_mismatch\|failed`|
+|POST|`/me/kakao-notify/test`|session(본인)|**(main 병합)** 시험 메시지 이벤트(`KAKAO_TEST`)를 쌓는다|`202`. 연결·켬이 아니면 `409 KAKAO_NOT_READY`, 같은 분에 다시 누르면 `429 KAKAO_TEST_THROTTLED`|
 |GET|`/bids`|`ADMIN, SALES, ANALYST, VIEWER`|목록·검색·필터·커서. 출처 필터 `origin=live\|demo\|all`. P1: `watched=me`([[16-DECISIONS\|ADR-021]])|§3 → `Page<BidListItem>`|
 |GET|`/bids/:id`|`ADMIN, SALES, ANALYST, VIEWER`|상세(최신 revision, 추출, 최신 분석, 검토, 첨부 다운로드·파싱 상태, 단계 연결, API 구조화 자격 필드)|`BidDetail`|
-|GET|`/bids/:id/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** revision 목록·변경 필드|`BidRevisionSummary[]`|
-|GET|`/bids/:id/revisions/:rev`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 특정 revision 정규화 본문|`NormalizedBid`|
+|GET|`/bids/:id/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 목록·변경 필드(최신 먼저). 2026-10-22 통합으로 구현(`web/app/api/v1/bids/[id]/revisions/route.ts`)|`BidRevisionSummary[]`|
+|GET|`/bids/:id/revisions/:rev`|`ADMIN, SALES, ANALYST, VIEWER`|특정 revision 정규화 본문. 2026-10-22 통합으로 구현(`…/revisions/[rev]/route.ts`)|`NormalizedBid`|
 |GET|`/bids/:id/documents/:docId/download`|`ADMIN, SALES, ANALYST, VIEWER`|**(미구현)** 첨부 다운로드|`302` → 60초 presigned URL([[09-SECURITY\|09 보안]])|
 |GET|`/company-profile`|`ADMIN, SALES, ANALYST, VIEWER`|현재 프로필(최신 revision)|`CompanyProfile`|
 |GET|`/company-profile/revisions`|`ADMIN, SALES, ANALYST, VIEWER`|revision 이력|`CompanyProfileSummary[]`|
@@ -66,7 +66,7 @@ updated: 2026-10-24
 |GET|`/bids/:id/qualification-checks`|`ADMIN, SALES, ANALYST, VIEWER`|최신 분석의 자격 판정(항목마다 사유 코드·회사 근거·값 출처)|`QualificationCheck[]`|
 |GET|`/bids/:id/reviews`|`ADMIN, SALES, ANALYST, VIEWER`|검토 이력|`Review[]`|
 |POST|`/bids/:id/reviews`|`ADMIN, SALES`|사람 최종 결정 기록|`ReviewInput` → `201 Review`|
-|GET|`/dashboard/summary`|`ADMIN, SALES, ANALYST, VIEWER`|대시보드 요약. `origin` 쿼리를 받고 기본값은 `/bids`와 같다(실행 모드를 따름)|`?origin` → `DashboardSummary`|
+|GET|`/dashboard/summary`|`ADMIN, SALES, ANALYST, VIEWER`|대시보드 요약. `origin` 쿼리를 받고 기본값은 `/bids`와 같다(`SOL_DEFAULT_ORIGIN`, 없으면 실행 모드, §3)|`?origin` → `DashboardSummary`|
 |GET|`/notifications`|auth|내 알림 목록|`?unreadOnly&cursor&limit` → `Page<Notification>`|
 |PATCH|`/notifications/:id/read`|auth(본인)|읽음 처리. 핵심 컷 Route Handler 10번째([[16-DECISIONS\|ADR-029]] A6 D8)|`200 Notification`. 남의 알림은 `404`|
 |GET|`/departments`|`ADMIN, SALES, ANALYST, VIEWER`|조직도 트리([[16-DECISIONS\|ADR-021]]). 상위 없는 부서는 `parentId:null`. 부서마다 `memberCount`(하위 팀 재직 인원 합, 직원 ID 중복 제거)와 `targetCount`(팀만, 본부·그룹은 null)|`Department[]`(§4.7)|
@@ -87,6 +87,7 @@ updated: 2026-10-24
 |POST|`/admin/ingestion/runs`|`ADMIN`|수동 수집(멱등, §1). 소스는 `g2b`(나라장터 Open API) 또는 `fixture`. 실행 모드와 맞지 않는 소스는 `409 RUN_MODE_MISMATCH`. 검사 순서: 역할 → `Idempotency-Key` 형식 → 본문 크기(16KB) → 속도 제한 → 본문 검증(`window.to`가 지금보다 5분 넘게 미래면 400) → 실행 모드 → 멱등 재현 → 진행 중(같은 source의 `RUNNING` 행이면 `409 INGESTION_IN_PROGRESS {runId}`. 큐에만 있는 job은 막지 않는다. worker가 jobKey로 멱등 처리한다) → 키 잡기 → 큐. Route Handler는 job만 넣는다. run id를 만들어 job data `runId`로 넘기고, worker가 그 id로 `ingest_runs` 행을 만든다. 202 본문은 행이 생기기 전 모습(`status:"RUNNING"`, summary 0)을 합성한 것이다(§6.5)|`IngestionRunInput` → `202 IngestionRun`|
 |GET|`/admin/ingestion/runs`|`ADMIN`|수집 이력. `started_at desc, id desc` keyset, 조직에 묶인 HMAC 커서(커서 비밀이 없으면 `503 {component:"cursor"}`)|`?cursor&limit` → `Page<IngestionRun>`|
 |GET|`/admin/ingestion/runs/:id`|`ADMIN`|수집 결과·오류. id가 UUID가 아니거나 행이 없으면 `404 {resource:"ingestionRun"}`. 202 뒤 worker가 행을 만들기 전에도 404이고, 화면은 이력 표를 polling한다|`IngestionRun`|
+|GET|`/admin/ingestion/manual-gate`|`ADMIN`|수동 수집 gate 상태(2026-10-26, 실운영 전환). 화면의 [지금 불러오기]·다음 가능 시각·정기 일정 줄이 쓴다. frontend(Vercel)는 권한을 먼저 보고 회사 redis-api로 중계한다(같은 403). Redis를 읽지 못하면 `503 {component:"redis"}`. 규칙: 같은 사용자 60분 쿨다운, 누가 했든 전역 공유 실행 10분, KST 하루 20회(`web/server/ingestion/manual-ingest-gate.model.ts`)|`ManualIngestGateView` `{cooldownMinutes, nextAvailableAt, sharedRun:{runId,requestedAt,until,mine}\|null, daily:{used,limit,resetsAt}, schedule:{pattern,timezone,slotHoursKst,active,nextRunAt}, ingestMode, services}`. `schedule.active`·`nextRunAt`은 ingest 큐 Job Scheduler `g2b-scheduled`의 실제 등록 상태, `ingestMode`는 redis-api의 `SOL_INGEST_MODE`(없으면 `SOL_RUN_MODE`), `services`는 Worker가 남긴 외부 서비스별 상태(없으면 null)|
 |GET|`/admin/sources`|`ADMIN`|**(미구현)** 수집 소스 registry 항목별 승인·호출량·최근 성공/오류|`SourceStatus[]`|
 |GET|`/admin/ai/status`|`ADMIN`|실행 모드, AI 공급자, Qwen·결정 모델(Bosun) 상태, 레지스트리 일치, 파서 목록|`AiStatus`|
 |GET|`/admin/ai/models`|`ADMIN`|**(미구현)** 모델 레지스트리 항목과 현재 활성 항목(gateway `/health`에서 읽음)|`ModelRegistryStatus`|
@@ -107,7 +108,7 @@ updated: 2026-10-24
 
 ### P1 조회·저장 계약 (2026-10-22 로컬 통합)
 
-구현 기준은 [[2026-10-22-dashboard-missing-pages-plan|실행 계획]]과 N5/N7 `polaris/specs/in-progress/` 스펙이다. 배포·클라우드 적용과 로컬 구현을 구분한다.
+구현 기준은 [[2026-10-22-dashboard-missing-pages-plan|실행 계획]]과 N5/N7 `polaris/specs/done/` 스펙이다(2026-10-27 완료 스펙으로 옮김). 배포·클라우드 적용과 로컬 구현을 구분한다.
 
 - 관심 PUT·DELETE는 멱등이며 본인 행만 저장한다. `watched=me` 커서는 조직·사용자·필터에 묶는다. 현재 `/opportunities`도 같은 본인 범위를 지원한다.
 - 분석 이력은 `created_at desc, id desc`, limit 기본20·최대100이다. 항목은 공고 제목·DEMO와 분석 ID/revision/프로필 revision/상태/모드/점수/권고/실패 사유/reviewFlags/시각/알고리즘 버전이며 입력 스냅샷은 싣지 않는다. 커서는 조직·필터에 묶는다. 비교는 기존 단건 조회 2~4회, 분석 실행·저장 없음이다.
@@ -129,7 +130,7 @@ updated: 2026-10-24
 |`recommendation`|`BID\|WATCH\|NO_BID`, 반복 가능|—|ENUM|최신 분석의 시스템 권고|
 |`decision`|`BID\|WATCH\|NO_BID\|NONE`, 반복 가능|—|ENUM|최신 사람 결정. `NONE` = 미결정|
 |`hasAnalysis`|boolean|—|—|**(미구현)** 분석 존재 여부|
-|`origin`|`live\|demo\|all`|실행 모드: `live`면 `live`, `fixture`·`mock`이면 `demo`|ENUM|출처 필터([[16-DECISIONS\|ADR-020]]). 기본값이 실행 모드를 따르는 이유는 모드마다 그 모드의 데이터만 기본으로 보여 live 공고와 fixture 공고가 섞이지 않게 하려는 것이다. 둘 다 보려면 `all`([[19-DEMO-SCENARIO\|19 데모]] §2.1). `live` = 나라장터에서 수집한 공고(`is_demo=false`), `demo` = fixture 등 가상 공고(`is_demo=true`)|
+|`origin`|`live\|demo\|all`|서버 env `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`, 2026-10-26). 없거나 틀리면 실행 모드: `live`면 `live`, `fixture`·`mock`이면 `demo`(`web/server/bids/bid-query.ts` `defaultOrigin`)|ENUM|출처 필터([[16-DECISIONS\|ADR-020]]). 실행 모드와 따로 둔 이유는 회사 런타임이 `live`여도 화면 기본 출처를 정할 수 있게 하려는 것이다(10-25 계획 D2). 운영 Production에는 2026-10-26 이 env가 추가돼 기본이 실공고로 보인다. 원래 기본값이 실행 모드를 따르는 이유는 모드마다 그 모드의 데이터만 기본으로 보여 live 공고와 fixture 공고가 섞이지 않게 하려는 것이다. 둘 다 보려면 `all`([[19-DEMO-SCENARIO\|19 데모]] §2.1). `live` = 나라장터에서 수집한 공고(`is_demo=false`), `demo` = fixture 등 가상 공고(`is_demo=true`)|
 |`isDemo`|boolean|—|—|DEMO 공고만/제외. 생략 시 둘 다. `isDemo=true`는 `origin=demo`, `false`는 `origin=live`와 같다. 둘을 함께 주고 뜻이 다르면 `400 VALIDATION_ERROR`|
 |`sort`|`publishedAt:desc\|publishedAt:asc\|deadlineAt:asc\|deadlineAt:desc\|score:desc\|budgetKrw:desc`|`publishedAt:desc`|ENUM|정렬. `score:desc`는 분석 없는 공고를 뒤로|
 |`cursor`|string|—|서버 발급 값|이전 응답의 `nextCursor`. 변조는 `400 INVALID_CURSOR`|
@@ -391,7 +392,7 @@ interface Review {
   disagreementFlag: boolean;                                     // decision !== systemRecommendationAtDecision. bid_reviews.disagreement_flag
 }
 interface Notification {
-  id: string; type: "BID_CREATED" | "BID_CHANGED" | "DEADLINE_APPROACHING" | "ANALYSIS_COMPLETE" | "REVIEW_ASSIGNED" | "BID_RECOMMENDED" | "KAKAO_EXPIRED";   // 뒤의 둘은 ADR-038(구현 중). 인앱 목록·안 읽음 수는 channel IN_APP만 세므로 목록에 나오는 새 종류는 KAKAO_EXPIRED(link /settings) 하나다
+  id: string; type: "BID_CREATED" | "BID_CHANGED" | "DEADLINE_APPROACHING" | "ANALYSIS_COMPLETE" | "REVIEW_ASSIGNED" | "BID_RECOMMENDED" | "KAKAO_EXPIRED";   // 뒤의 둘은 ADR-038(main 병합 2026-10-22). 인앱 목록·안 읽음 수는 channel IN_APP만 세므로 목록에 나오는 새 종류는 KAKAO_EXPIRED(link /settings) 하나다
   channel: "IN_APP" | "KAKAO"; status: "PENDING" | "SENT" | "FAILED" | "DEAD";
   payload: { bidId: string; title: string; message: string; link: string; changedFields?: string[] };   // link는 앱 안 경로만. 알림 목록 서비스(서버)가 검사하고 그 밖의 값이면 /bids/{bidId}로 바꾼다(열린 리다이렉트 방지, ADR-030 B23)
   readAt: string | null; createdAt: string;
@@ -567,14 +568,18 @@ interface PeoplePage {
 |409|`PROJECT_REQUIRES_BID_DECISION`|P1. `POST /projects`의 `reviewId`가 BID 결정이 아님([[16-DECISIONS\|ADR-021]])|`{reviewId}`|
 |409|`LATEST_DECISION_NOT_BID`|P1. 입찰 프로젝트를 연 뒤 최신 결정이 BID가 아니어서 상태 전진을 막음. 자동 종료하지 않는다([[16-DECISIONS\|ADR-021]])|`{bidId, latestDecision}`|
 |409|`RUN_MODE_MISMATCH`|`POST /admin/ingestion/runs`의 `source`가 현재 실행 모드(`SOL_RUN_MODE`)와 맞지 않음(`live`에 `fixture`, `fixture`·`mock`에 `g2b`). 서버가 조용히 소스를 바꾸지 않는다([[16-DECISIONS\|ADR-020]])|`{runMode, source}`|
-|409|`KAKAO_NOT_CONNECTED`|구현 중([[16-DECISIONS\|ADR-038]]). `PATCH /me/kakao-notify`로 켜려는데 카카오톡 알림 연결이 없거나 `CONNECTED`가 아님|—|
-|409|`KAKAO_NOT_READY`|구현 중(ADR-038). `POST /me/kakao-notify/test`인데 연결·켬 상태가 아님|—|
+|409|`ANALYSIS_SOURCE_MISSING`|2026-10-26. `POST /bids/:id/analyses`인데 최신 revision 본문·분석 가능한 첨부가 없음. 화면도 분석 단추를 막는다("공고 본문 미확보 · 분석 준비 중", `web/server/bids/bids.service.ts`). 2026-10-27 운영 실공고는 본문이 비어 모두 이 응답이다(첨부 처리 구현 중, [[16-DECISIONS\|ADR-054]])|—|
+|409|`MANUAL_SHARED_RUN`|2026-10-26. `POST /admin/ingestion/runs`(g2b 수동)인데 최근 10분 안에 누가 수동 수집을 접수함(전역 공유 실행). `Retry-After` 없음|`{runId, requestedAt, nextAvailableAt, retryAfterSeconds, mine}`|
+|409|`KAKAO_NOT_CONNECTED`|[[16-DECISIONS\|ADR-038]](main 병합). `PATCH /me/kakao-notify`로 켜려는데 카카오톡 알림 연결이 없거나 `CONNECTED`가 아님|—|
+|409|`KAKAO_NOT_READY`|ADR-038(main 병합). `POST /me/kakao-notify/test`인데 연결·켬 상태가 아님|—|
 |422|`INVALID_SOURCE_DOCUMENT`|분석 대상 revision에 본문·첨부 텍스트가 전혀 없음, 또는 수집 fixture 파일이 스키마 위반|`{revisionId}` 또는 `{file, issues}`|
 |422|`HOSTED_NOT_APPROVED`|`AI_PROVIDER=hosted`인데 `AI_HOSTED_APPROVED=true`가 아님. hosted는 gateway와 web **둘 다** `AI_HOSTED_APPROVED=true`여야 한다(gateway는 승인 없이 기동을 거부하고, web env에 승인 값이 없어도 이 응답이다, [[10-DEPLOYMENT\|10 배포]] env 표). `/admin/ai/status`에서만|—|
 |429|`RATE_LIMITED`|속도 제한(Redis로 세는 §1의 API 제한)|`Retry-After` 헤더|
-|429|`KAKAO_TEST_THROTTLED`|구현 중([[16-DECISIONS\|ADR-038]]). 시험 메시지를 같은 분에 다시 요청(1분에 한 번, §9)|—|
+|429|`MANUAL_COOLDOWN`|2026-10-26. 같은 사용자가 60분 안에 수동 수집을 다시 요청. `Retry-After` 헤더|`{nextAvailableAt, retryAfterSeconds}`|
+|429|`MANUAL_DAILY_LIMIT`|2026-10-26. KST 하루 수동 수집 20회(전역)를 다 씀. `Retry-After` 헤더|`{limit, nextAvailableAt, retryAfterSeconds}`|
+|429|`KAKAO_TEST_THROTTLED`|[[16-DECISIONS\|ADR-038]](main 병합). 시험 메시지를 같은 분에 다시 요청(1분에 한 번, §9)|—|
 |500|`INTERNAL_ERROR`|미처리 예외. 메시지는 일반 문구, 상세는 로그에만|—|
-|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(Supabase Storage) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20). 수동 수집의 큐 등록이 실패하면 잡은 Redis 멱등 키를 지운 뒤 이 응답을 준다. `redis`는 속도 제한·멱등 저장소에 닿지 못함, `cursor`는 커서 서명 비밀(`API_CURSOR_SECRET`)이 없거나 짧음이다|`{component:"queue"\|"db"\|"storage"\|"redis"\|"cursor"}`|
+|503|`SERVICE_UNAVAILABLE`|큐(Redis/BullMQ)·DB(Supabase)·스토리지(Supabase Storage) 연결 불가로 요청을 받을 수 없음. 분석 요청의 큐 등록이 실패하면 run을 `FAILED`(`ENQUEUE_FAILED`)로 바꾸고 멱등 키를 푼 뒤 이 응답을 준다([[16-DECISIONS\|ADR-030]] B20). 수동 수집의 큐 등록이 실패하면 잡은 Redis 멱등 키를 지운 뒤 이 응답을 준다. `redis`는 속도 제한·멱등 저장소에 닿지 못함, `cursor`는 커서 서명 비밀(`API_CURSOR_SECRET`)이 없거나 짧음이다. 수동 수집인데 정기 수집 Job Scheduler가 없으면(ingest Worker 미기동) `{component:"ingest-worker", reason:"SCHEDULER_INACTIVE"}`다(2026-10-26)|`{component:"queue"\|"db"\|"storage"\|"redis"\|"cursor"\|"ingest-worker"}`|
 
 로그인 실패·시도 제한·토큰 갱신 실패는 이 API가 아니라 Supabase Auth의 응답이고(예: 템플릿 로그인 폼 `web/app/auth/login/sign-in-form.tsx`가 구분하는 `invalid_credentials`·`user_banned`), 화면이 그 응답을 [[06-UI-UX|06 UI]] §5.2의 문구로 바꾼다. 이메일 존재 여부를 구분하는 문구는 쓰지 않는다.
 
@@ -789,9 +794,9 @@ interface EmploymentState { name: string | null; employment: EmploymentInfo | nu
 
 `profileComplete`는 이름·두 신고 값의 현재 유효성으로 서버에서 계산하며 클라이언트의 boolean을 신뢰하지 않는다. OAuth 콜백·기존 미완료 계정 로그인은 `/auth/complete-profile`로 보낸다. 업무 화면과 업무 API에서 모두 보완 전 접근을 막는다. Auth 콜백·가입 옵션·본인 신고 정보 조회/저장·로그아웃·초대 안내는 보완 전에도 허용해 반복 이동을 막는다. 보완을 끝내도 멤버십·RLS 확인과 기존 초대 정책은 그대로 적용한다.
 
-## 9. 카카오톡 알림 설정 계약 ([[16-DECISIONS|ADR-038]], main 병합 2026-10-22, 기본 `mock`, 10-25 실제 공고 수신 녹화 때만 `memo`)
+## 9. 카카오톡 알림 설정 계약 ([[16-DECISIONS|ADR-038]], main 병합 2026-10-22, 기본 `mock`, 실제 공고 수신 녹화 때만 `memo`. 10-25 녹화는 미실행, 첨부 처리 구현 뒤 ADR-054)
 
-개인 설정의 "카카오톡 알림" 칸([[06-UI-UX|06 UI]])이 쓰는 본인 전용 경로다. 설계는 [카카오 알림 설계](plans/2026-10-20-kakao-memo-notify-design.md) §6·§9·§10, 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고"다. 화면 상태 모양(`KakaoNotifyView`)은 `web/server/kakao-notify`(`ced705f`)에 있고, Route Handler는 아직 없다. 세션 쿠키 + 상태 변경에 `X-Requested-With: sol-radar`(§1 CSRF)다. 남의 연결은 다루지 않는다. 경로마다 본인 것만이다.
+개인 설정의 "카카오톡 알림" 칸([[06-UI-UX|06 UI]])이 쓰는 본인 전용 경로다. 설계는 [카카오 알림 설계](plans/2026-10-20-kakao-memo-notify-design.md) §6·§9·§10, 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고"다. 화면 상태 모양(`KakaoNotifyView`)은 `web/server/kakao-notify`(`ced705f`)에 있다. Route Handler(`web/app/api/v1/me/kakao-notify/` 아래 `route.ts`·`connect`·`callback`·`test`)는 2026-10-22 main 병합으로 들어왔다(2026-10-27 확인. 운영 카카오 연결은 0건). 세션 쿠키 + 상태 변경에 `X-Requested-With: sol-radar`(§1 CSRF)다. 남의 연결은 다루지 않는다. 경로마다 본인 것만이다.
 
 ```ts
 interface KakaoNotifyView {

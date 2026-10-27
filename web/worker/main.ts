@@ -21,7 +21,6 @@ import {
   createFixtureConnector,
   createG2bAuxFetcher,
   createOfficialApiConnector,
-  createPendingDocumentFinder,
   createSupabaseIngestAudit,
   createSupabaseIngestionRepo,
   dailyQuotaOf,
@@ -65,11 +64,12 @@ import {
   type WorkerEnv,
 } from "@/worker/env";
 import { errorNameOf } from "@/worker/error-name";
-import { startDocumentsReconciler } from "@/worker/documents-reconcile";
+import { createDocumentsWorkerRegistration } from "@/worker/documents-job";
 import { removeHeartbeatFile, startHeartbeat } from "@/worker/heartbeat";
 import { readDeadlineSettings, startDeadlineReminders } from "@/worker/deadline-reminders";
 import {
-  createKakaoSender,
+  createKakaoChannel,
+  kakaoStartupWarning,
   readKakaoSettings,
   readNotifySettings,
   startNotifier,
@@ -642,7 +642,10 @@ export const systemWorkerRegistration: WorkerRegistration = async () => async (c
 };
 
 export type IngestRegistrationOptions = {
-  /** documents 큐에 첨부 job 을 넣고 첨부 복구 회차를 돌린다(전체 worker). 끄면 첨부 행은 DB 에 PENDING 으로만 남는다 */
+  /**
+   * 새 revision 의 첨부 job 을 documents 큐에 넣는다(전체 worker). 끄면 첨부 행은 DB 에 PENDING 으로만 남는다.
+   * 첨부 복구 회차와 소비자는 documents 등록(documents-job.ts)이 맡는다(2026-10-27).
+   */
   documents: boolean;
   /** 정기 g2b 창의 상한(분). 없으면 상한 없음(전체 worker) */
   scheduledWindowCapMinutes?: number;
@@ -739,30 +742,9 @@ export const createIngestWorkerRegistration =
         // 일정을 건 뒤에 남긴다(scheduled 가 실제 등록과 같다).
         if (statusConnection !== null)
           await publishSourceReadiness(statusConnection, runtime.readiness, new Date(), jobLog);
-        const documents =
-          documentsQueue === null
-            ? null
-            : startDocumentsReconciler({
-                finder: createPendingDocumentFinder(getSupabaseAdmin()),
-                queue: documentsQueue,
-                // C6': mock·fixture 는 데모 공고만, live 는 실제 공고만 복구한다
-                isDemo: config.runMode !== "live",
-                log: (line) => {
-                  console.log(line);
-                },
-              });
         if (log !== undefined) await logIngestSchedulers(connection, log);
-        // closeAll은 거꾸로 모두 닫는다: 복구 회차 → ingest(Worker·큐) → documents 큐 → 예산·상태 연결.
-        return {
-          close: () =>
-            closeAll([
-              closeQuota,
-              closeExternal,
-              closeDocuments,
-              ingest,
-              ...(documents === null ? [] : [{ close: () => documents.stop() }]),
-            ]),
-        };
+        // closeAll은 거꾸로 모두 닫는다: ingest(Worker·큐) → documents 큐 → 예산·상태 연결.
+        return { close: () => closeAll([closeQuota, closeExternal, closeDocuments, ingest]) };
       } catch (error) {
         await closeQuietly([closeQuota, closeExternal, closeDocuments]);
         throw error;
@@ -770,7 +752,7 @@ export const createIngestWorkerRegistration =
     };
   };
 
-/** 전체 worker 의 ingest 등록. 첨부 job·복구 회차를 돌리고 정기 창에 상한이 없다 */
+/** 전체 worker 의 ingest 등록. 첨부 job 을 넣고 정기 창에 상한이 없다 */
 export const ingestWorkerRegistration: WorkerRegistration = createIngestWorkerRegistration({
   documents: true,
 });
@@ -871,27 +853,27 @@ export const analysisWorkerRegistration: WorkerRegistration = async (rawEnv) => 
 // 인앱 알림 outbox 주기 처리(C7, docs/13-NOTIFICATIONS.md). 1단계에서 폴링 간격을 읽는다(틀리면 Redis 연결 전에 멈춘다).
 // 2단계는 service role 저장으로 주기 처리를 시작한다. 큐가 아니라 outbox_events 표를 읽으므로 공유 Redis 연결은
 // 쓰지도 끊지도 않는다(공유 연결은 기본 createWorker 가 끊는다). close 는 타이머를 멈추고 진행 중 회차를 최대 5초 기다린다.
+// live 인데 카카오 발송 수단이 비었거나 mock 이면 1단계에서 경고 한 줄만 남기고 기동은 그대로 한다(notify-outbox.ts 머리 주석).
 export const notifyWorkerRegistration: WorkerRegistration = async (rawEnv) => {
   const settings = readNotifySettings(rawEnv);
   const kakaoSettings = readKakaoSettings(rawEnv);
+  const kakaoWarning = kakaoStartupWarning(kakaoSettings, rawEnv);
+  if (kakaoWarning !== null) console.warn(kakaoWarning);
   return async () => {
     const admin = getSupabaseAdmin();
     const now = () => new Date();
     const notifier = startNotifier({
       store: createNotificationOutboxStore(admin),
-      kakao: {
+      kakao: createKakaoChannel(kakaoSettings, {
         store: createKakaoOutboxStore(admin),
-        sender: createKakaoSender(kakaoSettings, {
-          links: createKakaoLinkStore(admin),
-          fetch: (input, init) => globalThis.fetch(input, init),
-          now,
-          sleep: (ms) =>
-            new Promise<void>((resolve) => {
-              setTimeout(resolve, ms);
-            }),
-        }),
-        siteUrl: kakaoSettings.siteUrl,
-      },
+        links: createKakaoLinkStore(admin),
+        fetch: (input, init) => globalThis.fetch(input, init),
+        now,
+        sleep: (ms) =>
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, ms);
+          }),
+      }),
       now,
       log: (line) => {
         console.log(line);
@@ -917,9 +899,16 @@ export const deadlineWorkerRegistration: WorkerRegistration = async (rawEnv) => 
   };
 };
 
+/**
+ * documents 등록(첨부 처리). live 는 소비자 + 처리 범위 복구 회차, mock·fixture 는 예전 복구 회차만(documents-job.ts).
+ * 회사 서버에서는 전체 worker 대신 documents 전용 worker(documents-only-main.ts)가 이 등록 하나만 돌린다.
+ */
+export const documentsWorkerRegistration: WorkerRegistration = createDocumentsWorkerRegistration();
+
 export const WORKER_REGISTRATIONS: readonly WorkerRegistration[] = [
   systemWorkerRegistration,
   ingestWorkerRegistration,
+  documentsWorkerRegistration,
   analysisWorkerRegistration,
   notifyWorkerRegistration,
   deadlineWorkerRegistration,

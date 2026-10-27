@@ -1,0 +1,53 @@
+# Documents 전용 Worker(회사 서버, 나라장터 live 공고 첨부 내려받기 → Supabase Storage → gateway /parse → 텍스트 저장).
+# 실행서: infra/company/README.md "Documents 전용 Worker". 별도 운영 승인 후에만 실행한다.
+# 기존 sol-radar-gateway 프로젝트·Nginx·Redis·ingest 전용·analysis 전용 Worker 를 건드리지 않는다.
+# down·--remove-orphans 를 쓰지 않는다. redis·redis-api·ai-gateway 는 여기 정의하지 않는다. 기존 Redis 의 network(redis_default)에만 붙는다.
+# 전체 Worker(worker/main.ts)와 같은 Redis 에서 함께 띄우지 않는다(같은 documents 큐를 나눠 받고 나라장터 요청 간격이 반으로 준다).
+name: sol-radar-documents
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  documents-worker:
+    # 이미지 이름을 따로 둔다. 회사 analysis 전용 Worker 가 쓰는 sol-radar-ai-worker-worker:latest 를 빌드하거나 덮지 않는다.
+    # 태그는 배포할 git SHA 로 고정한다.
+    image: sol-radar-documents-worker:${DOCUMENTS_WORKER_TAG:?배포할 git SHA}
+    build:
+      context: ../web
+      dockerfile: worker/Dockerfile
+    init: true
+    env_file: .env.worker.local
+    command:
+      ["node", "--conditions=react-server", "--import", "tsx", "worker/documents-only-main.ts"]
+    environment:
+      # env_file 보다 우선한다. live 가 아니면 진입점이 Redis 연결 전에 exit 1 로 멈춘다.
+      SOL_RUN_MODE: "live"
+      # /parse 를 부를 회사 AI gateway(ingest·analysis 전용 Worker 와 같은 주소).
+      AI_GATEWAY_URL: "http://172.20.0.1:8000"
+      # 처리 범위·속도. 비우면 코드 기본값(공고당 3건, 회차당 10 revision, 2초 간격, 동시 2, 리스 600초)이다.
+      # 근거는 web/server/documents/document-processing.model.ts readDocumentsSettings 주석.
+      DOCUMENTS_MAX_PER_BID: "${DOCUMENTS_MAX_PER_BID:-}"
+      DOCUMENTS_ROUND_MAX_REVISIONS: "${DOCUMENTS_ROUND_MAX_REVISIONS:-}"
+      DOCUMENTS_FETCH_INTERVAL_MS: "${DOCUMENTS_FETCH_INTERVAL_MS:-}"
+      DOCUMENTS_CONCURRENCY: "${DOCUMENTS_CONCURRENCY:-}"
+    networks:
+      - redis-existing
+    restart: on-failure:3
+    # close 는 진행 중 job(문서당 내려받기 30초 + 파싱 최대 125초 × 2)을 기다린다. 넘으면 리스(600초)가 끝난 뒤 다음 시도가 이어 받는다.
+    stop_grace_period: 180s
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('fs').statSync(process.env.WORKER_HEARTBEAT_FILE||'/tmp/sol-worker-heartbeat');process.exit(Date.now()-s.mtimeMs<30000?0:1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+networks:
+  redis-existing:
+    external: true
+    name: redis_default

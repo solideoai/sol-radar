@@ -346,9 +346,8 @@ describe("frontend → company API: manual gate and analysis source", () => {
     expect(tcpDeps).not.toHaveBeenCalled();
   });
 
-  // 지금 분석 runtime 은 첨부 텍스트를 AI 에 넘기지 않는다(ANALYSIS_READS_ATTACHMENT_TEXT = false).
-  // 그래서 본문이 없으면 파싱된 첨부가 있어도 막고, 첨부 조회도 하지 않는다. 첨부 reader 를 연결하면 PARSED·PARTIAL 줄의
-  // 기대가 202 로 바뀌고, 첨부 조회가 생기므로 fake-session 에 in·not(is) 흉내도 더해야 한다.
+  // 실공고는 본문이 비어 첨부 텍스트로만 분석된다(ANALYSIS_READS_ATTACHMENT_TEXT = true, 2026-10-27).
+  // 파싱이 끝나 텍스트 객체가 저장된 첨부(PARSED·PARTIAL + text_object_key)가 없으면 회사 API 에 보내기 전에 막는다.
   it.each([
     ["no attachment", "", []],
     [
@@ -359,8 +358,6 @@ describe("frontend → company API: manual gate and analysis source", () => {
         { parse_status: "PARSED", text_object_key: null },
       ],
     ],
-    ["a parsed attachment", "  ", [{ parse_status: "PARSED", text_object_key: "org/doc-1.txt" }]],
-    ["a partial attachment", "", [{ parse_status: "PARTIAL", text_object_key: "org/doc-2.txt" }]],
   ])(
     "blocks analysis of a bid without body text (%s) before contacting the company API",
     async (_label, content, documents) => {
@@ -377,6 +374,21 @@ describe("frontend → company API: manual gate and analysis source", () => {
       });
       expect(send).not.toHaveBeenCalled();
       expect(tcpDeps).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["a parsed attachment", "  ", [{ parse_status: "PARSED", text_object_key: "org/doc-1.txt" }]],
+    ["a partial attachment", "", [{ parse_status: "PARTIAL", text_object_key: "org/doc-2.txt" }]],
+  ])(
+    "relays analysis of a bid without body text but with %s",
+    async (_label, content, documents) => {
+      fakeSession.cookie = FAKE_USERS.sales.token;
+      seedBid(content, documents);
+      const send = vi.fn(async () => accepted());
+      vi.stubGlobal("fetch", send);
+      expect((await analysisRequest()).status).toBe(202);
+      expect(send).toHaveBeenCalledTimes(1);
     },
   );
 

@@ -1,15 +1,17 @@
 ---
 title: "N7 인력 배치 시뮬레이션 조회"
 doc: "spec-n7-workforce-20261022"
-status: in-progress
+status: done
 tags:
   - sol-radar
   - ui
   - scoring
-updated: 2026-10-22
+updated: 2026-10-27
 ---
 
 # N7 — 인력 배치 시뮬레이션 조회
+
+> 상태: **완료**(2026-10-27 확인, `in-progress/`에서 옮김). 근거: main `546a997d`(2026-10-22 "대시보드 업무 화면 네 개 구현", [통합 기록](../../../docs/evidence/navigation/20261022-implementation.md)).
 
 2026-10-22 승인된 [실행 계획](../../../docs/plans/2026-10-22-dashboard-missing-pages-plan.md) Task 4의 구현 범위다. [화면 명세](../../../docs/plans/2026-10-22-dashboard-pages-ui-spec.md)의 N7절이 레이아웃·상태·카피·접근성 기준이다. 저장·자동/수동 배정 확정·새 점수 저장·모델 호출은 없다. 미션 파일은 새로 만들지 않는다.
 

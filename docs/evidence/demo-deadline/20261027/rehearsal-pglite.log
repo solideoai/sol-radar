@@ -1,0 +1,32 @@
+# PGlite 0.5.10(PostgreSQL 18.6) 리허설 — 2026-10-27, 운영 접속 없음
+# 순서: 01 → 02(dry) → 02 → 수집 흉내 → 03 → 01 → 02 재실행 → 음성 시험(복제 DB) → 04(dry) → 04 → 01 → 04·02 재실행
+seed: 1351ms
+01 처음: Q1 19행, state BEFORE,NO_DEADLINE, Q2 ok=false: []
+01 처음 B: bid_notices (행 19)=caf19b73fc6969629c616a5e8ba5eef9d5a7acf3515a26d65a7c7d871344c368 | bid_opportunities (행 19)=dbf998f43ba7e15e34d82b2533ef3dca71ed5506e43f5ddba302a5d6e5142d84 | bid_reviews (행 3)=03fec44df9f7d06eee7b2a37c09f2da85d980f2ed0998a8572fcf02d9e2fd4c0 | bid_revisions (행 19)=4fbce7988d29def9fb36ac1bd8e238e9536815377c4b3ea9b1c4d1bb074a5fba | opportunity_notice_links (행 19)=de156149f4c478c7be45459aafb54e0a62ce1b93994b9b452b1189db290ec89b | score_runs (행 19)=8e8e7cc2d52cb350d805b9b4c2e14b84d1281af24916ae0ea549d33ac4cbae9f
+01 처음 D: ["normalized.deadlineAt (행 16)=옮김/true","normalized.fetchedAt (행 19)=두기/true","normalized.noticeDate (행 19)=두기/true"]
+02 dry-run: DRY_RUN_ROLLBACK: 모든 확인 통과(공고 16·revision 16 옮김 확인, 대상 밖 묶음 13 개 그대로). v_dry_run = false 로 다시 돌린다
+02 dry-run 뒤 01 = 처음('지금' 줄 시각 제외): true, 대상 행 같음: true, 기록 스키마: {"s":null}
+02 실제: 성공, 결과 19행, ok 모두 true
+수집 흉내: 실공고 1건 제목 정정, 새 실공고 1건
+03 Q1: 38행, 어긋난 행 0 []
+03 Q2 ok=false: []
+03 Q2 D: ["bid_notices same/changed_after/new=7 / 1 / 1","bid_revisions same/changed_after/new=8 / 0 / 1","score_runs same/changed_after/new=2 / 0 / 0","bid_notices changed_other / missing=0 / 0","bid_revisions changed_other / missing=0 / 0","score_runs changed_other / missing=0 / 0","실공고 지금(is_demo=false AND source<>fixture)=7","적용 때 같은 스냅샷에서 대상 밖 묶음 그대로(02 의 DDS_COLLATERAL 검사)=13"]
+01 적용 뒤: state SHIFTED,NO_DEADLINE, Q2 ok=false: []
+01 적용 뒤 B: bid_notices (행 19)=e09e3cf4d9af31ebc3d0d4a1854261c1807db6e7cc19f6379d75106c7f83b469 | bid_opportunities (행 19)=dbf998f43ba7e15e34d82b2533ef3dca71ed5506e43f5ddba302a5d6e5142d84 | bid_reviews (행 3)=03fec44df9f7d06eee7b2a37c09f2da85d980f2ed0998a8572fcf02d9e2fd4c0 | bid_revisions (행 19)=a672f36830d8fbc4a80ed867f516c07520cd4dcf239afa056c257bcacd251990 | opportunity_notice_links (행 19)=de156149f4c478c7be45459aafb54e0a62ce1b93994b9b452b1189db290ec89b | score_runs (행 19)=8e8e7cc2d52cb350d805b9b4c2e14b84d1281af24916ae0ea549d33ac4cbae9f
+02 재실행: DDS_ALREADY_APPLIED: 기록 스키마 demo_deadline_shift_20261027 가 이미 있다. 다시 옮기지 않는다(03 으로 확인, 되돌리기는 04); 대상 행 그대로: true
+음성 n1 마감 1분 다름: DDS_TARGET_MISMATCH: FX-02:마감 2026-10-30 09:01:00+00 ≠ 기존 2026-10-30 09:00:00+00; 행 그대로 true; 기록 스키마 없음
+음성 n2 normalized 글자 다름: DDS_REVISION_MISMATCH: revision 1·latest_revision·normalized.deadlineAt 가 다른 대상: FX-02; 행 그대로 true; 기록 스키마 없음
+음성 n3 조건에 맞는 목록 밖 공고: DDS_TARGET_MISMATCH: EDGE-NOT-DEMO-0001:조건에 맞지만 목록 밖; 행 그대로 true; 기록 스키마 없음
+음성 n4 대상 사업기회에 실공고 연결: DDS_LINK_FOREIGN: 대상 사업기회에 묶인 대상 밖 공고: fa649f16-30e1-497b-8e13-1795f1e158f3; 행 그대로 true; 기록 스키마 없음
+음성 n5 이미 꺼진 트리거: DDS_TRIGGER: bid_notices_touch_updated_at 가 켜져 있지 않다(시작 전); 행 그대로 true; 기록 스키마 없음
+음성 n6 revision 2 추가: DDS_REVISION_MISMATCH: 대상 revision 이 19건이 아니다(20건); 행 그대로 true; 기록 스키마 없음
+음성 r1 적용 뒤 대상 공고 변경 → 04: DDR_STATE_CHANGED: 02 적용 뒤 바뀐 bid_notices: FX-03
+04 dry-run: DRY_RUN_ROLLBACK: 모든 확인 통과(공고 16·revision 16 되돌림, 38행 해시·표 묶음 해시가 02 전과 같음). v_dry_run = false 로 다시 돌린다; 대상 행 그대로: true
+04 실제: 성공, 38행, restored 모두 true
+04 뒤 대상 행(공고 19·revision 19 행 JSON 전체) = 처음: true
+04 뒤 01 B 절 = 처음: true
+04 뒤 01 Q1 = 처음: true, Q3 = 처음: true, Q4 = 처음: true, Q5 = 처음: true
+04 뒤 01 Q2 처음과 다른 줄: ["이동 기록 스키마 demo_deadline_shift_20261027: 없음 → 있음","02 를 돌려도 되는가(상태 BEFORE + 기록 스키마 없음 + 실행 역할 권한 + 위 검사 통과): 예 → 아니오","비대상 공고(전체 − 대상): 8 → 9","실공고(is_demo=false AND source<>fixture): 6 → 7","비대상 revision: 8 → 9"]
+04 뒤 03 Q2 ok=false: ["적용 시각 / 되돌린 시각: 2026-10-27 02:14:51.92+00 / 2026-10-27 02:14:53.758+00","bid_notices.deadline_at = 기존 + 15일: 3","normalized.deadlineAt = 새 글자: 3","마감 가장 이른 대상(KST): 2026-10-22 18:00","FX-02 마감(KST): 2026-10-30 18:00","target_bid_notices 지금 = 적용 직후: caf19b73fc6969629c616a5e8ba5eef9d5a7acf3515a26d65a7c7d871344c368","target_bid_revisions 지금 = 적용 직후: 4fbce7988d29def9fb36ac1bd8e238e9536815377c4b3ea9b1c4d1bb074a5fba"]
+04 재실행: DDR_ALREADY_ROLLED_BACK: 2026-10-27 02:14:53.758+00 에 이미 되돌렸다
+04 뒤 02 재실행: DDS_ALREADY_APPLIED: 기록 스키마 demo_deadline_shift_20261027 가 이미 있다. 다시 옮기지 않는다(03 으로 확인, 되돌리기는 04); 대상 행 그대로 true

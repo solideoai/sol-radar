@@ -18,7 +18,7 @@ const AGREEMENT_NAMES = AGREEMENTS.map((agreement) => agreement.name);
 // 체크 상자는 브라우저 기본 부품에 토큰 색(accent-primary)만 입힌다. 키보드·화면 읽기 프로그램이 그대로 동작한다.
 const CHECKBOX = "size-4 shrink-0 accent-primary";
 
-// 동의는 아직 저장하지 않는다(sign-up-schema.ts). 저장을 붙일 때 동의한 항목과 시각을 함께 남긴다.
+// 네 항목은 가입 요청에 실려 가입 트리거가 항목별 시각과 함께 저장한다(sign-up-schema.ts 의 toSignUpRequest).
 // 이용약관 본문은 서비스마다 달라 이 템플릿에 없다. 운영 전에 약관 화면을 만들고 "이용약관 동의" 옆에 잇는다.
 export function TermsAgreement({ form }: { form: UseFormReturn<SignUpValues> }) {
   const { errors, isSubmitted } = form.formState;

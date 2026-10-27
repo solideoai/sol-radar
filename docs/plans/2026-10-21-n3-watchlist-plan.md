@@ -16,7 +16,7 @@ updated: 2026-10-21
 
 **Tech Stack:** Supabase Postgres(RLS·security definer)·PGlite 정책 시험, Next.js 16 Route Handler·서버 컴포넌트, React 19 클라이언트 부품, Vitest(단위·브라우저), BullMQ worker 등록.
 
-**Spec:** [N3 스펙](../../polaris/specs/in-progress/2026-10-21-n3-watchlist.md) · 화면은 [N3 디자인 스펙](2026-10-21-n3-watchlist-design.md)(web-designer, D 항목 추천 ①) · 설계 [사이드바 정보 구조](2026-10-16-sidebar-ia-design.md) §2.2·§2.5·§3.2 P1-1·D6·D7.
+**Spec:** [N3 스펙](../../polaris/specs/done/2026-10-21-n3-watchlist.md) · 화면은 [N3 디자인 스펙](2026-10-21-n3-watchlist-design.md)(web-designer, D 항목 추천 ①) · 설계 [사이드바 정보 구조](2026-10-16-sidebar-ia-design.md) §2.2·§2.5·§3.2 P1-1·D6·D7.
 
 ## Global Constraints
 

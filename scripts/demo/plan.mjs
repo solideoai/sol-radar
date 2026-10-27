@@ -96,10 +96,22 @@ export const DEMO_ACCOUNTS = [
 ];
 
 // Supabase Auth 의 user_metadata. 가입 트리거(handle_new_user)가 name·department_code·job_title_code 를 읽는다.
+// 부서·직급을 실은 계정은 이메일 가입과 같은 길이라 필수 약관 동의 셋도 실어야 트리거가 만든다(20261027000600).
+// 가상 데모 계정이라 마케팅 수신은 동의하지 않은 것으로 둔다.
+export const DEMO_SIGNUP_CONSENTS = {
+  terms: true,
+  privacy: true,
+  age_over_14: true,
+  marketing: false,
+};
 export const accountMetadata = (account) => ({
   name: account.displayName,
   ...(account.departmentCode
-    ? { department_code: account.departmentCode, job_title_code: account.jobTitleCode }
+    ? {
+        department_code: account.departmentCode,
+        job_title_code: account.jobTitleCode,
+        consents: DEMO_SIGNUP_CONSENTS,
+      }
     : {}),
 });
 

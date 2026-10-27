@@ -352,7 +352,7 @@ class ExplainResponse(BaseModel):
 
 
 class ParseResult(BaseModel):
-    """03 §10.1. 파서 어댑터가 아직 없어 지금은 UNSUPPORTED 만 낸다."""
+    """03 §10.1. 형식별 어댑터는 sol_ai.parsers, 실행·형식 판정은 sol_ai.parse."""
 
     status: Literal["PARSED", "PARTIAL", "UNSUPPORTED", "FAILED"]
     format: Literal["PDF", "HWPX", "HWP", "UNKNOWN"]

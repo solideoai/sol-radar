@@ -6,6 +6,8 @@ K13: mock 의 qwen 은 추출 fixture 공통 model 블록의 name·promptHash �
 
 from support import KEV_MODEL_ID, QWEN_RUN, expected_prompt_hash, extraction_fixture
 
+from sol_ai.parsers import DEFAULTS
+
 
 def fixture_qwen() -> dict:
     model = extraction_fixture("FX-01")["model"]
@@ -24,9 +26,9 @@ def test_health_mock_mode(make_client):
         "kev": {"modelId": "mock", "registryMatch": None},
         "questionSets": ["kev-qs/v0.1"],
         "parsers": [
-            {"format": "PDF", "parserId": None},
-            {"format": "HWPX", "parserId": None},
-            {"format": "HWP", "parserId": None},
+            {"format": "PDF", "parserId": DEFAULTS["PDF"].parser_id},
+            {"format": "HWPX", "parserId": DEFAULTS["HWPX"].parser_id},
+            {"format": "HWP", "parserId": DEFAULTS["HWP"].parser_id},
         ],
     }
 

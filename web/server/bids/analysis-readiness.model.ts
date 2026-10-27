@@ -7,8 +7,8 @@ import { z } from "zod";
 // 첨부 텍스트는 파싱이 끝나(parse_status PARSED·PARTIAL) 텍스트 객체가 저장된(text_object_key 있음) 문서에만 있다
 // (@/server/ingestion RevisionDocumentText.text, DB 제약 bid_documents_parsed_storage_fk).
 // 나라장터 목록 API 정규화는 본문을 비워 두므로(normalize-g2b content = "") 첨부가 파싱되기 전에는 분석할 글이 없다.
-// 다만 지금 분석 runtime 은 첨부 텍스트를 AI 에 넘기지 않는다(@/server/analysis ANALYSIS_READS_ATTACHMENT_TEXT = false,
-// EMPTY_ATTACHMENT_READER). 그동안은 파싱된 첨부가 있어도 본문이 없으면 분석하지 않는다(근거 없는 분석을 만들지 않는다).
+// 분석 runtime 은 documents worker 가 저장한 첨부 텍스트를 AI 에 넘긴다(@/server/analysis ANALYSIS_READS_ATTACHMENT_TEXT = true,
+// @/server/documents createAttachmentTextReader, 2026-10-27). 그래서 본문이 비어도 파싱된 첨부가 있으면 분석할 수 있다.
 // fixture DEMO 공고는 fixtures/bids 의 content 가 모두 비어 있지 않아 그대로 분석된다(특례 없음).
 
 export const ANALYSIS_READINESS_REASONS = ["SOURCE_TEXT_MISSING"] as const;

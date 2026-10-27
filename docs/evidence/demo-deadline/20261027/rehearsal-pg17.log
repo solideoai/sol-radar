@@ -1,0 +1,59 @@
+# PostgreSQL 17.11 컨테이너 리허설 — 2026-10-27, 운영 접속 없음
+# 실행 역할 postgres(superuser 아님, 표 주인 — Supabase 와 같은 모양), 세션 시간대 PGTZ=Asia/Seoul, psql -v ON_ERROR_STOP=1 로 파일을 그대로 보냄.
+# DB 는 PGlite 로 만든 같은 seed 행을 옮긴 것(13개 표·208행, 표마다 행 JSON 묶음 해시가 PGlite 와 같음).
+# exit=3 은 psql 이 ERROR 로 멈춘 것(트랜잭션 전체 되돌림). 기대한 멈춤이다.
+
+## 1회차(새 DB)
+역할: postgres superuser=false  서버: 17.11
+대상 행 해시 처음: 4efe1352d10051a9c68ccefad4d020bdbe7b9f6115edb3c9f6d869afdd56fc7d
+01-before                          exit=0
+neg-not-owner-02                   exit=3  ERROR:  DDS_PRIVILEGE: 실행 역할 dds_not_owner 이 bid_notices 주인(postgres)의 권한이 없거나 bid_revisions UPDATE·DB CREATE 권한이 없다
+  대상 그대로: true, 기록 스키마: 없음
+02-dry                             exit=3  ERROR:  DRY_RUN_ROLLBACK: 모든 확인 통과(공고 16·revision 16 옮김 확인, 대상 밖 묶음 13 개 그대로). v_dry_run = false 로 다시 돌린다
+  대상 그대로: true, 기록 스키마: 없음
+02-real                            exit=0
+  대상 바뀜: true
+수집 흉내: 실공고 정정 1·새 실공고 1
+03-verify                          exit=0
+01-after                           exit=0
+02-rerun                           exit=3  ERROR:  DDS_ALREADY_APPLIED: 기록 스키마 demo_deadline_shift_20261027 가 이미 있다. 다시 옮기지 않는다(03 으로 확인, 되돌리기는 04)
+  대상 그대로(적용 상태): true
+기록 스키마 읽기 anon          ERROR:  permission denied for schema demo_deadline_shift_20261027
+기록 스키마 읽기 authenticated ERROR:  permission denied for schema demo_deadline_shift_20261027
+기록 스키마 읽기 service_role  ERROR:  permission denied for schema demo_deadline_shift_20261027
+04-dry                             exit=3  ERROR:  DRY_RUN_ROLLBACK: 모든 확인 통과(공고 16·revision 16 되돌림, 38행 해시·표 묶음 해시가 02 전과 같음). v_dry_run = false 로 다시 돌린다
+  대상 그대로(적용 상태): true
+04-real                            exit=0
+  04 뒤 대상 행 해시 = 처음: true
+01-final                           exit=0
+04-rerun                           exit=3  ERROR:  DDR_ALREADY_ROLLED_BACK: 2026-10-27 02:13:52.157505+00 에 이미 되돌렸다
+02-after-04                        exit=3  ERROR:  DDS_ALREADY_APPLIED: 기록 스키마 demo_deadline_shift_20261027 가 이미 있다. 다시 옮기지 않는다(03 으로 확인, 되돌리기는 04)
+
+01 처음과 01-final 의 차이('지금' 줄 제외): A 13 기록 스키마 없음→있음, A 14 02 가능 예→아니오, C 40·41·42 비대상 공고·실공고·비대상 revision 이 수집 흉내로 +1. B 절 sha256 6개는 같음.
+03-verify: Q1 38행 모두 t, Q2 ok 모두 t(D 절 bid_notices same/changed_after/new 7/1/1, changed_other/missing 0/0, 노출 권한 0).
+
+## 2회차(04 뒤 사람이 하는 재적용 길: drop schema demo_deadline_shift_20261027 cascade → 01 부터)
+역할: postgres superuser=false  서버: 17.11
+대상 행 해시 처음: 4efe1352d10051a9c68ccefad4d020bdbe7b9f6115edb3c9f6d869afdd56fc7d
+01-before                          exit=0
+neg-not-owner-02                   exit=3  ERROR:  DDS_PRIVILEGE: 실행 역할 dds_not_owner 이 bid_notices 주인(postgres)의 권한이 없거나 bid_revisions UPDATE·DB CREATE 권한이 없다
+  대상 그대로: true, 기록 스키마: 없음
+02-dry                             exit=3  ERROR:  DRY_RUN_ROLLBACK: 모든 확인 통과(공고 16·revision 16 옮김 확인, 대상 밖 묶음 13 개 그대로). v_dry_run = false 로 다시 돌린다
+  대상 그대로: true, 기록 스키마: 없음
+02-real                            exit=0
+  대상 바뀜: true
+03-verify                          exit=0
+01-after                           exit=0
+02-rerun                           exit=3  ERROR:  DDS_ALREADY_APPLIED: 기록 스키마 demo_deadline_shift_20261027 가 이미 있다. 다시 옮기지 않는다(03 으로 확인, 되돌리기는 04)
+  대상 그대로(적용 상태): true
+기록 스키마 읽기 anon          ERROR:  permission denied for schema demo_deadline_shift_20261027
+기록 스키마 읽기 authenticated ERROR:  permission denied for schema demo_deadline_shift_20261027
+기록 스키마 읽기 service_role  ERROR:  permission denied for schema demo_deadline_shift_20261027
+04-dry                             exit=3  ERROR:  DRY_RUN_ROLLBACK: 모든 확인 통과(공고 16·revision 16 되돌림, 38행 해시·표 묶음 해시가 02 전과 같음). v_dry_run = false 로 다시 돌린다
+  대상 그대로(적용 상태): true
+04-real                            exit=0
+  04 뒤 대상 행 해시 = 처음: true
+01-final                           exit=0
+04-rerun                           exit=3  ERROR:  DDR_ALREADY_ROLLED_BACK: 2026-10-27 02:15:03.952881+00 에 이미 되돌렸다
+02-after-04                        exit=3  ERROR:  DDS_ALREADY_APPLIED: 기록 스키마 demo_deadline_shift_20261027 가 이미 있다. 다시 옮기지 않는다(03 으로 확인, 되돌리기는 04)
+# 2회차에는 수집 흉내의 새 실공고가 1회차에 이미 있어 그 줄이 없다(제목 정정만 다시 됨). "대상 행 해시 처음" 이 1회차와 같다 = 1회차 04 가 정확히 되돌렸다.

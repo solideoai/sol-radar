@@ -1,5 +1,7 @@
 # 스펙: N3 관심 공고(`/watchlist`·★ 토글·마감 알림)
 
+> 상태: **완료**(2026-10-27 확인, `in-progress/`에서 옮김). 근거: main `546a997d`(2026-10-22 "대시보드 업무 화면 네 개 구현", N3·N5·N6·N7을 현재 공공조달 UI에 통합, [통합 기록](../../../docs/evidence/navigation/20261022-implementation.md)). 관련 migration은 2026-10-24 운영 DB에 적용됐다([진행 상황](../../../docs/PROGRESS.md)). 아래 배정·브랜치 줄은 착수 당시 기록이다.
+
 - 최종 갱신: 2026-10-21
 - 배정: sol-radar-12 → sol-radar-fa. 브랜치 `feat/n3-watchlist`(base main `ca0e5f7`). 마이그레이션 대역 `20261022000100`~.
 - 승인: 설계는 2026-10-16 사용자 승인([사이드바 정보 구조 설계](../../../docs/plans/2026-10-16-sidebar-ia-design.md), ADR-021). 착수는 ADR-042(2026-10-21 사용자 결정, P1 다섯 화면 병행).

@@ -14,6 +14,13 @@ export const SEED_EMPLOYMENT = {
   jobTitleLabel: "팀장",
 } as const;
 export const SOLIDEO_ORG_ID = "db4c863c-cb6a-593d-93ff-709a17e0157a";
+// 부서·직급을 실은 가입은 필수 약관 동의 셋도 실어야 가입 트리거가 계정을 만든다(20261027000600).
+export const SIGNUP_CONSENTS = {
+  terms: true,
+  privacy: true,
+  age_over_14: true,
+  marketing: false,
+} as const;
 export const declarationMetadata = (name: string, incomplete = false) => ({
   name: z.string().trim().min(1).max(40).parse(name),
   ...(incomplete
@@ -21,6 +28,7 @@ export const declarationMetadata = (name: string, incomplete = false) => ({
     : {
         department_code: SEED_EMPLOYMENT.departmentId,
         job_title_code: SEED_EMPLOYMENT.jobTitleId,
+        consents: SIGNUP_CONSENTS,
       }),
 });
 

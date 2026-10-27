@@ -12,7 +12,7 @@ updated: 2026-10-21
 
 # SOL RADAR — Redis HTTPS 연동·Supabase Storage 전환 계획
 
-> **후속 실행 승인:** 2026-10-21 사용자 “전환 계획에 따라서 전환하자” 지시로 MinIO→Storage Task 3·4 구현을 진행한다. 아래 최초 Phase 1 승인 제한은 당시 이력이다. 클라우드 DDL 적용·실제 운영 배포는 구체적 변경 검토와 별도 확인 규칙을 유지한다. 구현 계약은 `polaris/specs/in-progress/2026-10-21-supabase-storage.md`, 결정은 ADR-048이다.
+> **후속 실행 승인:** 2026-10-21 사용자 “전환 계획에 따라서 전환하자” 지시로 MinIO→Storage Task 3·4 구현을 진행한다. 아래 최초 Phase 1 승인 제한은 당시 이력이다. 클라우드 DDL 적용·실제 운영 배포는 구체적 변경 검토와 별도 확인 규칙을 유지한다. 구현 계약은 `polaris/specs/done/2026-10-21-supabase-storage.md`, 결정은 ADR-048이다.
 
 
 > **구현자에게:** `superpowers:executing-plans`로 단계별 작업한다. 최초 요청은 조사·계획서 작성만 승인했고, 후속 지시로 **Phase 1 Gateway 로컬 코드·테스트만 승인**됐다. 현재 실행 범위는 아래 Task 2다. 운영 컨테이너·Nginx·DB·Vercel production 변경과 MinIO/Storage/parser 다음 단계는 별도 승인 대상이다. 실행 결과와 미검증 항목을 구분하며 과거 조사 기록은 아래에 보존한다.

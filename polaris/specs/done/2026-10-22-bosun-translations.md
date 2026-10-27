@@ -1,11 +1,13 @@
 ---
 title: "Bosun 영어 State 번역"
-status: draft
+status: done
 tags: [sol-radar, ai, security]
-updated: 2026-10-22
+updated: 2026-10-27
 ---
 
 # Bosun 영어 State 번역
+
+> 상태: **완료**(2026-10-27 확인, `in-progress/`에서 옮김). 근거: 구현 `19502028`(2026-10-22 "Bosun 영어 State 번역 추가"), 격리 통합 `3e6b1800`, main 통합 `6b4ff0a4`(2026-10-22 "커밋된 기능 묶음 통합"). 범위는 로컬 가짜 서버 검증이다. 회사 실모델 연결에서의 번역 동작은 이 스펙의 완료 범위가 아니다.
 
 사용자 요청(2026-10-22)의 10개 목표와 필수 테스트가 정본이다. 검증된 공고 KNOWN 값만 별도 Qwen 번역 호출로 영어화하며 원문 payload/evidence는 바꾸지 않는다. 추출 프롬프트/스키마/재시도 예산은 유지한다. translations는 dict[str, str]이다.
 

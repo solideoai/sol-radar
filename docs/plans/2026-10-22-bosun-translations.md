@@ -12,7 +12,7 @@ updated: 2026-10-22
 **Goal:** 검증된 한국어 공고/기업 사실을 근거 보존한 영어 State로 전달한다.
 **Architecture:** StateBuilder 경로 수집 → 별도 Qwen 번역 → 결정적 검증 → State 렌더링. 추출과 번역은 같은 deadline이다. 기업 번역은 /kev의 기존 deadline 안에서 처리한다.
 **Tech Stack:** Python, FastAPI, httpcore, pytest, TypeScript, Vitest.
-**Spec:** polaris/specs/in-progress/2026-10-22-bosun-translations.md (사용자 요구사항)
+**Spec:** polaris/specs/done/2026-10-22-bosun-translations.md (사용자 요구사항)
 
 ## Global Constraints
 

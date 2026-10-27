@@ -6,6 +6,8 @@ type DocumentsReconcileDeps = {
   queue: JobQueue;
   /** 실행 모드 범위(C6'). mock·fixture 는 true(데모 공고만), live 는 false(실제 공고만) */
   isDemo: boolean;
+  /** 회차당 조회 상한. 없으면 100(전체 worker 의 mock·fixture 복구). documents 소비자는 DOCUMENTS_ROUND_MAX_REVISIONS 를 준다 */
+  batchLimit?: number;
   log: (line: string) => void;
 };
 
@@ -17,9 +19,10 @@ export async function reconcileDocumentsOnce(
   deps: DocumentsReconcileDeps,
   after: string | null = null,
 ) {
+  const limit = deps.batchLimit ?? BATCH_LIMIT;
   const documents = await deps.finder.findPendingDocuments({
     after,
-    limit: BATCH_LIMIT,
+    limit,
     isDemo: deps.isDemo,
   });
   const seen = new Set<string>();
@@ -50,7 +53,7 @@ export async function reconcileDocumentsOnce(
     checked: documents.length,
     queued,
     failed,
-    nextCursor: documents.length === BATCH_LIMIT ? (documents.at(-1)?.id ?? null) : null,
+    nextCursor: documents.length === limit ? (documents.at(-1)?.id ?? null) : null,
   };
 }
 

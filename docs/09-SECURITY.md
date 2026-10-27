@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-24
+updated: 2026-10-27
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -33,6 +33,9 @@ updated: 2026-10-24
 - **CSRF**: 쿠키로 인증한 상태 변경 요청(POST/PUT/PATCH/DELETE)은 헤더 `X-Requested-With: sol-radar` 필수, 누락 시 `403 CSRF_REJECTED`. Bearer 요청은 쿠키를 쓰지 않으므로 제외. Server Action은 Next의 Origin 검사를 따른다. 다른 출처의 페이지가 이 헤더를 붙이려면 CORS preflight가 필요한데 CORS 헤더를 열지 않으므로 막힌다. 템플릿의 `/api/*`는 Bearer만 받아 이 문제가 없지만, SOL RADAR의 `/api/v1`은 화면의 polling·변경 요청 때문에 쿠키도 받으므로 이 헤더를 요구한다.
 - **XSS**: 요청마다 새 nonce를 만들고 그 nonce를 가진 스크립트만 실행한다(템플릿 `web/proxy.ts`·`web/server/csp`). 화면에 `dangerouslySetInnerHTML`을 쓰지 않고, 공고 본문·첨부 텍스트 같은 외부 입력은 텍스트로만 그린다. 세션 쿠키가 HttpOnly가 아니므로 이 방어가 토큰 보호의 핵심이다.
 - **가입**: 공개 가입이다([[16-DECISIONS|16 ADR]] ADR-018). 누구나 `/auth/sign-up`에서 이메일 + 비밀번호로, 또는 간편 로그인(구글·카카오·네이버)으로 계정을 만든다. 가입만으로는 업무 조직 데이터가 열리지 않는다. 조직 데이터는 멤버십이 있어야 RLS(`my_org_ids()`)가 보여 주고, 업무 조직 합류는 초대 수락으로만 한다. 공용 표(`bid_notices` 등)는 `authenticated` 읽기라 가입한 사용자도 읽는다. 간편 로그인 제공자의 Client ID·Secret은 Supabase 쪽에만 두고 웹 env·브라우저 번들에 넣지 않는다. 버튼 플래그(`NEXT_PUBLIC_AUTH_GOOGLE`·`KAKAO`·`NAVER`)는 공개 값이고, 제공자를 설정한 뒤에만 켠다(설정 전에 켜면 누를 때 `provider is not enabled`).
+- **가입 약관 동의 기록**(2026-10-27 코드, 로컬 통합, 운영 미적용): 전에는 이메일 가입 화면이 이용약관·개인정보 수집·이용·만 14세 이상(필수)과 마케팅 수신(선택) 동의를 받기만 하고 저장하지 않았다. 이제 가입 트리거 `handle_new_user`가 필수 셋이 JSON `true`일 때만 계정을 만들고 `user_consents`에 동의 시각을 남긴다. 아니면 `consent_required`로 가입 전체가 되돌아간다. 시각은 DB의 `now()`이고 화면이 보낸 시각을 믿지 않는다. 화면 역할은 본인 기록만 읽고, 고치거나 지울 수 없다([[04-DATABASE|04 DB]] §3.1 "가입 약관 동의 검사", 근거 [live 가드 검증](evidence/live-guards/20261027.md)).
+  - **남은 공백(후속 과제)**: 간편 가입(OAuth: 구글·카카오·네이버)은 동의 화면을 거치지 않는다. 트리거는 부서·직급 키가 없는 가입을 OAuth로 보고 동의 없이 미완료 프로필만 만든다. 그래서 간편 가입 사용자는 `user_consents` 행이 없다. 가입 정보 보완 화면에서 동의를 받는 일은 아직 없다.
+  - 운영 순서: migration `20261027000600`을 웹 배포보다 먼저 적용하면, 그 사이 운영 이메일 가입이 막힌다([[10-DEPLOYMENT|10 배포]] "첨부 처리 운영 반영").
 - **현재 조직**: 서버가 정하고 요청의 조직 ID를 믿지 않는다. 업무 멤버십 2개 이상은 지원하지 않는다(`403 UNSUPPORTED_ACCOUNT_STATE`, [[16-DECISIONS|ADR-021]]).
 - **정지**: `profiles.status='suspended'`(템플릿 `20261015000001_account_status_and_deletion.sql`)면 토큰이 아직 유효해도 API는 `403 ACCOUNT_DISABLED`이고, 정책 도우미(`public.my_org_ids()`)가 빈 목록을 돌려 조직 데이터가 닫힌다. 정지는 서비스 운영자(`profiles.is_admin`)만 한다. 조직 ADMIN의 "비활성화"는 그 조직에서 내보내기다([[05-API-SPEC|05 API]] §2).
 - 로그인 실패 문구는 이메일 존재 여부를 구분하지 않는다([[06-UI-UX|06 UI]] §5.2).
@@ -88,9 +91,9 @@ updated: 2026-10-24
 |CSRF|위 인증 절의 **CSRF** 항목과 세션 쿠키 표(SameSite=Lax)|
 |XSS|위 인증 절의 **XSS** 항목. 세션 쿠키가 HttpOnly가 아니라서 XSS는 곧 세션 탈취다|
 |SQL injection|supabase-js 질의 빌더(값은 파라미터로 전달). SQL은 마이그레이션·DB 함수에만 두고 문자열을 이어 붙여 만들지 않는다. DB 함수는 `search_path`를 고정한다(템플릿 `20261013000002_function_search_path.sql`)|
-|SSRF|첨부 다운로드(worker의 `G2bAttachmentFetcher`)는 `https://www.g2b.go.kr`만 허용한다(allowlist. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트). 리다이렉트는 같은 allowlist 안에서만 따르고, 연결 전에 DNS를 다시 확인해 사설 IP로 풀리면 거부한다. timeout 30 s, 최대 50 MB(넘으면 받지 않는다), 형식은 확장자가 아니라 매직 바이트로 판정한다. 공공 API는 `infra/sources/registry.yaml`에 등록한 data.go.kr 엔드포인트만 부른다([[15-DATA-CONTRACTS\|15 데이터 계약]] §8). gateway(`/parse`)는 네트워크·Supabase Storage에 접근하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.4)|
+|SSRF|첨부 다운로드(worker의 `G2bAttachmentFetcher`)는 `https://www.g2b.go.kr`만 허용한다(allowlist. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트). 리다이렉트는 같은 allowlist 안에서만 따르고, 연결 전에 DNS를 다시 확인해 사설 IP로 풀리면 거부한다. timeout 30 s, 최대 50 MB(넘으면 받지 않는다), 형식은 확장자가 아니라 매직 바이트로 판정한다. **구현**(2026-10-27, `web/server/ingestion/g2b-attachment-fetcher.ts`·`attachment-allowlist.ts`, 로컬 통합, 운영 미적용): https·호스트 `www.g2b.go.kr`·경로 `/pn/`만 받고 포트·userinfo가 붙은 URL은 거부한다. 리다이렉트는 최대 3회이고 매번 같은 목록으로 다시 본다. 로그인·SSO 경로로 보내면 `AUTH_REQUIRED`다. DNS 결과에 공인 주소가 아닌 것(사설·특수 대역)이 하나라도 있으면 `HOST_NOT_ALLOWED`이고, 확인한 주소로만 연결한다(DNS rebinding 차단, 연결 재사용 없음). 리다이렉트를 포함한 전체 30초, 본문 50 MiB를 넘으면 받는 도중에 끊는다. 세션·쿠키·로그인 정보는 보내지 않는다. 실패 사유는 일곱 값만 기록한다([[07-DATA-PIPELINE\|07 수집]] §2.4). 공공 API는 `infra/sources/registry.yaml`에 등록한 data.go.kr 엔드포인트만 부른다([[15-DATA-CONTRACTS\|15 데이터 계약]] §8). gateway(`/parse`)는 네트워크·Supabase Storage에 접근하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.4)|
 |LLM prompt injection|아래 "책임 있는 AI" 절|
-|문서 악성코드|MIME/sniff(매직 바이트), 확장자/크기 제한(50 MB), 격리 처리, 필요한 경우 AV 스캔. 파서는 gateway 안에서만 돌고 네트워크 권한이 없다|
+|문서 악성코드|MIME/sniff(매직 바이트), 확장자/크기 제한(50 MB), 격리 처리, 필요한 경우 AV 스캔. 파서는 gateway 안에서만 돌고 네트워크 권한이 없다. **구현**(2026-10-27, 로컬 통합, 운영 미적용): gateway가 문서마다 하위 프로세스를 띄워 파싱한다(`python -I`, 환경 변수 없음 `env={}`, stderr 버림, 동시 2개, 90초를 넘으면 죽인다). Linux에서는 주소 공간을 2 GiB로 묶는다. 압축 해제 총량 200 MiB·ZIP 항목 5,000개·PDF 300쪽·중첩 깊이 상한을 넘으면 사유 코드로 끝낸다. HWPX XML은 DTD·엔티티 선언을 만나면 바로 거부한다(외부 엔티티·엔티티 폭탄 차단). 하위 프로세스에 OS 수준 네트워크 차단(네임스페이스·seccomp)은 걸지 않았다. 파서 코드가 네트워크를 부르지 않을 뿐이고, gateway 컨테이너는 모델 호출용 네트워크를 가진다. AV 스캔은 없다([[03-AI-PIPELINE\|03 AI]] §10.1)|
 |비밀 관리|`.env*` 버전관리 금지, `.env.example`에는 placeholder만, Docker secrets/실배포 secret manager, 로그 마스킹. 서버 오류 기록에 쿠키·인증 헤더·요청 본문을 남기지 않는다(템플릿 `web/server/shared/error-report.ts`). data.go.kr 서비스키는 서비스마다 하나씩 4개(`G2B_BID_NOTICE_SERVICE_KEY`·`G2B_PRE_SPEC_SERVICE_KEY`·`G2B_ORDER_PLAN_SERVICE_KEY`·`G2B_INDUSTRY_MASTER_SERVICE_KEY`, [[16-DECISIONS\|ADR-022]])이고 모두 worker 전용 서버 env다. 로그 마스킹은 네 값을 모두 가린다. 쿼리 파라미터(`serviceKey`)로 가므로 요청 URL을 로그·`ingest_errors`·오류 메시지·증거에 남기기 전에 가린다. 회사 GPU 추론 엔드포인트의 `QWEN_API_KEY`·`KEV_API_KEY`는 gateway의 서버 env(`infra/.env`)에만 둔다([[16-DECISIONS\|ADR-025]]). 카카오톡 알림의 `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`는 Supabase가 아니라 웹 서버·worker의 서버 env에만 둔다(ADR-018 예외, [[16-DECISIONS\|ADR-038]]. 구현 중)|
 |브루트포스|로그인 시도 제한은 Supabase Auth의 요청 제한(설정값 미검증). 분석·수집 API는 Redis 속도 제한([[05-API-SPEC\|05 API]] §1), 감사로그|
 |Supabase Storage|public bucket 금지, 서버가 권한 검사 후 짧은 presigned URL 발급|
@@ -262,6 +265,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 - 그래서 첨부 원문은 내부 분석과 사내 학습에만 쓴다. 외부 공개·데이터셋 배포 전에 법무를 확인한다. 실제 RFP 원문은 저장소와 `docs/evidence/`에 넣지 않고 지표와 문서 id만 남긴다.
 - **배포용(보호) HWP는 복호화하지 않는다.** 일부 파서 후보는 배포용 문서를 풀 수 있지만, 작성자가 건 보호를 푸는 것이 저작권법상 기술적 보호조치 해제에 해당하는지 확인하지 않았다. 법무 확인 전에는 `UNSUPPORTED`(`DISTRIBUTION_PROTECTED`)로 처리하고, 열기 암호 문서는 `ENCRYPTED`로 둔다.
 - **파서 라이선스**: 후보는 MIT·Apache-2.0·BSD만 쓴다. AGPL(pyhwp·PyMuPDF, camelot의 `ghostscript` extra)은 네트워크 서비스로 제공하면 서비스 전체 소스 공개 의무가 생겨 쓰지 않는다. GPL(H2Orestart·poppler)은 이미지 배포 시 의무가 생기고, 별도 프로세스 호출이 의무를 피하는지 법률 검토 전이라 쓰지 않는다. marker 모델 가중치(수정 OpenRAIL-M, 상업 이용 제한)도 쓰지 않는다. 후보 목록은 [[07-DATA-PIPELINE|07 수집]] §2.5.
+  - 2026-10-27 구현한 기본 어댑터는 이 규칙을 지킨다: pdfplumber 0.11.10(MIT)·pdfminer.six(MIT)·pypdfium2(Apache-2.0/BSD-3)·olefile 0.47(BSD-2)와 표준 라이브러리로 만든 자체 HWPX·HWP5 파서다. AGPL·GPL은 없다([[03-AI-PIPELINE|03 AI]] §10.2 표). 배포용·암호 HWP는 플래그 비트만 보고 `DISTRIBUTION_PROTECTED`·`ENCRYPTED`로 끝내며 복호화하지 않는다.
 
 ## 카카오톡 알림 ([[16-DECISIONS|ADR-038]], main 병합 2026-10-22, 기본 `mock`, 10-25 실제 공고 수신 녹화 때만 `memo`)
 

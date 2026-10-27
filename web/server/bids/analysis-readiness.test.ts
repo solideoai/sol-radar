@@ -32,9 +32,8 @@ describe("분석 원문 준비 판정", () => {
     }
   });
 
-  // 지금 분석 runtime 은 첨부 텍스트를 AI 에 넘기지 않는다(EMPTY_ATTACHMENT_READER).
-  // 첨부 reader 를 연결해 ANALYSIS_READS_ATTACHMENT_TEXT 를 true 로 바꾸면 이 시험의 기대가 READY 로 바뀐다.
-  it("지금은 본문 없이 파싱된 첨부만 있는 공고를 분석하지 않는다(근거 없는 분석 금지)", () => {
+  // 분석 runtime 은 첨부 텍스트 reader(@/server/documents)를 쓴다(2026-10-27). 실공고는 본문이 비어 첨부로만 분석된다.
+  it("분석 runtime 이 첨부 텍스트를 읽으므로 본문이 비어도 파싱된 첨부로 분석할 수 있다", () => {
     for (const content of BLANK_CONTENTS) {
       expect(
         analysisReadinessOf({
@@ -42,15 +41,11 @@ describe("분석 원문 준비 판정", () => {
           hasAnalyzableDocument: true,
           readsAttachmentText: ANALYSIS_READS_ATTACHMENT_TEXT,
         }),
-      ).toEqual(MISSING);
-    }
-  });
-
-  it("분석이 첨부 텍스트를 읽게 되면 본문이 비어도 분석 가능한 첨부로 분석할 수 있다", () => {
-    for (const content of BLANK_CONTENTS) {
-      expect(
-        analysisReadinessOf({ content, hasAnalyzableDocument: true, readsAttachmentText: true }),
       ).toEqual(READY);
+      // 분석이 첨부를 읽지 않는 runtime 이면 같은 공고를 받지 않는다(근거 없는 분석 금지).
+      expect(
+        analysisReadinessOf({ content, hasAnalyzableDocument: true, readsAttachmentText: false }),
+      ).toEqual(MISSING);
     }
   });
 

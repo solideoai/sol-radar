@@ -24,7 +24,7 @@ export type GatewayConfig = {
   healthTimeoutMs: number;
 };
 
-type ConfigKey = "AI_GATEWAY_URL" | "AI_TIMEOUT_MS" | "KEV_TIMEOUT_MS";
+type ConfigKey = "AI_GATEWAY_URL" | "AI_TIMEOUT_MS" | "KEV_TIMEOUT_MS" | "PARSE_TIMEOUT_MS";
 
 /** 빈 값·공백만 있는 값은 없는 것으로 본다. */
 function readTrimmed(env: Record<string, string | undefined>, key: ConfigKey): string | null {
@@ -76,6 +76,34 @@ export function readGatewayConfig(env: Record<string, string | undefined>): Gate
     kevTimeoutMs: kevTimeoutMs + KEV_TIMEOUT_EXTRA_MS,
     healthTimeoutMs: HEALTH_TIMEOUT_MS,
   };
+}
+
+// ── 문서 파싱(POST /parse, 03 §10). documents worker 만 부른다 ──
+
+/**
+ * 문서 하나의 /parse 응답을 기다리는 상한. gateway 는 요청마다 파서 하위 프로세스를 띄우고(동시 최대 2개, 하나당 90초),
+ * 자리가 없으면 기다린다. 그래서 처리 90초 + 자리 대기 90초다(/extract 용 timeout 을 쓰지 않는다).
+ */
+export const DEFAULT_PARSE_TIMEOUT_MS = 180_000;
+/** worker 쪽 timeout 은 gateway 안쪽보다 길어야 gateway 가 낸 실패 응답을 받는다(/extract 와 같은 여유). */
+export const PARSE_TIMEOUT_EXTRA_MS = 5_000;
+
+export type ParseClientConfig = { baseUrl: string; parseTimeoutMs: number };
+
+/** 오류 메시지에는 틀린 키 이름만 싣는다. AI_GATEWAY_URL 규칙은 readGatewayConfig 와 같다. */
+export function readParseConfig(env: Record<string, string | undefined>): ParseClientConfig {
+  const rawUrl = readTrimmed(env, "AI_GATEWAY_URL");
+  const rawTimeout = readTrimmed(env, "PARSE_TIMEOUT_MS");
+  const baseUrl = rawUrl === null ? DEFAULT_AI_GATEWAY_URL : parseBaseUrl(rawUrl);
+  const timeoutMs = rawTimeout === null ? DEFAULT_PARSE_TIMEOUT_MS : parseTimeoutMs(rawTimeout);
+  if (baseUrl === null || timeoutMs === null) {
+    const invalidKeys = [
+      baseUrl === null ? "AI_GATEWAY_URL" : null,
+      timeoutMs === null ? "PARSE_TIMEOUT_MS" : null,
+    ].filter((key) => key !== null);
+    throw new Error(`AI gateway 설정 오류: ${invalidKeys.join(", ")}`);
+  }
+  return { baseUrl, parseTimeoutMs: timeoutMs + PARSE_TIMEOUT_EXTRA_MS };
 }
 
 // ── 응답 스키마. z.object 는 모르는 필드를 버리고 거부하지 않는다(gateway 가 필드를 늘려도 worker 가 멈추지 않게) ──
@@ -154,10 +182,50 @@ export const healthResponseSchema = z.object({
   parsers: z.array(z.object({ format: z.string(), parserId: z.string().nullable() })),
 });
 
+/** 03 §10.1 ParseResult. 실패(UNSUPPORTED·FAILED)는 사유가 있어야 하고(DB check), 페이지 오프셋은 text 안이어야 한다. */
+export const parseResponseSchema = z
+  .object({
+    status: z.enum(["PARSED", "PARTIAL", "UNSUPPORTED", "FAILED"]),
+    format: z.enum(["PDF", "HWPX", "HWP", "UNKNOWN"]),
+    parserId: z.string(),
+    text: z.string(),
+    pages: z.array(
+      z.object({ page: z.number().int().min(1), charOffset: z.number().int().min(0) }),
+    ),
+    blocks: z.array(z.unknown()),
+    // bid_documents.parse_quality(jsonb)에 그대로 저장한다
+    quality: z.record(z.string(), z.json()).nullable(),
+    errorCode: z
+      .enum([
+        "UNSUPPORTED_FORMAT",
+        "NO_TEXT_LAYER",
+        "ENCRYPTED",
+        "DISTRIBUTION_PROTECTED",
+        "TOO_LARGE",
+        "CORRUPTED",
+        "PARSER_ERROR",
+      ])
+      .nullable(),
+    warnings: z.array(z.string()),
+  })
+  .superRefine((body, ctx) => {
+    const failed = body.status === "UNSUPPORTED" || body.status === "FAILED";
+    if (failed && body.errorCode === null) {
+      ctx.addIssue({ code: "custom", path: ["errorCode"], message: "실패면 errorCode 필요" });
+    }
+    if (!failed && body.parserId.trim() === "") {
+      ctx.addIssue({ code: "custom", path: ["parserId"], message: "성공이면 parserId 필요" });
+    }
+    if (body.pages.some((page) => page.charOffset > body.text.length)) {
+      ctx.addIssue({ code: "custom", path: ["pages"], message: "charOffset 가 text 밖" });
+    }
+  });
+
 export type ExtractResponse = z.infer<typeof extractResponseSchema>;
 export type KevResponse = z.infer<typeof kevResponseSchema>;
 export type ExplainResponse = z.infer<typeof explainResponseSchema>;
 export type GatewayHealth = z.infer<typeof healthResponseSchema>;
+export type ParseResponse = z.infer<typeof parseResponseSchema>;
 
 // ── 요청 ──
 

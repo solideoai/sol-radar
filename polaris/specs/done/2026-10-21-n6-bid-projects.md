@@ -1,6 +1,6 @@
 # N6 입찰 프로젝트 스펙
 
-상태: in-progress(2026-10-21 착수, sol-radar-30). 배정 sol-radar-12(ADR-042 P1 병행, 담당 30). 브랜치 `feat/n6-bid-projects`, base main `086ac1e`. 마이그레이션 대역 `20261022000300`~.
+상태: **완료**(2026-10-27 확인, `in-progress/`에서 옮김). 근거: main `546a997d`(2026-10-22 "대시보드 업무 화면 네 개 구현", [통합 기록](../../../docs/evidence/navigation/20261022-implementation.md)). 관련 migration은 2026-10-24 운영 DB에 적용됐다. 착수 기록: in-progress(2026-10-21 착수, sol-radar-30). 배정 sol-radar-12(ADR-042 P1 병행, 담당 30). 브랜치 `feat/n6-bid-projects`, base main `086ac1e`. 마이그레이션 대역 `20261022000300`~.
 
 ## 설계 출처
 

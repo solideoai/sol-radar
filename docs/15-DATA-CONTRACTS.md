@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -24,6 +24,7 @@ updated: 2026-10-21
 |`CompanyEvidenceRef`, `KevStateTrace`|이 문서 §2.1|규칙 엔진(worker), AI gateway 결정 모델 어댑터(state 빌더)|API, UI, `score_runs.kev_output`, 평가셋|
 |`NormalizedBid`, `StructuredRequirement`|이 문서 §3|Connector(07, `web/server/ingestion`)|DB `bid_revisions.normalized`·`bid_structured_requirements`, 추출기, 규칙 엔진|
 |`ParseResult`(gateway `POST /parse` 응답)|[[03-AI-PIPELINE\|03 AI 파이프라인]]|AI gateway 문서 파서|worker documents job, 추출기, 인용 검증(§5.1)|
+|첨부 텍스트 객체 `sol-radar/parsed-document/v1`|이 문서 §5.5|worker documents job(`web/worker/documents-job.ts`)|분석 runtime의 첨부 텍스트 reader(`web/server/documents/document-text.repo.ts`)|
 |`RequirementExtraction`|[[03-AI-PIPELINE\|03 AI 파이프라인]] §4.1|Qwen 추출기|규칙 엔진, `requirement_extractions.payload`|
 |판정 라벨(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드|[[08-SCORING\|08 점수]] §5.1|규칙 엔진, 결정 모델 어댑터|API, UI, 평가셋|
 |`AnalysisInput`|[[04-DATABASE\|04 DB]] `score_runs.input_snapshot`|worker(`web/worker`)|재현·백테스트|
@@ -307,6 +308,27 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 - 검증은 원본 응답을 가진 worker가 한다. gateway는 DB·Supabase Storage에 접근하지 않는다.
 - 면허제한처럼 응답이 여러 행이면 행마다 `EvidenceRef` 하나를 만들고 행 단위로 대조한다. 여러 행의 의미(AND·OR)는 미검증이라 그 판정은 `NEEDS_REVIEW`(`AMBIGUOUS_MATCH`)로 둔다([[16-DECISIONS|16 ADR]] 미결정 19번).
 - 이 검증도 결정론적이고 단위 테스트로 고정한다.
+
+### 5.5 첨부 텍스트 객체 `sol-radar/parsed-document/v1`
+
+2026-10-27 추가(로컬 통합, 운영 미적용). documents job이 `/parse` 결과가 `PARSED`·`PARTIAL`일 때 private 버킷 `bid-parsed`에 JSON 한 개로 저장하고, `bid_documents.text_object_key`에 키를 둔다([[07-DATA-PIPELINE|07 수집]] "documents 큐 소비자 계약"). 분석의 첨부 텍스트 reader가 이 객체를 읽어 `/extract`의 `attachments`를 만든다. 코드 정의는 `web/server/documents/document-processing.model.ts`(`parsedDocumentSchema`·`toParsedDocumentObject`)다.
+
+- **경로**: `parsed/bids/{bidId}/{revisionId}/{rawSha256}/{sha256(parserId)}/result.json`(`web/worker/document-storage.ts`). 파서가 바뀌면 `parserId`가 바뀌어 새 경로가 생긴다. 이미 `PARSED`인 문서를 다시 파싱하는 절차는 없다.
+- **내용**: gateway `ParseResult`([[03-AI-PIPELINE|03]] §10.1)를 그대로 싣고 세 필드를 붙인다.
+
+```ts
+interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
+  schemaVersion: "sol-radar/parsed-document/v1";
+  documentId: string;          // bid_documents.id (uuid)
+  rawSha256: string;           // 원본 바이트 sha256(소문자 hex 64자). bid_documents.sha256과 같다
+  status: "PARSED" | "PARTIAL";
+}
+```
+
+- **reader가 검사하는 것**: `schemaVersion`, `documentId`(그 행의 id와 같음), `rawSha256`(그 행의 sha256과 같음), `status`, `parserId`(빈 값 아님), `text`, `pages`(`page` 1 이상, `charOffset`이 `text` 길이 안). `blocks`·`quality`·`warnings` 등 나머지 필드는 버리지 않고 저장만 한다.
+- **계약 위반**: JSON이 깨졌거나 위 검사에 하나라도 걸리면 reader는 그 문서를 분석 입력에 넣지 않고 `FAILED`·`PARSER_ERROR`로 보인다. DB 행은 바꾸지 않는다. 텍스트 키가 설정한 `bid-parsed` 버킷이 아니면 읽지 않는다.
+- **오프셋**: `text`·`pages`·`blocks`의 오프셋 규칙은 §5.1 "`ParseResult` 오프셋 규칙" 그대로다. reader가 문서당 상한(`ANALYSIS_ATTACHMENT_MAX_CHARS`)으로 앞에서 자르면 자른 뒤에 시작하는 `pages` 항목은 뺀다. 서로게이트 쌍은 가르지 않는다.
+- **버전**: 필드를 지우거나 뜻을 바꾸면 `v2`로 올린다(§1 버전 규칙). 지금 형식은 `"<이름>/v<major>.<minor>"`가 아니라 `v1`만 쓴다.
 
 ## 6. 데이터 검증·격리
 

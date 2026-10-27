@@ -37,7 +37,7 @@ from sol_ai.extraction import ExtractionConfig, run_extraction
 from sol_ai.guards import InjectionGuard
 from sol_ai.kev_state_v02 import load_state_templates
 from sol_ai.logsafe import log_id
-from sol_ai.parse import parse_document, parser_inventory, read_limited
+from sol_ai.parse import DocumentParser, read_limited
 from sol_ai.paths import (
     INJECTION_PATTERNS_FILE,
     PROMPT_FILE,
@@ -54,8 +54,6 @@ from sol_ai.thresholds import Thresholds
 
 logger = logging.getLogger("sol_ai")
 
-PARSER_SETTINGS = {"PDF": "PARSER_PDF", "HWPX": "PARSER_HWPX", "HWP": "PARSER_HWP"}
-
 
 class RunModeError(StartupRefused):
     """실행 모드 위반. 메시지에는 키 이름과 reason 만 담는다."""
@@ -71,6 +69,7 @@ class Runtime:
     adapters: Adapters
     extraction: ExtractionConfig
     kev: KevAdapter
+    documents: DocumentParser
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -101,12 +100,6 @@ def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str,
         schema=schema,
         prompt_hash=computed_hash,
     )
-    for fmt, key in PARSER_SETTINGS.items():
-        if getattr(settings, key):
-            # 어댑터 id 를 받아도 등록된 파서 어댑터가 없다. 미설정과 같게 처리한다(03 §10.3 비교 전)
-            logger.warning(
-                "%s 어댑터가 아직 없어 %s 은 PARSER_NOT_CONFIGURED 로 응답한다", key, fmt
-            )
     extraction = ExtractionConfig(
         schema=schema,
         guard=InjectionGuard.load(INJECTION_PATTERNS_FILE),
@@ -125,7 +118,7 @@ def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str,
         thresholds=Thresholds.load(THRESHOLDS_FILE),
         translator=adapters.qwen if isinstance(adapters.qwen, TranslationAdapter) else None,
     )
-    return Runtime(run_mode, adapters, extraction, kev)
+    return Runtime(run_mode, adapters, extraction, kev, DocumentParser.from_settings(settings))
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -157,14 +150,14 @@ def create_app(settings: Settings) -> FastAPI:
                 else None
             ),
             "questionSets": list(kev.question_sets) if kev is not None else [],
-            "parsers": parser_inventory(),
+            "parsers": runtime.documents.inventory(),
         }
 
     @app.post("/parse", response_model=ParseResult)
     async def parse(request: Request) -> ParseResult:
         started = time.perf_counter()
         data, too_large = await read_limited(request.stream())
-        parsed = parse_document(data, too_large)
+        parsed = await runtime.documents.parse(data, too_large)
         logger.info(
             "parse requestId=%s format=%s status=%s errorCode=%s ms=%d",
             log_id(request.headers.get("x-request-id")),

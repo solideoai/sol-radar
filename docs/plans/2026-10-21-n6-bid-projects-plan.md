@@ -17,7 +17,7 @@ updated: 2026-10-21
 
 **Tech Stack:** Supabase Postgres(RLS·PGlite 시험), Next.js 16 Route Handler·서버 컴포넌트, zod, Vitest(단위·브라우저).
 
-**Spec:** [N6 스펙](../../polaris/specs/in-progress/2026-10-21-n6-bid-projects.md). UI 는 [N6 UI 스펙](2026-10-21-n6-bid-projects-ui-spec.md)(web-designer 작성 중).
+**Spec:** [N6 스펙](../../polaris/specs/done/2026-10-21-n6-bid-projects.md). UI 는 [N6 UI 스펙](2026-10-21-n6-bid-projects-ui-spec.md)(web-designer 작성 중).
 
 ## Global Constraints
 

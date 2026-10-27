@@ -38,19 +38,19 @@ type Row<Name extends keyof Tables> = Tables[Name]["Row"];
 
 export type { AttachmentTextReader, RevisionDocumentText };
 
-/** C3 documents job 구현 전까지 쓰는 빈 구현. 첨부가 없는 것으로 본다(mock·fixture 는 fixtureId 추출이라 영향 없음). */
+/** 첨부가 없는 것으로 보는 빈 구현(시험·도구용). 분석 runtime 은 @/server/documents createAttachmentTextReader 를 쓴다. */
 export const EMPTY_ATTACHMENT_READER: AttachmentTextReader = Object.freeze({
   readRevisionDocuments: async () => [],
 });
 
 /**
- * 분석 job 이 첨부 텍스트를 실제로 AI 에 넘기는가. C3 첨부 reader 연결 전이라 모든 분석 runtime 이
- * EMPTY_ATTACHMENT_READER 를 쓴다(worker/analysis-runtime.ts). 그래서 본문 없이 파싱된 첨부만 있는 공고도
- * 분석 원문이 없는 것으로 본다(@/server/bids analysisReadinessOf, 근거 없는 분석을 만들지 않는다).
- * reader 를 연결하면 true 로 바꾼다. 그때 readiness 시험(본문 없음 + PARSED 첨부 → 409)의 기대도 바뀐다.
+ * 분석 job 이 첨부 텍스트를 실제로 AI 에 넘기는가. 분석 runtime(worker/analysis-runtime.ts)이 첨부 텍스트 reader
+ * (@/server/documents createAttachmentTextReader, bid-parsed 의 PARSED·PARTIAL 텍스트)를 쓰므로 true 다(2026-10-27).
+ * 그래서 본문이 비어도 파싱된 첨부가 있으면 분석할 수 있다(@/server/bids analysisReadinessOf).
+ * 분석 runtime 을 빈 reader 로 되돌리면 이 값도 false 로 되돌린다(근거 없는 분석을 만들지 않는다).
  * 타입을 boolean 으로 적어 두 갈래가 모두 타입 검사를 받게 한다.
  */
-export const ANALYSIS_READS_ATTACHMENT_TEXT: boolean = false;
+export const ANALYSIS_READS_ATTACHMENT_TEXT: boolean = true;
 
 // ── 읽기 ──
 

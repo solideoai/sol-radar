@@ -18,7 +18,8 @@ type UploadInput = UploadBase &
         rawSha256: string;
         parserId: string;
         parseStatus: "PARSED" | "PARTIAL";
-        pageCount: number;
+        /** 쪽 구분이 없는 형식(HWP·HWPX, ParseResult.pages 가 빈 배열)은 null 이다 */
+        pageCount: number | null;
         parseQuality?: Json;
       }
   );
@@ -57,8 +58,7 @@ function describeUpload(input: UploadInput, settings: StorageSettings) {
   if (
     !/^[a-f0-9]{64}$/.test(input.rawSha256) ||
     !input.parserId.trim() ||
-    !Number.isInteger(input.pageCount) ||
-    input.pageCount < 0
+    (input.pageCount !== null && (!Number.isInteger(input.pageCount) || input.pageCount < 0))
   )
     throw new Error("storage_invalid_parse");
   JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(input.bytes));
@@ -144,6 +144,26 @@ export function createDocumentStorage(client: SupabaseClient<Database>, settings
     };
   }
 
+  /**
+   * 확정된 원본을 다시 읽는다(다운로드는 끝났고 파싱만 남은 문서를 이어 처리할 때). 원본 버킷의 생성 경로만 읽고,
+   * 받은 바이트의 sha256 이 원장 값과 다르면 던진다(손상·덮어쓰기를 파싱하지 않는다).
+   */
+  async function readRaw(input: {
+    bucket: string;
+    path: string;
+    sha256: string;
+  }): Promise<Uint8Array> {
+    if (input.bucket !== settings.rawBucket || !/^raw\/bids\//.test(input.path))
+      throw new Error("storage_read_invalid");
+    const downloaded = await client.storage
+      .from(input.bucket)
+      .download(input.path, {}, { signal: AbortSignal.timeout(60_000) });
+    if (downloaded.error || !downloaded.data) throw new Error("storage_read_failed");
+    const bytes = new Uint8Array(await downloaded.data.arrayBuffer());
+    if (checksum(bytes) !== input.sha256) throw new Error("storage_checksum_mismatch");
+    return bytes;
+  }
+
   async function reconcile(): Promise<number> {
     const candidates = await client.rpc("document_storage_candidates", { p_limit: 100 });
     if (candidates.error) throw new Error("storage_reconcile_failed");
@@ -176,5 +196,5 @@ export function createDocumentStorage(client: SupabaseClient<Database>, settings
     }
     return removed;
   }
-  return { uploadImmutable, reconcile };
+  return { uploadImmutable, readRaw, reconcile };
 }

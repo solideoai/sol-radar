@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - architecture
   - pipeline
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
 # 02. 시스템 아키텍처
@@ -18,7 +18,7 @@ Vercel은 `web`만 실행한다. 회사 `redis-api`는 서비스 token+사용자
 ## 경계
 
 > [!note] 해커톤 뒤 전환 예정 ([[16-DECISIONS|ADR-028]])
-> 해커톤 제출(공식 마감 2026-10-27, 완료 목표 10-26, [[16-DECISIONS|ADR-042]]) 뒤 `/api/v1` Route Handler와 worker를 NestJS 앱으로 옮기고, Next.js는 화면만 맡는다. Supabase(Postgres·RLS·Auth)와 나머지 구성은 그대로다. 아래는 해커톤 동안의 현재 구조다.
+> 해커톤 제출(공식 제출 2026-11-03·발표 11-04, [[16-DECISIONS|ADR-054]]. 옛 마감 10-27은 ADR-042의 지난 일정) 뒤 `/api/v1` Route Handler와 worker를 NestJS 앱으로 옮기고, Next.js는 화면만 맡는다. Supabase(Postgres·RLS·Auth)와 나머지 구성은 그대로다. 아래는 해커톤 동안의 현재 구조다.
 
 - Next.js (`web/`, :3000): 화면(App Router, server components), Route Handler(`/api/v1/**`, 헬스체크 `/health/live`·`/health/ready`), 서버 도메인 `web/server/<도메인>/`(model·repo·service·index 배럴, `import "server-only"`). 요청 처리 경로는 사용자 세션(anon 키 + 로그인 쿠키, 스크립트는 `Authorization: Bearer <Supabase access token>`)으로 Supabase를 부르고, 권한은 DB의 RLS가 정한다. 분석·수동 수집 요청은 BullMQ job으로 넣는다(producer). 외부 API 계약의 단일 원천은 zod 스키마(`web/server/<도메인>/*.model.ts`, [[16-DECISIONS|16 ADR]] ADR-016·017).
 - Supabase (클라우드 프로젝트, Compose 밖): **Postgres + RLS**(정형 데이터·점수·감사 이력, 조직 격리)와 **Auth**(이메일+비밀번호·간편 로그인, 공개 가입 + 초대로 조직 합류, ADR-018)를 맡고, 파일은 private Storage에 둔다. 스키마·RLS·함수는 `supabase/migrations/*.sql`(append-only), 타입은 생성물 `web/lib/database.types.ts`(`pnpm db:types`). 파일은 private Supabase Storage에 둔다(ADR-048). pgvector·Supabase Queues는 쓰지 않는다.
@@ -174,7 +174,7 @@ flowchart TB
 ```
 - 노트북에서는 Compose 서비스(redis·qdrant·ai-gateway·worker)와 web이 돈다. web은 호스트에서 `pnpm -C web start`로 띄운다. `infra/compose.yaml`에 `web` 서비스는 없다([[16-DECISIONS|ADR-024]] D1, [[10-DEPLOYMENT|10 배포]]). DB·Auth는 노트북 밖 Supabase 클라우드 프로젝트다.
 - 실행 모드([[16-DECISIONS|ADR-020]]): `live` = 공공 API + 회사 GPU 실추론(해커톤 MVP 목표), `fixture` = fixture 20건 + 회사 GPU 실추론(공공 API 장애 대체), `mock` = fixture 20건 + mock AI(모델 장애 대체·CI·골든). 장애 대체 순서는 `live` → `fixture` → `mock`이고, 모드 전환은 env 교체와 worker·gateway 재시작으로 한다. 자동으로 바꾸지 않는다.
-- 현재 실행 모드와 `AI_PROVIDER` 값은 `/health/ready`의 `checks.ai`와 화면 우상단 표시(`실행 모드` + `AI: mock | local | hosted`)로 노출된다. gateway가 불가하면 `AI: unavailable`. 심사위원이 지금 보는 것이 실데이터·실모델인지 항상 알 수 있다.
+- `AI_PROVIDER` 값은 `/health/ready`의 `checks.ai`로 노출된다(2026-10-27 운영 `ai: local`). 화면 우상단의 `실행 모드`·`AI: …` 표시는 2026-10-26 뺐다(`web/components/topbar-status.tsx`, [[plans/2026-10-26-live-ops-cutover|10-26 실운영 전환 실행서]]). 지금 화면에서는 데이터 출처를 상단 `DEMO` 배지(보는 출처가 demo일 때만)와 공고 행 `DEMO` 배지로, 분석마다의 실행 모드·AI 모델을 공고 상세 분석 요약 띠("분석 실행 모드: …"·"AI: …")와 분석 결과 비교 화면으로 보인다. 런타임 진단은 `GET /api/v1/admin/ai/status`(ADMIN)와 `/admin/ingestion`이 맡는다. 그래서 심사위원은 분석 결과마다 실데이터·실모델인지 확인할 수 있다.
 - mock 응답은 fixture ID별로 고정된 결정적 값이다. 같은 입력에 같은 출력이 나와야 골든 테스트가 성립하므로 골든은 `mock` 모드에서만 단언한다.
 - 회사 GPU 서버는 외부 접근 불가이고, 회사가 모델 런타임을 HTTPS 엔드포인트(`https://acropolissg.com/sol-radar` 아래)로 제공한다. gateway는 TLS 검증을 켠 채 API 키(`QWEN_API_KEY`·`KEV_API_KEY`)로 붙는다([[16-DECISIONS|ADR-025]]). 회사 nginx는 `/sol-radar` location 하나를 우리 라우터로 넘기고, GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`)가 `/sol-radar/qwen`·`/sol-radar/kev`를 vLLM·`sol_decision`(Bosun)으로 나눈다. Qwen은 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`(`QWEN_BASE_URL`, 우리가 띄우지 않는다)에 붙고 `/sol-radar/qwen`은 백업이다([[16-DECISIONS|ADR-034]]). 엔드포인트에 접속하지 못하면 gateway가 Qwen·결정 모델 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모델 기동·GPU 배분은 회사 운영이다. 프로필 정의는 [[10-DEPLOYMENT|10 배포]].
 
@@ -184,7 +184,7 @@ flowchart TB
 ## 장애 원칙
 |장애|감지|사용자에게 보이는 것|데이터 영향|
 |---|---|---|---|
-|AI gateway 불가 (연결 거부·timeout·5xx·circuit open)|Worker HTTP timeout: `/extract`는 `AI_TIMEOUT_MS`+5초, `/kev`는 `KEV_TIMEOUT_MS`+2초. 연결 거부는 즉시 실패(재시도 없음), timeout·5xx는 1회 재시도. 연속 실패 3회 시 circuit open, 15초 후 half-open. 데모 주입은 `docker compose stop ai-gateway` ([[10-DEPLOYMENT\|10 배포]])|분석 상태 `PARTIAL`, 상세 화면 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" ([[09-SECURITY\|09 보안]] 고지 문구 원천), 결정 모델 영역 숨김, 우상단 `AI: unavailable`|score_runs 저장됨 (`kev_output` null, `recommendation_basis=RULES_ONLY`, `review_flags += AI_UNAVAILABLE`, `error_code=AI_UNAVAILABLE`). 재분석 가능|
+|AI gateway 불가 (연결 거부·timeout·5xx·circuit open)|Worker HTTP timeout: `/extract`는 `AI_TIMEOUT_MS`+5초, `/kev`는 `KEV_TIMEOUT_MS`+2초. 연결 거부는 즉시 실패(재시도 없음), timeout·5xx는 1회 재시도. 연속 실패 3회 시 circuit open, 15초 후 half-open. 데모 주입은 `docker compose stop ai-gateway` ([[10-DEPLOYMENT\|10 배포]])|분석 상태 `PARTIAL`, 상세 화면 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)" ([[09-SECURITY\|09 보안]] 고지 문구 원천), 결정 모델 영역 숨김, 분석 요약 띠 "· 응답 없음(규칙만)"(2026-10-26 전에는 우상단 `AI: unavailable`)|score_runs 저장됨 (`kev_output` null, `recommendation_basis=RULES_ONLY`, `review_flags += AI_UNAVAILABLE`, `error_code=AI_UNAVAILABLE`). 재분석 가능|
 |추출 실패 (Qwen 오류, 스키마 재검증 실패)|gateway가 `/extract` 응답에 실패 코드|해당 공고 상세에 "요구조건 추출 실패, 규칙만 적용" 표시, 추출 필드 전부 `UNKNOWN`|`requirement_extractions.status=FAILED`. 분석은 규칙만으로 `PARTIAL`, `review_flags += EXTRACTION_FAILED` ([[03-AI-PIPELINE\|03 AI 파이프라인]] §6)|
 |결정 모델만 불가 (gateway 정상, `KEV_TIMEOUT_MS` 초과·오류)|gateway가 `kev.enabled=false`로 응답|결정 모델 참고 지표 영역 "사용 불가", 점수·자격은 정상|`kev_output` null, `recommendation_basis=RULES_ONLY`, 상태 `COMPLETED`. 분석은 실패하지 않는다|
 |조달청 공식 API 불가·429·일일 한도(에러코드 22)|connector 지수 백오프 재시도, 체크포인트 유지, 한도 도달 시 그날 수집 중단|목록 상단 신선도 배너 "마지막 동기화 HH:MM", 관리자 수집 화면 "공공 API 오류: {코드}", 기존 공고 유지|`ingest_runs`·`ingest_errors`에 코드 기록. 신규 공고 지연, 손실 없음. fixture로 자동 대체하지 않는다|

@@ -1,5 +1,7 @@
 # MinIO → Supabase Storage
 
+> 상태: **완료**(2026-10-27 확인, `in-progress/`에서 옮김). 근거: 구현 `55e7e9bd`, main 병합 PR #7 `76eea2a6`(2026-10-21), 첫 묶음 통합 `d87cc409`. 운영 `/health/ready`의 `storage`가 ok다(2026-10-27). 아래 마지막 줄대로 parser·documents 소비자는 이 스펙 범위가 아니다(첨부 처리는 2026-10-27 착수, [ADR-054](../../../docs/16-DECISIONS.md)).
+
 2026-10-21 사용자가 전환 계획에 따른 구현을 승인했다. 근거는
 `docs/plans/2026-10-21-redis-gateway-supabase-storage-migration.md` Task 3·4와 §5~7·12~13이다.
 

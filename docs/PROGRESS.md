@@ -9,6 +9,86 @@ updated: 2026-10-27
 
 # 진행 상황
 
+## 현재 상태 (2026-10-27)
+
+> [!note] 한 화면 요약
+> 2026-10-27 메인 세션이 운영·저장소를 직접 확인한 결과와 같은 날 사용자 결정([[16-DECISIONS|ADR-054]])이다. 아래 옛 절과 다르면 이 절이 맞다. 일정: 공식 제출 **2026-11-03**, 발표 **2026-11-04**(사용자 결정). 남은 날의 세부 일정은 [[12-ROADMAP|12]] "남은 일정 제안" 표이고 사용자 확인 전이다.
+
+**된 것**
+
+- 운영 `https://www.solideos-radar.com` `/health/ready` 200(`db`·`redis`·`storage` ok, `ai: local`).
+- 3시간 정기 수집(BullMQ cron `0 */3 * * *`, `Asia/Seoul`)이 10-26 13:51부터 7회 모두 `SUCCEEDED`. 실공고 592건, 최신 수집 10-27 09:03. 회사 redis-api에 `SOL_INGEST_MODE=live`.
+- 운영 실모델 분석 1건: 10-24 FX-02(가상 공고) 66점 WATCH, `Qwen3.8-Flash-Next-AWQ-INT4` + `bosun-v3.1-0.6b`, 대체 없음. `mock` 골든 FX-02는 72 그대로다.
+- P1 다섯 화면 모두 완료. N3·N5·N6·N7 main `546a997d`, N4b main `d209eec3`(병합·운영 배포).
+- 10-26 화면·설정 변경: 상단바 실행 모드·AI 표시 제거(`web/components/topbar-status.tsx`), 기본 출처 env `SOL_DEFAULT_ORIGIN`(운영은 기본 실공고), 수동 [지금 불러오기] gate(`GET /api/v1/admin/ingestion/manual-gate`), 사이드바 묶음 3개 + 트리·아이콘, 대시보드 "공공조달 요약" 숫자 띠(신규 발견·마감 임박 (7일)·분석 대기·BID 권고·진행 중 입찰 프로젝트).
+- 검증: main `26efefc1`에서 전체 `pnpm verify` exit 0(루트 230·web 689·AI 153·결정 57·빌드). 그 뒤 main은 `43e4e024`(서비스별 수집 격리, 다른 세션)다.
+- 첨부 처리(다운로더·파서·documents worker·분석 연결)와 live 가드(카카오 발송 수단·가입 약관 동의) 구현을 통합 worktree `integration/blockers-1027`에 모았다. 전체 `pnpm verify` exit 0(루트 236·web 85파일 743개·`next build`·AI 166·결정 57). **로컬 통합, 운영 미적용, 커밋 전이다.** 아래 "10-27 첨부 처리·파서·live 가드 구현" 절.
+
+**진행 중**
+
+- 첨부 처리(다운로드·파서·documents worker): 구현과 로컬 통합은 끝났다. 격리 스택에서 documents job 한 바퀴(다운로드 → Storage → `/parse` → 텍스트 객체)를 돌린 기록은 아직 없다(다른 작업자 진행 중). 운영 반영은 아래 승인 대기 항목이다. 지금 운영의 실공고 분석은 여전히 0건이다(본문이 비어 `409 ANALYSIS_SOURCE_MISSING`).
+- DEMO 공고 마감 +15일 이동 SQL: 실행서와 로컬 리허설(PGlite·PostgreSQL 17)은 준비됐다([실행서](evidence/demo-deadline/20261027/README.md)). 운영 DB에는 접속하지 않았다. 운영 적용은 별도 승인이고 FX-02 마감 **2026-10-30 18:00 KST** 전에 해야 한다.
+
+**남은 것**
+
+- 첨부 처리 운영 반영(아래 "10-27 첨부 처리" 절의 승인 대기 8항목) → 실공고 S-LIVE 분석 run → 리허설·촬영(S-LIVE·카카오 실수신 컷) → 덱·영상 → 11-03 제출 → 11-04 발표(D1).
+- 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤로 미뤘다. 운영 DEMO 19건 그대로, 운영 DB 안 백업 스키마 `demo_cleanup_20261026` 있음. 카카오 연결 0건.
+- GitHub Actions는 10-24부터 계정 결제 문제로 job이 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다.
+
+**사용자 결정 대기**
+
+- X6 파인튜닝(회사 GPU 학습 실행 여부). 회사 서버에서 돈 기록은 없다.
+- [[12-ROADMAP|12]] "남은 일정 제안" 표 확인.
+- D1 발표에서 S5(fixture 변경 수집)·S6(AI gateway 중지)을 어떻게 할지([[19-DEMO-SCENARIO|19]] §4).
+- [[16-DECISIONS|ADR-055]](제안): documents 계약 변경(범위 밖 첨부 `PENDING` 잔류, 우리 쪽 장애는 미루기)을 받아들일지.
+- [[16-DECISIONS|ADR-056]](제안): 추출 캐시 키 문제를 분석 대기(A)로 막을지, `source_hash` 키(B)로 막을지.
+- 파서 "지원" 판정 전인데 코드는 `PARSED`를 낸다([[03-AI-PIPELINE|03]] §10.3 결정 규칙 4번 미구현). 규칙대로 고칠지, 실표본 6건으로 규칙을 바꿀지.
+
+**아래 옛 절의 승인 대기·미적용 서술 중 해결된 것** (옛 절 본문은 당시 기록이라 고치지 않았다)
+
+- "외부 수집 서비스별 격리 0순위 로컬 구현"의 "커밋 전·운영 미적용": 코드 `162a09ab`·실행서 `43e4e024`가 main에 들어갔고 로컬 원격 참조 기준 origin/main에도 있다. Vercel·회사 반영 여부는 미확인이다.
+- "실운영 전환·3시간 정기 수집 로컬 구현"의 제목 "운영 미적용"·"남은 것(모두 승인 대기)": push·Vercel 배포, 회사 redis-api `SOL_INGEST_MODE=live`, 3시간 정기 일정은 운영에서 돈다(위 "된 것"). A단계 DEMO 삭제만 남았고 발표 뒤로 미뤘다. F단계 최종 확인 기록은 미확인이다.
+- 같은 절의 "운영 DB는 읽지도 바꾸지도 않았다": 그 뒤 운영 DB에 백업 스키마 `demo_cleanup_20261026`이 생겼다. 삭제는 하지 않았다(DEMO 19건 그대로).
+- "운영 배포 ①·② 적용과 ③ 준비"의 "③ push·Vercel 배포는 승인 대기": 10-26에 배포됐고, 이어 main `db796a72` push·Vercel Production 배포 성공이 확인됐다("AI 티 걷어내기" 절).
+- "10-23·10-24 상태"의 "N4b는 main 미병합"과 "핵심 컷 Critical Path" 절 P1 줄: N4b는 main `d209eec3`로 병합·운영 배포됐다.
+- "프로필 사진과 명부 연결"의 "로컬 커밋만, 클라우드 적용 대상(사용자 확인 뒤)": migration은 2026-10-25 운영 적용, 버킷 `profile-photos`는 2026-10-25 생성("운영 배포 ①·②" 절), 코드는 10-26 배포다.
+- "구현 Phase" 절 Phase 0 줄의 "CI(GitHub Actions)는 … 통과": 10-24부터 job이 시작되지 않는다. 지금 CI 통과를 근거로 쓰지 않는다.
+- "작업 로그"의 2026-10-26 "실운영 전환·3시간 정기 수집(로컬)" 행의 승인 대기: 위 둘째 줄과 같다.
+- 10-24 freeze·10-25 리허설·10-26 완료 목표·10-27 마감과 X6 10-25·10-26 일정은 지난 일정이다(ADR-054).
+
+## 10-27 첨부 처리·파서·live 가드 구현 (로컬 통합, 운영 미적용)
+
+ADR-054 3번("S-LIVE는 첨부 처리 구현으로")과 10-27 전체 점검의 중간 등급 두 건이다. 세 브랜치(`feat/attachment-worker`·`feat/attachment-parse`·`fix/live-guards`, 기준 main `43e4e024`)를 통합 worktree `sol-radar-worktrees/integration-1027`(브랜치 `integration/blockers-1027`)에 모았다. 커밋 전이다. 운영 DB·회사 서버·Vercel에는 아무것도 적용하지 않았다.
+
+- **첨부 다운로드·documents worker**: 나라장터 첨부 다운로더(`createG2bAttachmentFetcher`, 허용 목록·DNS 공인 주소 확인·리다이렉트 3회·30초·50 MiB), documents job 소비자(`web/worker/documents-job.ts`, 공고당 3건·문서별 리스·장애 시 10분씩 최대 12번 미루기), documents 전용 Worker(`documents-only-main.ts`, `infra/compose.documents-only.company.yaml`), migration `20261027000500`(처리 함수 5개). [[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약", [[04-DATABASE|04]] §7, [[09-SECURITY|09]] SSRF.
+- **파서**: AI gateway `/parse` 기본 어댑터(PDF `pdfplumber`·HWPX 자체·HWP 5.0 olefile+자체), 문서마다 격리 하위 프로세스(동시 2·90초), AGPL·GPL 없음. 실표본 6건(PDF 2·HWPX 2·HWP 2) 모두 `PARSED`, 통합 gateway에 다시 보내 web 쪽 계약(zod) 통과(문서당 0.2~1.7초). 형식당 10건 사람 기준표는 없다. [[03-AI-PIPELINE|03]] §10, [파서 확인](evidence/parser/20261027-parser-check.md).
+- **분석 연결**: 분석 runtime이 첨부 텍스트 객체(`sol-radar/parsed-document/v1`, [[15-DATA-CONTRACTS|15]] §5.5)를 읽는다. 본문이 비어도 파싱된 첨부가 있으면 분석 요청을 받는다(202).
+- **live 가드**: `SOL_RUN_MODE=live`에서 `NOTIFY_KAKAO_PROVIDER`가 비면 카카오 발송을 끈다(전에는 조용히 `mock`). 이메일 가입은 약관 필수 동의 셋이 없으면 계정을 만들지 않고, 동의 시각을 `user_consents`에 남긴다(migration `20261027000600`). 간편 가입(OAuth)의 동의는 후속 과제다. [[13-NOTIFICATIONS|13]], [[04-DATABASE|04]] §3.1, [live 가드 검증](evidence/live-guards/20261027.md).
+- **검증**: 통합 worktree에서 전체 `pnpm verify` exit 0(루트 236·web 85파일 743개·`next build`·AI 166·결정 57, 2026-10-27). 새 시험 요약은 [[11-TESTING|11]] "2026-10-27 추가한 핵심 시험". 격리 스택 실행 기록은 아직 없다.
+- **정본 반영**: 03·04·07·09·10·11·12·13·15·16(ADR-055·056 제안)·이 문서, `docs/evidence/phase-0/external-deps.md` ④.
+- **알려진 한계**: 범위 밖 첨부(xlsx·zip·docx, 공고당 상한 밖, 마감 지난 공고)는 `PENDING`으로 남는다(ADR-055). 첨부 일부만 파싱된 때의 추출이 재사용된다(ADR-056). 파서를 바꿔도 이미 `PARSED`인 문서를 다시 파싱하는 절차가 없다. documents 전용 Worker에는 Storage 고아 정리가 없다. 나라장터 이용약관상 자동 다운로드 제한은 미확인이다.
+
+**운영 승인 대기** (순서와 되돌리기는 [[10-DEPLOYMENT|10]] "첨부 처리 운영 반영"):
+
+1. migration `20261027000500`·`20261027000600` 운영 적용(`pnpm db:push`). 000600을 웹 배포보다 먼저 적용하면 그 사이 운영 이메일 가입이 막힌다. 순서를 정해야 한다.
+2. AI gateway 이미지 재빌드(파서 의존성). 회사 실행서에 gateway 교체 절차가 아직 없다.
+3. documents 전용 Worker 기동(`sol-radar-documents`).
+4. 회사 Analysis Worker 이미지 교체 방법 결정(`sol-radar-ai-worker-worker:latest`).
+5. redis-api 이미지 교체.
+6. Vercel 배포.
+7. DEMO 공고 마감 +15일 이동 SQL 운영 적용(FX-02 마감 2026-10-30 18:00 KST 전).
+8. 회사 Worker의 `NOTIFY_KAKAO_PROVIDER` 값 확인(live에서 비어 있으면 새 코드는 카카오 발송을 끈다).
+
+## 10-27 전체 점검·결정 (2026-10-27)
+
+브랜치 `docs/decisions-1027`(worktree `sol-radar-worktrees/docs-decisions-1027`, 기준 main `43e4e024`, 커밋 전). 문서만 고쳤다. 코드·`docs/evidence/`는 바꾸지 않았다.
+
+- **사용자 결정(원문)**: ① "새 마감일은 11월 3일. 발표일은 11월 4일." ② D1 유지·운영 DEMO 삭제 발표 뒤 보류·DEMO 공고 일정 재설정 제안에 "그래" ③ S-LIVE 선택지에 "추천으로"(첨부 처리 구현, "장면 빼고 설명" 안은 고르지 않음). X6 실행 여부는 미결정. [[16-DECISIONS|ADR-054]](ADR-042 일정 조항 개정)로 기록했다.
+- **정본 반영**: [[16-DECISIONS|16]] ADR-054·ADR-042 지난 일정 표시, [[12-ROADMAP|12]] 새 마감 콜아웃·"남은 일정 제안(사용자 확인 전)" 표·옛 간트 "지난 일정" 표시, [[18-HACKATHON|18]] 머리 콜아웃·§4·§6(D1)·§7·§8·§9·§10, [[19-DEMO-SCENARIO|19]] D1 사전 준비(§3.0, `demo:reset` 대신)·상단바 표시·S4 66/72 구분·S-LIVE·카카오 녹화 시점, 02·05·06·07·10·11(상단바 표시 제거·3시간 수집·`SOL_DEFAULT_ORIGIN`·`manual-gate`·revisions·카카오 라우트), `docs/submission/`·루트 `README.md`.
+- **polaris**: 완료 스펙 6개를 `polaris/specs/in-progress/`에서 `done/`으로 옮기고 머리에 완료 근거를 적었다. N3·N5·N6·N7은 main `546a997d`, Supabase Storage는 `55e7e9bd`·PR #7 `76eea2a6`, Bosun 번역은 `19502028`·main 통합 `6b4ff0a4`다. 계획 문서의 링크 경로도 `done/`으로 고쳤다. `public-procurement-expansion`은 `planned/`와 `in-progress/`에 같은 이름이 있다. `in-progress/`(status in-progress, 기능 커밋 `4ca804d1`이 넣음, ADR-047 링크 대상)가 정본이고 `planned/`는 `26f0f906`이 보존한 승인 전 사본이다. 지우지 않았다.
+- **이 절의 정정**: 아래 "hosted 모델 API 사용 승인 기록" 표의 구분선 칸 수(5→6)를 맞추고, 그 표에 잘못 들어가 있던 작업 로그 2행(2026-10-21 문서 정합화 정정·계획)을 뺐다. 두 행은 "작업 로그" 표에 이미 있다. "정정" 행은 표에 있던 쪽이 나중 기록(커밋·push 반영)이라 작업 로그 행을 그 내용으로 바꿨다.
+- **검증**: 문서 전용(ADR-046). 코드 검사·빌드는 돌리지 않았다. 링크 경로·frontmatter만 확인했다.
+
 ## 외부 수집 서비스별 격리 0순위 로컬 구현 (2026-10-27, 운영 미적용)
 
 브랜치 `feat/ingest-source-isolation`(worktree `sol-radar-worktrees/ingest-source-isolation`, 기준 main `26efefc1`, 커밋 전). 사용자 요청 "0순위 안전 작업"이며 push·Vercel 배포·회사 Docker·운영 Redis Scheduler·운영 DB·외부 API 호출·추가 기관 활성화는 하지 않았다.
@@ -314,22 +394,21 @@ HEAD `086ac1e`의 문서21~23·ADR-034·042, Bosun 학습·평가 코드, 인력
 [[16-DECISIONS|ADR-010]]에 따라 유료 hosted 모델 API(`AI_PROVIDER=hosted`, `AI_HOSTED_APPROVED=true`)는 사용자 승인 후에만 켠다. 승인마다 아래에 기록한다.
 
 | 날짜 | 승인자 | 공급자·모델 | 목적 | 예상 비용 | 결과 |
-|---|---|---|---|---|
-| 2026-10-21 | 문서 정합화 정정 | 승인된 7단계 계획을 완료했다. 운영 모델·URL·부하, 실제 근거/설명 범위, Vercel·로컬 CLI, P1·EMAIL·일정, 삭제 시험 참조·부분 구현을 정정했다. 기존 ADR-047·병행 작업·과거 로그를 보존했다 | 정정 대상 37문서의 변경 줄·링크·표·frontmatter와 C1 shell 구문, 명시적 work-tree diff 검사 통과. 독립 검토 P2 네 건 수정·근거 재대조. [검증 기록](evidence/documentation/20261021-docs-current-baseline-sync.md) | 정정 검증은 ADR-046 문서 전용 기준. 코드 시험·빌드·외부 호출·DB/운영 변경·배포 미실행. 사용자 후속 요청에 따라 커밋·push. 실접속·학습·메일 수신 등 기존 미검증 상태 유지 |
-| 2026-10-21 | 문서 정합화 계획 | 사용자 문서 감사 후속으로 [[2026-10-21-docs-current-baseline-sync-plan\|수정 계획]]을 작성했다. 운영 절차·시연 주장 → 배포·권한 → 범위·일정 → 검증 안내 → 구현 상태 → 전체 문서 대조의 7단계다. 기존 ADR-047 미커밋 설계는 보존한다 | frontmatter·7단계 완료 기준·기존 경로 45개·위키링크 확인. 일반 Git 검사는 저장소 `core.bare=true` 상태로 실패했고 설정 변경 없이 명시적 `--work-tree`의 diff 검사 통과. 코드 시험·빌드 미실행(ADR-046 문서 전용) | 계획 검토 단계. Task 1~7 문서 수정은 아직 시작하지 않음 |---|
+|---|---|---|---|---|---|
 | — | — | — | 아직 승인 없음 | — | — |
 
 ## 작업 로그
 
 | 날짜 | Phase | 변경 | 검증 | 남은 문제 |
 |---|---|---|---|---|
+| 2026-10-27 | 전체 점검·결정 반영(문서) | ADR-054(마감 11-03·발표 11-04, D1 유지·운영 DEMO 삭제 보류, 첨부 처리 구현, X6 미결정). 12 남은 일정 제안 표, 18·19 D1·66/72 구분·상단바 표시 제거, 02·05·06·07·10·11·submission·README 정정, 완료 스펙 6개 `done/`, 위 "현재 상태" 요약, hosted 표 정정 | 문서 전용(ADR-046). 링크 경로·frontmatter 확인. 코드 검사·빌드 미실행 | 커밋 전. X6 실행 여부·남은 일정 제안·D1의 S5·S6 방식은 사용자 결정 대기 |
 | 2026-10-26 | 실운영 전환·3시간 정기 수집(로컬) | sol-radar-78. 상단바 실행 모드·AI 표시 제거, cron 정기 수집(KST 00~21시 3시간), 수동 [지금 불러오기]·서버 gate·수동 예산 상한, 본문 없는 공고 분석 차단, `SOL_INGEST_MODE`, DEMO 정리 실행서·리허설, 운영 전환 실행서 | 전체 `pnpm verify` exit 0, 실 Redis 일정·gate 통합, 격리 브라우저 29/29([증거](evidence/live-ops/20261026/summary.md)) | 운영 적용 전부 승인 대기. 바꾼 e2e-auth 시험 중 work 설정(run-mode-badge·what-if.write)은 Compose 가 필요해 미실행 |
 | 2026-10-24 | FX-15 점수 정정(58→68) | sol-radar-78 배정(9b 운영 smoke D4, main `34eeabb1`). [[19-DEMO-SCENARIO]] Q&A 예비 FX-15 행 점수를 [[16-DECISIONS]] ADR-043(200명 입력, 가용 인력 증가로 58→68)에 맞췄다. 권고 WATCH·`SCALE_LIMIT_EXCEEDED`·Kev 0.60 WATCH는 그대로 맞다: `fixtures/manifest.yaml` FX-15 `expected: { outcome: WATCH, designScore: 68 }`, 규칙 엔진 `analyze(buildInput("FX-15"))` 직접 실행 결과 68·WATCH·`SCALE_LIMIT_EXCEEDED`(같은 실행에서 FX-01/02/03 94/72/68 확인). 다른 현재 문서(07·08·16·PROGRESS·18·11·제출물)에 FX-15 58은 없다. 지난 계획 `plans/2026-10-18-phase-0-infra.md`의 58은 기록이라 두었다. 문서만 바꿨다 |
 | 2026-10-24 | 카카오 실제 공고 수신 녹화 재결정 반영 | sol-radar-78 재배정. 사용자 재결정("공고를 해커톤 시연때 mock이 아니라 실제 공고를 받아야 해. 시연 영상도 찍어야 하니까 내 의견 반영해")으로 같은 날 앞선 "mock으로 둬"(`fe83194a`·`3e9ab6ab`)를 바꿨다. 시연 영상에서 실제 나라장터 공고의 BID·WATCH 추천을 `memo`로 실발송해 휴대폰 수신을 녹화하고 `mock`으로 되돌린다. S0 수신 시험 10-25 오전(사용자), 녹화 10-25 마지막 `demo:reset` 뒤 S-LIVE와 함께. 발표 본편(FX-01·02·03, 94/72/68)과 라이브 5분 흐름은 고정 데이터 그대로. [[16-DECISIONS]] ADR-038 재개정, [[19-DEMO-SCENARIO]] 녹화 절차(실제 공고, 버튼 링크 `https://www.solideos-radar.com`)·체크리스트, [[18-HACKATHON]] §3.2.1·§4·§7, [[13-NOTIFICATIONS]], [[10-DEPLOYMENT]]·[[11-TESTING]]·[[12-ROADMAP]]·[[09-SECURITY]], 05·06·04·00 절 제목 표기, 제출물 `slides-spec.md`(카카오 10초 클립을 실제 공고 수신으로 되살림, 총 시간 그대로, 슬라이드 2 문구 유지)·`limitations.md`. 실수신은 **10-25 예정·미확인**이고 녹화 뒤에만 확인으로 적는다. 실행 절차서는 `docs/evidence/demo-day/20261024-slive-check/`(sol-radar-03 작성 중) 링크만 걸었다. 문서만 바꿨다. 검증: `pnpm format:check`, 추가 줄 위키링크 확인 |
 | 2026-10-24 | P3 문서 정합화 후속 | sol-radar-78 추가 배정. 제출물 `docs/submission/slides-spec.md`(카카오 10초 클립·`deck-clip-kakao.mp4` 삭제, 슬라이드 12 시간 2:00 유지, 알림 행·경쟁표·Q&A 13번·E4 날짜), `limitations.md`(메일 제외·카카오 `mock`·E4 10-26 오전), `submission/README.md` E4 날짜. 카카오 "구현 중" 표기를 main 병합으로 정리([[00-README]]·[[04-DATABASE]]·[[05-API-SPEC]]·[[06-UI-UX]]·[[09-SECURITY]]·[[10-DEPLOYMENT]]·[[11-TESTING]]). 남은 10-24 GPU 날짜([[21-MODEL-TRAINING]]·[[22-FINETUNE-RUNBOOK]]·[[00-README]]·[[BOSUN_FINETUNING_GPT_HANDOFF]]) 정리. 중단선은 새 시각 없이 "F2 못 끝내면 회사 측 미실행" 유지 | 서식 검사·추가 위키링크 대상 확인·커밋 게이트 | 슬라이드 2번 4항목("공고를 카카오톡으로 받아본다")은 사용자 원문이라 그대로 두고 노트에 mock 발송을 적었다 |
 | 2026-10-24 | P3 문서 정합화 | sol-radar-78 배정. ① [[18-HACKATHON]] §7 정직성 표(Qwen probe, DB·인증·웹 실행 위치=Vercel 운영, 카카오, P1, S-LIVE)·§4 실용성·§10 제출물 표를 커밋·증거 기준으로 갱신 ② ADR-041 메일 알림 해커톤 제외 개정 기록과 [[13-NOTIFICATIONS]]·[[12-ROADMAP]]·[[05-API-SPEC]]·[[06-UI-UX]] 문장 정렬 ③ 회사 GPU 일정 하루 연기(F1·F2 10-25 오후, F3·E4·E1' 10-26 오전, 반영 10-26 오후)를 [[23-WEEKEND-FINETUNE]] §0·§1·§7, [[12-ROADMAP]] X6·X1·X4·freeze~D-day·간트, ADR-034 12·17번에 반영. 토요일 18:00 중단선은 폐기, 새 중단 시각은 정하지 않음 ④ 카카오 수신 녹화 제외(ADR-038 개정, [[19-DEMO-SCENARIO]] 녹화 장면·체크리스트, [[10-DEPLOYMENT]] S0, [[11-TESTING]] G11) ⑤ 이 문서 10-23·10-24 상태 절 | 문서 검사 `pnpm verify:changed`(아래 커밋 보고) | 제출물 문서(`docs/submission/slides-spec.md`의 카카오 10초 클립·알림 행, `limitations.md` 확장 컷 문장)와 [[04-DATABASE]]·[[09-SECURITY]]의 카카오 "구현 중" 표기는 이번에 고치지 않았다 |
 | 2026-10-24 | 인력 명부 메일 | 사용자 요청으로 가상 인물 200명에 회사 메일 추가: 성을 뺀 이름+성 관용 로마자 `@solideos.com`(예: `minjunkim@solideos.com`), 겹치면 직원 번호 순 숫자(현재 0명). 규칙 `scripts/people/emails.mjs`, 정본 JSON·seed·검사, 마이그레이션 `20261024000100`(nullable·형식 CHECK·조직 내 UNIQUE·기존 200행 백필), 조직도 카드·상세 서랍 표시. [[04-DATABASE]] `team_members` 행 갱신 | `pnpm verify:changed` exit 0(루트 204·웹 501·AI·결정 모델). 격리 Supabase 에 전체 마이그레이션 적용·seed 200행 확인, 실제 앱 1440·1280 조직도와 상세 서랍 확인. [증거](evidence/people-email/20261024-verify.md) | main `1fd58ff3` 푸시·Vercel 배포 success. 사용자 승인으로 클라우드 `db:push` 미적용 14개(이번 1 + 10-22~23 13) 적용, `db:verify` 마이그레이션 50개 확인. 클라우드 행 수 직접 조회·전체 `pnpm verify`·로그인 E2E 미실행 |
-| 2026-10-21 | 문서 정합화 정정 | 승인된 7단계 계획을 완료했다. 운영 모델·URL·부하, 실제 근거/설명 범위, Vercel·로컬 CLI, P1·EMAIL·일정, 삭제 시험 참조·부분 구현을 정정했다. 기존 ADR-047·병행 작업·과거 로그를 보존했다 | 정정 대상 37문서의 변경 줄·링크·표·frontmatter와 C1 shell 구문, 명시적 work-tree diff 검사 통과. 독립 검토 P2 네 건 수정·근거 재대조. [검증 기록](evidence/documentation/20261021-docs-current-baseline-sync.md) | 코드 시험·빌드·외부 호출·DB/운영 변경·배포·커밋 없음(ADR-046 문서 전용). 실접속·학습·메일 수신 등 기존 미검증 상태 유지 |
+| 2026-10-21 | 문서 정합화 정정 | 승인된 7단계 계획을 완료했다. 운영 모델·URL·부하, 실제 근거/설명 범위, Vercel·로컬 CLI, P1·EMAIL·일정, 삭제 시험 참조·부분 구현을 정정했다. 기존 ADR-047·병행 작업·과거 로그를 보존했다 | 정정 대상 37문서의 변경 줄·링크·표·frontmatter와 C1 shell 구문, 명시적 work-tree diff 검사 통과. 독립 검토 P2 네 건 수정·근거 재대조. [검증 기록](evidence/documentation/20261021-docs-current-baseline-sync.md) | 정정 검증은 ADR-046 문서 전용 기준. 코드 시험·빌드·외부 호출·DB/운영 변경·배포 미실행. 사용자 후속 요청에 따라 커밋·push. 실접속·학습·메일 수신 등 기존 미검증 상태 유지 |
 | 2026-10-21 | 문서 정합화 계획 | 사용자 문서 감사 후속으로 [[2026-10-21-docs-current-baseline-sync-plan\|수정 계획]]을 작성했다. 운영 절차·시연 주장 → 배포·권한 → 범위·일정 → 검증 안내 → 구현 상태 → 전체 문서 대조의 7단계다. 기존 ADR-047 미커밋 설계는 보존한다 | frontmatter·7단계 완료 기준·기존 경로 45개·위키링크 확인. 일반 Git 검사는 저장소 `core.bare=true` 상태로 실패했고 설정 변경 없이 명시적 `--work-tree`의 diff 검사 통과. 코드 시험·빌드 미실행(ADR-046 문서 전용) | 계획 검토 단계. Task 1~7 문서 수정은 아직 시작하지 않음 |
 | 2026-10-21 | 사이드바 문구 | 기존 데모 설정을 찾아 MCP로 sales 계정 로그인 → `/dashboard` 확인. 미출시 메뉴의 "준비 중" 배지·툴팁 제거, 메뉴 상태·가드 유지. 로그인 폼의 기본 전송을 POST로 고정해 hydration 전 URL 노출 보완 | 원격 main `fcd6eab` 통합 후 전체 `pnpm verify` exit 0(웹 286·AI 101·결정 57·빌드 포함). 실제 Supabase Auth 200, MCP 1440·1280 메뉴/툴팁 4개 재확인, native-submit POST·passwordInUrl=false 통과. [기록·캡처](evidence/phase-3/20261021-sidebar-label.txt) | ADR-046에 따른 원격의 AppShell 브라우저 파일 삭제 유지(이전 24/24 실행 기록 보존). 전체 인증 E2E 미실행, 변경 흐름은 MCP 직접 검증 |
 | 2026-10-21 | 랜딩 색감 | 후속 요청으로 바깥 세로선·히어로 격자 제거. 기존 brand 파랑을 버튼·메뉴 hover·기능 아이콘·단계 번호에 적용하고 제품 무대·일부 기능 예시·마지막 안내에 4% 옅은 바탕 적용. [[06-UI-UX]] §3.4 갱신 | `pnpm verify:changed` exit 0, 현재 랜딩 E2E 28 PASS, MCP 1440·1280 바깥 선 0px·가로/값 칸 넘침 0, 파랑/흰색 대비 5.41:1. [증거](evidence/landing/20261021-color.txt) | 전체 빌드·인증 흐름 미실행. 기존 테스트 정리·배포 작업 보존 |

@@ -27,7 +27,7 @@ updated: 2026-10-21
 
 ## Task 2 — Storage 구현 인수 및 결함 수정
 
-정본: 기존 `2026-10-21-redis-gateway-supabase-storage-migration.md` Task 3·4, `polaris/specs/in-progress/2026-10-21-supabase-storage.md`. 원본은 `feat/supabase-storage` 작업 폴더이며 다른 작성자가 있으면 원본을 수정하지 않는다.
+정본: 기존 `2026-10-21-redis-gateway-supabase-storage-migration.md` Task 3·4, `polaris/specs/done/2026-10-21-supabase-storage.md`. 원본은 `feat/supabase-storage` 작업 폴더이며 다른 작성자가 있으면 원본을 수정하지 않는다.
 
 - [x] 안정된 소스 snapshot 또는 커밋을 받아 Gateway 변경과 분리해 통합한다.
 - [x] 충돌·실패의 원인을 먼저 재현한다. 새 계산·권한·복구 결함은 최소 회귀 시험을 실패시킨 뒤 수정한다.
