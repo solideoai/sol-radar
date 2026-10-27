@@ -13,7 +13,7 @@ updated: 2026-10-27
 # 10-27 LH 입찰공고(15159012) 첫 실호출·운영 활성화 계획
 
 > [!todo] 한눈에 (기준 2026-10-27, 브랜치 feat/lh-bid-notice)
-> 로컬 구현·합성 응답 시험은 끝났다([증거](../evidence/ingestion/20261027-lh-bid-notice/summary.md)). 이 문서는 실행 기록이 아니다. `[승인]` 단계는 **사용자 승인 뒤에만** 한다. 나라장터 3시간 정기 수집(`g2b-scheduled`)이 계속 도는 것이 가장 먼저다. 어느 단계든 나라장터 회차가 `FAILED` 가 되면 멈추고 §5 로 되돌린다.
+> 로컬 구현·합성 응답 시험은 끝났다([증거](../evidence/ingestion/20261027-lh-bid-notice/summary.md)). 2026-10-27 15:13 KST 첫 실호출 1회를 했고(HTTP 200·`00`·10건), 그 응답으로 EUC-KR 읽기·`YYYY/MM/DD HH:mm` 일시·금액 단위를 고쳤다([첫 실호출 증거](../evidence/ingestion/20261027-lh-bid-notice/first-call.md)). 다음은 §3 "다시 녹음"이다. 이 문서는 실행 기록이 아니다. `[승인]` 단계는 **사용자 승인 뒤에만** 한다. 나라장터 3시간 정기 수집(`g2b-scheduled`)이 계속 도는 것이 가장 먼저다. 어느 단계든 나라장터 회차가 `FAILED` 가 되면 멈추고 §5 로 되돌린다.
 
 ## 0. 하지 않는 것
 
@@ -59,19 +59,20 @@ console.log(JSON.stringify({
 
 ## 3. 첫 실호출 1회 — [승인]
 
-2026-10-27 사용자 확인: 활용신청 승인(활용기간 2026-10-21 ~ 2028-10-21), 엔드포인트 `https://apis.data.go.kr/B552555/OpenBidInfoList` 상세기능 `/getOpenBidInfo`, XML, 일일 1,000회, 회사 서버 `LH_BID_NOTICE_SERVICE_KEY` SET. 회사 서버 저장소는 `43e4e024` 라 녹음 스크립트가 없다. 저장소·브랜치를 바꾸지 않고 **임시 폴더에 세 파일만** 두고 Docker Compose 일회용 컨테이너(`run --rm --no-deps`)로 1회만 부른다. 실호출은 사용자가 회사 서버에서 직접 한다.
+2026-10-27 사용자 확인: 활용신청 승인(활용기간 2026-10-21 ~ 2028-10-21), 엔드포인트 `https://apis.data.go.kr/B552555/OpenBidInfoList` 상세기능 `/getOpenBidInfo`, XML, 일일 1,000회, 회사 서버 `LH_BID_NOTICE_SERVICE_KEY` SET. 회사 서버 저장소(`/data/www/ai_workspace/sol-radar-app`, 운영 ingest Worker 의 compose 작업 폴더. `sol-radar-deploy` 는 지난 배포 폴더다)에는 녹음 스크립트가 없다. 저장소·브랜치를 바꾸지 않고 **임시 폴더에 세 파일만** 두고 Docker Compose 일회용 컨테이너(`run --rm --no-deps`)로 1회만 부른다. 실호출은 사용자가 회사 서버에서 직접 하거나, 사용자 승인으로 개발 PC 에서 ssh 로 한다(1회차는 후자).
 
 `scripts/recorded/record-lh-bid-notice.mjs` 가 지키는 것:
 
 - 부르기 전에 저장 폴더에 시도 표식(`getOpenBidInfo.attempt.json`)을 원자적으로 만든다(`open(…, "wx")` = O_CREAT|O_EXCL, 내용 기록 뒤 fsync). 만들기·쓰기·fsync 중 무엇이든 실패하면 부르지 않고 멈춘다. 표식이 있으면 날짜·쪽이 달라도 부르지 않는다. 실패·재실행·컨테이너 재시작에도 추가 호출이 없다. 다시 부르려면 승인 뒤 사람이 표식을 지운다.
 - `--dry-run` 은 부르지 않고 키가 있는지와 저장 폴더에 새 파일을 만들 수 있는지(임시 파일을 만들고 지움)만 본다. 표식은 만들지 않는다.
 - 한 번 실행에 정확히 1회. 재시도·리다이렉트 따라가기 없음. 10초·2 MiB 상한.
+- 응답은 `Content-Type` charset 대로 읽는다(LH 는 EUC-KR). Worker 와 같은 규칙이다. 읽지 못하면 깨진 글자로 저장하지 않고 멈춘다.
 - 키·요청 URL 은 출력하지 않는다. 오류는 이름·코드만 낸다. 표식에는 시각과 요청 변수(키 없음)만 쓴다.
 - 응답에 키가 되돌아오면 어떤 형태든 `***` 로 지우고 `maskedFields` 에 `(secret)` 을 남긴다. 명세 값 칸이 아닌 글자(담당자 태그·명세 밖 태그·CDATA·속성·주석)는 `***`, 이메일·전화는 같은 길이 `*`. 저장 전·뒤 흔적 검사가 0이 아니면 저장하지 않는다.
 - 출력: 결과 코드·`totalCount`·건수, 필수 칸(`bidNum`·`bidDegree`·`bidnmKor`) 채움 수, 매핑 확인 칸(`tndrbidRegDt`·`tndrdocAcptEndDtm`·`presmtPrc`), 정규화 가능 행 수, 명세 밖 태그 이름, 응답에 없던 명세 태그, 값 모양, 상태류 값 목록, 판정.
 - Redis `quota:15159012` 를 쓰지 않는다. 포털 하루 한도(1,000)에서 1회만 빠진다. 나라장터(15129394) 한도와 따로다.
 
-시간: 나라장터 회차(KST 00·03·…·21시 정각) 앞뒤 10분을 피한다. 명령은 bash·zsh 모두 되게 변수 대신 함수를 쓴다(zsh 는 따옴표 없는 변수를 낱말로 나누지 않는다).
+시간: 나라장터 회차(KST 00·03·…·21시 정각) 앞뒤 10분을 피한다. 명령은 bash·zsh 모두 되게 변수 대신 함수를 쓴다(zsh 는 따옴표 없는 변수를 낱말로 나누지 않는다). 아래 블록을 `ssh … 'bash -s' < 파일` 로 넘길 때는 docker 명령마다 `</dev/null` 을 붙인다. 안 붙이면 `docker compose run` 이 남은 명령을 stdin 으로 먹는다(1회차에서 2-3 뒤가 이렇게 끊겼다).
 
 ### ① 파일 전송 — 개발 PC
 
@@ -89,9 +90,10 @@ cd <회사 sol-radar 저장소>
 W() { docker compose -f infra/compose.ingest-only.company.yaml "$@"; }
 
 # 2-1 전송 파일: 세 파일만, 해시 일치
+# (1회차 10-27 15:13 의 record-lh-bid-notice.mjs 는 6fa89295…, EUC-KR·CDATA 고치기 전이다)
 chmod 644 /tmp/sol-lh-rec/src/*.mjs && ls -A /tmp/sol-lh-rec/src
 cat > /tmp/sol-lh-rec/SHA256SUMS <<'SUMS'
-6fa89295912236537d243b4bc38acc584a0f378a9b7bb2df1e83bc1e0c49a6f7  record-lh-bid-notice.mjs
+c5cead2aa19ea0e683e15e4983ab01e1932677ef9007f7a8ff50a8aa0ce8fdbb  record-lh-bid-notice.mjs
 c96b1c889e1048a980c71153d62f145507d12b6564814afd58209945b8a3766f  program-notices-lib.mjs
 bb879d7b7a21349a178b7f1ad355f933ae2db47c5931be2dbd44834211a70a02  masking.mjs
 SUMS
@@ -181,6 +183,16 @@ docker ps -a --filter label=com.docker.compose.project=sol-radar-ingest --filter
 1. ③ 출력·`ls -l`·④ 결과를 보고하고, `getOpenBidInfo.20261026.p1.masked.json` 을 개발 PC 로 옮긴다. 개발 PC 에서 실제 파서·정규화(`parseExternalPayload`·`normalizeExternalNotice`)에 넣어 행마다 정규화·격리 결과를 비교한다. `fixtures/recorded/15159012/` 에 넣는 것과 커밋은 결과 보고 뒤 승인으로 한다.
 2. 회사 서버의 `/tmp/sol-lh-rec` 는 결과 보고가 끝날 때까지 둔다(표식이 재호출을 막는다). 끝나면 `rm -r /tmp/sol-lh-rec`.
 3. 2회차(2쪽)·3회차(빈 날짜)는 이번 승인 범위가 아니다. 결과 보고 뒤 따로 승인받고, 승인되면 표식을 지운 뒤 같은 함수로 `--page`·`--date` 만 바꿔 1회씩 한다.
+
+### 다시 녹음 — 1회차 결과 뒤 [승인]
+
+1회차(10-27 15:13, HTTP 200·`00`·10건)는 응답이 EUC-KR 이라 녹음의 한글이 깨졌다([첫 실호출 증거](../evidence/ingestion/20261027-lh-bid-notice/first-call.md)). 고친 스크립트로 **같은 날짜·같은 쪽**(`--date 20261026 --page 1 --rows 10`)을 1회 다시 받아 한글 상태값과 정규화를 확인한다. 같은 공고 10건이 와야 1회차의 숫자·일시와 맞대 볼 수 있다.
+
+1. 고친 스크립트를 커밋한다. 그래야 ①의 `git status --short scripts/recorded` 가 빈다.
+2. ① 전송: 서버 `src` 의 세 파일을 덮어쓴다(폴더 만들기는 건너뛴다). ② 2-1 해시는 위 `SUMS`(새 해시)로 본다.
+3. 1회차 결과를 지우지 않고 옮긴다. 이것이 표식 삭제다: `mv /tmp/sol-lh-rec/out /tmp/sol-lh-rec/out-1 && mkdir -m 700 /tmp/sol-lh-rec/out`.
+4. ② 2-2~2-5(2-3 기준 상태는 다시 기록) → ③ 1회 → ④. 4-1 검사는 `out-1` 도 함께 본다.
+5. 기대: 판정 `SUCCESS`, `bidnmKor 10/10`, `enumValues` 가 한글로 읽힌다, `maskedBody` 에 `U+FFFD` 가 없다. 개발 PC 에서 정규화 10/10, 마감(`deadlineAt`)이 10/10 채워진다.
 
 ## 4. 운영 활성화 — 단계마다 [승인]
 

@@ -56,6 +56,53 @@ const itemsOf = (name: string) => {
   if (!parsed.ok) throw new Error(`synthetic ${name} must parse`);
   return parsed.items;
 };
+// 2026-10-27 첫 실호출 응답의 모양(값은 합성): EUC-KR 선언, <items> 없이 <item>, CDATA 공고명, 값 뒤 공백,
+// YYYY/MM/DD HH:mm 일시, 추정가격 + 부가세 = 설계가격(원)
+const recordedShape = `<?xml version="1.0" encoding="EUC-KR"?>
+<response>
+  <header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE</resultMsg></header>
+  <body>
+    <item>
+      <bidNum>2026100001</bidNum>
+      <bidDegree>00</bidDegree>
+      <bidKind>일반공고 </bidKind>
+      <bidnmKor><![CDATA[(합성)정보화 유지관리 용역]]> </bidnmKor>
+      <zoneHqCd>서울지역본부 </zoneHqCd>
+      <tndrbidRegDt>20261026 </tndrbidRegDt>
+      <presmtPrc>607100000 </presmtPrc>
+      <addtTax>60710000 </addtTax>
+      <designPrc>667810000 </designPrc>
+      <fdmtlAmt>667810000 </fdmtlAmt>
+      <cooperdocAcptEndDtm>  </cooperdocAcptEndDtm>
+      <tndrdocAcptBgninDtm>2026/10/28 10:00 </tndrdocAcptBgninDtm>
+      <tndrdocAcptEndDtm>2026/11/02 16:00 </tndrdocAcptEndDtm>
+      <openDtm>2026/11/02 17:00 </openDtm>
+    </item>
+    <numOfRows>10</numOfRows>
+    <pageNo>1</pageNo>
+    <totalCount>1</totalCount>
+  </body>
+</response>`;
+const recordedShapeItem = () => {
+  const parsed = parseExternalPayload(recordedShape);
+  if (!parsed.ok) throw new Error("recorded shape must parse");
+  return parsed.items[0];
+};
+// Node 에는 EUC-KR 인코더가 없어 디코더(CP949 범위) 표를 거꾸로 찾는다
+const eucKr = (text: string): Uint8Array<ArrayBuffer> => {
+  const decoder = new TextDecoder("euc-kr");
+  const table = new Map<string, number[]>();
+  for (let lead = 0x81; lead <= 0xfe; lead++)
+    for (let trail = 0x41; trail <= 0xfe; trail++)
+      table.set(decoder.decode(new Uint8Array([lead, trail])), [lead, trail]);
+  return new Uint8Array(
+    [...text].flatMap((char) => {
+      const bytes = char.charCodeAt(0) < 0x80 ? [char.charCodeAt(0)] : table.get(char);
+      if (bytes === undefined) throw new Error(`no EUC-KR bytes: ${char}`);
+      return bytes;
+    }),
+  );
+};
 
 describe("LH 입찰공고 정규화", () => {
   it("명세 필드를 공고번호·공고명·발주기관·공고일·마감일·예산·URL 로 옮긴다", () => {
@@ -103,6 +150,52 @@ describe("LH 입찰공고 정규화", () => {
     ]);
     // 담당자 연락처는 정규화 결과에 남지 않는다
     expect(JSON.stringify(result.draft)).not.toContain("synthetic-contact@example.test");
+  });
+
+  it("실응답의 YYYY/MM/DD HH:mm 일시를 KST 로 읽어 마감·입찰 시작을 채운다", () => {
+    const result = normalizeExternalNotice("lh-bid-notice", recordedShapeItem(), { fetchedAt });
+    expect(result).toMatchObject({
+      ok: true,
+      draft: {
+        noticeId: "2026100001",
+        amendmentNo: "00",
+        title: "(합성)정보화 유지관리 용역",
+        noticeDate: "2026-10-26T09:00:00.000Z",
+        // 2026/11/02 16:00 KST = 07:00Z
+        deadlineAt: "2026-11-02T07:00:00.000Z",
+        sourceMetadata: {
+          biddingStartsAt: "2026-10-28T01:00:00.000Z",
+          biddingEndsAt: "2026-11-02T07:00:00.000Z",
+          dates: {
+            openDtm: {
+              raw: "2026/11/02 17:00",
+              precision: "MINUTE",
+              utc: "2026-11-02T08:00:00.000Z",
+            },
+          },
+        },
+      },
+    });
+    expect(result.ok && result.draft.sourceMetadata?.dates.cooperdocAcptEndDtm).toBeUndefined();
+  });
+
+  it("금액은 원 단위로 남기고 추정가격은 부가세 별도, 설계·기초금액은 부가세 포함으로 적는다", () => {
+    const result = normalizeExternalNotice("lh-bid-notice", recordedShapeItem(), { fetchedAt });
+    const krw = (kind: string, raw: string, vat: "INCLUDED" | "EXCLUDED" | "UNVERIFIED") => ({
+      kind,
+      raw,
+      amountKrw: raw,
+      currency: "KRW",
+      unit: "KRW",
+      vat,
+    });
+    expect(result.ok && result.draft.budgetKrw).toBe("607100000");
+    expect(result.ok && result.draft.sourceMetadata?.amounts).toEqual([
+      krw("presmtPrc", "607100000", "EXCLUDED"),
+      krw("addtTax", "60710000", "UNVERIFIED"),
+      krw("designPrc", "667810000", "INCLUDED"),
+      krw("fdmtlAmt", "667810000", "INCLUDED"),
+    ]);
   });
 
   it("14자리 일시와 정정·취소 공고를 읽고, 모르는 상태 값은 OPEN 으로 두되 메모를 남긴다", () => {
@@ -209,6 +302,23 @@ describe("LH 입찰공고 수집", () => {
       summary: { created: 0, changed: 0, skippedDuplicate: 3 },
     });
     expect(repo.state.revisions).toHaveLength(3);
+  });
+
+  it("EUC-KR 응답(Content-Type charset)을 한글 그대로 읽어 저장한다", async () => {
+    const repo = createMemoryIngestionRepo();
+    const { connector } = lhConnector(
+      () =>
+        new Response(eucKr(recordedShape), {
+          headers: { "content-type": "text/xml;charset=EUC-KR" },
+        }),
+      10,
+    );
+    const result = await runIngest({ repo, connector, run: lhRun("lh-euc-kr"), now, retry });
+    expect(result).toMatchObject({ status: "SUCCEEDED", summary: { created: 1 } });
+    expect(repo.state.bids.get("lh-bid-notice:2026100001")?.normalized).toMatchObject({
+      title: "(합성)정보화 유지관리 용역",
+      sourceMetadata: { agencyCode: "서울지역본부", attributes: { bidKind: "일반공고" } },
+    });
   });
 
   it("정정 차수는 변경으로, 취소는 취소로 세고, 늦게 온 낮은 차수는 덮어쓰지 않는다", async () => {

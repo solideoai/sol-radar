@@ -43,6 +43,23 @@ const fakeFetch = (body, init = {}) => {
 };
 const verdictOf = (raw, httpStatus = 200) =>
   judge(summarize(maskLhBody(raw).body), { httpStatus, rows: 10 }).verdict;
+// Node 에는 EUC-KR 인코더가 없어 디코더(CP949 범위) 표를 거꾸로 찾는다
+const eucKr = (text) => {
+  const decoder = new TextDecoder("euc-kr");
+  const table = new Map();
+  for (let lead = 0x81; lead <= 0xfe; lead++)
+    for (let trail = 0x41; trail <= 0xfe; trail++)
+      table.set(decoder.decode(new Uint8Array([lead, trail])), [lead, trail]);
+  return new Uint8Array(
+    [...text].flatMap((char) => {
+      const bytes = char.charCodeAt(0) < 0x80 ? [char.charCodeAt(0)] : table.get(char);
+      if (bytes === undefined) throw new Error(`no EUC-KR bytes: ${char}`);
+      return bytes;
+    }),
+  );
+};
+// 2026-10-27 첫 실호출 응답처럼 EUC-KR 로 선언한 1쪽
+const page1EucKr = page1.replace('encoding="UTF-8"', 'encoding="EUC-KR"');
 
 describe("record-lh-bid-notice", () => {
   it("인자 범위를 지킨다(하루·1~5쪽·1~100행)", () => {
@@ -156,6 +173,54 @@ describe("record-lh-bid-notice", () => {
       verdictOf(page1.replace("<bidDegree>0</bidDegree>", "<bidDegree>1차</bidDegree>")),
       "FORMAT_ISSUE",
     );
+  });
+
+  it("공고명이 CDATA 뒤에 공백을 두고 와도(실응답 모양) 필수 칸으로 센다", () => {
+    const cdata = page1.replace(
+      "<bidnmKor>합성 데이터 정보화 유지관리 용역</bidnmKor>",
+      "<bidnmKor><![CDATA[합성 데이터 정보화 유지관리 용역]]> </bidnmKor>",
+    );
+    assert.equal(summarize(maskLhBody(cdata).body).requiredFields.bidnmKor, "2/2");
+    assert.equal(verdictOf(cdata), "SUCCESS");
+  });
+
+  it("EUC-KR 응답을 charset 대로 읽어 한글을 그대로 남긴다", async () => {
+    await withOut(async (out) => {
+      const { fetch } = fakeFetch(eucKr(page1EucKr), {
+        headers: { "content-type": "text/xml;charset=EUC-KR" },
+      });
+      const summary = await recordOnce({
+        date: "20261026",
+        page: 1,
+        rows: 10,
+        out,
+        dryRun: false,
+        env,
+        fetch,
+        now,
+      });
+      assert.equal(summary.verdict, "SUCCESS");
+      assert.ok(summary.enumValues.bidKind.includes("일반공고"));
+      const saved = JSON.parse(
+        await readFile(path.join(out, "getOpenBidInfo.20261026.p1.masked.json"), "utf8"),
+      );
+      assert.ok(saved.maskedBody.includes("합성 데이터 정보화 유지관리 용역"));
+      assert.ok(!saved.maskedBody.includes("�"));
+    });
+  });
+
+  it("charset 과 맞지 않는 바이트는 깨진 글자로 저장하지 않고 멈춘다", async () => {
+    await withOut(async (out) => {
+      const { fetch, calls } = fakeFetch(eucKr(page1EucKr), {
+        headers: { "content-type": "text/xml;charset=UTF-8" },
+      });
+      await assert.rejects(
+        recordOnce({ date: "20261026", page: 1, rows: 10, out, dryRun: false, env, fetch, now }),
+        StopRecording,
+      );
+      assert.equal(calls.length, 1);
+      assert.deepEqual(await readdir(out), [ATTEMPT_MARKER]);
+    });
   });
 
   it("한 번 실행에 정확히 1회 부르고, 가린 녹음에는 키의 어떤 형태도 남지 않는다", async () => {

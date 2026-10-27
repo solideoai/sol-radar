@@ -17,6 +17,13 @@ import {
 import { buildExternalRequest } from "./external-request";
 import { EXTERNAL_RESPONSE_MAX_BYTES, parseExternalPayload } from "./external-payload";
 
+// LH(15159012)는 text/xml;charset=EUC-KR 로 답한다(2026-10-27 실응답). 그 charset 일 때만 EUC-KR 로 읽고,
+// 나머지는 지금까지처럼 UTF-8 이다. 어느 쪽이든 잘못된 바이트는 고치지 않고 실패로 둔다(fatal).
+const EUC_KR_LABELS = new Set(["euc-kr", "ks_c_5601-1987", "windows-949"]);
+const charsetOf = (contentType: string | null): "euc-kr" | "utf-8" => {
+  const label = /;\s*charset\s*=\s*"?([^";\s]+)/i.exec(contentType ?? "")?.[1]?.toLowerCase();
+  return label !== undefined && EUC_KR_LABELS.has(label) ? "euc-kr" : "utf-8";
+};
 async function boundedText(response: Response): Promise<string | null> {
   if (response.body === null) return "";
   const reader = response.body.getReader();
@@ -32,7 +39,8 @@ async function boundedText(response: Response): Promise<string | null> {
     }
     chunks.push(value);
   }
-  return new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks));
+  const charset = charsetOf(response.headers.get("content-type"));
+  return new TextDecoder(charset, { fatal: true }).decode(Buffer.concat(chunks));
 }
 export function createExternalApiConnector(options: ExternalConnectorOptions): ExternalConnector {
   const timeoutMs = options.timeoutMs ?? CONNECTOR_TIMEOUT_MS;

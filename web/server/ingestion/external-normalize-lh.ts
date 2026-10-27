@@ -18,10 +18,10 @@ import {
 import { sourceKeyOf, type WarningIssue } from "./validation";
 
 // ── LH 입찰공고(15159012 getOpenBidInfo) 한 행 → NormalizedBidDraft ──
-// 필드 이름·뜻은 공개 명세(data.go.kr Swagger, 2026-10-27 열람)에서 왔다. 실응답으로 확인하지 않은 것:
-// 날짜 자릿수, 금액 단위, bidKind·bidProgrsStatus 값 목록, 공고 상세 URL. 그래서 아래처럼 보수적으로 옮긴다.
+// 필드 이름·뜻은 공개 명세(data.go.kr Swagger, 2026-10-27 열람)에서 왔다. 2026-10-27 첫 실응답(10건)으로 날짜 자릿수·
+// 금액 단위를 확인했다. 아직 확인하지 않은 것: bidKind·bidProgrsStatus 값 목록(첫 녹음은 한글이 깨졌다), 공고 상세 URL.
 // - 상태: "취소"·"정정/변경"·마감류 낱말만 읽는다. 모르는 값은 OPEN 으로 두고 원문과 메모를 남긴다(시간으로 상태를 바꾸지 않는다).
-// - 예산: 추정가격(presmtPrc)을 원 단위로 읽는다. 부가세 별도. 다른 금액은 원문만 남긴다.
+// - 예산: 추정가격(presmtPrc)을 원 단위로 읽는다. 부가세 별도. 다른 금액도 원 단위로 남긴다.
 // - 출처 URL: 응답에 상세 URL 이 없어 서비스 설명 페이지를 쓴다(sourceUrlKind SERVICE_DOCUMENTATION).
 const SOURCE = "lh-bid-notice";
 const service = EXTERNAL_SERVICES[SOURCE];
@@ -45,6 +45,13 @@ const DATE_FIELDS = [
   "openDtm",
 ] as const;
 const AMOUNT_FIELDS = ["presmtPrc", "addtTax", "designPrc", "fdmtlAmt", "prcscoreExclusAmt"];
+// 2026-10-27 실응답 10건: 모두 원 단위 정수이고 추정가격 + 부가세 = 설계가격, 기초금액은 설계가격을 천 원 단위로 올린 값.
+// 그래서 추정가격은 부가세 별도, 설계·기초금액은 포함이다. 부가세·가격점수 제외금액은 포함 여부를 따질 값이 아니다.
+const AMOUNT_VAT: Record<string, "INCLUDED" | "EXCLUDED"> = {
+  presmtPrc: "EXCLUDED",
+  designPrc: "INCLUDED",
+  fdmtlAmt: "INCLUDED",
+};
 const ATTRIBUTE_FIELDS = [
   "bidKind",
   "bidProgrsStatus",
@@ -91,12 +98,16 @@ function lhFields(item: ExternalItem): { ok: true; fields: Fields } | { ok: fals
 }
 
 // 명세는 날짜를 integer 로만 적었다. 8자리(일)·12자리(분)·14자리(초)를 읽고, 나머지는 공용 해석기에 맡긴다.
+// 2026-10-27 실응답: 등록일은 8자리, 접수·개찰 일시는 "YYYY/MM/DD HH:mm" 였다.
 function lhDate(raw: string | null, fetchedAt: Date): ExternalDate | null {
   if (raw === null) return null;
   const seconds = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(raw);
+  const slashed = /^(\d{4})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2})$/.exec(raw);
   const readable = seconds
     ? `${seconds[1]}-${seconds[2]}-${seconds[3]} ${seconds[4]}:${seconds[5]}:${seconds[6]}`
-    : raw;
+    : slashed
+      ? `${slashed[1]}-${slashed[2]}-${slashed[3]} ${slashed[4]}:${slashed[5]}`
+      : raw;
   const parsed = dateMetadata(readable, fetchedAt);
   return parsed === null ? null : { ...parsed, raw };
 }
@@ -222,7 +233,7 @@ export function normalizeLhBidNotice(
   const providerStatus = fields.bidProgrsStatus ?? fields.bidKind;
   const notes = [
     "sourceUrl은 서비스 설명 페이지다. 공고 상세 URL은 응답에 없다.",
-    "budgetKrw: presmtPrc(추정가격, 부가세 별도) 사용. 원 단위는 공개 명세 기준이며 실응답 미검증.",
+    "budgetKrw: presmtPrc(추정가격, 부가세 별도) 사용. 원 단위는 2026-10-27 실응답으로 확인.",
     ...(mapped ? [] : ["status: 공급자 상태 값을 읽지 못해 OPEN 으로 두었다."]),
     ...(dates.tndrdocAcptEndDtm?.precision === "DATE"
       ? ["deadlineAt: 마감이 날짜만 있고 시각이 없어 비웠다(원문은 sourceMetadata.dates)."]
@@ -245,18 +256,18 @@ export function normalizeLhBidNotice(
     dates,
     amounts: AMOUNT_FIELDS.flatMap((kind) => {
       const raw = fields[kind];
-      return raw === null
-        ? []
-        : [
-            {
-              kind,
-              raw,
-              amountKrw: null,
-              currency: null,
-              unit: "UNVERIFIED" as const,
-              vat: "UNVERIFIED" as const,
-            },
-          ];
+      if (raw === null) return [];
+      const won = /^(?:0|[1-9]\d{0,14})$/.test(raw);
+      return [
+        {
+          kind,
+          raw,
+          amountKrw: won ? raw : null,
+          currency: won ? ("KRW" as const) : null,
+          unit: won ? ("KRW" as const) : ("UNVERIFIED" as const),
+          vat: won ? (AMOUNT_VAT[kind] ?? "UNVERIFIED") : ("UNVERIFIED" as const),
+        },
+      ];
     }),
     attributes: Object.fromEntries(
       ATTRIBUTE_FIELDS.flatMap((name) => (fields[name] === null ? [] : [[name, fields[name]]])),

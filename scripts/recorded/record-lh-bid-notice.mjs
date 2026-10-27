@@ -201,7 +201,8 @@ export function maskLhBody(raw) {
   return { body: text, maskedFields: [...touched].sort() };
 }
 
-const LEAF = /<([A-Za-z_][\w.-]*)>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([^<]*))<\/\1>/g;
+// 2026-10-27 실응답의 공고명은 "<bidnmKor><![CDATA[…]]> </bidnmKor>" 처럼 CDATA 앞뒤에 공백이 붙어 온다
+const LEAF = /<([A-Za-z_][\w.-]*)>(?:\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*|([^<]*))<\/\1>/g;
 const tagValue = (text, tag) => {
   for (const [, name, cdata, plain] of text.matchAll(LEAF))
     if (name === tag) return (cdata ?? plain).trim();
@@ -290,6 +291,13 @@ export function judge(summary, { httpStatus, rows }) {
   return verdict("SUCCESS", "결과 코드 00, 필수 칸이 모든 행에 있다");
 }
 
+// LH 는 text/xml;charset=EUC-KR 로 답한다(2026-10-27 실응답). Worker(external-api-connector.ts)와 같은 규칙으로 읽는다.
+const EUC_KR_LABELS = new Set(["euc-kr", "ks_c_5601-1987", "windows-949"]);
+const charsetOf = (contentType) => {
+  const label = /;\s*charset\s*=\s*"?([^";\s]+)/i.exec(contentType ?? "")?.[1]?.toLowerCase();
+  return label !== undefined && EUC_KR_LABELS.has(label) ? "euc-kr" : "utf-8";
+};
+
 /** 받은 바이트를 세며 읽고, 상한을 넘으면 그 자리에서 끊는다(content-length 가 없거나 틀려도) */
 async function readBounded(response) {
   const tooLarge = () =>
@@ -313,7 +321,13 @@ async function readBounded(response) {
     }
     chunks.push(value);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  const charset = charsetOf(response.headers.get("content-type"));
+  try {
+    return new TextDecoder(charset, { fatal: true }).decode(Buffer.concat(chunks));
+  } catch {
+    // 깨진 글자(U+FFFD)로 바꿔 저장하면 원문을 되살릴 수 없다. 저장하지 않고 멈춘다.
+    throw new StopRecording(`응답을 ${charset} 로 읽지 못했다(저장하지 않았다, 호출 1회로 센다)`);
+  }
 }
 
 const exists = (file) =>
