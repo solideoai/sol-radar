@@ -12,7 +12,7 @@ updated: 2026-10-27
 # 19. 데모 시나리오
 
 > [!note] 발표 형식과 촬영 경로 ([[16-DECISIONS|ADR-054]])
-> 본편은 "덱 20분 + 녹화 클립"이다. 클립의 길이·자막·캡션은 [[slides-spec|덱 제작 명세]] 부록 A가 정본이고, 이 문서는 클립을 찍는 클릭 경로와 장면별 촬영 경로를 정한다. D1 운영 사이트(`https://www.solideos-radar.com`, 시작 URL에 `?origin=demo`)는 S0~S4·S-LIVE·S7의 촬영 경로이자 질의응답 때의 라이브다. S5(변경 감지)·S6(AI 장애 대체)는 로컬 Compose에서 녹화한다. 운영 회사 gateway를 멈추는 장면은 만들지 않는다. 운영에 `pnpm demo:reset`은 돌리지 않는다. 남은 날의 일정은 [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표다.
+> 본편은 "덱 20분 + 녹화 클립"이다. 클립의 길이·자막·캡션은 [[slides-spec|덱 제작 명세]] 부록 A가 정본이고, 이 문서는 클립을 찍는 클릭 경로와 장면별 촬영 경로를 정한다. D1 운영 사이트(`https://www.solideos-radar.com`, 시작 URL에 `?origin=demo`)는 S0~S4·S-LIVE·S7의 촬영 경로이자 질의응답 때의 라이브다. S5(변경 감지)·S6(AI 장애 대체)는 로컬 Compose에서 녹화한 클립으로 보인다. S5는 30초 클립 6으로 S4 뒤·S-LIVE 앞에 넣는다([[18-HACKATHON|18]] §6). 운영 회사 gateway를 멈추는 장면은 만들지 않는다. 운영에 `pnpm demo:reset`은 돌리지 않는다. 남은 날의 일정은 [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표다.
 
 이 문서는 조작자가 따라가는 **클릭 경로**, 데모에 쓰는 **가상 기업과 fixture**, 각 장면에서 **화면에 보여야 하는 것**을 정의한다. fixture 20건의 전체 명세는 [[07-DATA-PIPELINE|07 수집]] §6.2의 fixture 표(`FX-01`~`FX-20`)가 단일 원천이고, 데모 기업 프로필과 점수 계산 예시는 [[08-SCORING|08 SOL Score]]가 단일 원천이다. 이 문서와 충돌하면 07·08을 따르고 이 문서를 고친다.
 
@@ -64,7 +64,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | S7 격리 | FX-01 자격 판정을 `org-02` access token으로 조회 | — | — | — | — | `404 NOT_FOUND`(RLS가 `org-01` 행을 숨김). 공고 자체 조회는 공용이라 `200` | — |
 | Q&A 예비 | FX-04 NIA 데이터 거버넌스 컨설팅 (첨부 없음) | NOTICE | 자격 요건 본문에 없음 | `NEEDS_REVIEW`, 인용 0건 | — | WATCH | 0.60 WATCH |
 | Q&A 예비 | FX-05 건보공단 대국민 포털 재구축 (HWP 손상) | NOTICE | 첨부 파싱 실패 | `NEEDS_REVIEW`, 추출 `PENDING_REVIEW` | — | WATCH, "첨부 원문 확인" 배지 | 0.60 WATCH |
-| Q&A 예비 | FX-15 행정안전부 차세대 지방행정 공통기반 (80억) | NOTICE | 수행 상한 50억 초과 | `SATISFIED` | 68(운영 저장값은 58일 수 있다, [10-24 운영 smoke](evidence/deployment/20261024-prod-smoke/results.json) D4) | WATCH, `SCALE_LIMIT_EXCEEDED` | 0.60 WATCH |
+| Q&A 예비 | FX-15 행정안전부 차세대 지방행정 공통기반 (80억) | NOTICE | 수행 상한 50억 초과 | `SATISFIED` | 68(운영 저장값은 58일 수 있다, [10-24 운영 smoke](evidence/deployment/20261024-prod-smoke/results.json), 증거 파일의 결함 D4) | WATCH, `SCALE_LIMIT_EXCEEDED` | 0.60 WATCH |
 | Q&A 예비 | FX-17 → FX-18 과기정통부 AI 행정서비스 (발주계획 → 사전규격) | PLAN → PRE_SPEC | 식별자 `DEMO-PLAN-0042`로 연결 | PLAN은 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`, 화면 `확인 필요` · 사유 `해당 없음`) | 82 (PRE_SPEC) | WATCH → BID, StageTimeline 2단계 | — |
 | Q&A 예비 | FX-19 세종 행정정보 연계 플랫폼 사전규격 | PRE_SPEC | 식별자 없음, FX-01과 제목만 유사 | — | — | "연결 후보"만 표시, 자동 병합 없음 | — |
 
@@ -137,7 +137,7 @@ D1 운영은 인터넷이 필요하다. 끊기면 로그인과 조회가 멈추�
 | S3 자격·규칙 우선·가정 재계산 | 1 · 2 | D1 운영 | `/bids?origin=demo` |
 | S4 재분석·사람 결정 | 3 | D1 운영 | `/bids?origin=demo` → FX-02 |
 | S-LIVE 실제 공고 | 5(선택) | D1 운영(회사 반영 뒤) | `/bids?origin=live` |
-| S5 변경 감지 | 없음 | 로컬 Compose | `http://localhost:3000/admin/ingestion` |
+| S5 변경 감지 | 6(슬라이드 13, 클립 4 앞) | 로컬 Compose | `http://localhost:3000/admin/ingestion` |
 | S6 장애 대체 | 4 앞부분 | 로컬 Compose | `http://localhost:3000/bids?origin=demo` → FX-01 |
 | S7 격리 | 4 뒷부분 | D1 운영 API(`org-02` 계정이 없으면 로컬) | `/api/v1/bids/{FX-01 id}/qualification-checks` |
 | 카카오 수신 | 카카오 10초 | 운영 앱 + 휴대폰 | 실공고 상세 |
@@ -194,11 +194,11 @@ D1 운영은 인터넷이 필요하다. 끊기면 로그인과 조회가 멈추�
 3. 말할 것: "지금까지는 가상 공고였다. 이 건은 실제 공고를 회사 Qwen API와 회사 GPU의 결정 모델로 분석한 결과다. 분석 요약 띠가 live 모드를 기록한다. 회사 프로필은 가상이다." 첨부 일부만 반영됐을 수 있다고 밝힌다([[16-DECISIONS|ADR-056]]). 규칙만 `PARTIAL`이면 그 말을 그대로 한다.
 4. 보이지 않으면: 녹화가 없으면 장면을 빼고 Q&A에서 사유를 말한다. 실시간 추론으로 포장하지 않는다.
 
-### S5 변경 감지와 멱등 (로컬 Compose 녹화)
+### S5 변경 감지와 멱등 (로컬 Compose 녹화, 클립 6)
 
 1. 로컬에서 admin@admin.com로 전환(또는 미리 로그인한 탭) → `/admin/ingestion` → "수동 수집 실행", 배치 `live`. 이 배치는 fixture의 두 번째 배치이며 실행 모드 `live`가 아니다(§2.1).
 2. 보여야 하는 것: 수집 결과 `{created:0, changed:3, cancelled:1, skippedDuplicate:1, quarantined:0, retried:0}` = 변경 3(FX-06, FX-07, FX-10), 취소 1(FX-08), 중복 skip 1(FX-09).
-3. **FX-07** → `/bids/[id]/revisions`(상세는 revision이 2 이상일 때 이 화면 링크를 보인다): 예산 18억 → 21.6억, 요구기술에 Kubernetes 추가가 diff로 하이라이트. 수집은 분석을 자동으로 넣지 않으므로([[16-DECISIONS|ADR-030]] B18) 상세에서 [재분석]을 누른다. 결과 68 → 77, 권고 WATCH → BID([[16-DECISIONS|ADR-031]] C9·C15).
+3. **FX-07** → `/bids/[id]/revisions`(상세는 revision이 2 이상일 때 이 화면 링크를 보인다): 예산 18억 → 21.6억, 요구기술에 Kubernetes 추가가 diff로 하이라이트. 수집은 분석을 자동으로 넣지 않으므로([[16-DECISIONS|ADR-030]] B18) 상세에서 [재분석]을 누른다. 결과 68 → 77, 권고 WATCH → BID([[16-DECISIONS|ADR-031]] C9·C15). 재분석과 점수 변화는 30초 클립 6에 넣지 않고 Q&A 예비로 둔다. 클립 6은 수집 결과 → FX-07 diff → FX-09 revision 1까지다.
 4. `BID_CHANGED`는 outbox 이벤트로만 남고 벨 알림은 생기지 않는다(`web/server/notifications/outbox.model.ts:6`, [[07-DATA-PIPELINE|07]] §6.2). 말할 것: "같은 공고를 다시 받아도 revision이 늘지 않는다(FX-09)."
 
 ### S6 장애 대체 (로컬 Compose 녹화)
@@ -254,7 +254,7 @@ D1 운영은 인터넷이 필요하다. 끊기면 로그인과 조회가 멈추�
 | S3 가정 재계산 | 스위치가 없음(`NO_SNAPSHOT`·원래 값 불일치 안내) 또는 띠에 "가정 결과를 계산하지 못했습니다" | 7~9단계를 건너뛴다. 가정 결과를 말로 지어내지 않는다. 결정 패널·저장 결과는 가정과 무관하므로 그대로 진행한다 |
 | S4 분석 | `RUNNING`(분석 중)에서 멈춤 | 미리 분석된 FX-01·FX-03으로 점수·자격 설명을 이어 간다. 멈춘 상태를 그대로 보인다 |
 | S4 저장 | 결정 저장 실패 | 오류 코드와 `requestId`를 그대로 보여 주고 "오류를 숨기지 않는 설계"로 설명 |
-| S5 수집 | 변경이 감지되지 않음 | 장면을 뺀다. Q&A에서 [[07-DATA-PIPELINE\|07]] 변경 감지 설계로 답 |
+| S5 수집 | 변경이 감지되지 않음 | 클립 6을 뺀다. Q&A에서 [[07-DATA-PIPELINE\|07]] 변경 감지 설계로 답 |
 | S6 장애 | `PARTIAL`이 아니라 `FAILED` | `FAILED` 상태와 재시도 버튼을 보여 주고 "상태를 그대로 노출"로 설명 |
 | S7 격리 | 자격 판정 조회에 `200`이 돌아옴 | **멈추고 사실대로 말한다.** 격리는 핵심 보안 주장이므로 리허설에서 반드시 확인 |
 | S7 격리 | `401 UNAUTHENTICATED` | access token 만료. S7 1번 명령으로 토큰을 다시 받는다 |
