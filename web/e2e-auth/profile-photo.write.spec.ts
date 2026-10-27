@@ -6,7 +6,7 @@ import { createTestAccount, removeTestAccounts, type TestAccount } from "./suppo
 import { escapeRegExp, uniqueTag } from "./support/seed";
 import { assertNoAxe, localAdmin } from "./support/work-fixtures";
 
-// 프로필 사진·가입 신청 시연 흐름(설계 polaris/specs/in-progress/2026-10-24-profile-photo-member-link.md).
+// 프로필 사진·가입 신청 시연 흐름(설계 polaris/specs/done/2026-10-24-profile-photo-member-link.md).
 // 간편 로그인 첫 진입(부서 신고 없음) → 가입 정보 → 사진 → 가입 신청 → 관리자 승인 → 조직도 사진 → 관리자가 가상 직원 사진 변경.
 // 명부 연결·신청·사진 포인터는 globalTeardown 의 demo:reset 이 되돌린다. 시험 계정은 끝에 지운다.
 

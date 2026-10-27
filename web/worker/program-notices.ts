@@ -9,7 +9,7 @@ import { getSupabaseAdmin } from "@/server/supabase";
 import { errorNameOf } from "@/worker/error-name";
 import { readRunMode } from "@/worker/ingest-queue";
 
-// ── 부처 지원사업 공고 주기 수집(ADR-040, 스펙 polaris/specs/in-progress/2026-10-21-agency-program-notices.md §5) ──
+// ── 부처 지원사업 공고 주기 수집(ADR-040, 스펙 polaris/specs/done/2026-10-21-agency-program-notices.md §5) ──
 // 기동 때 한 번, 그 뒤 PROGRAM_NOTICES_INTERVAL_MINUTES(기본 60분)마다 runProgramNoticeRound 를 돈다. 규칙은 program-notices 도메인에 있고
 // 여기는 설정 읽기와 타이머만 둔다. 모양은 notify-outbox 의 startNotifier 와 같다. Redis·큐를 쓰지 않는다.
 // 부처 수집은 나라장터 수집을 막지 않는다. env·설정이 틀려도 등록 함수는 던지지 않고 program_notices.disabled 한 줄만 남긴다

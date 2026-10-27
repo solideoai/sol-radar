@@ -33,7 +33,7 @@ updated: 2026-10-27
 | DEMO 공고 | 19건 그대로. 16건 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)). 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤다. 백업 스키마 `demo_cleanup_20261026`이 있다. 회사 공개 프로필(revision 5)로 17건을 다시 분석했다. FX-02·FX-03은 옛 분석(revision 2)이라 대시보드 "분석 대기" 2로 보인다(사용자 결정 대기 6) | 2026-10-27 17:27 KST |
 | 회사 반영 | 일부 완료(이 행이 정본이다). redis-api `aa0c9f9`(이미지 `9458368e`), AI gateway·Analysis Worker `9bb24b002f9b`로 갱신했다. gateway의 `KEV_BASE_URL`은 회사 호스트 Bosun `http://127.0.0.1:8009`로 바꿨다(Nginx `/sol-radar/kev` 경로는 없다). 남은 것: [[2026-10-27-company-rollout-attachments\|회사 반영 실행서]] §8 Documents Worker 기동. ingest Worker는 이 작업에서 다시 만들지 않았다([기록](evidence/company-public-profile/20261027/prod-rollout.md)) | 2026-10-27 17:27 KST |
 | 카카오 | 운영 연결·발송 0건 | 2026-10-27 |
-| 알림 처리 | 미확인(문서 밖 발견 1) | 미확인 |
+| 알림 처리 | 처리되지 않는다(코드 확인, 문서 밖 발견 1). 회사 Worker(ingest·analysis·documents 전용)에 알림·마감 등록이 없다. 알림 전용 Worker를 준비했다(브랜치 `feat/notify-nav-1027`, 실행서 `infra/company/README.md` §9). 회사 기동 전이다. 쌓인 outbox 수는 운영에서 세지 않았다 | 2026-10-27 |
 | CI | GitHub Actions job이 2026-10-24부터 계정 결제 문제로 시작되지 않는다. 검사는 로컬 pre-push 게이트로 한다 | 2026-10-27 |
 | hosted 모델 API | 승인 0건, 쓰지 않는다([[16-DECISIONS\|ADR-010]]). 승인하면 최근 작업 로그에 한 줄로 남긴다 | — |
 
@@ -59,8 +59,6 @@ updated: 2026-10-27
 
 - 해커톤 전
   - 회사 vLLM 장문 guided JSON·지연 실측(미결정 17), Bosun 질문당 지연 p95(미결정 24). `prompt_logprobs` 확인은 E3(X1, 미결정)용이다.
-  - `QUESTION_SET_MISMATCH` 기동 거부(`services/ai/src/sol_ai/adapters/local_setup.py:144-145`)에 시험이 없다. 다르면 거부·`null`이면 통과 시험 2건을 더한다(닫힌 미결정 26-13 (a)).
-  - FX-03 seed 리뷰 사유 "Kev 가 BID 를 제시해도"(`scripts/demo/plan.mjs:323`)를 "결정 모델이 BID 를 제시해도"로 고친다(닫힌 미결정 30-2 (b)). 운영 DEMO 데이터에 이미 든 문구는 그대로다(추정, D1은 `demo:reset`을 하지 않는다).
   - P1 화면을 어느 데모 장면에서 보일지 정한다([[18-HACKATHON|18]]·[[19-DEMO-SCENARIO|19]], [[16-DECISIONS|ADR-042]]).
 - X6 파인튜닝·평가를 실행할 때(실행 여부 미결정)
   - F1 전 필수: 후보 목록 교차 시험. `services/ai/eval/sol_eval/bosun_records.py:70`과 `services/decision/src/sol_decision/contract.py:45`의 `candidates_for`가 따로 구현돼 있다(닫힌 미결정 26-12).
@@ -78,8 +76,8 @@ updated: 2026-10-27
 
 **문서 밖 발견**([[2026-10-27-docs-cleanup-plan|문서 정리 계획]] §3, 따로 정할 것):
 
-1. 운영 알림이 처리되지 않을 수 있다(추정). 회사 Worker는 수집·분석·첨부 전용 셋이다. 알림·마감 등록(`notifyWorkerRegistration`·`deadlineWorkerRegistration`)은 전체 Worker `web/worker/main.ts:857-914`에만 있다. 카카오 실수신 녹화 전에 회사에서 확인한다.
-2. 발표 중 데이터 출처가 바뀔 수 있다. DEMO 배지는 URL의 `?origin=`만 읽는다(`web/components/topbar-demo-indicator.tsx:25`). 사이드바 "입찰 공고" 링크는 `/bids`라 출처 값이 없다(`web/components/app-nav.ts:52`). 운영 기본 출처가 실공고라 사이드바를 누르면 DEMO 대신 실공고 목록이 보인다.
+1. 운영 알림이 처리되지 않는다(코드 확인). 회사 Worker는 수집·분석·첨부 전용 셋이고, 알림·마감 등록(`notifyWorkerRegistration`·`deadlineWorkerRegistration`)은 전체 Worker `web/worker/main.ts:857-914`에만 있다. 알림 전용 Worker(`web/worker/notify-only-main.ts`, `infra/compose.notify-only.company.yaml`)와 실행서(`infra/company/README.md` §9)를 준비했다. 회사 기동은 승인 뒤다. 처음 기동하면 쌓인 outbox가 나이 제한 없이 처리되어 지난 분석·배정 알림이 한꺼번에 벨에 뜬다. 기동 전에 실행서 §9.1의 읽기 전용 SQL로 센다. 카카오 실수신 녹화(§9.6)는 이 Worker가 떠야 한다.
+2. 발표 중 데이터 출처가 바뀔 수 있다(브랜치 `feat/notify-nav-1027`에서 고침, 배포 전). 사이드바 링크에 출처(`?origin=`)가 없어 운영 기본 출처(실공고)로 바뀌었다. 이제 마지막으로 본 목록 화면(`/dashboard`·`/bids`·`/watchlist`)의 출처를 창 안에 기억해 사이드바의 같은 세 링크에 붙인다(`web/components/nav-origin.ts`). 공고 상세를 거쳐도 이어지고, 새로 고치면 잊는다. 상단바 DEMO 배지는 여전히 주소의 `?origin=`만 읽는다(`web/components/topbar-demo-indicator.tsx:25`). 그래서 운영 공고 상세에서는 상단바 배지가 없다(제목 위 DEMO 배지는 있다).
 3. ADR-044 때 코드가 남아 있다: `services/ai/app.py`·`services/ai/vercel_build.py`·`services/ai/tests/test_vercel.py`.
 4. 회사 AI 모드 서술이 운영과 다르다. ADR-049·회사 실행서는 "mock 유지"라고 쓰고, 운영 readiness는 `ai: local`을 보고한다. 확인하려면 운영 조회 승인이 필요하다(미확인).
 5. CI가 돌지 않는다(위 운영 상태).
@@ -134,6 +132,13 @@ updated: 2026-10-27
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
 
+- 2026-10-27 · 브랜치 `feat/notify-nav-1027`(main 미병합). 회사 서버 접속 없이 할 수 있는 일을 했다.
+  - 알림 전용 Worker 진입점·Compose·회사 실행서 §9를 준비했다. 회사 기동 전이다.
+  - 사이드바 링크가 보던 출처(`?origin=`)를 이어 가게 했다.
+  - `QUESTION_SET_MISMATCH` 기동 거부 시험 2건을 더했다.
+  - FX-03 seed 문구 "Kev"를 "결정 모델"로, 옛 polaris 경로 주석 2곳을 고쳤다.
+  - 검증: 새 시험(notify 5·출처 규칙 2·사이드바 브라우저 1·AI 2)이 통과했다. 변경을 되돌리면 실패하는 것도 확인했다. worker 이미지 빌드와 `--network none`에서 `--check` exit 0을 확인했다.
+  - 미실행: 격리 Supabase 실동작, 로그인 뒤 E2E.
 - 2026-10-27 · LH 입찰공고(15159012) 연동, 브랜치 `feat/lh-bid-notice`(main 미병합): 정규화·LH 한정 판정·합성 응답 9개·녹음 스크립트(`7e4d55cd`). 사용자 승인 실호출 2회(15:13 첫 녹음은 한글 깨짐, 15:47 다시 녹음)로 EUC-KR 읽기·`YYYY/MM/DD HH:mm` 일시·금액 단위를 고침(`602d7c2d`). 실응답 fixture `fixtures/recorded/15159012/`·재생 시험(`b59148f2`), 활성화 사전 검토(`94b09810`). registry `enabled: false` 그대로 · 실응답 10건 모두 정규화·어긋난 칸 0·경고 0, 재생 시험 변형 3종 실패 확인, 전체 `pnpm verify` exit 0(루트 249·web 770·`next build`·AI 166·결정 57)([첫 실호출](evidence/ingestion/20261027-lh-bid-notice/first-call.md), [정규화 검증](evidence/ingestion/20261027-lh-bid-notice/normalization-check.md)). main `24f2ac84` 병합 뒤 검증은 병합 커밋 메시지에 있다
 - 2026-10-27 · 공고 출처 배지를 기관 로고 상징 색으로(나라장터·K-water·LH·KEPCO, [[16-DECISIONS|ADR-058]]) · `pnpm -C web verify:quick` exit 0, 루트 `pnpm test` 259 통과, 출처 배지 브라우저 시험 통과, `next build` 통과, 1440·1280 화면([증거](evidence/source-brand-colors/20261027/README.md)). 배포 전
 - 2026-10-27 · 결정 모델 연결 문서 정정: 회사 nginx에 없는 `/sol-radar/kev` 경로 전제를 02·03·09·11·16·18·20·21·22·제출 문서·`infra/env` 예시·`compose.gpu.yaml`·레지스트리 주석에서 운영 구성(같은 호스트 `http://127.0.0.1:8009`)으로 고침. 지난 계획서 2개는 확인 메모만 추가 · `format:check` 통과
