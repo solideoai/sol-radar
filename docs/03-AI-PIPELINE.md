@@ -148,7 +148,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
   - 422 `KO_STATE_NOT_ALLOWED`: `/kev`에 `stateLanguage="ko"`가 왔는데 `KEV_ALLOW_KO_STATE`가 `true`가 아닐 때(§5.11)
 - 요청 검증 위반(요청 안 문자열이 2,000,000자 초과, 첨부 200개 초과, 형식 오류)은 FastAPI 기본 422이고 본문 모양이 위와 다르다(`services/ai/src/sol_ai/contracts.py`의 `MAX_TEXT_CHARS`·`MAX_ATTACHMENTS`).
 - `AI_PROVIDER=hosted`인데 승인이 없으면 gateway가 기동을 거부한다(exit 78, §3·§8). 요청 단계의 503은 없다(B8, Phase 0 불일치 #12의 구현 방식).
-- 결정 모델 Bosun 자체에는 state 길이 제한이 없다(Bosun `truncation=False`, 백본 ctx 40,960).. 우리 상한 6,000 토큰(§5.6)은 그대로 지키고, 결정 서버(`sol_decision.serve`)는 hardening(main `36edfb6`) 뒤 state를 24,000자(6,000 토큰 × 4자)까지만 받는다. 서버가 4xx·5xx(요청 `model`이 서버 alias와 다를 때·state 24,000자 초과·한글 state·질문 24개·후보 255개 초과 422, 본문 128 KiB 초과 413, 대기열이 차면 503, 마감 504, §5.3)를 내면 gateway가 `kev.enabled=false`·`KEV_UNAVAILABLE`로 바꿔 200으로 돌려준다.
+- 결정 모델 Bosun 자체에는 state 길이 제한이 없다(Bosun `truncation=False`, 백본 ctx 40,960). 우리 상한 6,000 토큰(§5.6)은 그대로 지키고, 결정 서버(`sol_decision.serve`)는 state를 24,000자(6,000 토큰 × 4자)까지만 받는다. 서버가 4xx·5xx(요청 `model`이 서버 alias와 다를 때·state 24,000자 초과·한글 state·질문 24개·후보 255개 초과 422, 본문 128 KiB 초과 413, 대기열이 차면 503, 마감 504, §5.3)를 내면 gateway가 `kev.enabled=false`·`KEV_UNAVAILABLE`로 바꿔 200으로 돌려준다.
 - `/parse`는 50 MB를 넘는 본문을 처리하지 않고 `status=UNSUPPORTED`, `errorCode=TOO_LARGE`로 돌려준다. Worker는 다운로드 단계에서 먼저 거른다(§10.5).
 - 재사용: Worker가 호출 전에 `requirement_extractions`에서 `(revision_id, model_name, prompt_hash)` 행을 찾고, 있으면 `/extract`를 부르지 않는다. 모델 이름·프롬프트 해시는 `GET /health`(gateway)로 미리 받아 둔다. `translations`도 같은 행에서 재사용한다.
 - Worker analysis job 순서: ① 캐시된 추출 로드(없으면 같은 job 안에서 `/extract`. 별도 extract job은 없다) → ② 추출 + API 구조화 필드 + 프로필로 자격 판정·SOL Score·권고 계산(규칙) → ③ `KEV_ENABLED`면 `/kev`(질문이 많으면 24개씩 나눠 같은 state로 여러 번, §5.10) → ④ 결정 모델 답을 규칙 결과와 비교해 `reviewFlags` 추가·항목별 결정 모델 분포 기록(§5.5·§5.13) → ⑤ `/explain` → ⑥ `score_runs`·`requirement_assessments` 저장(service role, 요청 조직의 `org_id` 지정). gateway는 요청 하나를 `AI_TIMEOUT_MS`(`/extract`)·`KEV_TIMEOUT_MS`(`/kev`) 마감 안에 끝내고(§3), Worker는 그보다 긴 HTTP timeout과 circuit breaker를 가진다. `/explain`이 실패하거나 시간을 넘기면 템플릿 문장으로 대체하고 분석을 실패시키지 않는다.
@@ -195,7 +195,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`SOL_FIXTURES_DIR`|경로|(저장소 `fixtures/`)|mock 어댑터가 읽는 fixture 루트(`extractions/`·`kev/`를 담는다). 비우면 저장소의 `fixtures/`다|
 |`AI_TIMEOUT_MS`|정수|`60000`|`/extract` 요청 하나의 단조 시계 마감. 첫 호출과 재시도를 이 안에 끝낸다. 호출이 시간을 넘기면 `QWEN_UNAVAILABLE`, 재시도할 시간이 남지 않으면 `EXTRACTION_FAILED`([[16-DECISIONS\|ADR-032]] D1)|
 |`AI_PROMPT_VERSION`|문자열|`req-extract/v0.1`|프롬프트 템플릿 버전. 해시와 함께 저장|
-|`QWEN_BASE_URL`|URL|(없음)|`local`/`hosted`에서 Qwen runtime 주소. 해커톤 `local` 값은 `https://acropolissg.com/vllm/v1`(회사가 운영하는 vLLM API. gateway가 끝의 `/v1`을 떼고 `/v1/chat/completions`·`/v1/models`를 붙여 중복을 막는다(`settings.normalize_qwen_base_url`·`adapters/qwen.py`, main `1b68f9b`). 회사 안내 값 그대로. 2026-10-20 사용자 결정, [[16-DECISIONS\|ADR-034]] 4번). `/sol-radar/qwen`(→8001)은 백업 경로(미사용). 호스트가 `acropolissg.com`이라 `allowedHosts`(§11)는 그대로. 예시는 [[10-DEPLOYMENT\|10 배포]] `ai-local` env|
+|`QWEN_BASE_URL`|URL|(없음)|`local`/`hosted`에서 Qwen runtime 주소. 해커톤 `local` 값은 `https://acropolissg.com/vllm/v1`(회사가 운영하는 vLLM API. gateway가 끝의 `/v1`을 떼고 `/v1/chat/completions`·`/v1/models`를 붙여 중복을 막는다(`settings.normalize_qwen_base_url`·`adapters/qwen.py`). 회사 안내 값 그대로. 2026-10-20 사용자 결정, [[16-DECISIONS\|ADR-034]] 4번). `/sol-radar/qwen`(→8001)은 백업 경로(미사용). 호스트가 `acropolissg.com`이라 `allowedHosts`(§11)는 그대로. 예시는 [[10-DEPLOYMENT\|10 배포]] `ai-local` env|
 |`QWEN_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 vLLM API의 키. 회사가 제공한다). `local`에서 필수(ADR-025·034). 서버 env(`infra/.env`)만, 로그 금지([[09-SECURITY\|09 보안]])|
 |`QWEN_MODEL`|모델 ID|(없음)|`Qwen3.8-Flash-Next-AWQ-INT4`(회사 vLLM API, §3.2. served id는 2026-10-21 실호출로 확인, [[16-DECISIONS\|16]] ADR-034 2026-10-21 개정). 레지스트리 default 항목 `qwen3.8-flash-next`(§11)와 회사 API `GET /v1/models`의 `id`와 같아야 한다(§11). 결과 메타데이터에 기록|
 |`QWEN_CONTEXT_BUDGET_TOKENS`|정수|`12000`|추출 1회 입력 상한. 지금은 본문·첨부 텍스트의 글자 수로 근사한다. 본문은 늘 넣고 첨부 chunk를 요청·페이지 순서로 더하다 예산을 넘는 chunk부터 뺀다(`TRUNCATED_INPUT`, `adapters/qwen.py` `build_user_message`). Qdrant 순위로 자르는 것은 설계(미구현)|
@@ -203,7 +203,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`KEV_ENABLED`|`true`/`false`|`true`|세 모드 모두 기본 `true`이고 `false`를 허용한다(`infra/run-modes.json`, [[16-DECISIONS\|ADR-029]] A5). `false`면 결정 모델 없이 `RULES_ONLY`이고 분석은 `COMPLETED`다(§9). `mock`에서 `true`면 mock adapter가 응답|
 |`KEV_BASE_URL`|URL|(없음)|결정 모델 서버(`sol_decision.serve`, Bosun) 주소. 이름은 호환 유지(ADR-034 Q2). 해커톤 `local` 값은 `https://acropolissg.com/sol-radar/kev`([[10-DEPLOYMENT\|10 배포]] `ai-local` env 예시, ADR-025, §5.9). `mock`에서는 쓰지 않는다|
 |`KEV_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 GPU 서버의 `sol_decision.serve`가 읽는 `DECISION_API_KEY`와 같은 값). `local`에서 필수(§5.9, ADR-025). 서버 env만, 로그 금지|
-|`KEV_MODEL_ID`|레지스트리 id|`bosun-v3.1-0.6b`|`services/ai/models/registry.yaml`의 `kind: decision` 항목 id(`bosun-v3.1-0.6b` → `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`). `active`가 아닌 항목은 고를 수 없다. gateway가 기동할 때 결정 모델 서버 `GET /v1/models`와 대조하고 다르면 기동 거부(§11). 기본값은 `settings.py`의 `KEV_MODEL_ID="bosun-v3.1-0.6b"`다(main `1b68f9b`)|
+|`KEV_MODEL_ID`|레지스트리 id|`bosun-v3.1-0.6b`|`services/ai/models/registry.yaml`의 `kind: decision` 항목 id(`bosun-v3.1-0.6b` → `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`). `active`가 아닌 항목은 고를 수 없다. gateway가 기동할 때 결정 모델 서버 `GET /v1/models`와 대조하고 다르면 기동 거부(§11). 기본값은 `settings.py`의 `KEV_MODEL_ID="bosun-v3.1-0.6b"`다|
 |`KEV_TIMEOUT_MS`|정수|`5000`|`/kev` 요청 하나의 단조 시계 마감. 레지스트리 대조와 모든 묶음(§5.10 분할 요청)을 이 안에 끝내고, 넘으면 결정 모델 없이 진행한다(`KEV_UNAVAILABLE`, ADR-032 D1). Bosun 은 질문 하나당 forward 1회라 묶음 지연이 Kev 와 다르다. 기본값이 v0.2 묶음 2개를 담는지는 실측이 없어 G3 지연 실측(§5.9)에서 다시 재고 산식을 개정한다([[16-DECISIONS\|ADR-033]] E4·ADR-034)|
 |`KEV_QUESTION_SET`|문자열|`kev-qs/v0.1`|질문 세트 버전. `mock` 모드·데모 S3는 v0.1(§5.5), `live`·`fixture` 실추론은 v0.2(§5.10)|
 |`KEV_ALLOW_KO_STATE`|`true`/`false`|`false`|`/kev`의 `stateLanguage="ko"` 허용. **평가(E2, [[21-MODEL-TRAINING\|21]]) 전용, §5.11.** `false`면 ko 요청은 `422 KO_STATE_NOT_ALLOWED`. `AI_PROVIDER=hosted`와 함께면 모든 모드에서 기동 거부([[16-DECISIONS\|ADR-030]] B11)|
@@ -248,7 +248,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
   - `ingest_runs.run_mode`·`source`
 - 화면 표시([[06-UI-UX|06 UI]])
   - 공고에 `DEMO` 배지(`is_demo=true`)
-  - 공고 상세의 분석 이력 표("분석 실행 모드")와 분석 결과 비교 화면("실행 모드")에 그 분석의 모드(live|fixture|mock)를 보인다. 상단바에는 실행 모드·AI 표시를 두지 않는다. 모델 이름은 받은 식별자 그대로 쓴다(예: `Qwen3.8-Flash-Next-AWQ-INT4`·`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`, [[16-DECISIONS|ADR-029]] A6 D12, ADR-034 9번)
+  - 공고 상세의 분석 요약 띠에 "분석 실행 모드: live|fixture|mock"와 "AI: local · {Qwen 식별자} · {결정 모델 식별자}" 또는 "AI: mock"을 보인다(`bid-detail-view.tsx`의 `aiText`). 분석 이력 표와 분석 결과 비교 화면에도 그 분석의 실행 모드가 있다. 상단바에는 실행 모드·AI 표시를 두지 않는다(`topbar-status.tsx`). 모델 이름은 받은 식별자 그대로 쓴다(예: `Qwen3.8-Flash-Next-AWQ-INT4`·`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`, [[16-DECISIONS|ADR-029]] A6 D12, ADR-034 9번)
   - 분석 화면에 "가상 회사 프로필로 분석" 배지
   - 공고 목록 필터 `origin=live|demo|all`
 
@@ -317,7 +317,7 @@ interface StaffingRequirement {
 - 모든 `ExtractedField`는 [[15-DATA-CONTRACTS|15 데이터 계약]] §2의 상태 규칙을 따른다. `KNOWN`은 검증 통과한 인용 1개 이상이 있어야 한다.
 - 배열 필드는 **원소마다 근거가 필요**하다. 한 필드에 인용이 여러 개면 `evidence[i]`가 어느 원소를 뒷받침하는지 `note`에 `"[0]→evidence[0], [1]→evidence[1]"` 형식으로 적는다. 짝이 안 맞는 원소는 버린다.
 - `code`는 모델이 아니라 gateway가 채운다. 사전에 없으면 `null`이고 규칙 엔진은 그 항목을 `NEEDS_REVIEW`로 낸다.
-- JSON Schema(draft 2020-12) 파일은 `services/ai/schemas/requirement-extraction.v0.1.json`에 두고, TypeScript 쪽은 `web/server/<도메인>/*.model.ts`의 zod 스키마(ADR-016)로 두어 이 파일과 같은지 시험으로 대조한다. 문서와 파일이 다르면 파일이 틀린 것이다. **미구현**: 대조 시험은 아직 없다. 2026-10-20 확인한 차이 5곳(JSON Schema → zod `web/server/scoring/analysis-input.model.ts`): 근거의 `revisionId`·`fetchedAt` 선택 → 필수(`fetchedAt`은 worker가 검증 전에 채운다, `785e454`, main `1b68f9b`), `quotedText` 길이 제한 없음 → 1~300자, `withinYears` number → 정수, 최상위 `model` 선택 → 필수, 자격 `code` 선택 → 필수(nullable).
+- JSON Schema(draft 2020-12) 파일은 `services/ai/schemas/requirement-extraction.v0.1.json`에 두고, TypeScript 쪽은 `web/server/<도메인>/*.model.ts`의 zod 스키마(ADR-016)로 두어 이 파일과 같은지 시험으로 대조한다. 문서와 파일이 다르면 파일이 틀린 것이다. **미구현**: 대조 시험은 아직 없다. 2026-10-20 확인한 차이 5곳(JSON Schema → zod `web/server/scoring/analysis-input.model.ts`): 근거의 `revisionId`·`fetchedAt` 선택 → 필수(`fetchedAt`은 worker가 검증 전에 채운다), `quotedText` 길이 제한 없음 → 1~300자, `withinYears` number → 정수, 최상위 `model` 선택 → 필수, 자격 `code` 선택 → 필수(nullable).
 
 ### 4.2 예시 1건 (가상 공고, DEMO)
 
@@ -369,7 +369,7 @@ interface StaffingRequirement {
 }
 ```
 
-위 값은 **DEMO fixture용 가상 데이터**다. 실제 기관·공고가 아니다. 인용의 `match`·`revisionId`는 gateway가 검증 후 채우므로 모델 출력 예시에는 없다. `fetchedAt`도 예시에 없다. 근거 `fetchedAt`은 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(`bid_revisions.fetched_at`)으로 채운다(`785e454`, B1 병합 `24b2597`, main `1b68f9b`. [[16-DECISIONS|16]] 미결정 26-1). gateway 계약과 JSON Schema(`fetchedAt` 선택)는 그대로이고 gateway는 이 값을 채우지 않는다.
+위 값은 **DEMO fixture용 가상 데이터**다. 실제 기관·공고가 아니다. 인용의 `match`·`revisionId`는 gateway가 검증 후 채우므로 모델 출력 예시에는 없다. `fetchedAt`도 예시에 없다. 근거 `fetchedAt`은 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(`bid_revisions.fetched_at`)으로 채운다([[16-DECISIONS|16]] 미결정 26-1). gateway 계약과 JSON Schema(`fetchedAt` 선택)는 그대로이고 gateway는 이 값을 채우지 않는다.
 
 ### 4.3 프롬프트 명세 `req-extract/v0.1`
 
@@ -410,11 +410,11 @@ JSON Schema:
 - 메타데이터(`<notice>` 속성)는 구조화 값이며 모델이 바꾸지 않는다. 추출값과 다르면 모델은 `CONFLICTED`를 내야 하고, 다르게 내도 gateway가 §4.4에서 `CONFLICTED`로 바꾼다.
 - `charOffset`을 주는 이유: 모델이 chunk 내 상대 위치를 내면 gateway가 절대 오프셋으로 환산한다. 환산 실패는 인용 검증(§4.4)이 잡는다.
 - 첨부는 `/parse`가 낸 텍스트만 넣는다. 다운로드·파싱에 실패한 첨부는 넣지 않고 `warnings += ATTACHMENT_PARSE_FAILED:{documentId}`만 남긴다. "첨부가 있었다"는 사실로 내용을 추정하게 하는 지시는 프롬프트에 넣지 않는다(§8).
-- 추론 설정: `temperature=0`, `top_p=1`, `max_tokens=4096`, `seed=42`, JSON Schema 기반 구조화 출력(guided decoding, `response_format: json_schema`). 런타임이 guided 요청을 받지 못하면 텍스트 파싱 + 검증으로 대체한다. main `adapters/qwen.py`(`326aff6`, main 병합 `1b68f9b`, [[16-DECISIONS|16]] 미결정 26-3)는 이렇게 한다:
+- 추론 설정: `temperature=0`, `top_p=1`, `max_tokens=4096`, `seed=42`, JSON Schema 기반 구조화 출력(guided decoding, `response_format: json_schema`). 런타임이 guided 요청을 받지 못하면 텍스트 파싱 + 검증으로 대체한다. main `adapters/qwen.py`([[16-DECISIONS|16]] 미결정 26-3)는 이렇게 한다:
   - 첫 호출은 `response_format`을 넣는다. 서버가 400·422로 거부하면 같은 `AI_TIMEOUT_MS` 마감 안에서 `response_format`만 빼고 한 번 다시 부른다. 그 답은 `<think>…</think>`를 지우고, 전체가 코드펜스면 그 안에서, 아니면 전체에서 첫 `{`부터 마지막 `}`까지를 JSON 본문으로 넘긴다(괄호가 없으면 그대로 넘겨 JSON 파싱 실패로 판정한다). 스키마·인용 검증은 guided 답과 같다. guided 호출이 200으로 답하면 벗기지 않고 그대로 파싱한다.
   - 두 번째도 400·422면 `EXTRACTION_FAILED`다. 대체 호출의 연결 실패·timeout·마감 초과·3xx·5xx·401·403·404는 첫 호출과 같이 재시도 없이 `QWEN_UNAVAILABLE`이다.
   - 대체는 모델 호출마다 한 번이고 서버 능력을 기억하지 않는다. guided JSON을 못 받는 서버에서는 추출 한 번에 호출이 2번이고, 스키마 위반 재시도도 guided로 시작해 다시 대체하므로 최대 4번이다.
-  - 비사고 모드: guided·대체 호출 모두 `chat_template_kwargs: {"enable_thinking": false}`를 보낸다(`326aff6`, 미결정 26-7). 회사 API의 Qwen3.8-Flash-Next는 사고 모드 기본값을 확인하지 못해 이 값을 그대로 보낸다([[16-DECISIONS|ADR-034]]). Qwen 파인튜닝은 하지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.6).
+  - 비사고 모드: guided·대체 호출 모두 `chat_template_kwargs: {"enable_thinking": false}`를 보낸다(미결정 26-7). 회사 API의 Qwen3.8-Flash-Next는 사고 모드 기본값을 확인하지 못해 이 값을 그대로 보낸다([[16-DECISIONS|ADR-034]]). Qwen 파인튜닝은 하지 않는다([[21-MODEL-TRAINING|21 모델 학습]] §5.6).
   - 미검증: 회사 vLLM API에서 이 값과 전체 추출 스키마의 guided JSON(`response_format: json_schema`)이 함께 동작하는지, 대체 경로를 타는 빈도는 확인하지 못했다(§5.9 G4). 짧은 `json_schema` 요청은 200으로 확인했다(§3.2). 회사 vLLM 실호출은 사용자 승인 뒤다.
 
 **재시도 정책**:
@@ -476,7 +476,7 @@ JSON Schema:
 > - 타입 `choice`·`score`·`noul`은 프롬프트의 `type` 문자열로만 들어간다. noul 전용 null slot 구현은 없다(noul은 후보 `true`/`false` 2개로 표현, §5.4).
 > - state 길이 제한 없음(`truncation=False`). 언어: 학습 데이터(DecisionBench)는 영어, state 길이 14~18.9k 자. 한국어 입찰 도메인 성능은 측정된 적이 없다.
 > - 공개 성능(자체 보고, 독립 재현 없음): DecisionBench 23,900행 acc 0.8118, ECE 0.0659. 후보 2개 0.946, 3개 0.983, 5개 0.953. 가장 약한 가족 `rubric_scoring_prioritization` 0.707. 이 문서는 이 수치를 설계 근거로 쓰지 않는다. 성능은 평가셋으로 잰다([[21-MODEL-TRAINING|21 모델 학습]]).
-> - 학습 코드 공개 안 됨(모델 카드·Hanno Labs GitHub). 학습·채점은 우리 코드다(`services/decision`·`sol_eval bosun_score`, main `1b68f9b`, 21 §5.1).
+> - 학습 코드 공개 안 됨(모델 카드·Hanno Labs GitHub). 학습·채점은 우리 코드다(`services/decision`·`sol_eval bosun_score`, 21 §5.1).
 
 > [!warning] 미검증 가정 (2026-10-20)
 > - hannolabs.ai "Introducing Bosun"(2026-06-11)은 Qwen3-Reranker 기반 yes/no 크로스인코더 Bosun-XS/4B를 설명한다. v3.1 0.6B(decision token)는 다른 세대다. 인용 때 섞지 않는다.
@@ -502,12 +502,12 @@ Bosun은 0.6B 한 크기다. GPU 1(NVIDIA A40 46,068 MiB)에 올리는 우리 �
 |`GET /v1/models`|`{"data":[{"id":"bosun-v3.1-0.6b","run":"Hanno-Labs/bosun-v3.1-0.6b@5e78a37c…","base":"Qwen/Qwen3-0.6B@c1899de…","lora":"<adapter sha256>","revision":"5e78a37c…","questionTypes":["choice","score","noul"]}]}` — 레지스트리 대조 필드(§11)|
 |`GET /health`|`{status, model, backend, device, loadedAt}`. 인증 없음|
 |인증|`Authorization: Bearer $DECISION_API_KEY`(값은 노트북 `KEV_API_KEY`와 같음). 없으면 401|
-|기동 검사|패키지 `manifest.json`의 sha256과 파일 대조(실패 시 기동 거부, exit 78), 리비전 고정, 네트워크 다운로드 금지. 패키지 최상위 `*.py`(`trust_remote_code`가 실행하는 `modeling_bosun.py` 등)가 manifest에 없으면 `REMOTE_CODE_NOT_IN_MANIFEST`로 거부한다. 학습기·parity·`sol_eval bosun_score`도 같은 검증을 지난 디렉터리만 올린다(main `36edfb6`)|
+|기동 검사|패키지 `manifest.json`의 sha256과 파일 대조(실패 시 기동 거부, exit 78), 리비전 고정, 네트워크 다운로드 금지. 패키지 최상위 `*.py`(`trust_remote_code`가 실행하는 `modeling_bosun.py` 등)가 manifest에 없으면 `REMOTE_CODE_NOT_IN_MANIFEST`로 거부한다. 학습기·parity·`sol_eval bosun_score`도 같은 검증을 지난 디렉터리만 올린다|
 |바인딩·상한|`127.0.0.1`만. 요청 본문 128 KiB(413 `PAYLOAD_TOO_LARGE`), state 24,000자(422 `STATE_TOO_LARGE`, 객체면 JSON 직렬화 길이), 질문 ≤ 24, 후보 ≤ 255|
 |state 언어|한글 음절·자모가 있으면 422 `STATE_NOT_ENGLISH`(§5.6). 평가 전용 `DECISION_ALLOW_KO_STATE=true`면 검사하지 않는다. 공유 8009에는 켜지 않는다(켜면 운영 가드가 같이 꺼진다, [[16-DECISIONS\|16]] 미결정 27)|
 |대기열·마감|추론은 스레드 하나에서 한 요청씩 돈다. 처리 중·대기 중 요청이 `DECISION_MAX_QUEUE`(기본 4)개면 503 `QUEUE_FULL` + `Retry-After: 1`. 요청 전체 마감 `DECISION_TIMEOUT_MS`(기본 4,500, 본문을 읽기 전부터 센다)를 넘기면 504 `DEADLINE_EXCEEDED`. forward 하나가 마감을 넘기면 스레드를 기다리지 않고 응답하고, 그 스레드는 끝날 때까지 대기열 한 자리를 쓴다|
 
-오류 코드·env 전체는 `services/decision/README.md`(계약·오류 코드 표, main `36edfb6`)가 정본이다.
+오류 코드·env 전체는 `services/decision/README.md`(계약·오류 코드 표)가 정본이다.
 
 - `score_runs.kev_model` 기록값은 `GET /v1/models` 응답의 `run`(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)으로 채운다. 그 값이 레지스트리 `KEV_MODEL_ID` 항목과 같은지 gateway가 기동할 때 확인한다(§11). 화면·`/api/v1/admin/ai/status`는 이 값을 그대로 보인다([[16-DECISIONS|ADR-029]] A6 D12, ADR-034 4번).
 
@@ -530,7 +530,7 @@ Bosun은 0.6B 한 크기다. GPU 1(NVIDIA A40 46,068 MiB)에 올리는 우리 �
 
 응답 필드(타입별): `choice` → `choice`, `confidence`, `probabilities`; `noul` → `noul`(yes 확률); `score` → `score`(0부터 시작하는 평균 등급 index), `legend`, `probabilities`, `confidence`. 공통 `usage`, `latency_ms`, 헤더 `x-typesafe-request-id`. 어댑터는 응답 원문을 Worker에 돌려주고 Worker가 `score_runs.kev_output`에 그대로 저장한다. v0.2는 질문이 많으면 같은 state로 24개씩 나눠 보낸다(§5.10). 응답 모양이 Kev wire와 같으므로 gateway의 `kev_wire.py`·`KevClient` Protocol·worker의 `wire` 재파싱(`kevMockResponseSchema`)은 ADR-034 뒤에도 바꾸지 않는다.
 
-`score` 질문의 응답은 `score`·`legend`·`probabilities`·`confidence` 넷을 모두 가진다. 하나라도 없으면 형식 오류다. legend 검사는 두 곳이 다르다. gateway(`kev_wire.py`)는 서버가 보낸 legend의 값·모양을 보지 않고 질문 세트의 `score_legend`로 `KevAssist`를 만든다. worker는 gateway가 넘긴 서버 원본 wire를 다시 검사하며(`readKevWire` → `kevMockResponseSchema`, `web/server/scoring/analysis-input.model.ts`), 원본 wire의 `fit.legend`를 문자열→문자열 객체(`{"0": 등급 이름, …}`)로 요구한다. 배열이면 `WIRE_INVALID`라 `KEV_UNAVAILABLE`이 된다. Bosun 서버가 배열을 내던 결함은 B1 `7320c3e`에서 수정했고 main `1b68f9b`에 들어갔다([[16-DECISIONS|16]] 미결정 26-2, `services/decision/tests/test_worker_compat.py`). `score`는 등급 분포의 기대 등급(Σ i·p_i)이고, 같은 응답의 분포에서 구한 값과 0.05를 넘게 다르면 형식 오류다. `confidence`는 분포의 최대 확률이다([[16-DECISIONS|ADR-031]] C7, main `9da17c4`의 `kev_wire.py`에 구현. 서버가 같은 식으로 계산한다).
+`score` 질문의 응답은 `score`·`legend`·`probabilities`·`confidence` 넷을 모두 가진다. 하나라도 없으면 형식 오류다. legend 검사는 두 곳이 다르다. gateway(`kev_wire.py`)는 서버가 보낸 legend의 값·모양을 보지 않고 질문 세트의 `score_legend`로 `KevAssist`를 만든다. worker는 gateway가 넘긴 서버 원본 wire를 다시 검사하며(`readKevWire` → `kevMockResponseSchema`, `web/server/scoring/analysis-input.model.ts`), 원본 wire의 `fit.legend`를 문자열→문자열 객체(`{"0": 등급 이름, …}`)로 요구한다. 배열이면 `WIRE_INVALID`라 `KEV_UNAVAILABLE`이 된다. Bosun 서버가 배열을 내던 결함은 수정했다([[16-DECISIONS|16]] 미결정 26-2, `services/decision/tests/test_worker_compat.py`). `score`는 등급 분포의 기대 등급(Σ i·p_i)이고, 같은 응답의 분포에서 구한 값과 0.05를 넘게 다르면 형식 오류다. `confidence`는 분포의 최대 확률이다([[16-DECISIONS|ADR-031]] C7, main `9da17c4`의 `kev_wire.py`에 구현. 서버가 같은 식으로 계산한다).
 
 **Bosun typed decision 변환**(서버 안. 계획 §4.1. Hanno `jev-compatible-server`의 Bosun 매핑과 같게 두고 코드는 복사하지 않는다. 서빙과 학습이 같은 함수를 쓴다):
 
@@ -588,7 +588,7 @@ COMPANY (profile revision 2)
 - 제외: 규칙 엔진의 자격 판정·SOL Score·권고. 규칙 결과를 넣지 않아야 결정 모델이 독립 신호가 된다(`MODEL_RULE_DISAGREEMENT`가 의미를 가진다). `/kev` 본문(§2.1)에도 넣지 않는다.
 - 기관명·회사명 등 고유명사는 영문 표기가 없으면 역할명으로 바꾼다(`(Korean public agency)`). 회사 기밀 수치는 프로필에 있는 범위만 쓴다.
 - 길이 상한 6,000 토큰. ADR-034 뒤에도 유지한다: Bosun은 state 길이 제한이 없고(`truncation=False`) 백본 ctx가 40,960이지만, 질문당 forward 1회라 지연이 state 길이 × 문항 수에 비례하고 DecisionBench 학습 state는 14~18.9k 자여서 상한을 올릴 근거가 없다. 초과하면 `pastPerformance` 목록부터 자른다.
-  - 학습셋도 같은 길이의 state를 쓴다. Bosun 학습(`sol_decision.train`, main `1b68f9b`)은 state를 자르지 않고, `--max-state-tokens`(기본 6,144)를 넘는 레코드를 건너뛰며 그 수를 `training_metrics.json`의 `metrics.skippedOverLength`(패키지 `manifest.json`에도 있다)에 남긴다([[21-MODEL-TRAINING|21]] §5.2, [[22-FINETUNE-RUNBOOK|22]] §4.2).
+  - 학습셋도 같은 길이의 state를 쓴다. Bosun 학습(`sol_decision.train`)은 state를 자르지 않고, `--max-state-tokens`(기본 6,144)를 넘는 레코드를 건너뛰며 그 수를 `training_metrics.json`의 `metrics.skippedOverLength`(패키지 `manifest.json`에도 있다)에 남긴다([[21-MODEL-TRAINING|21]] §5.2, [[22-FINETUNE-RUNBOOK|22]] §4.2).
 - 첨부 다운로드·파싱에 실패했거나 `PARTIAL`이면 사실 한 줄만 넣는다(§8): `RFP attachment could not be read; requirements may be incomplete`.
 
 > [!warning] 미검증 가정 (2026-10-20)
@@ -713,7 +713,7 @@ v0.1(§5.5)의 4질문은 그대로 두고 아래 질문을 더한다. `mock` �
   - 검증은 의미 동치 전체를 증명하지 못한다. 번역 성공은 최종 결정이나 모델 품질 검증이 아니며 사람이 원문 근거와 함께 검토한다. 실제 회사 Qwen/Bosun 연결·영문 번역 품질·추가 지연은 별도 실측 대상이다.
 - `ko`(평가 전용): 같은 템플릿의 한국어판에 원문 값을 넣는다. gateway env `KEV_ALLOW_KO_STATE=true`일 때만 받고, 아니면 `422 KO_STATE_NOT_ALLOWED`다([[16-DECISIONS|ADR-012]] 개정).
   - `KEV_ALLOW_KO_STATE=true`는 `SOL_RUN_MODE=live`와 함께 쓸 수 없다. `AI_PROVIDER=hosted`와 함께여도 모든 모드에서 쓸 수 없다(`KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[16-DECISIONS|ADR-030]] B11). 둘 다 gateway와 `pnpm check:env`가 기동을 거부한다.
-  - 결정 서버(8009)도 한글 state를 기본으로 422 `STATE_NOT_ENGLISH`로 거절한다(main `36edfb6`, §5.3). 공유 8009에는 `DECISION_ALLOW_KO_STATE`를 켜지 않으므로, gateway `KEV_ALLOW_KO_STATE=true`로 보낸 ko state는 8009에서 거절돼 `KEV_UNAVAILABLE`이 된다. E2는 회사 서버 안 오프라인 `sol_eval bosun_score`로 한다(HTTP를 거치지 않는다. [[16-DECISIONS|16]] 미결정 27·29-6).
+  - 결정 서버(8009)도 한글 state를 기본으로 422 `STATE_NOT_ENGLISH`로 거절한다(§5.3). 공유 8009에는 `DECISION_ALLOW_KO_STATE`를 켜지 않으므로, gateway `KEV_ALLOW_KO_STATE=true`로 보낸 ko state는 8009에서 거절돼 `KEV_UNAVAILABLE`이 된다. E2는 회사 서버 안 오프라인 `sol_eval bosun_score`로 한다(HTTP를 거치지 않는다. [[16-DECISIONS|16]] 미결정 27·29-6).
   - 한국어 state 평가(E2)는 두 경로로만 한다: 노트북에서 `sol_eval`이 `KEV_BASE_URL` 엔드포인트에 직접 붙거나, `SOL_RUN_MODE=fixture`로 띄운 평가용 gateway를 쓴다([[16-DECISIONS|ADR-025]], [[21-MODEL-TRAINING|21 모델 학습]] §4).
   - 한국어 운영 사용은 평가 결과(E2)를 보고 다시 검토한다.
 - 규칙 결과(자격 판정·점수·권고)는 지금처럼 state에 넣지 않는다.
@@ -987,7 +987,7 @@ interface ParseResult {
   - 목록 밖이면 gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). [[09-SECURITY|09 보안]] "회사 GPU 추론 엔드포인트 연결"의 "gateway는 거기에만 붙는다"를 이 목록으로 강제한다.
   - 구현은 `services/ai/models/registry.yaml`의 `allowedHosts`와 gateway 기동 검사에 있다.
 - **서빙 검증**
-  - 회사 GPU 서버는 `sol_decision.serve`를 호스트에 직접 띄운다(ADR-025·034). 서버가 기동할 때 패키지 `manifest.json`의 sha256(`adapter_model.safetensors`·`decision_embeddings.safetensors` 등)과 파일을 대조하고 다르면 기동을 거부한다(§5.3). 최상위 코드 파일(`modeling_bosun.py`·`configuration_bosun.py`)도 manifest에 있어야 하고 sha256을 대조한다(main `36edfb6`). 이 검사는 manifest 자기 일관성 검사라 폴더 쓰기 권한이 있으면 manifest까지 고쳐 통과할 수 있다. 아래 gateway 대조는 `run`과 레지스트리 값이 null이 아닌 `base`·`lora`·`temperature`, 양쪽에 있을 때 `revision`을 본다(`services/ai/src/sol_ai/registry.py` `KEV_MATCH_FIELDS`). 이 가운데 패키지 파일 내용의 해시로 묶인 값은 `lora`(어댑터 sha256)와 `decision_embeddings_sha256`(임베딩 sha256)이다(`base`는 CLI·env 값이 없으면 `config.json`의 이름 문자열이다). 코드 파일·manifest 해시는 identity에 없다. manifest·코드 파일 해시 대조는 해커톤 뒤 다시 검토한다([[16-DECISIONS|16]] 미결정 28). 회사는 다운로드 뒤 같은 sha256을 레지스트리 `lora`·`decision_embeddings_sha256`과 대조한다(`infra/gpu/bosun-preflight.sh`가 레지스트리 값을 읽어 대조, [[22-FINETUNE-RUNBOOK|22]] §2.2).
+  - 회사 GPU 서버는 `sol_decision.serve`를 호스트에 직접 띄운다(ADR-025·034). 서버가 기동할 때 패키지 `manifest.json`의 sha256(`adapter_model.safetensors`·`decision_embeddings.safetensors` 등)과 파일을 대조하고 다르면 기동을 거부한다(§5.3). 최상위 코드 파일(`modeling_bosun.py`·`configuration_bosun.py`)도 manifest에 있어야 하고 sha256을 대조한다. 이 검사는 manifest 자기 일관성 검사라 폴더 쓰기 권한이 있으면 manifest까지 고쳐 통과할 수 있다. 아래 gateway 대조는 `run`과 `KEV_MATCH_FIELDS` 4개(`base`·`lora`·`temperature`·`decision_embeddings_sha256`, 레지스트리 값이 null이 아닌 것만), 양쪽에 있을 때 `revision`을 본다(`services/ai/src/sol_ai/registry.py`). 이 가운데 패키지 파일 내용의 해시로 묶인 값은 `lora`(어댑터 sha256)와 `decision_embeddings_sha256`(임베딩 sha256)이다(`base`는 CLI·env 값이 없으면 `config.json`의 이름 문자열이다). 코드 파일·manifest 해시는 identity에 없다. manifest·코드 파일 해시 대조는 해커톤 뒤 다시 검토한다([[16-DECISIONS|16]] 미결정 28). 회사는 다운로드 뒤 같은 sha256을 레지스트리 `lora`·`decision_embeddings_sha256`과 대조한다(`infra/gpu/bosun-preflight.sh`가 레지스트리 값을 읽어 대조, [[22-FINETUNE-RUNBOOK|22]] §2.2).
   - gateway는 기동할 때 결정 모델 서버 `GET /v1/models`의 `run`과 레지스트리 값이 null이 아닌 `base`·`lora`·`temperature`·`decision_embeddings_sha256`(`revision`이 양쪽에 있으면 함께)가 레지스트리 `KEV_MODEL_ID` 항목과 같은지, 회사 Qwen API `GET /v1/models`의 `id`에 `QWEN_MODEL`이 있는지 확인하고, 다르면 기동을 거부한다(`REGISTRY_MISMATCH`, exit 78). 응답이 없으면 기동 뒤 첫 요청 때 lazy 대조한다.
   - 이 검사가 필요한 이유: 레지스트리와 다른 패키지(다른 리비전·학습본)가 같은 alias로 조용히 서빙되는 것을 막는다. 서버의 sha256 대조와 gateway의 `run` 대조가 이를 맡는다.
 - **호환성**: 레지스트리 항목의 `questionSet`·`stateTemplate`이 gateway 설정과 다르면 기동을 거부한다. 학습셋 state와 서빙 state는 같은 코드·같은 템플릿 버전으로 만든다(§5.11). 구현 상태(main `8cfaac31`): `questionSet`은 값이 있을 때 `KEV_QUESTION_SET`과 다르면 `QUESTION_SET_MISMATCH`로 거부하지만(`local_setup.py`) 이 경로의 시험은 없다. `stateTemplate` 대조는 없다. 지금 `bosun-v3.1-0.6b` 항목은 둘 다 null이라 대조하지 않는다.

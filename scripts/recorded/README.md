@@ -1,6 +1,6 @@
 # scripts/recorded — 나라장터 응답 녹음·평가셋 분할 (X6a, ADR-027)
 
-`docs/23-WEEKEND-FINETUNE.md` §4.3 저장 2안("녹음 스크립트")의 구현이다. 입찰공고정보서비스(15129394) 응답을 담당자 정보만 가려
+`docs/21-MODEL-TRAINING.md` §3.8 갈래 ①의 저장 2안("녹음 스크립트")의 구현이다(수집 계획 원문은 git e5948f72 의 `docs/23-WEEKEND-FINETUNE.md` §4.3). 입찰공고정보서비스(15129394) 응답을 담당자 정보만 가려
 `fixtures/recorded/train/15129394/`에 저장하고, 그 녹음에서 사업 단위 분할(`fixtures/eval/splits.v0.1.json`)을 만든다.
 녹음 파일 형식은 `web/server/ingestion/recorded-api.ts`의 `recordedResponseSchema`(`sol-recorded/v0.1`)와 같아서
 `RecordedApiConnector`가 그대로 재생한다.

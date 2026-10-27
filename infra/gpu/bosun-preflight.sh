@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SOL RADAR — Bosun v3.1 0.6B LoRA F1-A 사전 검증 (회사 GPU 서버 sol-NF5280M6, 물리 GPU 1 **공유**).
-# 정본: docs/16-DECISIONS.md ADR-034 상세 7·10·16번, docs/22-FINETUNE-RUNBOOK.md §3·§4.2, docs/23-WEEKEND-FINETUNE.md §2.4·§5,
+# 정본: docs/16-DECISIONS.md ADR-034 상세 7·10·16번, docs/22-FINETUNE-RUNBOOK.md §3.1(GPU 공유)·§3·§4.2,
 #       docs/10-DEPLOYMENT.md "GPU 1 공유". Kev 용 kev-preflight.sh 는 보존·퇴역(수정하지 않는다). 구조·로그 형식은 그것을 본떴다.
 #
 # 읽기만 한다. GPU 0·2 와 다른 프로세스는 보기만 하고, 어떤 프로세스도 종료하지 않으며(kill·pkill·docker compose down 없음),
