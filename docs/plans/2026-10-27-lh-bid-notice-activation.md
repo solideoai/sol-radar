@@ -39,8 +39,8 @@ updated: 2026-10-27
 ```bash
 cd <회사 sol-radar 저장소>
 export INGEST_WORKER_TAG=<지금 기동 중인 태그>   # docker ps 의 Image 콜론 뒤
-W="docker compose -f infra/compose.ingest-only.company.yaml"
-$W run --rm --no-deps ingest-worker node -e '
+W() { docker compose -f infra/compose.ingest-only.company.yaml "$@"; }   # 변수 대신 함수(zsh 에서도 된다)
+W run --rm --no-deps ingest-worker node -e '
 const k = (process.env.LH_BID_NOTICE_SERVICE_KEY ?? "").trim();
 const g = (process.env.G2B_BID_NOTICE_SERVICE_KEY ?? "").trim();
 const dec = (s) => { try { return decodeURIComponent(s); } catch { return null; } };
@@ -57,56 +57,130 @@ console.log(JSON.stringify({
 - 기대: `lh: "SET"`, `decodable: true`. `sameAsG2b: true` 는 정상일 수 있다(계정당 인증키 하나).
 - 일회용 컨테이너라 운영 Worker 는 그대로다. 공공 API 를 부르지 않는다.
 
-## 3. 첫 실호출 1~3회 — [승인]
+## 3. 첫 실호출 1회 — [승인]
 
-`scripts/recorded/record-lh-bid-notice.mjs` 를 쓴다. 한 번 실행에 정확히 1회 부르고 재시도하지 않는다. 담당자 칸·이메일·전화를 가려 저장하고, 키의 어떤 형태도 남지 않는지 저장 전·뒤에 검사한다. 출력은 결과 코드·건수·필드 모양·상태 값 목록뿐이다.
+2026-10-27 사용자 확인: 활용신청 승인(활용기간 2026-10-21 ~ 2028-10-21), 엔드포인트 `https://apis.data.go.kr/B552555/OpenBidInfoList` 상세기능 `/getOpenBidInfo`, XML, 일일 1,000회, 회사 서버 `LH_BID_NOTICE_SERVICE_KEY` SET. 회사 서버 저장소는 `43e4e024` 라 녹음 스크립트가 없다. 저장소·브랜치를 바꾸지 않고 **임시 폴더에 세 파일만** 두고 Docker Compose 일회용 컨테이너(`run --rm --no-deps`)로 1회만 부른다. 실호출은 사용자가 회사 서버에서 직접 한다.
 
-시간: KST 정각을 피해 HH:20~HH:40(예: 13:20~13:40). 나라장터 회차와 겹치지 않게 한다. §2 의 `INGEST_WORKER_TAG`·`W` 를 그대로 쓴다.
+`scripts/recorded/record-lh-bid-notice.mjs` 가 지키는 것:
 
-날짜: 가장 최근 평일 하루(KST)를 고른다. 2026-10-27 기준 `20261026`(월). 주말·공휴일은 공고가 적어 `03`·`totalCount 0` 이 나올 수 있다.
+- 부르기 전에 저장 폴더에 시도 표식(`getOpenBidInfo.attempt.json`)을 원자적으로 만든다(`open(…, "wx")` = O_CREAT|O_EXCL, 내용 기록 뒤 fsync). 만들기·쓰기·fsync 중 무엇이든 실패하면 부르지 않고 멈춘다. 표식이 있으면 날짜·쪽이 달라도 부르지 않는다. 실패·재실행·컨테이너 재시작에도 추가 호출이 없다. 다시 부르려면 승인 뒤 사람이 표식을 지운다.
+- `--dry-run` 은 부르지 않고 키가 있는지와 저장 폴더에 새 파일을 만들 수 있는지(임시 파일을 만들고 지움)만 본다. 표식은 만들지 않는다.
+- 한 번 실행에 정확히 1회. 재시도·리다이렉트 따라가기 없음. 10초·2 MiB 상한.
+- 키·요청 URL 은 출력하지 않는다. 오류는 이름·코드만 낸다. 표식에는 시각과 요청 변수(키 없음)만 쓴다.
+- 응답에 키가 되돌아오면 어떤 형태든 `***` 로 지우고 `maskedFields` 에 `(secret)` 을 남긴다. 명세 값 칸이 아닌 글자(담당자 태그·명세 밖 태그·CDATA·속성·주석)는 `***`, 이메일·전화는 같은 길이 `*`. 저장 전·뒤 흔적 검사가 0이 아니면 저장하지 않는다.
+- 출력: 결과 코드·`totalCount`·건수, 필수 칸(`bidNum`·`bidDegree`·`bidnmKor`) 채움 수, 매핑 확인 칸(`tndrbidRegDt`·`tndrdocAcptEndDtm`·`presmtPrc`), 정규화 가능 행 수, 명세 밖 태그 이름, 응답에 없던 명세 태그, 값 모양, 상태류 값 목록, 판정.
+- Redis `quota:15159012` 를 쓰지 않는다. 포털 하루 한도(1,000)에서 1회만 빠진다. 나라장터(15129394) 한도와 따로다.
+
+시간: 나라장터 회차(KST 00·03·…·21시 정각) 앞뒤 10분을 피한다. 명령은 bash·zsh 모두 되게 변수 대신 함수를 쓴다(zsh 는 따옴표 없는 변수를 낱말로 나누지 않는다).
+
+### ① 파일 전송 — 개발 PC
 
 ```bash
-mkdir -p /tmp/sol-lh-record && sudo chown 1000:1000 /tmp/sol-lh-record && chmod 700 /tmp/sol-lh-record
-D=20261026                                        # 최근 평일 KST 하루
-R="$W run --rm --no-deps -v $PWD/scripts/recorded:/rec:ro -v /tmp/sol-lh-record:/out ingest-worker node /rec/record-lh-bid-notice.mjs"
-
-$R --date "$D" --page 1 --rows 10 --out /out --dry-run   # 0회. 키·저장 경로만 본다
-$R --date "$D" --page 1 --rows 10 --out /out             # 1회차
+WT=/Users/leegwanghui/dev/hackathon/sol-radar-worktrees/ingest-source-isolation
+git -C "$WT" status --short scripts/recorded         # 아무것도 나오지 않아야 한다(커밋된 파일 그대로)
+ssh <회사서버> 'mkdir -p /tmp/sol-lh-rec/src /tmp/sol-lh-rec/out && chmod 755 /tmp/sol-lh-rec/src && chmod 700 /tmp/sol-lh-rec/out && ls -A /tmp/sol-lh-rec/src /tmp/sol-lh-rec/out'   # 둘 다 비어 있어야 한다
+scp "$WT"/scripts/recorded/{record-lh-bid-notice.mjs,program-notices-lib.mjs,masking.mjs} <회사서버>:/tmp/sol-lh-rec/src/
 ```
 
-- 스크립트는 `scripts/recorded/` 의 세 파일(`record-lh-bid-notice.mjs`·`program-notices-lib.mjs`·`masking.mjs`)과 Node 내장 모듈만 쓴다. npm 패키지·`.env` 파일을 읽지 않는다. 키는 컨테이너 env(`infra/.env.worker.local`)로만 받는다.
-- 회사 저장소 파일이 다른 UID(예: 1001)·600 권한이라 컨테이너(UID 1000)가 못 읽으면, 세 파일만 `/tmp/sol-lh-rec-src` 에 644 로 복사해 그 폴더를 `/rec` 로 붙인다.
+### ② 사전 검증 — 회사 서버, 호출 0회
 
-| 회 | 조건 | 명령 | 보는 것 |
-|---|---|---|---|
-| 1 | 항상 | 위 `--page 1 --rows 10` | `resultCode`, `totalCount`, `fieldShapes`(날짜 자릿수·금액 모양), `enumValues`(`bidKind`·`bidProgrsStatus`·`zoneHqCd` 등) |
-| 2 | 1회가 `00` 이고 `totalCount` > 10 | `--date "$D" --page 2 --rows 10` | 둘째 쪽이 이어지는지, 같은 공고번호가 겹치지 않는지 |
-| 3 | 선택. 1회가 `00` | `--date <미래 날짜, 예: 20261231> --page 1 --rows 10` | 빈 창이 `03` 인지 `00`·`totalCount 0` 인지 |
+```bash
+cd <회사 sol-radar 저장소>
+W() { docker compose -f infra/compose.ingest-only.company.yaml "$@"; }
 
-판정 기준(1회차 출력 JSON):
+# 2-1 전송 파일: 세 파일만, 해시 일치
+chmod 644 /tmp/sol-lh-rec/src/*.mjs && ls -A /tmp/sol-lh-rec/src
+cat > /tmp/sol-lh-rec/SHA256SUMS <<'SUMS'
+6fa89295912236537d243b4bc38acc584a0f378a9b7bb2df1e83bc1e0c49a6f7  record-lh-bid-notice.mjs
+c96b1c889e1048a980c71153d62f145507d12b6564814afd58209945b8a3766f  program-notices-lib.mjs
+bb879d7b7a21349a178b7f1ad355f933ae2db47c5931be2dbd44834211a70a02  masking.mjs
+SUMS
+(cd /tmp/sol-lh-rec/src && sha256sum -c ../SHA256SUMS)    # 세 줄 모두 OK. 하나라도 FAILED 면 멈춘다
 
-| 판정 | 조건 | 다음 |
-|---|---|---|
-| 성공 | `httpStatus` 200, `resultCode` `00`, `totalCount` 숫자, `items` 1~10, `fieldShapes` 에 `bidNum`·`bidDegree`·`bidnmKor`·`tndrbidRegDt`·`tndrdocAcptEndDtm`·`presmtPrc` 가 있음, 파일 저장 | 2회차 조건을 본다 |
-| 빈 날 | `resultCode` `03`, 또는 `00` 이면서 `totalCount` 0 | 성공으로 보되 매핑 확인이 안 된다. 다른 평일 하루로 1회만 더(총 3회 안) |
-| 형식 이상 | `resultCode` 가 비었거나, XML 이 아니거나, `bidNum`·`bidDegree`·`bidnmKor` 중 하나가 `fieldShapes` 에 없음 | 멈춘다. 저장된 가린 파일을 사람이 보고 정규화를 고친다 |
-| 실패 | 아래 멈춤 조건 | 멈춘다 |
+# 2-2 운영 Worker 이미지 — 지금 도는 태그를 그대로 쓴다(없으면 compose 가 빌드하므로 멈춘다)
+IMG=$(docker ps --filter label=com.docker.compose.project=sol-radar-ingest --filter label=com.docker.compose.service=ingest-worker --filter label=com.docker.compose.oneoff=False --format '{{.Image}}')
+echo "$IMG"                                          # 한 줄: sol-radar-ingest-worker:<태그>
+export INGEST_WORKER_TAG=${IMG##*:}
+docker image inspect "sol-radar-ingest-worker:$INGEST_WORKER_TAG" --format 'image ok'
 
-- 녹음 스크립트는 Redis `quota:15159012` 를 쓰지 않는다. 포털 하루 한도(1,000)에서만 1~3회가 빠진다. 나라장터(15129394) 한도와는 따로다.
+# 2-3 운영 Worker·Scheduler 기준 상태(읽기만). ④에서 같은지 본다
+docker inspect --format '{{.Id}} started={{.State.StartedAt}} restarts={{.RestartCount}} health={{.State.Health.Status}}' \
+  $(docker ps -q --filter label=com.docker.compose.project=sol-radar-ingest --filter label=com.docker.compose.service=ingest-worker --filter label=com.docker.compose.oneoff=False) \
+  | tee /tmp/sol-lh-rec/worker-before.txt
+W run --rm --no-deps ingest-worker node --conditions=react-server --import tsx worker/ingest-only-main.ts --status \
+  | tee /tmp/sol-lh-rec/status-before.txt             # Redis 읽기만. Job Scheduler 1개(g2b-scheduled)
 
-멈춤 조건(그 뒤 호출 없음):
+# 2-4 LH 키 설정(값 출력 없음)
+W run --rm --no-deps ingest-worker node -e '
+const k = (process.env.LH_BID_NOTICE_SERVICE_KEY ?? "").trim();
+let decodable = true; try { decodeURIComponent(k); } catch { decodable = false; }
+console.log(JSON.stringify({ lh: k ? "SET" : "UNSET", form: /%[0-9A-Fa-f]{2}/.test(k) ? "ENCODED" : "DECODED", decodable }));'
+                                                     # 기대 {"lh":"SET",…,"decodable":true}
 
-- `20`: 활용신청 미승인·접근 거부. §1 을 다시 본다.
-- `30`·`31`: 키 미등록·만료. 키를 다시 확인한다.
-- `32`: 미등록 IP. 포털의 IP 설정을 본다.
-- `22`·`23`: 한도·TPS. 다음 날 다시 한다.
-- 리다이렉트·2 MiB 초과·10초 시간 초과: 스크립트가 저장하지 않고 멈춘다.
+# 2-5 녹음 함수와 dry-run(호출 0회)
+lh_rec() {
+  W run --rm --no-deps -u "$(id -u):$(id -g)" \
+    -v /tmp/sol-lh-rec/src:/rec:ro -v /tmp/sol-lh-rec/out:/out \
+    ingest-worker node /rec/record-lh-bid-notice.mjs --date 20261026 --page 1 --rows 10 --out /out "$@"
+}
+lh_rec --dry-run                                     # "calls": 0, "outWritable": true
+ls -A /tmp/sol-lh-rec/out                            # 비어 있어야 한다(표식 없음)
+```
 
-녹음 뒤:
+### ③ LH API 1회 호출 — 회사 서버, [승인]
 
-1. `/tmp/sol-lh-record/getOpenBidInfo.<날짜>.p<쪽>.masked.json` 을 개발 PC 로 옮겨 `fixtures/recorded/15159012/` 에 둔다.
-2. 파일을 열어 담당자 칸이 `***` 인지, 키 흔적이 없는지 사람이 한 번 더 본다.
-3. 회사 서버의 `/tmp/sol-lh-record` 를 지운다.
+```bash
+lh_rec 2>&1 | tee /tmp/sol-lh-rec/run-output.txt     # 실호출 1회. 다시 실행해도 표식 때문에 부르지 않는다
+ls -l /tmp/sol-lh-rec/out                            # getOpenBidInfo.attempt.json (+ getOpenBidInfo.20261026.p1.masked.json)
+```
+
+### ④ 결과 보안 검사 — 회사 서버, 호출 0회
+
+```bash
+# 4-1 키·원본 URL 흔적: 녹음·표식·실행 출력 전부. 값은 출력하지 않는다
+W run --rm --no-deps -u "$(id -u):$(id -g)" -v /tmp/sol-lh-rec:/chk:ro ingest-worker node -e '
+const fs = require("fs"), path = require("path");
+const k = (process.env.LH_BID_NOTICE_SERVICE_KEY ?? "").trim();
+let d = k; try { d = decodeURIComponent(k); } catch {}
+const forms = [...new Set([k, d, encodeURIComponent(k), encodeURIComponent(d), encodeURIComponent(encodeURIComponent(d)), encodeURIComponent(d).toLowerCase()])].filter(Boolean);
+const files = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? files(path.join(dir, e.name)) : [path.join(dir, e.name)]);
+for (const f of files("/chk")) {
+  const t = fs.readFileSync(f, "utf8");
+  console.log(f, JSON.stringify({ bytes: t.length, keyHits: forms.filter((x) => t.includes(x)).length,
+    serviceKeyParam: (t.match(/serviceKey=(?!\*\*\*)/gi) ?? []).length,
+    email: (t.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) ?? []).length }));
+}'                                                   # 모든 파일 keyHits 0·serviceKeyParam 0·email 0
+
+# 4-2 운영 Worker·Scheduler 그대로
+docker inspect --format '{{.Id}} started={{.State.StartedAt}} restarts={{.RestartCount}} health={{.State.Health.Status}}' \
+  $(docker ps -q --filter label=com.docker.compose.project=sol-radar-ingest --filter label=com.docker.compose.service=ingest-worker --filter label=com.docker.compose.oneoff=False) \
+  | diff /tmp/sol-lh-rec/worker-before.txt - && echo "worker unchanged"   # health 가 starting↔healthy 로만 다르면 같은 컨테이너다
+W run --rm --no-deps ingest-worker node --conditions=react-server --import tsx worker/ingest-only-main.ts --status \
+  | diff /tmp/sol-lh-rec/status-before.txt - && echo "status unchanged"   # 회차가 지나 job 수가 바뀐 것은 정상. Job Scheduler 는 1개 그대로
+
+# 4-3 일회용 컨테이너가 남지 않음
+docker ps -a --filter label=com.docker.compose.project=sol-radar-ingest --filter label=com.docker.compose.oneoff=True --format '{{.Names}} {{.Status}}'   # 아무것도 없어야 한다
+```
+
+- `compose run --rm` 은 운영 `ingest-worker` 컨테이너를 다시 만들지 않고, 같은 `env_file`(`infra/.env.worker.local`)을 같은 규칙으로 읽는다. `up`·`restart`·`down`·`exec` 는 쓰지 않는다. 일회용 컨테이너에는 재시작 정책이 붙지 않는다(로컬 Docker Compose 2.31 확인). 붙더라도 표식이 추가 호출을 막는다.
+- 일회용 컨테이너의 로그는 `--rm` 과 함께 지워진다. 운영 Worker 로그에는 이 실행이 남지 않는다.
+- `/tmp` 는 재부팅·정리로 비워질 수 있다. 표식이 사라지면 재호출을 막지 못하므로 결과 보고 전에는 재부팅하지 않는다.
+- 2026-10-27 로컬 리허설: 같은 Dockerfile 로 만든 Worker 이미지(Node 22.23.4)에 `--network none`·가짜 키로 실행했다. `--dry-run` 은 `calls 0`·`outWritable true`·표식 없음. 쓰기 금지 폴더에서는 dry-run 이 `저장 폴더에 쓸 수 없다(EACCES)`, 실행이 `시도 표식을 남기지 못해 부르지 않았다: EACCES` 로 멈췄다. 쓸 수 있는 폴더에서는 `요청 실패: TypeError` 뒤 표식(600)이 남았고, 재실행은 "이미 한 번 시도했다(부르지 않았다)" 로 멈췄다. 4-1 검사는 심은 키를 1건으로 잡고 정상 녹음은 0건이었다. 키 값은 어디에도 출력되지 않았다.
+
+판정(출력 `verdict`). 어느 판정이든 추가 호출 없이 멈추고 보고한다(`next`):
+
+| `verdict` | 조건 |
+|---|---|
+| `SUCCESS` | 결과 코드 `00`, HTTP 200, `totalCount` 숫자, 항목 1~10건, 모든 행의 공고번호·공고명·차수(숫자)가 정규화 조건에 맞다 |
+| `EMPTY` | 결과 코드 `03`, 또는 `00` 이면서 `totalCount` 0·항목 0 |
+| `FORMAT_ISSUE` | 결과 코드 없음(XML 아님 등), `totalCount` 가 숫자가 아님, 건수 불일치, 필수 칸이 빠진 행이 있음 |
+| `FAILED` | `20` 활용신청·접근 거부, `22` 하루 한도, `23` 초당 한도, `30` 미등록 키, `31` 기한 만료, `32` 미등록 IP, 그 밖의 결과 코드, HTTP 오류. 리다이렉트·2 MiB 초과·10초 초과는 저장 없이 멈춘다 |
+
+녹음 뒤(호출 없음):
+
+1. ③ 출력·`ls -l`·④ 결과를 보고하고, `getOpenBidInfo.20261026.p1.masked.json` 을 개발 PC 로 옮긴다. 개발 PC 에서 실제 파서·정규화(`parseExternalPayload`·`normalizeExternalNotice`)에 넣어 행마다 정규화·격리 결과를 비교한다. `fixtures/recorded/15159012/` 에 넣는 것과 커밋은 결과 보고 뒤 승인으로 한다.
+2. 회사 서버의 `/tmp/sol-lh-rec` 는 결과 보고가 끝날 때까지 둔다(표식이 재호출을 막는다). 끝나면 `rm -r /tmp/sol-lh-rec`.
+3. 2회차(2쪽)·3회차(빈 날짜)는 이번 승인 범위가 아니다. 결과 보고 뒤 따로 승인받고, 승인되면 표식을 지운 뒤 같은 함수로 `--page`·`--date` 만 바꿔 1회씩 한다.
 
 ## 4. 운영 활성화 — 단계마다 [승인]
 
