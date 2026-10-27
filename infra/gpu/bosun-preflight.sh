@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SOL RADAR — Bosun v3.1 0.6B LoRA F1-A 사전 검증 (회사 GPU 서버 sol-NF5280M6, 물리 GPU 1 **공유**).
 # 정본: docs/16-DECISIONS.md ADR-034 상세 7·10·16번, docs/22-FINETUNE-RUNBOOK.md §3.1(GPU 공유)·§3·§4.2,
-#       docs/10-DEPLOYMENT.md "GPU 1 공유". Kev 용 kev-preflight.sh 는 보존·퇴역(수정하지 않는다). 구조·로그 형식은 그것을 본떴다.
+#       docs/10-DEPLOYMENT.md "회사 GPU 추론 엔드포인트". Kev 용 kev-preflight.sh 는 보존·퇴역(수정하지 않는다). 구조·로그 형식은 그것을 본떴다.
 #
 # 읽기만 한다. GPU 0·2 와 다른 프로세스는 보기만 하고, 어떤 프로세스도 종료하지 않으며(kill·pkill·docker compose down 없음),
 # 파일을 지우거나 덮어쓰지 않는다. 비밀 값을 출력하지 않는다(set -x 금지). GPU 에는 CUDA 컨텍스트 하나만 잠깐 만들고
@@ -578,7 +578,7 @@ echo "  | GPU 총량 | ${TOTAL_MIB:-?} | nvidia-smi memory.total |"
 echo "  | 지금 사용 중(PaddleOCR 등, 회사) | ${USED_MIB:-?} | 종료·이동 금지. 기록만 |"
 echo "  | 지금 free | ${FREE_MIB:-?} | |"
 echo "  | sol_decision.serve(추정) | ${SOL_EST_SERVE_MIB} | GPU 승인 + 예산 통과 뒤 **사용자 승인** 시에만 기동. 8009 는 127.0.0.1 만 |"
-echo "  | Bosun LoRA 학습 F1(추정) | ${SOL_EST_TRAIN_MIB} | 서빙(8009)과 함께 돈다(기본. 10 §GPU "추론 런타임과의 관계"·ADR-034 10번·22 §4). 합산 $((SOL_EST_SERVE_MIB + SOL_EST_TRAIN_MIB)) + 여유가 free 안에 들어야 한다(④ 와 같은 식) |"
+echo "  | Bosun LoRA 학습 F1(추정) | ${SOL_EST_TRAIN_MIB} | 서빙(8009)과 함께 돈다(기본. 22 §3.1·ADR-034 10번·22 §4). 합산 $((SOL_EST_SERVE_MIB + SOL_EST_TRAIN_MIB)) + 여유가 free 안에 들어야 한다(④ 와 같은 식) |"
 echo "  | 여유 | ${SOL_RESERVE_MIB} | PaddleOCR 피크·CUDA 컨텍스트 |"
 echo "  | 필요 합계 | ${SOL_REQUIRED_MIB} | free ≥ 이 값이어야 통과(④) |"
 echo "  중단: 자기 PID(학습기·자기 기록 프로세스)만 멈춘다. GPU 0·1·2 의 다른 프로세스는 어떤 경우에도 kill·pkill 하지 않는다. OOM 이면 더 큰 설정을 시도하지 않고 사용자에게 보고."

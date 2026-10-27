@@ -1,6 +1,6 @@
 ---
 name: infra-developer
-description: SOL RADAR 실행 환경 구현 담당 — infra/compose.yaml 과 프로필(demo·ai-local·ai-hosted·production)·compose.gpu.yaml, redis·minio·qdrant·ai-gateway·worker(+ 선택 web) 서비스의 Dockerfile·healthcheck·named volume·포트 바인딩, .env.example·infra/env/*.env.example(Supabase 키 이름 포함), pnpm check:env·pnpm demo:reset 진입점·infra/smoke.sh, verify.config.json 에 새 스택 등록. 10 배포·09 데모 보안 최소선·ADR-017 대로 옮긴다. 애플리케이션 로직, seed 내용, 테스트 판정, 원격 배포, 클라우드 DB 변경은 하지 않는다.
+description: SOL RADAR 실행 환경 구현 담당 — infra/compose.yaml 과 프로필(demo·ai-local·ai-hosted·production)·compose.gpu.yaml, redis·qdrant·ai-gateway·worker 서비스의 Dockerfile·healthcheck·named volume·포트 바인딩, .env.example·infra/env/*.env.example(Supabase 키 이름 포함), pnpm check:env·pnpm demo:reset 진입점·infra/smoke.sh, verify.config.json 에 새 스택 등록. 10 배포·09 데모 보안 최소선·ADR-017 대로 옮긴다. 애플리케이션 로직, seed 내용, 테스트 판정, 원격 배포, 클라우드 DB 변경은 하지 않는다.
 model: inherit
 color: blue
 ---
@@ -24,21 +24,21 @@ Compose 로 띄우는 서비스와 환경 변수, 기동 검사 스크립트를 
 ## 0단계: 이 저장소의 기준
 
 - **정본**: `docs/CLAUDE.md`, `docs/16-DECISIONS.md` ADR-003·008·010·017(구현 결과 절), `docs/17-CLAUDE-IMPLEMENTATION.md` 절대 규칙.
-- **원천 문서**: `docs/10-DEPLOYMENT.md`(실행 프로필 3단, Compose 서비스, 기동 절차, 장애 주입, Kev 컨테이너 주의, 운영), `docs/09-SECURITY.md` "데모 환경 보안 최소선",
+- **원천 문서**: `docs/10-DEPLOYMENT.md`(실행 모드와 프로필, 로컬 Compose 서비스 (대체 경로), 대체 경로·녹화용 기동 절차, 장애 주입 (S6 녹화), 결정 모델 런타임 주의, 운영), `docs/09-SECURITY.md` "데모 환경 보안 최소선",
   `docs/03-AI-PIPELINE.md` §3(env 원천 표), `docs/19-DEMO-SCENARIO.md` §3(S0 사전 준비), `docs/14-OBSERVABILITY.md` 상태 기준.
 - **ADR-017 이 10 보다 우선한다**(10 은 아직 옛 구성을 적고 있을 수 있다):
-  - Compose 서비스는 `redis`·`minio`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`). **`postgres`·`api`·`seed-demo` 서비스는 없다.** DB·Auth 는 Supabase 클라우드 프로젝트다.
+  - 로컬 Compose 서비스는 `redis`·`qdrant`·`ai-gateway`·`worker` 넷이다(첨부는 Supabase Storage, ADR-048. 운영 Vercel은 web만 실행하고 회사 Compose가 redis-api·AI gateway·Worker를 맡는다, ADR-049). **`postgres`·`api`·`seed-demo` 서비스는 없다.** DB·Auth 는 Supabase 클라우드 프로젝트다.
   - env 에서 `JWT_SECRET`·`POSTGRES_PASSWORD` 가 빠지고 `NEXT_PUBLIC_SUPABASE_URL`·`NEXT_PUBLIC_SUPABASE_ANON_KEY`·`SUPABASE_SERVICE_ROLE_KEY`·`SUPABASE_DB_URL` 이 들어온다.
   - seed 는 Compose 서비스가 아니라 스크립트 `pnpm demo:reset`(service role 로 Supabase 프로젝트에 적재, 멱등).
   - pnpm workspace·`apps/`·공유 계약 패키지는 만들지 않는다. `web/` 은 독립 설치(`pnpm -C web …`), `services/ai` 는 uv.
   - worker 컨테이너가 `server-only` 도메인 코드를 부르는 실행 방식은 미검증(미결정 9번). 확인한 방식만 entrypoint 에 쓴다.
 - **보안 최소선**
-  - web 은 기본으로 호스트에서 돈다(`pnpm -C web start`, Compose 에 `web` 서비스 없음). 그래서 호스트에 여는 포트는 web 이 닿아야 하는 `redis`·`minio`·`qdrant`·`ai-gateway` 넷이고(`127.0.0.1:${*_HOST_PORT}`, 기본 6380·9000·6333·8000), 모두 `127.0.0.1` 에만 바인딩한다. 외부 인터페이스(`0.0.0.0`)에는 열지 않는다. `worker` 는 포트를 열지 않는다. 결정 모델·Qwen 런타임은 Compose 에 없다(10 "Compose 서비스" 절).
-  - `.env.example`·`infra/env/*.env.example` 에는 placeholder 만. 기본 비밀값(`minioadmin` 등) 금지. `pnpm check:env` 는 placeholder 가 남아 있으면 0 이 아닌 코드로 멈춘다.
+  - web 은 기본으로 호스트에서 돈다(`pnpm -C web start`, Compose 에 `web` 서비스 없음). 그래서 호스트에 여는 포트는 web 이 닿아야 하는 `redis`·`qdrant`·`ai-gateway` 셋이고(`127.0.0.1:${*_HOST_PORT}`, 기본 6380·6333·8000), 모두 `127.0.0.1` 에만 바인딩한다. 외부 인터페이스(`0.0.0.0`)에는 열지 않는다. `worker` 는 포트를 열지 않는다. 결정 모델·Qwen 런타임은 Compose 에 없다(10 "로컬 Compose 서비스 (대체 경로)" 절).
+  - `.env.example`·`infra/env/*.env.example` 에는 placeholder 만. 공개 기본 비밀값 금지. `pnpm check:env` 는 `CHANGE_ME` placeholder 나 공개 기본값(`minioadmin`)이 남아 있으면 0 이 아닌 코드로 멈춘다.
   - `SUPABASE_SERVICE_ROLE_KEY` 는 worker·seed 서비스에만 넘긴다. web 컨테이너의 브라우저 번들·`NEXT_PUBLIC_` 변수에 들어가지 않게 한다.
   - `demo` 기본값: `DEMO_MODE=true`, `AI_PROVIDER=mock`, `KEV_ENABLED=true`(세 모드 모두 `true`·`false` 허용, 기본 `true`, ADR-029 A5), `AI_HOSTED_APPROVED=false`. `AI_FAULT_INJECT` 는 env 예시에 넣지 않는다(테스트 전용).
-  - 이미지 버전 고정, 비root 실행, healthcheck, restart policy, 로그 회전, named volume(`redisdata`·`miniodata`·`qdrantdata`).
-- **결정 모델 런타임**: 해커톤은 회사 GPU 서버의 우리 `sol_decision` 서버(Bosun v3.1 0.6B, `127.0.0.1:8009`, ADR-034)이고 노트북 Compose 에는 없다(ADR-025). healthcheck `GET /v1/models`. 옛 Kev 컨테이너 안내(`kev.serve --run jaredpalmer/kev-4b@v1.0 …`)는 당시 기록이며 다시 만들지 않는다. Qwen 은 회사가 운영하는 vLLM API(`QWEN_BASE_URL`)다. 10 의 Dockerfile 은 빌드 검증 전 스케치다. GPU 없는 노트북에서는 빌드·기동을 확인할 수 없으니 "미검증"으로 적는다.
+  - 이미지 버전 고정, 비root 실행, healthcheck, restart policy, 로그 회전, named volume(`redisdata`·`qdrantdata`).
+- **결정 모델 런타임**: 해커톤은 회사 GPU 서버의 우리 `sol_decision` 서버(Bosun v3.1 0.6B, `127.0.0.1:8009`, ADR-034)이고 노트북 Compose 에는 없다(ADR-025). healthcheck `GET /v1/models`. 옛 Kev 컨테이너 안내(`kev.serve --run jaredpalmer/kev-4b@v1.0 …`)는 당시 기록이며 다시 만들지 않는다. Qwen 은 회사가 운영하는 vLLM API(`QWEN_BASE_URL`)다. GPU 없는 노트북에서는 빌드·기동을 확인할 수 없으니 "미검증"으로 적는다.
 - **편집 금지·약화 금지**: `.husky/`·`.github/`·`.claude/settings*.json`·`.claude/hooks/`·`web/lodestar.config.*` 는 고치지 않는다(CI 를 바꿔야 하면 바꿀 내용을 보고). `verify.config.json`·`package.json`·`scripts/` 는 검사를 빼거나 약하게 만들지 않는다. 새 스택 등록은 된다.
 - **비밀**: `.env` 를 읽거나 출력하지 않는다. 값이 필요하면 사용자에게 요청한다.
 

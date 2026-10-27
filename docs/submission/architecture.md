@@ -62,7 +62,7 @@ flowchart TB
 ```
 
 - 모델을 부르는 컴포넌트는 AI gateway 하나다. web·redis-api·worker는 Qwen·결정 모델에 직접 닿지 않는다.
-- Vercel은 web만 실행한다. 분석·수집 접수와 관리자 AI 상태 조회만 회사 Gateway로 넘기고, 조회·가정 재계산은 Supabase RLS 경로로 읽는다. Vercel에는 service role 키·Redis 주소·모델 키를 넣지 않는다([[10-DEPLOYMENT|10 배포]] "Storage 전환·Vercel 환경").
+- Vercel은 web만 실행한다. 분석·수집 접수와 관리자 AI 상태 조회만 회사 Gateway로 넘기고, 조회·가정 재계산은 Supabase RLS 경로로 읽는다. Vercel에는 service role 키·Redis 주소·모델 키를 넣지 않는다([[10-DEPLOYMENT|10 배포]] "운영 구성 (ADR-049)").
 - 회사 Compose는 redis-api·AI gateway와 역할별 Worker다. Worker는 수집(`infra/compose.ingest-only.company.yaml`)·분석(`compose.analysis-only.company.yaml`)·첨부(`compose.documents-only.company.yaml`, 회사 반영 전)로 나뉜다. 알림·마감 job 등록은 전체 Worker(`web/worker/main.ts`)에만 있어, 운영에서 알림을 처리하는 Worker가 있는지는 미확인이다. 회사의 기존 Redis와 Nginx를 재사용하고 Redis·Qdrant·DB·모델 서버를 새로 만들지 않는다. 호스트에 여는 포트는 기존 Nginx upstream인 `127.0.0.1:6380` 하나다. 모델 키는 AI gateway만, service role·수집 키는 Worker만 받는다(`infra/company/README.md`).
 - 운영 상태(2026-10-27 기준): Vercel `/health/ready` 200(`db`·`redis`·`storage` ok, `ai: local`). 3시간 정기 수집이 2026-10-26 13:51부터 7회 모두 성공했고 실공고 592건이 쌓였다(최신 수집 10-27 09:03). 2026-10-24 운영 smoke에서는 FX-02 분석 요청이 202를 받고 `QUEUED`에서 멈췄다(결함 W1, 회사 Worker 미소비). 같은 날 운영 실모델 분석 1건이 끝났다(FX-02 66 WATCH). 화면 기본 출처는 Vercel env `SOL_DEFAULT_ORIGIN`이 정하고, 발표는 `?origin=demo`로 연다(D1, ADR-054).
 - DB·Auth·Storage는 Supabase 클라우드(ADR-048)라 데모 중 인터넷이 필요하다. 대체 경로는 `limitations.md`와 아래 (a-2).
@@ -89,7 +89,7 @@ flowchart LR
  WK -- service role · org_id 지정 --> SB
 ```
 
-- 로컬 Compose는 redis·qdrant·ai-gateway·worker 4개다. DB·Auth·Storage는 Supabase이고 web은 호스트에서 띄운다. 기동 절차는 [[10-DEPLOYMENT|10 배포]] "데모 당일 기동 절차"다.
+- 로컬 Compose는 redis·qdrant·ai-gateway·worker 4개다. DB·Auth·Storage는 Supabase이고 web은 호스트에서 띄운다. 기동 절차는 [[10-DEPLOYMENT|10 배포]] "대체 경로·녹화용(S5·S6) 기동 절차"다.
 - 리허설과 운영 경로 장애 때 쓰는 경로다. 회선이 끊기면 격리 로컬 Supabase CLI로 바꾼다([[19-DEMO-SCENARIO|19 데모 시나리오]] §5 대체 경로 ①).
 - 운영 경로와 같은 코드·같은 규칙 엔진이다. 다른 것은 Redis·worker·AI gateway가 도는 위치와 Supabase 프로젝트뿐이다.
 
@@ -144,6 +144,6 @@ flowchart TD
 
 - [[02-ARCHITECTURE|02 아키텍처]] — 경계 · AI 호출 경로 · 장애 원칙
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — §2 파이프라인, §3 실행 모드, §8 장애와 대체
-- [[10-DEPLOYMENT|10 배포]] — 현재 배포(ADR-049) · 프로필 · 회사 GPU 추론 엔드포인트 · 데모 당일 기동 절차
+- [[10-DEPLOYMENT|10 배포]] — 현재 배포(ADR-049) · 프로필 · 회사 GPU 추론 엔드포인트 · 대체 경로 기동 절차
 - [[16-DECISIONS|16 ADR]] — ADR-017 · ADR-020 · ADR-025 · ADR-034 · ADR-048 · ADR-049 · ADR-054 · ADR-055 · ADR-056
 - `infra/company/README.md` — 회사 Compose 실행서

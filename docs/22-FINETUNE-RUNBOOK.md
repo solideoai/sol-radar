@@ -293,7 +293,7 @@ SOL_GPU_SHARE_APPROVED=1 SOL_TRAIN_APPROVED=1 bash infra/gpu/bosun-f1.sh --batch
 
 F1 이 전부 실패하면 이 순서로 검토하고 결과를 사용자에게 보고한다. ①·② 는 같은 모델·같은 LoRA 구조 안의 조정이라 바로 해 본다. ③ 은 멈추고 보고하는 단계이고 그다음은 사람이 정한다. ④ 는 **사용자 승인 대상**이다. 어느 단계도 자동으로 넘어가지 않는다.
 
-① 불필요하게 긴 state 제거·구조 개선(`pastPerformance` 상한) ② batch 1·accum 늘리기·gradient checkpointing 확인 ③ 그래도 GPU 1 메모리가 넘치면 멈추고 회사에 보고한다. 학습과 `sol_decision.serve`(8009)는 공존이 기본이고 우리 절차로 8009 를 내리지 않는다 — 어떤 프로세스도 종료·이동하지 않는다([[10-DEPLOYMENT|10]] GPU 절 "추론 런타임과의 관계", ADR-034 10번). 8009 를 내릴지·언제 내릴지는 사람이 정하고, 그 결정으로 서빙이 멈추는 시간에는 S-LIVE 리허설을 잡지 않는다. PaddleOCR 는 대상이 아니다 ④ 다중 GPU·클라우드 GPU 임대(ADR-010)·GPU 0·2 사용은 모두 **사용자 승인 대상**이고, GPU 0·2 는 어떤 경우에도 쓰지 않는다. Kev-4B 전환 같은 모델 변경 경로는 이 문서에 없다.
+① 불필요하게 긴 state 제거·구조 개선(`pastPerformance` 상한) ② batch 1·accum 늘리기·gradient checkpointing 확인 ③ 그래도 GPU 1 메모리가 넘치면 멈추고 회사에 보고한다. 학습과 `sol_decision.serve`(8009)는 공존이 기본이고 우리 절차로 8009 를 내리지 않는다 — 어떤 프로세스도 종료·이동하지 않는다(§3.1 "GPU와 메모리", `infra/gpu/README.md`, ADR-034 10번). 8009 를 내릴지·언제 내릴지는 사람이 정하고, 그 결정으로 서빙이 멈추는 시간에는 S-LIVE 리허설을 잡지 않는다. PaddleOCR 는 대상이 아니다 ④ 다중 GPU·클라우드 GPU 임대(ADR-010)·GPU 0·2 사용은 모두 **사용자 승인 대상**이고, GPU 0·2 는 어떤 경우에도 쓰지 않는다. Kev-4B 전환 같은 모델 변경 경로는 이 문서에 없다.
 
 같은 F1 시간에 F3 보정·채점 경로(§4.4)도 20 step 패키지와 dev 로 한 번 돌려 `bosun_score`·`calibrate` 출력이 읽히는지 확인한다.
 

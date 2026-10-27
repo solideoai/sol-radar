@@ -345,7 +345,7 @@ md 변환본에는 글만 남는다. 그림 · 영상 · 도형 안 글자는 �
   - **배포** — 웹은 Vercel 운영 배포(2026-10-22 READY, `www.solideos-radar.com`, ADR-049 web 단독). 분석 런타임은 회사 Compose(redis-api · AI gateway · 수집 · 분석 · 첨부 전용 Worker). 로컬 데모 Compose 는 4 서비스(redis · qdrant · ai-gateway · worker) + Supabase 클라우드
   - 아래 한 줄: 서비스 운영자(`profiles.is_admin`)도 남의 조직은 못 읽는다.
 - 발표자 노트: "전사 확산은 조직을 하나 더 만드는 일입니다. 데이터는 전부 조직 단위로 잠겨 있어 코드를 바꾸지 않습니다. 역할은 영업 · 분석 · 열람으로 나뉘고, 운영 환경 차이는 env 로만 다룹니다. 조직 전환 화면은 해커톤 이후입니다."
-- 근거: [[04-DATABASE|04]], [[09-SECURITY|09]], [[10-DEPLOYMENT|10]] Compose 서비스 표, [[16-DECISIONS|ADR-008]] · [[16-DECISIONS|ADR-017]] · [[16-DECISIONS|ADR-049]], `docs/evidence/first-bundle/20261022-production-deployment.md`(운영 배포), `docs/evidence/20261021-vercel-services.md`.
+- 근거: [[04-DATABASE|04]], [[09-SECURITY|09]], [[10-DEPLOYMENT|10]] "로컬 Compose 서비스 (대체 경로)" 표, [[16-DECISIONS|ADR-008]] · [[16-DECISIONS|ADR-017]] · [[16-DECISIONS|ADR-049]], `docs/evidence/first-bundle/20261022-production-deployment.md`(운영 배포), `docs/evidence/20261021-vercel-services.md`.
 - 상태: 확정(배포 행은 ADR-049 기준). 회사 Worker 의 분석 처리는 10-24 운영 smoke 에서 `QUEUED` 에 멈췄다가(결함 W1, 회사 Worker 미소비, `docs/evidence/deployment/20261024-prod-smoke/`) 같은 날 운영 실모델 분석 1건(FX-02 66 WATCH)으로 풀렸다. 2026-10-27 `/health/ready` 200(`ai: local`), 3시간 정기 수집 7회 모두 성공. 첨부 전용 Worker 는 회사 반영 중이다.
 
 ### 슬라이드 16 — 확장성 ② 바꿔 끼우는 구조와 재현 가능한 분석 (1:00)

@@ -30,7 +30,7 @@
 
 `web/`(Next.js)은 루트와 **따로** 설치되고 돌아간다. 패키지 매니저는 pnpm 이다(npm 아님).
 웹이 루트에서 가져다 쓰는 것은 `supabase/`(스키마)와 `design/tokens.json`(색·글꼴·글자 눈금)이고,
-worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는다(Compose 에서는 읽기 전용 바인드, `docs/10-DEPLOYMENT.md` Compose 서비스 표).
+worker(`web/worker`)는 `fixtures/` 와 `infra/sources/registry.yaml` 을 읽는다(Compose 에서는 읽기 전용 바인드, `docs/10-DEPLOYMENT.md` "로컬 Compose 서비스 (대체 경로)" 표).
 검증 설정의 정본은 `verify.config.json` 이다. `pnpm verify`·커밋 게이트·CI 가 같은 설정을 읽고, 새 스택도 여기 등록한다.
 
 - 설치: 루트·`web` 두 곳에서 각각 `pnpm install`. 패키지 추가는 그 폴더 안에서 `pnpm add <패키지>` — 루트에 넣지 않는다

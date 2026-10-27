@@ -1,7 +1,7 @@
 # 첫 배포 안내
 
 Vercel은 `web` 서비스 하나만 배포한다(ADR-049, 루트 [vercel.json](../../vercel.json)). 내부 `ai` 서비스와 `web → ai` 바인딩은 없다(ADR-044 대체).
-redis-api·AI gateway·Worker는 회사 Compose가 맡는다. 현재 배포 기준은 [10 배포](../10-DEPLOYMENT.md)의 "현재 배포 코드와 회사 기동" 절이고, 운영 반영 기록은 [진행 상황](../PROGRESS.md)에 있다.
+redis-api·AI gateway·Worker는 회사 Compose가 맡는다. 현재 배포 기준은 [10 배포](../10-DEPLOYMENT.md)의 "운영 구성 (ADR-049)"·"회사 Compose 프로젝트" 절이고, 운영 반영 기록은 [진행 상황](../PROGRESS.md)에 있다.
 
 ## 프로젝트 설정
 

@@ -116,13 +116,13 @@ S5·S6 촬영, 운영에 `org-02` 계정이 없을 때의 S7 촬영, 회선·Sup
 D1 운영은 인터넷이 필요하다. 끊기면 로그인과 조회가 멈추고 `/health/ready`가 `503`을 낸다. 대체 경로는 §5 표의 ①~⑥이다. 자동 fallback은 없고 사람이 전환하며, 전환하면 발표에서 밝힌다([[16-DECISIONS|ADR-023]]).
 
 1. `pnpm db:start`로 격리 로컬 Supabase를 켠다. env는 `SOL_RUN_MODE=mock`, `AI_FALLBACK_TO_MOCK=false`다. 마이그레이션은 `pnpm db:start`가 적용한다.
-2. `docker compose -f infra/compose.yaml up -d --build`로 redis·qdrant·ai-gateway·worker를 띄운다. web은 호스트에서 `pnpm -C web start`로 띄운다. `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 본다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]] "데모 당일 기동 절차"다.
+2. `docker compose -f infra/compose.yaml up -d --build`로 redis·qdrant·ai-gateway·worker를 띄운다. web은 호스트에서 `pnpm -C web start`로 띄운다. `curl -s http://localhost:3000/health/ready`가 `{status:"ok", checks:{db,redis,storage,ai:"mock"}}`인지 본다. 전체 기동 절차는 [[10-DEPLOYMENT|10 배포]] "대체 경로·녹화용(S5·S6) 기동 절차"다.
 3. `pnpm demo:reset`으로 seed를 적용한다. 출력 마지막 줄(§1)과 `--write-summary <경로>` JSON의 `ingestRun.summary`가 `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}`인지 본다(격리 = FX-12 제목 누락, 재시도 2 = FX-20의 429 두 번).
-4. `pnpm demo:preanalyze`로 FX-02를 뺀 적재 공고 18건을 미리 분석한다(`mock`·gateway 필수, 18건 모두 `COMPLETED`, [[10-DEPLOYMENT|10 배포]] 기동 절차, [[16-DECISIONS|ADR-031]] C12(f)). FX-02는 `미분석`으로 남는다. 로컬 S4는 [분석 실행]이고 결과는 골든 72다. reset을 다시 돌렸으면 사전 분석도 다시 한다.
+4. `pnpm demo:preanalyze`로 FX-02를 뺀 적재 공고 18건을 미리 분석한다(`mock`·gateway 필수, 18건 모두 `COMPLETED`, [[10-DEPLOYMENT|10 배포]] "대체 경로·녹화용(S5·S6) 기동 절차", [[16-DECISIONS|ADR-031]] C12(f)). FX-02는 `미분석`으로 남는다. 로컬 S4는 [분석 실행]이고 결과는 골든 72다. reset을 다시 돌렸으면 사전 분석도 다시 한다.
 5. `http://localhost:3000/auth/login`에서 sales@soltech.invalid로 로그인한다. S7을 로컬에서 찍으면 `org-02` 토큰을 받아 둔다(§4 S7 명령).
 6. 분석 화면의 분석 요약 띠가 "분석 실행 모드: mock"·"AI: mock"인지 본다.
 
-`live`·`fixture` 기동 확인이 필요하면 [[10-DEPLOYMENT|10 배포]] 기동 절차와 [[16-DECISIONS|ADR-034]] 16번 조건을 따른다.
+`live`·`fixture` 기동 확인이 필요하면 [[10-DEPLOYMENT|10 배포]] "대체 경로·녹화용(S5·S6) 기동 절차"와 [[16-DECISIONS|ADR-034]] 16번 조건을 따른다.
 
 ## 4. 클릭 경로
 
@@ -205,7 +205,7 @@ D1 운영은 인터넷이 필요하다. 끊기면 로그인과 조회가 멈추�
 
 운영 회사 gateway는 멈추지 않는다.
 
-1. 장애 주입: 터미널에서 `docker compose -f infra/compose.yaml stop ai-gateway`([[10-DEPLOYMENT|10]] 장애 주입 절).
+1. 장애 주입: 터미널에서 `docker compose -f infra/compose.yaml stop ai-gateway`([[10-DEPLOYMENT|10]] "장애 주입 (S6 녹화)" 절).
 2. **FX-01** → [재분석].
 3. 보여야 하는 것: 새 `score_run` 상태 `PARTIAL`, "부분 완료 (규칙만)", 분석 요약 띠 "AI: mock · 응답 없음(규칙만)", `recommendationBasis=RULES_ONLY`, `reviewFlags`에 `AI_UNAVAILABLE`, 배너 "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)"([[09-SECURITY|09]] 고지 문구). 자격 체크리스트와 점수는 저장된 추출 결과로 그대로 계산되고, 결정 모델 패널은 "사용 불가", 설명은 템플릿 문장. 이전 `COMPLETED` run은 이력에 남는다.
 4. 말할 것: "모델이 없어도 결과가 나오고, 없다는 사실을 숨기지 않는다. 결과를 덮어쓰지 않고 새 run을 만든다."

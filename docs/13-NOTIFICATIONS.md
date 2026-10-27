@@ -106,7 +106,7 @@ sequenceDiagram
 
 ## 이메일 알림 (ADR-041)
 
-메일 알림은 해커톤 범위 밖이고 코드에 없다(`notifications_channel_check`가 `IN_APP`·`KAKAO`만 허용하고 알림용 메일 발송 코드가 없다. SMTP는 초대 메일 `web/server/organization/organization.mail.ts`만 쓴다). 설계는 [[16-DECISIONS|ADR-041]]과 [[10-DEPLOYMENT|10 배포]] 이메일 절이다. 데모·제출물에서 메일 알림을 주장하지 않는다.
+메일 알림은 해커톤 범위 밖이고 코드에 없다(`notifications_channel_check`가 `IN_APP`·`KAKAO`만 허용하고 알림용 메일 발송 코드가 없다. SMTP는 초대 메일 `web/server/organization/organization.mail.ts`만 쓴다). 설계는 [[16-DECISIONS|ADR-041]]이다. 데모·제출물에서 메일 알림을 주장하지 않는다.
 
 ## 관련 문서
 - [[01-PRD|01 PRD]]
