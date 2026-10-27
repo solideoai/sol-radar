@@ -10,13 +10,6 @@ updated: 2026-10-27
 
 # 04. Supabase Postgres 데이터 설계
 
-## 2026-10-22 커밋 통합 현행
-
-카카오 연결·추천 outbox는 이번 통합의 `20261023000700`~`00704`, 지원사업은 `20261023000800`, 조직 감사는 `20261023000600`, 번역 검토 flag는 `20261023000500`을 따른다. 아래의 구 `20261021000001`~`000004`/`000601`~`000604` 표기는 채택 전 브랜치의 설계 이력이다. 해당 구 파일은 main에 새로 도입하지 않는다. 기존 main migration 41개는 불변이며 운영 적용 여부는 별도다. [기능/SQL 대응표](evidence/committed-integrations/integration.md)를 참고한다.
-
-`program_notices`는 지원사업 공개 정보 전용 공용 표이며 인증 사용자 읽기, Worker 쓰기다. 입찰 점수/권고/분석 표와 섞지 않는다. 카카오 전송 의도 claim은 Worker만 실행하며 송신 성공 후 DB 실패에도 같은 사용자·공고를 자동 재발송하지 않는다.
-
-
 ## 1. 정책
 
 - DB는 **Supabase Postgres**다(개발: Supabase 클라우드 프로젝트, [[16-DECISIONS|16 ADR]] ADR-017). 인증은 Supabase Auth가 맡고, 이 문서의 표는 `public` 스키마에 둔다.
@@ -67,7 +60,7 @@ erDiagram
  ORGANIZATION ||--o{ AUDIT_LOG : records
  PROFILE ||--o{ BID_REVIEW : performs
  PROFILE ||--o{ NOTIFICATION : reads
- PROFILE ||--o| KAKAO_NOTIFY_LINK : "카카오톡 알림 연결 (ADR-038, main 병합)"
+ PROFILE ||--o| KAKAO_NOTIFY_LINK : "카카오톡 알림 연결 (ADR-038)"
  PROFILE ||--o{ AUDIT_LOG : acts
  BID_NOTICE ||--o{ BID_REVISION : versions
  BID_REVISION ||--o{ BID_DOCUMENT : includes
@@ -104,22 +97,21 @@ erDiagram
 |`invitations`|`id`, `org_id` FK, `email`(소문자), `org_role` text default `member`, **`sol_role` text default `VIEWER`**(새 열, `20261019000001`), `invited_by` FK profiles, `expires_at`(기본 7일), `created_at`|UNIQUE(`org_id`,`email`). `org_role`·`sol_role` check는 `memberships`와 같다|그 조직의 역할 `ADMIN`이 읽기·만들기·갱신·취소, 받은 사람이 읽기·거절·수락. 수락하면 초대의 `sol_role`이 멤버십으로 옮겨진다(초대 수락 트리거·정책). `20261019000001`이 템플릿의 owner 기준 정책을 바꾼 것이다([[16-DECISIONS\|ADR-021]])|
 |`activities`|템플릿 그대로: `org_id`, `actor_id`, `kind`, `target_user_id`, `target_name`, `old_role`, `new_role`, `task_title`, `created_at`|`kind` check(템플릿)|읽기: 조직 전원. 쓰기: 트리거만. 멤버 합류·역할 변경·초대 피드다. SOL RADAR의 업무 감사는 `audit_logs`(§3.6)가 맡는다|
 |`tasks`|템플릿 그대로(`20261014000004_tasks_and_activity.sql`: `title`, `description`, `status`, `due_date`, `assignee_id` 등). P1: `bid_project_id` nullable 열, (`bid_project_id`,`org_id`) → `bid_projects(id, org_id)` 복합 FK([[16-DECISIONS\|ADR-021]])|템플릿 그대로|템플릿 정책(조직 구성원 쓰기). P1: `bid_project_id`가 있는 행(입찰 프로젝트 체크리스트)은 SALES·ADMIN만 쓰는 제한 정책. 담당자는 로그인 계정|
-|`kakao_notify_links`|`user_id` UUID PK FK profiles(on delete cascade), `enabled` boolean default false, `status` text, `access_token_enc`·`refresh_token_enc` text(웹 서버가 AES-256-GCM으로 암호화한 값. 평문을 두지 않는다), `access_expires_at`·`refresh_expires_at`(카카오 응답의 초 값으로 계산), `last_sent_at` nullable, `last_result` text nullable, `created_at`, `updated_at`(트리거). 사용자 개인 설정이라 `org_id`가 없다([[16-DECISIONS\|ADR-038]])|`status` ∈ `CONNECTED`·`EXPIRED`, `last_result` ∈ `SENT`·`FAILED`·`EXPIRED`(check)|읽기: 본인 행(`user_id = auth.uid()`)만, 열 여섯 개(`user_id`·`enabled`·`status`·`last_sent_at`·`last_result`·`updated_at`)만. 토큰 열은 화면 역할이 읽지 못한다. 쓰기: 화면 역할은 표 권한이 없고 아래 RPC 넷으로만 한다. anon은 권한이 없다. worker(service role)가 읽기·상태·토큰 갱신을 한다. 구현 중(`feat/kakao-notify` `d327894`, `20261021000001`)|
-|`user_consents`|`user_id` UUID PK FK profiles(on delete cascade), `terms_agreed_at`·`privacy_agreed_at`·`age_confirmed_at` timestamptz not null, `marketing_agreed_at` timestamptz nullable(null = 마케팅 수신 동의 안 함). 시각은 가입 트리거가 행을 넣는 순간(`now()`)이고 화면이 보낸 시각을 믿지 않는다(`20261027000600`, 2026-10-27 로컬 통합, 운영 미적용)|사람 하나에 한 행. 탈퇴(`auth.users` 삭제)하면 `profiles`와 함께 지워진다|읽기: 본인 행(`user_id = auth.uid()`)만. service_role도 읽기만 한다. 쓰기: 가입 트리거 `handle_new_user`(security definer)만 넣는다. 고치기·지우기 권한은 화면 역할에도 service_role에도 없다. anon은 권한이 없다|
+|`kakao_notify_links`|`user_id` UUID PK FK profiles(on delete cascade), `enabled` boolean default false, `status` text, `access_token_enc`·`refresh_token_enc` text(웹 서버가 AES-256-GCM으로 암호화한 값. 평문을 두지 않는다), `access_expires_at`·`refresh_expires_at`(카카오 응답의 초 값으로 계산), `last_sent_at` nullable, `last_result` text nullable, `created_at`, `updated_at`(트리거). 사용자 개인 설정이라 `org_id`가 없다([[16-DECISIONS\|ADR-038]])|`status` ∈ `CONNECTED`·`EXPIRED`, `last_result` ∈ `SENT`·`FAILED`·`EXPIRED`(check)|읽기: 본인 행(`user_id = auth.uid()`)만, 열 여섯 개(`user_id`·`enabled`·`status`·`last_sent_at`·`last_result`·`updated_at`)만. 토큰 열은 화면 역할이 읽지 못한다. 쓰기: 화면 역할은 표 권한이 없고 아래 RPC 넷으로만 한다. anon은 권한이 없다. worker(service role)가 읽기·상태·토큰 갱신을 한다(`20261023000700`)|
+|`user_consents`|`user_id` UUID PK FK profiles(on delete cascade), `terms_agreed_at`·`privacy_agreed_at`·`age_confirmed_at` timestamptz not null, `marketing_agreed_at` timestamptz nullable(null = 마케팅 수신 동의 안 함). 시각은 가입 트리거가 행을 넣는 순간(`now()`)이고 화면이 보낸 시각을 믿지 않는다(`20261027000600`, 운영 적용 2026-10-27)|사람 하나에 한 행. 탈퇴(`auth.users` 삭제)하면 `profiles`와 함께 지워진다|읽기: 본인 행(`user_id = auth.uid()`)만. service_role도 읽기만 한다. 쓰기: 가입 트리거 `handle_new_user`(security definer)만 넣는다. 고치기·지우기 권한은 화면 역할에도 service_role에도 없다. anon은 권한이 없다|
 
-카카오톡 알림 연결 RPC([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", 2026-10-22 main 병합. 처음 커밋 `d327894`의 `20261021000001`은 `20261023000700`으로 번호를 바꿨다): 넷 다 `security definer`·`set search_path = ''`이고 `authenticated`만 실행한다. 로그인하지 않았으면 `UNAUTHENTICATED`로 거절한다. `scripts/db-verify.mjs` 허용 목록에 올렸다.
+카카오톡 알림 연결 RPC([[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", `20261023000700`): 넷 다 `security definer`·`set search_path = ''`이고 `authenticated`만 실행한다. 로그인하지 않았으면 `UNAUTHENTICATED`로 거절한다. `scripts/db-verify.mjs` 허용 목록에 올렸다.
 - `save_kakao_notify_link(text, text, timestamptz, timestamptz)`: 연결 콜백이 부른다. 본인 행에 암호문 둘·만료 둘을 넣거나 바꾸고 `status=CONNECTED`·`enabled=true`로 둔다.
 - `set_kakao_notify_enabled(boolean)`: 켜기는 본인 행이 `CONNECTED`일 때만 된다(아니면 `KAKAO_NOT_CONNECTED`). 끄기는 늘 된다.
 - `disconnect_kakao_notify()`: 연결 해제. 본인 행을 지운다(설계 §7은 `enabled=false`·토큰 열 비우기였으나 구현은 행 삭제다).
 - `request_kakao_notify_test() returns boolean`: 본인 행이 `CONNECTED`이고 켜져 있을 때만(아니면 `KAKAO_NOT_READY`) outbox `KAKAO_TEST` 1건을 넣는다(`org_id` null, `aggregate_type` `kakao_notify_link`, 키 `<userId>:<UTC YYYY-MM-DDTHH:MI>:KAKAO_TEST`). 같은 분에 이미 있으면 false다.
 
-가입 약관 동의 검사(`20261027000600`, 2026-10-27 로컬 통합, 운영 미적용. 근거 [live 가드 검증](evidence/live-guards/20261027.md)):
+가입 약관 동의 검사(`20261027000600`, 운영 적용 2026-10-27. 근거 [live 가드 검증](evidence/live-guards/20261027.md)):
 - `handle_new_user`를 다시 만들었다. 이메일 가입(가입 정보에 `department_code`·`job_title_code` 키가 있음)은 `consents`의 `terms`·`privacy`·`age_over_14`가 모두 JSON `true`일 때만 계정을 만든다. 아니면 `consent_required`(22023)로 거절하고 `auth.users` 삽입이 통째로 되돌아간다. 문자열 `"true"`·`1`은 동의가 아니다.
 - 통과하면 같은 트리거가 `user_consents` 한 행을 넣는다. `consents.marketing`은 JSON `true`일 때만 동의 시각을 적는다.
-- 화면 검증(`sign-up-schema.ts`)은 편의이고 DB가 막는다. 2026-10-27 코드의 가입 화면은 `options.data.consents`를 보낸다. 운영자 스크립트(admin API)로 같은 키를 쓰는 계정도 같은 규칙을 지난다. `scripts/db-seed.mjs`·E2E seed도 `consents`를 보낸다.
+- 화면 검증(`sign-up-schema.ts`)은 편의이고 DB가 막는다. 가입 화면은 `options.data.consents`를 보낸다. 운영자 스크립트(admin API)로 같은 키를 쓰는 계정도 같은 규칙을 지난다. `scripts/db-seed.mjs`·E2E seed도 `consents`를 보낸다.
 - 간편 가입(OAuth, 두 키가 없음)은 지금처럼 동의 없이 미완료 프로필만 만든다. 동의 화면은 후속 과제다([[09-SECURITY|09 보안]] 인증).
 - 부서·직급 확인과 프로필 삽입은 `20261016000004` 본문 그대로다. 되돌리기는 새 마이그레이션으로 그 본문을 다시 만들고 `user_consents`를 drop 한다.
-- 운영 순서 주의: 이 마이그레이션을 먼저 적용하고 웹 배포가 늦으면, 그 사이 운영 이메일 가입이 `consent_required`로 막힌다([[10-DEPLOYMENT|10 배포]] "첨부 처리 운영 반영").
 
 **없는 것**: `users`·`refresh_tokens` 표, 비밀번호 해시·계정 잠금·마지막 로그인 열. 로그인·세션·토큰·잠금은 Supabase Auth(`auth.users`, `auth.sessions`, `auth.refresh_tokens`)가 맡는다. 계정 비활성화는 `disabled_at` 대신 템플릿 `profiles.status = 'suspended'`를 쓴다(템플릿 `20261015000001_account_status_and_deletion.sql`). 정지하면 로그인이 막히고 세션이 끊기며, `my_org_ids()`가 빈 목록을 돌려줘 조직 데이터가 모두 닫힌다.
 
@@ -133,8 +125,8 @@ erDiagram
 
 Phase 1 조직·사용자 결정(마이그레이션 머리 주석의 "§3.1 결정 N"이 이 번호다):
 1. 개인 조직과 현재 조직: 위 `profiles` 행과 [[05-API-SPEC|05 API 명세]] §1 현재 조직([[16-DECISIONS|ADR-021]]).
-2. 구성원 관리 권한: `sol_role='ADMIN'` 기준(위 `memberships`·`invitations` 행, ADR-021). 사용자 요청으로 마지막 업무 ADMIN을 강등하거나 내보낼 수 없다(`last_admin`). 같은 조직 행을 잠가 동시 변경을 직렬화하고, 일괄 변경도 ADMIN을 0명으로 만들 수 없다. 계정 탈퇴는 JWT를 비우기 전에 `auth.users → profiles → organizations` 순서로 행을 잠그고 검사한다. 멤버십의 프로필 FK 잠금과 충돌시켜 검사 뒤 다른 세션이 새 조직에 가입하는 경로도 막는다. 혼자인 조직의 계정 탈퇴·조직 삭제와 JWT 없는 관리 작업·service role은 기존 관리 경로를 유지한다. 구현은 조정 세션(e8)이 배정한 새 마이그레이션 `20261019000014`다(main `0e9821d`).
-   - **남은 관리자는 활동 계정만 센다**([[16-DECISIONS|ADR-033]] E2): 마지막 업무 ADMIN 보호와 템플릿의 마지막 owner 보호는 "다른 ADMIN·owner가 남는가"를 셀 때 `profiles.status='active'`인 계정만 센다. `my_sol_org_ids()`가 정지 사용자에게 빈 목록을 주는 것과 같은 기준이다. 정지된 ADMIN·owner만 남는 변경은 거절한다. 구현 상태: main의 `20261019000014`(`protect_last_sol_admin`·`delete_my_account`)와 템플릿 `protect_last_owner`(`20261014000001`)는 아직 계정 상태를 보지 않고 멤버십을 센다. 활동 계정 기준은 후속 마이그레이션 예정이다(번호는 e8 배정).
+2. 구성원 관리 권한: `sol_role='ADMIN'` 기준(위 `memberships`·`invitations` 행, ADR-021). 사용자 요청으로 마지막 업무 ADMIN을 강등하거나 내보낼 수 없다(`last_admin`). 같은 조직 행을 잠가 동시 변경을 직렬화하고, 일괄 변경도 ADMIN을 0명으로 만들 수 없다. 계정 탈퇴는 JWT를 비우기 전에 `auth.users → profiles → organizations` 순서로 행을 잠그고 검사한다. 멤버십의 프로필 FK 잠금과 충돌시켜 검사 뒤 다른 세션이 새 조직에 가입하는 경로도 막는다. 혼자인 조직의 계정 탈퇴·조직 삭제와 JWT 없는 관리 작업·service role은 기존 관리 경로를 유지한다. 구현은 `20261019000014`다.
+   - **남은 관리자는 활동 계정만 센다**([[16-DECISIONS|ADR-033]] E2): 마지막 업무 ADMIN 보호와 템플릿의 마지막 owner 보호는 "다른 ADMIN·owner가 남는가"를 셀 때 `profiles.status='active'`인 계정만 센다. `my_sol_org_ids()`가 정지 사용자에게 빈 목록을 주는 것과 같은 기준이다. 정지된 ADMIN·owner만 남는 변경은 거절한다. 구현 상태: main의 `20261019000014`(`protect_last_sol_admin`·`delete_my_account`)와 템플릿 `protect_last_owner`(`20261014000001`)는 아직 계정 상태를 보지 않고 멤버십을 센다. 활동 계정 기준의 마이그레이션은 아직 없다.
 3. 비활성화: 조직 ADMIN의 비활성화는 그 조직에서 내보내기다([[05-API-SPEC|05 API 명세]] §2 `DELETE /admin/users/:id`, [[09-SECURITY|09 보안]] 인증). 계정 정지(`profiles.status`)는 서비스 운영자만 `admin_set_user_status`로 한다.
 4. 로그인 감사: `audit_logs`의 `LOGIN`·`LOGOUT`을 남길 지점은 [[16-DECISIONS|16 ADR]] 미결정 14번이다.
 
@@ -164,7 +156,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |---|---|---|
 |`bid_notices`|`id`, `source` text(bid_source), `notice_id` text, `plan_ref` text nullable, `pre_spec_ref` text nullable, `title`, `agency` nullable, `stage` text(bid_stage), `status` text(bid_status), `budget_krw` numeric(18,0) nullable, `published_at` nullable, `deadline_at` nullable, `source_url`, `latest_revision` int, `content_hash` text, `is_demo` boolean default false, `last_synced_at`, `created_at`, `updated_at`|UNIQUE(`source`,`notice_id`). `budget_krw >= 0`|
 |`bid_revisions`|`id`, `bid_id` FK, `revision` int, `amendment_no` text nullable, `raw_payload` JSONB, `normalized` JSONB(`NormalizedBid`), `checksum` text, `changed_fields` text[], `fetched_at`, `created_at`|UNIQUE(`bid_id`,`revision`). `checksum` = `NormalizedBid.checksum`|
-|`bid_documents`|`id`, `bid_id` FK, `revision_id` FK, `name`, `original_url`, `download_status` text(document_download_status) default `PENDING`, `download_error_code` text nullable, `format` text nullable, `object_key` text nullable, `sha256` nullable, `mime_type` nullable, `size_bytes` bigint nullable, `parse_status` text(document_parse_status) nullable, `parse_error_code` text(document_parse_error) nullable, `parser_id` text nullable, `parse_quality` JSONB nullable, `text_object_key` nullable, `page_count` int nullable, `created_at`|UNIQUE(`revision_id`,`sha256`). `download_status='OK'`이면 `object_key`·`sha256`·`size_bytes`가 NOT NULL(check). `parse_status ∈ (UNSUPPORTED, FAILED)`이면 `parse_error_code` NOT NULL(check). 원본·추출 텍스트는 Supabase Storage, 키만 저장. 다운로드는 서버가 권한을 확인한 뒤 짧은 presigned URL을 준다([[09-SECURITY\|09 보안]])|
+|`bid_documents`|`id`, `bid_id` FK, `revision_id` FK, `name`, `original_url`, `download_status` text(document_download_status) default `PENDING`, `download_error_code` text nullable, `format` text nullable, `object_key` text nullable, `sha256` nullable, `mime_type` nullable, `size_bytes` bigint nullable, `parse_status` text(document_parse_status) nullable, `parse_error_code` text(document_parse_error) nullable, `parser_id` text nullable, `parse_quality` JSONB nullable, `text_object_key` nullable, `page_count` int nullable, `created_at`, Storage 원장 참조 열 10개(`storage_bucket`·`text_storage_bucket`·`raw_storage_id`·`parsed_storage_id`·`uploaded_at`·`parsed_at`·`download_error_message`·`parse_error_message`·`processing_attempt_id`·`processing_lease_until`, `20261021000700`)|(`revision_id`,`sha256`) 일반 인덱스(UNIQUE 아님, `20261021000700`). 원장 복합 FK 2개와 완결 check 2개. `download_status='OK'`이면 `object_key`·`sha256`·`size_bytes`가 NOT NULL(check). `parse_status ∈ (UNSUPPORTED, FAILED)`이면 `parse_error_code` NOT NULL(check). 원본·추출 텍스트는 Supabase Storage, 키만 저장. 다운로드는 서버가 권한을 확인한 뒤 짧은 presigned URL을 준다([[09-SECURITY\|09 보안]])|
 |`bid_structured_requirements`|`id`, `bid_id` FK, `revision_id` FK, `kind` text(structured_requirement_kind), `seq` smallint, `code` text nullable, `name` text nullable, `value` JSONB, `source_operation` text, `created_at`|UNIQUE(`revision_id`,`kind`,`seq`). 공고 API가 구조화 필드로 준 자격 조건 한 행. 조직과 무관|
 |`requirement_extractions`|`id`, `bid_id` FK, `revision_id` FK, `provider` text(ai_provider), `model_name` text, `prompt_version` text, `prompt_hash` text, `schema_version` text, `status` text(extraction_status), `payload` JSONB(`RequirementExtraction`), `translations` JSONB nullable, `warnings` JSONB(코드 목록은 [[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4 표), `latency_ms` int, `retries` smallint, `created_at`|UNIQUE(`revision_id`,`model_name`,`prompt_hash`). 조직과 무관, 재사용|
 
@@ -178,7 +170,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
   - `parse_status`·`parse_error_code`: `/parse` 결과. 다운로드가 `OK`가 되면 `PENDING`으로 두고 파싱 뒤 결과 값으로 바꾼다. 다운로드가 `PENDING`·`FAILED`인 동안은 NULL(파싱 시도 안 함)이다. 형식별 파서는 실제 RFP 샘플 비교로 정한다([[03-AI-PIPELINE|03 AI 파이프라인]] 문서 파싱 절). 50 MB 초과는 다운로드하지 않으므로 `download_status=FAILED` + `download_error_code=TOO_LARGE`이고 `parse_status`는 NULL이다.
   - `parser_id`: 파서 어댑터와 버전. `parse_quality`: 파서가 낸 품질 신호.
   - `processing_attempt_id`·`processing_lease_until`(`20261021000700`이 만든 열): documents job의 문서별 처리 리스다. `20261027000500`부터 처음 쓴다(아래 §7). 화면은 읽지 않는다.
-  - 2026-10-27 코드(로컬 통합, 운영 미적용)의 documents job이 실제로 채운다. 처리 범위 밖 첨부(형식 밖, 공고당 상한 밖, 마감 지난 공고)는 `download_status=PENDING`으로 남는다([[07-DATA-PIPELINE|07 수집]] "documents 큐 소비자 계약", [[16-DECISIONS|ADR-055]]).
+  - documents job(`web/worker/documents-job.ts`)이 채운다. 운영은 회사 documents Worker 반영 뒤부터다([[10-DEPLOYMENT|10 배포]]). 처리 범위 밖 첨부(형식 밖, 공고당 상한 밖, 마감 지난 공고)는 `download_status=PENDING`으로 남는다([[07-DATA-PIPELINE|07 수집]] "documents 큐 소비자 계약", [[16-DECISIONS|ADR-055]]).
 - `bid_structured_requirements`: 면허제한(`lcnsLmtNm`)·허용 업종(`permsnIndstrytyList`)·참가가능지역(`prtcptPsblRgnNm`)·지역의무공동도급(`rgnDutyJntcontrctRt`) 행. 같은 조건을 이 표와 Qwen 추출이 둘 다 주면 **이 표가 우선**이고, 둘이 다르면 그 조건은 `CONFLICTED`다([[08-SCORING|08 점수]] §5.1). `source_operation`은 값을 받은 오퍼레이션 이름, `value`는 그 행의 원본 필드다(담당자 필드는 넣지 않는다).
 - `requirement_extractions.translations`: `/extract`가 함께 돌려준 자유 텍스트 값의 영어 표기(`Record<fieldPath, string>`). 숫자·식별자·단위·조건 검증을 통과한 공고 번역만 들어간다. 기업 프로필 보충 번역은 `/kev` 요청에서만 사용하며 이 열에 저장하지 않는다. 결정 모델 영어 state를 만들 때 쓴다([[03-AI-PIPELINE|03 AI 파이프라인]]).
 
@@ -213,8 +205,8 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 - `requirement_assessments.kev_distribution`의 JSONB 모양은 `{qid, distribution, label}`이다([[16-DECISIONS|ADR-032]] D7). [[05-API-SPEC|05]] §4.5 `RequirementAssessment.kev`와 같고, gateway `/kev` 응답의 항목 분포 `{itemId, qid, distribution, label}`(`services/ai/src/sol_ai/contracts.py` `RequirementDistribution`)과도 맞는다. 항목 경로 `itemId`는 이 표의 `item_id` 열에 있다. 지금 C5-B 저장 매핑은 이 열에 null을 쓴다(`web/server/analysis/analysis-store.model.ts`). 결정 모델 질문 세트 v0.2의 항목 질문을 쓰는 run에서 채운다.
 - 미충족(`NOT_SATISFIED`)에는 공고 쪽 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 한다. 이 규칙은 규칙 엔진과 zod 스키마, 단위 시험이 강제한다(JSONB 내부라 DB check로 걸지 않는다, §1).
 - `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)는 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장한다(`web/server/scoring/qualification.ts`). 값 집합은 3값 그대로이고, 결정 경로에서는 다른 `NEEDS_REVIEW`와 같게 다룬다.
-- `finish_score_run(p jsonb)`: 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 결과를 쓰고 마감한다. 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. `20261019000013`부터는 마감 뒤 status가 `COMPLETED`·`PARTIAL`이 아니어도 `SCORE_RUN_INVALID_STATUS`로 거절한다(`FAILED` 마감은 이 함수가 아니라 markFailed가 한다). 멱등 키의 requestId 형식(`^[A-Za-z0-9_-]{1,128}$`)은 [[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 구현은 C5-B 마이그레이션 `20261019000011`(main `cfe8f0a`)과 `20261019000013`(main `8f33caa`)). `20261019000016`(C7, main `841b064`)부터는 마감한 run에 `requested_by`가 있으면 같은 트랜잭션에서 `outbox_events`에 `ANALYSIS_COMPLETE` 1건을 쓴다(§3.6, [[13-NOTIFICATIONS|13 알림]]). 사전 분석 run(`requested_by` null)은 쓰지 않고, 거절되면 트랜잭션 전체가 되돌아가 이벤트도 남지 않는다. `20261021000002`([[16-DECISIONS|ADR-038]], 구현 중 `feat/kakao-notify` `d327894`)부터는 `requested_by`가 있고 마감 권고가 BID·WATCH면 같은 트랜잭션에서 `BID_RECOMMENDED` 1건도 쓴다(키 `<orgId>:<bidId>:BID_RECOMMENDED`, 같은 키가 있으면 쓰지 않는다. §3.6). 나머지는 `20261019000016`과 같다.
-- `score_runs.request_hash`(text, null 허용, `20261019000012`, main `4ae09f9`): 분석 요청 본문의 지문. 같은 `Idempotency-Key`에 다른 본문이 오면 서버가 이 값과 비교해 409를 낸다. 화면 역할은 요청 행을 넣을 때만 쓴다(열 단위 insert 권한, 고치기 권한 없음). 같은 마이그레이션의 `release_unqueued_score_run(uuid)`는 큐 등록에 실패한 자기 요청 run을 `FAILED`·`ENQUEUE_FAILED`로 풀고 멱등 키를 비운다.
+- `finish_score_run(p jsonb)`: 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 결과를 쓰고 마감한다. 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. `20261019000013`부터는 마감 뒤 status가 `COMPLETED`·`PARTIAL`이 아니어도 `SCORE_RUN_INVALID_STATUS`로 거절한다(`FAILED` 마감은 이 함수가 아니라 markFailed가 한다). 멱등 키의 requestId 형식(`^[A-Za-z0-9_-]{1,128}$`)은 [[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 마이그레이션은 `20261019000011`·`20261019000013`). `20261019000016`부터는 마감한 run에 `requested_by`가 있으면 같은 트랜잭션에서 `outbox_events`에 `ANALYSIS_COMPLETE` 1건을 쓴다(§3.6, [[13-NOTIFICATIONS|13 알림]]). 사전 분석 run(`requested_by` null)은 쓰지 않고, 거절되면 트랜잭션 전체가 되돌아가 이벤트도 남지 않는다. `20261023000701`([[16-DECISIONS|ADR-038]])부터는 `requested_by`가 있고 마감 권고가 BID·WATCH면 같은 트랜잭션에서 `BID_RECOMMENDED` 1건도 쓴다(키 `<orgId>:<bidId>:BID_RECOMMENDED`, 같은 키가 있으면 쓰지 않는다. §3.6). 나머지는 `20261019000016`과 같다.
+- `score_runs.request_hash`(text, null 허용, `20261019000012`): 분석 요청 본문의 지문. 같은 `Idempotency-Key`에 다른 본문이 오면 서버가 이 값과 비교해 409를 낸다. 화면 역할은 요청 행을 넣을 때만 쓴다(열 단위 insert 권한, 고치기 권한 없음). 같은 마이그레이션의 `release_unqueued_score_run(uuid)`는 큐 등록에 실패한 자기 요청 run을 `FAILED`·`ENQUEUE_FAILED`로 풀고 멱등 키를 비운다.
 - 뷰 `bid_list_items`(`20261019000012`, `security_invoker`): 공고 목록·대시보드가 읽는 한 줄이다. 공고 한 건에 부른 사람 조직의 최신 run(상태 무관)·최신 점수 run(`COMPLETED`·`PARTIAL`)·최신 결정(검토자 이름·이메일)·최신 revision 첨부 집계를 붙인다. `status`는 `OPEN`·`AMENDED`이고 마감이 지났으면 `CLOSED`로 계산한다([[16-DECISIONS|ADR-030]] B14). 밑 표의 RLS를 부른 사람 권한으로 그대로 받으므로 다른 조직의 run·결정 열은 null이다. 화면 역할은 select만 한다.
 - 후보: `qualification_checks`에 (`score_run_id`, 항목) UNIQUE를 둘지 정한다. 항목을 가리킬 열은 아직 정하지 않았다(지금 표에는 항목 id 열이 없고 `requirement_code`는 null일 수 있다, ADR-031 C12(d)).
 
@@ -224,7 +216,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |---|---|---|---|
 |`departments`|`id` UUID PK, `org_id` FK, `code` text, `name` text, `source_count` int, `target_count` int nullable, `is_demo`, `created_at`. [[16-DECISIONS\|ADR-021]]: `parent_id` UUID nullable(상위 부서, 같은 org 복합 FK 자기 참조), `kind` text nullable(`DIVISION`·`GROUP`·`TEAM`)|UNIQUE(`org_id`,`code`), UNIQUE(`org_id`,`name`), UNIQUE(`id`,`org_id`). `target_count >= 1`은 팀(`kind`가 `TEAM`이거나 null)에만 건다. 본부·그룹은 `target_count`가 null인 것이 정상이다. 직원 소속(`team_members.department_id`)은 팀만. 순환·없는 `parent_id`·자기 참조·깊이 3 초과는 seed 전 데이터 검증에서 오류로 잡는다|읽기: 조직 전원. 쓰기: seed만. 공개 가입 옵션은 DB 표를 직접 열지 않고 승인 fixture의 ID·표시명만 반환. 가입 선택 목록은 팀만이다|
 |`job_titles`|`id` UUID PK, `org_id` FK, `code` text, `label` text, `sort_order` int, `created_at`|UNIQUE(`org_id`,`code`), UNIQUE(`org_id`,`label`), UNIQUE(`id`,`org_id`)|`departments`와 같음|
-|`team_members`|운영 정보만([[16-DECISIONS\|ADR-021]]): `id` UUID PK, `org_id` FK, `person_code` text, `name`, `email` text(nullable, 2026-10-24), `gender` text, `department_id` FK, `job_title_id` FK, `portrait_path` text, `is_demo`, `created_at`, `updated_at`, `user_id`(가입 신청 승인으로 연결, unique, profiles on delete set null), `photo_path`(profile-photos 경로). 점수 계산 속성은 아래 `team_member_scoring`에 둔다. `employment_status` text(`ACTIVE`·`LEFT`, 기본 `ACTIVE`, N4b `20261024000400`)|UNIQUE(`id`,`org_id`), UNIQUE(`org_id`,`person_code`), UNIQUE(`org_id`,`name`), UNIQUE(`org_id`,`email`), `email`은 소문자 형식 CHECK. 부서·직급은 같은 org 복합 FK. 가상 seed 이름은 한글 세 글자, gender는 MALE/FEMALE. 가상 인물 메일은 성을 뺀 이름+성 관용 로마자 `@solideos.com`(예: 김민준 → `minjunkim@solideos.com`), 같으면 직원 번호 순으로 2·3…을 붙인다(`scripts/people/emails.mjs`). 명부 속성일 뿐 Auth 계정과 연결하지 않고 발송 대상이 아니다|읽기: 조직 전원, 재직(`ACTIVE`)만. 제한(restrictive) 정책이 `LEFT`를 명부·조직도·인원 수에서 뺀다(`team_member_scoring`도 같다). 쓰기: seed(service role)와, ADMIN(`sol_role`)만 부르는 DB 함수 `create_team_member`·`update_team_member`(추가·부서/직급 이동·퇴사). 직접 insert/update 권한은 없다. 함수가 조직·역할·팀 부서·직급을 확인하고 변경마다 `audit_logs`(`TEAM_MEMBER_CREATE`·`TEAM_MEMBER_UPDATE`)를 같은 트랜잭션에 쓴다. 웹으로 추가한 직원은 `is_demo=false`, `person_code`는 `SOL-N####`이다. 점수 속성은 편집하지 않는다. worker 분석 입력은 `LEFT`를 가용 인력에서 뺀다(저장된 `score_runs`는 그대로). `pnpm demo:reset`은 명부 200명을 `ACTIVE`로 되돌리고 추가 직원을 지운다. 퇴사 직원은 가입 신청의 명부 찾기(`find_unlinked_member`, `20261024000410`)에서 빠지고, 계정 연결(`user_id`)은 트리거가 `member_left`로 막는다. 로그인 계정 자동 생성 없음. 인력 배정 API/화면은 P1. 조회 화면 `/people`(ADR-021)은 해커톤 확장 컷이다([[16-DECISIONS\|ADR-023]])|
+|`team_members`|운영 정보만([[16-DECISIONS\|ADR-021]]): `id` UUID PK, `org_id` FK, `person_code` text, `name`, `email` text(nullable), `gender` text, `department_id` FK, `job_title_id` FK, `portrait_path` text, `is_demo`, `created_at`, `updated_at`, `user_id`(가입 신청 승인으로 연결, unique, profiles on delete set null), `photo_path`(profile-photos 경로). 점수 계산 속성은 아래 `team_member_scoring`에 둔다. `employment_status` text(`ACTIVE`·`LEFT`, 기본 `ACTIVE`, N4b `20261024000400`)|UNIQUE(`id`,`org_id`), UNIQUE(`org_id`,`person_code`), UNIQUE(`org_id`,`name`) where `is_demo`(가상 명부만, `20261024000200`), UNIQUE(`org_id`,`email`), `email`은 소문자 형식 CHECK. 부서·직급은 같은 org 복합 FK. 가상 seed 이름은 한글 세 글자, gender는 MALE/FEMALE(비데모 행은 `gender`·`portrait_path` null 허용). 가상 인물 메일은 성을 뺀 이름+성 관용 로마자 `@solideos.com`(예: 김민준 → `minjunkim@solideos.com`), 같으면 직원 번호 순으로 2·3…을 붙인다(`scripts/people/emails.mjs`). 명부 속성일 뿐 Auth 계정과 연결하지 않고 발송 대상이 아니다|읽기: 조직 전원, 재직(`ACTIVE`)만. 제한(restrictive) 정책이 `LEFT`를 명부·조직도·인원 수에서 뺀다(`team_member_scoring`도 같다). 쓰기: seed(service role)와, ADMIN(`sol_role`)만 부르는 DB 함수 `create_team_member`·`update_team_member`(추가·부서/직급 이동·퇴사). 직접 insert/update 권한은 없다. 함수가 조직·역할·팀 부서·직급을 확인하고 변경마다 `audit_logs`(`TEAM_MEMBER_CREATE`·`TEAM_MEMBER_UPDATE`)를 같은 트랜잭션에 쓴다. 웹으로 추가한 직원은 `is_demo=false`, `person_code`는 `SOL-N####`이다. 점수 속성은 편집하지 않는다. worker 분석 입력은 `LEFT`를 가용 인력에서 뺀다(저장된 `score_runs`는 그대로). `pnpm demo:reset`은 명부 200명을 `ACTIVE`로 되돌리고 추가 직원을 지운다. 퇴사 직원은 가입 신청의 명부 찾기(`find_unlinked_member`, `20261024000410`)에서 빠지고, 계정 연결(`user_id`)은 트리거가 `member_left`로 막는다. 로그인 계정 자동 생성 없음. 인력 배정 API/화면은 P1. 조회 화면 `/people`(ADR-021)은 해커톤 확장 컷이다([[16-DECISIONS\|ADR-023]])|
 |`team_member_scoring`|[[16-DECISIONS\|ADR-021]]: `member_id` UUID PK, `org_id` FK, `role` text, `grade` text nullable, `skills` JSONB, `availability` JSONB, `certifications` JSONB, `past_projects` JSONB, `capability_source` text, `capability_version` text nullable, `created_at`|(`member_id`,`org_id`) → `team_members(id, org_id)` 복합 FK. `member_id` = `team_members.id`(같은 직원 식별자). 행이 있는 200명이 점수 계산 대상(`scoringEligible`)|읽기: 조직 전원. 쓰기: seed(service role)만. 화면 역할에 쓰기 권한을 주지 않는다. 퇴사 처리(P1)는 `team_members`만 바꾸고 이 행은 지우지 않는다|
 |`assignments`|`id`, `org_id` FK, `bid_id` FK, `member_id` FK, `starts_at`, `ends_at`, `allocation_percent` smallint, `created_at`|`allocation_percent BETWEEN 0 AND 100`, `ends_at > starts_at`. (`member_id`,`org_id`) → `team_members(id, org_id)`|`team_members`와 같다|
 |`member_join_requests`|[[16-DECISIONS\|ADR-051]] 가입 신청: `id`, `org_id` FK, `user_id` FK profiles, `kind`(`NEW_HIRE`·`EXISTING`), `team_member_id` FK nullable, `status`(`PENDING`·`APPROVED`·`REJECTED`), `sol_role` nullable(승인 때 정한 역할), 신청자 이름·이메일·사진 경로 사본, `department_id`·`job_title_id`, `decided_by`, `decided_at`, `created_at`, `updated_at`|`kind='EXISTING'` ↔ `team_member_id` 있음(check). 부서·직급은 같은 org 복합 FK. 대기 신청은 (`org_id`,`user_id`)당 하나(부분 UNIQUE)|읽기: 본인 신청, 그 조직 `sol_role` ADMIN. 쓰기: 화면 역할은 권한 없음. `submit_join_request`·`decide_join_request`(security definer)로만|
@@ -237,10 +229,10 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
-|`ingest_runs`|`id`, `source` text(ingest_source), `run_mode` text(run_mode), `job_key` text, `trigger` text(ingest_trigger), `batch` text(ingest_batch) nullable, `params` JSONB nullable(`g2b` run의 `{window:{from,to}, stages:[…]}`, 요청 생략 시 실제 적용한 기본값), `cursor` text nullable, `status` text(ingest_status), `summary` JSONB(`{created, changed, cancelled, skippedDuplicate, quarantined, retried}`), `quota_used` int default 0, `requested_by` FK profiles nullable(on delete set null), `idempotency_key` text nullable, `started_at`, `finished_at` nullable|`job_key` UNIQUE, `idempotency_key` UNIQUE. `batch`는 `source='fixture'`일 때만 값이 있다|공용 표(`org_id` 없음). 읽기: 어느 조직에서든 역할 `ADMIN`인 사용자(`exists (select 1 from public.my_sol_org_ids(array['ADMIN']))`). 화면 역할(`authenticated`)은 **열 11개만** select한다: `id`, `source`, `run_mode`, `trigger`, `batch`, `cursor`, `status`, `summary`, `quota_used`, `started_at`, `finished_at`. `job_key`·`idempotency_key`·`requested_by`·`params`는 닫혀 있다(고르거나 거르면 권한 오류). 수동 수집의 이 열들에 요청한 조직 id·요청자 id가 들어 있어 다른 조직 ADMIN에게 새지 않게 한 것이다(`20261019000019`, N8 보안 점검 W1, [[16-DECISIONS\|ADR-035]] F2). 요청자는 조직 소유 감사(`audit_logs` `INGEST_MANUAL`)로 찾는다. 행 정책과 `latest_ingest_run`(security definer)은 그대로다. **예외**: `latest_ingest_run(text)`(`20261019000012`)은 업무 역할(`ADMIN`·`SALES`·`ANALYST`·`VIEWER`)이 하나라도 있는 사용자에게 출처(`demo`=fixture, `live`=g2b, `all`)별 최신 run 한 건의 `status`·`started_at`·`finished_at`·`summary`만 준다(대시보드 수집 신선도. [[09-SECURITY\|09]] RBAC "수집 결과 조회"의 예외). 쓰기: worker만. 수동 수집도 Route Handler는 job만 넣고 행은 worker가 만든다([[07-DATA-PIPELINE\|07 수집]] §2.7)|
+|`ingest_runs`|`id`, `source` text(ingest_source), `run_mode` text(run_mode), `job_key` text, `trigger` text(ingest_trigger), `batch` text(ingest_batch) nullable, `params` JSONB nullable(`g2b` run의 `{window:{from,to}, stages:[…]}`, 요청 생략 시 실제 적용한 기본값), `cursor` text nullable, `status` text(ingest_status), `summary` JSONB(`{created, changed, cancelled, skippedDuplicate, quarantined, retried}`), `quota_used` int default 0, `requested_by` FK profiles nullable(on delete set null), `idempotency_key` text nullable, `started_at`, `finished_at` nullable, `service_key`·`operation`·`partition_key` text nullable, `completeness` text(`COMPLETE`·`PARTIAL`·`UNKNOWN`) default `COMPLETE`, `fetched_count` int default 0(`20261023000100`)|`job_key` UNIQUE, `idempotency_key` UNIQUE. `batch`는 `source='fixture'`일 때만 값이 있다|공용 표(`org_id` 없음). 읽기: 어느 조직에서든 역할 `ADMIN`인 사용자(`exists (select 1 from public.my_sol_org_ids(array['ADMIN']))`). 화면 역할(`authenticated`)은 **열 14개만** select한다: `id`, `source`, `run_mode`, `trigger`, `batch`, `cursor`, `status`, `summary`, `quota_used`, `started_at`, `finished_at`, `service_key`, `completeness`, `fetched_count`(뒤 셋은 `20261023000200`). `job_key`·`idempotency_key`·`requested_by`·`params`는 닫혀 있다(고르거나 거르면 권한 오류). 수동 수집의 이 열들에 요청한 조직 id·요청자 id가 들어 있어 다른 조직 ADMIN에게 새지 않게 한 것이다(`20261019000019`, N8 보안 점검 W1, [[16-DECISIONS\|ADR-035]] F2). 요청자는 조직 소유 감사(`audit_logs` `INGEST_MANUAL`)로 찾는다. 행 정책과 `latest_ingest_run`(security definer)은 그대로다. **예외**: `latest_ingest_run(text)`(`20261019000012`)은 업무 역할(`ADMIN`·`SALES`·`ANALYST`·`VIEWER`)이 하나라도 있는 사용자에게 출처(`demo`=fixture, `live`=g2b, `all`)별 최신 run 한 건의 `status`·`started_at`·`finished_at`·`summary`만 준다(대시보드 수집 신선도. [[09-SECURITY\|09]] RBAC "수집 결과 조회"의 예외). 쓰기: worker만. 수동 수집도 Route Handler는 job만 넣고 행은 worker가 만든다([[07-DATA-PIPELINE\|07 수집]] §2.7)|
 |`ingest_errors`|`id`, `ingest_run_id` FK, `source_key` text, `error_code` text, `result_code` text nullable, `redacted_detail` text, `created_at`|PII 없음([[15-DATA-CONTRACTS\|15 데이터 계약]] §6). `error_code` 값: `MISSING_REQUIRED_FIELD`, `SCHEMA_INVALID`, `BUDGET_UNPARSED`, `DATE_UNPARSED`, `DATE_ORDER`, `ENCODING_DEGRADED`, `ATTACHMENT_URL_BLOCKED`, `ATTACHMENT_PARSE_FAILED`, `ATTACHMENT_REJECTED`, `RATE_LIMITED`, `DUPLICATE`, `QUOTA_EXCEEDED`, `QUOTA_STORE_UNAVAILABLE`. `QUOTA_EXCEEDED`(그날 호출 예산 소진)와 `QUOTA_STORE_UNAVAILABLE`(예산 저장소 Redis를 읽지 못함, 남았다고 보지 않고 닫는다)은 `source_key` `g2b:quota`인 run 수준 기록이고 그 run은 `FAILED`다. 둘 다 호출 자체의 `API_QUOTA_EXCEEDED`(에러코드 22)와 다르다([[07-DATA-PIPELINE\|07 수집]] §2.2, [[16-DECISIONS\|ADR-035]] F9). `result_code`는 공공 API 응답의 `resultCode` 원문|`ingest_runs`와 같다|
-|`outbox_events`|`id`, `org_id` FK nullable, `aggregate_type` text, `aggregate_id` UUID, `event_type` text(notification_type), `payload` JSONB, `idempotency_key` text, `status` text(outbox_status), `attempts` smallint, `next_attempt_at` nullable, `created_at`, `processed_at` nullable|`idempotency_key` UNIQUE. 공고 이벤트(`BID_*`) = `source+noticeId+revision+eventType`([[07-DATA-PIPELINE\|07 수집]], 예 `fixture:<noticeId>:2:BID_CHANGED`), `REVIEW_ASSIGNED` = `<reviewId>:<assigneeId>:REVIEW_ASSIGNED`(`aggregate_type` `bid_review`), `ANALYSIS_COMPLETE` = `<scoreRunId>:<requestedBy>:ANALYSIS_COMPLETE`(`aggregate_type` `score_run`, `20261019000016`). 카카오(ADR-038, 구현 중 `feat/kakao-notify`): `BID_RECOMMENDED` = `<orgId>:<bidId>:BID_RECOMMENDED`(`aggregate_type` `score_run`, 조직·공고마다 처음 한 번, `20261021000002`), `KAKAO_TEST` = `<userId>:<UTC YYYY-MM-DDTHH:MI>:KAKAO_TEST`(`org_id` null, `aggregate_type` `kakao_notify_link`, `20261021000001`). 부분 인덱스 `outbox_events_notify_due_idx`(`created_at`,`id`) where `status` ∈ `PENDING`·`FAILED` and `event_type` ∈ `REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`(`20261019000017`, 알림 처리의 조회 조건과 같다. `20261021000002`가 다시 만들어 `BID_RECOMMENDED`·`KAKAO_TEST`를 더한다, 구현 중)|내부 표. 화면 역할은 읽기·쓰기 모두 권한이 없다. 쓰기: worker, `bid_reviews` insert 트리거, `finish_score_run`(service role), `request_kakao_notify_test()`(본인 `KAKAO_TEST`만, 구현 중)|
-|`notifications`|`id`, `org_id` FK, `user_id`, `type` text(notification_type), `channel` text(notification_channel), `idempotency_key` text, `payload` JSONB, `status` text(notification_status), `provider_message_id` nullable, `error` text nullable, `sent_at` nullable, `read_at` nullable, `created_at`|`idempotency_key` UNIQUE = `outboxEventId+userId+channel`([[13-NOTIFICATIONS\|13 알림]]). 인앱 알림은 `<outboxEventId>:<userId>:IN_APP`이고, 행을 만들 때 `status=SENT`·`sent_at`=처리 시각·`channel=IN_APP`이다(인앱은 행 기록이 곧 발송, C7 main `841b064`). 카카오 알림은 `<outboxEventId>:<userId>:KAKAO`(`channel=KAKAO`, `type=BID_RECOMMENDED`), 연결 만료 인앱 알림은 `<outboxEventId>:<userId>:KAKAO_EXPIRED:IN_APP`이다(ADR-038, 구현 중). (`org_id`,`user_id`) → `memberships(org_id, user_id)`(on delete cascade)|읽기: 본인(`user_id = auth.uid()` 그리고 조직 전원 조건). 쓰기: 본인의 `read_at` 열 update만. 생성은 worker. 남의 알림은 보이지 않으므로 `404`|
+|`outbox_events`|`id`, `org_id` FK nullable, `aggregate_type` text, `aggregate_id` UUID, `event_type` text(notification_type), `payload` JSONB, `idempotency_key` text, `status` text(outbox_status), `attempts` smallint, `next_attempt_at` nullable, `created_at`, `processed_at` nullable|`idempotency_key` UNIQUE. 공고 이벤트(`BID_*`) = `source+noticeId+revision+eventType`([[07-DATA-PIPELINE\|07 수집]], 예 `fixture:<noticeId>:2:BID_CHANGED`), `REVIEW_ASSIGNED` = `<reviewId>:<assigneeId>:REVIEW_ASSIGNED`(`aggregate_type` `bid_review`), `ANALYSIS_COMPLETE` = `<scoreRunId>:<requestedBy>:ANALYSIS_COMPLETE`(`aggregate_type` `score_run`, `20261019000016`). 카카오(ADR-038): `BID_RECOMMENDED` = `<orgId>:<bidId>:BID_RECOMMENDED`(`aggregate_type` `score_run`, 조직·공고마다 처음 한 번, `20261023000701`), `KAKAO_TEST` = `<userId>:<UTC YYYY-MM-DDTHH:MI>:KAKAO_TEST`(`org_id` null, `aggregate_type` `kakao_notify_link`, `20261023000700`). 부분 인덱스 `outbox_events_notify_due_idx`(`created_at`,`id`) where `status` ∈ `PENDING`·`FAILED` and `event_type` ∈ `REVIEW_ASSIGNED`·`ANALYSIS_COMPLETE`(`20261019000017`, 알림 처리의 조회 조건과 같다. `20261023000701`이 다시 만들어 `BID_RECOMMENDED`·`KAKAO_TEST`를 더한다)|내부 표. 화면 역할은 읽기·쓰기 모두 권한이 없다. 쓰기: worker, `bid_reviews` insert 트리거, `finish_score_run`(service role), `request_kakao_notify_test()`(본인 `KAKAO_TEST`만)|
+|`notifications`|`id`, `org_id` FK, `user_id`, `type` text(notification_type), `channel` text(notification_channel), `idempotency_key` text, `payload` JSONB, `status` text(notification_status), `provider_message_id` nullable, `error` text nullable, `sent_at` nullable, `read_at` nullable, `created_at`|`idempotency_key` UNIQUE = `outboxEventId+userId+channel`([[13-NOTIFICATIONS\|13 알림]]). 인앱 알림은 `<outboxEventId>:<userId>:IN_APP`이고, 행을 만들 때 `status=SENT`·`sent_at`=처리 시각·`channel=IN_APP`이다(인앱은 행 기록이 곧 발송). 카카오 알림은 `<outboxEventId>:<userId>:KAKAO`(`channel=KAKAO`, `type=BID_RECOMMENDED`), 연결 만료 인앱 알림은 `<outboxEventId>:<userId>:KAKAO_EXPIRED:IN_APP`이다(ADR-038). (`org_id`,`user_id`) → `memberships(org_id, user_id)`(on delete cascade)|읽기: 본인(`user_id = auth.uid()` 그리고 조직 전원 조건). 쓰기: 본인의 `read_at` 열 update만. 생성은 worker. 남의 알림은 보이지 않으므로 `404`|
 |`audit_logs`|`id`, `org_id` FK, `actor_id` FK profiles nullable(on delete set null), `action` text, `target_type` text, `target_id` UUID, `before_after` JSONB, `request_id` text, `created_at`|append-only. IP·토큰·원문 미기록|읽기: 그 조직의 역할 `ADMIN`. 쓰기: 화면 역할은 권한이 없다. `security definer` 트리거와 worker·seed만 쓴다. update·delete 없음|
 
 `audit_logs.action` 값과 쓰는 곳:
@@ -252,6 +244,8 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |`ANALYSIS_REQUEST`|`score_runs` insert 트리거|
 |`REVIEW_DECIDE`|`bid_reviews` insert 트리거|
 |`USER_INVITE`|`invitations` insert 트리거|
+|`USER_ROLE_CHANGE`|트리거 `log_membership_sol_role_audit`·`log_invitation_sol_role_audit`(`20261023000600`)|
+|`PROJECT_OPEN`, `PROJECT_STATUS_CHANGE`, `PROJECT_RESULT_RECORD`|DB 함수 `open_bid_project`·`change_bid_project_status`·`record_bid_project_result`(§3.8)|
 |`USER_DISABLE`|조직에서 내보내기(`DELETE /admin/users/:id`, §3.1 결정 3). 이 행을 쓰는 트리거·함수는 아직 없다|
 |`INGEST_MANUAL`|worker. 요청자(`actor_id`)와 요청자의 조직(`org_id`)은 job 데이터로 받는다|
 |`NOTIFICATION_READ`|`notifications.read_at` update 트리거|
@@ -261,12 +255,12 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 템플릿 `activities`는 조직 피드(멤버·초대)이고 화면이 읽는다. `audit_logs`는 업무 감사이고 ADMIN만 읽는다. 둘을 합치지 않는다.
 
 수집 run 열 설명([[16-DECISIONS|ADR-020]]):
-- `ingest_runs.source`: 요청한 소스(`fixture`·`g2b`, [[05-API-SPEC|05 API 명세]] `IngestionRunInput.source`). `g2b` run 하나가 여러 registry 키(입찰공고·면허제한·참가지역·e발주 첨부·사전규격·발주계획)를 부르므로, 키별 오류는 `ingest_errors.source_key`에 registry 키로 남긴다([[15-DATA-CONTRACTS|15 데이터 계약]] §8).
+- `ingest_runs.source`: 요청한 소스(`fixture`·`g2b`·`kwater`·`lh`·`kepco`, [[05-API-SPEC|05 API 명세]] `IngestionRunInput.source`). `g2b` run 하나가 여러 registry 키(입찰공고·면허제한·참가지역·e발주 첨부·사전규격·발주계획)를 부르므로, 키별 오류는 `ingest_errors.source_key`에 registry 키로 남긴다([[15-DATA-CONTRACTS|15 데이터 계약]] §8).
 - `ingest_runs.run_mode`: 수집 당시 실행 모드. `quota_used`: 이 run이 쓴 공공 API 호출 수(목록 + 보조 조회, 재시도 포함. fixture는 0). 일일 호출 예산 자체는 Redis 카운터가 센다([[07-DATA-PIPELINE|07 수집]] §2.2).
-- 호출 예산으로 run을 멈춘 기록: 목록 쪽 호출 전에 그날 예산이 소진됐으면 목록을 부르지 않고 `QUOTA_EXCEEDED`, 예산 저장소를 읽지 못하면 `QUOTA_STORE_UNAVAILABLE`(main `2db27c1`), 에러코드 22를 받아 남은 호출을 멈추면 그 호출의 `API_QUOTA_EXCEEDED`와 함께 `QUOTA_EXCEEDED`(`result_code` 22)가 남는다. 모두 `source_key` `g2b:quota`다.
-- 공공 API 실패(HTTP 오류, `resultCode` 비정상, 일일 한도 초과, timeout)는 `ingest_runs.status`와 `ingest_errors`(`error_code`·`result_code`)에 기록한다. 기존 공고는 그대로 둔다. `error_code`는 `API_HTTP_ERROR`(HTTP 오류)·`API_RESULT_CODE`(`resultCode` 비정상, 원래 코드는 `result_code`)·`API_QUOTA_EXCEEDED`(에러코드 22)·`API_SERVICE_KEY_INVALID`(data.go.kr 게이트웨이 오류 30 등록되지 않은 키·31 기한 만료)·`API_TIMEOUT`을 쓴다(`web/server/ingestion/connector.model.ts` `INGEST_ERROR_CODE`, `g2b-http.ts`). 위 값 목록의 `ATTACHMENT_PARSE_FAILED`·`ATTACHMENT_REJECTED`는 지금 수집 코드가 쓰지 않는다(첨부 파싱 미구현. `ATTACHMENT_PARSE_FAILED:`는 추출 경고 접두어로만 쓰인다, [[03-AI-PIPELINE|03]] §4.4).
+- 호출 예산으로 run을 멈춘 기록: 목록 쪽 호출 전에 그날 예산이 소진됐으면 목록을 부르지 않고 `QUOTA_EXCEEDED`, 예산 저장소를 읽지 못하면 `QUOTA_STORE_UNAVAILABLE`, 에러코드 22를 받아 남은 호출을 멈추면 그 호출의 `API_QUOTA_EXCEEDED`와 함께 `QUOTA_EXCEEDED`(`result_code` 22)가 남는다. 모두 `source_key` `g2b:quota`다.
+- 공공 API 실패(HTTP 오류, `resultCode` 비정상, 일일 한도 초과, timeout)는 `ingest_runs.status`와 `ingest_errors`(`error_code`·`result_code`)에 기록한다. 기존 공고는 그대로 둔다. `error_code`는 `API_HTTP_ERROR`(HTTP 오류)·`API_RESULT_CODE`(`resultCode` 비정상, 원래 코드는 `result_code`)·`API_QUOTA_EXCEEDED`(에러코드 22)·`API_SERVICE_KEY_INVALID`(data.go.kr 게이트웨이 오류 30 등록되지 않은 키·31 기한 만료)·`API_TIMEOUT`을 쓴다(`web/server/ingestion/connector.model.ts` `INGEST_ERROR_CODE`, `g2b-http.ts`). 위 값 목록의 `ATTACHMENT_PARSE_FAILED`·`ATTACHMENT_REJECTED`는 수집 코드가 쓰지 않는다. 첨부 처리 실패는 `bid_documents`에 남고, `ATTACHMENT_PARSE_FAILED:`는 추출 경고 접두어로만 쓰인다([[03-AI-PIPELINE|03]] §4.4).
 
-**이메일 승인 설계(ADR-041, main 미구현):** 추천 공고 발송에 `EMAIL` 채널과 `<outboxEventId>:<userId>:EMAIL` 멱등 키를 추가할 계획이다. 개인 설정 opt-in과 로그인 이메일을 사용한다. 현재 적용된 `notification_channel` 값·정책·생성 타입은 그대로이며 EMAIL이 이미 저장 가능하다는 뜻은 아니다. 필요한 새 마이그레이션·정책은 구현 단계에서 추가한다([[13-NOTIFICATIONS|13 알림]]).
+이메일 채널(ADR-041)은 코드에 없다. `notification_channel`은 `IN_APP`·`KAKAO`뿐이다([[13-NOTIFICATIONS|13 알림]]).
 
 ### 3.7 모델 평가 (플랫폼, ADR-020)
 
@@ -278,7 +272,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 
 ### 3.8 입찰 업무 (P1, ADR-021)
 
-ADR-021 P1 표다. 2026-10-21 [[16-DECISIONS|ADR-042]]로 핵심 컷·확장 컷과 조건부 병행한다. 새 표·정책은 새 마이그레이션으로 만들고, 클라우드 적용은 사용자 확인 뒤다. 구현·적용 완료 여부는 각 마이그레이션과 [[PROGRESS]]로 확인한다.
+ADR-021 P1 표다(`20261022000100`·`20261022000300`).
 
 |테이블|컬럼|제약|RLS (읽기 · 쓰기)|
 |---|---|---|---|
@@ -286,11 +280,37 @@ ADR-021 P1 표다. 2026-10-21 [[16-DECISIONS|ADR-042]]로 핵심 컷·확장 컷
 |`bid_projects`|`id`, `org_id`, `bid_id`, `opened_by_review_id` FK `bid_reviews`, `status`(bid_project_status), `owner_id`(로그인 계정), `submission_due_override` nullable, `result`(bid_project_result) nullable, `result_note`, `result_recorded_at`, `closed_at`, `created_by`, `created_at`, `updated_at`|UNIQUE(`org_id`,`bid_id`), UNIQUE(`id`,`org_id`). 여는 결정은 `decision=BID`(DB 함수가 검사). 마감은 공고 값을 읽고 덮어쓸 때만 override(복제 금지)|읽기: 조직 전원. 쓰기: SALES·ADMIN. 결정이 바뀌면 경고만 하고 자동 종료하지 않는다. 결과는 점수·결정 모델·평가셋·학습셋에 쓰지 않는다|
 |`bid_project_events`|`id`, `org_id`, `bid_project_id`, `actor_id`, `from_status`, `to_status`, `note`, `created_at`|추가만|읽기: 조직 전원. 쓰기: 상태를 바꾸는 DB 함수만. 같은 함수가 `audit_logs`도 쓴다|
 
-로컬 통합 브랜치 `feat/dashboard-pages-20261022`는 원본 마이그레이션 `20261022000100`·`20261022000110`·`20261022000300`을 보존하고 `20261023000300`(현재 사업기회 관심 뷰), `20261023000400`(프로젝트 원자적 PATCH)를 추가한다. 클라우드 적용 여부는 [[PROGRESS]]의 실행 기록과 구분한다.
-
-`watched_opportunity_list_items`는 `security_invoker`이며 본인 `bid_watches`와 원본 `bid_id`로 연결한다. 사업기회 ID를 관심 키로 쓰지 않는다. `patch_bid_project`는 상태·담당자·마감을 한 트랜잭션으로 바꾸고 실패하면 상태 이력·감사도 되돌린다. 프로젝트 RPC는 세션의 조직·ADMIN/SALES·최신 BID를 검사한다. 최신 결정이 BID가 아니어도 수동 종료는 가능하다.
+`watched_bid_list_items`(`20261022000100`)와 `watched_opportunity_list_items`(`20261023000300`)는 `security_invoker`이며 본인 `bid_watches`와 원본 `bid_id`로 연결한다. 사업기회 ID를 관심 키로 쓰지 않는다. `patch_bid_project`는 상태·담당자·마감을 한 트랜잭션으로 바꾸고 실패하면 상태 이력·감사도 되돌린다. 프로젝트 RPC는 세션의 조직·ADMIN/SALES·최신 BID를 검사한다. 최신 결정이 BID가 아니어도 수동 종료는 가능하다.
 
 체크리스트는 템플릿 `tasks`에 `bid_project_id`를 더해 쓴다(§3.1). 추적성: 프로젝트 → 여는 결정(`bid_reviews`) → 그 결정의 `score_run_id` → `input_snapshot_hash`.
+
+### 3.9 조달 확장·지원사업·기타 표
+
+표마다 목적, `org_id`·RLS, 만든 migration만 적는다. 열은 migration이 정본이다. 모두 조직 소유가 아닌 공용 표이고 쓰기는 worker(service role)만 한다.
+
+|테이블|목적|RLS (읽기)|migration|
+|---|---|---|---|
+|`procurement_agencies`|발주기관 카탈로그(코드 네임스페이스 + 기관 코드)|활동 중 회원|`20261023000100`|
+|`bid_opportunities`|사업기회: 단계가 다른 공고를 한 건으로 묶는 식별|활동 중 회원|`20261023000100`|
+|`opportunity_notice_links`|공고(`bid_id`)와 사업기회의 연결(`PRIMARY`·`DUPLICATE`·`STAGE_LINK`)|활동 중 회원|`20261023000100`|
+|`notice_match_candidates`|중복 판정 이력(`CONFIRMED_DUPLICATE`·`CANDIDATE`·`DISTINCT`)|활동 중 회원|`20261023000100`|
+|`bid_notice_events`|공고 revision별 사건(생성·정정·취소·실패·개시·종료)|활동 중 회원|`20261023000100`|
+|`bid_relevance_assessments`|revision별 관련성 평가(상태·분야·태그·점수)|활동 중 회원|`20261023000100`|
+|`ingest_payloads`|수집 응답의 정제 payload(담당자 정보 제외)|화면 역할 권한 없음|`20261023000100`|
+|`ingest_run_items`|수집 run별 레코드 결과(생성·변경·취소·중복·격리)|화면 역할 권한 없음|`20261023000100`|
+|`document_storage_objects`|Supabase Storage 파일 원장(ADR-048)|화면 역할 권한 없음, Worker 전용|`20261021000700`|
+|`program_notices`|부처 지원사업 공고(기업마당·중소벤처기업부 RSS). 입찰 점수·분석 표와 섞지 않는다([[16-DECISIONS\|ADR-040]])|활동 중 회원|`20261023000800`|
+|`program_notice_runs`|지원사업 수집 run 기록|화면 역할 권한 없음|`20261023000800`|
+|`kakao_send_claims`|카카오 발송 의도 claim. 송신 성공 뒤 DB가 실패해도 같은 사용자·공고를 자동 재발송하지 않는다(ADR-038)|화면 역할 권한 없음. service_role은 select·insert만|`20261023000704`|
+|`profile_photo_folders`|본인 사진 폴더 업로드를 직렬화하는 잠금 행(`claim_own_photo_slot`)|화면 역할 권한 없음|`20261025000110`|
+
+공고 표 확장: `bid_notices`에 `source_family`·`service_id`·`provider_company_id`·`provider_record_key`·`procuring_agency_id`를 더하고 `source`·`stage` 값 집합을 넓혔다(§4, `20261023000100`). 수집 정책은 [[07-DATA-PIPELINE|07 수집]]이다.
+
+Storage 원장(ADR-048): `claim_document_storage` → 불변 업로드·바이트 검증 → `finish_document_storage` 순서로 확정한다. 업로드 뒤 DB가 실패하면 원장 lease를 다시 잡아 복구한다. `document_storage_candidates`는 24시간 이상 지난 lease 만료·무참조 파일만 돌려주고, 삭제는 Storage API 뒤 원장 확정 순서다. 실제 `path`는 원장 UUID 디렉터리를 포함해 늦게 끝난 이전 삭제가 새 파일을 지우지 못한다(`20261021000702`). `20261021000701`은 활동 중 업무 멤버가 DB로 참조한 download OK 원본만 읽는 Storage SELECT 정책을 더한다. parsed 파일과 사용자 쓰기는 열지 않는다. bucket 준비는 migration이 아니라 API 운영 명령이다.
+
+뷰 4개는 모두 `security_invoker`다. `bid_list_items`(§3.4), `watched_bid_list_items`(§3.8), `opportunity_list_items`(`20261023000200`, 조직별 현재 유효 분석을 붙인 사업기회 목록), `watched_opportunity_list_items`(§3.8).
+
+주요 함수(전체는 `web/lib/database.types.ts`): 입찰 프로젝트 `open_bid_project`·`change_bid_project_status`·`record_bid_project_result`·`patch_bid_project`, 마감 알림 `send_deadline_reminders`(D-3·D-1, `20261022000110`), 관심 집계 `bid_watch_count`, 사업기회 `link_bid_opportunity`·`refresh_bid_opportunity`, 대시보드 읽기 `procurement_summary`·`procurement_filter_options`·`procurement_live_metrics`·`procurement_source_health`·`procurement_dataset_version`·`procurement_last_scheduled_ingest`·`procurement_missing_relevance_revisions`, 카카오 `claim_kakao_notification`·`claim_kakao_test`, 사진 `set_my_photo`·`set_member_photo`·`claim_own_photo_slot`, 인력 `next_new_hire_person_code`·`team_member_edit_json`. `security definer` 함수는 `scripts/db-verify.mjs` 허용 목록에 있다.
 
 ## 4. 값 집합(ENUM)
 
@@ -298,32 +318,32 @@ PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 �
 
 생성 타입(`web/lib/database.types.ts`)에서 이 열들은 `string`으로 나온다. 값 union은 zod 스키마(`web/server/<도메인>/*.model.ts`)가 정의하며, 값은 이 표와 같아야 한다. 값은 API에 그대로 노출된다.
 
-`field_state`는 JSON 안의 값이다. `bid_project_status`·`bid_project_result`는 로컬 통합 브랜치의 `20261022000300`에 check 제약으로 구현됐다. `employment_status`는 별도 인력 편집 P1 범위이며 이번 네 화면 구현에는 포함하지 않는다. 값 집합의 실제 적용 상태는 마이그레이션과 생성 타입으로 확인한다.
+`field_state`는 JSON 안의 값이다. 값 집합의 정본은 마이그레이션 check 제약이다.
 
 |값 집합|값|사용 컬럼|비고|
 |---|---|---|---|
 |`sol_role`|`ADMIN`, `SALES`, `ANALYST`, `EXECUTIVE`, `VIEWER`|`memberships.sol_role`, `invitations.sol_role`, `member_join_requests.sol_role`|업무 역할(이전 이름 `user_role`). 기본 `VIEWER`. `EXECUTIVE`(임원, `20261027000700`, ADR-052)는 VIEWER 읽기 권한에 회사 역량 열람을 더한 것이고 쓰기 역할 목록에는 없다. 리소스별 정책은 [[09-SECURITY\|09 보안]]|
-|`bid_stage`|`PLAN`, `PRE_SPEC`, `NOTICE`|`bid_notices.stage`|발주계획 / 사전규격 / 입찰공고|
-|`bid_status`|`OPEN`, `AMENDED`, `CANCELLED`, `CLOSED`|`bid_notices.status`|낙찰·계약 상태는 P1에서 추가|
+|`bid_stage`|`PLAN`, `PROCUREMENT_REQUEST`, `PRE_SPEC`, `NOTICE`, `OPENING`, `AWARD`, `CONTRACT`|`bid_notices.stage`|발주계획 / 조달요청 / 사전규격 / 입찰공고 / 개찰 / 낙찰 / 계약(`20261023000100`)|
+|`bid_status`|`OPEN`, `AMENDED`, `CANCELLED`, `CLOSED`|`bid_notices.status`|—|
 |`document_parse_status`|`PENDING`, `PARSED`, `PARTIAL`, `UNSUPPORTED`, `FAILED`|`bid_documents.parse_status`|`PARTIAL` = 부분 파싱, `UNSUPPORTED` = 처리하지 않는 형식(스캔 PDF·zip·xlsx·암호·배포용 HWP). 50 MB 초과는 다운로드 단계에서 끝나므로(`download_status=FAILED`, `TOO_LARGE`) 이 값이 아니라 NULL이다. 사유는 `parse_error_code`. 이전 값 `SKIPPED`(정책상 미처리)는 `UNSUPPORTED` + 사유 코드로 바뀌었다|
 |`ai_provider`|`MOCK`, `LOCAL`, `HOSTED`|`requirement_extractions.provider`, `score_runs.ai_provider`|[[03-AI-PIPELINE\|03 AI 파이프라인]] §3|
 |`extraction_status`|`PENDING`, `COMPLETED`, `PENDING_REVIEW`, `FAILED`|`requirement_extractions.status`|`PENDING_REVIEW` = 인젝션 의심(`injectionSuspected`), 인용 실패율 > 50%(`EXTRACTION_LOW_CONFIDENCE`), 첨부 파싱 실패 경고(`ATTACHMENT_PARSE_FAILED:`) 중 하나(gateway `extraction.py` `decide_status`)|
 |`score_run_status`|`QUEUED`, `RUNNING`, `COMPLETED`, `PARTIAL`, `FAILED`|`score_runs.status`|`PARTIAL` = AI 없이 규칙만|
 |`recommendation`|`BID`, `WATCH`, `NO_BID`|`score_runs.recommendation`, `bid_reviews.system_recommendation`|시스템 권고|
 |`recommendation_basis`|`RULES_ONLY`, `RULES_WITH_KEV_ASSIST`|`score_runs.recommendation_basis`|결정 모델은 `reviewFlags`와 참고 지표만 더한다(점수 미반영)|
-|`review_flag`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `KEV_REQUIREMENT_DISAGREEMENT`, `KEV_DELIVERY_RISK`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `AI_UNAVAILABLE`, `QWEN_UNAVAILABLE`, `KEV_UNAVAILABLE`, `MOCK_FALLBACK`, `PARSE_UNSUPPORTED`, `DOCUMENT_DOWNLOAD_FAILED`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`|`score_runs.review_flags[]`, `requirement_assessments.flags[]`|사람 검토 유도 신호. `INJECTION_SUSPECTED` = 추출 입력·출력에서 지시문 패턴 탐지([[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4, [[09-SECURITY\|09 보안]]). `SCALE_LIMIT_EXCEEDED` = 규모 적합 요소 0점 사유(재무 한도 초과, [[08-SCORING\|08 점수]]). ADR-020으로 더한 7개(`KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`·`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`·`MOCK_FALLBACK`·`PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`)의 조건은 [[08-SCORING\|08 점수]] §5.4. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다|
+|`review_flag`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `KEV_REQUIREMENT_DISAGREEMENT`, `KEV_DELIVERY_RISK`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `AI_UNAVAILABLE`, `QWEN_UNAVAILABLE`, `KEV_UNAVAILABLE`, `MOCK_FALLBACK`, `PARSE_UNSUPPORTED`, `DOCUMENT_DOWNLOAD_FAILED`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`, `TRANSLATION_INCOMPLETE`|`score_runs.review_flags[]`, `requirement_assessments.flags[]`|사람 검토 유도 신호. `INJECTION_SUSPECTED` = 추출 입력·출력에서 지시문 패턴 탐지([[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4, [[09-SECURITY\|09 보안]]). `SCALE_LIMIT_EXCEEDED` = 규모 적합 요소 0점 사유(재무 한도 초과, [[08-SCORING\|08 점수]]). ADR-020으로 더한 7개(`KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`·`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`·`MOCK_FALLBACK`·`PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`)의 조건은 [[08-SCORING\|08 점수]] §5.4. `TRANSLATION_INCOMPLETE`(`20261023000500`)는 `score_runs` check에만 있고 `requirement_assessments.flags`에는 없다. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다|
 |`qualification_outcome`|`SATISFIED`, `NOT_SATISFIED`, `NEEDS_REVIEW`|`qualification_checks.outcome`, `requirement_assessments.rule_status`·`kev_label`|법적 자격 자동 확정 없음. 규칙 판정·결정 모델 질문·평가셋 라벨이 같은 3값을 쓴다([[08-SCORING\|08 점수]] §5.1). `NOT_APPLICABLE` 처리는 §3.4|
 |`review_decision`|`BID`, `WATCH`, `NO_BID`|`bid_reviews.decision`|사람의 최종 결정|
 |`field_state`|`KNOWN`, `UNKNOWN`, `NOT_APPLICABLE`, `CONFLICTED`|JSONB 내부(`ExtractedField.state`)|DB check가 아닌 JSON 값. zod로 검증|
 |`ingest_trigger`|`SCHEDULED`, `MANUAL`, `DEMO`|`ingest_runs.trigger`|—|
 |`ingest_batch`|`SEED`, `LIVE`|`ingest_runs.batch`|fixture 배치. `SEED` = 기동 시 revision 1, `LIVE` = 데모 중 변경분. API `IngestionRunInput.batch`는 소문자 `"seed"\|"live"`이며 Route Handler의 zod 스키마가 대문자로 바꾼다|
 |`ingest_status`|`RUNNING`, `SUCCEEDED`, `PARTIAL`, `FAILED`|`ingest_runs.status`|`PARTIAL` = 일부 격리|
-|`notification_type`|`BID_CREATED`, `BID_CHANGED`, `DEADLINE_APPROACHING`, `ANALYSIS_COMPLETE`, `REVIEW_ASSIGNED`, `BID_RECOMMENDED`, `KAKAO_TEST`, `KAKAO_EXPIRED`|`outbox_events.event_type`, `notifications.type`|[[13-NOTIFICATIONS\|13 알림]]. 카카오 셋은 ADR-038(`20261021000002`, 구현 중 `feat/kakao-notify`)이다. `KAKAO_TEST`는 `outbox_events.event_type`에만, `KAKAO_EXPIRED`는 `notifications.type`에만 있다|
-|`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 카카오톡 나에게 보내기다(ADR-038. `NOTIFY_KAKAO_PROVIDER` 기본 `mock`, `memo`면 실발송. 2026-10-22 main 병합. 2026-10-24 사용자 재결정으로 10-25 실제 공고 수신 녹화 때만 `memo`, 실발송은 예정·미확인)|
+|`notification_type`|`BID_CREATED`, `BID_CHANGED`, `DEADLINE_APPROACHING`, `ANALYSIS_COMPLETE`, `REVIEW_ASSIGNED`, `BID_RECOMMENDED`, `KAKAO_TEST`, `KAKAO_EXPIRED`|`outbox_events.event_type`, `notifications.type`|[[13-NOTIFICATIONS\|13 알림]]. 카카오 셋은 ADR-038(`20261023000700`·`20261023000701`)이다. `KAKAO_TEST`는 `outbox_events.event_type`에만, `KAKAO_EXPIRED`는 `notifications.type`에만 있다|
+|`notification_channel`|`IN_APP`, `KAKAO`|`notifications.channel`|`KAKAO`는 카카오톡 나에게 보내기다(ADR-038. `NOTIFY_KAKAO_PROVIDER` 기본 `mock`, `memo`면 실발송. 실발송은 첨부 처리 운영 반영 뒤 확인한다, ADR-054)|
 |`notification_status`|`PENDING`, `SENT`, `FAILED`, `DEAD`|`notifications.status`|`DEAD` = 재시도 소진(DLQ). 읽음은 `read_at`|
 |`outbox_status`|`PENDING`, `PROCESSED`, `FAILED`, `DEAD`|`outbox_events.status`|—|
-|`bid_source`|`fixture`, `g2b-bid-notice`, `g2b-pre-spec`, `g2b-order-plan`|`bid_notices.source`|소문자. 수집 소스 registry `key`와 같은 값([[15-DATA-CONTRACTS\|15 데이터 계약]] §8)|
-|`ingest_source`|`fixture`, `g2b`|`ingest_runs.source`|API `IngestionRunInput.source`와 같은 값|
+|`bid_source`|`fixture`, `g2b-bid-notice`, `g2b-pre-spec`, `g2b-order-plan`, `g2b-procurement-request`, `kwater-bid-notice`, `kwater-procurement-plan`, `lh-bid-notice`, `lh-pre-specification`, `kepco-ebid-contract`|`bid_notices.source`|소문자. 수집 소스 registry `key`와 같은 값([[15-DATA-CONTRACTS\|15 데이터 계약]] §8)|
+|`ingest_source`|`fixture`, `g2b`, `kwater`, `lh`, `kepco`|`ingest_runs.source`|API `IngestionRunInput.source`와 같은 값|
 |`run_mode`|`LIVE`, `FIXTURE`, `MOCK`|`score_runs.run_mode`, `ingest_runs.run_mode`|env `SOL_RUN_MODE`와 API `runMode`는 소문자(`live`·`fixture`·`mock`)이고 저장할 때 대문자로 바꾼다(`ingest_batch`와 같은 방식)|
 |`document_download_status`|`PENDING`, `OK`, `FAILED`|`bid_documents.download_status`|첨부 다운로드 결과. 실패 사유는 `download_error_code`|
 |`document_parse_error`|`UNSUPPORTED_FORMAT`, `NO_TEXT_LAYER`, `ENCRYPTED`, `DISTRIBUTION_PROTECTED`, `TOO_LARGE`, `CORRUPTED`, `PARSER_ERROR`|`bid_documents.parse_error_code`|gateway `POST /parse`의 `errorCode`([[03-AI-PIPELINE\|03 AI 파이프라인]])|
@@ -346,10 +366,9 @@ PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 �
 
 - **`org_id`를 앞에**: 정책이 거르는 `org_id`를 조직 표 인덱스의 앞에 둔다(템플릿 `tasks`·`activities` 인덱스와 같다). 계정이 지워질 때 외래 키가 찾는 열(`requested_by`, `reviewer_id`, `actor_id`, `created_by`)에도 인덱스를 둔다.
 - **부분 UNIQUE**: `score_runs(org_id, bid_id, revision_id, company_profile_id, algorithm_version) WHERE status IN ('QUEUED','RUNNING')`. 같은 입력의 진행 중 job을 하나로 묶는다. 완료된 run은 이력으로 여러 개 허용한다([[05-API-SPEC|05 API 명세]] §7 중복 방지).
-- **null이 걸리지 않는 UNIQUE**: `bid_documents(revision_id, sha256)`는 다운로드 전·실패 행(`sha256` null)에 걸리지 않는다.
 - **검색**: 공고 제목·기관은 `pg_trgm` trigram 인덱스다. 한국어 검색 품질은 따로 잰다([[16-DECISIONS|16 ADR]] 6번).
 - **복합 외래 키(테넌트 혼입 방지)**: worker는 service role로 RLS 없이 쓴다. 그래서 자식 행의 `org_id`가 부모와 다르면 DB가 거절하게 한다. 부모 표에 UNIQUE(`id`,`org_id`)를 두고 자식이 (`<부모>_id`,`org_id`)로 가리킨다. 템플릿 `tasks_assignee_fkey`(`(org_id, assignee_id) → memberships`)와 같은 방식이다.
-- **P1 관심·프로젝트 표**(`20261022000100`·`20261022000300`에 구현): 관심 인원 수 집계용 `bid_watches(org_id, bid_id)` 인덱스, `bid_projects` UNIQUE(`id`,`org_id`)와 `tasks(bid_project_id, org_id)` 복합 외래 키(§3.1·§3.8).
+- **P1 관심·프로젝트 표**(`20261022000100`·`20261022000300`): 관심 인원 수 집계용 `bid_watches(org_id, bid_id)` 인덱스, `bid_projects` UNIQUE(`id`,`org_id`)와 `tasks(bid_project_id, org_id)` 복합 외래 키(§3.1·§3.8).
 
 soft-delete는 쓰지 않는다. 계정 정지는 `profiles.status`, 탈퇴는 즉시 삭제(템플릿 `delete_my_account`)다. 계정이 지워지면 이력 열(`requested_by`, `reviewer_id`, `actor_id`, `created_by`)은 비우고 행은 남긴다(on delete set null). 프로필·검토·점수는 append-only. 개인정보 보존 정책은 [[09-SECURITY|09 보안]].
 
@@ -374,7 +393,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`company_profiles`|3|`org-01` revision 1(초기)·revision 2(기술·실적 추가)와 `org-02` 격리 시연용 프로필 1개(`scripts/demo/plan.mjs`). 마지막 줄의 `profileRevisions=2`는 `org-01` 것만 센다. 데모에서 revision 차이를 보여 준다. 모두 `is_demo=true`. 미보유 자격은 `licenses[].status=NOT_HELD`로 기록한다(값은 [[08-SCORING\|08 점수]] §6.1)|
 |`bid_notices`|19 (+격리 1)|`FX-01`~`FX-20`([[07-DATA-PIPELINE\|07 수집]] fixture 표) 중 `FX-12`는 필수 필드 누락으로 격리(`ingest_errors`, 목록에 없음). 공고는 조직 소유가 아니다. 단계·특수 케이스 분포는 07을 따른다. `batch=SEED` 수집으로 적재. `source=fixture`|
 |`bid_revisions`|19 (`LIVE` 뒤 23)|seed 직후는 공고 19건의 r1. 정정·기한변경·취소 fixture(`FX-06`·`FX-07`·`FX-08`·`FX-10`)는 `batch=LIVE` 수집에서 revision 2를 얻어 23이 된다([[16-DECISIONS\|ADR-030]] B15)|
-|`bid_documents`|07 표 기준|첨부가 있는 fixture만. 수집 흐름 그대로 넣으므로 지금은 모두 `download_status=PENDING`, `parse_status` NULL이다(reset 뒤 18행, `docs/evidence/phase-5/preanalyze-local-c2b12d3.md` 7차). mock·fixture 모드에는 documents 소비자가 없어 그대로 남는다(2026-10-27 코드도 live 공고만 처리한다. 데모 첨부를 처리하면 골든이 바뀐다, [[07-DATA-PIPELINE\|07]] "documents 큐 소비자 계약"). 설계 목표: `download_status=OK`, 파싱 실패 케이스(`parse_status` `UNSUPPORTED` 또는 `FAILED`) 1건 이상 포함|
+|`bid_documents`|07 표 기준|첨부가 있는 fixture만. 수집 흐름 그대로 넣으므로 지금은 모두 `download_status=PENDING`, `parse_status` NULL이다. documents job은 live 공고만 처리하므로 fixture 첨부는 그대로 남는다(처리하면 골든이 바뀐다, [[07-DATA-PIPELINE\|07]] "documents 큐 소비자 계약")|
 |`bid_structured_requirements`|07 표 기준|API 구조화 자격 필드를 담은 fixture만|
 |`requirement_extractions`|0|seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다). 검증된 추출은 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장하고(인용 검증 포함, [[03-AI-PIPELINE\|03]] §4.4), `FX-02`는 S4 라이브 분석 때 저장한다. `fixtures/extractions/` 파일 20개는 gateway mock이 읽는 정본으로 그대로다([[16-DECISIONS\|ADR-031]] C16)|
 |`score_runs` / `requirement_assessments`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 `pnpm demo:preanalyze`로 18건을 사전 분석해 채운다([[16-DECISIONS\|ADR-030]] B22)|
@@ -383,7 +402,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`departments` / `job_titles`|승인 fixture 기준|같은 팀명 합산·총 배정 200, 직급/직책 12개. 계정 seed 전에 적재. 상위 본부·그룹 행도 넣는다(`target_count` 없음, 배분 대상은 팀만, [[16-DECISIONS\|ADR-021]])|
 |`team_members`|200|남성 100·여성 100, 고유 세 글자 가상 이름·고유 정장 사진. 200명 전원 계산 대상, 고정 기간 가용95.5 FTE([[08-SCORING\|08 점수]])|
 |`team_member_scoring`|200|점수 계산 대상200명의 직무·등급·스킬·가용성. 명부 JSON 한 파일에서 seed가 나눠 넣고, `team_members`와 같은 직원 ID로 잇는다(ADR-021)|
-|`assignments`|2|기간 충돌 데모용 1건 포함. 기존 사업에 투입된 가상 인력 7명은 이 표가 아니라 `team_member_scoring.availability`의 해당 기간 fte를 낮춰 표현한다(가용 창을 나누고 덧붙이지 않는다). 그래서 `FX-01`·`FX-02`·`FX-03` 기간의 가용 인력은95.5 FTE다(main `3e181b7`, [[16-DECISIONS\|ADR-030]] B19)|
+|`assignments`|2|기간 충돌 데모용 1건 포함. 기존 사업에 투입된 가상 인력 7명은 이 표가 아니라 `team_member_scoring.availability`의 해당 기간 fte를 낮춰 표현한다(가용 창을 나누고 덧붙이지 않는다). 그래서 `FX-01`·`FX-02`·`FX-03` 기간의 가용 인력은95.5 FTE다([[16-DECISIONS\|ADR-030]] B19)|
 |`notifications`|0|데모 중 이벤트로 생성|
 |`audit_logs`|seed 작업분|seed 자체도 `actor_id=null`, `action=SEED`로 남긴다|
 
@@ -407,29 +426,58 @@ seed 멱등과 건수는 시험으로 고정한다. 정책 시험(`scripts/datab
 |6|수집·outbox·알림·감사·평가 표|`20261019000006`|
 |7|감사·outbox 트리거|`20261019000007`|
 
-`20261019000008`은 팀 만들기를 서비스 운영자만 하게 좁힌다([[16-DECISIONS|ADR-026]]). 그 뒤 파일은 위 묶음 번호 없이 작업마다 새로 더했다(내용은 각 파일 머리 주석).
-- `20261019000009`: 수집 저장 함수 `ingest_save_revision(p jsonb)`(service_role 전용). 공고·revision·첨부·outbox 이벤트를 한 트랜잭션에 쓴다([[16-DECISIONS|ADR-030]] B18, main `d933c9e`).
-- `20261019000010`: `score_factors.missing_reason`·`score_runs.kev_assist` 열(§3.4, main `c2b12d3`).
-- `20261019000011`: 분석 마감 함수 `finish_score_run(p jsonb)`(service_role 전용)와 check `score_runs_idempotency_key_org_check`. check는 `not valid`로 건다(§3.4, ADR-031 C5, main `cfe8f0a`).
-- `20261019000012`: C6 화면 쪽 마이그레이션. `score_runs.request_hash` 열, `release_unqueued_score_run(uuid)`, `latest_ingest_run(text)`, 뷰 `bid_list_items`(§3.4, main `4ae09f9`). 번호가 `000013`·`000014`보다 앞서지만 main에는 나중에 들어왔다(병합 커밋 본문 "로컬 적용분이라 번호 예외").
-- `20261019000013`: `finish_score_run`을 다시 만들어 마감 status를 `COMPLETED`·`PARTIAL`로만 받는다(`SCORE_RUN_INVALID_STATUS`, §3.4, main `8f33caa`).
-- `20261019000014`: 마지막 업무 ADMIN 보호 트리거 `protect_last_sol_admin`과 `delete_my_account` 재정의(§3.1 결정 2, main `0e9821d`). 활동 계정만 세는 기준은 후속 마이그레이션 예정이다([[16-DECISIONS|ADR-033]] E2).
-- `20261019000016`: `finish_score_run`이 마감과 같은 트랜잭션에서 `ANALYSIS_COMPLETE` outbox를 쓴다(§3.4·§3.6, main `841b064`).
-- `20261019000017`: 알림 처리용 부분 인덱스 `outbox_events_notify_due_idx`(§3.6, main `841b064`).
-- `20261019000019`: `ingest_runs`의 `authenticated` select를 열 11개로 줄인다(§3.6, N8 보안 점검 W1, main `81249f0`). 되돌리기는 새 마이그레이션으로 표 단위 select를 다시 준다.
-- `20261021000001`·`20261021000002`([[16-DECISIONS|ADR-038]], 구현 중 `feat/kakao-notify` `d327894`, main 병합 전): 카카오톡 알림 연결 표 `kakao_notify_links`와 RPC 넷(§3.1), 이벤트·알림 종류 check 확장, 부분 인덱스 다시 만들기, `finish_score_run`의 `BID_RECOMMENDED` 쓰기(§3.4·§3.6). 클라우드 적용은 병합 뒤 사용자 확인으로 한다.
-- `20261019000015`·`20261019000018`이라는 파일은 main에 없다.
-- `20261027000500_document_processing_lease`(2026-10-27, 로컬 통합, 운영 미적용): documents job의 문서별 처리 함수 다섯 개. 표·열·제약은 바꾸지 않는다. 다섯 다 `security invoker`·`set search_path = ''`이고 service_role만 실행한다(anon·authenticated·public은 못 한다).
-  - `claim_document_processing(document_id, attempt_id, lease_seconds)`: 처리할 상태(다운로드 대기, 또는 다운로드 OK + 파싱 대기)인 행만 리스를 잡는다. 리스가 없거나 끝났거나 같은 시도의 것일 때만 잡는다. 못 잡으면 사유 `MISSING`·`DONE`·`BUSY`를 돌려준다. 리스는 30~3600초.
-  - `fail_document_download`: 그 시도가 리스를 가진 다운로드 대기 행만 `FAILED` + 사유 코드로 닫는다. 사유는 화면 계약의 일곱 값만 받는다.
-  - `fail_document_parse`: 그 시도가 리스를 가진 파싱 대기 행만 `UNSUPPORTED`·`FAILED` + 사유 코드로 닫는다.
-  - `release_document_processing`: 그 시도의 리스만 푼다(성공 뒤, 또는 일시 오류로 다음 시도에 넘길 때).
-  - `document_processing_candidates(is_demo, after, limit, max_per_bid)`: 복구 회차가 job을 넣을 revision을 고른다. 최신 revision·접수 중(`OPEN`·`AMENDED`)·마감 전이고, `.pdf`·`.hwp`·`.hwpx` 첨부 가운데 끝난 것이 공고당 상한(1~20)보다 적고 처리할 것이 남은 것만이다. 한 번에 최대 100.
-  - 원본·텍스트 확정은 기존 `finish_document_storage`가 그대로 한다. 정책 시험은 `scripts/database.test.mjs` "documents job — 문서별 처리 리스·실패 기록·처리 대상(20261027000500)"이다.
-- `20261027000600_signup_consents`(2026-10-27, 로컬 통합, 운영 미적용): `user_consents` 표(§3.1)와 `handle_new_user` 동의 검사(§3.1 "가입 약관 동의 검사"). 정책 시험은 `scripts/database.test.mjs` "가입 약관 동의 기록 (20261027000600)"이다.
-- 적용 상태(2026-10-20): 로컬과 클라우드 모두 `20261019000019`까지 30개가 적용됐다. 클라우드는 sol-radar-3e가 사용자 확인("적용")을 받고 main `9048995`에서 `pnpm db:push`로 적용했고 `pnpm db:verify`가 통과했다(20:48 KST).
+`20261019000008` 이후 파일은 위 묶음 번호 없이 작업마다 새로 더했다. 번호와 한 줄 설명만 적는다(내용은 각 파일 머리 주석).
 
-ADR-021 관심·프로젝트 표와 `tasks.bid_project_id`는 §3.8의 로컬 통합 마이그레이션으로 구현했다. §3.5 `employment_status`·ADMIN 인력 편집 정책은 별도 P1 착수 때 새 파일로 만든다.
+|번호|설명|
+|---|---|
+|`20261019000008`|팀 만들기를 서비스 운영자만 하게 좁힘([[16-DECISIONS\|ADR-026]])|
+|`20261019000009`|수집 저장 함수 `ingest_save_revision`|
+|`20261019000010`|`score_factors.missing_reason`·`score_runs.kev_assist` 열|
+|`20261019000011`|분석 마감 함수 `finish_score_run`, 멱등 키 조직 접두어 check|
+|`20261019000012`|C6 화면 읽기: `request_hash`, `release_unqueued_score_run`, `latest_ingest_run`, 뷰 `bid_list_items`(번호가 `000013`·`000014`보다 앞서지만 나중에 들어왔다)|
+|`20261019000013`|`finish_score_run`이 마감 status를 `COMPLETED`·`PARTIAL`로만 받음|
+|`20261019000014`|마지막 업무 ADMIN 보호 `protect_last_sol_admin`, `delete_my_account` 재정의|
+|`20261019000016`|`finish_score_run`이 `ANALYSIS_COMPLETE` outbox를 같은 트랜잭션에 씀|
+|`20261019000017`|알림 처리용 부분 인덱스 `outbox_events_notify_due_idx`|
+|`20261019000019`|`ingest_runs` 화면 역할 select를 열 단위로 제한|
+|`20261021000600`|가상 인력 200명 속성 보강(`team_member_scoring`)|
+|`20261021000700`~`000702`|Supabase Storage 원장·접근 정책·incarnation(ADR-048)|
+|`20261022000100`|관심 공고 `bid_watches`, 관심 인원 수, 관심 목록 뷰|
+|`20261022000110`|마감 알림 `send_deadline_reminders`(D-3·D-1)|
+|`20261022000300`|입찰 프로젝트 `bid_projects`·`bid_project_events`, 상태 함수|
+|`20261023000100`|사업기회·출처·관련성·수집 증거 표 8개, `bid_notices`·`ingest_runs` 확장(ADR-047)|
+|`20261023000200`|사업기회 읽기 뷰·집계 함수, `ingest_runs` 열 3개 select|
+|`20261023000300`|관심 사업기회 뷰|
+|`20261023000400`|프로젝트 PATCH 원자화 `patch_bid_project`|
+|`20261023000500`|`TRANSLATION_INCOMPLETE` review flag|
+|`20261023000600`|업무 역할 변경·재초대 감사 트리거|
+|`20261023000700`|카카오 연결 표 `kakao_notify_links`와 RPC 넷(ADR-038)|
+|`20261023000701`|`BID_RECOMMENDED` outbox, 카카오 알림 종류|
+|`20261023000702`|카카오 연결 RPC 보강, 시험 메시지 하루 상한|
+|`20261023000703`|시험 메시지 개수 부분 인덱스|
+|`20261023000704`|카카오 발송 claim `kakao_send_claims`|
+|`20261023000800`|부처 지원사업 `program_notices`·`program_notice_runs`|
+|`20261024000100`|가상 직원 회사 메일|
+|`20261024000200`·`000210`|프로필 사진(Storage 정책, `set_my_photo`·`set_member_photo`), 비데모 직원 허용|
+|`20261024000300`|가입 신청 `member_join_requests`|
+|`20261024000400`|인력 ADMIN 편집, `employment_status`, 감사 action 확장|
+|`20261024000410`|명부 찾기는 재직 직원만|
+|`20261025000100`·`000300`|가입 신청 승인·결정을 신청 당시 버전으로 고정(보안 검토)|
+|`20261025000110`·`000310`|본인 사진 개수 상한·삭제(`profile_photo_folders`)|
+|`20261025000200`|대시보드 실수집 지표 함수|
+|`20261027000500`|documents job 문서별 처리 lease·실패 기록·처리 대상 함수 다섯|
+|`20261027000600`|가입 약관 동의 `user_consents`, `handle_new_user` 동의 검사|
+
+`20261019000015`·`20261019000018`이라는 파일은 없다. 운영 DB에는 62개가 모두 적용됐다(2026-10-27, [적용 기록](evidence/prod-migrations/20261027/README.md)).
+
+`20261027000500`의 함수 다섯은 표·열·제약을 바꾸지 않는다. 모두 `security invoker`·`set search_path = ''`이고 service_role만 실행한다.
+- `claim_document_processing(document_id, attempt_id, lease_seconds)`: 처리할 상태(다운로드 대기, 또는 다운로드 OK + 파싱 대기)인 행만 lease를 잡는다. lease가 없거나 끝났거나 같은 시도의 것일 때만 잡고, 못 잡으면 사유 `MISSING`·`DONE`·`BUSY`를 돌려준다. lease는 30~3600초.
+- `fail_document_download`·`fail_document_parse`: 그 시도가 lease를 가진 대기 행만 `FAILED`(파싱은 `UNSUPPORTED`·`FAILED`) + 사유 코드로 닫는다.
+- `release_document_processing`: 그 시도의 lease만 푼다.
+- `document_processing_candidates(is_demo, after, limit, max_per_bid)`: 복구 회차가 job을 넣을 revision을 고른다. 최신 revision·접수 중·마감 전이고 `.pdf`·`.hwp`·`.hwpx` 첨부 중 끝난 것이 공고당 상한(1~20)보다 적은 것만이다. 한 번에 최대 100.
+- 원본·텍스트 확정은 기존 `finish_document_storage`가 한다. 정책 시험은 `scripts/database.test.mjs` "documents job — 문서별 처리 리스·실패 기록·처리 대상(20261027000500)"이다.
+
+`20261027000600`의 정책 시험은 `scripts/database.test.mjs` "가입 약관 동의 기록 (20261027000600)"이다.
 
 템플릿 견본 정리: `tasks`와 그 함수·트리거(`task_dashboard_stats`, 작업 활동 기록)는 지우지 않는다. ADR-021 P1 입찰 프로젝트 체크리스트로 재사용하고(`bid_project_id` 열은 P1 마이그레이션), 사이드바의 "작업" 메뉴만 뺀다([[16-DECISIONS|ADR-021]]). `memos`는 템플릿 `20261014000004_tasks_and_activity.sql`이 이미 지웠다.
 
@@ -438,12 +486,6 @@ ADR-021 관심·프로젝트 표와 `tasks.bid_project_id`는 §3.8의 로컬 �
 - 같은 커밋에 생성 타입(`pnpm db:types`)과 정책 시험(`scripts/database.test.mjs`)을 넣는다. 새 `security definer` 함수는 `scripts/db-verify.mjs` 허용 목록에 이유와 함께 올린다.
 - 클라우드 적용(`pnpm db:push`)은 사용자 확인 뒤에 한다.
 - seed는 마이그레이션이 아니다(§6 `pnpm demo:reset`).
-
-## 검토 중 확장: 사업기회·출처·분류·수집 증거
-
-ADR-047 [변경안](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§4는 기존 `bid_notices`/`bid_revisions`와 분석/검토 FK를 보존하고 기관·opportunity/link·중복판정이력·notice event·private payload 참조·run item·관련성평가를 추가한다. source family와 registry key, stage와 정정/취소 event를 구분한다. 새 migration2개와 생성 DB 타입을 추가했다. 운영 DB 적용은 하지 않았다.
-
-공용 공고 읽기/worker 쓰기, 조직 데이터 org_id RLS, 원본/오류/수집운영 ADMIN 제한, 웹 service role 금지를 유지한다. 새 source의 provider key/partition으로 번호 충돌을 방지한다. `feat/supabase-storage`의 파일 원장을 중복 생성하지 않으며 migration 번호·생성 타입은 통합 담당과 조정한다. 기존 migration 수정/운영 DB 적용은 이번 범위가 아니다.
 
 ## 관련 문서
 
@@ -457,15 +499,3 @@ ADR-047 [변경안](../polaris/specs/in-progress/2026-10-21-public-procurement-e
 - [[13-NOTIFICATIONS|13 알림]] — outbox
 - [[16-DECISIONS|16 ADR]] — ADR-017 아키텍처 전환, ADR-020 실데이터 MVP와 AI 파이프라인 v0.2(실행 모드·첨부 파싱·항목 판정·평가 표), ADR-033 정본 반영 4차(활동 계정 기준·인앱 알림)
 - [[21-MODEL-TRAINING|21 모델 학습]] — `eval_runs`에 올리는 평가 리포트, 비교 대상·지표
-
-## Supabase Storage 참조 확장 (ADR-048)
-
-`20261021000700_document_storage.sql`은 `bid_documents`에 raw/parsed bucket·원장 ID·업로드/파싱 시각·오류 요약·처리 lease를 추가한다. 기존 원본 key와 문서 행은 보존한다. revision+sha256 UNIQUE는 일반 인덱스로 바꿔 같은 파일을 가리키는 서로 다른 문서를 보존한다.
-`document_storage_objects`는 bucket/logical_path UNIQUE로 살아 있는 중복 파일을 재사용한다. 실제 `path`는 논리 경로의 파일명 앞에 원장 UUID 디렉터리를 넣고 bucket/path UNIQUE·id/bucket/path 복합 FK로 연결한다. 삭제 후 재생성하면 새 UUID를 받아, 만료된 이전 삭제 작업이 늦게 끝나도 새 파일을 지울 수 없다. checksum/size/MIME, UPLOADING/STORED/DELETE_PENDING/ERROR, lease token/기한을 갖는 Worker 전용 원장이며 사용자 역할의 직접 읽기/쓰기는 닫는다.
-main에 먼저 커밋된00700/00701은 수정하지 않는다. 후속 `20261021000702_document_storage_incarnations.sql`이 기존 raw/parsed 행의 `logical_path=path`를 채우고 claim/참조 검증을 갱신한다. 기존 실제 경로·문서 FK·파일 bytes는 그대로 유지하며, Worker는 이 경로도 그대로 재사용한다. 새 원장만 UUID 경로를 받아 이전 삭제와 격리된다.
-`claim_document_storage`→실제 immutable upload/바이트 검증→`finish_document_storage` 순서로 확정한다. 업로드 후 DB 실패는 파일 삭제 없이 원장 lease 재획득으로 복구한다. 참조 확정과 삭제 claim은 같은 object row를 잠근다.
-`document_storage_candidates`는24시간 이상·lease 만료·무참조만 반환한다. 삭제는 Storage API 뒤 원장 확정 순서다. 기존 파일이나 bucket 전체 삭제는 하지 않는다.
-`20261021000701_document_storage_access.sql`은 활동 중 업무 멤버가 DB에서 참조한 download OK 원본만 읽는 Storage SELECT 정책을 추가한다. parsed·health·학습 파일과 사용자 쓰기는 열지 않는다. bucket 준비는 DB migration과 별도의 API 운영 명령이다.
-
-
-ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

@@ -301,7 +301,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 | 미보유 자격 (`licenses`, `status: NOT_HELD`) | 정보통신공사업 등록, 방산업체 지정, ISMS-P, CSAP. 보유하지 않음을 프로필에 명시적으로 기록한다(§5.1). 이 기록이 있어야 `FX-03`이 `NOT_SATISFIED`가 된다 |
 | 프로필 구분 | `isDemo=true`(가상 프로필, 모든 실행 모드 공통) |
 | 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 200, 단일 사업 수행 상한 `maxContractKrw` 50억 |
-| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 직원 200명 전원이 계산 대상. PM19·PL21·개발35·데이터AI20·DevOps17·QA17·디자인17·업무분석18·보안18·DBA18. 기존27명의 속성과 배정7건을 보존하고 추가173명의 가상 속성을 생성했다. 2026-12-01 이상 2027-07-01 미만 기간의 최소 가용 합은95.5 FTE. seed와 마이그레이션은 기존 배정7건을 availability에 한 번 접고, DB assignments의 데모2건은 별도로 차감한다(ADR-043). |
+| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 직원 200명 전원이 계산 대상. PM19·PL21·개발35·데이터AI20·DevOps17·QA17·디자인17·업무분석18·보안18·DBA18. 200명 전원의 속성은 가상으로 생성했고 기존 배정7건을 보존한다. 2026-12-01 이상 2027-07-01 미만 기간의 최소 가용 합은95.5 FTE. seed와 마이그레이션은 기존 배정7건을 availability에 한 번 접고, DB assignments의 데모2건은 별도로 차감한다(ADR-043). |
 | 선호 (`preferences`) | `agencies: []`, `agencyTypes: [지자체, 교육청]`, `domains: [데이터 플랫폼, AX, 민원, 교육]`, `excludedDomains: [국방]`, `excludedKeywords: [무기체계]` |
 | 기술 목록 완결 (`technologiesComplete`) | `true`. 요구 기술이 `technologies`(별칭 포함)에 없으면 `requirement_assessments` 기술 항목이 `NOT_SATISFIED`가 된다(§5.1, `web/server/scoring/requirement-assessment.ts`). 점수·권고(94/72/68, BID/WATCH/NO-BID)에는 영향이 없다 |
 | 업종 코드 (`industryCodes`) | 빈 목록 `[]`. 공고가 업종 코드를 요구하면 그 항목은 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다 |
@@ -398,13 +398,13 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 
 ## 9. 가상 명부 200명과 점수 계산 범위
 
-ADR-043(2026-10-21 사용자 요청)으로 200명 전원에 가상 계산 속성을 부여하고 기존 점수 검증도 200명 전원 입력으로 확장했다. 개인 자격증·실적은 SYNTHETIC 출처와 가상 증거 참조를 보존한다. 원래 직급·직책에서 실제 기술을 추론하지 않고 이름·성별·정장 사진은 점수 입력에서 제외한다. 입력 스냅샷에 계산 대상200명과 가용성을 보존한다. FX-01/02/03의 골든94/72/68은 인력 요소가 포화되어 유지되고, FX-15는 가용 인력 증가로 인력10→20점·총점58→68(WATCH)로 바뀐다. 기존 저장된 score_runs는 변경하지 않는다.
+ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점수 검증도 200명 전원 입력으로 확장했다. 개인 자격증·실적은 SYNTHETIC 출처와 가상 증거 참조를 보존한다. 원래 직급·직책에서 실제 기술을 추론하지 않고 이름·성별·정장 사진은 점수 입력에서 제외한다. 입력 스냅샷에 계산 대상200명과 가용성을 보존한다. FX-01/02/03의 골든94/72/68은 인력 요소가 포화되어 유지되고, FX-15는 68점(WATCH)이다(경위는 [[16-DECISIONS|ADR-043]]). 저장된 score_runs는 변경하지 않는다.
 
-## 다기관 확장 검토에서 유지할 점수 경계
+## 다기관 공고와 SOL Score 경계
 
-ADR-047 [설계 제안](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§7~8의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.1.0`·30/25/20/15/10·75/50·법적자격3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
+[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.1.0`·30/25/20/15/10·75/50·법적자격3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
 
-새 category를 기존 `bid.domain`에 무조건 대입하거나 early stage를 입찰가능 BID로 바꾸지 않는다. 신규 입력의 회귀는 [[2026-10-21-public-procurement-expansion-plan|I5]]에서 검증한다. 이번에는 점수 코드/가중치/골든을 변경하지 않았다.
+새 category를 기존 `bid.domain`에 무조건 대입하거나 early stage를 입찰가능 BID로 바꾸지 않는다. 관련성 점수는 SOL Score 코드·가중치·골든을 바꾸지 않는다.
 
 ## 관련 문서
 
@@ -418,6 +418,3 @@ ADR-047 [설계 제안](../polaris/specs/in-progress/2026-10-21-public-procureme
 - [[16-DECISIONS|16 ADR]] — ADR-052(금액·완료일을 모르는 실적), ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6)
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋 라벨, 결정 모델 반영 전 신뢰성 기준·오류 분석
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 결정 모델 출력은 플래그·참고 지표만
-
-
-ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.
