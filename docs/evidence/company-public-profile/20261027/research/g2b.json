@@ -1,0 +1,75 @@
+{
+  "area": "g2b",
+  "sources": [
+    {
+      "id": "g2b-sankun-nhn",
+      "kind": "PUBLIC",
+      "title": "산군 입찰정보 조달청 공고 R26BK01597594-001 (솔리데오 중개서비스 for NHN Cloud IaaS)",
+      "url": "https://www.sankun.com/bid-info/4txlO4njhj6i8pFAoOs_Hb5PomRZczA0UbEfRTfIozQ",
+      "retrievedAt": "2026-10-27",
+      "quote": "디지털서비스_솔리데오_솔리데오 중개서비스 for NHN Cloud(IaaS) / R26BK01597594-001 / 낙찰업체 주식회사 솔리데오 / 개찰일 2026.07.01 13:00 / 수의계약"
+    },
+    {
+      "id": "g2b-datagokr-bidcontract",
+      "kind": "PUBLIC",
+      "title": "공공데이터포털 조달청_입찰공고 기업별 투찰 및 계약내역 (파일 데이터, 외부 링크)",
+      "url": "https://www.data.go.kr/data/15050832/fileData.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "기관자체에서 다운로드(제공데이터URL기재)"
+    },
+    {
+      "id": "g2b-g2b-search-contract",
+      "kind": "PUBLIC",
+      "title": "나라장터 통합검색 '솔리데오' 조달정보 검색결과(계약현황·개찰결과·입찰공고)",
+      "url": "https://www.g2b.go.kr/",
+      "retrievedAt": "2026-10-27",
+      "quote": "계약현황 용역 수의디지털서비스_솔리데오_솔리데오 중개서비스 for NHN Cloud(IaaS) R26TA02023852 2026/07/03 조달청 각 수요기관 2026/06/30 제3자단가계약 수의계약 5,000,000,000 / 계약현황 용역 수의디지털서비스_솔리데오_지원서비스 R25TA00862856 2026/02/26 조달청 각 수요기관 2025/08/28 제3자단가계약 수의계약 900,000,000"
+    },
+    {
+      "id": "g2b-g2b-open-result",
+      "kind": "PUBLIC",
+      "title": "나라장터 개찰결과 R26BK01597594-001 (입찰>입찰개찰/낙찰>개찰결과분류조회)",
+      "url": "https://www.g2b.go.kr/",
+      "retrievedAt": "2026-10-27",
+      "quote": "1 1 116-81-70775 주식회사 솔리데오 [이름 생략] 5,000,000,000 100 2026/07/01 10:57:00 정상"
+    },
+    {
+      "id": "g2b-g2b-contract-detail",
+      "kind": "PUBLIC",
+      "title": "나라장터 통합검색 계약현황 상세(진행단계)",
+      "url": "https://www.g2b.go.kr/",
+      "retrievedAt": "2026-10-27",
+      "quote": "계약 계약번호 R26TA02023852 최초계약일자 2026-07-03 / 계약 계약번호 R25TA00862856 변경계약일자 2026-02-26"
+    }
+  ],
+  "technologies": [],
+  "licenses": [],
+  "industryCodes": [],
+  "pastProjects": [
+    {
+      "id": "pp-g2b-1",
+      "name": "솔리데오 중개서비스 for NHN Cloud(IaaS) (조달청 디지털서비스몰 제3자단가계약)",
+      "domain": "기타",
+      "amountKrw": "5000000000",
+      "completedAt": null,
+      "note": "새 사업. 계약번호 R26TA02023852, 최초계약일자 2026-07-03, 계약방법 수의계약, 입찰공고 R26BK01597594(개찰 2026-07-01, 참가 1개사 주식회사 솔리데오, 사업자번호 116-81-70775, 입찰금액 5,000,000,000원). 계약금액은 3자단가계약(카탈로그) 화면 표시값이며 실제 매출액이 아닐 수 있음. 계약기간·완료일은 공개 화면에서 못 봄. 클라우드 중개 서비스로 SI 실적이 아님.",
+      "sourceIds": [
+        "g2b-g2b-search-contract",
+        "g2b-g2b-contract-detail",
+        "g2b-g2b-open-result",
+        "g2b-sankun-nhn"
+      ]
+    },
+    {
+      "id": "pp-g2b-2",
+      "name": "디지털서비스_솔리데오_지원서비스 (조달청 디지털서비스몰 제3자단가계약)",
+      "domain": "기타",
+      "amountKrw": "900000000",
+      "completedAt": null,
+      "note": "새 사업. 계약번호 R25TA00862856, 입찰공고 R25BK01026597(공고 2025-08-28, 개찰 2025-08-29), 수의계약, 변경계약일자 2026-02-26(최초계약일자는 화면에 없음). 계약금액은 화면 표시값이며 3자단가계약 한도일 수 있음. 완료일 모름.",
+      "sourceIds": ["g2b-g2b-search-contract", "g2b-g2b-contract-detail"]
+    }
+  ],
+  "financials": null,
+  "publicHistory": []
+}

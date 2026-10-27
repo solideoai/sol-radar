@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — C6 Phase 3 화면 (앱 셸 최소·대시보드·공고 목록·공고 상세·알림)"
 doc: "design-c6-screens"
-status: final
+status: done
 tags:
   - sol-radar
   - ui

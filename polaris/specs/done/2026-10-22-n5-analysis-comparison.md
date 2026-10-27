@@ -13,7 +13,7 @@ updated: 2026-10-27
 
 > 상태: **완료**(2026-10-27 확인, `in-progress/`에서 옮김). 근거: main `546a997d`(2026-10-22 "대시보드 업무 화면 네 개 구현", [통합 기록](../../../docs/evidence/navigation/20261022-implementation.md)).
 
-2026-10-22 승인된 [실행 계획](../../../docs/plans/2026-10-22-dashboard-missing-pages-plan.md) Task 2의 구현 범위다. [화면 명세](../../../docs/plans/2026-10-22-dashboard-pages-ui-spec.md)의 N5절이 레이아웃·상태·카피·접근성 기준이다. 새 분석 실행·모델 호출·분석 변경·별도 비교 API는 범위 밖이다. 미션 파일은 새로 만들지 않는다.
+2026-10-22 승인된 실행 계획(원문: git `f0ad424a` `docs/plans/2026-10-22-dashboard-missing-pages-plan.md`) Task 2의 구현 범위다. 화면 명세(원문: git `f0ad424a` `docs/plans/2026-10-22-dashboard-pages-ui-spec.md`)의 N5절이 레이아웃·상태·카피·접근성 기준이다. 새 분석 실행·모델 호출·분석 변경·별도 비교 API는 범위 밖이다. 미션 파일은 새로 만들지 않는다.
 
 ## 사용자와 결과
 
@@ -42,7 +42,7 @@ PARTIAL은 남은 규칙 결과와 실패/대체 사유를 보여 준다. FAILED
 
 ## 관련 문서
 
-- [승인 계획](../../../docs/plans/2026-10-22-dashboard-missing-pages-plan.md)
-- [화면 명세](../../../docs/plans/2026-10-22-dashboard-pages-ui-spec.md)
+- 승인 계획(원문: git `f0ad424a` `docs/plans/2026-10-22-dashboard-missing-pages-plan.md`)
+- 화면 명세(원문: git `f0ad424a` `docs/plans/2026-10-22-dashboard-pages-ui-spec.md`)
 - [API 정본](../../../docs/05-API-SPEC.md)
 - [보안 정본](../../../docs/09-SECURITY.md)

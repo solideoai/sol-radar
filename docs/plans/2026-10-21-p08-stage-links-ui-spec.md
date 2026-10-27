@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — P0-8 공고 상세 단계 연결 (StageLinks)"
 doc: "design-p08-stage-links-ui"
-status: draft
+status: done
 tags:
   - sol-radar
   - ui

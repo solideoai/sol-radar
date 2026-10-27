@@ -1,0 +1,56 @@
+{
+  "area": "reg",
+  "sources": [
+    {
+      "id": "dart-corp-overview",
+      "kind": "PUBLIC",
+      "title": "DART 기업개황 - 주식회사 솔리데오",
+      "url": "https://dart.fss.or.kr/dsae001/selectPopup.ax?selectKey=01458949",
+      "retrievedAt": "2026-10-27",
+      "quote": "회사이름 주식회사 솔리데오 … 법인구분 기타법인 … 사업자등록번호 116-81-70775 … 업종명 컴퓨터시스템 통합 자문 및 구축 서비스업 설립일 1998-12-15 결산월 12월"
+    },
+    {
+      "id": "dart-audit-2025",
+      "kind": "PUBLIC",
+      "title": "DART 감사보고서 (2025.12) 주식회사 솔리데오 - 삼덕회계법인",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260402001910",
+      "retrievedAt": "2026-10-27",
+      "quote": "매출액 21 60,249,901,054 49,224,902,842 … 당기말 현재 회사의 자본금은 3,383,500천원이며, 발행한 주식수는 보통주 6,767,000주"
+    },
+    {
+      "id": "dart-audit-consol-2025",
+      "kind": "PUBLIC",
+      "title": "DART 연결감사보고서 (2025.12) 주식회사 솔리데오 - 삼덕회계법인",
+      "url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260402001929",
+      "retrievedAt": "2026-10-27",
+      "quote": "매출액 21 68,671,542,106 54,393,156,497"
+    },
+    {
+      "id": "reg-kica-detail",
+      "kind": "PUBLIC",
+      "title": "한국정보통신공사협회 종합정보시스템 공사업체 상세정보 - 주식회사 솔리데오",
+      "url": "https://ictis.kica.or.kr/construct/assessment/compDetail/201454",
+      "retrievedAt": "2026-10-27",
+      "quote": "공사업체 상세정보 소속시∙도회 서울시회 등록번호 201454 상호 주식회사 솔리데오(SOLIDEO CO., LTD.) 사업자번호 116-81-70775 대표자 [이름 생략] … (2026년) 시공능력평가액 0 천원 (2026년) 시공능력평가액 순위 0 위 / 11,700 업체"
+    }
+  ],
+  "technologies": [],
+  "licenses": [
+    {
+      "code": "ICT_CONSTRUCTION",
+      "name": "정보통신공사업 등록(한국정보통신공사협회 공사업체 조회)",
+      "status": "HELD",
+      "sourceIds": ["reg-kica-detail"]
+    }
+  ],
+  "industryCodes": [],
+  "pastProjects": [],
+  "financials": {
+    "fiscalYear": 2025,
+    "annualRevenueKrw": "60249901054",
+    "capitalKrw": "3383500000",
+    "note": "DART 감사보고서(별도) 기준. 연결 매출액은 68,671,542,106원(dart-audit-consol-2025). 종업원 수는 감사보고서에서 확인하지 못해 넣지 않음. 1차 값(잡코리아/NICE 602.4억·33.8억·281명)과 매출·자본금이 일치.",
+    "sourceIds": ["dart-audit-2025", "dart-audit-consol-2025"]
+  },
+  "publicHistory": []
+}

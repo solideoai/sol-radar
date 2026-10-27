@@ -936,7 +936,9 @@ export type Database = {
           org_id: string
           past_projects: Json
           preferences: Json | null
+          public_history: Json
           revision: number
+          sources: Json
           technologies: Json
           technologies_complete: boolean
         }
@@ -954,7 +956,9 @@ export type Database = {
           org_id: string
           past_projects?: Json
           preferences?: Json | null
+          public_history?: Json
           revision: number
+          sources?: Json
           technologies?: Json
           technologies_complete?: boolean
         }
@@ -972,7 +976,9 @@ export type Database = {
           org_id?: string
           past_projects?: Json
           preferences?: Json | null
+          public_history?: Json
           revision?: number
+          sources?: Json
           technologies?: Json
           technologies_complete?: boolean
         }

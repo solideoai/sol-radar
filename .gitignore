@@ -61,7 +61,7 @@ docs/.obsidian/workspace-mobile.json
 docs/.trash/
 
 
-# X6a 녹음(마스킹 응답). 저장소에 넣지 않고 학습 번들에만 넣는다(docs/23-WEEKEND-FINETUNE.md §4.3 2안). 표본·호출 로그도 같은 폴더다
+# X6a 녹음(마스킹 응답). 저장소에 넣지 않고 학습 번들에만 넣는다(git `5261730f` 의 `docs/23-WEEKEND-FINETUNE.md` §4.3 2안). 표본·호출 로그도 같은 폴더다
 fixtures/recorded/train/
 # 평가셋 빌드 산출물(docs/21 §3.1). JSONL·manifest 는 커밋하지 않는다
 datasets/

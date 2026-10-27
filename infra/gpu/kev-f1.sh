@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SOL RADAR — Kev-9B LoRA F1-B/F1-C 메모리 검증 실행 (회사 GPU 서버, 물리 GPU 1 전용, 기본 20 step).
-# 정본: docs/22-FINETUNE-RUNBOOK.md §4.2, docs/23-WEEKEND-FINETUNE.md §5.2. 결과 기록은 docs/evidence/kev-train-feasibility.md.
+# 정본: docs/22-FINETUNE-RUNBOOK.md §4.2(F1 격자 이력은 git 5261730f 의 docs/23-WEEKEND-FINETUNE.md §5.2). 결과 기록은 docs/evidence/kev-train-feasibility.md.
 #
 # 사용(서버 셸):
 #   export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=1

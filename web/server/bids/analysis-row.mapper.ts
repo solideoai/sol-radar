@@ -24,6 +24,8 @@ export type RequirementAssessmentRow = Tables["requirement_assessments"]["Row"];
 export type AnalysisRows = {
   run: ScoreRunRow;
   revision: number;
+  // run 이 가리키는 회사 프로필 revision 의 is_demo. embed 가 null 이면 true 로 읽는다.
+  profileIsDemo: boolean;
   factors: ScoreFactorRow[];
   checks: QualificationCheckRow[];
   assessments: RequirementAssessmentRow[];
@@ -228,6 +230,7 @@ export function toAnalysisViewFromRows(rows: AnalysisRows): AnalysisView {
     revisionId: run.revision_id,
     revision: rows.revision,
     profileRevision: run.profile_revision,
+    profileIsDemo: rows.profileIsDemo,
     runMode: run.run_mode.toLowerCase(),
     status: run.status,
     solScore: scored && run.score !== null ? Number(run.score) : null,

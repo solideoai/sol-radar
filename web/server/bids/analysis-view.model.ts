@@ -163,6 +163,8 @@ export const analysisViewSchema = z.strictObject({
   revisionId: z.string().min(1),
   revision: z.number().int().positive(),
   profileRevision: z.number().int().positive(),
+  // 분석에 쓴 회사 프로필의 is_demo. 알 수 없으면 true(가상으로 보인다).
+  profileIsDemo: z.boolean(),
   runMode: runModeSchema,
   status: analysisStatusSchema,
   solScore: z.number().min(0).max(100).nullable(),

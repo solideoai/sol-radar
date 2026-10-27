@@ -1,7 +1,7 @@
 # fixtures/eval — 평가셋 v0.1 가상 기업 원형 (X6a, ADR-027)
 
 `companies/*.json` 6개는 `docs/21-MODEL-TRAINING.md` §3.2 의 가상 기업 원형이다. 평가셋 빌더(`services/ai/eval/sol_eval`, X6a)가
-실제 공고와 짝지어 `EvalItem.company`(21 §3.7)를 만들 때 출발점으로 읽는다. `docs/23-WEEKEND-FINETUNE.md` §4.2 C층·§4.4 갈래 ①의
+실제 공고와 짝지어 `EvalItem.company`(21 §3.7)를 만들 때 출발점으로 읽는다. git `5261730f` 의 `docs/23-WEEKEND-FINETUNE.md` §4.2 C층·§4.4 갈래 ①의
 COMPANY 블록이 여기서 나온다.
 
 **전부 가상이다.** 회사 이름은 원형 설명형이고(`가상 … (원형 N)`), 실적·면허·재무는 실제 기업의 것이 아니다. 모든 파일 `isDemo=true`.

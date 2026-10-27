@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — N2 설정 조직 탭 (/settings/organization)"
 doc: "design-n2-org-settings"
-status: draft
+status: done
 tags:
   - sol-radar
   - plan

@@ -23,7 +23,7 @@ const MISSING_LABEL: Record<MissingFactor["reason"], string> = {
   NO_REQUIREMENTS_EXTRACTED: "공고 요구기술 미확인",
   PROFILE_TECHNOLOGIES_EMPTY: "회사 기술 목록 없음",
   BID_DOMAIN_UNKNOWN: "공고 분야 미확인",
-  PROFILE_PROJECTS_EMPTY: "회사 실적 없음",
+  PROFILE_PROJECTS_EMPTY: "금액이 확인된 회사 실적 없음",
   REQUIRED_FTE_UNKNOWN: "필요 인력·예산 미확인",
   TEAM_EMPTY: "인력 정보 없음",
   BUDGET_UNKNOWN: "예산 미기재",
@@ -55,7 +55,7 @@ function qualificationSentence(status: QualificationOutcome, checks: Qualificati
     : `필수자격 ${mandatory.length}건을 모두 충족했습니다.`;
 }
 
-function skillSentence(factors: ScoreFactor[]): string | null {
+function skillSentence(factors: ScoreFactor[], technologiesComplete: boolean): string | null {
   const skill = factors.find((factor) => factor.factor === "skillMatch");
   if (!skill || skill.missing) return null;
   const raw = skill.rawValue as {
@@ -66,7 +66,7 @@ function skillSentence(factors: ScoreFactor[]): string | null {
   if (!raw.required) return null;
   const matched = raw.matchedNames ?? [];
   const missing = raw.missingNames ?? [];
-  return `요구기술 ${raw.required}개 중 ${matched.length}개 보유${matched.length > 0 ? `(${matched.join(", ")})` : ""}${missing.length > 0 ? `. ${missing.join("·")} 경험 없음` : ""}.`;
+  return `요구기술 ${raw.required}개 중 ${matched.length}개 보유${matched.length > 0 ? `(${matched.join(", ")})` : ""}${missing.length > 0 ? `. ${missing.join("·")} ${technologiesComplete ? "경험 없음" : "회사 기술 목록에서 확인 안 됨(확인 필요)"}` : ""}.`;
 }
 
 function staffSentence(factors: ScoreFactor[]): string | null {
@@ -112,6 +112,7 @@ export function buildExplanation(args: {
   qualificationStatus: QualificationOutcome;
   checks: QualificationCheck[];
   factors: ScoreFactor[];
+  technologiesComplete: boolean;
   missingFactors: MissingFactor[];
   reviewFlags: ReviewFlag[];
   kevSuggestedOption: Recommendation | null;
@@ -122,7 +123,7 @@ export function buildExplanation(args: {
       ? "첨부 문서를 읽지 못해 첨부에만 있는 요구사항은 반영되지 않았습니다."
       : null,
     qualificationSentence(args.qualificationStatus, args.checks),
-    skillSentence(args.factors),
+    skillSentence(args.factors, args.technologiesComplete),
     staffSentence(args.factors),
     args.reviewFlags.includes("SCALE_LIMIT_EXCEEDED")
       ? "사업 예산이 단일 사업 수행 상한을 넘어 규모 적합 요소는 0점입니다."

@@ -28,7 +28,7 @@ export type FakeUser = {
   id: string;
   email: string;
   orgId: string;
-  solRole: "ADMIN" | "SALES" | "ANALYST" | "VIEWER";
+  solRole: "ADMIN" | "SALES" | "ANALYST" | "EXECUTIVE" | "VIEWER";
 };
 
 // 가상 계정. org-02 VIEWER 는 11 G5 조직 격리 시험의 "다른 조직" 이다.
@@ -60,6 +60,13 @@ export const FAKE_USERS = {
     email: "viewer@solideo.invalid",
     orgId: ORG_01,
     solRole: "VIEWER",
+  },
+  executive: {
+    token: "token-executive",
+    id: "10000000-0000-4000-8000-000000000005",
+    email: "executive@solideo.invalid",
+    orgId: ORG_01,
+    solRole: "EXECUTIVE",
   },
   otherViewer: {
     token: "token-other-viewer",

@@ -1,7 +1,7 @@
 ---
 title: "구현 계획 — 부처 지원사업 공고 수집·목록 표시"
 doc: "plan-program-notices"
-status: draft
+status: done
 tags:
   - sol-radar
   - pipeline

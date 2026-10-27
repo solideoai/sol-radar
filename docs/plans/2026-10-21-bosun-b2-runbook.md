@@ -7,7 +7,7 @@ tags:
   - ai
   - decision
   - runbook
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
 # B2 런북 — Bosun 결정 서버(8009)·회사 Qwen API 실연결 확인
@@ -138,6 +138,9 @@ GPU 1 사용량이 기동 전보다 3,000 MiB 넘게 늘었거나 `memory.free` 
 서버 로그에는 요청 id·질문 수·상태·지연·예외 종류 이름만 남는다(state·키 없음) — 확인해서 보고에 한 줄.
 
 ## 6. 라우터 경유 (서버 안 → 바깥)
+
+> [!note] 2026-10-27 확인
+> 회사 nginx 에 `/sol-radar` location 은 등록되지 않았다(사용자 확인, 아래 바깥 경로는 404). 운영 gateway 는 회사 Compose(`network_mode: host`)에서 `KEV_BASE_URL=http://127.0.0.1:8009` 로 직결한다([[10-DEPLOYMENT|10 배포]]). 이 절과 §7 의 공개 경로는 등록 뒤에만 쓴다.
 
 ```bash
 # 서버 안: 모델 라우터(127.0.0.1:8080, infra/compose.gpu.yaml, 변경 없음)가 /sol-radar/kev/* 를 8009 로 넘기는지

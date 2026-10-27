@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SOL RADAR — Bosun v3.1 0.6B LoRA F1-B 메모리·step 시간 smoke (회사 GPU 서버, 물리 GPU 1 **공유**, 기본 20 step).
-# 정본: docs/16-DECISIONS.md ADR-034 상세 7·10번, docs/22-FINETUNE-RUNBOOK.md §4.2, docs/23-WEEKEND-FINETUNE.md §5.
+# 정본: docs/16-DECISIONS.md ADR-034 상세 7·10번, docs/22-FINETUNE-RUNBOOK.md §4.2·§4.3.
 # 결과는 docs/evidence/bosun-train-feasibility.md 에 옮긴다(Kev 기록은 개서하지 않는다). Kev 용 kev-f1.sh 는 보존·퇴역(수정하지 않는다).
 #
 # 사용(서버 셸):

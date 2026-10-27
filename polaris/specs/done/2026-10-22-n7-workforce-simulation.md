@@ -13,7 +13,7 @@ updated: 2026-10-27
 
 > 상태: **완료**(2026-10-27 확인, `in-progress/`에서 옮김). 근거: main `546a997d`(2026-10-22 "대시보드 업무 화면 네 개 구현", [통합 기록](../../../docs/evidence/navigation/20261022-implementation.md)).
 
-2026-10-22 승인된 [실행 계획](../../../docs/plans/2026-10-22-dashboard-missing-pages-plan.md) Task 4의 구현 범위다. [화면 명세](../../../docs/plans/2026-10-22-dashboard-pages-ui-spec.md)의 N7절이 레이아웃·상태·카피·접근성 기준이다. 저장·자동/수동 배정 확정·새 점수 저장·모델 호출은 없다. 미션 파일은 새로 만들지 않는다.
+2026-10-22 승인된 실행 계획(원문: git `f0ad424a` `docs/plans/2026-10-22-dashboard-missing-pages-plan.md`) Task 4의 구현 범위다. 화면 명세(원문: git `f0ad424a` `docs/plans/2026-10-22-dashboard-pages-ui-spec.md`)의 N7절이 레이아웃·상태·카피·접근성 기준이다. 저장·자동/수동 배정 확정·새 점수 저장·모델 호출은 없다. 미션 파일은 새로 만들지 않는다.
 
 ## 사용자와 계약
 
@@ -33,7 +33,7 @@ updated: 2026-10-27
 
 현재 assignments를 한 기준 시각으로 읽고 직원·겹치는 기간별 기존 배정 과부하와 선택 공고 간 공유 후보를 분리해 표시한다. 과부하는 기존 allocation과 가용성 근거가 있어야 한다. 공유 후보는 같은 사람을 두 공고에 확정 배정했다는 뜻이 아니며 부족 확정으로 표현하지 않는다. 후보를 임의 allocation으로 만들어 배정 충돌을 계산하지 않는다.
 
-기간은 기존 엔진의 반열린 구간 `[시작,종료)`다. 단일 공고도 현재 배정 조회 기준을 별도 표시할 수 있으나 과거 snapshot FTE를 덮어쓰지 않는다. 공고별 snapshotAsOf와 전체 currentAssignmentsAsOf를 항상 구분한다. 입력/배정 누락이면 사유를 밝히고 충돌0을 안전 확정으로 표현하지 않는다.
+기간은 기존 엔진의 반열린 구간 `시작,종료)`다. 단일 공고도 현재 배정 조회 기준을 별도 표시할 수 있으나 과거 snapshot FTE를 덮어쓰지 않는다. 공고별 snapshotAsOf와 전체 currentAssignmentsAsOf를 항상 구분한다. 입력/배정 누락이면 사유를 밝히고 충돌0을 안전 확정으로 표현하지 않는다.
 
 ## 완료 기준과 검증
 
@@ -44,7 +44,7 @@ updated: 2026-10-27
 
 ## 관련 문서
 
-- [승인 계획](../../../docs/plans/2026-10-22-dashboard-missing-pages-plan.md)
-- [화면 명세](../../../docs/plans/2026-10-22-dashboard-pages-ui-spec.md)
+- [승인 계획(원문: git `f0ad424a` `docs/plans/2026-10-22-dashboard-missing-pages-plan.md`)
+- 화면 명세(원문: git `f0ad424a` `docs/plans/2026-10-22-dashboard-pages-ui-spec.md`)
 - [점수 정본](../../../docs/08-SCORING.md)
 - [보안 정본](../../../docs/09-SECURITY.md)

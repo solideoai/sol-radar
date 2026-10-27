@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — BOOST-2 가정 재계산 (공고 상세)"
 doc: "design-boost2-what-if-ui"
-status: approved
+status: done
 tags:
   - sol-radar
   - ui

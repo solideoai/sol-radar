@@ -1,7 +1,7 @@
 ---
 title: "아트 디렉션 — SOL RADAR 첫 화면 재설계"
 doc: "design-landing-redesign"
-status: final
+status: done
 tags:
   - sol-radar
   - ui

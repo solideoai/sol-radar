@@ -139,14 +139,15 @@ Connector가 원본 응답을 그대로 보존한 뒤(`bid_revisions.raw_payload
 
 ```ts
 interface NormalizedBid {
-  schemaVersion: "normalized-bid/v0.2";
-  source: string;               // 공고를 만드는 registry 키(§8): "fixture" | "g2b-bid-notice" | "g2b-pre-spec" | "g2b-order-plan"
+  schemaVersion: "normalized-bid/v0.2" | "normalized-bid/v0.3";   // v0.3 = 외부 공고(ADR-047). 함께 지원한다
+  sourceMetadata?: SourceMetadata;   // v0.3. 공급자 상태·공식 날짜와 정밀도·원문 금액/단위·사업 속성(`web/server/ingestion/normalized-bid.model.ts` `sourceMetadataSchema`)
+  source: string;               // 공고를 만드는 registry 키(§8). "fixture" | "g2b-bid-notice" | "g2b-pre-spec" | "g2b-order-plan" | "g2b-procurement-request" | "kwater-bid-notice" | "kwater-procurement-plan" | "lh-bid-notice" | "lh-pre-specification" | "kepco-ebid-contract"
   noticeId: string;             // 차수를 뺀 공고번호. fixture 예: "DEMO-2026-0010", live: bidNtceNo
   revision: number;             // 1부터. 정정·차수·내용 변경마다 +1 (07 변경 감지)
   amendmentNo?: string;         // 원본의 차수. 예: "02" (원본 공고번호 "DEMO-2026-0010-02"). live: bidNtceOrd
   planRef?: string;             // 발주계획 공개 식별자. fixture 예: "DEMO-PLAN-0042", live: orderPlanUntyNo. PLAN↔PRE_SPEC↔NOTICE 연결 키
   preSpecRef?: string;          // 사전규격 등록번호. live: bfSpecRgstNo. planRef와 함께 단계를 잇는다(07 §4)
-  stage: "PLAN" | "PRE_SPEC" | "NOTICE";
+  stage: "PLAN" | "PROCUREMENT_REQUEST" | "PRE_SPEC" | "NOTICE" | "OPENING" | "AWARD" | "CONTRACT";
   status: "OPEN" | "AMENDED" | "CANCELLED" | "CLOSED";
   title: string;
   agency: string | null;
@@ -194,7 +195,7 @@ interface StructuredRequirement {
 - **v0.3 외부 공고의 시간 파생 상태(F09)**: 위 v0.2 규칙은 유지한다. `normalized-bid/v0.3`은 추가로 `sourceMetadata.participationStatus`를 hash와 변경 상세에서 제외한다. 공급자의 `providerStatus`·공식 날짜/정밀도·원문 금액/단위·사업 속성은 계속 비교하며, 변경 시 `changes`에 `sourceMetadata`의 전후 값을 기록한다. 기존 v0.3 저장 행은 정규화 스냅샷을 같은 새 규칙으로 메모리에서 비교하므로 정책 전환만으로 revision이 생기지 않는다. 저장된 checksum·원문·revision 번호는 갱신하지 않는다.
 - **참여 상태의 조회 경계**: 저장된 `participationStatus`는 `fetchedAt` 당시 관측 스냅샷이다. 현재 참여 가능 여부의 근거로 사용하지 않는다. 현재 값을 제공할 때는 공식 `providerStatus`와 정밀도가 확인된 `dates`를 조회 시각과 함께 계산하고, revision 저장·이벤트와 분리한다. 현재 API에는 이 계산을 새로 연결하지 않았다. DATE 정밀도 처리(F10)는 이번 F09에서 변경하지 않는다.
 
-- **`auxLookup`**(main `c6b16e3`, [[16-DECISIONS|ADR-035]] F7): checksum에 포함된다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부르고(다시 채우기), 셋 다 받으면 `CHANGED` revision으로 저장한다. 또 실패하면 revision을 늘리지 않는다. 같은 공고의 재수집이 `DUPLICATE`로 걸러지도록, 변경 판정의 1차 비교는 저장된 revision에서 보조 조회 유래 부분(면허제한·지역 행, e발주 첨부, `auxLookup`)을 뺀 "목록만" 모양으로 한다([[07-DATA-PIPELINE|07 수집]] §2.2·§5). 규칙 엔진은 `auxLookup`이 `OK`가 아니면 `structured:AUX_LOOKUP` 한 건을 `NEEDS_REVIEW`(`NOTICE_INFO_MISSING`)로 둔다. 구조화 자격이 비어 있어도 "제한 없음"으로 읽지 않는다(`web/server/scoring/qualification.ts` `auxLookupChecks`, [[08-SCORING|08 점수]]).
+- **`auxLookup`**([[16-DECISIONS|ADR-035]] F7): checksum에 포함된다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부르고(다시 채우기), 셋 다 받으면 `CHANGED` revision으로 저장한다. 또 실패하면 revision을 늘리지 않는다. 같은 공고의 재수집이 `DUPLICATE`로 걸러지도록, 변경 판정의 1차 비교는 저장된 revision에서 보조 조회 유래 부분(면허제한·지역 행, e발주 첨부, `auxLookup`)을 뺀 "목록만" 모양으로 한다([[07-DATA-PIPELINE|07 수집]] §2.2·§5). 규칙 엔진은 `auxLookup`이 `OK`가 아니면 `structured:AUX_LOOKUP` 한 건을 `NEEDS_REVIEW`(`NOTICE_INFO_MISSING`)로 둔다. 구조화 자격이 비어 있어도 "제한 없음"으로 읽지 않는다(`web/server/scoring/qualification.ts` `auxLookupChecks`, [[08-SCORING|08 점수]]).
 
 - live 공고의 원본 필드 → `NormalizedBid` 매핑은 [[07-DATA-PIPELINE|07 수집]] §3.1이다.
 - **개인정보**: 공공 API 응답의 담당자 필드(이름·전화·이메일)는 `NormalizedBid`·`StructuredRequirement.value`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 Supabase Storage에만 보관한다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
@@ -297,7 +298,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 
 ### 5.4 API 구조화 필드 근거 검증 (`kind=API_FIELD`)
 
-> [!warning] 미구현 (2026-10-20, main `554b34c`)
+> [!warning] 미구현
 > 이 절의 원본 필드 대조와 시험은 아직 없다. 지금 규칙 엔진은 `bid_structured_requirements` 행으로 `API_FIELD` 근거를 만들고(`quotedText` = 행의 `name` → `code` → 값 JSON 순, 300자), `match`를 채우지 않는다(`web/server/scoring/qualification.ts` `apiEvidence`).
 
 API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위치가 없으므로 §5.2를 쓰지 않는다. 대신 해당 revision의 `rawPayload`(보조 조회 응답의 필드는 [[04-DATABASE|04 DB]] `bid_structured_requirements.value`에 보존)에서 `apiSource`·`apiField`가 가리키는 필드 값이 `quotedText`와 같은지 확인한다.
@@ -311,7 +312,7 @@ API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위
 
 ### 5.5 첨부 텍스트 객체 `sol-radar/parsed-document/v1`
 
-2026-10-27 추가(로컬 통합, 운영 미적용). documents job이 `/parse` 결과가 `PARSED`·`PARTIAL`일 때 private 버킷 `bid-parsed`에 JSON 한 개로 저장하고, `bid_documents.text_object_key`에 키를 둔다([[07-DATA-PIPELINE|07 수집]] "documents 큐 소비자 계약"). 분석의 첨부 텍스트 reader가 이 객체를 읽어 `/extract`의 `attachments`를 만든다. 코드 정의는 `web/server/documents/document-processing.model.ts`(`parsedDocumentSchema`·`toParsedDocumentObject`)다.
+documents job이 `/parse` 결과가 `PARSED`·`PARTIAL`일 때 private 버킷 `bid-parsed`에 JSON 한 개로 저장하고, `bid_documents.text_object_key`에 키를 둔다([[07-DATA-PIPELINE|07 수집]] "documents 큐 소비자 계약"). 분석의 첨부 텍스트 reader가 이 객체를 읽어 `/extract`의 `attachments`를 만든다. 코드 정의는 `web/server/documents/document-processing.model.ts`(`parsedDocumentSchema`·`toParsedDocumentObject`)다.
 
 - **경로**: `parsed/bids/{bidId}/{revisionId}/{rawSha256}/{sha256(parserId)}/result.json`(`web/worker/document-storage.ts`). 파서가 바뀌면 `parserId`가 바뀌어 새 경로가 생긴다. 이미 `PARSED`인 문서를 다시 파싱하는 절차는 없다.
 - **내용**: gateway `ParseResult`([[03-AI-PIPELINE|03]] §10.1)를 그대로 싣고 세 필드를 붙인다.
@@ -359,11 +360,11 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 
 ## 8. 수집 소스 registry
 
-`infra/sources/registry.yaml`에 소스마다 아래 항목을 둔다([[16-DECISIONS|ADR-020]]). `OfficialApiConnector`는 이 파일에 등록한 엔드포인트만 부르고, 어디서도 엔드포인트를 지어내지 않는다. 등록이 끝나지 않은 소스(`approvalStatus`가 `APPROVED`가 아니거나 `endpoint`·`fieldMapping`이 비어 있음)는 부르지 않는다. 관리자 화면 `GET /api/v1/admin/sources`(`SourceStatus`, [[05-API-SPEC|05 API 명세]])가 키별 상태·오늘 호출량·최근 오류를 보여 준다.
+`infra/sources/registry.yaml`에 소스마다 아래 항목을 둔다([[16-DECISIONS|ADR-020]]). `OfficialApiConnector`는 이 파일에 등록한 엔드포인트만 부르고, 어디서도 엔드포인트를 지어내지 않는다. 등록이 끝나지 않은 소스(`approvalStatus`가 `APPROVED`가 아니거나 `endpoint`·`fieldMapping`이 비어 있음)는 부르지 않는다. 관리자 화면의 외부 서비스 상태는 `GET /api/v1/admin/ingestion/services`([[05-API-SPEC|05 API 명세]])가 준다. 키별 상태·호출량·최근 오류를 보여 주는 `GET /admin/sources`(`SourceStatus`)는 미구현이다.
 
 |키|예시|비고|
 |---|---|---|
-|`key`|`g2b-bid-notice`|아래 표의 9개. 공고를 만드는 키(`fixture`·`g2b-bid-notice`·`g2b-pre-spec`·`g2b-order-plan`)만 `NormalizedBid.source`·`bid_notices.source`에 들어간다([[04-DATABASE\|04 DB]] `bid_source`). 나머지는 보조 조회·코드 마스터·첨부 다운로드 키로 `ingest_errors.source_key`와 호출 예산에 쓴다|
+|`key`|`g2b-bid-notice`|아래 표의 15개(`g2b-*` 8개 + `fixture` 1개 + 외부 6개, 외부 중 `g2b-procurement-request`는 이름만 `g2b-`). 공고를 만드는 키(`fixture`·`g2b-bid-notice`·`g2b-pre-spec`·`g2b-order-plan`·외부 6개)만 `NormalizedBid.source`·`bid_notices.source`에 들어간다([[04-DATABASE\|04 DB]] `bid_source`). 나머지는 보조 조회·코드 마스터·첨부 다운로드 키로 `ingest_errors.source_key`와 호출 예산에 쓴다|
 |`displayName`|나라장터 입찰공고정보서비스|서비스 이름 수준만 적는다|
 |`provider`|조달청 / data.go.kr|—|
 |`serviceId`|`15129394`|data.go.kr 서비스 ID. 호출 예산 카운터 `quota:{serviceId}:{YYYYMMDD}`의 키([[07-DATA-PIPELINE\|07 수집]] §2.2)|
@@ -378,7 +379,7 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 |`sampleResponses`|`fixtures/recorded/<serviceId>/*.masked.json` 경로|C1 ①(2026-10-19)에서 받은 실제 응답의 녹음본(14파일). 저장소에는 담당자 필드를 마스킹한 사본만 둔다([[09-SECURITY\|09 보안]])|
 |`lastVerifiedAt`|`2026-10-19`|검증일. 90일 지나면 경고. C1 ① 실제 응답 확인일이다|
 
-등록할 소스(설계 확정값 2026-10-16, `approvalStatus` 2026-10-19 갱신):
+등록할 소스(외부 6개는 ADR-047로 더했고 활용신청 전이라 호출하지 않는다. 호출 가능 여부는 [[07-DATA-PIPELINE|07]] §2.8의 준비 상태가 정한다):
 
 |`key`|서비스 (ID)|`endpoint` (기본 URL + 오퍼레이션)|호출 시점|`approvalStatus`|`serviceKeyEnv`|
 |---|---|---|---|---|---|
@@ -389,7 +390,13 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 |`g2b-pre-spec`|사전규격정보서비스 (15129437)|`/1230000/ao/HrcspSsstndrdInfoService` + `getPublicPrcureThngInfoServc`|일정 실행|`APPROVED`|`G2B_PRE_SPEC_SERVICE_KEY`|
 |`g2b-order-plan`|발주계획현황서비스 (15129462)|`/1230000/ao/OrderPlanSttusService` + `getOrderPlanSttusListServc`|하루 1회|`APPROVED`|`G2B_ORDER_PLAN_SERVICE_KEY`|
 |`g2b-industry-master`|업종 및 근거법규 (15129467)|`/1230000/ao/IndstrytyBaseLawrgltInfoService` + `getIndstrytyBaseLawrgltInfoList`|수동(사전 갱신)|`APPROVED`|`G2B_INDUSTRY_MASTER_SERVICE_KEY`|
-|`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job(소비자 미구현)|`APPROVED`(registry 값. 익명 GET이라 활용신청 대상이 아니다. 이용약관 확인은 미결정 16번)|—|
+|`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job|`APPROVED`(registry 값. 익명 GET이라 활용신청 대상이 아니다. 이용약관 확인은 미결정 16번)|—|
+|`g2b-procurement-request`|나라장터 조달요청서비스 (15129468)|data.go.kr 서비스(`registry.yaml` 참조)|`enabled:false`|`NOT_REQUESTED`|`G2B_PROCUREMENT_REQUEST_SERVICE_KEY`|
+|`kwater-bid-notice`|K-water 전자조달 입찰공고 (15101635)|`https://apis.data.go.kr/B500001/ebid/tndr3` + `servcList`, `dmscptList`|`enabled:false`|`NOT_REQUESTED`|`KWATER_BID_NOTICE_SERVICE_KEY`|
+|`kwater-procurement-plan`|K-water 전자조달 발주계획 (15102588)|data.go.kr 서비스(`registry.yaml` 참조)|`enabled:false`|`NOT_REQUESTED`|`KWATER_PROCUREMENT_PLAN_SERVICE_KEY`|
+|`lh-bid-notice`|LH 입찰공고정보 (15159012)|`https://apis.data.go.kr/B552555/OpenBidInfoList` + `getOpenBidInfo`|`enabled:false`|`NOT_REQUESTED`|`LH_BID_NOTICE_SERVICE_KEY`|
+|`lh-pre-specification`|LH 사전규격공개정보 (15159011)|data.go.kr 서비스(`registry.yaml` 참조)|`enabled:false`|`NOT_REQUESTED`|`LH_PRE_SPECIFICATION_SERVICE_KEY`|
+|`kepco-ebid-contract`|KEPCO 전자입찰계약정보 (15148223)|data.go.kr 서비스(`registry.yaml` 참조)|`enabled:false`|`NOT_REQUESTED`|`KEPCO_EBID_CONTRACT_SERVICE_KEY`|
 |`fixture`|fixture 20건(`FX-01`~`FX-20`)|— (네트워크 호출 없음)|seed·수동 수집|`APPROVED`|—|
 
 - 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
@@ -414,12 +421,6 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 - `NOT_SATISFIED` 판정은 공고 쪽 `EvidenceRef`와 회사 쪽 `CompanyEvidenceRef`가 둘 다 있어야 저장된다(§2).
 - `UNKNOWN`이 0이나 기본값으로 바뀌는 경로가 코드에 없다(리뷰 체크리스트 항목).
 
-## 검토 중 확장: NormalizedBid v0.3 및 opportunity
-
-ADR-047 [제안](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)§4~9는 기존v0.2/fixture와 source bid/revision을 읽는 호환변환, Source family/기관 namespace/companyId/서비스partition, stage와정정·취소event, 금액종류/단위/날짜정밀도, 원본참조·중복관계·관련성근거를 분리한다. 기존 source 필드의 의미를 family로 몰래 바꾸지 않는다.
-
-기존 v0.2와 신규 외부 v0.3를 함께 지원한다. JSON/XML의결측·대소문자alias충돌·잘린페이지·안정ID미확보는 확인필요/격리/부분 상태로 보존한다. 원문인용/FieldState/조직별input snapshot 계약을 유지한다. 상세 DTO/유일성/버전은 스펙, 실제zod/SQL 변경은 승인된 [[2026-10-21-public-procurement-expansion-plan|I1~I4]]다.
-
 ## 관련 문서
 
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — `RequirementExtraction` 전체 스키마, 프롬프트
@@ -431,6 +432,3 @@ ADR-047 [제안](../polaris/specs/in-progress/2026-10-21-public-procurement-expa
 - [[11-TESTING|11 테스트]] — 골든 시나리오
 - [[16-DECISIONS|16 ADR]] — ADR-020, 미결정 1·16·18·19번
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalItem`, 데이터셋 마스킹
-
-
-ADR-047은 2026-10-21 후속 구현 승인으로 채택됐다. 위 확장 절의 “제안/미구현/승인 전”과 병렬 작업 설명은 최초 설계 시점 기록이다. [격리 구현 보고](evidence/procurement-expansion/20261021-implementation.md)와 2026-10-22 추가 승인에 따른 [main 통합·운영 적용 기록](evidence/procurement-expansion/20261022-release.md)에서 현재 코드·검증·실제 적용 여부를 구분한다. 기존 모델·점수·권한·DEMO 정책은 유지한다.

@@ -1,7 +1,9 @@
 # 회사 GPU 서버 모델 라우터 (ADR-025)
 
 회사 nginx 가 `https://acropolissg.com/sol-radar` 하나만 등록할 수 있어, 그 뒤에서 경로를 나누는 작은 nginx 를 둔다.
-노트북 ai-gateway 는 `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev` 로 붙는다. `QWEN_BASE_URL` 은 이 라우터가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1` 이다(아래).
+노트북 ai-gateway 는 회사 nginx 등록 뒤 `KEV_BASE_URL=https://acropolissg.com/sol-radar/kev` 로 붙는다. `QWEN_BASE_URL` 은 이 라우터가 아니라 회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1` 이다(아래).
+
+> 2026-10-27 확인: 회사 nginx 에 아래 `location /sol-radar/` 는 등록되지 않았다(사용자 확인, 공개 `/sol-radar/kev/v1/models`·`/sol-radar/healthz` 404). 운영 회사 Compose gateway 는 같은 호스트의 결정 서버에 `KEV_BASE_URL=http://127.0.0.1:8009` 로 직결한다. 이 라우터와 아래 nginx 절은 노트북 대체 경로용 설계다.
 
 2026-10-20 ADR-034: `:8009` 런타임은 `kev.serve` 대신 우리 결정 서버 `sol_decision.serve`(Bosun v3.1 0.6B, Kev wire 호환)다. 추출·설명 `Qwen3.8-Flash-Next-AWQ-INT4`(2026-10-21 `Qwen/Qwen3.5-27B` 에서 교체)는 회사가 이미 운영하는 vLLM API(`https://acropolissg.com/vllm/v1`, env 값은 회사 안내 그대로 `https://acropolissg.com/vllm/v1`, 게이트웨이가 `/v1` 중복을 정규화한다(B1))를 쓰므로 `:8001` 에는 아무것도 띄우지 않고 `/qwen` 규칙은 백업(미사용)으로 남긴다. 라우터 설정·경로·포트·회사 nginx 는 바꾸지 않는다.
 
@@ -46,6 +48,8 @@ curl -s -H "Authorization: Bearer $QWEN_API_KEY" https://acropolissg.com/vllm/v1
 
 ## 밖에서 확인 (우리 쪽 C1 ③ G1·G2)
 
+회사 nginx 등록 뒤에만 쓴다. 2026-10-27 운영에서는 앞의 두 줄이 404 다.
+
 ```bash
 curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/healthz    # 200, TLS 유효(-k 금지)
 curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/sol-radar/kev/v1/models   # 인증 없이 401 또는 403
@@ -61,7 +65,7 @@ curl -sS -o /dev/null -w 'http=%{http_code}\n' https://acropolissg.com/vllm/v1/m
 
 ## GPU 1 공유: Bosun v3.1 0.6B LoRA F1 (ADR-034, 2026-10-20)
 
-위 라우터·`sol_decision.serve`(추론)와 Bosun LoRA 학습(F1·F2)·오프라인 채점(E1'·E4)은 모두 **물리 GPU 1 한 장**에서 돌고, GPU 1 은 회사 PaddleOCR vLLM 서비스(약 9,167 MiB, 2026-10-20 사용자 보고, 미검증)와 **공유**한다. 전용이 아니다. 정본은 `docs/22-FINETUNE-RUNBOOK.md` §3·§4, `docs/23-WEEKEND-FINETUNE.md`, `docs/10-DEPLOYMENT.md` "GPU 1 공유", 메모리 계획은 `docs/plans/2026-10-20-bosun-qwen4b-migration-plan.md` §8.
+위 라우터·`sol_decision.serve`(추론)와 Bosun LoRA 학습(F1·F2)·오프라인 채점(E1'·E4)은 모두 **물리 GPU 1 한 장**에서 돌고, GPU 1 은 회사 PaddleOCR vLLM 서비스(약 9,167 MiB, 2026-10-20 사용자 보고, 미검증)와 **공유**한다. 전용이 아니다. 정본은 `docs/22-FINETUNE-RUNBOOK.md` §3·§4, `docs/10-DEPLOYMENT.md` "GPU 1 공유", 메모리 계획은 `docs/plans/2026-10-20-bosun-qwen4b-migration-plan.md` §8.
 
 | 물리 GPU(nvidia-smi index) | 모델 | VRAM | 2026-10-20 오전 스냅샷(당시 기록) | 2026-10-20 사용자 보고(미검증) | 정책 |
 |---|---|---:|---:|---|---|
@@ -107,7 +111,7 @@ GPU 1 메모리 계획(**추정, F1 실측 전**. 계획 §8. 추출·설명 Qwe
 
 ### `bosun-f1.sh` (F1-B, 기본 20 step)
 
-`runs/bosun-preflight-ok` 필수. **`SOL_GPU_SHARE_APPROVED=1` 과 `SOL_TRAIN_APPROVED=1` 둘 다 있어야 GPU 를 쓴다**(없으면 "승인 전 실행 금지"). 실행 직전에 registry 값으로 두 파일 sha256 을 재대조하고, `HF_HUB_OFFLINE=1` 로 `python -m sol_decision.train --package <snapshot> --data <jsonl> --out runs/bosun-f1-<tag> --max-steps N --batch B --accum A --device cuda --bf16 --grad-checkpointing --max-state-tokens N` 을 돌린다. 학습 중 `nvidia-smi -i 1 … 1초 간격` 기록은 `kill` 없이 정지 파일로 멈추는 자기 자식 루프다. 끝나면 `python -m sol_decision.parity --package runs/bosun-f1-<tag> --data <jsonl> --n 8` 로 재로딩·동일성을 확인한다(`--no-parity` 로 생략 가능, 합격 조건 미확인으로 적힌다). 결과는 `runs/bosun-f1-<tag>.summary.md`(GPU 전체 최대·우리 증가분·torch peak·step 시간·loss·skip·패키지 sha256·parity exit)와 `runs/f1-results.md` 누적 한 줄. 옵션 `--max-steps`(20) `--batch`(1) `--accum`(8) `--max-state-tokens`(6144) `--tag`(기본 `b<B>a<A>-ms<N>`; 같은 이름은 덮어쓰지 않고 멈춘다). 학습기·parity 인터페이스는 다른 작업자가 구현 중이라 인자 이름·로그 줄 형식의 미세 차이는 F1 전에 맞춘다(스크립트 주석).
+`runs/bosun-preflight-ok` 필수. **`SOL_GPU_SHARE_APPROVED=1` 과 `SOL_TRAIN_APPROVED=1` 둘 다 있어야 GPU 를 쓴다**(없으면 "승인 전 실행 금지"). 실행 직전에 registry 값으로 두 파일 sha256 을 재대조하고, `HF_HUB_OFFLINE=1` 로 `python -m sol_decision.train --package <snapshot> --data <jsonl> --out runs/bosun-f1-<tag> --max-steps N --batch B --accum A --device cuda --bf16 --grad-checkpointing --max-state-tokens N` 을 돌린다. 학습 중 `nvidia-smi -i 1 … 1초 간격` 기록은 `kill` 없이 정지 파일로 멈추는 자기 자식 루프다. 끝나면 `python -m sol_decision.parity --package runs/bosun-f1-<tag> --data <jsonl> --n 8` 로 재로딩·동일성을 확인한다(`--no-parity` 로 생략 가능, 합격 조건 미확인으로 적힌다). 결과는 `runs/bosun-f1-<tag>.summary.md`(GPU 전체 최대·우리 증가분·torch peak·step 시간·loss·skip·패키지 sha256·parity exit)와 `runs/f1-results.md` 누적 한 줄. 옵션 `--max-steps`(20) `--batch`(1) `--accum`(8) `--max-state-tokens`(6144) `--tag`(기본 `b<B>a<A>-ms<N>`; 같은 이름은 덮어쓰지 않고 멈춘다). 인자 이름·로그 줄 형식의 미세 차이는 F1 전에 확인한다(스크립트 주석).
 
 PASS 조건 전부: `sol_decision.train` exit 0 · OOM 없음 · 완료 step == `--max-steps` · 패키지 저장(`manifest.json`·`adapter/adapter_model.safetensors`·`decision_embeddings.safetensors`·`config.json`) · 임베딩 sha256 이 공개본과 같음(동결) · **우리 증가분 최대 ≤ `SOL_MEM_BUDGET_MIB`** · parity exit 0.
 

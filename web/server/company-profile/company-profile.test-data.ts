@@ -40,6 +40,8 @@ export const PROFILE_ROW: CompanyProfileRow = {
     excludedDomains: ["국방"],
     excludedKeywords: [],
   },
+  sources: [],
+  public_history: [],
   is_demo: true,
   effective_at: "2026-10-19T15:00:00+00:00",
   created_by: AUTHOR_ID,

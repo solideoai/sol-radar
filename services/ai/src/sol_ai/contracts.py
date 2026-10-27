@@ -137,7 +137,8 @@ class ProfileLicense(OpenModel):
 
 
 class ProfileProject(OpenModel):
-    amountKrw: KrwString
+    # 공개 출처 실적처럼 금액을 모르면 null. 건수에는 세고 금액 목록·최대 금액에서는 뺀다
+    amountKrw: KrwString | None = None
     # 회사 증빙 파일 id(있으면). KevStateTrace 의 CompanyEvidenceRef.documentId 로 옮긴다
     evidenceRef: str | None = None
 

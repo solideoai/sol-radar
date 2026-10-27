@@ -1,4 +1,4 @@
-# 부처 지원사업 공고 수집 설정(ADR-040, 스펙 polaris/specs/in-progress/2026-10-21-agency-program-notices.md §3).
+# 부처 지원사업 공고 수집 설정(ADR-040, 스펙 polaris/specs/done/2026-10-21-agency-program-notices.md §3).
 # 나라장터 registry(registry.yaml)와 따로 둔다. 그 계약(source-registry.ts·OfficialApiConnector)을 고치지 않는다.
 # 읽는 곳: web/server/program-notices/config.ts. 틀리면 그 소스만 꺼지고 worker 기동·나라장터 수집은 그대로다.
 # 주소는 www.bizinfo.go.kr·mss.go.kr 의 https 만 받는다(http.ts PROGRAM_NOTICE_HOSTS). 리다이렉트는 따르지 않는다.

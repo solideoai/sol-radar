@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SOL RADAR — Kev-9B LoRA F1-A 사전 검증 (회사 GPU 서버 sol-NF5280M6, 물리 GPU 1 전용).
-# 정본: docs/22-FINETUNE-RUNBOOK.md §3·§4.2, docs/23-WEEKEND-FINETUNE.md §5.2, docs/10-DEPLOYMENT.md "학습 전용 GPU".
+# 정본: docs/22-FINETUNE-RUNBOOK.md §3·§4.2(이력: git 5261730f 의 docs/23-WEEKEND-FINETUNE.md §5.2), docs/22-FINETUNE-RUNBOOK.md §3.1 "GPU와 메모리".
 #
 # 읽기만 한다. GPU 0·2 와 다른 프로세스는 보기만 하고, 어떤 프로세스도 종료하지 않으며(kill·pkill·docker compose down 없음),
 # 파일을 지우거나 덮어쓰지 않는다. 비밀 값을 출력하지 않는다(set -x 금지).

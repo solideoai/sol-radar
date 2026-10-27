@@ -33,4 +33,4 @@ GPU/평가 CLI/worker의 Vercel 이전, DB 변경, 인증 우회, 신규 공개 
 ## 관련 문서
 
 - [배포 설계](../../../docs/10-DEPLOYMENT.md)
-- [구현 계획](../../../docs/plans/2026-10-21-vercel-services.md)
+- 구현 계획(원문: git `f0ad424a` `docs/plans/2026-10-21-vercel-services.md`)

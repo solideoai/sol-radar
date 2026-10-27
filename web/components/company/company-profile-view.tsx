@@ -1,8 +1,9 @@
 import Link from "next/link";
-import type {
-  CompanyProfile,
-  CompanyProfileSummary,
-  CompanyStaffing,
+import {
+  latestRetrievedAt,
+  type CompanyProfile,
+  type CompanyProfileSummary,
+  type CompanyStaffing,
 } from "@/server/company-profile";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -13,6 +14,7 @@ import {
   PeoplePanel,
   PreferencesPanel,
   ProjectsPanel,
+  SourcesSection,
   TechPanel,
 } from "./company-panels";
 import { COMPANY_TABS, companyTabHref, type CompanyTab } from "./company-tabs";
@@ -76,9 +78,16 @@ function TabNav({
 }
 
 function ProfileMeta({ profile }: { profile: CompanyProfile }) {
+  const retrievedAt = latestRetrievedAt(profile.sources);
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      {profile.isDemo ? <span className={CHIP}>가상 회사 프로필</span> : null}
+      {profile.isDemo ? (
+        <span className={CHIP}>가상 회사 프로필</span>
+      ) : (
+        <span className={CHIP}>
+          공개 자료 기준{retrievedAt === null ? "" : ` · 확인일 ${retrievedAt}`}
+        </span>
+      )}
       <span className="type-body font-medium text-foreground">{profile.name}</span>
       <span className="type-body tabular-nums text-muted-foreground">
         rev {profile.revision} · {kstDate(profile.effectiveAt)} 적용
@@ -146,6 +155,7 @@ export function CompanyProfileView({
       <ProfileMeta profile={profile} />
       <TabNav current={tab} profile={profile} revisions={revisions.length} />
       <TabBody tab={tab} profile={profile} revisions={revisions} staffing={staffing} />
+      <SourcesSection sources={profile.sources} />
     </div>
   );
 }

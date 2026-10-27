@@ -7,6 +7,7 @@
 
 const PAGE_SIZE = 1000;
 const JWT_PATTERN = /eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}/g;
+const SECRET_KEY_PATTERN = /sb_secret_[A-Za-z0-9_-]+/g;
 
 export class RestError extends Error {
   constructor({ method, path, status, code, reason }) {
@@ -18,7 +19,11 @@ export class RestError extends Error {
 }
 
 // 서버 사유에서 토큰처럼 보이는 것은 가린다(서버가 되돌린 요청 본문에 키가 섞일 수 있다).
-const redact = (text) => String(text).replace(JWT_PATTERN, "[redacted]").slice(0, 300);
+const redact = (text) =>
+  String(text)
+    .replace(JWT_PATTERN, "[redacted]")
+    .replace(SECRET_KEY_PATTERN, "[redacted]")
+    .slice(0, 300);
 
 const reasonOf = (text) => {
   try {

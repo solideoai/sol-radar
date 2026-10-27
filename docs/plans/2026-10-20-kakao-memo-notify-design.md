@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — 카카오톡 추천 공고 알림(나에게 보내기)"
 doc: "design-kakao-memo-notify"
-status: review
+status: done
 tags:
   - sol-radar
   - pipeline

@@ -205,21 +205,23 @@ export function pastPerformance(
     );
   const todayDate = parseDate(today);
   const candidates = profile.pastProjects.map((project) => {
-    const amountKrw = Number(project.amountKrw);
+    const amountKrw = project.amountKrw === null ? 0 : Number(project.amountKrw);
     const domainMatch = canonicalDomain(project.domain) === bidDomain ? 1 : 0;
     const amountRatio =
       bidBudgetKrw !== null && bidBudgetKrw > 0 && amountKrw > 0
         ? Math.min(amountKrw, bidBudgetKrw) / Math.max(amountKrw, bidBudgetKrw)
         : 0.5;
-    const years = yearsBetween(parseDate(project.completedAt), todayDate);
-    const recency = years <= 3 ? 1.0 : years <= 5 ? 0.6 : 0.2;
+    // 완료일을 모르면 가장 낮은 최근성 0.2 를 준다.
+    const years =
+      project.completedAt === null ? null : yearsBetween(parseDate(project.completedAt), todayDate);
+    const recency = years === null ? 0.2 : years <= 3 ? 1.0 : years <= 5 ? 0.6 : 0.2;
     const evidenceFactor = project.evidenceRef ? 1.0 : 0.5;
     return {
       projectId: project.id,
       domain: project.domain,
       domainMatch,
       amountRatio: round3(amountRatio),
-      years: round3(years),
+      years: years === null ? null : round3(years),
       recency,
       evidenceFactor,
       similarity: (0.4 * domainMatch + 0.3 * amountRatio + 0.3 * recency) * evidenceFactor,
@@ -307,7 +309,9 @@ export function scaleFit(
   const cap = krw(profile.financials?.maxContractKrw);
   const largestPast = Math.max(
     0,
-    ...profile.pastProjects.map((project) => Number(project.amountKrw)),
+    ...profile.pastProjects.map((project) =>
+      project.amountKrw === null ? 0 : Number(project.amountKrw),
+    ),
   );
   const rawValue = {
     budgetKrw: bid.budgetKrw,

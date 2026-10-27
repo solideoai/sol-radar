@@ -44,4 +44,4 @@ PersonAvatar에는personCode를전달하고nullableportraitUrl을존중한다. �
 TDD 단계별 실패/통과 증거. 데이터/사진/기존SQL·스코어입력SHA 불변. PGlite4역할SELECT/다른조직0행/자기역할승격·직원쓰기거부/owner-member기존기능보존. 서비스/API 쿠키Bearer·0/1/복수·정지/미완료·다른조직404·검색/필터/HMAC/cursor페이지200/27/173·직급코드UUID. 전체계층/목표/실제/29unknown/81+119/인원중복제거. 실제전용Supabase13마이그레이션/시드2회/기존5ID보존. 실제브라우저1440/1280 UI전체상태,키보드/axe0、이미지200HTTP/MIME/SHA/decode/fallback. 전체pnpm verify와정상기존Auth/public/browser회귀. 실행못한검사는미검증이며G1~G10은미완료상태유지. 일반문서진행·계약은갱신하되ADR020/021결정을고치지않는다.
 
 
-2026-10-18 Task3A 개정 근거: 사용자가 승인한 `docs/plans/2026-10-18-org-chart-sidebar-design.md` §5·§7·부록A. 기존 Task3의 보기 탭 구현·검증 기록은 당시 c178 기준 역사이며 이번 개정으로 대체한다. API·역할·RLS·불변 데이터 계약은 변경하지 않는다.
+2026-10-18 Task3A 개정 근거: 사용자가 승인한 `docs/plans/2026-10-18-org-chart-sidebar-design.md` §5·§7·부록A(원문: git `5261730f` 의 `docs/plans/2026-10-18-org-chart-sidebar-design.md`). 기존 Task3의 보기 탭 구현·검증 기록은 당시 c178 기준 역사이며 이번 개정으로 대체한다. API·역할·RLS·불변 데이터 계약은 변경하지 않는다.

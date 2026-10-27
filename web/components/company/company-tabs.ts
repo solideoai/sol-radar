@@ -25,5 +25,4 @@ export const companyTabHref = (tab: CompanyTab): string =>
   tab === DEFAULT_TAB ? "/company" : `/company?tab=${tab}`;
 
 export const COMPANY_TITLE = "회사 역량";
-export const COMPANY_DESCRIPTION =
-  "SOL Score 와 필수 자격 판정이 읽는 회사 프로필입니다. 데모용 가상 솔리데오 프로필입니다.";
+export const COMPANY_DESCRIPTION = "SOL Score 와 필수 자격 판정이 읽는 회사 프로필입니다.";

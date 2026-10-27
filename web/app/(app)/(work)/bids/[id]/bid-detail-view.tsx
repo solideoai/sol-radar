@@ -126,6 +126,12 @@ type BidDetailViewProps = {
 const PROFILE_BADGE = "가상 회사 프로필로 분석";
 // 06 §8
 const PROFILE_TOOLTIP = "실제 공고를 가상 솔리데오 프로필과 대조한 결과입니다";
+const LIVE_PROFILE_TEXT = "실제 공고 × 가상 회사 프로필";
+// 분석에 쓴 프로필이 공개 자료 프로필(is_demo=false, ADR-052)일 때
+const PUBLIC_PROFILE_BADGE = "공개 자료 회사 프로필로 분석";
+const PUBLIC_PROFILE_TOOLTIP =
+  "공개 자료(홈페이지·기사·채용공고·나라장터 계약·DART 공시·협회 등록 조회)로 만든 솔리데오 프로필과 대조한 결과입니다. 선호 분야는 회사가 정한 선택값입니다. 공개되지 않은 실적·자격은 들어 있지 않습니다";
+const LIVE_PUBLIC_PROFILE_TEXT = "실제 공고 × 공개 자료 회사 프로필";
 const ANALYZE_ROLE_HINT = "분석 요청은 ADMIN·SALES·ANALYST 역할만 할 수 있습니다";
 const SOURCE_MISSING_HINT = "공고 본문 미확보 · 분석 준비 중";
 const SOURCE_MISSING_CODE = "ANALYSIS_SOURCE_MISSING";
@@ -583,16 +589,16 @@ function StatusCheckFailed({
   );
 }
 
-function ProfileBadge() {
+function ProfileBadge({ isDemo }: { isDemo: boolean }) {
   return (
     <Tooltip landmark>
       <TooltipTrigger
         render={<span tabIndex={0} />}
         className={cn(CHIP, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
       >
-        {PROFILE_BADGE}
+        {isDemo ? PROFILE_BADGE : PUBLIC_PROFILE_BADGE}
       </TooltipTrigger>
-      <TooltipContent>{PROFILE_TOOLTIP}</TooltipContent>
+      <TooltipContent>{isDemo ? PROFILE_TOOLTIP : PUBLIC_PROFILE_TOOLTIP}</TooltipContent>
     </Tooltip>
   );
 }
@@ -703,9 +709,11 @@ function AnalysisBand({
       </div>
       {shown !== null && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <ProfileBadge />
+          <ProfileBadge isDemo={shown.profileIsDemo} />
           {!bid.isDemo && (
-            <span className="type-caption text-muted-foreground">실제 공고 × 가상 회사 프로필</span>
+            <span className="type-caption text-muted-foreground">
+              {shown.profileIsDemo ? LIVE_PROFILE_TEXT : LIVE_PUBLIC_PROFILE_TEXT}
+            </span>
           )}
           <span className="type-caption text-muted-foreground wrap-anywhere">
             알고리즘 {shown.model.algorithmVersion} · 프로필 rev {shown.profileRevision}

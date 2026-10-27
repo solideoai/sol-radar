@@ -1,6 +1,6 @@
 ---
 name: security-auditor
-description: SOL RADAR 보안·책임 있는 AI 점검 담당(읽기 전용) — 09 보안·17 절대 규칙·ADR-017 기준으로 변경분을 검토한다. 조직 격리(RLS·org_id·404), sol_role 허용 역할, service role 키가 worker·seed 밖으로 새는지, Supabase 세션·CSRF·CSP, 비밀 노출(.env·로그·env 예시·공개 포트), SSRF·MinIO presigned, 프롬프트 인젝션 방어, 결정 모델(Bosun) 입력(영어 state 만)과 결정 모델이 판정을 못 바꾸는지, hosted 승인 게이트, 범위 외 코드(모바일·결제·승률 예측). Phase 완료 보고 전·데모 전에 사용. 코드를 고치지 않는다.
+description: SOL RADAR 보안·책임 있는 AI 점검 담당(읽기 전용) — 09 보안·17 절대 규칙·ADR-017 기준으로 변경분을 검토한다. 조직 격리(RLS·org_id·404), sol_role 허용 역할, service role 키가 worker·seed 밖으로 새는지, Supabase 세션·CSRF·CSP, 비밀 노출(.env·로그·env 예시·공개 포트), SSRF·Storage signed URL, 프롬프트 인젝션 방어, 결정 모델(Bosun) 입력(영어 state 만)과 결정 모델이 판정을 못 바꾸는지, hosted 승인 게이트, 범위 외 코드(모바일·결제·승률 예측). Phase 완료 보고 전·데모 전에 사용. 코드를 고치지 않는다.
 disallowedTools: Write, Edit, NotebookEdit
 model: inherit
 color: red
@@ -44,12 +44,12 @@ skills:
 
 **비밀**
 - `SUPABASE_SERVICE_ROLE_KEY`·`HOSTED_API_KEY`·`KEV_API_KEY` 가 `NEXT_PUBLIC_` 변수·클라이언트 컴포넌트·브라우저 번들·로그·오류 메시지·증거 파일에 없는가.
-- `.env.example`·`infra/env/*.env.example` 는 placeholder 만이고 기본 비밀값(`minioadmin` 등)이 없는가. `.env` 가 추적되지 않는가.
+- `.env.example`·`infra/env/*.env.example` 는 `CHANGE_ME` placeholder 만이고 공개 기본 비밀값(예: `minioadmin`, `scripts/check-env.mjs` 가 막는 값)이 없는가. `.env` 가 추적되지 않는가.
 - 로그에 토큰·비밀번호·공고 원문 전체·PII 가 없는가(14 로그 규칙).
 
 **인프라**
-- 호스트 노출 포트가 `redis`·`minio`·`qdrant`·`ai-gateway` 넷뿐이고 모두 `127.0.0.1` 바인딩인가(web 은 호스트 실행이라 이 넷에 닿아야 한다, 10 "Compose 서비스" 절). `0.0.0.0`·외부 인터페이스 바인딩이나 `worker` 포트 노출이 있으면 결함이다.
-- MinIO 가 public bucket 이 아니고, 서버가 권한 검사 후 짧은 presigned URL 을 내는가.
+- 호스트 노출 포트가 `redis`·`qdrant`·`ai-gateway` 셋뿐이고 모두 `127.0.0.1` 바인딩인가(web 은 호스트 실행이라 이 셋에 닿아야 한다, 10 "로컬 Compose 서비스 (대체 경로)" 절). `0.0.0.0`·외부 인터페이스 바인딩이나 `worker` 포트 노출이 있으면 결함이다.
+- Supabase Storage 버킷(`bid-documents`·`bid-parsed`)이 private 이고, 서버가 권한 검사 후 짧은 signed URL 을 내는가(ADR-048).
 - 첨부 다운로드에 도메인 allowlist·DNS 재검증·사설 IP 거부·크기 제한(SSRF)이 있는가.
 
 **책임 있는 AI**

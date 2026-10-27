@@ -2,7 +2,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
-import { BID_LIST } from "@/components/bids/test-data";
+import { BID_LIST, FX01_VIEW } from "@/components/bids/test-data";
 import { BidDetailView, type DetailBid } from "./bid-detail-view";
 
 // 10-25 실수집 계획 B2: 공고 상세가 출처를 말하는 방식. 근거는 저장된 is_demo·source·source_url 뿐이다.
@@ -127,5 +127,23 @@ describe("공고 상세 출처 표시", () => {
     await expect.element(page.getByText("출처 미확인", { exact: true })).toBeVisible();
     expect(host.textContent).toContain("DEMO-2026-0099");
     expect(page.getByText("DEMO", { exact: true }).elements()).toHaveLength(0);
+  });
+});
+
+describe("공고 상세 회사 프로필 배지", () => {
+  it("공개 자료 프로필(is_demo=false)로 분석했으면 공개 자료 글자이고 가상 글자는 없다", async () => {
+    const host = render(
+      detail({ latestAnalysis: { ...FX01_VIEW, runMode: "live", profileIsDemo: false } }),
+    );
+    await expect.element(page.getByText("공개 자료 회사 프로필로 분석")).toBeVisible();
+    await expect.element(page.getByText("실제 공고 × 공개 자료 회사 프로필")).toBeVisible();
+    expect(host.textContent).not.toContain("가상 회사 프로필");
+  });
+
+  it("가상 프로필 분석이면 가상 글자 그대로이고 공개 자료 글자는 없다", async () => {
+    const host = render(detail({ latestAnalysis: { ...FX01_VIEW, profileIsDemo: true } }));
+    await expect.element(page.getByText("가상 회사 프로필로 분석")).toBeVisible();
+    await expect.element(page.getByText("실제 공고 × 가상 회사 프로필")).toBeVisible();
+    expect(host.textContent).not.toContain("공개 자료 회사 프로필");
   });
 });

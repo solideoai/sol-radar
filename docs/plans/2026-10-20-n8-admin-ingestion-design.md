@@ -1,7 +1,7 @@
 ---
 title: "디자인 스펙 — N8 데이터 수집 관리 (/admin/ingestion)"
 doc: "design-n8-admin-ingestion"
-status: final
+status: done
 tags:
   - sol-radar
   - ui

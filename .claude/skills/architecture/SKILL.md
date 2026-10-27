@@ -126,7 +126,7 @@ web/server/profile/
   저장소가 정말 둘이 될 때(외부 API 를 갈아 끼우는 등) 그때 포트를 만든다.
 - 규칙이 없으면 `service` 를 만들지 않고 `index.ts` 가 `repo` 의 함수를 내보내도 된다. 규칙이 생기면 그때 `service` 로 옮긴다.
 
-파일 시스템 어댑터는 만들지 않는다. 컨테이너·서버리스 어디서든 요청 사이에 파일이 남는다고 가정하지 않는다(첨부는 MinIO, `docs/10-DEPLOYMENT.md`).
+파일 시스템 어댑터는 만들지 않는다. 컨테이너·서버리스 어디서든 요청 사이에 파일이 남는다고 가정하지 않는다(첨부는 Supabase Storage private 버킷, ADR-048, `docs/10-DEPLOYMENT.md` "첨부 처리 운영 반영").
 Supabase 클라이언트는 요청마다 부르고 모듈 변수에 담아 두지 않는다(다른 사람의 요청에 로그인이 섞인다 — `database` 스킬).
 
 모든 파일은 `import "server-only";` 로 시작한다. 바깥(`web/app/`·`web/components/`)은 `index.ts` 만 import 한다.

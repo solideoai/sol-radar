@@ -92,7 +92,7 @@ export HF_HUB_OFFLINE=1     # 백본 Qwen/Qwen3-0.6B@c1899de 는 HF 캐시에 �
 
 ## 시험
 
-- `tests/test_train_pure.py`(torch 없이, 기본 `pytest`): 레코드 파싱·검증(필드·후보 2~255·gold 합 1·argmax), 슬롯 재배열, 모델 모듈 배선(가짜 모듈), 길이 필터, 지표 집계, manifest 재계산(가짜 패키지), 온도 보정.
+- 기본 `pytest`(`tests/`, torch 없이)는 서버·wire·`/v1/models` 시험만 둔다. 학습기 순수 함수 시험은 2026-10-21 시험 정리에서 지웠다(`docs/evidence/verification/20261021-pruned-tests.json`).
 - `tests_model/test_train_smoke.py`(**서버 전용**, 기본 `testpaths` 밖): `SOL_BOSUN_PACKAGE` 가 없으면 skip 이 아니라 명확한 실패다. 있으면 파라미터 집계 392/10,092,544, parity(fp32, 더미 레코드 3건), CPU 2 step 학습 → 저장 → manifest 대조 → 재로딩 `predict` 를 확인한다.
 
 ## 알려진 한계

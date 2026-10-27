@@ -5,7 +5,7 @@
 # mock 항목은 두지 않는다(ADR-034 15번). mock 응답의 모델 식별자는 "mock" 이다.
 schemaVersion: model-registry/v0.1
 # local 모델 서버 URL(QWEN_BASE_URL·KEV_BASE_URL)이 가리킬 수 있는 호스트. 루프백(127.0.0.1·localhost·::1)은 따로 허용한다.
-# 소문자 호스트가 글자 그대로 같아야 한다(하위 도메인·끝 점 불가). 회사 엔드포인트 https://acropolissg.com/sol-radar(09·10),
+# 소문자 호스트가 글자 그대로 같아야 한다(하위 도메인·끝 점 불가). 설계한 회사 엔드포인트 https://acropolissg.com/sol-radar(09·10, 회사 nginx 미등록. 운영 결정 모델은 루프백),
 # 회사 운영 vLLM API https://acropolissg.com/vllm/v1 도 같은 호스트다(ADR-034 4번).
 allowedHosts:
   - acropolissg.com

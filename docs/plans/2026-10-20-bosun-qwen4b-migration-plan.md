@@ -1,16 +1,19 @@
 ---
 title: "결정 모델 Kev-9B → Bosun v3.1 0.6B, 추출 모델 Qwen3.5-9B → Qwen3-4B-Instruct-2507 — 분석과 변경 계획 (ADR-034 초안)"
 doc: plan
-status: draft
+status: done
 tags:
   - sol-radar
   - ai
   - decision
   - plan
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
 # 결정 모델 Kev-9B → Bosun v3.1 0.6B, 추출 모델 Qwen3.5-9B → Qwen3-4B-Instruct-2507 — 분석과 변경 계획 (ADR-034 초안)
+
+> [!note] 2026-10-27 확인
+> 이 계획의 `/sol-radar/kev`(회사 nginx → 모델 라우터) 경로는 회사 nginx 에 등록되지 않았다. 운영 gateway 는 같은 호스트의 `sol_decision` 에 `KEV_BASE_URL=http://127.0.0.1:8009` 로 직결한다([[10-DEPLOYMENT|10 배포]]).
 
 > [!note] 후속 개정 (2026-10-21)
 > 현재 추출 모델은 회사 API의 **Qwen3.8-Flash-Next**, 결정 모델은 **Bosun v3.1 0.6B**다([[16-DECISIONS|ADR-034]] 10-21 개정). `QWEN_MODEL=Qwen/Qwen3.8-Flash-Next`, 레지스트리 활성 항목은 `qwen3.8-flash-next`이며 실제 served id는 B2에서 확인한다. 아래 10-20 채택 콜아웃과 본문은 당시 기록이다. 현재 서버 준비·API 점검은 [[2026-10-21-bosun-b2-runbook|B2 런북]], 계약·URL 정규화는 [[03-AI-PIPELINE|03]]을 따른다. Qwen 파인튜닝과 4B 신규 서빙은 하지 않는다.

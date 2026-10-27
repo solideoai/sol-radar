@@ -200,6 +200,9 @@ export const normalizedBidSummarySchema = z.object({
 });
 export type NormalizedBidSummary = z.infer<typeof normalizedBidSummarySchema>;
 
+// 공개 자료 출처 id 목록. 없으면 키 자체가 없다.
+const sourceIds = z.array(z.string().min(1)).optional();
+
 export const licenseStatusSchema = z.enum(["HELD", "NOT_HELD"]);
 
 // 05 §4.4 CompanyProfile 의 스냅샷. pastProjects 는 08 §3.2 의사코드가 읽는 모양(id·domain·amountKrw·completedAt·evidenceRef)이다.
@@ -212,6 +215,7 @@ export const companyProfileSchema = z.object({
       name: z.string().min(1),
       level: z.enum(["BASIC", "INTERMEDIATE", "EXPERT"]).optional(),
       yearsOfExperience: z.number().nonnegative().optional(),
+      sourceIds,
     }),
   ),
   technologiesComplete: z.boolean(),
@@ -221,19 +225,28 @@ export const companyProfileSchema = z.object({
       name: z.string().min(1),
       status: licenseStatusSchema,
       validUntil: isoDate.optional(),
+      sourceIds,
     }),
   ),
   industryCodes: z.array(
-    z.object({ code: z.string().min(1), name: z.string().min(1), status: licenseStatusSchema }),
+    z.object({
+      code: z.string().min(1),
+      name: z.string().min(1),
+      status: licenseStatusSchema,
+      sourceIds,
+    }),
   ),
   pastProjects: z.array(
     z.object({
       id: z.string().min(1),
       name: z.string().min(1),
       domain: z.string().min(1),
-      amountKrw: krwString,
-      completedAt: isoDate,
+      // 공개 자료에 없으면 null. 점수는 중립값을 쓴다(금액비 0.5, 최근성 0.2).
+      amountKrw: krwString.nullable(),
+      completedAt: isoDate.nullable(),
       evidenceRef: z.string().nullable().optional(),
+      note: z.string().optional(),
+      sourceIds,
     }),
   ),
   financials: z
@@ -244,6 +257,8 @@ export const companyProfileSchema = z.object({
       employeeCount: z.number().int().nonnegative().optional(),
       creditRating: z.string().optional(),
       maxContractKrw: krwString.optional(),
+      note: z.string().optional(),
+      sourceIds,
     })
     .nullable(),
   preferences: z

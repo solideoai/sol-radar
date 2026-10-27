@@ -1,7 +1,7 @@
 # sol_eval — 평가셋 v0.1 빌더·라벨 검증·Bosun/Kev JSONL 내보내기·누수 검사·오프라인 채점
 
 `docs/21-MODEL-TRAINING.md` §3·§4·§6, `docs/22-FINETUNE-RUNBOOK.md` §4.1·§4.4, `docs/15-DATA-CONTRACTS.md` §4.1, `docs/16-DECISIONS.md` ADR-034 7·9번,
-`docs/23-WEEKEND-FINETUNE.md` §4.4 **갈래 ①(구조화 필드만)**·§4.5, `docs/plans/2026-10-19-e3-experiment-design.md` §5·§6 을 코드로 옮긴 것이다.
+`docs/21-MODEL-TRAINING.md` §3.8 **갈래 ①(구조화 필드만)**·§3.7 번들, `docs/plans/2026-10-19-e3-experiment-design.md` §5·§6 을 코드로 옮긴 것이다.
 DB·네트워크를 쓰지 않는다. 실모델은 `bosun_score`(기본 backend `bosun`)만 로컬 패키지에서 올린다(회사 GPU 서버 안, 회사 측 실행).
 `services/ai` uv 프로젝트의 workspace 멤버(`services/ai/eval/pyproject.toml`)라 같은 가상환경에서 돈다.
 

@@ -1,0 +1,453 @@
+{
+  "area": "home",
+  "sources": [
+    {
+      "id": "home-intro-ko",
+      "kind": "PUBLIC",
+      "title": "솔리데오 2026 회사소개서(국문) PDF",
+      "url": "https://solideos.com/portal/bbsPRDetail.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "AI, IoT, 빅데이터, 클라우드등첨단기술기반의최적화된AX 서비스를제공합니다. (PDF 텍스트 추출본, 띄어쓰기 없음)"
+    },
+    {
+      "id": "home-history",
+      "kind": "PUBLIC",
+      "title": "솔리데오 걸어온길(연혁)",
+      "url": "https://solideos.com/portal/companyHistory.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "14 / 02 CMMi 성숙도 Level 3 획득"
+    },
+    {
+      "id": "home-history-sp",
+      "kind": "PUBLIC",
+      "title": "솔리데오 걸어온길(연혁) SP 2등급",
+      "url": "https://solideos.com/portal/companyHistory.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "24 / 07 소프트웨어 프로세스 품질인증(SP) 2등급 획득"
+    },
+    {
+      "id": "home-history-ifc",
+      "kind": "PUBLIC",
+      "title": "솔리데오 걸어온길(연혁) IFC 인증",
+      "url": "https://solideos.com/portal/companyHistory.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "14 / 04 IFC 2X3 ArchiBIM Server V1.0 국제인증"
+    },
+    {
+      "id": "home-overview",
+      "kind": "PUBLIC",
+      "title": "솔리데오 회사개요",
+      "url": "https://solideos.com/portal/companyOverview.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "솔리데오는 1998년부터 25년간 대한민국 행정정보화를 선도한 기업입니다."
+    },
+    {
+      "id": "home-gov",
+      "kind": "PUBLIC",
+      "title": "솔리데오 플랫폼정부 실적",
+      "url": "https://solideos.com/portal/govSM.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "보조금24 … 2021년 서비스 개시 / 공공 마이데이터 … 2억건 이상의 행정정보 유통"
+    },
+    {
+      "id": "home-pino",
+      "kind": "PUBLIC",
+      "title": "솔리데오 PINO",
+      "url": "https://solideos.com/portal/pino.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "PINO는 모든 종류의 문서를 디지털 전환·유통·관리하는 E-Document 플랫폼 서비스입니다."
+    },
+    {
+      "id": "home-jado",
+      "kind": "PUBLIC",
+      "title": "솔리데오 JADOit",
+      "url": "https://solideos.com/portal/jado.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "JADO는 부동산 빅데이터 기반 프롭테크 플랫폼 서비스입니다."
+    },
+    {
+      "id": "home-archibim",
+      "kind": "PUBLIC",
+      "title": "솔리데오 Archi BIM",
+      "url": "https://solideos.com/portal/achiBIM.do",
+      "retrievedAt": "2026-10-27",
+      "quote": "Web 환경에서 대용량 파일의 송수신 처리 및 정보를 추출하여 Database 구축"
+    },
+    {
+      "id": "home-news-251",
+      "kind": "PUBLIC",
+      "title": "홈페이지 언론보도: 2026 K-SW 그랑프리 수상자에 [이름 생략] 솔리데오 대표",
+      "url": "https://solideos.com/portal/bbsNewsDetail.do (seq=251)",
+      "retrievedAt": "2026-10-27",
+      "quote": "ArchiBIM(국산 건축 BIM 솔루션), SolMate(공공 SI 프로젝트 표준화 방법론) 등 자사 핵심 소프트웨어를 자체 개발 및 공급"
+    },
+    {
+      "id": "home-news-245",
+      "kind": "PUBLIC",
+      "title": "홈페이지 언론보도: SP인증 활성화 NIPA 원장상 수상",
+      "url": "https://solideos.com/portal/bbsNewsDetail.do (seq=245)",
+      "retrievedAt": "2026-10-27",
+      "quote": "'SolMate'는 25년 이상 축적한 이 회사의 공공 SI 프로젝트 경험과 2014년 CMMI 레벨 3인증으로 다진 프로세스 노하우를 기반으로 개발한 솔리데오시스템즈만의 표준화 방법론"
+    },
+    {
+      "id": "home-news-248",
+      "kind": "PUBLIC",
+      "title": "홈페이지 언론보도(ZDNet): 삼성SDS 차세대 지방행정공통시스템 ISMP",
+      "url": "https://solideos.com/portal/bbsNewsDetail.do (seq=248)",
+      "retrievedAt": "2026-10-27",
+      "quote": "삼성SDS는 솔리데오시스템즈, 쌍용정보통신, 브이티더블유와 함께 컨소시엄을 구성해 앞으로 차세대 지방행정공통시스템 구축 사업을 이끌게 됐다."
+    },
+    {
+      "id": "home-pr-3",
+      "kind": "PUBLIC",
+      "title": "홈페이지 PR자료: 인디애나대와 공공AI 챗봇 실증 연구",
+      "url": "https://solideos.com/portal/bbsPRDetail.do (seq=3)",
+      "retrievedAt": "2026-10-27",
+      "quote": "GPT-4o 기반 공공서비스 AI 챗봇 실증"
+    },
+    {
+      "id": "home-news-249",
+      "kind": "PUBLIC",
+      "title": "홈페이지 언론보도: 에이아이세스-솔리데오 AI 전략 협력",
+      "url": "https://solideos.com/portal/bbsNewsDetail.do (seq=249)",
+      "retrievedAt": "2026-10-27",
+      "quote": "AI 데이터 수집·정제·가공 및 품질 표준 마련 ▲AI 솔루션 공동 기획·사업화"
+    },
+    {
+      "id": "job-jk-50131418",
+      "kind": "PUBLIC",
+      "title": "잡코리아 ㈜솔리데오 2026 AX사업본부 AI서비스 구축 개발(공고 이미지 본문)",
+      "url": "https://www.jobkorea.co.kr/Recruit/GI_Read/50131418",
+      "retrievedAt": "2026-10-27",
+      "quote": "[우대사항] 전자정부표준프레임워크(eGovFrame) 및 Java/Spring 기반 프로젝트 수행 경험 / AI서비스 전반에 대한 이해: LLM 연동, RAG(검색증강 생성), AI에이전트 구축 등 생성형 AI 기술의 서비스 적용 경험 (본문이 이미지라 눈으로 읽어 옮김, 마감 2026-12-07)"
+    },
+    {
+      "id": "job-jk-50131444",
+      "kind": "PUBLIC",
+      "title": "잡코리아 ㈜솔리데오 2026 AX사업본부 AI 서비스 아키텍트 및 사업 리더(공고 이미지 본문)",
+      "url": "https://www.jobkorea.co.kr/Recruit/GI_Read/50131444",
+      "retrievedAt": "2026-10-27",
+      "quote": "AI 기술 아키텍처 수립: LLM, RAG, 에이전트 등 최신 AI 기술트렌드에 기반하여 시스템 및 서비스 설계 (본문이 이미지라 눈으로 읽어 옮김, 마감 2026-12-07)"
+    },
+    {
+      "id": "job-jk-50224771",
+      "kind": "PUBLIC",
+      "title": "잡코리아 ㈜솔리데오 2026 AI사업본부 데이터 및 AI 워크플로우 개발(공고 이미지 본문)",
+      "url": "https://www.jobkorea.co.kr/Recruit/GI_Read/50224771",
+      "retrievedAt": "2026-10-27",
+      "quote": "비정형 데이터 구조화: 공공문서(HWP, PDF 등)의 텍스트 추출 및 AI 참조용 지식 베이스 구축 파이프라인 개발 / AI 에이전트 시나리오 설계: 업무 자동화 도구(Tool) 연동 최적화 및 에이전트 기반 워크플로우 구현 (본문이 이미지라 눈으로 읽어 옮김, 마감 2026-12-21)"
+    },
+    {
+      "id": "job-jk-49904881",
+      "kind": "PUBLIC",
+      "title": "잡코리아 ㈜솔리데오 2026 중부지사 사업본부 공공SI사업 TA 채용",
+      "url": "https://www.jobkorea.co.kr/Recruit/GI_Read/49904881",
+      "retrievedAt": "2026-10-27",
+      "quote": "중부지사 사업본부 TA ( ○명 ) 자격요건 ㆍ학력 : 초대졸이상 (졸업예정자 가능) ㆍ경력 : 경력6년↑ (기술 이름 없음, 마감 2026-11-01)"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "eGovFrame(전자정부표준프레임워크)",
+      "sourceIds": ["job-jk-50131418"]
+    },
+    {
+      "name": "Java",
+      "sourceIds": ["job-jk-50131418"]
+    },
+    {
+      "name": "Spring",
+      "sourceIds": ["job-jk-50131418"]
+    },
+    {
+      "name": "LLM",
+      "sourceIds": ["job-jk-50131418", "job-jk-50131444", "job-jk-50224771"]
+    },
+    {
+      "name": "RAG",
+      "sourceIds": ["job-jk-50131418", "job-jk-50131444"]
+    },
+    {
+      "name": "AI 에이전트",
+      "sourceIds": ["job-jk-50131418", "job-jk-50131444", "job-jk-50224771"]
+    },
+    {
+      "name": "GPT-4o",
+      "sourceIds": ["home-pr-3"]
+    },
+    {
+      "name": "HWP·PDF 텍스트 추출",
+      "sourceIds": ["job-jk-50224771"]
+    },
+    {
+      "name": "BIM",
+      "sourceIds": ["home-archibim", "home-news-251"]
+    },
+    {
+      "name": "IFC 2X3",
+      "sourceIds": ["home-history-ifc"]
+    },
+    {
+      "name": "빅데이터",
+      "sourceIds": ["home-intro-ko", "home-jado"]
+    },
+    {
+      "name": "클라우드",
+      "sourceIds": ["home-intro-ko", "home-pino"]
+    },
+    {
+      "name": "IoT",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "name": "마이데이터",
+      "sourceIds": ["home-gov", "home-intro-ko"]
+    },
+    {
+      "name": "전자문서(E-Document)",
+      "sourceIds": ["home-pino"]
+    },
+    {
+      "name": "SolMate(자체 SI 방법론)",
+      "sourceIds": ["home-news-251", "home-news-245"]
+    }
+  ],
+  "licenses": [],
+  "industryCodes": [],
+  "pastProjects": [
+    {
+      "id": "pp-home-01",
+      "name": "혜택알리미(gov.kr)",
+      "domain": "AX",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "회사소개서 p.10 '흩어진공공서비스정보를한곳에모아개인상황에맞는혜택을선별하고…' / 'AI 기반분석으로필요한혜택을먼저안내'. 1차 17건에 없음. 금액·기간 미공개.",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "id": "pp-home-02",
+      "name": "온마이데이터(onmydata.go.kr)",
+      "domain": "데이터 플랫폼",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "회사소개서 p.15 '전분야마이데이터서비스를한번에한곳에서확인하고…'. 1차 17건에 없음(공공 마이데이터 pp-05와 별개 서비스). 금액·기간 미공개.",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "id": "pp-home-03",
+      "name": "소상공인 빅데이터 저장소(bigdata.sbiz.or.kr)",
+      "domain": "데이터 플랫폼",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "회사소개서 p.20 'AI 빅데이터로소상공인을위한판단기준제공'. 1차 17건에 없음(소상공인24 pp-14와 별개). 금액·기간 미공개.",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "id": "pp-home-04",
+      "name": "수입식품안전나라(impfood.mfds.go.kr)",
+      "domain": "기타",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "회사소개서 p.22 '식품수입전(全)단계를관리하는정보시스템입니다.' 1차 17건에 없음. 금액·기간 미공개.",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "id": "pp-home-05",
+      "name": "식약처 대표 홈페이지·유관포털 통합관리(mfds.go.kr)",
+      "domain": "기타",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "회사소개서 p.21 '식품의약품안전처의정책정보, 37개정보시스템등부처대표홈페이지및유관포털을통합적으로관리합니다.' 1차의 '식의약품 종합정보시스템' pp-15와 같은 사업일 수 있으나 확인 못 함. 금액·기간 미공개.",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "id": "pp-home-06",
+      "name": "차세대 지방행정공통시스템 ISMP 수립(삼성SDS 컨소시엄)",
+      "domain": "기타",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "2025-02-14 ZDNet 기사: 삼성SDS가 솔리데오시스템즈 등과 컨소시엄 구성. 발주 한국지역정보개발원. 기사 제목의 '최대 6천억 규모'는 뒤이은 구축 사업 규모로 보이며 이 ISMP 금액이 아님. 솔리데오 지분 모름. 금액 비움.",
+      "sourceIds": ["home-news-248"]
+    },
+    {
+      "id": "pp-home-07",
+      "name": "Acropolis SG 일본 계약 3건(나리타 공항 제3활주로·후쿠시마 RTF·쿄토시 하수시설관리)",
+      "domain": "스마트시티",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "연혁 2018-02 '일본 내 계약 3건'. 금액 미공개. 해외 사업.",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "id": "pp-home-08",
+      "name": "보조금24",
+      "domain": "민원",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "profile.json 의 '보조금24'(pp-03)와 같은 사업. 홈페이지 govSM '2021년 서비스 개시' 문구만 추가 확인(완료일 아님).",
+      "sourceIds": ["home-gov"]
+    },
+    {
+      "id": "pp-home-09",
+      "name": "정부24",
+      "domain": "민원",
+      "amountKrw": null,
+      "completedAt": null,
+      "note": "profile.json 의 '정부24'(pp-01)와 같은 사업. govSM '대국민 온라인 민원창구 2000만명 이상 사용' 추가. 연혁 2017-10 '전자정부를 빛낸 50선' 서비스분야에 정부24 선정(수상). 금액 없음.",
+      "sourceIds": ["home-gov", "home-history"]
+    }
+  ],
+  "financials": null,
+  "publicHistory": [
+    {
+      "year": 2014,
+      "kind": "CERTIFICATION",
+      "name": "CMMi 성숙도 Level 3 획득",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2024,
+      "kind": "CERTIFICATION",
+      "name": "소프트웨어 프로세스 품질인증(SP) 2등급 획득",
+      "sourceIds": ["home-history-sp"]
+    },
+    {
+      "year": 2014,
+      "kind": "CERTIFICATION",
+      "name": "IFC 2X3 ArchiBIM Server V1.0 국제인증",
+      "sourceIds": ["home-history-ifc"]
+    },
+    {
+      "year": 2013,
+      "kind": "CERTIFICATION",
+      "name": "IFC 2X3 ArchiBIM Server 국내인증",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2005,
+      "kind": "CERTIFICATION",
+      "name": "ArchiView v1.0 GS인증(TTA)",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "year": 2006,
+      "kind": "CERTIFICATION",
+      "name": "ArchiHARD v1.0 GS인증(TTA)",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "year": 2014,
+      "kind": "CERTIFICATION",
+      "name": "강소기업 확인(고용노동부)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2005,
+      "kind": "CERTIFICATION",
+      "name": "Inno-Biz(기술혁신기업) 인증(중소기업청), 이후 2008·2011·2014·2020 재인증",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2011,
+      "kind": "REGISTRATION",
+      "name": "정보통신공사업 등록(서울특별시)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2000,
+      "kind": "REGISTRATION",
+      "name": "소프트웨어사업자 등록(한국소프트웨어산업협회)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2000,
+      "kind": "REGISTRATION",
+      "name": "벤처기업등록(기술평가기업), 이후 재등록 다수, 2019 기술보증기금 재등록",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2001,
+      "kind": "REGISTRATION",
+      "name": "기업부설 정보기술 연구소 설립(한국산업기술진흥협회)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2001,
+      "kind": "REGISTRATION",
+      "name": "병역특례지정업체 선정(서울지방병무청)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2026,
+      "kind": "AWARD",
+      "name": "제2회 K-소프트웨어 그랑프리 수상(소프트웨어공제조합, 대표이사)",
+      "sourceIds": ["home-intro-ko", "home-news-251"]
+    },
+    {
+      "year": 2024,
+      "kind": "AWARD",
+      "name": "오픈소스 페스티벌 SP인증 활성화 부문 우수상(NIPA)",
+      "sourceIds": ["home-news-245"]
+    },
+    {
+      "year": 2024,
+      "kind": "AWARD",
+      "name": "제1회 소프트웨어기업 ESG경영대상 우수기업 선정",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "year": 2023,
+      "kind": "AWARD",
+      "name": "제22회 대한민국 소프트웨어기업경쟁력대상 기업역량강화부문 대상",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2022,
+      "kind": "AWARD",
+      "name": "제13회 대한민국 데이터 대상(데이터 비즈니스 부문 협회장상)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2021,
+      "kind": "AWARD",
+      "name": "전자정부 발전 유공자 대통령 표창(행정안전부)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2021,
+      "kind": "AWARD",
+      "name": "소프트웨어 천억클럽 멤버 선정(KOSA)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2018,
+      "kind": "AWARD",
+      "name": "2018 대한민국 ICT INNOVATION 대상(과학기술정보통신부장관)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2017,
+      "kind": "AWARD",
+      "name": "대한민국 전자정부를 빛낸 50선 선정(정부24, 대표이사)",
+      "sourceIds": ["home-history"]
+    },
+    {
+      "year": 2014,
+      "kind": "AWARD",
+      "name": "국가산업발전공로 대통령산업포장",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "year": 2012,
+      "kind": "AWARD",
+      "name": "2012 공공정보화대상경진대회 대통령상(국가건물에너지통합관리시스템)",
+      "sourceIds": ["home-intro-ko"]
+    },
+    {
+      "year": 2015,
+      "kind": "AWARD",
+      "name": "BIM Awards 2015 Implementation 건축분야 우수상(빌딩스마트협회)",
+      "sourceIds": ["home-history"]
+    }
+  ]
+}

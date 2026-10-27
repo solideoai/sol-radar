@@ -122,22 +122,32 @@ async function listBidRows(
 const RUN_COLUMNS =
   "id,org_id,bid_id,revision_id,company_profile_id,profile_revision,extraction_id,algorithm_version,run_mode,ai_provider,qwen_model,kev_model,question_set_version,kev_calibration,prompt_hash,input_snapshot_hash,injection_suspected,status,score,recommendation,recommendation_basis,explanation,review_flags,missing_factors,model_metadata,kev_assist,fallback_reason,idempotency_key,request_hash,requested_by,error_code,queued_at,started_at,finished_at,created_at";
 const ANALYSIS_SELECT =
-  `${RUN_COLUMNS},revision:bid_revisions!score_runs_revision_fkey(revision),score_factors!score_factors_score_run_fkey(*),qualification_checks!qualification_checks_score_run_fkey(*),requirement_assessments!requirement_assessments_score_run_fkey(*)` as const;
+  `${RUN_COLUMNS},revision:bid_revisions!score_runs_revision_fkey(revision),profile:company_profiles!score_runs_company_profile_fkey(is_demo),score_factors!score_factors_score_run_fkey(*),qualification_checks!qualification_checks_score_run_fkey(*),requirement_assessments!requirement_assessments_score_run_fkey(*)` as const;
 
 type StoredRun = Omit<ScoreRunRow, "input_snapshot" | "kev_output"> & {
   revision: { revision: number } | null;
+  profile: { is_demo: boolean } | null;
   score_factors: ScoreFactorRow[];
   qualification_checks: QualificationCheckRow[];
   requirement_assessments: RequirementAssessmentRow[];
 };
 
 function toAnalysis(stored: StoredRun): AnalysisView {
-  const { revision, score_factors, qualification_checks, requirement_assessments, ...run } = stored;
+  const {
+    revision,
+    profile,
+    score_factors,
+    qualification_checks,
+    requirement_assessments,
+    ...run
+  } = stored;
   if (revision === null) throw new Error(`분석 ${run.id} 의 공고 revision 을 읽지 못했습니다`);
   return toAnalysisViewFromRows({
     // 읽지 않은 두 열은 행 타입을 맞추려고 null 로 둔다. mapper 는 이 값을 쓰지 않는다.
     run: { ...run, input_snapshot: null, kev_output: null },
     revision: revision.revision,
+    // 분석에 쓴 프로필의 is_demo. 읽지 못하면 가상으로 본다(실제 회사 판단처럼 보이지 않게).
+    profileIsDemo: profile?.is_demo ?? true,
     factors: score_factors,
     checks: qualification_checks,
     assessments: requirement_assessments,
