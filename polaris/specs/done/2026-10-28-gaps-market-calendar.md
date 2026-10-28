@@ -1,6 +1,6 @@
 ---
 title: "사이드바 핵심 메뉴 3개 — 자격 갭 레이더·발주 현황·입찰 일정"
-status: in-progress
+status: done
 tags: [sol-radar, ui, scoring, data, hackathon]
 updated: 2026-10-28
 ---

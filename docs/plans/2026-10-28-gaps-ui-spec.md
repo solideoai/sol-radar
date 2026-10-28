@@ -12,7 +12,7 @@ updated: 2026-10-28
 
 # 디자인 스펙: 자격 갭 레이더 (`/gaps`)
 
-[기능 스펙](../../polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md) §5 파트 A의 화면 스펙이다. 구현자는 이 문서와 서버 계약 `web/server/gaps/gaps.model.ts`(`GapRadarView`)를 보고 짠다. "고정"이라 적은 문구는 그대로 쓴다. 나머지 문구는 초안이고, 확정은 사용자가 한다.
+[기능 스펙](../../polaris/specs/done/2026-10-28-gaps-market-calendar.md) §5 파트 A의 화면 스펙이다. 구현자는 이 문서와 서버 계약 `web/server/gaps/gaps.model.ts`(`GapRadarView`)를 보고 짠다. "고정"이라 적은 문구는 그대로 쓴다. 나머지 문구는 초안이고, 확정은 사용자가 한다.
 
 > [!warning] 미검증 가정
 > 코드만 읽고 썼고 브라우저는 띄우지 않았다. 본문 폭은 사이드바 256px·`AppPage lg:px-8`·`max-w-360`으로 계산했다(1440 → 1120px, 1280 → 960px). 예시 숫자(54건·392.9억)는 스펙 §3 실측이라, 관련성 거르기·보조 조회를 거친 화면 값과 다를 수 있다.

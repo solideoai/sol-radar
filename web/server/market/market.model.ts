@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { GapBucket } from "@/server/gaps";
 
-// 발주 현황(/market) 1단계. 스펙 polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md §6 B1.
+// 발주 현황(/market) 1단계. 스펙 polaris/specs/done/2026-10-28-gaps-market-calendar.md §6 B1.
 // 대상은 live 나라장터 입찰공고(is_demo=false, 데모 수집기 아님, G2B, NOTICE 단계)다. 낙찰·계약·발주계획·사전규격은 없다.
 
 /** 기간 선택(게시일 기준, KST 날짜로 오늘 포함 최근 N일). 기본 90일 */

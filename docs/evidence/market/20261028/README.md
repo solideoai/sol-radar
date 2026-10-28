@@ -7,7 +7,7 @@ updated: 2026-10-28
 
 # 발주 현황 증거 2026-10-28
 
-스펙 `polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md` §6 의 `/market` 증거다.
+스펙 `polaris/specs/done/2026-10-28-gaps-market-calendar.md` §6 의 `/market` 증거다.
 
 | 파일 | 내용 |
 |---|---|

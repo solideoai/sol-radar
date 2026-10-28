@@ -11,7 +11,7 @@ updated: 2026-10-28
 
 # 자격 갭 레이더 운영 DB 읽기 확인 2회차 (2026-10-28)
 
-[[16-DECISIONS|ADR-060]] "남은 확인"과 [스펙](../../../../polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md) §10의 값을 운영 DB에서 읽기로 센 기록이다. 1회차(전체 실공고 업종 분포)는 스펙 §3이다.
+[[16-DECISIONS|ADR-060]] "남은 확인"과 [스펙](../../../../polaris/specs/done/2026-10-28-gaps-market-calendar.md) §10의 값을 운영 DB에서 읽기로 센 기록이다. 1회차(전체 실공고 업종 분포)는 스펙 §3이다.
 
 - 시각: 2026-10-28 11:3x KST. 사용자 승인 "지금 확인".
 - 도구: Supabase MCP `execute_sql`, 읽기 SELECT 1문. 쓰기 0. 첫 시도는 `bid_notices.org_id` 열이 없어 오류로 끝났다(쓰기 없음). `org_id`를 뺀 두 번째 문이 아래 결과다.

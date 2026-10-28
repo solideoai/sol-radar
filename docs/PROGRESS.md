@@ -126,7 +126,7 @@ updated: 2026-10-28
 | 프로필 사진 | 비공개 버킷 `profile-photos`, 가입 신청 승인([[16-DECISIONS\|ADR-051]]) | 운영 적용(migration·버킷·웹 배포). 기존 직원 찾기(U8)·재신청 진입점(U10) 화면은 없다 | [기록](evidence/integration/20261025-prod-apply-db-storage.md) |
 | 인력 200명 | 가상 명부·사진 200장·전원 계산 대상([[16-DECISIONS\|ADR-019·043]]) | 완료, 운영 DB 적용 | [[07-DATA-PIPELINE\|07]] |
 | 화면 정리 | 사이드바 묶음 3개·트리·아이콘, 대시보드 "공공조달 요약" 숫자 띠, 랜딩 | 완료(운영 배포) | [기록](evidence/sidebar-tree/README.md) |
-| 자격 갭 | 자격 갭 레이더 `/gaps`: 실공고 구조화 필드 1차 선별·막는 자격 순위·보유 가정([[16-DECISIONS\|ADR-060]]) | 구현 `cc2bf41e`·`7372c2d1`, 사이드바 등록 `897dd998`, main `e2203b72`·운영 배포(2026-10-28 Vercel success). 운영 화면 실숫자 미확인(로그인 필요). 첨부 자격·AI 미사용 | [스펙](../polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md) §5, [증거](evidence/gaps/20261028/README.md) |
+| 자격 갭 | 자격 갭 레이더 `/gaps`: 실공고 구조화 필드 1차 선별·막는 자격 순위·보유 가정([[16-DECISIONS\|ADR-060]]) | 구현 `cc2bf41e`·`7372c2d1`, 사이드바 등록 `897dd998`, main `e2203b72`·운영 배포(2026-10-28 Vercel success). 운영 화면 실숫자 미확인(로그인 필요). 첨부 자격·AI 미사용 | [스펙](../polaris/specs/done/2026-10-28-gaps-market-calendar.md) §5, [증거](evidence/gaps/20261028/README.md) |
 | 발주 현황 | 발주 현황 `/market`: 수집 입찰공고 기간·기관·분야·예산 구간·주별 집계 1단계([[16-DECISIONS\|ADR-060]]) | 구현 `3434311d`·`37d70cbe`·`619713e0`, 사이드바 등록 `0dc98749`, main `e2203b72`·운영 배포(2026-10-28 Vercel success). 2단계(자격 갭 묶음 겹쳐 보기, 스펙 B2) `e0fca05f` | 스펙 §6, [1440 스크린샷](evidence/market/20261028/market-overview-1440.png) |
 | 입찰 일정 | 입찰 일정 `/calendar`: 관심 공고·입찰 프로젝트 마감 달력([[16-DECISIONS\|ADR-060]]) | 구현 `9ec773a5`·`b5255a09`·`f284effc`, 사이드바 등록 `4e5e88bc`, main `e2203b72`·운영 배포(2026-10-28 Vercel success). 마감 D-3·D-1 알림(기존 `deadline_reminders`)은 운영 알림 Worker 기동 전이라 오지 않고, 화면에도 안내하지 않는다(위 "알림 처리" 행) | [증거](evidence/calendar/20261028/README.md) |
 

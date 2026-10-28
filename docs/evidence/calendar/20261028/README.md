@@ -1,6 +1,6 @@
 # 입찰 일정 `/calendar` (2026-10-28, 파트 C)
 
-스펙: `polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md` §4·§7. 브랜치 `feat/bid-calendar`(기준 `5fa888db`). 사이드바 등록은 통합 때 메인 세션이 한다(그 전에는 주소로 연다).
+스펙: `polaris/specs/done/2026-10-28-gaps-market-calendar.md` §4·§7. 브랜치 `feat/bid-calendar`(기준 `5fa888db`). 사이드바 등록은 통합 때 메인 세션이 한다(그 전에는 주소로 연다).
 
 ## 무엇이 보이나
 

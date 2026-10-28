@@ -25,7 +25,7 @@ import { GapsView } from "./gaps-view";
 
 export const metadata: Metadata = { title: GAPS_TITLE };
 
-// 자격 갭 레이더(기능 스펙 polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md §5, 디자인 스펙 docs/plans/2026-10-28-gaps-ui-spec.md).
+// 자격 갭 레이더(기능 스펙 polaris/specs/done/2026-10-28-gaps-market-calendar.md §5, 디자인 스펙 docs/plans/2026-10-28-gaps-ui-spec.md).
 // 읽기 전용이다. 판정·집계·보유 가정 재계산은 서버(getGapRadar)가 하고, 화면은 그 결과와 다음 주소만 받는다.
 // 배럴이 server-only 라 클라이언트 부품은 상수·주소 함수를 부를 수 없다. 그래서 여기서 문구를 모으고 주소를 미리 만든다.
 
