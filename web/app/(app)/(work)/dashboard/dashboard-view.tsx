@@ -1,6 +1,7 @@
 import { ChevronRightIcon, CircleDashedIcon } from "lucide-react";
 import Link from "next/link";
 import { formatKrwCompact, formatKst } from "@/components/bids/format";
+import { RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import { StatusBadge } from "@/components/bids/status-badge";
 import { OpportunityReviewRows } from "@/components/work/opportunities-review-rows";
 import { OpportunitySourceStatus } from "@/components/work/opportunities-source-status";
@@ -245,7 +246,7 @@ function IngestMetrics({
           />
         )}
         <MetricRow
-          label="진행 중 WATCH"
+          label={`진행 중 ${RECOMMENDATION_LABEL.WATCH}`}
           value={metrics === null ? "—" : count(metrics.activeWatch)}
           hint={metrics === null ? "지표 조회 실패" : "현재 유효 분석 · 진행 중"}
         />
@@ -352,7 +353,7 @@ export function DashboardView({
       hint: "현재 입력의 분석 결과 없음",
     },
     {
-      label: "BID 권고",
+      label: `${RECOMMENDATION_LABEL.BID} 권고`,
       value: count(summary.bidRecommended),
       hint: "현재 유효 분석 · 진행 중",
     },

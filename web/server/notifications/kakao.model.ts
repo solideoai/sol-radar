@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { RECOMMENDATION_LABEL } from "@/server/shared";
 import {
   toReasonLine,
   type BidFeedInput,
@@ -107,7 +108,7 @@ export function toKakaoNotificationRow(input: {
     payload: {
       bidId: input.bidId,
       title: input.title,
-      message: `${input.recommendation} 권고`,
+      message: `${RECOMMENDATION_LABEL[input.recommendation]} 권고`,
       link: `/bids/${input.bidId}`,
     },
   };

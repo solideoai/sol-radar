@@ -91,7 +91,7 @@ export const matchesStoredRun = (
   before.qualificationStatus === stored.qualification.status;
 
 // 조사 "(으)로". 받침이 없거나 ㄹ 받침이면 "로", 그 밖 받침이면 "으로"다.
-// 숫자는 읽는 소리로 정한다(0 영·십·백, 3 삼, 6 육 → 으로). 영문 권고(BID·WATCH·NO-BID)는 모두 "로"로 읽힌다.
+// 숫자는 읽는 소리로 정한다(0 영·십·백, 3 삼, 6 육 → 으로). 권고(추천·보류·비추천)는 한글 받침으로 정한다.
 const HANGUL_FIRST = 0xac00;
 const HANGUL_LAST = 0xd7a3;
 const RIEUL_FINAL = 8;

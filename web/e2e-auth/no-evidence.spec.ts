@@ -8,7 +8,7 @@ const INSUFFICIENT_DATA_TEXT =
 
 test.use({ storageState: storageOf("sales") });
 
-test("G4 FX-04 는 자격 확인 필요·권고 WATCH 와 INSUFFICIENT_DATA 문장을 보이고 수주·낙찰 확률을 말하지 않는다", async ({
+test("G4 FX-04 는 자격 확인 필요·권고 보류와 INSUFFICIENT_DATA 문장을 보이고 수주·낙찰 확률을 말하지 않는다", async ({
   page,
 }) => {
   const { bids } = readWorkContext();
@@ -23,7 +23,7 @@ test("G4 FX-04 는 자격 확인 필요·권고 WATCH 와 INSUFFICIENT_DATA 문�
   await expect(qualification.getByText(INSUFFICIENT_DATA_TEXT).first()).toBeVisible();
 
   const rail = page.getByRole("complementary", { name: "참여 판단" });
-  await expect(rail).toContainText(/권고\s*WATCH/);
+  await expect(rail).toContainText(/권고\s*보류/);
 
   // 09: "수주 확률"·"낙찰 확률"은 "아님·아닙니다"와 같은 문장 안에서만 나온다.
   const text = await page.evaluate(() => document.body.innerText);

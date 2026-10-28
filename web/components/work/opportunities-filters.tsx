@@ -4,6 +4,7 @@ import { cn } from "cn";
 import { ChevronDownIcon, FilterXIcon, SearchIcon } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useOptimistic, useState, type TransitionStartFunction } from "react";
+import { RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import { SOURCE_LABELS } from "@/components/bids/source-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -154,11 +155,7 @@ function SingleFilter({
 
 const optionsOf = (record: Record<string, string>): Option[] =>
   Object.entries(record).map(([id, name]) => ({ id, name }));
-const RECOMMENDATIONS = [
-  { id: "BID", name: "BID" },
-  { id: "WATCH", name: "WATCH" },
-  { id: "NO_BID", name: "NO-BID" },
-];
+const RECOMMENDATIONS = optionsOf(RECOMMENDATION_LABEL);
 // 켜진 빠른 선택 버튼(aria-pressed)은 파스텔 선택색이다(2026-10-28 화면 개편). 올려도 바탕이 회색으로 바뀌지 않게 hover 도 덮는다.
 // 여러 개 켜는 거르기 칩이라 꺼진 칩은 1px 테두리, 켜진 칩은 테두리를 투명하게 둔다.
 const PRESSED =

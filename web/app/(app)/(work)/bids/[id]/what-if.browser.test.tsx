@@ -288,7 +288,7 @@ describe("진입 호출(스펙 §4.5)", () => {
 });
 
 describe("가정 시나리오(스펙 §4.3·§4.4)", () => {
-  it("스위치 한 번이면 띠가 NO-BID → WATCH, 68 → 68 을 보이고 결정 패널은 원래 값 그대로다", async () => {
+  it("스위치 한 번이면 띠가 비추천 → 보류, 68 → 68 을 보이고 결정 패널은 원래 값 그대로다", async () => {
     const { host } = await enter(FX03_WHAT_IF_VIEW, [ICT]);
     const railBefore = railOf(host);
     await userEvent.click(page.getByRole("switch", { name: ICT_SWITCH }));
@@ -300,7 +300,7 @@ describe("가정 시나리오(스펙 §4.3·§4.4)", () => {
     // 띠는 바로 생기고 응답 전에는 계산 중이다.
     await vi.waitFor(() => expect(bandOf(host)?.getAttribute("aria-busy")).toBe("true"));
     respondOk(calls[1], [ICT], BEFORE, WATCH_AFTER);
-    await expect.element(comparisonRow(1)).toHaveTextContent(/^권고NO-BIDWATCH$/);
+    await expect.element(comparisonRow(1)).toHaveTextContent(/^권고비추천보류$/);
     await expect.element(comparisonRow(2)).toHaveTextContent(/68\/ 100참고68\/ 100변화 없음$/);
     await expect.element(comparisonRow(3)).toHaveTextContent(/^필수자격미충족충족$/);
     await expect.element(page.getByText(W1, { exact: true })).toBeVisible();
@@ -308,12 +308,12 @@ describe("가정 시나리오(스펙 §4.3·§4.4)", () => {
     expect(bandOf(host)?.getAttribute("aria-busy")).not.toBe("true");
     // 결정 패널(권고·점수·라디오 기본값)과 필수자격 행 배지는 원래 값이다.
     expect(railOf(host)).toBe(railBefore);
-    expect(railOf(host)).toContain("권고NO-BID");
-    await expect.element(page.getByRole("radio", { name: "NO-BID" })).toBeChecked();
+    expect(railOf(host)).toContain("권고비추천");
+    await expect.element(page.getByRole("radio", { name: "비추천" })).toBeChecked();
     const row = page.getByRole("switch", { name: ICT_SWITCH }).element().closest("li");
     expect(row?.textContent).toContain("미충족");
     expect(liveOf(host)).toBe(
-      "가정 결과. 권고 NO-BID에서 WATCH로 바뀜. SOL Score 68 그대로. 필수자격 미충족에서 충족으로 바뀜.",
+      "가정 결과. 권고 비추천에서 보류로 바뀜. SOL Score 68 그대로. 필수자격 미충족에서 충족으로 바뀜.",
     );
     const switchGroup = page.getByRole("switch").element().parentElement?.textContent ?? "";
     for (const shown of [bandOf(host)?.textContent ?? "", switchGroup, W6, liveOf(host)]) {
@@ -357,7 +357,7 @@ describe("가정 시나리오(스펙 §4.3·§4.4)", () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(bandOf(host)?.getAttribute("aria-busy")).toBe("true");
-    expect(bandOf(host)?.textContent).not.toContain("BID");
+    expect(bandOf(host)?.textContent).not.toContain("추천");
     // 마지막 요청만 그린다.
     respondOk(calls[3], [ICT, DP], twoBefore, assumeHeld(TWO_CODES_VIEW, [DP], { score: 70 }));
     await expect.element(comparisonRow(2)).toHaveTextContent(/68\/ 100참고70\/ 100참고\+2점$/);
@@ -373,7 +373,7 @@ describe("가정 시나리오(스펙 §4.3·§4.4)", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(bandOf(host)?.textContent).toBe(drawn);
     expect(liveOf(host)).toBe(live);
-    expect(live).toBe("가정 결과. 권고 NO-BID 그대로. SOL Score 68에서 70으로 바뀜.");
+    expect(live).toBe("가정 결과. 권고 비추천 그대로. SOL Score 68에서 70으로 바뀜.");
   });
 
   it("가정 지우기는 띠를 없애고 스위치를 끄고 처음 켠 스위치로 초점을 옮긴다", async () => {
@@ -432,7 +432,7 @@ describe("가정 시나리오(스펙 §4.3·§4.4)", () => {
     await waitCalls(3);
     expect(calls[2]?.codes).toEqual([ICT]);
     respondOk(calls[2], [ICT], BEFORE, WATCH_AFTER);
-    await expect.element(comparisonRow(1)).toHaveTextContent(/^권고NO-BIDWATCH$/);
+    await expect.element(comparisonRow(1)).toHaveTextContent(/^권고비추천보류$/);
     expect(host.querySelector('[data-slot="what-if-calc-error"]')).toBeNull();
   });
 

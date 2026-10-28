@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ANALYSIS_STATUS_LABEL } from "@/components/bids/labels";
+import { ANALYSIS_STATUS_LABEL, RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import type { AnalysisHistoryQuery, BidListItem, Page } from "@/server/bids";
 
 export type BidOption = { id: string; title: string };
@@ -116,9 +116,9 @@ export function AnalysisHistoryFilters({
             label="권고"
             value={query.recommendation}
             options={[
-              { value: "BID", label: "BID" },
-              { value: "WATCH", label: "WATCH" },
-              { value: "NO_BID", label: "NO-BID" },
+              { value: "BID", label: RECOMMENDATION_LABEL.BID },
+              { value: "WATCH", label: RECOMMENDATION_LABEL.WATCH },
+              { value: "NO_BID", label: RECOMMENDATION_LABEL.NO_BID },
             ]}
             onChange={(recommendation) => onChange({ recommendation })}
           />

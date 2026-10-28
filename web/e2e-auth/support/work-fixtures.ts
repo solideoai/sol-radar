@@ -269,7 +269,7 @@ export const rowOf = (page: Page, table: Locator, id: string) =>
 
 /** Kev 선택지 분포(%, 반올림). 화면의 meter 세 개(aria-valuenow 0~1)를 읽는다. */
 export async function kevDistribution(page: Page): Promise<Record<string, number>> {
-  const options = ["BID", "WATCH", "NO-BID"] as const;
+  const options = ["추천", "보류", "비추천"] as const;
   const values = await Promise.all(
     options.map(async (option) => {
       const meter = kevSection(page).getByRole("meter", { name: `${option} 선택지`, exact: true });

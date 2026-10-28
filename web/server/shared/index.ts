@@ -28,6 +28,7 @@ export type {
 } from "./employment";
 export { reviewDecisionSchema, reviewInputSchema, reviewReasonSchema } from "./review-input";
 export type { ReviewDecision, ReviewInput } from "./review-input";
+export { RECOMMENDATION_LABEL, recommendationWithObject } from "./recommendation-label";
 export {
   PHOTO_BUCKET,
   PHOTO_INPUT_MAX_BYTES,

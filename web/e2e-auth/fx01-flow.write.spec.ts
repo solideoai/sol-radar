@@ -17,9 +17,9 @@ const FACTORS = [
   { name: "전략적 선호", points: 10, max: 10 },
 ] as const;
 const KEV = [
-  { name: "BID", probability: 0.71, percent: 71 },
-  { name: "WATCH", probability: 0.24, percent: 24 },
-  { name: "NO-BID", probability: 0.05, percent: 5 },
+  { name: "추천", probability: 0.71, percent: 71 },
+  { name: "보류", probability: 0.24, percent: 24 },
+  { name: "비추천", probability: 0.05, percent: 5 },
 ] as const;
 
 // GET·POST /api/v1/bids/{id}/reviews 응답의 일부(server/bids/review.model.ts reviewSchema).
@@ -35,7 +35,7 @@ const reviewSchema = z.object({
 const decisionRail = (page: Page) =>
   page.getByRole("complementary", { name: "참여 판단", exact: true });
 
-// 표 머리 글자로 행의 칸 하나를 집는다. 10열 목록 표는 "권고"와 "최종 결정" 두 칸에 같은 글자(BID)가 올 수 있어
+// 표 머리 글자로 행의 칸 하나를 집는다. 10열 목록 표는 "권고"와 "최종 결정" 두 칸에 같은 글자(추천)가 올 수 있어
 // (seed 가 FX-01 에 BID 결정을 미리 넣는다, scripts/demo/plan.mjs DEMO_REVIEWS) 칸 이름만으로는 하나로 좁혀지지 않는다.
 async function cellOf(table: Locator, row: Locator, header: string): Promise<Locator> {
   const heads = await table.getByRole("columnheader").allInnerTexts();
@@ -46,7 +46,7 @@ async function cellOf(table: Locator, row: Locator, header: string): Promise<Loc
 
 test.use({ storageState: storageOf("sales"), viewport: { width: 1440, height: 900 } });
 
-test("FX-01: 현재 대시보드부터 94점 근거 확인, WATCH 결정과 이력 보존까지", async ({ page }) => {
+test("FX-01: 현재 대시보드부터 94점 근거 확인, 보류 결정과 이력 보존까지", async ({ page }) => {
   const { bids } = readWorkContext();
   const bidId = bids["FX-01"];
 
@@ -63,7 +63,7 @@ test("FX-01: 현재 대시보드부터 94점 근거 확인, WATCH 결정과 이�
     for (const label of [
       "신규 발견",
       "분석 대기",
-      "BID 권고",
+      "추천 권고",
       "마감 임박 (7일)",
       "진행 중 입찰 프로젝트",
     ])
@@ -86,9 +86,9 @@ test("FX-01: 현재 대시보드부터 94점 근거 확인, WATCH 결정과 이�
       .filter({ has: page.getByRole("link", { name: FX01_TITLE, exact: true }) });
     await expect(row).toHaveCount(1);
     await expect(await cellOf(table, row, "SOL Score")).toHaveText("94");
-    await expect(await cellOf(table, row, "권고")).toHaveText("BID");
+    await expect(await cellOf(table, row, "권고")).toHaveText("추천");
     // seed 의 사전 결정(19 §3: FX-01 BID). S4 가 WATCH 를 기록하면 마지막 결정이 바뀐다.
-    await expect(await cellOf(table, row, "최종 결정")).toHaveText("BID");
+    await expect(await cellOf(table, row, "최종 결정")).toHaveText("추천");
     await row.getByRole("link", { name: FX01_TITLE, exact: true }).click();
     // 목록 행 링크는 /bids/<id> 이고, 목록 조건이 있으면 ?list=<조건>이 붙는다(components/bids/bid-table.tsx detailHref).
     await expect(page).toHaveURL(new RegExp(`/bids/${bidId}(\\?list=[^#]*)?$`));
@@ -113,7 +113,7 @@ test("FX-01: 현재 대시보드부터 94점 근거 확인, WATCH 결정과 이�
     await expect(qualification.getByText("충족", { exact: true })).toHaveCount(3);
 
     const rail = decisionRail(page);
-    await expect(rail).toContainText(/권고\s*BID/);
+    await expect(rail).toContainText(/권고\s*추천/);
     await expect(rail.getByRole("meter", { name: "SOL Score", exact: true })).toHaveAttribute(
       "aria-valuenow",
       "94",
@@ -165,15 +165,15 @@ test("FX-01: 현재 대시보드부터 94점 근거 확인, WATCH 결정과 이�
     await expect(opener).toBeFocused();
   });
 
-  await test.step("S4: WATCH 를 기록하면 결정 이력이 정확히 한 건 늘고 새로 고침 뒤에도 남는다", async () => {
+  await test.step("S4: 보류를 기록하면 결정 이력이 정확히 한 건 늘고 새로 고침 뒤에도 남는다", async () => {
     const endpoint = `/api/v1/bids/${bidId}/reviews`;
     const beforeResponse = await page.request.get(endpoint);
     expect(beforeResponse.status()).toBe(200);
     const before = z.array(reviewSchema).parse(await beforeResponse.json());
 
     const rail = decisionRail(page);
-    const reason = `FX-01 E2E ${uniqueTag()}: 참여 전 계약 조건을 확인하기 위해 WATCH로 기록합니다.`;
-    await rail.getByRole("radio", { name: "WATCH", exact: true }).check();
+    const reason = `FX-01 E2E ${uniqueTag()}: 참여 전 계약 조건을 확인하기 위해 보류로 기록합니다.`;
+    await rail.getByRole("radio", { name: "보류", exact: true }).check();
     await rail.getByRole("textbox", { name: "사유", exact: true }).fill(reason);
     const savedResponse = page.waitForResponse(
       (response) =>
@@ -204,11 +204,11 @@ test("FX-01: 현재 대시보드부터 94점 근거 확인, WATCH 결정과 이�
 
     await expect(rail.getByRole("heading", { name: "결정 이력", exact: true })).toBeVisible();
     await expect(rail.getByText(reason, { exact: true })).toBeVisible();
-    await expect(rail).toContainText("마지막 결정: WATCH · 이영업");
+    await expect(rail).toContainText("마지막 결정: 보류 · 이영업");
     // 사람 결정이 바뀌어도 규칙 점수는 그대로다.
     await page.reload();
     await expect(rail.getByText(reason, { exact: true })).toBeVisible();
-    await expect(rail).toContainText("마지막 결정: WATCH · 이영업");
+    await expect(rail).toContainText("마지막 결정: 보류 · 이영업");
     await expect(rail.getByRole("meter", { name: "SOL Score", exact: true })).toHaveAttribute(
       "aria-valuenow",
       "94",

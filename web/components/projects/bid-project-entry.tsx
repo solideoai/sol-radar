@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { toast } from "sonner";
+import { RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import type { ProjectEntryState } from "@/server/projects";
 import { projectRequest } from "./project-request";
 
@@ -58,12 +59,14 @@ export function BidProjectEntry({ entry }: { entry: ProjectEntryState }) {
       )}
       {entry.state === "closed" && (
         <p className="type-label text-muted-foreground">
-          종료된 프로젝트입니다. 종료 이후 새 BID 결정으로 다시 열 수 있습니다.
+          종료된 프로젝트입니다. 종료 이후 새 {RECOMMENDATION_LABEL.BID} 결정으로 다시 열 수
+          있습니다.
         </p>
       )}
       {entry.state === "open" && entry.latestDecisionNotBid && (
         <p className="type-label text-destructive">
-          최신 결정 {entry.latestDecisionNotBid} · 다음 단계 진행을 확인하세요.
+          최신 결정 {RECOMMENDATION_LABEL[entry.latestDecisionNotBid]} · 다음 단계 진행을
+          확인하세요.
         </p>
       )}
     </section>

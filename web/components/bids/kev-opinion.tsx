@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { KevView, Recommendation, RequirementAssessmentView, ReviewFlag } from "@/server/bids";
+import { recommendationWithObject } from "@/server/shared";
 
 // 결정 모델 참고 지표(§5.4.7, ADR-034 로 "Kev" 문구를 모델 중립으로 개정). 점수에 더하지 않는 보조 신호라 구역 테두리에 색을 더하지 않는다.
 // 고지 3줄은 09 고정이고 셋째 줄만 {kev.model}·{kev.questionSetVersion}·{kev.provider} 로 바뀐다.
@@ -126,7 +127,7 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
                 <StatusBadge kind="flag" value="MODEL_RULE_DISAGREEMENT" />
               </span>
               <p className="type-label text-foreground">
-                결정 모델은 {RECOMMENDATION_LABEL[suggested]}를 제시했지만{" "}
+                결정 모델은 {recommendationWithObject(suggested)} 제시했지만{" "}
                 {withRo(ruleReason ?? "규칙 결과")} 규칙 판정이 우선합니다
               </p>
             </>
@@ -152,7 +153,10 @@ function Body({ kev, reviewFlags, recommendation, ruleReason, assessments }: Kev
       </div>
       <V02 kev={kev} assessments={assessments} />
       <div className="flex flex-col gap-0.5 type-caption text-muted-foreground">
-        <p>이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.</p>
+        <p>
+          이 의견은 결정 모델이 {OPTIONS.map((option) => RECOMMENDATION_LABEL[option]).join(" / ")}{" "}
+          선택지에 매긴 확률 분포입니다.
+        </p>
         <p>충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.</p>
         <p className="wrap-anywhere">최종 결정은 담당자가 기록합니다. {modelInfoText(kev)}</p>
         <p>{"결정 모델 확률은 선택지에 대한 모델 분포이며 충족 확률·수주확률이 아닙니다."}</p>

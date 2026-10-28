@@ -61,7 +61,7 @@ const byKey = (key: ColumnKey): Column => {
 
 // 대시보드 표 두 개의 열(§5.2). 발주기관은 카드 폭 @lg 이상에서만 보인다.
 // compact 표는 대시보드(글자 +3px, ADR-030 B25) 카드 안에만 놓인다. 폭은 그 글자 크기에서 가장 긴 값
-// (DEMO 칩·"SOL Score"·"NO-BID"·"WATCH"·D-n)이 Pretendard·시스템 글꼴 모두 8px 이상 남게 잡았다.
+// (DEMO 칩·"SOL Score"·"비추천"·D-n)이 Pretendard·시스템 글꼴 모두 8px 이상 남게 잡았다.
 // 첫·끝 칸은 카드 여백(24px)만큼 안쪽 여백을 주어 카드 제목과 글자 줄을 맞춘다.
 const COMPACT_COLUMNS = {
   recommended: [

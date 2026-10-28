@@ -1,4 +1,5 @@
 import "server-only";
+import { RECOMMENDATION_LABEL, recommendationWithObject } from "@/server/shared";
 import type { Recommendation } from "./analysis-input.model";
 import type {
   AnalysisStatus,
@@ -12,12 +13,7 @@ import type { RulePath } from "./decision";
 
 // 템플릿 설명 문장(05 AnalysisResult.explanation 의 "Qwen 불가 시 템플릿 문장"). 입력에 있는 숫자만 쓴다.
 // 수주 확률·충족 확률·낙찰 확률을 뜻하는 표현을 만들지 않는다(09 책임 있는 AI, G4).
-
-const RECOMMENDATION_LABEL: Record<Recommendation, string> = {
-  BID: "BID(참여 권고)",
-  WATCH: "WATCH(사람 검토)",
-  NO_BID: "NO-BID(참여 비권고)",
-};
+// 권고 표기는 추천·보류·비추천이다(ADR-062). 이미 저장된 설명 문장은 다시 분석할 때 새 표기가 된다.
 
 const MISSING_LABEL: Record<MissingFactor["reason"], string> = {
   NO_REQUIREMENTS_EXTRACTED: "공고 요구기술 미확인",
@@ -96,11 +92,11 @@ function decisionSentence(
     case "MISSING_FACTORS":
       return `비어 있는 요소가 2개 이상이라 점수 ${score}점과 무관하게 ${label}입니다.`;
     case "SCORE_BID":
-      return `SOL Score ${score}점으로 참여 권고 구간(75 이상)입니다. 권고: ${label}.`;
+      return `SOL Score ${score}점으로 추천 구간(75 이상)입니다. 권고: ${label}.`;
     case "SCORE_WATCH":
-      return `SOL Score ${score}점으로 사람 검토 구간(50~75)입니다. 권고: ${label}.`;
+      return `SOL Score ${score}점으로 보류 구간(50~75)입니다. 권고: ${label}.`;
     case "SCORE_NO_BID":
-      return `SOL Score ${score}점으로 참여 비권고 구간(50 미만)입니다. 권고: ${label}.`;
+      return `SOL Score ${score}점으로 비추천 구간(50 미만)입니다. 권고: ${label}.`;
   }
 }
 
@@ -133,7 +129,7 @@ export function buildExplanation(args: {
       : null,
     decisionSentence(args.score, args.recommendation, args.rulePath),
     args.reviewFlags.includes("MODEL_RULE_DISAGREEMENT") && args.kevSuggestedOption !== null
-      ? `결정 모델은 ${args.kevSuggestedOption}를 제시했지만 규칙 판정이 우선합니다. 결정 모델 분포는 모델 참고 지표이며 점수에 반영하지 않습니다.`
+      ? `결정 모델은 ${recommendationWithObject(args.kevSuggestedOption)} 제시했지만 규칙 판정이 우선합니다. 결정 모델 분포는 모델 참고 지표이며 점수에 반영하지 않습니다.`
       : null,
     args.reviewFlags.includes("KEV_NEEDS_REVIEW") || args.reviewFlags.includes("KEV_MANDATORY_RISK")
       ? "모델 참고 지표가 사람 검토를 권장합니다."

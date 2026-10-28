@@ -95,7 +95,7 @@ test("P1 관심 → 분석 4건 비교 → 프로젝트 저장 → 인력 조회
   await page.goto(`/bids/${bidId}`);
   // 앞선 FX-01 흐름이 WATCH 결정을 기록하므로 이 흐름에서 새 BID를 실제로 기록한다.
   const rail = page.getByRole("complementary", { name: "참여 판단", exact: true });
-  await rail.getByRole("radio", { name: "BID", exact: true }).click();
+  await rail.getByRole("radio", { name: "추천", exact: true }).click();
   await rail
     .getByLabel("사유", { exact: true })
     .fill("P1 통합: 제출 조건을 확인하여 입찰 프로젝트를 진행합니다.");

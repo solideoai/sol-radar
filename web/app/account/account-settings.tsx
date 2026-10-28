@@ -182,7 +182,7 @@ export function AccountSettings({
           <SettingsSection
             id={KAKAO_NOTIFY_HEADING_ID}
             title="카카오톡 알림"
-            description="추천 공고(BID·WATCH 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."
+            description="추천 공고(추천·보류 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."
           >
             <KakaoNotifySection view={kakao.view} outcome={kakao.outcome} />
           </SettingsSection>

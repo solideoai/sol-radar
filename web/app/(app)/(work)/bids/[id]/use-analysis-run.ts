@@ -32,7 +32,7 @@ type FinalStatus = "COMPLETED" | "PARTIAL" | "FAILED";
 /** 서버가 그린 최신 분석이 아직 진행 중이면 그 run. 화면을 열거나 새로 고친 뒤 이어서 읽는다. */
 export type ActiveRun = { id: string; status: ActiveStatus };
 
-/** 방금 끝난 run 의 요약. 상태 안내 문장("분석이 끝났습니다. SOL Score 72, 권고 WATCH")에 쓴다. */
+/** 방금 끝난 run 의 요약. 상태 안내 문장("분석이 끝났습니다. SOL Score 72, 권고 보류")에 쓴다. */
 export type FinishedRun = {
   status: FinalStatus;
   solScore: number | null;

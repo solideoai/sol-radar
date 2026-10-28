@@ -6,6 +6,7 @@ import {
   type AnalysisContext,
   type BidListOrigin,
 } from "@/server/bids";
+import { RECOMMENDATION_LABEL } from "@/server/shared";
 import type { ChecklistScope, TaskView } from "@/server/task";
 import {
   MANAGE_PROJECT_ROLES,
@@ -109,7 +110,7 @@ function fromDb(
       return fail(
         409,
         "PROJECT_REQUIRES_BID_DECISION",
-        "이 공고의 최신 결정이 BID 일 때만 입찰 프로젝트를 열 수 있습니다",
+        `이 공고의 최신 결정이 ${RECOMMENDATION_LABEL.BID}일 때만 입찰 프로젝트를 열 수 있습니다`,
         target.reviewId === undefined ? {} : { reviewId: target.reviewId },
       );
     case "PROJECT_ALREADY_OPEN":
@@ -120,7 +121,7 @@ function fromDb(
       return fail(
         409,
         "LATEST_DECISION_NOT_BID",
-        "최신 결정이 BID 가 아니어서 다음 단계로 넘길 수 없습니다",
+        `최신 결정이 ${RECOMMENDATION_LABEL.BID}이 아니어서 다음 단계로 넘길 수 없습니다`,
         {
           ...(target.bidId === undefined ? {} : { bidId: target.bidId }),
           latestDecision: outcome.detail === null || outcome.detail === "" ? null : outcome.detail,
