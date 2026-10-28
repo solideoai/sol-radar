@@ -4,6 +4,7 @@ import {
   loadProgramNoticesConfig,
   runProgramNoticeRound,
   type CollectRunMode,
+  type RoundDeps,
 } from "@/server/program-notices";
 import { getSupabaseAdmin } from "@/server/supabase";
 import { errorNameOf } from "@/worker/error-name";
@@ -14,6 +15,7 @@ import { readRunMode } from "@/worker/ingest-queue";
 // 여기는 설정 읽기와 타이머만 둔다. 모양은 notify-outbox 의 startNotifier 와 같다. Redis·큐를 쓰지 않는다.
 // 부처 수집은 나라장터 수집을 막지 않는다. env·설정이 틀려도 등록 함수는 던지지 않고 program_notices.disabled 한 줄만 남긴다
 // (다른 등록은 틀리면 기동을 멈추지만, 이것은 데모 핵심 경로가 아니라서 꺼진 채로 둔다).
+// 회사 운영은 이 주기 수집을 쓰지 않는다. 전용 worker(program-notices-only-main.ts)가 KST 3시간 정각 일정으로 기업마당만 수집한다.
 
 type Env = Record<string, string | undefined>;
 type Closable = { close(): Promise<void> };
@@ -27,15 +29,20 @@ const CONFIG_FILE_NAME = "program-notices.yaml";
 /** stop 이 진행 중 회차를 기다리는 최대 시간(notify-outbox 와 같다). */
 const STOP_WAIT_MS = 5_000;
 
-export type ProgramNoticeSettings =
-  | {
-      ok: true;
-      intervalMs: number;
-      runMode: CollectRunMode;
-      configFile: string;
-      recordingsDir: string;
-    }
+/** 실행 모드와 설정·녹음 경로. 전체 worker 의 주기 수집과 회사 전용 worker(program-notices-only-main.ts)가 같이 쓴다 */
+export type ProgramNoticeRuntime =
+  | { ok: true; runMode: CollectRunMode; configFile: string; recordingsDir: string }
   | { ok: false; reason: string };
+
+export type ProgramNoticeSettings =
+  | (Extract<ProgramNoticeRuntime, { ok: true }> & { intervalMs: number })
+  | { ok: false; reason: string };
+
+/** live 요청 재시도의 대기·난수(수집 worker 와 같다, main.ts ingestJobDepsOf) */
+export const PROGRAM_NOTICE_RETRY: RoundDeps["retry"] = {
+  sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  random: Math.random,
+};
 
 // worker 이미지에는 fixtures·infra/sources 가 없다. Compose 가 볼륨과 env 로 경로를 준다(main.ts 와 같은 기본값).
 const configFileOf = (env: Env): string => {
@@ -55,6 +62,17 @@ const recordingsDirOf = (env: Env): string =>
   );
 
 /** 던지지 않는다. 사유에는 키 이름만 싣고 값은 싣지 않는다. */
+export function readProgramNoticeRuntime(env: Env): ProgramNoticeRuntime {
+  let runMode: CollectRunMode;
+  try {
+    runMode = readRunMode(env);
+  } catch {
+    return { ok: false, reason: "worker env 오류: SOL_RUN_MODE" };
+  }
+  return { ok: true, runMode, configFile: configFileOf(env), recordingsDir: recordingsDirOf(env) };
+}
+
+/** 던지지 않는다. 사유에는 키 이름만 싣고 값은 싣지 않는다. */
 export function readProgramNoticeSettings(env: Env): ProgramNoticeSettings {
   const raw = env[INTERVAL_KEY]?.trim() ?? "";
   const minutes =
@@ -62,19 +80,8 @@ export function readProgramNoticeSettings(env: Env): ProgramNoticeSettings {
   if (!(minutes >= 1 && minutes <= MAX_INTERVAL_MINUTES)) {
     return { ok: false, reason: `worker env 오류: ${INTERVAL_KEY}` };
   }
-  let runMode: CollectRunMode;
-  try {
-    runMode = readRunMode(env);
-  } catch {
-    return { ok: false, reason: "worker env 오류: SOL_RUN_MODE" };
-  }
-  return {
-    ok: true,
-    intervalMs: minutes * 60 * 1000,
-    runMode,
-    configFile: configFileOf(env),
-    recordingsDir: recordingsDirOf(env),
-  };
+  const runtime = readProgramNoticeRuntime(env);
+  return runtime.ok ? { ...runtime, intervalMs: minutes * 60 * 1000 } : runtime;
 }
 
 type CollectorDeps = {
@@ -179,6 +186,7 @@ export const programNoticesWorkerRegistration = async (
           recordingsDir: settings.recordingsDir,
           now: () => new Date(),
           log: logLine,
+          retry: PROGRAM_NOTICE_RETRY,
         }),
       log: logLine,
       intervalMs: settings.intervalMs,

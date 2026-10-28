@@ -11,6 +11,7 @@ import { cleanText, dedupeKeyOf } from "./text";
 // ── 기업마당 지원사업정보 API(bizinfoApi.do, dataType=json) 응답 해석 ──
 // 공식 명세(https://www.bizinfo.go.kr/apiDetail.do?id=bizinfoApi)의 필드만 읽는다. 문의처(refrncNm)·신청 사이트(rceptEngnHmpgUrl)는 읽지 않는다.
 // 명세에 봉투 모양·오류 형식이 없어서 jsonArray 의 세 모양(배열·{item:[…]}·{item:{…}})을 받고, 그 밖은 RESPONSE_SHAPE 로 남긴다.
+// 실제 응답(fixtures/recorded/program-notices/bizinfo, 2026-10-28)은 jsonArray 가 바로 배열이고, 해시태그 칸 이름이 명세와 다르다(hashtags).
 
 export type ParseResult =
   | { ok: true; notices: NormalizedProgramNotice[]; dropped: number }
@@ -53,15 +54,47 @@ const pick = (item: Item, ...names: string[]): string | null => {
   return null;
 };
 
+// 명세의 지역 해시태그 16개. 실제 응답(2026-10-28 녹음)은 16개를 모두 붙인 공고가 많아, 다 있으면 "전국" 하나로 줄인다.
+// 줄이지 않으면 태그 상한(20개) 안을 지역이 채워 주제 태그(부처·사업 유형)가 잘린다.
+const REGION_TAGS: ReadonlySet<string> = new Set([
+  "서울",
+  "부산",
+  "대구",
+  "인천",
+  "전남광주",
+  "대전",
+  "울산",
+  "세종",
+  "경기",
+  "강원",
+  "충북",
+  "충남",
+  "전북",
+  "경북",
+  "경남",
+  "제주",
+]);
+const NATIONWIDE_TAG = "전국";
+
+const collapseRegions = (tags: string[]): string[] => {
+  if (![...REGION_TAGS].every((region) => tags.includes(region))) return tags;
+  const firstRegion = tags.findIndex((tag) => REGION_TAGS.has(tag));
+  return tags.flatMap((tag, index) => {
+    if (index === firstRegion) return [NATIONWIDE_TAG];
+    return REGION_TAGS.has(tag) ? [] : [tag];
+  });
+};
+
 function tagsOf(item: Item): string[] {
   const field = pick(item, "pldirSportRealmLclasCodeNm", "lcategory");
-  const hashTags = pick(item, "hashTags")?.split(",") ?? [];
+  // 실제 응답의 칸 이름은 hashtags 다(2026-10-28 녹음). 명세 표의 hashTags 도 받는다.
+  const hashTags = pick(item, "hashtags", "hashTags")?.split(",") ?? [];
   const tags = [field, ...hashTags]
     .map((tag) => cleanText(tag, PROGRAM_NOTICE_LIMITS.tagLength))
     .filter(
       (tag): tag is string => tag !== null && [...tag].length <= PROGRAM_NOTICE_LIMITS.tagLength,
     );
-  return [...new Set(tags)].slice(0, PROGRAM_NOTICE_LIMITS.tagCount);
+  return [...new Set(collapseRegions([...new Set(tags)]))].slice(0, PROGRAM_NOTICE_LIMITS.tagCount);
 }
 
 function toNotice(item: Item, fetchedAt: string): NormalizedProgramNotice | null {

@@ -31,7 +31,7 @@ const orgId = "00000000-0000-4000-8000-000000000002";
 const bidId = "00000000-0000-4000-8000-000000000003";
 
 describe("committed feature integration", () => {
-  it("replays the public MSS recording in mock without using an API key or HTTP", async () => {
+  it("replays the public recordings in mock without using an API key or HTTP", async () => {
     const loaded = await loadProgramNoticesConfig(
       path.join(root, "infra/sources/program-notices.yaml"),
     );
@@ -50,6 +50,7 @@ describe("committed feature integration", () => {
       recordingsDir: path.join(root, "fixtures/recorded/program-notices"),
       now,
       log: () => undefined,
+      retry: { sleep: async () => undefined, random: () => 0 },
       store: {
         upsertNotices: async (notices) => {
           saved += notices.length;
@@ -62,7 +63,8 @@ describe("committed feature integration", () => {
     expect(saved).toBeGreaterThan(0);
     expect(runs.find((run) => run.source === "mss")).toMatchObject({ status: "SUCCEEDED" });
     expect(runs.find((run) => run.source === "bizinfo")).toMatchObject({
-      errorCode: "NO_RECORDING",
+      status: "SUCCEEDED",
+      savedCount: 100,
     });
   });
 
