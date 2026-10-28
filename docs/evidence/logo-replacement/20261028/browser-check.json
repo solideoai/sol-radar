@@ -1,0 +1,44 @@
+[
+  {
+    "status": 200,
+    "width": 1440,
+    "scrollWidth": 1440,
+    "logos": [
+      {
+        "loaded": true,
+        "width": 32,
+        "height": 32,
+        "source": "http://127.0.0.1:3000/_next/image?url=%2Flogo%2Fsol-radar.webp&w=32&q=75"
+      },
+      {
+        "loaded": true,
+        "width": 32,
+        "height": 32,
+        "source": "http://127.0.0.1:3000/_next/image?url=%2Flogo%2Fsol-radar.webp&w=32&q=75"
+      }
+    ],
+    "icon": "/icon.png?icon.3ja7_wbm0ssn5.png",
+    "faviconStatus": 200
+  },
+  {
+    "status": 200,
+    "width": 1280,
+    "scrollWidth": 1280,
+    "logos": [
+      {
+        "loaded": true,
+        "width": 32,
+        "height": 32,
+        "source": "http://127.0.0.1:3000/_next/image?url=%2Flogo%2Fsol-radar.webp&w=32&q=75"
+      },
+      {
+        "loaded": true,
+        "width": 32,
+        "height": 32,
+        "source": "http://127.0.0.1:3000/_next/image?url=%2Flogo%2Fsol-radar.webp&w=32&q=75"
+      }
+    ],
+    "icon": "/icon.png?icon.3ja7_wbm0ssn5.png",
+    "faviconStatus": 200
+  }
+]

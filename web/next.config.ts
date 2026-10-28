@@ -39,8 +39,9 @@ const nextConfig: NextConfig = {
   // 계정 화면은 /auth 아래로 옮겼다(/auth/login·sign-up·reset·password). 옛 주소는 이미 보낸 메일 링크(클라우드에 붙여 둔 템플릿의
   // next=/account·/account/password)와 북마크가 쓰므로 영구 이동으로 넘긴다. 검색어(?link=…)는 그대로 따라간다.
   redirects: async () => [
-    // 브라우저·도구가 /favicon.ico 를 직접 요청한다. 아이콘은 app/icon.svg 하나뿐이라 거기로 보낸다(없으면 조직 주소 /[slug] 로 처리된다).
-    { source: "/favicon.ico", destination: "/icon.svg", permanent: true },
+    // 직접 요청과 이전 영구 이동을 캐시한 브라우저도 새 탭 아이콘을 받는다.
+    { source: "/favicon.ico", destination: "/icon.png", permanent: true },
+    { source: "/icon.svg", destination: "/icon.png", permanent: true },
     { source: "/account", destination: "/auth/login", permanent: true },
     {
       source: "/account/:page(sign-up|reset|password)",

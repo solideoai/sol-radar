@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +19,11 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/link", () => ({
   __esModule: true,
   default: (props: React.ComponentProps<"a">) => <a {...props} />,
+}));
+// Next 이미지 최적화 서버가 없는 부품 시험에서는 원본 정적 이미지를 그린다.
+vi.mock("next/image", () => ({
+  __esModule: true,
+  default: (props: React.ComponentProps<"img">) => createElement("img", props),
 }));
 vi.mock("@/lib/supabase-browser", () => ({ getSupabaseBrowser: vi.fn() }));
 

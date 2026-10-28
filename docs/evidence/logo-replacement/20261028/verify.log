@@ -1,0 +1,63 @@
+
+> sol-radar@0.1.0 verify:changed /Users/leegwanghui/dev/hackathon/sol-radar
+> node scripts/verify-changed.mjs
+
+변경 10개 · 검사 1개 (기준 HEAD)
+▶ web: pnpm verify:quick
+
+> sol-radar-web@0.1.0 verify:quick /Users/leegwanghui/dev/hackathon/sol-radar/web
+> pnpm format:check && pnpm type-check && pnpm lint && pnpm check:lint-guards && pnpm test && pnpm lodestar && pnpm check:tokens && pnpm check:colors
+
+
+> sol-radar-web@0.1.0 format:check /Users/leegwanghui/dev/hackathon/sol-radar/web
+> prettier --check . --ignore-path ../.gitignore --ignore-path ../.prettierignore
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> sol-radar-web@0.1.0 type-check /Users/leegwanghui/dev/hackathon/sol-radar/web
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> sol-radar-web@0.1.0 lint /Users/leegwanghui/dev/hackathon/sol-radar/web
+> eslint
+
+
+> sol-radar-web@0.1.0 check:lint-guards /Users/leegwanghui/dev/hackathon/sol-radar/web
+> node ../scripts/check-lint-guards.mjs
+
+✓ 린트 가드레일 유지 — 주석·any·@ts-ignore·.only·.skip 으로 검사를 끌 수 없습니다
+
+> sol-radar-web@0.1.0 test /Users/leegwanghui/dev/hackathon/sol-radar/web
+> vitest run
+
+
+ RUN  v4.1.11 /Users/leegwanghui/dev/hackathon/sol-radar/web
+
+
+ Test Files  94 passed (94)
+      Tests  813 passed (813)
+   Start at  10:20:16
+   Duration  21.47s (transform 21.75s, setup 0ms, import 103.12s, tests 40.18s, environment 13ms)
+
+
+> sol-radar-web@0.1.0 lodestar /Users/leegwanghui/dev/hackathon/sol-radar/web
+> lodestar check
+
+  [32m✓[0m architecture/layers  [2m817 files, 7 layers[0m  [2m363ms[0m
+  [32m✓[0m architecture/no-circular  [2m861 modules[0m  [2m362ms[0m
+  2 rules passed, 0 errors, 0 warnings [2m(364ms)[0m
+
+> sol-radar-web@0.1.0 check:tokens /Users/leegwanghui/dev/hackathon/sol-radar/web
+> node ../scripts/tokens-gen.mjs --check
+
+✓ 디자인 토큰 일치 — 정본 design/tokens.json
+
+> sol-radar-web@0.1.0 check:colors /Users/leegwanghui/dev/hackathon/sol-radar/web
+> bash ../scripts/check-colors.sh
+
+✓ 하드코딩된 색·기본 팔레트 클래스 없음 — design/tokens.json 토큰만 사용
+✓ web: pnpm verify:quick (61.0초)
+변경 범위 검사 종료. 전체 검증은 통합·제출 전에 pnpm verify로 실행합니다.
