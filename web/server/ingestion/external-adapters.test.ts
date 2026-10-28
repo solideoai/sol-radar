@@ -432,6 +432,18 @@ describe("K-water 실응답 녹음 재생", () => {
     });
   });
 
+  it("운영 회차에서 처음 본 제안서제출·기술협상·PQ심사는 마감으로 둔다", () => {
+    for (const tndrStat of ["제안서제출", "기술협상", "PQ심사"]) {
+      expect(normalize({ ...parsed.items[0], tndrStat })).toMatchObject({
+        ok: true,
+        draft: {
+          status: "CLOSED",
+          sourceMetadata: { providerStatus: tndrStat, participationStatus: "ENDED" },
+        },
+      });
+    }
+  });
+
   it("처음 보는 진행상태는 고르지 않고 격리한다", () => {
     expect(normalize({ ...parsed.items[0], tndrStat: "공고취소" })).toMatchObject({
       ok: false,
