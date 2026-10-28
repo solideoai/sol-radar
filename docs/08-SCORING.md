@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 08. SOL Score 및 참여 권고
@@ -165,7 +165,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 | `scaleFit` | 회사 실적 0건, 또는 모든 실적의 금액이 `null` | 0.5 | 7.5 | `reason:"PROFILE_PROJECTS_EMPTY"` | 위와 동일 |
 | `strategicPreference` | 조직 선호 미설정 | 0.5 | 5.0 | `reason:"PREFERENCES_NOT_SET"` | "선호 설정" 링크 (ADMIN) |
 
-규칙: `missingFactors`가 **2개 이상**이면 점수와 무관하게 결정 경로에서 `NEEDS_REVIEW`로 취급해 BID 자동 권고를 막는다. 1개면 점수대로 가되 요소 행에 배지를 붙인다. 이 정책은 요소별 단위 테스트로 고정한다([[11-TESTING|11 테스트]]).
+규칙: `missingFactors`가 **2개 이상**이면 점수와 무관하게 결정 경로에서 `NEEDS_REVIEW`로 취급해 추천(`BID`) 자동 권고를 막는다. 1개면 점수대로 가되 요소 행에 배지를 붙인다. 이 정책은 요소별 단위 테스트로 고정한다([[11-TESTING|11 테스트]]).
 
 ## 5. 자격 판정과 결정 정책
 
@@ -222,19 +222,19 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 ```mermaid
 flowchart TD
  A[필수자격 검사] --> B{명확히 미충족?}
- B -- 예 --> C[NO-BID 권고 + 근거]
+ B -- 예 --> C[비추천 권고 + 근거]
  B -- 아니오 --> D{확인 필요 또는 missingFactors >= 2?}
- D -- 예 --> E[WATCH + 사람 검토]
+ D -- 예 --> E[보류 + 사람 검토]
  D -- 아니오 --> F{SOL Score >= 75?}
- F -- 예 --> G[BID 추천]
+ F -- 예 --> G[추천 권고]
  F -- 아니오 --> H{점수 >= 50?}
  H -- 예 --> E
  H -- 아니오 --> C
 ```
 
-BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사람의 결정·사유로 기록한다. 75/50은 초기 가정이며 조직별로 바꿀 수 있도록 config versioning한다.
+추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`)은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사람의 결정·사유로 기록한다. 75/50은 초기 가정이며 조직별로 바꿀 수 있도록 config versioning한다.
 
-"명확히 미충족"은 §5.1의 `NOT_SATISFIED`(양쪽 근거가 있는 미충족)만이다. "확인 필요"는 사유 코드와 상관없이 같은 경로(WATCH + 사람 검토)다. 결정 모델 확률(v0.1·v0.2 모두)은 이 흐름의 입력이 아니다([[16-DECISIONS|ADR-020]]).
+"명확히 미충족"은 §5.1의 `NOT_SATISFIED`(양쪽 근거가 있는 미충족)만이다. "확인 필요"는 사유 코드와 상관없이 같은 경로(보류 + 사람 검토)다. 결정 모델 확률(v0.1·v0.2 모두)은 이 흐름의 입력이 아니다([[16-DECISIONS|ADR-020]]).
 
 ### 5.3 결정 모델 처리 (`kev-qs/v0.1`)
 
@@ -244,13 +244,13 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 - `KEV_MANDATORY_RISK`가 붙으면 "사람 검토 권장"을, `KEV_NEEDS_REVIEW`가 붙으면 결정 패널 상단에 "사람 검토 권장"을 띄운다. 자격 결과와 권고는 바꾸지 않는다.
 - `fit`(wire `score`는 0부터 세는 index 0~4)은 결정 모델 섹션에 "적합도 의견 n/5"(n = index + 1)로만 보인다. SOL Score에 합산하지 않는다.
 
-`recommendation` 분포는 설명 가능한 보조 의견으로만 쓴다. 규칙상 NO-BID·확인 필요를 BID로 승격할 수 없다.
+`recommendation` 분포는 설명 가능한 보조 의견으로만 쓴다. 규칙상 비추천·확인 필요를 추천으로 승격할 수 없다.
 
 | 규칙 권고 | 결정 모델 최상위 선택지 | 결과 | `recommendationBasis` |
 |---|---|---|---|
 | 같음 | 같음 | 규칙 권고 그대로 | `RULES_WITH_KEV_ASSIST` |
-| BID | WATCH 또는 NO_BID | 규칙 BID 유지. 상세 화면에 "결정 모델 의견 상이" 표시, 사람 검토 권장 | `RULES_WITH_KEV_ASSIST` + `reviewFlags:["MODEL_RULE_DISAGREEMENT"]` |
-| WATCH / NO-BID | BID | 규칙 유지. 결정 모델은 승격 불가 | 위와 동일 |
+| 추천 | `WATCH` 또는 `NO_BID` | 규칙 추천 유지. 상세 화면에 "결정 모델 의견 상이" 표시, 사람 검토 권장 | `RULES_WITH_KEV_ASSIST` + `reviewFlags:["MODEL_RULE_DISAGREEMENT"]` |
+| 보류 / 비추천 | `BID` | 규칙 유지. 결정 모델은 승격 불가 | 위와 동일 |
 | 아무거나 | 결정 모델 없음(장애·비활성, gateway·Qwen은 정상) | 규칙 권고 그대로, `analysis.status=COMPLETED`(gateway나 Qwen까지 불가하면 `PARTIAL`, [[03-AI-PIPELINE\|03]] §8) | `RULES_ONLY` |
 
 결정 모델의 confidence는 입찰 승률이 아니다. 화면 제목은 "모델 선택지 신뢰 분포 (충족·수주 확률 아님)"으로 고정하고 본문에는 [[09-SECURITY|09 보안]] "모델 한계 고지 문구"의 결정 모델 블록 3줄을 그대로 쓴다. 임계값 0.70과 플래그 이름은 [[03-AI-PIPELINE|03 AI 파이프라인]] §5와 같다. 질문 세트 버전 `kev-qs/v0.1`.
@@ -283,7 +283,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 
 가정 재계산(`whatIf`, `web/server/scoring/what-if.ts`)은 저장된 `score_runs.input_snapshot`(§7)을 `AnalysisInput` 스키마로 검증한 뒤, 가정한 자격 코드만 `profile.licenses`에서 `HELD`로 바꾸거나 더한 사본(`applyAssumptions`)으로 `analyze()`를 다시 부른다. 원래와 가정 모두 `kev=null`로 계산하고, `config`(`today`·`thresholds`)·`bid`·`extraction`·`team`과 계산식·가중치·임계값(75/50)은 그대로다. 가정할 수 있는 항목은 원래 결과의 필수 항목 가운데 자격 코드 사전(`QUALIFICATION_CODES`)에 있는 코드이면서 `NOT_SATISFIED`이거나 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)인 것뿐이다. 결과는 저장하지 않고 `analyze()`도 고치지 않는다. 점수·권고·자격 판정은 결정 모델 영향을 받지 않으므로(§5.4) `kev=null`로 다시 계산한 원래 값은 저장값과 같다([[16-DECISIONS|ADR-037]], API는 [[05-API-SPEC|05]] §4.5 "가정 재계산").
 
-`FX-03`(§6.4)에 정보통신공사업 등록을 가정하면 자격 종합이 `SATISFIED`가 되어 §5.2의 "명확히 미충족" 갈래를 지나고, 점수 68이 50~75 구간이라 권고는 NO-BID → WATCH다. 자격 판정은 점수에 들어가지 않으므로 SOL Score는 68 그대로다(골든 `web/server/scoring/what-if.test.ts`).
+`FX-03`(§6.4)에 정보통신공사업 등록을 가정하면 자격 종합이 `SATISFIED`가 되어 §5.2의 "명확히 미충족" 갈래를 지나고, 점수 68이 50~75 구간이라 권고는 비추천 → 보류다. 자격 판정은 점수에 들어가지 않으므로 SOL Score는 68 그대로다(골든 `web/server/scoring/what-if.test.ts`).
 
 ## 6. Worked example: 솔리데오의 가상 데모 프로필
 
@@ -294,7 +294,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 
 | 항목 | 값 |
 |---|---|
-| 테넌트 | `org-01`. 격리 시연용 비교 조직은 `org-02`(계정 `viewer@other.invalid`). seed 사전 리뷰 2건: `FX-01` BID, `FX-03` NO-BID(`FX-02`는 데모 S4에서 라이브로 기록) |
+| 테넌트 | `org-01`. 격리 시연용 비교 조직은 `org-02`(계정 `viewer@other.invalid`). seed 사전 리뷰 2건: `FX-01` 추천, `FX-03` 비추천(`FX-02`는 데모 S4에서 라이브로 기록) |
 | 업종·규모 | 공공 SI 중견, 중기업, 가상 직원 명부 200명(남성 100·여성 100) |
 | 기술 (`technologies`) | Java, Spring Boot, 전자정부 표준프레임워크, NestJS, Next.js, PostgreSQL, Kubernetes, RAG/LLM 적용 |
 | 보유 자격 (`licenses`, `status: HELD`) | 소프트웨어사업자 신고확인서, 직접생산확인증명서(소프트웨어개발), 중소기업확인서(중기업), ISO 27001, CMMI L3 |
@@ -303,7 +303,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 | 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 200, 단일 사업 수행 상한 `maxContractKrw` 50억 |
 | 인력 (`team_members` + `team_member_scoring`) | 전체 가상 직원 200명 전원이 계산 대상. PM19·PL21·개발35·데이터AI20·DevOps17·QA17·디자인17·업무분석18·보안18·DBA18. 200명 전원의 속성은 가상으로 생성했고 기존 배정7건을 보존한다. 2026-12-01 이상 2027-07-01 미만 기간의 최소 가용 합은95.5 FTE. seed와 마이그레이션은 기존 배정7건을 availability에 한 번 접고, DB assignments의 데모2건은 별도로 차감한다(ADR-043). |
 | 선호 (`preferences`) | `agencies: []`, `agencyTypes: [지자체, 교육청]`, `domains: [데이터 플랫폼, AX, 민원, 교육]`, `excludedDomains: [국방]`, `excludedKeywords: [무기체계]` |
-| 기술 목록 완결 (`technologiesComplete`) | `true`. 요구 기술이 `technologies`(별칭 포함)에 없으면 `requirement_assessments` 기술 항목이 `NOT_SATISFIED`가 된다(§5.1, `web/server/scoring/requirement-assessment.ts`). 점수·권고(94/72/68, BID/WATCH/NO-BID)에는 영향이 없다 |
+| 기술 목록 완결 (`technologiesComplete`) | `true`. 요구 기술이 `technologies`(별칭 포함)에 없으면 `requirement_assessments` 기술 항목이 `NOT_SATISFIED`가 된다(§5.1, `web/server/scoring/requirement-assessment.ts`). 점수·권고(94/72/68, 추천·보류·비추천)에는 영향이 없다 |
 | 업종 코드 (`industryCodes`) | 빈 목록 `[]`. 공고가 업종 코드를 요구하면 그 항목은 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다 |
 
 | 실적 ID | 사업명 (가상) | 분야 | 금액 | 완료 | 증빙 |
@@ -316,7 +316,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 
 프로필 값의 데이터 파일은 `fixtures/company/solideo-profile.json`(revision 2)이다. `technologiesComplete`·`industryCodes` 값도 이 파일에서 왔다(`e22de09`).
 
-### 6.2 Example A — `FX-01` → BID
+### 6.2 Example A — `FX-01` → 추천
 
 공고: 세종특별자치시 차세대 행정정보시스템 고도화, 분야 민원, 예산 12억, 마감 +21일(영업일 15), 기간 8개월. 추출: 필수 Java·Spring Boot·PostgreSQL·전자정부 표준프레임워크·Kubernetes, 우대 Elasticsearch·Kafka, 필요 인력 PM 1 + PL 1 + 개발 10 = 12 FTE. 자격: 소프트웨어사업자, 직접생산확인, 중소기업 제한경쟁 → 모두 `SATISFIED`.
 
@@ -329,9 +329,9 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 | `strategicPreference` | 제외 키워드 없음. 분야 민원 ∈ domains → 1.0, 세종특별자치시 → 유형 지자체 → 1.0 | 0.6 + 0.4 = **1.00** | 10.0 |
 | 합계 | | | **94.0 → 94** |
 
-결정 경로: 자격 미충족 없음 → 확인 필요 없음, `missingFactors` 0 → 94 ≥ 75 → **BID**. 결정 모델(mock): BID 0.71 / WATCH 0.24 / NO_BID 0.05 → 일치, `recommendationBasis=RULES_WITH_KEV_ASSIST`.
+결정 경로: 자격 미충족 없음 → 확인 필요 없음, `missingFactors` 0 → 94 ≥ 75 → **추천**. 결정 모델(mock): `BID` 0.71 / `WATCH` 0.24 / `NO_BID` 0.05 → 일치, `recommendationBasis=RULES_WITH_KEV_ASSIST`.
 
-### 6.3 Example B — `FX-02` → WATCH
+### 6.3 Example B — `FX-02` → 보류
 
 공고: 경기도교육청 통합 LMS 구축, 분야 교육, 예산 28억, 마감 +10일(영업일 6. 엔진은 월~금을 센다. 처음 적은 7은 달력일 × 5/7 근사였고 일정 계수 구간 ≥5는 같다, `web/server/scoring/calendar.ts`), 기간 12개월. 추출: 필수 Java·Spring Boot·PostgreSQL·Vue.js·SCORM 연동·WebRTC, 우대 Kubernetes·AWS, 필요 인력 `UNKNOWN`. 자격: 소프트웨어사업자, 직접생산확인, 공동수급 허용 → 모두 `SATISFIED`.
 
@@ -344,11 +344,11 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 | `strategicPreference` | 제외 키워드 없음. 분야 교육 → 1.0, 경기도교육청 → 유형 교육청 → 1.0 | **1.00** | 10.0 |
 | 합계 | | | **72.3 → 72** |
 
-결정 경로: 자격 OK → `missingFactors` 0 (필요 FTE는 예산 구간으로 대체되어 missing이 아님, evidence에 `estimatedFrom:"budgetTier"` 기록) → 72 < 75, ≥ 50 → **WATCH**. 결정 모델(mock): BID 0.36 / WATCH 0.52 / NO_BID 0.12 → 일치. `needsHumanReview` 0.74 ≥ 0.70 → `reviewFlags:["KEV_NEEDS_REVIEW"]`, 결정 패널에 "사람 검토 권장". 화면 설명: "요구기술 6개 중 3개 보유. Vue.js·SCORM·WebRTC 경험 없음. 제안 준비 기간 7영업일로 촉박."
+결정 경로: 자격 OK → `missingFactors` 0 (필요 FTE는 예산 구간으로 대체되어 missing이 아님, evidence에 `estimatedFrom:"budgetTier"` 기록) → 72 < 75, ≥ 50 → **보류**. 결정 모델(mock): `BID` 0.36 / `WATCH` 0.52 / `NO_BID` 0.12 → 일치. `needsHumanReview` 0.74 ≥ 0.70 → `reviewFlags:["KEV_NEEDS_REVIEW"]`, 결정 패널에 "사람 검토 권장". 화면 설명: "요구기술 6개 중 3개 보유. Vue.js·SCORM·WebRTC 경험 없음. 제안 준비 기간 7영업일로 촉박."
 
-### 6.4 Example C — `FX-03` → NO-BID (자격)
+### 6.4 Example C — `FX-03` → 비추천 (자격)
 
-공고: 부산광역시 지능형 CCTV 통합관제센터 구축, 분야 스마트시티(선호 목록에 없음 → 중립), 예산 45억, 마감 +15일(영업일 11). 추출: 필수 Java·Spring Boot·PostgreSQL·영상분석 AI·Kubernetes·VMS 연동, 우대 없음. 자격: 소프트웨어사업자 `SATISFIED`, **정보통신공사업 등록 `NOT_SATISFIED`** (공고 근거: "정보통신공사업법에 따른 정보통신공사업 등록업체", 회사 근거: `licenses`에 `status: NOT_HELD`로 기록된 정보통신공사업 등록). 미충족은 양쪽 근거가 다 있을 때만 낸다(§5.1). 프로필에 이 면허 기록이 아예 없었다면 판정은 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)이고 권고는 WATCH가 된다.
+공고: 부산광역시 지능형 CCTV 통합관제센터 구축, 분야 스마트시티(선호 목록에 없음 → 중립), 예산 45억, 마감 +15일(영업일 11). 추출: 필수 Java·Spring Boot·PostgreSQL·영상분석 AI·Kubernetes·VMS 연동, 우대 없음. 자격: 소프트웨어사업자 `SATISFIED`, **정보통신공사업 등록 `NOT_SATISFIED`** (공고 근거: "정보통신공사업법에 따른 정보통신공사업 등록업체", 회사 근거: `licenses`에 `status: NOT_HELD`로 기록된 정보통신공사업 등록). 미충족은 양쪽 근거가 다 있을 때만 낸다(§5.1). 프로필에 이 면허 기록이 아예 없었다면 판정은 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)이고 권고는 보류가 된다.
 
 점수는 설명용으로 끝까지 계산한다.
 
@@ -361,7 +361,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 | `strategicPreference` | 제외 키워드 없음. 분야 스마트시티 ∉ domains → 0.5, 부산광역시 → 유형 지자체 ∈ agencyTypes → 1.0 | 0.3 + 0.4 = **0.70** | 7.0 |
 | 합계 | | | **68.2 → 68** |
 
-결정 경로: **필수자격 명확히 미충족 → NO-BID**. 점수 68은 참고용으로만 표시한다. 결정 모델(mock): BID 0.55 / WATCH 0.30 / NO_BID 0.15 → 상충. 처리: 권고는 NO-BID 유지, `reviewFlags:["MODEL_RULE_DISAGREEMENT"]`, 상세 화면에 "결정 모델은 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다" 배너, 사람 검토 항목에 올림. 골든 시나리오 G3([[11-TESTING|11 테스트]]).
+결정 경로: **필수자격 명확히 미충족 → 비추천**. 점수 68은 참고용으로만 표시한다. 결정 모델(mock): `BID` 0.55 / `WATCH` 0.30 / `NO_BID` 0.15 → 상충. 처리: 권고는 비추천 유지, `reviewFlags:["MODEL_RULE_DISAGREEMENT"]`, 상세 화면에 "결정 모델은 추천을 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다" 배너, 사람 검토 항목에 올림. 골든 시나리오 G3([[11-TESTING|11 테스트]]).
 
 ### 6.5 세 사례 요약
 
@@ -369,12 +369,12 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 |---|---|---|---|
 | 자격 | 모두 충족 | 모두 충족 | 1건 미충족 |
 | SOL Score | 94 | 72 | 68 (참고) |
-| 규칙 권고 | BID | WATCH | NO-BID |
-| 결정 모델 최상위 | BID | WATCH | BID |
-| 최종 권고 | BID | WATCH | NO-BID |
+| 규칙 권고 | 추천 | 보류 | 비추천 |
+| 결정 모델 최상위 | `BID` | `WATCH` | `BID` |
+| 최종 권고 | 추천 | 보류 | 비추천 |
 | `reviewFlags` | 없음 | `KEV_NEEDS_REVIEW` | `MODEL_RULE_DISAGREEMENT` |
 
-`FX-03`은 점수만 보면 WATCH 구간(68)이지만 자격 1건 미충족으로 NO-BID다. 점수가 자격을 대신하지 않는다는 점이 이 설계의 핵심이다.
+`FX-03`은 점수만 보면 보류 구간(68)이지만 자격 1건 미충족으로 비추천이다. 점수가 자격을 대신하지 않는다는 점이 이 설계의 핵심이다.
 
 ## 7. 저장 형식
 
@@ -398,7 +398,7 @@ BID/WATCH/NO-BID은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사�
 
 ## 9. 가상 명부 200명과 점수 계산 범위
 
-ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점수 검증도 200명 전원 입력으로 확장했다. 개인 자격증·실적은 SYNTHETIC 출처와 가상 증거 참조를 보존한다. 원래 직급·직책에서 실제 기술을 추론하지 않고 이름·성별·정장 사진은 점수 입력에서 제외한다. 입력 스냅샷에 계산 대상200명과 가용성을 보존한다. FX-01/02/03의 골든94/72/68은 인력 요소가 포화되어 유지되고, FX-15는 68점(WATCH)이다(경위는 [[16-DECISIONS|ADR-043]]). 저장된 score_runs는 변경하지 않는다.
+ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점수 검증도 200명 전원 입력으로 확장했다. 개인 자격증·실적은 SYNTHETIC 출처와 가상 증거 참조를 보존한다. 원래 직급·직책에서 실제 기술을 추론하지 않고 이름·성별·정장 사진은 점수 입력에서 제외한다. 입력 스냅샷에 계산 대상200명과 가용성을 보존한다. FX-01/02/03의 골든94/72/68은 인력 요소가 포화되어 유지되고, FX-15는 68점(보류)이다(경위는 [[16-DECISIONS|ADR-043]]). 저장된 score_runs는 변경하지 않는다.
 
 ## 다기관 공고와 SOL Score 경계
 

@@ -62,6 +62,7 @@ design/tokens.json  ──pnpm tokens──▶  web/app/globals.css
   네이버 짝(흰 글자/#03A94D)은 대비가 3.09:1 이라 대비 검사에서 예외다 — 대신 가이드 값 그대로인지를 검사한다. 예외는 사람이 정한다(이 짝은 2026-10-15 사용자 결정).
   회사 로고는 브랜드 색 그대로인 정적 파일(`web/public/google.svg`·`kakao.svg`·`naver.svg`)이다.
 - `source-g2b`·`source-kwater`·`source-lh`·`source-kepco`(와 `-foreground`)는 공고 출처 배지(`web/components/bids/source-badge.tsx`) 전용이다. 각 기관 로고의 상징 색이고 다른 곳에 쓰지 않고 값을 바꾸지 않는다(ADR-058).
+- 권고 표기는 추천·보류·비추천이고 색은 추천 `success`·보류 `warning`·비추천 `destructive` 다. 값 `BID`·`WATCH`·`NO_BID` 를 화면 글자로 쓰지 않는다(ADR-062, `docs/06-UI-UX.md` §3.2).
 - 웹에서는 토큰 Tailwind 클래스(`bg-primary`·`text-muted-foreground`), CSS 에서는 `var(--이름)`(`var(--primary)`).
 - 글자 눈금은 `typography`(`type-<이름>`)에 적는다. 항목에 `tracking` 이 없으면 전역 `tracking` 을 쓴다.
 - 글꼴은 `var(--font-sans)` / `var(--font-mono)`. 지정하지 않고 기본값에 맡기지 않는다.

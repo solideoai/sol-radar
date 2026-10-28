@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - db
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 04. Supabase Postgres 데이터 설계
@@ -205,7 +205,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 - `requirement_assessments.kev_distribution`의 JSONB 모양은 `{qid, distribution, label}`이다([[16-DECISIONS|ADR-032]] D7). [[05-API-SPEC|05]] §4.5 `RequirementAssessment.kev`와 같고, gateway `/kev` 응답의 항목 분포 `{itemId, qid, distribution, label}`(`services/ai/src/sol_ai/contracts.py` `RequirementDistribution`)과도 맞는다. 항목 경로 `itemId`는 이 표의 `item_id` 열에 있다. 지금 C5-B 저장 매핑은 이 열에 null을 쓴다(`web/server/analysis/analysis-store.model.ts`). 결정 모델 질문 세트 v0.2의 항목 질문을 쓰는 run에서 채운다.
 - 미충족(`NOT_SATISFIED`)에는 공고 쪽 근거와 회사 쪽 명시적 부정 근거가 둘 다 있어야 한다. 이 규칙은 규칙 엔진과 zod 스키마, 단위 시험이 강제한다(JSONB 내부라 DB check로 걸지 않는다, §1).
 - `qualification_outcome`에는 `NOT_APPLICABLE`이 없다. 발주계획 단계처럼 자격 요건이 아직 없는 공고([[08-SCORING|08 점수]] §5.1, `FX-17`)는 `NEEDS_REVIEW` + `STAGE_NOT_APPLICABLE`로 저장한다(`web/server/scoring/qualification.ts`). 값 집합은 3값 그대로이고, 결정 경로에서는 다른 `NEEDS_REVIEW`와 같게 다룬다.
-- `finish_score_run(p jsonb)`: 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 결과를 쓰고 마감한다. 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. `20261019000013`부터는 마감 뒤 status가 `COMPLETED`·`PARTIAL`이 아니어도 `SCORE_RUN_INVALID_STATUS`로 거절한다(`FAILED` 마감은 이 함수가 아니라 markFailed가 한다). 멱등 키의 requestId 형식(`^[A-Za-z0-9_-]{1,128}$`)은 [[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 마이그레이션은 `20261019000011`·`20261019000013`). `20261019000016`부터는 마감한 run에 `requested_by`가 있으면 같은 트랜잭션에서 `outbox_events`에 `ANALYSIS_COMPLETE` 1건을 쓴다(§3.6, [[13-NOTIFICATIONS|13 알림]]). 사전 분석 run(`requested_by` null)은 쓰지 않고, 거절되면 트랜잭션 전체가 되돌아가 이벤트도 남지 않는다. `20261023000701`([[16-DECISIONS|ADR-038]])부터는 `requested_by`가 있고 마감 권고가 BID·WATCH면 같은 트랜잭션에서 `BID_RECOMMENDED` 1건도 쓴다(키 `<orgId>:<bidId>:BID_RECOMMENDED`, 같은 키가 있으면 쓰지 않는다. §3.6). 나머지는 `20261019000016`과 같다.
+- `finish_score_run(p jsonb)`: 같은 시도(markRunning이 쓴 `started_at`)가 잡은 `RUNNING` run일 때만 결과를 쓰고 마감한다. 아니면 `SCORE_RUN_NOT_RUNNING`으로 거절한다. `20261019000013`부터는 마감 뒤 status가 `COMPLETED`·`PARTIAL`이 아니어도 `SCORE_RUN_INVALID_STATUS`로 거절한다(`FAILED` 마감은 이 함수가 아니라 markFailed가 한다). 멱등 키의 requestId 형식(`^[A-Za-z0-9_-]{1,128}$`)은 [[05-API-SPEC|05]] §1이다([[16-DECISIONS|ADR-031]] C5. 마이그레이션은 `20261019000011`·`20261019000013`). `20261019000016`부터는 마감한 run에 `requested_by`가 있으면 같은 트랜잭션에서 `outbox_events`에 `ANALYSIS_COMPLETE` 1건을 쓴다(§3.6, [[13-NOTIFICATIONS|13 알림]]). 사전 분석 run(`requested_by` null)은 쓰지 않고, 거절되면 트랜잭션 전체가 되돌아가 이벤트도 남지 않는다. `20261023000701`([[16-DECISIONS|ADR-038]])부터는 `requested_by`가 있고 마감 권고가 추천(`BID`)·보류(`WATCH`)면 같은 트랜잭션에서 `BID_RECOMMENDED` 1건도 쓴다(키 `<orgId>:<bidId>:BID_RECOMMENDED`, 같은 키가 있으면 쓰지 않는다. §3.6). 나머지는 `20261019000016`과 같다.
 - `score_runs.request_hash`(text, null 허용, `20261019000012`): 분석 요청 본문의 지문. 같은 `Idempotency-Key`에 다른 본문이 오면 서버가 이 값과 비교해 409를 낸다. 화면 역할은 요청 행을 넣을 때만 쓴다(열 단위 insert 권한, 고치기 권한 없음). 같은 마이그레이션의 `release_unqueued_score_run(uuid)`는 큐 등록에 실패한 자기 요청 run을 `FAILED`·`ENQUEUE_FAILED`로 풀고 멱등 키를 비운다.
 - 뷰 `bid_list_items`(`20261019000012`, `security_invoker`): 공고 목록·대시보드가 읽는 한 줄이다. 공고 한 건에 부른 사람 조직의 최신 run(상태 무관)·최신 점수 run(`COMPLETED`·`PARTIAL`)·최신 결정(검토자 이름·이메일)·최신 revision 첨부 집계를 붙인다. `status`는 `OPEN`·`AMENDED`이고 마감이 지났으면 `CLOSED`로 계산한다([[16-DECISIONS|ADR-030]] B14). 밑 표의 RLS를 부른 사람 권한으로 그대로 받으므로 다른 조직의 run·결정 열은 null이다. 화면 역할은 select만 한다.
 - 후보: `qualification_checks`에 (`score_run_id`, 항목) UNIQUE를 둘지 정한다. 항목을 가리킬 열은 아직 정하지 않았다(지금 표에는 항목 id 열이 없고 `requirement_code`는 null일 수 있다, ADR-031 C12(d)).
@@ -280,7 +280,7 @@ ADR-021 P1 표다(`20261022000100`·`20261022000300`).
 |`bid_projects`|`id`, `org_id`, `bid_id`, `opened_by_review_id` FK `bid_reviews`, `status`(bid_project_status), `owner_id`(로그인 계정), `submission_due_override` nullable, `result`(bid_project_result) nullable, `result_note`, `result_recorded_at`, `closed_at`, `created_by`, `created_at`, `updated_at`|UNIQUE(`org_id`,`bid_id`), UNIQUE(`id`,`org_id`). 여는 결정은 `decision=BID`(DB 함수가 검사). 마감은 공고 값을 읽고 덮어쓸 때만 override(복제 금지)|읽기: 조직 전원. 쓰기: SALES·ADMIN. 결정이 바뀌면 경고만 하고 자동 종료하지 않는다. 결과는 점수·결정 모델·평가셋·학습셋에 쓰지 않는다|
 |`bid_project_events`|`id`, `org_id`, `bid_project_id`, `actor_id`, `from_status`, `to_status`, `note`, `created_at`|추가만|읽기: 조직 전원. 쓰기: 상태를 바꾸는 DB 함수만. 같은 함수가 `audit_logs`도 쓴다|
 
-`watched_bid_list_items`(`20261022000100`)와 `watched_opportunity_list_items`(`20261023000300`)는 `security_invoker`이며 본인 `bid_watches`와 원본 `bid_id`로 연결한다. 사업기회 ID를 관심 키로 쓰지 않는다. `patch_bid_project`는 상태·담당자·마감을 한 트랜잭션으로 바꾸고 실패하면 상태 이력·감사도 되돌린다. 프로젝트 RPC는 세션의 조직·ADMIN/SALES·최신 BID를 검사한다. 최신 결정이 BID가 아니어도 수동 종료는 가능하다.
+`watched_bid_list_items`(`20261022000100`)와 `watched_opportunity_list_items`(`20261023000300`)는 `security_invoker`이며 본인 `bid_watches`와 원본 `bid_id`로 연결한다. 사업기회 ID를 관심 키로 쓰지 않는다. `patch_bid_project`는 상태·담당자·마감을 한 트랜잭션으로 바꾸고 실패하면 상태 이력·감사도 되돌린다. 프로젝트 RPC는 세션의 조직·ADMIN/SALES·최신 결정 `BID`를 검사한다. 최신 결정이 `BID`가 아니어도 수동 종료는 가능하다.
 
 체크리스트는 템플릿 `tasks`에 `bid_project_id`를 더해 쓴다(§3.1). 추적성: 프로젝트 → 여는 결정(`bid_reviews`) → 그 결정의 `score_run_id` → `input_snapshot_hash`.
 
@@ -329,11 +329,11 @@ PostgreSQL `create type ... as enum`을 쓰지 않는다. 열은 `text`이고 �
 |`ai_provider`|`MOCK`, `LOCAL`, `HOSTED`|`requirement_extractions.provider`, `score_runs.ai_provider`|[[03-AI-PIPELINE\|03 AI 파이프라인]] §3|
 |`extraction_status`|`PENDING`, `COMPLETED`, `PENDING_REVIEW`, `FAILED`|`requirement_extractions.status`|`PENDING_REVIEW` = 인젝션 의심(`injectionSuspected`), 인용 실패율 > 50%(`EXTRACTION_LOW_CONFIDENCE`), 첨부 파싱 실패 경고(`ATTACHMENT_PARSE_FAILED:`) 중 하나(gateway `extraction.py` `decide_status`)|
 |`score_run_status`|`QUEUED`, `RUNNING`, `COMPLETED`, `PARTIAL`, `FAILED`|`score_runs.status`|`PARTIAL` = AI 없이 규칙만|
-|`recommendation`|`BID`, `WATCH`, `NO_BID`|`score_runs.recommendation`, `bid_reviews.system_recommendation`|시스템 권고|
+|`recommendation`|`BID`, `WATCH`, `NO_BID`|`score_runs.recommendation`, `bid_reviews.system_recommendation`|시스템 권고. 화면 표기는 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`)|
 |`recommendation_basis`|`RULES_ONLY`, `RULES_WITH_KEV_ASSIST`|`score_runs.recommendation_basis`|결정 모델은 `reviewFlags`와 참고 지표만 더한다(점수 미반영)|
 |`review_flag`|`MODEL_RULE_DISAGREEMENT`, `KEV_MANDATORY_RISK`, `KEV_NEEDS_REVIEW`, `KEV_REQUIREMENT_DISAGREEMENT`, `KEV_DELIVERY_RISK`, `CITATION_FAILED`, `EXTRACTION_FAILED`, `EXTRACTION_LOW_CONFIDENCE`, `AI_UNAVAILABLE`, `QWEN_UNAVAILABLE`, `KEV_UNAVAILABLE`, `MOCK_FALLBACK`, `PARSE_UNSUPPORTED`, `DOCUMENT_DOWNLOAD_FAILED`, `INSUFFICIENT_DATA`, `INJECTION_SUSPECTED`, `SCALE_LIMIT_EXCEEDED`, `TRANSLATION_INCOMPLETE`|`score_runs.review_flags[]`, `requirement_assessments.flags[]`|사람 검토 유도 신호. `INJECTION_SUSPECTED` = 추출 입력·출력에서 지시문 패턴 탐지([[03-AI-PIPELINE\|03 AI 파이프라인]] §4.4, [[09-SECURITY\|09 보안]]). `SCALE_LIMIT_EXCEEDED` = 규모 적합 요소 0점 사유(재무 한도 초과, [[08-SCORING\|08 점수]]). ADR-020으로 더한 7개(`KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK`·`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`·`MOCK_FALLBACK`·`PARSE_UNSUPPORTED`·`DOCUMENT_DOWNLOAD_FAILED`)의 조건은 [[08-SCORING\|08 점수]] §5.4. `TRANSLATION_INCOMPLETE`(`20261023000500`)는 `score_runs` check에만 있고 `requirement_assessments.flags`에는 없다. 어느 것도 규칙 판정·점수·권고를 바꾸지 않는다|
 |`qualification_outcome`|`SATISFIED`, `NOT_SATISFIED`, `NEEDS_REVIEW`|`qualification_checks.outcome`, `requirement_assessments.rule_status`·`kev_label`|법적 자격 자동 확정 없음. 규칙 판정·결정 모델 질문·평가셋 라벨이 같은 3값을 쓴다([[08-SCORING\|08 점수]] §5.1). `NOT_APPLICABLE` 처리는 §3.4|
-|`review_decision`|`BID`, `WATCH`, `NO_BID`|`bid_reviews.decision`|사람의 최종 결정|
+|`review_decision`|`BID`, `WATCH`, `NO_BID`|`bid_reviews.decision`|사람의 최종 결정. 화면 표기는 위와 같은 추천·보류·비추천|
 |`field_state`|`KNOWN`, `UNKNOWN`, `NOT_APPLICABLE`, `CONFLICTED`|JSONB 내부(`ExtractedField.state`)|DB check가 아닌 JSON 값. zod로 검증|
 |`ingest_trigger`|`SCHEDULED`, `MANUAL`, `DEMO`|`ingest_runs.trigger`|—|
 |`ingest_batch`|`SEED`, `LIVE`|`ingest_runs.batch`|fixture 배치. `SEED` = 기동 시 revision 1, `LIVE` = 데모 중 변경분. API `IngestionRunInput.batch`는 소문자 `"seed"\|"live"`이며 Route Handler의 zod 스키마가 대문자로 바꾼다|
@@ -398,7 +398,7 @@ seed는 마이그레이션이 아니라 스크립트 **`pnpm demo:reset`**(`scri
 |`requirement_extractions`|0|seed는 추출을 넣지 않는다(seed는 gateway 출력을 지어내지 않는다). 검증된 추출은 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장하고(인용 검증 포함, [[03-AI-PIPELINE\|03]] §4.4), `FX-02`는 S4 라이브 분석 때 저장한다. `fixtures/extractions/` 파일 20개는 gateway mock이 읽는 정본으로 그대로다([[16-DECISIONS\|ADR-031]] C16)|
 |`score_runs` / `requirement_assessments`|0|seed 시점에는 없음. 데모 기동 절차([[10-DEPLOYMENT\|10 배포]])에서 `pnpm demo:preanalyze`로 18건을 사전 분석해 채운다([[16-DECISIONS\|ADR-030]] B22)|
 |`eval_runs`|0|seed 대상이 아니다. `pnpm eval:publish`(예정)가 채운다|
-|`bid_reviews`|2|`FX-01` BID, `FX-03` NO-BID(사전 기록). `FX-02` WATCH는 데모 S4에서 라이브로 기록한다([[19-DEMO-SCENARIO\|19 데모 시나리오]])|
+|`bid_reviews`|2|`FX-01` 추천, `FX-03` 비추천(사전 기록). `FX-02` 보류는 데모 S4에서 라이브로 기록한다([[19-DEMO-SCENARIO\|19 데모 시나리오]])|
 |`departments` / `job_titles`|승인 fixture 기준|같은 팀명 합산·총 배정 200, 직급/직책 12개. 계정 seed 전에 적재. 상위 본부·그룹 행도 넣는다(`target_count` 없음, 배분 대상은 팀만, [[16-DECISIONS\|ADR-021]])|
 |`team_members`|200|남성 100·여성 100, 고유 세 글자 가상 이름·고유 정장 사진. 200명 전원 계산 대상, 고정 기간 가용95.5 FTE([[08-SCORING\|08 점수]])|
 |`team_member_scoring`|200|점수 계산 대상200명의 직무·등급·스킬·가용성. 명부 JSON 한 파일에서 seed가 나눠 넣고, `team_members`와 같은 직원 ID로 잇는다(ADR-021)|

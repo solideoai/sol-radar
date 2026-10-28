@@ -40,10 +40,10 @@ updated: 2026-10-28
 | SOL Score | 우리 회사와 특정 공고의 내부 적합도 0~100. **낙찰 확률이 아니다.** 결정론적 규칙으로 계산 | [[08-SCORING]] |
 | 점수 요소 (`score_factors`) | 기술 스택 적합 30, 유사 실적 25, 인력 가용성 20, 규모 적합성 15, 전략 선호 10 | [[08-SCORING]] |
 | `missingFactors` | 데이터가 없어 중립·보수 정책으로 처리한 요소 목록 | [[08-SCORING]] |
-| 권고 (recommendation) | 시스템이 내는 `BID` / `WATCH` / `NO_BID`. 결정이 아니다 | [[08-SCORING]] |
+| 권고 (recommendation) | 시스템이 내는 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`). 결정이 아니다 | [[08-SCORING]] |
 | 결정 (decision, `bid_reviews`) | 사람이 사유와 함께 기록하는 최종 참여 판단 | [[08-SCORING]] |
-| BID / WATCH / NO-BID | 참여 / 관망·추가 검토 / 불참 | [[08-SCORING]] |
-| 추천 공고 | 사람이 요청한 분석에서 권고가 BID 또는 WATCH로 처음 나온 공고. 조직·공고마다 한 번 outbox `BID_RECOMMENDED`가 생기고, 카카오톡 알림을 켠 구성원에게 보낸다. 데모 사전 분석은 제외한다. 권고이지 결정이 아니다([[16-DECISIONS]] ADR-038) | [[13-NOTIFICATIONS]] |
+| 추천 / 보류 / 비추천 (`BID` / `WATCH` / `NO_BID`) | 참여 / 관망·추가 검토 / 불참. 화면은 한글, 값은 영어([[16-DECISIONS]] ADR-062) | [[08-SCORING]] |
+| 추천 공고 | 사람이 요청한 분석에서 권고가 추천 또는 보류로 처음 나온 공고. 조직·공고마다 한 번 outbox `BID_RECOMMENDED`가 생기고, 카카오톡 알림을 켠 구성원에게 보낸다. 데모 사전 분석은 제외한다. 권고이지 결정이 아니다([[16-DECISIONS]] ADR-038) | [[13-NOTIFICATIONS]] |
 | `MODEL_RULE_DISAGREEMENT` | 결정 모델 참고 지표(`recommendation`)와 규칙 판정이 상충할 때 발생. 사람 검토 필수 | [[08-SCORING]] |
 | `INSUFFICIENT_DATA` | 근거가 없어 값을 표시하지 않는 상태. 임의 값으로 채우지 않는다 | [[00-README]] |
 | 분석 상태 | `QUEUED → RUNNING → COMPLETED / PARTIAL / FAILED`. 분석이 없는 공고는 상태 값이 아니라 `latestAnalysis=null`(화면 `미분석`). `PARTIAL`은 AI 없이 규칙만으로 완결한 결과([[16-DECISIONS\|ADR-029]] A6 D17) | [[06-UI-UX]] |
@@ -160,7 +160,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 출처 (`origin`) | 공고 목록·대시보드가 거르는 값 `live`(실공고)·`demo`(DEMO, `is_demo=true`)·`all`. 요청의 `origin`이 먼저고, 없으면 env `SOL_DEFAULT_ORIGIN`, 그것도 없으면 실행 모드를 따른다(`live` → `live`, `mock`·`fixture` → `demo`). DEMO 배지는 URL이 `?origin=demo`일 때만 뜬다 | [[05-API-SPEC]], [[07-DATA-PIPELINE]] |
 | redis-api | 회사 서버의 HTTPS 중계 서비스(`SOL_DEPLOYMENT_ROLE=redis-api`). Vercel web(`frontend`)이 서비스 token+사용자 JWT로 접수하면 회사 Redis(TCP)에 job을 넣고 readiness를 돌려준다. Redis TCP는 이것만 쓴다 | [[10-DEPLOYMENT]], [[16-DECISIONS\|ADR-045]] |
 | documents-only worker | 회사 Worker의 하나(`web/worker/documents-only-main.ts`, `infra/compose.documents-only.company.yaml`). 새 revision의 첨부를 내려받고 gateway `POST /parse`를 불러 텍스트를 Supabase Storage에 쓰고 `bid_documents`에 상태를 적는다. ingest-only·analysis-only와 짝이다. 알림·마감은 처리하지 않는다 | [[07-DATA-PIPELINE]], [[10-DEPLOYMENT]] |
-| 결함 W1 | 2026-10-24 운영 smoke에서 FX-02 분석 요청이 `202`를 받고 `QUEUED`에서 멈춘 결함이다. 원인은 회사 Worker가 분석 job을 소비하지 않은 것이다. 같은 날 운영 실모델 분석 1건(FX-02, 66 WATCH)이 끝나 해소됐다. 발표 경로 D1과 이름이 겹쳐 W1로 바꿨다. 증거는 `docs/evidence/deployment/20261024-prod-smoke/` | [[10-DEPLOYMENT]] |
+| 결함 W1 | 2026-10-24 운영 smoke에서 FX-02 분석 요청이 `202`를 받고 `QUEUED`에서 멈춘 결함이다. 원인은 회사 Worker가 분석 job을 소비하지 않은 것이다. 같은 날 운영 실모델 분석 1건(FX-02, 66 보류)이 끝나 해소됐다. 발표 경로 D1과 이름이 겹쳐 W1로 바꿨다. 증거는 `docs/evidence/deployment/20261024-prod-smoke/` | [[10-DEPLOYMENT]] |
 | 운영 알림 처리 위험 | 알림 소비자·마감 알림 등록이 전체 Worker(`web/worker/main.ts:857-914`)에만 있고 회사 Worker 셋에는 없다. 운영에서 인앱·카카오·마감 알림이 처리되는지는 미확인이다. 결함 W1과 다른 문제다 | [[13-NOTIFICATIONS]] |
 
 ## 문서 운영
@@ -222,9 +222,9 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 조직도 | 가상 직원 200명을 부서 트리(본부 → 그룹 → 팀)와 고른 팀의 사진 카드로 보는 화면 `/org-chart`. 사이드바 회사 묶음에서 연다. 원본에서 상위 부서가 확인되지 않은 부서는 "상위 미지정" 구역에 따로 보인다 | [[06-UI-UX]] |
 | 맨 아래 고정 칸 | 사이드바 묶음 아래를 선으로 나눈 칸. 메뉴가 늘어도 자리가 바뀌지 않는다. 설정·데이터 수집 관리(ADMIN만)와 사용자 칸을 둔다(2026-10-26) | [[06-UI-UX]] |
 | 점수 계산 대상 인력 | 명부 200명 전원(`team_member_scoring` 행 200개, ADR-043). SOL Score 인력 가용성과 인력 배치 시뮬레이션이 쓰고, 가용 합은 95.5 FTE다 | [[08-SCORING]] |
-| 공공조달 요약 띠 | 대시보드의 숫자 띠. 신규 발견·마감 임박(7일)·분석 대기·BID 권고·진행 중 입찰 프로젝트(`dashboard-view.tsx`). 옛 분석 현황 카드는 2026-10-26에 지웠다 | [[06-UI-UX]] |
+| 공공조달 요약 띠 | 대시보드의 숫자 띠. 신규 발견·마감 임박(7일)·분석 대기·추천 권고·진행 중 입찰 프로젝트(`dashboard-view.tsx`). 옛 분석 현황 카드는 2026-10-26에 지웠다 | [[06-UI-UX]] |
 | 관심 공고 | 사용자가 본인용으로 표시한 공고(P1). 조직에는 공고별 관심 인원 수만 보인다 | [[05-API-SPEC]] |
-| 입찰 프로젝트 | BID 결정 뒤 제안 준비·제출·결과 확인을 관리하는 단위(P1). 사람 결정의 정본은 여전히 `bid_reviews`다 | [[04-DATABASE]] |
+| 입찰 프로젝트 | 추천 결정 뒤 제안 준비·제출·결과 확인을 관리하는 단위(P1). 사람 결정의 정본은 여전히 `bid_reviews`다 | [[04-DATABASE]] |
 | 체크리스트 | 입찰 프로젝트에 묶인 작업. 템플릿 `tasks`에 `bid_project_id`를 더해 쓴다(P1) | [[04-DATABASE]] |
 | ADR-021 P1 | [[12-ROADMAP]] 해커톤 컷의 P1 단(ADR-023)에 둔 해커톤 기간 기능. [[01-PRD]]의 P1(해커톤 이후)과 다르다 | [[16-DECISIONS]] |
 

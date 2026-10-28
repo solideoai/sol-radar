@@ -77,11 +77,11 @@ updated: 2026-10-28
 
 1. `curl -sS https://www.solideos-radar.com/health/ready`가 200이고 `db`·`redis`·`storage` ok, `ai: local`이다. AI만 불가면 `status: degraded`(200)다. 응답을 증거 폴더에 저장한다.
 2. `/dashboard?origin=demo`·`/bids?origin=demo`에 DEMO 배지와 DEMO 공고가 보인다. `/bids`는 11열이고 표 안에서 가로로 스크롤한다.
-3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 10-28~11-02 43 WATCH, 11-03부터 37 WATCH다(공개 자료 프로필 revision 5 기준, [[16-DECISIONS|ADR-059]]). 이어서 두 자격 "보유 가정"을 켜면 NO-BID다. 운영 기록 66 WATCH(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
+3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 10-28~11-02 43 보류(`WATCH`), 11-03부터 37 보류다(공개 자료 프로필 revision 5 기준, [[16-DECISIONS|ADR-059]]). 이어서 두 자격 "보유 가정"을 켜면 비추천(`NO_BID`)이다. 운영 기록 66 보류(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
 4. S-LIVE는 `/bids?origin=live`에서 분석된 실공고 run을 연다. 지금은 실공고 분석이 0건이라(위 "운영 구성" `409 ANALYSIS_SOURCE_MISSING`) 첨부 처리 회사 반영 뒤에만 찍는다. run이 없으면 찍지 않는다([[19-DEMO-SCENARIO|19]] §3.1).
 5. 하지 않는 것:
    - 운영 DB에 `pnpm demo:reset`을 돌리지 않는다.
-   - 리허설 중에 FX-02를 재분석하지 않는다. 하면 43 WATCH가 저장되어 "미분석 → 재분석" 장면이 사라진다.
+   - 리허설 중에 FX-02를 재분석하지 않는다. 하면 43 보류가 저장되어 "미분석 → 재분석" 장면이 사라진다.
    - 실행 모드를 바꾸지 않는다([[19-DEMO-SCENARIO|19]] §5).
 6. S5·S6 장애 장면은 녹화 영상으로 보인다. 운영에서 장애를 주입하지 않는다.
 
@@ -186,7 +186,7 @@ G2B_INDUSTRY_MASTER_SERVICE_KEY=<placeholder>  # 업종 및 근거법규 1512946
 
 seed는 스크립트 `pnpm demo:reset`이다(Compose 서비스가 아니다). 루트 `.env.local`의 service role 키로 넣고 다시 돌려도 같은 상태가 된다(멱등). 마이그레이션은 적용하지 않는다. 스키마는 `pnpm db:push`(사용자 확인 뒤)이고, seed 전에 `pnpm db:verify`로 미적용 마이그레이션이 없는지 본다. **운영 DB에는 돌리지 않는다**(D1, [[16-DECISIONS|ADR-054]]).
 
-- 적재: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(`org-01`에 ADMIN/SALES/ANALYST/VIEWER 각 1, `admin@admin.com`이 `org_role=owner`, `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 + FX-12 1건 격리(`ingest_errors`), 사전 리뷰 2건(FX-01 BID·FX-03 NO-BID), 부서·직급 카탈로그, 가상 인력 200명(아래 "솔리데오 인력·사진 준비").
+- 적재: 조직 2개(`org-01` 솔리데오, `org-02` 격리 확인용), 계정 5개(`org-01`에 ADMIN/SALES/ANALYST/VIEWER 각 1, `admin@admin.com`이 `org_role=owner`, `org-02`에 VIEWER 1), 프로필 revision 2, fixture 20건 중 공고 19건 + FX-12 1건 격리(`ingest_errors`), 사전 리뷰 2건(FX-01 추천(`BID`)·FX-03 비추천), 부서·직급 카탈로그, 가상 인력 200명(아래 "솔리데오 인력·사진 준비").
 - 추출은 넣지 않는다. 검증된 추출은 기동 절차 14번 `pnpm demo:preanalyze`가 worker → gateway `/extract`로 저장한다([[16-DECISIONS|ADR-031]] C16).
 - 계정 비밀번호는 `DEMO_SEED_PASSWORD`로만 정한다. 템플릿 `pnpm db:seed`는 로컬 Supabase 시험 계정용이다.
 - `is_demo=true` 데이터만 지우고 다시 만들므로 live 공고는 그대로다([[04-DATABASE|04 DB]] §6). 목록 기본 필터는 `SOL_DEFAULT_ORIGIN`(없으면 실행 모드)을 따른다.

@@ -60,7 +60,7 @@ flowchart TD
  D --> W
  D --> AN
  D --> WF
- R -->|BID 결정| P
+ R -->|추천 결정| P
  B --> PG[부처 지원사업 /bids/programs]
  S --> RV[변경 이력 /bids/id/revisions]
  P --> PD[프로젝트 상세 /projects/id]
@@ -79,9 +79,9 @@ flowchart TD
 
 | 이 문서 | `tokens.json` | 쓰는 곳 |
 |---|---|---|
-| success | `success` | BID, SATISFIED, 완료 |
-| warning | `warning` | WATCH, NEEDS_REVIEW, PARTIAL, 신선도 경고 |
-| danger | `destructive` | NO-BID, NOT_SATISFIED, FAILED, 오류 |
+| success | `success` | 추천(`BID`), SATISFIED, 완료 |
+| warning | `warning` | 보류(`WATCH`), NEEDS_REVIEW, PARTIAL, 신선도 경고 |
+| danger | `destructive` | 비추천(`NO_BID`), NOT_SATISFIED, FAILED, 오류 |
 | demo | `demo` | `DEMO` 배지 전용. 다른 의미에 쓰지 않음 |
 | brand | `brand` | 브랜드 색(차트 첫 계열·강조 배지·링크). 주요 버튼은 `primary`, 포커스 링은 `ring` |
 | selected | `selected`·`selected-foreground` | 선택·켜짐 바탕과 글자(사이드바 지금 메뉴, 탭·보기 전환·거르기 칩의 켜짐). `brand`의 연한 색(파스텔), 대비 4.8:1(2026-10-28 화면 개편, §3.5) |
@@ -95,9 +95,9 @@ flowchart TD
 
 | 상태 | 텍스트 | 아이콘 (lucide) | 색 토큰 |
 |---|---|---|---|
-| 권고 BID | `BID` | `arrow-up-circle` | success |
-| 권고 WATCH | `WATCH` | `eye` | warning |
-| 권고 NO-BID | `NO-BID` | `x-octagon` | danger |
+| 권고 `BID` | `추천` | `arrow-up-circle` | success |
+| 권고 `WATCH` | `보류` | `eye` | warning |
+| 권고 `NO_BID` | `비추천` | `x-octagon` | danger |
 | 자격 SATISFIED | `충족` | `check-circle` | success |
 | 자격 NEEDS_REVIEW | `확인 필요` | `help-circle` | warning |
 | 자격 NOT_SATISFIED | `미충족` | `x-circle` | danger |
@@ -157,7 +157,7 @@ flowchart TD
 
 - **화면 머리**(`web/components/app-page.tsx`): 경로(묶음 / 화면, 회색 `type-label`, `web/components/app-breadcrumb.tsx`) → `eyebrow`(뒤로 링크처럼 기능이 있을 때만) → 제목(`type-title`) → 설명 → 1px 아래 구분선이다. 경로는 사이드바 메뉴 정의(`app-nav.ts`의 `breadcrumbOf`)에서 찾고, 묶음이 없는 화면(설정 등)은 경로 줄이 없다. 경로의 두 칸은 링크가 아니다. 본문 위 여백은 16px다(`/gaps` 1440×900 첫 화면에 순위 1~3행이 들어가게).
 - **표**(`web/components/ui/table.tsx`): 머리 줄 연한 회색(`bg-muted/50`), 바깥 둥근 1px 테두리(`rounded-lg border`), 행 구분선. 이미 테두리가 있는 상자 안의 표는 `containerClassName="rounded-none border-0"`으로 바깥 테두리를 꺼서 두 겹이 되지 않게 한다. 표를 감싼 `Card`는 두지 않는다.
-- **칩**(`web/components/ui/chip.tsx`): 회색 칩(`tone="neutral"`, `secondary` 바탕)과 강조 배지(`tone="brand"`, 파란 1px 테두리 + 파란 글자). 촘촘한 곳은 `size="sm"`(높이 20px, `type-caption`). 상태색 배지(충족·확인 필요·미충족, BID·WATCH·NO-BID), `DEMO`, 출처 배지(기관 로고 색·회사 프로필 출처)는 뜻이 있는 표시라 이 부품으로 바꾸지 않는다.
+- **칩**(`web/components/ui/chip.tsx`): 회색 칩(`tone="neutral"`, `secondary` 바탕)과 강조 배지(`tone="brand"`, 파란 1px 테두리 + 파란 글자). 촘촘한 곳은 `size="sm"`(높이 20px, `type-caption`). 상태색 배지(충족·확인 필요·미충족, 추천·보류·비추천), `DEMO`, 출처 배지(기관 로고 색·회사 프로필 출처)는 뜻이 있는 표시라 이 부품으로 바꾸지 않는다.
 - **카드**: 기본 그림자가 없다(1px 선과 여백, 2026-10-26 원칙).
 - **선택·켜짐 표시**: 켜짐은 `bg-selected text-selected-foreground font-semibold`, 꺼짐은 `text-muted-foreground hover:bg-muted`, 크기 `rounded-md px-3 py-1.5 type-label`이다. 하는 일에 따라 세 모양이다.
 
@@ -281,11 +281,11 @@ flowchart TD
 
 ### 5.3 `/dashboard`
 
-**배치 (2026-10-26, [AI 티 걷어내기](../polaris/specs/done/2026-10-26-design-declutter.md))**: 카드 상자 없이 숫자 띠와 구분선 목록으로 짠다. 머리(제목·설명·기준 시각·새로고침) 아래에 "공공조달 요약" 숫자 띠 한 줄이 있다: 신규 발견·마감 임박(7일)·분석 대기·BID 권고·진행 중 입찰 프로젝트. 띠는 위아래 1px 선과 칸 사이 세로선으로 나누고 숫자는 `tabular-nums`다. 그 아래는 두 단이다. 왼쪽 주 영역은 "우선 검토할 입찰"·"예정 사업 및 사전규격"이고 제목 줄(제목·설명·전체 보기) + 구분선 행이다. 오른쪽 좁은 칸은 수집 지표(전체 수집 공고·마지막 수집 성공·다음 수집 예정·진행 중 WATCH. "다음 수집 예정"은 웹이 정기 일정을 직접 알 수 없어 지금 숨는다, `web/app/_lib/run-mode.ts` `currentIngestIntervalMinutes`. 실제 다음 정기 실행은 `/admin/ingestion`이 보인다)·수집 소스 상태·기관별 공고 수·입찰 포트폴리오이고 모두 제목 + 구분선 목록이다. 중복 후보 안내는 "우선 검토할 입찰" 설명 줄의 회색 글자다. 단 폭이 좁으면(1280px) 한 단으로 내려간다.
+**배치 (2026-10-26, [AI 티 걷어내기](../polaris/specs/done/2026-10-26-design-declutter.md))**: 카드 상자 없이 숫자 띠와 구분선 목록으로 짠다. 머리(제목·설명·기준 시각·새로고침) 아래에 "공공조달 요약" 숫자 띠 한 줄이 있다: 신규 발견·마감 임박(7일)·분석 대기·추천 권고·진행 중 입찰 프로젝트. 띠는 위아래 1px 선과 칸 사이 세로선으로 나누고 숫자는 `tabular-nums`다. 그 아래는 두 단이다. 왼쪽 주 영역은 "우선 검토할 입찰"·"예정 사업 및 사전규격"이고 제목 줄(제목·설명·전체 보기) + 구분선 행이다. 오른쪽 좁은 칸은 수집 지표(전체 수집 공고·마지막 수집 성공·다음 수집 예정·진행 중 보류. "다음 수집 예정"은 웹이 정기 일정을 직접 알 수 없어 지금 숨는다, `web/app/_lib/run-mode.ts` `currentIngestIntervalMinutes`. 실제 다음 정기 실행은 `/admin/ingestion`이 보인다)·수집 소스 상태·기관별 공고 수·입찰 포트폴리오이고 모두 제목 + 구분선 목록이다. 중복 후보 안내는 "우선 검토할 입찰" 설명 줄의 회색 글자다. 단 폭이 좁으면(1280px) 한 단으로 내려간다.
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | ① 숫자 띠 5칸(`web/app/(app)/(work)/dashboard/dashboard-view.tsx`): **신규 발견**(최근 24시간 입찰공고)·**마감 임박 (7일)**·**분석 대기**(현재 입력의 분석 결과 없음)·**BID 권고**(현재 유효 분석)·**진행 중 입찰 프로젝트**(`/projects` 링크, 조회 실패면 "—"). 모든 칸이 상단 `origin`을 따른다. ② 왼쪽 주 영역: "우선 검토할 입찰"(공공 SI·AI 우선, 최근 공고 순)과 "예정 사업 및 사전규격"(발주계획·조달요청·사전규격, 별도 집계). ③ 오른쪽 좁은 칸: 위 배치 문단의 수집 지표·수집 소스 상태·기관별 공고 수·입찰 포트폴리오. 최근 변경(revision 이벤트) 목록은 화면에 없고 응답에도 `recentChanges`가 없다([[05-API-SPEC\|05]] §4) |
+| 섹션 | ① 숫자 띠 5칸(`web/app/(app)/(work)/dashboard/dashboard-view.tsx`): **신규 발견**(최근 24시간 입찰공고)·**마감 임박 (7일)**·**분석 대기**(현재 입력의 분석 결과 없음)·**추천 권고**(현재 유효 분석)·**진행 중 입찰 프로젝트**(`/projects` 링크, 조회 실패면 "—"). 모든 칸이 상단 `origin`을 따른다. ② 왼쪽 주 영역: "우선 검토할 입찰"(공공 SI·AI 우선, 최근 공고 순)과 "예정 사업 및 사전규격"(발주계획·조달요청·사전규격, 별도 집계). ③ 오른쪽 좁은 칸: 위 배치 문단의 수집 지표·수집 소스 상태·기관별 공고 수·입찰 포트폴리오. 최근 변경(revision 이벤트) 목록은 화면에 없고 응답에도 `recentChanges`가 없다([[05-API-SPEC\|05]] §4) |
 | 주요 액션 | 각 행 클릭 → `/bids/[id]`. "전체 보기" → `/bids?decision=…` 필터 적용 링크 |
 | 빈 상태 | 공고 0건: "아직 수집된 공고가 없습니다". ADMIN에게는 [수집 실행] 단추(`/admin/ingestion`으로 가는 `outline` 링크, 그 화면의 [수동 수집 실행]으로 돌린다), 다른 역할에게는 단추 없이 "관리자에게 수집을 요청하세요"를 보인다(`web/app/(app)/(work)/empty-state.tsx`) |
 | 로딩 | 숫자 띠 + 두 단 목록 skeleton |
@@ -296,7 +296,7 @@ flowchart TD
 
 | 항목 | 내용 |
 |---|---|
-| 섹션 | ① `BidFilters`(상단 고정): 검색어, 단계(PLAN/PRE_SPEC/NOTICE), 상태(기본은 활성 = `OPEN`·`AMENDED`이고 취소 공고는 숨긴다. "취소 포함"을 고르면 취소 공고도 보이고 그 행 단계 칸 아래에 `취소됨`을 표시한다. 핵심 컷(C6) 목록에도 이 선택지를 둔다, [[16-DECISIONS\|ADR-029]] A7), 발주기관, 예산 범위, 마감 기간, 점수 하한, 권고(BID/WATCH/NO-BID), 결정 여부. ② `BidTable` ③ 커서 페이지네이션 [더 보기] |
+| 섹션 | ① `BidFilters`(상단 고정): 검색어, 단계(PLAN/PRE_SPEC/NOTICE), 상태(기본은 활성 = `OPEN`·`AMENDED`이고 취소 공고는 숨긴다. "취소 포함"을 고르면 취소 공고도 보이고 그 행 단계 칸 아래에 `취소됨`을 표시한다. 핵심 컷(C6) 목록에도 이 선택지를 둔다, [[16-DECISIONS\|ADR-029]] A7), 발주기관, 예산 범위, 마감 기간, 점수 하한, 권고(추천·보류·비추천), 결정 여부. ② `BidTable` ③ 커서 페이지네이션 [더 보기] |
 | 기본 열 (11열) | 출처(`DEMO`칩 또는 소스 이름, 100px. 소스 배지는 기관 로고의 상징 색 칸이다, [[16-DECISIONS\|ADR-058]]) · 기관(120, 2줄 말줄임) · 단계(80) · 제목(228, 2줄 말줄임) · 분야(96) · 예산(88) · 마감(D-n, 88) · SOL Score(88) · 권고(88) · 분석 상태(112) · 최종 결정(96). 열 폭 합은 1,184px(관심 공고 화면은 관심 열이 붙어 1,224px)이고 표 영역이 `overflow-x-auto`라서 1280px에서는 표 안에서만 가로 스크롤한다. 스크롤이 생기면 표 영역이 초점을 받고 안내 문구가 붙는다(`web/components/work/opportunities-table.tsx`, [[16-DECISIONS\|ADR-047]]). 예산은 줄인 표기(`12억`·`21.6억`)이고 전체 금액은 `title`과 스크린리더 글자로 준다 |
 | 주요 액션 | 행 클릭 → 상세. 필터는 URL 쿼리에 동기화(공유 가능). 정렬: 점수·마감·수집일 |
 | 빈 상태 | 필터 결과 0건: "조건에 맞는 공고가 없습니다" + [필터 초기화]. 전체 0건: 대시보드와 동일 |
@@ -413,7 +413,7 @@ flowchart TD
 
 ### 5.10.1 개인 설정 "카카오톡 알림" ([[16-DECISIONS|ADR-038]], 기본 `mock`, 실제 공고 수신 녹화 때만 `memo`, [[16-DECISIONS|ADR-054]])
 
-개인 설정의 "로그인 수단" 절 바로 아래에 새 절 "카카오톡 알림"을 둔다(`web/app/account/account-settings.tsx`의 `SettingsSection`). 설명 문구는 "추천 공고(BID·WATCH 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."다. 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", API는 [[05-API-SPEC|05 API]] §9다. 설정 칸은 `web/app/(app)/[slug]/settings/kakao-notify-section.tsx`다. 기본은 `mock` 발송이고 연결·발송은 0건이다. 실제 카톡 수신은 첨부 처리가 운영에 반영된 뒤 녹화 때 확인한다([[16-DECISIONS|ADR-054]], 미확인).
+개인 설정의 "로그인 수단" 절 바로 아래에 새 절 "카카오톡 알림"을 둔다(`web/app/account/account-settings.tsx`의 `SettingsSection`). 설명 문구는 "추천 공고(추천·보류 권고)가 나오면 내 카톡 '나와의 채팅'으로 받습니다."다. 동작은 [[13-NOTIFICATIONS|13 알림]] "카카오톡 추천 공고", API는 [[05-API-SPEC|05 API]] §9다. 설정 칸은 `web/app/(app)/[slug]/settings/kakao-notify-section.tsx`다. 기본은 `mock` 발송이고 연결·발송은 0건이다. 실제 카톡 수신은 첨부 처리가 운영에 반영된 뒤 녹화 때 확인한다([[16-DECISIONS|ADR-054]], 미확인).
 
 | 상태 | 보이는 것 |
 |---|---|
@@ -447,7 +447,7 @@ flowchart TD
 |---|---|---|
 | `/watchlist` | 관심 공고 | 내 관심 공고만 미리 거른 공고 표. `/bids`와 같은 현재 `OpportunityTable`·`OpportunityFilters`를 쓴다 |
 | `/analysis` | 분석 결과 비교 | 조직의 분석 이력과 2~4건 비교. 분석 실행은 `/bids/[id]`에서만 |
-| `/projects` | 입찰 프로젝트 | BID 결정 이후 업무(담당자·체크리스트·제출 마감·상태·결과 기록) |
+| `/projects` | 입찰 프로젝트 | 추천 결정 이후 업무(담당자·체크리스트·제출 마감·상태·결과 기록) |
 | `/workforce` | 인력 배치 시뮬레이션 | 점수 계산 대상 200명 안의 규칙 매칭 후보와 기간 충돌. 저장하지 않는다 |
 
 상세 배치의 원문은 git `5261730f` 의 `docs/plans/2026-10-22-dashboard-pages-ui-spec.md`다. 관심 목록은 해제 직후 행을 유지한다. 분석 비교는 2~4열·열별 오류 복구·PARTIAL/FAILED 빈 값 보존, 인력 시뮬레이션은 분석 스냅샷과 현재 배정의 기준 시각 분리, 프로젝트는 5열 보드·ADMIN/SALES 변경·읽기 전용 조회다.
@@ -515,15 +515,15 @@ flowchart TD
 │▾ 분석     │ [원문 보기 ↗]  [재분석]                          분석 완료 ✓ 2026-10-16 09:15 │
 ││…        ├──────────────────────────────────────────┬─────────────────────────────────┤
 │▾ 회사     │ ■ 단계 이력 (StageTimeline)              │ ■ 결정 패널 (DecisionPanel)     │
-││…        │ ○ 발주계획 — · ○ 사전규격 — · ● 공고 r1  │ 권고: ▲ BID                     │
+││…        │ ○ 발주계획 — · ○ 사전규격 — · ● 공고 r1  │ 권고: ▲ 추천                    │
 │───────────│                                          │ SOL Score 94 / 100              │
 │ 설정      │ ■ 필수자격 체크리스트                     │ ─────────────────────────────  │
 │ 수집 관리 │ ✓ 충족  소프트웨어사업자 신고   근거 p.3  │ 최종 결정                       │
-│           │ ✓ 충족  직접생산확인증명        근거 p.3  │ (●) BID  ( ) WATCH  ( ) NO-BID │
+│           │ ✓ 충족  직접생산확인증명        근거 p.3  │ (●) 추천  ( ) 보류  ( ) 비추천 │
 │           │ ✓ 충족  중소기업 제한경쟁       근거 p.2  │ 사유 [________________________]│
 │           │                                          │ 담당자 [김영업 ▾]               │
 │           │ ■ SOL Score 분해 (ScoreFactors)          │ [결정 기록]                     │
-│           │ 기술 스택 적합   ████████░░ 24.0 / 30     │ 마지막 결정: BID · 김영업       │
+│           │ 기술 스택 적합   ████████░░ 24.0 / 30     │ 마지막 결정: 추천 · 김영업      │
 │           │ 유사 수행 실적   ██████████ 25.0 / 25     │ ─────────────────────────────  │
 │           │ 인력 가용성      ██████████ 20.0 / 20     │ 검토 의견 (P1, 비활성)          │
 │           │ 규모 적합성      ██████████ 15.0 / 15     │                                 │
@@ -532,7 +532,7 @@ flowchart TD
 │           │                                          │                                 │
 │           │ ■ 결정 모델 참고 지표                     │                                 │
 │           │ 모델 선택지 신뢰 분포 (충족·수주 확률 아님)│                                 │
-│           │ BID 71% · WATCH 24% · NO-BID 5%           │                                 │
+│           │ 추천 71% · 보류 24% · 비추천 5%           │                                 │
 │           │ 낙찰 확률 아님 · 규칙 판정을 뒤집지 않음   │                                 │
 │           │ Mock 응답(데모 데이터) · kev-qs/v0.1      │                                 │
 │           │                                          │                                 │
@@ -558,8 +558,8 @@ flowchart TD
 | 상황 | 변형 |
 |---|---|
 | `PARTIAL` (AI 불가) | 상단 요약 아래 warning 배너, 문구는 [[09-SECURITY\|09 보안]] 고지 그대로: "AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표시합니다. (상태: PARTIAL)". 배너 우측에 `recommendationBasis: RULES_ONLY`와 `errorCode`(예 `AI_UNAVAILABLE`). 결정 모델 섹션은 "사용 불가". 분석 요약 띠의 "AI: … · 응답 없음(규칙만)"과 이 배너가 알린다 |
-| 결정 모델 상이 (`MODEL_RULE_DISAGREEMENT`) | 결정 모델 섹션에 `규칙 우선` 배지 + "결정 모델은 BID를 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다"(`FX-03`). 결정 패널 상단 "사람 검토 권장" |
-| 자격 `NEEDS_REVIEW` | 체크리스트 행 warning + "확인 필요". 근거가 없으면 09 문구 "근거를 확인할 수 없어 INSUFFICIENT_DATA로 표시합니다. 이 항목은 점수에 반영하지 않았습니다." 권고 WATCH |
+| 결정 모델 상이 (`MODEL_RULE_DISAGREEMENT`) | 결정 모델 섹션에 `규칙 우선` 배지 + "결정 모델은 추천을 제시했지만 필수자격 미충족으로 규칙 판정이 우선합니다"(`FX-03`). 결정 패널 상단 "사람 검토 권장" |
+| 자격 `NEEDS_REVIEW` | 체크리스트 행 warning + "확인 필요". 근거가 없으면 09 문구 "근거를 확인할 수 없어 INSUFFICIENT_DATA로 표시합니다. 이 항목은 점수에 반영하지 않았습니다." 권고 보류 |
 | `missingFactors` | 해당 요소 행 회색 바 + `미확인` 배지 + 툴팁 사유(`FX-11`) |
 | 첨부 파싱 실패 | 근거 섹션에 danger 배지 "첨부 원문 확인" + 원문 링크(`FX-05`). 사유(`UNSUPPORTED_FORMAT`·`NO_TEXT_LAYER`·`ENCRYPTED`·`DISTRIBUTION_PROTECTED` 등)를 툴팁으로 |
 | 첨부 다운로드 실패 | 근거 섹션에 danger 배지 `DOCUMENT_DOWNLOAD_FAILED` "첨부를 내려받지 못했습니다" + 원문 링크. 파싱 실패와 다른 배지 |
@@ -580,7 +580,7 @@ flowchart TD
 - **금지 글자**: 띠·스위치·안내·낭독 문구에 "확률"·"승률"·"가능성"·"수주"·"%"를 쓰지 않는다(ADR-007 범위 외 승률 예측).
 - **상태**: 연타하면 앞 요청을 취소하고 마지막 요청의 응답만 그린다. 새로 고침·다른 화면 이동은 가정 상태를 버린다(클라이언트 상태만, 저장 없음). 404 `NO_SNAPSHOT`이면 스위치 대신 입력 기록이 없다는 안내, 다시 계산한 원래 값(권고·반올림 점수·자격 종합)이 저장된 run과 다르면 스위치를 내지 않고 재분석 안내, 계산 실패는 띠 안 오류와 [다시 시도]다. 재분석이 시작되면 가정 상태를 비운다.
 - **폭**: 1440·1280에서 가로 넘침이 없어야 한다. 1280에서는 띠 아래쪽 "바뀐 자격 항목"과 "요소별 점수"가 위아래로 쌓인다.
-- **데모**: `FX-03`에서 스위치 한 번 → 띠에 NO-BID → WATCH, 68 → 68, 필수자격 미충족 → 충족. 결정 패널은 NO-BID 68 그대로다([[19-DEMO-SCENARIO|19]] S3).
+- **데모**: `FX-03`에서 스위치 한 번 → 띠에 비추천 → 보류, 68 → 68, 필수자격 미충족 → 충족. 결정 패널은 비추천 68 그대로다([[19-DEMO-SCENARIO|19]] S3).
 
 ## 7. 분석 상태와 polling
 

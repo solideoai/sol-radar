@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - pipeline
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 03. AI 파이프라인: Qwen + Bosun
@@ -25,7 +25,7 @@ updated: 2026-10-27
 |Qwen3.8-Flash-Next 추출(`POST /extract`, 회사 운영 vLLM API)|요구사항 구조화 추출, 자유 텍스트 값의 영어 표기|`NormalizedBid.content` + 첨부 텍스트 chunk|`RequirementExtraction`(§4.1) + `translations`(§5.11. local 번역, mock은 `null`)|없음. 값마다 `state`와 인용|
 |규칙 엔진([[08-SCORING\|08 점수]])|명시 조건 검증(업종·면허, 지역, 금액, 인력 수, 자격증, 마감)|API 구조화 필드 > 추출값, 회사 프로필|항목별 `SATISFIED`/`NOT_SATISFIED`/`NEEDS_REVIEW` + 사유 코드 + 양쪽 근거|**있음**(자격 판정)|
 |결정 모델 Bosun v3.1 0.6B(`POST /kev`. 경로 이름은 호환 유지, ADR-034)|비정형 요구사항의 충족 분류, 기술 적합성, 실적 연관성, 수행 리스크|영어 state 텍스트(§5.6·§5.11) + 질문 세트(§5.5·§5.10)|질문별 확률(선택지 분포·yes 확률·등급. typed decision `choice`/`score`/`noul`)|없음. 참고 지표·`reviewFlags`만|
-|SOL Score 엔진([[08-SCORING\|08 점수]])|`sol-v0.1.0` 결정론 점수, BID/WATCH/NO-BID 권고|규칙 결과 + 추출 + 회사 프로필|`AnalysisResult`(점수 분해, 권고)|**있음**(권고까지). 결정 모델 확률은 입력이 아니다|
+|SOL Score 엔진([[08-SCORING\|08 점수]])|`sol-v0.1.0` 결정론 점수, 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`) 권고|규칙 결과 + 추출 + 회사 프로필|`AnalysisResult`(점수 분해, 권고)|**있음**(권고까지). 결정 모델 확률은 입력이 아니다|
 |설명(`POST /explain`. Qwen3.8-Flash-Next 설명은 **미구현**)|규칙 결과·점수·인용·결정 모델 참고 지표를 한국어 2~4문장으로 설명. 지금은 모든 모드가 템플릿 문장이다(`explain.py`, `fallback=true`)|위 결과|`explanation` 텍스트|없음. 입력 밖 숫자가 나오면 폐기하고 템플릿으로 대체|
 |Embedding + Qdrant(**미구현**, 해커톤 컷 밖)|근거 문단 검색|chunk 텍스트|chunk id, 점수|없음|
 |사람|최종 참여 결정|화면|`bid_reviews`|**최종**|
@@ -235,7 +235,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 ### 3.2 Qwen 모델
 
 > [!success] 모델 식별자·짧은 JSON 응답 확인 (2026-10-21)
-> 회사 API `GET /v1/models`가 `Qwen3.8-Flash-Next-AWQ-INT4`와 `max_model_len: 256000`을 반환했다. Bearer 인증 조회 200(125ms), 해당 ID의 `response_format: json_schema` 요청 200(253ms)·`{"ok": true}`를 확인했다. [실연결 증거](evidence/phase-5/qwen-probe-20261021-2343.json). 아래의 미확인 서술 중 served id·기본 인증·간단한 guided JSON은 이 결과로 갱신한다. 전체 추출 스키마·한국어 추출 품질·`prompt_logprobs`·부하 지연은 미검증이다. Bosun은 운영 분석 1건(FX-02, 66점 WATCH, 대체 없음)에서 응답했다([[16-DECISIONS|ADR-054]]). 품질·지연은 미측정이다.
+> 회사 API `GET /v1/models`가 `Qwen3.8-Flash-Next-AWQ-INT4`와 `max_model_len: 256000`을 반환했다. Bearer 인증 조회 200(125ms), 해당 ID의 `response_format: json_schema` 요청 200(253ms)·`{"ok": true}`를 확인했다. [실연결 증거](evidence/phase-5/qwen-probe-20261021-2343.json). 아래의 미확인 서술 중 served id·기본 인증·간단한 guided JSON은 이 결과로 갱신한다. 전체 추출 스키마·한국어 추출 품질·`prompt_logprobs`·부하 지연은 미검증이다. Bosun은 운영 분석 1건(FX-02, 66점 보류, 대체 없음)에서 응답했다([[16-DECISIONS|ADR-054]]). 품질·지연은 미측정이다.
 
 > [!warning] 미검증 가정
 > 추출·설명 모델은 회사가 이미 운영하는 vLLM API의 `Qwen3.8-Flash-Next-AWQ-INT4`다(`https://acropolissg.com/vllm/v1`, [[16-DECISIONS|ADR-034]]). 우리는 띄우지 않고 우리 GPU 1도 쓰지 않는다. 확인한 것은 `GET /v1/models`의 served id·`max_model_len: 256000`뿐이고, 실제 가중치 리비전·양자화 구성·GPU 배분은 회사 운영이라 미확인이다. `id`는 레지스트리 `run`과 대조한다(§11). 런타임은 vLLM이다([[16-DECISIONS|16 ADR]] 미결정 3번, ADR-020·025). **미검증**: 전체 추출 스키마의 guided JSON(`response_format: json_schema`, G4), 한국어 공고 추출 품질, E3용 `prompt_logprobs`, 호출 한도·부하 지연. 검증 방법은 평가셋 test의 추출 정답 20건으로 필드 state 정확도·값 일치·필수 항목 재현율·인용 정확도·`(untranslated)` 비율을 재는 것이다(EX0, [[21-MODEL-TRAINING|21 모델 학습]] §4.2·§4.3 추출 행). 회사가 Qwen을 FP8/AWQ로 올렸다고 알려 주면 추출 품질에 영향이 있을 수 있으므로 평가 리포트에 적는다([[10-DEPLOYMENT|10 배포]]). Qwen 파인튜닝은 하지 않는다(21 §5.6).
@@ -552,7 +552,7 @@ Bosun은 0.6B 한 크기다. GPU 1(NVIDIA A40 46,068 MiB)에 올리는 우리 �
 |`needsHumanReview`|`noul`|"Does this notice contain ambiguity, conflicting figures or unusual conditions that a human should check before deciding?"|(기본)|`kev.needsHumanReview`(0~1)|`>= 0.7`이면 `reviewFlags += KEV_NEEDS_REVIEW`|
 |`fit`|`score`|"How well does this company's capability match this notice overall?"|`["Very poor", "Poor", "Moderate", "Good", "Very good"]`|`kev.fit = {score, legend}` 표시만|사용 안 함. SOL Score와 독립 표시|
 
-원칙: 네 질문 모두 **보수적 방향으로만** 작용한다. 결정 모델은 `reviewFlags`를 추가하고 참고 지표를 표시(§5.13)할 수 있을 뿐, 자격 판정·SOL Score·권고(BID/WATCH/NO-BID)를 바꾸지 못한다. 규칙이 `NO_BID`/`WATCH`인 공고를 결정 모델이 `BID`로 올리는 경로는 코드에 없어야 하고, 이것을 단위 테스트로 고정한다([[11-TESTING|11 테스트]]). `instructions`와 `criteria` 문자열은 `services/ai/kev/question-sets/v0.1.json`에 두고, 바꾸면 버전을 올린다.
+원칙: 네 질문 모두 **보수적 방향으로만** 작용한다. 결정 모델은 `reviewFlags`를 추가하고 참고 지표를 표시(§5.13)할 수 있을 뿐, 자격 판정·SOL Score·권고(추천·보류·비추천)를 바꾸지 못한다. 규칙이 `NO_BID`/`WATCH`인 공고를 결정 모델이 `BID`로 올리는 경로는 코드에 없어야 하고, 이것을 단위 테스트로 고정한다([[11-TESTING|11 테스트]]). `instructions`와 `criteria` 문자열은 `services/ai/kev/question-sets/v0.1.json`에 두고, 바꾸면 버전을 올린다.
 
 v0.1은 `mock` 모드·데모 S3("규칙이 결정 모델을 이긴다")·골든 회귀용으로 그대로 둔다. 실추론(`live`·`fixture`)은 이 4질문을 포함한 `kev-qs/v0.2`(§5.10)를 쓴다.
 
