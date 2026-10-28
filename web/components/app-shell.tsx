@@ -23,6 +23,7 @@ import {
   type NavGroup,
   type NavItem,
 } from "@/components/app-nav";
+import { AppPathnameProvider } from "@/components/app-breadcrumb";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -111,6 +112,7 @@ export function AppShell({
   status?: ShellStatus;
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   return (
     // 부품의 기본 min-h-svh 를 푼다. 루트 layout 의 바깥 상자가 화면 높이를 이미 채운다.
     <SidebarProvider
@@ -135,7 +137,8 @@ export function AppShell({
           <TriangleAlertIcon aria-hidden className="size-4 shrink-0" />
           데스크톱 화면에서 이용하세요
         </p>
-        {children}
+        {/* 화면 머리의 경로(AppBreadcrumb)가 지금 주소를 여기서 받는다. */}
+        <AppPathnameProvider pathname={pathname}>{children}</AppPathnameProvider>
       </div>
     </SidebarProvider>
   );

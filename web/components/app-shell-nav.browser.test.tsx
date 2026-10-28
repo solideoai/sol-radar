@@ -3,11 +3,22 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { Chip } from "@/components/ui/chip";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { SolRole } from "@/server/organization";
+import { AppPage } from "./app-page";
 import { AppShell } from "./app-shell";
 
 // 묶음 사이드바(2026-10-28 사용자 결정 시안 A): 묶음 줄에만 아이콘, 메뉴는 글자만 들여 쓰고 지금 메뉴는 연한 파랑.
 // 접은 64px 줄은 메뉴 아이콘만 남는다. 위 막대에서는 화면 이름을 빼고, 접었을 때 조직 이름만 남긴다.
+// 화면 머리는 경로(묶음 / 화면) → 제목 → 설명 → 1px 구분선이다. 표는 둥근 1px 테두리와 연한 머리 줄이다.
 
 const nav = vi.hoisted(() => ({ pathname: "/bids" }));
 
@@ -48,21 +59,25 @@ const unmountAll = () => {
 };
 
 // 사이드바 펼침은 첫 그림의 값(defaultOpen)이라 그릴 때마다 새로 붙인다.
-function show({
-  pathname = "/bids",
-  solRole = "SALES",
-  open = true,
-}: { pathname?: string; solRole?: SolRole; open?: boolean } = {}) {
+function mount(pathname: string, element: React.ReactNode) {
   unmountAll();
   nav.pathname = pathname;
   const root = createRoot(document.body.appendChild(document.createElement("div")));
   mounted.push(root);
-  flushSync(() =>
-    root.render(
-      <AppShell user={user} workspace={workspace} solRole={solRole} defaultSidebarOpen={open}>
-        <main />
-      </AppShell>,
-    ),
+  flushSync(() => root.render(element));
+}
+
+function show({
+  pathname = "/bids",
+  solRole = "SALES",
+  open = true,
+  children = <main />,
+}: { pathname?: string; solRole?: SolRole; open?: boolean; children?: React.ReactNode } = {}) {
+  mount(
+    pathname,
+    <AppShell user={user} workspace={workspace} solRole={solRole} defaultSidebarOpen={open}>
+      {children}
+    </AppShell>,
   );
 }
 
@@ -145,5 +160,108 @@ describe("묶음 사이드바", () => {
   it("접으면 위 막대에 지금 조직 이름이 남는다", async () => {
     show({ open: false });
     await expect.element(page.getByRole("banner").getByText("솔리데오")).toBeVisible();
+  });
+});
+
+describe("AppPage 머리", () => {
+  const breadcrumb = () => page.getByRole("navigation", { name: "경로" });
+
+  // 경로는 앱 틀이 넘겨 준 지금 주소로 찾는다. 앱 틀 밖에서 그린 AppPage 는 경로가 없다(화면 부품 시험).
+  it("경로(묶음 / 화면)가 제목 위에 있고, 머리 아래 1px 구분선이 있다", async () => {
+    show({
+      pathname: "/gaps",
+      children: (
+        <AppPage title="자격 갭 레이더" description="설명">
+          <p>본문</p>
+        </AppPage>
+      ),
+    });
+    await expect.element(breadcrumb()).toHaveTextContent(/분석.*자격 갭 레이더/);
+    const heading = page.getByRole("heading", { level: 1, name: "자격 갭 레이더" }).element();
+    expect(
+      breadcrumb().element().compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const head = document.querySelector('[data-slot="app-page-header"]');
+    expect(head).not.toBeNull();
+    expect(head && getComputedStyle(head).borderBottomWidth).toBe("1px");
+  });
+
+  it("묶음이 없는 화면(설정)과 앱 틀 밖은 경로 줄이 없다", async () => {
+    show({
+      pathname: "/settings",
+      children: (
+        <AppPage title="설정">
+          <p>본문</p>
+        </AppPage>
+      ),
+    });
+    await expect.element(page.getByRole("heading", { level: 1, name: "설정" })).toBeVisible();
+    expect(breadcrumb().elements()).toHaveLength(0);
+
+    mount(
+      "/gaps",
+      <AppPage title="자격 갭 레이더">
+        <p>본문</p>
+      </AppPage>,
+    );
+    await expect
+      .element(page.getByRole("heading", { level: 1, name: "자격 갭 레이더" }))
+      .toBeVisible();
+    expect(breadcrumb().elements()).toHaveLength(0);
+  });
+});
+
+describe("표 테두리", () => {
+  const table = (containerClassName?: string) => (
+    <Table containerClassName={containerClassName}>
+      <TableHeader>
+        <TableRow>
+          <TableHead>업무</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow>
+          <TableCell>부가가치세 신고</TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
+  );
+  const container = () => document.querySelector('[data-slot="table-container"]');
+
+  it("기본은 둥근 1px 테두리와 연한 머리 줄이고, 테두리 상자 안에서는 containerClassName 으로 끈다", async () => {
+    mount("/bids", table());
+    await expect.element(page.getByRole("table")).toBeVisible();
+    const boxed = container();
+    expect(boxed && getComputedStyle(boxed).borderTopWidth).toBe("1px");
+    expect(boxed && getComputedStyle(boxed).borderTopLeftRadius).not.toBe("0px");
+    const header = document.querySelector('[data-slot="table-header"]');
+    expect(header && getComputedStyle(header).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+
+    mount("/bids", table("rounded-none border-0"));
+    await expect.element(page.getByRole("table")).toBeVisible();
+    const bare = container();
+    expect(bare && getComputedStyle(bare).borderTopWidth).toBe("0px");
+    expect(bare && getComputedStyle(bare).borderTopLeftRadius).toBe("0px");
+  });
+});
+
+describe("칩", () => {
+  it("sm 은 촘촘한 줄에 맞춰 20px 높이이고, brand 는 파란 1px 테두리다", async () => {
+    mount(
+      "/bids",
+      <p>
+        <Chip>회색</Chip>
+        <Chip tone="brand" size="sm">
+          강조
+        </Chip>
+      </p>,
+    );
+    const brand = page.getByText("강조", { exact: true }).element();
+    await expect.element(page.getByText("회색", { exact: true })).toBeVisible();
+    expect(brand.getBoundingClientRect().height).toBe(20);
+    const style = getComputedStyle(brand);
+    expect(style.borderTopWidth).toBe("1px");
+    expect(style.borderTopColor).toBe("rgb(27, 100, 218)");
+    expect(style.color).toBe("rgb(27, 100, 218)");
   });
 });

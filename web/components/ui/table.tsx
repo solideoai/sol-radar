@@ -1,9 +1,21 @@
 import * as React from "react";
 import { cn } from "cn";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+// 바깥 상자는 둥근 1px 테두리다(2026-10-28 화면 개편). 이미 테두리가 있는 상자 안의 표는
+// containerClassName="rounded-none border-0" 으로 꺼서 테두리가 두 겹이 되지 않게 한다.
+function Table({
+  className,
+  containerClassName,
+  ...props
+}: React.ComponentProps<"table"> & { containerClassName?: string }) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div
+      data-slot="table-container"
+      className={cn(
+        "relative w-full overflow-x-auto rounded-lg border border-border",
+        containerClassName,
+      )}
+    >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom type-body", className)}
@@ -14,7 +26,13 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return <thead data-slot="table-header" className={cn("[&_tr]:border-b", className)} {...props} />;
+  return (
+    <thead
+      data-slot="table-header"
+      className={cn("bg-muted/50 [&_tr]:border-b", className)}
+      {...props}
+    />
+  );
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
