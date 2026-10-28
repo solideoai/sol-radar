@@ -44,7 +44,7 @@ export async function readLiveNotices(
       .order("id")
       .limit(PAGE)
       .overrideTypes<GapNoticeRow[], { merge: false }>();
-    if (error) throw error;
+    if (error) throw new Error("자격 갭 레이더 공고를 읽지 못했습니다", { cause: error });
     rows.push(...data);
     if (data.length < PAGE) break;
     lastId = data[data.length - 1].id;

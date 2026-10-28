@@ -1,6 +1,6 @@
 import "server-only";
 // 자격 갭 레이더(/gaps, 스펙 polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md §5).
-export { getGapRadar } from "./gaps.service";
+export { getGapBuckets, getGapRadar } from "./gaps.service";
 export { gapsRepo } from "./gaps.repo";
 export type { GapsRepo } from "./gaps.repo";
 export {
@@ -22,6 +22,7 @@ export type {
   BlockerRow,
   GapAssumption,
   GapBucket,
+  GapBucketsView,
   GapQuery,
   GapRadar,
   GapRadarView,

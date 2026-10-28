@@ -8,7 +8,10 @@ export {
   parseMarketQuery,
 } from "./market.model";
 export type {
+  MarketAggregate,
   MarketBudgetBandKey,
+  MarketGapCounts,
+  MarketGapOverlay,
   MarketOverview,
   MarketPeriod,
   MarketQuery,
@@ -16,4 +19,4 @@ export type {
 } from "./market.model";
 export { marketRepo } from "./market.repo";
 export type { MarketRepo } from "./market.repo";
-export { aggregateMarket, getMarketOverview, marketWindow } from "./market.service";
+export { aggregateMarket, getMarketOverview, marketWindow, overlayGaps } from "./market.service";
