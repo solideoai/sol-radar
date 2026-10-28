@@ -46,8 +46,9 @@ export default function Loading() {
           </div>
           <div className="flex flex-col gap-3">
             <Skeleton className={`h-5 w-28 ${pulse}`} />
-            <div className="divide-y divide-border border-b border-border">
-              <div className="flex h-10 items-center gap-4 px-3">
+            {/* 실제 표와 같은 둥근 1px 테두리·연한 머리 줄이다(2026-10-28 화면 개편). */}
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+              <div className="flex h-10 items-center gap-4 bg-muted/50 px-3">
                 <Skeleton className={`h-4 w-full ${pulse}`} />
               </div>
               {Array.from({ length: 10 }, (_, key) => (
