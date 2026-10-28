@@ -2,29 +2,33 @@ import { describe, expect, it, vi } from "vitest";
 import type { MarketRow } from "./market.model";
 import { aggregateMarket, marketWindow } from "./market.service";
 
-// 나눠 읽기 시험용 가짜 Supabase. 요청마다 받은 id 하한(gt)을 적고, 정해 둔 쪽을 차례로 돌려준다.
-const { pages, lowerBounds } = vi.hoisted(() => ({
+// 나눠 읽기 시험용 가짜 Supabase. 요청마다 받은 (메서드, 열, 값)을 적고, 정해 둔 쪽을 차례로 돌려준다.
+const { pages, requests } = vi.hoisted(() => ({
   pages: [] as { id: string }[][],
-  lowerBounds: [] as (string | null)[],
+  requests: [] as unknown[][][],
 }));
 vi.mock("@/server/supabase", () => ({
   getSupabase: async () => ({
-    from: () => {
-      let after: string | null = null;
-      const builder = {
-        select: () => builder,
-        eq: () => builder,
-        neq: () => builder,
-        lte: () => builder,
-        gte: () => builder,
-        order: () => builder,
-        limit: () => builder,
-        gt: (_column: string, value: string) => {
-          after = value;
+    from: (table: string) => {
+      const calls: unknown[][] = [["from", table]];
+      const record =
+        (method: string) =>
+        (...args: unknown[]) => {
+          calls.push([method, ...args]);
           return builder;
-        },
+        };
+      const builder = {
+        select: record("select"),
+        eq: record("eq"),
+        neq: record("neq"),
+        lte: record("lte"),
+        gte: record("gte"),
+        contains: record("contains"),
+        order: record("order"),
+        limit: record("limit"),
+        gt: record("gt"),
         then: (resolve: (value: unknown) => void) => {
-          lowerBounds.push(after);
+          requests.push(calls);
           resolve({ data: pages.shift() ?? [], error: null });
         },
       };
@@ -74,7 +78,10 @@ describe("발주 현황 기간·주 경계(KST)", () => {
       NOW,
     );
     expect(overview.periodStartDate).toBe("2026-09-29");
+    expect(overview.readFromDate).toBe("2026-08-03");
     expect(overview.totals.notices).toBe(3);
+    // 마감 다가오는 큰 사업은 기간(30일)과 별개로 읽은 범위(08-03 00:00 KST 이후 게시) 전체에서 고른다
+    expect(overview.upcoming).toHaveLength(4);
     expect(overview.weekly).toHaveLength(13);
     expect(overview.weekly[0]).toEqual({ weekStart: "2026-08-03", count: 0 });
     expect(overview.weekly.at(-1)).toEqual({ weekStart: "2026-10-26", count: 1 });
@@ -156,27 +163,57 @@ describe("발주 현황 예산", () => {
 });
 
 describe("발주 현황 나눠 읽기", () => {
-  it("1,000건씩 id 순으로 이어 읽어 PostgREST 응답 상한에 걸리지 않는다", async () => {
+  const make = (n: number) => ({
+    id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
+    bid_id: `00000000-0000-4000-9000-${String(n).padStart(12, "0")}`,
+    title: `공고 ${n}`,
+    agency: null,
+    status: "OPEN",
+    budget_krw: null,
+    source_conflict: false,
+    published_at: "2026-10-20T01:00:00.000Z",
+    deadline_at: null,
+    categories: [],
+    relevance_state: "RELEVANT",
+  });
+  const READ_FROM = "2026-07-30T15:00:00.000Z";
+
+  it("live 나라장터 입찰공고 거르기로 1,000건씩 id 순으로 이어 읽는다", async () => {
     const { marketRepo } = await import("./market.repo");
-    const make = (n: number) => ({
-      id: `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`,
-      bid_id: `00000000-0000-4000-9000-${String(n).padStart(12, "0")}`,
-      title: `공고 ${n}`,
-      agency: null,
-      status: "OPEN",
-      budget_krw: null,
-      source_conflict: false,
-      published_at: "2026-10-20T01:00:00.000Z",
-      deadline_at: null,
-      categories: [],
-      relevance_state: "RELEVANT",
-    });
+    requests.length = 0;
     pages.push(
       Array.from({ length: 1000 }, (_, i) => make(i + 1)),
       Array.from({ length: 285 }, (_, i) => make(i + 1001)),
     );
-    const rows = await marketRepo.listLiveNotices("org", "2026-07-30T15:00:00Z", NOW.toISOString());
+    const rows = await marketRepo.listLiveNotices("org-1", READ_FROM, NOW.toISOString());
     expect(rows).toHaveLength(1285);
-    expect(lowerBounds).toEqual([null, make(1000).id]);
+    expect(requests).toHaveLength(2);
+    const filters = [
+      ["from", "opportunity_list_items"],
+      ["select", expect.any(String)],
+      ["eq", "org_id", "org-1"],
+      ["eq", "is_demo", false],
+      ["neq", "source", "fixture"],
+      ["contains", "source_families", ["G2B"]],
+      ["eq", "stage", "NOTICE"],
+      ["lte", "first_seen_at", NOW.toISOString()],
+      ["gte", "published_at", READ_FROM],
+      ["order", "id", { ascending: true }],
+      ["limit", 1000],
+    ];
+    expect(requests[0]).toEqual(filters);
+    expect(requests[1]).toEqual([...filters, ["gt", "id", make(1000).id]]);
+  });
+
+  it("1,000건짜리 쪽이 20번 이어지면 덜 세지 않도록 읽기 실패로 둔다", async () => {
+    const { marketRepo } = await import("./market.repo");
+    requests.length = 0;
+    const full = Array.from({ length: 1000 }, (_, i) => make(i + 1));
+    pages.push(...Array.from({ length: 21 }, () => full));
+    await expect(marketRepo.listLiveNotices("org-1", READ_FROM, NOW.toISOString())).rejects.toThrow(
+      "발주 현황 대상 공고가 너무 많아 집계하지 못했습니다",
+    );
+    expect(requests).toHaveLength(20);
+    pages.length = 0;
   });
 });

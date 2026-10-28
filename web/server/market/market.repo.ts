@@ -3,7 +3,7 @@ import { getSupabase } from "@/server/supabase";
 import { marketRowSchema, type MarketRow } from "./market.model";
 
 export type MarketRepo = {
-  /** 이 조직의 live 나라장터 입찰공고 중 readFrom 이후 게시·asOf 까지 처음 본 것 전부 */
+  /** 이 조직의 live 사업기회 중 나라장터 사본이 있고 readFrom 이후 게시·asOf 까지 처음 본 입찰공고 전부 */
   listLiveNotices(orgId: string, readFrom: string, asOf: string): Promise<MarketRow[]>;
 };
 
@@ -16,7 +16,9 @@ const COLUMNS =
 
 // 사업기회 뷰(security_invoker)를 anon 키 + 세션으로 읽는다. 조직 격리는 RLS 가 한다.
 // live 범위는 procurement_summary·procurement_live_metrics 와 같다(is_demo=false, 데모 수집기 아님, 처음 본 시각 ≤ 기준).
-// 화면 배지("나라장터 입찰공고 수집분")와 맞게 대표 공고 출처가 나라장터(G2B)이고 입찰공고(NOTICE) 단계인 것만 읽는다.
+// 화면 배지("나라장터 입찰공고 수집분")와 맞게 출처 사본 중 나라장터(G2B)가 하나라도 있는 사업기회만 읽는다.
+// 대표 공고 출처(source_family)로 거르지 않는다. 같은 사업이면 refresh_bid_opportunity 가 KWATER·LH·KEPCO 를
+// 나라장터보다 대표로 골라, 나라장터에도 실린 공고가 빠지기 때문이다. 단계(NOTICE)·제목·기관·예산·마감은 대표 공고 값이다.
 export const marketRepo: MarketRepo = {
   async listLiveNotices(orgId, readFrom, asOf) {
     const client = await getSupabase();
@@ -29,7 +31,7 @@ export const marketRepo: MarketRepo = {
         .eq("org_id", orgId)
         .eq("is_demo", false)
         .neq("source", "fixture")
-        .eq("source_family", "G2B")
+        .contains("source_families", ["G2B"])
         .eq("stage", "NOTICE")
         .lte("first_seen_at", asOf)
         .gte("published_at", readFrom)
@@ -37,7 +39,7 @@ export const marketRepo: MarketRepo = {
         .limit(PAGE_SIZE);
       if (after !== null) request = request.gt("id", after);
       const { data, error } = await request;
-      if (error) throw new Error("발주 현황 데이터를 읽지 못했습니다");
+      if (error) throw new Error("발주 현황 데이터를 읽지 못했습니다", { cause: error });
       for (const r of data)
         rows.push(
           marketRowSchema.parse({
