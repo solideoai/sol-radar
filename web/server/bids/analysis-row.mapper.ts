@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { Database } from "@/lib/database.types";
+import { relabelLegacyExplanation } from "@/server/shared";
 import {
   KEV_DISCLAIMER,
   SOL_SCORE_DISCLAIMER,
@@ -236,7 +237,8 @@ export function toAnalysisViewFromRows(rows: AnalysisRows): AnalysisView {
     solScore: scored && run.score !== null ? Number(run.score) : null,
     recommendation: scored ? run.recommendation : null,
     recommendationBasis: scored ? run.recommendation_basis : null,
-    explanation: run.explanation,
+    // 저장된 설명은 DB 그대로 두고, ADR-062 전 템플릿의 옛 권고 표기만 화면 모델에서 바꾼다.
+    explanation: run.explanation === null ? null : relabelLegacyExplanation(run.explanation),
     // 점수 run 인데 check 행이 없으면 결측이다(C4 는 늘 1건 이상 만든다). 사람이 본다.
     qualification:
       scored && checks.length > 0
