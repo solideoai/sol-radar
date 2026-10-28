@@ -352,8 +352,10 @@ describe("HTTP attempt quota reservation", () => {
     const store = createMemoryQuotaStore({ dailyLimit: 1 });
     const reserve = vi.spyOn(store, "reserve");
     const fetch = vi.fn(async () => empty());
+    // 공사 목록(cntrwkList)은 녹음으로 확인하지 않은 조회 방식이다
     const connector = createExternalSourceConnector({
       sourceKey: "kwater-bid-notice",
+      operation: "cntrwkList",
       serviceKey: "test-only-key",
       fetch,
     });

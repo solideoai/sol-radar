@@ -279,7 +279,9 @@ describe("external adapters", () => {
       "/B552555/OpenAdvcinfoReqList/getOpenAdvcinfoReqList",
       "/1230000/ao/PrcrmntReqInfoService/getPrcrmntReqInfoListThngDetail",
     ]);
-    expect(requests[0].searchParams.get("searchDt")).toBe("202610");
+    // K-water 입찰공고는 지난달(202609)부터 받는다
+    expect(requests[0].searchParams.get("searchDt")).toBe("202609");
+    expect(requests[1].searchParams.get("searchDt")).toBe("202610");
     expect(requests[1].searchParams.get("_type")).toBe("json");
     expect(requests[2].searchParams.get("opinionRegEndDtmStart")).toBe("20261021");
     expect(requests[2].searchParams.has("tndrbidRegDtStart")).toBe(false);
@@ -306,6 +308,26 @@ describe("external adapters", () => {
     expect(first.ok && first.page.capture?.partitionKey).not.toBe(
       second.ok && second.page.capture?.partitionKey,
     );
+  });
+
+  it("re-reads the previous notice month for K-water bids, across a year boundary", async () => {
+    const months: (string | null)[] = [];
+    const connector = createExternalSourceConnector({
+      sourceKey: "kwater-bid-notice",
+      serviceKey: "fake-key",
+      fetch: async (url) => {
+        months.push(new URL(url).searchParams.get("searchDt"));
+        return new Response(
+          '{"response":{"header":{"resultCode":"00"},"body":{"items":"","totalCount":0}}}',
+        );
+      },
+    });
+    const input = { from: "2026-01-04T15:00:00.000Z", to: "2026-01-05T15:00:00.000Z" };
+    const first = await connector.fetchPage({ ...input, cursor: null });
+    expect(first).toMatchObject({ ok: true, page: { nextCursor: "1:1" } });
+    const second = await connector.fetchPage({ ...input, cursor: "1:1" });
+    expect(second).toMatchObject({ ok: true, page: { nextCursor: null } });
+    expect(months).toEqual(["202512", "202601"]);
   });
 });
 
@@ -359,6 +381,61 @@ describe("KEPCO 실응답 녹음 재생", () => {
           { kind: "estimatedPriceBasicAmount", amountKrw: "0", unit: "KRW", vat: "UNVERIFIED" },
         ],
       },
+    });
+  });
+});
+
+// 2026-10-28 12:18 KST 실호출 녹음(가린 실응답, servcList 202610·1쪽·100행). 값을 고치거나 지어 넣지 않는다.
+const kwaterRecording = JSON.parse(
+  readFileSync(
+    new URL("../../../fixtures/recorded/15101635/servcList.202610.p1.masked.json", import.meta.url),
+    "utf8",
+  ),
+) as { fetchedAt: string; maskedBody: string };
+
+describe("K-water 실응답 녹음 재생", () => {
+  const parsed = parseExternalPayload(kwaterRecording.maskedBody);
+  if (!parsed.ok) throw new Error("recorded K-water page must parse");
+  const recordedAt = new Date(kwaterRecording.fetchedAt);
+  const normalize = (item: (typeof parsed.items)[number]) =>
+    normalizeExternalNotice("kwater-bid-notice", item, {
+      fetchedAt: recordedAt,
+      operation: "servcList",
+    });
+
+  it("100건 모두 격리·경고 없이 정규화하고 참가신청만 OPEN 으로 둔다", () => {
+    expect(parsed.totalCount).toBe(147);
+    const drafts = parsed.items.flatMap((item) => {
+      const result = normalize(item);
+      return result.ok ? [result] : [];
+    });
+    expect(drafts).toHaveLength(100);
+    expect(new Set(drafts.map(({ draft }) => draft.noticeId)).size).toBe(100);
+    expect(drafts.flatMap(({ warnings }) => warnings)).toEqual([]);
+    const open = drafts.filter(({ draft }) => draft.status === "OPEN");
+    expect(open).toHaveLength(32);
+    expect(open.every(({ draft }) => draft.sourceMetadata?.providerStatus === "참가신청")).toBe(
+      true,
+    );
+    // 신청마감일은 날짜만 있어 마감 시각을 만들지 않는다. 금액 0 은 예산으로 쓰지 않는다
+    expect(drafts.every(({ draft }) => draft.deadlineAt === null)).toBe(true);
+    expect(drafts.filter(({ draft }) => draft.budgetKrw !== null)).toHaveLength(53);
+    expect(open[0].draft).toMatchObject({
+      noticeId: "B5202603803",
+      title: "장흥댐 물문화관 전망대 전시콘텐츠 개발·조성 용역",
+      agency: "한국수자원공사",
+      budgetKrw: null,
+      sourceMetadata: {
+        participationStatus: "APPLICATION_OPEN",
+        dates: { tndrPblancEnddt: { raw: "20261108", precision: "DATE" } },
+      },
+    });
+  });
+
+  it("처음 보는 진행상태는 고르지 않고 격리한다", () => {
+    expect(normalize({ ...parsed.items[0], tndrStat: "공고취소" })).toMatchObject({
+      ok: false,
+      issue: { code: "SCHEMA_INVALID", detail: "PROVIDER_STATUS_NOT_VERIFIED" },
     });
   });
 });

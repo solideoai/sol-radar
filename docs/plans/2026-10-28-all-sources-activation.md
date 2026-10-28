@@ -30,11 +30,11 @@ updated: 2026-10-28
 | 완료 | 나라장터 입찰공고 15129394 | NOTICE | 수집 중 | — |
 | 0 | LH 입찰공고 15159012 | NOTICE | registry 켬 main `c5c88510` | 회사 B2~B4([[2026-10-27-lh-bid-notice-activation\|LH 계획]] §4.2) |
 | 1 | KEPCO 전자입찰계약 15148223 | NOTICE | 10-28 녹음 1회(71행, 정규화 71/71). 예산 = 추정가격(부가세 별도), registry 켬(한도 자체 상한 100/일, 사용자 결정), fixture·재생 시험([[../evidence/ingestion/20261028-kepco-contract/first-call\|증거]]) | push·회사 ff·재생성. 첨부(`http://srm.kepco.net`) 허용 여부 |
-| 1 | K-water 입찰공고 15101635 | NOTICE | 10-28 `servcList` 녹음 1회(2026-10, `totalCount 144`). 정규화 없음 | 정규화 새로, 월 단위 조회(`searchDt=YYYYMM`) 재조회 비용 확인 |
+| 1 | K-water 입찰공고 15101635 | NOTICE | 10-28 `servcList` 녹음 2회(10행·100행, `totalCount 147`). 정규화(참가신청만 OPEN, 사용자 결정)·앞 달 함께 조회·registry 켬·재생 시험([[../evidence/ingestion/20261028-kwater-bid-notice/first-call\|증거]]) | push·회사 ff·재생성 |
 | 2 | 나라장터 사전규격 15129437 | PRE_SPEC | 10-19 녹음, 수집 경로 없음 | 외부 서비스 목록(`source-keys.ts`) 확장, 정규화, 확인 호출 1회 |
 | 2 | 나라장터 발주계획 15129462 | PLAN | 위와 같음 | 위와 같음 |
 | 2 | LH 사전규격 15159011 | PRE_SPEC | 10-28 녹음 1회(의견 마감 10-28~11-04, `totalCount 28`, XML). 정규화 없음 | 안정 ID 확인(명세에 공고번호 칸 없음), 정규화 |
-| 2 | K-water 발주계획 15102588 | PLAN | 키 없음, 정규화 없음 | 키, `servc` 녹음 1회, 정규화(금액 백만원, 명세에 ID 칸 없음) |
+| 2 | K-water 발주계획 15102588 | PLAN | 키 넣음(10-28 11:51). 10-28 `servc` 녹음 1회(2026-10, `totalCount 156`, 10행). 정규화 없음 | 정규화(금액 백만원, 명세에 ID 칸 없음 → 발주월·부서·사업명으로 식별) |
 | 3 | 나라장터 조달요청 15129468 | PROCUREMENT_REQUEST | 상세 조회만. 10-28 목록 조회(`getPrcrmntReqInfoListGnrlServc`, 10-27 하루) 녹음 1회(`totalCount 73`) | 목록 정규화, 공고 연결 |
 | 3 | 업종 및 근거법규 15129467 | 참조 데이터 | 10-19 녹음 | 새 표 마이그레이션(`db:push` 승인), 주 1회 적재, 면허제한 업종 코드 풀이 |
 

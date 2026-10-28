@@ -45,7 +45,7 @@ export const EXTERNAL_SERVICES = {
     serviceId: "15101635",
     endpoint: "https://apis.data.go.kr/B500001/ebid/tndr3",
     operation: "servcList",
-    verifiedOperations: ["dmscptList"],
+    verifiedOperations: ["servcList", "dmscptList"],
   },
   "lh-bid-notice": {
     family: "LH",
@@ -120,6 +120,9 @@ export const treatsHttpUnauthorizedAsAuth = (key: ExternalSourceKey): boolean =>
 
 /** LH 입찰공고는 LH 가 직접 발주한다. 담당 지역본부(zoneHqCd)는 agencyCode 로 따로 남긴다 */
 export const LH_AGENCY_NAME = "한국토지주택공사";
+
+/** K-water 입찰공고는 K-water 가 직접 발주한다. 계약부서(cntrctDeptNm)는 agencyCode 로 따로 남긴다 */
+export const KWATER_AGENCY_NAME = "한국수자원공사";
 
 export const KEPCO_COMPANIES: Readonly<Record<string, string>> = {
   COM01: "한국전력공사",

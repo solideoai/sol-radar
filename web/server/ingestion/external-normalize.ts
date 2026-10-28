@@ -7,6 +7,7 @@ import {
   type ExternalSourceKey,
 } from "./external-connector.model";
 import { dateMetadata } from "./external-dates";
+import { normalizeKwaterBidNotice } from "./external-normalize-kwater";
 import { normalizeLhBidNotice } from "./external-normalize-lh";
 import { sanitizeExternalValue } from "./external-payload";
 import { collapseSpaces, finishDraft, type NormalizeOutcome } from "./normalize-common";
@@ -136,6 +137,7 @@ export function normalizeExternalNotice(
   if (sourceKey === "g2b-procurement-request")
     return rejected(sourceKey, "OPERATION_INPUTS_NOT_VERIFIED");
   if (sourceKey === "lh-bid-notice") return normalizeLhBidNotice(item, context);
+  if (sourceKey === "kwater-bid-notice") return normalizeKwaterBidNotice(item, context);
   if (sourceKey !== "kepco-ebid-contract")
     return rejected(sourceKey, "PROVIDER_STATUS_NOT_VERIFIED");
   const safe = sanitizeExternalValue(item);

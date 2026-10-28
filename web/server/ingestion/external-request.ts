@@ -43,6 +43,14 @@ function monthWindows(from: string, to: string): { from: string; to: string }[] 
   }
   return windows;
 }
+// K-water 입찰공고는 공고월(searchDt)로만 조회된다. 지난달 공고의 진행상태가 바뀌어도 이번 달 조회에는 없고,
+// 마감 시각도 없어 목록에서 걸러지지 않는다. 그래서 창의 첫 달 앞 한 달을 함께 받는다(하루 호출 약 2배).
+function previousMonthStart(day: string): string {
+  const start = new Date(calendarDay(day));
+  return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - 1, 1))
+    .toISOString()
+    .slice(0, 10);
+}
 function kstDay(raw: string | null): string {
   if (
     raw === null ||
@@ -98,9 +106,11 @@ export function buildExternalRequest(
     if (from > to) return failure("INVALID_INPUT", "WINDOW_REVERSED");
     const slices = isKepco
       ? splitKepcoWindow(from, to)
-      : options.sourceKey.startsWith("kwater-")
-        ? monthWindows(from, to)
-        : [{ from: from.replaceAll("-", ""), to: to.replaceAll("-", "") }];
+      : options.sourceKey === "kwater-bid-notice"
+        ? monthWindows(previousMonthStart(from), to)
+        : options.sourceKey.startsWith("kwater-")
+          ? monthWindows(from, to)
+          : [{ from: from.replaceAll("-", ""), to: to.replaceAll("-", "") }];
     const match = input.cursor === null ? ["", "0", "1"] : /^(\d+):(\d+)$/.exec(input.cursor);
     if (!match) return failure("INVALID_INPUT", "CURSOR_INVALID");
     const sliceIndex = Number(match[1]);

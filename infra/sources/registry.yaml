@@ -220,10 +220,10 @@ sources:
       "sourceFamily": "KWATER",
       "serviceId": "15101635",
       "serviceKeyEnv": "KWATER_BID_NOTICE_SERVICE_KEY",
-      "approvalStatus": "NOT_REQUESTED",
-      "enabled": false,
-      "verification": "NOT_VERIFIED",
-      "keyIssuance": "UNKNOWN",
+      "approvalStatus": "APPROVED",
+      "enabled": true,
+      "verification": "VERIFIED",
+      "keyIssuance": "ISSUED",
       "endpoint":
         {
           "baseUrl": "https://apis.data.go.kr/B500001/ebid/tndr3",
@@ -231,11 +231,22 @@ sources:
         },
       "method": "GET",
       "quota": { "daily": 10000, "tps": null },
-      "fieldMapping": {},
+      "fieldMapping":
+        {
+          "tndrPbanno": "noticeId (공백 없는 64자 이하, 아니면 격리)",
+          "tndrPblancNm": "title",
+          "agency": "한국수자원공사 고정. cntrctDeptNm 은 sourceMetadata.agencyCode(KWATER_DEPT)",
+          "tndrPblancDe": "noticeDate (날짜만)",
+          "tndrPblancEnddt": "sourceMetadata.dates (신청마감일, 날짜만이라 deadlineAt 은 비움)",
+          "tndrStat": "status (참가신청만 OPEN, 확인한 나머지 10개 값은 CLOSED, 처음 보는 값은 격리. 2026-10-28 실응답 확인)",
+          "tndrPlnprc": "budgetKrw (원 단위, 0 이면 비움, 부가세 포함 여부 미확인)",
+          "cntrctDivNm/ctrmthdCdNm/cntrctDeptNm": "sourceMetadata.attributes 와 content 줄",
+          "searchDt": "공고월. 정기 수집은 창의 첫 달 앞 한 달도 함께 받는다(지난달 공고의 상태 변화)",
+        },
       "changeNoticeUrl": "https://www.data.go.kr/data/15101635/openapi.do",
       "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
-      "sampleResponses": [],
-      "lastVerifiedAt": "2026-10-21",
+      "sampleResponses": ["fixtures/recorded/15101635/servcList.202610.p1.masked.json"],
+      "lastVerifiedAt": "2026-10-28",
     }
   - {
       "key": "lh-bid-notice",

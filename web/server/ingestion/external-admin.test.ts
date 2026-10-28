@@ -166,8 +166,9 @@ describe("external manual ingestion readiness", () => {
     });
     expect(broken.jobs).toEqual([]);
   });
-  // OPERATION_UNVERIFIED 는 기본 조회 방식(servcList)만 미검증이다. 녹음으로 검증한 dmscptList 요청은 Worker gate 처럼 받는다.
-  it("accepts a verified operation of an OPERATION_UNVERIFIED service and rejects the default one", async () => {
+  // OPERATION_UNVERIFIED 는 기본 조회 방식만 미검증이라는 뜻이다. 녹음으로 검증한 dmscptList 요청은 Worker gate 처럼 받고,
+  // 검증하지 않은 공사 목록(cntrwkList) 요청은 막는다.
+  it("accepts a verified operation of an OPERATION_UNVERIFIED service and rejects an unverified one", async () => {
     const snapshot: SourceReadinessSnapshot = {
       version: 1,
       updatedAt: "2026-10-21T02:00:00.000Z",
@@ -190,13 +191,13 @@ describe("external manual ingestion readiness", () => {
       await requestIngestionRun(ctx, kwater("dmscptList"), "kwater-verified", verified.deps),
     ).toMatchObject({ ok: true, status: 202 });
     const fallback = setup("live", async () => ({ ok: true }), { read: async () => snapshot });
-    expect(await requestIngestionRun(ctx, kwater(), "kwater-default", fallback.deps)).toMatchObject(
-      {
-        ok: false,
-        status: 503,
-        details: { component: "source", reason: "OPERATION_UNVERIFIED" },
-      },
-    );
+    expect(
+      await requestIngestionRun(ctx, kwater("cntrwkList"), "kwater-unverified", fallback.deps),
+    ).toMatchObject({
+      ok: false,
+      status: 503,
+      details: { component: "source", reason: "OPERATION_UNVERIFIED" },
+    });
     expect(fallback.jobs).toEqual([]);
   });
 });
