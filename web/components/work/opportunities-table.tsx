@@ -144,13 +144,14 @@ export function OpportunityTable({
           표를 좌우로 이동해 모든 열을 확인할 수 있습니다.
         </p>
       )}
+      {/* 넘침 감지(ref)·가로 스크롤 영역(role·aria) 때문에 ui/table 의 바깥 상자를 쓰지 않는다. 같은 둥근 1px 테두리를 여기서 그린다. */}
       <div
         ref={scrollRef}
         tabIndex={hasOverflow ? 0 : undefined}
         role="region"
         aria-label="입찰 공고 표, 가로 스크롤 가능"
         aria-describedby={hasOverflow ? hintId : undefined}
-        className="w-full overflow-x-auto rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="w-full overflow-x-auto rounded-lg border border-border outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <table
           className={cn(
@@ -232,7 +233,7 @@ export function OpportunityTable({
                         id={`opportunity-title-${item.id}`}
                         href={opportunityHref(item.bidId, listQuery)}
                         title={item.title}
-                        className="line-clamp-2 rounded-sm break-words outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                        className="line-clamp-2 rounded-sm wrap-anywhere outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
                       >
                         {item.title}
                       </Link>
