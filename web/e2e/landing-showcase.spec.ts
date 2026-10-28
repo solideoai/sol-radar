@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { DATA_SOURCES, SOLIDEO_SERVICES } from "@/components/landing/showcase-data";
+import { DATA_SOURCES, LANDING_VIDEO, SOLIDEO_SERVICES } from "@/components/landing/showcase-data";
 
 // 히어로 아래 흐르는 줄 둘: 솔리데오 수행 서비스와 데이터 출처(스펙 2026-10-28-ui-refresh §4.5).
 // 목록은 두 번 이어 붙여 흐르고, 둘째 사본은 화면 낭독기에서 숨긴다(aria-hidden). 첫 사본만 센다.
@@ -102,4 +102,49 @@ test("흐르는 줄이 페이지를 가로로 넘치게 하지 않는다", async
     );
     expect(overflow).toBe(0);
   }
+});
+
+// 녹화 영상: 히어로와 흐르는 줄 사이(06-UI-UX §3.4). 소리 없이 되풀이하고, 자동 재생 속성 없이 화면이 열리면 스스로 튼다.
+// 움직임 줄이기면 틀지 않고 포스터와 재생 조작 막대를 둔다.
+const landingVideo = (page: Page) => page.locator("main video");
+
+test("녹화 영상은 히어로와 흐르는 줄 사이에서 소리 없이 되풀이해 재생된다", async ({ page }) => {
+  expect(LANDING_VIDEO).not.toBeNull();
+  await page.goto("/");
+  const video = landingVideo(page);
+  await expect(video).toHaveCount(1);
+  await expect(video).toHaveJSProperty("muted", true);
+  await expect(video).toHaveJSProperty("loop", true);
+  await expect(video).toHaveJSProperty("playsInline", true);
+  await expect(video).not.toHaveAttribute("autoplay");
+  await expect(video).toHaveAttribute("poster", LANDING_VIDEO?.poster ?? "");
+  const sources = await video
+    .locator("source")
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute("src")));
+  expect(sources).toEqual([LANDING_VIDEO?.webm, LANDING_VIDEO?.mp4]);
+
+  // 1초 뒤에도 재생 중이고 시간이 흘렀다(파일을 실제로 받아 튼다).
+  await page.waitForTimeout(1000);
+  await expect(video).toHaveJSProperty("paused", false);
+  expect(await video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThan(
+    0,
+  );
+
+  const heroTitle = await page.getByRole("heading", { level: 1 }).boundingBox();
+  const heroBottom = heroTitle === null ? Infinity : heroTitle.y + heroTitle.height;
+  const videoBox = await video.boundingBox();
+  const marqueeTop = (await regionOf(page, SERVICES_TITLE).boundingBox())?.y ?? -Infinity;
+  expect(videoBox).not.toBeNull();
+  expect(videoBox?.y ?? -Infinity).toBeGreaterThan(heroBottom);
+  expect((videoBox?.y ?? Infinity) + (videoBox?.height ?? 0)).toBeLessThanOrEqual(marqueeTop);
+});
+
+test("움직임 줄이기를 켜고 열면 영상은 멈춘 채 재생 조작 막대를 보인다", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const video = landingVideo(page);
+  await expect(video).toHaveJSProperty("controls", true);
+  await page.waitForTimeout(1000);
+  await expect(video).toHaveJSProperty("paused", true);
+  expect(await video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBe(0);
 });

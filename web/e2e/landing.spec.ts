@@ -138,11 +138,12 @@ test("1280px 미만에서만 데스크톱 화면 안내가 보인다", async ({ 
 });
 
 // 등장 애니메이션은 motion-safe 에만 걸려 있다. 움직임 줄이기를 켜면 하나도 남지 않아야 한다.
+// video 의 source 처럼 그려지지 않는 요소는 계산 스타일이 없어 animationName 이 빈 문자열이라 뺀다.
 const animatedCount = (page: Page) =>
   page.evaluate(
     () =>
       [...document.querySelectorAll("body *")].filter(
-        (element) => getComputedStyle(element).animationName !== "none",
+        (element) => !["none", ""].includes(getComputedStyle(element).animationName),
       ).length,
   );
 
