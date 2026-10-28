@@ -115,32 +115,41 @@ test("흐르는 줄이 페이지를 가로로 넘치게 하지 않는다", async
   }
 });
 
-// 히어로 아래 업무 데모: 동영상이 아니라 HTML 로 그린 앱 화면이 장면을 바꿔 가며 흐른다(2026-10-28 사용자 지시).
+// 흐르는 줄 둘 아래 업무 데모: 동영상이 아니라 HTML 로 그린 앱 화면이 장면을 바꿔 가며 흐른다(2026-10-28 사용자 지시).
+// 출처 줄 고지 문장 바로 아래에 둔다(2026-10-28 사용자 요청). 판이 화면에 보일 때만 흐르므로 시험은 판까지 스크롤한다.
 // 장면은 data-scene, 단계는 data-step 으로 드러낸다. 움직이는 판은 화면 낭독기에서 빠지고 흐름 요약 문단을 읽는다.
 const workDemo = (page: Page) => page.getByRole("region", { name: "SOL RADAR 업무 데모" });
 
-test("업무 데모는 히어로와 흐르는 줄 사이에서 장면을 바꿔 가며 흐른다", async ({ page }) => {
+test("업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 가며 흐른다", async ({ page }) => {
   await page.goto("/");
   const demo = workDemo(page);
   await expect(demo).toHaveAttribute("data-scene", "1");
+  await demo.scrollIntoViewIfNeeded();
   await expect(demo).toHaveAttribute("data-scene", "2", { timeout: 10_000 });
   await expect(demo.locator('[aria-hidden="true"][inert]')).toHaveCount(1);
   await expect(
     demo.getByText("가상 공고로 만든 예시 화면입니다. 출처 이름과 로고만 실제입니다."),
   ).toBeVisible();
 
-  const heroTitle = await page.getByRole("heading", { level: 1 }).boundingBox();
+  // 흐르는 줄 둘이 먼저이고, 데모 판은 출처 줄의 고지 문장 아래에서 시작한다.
+  const notice = await page
+    .getByText("기관 로고는 공고 데이터 출처 표시이며 제휴·인증을 뜻하지 않습니다.")
+    .boundingBox();
+  const sourcesBox = await regionOf(page, SOURCES_TITLE).boundingBox();
   const demoBox = await demo.boundingBox();
-  const marqueeTop = (await regionOf(page, SERVICES_TITLE).boundingBox())?.y ?? -Infinity;
-  expect(heroTitle).not.toBeNull();
+  expect(notice).not.toBeNull();
+  expect(sourcesBox).not.toBeNull();
   expect(demoBox).not.toBeNull();
-  expect(demoBox?.y ?? -Infinity).toBeGreaterThan((heroTitle?.y ?? 0) + (heroTitle?.height ?? 0));
-  expect((demoBox?.y ?? Infinity) + (demoBox?.height ?? 0)).toBeLessThanOrEqual(marqueeTop);
+  expect(demoBox?.y ?? -Infinity).toBeGreaterThanOrEqual((notice?.y ?? 0) + (notice?.height ?? 0));
+  expect(demoBox?.y ?? -Infinity).toBeGreaterThanOrEqual(
+    (sourcesBox?.y ?? 0) + (sourcesBox?.height ?? 0),
+  );
 });
 
 test("데모 멈춤을 누르면 그 단계에 머물고, 데모 재생을 누르면 이어서 흐른다", async ({ page }) => {
   await page.goto("/");
   const demo = workDemo(page);
+  await demo.scrollIntoViewIfNeeded();
   await expect(demo).toHaveAttribute("data-step", /^[1-9]/);
   await demo.getByRole("button", { name: "데모 멈춤", exact: true }).click();
   const step = (await demo.getAttribute("data-step")) ?? "";

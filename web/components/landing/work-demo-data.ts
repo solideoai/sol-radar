@@ -1,6 +1,6 @@
 import { DATA_SOURCES } from "@/components/landing/showcase-data";
 
-// 히어로 아래 업무 데모(work-demo.tsx)의 흐름과 숫자. 공고·숫자는 지어낸 것이고, 출처 이름과 로고만 실제다.
+// 랜딩 업무 데모(work-demo.tsx)의 흐름과 숫자. 공고·숫자는 지어낸 것이고, 출처 이름과 로고만 실제다.
 // 화면은 상태 하나(단계 번호)로 움직인다. 단계마다 머무는 시간과, 가짜 커서가 가리키거나 누르는 곳을 적는다.
 
 export type DemoScene = 1 | 2 | 3 | 4 | 5;

@@ -33,7 +33,7 @@ import {
 import styles from "@/components/landing/work-demo.module.css";
 import { Button } from "@/components/ui/button";
 
-// 히어로 아래 "SOL RADAR 업무 데모". 동영상이 아니라 앱 화면을 닮게 HTML 로 그리고, 가짜 커서가 흐름을 따라 누른다.
+// 흐르는 줄 둘(출처 고지 문장) 아래 "SOL RADAR 업무 데모". 동영상이 아니라 앱 화면을 닮게 HTML 로 그리고, 가짜 커서가 흐름을 따라 누른다.
 // 상태는 단계 번호 하나다. 단계가 바뀌면 화면 쪽 요소가 CSS 전환(투명도·위치·막대 폭·숫자)으로 따라온다.
 // 화면에 보이고 탭이 보일 때만 흐른다. 움직임 줄이기면 분석 상세의 완성 화면에서 멈춰 있고, 재생 버튼을 눌러야 흐른다.
 // 움직이는 판은 화면 낭독기와 키보드에서 뺀다(aria-hidden·inert). 같은 흐름을 sr-only 문단으로 읽게 한다.

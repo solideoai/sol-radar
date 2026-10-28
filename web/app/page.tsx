@@ -49,10 +49,10 @@ export default async function Home() {
         className="flex-1 bg-background break-keep outline-none selection:bg-brand/15"
       >
         <Hero startHref={startHref} />
-        {/* 동영상 대신 HTML 로 그린 업무 데모(가상 공고)가 흐른다. */}
-        <WorkDemo />
         <ServicesMarquee />
         <SourcesMarquee />
+        {/* 동영상 대신 HTML 로 그린 업무 데모(가상 공고)가 흐른다. 출처 줄 고지 문장 아래다(2026-10-28 사용자 요청). */}
+        <WorkDemo />
         <ProductPreviewSection />
         <ProblemSection />
         <FeaturesSection />

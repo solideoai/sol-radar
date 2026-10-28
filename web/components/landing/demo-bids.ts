@@ -160,7 +160,7 @@ type WorkDemoSource = "나라장터" | "LH" | "K-water" | "한국전력공사";
 
 export type WorkDemoBid = DemoBid & { source: WorkDemoSource };
 
-// 히어로 아래 업무 데모(work-demo.tsx)의 관련 공고 표에만 더 보이는 가상 공고. 분석 예시 목록(DEMO_BIDS)은 3건 그대로다.
+// 랜딩 업무 데모(work-demo.tsx)의 관련 공고 표에만 더 보이는 가상 공고. 분석 예시 목록(DEMO_BIDS)은 3건 그대로다.
 // 기관 공고판(LH·K-water·한국전력공사)에서 온 공고라, 발주처는 그 기관 안의 가상 부서로 적는다.
 const MORE_INPUTS: (DemoBidInput & { source: WorkDemoSource })[] = [
   {
