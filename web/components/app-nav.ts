@@ -9,6 +9,7 @@ import {
   GitCompareArrowsIcon,
   LayoutDashboardIcon,
   NetworkIcon,
+  RadarIcon,
   SettingsIcon,
   StarIcon,
   UsersIcon,
@@ -62,6 +63,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     id: "analysis",
     label: "분석",
     items: [
+      { href: "/gaps", label: "자격 갭 레이더", icon: RadarIcon, status: "released" },
       { href: "/market", label: "발주 현황", icon: ChartColumnIcon, status: "released" },
       {
         href: "/analysis",
