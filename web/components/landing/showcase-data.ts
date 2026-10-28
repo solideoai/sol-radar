@@ -92,11 +92,5 @@ export const DATA_SOURCES: readonly DataSource[] = [
   },
 ];
 
-// 첫 화면 녹화 영상. D1 운영 사이트의 업무 화면을 1440×900 으로 녹화해 소리 없이 15~30초로 자른 클립이다(06-UI-UX §3.4).
-// 로그인한 사람 이름은 흐리게 가린다. null 이면 영상 구역을 그리지 않는다.
-export type LandingVideoFiles = { webm: string; mp4: string; poster: string };
-export const LANDING_VIDEO: LandingVideoFiles | null = {
-  webm: "/landing/demo.webm",
-  mp4: "/landing/demo.mp4",
-  poster: "/landing/demo-poster.webp",
-};
+// 첫 화면 녹화 영상. 새 화면이 운영에 배포된 뒤 녹화해 채운다. null 이면 영상 구역을 그리지 않는다.
+export const LANDING_VIDEO: { webm: string; mp4: string; poster: string } | null = null;

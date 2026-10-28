@@ -6,11 +6,9 @@ import { FinalCtaSection } from "@/components/landing/final-cta-section";
 import { Hero } from "@/components/landing/hero";
 import { HowItWorksSection } from "@/components/landing/how-it-works-section";
 import { startHrefFor } from "@/components/landing/landing-links";
-import { LandingVideo } from "@/components/landing/landing-video";
 import { PrinciplesSection } from "@/components/landing/principles-section";
 import { ProblemSection } from "@/components/landing/problem-section";
 import { ProductPreviewSection } from "@/components/landing/product-preview-section";
-import { LANDING_VIDEO } from "@/components/landing/showcase-data";
 import { ServicesMarquee, SourcesMarquee } from "@/components/landing/showcase-marquees";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -50,8 +48,7 @@ export default async function Home() {
         className="flex-1 bg-background break-keep outline-none selection:bg-brand/15"
       >
         <Hero startHref={startHref} />
-        {/* 녹화 영상 구역은 영상 파일(LANDING_VIDEO)이 있을 때만 그린다. */}
-        {LANDING_VIDEO && <LandingVideo video={LANDING_VIDEO} />}
+        {/* 녹화 영상 구역은 영상 파일(LANDING_VIDEO)이 들어오는 2차 배포에서 여기에 생긴다. */}
         <ServicesMarquee />
         <SourcesMarquee />
         <ProductPreviewSection />
