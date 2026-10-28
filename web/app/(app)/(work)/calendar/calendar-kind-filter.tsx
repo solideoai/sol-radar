@@ -34,7 +34,8 @@ export function CalendarKindFilter({
       <span aria-hidden className="type-label text-muted-foreground">
         {KIND_FILTER_LABEL}
       </span>
-      <ul className="inline-flex flex-wrap rounded-lg border border-border p-0.5">
+      {/* 켜고 끄는 링크(주소가 바뀐다)라 화면 이동 탭과 같은 알약이다. 바깥 테두리는 두지 않는다(2026-10-28 화면 개편). */}
+      <ul className="flex flex-wrap gap-1">
         {KIND_ORDER.map((kind) => {
           const on = kinds.includes(kind);
           const Icon = KIND_ICON[kind];
@@ -45,7 +46,7 @@ export function CalendarKindFilter({
                 title={KIND_LABELS[kind]}
                 data-kind={kind}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1 type-label whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 type-label whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                   on
                     ? "bg-selected font-semibold text-selected-foreground"
                     : "text-muted-foreground hover:bg-muted",

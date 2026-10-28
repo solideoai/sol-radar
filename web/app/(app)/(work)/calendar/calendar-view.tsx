@@ -400,15 +400,15 @@ export function BidCalendar({
             </Link>
           </nav>
         </div>
-        {/* 켜진 보기는 연한 파랑 알약이다(2026-10-28 화면 개편: 설정 메뉴·종류 칩과 같은 규칙). */}
-        <nav aria-label="보기" className="inline-flex rounded-lg border border-border p-0.5">
+        {/* 주소를 바꾸는 링크라 화면 이동 탭 모양이다(2026-10-28 화면 개편: 설정 메뉴와 같은 알약, 바깥 테두리 없음). */}
+        <nav aria-label="보기" className="flex gap-1">
           {VIEW_ORDER.map((option) => (
             <Link
               key={option}
               href={links.views[option]}
               aria-current={option === view ? "page" : undefined}
               className={cn(
-                "rounded-md px-3 py-1 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                "rounded-md px-3 py-1.5 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                 option === view
                   ? "bg-selected font-semibold text-selected-foreground"
                   : "text-muted-foreground hover:bg-muted",
