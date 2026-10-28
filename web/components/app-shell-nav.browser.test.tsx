@@ -186,6 +186,26 @@ describe("AppPage 머리", () => {
     expect(head && getComputedStyle(head).borderBottomWidth).toBe("1px");
   });
 
+  // 상세 화면(/bids/123)의 화면 이름은 그 메뉴일 뿐 지금 쪽이 아니다. aria-current 는 메뉴 주소 그 자체일 때만이다.
+  it("경로의 화면 이름은 메뉴 화면에서만 지금 쪽(aria-current)이다", async () => {
+    for (const [pathname, current] of [
+      ["/bids", "page"],
+      ["/bids/123", null],
+    ] as const) {
+      show({
+        pathname,
+        children: (
+          <AppPage title="입찰 공고">
+            <p>본문</p>
+          </AppPage>
+        ),
+      });
+      const screen = breadcrumb().getByText("입찰 공고");
+      await expect.element(screen).toBeVisible();
+      expect(screen.element().getAttribute("aria-current")).toBe(current);
+    }
+  });
+
   it("묶음이 없는 화면(설정)과 앱 틀 밖은 경로 줄이 없다", async () => {
     show({
       pathname: "/settings",

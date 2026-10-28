@@ -163,3 +163,7 @@ export const breadcrumbOf = (pathname: string): { group: string; screen: string 
       .filter((item) => item.status === "released" && isUnder(pathname, item.href))
       .map((item) => ({ group: group.label, screen: item.label })),
   )[0] ?? null;
+
+// 경로의 화면 이름이 지금 화면 그 자체인지 — 주소가 메뉴 주소와 정확히 같을 때만이다. 상세 화면(/bids/123)은 아니다.
+export const isMenuPage = (pathname: string) =>
+  NAV_GROUPS.some((group) => group.items.some((item) => item.href === pathname));

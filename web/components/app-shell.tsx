@@ -65,8 +65,9 @@ const SIDEBAR_ICON_WIDTH = { "--sidebar-width-icon": "4rem" } as React.CSSProper
 
 // 활성 메뉴는 연한 파랑 바탕(sidebar-accent) + 파란 글자다(2026-10-28 화면 개편). hover 는 파랑을 쓰지 않고 회색(accent)으로 칠한다.
 // 같은 파랑이면 마우스를 올린 메뉴가 지금 화면처럼 보여 선택이 둘로 보인다. 활성 메뉴는 마우스를 올려도 활성 바탕 그대로다.
+// 누르는 순간(active)과 메뉴를 연 채 올린 사용자 메뉴(data-open)도 부품 기본값(파랑)을 회색으로 덮는다. 활성 메뉴는 눌러도 파랑이다.
 const MENU_HOVER =
-  "hover:bg-accent hover:text-foreground data-active:hover:bg-sidebar-accent data-active:hover:text-sidebar-accent-foreground";
+  "hover:bg-accent hover:text-foreground active:bg-accent active:text-foreground data-open:hover:bg-accent data-open:hover:text-foreground data-active:hover:bg-sidebar-accent data-active:hover:text-sidebar-accent-foreground data-active:active:bg-sidebar-accent data-active:active:text-sidebar-accent-foreground";
 
 // 메뉴 아이콘은 글자보다 옅은 회색이고, 지금 화면은 파랑, 마우스를 올린 메뉴는 글자색이다.
 // 아이콘이 글자와 같은 검정이면 아이콘 줄이 글자보다 먼저 눈에 든다.
@@ -189,11 +190,12 @@ function AppSidebar({
       <SidebarHeader>
         {/* 왼쪽 끝을 아래 묶음 아이콘·받은 초대·아래 고정 칸 아이콘과 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다.
             로고는 대시보드 링크다. 사이드바 메뉴처럼 보던 출처를 이어 간다. 조직 이름 줄은 2026-10-28 사용자 결정으로 뺐다.
-            접으면 글자가 숨어 이름이 없어지므로 aria-label 을 단다. */}
+            접으면 글자가 숨어 이름이 없어지므로 aria-label 을 단다. 펼쳤을 때 보이는 "SOL RADAR" 를 이름 앞에 둔다
+            — 보이는 글자가 접근 이름에 없으면 음성 명령으로 부를 수 없다(axe label-content-name-mismatch). */}
         <div className="flex flex-col px-2 pt-1 pb-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
           <Link
             href={navHrefOf("/dashboard", navOrigin, defaultOrigin)}
-            aria-label="대시보드로 이동"
+            aria-label="SOL RADAR 대시보드로 이동"
             onClick={closeDrawer}
             className="flex min-w-0 rounded-md ring-sidebar-ring outline-hidden focus-visible:ring-2"
           >

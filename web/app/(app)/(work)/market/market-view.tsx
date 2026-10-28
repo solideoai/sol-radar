@@ -493,7 +493,7 @@ function Segmented({
             <Link
               href={item.href}
               aria-current={item.current ? "page" : undefined}
-              className="inline-flex items-center rounded-md px-3 py-1.5 type-label whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground"
+              className="inline-flex items-center rounded-md px-3 py-1 type-label whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground"
             >
               {item.text}
             </Link>

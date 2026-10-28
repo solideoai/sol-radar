@@ -230,7 +230,11 @@ export function UserList({
             <EmptyResult q={q} />
           ) : (
             // table-fixed 가 없으면 긴 이름·이메일이 표를 넓혀 말줄임되지 않는다.
-            <Table className="table-fixed" aria-labelledby="users-title">
+            <Table
+              className="table-fixed"
+              containerClassName="rounded-none border-0"
+              aria-labelledby="users-title"
+            >
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-6">사용자</TableHead>

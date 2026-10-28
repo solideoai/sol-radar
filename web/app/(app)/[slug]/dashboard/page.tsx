@@ -160,7 +160,11 @@ function DueSoon({ slug, tasks }: { slug: string; tasks: TaskView[] }) {
         // -mb-4: 줄마다 위아래 여백이 있어 그대로 두면 표 아래만 비어 보인다.
         <CardContent className="@container -mb-4 px-0">
           {/* table-fixed 가 없으면 긴 제목이 표를 넓혀 말줄임되지 않는다. */}
-          <Table className="table-fixed" aria-labelledby="due-soon-title">
+          <Table
+            className="table-fixed"
+            containerClassName="rounded-none border-0"
+            aria-labelledby="due-soon-title"
+          >
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-6">작업</TableHead>
