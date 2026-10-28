@@ -15,20 +15,20 @@ export function buildOrgChart(departments: Department[], members: TeamMemberList
       childrenByParent.set(department.parentId, siblings);
     }
   }
-  const membersByTeam = new Map<string, TeamMemberListItem[]>();
+  const membersByDepartment = new Map<string, TeamMemberListItem[]>();
   for (const member of uniqueMembers) {
-    const team = membersByTeam.get(member.departmentId) ?? [];
+    const team = membersByDepartment.get(member.departmentId) ?? [];
     team.push(member);
-    membersByTeam.set(member.departmentId, team);
+    membersByDepartment.set(member.departmentId, team);
   }
   const build = (department: Department, ancestors: Set<string>): OrgNode => {
-    const isTeam = department.kind === "TEAM" || department.kind === null;
     const children = ancestors.has(department.id)
       ? []
       : [...(childrenByParent.get(department.id) ?? [])]
           .sort((a, b) => a.code.localeCompare(b.code))
           .map((child) => build(child, new Set([...ancestors, department.id])));
-    const people = isTeam ? (membersByTeam.get(department.id) ?? []) : [];
+    // 본부·그룹 직속 직원도 그 부서의 members 다(ADR-063).
+    const people = membersByDepartment.get(department.id) ?? [];
     const ids = new Set(people.map((person) => person.id));
     const collect = (node: OrgNode) => {
       for (const person of node.members) ids.add(person.id);

@@ -131,8 +131,8 @@ describe("POST /api/v1/team-members", () => {
     }
     expect(rpc.calls).toEqual([]);
   });
-  it("DB 거절은 v1 오류로 옮긴다 — 팀이 아닌 부서는 400 departmentId", async () => {
-    rpc.reply = { data: null, error: { code: "P0001", message: "DEPARTMENT_NOT_TEAM" } };
+  it("DB 거절은 v1 오류로 옮긴다 — 이 조직에 없는 부서는 400 departmentId", async () => {
+    rpc.reply = { data: null, error: { code: "P0001", message: "DEPARTMENT_NOT_FOUND" } };
     const response = await post({ name: "새직원", departmentId: TEAM, jobTitleId: TITLE });
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({

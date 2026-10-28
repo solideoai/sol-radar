@@ -37,7 +37,8 @@ export function OrgChart({
 }) {
   const chart = useMemo(() => buildOrgChart(directory.departments, directory.members), [directory]);
   const nodes = flattenNodes(chart.roots);
-  const teams = nodes.filter((node) => node.department.kind === "TEAM");
+  // 고를 수 있는 부서: 팀과, 직속 직원이 있는 본부·그룹(ADR-063).
+  const teams = nodes.filter((node) => node.department.kind === "TEAM" || node.members.length > 0);
   const defaultTeam = teams.find((node) => node.members.length > 0) ?? teams[0];
   const searchParams = useSearchParams();
   const requestedTeams = searchParams.getAll("team");
@@ -179,7 +180,11 @@ export function OrgChart({
                   tabIndex={-1}
                   className="type-heading wrap-anywhere outline-none"
                 >
-                  {selectedTeam.department.name} · {selectedTeam.memberCount}명
+                  {selectedTeam.department.name}
+                  {selectedTeam.department.kind !== "TEAM" && selectedTeam.children.length
+                    ? " 직속"
+                    : ""}{" "}
+                  · {selectedTeam.members.length}명
                   {selectedTeam.department.targetCount !== null
                     ? ` · 목표 ${selectedTeam.department.targetCount}명`
                     : ""}
@@ -252,6 +257,51 @@ export function OrgChart({
     </AppPage>
   );
 }
+// 팀, 또는 본부·그룹 직속 직원 묶음을 고르는 줄(ADR-063).
+function SelectRow({
+  id,
+  label,
+  count,
+  selected,
+  onSelect,
+  isRoot = false,
+  direct = false,
+}: {
+  id: string;
+  label: string;
+  count: number;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  isRoot?: boolean;
+  direct?: boolean;
+}) {
+  // 펼침 단추의 인원 칸과 id 가 겹치지 않게 직속 줄은 따로 붙인다.
+  const countId = `org-department-${id}-${direct ? "direct-" : ""}count`;
+  return (
+    <div className="relative">
+      <Button
+        variant="ghost"
+        aria-label={label}
+        aria-describedby={countId}
+        aria-current={selected ? "true" : undefined}
+        onClick={() => onSelect(id)}
+        className={cn(
+          "peer h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 pr-10 text-left whitespace-normal aria-current:bg-selected aria-current:font-semibold aria-current:text-selected-foreground aria-current:hover:bg-selected",
+          // 최상위 팀 이름을 본부 이름(펼침 화살표 다음)과 같은 줄에 맞춘다.
+          isRoot && "pl-8",
+        )}
+      >
+        <span className="min-w-0 type-label wrap-anywhere">{label}</span>
+      </Button>
+      <span
+        id={countId}
+        className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 type-caption peer-aria-current:text-selected-foreground"
+      >
+        {count}명
+      </span>
+    </div>
+  );
+}
 function DepartmentNode({
   node,
   expanded,
@@ -271,31 +321,18 @@ function DepartmentNode({
   const isTeam = department.kind === "TEAM";
   const contentId = `org-department-${department.id}`;
   const isExpanded = expanded.has(department.id);
+  const selected = selectedTeamId === department.id;
   return (
     <li className="min-w-0">
-      {isTeam ? (
-        <div className="relative">
-          <Button
-            variant="ghost"
-            aria-label={department.name}
-            aria-describedby={`${contentId}-count`}
-            aria-current={selectedTeamId === department.id ? "true" : undefined}
-            onClick={() => onSelectTeam(department.id)}
-            className={cn(
-              "peer h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 pr-10 text-left whitespace-normal aria-current:bg-selected aria-current:font-semibold aria-current:text-selected-foreground aria-current:hover:bg-selected",
-              // 최상위 팀 이름을 본부 이름(펼침 화살표 다음)과 같은 줄에 맞춘다.
-              isRoot && "pl-8",
-            )}
-          >
-            <span className="min-w-0 type-label wrap-anywhere">{department.name}</span>
-          </Button>
-          <span
-            id={`${contentId}-count`}
-            className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 type-caption peer-aria-current:text-selected-foreground"
-          >
-            {node.memberCount}명
-          </span>
-        </div>
+      {isTeam || (!node.children.length && node.members.length) ? (
+        <SelectRow
+          id={department.id}
+          label={department.name}
+          count={node.memberCount}
+          selected={selected}
+          onSelect={onSelectTeam}
+          isRoot={isRoot}
+        />
       ) : node.children.length ? (
         <>
           <div className="relative">
@@ -323,6 +360,18 @@ function DepartmentNode({
             hidden={!isExpanded}
             className="ml-3 grid min-w-0 gap-1 border-l border-border pl-4"
           >
+            {node.members.length ? (
+              <li className="min-w-0">
+                <SelectRow
+                  id={department.id}
+                  label={`${department.name} 직속`}
+                  count={node.members.length}
+                  selected={selected}
+                  onSelect={onSelectTeam}
+                  direct
+                />
+              </li>
+            ) : null}
             {node.children.map((child) => (
               <DepartmentNode
                 key={child.department.id}
