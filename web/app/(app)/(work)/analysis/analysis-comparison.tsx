@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
 import { formatKst } from "@/components/bids/format";
 import { FACTOR_LABEL, MISSING_REASON_LABEL, REVIEW_FLAG_LABEL } from "@/components/bids/labels";
@@ -224,7 +232,7 @@ export function AnalysisComparison({
           비교 기준이 다릅니다. 각 분석의 입력과 실행 모드를 확인하세요.
         </p>
       )}
-      <table className="w-full table-fixed border-collapse type-body [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere">
+      <Table className="table-fixed [&_td]:wrap-anywhere [&_td]:whitespace-normal [&_th]:wrap-anywhere [&_th]:whitespace-normal">
         <caption className="sr-only">저장된 분석 결과 비교</caption>
         <colgroup>
           <col className="w-40" />
@@ -232,15 +240,19 @@ export function AnalysisComparison({
             <col key={id} />
           ))}
         </colgroup>
-        <thead>
-          <tr className="border-y border-border">
-            <th scope="col" className="p-3 text-left type-label">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead scope="col" className="h-auto p-3 align-top">
               비교 항목
-            </th>
+            </TableHead>
             {ids.map((id) => {
               const state = columns[id];
               return (
-                <th scope="col" key={id} className="p-3 text-left align-top font-normal">
+                <TableHead
+                  scope="col"
+                  key={id}
+                  className="h-auto p-3 align-top font-normal text-foreground"
+                >
                   <div className="space-y-2">
                     {state?.kind === "loaded" ? (
                       <>
@@ -271,26 +283,26 @@ export function AnalysisComparison({
                       선택 해제
                     </Button>
                   </div>
-                </th>
+                </TableHead>
               );
             })}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((row) => (
-            <tr key={row.label} className="border-b border-border">
+            <TableRow key={row.label} className="hover:bg-transparent">
               <th scope="row" className="p-3 text-left align-top type-label font-medium">
                 {row.label}
               </th>
               {ids.map((id) => (
-                <td key={id} className="p-3 align-top tabular-nums">
+                <TableCell key={id} className="p-3 align-top tabular-nums">
                   {columns[id]?.kind === "loaded" ? row.content(columns[id].value.view) : "—"}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <p className="type-caption text-muted-foreground">
         {loaded[0]?.disclaimer ?? BIDS_DESCRIPTION}
       </p>
