@@ -11,7 +11,7 @@ import { Chip } from "@/components/ui/chip";
 // 서비스 카드는 글자 없이 로고만 가운데에 둔다(2026-10-28 사용자 요청). 이름은 그림 alt 로 읽힌다.
 export function ServicesMarquee() {
   return (
-    <Marquee label="솔리데오가 수행한 공공 서비스" align="center" seconds={64}>
+    <Marquee label="솔리데오가 수행한 공공 서비스" seconds={64}>
       {SOLIDEO_SERVICES.map((service) => (
         <li
           key={service.name}
