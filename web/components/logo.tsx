@@ -19,11 +19,13 @@ export function Logo({
   return (
     <span className={cn("flex min-w-0 items-center gap-1.25", className)}>
       {/* 이름은 옆 글자와 링크가 제공한다. 접힌 사이드바에서도 심볼의 세부가 보이게 한다. */}
+      {/* unoptimized: Vercel services 배포(vercel.json)에서는 /_next/image 가 404 라 원본 webp(128px·15KB)를 바로 쓴다. */}
       <Image
         src="/logo/sol-radar.webp"
         alt=""
         width={32}
         height={32}
+        unoptimized
         className="size-8 shrink-0 object-contain"
       />
       <span
