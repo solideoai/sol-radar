@@ -83,15 +83,19 @@ test("미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수�
 });
 
 // 심사 화면은 1440×900 과 13인치 노트북(1280×800) 둘 다다. 점수만 보이고 고지가 접힘선 아래로 빠지면 안 된다.
+// 히어로와 분석 예시 사이에 흐르는 줄(과 녹화 영상)이 들어와 예시는 첫 화면 아래에 있다(스펙 2026-10-28-ui-refresh §4.5).
+// 그래서 분석 예시 보기로 간 화면에서 점수와 고지가 함께 보이는지 본다.
 [
   { width: 1440, height: 900 },
   { width: 1280, height: 800 },
 ].forEach((viewport) =>
-  test(`${viewport.width}×${viewport.height} 첫 화면에서 스크롤 없이 점수와 수주 확률 고지가 보인다`, async ({
+  test(`${viewport.width}×${viewport.height} 분석 예시 보기를 누르면 점수와 수주 확률 고지가 함께 화면 안에 보인다`, async ({
     page,
   }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await heroOf(page).getByRole("link", { name: "분석 예시 보기" }).click();
+    await expect(page).toHaveURL(/\/#demo$/);
     const panel = previewOf(page).getByRole("tabpanel");
     await expect(panel.getByRole("meter", { name: "SOL Score" })).toBeInViewport({ ratio: 1 });
     await expect(
