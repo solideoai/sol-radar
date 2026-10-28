@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { DemoBadge, StatusBadge } from "@/components/bids/status-badge";
 import { formatKst } from "@/components/bids/format";
 import { REVIEW_FLAG_LABEL } from "@/components/bids/labels";
@@ -191,7 +199,7 @@ export function AnalysisHistoryView({
             )}
           </div>
         ) : (
-          <table className="w-full table-fixed border-collapse type-body [&_td]:whitespace-normal [&_td]:wrap-anywhere">
+          <Table className="table-fixed [&_td]:whitespace-normal [&_td]:wrap-anywhere">
             <caption className="sr-only">
               조직 분석 이력. 생성 시각 최신순. DEMO는 데모용 가상 공고입니다.
             </caption>
@@ -204,8 +212,8 @@ export function AnalysisHistoryView({
               <col className="w-22" />
               <col className="w-36" />
             </colgroup>
-            <thead>
-              <tr className="border-y border-border">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
                 {[
                   "선택",
                   "공고명",
@@ -215,22 +223,18 @@ export function AnalysisHistoryView({
                   "권고",
                   "분석 시각 (KST)",
                 ].map((label) => (
-                  <th
-                    key={label}
-                    scope="col"
-                    className="px-2 py-3 text-left type-label font-medium text-muted-foreground"
-                  >
+                  <TableHead key={label} scope="col" className="h-auto px-2 py-3">
                     {label}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((item) => {
                 const checked = selected.ids.includes(item.id);
                 return (
-                  <tr key={item.id} className="border-b border-border">
-                    <td className="p-2 align-top">
+                  <TableRow key={item.id}>
+                    <TableCell className="p-2 align-top">
                       <input
                         type="checkbox"
                         checked={checked}
@@ -250,8 +254,8 @@ export function AnalysisHistoryView({
                           )
                         }
                       />
-                    </td>
-                    <td className="p-2 align-top">
+                    </TableCell>
+                    <TableCell className="p-2 align-top">
                       <div className="space-y-1">
                         {item.isDemo && <DemoBadge dense />}
                         <Link
@@ -277,18 +281,20 @@ export function AnalysisHistoryView({
                           ))}
                         </details>
                       </div>
-                    </td>
-                    <td className="p-2 align-top tabular-nums">
+                    </TableCell>
+                    <TableCell className="p-2 align-top tabular-nums">
                       {item.revision}
                       <p className="type-caption text-muted-foreground">
                         프로필 {item.profileRevision}
                       </p>
-                    </td>
-                    <td className="p-2 align-top">
+                    </TableCell>
+                    <TableCell className="p-2 align-top">
                       <StatusBadge kind="analysis" value={item.status} short variant="inline" />
-                    </td>
-                    <td className="p-2 align-top tabular-nums">{item.solScore ?? "—"}</td>
-                    <td className="p-2 align-top">
+                    </TableCell>
+                    <TableCell className="p-2 align-top tabular-nums">
+                      {item.solScore ?? "—"}
+                    </TableCell>
+                    <TableCell className="p-2 align-top">
                       {item.recommendation ? (
                         <StatusBadge
                           kind="recommendation"
@@ -298,16 +304,16 @@ export function AnalysisHistoryView({
                       ) : (
                         "—"
                       )}
-                    </td>
-                    <td className="p-2 align-top type-caption tabular-nums">
+                    </TableCell>
+                    <TableCell className="p-2 align-top type-caption tabular-nums">
                       {formatKst(item.finishedAt ?? item.queuedAt)}
                       {!item.finishedAt && <p>접수</p>}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
         {moreError && (
           <p role="alert" className="type-label text-destructive">
