@@ -23,9 +23,11 @@ import { sourceKeyOf, type WarningIssue } from "./validation";
 // ── K-water 입찰공고(15101635 servcList 등) 한 행 → NormalizedBidDraft ──
 // 필드 이름·뜻은 공개 명세(data.go.kr Swagger, 2026-10-28 열람)에서 왔다. 공사·물품·용역·내자 목록의 칸이 같다.
 // 2026-10-28 실응답 녹음(servcList 202610, 147건 중 100행, fixtures/recorded/15101635)으로 꼴을 확인했다.
-// - 상태: tndrStat 11개 값을 확인했다. 참가신청만 OPEN, 나머지는 CLOSED 다(사용자 결정 2026-10-28). 녹음에서
+// - 상태: tndrStat 14개 값을 확인했다(녹음 11 + 운영 회차 3). 참가신청만 OPEN, 나머지는 CLOSED 다(사용자 결정 2026-10-28). 녹음에서
 //   참가신청 32행은 모두 신청마감일이 남았고 금액이 0이었다. 적격신청·PQ신청은 모두 마감이 지났고 금액이 나와 있어
 //   개찰 뒤 심사 단계로 본다. 처음 보는 값은 고르지 않고 격리한다.
+//   2026-10-28 18:00 운영 회차(2개월 325건)에서 처음 본 제안서제출 5·기술협상 2·PQ심사 1건도 CLOSED 다(사용자 결정 2026-10-28).
+//   제안서제출은 참가신청을 마친 업체만 내는 단계라 새로 들어갈 수 없다고 본다.
 // - 날짜: 공고일·신청마감일 모두 YYYYMMDD(날짜만)다. 마감 시각을 모르니 deadlineAt 은 비운다.
 // - 예산: tndrPlnprc(명세 "금액(원)"). 0 은 아직 공개되지 않은 값으로 보고 비운다. 부가세 포함 여부는 모른다.
 // - 참가자수·투찰자수는 수집할 때마다 바뀌어 revision 만 늘리므로 저장하지 않는다. 담당자 칸도 쓰지 않는다.
@@ -38,9 +40,12 @@ const STATES: Readonly<Record<string, BidStatus>> = {
   적격신청: "CLOSED",
   PQ신청: "CLOSED",
   서류제출: "CLOSED",
+  제안서제출: "CLOSED",
   공동분담: "CLOSED",
+  PQ심사: "CLOSED",
   가격입찰: "CLOSED",
   제안서평가: "CLOSED",
+  기술협상: "CLOSED",
   예가추첨: "CLOSED",
   수의시담: "CLOSED",
   입찰완료: "CLOSED",
