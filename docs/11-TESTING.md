@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 11. 검증·테스트 전략
@@ -330,7 +330,7 @@ docs/evidence/
 | NAV-07 | 설정 조직 탭: 비ADMIN 403·RLS 거부, 업무 역할 변경 감사 | `web/server/organization/org-settings-access.test.ts`, `scripts/database.test.mjs` "N2 audits changed roles…"·"업무 역할 변경은 그 조직의 ADMIN 만 한다…" |
 | NAV-08 | 템플릿 설정·가입 정보 보완(PPL-05·06) 회귀 없음 | PPL-05·06과 같다 |
 | NAV-09 | 메뉴 노출과 라우트 접근 분리: 미인증은 기존 인증 정책(화면 로그인 안내, API 401), 미출시 경로 404, 구현된 경로는 메뉴와 별개로 허용 역할 200, 권한 없는 역할 403 | 자동 시험 없음(10-21 축소) |
-| NAV-10 | 사이드바([[06-UI-UX\|06]] §4.1): 묶음 업무·분석·회사와 순서, 맨 아래 고정 칸(ADMIN만), 준비 중 메뉴는 링크 없음, 활성 메뉴 `aria-current`, 묶음 접기 `aria-expanded`·`localStorage`(실패해도 정상), 펼친 상태 트리 세로선 안쪽 아이콘 + 글자, 64px 아이콘 줄 | 자동 시험 없음(10-21 축소). 1440·1280 스크린샷으로 확인([증거](evidence/design-declutter/README.md)) |
+| NAV-10 | 사이드바([[06-UI-UX\|06]] §4.1): 묶음 업무·분석·회사와 순서, 맨 아래 고정 칸(ADMIN만), 준비 중 메뉴는 링크 없음, 활성 메뉴 `aria-current`, 묶음 접기 `aria-expanded`·`localStorage`(실패해도 정상), 펼친 상태 아이콘 + 글자(들여쓰기 없음, 2026-10-28), 64px 아이콘 줄 | 자동 시험 없음(10-21 축소). 1440·1280 스크린샷으로 확인([증거](evidence/design-declutter/README.md), 3차 [증거](evidence/sidebar-actibooky/20261028/README.md)) |
 | NAV-P1-01 | 관심 공고: 본인만·다른 조직 0행, 멱등 토글, 관심 인원 수만 공개, 마감 알림 1건 | `scripts/database.test.mjs` "N3 관심 공고와 마감 알림", `web/app/api/v1/watch-contract.test.ts`, `web/app/(app)/(work)/watch-toggle.browser.test.tsx` |
 | NAV-P1-02 | 입찰 프로젝트: BID 결정 없이 생성 거부, 결정 변경 시 경고·상태 전진 차단, 상태 이력·감사, 체크리스트 쓰기는 SALES·ADMIN만, 점수·결정 모델에 쓰이지 않음 | `scripts/database.test.mjs` "입찰 프로젝트 — 핵심 저장·권한·원자성", `web/app/api/v1/projects-contract.test.ts`, `web/server/projects/project.model.test.ts` |
 | NAV-P1-03 | 인력 배치 시뮬레이션: 가용 FTE = 최신 `score_runs` 스냅샷 값, 기간 충돌 탐지, 후보는 200명 안, 저장 없음 | `web/app/api/v1/workforce-contract.test.ts`, `web/server/workforce/workforce.service.test.ts` |

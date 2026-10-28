@@ -67,6 +67,11 @@ const SIDEBAR_ICON_WIDTH = { "--sidebar-width-icon": "4rem" } as React.CSSProper
 // 활성 메뉴는 마우스를 올려도 활성 바탕 그대로다.
 const MENU_HOVER = "hover:bg-sidebar-accent/50 data-active:hover:bg-sidebar-accent";
 
+// 메뉴 아이콘은 글자보다 옅은 회색이고, 지금 화면과 마우스를 올린 메뉴만 글자색이다(2026-10-28 사용자 결정 A안).
+// 아이콘이 글자와 같은 검정이면 아이콘 줄이 글자보다 먼저 눈에 든다.
+const MENU_ICON =
+  "text-muted-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground";
+
 // isAdmin 은 서비스 운영자인지다(조직 역할이 아니다). 링크를 숨기는 것은 화면 요구일 뿐이고,
 // 관리자 화면은 서버에서 다시 확인해 운영자가 아니면 404 다.
 // email 은 이메일을 주지 않는 제공자(카카오 비즈 앱 아님·네이버)로 가입하면 없다. avatarUrl 은 제공자가 준 https 주소다.
@@ -173,7 +178,7 @@ function AppSidebar({
       className="text-foreground"
     >
       <SidebarHeader>
-        {/* 왼쪽 끝을 아래 묶음 화살표·받은 초대·아래 고정 칸 아이콘과 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다.
+        {/* 왼쪽 끝을 아래 묶음 이름·메뉴 아이콘·받은 초대·아래 고정 칸 아이콘과 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다.
             로고는 대시보드 링크다. 사이드바 메뉴처럼 보던 출처를 이어 간다. 조직 이름 줄은 2026-10-28 사용자 결정으로 뺐다.
             접으면 글자가 숨어 이름이 없어지므로 aria-label 을 단다. */}
         <div className="flex flex-col px-2 pt-1 pb-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
@@ -194,7 +199,7 @@ function AppSidebar({
                 className={MENU_HOVER}
                 render={<Link href="/invitations" onClick={closeDrawer} />}
               >
-                <MailIcon aria-hidden />
+                <MailIcon aria-hidden className={MENU_ICON} />
                 <span>받은 초대</span>
               </SidebarMenuButton>
               <SidebarMenuBadge className="tabular-nums">
@@ -214,7 +219,7 @@ function AppSidebar({
             <NavGroupSection
               key={group.id}
               group={group}
-              hasDivider={index > 0}
+              isFirst={index === 0}
               isOpen={!hasGroupRows || !collapsedGroups.includes(group.id)}
               hasGroupRow={hasGroupRows}
               onToggle={() => toggleGroup(group.id)}
@@ -265,19 +270,20 @@ function NavOriginWatcher() {
   return null;
 }
 
-// 묶음 줄은 접기 버튼이다: 화살표와 회색 굵은 묶음 이름으로 되어 있고 아이콘은 없다. 메뉴는 화살표 아래 1px 세로선 안쪽으로 들여 쓴다.
-// 2026-10-26 사용자 결정으로 "접기 없는 묶음 이름"을 되돌려 71a51aec 이전의 트리를 되살렸다(묶음 3개와 순서는 그대로).
+// 묶음 줄은 접기 버튼이다: 작은 회색 묶음 이름이고 접기 화살표는 오른쪽 끝에 둔다(2026-10-28 사용자 결정 A안, design.actibooky.com 사이드바 참고).
+// 펼친 묶음의 화살표는 마우스를 올리거나 키보드 초점이 올 때만 보이고, 접은 묶음의 화살표는 늘 보여 숨은 메뉴가 있음을 알린다.
+// 트리 세로선과 들여쓰기는 없다. 메뉴는 묶음 이름·아래 고정 칸과 같은 왼쪽 선에 서고, 묶음 사이는 16px 띄워 나눈다.
 // 접은 사이드바(64px)에서는 묶음 줄을 숨기고 묶음 사이에 짧은 선을 긋는다. 묶음 줄이 없어도 목록 이름(aria-label)은 남는다.
 function NavGroupSection({
   group,
-  hasDivider,
+  isFirst,
   isOpen,
   hasGroupRow,
   onToggle,
   children,
 }: {
   group: NavGroup;
-  hasDivider: boolean;
+  isFirst: boolean;
   isOpen: boolean;
   hasGroupRow: boolean;
   onToggle: () => void;
@@ -286,38 +292,44 @@ function NavGroupSection({
   // 묶음 줄(버튼)에는 id 를 두지 않는다. 목록만 id 를 갖고 버튼의 aria-controls 가 가리킨다.
   const listId = `sidebar-group-${group.id}-menu`;
   return (
-    <SidebarGroup className="py-0.5 group-data-[collapsible=icon]:py-0">
-      {hasDivider ? (
+    <SidebarGroup
+      className={cn(
+        "py-0.5 group-data-[collapsible=icon]:py-0",
+        !isFirst && "mt-4 group-data-[collapsible=icon]:mt-0",
+      )}
+    >
+      {isFirst ? null : (
         <div
           aria-hidden
           data-slot="sidebar-group-divider"
           className="mx-auto my-2 hidden h-px w-6 bg-sidebar-border group-data-[collapsible=icon]:block"
         />
-      ) : null}
+      )}
       {hasGroupRow ? (
         <button
           type="button"
           aria-expanded={isOpen}
           aria-controls={listId}
           onClick={onToggle}
-          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left type-caption font-semibold text-muted-foreground ring-sidebar-ring outline-hidden hover:text-sidebar-accent-foreground focus-visible:ring-2"
+          className="group/group-row flex h-7 w-full items-center gap-2 rounded-md px-2 text-left type-caption font-medium text-muted-foreground ring-sidebar-ring outline-hidden hover:text-sidebar-accent-foreground focus-visible:ring-2"
         >
+          <span className="min-w-0 flex-1 truncate">{group.label}</span>
           {isOpen ? (
-            <ChevronDownIcon aria-hidden className="size-4 shrink-0" />
+            <ChevronDownIcon
+              aria-hidden
+              className="size-3.5 shrink-0 opacity-0 group-hover/group-row:opacity-100 group-focus-visible/group-row:opacity-100"
+            />
           ) : (
-            <ChevronRightIcon aria-hidden className="size-4 shrink-0" />
+            <ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />
           )}
-          <span className="truncate">{group.label}</span>
         </button>
       ) : null}
-      {/* 세로선은 화살표 가운데(묶음 왼쪽에서 16px) 아래에 온다. 가장 긴 "인력 배치 시뮬레이션"이 256px 폭과
-          사이드바 글자 눈금(+3px)에서 말줄임 없이 들어가도록 트리 안 메뉴의 왼쪽 여백을 6px 로 줄인다.
-          접은 사이드바에서는 부품의 p-2! 가 이겨 아이콘이 32px 칸 가운데에 온다. */}
+      {/* 접은 사이드바에서는 부품의 p-2! 가 이겨 아이콘이 32px 칸 가운데에 온다. */}
       <SidebarMenu
         id={listId}
         aria-label={group.label}
         hidden={!isOpen}
-        className="ml-3.75 w-auto gap-0.5 border-l border-sidebar-border pl-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:border-l-0 group-data-[collapsible=icon]:pl-0 [&_[data-sidebar=menu-button]]:pl-1.5"
+        className="gap-0.5 group-data-[collapsible=icon]:items-center"
       >
         {children}
       </SidebarMenu>
@@ -326,8 +338,8 @@ function NavGroupSection({
 }
 
 // 출시된 메뉴는 링크, 미출시 메뉴는 링크 없는 이름만 표시한다(초점도 받지 않는다).
-// 아이콘은 펼친 사이드바에서도 글자 왼쪽에 둔다(2026-10-26 사용자 결정: 트리·아이콘 되돌림).
-// 활성 표시는 하나다: sidebar-accent 바탕 + 굵기 600. 색만으로 알리지 않고 aria-current 를 단다.
+// 아이콘은 펼친 사이드바에서도 글자 왼쪽에 둔다(2026-10-26 사용자 결정: 트리·아이콘 되돌림). 색은 MENU_ICON 이다.
+// 활성 표시는 하나다: sidebar-accent 바탕 + 굵기 500(부품 기본값). 색만으로 알리지 않고 aria-current 를 단다.
 function NavMenuItem({
   item,
   href = item.href,
@@ -361,7 +373,7 @@ function NavMenuItem({
       <SidebarMenuButton
         isActive={isActive}
         tooltip={item.label}
-        className={cn(MENU_HOVER, "data-active:font-semibold")}
+        className={MENU_HOVER}
         render={
           <Link
             href={href}
@@ -371,7 +383,7 @@ function NavMenuItem({
           />
         }
       >
-        <item.icon aria-hidden />
+        <item.icon aria-hidden className={MENU_ICON} />
         <span>{item.label}</span>
       </SidebarMenuButton>
       {badge !== undefined && badge >= 1 ? (
