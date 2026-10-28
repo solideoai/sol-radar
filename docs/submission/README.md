@@ -19,13 +19,13 @@ updated: 2026-10-28
 
 | 18 §10 항목 | 파일 경로 | 상태 | 심사 기준 | 제출 형식 충족 확인 |
 |---|---|---|---|---|
-| 저장소 링크(README가 00 인덱스 역할, 기동 절차는 10) | 루트 `README.md`, [[00-README\|00 인덱스]], [[10-DEPLOYMENT\|10 배포]] | 있음: 마감 · 발표일, 현재 상태, 정직성 표 요약, Vercel 운영 주소 · ADR-049 배포, `mock` 기동 요약 | 완성도 · 확장성 | 미확인(제출 형식 미입력) |
+| 저장소 링크(README가 00 인덱스 역할, 기동 절차는 10) | 루트 `README.md`, [[00-README\|00 인덱스]], [[10-DEPLOYMENT\|10 배포]] | 있음: 서비스 소개 · 작동 방식 · 판단 기준 · 주요 기능 · 시스템 구성 · 로컬 실행 · 문서 목록. 날짜가 붙은 현재 상태와 정직성 표는 싣지 않고 [[PROGRESS\|진행 상황]] · [[18-HACKATHON\|18]] §7 · `limitations.md` 로 링크한다(2026-10-28 사용자 결정) | 완성도 · 확장성 | 미확인(제출 형식 미입력) |
 | 아키텍처 다이어그램 1장 | `docs/submission/architecture.md` | 있음: ADR-049 운영 배포 그림, 3시간 정기 수집, 첨부 처리(코드 있음 · 회사 반영 전), 로컬 Compose 대체 경로, 데이터 흐름(Mermaid 3개) | 확장성 · 실용성 | 미확인 |
 | 데모 영상 3분(예비물. 18 §10 제출물 밖, 대회 제출 형식이 영상을 요구하면 제출용) | `docs/submission/slides-spec.md` 부록 A(덱 삽입 클립 7개 + 카카오 10초, A.4 3분 백업 영상 컷 표. 클립 7 은 2026-10-28 ADR-060 으로 추가). 영상 파일 없음 | 촬영 전. 촬영 일정은 [[12-ROADMAP\|12 로드맵]] 남은 일정 제안 표. 카카오 10초는 녹화 전이다(운영 카카오 연결 0건) | 완성도 | 미확인 |
 | 발표 슬라이드 | 정본은 `docs/submission/slides-spec.md`(제작 명세, 18장 · 20분, 부록 D 캡처 매핑). 덱 파일 `docs/submission/deck/sol-radar-deck.pptx`(git 제외, 별도 제출) | 덱 초안은 이 명세보다 옛 내용이다. 이 명세 기준으로 다시 만든다 | 네 기준 전부 | 미확인 |
 | `docs/evidence/` 테스트 · E2E · 기동 로그 | [`docs/evidence/README.md`](../evidence/README.md)(증거 색인), `docs/submission/evidence-list.md`(AI 검증 증거 목록) | 있음. 폴더 목록은 증거 색인을 본다. 10-24 운영 실모델 분석 1건(FX-02 66 보류)은 따로 남긴 증거 파일이 없고 `docs/evidence/demo-deadline/20261027/prod-run.md` 조회 결과에만 있다. 10-27 17건은 `docs/evidence/company-public-profile/20261027/prod-rollout.md` 에 있다. 실공고 live E2E 는 회사 반영 뒤 | 완성도 | 미확인 |
 | 외부 의존성 점검 결과 · 평가 리포트 요약 | `docs/evidence/phase-0/external-deps.md` · `external-deps-api-20261019.md`(①②), ③ 회사 vLLM Qwen probe `docs/evidence/phase-5/qwen-probe-20261021-2343.json`, ④ 파서 `docs/evidence/parser/20261027-parser-check.md`, `docs/evidence/competitors/2026-10-19-competitors.md`(X3), `docs/evidence/eval/`(X6a 평가셋), `docs/submission/experiment-tables.md`(빈 표) | 일부. ①② · ③ Qwen probe · ④ 파서 선택과 실표본 · X3 는 있다. Bosun 엔드포인트 점검 리포트 · X1 리포트는 없다. E1'~E4 는 미측정이다. X6 회사 GPU 학습 실행 여부는 미결정이다 | 실용성 · 창의성 | 미확인 |
-| 정직성 표(§7)를 슬라이드와 README에 동일하게 포함 | [[18-HACKATHON\|18 해커톤]] §7, 루트 `README.md` "실제인 것과 mock인 것 (요약)", `slides-spec.md` 슬라이드 17, `limitations.md` | README 요약은 있다. 덱 반영은 덱을 다시 만들 때 확인한다 | 완성도 | 미확인 |
+| 정직성 표(§7)를 슬라이드에 포함하고 README에서 링크 | [[18-HACKATHON\|18 해커톤]] §7, 루트 `README.md` "문서" 절(링크), `slides-spec.md` 슬라이드 17, `limitations.md` | README는 표를 싣지 않고 18 §7 · `limitations.md` 로 링크한다(2026-10-28 사용자 결정). 덱 반영은 덱을 다시 만들 때 확인한다 | 완성도 | 미확인 |
 | 공식 심사 기준 확인 후 §4 갱신 | [[18-HACKATHON\|18 해커톤]] §4 | 완료(2026-10-18) | — | 확인됨 |
 
 ## 이 폴더의 파일
