@@ -68,7 +68,11 @@ export type {
   ReviewFlag,
   ScoreFactor,
 } from "./analysis-result.model";
-export { assessQualifications, hasParseFailure } from "./qualification";
+export {
+  assessQualifications,
+  assessStructuredQualifications,
+  hasParseFailure,
+} from "./qualification";
 export { assessSkillRequirements } from "./requirement-assessment";
 export type { QualificationAssessment, QualificationContext } from "./qualification";
 export {
@@ -99,7 +103,7 @@ export {
 } from "./domain-keywords";
 export type { AgencyType, Domain } from "./domain-keywords";
 export { businessDaysBetween, defaultProjectPeriod, kstDate } from "./calendar";
-export { whatIf } from "./what-if";
+export { assumeHeldLicenses, whatIf } from "./what-if";
 export type { Assumption, WhatIfOutcome, WhatIfSummary } from "./what-if";
 
 export { companySkillSet, matchSkill } from "./skill-aliases";
