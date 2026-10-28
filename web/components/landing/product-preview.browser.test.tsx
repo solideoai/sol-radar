@@ -1,20 +1,27 @@
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { DEMO_BIDS } from "@/components/landing/demo-bids";
 import { ProductPreviewSection } from "@/components/landing/product-preview-section";
 
 // 랜딩의 분석 미리보기를 진짜 브라우저로 그려, 고르면 분석이 바뀌는지·키보드로 되는지·1280px 에서 넘치지 않는지 본다.
+// 판은 화면에 보이면 스스로 다음 공고로 넘어간다(단계 타이머 setTimeout). 시험은 그 시계를 멈춰 늘 첫 화면(첫 공고 완성)에서
+// 시작한다 — 시험이 느려도 자동 전환 시각에 걸려 흔들리지 않는다. 판을 누르거나 초점이 들어오면 직접 조작이라 그 뒤는 시계와 상관없다.
 
 const [first, second] = DEMO_BIDS;
 const mounted: Root[] = [];
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+});
+
 afterEach(() => {
   mounted.splice(0).forEach((root) => root.unmount());
   document.body.replaceChildren();
+  vi.useRealTimers();
 });
 
-// 랜딩이 그리는 구역을 그대로 그린다 — 마케팅 단(max-w-300 + px-10)과 회색 무대까지 같아야
+// 랜딩이 그리는 구역을 그대로 그린다 — 마케팅 단(max-w-300 + px-10)과 구역 틀까지 같아야
 // 판의 가운데 단이 실제 폭이 된다. 낱말 단위 줄바꿈(break-keep)도 랜딩 main 과 같게 둔다.
 const render = async () => {
   const root = createRoot(document.body.appendChild(document.createElement("div")));

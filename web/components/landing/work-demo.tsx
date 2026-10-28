@@ -8,14 +8,15 @@ import {
   ChartNoAxesColumnIcon,
   ChevronDownIcon,
   ClockIcon,
-  MousePointer2Icon,
   PanelLeftIcon,
   PauseIcon,
   PlayIcon,
   SettingsIcon,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
+import { DemoCursor, pointAt, translateOf } from "@/components/landing/demo-cursor";
+import { useOnScreen, useReducedMotion, useStepLoop } from "@/components/landing/demo-playback";
 import { SectionHeading } from "@/components/landing/section-heading";
 import {
   CollectScene,
@@ -42,24 +43,7 @@ import { Button } from "@/components/ui/button";
 // 움직이는 판은 화면 낭독기와 키보드에서 뺀다(aria-hidden·inert). 같은 흐름을 sr-only 문단으로 읽게 한다.
 // 멈춤·재생 버튼은 화면에서 숨기고 키보드 초점이 올 때만 판 밖 오른쪽 아래에 보인다(2026-10-28 사용자 요청).
 // WCAG 2.2.2(움직임 멈춤)는 이 버튼(키보드)과 움직임 줄이기 설정으로 지킨다.
-
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-
-const subscribeReducedMotion = (onChange: () => void) => {
-  const query = window.matchMedia(REDUCED_MOTION_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-};
-const prefersReducedMotion = () => window.matchMedia(REDUCED_MOTION_QUERY).matches;
-
-const subscribeTabVisibility = (onChange: () => void) => {
-  document.addEventListener("visibilitychange", onChange);
-  return () => document.removeEventListener("visibilitychange", onChange);
-};
-const isTabVisible = () => document.visibilityState === "visible";
-
-// 서버는 설정을 모른다. 첫 렌더(hydration)까지 이 값이고, 그 뒤 브라우저 값으로 바뀐다.
-const onServer = { reducedMotion: () => false, tabVisible: () => true };
+// 재생 조건(화면에 보임·탭 보임·움직임 줄이기)과 단계 타이머, 가짜 커서는 분석 예시와 같이 쓴다(demo-playback.ts·demo-cursor.tsx).
 
 /** 사용자가 버튼으로 고른 것. null 이면 기본(움직임 줄이기가 아니면 흐른다). */
 type Choice = "play" | "pause" | null;
@@ -68,47 +52,19 @@ export function WorkDemo() {
   const sectionRef = useRef<HTMLElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
-  const [step, setStep] = useState(0);
   const [choice, setChoice] = useState<Choice>(null);
-  const [inView, setInView] = useState(false);
-  const reducedMotion = useSyncExternalStore(
-    subscribeReducedMotion,
-    prefersReducedMotion,
-    onServer.reducedMotion,
-  );
-  const tabVisible = useSyncExternalStore(
-    subscribeTabVisibility,
-    isTabVisible,
-    onServer.tabVisible,
-  );
+  const reducedMotion = useReducedMotion();
+  // 판이 화면에 30% 이상 보이고 탭이 보일 때만 흐른다.
+  const onScreen = useOnScreen(sectionRef);
 
   const wantsPlay = choice === "play" || (choice === null && !reducedMotion);
-  const running = wantsPlay && inView && tabVisible;
+  const running = wantsPlay && onScreen;
+  // 단계마다 정한 시간이 지나면 다음 단계로. 마지막 단계 뒤에는 처음으로 돌아간다.
+  const step = useStepLoop(STEPS, running);
   // 움직임 줄이기에서 아직 재생을 누르지 않았으면 정지 화면을 보인다.
   const shownStep = reducedMotion && choice === null ? STATIC_STEP : step;
   const current = STEPS[shownStep];
   const showCursor = !(reducedMotion && choice === null);
-
-  // 판이 화면에 30% 이상 보일 때만 흐른다.
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (section === null) return;
-    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
-      threshold: 0.3,
-    });
-    observer.observe(section);
-    return () => observer.disconnect();
-  }, []);
-
-  // 단계마다 정한 시간이 지나면 다음 단계로. 마지막 단계 뒤에는 처음으로 돌아간다.
-  useEffect(() => {
-    if (!running) return;
-    const timer = window.setTimeout(
-      () => setStep((value) => (value + 1) % STEPS.length),
-      STEPS[step].ms,
-    );
-    return () => window.clearTimeout(timer);
-  }, [running, step]);
 
   // 커서는 그 단계가 가리키는 요소의 가운데 조금 오른쪽 아래로 옮긴다. 장면이 바뀌면 오른쪽 아래 여백으로 비켜 서고,
   // 가리킬 곳이 없는 단계는 그 자리에 둔다.
@@ -118,16 +74,12 @@ export function WorkDemo() {
     const target = current.cursor;
     if (frame === null || cursor === null || target === undefined) return;
     if (target === "rest") {
-      cursor.style.transform = `translate(${CURSOR_REST.x}px, ${CURSOR_REST.y}px)`;
+      cursor.style.transform = translateOf(CURSOR_REST);
       return;
     }
     const element = frame.querySelector(`[data-demo-target="${target}"]`);
     if (element === null) return;
-    const box = frame.getBoundingClientRect();
-    const rect = element.getBoundingClientRect();
-    const x = rect.left - box.left + Math.min(rect.width * 0.6, rect.width - 12);
-    const y = rect.top - box.top + rect.height * 0.62;
-    cursor.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    cursor.style.transform = translateOf(pointAt(frame, element));
   }, [current]);
 
   const pressed = current.press === true && current.cursor !== "rest" ? current.cursor : undefined;
@@ -179,7 +131,9 @@ export function WorkDemo() {
               <WatchlistScene active={current.scene === 5} step={shownStep} pressed={pressed} />
             </div>
           </div>
-          {showCursor && <DemoCursor ref={cursorRef} pressed={pressed !== undefined} />}
+          {showCursor && (
+            <DemoCursor ref={cursorRef} rest={CURSOR_REST} pressed={pressed !== undefined} />
+          )}
         </div>
         {/* 멈춤·재생 버튼은 판 밖 오른쪽 끝이고 키보드 초점이 올 때만 보인다. 어떤 장면의 내용과도 겹치지 않는다. */}
         {/* 판 아래 캡션 문장은 2026-10-28 사용자 요청으로 뺐다. 가상임은 기관 이름("가상 …")과 sr-only 문단이 알린다. */}
@@ -284,32 +238,6 @@ function DemoTopBar({ alert }: { alert: boolean }) {
           )}
         />
       </span>
-    </div>
-  );
-}
-
-// 가짜 커서: 화살표와 "담당자" 꼬리표. 누르는 단계에서 살짝 작아진다.
-function DemoCursor({ ref, pressed }: { ref: React.Ref<HTMLDivElement>; pressed: boolean }) {
-  return (
-    <div
-      ref={ref}
-      className="pointer-events-none absolute top-0 left-0 z-20 transition-transform duration-720 ease-[cubic-bezier(0.45,0,0.2,1)] motion-reduce:transition-none"
-      style={{ transform: `translate(${CURSOR_REST.x}px, ${CURSOR_REST.y}px)` }}
-    >
-      <div
-        className={cn(
-          "flex items-start transition-transform duration-120 motion-reduce:transition-none",
-          pressed ? "scale-85" : "scale-100",
-        )}
-      >
-        <MousePointer2Icon
-          aria-hidden
-          className="size-6 -translate-x-1 -translate-y-1 fill-foreground stroke-background stroke-[1.5]"
-        />
-        <span className="mt-4 -ml-1 rounded-full bg-foreground px-2 py-0.5 type-label font-semibold text-background">
-          담당자
-        </span>
-      </div>
     </div>
   );
 }
