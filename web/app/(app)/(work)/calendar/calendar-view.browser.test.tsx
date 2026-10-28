@@ -167,9 +167,14 @@ describe("입찰 일정 화면", () => {
       await expect
         .element(page.getByRole("menuitem", { name: /busy-3/ }))
         .toHaveAttribute("href", "/bids/busy-3?origin=live");
-      await expect
-        .element(page.getByRole("menuitem", { name: /busy-4/ }))
-        .toHaveAttribute("href", "/bids/busy-4?origin=live");
+      const busy4 = page.getByRole("menuitem", { name: /busy-4/ });
+      await expect.element(busy4).toHaveAttribute("href", "/bids/busy-4?origin=live");
+      // 날짜는 메뉴 머리에만 있다. 항목은 시각·제목만 보여 제목이 날짜에 밀려 잘리지 않는다.
+      await expect.element(busy4.getByText("busy-4 차세대 정보시스템 구축 사업")).toBeVisible();
+      expect(busy4.element().textContent).not.toContain("2026-10-30");
+      await page.screenshot({
+        path: `../../../../test-results/vitest-screenshots/calendar-${width}-more-menu.png`,
+      });
       await userEvent.keyboard("{Escape}");
 
       const upcoming = page.getByRole("region", { name: "다가오는 14일" });
