@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - ops
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 14. 관측성·운영
@@ -19,7 +19,7 @@ updated: 2026-10-27
 이 화면은 데이터 수집 관리 `/admin/ingestion`이다(화면 명세는 [[06-UI-UX|06 UI]] §5.8, [[16-DECISIONS|ADR-021]]).
 
 > [!note] 구현 상태 (main `8cfaac31`)
-> `/admin/ingestion`에 수집 실행 이력·실행 상세(적재·격리·오류·호출 수)·수동 수집·서비스별 수집 현황이 있다(1번). 2·3번은 대시보드 "공공조달 요약" 띠의 분석 대기·BID 권고로 일부 보인다. 4·5번과 metrics endpoint는 없다.
+> `/admin/ingestion`에 수집 실행 이력·실행 상세(적재·격리·오류·호출 수)·수동 수집·서비스별 수집 현황이 있다(1번). 2·3번은 대시보드 "공공조달 요약" 띠의 분석 대기·추천(`BID`) 권고로 일부 보인다. 4·5번과 metrics endpoint는 없다.
 
 관리자 화면은 `memberships.sol_role=ADMIN` 사용자의 세션으로 읽고, 조직 데이터는 RLS(`org_id in (select public.my_org_ids())`)가 그 조직 행만 보여 준다. `outbox_events`는 화면 역할에 권한·정책이 없다(`20261019000006`). 5번 적체 건수를 화면에 어떻게 집계할지는 정하지 않았다([[04-DATABASE|04 DB]], [[09-SECURITY|09 보안]]).
 
@@ -27,7 +27,7 @@ updated: 2026-10-27
 |---|---|---|---|---|
 |1|소스별 마지막 수집 성공 시각·상태|`ingest_runs` 소스별 최근 1건 (`status`, `finished_at`, `summary`)|공용 (`org_id` 없음)|있음. 격리가 1건 이상이면 `PARTIAL`(화면 `부분 완료`). 로컬 `demo:reset` 기준 값은 소스 `fixture`, `summary.quarantined=1`(FX-12)|
 |2|분석 상태 분포 (최근 24시간)|`score_runs.status` group by|`score_runs.org_id`|일부(대시보드 띠). 로컬 리허설에서는 `COMPLETED`가 사전 분석 건수([[19-DEMO-SCENARIO\|19]] §3 5번)와 맞는다|
-|3|권고 분포|`score_runs.recommendation`|`score_runs.org_id`|일부(대시보드 띠). BID / WATCH / NO-BID 건수가 fixture 기대 라벨([[07-DATA-PIPELINE\|07]])과 맞는다|
+|3|권고 분포|`score_runs.recommendation`|`score_runs.org_id`|일부(대시보드 띠). 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`) 건수가 fixture 기대 라벨([[07-DATA-PIPELINE\|07]])과 맞는다|
 |4|사람 결정 vs 권고 불일치율|`bid_reviews.decision` vs `score_runs.recommendation`. `review_flags`의 `MODEL_RULE_DISAGREEMENT` 건수 별도|`bid_reviews.org_id`|없음. 책임 있는 AI 모니터링 지표([[09-SECURITY\|09 보안]])|
 |5|알림 outbox 적체·중복|`outbox_events.status=PENDING` 건수(소비 대상 네 종 `NOTIFY_EVENT_TYPES`만 센다. 공고 이벤트 `BID_*`는 소비자가 없어 `PENDING`으로 쌓이므로 넣지 않는다, [[13-NOTIFICATIONS\|13 알림]]), `notifications` idempotency 위반 시도 수|`notifications.org_id`. `outbox_events.org_id`는 nullable|없음|
 

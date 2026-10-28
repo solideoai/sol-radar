@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -113,7 +113,7 @@ updated: 2026-10-27
 ## 책임 있는 AI
 ### 원칙
 1. 규칙 엔진이 최종이다. 자격 판정과 SOL Score는 결정적 규칙으로만 계산한다.
-2. 결정 모델(Bosun)은 보조 의견이다. 규칙상 `NOT_SATISFIED`·`NEEDS_REVIEW`를 BID로 승격할 수 없다. 결정 모델 결과는 "모델 참고 지표 (점수 미반영)" 영역에만 보이고 SOL Score의 입력이 아니다([[16-DECISIONS|ADR-020]]).
+2. 결정 모델(Bosun)은 보조 의견이다. 규칙상 `NOT_SATISFIED`·`NEEDS_REVIEW`를 추천(`BID`)으로 승격할 수 없다. 결정 모델 결과는 "모델 참고 지표 (점수 미반영)" 영역에만 보이고 SOL Score의 입력이 아니다([[16-DECISIONS|ADR-020]]).
 3. 충족 확률·낙찰 확률·수주확률을 표현하지 않는다. 결정 모델 확률은 "선택지에 대한 모델 분포"로만 표기한다(아래 고지 문구).
 4. 사람이 최종 결정을 내리고 사유와 함께 기록한다.
 5. DEMO 데이터는 DEMO로 표시한다. 실데이터처럼 보이게 하지 않는다.
@@ -131,9 +131,9 @@ updated: 2026-10-27
 |분석 결과 검토|ADMIN, SALES, ANALYST|자격 체크리스트·근거 인용 확인|`NEEDS_REVIEW` 항목은 사람이 확인 전까지 `SATISFIED`로 바뀌지 않는다|
 |규칙·모델 불일치|ADMIN, SALES, ANALYST|`review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_MANDATORY_RISK`·`KEV_NEEDS_REVIEW`, `kev-qs/v0.2`의 `KEV_REQUIREMENT_DISAGREEMENT`·`KEV_DELIVERY_RISK` 확인|UI 경고 배지. 규칙 판정·점수·권고는 바뀌지 않는다|
 |첨부를 읽지 못함|ADMIN, SALES, ANALYST|`DOCUMENT_DOWNLOAD_FAILED`·`PARSE_UNSUPPORTED`·"일부만 읽음" 문서의 원문 확인|첨부에 의존하는 항목은 `NEEDS_REVIEW`로 남는다. 시스템이 빈 내용을 추측해 채우지 않는다|
-|최종 참여 결정|ADMIN, SALES|BID/WATCH/NO-BID + 사유 입력 (`POST /bids/:id/reviews`)|권고와 다른 결정 허용, 사유 필수, `audit_logs` 기록|
+|최종 참여 결정|ADMIN, SALES|추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`) + 사유 입력 (`POST /bids/:id/reviews`)|권고와 다른 결정 허용, 사유 필수, `audit_logs` 기록|
 |프로필 개정|ADMIN|회사 역량 변경|새 revision 생성, 기존 score_run 불변, 재분석은 명시 요청|
-|자동 BID 차단|시스템|-|자격이 `NEEDS_REVIEW` 또는 `NOT_SATISFIED`이면 BID 권고 자체를 생성하지 않는다|
+|자동 추천 차단|시스템|-|자격이 `NEEDS_REVIEW` 또는 `NOT_SATISFIED`이면 추천 권고 자체를 생성하지 않는다|
 |가중치·임계값 변경|ADMIN (운영)|점수표·75/50 임계 조정|config version 증가, 이전 score_run 재계산 안 함|
 
 ### 모델 한계 고지 문구 (UI에 그대로 사용)
@@ -163,7 +163,7 @@ API `KevAssist.disclaimer`와 DB는 호환을 위해 literal "Kev 확률은 선�
 ```
 ```text
 [결정 모델 참고 지표 영역의 recommendation 블록 — kev-qs/v0.1, 모든 모드·데모 S3. 06·08의 "결정 모델 블록 3줄". ADR-034로 "Kev"를 모델 중립 문구로 개정]
-이 의견은 결정 모델이 BID / WATCH / NO-BID 선택지에 매긴 확률 분포입니다.
+이 의견은 결정 모델이 추천 / 보류 / 비추천 선택지에 매긴 확률 분포입니다.
 충족 확률·낙찰 확률이 아니며, 규칙 기반 자격 판정과 SOL Score를 뒤집지 않습니다.
 최종 결정은 담당자가 기록합니다. 모델: {kev.model} · 질문 세트: {kev.questionSetVersion} · 공급자: {kev.provider}
 ```
@@ -216,7 +216,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 업무 감사(`audit_logs`)에는 [[16-DECISIONS|ADR-021]]로 업무 역할 변경, 입찰 프로젝트 상태·결과 변경(P1), 인력 편집(P1)을 더한다. 업무 역할(`sol_role`) 변경은 `audit_logs`에 `USER_ROLE_CHANGE`로 남고(`memberships` 트리거, `20261023000600_role_audit_triggers.sql`), 초대의 역할은 `USER_INVITE`로 남는다. 템플릿 `activities`는 `org_role` 변경만 기록한다.
 
 ### 편향·오탐 모니터링
-지표: 사람 최종 결정 vs 권고 불일치율, `review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_REQUIREMENT_DISAGREEMENT` 비율, 발주기관·사업 유형별 NO-BID 비율 편중, `NEEDS_REVIEW` 비율. 임계 초과 시 가중치를 사람이 재검토한다. 지표 정의와 관리자 화면은 [[14-OBSERVABILITY|14 관측성]].
+지표: 사람 최종 결정 vs 권고 불일치율, `review_flags`의 `MODEL_RULE_DISAGREEMENT`·`KEV_REQUIREMENT_DISAGREEMENT` 비율, 발주기관·사업 유형별 비추천 비율 편중, `NEEDS_REVIEW` 비율. 임계 초과 시 가중치를 사람이 재검토한다. 지표 정의와 관리자 화면은 [[14-OBSERVABILITY|14 관측성]].
 
 > [!tip] 심사 포인트
 > "AI가 틀리면 어떻게 되나"에 대한 답이 이 절이다. 틀린 결정 모델 출력은 규칙을 넘지 못하고, 사람이 확인하기 전 자격은 확정되지 않으며, 모든 실행은 모델·프롬프트·입력 해시로 재현 가능하다.
@@ -270,7 +270,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 ## 카카오톡 알림 ([[16-DECISIONS|ADR-038]], 기본 `mock`, 실제 공고 수신 녹화 때만 `memo`, [[16-DECISIONS|ADR-054]])
 
-- **나가는 값**: 공고 공개 정보(공고명·발주처·마감·추정금액·원문 주소)와 조직 내부 값(BID·WATCH 권고, SOL Score, 규칙 사유 한 줄)이 카카오 서버를 거쳐 받는 사람 본인의 카톡 "나와의 채팅"에 남는다. 본인이 개인 설정에서 켠 경우에만 보낸다. AI 자유 서술·첨부 원문·회사 프로필 세부·다른 사람의 정보는 싣지 않는다. 받는 사람은 그 공고를 분석한 조직의 구성원뿐이고 다른 조직의 공고는 보내지 않는다([[13-NOTIFICATIONS|13 알림]]).
+- **나가는 값**: 공고 공개 정보(공고명·발주처·마감·추정금액·원문 주소)와 조직 내부 값(추천·보류 권고, SOL Score, 규칙 사유 한 줄)이 카카오 서버를 거쳐 받는 사람 본인의 카톡 "나와의 채팅"에 남는다. 본인이 개인 설정에서 켠 경우에만 보낸다. AI 자유 서술·첨부 원문·회사 프로필 세부·다른 사람의 정보는 싣지 않는다. 받는 사람은 그 공고를 분석한 조직의 구성원뿐이고 다른 조직의 공고는 보내지 않는다([[13-NOTIFICATIONS|13 알림]]).
 - **토큰 보관**: 카카오 액세스·리프레시 토큰은 웹 서버가 AES-256-GCM(`KAKAO_TOKEN_ENC_KEY`)으로 암호화해 `kakao_notify_links`에 저장하고 worker만 복호화한다. 평문은 DB에 두지 않는다. 화면 역할은 본인 행만, 토큰이 아닌 열 여섯 개만 읽는다(열 단위 권한). 쓰기는 본인 행만 다루는 `security definer` RPC 넷으로만 한다([[04-DATABASE|04 DB]] §3.1). 키를 바꾸는 절차는 없다(바꾸면 모두 다시 연결한다).
 - **연결 검증**: 연결 시작이 짧은 수명의 `state`를 만들고 콜백이 서버에서 검증한다. 맞지 않으면 저장하지 않는다. 응답 `scope`에 `talk_message`가 없으면 연결하지 않는다([[05-API-SPEC|05 API]] §9).
 - **로그 금지**: 토큰·메시지 본문·공고명·카카오 사용자 ID는 로그·오류 메시지에 싣지 않는다. 오류에는 env 키 이름만 싣고 값은 싣지 않는다([[14-OBSERVABILITY|14 관측성]]).

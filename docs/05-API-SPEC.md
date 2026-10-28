@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -77,8 +77,8 @@ updated: 2026-10-27
 |GET|`/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|조직 분석 이력. 비교는 `GET /analyses/:id`를 최대 4번 부른다(P1, ADR-021)|`?bidId&status&recommendation&runMode&cursor&limit` → `Page<AnalysisHistoryItem>`|
 |GET|`/workforce/simulation`|auth|인력 배치 시뮬레이션. 공고 1~3건, 점수 계산 대상 200명 안의 후보, 저장 없음(P1, ADR-021)|`?bidIds=<UUID,...>` → `WorkforceResult` (중복 없는 1~3건)|
 |POST·PATCH|`/team-members`, `/team-members/:id`|`ADMIN`|직원 운영 정보 편집(추가·부서/직급 이동·퇴사, N4b). 점수 속성은 받지 않는다(ADR-021). 계약은 §4.7.1|POST `{name,departmentId,jobTitleId,email?}` → `201 EditedTeamMember`, PATCH `{departmentId?,jobTitleId?,employmentStatus?}` → `200 EditedTeamMember`|
-|GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 BID 결정(`reviewId`) 필수(P1, ADR-021)|BID 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
-|GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 BID가 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
+|GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 추천(`BID`) 결정(`reviewId`) 필수(P1, ADR-021)|추천 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
+|GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 추천(`BID`)이 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
 |POST|`/projects/:id/result`|`ADMIN, SALES`|결과 기록(수동). 점수·결정 모델·학습에 쓰지 않는다(P1, ADR-021)|`{result, note?}` → `200 ProjectDetail`. `WON, LOST, CANCELLED, NOT_SUBMITTED`; 메모 최대 2000자|
 |GET|`/admin/users`|`ADMIN`|**(미구현)** 이 조직의 구성원 목록(템플릿 `memberships` + `profiles`)|`User[]`|
 |POST|`/admin/users/invite`|`ADMIN`|**(미구현)** 초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
@@ -110,7 +110,7 @@ updated: 2026-10-27
 
 - 관심 PUT·DELETE는 멱등이며 본인 행만 저장한다. `watched=me` 커서는 조직·사용자·필터에 묶는다. 현재 `/opportunities`도 같은 본인 범위를 지원한다.
 - 분석 이력은 `created_at desc, id desc`, limit 기본20·최대100이다. 항목은 공고 제목·DEMO와 분석 ID/revision/프로필 revision/상태/모드/점수/권고/실패 사유/reviewFlags/시각/알고리즘 버전이며 입력 스냅샷은 싣지 않는다. 커서는 조직·필터에 묶는다. 비교는 기존 단건 조회 2~4회, 분석 실행·저장 없음이다.
-- 프로젝트 POST `{reviewId}`는 `201` 상세를 반환한다. PATCH는 상태·담당자·제출 마감 변경을 원자적으로 처리한다. 다른 조직 자원404, 읽기 전용 역할의 변경403, 최신 결정이 BID가 아닐 때 전진409다. 종료는 허용한다. 수동 결과는 점수·모델·학습 입력에 연결하지 않는다. 체크리스트는 인증된 서버 액션과 기존 task 서비스/RLS를 쓴다.
+- 프로젝트 POST `{reviewId}`는 `201` 상세를 반환한다. PATCH는 상태·담당자·제출 마감 변경을 원자적으로 처리한다. 다른 조직 자원404, 읽기 전용 역할의 변경403, 최신 결정이 추천이 아닐 때 전진409다. 종료는 허용한다. 수동 결과는 점수·모델·학습 입력에 연결하지 않는다. 체크리스트는 인증된 서버 액션과 기존 task 서비스/RLS를 쓴다.
 - 인력 시뮬레이션은 검증된 최신 완료/부분 분석 스냅샷의 FTE·기준 시각과 현재 배정의 기준 시각·과부하·공유 후보를 분리한다. 스냅샷이 없으면 분석 필요로 표시한다. 연락처·성별을 응답하지 않고 배정·분석·점수를 저장하지 않는다.
 - `DashboardSummary.projects.active`는 현재 origin과 같은 범위에서 종료를 제외한 프로젝트 수다. 기존 분석 요약 필드는 유지한다.
 
@@ -125,7 +125,7 @@ updated: 2026-10-27
 |`budgetMin`, `budgetMax`|KRW 정수 문자열|—|`>= 0`, `min <= max`|**(미구현)** 예산 범위. 예산 `null`인 공고는 범위 필터에 걸리지 않고 제외된다|
 |`deadlineFrom`, `deadlineTo`|ISO8601|—|`from <= to`|마감 범위. 마감 `null`은 제외|
 |`scoreMin`|int|—|0~100|**(미구현)** 최신 분석(`COMPLETED`/`PARTIAL`)의 SOL Score 이상. 분석 없는 공고는 제외|
-|`recommendation`|`BID\|WATCH\|NO_BID`, 반복 가능|—|ENUM|최신 분석의 시스템 권고|
+|`recommendation`|`BID\|WATCH\|NO_BID`, 반복 가능|—|ENUM|최신 분석의 시스템 권고. 화면 표기는 추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`)|
 |`decision`|`BID\|WATCH\|NO_BID\|NONE`, 반복 가능|—|ENUM|최신 사람 결정. `NONE` = 미결정|
 |`hasAnalysis`|boolean|—|—|**(미구현)** 분석 존재 여부|
 |`origin`|`live\|demo\|all`|서버 env `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`). 없거나 틀리면 실행 모드: `live`면 `live`, `fixture`·`mock`이면 `demo`(`web/server/bids/bid-query.ts` `defaultOrigin`)|ENUM|출처 필터([[16-DECISIONS\|ADR-020]]). 실행 모드와 따로 둔 이유는 회사 런타임이 `live`여도 화면 기본 출처를 정할 수 있게 하려는 것이다). 운영 Production은 `SOL_DEFAULT_ORIGIN=live`라 기본이 실공고다. 원래 기본값이 실행 모드를 따르는 이유는 모드마다 그 모드의 데이터만 기본으로 보여 live 공고와 fixture 공고가 섞이지 않게 하려는 것이다. 둘 다 보려면 `all`([[19-DEMO-SCENARIO\|19 데모]] §2.1). `live` = 나라장터에서 수집한 공고(`is_demo=false`), `demo` = fixture 등 가상 공고(`is_demo=true`)|
@@ -578,10 +578,10 @@ interface PeoplePage {
 |409|`ANALYSIS_IN_PROGRESS`|같은 입력의 run이 `QUEUED`/`RUNNING`인데 `force=true`. 또는 `POST /analyses/:id/what-if`의 run이 `QUEUED`·`RUNNING`(스냅샷이 아직 없다, [[16-DECISIONS\|ADR-037]])|`{analysisId}`. 가정 재계산은 `details` 없음|
 |409|`IDEMPOTENCY_KEY_REUSED`|같은 키, 다른 본문|—|
 |409|`INGESTION_IN_PROGRESS`|`POST /admin/ingestion/runs`에서 같은 소스의 `ingest_runs` 행이 `RUNNING`. 멱등 재현(같은 키·같은 본문이면 첫 202) 뒤에 판정하고, 큐에만 있는 job은 막지 않는다. 오래 남은 g2b `RUNNING` 행은 운영자 명령 `pnpm ops:close-stale-runs`로 닫는다([[07-DATA-PIPELINE\|07]] §2.7, [[16-DECISIONS\|16 ADR]] 미결정 25번)|`{runId}`|
-|409|`PROJECT_REQUIRES_BID_DECISION`|P1. `POST /projects`의 `reviewId`가 BID 결정이 아님([[16-DECISIONS\|ADR-021]])|`{reviewId}`|
+|409|`PROJECT_REQUIRES_BID_DECISION`|P1. `POST /projects`의 `reviewId`가 추천(`BID`) 결정이 아님([[16-DECISIONS\|ADR-021]])|`{reviewId}`|
 |409|`PROJECT_ALREADY_OPEN`|`POST /projects`인데 그 공고에 열린 입찰 프로젝트가 이미 있음|`{projectId}`|
 |409|`INVALID_PROJECT_TRANSITION`|`PATCH /projects/:id`의 상태 전이가 허용되지 않음|`{from, to}`|
-|409|`LATEST_DECISION_NOT_BID`|P1. 입찰 프로젝트를 연 뒤 최신 결정이 BID가 아니어서 상태 전진을 막음. 자동 종료하지 않는다([[16-DECISIONS\|ADR-021]])|`{bidId, latestDecision}`|
+|409|`LATEST_DECISION_NOT_BID`|P1. 입찰 프로젝트를 연 뒤 최신 결정이 추천(`BID`)이 아니어서 상태 전진을 막음. 자동 종료하지 않는다([[16-DECISIONS\|ADR-021]])|`{bidId, latestDecision}`|
 |409|`RUN_MODE_MISMATCH`|`POST /admin/ingestion/runs`의 `source`가 현재 실행 모드(`SOL_RUN_MODE`)와 맞지 않음(`live`에 `fixture`, `fixture`·`mock`에 `g2b`). 서버가 조용히 소스를 바꾸지 않는다([[16-DECISIONS\|ADR-020]])|`{runMode, source}`|
 |409|`ANALYSIS_SOURCE_MISSING`|`POST /bids/:id/analyses`인데 최신 revision 본문·분석 가능한 첨부 텍스트가 없음. 화면도 분석 단추를 막는다("공고 본문 미확보 · 분석 준비 중", `web/server/bids/bids.service.ts`). 회사 documents Worker 반영 전에는 운영 실공고 대부분이 이 응답이다([[16-DECISIONS\|ADR-054]])|`{reason}`|
 |409|`MANUAL_SHARED_RUN`|`POST /admin/ingestion/runs`(g2b 수동)인데 최근 10분 안에 누가 수동 수집을 접수함(전역 공유 실행). `Retry-After` 없음|`{runId, requestedAt, nextAvailableAt, retryAfterSeconds, mine}`|
@@ -710,7 +710,7 @@ GET /api/v1/analyses/7d2c...
 }
 ```
 
-위 값은 **DEMO fixture FX-02의 가상 데이터**이며 [[08-SCORING|08 점수]] worked example과 같은 숫자다. 요소 합 15.0+18.3+14.0+15.0+10.0 = 72.3 → `solScore` 72(정수 반올림). 자격은 전부 충족이고 WATCH는 점수가 50~75 구간이기 때문이다. `kev.needsHumanReview=0.74`가 임계값 0.7 이상이라 `reviewFlags`에 `KEV_NEEDS_REVIEW`가 들어갔고, 결정 모델 권고(WATCH)가 규칙 권고와 같아 `MODEL_RULE_DISAGREEMENT`는 없다. 다른 fixture의 mock Kev 값은 [[07-DATA-PIPELINE|07 수집]] §6.3. 예시의 `scoreBreakdown.evidence`와 `requirementAssessments`는 지면상 비웠다.
+위 값은 **DEMO fixture FX-02의 가상 데이터**이며 [[08-SCORING|08 점수]] worked example과 같은 숫자다. 요소 합 15.0+18.3+14.0+15.0+10.0 = 72.3 → `solScore` 72(정수 반올림). 자격은 전부 충족이고 보류(`WATCH`)는 점수가 50~75 구간이기 때문이다. `kev.needsHumanReview=0.74`가 임계값 0.7 이상이라 `reviewFlags`에 `KEV_NEEDS_REVIEW`가 들어갔고, 결정 모델 권고(`WATCH`)가 규칙 권고와 같아 `MODEL_RULE_DISAGREEMENT`는 없다. 다른 fixture의 mock Kev 값은 [[07-DATA-PIPELINE|07 수집]] §6.3. 예시의 `scoreBreakdown.evidence`와 `requirementAssessments`는 지면상 비웠다.
 
 이 예시는 `mock` 실행 모드(`runMode:"mock"`)의 결과다. 골든 수치(94/72/68)는 mock 모드에서만 단언한다. mock 모드와 데모 S3는 Kev 질문 세트 `kev-qs/v0.1`을 계속 쓰므로 v0.2 필드(`scores`·`risks`·`calibration`·`stateTrace`)가 null이다. `fixture`·`live` 모드는 실모델(Qwen3.8-Flash-Next·Bosun v3.1 0.6B, `kev-qs/v0.2`)을 쓰므로 추출과 결정 모델 값이 이 예시와 다를 수 있다([[16-DECISIONS|ADR-020]]).
 

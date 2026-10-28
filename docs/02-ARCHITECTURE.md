@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - architecture
   - pipeline
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 02. 시스템 아키텍처
@@ -112,7 +112,7 @@ sequenceDiagram
  A->>A: Qwen 추출 → schema 검증 → 인용 검증 (mock은 fixtures/extractions/FX-xx.json)
  A-->>W: RequirementExtraction + warnings + model meta
  W->>P: requirement_extractions 저장 (UNIQUE revision_id + model_name + prompt_hash)
- W->>W: 규칙 엔진: 자격 판정 → SOL Score → BID / WATCH / NO_BID 권고
+ W->>W: 규칙 엔진: 자격 판정 → SOL Score → 추천(BID)·보류(WATCH)·비추천(NO_BID) 권고
  W->>A: POST /kev (추출 KNOWN 값 + 프로필 요약 + 질문 세트 kev-qs/v0.1·v0.2)
  alt KEV_ENABLED=true and AI_PROVIDER=local
   A->>K: POST /v1/systemone (choice / noul)
