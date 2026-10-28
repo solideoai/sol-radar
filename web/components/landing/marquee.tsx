@@ -7,12 +7,15 @@ import styles from "@/components/landing/marquee.module.css";
 // 줄은 화면 폭 전체를 쓰고 양 끝은 흐리게 지운다. 바깥 칸이 넘침을 잘라 페이지는 가로로 넘치지 않는다.
 export function Marquee({
   label,
+  align = "start",
   reverse = false,
   seconds,
   note,
   children,
 }: {
   label: string;
+  /** 제목(과 움직임 줄이기에서 줄 바꾼 목록)의 정렬. */
+  align?: "start" | "center";
   reverse?: boolean;
   /** 한 바퀴(사본 하나만큼) 도는 시간. 항목이 많아도 같은 빠르기로 보이게 쓰는 쪽이 정한다. */
   seconds: number;
@@ -22,7 +25,12 @@ export function Marquee({
 }) {
   return (
     <section aria-label={label} className="py-7">
-      <h2 className="mx-auto w-full max-w-300 px-10 type-label-lg text-muted-foreground">
+      <h2
+        className={cn(
+          "mx-auto w-full max-w-300 px-10 type-label-lg text-muted-foreground",
+          align === "center" && "text-center",
+        )}
+      >
         {label}
       </h2>
       {/* 초점을 받을 수 있어야 키보드로도 멈출 수 있다. 안에는 링크·버튼이 없다. */}
@@ -43,7 +51,12 @@ export function Marquee({
           className={cn(styles.track, reverse && styles.reverse, "flex w-max motion-reduce:w-full")}
           style={{ "--marquee-duration": `${seconds}s` } as React.CSSProperties}
         >
-          <ul className="flex shrink-0 gap-4 pr-4 motion-reduce:mx-auto motion-reduce:w-full motion-reduce:max-w-300 motion-reduce:flex-wrap motion-reduce:px-10">
+          <ul
+            className={cn(
+              "flex shrink-0 gap-4 pr-4 motion-reduce:mx-auto motion-reduce:w-full motion-reduce:max-w-300 motion-reduce:flex-wrap motion-reduce:px-10",
+              align === "center" && "motion-reduce:justify-center",
+            )}
+          >
             {children}
           </ul>
           <ul aria-hidden className="flex shrink-0 gap-4 pr-4 motion-reduce:hidden">
