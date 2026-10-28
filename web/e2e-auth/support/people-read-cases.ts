@@ -661,10 +661,29 @@ export function registerPeopleReadTests() {
           })
           .toBe(true);
         await expect(page.getByText(/전체 200명.*본부 6.*그룹 4.*팀 38/)).toBeVisible();
-        await expect(page.getByText(/29개 부서.*119명/)).toBeVisible();
-        await expect(
-          page.getByText("자료에서 상위 부서가 확인되지 않은 부서입니다.", { exact: true }),
-        ).toBeVisible();
+        // 최상위 부서는 구역 없이 한 목록이다: 본부(인원 많은 순) → 상위 없는 그룹·팀(코드 순) → 0명 부서.
+        await expect(page.getByText(/상위 미지정/)).toHaveCount(0);
+        const isDivision = (kind: string | null) => Number(kind === "DIVISION");
+        const expectedRoots = departments
+          .filter(({ parentId }) => parentId === null)
+          .toSorted(
+            (a, b) =>
+              Number(a.memberCount === 0) - Number(b.memberCount === 0) ||
+              isDivision(b.kind) - isDivision(a.kind) ||
+              (a.kind === "DIVISION" && b.kind === "DIVISION"
+                ? b.memberCount - a.memberCount
+                : 0) ||
+              a.code.localeCompare(b.code),
+          );
+        expect(expectedRoots).toHaveLength(35);
+        expect(
+          await page
+            .getByRole("complementary", { name: "부서 탐색", exact: true })
+            .locator(":scope > ul > li")
+            .evaluateAll((items) =>
+              items.map((item) => (item as HTMLElement).innerText.split("\n")[0].trim()),
+            ),
+        ).toEqual(expectedRoots.map(({ name }) => name));
         await expect(page.getByRole("button", { name: "P&AX컨설팅본부", exact: true })).toHaveCount(
           0,
         );
@@ -719,42 +738,36 @@ export function registerPeopleReadTests() {
           );
           expect(await card.innerText()).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-|MALE|FEMALE|@|010-/);
         }
-        const unknown = page.getByRole("button", { name: "상위 미지정", exact: true });
-        const unknownGroups = page.getByRole("button", { name: "그룹 4개", exact: true });
-        const unknownTeams = page.getByRole("button", { name: "팀 25개", exact: true });
-        for (const [button, id] of [
-          [unknown, "org-unassigned-content"],
-          [unknownGroups, "org-unassigned-groups"],
-          [unknownTeams, "org-unassigned-teams"],
-        ] as const) {
-          await expect(button).toHaveAttribute("aria-expanded", "true");
-          await expect(button).toHaveAttribute("aria-controls", id);
-          await button.click();
-          await expect(button).toHaveAttribute("aria-expanded", "false");
-          await expect(page.locator(`#${id}`)).toBeHidden();
-          await button.click();
-          await expect(button).toHaveAttribute("aria-expanded", "true");
-          await expect(page.locator(`#${id}`)).toBeVisible();
-        }
         for (const group of departments.filter(
           ({ kind, parentId }) => kind === "GROUP" && parentId === null,
         )) {
           await expect(page.getByRole("button", { name: group.name, exact: true })).toHaveCount(0);
           await expect(page.getByText(group.name, { exact: true })).toBeVisible();
         }
-        const unknownTeamIds = new Set(
+        const divisionTeamIds = new Set(
           departments
-            .filter(({ kind, parentId }) => kind === "TEAM" && parentId === null)
+            .filter(
+              ({ id, kind, parentId }) =>
+                kind === "TEAM" &&
+                id !== firstTeamId &&
+                departments.some((item) => item.id === parentId && item.kind === "DIVISION"),
+            )
             .map(({ id }) => id),
         );
-        const highlighted = people.find(({ departmentId }) => unknownTeamIds.has(departmentId));
+        const highlighted = people.find(({ departmentId }) => divisionTeamIds.has(departmentId));
         expect(highlighted).toBeDefined();
         const person = memberSchema.parse(highlighted);
-        // Finder must reveal UI-only bundles without inventing a department parent.
-        await unknownTeams.click();
-        await expect(unknownTeams).toHaveAttribute("aria-expanded", "false");
-        await unknown.click();
-        await expect(unknown).toHaveAttribute("aria-expanded", "false");
+        const personDivision = z
+          .string()
+          .parse(
+            departments.find(
+              ({ id }) => id === departments.find(({ id }) => id === person.departmentId)?.parentId,
+            )?.name,
+          );
+        // Finder must expand a collapsed division to reveal the person's team.
+        const division = page.getByRole("button", { name: personDivision, exact: true });
+        if ((await division.getAttribute("aria-expanded")) === "true") await division.click();
+        await expect(division).toHaveAttribute("aria-expanded", "false");
         const find = page.getByRole("combobox", { name: "이름으로 찾기", exact: true });
         await find.fill("김");
         await expect(page.getByRole("option").first()).toBeVisible();
@@ -776,29 +789,23 @@ export function registerPeopleReadTests() {
         await expect
           .poll(() => new URL(page.url()).searchParams.get("team"))
           .toBe(person.departmentId);
-        await expect(unknown).toHaveAttribute("aria-expanded", "true");
-        await expect(unknownTeams).toHaveAttribute("aria-expanded", "true");
-        await expect(
-          page.getByRole("navigation", { name: "팀 부서 경로", exact: true }),
-        ).toContainText("상위 부서 미지정");
+        await expect(division).toHaveAttribute("aria-expanded", "true");
+        const teamPath = page.getByRole("navigation", { name: "팀 부서 경로", exact: true });
+        await expect(teamPath).toContainText(personDivision);
+        await expect(teamPath).not.toContainText("미지정");
         const card = page.getByRole("button", { name: `${person.name} 상세 보기`, exact: true });
         await expect(card).toBeFocused();
         await expect(page.getByRole("dialog")).toHaveCount(0);
         await page.reload();
         await expect(card).toBeVisible();
-        await expect(unknown).toHaveAttribute("aria-expanded", "true");
-        await expect(unknownTeams).toHaveAttribute("aria-expanded", "true");
+        await expect(division).toHaveAttribute("aria-expanded", "true");
         await page.goBack();
         await expect(peopleButtons(page)).toHaveCount(14);
-        if ((await unknown.getAttribute("aria-expanded")) === "false") await unknown.click();
-        if ((await unknownTeams.getAttribute("aria-expanded")) === "true")
-          await unknownTeams.click();
-        await unknown.click();
-        await expect(unknown).toHaveAttribute("aria-expanded", "false");
+        if ((await division.getAttribute("aria-expanded")) === "true") await division.click();
+        await expect(division).toHaveAttribute("aria-expanded", "false");
         await page.goForward();
         await expect(card).toBeVisible();
-        await expect(unknown).toHaveAttribute("aria-expanded", "true");
-        await expect(unknownTeams).toHaveAttribute("aria-expanded", "true");
+        await expect(division).toHaveAttribute("aria-expanded", "true");
         await card.focus();
         await page.keyboard.press("Enter");
         const dialog = page.getByRole("dialog", { name: person.name, exact: true });
@@ -871,15 +878,6 @@ export function registerPeopleReadTests() {
       for (const team of teams) {
         await page.goto(`/org-chart?team=${team.id}`);
         const chooseTeam = page.getByRole("button", { name: team.name, exact: true });
-        if (team.parentId === null) {
-          await expect(
-            page.getByRole("button", { name: "상위 미지정", exact: true }),
-          ).toHaveAttribute("aria-expanded", "true");
-          await expect(page.getByRole("button", { name: "팀 25개", exact: true })).toHaveAttribute(
-            "aria-expanded",
-            "true",
-          );
-        }
         await expect(chooseTeam).toBeVisible();
         await chooseTeam.click();
         await expect(chooseTeam).toHaveAttribute("aria-current", "true");

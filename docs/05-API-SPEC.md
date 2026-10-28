@@ -519,7 +519,7 @@ interface EvalRunReport extends EvalRunSummary {
 interface Department {
   id: string; code: string; name: string;
   kind: "DIVISION" | "GROUP" | "TEAM" | null;   // 본부·그룹·팀. 없으면 null
-  parentId: string | null;                      // 상위 부서. null이면 화면에서 "상위 미지정"
+  parentId: string | null;                      // 상위 부서. null이면 최상위(화면은 한 목록에 놓는다)
   targetCount: number | null;                   // 팀만. 본부·그룹은 null(오류 아님)
   memberCount: number;                          // 하위 팀 재직 인원 합, 직원 ID 중복 제거. 따로 저장하지 않고 계산
 }
@@ -541,7 +541,7 @@ interface TeamMemberDetail extends TeamMemberListItem {
 
 N4b 편집(`POST /team-members`, `PATCH /team-members/:id`)은 같은 업무 경로 입구를 쓴다(쿠키 요청은 `X-Requested-With: sol-radar` 필요, 없으면 `403 CSRF_REJECTED`). `ADMIN`이 아니면 본문 검사 전에 `403 FORBIDDEN`이다. 조직은 세션의 업무 조직이고 본문의 `orgId`를 받지 않는다. 본문은 엄격 객체라 알 수 없는 키(점수 속성 `skills`·`role` 등 포함)는 `400 VALIDATION_ERROR`다. POST 본문은 `name`(trim 1~40자)·`departmentId`(팀 UUID)·`jobTitleId`(UUID)·`email`(선택, 소문자 형식)이다. PATCH 본문은 `departmentId`·`jobTitleId`·`employmentStatus`(`ACTIVE`·`LEFT`) 중 하나 이상이다. 경로 ID 형식 오류는 400, 현재 조직에 없거나 다른 조직의 직원은 `404 NOT_FOUND`다. 본부·그룹이나 다른 조직의 부서·직급은 `400 VALIDATION_ERROR`(`details.issues[].path`가 `departmentId`·`jobTitleId`)다. 이미 쓰는 메일은 `400`(`path=email`)이다. 응답 `EditedTeamMember`는 `{id,personCode,name,email,departmentId,jobTitleId,employmentStatus,isDemo}`다. 바뀐 값이 없는 PATCH는 감사 행 없이 `200`이다.
 
-`Department.id`·`TeamMemberListItem.id`·`departmentId`·`jobTitleId`와 `JobTitle.id`는 DB UUID다. 표시 코드는 `Department.code=SOL-Dxxx`, `JobTitle.code=SOL-Jxxx`, `personCode=SOL-Pxxxx`다. `GET /job-titles`는 `{id,code,label}[]`를 직급 순서로 반환한다. 본부의 `parentId:null`은 정상 루트이고, 그룹·팀의 null은 상위 미지정이다. `memberCount`는 전체 명부의 하위 직원 ID 중복을 제거해 계산한다.
+`Department.id`·`TeamMemberListItem.id`·`departmentId`·`jobTitleId`와 `JobTitle.id`는 DB UUID다. 표시 코드는 `Department.code=SOL-Dxxx`, `JobTitle.code=SOL-Jxxx`, `personCode=SOL-Pxxxx`다. `GET /job-titles`는 `{id,code,label}[]`를 직급 순서로 반환한다. 본부의 `parentId:null`은 정상 루트이고, 그룹·팀의 null은 원본에서 상위를 확인하지 못한 것이다(화면은 따로 묶지 않고 최상위 목록에 놓는다). `memberCount`는 전체 명부의 하위 직원 ID 중복을 제거해 계산한다.
 
 `GET /team-members`는 `q`(trim, 최대 40자), `departmentId`(팀 UUID), `jobTitleId`(UUID), `scoring=1|0`, `cursor`, `limit`(기본 20, 1~100)을 받는다. 알 수 없는 조건·중복 조건·잘못된 값은 `400 VALIDATION_ERROR`, 현재 조직에서 찾을 수 없는 부서·직급은 `404 NOT_FOUND`, 상위 본부·그룹 필터는 `400 VALIDATION_ERROR`다. 다른 세 경로는 쿼리 조건을 받지 않는다. 상세 경로 ID 형식은 UUID이며 잘못된 형식은 400, 현재 조직에 없거나 다른 조직의 직원은 404다.
 

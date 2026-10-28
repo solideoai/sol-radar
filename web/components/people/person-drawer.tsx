@@ -67,7 +67,7 @@ export function PersonDrawer({
             {department?.name ?? "부서 정보 없음"} · {title?.label ?? "직급 정보 없음"}
           </SheetDescription>
           {/* 신규 입사자(비데모 직원)에는 꼬리표를 붙이지 않는다(계획 판단 R3). */}
-          {person?.isDemo ? <p className="type-caption text-demo">DEMO · 가상 인물</p> : null}
+          {person?.isDemo ? <p className="type-caption text-muted-foreground">가상 인물</p> : null}
           {person ? (
             <p className="type-caption">{person.scoringEligible ? "점수 계산 대상" : "비대상"}</p>
           ) : null}

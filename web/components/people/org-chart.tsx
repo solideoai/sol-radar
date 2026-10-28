@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import { cn } from "cn";
 import { AppPage } from "@/components/app-page";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
@@ -25,18 +26,6 @@ const pathTo = (departments: PeopleDirectory["departments"], id: string): string
   return path;
 };
 
-type UnknownBundles = { unassigned: boolean; groups: boolean; teams: boolean };
-const revealUnknownBundle = (
-  departments: PeopleDirectory["departments"],
-  teamId: string,
-  bundles: UnknownBundles,
-): UnknownBundles => {
-  const rootId = pathTo(departments, teamId)[0];
-  const root = departments.find((department) => department.id === rootId);
-  if (!root || root.parentId !== null || root.kind === "DIVISION") return bundles;
-  return { ...bundles, unassigned: true, [root.kind === "GROUP" ? "groups" : "teams"]: true };
-};
-
 export function OrgChart({
   directory,
   onSelect,
@@ -47,11 +36,7 @@ export function OrgChart({
   onRetry?: () => void;
 }) {
   const chart = useMemo(() => buildOrgChart(directory.departments, directory.members), [directory]);
-  const nodes = flattenNodes([
-    ...chart.divisions,
-    ...chart.unassignedGroups,
-    ...chart.unassignedTeams,
-  ]);
+  const nodes = flattenNodes(chart.roots);
   const teams = nodes.filter((node) => node.department.kind === "TEAM");
   const defaultTeam = teams.find((node) => node.members.length > 0) ?? teams[0];
   const searchParams = useSearchParams();
@@ -62,14 +47,10 @@ export function OrgChart({
   const [disclosure, setDisclosure] = useState(() => ({
     teamId,
     expanded: new Set(teamId ? pathTo(directory.departments, teamId) : []),
-    bundles: { unassigned: true, groups: true, teams: true },
   }));
   if (disclosure.teamId !== teamId) {
     setDisclosure({
       teamId,
-      bundles: teamId
-        ? revealUnknownBundle(directory.departments, teamId, disclosure.bundles)
-        : disclosure.bundles,
       expanded: new Set([
         ...disclosure.expanded,
         ...(teamId ? pathTo(directory.departments, teamId) : []),
@@ -103,7 +84,6 @@ export function OrgChart({
     if (params.toString() !== query) window.history.pushState(null, "", `/org-chart?${params}`);
     setDisclosure((previous) => ({
       teamId: id,
-      bundles: revealUnknownBundle(directory.departments, id, previous.bundles),
       expanded: new Set([...previous.expanded, ...pathTo(directory.departments, id)]),
     }));
   };
@@ -118,11 +98,6 @@ export function OrgChart({
       else expanded.add(id);
       return { ...previous, expanded };
     });
-  const toggleBundle = (bundle: keyof UnknownBundles) =>
-    setDisclosure((previous) => ({
-      ...previous,
-      bundles: { ...previous.bundles, [bundle]: !previous.bundles[bundle] },
-    }));
   const titleNames = new Map(directory.jobTitles.map((item) => [item.id, item.label]));
   const titleRank = new Map(directory.jobTitles.map((item, index) => [item.id, index]));
   const members = [...(selectedTeam?.members ?? [])].sort(
@@ -135,7 +110,6 @@ export function OrgChart({
         directory.departments.find((item) => item.id === id)!,
       )
     : [];
-  const hasKnownRoot = selectedPath[0]?.kind === "DIVISION";
   const renderNode = (node: OrgNode) => (
     <DepartmentNode
       key={node.department.id}
@@ -144,6 +118,7 @@ export function OrgChart({
       selectedTeamId={teamId}
       onToggle={toggle}
       onSelectTeam={selectTeam}
+      isRoot
     />
   );
   const empty = !directory.departments.length && !directory.members.length;
@@ -155,7 +130,7 @@ export function OrgChart({
     >
       {!empty ? (
         <div className="flex flex-wrap items-center gap-3 type-body">
-          <span className="text-demo">DEMO · 가상 인물</span>
+          <span className="text-muted-foreground">가상 인물</span>
           <p>
             전체 {chart.totalCount}명 · 본부{" "}
             {directory.departments.filter((item) => item.kind === "DIVISION").length} · 그룹{" "}
@@ -180,121 +155,13 @@ export function OrgChart({
             aria-label="부서 탐색"
             className="sticky top-18 max-h-[calc(100dvh-14rem)] min-w-0 overflow-y-auto border-r border-border pr-4"
           >
-            <section aria-labelledby="org-divisions-heading" className="grid gap-3">
-              <h2 id="org-divisions-heading" className="type-heading">
-                본부 ·{" "}
-                {
-                  new Set(
-                    flattenNodes(chart.divisions).flatMap((node) =>
-                      node.members.map((person) => person.id),
-                    ),
-                  ).size
-                }
-                명
-              </h2>
-              <ul className="grid min-w-0 gap-1">{chart.divisions.map(renderNode)}</ul>
-            </section>
-            <section
-              aria-labelledby="org-unassigned-heading"
-              className="mt-5 grid gap-3 border-t border-border pt-5"
-            >
-              <h2
-                id="org-unassigned-heading"
-                aria-label={`상위 미지정 · ${chart.unassignedGroups.length + chart.unassignedTeams.length}개 부서 · ${chart.unassignedCount}명`}
-                className="relative rounded-lg type-heading hover:bg-muted"
-              >
-                <Button
-                  variant="ghost"
-                  aria-label="상위 미지정"
-                  aria-describedby="org-unassigned-summary"
-                  aria-expanded={disclosure.bundles.unassigned}
-                  aria-controls="org-unassigned-content"
-                  onClick={() => toggleBundle("unassigned")}
-                  className="h-auto min-h-10 min-w-0 justify-start gap-2 px-0 text-left whitespace-normal after:absolute after:inset-0 after:rounded-lg focus-visible:ring-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50 active:not-aria-[haspopup]:translate-none"
-                >
-                  {disclosure.bundles.unassigned ? (
-                    <ChevronDownIcon aria-hidden />
-                  ) : (
-                    <ChevronRightIcon aria-hidden />
-                  )}
-                  <span className="min-w-0 type-heading wrap-anywhere">상위 미지정</span>
-                </Button>
-                {" · "}
-                <span id="org-unassigned-summary">
-                  {chart.unassignedGroups.length + chart.unassignedTeams.length}개 부서 ·{" "}
-                  {chart.unassignedCount}명
-                </span>
-              </h2>
-              <div
-                id="org-unassigned-content"
-                hidden={!disclosure.bundles.unassigned}
-                className="grid min-w-0 gap-3"
-              >
-                <p className="type-caption text-muted-foreground">
-                  자료에서 상위 부서가 확인되지 않은 부서입니다.
-                </p>
-                <h3 className="type-label font-medium">
-                  <Button
-                    variant="ghost"
-                    aria-expanded={disclosure.bundles.groups}
-                    aria-controls="org-unassigned-groups"
-                    onClick={() => toggleBundle("groups")}
-                    className="h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-0 text-left whitespace-normal"
-                  >
-                    {disclosure.bundles.groups ? (
-                      <ChevronDownIcon aria-hidden />
-                    ) : (
-                      <ChevronRightIcon aria-hidden />
-                    )}
-                    <span>그룹 {chart.unassignedGroups.length}개</span>
-                  </Button>
-                </h3>
-                <ul
-                  id="org-unassigned-groups"
-                  hidden={!disclosure.bundles.groups}
-                  className="grid min-w-0 gap-1"
-                >
-                  {chart.unassignedGroups.map(renderNode)}
-                </ul>
-                <h3 className="type-label font-medium">
-                  <Button
-                    variant="ghost"
-                    aria-expanded={disclosure.bundles.teams}
-                    aria-controls="org-unassigned-teams"
-                    onClick={() => toggleBundle("teams")}
-                    className="h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-0 text-left whitespace-normal"
-                  >
-                    {disclosure.bundles.teams ? (
-                      <ChevronDownIcon aria-hidden />
-                    ) : (
-                      <ChevronRightIcon aria-hidden />
-                    )}
-                    <span>팀 {chart.unassignedTeams.length}개</span>
-                  </Button>
-                </h3>
-                <ul
-                  id="org-unassigned-teams"
-                  hidden={!disclosure.bundles.teams}
-                  className="grid min-w-0 gap-1"
-                >
-                  {chart.unassignedTeams.map(renderNode)}
-                </ul>
-              </div>
-            </section>
+            <ul className="grid min-w-0 gap-1">{chart.roots.map(renderNode)}</ul>
           </aside>
           <section aria-label="선택한 팀" className="grid min-w-0 gap-4">
             {selectedTeam ? (
               <>
                 <nav aria-label="팀 부서 경로" className="type-caption text-muted-foreground">
                   <ol className="flex flex-wrap gap-1">
-                    {!hasKnownRoot ? (
-                      <li>
-                        상위 부서 미지정
-                        <span aria-hidden className="ml-1">
-                          ›
-                        </span>
-                      </li>
-                    ) : null}
                     {selectedPath.map((department, index) => (
                       <li key={department.id} className="min-w-0 wrap-anywhere">
                         {department.name}
@@ -391,12 +258,14 @@ function DepartmentNode({
   selectedTeamId,
   onToggle,
   onSelectTeam,
+  isRoot = false,
 }: {
   node: OrgNode;
   expanded: Set<string>;
   selectedTeamId?: string;
   onToggle: (id: string) => void;
   onSelectTeam: (id: string) => void;
+  isRoot?: boolean;
 }) {
   const { department } = node;
   const isTeam = department.kind === "TEAM";
@@ -412,7 +281,11 @@ function DepartmentNode({
             aria-describedby={`${contentId}-count`}
             aria-current={selectedTeamId === department.id ? "true" : undefined}
             onClick={() => onSelectTeam(department.id)}
-            className="peer h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 pr-10 text-left whitespace-normal aria-current:bg-selected aria-current:font-semibold aria-current:text-selected-foreground aria-current:hover:bg-selected"
+            className={cn(
+              "peer h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 pr-10 text-left whitespace-normal aria-current:bg-selected aria-current:font-semibold aria-current:text-selected-foreground aria-current:hover:bg-selected",
+              // 최상위 팀 이름을 본부 이름(펼침 화살표 다음)과 같은 줄에 맞춘다.
+              isRoot && "pl-8",
+            )}
           >
             <span className="min-w-0 type-label wrap-anywhere">{department.name}</span>
           </Button>
@@ -463,7 +336,7 @@ function DepartmentNode({
           </ul>
         </>
       ) : (
-        <div className="grid min-h-10 min-w-0 gap-1 px-2 py-2">
+        <div className={cn("grid min-h-10 min-w-0 gap-1 px-2 py-2", isRoot && "pl-8")}>
           <span className="type-label wrap-anywhere">{department.name}</span>
           <span className="type-caption text-muted-foreground">
             {node.memberCount}명 · 연결된 팀 없음
