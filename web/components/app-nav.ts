@@ -2,6 +2,7 @@ import {
   AwardIcon,
   BellIcon,
   CalendarDaysIcon,
+  ChartColumnIcon,
   DatabaseIcon,
   FileTextIcon,
   FolderKanbanIcon,
@@ -61,6 +62,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     id: "analysis",
     label: "분석",
     items: [
+      { href: "/market", label: "발주 현황", icon: ChartColumnIcon, status: "released" },
       {
         href: "/analysis",
         label: "분석 결과 비교",
