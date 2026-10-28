@@ -1,0 +1,208 @@
+{
+  "rows": [
+    {
+      "width": 1440,
+      "name": "dashboard",
+      "path": "/dashboard",
+      "file": "prod-dashboard-1440.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 39분 전",
+      "mainDemoCount": 0,
+      "virtualTitleCount": 0,
+      "unanalyzed": 7,
+      "h1": "대시보드"
+    },
+    {
+      "width": 1440,
+      "name": "bids",
+      "path": "/bids",
+      "file": "prod-bids-1440.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 1,
+      "virtualTitleCount": 0,
+      "unanalyzed": 20,
+      "h1": "입찰 공고"
+    },
+    {
+      "width": 1440,
+      "name": "bids-origin-live",
+      "path": "/bids?origin=live",
+      "file": "prod-bids-origin-live-1440.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 1,
+      "virtualTitleCount": 0,
+      "unanalyzed": 20,
+      "h1": "입찰 공고"
+    },
+    {
+      "width": 1440,
+      "name": "bids-origin-demo",
+      "path": "/bids?origin=demo",
+      "file": "prod-bids-origin-demo-1440.png",
+      "overflowPx": 0,
+      "topbarDemo": true,
+      "topbarText": "DEMO실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 30,
+      "virtualTitleCount": 14,
+      "unanalyzed": 0,
+      "h1": "입찰 공고"
+    },
+    {
+      "width": 1440,
+      "name": "live-detail",
+      "path": "/bids/78a7e781-d440-4abe-a5fb-6206b7c8857d",
+      "file": "prod-live-detail-1440.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 0,
+      "virtualTitleCount": 0,
+      "unanalyzed": 3,
+      "h1": "클라우드기반 의료데이터 활용 통합플랫폼 고도화(2차) 용역_긴급"
+    },
+    {
+      "width": 1440,
+      "name": "demo-detail",
+      "path": "/bids/d6a7d9d4-f567-5226-a467-9986cf50e5b8",
+      "file": "prod-demo-detail-1440.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 2,
+      "virtualTitleCount": 1,
+      "unanalyzed": 0,
+      "h1": "인천광역시 민원 챗봇 고도화 (가상)"
+    },
+    {
+      "width": 1440,
+      "name": "dashboard-origin-demo",
+      "path": "/dashboard?origin=demo",
+      "file": "prod-dashboard-origin-demo-1440.png",
+      "overflowPx": 0,
+      "topbarDemo": true,
+      "topbarText": "DEMO실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 10,
+      "virtualTitleCount": 9,
+      "unanalyzed": 2,
+      "h1": "대시보드"
+    },
+    {
+      "width": 1280,
+      "name": "dashboard",
+      "path": "/dashboard",
+      "file": "prod-dashboard-1280.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 0,
+      "virtualTitleCount": 0,
+      "unanalyzed": 7,
+      "h1": "대시보드"
+    },
+    {
+      "width": 1280,
+      "name": "bids",
+      "path": "/bids",
+      "file": "prod-bids-1280.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 1,
+      "virtualTitleCount": 0,
+      "unanalyzed": 20,
+      "h1": "입찰 공고"
+    },
+    {
+      "width": 1280,
+      "name": "bids-origin-live",
+      "path": "/bids?origin=live",
+      "file": "prod-bids-origin-live-1280.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 40분 전",
+      "mainDemoCount": 1,
+      "virtualTitleCount": 0,
+      "unanalyzed": 20,
+      "h1": "입찰 공고"
+    },
+    {
+      "width": 1280,
+      "name": "bids-origin-demo",
+      "path": "/bids?origin=demo",
+      "file": "prod-bids-origin-demo-1280.png",
+      "overflowPx": 0,
+      "topbarDemo": true,
+      "topbarText": "DEMO실행 모드: mockAI: local수집 41분 전",
+      "mainDemoCount": 30,
+      "virtualTitleCount": 14,
+      "unanalyzed": 0,
+      "h1": "입찰 공고"
+    },
+    {
+      "width": 1280,
+      "name": "live-detail",
+      "path": "/bids/78a7e781-d440-4abe-a5fb-6206b7c8857d",
+      "file": "prod-live-detail-1280.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 41분 전",
+      "mainDemoCount": 0,
+      "virtualTitleCount": 0,
+      "unanalyzed": 3,
+      "h1": "클라우드기반 의료데이터 활용 통합플랫폼 고도화(2차) 용역_긴급"
+    },
+    {
+      "width": 1280,
+      "name": "demo-detail",
+      "path": "/bids/d6a7d9d4-f567-5226-a467-9986cf50e5b8",
+      "file": "prod-demo-detail-1280.png",
+      "overflowPx": 0,
+      "topbarDemo": false,
+      "topbarText": "실행 모드: mockAI: local수집 41분 전",
+      "mainDemoCount": 2,
+      "virtualTitleCount": 1,
+      "unanalyzed": 0,
+      "h1": "인천광역시 민원 챗봇 고도화 (가상)"
+    },
+    {
+      "width": 1280,
+      "name": "dashboard-origin-demo",
+      "path": "/dashboard?origin=demo",
+      "file": "prod-dashboard-origin-demo-1280.png",
+      "overflowPx": 0,
+      "topbarDemo": true,
+      "topbarText": "DEMO실행 모드: mockAI: local수집 41분 전",
+      "mainDemoCount": 10,
+      "virtualTitleCount": 9,
+      "unanalyzed": 2,
+      "h1": "대시보드"
+    },
+    {
+      "name": "api-counts",
+      "default": {
+        "total": 90,
+        "demo": 0,
+        "origins": ["live"],
+        "unanalyzed": 90
+      },
+      "live": {
+        "total": 90,
+        "demo": 0,
+        "origins": ["live"],
+        "unanalyzed": 90
+      },
+      "demo": {
+        "total": 19,
+        "demo": 19,
+        "origins": ["demo"],
+        "unanalyzed": 0
+      }
+    }
+  ],
+  "errors": []
+}
