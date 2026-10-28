@@ -10,7 +10,7 @@ export function Hero({ startHref }: { startHref: string }) {
   return (
     <section
       aria-labelledby="hero-title"
-      className="mx-auto w-full max-w-300 px-10 pt-14 pb-10 text-center"
+      className="mx-auto w-full max-w-300 px-10 pt-8 pb-6 text-center"
     >
       <div className="relative motion-safe:animate-in motion-safe:duration-500 motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
         <h1 id="hero-title" className="type-display text-foreground">
@@ -18,7 +18,7 @@ export function Hero({ startHref }: { startHref: string }) {
           <br />
           솔리데오가 검토할 사업부터
         </h1>
-        <p className="mx-auto mt-5 max-w-190 type-lead text-pretty text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-190 type-lead text-pretty text-muted-foreground">
           공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원 플랫폼입니다. 기업의 기술·자격·실적과 공고
           요구사항을 비교해 참가 자격, 사업 적합도, 추가 확인 사항을 한눈에 확인하세요.
         </p>

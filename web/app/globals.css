@@ -119,8 +119,8 @@
 }
 
 @utility type-display {
-  font-size: 4rem;
-  line-height: calc(76 / 64);
+  font-size: 3.25rem;
+  line-height: calc(64 / 52);
   letter-spacing: -0.03em;
   font-weight: 700;
 }

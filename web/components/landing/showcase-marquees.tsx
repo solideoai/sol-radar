@@ -17,7 +17,7 @@ export function ServicesMarquee() {
       {SOLIDEO_SERVICES.map((service) => (
         <li
           key={service.name}
-          className="flex h-28 w-52 shrink-0 items-center justify-center rounded-lg border border-border bg-background px-4"
+          className="flex h-24 w-52 shrink-0 items-center justify-center rounded-lg border border-border bg-background px-4"
         >
           <Image
             src={service.image}
@@ -56,7 +56,7 @@ export function SourcesMarquee() {
       {DATA_SOURCES.map((source) => (
         <li
           key={source.name}
-          className="flex h-28 w-52 shrink-0 items-center justify-center rounded-lg border border-border bg-background px-4"
+          className="flex h-24 w-52 shrink-0 items-center justify-center rounded-lg border border-border bg-background px-4"
         >
           <Image
             src={source.logo.src}

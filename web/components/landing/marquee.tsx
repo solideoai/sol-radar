@@ -22,7 +22,7 @@ export function Marquee({
   children: React.ReactNode;
 }) {
   return (
-    <section aria-label={label} className="py-7">
+    <section aria-label={label} className="py-4">
       <h2 className="mx-auto w-full max-w-300 px-10 text-center type-label-lg text-muted-foreground">
         {label}
       </h2>
@@ -34,7 +34,7 @@ export function Marquee({
         data-testid="marquee-viewport"
         className={cn(
           styles.viewport,
-          "mt-4 overflow-hidden outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+          "mt-3 overflow-hidden outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
           "[mask-image:linear-gradient(to_right,transparent,var(--foreground)_6%,var(--foreground)_94%,transparent)]",
           "motion-reduce:[mask-image:none]",
         )}

@@ -134,7 +134,7 @@ export function WorkDemo() {
       aria-label="SOL RADAR 업무 데모"
       data-scene={current.scene}
       data-step={shownStep}
-      className="mx-auto w-full max-w-300 px-10 pb-6"
+      className="mx-auto w-full max-w-300 px-10 pt-8 pb-6"
     >
       <p className="sr-only">
         SOL RADAR 의 하루 흐름을 보여 주는 예시 화면입니다. 매일 아침 수집 에이전트가

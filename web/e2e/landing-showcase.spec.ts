@@ -103,6 +103,24 @@ test("움직임 줄이기를 켜면 줄이 멈추고 둘째 사본이 보이지 
   }
 });
 
+// 들어오자마자 출처 로고 줄과 고지 문장까지 첫 화면에 다 보여야 한다(2026-10-28 사용자 요청). 노트북 브라우저 높이 800 기준.
+// 고지 문장 아래에는 살짝 여백이 남는다(같은 날 사용자 요청). 24px 이상 비어 있는지 본다.
+test("첫 화면(높이 800)에 출처 로고 줄과 고지 문장이 잘리지 않고 보인다", async ({ page }) => {
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    const sources = regionOf(page, SOURCES_TITLE);
+    const logos = await sources.getByTestId("marquee-viewport").boundingBox();
+    const notice = await sources
+      .getByText("기관 로고는 공고 데이터 출처 표시이며 제휴·인증을 뜻하지 않습니다.")
+      .boundingBox();
+    expect(logos).not.toBeNull();
+    expect(notice).not.toBeNull();
+    expect((logos?.y ?? Infinity) + (logos?.height ?? 0)).toBeLessThanOrEqual(800);
+    expect((notice?.y ?? Infinity) + (notice?.height ?? 0)).toBeLessThanOrEqual(800 - 24);
+  }
+});
+
 test("흐르는 줄이 페이지를 가로로 넘치게 하지 않는다", async ({ page }) => {
   for (const width of [1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
