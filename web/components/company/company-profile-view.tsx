@@ -22,8 +22,10 @@ import { COMPANY_TABS, companyTabHref, type CompanyTab } from "./company-tabs";
 // 06 §5.6 /company. 조회 전용이다 — ADMIN 의 새 revision 저장(PUT /company-profile)은 이번 화면에 없다.
 // 데이터는 서버 컴포넌트가 읽어 넘긴다(props 만 받는다).
 
+// 탭은 주소를 바꾸는 화면 이동 탭이라 설정 메뉴처럼 바깥 상자 없이 파스텔 알약으로 둔다(2026-10-28 화면 개편).
 const LINK_CLASS =
-  "relative inline-flex h-10 items-center gap-1.5 rounded-md type-label font-medium text-muted-foreground outline-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:text-foreground aria-[current=page]:after:bg-foreground";
+  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 type-label whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground";
+// 프로필 출처 배지(가상·공개 자료)다. 출처 배지는 회색 Chip 으로 바꾸지 않는다(2026-10-28 화면 개편 규칙).
 const CHIP =
   "inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption text-foreground";
 
@@ -52,9 +54,8 @@ function TabNav({
   revisions: number;
 }) {
   return (
-    <nav aria-label="회사 역량 항목" className="border-b border-border">
-      {/* 막대가 아래 선 위에 겹치도록 한 픽셀 내린다. */}
-      <ul className="-mb-px flex gap-6">
+    <nav aria-label="회사 역량 항목">
+      <ul className="flex gap-1">
         {COMPANY_TABS.map((tab) => {
           const count = countOf(tab.id, profile, revisions);
           return (
@@ -66,7 +67,8 @@ function TabNav({
               >
                 {tab.label}
                 {count === null ? null : (
-                  <span className="type-caption tabular-nums text-muted-foreground">{count}</span>
+                  // 개수는 탭 글자색을 따른다(켜진 탭에서 파란 글자와 함께 보이게).
+                  <span className="type-caption tabular-nums">{count}</span>
                 )}
               </Link>
             </li>

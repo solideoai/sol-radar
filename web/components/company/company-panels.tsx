@@ -4,6 +4,7 @@ import { CircleCheckIcon, CircleMinusIcon } from "lucide-react";
 import { formatKrwCompact, formatKrwFull, formatKst } from "@/components/bids/format";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
 import {
   Table,
   TableBody,
@@ -26,6 +27,7 @@ import { SourceLinks } from "./source-links";
 
 const EMPTY = "—";
 const NO_PUBLIC_DATA = "공개 자료 없음";
+// 목록(ul·dl)을 담는 상자다. 표는 ui/table 이 같은 둥근 1px 테두리를 그려서 이 상자로 감싸지 않는다(2026-10-28 화면 개편).
 const TABLE_CARD = "gap-0 overflow-hidden py-0";
 
 const kstDate = (iso: string): string => formatKst(iso).slice(0, 10);
@@ -157,48 +159,46 @@ export function LicensesPanel({ profile }: { profile: CompanyProfile }) {
           등록된 자격이 없습니다. 자격 요건이 있는 공고는 ‘확인 필요’로 판정합니다.
         </EmptyNote>
       ) : (
-        <Card className={TABLE_CARD}>
-          <Table className="table-fixed">
-            <caption className="sr-only">보유 자격과 미보유로 확인한 자격</caption>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead scope="col" className="pl-4">
-                  자격
-                </TableHead>
-                <TableHead scope="col" className="w-[200px]">
-                  코드
-                </TableHead>
-                <TableHead scope="col" className="w-[120px]">
-                  상태
-                </TableHead>
-                <TableHead scope="col" className="w-[140px] pr-4">
-                  유효 기간
-                </TableHead>
+        <Table className="table-fixed">
+          <caption className="sr-only">보유 자격과 미보유로 확인한 자격</caption>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead scope="col" className="pl-4">
+                자격
+              </TableHead>
+              <TableHead scope="col" className="w-[200px]">
+                코드
+              </TableHead>
+              <TableHead scope="col" className="w-[120px]">
+                상태
+              </TableHead>
+              <TableHead scope="col" className="w-[140px] pr-4">
+                유효 기간
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {licenses.map((license) => (
+              <TableRow key={license.code} className="h-11">
+                <TableCell className="pl-4 type-body whitespace-normal wrap-anywhere">
+                  <span className="flex flex-col gap-0.5">
+                    {license.name}
+                    <SourceLinks sourceIds={license.sourceIds} sources={sources} />
+                  </span>
+                </TableCell>
+                <TableCell className="font-mono type-caption text-muted-foreground">
+                  {license.code}
+                </TableCell>
+                <TableCell>
+                  <HeldStatus status={license.status} />
+                </TableCell>
+                <TableCell className="pr-4 type-body tabular-nums">
+                  {license.validUntil ?? EMPTY}
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {licenses.map((license) => (
-                <TableRow key={license.code} className="h-11">
-                  <TableCell className="pl-4 type-body whitespace-normal wrap-anywhere">
-                    <span className="flex flex-col gap-0.5">
-                      {license.name}
-                      <SourceLinks sourceIds={license.sourceIds} sources={sources} />
-                    </span>
-                  </TableCell>
-                  <TableCell className="font-mono type-caption text-muted-foreground">
-                    {license.code}
-                  </TableCell>
-                  <TableCell>
-                    <HeldStatus status={license.status} />
-                  </TableCell>
-                  <TableCell className="pr-4 type-body tabular-nums">
-                    {license.validUntil ?? EMPTY}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+            ))}
+          </TableBody>
+        </Table>
       )}
       <h3 className="mt-3 type-label font-medium text-foreground">
         나라장터 업종 코드 {industryCodes.length}개
@@ -277,67 +277,65 @@ export function ProjectsPanel({ profile }: { profile: CompanyProfile }) {
           계산합니다.
         </EmptyNote>
       ) : (
-        <Card className={TABLE_CARD}>
-          <Table className="table-fixed">
-            <caption className="sr-only">수행 실적. 최근 완료한 사업이 위에 있습니다.</caption>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead scope="col" className="pl-4">
-                  사업명
-                </TableHead>
-                <TableHead scope="col" className="w-[160px]">
-                  분야
-                </TableHead>
-                <TableHead scope="col" className="w-[120px] text-right">
-                  금액
-                </TableHead>
-                <TableHead scope="col" className="w-[120px]">
-                  완료일
-                </TableHead>
-                <TableHead scope="col" className="w-[96px] pr-4">
-                  증빙
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortProjectsForDisplay(pastProjects).map((project) => {
-                const amount =
-                  project.amountKrw === null ? null : formatKrwCompact(project.amountKrw);
-                return (
-                  <TableRow key={project.id} className="h-11">
-                    <TableCell className="pl-4 type-body whitespace-normal wrap-anywhere">
-                      <span className="flex flex-col gap-0.5">
-                        {project.name}
-                        {project.note ? (
-                          <span className="type-caption text-muted-foreground">{project.note}</span>
-                        ) : null}
-                        <SourceLinks sourceIds={project.sourceIds} sources={sources} />
-                      </span>
-                    </TableCell>
-                    <TableCell className="type-body whitespace-normal wrap-anywhere">
-                      {project.domain}
-                    </TableCell>
-                    <TableCell className="text-right type-body tabular-nums">
-                      {amount === null ? (
-                        <span className="text-muted-foreground">{NO_PUBLIC_DATA}</span>
-                      ) : (
-                        <span title={amount.full}>{amount.text}원</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="type-body tabular-nums">
-                      {project.completedAt ?? (
-                        <span className="text-muted-foreground">{NO_PUBLIC_DATA}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="pr-4 type-body">
-                      {project.evidenceRef ? "있음" : "없음"}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+        <Table className="table-fixed">
+          <caption className="sr-only">수행 실적. 최근 완료한 사업이 위에 있습니다.</caption>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead scope="col" className="pl-4">
+                사업명
+              </TableHead>
+              <TableHead scope="col" className="w-[160px]">
+                분야
+              </TableHead>
+              <TableHead scope="col" className="w-[120px] text-right">
+                금액
+              </TableHead>
+              <TableHead scope="col" className="w-[120px]">
+                완료일
+              </TableHead>
+              <TableHead scope="col" className="w-[96px] pr-4">
+                증빙
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortProjectsForDisplay(pastProjects).map((project) => {
+              const amount =
+                project.amountKrw === null ? null : formatKrwCompact(project.amountKrw);
+              return (
+                <TableRow key={project.id} className="h-11">
+                  <TableCell className="pl-4 type-body whitespace-normal wrap-anywhere">
+                    <span className="flex flex-col gap-0.5">
+                      {project.name}
+                      {project.note ? (
+                        <span className="type-caption text-muted-foreground">{project.note}</span>
+                      ) : null}
+                      <SourceLinks sourceIds={project.sourceIds} sources={sources} />
+                    </span>
+                  </TableCell>
+                  <TableCell className="type-body whitespace-normal wrap-anywhere">
+                    {project.domain}
+                  </TableCell>
+                  <TableCell className="text-right type-body tabular-nums">
+                    {amount === null ? (
+                      <span className="text-muted-foreground">{NO_PUBLIC_DATA}</span>
+                    ) : (
+                      <span title={amount.full}>{amount.text}원</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="type-body tabular-nums">
+                    {project.completedAt ?? (
+                      <span className="text-muted-foreground">{NO_PUBLIC_DATA}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="pr-4 type-body">
+                    {project.evidenceRef ? "있음" : "없음"}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
     </Panel>
   );
@@ -509,54 +507,52 @@ export function HistoryPanel({
       title={`변경 이력 ${revisions.length}건`}
       usage="프로필은 고쳐 쓰지 않고 새 revision 으로 쌓습니다. 분석 결과는 그때 쓴 revision 번호를 남겨서, 프로필이 바뀌어도 지난 분석은 그대로입니다."
     >
-      <Card className={TABLE_CARD}>
-        <Table className="table-fixed">
-          <caption className="sr-only">회사 프로필 revision 이력. 최신이 위에 있습니다.</caption>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead scope="col" className="w-[120px] pl-4">
-                revision
-              </TableHead>
-              <TableHead scope="col" className="w-[120px]">
-                적용일
-              </TableHead>
-              <TableHead scope="col">메모</TableHead>
-              <TableHead scope="col" className="w-[140px]">
-                등록한 사람
-              </TableHead>
-              <TableHead scope="col" className="w-[160px] pr-4">
-                등록 시각
-              </TableHead>
+      <Table className="table-fixed">
+        <caption className="sr-only">회사 프로필 revision 이력. 최신이 위에 있습니다.</caption>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead scope="col" className="w-[120px] pl-4">
+              revision
+            </TableHead>
+            <TableHead scope="col" className="w-[120px]">
+              적용일
+            </TableHead>
+            <TableHead scope="col">메모</TableHead>
+            <TableHead scope="col" className="w-[140px]">
+              등록한 사람
+            </TableHead>
+            <TableHead scope="col" className="w-[160px] pr-4">
+              등록 시각
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {revisions.map((revision) => (
+            <TableRow key={revision.id} className="h-11">
+              <TableCell className="pl-4 type-body tabular-nums">
+                <span className="inline-flex items-center gap-2">
+                  rev {revision.revision}
+                  {revision.revision === currentRevision ? (
+                    <Chip tone="brand" size="sm">
+                      현재
+                    </Chip>
+                  ) : null}
+                </span>
+              </TableCell>
+              <TableCell className="type-body tabular-nums">
+                {kstDate(revision.effectiveAt)}
+              </TableCell>
+              <TableCell className="type-body whitespace-normal wrap-anywhere">
+                {revision.note ?? EMPTY}
+              </TableCell>
+              <TableCell className="type-body truncate">{revision.createdBy.name}</TableCell>
+              <TableCell className="pr-4 type-body tabular-nums">
+                {formatKst(revision.createdAt)}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {revisions.map((revision) => (
-              <TableRow key={revision.id} className="h-11">
-                <TableCell className="pl-4 type-body tabular-nums">
-                  <span className="inline-flex items-center gap-2">
-                    rev {revision.revision}
-                    {revision.revision === currentRevision ? (
-                      <span className="inline-flex h-5 items-center rounded-sm border border-border px-1.5 type-caption text-foreground">
-                        현재
-                      </span>
-                    ) : null}
-                  </span>
-                </TableCell>
-                <TableCell className="type-body tabular-nums">
-                  {kstDate(revision.effectiveAt)}
-                </TableCell>
-                <TableCell className="type-body whitespace-normal wrap-anywhere">
-                  {revision.note ?? EMPTY}
-                </TableCell>
-                <TableCell className="type-body truncate">{revision.createdBy.name}</TableCell>
-                <TableCell className="pr-4 type-body tabular-nums">
-                  {formatKst(revision.createdAt)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+          ))}
+        </TableBody>
+      </Table>
     </Panel>
   );
 }

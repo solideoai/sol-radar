@@ -154,6 +154,9 @@ const SOURCE_LABEL: Record<string, string> = {
 
 // 머리 줄 회색 칩(Chip sm)이 줄바꿈에 눌리거나 두 줄로 꺾이지 않게 한다.
 const CHIP_LAYOUT = "shrink-0 whitespace-nowrap";
+// 분석 띠의 회사 프로필 배지는 출처 배지라 회색 Chip 이 아니라 흰 바탕 테두리 모양을 지킨다(2026-10-28 화면 개편 규칙 d, gaps·회사 역량과 같다).
+const PROFILE_BADGE_CLASS =
+  "inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption text-foreground";
 const TEXT_LINK = "rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 const PULSE = "motion-reduce:animate-none";
 
@@ -604,8 +607,11 @@ function ProfileBadge({ isDemo }: { isDemo: boolean }) {
   return (
     <Tooltip landmark>
       <TooltipTrigger
-        render={<Chip size="sm" tabIndex={0} />}
-        className={cn(CHIP_LAYOUT, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
+        render={<span tabIndex={0} />}
+        className={cn(
+          PROFILE_BADGE_CLASS,
+          "outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        )}
       >
         {isDemo ? PROFILE_BADGE : PUBLIC_PROFILE_BADGE}
       </TooltipTrigger>
