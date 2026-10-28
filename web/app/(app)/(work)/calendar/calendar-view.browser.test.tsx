@@ -135,19 +135,38 @@ describe("입찰 일정 화면", () => {
       await expect
         .element(calendar.getByRole("link", { name: /^제출 마감 15:00 today/ }))
         .toHaveAttribute("href", "/projects/p1");
+      const demoChip = calendar.getByRole("link", { name: /스마트 물관리.*내 관심 DEMO$/ });
+      await expect.element(demoChip).toHaveAttribute("href", "/bids/busy-1?origin=demo");
+      // DEMO 는 칩에 글자로도 보인다(색·아이콘만으로 알리지 않는다). DEMO 가 아닌 칩에는 없다.
+      await expect.element(demoChip.getByText("DEMO", { exact: true })).toBeVisible();
       await expect
-        .element(calendar.getByRole("link", { name: /스마트 물관리.*내 관심 DEMO$/ }))
-        .toHaveAttribute("href", "/bids/busy-1?origin=demo");
+        .element(
+          calendar
+            .getByRole("link", { name: /^공고 마감 10:00 busy-2/ })
+            .getByText("DEMO", { exact: true }),
+        )
+        .not.toBeInTheDocument();
+      // 제목 줄은 칩 폭을 다 쓴다(아이콘·표시 옆에 끼어 서너 글자만 남지 않게).
+      const chipWidth = demoChip.element().clientWidth;
+      const titleWidth = demoChip
+        .getByText("스마트 물관리 디지털트윈 플랫폼 고도화 (가상)")
+        .element()
+        .getBoundingClientRect().width;
+      expect(titleWidth).toBeGreaterThanOrEqual(chipWidth - 12);
 
-      // 메뉴를 열기 전에 찍는다(닫히는 메뉴가 사진에 남지 않게).
+      // 메뉴를 열기 전에 찍는다(닫히는 메뉴가 사진에 남지 않게). 앞 시험의 마우스 자리에 걸린 링크 hover 도 치운다.
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+      await userEvent.hover(page.getByRole("heading", { level: 1 }));
       await page.screenshot({
         path: `../../../../test-results/vitest-screenshots/calendar-${width}.png`,
       });
 
-      // 4건인 날은 겹침 건수를 보이고 칩 셋 뒤 나머지는 메뉴로 연다.
+      // 4건인 날은 겹침 건수를 보이고 칩 둘 뒤 나머지는 메뉴로 연다.
       await expect.element(calendar.getByText("4건")).toBeVisible();
-      await userEvent.click(page.getByRole("button", { name: /\+1건 더/ }));
+      await userEvent.click(page.getByRole("button", { name: /\+2건 더/ }));
+      await expect
+        .element(page.getByRole("menuitem", { name: /busy-3/ }))
+        .toHaveAttribute("href", "/bids/busy-3?origin=live");
       await expect
         .element(page.getByRole("menuitem", { name: /busy-4/ }))
         .toHaveAttribute("href", "/bids/busy-4?origin=live");

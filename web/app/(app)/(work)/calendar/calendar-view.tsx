@@ -1,11 +1,9 @@
 import { cn } from "cn";
 import {
-  BellIcon,
   CalendarDaysIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   FileTextIcon,
-  FlaskConicalIcon,
   FolderKanbanIcon,
   LayersIcon,
   StarIcon,
@@ -33,7 +31,6 @@ import { EmptyState } from "@/app/(app)/(work)/empty-state";
 import {
   CALENDAR_CAPTION,
   CALENDAR_DESCRIPTION,
-  CALENDAR_REMINDER_NOTE,
   CALENDAR_TITLE,
   KIND_LABELS,
   MONTH_EMPTY,
@@ -49,8 +46,8 @@ import {
 // 서버 모듈을 값으로 부르지 않는다(브라우저 시험이 그대로 그린다). 날짜 계산은 page 가 끝내서 넘긴다.
 // 일정 종류는 색이 아니라 아이콘과 글자로 구분한다. 칩의 접근 이름(aria-label)에 종류·시각·관심·DEMO 를 모두 글자로 싣는다.
 
-// 칸에 칩을 세 개까지 그리고 나머지는 "+n건" 메뉴로 연다(칸 높이를 주마다 같게).
-const MAX_CHIPS = 3;
+// 칩은 두 줄(종류·시각·표시 줄 + 제목 줄)이라 칸에 두 개까지 그리고 나머지는 "+n건" 메뉴로 연다(칸 높이를 주마다 같게).
+const MAX_CHIPS = 2;
 
 const KIND_ICON: Record<CalendarEventKind, typeof FileTextIcon> = {
   SUBMISSION_DUE: FolderKanbanIcon,
@@ -83,11 +80,13 @@ const chipTitle = (event: CalendarEvent) =>
 const chipName = (event: CalendarEvent) =>
   [`${kindText(event)} ${timeOf(event.at)}`, event.bid.title, ...markersOf(event)].join(" ");
 
-function KindIcon({ kind }: { kind: CalendarEventKind }) {
+function KindIcon({ kind, className }: { kind: CalendarEventKind; className?: string }) {
   const Icon = KIND_ICON[kind];
-  return <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />;
+  return <Icon aria-hidden className={cn("size-3.5 shrink-0 text-muted-foreground", className)} />;
 }
 
+// 칸이 좁아(1440px 에서 안쪽 약 100px) 아이콘·표시를 제목 옆에 두면 제목이 서너 글자만 남는다.
+// 윗줄에 종류 아이콘·시각·관심·DEMO 글자를 모으고, 아랫줄은 제목만 칩 폭을 다 쓴다.
 function EventChip({ event }: { event: CalendarEvent }) {
   return (
     <li>
@@ -95,23 +94,24 @@ function EventChip({ event }: { event: CalendarEvent }) {
         href={event.href}
         title={chipTitle(event)}
         aria-label={chipName(event)}
-        className="flex h-6 min-w-0 items-center gap-1 rounded-md border border-border bg-background px-1.5 type-caption hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+        className="block min-w-0 rounded-md border border-border bg-background px-1 py-px type-caption hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
       >
-        <KindIcon kind={event.kind} />
+        <span className="flex items-center gap-1 text-muted-foreground">
+          <KindIcon kind={event.kind} className="size-3" />
+          <span className="tabular-nums">{timeOf(event.at)}</span>
+          <span className="ml-auto flex shrink-0 items-center gap-1">
+            {event.watched ? <StarIcon aria-hidden className="size-3" /> : null}
+            {event.bid.isDemo ? <span className="font-semibold text-demo">DEMO</span> : null}
+          </span>
+        </span>
         <span
           className={cn(
-            "min-w-0 flex-1 truncate",
+            "block truncate font-medium text-foreground",
             event.bid.cancelled && "text-muted-foreground line-through",
           )}
         >
           {event.bid.title}
         </span>
-        {event.watched ? (
-          <StarIcon aria-hidden className="size-3 shrink-0 text-muted-foreground" />
-        ) : null}
-        {event.bid.isDemo ? (
-          <FlaskConicalIcon aria-hidden className="size-3 shrink-0 text-demo" />
-        ) : null}
       </Link>
     </li>
   );
@@ -247,8 +247,8 @@ function Legend() {
         <StarIcon aria-hidden className="size-3.5" />내 관심
       </li>
       <li className={item}>
-        <FlaskConicalIcon aria-hidden className="size-3.5 text-demo" />
-        DEMO 공고
+        <span className="font-semibold text-demo">DEMO</span>
+        데모용 가상 공고
       </li>
       <li className={item}>
         <LayersIcon aria-hidden className="size-3.5" />
@@ -329,13 +329,7 @@ export function BidCalendar({
         </nav>
       </div>
       <div className="flex flex-col gap-2">
-        <p className="flex flex-wrap items-center gap-x-2 type-label text-muted-foreground">
-          <span>{VIEW_HINTS[view]}의 마감입니다.</span>
-          <span className="inline-flex items-center gap-1">
-            <BellIcon aria-hidden className="size-3.5" />
-            {CALENDAR_REMINDER_NOTE}
-          </span>
-        </p>
+        <p className="type-label text-muted-foreground">{VIEW_HINTS[view]}의 마감입니다.</p>
         <Legend />
       </div>
       {hasAnyEvents ? null : (

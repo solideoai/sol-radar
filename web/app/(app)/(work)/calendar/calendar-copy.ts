@@ -7,8 +7,6 @@ export const CALENDAR_PATH = "/calendar";
 export const CALENDAR_TITLE = "입찰 일정";
 export const CALENDAR_DESCRIPTION =
   "내 관심 공고와 조직 입찰 프로젝트의 마감을 한국 시각(KST) 달력으로 모아 봅니다.";
-// 마감 D-3·D-1 알림은 이미 있다(마이그레이션 20261022000110). 달력은 알림을 보내지 않는다.
-export const CALENDAR_REMINDER_NOTE = "D-3·D-1 알림은 알림 메뉴로 옵니다.";
 export const CALENDAR_CAPTION = "월간 입찰 일정";
 export const CALENDAR_LOADING = "입찰 일정을 불러오는 중…";
 
