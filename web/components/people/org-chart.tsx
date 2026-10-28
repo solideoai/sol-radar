@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { AppPage } from "@/components/app-page";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import type { PeopleDirectory, TeamMemberListItem } from "@/server/people";
 import type { SelectPerson } from "./people-table";
 import { PersonAvatar } from "./person-avatar";
@@ -332,7 +333,7 @@ export function OrgChart({
                     key={person.id}
                     data-person-id={person.id}
                     data-highlighted={focusedPerson?.id === person.id ? "true" : undefined}
-                    className="relative flex h-full min-w-0 flex-col items-start gap-3 rounded-lg border border-border bg-card p-3 text-left shadow-xs hover:bg-muted/40 data-highlighted:bg-brand-soft data-highlighted:ring-2 data-highlighted:ring-brand"
+                    className="relative flex h-full min-w-0 flex-col items-start gap-3 rounded-lg border border-border bg-card p-3 text-left hover:bg-muted/40 data-highlighted:bg-selected data-highlighted:ring-2 data-highlighted:ring-brand"
                   >
                     <PersonAvatar
                       className="size-11 shrink-0"
@@ -368,12 +369,9 @@ export function OrgChart({
                       ) : null}
                     </span>
                     {person.scoringEligible ? (
-                      <span
-                        id={`org-person-${person.id}-scoring`}
-                        className="rounded border border-border px-1.5 py-0.5 type-caption"
-                      >
+                      <Chip size="sm" id={`org-person-${person.id}-scoring`}>
                         점수 계산 대상
-                      </span>
+                      </Chip>
                     ) : null}
                   </li>
                 ))}
@@ -414,13 +412,13 @@ function DepartmentNode({
             aria-describedby={`${contentId}-count`}
             aria-current={selectedTeamId === department.id ? "true" : undefined}
             onClick={() => onSelectTeam(department.id)}
-            className="peer h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 pr-10 text-left whitespace-normal aria-current:bg-brand-soft aria-current:text-brand"
+            className="peer h-auto min-h-10 w-full min-w-0 justify-start gap-2 px-2 py-2 pr-10 text-left whitespace-normal aria-current:bg-selected aria-current:font-semibold aria-current:text-selected-foreground aria-current:hover:bg-selected"
           >
             <span className="min-w-0 type-label wrap-anywhere">{department.name}</span>
           </Button>
           <span
             id={`${contentId}-count`}
-            className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 type-caption peer-aria-current:text-brand"
+            className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 type-caption peer-aria-current:text-selected-foreground"
           >
             {node.memberCount}명
           </span>
