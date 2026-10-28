@@ -9,8 +9,9 @@ import { NOTIFICATIONS_DESCRIPTION, NOTIFICATIONS_TITLE } from "./notifications-
 
 export const metadata: Metadata = { title: NOTIFICATIONS_TITLE };
 
+// 같은 알림을 다른 기준으로 보는 하나 고르기 전환이라 테두리 상자 안의 연한 파랑 알약이다(2026-10-28 화면 개편).
 const LINK_CLASS =
-  "relative inline-flex h-10 items-center rounded-md type-label font-medium text-muted-foreground outline-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:text-foreground aria-[current=page]:after:bg-foreground";
+  "inline-flex items-center rounded-md px-3 py-1 type-label text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground";
 
 // 스펙 §5.5. ?unread=1 이면 안 읽은 알림만 읽는다. 내 알림만 보인다(RLS, user_id).
 export default async function NotificationsPage({ searchParams }: PageProps<"/notifications">) {
@@ -25,9 +26,8 @@ export default async function NotificationsPage({ searchParams }: PageProps<"/no
   const first = await loadNotificationPage(orgId, userId, unreadOnly);
   return (
     <AppPage title={NOTIFICATIONS_TITLE} description={NOTIFICATIONS_DESCRIPTION}>
-      <nav aria-label="알림 보기" className="border-b border-border">
-        {/* 막대가 아래 선 위에 겹치도록 한 픽셀 내린다. */}
-        <ul className="-mb-px flex gap-6">
+      <nav aria-label="알림 보기" className="self-start">
+        <ul className="inline-flex rounded-lg border border-border p-0.5">
           <li>
             <Link
               href="/notifications"

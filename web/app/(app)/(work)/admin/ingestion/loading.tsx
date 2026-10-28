@@ -21,8 +21,9 @@ export default function Loading() {
         <div aria-hidden className="contents">
           <Skeleton className={`h-6 w-20 ${pulse}`} />
           <Skeleton className={`h-5 w-32 ${pulse}`} />
-          <div className="divide-y divide-border border-b border-border">
-            <div className="flex h-10 items-center gap-4 px-3">
+          {/* 실제 표(ui/table)와 같은 둥근 1px 테두리·연한 머리 줄이다. */}
+          <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            <div className="flex h-10 items-center gap-4 bg-muted/50 px-3">
               <Skeleton className={`h-4 w-full ${pulse}`} />
             </div>
             {Array.from({ length: ROWS }, (_, key) => (

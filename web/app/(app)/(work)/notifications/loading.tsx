@@ -1,5 +1,4 @@
 import { AppPage } from "@/components/app-page";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NOTIFICATIONS_DESCRIPTION, NOTIFICATIONS_TITLE } from "./notifications-copy";
 
@@ -12,11 +11,12 @@ export default function Loading() {
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">알림을 불러오는 중…</span>
         <div aria-hidden className="contents">
-          <div className="flex h-10 items-center gap-6 border-b border-border">
-            <Skeleton className={`h-5 w-8 ${pulse}`} />
-            <Skeleton className={`h-5 w-14 ${pulse}`} />
+          {/* 전체·안 읽음 전환 상자 자리다. */}
+          <div className="flex self-start rounded-lg border border-border p-0.5">
+            <Skeleton className={`h-7 w-14 rounded-md ${pulse}`} />
+            <Skeleton className={`h-7 w-18 rounded-md ${pulse}`} />
           </div>
-          <Card className="gap-0 py-0">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             <div className="divide-y divide-border">
               {Array.from({ length: 6 }, (_, key) => (
                 <div key={key} className="flex items-start gap-3 px-4 py-3">
@@ -31,7 +31,7 @@ export default function Loading() {
                 </div>
               ))}
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </AppPage>

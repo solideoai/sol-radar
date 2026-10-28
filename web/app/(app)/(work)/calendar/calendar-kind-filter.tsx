@@ -34,7 +34,8 @@ export function CalendarKindFilter({
       <span aria-hidden className="type-label text-muted-foreground">
         {KIND_FILTER_LABEL}
       </span>
-      <ul className="inline-flex flex-wrap rounded-lg border border-border p-0.5">
+      {/* 여러 개 켜는 거르기 칩이라 칩마다 1px 테두리를 두고 바깥 상자는 두지 않는다(2026-10-28 화면 개편). */}
+      <ul className="flex flex-wrap gap-1.5">
         {KIND_ORDER.map((kind) => {
           const on = kinds.includes(kind);
           const Icon = KIND_ICON[kind];
@@ -45,10 +46,10 @@ export function CalendarKindFilter({
                 title={KIND_LABELS[kind]}
                 data-kind={kind}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1 type-label whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+                  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 type-label whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                   on
-                    ? "bg-secondary font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "border-transparent bg-selected font-semibold text-selected-foreground"
+                    : "border-border text-muted-foreground hover:bg-muted",
                 )}
               >
                 {on ? <CheckIcon aria-hidden className="size-3.5 shrink-0" /> : null}
