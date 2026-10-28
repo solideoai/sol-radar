@@ -20,35 +20,36 @@ type DemoStep = {
   press?: boolean;
 };
 
-// 한 바퀴 약 31초. 한 단계는 3초를 넘지 않는다(멈춤 시험이 한 단계보다 길게 기다린다).
+// 한 바퀴 약 25초(2026-10-28 사용자 요청으로 처음 31초보다 1.25배 빠르게, 장면 안 움직임 시간도 같이 줄였다).
+// 한 단계는 3초를 넘지 않는다(멈춤 시험이 한 단계보다 길게 기다린다).
 const STEP_LIST = [
   // 1. 대시보드: 수집 에이전트 카드의 [확인]을 누른다.
-  { id: "dashboard", scene: 1, ms: 1400 },
-  { id: "agentHover", scene: 1, ms: 1100, cursor: "agent-confirm" },
-  { id: "agentPress", scene: 1, ms: 450, cursor: "agent-confirm", press: true },
+  { id: "dashboard", scene: 1, ms: 1120 },
+  { id: "agentHover", scene: 1, ms: 880, cursor: "agent-confirm" },
+  { id: "agentPress", scene: 1, ms: 360, cursor: "agent-confirm", press: true },
   // 2. 수집: 출처마다 받는 중 → 숫자가 오르고 ✓. 입력 커서 뒤에 고른 결과를 말한다.
-  { id: "collectRows", scene: 2, ms: 3000, cursor: "rest" },
-  { id: "collectCaret", scene: 2, ms: 900 },
-  { id: "collectMessage", scene: 2, ms: 1900 },
-  { id: "collectHover", scene: 2, ms: 1100, cursor: "collect-next" },
-  { id: "collectPress", scene: 2, ms: 450, cursor: "collect-next", press: true },
+  { id: "collectRows", scene: 2, ms: 2400, cursor: "rest" },
+  { id: "collectCaret", scene: 2, ms: 720 },
+  { id: "collectMessage", scene: 2, ms: 1520 },
+  { id: "collectHover", scene: 2, ms: 880, cursor: "collect-next" },
+  { id: "collectPress", scene: 2, ms: 360, cursor: "collect-next", press: true },
   // 3. 관련 공고 표: 행이 한 줄씩 나오고, 자격 확인이 필요한 공고를 적는다. 한 행을 연다.
-  { id: "tableRows", scene: 3, ms: 2600, cursor: "rest" },
-  { id: "tableReview", scene: 3, ms: 1400 },
-  { id: "rowHover", scene: 3, ms: 1100, cursor: "bid-row" },
-  { id: "rowPress", scene: 3, ms: 450, cursor: "bid-row", press: true },
+  { id: "tableRows", scene: 3, ms: 2080, cursor: "rest" },
+  { id: "tableReview", scene: 3, ms: 1120 },
+  { id: "rowHover", scene: 3, ms: 880, cursor: "bid-row" },
+  { id: "rowPress", scene: 3, ms: 360, cursor: "bid-row", press: true },
   // 4. 분석 상세: 필수 자격을 하나씩 판정하고, 다섯 요소 점수가 자라고, 공고문 인용을 짚는다.
-  { id: "detailChecks", scene: 4, ms: 2400, cursor: "rest" },
-  { id: "detailScore", scene: 4, ms: 2200 },
-  { id: "detailQuote", scene: 4, ms: 1300 },
-  { id: "detailBubble", scene: 4, ms: 1500 },
-  { id: "watchHover", scene: 4, ms: 1100, cursor: "watch-add" },
-  { id: "watchPress", scene: 4, ms: 450, cursor: "watch-add", press: true },
+  { id: "detailChecks", scene: 4, ms: 1920, cursor: "rest" },
+  { id: "detailScore", scene: 4, ms: 1760 },
+  { id: "detailQuote", scene: 4, ms: 1040 },
+  { id: "detailBubble", scene: 4, ms: 1200 },
+  { id: "watchHover", scene: 4, ms: 880, cursor: "watch-add" },
+  { id: "watchPress", scene: 4, ms: 360, cursor: "watch-add", press: true },
   // 5. 마무리: 관심 공고에 담기고 마감 알림이 잡힌다. [다시보기] 뒤 처음으로.
-  { id: "watchlist", scene: 5, ms: 1700, cursor: "rest" },
-  { id: "reminder", scene: 5, ms: 1500 },
-  { id: "replay", scene: 5, ms: 2400, cursor: "replay" },
-  { id: "replayPress", scene: 5, ms: 450, cursor: "replay", press: true },
+  { id: "watchlist", scene: 5, ms: 1360, cursor: "rest" },
+  { id: "reminder", scene: 5, ms: 1200 },
+  { id: "replay", scene: 5, ms: 1920, cursor: "replay" },
+  { id: "replayPress", scene: 5, ms: 360, cursor: "replay", press: true },
 ] as const satisfies readonly DemoStep[];
 
 export type StepId = (typeof STEP_LIST)[number]["id"];

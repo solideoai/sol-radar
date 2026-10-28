@@ -51,7 +51,7 @@ const ALREADY_WATCHED = [bidById("demo-5"), bidById("demo-2")];
 const REMIND_DAYS_BEFORE = 3;
 
 // 나타나기: 아래에서 살짝 올라오며 보인다. 사라질 때는 지연 없이 바로 돌아간다(다음 바퀴 준비).
-const REVEAL = "transition-[opacity,translate] duration-500 ease-out motion-reduce:transition-none";
+const REVEAL = "transition-[opacity,translate] duration-400 ease-out motion-reduce:transition-none";
 const reveal = (on: boolean, delay = 0) => ({
   className: cn(REVEAL, on ? "translate-y-0 opacity-100" : "translate-y-1.5 opacity-0"),
   style: { transitionDelay: on ? `${delay}ms` : "0ms" },
@@ -80,7 +80,7 @@ function ScenePanel({ active, children }: { active: boolean; children: React.Rea
   return (
     <div
       className={cn(
-        "absolute inset-0 overflow-hidden px-7 pt-5 pb-6 transition-[opacity,translate,visibility] duration-500 ease-out motion-reduce:transition-none",
+        "absolute inset-0 overflow-hidden px-7 pt-5 pb-6 transition-[opacity,translate,visibility] duration-400 ease-out motion-reduce:transition-none",
         active ? "visible translate-y-0 opacity-100" : "invisible translate-y-2 opacity-0",
       )}
     >
@@ -124,7 +124,7 @@ function Target({
     <span
       data-demo-target={name}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-md transition-[scale,background-color] duration-150 motion-reduce:transition-none",
+        "inline-flex items-center justify-center gap-1.5 rounded-md transition-[scale,background-color] duration-120 motion-reduce:transition-none",
         pressed === name && "scale-95",
         className,
       )}
@@ -149,7 +149,7 @@ export function DashboardScene({ active, step, pressed }: SceneProps) {
       <div className="mt-5 grid grid-cols-4 gap-3">
         <div
           className={cn(
-            "flex flex-col rounded-lg border bg-selected p-4 transition-colors duration-300 motion-reduce:transition-none",
+            "flex flex-col rounded-lg border bg-selected p-4 transition-colors duration-240 motion-reduce:transition-none",
             hovered ? "border-brand/50" : "border-brand/20",
           )}
         >
@@ -210,9 +210,9 @@ function Stat({ label, value, foot }: { label: string; value: number; foot: stri
 }
 
 // ── 2. 수집 ──
-const ROW_START_MS = 250;
-const ROW_GAP_MS = 380;
-const COUNT_MS = 1100;
+const ROW_START_MS = 200;
+const ROW_GAP_MS = 304;
+const COUNT_MS = 880;
 
 export function CollectScene({ active, step, pressed }: SceneProps) {
   const collecting = step >= STEP.collectRows;
@@ -258,7 +258,7 @@ export function CollectScene({ active, step, pressed }: SceneProps) {
               <span className="relative h-5">
                 <span
                   className={cn(
-                    "absolute inset-0 flex items-center gap-1.5 type-label text-muted-foreground transition-opacity duration-300 motion-reduce:transition-none",
+                    "absolute inset-0 flex items-center gap-1.5 type-label text-muted-foreground transition-opacity duration-240 motion-reduce:transition-none",
                     collecting ? "opacity-0" : "opacity-100",
                   )}
                   style={{ transitionDelay: collecting ? `${doneMs}ms` : "0ms" }}
@@ -268,7 +268,7 @@ export function CollectScene({ active, step, pressed }: SceneProps) {
                 </span>
                 <span
                   className={cn(
-                    "absolute inset-0 flex items-center gap-1.5 type-label font-semibold text-success transition-opacity duration-300 motion-reduce:transition-none",
+                    "absolute inset-0 flex items-center gap-1.5 type-label font-semibold text-success transition-opacity duration-240 motion-reduce:transition-none",
                     collecting ? "opacity-100" : "opacity-0",
                   )}
                   style={{ transitionDelay: collecting ? `${doneMs}ms` : "0ms" }}
@@ -312,7 +312,7 @@ export function CollectScene({ active, step, pressed }: SceneProps) {
             <strong className="font-semibold">{NEEDS_REVIEW.length}건</strong>은 자격 확인이
             필요해요.
           </Reveal>
-          <Reveal on={said} delay={600} className="mt-3">
+          <Reveal on={said} delay={480} className="mt-3">
             <Target
               name="collect-next"
               pressed={pressed}
@@ -369,7 +369,7 @@ export function TableScene({ active, step, pressed }: SceneProps) {
           <span>권고</span>
         </div>
         {RELATED.map((bid, index) => {
-          const shown = reveal(listed, 150 + index * 170);
+          const shown = reveal(listed, 120 + index * 136);
           const opened = bid.id === OPENED.id;
           return (
             <div
@@ -409,7 +409,7 @@ export function TableScene({ active, step, pressed }: SceneProps) {
               </span>
               <span className="type-body text-foreground tabular-nums">{dDay(bid)}</span>
               <span className="text-right type-body font-semibold text-foreground">
-                <Count value={bid.score} on={listed} delay={250 + index * 170} />
+                <Count value={bid.score} on={listed} delay={200 + index * 136} />
               </span>
               <span>
                 <RecommendationBadge value={bid.recommendation} />
@@ -437,8 +437,8 @@ const CHECK_STATUS: Record<QualificationStatus, { label: string; icon: LucideIco
     NEEDS_REVIEW: { label: "확인 필요", icon: CircleHelpIcon, tone: "text-warning" },
     NOT_SATISFIED: { label: "미충족", icon: CircleXIcon, tone: "text-destructive" },
   };
-const CHECK_START_MS = 350;
-const CHECK_GAP_MS = 650;
+const CHECK_START_MS = 280;
+const CHECK_GAP_MS = 520;
 
 export function DetailScene({ active, step, pressed }: SceneProps) {
   const judging = step >= STEP.detailChecks;
@@ -476,7 +476,7 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
                   <span className="relative h-6">
                     <span
                       className={cn(
-                        "absolute inset-0 flex items-center gap-1.5 type-label text-muted-foreground transition-opacity duration-300 motion-reduce:transition-none",
+                        "absolute inset-0 flex items-center gap-1.5 type-label text-muted-foreground transition-opacity duration-240 motion-reduce:transition-none",
                         judging ? "opacity-0" : "opacity-100",
                       )}
                       style={{ transitionDelay: judging ? `${delay}ms` : "0ms" }}
@@ -486,7 +486,7 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
                     </span>
                     <span
                       className={cn(
-                        "absolute inset-0 flex items-center gap-1.5 type-body font-semibold whitespace-nowrap transition-opacity duration-300 motion-reduce:transition-none",
+                        "absolute inset-0 flex items-center gap-1.5 type-body font-semibold whitespace-nowrap transition-opacity duration-240 motion-reduce:transition-none",
                         status.tone,
                         judging ? "opacity-100" : "opacity-0",
                       )}
@@ -502,7 +502,7 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
                       <span className="shrink-0 font-semibold">공고문 p.{check.evidence.page}</span>
                       <span
                         className={cn(
-                          "rounded-sm px-0.5 transition-[background-color,box-shadow] duration-500 motion-reduce:transition-none",
+                          "rounded-sm px-0.5 transition-[background-color,box-shadow] duration-400 motion-reduce:transition-none",
                           highlight ? "bg-brand/15 ring-1 ring-brand/40" : "bg-brand/8",
                         )}
                       >
@@ -525,7 +525,7 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
           </p>
           <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-brand transition-[width] duration-1000 ease-out motion-reduce:transition-none"
+              className="h-full rounded-full bg-brand transition-[width] duration-800 ease-out motion-reduce:transition-none"
               style={{ width: scoring ? `${bid.score}%` : "0%" }}
             />
           </div>
@@ -540,10 +540,10 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
                 </p>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-brand/70 transition-[width] duration-900 ease-out motion-reduce:transition-none"
+                    className="h-full rounded-full bg-brand/70 transition-[width] duration-720 ease-out motion-reduce:transition-none"
                     style={{
                       width: scoring ? `${(factor.points / factor.max) * 100}%` : "0%",
-                      transitionDelay: scoring ? `${150 + index * 120}ms` : "0ms",
+                      transitionDelay: scoring ? `${120 + index * 96}ms` : "0ms",
                     }}
                   />
                 </div>
@@ -555,7 +555,7 @@ export function DetailScene({ active, step, pressed }: SceneProps) {
           </p>
           <Reveal
             on={scoring}
-            delay={1200}
+            delay={960}
             className="mt-3 grid grid-cols-2 border-y border-border py-2.5"
           >
             <div>
@@ -604,7 +604,7 @@ export function WatchlistScene({ active, step, pressed }: SceneProps) {
       <p className="mt-0.5 type-body text-muted-foreground">마감과 알림을 함께 봅니다.</p>
       <Reveal
         on={added}
-        delay={200}
+        delay={160}
         className="absolute top-5 right-6 flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 type-label-lg"
       >
         <CircleCheckIcon aria-hidden className="size-4.5 text-success" />
@@ -620,7 +620,7 @@ export function WatchlistScene({ active, step, pressed }: SceneProps) {
             <li
               key={bid.id}
               className={cn(
-                "flex items-center gap-4 px-4 py-3 transition-colors duration-700 motion-reduce:transition-none",
+                "flex items-center gap-4 px-4 py-3 transition-colors duration-560 motion-reduce:transition-none",
                 fresh && added && "bg-selected/60",
               )}
             >
@@ -629,9 +629,9 @@ export function WatchlistScene({ active, step, pressed }: SceneProps) {
                   <span className="truncate">{bid.title}</span>
                   {fresh && (
                     <span
-                      style={reveal(added, 300).style}
+                      style={reveal(added, 240).style}
                       className={cn(
-                        reveal(added, 300).className,
+                        reveal(added, 240).className,
                         "shrink-0 rounded-md border border-brand/30 px-1.5 type-label text-selected-foreground",
                       )}
                     >

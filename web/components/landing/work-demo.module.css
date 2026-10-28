@@ -9,7 +9,7 @@
 
 .count {
   counter-reset: work-demo-count var(--work-demo-count);
-  transition: --work-demo-count 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: --work-demo-count 0.88s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 .count::after {
@@ -24,7 +24,7 @@
 }
 
 .caret {
-  animation: caret 1s steps(1) infinite;
+  animation: caret 0.8s steps(1) infinite;
 }
 
 /* 멈춤 버튼을 누르면 안쪽 움직임(깜박임·도는 표시)도 그 자리에 멈춘다. */

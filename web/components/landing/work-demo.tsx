@@ -231,7 +231,7 @@ function DemoSidebar({ scene }: { scene: DemoScene }) {
               <p
                 key={item}
                 className={cn(
-                  "flex h-8 items-center rounded-md pl-8 type-body transition-colors duration-300 motion-reduce:transition-none",
+                  "flex h-8 items-center rounded-md pl-8 type-body transition-colors duration-240 motion-reduce:transition-none",
                   item === ACTIVE_MENU[scene]
                     ? "bg-selected font-semibold text-selected-foreground"
                     : "text-foreground",
@@ -264,7 +264,7 @@ function DemoTopBar({ alert }: { alert: boolean }) {
         <BellIcon aria-hidden className="size-4 text-foreground" />
         <span
           className={cn(
-            "absolute -top-0.5 -right-0.5 size-2 rounded-full bg-brand transition-opacity duration-300 motion-reduce:transition-none",
+            "absolute -top-0.5 -right-0.5 size-2 rounded-full bg-brand transition-opacity duration-240 motion-reduce:transition-none",
             alert ? "opacity-100" : "opacity-0",
           )}
         />
@@ -278,12 +278,12 @@ function DemoCursor({ ref, pressed }: { ref: React.Ref<HTMLDivElement>; pressed:
   return (
     <div
       ref={ref}
-      className="pointer-events-none absolute top-0 left-0 z-20 transition-transform duration-900 ease-[cubic-bezier(0.45,0,0.2,1)] motion-reduce:transition-none"
+      className="pointer-events-none absolute top-0 left-0 z-20 transition-transform duration-720 ease-[cubic-bezier(0.45,0,0.2,1)] motion-reduce:transition-none"
       style={{ transform: `translate(${CURSOR_REST.x}px, ${CURSOR_REST.y}px)` }}
     >
       <div
         className={cn(
-          "flex items-start transition-transform duration-150 motion-reduce:transition-none",
+          "flex items-start transition-transform duration-120 motion-reduce:transition-none",
           pressed ? "scale-85" : "scale-100",
         )}
       >

@@ -26,7 +26,7 @@ updated: 2026-10-28
 
 | 항목 | 상태 | 마지막 확인 |
 |---|---|---|
-| web(Vercel) | main `14bfc514`(화면 개편 1차) Production 배포 성공. 비로그인 랜딩·로그인 200, 랜딩 로고·서비스 이미지 26개 200, 1440·1280 넘침·깨진 이미지·콘솔 오류 0 | 2026-10-28 16:5x KST |
+| web(Vercel) | main `fcefbfea`(화면 개편 2차: 랜딩 업무 데모·권고 표기 추천·보류·비추천) Production 배포 성공. 비로그인 랜딩 1440·1280 영어 권고 글자·넘침·깨진 이미지·콘솔 오류·400 이상 응답 0, `/login` 200, `/health/ready` ok. 1차는 `14bfc514`. 그 뒤 업무 데모 1.25배 빠르게(아래 작업 로그) | 2026-10-28 19:03 KST |
 | `/health/ready` | 200(`db`·`redis`·`storage` ok, `ai: local`). `ai`는 회사 AI gateway가 보고한 provider 값이다 | 2026-10-27(시각 기록 없음) |
 | 운영 DB | migration 63개, 마지막 `20261027000700`(회사 공개 프로필·`EXECUTIVE`). db-push·`db-verify` 통과. `000500`·`000600`은 [기록](evidence/prod-migrations/20261027/README.md), `000700`은 [기록](evidence/company-public-profile/20261027/prod-rollout.md) | 2026-10-27 |
 | 나라장터 정기 수집 | 3시간마다(KST 00·03·…·21시). 정기 회차 2026-10-26 18:00~10-28 18:00 17회 모두 `SUCCEEDED`(18:00 회차 317건, 생성 292). ingest Worker는 2026-10-28 18:55 `d171a7162e17`로 다시 만들었다. 같은 Worker가 LH·KEPCO·K-water 입찰공고도 같은 3시간 정각에 차례로 받는다(아래 "외부 입찰공고" 행, [기록](evidence/company-rollout/20261028/sources-rollout.md)) | 2026-10-28 18:23 KST(최신 수집) |
@@ -49,7 +49,6 @@ updated: 2026-10-28
 4. [[16-DECISIONS|ADR-056]](제안): 첨부 일부만 파싱된 추출의 재사용을 분석 대기(A)로 막을지, `source_hash` 캐시 키(B)로 막을지.
 5. 파서 "지원" 판정: 코드는 [[03-AI-PIPELINE|03]] §10.3 결정 규칙 4번 판정 없이 `PARSED`를 낸다. 규칙대로 고칠지, 실표본 6건으로 규칙을 바꿀지.
 6. KEPCO 첨부 주소(`http://srm.kepco.net`)를 첨부 허용 목록에 넣을지. 지금은 모두 `ATTACHMENT_URL_BLOCKED`다. (LH B단계는 2026-10-28 12:15 반영을 끝냈다, [기록](evidence/company-rollout/20261028/sources-rollout.md).)
-7. 랜딩 업무 데모([[16-DECISIONS|ADR-061]], 녹화 영상 대체)의 main 병합·push·Vercel 2차 배포. 화면 개편 1차는 2026-10-28 배포했다(main `14bfc514`).
 
 ### 남은 일
 
@@ -141,6 +140,7 @@ updated: 2026-10-28
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
 
+- 2026-10-28 · 랜딩 업무 데모 1.25배 빠르게(사용자 요청 "너무 느리다. 1.25배 빠르게 해줘"): 단계 시간·커서 이동·장면 전환·행 등장 간격·숫자 오름·점수 막대 시간을 모두 ÷1.25, 한 바퀴 약 31초 → 약 25초. 06 §3.4·ADR-061 문구 맞춤, 운영 상태 web 행을 2차 배포(`fcefbfea`)로 갱신 · `pnpm verify:changed` exit 0(web 101파일 890), `next build` exit 0, 랜딩 E2E 2파일 25 통과, 메인 세션 Playwright MCP로 `next start` 1440에서 한 바퀴 24.8초·수집 장면 끝에 숫자·완료 표시가 다 나온 뒤 넘어감·넘침 0·콘솔 오류 0
 - 2026-10-28 · 화면 개편 스펙 완료 이동([[16-DECISIONS|ADR-061]]): [스펙](../polaris/specs/done/2026-10-28-ui-refresh.md)을 `polaris/specs/done/`으로 옮기고 결과 절을 더했다. 수용 기준 6개 중 충족 4(사이드바·공통 틀·스크린샷·검증, 공통 틀은 권고 표기 ADR-062로 바뀜), 바뀜 1(랜딩 영상 → HTML 업무 데모), 운영 이미지 200은 1차 충족·2차는 45 확인이다. 배포는 1차 main `14bfc514`, 2차 `fcefbfea`. 남은 것은 11-01 화면 동결·덱 클립, 11-02 출처 9곳 운영 확인이다. 스펙 링크 5곳(06·16·PROGRESS·계획·증거 README)을 새 경로로 고쳤다 · 문서 전용. 검증: `pnpm verify:changed` 통과
 
 - 2026-10-28 · 공공데이터 수집 서비스 회사 반영(사용자 승인 단계마다, [기록](evidence/company-rollout/20261028/sources-rollout.md)): 12:15 LH registry 켬(회사 HEAD `c5c88510`). 15:16 KEPCO·K-water 입찰공고 켬(`209d5515`, ingest 이미지 `209d551590c9`). 15:59 누군가 옛 이미지 `24f2ac84963c`로 되돌림. 16:03 사용자 결정으로 `209d551590c9`로 다시 만듦(누가 했는지 미확인). 16:43 기업마당 전용 Worker(`db442be1`, 이미지 `db442be15481`) `--once` 100/100 뒤 기동. 18:16·18:34 Documents Worker 1·2단계(45 판정 뒤). 18:00 회차에서 K-water 처음 본 진행 상태 8건(제안서제출 5·기술협상 2·PQ심사 1)이 격리됐다. 사용자 결정("셋 다 CLOSED")으로 `external-normalize-kwater.ts` 상태 표에 더하고 재생 시험 1개를 추가했다. main `d171a716` push, 18:55 ingest 이미지 `d171a7162e17`로 다시 만듦. 회사 서버는 `/data/www/ai_workspace` 안에서만, redis-api·AI gateway·Analysis Worker 변경 0 · 검증: K-water 수정 `pnpm verify:changed` exit 0(web 100파일 889·AI 170·결정 57), 새 시험은 `기술협상`을 상태 표에서 빼면 실패함을 확인했다. 커밋 게이트·pre-push 통과. 회사 일회용 `--check`는 단계마다 exit 0이었다(18:55: LH·KEPCO·K-water `READY`, 3종 `DISABLED`). 재생성 뒤 healthy·restarts 0, Job Scheduler 4개, 다른 Worker 그대로. 운영 DB 읽기 SELECT(18:00 회차 `ingest_runs`, `bid_documents` 상태 수). 미실행: 21:00 회차 K-water 격리 0건 확인, `/bids` "부처 지원사업" 탭 화면
