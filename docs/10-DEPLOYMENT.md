@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ops
   - hackathon
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 10. 배포·실행 프로필
@@ -77,11 +77,11 @@ updated: 2026-10-27
 
 1. `curl -sS https://www.solideos-radar.com/health/ready`가 200이고 `db`·`redis`·`storage` ok, `ai: local`이다. AI만 불가면 `status: degraded`(200)다. 응답을 증거 폴더에 저장한다.
 2. `/dashboard?origin=demo`·`/bids?origin=demo`에 DEMO 배지와 DEMO 공고가 보인다. `/bids`는 11열이고 표 안에서 가로로 스크롤한다.
-3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 10-28~11-02 78 BID, 11-03부터 72 WATCH다(가상 회사 프로필 기준. 공개 자료 프로필 `--apply` 뒤에는 달라진다, [[PROGRESS]] 사용자 결정 대기 6). 운영 기록 66 WATCH(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
+3. S4 FX-02는 촬영·발표 때만 [재분석]을 누르고 화면 점수로 설명한다. 예상은 10-28~11-02 43 WATCH, 11-03부터 37 WATCH다(공개 자료 프로필 revision 5 기준, [[16-DECISIONS|ADR-059]]). 이어서 두 자격 "보유 가정"을 켜면 NO-BID다. 운영 기록 66 WATCH(10-24 1건)는 옛 마감 기준 일정 계수(마감까지 영업일 5 미만 → 0.4) 때문으로 본다(추정, [마감 이동 기록](evidence/demo-deadline/20261027/README.md) S4). 골든 72는 mock 시험 기준이다.
 4. S-LIVE는 `/bids?origin=live`에서 분석된 실공고 run을 연다. 지금은 실공고 분석이 0건이라(위 "운영 구성" `409 ANALYSIS_SOURCE_MISSING`) 첨부 처리 회사 반영 뒤에만 찍는다. run이 없으면 찍지 않는다([[19-DEMO-SCENARIO|19]] §3.1).
 5. 하지 않는 것:
    - 운영 DB에 `pnpm demo:reset`을 돌리지 않는다.
-   - 리허설 중에 FX-02를 재분석하지 않는다. 하면 최신 분석이 78 BID가 되어 대시보드 BID 수와 권고 알림이 바뀐다.
+   - 리허설 중에 FX-02를 재분석하지 않는다. 하면 43 WATCH가 저장되어 "미분석 → 재분석" 장면이 사라진다.
    - 실행 모드를 바꾸지 않는다([[19-DEMO-SCENARIO|19]] §5).
 6. S5·S6 장애 장면은 녹화 영상으로 보인다. 운영에서 장애를 주입하지 않는다.
 

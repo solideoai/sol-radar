@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - progress
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 진행 상황
@@ -29,8 +29,8 @@ updated: 2026-10-27
 | `/health/ready` | 200(`db`·`redis`·`storage` ok, `ai: local`). `ai`는 회사 AI gateway가 보고한 provider 값이다 | 2026-10-27(시각 기록 없음) |
 | 운영 DB | migration 63개, 마지막 `20261027000700`(회사 공개 프로필·`EXECUTIVE`). db-push·`db-verify` 통과. `000500`·`000600`은 [기록](evidence/prod-migrations/20261027/README.md), `000700`은 [기록](evidence/company-public-profile/20261027/prod-rollout.md) | 2026-10-27 |
 | 나라장터 정기 수집 | 3시간마다(KST 00·03·…·21시). 정기 회차 2026-10-26 18:00~10-27 21:00 10회 모두 `SUCCEEDED`. live 공고 1,247건(`bid_notices` `is_demo=false`). 21:00 회차부터 새 ingest Worker `24f2ac84963c`가 돈다([기록](evidence/company-rollout/20261027/ingest-worker-recreate.md)) | 2026-10-27 21:02 KST(최신 수집) |
-| 분석 | 실공고 0건. 실모델 run은 가상 공고 18건이다. FX-02 1건(66점 WATCH, 프로필 revision 2, [점검](evidence/demo-deadline/20261027/README.md) S4 절)과 DEMO 17건(프로필 revision 5, 43~75점 모두 WATCH, `Qwen3.8-Flash-Next-AWQ-INT4` + `bosun-v3.1-0.6b`, [기록](evidence/company-public-profile/20261027/prod-rollout.md)) | 2026-10-27 17:27 KST |
-| DEMO 공고 | 19건 그대로. 16건 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)). 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤다. 백업 스키마 `demo_cleanup_20261026`이 있다. 회사 공개 프로필(revision 5)로 17건을 다시 분석했다. FX-02·FX-03은 옛 분석(revision 2)이라 대시보드 "분석 대기" 2로 보인다(사용자 결정 대기 6) | 2026-10-27 17:27 KST |
+| 분석 | 실공고 0건. 실모델 run은 가상 공고 19건이다. FX-02 1건(66점 WATCH, 프로필 revision 2, [점검](evidence/demo-deadline/20261027/README.md) S4 절), DEMO 17건(프로필 revision 5, 43~75점 모두 WATCH, `Qwen3.8-Flash-Next-AWQ-INT4` + `bosun-v3.1-0.6b`, [기록](evidence/company-public-profile/20261027/prod-rollout.md)), FX-03 1건(프로필 revision 5, 53점 WATCH, [기록](evidence/company-public-profile/20261028/fx-forecast.md)) | 2026-10-28 09:47 KST |
+| DEMO 공고 | 19건 그대로. 16건 마감 +15일([기록](evidence/demo-deadline/20261027/prod-run.md)). 운영 DEMO 삭제(실운영 전환 A단계)는 발표 뒤다. 백업 스키마 `demo_cleanup_20261026`이 있다. 회사 공개 프로필(revision 5)로 17건을 다시 분석했고, 2026-10-28에 FX-03도 다시 분석했다(53 WATCH). FX-02만 옛 분석(revision 2)이라 대시보드 "분석 대기" 1로 보인다. 발표 대본은 이 상태 그대로 쓴다([[16-DECISIONS\|ADR-059]]) | 2026-10-28 09:48 KST |
 | 회사 반영 | 일부 완료(이 행이 정본이다). redis-api `aa0c9f9`(이미지 `9458368e`), AI gateway·Analysis Worker `9bb24b002f9b`로 갱신했다. gateway의 `KEV_BASE_URL`은 회사 호스트 Bosun `http://127.0.0.1:8009`로 바꿨다(Nginx `/sol-radar/kev` 경로는 없다). ingest Worker는 `sol-radar-app` `24f2ac8`에서 `24f2ac84963c`로 재생성했다(롤백 태그 `rollback-20261027`, `g2b-scheduled` 1개 유지, 외부 6종 비활성, 21:00 회차 `SUCCEEDED`, [기록](evidence/company-rollout/20261027/ingest-worker-recreate.md)). 남은 것: [[2026-10-27-company-rollout-attachments\|회사 반영 실행서]] §8 Documents Worker 기동(사용자 보류: 첨부 3,152건 `PENDING`의 처리량·동시성·Storage 비용 확인 전 기동 금지). LH A단계도 보류([기록](evidence/company-public-profile/20261027/prod-rollout.md)) | 2026-10-27 21:02 KST |
 | 카카오 | 운영 연결·발송 0건 | 2026-10-27 |
 | 알림 처리 | 처리되지 않는다(코드 확인, 문서 밖 발견 1). 회사 Worker(ingest·analysis·documents 전용)에 알림·마감 등록이 없다. 알림 전용 Worker를 main에 넣었다(`c2d5d0b7`, 실행서 `infra/company/README.md` §9). 회사 기동 전이다. 쌓인 outbox 수는 운영에서 세지 않았다 | 2026-10-27 |
@@ -44,14 +44,13 @@ updated: 2026-10-27
 3. [[16-DECISIONS|ADR-055]](제안): 범위 밖 첨부를 `PENDING`으로 두고 우리 쪽 장애는 미루는 documents 계약 변경을 받아들일지.
 4. [[16-DECISIONS|ADR-056]](제안): 첨부 일부만 파싱된 추출의 재사용을 분석 대기(A)로 막을지, `source_hash` 캐시 키(B)로 막을지.
 5. 파서 "지원" 판정: 코드는 [[03-AI-PIPELINE|03]] §10.3 결정 규칙 4번 판정 없이 `PARSED`를 낸다. 규칙대로 고칠지, 실표본 6건으로 규칙을 바꿀지.
-6. 회사 공개 프로필([[16-DECISIONS|ADR-052]]) 반영 뒤 발표 장면 FX-02(S4)·FX-03(S3)을 어떻게 할지. migration `000700`·웹 배포·`--apply`(revision 3~5)·회사 gateway·Analysis Worker 갱신·DEMO 17건 재분석은 끝났다([기록](evidence/company-public-profile/20261027/prod-rollout.md)). FX-02·FX-03은 사용자 결정으로 재분석에서 뺐다.
-   - **영향**: 새 프로필의 보유 자격은 1건(`ICT_CONSTRUCTION`)이라 재분석한 17건이 모두 WATCH다(BID 0). FX-03의 옛 분석은 NO_BID 68인데, 새 프로필은 `ICT_CONSTRUCTION`을 보유하므로 재분석하면 S3 장면이 달라진다. 12·18·19의 S4 예상(78 BID·72 WATCH)은 fixture 프로필 기준이라 지금 프로필에 맞지 않는다. revision 5로 FX-02를 재분석한 값은 확인하지 않았다.
-7. LH 입찰공고(15159012) 운영 반영. A단계(LH를 끈 채 코드를 main·회사 ingest Worker에 반영)는 나라장터 정기 수집 `SUCCEEDED`를 확인한 뒤 승인하고, B단계(registry 켜기)는 따로 승인한다([[2026-10-27-lh-bid-notice-activation|LH 활성화 계획]] §4).
+6. LH 입찰공고(15159012) 운영 반영. A단계(LH를 끈 채 코드를 main·회사 ingest Worker에 반영)는 나라장터 정기 수집 `SUCCEEDED`를 확인한 뒤 승인하고, B단계(registry 켜기)는 따로 승인한다([[2026-10-27-lh-bid-notice-activation|LH 활성화 계획]] §4).
 
 ### 남은 일
 
 - 날짜는 [[12-ROADMAP|12 로드맵]] "남은 일정 제안" 표(사용자 확인 전)에 있다. 순서는 회사 반영 → 실공고 S-LIVE 분석 run → D1 리허설·촬영(S-LIVE·카카오 실수신, 로컬 Compose의 S5·S6) → 덱·녹화 클립 완성 → 제출 → 발표다.
-- 리허설 중 FX-02를 재분석하지 않는다. 하면 최신 분석이 바뀌어 대시보드 BID 수와 권고 알림이 바뀐다(78 BID는 fixture 프로필 기준이고, 회사 공개 프로필 revision 5의 결과는 미확인이다. 사용자 결정 대기 6). 촬영·발표의 S4 [재분석]만 한다.
+- 리허설 중 FX-02를 재분석하지 않는다. 촬영 때 "이전 분석 66(가상 프로필) → 새 분석 43(공개 자료 프로필, 예상)"이 보여야 한다([[16-DECISIONS|ADR-059]]). 촬영의 S4 [재분석]만 한다.
+- 덱 pptx(`docs/submission/deck/sol-radar-deck.pptx`, git 밖)는 10-28 에 [[slides-spec|덱 제작 명세]]와 18장을 대조해 글·표·노트를 맞췄다(10-25 원본은 `sol-radar-backups/deck/` 에 백업). 그림·포스터는 옛 mock 화면 그대로라 촬영 뒤 바꾼다. 명세가 정본이다.
 - 카카오 실수신 녹화 전에 사용자 연결과 S0 수신 시험을 한다.
 - 열린 확인: 운영 로그인 화면 확인(DEMO 마감 이동 뒤), 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`, Compose 필요. 수집 장애 격리·사이드바 되돌림·실운영 전환 변경에서 미실행), 배포 뒤 사진 1장 올리기·지우기([릴리스 실행서](evidence/integration/20261025-release-runbook.md) §4).
 
@@ -122,8 +121,8 @@ updated: 2026-10-27
 | live 가드 | live에서 카카오 발송 수단이 비면 발송 끔. 이메일 가입 약관 동의 저장(`user_consents`) | main·운영 DB·Vercel 반영. 간편 가입(OAuth) 동의는 후속 | [검증](evidence/live-guards/20261027.md) |
 | 수집 장애 격리 | 외부 서비스별 키·한도 상태, 준비된 서비스만 정기 수집 | main·Vercel 반영, 회사 반영 대기. 기관별 registry 활성화 남음 | [기록](evidence/ingestion/20261027-source-isolation/summary.md) |
 | 공공 입찰 확장 | 사업기회 연결·11열 목록·수집 운영([[16-DECISIONS\|ADR-047]]) | main·운영 적용. 신규 6개 서비스는 서비스별 검증 뒤 켠다 | [기록](evidence/procurement-expansion/20261022-release.md) |
-| LH 입찰공고 | LH 입찰공고(15159012) 수집: 정규화, LH 한정 인증·데이터 없음 판정, EUC-KR 응답 읽기 | 브랜치 `feat/lh-bid-notice`(main 미병합). 실응답 10건 모두 정규화. registry `enabled: false`·`NOT_VERIFIED`·`NOT_REQUESTED`. 운영 반영 A단계·B단계 승인 대기(사용자 결정 대기 7) | [[2026-10-27-lh-bid-notice-activation\|계획]], [정규화 검증](evidence/ingestion/20261027-lh-bid-notice/normalization-check.md) |
-| 회사 공개 프로필 | 운영 DB 공개 자료 프로필, `EXECUTIVE` 역할([[16-DECISIONS\|ADR-052]]) | main·운영 DB(`000700`, 프로필 revision 5)·Vercel·회사 gateway·Analysis Worker 반영, DEMO 17건 재분석 완료. FX-02·FX-03 처리 남음(사용자 결정 대기 6) | [로컬 확인](evidence/company-public-profile/20261027/local/local-check.md) |
+| LH 입찰공고 | LH 입찰공고(15159012) 수집: 정규화, LH 한정 인증·데이터 없음 판정, EUC-KR 응답 읽기 | 브랜치 `feat/lh-bid-notice`(main 미병합). 실응답 10건 모두 정규화. registry `enabled: false`·`NOT_VERIFIED`·`NOT_REQUESTED`. 운영 반영 A단계·B단계 승인 대기(사용자 결정 대기 6) | [[2026-10-27-lh-bid-notice-activation\|계획]], [정규화 검증](evidence/ingestion/20261027-lh-bid-notice/normalization-check.md) |
+| 회사 공개 프로필 | 운영 DB 공개 자료 프로필, `EXECUTIVE` 역할([[16-DECISIONS\|ADR-052]]) | main·운영 DB(`000700`, 프로필 revision 5)·Vercel·회사 gateway·Analysis Worker 반영, DEMO 17건 재분석 완료, FX-03 재분석(2026-10-28, 53 WATCH). 발표 대본은 [[16-DECISIONS\|ADR-059]]로 정했다 | [로컬 확인](evidence/company-public-profile/20261027/local/local-check.md) |
 | 프로필 사진 | 비공개 버킷 `profile-photos`, 가입 신청 승인([[16-DECISIONS\|ADR-051]]) | 운영 적용(migration·버킷·웹 배포). 기존 직원 찾기(U8)·재신청 진입점(U10) 화면은 없다 | [기록](evidence/integration/20261025-prod-apply-db-storage.md) |
 | 인력 200명 | 가상 명부·사진 200장·전원 계산 대상([[16-DECISIONS\|ADR-019·043]]) | 완료, 운영 DB 적용 | [[07-DATA-PIPELINE\|07]] |
 | 화면 정리 | 사이드바 묶음 3개·트리·아이콘, 대시보드 "공공조달 요약" 숫자 띠, 랜딩 | 완료(운영 배포) | [기록](evidence/sidebar-tree/README.md) |
@@ -132,6 +131,7 @@ updated: 2026-10-27
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
 
+- 2026-10-28 · 공개 자료 프로필 기준 발표 대본([[16-DECISIONS|ADR-059]]): FX-01·02·03 점수를 규칙 엔진으로 미리 계산했고([기록](evidence/company-public-profile/20261028/fx-forecast.md)), 19 §2.2·S2~S4, 18, 12, 16, 덱 제작 명세(슬라이드 5·6·10·12·14·17, 부록 A·D), 제출 문서의 숫자를 고쳤다. 운영 쓰기는 사용자 승인 뒤 FX-03 [재분석] 1회다(09:47 KST, 53 WATCH, `RULES_WITH_KEV_ASSIST`, 대체 0, 미리 계산과 같음, [화면](evidence/company-public-profile/20261028/fx03-reanalysis-1440.png)). 대시보드는 분석 대기 1 · BID 권고 0 · 진행 중 WATCH 14가 됐다. 그 밖에는 운영 DB를 읽기(SELECT)만 했다. 10 배포 D1 확인 절차의 옛 FX-02 예상(78 BID)도 고쳤다 · 문서 전용. 검증: 바꾼 문서 prettier --check 통과, 위키링크·상대 링크 검사에서 새 깨짐 없음, `pnpm verify:changed --dry-run` 실행 단계 없음(문서만). 덱은 명세와 18장을 대조해 15장(2·5·6·7·8·9·10·11·12·13·14·15·16·17·18)의 글·표·노트를 고쳤다. validate 통과, Keynote PDF 렌더로 넘침을 확인했다(슬라이드 6·14 줄임)
 - 2026-10-28 · 사이드바 로고 아래 조직 이름 줄을 빼고, 로고를 대시보드 링크로 바꿨다(보던 출처 `?origin=` 을 이어 감, 접으면 `aria-label` "대시보드로 이동") · `pnpm verify:changed` 통과(web 813), 사이드바 출처 브라우저 시험 통과(로고 링크 단언 추가), `AppShell` 단독 1440·1280 펼침·접힘 스크린샷([증거](evidence/sidebar-logo-link/20261028/logo-1280-open-focus.png)). 미실행: 로그인 뒤 실제 대시보드 화면(로컬 시드 로그인 실패)
 - 2026-10-27 · main `c2d5d0b7`·`5a9030dd`·`80affcf0` push·Vercel 배포 success. 회사 서버 접속 없이 할 수 있는 일을 했다.
   - 알림 전용 Worker 진입점·Compose·회사 실행서 §9를 준비했다. 회사 기동 전이다.

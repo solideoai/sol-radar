@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - submission
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 시스템 아키텍처·데이터 흐름
@@ -39,7 +39,7 @@ flowchart TB
   end
   R[("기존 Redis 6379 · BullMQ")]
   QW["회사 운영 vLLM API · /vllm/v1<br/>Qwen3.8-Flash-Next-AWQ-INT4<br/>(운영 분석 1건 · 2026-10-24)"]
-  KV["sol_decision.serve · Bosun v3.1 0.6B<br/>같은 호스트 127.0.0.1:8009<br/>(운영 분석 FX-02 1건 · DEMO 17건 · 2026-10-27)"]
+  KV["sol_decision.serve · Bosun v3.1 0.6B<br/>같은 호스트 127.0.0.1:8009<br/>(운영 분석 DEMO 가상 공고 19건 · 2026-10-24~28)"]
  end
  subgraph public[공공 인터넷]
   G2B["data.go.kr Open API<br/>입찰공고 · 사전규격 · 발주계획 · 업종 마스터"]
@@ -65,7 +65,7 @@ flowchart TB
 - 모델을 부르는 컴포넌트는 AI gateway 하나다. web·redis-api·worker는 Qwen·결정 모델에 직접 닿지 않는다.
 - Vercel은 web만 실행한다. 분석·수집 접수와 관리자 AI 상태 조회만 회사 Gateway로 넘기고, 조회·가정 재계산은 Supabase RLS 경로로 읽는다. Vercel에는 service role 키·Redis 주소·모델 키를 넣지 않는다([[10-DEPLOYMENT|10 배포]] "운영 구성 (ADR-049)").
 - 회사 Compose는 redis-api·AI gateway와 역할별 Worker다. Worker는 수집(`infra/compose.ingest-only.company.yaml`)·분석(`compose.analysis-only.company.yaml`)·첨부(`compose.documents-only.company.yaml`, 회사 반영 전)로 나뉜다. 알림·마감 job 등록은 전체 Worker(`web/worker/main.ts`)에만 있어, 운영에서 알림을 처리하는 Worker가 있는지는 미확인이다. 회사의 기존 Redis와 Nginx를 재사용하고 Redis·Qdrant·DB·모델 서버를 새로 만들지 않는다. 호스트에 여는 포트는 기존 Nginx upstream인 `127.0.0.1:6380` 하나다. 모델 키는 AI gateway만, service role·수집 키는 Worker만 받는다(`infra/company/README.md`).
-- 운영 상태(2026-10-27 기준): Vercel `/health/ready` 200(`db`·`redis`·`storage` ok, `ai: local`). 3시간 정기 수집이 2026-10-26 13:51부터 7회 모두 성공했고 실공고 592건이 쌓였다(최신 수집 10-27 09:03). 2026-10-24 운영 smoke에서는 FX-02 분석 요청이 202를 받고 `QUEUED`에서 멈췄다(결함 W1, 회사 Worker 미소비). 같은 날 운영 실모델 분석 1건이 끝났다(FX-02 66 WATCH). 화면 기본 출처는 Vercel env `SOL_DEFAULT_ORIGIN`이 정하고, 발표는 `?origin=demo`로 연다(D1, ADR-054).
+- 운영 상태(2026-10-27 기준): Vercel `/health/ready` 200(`db`·`redis`·`storage` ok, `ai: local`). 3시간 정기 수집이 2026-10-26 13:51부터 7회 모두 성공했고 실공고 592건이 쌓였다(최신 수집 10-27 09:03). 2026-10-24 운영 smoke에서는 FX-02 분석 요청이 202를 받고 `QUEUED`에서 멈췄다(결함 W1, 회사 Worker 미소비). 같은 날 운영 실모델 분석 1건이 끝났다(FX-02 66 WATCH). 2026-10-27에는 공개 자료 프로필 revision 5로 DEMO 17건을 다시 분석했다(43~75, 모두 WATCH). 화면 기본 출처는 Vercel env `SOL_DEFAULT_ORIGIN`이 정하고, 발표는 `?origin=demo`로 연다(D1, ADR-054).
 - DB·Auth·Storage는 Supabase 클라우드(ADR-048)라 데모 중 인터넷이 필요하다. 대체 경로는 `limitations.md`와 아래 (a-2).
 - 회사 GPU 서버는 외부에서 접근할 수 없다. 결정 모델 Bosun v3.1 0.6B는 우리 `sol_decision.serve`가 회사 GPU 서버 `127.0.0.1:8009`에서 Kev wire 호환으로 서빙한다([[16-DECISIONS|ADR-025]]·[[16-DECISIONS|ADR-034]]). 운영 AI gateway는 같은 호스트의 회사 Compose(`network_mode: host`)에서 `KEV_BASE_URL=http://127.0.0.1:8009`로 바로 붙는다(2026-10-27). 처음 설계한 공개 경로 `https://acropolissg.com/sol-radar/kev`(GPU 서버 안 nginx 모델 라우터 `infra/gpu/model-router.conf`)는 회사 nginx에 등록되지 않았다. 인증은 각 런타임의 Bearer 키(`QWEN_API_KEY`·`KEV_API_KEY`)다([[16-DECISIONS|16 ADR]] 미결정 17번). 회사 vLLM은 Bearer 인증 조회·추론을 확인했다(2026-10-21 probe). 결정 서버는 2026-10-24 운영 분석 1건과 2026-10-27 DEMO 17건에서 응답했고, `GET /v1/models` 레지스트리 대조(`registryMatch: true`)를 확인했다. 지연은 측정하지 않았다. 엔드포인트로 가는 데이터는 실제 공고(개인정보 마스킹)와 가상 회사 프로필뿐이다.
 - GPU 하드웨어와 메모리 배분은 회사 측 운영이다. 결정 모델은 물리 GPU 1을 회사 PaddleOCR 서비스와 공유하고, 우리가 올리는 것은 Bosun 서빙·학습뿐이다(ADR-034 10번, 사용자 보고). Qwen3.8-Flash-Next는 회사 API라 GPU 1을 쓰지 않는다. 우리 쪽 점검은 `GET /v1/models` 레지스트리 대조와 지연 실측뿐이다(P0-0 ③ G1~G6, [[10-DEPLOYMENT|10 배포]]).
@@ -131,12 +131,12 @@ flowchart TD
 
 | `SOL_RUN_MODE` | 공고 | AI | 회사 프로필 | 화면 표시 | 쓰는 곳 |
 |---|---|---|---|---|---|
-| `live` | data.go.kr 실제 공고(`is_demo=false`), 첨부 다운로드 · 파싱(코드 있음, 회사 반영 전) | 회사 vLLM API Qwen3.8-Flash-Next(`Qwen3.8-Flash-Next-AWQ-INT4`) · 회사 GPU 서버 Bosun v3.1 0.6B 실추론(`AI_PROVIDER=local`, HTTPS). 운영 분석 1건(2026-10-24 가상 공고 FX-02, 66 WATCH) | 가상 솔리데오(`is_demo=true`) | 공고 상세 분석 요약 띠 "분석 실행 모드: live"·"AI: local · …", "가상 회사 프로필로 분석" | 운영 회사 런타임. 실공고 S-LIVE는 첨부 처리 회사 반영 뒤 |
+| `live` | data.go.kr 실제 공고(`is_demo=false`), 첨부 다운로드 · 파싱(코드 있음, 회사 반영 전) | 회사 vLLM API Qwen3.8-Flash-Next(`Qwen3.8-Flash-Next-AWQ-INT4`) · 회사 GPU 서버 Bosun v3.1 0.6B 실추론(`AI_PROVIDER=local`, HTTPS). 운영 분석은 DEMO 가상 공고 19건(2026-10-24 FX-02 66 WATCH, 10-27 17건, 10-28 FX-03 53 WATCH) | 운영은 공개 자료 솔리데오(`is_demo=false`, ADR-052) | 공고 상세 분석 요약 띠 "분석 실행 모드: live"·"AI: local · …", "공개 자료 회사 프로필로 분석" | 운영 회사 런타임. 실공고 S-LIVE는 첨부 처리 회사 반영 뒤 |
 | `fixture` | fixture 20건(`is_demo=true`, `DEMO` 배지) | 실추론 그대로 | 가상 솔리데오 | 분석 요약 띠 "분석 실행 모드: fixture"·"AI: local" | 공공 API 장애 시 대체, 한국어 state 평가(E2) |
 | `mock` | fixture 20건 | 고정 응답(`AI_PROVIDER=mock`, `fixtures/extractions`·`fixtures/kev`) | 가상 솔리데오 | 분석 요약 띠 "분석 실행 모드: mock"·"AI: mock" | CI, 골든 94/72/68, 격리 로컬 리허설 |
 
 - 상단바에는 실행 모드·AI 표시가 없다(2026-10-26 제거). 데이터 출처는 상단바 `DEMO` 배지(보는 출처가 demo일 때만)와 행 `DEMO` 배지로 보인다.
-- 발표는 D1이다(ADR-054). 운영 사이트에서 `?origin=demo`로 운영 DB의 DEMO 데이터를 열고 `demo:reset`은 하지 않는다. 클립은 이 경로에서 찍고, 변경 감지(S5)와 장애 대체(S6)만 로컬 Compose(`mock`)에서 찍는다([[19-DEMO-SCENARIO|19]] §4). 회사 런타임이 `live`라 FX-02 [재분석]은 실모델 결과다. 골든 72는 `mock` 시험 기준이다.
+- 발표는 D1이다(ADR-054). 운영 사이트에서 `?origin=demo`로 운영 DB의 DEMO 데이터를 열고 `demo:reset`은 하지 않는다. 클립은 이 경로에서 찍고, 변경 감지(S5)와 장애 대체(S6)만 로컬 Compose(`mock`)에서 찍는다([[19-DEMO-SCENARIO|19]] §4). 회사 런타임이 `live`라 FX-02 [재분석]은 실모델 결과다. 운영 회사 프로필이 공개 자료 프로필이라 예상은 43 WATCH이고, 골든 72는 `mock`(가상 프로필) 시험 기준이다([[16-DECISIONS|ADR-059]]).
 - 모드마다 바뀌는 것은 **입력(공고 출처)과 모델 호출 방식**뿐이다. 스키마 검증·인용 검증·규칙 엔진·점수 알고리즘(`sol-v0.1.0`)·저장·화면 경로는 세 모드가 같다.
 - 모드와 모순된 env(`live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)는 `pnpm check:env`와 gateway가 기동을 거부한다. 자동 대체는 없다. 모드 전환은 env 교체와 worker·gateway 재시작으로 사람이 한다.
 - 분석마다 `score_runs.run_mode`·`ai_provider`·`qwen_model`·`kev_model`이 남아 과거 분석이 어느 모드였는지 알 수 있다. `kev_model`에는 결정 모델 식별자(레지스트리 `run`)가, mock이면 `mock`이 들어간다(ADR-034 15번).
