@@ -148,7 +148,11 @@ export function MemberTable({
       {/* 표는 카드 끝까지 닿고 첫·끝 칸 여백을 카드 여백(24px)에 맞춘다. */}
       <CardContent className="-mb-4 px-0">
         {/* table-fixed 가 없으면 긴 이름·이메일이 표를 넓혀 말줄임되지 않는다. */}
-        <Table className="table-fixed" aria-labelledby="members-title">
+        <Table
+          className="table-fixed"
+          containerClassName="rounded-none border-0"
+          aria-labelledby="members-title"
+        >
           <TableHeader>
             <TableRow>
               <TableHead className="pl-6">멤버</TableHead>

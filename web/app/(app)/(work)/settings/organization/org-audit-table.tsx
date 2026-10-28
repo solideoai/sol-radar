@@ -37,7 +37,7 @@ export function OrgAuditTable({ entries }: { entries: OrgAuditView[] }) {
         </CardContent>
       ) : (
         <CardContent className="-mb-4 px-0">
-          <Table className="table-fixed">
+          <Table className="table-fixed" containerClassName="rounded-none border-0">
             <caption className="sr-only">{AUDIT_COPY.caption(entries.length)}</caption>
             <TableHeader>
               <TableRow>

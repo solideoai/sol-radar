@@ -215,7 +215,11 @@ export function TaskList({
               {rows.length === 0 ? (
                 <FilteredEmpty />
               ) : (
-                <Table className="table-fixed" aria-labelledby="tasks-title">
+                <Table
+                  className="table-fixed"
+                  containerClassName="rounded-none border-0"
+                  aria-labelledby="tasks-title"
+                >
                   <TableHeader>
                     <TableRow>
                       <TableHead className="pl-6">작업</TableHead>

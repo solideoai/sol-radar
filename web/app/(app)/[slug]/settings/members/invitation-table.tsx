@@ -91,7 +91,11 @@ export function InvitationTable({
       ) : (
         // 칸을 숨길지는 화면 폭이 아니라 카드의 폭으로 정한다.
         <CardContent className="@container -mb-4 px-0">
-          <Table className="table-fixed" aria-labelledby="invitations-title">
+          <Table
+            className="table-fixed"
+            containerClassName="rounded-none border-0"
+            aria-labelledby="invitations-title"
+          >
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-6">이메일</TableHead>

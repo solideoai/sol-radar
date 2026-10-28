@@ -93,7 +93,7 @@ export function OrgJoinRequestTable({ requests }: { requests: JoinRequestView[] 
         </CardContent>
       ) : (
         <CardContent className="-mb-4 px-0">
-          <Table className="table-fixed">
+          <Table className="table-fixed" containerClassName="rounded-none border-0">
             <caption className="sr-only">대기 중인 가입 신청 {requests.length}건</caption>
             <TableHeader>
               <TableRow>

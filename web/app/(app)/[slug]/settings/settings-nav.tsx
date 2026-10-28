@@ -23,15 +23,15 @@ export function SettingsNav({
   ];
 
   return (
-    <nav aria-label="설정 메뉴" className="border-b border-border">
-      {/* 막대가 아래 선 위에 겹치도록 한 픽셀 내린다. */}
-      <ul className="-mb-px flex gap-6">
+    // 지금 메뉴는 연한 파랑 알약이다(2026-10-28 화면 개편: 밑줄 탭·보기 전환 공통 규칙). 화면 머리 아래 구분선이 있어 밑줄 선은 두지 않는다.
+    <nav aria-label="설정 메뉴">
+      <ul className="flex gap-1">
         {items.map((item) => (
           <li key={item.href}>
             <Link
               href={item.href}
               aria-current={pathname === item.href ? "page" : undefined}
-              className="relative inline-flex h-10 items-center rounded-md type-label font-medium text-muted-foreground outline-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:text-foreground aria-[current=page]:after:bg-foreground"
+              className="inline-flex items-center rounded-md px-3 py-1.5 type-label text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground"
             >
               {item.label}
             </Link>

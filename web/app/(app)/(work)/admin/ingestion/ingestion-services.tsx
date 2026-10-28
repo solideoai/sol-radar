@@ -121,117 +121,113 @@ export function IngestionServices({
           {message}
         </p>
       )}
-      <div className="overflow-x-auto rounded-lg border">
-        <Table className="min-w-300">
-          <TableHeader>
-            <TableRow>
-              {[
-                "출처 / 서비스",
-                "연결 / 인증",
-                "마지막 수집 / 성공",
-                "수신",
-                "신규",
-                "변경",
-                "중복",
-                "오류",
-                "격리",
-                "수집",
-              ].map((h) => (
-                <TableHead key={h}>{h}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {summary.groups
-              .flatMap((g) => g.services)
-              .map((service) => {
-                const view = viewOf(service);
-                const reasonId = `service-collect-${service.key}`;
-                const statusId = `service-status-${service.key}`;
-                // registry 이유는 연결/인증 칸이 이미 보인다. 단추 아래에 되풀이하지 않고 그 칸을 가리킨다.
-                const reasonInRow =
-                  service.blockedReason !== null &&
-                  view.reason === sourceBlockText(service.blockedReason);
-                return (
-                  <TableRow key={service.key}>
-                    <TableCell>
-                      <SourceBadge family={service.sourceFamily} />
-                      <p className="mt-1 type-caption">{service.displayName}</p>
-                      <p className="type-caption text-muted-foreground">{service.serviceId}</p>
+      <Table className="min-w-300">
+        <TableHeader>
+          <TableRow>
+            {[
+              "출처 / 서비스",
+              "연결 / 인증",
+              "마지막 수집 / 성공",
+              "수신",
+              "신규",
+              "변경",
+              "중복",
+              "오류",
+              "격리",
+              "수집",
+            ].map((h) => (
+              <TableHead key={h}>{h}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {summary.groups
+            .flatMap((g) => g.services)
+            .map((service) => {
+              const view = viewOf(service);
+              const reasonId = `service-collect-${service.key}`;
+              const statusId = `service-status-${service.key}`;
+              // registry 이유는 연결/인증 칸이 이미 보인다. 단추 아래에 되풀이하지 않고 그 칸을 가리킨다.
+              const reasonInRow =
+                service.blockedReason !== null &&
+                view.reason === sourceBlockText(service.blockedReason);
+              return (
+                <TableRow key={service.key}>
+                  <TableCell>
+                    <SourceBadge family={service.sourceFamily} />
+                    <p className="mt-1 type-caption">{service.displayName}</p>
+                    <p className="type-caption text-muted-foreground">{service.serviceId}</p>
+                  </TableCell>
+                  <TableCell>
+                    <p>
+                      {service.enabled
+                        ? service.connectionStatus === "CONNECTED"
+                          ? "연결됨"
+                          : service.connectionStatus === "ERROR"
+                            ? "오류"
+                            : "연결 확인 전"
+                        : "비활성"}
+                    </p>
+                    <p className="type-caption text-muted-foreground">
+                      {service.authStatus === "VERIFIED"
+                        ? "인증 확인"
+                        : service.authStatus === "FAILED"
+                          ? "인증 실패"
+                          : "인증 미검증"}{" "}
+                      · {service.keyIssuance === "ISSUED" ? "키 발급 완료" : "키 상태 미확인"}
+                    </p>
+                    {service.blockedReason && (
+                      <p id={statusId} className="type-caption text-muted-foreground">
+                        {sourceBlockText(service.blockedReason)}
+                      </p>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <p>{service.lastIngestAt ? formatRelative(service.lastIngestAt, now) : "—"}</p>
+                    <p className="type-caption text-muted-foreground">
+                      {service.lastSuccessAt
+                        ? formatRelative(service.lastSuccessAt, now)
+                        : "성공 기록 없음"}
+                    </p>
+                  </TableCell>
+                  {[
+                    service.counts.fetched,
+                    service.counts.created,
+                    service.counts.updated,
+                    service.counts.duplicates,
+                    service.counts.errors,
+                    service.counts.quarantined,
+                  ].map((n, i) => (
+                    <TableCell key={i} className="font-mono tabular-nums">
+                      {n.toLocaleString("ko-KR")}
                     </TableCell>
-                    <TableCell>
-                      <p>
-                        {service.enabled
-                          ? service.connectionStatus === "CONNECTED"
-                            ? "연결됨"
-                            : service.connectionStatus === "ERROR"
-                              ? "오류"
-                              : "연결 확인 전"
-                          : "비활성"}
-                      </p>
-                      <p className="type-caption text-muted-foreground">
-                        {service.authStatus === "VERIFIED"
-                          ? "인증 확인"
-                          : service.authStatus === "FAILED"
-                            ? "인증 실패"
-                            : "인증 미검증"}{" "}
-                        · {service.keyIssuance === "ISSUED" ? "키 발급 완료" : "키 상태 미확인"}
-                      </p>
-                      {service.blockedReason && (
-                        <p id={statusId} className="type-caption text-muted-foreground">
-                          {sourceBlockText(service.blockedReason)}
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <p>
-                        {service.lastIngestAt ? formatRelative(service.lastIngestAt, now) : "—"}
-                      </p>
-                      <p className="type-caption text-muted-foreground">
-                        {service.lastSuccessAt
-                          ? formatRelative(service.lastSuccessAt, now)
-                          : "성공 기록 없음"}
-                      </p>
-                    </TableCell>
-                    {[
-                      service.counts.fetched,
-                      service.counts.created,
-                      service.counts.updated,
-                      service.counts.duplicates,
-                      service.counts.errors,
-                      service.counts.quarantined,
-                    ].map((n, i) => (
-                      <TableCell key={i} className="font-mono tabular-nums">
-                        {n.toLocaleString("ko-KR")}
-                      </TableCell>
-                    ))}
-                    <TableCell className="w-48 align-top whitespace-normal">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={view.disabled}
-                        aria-describedby={
-                          view.reason === null ? undefined : reasonInRow ? statusId : reasonId
-                        }
-                        onClick={() => void collect(service)}
+                  ))}
+                  <TableCell className="w-48 align-top whitespace-normal">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={view.disabled}
+                      aria-describedby={
+                        view.reason === null ? undefined : reasonInRow ? statusId : reasonId
+                      }
+                      onClick={() => void collect(service)}
+                    >
+                      {busy === service.key ? SERVICE_COLLECT_BUSY : SERVICE_COLLECT_LABEL}
+                    </Button>
+                    {view.reason !== null && !reasonInRow && (
+                      <p
+                        id={reasonId}
+                        className="mt-1 type-caption wrap-anywhere text-muted-foreground"
                       >
-                        {busy === service.key ? SERVICE_COLLECT_BUSY : SERVICE_COLLECT_LABEL}
-                      </Button>
-                      {view.reason !== null && !reasonInRow && (
-                        <p
-                          id={reasonId}
-                          className="mt-1 type-caption wrap-anywhere text-muted-foreground"
-                        >
-                          {view.reason}
-                        </p>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-          </TableBody>
-        </Table>
-      </div>
+                        {view.reason}
+                      </p>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+        </TableBody>
+      </Table>
       {summary.references.length > 0 && <ReferenceServices summary={summary} now={now} />}
     </section>
   );
