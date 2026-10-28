@@ -11,10 +11,10 @@ export default function Loading() {
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">알림을 불러오는 중…</span>
         <div aria-hidden className="contents">
-          {/* 전체·안 읽음 알약 두 개 자리다. */}
-          <div className="flex items-center gap-1">
-            <Skeleton className={`h-8 w-14 rounded-md ${pulse}`} />
-            <Skeleton className={`h-8 w-18 rounded-md ${pulse}`} />
+          {/* 전체·안 읽음 전환 상자 자리다. */}
+          <div className="flex self-start rounded-lg border border-border p-0.5">
+            <Skeleton className={`h-7 w-14 rounded-md ${pulse}`} />
+            <Skeleton className={`h-7 w-18 rounded-md ${pulse}`} />
           </div>
           <div className="overflow-hidden rounded-lg border border-border bg-card">
             <div className="divide-y divide-border">
