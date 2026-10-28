@@ -44,7 +44,7 @@ const logoHeight = ({ width, height }: DataSource["logo"]) => {
 };
 
 // 출처 카드도 서비스 카드처럼 로고만 가운데에 둔다(2026-10-28 사용자 요청). 이름은 그림 alt 로 읽힌다.
-// 연결 상태는 문서로 관리하고 화면에는 표시하지 않는다. 로고는 회색조이고 마우스를 올리면 원래 색이다.
+// 연결 상태는 문서로 관리하고 화면에는 표시하지 않는다. 로고는 서비스 줄처럼 늘 원래 색이다(2026-10-28 사용자 요청).
 export function SourcesMarquee() {
   return (
     <Marquee
@@ -56,7 +56,7 @@ export function SourcesMarquee() {
       {DATA_SOURCES.map((source) => (
         <li
           key={source.name}
-          className="group flex h-28 w-52 shrink-0 items-center justify-center rounded-lg border border-border bg-background px-4"
+          className="flex h-28 w-52 shrink-0 items-center justify-center rounded-lg border border-border bg-background px-4"
         >
           <Image
             src={source.logo.src}
@@ -66,7 +66,7 @@ export function SourcesMarquee() {
             unoptimized
             loading="eager"
             style={{ height: logoHeight(source.logo) }}
-            className="w-auto object-contain opacity-80 grayscale transition-[filter,opacity] duration-200 group-hover:opacity-100 group-hover:grayscale-0"
+            className="w-auto object-contain"
           />
         </li>
       ))}
