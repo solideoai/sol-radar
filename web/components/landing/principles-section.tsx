@@ -40,7 +40,7 @@ const PRINCIPLES: { title: string; body: string; onScreen: React.ReactNode }[] =
   },
   {
     title: "AI 권고와 최종 결정을 구분합니다",
-    body: "BID·WATCH·NO-BID는 권고입니다. 참여 여부는 담당자가 정하고, 결정과 사유를 따로 기록합니다.",
+    body: "추천·보류·비추천은 권고입니다. 참여 여부는 담당자가 정하고, 결정과 사유를 따로 기록합니다.",
     onScreen: (
       <>
         <RecommendationBadge value={EXAMPLE.recommendation} />

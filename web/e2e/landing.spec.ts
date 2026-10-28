@@ -73,7 +73,7 @@ test("미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수�
     "82",
   );
   await expect(panel.getByText("SOL Score는 사업 적합도이며 수주 확률이 아닙니다.")).toBeVisible();
-  await expect(panel.getByText("WATCH", { exact: true })).toBeVisible();
+  await expect(panel.getByText("보류", { exact: true })).toBeVisible();
   await expect(panel.getByText("충족 2 · 확인 필요 1 · 미충족 0")).toBeVisible();
   await expect(panel.getByText("필수 증빙의 유효기간 확인 필요")).toBeVisible();
   await expect(panel.getByText("공고문 p.2").first()).toBeVisible();
@@ -104,6 +104,16 @@ test("미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수�
   }),
 );
 
+// 권고는 화면에 한글(추천·보류·비추천)로 쓴다(ADR-062). 값(BID·WATCH·NO_BID)은 코드에만 있고 글자로 보이지 않는다.
+// 움직이는 업무 데모(aria-hidden)도 getByText 에 잡히므로 데모 표의 배지까지 함께 본다.
+test("첫 화면의 권고 표기는 추천·보류·비추천이고 영어 표기는 남지 않는다", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/\b(BID|WATCH|NO-BID)\b/)).toHaveCount(0);
+  for (const label of ["추천", "보류", "비추천"]) {
+    await expect(page.getByText(label, { exact: true }).first()).toBeAttached();
+  }
+});
+
 test("목록에서 다른 공고를 고르면 분석이 바뀐다", async ({ page }) => {
   await page.goto("/");
   const preview = previewOf(page);
@@ -114,7 +124,7 @@ test("목록에서 다른 공고를 고르면 분석이 바뀐다", async ({ pag
     "aria-valuenow",
     "88",
   );
-  await expect(panel.getByText("BID", { exact: true })).toBeVisible();
+  await expect(panel.getByText("추천", { exact: true })).toBeVisible();
 });
 
 [1280, 1440, 1920].forEach((width) =>

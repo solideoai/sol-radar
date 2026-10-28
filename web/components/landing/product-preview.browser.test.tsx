@@ -30,7 +30,7 @@ const render = async () => {
 const tabOf = (title: string) => page.getByRole("tab", { name: new RegExp(title) });
 
 describe("ProductPreview", () => {
-  it("처음에는 대표 예시(82점·WATCH)를 보여 주고 점수 옆에 수주 확률이 아니라는 안내가 있다", async () => {
+  it("처음에는 대표 예시(82점·보류)를 보여 주고 점수 옆에 수주 확률이 아니라는 안내가 있다", async () => {
     await page.viewport(1280, 900);
     await render();
     const panel = page.getByRole("tabpanel");
@@ -41,8 +41,8 @@ describe("ProductPreview", () => {
     await expect
       .element(panel.getByText("SOL Score는 사업 적합도이며 수주 확률이 아닙니다."))
       .toBeVisible();
-    await expect.element(panel.getByText("WATCH", { exact: true })).toBeVisible();
-    await expect.element(panel.getByText("BID", { exact: true })).not.toBeInTheDocument();
+    await expect.element(panel.getByText("보류", { exact: true })).toBeVisible();
+    await expect.element(panel.getByText("추천", { exact: true })).not.toBeInTheDocument();
     await expect.element(panel.getByText("충족 2 · 확인 필요 1 · 미충족 0")).toBeVisible();
     await expect.element(page.getByText("예시 데이터").first()).toBeVisible();
   });
@@ -55,7 +55,7 @@ describe("ProductPreview", () => {
     await expect
       .element(panel.getByRole("meter", { name: "SOL Score" }))
       .toHaveAttribute("aria-valuenow", String(second.score));
-    await expect.element(panel.getByText("BID", { exact: true })).toBeVisible();
+    await expect.element(panel.getByText("추천", { exact: true })).toBeVisible();
   });
 
   it("방향키로 목록을 옮기면 선택과 분석이 같이 바뀐다", async () => {
@@ -116,7 +116,7 @@ describe("ProductPreview", () => {
         const list = document.querySelector('[role="tablist"]');
         if (list === null) throw new Error("tablist 를 찾지 못했습니다");
         expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth);
-        // 칸 안에서 이웃 칸으로 넘치는 것(결재란의 NO-BID 배지 등)은 패널 폭에 드러나지 않는다. 값 칸마다 잰다.
+        // 칸 안에서 이웃 칸으로 넘치는 것(결재란의 비추천 배지 등)은 패널 폭에 드러나지 않는다. 값 칸마다 잰다.
         const overflowing = [...panel.querySelectorAll("dd")]
           .filter((value) => value.scrollWidth > value.clientWidth)
           .map((value) => `${bid.id}: ${value.textContent}`);

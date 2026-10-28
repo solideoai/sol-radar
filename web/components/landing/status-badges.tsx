@@ -16,10 +16,11 @@ import type { Evidence } from "@/components/landing/demo-bids";
 // 배지 바탕은 흰색(bg-background)이다 — 상태 색 글자는 연한 바탕 위에서 대비가 4.5:1 아래로 떨어질 수 있다.
 type StatusStyle = { label: string; icon: LucideIcon; tone: string };
 
+// 권고 값(BID·WATCH·NO_BID)은 그대로 두고 화면 글자만 한글로 쓴다(docs/16-DECISIONS.md ADR-062).
 const RECOMMENDATION_STYLES: Record<Recommendation, StatusStyle> = {
-  BID: { label: "BID", icon: CircleArrowUpIcon, tone: "border-success/30 text-success" },
-  WATCH: { label: "WATCH", icon: EyeIcon, tone: "border-warning/30 text-warning" },
-  NO_BID: { label: "NO-BID", icon: OctagonXIcon, tone: "border-destructive/30 text-destructive" },
+  BID: { label: "추천", icon: CircleArrowUpIcon, tone: "border-success/30 text-success" },
+  WATCH: { label: "보류", icon: EyeIcon, tone: "border-warning/30 text-warning" },
+  NO_BID: { label: "비추천", icon: OctagonXIcon, tone: "border-destructive/30 text-destructive" },
 };
 
 const QUALIFICATION_STYLES: Record<QualificationStatus, StatusStyle> = {

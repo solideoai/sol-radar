@@ -42,7 +42,7 @@ export function recommend(checks: readonly QualificationCheck[], score: number):
   if (counts.NEEDS_REVIEW > 0) {
     return {
       recommendation: "WATCH",
-      reason: `필수 자격 확인 필요 ${counts.NEEDS_REVIEW}건이 남아 있어 BID로 권고하지 않습니다.`,
+      reason: `필수 자격 확인 필요 ${counts.NEEDS_REVIEW}건이 남아 있어 추천 대신 보류로 권고합니다.`,
     };
   }
   if (score >= BID_THRESHOLD) {

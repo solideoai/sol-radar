@@ -174,7 +174,7 @@ const EVENTS = [
     text: "첨부문서 1건이 추가되었습니다.",
     time: "10. 16. 09:12",
   },
-  { icon: UserCheckIcon, kind: "참여 결정", text: "권고 WATCH · 담당자 결정 전", time: "대기" },
+  { icon: UserCheckIcon, kind: "참여 결정", text: "권고 보류 · 담당자 결정 전", time: "대기" },
 ];
 
 export function HistoryPreview() {
