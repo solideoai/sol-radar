@@ -56,6 +56,11 @@ const KEPCO_ALIASES = [
   "filenlink4",
   "filenlink5",
 ] as const;
+// 2026-10-28 실응답 71건: 금액은 모두 원 단위 정수다. 추정가격·추정금액이 둘 다 있는 29건 중 19건이 추정금액 =
+// 추정가격 × 1.1 이라 추정가격은 부가세 별도다. 나머지 10건은 배수가 1.0~3.4 로 갈려 추정금액·예비가격기초금액의
+// 부가세 포함 여부는 정하지 않는다.
+const AMOUNT_FIELDS = ["presumedPrice", "presumedAmount", "estimatedPriceBasicAmount"];
+const AMOUNT_VAT: Record<string, "EXCLUDED"> = { presumedPrice: "EXCLUDED" };
 const STATES: Readonly<
   Record<string, { status: BidStatus; event: SourceMetadata["providerEvent"] }>
 > = {
@@ -163,25 +168,27 @@ export function normalizeExternalNotice(
   }
   const exact = (name: string): string | null =>
     dates[name]?.precision !== "DATE" ? (dates[name]?.utc ?? null) : null;
-  const amounts: SourceMetadata["amounts"] = [
-    "presumedPrice",
-    "presumedAmount",
-    "estimatedPriceBasicAmount",
-  ].flatMap((kind) =>
-    fields[kind] === null
-      ? []
-      : [
-          {
-            kind,
-            raw: fields[kind],
-            amountKrw: null,
-            currency: null,
-            unit: "UNVERIFIED" as const,
-            vat: "UNVERIFIED" as const,
-          },
-        ],
-  );
-  const warnings: WarningIssue[] = [];
+  const amounts: SourceMetadata["amounts"] = AMOUNT_FIELDS.flatMap((kind) => {
+    const raw = fields[kind];
+    if (raw === null) return [];
+    const won = /^(?:0|[1-9]\d{0,14})$/.test(raw);
+    return [
+      {
+        kind,
+        raw,
+        amountKrw: won ? raw : null,
+        currency: won ? ("KRW" as const) : null,
+        unit: won ? ("KRW" as const) : ("UNVERIFIED" as const),
+        vat: won ? (AMOUNT_VAT[kind] ?? "UNVERIFIED") : ("UNVERIFIED" as const),
+      },
+    ];
+  });
+  // 대표 예산은 원 단위로 읽힌 추정가격만 쓴다. 읽지 못한 값은 원문(amounts)만 남기고 예산을 비운다
+  const budgetKrw = amounts.find(({ kind }) => kind === "presumedPrice")?.amountKrw ?? null;
+  const warnings: WarningIssue[] =
+    fields.presumedPrice !== null && budgetKrw === null
+      ? [{ code: "BUDGET_UNPARSED", sourceKey: sourceKeyValue, detail: "budget unparsed" }]
+      : [];
   const attachments = Array.from({ length: 5 }, (_, i) => i + 1).flatMap((slot) => {
     const url = fields[`filenlink${slot}`];
     if (!url) return [];
@@ -246,7 +253,7 @@ export function normalizeExternalNotice(
       status: STATES[status].status,
       title: collapseSpaces(fields.name),
       agency: KEPCO_COMPANIES[companyId],
-      budgetKrw: null,
+      budgetKrw,
       noticeDate: dates.noticeDate?.utc ?? null,
       deadlineAt: exact("endDatetime"),
       sourceUrl: `https://www.data.go.kr/data/${service.serviceId}/openapi.do`,
@@ -258,12 +265,14 @@ export function normalizeExternalNotice(
       original: {
         noticeNo: fields.no,
         status,
+        ...(fields.presumedPrice ? { budget: fields.presumedPrice } : {}),
         ...(fields.noticeDate ? { noticeDate: fields.noticeDate } : {}),
         ...(fields.endDatetime ? { deadline: fields.endDatetime } : {}),
       },
       sourceMetadata,
       normalizationNotes: [
-        "대표 예산과 실제 공고 상세 URL은 미검증. sourceUrl은 서비스 설명 페이지다.",
+        "sourceUrl은 서비스 설명 페이지다. 실제 공고 상세 URL은 미검증.",
+        "budgetKrw: presumedPrice(추정가격, 부가세 별도) 사용. 원 단위는 2026-10-28 실응답으로 확인.",
       ],
       isDemo: false,
       fetchedAt: context.fetchedAt.toISOString(),
