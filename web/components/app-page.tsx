@@ -33,22 +33,22 @@ export function AppPage({
       <div className={cn("mx-auto flex w-full max-w-5xl flex-col gap-6", contentClassName)}>
         {/* 구분선 위아래 여백은 위 여백(pt-4)과 함께 줄여 잡았다. 발표 동선(/gaps 1440×900 첫 화면에 순위 1~3행)이
             구분선 때문에 첫 화면 밖으로 밀리지 않게 한다(gaps-view 브라우저 시험). */}
-        <div
-          data-slot="app-page-header"
-          className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-border pb-4"
-        >
-          {/* min-w-0 이 없으면 긴 제목이 버튼을 밀어 좁은 폭에서 가로로 넘친다. */}
-          <div className="min-w-0">
-            <AppBreadcrumb />
-            {eyebrow}
-            {/* 띄어쓰기 없는 긴 제목(공고명 등)도 꺾여 단 폭을 넘지 않게 한다. */}
-            <h1 className="type-title wrap-anywhere text-foreground">{title}</h1>
-            {description ? (
-              // break-keep 이라 띄어쓰기 없는 긴 이름(팀 이름 40자)이 꺾이지 않아 좁은 폭에서 넘친다. 그런 낱말만 꺾는다.
-              <p className="mt-1 type-body wrap-anywhere text-muted-foreground">{description}</p>
-            ) : null}
+        <div data-slot="app-page-header" className="border-b border-border pb-4">
+          {/* 경로는 버튼 줄 밖(위)에 둔다. 버튼(actions)이 경로가 아니라 eyebrow·제목 줄 높이에서 시작한다. */}
+          <AppBreadcrumb />
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+            {/* min-w-0 이 없으면 긴 제목이 버튼을 밀어 좁은 폭에서 가로로 넘친다. */}
+            <div className="min-w-0">
+              {eyebrow}
+              {/* 띄어쓰기 없는 긴 제목(공고명 등)도 꺾여 단 폭을 넘지 않게 한다. */}
+              <h1 className="type-title wrap-anywhere text-foreground">{title}</h1>
+              {description ? (
+                // break-keep 이라 띄어쓰기 없는 긴 이름(팀 이름 40자)이 꺾이지 않아 좁은 폭에서 넘친다. 그런 낱말만 꺾는다.
+                <p className="mt-1 type-body wrap-anywhere text-muted-foreground">{description}</p>
+              ) : null}
+            </div>
+            {actions}
           </div>
-          {actions}
         </div>
         {children}
       </div>
