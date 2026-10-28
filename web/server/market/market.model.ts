@@ -83,8 +83,8 @@ export type MarketOverview = {
   query: MarketQuery;
   /** 기간 첫날(KST, YYYY-MM-DD). 이 날 00:00 KST 이후 게시분이다 */
   periodStartDate: string;
-  /** 읽은 범위 첫날(KST, YYYY-MM-DD). 기간과 13주 중 이른 쪽. 주별 추이·마감 다가오는 큰 사업이 이 범위를 쓴다 */
-  readFromDate: string;
+  /** 마감 다가오는 큰 사업을 고르는 게시일 첫날(KST, YYYY-MM-DD). 기간 선택과 무관하게 13주 첫 주 월요일이다 */
+  upcomingFromDate: string;
   totals: {
     /** 기간 안 게시·취소 제외·관련성 거르기 뒤 공고 수 */
     notices: number;
@@ -111,7 +111,7 @@ export type MarketOverview = {
   })[];
   /** 오래된 주부터 13칸. weekStart 는 그 주 월요일(KST) */
   weekly: { weekStart: string; count: number }[];
-  /** upcoming 의 마감 범위(지금부터 일수). upcoming 은 기간 선택과 별개로 readFromDate 이후 게시분에서 고른다 */
+  /** upcoming 의 마감 범위(지금부터 일수). upcoming 은 기간 선택과 무관하게 upcomingFromDate 이후 게시분에서 고른다 */
   upcomingDays: number;
   upcoming: {
     bidId: string;

@@ -233,7 +233,7 @@ function Upcoming({ overview, now }: { overview: MarketOverview; now: Date }) {
       <SectionHeader
         id="market-upcoming"
         title="마감 다가오는 큰 사업"
-        description={`기간 선택과 별개로 ${weekLabel(overview.readFromDate)} 이후 게시분 중 지금부터 ${overview.upcomingDays}일 안에 마감하는 진행 중 공고 · 예산 확인분을 배정 예산 큰 순으로 ${overview.upcoming.length}건`}
+        description={`기간 선택과 별개로 ${weekLabel(overview.upcomingFromDate)} 이후 게시분 중 지금부터 ${overview.upcomingDays}일 안에 마감하는 진행 중 공고 · 예산 확인분을 배정 예산 큰 순으로 ${overview.upcoming.length}건`}
       />
       {overview.upcoming.length === 0 ? (
         <p className={emptyLine}>

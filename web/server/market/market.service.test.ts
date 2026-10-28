@@ -58,35 +58,46 @@ const row = (patch: Partial<MarketRow>): MarketRow => {
 };
 
 describe("발주 현황 기간·주 경계(KST)", () => {
+  const rows = [
+    // 09-29 00:00 KST 정각 → 30일 기간 안
+    row({ publishedAt: "2026-09-28T15:00:00.000Z" }),
+    // 09-28 23:59:59 KST → 30일 기간 밖(UTC 날짜는 같은 09-28 이라 UTC 로 자르면 구분하지 못한다)
+    row({ publishedAt: "2026-09-28T14:59:59.999Z" }),
+    // 10-26(월) 00:30 KST → 이번 주
+    row({ publishedAt: "2026-10-25T15:30:00.000Z" }),
+    // 10-25(일) 23:30 KST → 지난주
+    row({ publishedAt: "2026-10-25T14:30:00.000Z" }),
+    // 08-02(일) 23:00 KST → 13주 밖, 90일 기간 안
+    row({ publishedAt: "2026-08-02T14:00:00.000Z" }),
+    // 08-01(토) 10:00 KST → 13주 밖, 90일 기간 안
+    row({ publishedAt: "2026-08-01T01:00:00.000Z" }),
+  ];
+
   it("30일은 오늘(KST) 포함 30일째 00:00 KST부터이고, 주별 추이는 월요일 시작 13주다", () => {
-    const window = marketWindow(NOW, 30);
-    expect(window.readFrom).toBe("2026-08-02T15:00:00.000Z");
-    const overview = aggregateMarket(
-      [
-        // 09-29 00:00 KST 정각 → 기간 안
-        row({ publishedAt: "2026-09-28T15:00:00.000Z" }),
-        // 09-28 23:59:59 KST → 기간 밖(UTC 날짜는 같은 09-28 이라 UTC 로 자르면 구분하지 못한다)
-        row({ publishedAt: "2026-09-28T14:59:59.999Z" }),
-        // 10-26(월) 00:30 KST → 이번 주
-        row({ publishedAt: "2026-10-25T15:30:00.000Z" }),
-        // 10-25(일) 23:30 KST → 지난주
-        row({ publishedAt: "2026-10-25T14:30:00.000Z" }),
-        // 08-02(일) 23:00 KST → 13주 밖
-        row({ publishedAt: "2026-08-02T14:00:00.000Z" }),
-      ],
-      { period: 30, relevance: "relevant" },
-      NOW,
-    );
+    expect(marketWindow(NOW, 30).readFrom).toBe("2026-08-02T15:00:00.000Z");
+    const overview = aggregateMarket(rows, { period: 30, relevance: "relevant" }, NOW);
     expect(overview.periodStartDate).toBe("2026-09-29");
-    expect(overview.readFromDate).toBe("2026-08-03");
     expect(overview.totals.notices).toBe(3);
-    // 마감 다가오는 큰 사업은 기간(30일)과 별개로 읽은 범위(08-03 00:00 KST 이후 게시) 전체에서 고른다
-    expect(overview.upcoming).toHaveLength(4);
     expect(overview.weekly).toHaveLength(13);
     expect(overview.weekly[0]).toEqual({ weekStart: "2026-08-03", count: 0 });
     expect(overview.weekly.at(-1)).toEqual({ weekStart: "2026-10-26", count: 1 });
     expect(overview.weekly.at(-2)).toEqual({ weekStart: "2026-10-19", count: 1 });
     expect(overview.weekly.reduce((sum, week) => sum + week.count, 0)).toBe(4);
+  });
+
+  it("마감 다가오는 큰 사업은 기간 선택과 무관하게 13주 첫 월요일(08-03 00:00 KST) 이후 게시분에서 고른다", () => {
+    // 90일은 07-31 부터 읽지만(readFrom), 08-03 앞 게시분은 큰 사업 목록에 넣지 않는다.
+    expect(marketWindow(NOW, 90).readFrom).toBe("2026-07-30T15:00:00.000Z");
+    for (const period of [30, 90] as const) {
+      const overview = aggregateMarket(rows, { period, relevance: "relevant" }, NOW);
+      expect(overview.upcomingFromDate).toBe("2026-08-03");
+      expect(overview.upcoming.map((item) => item.bidId)).toEqual(
+        rows.slice(0, 4).map((item) => item.bidId),
+      );
+    }
+    expect(aggregateMarket(rows, { period: 90, relevance: "relevant" }, NOW).totals.notices).toBe(
+      6,
+    );
   });
 });
 

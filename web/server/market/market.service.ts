@@ -91,7 +91,7 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
   const nowMs = now.getTime();
   const window = marketWindow(now, query.period);
   const periodStartMs = kstMidnight(window.periodStartDay);
-  const readFromMs = kstMidnight(window.readFromDay);
+  const upcomingFromMs = kstMidnight(window.trendStartDay);
   const relevant = (row: MarketRow) =>
     query.relevance === "all" || RELEVANT_STATES.has(row.relevanceState);
   // 게시일이 없는 공고는 기간·주에 놓을 수 없어 뺀다(Date.parse 가 NaN 이면 비교가 거짓이다).
@@ -129,10 +129,11 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
     if (index >= 0 && week) week.count += 1;
   }
 
-  // 마감 다가오는 큰 사업은 기간 선택과 별개로 읽은 범위 전체(기간과 13주 중 이른 쪽부터 게시)에서 고른다.
+  // 마감 다가오는 큰 사업은 기간 선택과 무관하게 주별 추이와 같은 13주(첫 주 월요일 00:00 KST 이후 게시)에서 고른다.
+  // 읽는 범위(readFrom)는 90일 기간이 13주보다 길 때 더 이르지만, 그 앞쪽은 쓰지 않아 화면 날짜가 기간에 따라 바뀌지 않는다.
   const upcomingUntil = nowMs + MARKET_UPCOMING_DAYS * DAY_MS;
   const upcoming = scoped
-    .filter((row) => Date.parse(row.publishedAt ?? "") >= readFromMs)
+    .filter((row) => Date.parse(row.publishedAt ?? "") >= upcomingFromMs)
     .flatMap((row) => {
       const budget = budgetOf(row);
       const deadline = row.deadlineAt === null ? NaN : Date.parse(row.deadlineAt);
@@ -159,7 +160,7 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
     asOf: now.toISOString(),
     query,
     periodStartDate: kstDateText(window.periodStartDay),
-    readFromDate: kstDateText(window.readFromDay),
+    upcomingFromDate: kstDateText(window.trendStartDay),
     totals: {
       notices: period.length,
       knownBudgetKrw: knownBudget.toString(),

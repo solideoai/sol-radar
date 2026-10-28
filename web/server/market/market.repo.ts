@@ -19,6 +19,8 @@ const COLUMNS =
 // 화면 배지("나라장터 입찰공고 수집분")와 맞게 출처 사본 중 나라장터(G2B)가 하나라도 있는 사업기회만 읽는다.
 // 대표 공고 출처(source_family)로 거르지 않는다. 같은 사업이면 refresh_bid_opportunity 가 KWATER·LH·KEPCO 를
 // 나라장터보다 대표로 골라, 나라장터에도 실린 공고가 빠지기 때문이다. 단계(NOTICE)·제목·기관·예산·마감은 대표 공고 값이다.
+// 한계: source_families 는 단계와 상관없이 모든 사본(STAGE_LINK 포함)의 출처를 모은다. 그래서 나라장터 사본이 사전규격뿐인
+// LH 등 입찰공고도 센다. live 나라장터 사전규격 수집이 꺼져 있어 지금 영향은 없다(뷰는 바꾸지 않는다, 2026-10-28 재리뷰 8).
 export const marketRepo: MarketRepo = {
   async listLiveNotices(orgId, readFrom, asOf) {
     const client = await getSupabase();
