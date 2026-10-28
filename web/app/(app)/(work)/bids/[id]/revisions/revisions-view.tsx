@@ -181,43 +181,42 @@ function ChangesTable({
   previous: RevisionRef;
   current: RevisionRef;
 }) {
+  // 바깥 둥근 1px 테두리는 ui/table 이 그린다(2026-10-28 화면 개편).
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <Table className="table-fixed">
-        <TableCaption className="sr-only">
-          바뀐 항목 표: 이전 r{previous.revision}, 이후 r{current.revision}
-        </TableCaption>
-        <colgroup>
-          <col className="w-32" />
-          <col />
-          <col />
-        </colgroup>
-        <TableHeader>
-          <TableRow>
-            <TableHead scope="col">항목</TableHead>
-            <TableHead scope="col">이전 r{previous.revision}</TableHead>
-            <TableHead scope="col">이후 r{current.revision}</TableHead>
+    <Table className="table-fixed">
+      <TableCaption className="sr-only">
+        바뀐 항목 표: 이전 r{previous.revision}, 이후 r{current.revision}
+      </TableCaption>
+      <colgroup>
+        <col className="w-32" />
+        <col />
+        <col />
+      </colgroup>
+      <TableHeader>
+        <TableRow>
+          <TableHead scope="col">항목</TableHead>
+          <TableHead scope="col">이전 r{previous.revision}</TableHead>
+          <TableHead scope="col">이후 r{current.revision}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((change) => (
+          <TableRow key={change.field} data-slot="revision-change-row" data-field={change.field}>
+            <th
+              scope="row"
+              className="px-3 py-2.5 text-left align-top type-label font-medium text-muted-foreground"
+            >
+              {REVISION_FIELD_LABEL[change.field]}
+            </th>
+            {change.kind === "scalar" ? (
+              <ScalarCells change={change} />
+            ) : (
+              <ListCells change={change} />
+            )}
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((change) => (
-            <TableRow key={change.field} data-slot="revision-change-row" data-field={change.field}>
-              <th
-                scope="row"
-                className="px-3 py-2.5 text-left align-top type-label font-medium text-muted-foreground"
-              >
-                {REVISION_FIELD_LABEL[change.field]}
-              </th>
-              {change.kind === "scalar" ? (
-                <ScalarCells change={change} />
-              ) : (
-                <ListCells change={change} />
-              )}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -314,14 +313,15 @@ function RevisionRail({ comparison }: { comparison: RevisionComparison }) {
                 data-revision={item.revision}
                 aria-current={selected ? "page" : undefined}
                 className={cn(
-                  "flex flex-col gap-0.5 border-l-2 px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50",
-                  selected ? "border-brand" : "border-transparent",
+                  "flex flex-col gap-0.5 px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50",
+                  // 고른 revision 은 파스텔 선택색이다(2026-10-28 화면 개편). 올려도 바탕이 회색으로 바뀌지 않게 hover 도 덮는다.
+                  selected && "bg-selected hover:bg-selected",
                 )}
               >
                 <span
                   className={cn(
-                    "type-label text-foreground tabular-nums wrap-anywhere",
-                    selected && "font-semibold",
+                    "type-label tabular-nums wrap-anywhere",
+                    selected ? "font-semibold text-selected-foreground" : "text-foreground",
                   )}
                 >
                   r{item.revision} · 차수 {item.amendmentNo ?? "—"}

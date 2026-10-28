@@ -4,6 +4,15 @@ import { fitOutOfFive, formatPercent, formatSignal } from "@/components/bids/for
 import { KEV_RISK_LABEL, RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import { MeterBar } from "@/components/bids/meter-bar";
 import { StatusBadge } from "@/components/bids/status-badge";
+import { Chip } from "@/components/ui/chip";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { KevView, Recommendation, RequirementAssessmentView, ReviewFlag } from "@/server/bids";
 
 // 결정 모델 참고 지표(§5.4.7, ADR-034 로 "Kev" 문구를 모델 중립으로 개정). 점수에 더하지 않는 보조 신호라 구역 테두리에 색을 더하지 않는다.
@@ -173,49 +182,41 @@ function AssessmentTable({
           ▾
         </span>
       </summary>
-      <div className="mt-2 overflow-x-auto">
-        <table className="w-full min-w-0 text-left type-caption">
-          <thead className="text-muted-foreground">
-            <tr>
-              <th scope="col" className="py-1 pr-3 font-normal">
-                항목
-              </th>
-              <th scope="col" className="py-1 pr-3 font-normal">
-                규칙 판정
-              </th>
-              <th scope="col" className="py-1 font-normal">
-                결정 모델 분포
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {assessments.map(({ assessment, label }) => (
-              <tr key={assessment.itemId} className="align-top">
-                <td className="py-2 pr-3 text-foreground wrap-anywhere">{label}</td>
-                <td className="py-2 pr-3">
-                  <StatusBadge
-                    kind="qualification"
-                    value={assessment.ruleStatus}
-                    reasonCode={assessment.ruleReason}
-                    variant="inline"
-                  />
-                </td>
-                <td className="py-2 tabular-nums text-foreground">
-                  {assessment.kev === null
-                    ? "—"
-                    : DISTRIBUTION_LABEL.map(
-                        ([key, name]) =>
-                          `${name} ${formatPercent(assessment.kev?.distribution[key] ?? 0)}`,
-                      ).join(" · ")}
-                  {assessment.flags.includes("KEV_REQUIREMENT_DISAGREEMENT") && (
-                    <span className="ml-2 text-warning">항목 판정 상이</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table containerClassName="mt-2">
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead scope="col">항목</TableHead>
+            <TableHead scope="col">규칙 판정</TableHead>
+            <TableHead scope="col">결정 모델 분포</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {assessments.map(({ assessment, label }) => (
+            <TableRow key={assessment.itemId}>
+              <TableCell className="align-top whitespace-normal wrap-anywhere">{label}</TableCell>
+              <TableCell className="align-top">
+                <StatusBadge
+                  kind="qualification"
+                  value={assessment.ruleStatus}
+                  reasonCode={assessment.ruleReason}
+                  variant="inline"
+                />
+              </TableCell>
+              <TableCell className="align-top whitespace-normal tabular-nums">
+                {assessment.kev === null
+                  ? "—"
+                  : DISTRIBUTION_LABEL.map(
+                      ([key, name]) =>
+                        `${name} ${formatPercent(assessment.kev?.distribution[key] ?? 0)}`,
+                    ).join(" · ")}
+                {assessment.flags.includes("KEV_REQUIREMENT_DISAGREEMENT") && (
+                  <span className="ml-2 text-warning">항목 판정 상이</span>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </details>
   );
 }
@@ -228,11 +229,11 @@ function V02({ kev, assessments }: { kev: KevView; assessments?: KevOpinionProps
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-3">
       {calibration !== null && (
-        <span className="self-start rounded-sm border border-border px-1.5 type-caption text-muted-foreground">
+        <Chip size="sm" className="self-start">
           {calibration.status === "CALIBRATED"
             ? `보정됨 · ${calibration.datasetVersion ?? "—"}`
             : `미보정 · 기준 τ ${formatSignal(calibration.threshold)}`}
-        </span>
+        </Chip>
       )}
       {scores !== null && (
         <div className="flex flex-col gap-0.5">

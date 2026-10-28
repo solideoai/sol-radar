@@ -160,8 +160,9 @@ const RECOMMENDATIONS = [
   { id: "NO_BID", name: "NO-BID" },
 ];
 // 켜진 빠른 선택 버튼(aria-pressed)은 파스텔 선택색이다(2026-10-28 화면 개편). 올려도 바탕이 회색으로 바뀌지 않게 hover 도 덮는다.
+// 여러 개 켜는 거르기 칩이라 꺼진 칩은 1px 테두리, 켜진 칩은 테두리를 투명하게 둔다.
 const PRESSED =
-  "bg-selected font-semibold text-selected-foreground hover:bg-selected hover:text-selected-foreground";
+  "border-transparent bg-selected font-semibold text-selected-foreground hover:bg-selected hover:text-selected-foreground";
 
 export function OpportunityFilters({
   query,

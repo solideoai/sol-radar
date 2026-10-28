@@ -15,8 +15,9 @@ export type BidsSource = (typeof ITEMS)[number]["key"];
 export function BidsSourceNav({ current }: { current: BidsSource }) {
   return (
     <nav aria-label="공고 종류">
-      {/* 지금 화면은 파스텔 알약이다(2026-10-28 화면 개편, 다른 화면의 보기 전환과 같은 모양). */}
-      <ul className="inline-flex rounded-lg border border-border p-0.5">
+      {/* 지금 화면은 파스텔 알약이다(2026-10-28 화면 개편). 화면 이동 탭이라 설정 메뉴처럼 바깥 상자 없이 둔다.
+          바깥 테두리 상자는 같은 화면 안의 보기 전환(aria-pressed)에만 쓴다. */}
+      <ul className="flex gap-1">
         {ITEMS.map((item) => (
           <li key={item.key}>
             <Link
