@@ -9,7 +9,8 @@ function BoardColumn({ title, children }: { title: string; children: ReactNode[]
   const visible = children.slice(0, 6);
   const remaining = children.slice(6);
   return (
-    <section className="min-w-0 rounded-lg border border-border bg-muted/30 p-3" aria-label={title}>
+    // 열은 테두리 없이 연한 바탕만 둔다. 안의 카드가 테두리를 가져 상자가 겹치지 않는다(2026-10-28 화면 개편).
+    <section className="min-w-0 rounded-lg bg-muted/30 p-3" aria-label={title}>
       <h2 className="mb-3 flex flex-wrap items-center justify-between gap-2 type-heading">
         {title}
         <span className="type-caption text-muted-foreground">{children.length}건</span>
@@ -33,7 +34,7 @@ function ProjectCardView({ card }: { card: ProjectCard }) {
   return (
     <Link
       href={`/projects/${card.id}`}
-      className="block min-w-0 rounded-lg border border-border bg-background p-3 shadow-xs hover:border-primary focus-visible:outline-2 focus-visible:outline-ring"
+      className="block min-w-0 rounded-lg border border-border bg-background p-3 hover:border-primary focus-visible:outline-2 focus-visible:outline-ring"
     >
       <h3 className="line-clamp-2 type-body font-medium wrap-anywhere">{card.title}</h3>
       <p className="mt-1 type-caption text-muted-foreground wrap-anywhere">
@@ -79,7 +80,7 @@ export function ProjectBoardView({ board }: { board: ProjectBoard }) {
             <Link
               key={card.bidId}
               href={`/bids/${card.bidId}`}
-              className="block rounded-lg border border-dashed border-border bg-background p-3 shadow-xs hover:border-primary"
+              className="block rounded-lg border border-dashed border-border bg-background p-3 hover:border-primary"
             >
               <h3 className="line-clamp-2 type-body font-medium wrap-anywhere">{card.title}</h3>
               <p className="mt-1 type-caption text-muted-foreground wrap-anywhere">
