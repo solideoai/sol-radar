@@ -1,0 +1,32 @@
+/* 흐르는 줄의 움직임만 둔다. 색은 두지 않는다(색은 tokens.json 의 토큰 클래스로 화면 쪽에서 정한다). */
+/* Tailwind 유틸리티는 @layer 안에 있어 이 파일(층 밖)의 animation 을 이기지 못한다. 그래서 멈춤·움직임 줄이기도 여기 둔다. */
+
+/* 목록을 두 번 이어 붙였으므로 트랙 폭의 절반(사본 하나)을 움직이면 처음과 같은 모습으로 이어진다. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.track {
+  animation: marquee var(--marquee-duration) linear infinite;
+}
+
+.reverse {
+  animation-direction: reverse;
+}
+
+/* 마우스를 올리거나 키보드 초점이 들어오면 멈춘다. */
+.viewport:hover .track,
+.viewport:focus-within .track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    animation: none;
+  }
+}

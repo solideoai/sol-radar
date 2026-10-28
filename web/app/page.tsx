@@ -9,6 +9,7 @@ import { startHrefFor } from "@/components/landing/landing-links";
 import { PrinciplesSection } from "@/components/landing/principles-section";
 import { ProblemSection } from "@/components/landing/problem-section";
 import { ProductPreviewSection } from "@/components/landing/product-preview-section";
+import { ServicesMarquee, SourcesMarquee } from "@/components/landing/showcase-marquees";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getMyHome } from "@/server/organization";
@@ -47,6 +48,9 @@ export default async function Home() {
         className="flex-1 bg-background break-keep outline-none selection:bg-brand/15"
       >
         <Hero startHref={startHref} />
+        {/* 녹화 영상 구역은 영상 파일(LANDING_VIDEO)이 들어오는 2차 배포에서 여기에 생긴다. */}
+        <ServicesMarquee />
+        <SourcesMarquee />
         <ProductPreviewSection />
         <ProblemSection />
         <FeaturesSection />
