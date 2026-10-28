@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import type { GapBucket } from "@/server/gaps";
 
 // 발주 현황(/market) 1단계. 스펙 polaris/specs/in-progress/2026-10-28-gaps-market-calendar.md §6 B1.
 // 대상은 live 나라장터 입찰공고(is_demo=false, 데모 수집기 아님, G2B, NOTICE 단계)다. 낙찰·계약·발주계획·사전규격은 없다.
@@ -12,6 +13,7 @@ export const DEFAULT_MARKET_PERIOD: MarketPeriod = 90;
 /** relevant: 관련성 판정 RELEVANT·CANDIDATE 만(기본), all: 거르지 않음 */
 export const MARKET_RELEVANCE = ["relevant", "all"] as const;
 export type MarketRelevance = (typeof MARKET_RELEVANCE)[number];
+// /gaps 의 RELEVANT_STATES(server/gaps/gaps.model.ts)와 같은 값이다. 도메인마다 따로 두므로 바꿀 때 둘 다 고친다.
 export const RELEVANT_STATES: ReadonlySet<string> = new Set(["RELEVANT", "CANDIDATE"]);
 
 /** 주별 게시 추이는 기간 선택과 별개로 이번 주(월요일 시작)를 포함한 최근 13주다 */
@@ -77,7 +79,7 @@ export type MarketRow = z.infer<typeof marketRowSchema>;
 /** 이름별 건수와 확인된 배정 예산 합(원, 정수 문자열) */
 export type MarketBucket = { count: number; knownBudgetKrw: string };
 
-export type MarketOverview = {
+export type MarketAggregate = {
   /** 집계 기준 시각(요청 시각) */
   asOf: string;
   query: MarketQuery;
@@ -121,3 +123,28 @@ export type MarketOverview = {
     budgetKrw: string;
   }[];
 };
+
+/** 겹쳐 보기 한 줄. open 은 기간 안 마감 전 공고 수, buckets 는 그 가운데 /gaps 판정 묶음별 수다 */
+export type MarketGapCounts = { open: number; buckets: Record<GapBucket, number> };
+
+/**
+ * /gaps 판정 묶음 겹쳐 보기(스펙 §6 B2). /gaps 대상이 마감 전 공고뿐이라 기간 안 공고 가운데 마감 전(OPEN·AMENDED,
+ * 마감이 남은) 공고만 센다. 회사 프로필이 없으면 NO_PROFILE(겹쳐 보기만 뺀다), 판정을 읽지 못하면 FAILED 다.
+ */
+export type MarketGapOverlay =
+  | { status: "NO_PROFILE" }
+  | { status: "FAILED" }
+  | {
+      status: "READY";
+      profile: { revision: number; isDemo: boolean; name: string | null };
+      /** 기간 안 마감 전 공고 수(관련성 거르기 뒤) */
+      openNotices: number;
+      /** 마감 전인데 /gaps 판정을 찾지 못한 공고 수(두 읽기 사이에 바뀐 공고). 묶음에 넣지 않는다 */
+      unmatched: number;
+      /** 기관 이름(topAgencies 의 name 과 같은 키) → 겹쳐 보기 */
+      agencies: Record<string, MarketGapCounts>;
+      /** 카테고리 키(categories 의 key 와 같은 키) → 겹쳐 보기 */
+      categories: Record<string, MarketGapCounts>;
+    };
+
+export type MarketOverview = MarketAggregate & { gapOverlay: MarketGapOverlay };

@@ -36,6 +36,7 @@ export const GAP_REVIEW_REASONS = [
 export type GapReviewReason = (typeof GAP_REVIEW_REASONS)[number];
 
 /** 관련성 기본 거르기(§5 A1). 수집 때 계산한 최신 revision 의 최신 판정 state 다. */
+// /market 의 RELEVANT_STATES(server/market/market.model.ts)와 같은 값이다. 도메인마다 따로 두므로 바꿀 때 둘 다 고친다.
 export const RELEVANT_STATES: readonly string[] = ["RELEVANT", "CANDIDATE"];
 export type GapScope = "relevant" | "all";
 
@@ -127,6 +128,15 @@ export type GapRadarView =
       radar: GapRadar;
       /** query.assume 이 비었으면 null. 원래 결과는 radar.summary 와 비교한다 */
       assumption: GapAssumption | null;
+    };
+
+/** /market 겹쳐 보기(스펙 §6 B2) 계약. buckets 는 bidId → 판정 묶음이고, 관련성 거르기 전 마감 전 live 공고 전부다 */
+export type GapBucketsView =
+  | { kind: "NO_PROFILE" }
+  | {
+      kind: "READY";
+      profile: Extract<GapRadarView, { kind: "READY" }>["profile"];
+      buckets: ReadonlyMap<string, GapBucket>;
     };
 
 export const GAP_BUCKET_LABELS: Record<GapBucket, string> = {
@@ -523,6 +533,17 @@ function countReasons(judged: Judged[]): GapRadar["reviewReasons"] {
 
 function judge(notices: GapNotice[], profile: CompanyProfile, today: string): Judged[] {
   return notices.map((notice) => ({ notice, verdict: classifyNotice(notice, profile, today) }));
+}
+
+/** 공고별 판정 묶음(§6 B2). 거르지 않고 받은 공고 전부를 /gaps 와 같은 판정(classifyNotice)으로 나눈다. */
+export function bucketByBid(
+  notices: GapNotice[],
+  profile: CompanyProfile,
+  today: string,
+): Map<string, GapBucket> {
+  return new Map(
+    judge(notices, profile, today).map(({ notice, verdict }) => [notice.bidId, verdict.bucket]),
+  );
 }
 
 /** 관련성 거르기(§5 A1). all 이면 그대로. */

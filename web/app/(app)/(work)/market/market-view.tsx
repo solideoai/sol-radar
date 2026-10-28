@@ -1,5 +1,14 @@
 import { cn } from "cn";
-import { InboxIcon, InfoIcon } from "lucide-react";
+import {
+  CircleCheckIcon,
+  CircleDashedIcon,
+  CircleHelpIcon,
+  CircleXIcon,
+  InboxIcon,
+  InfoIcon,
+  TriangleAlertIcon,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { BarChart } from "@/components/bar-chart";
 import { dDay, formatKrwCompact, formatKst } from "@/components/bids/format";
@@ -14,7 +23,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { OPPORTUNITY_CATEGORIES } from "@/components/work/opportunities-copy";
-import type { MarketOverview, MarketPeriod, MarketQuery } from "@/server/market";
+import type { GapBucket } from "@/server/gaps";
+import type {
+  MarketGapCounts,
+  MarketGapOverlay,
+  MarketOverview,
+  MarketPeriod,
+  MarketQuery,
+} from "@/server/market";
 import { EmptyState } from "@/app/(app)/(work)/empty-state";
 import { MARKET_SOURCE_BADGE, marketBidHref, marketHref } from "./market-copy";
 
@@ -25,6 +41,20 @@ const count = (value: number) => value.toLocaleString("ko-KR");
 
 /** 마지막 수집 성공 시각. at 이 null 이면 기록이 없거나(failed=false) 조회에 실패했다(failed=true) */
 export type MarketReference = { at: string | null; failed: boolean };
+
+/** 겹쳐 보기(§6 B2) 문구·주소. gaps 배럴이 server-only 라 페이지가 모아 내린다(/gaps 화면과 같은 방식) */
+export type MarketGapCopy = { bucketLabels: Record<GapBucket, string>; gapsHref: string };
+
+type GapRows = { counts: Record<string, MarketGapCounts>; labels: Record<GapBucket, string> };
+
+const GAP_BUCKET_ORDER: GapBucket[] = ["ELIGIBLE", "MISSING_RECORD", "NOT_HELD", "NEEDS_REVIEW"];
+// /gaps 묶음 띠와 같은 아이콘·색(gaps-sections BUCKET_ICON). 색만으로 나누지 않게 늘 묶음 이름과 함께 그린다.
+const GAP_BUCKET_ICON: Record<GapBucket, { icon: LucideIcon; className: string }> = {
+  ELIGIBLE: { icon: CircleCheckIcon, className: "text-success" },
+  MISSING_RECORD: { icon: CircleDashedIcon, className: "text-muted-foreground" },
+  NOT_HELD: { icon: CircleXIcon, className: "text-destructive" },
+  NEEDS_REVIEW: { icon: CircleHelpIcon, className: "text-warning" },
+};
 
 function SectionHeader({
   id,
@@ -66,12 +96,15 @@ function BarRow({
   value,
   max,
   budgetKrw,
+  children,
 }: {
   label: string;
   rank?: number;
   value: number;
   max: number;
   budgetKrw: string;
+  /** 막대 아래 줄(겹쳐 보기). 순위가 있으면 막대와 같이 들여 쓴다 */
+  children?: React.ReactNode;
 }) {
   return (
     <li className="py-2.5">
@@ -102,13 +135,90 @@ function BarRow({
         tone="brand"
         className={cn("mt-1.5", rank === undefined ? null : "ml-7 w-[calc(100%-1.75rem)]")}
       />
+      {children === undefined ? null : (
+        <div className={rank === undefined ? undefined : "ml-7"}>{children}</div>
+      )}
     </li>
+  );
+}
+
+// 행 하나의 판정 묶음 분포. 0건인 묶음은 빼고, 마감 전 공고 수를 앞에 둔다.
+function GapLine({
+  counts,
+  labels,
+}: {
+  counts: MarketGapCounts | undefined;
+  labels: GapRows["labels"];
+}) {
+  const open = counts?.open ?? 0;
+  return (
+    <p
+      data-slot="market-gap-line"
+      className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 type-caption text-muted-foreground"
+    >
+      <span className="tabular-nums">
+        {open === 0 ? "마감 전 공고 없음" : `마감 전 ${count(open)}건`}
+      </span>
+      {GAP_BUCKET_ORDER.map((bucket) => {
+        const value = counts?.buckets[bucket] ?? 0;
+        if (value === 0) return null;
+        const { icon: Icon, className } = GAP_BUCKET_ICON[bucket];
+        return (
+          <span
+            key={bucket}
+            data-bucket={bucket}
+            className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums"
+          >
+            <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", className)} />
+            {labels[bucket]} {count(value)}건
+          </span>
+        );
+      })}
+    </p>
+  );
+}
+
+// 겹쳐 보기 안내 한 줄. 프로필이 없으면(NO_PROFILE) 아무것도 그리지 않는다.
+function GapOverlayNote({ overlay, copy }: { overlay: MarketGapOverlay; copy: MarketGapCopy }) {
+  if (overlay.status === "NO_PROFILE") return null;
+  if (overlay.status === "FAILED")
+    return (
+      <p
+        data-slot="market-gap-note"
+        className="flex items-start gap-2 type-caption wrap-anywhere text-muted-foreground"
+      >
+        <TriangleAlertIcon aria-hidden className="mt-0.5 size-3.5 shrink-0 text-warning" />
+        자격 판정 묶음을 불러오지 못해 기관·분야 행에 겹쳐 보지 않습니다. 발주 집계는 그대로입니다.
+      </p>
+    );
+  return (
+    <p
+      data-slot="market-gap-note"
+      className="flex items-start gap-2 type-caption wrap-anywhere text-muted-foreground"
+    >
+      <InfoIcon aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+      <span>
+        기관·분야 행 아래 자격 판정 묶음은 기간 내 공고 중 지금 마감이 남은 것(마감 전 공고)
+        기준입니다 · 자격 갭 레이더는 게시 기간과 무관하게 마감 전 공고 전부를 봅니다 · 회사 프로필
+        r{overlay.profile.revision}({overlay.profile.isDemo ? "가상" : "공개 자료"})과 대조
+        {overlay.unmatched > 0
+          ? ` · 판정을 찾지 못한 ${count(overlay.unmatched)}건은 묶음에서 뺌`
+          : ""}
+        {" · "}
+        <Link
+          href={copy.gapsHref}
+          className="rounded-sm text-foreground underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          자격 갭 레이더에서 근거 보기
+        </Link>
+      </span>
+    </p>
   );
 }
 
 const maxOf = (values: number[]) => Math.max(1, ...values);
 
-function TopAgencies({ overview }: { overview: MarketOverview }) {
+function TopAgencies({ overview, gap }: { overview: MarketOverview; gap: GapRows | null }) {
   const max = maxOf(overview.topAgencies.map((agency) => agency.count));
   return (
     <section aria-labelledby="market-agencies" className="min-w-0">
@@ -129,7 +239,11 @@ function TopAgencies({ overview }: { overview: MarketOverview }) {
               value={agency.count}
               max={max}
               budgetKrw={agency.knownBudgetKrw}
-            />
+            >
+              {gap === null ? undefined : (
+                <GapLine counts={gap.counts[agency.name]} labels={gap.labels} />
+              )}
+            </BarRow>
           ))}
         </ol>
       )}
@@ -140,7 +254,7 @@ function TopAgencies({ overview }: { overview: MarketOverview }) {
 const categoryLabel = (key: string) =>
   key === "NONE" ? "분야 미분류" : (OPPORTUNITY_CATEGORIES[key] ?? key);
 
-function Categories({ overview }: { overview: MarketOverview }) {
+function Categories({ overview, gap }: { overview: MarketOverview; gap: GapRows | null }) {
   const max = maxOf(overview.categories.map((category) => category.count));
   return (
     <section aria-labelledby="market-categories" className="min-w-0">
@@ -157,7 +271,11 @@ function Categories({ overview }: { overview: MarketOverview }) {
             value={category.count}
             max={max}
             budgetKrw={category.knownBudgetKrw}
-          />
+          >
+            {gap === null ? undefined : (
+              <GapLine counts={gap.counts[category.key]} labels={gap.labels} />
+            )}
+          </BarRow>
         ))}
       </ul>
     </section>
@@ -431,12 +549,16 @@ export function MarketView({
   overview,
   reference,
   now,
+  gapCopy,
 }: {
   overview: MarketOverview;
   reference: MarketReference;
   now: Date;
+  gapCopy: MarketGapCopy;
 }) {
-  const { totals, query } = overview;
+  const { totals, query, gapOverlay } = overview;
+  const ready = gapOverlay.status === "READY" ? gapOverlay : null;
+  const labels = gapCopy.bucketLabels;
   return (
     <>
       <p className="flex items-start gap-2 rounded-lg border border-border px-3 py-2 type-label text-muted-foreground">
@@ -467,11 +589,15 @@ export function MarketView({
       ) : (
         <>
           {/* 칸 수는 화면 폭이 아니라 단 폭으로 정한다. 사이드바를 접고 펴도 같은 규칙이다. */}
-          <div className="@container">
+          <div className="flex flex-col gap-4 @container">
+            <GapOverlayNote overlay={gapOverlay} copy={gapCopy} />
             <div className="grid grid-cols-1 gap-x-12 gap-y-10 @min-[56rem]:grid-cols-2">
-              <TopAgencies overview={overview} />
+              <TopAgencies overview={overview} gap={ready && { counts: ready.agencies, labels }} />
               <div className="flex min-w-0 flex-col gap-10">
-                <Categories overview={overview} />
+                <Categories
+                  overview={overview}
+                  gap={ready && { counts: ready.categories, labels }}
+                />
                 <BudgetBands overview={overview} />
               </div>
             </div>

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import type { GapBucket, GapBucketsView } from "@/server/gaps";
 import type { MarketRow } from "./market.model";
-import { aggregateMarket, marketWindow } from "./market.service";
+import type { MarketRepo } from "./market.repo";
+import { aggregateMarket, getMarketOverview, marketWindow, overlayGaps } from "./market.service";
 
 // 나눠 읽기 시험용 가짜 Supabase. 요청마다 받은 (메서드, 열, 값)을 적고, 정해 둔 쪽을 차례로 돌려준다.
 const { pages, requests } = vi.hoisted(() => ({
@@ -226,5 +228,120 @@ describe("발주 현황 나눠 읽기", () => {
     );
     expect(requests).toHaveLength(20);
     pages.length = 0;
+  });
+});
+
+describe("발주 현황 판정 묶음 겹쳐 보기(§6 B2)", () => {
+  const QUERY = { period: 30, relevance: "relevant" } as const;
+  const named = (label: string, patch: Partial<MarketRow>) => ({ label, row: row(patch) });
+  const cases = [
+    // 앞뒤 빈칸이 있는 기관 이름은 집계(topAgencies)와 같이 다듬어 같은 기관으로 센다
+    named("open-a", { agency: " 조달청 ", categories: ["SI_SW", "DATA", "SI_SW"] }),
+    named("open-b", { agency: "조달청", categories: [] }),
+    // 30분 전에 마감한 공고(뷰가 아직 CLOSED 로 바꾸기 전)
+    named("passed", { agency: "조달청", deadlineAt: "2026-10-27T15:00:00.000Z" }),
+    named("closed", { agency: "조달청", status: "CLOSED", deadlineAt: "2026-10-26T01:00:00.000Z" }),
+    named("no-deadline", { agency: "조달청", status: "AMENDED", deadlineAt: null }),
+    named("cancelled", { agency: "조달청", status: "CANCELLED" }),
+    named("old", { agency: "조달청", publishedAt: "2026-07-01T01:00:00.000Z" }),
+    named("low", { agency: "조달청", relevanceState: "LOW_RELEVANCE" }),
+    named("unmatched", { agency: "행정안전부" }),
+    named("no-agency", { agency: null, categories: ["AI_AX"] }),
+  ];
+  const rows = cases.map((entry) => entry.row);
+  const idOf = (label: string) => cases.find((entry) => entry.label === label)?.row.bidId ?? "";
+  // /gaps 판정. 마감이 지난 공고에도 묶음을 줘서, 겹쳐 보기가 market 쪽 마감 전 거르기로 빼는지 본다.
+  const ready = (pairs: [string, GapBucket][]): GapBucketsView => ({
+    kind: "READY",
+    profile: { revision: 9, isDemo: true, name: "가상 회사" },
+    buckets: new Map(pairs.map(([label, bucket]) => [idOf(label), bucket])),
+  });
+  const GAPS = ready([
+    ["open-a", "ELIGIBLE"],
+    ["open-b", "NOT_HELD"],
+    ["passed", "ELIGIBLE"],
+    ["closed", "MISSING_RECORD"],
+    ["no-deadline", "MISSING_RECORD"],
+    ["cancelled", "ELIGIBLE"],
+    ["old", "ELIGIBLE"],
+    ["low", "ELIGIBLE"],
+    ["no-agency", "NEEDS_REVIEW"],
+  ]);
+  const zero = { ELIGIBLE: 0, MISSING_RECORD: 0, NOT_HELD: 0, NEEDS_REVIEW: 0 };
+
+  it("기간·관련성 안 마감 전 공고만 기관·분야 키로 세고, 마감이 지난 공고는 묶음에 넣지 않는다", () => {
+    const overlay = overlayGaps(rows, QUERY, NOW, GAPS);
+    expect(overlay).toEqual({
+      status: "READY",
+      profile: { revision: 9, isDemo: true, name: "가상 회사" },
+      openNotices: 4,
+      unmatched: 1,
+      agencies: {
+        조달청: { open: 2, buckets: { ...zero, ELIGIBLE: 1, NOT_HELD: 1 } },
+        행정안전부: { open: 1, buckets: zero },
+      },
+      categories: {
+        SI_SW: { open: 2, buckets: { ...zero, ELIGIBLE: 1 } },
+        DATA: { open: 1, buckets: { ...zero, ELIGIBLE: 1 } },
+        NONE: { open: 1, buckets: { ...zero, NOT_HELD: 1 } },
+        AI_AX: { open: 1, buckets: { ...zero, NEEDS_REVIEW: 1 } },
+      },
+    });
+    // 기관·분야 키가 화면 행(topAgencies.name·categories.key)과 그대로 맞는다
+    const aggregate = aggregateMarket(rows, QUERY, NOW);
+    if (overlay.status !== "READY") throw new Error("READY 가 아니다");
+    expect(Object.keys(overlay.agencies).sort()).toEqual(
+      aggregate.topAgencies.map((agency) => agency.name).sort(),
+    );
+    for (const key of Object.keys(overlay.categories))
+      expect(aggregate.categories.map((category) => category.key)).toContain(key);
+  });
+
+  it("회사 프로필이 없으면 NO_PROFILE, 판정을 읽지 못하면 FAILED 만 돌려준다", () => {
+    expect(overlayGaps(rows, QUERY, NOW, { kind: "NO_PROFILE" })).toEqual({ status: "NO_PROFILE" });
+    expect(overlayGaps(rows, QUERY, NOW, "FAILED")).toEqual({ status: "FAILED" });
+  });
+
+  it("공고 읽기와 판정 읽기를 함께 시작하고, 판정 읽기가 실패해도 1단계 집계는 그대로 돌려준다", async () => {
+    // company-profile.repo 처럼 PostgREST 오류 일반 객체를 그대로 던지는 경우
+    // 판정 읽기가 시작돼야 공고 읽기가 끝난다. 차례로 기다리면 이 시험은 끝나지 않는다.
+    let gapsStarted = () => {};
+    const started = new Promise<void>((resolve) => {
+      gapsStarted = resolve;
+    });
+    const repo: MarketRepo = {
+      listLiveNotices: async () => {
+        await started;
+        return rows;
+      },
+    };
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const postgrest = {
+      message: "permission denied for table company_profiles",
+      details: null,
+      hint: null,
+      code: "42501",
+    };
+    const overview = await getMarketOverview("org-1", QUERY, NOW, repo, async () => {
+      gapsStarted();
+      throw postgrest;
+    });
+    expect(overview.gapOverlay).toEqual({ status: "FAILED" });
+    expect(overview).toMatchObject(aggregateMarket(rows, QUERY, NOW));
+    expect(JSON.parse(String(error.mock.calls[0]?.[0]))).toEqual({
+      event: "market_gap_overlay_failed",
+      ...postgrest,
+    });
+
+    // gaps.repo 처럼 Error 로 감싸 cause 에 둔 경우
+    await getMarketOverview("org-1", QUERY, NOW, { listLiveNotices: async () => rows }, () =>
+      Promise.reject(new Error("자격 갭 레이더 공고를 읽지 못했습니다", { cause: postgrest })),
+    );
+    expect(JSON.parse(String(error.mock.calls[1]?.[0]))).toEqual({
+      event: "market_gap_overlay_failed",
+      message: "자격 갭 레이더 공고를 읽지 못했습니다",
+      cause: postgrest,
+    });
+    error.mockRestore();
   });
 });

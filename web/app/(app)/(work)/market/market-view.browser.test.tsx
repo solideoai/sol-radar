@@ -4,9 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page } from "vitest/browser";
 import { AppPage } from "@/components/app-page";
 import { formatKrwCompact } from "@/components/bids/format";
-import type { MarketOverview } from "@/server/market";
+import type { MarketGapCounts, MarketOverview } from "@/server/market";
 import { MARKET_DESCRIPTION, MARKET_SOURCE_BADGE, MARKET_TITLE } from "./market-copy";
-import { MarketFilters, MarketView } from "./market-view";
+import { MarketFilters, MarketView, type MarketGapCopy } from "./market-view";
 
 // Next 의 라우터 런타임은 이 레이아웃 시험 범위 밖이다. 실제 링크 요소와 주소는 그대로 둔다.
 vi.mock("next/link", () => ({
@@ -101,6 +101,57 @@ const OVERVIEW: MarketOverview = {
     deadlineAt: new Date(NOW.getTime() + (index + 1) * 26 * 60 * 60 * 1000).toISOString(),
     budgetKrw: String((10 - index) * 980_000_000),
   })),
+  // 1단계 시험은 회사 프로필이 없는 조직이다. 겹쳐 보기만 빠지고 1단계 화면은 그대로여야 한다.
+  gapOverlay: { status: "NO_PROFILE" },
+};
+
+// 겹쳐 보기(§6 B2) 문구. 페이지는 서버 배럴(GAP_BUCKET_LABELS·gapRadarHref)에서 같은 값을 내린다.
+const GAP_COPY: MarketGapCopy = {
+  bucketLabels: {
+    ELIGIBLE: "참가 가능(API 기준)",
+    MISSING_RECORD: "회사 기록 없음",
+    NOT_HELD: "미보유",
+    NEEDS_REVIEW: "사람 확인 필요",
+  },
+  gapsHref: "/gaps",
+};
+const counts = (
+  open: number,
+  [eligible, missing, notHeld, review]: [number, number, number, number],
+): MarketGapCounts => ({
+  open,
+  buckets: { ELIGIBLE: eligible, MISSING_RECORD: missing, NOT_HELD: notHeld, NEEDS_REVIEW: review },
+});
+// 기관 i 의 마감 전 공고는 27 - 3i 건(마지막 기관은 0건). 두 번째 기관은 판정을 찾지 못한 2건이 있다.
+const WITH_GAPS: MarketOverview = {
+  ...OVERVIEW,
+  gapOverlay: {
+    status: "READY",
+    profile: { revision: 9, isDemo: true, name: "가상 회사" },
+    openNotices: 233,
+    unmatched: 2,
+    agencies: Object.fromEntries(
+      AGENCIES.slice(0, 9).map((name, index) => {
+        const open = 27 - index * 3;
+        const eligible = Math.floor(open / 3);
+        const missing = Math.floor(open / 5);
+        const notHeld = index % 4 === 0 ? 1 : 0;
+        const lost = index === 1 ? 2 : 0;
+        return [
+          name,
+          counts(open, [eligible, missing, notHeld, open - eligible - missing - notHeld - lost]),
+        ];
+      }),
+    ),
+    categories: {
+      SI_SW: counts(197, [61, 44, 3, 89]),
+      DATA: counts(93, [0, 31, 0, 62]),
+      AI_AX: counts(66, [19, 0, 2, 45]),
+      CLOUD: counts(33, [12, 9, 0, 12]),
+      SECURITY: counts(23, [0, 0, 0, 23]),
+      DIGITAL_TWIN: counts(9, [4, 0, 0, 5]),
+    },
+  },
 };
 
 const mounted: Root[] = [];
@@ -126,6 +177,7 @@ function render(overview: MarketOverview) {
         overview={overview}
         reference={{ at: "2026-10-28T02:05:00.000Z", failed: false }}
         now={NOW}
+        gapCopy={GAP_COPY}
       />
     </AppPage>,
   );
@@ -136,14 +188,14 @@ function render(overview: MarketOverview) {
 // 시험 창(1280×720)보다 큰 화면은 줄여 그려지고, 화면 밖은 찍히지 않는다(fullPage 도 빈칸).
 // 그래서 줄임이 가장 적은 높이(1280 → 720, 1440 → 810)로 창을 두고 아래로 넘기며 나눠 찍는다.
 // 파일 이름의 y 는 그 장의 스크롤 위치(CSS px)다. 증거 폴더에 옮길 때 이 값으로 한 장으로 잇는다.
-async function shoot(width: number) {
+async function shoot(width: number, name = "market-overview") {
   const height = Math.round((width * 720) / 1280);
   await page.viewport(width, height);
   const max = document.documentElement.scrollHeight - window.innerHeight;
   for (let y = 0; ; y = Math.min(y + height, max)) {
     window.scrollTo(0, y);
     await page.screenshot({
-      path: `../../../../test-results/vitest-screenshots/market-overview-${width}-y${String(y).padStart(4, "0")}.png`,
+      path: `../../../../test-results/vitest-screenshots/${name}-${width}-y${String(y).padStart(4, "0")}.png`,
     });
     if (y >= max) break;
   }
@@ -208,6 +260,8 @@ describe("발주 현황 화면", () => {
     for (const word of ["시장", "점유율", "경쟁사", "승률", "확률", "수주"])
       expect(text).not.toContain(word);
     expect(text.split("낙찰")).toHaveLength(2);
+    // 회사 프로필이 없으면 겹쳐 보기(행 아래 줄·안내)를 그리지 않는다
+    expect(host.querySelectorAll('[data-slot^="market-gap"]')).toHaveLength(0);
 
     for (const width of [1440, 1280]) {
       await page.viewport(width, 900);
@@ -222,5 +276,87 @@ describe("발주 현황 화면", () => {
       );
       await shoot(width);
     }
+  });
+
+  it("판정 묶음 겹쳐 보기: 기관·분야 행 아래 마감 전 공고 기준 분포를 글자·아이콘으로 그리고 1440·1280에서 넘치지 않는다", async () => {
+    await page.viewport(1440, 900);
+    const host = render(WITH_GAPS);
+    await expect
+      .element(page.getByRole("link", { name: "자격 갭 레이더에서 근거 보기" }))
+      .toBeVisible();
+    // 행 근처 한 줄: 마감 전 공고 기준·프로필·판정 못 찾은 건수·/gaps 링크
+    const note = host.querySelector('[data-slot="market-gap-note"]');
+    // 범위가 /gaps(게시 기간 무관 마감 전 전부)와 다르다는 것을 1단계 카드와 같은 말로 밝힌다
+    expect(note?.textContent).toContain("기간 내 공고 중 지금 마감이 남은 것(마감 전 공고) 기준");
+    expect(note?.textContent).toContain("게시 기간과 무관하게 마감 전 공고 전부");
+    expect(note?.textContent).toContain("회사 프로필 r9(가상)");
+    expect(note?.textContent).toContain("판정을 찾지 못한 2건은 묶음에서 뺌");
+    expect(
+      page
+        .getByRole("link", { name: "자격 갭 레이더에서 근거 보기" })
+        .element()
+        .getAttribute("href"),
+    ).toBe("/gaps");
+
+    const agencyLines = page
+      .getByRole("list", { name: "공고 수 상위 발주기관" })
+      .element()
+      .querySelectorAll('[data-slot="market-gap-line"]');
+    expect(agencyLines).toHaveLength(10);
+    // 1위 기관: 마감 전 27건 = 참가 가능 9 + 회사 기록 없음 5 + 미보유 1 + 사람 확인 필요 12, 묶음마다 아이콘과 이름
+    expect(agencyLines[0]?.textContent).toBe(
+      "마감 전 27건참가 가능(API 기준) 9건회사 기록 없음 5건미보유 1건사람 확인 필요 12건",
+    );
+    for (const bucket of agencyLines[0]?.querySelectorAll("[data-bucket]") ?? [])
+      expect(bucket.querySelector("svg")).not.toBeNull();
+    // 0건 묶음은 빼고, 마감 전 공고가 없는 기관은 그렇게 적는다
+    expect(agencyLines[1]?.querySelector('[data-bucket="NOT_HELD"]')).toBeNull();
+    expect(agencyLines[9]?.textContent).toBe("마감 전 공고 없음");
+
+    const categoryLines = page
+      .getByRole("list", { name: "분야별 공고 수" })
+      .element()
+      .querySelectorAll('[data-slot="market-gap-line"]');
+    expect(categoryLines).toHaveLength(7);
+    expect(categoryLines[1]?.textContent).toBe(
+      "마감 전 93건회사 기록 없음 31건사람 확인 필요 62건",
+    );
+    expect(categoryLines[6]?.textContent).toBe("마감 전 공고 없음");
+    // 예산 구간 행에는 겹치지 않는다
+    expect(
+      page
+        .getByRole("list", { name: "예산 구간별 공고 수" })
+        .element()
+        .querySelectorAll('[data-slot="market-gap-line"]'),
+    ).toHaveLength(0);
+
+    const text = host.textContent ?? "";
+    for (const word of ["점유율", "경쟁사", "승률", "확률", "가능성", "수주", "%"])
+      expect(text).not.toContain(word);
+
+    for (const width of [1440, 1280]) {
+      await page.viewport(width, 900);
+      expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+        document.documentElement.clientWidth,
+      );
+      for (const line of host.querySelectorAll('[data-slot^="market-gap"]'))
+        expect(line.scrollWidth).toBeLessThanOrEqual(line.clientWidth);
+      await shoot(width, "market-b2");
+    }
+  });
+
+  it("판정 묶음을 읽지 못하면 안내 한 줄만 보이고 행 아래 줄은 그리지 않는다", async () => {
+    await page.viewport(1440, 900);
+    const host = render({ ...OVERVIEW, gapOverlay: { status: "FAILED" } });
+    await expect
+      .element(page.getByText("자격 판정 묶음을 불러오지 못해", { exact: false }))
+      .toBeVisible();
+    expect(host.querySelector('[data-slot="market-gap-note"]')?.textContent).toContain(
+      "자격 판정 묶음을 불러오지 못해",
+    );
+    expect(host.querySelectorAll('[data-slot="market-gap-line"]')).toHaveLength(0);
+    expect(
+      page.getByRole("list", { name: "공고 수 상위 발주기관" }).element().children,
+    ).toHaveLength(10);
   });
 });

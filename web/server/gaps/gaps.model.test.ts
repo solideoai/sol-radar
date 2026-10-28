@@ -8,6 +8,7 @@ import {
 } from "@/server/scoring";
 import {
   assumeGapRadar,
+  bucketByBid,
   buildGapRadar,
   classifyNotice,
   gapRadarHref,
@@ -359,5 +360,31 @@ describe("parseAssume · inScope · 주소 · 행 변환", () => {
     expect(
       toGapNotice({ ...rowBase, id: "bid-2", latest_revision: 3, revisions: [] }).bid,
     ).toBeNull();
+  });
+});
+
+describe("bucketByBid · /market 겹쳐 보기(§6 B2)", () => {
+  it("관련성 거르기 없이 받은 공고마다 classifyNotice 와 같은 묶음을 bidId 로 돌려준다", () => {
+    const notHeld = profile([
+      { code: "SW_BUSINESS_REG", name: "소프트웨어사업자 신고확인서", status: "NOT_HELD" },
+    ]);
+    const list = [
+      notice("eligible", [], { relevance: "EXCLUDED" }),
+      notice("not-held", [license(1, SW)]),
+      notice("review", [], { aux: "FAILED", relevance: null }),
+      notice("bundle", [license(1, RESEARCH), license(2, ICT)]),
+    ];
+    const buckets = bucketByBid(list, notHeld, TODAY);
+    expect([...buckets]).toEqual([
+      ["eligible", "ELIGIBLE"],
+      ["not-held", "NOT_HELD"],
+      ["review", "NEEDS_REVIEW"],
+      ["bundle", "NEEDS_REVIEW"],
+    ]);
+    for (const entry of list)
+      expect(buckets.get(entry.bidId)).toBe(classifyNotice(entry, notHeld, TODAY).bucket);
+    expect(bucketByBid([notice("sw", [license(1, SW)])], profile(), TODAY).get("sw")).toBe(
+      "MISSING_RECORD",
+    );
   });
 });

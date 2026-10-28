@@ -1,4 +1,5 @@
 import "server-only";
+import { getGapBuckets, type GapBucketsView } from "@/server/gaps";
 import {
   MARKET_BUDGET_BANDS,
   MARKET_TOP_AGENCIES,
@@ -6,8 +7,11 @@ import {
   MARKET_UPCOMING_DAYS,
   MARKET_UPCOMING_LIMIT,
   RELEVANT_STATES,
+  type MarketAggregate,
   type MarketBucket,
   type MarketBudgetBandKey,
+  type MarketGapCounts,
+  type MarketGapOverlay,
   type MarketOverview,
   type MarketPeriod,
   type MarketQuery,
@@ -87,11 +91,18 @@ const bandOf = (budget: bigint | null): MarketBudgetBandKey =>
         (band) => budget >= band.minKrw && (band.maxKrw === null || budget < band.maxKrw),
       )?.key ?? "UNKNOWN");
 
-export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date): MarketOverview {
-  const nowMs = now.getTime();
+/** 기관 행의 키. 이름이 비면 기관 집계에 넣지 않는다 */
+const agencyOf = (row: MarketRow) => row.agency?.trim() || null;
+/** 분야 행의 키. 공고 하나가 여러 카테고리에 들 수 있고, 없으면 NONE 이다 */
+const categoriesOf = (row: MarketRow) => {
+  const keys = [...new Set(row.categories)];
+  return keys.length ? keys : ["NONE"];
+};
+
+/** 집계와 겹쳐 보기가 함께 쓰는 거르기. 기간·관련성·취소 규칙은 이곳 하나다 */
+function selectRows(rows: MarketRow[], query: MarketQuery, now: Date) {
   const window = marketWindow(now, query.period);
   const periodStartMs = kstMidnight(window.periodStartDay);
-  const upcomingFromMs = kstMidnight(window.trendStartDay);
   const relevant = (row: MarketRow) =>
     query.relevance === "all" || RELEVANT_STATES.has(row.relevanceState);
   // 게시일이 없는 공고는 기간·주에 놓을 수 없어 뺀다(Date.parse 가 NaN 이면 비교가 거짓이다).
@@ -99,7 +110,13 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
   // 취소 공고는 모든 집계에서 뺀다.
   const live = rows.filter((row) => row.publishedAt !== null && row.status !== "CANCELLED");
   const scoped = live.filter(relevant);
-  const period = scoped.filter(inPeriod);
+  return { window, relevant, inPeriod, live, scoped, period: scoped.filter(inPeriod) };
+}
+
+export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date): MarketAggregate {
+  const nowMs = now.getTime();
+  const { window, relevant, inPeriod, live, scoped, period } = selectRows(rows, query, now);
+  const upcomingFromMs = kstMidnight(window.trendStartDay);
 
   const agencies = new Map<string, Tally>();
   const categories = new Map<string, Tally>();
@@ -110,10 +127,9 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
     const budget = budgetOf(row);
     if (budget === null) unknownBudgetCount += 1;
     else knownBudget += budget;
-    const agency = row.agency?.trim();
+    const agency = agencyOf(row);
     if (agency) add(agencies, agency, budget);
-    const keys = [...new Set(row.categories)];
-    for (const key of keys.length ? keys : ["NONE"]) add(categories, key, budget);
+    for (const key of categoriesOf(row)) add(categories, key, budget);
     add(bands, bandOf(budget), budget);
   }
 
@@ -194,17 +210,87 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
   };
 }
 
-/** live 나라장터 입찰공고를 나눠 읽어 집계한다. 누가 무엇을 읽는지는 RLS 가 정한다(anon 키 + 세션) */
+const emptyCounts = (): MarketGapCounts => ({
+  open: 0,
+  buckets: { ELIGIBLE: 0, MISSING_RECORD: 0, NOT_HELD: 0, NEEDS_REVIEW: 0 },
+});
+
+/**
+ * /gaps 판정 묶음 겹쳐 보기(§6 B2). 집계와 같은 기간·관련성 거르기 뒤, 마감 전 공고만 기관·분야 키로 센다.
+ * 공고는 bidId(대표 공고 id = /gaps 공고 id)로 맞춘다. 마감이 지난 공고는 /gaps 대상이 아니라 넣지 않는다.
+ */
+export function overlayGaps(
+  rows: MarketRow[],
+  query: MarketQuery,
+  now: Date,
+  gaps: GapBucketsView | "FAILED",
+): MarketGapOverlay {
+  if (gaps === "FAILED") return { status: "FAILED" };
+  if (gaps.kind === "NO_PROFILE") return { status: "NO_PROFILE" };
+  const nowMs = now.getTime();
+  const open = selectRows(rows, query, now).period.filter((row) => isOpen(row, nowMs));
+  const agencies: Record<string, MarketGapCounts> = {};
+  const categories: Record<string, MarketGapCounts> = {};
+  let unmatched = 0;
+  for (const row of open) {
+    const bucket = gaps.buckets.get(row.bidId);
+    if (bucket === undefined) unmatched += 1;
+    const agency = agencyOf(row);
+    const targets = [
+      ...(agency ? [(agencies[agency] ??= emptyCounts())] : []),
+      ...categoriesOf(row).map((key) => (categories[key] ??= emptyCounts())),
+    ];
+    for (const counts of targets) {
+      counts.open += 1;
+      if (bucket !== undefined) counts.buckets[bucket] += 1;
+    }
+  }
+  return {
+    status: "READY",
+    profile: gaps.profile,
+    openNotices: open.length,
+    unmatched,
+    agencies,
+    categories,
+  };
+}
+
+type ErrorFields = Partial<Record<"code" | "message" | "details" | "hint", unknown>>;
+// PostgREST 오류는 Error 가 아닌 일반 객체({message,details,hint,code})로 던져지기도 한다(company-profile.repo).
+// Error 든 일반 객체든 같은 칸으로 풀어 로그에 원인을 남긴다.
+function errorFields(error: unknown): ErrorFields {
+  if (typeof error !== "object" || error === null) return { message: String(error) };
+  const { code, message, details, hint } = error as ErrorFields;
+  return { code, message, details, hint };
+}
+
+/**
+ * live 나라장터 입찰공고를 나눠 읽어 집계하고, /gaps 판정 묶음을 같은 요청에서 나란히 읽어 겹친다.
+ * 누가 무엇을 읽는지는 RLS 가 정한다(anon 키 + 세션). 판정을 읽지 못해도 1단계 집계는 그린다.
+ */
 export async function getMarketOverview(
   orgId: string,
   query: MarketQuery,
   now: Date,
   repo: MarketRepo = marketRepo,
+  gapBuckets: typeof getGapBuckets = getGapBuckets,
 ): Promise<MarketOverview> {
-  const rows = await repo.listLiveNotices(
-    orgId,
-    marketWindow(now, query.period).readFrom,
-    now.toISOString(),
-  );
-  return aggregateMarket(rows, query, now);
+  const [rows, gaps] = await Promise.all([
+    repo.listLiveNotices(orgId, marketWindow(now, query.period).readFrom, now.toISOString()),
+    gapBuckets(orgId, now).catch((error: unknown) => {
+      console.error(
+        JSON.stringify({
+          event: "market_gap_overlay_failed",
+          ...errorFields(error),
+          // gaps.repo 는 PostgREST 오류를 cause 로 감싸 던진다
+          cause:
+            error instanceof Error && error.cause !== undefined
+              ? errorFields(error.cause)
+              : undefined,
+        }),
+      );
+      return "FAILED" as const;
+    }),
+  ]);
+  return { ...aggregateMarket(rows, query, now), gapOverlay: overlayGaps(rows, query, now, gaps) };
 }
