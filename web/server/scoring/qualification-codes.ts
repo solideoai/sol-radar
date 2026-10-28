@@ -56,7 +56,8 @@ function normalizeName(name: string): string {
 }
 
 export function isQualificationCode(code: string | null | undefined): code is QualificationCode {
-  return typeof code === "string" && code in QUALIFICATION_CODES;
+  // in 은 프로토타입("toString"·"constructor")도 참이라 자기 키만 본다.
+  return typeof code === "string" && Object.hasOwn(QUALIFICATION_CODES, code);
 }
 
 // 코드가 사전에 있으면 그 코드. 없으면 이름(정확 일치 → 가장 긴 별칭 포함)으로 찾는다. 못 찾으면 null.

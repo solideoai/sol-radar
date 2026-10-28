@@ -486,6 +486,24 @@ function overallStatus(checks: QualificationCheck[]): QualificationOutcome {
   return "SATISFIED";
 }
 
+// 발주계획은 자격 요건이 아직 없다. 항목은 보여 주되 전부 확인 필요로 저장한다(위 머리말 결정).
+function applyStage(
+  bid: NormalizedBidSummary,
+  computed: QualificationCheck[],
+): QualificationCheck[] {
+  if (bid.stage !== "PLAN") return computed;
+  return computed.map((check) =>
+    finish(
+      check,
+      needsReview(
+        "STAGE_NOT_APPLICABLE",
+        "발주계획 단계라 자격 요건이 아직 확정되지 않음. 사전규격·입찰공고에서 다시 판정",
+        check,
+      ),
+    ),
+  );
+}
+
 /** 필수 자격 판정. 결과의 status 는 mandatory 항목만 본다(08 §5.1 "결정 정책의 필수자격"). */
 export function assessQualifications(context: QualificationContext): QualificationAssessment {
   const { bid, extraction } = context;
@@ -496,24 +514,24 @@ export function assessQualifications(context: QualificationContext): Qualificati
     field !== undefined && field.state === "KNOWN" && field.value !== null && field.value.length > 0
       ? extractionChecks(context, items, structured.mergedCodes, structured.conflictedCodes)
       : [syntheticCheck(context, noticeMissingVerdict(context, field?.state ?? "ABSENT"))];
-  const computed = [...structured.checks, ...auxLookupChecks(bid), ...fromExtraction];
-
-  // 발주계획은 자격 요건이 아직 없다. 항목은 보여 주되 전부 확인 필요로 저장한다(위 머리말 결정).
-  const checks =
-    bid.stage === "PLAN"
-      ? computed.map((check) =>
-          finish(
-            check,
-            needsReview(
-              "STAGE_NOT_APPLICABLE",
-              "발주계획 단계라 자격 요건이 아직 확정되지 않음. 사전규격·입찰공고에서 다시 판정",
-              check,
-            ),
-          ),
-        )
-      : computed;
+  const checks = applyStage(bid, [
+    ...structured.checks,
+    ...auxLookupChecks(bid),
+    ...fromExtraction,
+  ]);
 
   // 03 §4.4: 추출 입력·출력에서 지시문 패턴이 보이면 자격 종합은 사람이 본다.
   const status = extraction?.injectionSuspected ? "NEEDS_REVIEW" : overallStatus(checks);
   return { status, checks };
+}
+
+/**
+ * 공고 API 구조화 필드(면허제한·허용 업종·참가가능지역)와 보조 조회 상태만으로 판정한다. 첨부 추출은 보지 않는다.
+ * 자격 갭 레이더(/gaps)의 1차 선별용이고, 결과는 추출이 없을 때 assessQualifications 의 `structured:*` 항목과 같다.
+ */
+export function assessStructuredQualifications(
+  context: Omit<QualificationContext, "extraction">,
+): QualificationCheck[] {
+  const { checks } = structuredChecks({ ...context, extraction: null }, []);
+  return applyStage(context.bid, [...checks, ...auxLookupChecks(context.bid)]);
 }
