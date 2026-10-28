@@ -7,7 +7,7 @@ tags:
   - ops
   - ingestion
   - lh
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 10-27 LH 입찰공고(15159012) 첫 실호출·운영 활성화 계획
@@ -235,12 +235,15 @@ registry 는 strict 스키마라 오타 하나로 **Worker 전체가 기동하�
 | 단계 | 할 일 | 확인 / 중단 |
 |---|---|---|
 | A1 | `feat/lh-bid-notice`(`7e4d55cd`…`b59148f2`) main 병합·push [승인] = Vercel 배포 | 화면 외부 서비스 6종 그대로 |
-| A2 | 회사 Git 갱신 [승인]. 경로는 운영 Worker 의 compose 작업 폴더 라벨로 먼저 확인한다(10-27 기준 `/data/www/ai_workspace/sol-radar-app`). [[2026-10-27-ingest-source-isolation-deploy\|배포 실행서]]의 `sol-radar-deploy` 경로를 그대로 쓰지 않는다 | `docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' <ingest-worker>` 와 같은 폴더인지 |
+| A2 | 회사 Git 갱신 [승인]. 경로는 운영 Worker 의 compose 작업 폴더 라벨로 먼저 확인한다(10-27 기준 `/data/www/ai_workspace/sol-radar-app`). [[2026-10-27-ingest-source-isolation-deploy\|배포 실행서]]의 `sol-radar-deploy` 경로를 그대로 쓰지 않는다 | `docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' <ingest-worker>` 와 같은 폴더인지. 라벨 값은 compose 파일 폴더(`…/sol-radar-app/infra`)다 |
 | A3 | 새 ingest Worker 이미지 빌드(태그 `git rev-parse --short=12 HEAD`) → 일회용 `--check` | 외부 6종 모두 `NOT_CALLABLE(DISABLED)`, 나라장터 정상. 아니면 멈춤 |
 | A4 | ingest Worker 만 재생성 [승인]. KST 정각 +15분 ~ 다음 정각 −30분, 직전 `--status` 의 waiting·active·prioritized 가 0 | Job Scheduler 1개(`g2b-scheduled`), healthy |
 | A5 | 다음 정각 지켜보기 | 나라장터 회차 `SUCCEEDED`, `quota:15129394` 평소대로 |
 
 회사 반영(첨부) 실행서도 ingest Worker·redis-api 를 재생성한다. A4 와 같은 재생성 한 번으로 묶을지, 어느 쪽을 먼저 할지 정한 뒤 진행한다.
+
+> [!note] A단계 결과 (2026-10-28 끝)
+> A1 은 10-27 23:00 main `24f2ac84..1646e7d0` push·Vercel 배포. A2~A4 는 10-28 회사 `sol-radar-app` `24f2ac8` → `1646e7d0`(사용자 결정으로 main 최신이 아닌 이 커밋에 고정), 롤백 태그 `rollback-20261027-lh`(= `24f2ac84963c`), 새 이미지 `1646e7d033a1` `--check` 통과, 09:15 ingest Worker 만 재생성. A5 는 12:00 나라장터 회차 `SUCCEEDED`·`COMPLETE`(247건, 운영 DB `ingest_runs` 기준. Redis `quota:15129394` 카운터는 보지 않았다). 첨부 실행서의 재생성과는 묶지 않았다(첨부 쪽은 10-27 에 먼저 끝남). [기록](../evidence/company-rollout/20261028/lh-a-stage-ingest-worker.md)
 
 **B단계 — registry 한 커밋으로 LH 켜기**
 
@@ -292,7 +295,7 @@ select count(*) from public.bid_notices where source = 'lh-bid-notice';
 1. B1 커밋을 revert 하는 커밋으로 registry 의 LH 를 `enabled: false` 로 되돌린다. 회사 저장소에서 그 줄만 손으로 고치면 checkout 이 dirty 가 되어 다음 배포의 `git status` 조건에 걸린다.
 2. 회사 Git 을 갱신하고 운영 Worker 를 같은 이미지로 재생성한다. 기동 때 준비 안 된 서비스의 일정은 지운다(`lh-bid-notice-scheduled` 제거).
 3. `--status` 로 Job Scheduler 가 `g2b-scheduled` 1개인지 본다.
-4. A단계(코드)까지 되돌릴 때만 이미지를 `sol-radar-ingest-worker:43e4e02465c2` 로 되돌린다. registry 가 먼저 `enabled: false` 여야 한다.
+4. A단계(코드)까지 되돌릴 때만 이미지를 `sol-radar-ingest-worker:rollback-20261027-lh`(= `24f2ac84963c`, A단계 직전 이미지) 로 되돌린다. registry 가 먼저 `enabled: false` 여야 한다.
 
 - **이미지만 되돌리지 않는다.** registry 가 `enabled: true` 인 채로 옛 이미지로 기동하면 LH 응답을 UTF-8 로 읽다 실패해 회차마다 호출만 쓴다. registry 를 먼저 되돌린다.
 - `--unschedule` 은 쓰지 않는다(나라장터 일정까지 지운다).
