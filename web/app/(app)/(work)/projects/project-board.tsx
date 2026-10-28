@@ -9,7 +9,7 @@ function BoardColumn({ title, children }: { title: string; children: ReactNode[]
   const visible = children.slice(0, 6);
   const remaining = children.slice(6);
   return (
-    <section className="min-w-0 rounded-xl border border-border bg-muted/30 p-3" aria-label={title}>
+    <section className="min-w-0 rounded-lg border border-border bg-muted/30 p-3" aria-label={title}>
       <h2 className="mb-3 flex flex-wrap items-center justify-between gap-2 type-heading">
         {title}
         <span className="type-caption text-muted-foreground">{children.length}건</span>

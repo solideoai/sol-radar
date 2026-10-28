@@ -17,7 +17,7 @@ import {
 // 판은 3단이다(목록 · 공고와 자격 검토 · 점수와 결재란). 패널이 뒤의 두 단을 차지해 공고를 바꾸면 두 단이 함께 바뀐다.
 export function ProductPreview() {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-background text-left">
+    <div className="overflow-hidden rounded-lg border border-border bg-background text-left">
       <PreviewBar />
       <Tabs.Root
         defaultValue={DEMO_BIDS[0].id}
@@ -74,7 +74,7 @@ function BidTab({ bid }: { bid: DemoBid }) {
   return (
     <Tabs.Tab
       value={bid.id}
-      className="group/tab relative flex w-full flex-col items-start gap-1 rounded-[10px] border border-transparent px-4 py-3.5 text-left outline-none hover:bg-background/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-active:border-border data-active:bg-background motion-safe:transition-colors"
+      className="group/tab relative flex w-full flex-col items-start gap-1 rounded-lg border border-transparent px-4 py-3.5 text-left outline-none hover:bg-background/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-active:border-border data-active:bg-background motion-safe:transition-colors"
     >
       <span
         aria-hidden

@@ -294,7 +294,7 @@ function RevisionRail({ comparison }: { comparison: RevisionComparison }) {
     <nav
       data-slot="revision-list"
       aria-labelledby="revision-list-title"
-      className="sticky top-18 max-h-[calc(100dvh-5.5rem)] min-w-0 overflow-y-auto rounded-xl border border-border"
+      className="sticky top-18 max-h-[calc(100dvh-5.5rem)] min-w-0 overflow-y-auto rounded-lg border border-border"
     >
       <div className="flex items-baseline gap-2 px-4 pt-4 pb-3">
         <h2 id="revision-list-title" className="type-heading text-foreground">

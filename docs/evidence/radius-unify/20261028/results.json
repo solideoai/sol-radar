@@ -1,0 +1,266 @@
+[
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-home.png",
+    "url": "/",
+    "h1": "수많은 공고 속,솔리데오가 검토할 사업부터",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 11
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-dashboard.png",
+    "url": "/dashboard",
+    "h1": "대시보드",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 1
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-bids.png",
+    "url": "/bids",
+    "h1": "입찰 공고",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 2
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-watchlist.png",
+    "url": "/watchlist",
+    "h1": "관심 공고",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 2
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-projects.png",
+    "url": "/projects",
+    "h1": "입찰 프로젝트",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 5
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-notifications.png",
+    "url": "/notifications",
+    "h1": "알림",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 1
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-company.png",
+    "url": "/company",
+    "h1": "회사 역량",
+    "overflowX": 0,
+    "cards": 1,
+    "radii": {
+      "8px": 1
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-settings_organization.png",
+    "url": "/settings/organization",
+    "h1": "설정",
+    "overflowX": 0,
+    "cards": 5,
+    "radii": {
+      "8px": 5
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-admin_ingestion.png",
+    "url": "/admin/ingestion",
+    "h1": "데이터 수집 관리",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 3
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-seed_team_dashboard.png",
+    "url": "/seed-team/dashboard",
+    "h1": "대시보드",
+    "overflowX": 0,
+    "cards": 7,
+    "radii": {
+      "8px": 7
+    }
+  },
+  {
+    "width": 1440,
+    "status": 200,
+    "shot": "1440-seed_team_settings_members.png",
+    "url": "/seed-team/settings/members",
+    "h1": "설정",
+    "overflowX": 0,
+    "cards": 4,
+    "radii": {
+      "8px": 4
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-home.png",
+    "url": "/",
+    "h1": "수많은 공고 속,솔리데오가 검토할 사업부터",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 11
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-dashboard.png",
+    "url": "/dashboard",
+    "h1": "대시보드",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 1
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-bids.png",
+    "url": "/bids",
+    "h1": "입찰 공고",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 2
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-watchlist.png",
+    "url": "/watchlist",
+    "h1": "관심 공고",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 2
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-projects.png",
+    "url": "/projects",
+    "h1": "입찰 프로젝트",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 5
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-notifications.png",
+    "url": "/notifications",
+    "h1": "알림",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 1
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-company.png",
+    "url": "/company",
+    "h1": "회사 역량",
+    "overflowX": 0,
+    "cards": 1,
+    "radii": {
+      "8px": 1
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-settings_organization.png",
+    "url": "/settings/organization",
+    "h1": "설정",
+    "overflowX": 0,
+    "cards": 5,
+    "radii": {
+      "8px": 5
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-admin_ingestion.png",
+    "url": "/admin/ingestion",
+    "h1": "데이터 수집 관리",
+    "overflowX": 0,
+    "cards": 0,
+    "radii": {
+      "8px": 3
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-seed_team_dashboard.png",
+    "url": "/seed-team/dashboard",
+    "h1": "대시보드",
+    "overflowX": 0,
+    "cards": 7,
+    "radii": {
+      "8px": 7
+    }
+  },
+  {
+    "width": 1280,
+    "status": 200,
+    "shot": "1280-seed_team_settings_members.png",
+    "url": "/seed-team/settings/members",
+    "h1": "설정",
+    "overflowX": 0,
+    "cards": 4,
+    "radii": {
+      "8px": 4
+    }
+  }
+]

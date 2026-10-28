@@ -218,7 +218,7 @@ function Checklist({ project, members }: { project: ProjectDetail; members: Assi
     }
   }
   return (
-    <section className="rounded-xl border border-border bg-background p-5">
+    <section className="rounded-lg border border-border bg-background p-5">
       <h2 className="type-heading">
         제출 체크리스트{" "}
         <span className="type-label text-muted-foreground">
@@ -369,7 +369,7 @@ export function ProjectDetailView({
       )}
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_320px] items-start gap-6">
         <div className="flex min-w-0 flex-col gap-6">
-          <section className="rounded-xl border border-border p-5">
+          <section className="rounded-lg border border-border p-5">
             <h2 className="type-heading">프로젝트 개요</h2>
             <dl className="mt-4 grid grid-cols-2 gap-4 type-body">
               <div>
@@ -410,7 +410,7 @@ export function ProjectDetailView({
             </Link>
           </section>
           <Checklist project={project} members={members} />
-          <section className="rounded-xl border border-border p-5">
+          <section className="rounded-lg border border-border p-5">
             <h2 className="type-heading">상태 이력</h2>
             <ol className="mt-3 divide-y divide-border">
               {project.events.map((event) => (
@@ -431,11 +431,11 @@ export function ProjectDetailView({
         </div>
         <aside className="flex min-w-0 flex-col gap-6">
           {project.canManage && (
-            <section className="rounded-xl border border-border p-5">
+            <section className="rounded-lg border border-border p-5">
               <SettingsForm project={project} members={members} />
             </section>
           )}
-          <section className="rounded-xl border border-border p-5">
+          <section className="rounded-lg border border-border p-5">
             <h2 className="type-heading">수동 결과 기록</h2>
             <p className="mt-2 type-caption text-muted-foreground">
               결과는 업무 기록이며 점수·모델·학습 입력에 사용하지 않습니다. 상태는 별도로

@@ -74,8 +74,10 @@ shadcn 부품은 라이브러리가 아니라 **복사해 온 우리 코드**다
 설정은 `web/components.json`. 지금 있는 것: button·input·textarea·label·field·card·dialog·dropdown-menu·select·separator·skeleton·sonner·
 sidebar(딸려 온 sheet·tooltip)·avatar·table.
 
-- 방향 2번에 없는 크기: `textarea` 최소 80px, `card` 는 `rounded-xl`·안쪽 여백 24px(`size="sm"` 16px), `dialog` 는 `rounded-xl`,
+- 방향 2번에 없는 크기: `textarea` 최소 80px, `card` 는 `rounded-lg`·안쪽 여백 24px(`size="sm"` 16px), `dialog` 는 `rounded-xl`,
   `dropdown-menu` 는 `rounded-lg`·항목 32px, `select` 는 트리거 40px(입력칸과 같다)·`rounded-lg`, `sidebar` 는 폭 256px·항목 32px, `table` 머리 줄 40px.
+- 테두리 상자의 모서리는 하나다. `Card` 와 화면에서 직접 만든 상자(구역·필터 칸·빈 상태·표 감싸개)는 버튼·입력칸과 같은 `rounded-lg` 이고,
+  더 큰 모서리(`rounded-xl`)는 떠 있는 창(`dialog`)만 쓴다(2026-10-28, design.actibooky.com DESIGN_RULES "radius 를 한 맥락에서 혼용하지 않는다").
 - 더 필요하면 `web` 폴더에서 `pnpm dlx shadcn@latest add <이름>` 으로 넣는다.
 - 넣은 뒤 다섯 가지를 확인한다. CLI 는 이 저장소의 규칙을 모른다.
   1. `git diff web/package.json` — 원치 않는 의존성이 붙었는지 본다(예: sonner 를 넣으면 `next-themes` 가 따라온다).

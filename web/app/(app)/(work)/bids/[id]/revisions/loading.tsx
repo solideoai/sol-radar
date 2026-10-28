@@ -46,7 +46,7 @@ export default function Loading() {
           <Block className="h-5 w-12" />
           <Block className="h-32 w-full rounded-lg" />
         </div>
-        <div aria-hidden="true" className="flex flex-col gap-3 rounded-xl border border-border p-4">
+        <div aria-hidden="true" className="flex flex-col gap-3 rounded-lg border border-border p-4">
           <Block className="h-6 w-32" />
           <Block className="h-14 w-full" />
           <Block className="h-14 w-full" />

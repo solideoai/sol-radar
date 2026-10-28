@@ -69,7 +69,7 @@ export default function Loading() {
             </div>
           ))}
         </div>
-        <div aria-hidden="true" className="flex flex-col gap-4 rounded-xl border border-border p-6">
+        <div aria-hidden="true" className="flex flex-col gap-4 rounded-lg border border-border p-6">
           <Block className="h-6 w-24" />
           <Block className="h-6 w-32" />
           <Block className="h-9 w-full" />

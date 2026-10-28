@@ -26,7 +26,7 @@ export default function Loading() {
       <div role="status" className="flex flex-col gap-6">
         <span className="sr-only">입찰 공고를 불러오는 중…</span>
         <div aria-hidden className="contents">
-          <div className="flex flex-wrap gap-3 rounded-xl border border-border p-4">
+          <div className="flex flex-wrap gap-3 rounded-lg border border-border p-4">
             <Skeleton className={`h-9 w-52 ${pulse}`} />
             {[0, 1, 2, 3, 4].map((key) => (
               <Skeleton key={key} className={`h-9 w-20 ${pulse}`} />

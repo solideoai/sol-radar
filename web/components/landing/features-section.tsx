@@ -70,7 +70,7 @@ export function FeaturesSection() {
             <div
               aria-hidden
               inert
-              className="col-span-8 min-w-0 overflow-hidden rounded-xl border border-border bg-background"
+              className="col-span-8 min-w-0 overflow-hidden rounded-lg border border-border bg-background"
             >
               {feature.preview}
             </div>

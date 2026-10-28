@@ -226,7 +226,7 @@ export function OpportunityFilters({
   return (
     <section
       aria-label="입찰 공고 검색 조건"
-      className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-4"
+      className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4"
     >
       <div className="flex flex-wrap items-center gap-3">
         <label

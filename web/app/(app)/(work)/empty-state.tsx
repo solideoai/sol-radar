@@ -19,7 +19,7 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-xl border border-border px-6 py-10 text-center">
+    <div className="flex flex-col items-center gap-4 rounded-lg border border-border px-6 py-10 text-center">
       <span
         aria-hidden
         className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground"

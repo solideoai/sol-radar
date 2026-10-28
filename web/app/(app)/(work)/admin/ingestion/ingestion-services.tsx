@@ -121,7 +121,7 @@ export function IngestionServices({
           {message}
         </p>
       )}
-      <div className="overflow-x-auto rounded-xl border">
+      <div className="overflow-x-auto rounded-lg border">
         <Table className="min-w-300">
           <TableHeader>
             <TableRow>
@@ -245,7 +245,7 @@ function ReferenceServices({ summary, now }: { summary: SourceSummary; now: Date
         {REFERENCE_TITLE}
       </h3>
       <p className="type-caption text-muted-foreground">{REFERENCE_DESCRIPTION}</p>
-      <ul className="divide-y divide-border rounded-xl border">
+      <ul className="divide-y divide-border rounded-lg border">
         {summary.references.map((service) => (
           <li
             key={service.key}
