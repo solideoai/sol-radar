@@ -3,12 +3,10 @@
 
 export type SolideoService = { name: string; image: string; width: number; height: number };
 
-// collecting: 운영에서 실제 공고를 수집하는 기관(꼬리표 없음). planned: 아직 수집하지 않는 기관("연결 예정").
-// 값은 운영 수집 기록으로 정한다(스펙 U6). 확인 전 기본값은 나라장터만 collecting 이다.
+// 연결 상태(수집 중·연결 예정)는 코드가 아니라 문서로 관리한다(2026-10-28 사용자 요청). 화면은 로고만 보인다.
 export type DataSource = {
   name: string;
-  logo: { src: string; width: number; height: number } | null;
-  status: "collecting" | "planned";
+  logo: { src: string; width: number; height: number };
 };
 
 // 솔리데오 누리집의 공공 서비스 17개(https://www.solideos.com/portal/govSM.do), 그 순서다.
@@ -59,41 +57,36 @@ export const SOLIDEO_SERVICES: readonly SolideoService[] = [
 ];
 
 // 공고를 가져오는 곳 9곳. 공공데이터포털은 넣지 않는다 — 나라장터·K-water 등이 거쳐 오는 창구라 같은 출처를 두 번 센다.
-// 로고는 각 기관 공식 CI 안내 페이지의 파일에서 로고 부분만 꺼냈다(그림은 바꾸지 않는다). 공식 파일을 못 구한 곳은 null 이고 이름 글자만 보인다.
-// 기관 이름 글자가 함께 보이므로, 이름이 든 시그니처보다 마크·워드마크를 고른다(나라장터는 국문 이름이 없는 영문 상표 KONEPS).
+// 로고는 각 기관 공식 CI 안내 페이지의 파일에서 로고 부분만 꺼냈다(그림은 바꾸지 않는다).
+// CI 안내 파일을 못 구한 기업마당·중소벤처기업부·국방전자조달은 공식 누리집에 게시된 로고 파일 그대로다
+// (기업마당은 누리집 공유 그림에서 흰 여백만 잘랐다, 중소벤처기업부·국방전자조달은 머리말 로고).
 export const DATA_SOURCES: readonly DataSource[] = [
   {
     name: "나라장터(조달청)",
     logo: { src: "/landing/sources/koneps.svg", width: 304, height: 95 },
-    status: "collecting",
   },
   {
     name: "한국토지주택공사",
     logo: { src: "/landing/sources/lh.svg", width: 35, height: 24 },
-    status: "planned",
   },
   {
     name: "한국수자원공사",
     logo: { src: "/landing/sources/kwater.png", width: 281, height: 127 },
-    status: "planned",
   },
   {
     name: "한국전력공사",
     logo: { src: "/landing/sources/kepco.svg", width: 171, height: 109 },
-    status: "planned",
   },
-  { name: "기업마당", logo: null, status: "planned" },
-  { name: "중소벤처기업부", logo: null, status: "planned" },
+  { name: "기업마당", logo: { src: "/landing/sources/bizinfo.png", width: 344, height: 128 } },
+  { name: "중소벤처기업부", logo: { src: "/landing/sources/mss.svg", width: 206, height: 42 } },
   {
     name: "한국도로공사",
     logo: { src: "/landing/sources/ex.svg", width: 301, height: 91 },
-    status: "planned",
   },
-  { name: "국방전자조달", logo: null, status: "planned" },
+  { name: "국방전자조달", logo: { src: "/landing/sources/d2b.png", width: 267, height: 31 } },
   {
     name: "한국철도공사",
     logo: { src: "/landing/sources/korail.svg", width: 284, height: 49 },
-    status: "planned",
   },
 ];
 
