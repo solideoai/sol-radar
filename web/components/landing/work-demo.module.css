@@ -1,0 +1,43 @@
+/* 업무 데모의 움직임만 둔다. 색은 두지 않는다(색은 tokens.json 의 토큰 클래스로 화면 쪽에서 정한다). */
+
+/* 숫자가 0 에서 목표까지 오른다. 글자를 바꾸는 스크립트 없이 정수 변수를 전환하고 CSS 카운터로 그린다. */
+@property --work-demo-count {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 0;
+}
+
+.count {
+  counter-reset: work-demo-count var(--work-demo-count);
+  transition: --work-demo-count 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.count::after {
+  content: counter(work-demo-count);
+}
+
+/* 입력 커서 깜박임. */
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.caret {
+  animation: caret 1s steps(1) infinite;
+}
+
+/* 멈춤 버튼을 누르면 안쪽 움직임(깜박임·도는 표시)도 그 자리에 멈춘다. */
+.paused * {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .count {
+    transition: none;
+  }
+
+  .caret {
+    animation: none;
+  }
+}

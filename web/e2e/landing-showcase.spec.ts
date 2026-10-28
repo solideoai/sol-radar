@@ -103,3 +103,59 @@ test("흐르는 줄이 페이지를 가로로 넘치게 하지 않는다", async
     expect(overflow).toBe(0);
   }
 });
+
+// 히어로 아래 업무 데모: 동영상이 아니라 HTML 로 그린 앱 화면이 장면을 바꿔 가며 흐른다(2026-10-28 사용자 지시).
+// 장면은 data-scene, 단계는 data-step 으로 드러낸다. 움직이는 판은 화면 낭독기에서 빠지고 흐름 요약 문단을 읽는다.
+const workDemo = (page: Page) => page.getByRole("region", { name: "SOL RADAR 업무 데모" });
+
+test("업무 데모는 히어로와 흐르는 줄 사이에서 장면을 바꿔 가며 흐른다", async ({ page }) => {
+  await page.goto("/");
+  const demo = workDemo(page);
+  await expect(demo).toHaveAttribute("data-scene", "1");
+  await expect(demo).toHaveAttribute("data-scene", "2", { timeout: 10_000 });
+  await expect(demo.locator('[aria-hidden="true"][inert]')).toHaveCount(1);
+  await expect(
+    demo.getByText("가상 공고로 만든 예시 화면입니다. 출처 이름과 로고만 실제입니다."),
+  ).toBeVisible();
+
+  const heroTitle = await page.getByRole("heading", { level: 1 }).boundingBox();
+  const demoBox = await demo.boundingBox();
+  const marqueeTop = (await regionOf(page, SERVICES_TITLE).boundingBox())?.y ?? -Infinity;
+  expect(heroTitle).not.toBeNull();
+  expect(demoBox).not.toBeNull();
+  expect(demoBox?.y ?? -Infinity).toBeGreaterThan((heroTitle?.y ?? 0) + (heroTitle?.height ?? 0));
+  expect((demoBox?.y ?? Infinity) + (demoBox?.height ?? 0)).toBeLessThanOrEqual(marqueeTop);
+});
+
+test("데모 멈춤을 누르면 그 단계에 머물고, 데모 재생을 누르면 이어서 흐른다", async ({ page }) => {
+  await page.goto("/");
+  const demo = workDemo(page);
+  await expect(demo).toHaveAttribute("data-step", /^[1-9]/);
+  await demo.getByRole("button", { name: "데모 멈춤", exact: true }).click();
+  const step = (await demo.getAttribute("data-step")) ?? "";
+  // 한 단계는 3초를 넘지 않는다. 그보다 길게 기다려도 그대로다.
+  await page.waitForTimeout(3500);
+  await expect(demo).toHaveAttribute("data-step", step);
+  await demo.getByRole("button", { name: "데모 재생", exact: true }).click();
+  await expect(demo).not.toHaveAttribute("data-step", step);
+});
+
+test("움직임 줄이기면 데모는 분석 상세 완성 화면에 멈춰 있고 움직이는 요소가 없다", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const demo = workDemo(page);
+  await expect(demo).toHaveAttribute("data-scene", "4");
+  await expect(demo.getByRole("button", { name: "데모 재생", exact: true })).toBeVisible();
+  const step = (await demo.getAttribute("data-step")) ?? "";
+  await page.waitForTimeout(3500);
+  await expect(demo).toHaveAttribute("data-step", step);
+  const animated = await demo.evaluate(
+    (element) =>
+      [...element.querySelectorAll("*")].filter(
+        (node) => getComputedStyle(node).animationName !== "none",
+      ).length,
+  );
+  expect(animated).toBe(0);
+});

@@ -153,3 +153,54 @@ const withAnalysis = (input: DemoBidInput): DemoBid => {
 };
 
 export const DEMO_BIDS: readonly DemoBid[] = INPUTS.map(withAnalysis);
+
+// 히어로 아래 업무 데모(work-demo.tsx)의 관련 공고 표에만 더 보이는 가상 공고. 분석 예시 목록(DEMO_BIDS)은 3건 그대로다.
+const MORE_INPUTS: DemoBidInput[] = [
+  {
+    id: "demo-4",
+    title: "지역 행정 데이터 분석 플랫폼 구축",
+    agency: "가상 지역정보진흥원",
+    budgetWon: 960_000_000,
+    proposalDue: "2026-11-24",
+    factors: factors(25, 20, 17, 12, 7),
+    checks: [
+      SOFTWARE_BUSINESS,
+      {
+        requirement: "정보보호 관리체계 인증",
+        status: "NEEDS_REVIEW",
+        note: "등록된 인증의 범위가 공고 요구 범위와 같은지 확인이 필요합니다.",
+        evidence: { page: 3, quote: "정보보호 관리체계 인증을 보유한 자" },
+      },
+    ],
+    reasons: ["유사 사업 실적 보유 — 데이터 분석 플랫폼 구축 2건"],
+    followUps: ["인증 범위 확인 필요"],
+  },
+  {
+    id: "demo-5",
+    title: "공공 데이터 개방 포털 유지관리",
+    agency: "가상 데이터진흥원",
+    budgetWon: 420_000_000,
+    proposalDue: "2026-11-18",
+    factors: factors(26, 21, 17, 13, 9),
+    checks: [SOFTWARE_BUSINESS, SME_ONLY],
+    reasons: ["유사 사업 실적 보유 — 포털 유지관리 4건"],
+    followUps: [],
+  },
+  {
+    id: "demo-6",
+    title: "AI 민원 상담 챗봇 구축",
+    agency: "가상 시민소통청",
+    budgetWon: 1_200_000_000,
+    proposalDue: "2026-12-02",
+    factors: factors(23, 18, 15, 11, 9),
+    checks: [SOFTWARE_BUSINESS, SME_ONLY],
+    reasons: ["주요 기술 요구사항 부합 — 요구 기술 6개 중 5개 보유"],
+    followUps: [],
+  },
+];
+
+// 업무 데모 표는 SOL Score 가 높은 순이다.
+export const WORK_DEMO_BIDS: readonly DemoBid[] = [
+  ...DEMO_BIDS,
+  ...MORE_INPUTS.map(withAnalysis),
+].sort((a, b) => b.score - a.score);

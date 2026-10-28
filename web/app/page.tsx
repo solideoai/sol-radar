@@ -10,6 +10,7 @@ import { PrinciplesSection } from "@/components/landing/principles-section";
 import { ProblemSection } from "@/components/landing/problem-section";
 import { ProductPreviewSection } from "@/components/landing/product-preview-section";
 import { ServicesMarquee, SourcesMarquee } from "@/components/landing/showcase-marquees";
+import { WorkDemo } from "@/components/landing/work-demo";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getMyHome } from "@/server/organization";
@@ -48,7 +49,8 @@ export default async function Home() {
         className="flex-1 bg-background break-keep outline-none selection:bg-brand/15"
       >
         <Hero startHref={startHref} />
-        {/* 녹화 영상 구역은 영상 파일(LANDING_VIDEO)이 들어오는 2차 배포에서 여기에 생긴다. */}
+        {/* 동영상 대신 HTML 로 그린 업무 데모(가상 공고)가 흐른다. */}
+        <WorkDemo />
         <ServicesMarquee />
         <SourcesMarquee />
         <ProductPreviewSection />
