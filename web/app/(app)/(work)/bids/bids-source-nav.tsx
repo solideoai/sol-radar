@@ -14,15 +14,15 @@ export type BidsSource = (typeof ITEMS)[number]["key"];
 
 export function BidsSourceNav({ current }: { current: BidsSource }) {
   return (
-    <nav aria-label="공고 종류" className="border-b border-border">
-      {/* 막대가 아래 선 위에 겹치도록 한 픽셀 내린다. */}
-      <ul className="-mb-px flex gap-6">
+    <nav aria-label="공고 종류">
+      {/* 지금 화면은 파스텔 알약이다(2026-10-28 화면 개편, 다른 화면의 보기 전환과 같은 모양). */}
+      <ul className="inline-flex rounded-lg border border-border p-0.5">
         {ITEMS.map((item) => (
           <li key={item.key}>
             <Link
               href={item.href}
               aria-current={item.key === current ? "page" : undefined}
-              className="relative inline-flex h-10 items-center rounded-md type-label font-medium text-muted-foreground outline-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:text-foreground aria-[current=page]:after:bg-foreground"
+              className="inline-flex items-center rounded-md px-3 py-1.5 type-label whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground"
             >
               {item.label}
             </Link>

@@ -5,6 +5,7 @@ import { ExternalLinkIcon, InfoIcon } from "lucide-react";
 import { SourceLink } from "@/components/bids/source-link";
 import { DemoBadge } from "@/components/bids/status-badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import {
   Sheet,
   SheetContent,
@@ -128,9 +129,9 @@ function NoticeDetail({ item, today }: { item: ProgramNoticeListItem; today: str
                 <ul className="flex flex-wrap gap-1">
                   {item.tags.map((tag) => (
                     <li key={tag} className="flex max-w-full">
-                      <span className={cn(BADGE_BOX, "max-w-full")} title={tag}>
+                      <Chip className="max-w-full" title={tag}>
                         <span className="min-w-0 truncate">{tag}</span>
-                      </span>
+                      </Chip>
                     </li>
                   ))}
                 </ul>

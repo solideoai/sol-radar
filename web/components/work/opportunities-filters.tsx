@@ -159,6 +159,9 @@ const RECOMMENDATIONS = [
   { id: "WATCH", name: "WATCH" },
   { id: "NO_BID", name: "NO-BID" },
 ];
+// 켜진 빠른 선택 버튼(aria-pressed)은 파스텔 선택색이다(2026-10-28 화면 개편). 올려도 바탕이 회색으로 바뀌지 않게 hover 도 덮는다.
+const PRESSED =
+  "bg-selected font-semibold text-selected-foreground hover:bg-selected hover:text-selected-foreground";
 
 export function OpportunityFilters({
   query,
@@ -245,7 +248,7 @@ export function OpportunityFilters({
             variant="outline"
             size="sm"
             aria-pressed={sourceFamilies.length === 0}
-            className={cn("min-w-20", sourceFamilies.length === 0 && "border-brand text-brand")}
+            className={cn("min-w-20", sourceFamilies.length === 0 && PRESSED)}
             onClick={() => multiple("sourceFamily", [])}
           >
             전체
@@ -256,10 +259,7 @@ export function OpportunityFilters({
               variant="outline"
               size="sm"
               aria-pressed={sourceFamilies.includes(family)}
-              className={cn(
-                "min-w-20",
-                sourceFamilies.includes(family) && "border-brand text-brand",
-              )}
+              className={cn("min-w-20", sourceFamilies.includes(family) && PRESSED)}
               onClick={() =>
                 multiple(
                   "sourceFamily",
