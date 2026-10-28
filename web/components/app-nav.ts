@@ -1,8 +1,11 @@
 import {
   AwardIcon,
   BellIcon,
+  BriefcaseIcon,
+  Building2Icon,
   CalendarDaysIcon,
   ChartColumnIcon,
+  ChartNoAxesColumnIcon,
   DatabaseIcon,
   FileTextIcon,
   FolderKanbanIcon,
@@ -19,7 +22,7 @@ import {
 import type { SolRole } from "@/server/organization";
 
 // 사이드바 메뉴 정의는 이 파일 한 곳이다(ADR-021 §2.1, 06 §4.1). 화면을 더하면 여기에 한 줄 더한다 —
-// 사이드바 항목과 위 막대의 화면 이름이 같이 생긴다. 주소는 조직 슬러그 없는 절대 경로다(D30).
+// 사이드바 항목과 화면 머리의 경로(묶음 / 화면)가 같이 생긴다. 주소는 조직 슬러그 없는 절대 경로다(D30).
 //
 // released: 노출 조건 5개(구현·API·권한·시험·완료 기준)를 채운 메뉴. 링크로 보인다.
 // planned: 아직 화면이 없는 메뉴. 링크 없이 메뉴 이름만 보인다(사용자 결정 2026-10-21, 설계 §4.1).
@@ -30,8 +33,8 @@ export type NavStatus = "released" | "planned";
 export type NavItem = {
   href: string;
   label: string;
-  // 펼친 사이드바에서는 글자 왼쪽에, 접은 사이드바(64px)에서는 혼자 보인다.
-  // 2026-10-26 사용자 결정(트리·아이콘 되돌림)으로 펼친 상태에도 아이콘을 다시 둔다.
+  // 묶음 안 메뉴는 접은 사이드바(64px)에서만 아이콘이 혼자 보이고, 펼치면 글자만 묶음 아이콘 폭만큼 들여 쓴다
+  // (2026-10-28 사용자 결정 시안 A). 아래 고정 칸 메뉴는 펼친 상태에도 아이콘을 글자 왼쪽에 둔다.
   icon: LucideIcon;
   status: NavStatus;
   // 있으면 이 업무 역할만 메뉴를 본다. 다른 역할이 주소로 들어오면 화면이 권한 없음 안내를 그린다.
@@ -43,6 +46,8 @@ export type NavItem = {
 export type NavGroup = {
   id: string;
   label: string;
+  // 펼친 사이드바의 묶음 줄에만 보인다. 접은 사이드바(64px)에는 묶음 줄이 없다.
+  icon: LucideIcon;
   items: readonly NavItem[];
 };
 
@@ -50,6 +55,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     id: "work",
     label: "업무",
+    icon: BriefcaseIcon,
     items: [
       { href: "/dashboard", label: "대시보드", icon: LayoutDashboardIcon, status: "released" },
       { href: "/bids", label: "입찰 공고", icon: FileTextIcon, status: "released" },
@@ -62,6 +68,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     id: "analysis",
     label: "분석",
+    icon: ChartNoAxesColumnIcon,
     items: [
       { href: "/gaps", label: "자격 갭 레이더", icon: RadarIcon, status: "released" },
       { href: "/market", label: "발주 현황", icon: ChartColumnIcon, status: "released" },
@@ -82,6 +89,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     id: "company",
     label: "회사",
+    icon: Building2Icon,
     items: [
       {
         href: "/company",
@@ -113,14 +121,6 @@ export const FOOTER_NAV_ITEMS: readonly NavItem[] = [
     roles: ["ADMIN"],
   },
 ];
-
-// 사이드바에는 없지만 위 막대가 화면 이름을 알아야 하는 템플릿 화면(D30). 조직 슬러그가 붙은 주소다.
-// 이름을 모르면 조직 이름까지 막대에서 사라진다.
-const TEMPLATE_SCREENS = [
-  { segment: "settings", label: "설정" },
-  { segment: "tasks", label: "작업" },
-  { segment: "dashboard", label: "대시보드" },
-] as const;
 
 const isUnder = (pathname: string, base: string) =>
   pathname === base || pathname.startsWith(`${base}/`);
@@ -155,13 +155,11 @@ export const currentNavGroupId = (
     ),
   )?.id ?? null;
 
-// 위 막대의 화면 이름. 역할과 상관없이 출시된 메뉴에서 찾는다 — 주소로 들어온 사람도 어느 화면인지 알아야 한다.
-export const screenLabelOf = (pathname: string, orgSlug: string): string | null => {
-  const released = [...NAV_GROUPS.flatMap((group) => group.items), ...FOOTER_NAV_ITEMS].filter(
-    (item) => item.status === "released",
-  );
-  const item = released.find((candidate) => isCurrentItem(pathname, candidate, orgSlug));
-  if (item) return item.label;
-  const [, , segment] = pathname.split("/");
-  return TEMPLATE_SCREENS.find((screen) => screen.segment === segment)?.label ?? null;
-};
+// 화면 머리의 경로(묶음 / 화면). 역할과 상관없이 출시된 묶음 메뉴에서 찾는다 — 주소로 들어온 사람도 어느 화면인지 알아야 한다.
+// 상세 화면(/bids/123)은 그 메뉴의 경로다. 묶음이 없는 아래 고정 칸·조직 주소 템플릿 화면은 null 이다.
+export const breadcrumbOf = (pathname: string): { group: string; screen: string } | null =>
+  NAV_GROUPS.flatMap((group) =>
+    group.items
+      .filter((item) => item.status === "released" && isUnder(pathname, item.href))
+      .map((item) => ({ group: group.label, screen: item.label })),
+  )[0] ?? null;

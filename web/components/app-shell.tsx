@@ -18,7 +18,6 @@ import { cn } from "cn";
 import {
   currentNavGroupId,
   isCurrentItem,
-  screenLabelOf,
   visibleFooterNavItems,
   visibleNavGroups,
   type NavGroup,
@@ -63,14 +62,21 @@ import type { CurrentOrg, OrgSummary, SolRole } from "@/server/organization";
 // 접은 사이드바는 아이콘만 남긴 64px 다(06 §4·§4.1). 부품 기본값(3rem)을 이 틀에서만 바꾼다.
 const SIDEBAR_ICON_WIDTH = { "--sidebar-width-icon": "4rem" } as React.CSSProperties;
 
-// hover 는 활성 바탕(sidebar-accent)보다 옅게 칠한다. 같은 색이면 활성 메뉴 옆에서 선택이 둘로 보인다.
-// 활성 메뉴는 마우스를 올려도 활성 바탕 그대로다.
-const MENU_HOVER = "hover:bg-sidebar-accent/50 data-active:hover:bg-sidebar-accent";
+// 활성 메뉴는 연한 파랑 바탕(sidebar-accent) + 파란 글자다(2026-10-28 화면 개편). hover 는 파랑을 쓰지 않고 회색(accent)으로 칠한다.
+// 같은 파랑이면 마우스를 올린 메뉴가 지금 화면처럼 보여 선택이 둘로 보인다. 활성 메뉴는 마우스를 올려도 활성 바탕 그대로다.
+const MENU_HOVER =
+  "hover:bg-accent hover:text-foreground data-active:hover:bg-sidebar-accent data-active:hover:text-sidebar-accent-foreground";
 
-// 메뉴 아이콘은 글자보다 옅은 회색이고, 지금 화면과 마우스를 올린 메뉴만 글자색이다(2026-10-28 사용자 결정 A안).
+// 메뉴 아이콘은 글자보다 옅은 회색이고, 지금 화면은 파랑, 마우스를 올린 메뉴는 글자색이다.
 // 아이콘이 글자와 같은 검정이면 아이콘 줄이 글자보다 먼저 눈에 든다.
 const MENU_ICON =
-  "text-muted-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground";
+  "text-muted-foreground/70 group-hover/menu-button:text-foreground group-data-active/menu-button:text-sidebar-accent-foreground";
+
+// 묶음 안 메뉴는 펼친 사이드바에서 아이콘 없이 글자만 묶음 이름 선(묶음 아이콘 16px + 사이 8px)까지 들여 쓴다(2026-10-28 사용자 결정 시안 A).
+// 접은 사이드바(64px)에서는 부품의 p-2! 가 들여쓰기를 이기고, 아이콘만 혼자 보인다.
+// 줄 높이는 부품 기본값(32px) 그대로다. 36px 이면 1280×800 에서 메뉴 13개가 아래 고정 칸에 가려 사이드바 안 스크롤이 생긴다.
+const GROUPED_MENU = "pl-8";
+const GROUPED_MENU_ICON = "hidden group-data-[collapsible=icon]:block";
 
 // isAdmin 은 서비스 운영자인지다(조직 역할이 아니다). 링크를 숨기는 것은 화면 요구일 뿐이고,
 // 관리자 화면은 서버에서 다시 확인해 운영자가 아니면 404 다.
@@ -169,7 +175,7 @@ function AppSidebar({
   }, [currentGroupId, enterGroup]);
 
   return (
-    // 메뉴 글자는 본문 색이다. 묶음 이름만 회색으로 낮춘다(2026-10-26 사용자 결정).
+    // 메뉴 글자와 묶음 이름은 본문 색이다. 묶음 이름은 굵게 쓰고, 묶음 아이콘·접기 화살표만 회색이다(2026-10-28 시안 A).
     <Sidebar
       role="complementary"
       aria-label="앱 사이드바"
@@ -178,7 +184,7 @@ function AppSidebar({
       className="text-foreground"
     >
       <SidebarHeader>
-        {/* 왼쪽 끝을 아래 묶음 이름·메뉴 아이콘·받은 초대·아래 고정 칸 아이콘과 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다.
+        {/* 왼쪽 끝을 아래 묶음 아이콘·받은 초대·아래 고정 칸 아이콘과 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다.
             로고는 대시보드 링크다. 사이드바 메뉴처럼 보던 출처를 이어 간다. 조직 이름 줄은 2026-10-28 사용자 결정으로 뺐다.
             접으면 글자가 숨어 이름이 없어지므로 aria-label 을 단다. */}
         <div className="flex flex-col px-2 pt-1 pb-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
@@ -228,6 +234,7 @@ function AppSidebar({
                 <NavMenuItem
                   key={item.href}
                   item={item}
+                  grouped
                   href={navHrefOf(item.href, navOrigin, defaultOrigin)}
                   isActive={isCurrentItem(pathname, item, orgSlug)}
                   onNavigate={closeDrawer}
@@ -270,9 +277,9 @@ function NavOriginWatcher() {
   return null;
 }
 
-// 묶음 줄은 접기 버튼이다: 작은 회색 묶음 이름이고 접기 화살표는 오른쪽 끝에 둔다(2026-10-28 사용자 결정 A안, design.actibooky.com 사이드바 참고).
-// 펼친 묶음의 화살표는 마우스를 올리거나 키보드 초점이 올 때만 보이고, 접은 묶음의 화살표는 늘 보여 숨은 메뉴가 있음을 알린다.
-// 트리 세로선과 들여쓰기는 없다. 메뉴는 묶음 이름·아래 고정 칸과 같은 왼쪽 선에 서고, 묶음 사이는 16px 띄워 나눈다.
+// 묶음 줄은 접기 버튼이다: 회색 묶음 아이콘 + 굵은 묶음 이름 + 오른쪽 끝 접기 화살표(펼침 ⌄·접힘 ›, 늘 보임)다
+// (2026-10-28 사용자 결정 시안 A, granter User Guide 사이드바 참고). 트리 세로선은 없다. 메뉴는 묶음 이름 선까지 들여 쓰고(GROUPED_MENU),
+// 묶음 사이는 16px 띄워 나눈다. 2026-10-26 에 "펼친 상태 글자만"을 되돌린 적이 있어, 이번 모양은 묶음 줄에 아이콘을 둔다.
 // 접은 사이드바(64px)에서는 묶음 줄을 숨기고 묶음 사이에 짧은 선을 긋는다. 묶음 줄이 없어도 목록 이름(aria-label)은 남는다.
 function NavGroupSection({
   group,
@@ -311,16 +318,18 @@ function NavGroupSection({
           aria-expanded={isOpen}
           aria-controls={listId}
           onClick={onToggle}
-          className="group/group-row flex h-7 w-full items-center gap-2 rounded-md px-2 text-left type-caption font-medium text-muted-foreground ring-sidebar-ring outline-hidden hover:text-sidebar-accent-foreground focus-visible:ring-2"
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left type-label font-semibold text-foreground ring-sidebar-ring outline-hidden hover:bg-accent focus-visible:ring-2"
         >
+          <group.icon
+            aria-hidden
+            data-slot="sidebar-group-icon"
+            className="size-4 shrink-0 text-muted-foreground"
+          />
           <span className="min-w-0 flex-1 truncate">{group.label}</span>
           {isOpen ? (
-            <ChevronDownIcon
-              aria-hidden
-              className="size-3.5 shrink-0 opacity-0 group-hover/group-row:opacity-100 group-focus-visible/group-row:opacity-100"
-            />
+            <ChevronDownIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           ) : (
-            <ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />
+            <ChevronRightIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           )}
         </button>
       ) : null}
@@ -338,16 +347,18 @@ function NavGroupSection({
 }
 
 // 출시된 메뉴는 링크, 미출시 메뉴는 링크 없는 이름만 표시한다(초점도 받지 않는다).
-// 아이콘은 펼친 사이드바에서도 글자 왼쪽에 둔다(2026-10-26 사용자 결정: 트리·아이콘 되돌림). 색은 MENU_ICON 이다.
-// 활성 표시는 하나다: sidebar-accent 바탕 + 굵기 500(부품 기본값). 색만으로 알리지 않고 aria-current 를 단다.
+// 묶음 안 메뉴(grouped)는 펼친 사이드바에서 아이콘을 숨기고 들여 쓴다. 아래 고정 칸 메뉴는 아이콘을 글자 왼쪽에 둔다. 색은 MENU_ICON 이다.
+// 활성 표시는 하나다: 연한 파랑 바탕 + 파란 글자 + 굵기 600. 색만으로 알리지 않고 aria-current 를 단다.
 function NavMenuItem({
   item,
+  grouped = false,
   href = item.href,
   isActive,
   onNavigate,
   badge,
 }: {
   item: NavItem;
+  grouped?: boolean;
   // 링크 주소. 출처를 읽는 화면은 보던 출처(?origin=)를 붙인 주소다(nav-origin).
   href?: string;
   isActive: boolean;
@@ -360,9 +371,12 @@ function NavMenuItem({
         <SidebarMenuButton
           tooltip={item.label}
           render={<span />}
-          className="cursor-default text-muted-foreground hover:bg-transparent hover:text-muted-foreground active:bg-transparent active:text-muted-foreground"
+          className={cn(
+            "cursor-default text-muted-foreground hover:bg-transparent hover:text-muted-foreground active:bg-transparent active:text-muted-foreground",
+            grouped && GROUPED_MENU,
+          )}
         >
-          <item.icon aria-hidden />
+          <item.icon aria-hidden className={cn(grouped && GROUPED_MENU_ICON)} />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -373,7 +387,7 @@ function NavMenuItem({
       <SidebarMenuButton
         isActive={isActive}
         tooltip={item.label}
-        className={MENU_HOVER}
+        className={cn(MENU_HOVER, "data-active:font-semibold", grouped && GROUPED_MENU)}
         render={
           <Link
             href={href}
@@ -383,7 +397,7 @@ function NavMenuItem({
           />
         }
       >
-        <item.icon aria-hidden className={MENU_ICON} />
+        <item.icon aria-hidden className={cn(MENU_ICON, grouped && GROUPED_MENU_ICON)} />
         <span>{item.label}</span>
       </SidebarMenuButton>
       {badge !== undefined && badge >= 1 ? (
@@ -482,38 +496,26 @@ function UserMenu({
 // 상단바 상태 값. defaultOrigin 은 화면 기본 데이터 출처로, DEMO 배지가 주소에 ?origin= 이 없을 때 따른다.
 type ShellStatus = Omit<TopbarStatusProps, "demoIndicator"> & { defaultOrigin: ViewOrigin };
 
+// 화면 이름은 위 막대에 두지 않는다. 본문 머리의 경로·제목이 보인다(2026-10-28 화면 개편: 한 화면에 같은 이름이 세 번 나오지 않게).
 function AppTopBar({ current, status }: { current: CurrentOrg; status?: ShellStatus }) {
-  const pathname = usePathname();
   const { state } = useSidebar();
-  const screenLabel = screenLabelOf(pathname, current.slug);
 
   return (
     // 높이를 고정하지 않는다. 글자를 키우면 막대도 커진다.
     <header className="sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
       {/* -ml-2 는 버튼 안쪽 여백만큼 당겨 아이콘을 본문 선에 맞춘다. */}
       <SidebarTrigger className="-ml-2" />
-      {screenLabel ? (
-        <>
-          <Separator orientation="vertical" className="my-3.5" />
-          {/* 사이드바가 안 보이면(서랍, 접은 넓은 폭) 지금 조직을 알 수 없어 조직 이름을 앞에 붙인다 —
-              다른 조직에 작업을 잘못 추가하지 않게. */}
-          <p className="flex min-w-0 items-center gap-1.5 type-label">
-            <span
-              className={
-                state === "collapsed"
-                  ? "flex min-w-0 items-center gap-1.5"
-                  : "flex min-w-0 items-center gap-1.5 md:hidden"
-              }
-            >
-              <span className="min-w-0 truncate text-muted-foreground">{current.name}</span>
-              <span aria-hidden className="text-muted-foreground">
-                /
-              </span>
-            </span>
-            <span className="shrink-0 font-medium text-foreground">{screenLabel}</span>
-          </p>
-        </>
-      ) : null}
+      {/* 사이드바가 안 보이면(서랍 폭, 접은 넓은 폭) 지금 조직을 알 수 없어 조직 이름을 둔다 —
+          다른 조직에 작업을 잘못 추가하지 않게. 구분선은 조직 이름과 함께만 보인다. */}
+      <div
+        className={cn(
+          "flex min-w-0 items-center gap-2 self-stretch",
+          state === "expanded" && "md:hidden",
+        )}
+      >
+        <Separator orientation="vertical" className="my-3.5" />
+        <p className="min-w-0 truncate type-label text-muted-foreground">{current.name}</p>
+      </div>
       {status ? (
         <div className="ml-auto flex min-w-0 items-center">
           <TopbarStatus
