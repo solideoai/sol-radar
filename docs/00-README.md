@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - moc
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # SOL RADAR — 구현 문서 인덱스
@@ -93,6 +93,7 @@ updated: 2026-10-27
 | 외부 API 필드를 지어내지 않았다 | [[07-DATA-PIPELINE]] registry 절, [[16-DECISIONS]] 미결정 1번 | data.go.kr 명세 확인(2026-10-16), 실응답 확인(2026-10-19 C1, `fixtures/recorded/`, `docs/evidence/phase-0/external-deps-api-20261019.md`. 설계 가정과 다른 점은 같은 문서 §10) |
 | 모델 성능 주장은 평가셋 숫자로만 한다 | [[21-MODEL-TRAINING]] 지표·신뢰구간·오류 분석 | `docs/evidence/eval/` 리포트 |
 | 파싱에 실패한 내용을 AI가 추측해 채우지 않는다 | [[03-AI-PIPELINE]] 장애와 대체, [[15-DATA-CONTRACTS]] 인용 검증 | 파싱 실패 fixture 시험([[11-TESTING]]) |
+| 자격 갭 레이더는 새 판정 규칙이 아니라 규칙 엔진의 구조화 필드 판정을 묶는다. 정보 부족은 미보유가 아니다 | [[16-DECISIONS]] ADR-060, [[06-UI-UX]] §5.13 | `web/server/gaps/gaps.model.test.ts`(NAV-GAPS, [[11-TESTING]] §9) |
 
 ## Obsidian 규약
 
