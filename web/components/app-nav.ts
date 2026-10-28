@@ -1,6 +1,7 @@
 import {
   AwardIcon,
   BellIcon,
+  CalendarDaysIcon,
   DatabaseIcon,
   FileTextIcon,
   FolderKanbanIcon,
@@ -52,6 +53,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { href: "/bids", label: "입찰 공고", icon: FileTextIcon, status: "released" },
       { href: "/watchlist", label: "관심 공고", icon: StarIcon, status: "released" },
       { href: "/projects", label: "입찰 프로젝트", icon: FolderKanbanIcon, status: "released" },
+      { href: "/calendar", label: "입찰 일정", icon: CalendarDaysIcon, status: "released" },
       { href: "/notifications", label: "알림", icon: BellIcon, status: "released" },
     ],
   },
