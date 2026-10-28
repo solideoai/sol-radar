@@ -33,14 +33,16 @@ export function CollectPreview() {
   return (
     <>
       <PreviewHead>
+        {/* 거르기 칩: 고른 단계는 선택색(연한 파랑 바탕 + 파란 글자), 나머지는 회색 칩이다(2026-10-28 화면 개편). */}
+        {/* 앱의 Chip(13px)이 아니라 판과 같은 15px 눈금으로 같은 색 규칙을 따른다 — 조각 글자를 판보다 작게 두지 않는다. */}
         {STAGES.map((stage) => (
           <span
             key={stage}
             className={cn(
-              "rounded-md border bg-background px-2.5 py-0.5 type-label-lg font-semibold",
+              "rounded-md px-2.5 py-0.5 type-label-lg",
               stage === "입찰공고"
-                ? "border-brand text-brand"
-                : "border-input text-muted-foreground",
+                ? "bg-selected font-semibold text-selected-foreground"
+                : "bg-secondary text-secondary-foreground",
             )}
           >
             {stage}

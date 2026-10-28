@@ -15,14 +15,24 @@ const firstCopyItems = (page: Page, name: string) =>
 const secondCopyOf = (page: Page, name: string) =>
   regionOf(page, name).locator('ul[aria-hidden="true"]');
 
-test("솔리데오 수행 서비스 줄에 서비스 17개가 사이트 순서대로 있다", async ({ page }) => {
+test("솔리데오 수행 서비스 줄에 서비스 17개가 사이트 순서대로 로고로만 있다", async ({ page }) => {
   await page.goto("/");
+  const region = regionOf(page, SERVICES_TITLE);
   const items = firstCopyItems(page, SERVICES_TITLE);
   await expect(items).toHaveCount(SOLIDEO_SERVICES.length);
   expect(SOLIDEO_SERVICES).toHaveLength(17);
-  await expect(items.first()).toHaveText("정부24");
-  // 그림은 옆 이름 글자와 같은 뜻이라 alt 가 비어 있다(역할 img 가 아니다). 원본 경로로 바로 받는지 본다(next/image 최적화 경로는 운영에서 404).
-  await expect(items.first().locator("img")).toHaveAttribute("src", /^\/landing\/services\//);
+  // 카드에는 글자 없이 로고만 있고, 이름은 그림 alt 로 읽힌다(2026-10-28 사용자 요청).
+  const logos = region.locator('ul:not([aria-hidden="true"])').getByRole("img");
+  await expect(logos).toHaveCount(17);
+  await expect(logos.first()).toHaveAttribute("alt", "정부24");
+  // 둘째 사본은 화면 낭독기에서 숨어 줄 전체에서도 이름 있는 그림이 17개다(34개가 아니다).
+  await expect(region.getByRole("img")).toHaveCount(17);
+  const visibleText = await items.evaluateAll((elements) =>
+    elements.map((element) => (element as HTMLElement).innerText.trim()).filter(Boolean),
+  );
+  expect(visibleText).toEqual([]);
+  // 원본 경로로 바로 받는지 본다(next/image 최적화 경로는 운영에서 404).
+  await expect(logos.first()).toHaveAttribute("src", /^\/landing\/services\//);
 });
 
 test("데이터 출처 줄은 기관마다 한 칸이고, 수집하지 않는 기관에만 연결 예정 꼬리표가 있다", async ({
