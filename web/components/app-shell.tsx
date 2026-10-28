@@ -173,12 +173,18 @@ function AppSidebar({
       className="text-foreground"
     >
       <SidebarHeader>
-        {/* 왼쪽 끝을 아래 묶음 화살표·받은 초대·아래 고정 칸 아이콘과 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다. */}
-        <div className="flex flex-col gap-1 px-2 pt-1 pb-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
-          <Logo wordmarkClassName="group-data-[collapsible=icon]:hidden" />
-          <p className="truncate type-caption text-muted-foreground group-data-[collapsible=icon]:hidden">
-            {workspace.current.name}
-          </p>
+        {/* 왼쪽 끝을 아래 묶음 화살표·받은 초대·아래 고정 칸 아이콘과 맞춘다. 접으면(64px) 로고 마크만 가운데에 남는다.
+            로고는 대시보드 링크다. 사이드바 메뉴처럼 보던 출처를 이어 간다. 조직 이름 줄은 2026-10-28 사용자 결정으로 뺐다.
+            접으면 글자가 숨어 이름이 없어지므로 aria-label 을 단다. */}
+        <div className="flex flex-col px-2 pt-1 pb-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0">
+          <Link
+            href={navHrefOf("/dashboard", navOrigin, defaultOrigin)}
+            aria-label="대시보드로 이동"
+            onClick={closeDrawer}
+            className="flex min-w-0 rounded-md ring-sidebar-ring outline-hidden focus-visible:ring-2"
+          >
+            <Logo wordmarkClassName="group-data-[collapsible=icon]:hidden" />
+          </Link>
         </div>
         {workspace.pendingInvitationCount > 0 ? (
           <SidebarMenu className="group-data-[collapsible=icon]:items-center">

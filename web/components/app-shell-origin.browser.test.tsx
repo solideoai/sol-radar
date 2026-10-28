@@ -77,6 +77,9 @@ describe("사이드바 출처 이어 가기", () => {
 
     show("/bids/6b1d6d1e", "");
     await expect.element(menuLink("대시보드")).toHaveAttribute("href", "/dashboard?origin=demo");
+    await expect
+      .element(page.getByRole("link", { name: "대시보드로 이동" }))
+      .toHaveAttribute("href", "/dashboard?origin=demo");
 
     show("/bids", "");
     await expect.element(menuLink("대시보드")).toHaveAttribute("href", "/dashboard");
