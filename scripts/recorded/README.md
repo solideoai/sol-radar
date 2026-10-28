@@ -94,6 +94,7 @@ node --env-file=/Users/leegwanghui/dev/hackathon/sol-radar/infra/.env scripts/re
 - 출력은 파일 경로·상태 코드·크기·항목 수·가린 필드뿐이다. 키·요청 URL·응답 본문은 출력하지 않는다. 요청 예외도 이름만 남긴다.
 - `www.bizinfo.go.kr`·`mss.go.kr`의 https 만 부른다. 리다이렉트는 따르지 않고(3xx 면 멈춘다), 2 MiB·10초 상한이다.
 - 기업마당 요청 값(분야 `02`, 최대 100건)은 `infra/sources/program-notices.yaml`의 기본값과 같다.
+- 기업마당 첫 녹음: `fixtures/recorded/program-notices/bizinfo/api.20261028.masked.json`. 2026-10-28 16:05:18 KST 회사 서버 일회용 컨테이너에서 1회 불렀다(사용자 승인). HTTP 200, 100건(분야 02 전체 279건 중 최신 100건). 회사 원본 파일 sha256 `63c5dd87fc3dfc5e4add194acc30af9f6d505125f3a25b705dc772fbcd448fa9`, 저장소 사본은 Prettier 서식만 맞췄다(본문 `body` 문자열은 그대로, sha256 `a11f718421b5baa7ef9b8d4aee31b98523fcb558797132f45d064b1a2578aff9`). `rawSha256`(가리기 전 본문) `4a14443430a69bd24cf855f144bea09ddd8e8d4c92e249d7f62c5febb68c00a7`. 명세와 다른 실제 모양(해시태그 칸 `hashtags`)은 `docs/evidence/program-notices/20261028-bizinfo-schedule.md`에 있다.
 
 ## LH 입찰공고 녹음 (15159012, 2026-10-27)
 

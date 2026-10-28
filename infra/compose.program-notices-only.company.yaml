@@ -1,0 +1,58 @@
+# 부처 공고 전용 Worker(회사 서버, 기업마당 지원사업 공고 정기 수집 매일 KST 00·03·…·21시 정각).
+# 실행서: infra/company/README.md "부처 공고 전용 Worker". 별도 운영 승인 후에만 실행한다.
+# 기존 sol-radar-gateway 프로젝트·Nginx·Redis·ingest·analysis·documents·notify 전용 Worker 를 건드리지 않는다.
+# down·--remove-orphans 를 쓰지 않는다. redis·redis-api·ai-gateway 는 여기 정의하지 않는다. 기존 Redis 의 network(redis_default)에만 붙는다.
+# 일정은 자기 큐(program-notices)의 bizinfo-scheduled 하나다. ingest 큐·일정·quota 키는 만들거나 지우지 않는다(web/worker/program-notices-only-main.ts 머리 주석).
+# 전체 Worker(worker/main.ts)를 같은 DB 에서 함께 띄우지 않는다. 그쪽은 60분마다 기업마당·중기부를 따로 부른다(저장은 upsert 라 겹치지 않지만 호출이 늘어난다).
+name: sol-radar-program-notices
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  program-notices-worker:
+    # 이미지 이름을 따로 둔다. 회사 analysis 전용 Worker 가 쓰는 sol-radar-ai-worker-worker:latest 를 빌드하거나 덮지 않는다.
+    # 태그는 배포할 git SHA 로 고정한다.
+    image: sol-radar-program-notices-worker:${PROGRAM_NOTICES_WORKER_TAG:?배포할 git SHA}
+    build:
+      context: ../web
+      dockerfile: worker/Dockerfile
+    init: true
+    # BIZINFO_API_KEY 는 이 파일에서 읽는다. 값을 출력하지 않는다.
+    env_file: .env.worker.local
+    command:
+      [
+        "node",
+        "--conditions=react-server",
+        "--import",
+        "tsx",
+        "worker/program-notices-only-main.ts",
+      ]
+    environment:
+      # env_file 보다 우선한다. live 가 아니면 진입점이 Redis 연결 전에 exit 1 로 멈춘다.
+      SOL_RUN_MODE: "live"
+      # 정기 수집 일정은 코드에 고정했다(KST 3시간 정각). .env.worker.local 의 PROGRAM_NOTICES_INTERVAL_MINUTES 는 전체 Worker 용이라 읽지 않는다.
+      # 이미지 작업 디렉터리는 /app 이라 기본 경로(/infra/sources/…)에는 파일이 없다. 아래 볼륨 경로를 직접 준다.
+      PROGRAM_NOTICES_CONFIG_FILE: "/srv/sol-radar/infra/sources/program-notices.yaml"
+    volumes:
+      - ../infra/sources:/srv/sol-radar/infra/sources:ro
+    networks:
+      - redis-existing
+    restart: on-failure:3
+    # close 는 진행 중 회차(기업마당 요청 1회 + 재시도 최대 3회, 회당 10초 상한)가 끝나기를 기다린다.
+    stop_grace_period: 90s
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('fs').statSync(process.env.WORKER_HEARTBEAT_FILE||'/tmp/sol-worker-heartbeat');process.exit(Date.now()-s.mtimeMs<30000?0:1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+networks:
+  redis-existing:
+    external: true
+    name: redis_default

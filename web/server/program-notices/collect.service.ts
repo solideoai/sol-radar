@@ -1,7 +1,8 @@
 import "server-only";
+import { withRetry, type ConnectorFailure, type RetryDeps } from "@/server/ingestion";
 import { buildBizinfoUrl, parseBizinfoBody, type ParseResult } from "./bizinfo";
 import type { ProgramNoticesConfig } from "./config";
-import { fetchProgramSource, type FetchLike } from "./http";
+import { fetchProgramSource, type FetchLike, type FetchProgramResult } from "./http";
 import { parseMssRss } from "./mss-rss";
 import {
   PROGRAM_NOTICE_SOURCES,
@@ -17,6 +18,7 @@ import { loadProgramRecordings } from "./recording";
 // ── 부처 공고 수집 회차: 소스마다 가져오기 → 해석 → 저장 → run 기록 ──
 // 소스끼리는 서로 막지 않는다. 한 소스가 어디서 던져도 그 소스만 FAILED 로 남고 다음 소스로 간다(스펙 §5).
 // live 만 실호출한다. mock·fixture 는 녹음을 재생하고 네트워크를 부르지 않는다(스펙 §7).
+// live 요청은 수집(ingestion/retry.ts)과 같은 재시도 규칙을 쓴다: 시간 초과·429·5xx 만 지수 backoff 로 최대 3번 더 부른다.
 // 해석 실패·0건이면 저장하지 않는다. 마지막으로 성공한 데이터가 그대로 보인다.
 // 로그·run 에는 상태와 건수·오류 코드만 남긴다. 요청 URL·키·응답 본문·예외 메시지는 남기지 않는다.
 
@@ -31,6 +33,9 @@ export type RoundDeps = {
   recordingsDir: string;
   now: () => Date;
   log: (line: string) => void;
+  retry: RetryDeps;
+  /** 주어지면 이 소스만 돈다(회사 전용 Worker 는 기업마당만). 없으면 PROGRAM_NOTICE_SOURCES 전부 */
+  sources?: readonly ProgramNoticeSource[];
 };
 
 export type { ProgramRun };
@@ -93,6 +98,15 @@ async function attempt<T>(
   }
 }
 
+type FetchFailure = Extract<FetchProgramResult, { ok: false }>;
+
+/** 재시도 판정용 실패 값. 판정(isRetryableFailure)은 kind·status 만 본다. detail 에는 오류 코드만 둔다 */
+const failureOf = ({ errorCode, status }: FetchFailure): ConnectorFailure => ({
+  kind: errorCode === "TIMEOUT" ? "TIMEOUT" : status === 429 ? "RATE_LIMITED" : "HTTP_ERROR",
+  ...(status === undefined ? {} : { status }),
+  detail: errorCode,
+});
+
 type Fetched =
   | { ok: true; body: string; fetchedAt: string }
   | {
@@ -127,13 +141,26 @@ async function bodyOf(
   if (!request.ok) return { ok: false, status: "SKIPPED", errorCode: "KEY_MISSING" };
   const fetchedAt = deps.now().toISOString();
   const response = await attempt(
-    () => fetchProgramSource(request.url, { fetch: deps.fetch, secrets: request.secrets }),
+    () =>
+      withRetry(async () => {
+        const result = await fetchProgramSource(request.url, {
+          fetch: deps.fetch,
+          secrets: request.secrets,
+        });
+        return result.ok
+          ? { ok: true as const, result }
+          : { ok: false as const, failure: failureOf(result), result };
+      }, deps.retry),
     "HTTP_ERROR",
   );
   if (!response.ok) return { ok: false, status: "FAILED", errorCode: response.errorCode };
-  if (!response.value.ok)
-    return { ok: false, status: "FAILED", errorCode: response.value.errorCode };
-  return { ok: true, body: response.value.body, fetchedAt };
+  const { outcome, retried } = response.value;
+  if (retried > 0) {
+    deps.log(JSON.stringify({ event: "program_notices.retried", source, retried }));
+  }
+  if (!outcome.result.ok)
+    return { ok: false, status: "FAILED", errorCode: outcome.result.errorCode };
+  return { ok: true, body: outcome.result.body, fetchedAt };
 }
 
 /** 같은 회차 안에서 같은 공고 id 가 두 번 오면 뒤의 것을 남긴다(한 upsert 문장 안의 키 중복은 DB 가 거부한다). */
@@ -194,7 +221,7 @@ async function collectSource(
 /** 한 회차. 켜 둔 소스마다 run 하나를 기록하고 돌려준다. 던지지 않는다. */
 export async function runProgramNoticeRound(deps: RoundDeps): Promise<ProgramRun[]> {
   const runs: ProgramRun[] = [];
-  for (const source of PROGRAM_NOTICE_SOURCES) {
+  for (const source of deps.sources ?? PROGRAM_NOTICE_SOURCES) {
     // collectSource 는 단계마다 예외를 오류 코드로 바꾼다. 그 밖(시계 등)에서 던지면 이 소스만 건너뛰고 한 줄 남긴다.
     const outcome = await attempt(() => collectSource(source, deps), "HTTP_ERROR");
     if (!outcome.ok) {

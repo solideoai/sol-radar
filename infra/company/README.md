@@ -611,3 +611,114 @@ docker compose -f infra/compose.notify-only.company.yaml stop notify-worker
 - 전체 Worker(`worker/main.ts`)를 같은 Supabase에 대고 함께 기동
 - `NOTIFY_KAKAO_PROVIDER=mock`으로 기동
 - `outbox_events`·`notifications`·`kakao_send_claims`의 일괄 `update`·`delete`(필요하면 범위를 정해 따로 승인받는다)
+
+## 10. 부처 공고(기업마당) 전용 Worker
+
+이 절은 별도 운영 승인 후 실행할 절차다. 회사 기동 성공 기록이 아니다. **[승인]** 표시 단계는 사용자 승인 뒤에만 실행한다.
+
+목적: 기업마당 지원사업정보 API(`https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do`)를 나라장터 수집과 같은 시각(매일 KST 00·03·06·09·12·15·18·21시 정각)에 1회 불러 `program_notices`에 저장한다. 부처 공고 주기 수집(`programNoticesWorkerRegistration`, 60분)은 전체 Worker(`web/worker/main.ts`)에만 있어 회사에서는 돌지 않았다(2026-10-28 운영 `program_notices`·`program_notice_runs` 0행). Compose 파일은 `infra/compose.program-notices-only.company.yaml`(프로젝트 `sol-radar-program-notices`, 서비스 `program-notices-worker` 하나), 진입점은 `web/worker/program-notices-only-main.ts`다.
+
+- 소스는 기업마당 하나다(사용자 결정 2026-10-28). 중기부 사업공고 RSS는 부르지 않는다. 요청 값은 `infra/sources/program-notices.yaml`이다(분야 `02` 기술, 최대 100건, JSON). 회차마다 요청 1회이고, 시간 초과·429·5xx만 수집과 같은 규칙(`web/server/ingestion/retry.ts`, 1·2·4초 + jitter)으로 최대 3번 더 부른다.
+- 일정은 자기 큐 `program-notices`의 Job Scheduler `bizinfo-scheduled` 하나다(`Asia/Seoul` cron `0 */3 * * *`). 기동 즉시 부르지 않고 다음 정각부터 돈다. ingest 큐와 그 일정(`g2b-scheduled`·`<key>-scheduled`)·quota 키는 만들거나 지우지 않는다. 그래서 ingest 전용 Worker를 다시 만들지 않고 따로 켜고 끈다.
+- 저장은 `(source, source_notice_id)` upsert다. 같은 공고를 다시 받으면 그 행을 덮어쓰고 행 수는 늘지 않는다. 해석에 실패하거나 0건이면 저장하지 않아 마지막으로 받은 데이터가 그대로 보인다. 회차마다 `program_notice_runs`에 한 행(`SUCCEEDED`·`PARTIAL`·`FAILED`·`SKIPPED`와 오류 코드)을 남긴다. 회차가 `FAILED`여도 일정은 남고 다음 정각에 다시 돈다.
+- 로그에는 상태·건수·오류 코드만 남는다. `BIZINFO_API_KEY` 값·요청 URL(`crtfcKey` 포함)·응답 본문은 남지 않는다.
+- live에서만 뜬다. `SOL_RUN_MODE`가 live가 아니거나, `infra/.env.worker.local`의 `BIZINFO_API_KEY`가 비었거나, 설정 파일이 틀리면 `--check`·기동이 env·경로 이름만 출력하고 exit 1이다.
+- `infra/.env.worker.local`은 §2의 Worker 파일을 같이 쓴다(`REDIS_URL`·`NEXT_PUBLIC_SUPABASE_URL`·service role 키·`BIZINFO_API_KEY`). 그 파일의 `PROGRAM_NOTICES_INTERVAL_MINUTES`는 전체 Worker용이라 이 Worker는 읽지 않는다.
+- Redis는 BullMQ 큐 하나(`bull:program-notices:*`)만 쓴다. `redis_default` network에 붙는다. 호스트 포트는 열지 않는다.
+- 이미지는 `sol-radar-program-notices-worker:<git SHA>`다. `sol-radar-ai-worker-worker:latest`와 ingest 이미지를 빌드하거나 덮지 않는다. Compose의 모든 명령에 `PROGRAM_NOTICES_WORKER_TAG`가 필요하다.
+- **전체 Worker(`worker/main.ts`)를 같은 Supabase에 대고 함께 띄우지 않는다.** 그쪽은 기동 즉시와 60분마다 기업마당·중기부를 따로 부른다. 저장은 upsert라 겹치지 않지만 호출이 늘어난다.
+- 기동·재생성은 다른 Worker와 같이 KST 정각 +15분 ~ 다음 정각 −30분에만 한다.
+
+### 10.1 D0 읽기 확인 (운영 영향 없음)
+
+회사 저장소 HEAD가 배포할 SHA인지 확인한다. HEAD를 옮기는 것(ff)은 별도 승인이다. 이 절의 코드는 `infra/sources/`를 바꾸지 않아 실행 중인 ingest Worker의 registry 마운트에 영향이 없다.
+
+```sql
+select source, count(*), max(fetched_at) from public.program_notices group by 1;
+select source, run_mode, status, error_code, fetched_count, saved_count, started_at
+from public.program_notice_runs order by started_at desc limit 5;
+```
+
+### 10.2 D1 이미지 빌드 (외부 호출 없음)
+
+```bash
+export PROGRAM_NOTICES_WORKER_TAG="$(git -C . rev-parse --short=12 HEAD)"
+docker compose -f infra/compose.program-notices-only.company.yaml config --quiet
+docker compose -f infra/compose.program-notices-only.company.yaml build program-notices-worker
+docker image ls sol-radar-program-notices-worker
+```
+
+새 이미지 `sol-radar-program-notices-worker:$PROGRAM_NOTICES_WORKER_TAG`만 생긴다. 실행 중 컨테이너는 바뀌지 않는다.
+
+### 10.3 D2 설정 확인 `--check`·`--status` (외부 호출 없음)
+
+```bash
+docker compose -f infra/compose.program-notices-only.company.yaml run --rm --no-deps program-notices-worker node --conditions=react-server --import tsx worker/program-notices-only-main.ts --check
+```
+
+Redis·Supabase·기업마당에 접속하지 않는다. 통과하면 다음 모양이다.
+
+```text
+부처 공고 설정: /srv/sol-radar/infra/sources/program-notices.yaml
+기업마당: 분야 02 · 최대 100건 · BIZINFO_API_KEY SET
+정기 수집: 매일 KST 00·03·06·09·12·15·18·21시 정각(Asia/Seoul), 큐 program-notices, 일정 bizinfo-scheduled
+program-notices-only worker 확인 통과: SOL_RUN_MODE=live
+```
+
+```bash
+docker compose -f infra/compose.program-notices-only.company.yaml run --rm --no-deps program-notices-worker node --conditions=react-server --import tsx worker/program-notices-only-main.ts --status
+```
+
+Redis 읽기만 한다. 처음에는 `Job Scheduler 0개`다.
+
+### 10.4 D3 1회 수집 `--once` — **[승인] 기업마당 실호출 1회**
+
+```bash
+docker compose -f infra/compose.program-notices-only.company.yaml run --rm --no-deps program-notices-worker node --conditions=react-server --import tsx worker/program-notices-only-main.ts --once
+```
+
+일정을 만들지 않고 이 프로세스에서 기업마당을 1회 불러(실패하면 재시도 최대 3회) 운영 `program_notices`에 저장한다. 결과 한 줄이 다음 모양이면 exit 0이다. `FAILED`·`SKIPPED`면 exit 1이고 멈춘 뒤 보고한다.
+
+```text
+program-notices-only 1회 수집 결과: source=bizinfo status=SUCCEEDED fetched=100 saved=100 dropped=0 errorCode=-
+```
+
+§10.1 SQL로 `bizinfo` 행 수(100)와 `program_notice_runs`의 `LIVE`·`SUCCEEDED` 한 행을 확인한다. 화면은 `/bids`의 "부처 지원사업" 탭이다.
+
+### 10.5 D4 기동 — **[승인] 정기 수집 시작**
+
+```bash
+docker compose -f infra/compose.program-notices-only.company.yaml up -d --no-deps program-notices-worker
+```
+
+### 10.6 D5 확인 (운영 영향 없음)
+
+```bash
+docker compose -f infra/compose.program-notices-only.company.yaml ps program-notices-worker
+docker compose -f infra/compose.program-notices-only.company.yaml logs --tail 50 program-notices-worker
+docker compose -f infra/compose.program-notices-only.company.yaml run --rm --no-deps program-notices-worker node --conditions=react-server --import tsx worker/program-notices-only-main.ts --status
+```
+
+- 기동 로그에 `bizinfo-scheduled 일정: … 다음 정각 <ISO> 부터 돈다`와 `program-notices-only worker started: SOL_RUN_MODE=live`가 보인다.
+- `--status`에 `Job Scheduler 1개`, `- bizinfo-scheduled 0 */3 * * * Asia/Seoul 다음 <다음 정각>`이 보인다. 다시 만들어도 1개다.
+- 다음 정각 뒤 로그에 `{"event":"program_notices.round","source":"bizinfo","runMode":"LIVE","status":"SUCCEEDED",…}` 한 줄이 남는다. 재시도했으면 `{"event":"program_notices.retried",…}`가 앞에 남는다. §10.1 SQL로 run 행을 확인한다.
+- ingest 쪽은 바뀌지 않는다. `ingest-only-main.ts --status`(§7)의 Job Scheduler 수가 이 기동 전과 같아야 한다.
+
+### 10.7 되돌리기
+
+```bash
+export PROGRAM_NOTICES_WORKER_TAG=<기동한 SHA>   # docker ps 의 이미지 태그
+docker compose -f infra/compose.program-notices-only.company.yaml stop program-notices-worker
+docker compose -f infra/compose.program-notices-only.company.yaml run --rm --no-deps program-notices-worker node --conditions=react-server --import tsx worker/program-notices-only-main.ts --unschedule
+docker compose -f infra/compose.program-notices-only.company.yaml run --rm --no-deps program-notices-worker node --conditions=react-server --import tsx worker/program-notices-only-main.ts --status
+```
+
+순서를 지킨다. 먼저 멈추고 나서 일정을 지운다. `--unschedule`은 `program-notices` 큐의 `bizinfo-scheduled`만 지운다. 마지막 `--status`에서 `Job Scheduler 0개`를 확인한다. 저장한 `program_notices`·`program_notice_runs` 행은 지우지 않는다. 이전 SHA 이미지는 남겨 둔다.
+
+### 10.8 쓰지 않는 명령
+
+§7.11과 같다. 그리고 다음을 더한다.
+
+- 전체 Worker(`worker/main.ts`)를 같은 Supabase에 대고 함께 기동
+- ingest 전용 Worker(`sol-radar-ingest`)의 `up`·`--force-recreate`·`--unschedule`(이 Worker 반영에는 필요 없다)
+- `program_notices`·`program_notice_runs`의 일괄 `update`·`delete`(필요하면 범위를 정해 따로 승인받는다)
