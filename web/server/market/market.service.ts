@@ -35,7 +35,9 @@ export type MarketWindow = {
   periodStartDay: number;
   /** 주별 추이 첫 주 월요일(KST 날짜 번호) */
   trendStartDay: number;
-  /** DB 에서 읽기 시작할 게시 시각(두 범위 중 이른 쪽의 00:00 KST) */
+  /** 읽는 범위 첫날(KST 날짜 번호). 기간과 13주 중 이른 쪽 */
+  readFromDay: number;
+  /** DB 에서 읽기 시작할 게시 시각(readFromDay 00:00 KST) */
   readFrom: string;
 };
 
@@ -43,10 +45,12 @@ export function marketWindow(now: Date, period: MarketPeriod): MarketWindow {
   const today = kstDay(now.getTime());
   const periodStartDay = today - (period - 1);
   const trendStartDay = today - weekdayOf(today) - 7 * (MARKET_TREND_WEEKS - 1);
+  const readFromDay = Math.min(periodStartDay, trendStartDay);
   return {
     periodStartDay,
     trendStartDay,
-    readFrom: new Date(kstMidnight(Math.min(periodStartDay, trendStartDay))).toISOString(),
+    readFromDay,
+    readFrom: new Date(kstMidnight(readFromDay)).toISOString(),
   };
 }
 
@@ -87,6 +91,7 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
   const nowMs = now.getTime();
   const window = marketWindow(now, query.period);
   const periodStartMs = kstMidnight(window.periodStartDay);
+  const upcomingFromMs = kstMidnight(window.trendStartDay);
   const relevant = (row: MarketRow) =>
     query.relevance === "all" || RELEVANT_STATES.has(row.relevanceState);
   // 게시일이 없는 공고는 기간·주에 놓을 수 없어 뺀다(Date.parse 가 NaN 이면 비교가 거짓이다).
@@ -124,8 +129,11 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
     if (index >= 0 && week) week.count += 1;
   }
 
+  // 마감 다가오는 큰 사업은 기간 선택과 무관하게 주별 추이와 같은 13주(첫 주 월요일 00:00 KST 이후 게시)에서 고른다.
+  // 읽는 범위(readFrom)는 90일 기간이 13주보다 길 때 더 이르지만, 그 앞쪽은 쓰지 않아 화면 날짜가 기간에 따라 바뀌지 않는다.
   const upcomingUntil = nowMs + MARKET_UPCOMING_DAYS * DAY_MS;
-  const upcoming = period
+  const upcoming = scoped
+    .filter((row) => Date.parse(row.publishedAt ?? "") >= upcomingFromMs)
     .flatMap((row) => {
       const budget = budgetOf(row);
       const deadline = row.deadlineAt === null ? NaN : Date.parse(row.deadlineAt);
@@ -152,6 +160,7 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
     asOf: now.toISOString(),
     query,
     periodStartDate: kstDateText(window.periodStartDay),
+    upcomingFromDate: kstDateText(window.trendStartDay),
     totals: {
       notices: period.length,
       knownBudgetKrw: knownBudget.toString(),

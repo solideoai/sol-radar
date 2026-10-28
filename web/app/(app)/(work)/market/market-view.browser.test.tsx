@@ -33,6 +33,7 @@ const OVERVIEW: MarketOverview = {
   asOf: NOW.toISOString(),
   query: { period: 90, relevance: "relevant" },
   periodStartDate: "2026-07-31",
+  upcomingFromDate: "2026-08-03",
   totals: {
     notices: 412,
     knownBudgetKrw: "128450000000",
@@ -189,6 +190,10 @@ describe("발주 현황 화면", () => {
     const links = host.querySelectorAll<HTMLAnchorElement>("tbody a");
     expect(links).toHaveLength(10);
     expect(links[0]?.getAttribute("href")).toBe(`/bids/${id(1)}?origin=live`);
+    // 고르는 범위(읽은 범위 첫날 이후 게시분)를 설명에 그대로 적는다
+    await expect
+      .element(page.getByText("기간 선택과 별개로 8. 3. 이후 게시분 중", { exact: false }))
+      .toBeVisible();
 
     // 지금 거르기는 주소 링크의 aria-current 로 보인다
     expect(
