@@ -344,6 +344,8 @@ sources:
       "sampleResponses": [],
       "lastVerifiedAt": "2026-10-21",
     }
+  # KEPCO quota.daily 100 은 공급자 한도가 아니라 자체 상한이다(사용자 결정 2026-10-28). 공급자 한도는 확인하지 않았다.
+  # 정기 수집은 3시간마다 1회(24시간 창 하나 = 90일 조각 하나) 부른다. 2026-10-28 첫 실호출 1회로 응답을 확인했다.
   - {
       "key": "kepco-ebid-contract",
       "displayName": "KEPCO 전자입찰계약정보",
@@ -351,9 +353,9 @@ sources:
       "sourceFamily": "KEPCO",
       "serviceId": "15148223",
       "serviceKeyEnv": "KEPCO_EBID_CONTRACT_SERVICE_KEY",
-      "approvalStatus": "NOT_REQUESTED",
-      "enabled": false,
-      "verification": "NOT_VERIFIED",
+      "approvalStatus": "APPROVED",
+      "enabled": true,
+      "verification": "VERIFIED",
       "keyIssuance": "ISSUED",
       "endpoint":
         {
@@ -361,7 +363,7 @@ sources:
           "operations": ["electContract"],
         },
       "method": "GET",
-      "quota": { "daily": null, "tps": null },
+      "quota": { "daily": 100, "tps": null },
       "fieldMapping":
         {
           "no": "noticeId (companyId namespace)",
@@ -369,11 +371,14 @@ sources:
           "companyId": "providerCompanyId",
           "progressState": "providerStatus (explicit verified mapping)",
           "noticeDate": "publishedAt",
-          "endDatetime": "biddingEndsAt",
+          "endDatetime": "deadlineAt·sourceMetadata.biddingEndsAt (시각이 있을 때만)",
           "bidAttendReqCloseDatetime": "applicationDeadlineAt",
+          "presumedPrice": "budgetKrw (추정가격, 부가세 별도, 원 단위. 2026-10-28 실응답 확인)",
+          "presumedAmount/estimatedPriceBasicAmount": "sourceMetadata.amounts (원 단위, 부가세 포함 여부 미확인)",
+          "filenlink1-5": "attachments (http://srm.kepco.net 은 허용 목록 밖이라 막힘)",
         },
       "changeNoticeUrl": "https://www.data.go.kr/data/15148223/openapi.do",
       "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
-      "sampleResponses": [],
-      "lastVerifiedAt": "2026-10-21",
+      "sampleResponses": ["fixtures/recorded/15148223/electContract.20261027.masked.json"],
+      "lastVerifiedAt": "2026-10-28",
     }

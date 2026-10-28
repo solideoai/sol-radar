@@ -297,6 +297,8 @@ describe("ingest 전용 worker 기동", () => {
     approvalStatus: "APPROVED",
     fieldMapping: { title: "title" },
   };
+  // 한도 미정은 사본에서 KEPCO quota.daily 를 비워 만든다(실제 registry 는 자체 상한 100)
+  const UNSET_QUOTA = { quota: { daily: null, tps: null } };
   const isolationEnv = async () => {
     const doc = registryDoc.parse(parseYaml(await readFile(REGISTRY_FILE, "utf8")));
     const enabled = new Set([
@@ -312,7 +314,11 @@ describe("ingest 전용 worker 기동", () => {
       stringifyYaml({
         ...doc,
         sources: doc.sources.map((entry) =>
-          enabled.has(entry.key) ? { ...entry, ...ENABLED } : entry,
+          !enabled.has(entry.key)
+            ? entry
+            : entry.key === "kepco-ebid-contract"
+              ? { ...entry, ...ENABLED, ...UNSET_QUOTA }
+              : { ...entry, ...ENABLED },
         ),
       }),
     );
@@ -322,7 +328,7 @@ describe("ingest 전용 worker 기동", () => {
         ...liveEnv,
         SOURCES_REGISTRY_FILE: file,
         LH_BID_NOTICE_SERVICE_KEY: "lh-test-key-VALUE",
-        // URL 인코딩이 깨진 값(형식 오류). K-water 키는 없다. KEPCO 는 registry quota.daily 가 null 이다.
+        // URL 인코딩이 깨진 값(형식 오류). K-water 키는 없다. KEPCO 는 사본의 quota.daily 가 null 이다.
         LH_PRE_SPECIFICATION_SERVICE_KEY: "%E0%A4%A",
       },
     };

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   createExternalApiConnector,
@@ -50,6 +51,8 @@ describe("external adapters", () => {
       },
     });
     expect(result.warnings.map(({ code }) => code)).toContain("ATTACHMENT_URL_BLOCKED");
+    // 15자리를 넘는 추정가격은 원 단위로 보지 않는다. 원문만 남기고 예산은 비운다
+    expect(result.warnings.map(({ code }) => code)).toContain("BUDGET_UNPARSED");
     const other = normalizeExternalNotice(
       "kepco-ebid-contract",
       { ...kepcoItem, CompanyID: "COM02" },
@@ -303,5 +306,59 @@ describe("external adapters", () => {
     expect(first.ok && first.page.capture?.partitionKey).not.toBe(
       second.ok && second.page.capture?.partitionKey,
     );
+  });
+});
+
+// 2026-10-28 10:46 KST 실호출 녹음(가린 실응답, 공고일 2026-10-27 하루·회사 구분 없음). 값을 고치거나 지어 넣지 않는다.
+const kepcoRecording = JSON.parse(
+  readFileSync(
+    new URL(
+      "../../../fixtures/recorded/15148223/electContract.20261027.masked.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+) as { fetchedAt: string; maskedBody: string };
+
+describe("KEPCO 실응답 녹음 재생", () => {
+  it("71건 모두 격리 없이 정규화하고 회사·공고번호·마감·추정가격(부가세 별도)을 원문대로 옮긴다", () => {
+    const parsed = parseExternalPayload(kepcoRecording.maskedBody);
+    if (!parsed.ok) throw new Error("recorded KEPCO page must parse");
+    // 건수 칸이 없어 빠짐없이 받았는지 알 수 없다(COVERAGE_UNVERIFIED_SOURCES)
+    expect(parsed.totalCount).toBeNull();
+    const recordedAt = new Date(kepcoRecording.fetchedAt);
+    const drafts = parsed.items.flatMap((item) => {
+      const result = normalizeExternalNotice("kepco-ebid-contract", item, {
+        fetchedAt: recordedAt,
+      });
+      return result.ok ? [result] : [];
+    });
+    expect(drafts).toHaveLength(71);
+    expect(new Set(drafts.map(({ draft }) => draft.noticeId)).size).toBe(71);
+    // 첨부 주소(http://srm.kepco.net)는 허용 목록 밖이라 막는다. 그 밖의 경고는 없다
+    expect(new Set(drafts.flatMap(({ warnings }) => warnings.map(({ code }) => code)))).toEqual(
+      new Set(["ATTACHMENT_URL_BLOCKED"]),
+    );
+    expect(drafts.every(({ draft }) => draft.status === "OPEN" && draft.deadlineAt !== null)).toBe(
+      true,
+    );
+    // 추정가격이 빈 2건만 예산이 없다
+    expect(drafts.filter(({ draft }) => draft.budgetKrw !== null)).toHaveLength(69);
+    expect(drafts[0].draft).toMatchObject({
+      noticeId: "COM01:G012606031",
+      title: "연알루미늄 연선용 현수클램프(AGS-520L) 등 7종-남서울본부 등",
+      agency: "한국전력공사",
+      // 2026-12-08 14:00:00 KST = 05:00Z
+      deadlineAt: "2026-12-08T05:00:00.000Z",
+      budgetKrw: "837294404",
+      sourceMetadata: {
+        providerCompanyId: "COM01",
+        providerStatus: "PreAttendProgress",
+        amounts: [
+          { kind: "presumedPrice", amountKrw: "837294404", unit: "KRW", vat: "EXCLUDED" },
+          { kind: "estimatedPriceBasicAmount", amountKrw: "0", unit: "KRW", vat: "UNVERIFIED" },
+        ],
+      },
+    });
   });
 });
