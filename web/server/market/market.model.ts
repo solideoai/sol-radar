@@ -13,7 +13,7 @@ export const DEFAULT_MARKET_PERIOD: MarketPeriod = 90;
 /** relevant: 관련성 판정 RELEVANT·CANDIDATE 만(기본), all: 거르지 않음 */
 export const MARKET_RELEVANCE = ["relevant", "all"] as const;
 export type MarketRelevance = (typeof MARKET_RELEVANCE)[number];
-// /gaps 의 RELEVANT_STATES(server/gaps/gaps.model.ts)와 같은 값이다. 도메인마다 따로 두므로 바꿀 때 둘 다 고친다.
+// /gaps 의 RELEVANT_STATES(server/gaps/gaps.model.ts)·/calendar(server/calendar/calendar.model.ts)와 같은 값이다. 도메인마다 따로 두므로 바꿀 때 셋 다 고친다.
 export const RELEVANT_STATES: ReadonlySet<string> = new Set(["RELEVANT", "CANDIDATE"]);
 
 /** 주별 게시 추이는 기간 선택과 별개로 이번 주(월요일 시작)를 포함한 최근 13주다 */
