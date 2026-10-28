@@ -16,7 +16,16 @@ import {
 } from "@/components/bids/labels";
 import { StatusBadge } from "@/components/bids/status-badge";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type {
   AnalysisView,
   QualificationCheckView,
@@ -56,13 +65,9 @@ export type WhatIfCalcState =
   | { phase: "result"; before: WhatIfSummary; after: WhatIfSummary }
   | { phase: "error"; failure: WhatIfFailure };
 
-const CHIP =
-  "inline-flex h-5 max-w-full shrink-0 items-center whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption text-foreground";
-const REFERENCE_CHIP =
-  "shrink-0 rounded-sm border border-border px-1.5 type-caption text-muted-foreground";
-const CELL = "py-1 pr-6 align-top";
-const ROW_HEAD = cn(CELL, "w-24 text-left type-label font-normal text-muted-foreground");
-const COLUMN_HEAD = cn(CELL, "text-left type-caption font-normal text-muted-foreground");
+// 켠 가정·`참고`는 회색 Chip(sm)이다(2026-10-28 화면 개편). 비교 표는 점선 상자 안이라 표 바깥 테두리를 끈다.
+const CELL = "align-top";
+const ROW_HEAD = cn(CELL, "w-24 font-normal");
 const NOTE = "type-caption tabular-nums text-muted-foreground";
 const PULSE = "motion-reduce:animate-none";
 const MINUS = "−";
@@ -171,7 +176,9 @@ function ScoreValue({ summary }: { summary: WhatIfSummary }) {
         <span className="type-label text-muted-foreground">/ 100</span>
       </span>
       {summary.qualificationStatus === "NOT_SATISFIED" && (
-        <span className={REFERENCE_CHIP}>참고</span>
+        <Chip size="sm" className="shrink-0">
+          참고
+        </Chip>
       )}
     </span>
   );
@@ -184,13 +191,13 @@ function Arrow() {
 // 가정 열 한 칸: 화살표 + 값, 그 아래 변화 줄.
 function AssumedCell({ children, note }: { children: React.ReactNode; note: string | null }) {
   return (
-    <td className={CELL}>
+    <TableCell className={CELL}>
       <span className="inline-flex items-center gap-3">
         <Arrow />
         {children}
       </span>
       {note !== null && <p className={NOTE}>{note}</p>}
-    </td>
+    </TableCell>
   );
 }
 
@@ -230,45 +237,43 @@ function comparisonRowsOf(before: WhatIfSummary, after: WhatIfSummary): Comparis
 // 결과가 없으면(계산 중) 행 머리만 두고 값 칸은 skeleton 이다. 이전 결과를 남기지 않는다(D7).
 function ComparisonTable({ rows }: { rows: ComparisonRow[] | null }) {
   return (
-    <table className="w-full text-left">
+    <Table containerClassName="rounded-none border-0">
       <caption className="sr-only">원래 결과와 가정 결과 비교</caption>
-      <thead>
-        <tr>
-          <td className={cn(CELL, "w-24")} />
-          <th scope="col" className={cn(COLUMN_HEAD, "min-w-40")}>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableCell className="w-24" />
+          <TableHead scope="col" className="min-w-40">
             원래
-          </th>
-          <th scope="col" className={COLUMN_HEAD}>
-            가정
-          </th>
-        </tr>
-      </thead>
-      <tbody>
+          </TableHead>
+          <TableHead scope="col">가정</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows === null
           ? ROW_LABELS.map((label) => (
-              <tr key={label}>
-                <th scope="row" className={ROW_HEAD}>
+              <TableRow key={label} className="hover:bg-transparent">
+                <TableHead scope="row" className={ROW_HEAD}>
                   {label}
-                </th>
-                <td className={cn(CELL, "min-w-40")}>
+                </TableHead>
+                <TableCell className={cn(CELL, "min-w-40")}>
                   <Skeleton className={cn("h-9 w-28", PULSE)} />
-                </td>
-                <td className={CELL}>
+                </TableCell>
+                <TableCell className={CELL}>
                   <Skeleton className={cn("h-9 w-28", PULSE)} />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))
           : rows.map((row) => (
-              <tr key={row.label}>
-                <th scope="row" className={ROW_HEAD}>
+              <TableRow key={row.label} className="hover:bg-transparent">
+                <TableHead scope="row" className={ROW_HEAD}>
                   {row.label}
-                </th>
-                <td className={cn(CELL, "min-w-40")}>{row.original}</td>
+                </TableHead>
+                <TableCell className={cn(CELL, "min-w-40")}>{row.original}</TableCell>
                 <AssumedCell note={row.note}>{row.assumed}</AssumedCell>
-              </tr>
+              </TableRow>
             ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 
@@ -406,9 +411,14 @@ function WhatIfBand({ assumptions, state, onClear, onRetry }: WhatIfBandProps) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="type-label text-muted-foreground">켠 가정</span>
         {assumptions.map(({ code, name }) => (
-          <span key={code} title={`${name} 보유`} className={CHIP}>
+          <Chip
+            key={code}
+            title={`${name} 보유`}
+            size="sm"
+            className="max-w-full shrink-0 whitespace-nowrap"
+          >
             <span className="min-w-0 truncate">{name} 보유</span>
-          </span>
+          </Chip>
         ))}
       </div>
       {state.phase === "error" ? (

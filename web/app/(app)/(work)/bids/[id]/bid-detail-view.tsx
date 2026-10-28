@@ -52,7 +52,16 @@ import {
 } from "@/components/bids/what-if-band";
 import { refreshTopbarStatus } from "@/components/topbar-status";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type {
   AnalysisStatus as AnalysisStatusValue,
@@ -143,8 +152,8 @@ const SOURCE_LABEL: Record<string, string> = {
   "g2b-order-plan": "나라장터 발주계획",
 };
 
-const CHIP =
-  "inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption text-foreground";
+// 머리 줄 회색 칩(Chip sm)이 줄바꿈에 눌리거나 두 줄로 꺾이지 않게 한다.
+const CHIP_LAYOUT = "shrink-0 whitespace-nowrap";
 const TEXT_LINK = "rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 const PULSE = "motion-reduce:animate-none";
 
@@ -389,7 +398,9 @@ function DetailEyebrow({ bid, backHref }: { bid: DetailBid; backHref: string }) 
             출처 미확인
           </span>
         )}
-        <span className={CHIP}>{STAGE_LABEL[bid.stage]}</span>
+        <Chip size="sm" className={CHIP_LAYOUT}>
+          {STAGE_LABEL[bid.stage]}
+        </Chip>
         <StatusBadge kind="bidStatus" value={bid.status} />
         <span className="type-caption text-muted-foreground wrap-anywhere">
           출처 {sourceText(bid.source)}
@@ -593,8 +604,8 @@ function ProfileBadge({ isDemo }: { isDemo: boolean }) {
   return (
     <Tooltip landmark>
       <TooltipTrigger
-        render={<span tabIndex={0} />}
-        className={cn(CHIP, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
+        render={<Chip size="sm" tabIndex={0} />}
+        className={cn(CHIP_LAYOUT, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
       >
         {isDemo ? PROFILE_BADGE : PUBLIC_PROFILE_BADGE}
       </TooltipTrigger>
@@ -611,58 +622,51 @@ function aiText({ model, reviewFlags }: Pick<AnalysisView, "model" | "reviewFlag
 
 function HistoryTable({ rows }: { rows: AnalysisHistoryRow[] }) {
   return (
-    <table className="mt-2 w-full text-left type-caption">
+    // 분석 띠 상자 안이라 표 바깥 테두리는 끈다(2026-10-28 화면 개편).
+    <Table containerClassName="mt-2 rounded-none border-0">
       <caption className="sr-only">분석 이력</caption>
-      <thead className="text-muted-foreground">
-        <tr>
-          <th scope="col" className="py-1 pr-3 font-normal">
-            시각
-          </th>
-          <th scope="col" className="py-1 pr-3 font-normal">
-            상태
-          </th>
-          <th scope="col" className="py-1 pr-3 text-right font-normal">
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead scope="col">시각</TableHead>
+          <TableHead scope="col">상태</TableHead>
+          <TableHead scope="col" className="text-right">
             점수
-          </th>
-          <th scope="col" className="py-1 pr-3 font-normal">
-            권고
-          </th>
-          <th scope="col" className="py-1 font-normal">
-            분석 실행 모드
-          </th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-border text-foreground">
+          </TableHead>
+          <TableHead scope="col">권고</TableHead>
+          <TableHead scope="col">분석 실행 모드</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((row) => (
-          <tr key={row.id} className="align-top">
-            <td className="py-1.5 pr-3 whitespace-nowrap tabular-nums">
+          <TableRow key={row.id}>
+            <TableCell className="align-top tabular-nums">
               <time dateTime={row.at} title={`UTC ${row.at}`}>
                 {formatKst(row.at)}
               </time>
-            </td>
-            <td className="py-1.5 pr-3">
+            </TableCell>
+            <TableCell className="align-top whitespace-normal">
               <StatusBadge kind="analysis" value={row.status} short variant="inline" />
               {row.errorCode !== null && (
-                <span className="block font-mono text-muted-foreground wrap-anywhere">
+                <span className="block font-mono type-caption text-muted-foreground wrap-anywhere">
                   {row.errorCode}
                 </span>
               )}
-            </td>
-            <td className="py-1.5 pr-3 text-right tabular-nums">
+            </TableCell>
+            <TableCell className="text-right align-top tabular-nums">
               {row.solScore === null ? "—" : Math.round(row.solScore)}
-            </td>
-            <td className="py-1.5 pr-3">
+            </TableCell>
+            <TableCell className="align-top">
               {row.recommendation === null ? (
                 "—"
               ) : (
                 <StatusBadge kind="recommendation" value={row.recommendation} variant="inline" />
               )}
-            </td>
-            <td className="py-1.5">{row.runMode}</td>
-          </tr>
+            </TableCell>
+            <TableCell className="align-top">{row.runMode}</TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { STAGE_LABEL } from "@/components/bids/labels";
 import { StatusBadge } from "@/components/bids/status-badge";
+import { Chip } from "@/components/ui/chip";
 import type { StageLinkCandidateItem, StageLinkItem, StageLinksView } from "@/server/bids";
 
 // 상세 단계 이력 아래 "같은 사업의 다른 단계 공고"(P0-8, 디자인 스펙 docs/plans/2026-10-21-p08-stage-links-ui-spec.md).
@@ -24,10 +25,8 @@ export const STAGE_LINKS_COPY = {
 const LINKED_TITLE_ID = "stage-links-linked-title";
 const CANDIDATES_NOTE_ID = "stage-links-candidates-note";
 
-// 상세 eyebrow 의 CHIP 과 같은 글자다. mt-px 는 제목 첫 줄(22px)에 20px 칩을 맞춘다.
-// CHIP 을 공용으로 옮기면 S5 와 같은 파일(bid-detail-view.tsx)을 고쳐야 해서 한 번 더 적는다(스펙 §9.4).
-const STAGE_CHIP =
-  "mt-px inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption text-foreground";
+// 상세 eyebrow 의 단계 칩과 같은 Chip(sm)이다(2026-10-28 화면 개편). mt-px 는 제목 첫 줄(22px)에 20px 칩을 맞춘다.
+const STAGE_CHIP_LAYOUT = "mt-px shrink-0 whitespace-nowrap";
 const TITLE_LINK =
   "rounded-sm font-medium text-foreground underline decoration-muted-foreground underline-offset-4 outline-none hover:decoration-foreground focus-visible:ring-3 focus-visible:ring-ring/50";
 
@@ -54,9 +53,9 @@ function StageLinkRow(props: StageLinkRowProps) {
       data-basis={props.kind === "linked" ? props.item.basis : undefined}
       className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-0.5 px-4 py-3"
     >
-      <span id={`${base}-stage`} className={STAGE_CHIP}>
+      <Chip id={`${base}-stage`} size="sm" className={STAGE_CHIP_LAYOUT}>
         {STAGE_LABEL[item.stage]}
-      </span>
+      </Chip>
       {/* 감싸개가 눈금을 갖고 링크는 인라인이라 밑줄·초점이 글자 줄을 따른다. 링크 이름은 보이는 제목 그대로다. */}
       <div className="min-w-0 type-body wrap-anywhere">
         <Link href={`/bids/${item.bidId}`} aria-describedby={describedBy} className={TITLE_LINK}>
