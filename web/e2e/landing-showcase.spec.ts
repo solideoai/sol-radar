@@ -58,21 +58,32 @@ test("데이터 출처 줄은 기관마다 로고 한 칸이고, 연결 상태 �
   ).toBeVisible();
 });
 
-test("줄 위에 마우스를 올리면 흐름이 멈춘다", async ({ page }) => {
+// 마우스를 올리거나 눌러도 멈추지 않는다(2026-10-28 사용자 요청).
+test("줄 위에 마우스를 올리거나 눌러도 흐름이 멈추지 않는다", async ({ page }) => {
   await page.goto("/");
   for (const name of [SERVICES_TITLE, SOURCES_TITLE]) {
     const track = regionOf(page, name).getByTestId("marquee-track");
-    await expect(track).toHaveCSS("animation-play-state", "running");
     // 트랙은 계속 움직여 Playwright 가 멈추기를 기다린다. 움직이지 않는 바깥 칸(줄 전체)에 올린다.
-    await regionOf(page, name).getByTestId("marquee-viewport").hover();
-    await expect(track).toHaveCSS("animation-play-state", "paused");
+    const viewport = regionOf(page, name).getByTestId("marquee-viewport");
+    await viewport.hover();
+    await expect(track).toHaveCSS("animation-play-state", "running");
+    await viewport.click();
+    await expect(viewport).toBeFocused();
+    await expect(track).toHaveCSS("animation-play-state", "running");
   }
 });
 
 test("키보드로 줄에 초점을 옮기면 흐름이 멈춘다", async ({ page }) => {
   await page.goto("/");
   const viewport = regionOf(page, SERVICES_TITLE).getByTestId("marquee-viewport");
-  await viewport.focus();
+  // 마우스로 누른 초점과 구분되게 실제 Tab 으로 들어간다. 줄 앞 링크 수에 기대지 않게 넉넉히 누른다.
+  for (
+    let presses = 0;
+    presses < 30 && !(await viewport.evaluate((el) => el === document.activeElement));
+    presses++
+  ) {
+    await page.keyboard.press("Tab");
+  }
   await expect(viewport).toBeFocused();
   await expect(regionOf(page, SERVICES_TITLE).getByTestId("marquee-track")).toHaveCSS(
     "animation-play-state",
