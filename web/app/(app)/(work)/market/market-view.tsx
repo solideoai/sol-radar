@@ -358,52 +358,48 @@ function Upcoming({ overview, now }: { overview: MarketOverview; now: Date }) {
           {overview.upcomingDays}일 안에 마감하는, 예산이 확인된 공고가 없습니다
         </p>
       ) : (
-        <div className="mt-3 border-y border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50%]">공고명</TableHead>
-                <TableHead>수요기관</TableHead>
-                <TableHead className="w-44">마감</TableHead>
-                <TableHead className="w-28 text-right">배정 예산</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {overview.upcoming.map((item) => {
-                const day = dDay(item.deadlineAt, now);
-                const budget = formatKrwCompact(item.budgetKrw);
-                return (
-                  <TableRow key={item.bidId}>
-                    <TableCell className="max-w-0 whitespace-normal">
-                      <Link
-                        href={marketBidHref(item.bidId)}
-                        className="line-clamp-2 rounded-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                      >
-                        {item.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="max-w-0">
-                      <span className="block truncate" title={item.agency ?? undefined}>
-                        {item.agency ?? "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      <time dateTime={item.deadlineAt}>{formatKst(item.deadlineAt)}</time>
-                      {day ? (
-                        <span className="ml-1.5 type-caption text-muted-foreground">
-                          {day.label}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      <span title={budget.full}>{budget.text}</span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <Table containerClassName="mt-3">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50%]">공고명</TableHead>
+              <TableHead>수요기관</TableHead>
+              <TableHead className="w-44">마감</TableHead>
+              <TableHead className="w-28 text-right">배정 예산</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {overview.upcoming.map((item) => {
+              const day = dDay(item.deadlineAt, now);
+              const budget = formatKrwCompact(item.budgetKrw);
+              return (
+                <TableRow key={item.bidId}>
+                  <TableCell className="max-w-0 whitespace-normal">
+                    <Link
+                      href={marketBidHref(item.bidId)}
+                      className="line-clamp-2 rounded-sm font-medium text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      {item.title}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="max-w-0">
+                    <span className="block truncate" title={item.agency ?? undefined}>
+                      {item.agency ?? "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="tabular-nums">
+                    <time dateTime={item.deadlineAt}>{formatKst(item.deadlineAt)}</time>
+                    {day ? (
+                      <span className="ml-1.5 type-caption text-muted-foreground">{day.label}</span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    <span title={budget.full}>{budget.text}</span>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
     </section>
   );
@@ -491,13 +487,13 @@ function Segmented({
   return (
     <nav aria-label={label} className="flex items-center gap-2">
       <span className="type-label text-muted-foreground">{label}</span>
-      <ul className="flex rounded-lg border border-border p-0.5">
+      <ul className="inline-flex rounded-lg border border-border p-0.5">
         {items.map((item) => (
           <li key={item.href}>
             <Link
               href={item.href}
               aria-current={item.current ? "page" : undefined}
-              className="inline-flex h-7 items-center rounded-md px-3 type-label whitespace-nowrap text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-muted aria-[current=page]:font-medium aria-[current=page]:text-foreground"
+              className="inline-flex items-center rounded-md px-3 py-1.5 type-label whitespace-nowrap text-muted-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-selected-foreground"
             >
               {item.text}
             </Link>
