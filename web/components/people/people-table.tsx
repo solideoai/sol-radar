@@ -1,5 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import {
   Table,
   TableBody,
@@ -28,74 +29,70 @@ export function PeopleTable({
   const departmentNames = new Map(departments.map((item) => [item.id, item.name]));
   const titleNames = new Map(jobTitles.map((item) => [item.id, item.label]));
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <Table className="table-fixed">
-        <TableHeader>
-          <TableRow>
-            <TableHead scope="col" className="w-1/4">
-              사진+이름
+    <Table className="table-fixed">
+      <TableHeader>
+        <TableRow>
+          <TableHead scope="col" className="w-1/4">
+            사진+이름
+          </TableHead>
+          <TableHead scope="col" className="w-[35%]">
+            부서
+          </TableHead>
+          <TableHead scope="col" className="w-1/5">
+            직급·직책
+          </TableHead>
+          <TableHead scope="col" className="w-1/5 whitespace-normal">
+            점수 계산 대상
+          </TableHead>
+          {renderActions ? (
+            <TableHead scope="col" className="w-14">
+              <span className="sr-only">관리</span>
             </TableHead>
-            <TableHead scope="col" className="w-[35%]">
-              부서
-            </TableHead>
-            <TableHead scope="col" className="w-1/5">
-              직급·직책
-            </TableHead>
-            <TableHead scope="col" className="w-1/5 whitespace-normal">
-              점수 계산 대상
-            </TableHead>
-            {renderActions ? (
-              <TableHead scope="col" className="w-14">
-                <span className="sr-only">관리</span>
-              </TableHead>
-            ) : null}
+          ) : null}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {members.map((person) => (
+          <TableRow
+            key={person.id}
+            className="h-14 cursor-pointer"
+            onClick={(event) => {
+              if (!(event.target instanceof Element) || !event.target.closest("button")) {
+                const button = event.currentTarget.querySelector("button");
+                if (button) onSelect(person, button);
+              }
+            }}
+          >
+            <TableCell className="whitespace-normal">
+              <div className="flex min-w-0 items-center gap-2">
+                <PersonAvatar
+                  personId={person.personCode}
+                  portraitUrl={person.portraitUrl}
+                  name={person.name}
+                />
+                <Button
+                  variant="ghost"
+                  className="h-auto min-h-9 min-w-0 px-1 whitespace-normal wrap-anywhere"
+                  aria-label={`${person.name} 상세 보기`}
+                  onClick={(event) => onSelect(person, event.currentTarget)}
+                >
+                  {person.name}
+                </Button>
+              </div>
+            </TableCell>
+            <TableCell className="whitespace-normal wrap-anywhere">
+              {departmentNames.get(person.departmentId) ?? "부서 정보 없음"}
+            </TableCell>
+            <TableCell className="whitespace-normal wrap-anywhere">
+              {titleNames.get(person.jobTitleId) ?? "직급 정보 없음"}
+            </TableCell>
+            <TableCell className="whitespace-normal">
+              <Chip size="sm">{person.scoringEligible ? "점수 계산 대상" : "비대상"}</Chip>
+            </TableCell>
+            {renderActions ? <TableCell>{renderActions(person)}</TableCell> : null}
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {members.map((person) => (
-            <TableRow
-              key={person.id}
-              className="h-14 cursor-pointer"
-              onClick={(event) => {
-                if (!(event.target instanceof Element) || !event.target.closest("button")) {
-                  const button = event.currentTarget.querySelector("button");
-                  if (button) onSelect(person, button);
-                }
-              }}
-            >
-              <TableCell className="whitespace-normal">
-                <div className="flex min-w-0 items-center gap-2">
-                  <PersonAvatar
-                    personId={person.personCode}
-                    portraitUrl={person.portraitUrl}
-                    name={person.name}
-                  />
-                  <Button
-                    variant="ghost"
-                    className="h-auto min-h-9 min-w-0 px-1 whitespace-normal wrap-anywhere"
-                    aria-label={`${person.name} 상세 보기`}
-                    onClick={(event) => onSelect(person, event.currentTarget)}
-                  >
-                    {person.name}
-                  </Button>
-                </div>
-              </TableCell>
-              <TableCell className="whitespace-normal wrap-anywhere">
-                {departmentNames.get(person.departmentId) ?? "부서 정보 없음"}
-              </TableCell>
-              <TableCell className="whitespace-normal wrap-anywhere">
-                {titleNames.get(person.jobTitleId) ?? "직급 정보 없음"}
-              </TableCell>
-              <TableCell className="whitespace-normal">
-                <span className="inline-block rounded border border-border px-2 py-1 type-caption">
-                  {person.scoringEligible ? "점수 계산 대상" : "비대상"}
-                </span>
-              </TableCell>
-              {renderActions ? <TableCell>{renderActions(person)}</TableCell> : null}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
