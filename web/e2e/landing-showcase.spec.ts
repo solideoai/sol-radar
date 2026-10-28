@@ -35,26 +35,23 @@ test("솔리데오 수행 서비스 줄에 서비스 17개가 사이트 순서�
   await expect(logos.first()).toHaveAttribute("src", /^\/landing\/services\//);
 });
 
-test("데이터 출처 줄은 기관마다 한 칸이고, 수집하지 않는 기관에만 연결 예정 꼬리표가 있다", async ({
-  page,
-}) => {
+test("데이터 출처 줄은 기관마다 로고 한 칸이고, 연결 상태 글자는 없다", async ({ page }) => {
   await page.goto("/");
   const region = regionOf(page, SOURCES_TITLE);
   const items = firstCopyItems(page, SOURCES_TITLE);
   await expect(items).toHaveCount(DATA_SOURCES.length);
-  const planned = DATA_SOURCES.filter((source) => source.status === "planned");
-  // 꼬리표가 하나도 없으면 아래 단언이 지키는 것이 없다. 지금 목록에는 연결 예정 기관이 있다.
-  expect(planned.length).toBeGreaterThan(0);
-  await expect(
-    region.locator('ul:not([aria-hidden="true"])').getByText("연결 예정", { exact: true }),
-  ).toHaveCount(planned.length);
-  for (const [index, source] of DATA_SOURCES.entries()) {
-    const item = items.nth(index);
-    await expect(item).toContainText(source.name);
-    await expect(item.getByText("연결 예정", { exact: true })).toHaveCount(
-      source.status === "planned" ? 1 : 0,
-    );
-  }
+  expect(DATA_SOURCES).toHaveLength(9);
+  // 서비스 줄처럼 로고만 있고 이름은 그림 alt 로 읽힌다. 연결 상태는 문서로 관리한다(2026-10-28 사용자 요청).
+  const logos = region.locator('ul:not([aria-hidden="true"])').getByRole("img");
+  await expect(logos).toHaveCount(9);
+  await expect(logos.first()).toHaveAttribute("alt", "나라장터(조달청)");
+  // 둘째 사본은 화면 낭독기에서 숨어 줄 전체에서도 이름 있는 그림이 9개다(18개가 아니다).
+  await expect(region.getByRole("img")).toHaveCount(9);
+  const visibleText = await items.evaluateAll((elements) =>
+    elements.map((element) => (element as HTMLElement).innerText.trim()).filter(Boolean),
+  );
+  expect(visibleText).toEqual([]);
+  await expect(page.getByText("연결 예정")).toHaveCount(0);
   await expect(page.getByText("공공데이터포털")).toHaveCount(0);
   await expect(
     region.getByText("기관 로고는 공고 데이터 출처 표시이며 제휴·인증을 뜻하지 않습니다."),
