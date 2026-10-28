@@ -19,6 +19,7 @@ import {
   formatKstShort,
 } from "@/components/bids/format";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -44,8 +45,8 @@ export const OPENED_SECTION_ID = "gaps-opened";
 const PULSE = "motion-reduce:animate-none";
 const TEXT_LINK =
   "rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50";
-// 공고 상세 가정 띠(what-if-band.tsx)·프로필 배지와 같은 칩.
-const CHIP =
+// 공고 상세 ProfileBadge 와 같은 출처 배지 모양. 출처 배지라 Chip 으로 바꾸지 않는다(2026-10-28 화면 개편).
+const PROFILE_BADGE_CLASS =
   "inline-flex h-5 max-w-full shrink-0 items-center whitespace-nowrap rounded-sm border border-border bg-background px-1.5 type-caption text-foreground";
 const FIRST_ROWS = 10;
 const MORE_STEP = 10;
@@ -65,7 +66,10 @@ function ProfileBadge({ isDemo }: { isDemo: boolean }) {
     <Tooltip landmark>
       <TooltipTrigger
         render={<span tabIndex={0} />}
-        className={cn(CHIP, "outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
+        className={cn(
+          PROFILE_BADGE_CLASS,
+          "outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        )}
       >
         {PROFILE_BADGE[kind]}
       </TooltipTrigger>
@@ -139,7 +143,7 @@ export function SummaryStrip({ view, copy }: { view: ReadyGapView; copy: GapsCop
   return (
     <section aria-label="자격 갭 요약">
       <dl className="grid grid-cols-5 gap-y-1 border-y border-border">
-        <div className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-5 py-4 first:border-l-0 first:pl-0">
+        <div className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-5 py-3 first:border-l-0 first:pl-0">
           <dt className="type-label wrap-anywhere text-muted-foreground">대상 공고</dt>
           <dd>
             <CountValue count={summary.total.count} />
@@ -155,7 +159,7 @@ export function SummaryStrip({ view, copy }: { view: ReadyGapView; copy: GapsCop
             <div
               key={bucket}
               data-bucket={bucket}
-              className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-5 py-4 last:pr-0"
+              className="row-span-3 grid min-w-0 grid-rows-subgrid border-l border-border px-5 py-3 last:pr-0"
             >
               <dt className="flex items-start gap-1.5 type-label wrap-anywhere text-muted-foreground">
                 <Icon aria-hidden="true" className={cn("mt-0.5 size-4 shrink-0", className)} />
@@ -263,7 +267,7 @@ export function AssumptionBand({
       data-slot="gaps-assumption-band"
       aria-labelledby={titleId}
       aria-busy={pending || undefined}
-      className="flex min-h-48 flex-col gap-3 rounded-lg border border-dashed border-muted-foreground bg-background p-4"
+      className="flex min-h-43 flex-col gap-2 rounded-lg border border-dashed border-muted-foreground bg-background p-3"
     >
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
@@ -279,9 +283,15 @@ export function AssumptionBand({
             <>
               <span className="type-label text-muted-foreground">켠 가정</span>
               {assumption.codes.map(({ code, name }) => (
-                <span key={code} title={`${name} 보유`} className={CHIP}>
+                // 공고 상세 가정 띠(what-if-band.tsx)와 같은 칩이다.
+                <Chip
+                  key={code}
+                  size="sm"
+                  title={`${name} 보유`}
+                  className="max-w-full shrink-0 whitespace-nowrap"
+                >
                   <span className="min-w-0 truncate">{name} 보유</span>
-                </span>
+                </Chip>
               ))}
             </>
           )}
@@ -539,7 +549,7 @@ export function BlockerTable({
         </>
       ) : (
         <>
-          <Table className="mt-3 table-fixed border-y border-border">
+          <Table containerClassName="mt-2" className="table-fixed">
             <caption className="sr-only">막는 자격 순위</caption>
             <colgroup>
               <col className="w-12" />
@@ -706,7 +716,7 @@ export function OpenedNotices({
         </p>
       ) : (
         <>
-          <Table className="mt-3 table-fixed border-y border-border">
+          <Table containerClassName="mt-3" className="table-fixed">
             <caption className="sr-only">가정 시 새로 열리는 공고</caption>
             <colgroup>
               <col />

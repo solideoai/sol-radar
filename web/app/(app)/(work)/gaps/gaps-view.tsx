@@ -196,7 +196,8 @@ function ReadyGaps({
       <p data-slot="gaps-live" aria-live="polite" className="sr-only">
         {heard.message}
       </p>
-      <div className="flex flex-col gap-4">
+      {/* 세로 여백은 발표 동선(1440×900 첫 화면에 순위 1~3행)에 맞춰 잡았다. 앱 틀의 위 막대·경로 줄까지 더한 실제 화면에서 잰 값이다(2026-10-28 화면 개편). */}
+      <div className="flex flex-col gap-3">
         <GapsMeta view={view} copy={copy} />
         {total === 0 ? (
           <>
@@ -225,7 +226,7 @@ function ReadyGaps({
                 </Link>
               }
             />
-            <div className="mt-4 flex flex-col gap-10">
+            <div className="flex flex-col gap-10">
               <BlockerTable
                 view={view}
                 copy={copy}
