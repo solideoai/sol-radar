@@ -8,7 +8,7 @@ export function SectionHeading({
 }: {
   id: string;
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   className?: string;
 }) {
   return (

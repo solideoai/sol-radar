@@ -149,9 +149,6 @@ test("업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 �
   await demo.scrollIntoViewIfNeeded();
   await expect(demo).toHaveAttribute("data-scene", "2", { timeout: 10_000 });
   await expect(demo.locator('[aria-hidden="true"][inert]')).toHaveCount(1);
-  await expect(
-    demo.getByText("가상 공고로 만든 예시 화면입니다. 출처 이름과 로고만 실제입니다."),
-  ).toBeVisible();
 
   // 흐르는 줄 둘이 먼저이고, 데모 판은 출처 줄의 고지 문장 아래에서 시작한다.
   const notice = await page
@@ -168,17 +165,27 @@ test("업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 �
   );
 });
 
-test("데모 멈춤을 누르면 그 단계에 머물고, 데모 재생을 누르면 이어서 흐른다", async ({ page }) => {
+test("키보드로 데모 멈춤을 누르면 그 단계에 머물고, 데모 재생을 누르면 이어서 흐른다", async ({
+  page,
+}) => {
   await page.goto("/");
   const demo = workDemo(page);
   await demo.scrollIntoViewIfNeeded();
   await expect(demo).toHaveAttribute("data-step", /^[1-9]/);
-  await demo.getByRole("button", { name: "데모 멈춤", exact: true }).click();
+  // 버튼은 화면에서 숨어 있다가 키보드 초점이 오면 보인다(2026-10-28 사용자 요청).
+  const pause = demo.getByRole("button", { name: "데모 멈춤", exact: true });
+  expect((await pause.locator("..").boundingBox())?.width ?? 0).toBeLessThanOrEqual(1);
+  await pause.focus();
+  await pause.press("Enter");
+  const play = demo.getByRole("button", { name: "데모 재생", exact: true });
+  await expect(play).toBeFocused();
+  // 버튼 이름이 바뀌므로 감싼 칸은 새 이름(데모 재생)의 버튼에서 다시 찾는다.
+  expect((await play.locator("..").boundingBox())?.width ?? 0).toBeGreaterThan(20);
   const step = (await demo.getAttribute("data-step")) ?? "";
   // 한 단계는 3초를 넘지 않는다. 그보다 길게 기다려도 그대로다.
   await page.waitForTimeout(3500);
   await expect(demo).toHaveAttribute("data-step", step);
-  await demo.getByRole("button", { name: "데모 재생", exact: true }).click();
+  await play.press("Enter");
   await expect(demo).not.toHaveAttribute("data-step", step);
 });
 

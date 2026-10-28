@@ -51,7 +51,7 @@ test("분석 예시 보기를 누르면 미리보기로 가고, 머리말에 가
   await page.goto("/");
   await heroOf(page).getByRole("link", { name: "분석 예시 보기" }).click();
   await expect(page).toHaveURL(/\/#demo$/);
-  // 구역 제목은 화면 낭독기용(sr-only)이라, 눈에 보이는 첫 요소인 미리보기 틀(figure)의 윗변을 잰다.
+  // 분석 예시 보기는 구역 제목이 아니라 미리보기 틀(figure)로 바로 온다(점수와 고지가 13인치 화면에 함께 들어오게). 그 틀의 윗변을 잰다.
   // 안쪽 요소(목록 등)를 재면 scroll-mt 가 빠져도 머리말 아래에 있어 시험이 지켜 주지 못한다.
   await expectBelowHeader(page, previewOf(page).getByRole("figure"));
 });
@@ -59,8 +59,11 @@ test("분석 예시 보기를 누르면 미리보기로 가고, 머리말에 가
 test("미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수·자격·권고가 맞는다", async ({ page }) => {
   await page.goto("/");
   const preview = previewOf(page);
+  // 회색 띠 위에 보이는 구역 제목이 있다(2026-10-28 사용자 요청).
+  await expect(
+    preview.getByRole("heading", { level: 2, name: "예시 공고로 분석 화면을 직접 살펴보세요" }),
+  ).toBeVisible();
   await expect(preview.getByText("예시 데이터").first()).toBeVisible();
-  await expect(preview.getByText(/가상의 공고와 기업 정보로 만든 예시 화면/)).toBeVisible();
   const panel = preview.getByRole("tabpanel");
   await expect(
     panel.getByRole("heading", { name: "공공기관 업무지원 시스템 고도화" }),

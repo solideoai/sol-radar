@@ -36,10 +36,12 @@ import { Button } from "@/components/ui/button";
 
 // 흐르는 줄 둘(출처 고지 문장) 아래 "SOL RADAR 업무 데모". 동영상이 아니라 앱 화면을 닮게 HTML 로 그리고, 가짜 커서가 흐름을 따라 누른다.
 // 판 위에는 아래 구역들과 같은 왼쪽 구역 제목·설명과 위 여백을 둔다(2026-10-28 사용자 요청: "공고 검색보다 …" 구역과 같은 글씨·위치).
+// 출처 줄과는 화면 폭 전체 가는 선으로 나눈다(같은 날 사용자 요청 "section 나누라고 했잖아. 선으로라도").
 // 상태는 단계 번호 하나다. 단계가 바뀌면 화면 쪽 요소가 CSS 전환(투명도·위치·막대 폭·숫자)으로 따라온다.
 // 화면에 보이고 탭이 보일 때만 흐른다. 움직임 줄이기면 분석 상세의 완성 화면에서 멈춰 있고, 재생 버튼을 눌러야 흐른다.
 // 움직이는 판은 화면 낭독기와 키보드에서 뺀다(aria-hidden·inert). 같은 흐름을 sr-only 문단으로 읽게 한다.
-// 판 밖 오른쪽 아래의 멈춤·재생 버튼은 늘 보인다(WCAG 2.2.2).
+// 멈춤·재생 버튼은 화면에서 숨기고 키보드 초점이 올 때만 판 밖 오른쪽 아래에 보인다(2026-10-28 사용자 요청).
+// WCAG 2.2.2(움직임 멈춤)는 이 버튼(키보드)과 움직임 줄이기 설정으로 지킨다.
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -136,57 +138,63 @@ export function WorkDemo() {
       aria-label="SOL RADAR 업무 데모"
       data-scene={current.scene}
       data-step={shownStep}
-      className="mx-auto w-full max-w-300 px-10 pt-28 pb-6"
+      className="mt-8 border-t border-border"
     >
-      <SectionHeading
-        id="work-demo-title"
-        title="매일 아침, 새 공고가 검토 목록이 되기까지"
-        description="수집 에이전트가 공고를 모으면 우리 회사에 맞는 공고를 골라 자격·점수·근거를 붙입니다. 참여 여부는 담당자가 정합니다."
-      />
-      <p className="sr-only">
-        SOL RADAR 의 하루 흐름을 보여 주는 예시 화면입니다. 매일 아침 수집 에이전트가
-        나라장터·LH·K-water·한국전력공사·기업마당에서 새 공고를 가져오고, 우리 회사 업종에 맞는
-        공고를 골라 SOL Score 와 권고를 붙입니다. 공고를 열면 필수 자격을 공고문 인용과 함께
-        판정하고 다섯 요소 점수를 보여 줍니다. 담당자가 관심 공고에 담으면 마감 사흘 전에 알림을
-        보냅니다. 참여 결정은 사람이 합니다. 가상 공고로 만든 예시입니다.
-      </p>
-      <div
-        ref={frameRef}
-        aria-hidden
-        inert
-        className={cn(
-          "relative mt-14 grid h-150 grid-cols-[208px_minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-background text-left select-none",
-          !running && styles.paused,
-        )}
-      >
-        <DemoSidebar scene={current.scene} />
-        <div className="flex min-w-0 flex-col">
-          <DemoTopBar alert={shownStep >= STEP.reminder} />
-          <div className="relative min-h-0 flex-1">
-            <DashboardScene active={current.scene === 1} step={shownStep} pressed={pressed} />
-            <CollectScene active={current.scene === 2} step={shownStep} pressed={pressed} />
-            <TableScene active={current.scene === 3} step={shownStep} pressed={pressed} />
-            <DetailScene active={current.scene === 4} step={shownStep} pressed={pressed} />
-            <WatchlistScene active={current.scene === 5} step={shownStep} pressed={pressed} />
-          </div>
-        </div>
-        {showCursor && <DemoCursor ref={cursorRef} pressed={pressed !== undefined} />}
-      </div>
-      {/* 캡션은 가운데, 멈춤·재생 버튼은 판 밖 오른쪽 끝이다. 어떤 장면의 내용과도 겹치지 않는다. */}
-      <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-        <span />
-        <p className="type-label-lg text-muted-foreground">
-          가상 공고로 만든 예시 화면입니다. 출처 이름과 로고만 실제입니다.
+      <div className="mx-auto w-full max-w-300 px-10 pt-28 pb-6">
+        <SectionHeading
+          id="work-demo-title"
+          title="매일 아침, 새 공고가 검토 목록이 되기까지"
+          description={
+            <>
+              수집 에이전트가 공고를 모으면 우리 회사에 맞는 공고를 골라 자격·점수·근거를 붙입니다.
+              <br />
+              참여 여부는 담당자가 정합니다.
+            </>
+          }
+        />
+        <p className="sr-only">
+          SOL RADAR 의 하루 흐름을 보여 주는 예시 화면입니다. 매일 아침 수집 에이전트가
+          나라장터·LH·K-water·한국전력공사·기업마당에서 새 공고를 가져오고, 우리 회사 업종에 맞는
+          공고를 골라 SOL Score 와 권고를 붙입니다. 공고를 열면 필수 자격을 공고문 인용과 함께
+          판정하고 다섯 요소 점수를 보여 줍니다. 담당자가 관심 공고에 담으면 마감 사흘 전에 알림을
+          보냅니다. 참여 결정은 사람이 합니다. 가상 공고로 만든 예시입니다.
         </p>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label={wantsPlay ? "데모 멈춤" : "데모 재생"}
-          onClick={() => setChoice(wantsPlay ? "pause" : "play")}
-          className="justify-self-end"
+        <div
+          ref={frameRef}
+          aria-hidden
+          inert
+          className={cn(
+            "relative mt-14 grid h-150 grid-cols-[208px_minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-background text-left select-none",
+            !running && styles.paused,
+          )}
         >
-          {wantsPlay ? <PauseIcon aria-hidden /> : <PlayIcon aria-hidden />}
-        </Button>
+          <DemoSidebar scene={current.scene} />
+          <div className="flex min-w-0 flex-col">
+            <DemoTopBar alert={shownStep >= STEP.reminder} />
+            <div className="relative min-h-0 flex-1">
+              <DashboardScene active={current.scene === 1} step={shownStep} pressed={pressed} />
+              <CollectScene active={current.scene === 2} step={shownStep} pressed={pressed} />
+              <TableScene active={current.scene === 3} step={shownStep} pressed={pressed} />
+              <DetailScene active={current.scene === 4} step={shownStep} pressed={pressed} />
+              <WatchlistScene active={current.scene === 5} step={shownStep} pressed={pressed} />
+            </div>
+          </div>
+          {showCursor && <DemoCursor ref={cursorRef} pressed={pressed !== undefined} />}
+        </div>
+        {/* 멈춤·재생 버튼은 판 밖 오른쪽 끝이고 키보드 초점이 올 때만 보인다. 어떤 장면의 내용과도 겹치지 않는다. */}
+        {/* 판 아래 캡션 문장은 2026-10-28 사용자 요청으로 뺐다. 가상임은 기관 이름("가상 …")과 sr-only 문단이 알린다. */}
+        {/* not-sr-only 는 여백을 0 으로 되돌리므로 판과의 간격은 버튼 쪽에 둔다. */}
+        <div className="sr-only flex justify-end has-focus-visible:not-sr-only">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label={wantsPlay ? "데모 멈춤" : "데모 재생"}
+            onClick={() => setChoice(wantsPlay ? "pause" : "play")}
+            className="mt-3"
+          >
+            {wantsPlay ? <PauseIcon aria-hidden /> : <PlayIcon aria-hidden />}
+          </Button>
+        </div>
       </div>
     </section>
   );
