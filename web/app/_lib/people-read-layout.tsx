@@ -2,8 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AppShell } from "@/components/app-shell";
-import { getMyProfile } from "@/server/profile";
-import { getMyBusinessAccess, getMyWorkspace } from "@/server/organization";
+import { loadMyBusinessAccess, loadMyProfile } from "@/app/_lib/my-account";
+import { getMyWorkspace } from "@/server/organization";
 import { nameOf } from "@/server/shared";
 import { loadPeopleDirectory, peopleUiResult, PeopleForbidden } from "@/app/_lib/people-data";
 export async function PeopleReadLayout({
@@ -19,7 +19,7 @@ export async function PeopleReadLayout({
   const directory = result ? peopleUiResult(result) : null;
   if (directory?.status === "error" && directory.code === "FORBIDDEN")
     return <PeopleForbidden title={title} />;
-  const [business, me] = await Promise.all([getMyBusinessAccess(), getMyProfile()]);
+  const [business, me] = await Promise.all([loadMyBusinessAccess(), loadMyProfile()]);
   if (business.status !== "ready" || me.status !== "ready") redirect("/auth/login");
   const workspace = await getMyWorkspace(business.current.slug);
   if (workspace.status !== "ready") redirect("/auth/organization-state");

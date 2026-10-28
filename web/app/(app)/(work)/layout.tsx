@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { loadMyBusinessAccess, loadMyProfile } from "@/app/_lib/my-account";
 import { loadStatusSummary } from "@/app/_lib/work-data";
 import { AppShell } from "@/components/app-shell";
-import { getMyBusinessAccess, getMyWorkspace } from "@/server/organization";
-import { getMyProfile } from "@/server/profile";
+import { getMyWorkspace } from "@/server/organization";
 import { nameOf } from "@/server/shared";
 import { ingestStaleAfterMs } from "@/server/opportunities";
 import {
@@ -20,7 +20,7 @@ import {
 export default async function WorkLayout({ children }: { children: React.ReactNode }) {
   // 로그인 상태는 요청마다 다르다. 빌드 때 미리 그려 두지 않는다.
   await connection();
-  const [business, me] = await Promise.all([getMyBusinessAccess(), getMyProfile()]);
+  const [business, me] = await Promise.all([loadMyBusinessAccess(), loadMyProfile()]);
   if (business.status !== "ready" || me.status !== "ready") redirect("/auth/login");
   const workspace = await getMyWorkspace(business.current.slug);
   if (workspace.status !== "ready") redirect("/auth/organization-state");

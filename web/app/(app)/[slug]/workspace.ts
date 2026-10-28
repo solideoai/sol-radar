@@ -5,8 +5,8 @@ import { notFound, redirect } from "next/navigation";
 import { requireCompleteEmployment } from "@/app/(app)/employment-guard";
 import { cache } from "react";
 import type { ActivityScope } from "@/server/activity";
+import { loadMyProfile } from "@/app/_lib/my-account";
 import { getMyWorkspace, type MyWorkspace } from "@/server/organization";
-import { getMyProfile } from "@/server/profile";
 import type { TaskScope } from "@/server/task";
 
 export type ReadyWorkspace = Extract<MyWorkspace, { status: "ready" }>;
@@ -31,7 +31,7 @@ export async function requireWorkspace(
   if (workspace.status === "no-org" || workspace.status === "multiple-orgs")
     redirect(organizationStatePath(path));
   if (workspace.status === "not-found") {
-    if ((await getMyProfile()).status === "suspended") redirect("/auth/login");
+    if ((await loadMyProfile()).status === "suspended") redirect("/auth/login");
     notFound();
   }
   if (workspace.status !== "ready") redirect("/auth/login");
