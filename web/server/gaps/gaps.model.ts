@@ -36,7 +36,7 @@ export const GAP_REVIEW_REASONS = [
 export type GapReviewReason = (typeof GAP_REVIEW_REASONS)[number];
 
 /** 관련성 기본 거르기(§5 A1). 수집 때 계산한 최신 revision 의 최신 판정 state 다. */
-// /market 의 RELEVANT_STATES(server/market/market.model.ts)와 같은 값이다. 도메인마다 따로 두므로 바꿀 때 둘 다 고친다.
+// /market 의 RELEVANT_STATES(server/market/market.model.ts)·/calendar(server/calendar/calendar.model.ts)와 같은 값이다. 도메인마다 따로 두므로 바꿀 때 셋 다 고친다.
 export const RELEVANT_STATES: readonly string[] = ["RELEVANT", "CANDIDATE"];
 export type GapScope = "relevant" | "all";
 
