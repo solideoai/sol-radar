@@ -337,7 +337,7 @@ function AgentAvatar() {
 }
 
 // ── 3. 관련 공고 표 ──
-const TABLE_COLUMNS = "grid-cols-[84px_minmax(0,1fr)_64px_52px_80px_100px]";
+const TABLE_COLUMNS = "grid-cols-[104px_minmax(0,1fr)_64px_52px_80px_100px]";
 
 export function TableScene({ active, step, pressed }: SceneProps) {
   const listed = step >= STEP.tableRows;
@@ -383,8 +383,8 @@ export function TableScene({ active, step, pressed }: SceneProps) {
                 opened && pressed === "bid-row" && "bg-selected",
               )}
             >
-              <span className="w-fit rounded-md border border-border px-1.5 type-label text-foreground">
-                나라장터
+              <span className="w-fit rounded-md border border-border px-1.5 type-label whitespace-nowrap text-foreground">
+                {bid.source}
               </span>
               <span className="min-w-0">
                 {opened ? (

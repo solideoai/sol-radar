@@ -154,12 +154,20 @@ const withAnalysis = (input: DemoBidInput): DemoBid => {
 
 export const DEMO_BIDS: readonly DemoBid[] = INPUTS.map(withAnalysis);
 
+// 업무 데모 표의 출처 칸. 이름은 수집 장면(work-demo-data.ts 의 COLLECTED)과 같고, 출처 이름만 실제다.
+// 기업마당은 지원사업이라 입찰 공고 표에 두지 않는다.
+type WorkDemoSource = "나라장터" | "LH" | "K-water" | "한국전력공사";
+
+export type WorkDemoBid = DemoBid & { source: WorkDemoSource };
+
 // 히어로 아래 업무 데모(work-demo.tsx)의 관련 공고 표에만 더 보이는 가상 공고. 분석 예시 목록(DEMO_BIDS)은 3건 그대로다.
-const MORE_INPUTS: DemoBidInput[] = [
+// 기관 공고판(LH·K-water·한국전력공사)에서 온 공고라, 발주처는 그 기관 안의 가상 부서로 적는다.
+const MORE_INPUTS: (DemoBidInput & { source: WorkDemoSource })[] = [
   {
     id: "demo-4",
-    title: "지역 행정 데이터 분석 플랫폼 구축",
-    agency: "가상 지역정보진흥원",
+    source: "LH",
+    title: "임대주택 입주 관리 시스템 고도화",
+    agency: "가상 주거정보본부",
     budgetWon: 960_000_000,
     proposalDue: "2026-11-24",
     factors: factors(25, 20, 17, 12, 7),
@@ -172,13 +180,14 @@ const MORE_INPUTS: DemoBidInput[] = [
         evidence: { page: 3, quote: "정보보호 관리체계 인증을 보유한 자" },
       },
     ],
-    reasons: ["유사 사업 실적 보유 — 데이터 분석 플랫폼 구축 2건"],
+    reasons: ["유사 사업 실적 보유 — 입주 관리 시스템 구축 2건"],
     followUps: ["인증 범위 확인 필요"],
   },
   {
     id: "demo-5",
-    title: "공공 데이터 개방 포털 유지관리",
-    agency: "가상 데이터진흥원",
+    source: "K-water",
+    title: "수도 데이터 개방 포털 유지관리",
+    agency: "가상 수도정보본부",
     budgetWon: 420_000_000,
     proposalDue: "2026-11-18",
     factors: factors(26, 21, 17, 13, 9),
@@ -188,8 +197,9 @@ const MORE_INPUTS: DemoBidInput[] = [
   },
   {
     id: "demo-6",
-    title: "AI 민원 상담 챗봇 구축",
-    agency: "가상 시민소통청",
+    source: "한국전력공사",
+    title: "AI 고객 상담 챗봇 구축",
+    agency: "가상 전력고객본부",
     budgetWon: 1_200_000_000,
     proposalDue: "2026-12-02",
     factors: factors(23, 18, 15, 11, 9),
@@ -199,8 +209,8 @@ const MORE_INPUTS: DemoBidInput[] = [
   },
 ];
 
-// 업무 데모 표는 SOL Score 가 높은 순이다.
-export const WORK_DEMO_BIDS: readonly DemoBid[] = [
-  ...DEMO_BIDS,
-  ...MORE_INPUTS.map(withAnalysis),
+// 업무 데모 표는 SOL Score 가 높은 순이다. 분석 예시 3건은 나라장터 공고다.
+export const WORK_DEMO_BIDS: readonly WorkDemoBid[] = [
+  ...DEMO_BIDS.map((bid): WorkDemoBid => ({ ...bid, source: "나라장터" })),
+  ...MORE_INPUTS.map((input): WorkDemoBid => ({ ...withAnalysis(input), source: input.source })),
 ].sort((a, b) => b.score - a.score);
