@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { SectionHeading } from "@/components/landing/section-heading";
 import {
   CollectScene,
   DashboardScene,
@@ -34,6 +35,7 @@ import styles from "@/components/landing/work-demo.module.css";
 import { Button } from "@/components/ui/button";
 
 // 흐르는 줄 둘(출처 고지 문장) 아래 "SOL RADAR 업무 데모". 동영상이 아니라 앱 화면을 닮게 HTML 로 그리고, 가짜 커서가 흐름을 따라 누른다.
+// 판 위에는 아래 구역들과 같은 왼쪽 구역 제목·설명과 위 여백을 둔다(2026-10-28 사용자 요청: "공고 검색보다 …" 구역과 같은 글씨·위치).
 // 상태는 단계 번호 하나다. 단계가 바뀌면 화면 쪽 요소가 CSS 전환(투명도·위치·막대 폭·숫자)으로 따라온다.
 // 화면에 보이고 탭이 보일 때만 흐른다. 움직임 줄이기면 분석 상세의 완성 화면에서 멈춰 있고, 재생 버튼을 눌러야 흐른다.
 // 움직이는 판은 화면 낭독기와 키보드에서 뺀다(aria-hidden·inert). 같은 흐름을 sr-only 문단으로 읽게 한다.
@@ -134,8 +136,13 @@ export function WorkDemo() {
       aria-label="SOL RADAR 업무 데모"
       data-scene={current.scene}
       data-step={shownStep}
-      className="mx-auto w-full max-w-300 px-10 pt-8 pb-6"
+      className="mx-auto w-full max-w-300 px-10 pt-28 pb-6"
     >
+      <SectionHeading
+        id="work-demo-title"
+        title="매일 아침, 새 공고가 검토 목록이 되기까지"
+        description="수집 에이전트가 공고를 모으면 우리 회사에 맞는 공고를 골라 자격·점수·근거를 붙입니다. 참여 여부는 담당자가 정합니다."
+      />
       <p className="sr-only">
         SOL RADAR 의 하루 흐름을 보여 주는 예시 화면입니다. 매일 아침 수집 에이전트가
         나라장터·LH·K-water·한국전력공사·기업마당에서 새 공고를 가져오고, 우리 회사 업종에 맞는
@@ -148,7 +155,7 @@ export function WorkDemo() {
         aria-hidden
         inert
         className={cn(
-          "relative grid h-150 grid-cols-[208px_minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-background text-left select-none",
+          "relative mt-14 grid h-150 grid-cols-[208px_minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-background text-left select-none",
           !running && styles.paused,
         )}
       >

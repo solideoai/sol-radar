@@ -142,6 +142,10 @@ test("업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 �
   await page.goto("/");
   const demo = workDemo(page);
   await expect(demo).toHaveAttribute("data-scene", "1");
+  // 판 위에 구역 제목이 있다(2026-10-28 사용자 요청).
+  await expect(
+    demo.getByRole("heading", { level: 2, name: "매일 아침, 새 공고가 검토 목록이 되기까지" }),
+  ).toBeVisible();
   await demo.scrollIntoViewIfNeeded();
   await expect(demo).toHaveAttribute("data-scene", "2", { timeout: 10_000 });
   await expect(demo.locator('[aria-hidden="true"][inert]')).toHaveCount(1);
