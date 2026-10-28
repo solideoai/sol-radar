@@ -17,7 +17,7 @@ updated: 2026-10-28
 
 | 실행 위치 | 맡는 것 |
 |---|---|
-| Vercel | web 하나(`vercel.json`, 내부 ai 서비스·binding 없음). `SOL_DEPLOYMENT_ROLE=frontend`로 분석·수집 요청을 회사 redis-api에 HTTPS로 넘긴다 |
+| Vercel | web 하나(`vercel.json`, 내부 ai 서비스·binding 없음). `SOL_DEPLOYMENT_ROLE=frontend`로 분석·수집 요청을 회사 redis-api에 HTTPS로 넘긴다. 함수 지역은 Supabase DB(`ap-southeast-2` 시드니)와 같은 `syd1`이다(`vercel.json` `regions`). 기본값 `iad1`(버지니아)에서는 Supabase 호출 한 번이 평균 573ms라 화면 이동이 2~4초 걸렸다(2026-10-28 Supabase edge 로그 실측) |
 | Supabase 클라우드 | DB·Auth·Storage(비공개 버킷 `bid-documents`·`bid-parsed`, [[16-DECISIONS\|ADR-048]]) |
 | 회사 서버 | 기존 Redis `:6379`, 기존 Nginx `/redis/` → `127.0.0.1:6380` redis-api, AI gateway, Worker 3종(아래 "회사 Compose 프로젝트") |
 | 회사 GPU 서버 | 회사 vLLM API(`Qwen3.8-Flash-Next-AWQ-INT4`), model-router + `sol_decision.serve`(Bosun v3.1 0.6B, `:8009`). 아래 "회사 GPU 추론 엔드포인트" |
