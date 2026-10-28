@@ -19,9 +19,9 @@
   animation-direction: reverse;
 }
 
-/* 마우스를 올리거나 키보드 초점이 들어오면 멈춘다. */
-.viewport:hover .track,
-.viewport:focus-within .track {
+/* 마우스를 올리거나 눌러도 계속 흐른다(2026-10-28 사용자 요청). 키보드 초점이 들어올 때만 멈춘다. */
+/* 줄 안에는 초점 받는 것이 없어 :focus-visible 로 충분하다. 마우스로 누른 초점은 여기에 걸리지 않는다. */
+.viewport:focus-visible .track {
   animation-play-state: paused;
 }
 
