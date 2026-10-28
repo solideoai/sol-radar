@@ -20,7 +20,7 @@ updated: 2026-10-28
 
 **기술:** Next.js 16 · Tailwind v4 · shadcn(Base UI) · lucide-react · Vitest 브라우저 시험 · Playwright E2E. 새 패키지 없음.
 
-**스펙:** `polaris/specs/in-progress/2026-10-28-ui-refresh.md`(사용자 승인 2026-10-28). 계획과 스펙이 다르면 스펙을 따르고 45 에 알린다.
+**스펙:** `polaris/specs/done/2026-10-28-ui-refresh.md`(사용자 승인 2026-10-28). 계획과 스펙이 다르면 스펙을 따르고 45 에 알린다.
 
 ## 전역 제약
 

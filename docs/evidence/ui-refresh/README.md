@@ -1,6 +1,6 @@
 # 화면 UI 개편 (2026-10-28)
 
-스펙: `polaris/specs/in-progress/2026-10-28-ui-refresh.md`. 계획: `docs/plans/2026-10-28-ui-refresh.md`. 결정: `docs/16-DECISIONS.md` ADR-061. 화면 규칙: `docs/06-UI-UX.md` §3.1·§3.4·§3.5·§4.1.
+스펙: `polaris/specs/done/2026-10-28-ui-refresh.md`. 계획: `docs/plans/2026-10-28-ui-refresh.md`. 결정: `docs/16-DECISIONS.md` ADR-061. 화면 규칙: `docs/06-UI-UX.md` §3.1·§3.4·§3.5·§4.1.
 
 통합 branch `feat/ui-refresh`(main `c9319df3` 기준). 작업자 넷이 각자 worktree·branch 에서 화면을 나눠 고치고, 메인 세션(45)이 diff·스크린샷을 확인한 뒤 합쳤다.
 

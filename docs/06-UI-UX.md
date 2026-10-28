@@ -153,7 +153,7 @@ flowchart TD
 
 ### 3.5 업무 화면 공통 (2026-10-28 화면 개편)
 
-로그인 뒤 모든 업무 화면이 같은 틀을 쓴다([[16-DECISIONS|ADR-061]], 근거 [화면 개편 스펙](../polaris/specs/in-progress/2026-10-28-ui-refresh.md) §4.3). 화면 고유의 데이터·문구·링크·`aria-*`는 바꾸지 않았다.
+로그인 뒤 모든 업무 화면이 같은 틀을 쓴다([[16-DECISIONS|ADR-061]], 근거 [화면 개편 스펙](../polaris/specs/done/2026-10-28-ui-refresh.md) §4.3). 화면 고유의 데이터·문구·링크·`aria-*`는 바꾸지 않았다.
 
 - **화면 머리**(`web/components/app-page.tsx`): 경로(묶음 / 화면, 회색 `type-label`, `web/components/app-breadcrumb.tsx`) → `eyebrow`(뒤로 링크처럼 기능이 있을 때만) → 제목(`type-title`) → 설명 → 1px 아래 구분선이다. 경로는 사이드바 메뉴 정의(`app-nav.ts`의 `breadcrumbOf`)에서 찾고, 묶음이 없는 화면(설정 등)은 경로 줄이 없다. 경로의 두 칸은 링크가 아니다. 본문 위 여백은 16px다(`/gaps` 1440×900 첫 화면에 순위 1~3행이 들어가게).
 - **표**(`web/components/ui/table.tsx`): 머리 줄 연한 회색(`bg-muted/50`), 바깥 둥근 1px 테두리(`rounded-lg border`), 행 구분선. 이미 테두리가 있는 상자 안의 표는 `containerClassName="rounded-none border-0"`으로 바깥 테두리를 꺼서 두 겹이 되지 않게 한다. 표를 감싼 `Card`는 두지 않는다.
