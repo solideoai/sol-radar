@@ -58,5 +58,6 @@ memberships(sol_role)            646ms
 - 화면별 무거운 쿼리: `/bids` 목록의 `procurement_dataset_version` RPC 180~540ms를 차례로 2번, 대시보드·시장의 `procurement_summary`·`procurement_live_metrics` 400~460ms, `/gaps`는 `bid_notices`를 500행씩 4번 차례로 읽는다(약 0.8초). DB 실행 시간이 원인이라 지역과 무관하다.
 - 사용자↔함수 왕복: 서울↔시드니 한 번(비로그인 `/auth/login` 첫 응답 0.33~1.1초, 배포 직후 값 포함).
 - 회사 Worker↔Supabase(서울↔시드니) 호출은 그대로 140~150ms다.
+- Supabase 서울 이전은 사용자 결정으로 발표(2026-11-04) 뒤에 한다. 기존 프로젝트의 지역은 바꿀 수 없어 새 프로젝트로 옮겨야 한다. 운영 DB 93MB, Storage 7,365개(1.86GB), Auth 6명이다(22:2x KST 읽기 SELECT). 옮기면 `vercel.json` `regions`를 `icn1`로 바꾼다.
 
 검증: `node --test scripts/redis-gateway.test.mjs` 3 통과, `pnpm verify:changed` exit 0(web 101파일 890), 커밋 게이트·pre-push 게이트(빌드 포함 `pnpm verify`) 통과. 로그인 화면 이동은 사용자 브라우저 사용 로그로만 쟀다(메인 세션은 운영 로그인을 하지 않았다).

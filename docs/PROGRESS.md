@@ -77,6 +77,7 @@ updated: 2026-10-28
   - 결정 모델 `manifest.json` sha256 identity 대조(닫힌 미결정 28 ②).
   - 나라장터 목록과 부처 공고 섞기. 사용자가 원하면 다시 정한다([[16-DECISIONS|ADR-040]]).
   - 간편 로그인 제공자(구글·카카오·네이버) 설정. 상태는 미확인이다([[16-DECISIONS|ADR-018]] 후순위).
+  - Supabase 서울(`ap-northeast-2`) 이전과 함수 지역 `icn1` 전환. 2026-10-28 사용자 결정으로 발표 뒤다. 새 프로젝트·데이터·첨부 복사, 간편 로그인 콜백 주소, Vercel·회사 Worker 환경변수 교체가 필요하다([기록](evidence/deployment/20261028-region-latency.md))
 
 **문서 밖 발견**([[2026-10-27-docs-cleanup-plan|문서 정리 계획]] §3, 따로 정할 것):
 
@@ -140,7 +141,7 @@ updated: 2026-10-28
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
 
-- 2026-10-28 · 운영 화면 이동 지연 조치(사용자 보고 "메뉴·버튼 클릭마다 3초", [기록](evidence/deployment/20261028-region-latency.md)): Vercel 함수가 `iad1`(버지니아)에서 시드니 Supabase를 화면당 5~6번 차례로 불러 호출당 평균 573ms였다. `vercel.json` `regions: ["syd1"]`(main `fed1b5bd`), 틀·화면의 내 프로필·업무 조직 조회를 React `cache`로 합치고 `requireWork`는 같이 읽음(main `c7e95ddf`). Supabase 호출 p50 660ms → 16ms, 화면 이동 한 번의 Supabase 대기 2.2~5초 → 0.13~0.5초 · 검증: `node --test scripts/redis-gateway.test.mjs` 3 통과, `pnpm verify:changed` exit 0(web 101파일 890), 커밋 게이트·pre-push(빌드 포함) 통과, 운영 응답 `x-vercel-id: icn1::syd1`, Supabase edge 로그 전후 비교. 미실행: 메인 세션의 운영 로그인 화면 확인(사용자 사용 로그로만 잼). 남은 것: `/bids`·대시보드·`/gaps`의 무거운 RPC·쿼리(0.2~0.8초), Supabase 서울 이전은 사용자 결정 대기
+- 2026-10-28 · 운영 화면 이동 지연 조치(사용자 보고 "메뉴·버튼 클릭마다 3초", [기록](evidence/deployment/20261028-region-latency.md)): Vercel 함수가 `iad1`(버지니아)에서 시드니 Supabase를 화면당 5~6번 차례로 불러 호출당 평균 573ms였다. `vercel.json` `regions: ["syd1"]`(main `fed1b5bd`), 틀·화면의 내 프로필·업무 조직 조회를 React `cache`로 합치고 `requireWork`는 같이 읽음(main `c7e95ddf`). Supabase 호출 p50 660ms → 16ms, 화면 이동 한 번의 Supabase 대기 2.2~5초 → 0.13~0.5초 · 검증: `node --test scripts/redis-gateway.test.mjs` 3 통과, `pnpm verify:changed` exit 0(web 101파일 890), 커밋 게이트·pre-push(빌드 포함) 통과, 운영 응답 `x-vercel-id: icn1::syd1`, Supabase edge 로그 전후 비교. 미실행: 메인 세션의 운영 로그인 화면 확인(사용자 사용 로그로만 잼). 남은 것: `/bids`·대시보드·`/gaps`의 무거운 RPC·쿼리(0.2~0.8초), Supabase 서울 이전은 사용자 결정으로 발표 뒤
 - 2026-10-28 · 랜딩 업무 데모 1.25배 빠르게(사용자 요청 "너무 느리다. 1.25배 빠르게 해줘"): 단계 시간·커서 이동·장면 전환·행 등장 간격·숫자 오름·점수 막대 시간을 모두 ÷1.25, 한 바퀴 약 31초 → 약 25초. 06 §3.4·ADR-061 문구 맞춤, 운영 상태 web 행을 2차 배포(`fcefbfea`)로 갱신 · `pnpm verify:changed` exit 0(web 101파일 890), `next build` exit 0, 랜딩 E2E 2파일 25 통과, 메인 세션 Playwright MCP로 `next start` 1440에서 한 바퀴 24.8초·수집 장면 끝에 숫자·완료 표시가 다 나온 뒤 넘어감·넘침 0·콘솔 오류 0
 - 2026-10-28 · 화면 개편 스펙 완료 이동([[16-DECISIONS|ADR-061]]): [스펙](../polaris/specs/done/2026-10-28-ui-refresh.md)을 `polaris/specs/done/`으로 옮기고 결과 절을 더했다. 수용 기준 6개 중 충족 4(사이드바·공통 틀·스크린샷·검증, 공통 틀은 권고 표기 ADR-062로 바뀜), 바뀜 1(랜딩 영상 → HTML 업무 데모), 운영 이미지 200은 1차 충족·2차는 45 확인이다. 배포는 1차 main `14bfc514`, 2차 `fcefbfea`. 남은 것은 11-01 화면 동결·덱 클립, 11-02 출처 9곳 운영 확인이다. 스펙 링크 5곳(06·16·PROGRESS·계획·증거 README)을 새 경로로 고쳤다 · 문서 전용. 검증: `pnpm verify:changed` 통과
 
