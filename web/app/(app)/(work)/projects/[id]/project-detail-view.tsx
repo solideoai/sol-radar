@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { AppPage } from "@/components/app-page";
+import { RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -349,8 +350,8 @@ export function ProjectDetailView({
           role="status"
           className="rounded-lg border border-destructive p-4 type-body text-destructive"
         >
-          최신 사람 결정이 {project.warnings.latestDecision}입니다. 다음 단계로 전진할 수 없습니다.
-          검토 후 수동 종료할 수 있습니다.
+          최신 사람 결정이 {RECOMMENDATION_LABEL[project.warnings.latestDecision]}입니다. 다음
+          단계로 전진할 수 없습니다. 검토 후 수동 종료할 수 있습니다.
         </p>
       )}
       {project.warnings.bidAmended && (
@@ -386,7 +387,8 @@ export function ProjectDetailView({
               <div>
                 <dt className="type-label text-muted-foreground">최신 사람 결정</dt>
                 <dd>
-                  {project.latestDecision.decision} · {project.latestDecision.reviewer}
+                  {RECOMMENDATION_LABEL[project.latestDecision.decision]} ·{" "}
+                  {project.latestDecision.reviewer}
                 </dd>
               </div>
               <div>
@@ -399,8 +401,10 @@ export function ProjectDetailView({
             </dl>
             <p className="mt-4 type-caption text-muted-foreground">
               시작 시 분석 SOL Score {project.openedBy.analysis?.solScore ?? "—"} · 권고{" "}
-              {project.openedBy.analysis?.recommendation ?? "—"} · 알고리즘{" "}
-              {project.openedBy.analysis?.algorithmVersion ?? "—"}
+              {project.openedBy.analysis?.recommendation
+                ? RECOMMENDATION_LABEL[project.openedBy.analysis.recommendation]
+                : "—"}{" "}
+              · 알고리즘 {project.openedBy.analysis?.algorithmVersion ?? "—"}
             </p>
             <Link
               href={`/bids/${project.bidId}#review-history-title`}
@@ -458,7 +462,7 @@ export function ProjectDetailView({
             )}
             {project.reopenAvailable && (
               <p className="mt-3 type-label">
-                종료 이후 새 BID 결정이 있습니다.{" "}
+                종료 이후 새 {RECOMMENDATION_LABEL.BID} 결정이 있습니다.{" "}
                 <Link className="underline" href={`/bids/${project.bidId}`}>
                   공고에서 다시 열기
                 </Link>

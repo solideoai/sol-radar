@@ -198,7 +198,7 @@ describe("공공조달 업무 화면", () => {
     expect(rows[2]?.querySelectorAll("td")[5]?.textContent).toBe("확인 필요");
     expect(rows[2]?.querySelectorAll("td")[6]?.textContent).toBe("확인 필요");
     expect(rows[2]?.querySelectorAll("td")[8]?.textContent).toBe("검토 필요");
-    expect(rows[2]?.querySelectorAll("td")[10]?.textContent).toBe("WATCH");
+    expect(rows[2]?.querySelectorAll("td")[10]?.textContent).toBe("보류");
     // 공고번호·게시일은 열을 늘리지 않고 제목 칸의 보조 줄로 보이며 칸 밖으로 넘치지 않는다.
     const titleCell = rows[0]?.querySelectorAll("td")[3];
     const meta = titleCell?.querySelector('[data-part="notice-meta"]');
@@ -282,7 +282,7 @@ describe("공공조달 업무 화면", () => {
       ["신규 발견", "1", "최근 24시간 · 입찰공고"],
       ["마감 임박 (7일)", "1", "정확한 마감 확인 · 진행 중"],
       ["분석 대기", "0", "현재 입력의 분석 결과 없음"],
-      ["BID 권고", "0", "현재 유효 분석 · 진행 중"],
+      ["추천 권고", "0", "현재 유효 분석 · 진행 중"],
       ["진행 중 입찰 프로젝트", "0", "종료 제외 · 프로젝트 보기"],
     ];
     for (const [label] of figures)
@@ -316,7 +316,7 @@ describe("공공조달 업무 화면", () => {
       return element;
     };
     expect(stat("전체 수집 공고").textContent).toContain("1");
-    expect(stat("진행 중 WATCH").textContent).toContain("2");
+    expect(stat("진행 중 보류").textContent).toContain("2");
     expect(stat("마지막 수집 성공").textContent).toBe("마지막 수집 성공13:302026-10-21 KST");
     expect(stat("다음 수집 예정").textContent).toBe("다음 수집 예정15:002026-10-21 KST · 예정");
     const section = (name: string) => {
@@ -385,7 +385,7 @@ describe("공공조달 업무 화면", () => {
     await expect.element(metrics.getByText("마지막 수집 성공", { exact: true })).toBeVisible();
     expect(metrics.element().textContent).not.toContain("다음 수집 예정");
     expect(metrics.element().textContent).toContain("성공 기록 없음");
-    // 진행 중 WATCH 줄과 기관별 공고 수 구역 둘 다 값을 만들지 않고 실패를 알린다.
+    // 진행 중 보류 줄과 기관별 공고 수 구역 둘 다 값을 만들지 않고 실패를 알린다.
     expect(metrics.getByText("지표 조회 실패", { exact: true }).elements()).toHaveLength(1);
     expect(page.getByText("지표 조회 실패", { exact: true }).elements()).toHaveLength(2);
     expect(document.body.textContent).not.toContain("DEMO · 예시 공고 기준");

@@ -1,4 +1,5 @@
 import "server-only";
+import { RECOMMENDATION_LABEL } from "@/server/shared";
 
 // ── 카카오톡 "나에게 보내기" 피드 한 통(설계 §4.2 한도·§5.3 메시지 표) ──
 // 순수 규칙: 공고 요약 → 카카오 기본 템플릿(object_type feed). 저장·시계·네트워크를 모른다(now 는 인자로 받는다).
@@ -151,7 +152,7 @@ export function toBidFeedTemplate(input: BidFeedInput): KakaoFeedTemplate {
     object_type: "feed",
     content: {
       title: fitText(squashSpaces(input.title), TITLE_KEEP + 1),
-      description: `${input.recommendation} 권고 · ${input.reason}${partial}`,
+      description: `${RECOMMENDATION_LABEL[input.recommendation]} 권고 · ${input.reason}${partial}`,
       link: linkTo(detailUrl),
     },
     item_content: {

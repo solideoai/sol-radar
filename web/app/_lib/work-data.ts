@@ -34,7 +34,7 @@ export async function loadBidPage(orgId: string, query: BidListQuery): Promise<P
   return result.data;
 }
 
-// 같은 조건의 전체 건수. 대시보드 "BID 권고" 카드가 BID 표와 같은 조건(BidListQuery)을 넘겨 센다(M4).
+// 같은 조건의 전체 건수. 대시보드 "추천 권고" 카드가 BID 표와 같은 조건(BidListQuery)을 넘겨 센다(M4).
 export function loadBidCount(orgId: string, query: BidListQuery): Promise<number> {
   return countBids(orgId, query, { repo: workDeps().bids });
 }

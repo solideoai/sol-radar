@@ -24,6 +24,7 @@ import {
   UserCheckIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { RECOMMENDATION_LABEL as SHARED_RECOMMENDATION_LABEL } from "@/server/shared";
 import type {
   AnalysisStatus,
   AnalysisView,
@@ -41,12 +42,11 @@ import type {
 // 라벨 글자의 정본은 docs/plans/2026-10-19-c6-screens-design.md 다.
 // 클라이언트 부품도 쓰므로 @/server/bids 는 타입으로만 가져온다.
 
-// §3.3
-export const RECOMMENDATION_LABEL = {
-  BID: "BID",
-  WATCH: "WATCH",
-  NO_BID: "NO-BID",
-} as const satisfies Record<Recommendation, string>;
+// §3.3. 권고·결정 표기(추천·보류·비추천, ADR-062)의 정본은 @/server/shared 다. 서버 설명 문장·알림과 같은 표를 쓴다.
+export const RECOMMENDATION_LABEL = SHARED_RECOMMENDATION_LABEL satisfies Record<
+  Recommendation,
+  string
+>;
 
 // §3.3 (자격)
 export const QUALIFICATION_LABEL = {

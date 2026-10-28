@@ -73,7 +73,7 @@ async function evidenceShot(page: Page, inView: Locator, width: 1440 | 1280) {
 
 test.use({ storageState: storageOf("sales"), viewport: VIEWPORT[1440] });
 
-test("FX-03: 정보통신공사업 보유 가정은 NO-BID → WATCH 를 보이지만 저장하지 않는다", async ({
+test("FX-03: 정보통신공사업 보유 가정은 비추천 → 보류를 보이지만 저장하지 않는다", async ({
   page,
 }) => {
   const { bids } = readWorkContext();
@@ -89,7 +89,7 @@ test("FX-03: 정보통신공사업 보유 가정은 NO-BID → WATCH 를 보이�
   await test.step("FX-03 상세: 정보통신공사업 등록 행에만 보유 가정 스위치가 있다", async () => {
     await page.goto(`/bids/${bidId}`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(rail).toContainText(/권고\s*NO-BID/);
+    await expect(rail).toContainText(/권고\s*비추천/);
     await expect(rail.getByRole("meter", { name: "SOL Score", exact: true })).toHaveAttribute(
       "aria-valuetext",
       "68점 / 100점 (참고)",
@@ -103,15 +103,15 @@ test("FX-03: 정보통신공사업 보유 가정은 NO-BID → WATCH 를 보이�
     await expect(band).toHaveCount(0);
   });
 
-  await test.step("스위치를 켜면 띠가 NO-BID → WATCH, 68 → 68 을 보인다", async () => {
+  await test.step("스위치를 켜면 띠가 비추천 → 보류, 68 → 68 을 보인다", async () => {
     await toggle.click();
     await expect(toggle).toBeChecked();
     await expect(band).toBeVisible();
     await expect(band).not.toHaveAttribute("aria-busy", "true");
 
     const [recommendationBefore, recommendationAfter] = comparisonCells(band, "권고");
-    await expect(recommendationBefore).toHaveText("NO-BID");
-    await expect(recommendationAfter).toHaveText("WATCH");
+    await expect(recommendationBefore).toHaveText("비추천");
+    await expect(recommendationAfter).toHaveText("보류");
 
     const [scoreBefore, scoreAfter] = comparisonCells(band, "SOL Score");
     await expect(scoreBefore).toHaveText(/^68\s*\/\s*100\s*참고$/);
@@ -129,8 +129,8 @@ test("FX-03: 정보통신공사업 보유 가정은 NO-BID → WATCH 를 보이�
     await assertNoAxe(page, "bid-detail-what-if");
   });
 
-  await test.step("오른쪽 참여 판단의 권고·점수는 NO-BID 68 그대로다", async () => {
-    await expect(rail).toContainText(/권고\s*NO-BID/);
+  await test.step("오른쪽 참여 판단의 권고·점수는 비추천 68 그대로다", async () => {
+    await expect(rail).toContainText(/권고\s*비추천/);
     await expect(rail.getByRole("meter", { name: "SOL Score", exact: true })).toHaveAttribute(
       "aria-valuetext",
       "68점 / 100점 (참고)",
@@ -151,7 +151,7 @@ test("FX-03: 정보통신공사업 보유 가정은 NO-BID → WATCH 를 보이�
     await expect(toggle).toBeVisible();
     await expect(toggle).not.toBeChecked();
     await expect(band).toHaveCount(0);
-    await expect(rail).toContainText(/권고\s*NO-BID/);
+    await expect(rail).toContainText(/권고\s*비추천/);
   });
 
   await test.step("결정 기록 건수는 처음과 같다", async () => {

@@ -7,6 +7,7 @@ import {
   useOptimistic,
   type TransitionStartFunction,
 } from "react";
+import { RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -51,9 +52,9 @@ const STAGE_ITEMS: Item[] = [
 ];
 const RECOMMENDATION_ITEMS: Item[] = [
   { value: ALL, label: "전체" },
-  { value: "BID", label: "BID" },
-  { value: "WATCH", label: "WATCH" },
-  { value: "NO_BID", label: "NO-BID" },
+  { value: "BID", label: RECOMMENDATION_LABEL.BID },
+  { value: "WATCH", label: RECOMMENDATION_LABEL.WATCH },
+  { value: "NO_BID", label: RECOMMENDATION_LABEL.NO_BID },
 ];
 const DECISION_ITEMS: Item[] = [...RECOMMENDATION_ITEMS, { value: "NONE", label: "미결정" }];
 const STATUS_ITEMS: Item[] = [

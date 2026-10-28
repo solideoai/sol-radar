@@ -57,13 +57,13 @@ const reasonBox = () => page.getByRole("textbox", { name: "사유" });
 describe("DecisionPanel 폼", () => {
   it("시스템 권고로 라디오를 미리 고른다(D21)", async () => {
     render(panel());
-    await expect.element(page.getByRole("radio", { name: "BID", exact: true })).toBeChecked();
-    await expect.element(page.getByRole("radio", { name: "WATCH" })).not.toBeChecked();
+    await expect.element(page.getByRole("radio", { name: "추천", exact: true })).toBeChecked();
+    await expect.element(page.getByRole("radio", { name: "보류" })).not.toBeChecked();
   });
 
-  it("권고가 NO-BID 이면 NO-BID 를 미리 고른다", async () => {
+  it("권고가 비추천이면 비추천을 미리 고른다", async () => {
     render(panel({ analysis: FX03_VIEW }));
-    await expect.element(page.getByRole("radio", { name: "NO-BID" })).toBeChecked();
+    await expect.element(page.getByRole("radio", { name: "비추천" })).toBeChecked();
   });
 
   it("사유 9자는 전송하지 않고 오류와 초점을 사유 칸에 둔다", async () => {
@@ -80,7 +80,7 @@ describe("DecisionPanel 폼", () => {
   it("올바른 입력은 결정·사유·담당자·분석 id 를 넘긴다", async () => {
     const onSubmit = spy();
     render(panel({ onSubmit }));
-    await userEvent.click(page.getByRole("radio", { name: "WATCH" }));
+    await userEvent.click(page.getByRole("radio", { name: "보류" }));
     await userEvent.fill(reasonBox(), "  일정 위험이 있어 지켜봅니다.  ");
     await userEvent.click(page.getByRole("button", { name: "결정 기록" }));
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
@@ -96,7 +96,7 @@ describe("DecisionPanel 폼", () => {
     const onSubmit = spy();
     render(panel({ analysis: null, onSubmit }));
     await expect.element(page.getByText("미분석")).toBeVisible();
-    await userEvent.click(page.getByRole("radio", { name: "WATCH" }));
+    await userEvent.click(page.getByRole("radio", { name: "보류" }));
     await userEvent.fill(reasonBox(), "아직 분석 전이지만 지켜봅니다.");
     await userEvent.click(page.getByRole("button", { name: "결정 기록" }));
     await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
@@ -111,7 +111,7 @@ describe("DecisionPanel 폼", () => {
     await expect
       .element(page.getByText("결정은 ADMIN·SALES 역할만 기록할 수 있습니다"))
       .toBeVisible();
-    await expect.element(page.getByRole("radio", { name: "BID", exact: true })).toBeDisabled();
+    await expect.element(page.getByRole("radio", { name: "추천", exact: true })).toBeDisabled();
     await expect.element(reasonBox()).toBeDisabled();
     await expect.element(page.getByRole("button", { name: "결정 기록" })).toBeDisabled();
   });
@@ -226,7 +226,7 @@ describe("DecisionPanel 표시", () => {
   it("결정 이력: 마지막 결정 줄과 담당자를 보인다", async () => {
     render(panel());
     await expect.element(page.getByRole("heading", { name: "결정 이력" })).toBeVisible();
-    await expect.element(page.getByText(/마지막 결정: BID · 김영업/)).toBeVisible();
+    await expect.element(page.getByText(/마지막 결정: 추천 · 김영업/)).toBeVisible();
     await expect.element(page.getByText("담당 이분석")).toBeVisible();
   });
 

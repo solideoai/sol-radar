@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { RECOMMENDATION_LABEL } from "@/components/bids/labels";
 import { DemoBadge } from "@/components/bids/status-badge";
 import { AppPage } from "@/components/app-page";
 import { PROJECT_STATUSES, type ProjectBoard, type ProjectCard } from "@/server/projects";
@@ -51,7 +52,7 @@ function ProjectCardView({ card }: { card: ProjectCard }) {
       </p>
       {card.warnings.latestDecision && (
         <p className="mt-2 type-caption text-destructive">
-          최신 결정 {card.warnings.latestDecision} · 전진 불가
+          최신 결정 {RECOMMENDATION_LABEL[card.warnings.latestDecision]} · 전진 불가
         </p>
       )}
       {card.warnings.bidAmended && (
@@ -68,7 +69,7 @@ export function ProjectBoardView({ board }: { board: ProjectBoard }) {
   return (
     <AppPage
       title="입찰 프로젝트"
-      description="사람이 내린 BID 결정 이후의 입찰 업무를 관리합니다."
+      description={`사람이 내린 ${RECOMMENDATION_LABEL.BID} 결정 이후의 입찰 업무를 관리합니다.`}
       contentClassName="max-w-360"
     >
       <p className="type-label text-muted-foreground">
@@ -90,7 +91,10 @@ export function ProjectBoardView({ board }: { board: ProjectBoard }) {
               </p>
               <p className="mt-3 type-caption">마감 {projectDate(card.deadlineAt)}</p>
               <p className="mt-1 type-caption text-muted-foreground">
-                시스템 권고 {card.recommendation ?? "확인 필요"}
+                시스템 권고{" "}
+                {card.recommendation === null
+                  ? "확인 필요"
+                  : RECOMMENDATION_LABEL[card.recommendation]}
               </p>
             </Link>
           ))}

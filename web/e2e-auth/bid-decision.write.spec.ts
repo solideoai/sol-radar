@@ -61,7 +61,7 @@ test("S3 취소 공고는 상태 '취소 포함'을 고를 때만 보인다(ADR-
   }
 });
 
-test("S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사람 검토 권장 → WATCH 결정 기록 → 저장 실패 상태", async ({
+test("S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사람 검토 권장 → 보류 결정 기록 → 저장 실패 상태", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -115,7 +115,7 @@ test("S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사�
 
   // 10초 안에 완료(19 S4 2번). 붙잡아 둔 poll 을 놓은 뒤부터 잰다. 정확한 자리 두 곳에 10초 timeout 을 준다:
   // 화면 낭독기 live 문구(끝난 순간 한 번 바뀐다)와 레일 SOL Score 게이지(router.refresh 로 서버가 다시 그린 값).
-  await expect(live).toHaveText("분석이 끝났습니다. SOL Score 72, 권고 WATCH", {
+  await expect(live).toHaveText("분석이 끝났습니다. SOL Score 72, 권고 보류", {
     timeout: 10_000,
   });
   await expect(rail.getByRole("meter", { name: "SOL Score", exact: true })).toHaveAttribute(
@@ -146,14 +146,14 @@ test("S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사�
     );
   expect(points).toEqual(["15.0", "18.3", "14.0", "15.0", "10.0"]);
   await expect(rail.getByText("사람 검토 권장", { exact: true })).toBeVisible();
-  await expect(rail).toContainText(/권고\s*WATCH/);
+  await expect(rail).toContainText(/권고\s*보류/);
   // S4 4번: Kev 분포 BID 0.36 / WATCH 0.52 / NO-BID 0.12, 규칙 권고 WATCH 와 같다.
-  expect(await kevDistribution(page)).toEqual({ BID: 36, WATCH: 52, "NO-BID": 12 });
+  expect(await kevDistribution(page)).toEqual({ 추천: 36, 보류: 52, 비추천: 12 });
   await expect(kevSection(page)).toContainText("규칙 권고와 같음");
   await page.unroute("**/api/v1/analyses/*");
 
   // 결정 기록: WATCH + 사유 + 담당자 = 나(이영업).
-  const watch = rail.getByRole("radio", { name: "WATCH", exact: true });
+  const watch = rail.getByRole("radio", { name: "보류", exact: true });
   await expect(watch).toBeChecked();
   await watch.click();
   const reason = rail.getByLabel("사유", { exact: true });
@@ -167,7 +167,7 @@ test("S4 FX-02 분석 실행 → 대기·분석 중 → 완료 72·분해·사�
   await expect(page.getByText("결정을 기록했습니다", { exact: true })).toBeVisible();
   const history = rail.locator('section[aria-labelledby="review-history-title"]');
   await expect(history.locator("li")).toHaveCount(1);
-  await expect(history).toContainText("마지막 결정: WATCH · 이영업");
+  await expect(history).toContainText("마지막 결정: 보류 · 이영업");
   await expect(reason).toHaveValue("");
   // 성공 토스트가 사라진 뒤 실패 상태를 만든다(증거에 두 상태가 겹치지 않게).
   await expect(page.getByText("결정을 기록했습니다", { exact: true })).toBeHidden({
