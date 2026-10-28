@@ -244,10 +244,10 @@ sources:
       "sourceFamily": "LH",
       "serviceId": "15159012",
       "serviceKeyEnv": "LH_BID_NOTICE_SERVICE_KEY",
-      "approvalStatus": "NOT_REQUESTED",
-      "enabled": false,
-      "verification": "NOT_VERIFIED",
-      "keyIssuance": "UNKNOWN",
+      "approvalStatus": "APPROVED",
+      "enabled": true,
+      "verification": "VERIFIED",
+      "keyIssuance": "ISSUED",
       "endpoint":
         {
           "baseUrl": "https://apis.data.go.kr/B552555/OpenBidInfoList",
@@ -273,7 +273,7 @@ sources:
       "changeNoticeUrl": "https://www.data.go.kr/data/15159012/openapi.do",
       "redistributionLimit": "첨부 원문 재배포·학습 권한 별도 확인",
       "sampleResponses": ["fixtures/recorded/15159012/getOpenBidInfo.20261026.p1.masked.json"],
-      "lastVerifiedAt": "2026-10-21",
+      "lastVerifiedAt": "2026-10-27",
     }
   - {
       "key": "kwater-procurement-plan",
