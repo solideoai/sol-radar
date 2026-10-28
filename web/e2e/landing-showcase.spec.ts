@@ -147,4 +147,23 @@ test("움직임 줄이기를 켜고 열면 영상은 멈춘 채 재생 조작 �
   await page.waitForTimeout(1000);
   await expect(video).toHaveJSProperty("paused", true);
   expect(await video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBe(0);
+  // 조작 막대와 겹치지 않게 멈춤·재생 버튼은 숨는다.
+  await expect(page.getByRole("button", { name: /^영상 (멈춤|재생)$/ })).toHaveCount(0);
+});
+
+// 5초 넘게 스스로 움직이는 내용은 멈출 수 있어야 한다(WCAG 2.2.2). 영상 오른쪽 아래의 버튼으로 멈추고 다시 튼다.
+test("영상 멈춤 버튼을 누르면 멈춘 채 있고, 다시 누르면 재생한다", async ({ page }) => {
+  await page.goto("/");
+  const video = landingVideo(page);
+  await expect(video).toHaveJSProperty("paused", false);
+  await page.getByRole("button", { name: "영상 멈춤", exact: true }).click();
+  await expect(video).toHaveJSProperty("paused", true);
+  const play = page.getByRole("button", { name: "영상 재생", exact: true });
+  await expect(play).toBeVisible();
+  // 사용자가 멈추면 다시 누를 때까지 스스로 다시 틀지 않는다.
+  await page.waitForTimeout(1000);
+  await expect(video).toHaveJSProperty("paused", true);
+  await play.click();
+  await expect(video).toHaveJSProperty("paused", false);
+  await expect(page.getByRole("button", { name: "영상 멈춤", exact: true })).toBeVisible();
 });
