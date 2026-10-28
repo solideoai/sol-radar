@@ -37,33 +37,17 @@ export function buildOrgChart(departments: Department[], members: TeamMemberList
     children.forEach(collect);
     return { department, children, members: people, memberCount: ids.size };
   };
-  const roots = departments.filter((department) => department.parentId === null);
-  const divisions = roots
-    .filter((department) => department.kind === "DIVISION")
-    .map((department) => build(department, new Set()));
-  const unassignedGroups = roots
-    .filter((department) => department.kind === "GROUP")
-    .map((department) => build(department, new Set()));
-  const unassignedTeams = roots
-    .filter((department) => department.kind === "TEAM" || department.kind === null)
-    .map((department) => build(department, new Set()));
-  const unassignedIds = new Set<string>();
-  const collectUnassigned = (node: OrgNode) => {
-    node.members.forEach((person) => unassignedIds.add(person.id));
-    node.children.forEach(collectUnassigned);
-  };
-  [...unassignedGroups, ...unassignedTeams].forEach(collectUnassigned);
-  return {
-    divisions: divisions.sort(
-      (a, b) => b.memberCount - a.memberCount || a.department.code.localeCompare(b.department.code),
-    ),
-    unassignedGroups: unassignedGroups.sort((a, b) =>
-      a.department.code.localeCompare(b.department.code),
-    ),
-    unassignedTeams: unassignedTeams.sort((a, b) =>
-      a.department.code.localeCompare(b.department.code),
-    ),
-    unassignedCount: unassignedIds.size,
-    totalCount: uniqueMembers.length,
-  };
+  // 최상위 부서를 한 목록으로 놓는다: 본부(인원 많은 순) → 상위 없는 그룹·팀(코드 순) → 0명 부서.
+  const isDivision = (node: OrgNode) => node.department.kind === "DIVISION";
+  const roots = departments
+    .filter((department) => department.parentId === null)
+    .map((department) => build(department, new Set()))
+    .sort(
+      (a, b) =>
+        Number(a.memberCount === 0) - Number(b.memberCount === 0) ||
+        Number(isDivision(b)) - Number(isDivision(a)) ||
+        (isDivision(a) && isDivision(b) ? b.memberCount - a.memberCount : 0) ||
+        a.department.code.localeCompare(b.department.code),
+    );
+  return { roots, totalCount: uniqueMembers.length };
 }

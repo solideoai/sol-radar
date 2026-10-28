@@ -158,7 +158,7 @@ test("간편 로그인 신규 입사자: 가입 신청 → 사진 → 관리자 
       "src",
       new RegExp(escapeRegExp(USER_PHOTO)),
     );
-    await expect(hireDrawer.getByText("DEMO · 가상 인물")).toHaveCount(0);
+    await expect(hireDrawer.getByText("가상 인물", { exact: true })).toHaveCount(0);
     await capture(hire, "org-chart-new-hire");
 
     // 5. 관리자가 가상 직원 한 명의 사진을 바꾼다.
