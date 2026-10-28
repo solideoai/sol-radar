@@ -1,6 +1,10 @@
 import Image from "next/image";
 import { Marquee } from "@/components/landing/marquee";
-import { DATA_SOURCES, SOLIDEO_SERVICES } from "@/components/landing/showcase-data";
+import {
+  DATA_SOURCES,
+  SOLIDEO_SERVICES,
+  type DataSource,
+} from "@/components/landing/showcase-data";
 
 // 히어로 아래 흐르는 줄 둘.
 // unoptimized: Vercel services 배포에서는 /_next/image 가 404 라 public 원본을 바로 쓴다(679dc3c8).
@@ -30,6 +34,15 @@ export function ServicesMarquee() {
   );
 }
 
+// 출처 로고는 가로세로 비율이 제각각이라(LH 2.6:1 ~ 한국전력공사 8.4:1) 높이 하나로 맞추면 좁은 로고가 작아 보인다.
+// 넓이(가로×세로)를 같게 맞춰 눈으로 비슷한 크기로 보이게 하고, 카드 안 폭(176px)은 넘지 않게 한다.
+const LOGO_AREA = 4200;
+const LOGO_MAX_WIDTH = 176;
+const logoHeight = ({ width, height }: DataSource["logo"]) => {
+  const ratio = width / height;
+  return Math.round(Math.min(Math.sqrt(LOGO_AREA / ratio), LOGO_MAX_WIDTH / ratio));
+};
+
 // 출처 카드도 서비스 카드처럼 로고만 가운데에 둔다(2026-10-28 사용자 요청). 이름은 그림 alt 로 읽힌다.
 // 연결 상태는 문서로 관리하고 화면에는 표시하지 않는다. 로고는 회색조이고 마우스를 올리면 원래 색이다.
 export function SourcesMarquee() {
@@ -52,7 +65,8 @@ export function SourcesMarquee() {
             height={source.logo.height}
             unoptimized
             loading="eager"
-            className="h-7 w-auto max-w-44 object-contain opacity-80 grayscale transition-[filter,opacity] duration-200 group-hover:opacity-100 group-hover:grayscale-0"
+            style={{ height: logoHeight(source.logo) }}
+            className="w-auto object-contain opacity-80 grayscale transition-[filter,opacity] duration-200 group-hover:opacity-100 group-hover:grayscale-0"
           />
         </li>
       ))}

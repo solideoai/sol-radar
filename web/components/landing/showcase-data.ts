@@ -60,14 +60,16 @@ export const SOLIDEO_SERVICES: readonly SolideoService[] = [
 // 로고는 각 기관 공식 CI 안내 페이지의 파일에서 로고 부분만 꺼냈다(그림은 바꾸지 않는다).
 // CI 안내 파일을 못 구한 기업마당·중소벤처기업부·국방전자조달은 공식 누리집에 게시된 로고 파일 그대로다
 // (기업마당은 누리집 공유 그림에서 흰 여백만 잘랐다, 중소벤처기업부·국방전자조달은 머리말 로고).
+// 카드에 이름 글자가 없어 마크만으로는 기관이 읽히지 않는 나라장터·LH·한국전력공사는
+// 같은 CI 묶음의 "마크 + 국문 기관 이름" 시그니처다(2026-10-28 사용자 결정).
 export const DATA_SOURCES: readonly DataSource[] = [
   {
     name: "나라장터(조달청)",
-    logo: { src: "/landing/sources/koneps.svg", width: 304, height: 95 },
+    logo: { src: "/landing/sources/koneps.svg", width: 307, height: 95 },
   },
   {
     name: "한국토지주택공사",
-    logo: { src: "/landing/sources/lh.svg", width: 35, height: 24 },
+    logo: { src: "/landing/sources/lh.svg", width: 247, height: 96 },
   },
   {
     name: "한국수자원공사",
@@ -75,7 +77,7 @@ export const DATA_SOURCES: readonly DataSource[] = [
   },
   {
     name: "한국전력공사",
-    logo: { src: "/landing/sources/kepco.svg", width: 171, height: 109 },
+    logo: { src: "/landing/sources/kepco.svg", width: 295, height: 35 },
   },
   { name: "기업마당", logo: { src: "/landing/sources/bizinfo.png", width: 344, height: 128 } },
   { name: "중소벤처기업부", logo: { src: "/landing/sources/mss.svg", width: 206, height: 42 } },
