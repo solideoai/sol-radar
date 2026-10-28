@@ -45,6 +45,7 @@ updated: 2026-10-28
 4. [[16-DECISIONS|ADR-056]](제안): 첨부 일부만 파싱된 추출의 재사용을 분석 대기(A)로 막을지, `source_hash` 캐시 키(B)로 막을지.
 5. 파서 "지원" 판정: 코드는 [[03-AI-PIPELINE|03]] §10.3 결정 규칙 4번 판정 없이 `PARSED`를 낸다. 규칙대로 고칠지, 실표본 6건으로 규칙을 바꿀지.
 6. LH 입찰공고(15159012) 운영 반영 B단계. A단계(LH를 끈 채 코드를 main·회사 ingest Worker에 반영)는 2026-10-28 끝났다(회사 ingest Worker `1646e7d033a1`, 12:00 나라장터 `SUCCEEDED`). registry 켜기(B1)는 main `c5c88510`에 들어갔고, 회사 반영(B2~B4)은 따로 승인한다([[2026-10-27-lh-bid-notice-activation|LH 활성화 계획]] §4.2).
+7. 화면 UI 개편([[16-DECISIONS|ADR-061]]) 통합 branch `feat/ui-refresh`의 main 병합·push·Vercel 1차 배포. 그 뒤 운영에서 랜딩 영상을 녹화(로그인은 사용자가 직접)해 2차 배포한다.
 
 ### 남은 일
 
@@ -52,6 +53,7 @@ updated: 2026-10-28
 - 리허설 중 FX-02를 재분석하지 않는다. 촬영 때 "이전 분석 66(가상 프로필) → 새 분석 43(공개 자료 프로필, 예상)"이 보여야 한다([[16-DECISIONS|ADR-059]]). 촬영의 S4 [재분석]만 한다.
 - 덱 pptx(`docs/submission/deck/sol-radar-deck.pptx`, git 밖)는 10-28 에 [[slides-spec|덱 제작 명세]]와 18장을 대조해 글·표·노트를 맞췄다(10-25 원본은 `sol-radar-backups/deck/` 에 백업). 그림·포스터는 옛 mock 화면 그대로라 촬영 뒤 바꾼다. 명세가 정본이다.
 - 카카오 실수신 녹화 전에 사용자 연결과 S0 수신 시험을 한다.
+- 화면 개편(ADR-061): 1차 배포 → 운영 녹화 영상 넣어 2차 배포 → 11-01부터 화면 동결·덱 클립 촬영. 2026-11-02 사용자 승인 뒤 운영 읽기 SELECT로 랜딩 출처 9곳 수집을 확인하고, 연결 안 된 곳은 로고를 뺄지 사용자가 정한다([출처 연결 목록](plans/2026-10-28-landing-sources-to-connect.md)).
 - 열린 확인: 운영 로그인 화면 확인(DEMO 마감 이동 뒤), 로그인 뒤 E2E(`test:e2e:work`·`test:e2e:auth`, Compose 필요. 수집 장애 격리·사이드바 되돌림·실운영 전환 변경에서 미실행), 배포 뒤 사진 1장 올리기·지우기([릴리스 실행서](evidence/integration/20261025-release-runbook.md) §4).
 
 **16에서 넘어온 할 일**(번호는 [[16-DECISIONS|16]]의 미결정·닫힌 미결정 번호):
@@ -133,6 +135,8 @@ updated: 2026-10-28
 ## 최근 작업 로그
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다.
+
+- 2026-10-28 · 화면 UI 전체 개편([[16-DECISIONS|ADR-061]], 사용자 승인, [스펙](../polaris/specs/in-progress/2026-10-28-ui-refresh.md)): 선택·켜짐 파스텔 토큰 `selected`, 사이드바 묶음 머리 아이콘·메뉴 글자만 들여 쓰기(ADR-021 4차 개정, 사용자가 스크린샷 확정), 업무 화면 공통 틀(경로 → 제목 → 구분선, 표 머리 줄·둥근 테두리, `Chip`, 카드 그림자 없음, 선택 표시 3종), 랜딩 흐르는 줄 둘(솔리데오 수행 서비스 17개·공고 출처 9곳 로고만, U8). 영상 구역은 2차 배포. 작업자 넷(0f·ac·09·df)이 화면을 나눠 맡고 통합 branch `feat/ui-refresh` `b8aac468`로 합쳤다. 서버·DB·API·문구 뜻 변경 없음. 연결 안 된 출처 7곳은 [목록](plans/2026-10-28-landing-sources-to-connect.md), 11-02 운영 확인 · 전체 `pnpm verify` exit 0(`83af32c6`: 루트 286·web 885·`next build`·AI 170·결정 57), 리뷰 후속(`b8aac468`)은 `pnpm verify:changed --base 83af32c6` 통과·브라우저 14, 공개 E2E 51 통과(`83af32c6` 빌드), 독립 리뷰 1회(상 1건은 W2 커밋으로 이미 고쳐짐, 중 2건·하 2건 반영, 하 3건 기록만: 흐르는 줄 멈춤 버튼·분석 예시 탭 색 외 표시·출처 줄 제목), 화면별 1440·1280 스크린샷([증거](evidence/ui-refresh/README.md)). `test:e2e:work`(격리 스택): 1회차(`83af32c6`) axe `label-content-name-mismatch` 4건(사이드바 로고 링크, main `e9224f46`부터 있던 결함)·1280 페이지 열기 시간 초과 1건, 2회차(`b8aac468`, 로고 이름 고침) 17 통과·1 실패(격리 스택 Storage 버킷 누락, `pnpm storage:local` 뒤 그 spec 만 재실행 통과), 전 화면 점검 22경로 × 1440·1280 HTTP 200·넘침 0·pageerror 0. 미실행: `test:e2e:work` 전체 3회차, 운영 데이터 화면(배포 뒤)
 
 - 2026-10-28 · 입찰 일정 원본 일정·관련 공고 반영(운영 달력이 비어 있어 사용자 선택 1번, [[16-DECISIONS|ADR-060]] 후속): 조직 전체 보기에 관련 업종(`RELEVANT`·`CANDIDATE`) 실공고 마감과 나라장터 입찰공고 원본(`raw_payload`) 일정 5종(제출 시작·자격 등록 마감·협정서 마감·현장설명회·개찰), 일정 종류 거르기 칩 7개(`?kinds=`), 다가오는 14일 8건 + 접기([[06-UI-UX|06]] §5.15). 공공 API 추가 호출·Worker·마이그레이션·service role 0, 운영 DB 읽기 SELECT 1회([기록](evidence/calendar/20261028/prod-raw-check.md)). `218ee1f1`·`6da869df`, 2026-10-28 main 병합·push · 검증: 전체 `pnpm verify` exit 0(루트 286·web 98파일 880·`next build`·AI 170·결정 57), 서버 시험 34·브라우저 시험 9(변형 실패 확인), 09 독립 리뷰(하 5건 중 4건 반영), 격리 로컬 Supabase 로그인 QA(1440·1280, 59개 중 55 + 상한 밖 4개 내 일정에서 확인, 하 2건 수정), 응답 크기(가상 관련 222건, prod 빌드) 2.2MB → 516KB·gzip 41KB([증거](evidence/calendar/20261028/README.md)). 미실행: 관련 공고 읽기 실패 안내 줄 화면 확인(시험만), 로그인한 운영 화면
 - 2026-10-28 · LH A단계 회사 반영: `sol-radar-app` `24f2ac8` → `1646e7d0` fast-forward(사용자 결정으로 main 최신이 아닌 이 커밋에 고정, `compose.company.yaml` 로컬 수정 보존), 롤백 태그 `rollback-20261027-lh`(= `24f2ac84963c`), 09:15 ingest Worker만 `1646e7d033a1`로 재생성. LH API 호출 0회 · 일회용 `--check` exit 0(외부 6종 `DISABLED`), `--status` Job Scheduler 1개, healthy·restarts 0, 다른 sol-radar 컨테이너 그대로, `/health/ready` 200, 12:00 회차 `SUCCEEDED`·`COMPLETE`(247건), LH `ingest_runs` 0건([기록](evidence/company-rollout/20261028/lh-a-stage-ingest-worker.md))

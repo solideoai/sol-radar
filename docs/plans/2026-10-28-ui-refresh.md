@@ -293,3 +293,20 @@ updated: 2026-10-28
 
 ### Task 10: 2차 배포
 - [ ] W4 Task 4·5 뒤 같은 절차로 영상 넣어 배포(사용자 승인 뒤). 11-01 부터 화면 동결, 덱 클립 촬영.
+
+## 통합 때 바뀐 것 (2026-10-28 기록)
+
+계획을 쓴 뒤 진행 중에 바뀐 것이다. 위 본문은 처음 계획 그대로 둔다.
+
+- 소유 이동:
+  - W3 Task 5(설정·관리)·W2 Task 5(입찰 일정·알림)·W2 Task 4(관심 공고·입찰 프로젝트)는 0f 가 했다.
+  - W3 Task 4(조직·인력·조직도)는 df, W3 Task 3(회사 역량)은 ac 가 했다.
+  - 독립 리뷰 후속(`app-shell.tsx`·`app-breadcrumb.tsx`·`app-nav.ts`·`market-view.tsx`·`[slug]/dashboard`·`admin/user-list`)은 df 가 한 번 맡았다.
+- 인터페이스:
+  - `Chip` 에 `size="md"|"sm"` 가 있다.
+  - `DataSource` 는 `{name, logo:{src,width,height}}` 이고 `status` 가 없다(U8).
+  - `AppBreadcrumb` 는 앱 틀이 넣는 `AppPathnameProvider` 문맥에서 주소를 읽는다. `aria-current` 는 메뉴 주소와 정확히 같을 때만 단다(`isMenuPage`). 경로 줄은 머리 flex 줄 위에 있어, `actions` 가 제목 줄 높이에서 시작한다.
+  - `AppPage` 본문 위 여백은 `pt-4` 다.
+- 선택 표시 3종 규칙(화면 이동 탭·하나 고르기 전환·여러 개 켜는 거르기 칩)을 정해 모든 작업자에게 같게 적용했다([[06-UI-UX|06]] §3.5).
+- Task 8(U6 운영 수집 상태 SELECT)은 U8 로 없어졌다. 대신 2026-11-02 에 9곳 수집을 확인한다([출처 연결 목록](2026-10-28-landing-sources-to-connect.md)).
+- 출처 로고: 나라장터·LH·한국전력공사는 사용자 선택으로 마크 + 국문 이름 시그니처를 쓴다. 9곳은 넓이가 같아지는 높이로 맞췄다.

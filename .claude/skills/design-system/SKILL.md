@@ -9,11 +9,11 @@ description: 화면을 만들거나 고칠 때 따르는 디자인 시스템 규
 
 웹(`web/`)은 조밀하고 가는 선으로 나눈 제품 화면이다.
 
-1. **바탕은 흰색, 구역은 가는 선.** 카드는 `border` + `shadow-xs`, 줄 사이는 `divide-border` 다. 면의 색만으로 구역을 나누지 않는다. 첫 화면(마케팅 틀)만 예외다 — 아래 "웹 틀" 표를 따른다.
+1. **바탕은 흰색, 구역은 가는 선.** 카드는 `border` 만이고 그림자가 없다(2026-10-28), 줄 사이는 `divide-border` 다. 면의 색만으로 구역을 나누지 않는다. 첫 화면(마케팅 틀)만 예외다 — 아래 "웹 틀" 표를 따른다.
 2. **조밀하게.** 본문 14px, 라벨 13px. 버튼은 기본 36px(작은 것 32·28px, 큰 것 44px), 입력칸 40px, 모서리 8px 이다.
 3. **제목이 화면을 이끈다.** `h1` 은 화면에 하나이고 `type-title` 이다. 같은 역할의 글자는 어느 화면에서나 같은 크기다.
 4. **주요 버튼은 화면에 하나.** `default`(남색)는 하나만 두고 나머지는 `outline`·`ghost`·링크로 낮춘다.
-5. **색은 아낀다.** 버튼은 `primary`(남색)이고 브랜드 색 `brand` 는 차트·선택 표시에만 쓴다(첫 화면에서는 로고 점·선택 막대·점수 막대·인용 바탕·안내 아이콘에도 쓴다). 나머지 위계는 회색 단계로 만든다.
+5. **색은 아낀다.** 버튼은 `primary`(남색)이고 브랜드 색 `brand` 는 차트·강조 배지·링크에만 쓴다. 첫 화면에서는 로고 점·선택 막대·점수 막대·인용 바탕·안내 아이콘에도 쓴다. 선택·켜짐 바탕은 그 파랑의 연한 색 `selected` 다(2026-10-28, ADR-061). 나머지 위계는 회색 단계로 만든다.
 6. **틀 안에 둔다.** 로그인 뒤 화면은 업무 틀(사이드바와 위 막대. 조직(템플릿) 틀도 같은 셸), 운영자 화면은 운영자 틀(머리 막대 하나), 로그인·안내 화면은 인증 틀(화면 가운데의 좁은 단, 로고·카드 없음), 첫 화면은 마케팅 틀(머리말과 바닥글)이다.
 7. **아이콘은 `lucide-react`, 16px.** 글자 없이 아이콘만 둔 버튼에는 이름(`aria-label`)을 단다.
 8. **장식하지 않는다.** 그라데이션, 알약 배지 머리글, 색 원 번호, 문장 속 색 강조, 지어낸 수치·후기·로고, 동작하지 않는 버튼을 넣지 않는다.
@@ -54,6 +54,8 @@ design/tokens.json  ──pnpm tokens──▶  web/app/globals.css
 - 색 이름은 shadcn 의 짝을 따른다: `<이름>` 은 바탕, `<이름>-foreground` 는 그 위 글자.
   `muted` 는 연한 바탕이고 보조 글자는 `muted-foreground` 다. 테두리는 `border`, 입력칸 테두리는 `input`, 포커스 링은 `ring`.
 - `primary` 는 주요 버튼(남색), `brand` 는 브랜드 색(파랑), `accent` 는 메뉴 항목 hover 바탕이다.
+  `selected`·`selected-foreground` 는 선택·켜짐(사이드바 지금 메뉴, 탭·보기 전환·거르기 칩의 켜짐)의 바탕과 글자이고, `accent` 로 선택을 표시하지 않는다.
+  업무 화면의 머리(경로 → 제목 → 구분선)·표·칩(`components/ui/chip.tsx`)·선택 표시 3종은 `docs/06-UI-UX.md` §3.5 를 따른다.
   `sidebar-*` 여덟 개는 사이드바 안에서만 쓴다(`web/components/ui/sidebar.tsx`·`web/components/app-shell.tsx`).
 - `chart-2` 는 차트의 둘째 계열 색이다(첫째 계열은 `brand`). 막대와 범례 색 칸에만 쓰고 글자·바탕·버튼에는 쓰지 않는다.
 - `kakao`·`naver`(와 `-foreground`)는 각 회사 로그인 버튼 가이드의 지정 색이다. 간편 로그인 버튼(`web/app/auth/social-sign-in.tsx`)과 로그인 수단 목록의 회사 표시(`web/components/provider-mark.tsx`), 그리고 `kakao` 는 개인 설정의 카카오톡 알림 연결 버튼(`web/app/(app)/[slug]/settings/kakao-notify-section.tsx`, ADR-038)에만 쓰고 값을 바꾸지 않는다.
@@ -95,7 +97,7 @@ sidebar(딸려 온 sheet·tooltip)·avatar·table.
 
 | 틀 | 파일 | 쓰는 화면 |
 |---|---|---|
-| 마케팅 | `web/components/site-header.tsx`·`web/components/site-footer.tsx` | 첫 화면 `web/app/page.tsx`. 단 폭 `max-w-300` + `px-10`(글줄 1120px). 머리말 72px 단색 흰 바탕. 본문 바탕 흰색이고 구역은 여백, 구역 안 목록은 1px 선으로 나눈다. 면 색은 분석 예시 무대(`bg-muted`)와 마지막 권유 띠(`bg-foreground`·`text-background`, 버튼 하나) 둘뿐이다. 가운데 정렬은 히어로 하나다. 글자는 첫 화면 눈금(`*-lg`·`subhead`·`wordmark`)을 쓰고 13px 미만을 쓰지 않는다. 바닥글은 흰 바탕이다(`docs/06-UI-UX.md` §3.4) |
+| 마케팅 | `web/components/site-header.tsx`·`web/components/site-footer.tsx` | 첫 화면 `web/app/page.tsx`. 단 폭 `max-w-300` + `px-10`(글줄 1120px). 머리말 72px 단색 흰 바탕. 본문 바탕 흰색이고 구역은 여백, 구역 안 목록은 1px 선으로 나눈다. 면 색은 분석 예시 무대(`bg-muted`)와 마지막 권유 띠(`bg-foreground`·`text-background`, 버튼 하나) 둘뿐이다. 가운데 정렬은 히어로와 그 아래 흐르는 줄 둘(솔리데오 수행 서비스·공고 출처 로고)이다. 글자는 첫 화면 눈금(`*-lg`·`subhead`·`wordmark`)을 쓰고 13px 미만을 쓰지 않는다. 바닥글은 흰 바탕이다(`docs/06-UI-UX.md` §3.4) |
 | 인증 | `web/components/auth-frame.tsx` (`AuthFrame`·`AuthHeader`) | 로그인·가입·비밀번호(`web/app/auth/`, 주소 `/auth/login` 등), 팀 만들기(`web/app/teams/new/`)·받은 초대(`web/app/invitations/`), 로그인 필요·연결 없음 안내, 없는 주소·오류. 단 폭 `max-w-100`(400px), 가운데 정렬한 제목 아래에 폼·버튼. 비밀번호 칸은 `web/components/password-input.tsx`(보기·숨기기 버튼) |
 | 업무 | `web/app/(app)/(work)/layout.tsx` + `web/components/app-shell.tsx` | SOL RADAR 업무 화면. 주소에 조직이 없다(ADR-021): 대시보드 `/dashboard`, 공고 `/bids`·`/bids/[id]`, 알림 `/notifications`, 데이터 수집 관리 `/admin/ingestion`(업무 역할 `sol_role=ADMIN` 전용 — 아래 운영자 틀과 다르다). 조직·인력 `/people`·조직도 `/org-chart` 는 같은 `AppShell` 을 `web/app/_lib/people-read-layout.tsx`(`PeopleReadLayout`)로 그린다 |
 | 조직(템플릿) | `web/app/(app)/[slug]/layout.tsx` + `web/components/app-shell.tsx` | 템플릿에서 이어 쓰는 조직 주소 화면: 설정·멤버·팀 `/<slug>/settings`, 작업 `/<slug>/tasks`, 템플릿 대시보드 `/<slug>/dashboard`. 사이드바 `NAV` 에 없다. 옛 주소 `/settings`·`/memos` 는 지금 업무 조직의 이 화면으로 보낸다(`web/app/(app)/home.ts`) |
