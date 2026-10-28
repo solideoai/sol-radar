@@ -2,6 +2,7 @@ import { cn } from "cn";
 import Image from "next/image";
 import { Marquee } from "@/components/landing/marquee";
 import { DATA_SOURCES, SOLIDEO_SERVICES } from "@/components/landing/showcase-data";
+import { Chip } from "@/components/ui/chip";
 
 // 히어로 아래 흐르는 줄 둘. 그림은 옆 이름 글자와 같은 뜻이라 alt 를 비운다(이름을 두 번 읽지 않게).
 // unoptimized: Vercel services 배포에서는 /_next/image 가 404 라 public 원본을 바로 쓴다(679dc3c8).
@@ -73,11 +74,7 @@ export function SourcesMarquee() {
             >
               {source.name}
             </span>
-            {planned && (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 type-label whitespace-nowrap text-muted-foreground">
-                연결 예정
-              </span>
-            )}
+            {planned && <Chip className="whitespace-nowrap">연결 예정</Chip>}
           </li>
         );
       })}

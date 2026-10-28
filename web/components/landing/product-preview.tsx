@@ -74,13 +74,12 @@ function BidTab({ bid }: { bid: DemoBid }) {
   return (
     <Tabs.Tab
       value={bid.id}
-      className="group/tab relative flex w-full flex-col items-start gap-1 rounded-lg border border-transparent px-4 py-3.5 text-left outline-none hover:bg-background/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-active:border-border data-active:bg-background motion-safe:transition-colors"
+      className="group/tab flex w-full flex-col items-start gap-1 rounded-lg px-4 py-3.5 text-left outline-none hover:bg-background/70 focus-visible:ring-3 focus-visible:ring-ring/50 data-active:bg-selected data-active:hover:bg-selected motion-safe:transition-colors"
     >
-      <span
-        aria-hidden
-        className="absolute inset-y-3 -left-px w-0.75 rounded-full bg-brand opacity-0 group-data-active/tab:opacity-100"
-      />
-      <span className="type-ui-lg font-semibold text-foreground">{bid.title}</span>
+      {/* 고른 공고는 앱 사이드바와 같은 선택색이다: 연한 파랑 바탕 + 제목 파란 글자(2026-10-28 화면 개편). */}
+      <span className="type-ui-lg font-semibold text-foreground group-data-active/tab:text-selected-foreground">
+        {bid.title}
+      </span>
       <span className="type-label-lg text-muted-foreground">{bid.agency}</span>
       <span className="mt-1.5 flex items-center gap-2.5">
         <span className="type-label-lg whitespace-nowrap text-muted-foreground">
