@@ -1,12 +1,12 @@
 ---
 title: "10-27 외부 수집 서비스별 격리 운영 배포 실행서"
 doc: "plan-20261027-ingest-source-isolation-deploy"
-status: active
+status: done
 tags:
   - sol-radar
   - ops
   - ingestion
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 10-27 외부 수집 서비스별 격리 운영 배포 실행서

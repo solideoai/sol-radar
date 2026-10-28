@@ -1,13 +1,13 @@
 ---
 title: "회사 역량 공개 자료 프로필·임원 권한 구현 계획"
 doc: "plan-20261027-company-public-profile"
-status: draft
+status: done
 tags:
   - sol-radar
   - company
   - auth
   - scoring
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 회사 역량 공개 자료 프로필·임원 권한 구현 계획

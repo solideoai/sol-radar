@@ -1,7 +1,0 @@
-items 19, labels 89, problems 0
-labelSource: CONSTRUCTED 89
-draftedBy: RULE 89
-recommendation: BID 4 (24%), NO_BID 2 (12%), WATCH 11 (65%)
-req.qualifications[*].status: NEEDS_REVIEW 1 (6%), NOT_SATISFIED 2 (12%), SATISFIED 14 (82%)
-req.requiredSkills[*].status: NOT_SATISFIED 17 (31%), SATISFIED 38 (69%)
-OK

@@ -1,12 +1,12 @@
 ---
 title: "10-27 문서 정리 계획: 마감 연기 반영·사실 정정·낡은 문서 삭제"
 doc: "plan-20261027-docs-cleanup"
-status: active
+status: done
 tags:
   - sol-radar
   - decision
   - hackathon
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # 10-27 문서 정리 계획: 마감 연기 반영·사실 정정·낡은 문서 삭제
