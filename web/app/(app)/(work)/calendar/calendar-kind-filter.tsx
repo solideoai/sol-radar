@@ -47,8 +47,8 @@ export function CalendarKindFilter({
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md px-3 py-1 type-label whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                   on
-                    ? "bg-secondary font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "bg-selected font-semibold text-selected-foreground"
+                    : "text-muted-foreground hover:bg-muted",
                 )}
               >
                 {on ? <CheckIcon aria-hidden className="size-3.5 shrink-0" /> : null}

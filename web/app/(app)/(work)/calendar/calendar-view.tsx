@@ -400,6 +400,7 @@ export function BidCalendar({
             </Link>
           </nav>
         </div>
+        {/* 켜진 보기는 연한 파랑 알약이다(2026-10-28 화면 개편: 설정 메뉴·종류 칩과 같은 규칙). */}
         <nav aria-label="보기" className="inline-flex rounded-lg border border-border p-0.5">
           {VIEW_ORDER.map((option) => (
             <Link
@@ -409,8 +410,8 @@ export function BidCalendar({
               className={cn(
                 "rounded-md px-3 py-1 type-label outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                 option === view
-                  ? "bg-secondary font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-selected font-semibold text-selected-foreground"
+                  : "text-muted-foreground hover:bg-muted",
               )}
             >
               {VIEW_LABELS[option]}
@@ -455,8 +456,9 @@ export function BidCalendar({
               <caption className="sr-only">
                 {CALENDAR_CAPTION} {monthLabel}
               </caption>
+              {/* 요일 줄은 표(ui/table) 머리 줄과 같은 연한 바탕이다. 칸 선을 겹쳐 그리는 표라 바깥 둥근 테두리는 두지 않는다. */}
               <thead>
-                <tr>
+                <tr className="bg-muted/50">
                   {WEEKDAYS.map((weekday) => (
                     <th
                       key={weekday}

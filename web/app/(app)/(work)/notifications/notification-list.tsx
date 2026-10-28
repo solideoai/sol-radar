@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { NOTIFICATION_ICON, NOTIFICATION_TYPE_LABEL } from "@/components/bids/labels";
 import { formatKst, formatRelative } from "@/components/bids/format";
 import { refreshTopbarStatus } from "@/components/topbar-status";
-import { Card } from "@/components/ui/card";
 import type { Notification } from "@/server/bids";
 import { EmptyState } from "@/app/(app)/(work)/empty-state";
 import { LoadMoreFooter, useLoadMore } from "@/app/(app)/(work)/load-more";
@@ -109,7 +108,8 @@ export function NotificationList({
 
   return (
     <>
-      <Card className="gap-0 py-0">
+      {/* 표(ui/table)와 같은 둥근 1px 테두리 상자다. 행 hover 바탕이 모서리 밖으로 나가지 않게 넘침을 자른다. */}
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <ul ref={listRef} className="divide-y divide-border">
           {items.map((item) => {
             const unread = item.readAt === null && !readIds.has(item.id);
@@ -164,7 +164,7 @@ export function NotificationList({
             );
           })}
         </ul>
-      </Card>
+      </div>
       <LoadMoreFooter
         status={status}
         hasNext={hasNext}
