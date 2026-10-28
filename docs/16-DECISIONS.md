@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - decision
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 16. 아키텍처 결정 기록 (ADR)
@@ -82,6 +82,34 @@ updated: 2026-10-28
 |ADR-060|사이드바 새 메뉴 3개(자격 갭 레이더 `/gaps`·발주 현황 `/market`·입찰 일정 `/calendar`)와 자격 갭 판정 묶음, 발표 클립 7(ADR-021 개정)|채택|2026-10-28|본문|
 |ADR-061|화면 UI 개편: 파스텔 선택색 `selected`, 묶음 머리 아이콘 사이드바, 업무 화면 공통 틀, 랜딩 흐르는 줄 둘과 업무 데모(ADR-021 사이드바 4차 개정)|채택|2026-10-28|본문|
 |ADR-062|권고 화면 표기 한글화: 추천·보류·비추천(값 `BID`·`WATCH`·`NO_BID`는 그대로)|채택|2026-10-28|본문|
+|ADR-063|추출 입력 첨부 조립 v0.2: 조각 나누기·문서마다 돌아가며 채우기·같은 문서 한 벌(`req-extract/v0.2`)|채택|2026-10-28|본문|
+
+## ADR-063 추출 입력 첨부 조립 v0.2: 조각 나누기·문서마다 돌아가며 채우기·같은 문서 한 벌
+
+**채택 (2026-10-28 사용자: 추천 1).** 사용자 원문: "추천1번". 고른 안은 gateway 코드 수정과 `AI_PROMPT_VERSION` 올림이다. 회사 반영은 승인 뒤다.
+
+- **계기**: 2026-10-28 23:36 운영에서 실공고 첫 분석(나라장터 R26BK01791420, 사용자 승인)을 돌렸다. 첨부는 공고서 PDF·같은 공고서 HWPX·제안요청서 HWPX였고, 셋 다 파싱이 끝난 상태였다. run은 `COMPLETED` 54 보류(`WATCH`)였다. 그런데 추출은 전 항목 `UNKNOWN`, 근거 0건, `TRUNCATED_INPUT`이었다.
+- **원인(코드)**:
+  - 나라장터 공고는 본문이 빈 문자열이라(`web/server/ingestion/normalize-g2b.ts`) 추출 입력은 첨부뿐이다.
+  - Worker는 첨부를 문서당 200,000자·전체 600,000자까지 보낸다(`web/server/documents/document-text.repo.ts`).
+  - HWP·HWPX 파서는 쪽(`pages`)을 비운다. 그래서 gateway v0.1 `build_user_message`(`services/ai/src/sol_ai/adapters/qwen.py`)에서 문서 전체가 chunk 하나였다. v0.1은 예산 `QWEN_CONTEXT_BUDGET_TOKENS`(12,000자)를 넘는 첫 chunk에서 멈췄다. 첫 첨부가 12,000자를 넘는 HWPX면 첨부가 0자 들어간다.
+  - 회사 이미지 `9bb24b002f9b`(`05f9572` 기반)와 main이 이 경로에서 같다. 재배포만으로는 고쳐지지 않는다.
+- **결정**: [[03-AI-PIPELINE|03]] §4.3 v0.2 규칙.
+  1. 쪽이 없는 문서와 긴 쪽을 2,500자 안의 조각으로 나눈다. 자르는 자리는 문장 끝이나 공백이고, 조각마다 원문 기준 절대 `charOffset`을 붙인다.
+  2. 문서마다 앞 조각부터 한 조각씩 돌아가며 넣는다. 남은 예산보다 긴 조각은 남은 만큼 앞부분을 넣고 멈춘다.
+  3. 같은 문서의 다른 형식은 하나만 넣는다. gateway는 첨부 이름을 받지 않아 내용 지문(문자·숫자 앞 4,000자의 8글자 조각, Jaccard 0.6 이상)으로 알아본다. 쪽 번호가 근거에 남는 PDF를 남긴다.
+  4. `AI_PROMPT_VERSION`을 `req-extract/v0.2`로 올린다. system prompt 파일은 v0.1 그대로다.
+- **바뀌지 않는 것**:
+  - 예산 기본값 12,000. 회사 vLLM의 길이 한도를 확인하지 못했다.
+  - system prompt·스키마·인용 검증.
+  - web·Worker 코드. Worker는 분석 job마다 gateway `/health`의 `promptHash`로 캐시 키를 만든다.
+  - mock. 추출 fixture의 `promptVersion` v0.1을 그대로 쓴다.
+  - 본문만 있는 요청의 user message. 운영 DEMO 공고는 첨부 텍스트가 없어(DEMO 시드는 `text_object_key`를 쓰지 않는다) v0.1과 글자 하나까지 같다. FX-01~20으로 확인했다.
+- **영향**: 버전이 `promptHash`에 들어가 v0.1로 만든 추출 행을 다시 쓰지 않는다. 그래서 gateway 반영 뒤 [재분석]하면 DEMO 공고도 Qwen을 새로 부른다. DEMO의 Qwen 입력은 같고 설정도 같다(`temperature` 0·`seed` 42). 같은 추출을 기대하지만 보장하지는 않는다. ADR-059 발표 숫자(FX-02 43 보류)는 운영 재분석 뒤 다시 확인한다.
+- **남는 것**:
+  - 이 버전 올림은 이번 한 번의 캐시 무효화다. 첨부 일부만 파싱된 때 만든 추출을 다시 쓰는 문제(ADR-056)는 그대로다.
+  - 12,000자 예산이면 문서 둘에 각각 6,000자 안팎만 들어간다. 제안요청서의 뒤쪽(기술 요건 등)은 여전히 빠질 수 있다.
+- **반영**: `services/ai`의 `adapters/qwen.py`·`settings.py`, 시험 `tests/test_local_qwen.py` 4건(고치기 전 코드에서 4건 모두 실패), [[03-AI-PIPELINE|03]] §3·§4.3. 회사 AI gateway 재생성은 사용자 승인 뒤다.
 
 ## ADR-062 권고 화면 표기 한글화: 추천·보류·비추천
 

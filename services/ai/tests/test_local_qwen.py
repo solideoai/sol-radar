@@ -5,6 +5,7 @@
 
 import json
 import re
+from collections import Counter
 
 from fake_models import Reply, chat_completion, extraction_output
 from support import (
@@ -13,6 +14,9 @@ from support import (
     bid_body,
     extract_request,
 )
+
+from sol_ai.adapters.qwen import build_user_message
+from sol_ai.contracts import ExtractRequest
 
 COMPLETIONS = "/v1/chat/completions"
 MODELS = "/v1/models"
@@ -159,3 +163,115 @@ def fenced_reply(prefix: str = "") -> Reply:
     """guided JSON 없이 답하는 서버 흉내: <think>·코드펜스·설명 문장이 섞인 텍스트."""
     content = f"{prefix}```json\n{extraction_output()}\n```\n위 JSON 이 추출 결과입니다."
     return Reply(json_body=chat_completion(content))
+
+
+# ---------------------------------------------------------------- 첨부 입력 조립(03 §4.3 user message, 2026-10-28 실공고)
+# 실공고는 본문이 비고(나라장터) 첨부가 공고서 PDF·같은 공고서 HWPX·제안요청서 HWPX 였다. 쪽이 없는 HWPX 하나가
+# 예산(12,000자)을 넘자 첨부가 하나도 들어가지 않아 추출이 모두 UNKNOWN 이었다.
+
+ATTACHMENT_BLOCK = re.compile(
+    r'<document id="([^"]*)" kind="attachment" page="([^"]*)" charOffset="(\d+)">\n(.*?)\n</document>',
+    re.DOTALL,
+)
+# 조각 크기의 위쪽 한계(작업 지시 "약 2,000~3,000자")
+PIECE_MAX = 3_000
+BUDGET = 12_000
+
+
+def notice_sentences(count: int) -> list[str]:
+    return [
+        f"{i}. 입찰 참가 자격 제{i}호는 소프트웨어사업자 신고를 마친 자로 한다."
+        for i in range(count)
+    ]
+
+
+def notice_text(count: int) -> str:
+    """쪽이 없는 공고서(HWP·HWPX 파서 출력처럼 블록을 공백 하나로 잇는다)."""
+    return " ".join(notice_sentences(count))
+
+
+def rfp_text(count: int) -> str:
+    """공고서와 문장이 겹치지 않는 제안요청서."""
+    return " ".join(
+        f"요구사항 SFR-{i:03d} 시스템은 민원 접수 화면 {i}종을 제공하여야 한다."
+        for i in range(count)
+    )
+
+
+def attachment(document_id: str, text: str, pages: list[dict] | None = None) -> dict:
+    return {"documentId": document_id, "text": text, "pages": pages or []}
+
+
+def assemble(*attachments: dict, budget: int = BUDGET) -> tuple[str, bool]:
+    request = extract_request(None, body="", attachments=list(attachments))
+    return build_user_message(ExtractRequest.model_validate(request), budget)
+
+
+def attachment_blocks(message: str) -> list[tuple[str, str, int, str]]:
+    return [
+        (i, page, int(offset), text) for i, page, offset, text in ATTACHMENT_BLOCK.findall(message)
+    ]
+
+
+def test_pageless_attachment_front_is_sent_and_marked_truncated(make_client, local_models):
+    text = notice_text(700)
+    assert len(text) > 2 * BUDGET
+    request = extract_request("FX-01", attachments=[attachment("doc-notice-hwpx", text)])
+    result = run_extract(make_client, local_models, request=request)
+    assert text[:1_000] in user_content(sent(local_models)[0])
+    assert "TRUNCATED_INPUT" in result["warnings"]
+
+
+def test_two_long_documents_both_get_a_share_of_the_budget():
+    message, truncated = assemble(
+        attachment("doc-notice-hwpx", notice_text(400)), attachment("doc-rfp-hwpx", rfp_text(400))
+    )
+    shares = Counter()
+    for document_id, _, _, text in attachment_blocks(message):
+        shares[document_id] += len(text)
+    assert truncated
+    assert set(shares) == {"doc-notice-hwpx", "doc-rfp-hwpx"}
+    assert sum(shares.values()) <= BUDGET
+    assert min(shares.values()) >= BUDGET // 3
+
+
+def test_attachment_pieces_keep_source_offsets_and_pages():
+    first = "제안요청서 1쪽. 사업 개요를 설명한다. "
+    pdf = first + rfp_text(150)
+    pages = [{"page": 1, "charOffset": 0}, {"page": 2, "charOffset": len(first)}]
+    hwpx = notice_text(150)
+    sources = {"doc-rfp-pdf": pdf, "doc-notice-hwpx": hwpx}
+    message, truncated = assemble(
+        attachment("doc-rfp-pdf", pdf, pages), attachment("doc-notice-hwpx", hwpx), budget=100_000
+    )
+    blocks = attachment_blocks(message)
+    assert not truncated
+    for document_id, page, offset, text in blocks:
+        assert 0 < len(text) <= PIECE_MAX
+        assert sources[document_id][offset : offset + len(text)] == text
+        expected_page = (
+            "null" if document_id == "doc-notice-hwpx" else ("1" if offset < len(first) else "2")
+        )
+        assert page == expected_page
+    for document_id, source in sources.items():
+        assert "".join(t for i, _, _, t in blocks if i == document_id) == source
+
+
+def test_same_notice_in_pdf_and_hwpx_is_sent_once_as_pdf():
+    sentences = notice_sentences(120)
+    hwpx = " ".join(sentences)
+    # 같은 공고서의 PDF: 쪽 번호가 끼고 띄어쓰기가 다르다
+    page_texts = [
+        " ".join(s.replace(" 자로", "자로") for s in sentences[i : i + 30]) + f" - {i // 30 + 1} -"
+        for i in range(0, 120, 30)
+    ]
+    pdf = " ".join(page_texts)
+    offsets = [sum(len(p) + 1 for p in page_texts[:n]) for n in range(len(page_texts))]
+    pages = [{"page": n + 1, "charOffset": offset} for n, offset in enumerate(offsets)]
+    message, _ = assemble(
+        attachment("doc-notice-hwpx", hwpx),
+        attachment("doc-notice-pdf", pdf, pages),
+        attachment("doc-rfp-hwpx", rfp_text(150)),
+    )
+    order = list(dict.fromkeys(block[0] for block in attachment_blocks(message)))
+    assert order == ["doc-notice-pdf", "doc-rfp-hwpx"]

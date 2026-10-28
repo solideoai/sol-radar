@@ -48,7 +48,9 @@ class Settings(BaseSettings):
     # "true" 일 때만 /kev 의 stateLanguage="ko" 를 받는다. 미지정은 "false" 와 같다.
     KEV_ALLOW_KO_STATE: str | None = None
     CITATION_FUZZY_MIN_RATIO: float = 0.92
-    AI_PROMPT_VERSION: str = "req-extract/v0.1"
+    # v0.2(2026-10-28): system prompt 파일(req-extract.v0.1.md)은 그대로, user message 첨부 조립을 바꿨다(docs/03 §4.3).
+    # 값이 promptHash 에 들어가 v0.1 로 만든 추출 행을 다시 쓰지 않는다. mock 은 fixture 의 값을 쓴다
+    AI_PROMPT_VERSION: str = "req-extract/v0.2"
     # 실추론 Kev 어댑터가 쓸 질문 세트 버전. mock 은 kev-qs/v0.1 만 답한다(docs/03 §5.7).
     KEV_QUESTION_SET: str = "kev-qs/v0.1"
     QWEN_MODEL: str | None = None

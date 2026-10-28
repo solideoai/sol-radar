@@ -3,6 +3,7 @@
 - system: 프롬프트 파일의 {{REQUIREMENT_EXTRACTION_SCHEMA_JSON}} 를 스키마 파일 내용으로 바꾼 것. 데이터는 넣지 않는다.
 - user: <notice/> + <document> 블록. 데이터는 <document> 안에만 넣고, 데이터 속 <document·</document·<notice 의
   "<" 는 전각 "＜"(U+FF1C)로 바꾼다(길이가 같고 NFKC 가 "<" 로 되돌려 인용 오프셋에 영향이 없다).
+  첨부는 예산 안에서 문서마다 조각을 돌아가며 넣는다(build_user_message, req-extract/v0.2).
 - 추론 설정(03 §4.3): temperature 0·top_p 1·max_tokens 4096·seed 42, 비사고 모드(chat_template_kwargs
   enable_thinking=false — Qwen3.5 계열은 기본이 사고 모드였다. Qwen3.8-Flash-Next 는 미확인이라 enable_thinking=false 를
   그대로 보낸다(03 §4.3)), JSON Schema guided JSON(response_format).
@@ -20,8 +21,10 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass
+from collections import deque
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from itertools import islice
 
 from sol_ai.adapters import http
 from sol_ai.adapters.base import ExtractionFailed, ModelOutput, ModelUnavailable
@@ -36,6 +39,12 @@ CHAT_COMPLETIONS = "/v1/chat/completions"
 SCHEMA_PLACEHOLDER = "{{REQUIREMENT_EXTRACTION_SCHEMA_JSON}}"
 RETRY_NOTE_PREFIX = "\n\n이전 출력은 스키마를 위반했다: "
 TRUNCATED_INPUT = "TRUNCATED_INPUT"
+# 첨부 조각의 최대 글자 수. 쪽이 없는 문서(HWP·HWPX)와 긴 쪽을 나누는 단위이자 여러 문서에 예산을 나누는 단위다
+CHUNK_CHARS = 2_500
+# 같은 문서의 다른 형식을 알아보는 지문(앞 4,000 글자의 8글자 조각)과 같다고 보는 Jaccard 유사도
+FINGERPRINT_CHARS = 4_000
+SHINGLE_CHARS = 8
+DUPLICATE_SIMILARITY = 0.6
 # 03 §4.3 추론 설정
 INFERENCE = {"temperature": 0, "top_p": 1, "max_tokens": 4096, "seed": 42}
 # 03 §4.3 비사고 모드(미결정 26-7). vLLM 은 chat_template_kwargs 를 템플릿에 그대로 넘긴다
@@ -75,28 +84,86 @@ class Chunk:
     text: str
 
 
+def piece_end(text: str, start: int, stop: int, limit: int) -> int:
+    """text[start:stop] 의 앞 limit 글자 안에서 자를 위치. 언제나 start 보다 크다.
+
+    남은 글자가 limit 이하면 stop. 아니면 뒤쪽 절반 안의 마지막 문장 끝(". " 뒤), 없으면 마지막 공백 뒤,
+    둘 다 없으면 limit 글자에서 자른다. 파서 출력은 블록을 공백 하나로 잇고 줄바꿈이 없어 문단 경계를 볼 수 없다.
+    """
+    end = start + limit
+    if end >= stop:
+        return stop
+    floor = start + limit // 2
+    for mark in (". ", " "):
+        found = text.rfind(mark, floor, end)
+        if found != -1:
+            return found + len(mark)
+    return end
+
+
 def attachment_chunks(attachment: Attachment) -> list[Chunk]:
-    """pages 로 페이지 chunk 를 나눈다. pages 가 비면 문서 하나. 첫 페이지 앞 글자도 버리지 않는다."""
+    """쪽(pages)마다 나누고, 쪽이 없거나(HWP·HWPX) CHUNK_CHARS 보다 긴 쪽은 piece_end 로 다시 나눈다.
+
+    조각의 char_offset 은 원문 기준 절대 위치이고 page 는 그 조각이 든 쪽이다. 첫 쪽 앞 글자도 버리지 않는다.
+    조각을 이으면 원문 그대로다. 빈 조각은 내지 않는다.
+    """
     text = attachment.text
-    pages = sorted(attachment.pages, key=lambda p: p.charOffset)
-    if not pages:
-        return [Chunk(attachment.documentId, None, 0, text)]
+    bounds: list[tuple[int | None, int]] = [
+        (page.page, page.charOffset)
+        for page in sorted(attachment.pages, key=lambda p: p.charOffset)
+    ]
+    if not bounds or bounds[0][1] > 0:
+        bounds.insert(0, (None, 0))
     chunks = []
-    if pages[0].charOffset > 0:
-        chunks.append(Chunk(attachment.documentId, None, 0, text[: pages[0].charOffset]))
-    for index, page in enumerate(pages):
-        end = pages[index + 1].charOffset if index + 1 < len(pages) else len(text)
-        chunks.append(
-            Chunk(attachment.documentId, page.page, page.charOffset, text[page.charOffset : end])
-        )
+    for index, (page, start) in enumerate(bounds):
+        stop = bounds[index + 1][1] if index + 1 < len(bounds) else len(text)
+        position = start
+        while position < stop:
+            end = piece_end(text, position, stop, CHUNK_CHARS)
+            chunks.append(Chunk(attachment.documentId, page, position, text[position:end]))
+            position = end
     return chunks
 
 
+def fingerprint(text: str) -> frozenset[str]:
+    """앞 FINGERPRINT_CHARS 글자(문자·숫자만)의 SHINGLE_CHARS 글자 조각. 띄어쓰기·기호·표 구분자 차이를 지운다."""
+    letters = "".join(islice((ch for ch in text if ch.isalnum()), FINGERPRINT_CHARS))
+    return frozenset(
+        letters[i : i + SHINGLE_CHARS] for i in range(len(letters) - SHINGLE_CHARS + 1)
+    )
+
+
+def same_document(left: frozenset[str], right: frozenset[str]) -> bool:
+    """Jaccard 유사도가 DUPLICATE_SIMILARITY 이상이면 같은 문서의 다른 형식이다. 짧은 문서가 긴 문서의 앞부분과
+    겹치는 것만으로는 같다고 보지 않는다(크기 차이가 유사도를 낮춘다)."""
+    union = len(left | right)
+    return union > 0 and len(left & right) >= DUPLICATE_SIMILARITY * union
+
+
+def distinct_attachments(attachments: list[Attachment]) -> list[Attachment]:
+    """같은 문서의 다른 형식(예: 같은 공고서의 PDF·HWPX)은 하나만 남긴다. 자리는 앞의 것을 쓴다.
+
+    쪽이 있는 것(PDF)을 남긴다. 근거에 쪽 번호가 남고, 인용 검증이 그 쪽 범위에서 먼저 찾는다(citation._page_scope).
+    둘 다 쪽이 있거나 둘 다 없으면 앞의 것이다. gateway 는 첨부 이름을 받지 않아(contracts.Attachment) 내용으로 본다.
+    """
+    kept: list[tuple[frozenset[str], Attachment]] = []
+    for attachment in attachments:
+        mark = fingerprint(attachment.text)
+        same = next((i for i, (other, _) in enumerate(kept) if same_document(mark, other)), None)
+        if same is None:
+            kept.append((mark, attachment))
+        elif attachment.pages and not kept[same][1].pages:
+            kept[same] = (mark, attachment)
+    return [attachment for _, attachment in kept]
+
+
 def build_user_message(request: ExtractRequest, budget_tokens: int) -> tuple[str, bool]:
-    """03 §4.3 user message. 본문은 언제나 넣고 첨부 chunk 는 예산을 넘는 것부터 뺀다.
+    """03 §4.3 user message. 본문은 언제나 넣는다. 첨부는 같은 문서의 다른 형식을 하나로 줄이고, 문서마다
+    앞 조각부터 한 조각씩 돌아가며 넣는다. 남은 예산보다 긴 조각을 만나면 남은 만큼 그 앞부분을 넣고 멈춘다.
+    블록은 첨부 순서, 문서 안에서는 원문 순서로 낸다.
 
     토큰 수는 글자 수로 근사한다(한국어 보수 근사, 미검증 가정). 예산은 본문·chunk 텍스트에만 센다.
-    돌려주는 bool 은 chunk 를 뺐는지(TRUNCATED_INPUT).
+    돌려주는 bool 은 첨부 글자를 뺐는지(TRUNCATED_INPUT). 같은 문서라서 뺀 형식은 세지 않는다.
     """
     meta = request.meta
     notice = (
@@ -105,13 +172,24 @@ def build_user_message(request: ExtractRequest, budget_tokens: int) -> tuple[str
         f'budgetKrw="{attribute(meta.budgetKrw)}" deadlineAt="{attribute(meta.deadlineAt)}" />'
     )
     blocks = [notice, document_block('id="null" kind="body"', request.body)]
-    used = len(request.body)
+    room = budget_tokens - len(request.body)
+    queues = [deque(attachment_chunks(a)) for a in distinct_attachments(request.attachments)]
+    taken: list[list[Chunk]] = [[] for _ in queues]
     truncated = False
-    for chunk in (c for a in request.attachments for c in attachment_chunks(a)):
-        if used + len(chunk.text) > budget_tokens:
-            truncated = True
-            break
-        used += len(chunk.text)
+    while not truncated and any(queues):
+        for queue, picked in zip(queues, taken, strict=True):
+            if not queue:
+                continue
+            chunk = queue.popleft()
+            if len(chunk.text) > room:
+                truncated = True
+                if room > 0:
+                    end = piece_end(chunk.text, 0, len(chunk.text), room)
+                    picked.append(replace(chunk, text=chunk.text[:end]))
+                break
+            room -= len(chunk.text)
+            picked.append(chunk)
+    for chunk in (c for picked in taken for c in picked):
         attrs = (
             f'id="{attribute(chunk.document_id)}" kind="attachment" '
             f'page="{attribute(chunk.page)}" charOffset="{chunk.char_offset}"'

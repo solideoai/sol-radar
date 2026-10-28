@@ -26,7 +26,7 @@ color: green
 
 - **정본**: `docs/CLAUDE.md`, `docs/17-CLAUDE-IMPLEMENTATION.md` 절대 규칙, ADR-004·008·010·011·012·017.
   ADR-017 로 호출자는 NestJS worker 가 아니라 `web/worker`(BullMQ)다. 문서에 옛 표현이 남아 있으면 `docs/20-GLOSSARY.md` "바뀐 용어"로 읽는다. gateway 쪽 계약은 바뀌지 않았다.
-- **원천 문서**: `docs/03-AI-PIPELINE.md` — §1 역할, §2.1 gateway 계약, §3 env·§3.1 모드별 동작, §4.1 `RequirementExtraction`, §4.3 프롬프트 `req-extract/v0.1`, §4.4 검증 단계,
+- **원천 문서**: `docs/03-AI-PIPELINE.md` — §1 역할, §2.1 gateway 계약, §3 env·§3.1 모드별 동작, §4.1 `RequirementExtraction`, §4.3 프롬프트 `req-extract/v0.2`, §4.4 검증 단계,
   §5.4 Kev wire, §5.5 질문 세트 `kev-qs/v0.1`, §5.6 state 구성, §5.7 어댑터 계약, §6 품질 가드레일, §8 장애, §9 수용 기준.
   `docs/15-DATA-CONTRACTS.md` §2 공통 타입, §5 인용 검증(`norm(s)`, `CITATION_FUZZY_MIN_RATIO` 0.92, §5.3 실패 전이). `docs/09-SECURITY.md` 프롬프트 인젝션 대응.
 - **위치**: `services/ai/`(uv 프로젝트), 어댑터는 `services/ai/adapters/`. Python 버전·의존성은 `pyproject.toml` 을 따른다. 폴더가 없으면 Phase 0 미완료로 보고한다.
