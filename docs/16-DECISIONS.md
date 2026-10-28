@@ -131,7 +131,7 @@ updated: 2026-10-28
   - 사이드바 디자인(ADR-021 2026-10-28 3차 개정).
 - **운영 읽기 2회차**(2026-10-28, 읽기 SELECT, [기록](evidence/gaps/20261028/prod-readonly-check.md)): `/gaps` 대상 조건(마감 전 대표 live 입찰공고)으로 987건, 그중 관련성 `RELEVANT`·`CANDIDATE` 179건이다. `auxLookup`은 OK 468·`SKIPPED_QUOTA` 518·FAILED 1·없음 0이다. 한도로 건너뛴 공고가 절반 남짓이라 "참가 가능"이 적게 잡히고, 이 비율이 줄면 참가 가능·회사 기록 없음이 는다. 관련 + aux OK 125건 가운데 구조화 요건 0행 11건, 면허제한 1행 60건, 2행 이상 53건이다. 이 질의는 회사 프로필을 대조하지 않은 근사치라 화면 값과 다를 수 있고, 발표 대본·캡션에 쓰지 않는다.
 - **남은 확인**(스펙 §10): "기타자유업종/9999"의 뜻(확인 전에는 사전 밖·사람 확인 필요), 운영 화면 실숫자(배포 뒤 로그인 확인). 마감 D-3·D-1 알림(기존 `deadline_reminders`, `supabase/migrations/20261022000110_deadline_reminders.sql`)은 운영 알림 Worker 기동 전이라 오지 않고, `/calendar` 화면에도 안내하지 않는다([[PROGRESS]] 운영 상태 "알림 처리").
-- **구현**: `/calendar` `9ec773a5`·`b5255a09`([증거](evidence/calendar/20261028/README.md))와 사이드바 등록 `4e5e88bc`, `/market` `3434311d`·`37d70cbe`·`619713e0`와 사이드바 등록 `0dc98749`, `/gaps` `cc2bf41e`·`7372c2d1`와 사이드바 등록 `897dd998`. 구현 상태는 이 ADR이 판정하지 않는다([[PROGRESS]]).
+- **구현**: `/calendar` `9ec773a5`·`b5255a09`·`f284effc`([증거](evidence/calendar/20261028/README.md))와 사이드바 등록 `4e5e88bc`, `/market` `3434311d`·`37d70cbe`·`619713e0`와 사이드바 등록 `0dc98749`, `/gaps` `cc2bf41e`·`7372c2d1`와 사이드바 등록 `897dd998`. 구현 상태는 이 ADR이 판정하지 않는다([[PROGRESS]]).
 - **반영 문서**: [[01-PRD|01]] FR-23~25, [[06-UI-UX|06]] §4·§4.1·§5.13~§5.15, [[11-TESTING|11]] §9, [[12-ROADMAP|12]] 해커톤 이후 행, [[18-HACKATHON|18]] §3.2·§4·§6·§7·§8, [[19-DEMO-SCENARIO|19]] §3.1·§4 S-GAPS·§5·§6, [[slides-spec|덱 제작 명세]] §1·슬라이드 6·7·11·16·부록 A·B·D, [[20-GLOSSARY|20]], [[PROGRESS]].
 
 ## ADR-059 공개 자료 프로필 기준 발표 대본(ADR-037 데모 장면 개정)
