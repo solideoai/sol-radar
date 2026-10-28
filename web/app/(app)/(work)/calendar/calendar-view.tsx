@@ -126,10 +126,33 @@ function MoreEvents({ dateLabel, events }: { dateLabel: string; events: Calendar
       <DropdownMenuContent align="start" className="w-72">
         <DropdownMenuGroup>
           <DropdownMenuLabel>{dateLabel}</DropdownMenuLabel>
+          {/* 날짜는 메뉴 머리에만 둔다. 항목은 종류·시각·제목(2줄까지)과 칩과 같은 관심·DEMO 표시다. */}
           {events.map((event) => (
-            <DropdownMenuLinkItem key={event.key} render={<Link href={event.href} />}>
-              <KindIcon kind={event.kind} />
-              <span className="min-w-0 flex-1 truncate">{chipTitle(event)}</span>
+            <DropdownMenuLinkItem
+              key={event.key}
+              render={<Link href={event.href} />}
+              title={chipTitle(event)}
+              aria-label={chipName(event)}
+              className="items-start"
+            >
+              <KindIcon kind={event.kind} className="mt-0.5" />
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {timeOf(event.at)}
+              </span>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 line-clamp-2 wrap-anywhere",
+                  event.bid.cancelled && "text-muted-foreground line-through",
+                )}
+              >
+                {event.bid.title}
+              </span>
+              {event.watched ? (
+                <StarIcon aria-hidden className="mt-1 size-3 text-muted-foreground" />
+              ) : null}
+              {event.bid.isDemo ? (
+                <span className="mt-0.5 shrink-0 type-caption font-semibold text-demo">DEMO</span>
+              ) : null}
             </DropdownMenuLinkItem>
           ))}
         </DropdownMenuGroup>
