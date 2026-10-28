@@ -194,7 +194,7 @@ interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boole
 |`AI_HOST`|호스트|`127.0.0.1`|gateway 서버가 바인딩하는 주소(`services/ai/src/sol_ai/__main__.py`). 컨테이너에서는 Compose가 값을 준다|
 |`SOL_FIXTURES_DIR`|경로|(저장소 `fixtures/`)|mock 어댑터가 읽는 fixture 루트(`extractions/`·`kev/`를 담는다). 비우면 저장소의 `fixtures/`다|
 |`AI_TIMEOUT_MS`|정수|`60000`|`/extract` 요청 하나의 단조 시계 마감. 첫 호출과 재시도를 이 안에 끝낸다. 호출이 시간을 넘기면 `QWEN_UNAVAILABLE`, 재시도할 시간이 남지 않으면 `EXTRACTION_FAILED`([[16-DECISIONS\|ADR-032]] D1)|
-|`AI_PROMPT_VERSION`|문자열|`req-extract/v0.2`|프롬프트 템플릿 버전. 해시와 함께 저장. v0.2(2026-10-28, [[16-DECISIONS\|ADR-063]])는 system prompt 파일(`req-extract.v0.1.md`)을 그대로 두고 user message의 첨부 조립(§4.3)을 바꿨다. 값이 해시에 들어가 v0.1로 만든 추출을 다시 쓰지 않는다. mock은 추출 fixture의 `promptVersion`(v0.1)을 그대로 쓴다|
+|`AI_PROMPT_VERSION`|문자열|`req-extract/v0.2`|프롬프트 템플릿 버전. 해시와 함께 저장. v0.2(2026-10-28, [[16-DECISIONS\|ADR-064]])는 system prompt 파일(`req-extract.v0.1.md`)을 그대로 두고 user message의 첨부 조립(§4.3)을 바꿨다. 값이 해시에 들어가 v0.1로 만든 추출을 다시 쓰지 않는다. mock은 추출 fixture의 `promptVersion`(v0.1)을 그대로 쓴다|
 |`QWEN_BASE_URL`|URL|(없음)|`local`/`hosted`에서 Qwen runtime 주소. 해커톤 `local` 값은 `https://acropolissg.com/vllm/v1`(회사가 운영하는 vLLM API. gateway가 끝의 `/v1`을 떼고 `/v1/chat/completions`·`/v1/models`를 붙여 중복을 막는다(`settings.normalize_qwen_base_url`·`adapters/qwen.py`). 회사 안내 값 그대로. 2026-10-20 사용자 결정, [[16-DECISIONS\|ADR-034]] 4번). `/sol-radar/qwen`(→8001)은 백업 경로(미사용). 호스트가 `acropolissg.com`이라 `allowedHosts`(§11)는 그대로. 예시는 [[10-DEPLOYMENT\|10 배포]] `ai-local` env|
 |`QWEN_API_KEY`|문자열|(없음)|gateway가 `Authorization: Bearer`로 보내는 키(회사 vLLM API의 키. 회사가 제공한다). `local`에서 필수(ADR-025·034). 서버 env(`infra/.env`)만, 로그 금지([[09-SECURITY\|09 보안]])|
 |`QWEN_MODEL`|모델 ID|(없음)|`Qwen3.8-Flash-Next-AWQ-INT4`(회사 vLLM API, §3.2. served id는 2026-10-21 실호출로 확인, [[16-DECISIONS\|16]] ADR-034 2026-10-21 개정). 레지스트리 default 항목 `qwen3.8-flash-next`(§11)와 회사 API `GET /v1/models`의 `id`와 같아야 한다(§11). 결과 메타데이터에 기록|
@@ -373,7 +373,7 @@ interface StaffingRequirement {
 
 ### 4.3 프롬프트 명세 `req-extract/v0.2`
 
-v0.2(2026-10-28, [[16-DECISIONS|ADR-063]])는 아래 system prompt를 v0.1 그대로 쓰고 user message의 첨부 조립만 바꿨다. 파일 이름도 `req-extract.v0.1.md` 그대로다.
+v0.2(2026-10-28, [[16-DECISIONS|ADR-064]])는 아래 system prompt를 v0.1 그대로 쓰고 user message의 첨부 조립만 바꿨다. 파일 이름도 `req-extract.v0.1.md` 그대로다.
 
 **system prompt** (`services/ai/prompts/req-extract.v0.1.md`, 전문):
 
@@ -407,7 +407,7 @@ JSON Schema:
 ... (설계: Qdrant 순위 상위 chunk, 합계 QWEN_CONTEXT_BUDGET_TOKENS 이내. 지금: 아래 v0.2 규칙)
 ```
 
-- 지금 입력 선정은 `adapters/qwen.py`의 `build_user_message`가 한다(§3 `QWEN_CONTEXT_BUDGET_TOKENS`). Qdrant 순위로 chunk를 고르는 방식은 미구현이다. v0.2 규칙([[16-DECISIONS|ADR-063]]):
+- 지금 입력 선정은 `adapters/qwen.py`의 `build_user_message`가 한다(§3 `QWEN_CONTEXT_BUDGET_TOKENS`). Qdrant 순위로 chunk를 고르는 방식은 미구현이다. v0.2 규칙([[16-DECISIONS|ADR-064]]):
   - **조각**: 쪽(`pages`)마다 나누고, 쪽이 없는 문서(HWP·HWPX는 `pages`가 빈다)와 2,500자보다 긴 쪽은 2,500자 안에서 다시 나눈다. 자르는 자리는 뒤쪽 절반 안의 마지막 문장 끝(`. ` 뒤), 없으면 마지막 공백 뒤, 없으면 2,500자다. 파서 출력은 블록을 공백 하나로 잇고 줄바꿈이 없어 문단 경계는 볼 수 없다. 조각의 `charOffset`은 원문 기준 절대 위치이고 `page`는 그 조각이 든 쪽(없으면 `null`)이다.
   - **같은 문서의 다른 형식**: 같은 공고서의 PDF·HWPX처럼 내용이 같은 첨부는 하나만 넣는다. gateway는 첨부 이름을 받지 않아 내용으로 본다. 문자·숫자만 남긴 앞 4,000자의 8글자 조각 집합이 Jaccard 0.6 이상이면 같은 문서다. 쪽이 있는 것(PDF)을 남긴다. 근거에 쪽 번호가 남고 인용 검증이 그 쪽 범위에서 먼저 찾기 때문이다. 자리는 앞의 것을 쓴다. 알아보지 못하면 둘 다 넣는다(v0.1과 같은 낭비, 빠지는 내용은 없다).
   - **채우기**: 첨부 순서대로 문서마다 앞 조각을 한 조각씩 돌아가며 넣는다. 남은 예산보다 긴 조각을 만나면 남은 만큼 그 조각의 앞부분(같은 자르기 규칙)을 넣고 멈춘다. 블록은 첨부 순서, 문서 안에서는 원문 순서로 낸다. 첨부 글자를 뺐으면 `TRUNCATED_INPUT`이다. 같은 문서라서 뺀 형식은 세지 않는다.

@@ -2288,7 +2288,6 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         PERMISSION,
       );
       await rejectsWith(create(db, ORG1, "새직원", ORG2_TEAM), "DEPARTMENT_NOT_FOUND");
-      await rejectsWith(create(db, ORG1, "새직원", GROUP1), "DEPARTMENT_NOT_TEAM");
       await rejectsWith(create(db, ORG1, "새직원", DEPT1, MISSING_TITLE), "JOB_TITLE_NOT_FOUND");
       await rejectsWith(create(db, ORG1, " "), "INVALID_INPUT");
       const created = (
@@ -2328,7 +2327,6 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         ]),
         PERMISSION,
       );
-      await rejectsWith(update(db, MEMBER1, GROUP1), "DEPARTMENT_NOT_TEAM");
       await rejectsWith(update(db, MEMBER1, ORG2_TEAM), "DEPARTMENT_NOT_FOUND");
       await rejectsWith(update(db, MEMBER1, null, null, "RETIRED"), "INVALID_INPUT");
       const moved = (await update(db, MEMBER1, TEAM2, TITLE2)).rows[0].m;
@@ -2349,6 +2347,23 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         after: { departmentId: TEAM2, jobTitleId: TITLE2, employmentStatus: "ACTIVE" },
       });
       assert.equal(logged[1].before_after.after.employmentStatus, "LEFT");
+    });
+
+    it("본부·그룹에도 직원을 직접 둔다(20261028000100) — 추가·이동 모두 받고 감사가 남는다", async (t) => {
+      const db = await editDb(t);
+      await as(db, "admin");
+      const created = (await create(db, ORG1, "그룹직원", GROUP1)).rows[0].m;
+      assert.equal(created.departmentId, GROUP1);
+      const moved = (await update(db, MEMBER1, GROUP1)).rows[0].m;
+      assert.equal(moved.departmentId, GROUP1);
+      const logged = await audits(db);
+      assert.deepEqual(
+        logged.map((row) => [row.action, row.target_id]),
+        [
+          ["TEAM_MEMBER_CREATE", created.id],
+          ["TEAM_MEMBER_UPDATE", MEMBER1],
+        ],
+      );
     });
 
     it("퇴사자는 화면 역할에서 명부·점수 속성 모두 0행이고, 행·점수 속성·기존 score_runs 는 그대로며 계정 연결도 막힌다", async (t) => {

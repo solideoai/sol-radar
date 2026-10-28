@@ -12,7 +12,7 @@ const EMAIL_PATTERN = /^[a-z0-9]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 
 export const createTeamMemberSchema = z.strictObject({
   name: z.string().trim().min(1, "이름을 입력하세요.").max(40, "이름은 40자 이하입니다."),
-  departmentId: z.uuid("팀을 고르세요."),
+  departmentId: z.uuid("부서를 고르세요."),
   jobTitleId: z.uuid("직급을 고르세요."),
   email: z
     .string()
@@ -27,7 +27,7 @@ export type CreateTeamMemberInput = z.infer<typeof createTeamMemberSchema>;
 
 export const updateTeamMemberSchema = z
   .strictObject({
-    departmentId: z.uuid("팀을 고르세요.").optional(),
+    departmentId: z.uuid("부서를 고르세요.").optional(),
     jobTitleId: z.uuid("직급을 고르세요.").optional(),
     employmentStatus: z.enum(["ACTIVE", "LEFT"]).optional(),
   })
@@ -54,7 +54,6 @@ export const TEAM_MEMBER_DB_CODES = [
   "NOT_FOUND",
   "FORBIDDEN",
   "DEPARTMENT_NOT_FOUND",
-  "DEPARTMENT_NOT_TEAM",
   "JOB_TITLE_NOT_FOUND",
   "EMAIL_TAKEN",
   "INVALID_INPUT",
@@ -116,9 +115,7 @@ export function fromDbCode(code: TeamMemberDbCode): TeamMemberEditOutcome {
     case "FORBIDDEN":
       return editForbidden();
     case "DEPARTMENT_NOT_FOUND":
-      return invalid([{ path: "departmentId", message: "이 조직의 팀을 고르세요." }]);
-    case "DEPARTMENT_NOT_TEAM":
-      return invalid([{ path: "departmentId", message: "본부·그룹이 아닌 팀을 고르세요." }]);
+      return invalid([{ path: "departmentId", message: "이 조직의 부서를 고르세요." }]);
     case "JOB_TITLE_NOT_FOUND":
       return invalid([{ path: "jobTitleId", message: "이 조직의 직급을 고르세요." }]);
     case "EMAIL_TAKEN":

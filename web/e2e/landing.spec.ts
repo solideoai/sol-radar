@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 // 워드마크의 정본. 이름을 여기에 따로 적으면 project.json 을 바꿀 때 깨진다.
 import project from "@/project.json";
 import { expectBelowHeader } from "./sticky-header";
@@ -59,7 +59,7 @@ test("분석 예시 보기를 누르면 미리보기로 가고, 머리말에 가
 test("미리보기는 예시 데이터라고 밝히고, 대표 예시의 점수·자격·권고가 맞는다", async ({ page }) => {
   await page.goto("/");
   const preview = previewOf(page);
-  // 회색 띠 위에 보이는 구역 제목이 있다(2026-10-28 사용자 요청).
+  // 판 위에 보이는 구역 제목이 있다(2026-10-28 사용자 요청).
   await expect(
     preview.getByRole("heading", { level: 2, name: "예시 공고로 분석 화면을 직접 살펴보세요" }),
   ).toBeVisible();
@@ -128,6 +128,95 @@ test("목록에서 다른 공고를 고르면 분석이 바뀐다", async ({ pag
     "88",
   );
   await expect(panel.getByText("추천", { exact: true })).toBeVisible();
+});
+
+// 분석 예시 판도 위 업무 데모처럼 저절로 흐른다(2026-10-28 사용자 결정: 자동 재생 + 직접 조작, 세 공고 차례로).
+// 판이 화면에 보일 때만 흐르므로 시험은 판까지 스크롤한다. 고른 공고는 data-bid, 단계는 data-step,
+// 재생 방식은 data-playback(auto·manual·static)으로 드러낸다.
+// 숨김은 투명도로만 하므로 "다 보인다"는 조상까지 곱한 투명도로 잰다.
+const shownOpacity = (locator: Locator) =>
+  locator.evaluate((element) => {
+    let opacity = 1;
+    for (let node: Element | null = element; node !== null; node = node.parentElement) {
+      opacity *= Number(getComputedStyle(node).opacity);
+    }
+    return opacity;
+  });
+
+test("분석 예시는 화면에 보이면 다음 공고로 저절로 넘어간다", async ({ page }) => {
+  await page.goto("/");
+  const preview = previewOf(page);
+  await expect(preview).toHaveAttribute("data-bid", "demo-1");
+  await preview.getByRole("figure").scrollIntoViewIfNeeded();
+  await expect(preview).toHaveAttribute("data-playback", "auto");
+  // 첫 공고에 잠시 머문 뒤 가짜 커서가 둘째 공고를 누른다.
+  await expect(preview).toHaveAttribute("data-bid", "demo-2", { timeout: 8_000 });
+  await expect(preview.getByRole("tab", { name: /통합 민원 포털 기능 개선/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  // 보이는 숫자는 0 에서 오르지만 점수 막대는 처음부터 최종 점수를 알린다(화면 낭독기).
+  await expect(
+    preview.getByRole("tabpanel").getByRole("meter", { name: "SOL Score" }),
+  ).toHaveAttribute("aria-valuenow", "88");
+  // 한 바퀴(약 24초)를 다 기다리지 않고 셋째 공고로 넘어가는 데까지만 본다.
+  await expect(preview).toHaveAttribute("data-bid", "demo-3", { timeout: 12_000 });
+});
+
+test("판을 누르면 자동 재생이 멈추고 누른 공고의 분석이 다 보인 채 머문다", async ({ page }) => {
+  await page.goto("/");
+  const preview = previewOf(page);
+  await preview.getByRole("figure").scrollIntoViewIfNeeded();
+  await expect(preview).toHaveAttribute("data-playback", "auto");
+  await preview.getByRole("tab", { name: /원격 교육 플랫폼 구축/ }).click();
+  await expect(preview).toHaveAttribute("data-playback", "manual");
+  await expect(preview).toHaveAttribute("data-bid", "demo-3");
+  const panel = preview.getByRole("tabpanel");
+  await expect(panel.getByRole("meter", { name: "SOL Score" })).toHaveAttribute(
+    "aria-valuenow",
+    "64",
+  );
+  await expect.poll(() => shownOpacity(panel.getByText("비추천", { exact: true }))).toBe(1);
+  await expect.poll(() => shownOpacity(panel.getByText("공고문 p.3"))).toBe(1);
+  // 한 단계는 3초를 넘지 않는다. 그보다 길게 기다려도 그대로다.
+  const step = (await preview.getAttribute("data-step")) ?? "";
+  await page.waitForTimeout(3_500);
+  await expect(preview).toHaveAttribute("data-step", step);
+  await expect(preview).toHaveAttribute("data-bid", "demo-3");
+});
+
+// 마우스를 올리는 것만으로는 멈추지 않는다(판이 화면 대부분을 덮는다). 키보드 초점이 판에 들어오면 멈춘다(WCAG 2.2.2).
+test("키보드로 판의 목록에 들어오면 자동 재생이 멈춘다", async ({ page }) => {
+  await page.goto("/");
+  const preview = previewOf(page);
+  await preview.getByRole("figure").scrollIntoViewIfNeeded();
+  await preview.getByRole("figure").hover();
+  await expect(preview).toHaveAttribute("data-playback", "auto");
+  const selectedTab = preview.getByRole("tab", { selected: true });
+  // 마우스로 누른 초점과 구분되게 실제 Tab 으로 들어간다. 판 앞 링크 수에 기대지 않게 넉넉히 누른다.
+  for (
+    let presses = 0;
+    presses < 60 && !(await selectedTab.evaluate((el) => el === document.activeElement));
+    presses++
+  ) {
+    await page.keyboard.press("Tab");
+  }
+  await expect(selectedTab).toBeFocused();
+  await expect(preview).toHaveAttribute("data-playback", "manual");
+});
+
+test("움직임 줄이기면 분석 예시는 첫 공고 완성 화면에 멈춰 있다", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const preview = previewOf(page);
+  await preview.getByRole("figure").scrollIntoViewIfNeeded();
+  await expect(preview).toHaveAttribute("data-playback", "static");
+  // 자동 재생이었다면 첫 공고를 떠났을 시간보다 길게 기다린다.
+  await page.waitForTimeout(4_500);
+  await expect(preview).toHaveAttribute("data-bid", "demo-1");
+  await expect
+    .poll(() => shownOpacity(preview.getByRole("tabpanel").getByText("보류", { exact: true })))
+    .toBe(1);
 });
 
 [1280, 1440, 1920].forEach((width) =>

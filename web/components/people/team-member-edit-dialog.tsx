@@ -50,7 +50,7 @@ const EMAIL_PATTERN = /^[a-z0-9]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 
 const createSchema = z.object({
   name: z.string().trim().min(1, "이름을 입력하세요.").max(40, "이름은 40자 이하입니다."),
-  departmentId: z.string().min(1, "팀을 고르세요."),
+  departmentId: z.string().min(1, "부서를 고르세요."),
   jobTitleId: z.string().min(1, "직급을 고르세요."),
   email: z.union([
     z.literal(""),
@@ -65,11 +65,10 @@ type CreateValues = z.infer<typeof createSchema>;
 const moveSchema = createSchema.pick({ departmentId: true, jobTitleId: true });
 type MoveValues = z.infer<typeof moveSchema>;
 
-/** 직원을 둘 수 있는 부서(팀)만, "상위 › 팀" 이름으로. */
+/** 직원을 둘 수 있는 부서(본부·그룹·팀, ADR-063)를 "상위 › 부서" 이름으로. */
 export function teamOptions(departments: readonly Department[]): Option[] {
   const names = new Map(departments.map((item) => [item.id, item.name]));
   return departments
-    .filter((item) => item.kind === null || item.kind === "TEAM")
     .map((item) => {
       const parent = item.parentId === null ? undefined : names.get(item.parentId);
       return { value: item.id, label: parent ? `${parent} › ${item.name}` : item.name };
@@ -266,7 +265,7 @@ function CreateForm({ teams, titles, onLock, onCancel, onSaved }: FormProps & Pl
             render={({ field }) => (
               <OptionSelect
                 id="member-team"
-                label="팀"
+                label="부서"
                 value={field.value}
                 onChange={field.onChange}
                 triggerRef={field.ref}
@@ -377,7 +376,7 @@ function MoveForm({
             render={({ field }) => (
               <OptionSelect
                 id="member-team"
-                label="팀"
+                label="부서"
                 value={field.value}
                 onChange={field.onChange}
                 triggerRef={field.ref}
