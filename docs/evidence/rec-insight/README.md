@@ -7,6 +7,8 @@
 | `df-<상태>-<폭>.png` (14장) | 부품 브라우저 시험 화면: empty·pending·delayed·done-model·done-template·failed·readonly, 1440·1280 | `edb99a1e` |
 | [e2e-20261029.md](e2e-20261029.md) | 격리 로컬 스택(mock)에서 끝까지 확인 a~g 통과, 결함 없음 | `83003280` |
 | `e2e-<상태>-<폭>.png` (6장) | 실제 앱 화면: empty·done·failed, 1440·1280 | `83003280` |
+| `e2e-injection-<폭>.png` (2장) | 보안 수정 뒤 재확인: 인젝션 의심 TEMPLATE, 1440·1280 | `92a27cd0` |
+| `prod-live-<폭>.png`·`prod-demo-<폭>.png` (4장) | 운영 화면 실모델 응답: 실공고(재난 정신건강)·DEMO FX-01, 1440·1280. [운영 반영 기록](../company-rollout/20261029/rec-insight-rollout.md) | main `3ae02acf` |
 
 ## 보안 리뷰 반영(2026-10-29)
 
