@@ -375,6 +375,7 @@ docker compose -f infra/compose.documents-only.company.yaml logs --tail 100 docu
    ```bash
    docker compose -f infra/compose.analysis-only.company.yaml up -d --no-deps analysis-worker
    ```
+   ADR-056 대안 A(2026-10-29)부터 Analysis Worker도 `DOCUMENTS_MAX_PER_BID`로 기다릴 첨부 범위를 정한다. Documents Worker와 같은 값이어야 한다. Documents Compose는 셸 변수 `${DOCUMENTS_MAX_PER_BID:-}`를 `.env.worker.local`보다 앞세워 넘기고(비면 기본 3), 분석 원본 Compose는 `.env.worker.local`만 읽는다. 그래서 이 값은 `.env.worker.local`에 넣지 않고 두 Worker 모두 기본 3으로 둔다. 바꿔야 하면 두 Worker가 같은 값을 읽게 한 뒤 바꾼다. 값이 어긋나 분석 쪽이 크면 처리되지 않을 첨부를 300초까지 기다린다(그 뒤 `DOCUMENTS_WAIT_TIMEOUT`으로 분석한다).
 2. redis-api: 분석 요청의 원문 확인(`ANALYSIS_READS_ATTACHMENT_TEXT = true`)이 바뀐다. 교체 전에는 본문 없는 live 공고를 계속 409로 막는다(안전한 쪽).
 3. Vercel web: 같은 확인을 중계 전에 한다. 1·2가 끝난 뒤 배포한다. 먼저 배포해도 redis-api가 막지만, 화면의 분석 준비 표시가 먼저 바뀐다.
 

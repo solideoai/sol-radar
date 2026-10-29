@@ -75,7 +75,7 @@ updated: 2026-10-29
 |ADR-053|결번. 회사 공개 프로필 계획이 052·053을 예약했고 052만 썼다|—|—|—|
 |ADR-054|마감 연기(제출 11-03·발표 11-04)·발표 D1 유지·운영 DEMO 삭제 보류·첨부 처리 구현(ADR-042 개정)|채택 (§1은 ADR-057, §4는 ADR-067로 개정)|2026-10-27|본문|
 |ADR-055|documents 소비자 계약 변경(07·ADR-033 E1 개정)|채택 (2026-10-29, ADR-068. ① 구현대로)|2026-10-27|본문|
-|ADR-056|추출 캐시 키에 입력 문서 집합이 없다(첨부 일부만 파싱된 추출의 재사용)|채택 (2026-10-29, ADR-068. 대안 A, 구현 전)|2026-10-27|본문|
+|ADR-056|추출 캐시 키에 입력 문서 집합이 없다(첨부 일부만 파싱된 추출의 재사용)|채택 (2026-10-29, ADR-068. 대안 A, 코드 구현·회사 반영 전)|2026-10-27|본문|
 |ADR-057|문서 정리 원칙(ADR-054 §1 개정)|채택|2026-10-27|본문|
 |ADR-058|공고 출처 배지에 기관 로고 상징 색(디자인 원칙 "강조색 하나"의 예외)|채택|2026-10-27|본문|
 |ADR-059|공개 자료 프로필 기준 발표 대본: 데이터는 그대로, S3는 FX-01, 가정 재계산은 S4 FX-02(ADR-037 데모 장면 개정)|채택 (2026-10-29 개정: 클립 2에 추천 분석)|2026-10-28|본문|
@@ -322,13 +322,13 @@ updated: 2026-10-29
 
 ## ADR-056 추출 캐시 키에 입력 문서 집합이 없다 (첨부 일부만 파싱된 추출의 재사용)
 
-**채택: 대안 A (2026-10-29 사용자 결정, ADR-068 9번). 구현 전.** 2026-10-27 문서 반영 중 발견해 제안으로 올렸다. 구현은 브랜치 `feat/analysis-wait-documents`에서 한다. 2026-10-27 첨부 처리 구현(main `8cfaac31`, [[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약")으로 분석이 첨부 텍스트를 읽게 됐다. 그런데 추출 캐시 키는 그대로 `(revision_id, model_name, prompt_hash)`다(`requirement_extractions` UNIQUE, `web/server/analysis/analysis.repo.ts`). 분석은 이 키로 성공 추출이 있으면 `/extract`를 다시 부르지 않는다(`analysis.service.ts` `prepareExtraction`). 재분석 `force=true`는 score run 중복 판정에만 쓰이고 이 캐시를 건너뛰지 않는다.
+**채택: 대안 A (2026-10-29 사용자 결정, ADR-068 9번). 코드 구현, 회사 반영 전.** 2026-10-27 문서 반영 중 발견해 제안으로 올렸다. 구현은 `269679e7`(`web/worker/analysis-documents-wait.ts`)이다. live 분석은 RUNNING 전에 처리 범위 안 첨부(documents job과 같은 규칙 `pendingDocumentsOf`)가 남았는지 보고, 30초 간격 BullMQ 지연 재확인으로 분석 요청(`score_runs.queued_at`)부터 최대 300초 기다린다. 넘으면 남은 첨부를 `DOCUMENTS_WAIT_TIMEOUT` 문제 문서로 붙여(`attachmentsIncomplete`) 분석한다. mock·fixture·DEMO 공고는 기다리지 않는다. 운영 동작은 회사 Analysis Worker 재생성(`infra/company/README.md` §8.6, 승인) 뒤다. 2026-10-27 첨부 처리 구현(main `8cfaac31`, [[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약")으로 분석이 첨부 텍스트를 읽게 됐다. 그런데 추출 캐시 키는 그대로 `(revision_id, model_name, prompt_hash)`다(`requirement_extractions` UNIQUE, `web/server/analysis/analysis.repo.ts`). 분석은 이 키로 성공 추출이 있으면 `/extract`를 다시 부르지 않는다(`analysis.service.ts` `prepareExtraction`). 재분석 `force=true`는 score run 중복 판정에만 쓰이고 이 캐시를 건너뛰지 않는다.
 
 - **문제**: 공고 하나의 첨부(기본 3건)는 documents job이 차례로 처리한다. 본문이 비어도 `PARSED`·`PARTIAL` 첨부가 하나라도 있으면 분석 요청을 받는다(202). 그래서 첨부 일부만 파싱된 순간에 분석하면, 그 일부로 만든 추출이 캐시에 남는다. 아직 `PENDING`인 첨부는 문제 문서로 치지 않아 `attachmentsIncomplete`도 붙지 않는다. 나머지 첨부가 뒤에 파싱돼도 같은 revision·모델·프롬프트의 다음 분석은 그 추출을 다시 쓴다. 첨부에만 있는 자격 조건이 계속 빠질 수 있다. 같은 추출 행은 여러 조직의 분석이 함께 쓴다.
 - **확인한 것**: 코드 읽기로 확인했다. 실제로 재현한 기록은 없다. 운영 실공고 분석은 2026-10-29부터 있다([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 그 분석에 이 문제가 있었는지는 확인하지 않았다(미확인).
 - **대안 A — 처리 중 문서가 있으면 분석이 기다린다**: [[2026-10-21-redis-gateway-supabase-storage-migration|10-21 Redis·Storage 계획]] 297행 근처의 bounded dependency 안이다. 분석 job이 그 revision의 문서 처리를 최대 300초 기다리고(RUNNING 전, BullMQ 지연 재확인), 시간이 지나면 사유를 붙여 부분 입력으로 분석한다. 캐시 키는 그대로라, 대기 뒤에도 늦게 끝난 문서는 반영되지 않는다.
 - **대안 B — 캐시 키에 입력 문서 집합을 넣는다**: 같은 계획 §8.4 안이다. 본문·구조화 요구조건·문서 id·원본 sha256·파싱 상태·parser id·텍스트 sha의 manifest로 `source_hash`를 만들고, 키를 `(revision_id, model_name, prompt_hash, source_hash)`로 넓힌다. 새 마이그레이션과 `analysis_input_version` 기록이 필요하다. 문서가 늘면 추출을 다시 하므로 모델 호출이 늘어난다.
-- **A와 B는 함께 쓸 수 있다.** 지금은 A만 한다(B는 하지 않는다). A가 회사 Analysis Worker에 반영되기 전까지는 분석 결과를 볼 때 "첨부 일부만 반영됐을 수 있다"고 밝힌다. A 뒤에도 300초 안에 끝나지 않은 문서와 범위 밖 첨부(ADR-055)는 그 추출에 들어가지 않는다.
+- **A와 B는 함께 쓸 수 있다.** 지금은 A만 한다(B는 하지 않는다). A가 회사 Analysis Worker에 반영되기 전까지는 분석 결과를 볼 때 "첨부 일부만 반영됐을 수 있다"고 밝힌다. A 뒤에도 300초 안에 끝나지 않은 문서와 범위 밖 첨부(ADR-055)는 그 추출에 들어가지 않는다. 같은 revision의 성공 추출이 이미 캐시에 있으면 기다려도 추출 입력은 바뀌지 않는다(캐시 키를 바꾸지 않는 A의 한계).
 - **관련**: [[07-DATA-PIPELINE|07]] "documents 큐 소비자 계약"의 분석 연결, [[03-AI-PIPELINE|03]] §2.1 재사용 키, [[04-DATABASE|04]] `requirement_extractions`.
 
 ## ADR-055 documents 소비자 계약 변경: 범위 밖 첨부는 PENDING, 우리 쪽 장애는 미룬다 (07 개정)

@@ -535,7 +535,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 
 | env | 기본 | 범위 | 뜻 |
 |---|---|---|---|
-| `DOCUMENTS_MAX_PER_BID` | 3 | 1~20 | 공고당 받는 첨부 수. Qwen 입력 예산이 12,000자 근사라 뒤 문서는 거의 쓰이지 않는다 |
+| `DOCUMENTS_MAX_PER_BID` | 3 | 1~20 | 공고당 받는 첨부 수. Qwen 입력 예산이 12,000자 근사라 뒤 문서는 거의 쓰이지 않는다. 분석 Worker도 이 값으로 기다릴 첨부 범위를 정하므로(ADR-056) 두 Worker가 같은 값을 읽어야 한다 |
 | `DOCUMENTS_ROUND_MAX_REVISIONS` | 10 | 1~100 | 복구 회차(60초)마다 job을 넣는 revision 수 |
 | `DOCUMENTS_FETCH_INTERVAL_MS` | 2000 | 500~60000 | 나라장터 요청 사이 최소 간격(프로세스 단위) |
 | `DOCUMENTS_CONCURRENCY` | 2 | 1~2 | 동시 처리. gateway `/parse`의 동시 파서 수와 같다 |
@@ -552,7 +552,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - 회사에서는 documents 전용 Worker(`web/worker/documents-only-main.ts`, live 강제, `--check` 지원)를 `infra/compose.documents-only.company.yaml`(프로젝트 `sol-radar-documents`)로 띄운다. ingest 전용 Worker와 Analysis Worker는 건드리지 않는다. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(나라장터 요청 간격이 프로세스마다 따로 계산된다). 절차는 [회사 실행서](../infra/company/README.md) §8, 운영 구성은 [[10-DEPLOYMENT|10 배포]] "첨부 처리"다.
 - documents 전용 Worker에는 의존성 보고·Storage 정리(10분)가 없다. 회사에서 고아 객체 정리를 돌릴 곳은 정하지 않았다.
 
-분석 연결: 분석 runtime은 첨부 텍스트 reader(`createAttachmentTextReader`, `web/server/documents/document-text.repo.ts`)로 `PARSED`·`PARTIAL` 첨부 텍스트를 우선순위 순으로 읽는다(`ANALYSIS_READS_ATTACHMENT_TEXT = true`). 텍스트 객체가 계약과 다르면 넣지 않고 그 문서를 `FAILED`·`PARSER_ERROR`로 보인다(DB는 바꾸지 않는다). 본문이 비어도 파싱된 첨부가 있으면 분석 요청을 받는다(202). 미파싱 첨부만 있으면 `409 ANALYSIS_SOURCE_MISSING` 그대로다. 추출 캐시 키에 입력 문서 집합이 없는 문제는 [[16-DECISIONS|ADR-056]]이다. 대안 A(분석이 그 revision 문서 처리를 최대 300초 기다린다)를 채택했고 구현 전이다.
+분석 연결: 분석 runtime은 첨부 텍스트 reader(`createAttachmentTextReader`, `web/server/documents/document-text.repo.ts`)로 `PARSED`·`PARTIAL` 첨부 텍스트를 우선순위 순으로 읽는다(`ANALYSIS_READS_ATTACHMENT_TEXT = true`). 텍스트 객체가 계약과 다르면 넣지 않고 그 문서를 `FAILED`·`PARSER_ERROR`로 보인다(DB는 바꾸지 않는다). 본문이 비어도 파싱된 첨부가 있으면 분석 요청을 받는다(202). 미파싱 첨부만 있으면 `409 ANALYSIS_SOURCE_MISSING` 그대로다. 추출 캐시 키에 입력 문서 집합이 없는 문제는 [[16-DECISIONS|ADR-056]]이다. 대안 A를 채택해 구현했다(`web/worker/analysis-documents-wait.ts`). live 분석은 RUNNING 전에 documents job과 같은 범위 규칙(`pendingDocumentsOf`)으로 처리 전 첨부를 보고, 30초 간격 지연 재확인으로 분석 요청부터 최대 300초 기다린다. 기다리는 run은 `QUEUED`·job `delayed`라 복구 회차가 건드리지 않는다. 넘으면 남은 첨부를 `DOCUMENTS_WAIT_TIMEOUT` 문제 문서로 붙여(`attachmentsIncomplete`) 분석한다. 범위 밖 첨부(ADR-055)·mock·fixture·DEMO 공고는 기다리지 않는다. 회사 Analysis Worker 반영 전이다.
 - `pnpm demo:reset`은 `documents` 큐(Redis)를 건드리지 않는다.
 - 알려진 낮은 위험: `saveRevision`의 RPC `ingest_save_revision`과 `bid_revisions.created_at` 조회는 한 트랜잭션이 아니다. 둘 사이에서 실패하면 ingest 재시도는 `DUPLICATE`라 job을 넣지 않고, 복구기(60초)가 같은 jobId로 메운다. 근본 해결(RPC가 `created_at`을 돌려주는 새 마이그레이션)은 [[16-DECISIONS|16 ADR]] 미결정 23번이다.
 

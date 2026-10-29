@@ -131,7 +131,7 @@ interface ExplainRequest {
   scoreBreakdown: unknown;                 // 점수 분해·권고·recommendationBasis(05)·reviewFlags(필수. 규칙 엔진 플래그 + 파이프라인 플래그)
   evidence: EvidenceRef[];                 // 설명에 쓸 수 있는 공고 인용
   kevSummary: KevAssist | null;            // 참고 지표. 없으면 null
-  documentIssues: { documentId: string; downloadStatus: string; parseStatus: string; errorCode: string | null }[];  // 실패·부분 파싱 첨부. 문장에 반드시 밝힌다(§8)
+  documentIssues: { documentId: string; downloadStatus: string; parseStatus: string; errorCode: string | null }[];  // 실패·부분 파싱 첨부. 문장에 반드시 밝힌다(§8). live 분석이 300초 기다려도 처리가 끝나지 않은 첨부는 errorCode DOCUMENTS_WAIT_TIMEOUT(ADR-056)
 }
 interface ExplainResponse { text: string; usedNumbers: string[]; fallback: boolean }   // fallback=true면 템플릿 문장. 지금은 모든 모드가 fallback=true(Qwen 설명 미구현)
 ```
