@@ -349,6 +349,139 @@ class ExplainResponse(BaseModel):
     fallback: bool
 
 
+# ---------------------------------------------------------------- /insight
+
+# 추천 분석(스펙 §4.3, 계획 C3). 판정(점수·권고)은 입력으로만 받고 바꾸지 않는다. 근거 번호 B = 공고 인용, C = 회사 자료
+InsightRefId = Annotated[str, StringConstraints(pattern=r"^[BC][1-9][0-9]?$")]
+DateString = Annotated[str, StringConstraints(pattern=r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")]
+InsightLabel = Annotated[str, StringConstraints(min_length=1, max_length=80)]
+InsightFallbackReason = Literal[
+    "MODEL_UNAVAILABLE",
+    "INVALID_OUTPUT",
+    "FORBIDDEN_WORD",
+    "UNKNOWN_NUMBER",
+    "UNKNOWN_REF",
+    "LABEL_CONFLICT",
+]
+
+
+class InsightBid(BaseModel):
+    title: str
+    agency: str | None = None
+    budgetKrw: KrwString | None = None
+    deadline: DateString | None = None
+
+
+class InsightFactor(BaseModel):
+    factor: str
+    label: InsightLabel
+    points: int | float
+    maxPoints: int | float
+    reason: str
+
+
+class InsightCheck(BaseModel):
+    label: InsightLabel
+    status: Literal["SATISFIED", "NOT_SATISFIED", "NEEDS_REVIEW", "NOT_APPLICABLE"]
+    reason: str
+
+
+class InsightRules(BaseModel):
+    score: int | float
+    recommendation: Recommendation
+    recommendationBasis: str
+    factors: list[InsightFactor] = Field(max_length=8)
+    qualificationChecks: list[InsightCheck] = Field(max_length=20)
+    reviewFlags: list[str]
+    missingFactors: list[str]
+
+
+class InsightBosun(BaseModel):
+    reviewFlags: list[str]
+
+
+class InsightStaff(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: DateString = Field(alias="from")
+    to: DateString
+    availableFte: int | float = Field(ge=0)
+    eligibleStaff: int = Field(ge=0)
+
+
+class InsightCompany(BaseModel):
+    name: str | None = None
+    technologies: list[str] = Field(max_length=10)
+    staff: InsightStaff | None = None
+
+
+class InsightRef(BaseModel):
+    id: InsightRefId
+    kind: Literal["BID", "COMPANY"]
+    label: InsightLabel
+    quotedText: str = Field(min_length=1, max_length=300)
+
+
+class InsightRequest(SizeLimitedModel):
+    requestId: str
+    bid: InsightBid
+    rules: InsightRules
+    # run 에서 Bosun 을 쓰지 않았으면 null
+    bosun: InsightBosun | None = None
+    company: InsightCompany
+    refs: list[InsightRef] = Field(max_length=24)
+
+    @field_validator("refs")
+    @classmethod
+    def _unique_ref_ids(cls, value: list[InsightRef]) -> list[InsightRef]:
+        if len({ref.id for ref in value}) != len(value):
+            raise ValueError("refs 의 id 가 겹친다")
+        return value
+
+
+class InsightItem(BaseModel):
+    # 모델 출력을 그대로 읽는다. 모르는 키·형 변환을 받지 않는다
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    text: str = Field(min_length=1, max_length=200)
+    refIds: list[InsightRefId] = Field(max_length=4)
+
+    @field_validator("text")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("빈 문장")
+        return value
+
+
+class InsightBody(BaseModel):
+    """모델 출력과 템플릿이 같은 모양이다. 강점·보완할 점은 각각 0~4개."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    summary: str = Field(min_length=1, max_length=400)
+    strengths: list[InsightItem] = Field(max_length=4)
+    improvements: list[InsightItem] = Field(max_length=4)
+
+    @field_validator("summary")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("빈 요약")
+        return value
+
+
+class InsightResponse(InsightBody):
+    """언제나 200. fallback=false 면 fallbackReason=null·model=어댑터 모델 이름, true 면 model=null(템플릿)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fallback: bool
+    fallbackReason: InsightFallbackReason | None
+    model: str | None
+    promptHash: str
+
+
 # ---------------------------------------------------------------- /parse
 
 

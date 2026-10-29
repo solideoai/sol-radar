@@ -1,12 +1,12 @@
-"""FastAPI 앱. /health·/parse·/extract·/kev·/explain(docs/03 §2.1).
+"""FastAPI 앱. /health·/parse·/extract·/kev·/explain·/insight(docs/03 §2.1, 추천 분석 스펙 §4.3).
 
 HTTP 200 은 "gateway 가 응답했다"는 뜻이다. 개별 실패는 본문 status·errorCode·kev.enabled·fallback 으로 낸다.
 200 이 아닌 본문은 {"errorCode","message"} 이고 422 KO_STATE_NOT_ALLOWED·503 AI_UNAVAILABLE 둘뿐이다(K9).
 요청 본문 형식 오류·크기 상한 초과는 FastAPI 기본 422 를 그대로 둔다. 실행 모드 위반과 local 기동 검사 위반은
 기동 거부(exit 78)다.
 
-/extract·/kev 는 요청마다 마감 하나(요청 시작 + AI_TIMEOUT_MS·KEV_TIMEOUT_MS)를 만들어 모델 호출 전체가 나눠 쓴다
-(C5-A S1). worker 는 /extract 를 AI_TIMEOUT_MS+5s, /kev 를 KEV_TIMEOUT_MS+2s 에 끊는다.
+/extract·/kev·/insight 는 요청마다 마감 하나(요청 시작 + AI_TIMEOUT_MS·KEV_TIMEOUT_MS)를 만들어 모델 호출 전체가
+나눠 쓴다(C5-A S1). worker 는 /extract·/insight 를 AI_TIMEOUT_MS+5s, /kev 를 KEV_TIMEOUT_MS+2s 에 끊는다.
 """
 
 import logging
@@ -25,6 +25,8 @@ from sol_ai.contracts import (
     ExplainResponse,
     ExtractRequest,
     ExtractResponse,
+    InsightRequest,
+    InsightResponse,
     KevRequest,
     KevResponse,
     KevTimings,
@@ -35,6 +37,7 @@ from sol_ai.errors import StartupRefused
 from sol_ai.explain import explain
 from sol_ai.extraction import ExtractionConfig, run_extraction
 from sol_ai.guards import InjectionGuard
+from sol_ai.insight import insight_prompt_hash, run_insight
 from sol_ai.kev_state_v02 import load_state_templates
 from sol_ai.logsafe import log_id
 from sol_ai.parse import DocumentParser, read_limited
@@ -70,6 +73,7 @@ class Runtime:
     extraction: ExtractionConfig
     kev: KevAdapter
     documents: DocumentParser
+    insight_prompt_hash: str
 
 
 def _error(status: int, code: str, message: str) -> JSONResponse:
@@ -118,7 +122,14 @@ def build_runtime(settings: Settings, run_mode: str | None, effective: dict[str,
         thresholds=Thresholds.load(THRESHOLDS_FILE),
         translator=adapters.qwen if isinstance(adapters.qwen, TranslationAdapter) else None,
     )
-    return Runtime(run_mode, adapters, extraction, kev, DocumentParser.from_settings(settings))
+    return Runtime(
+        run_mode,
+        adapters,
+        extraction,
+        kev,
+        DocumentParser.from_settings(settings),
+        insight_prompt_hash(),
+    )
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -223,6 +234,24 @@ def create_app(settings: Settings) -> FastAPI:
             return _gateway_down()
         response = explain(body, await request.json())
         logger.info("explain requestId=%s fallback=%s", log_id(body.requestId), response.fallback)
+        return response
+
+    @app.post("/insight", response_model=InsightResponse)
+    def insight(body: InsightRequest):
+        deadline = Deadline(settings.AI_TIMEOUT_MS / 1000)
+        if adapters.gateway_down:
+            return _gateway_down()
+        response = run_insight(
+            body, adapters.qwen, prompt_hash=runtime.insight_prompt_hash, deadline=deadline
+        )
+        # 요청·모델 출력은 남기지 않는다. 대체 이유는 코드뿐이다
+        logger.info(
+            "insight requestId=%s provider=%s fallback=%s fallbackReason=%s",
+            log_id(body.requestId),
+            adapters.provider,
+            response.fallback,
+            response.fallbackReason,
+        )
         return response
 
     return app

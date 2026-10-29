@@ -571,6 +571,12 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
   const NOTE_VIEWER = "e1000000-0000-0000-0000-000000000002";
   const NOTE_OUTSIDER = "e1000000-0000-0000-0000-000000000003";
   const INGEST1 = "e2000000-0000-0000-0000-000000000001";
+  const INSIGHT_PAYLOAD = JSON.stringify({
+    summary: "규칙 결과로 정리한 추천 분석",
+    strengths: [],
+    improvements: [],
+    refs: [],
+  });
   const BID_TABLES = [
     "bid_notices",
     "bid_revisions",
@@ -588,6 +594,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
     "assignments",
     "audit_logs",
     "notifications",
+    "recommendation_insights",
   ];
   const OPS_TABLES = ["ingest_runs", "ingest_errors", "eval_runs"];
   const SOL_TABLES = [...BID_TABLES, ...ORG_TABLES, ...OPS_TABLES, "outbox_events"];
@@ -662,10 +669,10 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       "insert into public.company_profiles (id, org_id, revision, name) values ($1, $3, 1, '솔리데오'), ($2, $4, 1, '격리 조직')",
       [PROFILE1, PROFILE2, ORG1, ORG2],
     );
-    // 분석 — 두 조직의 완료 run 하나씩과 자식 행 하나씩.
-    for (const [run, org, profile] of [
-      [RUN1, ORG1, PROFILE1],
-      [RUN2, ORG2, PROFILE2],
+    // 분석 — 두 조직의 완료 run 하나씩과 자식 행 하나씩. 추천 분석은 규칙 결과로 닫힌 DONE 한 건(PENDING 은 시험이 넣는다).
+    for (const [run, org, profile, requester] of [
+      [RUN1, ORG1, PROFILE1, WHO.admin],
+      [RUN2, ORG2, PROFILE2, WHO.outsider],
     ]) {
       await pglite.query(
         `insert into public.score_runs (id, org_id, bid_id, revision_id, company_profile_id, profile_revision, extraction_id, algorithm_version,
@@ -685,6 +692,11 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       await pglite.query(
         "insert into public.requirement_assessments (score_run_id, org_id, item_id, item_kind, rule_status, basis) values ($1, $2, 'qualifications[0]', 'QUALIFICATION', 'SATISFIED', 'API_FIELD')",
         [run, org],
+      );
+      await pglite.query(
+        `insert into public.recommendation_insights (org_id, score_run_id, status, source, payload, fallback_reason, prompt_hash, requested_by, finished_at)
+         values ($1, $2, 'DONE', 'TEMPLATE', $3, 'MODEL_UNAVAILABLE', 'p-insight', $4, now())`,
+        [org, run, INSIGHT_PAYLOAD, requester],
       );
     }
     // 결정 이력(검토자 없음) — 트리거가 run 의 권고를 옮겨 적는다.
@@ -1340,7 +1352,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       ])
         await assert.rejects(pglite.query(sql), PERMISSION, sql);
   });
-  it("운영자(profiles.is_admin)는 멤버가 아닌 조직의 SOL 표를 하나도 읽지 못한다 — 조직 표 아홉 개와 운영 표 셋 모두 0행이고 정책 도우미도 빈 목록이다", async (t) => {
+  it("운영자(profiles.is_admin)는 멤버가 아닌 조직의 SOL 표를 하나도 읽지 못한다 — 조직 표 열 개와 운영 표 셋 모두 0행이고 정책 도우미도 빈 목록이다", async (t) => {
     const pglite = await solDb(t);
     await as(pglite, "operator");
     for (const table of [...ORG_TABLES, ...OPS_TABLES])
@@ -1371,7 +1383,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         );
     }
   });
-  it("로그아웃한 사람(anon)은 SOL 표 열여덟 개를 읽지도 쓰지도 못하고 정책 도우미 my_sol_org_ids 도 부르지 못한다 — 모두 권한 오류", async (t) => {
+  it("로그아웃한 사람(anon)은 SOL 표 열아홉 개를 읽지도 쓰지도 못하고 정책 도우미 my_sol_org_ids 도 부르지 못한다 — 모두 권한 오류", async (t) => {
     const pglite = await solDb(t);
     await asAnon(pglite);
     for (const table of SOL_TABLES)
@@ -2118,6 +2130,142 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       await assert.rejects(
         db.query("select public.send_deadline_reminders('2026-10-24T00:05:00Z')"),
         /permission denied for function/,
+      );
+    });
+  });
+
+  describe("추천 분석 요청 (20261029000100)", () => {
+    const EXEC = "00000000-0000-0000-0000-000000000008";
+    const requestInsight = (db, fields = {}) => {
+      const row = { org_id: ORG1, score_run_id: RUN1, ...fields };
+      const columns = Object.keys(row);
+      const values = Object.values(row);
+      return rowsOf(
+        db,
+        `insert into public.recommendation_insights (${columns.join(", ")}) values (${values.map((_, i) => `$${i + 1}`).join(", ")}) returning id, status, requested_by`,
+        values,
+      );
+    };
+    // worker(service role) 의 마감. PENDING 행만 바꾼다.
+    const close = async (db, id, set) => {
+      await asWorker(db);
+      return (
+        await db.query(
+          `update public.recommendation_insights set ${set} where id = $1 and status = 'PENDING'`,
+          [id],
+        )
+      ).affectedRows;
+    };
+    it("ADMIN·SALES·ANALYST 만 자기 조직의 완료 run 에 PENDING 으로 넣는다 — EXECUTIVE·VIEWER·다른 조직·QUEUED run 은 정책 오류, 요청자·상태·결과 열과 고치기·지우기는 권한 오류", async (t) => {
+      const db = await solDb(t);
+      await db.query("insert into auth.users values ($1, 'executive@example.invalid')", [EXEC]);
+      await db.query(
+        "insert into public.memberships (org_id, user_id, org_role, sol_role) values ($1, $2, 'member', 'EXECUTIVE')",
+        [ORG1, EXEC],
+      );
+      await as(db, "admin");
+      const [queued] = await requestRun(db, ORG1, PROFILE1, "sol-v0.1.9");
+
+      await as(db, "analyst");
+      assert.deepEqual(
+        (await requestInsight(db)).map(({ status, requested_by }) => ({ status, requested_by })),
+        [{ status: "PENDING", requested_by: WHO.analyst }],
+      );
+      await assert.rejects(requestInsight(db, { score_run_id: queued.id }), POLICY, "QUEUED run");
+      await assert.rejects(
+        requestInsight(db, { org_id: ORG2, score_run_id: RUN2 }),
+        POLICY,
+        "다른 조직",
+      );
+      for (const fields of [
+        { requested_by: WHO.admin },
+        { status: "DONE" },
+        { payload: INSIGHT_PAYLOAD },
+      ])
+        await assert.rejects(
+          requestInsight(db, fields),
+          /permission denied for table recommendation_insights/,
+          JSON.stringify(fields),
+        );
+      await as(db, "viewer");
+      await assert.rejects(requestInsight(db), POLICY, "VIEWER");
+      await actAs(db, EXEC, "authenticated", "executive@example.invalid");
+      await assert.rejects(requestInsight(db), POLICY, "EXECUTIVE");
+      // 읽기 전용 역할도 결과는 읽는다.
+      assert.equal(await countOf(db, "recommendation_insights"), 2);
+      await as(db, "admin");
+      for (const sql of [
+        "update public.recommendation_insights set status = 'FAILED'",
+        "delete from public.recommendation_insights",
+      ])
+        await assert.rejects(
+          db.query(sql),
+          /permission denied for table recommendation_insights/,
+          sql,
+        );
+    });
+    it("같은 run 의 PENDING 은 하나뿐이다 — 두 번째 요청은 유일 위반, worker 가 FAILED 로 닫은 뒤에는 새 PENDING 을 넣는다", async (t) => {
+      const db = await solDb(t);
+      await as(db, "sales");
+      const [first] = await requestInsight(db);
+      await as(db, "analyst");
+      await assert.rejects(requestInsight(db), (error) => {
+        assert.equal(error.code, "23505");
+        assert.match(error.message, /recommendation_insights_one_pending/);
+        return true;
+      });
+      assert.equal(
+        await close(
+          db,
+          first.id,
+          "status = 'FAILED', error_code = 'GATEWAY_UNAVAILABLE', finished_at = now()",
+        ),
+        1,
+      );
+      await as(db, "analyst");
+      const [second] = await requestInsight(db);
+      assert.notEqual(second.id, first.id);
+      assert.deepEqual(
+        (
+          await rowsOf(
+            db,
+            "select status from public.recommendation_insights where score_run_id = $1 order by created_at, status",
+            [RUN1],
+          )
+        ).map((row) => row.status),
+        ["DONE", "FAILED", "PENDING"],
+      );
+    });
+    it("상태 check — worker 가 써도 DONE 은 출처·내용·마감 시각, FAILED 는 오류 코드가 있어야 하고 대체 이유는 TEMPLATE 에만 붙는다", async (t) => {
+      const db = await solDb(t);
+      await as(db, "analyst");
+      const [{ id }] = await requestInsight(db);
+      const STATE = "recommendation_insights_state_check";
+      for (const [set, constraint] of [
+        ["status = 'DONE', source = 'MODEL', finished_at = now()", STATE],
+        ["status = 'FAILED', finished_at = now()", STATE],
+        [
+          `status = 'DONE', source = 'MODEL', payload = '${INSIGHT_PAYLOAD}', fallback_reason = 'INVALID_OUTPUT', finished_at = now()`,
+          "recommendation_insights_fallback_reason_check",
+        ],
+        [
+          "status = 'FAILED', error_code = 'TIMEOUT', finished_at = now()",
+          "recommendation_insights_error_code_check",
+        ],
+      ])
+        await rejectsWith(close(db, id, set), constraint, set);
+      assert.equal(
+        await close(
+          db,
+          id,
+          `status = 'DONE', source = 'MODEL', payload = '${INSIGHT_PAYLOAD}', model_name = 'qwen', prompt_hash = 'p-1', finished_at = now()`,
+        ),
+        1,
+      );
+      // 닫힌 행은 다시 닫히지 않는다.
+      assert.equal(
+        await close(db, id, "status = 'FAILED', error_code = 'STALE', finished_at = now()"),
+        0,
       );
     });
   });
