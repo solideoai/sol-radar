@@ -1544,6 +1544,60 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       );
     });
   });
+  it("목록 버전 — 뷰를 계산하지 않고 목록에 보이는 변경마다 바뀐다(20261029000500)", async (t) => {
+    const db = await solDb(t);
+    const version = async () =>
+      (await rowsOf(db, "select public.procurement_dataset_version($1) v", [ORG1]))[0].v;
+    // viewer 를 org-02 에도 넣는다. 그러면 RLS 가 아니라 p_org_id 조건이 다른 조직의 변경을 버전에서 뺀다.
+    await asWorker(db);
+    await db.query(
+      "insert into public.memberships (org_id, user_id, org_role, sol_role) values ($1, $2, 'member', 'VIEWER')",
+      [ORG2, WHO.viewer],
+    );
+    await as(db, "viewer");
+    const [src] = await rowsOf(
+      db,
+      "select prosrc from pg_proc where proname='procurement_dataset_version'",
+    );
+    // 원인 재발 방지: 뷰 전체 해시는 운영 3,309건에서 2.6초가 걸렸다.
+    assert.doesNotMatch(src.prosrc, /opportunity_list_items/);
+    let previous = await version();
+    assert.equal(await version(), previous, "바뀐 것이 없으면 같다");
+    for (const [label, sql, params, changes] of [
+      [
+        "공고 갱신",
+        "update public.bid_notices set title=title||' (정정)' where id=$1",
+        [BID1],
+        true,
+      ],
+      [
+        "관련성 재판정",
+        "insert into public.bid_relevance_assessments(revision_id,policy_version,input_hash,state,categories) values ($1,'relevance-v0.1','h-version','RELEVANT','{SI_SW}')",
+        [REV1],
+        true,
+      ],
+      [
+        "사람 결정",
+        "insert into public.bid_reviews(org_id,bid_id,revision_id,decision,reason,decided_at) values($1,$2,$3,'WATCH','목록 버전 시험 결정',now()+interval '1 second')",
+        [ORG1, BID1, REV1],
+        true,
+      ],
+      [
+        "다른 조직 분석 변경",
+        "update public.score_runs set status='FAILED' where id=$1 and org_id=$2",
+        [RUN2, ORG2],
+        false,
+      ],
+    ]) {
+      await asWorker(db);
+      assert.equal((await db.query(sql, params)).affectedRows, 1, label);
+      await as(db, "viewer");
+      const next = await version();
+      if (changes) assert.notEqual(next, previous, label);
+      else assert.equal(next, previous, label);
+      previous = next;
+    }
+  });
   it("G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만", async (t) => {
     const pglite = await solDb(t);
     const shared = ORG_TABLES.filter((table) => !["audit_logs", "notifications"].includes(table));
