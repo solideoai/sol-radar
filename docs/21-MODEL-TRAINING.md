@@ -7,7 +7,7 @@ tags:
   - ai
   - evaluation
   - hackathon
-updated: 2026-10-27
+updated: 2026-10-29
 ---
 
 # 21. 모델 학습: 데이터셋·평가·파인튜닝
@@ -22,7 +22,7 @@ updated: 2026-10-27
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | F0 | 결정 모델(공개 Bosun v3.1 0.6B) 베이스라인 추론 E1', 한국어/영어 입력 비교, 평가셋 구축, 평가·비교 하네스, 학습셋 내보내기(Bosun 질문 단위 레코드), LoRA 메모리 검증 스크립트 | 하네스의 Bosun 부분(`python -m sol_eval` 의 `export --format bosun`·`bosun_score`·`leakage`·`compare`)은 main 에 있다. 실측 리포트는 없다(`docs/evidence/eval/` 에 smoke 3건뿐) |
-| F1 | 회사 GPU 에서 Bosun LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행, [[16-DECISIONS\|ADR-025]]). 물리 GPU 1(NVIDIA A40 46,068 MiB) 한 장만 쓰고, 회사 PaddleOCR vLLM(약 9,167 MiB, 사용자 보고)과 **공유**한다. 서버의 torch 2.8.0+cu128·CUDA·bf16 은 `.venv-kev` 에서 확인했다. Bosun 용 `.venv-bosun` 은 사용자 보고이고 회사 확인 전이다. GPU 에서의 Bosun 학습은 미실행([[22-FINETUNE-RUNBOOK\|22]] §3.1) | 미결정(X6). 회사 실행 기록 없음. 학습 가능 여부는 F1 결과로만 확정한다 |
+| F1 | 회사 GPU 에서 Bosun LoRA 메모리 검증 실행(GPU 서버 셸이 필요해 회사 측 실행, [[16-DECISIONS\|ADR-025]]). 물리 GPU 1(NVIDIA A40 46,068 MiB) 한 장만 쓴다. 회사 PaddleOCR 공유 전제는 ADR-066 으로 지웠다(우리는 PaddleOCR 을 쓰지 않는다. 회사 컨테이너는 건드리지 않고 학습 전 메모리를 확인한다). 서버의 torch 2.8.0+cu128·CUDA·bf16 은 `.venv-kev` 에서 확인했다. Bosun 용 `.venv-bosun` 은 사용자 보고이고 회사 확인 전이다. GPU 에서의 Bosun 학습은 미실행([[22-FINETUNE-RUNBOOK\|22]] §3.1) | 미결정(X6). 회사 실행 기록 없음. 학습 가능 여부는 F1 결과로만 확정한다 |
 | F2 | Bosun v3.1 0.6B LoRA 이어 학습(`en`. 공개 LoRA 392 텐서만, decision 임베딩 동결) | 미결정(X6). 실행하면 비교 실험이라 §4.4 착수 조건을 기다리지 않는다(ADR-034) |
 | F3 | 온도 보정·평가·반입·운영 모델 교체 | 미결정(X6). 실행하면 보정·E4 평가(E1' 대비)까지 한다. 반입·운영 모델 교체는 §4.4 판단·사용자 승인·ADR 을 거친다(ADR-034 9번) |
 | — | Qwen 파인튜닝 | **하지 않는다**(2026-10-20 사용자 결정, §5.6). 추출·설명 모델은 회사가 운영하는 vLLM API 의 `Qwen3.8-Flash-Next-AWQ-INT4` 다 |
@@ -290,7 +290,7 @@ Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 
 목표 미달은 점추정이 아니라 신뢰구간으로 판단한다. 신뢰구간이 목표를 걸치면 "판단 보류" 로 두고, 사례별 오류 분석을 함께 낸다. SOL Score 에 결정 모델을 반영할지([[08-SCORING|08 점수]])도 같은 지표와 오류 분석으로 따로 판단한다.
 
-## 5. 파인튜닝 — Bosun v3.1 0.6B LoRA (회사 GPU 1, PaddleOCR 과 공유. X6 미결정, 실행하면 비교 실험이고 운영 반영은 후속)
+## 5. 파인튜닝 — Bosun v3.1 0.6B LoRA (회사 GPU 1. X6 미결정, 실행하면 비교 실험이고 운영 반영은 후속)
 
 이 절은 무엇을 언제 학습하고 결과를 어떻게 받아들이는지 정한다. 모델 출처(Hugging Face 리비전·sha256), 학습 환경, 질문별 학습 데이터, 명령, 돌려받을 것은 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]가 정본이다(ADR-034 로 Bosun 기준 개정). 대상 모델이 Bosun v3.1 0.6B 로 바뀐 근거(ADR-034)와 파일 목록은 [분석·변경 계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §4 다.
 
@@ -303,7 +303,7 @@ Bosun 레코드 예시(계획 §4.2 원문. 한 줄 = 질문 하나):
 
 ### 5.2 보유 GPU 에서의 LoRA 메모리 검증 (F1)
 
-회사 GPU 는 A40 3장 중 **물리 index 1 한 장**이고 회사 PaddleOCR vLLM 과 **공유**한다. 사양·사용량·공유 규칙·메모리 계획의 정본은 [[22-FINETUNE-RUNBOOK|22]] §3.1 이다. 80 GB·H100·H200 을 전제하지 않고, 3장의 VRAM 을 합치지 않고, 어떤 프로세스도 종료·이동하지 않는다.
+회사 GPU 는 A40 3장 중 **물리 index 1 한 장**이다. 회사 PaddleOCR 공유 전제는 ADR-066 으로 지웠고, 학습·서빙 전에 GPU 1 메모리를 확인한다. 사양·사용량·공유 규칙·메모리 계획의 정본은 [[22-FINETUNE-RUNBOOK|22]] §3.1 이다. 80 GB·H100·H200 을 전제하지 않고, 3장의 VRAM 을 합치지 않고, 어떤 프로세스도 종료·이동하지 않는다.
 
 F1 은 GPU 1 에서 `infra/gpu/bosun-f1.sh` 가 `python -m sol_decision.train --max-steps 20 --batch 1 --accum 8 --bf16 --grad-checkpointing --max-state-tokens 6144`(6,000 토큰 state 포함)를 돌려 최대 메모리·step 시간·OOM 여부·상한을 넘어 건너뛴 레코드 수·checkpoint 저장과 재로딩 여부를 `docs/evidence/bosun-train-feasibility.md` 에 표로 남긴다. 사전 검사는 `infra/gpu/bosun-preflight.sh` 다. 절차·합격 조건·실패 시 검토 순서(state 축약 → batch·누적 → 공식 메모리 옵션 → **사용자 승인 대상**인 다중 GPU·클라우드 GPU 임대, ADR-010)는 [[22-FINETUNE-RUNBOOK|22]] §4.2 다. 학습 가능 여부는 이 결과로만 확정한다. 20 step 통과만으로 F2 준비 완료라고 적지 않는다. 메모리 추정(F1 실측 전, 계획 §8): Bosun LoRA 학습 약 6~10 GB, `sol_decision.serve` 서빙 약 1.5~3 GB.
 
@@ -327,6 +327,22 @@ F1 은 GPU 1 에서 `infra/gpu/bosun-f1.sh` 가 `python -m sol_decision.train --
 ### 5.6 Qwen 파인튜닝 — 하지 않는다
 
 Qwen 파인튜닝은 **하지 않는다**(2026-10-20 사용자 결정. ADR-034 채택 당시의 "EX0 뒤 조건부 QLoRA" 는 같은 날 사용자 결정으로 철회). 추출·설명 모델은 회사가 이미 운영하는 vLLM API 의 `Qwen3.8-Flash-Next-AWQ-INT4`(`https://acropolissg.com/vllm/v1`)이고 우리는 띄우지도 학습하지도 않는다. EX0 은 그 API 의 추출 품질 기준 측정(§4.2)이며, 추출 지표 미달의 `EXTRACTION` 원인은 프롬프트·스키마·용어집·인용 검증으로 고친다. ADR-034 초안의 Qwen3-4B 안은 퇴역했다(레지스트리 `status: backup`). Qwen SFT JSONL 은 내보내지 않는다(§3.7). `sol_decision.train` 은 생성 모델 학습용이 아니다. [[22-FINETUNE-RUNBOOK|22]] §5 의 Qwen 절은 이력이다.
+
+### 5.7 연 1회 재학습 구조 (ADR-066, 구현은 발표 뒤)
+
+회사가 수행한 사업은 해마다 늘어난다. 그래서 Bosun 은 **연 1회** 다시 학습한다. 앱의 최종 결정 기록이 **200건** 쌓이면 연 1회를 기다리지 않고 수동으로도 돌린다(2026-10-29 사용자 결정). 인력은 학습하지 않는다. 인력은 자주 바뀌므로 분석 때 `staffAvailability` 입력으로 넣는다(ADR-066 5번).
+
+| 단계 | 하는 일 | 자리 |
+|---|---|---|
+| 1 내보내기 | 과거 수행 사업의 원공고, 앱의 최종 결정 기록(사람 라벨), 규칙 silver(train 만)를 질문 단위 레코드(§3.7)로 내보낸다. 유료 LLM 라벨은 쓰지 않는다. 분할과 누수 검사는 §3.6 | `scripts/ops/` 운영자 CLI → `datasets/decision/<데이터 버전>/` |
+| 2 학습 | 명령 하나로 LoRA 를 학습한다. GPU 1 만 쓰고, 시작 전에 메모리를 확인한다 | `infra/gpu/bosun-retrain.sh <데이터 버전>`(F2 명령을 감싼다) |
+| 3 평가 게이트 | 지금 서빙 모델과 같은 test 로 E4 를 채점한다. Δ 의 95% CI 가 0 을 배제하고 dev·regression 이 안정일 때만 후보가 된다(§4.4, ADR-034 9번) | `sol_eval.bosun_score` |
+| 4 포장 | manifest sha256 을 만들고 레지스트리에 `candidate` 로 넣는다(§5.4) | `services/ai/models/registry.yaml` |
+| 5 승인·교체 | 사용자 승인 뒤 8009 서빙 패키지 경로만 바꾼다. 이전 패키지는 남겨 env 하나로 되돌린다 | 회사 Compose |
+
+- 최소 규모는 §3.5 를 따른다(test 20·dev 10 사업, train 질문 기록 1,000건). 모자라면 그 해에는 학습하지 않고 기록만 남긴다.
+- 데이터 버전은 `<연도>-<회차>`(예: `2027-1`)이고, 학습본 id 는 `bosun-sol-lora-<데이터 버전>` 이다. 기존 `score_runs` 는 덮어쓰지 않는다.
+- 해커톤 전에는 재학습하지 않는다. 위 CLI·스크립트도 아직 없다.
 
 ## 6. 운영자 CLI
 

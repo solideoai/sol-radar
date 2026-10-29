@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - ai
   - ops
-updated: 2026-10-27
+updated: 2026-10-29
 ---
 
 # 22. 회사 GPU 파인튜닝 실행서: Bosun v3.1 0.6B LoRA (Qwen 은 회사 API, 학습 없음)
@@ -41,11 +41,11 @@ updated: 2026-10-27
 | 우리(SOL RADAR) | 회사(GPU 서버) |
 |---|---|
 | 평가셋·학습셋 번들(`sol-dataset-{version}/` 폴더, 파일별 sha256)·이 실행서·학습 요청서(§6)·`services/decision` 코드·`bosun-*.sh` 를 만든다 | Bosun·백본을 받고(§2) `.venv-bosun` 환경을 만든다(§3). 사용자 승인 뒤 `sol_decision.serve`(8009)를 띄운다. 회사 Qwen API 는 키 전달·`GET /v1/models` 확인만 |
-| 사람 라벨(사용자 직접, ADR-027 에서 보존) | F1 smoke·F2 학습·F3 보정·E4·E1' 채점을 **물리 GPU 1(PaddleOCR 와 공유)** 에서 돌린다(§4) |
+| 사람 라벨(사용자 직접, ADR-027 에서 보존) | F1 smoke·F2 학습·F3 보정·E4·E1' 채점을 **물리 GPU 1** 에서 돌린다(§4) |
 | 돌려받은 채점 출력을 노트북에서 오프라인으로 읽어 E4 지표를 내고(21 §4.1) 레지스트리 항목을 쓴다 | 서버 안에서 `sol_eval bosun_score` 를 E4·E1' × test·dev 로 돌린다(ADR-034 7번). 학습본을 HTTPS 로 서빙하지 않는다 |
 | 결과를 제출물에 적는다 | 돌려줄 것(§4.5)을 넘긴다. 데이터셋은 학습이 끝나면 지운다 |
 
-회사 측 실행은 GPU 서버 셸(호스트 `sol-NF5280M6`, 계정 `bim`, 2026-10-20 확인)에서 한다. 서버에는 A40 46,068 MiB 가 3장 있고 SOL RADAR 는 **물리 index 1 한 장**을 회사 PaddleOCR 서비스와 **공유**해 쓴다(§3.1). GPU 1 에 올리는 우리 것은 `sol_decision` Bosun 서빙과 Bosun LoRA 학습뿐이다(Qwen 은 회사 API). 2026-10-20 오전 환경 확인 기록(당시 Kev 기준)은 [F1 기록](evidence/kev-train-feasibility.md) §0 이고, Bosun 결과는 새 파일 `docs/evidence/bosun-train-feasibility.md`(실행하면 만든다)에 쓴다.
+회사 측 실행은 GPU 서버 셸(호스트 `sol-NF5280M6`, 계정 `bim`, 2026-10-20 확인)에서 한다. 서버에는 A40 46,068 MiB 가 3장 있고 SOL RADAR 는 **물리 index 1 한 장**을 쓴다(§3.1. PaddleOCR 공유 전제는 ADR-066 으로 지웠다). GPU 1 에 올리는 우리 것은 `sol_decision` Bosun 서빙과 Bosun LoRA 학습뿐이다(Qwen 은 회사 API). 2026-10-20 오전 환경 확인 기록(당시 Kev 기준)은 [F1 기록](evidence/kev-train-feasibility.md) §0 이고, Bosun 결과는 새 파일 `docs/evidence/bosun-train-feasibility.md`(실행하면 만든다)에 쓴다.
 
 ## 2. 모델과 자료 출처
 
@@ -115,6 +115,9 @@ sha256sum "$snap/adapter/adapter_model.safetensors" "$snap/decision_embeddings.s
 
 > [!warning] 정정 (2026-10-20 오후, 사용자 보고. ADR-034 10번)
 > GPU 1 은 **전용이 아니다**. 회사 PaddleOCR vLLM 서비스가 GPU 1 에서 약 **9,167 MiB** 를 쓰고 있다. 오전의 "5 MiB" 는 그 시점 스냅샷이다. 가용은 약 **36,900 MiB**(추정, PaddleOCR 피크 미확인). SOL RADAR 가 GPU 1 에 올리는 것은 `sol_decision` Bosun 서빙과 Bosun LoRA 학습·채점뿐이고 PaddleOCR 와 **공존**한다. 어떤 프로세스도 종료·이동하지 않는다. 이 보고는 B2 의 `nvidia-smi` 기록으로 교차 확인한다.
+
+> [!note] 개정 (2026-10-29, ADR-066)
+> SOL RADAR 는 회사 PaddleOCR 을 쓰지 않는다(사용자). 그래서 위 "공유·공존" 전제는 지운다. 회사 컨테이너(`archicm-paddleocr-vl-prod` 등)는 우리 것이 아니므로 멈추거나 옮기지 않는다. 학습·서빙 전에는 `nvidia-smi` 로 GPU 1 여유 메모리를 확인한다. 아래 표와 스크립트 동작(`SOL_GPU_SHARE_APPROVED`)은 2026-10-20 기록과 지금 코드 그대로다. 연 1회 재학습 구조는 [[21-MODEL-TRAINING|21]] §5.7 이다.
 
 | 물리 GPU index(nvidia-smi) | 총 VRAM | 2026-10-20 사용량 | 정책 |
 |---|---:|---:|---|
