@@ -135,6 +135,7 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-29 · 카카오톡 링크 공유용 OG 이미지(1200×630) 생성, 루트 `opengraph-image.png`·대체 텍스트·운영 `metadataBase` 연결 · `pnpm verify:changed` 통과(117파일·995시험), 로컬 크롤러 HTML·인증 없는 PNG 응답·운영 URL 해석 확인([생성 프롬프트·검증 기록](evidence/og-image/20261029-generation.json)). 배포 전
 - 2026-10-29 · 결정 대기 9건 추천안대로 반영([[16-DECISIONS|ADR-068]]: ADR-055·056(A)·050·024 상태, S-LIVE 동국대 44, KEPCO 첨부 막음 등)과 ADR-056 대안 A 구현(분석이 첨부 처리를 최대 300초 기다림, `269679e7`) · 커밋 게이트 web `verify:quick` 통과(시험 971건), 새 시험 5건과 변형 2회 실패 확인, 깨진 링크 46(변화 없음). 회사 Analysis Worker 반영 전
 - 2026-10-29 · 발표 대본·덱 명세에 추천 분석 장면 추가: 클립 2에 FX-01의 저장된 추천 분석 20초(30→50초), 슬라이드 10 1:40·슬라이드 3·9 0:40으로 합계 20:00 유지([[16-DECISIONS|ADR-059]] 개정, [[19-DEMO-SCENARIO|19]] §4 S3·§5·§6, [[slides-spec|덱 제작 명세]]) · 문서만 바꿈, 시간표 합계·누적 스크립트로 확인(20:00), `pnpm verify:changed` 통과
 - 2026-10-29 · 문서 정리 2차: 정본·제출물의 낡은 사실 고침, [[16-DECISIONS|ADR-067]](X6 발표 뒤) 추가, 16 218→156KB·PROGRESS 71→21KB, 끝난 계획 7개·링크 없는 증거 66개(7.2MB) 삭제(원본·계획은 git `03baf23d`) · 문서만 바꿔 `pnpm verify:changed` 검사 단계 0개, 깨진 링크 48→46(남은 것은 정리 전부터 있던 옛 증거 링크)
@@ -144,7 +145,6 @@ updated: 2026-10-29
 - 2026-10-29 · KEPCO 공고 없는 날 HTTP 404를 빈 쪽으로 읽고 조회 시작일을 3일 앞당김 · `pnpm verify:changed` 통과, 회사 재생성 healthy([기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md))
 - 2026-10-29 · 회사 AI gateway 두 번 교체(첨부 조립 v0.2 [[16-DECISIONS|ADR-064]], 번역 비교 표현 [[16-DECISIONS|ADR-065]], 인용 300자)와 실공고 3건 분석 · gateway `/health` ok·`registryMatch: true`·파서 3종([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md))
 - 2026-10-28 · 운영 조직도 0명 부서 해소와 본부·그룹 직속 직원([[16-DECISIONS|ADR-063]]) · `pnpm verify:changed` exit 0, 조직도 브라우저 시험 1440·1280 통과([증거](evidence/org-rebalance-20261028/))
-- 2026-10-28 · 운영 화면 이동 지연 조치(함수 지역 `syd1`, 렌더 조회 합치기) · Supabase 호출 한 번 p50 660→16ms([기록](evidence/deployment/20261028-region-latency.md))
 
 ## 관련 문서
 

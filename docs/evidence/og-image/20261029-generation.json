@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-29",
+  "mode": "built-in image_gen",
+  "asset": "web/app/opengraph-image.png",
+  "size": {
+    "width": 1200,
+    "height": 630
+  },
+  "prompt": "Use case: ads-marketing\nAsset type: SOL RADAR website Open Graph social link preview for KakaoTalk. Create one finished wide 1200 x 630 pixel image (aspect ratio 1.905:1).\nPrimary request: A refined Korean B2B software brand cover for an AI public procurement bid decision-support platform, matching its restrained existing website.\nInput image: reference image of the EXISTING red S/radar brand symbol. Preserve the recognizable symbol and red coloration; use it modestly next to the SOL RADAR wordmark, do not invent a new logo.\nStyle: immaculate flat editorial typography on pure white, dark navy charcoal #191F28 headings, blue #1B64DA used sparingly, faint #E5E8EB dividers. Korean sans-serif similar to Pretendard. High legibility, premium understated enterprise SaaS.\nComposition: generous white space, all essential content safely inset at least 75px. Top left a small existing red brand symbol with bold dark navy wordmark \"SOL RADAR\". Main headline occupies left 65% in large bold Korean type on two lines, exactly \"입찰의 기회를 찾고,\" then \"판단의 근거를 잇다\". Below it smaller calm gray subtitle exactly \"공공 SI·AX 기업을 위한 AI 입찰 의사결정 지원\". Lower left a thin divider and three modest labels exactly \"공고 탐색\" then \"자격 검토\" then \"근거 기반 판단\", separated by small blue dots.\nRight side: one restrained abstract blue radar motif rendered as thin concentric blue line arcs and a precise radial line, with three small document silhouettes aligned to the radar, communicating discovery and evidence. Keep it airy and elegant and secondary to the headline. This is brand artwork, not a screenshot.\nConstraints: accurate Korean lettering, clean wordmark, no fake statistics, no scores, no probabilities, no invented customer names, no government logos, no buttons, no browser frame, no photos, no 3D, no heavy shadows, no gradients, no watermark. Opaque white background.",
+  "validation": {
+    "status": "passed",
+    "changedVerification": "pnpm verify:changed exit 0; web verify:quick, 117 files / 995 tests passed",
+    "crawlerHtml": "Local GET / with kakaotalk-scrap/1.0: og:image, 1200x630, Korean alt and twitter summary_large_image present",
+    "publicImage": "Local GET /opengraph-image.png: bytes identical to committed asset, no authentication required",
+    "productionUrl": "Next.js installed production URL resolver: https://www.solideos-radar.com/opengraph-image.png",
+    "initialCheck": "Production-host assertion against development HTML failed: Next.js intentionally resolves static social images to localhost in development; corrected to check development HTML and production URL resolution separately",
+    "notRun": "Full pnpm verify/build and production KakaoTalk cache refresh"
+  },
+  "scope": "Static shared image, alt text, production metadataBase; no deployment."
+}

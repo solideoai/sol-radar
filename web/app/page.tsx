@@ -19,7 +19,6 @@ const TITLE = "SOL RADAR — 공공 SI·AX 기업을 위한 AI 입찰 의사결�
 const DESCRIPTION =
   "기업의 기술·자격·실적과 공고 요구사항을 비교해 참가 자격, 사업 적합도, 추가 확인 사항을 근거와 함께 정리합니다. SOL Score는 적합도 지표이며 수주 확률이 아닙니다.";
 
-// og 이미지는 두지 않는다 — 절대 주소(metadataBase)가 아직 없다(app/layout.tsx 주석).
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
