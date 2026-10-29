@@ -341,7 +341,8 @@ async function runWith(
     );
     return result.exitCode;
   } catch (error) {
-    // 저장소·큐 오류. 넣은 run 은 그대로 두고 다시 돌리면 같은 키로 이어 간다.
+    // 저장소·큐 오류. 넣은 run 은 그대로 둔다. 다시 돌리면 아직 넣지 않은 공고만 넣는다:
+    // 진행 중·끝난 run 의 공고는 대상에서 빠지고, FAILED 로 끝난 run 은 같은 키라 다시 돌지 않는다(existing·failed 로 센다).
     console.error(
       `it-batch: 멈췄다(${errorLabel(error)}) — Supabase·Redis 를 확인하고 다시 돌린다`,
     );

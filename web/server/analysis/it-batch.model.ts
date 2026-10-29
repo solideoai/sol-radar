@@ -80,6 +80,9 @@ export function splitBySource(
   return { ready, skippedNoSource: candidates.length - ready.length };
 }
 
+/** 일괄 분석 run 의 requestId 머리. 키 형식의 정본은 이 파일 하나다(만들기·가르기). */
+const IT_BATCH_REQUEST_PREFIX = "it-batch-";
+
 /**
  * `${orgId}:it-batch-${bidId}-r${NN}-p${profileRevision}`. requestId 는 `it-batch-…` 이다(analysis job 계약).
  * 회사 프로필을 고친 뒤 다시 돌리면 키가 달라 새로 분석한다.
@@ -90,7 +93,17 @@ export function itBatchIdempotencyKey(
   profileRevision: number,
 ): string {
   const revision = String(target.revision).padStart(2, "0");
-  return `${orgId}:it-batch-${target.bidId}-r${revision}-p${profileRevision}`;
+  return `${orgId}:${IT_BATCH_REQUEST_PREFIX}${target.bidId}-r${revision}-p${profileRevision}`;
+}
+
+/**
+ * 이 일괄 분석이 넣은 run 의 멱등 키인가(조직 접두어 뒤 requestId 가 `it-batch-` 로 시작).
+ * 화면 [분석]의 requestId 는 uuid 라(@/server/bids 분석 요청 검사) 이 머리로 시작할 수 없다.
+ */
+export function isItBatchIdempotencyKey(key: string | null): boolean {
+  if (key === null) return false;
+  const separator = key.indexOf(":");
+  return separator > 0 && key.startsWith(IT_BATCH_REQUEST_PREFIX, separator + 1);
 }
 
 /**

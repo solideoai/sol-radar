@@ -1,14 +1,23 @@
 import "server-only";
+import { isItBatchIdempotencyKey } from "@/server/analysis";
 import type { BidStatus, Recommendation } from "./bid.model";
 import type { DashboardAnalysisRow, DashboardBidRow, DashboardReviewRow } from "./bids.repo";
 
 // 입찰 프로젝트 보드(P1 N6)의 "검토 대기" 칸. 저장하지 않고 기존 표에서 계산한다(M14).
-// 정의는 대시보드 reviews.pending(getDashboardSummary, C6 D11)과 같다: 공고별 끝난 분석(QUEUED·RUNNING 제외,
+// 정의는 대시보드 reviews.pending(getDashboardSummary, C6 D11)을 따른다: 공고별 끝난 분석(QUEUED·RUNNING 제외,
 // FAILED 포함) 중 최신 1건이 COMPLETED·PARTIAL 이고 이 조직의 사람 결정이 없다.
-// 같은 원본이면 개수가 같다는 것을 review-pending.test.ts 가 본다. 한쪽 정의를 바꾸면 그 시험이 깨진다.
+// 단 그 최신 1건이 IT 일괄 분석 run 이면 대기로 세지 않는다(ADR-069, 사용자 결정 2026-10-29: 일괄 분석 결과는 빼기).
+// 대시보드 reviews.pending 은 이 예외가 없다(화면에 보이지 않는다).
 
-// 대시보드 원본 행 + 카드가 보이는 두 값(기관·데모 여부).
-export type PendingSourceRow = DashboardBidRow & { agency: string | null; isDemo: boolean };
+// 검토 대기 판정의 분석 행: 대시보드 행 + 멱등 키(일괄 분석 run 을 가른다).
+export type PendingAnalysisRow = DashboardAnalysisRow & { idempotencyKey: string | null };
+
+// 대시보드 원본 행 + 카드가 보이는 두 값(기관·데모 여부). 분석 행에는 멱등 키가 붙는다.
+export type PendingSourceRow = Omit<DashboardBidRow, "analyses"> & {
+  agency: string | null;
+  isDemo: boolean;
+  analyses: PendingAnalysisRow[];
+};
 
 export type PendingBidCard = {
   bidId: string;
@@ -54,8 +63,12 @@ export function compareDueOrder(a: DueOrdered, b: DueOrdered, nowMs: number): nu
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-const isPending = (analysis: DashboardAnalysisRow | null, review: DashboardReviewRow | null) =>
-  analysis !== null && isScored(analysis) && review === null;
+// 사람이 누른 분석이 일괄 분석보다 새것이면 최신 1건이 그 분석이라 대기로 센다.
+const isPending = (analysis: PendingAnalysisRow | null, review: DashboardReviewRow | null) =>
+  analysis !== null &&
+  isScored(analysis) &&
+  !isItBatchIdempotencyKey(analysis.idempotencyKey) &&
+  review === null;
 
 export function reviewPendingBids(
   source: { bids: readonly PendingSourceRow[] },
