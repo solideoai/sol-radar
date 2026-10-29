@@ -47,7 +47,11 @@ export function BidListView({
     (hasFilters ? (
       <EmptyState
         icon={SearchIcon}
-        title="조건에 맞는 공고가 없습니다"
+        title={
+          basePath === "/watchlist"
+            ? "조건에 맞는 공고가 없습니다"
+            : "조건에 맞는 IT 공고가 없습니다"
+        }
         action={
           <Button
             variant="outline"

@@ -1,6 +1,28 @@
 import { STAGE_LABEL } from "@/components/bids/labels";
+import type { OpportunityKeyword, OpportunityQuery } from "@/server/opportunities";
 
 export const OPPORTUNITY_STAGES: Record<string, string> = STAGE_LABEL;
+
+// /bids 맨 위 분야 키워드 칩(ADR-069). 이 순서대로 보인다.
+export const OPPORTUNITY_KEYWORD_LABELS: Record<OpportunityKeyword, string> = {
+  AI_AX: "AI·AX",
+  SI_SW: "SI·SW",
+  CLOUD: "클라우드",
+  DATA: "데이터",
+  SECURITY: "보안",
+  DIGITAL_TWIN: "디지털트윈·BIM",
+  MAINTENANCE: "유지관리",
+  ISP_ISMP: "ISP·ISMP",
+};
+
+// 정렬 선택지. 이 순서대로 보이고 맨 앞(추천순)이 기본이다.
+export const OPPORTUNITY_SORT_LABELS: Record<OpportunityQuery["sort"], string> = {
+  recommended: "추천순",
+  "publishedAt:desc": "최신순",
+  "deadlineAt:asc": "마감 임박순",
+  "score:desc": "점수 높은 순",
+  "budgetKrw:desc": "예산 큰 순",
+};
 
 export const OPPORTUNITY_CATEGORIES: Record<string, string> = {
   AI_AX: "AI·AX",
