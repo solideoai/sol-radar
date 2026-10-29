@@ -15,7 +15,11 @@ import {
   type ExternalFetchOutcome,
 } from "./external-connector.model";
 import { buildExternalRequest } from "./external-request";
-import { EXTERNAL_RESPONSE_MAX_BYTES, parseExternalPayload } from "./external-payload";
+import {
+  EXTERNAL_RESPONSE_MAX_BYTES,
+  parseExternalPayload,
+  type ExternalPayload,
+} from "./external-payload";
 
 // LH(15159012)는 text/xml;charset=EUC-KR 로 답한다(2026-10-27 실응답). 그 charset 일 때만 EUC-KR 로 읽고,
 // 나머지는 지금까지처럼 UTF-8 이다. 어느 쪽이든 잘못된 바이트는 고치지 않고 실패로 둔다(fatal).
@@ -42,6 +46,16 @@ async function boundedText(response: Response): Promise<string | null> {
   const charset = charsetOf(response.headers.get("content-type"));
   return new TextDecoder(charset, { fatal: true }).decode(Buffer.concat(chunks));
 }
+// KEPCO 는 조회한 날짜의 공고가 (아직) 없으면 HTTP 404 와 이 본문으로 답한다(2026-10-29 실응답 녹음, 공고일 10-29 하루).
+// 이 본문만 빈 쪽으로 받는다. 다른 404·다른 본문은 지금처럼 실패다.
+const KEPCO_NOT_FOUND_BODY = '{"errCd":"404","errMsg":"NotFound"}';
+const isKepcoNotFound = (text: string): boolean => {
+  try {
+    return JSON.stringify(JSON.parse(text)) === KEPCO_NOT_FOUND_BODY;
+  } catch {
+    return false;
+  }
+};
 export function createExternalApiConnector(options: ExternalConnectorOptions): ExternalConnector {
   const timeoutMs = options.timeoutMs ?? CONNECTOR_TIMEOUT_MS;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1)
@@ -79,9 +93,22 @@ export function createExternalApiConnector(options: ExternalConnectorOptions): E
       }
       const text = await boundedText(response);
       if (text === null) return failed("HTTP_ERROR", "RESPONSE_TOO_LARGE");
-      const parsed = parseExternalPayload(text, [options.serviceKey], {
-        noDataCodes: NO_DATA_RESULT_CODES[options.sourceKey] ?? [],
-      });
+      const kepcoNoData =
+        options.sourceKey === "kepco-ebid-contract" &&
+        response.status === 404 &&
+        isKepcoNotFound(text);
+      const parsed: ExternalPayload = kepcoNoData
+        ? {
+            ok: true,
+            items: [],
+            totalCount: null,
+            successCodeVerified: false,
+            contentType: "application/json",
+            sanitizedPayload: KEPCO_NOT_FOUND_BODY,
+          }
+        : parseExternalPayload(text, [options.serviceKey], {
+            noDataCodes: NO_DATA_RESULT_CODES[options.sourceKey] ?? [],
+          });
       if (!parsed.ok) {
         if (parsed.kind === "RESULT_CODE") {
           const kind =
@@ -114,7 +141,7 @@ export function createExternalApiConnector(options: ExternalConnectorOptions): E
           : failed("HTTP_ERROR", parsed.detail);
       }
       if (unauthorized) return failed("SERVICE_KEY_INVALID", "HTTP_UNAUTHORIZED");
-      if (!response.ok) return failed("HTTP_ERROR", "HTTP_REQUEST_FAILED");
+      if (!response.ok && !kepcoNoData) return failed("HTTP_ERROR", "HTTP_REQUEST_FAILED");
       const coverageUnverified = COVERAGE_UNVERIFIED_SOURCES.has(options.sourceKey);
       const offset = (request.pageNo - 1) * request.numOfRows;
       const knownTotal = parsed.totalCount;

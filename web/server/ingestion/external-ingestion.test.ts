@@ -204,11 +204,11 @@ describe("external ingestion persistence", () => {
       fetch: async (url) => {
         const request = new URL(url);
         requests.push(request);
-        const no = request.searchParams.get("noticeBeginDate") === "20260701" ? "0001" : "0002";
+        const no = request.searchParams.get("noticeBeginDate") === "20260628" ? "0001" : "0002";
         return Response.json({ data: [{ ...valid, no }] });
       },
     });
-    // 2026-07-01 ~ 10-09(KST) 은 101일이라 90일 조각 두 개다. KEPCO 는 빠짐없는지 몰라 쪽마다 PARTIAL 이다.
+    // 2026-07-01 ~ 10-09(KST) 에 앞 3일을 더하면 06-28 ~ 10-09, 104일이라 90일 조각 두 개다. KEPCO 는 빠짐없는지 몰라 쪽마다 PARTIAL 이다.
     const run = {
       source: "kepco" as const,
       serviceKey: "kepco-ebid-contract",
@@ -222,8 +222,8 @@ describe("external ingestion persistence", () => {
     };
     const first = await runIngest({ repo, connector, run, now, retry });
     expect(requests.map((url) => url.searchParams.get("noticeBeginDate"))).toEqual([
-      "20260701",
-      "20260929",
+      "20260628",
+      "20260926",
     ]);
     expect(first).toMatchObject({ status: "PARTIAL", summary: { created: 2 } });
     expect(repo.state.runs.get(run.jobKey)).toMatchObject({
@@ -233,9 +233,9 @@ describe("external ingestion persistence", () => {
     // 같은 run 을 다시 돌리면 첫 조각부터가 아니라 마지막 조각만 다시 받는다(건수를 두 번 세지 않는다).
     const again = await runIngest({ repo, connector, run, now, retry });
     expect(requests.map((url) => url.searchParams.get("noticeBeginDate"))).toEqual([
-      "20260701",
-      "20260929",
-      "20260929",
+      "20260628",
+      "20260926",
+      "20260926",
     ]);
     expect(again.summary.created).toBe(2);
     expect(repo.state.payloads).toHaveLength(2);

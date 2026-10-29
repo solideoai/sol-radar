@@ -43,6 +43,12 @@ function monthWindows(from: string, to: string): { from: string; to: string }[] 
   }
   return windows;
 }
+// KEPCO 는 하루치 공고를 다음 날 아침에 올린다(2026-10-28 공고가 10-29 06:15~09:25 사이에 처음 나왔다). 그 전에 그날만
+// 부르면 빈 응답이라 창이 넘어가고 그날 공고를 다시 받지 못한다. 그래서 창 첫날 앞 3일을 함께 받는다(사용자 결정 2026-10-29).
+// 금요일 공고가 월요일 아침에야 올라와도 월요일 회차가 받는다. 호출 수는 그대로이고 중복은 저장 때 걸러진다.
+const KEPCO_LOOKBACK_DAYS = 3;
+const daysBefore = (day: string, days: number): string =>
+  new Date(calendarDay(day) - days * DAY_MS).toISOString().slice(0, 10);
 // K-water 입찰공고는 공고월(searchDt)로만 조회된다. 지난달 공고의 진행상태가 바뀌어도 이번 달 조회에는 없고,
 // 마감 시각도 없어 목록에서 걸러지지 않는다. 그래서 창의 첫 달 앞 한 달을 함께 받는다(하루 호출 약 2배).
 function previousMonthStart(day: string): string {
@@ -105,7 +111,7 @@ export function buildExternalRequest(
     const to = kstDay(input.to);
     if (from > to) return failure("INVALID_INPUT", "WINDOW_REVERSED");
     const slices = isKepco
-      ? splitKepcoWindow(from, to)
+      ? splitKepcoWindow(daysBefore(from, KEPCO_LOOKBACK_DAYS), to)
       : options.sourceKey === "kwater-bid-notice"
         ? monthWindows(previousMonthStart(from), to)
         : options.sourceKey.startsWith("kwater-")

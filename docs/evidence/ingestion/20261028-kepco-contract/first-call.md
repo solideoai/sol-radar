@@ -3,7 +3,7 @@ title: "10-28 KEPCO 전자입찰계약정보(15148223) 첫 실호출 1회 — �
 doc: "evidence-20261028-kepco-contract-first-call"
 status: done
 tags: [sol-radar, evidence, ingestion, kepco]
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 10-28 KEPCO 전자입찰계약정보(15148223) 첫 실호출 1회
@@ -54,7 +54,7 @@ updated: 2026-10-28
 
 - 첨부: `http://srm.kepco.net` 은 http 이고 허용 목록 밖이다. KEPCO 공고는 첨부 없이 제목·본문(`etc`·참가 자격)만으로 분석한다. 허용 여부는 따로 정한다(F12).
 - `noticeDate` 는 날짜만 있어 KST 18:00 으로 저장된다(F10). LH 등록일과 같은 동작이다.
-- 공고가 없는 날의 응답 모양은 확인하지 않았다.
+- 공고가 없는 날의 응답 모양: 2026-10-29 에 확인했다. HTTP 404 와 `{"errCd":"404","errMsg":"NotFound"}` 다([[evidence/ingestion/20261028-kepco-contract/no-data-404|공고 없는 날 응답]]).
 - 건수 칸이 없어 수집 회차는 늘 `PARTIAL` 이다(`COVERAGE_UNVERIFIED_SOURCES`).
 
 ## 관련 문서

@@ -182,10 +182,35 @@ describe("external adapters", () => {
       to: "2026-10-21T14:59:59.000Z",
       cursor: null,
     });
-    expect(requests[0].searchParams.get("noticeBeginDate")).toBe("20261021");
+    // 창 첫날(10-21) 앞 3일부터 부른다. KEPCO 는 하루치 공고를 다음 날 아침에 올린다.
+    expect(requests[0].searchParams.get("noticeBeginDate")).toBe("20261018");
+    expect(requests[0].searchParams.get("noticeEndDate")).toBe("20261021");
     expect(requests[0].searchParams.has("pageNo")).toBe(false);
     expect(result).toMatchObject({ ok: true, page: { completeness: "PARTIAL", nextCursor: null } });
     expect(JSON.stringify(result)).not.toContain(secret);
+  });
+
+  it("KEPCO 가 공고 없는 날에 주는 404 NotFound 본문만 빈 쪽으로 받는다", async () => {
+    let body = '{"errCd":"404","errMsg":"NotFound"}';
+    const connector = createExternalApiConnector({
+      sourceKey: "kepco-ebid-contract",
+      serviceKey: secret,
+      fetch: async () => new Response(body, { status: 404 }),
+    });
+    const input = {
+      from: "2026-10-29T00:20:00.000Z",
+      to: "2026-10-29T03:00:00.000Z",
+      cursor: null,
+    };
+    expect(await connector.fetchPage(input)).toMatchObject({
+      ok: true,
+      page: { items: [], completeness: "PARTIAL", nextCursor: null },
+    });
+    body = '{"errCd":"401","errMsg":"Unauthorized"}';
+    expect(await connector.fetchPage(input)).toMatchObject({
+      ok: false,
+      failure: { kind: "HTTP_ERROR", status: 404 },
+    });
   });
 
   it("keeps incomplete provider pages partial without skipping omitted rows", async () => {
