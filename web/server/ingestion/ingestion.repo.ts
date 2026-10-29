@@ -14,7 +14,9 @@ import {
   toIngestRunInsert,
   toLatestRunWindow,
   toManualAuditInsert,
+  toNewDocumentInserts,
   toQuotaUsedUpdate,
+  toRefilledRevisionUpdate,
   toSaveRevisionParams,
   toStartedRun,
   toStoredRevision,
@@ -290,6 +292,91 @@ export function createSupabaseIngestionRepo(
         bid: parsed.data,
         rawPayload: row.data.raw_payload,
       });
+    },
+
+    // 사용자 결정 2026-10-29: 다시 채우기는 새 revision·outbox 이벤트 없이 같은 행에 채운다(변경 이력·알림이 생기지 않는다).
+    // revision 행은 마지막에 바꾼다. 앞 단계가 실패하면 행이 그대로 "보조 빠짐"이라 다시 돌려 같은 결과를 낸다.
+    async refillAux({ previous, bid }) {
+      if (bid.revision !== previous.revision)
+        throw new Error("수집 저장소: 다시 채우기 차수 불일치");
+      const row = await client
+        .from("bid_revisions")
+        .select("id, raw_payload")
+        .eq("bid_id", previous.bidId)
+        .eq("revision", previous.revision)
+        .eq("checksum", previous.checksum)
+        .maybeSingle();
+      if (row.error) throw repoError("bid_revisions 다시 채우기 조회", row.error);
+      if (!row.data) return false;
+      const rawPayload = row.data.raw_payload;
+      if (!isPlainRecord(rawPayload)) throw new Error("수집 저장소: 다시 채우기 원본 스키마 오류");
+      const ids = { bidId: previous.bidId, revisionId: row.data.id };
+      // seq 는 정렬한 전체 index 라 upsert 만 하면 자리가 바뀐 이전 행이 남는다. 그 revision 의 행을 지우고 다시 쓴다.
+      const removed = await client
+        .from("bid_structured_requirements")
+        .delete()
+        .eq("revision_id", ids.revisionId);
+      if (removed.error)
+        throw repoError("bid_structured_requirements 다시 채우기 삭제", removed.error);
+      const structured = toStructuredRequirementInserts(ids, bid.structuredQualifications);
+      if (structured.length > 0) {
+        const inserted = await client.from("bid_structured_requirements").insert(structured);
+        if (inserted.error)
+          throw repoError("bid_structured_requirements 다시 채우기 저장", inserted.error);
+      }
+      // 첨부는 없던 원본 url 만 더한다. 이미 받은(다운로드·파싱한) 행은 건드리지 않는다.
+      const documents = await client
+        .from("bid_documents")
+        .select("original_url")
+        .eq("revision_id", ids.revisionId);
+      if (documents.error) throw repoError("bid_documents 다시 채우기 조회", documents.error);
+      const added = toNewDocumentInserts(
+        ids,
+        bid.attachments,
+        new Set(documents.data.map(({ original_url }) => original_url)),
+      );
+      if (added.length > 0) {
+        const inserted = await client.from("bid_documents").insert(added);
+        if (inserted.error) throw repoError("bid_documents 다시 채우기 저장", inserted.error);
+      }
+      // 같은 revision id 로 다시 투영한다. 이벤트(revision_id, kind)는 이미 있어 늘지 않는다.
+      await projectProcurementRevision(client, { ...ids, bid, rawPayload });
+      const updated = await client
+        .from("bid_revisions")
+        .update(toRefilledRevisionUpdate(bid))
+        .eq("id", ids.revisionId)
+        .eq("checksum", previous.checksum)
+        .select("id");
+      if (updated.error) throw repoError("bid_revisions 다시 채우기", updated.error);
+      if (updated.data.length === 0) return false;
+      const notice = await client
+        .from("bid_notices")
+        .update({ content_hash: bid.checksum })
+        .eq("id", previous.bidId)
+        .eq("latest_revision", previous.revision);
+      if (notice.error) throw repoError("bid_notices 다시 채우기", notice.error);
+      return true;
+    },
+
+    async findAuxIncompleteRevisions(source, limit) {
+      const { data, error } = await client
+        .from("bid_revisions")
+        .select(
+          "bid_id, revision, checksum, normalized, raw_payload, bid_notices!inner(source, latest_revision)",
+        )
+        .eq("bid_notices.source", source)
+        .in("normalized->auxLookup->>status", ["FAILED", "SKIPPED_QUOTA"])
+        .order("fetched_at", { ascending: false })
+        .limit(limit);
+      if (error) throw repoError("bid_revisions 보조 빠짐 조회", error);
+      // 최신 차수만 채운다. 지난 차수는 화면이 보지 않는다.
+      return data
+        .filter((row) => row.revision === row.bid_notices.latest_revision)
+        .map((row) => {
+          if (!isPlainRecord(row.raw_payload))
+            throw new Error("수집 저장소: 보조 빠짐 원본 스키마 오류");
+          return { previous: toStoredRevision(row), rawPayload: row.raw_payload };
+        });
     },
 
     async recordPayload(runId, capture) {

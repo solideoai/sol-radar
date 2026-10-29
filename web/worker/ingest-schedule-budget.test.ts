@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   EMPTY_INGEST_SUMMARY,
+  G2B_AUX_OPERATIONS,
   G2B_BID_NOTICE_LIST_OPERATION,
   createG2bAuxFetcher,
   createMemoryQuotaStore,
@@ -444,22 +445,26 @@ describe("수동 수집 예산 몫(MANUAL_RESERVED_CALLS)", () => {
     expect(await scheduled.store.reserve(SERVICE_ID, AT)).toBe(false);
   });
 
-  // 보조 조회는 목록 호출 뒤 사용량으로 판정한다. 그래서 "보조 조회 직전 사용량"이 경계값이 되도록 실행 전 사용량을 1 적게 둔다.
+  // 2026-10-29: 한도는 오퍼레이션마다 따로다. 목록 카운터(KEY)와 보조 3종 카운터(AUX_KEYS)를 같은 값에서 시작해,
+  // 목록은 목록 카운터로, 보조 조회는 보조 카운터(90% 경계)로 판정하는지 본다.
+  const AUX_KEYS = G2B_AUX_OPERATIONS.map(({ registryKey }) =>
+    quotaKey(`${SERVICE_ID}:${registryKey}`, AT),
+  );
   it.each([
-    { trigger: "MANUAL", before: 718, list: 1, aux: 3, after: 722, status: "SUCCEEDED" },
-    { trigger: "MANUAL", before: 719, list: 1, aux: 0, after: 720, status: "SUCCEEDED" },
+    { trigger: "MANUAL", before: 719, list: 1, aux: 3, after: 720, status: "SUCCEEDED" },
+    { trigger: "MANUAL", before: 720, list: 1, aux: 0, after: 721, status: "SUCCEEDED" },
     { trigger: "MANUAL", before: 799, list: 1, aux: 0, after: 800, status: "SUCCEEDED" },
     { trigger: "MANUAL", before: 800, list: 0, aux: 0, after: 800, status: "FAILED" },
-    { trigger: "SCHEDULED", before: 800, list: 1, aux: 3, after: 804, status: "SUCCEEDED" },
-    { trigger: "SCHEDULED", before: 898, list: 1, aux: 3, after: 902, status: "SUCCEEDED" },
-    { trigger: "SCHEDULED", before: 899, list: 1, aux: 0, after: 900, status: "SUCCEEDED" },
+    { trigger: "SCHEDULED", before: 800, list: 1, aux: 3, after: 801, status: "SUCCEEDED" },
+    { trigger: "SCHEDULED", before: 899, list: 1, aux: 3, after: 900, status: "SUCCEEDED" },
+    { trigger: "SCHEDULED", before: 900, list: 1, aux: 0, after: 901, status: "SUCCEEDED" },
     { trigger: "SCHEDULED", before: 999, list: 1, aux: 0, after: 1000, status: "SUCCEEDED" },
     { trigger: "SCHEDULED", before: 1000, list: 0, aux: 0, after: 1000, status: "FAILED" },
   ] as const)(
-    "$trigger g2b job: 실행 전 사용량 $before → 목록 $list·보조 $aux 회, 끝 사용량 $after, $status",
+    "$trigger g2b job: 실행 전 사용량 $before(목록·보조 각각) → 목록 $list·보조 $aux 회, 끝 목록 사용량 $after, $status",
     async ({ trigger, before, list, aux, after, status }) => {
       const fake = fakeQuotaRedis();
-      fake.values.set(KEY, String(before));
+      for (const key of [KEY, ...AUX_KEYS]) fake.values.set(key, String(before));
       const quotas = createG2bQuotas(fake.redis, {
         serviceId: SERVICE_ID,
         dailyLimit: DAILY_LIMIT,
@@ -485,7 +490,14 @@ describe("수동 수집 예산 몫(MANUAL_RESERVED_CALLS)", () => {
         list: api.listCalls(),
         aux: api.auxCalls(),
         after: fake.values.get(KEY),
-      }).toEqual({ status, list, aux, after: String(after) });
+        auxAfter: AUX_KEYS.map((key) => fake.values.get(key)),
+      }).toEqual({
+        status,
+        list,
+        aux,
+        after: String(after),
+        auxAfter: AUX_KEYS.map(() => String(aux === 0 ? before : before + 1)),
+      });
       // 예산이 없어도 run 행은 열리고, 소진 사유가 기존 코드로 남는다.
       expect(runs).toHaveLength(1);
       expect(errors.filter((error) => error.errorCode === "QUOTA_EXCEEDED")).toEqual(

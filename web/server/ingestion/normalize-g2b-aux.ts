@@ -214,6 +214,15 @@ export function listOnlyRevision(previous: StoredRevision): StoredRevision {
 }
 
 /** 보조 조회 기간의 기준. 목록 행의 등록일시(rgstDt) → 공고일시(bidNtceDt) → 받은 시각 순으로 쓴다. */
+/**
+ * 다시 채우기(사용자 결정 2026-10-29): 보조 조회가 빠졌던 revision 에 보조 결과만 채운 모양. 차수(revision)는 그대로다.
+ * 목록 유래 값(fetchedAt 포함)은 저장된 revision 그대로 두고, 보조 유래 부분만 새로 받은 행으로 바꾼다.
+ */
+export function refilledRevision(previous: StoredRevision, rows: G2bAuxRows): NormalizedBid {
+  const merged = mergeG2bAux(listOnlyRevision(previous).normalized, rows);
+  return finalizeRevision(withAuxLookup(merged, { status: "OK", failed: [] }), previous.revision);
+}
+
 export function registeredAtOf(item: G2bItem, fetchedAt: Date): Date {
   for (const raw of [item.rgstDt, item.bidNtceDt]) {
     if (typeof raw !== "string" || isBlank(raw)) continue;

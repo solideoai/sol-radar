@@ -5,8 +5,11 @@ import type { FixtureRecord } from "./fixture.model";
 // ── 07 §2 Connector 계약: 출처마다 페이지 하나를 받아 오는 방법만 다르고, 결과 모양은 같다 ──
 export const CONNECTOR_TIMEOUT_MS = 15_000;
 
-/** 내부 HTTP 경계용. 실패는 송신 전에 반환하며 URL/키를 전달하지 않는다. */
-export type BeforeApiRequest = () => Promise<ConnectorFailure | null>;
+/**
+ * 내부 HTTP 경계용. 실패는 송신 전에 반환하며 URL/키를 전달하지 않는다.
+ * scope 는 같은 서비스 안의 기능(보조 조회 registryKey)이다. 일일 한도가 기능마다 따로라 따로 센다. 없으면 목록이다.
+ */
+export type BeforeApiRequest = (scope?: string) => Promise<ConnectorFailure | null>;
 export type FetchPageInput = {
   from: string | null;
   to: string | null;

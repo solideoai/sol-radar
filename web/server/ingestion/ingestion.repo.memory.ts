@@ -66,6 +66,14 @@ export type MemoryStructuredRequirement = StructuredRequirement & {
   seq: number;
 };
 
+/** bid_documents 한 행 흉내. RPC 가 revision 의 첨부마다 한 행을 넣는다(download_status 기본값 PENDING) */
+export type MemoryDocument = {
+  bidId: string;
+  revisionId: string;
+  name: string;
+  originalUrl: string;
+};
+
 export type MemoryIngestError = IngestErrorInput & { runId: string };
 
 export type MemoryCheckpoint = { runId: string; cursor: string | null; summary: IngestSummary };
@@ -95,6 +103,8 @@ export type MemoryIngestionState = {
   outbox: MemoryOutboxEvent[];
   /** 저장한 revision 의 구조화 자격 행(UNIQUE(revision_id, kind, seq) 흉내: 같은 revision 을 다시 쓰면 바꿔 끼운다) */
   structuredRequirements: MemoryStructuredRequirement[];
+  /** 저장한 revision 의 첨부 행. 다시 채우기는 없던 url 만 더한다 */
+  documents: MemoryDocument[];
   errors: MemoryIngestError[];
   /** 키: jobKey */
   runs: Map<string, MemoryRun>;
@@ -212,6 +222,7 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
     revisions: [],
     outbox: [],
     structuredRequirements: [],
+    documents: [],
     errors: [],
     runs: new Map(),
     checkpoints: [],
@@ -219,6 +230,19 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
   };
   // saved 는 ids 로 id 를 정해도 늘어난다(created_at 순번)
   const counters = { run: 0, bid: 0, revision: 0, saved: 0 };
+
+  // UNIQUE(revision_id, kind, seq) 흉내: 같은 revision 을 다시 쓰면 그 revision 의 행을 바꿔 끼운다.
+  const replaceStructured = (bidId: string, revisionId: string, bid: NormalizedBid): void => {
+    state.structuredRequirements = [
+      ...state.structuredRequirements.filter((row) => row.revisionId !== revisionId),
+      ...bid.structuredQualifications.map((row, seq) => ({
+        ...structuredClone(row),
+        bidId,
+        revisionId,
+        seq,
+      })),
+    ];
+  };
 
   const requireRun = (runId: string): MemoryRun => {
     const run = [...state.runs.values()].find((candidate) => candidate.runId === runId);
@@ -377,16 +401,78 @@ export function createMemoryIngestionRepo(): MemoryIngestionRepo {
         (event) => event.idempotencyKey === decision.event.idempotencyKey,
       );
       if (!duplicateEvent) state.outbox.push({ ...decision.event, bidId, revisionId });
-      state.structuredRequirements = [
-        ...state.structuredRequirements.filter((row) => row.revisionId !== revisionId),
-        ...normalized.structuredQualifications.map((row, seq) => ({
-          ...structuredClone(row),
+      replaceStructured(bidId, revisionId, normalized);
+      state.documents.push(
+        ...normalized.attachments.map(({ name, url }) => ({
           bidId,
           revisionId,
-          seq,
+          name,
+          originalUrl: url,
         })),
-      ];
+      );
       return { bidId, revisionId, revisionCreatedAt: createdAt };
+    },
+
+    async refillAux({ previous, bid }) {
+      if (bid.revision !== previous.revision)
+        throw new Error("메모리 저장소: 다시 채우기 차수 불일치");
+      const row = state.revisions.find(
+        (revision) =>
+          revision.bidId === previous.bidId &&
+          revision.revision === previous.revision &&
+          revision.checksum === previous.checksum,
+      );
+      if (!row) return false;
+      const normalized = structuredClone(bid);
+      replaceStructured(row.bidId, row.revisionId, normalized);
+      const known = new Set(
+        state.documents
+          .filter(({ revisionId }) => revisionId === row.revisionId)
+          .map(({ originalUrl }) => originalUrl),
+      );
+      state.documents.push(
+        ...normalized.attachments
+          .filter(({ url }) => !known.has(url))
+          .map(({ name, url }) => ({
+            bidId: row.bidId,
+            revisionId: row.revisionId,
+            name,
+            originalUrl: url,
+          })),
+      );
+      row.normalized = normalized;
+      row.checksum = normalized.checksum;
+      const notice = state.bids.get(memoryBidKey(normalized.source, normalized.noticeId));
+      if (notice && notice.latestRevision === previous.revision)
+        notice.normalized = structuredClone(normalized);
+      return true;
+    },
+
+    async findAuxIncompleteRevisions(source, limit) {
+      return state.revisions
+        .filter((revision) => {
+          const notice = state.bids.get(
+            memoryBidKey(revision.normalized.source, revision.normalized.noticeId),
+          );
+          const status = revision.normalized.auxLookup?.status;
+          return (
+            revision.normalized.source === source &&
+            notice?.bidId === revision.bidId &&
+            notice.latestRevision === revision.revision &&
+            (status === "FAILED" || status === "SKIPPED_QUOTA")
+          );
+        })
+        .sort((a, b) => Date.parse(b.normalized.fetchedAt) - Date.parse(a.normalized.fetchedAt))
+        .slice(0, limit)
+        .map((revision) => ({
+          previous: {
+            bidId: revision.bidId,
+            revision: revision.revision,
+            checksum: revision.checksum,
+            normalized: structuredClone(revision.normalized),
+          },
+          rawPayload: structuredClone(revision.rawPayload),
+        }));
     },
 
     async recordPayload(runId, capture) {

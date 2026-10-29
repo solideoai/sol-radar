@@ -2,7 +2,7 @@
 title: "공공데이터 수집 서비스 회사 반영 기록 (2026-10-28 오후)"
 status: active
 tags: [sol-radar, ops, ingestion, lh, kepco, kwater, program-notices, attachments]
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 공공데이터 수집 서비스 회사 반영 기록 (2026-10-28 오후)
@@ -69,13 +69,25 @@ updated: 2026-10-28
 - 남은 `PENDING` 이 오후 3,793건에서 6,127건으로 늘었다. 18:00 나라장터 회차가 새 공고 292건을 더했다.
 - 중간 확인은 45가 DB로 한다. `FAILED` 가 반복되면 stop 한다.
 
-## 4. 남은 것
+## 4. 10-29 ingest Worker 반영 (메인 세션 c5, 사용자 승인 단계마다)
 
+| 시각(KST) | 단계 | 결과 |
+|---|---|---|
+| 09:40:39 | KEPCO 공고 없는 날 404 를 빈 쪽으로·조회 시작일 3일 앞당김(사용자 결정 "404 빈 응답 + 3일 앞당김"·"지금 연이어 진행") | main `a2e4a35b`. 회사 HEAD `d171a716` → `a2e4a35b` fast-forward(돌고 있는 컨테이너의 바인드 마운트 아래 변경은 `infra/sources/registry.yaml` 설명뿐). 새 이미지 `a2e4a35b6ffb`. `--check` 3종 `READY`·3종 `DISABLED`. 재생성 healthy, Job Scheduler 4개. [[../../ingestion/20261028-kepco-contract/no-data-404\|KEPCO 404 기록]] |
+| 10:49:08 | 나라장터 보조 조회 예산을 기능별로 나누기·같은 revision 에 다시 채우기(사용자 결정 "지금 push·반영") | main `cbb3831e`. 회사 HEAD `a2e4a35b` → `cbb3831e` fast-forward(infra·패키지·fixtures·migrations·services 변경 0). 새 이미지 `cbb3831e86da`. `--check` 같음. 재생성 healthy, Job Scheduler 4개. 기업마당·Documents Worker 그대로 |
+| 10:49:51 | `--refill-aux --limit 1`(사용자 결정 "오늘 1건 시험 + 밤 일괄") | `refilled=1`·호출 3회. revision·이벤트·첨부 수 그대로. [[../../ingestion/20261029-g2b-aux-budget\|보조 예산 기록]] |
+
+되돌리기(10:49 반영): `git reset --keep a2e4a35b && INGEST_WORKER_TAG=a2e4a35b6ffb docker compose -f infra/compose.ingest-only.company.yaml up -d --no-deps --force-recreate ingest-worker`.
+
+## 5. 남은 것
+
+- 10-29 12:00 회차에서 KEPCO 가 `FAILED` 없이 끝나는지 본다(404 수정 첫 확인). 12:00 이후 나라장터 회차가 `SKIPPED_QUOTA` 없이 끝나는지 본다.
+- 21:00 회차 뒤 `--refill-aux --limit 300` 1회(사용자 결정, 회사 망 필요).
 - 21:00 회차에서 K-water 격리가 0건인지 확인한다.
 - `/bids` "부처 지원사업" 탭에 기업마당 100건이 보이는지 화면으로 확인한다.
 - 15:59:49 재생성을 누가 했는지 확인한다(사용자가 다른 터미널 확인).
 - KEPCO 첨부 주소 허용 여부를 정한다.
-- 나라장터 하루 quota와 실제 사용량을 비교한다.
+- ~~나라장터 하루 quota와 실제 사용량을 비교한다.~~ 10-29 비교했다. 기능별 한도로 나눴다(§4).
 - 회사 녹음 폴더 `sol-bizinfo-rec`·`sol-datagokr-rec`·`sol-kepco-rec` 는 사용자 OK 뒤 정리한다.
 - 아직 켜지 않은 서비스: K-water 발주계획(정규화 없음), LH 사전규격, 나라장터 사전규격·발주계획, 조달요청, 업종 마스터(migration·`db:push` 승인 필요).
 

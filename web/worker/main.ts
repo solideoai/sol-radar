@@ -28,12 +28,14 @@ import {
   loadFixtureManifest,
   loadSourceRegistry,
   nextIngestSlotAfter,
+  refillG2bAux,
   type BidSourceConnector,
   type IngestJobData,
   type IngestQuota,
   type IngestRunResult,
   type IngestionRepo,
   type JobQueue,
+  type RefillG2bAuxResult,
   SOURCE_READINESS_KEY,
   type ServiceReadiness,
   type SourceReadinessSnapshot,
@@ -798,6 +800,36 @@ export async function runG2bIngestOnce(
     };
     const result = await processIngestJob(data, { ...deps, repo });
     return { ...result, quotaUsed };
+  } finally {
+    await quotaParts.close.close();
+  }
+}
+
+/**
+ * 보조 조회 다시 채우기 1회(ingest 전용 worker 의 --refill-aux, 사용자 결정 2026-10-29). live 에서만 쓴다.
+ * 정기 수집과 같은 Redis 카운터·한도를 쓴다(오퍼레이션별, 90% 에서 멈춤). 정기 수집 몫을 쓰지 않게 그날 마지막 회차(21시) 뒤에 돌린다.
+ */
+export async function runG2bAuxRefillOnce(
+  rawEnv: Env,
+  connection: IORedis,
+  limit: number,
+): Promise<RefillG2bAuxResult> {
+  const config = await readIngestConfig(rawEnv);
+  if (config.g2b === null)
+    throw new Error("g2b 보조 조회 다시 채우기는 SOL_RUN_MODE=live 에서만 한다");
+  const quotaParts = createIngestQuota(connection, config.g2b);
+  try {
+    const runtime: ExternalRuntime = { readiness: config.readiness, onAuthFailed: () => undefined };
+    const deps = ingestJobDepsOf(config, null, quotaParts, new Map(), consoleLog, runtime);
+    if (deps.createG2bAuxFetcher === undefined)
+      throw new Error("g2b 보조 조회는 live 모드에서만 만든다");
+    return await refillG2bAux({
+      repo: deps.repo,
+      aux: await deps.createG2bAuxFetcher(),
+      quota: quotaParts.quota,
+      now: deps.now,
+      limit,
+    });
   } finally {
     await quotaParts.close.close();
   }

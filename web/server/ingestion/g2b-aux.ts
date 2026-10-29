@@ -50,7 +50,7 @@ export type G2bAuxOutcome = {
   /** 성공한 오퍼레이션의 행(담당자 필드 제거, 다른 공고의 행 제외). 실패·미호출 오퍼레이션은 빈 배열 */
   rows: G2bAuxRows;
   failures: G2bAuxFailure[];
-  /** 공급자 일일 한도/로컬 예약 실패 후 부르지 않은 operation의 registryKey. 실패한 operation은 failures에 있다. */
+  /** 예약 저장소 장애 뒤 부르지 않은 operation의 registryKey. 실패한 operation은 failures에 있다. */
   skipped: G2bAuxRegistryKey[];
   /** 이 요청에서 나간 공공 API 호출 수(재시도·쪽 포함). quota_used 에 더한다 */
   calls: number;
@@ -102,7 +102,7 @@ export function createG2bAuxFetcher(options: G2bAuxFetcherOptions): G2bAuxFetche
   const http = createG2bHttp({ serviceKey, fetch: options.fetch, timeoutMs });
 
   async function fetchPages(
-    operation: G2bAuxOperation,
+    { operation, registryKey }: (typeof G2B_AUX_OPERATIONS)[number],
     request: G2bAuxRequest,
   ): Promise<PagesResult> {
     const items: G2bItem[] = [];
@@ -123,7 +123,8 @@ export function createG2bAuxFetcher(options: G2bAuxFetcherOptions): G2bAuxFetche
       const attempt = await withRetry(
         () =>
           http.fetchEnvelope(url, operation, parseG2bAuxEnvelope, async () => {
-            const denied = await request.beforeRequest?.();
+            // 일일 한도가 오퍼레이션마다 따로라 registryKey 로 따로 예약한다(quota.ts scopedServiceId).
+            const denied = await request.beforeRequest?.(registryKey);
             if (!denied) calls++;
             return denied ?? null;
           }),
@@ -147,18 +148,17 @@ export function createG2bAuxFetcher(options: G2bAuxFetcherOptions): G2bAuxFetche
     let calls = 0;
     let retried = 0;
     // 차례로 부른다. 같은 서비스의 호출이라 동시에 보내면 초당 한도(30 tps)에 더 빨리 닿는다.
-    for (const [index, { operation, registryKey }] of G2B_AUX_OPERATIONS.entries()) {
-      const result = await fetchPages(operation, request);
+    for (const [index, entry] of G2B_AUX_OPERATIONS.entries()) {
+      const { operation, registryKey } = entry;
+      const result = await fetchPages(entry, request);
       calls += result.calls;
       retried += result.retried;
       if (!result.ok) {
         failures.push({ operation, registryKey, failure: result.failure });
-        // 공급자 일일 한도/예약 실패 뒤에는 같은 서비스의 남은 operation도 부르지 않는다.
-        if (
-          result.failure.kind === "QUOTA_EXCEEDED" ||
-          result.failure.kind === "QUOTA_UNAVAILABLE"
-        ) {
-          skipped.push(...G2B_AUX_OPERATIONS.slice(index + 1).map((entry) => entry.registryKey));
+        // 한도는 오퍼레이션마다 따로라 한 오퍼레이션의 한도 초과(22·예약 거절)는 다른 오퍼레이션을 막지 않는다.
+        // 예약 저장소 장애는 어느 예산도 확인할 수 없어 남은 operation 을 부르지 않는다.
+        if (result.failure.kind === "QUOTA_UNAVAILABLE") {
+          skipped.push(...G2B_AUX_OPERATIONS.slice(index + 1).map((next) => next.registryKey));
           break;
         }
         continue;

@@ -209,70 +209,64 @@ describe("HTTP attempt quota reservation", () => {
     expect(repo.state.runs.get("reservation-midnight")?.quotaUsed).toBe(1);
   });
 
-  it.each([4, 5])(
-    "shares the G2B list and auxiliary retry budget with %i slots",
-    async (dailyLimit) => {
-      const store = createMemoryQuotaStore({ dailyLimit });
-      const operations: string[] = [];
-      const item = {
-        bidNtceNo: "TEST-001",
-        bidNtceOrd: "000",
-        bidNtceNm: "데이터 시스템 용역",
-        ntceKindNm: "등록공고",
-        dminsttNm: "시험기관",
-        bidNtceDt: "2026-10-22 09:00:00",
-        bidClseDt: "2026-10-23 18:00:00",
-        bidNtceDtlUrl: "https://www.g2b.go.kr/pn/test",
-      };
-      const fetch = async (url: string) => {
-        const operation = new URL(url).pathname.split("/").at(-1)!;
-        operations.push(operation);
-        if (operations.length === 2) return new Response("unavailable", { status: 503 });
-        const items = operation === G2B_BID_NOTICE_LIST_OPERATION ? [item] : [];
-        return Response.json({
-          response: { header: { resultCode: "00" }, body: { items, totalCount: items.length } },
-        });
-      };
-      const config = {
-        endpoint: "https://apis.data.go.kr/1230000/ad/BidPublicInfoService",
-        serviceKey: "test-only-key",
-        fetch,
-      };
-      const connector = createOfficialApiConnector({ ...config, isInfoBizNotice: () => true });
-      const aux = createG2bAuxFetcher({ ...config, retry });
-      const repo = createMemoryIngestionRepo();
-      const result = await runIngest({
-        connector,
-        aux,
-        repo,
-        now: () => at,
-        retry,
-        run: {
-          ...run("shared-aux"),
-          source: "g2b",
-          serviceKey: "g2b-bid-notice",
-          operation: G2B_BID_NOTICE_LIST_OPERATION,
-        },
-        quota: { store, serviceId: "15129394", dailyLimit },
+  it("charges an auxiliary retry to that operation's own budget, not the list budget", async () => {
+    // 2026-10-29: 일일 한도는 오퍼레이션마다 따로다(목록·보조 3종 각 dailyLimit). 재시도는 그 오퍼레이션 카운터에 든다.
+    const store = createMemoryQuotaStore({ dailyLimit: 2 });
+    const operations: string[] = [];
+    const item = {
+      bidNtceNo: "TEST-001",
+      bidNtceOrd: "000",
+      bidNtceNm: "데이터 시스템 용역",
+      ntceKindNm: "등록공고",
+      dminsttNm: "시험기관",
+      bidNtceDt: "2026-10-22 09:00:00",
+      bidClseDt: "2026-10-23 18:00:00",
+      bidNtceDtlUrl: "https://www.g2b.go.kr/pn/test",
+    };
+    const fetch = async (url: string) => {
+      const operation = new URL(url).pathname.split("/").at(-1)!;
+      operations.push(operation);
+      if (operations.length === 2) return new Response("unavailable", { status: 503 });
+      const items = operation === G2B_BID_NOTICE_LIST_OPERATION ? [item] : [];
+      return Response.json({
+        response: { header: { resultCode: "00" }, body: { items, totalCount: items.length } },
       });
-      expect(operations).toEqual([
-        G2B_BID_NOTICE_LIST_OPERATION,
-        G2B_AUX_OPERATIONS[0].operation,
-        G2B_AUX_OPERATIONS[0].operation,
-        G2B_AUX_OPERATIONS[1].operation,
-        ...(dailyLimit === 5 ? [G2B_AUX_OPERATIONS[2].operation] : []),
-      ]);
-      expect(result).toMatchObject({
-        status: dailyLimit === 5 ? "SUCCEEDED" : "FAILED",
-        summary: { created: 1 },
-      });
-      expect(await store.get("15129394", at)).toBe(dailyLimit);
-      expect(repo.state.runs.get("shared-aux")?.quotaUsed).toBe(dailyLimit);
-      expect(
-        repo.state.errors.some((e) => e.sourceKey.startsWith(G2B_AUX_OPERATIONS[2].registryKey)),
-      ).toBe(dailyLimit === 4);
-    },
-  );
+    };
+    const config = {
+      endpoint: "https://apis.data.go.kr/1230000/ad/BidPublicInfoService",
+      serviceKey: "test-only-key",
+      fetch,
+    };
+    const connector = createOfficialApiConnector({ ...config, isInfoBizNotice: () => true });
+    const aux = createG2bAuxFetcher({ ...config, retry });
+    const repo = createMemoryIngestionRepo();
+    const result = await runIngest({
+      connector,
+      aux,
+      repo,
+      now: () => at,
+      retry,
+      run: {
+        ...run("split-aux"),
+        source: "g2b",
+        serviceKey: "g2b-bid-notice",
+        operation: G2B_BID_NOTICE_LIST_OPERATION,
+      },
+      quota: { store, serviceId: "15129394", dailyLimit: 2 },
+    });
+    expect(operations).toEqual([
+      G2B_BID_NOTICE_LIST_OPERATION,
+      G2B_AUX_OPERATIONS[0].operation,
+      G2B_AUX_OPERATIONS[0].operation,
+      G2B_AUX_OPERATIONS[1].operation,
+      G2B_AUX_OPERATIONS[2].operation,
+    ]);
+    expect(result).toMatchObject({ status: "SUCCEEDED", summary: { created: 1 } });
+    expect(await store.get("15129394", at)).toBe(1);
+    expect(await store.get(`15129394:${G2B_AUX_OPERATIONS[0].registryKey}`, at)).toBe(2);
+    expect(await store.get(`15129394:${G2B_AUX_OPERATIONS[1].registryKey}`, at)).toBe(1);
+    expect(repo.state.runs.get("split-aux")?.quotaUsed).toBe(5);
+  });
 
   it("marks provider code 22 exhausted without counting synthetic reservations as HTTP", async () => {
     const store = createMemoryQuotaStore({ dailyLimit: 10 });
