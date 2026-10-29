@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - scoring
   - decision
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 08. SOL Score 및 참여 권고
@@ -101,12 +101,15 @@ function staffAvailability(bid: Bid, extraction: RequirementExtraction, team: Te
   if (requiredFte === null) return MISSING;
   const period      = bid.projectPeriod ?? defaultPeriod(bid);                 // 기간 미상: 마감 +1개월 이후 첫 월초부터 6개월(calendar.ts defaultProjectPeriod. 마감이 없으면 계산 기준일)
   const available   = team.availableFte(period);                           // assignments 겹침 제외한 FTE 합. scoringEligible=true인 가상 계산 대상만 전달(전체 명부 인원수와 구분)
-  // ADR-021: team_member_scoring 행이 있는 인력만 전달. P1 이후 재직 상태가 LEFT인 인력은 입력에서 빠진다(계산식 변화 아님, sol-v0.1.0 유지)
+  // ADR-021: team_member_scoring 행이 있는 인력만 전달. 재직 상태가 LEFT인 인력은 입력에서 빠진다(analysis.repo.ts. 계산식 변화 아님, sol-v0.1.0 유지)
   const ratio       = Math.min(1, available / requiredFte);
   const bizDays     = bid.deadlineAt ? businessDaysBetween(today, bid.deadlineAt) : null;
   return ratio * (bizDays === null ? 1.0 : SCHEDULE(bizDays));                 // 마감 미상: 일정 계수 미적용
 }
 ```
+
+> [!note] ADR-066: 인력은 모델 입력으로만 넣는다
+> 이 요소가 쓰는 기간(`period`)·가용 FTE(`available`)·대상 인원을 결정 모델 요청 `profileSummary.staffAvailability`와 추천 분석 요청 `company.staff`에 같은 값으로 넣는다(`web/server/scoring/factors.ts` `staffAvailabilityInput`). 필요 FTE를 모르거나 명부가 비어 이 요소가 기간을 정하지 않으면 null이다. 인력은 자주 바뀌어 학습하지 않는다. 점수 계산식·골든(94/72/68)은 그대로다. 결정 모델 출력이 점수·권고를 바꾸지 못하는 것도 같다(§5.4).
 
 ### 3.4 규모 적합성 `scaleFit`
 
@@ -232,7 +235,7 @@ flowchart TD
  H -- 아니오 --> C
 ```
 
-추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`)은 **권고**다. 최종 참여 결정은 `bid_reviews`에 사람의 결정·사유로 기록한다. 75/50은 초기 가정이며 조직별로 바꿀 수 있도록 config versioning한다.
+추천(`BID`)·보류(`WATCH`)·비추천(`NO_BID`)은 **권고**다. 괄호 안 값은 DB·API·결정 모델 입출력에 그대로 쓰고, 사람이 보는 표기만 추천·보류·비추천이다([[16-DECISIONS|ADR-062]], 표기 정본 `web/server/shared/recommendation-label.ts` `RECOMMENDATION_LABEL`). 최종 참여 결정은 `bid_reviews`에 사람의 결정·사유로 기록한다. 75/50은 초기 가정이며 조직별로 바꿀 수 있도록 config versioning한다.
 
 "명확히 미충족"은 §5.1의 `NOT_SATISFIED`(양쪽 근거가 있는 미충족)만이다. "확인 필요"는 사유 코드와 상관없이 같은 경로(보류 + 사람 검토)다. 결정 모델 확률(v0.1·v0.2 모두)은 이 흐름의 입력이 아니다([[16-DECISIONS|ADR-020]]).
 
@@ -288,7 +291,7 @@ flowchart TD
 ## 6. Worked example: 솔리데오의 가상 데모 프로필
 
 > [!warning] 가상 데이터
-> 회사명 솔리데오와 엑셀의 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 아래 직원 이름·얼굴·실적·자격·재무·가용 인력은 **가상 데모 설정**이며 실제 회사 현황을 뜻하지 않는다. seed 데이터에 `isDemo=true`로 들어간다. 공고 `FX-01`·`FX-02`·`FX-03`은 [[07-DATA-PIPELINE|07 수집]] §6.2의 가상 fixture다. 계산 기준일은 2026-10-16. 이 절이 프로필 값의 단일 원천이며 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1이 같은 값을 쓴다. 아래 수치와 결정 모델 값은 `mock` 실행 모드(mock 추출, `kev-qs/v0.1` mock 응답)의 골든이다(§1, [[16-DECISIONS|ADR-020]]).
+> 회사명 솔리데오와 엑셀의 부서·직급 명칭은 사용자 회사 기준이다(ADR-019). 아래 직원 이름·얼굴·실적·자격·재무·가용 인력은 **가상 데모 설정**이며 실제 회사 현황을 뜻하지 않는다. seed 데이터에 `isDemo=true`로 들어간다. 공고 `FX-01`·`FX-02`·`FX-03`은 [[07-DATA-PIPELINE|07 수집]] §6.2의 가상 fixture다. 계산 기준일은 2026-10-16. 이 절이 로컬 seed 가상 프로필(revision 2) 값의 단일 원천이며 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1이 같은 값을 쓴다. 아래 수치와 결정 모델 값은 `mock` 실행 모드(mock 추출, `kev-qs/v0.1` mock 응답)의 골든이다(§1, [[16-DECISIONS|ADR-020]]). 운영(D1)은 공개 자료 프로필 revision 5라 숫자가 다르다. 발표 숫자의 정본은 [[19-DEMO-SCENARIO|19]] §2.2와 [[16-DECISIONS|ADR-059]]다.
 
 ### 6.1 프로필 요약 (`org-01`, `company_profiles` revision 2)
 
@@ -301,7 +304,7 @@ flowchart TD
 | 미보유 자격 (`licenses`, `status: NOT_HELD`) | 정보통신공사업 등록, 방산업체 지정, ISMS-P, CSAP. 보유하지 않음을 프로필에 명시적으로 기록한다(§5.1). 이 기록이 있어야 `FX-03`이 `NOT_SATISFIED`가 된다 |
 | 프로필 구분 | `isDemo=true`(이 절의 fixture·시험 가상 프로필). 운영 공개 자료 프로필은 `isDemo=false`([[16-DECISIONS\|ADR-052]]) |
 | 재무 (`financials`, 선택 필드) | `fiscalYear` 2025, `annualRevenueKrw` 180억(가설), `employeeCount` 200, 단일 사업 수행 상한 `maxContractKrw` 50억 |
-| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 직원 200명 전원이 계산 대상. PM19·PL21·개발35·데이터AI20·DevOps17·QA17·디자인17·업무분석18·보안18·DBA18. 200명 전원의 속성은 가상으로 생성했고 기존 배정7건을 보존한다. 2026-12-01 이상 2027-07-01 미만 기간의 최소 가용 합은95.5 FTE. seed와 마이그레이션은 기존 배정7건을 availability에 한 번 접고, DB assignments의 데모2건은 별도로 차감한다(ADR-043). |
+| 인력 (`team_members` + `team_member_scoring`) | 전체 가상 직원 200명 전원이 계산 대상. PM19·PL21·개발35·데이터AI20·DevOps17·QA17·디자인17·업무분석18·보안18·DBA18. 200명 전원의 속성은 가상으로 생성했고 기존 배정 7건을 보존한다. 2026-12-01 이상 2027-07-01 미만 기간의 최소 가용 합은 95.5 FTE. seed와 마이그레이션은 기존 배정 7건을 availability에 한 번 접고, DB assignments의 데모 2건은 별도로 차감한다(ADR-043). |
 | 선호 (`preferences`) | `agencies: []`, `agencyTypes: [지자체, 교육청]`, `domains: [데이터 플랫폼, AX, 민원, 교육]`, `excludedDomains: [국방]`, `excludedKeywords: [무기체계]` |
 | 기술 목록 완결 (`technologiesComplete`) | `true`. 요구 기술이 `technologies`(별칭 포함)에 없으면 `requirement_assessments` 기술 항목이 `NOT_SATISFIED`가 된다(§5.1, `web/server/scoring/requirement-assessment.ts`). 점수·권고(94/72/68, 추천·보류·비추천)에는 영향이 없다 |
 | 업종 코드 (`industryCodes`) | 빈 목록 `[]`. 공고가 업종 코드를 요구하면 그 항목은 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)다 |
@@ -314,7 +317,7 @@ flowchart TD
 
 세 실적 모두 완료 3년 이내라 최근성 계수는 1.0이다. 최대 실적 금액은 28억.
 
-프로필 값의 데이터 파일은 `fixtures/company/solideo-profile.json`(revision 2)이다. `technologiesComplete`·`industryCodes` 값도 이 파일에서 왔다(`e22de09`).
+프로필 값의 데이터 파일은 `fixtures/company/solideo-profile.json`(revision 2)이다. `technologiesComplete`·`industryCodes` 값도 이 파일에서 왔다.
 
 ### 6.2 Example A — `FX-01` → 추천
 
@@ -324,7 +327,7 @@ flowchart TD
 |---|---|---:|---:|
 | `skillMatch` | 필수 5/5 = 1.0, 우대 0/2 = 0.0 (Elasticsearch·Kafka 없음) | 0.8×1.0 + 0.2×0.0 = **0.80** | 24.0 |
 | `pastPerformance` | P1: 분야 1, 금액 12/12 = 1.0, 최근성 1.0(1.9년), 증빙 1.0 | 0.4 + 0.30 + 0.30 = **1.00** | 25.0 |
-| `staffAvailability` | 필요 12 FTE, 가용95.5 → ratio 1.0, 영업일 15 → 계수 1.0 | **1.00** | 20.0 |
+| `staffAvailability` | 필요 12 FTE, 가용 95.5 → ratio 1.0, 영업일 15 → 계수 1.0 | **1.00** | 20.0 |
 | `scaleFit` | 12억 / 최대 실적 28억 = 0.43 ≤ 1.5, 상한 50억 이내 | **1.00** | 15.0 |
 | `strategicPreference` | 제외 키워드 없음. 분야 민원 ∈ domains → 1.0, 세종특별자치시 → 유형 지자체 → 1.0 | 0.6 + 0.4 = **1.00** | 10.0 |
 | 합계 | | | **94.0 → 94** |
@@ -339,12 +342,12 @@ flowchart TD
 |---|---|---:|---:|
 | `skillMatch` | 필수 3/6 = 0.5 (Java, Spring Boot, PostgreSQL. Vue.js·SCORM·WebRTC 없음), 우대 1/2 = 0.5 (Kubernetes만) | 0.8×0.5 + 0.2×0.5 = **0.50** | 15.0 |
 | `pastPerformance` | P3: 분야 1, 금액 3/28 = 0.107, 최근성 1.0, 증빙 1.0 → 0.4 + 0.032 + 0.3 = 0.732. P2: 분야 0, 금액 1.0, 최근성 1.0 → 0.60. 최대 | **0.732** | 18.3 |
-| `staffAvailability` | 필요 FTE 미추출 → 예산 구간 20~50억 = 20 FTE, 가용95.5 → ratio 1.0, 영업일 6 → 계수 0.7 | **0.70** | 14.0 |
+| `staffAvailability` | 필요 FTE 미추출 → 예산 구간 20~50억 = 20 FTE, 가용 95.5 → ratio 1.0, 영업일 6 → 계수 0.7 | **0.70** | 14.0 |
 | `scaleFit` | 28억 / 28억 = 1.0 ≤ 1.5 | **1.00** | 15.0 |
 | `strategicPreference` | 제외 키워드 없음. 분야 교육 → 1.0, 경기도교육청 → 유형 교육청 → 1.0 | **1.00** | 10.0 |
 | 합계 | | | **72.3 → 72** |
 
-결정 경로: 자격 OK → `missingFactors` 0 (필요 FTE는 예산 구간으로 대체되어 missing이 아님, evidence에 `estimatedFrom:"budgetTier"` 기록) → 72 < 75, ≥ 50 → **보류**. 결정 모델(mock): `BID` 0.36 / `WATCH` 0.52 / `NO_BID` 0.12 → 일치. `needsHumanReview` 0.74 ≥ 0.70 → `reviewFlags:["KEV_NEEDS_REVIEW"]`, 결정 패널에 "사람 검토 권장". 화면 설명: "요구기술 6개 중 3개 보유. Vue.js·SCORM·WebRTC 경험 없음. 제안 준비 기간 7영업일로 촉박."
+결정 경로: 자격 OK → `missingFactors` 0 (필요 FTE는 예산 구간으로 대체되어 missing이 아님, evidence에 `estimatedFrom:"budgetTier"` 기록) → 72 < 75, ≥ 50 → **보류**. 결정 모델(mock): `BID` 0.36 / `WATCH` 0.52 / `NO_BID` 0.12 → 일치. `needsHumanReview` 0.74 ≥ 0.70 → `reviewFlags:["KEV_NEEDS_REVIEW"]`, 결정 패널에 "사람 검토 권장". 화면 설명: "요구기술 6개 중 3개 보유. Vue.js·SCORM·WebRTC 경험 없음. 제안 준비 기간 6영업일로 촉박."
 
 ### 6.4 Example C — `FX-03` → 비추천 (자격)
 
@@ -356,7 +359,7 @@ flowchart TD
 |---|---|---:|---:|
 | `skillMatch` | 필수 4/6 = 0.667 (영상분석 AI, VMS 연동 없음), 우대 없음 | **0.667** | 20.0 |
 | `pastPerformance` | P2: 분야 0, 금액 28/45 = 0.622, 최근성 1.0, 증빙 1.0 → 0 + 0.187 + 0.3 = 0.487. P1 0.38, P3 0.32. 최대 | **0.487** | 12.2 |
-| `staffAvailability` | 예산 구간 20~50억 = 20 FTE, 가용95.5 → 1.0, 영업일 11 → 1.0 | **1.00** | 20.0 |
+| `staffAvailability` | 예산 구간 20~50억 = 20 FTE, 가용 95.5 → 1.0, 영업일 11 → 1.0 | **1.00** | 20.0 |
 | `scaleFit` | 45억 / 28억 = 1.61 → 0.6, 상한 50억 이내 | **0.60** | 9.0 |
 | `strategicPreference` | 제외 키워드 없음. 분야 스마트시티 ∉ domains → 0.5, 부산광역시 → 유형 지자체 ∈ agencyTypes → 1.0 | 0.3 + 0.4 = **0.70** | 7.0 |
 | 합계 | | | **68.2 → 68** |
@@ -378,7 +381,7 @@ flowchart TD
 
 ## 7. 저장 형식
 
-`score_runs` 1건 + `score_factors` 5건(`factor` 값은 05 `FactorKey`: `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference`). 각 factor 행은 `raw_value`(위 표의 raw 열에 해당하는 JSON), `points`, `max_points`, `evidence`(매칭된 기술 목록, 선택된 실적 ID, FTE 계산 근거, `EvidenceRef` 배열)를 가진다. `score_runs.model_metadata`에 결정 모델 식별자(실제 모델명, ADR-034)·`prompt_hash`·처리 시간, 결정 모델 질문 4종의 출력(wire 응답 원문)은 `score_runs.kev_output`에, `review_flags[]`·`missing_factors[]`는 04의 전용 열에, `input_snapshot`에는 `AnalysisInput`(입력 전체)과 `input_snapshot_hash`를 넣는다. API 응답 형태는 [[05-API-SPEC|05 API]]의 `AnalysisResult`.
+`score_runs` 1건 + `score_factors` 5건(`factor` 값은 05 `FactorKey`: `skillMatch`, `pastPerformance`, `staffAvailability`, `scaleFit`, `strategicPreference`). 각 factor 행은 `raw_value`(위 표의 raw 열에 해당하는 JSON), `points`, `max_points`, `evidence`(매칭된 기술 목록, 선택된 실적 ID, FTE 계산 근거, `EvidenceRef` 배열)를 가진다. `score_runs.model_metadata`에 provider·Qwen·결정 모델 식별자(실제 모델명, ADR-034)·`algorithmVersion`·설명 출처, 전용 열에 `prompt_hash`와 처리 시각(`queued_at`·`started_at`·`finished_at`), 결정 모델 질문 4종의 출력(wire 응답 원문)은 `score_runs.kev_output`에, `review_flags[]`·`missing_factors[]`는 04의 전용 열에, `input_snapshot`에는 `AnalysisInput`(입력 전체)과 `input_snapshot_hash`를 넣는다. API 응답 형태는 [[05-API-SPEC|05 API]]의 `AnalysisResult`.
 
 [[16-DECISIONS|ADR-020]]으로 더해지는 것: `score_runs.run_mode`(실행 모드)·`kev_calibration`(τ 보정 상태)·`fallback_reason`(mock 자동 대체 원인), `score_runs.kev_output`에 결정 모델 응답 원문과 `KevStateTrace`, 요구사항 항목마다 `requirement_assessments` 1행(규칙 판정·사유·`basis`·양쪽 근거·결정 모델 분포·라벨·플래그), `qualification_checks`의 `reason_code`·`company_evidence`·`basis`([[04-DATABASE|04 DB]] §3.4). `kev-qs/v0.2` run의 `kev_output`에는 v0.2 질문 출력(24개씩 나눈 요청이면 응답 전부)도 들어간다([[03-AI-PIPELINE|03 AI 파이프라인]] §7).
 
@@ -398,13 +401,13 @@ flowchart TD
 
 ## 9. 가상 명부 200명과 점수 계산 범위
 
-ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점수 검증도 200명 전원 입력으로 확장했다. 개인 자격증·실적은 SYNTHETIC 출처와 가상 증거 참조를 보존한다. 원래 직급·직책에서 실제 기술을 추론하지 않고 이름·성별·정장 사진은 점수 입력에서 제외한다. 입력 스냅샷에 계산 대상200명과 가용성을 보존한다. FX-01/02/03의 골든94/72/68은 인력 요소가 포화되어 유지되고, FX-15는 68점(보류)이다(경위는 [[16-DECISIONS|ADR-043]]). 저장된 score_runs는 변경하지 않는다.
+ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점수 검증도 200명 전원 입력으로 확장했다. 개인 자격증·실적은 SYNTHETIC 출처와 가상 증거 참조를 보존한다. 원래 직급·직책에서 실제 기술을 추론하지 않고 이름·성별·정장 사진은 점수 입력에서 제외한다. 입력 스냅샷에 계산 대상 200명과 가용성을 보존한다. FX-01/02/03의 골든 94/72/68은 인력 요소가 포화되어 유지되고, FX-15는 68점(보류)이다(경위는 [[16-DECISIONS|ADR-043]]). 저장된 score_runs는 변경하지 않는다.
 
 ## 다기관 공고와 SOL Score 경계
 
-[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.1.0`·30/25/20/15/10·75/50·법적자격3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
+[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.1.0`·30/25/20/15/10·75/50·법적 자격 3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
 
-새 category를 기존 `bid.domain`에 무조건 대입하거나 early stage를 입찰가능 BID로 바꾸지 않는다. 관련성 점수는 SOL Score 코드·가중치·골든을 바꾸지 않는다.
+새 category를 기존 `bid.domain`에 무조건 대입하거나 early stage를 입찰 가능한 추천(`BID`)으로 바꾸지 않는다. 관련성 점수는 SOL Score 코드·가중치·골든을 바꾸지 않는다.
 
 ## 관련 문서
 
@@ -415,6 +418,6 @@ ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점�
 - [[05-API-SPEC|05 API]] — `AnalysisResult` DTO
 - [[06-UI-UX|06 UI]] — 점수 분해·missing 배지·결정 모델 상이 배너 표시
 - [[11-TESTING|11 테스트]] — 골든 시나리오 G3·G4
-- [[16-DECISIONS|16 ADR]] — ADR-052(금액·완료일을 모르는 실적), ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6)
+- [[16-DECISIONS|16 ADR]] — ADR-052(금액·완료일을 모르는 실적), ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6), ADR-043(가상 직원 200명, §9), ADR-059(발표 숫자), ADR-062(추천·보류·비추천 표기, §5.2), ADR-066(인력 입력, §3.3)
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋 라벨, 결정 모델 반영 전 신뢰성 기준·오류 분석
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 결정 모델 출력은 플래그·참고 지표만

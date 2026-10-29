@@ -30,8 +30,14 @@ updated: 2026-10-29
 |`AnalysisInput`|[[04-DATABASE\|04 DB]] `score_runs.input_snapshot`|worker(`web/worker`)|재현·백테스트|
 |추천 분석 gateway 계약 `InsightRequest`·`InsightResponse`(`POST /insight`)와 저장 모양 `InsightPayload`|gateway: `services/ai/src/sol_ai/contracts.py`, 웹: `web/server/analysis/gateway.model.ts`(`InsightGatewayRequest`·`insightResponseSchema`)·`web/server/insight/insight.model.ts`(`insightPayloadSchema`), 요약 [[03-AI-PIPELINE\|03]] §2.1|Analysis Worker(요청 조립 `toInsightRequest`), AI gateway(응답)|`recommendation_insights.payload`, 공고 상세 추천 분석 패널([[16-DECISIONS\|ADR-066]])|
 |`AnalysisResult`, `BidDetail` 등 API 응답·요청 스키마|[[05-API-SPEC\|05 API 명세]] §4|Route Handler(`web/app/api/v1`)|화면(`web/app`), 스크립트|
-|`EvalItem`(평가셋 정본 형식)|[[21-MODEL-TRAINING\|21 모델 학습]] §3.7|데이터셋 빌더(`pnpm dataset:build`, 예정)|평가 하네스, 학습셋 내보내기|
+|`EvalItem`(평가셋 정본 형식)|[[21-MODEL-TRAINING\|21 모델 학습]] §3.7|데이터셋 빌더. 녹음 응답으로 만드는 `python -m sol_eval build`(갈래 ①)는 있다. Supabase에서 읽는 `pnpm dataset:build`는 미구현이다|평가 하네스, 학습셋 내보내기|
 |소스 registry|이 문서 §8|운영자|Connector|
+
+추천 분석 계약([[16-DECISIONS|ADR-066]])에서 이 문서의 계약과 닿는 규칙은 셋이다. 길이·개수 상한은 gateway pydantic과 웹 zod가 같다.
+
+- **근거 번호**: `refs[].id`는 `B1`~`B99`(공고 원문 인용)·`C1`~`C99`(회사 자료)이고 `quotedText`는 1~300자다. `EvidenceRef` 전달 길이(§5.3)와 같다. `B`는 `KNOWN` 추출 필드의 첫 공고 인용에서, `C`는 과거 수행 사업·보유 기술·투입 가능 인력에서 만든다(`toInsightRequest`). 인젝션 의심 run은 `B`를 보내지 않는다.
+- **인력 입력**: `company.staff`는 결정 모델 요청 `profileSummary.staffAvailability`와 같은 값이다. 둘 다 인력 요소와 같은 기간·가용 FTE·대상 인원(`web/server/scoring/factors.ts` `staffAvailabilityInput`)이고, 필요 FTE를 모르거나 명부가 비면 null이다([[08-SCORING|08]] §3.3).
+- **판정 값**: `rules`(점수·권고·자격 판정)는 저장된 run 값을 그대로 넣는 입력이다. 응답과 `InsightPayload`에는 판정 값이 없다.
 
 다른 문서가 정본인 계약(`ParseResult`·`RequirementExtraction`·판정 라벨·`EvalItem`)은 여기에 타입을 복사하지 않는다. 이 문서의 `EvidenceRef`·`CompanyEvidenceRef`를 그 계약들이 그대로 쓴다.
 
@@ -62,9 +68,9 @@ interface EvidenceRef {
   charEnd?: number | null;
   apiField?: string;          // API_FIELD만. 응답 필드 이름. 예: "lcnsLmtNm"
   apiSource?: string;         // API_FIELD만. registry key(§8). 예: "g2b-bid-license-limit"
-  quotedText: string;         // TEXT: 원문 그대로 5~300자, 요약·의역 금지. API_FIELD: 필드 값 원문
+  quotedText: string;         // TEXT: 원문 그대로, 요약·의역 금지. 검증 통과는 norm 길이 5~300자(§5.2 0단계), 저장·전달은 1~300자(§5.3). API_FIELD: 필드 값 원문
   sourceUrl?: string;         // 원문 재확인 링크
-  fetchedAt: string;          // ISO8601 UTC. 원문을 가져온 시각. worker zod(analysis-input.model.ts)는 필수, gateway JSON Schema(requirement-extraction.v0.1.json)는 선택이다. 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(bid_revisions.fetched_at)으로 채운다(785e454, B1 병합 24b2597, main 1b68f9b. 16 미결정 26-1). gateway 계약·JSON Schema는 그대로이고 gateway는 채우지 않는다
+  fetchedAt: string;          // ISO8601 UTC. 원문을 가져온 시각. worker zod(analysis-input.model.ts)는 필수, gateway JSON Schema(requirement-extraction.v0.1.json)는 선택이다. 모델이 내면 그 값, 아니면 worker가 검증 전에 revision 수집 시각(bid_revisions.fetched_at)으로 채운다(analysis.model.ts fillMissingEvidenceFetchedAt). gateway는 채우지 않는다
   match?: CitationMatch;      // 검증 단계가 채운다. AI 출력에는 없다
 }
 
@@ -92,7 +98,7 @@ interface ExtractedField<T> {
 
 |`kind`|채우는 필드|누가 만드나|검증|
 |---|---|---|---|
-|`TEXT`(기본)|`documentId`(본문이면 null), `page`·`charStart`·`charEnd`(선택), `quotedText` 5~300자|Qwen 추출(gateway). AI 출력의 근거는 언제나 `TEXT`다|§5.2 인용 검증 알고리즘|
+|`TEXT`(기본)|`documentId`(본문이면 null), `page`·`charStart`·`charEnd`(선택), `quotedText`(검증 통과 5~300자, 전달 1~300자)|Qwen 추출(gateway). AI 출력의 근거는 언제나 `TEXT`다|§5.2 인용 검증 알고리즘|
 |`API_FIELD`|`apiField`, `apiSource`, `quotedText`(필드 값 원문). `documentId`·`page`·`charStart`·`charEnd`는 null|worker·규칙 엔진. API 구조화 필드(면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt` 등)로 판정할 때(`basis=API_FIELD`, [[04-DATABASE\|04 DB]] `qualification_checks`)|§5.4 원본 응답 필드 대조(미구현)|
 
 판정 라벨: 규칙 판정·결정 모델 요구사항 질문(`req.{itemId}.status`)·평가셋 라벨은 같은 3값(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드를 쓴다. 조건과 사유 코드의 정본은 [[08-SCORING|08 점수]] §5.1이다. 이 문서가 정하는 것은 근거 형식이다: `NOT_SATISFIED`에는 검증을 통과한 공고 쪽 `EvidenceRef` 1개 이상과 회사 쪽 명시적 부정 근거 `CompanyEvidenceRef`(§2.1) 1개 이상이 함께 있어야 한다. 정보가 없다는 사실만으로는 미충족이 될 수 없다.
@@ -167,7 +173,7 @@ interface NormalizedBid {
     noticeNo?: string; budget?: string; noticeDate?: string; deadline?: string; stage?: string; status?: string;
   };
   normalizationNotes?: string[];  // 정규화 가정 기록. 예: 시각 없는 날짜를 KST 18:00으로 간주, budgetKrw에 asignBdgtAmt를 씀(07 §3)
-  isDemo: boolean;              // fixture 출처면 true, live(g2b-*)면 false. UI에 DEMO 배지
+  isDemo: boolean;              // fixture 출처면 true, 그 밖의 출처(g2b-*·외부)는 false(zod refine). UI에 DEMO 배지
   fetchedAt: string;            // ISO8601 UTC
   checksum: string;             // sha256(canonical JSON, fetchedAt·checksum 제외)
 }
@@ -194,7 +200,7 @@ interface StructuredRequirement {
 `checksum`은 canonical JSON(키 정렬, 공백 없음, `fetchedAt`·`checksum` 제외)의 sha256이다. 같은 `source+noticeId`에서 checksum이 바뀌면 새 revision이다.
 
 - **v0.3 외부 공고의 시간 파생 상태(F09)**: 위 v0.2 규칙은 유지한다. `normalized-bid/v0.3`은 추가로 `sourceMetadata.participationStatus`를 hash와 변경 상세에서 제외한다. 공급자의 `providerStatus`·공식 날짜/정밀도·원문 금액/단위·사업 속성은 계속 비교하며, 변경 시 `changes`에 `sourceMetadata`의 전후 값을 기록한다. 기존 v0.3 저장 행은 정규화 스냅샷을 같은 새 규칙으로 메모리에서 비교하므로 정책 전환만으로 revision이 생기지 않는다. 저장된 checksum·원문·revision 번호는 갱신하지 않는다.
-- **참여 상태의 조회 경계**: 저장된 `participationStatus`는 `fetchedAt` 당시 관측 스냅샷이다. 현재 참여 가능 여부의 근거로 사용하지 않는다. 현재 값을 제공할 때는 공식 `providerStatus`와 정밀도가 확인된 `dates`를 조회 시각과 함께 계산하고, revision 저장·이벤트와 분리한다. 현재 API에는 이 계산을 새로 연결하지 않았다. DATE 정밀도 처리(F10)는 이번 F09에서 변경하지 않는다.
+- **참여 상태의 조회 경계**: 저장된 `participationStatus`는 `fetchedAt` 당시 관측 스냅샷이다. 현재 참여 가능 여부의 근거로 사용하지 않는다. 현재 값을 제공할 때는 공식 `providerStatus`와 정밀도가 확인된 `dates`를 조회 시각과 함께 계산하고, revision 저장·이벤트와 분리한다. 현재 API는 이 계산을 하지 않는다. 날짜만 있는 값(정밀도 `DATE`)은 몇 시인지 몰라 순간 값(`deadlineAt` 등)으로 쓰지 않는다(`web/server/ingestion/external-dates.ts` `exactInstant`).
 
 - **`auxLookup`**([[16-DECISIONS|ADR-035]] F7): checksum에 포함된다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부르고(다시 채우기), 셋 다 받으면 `CHANGED` revision으로 저장한다. 또 실패하면 revision을 늘리지 않는다. 같은 공고의 재수집이 `DUPLICATE`로 걸러지도록, 변경 판정의 1차 비교는 저장된 revision에서 보조 조회 유래 부분(면허제한·지역 행, e발주 첨부, `auxLookup`)을 뺀 "목록만" 모양으로 한다([[07-DATA-PIPELINE|07 수집]] §2.2·§5). 규칙 엔진은 `auxLookup`이 `OK`가 아니면 `structured:AUX_LOOKUP` 한 건을 `NEEDS_REVIEW`(`NOTICE_INFO_MISSING`)로 둔다. 구조화 자격이 비어 있어도 "제한 없음"으로 읽지 않는다(`web/server/scoring/qualification.ts` `auxLookupChecks`, [[08-SCORING|08 점수]]).
 
@@ -223,7 +229,7 @@ interface StructuredRequirement {
 
 ### 4.1 결정 모델 학습 레코드 `bosun/{split}.en.jsonl` (ADR-034)
 
-Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev 레코드 "state 1 + 질문 N"과 다르다). `python -m sol_eval export --format bosun`(`bosun_export.py`·`bosun_records.py`, main `1b68f9b`)이 `EvalItem`·`Label`과 질문 세트 `kev-qs/v0.2`에서 만든다. `services/decision` 안에서는 학습(`trainer/prompting.py`)과 서빙(`backend.py` → `model.predict()`)이 같은 Bosun 패키지 함수 `render_decision_prompt`(`modeling_bosun.py`)를 쓴다(같은지는 `sol_decision.parity`가 본다, 계획 §4.1). 다만 질문별 후보 목록 `candidates_for`는 이 레코드를 만드는 `sol_eval/bosun_records.py`와 서버 `sol_decision/contract.py`에 따로 구현돼 있고 둘을 비교하는 시험이 없다([[16-DECISIONS|16]] 미결정 26-12, F1 학습 전 교차 시험). 언어 짝 비교용 E2 레코드는 이 형식을 그대로 쓰고 state 만 한국어로 바꾼다(세부는 [[16-DECISIONS|16]] 미결정 29-6 ed 결정, 코드 없음).
+Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev 레코드 "state 1 + 질문 N"과 다르다). `python -m sol_eval export --format bosun`(`bosun_export.py`·`bosun_records.py`)이 `EvalItem`·`Label`과 질문 세트 `kev-qs/v0.2`에서 만든다. `services/decision` 안에서는 학습(`trainer/prompting.py`)과 서빙(`backend.py` → `model.predict()`)이 같은 Bosun 패키지 함수 `render_decision_prompt`(`modeling_bosun.py`)를 쓴다(같은지는 `sol_decision.parity`가 본다, [[22-FINETUNE-RUNBOOK|22]] §4.1). 다만 질문별 후보 목록 `candidates_for`는 이 레코드를 만드는 `sol_eval/bosun_records.py`와 서버 `sol_decision/contract.py`에 따로 구현돼 있고 둘을 비교하는 시험이 없다([[16-DECISIONS|16]] 닫힌 미결정 26의 남은 26-12, F1 학습 전 교차 시험). 언어 짝 비교용 E2 레코드는 이 형식을 그대로 쓰고 state 만 한국어로 바꾼다. 세부는 [[16-DECISIONS|16]] 닫힌 미결정 29의 남은 29-6이고 코드는 없다(지금 `--format bosun`은 영어 state만 낸다).
 
 | 필드 | 뜻 | 출처 |
 |---|---|---|
@@ -238,11 +244,11 @@ Bosun 은 질문 하나당 forward 1회라 **한 줄 = 질문 하나**다(Kev �
 | `labelSource`·`reason`·`noticeEvidence[]`·`companyEvidence[]` | `Label` 그대로. `RULE_SILVER` 는 train 에만 | `Label` |
 
 - `recommendation`·`fit`·`mandatoryRisk`·`needsHumanReview`(v0.1 4문항)은 레코드로 만들지 않는다(참고 질문, 학습 제외. ADR-034 2번). `techFit`·`perfRelevance`는 `HUMAN` 라벨만, `risk.*`는 변형이 직접 바꾼 `CONSTRUCTED`만.
-- 번들 `sol-dataset-{version}/` 폴더(tar로 묶지 않는다, [[16-DECISIONS|16]] 미결정 29-3)의 `manifest.json`에 분할별 건수, 질문별·선택지별 분포(각 ≥ 5%), 파일 sha256, train∩(dev∪test) 클러스터 0건, held-out 기업 원형 id 를 적는다. `bosun/` 디렉터리만 두고 `kev/`는 만들지 않는다.
-- 평가 출력(`python -m sol_eval bosun_score`, main `1b68f9b`)은 `predictions.jsonl`(`rowId`, `qid`, `seed`, `probabilities[]`, `argmax`)·`rows.json`·`report.json`(패키지 경로·manifest sha256, 데이터 파일 sha256, seed 목록, 환경)이고, 지표는 [[21-MODEL-TRAINING|21]] §4.3 그대로다.
+- 번들 `sol-dataset-{version}/` 폴더(tar로 묶지 않는다, [[16-DECISIONS|16]] 닫힌 미결정 29-3)의 `manifest.json`에 분할별 건수, 질문별·선택지별 분포(각 ≥ 5%), 파일 sha256, train∩(dev∪test) 클러스터 0건, held-out 기업 원형 id 를 적는다. `bosun/` 디렉터리만 두고 `kev/`는 만들지 않는다.
+- 평가 출력(`python -m sol_eval bosun_score`)은 `predictions.jsonl`(`rowId`, `qid`, `seed`, `probabilities[]`, `argmax`)·`rows.json`·`report.json`(패키지 경로·manifest sha256, 데이터 파일 sha256, seed 목록, 환경)이고, 지표는 [[21-MODEL-TRAINING|21]] §4.3 그대로다.
 
-> [!warning] 미검증 가정 (2026-10-21)
-> 이 계약은 Bosun 공개 API(`render_decision_prompt`·`decision_logits`)와 Hanno `jev-compatible-server`의 타입 매핑을 읽고 정했다. 학습 코드(`trainer.prompting.render_record`)의 `render_decision_prompt` 호출을 확인했던 B1 시험 `services/decision/tests/test_train_pure.py`는 ADR-046으로 삭제됐다. 현재 자동 검증 근거로 안내하지 않으며, 학습 경로를 다시 변경할 때 필요한 대표 확인을 선택한다([[11-TESTING|11]] 현재 MVP 범위). 실제 확률이 `predict()`와 같은지는 `python -m sol_decision.parity`(모델 필요)로 회사 서버에서 확인하며 아직 실행하지 않았다.
+> [!warning] 미검증 가정
+> 이 계약은 Bosun 공개 API(`render_decision_prompt`·`decision_logits`)와 Hanno `jev-compatible-server`의 타입 매핑을 읽고 정했다. 학습 코드(`trainer.prompting.render_record`)의 `render_decision_prompt` 호출을 확인했던 B1 시험 `services/decision/tests/test_train_pure.py`는 ADR-046으로 삭제됐다. 현재 자동 검증 근거로 안내하지 않으며, 학습 경로를 다시 변경할 때 필요한 대표 확인을 선택한다([[11-TESTING|11]] 현재 MVP 범위). 실제 확률이 `predict()`와 같은지는 `python -m sol_decision.parity`(모델 필요)로 회사 서버에서 확인한다. 실행한 기록은 없다.
 
 ## 5. 인용 검증 알고리즘
 
@@ -254,7 +260,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 3. 연속 공백·줄바꿈·탭을 공백 1개로. 앞뒤 공백 제거.
 4. 전각 괄호·따옴표·쉼표를 반각으로. 숫자 사이 쉼표(`450,000,000`)는 유지.
 
-`charStart`·`charEnd`는 `norm(문서 전체)` 기준 오프셋이다. 추출기 입력도 같은 정규화 텍스트를 쓰므로 오프셋이 일치한다.
+`charStart`·`charEnd`는 `norm(문서 전체)` 기준 오프셋이다. 추출기 입력도 같은 정규화 텍스트를 쓰므로 오프셋이 일치한다. 첨부 조립 v0.2(`req-extract/v0.2`, [[16-DECISIONS|ADR-064]])는 첨부를 2,500자 안의 조각으로 나눠 넣지만, 조각마다 원문 기준 절대 `charOffset`을 붙인다. 그래서 오프셋 기준은 조각이 아니라 문서 전체 그대로다([[03-AI-PIPELINE|03]] §4.3).
 
 "문서 전체"는 근거의 출처마다 다르다.
 - 공고 본문(`documentId=null`): `NormalizedBid.content`.
@@ -291,7 +297,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 |필드의 유효 근거(`match != FAILED`)가 0개가 됨|`value=null`, `state=UNKNOWN`, `note="CITATION_FAILED"`. 분석 결과 `reviewFlags`에 `CITATION_FAILED` 추가|
 |필드 유효 근거가 1개 이상 남음|`KNOWN` 유지|
 |한 추출의 전체 ref 중 FAILED 비율 > 50%|`requirement_extractions.status=PENDING_REVIEW`, 분석은 진행하되 `reviewFlags`에 `EXTRACTION_LOW_CONFIDENCE`|
-|위 전이를 마친 응답의 `quotedText`가 300자를 넘거나 비어 있음|gateway가 응답 직전에 맞춘다(`citation.fit_quotes`). 300자 초과는 `norm`한 인용의 앞 300자로 바꾼다. 검증을 통과한 인용은 `norm` 결과가 300자 이하라 검증한 텍스트 그대로 나가고, 실패한 인용은 `match=FAILED` 그대로 잘린다. 빈 인용은 빼고 `note`의 원소→근거 번호를 당긴다. 값·`match`·상태·FAILED 비율은 바꾸지 않는다. Worker는 근거 하나라도 1~300자를 어기면 추출 전체를 버린다(`PAYLOAD_INVALID`, 2026-10-29 실공고)|
+|위 전이를 마친 응답의 `quotedText`가 300자를 넘거나 비어 있음|gateway가 응답 직전에 맞춘다(`citation.fit_quotes`). 300자 초과는 `norm`한 인용의 앞 300자로 바꾼다. 검증을 통과한 인용은 `norm` 결과가 300자 이하라 검증한 텍스트 그대로 나가고, 실패한 인용은 `match=FAILED` 그대로 잘린다. 빈 인용은 빼고 `note`의 원소→근거 번호를 당긴다. 값·`match`·상태·FAILED 비율은 바꾸지 않는다. Worker zod(`analysis-input.model.ts` `evidenceRefSchema`)는 근거 하나라도 1~300자를 어기면 추출 전체를 버린다(`PAYLOAD_INVALID`). 2026-10-29 실공고 분석에서 이 불일치로 추출 1건이 버려져 gateway 쪽을 맞췄다([증거](evidence/company-rollout/20261029/ai-gateway-rollout.md))|
 
 인용 검증은 결정론적이다. 같은 입력에 같은 결과가 나오며, 단위 테스트로 EXACT/NORMALIZED/FUZZY/FAILED 각 경로를 고정한다([[11-TESTING|11 테스트]]).
 
@@ -301,7 +307,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 ### 5.4 API 구조화 필드 근거 검증 (`kind=API_FIELD`)
 
 > [!warning] 미구현
-> 이 절의 원본 필드 대조와 시험은 아직 없다. 지금 규칙 엔진은 `bid_structured_requirements` 행으로 `API_FIELD` 근거를 만들고(`quotedText` = 행의 `name` → `code` → 값 JSON 순, 300자), `match`를 채우지 않는다(`web/server/scoring/qualification.ts` `apiEvidence`).
+> 이 절의 원본 필드 대조와 시험은 아직 없다. 지금 규칙 엔진은 `bid_structured_requirements` 행으로 `API_FIELD` 근거를 만들고(`quotedText` = 행의 `name` → `code` → 값 JSON 순, 앞 300자, 비면 항목 이름), `match`를 채우지 않는다(`web/server/scoring/qualification.ts` `apiEvidence`).
 
 API 구조화 필드를 근거로 쓴 판정(`basis=API_FIELD`)은 텍스트 위치가 없으므로 §5.2를 쓰지 않는다. 대신 해당 revision의 `rawPayload`(보조 조회 응답의 필드는 [[04-DATABASE|04 DB]] `bid_structured_requirements.value`에 보존)에서 `apiSource`·`apiField`가 가리키는 필드 값이 `quotedText`와 같은지 확인한다.
 
@@ -349,7 +355,7 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 
 첨부 다운로드·파싱 실패와 공공 API 오류·호출 예산(90% 도달 시 보조 조회 중단)의 처리는 [[07-DATA-PIPELINE|07 수집]] §2.2·§2.6과 [[03-AI-PIPELINE|03 AI 파이프라인]] §8·§10.5가 정본이다. 이때 `ingest_errors.error_code`는 파싱 실패면 `ATTACHMENT_PARSE_FAILED`, 정책상 다운로드 거부(allowlist·크기·MIME, [[09-SECURITY|09 보안]])면 `ATTACHMENT_REJECTED`다. 값 목록은 [[04-DATABASE|04 DB]] `ingest_errors`다.
 
-격리된 레코드는 삭제하지 않고 `ingest_errors.redacted_detail`에 PII 없는 요약만 남긴다. 공공 API 응답의 담당자 필드와 서비스키(`G2B_*_SERVICE_KEY` 4개, 요청 URL의 쿼리 파라미터 포함)는 `redacted_detail`·로그에 넣지 않는다. 재실행하면 같은 `job_key`로 멱등 처리한다. 수집 결과 집계는 `ingest_runs.summary = {created, changed, cancelled, skippedDuplicate, quarantined, retried}`이며 [[05-API-SPEC|05 API 명세]] `IngestionRun.summary`와 같다. 검증·격리와 `ingest_runs`·`ingest_errors` 쓰기는 수집 worker(`web/worker`)가 service role로 한다([[07-DATA-PIPELINE|07 수집]]).
+격리된 레코드는 삭제하지 않고 `ingest_errors.redacted_detail`에 PII 없는 요약만 남긴다. 공공 API 응답의 담당자 필드와 서비스키(registry `serviceKeyEnv`가 가리키는 env 값. 요청 URL의 `serviceKey`·`apiKey` 쿼리 파라미터 포함, `web/server/ingestion/redaction.ts`)는 `redacted_detail`·로그에 넣지 않는다. 재실행하면 같은 `job_key`로 멱등 처리한다. 수집 결과 집계는 `ingest_runs.summary = {created, changed, cancelled, skippedDuplicate, quarantined, retried}`이며 [[05-API-SPEC|05 API 명세]] `IngestionRun.summary`와 같다. 검증·격리와 `ingest_runs`·`ingest_errors` 쓰기는 수집 worker(`web/worker`)가 service role로 한다([[07-DATA-PIPELINE|07 수집]]).
 
 여기서 "격리"는 잘못된 레코드를 적재하지 않고 따로 두는 것(quarantine)이다. 조직 간 데이터 격리는 다른 장치다. 조직 소유 데이터는 `org_id`를 갖고, DB의 RLS 정책(`org_id in (select public.my_org_ids())`)이 다른 조직의 행을 보이지 않게 한다. 그래서 API는 다른 조직 자원에 `404`를 낸다. 공고와 이 절의 수집 기록은 조직 소유가 없는 공용 데이터다([[04-DATABASE|04 DB]] §1·§3, [[09-SECURITY|09 보안]]).
 
@@ -362,7 +368,7 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 
 ## 8. 수집 소스 registry
 
-`infra/sources/registry.yaml`에 소스마다 아래 항목을 둔다([[16-DECISIONS|ADR-020]]). `OfficialApiConnector`는 이 파일에 등록한 엔드포인트만 부르고, 어디서도 엔드포인트를 지어내지 않는다. 등록이 끝나지 않은 소스(`approvalStatus`가 `APPROVED`가 아니거나 `endpoint`·`fieldMapping`이 비어 있음)는 부르지 않는다. 관리자 화면의 외부 서비스 상태는 `GET /api/v1/admin/ingestion/services`([[05-API-SPEC|05 API 명세]])가 준다. 키별 상태·호출량·최근 오류를 보여 주는 `GET /admin/sources`(`SourceStatus`)는 미구현이다.
+`infra/sources/registry.yaml`에 소스마다 아래 항목을 둔다([[16-DECISIONS|ADR-020]]). `OfficialApiConnector`는 이 파일에 등록한 엔드포인트만 부르고, 어디서도 엔드포인트를 지어내지 않는다. 등록이 끝나지 않은 소스(`enabled: false`, `verification: NOT_VERIFIED`, `approvalStatus`가 `APPROVED`가 아님, `endpoint`·`fieldMapping`·`serviceKeyEnv`가 비어 있음)는 부르지 않는다(`web/server/ingestion/source-registry.ts` `callableSource`). 관리자 화면의 외부 서비스 상태는 `GET /api/v1/admin/ingestion/services`([[05-API-SPEC|05 API 명세]])가 준다. 키별 상태·호출량·최근 오류를 보여 주는 `GET /admin/sources`(`SourceStatus`)는 미구현이다.
 
 |키|예시|비고|
 |---|---|---|
@@ -371,7 +377,8 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 |`provider`|조달청 / data.go.kr|—|
 |`serviceId`|`15129394`|data.go.kr 서비스 ID. 호출 예산 카운터 `quota:{serviceId}:{YYYYMMDD}`의 키([[07-DATA-PIPELINE\|07 수집]] §2.2)|
 |`serviceKeyEnv`|`G2B_BID_NOTICE_SERVICE_KEY`|그 소스가 쓰는 서비스키의 env **이름**(값이 아니다). 같은 data.go.kr 서비스의 소스는 같은 env를 쓴다. `OfficialApiConnector`는 이 env만 읽고 다른 서비스의 키로 대체하지 않는다([[07-DATA-PIPELINE\|07 수집]] §2.2, [[16-DECISIONS\|ADR-022]]). `g2b-attachment`·`fixture`는 비운다|
-|`approvalStatus`|`NOT_REQUESTED` / `PENDING` / `APPROVED`|활용신청 상태. data.go.kr 4개 서비스는 2026-10-18 서비스키를 받아 `APPROVED`다(2026-10-19 C1 ① 실호출 `resultCode 00`)|
+|`approvalStatus`|`NOT_REQUESTED` / `PENDING` / `APPROVED`|활용신청 상태. data.go.kr 4개 서비스는 2026-10-18 서비스키를 받아 `APPROVED`다(2026-10-19 C1 ① 실호출 `resultCode 00`). 외부 서비스 가운데 K-water 입찰공고·LH 입찰공고·KEPCO 전자입찰계약도 `APPROVED`다|
+|`sourceFamily`·`enabled`·`verification`·`keyIssuance`|`KWATER` / `true` / `VERIFIED` / `ISSUED`|외부 서비스(ADR-047)에만 있다. `enabled: false`이거나 `verification: NOT_VERIFIED`면 부르지 않는다. `keyIssuance`(`ISSUED`·`UNKNOWN`)는 서비스키 발급 기록이다|
 |`endpoint`|기본 URL + 오퍼레이션|data.go.kr 명세로 확인한 값(아래 표)|
 |`method`|`GET`|입찰공고정보서비스 참고문서 v1.2의 인터페이스 표준 "REST (GET)"(2026-10-16 확인). 2026-10-19 C1 ①에서 4개 서비스 모두 GET으로 실제 응답을 받았다|
 |`quota`|개발계정 1,000/일, 30 tps|일 한도는 명세로 확인. 30 tps는 참고문서 값. 부족하면 운영계정(자동승인)|
@@ -381,7 +388,7 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 |`sampleResponses`|`fixtures/recorded/<serviceId>/*.masked.json` 경로|C1 ①(2026-10-19)에서 받은 실제 응답의 녹음본(14파일). 저장소에는 담당자 필드를 마스킹한 사본만 둔다([[09-SECURITY\|09 보안]])|
 |`lastVerifiedAt`|`2026-10-19`|검증일. 90일 지나면 경고. C1 ① 실제 응답 확인일이다|
 
-등록할 소스(외부 6개는 ADR-047로 더했고 활용신청 전이라 호출하지 않는다. 호출 가능 여부는 [[07-DATA-PIPELINE|07]] §2.8의 준비 상태가 정한다):
+등록한 소스. 외부 6개는 ADR-047로 더했다. 그중 K-water 입찰공고·LH 입찰공고·KEPCO 전자입찰계약 3개는 `enabled: true`·`VERIFIED`이고, 나머지 3개는 `enabled: false`라 부르지 않는다. 실제로 부르는지는 [[07-DATA-PIPELINE|07]] §2.8의 준비 상태(서비스키·한도·인증)가 정한다. Worker가 부르는 키는 `g2b-bid-notice`·보조 조회 3종·준비된 외부 서비스(`EXTERNAL_SOURCE_KEYS`)다(`web/worker/main.ts`). 운영 수집 결과는 [[PROGRESS]]에 있다.
 
 |`key`|서비스 (ID)|`endpoint` (기본 URL + 오퍼레이션)|호출 시점|`approvalStatus`|`serviceKeyEnv`|
 |---|---|---|---|---|---|
@@ -389,19 +396,19 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 |`g2b-bid-license-limit`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoLicenseLimit`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
 |`g2b-bid-region`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoPrtcptPsblRgn`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
 |`g2b-bid-eorder-attach`|입찰공고정보서비스 (15129394)|같은 기본 URL + `getBidPblancListInfoEorderAtchFileInfo`|새 revision마다|`APPROVED`|`G2B_BID_NOTICE_SERVICE_KEY`|
-|`g2b-pre-spec`|사전규격정보서비스 (15129437)|`/1230000/ao/HrcspSsstndrdInfoService` + `getPublicPrcureThngInfoServc`|일정 실행|`APPROVED`|`G2B_PRE_SPEC_SERVICE_KEY`|
-|`g2b-order-plan`|발주계획현황서비스 (15129462)|`/1230000/ao/OrderPlanSttusService` + `getOrderPlanSttusListServc`|하루 1회|`APPROVED`|`G2B_ORDER_PLAN_SERVICE_KEY`|
-|`g2b-industry-master`|업종 및 근거법규 (15129467)|`/1230000/ao/IndstrytyBaseLawrgltInfoService` + `getIndstrytyBaseLawrgltInfoList`|수동(사전 갱신)|`APPROVED`|`G2B_INDUSTRY_MASTER_SERVICE_KEY`|
+|`g2b-pre-spec`|사전규격정보서비스 (15129437)|`/1230000/ao/HrcspSsstndrdInfoService` + `getPublicPrcureThngInfoServc`|일정 실행(설계). live 수집 코드는 미구현|`APPROVED`|`G2B_PRE_SPEC_SERVICE_KEY`|
+|`g2b-order-plan`|발주계획현황서비스 (15129462)|`/1230000/ao/OrderPlanSttusService` + `getOrderPlanSttusListServc`|하루 1회(설계). live 수집 코드는 미구현|`APPROVED`|`G2B_ORDER_PLAN_SERVICE_KEY`|
+|`g2b-industry-master`|업종 및 근거법규 (15129467)|`/1230000/ao/IndstrytyBaseLawrgltInfoService` + `getIndstrytyBaseLawrgltInfoList`|수동(사전 갱신). 호출 코드는 없다. C1 녹음 응답(`fixtures/recorded/15129467/`)을 평가셋 빌드(`sol_eval build --industry`)가 읽는다|`APPROVED`|`G2B_INDUSTRY_MASTER_SERVICE_KEY`|
 |`g2b-attachment`|g2b 첨부 다운로드(data.go.kr 서비스 아님)|`https://www.g2b.go.kr`의 `/pn/` 아래 다운로드 엔드포인트(공식 문서 예시, [[07-DATA-PIPELINE\|07 수집]] §2.4)|documents job|`APPROVED`(registry 값. 익명 GET이라 활용신청 대상이 아니다. 이용약관 확인은 미결정 16번)|—|
 |`g2b-procurement-request`|나라장터 조달요청서비스 (15129468)|data.go.kr 서비스(`registry.yaml` 참조)|`enabled:false`|`NOT_REQUESTED`|`G2B_PROCUREMENT_REQUEST_SERVICE_KEY`|
-|`kwater-bid-notice`|K-water 전자조달 입찰공고 (15101635)|`https://apis.data.go.kr/B500001/ebid/tndr3` + `servcList`, `dmscptList`|`enabled:false`|`NOT_REQUESTED`|`KWATER_BID_NOTICE_SERVICE_KEY`|
+|`kwater-bid-notice`|K-water 전자조달 입찰공고 (15101635)|`https://apis.data.go.kr/B500001/ebid/tndr3` + `servcList`, `dmscptList`|정기 수집(3시간마다)·수동 실행. 한도 일 10,000|`APPROVED`|`KWATER_BID_NOTICE_SERVICE_KEY`|
 |`kwater-procurement-plan`|K-water 전자조달 발주계획 (15102588)|data.go.kr 서비스(`registry.yaml` 참조)|`enabled:false`|`NOT_REQUESTED`|`KWATER_PROCUREMENT_PLAN_SERVICE_KEY`|
-|`lh-bid-notice`|LH 입찰공고정보 (15159012)|`https://apis.data.go.kr/B552555/OpenBidInfoList` + `getOpenBidInfo`|`enabled:false`|`NOT_REQUESTED`|`LH_BID_NOTICE_SERVICE_KEY`|
+|`lh-bid-notice`|LH 입찰공고정보 (15159012)|`https://apis.data.go.kr/B552555/OpenBidInfoList` + `getOpenBidInfo`|정기 수집(3시간마다)·수동 실행. 한도 일 1,000|`APPROVED`|`LH_BID_NOTICE_SERVICE_KEY`|
 |`lh-pre-specification`|LH 사전규격공개정보 (15159011)|data.go.kr 서비스(`registry.yaml` 참조)|`enabled:false`|`NOT_REQUESTED`|`LH_PRE_SPECIFICATION_SERVICE_KEY`|
-|`kepco-ebid-contract`|KEPCO 전자입찰계약정보 (15148223)|data.go.kr 서비스(`registry.yaml` 참조)|`enabled:false`|`NOT_REQUESTED`|`KEPCO_EBID_CONTRACT_SERVICE_KEY`|
+|`kepco-ebid-contract`|KEPCO 전자입찰계약정보 (15148223)|`https://bigdata.kepco.co.kr/openapi/v1/electContract.do` + `electContract`(KEPCO 빅데이터 포털)|정기 수집(3시간마다)·수동 실행. 자체 상한 일 100(공급자 한도 미확인)|`APPROVED`|`KEPCO_EBID_CONTRACT_SERVICE_KEY`|
 |`fixture`|fixture 20건(`FX-01`~`FX-20`)|— (네트워크 호출 없음)|seed·수동 수집|`APPROVED`|—|
 
-- 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
+- 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 2026-10-19 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). KEPCO만 `https://bigdata.kepco.co.kr`이다. 경로만 적은 기본 URL은 명세에 기록된 경로 그대로다.
 - `infra/sources/registry.yaml`은 있다. worker(`web/worker/main.ts`)가 수집 도메인의 `loadSourceRegistry`로 읽고 승인·필드 매핑·서비스키를 확인한 뒤 Connector에 등록 endpoint를 넘긴다. Connector는 endpoint를 생성자로 받아 registry 로딩과 떼어 둔다(B16).
 - `g2b-attachment`는 data.go.kr 활용신청 대상이 아니다. 로그인·세션 없이 익명 GET으로 받아진다(C1 ② B2, 2026-10-19 공고 3건, 리다이렉트 0회). 남은 것은 이용약관상 자동 다운로드가 허용되는지다(미결정 16번). 그 확인 뒤 `approvalStatus`와 `quota`의 뜻을 정한다. 지금 registry 값은 `approvalStatus: APPROVED`, `quota: null`이다.
 
@@ -432,5 +439,5 @@ interface ParsedDocumentV1 extends Omit<ParseResult, "status" | "errorCode"> {
 - [[08-SCORING|08 점수]] — missing 정책, 판정 라벨·사유 코드
 - [[09-SECURITY|09 보안]] — 공공 API 응답 개인정보, 서비스키
 - [[11-TESTING|11 테스트]] — 골든 시나리오
-- [[16-DECISIONS|16 ADR]] — ADR-020, 미결정 1·16·18·19번
+- [[16-DECISIONS|16 ADR]] — ADR-020, ADR-064(첨부 조립 v0.2, §5.1), ADR-066(추천 분석, §1), 미결정 1·16·18·19번
 - [[21-MODEL-TRAINING|21 모델 학습]] — `EvalItem`, 데이터셋 마스킹
