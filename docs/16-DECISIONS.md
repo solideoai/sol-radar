@@ -89,6 +89,25 @@ updated: 2026-10-29
 |ADR-067|X6 파인튜닝·실험 발표 뒤 진행(ADR-054 §4 개정)|채택|2026-10-29|본문|
 |ADR-068|10-29 결정 대기 9건 정리(추천안대로)|채택|2026-10-29|본문|
 |ADR-069|IT 공고만 보이기·분야 키워드·AI·SI 우선·추천순·IT 공고 1회 일괄 분석(ADR-047 "숨김 아님" 개정)|채택|2026-10-29|본문|
+|ADR-070|목록 버전은 원본 표 해시, 필터 선택지는 서버 데이터 캐시|채택|2026-10-29|본문|
+
+## ADR-070 목록 버전은 원본 표 해시, 필터 선택지는 서버 데이터 캐시
+
+**채택 (2026-10-29 사용자 결정).** 사용자가 고른 것은 "1번(가벼운 버전 확인)으로 하자, 캐싱도 고려해봐"이고, 그 뒤 [[2026-10-29-list-latency|단계 계획]]을 승인했다. 원인 측정값은 [[20261029-list-rpc-latency|10-29 목록 지연 기록]]이다.
+
+- **계기**: 운영에서 사이드바로 `/bids`·`/watchlist`·`/dashboard`를 열면 5~7초 걸렸다. 함수 지역은 `syd1`이고 Supabase 호출 p50은 14ms라 지역은 원인이 아니다. `/bids` 이동 한 번에 `procurement_dataset_version` 2.6초 → 목록 2.1초 → `procurement_dataset_version` 2.6초가 차례로 돌고, 그동안 `procurement_filter_options`가 6.1초 걸렸다(10-29 23:00:44 KST 로그). 버전 함수는 뷰 `opportunity_list_items` 전체를 해시하고, 필터 선택지는 공고마다 `it_scope()` 하위 조회 2개를 돈다. 사업기회는 3,309건이고 하루 800~1,200건씩 는다.
+- **결정**:
+  1. **목록 버전 `public.procurement_dataset_version(p_org_id)`는 원본 표의 가벼운 해시다.** 뷰를 계산하지 않고 원본 표 9개 값(건수와 열 해시)을 이은 `md5`다. 공고 갱신·마감 지남·관련성 재판정·사람 결정·분석 완료·회사 역량 개정마다 바뀌고, 다른 조직의 분석·결정에는 바뀌지 않는다. 서명·반환형·`language sql stable`·`set search_path=''`·security invoker·권한(authenticated만 실행)은 그대로라 웹 코드는 바뀌지 않는다. 마이그레이션은 `20261029000500_list_dataset_version.sql`이다. 원본 표 해시 시제품은 authenticated로 18.6ms였다(뷰 해시 921ms).
+  2. **필터 선택지 `procurement_filter_options`는 Next 서버 데이터 캐시에 둔다.** `loadOpportunityFilters`가 `unstable_cache`(10분, 태그 `opportunity-filter-options`)로 출처(`origin`)별 한 벌을 모든 사용자가 같이 쓴다. 같이 써도 되는 근거는 원천 표(`bid_notices`·`procurement_agencies`·`bid_revisions`·`bid_relevance_assessments`)의 RLS가 모두 `is_active_user()`라서 조직과 무관하게 같은 값이라는 점과, 호출하는 두 화면(`/bids`·`/watchlist`)이 먼저 `requireWork`를 통과한다는 점이다. 캐시 안에서도 요청 사용자의 Supabase client를 쓴다(service role 아님).
+- **설계 제약**: Cache Components(`cacheComponents`)와 `"use cache"`는 켜지 않는다. 앱 전체 렌더링 방식이 바뀌어 화면 동결(2026-11-01) 전에 다 확인할 수 없다.
+- **알려진 영향**: 새 기관·회사가 필터 선택지에 최대 10분 늦게 보인다. 목록 행 자체는 캐시하지 않는다.
+- **대안과 버린 이유**:
+  - 대시보드 `procurement_summary`·`procurement_live_metrics` 캐시: 대시보드 규칙 M4("BID 권고" 카드와 BID 표 숫자가 갈라지지 않는다)와 새로 고침 버튼(`OpportunityRefresh`)이 캐시 동안 깨진다. 버전 확인 4번이 빠지면 동시 부하도 준다.
+  - 클라이언트 라우터 캐시(`experimental.staleTimes.dynamic`): `router.refresh()`는 지금 경로의 캐시만 지운다. `/bids`에서 관심 등록 뒤 30초 안에 `/watchlist`로 가면 옛 목록이 보인다. 라이브 시연에서 틀린 화면이 더 나쁘다.
+  - 목록 뷰 자체(1~2초)를 미리 계산해 두기: 수집 Worker까지 바꿔야 한다. 사용자가 이번 범위에서 고르지 않았다.
+  - Supabase 서울 이전: 원인이 네트워크가 아니다. 발표 뒤 일정 그대로다.
+- **바뀌지 않는 것**: 목록 뷰 `opportunity_list_items`와 목록 조회, 목록 커서 형식, 대시보드 요약·지표, 표·RLS 정책, 다른 함수. 운영 DB 적용(`pnpm db:push`)과 main push(Vercel 배포)는 각각 사용자 승인 뒤에 한다.
+- **반영**: [[PROGRESS]] 최근 작업 로그, [[20261029-list-rpc-latency|10-29 목록 지연 기록]]. 조치 뒤 숫자는 운영 반영 뒤 그 기록에 채운다.
 
 ## ADR-069 IT 공고만 보이기·분야 키워드·AI·SI 우선·추천순·IT 공고 1회 일괄 분석(ADR-047 "숨김 아님" 개정)
 
