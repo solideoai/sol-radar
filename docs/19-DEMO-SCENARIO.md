@@ -58,7 +58,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 | 규칙 우선(로컬 `mock`만, D1 촬영 안 함) | **FX-03 부산광역시 지능형 CCTV 통합관제센터 구축** (45억, +15일) | NOTICE | 정보통신공사업 등록 필수 | `NOT_SATISFIED` 1건 | 68 (참고 표시) | 비추천 | 0.55 / 0.30 / 0.15 → `MODEL_RULE_DISAGREEMENT`, mandatoryRisk 0.85 |
 | 가정 재계산(로컬 `mock`만, D1은 S4 FX-02, [[16-DECISIONS\|ADR-037]]) | **FX-03** 같은 공고, "정보통신공사업 등록" 보유 가정 스위치 1회 | NOTICE | 저장 없는 재계산, 원래·가정 모두 결정 모델 의견 제외 | 가정 띠에서 `NOT_SATISFIED` → `SATISFIED`(행 배지는 원래 그대로) | 68 → 68 (변화 없음) | 가정 띠 비추천 → 보류. 결정 패널은 비추천 그대로 | 가정에 포함하지 않음 |
 | S4 재분석·결정 | **FX-02 경기도교육청 통합 LMS 구축** (28억, +10일) | NOTICE | 요구기술 6개 중 3개 보유(Vue.js·SCORM·WebRTC 없음), 마감 촉박 | `SATISFIED` | 72 (15.0+18.3+14.0+15.0+10.0, `mock` 골든). D1 재분석 예상은 §4 S4 | 보류 | 0.36 / 0.52 / 0.12 (일치), needsHumanReview 0.74 → `KEV_NEEDS_REVIEW` |
-| **S-LIVE 실제 공고** | 실제 나라장터 정보화사업 공고 1건(`is_demo=false`). 공고번호·`score_runs` id는 촬영 때 `docs/evidence/`에 적는다 | NOTICE | 운영 `live` run(API 필드·첨부 텍스트). 2026-10-29 실공고 3건 run이 있다(§3.1 6번). 실모델 결과라 값을 미리 정하지 않는다 | 규칙 판정 3값 + 사유 코드 | 실값 | 실값 | Bosun v3.1 0.6B 실추론 `kev-qs/v0.2`, `UNCALIBRATED`. 엔드포인트 미접속이면 `PARTIAL`·`RULES_ONLY`, 번역 검증 거부면 `RULES_ONLY` 그대로 |
+| **S-LIVE 실제 공고** | 실제 나라장터 정보화사업 공고 1건(`is_demo=false`). 공고번호·`score_runs` id는 촬영 때 `docs/evidence/`에 적는다 | NOTICE | 운영 `live` run(API 필드·첨부 텍스트). 2026-10-29 실공고 3건 run이 있고, 촬영 공고는 동국대 44 보류 run이다(§3.1 6번, [[16-DECISIONS\|ADR-068]]). 실모델 결과라 값을 미리 정하지 않는다 | 규칙 판정 3값 + 사유 코드 | 실값 | 실값 | Bosun v3.1 0.6B 실추론 `kev-qs/v0.2`, `UNCALIBRATED`. 엔드포인트 미접속이면 `PARTIAL`·`RULES_ONLY`, 번역 검증 거부면 `RULES_ONLY` 그대로 |
 | S5 변경 감지 | FX-07 한국도로공사 교통정보 데이터플랫폼 고도화 (18억 → r2 21.6억) | NOTICE 정정 | 예산 증액 + Kubernetes 추가 | 변동 없음 | 68 → 77 (엔진 77.3) | 보류 → 추천, 재분석 1회(사람이 상세 [재분석]). `BID_CHANGED` outbox 1건(벨 알림 없음) | — |
 | S5 변경 감지 | FX-06 대전광역시 스마트시티 통합플랫폼 유지보수 (마감 +14일 → +28일) | NOTICE 정정 | 기한 변경 | 변동 없음 | 78 유지 | 추천 유지, `BID_CHANGED` outbox 1건(벨 알림 없음) | — |
 | S5 멱등 | FX-09 서울특별시 공공데이터 개방 플랫폼 운영 | NOTICE | 동일 payload 재전송 | — | — | revision 1 유지, 이벤트 0건 추가 | — |
@@ -90,7 +90,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 - 로컬 경로의 장애 대체 순서는 `live` → `fixture` → `mock`이다. 모드 전환은 env(`SOL_RUN_MODE`)를 바꾸고 worker·ai-gateway를 재시작해서 한다. 자동으로 바뀌지 않고(`AI_FALLBACK_TO_MOCK=true`는 세 모드 모두 기동 거부, [[16-DECISIONS|ADR-030]] B11), 바꿨으면 청중에게 말한다. D1 운영은 모드를 바꾸지 않는다.
 - 회사 GPU 추론 엔드포인트([[16-DECISIONS|ADR-025]])에 닿지 않으면 `live`·`fixture` 분석은 `PARTIAL`·`RULES_ONLY`로 끝난다. 숨기지 않고 그 화면을 보여 준다(§4 S6 엔드포인트 미접속).
 - S5의 "live 배치"는 fixture의 두 번째 배치(`batch:"live"`)이며 실행 모드 `live`와 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH`라 S5는 로컬 `mock`(또는 `fixture`)에서만 된다.
-- S-LIVE는 운영 회사 런타임(`live`)이 만든 실공고 run을 `/bids?origin=live`로 연다. 모드 전환·reset은 없다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장되므로 분석 요약 띠가 그 run의 모드와 모델을 보인다([[16-DECISIONS|ADR-023]]). 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]]) 4갈래 중 어느 것으로 보이는지 발표에서 말한다. 녹화·fixture 결과를 live라고 말하지 않는다.
+- S-LIVE는 운영 회사 런타임(`live`)이 만든 실공고 run을 `/bids?origin=live`로 연다. 모드 전환·reset은 없다. 분석마다 `run_mode`·`ai_provider`·모델 이름이 저장되므로 분석 요약 띠가 그 run의 모드와 모델을 보인다([[16-DECISIONS|ADR-023]]). 갈래는 외부 의존성 컷 규칙([[12-ROADMAP|12 로드맵]]) 첫 줄(실제 공고·실제 추론 경로)이다([[16-DECISIONS|ADR-068]]). 녹화·fixture 결과를 live라고 말하지 않는다.
 - 목록·대시보드의 기본 출처는 env `SOL_DEFAULT_ORIGIN`(`live`·`demo`·`all`)이 정한다. 없거나 틀린 값이면 실행 모드를 따른다: `fixture`·`mock` 모드면 `origin=demo`, `live` 모드면 `origin=live`(`web/server/bids/bid-query.ts` `defaultOrigin`). 운영 사이트는 기본으로 실공고를 보이므로 D1 촬영은 주소에 `?origin=demo`를 붙인다([[05-API-SPEC|05 API]] §3).
 
 ### 2.2 D1 운영 값 (공개 자료 프로필 revision 5)
@@ -116,7 +116,7 @@ seed 배치는 `pnpm demo:reset` 때 revision 1로 적재되고, live 배치(FX-
 3. `/dashboard?origin=demo`와 `/bids?origin=demo`를 연다. 상단바 `DEMO` 배지, 행 `DEMO` 배지, "(가상)" 제목, 운영 DEMO 공고(19건, 목록 기본 15건)와 기존 분석이 보이는지 본다. 주소에 `?origin=demo`가 없으면 운영 기본 출처인 실공고가 보인다.
 4. DEMO 공고 16건의 마감을 +15일 옮긴 작업은 2026-10-27에 적용했다([실행 기록](evidence/demo-deadline/20261027/prod-run.md)). 로그인한 화면 확인은 남았다. 기대값은 목록 15 · 마감 임박 (7일) 1(FX-14, 11-03 전이면 0) · 마감 0이다(실행 기록 §5). 추천 권고는 공개 자료 프로필 재분석 뒤 0이고 분석 대기는 1(FX-02)이다(§2.2). 신규 발견은 0이다(`first_seen_at`은 옮기지 않았다, [실행서](evidence/demo-deadline/20261027/README.md) 남은 위험 5).
 5. FX-02 상세를 연다. 운영에는 이전 run 1건(2026-10-24, 66점 보류, 프로필 revision 2, `live`·`local`, `Qwen3.8-Flash-Next-AWQ-INT4` + `bosun-v3.1-0.6b`)과 결정 보류 1건이 이미 있다. 목록에서는 "미분석"으로 보인다. 촬영 전까지 FX-02를 재분석하지 않는다(§4 S4 주의). FX-03은 촬영에 쓰지 않는다. 옛 분석이 회사 역량 화면과 어긋나 2026-10-28 사용자 승인으로 revision 5로 재분석했다(53 보류, §2.2). 다시 재분석하지 않는다.
-6. S-LIVE용 실공고 run을 연다. 2026-10-29 회사 gateway 교체([[16-DECISIONS|ADR-064]]·[[16-DECISIONS|ADR-065]]) 뒤 실공고 3건을 분석했다. 최종 run은 부경대 38 보류(`WATCH`) `RULES_ONLY`(번역 거부로 Bosun 생략), 동국대 44 보류 `RULES_WITH_KEV_ASSIST`·`MODEL_RULE_DISAGREEMENT`, 국가 재난 정신건강 전산시스템 45 보류 `RULES_WITH_KEV_ASSIST`(`CITATION_FAILED:restrictions`)다([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 촬영할 공고는 아직 정하지 않았다. 첨부 텍스트가 없는 다른 실공고는 [분석 실행]이 `409 ANALYSIS_SOURCE_MISSING`이다. run을 열 수 없으면 S-LIVE는 찍지 않고, 발표에서 그렇게 말한다.
+6. S-LIVE용 실공고 run을 연다. 2026-10-29 회사 gateway 교체([[16-DECISIONS|ADR-064]]·[[16-DECISIONS|ADR-065]]) 뒤 실공고 3건을 분석했다. 최종 run은 부경대 38 보류(`WATCH`) `RULES_ONLY`(번역 거부로 Bosun 생략), 동국대 44 보류 `RULES_WITH_KEV_ASSIST`·`MODEL_RULE_DISAGREEMENT`, 국가 재난 정신건강 전산시스템 45 보류 `RULES_WITH_KEV_ASSIST`(`CITATION_FAILED:restrictions`)다([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 촬영 공고는 동국대 44 보류 run이다([[16-DECISIONS|ADR-068]]). 부경대·국가 재난 정신건강 run은 촬영하지 않는다. 공고번호·`score_runs` id는 촬영 때 `docs/evidence/`에 적는다. 첨부 텍스트가 없는 다른 실공고는 [분석 실행]이 `409 ANALYSIS_SOURCE_MISSING`이다. run을 열 수 없으면 S-LIVE는 찍지 않고, 발표에서 그렇게 말한다.
 7. S7용 `org-02` 계정(viewer@other.invalid)이 운영에 있는지 리허설에서 확인한다(미확인). 없으면 S7은 §3.2 로컬 경로에서 찍는다.
 8. 덱과 클립 파일이 발표 PC에서 열리는지 본다.
 9. `/gaps`를 열어 메타 줄 프로필이 revision 5인지, 요약 띠의 "참가 가능(API 기준)"이 0이 아닌지 본다(0이면 보조 조회 OK 비율이 낮은 것이다. 클립 7을 뺄지 정한다, §5). `/market`·`/calendar`는 질의응답용으로 열리는지만 본다.
@@ -241,11 +241,11 @@ D1 값은 §2.2다. 로컬 `mock` 경로에서는 옛 대본(FX-01 94 추천 →
 
 ### S-LIVE 실제 공고 (ADR-023)
 
-운영 `live` 실공고 run(§3.1 6번)으로 찍는다. 이 장면의 결과는 촬영 뒤 채운다.
+운영 `live` 실공고 run 가운데 동국대 44 보류(`RULES_WITH_KEV_ASSIST`·`MODEL_RULE_DISAGREEMENT`) run으로 찍는다(§3.1 6번, [[16-DECISIONS|ADR-068]]). 갈래는 외부 의존성 컷 규칙 첫 줄(실제 공고·실제 추론)이다.
 
-1. `/bids?origin=live`. 실제 공고 1건(`DEMO` 배지 없음, 출처 `g2b-bid-notice`)을 연다.
-2. 보여야 하는 것: 상단 요약에 실제 발주기관·예산·마감·원문 링크(실제 나라장터 URL), "공개 자료 회사 프로필로 분석" 배지. 분석 요약 띠에 "분석 실행 모드: live", "AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c", 분석 시각. 자격 체크리스트는 3값 + 사유 코드(`NEEDS_REVIEW`가 많아도 그대로), 점수 분해 5행, 결정 모델 참고 지표(고지 문구. 보정 상태 `UNCALIBRATED` 표시는 미구현, [[03-AI-PIPELINE|03]] §5.7), 근거 서랍에 API 필드·첨부 인용(나라장터 공고는 본문이 비어 있다). 첨부 배지 "첨부 원문 확인"(`PARSE_UNSUPPORTED`)·"첨부 원문 확인(내려받기 실패)"(`DOCUMENT_DOWNLOAD_FAILED`)가 나올 수 있다(`web/components/bids/labels.ts:179-180`). 처리 범위 밖 첨부(공고당 기본 3건 초과, `.pdf`·`.hwp`·`.hwpx` 아닌 것)는 `PENDING`으로 남는다([[16-DECISIONS|ADR-055]]).
-3. 말할 것: "지금까지는 가상 공고였다. 이 건은 실제 공고를 회사 Qwen API와 회사 GPU의 결정 모델로 분석한 결과다. 분석 요약 띠가 live 모드를 기록한다. 회사 프로필은 공개 자료로 만든 것이라 공개되지 않은 자격·실적은 빠져 있다." 첨부 일부만 반영됐을 수 있다고 밝힌다([[16-DECISIONS|ADR-056]]). 규칙만(`PARTIAL`·`RULES_ONLY`)이면 그 말을 그대로 한다. 번역 검증에 걸려 결정 모델을 건너뛴 run(부경대처럼 `RULES_ONLY`)이면 "결정 모델 참고 의견이 빠졌고 판정은 규칙이 했다"고 말한다.
+1. `/bids?origin=live`. 동국대 공고(`DEMO` 배지 없음, 출처 `g2b-bid-notice`)를 연다.
+2. 보여야 하는 것: 상단 요약에 실제 발주기관·예산·마감·원문 링크(실제 나라장터 URL), "공개 자료 회사 프로필로 분석" 배지. 분석 요약 띠에 "분석 실행 모드: live", "AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c", 분석 시각. 자격 체크리스트는 3값 + 사유 코드(`NEEDS_REVIEW`가 많아도 그대로), 점수 분해 5행, 결정 모델 참고 지표(고지 문구. 보정 상태 `UNCALIBRATED` 표시는 미구현, [[03-AI-PIPELINE|03]] §5.7)와 '규칙 우선(결정 모델 의견 상이)' 배지(`MODEL_RULE_DISAGREEMENT`), 근거 서랍에 API 필드·첨부 인용(나라장터 공고는 본문이 비어 있다). 첨부 배지 "첨부 원문 확인"(`PARSE_UNSUPPORTED`)·"첨부 원문 확인(내려받기 실패)"(`DOCUMENT_DOWNLOAD_FAILED`)가 나올 수 있다(`web/components/bids/labels.ts:179-180`). 처리 범위 밖 첨부(공고당 기본 3건 초과, `.pdf`·`.hwp`·`.hwpx` 아닌 것)는 `PENDING`으로 남는다([[16-DECISIONS|ADR-055]]).
+3. 말할 것: "지금까지는 가상 공고였다. 이 건은 실제 공고를 회사 Qwen API와 회사 GPU의 결정 모델로 분석한 결과다. 분석 요약 띠가 live 모드를 기록한다. 회사 프로필은 공개 자료로 만든 것이라 공개되지 않은 자격·실적은 빠져 있다." 결정 모델과 규칙이 엇갈린 것은 "판정은 규칙, 결정 모델은 참고, 결정은 사람"으로 말한다. 지연 숫자는 말하지 않는다(G3 지연 실측 없음). 첨부 일부만 반영됐을 수 있다고 밝힌다([[16-DECISIONS|ADR-056]]). 규칙만(`PARTIAL`·`RULES_ONLY`)이면 그 말을 그대로 한다. 번역 검증에 걸려 결정 모델을 건너뛴 run(부경대처럼 `RULES_ONLY`)이면 "결정 모델 참고 의견이 빠졌고 판정은 규칙이 했다"고 말한다.
 4. 보이지 않으면: 녹화가 없으면 장면을 빼고 Q&A에서 사유를 말한다. 실시간 추론으로 포장하지 않는다.
 
 ### S5 변경 감지와 멱등 (로컬 Compose 녹화, 클립 6)
@@ -293,7 +293,7 @@ D1 값은 §2.2다. 로컬 `mock` 경로에서는 옛 대본(FX-01 94 추천 →
 
 슬라이드 12의 카카오 10초다([[slides-spec|덱 제작 명세]] 부록 A). 실공고 추천은 실공고 분석이 있어야 나온다. 알림 전용 Worker 기동과 사용자 S0 수신 시험 뒤에 찍는다(`infra/company/README.md` §9.6, [[16-DECISIONS|ADR-054]]). 지금 카카오 연결은 0건이다. 실수신은 녹화 뒤에만 "확인"으로 적는다.
 
-1. 준비: 녹화할 계정이 운영 앱의 개인 설정 "카카오톡 알림"을 사용자 본인 카카오 계정과 연결하고 켠다([[06-UI-UX|06]] §5.10.1). 카카오 키는 사용자가 Vercel과 회사 Worker env에 넣고, 알림 Worker를 `NOTIFY_KAKAO_PROVIDER=memo`로 띄운다([[10-DEPLOYMENT|10 배포]] "카카오 앱 설정"). 값은 문서·로그에 적지 않는다. 지금 회사에서 도는 Worker는 수집·분석·Documents·기업마당 전용이라 운영 알림이 처리되지 않는다. 알림 전용 Worker(`infra/compose.notify-only.company.yaml`)는 준비만 됐고 아직 기동하지 않았다. 녹화 전에 `infra/company/README.md` §9 순서로 사용자 승인을 받아 띄운다.
+1. 준비: 녹화할 계정이 운영 앱의 개인 설정 "카카오톡 알림"을 사용자 본인 카카오 계정과 연결하고 켠다([[06-UI-UX|06]] §5.10.1). 카카오 키는 사용자가 Vercel과 회사 Worker env에 넣고, 알림 Worker는 처음에 `NOTIFY_KAKAO_PROVIDER`를 비운 기본값(발송 꺼짐)으로 띄워 그동안 쌓인 `BID_RECOMMENDED`를 `DEAD`로 정리한 뒤 `memo`로 바꾼다([[16-DECISIONS|ADR-068]], [[10-DEPLOYMENT|10 배포]] "카카오 앱 설정"). 값은 문서·로그에 적지 않는다. 지금 회사에서 도는 Worker는 수집·분석·Documents·기업마당 전용이라 운영 알림이 처리되지 않는다. 알림 전용 Worker(`infra/compose.notify-only.company.yaml`)는 준비만 됐고 아직 기동하지 않았다. 녹화 전에 `infra/company/README.md` §9 순서로 사용자 승인을 받아 띄운다.
 2. 실제 나라장터 공고 1건의 상세에서 [분석 실행]을 누른다. 추천 알림은 사람이 요청한 분석에서 추천·보류 권고가 처음 나온 공고에만 간다([[13-NOTIFICATIONS|13]]). 비추천이면 다른 실공고로 한다.
 3. 휴대폰 카카오톡 "나와의 채팅"에 피드 한 통(제목 공고명, 설명 `<권고> 권고 · <사유 한 줄>`, 발주처·마감·추정금액·점수, 버튼 [분석 보기]·[공고 원문])이 오는 장면을 녹화한다. [분석 보기]는 운영 도메인을 가리킨다. 휴대폰에서 버튼이 열리는지는 녹화 때 확인하고, 안 열리면 수신까지만 보여 준다.
 4. 말할 것: "실제 나라장터 공고를 우리 회사 기준으로 분석해 추천이 나오면, 알림을 켠 사람의 카카오톡으로 간다. 회사 프로필은 공개 자료로 만든 것이다. 해커톤에서는 카카오 '나에게 보내기'로 보내고, 운영에서는 알림톡으로 바꾼다."

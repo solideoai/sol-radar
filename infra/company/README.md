@@ -546,6 +546,8 @@ docker compose -f infra/compose.notify-only.company.yaml up -d --no-deps notify-
 
 기동하면 바로 outbox 회차와 마감 회차가 돈다. §9.1에서 센 이벤트가 인앱 알림으로 들어가고, 카카오 이벤트는 약 80초 안에 `DEAD`가 된다.
 
+첫 기동은 이 기본(카카오 꺼짐)으로 한다. 처음부터 `NOTIFY_KAKAO_PROVIDER=memo`로 띄우지 않는다. 쌓인 `BID_RECOMMENDED`를 `DEAD`로 정리한 뒤 §9.6에서 `memo`로 바꾼다(사용자 결정 2026-10-29, `docs/16-DECISIONS.md` ADR-068 6번).
+
 ### 9.5 D4 확인 (운영 영향 없음)
 
 ```bash

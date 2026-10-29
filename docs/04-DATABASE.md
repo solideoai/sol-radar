@@ -249,7 +249,7 @@ JSONB 구조는 [[05-API-SPEC|05 API 명세]]의 `CompanyProfile`과 같다. `li
 |`USER_INVITE`|`invitations` insert 트리거|
 |`USER_ROLE_CHANGE`|트리거 `log_membership_sol_role_audit`·`log_invitation_sol_role_audit`(`20261023000600`)|
 |`PROJECT_OPEN`, `PROJECT_STATUS_CHANGE`, `PROJECT_RESULT_RECORD`|DB 함수 `open_bid_project`·`change_bid_project_status`·`record_bid_project_result`(§3.8)|
-|`USER_DISABLE`|조직에서 내보내기(`DELETE /admin/users/:id`, §3.1 결정 3). 이 행을 쓰는 트리거·함수는 아직 없다|
+|`USER_DISABLE`|조직에서 내보내기(§3.1 결정 3. `DELETE /admin/users/:id`는 만들지 않는다, [[16-DECISIONS|ADR-068]]). 이 행을 쓰는 트리거·함수는 아직 없다|
 |`INGEST_MANUAL`|worker. 요청자(`actor_id`)와 요청자의 조직(`org_id`)은 job 데이터로 받는다|
 |`NOTIFICATION_READ`|`notifications.read_at` update 트리거|
 |`TEAM_MEMBER_CREATE`, `TEAM_MEMBER_UPDATE`|DB 함수 `create_team_member`·`update_team_member`(N4b, ADMIN). `before_after`는 바뀐 운영 정보(팀·직급·재직 상태)만 담는다|

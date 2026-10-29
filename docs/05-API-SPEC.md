@@ -82,10 +82,10 @@ updated: 2026-10-29
 |GET·POST|`/projects`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 생성 `ADMIN, SALES`|입찰 프로젝트 목록·생성. 생성은 추천(`BID`) 결정(`reviewId`) 필수(P1, ADR-021)|추천 결정이 없으면 `409 PROJECT_REQUIRES_BID_DECISION`|
 |GET·PATCH|`/projects/:id`|조회 `ADMIN, SALES, ANALYST, VIEWER` / 변경 `ADMIN, SALES`|상세, 상태·담당자·마감 덮어쓰기(P1, ADR-021)|최신 결정이 추천(`BID`)이 아니면 상태 전진 `409 LATEST_DECISION_NOT_BID`|
 |POST|`/projects/:id/result`|`ADMIN, SALES`|결과 기록(수동). 점수·결정 모델·학습에 쓰지 않는다(P1, ADR-021)|`{result, note?}` → `200 ProjectDetail`. `WON, LOST, CANCELLED, NOT_SUBMITTED`; 메모 최대 2000자|
-|GET|`/admin/users`|`ADMIN`|**(미구현)** 이 조직의 구성원 목록(템플릿 `memberships` + `profiles`)|`User[]`|
-|POST|`/admin/users/invite`|`ADMIN`|**(미구현)** 초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
-|PATCH|`/admin/users/:id`|`ADMIN`|**(미구현)** 업무 역할 변경(`memberships.sol_role`). `:id`는 구성원의 사용자 ID(`profiles.id`). 이 조직 구성원이 아니면 `404`|`UserPatch` → `200 User`|
-|DELETE|`/admin/users/:id`|`ADMIN`|**(미구현)** 비활성화 = 이 조직에서 내보내기(`memberships` 행 삭제, 템플릿 구성원 기능). 계정 자체 정지(`profiles.status='suspended'`)는 서비스 운영자(`profiles.is_admin`) 기능이라 이 API에 없다|`204`|
+|GET|`/admin/users`|`ADMIN`|**(만들지 않음)** 이 조직의 구성원 목록(템플릿 `memberships` + `profiles`)|`User[]`|
+|POST|`/admin/users/invite`|`ADMIN`|**(만들지 않음)** 초대(이메일·업무 역할). 템플릿 조직 초대 기능: `invitations` 행 + 초대 메일(SMTP 설정이 없으면 메일 없이 초대만 저장)|`InviteInput` → `201 Invitation`|
+|PATCH|`/admin/users/:id`|`ADMIN`|**(만들지 않음)** 업무 역할 변경(`memberships.sol_role`). `:id`는 구성원의 사용자 ID(`profiles.id`). 이 조직 구성원이 아니면 `404`|`UserPatch` → `200 User`|
+|DELETE|`/admin/users/:id`|`ADMIN`|**(만들지 않음)** 비활성화 = 이 조직에서 내보내기(`memberships` 행 삭제, 템플릿 구성원 기능). 계정 자체 정지(`profiles.status='suspended'`)는 서비스 운영자(`profiles.is_admin`) 기능이라 이 API에 없다|`204`|
 |POST|`/admin/ingestion/runs`|`ADMIN`|수동 수집(멱등, §1). 소스는 `g2b`(나라장터 Open API), 외부 서비스 `kwater`·`lh`·`kepco`([[16-DECISIONS\|ADR-047]]) 또는 `fixture`. 실행 모드와 맞지 않는 소스는 `409 RUN_MODE_MISMATCH`. 검사 순서: 역할 → `Idempotency-Key` 형식 → 본문 크기(16KB) → 속도 제한 → 본문 검증(`window.to`가 지금보다 5분 넘게 미래면 400) → 실행 모드 → 멱등 재현 → 서비스 준비(나라장터 입찰공고 밖 서비스, 즉 조달요청·K-water·LH·KEPCO만. Worker가 남긴 서비스 상태가 준비가 아니면 `503 {component:"source"}`) → 진행 중(같은 source의 `RUNNING` 행이면 `409 INGESTION_IN_PROGRESS {runId}`. 큐에만 있는 job은 막지 않는다. worker가 jobKey로 멱등 처리한다) → (fixture 밖 공공 API 소스만) 정기 일정 등록 확인(없으면 `503 {component:"ingest-worker"}`) → 수동 gate(§5 `MANUAL_*`) → 키 잡기 → 큐. Route Handler는 job만 넣는다. run id를 만들어 job data `runId`로 넘기고, worker가 그 id로 `ingest_runs` 행을 만든다. 202 본문은 행이 생기기 전 모습(`status:"RUNNING"`, summary 0)을 합성한 것이다(§6.5)|`IngestionRunInput` → `202 IngestionRun`|
 |GET|`/admin/ingestion/runs`|`ADMIN`|수집 이력. `started_at desc, id desc` keyset, 조직에 묶인 HMAC 커서(커서 비밀이 없으면 `503 {component:"cursor"}`)|`?cursor&limit` → `Page<IngestionRun>`|
 |GET|`/admin/ingestion/runs/:id`|`ADMIN`|수집 결과·오류. id가 UUID가 아니거나 행이 없으면 `404 {resource:"ingestionRun"}`. 202 뒤 worker가 행을 만들기 전에도 404이고, 화면은 이력 표를 polling한다|`IngestionRun`|
@@ -96,7 +96,7 @@ updated: 2026-10-29
 |GET|`/admin/ai/eval-runs`|`ADMIN`|**(미구현)** 평가 실행 요약 목록|`?cursor&limit` → `Page<EvalRunSummary>`|
 |GET|`/admin/ai/eval-runs/:id`|`ADMIN`|**(미구현)** 평가 리포트 전체|`EvalRunReport`|
 
-**(미구현)**·**(만들지 않음)**을 붙인 행은 Route Handler가 없어 404다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5.2 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다. `/admin/users*` 대신 업무 역할 변경·초대·초대 취소·가입 승인은 업무 화면 `/settings/organization`의 서버 액션(`web/app/(app)/(work)/settings/organization/actions.ts`, [[16-DECISIONS|ADR-021]] N2)이 맡는다. 템플릿 구성원 화면(`/[slug]/settings/members`)과 계정 정지 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)도 남아 있다.
+**(미구현)**·**(만들지 않음)**을 붙인 행은 Route Handler가 없어 404다. `/admin/sources`가 없으므로 [[11-TESTING|11]] §5.2 4번의 오늘 호출량은 Redis 예산 카운터와 `/admin/ingestion` 실행 상세의 호출 수로 본다. `/admin/users*`는 만들지 않는다([[16-DECISIONS|ADR-068]] 2번). 업무 역할 변경·초대·초대 취소·가입 승인은 업무 화면 `/settings/organization`의 서버 액션(`web/app/(app)/(work)/settings/organization/actions.ts`, [[16-DECISIONS|ADR-021]] N2)이 맡는다. 템플릿 구성원 화면(`/[slug]/settings/members`)과 계정 정지 템플릿 API(`/api/admin/users/:id/status`, 서비스 운영자 전용)도 남아 있다.
 
 로그인·로그아웃·비밀번호 재설정·초대 수락·토큰 갱신은 이 API에 없다. Supabase Auth가 맡고, 화면은 템플릿의 `/auth/login`·`/auth/reset`·`/auth/password`와 조직 초대 수락 화면이다(§6.1, [[09-SECURITY|09 보안]] 인증). Auth 콜백 Route Handler `/auth/callback`·`/auth/confirm`도 템플릿 것이고 이 계약 밖이다. 세션 갱신은 `@supabase/ssr`가 한다(화면 요청은 `web/proxy.ts`).
 
