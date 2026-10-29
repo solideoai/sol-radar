@@ -26,7 +26,7 @@ export default defineConfig({
   // 그래서 뒤늦게 들어온 부품의 의존성은 include 에 적어 처음부터 묶는다.
   optimizeDeps: {
     entries: ["**/*.browser.test.tsx"],
-    include: ["@base-ui/react/switch"],
+    include: ["@base-ui/react/switch", "@base-ui/react/autocomplete"],
   },
   resolve: {
     alias: {
