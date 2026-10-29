@@ -14,6 +14,7 @@ import type {
 import type { AnalysisRunRecord, ExtractionRecord } from "./analysis.model";
 import type { AnalysisRunSink, ExtractionStore } from "./analysis.service";
 import {
+  ANALYSIS_READS_ATTACHMENT_TEXT,
   isOwnPreanalyzeRun,
   toExtractSource,
   toExtractionRow,
@@ -23,6 +24,12 @@ import {
   toRunningUpdate,
   type AttachmentTextReader,
 } from "./analysis-store.model";
+import {
+  splitBySource,
+  toItBatchRunRow,
+  type ItBatchCandidate,
+  type ItBatchStore,
+} from "./it-batch.model";
 import {
   DEMO_ORG_SLUG,
   toDemoBidRows,
@@ -461,6 +468,206 @@ export function createPreanalyzeStore(client: SupabaseClient<Database>): Preanal
         throw new Error("analysis store 오류: score_runs.select CONFLICT");
       }
       return toRunOrThrow(run.data, "select");
+    },
+
+    async readStatuses(orgId, ids) {
+      if (ids.length === 0) return [];
+      const runs = await client
+        .from("score_runs")
+        .select("id, status")
+        .in("id", [...ids])
+        .eq("org_id", orgId);
+      if (runs.error) throw storeError("score_runs", "status", runs.error);
+      return runs.data.map((row) => toRunOrThrow(row, "status"));
+    },
+  };
+}
+
+// ── IT 공고 일괄 분석 저장 port(`pnpm it:batch-analyze`, ADR-069) ──
+// worker 컨테이너에서 service role 클라이언트로 돈다. 조직 표(company_profiles·score_runs)는 모든 질의·쓰기에 org_id 를 건다.
+// 쓰기는 score_runs 넣기 하나다. 같은 멱등 키나 같은 입력의 진행 중 run 이 있으면 아무것도 바꾸지 않고 그 run 을 돌려준다.
+
+/** 한 번에 읽는 행 수. PostgREST 최대 행 수(1,000)보다 작게 두고 range 로 이어 읽는다. */
+const IT_BATCH_PAGE_SIZE = 500;
+/** in(…) 에 넣는 id 수. 요청 URL 이 길어지지 않게 나눈다. */
+const IT_BATCH_ID_CHUNK = 100;
+/** 분석 가능한 첨부의 파싱 상태(@/server/bids ANALYZABLE_PARSE_STATUSES 와 같다). */
+const IT_BATCH_PARSE_STATUSES = ["PARSED", "PARTIAL"];
+/** 마감 전 상태. 뷰의 status 는 마감이 지난 OPEN·AMENDED 를 CLOSED 로 바꿔 준다. */
+const IT_BATCH_OPEN_STATUSES = ["OPEN", "AMENDED"];
+/** 같은 입력(공고·revision·프로필·알고리즘)의 진행 중 run 은 하나다(20261019000004). */
+const ACTIVE_INPUT_CONSTRAINT = "score_runs_active_input_key";
+const UNIQUE_VIOLATION = "23505";
+
+function chunksOf<T>(items: readonly T[], size: number): T[][] {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
+    items.slice(index * size, (index + 1) * size),
+  );
+}
+
+function isActiveInputConflict(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === UNIQUE_VIOLATION &&
+    (error.message ?? "").includes(`"${ACTIVE_INPUT_CONSTRAINT}"`)
+  );
+}
+
+/** service role 클라이언트로 일괄 분석 저장 port 를 만든다. 클라이언트는 받기만 하고 모듈에 담아 두지 않는다. */
+export function createItBatchStore(client: SupabaseClient<Database>): ItBatchStore {
+  /** 대상 조건에 맞는 목록 행(공고 id·최신 revision id). 마감 임박 순이고 같으면 공고 id 순이다. */
+  async function listOpenRows(
+    orgId: string,
+    asOf: Date,
+  ): Promise<{ bidId: string; revisionId: string }[]> {
+    const rows: { bidId: string; revisionId: string }[] = [];
+    for (let from = 0; ; from += IT_BATCH_PAGE_SIZE) {
+      const page = await client
+        .from("opportunity_list_items")
+        .select("bid_id, revision_id")
+        .eq("org_id", orgId)
+        .eq("it_scope", true)
+        .eq("is_demo", false)
+        .neq("source", DEMO_BID_SOURCE)
+        .eq("stage", "NOTICE")
+        .in("status", IT_BATCH_OPEN_STATUSES)
+        .gt("deadline_at", asOf.toISOString())
+        .is("sol_score", null)
+        .or("latest_run_status.is.null,latest_run_status.eq.FAILED")
+        .order("deadline_at", { ascending: true })
+        .order("bid_id", { ascending: true })
+        .range(from, from + IT_BATCH_PAGE_SIZE - 1);
+      if (page.error) throw storeError("opportunity_list_items", "select", page.error);
+      for (const row of page.data) {
+        if (row.bid_id !== null && row.revision_id !== null) {
+          rows.push({ bidId: row.bid_id, revisionId: row.revision_id });
+        }
+      }
+      if (page.data.length < IT_BATCH_PAGE_SIZE) return rows;
+    }
+  }
+
+  /** 분석 가능한 첨부(PARSED·PARTIAL, 텍스트 객체 있음)가 하나라도 있는 revision id. */
+  async function revisionsWithDocument(revisionIds: readonly string[]): Promise<Set<string>> {
+    const found = new Set<string>();
+    for (const chunk of chunksOf(revisionIds, IT_BATCH_ID_CHUNK)) {
+      for (let from = 0; ; from += IT_BATCH_PAGE_SIZE) {
+        const documents = await client
+          .from("bid_documents")
+          .select("revision_id")
+          .in("revision_id", chunk)
+          .in("parse_status", IT_BATCH_PARSE_STATUSES)
+          .not("text_object_key", "is", null)
+          .order("id", { ascending: true })
+          .range(from, from + IT_BATCH_PAGE_SIZE - 1);
+        if (documents.error) throw storeError("bid_documents", "select", documents.error);
+        for (const row of documents.data) {
+          if (row.revision_id !== null) found.add(row.revision_id);
+        }
+        if (documents.data.length < IT_BATCH_PAGE_SIZE) break;
+      }
+    }
+    return found;
+  }
+
+  return {
+    async findOrgBySlug(slug) {
+      const org = await client.from("organizations").select("id").eq("slug", slug).maybeSingle();
+      if (org.error) throw storeError("organizations", "select", org.error);
+      return org.data === null ? null : org.data.id;
+    },
+
+    async latestProfile(orgId) {
+      const profile = await client
+        .from("company_profiles")
+        .select("id, revision")
+        .eq("org_id", orgId)
+        .order("revision", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (profile.error) throw storeError("company_profiles", "select", profile.error);
+      return profile.data === null
+        ? null
+        : { id: profile.data.id, revision: profile.data.revision };
+    },
+
+    async listTargets(orgId, asOf) {
+      const rows = await listOpenRows(orgId, asOf);
+      const candidates: ItBatchCandidate[] = [];
+      for (const chunk of chunksOf(rows, IT_BATCH_ID_CHUNK)) {
+        const revisions = await client
+          .from("bid_revisions")
+          .select("id, revision, content:normalized->>content")
+          .in(
+            "id",
+            chunk.map((row) => row.revisionId),
+          );
+        if (revisions.error) throw storeError("bid_revisions", "select", revisions.error);
+        const byId = new Map(revisions.data.map((revision) => [revision.id, revision]));
+        for (const row of chunk) {
+          const revision = byId.get(row.revisionId);
+          if (revision === undefined) continue;
+          candidates.push({
+            bidId: row.bidId,
+            revisionId: revision.id,
+            revision: revision.revision,
+            content: revision.content,
+          });
+        }
+      }
+      // 첨부를 읽지 않는 분석이면 첨부를 세지 않는다(화면의 원문 준비 판정과 같다).
+      const withDocument = ANALYSIS_READS_ATTACHMENT_TEXT
+        ? await revisionsWithDocument(candidates.map((candidate) => candidate.revisionId))
+        : new Set<string>();
+      const split = splitBySource(candidates, withDocument, ANALYSIS_READS_ATTACHMENT_TEXT);
+      // 최신 revision 행이 없는 공고도 분석할 글이 없다(화면 판정과 같다).
+      return { ...split, skippedNoSource: split.skippedNoSource + rows.length - candidates.length };
+    },
+
+    async ensureQueuedRun(input) {
+      const row = toItBatchRunRow(input);
+      const inserted = await client
+        .from("score_runs")
+        .upsert(row, { onConflict: "idempotency_key", ignoreDuplicates: true })
+        .select("id, status");
+      if (inserted.error) {
+        if (!isActiveInputConflict(inserted.error)) {
+          throw storeError("score_runs", "insert", inserted.error);
+        }
+        // 같은 입력의 진행 중 run(화면 [분석] 등)이 먼저 있다. 새로 넣지 않고 그 run 을 돌려준다.
+        const active = await client
+          .from("score_runs")
+          .select("id, status")
+          .eq("org_id", input.orgId)
+          .eq("bid_id", input.bidId)
+          .eq("revision_id", input.revisionId)
+          .eq("company_profile_id", input.companyProfileId)
+          .eq("algorithm_version", row.algorithm_version)
+          .in("status", ACTIVE_RUN_STATUSES)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (active.error) throw storeError("score_runs", "active", active.error);
+        if (active.data === null)
+          throw new Error("analysis store 오류: score_runs.active NOT_FOUND");
+        return { ...toRunOrThrow(active.data, "active"), created: false };
+      }
+      const created = inserted.data.at(0);
+      if (created !== undefined) return { ...toRunOrThrow(created, "insert"), created: true };
+
+      // 같은 멱등 키의 run 이 이미 있다(on conflict do nothing). 그 키로 다시 읽는다.
+      const run = await client
+        .from("score_runs")
+        .select(PREANALYZE_RUN_COLUMNS)
+        .eq("idempotency_key", input.idempotencyKey)
+        .eq("org_id", input.orgId)
+        .maybeSingle();
+      if (run.error) throw storeError("score_runs", "select", run.error);
+      if (run.data === null) throw new Error("analysis store 오류: score_runs.select NOT_FOUND");
+      // 사전 분석과 같은 판정이다: requested_by 가 없고 같은 공고·revision·프로필이어야 이 일괄 분석의 run 이다.
+      if (!isOwnPreanalyzeRun(run.data, input)) {
+        throw new Error("analysis store 오류: score_runs.select CONFLICT");
+      }
+      return { ...toRunOrThrow(run.data, "select"), created: false };
     },
 
     async readStatuses(orgId, ids) {
