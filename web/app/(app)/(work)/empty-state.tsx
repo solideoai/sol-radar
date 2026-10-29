@@ -37,10 +37,12 @@ export function EmptyState({
   );
 }
 
-// 공고가 한 건도 없을 때(대시보드·목록 같은 문구, 06 §5.3·§5.4, 미결정 26-6).
-// ADMIN 은 [수집 실행] 단추로 /admin/ingestion 에 간다(그 화면의 [수동 수집 실행] 대화상자로 돌린다).
+// IT 공고가 한 건도 없을 때(대시보드·목록 같은 문구, 06 §5.3·§5.4, 미결정 26-6).
+// 목록·집계는 IT 범위만 세므로(ADR-069) IT 밖 공고가 저장돼 있어도 0건일 수 있다. 그래서 "수집된 공고가 없다"고 하지 않고 범위를 밝힌다.
+// ADMIN 은 [수집 실행] 단추로 /admin/ingestion 에 간다(그 화면의 [수동 수집 실행] 대화상자로 돌린다). 새 IT 공고도 수집으로만 들어온다.
 // 다른 역할은 그 화면에 들어갈 수 없으므로 단추 없이 요청 안내만 본다.
-export const NO_BIDS_TITLE = "아직 수집된 공고가 없습니다";
+export const NO_BIDS_TITLE = "아직 IT 공고가 없습니다";
+const NO_BIDS_SCOPE = "IT 분야가 아닌 공고는 목록과 집계에서 뺍니다.";
 export const NO_BIDS_HINT = "관리자에게 수집을 요청하세요";
 export const NO_BIDS_ACTION_LABEL = "수집 실행";
 
@@ -49,11 +51,18 @@ export const canRunIngestion = (role: SolRole): boolean => role === "ADMIN";
 
 export function NoBidsEmptyState({ canRun }: { canRun: boolean }) {
   if (!canRun)
-    return <EmptyState icon={InboxIcon} title={NO_BIDS_TITLE} description={NO_BIDS_HINT} />;
+    return (
+      <EmptyState
+        icon={InboxIcon}
+        title={NO_BIDS_TITLE}
+        description={`${NO_BIDS_SCOPE} ${NO_BIDS_HINT}`}
+      />
+    );
   return (
     <EmptyState
       icon={InboxIcon}
       title={NO_BIDS_TITLE}
+      description={NO_BIDS_SCOPE}
       action={
         <Link href={INGESTION_PATH} className={cn(buttonVariants({ variant: "outline" }))}>
           {NO_BIDS_ACTION_LABEL}

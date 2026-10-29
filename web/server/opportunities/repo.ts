@@ -79,27 +79,21 @@ const itemOf = (r: Row) =>
     changedAt: r.changed_at,
   });
 
-// 우선 묶음(relevance_rank, AI 1·SI 2·나머지 3)·선택 정렬·UUID를 같은 순서로 비교한다. null은 끝에 두며 서명된 값도 PostgREST 문법에 맞게 인용한다.
+// listOpportunities 의 정렬과 같은 순서로 비교한다. AI·SI 우선이 켜져 있으면 고른 정렬과 상관없이 우선 묶음
+// (relevance_rank, AI 1·SI 2·나머지 3)이 먼저이고(2026-10-29 사용자 결정, ADR-069), 그다음 고른 정렬·UUID 다.
+// null은 끝에 두며 서명된 값도 PostgREST 문법에 맞게 인용한다.
 export function opportunityKeyset(q: OpportunityQuery, c: OpportunityCursor): string {
   const col = SORT_COLUMNS[q.sort],
-    id = `id.gt.${quoted(c.id)}`,
-    rank = `relevance_rank.gt.${c.rank}`,
-    rankEq = `relevance_rank.eq.${c.rank}`;
-  const tie = q.siAiFirst ? `or(${rank},and(${rankEq},${id}))` : id;
+    id = `id.gt.${quoted(c.id)}`;
   const dir = ascending(q.sort) ? "gt" : "lt";
   const val = c.value === null ? `${col}.is.null` : `${col}.eq.${quoted(c.value)}`;
-  const tail =
+  const within =
     c.value === null
-      ? `and(${val},${tie})`
-      : `or(${col}.${dir}.${quoted(c.value)},${col}.is.null,and(${val},${tie}))`;
-  if (q.siAiFirst && !q.sortExplicit) {
-    const within =
-      c.value === null
-        ? `and(${col}.is.null,${id})`
-        : `or(${col}.${dir}.${quoted(c.value)},${col}.is.null,and(${val},${id}))`;
-    return `or(${rank},and(${rankEq},${within}))`;
-  }
-  return tail;
+      ? `and(${val},${id})`
+      : `or(${col}.${dir}.${quoted(c.value)},${col}.is.null,and(${val},${id}))`;
+  return q.siAiFirst
+    ? `or(relevance_rank.gt.${c.rank},and(relevance_rank.eq.${c.rank},${within}))`
+    : within;
 }
 
 export function filtered(client: Client, orgId: string, q: OpportunityQuery, asOf: string) {
@@ -173,13 +167,11 @@ export async function listOpportunities(
     );
   const asOf = c?.asOf ?? q.asOf ?? new Date().toISOString();
   let request = filtered(client, orgId, q, asOf);
-  if (q.siAiFirst && !q.sortExplicit)
-    request = request.order("relevance_rank", { ascending: true });
+  if (q.siAiFirst) request = request.order("relevance_rank", { ascending: true });
   request = request.order(SORT_COLUMNS[q.sort], {
     ascending: ascending(q.sort),
     nullsFirst: false,
   });
-  if (q.siAiFirst && q.sortExplicit) request = request.order("relevance_rank", { ascending: true });
   request = request.order("id", { ascending: true });
   if (c) request = request.or(opportunityKeyset(q, c));
   const [result, total] = await Promise.all([
