@@ -48,4 +48,20 @@ describe("지원사업 IT 판정(ADR-069)", () => {
     expect(none.items).toEqual([]);
     expect(none.hasAnyNotice).toBe(false);
   });
+
+  it("쌍둥이 공고는 한쪽만 IT 여도 묶음으로 남고 기업마당 사본이 보인다", async () => {
+    // 기업마당 요약에는 IT 단어가 없고 중기부 쌍둥이 요약에만 "클라우드"가 있다.
+    const bizinfo = { ...row("biz", "소상공인 경영 지원사업 공고"), dedupe_key: "twin" };
+    const mss = {
+      ...row("mss", "소상공인 경영 지원사업 공고", "클라우드 전환 비용 지원"),
+      source: "mss",
+      dedupe_key: "twin",
+    };
+    expect(isItProgramNotice(bizinfo)).toBe(false);
+    expect(isItProgramNotice(mss)).toBe(true);
+
+    const shown = await list([bizinfo, mss]);
+    expect(shown.items.map((item) => item.id)).toEqual(["biz"]);
+    expect(shown.hasAnyNotice).toBe(true);
+  });
 });
