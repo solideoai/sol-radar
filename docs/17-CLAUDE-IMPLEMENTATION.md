@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - hackathon
   - ops
-updated: 2026-10-27
+updated: 2026-10-29
 ---
 
 # 17. Claude Code 구현 운영 규칙
@@ -41,16 +41,19 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 �
 - 작업을 묶어 대량 변경하기 전에 변경 파일 및 검증 명령 계획부터 정리할 것.
 
 ## 해커톤 모드
+
+운영 배포는 Vercel web 단독(함수 지역 `syd1`, `vercel.json`)과 회사 Compose다. 회사 Compose는 기존 Redis에 붙는 redis-api·AI gateway와 ingest·analysis·documents·기업마당 전용 Worker를 띄운다. 알림 전용 Worker는 준비만 했고 기동하지 않았다([[16-DECISIONS|ADR-049]], [회사 실행서](../infra/company/README.md) §7~§10, [[10-DEPLOYMENT|10 배포]]). 지금 운영 상태는 [[PROGRESS]]다. Vercel 배포·회사 컨테이너 교체·`pnpm db:push` 같은 운영 변경은 검증 결과를 준비한 뒤 사용자 승인을 받고 한다. 로컬 Compose는 대체 경로·녹화·시험용이다.
+
 ### 우선순위 (ADR-023·042·054)
 1. [[12-ROADMAP|12 로드맵]] **Critical Path C0~C9**를 순서와 선행 조건대로 끝낸다. 독립 작업은 병렬, 같은 파일은 한 작업자. P0-0(C1)은 서비스키·GPU 접속 정보가 들어오는 즉시 다른 작업과 나란히 시작하고, 막힌 항목은 즉시 사용자에게 보고한다. 회사 GPU의 모델 기동·GPU 메모리 배분은 회사 운영이라 우리는 하지 않는다([[16-DECISIONS|ADR-025]]).
 2. 핵심 컷(S2·S3·S4·S-LIVE·S6·S7)이 전부 green(테스트 + [[10-DEPLOYMENT|10 배포]] 기동 절차 리허설)이기 전에는 확장 컷에 착수하지 않는다. 핵심 + 확장이 green이기 전에는 P1에 착수하지 않는다 — 예외는 9번이고, P1 다섯 화면([[16-DECISIONS|ADR-042]])은 모두 끝났다. 공식 제출은 2026-11-03, 발표는 2026-11-04다([[16-DECISIONS|ADR-054]]). 남은 날은 [[12-ROADMAP|12 로드맵]] 남은 일정 제안 표(사용자 확인 전)다. 이미 구현된 코드와 진행 중인 브랜치는 지우거나 중단하지 않는다.
-3. Phase 5는 mock adapter(CI용)를 먼저 만들고, 그다음 Qwen3.8-Flash-Next 실추출(P0-4) → Bosun 실추론(P0-6) → `/explain` 순서다. E3 실험의 입력·라벨·하네스 인터페이스는 C4·C5와 병렬로 준비하고, 실행은 모델 경로가 준비된 뒤 한다. 시험과 CI는 계속 `SOL_RUN_MODE=mock`으로 돈다.
-4. S-LIVE는 첨부 처리 회사 반영 뒤 운영 실공고 run으로 보인다([[16-DECISIONS|ADR-054]]). 어느 갈래인지는 12 로드맵 외부 의존성 컷 규칙으로 밝힌다. 녹화·fixture 결과를 live라고 표시하지 않는다.
+3. Phase 5는 mock adapter(CI용)를 먼저 만들고, 그다음 Qwen3.8-Flash-Next 실추출(P0-4) → Bosun 실추론(P0-6) → `/explain` 순서다. E3 실험을 포함한 평가 실험 E0~E3는 발표 뒤 진행 예정이다([[16-DECISIONS|ADR-067]]). 시험과 CI는 계속 `SOL_RUN_MODE=mock`으로 돈다.
+4. S-LIVE는 운영 실공고 run으로 보인다([[16-DECISIONS|ADR-054]]). 첨부 처리(Documents Worker)는 회사에서 운영 중이고, 운영 실공고 분석은 2026-10-29 회사 AI gateway 교체 뒤 돌았다([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). S-LIVE 녹화는 남았다. 어느 갈래인지는 12 로드맵 외부 의존성 컷 규칙으로 밝힌다. 녹화·fixture 결과를 live라고 표시하지 않는다.
 5. 시간이 부족해도 범위를 임의로 줄이지 않는다. 보고 형식의 "해커톤 컷 영향" 줄에 선택지를 적고 사용자가 결정한다.
 6. Phase 0 완료(C0) 시점부터 `mock` 모드 Compose 기동(`docker compose -f infra/compose.yaml up -d --build`, [[10-DEPLOYMENT|10 배포]] 기동 절차)이 항상 되어야 한다. 기동 절차 1~7은 Compose·Dockerfile·환경변수 계약·런타임 의존성·컨테이너 진입점을 바꾸거나 데모 스택을 통합할 때 실행한다. 일반 화면·문구·순수 계산 변경마다 다시 기동하지 않는다(ADR-046). C9에는 세 실행 모드 기동 리허설, 엔드포인트 재접속 확인, 로컬 Supabase CLI 전환 리허설을 넣는다.
 7. 제출물(`docs/submission/`) 구조는 지금부터 병렬로 채우되, 미구현 화면을 완성품으로, 미검증 수치를 성과로 쓰지 않는다.
-8. 파인튜닝 트랙 X6([[16-DECISIONS|ADR-034]])의 실행 여부는 미결정이다([[16-DECISIONS|ADR-054]]). 작업자가 겹치면 핵심 컷이 먼저다. 학습(F1·F2·F3)은 회사가 실행하고, 우리는 평가셋·학습셋 번들·학습 요청서·E4 평가를 맡는다. Bosun LoRA는 E4로 공개 Bosun(E1')과 비교만 한다. 데모 앱과 레지스트리 서빙 항목(`bosun-v3.1-0.6b`)은 바꾸지 않고, 데모·S-LIVE 모델은 공개 Bosun v3.1 0.6B 그대로다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정). 실행 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다.
-9. 데모 강화 컷([[16-DECISIONS|ADR-037]] BOOST-2), 확장 컷 4건([[16-DECISIONS|ADR-039]]), 부처 지원사업 공고([[16-DECISIONS|ADR-040]]), 카카오톡 추천 공고([[16-DECISIONS|ADR-038]]), P1 다섯 화면([[16-DECISIONS|ADR-042]])은 핵심 컷과 나란히 진행했고 모두 main에 들어갔다. 메일 알림([[16-DECISIONS|ADR-041]])은 해커톤에서 뺐다. 이 영역을 고칠 때도 추가형으로만 만든다: 핵심 컷 코드 경로와 계약(수집 저장 RPC, analysis job, `analyze()` 계산식, 골든 94/72/68)을 바꾸지 않는다. 새 띠·스위치에 확률·승률·"수주 가능성"처럼 읽히는 수치·문구를 두지 않는다(ADR-007).
+8. 파인튜닝 트랙 X6([[16-DECISIONS|ADR-034]])는 발표 뒤 진행 예정이다([[16-DECISIONS|ADR-067]]). 해커톤 안 일정에 넣지 않고, 발표 뒤 날짜도 정하지 않았다. 회사 GPU에서 학습을 시작하는 일은 실행 직전에 사용자 확인을 받는다. 학습(F1·F2·F3)은 회사가 실행하고, 우리는 평가셋·학습셋 번들·학습 요청서·E4 평가를 맡는다. Bosun LoRA는 E4로 공개 Bosun(E1')과 비교만 한다. 데모 앱과 레지스트리 서빙 항목(`bosun-v3.1-0.6b`)은 바꾸지 않고, 데모·S-LIVE 모델은 공개 Bosun v3.1 0.6B 그대로다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정). 실행 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]]다.
+9. 데모 강화 컷([[16-DECISIONS|ADR-037]] BOOST-2), 확장 컷 4건([[16-DECISIONS|ADR-039]]), 부처 지원사업 공고([[16-DECISIONS|ADR-040]]), 카카오톡 추천 공고([[16-DECISIONS|ADR-038]]), P1 다섯 화면([[16-DECISIONS|ADR-042]]), 새 메뉴 3개([[16-DECISIONS|ADR-060]]), 추천 분석([[16-DECISIONS|ADR-066]])은 핵심 컷과 나란히 진행했고 모두 main에 들어갔다. 메일 알림([[16-DECISIONS|ADR-041]])은 해커톤에서 뺐다. 이 영역을 고칠 때도 추가형으로만 만든다: 핵심 컷 코드 경로와 계약(수집 저장 RPC, analysis job, `analyze()` 계산식, 골든 94/72/68)을 바꾸지 않는다. 새 띠·스위치에 확률·승률·"수주 가능성"처럼 읽히는 수치·문구를 두지 않는다(ADR-007).
 
 ### 해커톤 검증 정책 (ADR-046, 2026-10-21 사용자 승인)
 
@@ -75,7 +78,7 @@ Claude Code에 다음을 요청한다: [[00-README|00 인덱스]]부터 읽고 �
 - 새 테스트는 계산·권한·저장·외부 입력 계약·실제 결함 재현에 집중한다. RLS·조직 격리·골든 94/72/68·정보 부족·모델 장애·DEMO 표시·사람 결정 저장은 유지한다.
 
 ### 증거 저장 (`docs/evidence/`)
-각 Phase 끝에 저장한다. 구조:
+작업 단위 폴더 아래에 저장한다. Phase 증거는 `phase-N/`, 기능·운영 기록은 주제 폴더(`deployment/`, `company-rollout/` 등)이고, 날짜가 있는 기록은 `YYYYMMDD` 하위 폴더를 쓴다(`docs/evidence/README.md`). 구조 예:
 ```text
 docs/evidence/
   phase-0/
@@ -85,16 +88,13 @@ docs/evidence/
     external-deps.md          # P0-0 외부 의존성 점검 항목별 결과 (11 §3.3)
     screenshots/
   phase-3/
-    screenshots/
-      20261016-phase3-bids-list-loaded-1440.png
-      20261016-phase3-bids-list-empty-1440.png
-      20261016-phase3-bid-detail-completed-1440.png
-      20261016-phase3-bid-detail-completed-1280.png
+    YYYYMMDD-phase3-bids-list-loaded-1440.png
+    YYYYMMDD-phase3-bid-detail-completed-1280.png
+  <주제>/YYYYMMDD/            # 예: company-rollout/20261029/ — 운영 반영·확인 기록
   eval/                       # 평가 리포트 숫자 요약·오류 분석 요약 (21 §4). RFP 원문 금지
-  bosun-train-feasibility.md  # LoRA 메모리 검증 결과 (22 §4.2, X6을 실행하면 회사 측 실행 뒤)
+  bosun-train-feasibility.md  # LoRA 메모리 검증 결과 (22 §4.2, X6(발표 뒤)를 회사가 실행한 뒤)
   demo-day/
-    compose-ps.txt
-    health-ready.json
+    <날짜 폴더>/              # compose ps·health 응답·화면 확인
     rehearsal-log.md
 ```
 전체 목록과 파일명은 [[11-TESTING|11 테스트]] §6을 따른다. LoRA 메모리 검증 절차는 [[22-FINETUNE-RUNBOOK|22 파인튜닝 실행서]] §4.2다. 서비스키 값·엔드포인트 인증 키·실제 RFP 원문·공공 API 응답의 담당자 개인정보는 증거에 넣지 않는다.
