@@ -135,6 +135,7 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-29 · 사용자 승인으로 새 브랜치의 커밋 메시지 검사 범위를 `origin/main..HEAD`로 조정(기준 없음·공통 조상 없음은 실패, 제목 50자·형식과 다른 게이트 유지) · 회귀 3건의 수정 전 실패 확인, 커밋·푸시 검사 시험 33건 및 `pnpm verify:changed` 통과(루트 299·웹 995시험). 실제 브랜치 신규 1커밋 검사 통과. [기록](evidence/verification/20261029-new-branch-base.json)
 - 2026-10-29 · `feat/landing-demo-motion`에서 [업무 데모 애니메이션](../polaris/specs/done/2026-10-29-landing-demo-motion.md) 구현: 수집·상세 패널 전개, 클릭·완료·인용·관심 등록 강조, 22단계·24.68초 유지 · 전체 검증 범위 통과(공통 296시험 성공 재사용, E2E 타입 오류 수정 후 웹 995·AI 264·결정 57시험·빌드 통과), 업무 데모 E2E 3건, 1440×900·1280×800 한 바퀴·가로 넘침 확인. [기록](evidence/landing-motion/20261029-implementation.json). 운영 배포 전
 - 2026-10-29 · 카카오톡 링크 공유용 OG 이미지(1200×630) 생성, 루트 `opengraph-image.png`·대체 텍스트·운영 `metadataBase` 연결 · `pnpm verify:changed` 통과(117파일·995시험), 로컬 크롤러 HTML·인증 없는 PNG 응답·운영 URL 해석 확인([생성 프롬프트·검증 기록](evidence/og-image/20261029-generation.json)). 배포 전
 - 2026-10-29 · 결정 대기 9건 추천안대로 반영([[16-DECISIONS|ADR-068]]: ADR-055·056(A)·050·024 상태, S-LIVE 동국대 44, KEPCO 첨부 막음 등)과 ADR-056 대안 A 구현(분석이 첨부 처리를 최대 300초 기다림, `269679e7`) · 커밋 게이트 web `verify:quick` 통과(시험 971건), 새 시험 5건과 변형 2회 실패 확인, 깨진 링크 46(변화 없음). 회사 Analysis Worker 반영 전
@@ -144,7 +145,6 @@ updated: 2026-10-29
 - 2026-10-29 · 추천 분석 구현 main 병합([[16-DECISIONS|ADR-066]]) · 전체 `pnpm verify` exit 0, 격리 로컬 스택 끝까지 확인 통과([증거](evidence/rec-insight/README.md))
 - 2026-10-29 · 나라장터 보조 조회 한도를 기능별로 나누고 같은 revision에 다시 채움 · `pnpm verify:changed` 통과, 회사 `--check` exit 0, 1건 채움 확인([기록](evidence/ingestion/20261029-g2b-aux-budget.md))
 - 2026-10-29 · KEPCO 공고 없는 날 HTTP 404를 빈 쪽으로 읽고 조회 시작일을 3일 앞당김 · `pnpm verify:changed` 통과, 회사 재생성 healthy([기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md))
-- 2026-10-29 · 회사 AI gateway 두 번 교체(첨부 조립 v0.2 [[16-DECISIONS|ADR-064]], 번역 비교 표현 [[16-DECISIONS|ADR-065]], 인용 300자)와 실공고 3건 분석 · gateway `/health` ok·`registryMatch: true`·파서 3종([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md))
 
 ## 관련 문서
 
