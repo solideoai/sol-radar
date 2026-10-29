@@ -75,12 +75,23 @@ export const normalizedProgramNoticeSchema = z.object({
 
 export type NormalizedProgramNotice = z.infer<typeof normalizedProgramNoticeSchema>;
 
+const PARENTHESIZED = /\([^()]*\)|（[^（）]*）/gu;
+const UNCLOSED_TO_END = /[(（].*$/u;
+
+/** 제목에서 괄호 안(연계 사업명·센터 이름 등)을 뺀 본문. 안쪽 괄호부터 지우고, 닫히지 않은 괄호는 끝까지 뺀다. */
+const titleBody = (title: string): string => {
+  const stripped = title.replace(PARENTHESIZED, " ");
+  return stripped === title ? title.replace(UNCLOSED_TO_END, " ") : titleBody(stripped);
+};
+
 /**
  * IT 관련 지원사업인가(ADR-069, 스펙 2026-10-29-it-bid-scope §4). 지원사업에는 공식 IT 분류가 없어
- * 입찰공고 관련성 규칙(relevance-v0.1)의 분야 단어를 제목·사업개요에서 찾는다. 단어 규칙이라 잘못 빠지거나 남는 공고가 있다.
+ * 입찰공고 관련성 규칙(relevance-v0.1)의 분야 단어를 제목 본문(괄호 밖)에서만 찾는다(ADR-069 7번).
+ * 사업개요는 보지 않는다. 요약에 "빅데이터ㆍAI"가 지나가듯 나오는 물류장비·특허·투자 공고가 섞였기 때문이다.
+ * 단어 규칙이라 잘못 빠지거나 남는 공고가 있다.
  * 분야 단어가 하나도 없으면 규칙이 OTHER 하나를 돌려주므로 OTHER 는 IT 분야로 세지 않는다.
  */
-export const isItProgramNotice = (row: { title: string; summary: string | null }): boolean =>
-  classifyProcurementRelevance({ title: row.title, body: row.summary }).categories.some(
+export const isItProgramNotice = (row: { title: string }): boolean =>
+  classifyProcurementRelevance({ title: titleBody(row.title) }).categories.some(
     (category) => category !== "OTHER",
   );

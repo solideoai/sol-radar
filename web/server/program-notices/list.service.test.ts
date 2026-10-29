@@ -25,17 +25,32 @@ const list = (rows: ProgramNoticeRow[]) =>
   listProgramNotices(QUERY, { repo: { listRecent: async () => rows }, today: "2026-10-29" });
 
 describe("지원사업 IT 판정(ADR-069)", () => {
-  it("제목·사업개요에 IT 분야 단어가 있는 공고만 IT 관련이다", () => {
-    expect(isItProgramNotice({ title: "2026 AI 바우처 지원사업 공고", summary: null })).toBe(true);
+  it("제목 본문에 IT 분야 단어가 있는 공고만 IT 관련이다", () => {
+    expect(isItProgramNotice({ title: "2026 AI 바우처 지원사업 공고" })).toBe(true);
+    expect(isItProgramNotice({ title: "[전남] 2026년 드론기업 역량강화 지원사업 공고(R&D)" })).toBe(
+      false,
+    );
+  });
+
+  it("사업개요나 제목 괄호 안에만 IT 단어가 있으면 IT 관련이 아니다", () => {
+    // 운영 실측(2026-10-29): 요약에 "빅데이터ㆍAI"가 지나가는 물류장비 공고, 괄호 안 센터 이름에만 AI 가 있는 인증시험 공고.
+    expect(
+      isItProgramNotice(
+        row(
+          "logistics",
+          "[경남] 2026년 스마트 물류장비산업 육성 기업지원사업 모집 공고",
+          "스마트 물류기술(AIㆍIT 포함)을 접목한 중소기업",
+        ),
+      ),
+    ).toBe(false);
     expect(
       isItProgramNotice({
-        title: "[전남] 2026년 드론기업 역량강화 지원사업 공고(R&D)",
-        summary: null,
+        title: "의료기기 인증시험 기술지원 참여기업 모집 공고(AIㆍ빅데이터 기반 연구제조센터 구축)",
       }),
     ).toBe(false);
-    expect(isItProgramNotice({ title: "소상공인 지원", summary: "클라우드 전환 비용 지원" })).toBe(
-      true,
-    );
+    // 닫히지 않은 괄호는 끝까지 괄호 안으로 본다. 괄호 밖 본문의 단어는 그대로 센다.
+    expect(isItProgramNotice({ title: "기업 모집 공고(AI 실증센터 구축" })).toBe(false);
+    expect(isItProgramNotice({ title: "피지컬 AI 실증 공고(혼합현실(MR) 기반구축" })).toBe(true);
   });
 
   it("목록은 IT 관련 공고만 보이고 저장된 공고 여부도 IT 관련 공고로 센다", async () => {
@@ -50,10 +65,10 @@ describe("지원사업 IT 판정(ADR-069)", () => {
   });
 
   it("쌍둥이 공고는 한쪽만 IT 여도 묶음으로 남고 기업마당 사본이 보인다", async () => {
-    // 기업마당 요약에는 IT 단어가 없고 중기부 쌍둥이 요약에만 "클라우드"가 있다.
+    // 묶기 키는 앞머리 [..] 를 무시하므로, 중기부 쌍둥이 제목 앞머리에만 "클라우드"가 있을 수 있다.
     const bizinfo = { ...row("biz", "소상공인 경영 지원사업 공고"), dedupe_key: "twin" };
     const mss = {
-      ...row("mss", "소상공인 경영 지원사업 공고", "클라우드 전환 비용 지원"),
+      ...row("mss", "[클라우드] 소상공인 경영 지원사업 공고"),
       source: "mss",
       dedupe_key: "twin",
     };
