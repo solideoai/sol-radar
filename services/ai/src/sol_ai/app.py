@@ -242,7 +242,11 @@ def create_app(settings: Settings) -> FastAPI:
         if adapters.gateway_down:
             return _gateway_down()
         response = run_insight(
-            body, adapters.qwen, prompt_hash=runtime.insight_prompt_hash, deadline=deadline
+            body,
+            adapters.qwen,
+            guard=runtime.extraction.guard,
+            prompt_hash=runtime.insight_prompt_hash,
+            deadline=deadline,
         )
         # 요청·모델 출력은 남기지 않는다. 대체 이유는 코드뿐이다
         logger.info(

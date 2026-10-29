@@ -121,6 +121,8 @@ class MockQwen:
     """
 
     provider = "mock"
+    # 추천 분석 응답의 model. 추출 model 블록·/health qwen 식별자(fixture)와 따로다(ADR-034 15)
+    insight_model = "mock"
 
     def __init__(self, fixtures_root: Path, fault: str | None) -> None:
         identity = fixture_model_identity(fixtures_root)

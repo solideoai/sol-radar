@@ -74,6 +74,9 @@ class InsightAdapter(Protocol):
     미접속은 ModelUnavailable, 응답했지만 쓸 수 없으면 ExtractionFailed. hosted(UnavailableQwen)는 이 기능이 없다.
     """
 
+    # 응답 model 에 쓸 이름. mock 은 "mock"(ADR-034 15: 실제 모델처럼 보이지 않게), local 은 QWEN_MODEL
+    insight_model: str | None
+
     def insight(self, request: InsightRequest, *, deadline: Deadline) -> str: ...
 
 

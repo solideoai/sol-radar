@@ -366,10 +366,14 @@ class LocalQwen:
             return content
         raise ExtractionFailed("translation request rejected")
 
+    @property
+    def insight_model(self) -> str | None:
+        return self.model_name
+
     def insight(self, request: InsightRequest, *, deadline: Deadline) -> str:
         """translate 와 같은 연결·대체 규칙(guided → 400·422 면 unguided 1회). 새 Deadline·내용 재시도는 없다.
 
-        user 는 요청 JSON 에서 requestId 를 뺀 것이다. guided 스키마의 refIds 는 요청 refs 의 id 로 좁힌다.
+        user 는 요청 JSON 에서 requestId·injectionSuspected 를 뺀 것이다. guided 스키마의 refIds 는 요청 refs 의 id 로 좁힌다.
         """
         system = INSIGHT_PROMPT_FILE.read_text(encoding="utf-8")
         schema = json.loads(INSIGHT_SCHEMA_FILE.read_text(encoding="utf-8"))
@@ -379,8 +383,7 @@ class LocalQwen:
             ids["items"] = {"type": "string", "enum": ref_ids} if ref_ids else {"type": "string"}
             if not ref_ids:
                 ids["maxItems"] = 0
-        facts = request.model_dump(mode="json", by_alias=True, exclude={"requestId"})
-        user = json.dumps(facts, ensure_ascii=False)
+        user = json.dumps(request.model_input(), ensure_ascii=False)
         for guided in (True, False):
             body = self._body(user, guided=guided, system=system, schema=schema, name="insight")
             body["max_tokens"] = INSIGHT_MAX_TOKENS
