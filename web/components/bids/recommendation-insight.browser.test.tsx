@@ -154,12 +154,12 @@ describe("결과", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("mock 응답(modelName fixture)이면 모델 이름 대신 Mock 응답이라고 쓴다", async () => {
-    // ADR-034 15번: mock 응답이 실제 모델처럼 보이면 안 된다. gateway mock 의 model 값이 "fixture" 다.
-    const host = renderPanel({ initialInsight: { ...DONE_MODEL, modelName: "fixture" } });
+  it("mock 응답(modelName mock)이면 모델 이름 대신 Mock 응답이라고 쓴다", async () => {
+    // ADR-034 15번: mock 응답이 실제 모델처럼 보이면 안 된다. gateway mock 의 model 값이 "mock" 이다.
+    const host = renderPanel({ initialInsight: { ...DONE_MODEL, modelName: "mock" } });
     await expect.element(panel().getByText(PAYLOAD.summary)).toBeVisible();
     await expect.element(panel().getByText(/Mock 응답\(데모 데이터\)/)).toBeVisible();
-    expect(host.textContent).not.toMatch(/fixture/);
+    expect(host.textContent).not.toMatch(/mock/);
   });
 
   it("DONE·TEMPLATE 이면 대체 안내와 [다시 요청] 이 있고, 누르면 다시 POST 한다", async () => {
@@ -171,6 +171,25 @@ describe("결과", () => {
     await userEvent.click(panel().getByRole("button", { name: "다시 요청" }));
     await waitCalls(1);
     expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("TEMPLATE·INJECTION_SUSPECTED 면 지시문 의심 안내를 보이고 [다시 요청] 이 없다", async () => {
+    // 보안 리뷰 중-2: 입력이 의심스러우면 모델을 부르지 않는다. 같은 입력이면 다시 요청해도 같은 결과다.
+    const host = renderPanel({
+      initialInsight: { ...DONE_TEMPLATE, fallbackReason: "INJECTION_SUSPECTED" },
+    });
+    await expect
+      .element(panel().getByText(/지시문으로 의심되는 글이 있어 모델을 부르지 않고/))
+      .toBeVisible();
+    await expect.element(panel().getByText(PAYLOAD.summary)).toBeVisible();
+    await expect.element(panel().getByText(/규칙 결과로 정리 ·/)).toBeVisible();
+    await expect
+      .element(panel().getByText("모델 설명을 쓰지 못해 규칙 결과로 정리했습니다."))
+      .not.toBeInTheDocument();
+    await expect
+      .element(panel().getByRole("button", { name: "다시 요청" }))
+      .not.toBeInTheDocument();
+    expect(host.textContent).not.toMatch(FORBIDDEN);
   });
 
   it("FAILED 이면 만들지 못했다는 안내와 [다시 요청] 이 있다", async () => {
