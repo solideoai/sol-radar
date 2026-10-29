@@ -28,9 +28,9 @@ from itertools import islice
 
 from sol_ai.adapters import http
 from sol_ai.adapters.base import ExtractionFailed, ModelOutput, ModelUnavailable
-from sol_ai.contracts import Attachment, ExtractRequest
+from sol_ai.contracts import Attachment, ExtractRequest, InsightRequest
 from sol_ai.deadline import Deadline
-from sol_ai.paths import AI_ROOT
+from sol_ai.paths import AI_ROOT, INSIGHT_PROMPT_FILE, INSIGHT_SCHEMA_FILE
 from sol_ai.strict_json import parse_json
 
 logger = logging.getLogger("sol_ai.qwen")
@@ -51,6 +51,9 @@ INFERENCE = {"temperature": 0, "top_p": 1, "max_tokens": 4096, "seed": 42}
 CHAT_TEMPLATE_KWARGS = {"enable_thinking": False}
 # 미검증 가정(G4): vLLM 이 이 모양의 guided JSON 을 받는지는 실서버 기동 때 확인한다
 RESPONSE_FORMAT_NAME = "requirement_extraction"
+# 추천 분석(POST /insight): 요약 400자 + 항목 8개 × 200자라 출력 상한을 줄인다. 요청 본문은 번역과 같은 64KiB 까지
+INSIGHT_MAX_TOKENS = 1024
+INSIGHT_MAX_REQUEST_BYTES = 64 * 1024
 BAD_REQUEST_STATUSES = frozenset({400, 422})
 _THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL)
 _CODE_FENCE = re.compile(r"^\s*```[a-zA-Z0-9_-]*\s*\n(.*?)\n\s*```\s*$", re.DOTALL)
@@ -362,3 +365,39 @@ class LocalQwen:
             # 추출의 관대한 unwrap 경로와 다르게 번역은 JSON 객체 전체를 엄격히 검증한다.
             return content
         raise ExtractionFailed("translation request rejected")
+
+    def insight(self, request: InsightRequest, *, deadline: Deadline) -> str:
+        """translate 와 같은 연결·대체 규칙(guided → 400·422 면 unguided 1회). 새 Deadline·내용 재시도는 없다.
+
+        user 는 요청 JSON 에서 requestId 를 뺀 것이다. guided 스키마의 refIds 는 요청 refs 의 id 로 좁힌다.
+        """
+        system = INSIGHT_PROMPT_FILE.read_text(encoding="utf-8")
+        schema = json.loads(INSIGHT_SCHEMA_FILE.read_text(encoding="utf-8"))
+        ref_ids = [ref.id for ref in request.refs]
+        for group in ("strengths", "improvements"):
+            ids = schema["properties"][group]["items"]["properties"]["refIds"]
+            ids["items"] = {"type": "string", "enum": ref_ids} if ref_ids else {"type": "string"}
+            if not ref_ids:
+                ids["maxItems"] = 0
+        facts = request.model_dump(mode="json", by_alias=True, exclude={"requestId"})
+        user = json.dumps(facts, ensure_ascii=False)
+        for guided in (True, False):
+            body = self._body(user, guided=guided, system=system, schema=schema, name="insight")
+            body["max_tokens"] = INSIGHT_MAX_TOKENS
+            if len(json.dumps(body).encode("utf-8")) > INSIGHT_MAX_REQUEST_BYTES:
+                raise ExtractionFailed("insight request too large")
+            try:
+                reply = http.call(
+                    self._endpoint, "POST", CHAT_COMPLETIONS, deadline=deadline, json_body=body
+                )
+            except http.TransportFailure:
+                raise ModelUnavailable("insight transport failure") from None
+            if guided and reply.status in BAD_REQUEST_STATUSES:
+                continue
+            if not reply.ok:
+                raise ModelUnavailable("insight unavailable")
+            content = _content(reply.text)
+            if content is None:
+                raise ExtractionFailed("insight reply has no content")
+            return content if guided else unwrap_json_text(content)
+        raise ExtractionFailed("insight request rejected")
