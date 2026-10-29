@@ -1134,7 +1134,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       );
       const [rev] = await rowsOf(
         db,
-        "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,'{}','{}',$2) returning id",
+        "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,'{\"pubPrcrmntClsfcNm\":\"정보시스템개발서비스\"}','{}',$2) returning id",
         [bid.id, `live-sum-${index}`],
       );
       live.push({ bid: bid.id, rev: rev.id });
@@ -1246,7 +1246,7 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
     );
     const [rev] = await rowsOf(
       db,
-      "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,'{}','{}','live-sum-99') returning id",
+      "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,'{\"pubPrcrmntClsfcNm\":\"정보시스템개발서비스\"}','{}','live-sum-99') returning id",
       [bid.id],
     );
     const [run] = await rowsOf(
@@ -1303,6 +1303,199 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       assert.equal(theirMetrics.activeWatch, 0, origin);
       assert.deepEqual(theirMetrics.topAgencies, [], origin);
     }
+  });
+  describe("IT 범위(ADR-069)", () => {
+    it("나라장터 공식 분류·AI 연구·행사 제외·지능형 오탐·분류 없음을 판정한다", async (t) => {
+      const db = await migratedDb(t);
+      const cases = [
+        [
+          "g2b-bid-notice",
+          false,
+          "2027년 남북교류협력시스템 유지관리",
+          "정보시스템유지관리서비스",
+          "UNCLASSIFIED",
+          true,
+        ],
+        [
+          "g2b-bid-notice",
+          false,
+          "건설폐기물 처리용역",
+          "건설폐기물처리서비스",
+          "UNCLASSIFIED",
+          false,
+        ],
+        [
+          "g2b-bid-notice",
+          false,
+          "익산시 인공지능산업 기본계획 수립 연구용역",
+          "기타연구조사서비스",
+          "CANDIDATE",
+          true,
+        ],
+        [
+          "g2b-bid-notice",
+          false,
+          "CES 2027 AI 혁신 포럼 행사대행",
+          "전시회기획및대행서비스",
+          "CANDIDATE",
+          false,
+        ],
+        [
+          "g2b-bid-notice",
+          false,
+          "지능형교통시스템(ITS) 통합운영 연구",
+          "기타연구조사서비스",
+          "UNCLASSIFIED",
+          false,
+        ],
+        ["g2b-bid-notice", false, "사전규격 정보화 사업", null, "RELEVANT", true],
+        ["kepco-ebid-contract", false, "철탑 제작", null, "UNCLASSIFIED", false],
+        ["kepco-ebid-contract", false, "배전 정보시스템 고도화", null, "CANDIDATE", true],
+        ["fixture", true, "FX-01", null, "UNCLASSIFIED", true],
+      ];
+      for (const [source, isDemo, title, cls, state, expected] of cases) {
+        const r = await db.query("select public.it_scope_of($1,$2,$3,$4,$5) v", [
+          source,
+          isDemo,
+          title,
+          cls,
+          state,
+        ]);
+        assert.equal(r.rows[0].v, expected, title);
+      }
+    });
+    it("fixture 공고는 늘 IT 범위다", async (t) => {
+      // 시드의 데모 공고 두 건은 raw_payload 에 공식 분류가 없고 관련성 판정도 없다.
+      const db = await solDb(t);
+      await as(db, "viewer");
+      const rows = await rowsOf(
+        db,
+        "select bid_id,it_scope,recommend_key from public.opportunity_list_items where is_demo",
+      );
+      assert.equal(rows.length, 2);
+      assert.ok(rows.every((row) => row.it_scope === true));
+      assert.equal(
+        (
+          await rowsOf(
+            db,
+            "select count(*)::int n from public.bid_notices b where b.is_demo and not public.it_scope(b)",
+          )
+        )[0].n,
+        0,
+      );
+      assert.equal(
+        (await rowsOf(db, "select public.procurement_summary($1,'demo') v", [ORG1]))[0].v
+          .totalOpportunities,
+        2,
+      );
+      // BID1 은 조직 분석(82점 BID)이 있어 분석됨(0), BID2 는 분석 안 됨(2) 묶음이다.
+      const keyOf = Object.fromEntries(rows.map((row) => [row.bid_id, row.recommend_key]));
+      assert.equal(keyOf[BID1][0], "0");
+      assert.equal(keyOf[BID2][0], "2");
+    });
+    it("목록 뷰와 집계 함수는 IT 범위 밖 live 공고를 세지 않는다", async (t) => {
+      const db = await solDb(t);
+      await asWorker(db);
+      const [itAgency, otherAgency] = await rowsOf(
+        db,
+        "insert into public.procurement_agencies(code_namespace,agency_code,name) values ('g2b','IT-A1','정보기관'),('g2b','IT-A2','건설기관') returning id,name",
+      );
+      const live = {};
+      for (const [key, title, cls, agency] of [
+        ["si", "통합 민원시스템 유지관리", "정보시스템유지관리서비스", itAgency],
+        ["ai", "생성형 AI 기반 민원 분석 연구용역", "기타연구조사서비스", itAgency],
+        ["other", "건설장비 임대", "건설장비임대서비스", otherAgency],
+      ]) {
+        const [bid] = await rowsOf(
+          db,
+          "insert into public.bid_notices(source,notice_id,title,agency,procuring_agency_id,stage,status,source_url,content_hash,deadline_at,is_demo) values ('g2b-bid-notice',$1,$2,$3,$4,'NOTICE','OPEN','https://www.g2b.go.kr/live',$5,now()+interval '10 days',false) returning id",
+          [`R25BK-IT-${key}`, title, agency.name, agency.id, `it-hash-${key}`],
+        );
+        const [rev] = await rowsOf(
+          db,
+          "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,$2,'{}',$3) returning id",
+          [bid.id, JSON.stringify({ pubPrcrmntClsfcNm: cls }), `it-sum-${key}`],
+        );
+        live[key] = { bid: bid.id, rev: rev.id };
+      }
+      // 관련성 규칙은 분류를 못 찾으면 OTHER 를 저장한다. 공식 IT 분류가 있으면 판정과 분야는 공식 분류를 따른다.
+      await db.query(
+        "insert into public.bid_relevance_assessments(revision_id,policy_version,input_hash,state,categories) values ($1,'relevance-v0.1','h-si','LOW_RELEVANCE','{OTHER}')",
+        [live.si.rev],
+      );
+      await as(db, "viewer");
+      const rows = Object.fromEntries(
+        (
+          await rowsOf(
+            db,
+            "select bid_id,it_scope,categories,tags,relevance_rank from public.opportunity_list_items where bid_id in ($1,$2,$3)",
+            [live.si.bid, live.ai.bid, live.other.bid],
+          )
+        ).map(({ bid_id, ...row }) => [bid_id, row]),
+      );
+      assert.deepEqual(rows[live.si.bid], {
+        it_scope: true,
+        categories: ["SI_SW"],
+        tags: ["maintenance"],
+        relevance_rank: 2,
+      });
+      assert.deepEqual(rows[live.ai.bid], {
+        it_scope: true,
+        categories: ["AI_AX"],
+        tags: [],
+        relevance_rank: 1,
+      });
+      assert.equal(rows[live.other.bid].it_scope, false);
+      const summaryOf = async (origin) =>
+        (await rowsOf(db, "select public.procurement_summary($1,$2) v", [ORG1, origin]))[0].v;
+      assert.equal((await summaryOf("live")).totalOpportunities, 2);
+      assert.equal((await summaryOf("all")).totalOpportunities, 4);
+      const metrics = (
+        await rowsOf(db, "select public.procurement_live_metrics($1,'live') v", [ORG1])
+      )[0].v;
+      assert.deepEqual(metrics.topAgencies, [{ name: "정보기관", count: 2 }]);
+      assert.deepEqual(
+        (
+          await rowsOf(
+            db,
+            "select b.id from public.bid_notices b where not b.is_demo and public.it_scope(b) order by b.id",
+          )
+        ).map((row) => row.id),
+        [live.si.bid, live.ai.bid].sort(),
+      );
+      const options = (await rowsOf(db, "select public.procurement_filter_options('live') v"))[0].v;
+      assert.deepEqual(
+        options.agencies.map((agency) => agency.name),
+        ["정보기관"],
+      );
+    });
+    it("AI·SI 우선 묶음과 추천순 키가 정한 순서를 만든다", async (t) => {
+      const db = await migratedDb(t);
+      const [tiers] = await rowsOf(
+        db,
+        `select public.opportunity_priority_tier(array['AI_AX','SI_SW'],'x') ai_si,
+           public.opportunity_priority_tier('{}'::text[],'생성형 AI 플랫폼') ai_title,
+           public.opportunity_priority_tier(array['SI_SW'],'x') si,
+           public.opportunity_priority_tier(array['CLOUD'],'x') cloud`,
+      );
+      assert.deepEqual(tiers, { ai_si: 1, ai_title: 1, si: 2, cloud: 3 });
+      const ordered = await rowsOf(
+        db,
+        `select label from (values
+           ('미분석 10-20', null::numeric, null::text, null::timestamptz, '2026-10-20T00:00:00Z'::timestamptz),
+           ('NO_BID 90', 90, 'NO_BID', '2026-11-05T00:00:00Z', '2026-10-01T00:00:00Z'),
+           ('미분석 10-29', null, null, null, '2026-10-29T00:00:00Z'),
+           ('WATCH 70', 70, 'WATCH', '2026-11-05T00:00:00Z', '2026-10-01T00:00:00Z'),
+           ('BID 80', 80, 'BID', '2026-11-05T00:00:00Z', '2026-10-01T00:00:00Z'),
+           ('BID 80 마감 임박', 80, 'BID', '2026-11-02T00:00:00Z', '2026-10-01T00:00:00Z')
+         ) v(label,score,recommendation,deadline_at,published_at)
+         order by public.opportunity_recommend_key(score,recommendation,deadline_at,published_at)`,
+      );
+      assert.deepEqual(
+        ordered.map((row) => row.label),
+        ["BID 80 마감 임박", "BID 80", "WATCH 70", "NO_BID 90", "미분석 10-29", "미분석 10-20"],
+      );
+    });
   });
   it("G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만", async (t) => {
     const pglite = await solDb(t);
