@@ -32,6 +32,8 @@ export type {
 export {
   documentPriorityOf,
   hasParserExtension,
+  needsDocumentWork,
+  pendingDocumentsOf,
   rankDocuments,
   scopeSkipReasonOf,
   selectDocuments,
