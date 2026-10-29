@@ -180,3 +180,88 @@ def test_failed_ratio_above_half_sets_low_confidence_and_pending_review(
     result = post_extract(make_client, ten_ref_extraction(), custom_fixtures, body=body)
     assert result["status"] == "PENDING_REVIEW"
     assert "EXTRACTION_LOW_CONFIDENCE" in result["warnings"]
+
+
+# ---------------------------------------------------------------- 응답 인용 길이(Worker 계약, 2026-10-29 실공고)
+# Worker 는 payload 의 모든 근거 quotedText 를 1~300자로 검사하고(web/server/scoring/analysis-input.model.ts
+# evidenceRefSchema), 하나라도 어기면 추출 전체를 버린다(PAYLOAD_INVALID, 동국대 공고 restrictions.evidence.1).
+# 실패한 인용도 evidence 에 남으므로(15 §5.3) 성공·실패 모두 길이를 맞춰 내야 한다.
+
+LONG_RESTRICTION = (
+    "공동수급체 구성원은 2개사 이하로 하고 구성원별 최소 지분율은 10% 이상으로 한다. " * 7
+)
+SHORT_RESTRICTION = " ".join(
+    ["공동수급체 구성원은 2개사 이하로 하고 구성원별 최소 지분율은 10% 이상으로 한다."] * 6
+)
+
+
+def quote_lengths(payload: dict) -> list[int]:
+    return [
+        len(ref["quotedText"])
+        for field in payload.values()
+        if isinstance(field, dict) and "evidence" in field
+        for ref in field["evidence"]
+    ]
+
+
+def with_restriction_refs(*refs: dict, value: list[str], note: str) -> dict:
+    extraction = extraction_fixture("FX-01")
+    extraction["restrictions"] = {
+        "value": value,
+        "state": "KNOWN",
+        "evidence": list(refs),
+        "note": note,
+    }
+    return extraction
+
+
+def fixture_restriction_ref() -> dict:
+    return extraction_fixture("FX-01")["restrictions"]["evidence"][0]
+
+
+def test_quote_over_300_chars_fails_alone_and_is_cut_to_300(make_client, custom_fixtures):
+    long_quote = norm(LONG_RESTRICTION)
+    assert len(long_quote) > 300
+    extraction = with_restriction_refs(
+        fixture_restriction_ref(),
+        text_ref(long_quote),
+        value=["중소기업 제한경쟁", "공동수급체 2개사 이하"],
+        note="[0]→evidence[0], [1]→evidence[1]",
+    )
+    body = bid_body("FX-01") + " " + long_quote
+    result = post_extract(make_client, extraction, custom_fixtures, body=body)
+    payload = result["payload"]
+    assert all(1 <= length <= 300 for length in quote_lengths(payload))
+    field = payload["restrictions"]
+    assert (field["state"], field["value"]) == ("KNOWN", ["중소기업 제한경쟁"])
+    assert field["evidence"][1]["match"] == "FAILED"
+    assert field["evidence"][1]["quotedText"] == long_quote[:300]
+
+
+def test_padded_quote_that_verifies_is_sent_normalized(make_client, custom_fixtures):
+    quote = norm(SHORT_RESTRICTION)
+    padded = quote.replace(" ", "  ")
+    assert len(quote) <= 300 < len(padded)
+    extraction = with_restriction_refs(
+        text_ref(padded), value=["공동수급체 2개사 이하"], note="[0]→evidence[0]"
+    )
+    body = bid_body("FX-01") + " " + quote
+    result = post_extract(make_client, extraction, custom_fixtures, body=body)
+    ref = result["payload"]["restrictions"]["evidence"][0]
+    assert (ref["match"], ref["quotedText"]) == ("NORMALIZED", quote)
+
+
+def test_empty_quote_is_dropped_and_element_mapping_renumbered(make_client, custom_fixtures):
+    extraction = with_restriction_refs(
+        text_ref(""), fixture_restriction_ref(), value=["중소기업 제한경쟁"], note="[0]→evidence[1]"
+    )
+    result = post_extract(make_client, extraction, custom_fixtures)
+    payload = result["payload"]
+    assert all(1 <= length <= 300 for length in quote_lengths(payload))
+    field = payload["restrictions"]
+    assert (field["state"], field["value"], field["note"]) == (
+        "KNOWN",
+        ["중소기업 제한경쟁"],
+        "[0]→evidence[0]",
+    )
+    assert [ref["quotedText"] for ref in field["evidence"]] == ["중소기업 제한경쟁 입찰"]

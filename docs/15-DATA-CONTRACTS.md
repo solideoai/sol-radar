@@ -290,6 +290,7 @@ AI gateway가 `RequirementExtraction`의 모든 `EvidenceRef`에 대해 실행�
 |필드의 유효 근거(`match != FAILED`)가 0개가 됨|`value=null`, `state=UNKNOWN`, `note="CITATION_FAILED"`. 분석 결과 `reviewFlags`에 `CITATION_FAILED` 추가|
 |필드 유효 근거가 1개 이상 남음|`KNOWN` 유지|
 |한 추출의 전체 ref 중 FAILED 비율 > 50%|`requirement_extractions.status=PENDING_REVIEW`, 분석은 진행하되 `reviewFlags`에 `EXTRACTION_LOW_CONFIDENCE`|
+|위 전이를 마친 응답의 `quotedText`가 300자를 넘거나 비어 있음|gateway가 응답 직전에 맞춘다(`citation.fit_quotes`). 300자 초과는 `norm`한 인용의 앞 300자로 바꾼다. 검증을 통과한 인용은 `norm` 결과가 300자 이하라 검증한 텍스트 그대로 나가고, 실패한 인용은 `match=FAILED` 그대로 잘린다. 빈 인용은 빼고 `note`의 원소→근거 번호를 당긴다. 값·`match`·상태·FAILED 비율은 바꾸지 않는다. Worker는 근거 하나라도 1~300자를 어기면 추출 전체를 버린다(`PAYLOAD_INVALID`, 2026-10-29 실공고)|
 
 인용 검증은 결정론적이다. 같은 입력에 같은 결과가 나오며, 단위 테스트로 EXACT/NORMALIZED/FUZZY/FAILED 각 경로를 고정한다([[11-TESTING|11 테스트]]).
 

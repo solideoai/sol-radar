@@ -2,6 +2,7 @@
 
 - `norm`·`verify_citation`: 공개 함수. 인용 하나를 문서 하나와 대조한다(15 §5.1·§5.2).
 - `verify_fields`: `/extract` 가 필드 단위로 적용한다(15 §5.3, K1). 값을 고쳐서 살리지 않는다.
+  끝에 응답 quotedText 를 1~300자로 맞춘다(`fit_quotes`, Worker 계약).
 """
 
 import math
@@ -284,6 +285,7 @@ def verify_fields(
         emptied = name in list_fields and drop_unsupported_elements(extracted)
         if fail_unsupported_field(extracted, elements_emptied=emptied):
             warnings.append(f"CITATION_FAILED:{name}")
+        fit_quotes(extracted)
     return CitationSummary(warnings, total, failed)
 
 
@@ -346,6 +348,36 @@ def drop_unsupported_elements(extracted: dict) -> bool:
     if not extracted["note"]:
         del extracted["note"]
     return not keep
+
+
+def fit_quotes(extracted: dict) -> None:
+    """응답 quotedText 를 1~300자로 맞춘다. 검증·원소 폐기·K1 전이를 마친 필드에 쓴다(제자리 수정).
+
+    Worker 는 근거 하나라도 이 길이를 어기면 추출 전체를 버린다(web/server/scoring/analysis-input.model.ts).
+    - 300자를 넘으면 norm 한 인용의 앞 300자로 바꾼다. 검증을 통과한 인용은 norm 결과가 300자 이하라 검증한 그대로다.
+      실패한 인용(QUOTE_LENGTH 등)은 match=FAILED 그대로 앞 300자만 남는다.
+    - 빈 인용은 남길 글자가 없어 뺀다(match 는 언제나 FAILED 다). note 의 원소→근거 번호는 뺀 만큼 당긴다.
+    """
+    evidence = extracted["evidence"]
+    for ref in evidence:
+        if len(ref["quotedText"]) > MAX_QUOTE_CHARS:
+            ref["quotedText"] = norm(ref["quotedText"])[:MAX_QUOTE_CHARS]
+    keep = [i for i, ref in enumerate(evidence) if ref["quotedText"]]
+    if len(keep) == len(evidence):
+        return
+    extracted["evidence"] = [evidence[i] for i in keep]
+    note = extracted.get("note")
+    if not note or not _MAPPING.fullmatch(note):
+        return
+    renumber = {old: new for new, old in enumerate(keep)}
+    groups = [
+        (",".join(f"[{i}]" for i in _INDEX.findall(match.group(1))), renumber[int(match.group(2))])
+        for match in _GROUP_PARTS.finditer(note)
+        if int(match.group(2)) in renumber
+    ]
+    extracted["note"] = ", ".join(f"{indices}→evidence[{ref}]" for indices, ref in groups)
+    if not extracted["note"]:
+        del extracted["note"]
 
 
 def fail_unsupported_field(extracted: dict, *, elements_emptied: bool) -> bool:
