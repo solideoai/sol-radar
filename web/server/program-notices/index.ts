@@ -20,6 +20,7 @@ export { programNoticesRepo } from "./program-notices.repo";
 export { createSupabaseProgramNoticesStore } from "./program-notices.store";
 export type { ProgramNoticesStore, ProgramRun } from "./program-notices.store";
 export {
+  isItProgramNotice,
   normalizedProgramNoticeSchema,
   PROGRAM_NOTICE_LIMITS,
   PROGRAM_NOTICE_SOURCE_LABELS,

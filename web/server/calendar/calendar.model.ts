@@ -5,14 +5,14 @@ import { kstDate } from "@/server/scoring";
 
 // ── 입찰 일정(/calendar) 모델: 순수 타입과 규칙. 저장·화면을 모른다 ──
 // 일정은 새로 저장하지 않는다. 내 관심 공고(bid_watches 본인 행)와 조직의 열린 입찰 프로젝트(bid_projects)에서 마감을 모은다.
-// 조직 전체 보기는 관련 업종 실공고의 마감과 나라장터 입찰공고 원본(raw_payload)의 일정(제출 시작·자격 등록·협정서·
+// 조직 전체 보기는 IT 범위 실공고(ADR-069)의 마감과 나라장터 입찰공고 원본(raw_payload)의 일정(제출 시작·자격 등록·협정서·
 // 현장설명회·개찰)도 싣는다. 원본은 수집이 이미 저장한 값이라 API 호출·저장을 더하지 않는다.
 // 날짜는 전부 입력 값으로 계산한다(Date.now() 를 부르지 않는다). 업무 기준은 KST 다(scoring/calendar 의 kstDate).
 
 /** 화면이 확인한 지금 조직과 사용자. 조직은 서버가 정한다(M17). */
 export type CalendarScope = { orgId: string; userId: string };
 
-// org: 내 관심 + 조직의 열린 프로젝트 전부 + 관련 업종 실공고. mine: 내 관심 + 내가 담당인 프로젝트.
+// org: 내 관심 + 조직의 열린 프로젝트 전부 + IT 범위 실공고. 관심·프로젝트는 IT 범위 밖이어도 싣는다(사람이 고른 것). mine: 내 관심 + 내가 담당인 프로젝트.
 // 관심은 본인 것만 보인다(N3 설계 D6) — 조직 전체에도 남의 관심은 없다.
 export const CALENDAR_VIEWS = ["org", "mine"] as const;
 export type CalendarView = (typeof CALENDAR_VIEWS)[number];
@@ -71,7 +71,7 @@ export type CalendarProject = {
   bid: CalendarBid;
 };
 
-// relevantBids: 관련 업종 실공고(조직 전체 보기만 읽는다). 저장이 대상 조건·관련성으로 이미 거른 것이다.
+// relevantBids: IT 범위 실공고(조직 전체 보기만 읽는다). 저장이 대상 조건·IT 범위로 이미 거른 것이다.
 export type CalendarSource = {
   watchedBids: CalendarBid[];
   projects: CalendarProject[];
@@ -88,7 +88,7 @@ export type DeadlineWindow = { from: string; to: string };
 export type CalendarRepo = {
   /** 내 관심 공고와 조직의 열린 프로젝트 */
   load(scope: CalendarScope): Promise<Omit<CalendarSource, "relevantBids">>;
-  /** 관련 업종 실공고 가운데 공고 마감이 window 안인 것(/gaps 와 대상 조건이 같고 마감 하한만 다르다) */
+  /** IT 범위 실공고 가운데 공고 마감이 window 안인 것(/gaps 와 대상 조건이 같고 마감 하한만 다르다) */
   loadRelevant(window: DeadlineWindow): Promise<CalendarBid[]>;
 };
 
@@ -123,30 +123,11 @@ export type CalendarEvent = {
   href: string;
 };
 
-// 관련 업종: 최신 revision 의 최신 관련성 평가가 RELEVANT·CANDIDATE.
-// /gaps(server/gaps/gaps.model.ts)·/market(server/market/market.model.ts)의 RELEVANT_STATES 와 같은 값이다.
-// 도메인마다 따로 두므로 바꿀 때 셋 다 고친다.
-export const RELEVANT_STATES: readonly string[] = ["RELEVANT", "CANDIDATE"];
-
-export type RelevanceRow = { state: string; createdAt: string; id: string };
-
 /** revision 들 가운데 공고의 latest_revision 행. 없으면 undefined. */
 export const latestRevisionOf = <T extends { revision: number }>(
   latest: number,
   revisions: readonly T[],
 ): T | undefined => revisions.find((entry) => entry.revision === latest);
-
-/** 그 revision 의 최신 관련성 평가 상태(만든 시각, 같으면 id 큰 것). 평가가 없으면 null. */
-export function latestRelevanceState(rows: readonly RelevanceRow[]): string | null {
-  const latest = rows.toSorted(
-    (left, right) =>
-      right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id),
-  )[0];
-  return latest?.state ?? null;
-}
-
-export const isRelevantState = (state: string | null) =>
-  state !== null && RELEVANT_STATES.includes(state);
 
 // parseKstDateTime 은 상대 날짜("+3d")에만 기준 시각을 쓰는데, 상대 날짜는 시각을 지어낸 값(assumedTime)이라 아래에서 버린다.
 // 그래서 기준 시각은 결과에 영향이 없다(Date.now() 를 부르지 않으려고 고정한다).

@@ -4,7 +4,6 @@ import type {
   GapBucket,
   GapRadarView,
   GapReviewReason,
-  GapScope,
 } from "@/server/gaps";
 
 // 화면 부품이 page 에서 받는 값의 모양. 배럴 @/server/gaps 는 server-only 라 화면 부품은 타입만 가져온다.
@@ -29,8 +28,6 @@ export type GapsCopy = {
 
 /** page 가 gapRadarHref·toggleAssume 로 미리 만든 다음 주소. */
 export type GapsLinks = {
-  /** 관련성 거르기를 바꾼 주소. 켠 가정은 그대로 둔다. */
-  scope: Record<GapScope, string>;
   /** 가정을 모두 지운 주소. */
   clearAssume: string;
   /** 표의 사전 코드마다 스위치를 켠·끈 주소. */

@@ -13,7 +13,6 @@ import Link from "next/link";
 import { BarChart } from "@/components/bar-chart";
 import { dDay, formatKrwCompact, formatKst } from "@/components/bids/format";
 import { MeterBar } from "@/components/bids/meter-bar";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -442,9 +441,7 @@ function figuresOf(overview: MarketOverview, reference: MarketReference): Figure
           {weekLabel(overview.periodStartDate)} 이후 게시 · 취소 {count(totals.cancelledNotices)}건
           제외
           <br />
-          {query.relevance === "relevant"
-            ? `SI·AI 관련만 · 전체 업종 ${count(totals.allIndustryNotices)}건`
-            : "전체 업종"}
+          IT 공고만
         </>
       ),
     },
@@ -504,7 +501,7 @@ function Segmented({
   );
 }
 
-/** 화면 머리(AppPage actions)의 기간·업종 범위 거르기. 둘 다 주소 쿼리로 든다 */
+/** 화면 머리(AppPage actions)의 기간 거르기. 주소 쿼리로 든다. 업종 범위는 늘 IT 공고다(ADR-069) */
 export function MarketFilters({
   query,
   periods,
@@ -521,21 +518,6 @@ export function MarketFilters({
           text: `최근 ${period}일`,
           current: period === query.period,
         }))}
-      />
-      <Segmented
-        label="업종 범위"
-        items={[
-          {
-            href: marketHref({ ...query, relevance: "relevant" }),
-            text: "SI·AI 관련",
-            current: query.relevance === "relevant",
-          },
-          {
-            href: marketHref({ ...query, relevance: "all" }),
-            text: "전체 업종",
-            current: query.relevance === "all",
-          },
-        ]}
       />
     </div>
   );
@@ -565,22 +547,8 @@ export function MarketView({
       {totals.notices === 0 ? (
         <EmptyState
           icon={InboxIcon}
-          title={`최근 ${query.period}일 안에 게시된 입찰공고가 없습니다`}
-          description={
-            query.relevance === "relevant" && totals.allIndustryNotices > 0
-              ? `전체 업종으로 보면 ${count(totals.allIndustryNotices)}건이 있습니다.`
-              : "수집 현황은 대시보드에서 확인하세요."
-          }
-          action={
-            query.relevance === "relevant" && totals.allIndustryNotices > 0 ? (
-              <Link
-                href={marketHref({ ...query, relevance: "all" })}
-                className={cn(buttonVariants({ variant: "outline" }))}
-              >
-                전체 업종 보기
-              </Link>
-            ) : undefined
-          }
+          title={`최근 ${query.period}일 안에 게시된 IT 공고가 없습니다`}
+          description="수집 현황은 대시보드에서 확인하세요."
         />
       ) : (
         <>

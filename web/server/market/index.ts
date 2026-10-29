@@ -15,7 +15,6 @@ export type {
   MarketOverview,
   MarketPeriod,
   MarketQuery,
-  MarketRelevance,
 } from "./market.model";
 export { marketRepo } from "./market.repo";
 export type { MarketRepo } from "./market.repo";

@@ -3,18 +3,13 @@ import { z } from "zod";
 import type { GapBucket } from "@/server/gaps";
 
 // 발주 현황(/market) 1단계. 스펙 polaris/specs/done/2026-10-28-gaps-market-calendar.md §6 B1.
-// 대상은 live 나라장터 입찰공고(is_demo=false, 데모 수집기 아님, G2B, NOTICE 단계)다. 낙찰·계약·발주계획·사전규격은 없다.
+// 대상은 live 나라장터 입찰공고(is_demo=false, 데모 수집기 아님, G2B, NOTICE 단계) 중 IT 범위(ADR-069)다.
+// 낙찰·계약·발주계획·사전규격은 없다.
 
 /** 기간 선택(게시일 기준, KST 날짜로 오늘 포함 최근 N일). 기본 90일 */
 export const MARKET_PERIODS = [30, 90] as const;
 export type MarketPeriod = (typeof MARKET_PERIODS)[number];
 export const DEFAULT_MARKET_PERIOD: MarketPeriod = 90;
-
-/** relevant: 관련성 판정 RELEVANT·CANDIDATE 만(기본), all: 거르지 않음 */
-export const MARKET_RELEVANCE = ["relevant", "all"] as const;
-export type MarketRelevance = (typeof MARKET_RELEVANCE)[number];
-// /gaps 의 RELEVANT_STATES(server/gaps/gaps.model.ts)·/calendar(server/calendar/calendar.model.ts)와 같은 값이다. 도메인마다 따로 두므로 바꿀 때 셋 다 고친다.
-export const RELEVANT_STATES: ReadonlySet<string> = new Set(["RELEVANT", "CANDIDATE"]);
 
 /** 주별 게시 추이는 기간 선택과 별개로 이번 주(월요일 시작)를 포함한 최근 13주다 */
 export const MARKET_TREND_WEEKS = 13;
@@ -40,23 +35,17 @@ export const MARKET_BUDGET_BANDS = [
 ] as const;
 export type MarketBudgetBandKey = (typeof MARKET_BUDGET_BANDS)[number]["key"] | "UNKNOWN";
 
-export type MarketQuery = { period: MarketPeriod; relevance: MarketRelevance };
-export const DEFAULT_MARKET_QUERY: MarketQuery = {
-  period: DEFAULT_MARKET_PERIOD,
-  relevance: "relevant",
-};
+export type MarketQuery = { period: MarketPeriod };
+export const DEFAULT_MARKET_QUERY: MarketQuery = { period: DEFAULT_MARKET_PERIOD };
 
 type RawSearch = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
 
-// ?period=30|90 · ?relevance=relevant|all. 없거나 틀린 값은 화면을 막지 않고 기본값으로 그린다.
+// ?period=30|90. 없거나 틀린 값은 화면을 막지 않고 기본값으로 그린다.
+// 예전 ?relevance=relevant|all 은 받아도 무시한다. 늘 IT 범위만 센다(ADR-069).
 export function parseMarketQuery(raw: RawSearch): MarketQuery {
   const period = MARKET_PERIODS.find((value) => String(value) === first(raw.period));
-  const relevance = MARKET_RELEVANCE.find((value) => value === first(raw.relevance));
-  return {
-    period: period ?? DEFAULT_MARKET_QUERY.period,
-    relevance: relevance ?? DEFAULT_MARKET_QUERY.relevance,
-  };
+  return { period: period ?? DEFAULT_MARKET_QUERY.period };
 }
 
 /** 집계 입력 한 행. 사업기회 뷰(opportunity_list_items)의 대표 공고 값이다 */
@@ -72,7 +61,6 @@ export const marketRowSchema = z.object({
   publishedAt: z.string().nullable(),
   deadlineAt: z.string().nullable(),
   categories: z.array(z.string()),
-  relevanceState: z.string(),
 });
 export type MarketRow = z.infer<typeof marketRowSchema>;
 
@@ -88,15 +76,13 @@ export type MarketAggregate = {
   /** 마감 다가오는 큰 사업을 고르는 게시일 첫날(KST, YYYY-MM-DD). 기간 선택과 무관하게 13주 첫 주 월요일이다 */
   upcomingFromDate: string;
   totals: {
-    /** 기간 안 게시·취소 제외·관련성 거르기 뒤 공고 수 */
+    /** 기간 안 게시·취소 제외 IT 범위 공고 수 */
     notices: number;
     knownBudgetKrw: string;
     /** 예산이 없거나 출처 사본끼리 금액이 달라 합에서 뺀 공고 수 */
     unknownBudgetCount: number;
     /** 지금 마감이 남은 진행 중(OPEN·AMENDED) 공고 수 */
     openNotices: number;
-    /** 관련성 거르기 전(전체 업종) 공고 수. 취소 제외 */
-    allIndustryNotices: number;
     /** 같은 거르기에서 기간 안 취소 공고 수(모든 집계에서 뺀다) */
     cancelledNotices: number;
   };

@@ -6,7 +6,6 @@ import {
   MARKET_TREND_WEEKS,
   MARKET_UPCOMING_DAYS,
   MARKET_UPCOMING_LIMIT,
-  RELEVANT_STATES,
   type MarketAggregate,
   type MarketBucket,
   type MarketBudgetBandKey,
@@ -99,23 +98,23 @@ const categoriesOf = (row: MarketRow) => {
   return keys.length ? keys : ["NONE"];
 };
 
-/** 집계와 겹쳐 보기가 함께 쓰는 거르기. 기간·관련성·취소 규칙은 이곳 하나다 */
+/**
+ * 집계와 겹쳐 보기가 함께 쓰는 거르기. 기간·취소 규칙은 이곳 하나다.
+ * IT 범위(ADR-069)는 저장(market.repo)이 이미 거른 행이다.
+ */
 function selectRows(rows: MarketRow[], query: MarketQuery, now: Date) {
   const window = marketWindow(now, query.period);
   const periodStartMs = kstMidnight(window.periodStartDay);
-  const relevant = (row: MarketRow) =>
-    query.relevance === "all" || RELEVANT_STATES.has(row.relevanceState);
   // 게시일이 없는 공고는 기간·주에 놓을 수 없어 뺀다(Date.parse 가 NaN 이면 비교가 거짓이다).
   const inPeriod = (row: MarketRow) => Date.parse(row.publishedAt ?? "") >= periodStartMs;
   // 취소 공고는 모든 집계에서 뺀다.
   const live = rows.filter((row) => row.publishedAt !== null && row.status !== "CANCELLED");
-  const scoped = live.filter(relevant);
-  return { window, relevant, inPeriod, live, scoped, period: scoped.filter(inPeriod) };
+  return { window, inPeriod, live, period: live.filter(inPeriod) };
 }
 
 export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date): MarketAggregate {
   const nowMs = now.getTime();
-  const { window, relevant, inPeriod, live, scoped, period } = selectRows(rows, query, now);
+  const { window, inPeriod, live, period } = selectRows(rows, query, now);
   const upcomingFromMs = kstMidnight(window.trendStartDay);
 
   const agencies = new Map<string, Tally>();
@@ -137,7 +136,7 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
     weekStart: kstDateText(window.trendStartDay + index * 7),
     count: 0,
   }));
-  for (const row of scoped) {
+  for (const row of live) {
     const index = Math.floor(
       (kstDay(Date.parse(row.publishedAt ?? "")) - window.trendStartDay) / 7,
     );
@@ -148,7 +147,7 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
   // 마감 다가오는 큰 사업은 기간 선택과 무관하게 주별 추이와 같은 13주(첫 주 월요일 00:00 KST 이후 게시)에서 고른다.
   // 읽는 범위(readFrom)는 90일 기간이 13주보다 길 때 더 이르지만, 그 앞쪽은 쓰지 않아 화면 날짜가 기간에 따라 바뀌지 않는다.
   const upcomingUntil = nowMs + MARKET_UPCOMING_DAYS * DAY_MS;
-  const upcoming = scoped
+  const upcoming = live
     .filter((row) => Date.parse(row.publishedAt ?? "") >= upcomingFromMs)
     .flatMap((row) => {
       const budget = budgetOf(row);
@@ -182,10 +181,7 @@ export function aggregateMarket(rows: MarketRow[], query: MarketQuery, now: Date
       knownBudgetKrw: knownBudget.toString(),
       unknownBudgetCount,
       openNotices: period.filter((row) => isOpen(row, nowMs)).length,
-      allIndustryNotices: live.filter(inPeriod).length,
-      cancelledNotices: rows.filter(
-        (row) => row.status === "CANCELLED" && relevant(row) && inPeriod(row),
-      ).length,
+      cancelledNotices: rows.filter((row) => row.status === "CANCELLED" && inPeriod(row)).length,
     },
     agencyCount: agencies.size,
     topAgencies: [...agencies]

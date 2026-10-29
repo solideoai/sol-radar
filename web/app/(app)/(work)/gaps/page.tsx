@@ -51,10 +51,6 @@ function linksOf(query: GapQuery, view: GapRadarView): GapsLinks | null {
     ),
   ];
   return {
-    scope: {
-      relevant: gapRadarHref({ ...query, scope: "relevant" }),
-      all: gapRadarHref({ ...query, scope: "all" }),
-    },
     clearAssume: gapRadarHref({ ...query, assume: [] }),
     assume: Object.fromEntries(
       codes.map((code) => [

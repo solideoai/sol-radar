@@ -27,7 +27,6 @@ export type {
   GapRadar,
   GapRadarView,
   GapReviewReason,
-  GapScope,
   GapSummary,
   GapTotal,
   OpenedNotice,

@@ -139,7 +139,6 @@ function CountValue({ count }: { count: number }) {
 // 대시보드 SummaryStrip 과 같은 마크업(dashboard-view.tsx). 칸마다 라벨·값·보조 줄을 subgrid 로 같은 줄에 맞춘다.
 export function SummaryStrip({ view, copy }: { view: ReadyGapView; copy: GapsCopy }) {
   const { summary } = view.radar;
-  const scopeText = view.query.scope === "all" ? "전체 업종" : "관련 업종";
   return (
     <section aria-label="자격 갭 요약">
       <dl className="grid grid-cols-5 gap-y-1 border-y border-border">
@@ -149,7 +148,7 @@ export function SummaryStrip({ view, copy }: { view: ReadyGapView; copy: GapsCop
             <CountValue count={summary.total.count} />
           </dd>
           <dd className="type-caption wrap-anywhere text-muted-foreground">
-            마감 전 · {scopeText} · <BudgetText won={summary.total.budgetKrw} prefix="예산 합 " />
+            마감 전 · IT 공고 · <BudgetText won={summary.total.budgetKrw} prefix="예산 합 " />
           </dd>
         </div>
         {STRIP_BUCKETS.map((bucket) => {

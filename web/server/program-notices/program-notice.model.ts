@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { classifyProcurementRelevance } from "@/server/ingestion";
 
 // ── 모델: 부처 지원사업 공고의 정규화 행과 수집 회차 값. 저장·화면을 모른다 ──
 // 두 소스(기업마당 API·중기부 RSS)를 같은 모양으로 맞춘다. 표·정책은 마이그레이션 20261023000800 이 정한다.
@@ -73,3 +74,13 @@ export const normalizedProgramNoticeSchema = z.object({
 });
 
 export type NormalizedProgramNotice = z.infer<typeof normalizedProgramNoticeSchema>;
+
+/**
+ * IT 관련 지원사업인가(ADR-069, 스펙 2026-10-29-it-bid-scope §4). 지원사업에는 공식 IT 분류가 없어
+ * 입찰공고 관련성 규칙(relevance-v0.1)의 분야 단어를 제목·사업개요에서 찾는다. 단어 규칙이라 잘못 빠지거나 남는 공고가 있다.
+ * 분야 단어가 하나도 없으면 규칙이 OTHER 하나를 돌려주므로 OTHER 는 IT 분야로 세지 않는다.
+ */
+export const isItProgramNotice = (row: { title: string; summary: string | null }): boolean =>
+  classifyProcurementRelevance({ title: row.title, body: row.summary }).categories.some(
+    (category) => category !== "OTHER",
+  );
