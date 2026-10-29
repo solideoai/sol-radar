@@ -16,7 +16,7 @@ updated: 2026-10-27
 > 이 계획의 `/sol-radar/kev`(회사 nginx → 모델 라우터) 경로는 회사 nginx 에 등록되지 않았다. 운영 gateway 는 같은 호스트의 `sol_decision` 에 `KEV_BASE_URL=http://127.0.0.1:8009` 로 직결한다([[10-DEPLOYMENT|10 배포]]).
 
 > [!note] 후속 개정 (2026-10-21)
-> 현재 추출 모델은 회사 API의 **Qwen3.8-Flash-Next**, 결정 모델은 **Bosun v3.1 0.6B**다([[16-DECISIONS|ADR-034]] 10-21 개정). `QWEN_MODEL=Qwen/Qwen3.8-Flash-Next`, 레지스트리 활성 항목은 `qwen3.8-flash-next`이며 실제 served id는 B2에서 확인한다. 아래 10-20 채택 콜아웃과 본문은 당시 기록이다. 현재 서버 준비·API 점검은 [[2026-10-21-bosun-b2-runbook|B2 런북]], 계약·URL 정규화는 [[03-AI-PIPELINE|03]]을 따른다. Qwen 파인튜닝과 4B 신규 서빙은 하지 않는다.
+> 현재 추출 모델은 회사 API의 **Qwen3.8-Flash-Next**, 결정 모델은 **Bosun v3.1 0.6B**다([[16-DECISIONS|ADR-034]] 10-21 개정). served id는 `Qwen3.8-Flash-Next-AWQ-INT4`다. 아래 10-20 채택 콜아웃과 본문은 당시 기록이다. 회사 서버 구성은 [[10-DEPLOYMENT|10]] "회사 GPU 추론 엔드포인트"(결정 서버 `127.0.0.1:8009` 서빙 중), 계약·URL 정규화는 [[03-AI-PIPELINE|03]]을 따른다. 파인튜닝은 발표 뒤 진행 예정이다([[16-DECISIONS|ADR-067]]). Qwen 파인튜닝과 4B 신규 서빙은 하지 않는다.
 
 > [!success] 채택·개정 (2026-10-20)
 > - 사용자가 Q1~Q7 을 전부 ①로 확정하고 추가 지시 8건을 줬다(LoRA r=16·392 텐서 유지·decision 임베딩 동결, `EvalItem` 기반 변환·`datasets/decision/smoke.jsonl` 6건은 기능 검증용, `/v1/systemone` 호환성 테스트, GPU 1 은 PaddleOCR 공유·보호 최우선, `kev-preflight.sh` 보존·Bosun 전용 경로 분리, `docs/evidence/` Kev 기록 보존, 주말 재계획, ADR-034). ADR-034 는 [[16-DECISIONS|16]] 에 **채택**으로 올렸다.

@@ -8,7 +8,7 @@ updated: 2026-10-27
 
 # 10-27 서비스별 수집 격리 운영 적용 결과와 조달청 호출 사용량 점검
 
-[[../../../plans/2026-10-27-ingest-source-isolation-deploy|10-27 배포 실행서]]의 운영 적용 결과와 조달청 입찰공고(15129394) 하루 호출 사용량 점검 기록이다. 근거를 셋으로 나눠 적는다.
+10-27 배포 실행서(git `3ae02acf` 의 `docs/plans/2026-10-27-ingest-source-isolation-deploy.md`)의 운영 적용 결과와 조달청 입찰공고(15129394) 하루 호출 사용량 점검 기록이다. 근거를 셋으로 나눠 적는다.
 
 - **실측**: 이 세션이 직접 읽은 값. GitHub 커밋 상태, 운영 `/health/ready` 응답, 코드.
 - **사용자 보고**: 회사 서버에서 사용자가 확인해 알려 준 값. 이 세션은 회사 서버에 접속하지 않았다.
@@ -132,7 +132,7 @@ r.mget(process.argv[1], process.argv[2])
 
 ## 관련 문서
 
-- [[../../../plans/2026-10-27-ingest-source-isolation-deploy|10-27 배포 실행서]]
+- 10-27 배포 실행서(git `3ae02acf` 의 `docs/plans/2026-10-27-ingest-source-isolation-deploy.md`)
 - [[../../../plans/2026-10-27-lh-bid-notice-activation|LH 입찰공고 활성화 계획]]
 - [격리 로컬 확인](../20261027-source-isolation/summary.md)
 - [[../../../PROGRESS|진행 상황]]

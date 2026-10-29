@@ -314,11 +314,11 @@ includeEarly=false는 NOTICE 계열(정정/취소 포함, status 필터 별도)�
 
 새 키 5개의 발급·활용승인 상태, KEPCO 인증/전 기관 범위/페이지 잘림/금액 의미/첨부 접근, early API 안정 ID, 서비스별 quota·수정 탐지 가능성은 외부 확인 입력이다. 없어도 설계는 검토할 수 있으나 해당 서비스를 live 활성화하지 않는다. **본 문서 작성 완료는 기능 완료가 아니다.**
 
-단계별 목표·파일·선행 조건·위험·검증·완료 조건과 승인 후 구현/테스트/배포 순서는 [실행 계획](../../../docs/plans/2026-10-21-public-procurement-expansion-plan.md)을 따른다. 이 문서와 ADR-047 승인 전 다음 구현을 시작하지 않는다.
+단계별 목표·파일·선행 조건·위험·검증·완료 조건과 승인 후 구현/테스트/배포 순서는 실행 계획(git `3ae02acf` 의 `docs/plans/2026-10-21-public-procurement-expansion-plan.md`)을 따른다. 이 문서와 ADR-047 승인 전 다음 구현을 시작하지 않는다.
 
 ## 관련 문서
 
 - [정본 인덱스](../../../docs/00-README.md)
 - [ADR-047 제안](../../../docs/16-DECISIONS.md)
 - [현황·API 조사](../../../docs/evidence/procurement-expansion/20261021-review.md)
-- [단계별 계획](../../../docs/plans/2026-10-21-public-procurement-expansion-plan.md)
+- 단계별 계획(git `3ae02acf` 의 `docs/plans/2026-10-21-public-procurement-expansion-plan.md`)

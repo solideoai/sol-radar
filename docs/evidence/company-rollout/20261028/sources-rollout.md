@@ -95,6 +95,6 @@ updated: 2026-10-29
 
 - [[lh-a-stage-ingest-worker|LH A단계 기록]]
 - [[../../../plans/2026-10-28-all-sources-activation|10종 수집 계획]]
-- [[../../../plans/2026-10-27-company-rollout-attachments|회사 반영 실행서]] §8
+- 회사 반영 실행서(git `3ae02acf` 의 `docs/plans/2026-10-27-company-rollout-attachments.md`) §8
 - [[../../program-notices/20261028-bizinfo-schedule|기업마당 정기 수집 증거]]
 - `infra/company/README.md` §10

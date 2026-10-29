@@ -7,7 +7,7 @@ updated: 2026-10-27
 
 # 회사 공개 프로필 운영 반영 기록 (2026-10-27)
 
-실행서: [[../../../plans/2026-10-27-company-public-profile-plan|계획]] Task 10. 단계마다 사용자 확인 뒤 실행했다.
+실행서: 계획(git `3ae02acf` 의 `docs/plans/2026-10-27-company-public-profile-plan.md`) Task 10. 단계마다 사용자 확인 뒤 실행했다.
 
 | 순서 | 단계 | 결과 |
 |---|---|---|
@@ -40,7 +40,7 @@ updated: 2026-10-27
 
 ## 회사 반영 (2026-10-27 오후, 사용자가 회사 터미널에서 실행)
 
-실행서 [[../../../plans/2026-10-27-company-rollout-attachments|10-27 회사 반영]] 중 이 작업에 필요한 부분만 했다.
+실행서 10-27 회사 반영(git `3ae02acf` 의 `docs/plans/2026-10-27-company-rollout-attachments.md`) 중 이 작업에 필요한 부분만 했다.
 
 | 서비스 | Compose 프로젝트 | 결과 |
 |---|---|---|

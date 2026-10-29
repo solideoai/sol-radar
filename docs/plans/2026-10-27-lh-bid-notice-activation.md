@@ -235,7 +235,7 @@ registry 는 strict 스키마라 오타 하나로 **Worker 전체가 기동하�
 | 단계 | 할 일 | 확인 / 중단 |
 |---|---|---|
 | A1 | `feat/lh-bid-notice`(`7e4d55cd`…`b59148f2`) main 병합·push [승인] = Vercel 배포 | 화면 외부 서비스 6종 그대로 |
-| A2 | 회사 Git 갱신 [승인]. 경로는 운영 Worker 의 compose 작업 폴더 라벨로 먼저 확인한다(10-27 기준 `/data/www/ai_workspace/sol-radar-app`). [[2026-10-27-ingest-source-isolation-deploy\|배포 실행서]]의 `sol-radar-deploy` 경로를 그대로 쓰지 않는다 | `docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' <ingest-worker>` 와 같은 폴더인지. 라벨 값은 compose 파일 폴더(`…/sol-radar-app/infra`)다 |
+| A2 | 회사 Git 갱신 [승인]. 경로는 운영 Worker 의 compose 작업 폴더 라벨로 먼저 확인한다(10-27 기준 `/data/www/ai_workspace/sol-radar-app`). 배포 실행서(git `3ae02acf` 의 `docs/plans/2026-10-27-ingest-source-isolation-deploy.md`)의 `sol-radar-deploy` 경로를 그대로 쓰지 않는다 | `docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' <ingest-worker>` 와 같은 폴더인지. 라벨 값은 compose 파일 폴더(`…/sol-radar-app/infra`)다 |
 | A3 | 새 ingest Worker 이미지 빌드(태그 `git rev-parse --short=12 HEAD`) → 일회용 `--check` | 외부 6종 모두 `NOT_CALLABLE(DISABLED)`, 나라장터 정상. 아니면 멈춤 |
 | A4 | ingest Worker 만 재생성 [승인]. KST 정각 +15분 ~ 다음 정각 −30분, 직전 `--status` 의 waiting·active·prioritized 가 0 | Job Scheduler 1개(`g2b-scheduled`), healthy |
 | A5 | 다음 정각 지켜보기 | 나라장터 회차 `SUCCEEDED`, `quota:15129394` 평소대로 |
@@ -306,5 +306,5 @@ select count(*) from public.bid_notices where source = 'lh-bid-notice';
 
 - [LH 로컬 구현 증거](../evidence/ingestion/20261027-lh-bid-notice/summary.md)
 - [운영 적용 결과·사용량](../evidence/ingestion/20261027-ops-apply/summary.md)
-- [[2026-10-27-ingest-source-isolation-deploy|10-27 배포 실행서]]
+- 10-27 배포 실행서(git `3ae02acf` 의 `docs/plans/2026-10-27-ingest-source-isolation-deploy.md`)
 - [[../PROGRESS|진행 상황]]

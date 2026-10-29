@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - security
   - decision
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 09. 인증·권한·보안·책임 있는 AI
@@ -61,7 +61,7 @@ updated: 2026-10-28
 |회사 역량 열람 (`/company`, `GET /company-profile`·`/revisions`, ADR-052)|ADMIN, EXECUTIVE|
 |분석 실행 요청 (`POST /bids/:id/analyses`)|ADMIN, SALES, ANALYST|
 |사람 최종 결정 기록 (`POST /bids/:id/reviews`)|ADMIN, SALES|
-|회사 프로필 개정 (`PUT /company-profile`)|ADMIN|
+|회사 프로필 개정 (화면·`PUT` 없음. 운영자 CLI `pnpm ops:company-profile`을 사람이 로컬에서 실행, [[16-DECISIONS\|ADR-052]] 8번)|ADMIN(`--created-by`가 그 조직 ADMIN이어야 한다)|
 |사용자 초대·업무 역할 변경·조직에서 내보내기|ADMIN (템플릿의 owner 기준 정책을 `sol_role=ADMIN` 기준으로 바꿨다, `20261019000001`, [[16-DECISIONS\|ADR-021]])|
 |수동 수집 실행·수집 결과 조회|ADMIN. 예외: 대시보드 수집 신선도용 `latest_ingest_run(text)`은 업무 역할이 있으면 누구나 출처별 최신 run 한 건의 상태·시각·요약만 읽는다([[04-DATABASE\|04]] §3.6)|
 |본인 알림 조회·읽음 처리|모든 인증 사용자. 남의 알림은 `404`|
@@ -191,6 +191,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 |인용 검증|AI가 만든 인용은 원문 문자열 매칭에 실패하면 무효 ([[15-DATA-CONTRACTS\|15 데이터 계약]])|
 |결정 모델 입력 정형화|결정 모델에는 자유 텍스트 대신 정형화된 facts만 전달. 질문 세트는 코드에 고정, 문서 텍스트가 질문에 섞이지 않는다. 운영 state는 영어 템플릿(`en.v0.2`)뿐이고 공고 자유 텍스트는 `/extract`의 `translations`, 기업 값은 기존 시간 예산 안의 `/kev` 보충 번역을 쓴다(숫자·식별자·조건 검증 통과분). 필요한 번역 누락 시 실제 Bosun을 호출하지 않고 `TRANSLATION_INCOMPLETE` 검토 플래그와 경로 진단을 남긴다. 한국어 state는 평가 전용(`KEV_ALLOW_KO_STATE`). 결정 서버(8009)도 한글 state를 422 `STATE_NOT_ENGLISH`로 거절한다(`DECISION_ALLOW_KO_STATE`는 공유 8009에 켜지 않는다. [[16-DECISIONS\|16]] 미결정 27)|
 |파싱 실패 처리|읽지 못한 첨부의 내용을 추정하라는 지시를 프롬프트에 넣지 않는다. 근거가 파싱 텍스트에 없는 값은 인용 검증에서 `UNKNOWN`이 된다([[15-DATA-CONTRACTS\|15 데이터 계약]] §5.1)|
+|추천 분석(`/insight`, [[16-DECISIONS\|ADR-066]])|사람이 [추천 분석]을 눌렀을 때만 Qwen을 부른다. 분석 run이 인젝션 의심이면 Worker가 공고 인용을 빼고 `injectionSuspected`를 보내고, gateway는 그 값이나 자기 guard가 모델 입력에서 지시문을 찾으면 모델을 부르지 않고 규칙 결과 문장(TEMPLATE, `INJECTION_SUSPECTED`)으로 답한다. 화면은 이 경우 [다시 요청]을 두지 않는다. 모델 출력은 모양·글자 수·숨은 문자·없는 근거 번호·금지어(승률·확률·가능성·수주 금액·점유율·경쟁사·% 등, `FORBIDDEN_WORDS`)·다른 판정 이름·참여를 권하거나 말리는 표현·입력에 없는 숫자를 검사하고, 하나라도 걸리면 TEMPLATE로 바꾼다. 판정 이름을 다시 쓰지 않으므로 규칙 판정을 바꾸지 못한다. 프롬프트·모델 출력은 로그에 남기지 않는다(`services/ai/src/sol_ai/insight.py`, 시험 `services/ai/tests/test_insight.py`). 요청은 사용자 기준 분당 3회, 같은 run에 모델 설명이 있으면 다시 부르지 않는다(DB 제약 `recommendation_insights_pending_or_model_once`)|
 
 ### 감사 가능성
 아래 테이블이 모든 AI 실행과 수집을 재현 가능하게 남긴다 (컬럼 정의는 [[04-DATABASE|04 DB]] §3):
@@ -228,7 +229,7 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
   - 비밀 값(서버 전용, 커밋 금지): `SUPABASE_SERVICE_ROLE_KEY`(worker·seed·로컬 운영자 CLI 전용. 웹 서버·클라이언트 번들 금지), `SUPABASE_DB_URL`(마이그레이션 적용 `pnpm db:push`, 운영 DB를 바꾸므로 사용자 확인 뒤에만), `REDIS_PASSWORD`, `DEMO_SEED_PASSWORD`, `API_CURSOR_SECRET`(목록 커서 HMAC 키), `G2B_*_SERVICE_KEY` 4개(data.go.kr 서비스별 서비스키, worker 전용, [[07-DATA-PIPELINE|07 수집]] §2.2), `QWEN_API_KEY`·`KEV_API_KEY`(회사 GPU 추론 엔드포인트의 Bearer 키. gateway 전용, `infra/.env`에만, [[16-DECISIONS|ADR-025]]).
   - 카카오톡 알림([[16-DECISIONS|ADR-038]]): `KAKAO_REST_API_KEY`·`KAKAO_CLIENT_SECRET`·`KAKAO_TOKEN_ENC_KEY`(토큰 암호화 키, base64 32바이트). 웹 서버·worker 전용이고 `NEXT_PUBLIC_`·브라우저 번들에 넣지 않는다(ADR-018 예외). 키 이름만 `infra/env/company-worker.env.example`·`web/.env.example`에 있고 값은 없다.
   - redis 비밀번호는 `demo` 프로필에서도 기본값을 쓰지 않는다. `pnpm check:env`는 `CHANGE_ME`와 `minioadmin` 값을 placeholder로 거부한다.
-- `NOTIFY_KAKAO_PROVIDER=mock`이 기본이다(외부 호출 없음). `memo`(카카오 나에게 보내기 실발송)는 사용자가 env를 바꿀 때만 쓴다(ADR-038). 실제 공고 수신을 녹화할 때만(첨부 처리 운영 반영 뒤, [[16-DECISIONS|ADR-054]]) 회사 Worker를 `memo`로 바꾸고, 녹화 뒤 `mock`으로 되돌린다(미확인). 증거에 토큰·카카오 사용자 ID를 남기지 않는다.
+- `NOTIFY_KAKAO_PROVIDER=mock`이 기본이다(외부 호출 없음). `memo`(카카오 나에게 보내기 실발송)는 사용자가 env를 바꿀 때만 쓴다(ADR-038). 운영에는 알림 Worker가 아직 없다([[13-NOTIFICATIONS|13 알림]] "운영 알림 처리 위험"). 실제 공고 수신을 녹화할 때만 회사 알림 전용 Worker를 띄워 `memo`로 켠다([회사 실행서](../infra/company/README.md) §9.6, [[16-DECISIONS|ADR-054]]). 그 Worker에서 `mock`은 쓰지 않는다(보내지 않은 카카오를 `SENT`로 적는다). 증거에 토큰·카카오 사용자 ID를 남기지 않는다.
 - `AI_HOSTED_APPROVED=false`가 기본. `AI_PROVIDER`·`KEV_ENABLED`의 기본값은 `SOL_RUN_MODE`(기본 `mock`)가 정하고, 직접 준 값이 모드와 모순되면 `pnpm check:env`와 gateway가 기동을 거부한다. hosted 지정 상태에서 승인 플래그가 없으면 gateway는 기동을 거부한다 (조용히 mock으로 바꾸지 않는다). `AI_FALLBACK_TO_MOCK=false`가 기본이고 `live` 모드에서 `true`면 기동을 거부한다. 해커톤 동안은 자동 대체를 구현하지 않아 어느 모드에서든 `true`면 기동을 거부한다. `AI_PROVIDER=hosted` + `KEV_ALLOW_KO_STATE=true`도 모든 실행 모드에서 기동을 거부한다(사유 `KEV_ALLOW_KO_STATE(FORBIDDEN_WITH_HOSTED)`, [[03-AI-PIPELINE|03 AI 파이프라인]] §3, [[16-DECISIONS|ADR-030]] B11).
 - 호스트 포트는 `127.0.0.1`에만 연다. 공용 Wi-Fi에서 `0.0.0.0` 바인딩 금지. 서비스별 포트는 [[10-DEPLOYMENT|10 배포]] "로컬 Compose 서비스 (대체 경로)" 절이 정본이다. API(`/api/v1`)와 헬스체크(`/health/*`)는 web이 응답하며 별도 api 서비스는 없다. 해커톤 실추론의 모델 런타임은 회사 GPU 서버에 있고, 회사가 제공하는 HTTPS 엔드포인트로만 닿는다(아래 "실데이터와 회사 GPU 서버" 절).
 - seed 데모 계정(목록·역할은 [[04-DATABASE|04 DB]] §6)은 `.invalid` TLD라 실제 메일이 가지 않는다. 비밀번호는 `.env`의 `DEMO_SEED_PASSWORD`로 주입하고 문서·스크린샷에 적지 않는다. 계정은 `pnpm demo:reset`(service role)이 만든다.
@@ -242,9 +243,9 @@ AI 분석을 사용할 수 없어 규칙 기반 점수와 자격 판정만 표�
 
 ### 회사 GPU 추론 엔드포인트 연결 (ADR-025)
 - 운영 gateway는 회사 Compose에서 돈다(`infra/compose.company.yaml`, [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"). 노트북 Compose의 gateway는 대체 경로다. 모델 런타임(Qwen3.8-Flash-Next는 회사가 이미 운영하는 vLLM API `https://acropolissg.com/vllm/v1`, 결정 모델 Bosun은 우리 `sol_decision` 서버 `127.0.0.1:8009`)은 회사 GPU 서버에 있고 회사가 기동·운영한다. Worker → gateway → 모델 구조는 바뀌지 않는다.
-- 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). `QWEN_BASE_URL`은 회사 vLLM API(`https://acropolissg.com/vllm/v1`)이고 gateway는 HTTPS로 붙는다. 결정 모델은 회사 Compose gateway(`network_mode: host`)가 같은 호스트의 `sol_decision`에 `KEV_BASE_URL=http://127.0.0.1:8009`로 붙는다(2026-10-27). gateway는 루프백이 아닌 http 주소를 기동 때 거부한다(`INSECURE_URL`, `services/ai/src/sol_ai/adapters/local_setup.py`). 인증은 각 런타임(vLLM `--api-key`, `sol_decision` `DECISION_API_KEY`(`KEV_API_KEY`와 같은 값))이 한다([[16-DECISIONS|ADR-025]]). 설계한 공개 경로 `https://acropolissg.com/sol-radar`(`/kev`)와 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)는 회사 nginx에 등록되지 않았다(사용자 확인, 공개 경로 404). 라우터를 쓰게 되면 `Authorization` 헤더를 통과시키고 로그에 `$uri`만 남겨 키·쿼리를 기록하지 않는다. `/sol-radar/healthz`는 인증 없음·비밀 없음의 접속 확인용이다. 터널 전제는 폐기했다.
+- 회사 GPU 서버는 외부에서 접근할 수 없다(SSH·VPN 터널 불가). `QWEN_BASE_URL`은 회사 vLLM API(`https://acropolissg.com/vllm/v1`)이고 gateway는 HTTPS로 붙는다. 결정 모델은 회사 Compose gateway(`network_mode: host`)가 같은 호스트의 `sol_decision`에 `KEV_BASE_URL=http://127.0.0.1:8009`로 붙는다. gateway는 루프백이 아닌 http 주소를 기동 때 거부한다(`INSECURE_URL`, `services/ai/src/sol_ai/adapters/local_setup.py`). 인증은 각 런타임(vLLM `--api-key`, `sol_decision` `DECISION_API_KEY`(`KEV_API_KEY`와 같은 값))이 한다([[16-DECISIONS|ADR-025]]). 설계한 공개 경로 `https://acropolissg.com/sol-radar`(`/kev`)와 GPU 서버 안 nginx 모델 라우터(`infra/gpu/model-router.conf`, `127.0.0.1:8080`)는 회사 nginx에 등록되지 않았다(사용자 확인, 공개 경로 404). 라우터를 쓰게 되면 `Authorization` 헤더를 통과시키고 로그에 `$uri`만 남겨 키·쿼리를 기록하지 않는다. `/sol-radar/healthz`는 인증 없음·비밀 없음의 접속 확인용이다. 터널 전제는 폐기했다.
 - 엔드포인트는 공개 인터넷에 있다. TLS 필수이고 인증서 검증을 끄지 않는다(`curl -k`, `verify=False` 금지). API 키(`QWEN_API_KEY`·`KEV_API_KEY`)는 필수이고 `infra/.env`에만 둔다. 키 값은 문서·로그·커밋·스크린샷·증거에 남기지 않는다. 엔드포인트 URL은 비밀이 아니다. 회사 측 추가 인증이 있으면 회사가 알려 주는 방식으로 바꾼다.
-- 연결은 운영의 실모델 FX-02 분석 1건으로 확인했다. 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·지연(p95)은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번).
+- 연결은 운영 실모델 분석(DEMO 재분석, 실공고 분석, [AI gateway 회사 반영 기록](evidence/company-rollout/20261029/ai-gateway-rollout.md))으로 확인했다. 바깥(회사) nginx의 접두어 처리·회사 측 추가 인증 여부·지연(p95)은 미확인이다([[16-DECISIONS|16 ADR]] 미결정 17번).
 - 클라우드 GPU 임대는 비용이 들어 hosted 모델 API와 같은 사용자 승인 대상이다(ADR-010).
 - 호스트 허용 목록: "gateway는 거기에만 붙는다"를 모델 레지스트리(`services/ai/models/registry.yaml`)의 `allowedHosts`로 강제한다. 값은 `acropolissg.com` 하나다([[03-AI-PIPELINE|03]] §11, [[16-DECISIONS|ADR-032]] D2). `QWEN_BASE_URL`·`KEV_BASE_URL`의 호스트가 목록의 값과 정확히 같지 않으면(하위 도메인 포함) gateway가 기동을 거부한다(`HOST_NOT_ALLOWED`). 루프백은 시험용으로 허용한다.
 - 결정 서버(`sol_decision.serve`) 방어: 요청 본문 128 KiB, state 24,000자, 대기열 `DECISION_MAX_QUEUE` 4(넘으면 503), 요청 마감 `DECISION_TIMEOUT_MS` 4,500ms(넘으면 504), 한글 state 거절, 패키지 최상위 `*.py`의 manifest 대조(`trust_remote_code`가 실행하는 코드). 세부는 [[03-AI-PIPELINE|03]] §5.3, gateway는 `GET /v1/models` 응답의 `decision_embeddings_sha256`을 레지스트리 값과 대조한다(`services/ai/src/sol_ai/registry.py` `KEV_MATCH_FIELDS`). 패키지 무결성 대조 범위의 남은 한계는 [[16-DECISIONS|16]] 미결정 28이다.

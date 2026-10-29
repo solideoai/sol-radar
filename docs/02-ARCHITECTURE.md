@@ -6,14 +6,14 @@ tags:
   - sol-radar
   - architecture
   - pipeline
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 02. 시스템 아키텍처
 
 ## 운영 구성 (ADR-049)
 
-Vercel은 `web` 하나만 실행한다(`vercel.json`). 회사 서버는 기존 Redis를 재사용하고 그 위에 `redis-api`·AI gateway·Worker 3종(ingest·analysis·documents 전용)을 Compose로 띄운다. 모델은 회사 vLLM의 `Qwen3.8-Flash-Next-AWQ-INT4`와 우리 결정 서버 `sol_decision`(Bosun v3.1 0.6B)이다. 운영은 2026-10-26부터 나라장터 live 수집으로 돌고, AI gateway는 회사 실모델에 붙어 있다(`/health/ready` `ai: local`). 첨부 처리(gateway 파서·documents Worker)의 회사 반영은 [[10-DEPLOYMENT|10 배포]] "첨부 처리 운영 반영"을 따른다. 회사 쪽 절차는 [회사 실행서](../infra/company/README.md)다.
+Vercel은 `web` 하나만 실행한다(`vercel.json`). 회사 서버는 기존 Redis를 재사용하고 그 위에 `redis-api`·AI gateway·전용 Worker 4종(ingest·analysis·documents·부처 공고)을 Compose로 띄운다. 알림 전용 Worker는 코드와 실행서만 있고 띄우지 않았다. 모델은 회사 vLLM의 `Qwen3.8-Flash-Next-AWQ-INT4`와 우리 결정 서버 `sol_decision`(Bosun v3.1 0.6B)이다. 운영은 live 수집(나라장터·LH·KEPCO·K-water 입찰공고, 기업마당 지원사업)과 첨부 처리로 돌고, AI gateway는 회사 실모델에 붙어 있다(`/health/ready` `ai: local`). 프로젝트별 구성은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트", 회사 쪽 절차는 [회사 실행서](../infra/company/README.md)다.
 
 ## 경계
 
@@ -24,11 +24,11 @@ Vercel은 `web` 하나만 실행한다(`vercel.json`). 회사 서버는 기존 R
   - 같은 빌드가 `SOL_DEPLOYMENT_ROLE`로 역할을 나눈다. `frontend`(Vercel)는 분석·수집 접수와 AI 상태를 회사 `redis-api`에 HTTPS로 넘긴다. `redis-api`(회사)가 BullMQ job을 넣는다(producer). `standalone`은 노트북 대체 경로다.
   - `frontend`·`redis-api`는 `SUPABASE_SERVICE_ROLE_KEY`가 있으면 기동을 거부하고, `frontend`는 `REDIS_URL`도 거부한다(`web/app/_lib/deployment-role.ts:45-47`).
 - Supabase (클라우드 프로젝트, Compose 밖): **Postgres + RLS**(정형 데이터·점수·감사 이력, 조직 격리)와 **Auth**(이메일+비밀번호·간편 로그인, 공개 가입 + 초대로 조직 합류, ADR-018), private **Storage**(버킷 `bid-documents`·`bid-parsed`, ADR-048). 스키마·RLS·함수는 `supabase/migrations/*.sql`(append-only), 타입은 생성물 `web/lib/database.types.ts`(`pnpm db:types`). pgvector·Supabase Queues는 쓰지 않는다.
-- Worker (`web/worker/`, 별도 Node(TypeScript) 프로세스): BullMQ consumer. 전체 진입점 `worker/main.ts`는 system·ingest·documents·analysis·알림 outbox·마감 알림·부처 공고 등록을 한 프로세스에 둔다(`web/worker/main.ts:908-915`). 회사는 진입점을 나눠 `ingest-only-main.ts`·`analysis-only-main.ts`·`documents-only-main.ts`로 돌린다([[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"). 별도 extract job은 없고 `/extract`는 analysis job 안에서 부른다.
+- Worker (`web/worker/`, 별도 Node(TypeScript) 프로세스): BullMQ consumer. 전체 진입점 `worker/main.ts`는 system·ingest·documents·analysis·알림 outbox·마감 알림·부처 공고 등록을 한 프로세스에 둔다(`web/worker/main.ts` `WORKER_REGISTRATIONS`). 회사는 진입점을 나눠 `ingest-only-main.ts`·`analysis-only-main.ts`·`documents-only-main.ts`·`program-notices-only-main.ts`로 돌린다. `notify-only-main.ts`는 준비만 했다([[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"). analysis Worker는 추천 분석 `insight` job도 소비한다([[16-DECISIONS|ADR-066]]). 별도 extract job은 없고 `/extract`는 analysis job 안에서 부른다.
   - `live` 모드에서 나라장터 Open API(data.go.kr)를 부르고 첨부를 `www.g2b.go.kr` allowlist로 내려받는 유일한 컴포넌트다(서비스별 서비스키 `G2B_*_SERVICE_KEY`는 worker env에만, [[07-DATA-PIPELINE|07 수집]] §2.2, [[16-DECISIONS|ADR-022]]).
   - 같은 코드베이스의 `web/server` 도메인 코드를 같이 쓴다. `node --conditions=react-server --import tsx worker/main.ts`로 띄워야 `server-only` 모듈을 불러온다(`docs/evidence/phase-0/worker-conditions.txt`).
   - Supabase는 service role 키로 부르므로 RLS를 거치지 않는다. 그래서 쓸 때 `org_id`를 직접 지정하고 테넌트 혼입을 막는 시험을 둔다([[09-SECURITY|09 보안]]).
-- Python AI gateway (FastAPI :8000): 첨부 파싱(`/parse`, 형식별 기본 어댑터 pdfplumber·sol-hwpx·sol-hwp5, `services/ai/src/sol_ai/parsers/`, [[03-AI-PIPELINE|03]] §10.2), 문서 요구조건 구조화(Qwen `/extract`), 근거 설명(`/explain`, 모든 모드가 템플릿 문장, `services/ai/src/sol_ai/explain.py:83-90`), 결정 모델(Bosun) 호출 어댑터(`/kev`), JSON schema 검증, `AI_PROVIDER=mock|local|hosted` 분기. 임베딩은 코드가 없다. **결정 모델과 Qwen 런타임을 호출하는 유일한 컴포넌트**다. Worker·Next 서버는 결정 모델에 직접 접근하지 않는다. 실행 모드(`SOL_RUN_MODE=live|fixture|mock`)는 [[03-AI-PIPELINE|03 AI 파이프라인]]과 [[16-DECISIONS|ADR-020]].
+- Python AI gateway (FastAPI :8000): 첨부 파싱(`/parse`, 형식별 기본 어댑터 pdfplumber·sol-hwpx·sol-hwp5, `services/ai/src/sol_ai/parsers/`, [[03-AI-PIPELINE|03]] §10.2), 문서 요구조건 구조화(Qwen `/extract`), 근거 설명(`/explain`, 모든 모드가 템플릿 문장, `services/ai/src/sol_ai/explain.py:83-90`), 버튼으로 부르는 추천 분석(`/insight`, Qwen 설명 + 출력 검증, [[16-DECISIONS|ADR-066]]), 결정 모델(Bosun) 호출 어댑터(`/kev`), JSON schema 검증, `AI_PROVIDER=mock|local|hosted` 분기. 임베딩은 코드가 없다. **결정 모델과 Qwen 런타임을 호출하는 유일한 컴포넌트**다. Worker·Next 서버는 결정 모델에 직접 접근하지 않는다. 실행 모드(`SOL_RUN_MODE=live|fixture|mock`)는 [[03-AI-PIPELINE|03 AI 파이프라인]]과 [[16-DECISIONS|ADR-020]].
 - Redis: job queue·호출 예산 카운터·Worker 상태 보고. 운영은 회사 기존 Redis다. Qdrant: 임베딩 검색 설계만 있고 노트북 Compose에 컨테이너만 띄운다(gateway는 Qdrant를 부르지 않는다).
 
 ## AI 호출 경로 (단일)
@@ -37,7 +37,8 @@ Vercel은 `web` 하나만 실행한다(`vercel.json`). 회사 서버는 기존 R
 |Worker `web/worker` (documents job)|AI gateway|HTTP `POST /parse` (바이트 본문)|첨부 1건 단위. worker가 내려받아 Supabase Storage `bid-documents`에 둔 바이트를 보내고 결과 텍스트를 `bid-parsed`에 쓴다. gateway는 Supabase Storage에 접근하지 않는다|
 |Worker `web/worker` (analysis job, 캐시된 추출이 없을 때)|AI gateway|HTTP `POST /extract`|공고 **revision 단위**, 조직 무관. 입력은 본문과 PARSED·PARTIAL 첨부 텍스트다. 결과(+ 영어 표기 `translations`. local은 Qwen 번역, mock은 null, `services/ai/src/sol_ai/extraction.py:441-446`)는 `requirement_extractions`에 저장해 모든 조직이 재사용. timeout은 `AI_TIMEOUT_MS`(기본 60000) + 5초|
 |Worker `web/worker` (analysis job)|AI gateway|HTTP `POST /kev`, `POST /explain`|**조직 × revision × 프로필 revision** 단위. 추출 결과 + 프로필 요약 + 질문 세트 `kev-qs/v0.1`·`v0.2`를 보낸다. timeout은 `KEV_TIMEOUT_MS`(기본 5000) + 2초. circuit breaker는 Worker가 가진다|
-|AI gateway|결정 모델 서버(`sol_decision`, Bosun v3.1 0.6B, `127.0.0.1:8009`)|`POST /v1/systemone` (Kev wire 호환), `KEV_API_KEY` Bearer. 운영은 같은 호스트 루프백 http|`AI_PROVIDER=local`일 때. 운영 `KEV_BASE_URL=http://127.0.0.1:8009`(회사 Compose gateway와 같은 호스트, 2026-10-27. 설계한 공개 경로 `https://acropolissg.com/sol-radar/kev`는 회사 nginx에 없다, ADR-025·034)의 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`. 기동 시 모델 레지스트리와 `/v1/models` 대조. `mock`은 gateway 안에서 `fixtures/kev/FX-xx.json` 고정 응답|
+|Worker `web/worker` (insight job, 사람이 [추천 분석]을 눌렀을 때만)|AI gateway|HTTP `POST /insight`|**분석 run 단위**. 분석 스냅샷의 규칙 결과·근거·회사 자료를 보내고 결과는 `recommendation_insights`에 저장한다. 인젝션 의심 run이면 공고 인용을 빼고 보낸다. timeout은 `AI_TIMEOUT_MS` + 5초|
+|AI gateway|결정 모델 서버(`sol_decision`, Bosun v3.1 0.6B, `127.0.0.1:8009`)|`POST /v1/systemone` (Kev wire 호환), `KEV_API_KEY` Bearer. 운영은 같은 호스트 루프백 http|`AI_PROVIDER=local`일 때. 운영 `KEV_BASE_URL=http://127.0.0.1:8009`(회사 Compose gateway와 같은 호스트. 설계한 공개 경로 `https://acropolissg.com/sol-radar/kev`는 회사 nginx에 없다, ADR-025·034)의 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`. 기동 시 모델 레지스트리와 `/v1/models` 대조. `mock`은 gateway 안에서 `fixtures/kev/FX-xx.json` 고정 응답|
 |AI gateway|Qwen runtime(`Qwen3.8-Flash-Next-AWQ-INT4`)|회사가 운영하는 vLLM API `https://acropolissg.com/vllm/v1`(OpenAI 호환, guided JSON. 우리가 띄우지 않는다), HTTPS + `QWEN_API_KEY` Bearer(ADR-025·034)|`AI_PROVIDER=local` 또는 `hosted`([[10-DEPLOYMENT\|10 배포]])|
 |Worker `web/worker` (ingest job)|data.go.kr Open API|HTTPS GET, `serviceKey`(서비스마다 다른 키)|`live` 모드만. 입찰공고·사전규격·발주계획·업종 코드. 호출 예산은 Redis 카운터([[07-DATA-PIPELINE\|07 수집]])|
 |Worker `web/worker` (documents job)|g2b 첨부 다운로드|HTTPS GET, `www.g2b.go.kr` allowlist|DNS 재검증·사설 IP 거부·30 s·50 MB([[09-SECURITY\|09 보안]])|
@@ -62,16 +63,16 @@ flowchart TB
 ## monorepo
 ```text
 web/                      # Next.js 16 App Router — 화면 + Route Handler(/api/v1) + 서버 도메인
-web/server/<도메인>/       #   model·repo·service·index(배럴), import "server-only". 예: bids, ingestion, documents, scoring, analysis, opportunities, notifications, kakao-notify, company-profile, people, workforce, health
+web/server/<도메인>/       #   model·repo·service·index(배럴), import "server-only". 예: bids, ingestion, documents, scoring, analysis, insight, opportunities, program-notices, gaps, market, calendar, watchlist, projects, notifications, kakao-notify, company-profile, people, workforce, health
 web/app/(app)/(work)/      #   업무 화면 묶음 — 조직 주소 없는 /dashboard·/bids·/bids/[id]·/notifications 등(ADR-029 A6 D1)
 web/app/api/v1/**/route.ts#   외부 계약(05 API) — 경로는 /api/v1/... 그대로
 web/app/health/{live,ready}/route.ts  # 헬스체크 /health/live, /health/ready
-web/worker/               # BullMQ 소비자. 전체 진입점 main.ts, 회사용 ingest-only-main.ts·analysis-only-main.ts·documents-only-main.ts
+web/worker/               # BullMQ 소비자. 전체 진입점 main.ts, 회사용 ingest·analysis·documents·program-notices·notify 전용 진입점(*-only-main.ts)
 supabase/migrations/      # 스키마·RLS·함수(append-only, 이미 있는 파일은 고치지 않는다)
 services/ai/              # Python AI gateway (FastAPI :8000), src/sol_ai/adapters/(mock·qwen·kev_wire·kev_local·unavailable 등)·parsers/
 services/decision/        # 결정 모델 서버 sol_decision(Bosun v3.1 0.6B, Kev wire POST /v1/systemone, :8009)과 학습기. 회사 GPU 서버에서 띄운다
 infra/compose.yaml        # 노트북 대체 경로: redis, qdrant, ai-gateway, worker 4개. web 은 호스트 실행
-infra/compose.*.company.yaml  # 회사 운영: compose.company.yaml(redis-api·ai-gateway·worker), ingest·analysis·documents 전용 Worker
+infra/compose.*.company.yaml  # 회사 운영: compose.company.yaml(redis-api·ai-gateway·worker), ingest·analysis·documents·program-notices·notify 전용 Worker
 fixtures/                 # FX-01 ~ FX-20
 scripts/                  # 검증·seed(템플릿 scripts 재사용: db-seed, db-push, db-types, database.test 등)
 design/tokens.json        # 디자인 토큰 정본 → web/app/globals.css 생성(pnpm tokens)
@@ -129,7 +130,7 @@ sequenceDiagram
 - Worker가 결정 모델을 직접 호출하는 경로는 없다. 결정 모델 어댑터·mock·질문 세트는 `services/ai/`에만 둔다.
 - Worker는 service role로 쓰므로 RLS가 막아 주지 않는다. analysis job은 job에 담긴 `orgId`를 모든 읽기·쓰기에 `org_id`로 지정한다.
 - 결정 모델(Bosun)은 `review_flags`를 추가하고 참고 지표로 표시될 뿐 자격 판정·점수·권고를 바꾸지 못한다 ([[03-AI-PIPELINE|03 AI 파이프라인]] §5.5, [[08-SCORING|08 스코어링]], [[16-DECISIONS|ADR-020]]).
-- 분석 접수는 원문이 있어야 한다. 최신 revision 본문이 비고 PARSED·PARTIAL 첨부도 없으면 `409 ANALYSIS_SOURCE_MISSING`이다(`web/server/bids/bids.service.ts:125`). 회사 documents Worker 기동 전 운영 실공고는 이 상태다.
+- 분석 접수는 원문이 있어야 한다. 최신 revision 본문이 비고 PARSED·PARTIAL 첨부도 없으면 `409 ANALYSIS_SOURCE_MISSING`이다(`web/server/bids/bids.service.ts:125`). 운영 실공고는 회사 documents Worker가 첨부를 받아 파싱한 뒤에 분석할 수 있다.
 - 추출 실패·AI 불가 시 analysis job은 규칙만으로 끝내고 `status=PARTIAL`, `recommendation_basis=RULES_ONLY`.
 
 ## 운영 토폴로지
@@ -143,30 +144,28 @@ flowchart LR
   NG["기존 Nginx /redis/"] --> RA["sol-radar-gateway · redis-api<br/>127.0.0.1:6380"]
   RA --> R[("기존 Redis :6379")]
   R --> WI["sol-radar-ingest"]
-  R --> WA["sol-radar-analysis-only"]
+  R --> WA["sol-radar-analysis-only<br/>analysis · insight"]
   R --> WD["sol-radar-documents"]
-  WA & WD & RA --> AI["회사 AI gateway :8000"]
+  R --> WP["sol-radar-program-notices"]
+  WA & WD & RA --> AI["sol-radar-ai-worker · AI gateway :8000"]
+  AI -- "루프백 http" --> KEV["sol_decision :8009<br/>(같은 호스트, Compose 밖)"]
  end
- subgraph gpu[회사 GPU 서버 · 회사 운영]
-  VL["회사 vLLM /vllm/v1"]
-  RT["model-router /sol-radar"] -- "/kev" --> KEV["sol_decision :8009"]
- end
+ VL["회사 vLLM API /vllm/v1"]
  V -- "HTTPS acropolissg.com/redis" --> NG
  V --> SB
- WI & WA & WD -- service role --> SB
+ WI & WA & WD & WP -- service role --> SB
  AI -- HTTPS --> VL
- AI -- HTTPS --> RT
 ```
-- Vercel web은 Redis TCP·service role 없이 회사 `redis-api`에 HTTPS로 접수한다. 회사가 받는 경로는 health·AI 상태·분석 접수/조회·수집 접수/조회·수동 수집 gate 7개다(`web/app/_lib/redis-api-path.ts:16-25`). 회사 Compose 프로젝트별 서비스·등록 job은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"다.
+- Vercel web은 Redis TCP·service role 없이 회사 `redis-api`에 HTTPS로 접수한다. 회사가 받는 경로는 health·AI 상태·분석 접수/조회·추천 분석 요청·수집 접수/조회·수동 수집 gate 8개다(`web/app/_lib/redis-api-path.ts` `redisApiOperation`). 추천 분석 결과 GET은 Vercel이 사용자 세션(RLS)으로 직접 읽는다. 회사 Compose 프로젝트별 서비스·등록 job은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"다.
 - 회사 Worker와 redis-api가 부르는 AI gateway 주소(`AI_GATEWAY_URL`)와 미확인 사항은 [[10-DEPLOYMENT|10 배포]] "회사 Compose 프로젝트"가 정본이다.
-- 회사 GPU 서버는 외부 접근이 불가하다. Qwen은 회사가 HTTPS(`https://acropolissg.com/vllm/v1`)로 제공하고, gateway는 TLS 검증을 켠 채 `QWEN_API_KEY`로 붙는다([[16-DECISIONS|ADR-025]]). 결정 모델은 회사 Compose gateway(`network_mode: host`)가 같은 호스트의 `sol_decision`(`127.0.0.1:8009`)에 루프백 http와 `KEV_API_KEY`로 붙는다(2026-10-27). 회사 nginx `/sol-radar` location → GPU 서버 안 모델 라우터(`infra/gpu/model-router.conf`) → `/sol-radar/kev` 경로는 설계만 있고 회사 nginx에 등록되지 않았다(사용자 확인, 공개 경로 404). 엔드포인트에 접속하지 못하면 gateway가 Qwen·결정 모델 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모델 기동·GPU 배분은 회사 운영이다.
+- 회사 GPU 서버는 외부 접근이 불가하다. Qwen은 회사가 HTTPS(`https://acropolissg.com/vllm/v1`)로 제공하고, gateway는 TLS 검증을 켠 채 `QWEN_API_KEY`로 붙는다([[16-DECISIONS|ADR-025]]). 결정 모델은 회사 Compose gateway(`network_mode: host`)가 같은 호스트의 `sol_decision`(`127.0.0.1:8009`)에 루프백 http와 `KEV_API_KEY`로 붙는다. 회사 nginx `/sol-radar` location → GPU 서버 안 모델 라우터(`infra/gpu/model-router.conf`) → `/sol-radar/kev` 경로는 설계만 있고 회사 nginx에 등록되지 않았다(사용자 확인, 공개 경로 404). 엔드포인트에 접속하지 못하면 gateway가 Qwen·결정 모델 미접속을 따로 기록하고 `PARTIAL`·`RULES_ONLY`로 끝낸다. 모델 기동·GPU 배분은 회사 운영이다.
 - 실행 모드([[16-DECISIONS|ADR-020]]): `live` = 공공 API + 회사 실추론, `fixture` = fixture 20건 + 회사 실추론(공공 API 장애 대체), `mock` = fixture 20건 + mock AI(모델 장애 대체·CI·골든). 회사 ingest·documents Worker는 Compose가 `SOL_RUN_MODE=live`로 고정한다(`infra/compose.ingest-only.company.yaml:24`, `infra/compose.documents-only.company.yaml:26`). 모드 전환은 env 교체와 재시작으로 하고 자동으로 바꾸지 않는다.
 - `AI_PROVIDER` 값은 `/health/ready`의 `checks.ai`로 노출된다(2026-10-27 운영 `ai: local`). 상단바에는 실행 모드·AI 표시가 없다([[06-UI-UX|06 UI]] §4). 데이터 출처는 상단 `DEMO` 배지(`?origin=demo`일 때)와 공고 행 `DEMO` 배지로, 분석마다의 실행 모드·AI 모델은 공고 상세 분석 요약 띠("분석 실행 모드: …"·"AI: …")와 분석 결과 비교 화면으로 보인다. 런타임 진단은 `GET /api/v1/admin/ai/status`(ADMIN)와 `/admin/ingestion`이 맡는다.
 - mock 응답은 fixture ID별로 고정된 결정적 값이다. 같은 입력에 같은 출력이 나와야 골든 테스트가 성립하므로 골든은 `mock` 모드에서만 단언한다.
 - **대체 경로(녹화용 S5·S6)**: 노트북 `infra/compose.yaml`(redis·qdrant·ai-gateway·worker 4개)을 띄우고 web은 호스트에서 `SOL_DEPLOYMENT_ROLE=standalone pnpm -C web start`로 띄운다. `infra/compose.yaml`에 `web` 서비스는 없다([[16-DECISIONS|ADR-024]] D1). 절차는 [[10-DEPLOYMENT|10 배포]] "대체 경로·녹화용"이다.
 
 > [!warning] 네트워크 의존
-> 운영 DB·Auth·Storage는 Supabase 클라우드 프로젝트라 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로는 격리 로컬 Supabase(`pnpm db:start`)를 쓴다([[19-DEMO-SCENARIO|19 데모 시나리오]] §3.2, [[16-DECISIONS|ADR-023]], 미결정 8번).
+> 운영 DB·Auth·Storage는 Supabase 클라우드 프로젝트라 인터넷 연결이 필요하다. 연결이 끊기면 로그인·조회·분석 저장이 모두 멈춘다. 대체 경로는 격리 로컬 Supabase(`pnpm db:start`)를 쓴다([[19-DEMO-SCENARIO|19 데모 시나리오]] §3.2, [[16-DECISIONS|ADR-023]]).
 
 ## 장애 원칙
 |장애|감지|사용자에게 보이는 것|데이터 영향|
@@ -175,7 +174,7 @@ flowchart LR
 |추출 실패 (Qwen 오류, 스키마 재검증 실패)|gateway가 `/extract` 응답에 실패 코드|해당 공고 상세에 "요구조건 추출 실패, 규칙만 적용" 표시, 추출 필드 전부 `UNKNOWN`|`requirement_extractions.status=FAILED`. 분석은 규칙만으로 `PARTIAL`, `review_flags += EXTRACTION_FAILED` ([[03-AI-PIPELINE\|03 AI 파이프라인]] §6)|
 |결정 모델만 불가 (gateway 정상, `KEV_TIMEOUT_MS` 초과·오류)|gateway가 `kev.enabled=false`로 응답|결정 모델 참고 지표 영역 "사용 불가", 점수·자격은 정상|`kev_output` null, `recommendation_basis=RULES_ONLY`, 상태 `COMPLETED`. 분석은 실패하지 않는다|
 |조달청 공식 API 불가·429·일일 한도(에러코드 22)|connector 지수 백오프 재시도, 체크포인트 유지, 한도 도달 시 그날 수집 중단|목록 상단 신선도 배너 "마지막 동기화 HH:MM", 관리자 수집 화면 "공공 API 오류: {코드}", 기존 공고 유지|`ingest_runs`·`ingest_errors`에 코드 기록. 신규 공고 지연, 손실 없음. fixture로 자동 대체하지 않는다|
-|첨부 다운로드 불가 (인증 요구·4xx·5xx·allowlist 밖 리다이렉트·50 MB 초과)|documents job. 회사 documents Worker 기동 전 운영 첨부는 `PENDING`으로 남는다|`DOCUMENT_DOWNLOAD_FAILED` 배지, "첨부 원문 확인"|`bid_documents.download_status=FAILED`. 본문만으로 추출, 첨부에 의존하는 항목은 `NEEDS_REVIEW`([[07-DATA-PIPELINE\|07 수집]])|
+|첨부 다운로드 불가 (인증 요구·4xx·5xx·allowlist 밖 리다이렉트·50 MB 초과)|documents job. 처리 범위 밖(마감 지난 공고, 공고당 상한 밖, xlsx·zip 등) 첨부는 받지 않고 `PENDING`으로 남는다|`DOCUMENT_DOWNLOAD_FAILED` 배지, "첨부 원문 확인"|`bid_documents.download_status=FAILED`. 본문만으로 추출, 첨부에 의존하는 항목은 `NEEDS_REVIEW`([[07-DATA-PIPELINE\|07 수집]])|
 |파싱 실패·부분 파싱 (미지원 형식·배포용·암호·스캔 PDF·품질 신호 미달)|gateway `/parse` 결과|`PARSE_UNSUPPORTED` 또는 "일부만 읽음" 배지와 사유|`bid_documents.parse_status`. 빠진 내용을 AI가 추측해 채우지 않는다([[03-AI-PIPELINE\|03 AI 파이프라인]])|
 |회사 GPU 추론 엔드포인트 미접속·모델 서버 미접속(ADR-025)|gateway → Qwen·결정 모델 연결 실패(TLS·인증 실패 포함), 레지스트리 불일치|Qwen 불가: "AI 분석 불가 → 규칙만", 결정 모델 불가: 결정 모델 영역 "사용 불가"|`QWEN_UNAVAILABLE`·`KEV_UNAVAILABLE`를 따로 기록. mock 자동 대체는 없다. 자동 대체를 만들지 않아 `AI_FALLBACK_TO_MOCK=true`면 세 모드 모두 기동을 거부한다([[16-DECISIONS\|ADR-030]] B11, `infra/run-modes.json`)|
 |Redis/큐 장애|BullMQ 연결 오류, `/health/ready` 503|분석 요청 시 `503 SERVICE_UNAVAILABLE` (`component: queue`), 기존 결과 조회 가능|job 유실 없음 (재시도·DLQ)|

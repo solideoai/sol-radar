@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - glossary
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 20. 용어집
@@ -30,6 +30,8 @@ updated: 2026-10-28
 | 회사 프로필 | 우리 회사의 기술·자격·실적·인력 정보. revision으로 버전화 | [[04-DATABASE]] |
 | 자격 갭 레이더 | 마감 전 실공고를 공고 API 구조화 필드(면허제한·참가가능지역)만으로 회사 프로필과 대조해 참가 가능(API 기준)·회사 기록 없음·미보유·사람 확인 필요로 묶고, 막는 자격과 보유 가정 결과를 보이는 화면(`/gaps`). 점수·권고를 내지 않는다 | [[16-DECISIONS]] ADR-060 |
 | 배정 예산 합 | 공고 배정 예산(`budget_krw`)의 합. 수주 금액·확률이 아니다 | [[16-DECISIONS]] ADR-060 |
+| 발주 현황 | 수집한 입찰공고의 기간별 공고 수·예산 합, 상위 발주기관, 분야, 예산 구간, 주별 추이를 보이는 화면(`/market`). 출처 사본에 나라장터가 있는 사업기회를 대표 공고 값으로 센다. 낙찰·계약은 수집하지 않고 발주계획·사전규격은 넣지 않는다. 점유율·경쟁사 표현을 쓰지 않는다 | [[16-DECISIONS]] ADR-060 |
+| 입찰 일정 | 본인 관심 공고 마감과 조직 입찰 프로젝트의 제출 마감을 월간 달력(KST, 월요일 시작)과 "다가오는 14일" 목록으로 보이는 화면(`/calendar`). 조직 전체 보기에는 관련 업종 실공고의 마감과 나라장터 입찰공고 원본 일정도 싣는다 | [[16-DECISIONS]] ADR-060 |
 | 솔리데오 데모 조직 | 사용자 회사명 솔리데오·원본 부서/직급을 사용하되 직원 200명·사진·자격·실적·재무·가용성은 가상인 데모 조직. 회사 선택은 고정 | [[19-DEMO-SCENARIO]] |
 
 ## 판정·점수·결정
@@ -55,7 +57,9 @@ updated: 2026-10-28
 
 | 용어 | 정의 | 주 문서 |
 |---|---|---|
-| Qwen | 오픈 가중치 LLM 계열. 공고문에서 요구조건을 JSON으로 추출하고 한국어 설명을 생성 | [[03-AI-PIPELINE]] |
+| Qwen | 오픈 가중치 LLM 계열. 공고문에서 요구조건을 JSON으로 추출하고 한국어 설명을 생성. 운영은 회사 vLLM API의 Qwen3.8-Flash-Next이고 served id는 `Qwen3.8-Flash-Next-AWQ-INT4`다(레지스트리 `run`) | [[03-AI-PIPELINE]] |
+| 첨부 조립 v0.2 (`req-extract/v0.2`) | Qwen 추출 입력에 첨부를 넣는 규칙. 쪽이 없는 문서와 긴 쪽을 2,500자 안의 조각으로 나누고, 문서마다 앞 조각부터 한 조각씩 돌아가며 예산까지 넣고, 같은 문서의 다른 형식은 하나만 넣는다(쪽 번호가 남는 PDF를 남긴다). `AI_PROMPT_VERSION`이 `promptHash`에 들어가 v0.1로 만든 추출 행을 다시 쓰지 않는다 | [[16-DECISIONS]] ADR-064, [[03-AI-PIPELINE]] §4.3 |
+| 추천 분석 | 공고 상세의 [추천 분석] 버튼을 누를 때만 Qwen이 판단 이유·강점·보완할 점을 근거 번호와 함께 쓰는 기능(gateway `POST /insight`, 분석 run마다 `recommendation_insights`에 저장). 판정은 규칙 엔진 그대로이고 판정 이름을 다시 쓰지 않는다. 검증에 걸리면 규칙 결과로 만든 문장(`TEMPLATE`)으로 바꿔 보인다. 분석 job의 `/explain`과 다르다. 운영 반영됐다([[PROGRESS]]) | [[16-DECISIONS]] ADR-066, [[03-AI-PIPELINE]] |
 | Kev | **퇴역(2026-10-20 ADR-034, Bosun으로 교체)**. Jared Palmer의 Apache-2.0 소형 결정 모델(Qwen3.5 기반 0.8B/4B/9B, Qwen3.8 기반 27B). 타입이 정해진 질문에 텍스트 생성 없이 캘리브레이션된 확률을 돌려준다. 모델 카드 기준 영어 전용. 저장소 https://github.com/jaredpalmer/kev. 이름 `KEV_*`·`kev_*`·`/kev`·`kev-qs`는 호환 레이어로 남는다 | [[16-DECISIONS\|ADR-034]] |
 | Bosun | Hanno Labs의 Apache-2.0 소형 결정 모델 `Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`(백본 `Qwen/Qwen3-0.6B`, LoRA r=16 + decision token 256개). 2026-10-20 ADR-034로 Kev-9B를 대체한 **결정 모델**. 우리 `sol_decision` 서버(`127.0.0.1:8009`)가 Kev wire 호환으로 띄운다. 학습 데이터(DecisionBench)가 영어라 한국어 성능은 미검증 | [[03-AI-PIPELINE]], [[16-DECISIONS\|ADR-034]] |
 | decision token | Bosun이 후보마다 하나씩 쓰는 특수 토큰 256개(`decision_000`~`decision_255`). 모델은 텍스트 대신 이 토큰들 위의 분포를 내고, 그것이 질문별 확률이 된다 | [[03-AI-PIPELINE]] |
@@ -82,7 +86,7 @@ updated: 2026-10-28
 | 알고리즘 버전 (`algorithm_version`) | 점수 규칙 버전 식별자 (예: `sol-v0.1.0`) | [[08-SCORING]] |
 | outbox 패턴 | 도메인 변경과 알림 이벤트를 같은 트랜잭션에 기록하고 worker(`web/worker`)가 전달 | [[13-NOTIFICATIONS]] |
 | 나에게 보내기 | 카카오톡 메시지 API 가운데 사용자 본인의 "나와의 채팅"으로 보내는 기능(`talk_message` 동의 필요). 사업자·템플릿 검수 없이 쓸 수 있어 해커톤 카카오톡 실발송에 쓴다(`NOTIFY_KAKAO_PROVIDER=memo`, 기본 `mock`). 시연용이고 운영 경로는 알림톡이다([[16-DECISIONS]] ADR-038) | [[13-NOTIFICATIONS]] |
-| 카카오톡 알림 연결 | 개인 설정에서 본인 카카오 계정에 "카카오톡 메시지 전송" 동의를 받아 토큰을 저장하는 것. Supabase 간편 로그인의 카카오 연결과 따로다. 화면 상태는 연결 전·연결됨(꺼짐)·켜짐·연결 만료 4가지이고, 토큰은 웹 서버가 암호화해 본인 행(`kakao_notify_links`)에 저장한다. main에 병합(`73eac5a8`). 2026-10-27 운영 연결 0건 | [[06-UI-UX]], [[13-NOTIFICATIONS]] |
+| 카카오톡 알림 연결 | 개인 설정에서 본인 카카오 계정에 "카카오톡 메시지 전송" 동의를 받아 토큰을 저장하는 것. Supabase 간편 로그인의 카카오 연결과 따로다. 화면 상태는 연결 전·연결됨(꺼짐)·켜짐·연결 만료 4가지이고, 토큰은 웹 서버가 암호화해 본인 행(`kakao_notify_links`)에 저장한다. 운영 연결은 0건이다([[PROGRESS]]) | [[06-UI-UX]], [[13-NOTIFICATIONS]] |
 | 멱등키 (idempotency key) | 같은 요청·이벤트를 두 번 처리하지 않게 하는 고유 키 | [[05-API-SPEC]], [[13-NOTIFICATIONS]] |
 | 커서 페이지네이션 | `{items, pageInfo:{cursor,nextCursor,hasNext}}` 형식의 목록 응답 | [[05-API-SPEC]] |
 | fixture | 외부 API 없이 쓰는 가상 공고 데이터 `FX-01`~`FX-20` | [[07-DATA-PIPELINE]] |
@@ -91,7 +95,7 @@ updated: 2026-10-28
 | 격리 (quarantine) | 검증 실패 레코드를 적재하지 않고 따로 보관 | [[07-DATA-PIPELINE]] |
 | DLQ | Dead-letter queue. 재시도 소진 작업 보관 | [[02-ARCHITECTURE]] |
 | circuit breaker | 연속 실패 시 외부 호출을 잠시 끊는 보호 장치 | [[02-ARCHITECTURE]] |
-| BullMQ | Redis 기반 작업 큐. 수집·분석·documents job. 알림은 BullMQ가 아니라 DB 폴링이다([[13-NOTIFICATIONS\|13]]). 소비자는 worker 진입점 `web/worker` | [[02-ARCHITECTURE]] |
+| BullMQ | Redis 기반 작업 큐. 수집·분석·추천 분석(`insight`)·documents·부처 공고(`program-notices`) job. 알림은 BullMQ가 아니라 DB 폴링이다([[13-NOTIFICATIONS\|13]]). 소비자는 worker 진입점 `web/worker` | [[02-ARCHITECTURE]] |
 | Supabase Storage | 비공개 객체 저장소. 공고 원본·파싱 결과(ADR-048) | [[02-ARCHITECTURE]] |
 | signed URL | 서버가 권한 검사 후 Supabase Storage `createSignedUrl`로 발급하는 짧은 수명의 파일 접근 URL | [[09-SECURITY]] |
 | HWP / HWPX | 한국 공공 문서 형식. 파서는 gateway `POST /parse`가 맡는다(PDF `pdfplumber`, HWPX·HWP 5.0 자체 파서). "지원" 판정 규칙(03 §10.3 4번)은 미결정 | [[03-AI-PIPELINE]] |
@@ -106,13 +110,13 @@ updated: 2026-10-28
 | Route Handler | Next.js App Router의 서버 HTTP 핸들러(`web/app/api/v1/**/route.ts`). 외부 API 계약 `/api/v1/...`과 헬스체크 `/health/live`·`/health/ready`를 낸다 | [[05-API-SPEC]] |
 | 서버 도메인 (`web/server/<도메인>`) | 서버 전용 업무 코드. model·repo·service·index(배럴)로 나누고 `import "server-only"`로 시작한다. 다른 코드는 배럴(`@/server/<도메인>`)로만 부른다. 예: `bids`·`ingestion`·`scoring`·`analysis`·`opportunities`·`notifications`·`kakao-notify`·`documents`·`watchlist`·`workforce`·`company-profile`·`health` | [[02-ARCHITECTURE]] |
 | zod 스키마 (계약 단일 원천) | `web/server/<도메인>/*.model.ts`의 zod 스키마. 화면 폼·Route Handler·worker가 같은 스키마로 입력을 검증한다. OpenAPI 문서는 필요하면 여기서 생성한다(선택) | [[05-API-SPEC]], [[16-DECISIONS]] |
-| worker 진입점 (`web/worker`) | BullMQ 소비자를 띄우는 별도 Node(TypeScript) 프로세스. 진입점은 전체 `worker/main.ts`와 회사용 `ingest-only-main`·`analysis-only-main`·`documents-only-main`이다. 소비자는 system·ingest·analysis·documents이고, 알림·마감은 DB 폴링이며 전체 Worker(`main.ts`)에만 있다. `/extract`는 analysis job 안에서 부른다. `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈은 `node --conditions=react-server --import tsx worker/main.ts`로 불러온다(2026-10-18 검증, 16 미결정 9번) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
+| worker 진입점 (`web/worker`) | BullMQ 소비자를 띄우는 별도 Node(TypeScript) 프로세스. 진입점은 전체 `worker/main.ts`와 회사용 전용 진입점 `ingest-only-main`·`analysis-only-main`·`documents-only-main`·`program-notices-only-main`·`notify-only-main`이다. 큐 소비자는 system·ingest·analysis·insight·documents·program-notices다(insight는 Analysis Worker가 함께 돈다, ADR-066). 알림·마감은 DB 폴링이며 전체 Worker와 알림 전용 Worker(`notify-only-main`)에만 있다. `/extract`는 analysis job 안에서 부른다. `web/server` 도메인 코드를 같이 쓴다. `server-only` 모듈은 `node --conditions=react-server --import tsx worker/main.ts`로 불러온다(2026-10-18 검증, 16 미결정 9번) | [[02-ARCHITECTURE]], [[16-DECISIONS]] |
 | AI gateway | Python FastAPI 서비스(`services/ai/`, :8000). Qwen·결정 모델(Bosun) 호출은 이것만 한다. Next 서버와 worker는 결정 모델에 직접 접근하지 않는다 | [[03-AI-PIPELINE]] |
 | 마이그레이션 (`supabase/migrations/`) | 스키마·RLS 정책·DB 함수를 담는 SQL 파일. 새 파일로만 쌓는다(append-only). 클라우드 적용은 `pnpm db:push`(사용자 확인 뒤에만) | [[04-DATABASE]] |
 | 생성 타입 (`web/lib/database.types.ts`) | 마이그레이션에서 만든 DB 타입(`pnpm db:types`). 손으로 고치지 않고 마이그레이션과 같은 커밋에 넣는다 | [[04-DATABASE]] |
 | 정책 시험 (PGlite) | `scripts/database.test.mjs`를 `node --test` + PGlite로 돌려 RLS·권한·제약·seed 멱등을 본다(`pnpm test:db`) | [[11-TESTING]] |
 | `pnpm demo:reset` | 데모 seed 스크립트. service role로 Supabase 프로젝트에 데모 데이터를 `is_demo=true`로 멱등 적재한다. 적재 내용(조직·계정·공고 fixture·명부 200·사진 검증·사전 리뷰)은 [[10-DEPLOYMENT]] seed 절 | [[10-DEPLOYMENT]], [[19-DEMO-SCENARIO]] |
-| Compose 서비스 | 로컬 `infra/compose.yaml`의 `redis`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`. Compose에 정의 없음). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다. 회사 서버는 `compose.company.yaml`과 `compose.{ingest,analysis,documents}-only.company.yaml`을 쓴다(ADR-049) | [[10-DEPLOYMENT]] |
+| Compose 서비스 | 로컬 `infra/compose.yaml`의 `redis`·`qdrant`·`ai-gateway`·`worker`(+ 선택 `web`. Compose에 정의 없음). DB는 Supabase라 Compose에 없다. 실행 프로필은 env 묶음(`demo`·`ai-local`. `ai-hosted`는 미구현)이고 Compose `profiles`는 쓰지 않는다. 회사 서버는 `compose.company.yaml`과 `compose.{ingest,analysis,documents,program-notices}-only.company.yaml`을 쓴다. `compose.notify-only.company.yaml`은 준비만 했고 기동하지 않았다(ADR-049, `infra/company/README.md` §9) | [[10-DEPLOYMENT]] |
 
 ## 권한·보안
 
@@ -156,12 +160,12 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 용어 | 정의 | 주 문서 |
 |---|---|---|
 | D1 (발표 경로) | 발표 경로 이름이다. 운영 사이트 `https://www.solideos-radar.com`에서 `?origin=demo`로 운영 DB의 DEMO 데이터를 보인다. 발표 전 `pnpm demo:reset`은 하지 않는다. 결함 이름이 아니다 | [[19-DEMO-SCENARIO]], [[16-DECISIONS\|ADR-054]] |
-| S-LIVE | 데모 장면의 하나다. 실제 나라장터 정보화사업 공고 1건(`is_demo=false`)을 `live` 모드로 수집·분석한 run을 보인다. 실모델 결과라 값을 미리 정하지 않는다. 운영의 실공고 분석은 첨부 처리가 회사에 반영되기 전까지 0건이다(본문이 비면 `409 ANALYSIS_SOURCE_MISSING`) | [[19-DEMO-SCENARIO]], [[03-AI-PIPELINE]] |
+| S-LIVE | 데모 장면의 하나다. 실제 나라장터 정보화사업 공고 1건(`is_demo=false`)을 `live` 모드로 수집·분석한 run을 보인다. 실모델 결과라 값을 미리 정하지 않는다. 운영 실공고 분석은 2026-10-29 회사 AI gateway 교체(ADR-064·065) 뒤 돌았다([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md)). 분석 원문(본문·분석 가능한 첨부)이 없는 공고는 여전히 `409 ANALYSIS_SOURCE_MISSING`이다. S-LIVE 녹화는 남았다 | [[19-DEMO-SCENARIO]], [[03-AI-PIPELINE]] |
 | 출처 (`origin`) | 공고 목록·대시보드가 거르는 값 `live`(실공고)·`demo`(DEMO, `is_demo=true`)·`all`. 요청의 `origin`이 먼저고, 없으면 env `SOL_DEFAULT_ORIGIN`, 그것도 없으면 실행 모드를 따른다(`live` → `live`, `mock`·`fixture` → `demo`). DEMO 배지는 URL이 `?origin=demo`일 때만 뜬다 | [[05-API-SPEC]], [[07-DATA-PIPELINE]] |
 | redis-api | 회사 서버의 HTTPS 중계 서비스(`SOL_DEPLOYMENT_ROLE=redis-api`). Vercel web(`frontend`)이 서비스 token+사용자 JWT로 접수하면 회사 Redis(TCP)에 job을 넣고 readiness를 돌려준다. Redis TCP는 이것만 쓴다 | [[10-DEPLOYMENT]], [[16-DECISIONS\|ADR-045]] |
-| documents-only worker | 회사 Worker의 하나(`web/worker/documents-only-main.ts`, `infra/compose.documents-only.company.yaml`). 새 revision의 첨부를 내려받고 gateway `POST /parse`를 불러 텍스트를 Supabase Storage에 쓰고 `bid_documents`에 상태를 적는다. ingest-only·analysis-only와 짝이다. 알림·마감은 처리하지 않는다 | [[07-DATA-PIPELINE]], [[10-DEPLOYMENT]] |
+| documents-only worker | 회사 Worker의 하나(`web/worker/documents-only-main.ts`, `infra/compose.documents-only.company.yaml`). 새 revision의 첨부를 내려받고 gateway `POST /parse`를 불러 텍스트를 Supabase Storage에 쓰고 `bid_documents`에 상태를 적는다. ingest-only·analysis-only와 짝이다. 알림·마감은 처리하지 않는다. 회사에서 운영 중이다(처리 현황은 [[PROGRESS]]) | [[07-DATA-PIPELINE]], [[10-DEPLOYMENT]] |
 | 결함 W1 | 2026-10-24 운영 smoke에서 FX-02 분석 요청이 `202`를 받고 `QUEUED`에서 멈춘 결함이다. 원인은 회사 Worker가 분석 job을 소비하지 않은 것이다. 같은 날 운영 실모델 분석 1건(FX-02, 66 보류)이 끝나 해소됐다. 발표 경로 D1과 이름이 겹쳐 W1로 바꿨다. 증거는 `docs/evidence/deployment/20261024-prod-smoke/` | [[10-DEPLOYMENT]] |
-| 운영 알림 처리 위험 | 알림 소비자·마감 알림 등록이 전체 Worker(`web/worker/main.ts:857-914`)에만 있고 회사 Worker 셋에는 없다. 운영에서 인앱·카카오·마감 알림이 처리되는지는 미확인이다. 결함 W1과 다른 문제다 | [[13-NOTIFICATIONS]] |
+| 운영 알림 처리 위험 | 알림 소비자·마감 알림 등록은 전체 Worker(`web/worker/main.ts`)와 알림 전용 Worker(`web/worker/notify-only-main.ts`)에만 있다. 회사에서 도는 ingest·analysis·documents·기업마당 전용 Worker에는 없고, 알림 전용 Worker는 준비만 했고 기동하지 않았다. 운영에는 알림 Worker가 없다([기록](evidence/company-rollout/20261028/sources-rollout.md) §1). 그래서 기동 전에는 운영 `outbox_events`가 쌓이기만 한다(`infra/company/README.md` §9). 결함 W1과 다른 문제다 | [[13-NOTIFICATIONS]] |
 
 ## 문서 운영
 
@@ -170,7 +174,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | ADR | Architecture Decision Record. 결정·상태·날짜·근거 기록 | [[16-DECISIONS]] |
 | MOC | Map of Content. Obsidian에서 허브 역할을 하는 문서. 이 vault는 [[00-README]] | [[00-README]] |
 | 콜아웃 | `> [!warning] 미검증 가정`, `> [!success] 검증됨`, `> [!todo]`, `> [!tip] 심사 포인트` | [[00-README]] |
-| 해커톤 컷 | [[16-DECISIONS\|ADR-023]] 3단 범위: 핵심 컷(데모 필수) / 확장 컷 / P1(ADR-021 P1). 파인튜닝 트랙 X6(Bosun LoRA)은 실행 여부가 미결정이다(ADR-034, ADR-054. ADR-027 폐기) | [[12-ROADMAP]] |
+| 해커톤 컷 | [[16-DECISIONS\|ADR-023]] 3단 범위: 핵심 컷(데모 필수) / 확장 컷 / P1(ADR-021 P1). 파인튜닝 트랙 X6(Bosun LoRA)·평가 실험 E0~E3·임팩트 예비 실험 X2는 발표 뒤 진행 예정이라 "해커톤 이후" 단에 둔다([[16-DECISIONS\|ADR-067]]. ADR-034, ADR-027 폐기) | [[12-ROADMAP]] |
 | `docs/evidence/` | 테스트 리포트·스크린샷·기동 로그를 두는 증거 폴더 | [[11-TESTING]], [[17-CLAUDE-IMPLEMENTATION]] |
 
 ## 솔리데오 인력·가입 용어 (ADR-019)
@@ -206,7 +210,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 대조 변형 | 같은 공고에 대해 기업 기록만 바꿔 충족·미충족·정보 부족 사례를 만든 가상 기업 | [[21-MODEL-TRAINING]] |
 | 라벨 출처 | `CONSTRUCTED`(변형으로 정해짐), `HUMAN`(사람 검수 확정), `RULE_SILVER`(규칙 계산, 학습셋 전용) | [[21-MODEL-TRAINING]] |
 | 오류 원인 코드 | 오답의 원인 단계. `PARSE`·`EXTRACTION`·`TRANSLATION`·`STATE`·`RULE`·`LABEL`·`MODEL`. `MODEL`이 주된 원인일 때만 파인튜닝 검토 | [[21-MODEL-TRAINING]] |
-| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어(퇴역, 미측정), E1' 공개 Bosun 영어 state zero-shot, E2 Bosun 한국어 state(평가 전용), E3 Qwen3.8-Flash-Next logprob 분류(필수, 축소 규모), E4 Bosun + LoRA(X6 비교 실험, 실행 여부 미결정, ADR-034). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
+| E0~E4 | 평가 비교 대상. E0 규칙만, E1 Kev-9B 영어(퇴역, 미측정), E1' 공개 Bosun 영어 state zero-shot, E2 Bosun 한국어 state(평가 전용), E3 Qwen3.8-Flash-Next logprob 분류(축소 규모), E4 Bosun + LoRA(X6 비교 실험, ADR-034). 모두 발표 뒤 진행 예정이다([[16-DECISIONS\|ADR-067]]). 데모 장면 S0~S7과 다른 번호 | [[21-MODEL-TRAINING]] |
 | EX0 | 회사 운영 Qwen3.8-Flash-Next API 추출 품질의 기준 측정(추출 지표·인용 충실도·`(untranslated)` 비율). EX1(파인튜닝 뒤 비교)은 삭제 — Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정, ADR-034) | [[21-MODEL-TRAINING]] |
 | 파인튜닝 실행서 | 회사 GPU 서버에서 Bosun LoRA(X6)를 **어떻게** 돌리는지 적은 절차서. 모델·자료 출처와 가중치 sha256 확인, 학습 환경, F1~F3, 회사에 넘기는 학습 요청서를 담는다. Qwen 파인튜닝은 하지 않는다(2026-10-20 사용자 결정). 무엇을 왜 학습하는지는 [[21-MODEL-TRAINING\|21]] | [[22-FINETUNE-RUNBOOK]] |
 | fixture 배치 `live` vs 실행 모드 `live` | fixture 두 번째 배치(`batch:"live"`, 데모 S5 변경분)와 실제 공공 API 실행 모드(`SOL_RUN_MODE=live`)는 다르다. 실행 모드 `live`에서 fixture 수집을 부르면 `409 RUN_MODE_MISMATCH` | [[19-DEMO-SCENARIO]] |
@@ -219,6 +223,7 @@ ADR-017(2026-10-16) 전 문서·코드에서 이 왼쪽 표현을 보면 오른�
 | 서비스 운영자 vs 조직 ADMIN | 서비스 운영자는 `profiles.is_admin`이고 운영자 화면만 쓴다(지금은 템플릿 `/admin`, 비운영자는 404. `/ops` 분리는 해커톤 뒤). 조직 ADMIN은 `memberships.sol_role=ADMIN`이고 그 조직의 `/admin/*`·설정 조직 탭을 쓴다. 서로의 화면에 들어가지 않는다 | [[09-SECURITY]] |
 | 현재 조직 | 요청을 처리할 업무 조직. 서버가 세션 사용자의 업무 멤버십으로 정하고 요청의 조직 ID를 받지 않는다. 멤버십 2개 이상은 지원하지 않는다 | [[05-API-SPEC]] |
 | 조직·인력 | 가상 직원 200명의 명부·개인 상세 화면 `/people`. 조직도는 별도 화면 `/org-chart`다(2026-10-18) | [[06-UI-UX]] |
+| 직속 직원 | 팀이 아니라 본부·그룹에 바로 소속된 직원(`team_members.department_id`가 본부·그룹). 조직도에서 하위 부서가 있으면 펼친 목록 맨 위 `<이름> 직속` 줄로 보인다. 가입 선택 목록과 명부 부서 필터는 팀만이다 | [[16-DECISIONS]] ADR-063, [[06-UI-UX]] §5.9.1 |
 | 조직도 | 가상 직원 200명을 부서 트리(본부 → 그룹 → 팀)와 고른 팀의 사진 카드로 보는 화면 `/org-chart`. 사이드바 회사 묶음에서 연다. 원본에서 상위 부서가 확인되지 않은 부서는 본부와 같은 최상위 목록에 놓인다 | [[06-UI-UX]] |
 | 맨 아래 고정 칸 | 사이드바 묶음 아래를 선으로 나눈 칸. 메뉴가 늘어도 자리가 바뀌지 않는다. 설정·데이터 수집 관리(ADMIN만)와 사용자 칸을 둔다(2026-10-26) | [[06-UI-UX]] |
 | 점수 계산 대상 인력 | 명부 200명 전원(`team_member_scoring` 행 200개, ADR-043). SOL Score 인력 가용성과 인력 배치 시뮬레이션이 쓰고, 가용 합은 95.5 FTE다 | [[08-SCORING]] |

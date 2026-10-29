@@ -5,20 +5,20 @@ status: draft
 tags:
   - sol-radar
   - moc
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # SOL RADAR — 구현 문서 인덱스
 
 > [!note] 배포 기준 (ADR-049)
-> Vercel은 web 하나, 회사는 기존 Redis·redis-api·AI gateway·Worker를 맡는다. web에는 AI binding이 없고 관리자 AI 상태는 인증된 회사 API로 조회한다. [회사 실행서](../infra/company/README.md)와 [[10-DEPLOYMENT]]를 따른다. 코드 준비와 회사 기동·실추론 완료는 구분한다. 지금 상태는 [[PROGRESS]]다.
+> Vercel은 web 하나다(함수 지역 `syd1`). 회사는 기존 Redis와 redis-api·AI gateway, ingest·analysis·documents·기업마당 전용 Worker를 맡는다. 알림 전용 Worker는 준비만 했고 기동하지 않았다. web에는 AI binding이 없고 관리자 AI 상태는 인증된 회사 API로 조회한다. [회사 실행서](../infra/company/README.md)와 [[10-DEPLOYMENT]]를 따른다. 코드 준비와 회사 반영은 구분한다. 지금 상태는 [[PROGRESS]]다.
 
 > 해커톤 구조([[16-DECISIONS|ADR-017]]): Next.js App Router(`web/` — 화면·Route Handler `/api/v1`·서버 도메인 `web/server/<도메인>`) + Supabase(Postgres·RLS·Auth) + Redis/BullMQ(worker `web/worker`) + Qdrant + Supabase Storage + Python AI Service(Qwen3.8-Flash-Next, Bosun 결정 모델) + Docker Compose. 해커톤 뒤에는 API·worker를 NestJS로 옮긴다([[16-DECISIONS|ADR-028]]).
 
 ## 10줄 요약
 
 1. SOL RADAR는 공공 SI·AX 기업 영업팀이 **"이 입찰에 참여해야 하는가"** 를 근거와 함께 판단하도록 돕는 의사결정 지원 플랫폼이다.
-2. 나라장터 공식 Open API로 실제 공고(발주계획·사전규격·입찰공고)와 RFP 첨부를 수집·파싱하고 변경을 revision으로 추적한다. 실행 모드는 `live`(실제 API + 실제 AI)·`fixture`(저장 공고 + 실제 AI)·`mock`(저장 공고 + mock AI) 셋이다([[16-DECISIONS|ADR-020]]).
+2. 나라장터 공식 Open API로 실제 입찰공고와 RFP 첨부를 수집·파싱하고 변경을 revision으로 추적한다. LH·KEPCO·K-water 입찰공고와 기업마당 지원사업 공고도 모은다(출처 목록은 `infra/sources/registry.yaml`). 실행 모드는 `live`(실제 API + 실제 AI)·`fixture`(저장 공고 + 실제 AI)·`mock`(저장 공고 + mock AI) 셋이다([[16-DECISIONS|ADR-020]]).
 3. Qwen이 공고문에서 요구조건을 **원문 인용과 함께** JSON으로 추출한다. 인용이 원문과 맞지 않으면 무효다.
 4. 회사 프로필과 대조해 필수 자격을 `SATISFIED / NOT_SATISFIED / NEEDS_REVIEW`로 판정한다. 법적 자격을 자동 확정하지 않는다.
 5. SOL Score(0~100)는 **결정론적 규칙**으로 계산하고 5개 요소·입력 스냅샷·알고리즘 버전을 저장한다. 낙찰 확률이 아니다.
@@ -50,14 +50,14 @@ updated: 2026-10-28
 |---|---|---|
 | 01 | [[01-PRD]] | 제품 요구사항 / MVP 범위 / 차별점 / 성공 지표 |
 | 02 | [[02-ARCHITECTURE]] | 서비스 경계·흐름·데모 토폴로지 |
-| 03 | [[03-AI-PIPELINE]] | 실행 모드·env 플래그 / 파이프라인 v0.2(`/parse`·`/extract`·`/kev`·`/explain`) / Qwen `RequirementExtraction` 스키마·프롬프트 / 결정 모델(Bosun) 질문 세트 `kev-qs/v0.1`·`v0.2`·state 추적·mock adapter / 모델 레지스트리 / 장애·수용 기준 |
+| 03 | [[03-AI-PIPELINE]] | 실행 모드·env 플래그 / 파이프라인 v0.2(`/parse`·`/extract`·`/kev`·`/explain`, 버튼으로 부르는 추천 분석 `/insight`) / Qwen `RequirementExtraction` 스키마·프롬프트 / 결정 모델(Bosun) 질문 세트 `kev-qs/v0.1`·`v0.2`·state 추적·mock adapter / 모델 레지스트리 / 장애·수용 기준 |
 | 04 | [[04-DATABASE]] | Supabase Postgres 스키마·RLS 정책·ERD·ENUM·seed 범위·식별자 규칙 |
 | 05 | [[05-API-SPEC]] | Route Handler(`/api/v1`) 계약·Supabase Auth·DTO(zod)·오류 코드·예시 |
 | 06 | [[06-UI-UX]] | 데스크톱 전용 화면 명세·디자인 토큰·라우트별 상태 표·상세 와이어프레임·분석 상태 머신 |
 | 07 | [[07-DATA-PIPELINE]] | 나라장터 Open API 수집·첨부 다운로드·문서 파서 / Connector·정규화·변경 감지 / fixture 20건 명세(`FX-01`~`FX-20`)·mock 추출·mock Kev 값 |
 | 08 | [[08-SCORING]] | SOL Score 정규화 함수·missing 정책·결정 정책·솔리데오 프로필(단일 원천)·worked example 3건 |
 | 09 | [[09-SECURITY]] | 인증(Supabase Auth)·RLS·RBAC 표(`sol_role`)·위협 대응·책임 있는 AI(HITL·고지 문구·프롬프트 인젝션·감사 필드) |
-| 10 | [[10-DEPLOYMENT]] | 운영 현황·발표 경로 D1 / Vercel web 단독 + 회사 Compose(redis-api·AI gateway·Worker, ADR-049) / 로컬 Docker Compose(redis·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local / ai-hosted)·대체 기동 절차·장애 주입 |
+| 10 | [[10-DEPLOYMENT]] | 운영 현황·발표 경로 D1 / Vercel web 단독 + 회사 Compose(redis-api·AI gateway·Worker, ADR-049) / 로컬 Docker Compose(redis·qdrant·ai-gateway·worker) 실행 프로필(demo / ai-local)·대체 기동 절차·장애 주입 |
 | 11 | [[11-TESTING]] | 테스트 매트릭스·골든 `G1`~`G10` ↔ fixture ↔ 테스트 파일·데모 수용 체크리스트·`docs/evidence/` |
 | 12 | [[12-ROADMAP]] | Phase 순서·해커톤 컷(핵심 컷 / 확장 컷 / P1 / 이후)·파인튜닝 트랙 X6·Critical Path 상태·남은 일정 제안(제출 11-03·발표 11-04, ADR-054) |
 | 13 | [[13-NOTIFICATIONS]] | 알림 outbox / 인앱 P0 / 카카오톡 나에게 보내기(ADR-038, 기본 `mock`, 운영 연결 0건)·알림톡 P1 / 메일(ADR-041, 해커톤 제외) |
@@ -68,7 +68,7 @@ updated: 2026-10-28
 | 18 | [[18-HACKATHON]] | 피치·차별점·심사 기준 매핑·데모 스크립트·Q&A·정직성 표 |
 | 19 | [[19-DEMO-SCENARIO]] | 데모 기업·fixture 스토리·클릭 경로·장애 대체 시연 |
 | 20 | [[20-GLOSSARY]] | 용어집 (단일 원천) |
-| 21 | [[21-MODEL-TRAINING]] | 평가셋(실제 공고 × 가상 기업)·평가 지표·오류 분석·Bosun LoRA 파인튜닝 전략(착수 판단·E4 비교. 실행 절차는 22)·모델 레지스트리 |
+| 21 | [[21-MODEL-TRAINING]] | 평가셋(실제 공고 × 가상 기업)·평가 지표·오류 분석·Bosun LoRA 파인튜닝 전략(착수 판단·E4 비교. 실행 절차는 22)·연 1회 재학습 구조(ADR-066)·모델 레지스트리 |
 | 22 | [[22-FINETUNE-RUNBOOK]] | 회사 GPU 파인튜닝 실행서: 모델 출처(Hugging Face·GitHub 리비전)·학습 환경·Bosun 학습 데이터 제작·학습·보정·병합·반입 명령(Qwen 파인튜닝은 하지 않는다) |
 | — | [[CLAUDE]] | Claude Code 지침 (루트 `CLAUDE.md`가 `@docs/CLAUDE.md`로 먼저 불러온다, ADR-015) |
 | — | [[PROGRESS]] | 진행 상황·작업 로그 (저장소 경로 `docs/PROGRESS.md`) |
@@ -109,7 +109,7 @@ updated: 2026-10-28
 결정 모델은 2026-10-20 [[16-DECISIONS|ADR-034]]로 Kev에서 Bosun v3.1 0.6B(`Hanno-Labs/bosun-v3.1-0.6b@5e78a37c`)로 바뀌었다. Kev는 퇴역했다. 검증 기록은 [계획](plans/2026-10-20-bosun-qwen4b-migration-plan.md) §1이다.
 
 - 조달청 데이터: https://www.data.go.kr/ — 입찰공고정보서비스(15129394)·사전규격(15129437)·발주계획(15129462)·업종 및 근거법규(15129467)의 오퍼레이션·필드 이름은 2026-10-16 서비스 페이지 명세로 확인했다. 서비스키로 받은 실제 응답은 2026-10-19 C1 ①(공공 API A1~A9)·②(첨부 B1~B4)에서 확인했다. 마스킹한 응답 14건은 `fixtures/recorded/`, 호출 기록과 설계 가정과 다른 점 8건은 `docs/evidence/phase-0/external-deps-api-20261019.md`에 있다([[16-DECISIONS]] 미결정 1번).
-- 결정 모델 학습·채점 도구는 `sol_decision.train`(`services/decision/src/sol_decision/train.py`)·`sol_eval.bosun_score`(`services/ai/eval/sol_eval/bosun_score.py`)다. 회사 서버에서 돌린 기록은 없다(X6 실행 여부 미결정, [[16-DECISIONS|ADR-054]]). 운영 실추론은 2026-10-24 FX-02 1건이다. 추출 모델은 회사 운영 vLLM API의 Qwen3.8-Flash-Next다.
+- 결정 모델 학습·채점 도구는 `sol_decision.train`(`services/decision/src/sol_decision/train.py`)·`sol_eval.bosun_score`(`services/ai/eval/sol_eval/bosun_score.py`)다. 회사 서버에서 학습·채점을 돌린 기록은 없다(X6는 발표 뒤 진행 예정, [[16-DECISIONS|ADR-067]]). 추출 모델은 회사 운영 vLLM API의 Qwen3.8-Flash-Next(served id `Qwen3.8-Flash-Next-AWQ-INT4`)다. 결정 모델은 회사 AI gateway가 같은 호스트 `127.0.0.1:8009`의 `sol_decision`(Bosun v3.1 0.6B)으로 부른다. 운영 실추론은 DEMO 재분석과 2026-10-29 실공고 분석에서 돌았다([기록](evidence/company-rollout/20261029/ai-gateway-rollout.md), 건수는 [[PROGRESS]]).
 - 현재 문서는 구현용 설계안이다. 외부 API 필드/호출 한도, 모델 성능, 카카오 발송 조건은 검증 전 확정 사실로 취급하지 않는다. 검증 상태는 [[16-DECISIONS|16 ADR]]에 날짜와 함께 기록한다.
 
 ## 솔리데오 가상 인력·가입 결정
@@ -118,7 +118,7 @@ ADR-019에 따라 회사는 솔리데오로 고정하고 가상 직원 200명·�
 
 ## 공공 입찰 확장·업무 UI (ADR-047)
 
-[[16-DECISIONS|ADR-047]]은 채택됐고 2026-10-22 main 통합·운영 적용됐다([기록](evidence/procurement-expansion/20261022-release.md)). 설계는 [스펙](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)이고 단계와 남은 일은 [[12-ROADMAP|12 로드맵]]이다.
+[[16-DECISIONS|ADR-047]]은 채택됐고 main 통합·운영 적용됐다([기록](evidence/procurement-expansion/20261022-release.md)). 설계는 [스펙](../polaris/specs/in-progress/2026-10-21-public-procurement-expansion.md)이고 남은 일은 [[12-ROADMAP|12 로드맵]]이다.
 
 ## 관련 문서
 

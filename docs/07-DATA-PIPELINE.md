@@ -6,19 +6,19 @@ tags:
   - sol-radar
   - pipeline
   - hackathon
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 07. 조달청 데이터 수집
 
 > [!tip] 심사 포인트
-> "진짜 동작하는가"와 "어디까지가 mock인가"에 답하는 문서다. 해커톤 MVP의 목표는 `live` 모드에서 나라장터 공식 Open API(data.go.kr)로 **실제 공고와 RFP 첨부를 수집·파싱**하는 것이다([[16-DECISIONS|ADR-020]]). fixture 20건(`FX-01`~`FX-20`)은 지우지 않고 `fixture`·`mock` 모드와 CI·골든 시험에 쓴다. 공고마다 출처(`source`·`is_demo`)가, 수집마다 실행 모드(`ingest_runs.run_mode`)가 남고 화면에 보인다. 공공 API 실패·첨부 다운로드 불가·파싱 실패는 서로 섞지 않고 따로 기록하며, 읽지 못한 내용을 AI가 추측해 채우지 않는다(§2.6).
+> "진짜 동작하는가"와 "어디까지가 mock인가"에 답하는 문서다. 운영은 `live` 모드에서 나라장터 공식 Open API(data.go.kr)로 **실제 공고와 RFP 첨부를 수집·파싱**한다([[16-DECISIONS|ADR-020]]). LH·K-water·KEPCO 입찰공고와 기업마당 부처 공고도 받는다(§1.3). fixture 20건(`FX-01`~`FX-20`)은 지우지 않고 `fixture`·`mock` 모드와 CI·골든 시험에 쓴다. 공고마다 출처(`source`·`is_demo`)가, 수집마다 실행 모드(`ingest_runs.run_mode`)가 남고 화면에 보인다. 공공 API 실패·첨부 다운로드 불가·파싱 실패는 서로 섞지 않고 따로 기록하며, 읽지 못한 내용을 AI가 추측해 채우지 않는다(§2.6).
 
 ## 1. 데이터 소스
 
 발주계획(`PLAN`), 사전규격(`PRE_SPEC`), 입찰공고(`NOTICE`)가 P0. 계약과정 통합공개·낙찰·계약정보는 후속이다. 낙찰 결과는 학습 목표로도 쓰지 않는다([[21-MODEL-TRAINING|21 모델 학습]]).
 
-해커톤 MVP는 `live` 모드의 실수집을 목표로 한다. live Worker는 용역 입찰공고를 모두 받고 수집 뒤 관련성(`bid_relevance_assessments`)으로 나눈다(`web/worker/main.ts` `isInfoBizNotice: () => true`, [[16-DECISIONS|ADR-047]]). 정보화사업 사전 필터(`infoBizYn='Y'`이거나 `sucsfbidMthdNm`에 "SW사업"이 있거나 `pubPrcrmntClsfcNm`이 정보시스템·SW 분류, §2.2, [[16-DECISIONS|ADR-029]] A4)는 Connector의 기본값으로만 남았고 Worker는 쓰지 않는다. 사전규격·발주계획은 단계 연결(§4)에 쓴다. fixture 20건은 `fixture`·`mock` 모드와 CI에서 그대로 쓴다(§1.2, §6).
+운영은 `live` 모드로 실수집한다(출처별 상태는 §1.3). live Worker는 용역 입찰공고를 모두 받고 수집 뒤 관련성(`bid_relevance_assessments`)으로 나눈다(`web/worker/main.ts` `isInfoBizNotice: () => true`, [[16-DECISIONS|ADR-047]]). 정보화사업 사전 필터(`infoBizYn='Y'`이거나 `sucsfbidMthdNm`에 "SW사업"이 있거나 `pubPrcrmntClsfcNm`이 정보시스템·SW 분류, §2.2, [[16-DECISIONS|ADR-029]] A4)는 Connector의 기본값으로만 남았고 Worker는 쓰지 않는다. 사전규격·발주계획은 단계 연결(§4)에 쓰도록 설계했지만 수집은 미구현이다(§1.3). fixture 20건은 `fixture`·`mock` 모드와 CI에서 그대로 쓴다(§1.2, §6).
 
 ```mermaid
 flowchart LR
@@ -38,16 +38,16 @@ flowchart LR
 | 단계 | 서비스 (ID) | 기본 URL | 쓰는 오퍼레이션 | 해커톤 |
 |---|---|---|---|---|
 | `NOTICE` | 입찰공고정보서비스 (15129394) | `https://apis.data.go.kr/1230000/ad/BidPublicInfoService` | `getBidPblancListInfoServc`(용역 목록), `getBidPblancListInfoChgHstryServc`(변경이력. 지금은 부르지 않는다), `getBidPblancListInfoLicenseLimit`(면허제한), `getBidPblancListInfoPrtcptPsblRgn`(참가가능지역), `getBidPblancListInfoEorderAtchFileInfo`(e발주 첨부·제안요청서) | P0 |
-| `PRE_SPEC` | 사전규격정보서비스 (15129437) | `/1230000/ao/HrcspSsstndrdInfoService` | `getPublicPrcureThngInfoServc`(용역), `getPublicPrcureThngInfoServcPPSSrch`(`swBizObjYn` 필터) | P0 (P0-8) |
-| `PLAN` | 발주계획현황서비스 (15129462) | `/1230000/ao/OrderPlanSttusService` | `getOrderPlanSttusListServc` | P0 (P0-8) |
-| 코드 마스터 | 업종 및 근거법규 (15129467) | `/1230000/ao/IndstrytyBaseLawrgltInfoService` | `getIndstrytyBaseLawrgltInfoList`(전체 업종 코드·명·근거법) | P0 (한 번 받아 사전으로 저장) |
+| `PRE_SPEC` | 사전규격정보서비스 (15129437) | `/1230000/ao/HrcspSsstndrdInfoService` | `getPublicPrcureThngInfoServc`(용역), `getPublicPrcureThngInfoServcPPSSrch`(`swBizObjYn` 필터) | P0-8. 단계 연결 화면만 구현, 수집은 미구현(§1.3) |
+| `PLAN` | 발주계획현황서비스 (15129462) | `/1230000/ao/OrderPlanSttusService` | `getOrderPlanSttusListServc` | P0-8. 단계 연결 화면만 구현, 수집은 미구현(§1.3) |
+| 코드 마스터 | 업종 및 근거법규 (15129467) | `/1230000/ao/IndstrytyBaseLawrgltInfoService` | `getIndstrytyBaseLawrgltInfoList`(전체 업종 코드·명·근거법) | 설계: 한 번 받아 사전으로 저장. 수집은 미구현(§1.3) |
 | 단계 연결 보조 | 계약과정통합공개 (15129459) | — | `getCntrctProcssIntgOpenServc` | 후속 (평가셋 사업 묶기에 선택 사용) |
 | 후속 | 낙찰정보 (15129397), 계약정보 (15129427), 사용자정보 (15129466) | — | — | 해커톤 밖. 낙찰은 학습 목표 아님 |
 
-registry 키(`g2b-bid-notice` 등 15개: `g2b-*` 8개 + `fixture` 1개 + 외부 6개(이름이 `g2b-`인 `g2b-procurement-request` 포함), 외부 6개는 `enabled:false`)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다. 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). registry 파일은 `infra/sources/registry.yaml`이고, Connector는 endpoint를 생성자로 받는다.
+registry 키(`g2b-bid-notice` 등 15개: `g2b-*` 8개 + `fixture` 1개 + 외부 6개(이름이 `g2b-`인 `g2b-procurement-request` 포함). 외부 6개 중 `lh-bid-notice`·`kwater-bid-notice`·`kepco-ebid-contract`는 `enabled: true`, 나머지 3개는 `enabled: false`다, §1.3)와 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8에 등록한다. 기본 URL은 `https://apis.data.go.kr`이다(서비스키가 쿼리 파라미터로 가고 실호출도 https였다, [[16-DECISIONS|ADR-030]] B16). registry 파일은 `infra/sources/registry.yaml`이고, Connector는 endpoint를 생성자로 받는다.
 
 > [!success] 검증됨 (2026-10-16 명세 확인, 2026-10-19 실응답 확인)
-> 위 서비스 ID·기본 URL·오퍼레이션과 §2.2·§3.1의 요청 파라미터·응답 필드 이름은 각 서비스 페이지의 명세에서 확인했다. 무료이고 개발·운영 계정 모두 자동승인이며, 개발계정 호출 한도는 서비스마다 1,000이다(사용자정보·개방표준은 10,000). 2026-10-19에 서비스키로 네 서비스를 37회 실제 호출했고, 담당자 필드를 마스킹한 녹음 응답 14건을 `fixtures/recorded/<serviceId>/`에 저장했다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md)). 명세와 실제가 다른 점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8 콜아웃이 정본이다.
+> 위 서비스 ID·기본 URL·오퍼레이션과 §2.2·§3.1의 요청 파라미터·응답 필드 이름은 각 서비스 페이지의 명세에서 확인했다. 무료이고 개발·운영 계정 모두 자동승인이며, 개발계정 호출 한도는 1,000이다(사용자정보·개방표준은 10,000). 한도는 서비스 단위가 아니라 기능(오퍼레이션)마다 따로 센다(2026-10-29 사용자 확인, §2.2 호출 예산). 2026-10-19에 서비스키로 네 서비스를 37회 실제 호출했고, 담당자 필드를 마스킹한 녹음 응답 14건을 `fixtures/recorded/<serviceId>/`에 저장했다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md)). 명세와 실제가 다른 점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8 콜아웃이 정본이다.
 > - 입찰공고정보서비스: https://www.data.go.kr/data/15129394/openapi.do
 > - 사전규격정보서비스: https://www.data.go.kr/data/15129437/openapi.do
 > - 발주계획현황서비스: https://www.data.go.kr/data/15129462/openapi.do
@@ -62,7 +62,7 @@ registry 키(`g2b-bid-notice` 등 15개: `g2b-*` 8개 + `fixture` 1개 + 외부 
 
 | 모드 | 공고 Connector | 첨부 | 새로 적재되는 공고의 `source` / `is_demo` | 용도 |
 |---|---|---|---|---|
-| `live` | `OfficialApiConnector`(data.go.kr) | `G2bAttachmentFetcher` | `g2b-bid-notice`·`g2b-pre-spec`·`g2b-order-plan` / `false` | 실운영·실데이터 시연 |
+| `live` | `OfficialApiConnector`(나라장터, data.go.kr), 외부 Connector(`createExternalApiConnector`, LH·K-water·KEPCO) | `G2bAttachmentFetcher` | `g2b-bid-notice`·`lh-bid-notice`·`kwater-bid-notice`·`kepco-ebid-contract` / `false`. 값 집합의 `g2b-pre-spec`·`g2b-order-plan`은 수집 경로가 없다(§1.3) | 실운영·실데이터 시연 |
 | `fixture` | `FixtureConnector`(fixture 20건) | `FixtureAttachmentFetcher` | `fixture` / `true` | 공공 API 장애 시 시연. AI는 실모델 그대로 |
 | `mock` | `FixtureConnector` | `FixtureAttachmentFetcher` | `fixture` / `true` | 모델 장애 시 시연, CI, 골든 |
 
@@ -73,9 +73,29 @@ registry 키(`g2b-bid-notice` 등 15개: `g2b-*` 8개 + `fixture` 1개 + 외부 
 - **회사 프로필은 모든 모드에서 가상 솔리데오 프로필**(`company_profiles.is_demo=true`)이다. live 모드의 분석은 "실제 공고 × 가상 회사 프로필"이고 화면에 "가상 회사 프로필로 분석" 배지를 붙인다(ADR-019, [[09-SECURITY|09 보안]]). 실제 회사 자료를 쓰려면 별도 ADR과 09 개정이 먼저 있어야 한다.
 - 골든 수치(94/72/68)는 `mock` 모드에서만 단언한다. `fixture` 모드의 실모델 추출은 mock 추출과 다를 수 있어 골든 대상이 아니다([[11-TESTING|11 테스트]]).
 
+### 1.3 수집 출처와 상태
+
+registry 값(`infra/sources/registry.yaml`)은 코드 설정이다. 회사 서버에서 실제로 도는지는 "운영" 열에 증거로 따로 적는다. 증거로 확인하지 못한 것은 "미확인"이다. 수집 건수·운영 행 수는 [[PROGRESS]] 운영 상태 표에만 둔다.
+
+| 출처 | registry 키와 상태 | 정기 수집(코드) | 운영 |
+|---|---|---|---|
+| 나라장터 입찰공고 | `g2b-bid-notice` + 보조 3종(`g2b-bid-license-limit`·`g2b-bid-region`·`g2b-bid-eorder-attach`). `APPROVED`, `enabled` 없음(켜짐), `quota.daily` 1000 | `g2b-scheduled`, KST 3시간 정각(§2.2) | 회사 ingest 전용 Worker가 수집한다([회사 반영 기록](evidence/company-rollout/20261028/sources-rollout.md)). 보조 조회 기능별 한도(§2.2)도 회사에 반영했다([기록](evidence/ingestion/20261029-g2b-aux-budget.md)) |
+| LH 입찰공고 | `lh-bid-notice`. `enabled: true`, `VERIFIED`, `quota.daily` 1000 | `lh-bid-notice-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록) |
+| K-water 입찰공고 | `kwater-bid-notice`. `enabled: true`, `VERIFIED`, `quota.daily` 10000 | `kwater-bid-notice-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록). 새 진행 상태 3개 마감 처리(§3.2)도 반영했다. 반영 뒤 회차의 격리 0건 여부는 미확인 |
+| KEPCO 전자입찰계약 | `kepco-ebid-contract`. `enabled: true`, `VERIFIED`, `quota.daily` 100(공급자 한도가 아닌 자체 상한) | `kepco-ebid-contract-scheduled`, 같은 cron | 같은 Worker. 회사에 켰다(같은 반영 기록). 공고 없는 날 404 빈 쪽 처리(§3.2)도 반영했다. 반영 뒤 회차 결과는 미확인([KEPCO 404 기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md)) |
+| 기업마당 지원사업 | registry 밖. 요청 값은 `infra/sources/program-notices.yaml`([[16-DECISIONS\|ADR-040]]) | 자기 큐 `program-notices`의 `bizinfo-scheduled`, 같은 cron | 회사 부처 공고 전용 Worker(`web/worker/program-notices-only-main.ts`, [회사 실행서](../infra/company/README.md) §10). 회사에서 운영 중이다(같은 반영 기록) |
+| K-water 발주계획 | `kwater-procurement-plan`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
+| LH 사전규격 | `lh-pre-specification`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
+| 나라장터 조달요청 | `g2b-procurement-request`. `enabled: false`, `NOT_VERIFIED` | 없음 | 꺼짐 |
+| 나라장터 사전규격·발주계획·업종 마스터 | `g2b-pre-spec`·`g2b-order-plan`·`g2b-industry-master`. `APPROVED`지만 `fieldMapping`이 비어 부르지 않는다(`source-registry.ts` `callableSource`) | 없음 | 수집 미구현 |
+
+- 외부 서비스는 Worker 기동 때 서비스마다 준비 상태를 정하고 `READY`인 서비스만 일정에 넣는다(§2.8). 같은 정각에는 나라장터 회차가 먼저 돌고 외부 회차가 뒤에 돈다(외부 회차 BullMQ 우선순위 10, `web/worker/main.ts` `EXTERNAL_SCHEDULE_PRIORITY`).
+- 첨부를 받는 출처는 나라장터뿐이다. LH·K-water 응답에는 첨부가 없고, KEPCO 첨부 주소(`http://srm.kepco.net`)는 허용 목록 밖이라 `ATTACHMENT_URL_BLOCKED`로 막힌다(§2.4. 허용 여부는 [[PROGRESS]] 사용자 결정 대기).
+- 회사 Worker 구성(ingest·Documents·부처 공고 전용)과 반영 절차의 정본은 [회사 실행서](../infra/company/README.md) §7·§8·§10이다.
+
 ## 2. Connector 계약
 
-Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage({from,to,cursor}) -> {records,nextCursor,rateLimitInfo}`다. 요청 timeout 15s, 오류 시 지수 backoff + jitter(1s·2s·4s, 최대 3회), 429는 `Retry-After` 헤더를 존중한다. 일정 실행은 BullMQ Job Scheduler로 구성하되 `job_key`로 중복 예약을 막는다(`g2b-scheduled`, KST 3시간 정각 cron, §2.2). data.go.kr 서비스키 4개(`G2B_*_SERVICE_KEY`, §2.2)는 worker 전용 서버 env이고 로그·오류 메시지·`ingest_errors`에 남기지 않는다. 쿼리 파라미터로 가므로 요청 URL도 기록 전에 가린다([[09-SECURITY|09 보안]]).
+Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage({from,to,cursor}) -> {records,nextCursor,rateLimitInfo}`다. 요청 timeout 15s, 오류 시 지수 backoff + jitter(1s·2s·4s, 최대 3회), 429는 `Retry-After` 헤더를 존중한다. 일정 실행은 BullMQ Job Scheduler로 구성하되 `job_key`로 중복 예약을 막는다(`g2b-scheduled`, KST 3시간 정각 cron, §2.2). data.go.kr 서비스키(나라장터 `G2B_*_SERVICE_KEY` 4개 이름, §2.2. 외부 서비스는 registry `serviceKeyEnv`의 `LH_*`·`KWATER_*`·`KEPCO_*`)는 worker 전용 서버 env이고 로그·오류 메시지·`ingest_errors`에 남기지 않는다. 쿼리 파라미터로 가므로 요청 URL도 기록 전에 가린다([[09-SECURITY|09 보안]]).
 
 실행 위치와 DB 쓰기:
 - 수집 job(ingest job)은 **`web/worker`**가 돌린다. BullMQ 소비자이고, 같은 코드베이스의 별도 Node(TypeScript) 프로세스다. Connector·정규화·변경 감지 코드는 `web/server/ingestion`에 두고 worker가 import한다.
@@ -84,10 +104,10 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 수동 수집(`POST /api/v1/admin/ingestion/runs`)은 Route Handler가 `sol_role=ADMIN`을 확인한 뒤 job만 넣는다. `ingest_runs` 행은 worker가 만든다(§2.7).
 - 첨부 원본·추출 텍스트는 Supabase Storage에 쓰고 DB에는 키만 둔다.
 - 공고·revision 저장은 RPC `ingest_save_revision`(마이그레이션 `20261019000009`, service_role 전용)으로 한 번에(원자적으로) 한다. `pnpm demo:reset`은 `runIngest`를 부르고 결정적 id(uuid v5) 옵션을 넘겨 리허설마다 공고 id를 보존한다([[16-DECISIONS|ADR-030]] B18).
-- 변경 감지 뒤 공고 이벤트(`BID_CREATED`·`BID_CHANGED`)는 저장 RPC(`ingest_save_revision`)가 DB 표 `outbox_events`에 함께 쓰고, Redis/BullMQ에는 `documents` 큐 job만 넣는다(소비자는 이 문서 끝 "documents 큐 소비자 계약"이다. 운영은 회사 documents Worker 반영 뒤부터다). 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집은 KST 3시간 정각 고정이고 env `G2B_INGEST_INTERVAL_MINUTES`는 무시한다(§2.2).
+- 변경 감지 뒤 공고 이벤트(`BID_CREATED`·`BID_CHANGED`)는 저장 RPC(`ingest_save_revision`)가 DB 표 `outbox_events`에 함께 쓰고, Redis/BullMQ에는 `documents` 큐 job만 넣는다(소비자는 이 문서 끝 "documents 큐 소비자 계약"이다). 회사 ingest 전용 Worker는 documents job을 넣지 않는다. 첨부 행은 `PENDING`으로 남고, 회사 documents 전용 Worker의 복구 회차가 찾아 처리한다([회사 실행서](../infra/company/README.md) §7·§8). 새 공고 자동 분석은 해커톤 컷에 없다(분석 큐 등록은 사람의 분석 요청과 데모 사전 분석 명령이 한다). live 일정 수집은 KST 3시간 정각 고정이고 env `G2B_INGEST_INTERVAL_MINUTES`는 무시한다(§2.2).
 
 > [!success] 검증됨 (2026-10-18, `docs/evidence/phase-0/worker-conditions.txt`)
-> worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `import "server-only"`인 `web/server` 모듈을 불러온다. 지금 처리하는 job과 종결 증거는 [[16-DECISIONS|16 ADR]] 미결정 9번이다.
+> worker는 `node --conditions=react-server --import tsx worker/main.ts`로 띄우면 `import "server-only"`인 `web/server` 모듈을 불러온다. 종결 기록은 [[16-DECISIONS|16 ADR]] "닫힌 미결정" 9번이다.
 
 ### 2.1 인터페이스와 구현체
 
@@ -103,7 +123,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 | `DocumentParser` | 형식별 어댑터 | 모든 모드 | gateway `POST /parse` 안에서 동작(§2.5). 기본 어댑터 `pdfplumber`·`sol-hwpx`·`sol-hwp5` |
 
 - 세 실행 모드는 `RecordedApiConnector`를 고르지 않는다. `OfficialApiConnector`의 응답 해석(정규화·오류 처리)을 네트워크 없이 시험하는 데 쓴다.
-- `OfficialApiConnector`는 registry 항목이나 서비스키 4개 중 하나라도 없으면 기동할 때 빠진 env 이름을 알리고 멈춘다(값은 출력하지 않는다). 다른 Connector로 조용히 바꾸지 않고, 다른 서비스의 키를 대신 쓰지 않는다.
+- live Worker는 `g2b-bid-notice`와 보조 3종의 registry 항목이나 서비스키 `G2B_BID_NOTICE_SERVICE_KEY`가 없으면 기동할 때 빠진 이름을 알리고 멈춘다(값은 출력하지 않는다, `web/worker/main.ts` `resolveG2bSource`). 지금 Worker가 읽는 나라장터 키는 이것 하나다(사전규격·발주계획·업종 마스터 수집은 미구현, §1.3). 다른 Connector로 조용히 바꾸지 않고, 다른 서비스의 키를 대신 쓰지 않는다. 외부 서비스는 키가 없어도 Worker를 멈추지 않고 그 서비스만 뺀다(§2.8).
 
 ### 2.2 나라장터 요청 규칙
 
@@ -116,7 +136,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 | 발주계획현황서비스 (15129462) | `G2B_ORDER_PLAN_SERVICE_KEY` | `g2b-order-plan` |
 | 업종 및 근거법규 (15129467) | `G2B_INDUSTRY_MASTER_SERVICE_KEY` | `g2b-industry-master` |
 
-- 네 env는 worker의 `infra/.env`에만 둔다([[10-DEPLOYMENT|10 배포]] env 표). 네 값이 같아도 env를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있게 하기 위해서다.
+- 네 env는 worker env 파일(로컬 `infra/.env`, 회사 `infra/.env.worker.local`)에만 둔다([[10-DEPLOYMENT|10 배포]] "env 파일 위치"). 네 값이 같아도 env를 나눈다. 서비스별로 키를 바꾸거나 폐기할 수 있게 하기 위해서다.
 - 값은 data.go.kr 포털이 제공하는 일반 인증키의 Encoding 키(URL 인코딩된 값)를 그대로 넣는다(2026-10-19 사용자 확인: 포털은 Encoding 키만 제공). worker의 `readG2bServiceKey`(`web/worker/env.ts`)가 `decodeURIComponent`로 한 번 디코딩해 Decoding 키로 만들고, Connector는 요청을 만들 때 그 값을 한 번만 URL 인코딩한다. Decoding 키(`%`가 없는 원문)를 넣어도 디코딩이 값을 바꾸지 않아 결과는 같다.
 - 공통 파라미터: `serviceKey`(그 서비스의 env 값, 서버 전용·로그 금지), `type=json`, `pageNo`, `numOfRows=100`.
 - 공고 목록 조회(`getBidPblancListInfoServc`)
@@ -130,23 +150,25 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 - 정보화사업 필터(Connector 기본값, 현재 Worker는 쓰지 않는다, §1): `infoBizYn`은 요청 파라미터가 아니다. 어느 오퍼레이션의 명세에도 없고, 요청에 넣어도 오류 없이 무시된다(2026-10-19 실호출). 그래서 응답의 `infoBizYn`으로 클라이언트 쪽에서 거른다. 7일 100건 표본에서 `Y`는 6건이고 약 93%가 빈값(`""`)이라 `Y`만 받으면 대부분을 놓친다([실호출 증거](evidence/phase-0/external-deps-api-20261019.md) §10-4). 그래서 필터를 넓힌다([[16-DECISIONS|ADR-029]] A4): `infoBizYn='Y'` **또는** `sucsfbidMthdNm`에 "SW사업" 포함 **또는** `pubPrcrmntClsfcNm`이 정보시스템·SW 분류. 필터는 교체할 수 있는 순수 함수로 두고 기본값이 이 규칙이다. 업종코드 필터는 쓰지 않는다.
 - 보조 조회 3종(면허제한 `getBidPblancListInfoLicenseLimit`, 참가가능지역 `getBidPblancListInfoPrtcptPsblRgn`, e발주 첨부 `getBidPblancListInfoEorderAtchFileInfo`)은 **새 revision일 때만** 부른다(취소처럼 분석하지 않는 revision은 빼고, 아래 다시 채우기는 예외). 세 오퍼레이션은 `inqryDiv`가 필수다. 공고 1건만 받으려면 `inqryDiv=2` + `bidNtceNo`(+기간)로 부른다. `inqryDiv=1`(기간)은 `bidNtceNo`를 무시하고 기간 안 전체(물품·공사·용역)를 돌려주고, `inqryDiv=3`은 오류 `07`(입력범위값 초과)이다(2026-10-19 실호출).
   - 구현은 공고 단위다: 공고 1건마다 세 오퍼레이션을 `inqryDiv=2` + `bidNtceNo`(+ 차수가 있으면 `bidNtceOrd`) + 등록일 −1일~+6일 기간으로 한 번씩 부르고, 응답에서 그 공고의 행만 남긴다.
-  - 결과는 `NormalizedBid.auxLookup`(`OK`·`FAILED`·`SKIPPED_QUOTA`, [[15-DATA-CONTRACTS|15 데이터 계약]] §3)에 남는다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부른다(다시 채우기). 셋 다 받으면 `CHANGED` revision으로 저장하고, 또 실패하면 revision을 늘리지 않는다.
+  - 결과는 `NormalizedBid.auxLookup`(`OK`·`FAILED`·`SKIPPED_QUOTA`, [[15-DATA-CONTRACTS|15 데이터 계약]] §3)에 남는다. `OK`가 아니면 다음 수집이 목록이 같아도 보조 조회를 다시 부른다(다시 채우기). 셋 다 받으면 새 revision·outbox 이벤트 없이 그 revision에 채운다. 구조화 자격은 다시 쓰고, 첨부는 없던 원본 url만 `PENDING`으로 더한다(사용자 결정 2026-10-29, `ingestion.repo.ts` `refillAux`). 또 실패하면 아무것도 바꾸지 않는다.
+  - 나라장터 창은 겹치지 않아 같은 공고가 다시 오지 않으면 다시 채우기가 돌지 않는다. 밀린 공고는 ingest 전용 Worker의 일회용 명령 `--refill-aux --limit N`(1~1000)으로 채운다. 마감 전 최신 revision만 고르고, 정기 수집과 같은 예산을 써서 보조 오퍼레이션 한도의 90%에서 멈춘다(`web/worker/ingest-only-main.ts`, `ingestion.service.ts` `refillG2bAux`). 그날 마지막 정기 회차(21시) 뒤에 돌린다.
   - e발주 첨부의 URL은 첨부 허용 목록(`https://www.g2b.go.kr/pn/`, §2.4) 안이어야 저장한다. 목록 첨부(`ntceSpecDocUrl1~10`)도 같다([[15-DATA-CONTRACTS|15]] §6 `ATTACHMENT_URL_BLOCKED`).
-- 사전규격은 일정 실행, 발주계획은 하루 1회, 업종 코드 마스터는 수동으로 받아 사전으로 저장한다(키별 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8).
-- 호출 예산은 서비스마다 Redis 카운터 `quota:{serviceId}:{YYYYMMDD}`(KST 날짜, TTL 2일)로 따로 센다. 한도(`dailyLimit`)는 registry `quota.daily`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)다. worker는 **실제 HTTP 요청 직전에 매번 1회를 원자적으로 예약**한다. 목록·보조 조회의 각 페이지와 재시도도 개별 예약하며, 같은 서비스를 호출하는 수동·일정 수집과 여러 Worker는 같은 카운터를 공유한다. 나라장터 목록과 보조 조회 3종은 서비스15129394의 예산을 함께 쓴다. Redis Lua EVAL 한 번에서 한도 검사·증가·TTL 설정을 수행하고, 호출 뒤 다시 합산하지 않는다. `ingest_runs.quota_used`는 그 run에서 송신 직전 예약을 승인받은 호출 수다(목록 + 보조, 재시도 포함). 예약 응답 유실·Worker 중단으로 실제 송신하지 못한 슬롯은 안전을 위해 환불하지 않아 Redis 카운터가 더 클 수 있다.
-  - 목록 쪽을 부르기 전에 그날 예산이 소진됐으면 목록을 부르지 않고 run을 `FAILED`로 닫는다(`ingest_errors` `source_key` `g2b:quota`, `QUOTA_EXCEEDED`).
-  - 공고마다 보조 조회 전에 한도의 90%에 닿았으면 보조 조회를 건너뛴다. 새 revision은 `auxLookup.status=SKIPPED_QUOTA`로 저장하고 그 공고는 `확인 필요`(`NEEDS_REVIEW`, `NOTICE_INFO_MISSING`)로 남긴다. 다시 채우기는 미룬다(revision 없음).
-  - 에러코드 22(일일 허용량 초과)를 받으면 그날 카운터를 한도까지 올리고 같은 run의 남은 호출(남은 공고의 보조 조회·다음 쪽)을 모두 멈춘다. 이미 받은 행만 저장하고 cursor를 보존한 채 `FAILED`다(`g2b:quota` `QUOTA_EXCEEDED`, `result_code` 22). 카운터가 서비스마다 따로라 다른 서비스의 수집은 계속한다. 입찰공고정보서비스가 멈추면 목록과 보조 조회 3종이 함께 멈춘다.
+- 사전규격·발주계획·업종 코드 마스터 수집은 **미구현**이다(§1.3). 설계는 사전규격 일정 실행, 발주계획 하루 1회, 업종 코드 마스터 수동 수집 뒤 사전 저장이다(키별 호출 시점은 [[15-DATA-CONTRACTS|15 데이터 계약]] §8).
+- 호출 예산은 Redis 카운터로 센다(KST 날짜, TTL 2일). data.go.kr 일일 한도는 기능(오퍼레이션)마다 따로라서(2026-10-29 사용자 확인) 나라장터 입찰공고는 카운터 네 개를 쓴다. 목록은 `quota:15129394:{YYYYMMDD}`, 보조 조회는 `quota:15129394:{registryKey}:{YYYYMMDD}`다(`web/server/ingestion/quota.ts` `scopedServiceId`). 네 카운터의 한도(`dailyLimit`)는 모두 registry `g2b-bid-notice`의 `quota.daily`(1000)다. 외부 서비스는 서비스마다 카운터 `quota:{serviceId}:{YYYYMMDD}` 하나와 자기 registry `quota.daily`([[15-DATA-CONTRACTS|15 데이터 계약]] §8)를 쓴다. worker는 **실제 HTTP 요청 직전에 매번 1회를 원자적으로 예약**한다. 목록·보조 조회의 각 페이지와 재시도도 개별 예약하며, 같은 오퍼레이션을 호출하는 수동·일정 수집과 여러 Worker는 같은 카운터를 공유한다. Redis Lua EVAL 한 번에서 한도 검사·증가·TTL 설정을 수행하고, 호출 뒤 다시 합산하지 않는다. `ingest_runs.quota_used`는 그 run에서 송신 직전 예약을 승인받은 호출 수다(목록 + 보조, 재시도 포함). 예약 응답 유실·Worker 중단으로 실제 송신하지 못한 슬롯은 안전을 위해 환불하지 않아 Redis 카운터가 더 클 수 있다.
+  - 목록 쪽을 부르기 전에 그날 목록 카운터가 소진됐으면 목록을 부르지 않고 run을 `FAILED`로 닫는다(`ingest_errors` `source_key` `g2b:quota`, `QUOTA_EXCEEDED`).
+  - 공고마다 보조 조회 전에 보조 오퍼레이션 3개 중 하나라도 그 카운터 한도의 90%에 닿았으면 그 공고의 보조 조회를 건너뛴다. 새 revision은 `auxLookup.status=SKIPPED_QUOTA`로 저장하고 그 공고는 `확인 필요`(`NEEDS_REVIEW`, `NOTICE_INFO_MISSING`)로 남긴다. 다시 채우기는 미룬다(revision 없음).
+  - 목록 호출이 에러코드 22(일일 허용량 초과)를 받으면 그날 목록 카운터를 한도까지 올리고 같은 run의 남은 호출(남은 공고의 보조 조회·다음 쪽)을 모두 멈춘다. 이미 받은 행만 저장하고 cursor를 보존한 채 `FAILED`다(`g2b:quota` `QUOTA_EXCEEDED`, `result_code` 22).
+  - 보조 조회 한 오퍼레이션이 22를 받으면 그 오퍼레이션 카운터만 한도까지 올린다. 목록과 다른 보조 오퍼레이션은 계속 부르고, 이 일로 run이 실패하지 않는다. 보조 조회에서 run을 멈추는 것은 예산 저장소 장애(아래)뿐이다(`ingestion.service.ts` `settleAuxQuota`). 카운터가 오퍼레이션·서비스마다 따로라 다른 서비스의 수집은 계속한다.
   - 예산 저장소(Redis) 조회 또는 예약을 확인하지 못하면 해당 HTTP를 보내지 않고 run을 `FAILED`로 닫는다(`g2b:quota` `QUOTA_STORE_UNAVAILABLE`, 사용자 결정 2026-10-20). live Worker의 quota 구성 누락과 EVAL 권한 거부도 같은 정책이다. worker 예산 연결은 `enableOfflineQueue: false`·`maxRetriesPerRequest: 1`·`autoResendUnfulfilledCommands: false`·`commandTimeout` 2000ms를 사용한다. 응답이 유실된 예약은 자동 재전송하지 않는다. 매 요청의 KST 날짜를 확인하며 예약 응답을 기다리는 사이 날짜가 바뀌면 새 날짜에도 예약한다. 이전 날짜 슬롯은 환불하지 않는다.
-  - 사후 합산 방식의 옛 Worker와 사전 예약 방식의 새 Worker를 혼합 운용하면 초과 방지가 보장되지 않는다. [회사 실행서](../infra/company/README.md)의 순서대로 옛 Worker를 먼저 정지하고 새 Worker를 기동한다. 키·TTL·정수 카운터는 유지하며 전환 때 기존 예산을 초기화하지 않는다. 신규 API의 Registry 비활성 상태는 이 변경으로 해제하지 않는다.
+  - 사후 합산 방식의 옛 Worker와 사전 예약 방식의 새 Worker를 혼합 운용하면 초과 방지가 보장되지 않는다. [회사 실행서](../infra/company/README.md)의 순서대로 옛 Worker를 먼저 정지하고 새 Worker를 기동한다. 키·TTL·정수 카운터는 유지하며 전환 때 기존 예산을 초기화하지 않는다.
   - 실패한 일정 run의 창은 다음 일정 실행과 worker 재기동 때 다시 쓴다(위 "수집 창").
   - **운영 결정**([[16-DECISIONS|ADR-035]] F11, 사용자 결정 2026-10-20): `live` 영구 실패(서비스키 거부 등)면 `FAILED` 창을 다시 써서 같은 창에 머문다. 예산이 소진된 날에는 일정 주기(3시간)마다 `g2b:quota` 기록이 1건씩 쌓인다(호출 0). 해커톤 동안 받아들인다. 해커톤 뒤 후속: 같은 오류는 하루 1건으로 줄이고, 영구 실패면 그 창을 포기하는 규칙을 둔다.
   - data.go.kr XML 오류 봉투의 `returnReasonCode`는 22 = 일일 한도 초과(호출 자체의 오류 코드는 `API_QUOTA_EXCEEDED`, 위 처리), 30·31 = 키 오류(재시도하지 않는다)로 읽는다([[16-DECISIONS|ADR-030]] B17). 실측 표본이 없는 **미검증 가정**이다(16 미결정 1번).
-- 용량: 목록 1회당 100건이고 새 revision마다 보조 조회 3회를 쓴다. 개발계정 한도(서비스당 1,000건/일)는 위 예산 규칙으로 지킨다. 부족하면 운영계정으로 올린다(자동승인).
+- 용량: 목록 1회당 100건이고 새 revision마다 보조 조회 3회(오퍼레이션마다 1회)를 쓴다. 개발계정 한도(오퍼레이션당 1,000건/일)는 위 예산 규칙으로 지킨다. 부족하면 운영계정으로 올린다(자동승인).
 - 초당 30 tps(참고문서)를 넘지 않는다.
-- **정기 수집 일정**: worker가 BullMQ Job Scheduler `g2b-scheduled`를 `pattern "0 */3 * * *"`, `tz "Asia/Seoul"`로 건다(매일 KST 00·03·06·09·12·15·18·21시). `every`를 쓰지 않고, 기동 즉시 수집하지 않는다. 같은 id로 upsert해 옛 일정을 바꾼다. 운영은 회사 ingest 전용 Worker가 맡는다. 근거는 [[plans/2026-10-26-live-ops-cutover|10-26 실운영 전환 실행서]] §1·§3·§9다.
+- **정기 수집 일정**: worker가 BullMQ Job Scheduler `g2b-scheduled`를 `pattern "0 */3 * * *"`, `tz "Asia/Seoul"`로 건다(매일 KST 00·03·06·09·12·15·18·21시). `every`를 쓰지 않고, 기동 즉시 수집하지 않는다. 같은 id로 upsert해 옛 일정을 바꾼다. 운영은 회사 ingest 전용 Worker(`web/worker/ingest-only-main.ts`)가 맡는다. 절차의 정본은 [회사 실행서](../infra/company/README.md) §7이다.
   - 수동 [지금 불러오기](관리자)는 회사 redis-api의 gate를 거친다. 같은 사용자 60분, 누가 했든 전역 공유 실행 10분, KST 하루 20회다(Redis Lua 한 번으로 원자 처리, 거절·실패 때 쿨다운 없음, `web/server/ingestion/manual-ingest-gate.model.ts`). 상태는 `GET /api/v1/admin/ingestion/manual-gate`([[05-API-SPEC|05]] §2).
-  - 예산은 같은 카운터 `quota:15129394:YYYYMMDD`를 쓴다. 정기 수집은 900부터 보조 조회를 멈추고 1000에서 막는다. 수동 job은 720부터 보조 조회를 멈추고 800에서 막는다(정기 몫 200 보호). 정기 창 상한은 24시간이다.
+  - 수동 job도 정기 수집과 같은 오퍼레이션별 카운터를 센다. 정기 수집은 보조 오퍼레이션 카운터가 900에 닿으면 보조 조회를 멈추고 목록 카운터 1000에서 막는다. 수동 job은 한도가 800이라(`MANUAL_RESERVED_CALLS` 200, `web/worker/quota-store.ts`) 720에서 보조 조회를 멈추고 800에서 막는다(정기 몫 200 보호). ingest 전용 Worker의 정기 창 상한은 24시간이다(`SCHEDULED_WINDOW_CAP_MINUTES`).
   - 화면의 "수집 지연" 기준은 정기 간격 180분 + 30분 = 210분이다([[06-UI-UX|06]] §8).
   - 옛 env `G2B_INGEST_INTERVAL_MINUTES`는 무시한다(`web/worker/ingest-queue.ts` `LEGACY_INGEST_INTERVAL_ENV`).
 
@@ -160,7 +182,7 @@ Connector 인터페이스 `BidSourceConnector`의 핵심 메서드는 `fetchPage
 
 documents job이 새 revision의 첨부를 내려받아 Supabase Storage에 쓰고, 바이트를 gateway `POST /parse`로 보낸다. 추출 텍스트도 Supabase Storage에 쓰고 `bid_documents`에 상태를 기록한다([[04-DATABASE|04 DB]]). 다운로드는 worker만 한다. gateway는 네트워크·Supabase Storage에 접근하지 않는다. job 모양·처리 범위·재시도·보존·복구 대상은 이 문서 끝 "documents 큐 소비자 계약"이 정본이다.
 
-- 첨부 목록: 입찰공고 응답의 `ntceSpecDocUrl1~10`·`ntceSpecFileNm1~10`과 e발주 첨부 오퍼레이션 결과.
+- 첨부 목록: 입찰공고 응답의 `ntceSpecDocUrl1~10`·`ntceSpecFileNm1~10`과 e발주 첨부 오퍼레이션 결과. 외부 출처 가운데 첨부 주소가 있는 것은 KEPCO `filenlink1-5`뿐이다. 허용 목록 밖이라 첨부로 저장하지 않고 경고 `ATTACHMENT_URL_BLOCKED`만 남긴다(`external-normalize.ts`, §1.3).
 - 허용 호스트는 `www.g2b.go.kr`(https)뿐이다. 경로는 공식 문서 예시의 `/pn/` 아래 다운로드 엔드포인트다. 포트·userinfo가 붙은 URL은 받지 않는다.
 - 리다이렉트는 같은 allowlist로 매번 다시 보고 최대 3회만 따른다. 같은 호스트의 `login`·`sso` 경로로 가면 `AUTH_REQUIRED`다. DNS 결과에 공인 주소가 아닌 것이 하나라도 섞이면 연결 전에 끊고(`HOST_NOT_ALLOWED`), 확인한 주소로만 연결한다(DNS rebinding 방어). 리다이렉트를 포함해 30 s, 50 MiB를 넘으면 받는 도중에 끊는다(`TOO_LARGE`). 빈 200은 `HTTP_5XX`다. 세션·쿠키는 보내지 않는다([[09-SECURITY|09 보안]] SSRF).
 - 기록하는 다운로드 사유는 화면 계약의 일곱 값(`AUTH_REQUIRED`·`HTTP_4XX`·`HTTP_5XX`·`REDIRECT_BLOCKED`·`HOST_NOT_ALLOWED`·`TOO_LARGE`·`TIMEOUT`)뿐이다.
@@ -214,20 +236,22 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 - `Idempotency-Key`가 없으면 서버가 UUID를 만든다(분석 [[16-DECISIONS|ADR-030]] B20과 같다). 저장 멱등 키(`ingest_runs.idempotency_key`)는 `<orgId>:<requestId>`, jobKey는 `manual:<orgId>:<requestId>`다.
 - 같은 키 판정은 Redis `idem:ingest:<orgId>:<requestId>`(SET NX, 24시간)로 한다. 같은 본문이면 첫 202를 그대로 다시 주고(실행 중이어도 같다), 다른 본문이면 `409 IDEMPOTENCY_KEY_REUSED`다. 큐에 넣다 실패하면 그 키를 지워 같은 키로 다시 받게 하고 `503 {component:"queue"}`를 준다.
 - `stages`는 생략하거나 `["NOTICE"]`만 받는다(그 밖은 400). worker가 지금 공고 단계만 수집하기 때문이다. g2b run의 `params`에는 실제 적용값 `{window, stages:["NOTICE"]}`가 남는다.
+- 외부 서비스도 수동 수집을 받는다(`source` `kwater`·`lh`·`kepco` + `serviceKey`, 창은 90일 이하, KEPCO는 `companyId` 선택, `web/server/ingestion/ingestion-admin.model.ts`). Worker가 남긴 준비 상태로 서비스마다 막는다(§2.8).
 - 조직당 5회/분은 `POST`만 센다. 목록·단건 `GET`과 화면 polling은 세지 않는다.
 - `409 INGESTION_IN_PROGRESS`는 멱등 재현 뒤에 같은 source의 `RUNNING` 행으로 판정한다. 큐에만 있는 job은 막지 않는다(worker가 jobKey로 멱등 처리한다).
 - 요청자(`requestedBy`)는 `ingest_runs.requested_by`가 아니라 요청한 조직의 감사(`audit_logs` `INGEST_MANUAL`의 `actor_id`)로 찾는다. worker는 run을 끝낸 뒤 이 감사를 남긴다(모드가 맞지 않아 거절한 run도 남긴다). 같은 조직이면 `{id,name}`, 다른 조직이거나 감사가 남기 전이면 `null`이다. 화면 역할은 `ingest_runs`의 `job_key`·`idempotency_key`·`requested_by`·`params`를 읽지 못한다([[04-DATABASE|04 DB]] §3.6, `20261019000019`).
-- worker가 멈춰 `RUNNING`으로 남은 fixture run은 `pnpm demo:reset`이 fixture 수집 run을 모두 지우면서 풀린다. g2b run은 지우지 않는다. 오래 남은 g2b run은 운영자 명령 `pnpm ops:close-stale-runs -- --env-file <path> [--apply]`(`scripts/ops/close-stale-ingest-runs.mjs`)로 닫는다: `started_at`이 30분 이상 지난 `source=g2b`·`status=RUNNING` 행을 `FAILED`(`finished_at` 기록)로 바꾼다. 기본은 대상 목록만 보이고 `--apply`일 때만 바꾸며, 행마다 `id`와 `status=RUNNING`을 함께 조건으로 걸어 그 사이 끝난 run은 건너뛴다. 오류 코드·`ingest_errors`·`summary`는 바꾸지 않는다. 시간 기준 자동 전환은 해커톤 뒤다([[16-DECISIONS|16 ADR]] 미결정 25번, 운영 절차는 [[10-DEPLOYMENT|10 배포]] 운영 절).
+- worker가 멈춰 `RUNNING`으로 남은 fixture run은 `pnpm demo:reset`이 fixture 수집 run을 모두 지우면서 풀린다. g2b run은 지우지 않는다. 오래 남은 g2b run은 운영자 명령 `pnpm ops:close-stale-runs -- --env-file <path> [--apply]`(`scripts/ops/close-stale-ingest-runs.mjs`)로 닫는다: `started_at`이 30분 이상 지난 `source=g2b`·`status=RUNNING` 행을 `FAILED`(`finished_at` 기록)로 바꾼다. 기본은 대상 목록만 보이고 `--apply`일 때만 바꾸며, 행마다 `id`와 `status=RUNNING`을 함께 조건으로 걸어 그 사이 끝난 run은 건너뛴다. 오류 코드·`ingest_errors`·`summary`는 바꾸지 않는다. 시간 기준 자동 전환은 해커톤 뒤다([[16-DECISIONS|16 ADR]] "닫힌 미결정" 25번, 운영 절차는 [[10-DEPLOYMENT|10 배포]] 운영 절).
 
 ### 2.8 외부 서비스 준비 상태와 장애 격리
 
-외부 서비스(registry 외부 6키) 하나가 막혀도 나머지 서비스와 나라장터 수집, Worker 기동은 계속된다(`162a09ab`, [[16-DECISIONS|ADR-047]]).
+외부 서비스(registry 외부 6키) 하나가 막혀도 나머지 서비스와 나라장터 수집, Worker 기동은 계속된다([[16-DECISIONS|ADR-047]], [장애 격리 기록](evidence/ingestion/20261027-source-isolation/summary.md)).
 
 - ingest Worker는 기동할 때 서비스마다 준비 상태를 정한다: `READY`·`NOT_CALLABLE`(registry가 막음)·`OPERATION_UNVERIFIED`(기본 조회 방식이 녹음 응답으로 검증되지 않음)·`QUOTA_UNVERIFIED`(registry `quota.daily` 없음, 한도를 지어내지 않는다)·`KEY_MISSING`·`KEY_INVALID`·`AUTH_FAILED`(`web/server/ingestion/source-readiness.model.ts`).
 - `READY`인 서비스만 정기 일정 `<key>-scheduled`를 건다(`web/worker/main.ts` `externalSchedulerIdOf`). 나머지는 일정에서 빠지고 이유가 상태에 남는다.
-- 실행 중 공공 API가 인증 오류(resultCode 30·31)를 돌려주면 그 서비스만 `AUTH_FAILED`가 되어 Worker를 다시 띄울 때까지 부르지 않는다.
+- 실행 중 공공 API가 인증 오류를 돌려주면 그 서비스만 `AUTH_FAILED`가 되어 Worker를 다시 띄울 때까지 부르지 않는다. 기본은 resultCode 30·31이고, LH 입찰공고는 20·30·31·32와 결과 코드 없는 HTTP 401·403도 인증 오류로 본다(`external-connector.model.ts` `AUTH_FAILURE_POLICY`. LH 쪽은 실응답으로 확인하지 않았다).
 - Worker가 정한 상태는 Redis 키 `ingest:source-readiness`에 JSON으로 남는다(키 값·env 값은 싣지 않는다). redis-api가 읽어 수동 수집 판정과 `GET /admin/ingestion/manual-gate`의 `services`([[05-API-SPEC|05]] §2)에 쓴다. 상태가 없으면 외부 서비스의 수동 수집은 `WORKER_NOT_READY`로 막힌다.
-- `ingest-only-main.ts --unschedule`은 `g2b-scheduled`와 외부 서비스별 일정을 모두 지운다.
+- 외부 서비스의 정기 창은 최대 24시간이다(`web/worker/ingest-queue.ts` `EXTERNAL_WINDOW_CAP_MS`). 직전 창이 실패·실행 중·불완전 `PARTIAL`이고 24시간 안에 시작했으면 그 창을 다시 쓴다. 응답이 빠짐없는지 확인할 수 없는 KEPCO는 예외다(§3.2).
+- `ingest-only-main.ts --unschedule`은 `g2b-scheduled`와 외부 서비스별 일정을 모두 지운다. 기업마당 일정(`bizinfo-scheduled`)은 부처 공고 전용 Worker의 `--unschedule`이 따로 지운다([회사 실행서](../infra/company/README.md) §10).
 
 ## 3. 데이터 정규화
 
@@ -245,7 +269,7 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 
 ### 3.1 나라장터 입찰공고 매핑
 
-`OfficialApiConnector`가 입찰공고 응답을 `NormalizedBid`로 바꾸는 규칙이다. 필드 이름은 명세로 확인했고 2026-10-19 C1 ① 실응답과 대조했다(§1.1 콜아웃). 실응답과 다른 점(구조화 자격 필드는 목록 응답이 아니라 보조 조회에만 있다 등)은 [C1 API 증거](evidence/phase-0/external-deps-api-20261019.md) §10에 있고, 매핑 반영은 C3에서 한다.
+`OfficialApiConnector`가 입찰공고 응답을 `NormalizedBid`로 바꾸는 규칙이다. 필드 이름은 명세로 확인했고 2026-10-19 C1 ① 실응답과 대조했다(§1.1 콜아웃). 실응답과 다른 점(구조화 자격 필드는 목록 응답이 아니라 보조 조회에만 있다 등)은 [C1 API 증거](evidence/phase-0/external-deps-api-20261019.md) §10에 있다. 구현은 목록 `web/server/ingestion/normalize-g2b.ts`, 보조 조회 `normalize-g2b-aux.ts`다.
 
 | `NormalizedBid` / 추가 필드 | 입찰공고 응답 필드 |
 |---|---|
@@ -264,13 +288,22 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 
 - 같은 조건을 API 구조화 필드와 Qwen 추출이 둘 다 주면 **API 구조화 필드가 우선**이다(면허제한 `lcnsLmtNm`, 참가가능지역 `prtcptPsblRgnNm`, 금액 `presmptPrce`·`asignBdgtAmt`, 마감 `bidClseDt`). 두 값이 다르면 그 필드를 `CONFLICTED`로 둔다([[15-DATA-CONTRACTS|15 데이터 계약]] §3·§4, [[08-SCORING|08 점수]] §5.1).
 - **개인정보**: 담당자 필드(이름·전화·이메일)는 `NormalizedBid`에 넣지 않는다. 담당자 필드가 든 원본 응답은 사설 Supabase Storage에만 보관하고, 모델 입력과 데이터셋 내보내기에서도 뺀다([[09-SECURITY|09 보안]], [[21-MODEL-TRAINING|21 모델 학습]]).
-- 업종 코드는 업종 및 근거법규 마스터(15129467)를 받아 만든 사전으로 이름과 잇는다. 실제 값은 C1 ① 업종 마스터 응답으로 확인했다(소프트웨어사업자 `1468`·`1426`, 정보통신공사업 `0036`, [[08-SCORING|08]] §5.1 콜아웃).
+- 업종 코드는 업종 및 근거법규 마스터(15129467)를 받아 만든 사전으로 이름과 잇는 것이 설계다. 마스터 수집은 미구현이라(§1.3) 지금은 면허제한 응답의 `lcnsLmtNm`·`permsnIndstrytyList`에 든 "이름/코드"를 나눠 쓴다(`normalize-g2b-aux.ts` `splitNameAndCode`). 실제 값은 C1 ① 업종 마스터 응답으로 확인했다(소프트웨어사업자 `1468`·`1426`, 정보통신공사업 `0036`, [[08-SCORING|08]] §5.1 콜아웃).
 - 상태: `ntceKindNm` 등록·재공고 → `OPEN`, 변경 → `AMENDED`, 취소 → `CANCELLED`. `CLOSED`는 정규화가 만들지 않고(checksum이 시간에 따라 바뀌지 않게) 조회할 때 `deadlineAt`으로 계산한다. 매핑에 없는 값은 [[15-DATA-CONTRACTS|15]] §6 격리다([[16-DECISIONS|ADR-030]] B14).
+
+### 3.2 외부 입찰공고(LH·K-water·KEPCO)
+
+원본 필드 → `NormalizedBid` 매핑의 정본은 registry 각 항목의 `fieldMapping`이고, 구현은 `web/server/ingestion/external-normalize-lh.ts`·`external-normalize-kwater.ts`·`external-normalize.ts`(KEPCO)다. 외부 공고는 스키마 `normalized-bid/v0.3`이고 `sourceMetadata`(`sourceFamily` `LH`·`KWATER`·`KEPCO`, 기관 코드·날짜·금액 등)를 더 가진다([[15-DATA-CONTRACTS|15]] §3). 수집 쪽에서 알아야 할 규칙만 적는다.
+
+- **공통**: LH·K-water의 `noticeId`는 공백 없는 64자 이하만 받고 아니면 격리한다. LH·K-water는 발주기관을 운영 기관으로 고정하고 부서·지역본부 코드를 `sourceMetadata.agencyCode`에 따로 둔다. KEPCO는 회사 코드(`companyId`)로 회사 이름을 정한다(확인된 코드만, `KEPCO_COMPANIES`). K-water·KEPCO는 처음 보는 진행 상태를 지어내지 않고 격리한다(`PROVIDER_STATUS_NOT_VERIFIED`). LH는 취소·정정·마감류 낱말만 읽고, 모르는 값은 `OPEN`으로 두고 메모를 남긴다.
+- **LH 입찰공고**: `bidDegree`가 `amendmentNo`다(필수 숫자, 낮은 차수는 `STALE`). 마감(`tndrdocAcptEndDtm`)은 시각이 있을 때만 `deadlineAt`에 넣는다. 응답에 상세 URL이 없어 `sourceUrl`은 서비스 설명 페이지다. 결과 코드 03(데이터 없음)은 빈 쪽(`COMPLETE`)으로 받는다(`NO_DATA_RESULT_CODES`. 명세 기준이고 실응답으로는 확인하지 않았다). 첨부는 없다.
+- **K-water 입찰공고**: 공고월(`searchDt`)로만 조회되므로 정기 수집은 창의 첫 달 앞 한 달도 함께 받는다(지난달 공고의 상태 변화, `external-request.ts`). 진행 상태 `tndrStat`는 확인한 14개 값 가운데 참가신청만 `OPEN`이고 나머지 13개(제안서제출·기술협상·PQ심사 포함)는 `CLOSED`다(사용자 결정 2026-10-28). 신청 마감은 날짜만 있어 `deadlineAt`을 비우고 `sourceMetadata.dates`에 둔다. 첨부는 없다.
+- **KEPCO 전자입찰계약**: 쪽 번호가 없어 90일 조각마다 한 번 부른다. 하루치 공고를 다음 날 아침에 올리므로 조회 시작일은 창 첫날 앞 3일이다(`KEPCO_LOOKBACK_DAYS`, 사용자 결정 2026-10-29). 조회한 날 공고가 없으면 HTTP 404와 본문 `{"errCd":"404","errMsg":"NotFound"}`로 답한다. 이 본문만 빈 쪽으로 받고 다른 404·본문은 실패로 둔다(`external-api-connector.ts` `isKepcoNotFound`). 응답 상한과 빠진 회사 범위를 검증하지 못해 모든 쪽이 `PARTIAL`이다(`COVERAGE_UNVERIFIED_SOURCES`). 같은 창을 다시 받아도 `COMPLETE`가 될 수 없으므로 다음 조각으로 넘어가고 정기 창도 다시 쓰지 않는다. 예산은 원 단위로 읽힌 추정가격(`presumedPrice`, 부가세 별도)이다. 첨부 주소는 허용 목록 밖이다(§2.4).
 
 ## 4. 공고 이력 연결
 
 - 같은 `noticeId`(차수 제외) + `amendmentNo`는 동일 bid의 revision으로 관리한다.
-- 계획 → 사전규격 → 공고 연결은 **공개 식별자**가 우선이다. fixture는 `planRef`(예 `DEMO-PLAN-0042`, `FX-17` ↔ `FX-18`)로 잇는다. live는 입찰공고의 `orderPlanUntyNo`(`planRef`)·`bfSpecRgstNo`(`preSpecRef`)와 사전규격·발주계획 응답의 `bidNtceNoList`로 잇는다. 식별자로 이어지지 않으면 제목 유사도만으로 자동 병합하지 않고 "연결 후보"로만 표시한다(`FX-19`).
+- 계획 → 사전규격 → 공고 연결은 **공개 식별자**가 우선이다. fixture는 `planRef`(예 `DEMO-PLAN-0042`, `FX-17` ↔ `FX-18`)로 잇는다. live는 입찰공고의 `orderPlanUntyNo`(`planRef`)·`bfSpecRgstNo`(`preSpecRef`)와 사전규격·발주계획 응답의 `bidNtceNoList`로 잇는다. 사전규격·발주계획 수집이 미구현이라(§1.3) 지금 확정 연결은 fixture(`FX-17`·`FX-18`)에서만 생긴다. 연결은 공고 상세를 열 때 계산한다(`web/server/bids/stage-links.*`). 식별자로 이어지지 않으면 제목 유사도만으로 자동 병합하지 않고 "연결 후보"로만 표시한다(`FX-19`).
 - 단계는 누락·역전 가능성이 있으므로 선형 진행을 강제하지 않는다.
 - 외부 공고 링크의 재확인 가능성과 provenance(`fetchedAt`, `rawPayload` 해시)를 기록한다.
 
@@ -286,7 +319,7 @@ gateway `POST /parse`의 요청·응답(`ParseResult`)·오류 코드 계약은 
 | 취소 | +1, `status=CANCELLED` | `BID_CHANGED` 1건 | 하지 않음. 기존 `score_runs`·`bid_reviews` 보존 |
 | 마감 72시간 이내 진입 | 없음 | 마감 D-3·D-1(KST 09:00 이후) 인앱 알림 1건씩, 담당자∪관심 등록자(`send_deadline_reminders`, [[13-NOTIFICATIONS\|13]]) | 없음 |
 
-"재분석" 열의 "큐 등록"은 설계다. 해커톤 컷에서는 수집이 분석 큐에 자동으로 넣지 않는다(§2, [[16-DECISIONS|ADR-030]] B18).
+"재분석" 열의 "큐 등록"은 설계다. 해커톤 컷에서는 수집이 분석 큐에 자동으로 넣지 않는다(§2, [[16-DECISIONS|ADR-030]] B18). 마감 D-3·D-1 알림은 수집이 아니라 알림 Worker(`web/worker/notify-only-main.ts` `deadlineWorkerRegistration`, 로컬은 전체 Worker)가 넣는다. 회사에서는 알림 Worker를 준비만 했고 띄우지 않았다([회사 실행서](../infra/company/README.md) §9).
 
 ## 6. Fixture 20건 명세
 
@@ -300,7 +333,7 @@ fixtures/
   manifest.yaml            # 배치(seed/live) 순서, FX-ID, 시나리오 태그
   bids/FX-01.json … FX-20.json
   extractions/FX-01.json … # mock Qwen 추출 결과 (03 §4 RequirementExtraction 스키마)
-  kev/FX-01.json …         # mock Kev 응답 (03 §5 질문 4종, FX별 고정값)
+  kev/FX-01.json …         # mock 결정 모델(Bosun) 응답 (03 §5 질문 4종, FX별 고정값. 폴더 이름 kev/는 호환용)
   goldens/FX-01.json …     # Phase 4에서 고정하는 기대 점수·결정 (11 골든 테스트 입력)
 ```
 
@@ -346,7 +379,7 @@ fixture 한 건의 형태:
 |---|---|---|---|---:|---|---|---|---|---|
 | `FX-01` | NOTICE | 세종특별자치시 차세대 행정정보시스템 고도화 | 세종특별자치시 | 12억 | +21d | 신규·정상. 첨부 RFP 파싱 성공(fixture 첨부는 처리하지 않는다. mock 추출 fixture가 근거다), 자격 3건 모두 충족 | **추천** (점수 94) | G5, G6, G8 | S3 자격·근거 서랍, S6 장애 대체(force 재분석), S7 격리 |
 | `FX-02` | NOTICE | 경기도교육청 통합 LMS 구축 | 경기도교육청 | 28억 | +10d | 신규·정상. 요구기술 6개 중 3개 보유, 마감 촉박 | **보류** (점수 72) | — | S4 라이브 분석 + 사람 결정 |
-| `FX-03` | NOTICE | 부산광역시 지능형 CCTV 통합관제센터 구축 | 부산광역시 | 45억 | +15d | 필수자격 미충족(정보통신공사업 등록). mock Kev는 `BID 0.55` 제시 | **비추천** (자격). 점수 68은 참고. `MODEL_RULE_DISAGREEMENT` 기록 | G3 | S3 "규칙이 결정 모델을 이긴다" |
+| `FX-03` | NOTICE | 부산광역시 지능형 CCTV 통합관제센터 구축 | 부산광역시 | 45억 | +15d | 필수자격 미충족(정보통신공사업 등록). mock 결정 모델은 `BID 0.55` 제시 | **비추천** (자격). 점수 68은 참고. `MODEL_RULE_DISAGREEMENT` 기록 | G3 | S3 "규칙이 결정 모델을 이긴다" |
 | `FX-04` | NOTICE | 한국지능정보사회진흥원 데이터 거버넌스 체계 수립 컨설팅 | 한국지능정보사회진흥원 | 6억 | +12d | 첨부 없음. 본문에 자격 요건 문장 없음 | 자격 **NEEDS_REVIEW** → 보류. 근거 인용 0건, 수주확률 문구 없음 | G4 | — |
 | `FX-05` | NOTICE | 국민건강보험공단 대국민 포털 재구축 | 국민건강보험공단 | 32억 | +20d | 첨부 HWP 파싱 실패(의도적으로 손상) | `parse_status`는 NULL(fixture 첨부는 처리하지 않고, `PENDING_REVIEW`는 mock 추출 fixture의 경고에서 온다), 추출 `PENDING_REVIEW`(`warnings`의 `ATTACHMENT_PARSE_FAILED:*`, [[03-AI-PIPELINE\|03]] §4.4, ADR-029 A2), 자격 NEEDS_REVIEW → 보류. "첨부 원문 확인" 배지 | G4 변형 | — |
 | `FX-06` | NOTICE | 대전광역시 스마트시티 통합플랫폼 유지보수 | 대전광역시 | 9억 | +14d → r2 +28d | 기한변경 정정(`LIVE` 배치, `amendmentNo` 02) | **추천** (점수 78) 유지. revision 2, `BID_CHANGED` outbox 이벤트 정확히 1건(`PENDING`. 공고 이벤트 소비자가 없어 알림 행은 생기지 않는다, [[16-DECISIONS\|ADR-033]] E3) | G2 | S5 변경 알림 |
@@ -359,7 +392,7 @@ fixture 한 건의 형태:
 | `FX-13` | NOTICE | 울산광역시 산업안전 모니터링 플랫폼 | 울산광역시 | `"1,500백만원"` | +19d | 금액 텍스트 정규화 + 추출 fixture에 원문과 불일치하는 인용 1건 | `budgetKrw="1500000000"`, 원본 문자열 보존. 인용 검증 실패 → 해당 필드(`qualifications`) `UNKNOWN` + `note="CITATION_FAILED"`, 실패 인용은 `match=FAILED`로 남고 화면에 보이지 않음, `warnings`에 `CITATION_FAILED:qualifications`, `reviewFlags`에 `CITATION_FAILED`(`CONFLICTED` 아님, ADR-029 A1), 자격 NEEDS_REVIEW. 보류 | — | — |
 | `FX-14` | NOTICE | 광주광역시 AI 행정 비서 시범사업 | 광주광역시 | 5억 | +2d (KST 18:00) | 마감 임박, 타임존 변환 | UTC 09:00 저장. 대시보드 "마감 임박" 카드, 마감 알림은 D-3·D-1에만 나간다([[13-NOTIFICATIONS\|13]]). 보류 (일정 감점) | — | S2 마감 임박 |
 | `FX-15` | NOTICE | 행정안전부 차세대 지방행정 공통기반 구축 | 행정안전부 | 80억 | +30d | 규모 초과(솔리데오 수행 상한 50억) | 규모 적합 0점 + `SCALE_LIMIT_EXCEEDED` 경고. 보류 (68) | — | — |
-| `FX-16` | NOTICE | 국방부 군 지휘통제체계 SW 유지보수 | 국방부 | 40억 | +20d | 비선호 분야(국방) + 방산업체 지정 필수 미충족. mock Kev도 `NO_BID 0.70` | **비추천** (자격). 규칙·결정 모델 일치 | G3 일치 사례 | — |
+| `FX-16` | NOTICE | 국방부 군 지휘통제체계 SW 유지보수 | 국방부 | 40억 | +20d | 비선호 분야(국방) + 방산업체 지정 필수 미충족. mock 결정 모델도 `NO_BID 0.70` | **비추천** (자격). 규칙·결정 모델 일치 | G3 일치 사례 | — |
 | `FX-17` | PLAN | 과학기술정보통신부 2027년 AI 행정서비스 구축 발주계획 | 과학기술정보통신부 | 50억 (예정) | 없음 (2027-03 예정) | 발주계획 단계. `planRef=DEMO-PLAN-0042` | 자격 `NEEDS_REVIEW`(사유 `STAGE_NOT_APPLICABLE`), 보류 (조기 추적). StageTimeline 1단계 | — | Q&A 예비(단계 연결) |
 | `FX-18` | PRE_SPEC | 과학기술정보통신부 AI 행정서비스 구축 사전규격 | 과학기술정보통신부 | 48억 | 의견등록 +7d | `planRef=DEMO-PLAN-0042`로 `FX-17`과 연결 | 연결 확정(식별자). **추천** (82). StageTimeline 2단계 | — | Q&A 예비(단계 연결) |
 | `FX-19` | PRE_SPEC | 세종특별자치시 행정정보 연계 플랫폼 사전규격 | 세종특별자치시 | 10억 | +7d | `planRef` 없음. `FX-01`과 제목 유사도만 높음 | "연결 후보"로만 표시, 자동 병합 없음. 보류 | — | — |
@@ -406,11 +439,11 @@ fixture 한 건의 형태:
 | `SEED` | 20건의 r1 레코드. `FX-12`는 격리, `FX-20`은 429 두 번 뒤 적재 | `pnpm demo:reset`(스크립트, service role로 Supabase 프로젝트에 seed, 멱등, [[10-DEPLOYMENT\|10 배포]]) | `{created:19, changed:0, cancelled:0, skippedDuplicate:0, quarantined:1, retried:2}` |
 | `LIVE` | `FX-06` r2, `FX-07` r2, `FX-08` r2(취소), `FX-09` 재전송, `FX-10` 02차 | 관리자 화면 "수동 수집" 또는 `POST /api/v1/admin/ingestion/runs` 본문 `{"source":"fixture","batch":"live"}`(API는 소문자, Route Handler의 zod 스키마가 `LIVE`로 바꾼다, [[05-API-SPEC\|05 API]]). 적재는 worker가 한다 | `{created:0, changed:3, cancelled:1, skippedDuplicate:1, quarantined:0, retried:0}` |
 
-`summary` 키는 [[04-DATABASE|04 DB]]의 `ingest_runs.summary`와 같다. `SEED`를 두 번 돌리면 두 번째는 `skippedDuplicate:19, quarantined:1`이어야 한다(멱등). seed는 공고 외에 조직 2(`org-01` 솔리데오, `org-02` 비교조직), 계정 5(Supabase Auth 사용자. org-01 4역할 + org-02 VIEWER, 역할은 `memberships.sol_role`), 프로필 revision 2, 사전 리뷰 2건(`FX-01` 추천, `FX-03` 비추천)을 함께 넣는다. 범위와 멱등 규칙은 [[04-DATABASE|04 DB]] §6, 계정 목록은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1, 기대 로그는 [[10-DEPLOYMENT|10 배포]] 데모 당일 기동 절차 6번이다.
+`summary` 키는 [[04-DATABASE|04 DB]]의 `ingest_runs.summary`와 같다. `SEED`를 두 번 돌리면 두 번째는 `skippedDuplicate:19, quarantined:1`이어야 한다(멱등). seed는 공고 외에 조직 2(`org-01` 솔리데오, `org-02` 비교조직), 계정 5(Supabase Auth 사용자. org-01 4역할 + org-02 VIEWER, 역할은 `memberships.sol_role`), 프로필 revision 2, 사전 리뷰 2건(`FX-01` 추천, `FX-03` 비추천)을 함께 넣는다. 범위와 멱등 규칙은 [[04-DATABASE|04 DB]] §6, 계정 목록은 [[19-DEMO-SCENARIO|19 데모 시나리오]] §1, 기대 로그는 [[10-DEPLOYMENT|10 배포]] "대체 경로·녹화용(S5·S6) 기동 절차" 6번이다.
 
 `ingest_runs.status`는 `SEED`가 격리 1건이 있어 `PARTIAL`, `LIVE`가 `SUCCEEDED`, connector가 중간에 멈추면 `FAILED`다. `bid_revisions`는 seed 직후 19행, `LIVE` 배치의 새 revision 4건(`FX-06`·`FX-07`·`FX-08`·`FX-10`) 뒤 23행이다([[16-DECISIONS|ADR-030]] B15, [[04-DATABASE|04 DB]] §6).
 
-### 6.5 Phase 0 구현 형태 (2026-10-19, `caf0abd`·`91655a9`·`f238a3f`)
+### 6.5 Phase 0 구현 형태
 
 Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값을 바꾸지 않고, 구현이 정한 필드와 파일 이름 규칙만 더한다. 검증 명령은 `pnpm bids:check`(`scripts/bids/check.mjs`)다.
 
@@ -436,8 +469,8 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - 파일 안의 `bidId: "FX-xx"`·`revisionId: "FX-xx#NN"`은 자리표시다(실제 id는 DB의 UUID다). `rNN` 파일이 없는 revision은 mock gateway가 `FX-xx.json`을 그 revision에 쓴다(예: `FX-06` r1).
 - gateway에 보내는 fixture 식별자는 `FX-NN` 또는 `FX-NN.rNN`이다. worker는 늘 `FX-NN.rNN`을 보내고, mock gateway는 그 파일이 없으면 위 규칙대로 `FX-NN.json`으로 대체한다. 형식이 어긋나면(ASCII 숫자가 아닌 경우 포함) 거절하고, 응답의 id는 요청 값으로 바꾼다([[03-AI-PIPELINE|03]] §2.1, [[16-DECISIONS|ADR-030]] B4).
 
-**mock Kev·골든 envelope**
-- mock Kev: `schemaVersion: "kev-mock/v0.1"`, `fixtureId`, `provider`, `questionSetVersion: "kev-qs/v0.1"`, `responses`, `usage`, `latency_ms`.
+**mock 결정 모델·골든 envelope**
+- mock 결정 모델(`kev/`): `schemaVersion: "kev-mock/v0.1"`, `fixtureId`, `provider`, `questionSetVersion: "kev-qs/v0.1"`, `responses`, `usage`, `latency_ms`.
 - 골든: `schemaVersion: "sol-golden/v0.1"`, `fixtureId`, `calculationDate`, `factors[]`(요소별 `normalized`·`points`·`maxPoints`), `total`, `score`, `recommendation`, `reviewFlags`.
 
 **파일 건수**: 지금 `bids/` 20, `extractions/` 20, `kev/` 20(`FX-12` 격리 제외 19건 + `FX-07.r01`), `goldens/` 3이고 `docs/` 첨부는 없다. Phase 0 범위와 이후 계획, `FX-20` 배치(`SEED`)는 [[16-DECISIONS|ADR-024]] D9~D12가 정본이다.
@@ -463,13 +496,13 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 
 고정 인물 ID는 `SOL-P0001`~`SOL-P0200`이며 이름을 파일명에 쓰지 않는다. 같은 팀명은 앞뒤 공백만 제거해 정확 일치로 합산한다. 본부·근무지·주소를 팀으로 오인하지 않고, 분류할 수 없는 인력 행은 임의 부서 생성 대신 오류로 보고한다. 각 팀 1명 배치 후 남은 인원을 원본 인력 행 수에 비례해 최대 나머지 방식으로 나눈다. 동률은 부서 ID 순으로 고정한다. 부서 내 직급 비율도 최대 나머지 방식(동률은 직급 ID 순)으로 맞추고 남녀를 각각 정확히 100명으로 맞춘다. 원본 동명이인만으로 같은 인물이라고 추정하지 않는다.
 
-부서 계층([[16-DECISIONS|ADR-021]]): `solideo.departments.json`의 항목에 선택 필드 `parentId`(상위 부서 `id` 또는 `null`)와 `kind`(`DIVISION`·`GROUP`·`TEAM` 또는 생략)를 둔다. 계층은 본부 → 그룹 → 팀이고 깊이는 3 이하다. 본부·그룹 항목은 `targetCount`가 없고(오류 아님) 팀만 `targetCount`를 가진다. 가입 선택 목록과 200명 배분 검사는 팀(`kind`가 `TEAM`이거나 생략)만 대상이고, 직원의 `departmentId`는 팀만 가리킨다. 상위를 확정할 수 없으면 지어내지 않고 `parentId: null`로 두며 검증 보고에 남긴다(화면은 최상위 목록에 놓는다). 존재하지 않는 `parentId`·자기 참조·순환·깊이 3 초과·팀이 아닌 직원 소속은 검증 오류다. 검증 보고에는 팀별 목표·실제·차이 표를 남기고, 정본 JSON을 처음 만들 때는 차이가 0이어야 한다. 기존 부서 `id`·직원 연결·`personId`는 바꾸지 않는다. 명부 JSON은 한 파일이고 seed가 `team_members`(운영)와 `team_member_scoring`(점수 계산 속성200명) 두 표로 나눠 넣는다.
+부서 계층([[16-DECISIONS|ADR-021]]): `solideo.departments.json`의 항목에 선택 필드 `parentId`(상위 부서 `id` 또는 `null`)와 `kind`(`DIVISION`·`GROUP`·`TEAM` 또는 생략)를 둔다. 계층은 본부 → 그룹 → 팀이고 깊이는 3 이하다. 본부·그룹 항목은 `targetCount`가 없고(오류 아님) 팀만 `targetCount`를 가진다. 가입 선택 목록과 200명 배분 검사는 팀(`kind`가 `TEAM`이거나 생략)만 대상이고, fixture 직원의 `departmentId`는 팀만 가리킨다(운영 DB는 [[16-DECISIONS|ADR-063]]으로 본부·그룹 직속 직원을 허용해, 운영 배치는 이 fixture와 다르다). 상위를 확정할 수 없으면 지어내지 않고 `parentId: null`로 두며 검증 보고에 남긴다(화면은 최상위 목록에 놓는다). 존재하지 않는 `parentId`·자기 참조·순환·깊이 3 초과·팀이 아닌 직원 소속은 검증 오류다. 검증 보고에는 팀별 목표·실제·차이 표를 남기고, 정본 JSON을 처음 만들 때는 차이가 0이어야 한다. 기존 부서 `id`·직원 연결·`personId`는 바꾸지 않는다. 명부 JSON은 한 파일이고 seed가 `team_members`(운영)와 `team_member_scoring`(점수 계산 속성, 200명) 두 표로 나눠 넣는다.
 
 이름은 실제 사용되는 두 글자 이름 통계와 한 글자 성씨를 참고한 자연스러운 한글 세 글자로 한다. 출처: [남성 이름 통계](https://www.namechart.kr/chart/2008?gender=m), [여성 이름 통계](https://www.namechart.kr/chart/2008?gender=f)(2026-10-16 확인). 최종 200개 이름은 중복 0·원본 이름 교집합 0이어야 한다. 원본 이름 제외 집합은 로컬 검사 중에만 사용하며 로그·fixture·프롬프트에 남기지 않는다. 원본 파일이 없으면 제외 검사는 실패로 보고한다.
 
 사진은 imagegen 기본 내장 도구로 인물별 1개 작업씩 만든 서로 다른 가상 성인 정장 프로필 200장(남녀 100/100)이고, 생성은 끝났다(2026-10-17 사람 승인). 생성·복사·검수 절차는 아래 상세 승인 스펙이 정본이다.
 
-상세 승인 스펙: [솔리데오 인력·가입](../polaris/specs/done/2026-10-16-solideo-people-signup.md). JSON 4개·사진 200장(manifest READY 200, 사람 승인 2026-10-17)·`pnpm people:seed`·가입 폼은 구현됐다([[PROGRESS]]). 상위 부서가 확인되지 않은 29개 부서는 `parentId: null`로 남아 있고, 인력 배정 API는 기존대로 P1이다.
+상세 승인 스펙: [솔리데오 인력·가입](../polaris/specs/done/2026-10-16-solideo-people-signup.md). JSON 4개·사진 200장(manifest READY 200, 사람 승인 2026-10-17)·`pnpm people:seed`·가입 폼은 구현됐다([[PROGRESS]]). 상위 부서가 확인되지 않은 29개 부서(팀 25·그룹 4)는 `parentId: null`로 남아 있다. 구성원 추가·부서 이동 API(`POST /api/v1/team-members`·`PATCH /api/v1/team-members/:id`, P1 N4b)는 구현됐다([[05-API-SPEC|05 API]]).
 
 ## 문서 큐 등록 복구
 
@@ -482,7 +515,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 
 ### documents 큐 소비자 계약 ([[16-DECISIONS|ADR-033]] E1)
 
-생산 쪽(수집 job·복구 회차)과 소비자(`web/worker/documents-job.ts`)는 main에 있다. 운영은 회사 documents Worker 반영 뒤부터다([[10-DEPLOYMENT|10 배포]]). 근거는 [첨부 처리 구현 증거](evidence/attachment-pipeline/20261027-implementation.md)다. 아래 "끝내기 전 상태"와 "장애 시 미루기"는 옛 계약과 다르다. 이 차이는 [[16-DECISIONS|ADR-055]](제안)에 있다.
+생산 쪽(수집 job·복구 회차)과 소비자는 `web/worker/documents-job.ts`다. 회사에서는 documents 전용 Worker가 2026-10-28부터 운영 중이다([기동 기록](evidence/attachment-pipeline/20261028-documents-worker.md). 처리 건수는 [[PROGRESS]]). 구현 근거는 [첨부 처리 구현 증거](evidence/attachment-pipeline/20261027-implementation.md)다. 아래 "끝내기 전 상태"와 "장애 시 미루기"는 옛 계약과 다르다. 이 차이는 [[16-DECISIONS|ADR-055]](제안)에 있다.
 
 - **job 모양**: 큐 `documents`, job 이름 `fetch`, data `{bidId, revisionId, revisionCreatedAt}`. jobId는 `documents-<revisionId>-<revision created_at epoch ms>`다(`web/server/ingestion/ingestion.queue.ts` `toDocumentsJobId`). PostgREST가 돌려주는 `created_at`의 마이크로초는 ms로 자른다. `demo:reset`이 같은 revision id를 다시 만들어도 `created_at`이 바뀌어 새 jobId가 되므로, BullMQ에 남은 이전 job에 막히지 않는다.
 - **보존 옵션**: attempts 3, backoff exponential 2초, `removeOnComplete` 86400초(1일), `removeOnFail` 604800초(7일). 옵션은 `enqueueDocuments` 한 곳에서만 붙인다(`DOCUMENTS_JOB_OPTIONS`).
@@ -516,7 +549,7 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 실행 위치:
 
 - 전체 Worker(`web/worker/main.ts`)는 live에서 documents 등록을 함께 가진다.
-- 회사에서는 documents 전용 Worker(`web/worker/documents-only-main.ts`, live 강제, `--check` 지원)를 `infra/compose.documents-only.company.yaml`(프로젝트 `sol-radar-documents`)로 띄운다. ingest 전용 Worker와 Analysis Worker는 건드리지 않는다. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(나라장터 요청 간격이 프로세스마다 따로 계산된다). 절차는 [회사 실행서](../infra/company/README.md) §8, 반영 순서는 [[10-DEPLOYMENT|10 배포]] "첨부 처리 운영 반영".
+- 회사에서는 documents 전용 Worker(`web/worker/documents-only-main.ts`, live 강제, `--check` 지원)를 `infra/compose.documents-only.company.yaml`(프로젝트 `sol-radar-documents`)로 띄운다. ingest 전용 Worker와 Analysis Worker는 건드리지 않는다. 전체 Worker와 같은 Redis에서 함께 띄우지 않는다(나라장터 요청 간격이 프로세스마다 따로 계산된다). 절차는 [회사 실행서](../infra/company/README.md) §8, 운영 구성은 [[10-DEPLOYMENT|10 배포]] "첨부 처리"다.
 - documents 전용 Worker에는 의존성 보고·Storage 정리(10분)가 없다. 회사에서 고아 객체 정리를 돌릴 곳은 정하지 않았다.
 
 분석 연결: 분석 runtime은 첨부 텍스트 reader(`createAttachmentTextReader`, `web/server/documents/document-text.repo.ts`)로 `PARSED`·`PARTIAL` 첨부 텍스트를 우선순위 순으로 읽는다(`ANALYSIS_READS_ATTACHMENT_TEXT = true`). 텍스트 객체가 계약과 다르면 넣지 않고 그 문서를 `FAILED`·`PARSER_ERROR`로 보인다(DB는 바꾸지 않는다). 본문이 비어도 파싱된 첨부가 있으면 분석 요청을 받는다(202). 미파싱 첨부만 있으면 `409 ANALYSIS_SOURCE_MISSING` 그대로다. 추출 캐시 키에 입력 문서 집합이 없는 문제는 [[16-DECISIONS|ADR-056]](제안)이다.
@@ -529,8 +562,9 @@ Phase 0에서 만든 `fixtures/`의 실제 형태다. 위 6.1~6.4의 설계값�
 - [[03-AI-PIPELINE|03 AI 파이프라인]] — 실행 모드 전체 표, gateway `POST /parse` 계약(`ParseResult`), 모델 장애와 대체
 - [[04-DATABASE|04 DB]] — `bid_notices`, `bid_revisions`, `bid_documents`, `bid_structured_requirements`, `ingest_runs`, seed 범위
 - [[09-SECURITY|09 보안]] — SSRF allowlist, 서비스키, 공공 API 응답 개인정보, 첨부 저작권·파서 라이선스
-- [[16-DECISIONS|16 ADR]] — ADR-020·033·055·056, 미결정 1·4·16·19·20·23번
-- [[10-DEPLOYMENT|10 배포]] — documents 전용 Worker, 첨부 처리 운영 반영 순서
+- [[16-DECISIONS|16 ADR]] — ADR-020·033·040·047·055·056·063, 미결정 1·4·16·19·20·23번
+- [[10-DEPLOYMENT|10 배포]] — 회사 Worker 구성, 첨부 처리
+- [회사 실행서](../infra/company/README.md) — ingest(§7)·Documents(§8)·부처 공고(§10) 전용 Worker 절차
 - [[21-MODEL-TRAINING|21 모델 학습]] — live 공고로 만드는 평가셋
 - [[08-SCORING|08 SOL Score]] — fixture별 기대 점수의 계산 근거
 - [[11-TESTING|11 테스트]] — 골든 시나리오 ↔ FX-ID 매핑

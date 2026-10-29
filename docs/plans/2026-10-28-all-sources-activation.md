@@ -67,5 +67,5 @@ updated: 2026-10-28
 ## 관련 문서
 
 - [[2026-10-27-lh-bid-notice-activation|LH 입찰공고 활성화 계획]]
-- [[2026-10-22-external-ingestion-completion-plan|외부 수집 완성 계획(10-22 분석)]]
+- 외부 수집 완성 계획(10-22 분석)(git `3ae02acf` 의 `docs/plans/2026-10-22-external-ingestion-completion-plan.md`)
 - [[../PROGRESS|진행 상황]]

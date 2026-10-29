@@ -1,8 +1,8 @@
 ---
 title: "회사 역량 — 공개 자료 기반 솔리데오 프로필과 임원 권한"
-status: in-progress
+status: done
 tags: [sol-radar, company, auth, scoring, data]
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 회사 역량 — 공개 자료 기반 솔리데오 프로필과 임원 권한

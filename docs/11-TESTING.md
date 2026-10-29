@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - test
   - hackathon
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 11. 검증·테스트 전략
@@ -66,7 +66,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 남긴 범위는 §1 매트릭스의 핵심 케이스다: 골든 94/72/68, 정보 부족·모델 장애·모델 승격 금지, 재현성·가정 재계산, 조직 격리·요청 계약, 수집 멱등·revision, 첨부 보안·키 가림, 알림 멱등·사람 결정, 기동·비용 승인 게이트.
 
 - 축소 직후 수는 웹 23파일·286개, DB 정책 21개, AI 101개, 결정 57개, 브라우저 3파일, E2E 공개 45·인증 13·업무 16개다(정본 목록).
-- 그 뒤 기능 시험이 더해져 2026-10-27 전체 `pnpm verify`는 루트 236·web 85파일 743개·`next build`·AI 166개·결정 57개였다([첨부 처리 구현 기록](evidence/attachment-pipeline/20261027-implementation.md)). 브라우저 부품 시험은 7파일이다.
+- 그 뒤 기능 시험이 더해져 2026-10-27 전체 `pnpm verify`는 루트 236·web 85파일 743개·`next build`·AI 166개·결정 57개였다([첨부 처리 구현 기록](evidence/attachment-pipeline/20261027-implementation.md)). 브라우저 부품 시험은 지금 14파일(`git ls-files 'web/**/*.browser.test.tsx'`)이다.
 - 새 시험은 핵심 사용자 동작·권한·계산·저장이나 실제 결함을 직접 검증할 때만 더한다. 같은 계약을 여러 계층에서 반복하거나 상수·문구·목업 값·모든 입력 조합을 고정하는 시험은 만들지 않는다.
 
 ### 첨부 처리·파서·live 가드 시험
@@ -181,7 +181,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 평가는 실제 공고에서 모델이 얼마나 맞히는지를 재는 측정이다. 지표·비교 대상·오류 분석·수용 기준의 정본은 [[21-MODEL-TRAINING|21]] §4·§7이다.
 
 - 평가셋: 실제 공고 × 가상 기업 원형 6개, test 20·dev 10 사업, 사람 검수는 추출 정답 20건과 의미 대응 라벨 150건 이상.
-- 비교 E0(규칙만)·E1'(공개 Bosun zero-shot, 영어 state)·E2(한국어 state)·E3(Qwen3.8-Flash-Next logprob 대조군)·E4(LoRA)는 미결정이다([[16-DECISIONS|ADR-034]], [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md)).
+- 비교 E0(규칙만)·E1'(공개 Bosun zero-shot, 영어 state)·E2(한국어 state)·E3(Qwen3.8-Flash-Next logprob 대조군)·E4(LoRA)는 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다([[16-DECISIONS|ADR-034]], [E3 실험 설계](plans/2026-10-19-e3-experiment-design.md)).
 - 모든 지표에 부트스트랩 95% 신뢰구간과 표본 수를 적는다. 초기 목표(Macro-F1 0.80, 정보부족→미충족 혼동률 5%, 보정 후 ECE 0.08)에 못 미쳐도 자동으로 파인튜닝하지 않는다. 사람이 정한다.
 - 명령은 `uv run python -m sol_eval …`이고 `pnpm verify`에 넣지 않는다. 숫자 요약만 `docs/evidence/eval/`에 두고 RFP 원문은 넣지 않는다.
 
@@ -197,7 +197,7 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 | 5 | G6·G9, V2-04·V2-06~V2-09·V2-13, `mock` 전체 흐름. 실추론: 인용 검증 통과율과 실공고 1건 E2E 로그(P0-4), Bosun 응답 원문·`stateTrace`(P0-6). 실추론 증거가 없는 항목은 미검증으로 적는다 | `phase-5/ai-fallback.txt`, `test-ai.txt`, 실추론 로그 |
 | 6 | 결정 기록 → 감사로그, 알림 1건 규칙, E2E | `phase-6/e2e/*.png`, `test-notifications.txt` |
 | 7 | §5.1 전 항목(대체 경로는 §5.2의 S5·S6), 비밀값 로그 유출 0, `pnpm verify`·E2E·smoke PASS, 대체 경로 리허설(세 모드·엔드포인트 미접속 → `PARTIAL`·`RULES_ONLY` → 재접속) | `demo-day/<일시>/checklist.md`, `run-modes.md` |
-| 평가 트랙 | P0-9~P0-11과 Bosun LoRA(F1·F2·F3)는 미결정이다. 기준은 [[21-MODEL-TRAINING\|21]] §7 | `eval/`, `bosun-train-feasibility.md`(실행 뒤) |
+| 평가 트랙 | P0-9~P0-11과 Bosun LoRA(F1·F2·F3)는 발표 뒤 진행 예정([[16-DECISIONS\|ADR-067]])이다. 기준은 [[21-MODEL-TRAINING\|21]] §7 | `eval/`, `bosun-train-feasibility.md`(실행 뒤) |
 
 **가정 재계산(ADR-037 BOOST-2) 통과 조건**: ① 단위·계약 시험(§3.1 `FX-03` 두 행): 정보통신공사업 가정 → 비추천 → 보류, 68 → 68, 쓰기 0. ② 브라우저 시험: 띠가 원래·가정 권고와 점수를 그리고, 고정 문구 두 줄("가정 결과입니다. 저장되지 않고 결정 기록에 쓰이지 않습니다." / "결정 모델 의견은 가정에 포함하지 않았습니다.")이 정확히 같고, "확률"·"승률"·"가능성"·"수주"·"%"가 없고, 연타하면 마지막 응답만 그리고, 결정 패널 권고가 그대로다. ③ E2E(`test:e2e:work`, `web/e2e-auth/what-if.write.spec.ts`): sales → `FX-03` → 스위치 → "비추천 → 보류"·"68 → 68" → 결정 패널 비추천 → 새로 고침 뒤 띠 없음 → `GET /api/v1/bids/{FX-03}/reviews` 건수 불변, 1440·1280 스크린샷. ④ `pnpm verify` 통과, 골든 94/72/68 불변. 증거는 `docs/evidence/boost2/`.
 
@@ -221,9 +221,9 @@ bash infra/smoke.sh                               # 로컬 Compose ps + health +
 | D5 | S3 | 가정 재계산 | `FX-03` "정보통신공사업 등록" 보유 가정 → [가정 지우기] | 권고 비추천 → 보류, 점수 변화 없음, 고정 문구 두 줄, 결정 패널 그대로, `bid_reviews` 불변 | 스위치가 없거나 실패하면 D4까지만 |
 | D6 | S4 | 즉석 재분석 | `FX-02` → [재분석]. 촬영·발표 때만 누른다 | 202 → `완료`. 예상 점수와 운영 기록 66 보류 설명은 [[10-DEPLOYMENT\|10]] "D1 당일 운영 확인" 3번이다 | 60초 넘으면 새로고침하고 사유 기록. 실패하면 66 보류 기록으로 설명 |
 | D7 | S4 | 사람 결정 | `FX-02` 결정 패널에서 결정 + 사유 + 담당자(발표자) → [결정 기록] | "마지막 결정: … · 담당자 · 시각", `bid_reviews` +1, 감사로그 1건, 알림 벨에 `REVIEW_ASSIGNED`. `analyst@soltech.invalid`로 보면 읽기 전용 | — |
-| D8 | S-LIVE | 실공고 | `/bids?origin=live` → 분석된 실공고 1건 | `DEMO` 칩 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL, 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"·"가상 회사 프로필로 분석" | 회사 반영 전에는 실공고 분석이 0건이다(`409 ANALYSIS_SOURCE_MISSING`). 그러면 찍지 않고 발표에서 그렇게 말한다([[19-DEMO-SCENARIO\|19]] §3) |
+| D8 | S-LIVE | 실공고 | `/bids?origin=live` → 분석된 실공고 1건 | `DEMO` 칩 없음, 출처 `g2b-bid-notice`, 원문 링크 실제 URL, 요약 띠 "분석 실행 모드: live"·"AI: local · Qwen3.8-Flash-Next-AWQ-INT4 · Hanno-Labs/bosun-v3.1-0.6b@5e78a37c"·"공개 자료 회사 프로필로 분석"([[16-DECISIONS\|ADR-052]]) | 분석된 실공고 run이 없으면 찍지 않고 발표에서 그렇게 말한다([[19-DEMO-SCENARIO\|19]] §3) |
 | D9 | S7 | 격리 | `viewer@other.invalid` token으로 `GET /api/v1/bids/{FX-01}/qualification-checks`·`GET /api/v1/analyses/{org-01 분석 id}` | 둘 다 404. 화면에서는 `FX-01` 본문만 보이고 점수·자격·검토 없음 | 운영에 `org-02` 계정이 없으면 5.2의 16번으로 찍는다 |
-| D10 | — | 하지 않는 것 | — | 운영 DB `pnpm demo:reset` 없음, 실행 모드 전환 없음, 리허설 중 `FX-02` 재분석 없음(하면 78 추천이 최신이 되어 대시보드 추천 수와 권고 알림이 바뀐다), 운영 장애 주입 없음 | — |
+| D10 | — | 하지 않는 것 | — | 운영 DB `pnpm demo:reset` 없음, 실행 모드 전환 없음, 리허설 중 `FX-02` 재분석 없음(하면 43 보류가 최신으로 저장되어 "미분석 → 재분석" 장면이 사라진다, [[10-DEPLOYMENT\|10]] "D1 당일 운영 확인" 5번), 운영 장애 주입 없음 | — |
 | D11 | 마감 | 증거 | 각 단계 스크린샷 | `demo-day/<일시>/screenshots/` | — |
 
 ### 5.2 대체 경로(로컬 Compose, S5·S6 녹화)
@@ -291,7 +291,7 @@ docs/evidence/
 
 제출 전 최종 코드에서 `pnpm verify`(서식·타입·린트·단위·DB 정책·두 Python 서비스 pytest·빌드)·E2E·smoke가 모두 PASS다. `verify`에 든 시험은 같은 입력에서 다시 돌리지 않는다(ADR-046). 시연 흐름(§5) 통과, API 비밀 로그 유출 없음, 수집 중복 없음, 모든 점수에 근거·`algorithm_version`·프로필 revision, 사람 최종 결정이 `bid_reviews`와 감사로그에 남는다. 성능은 실측치를 기록하고 비현실적인 수치를 성공으로 주장하지 않는다.
 
-해커톤 MVP는 실제 나라장터 수집과 회사 GPU 추론 엔드포인트의 실추론(Qwen3.8-Flash-Next·Bosun v3.1 0.6B, [[16-DECISIONS|ADR-025·034]])까지 포함한다. 데모 필수 P0의 완료 기준은 [[12-ROADMAP|12 로드맵]]이다. 실모델 경로는 증거가 있는 항목만 검증됨으로 적고 나머지는 **미검증**이다. hosted 경로는 사용자 승인 전에는 쓰지 않는다. 평가·Bosun LoRA는 미결정이다.
+해커톤 MVP는 실제 나라장터 수집과 회사 GPU 추론 엔드포인트의 실추론(Qwen3.8-Flash-Next·Bosun v3.1 0.6B, [[16-DECISIONS|ADR-025·034]])까지 포함한다. 데모 필수 P0의 완료 기준은 [[12-ROADMAP|12 로드맵]]이다. 실모델 경로는 증거가 있는 항목만 검증됨으로 적고 나머지는 **미검증**이다. hosted 경로는 사용자 승인 전에는 쓰지 않는다. 평가·Bosun LoRA는 발표 뒤 진행 예정([[16-DECISIONS|ADR-067]])이다.
 
 ## 8. 솔리데오 인력·가입 수용 기준 (ADR-019)
 
@@ -330,7 +330,7 @@ docs/evidence/
 | NAV-07 | 설정 조직 탭: 비ADMIN 403·RLS 거부, 업무 역할 변경 감사 | `web/server/organization/org-settings-access.test.ts`, `scripts/database.test.mjs` "N2 audits changed roles…"·"업무 역할 변경은 그 조직의 ADMIN 만 한다…" |
 | NAV-08 | 템플릿 설정·가입 정보 보완(PPL-05·06) 회귀 없음 | PPL-05·06과 같다 |
 | NAV-09 | 메뉴 노출과 라우트 접근 분리: 미인증은 기존 인증 정책(화면 로그인 안내, API 401), 미출시 경로 404, 구현된 경로는 메뉴와 별개로 허용 역할 200, 권한 없는 역할 403 | 자동 시험 없음(10-21 축소) |
-| NAV-10 | 사이드바([[06-UI-UX\|06]] §4.1): 묶음 업무·분석·회사와 순서, 메뉴 15개, 맨 아래 고정 칸(ADMIN만), 준비 중 메뉴는 링크 없음, 활성 메뉴 `aria-current`, 묶음 접기 `aria-expanded`·`localStorage`(실패해도 정상), 펼친 상태 아이콘 + 글자(들여쓰기 없음, 2026-10-28), 64px 아이콘 줄 | 자동 시험 없음(10-21 축소). 1440·1280 스크린샷으로 확인([증거](evidence/design-declutter/README.md), 3차 [증거](evidence/sidebar-actibooky/20261028/README.md)) |
+| NAV-10 | 사이드바([[06-UI-UX\|06]] §4.1): 묶음 업무·분석·회사, 펼친 상태는 묶음 줄에만 아이콘·메뉴는 글자만(묶음 이름 선에 맞춰 들여 씀), 지금 메뉴 `aria-current`·연한 파랑 바탕·파란 글자·굵기 600, VIEWER도 남은 메뉴가 있는 묶음을 봄, 접은 64px 줄은 묶음 줄 없이 메뉴 아이콘·초점 고리, 출처(`?origin=`) 이어 가기. 메뉴 15개·맨 아래 고정 칸(ADMIN만)·준비 중 메뉴·`localStorage`는 자동 시험 없음 | `web/components/app-shell-nav.browser.test.tsx`, `web/components/app-shell-origin.browser.test.tsx`. 1440·1280 스크린샷([증거](evidence/sidebar-actibooky/20261028/README.md)) |
 | NAV-P1-01 | 관심 공고: 본인만·다른 조직 0행, 멱등 토글, 관심 인원 수만 공개, 마감 알림 1건 | `scripts/database.test.mjs` "N3 관심 공고와 마감 알림", `web/app/api/v1/watch-contract.test.ts`, `web/app/(app)/(work)/watch-toggle.browser.test.tsx` |
 | NAV-P1-02 | 입찰 프로젝트: 추천 결정 없이 생성 거부, 결정 변경 시 경고·상태 전진 차단, 상태 이력·감사, 체크리스트 쓰기는 SALES·ADMIN만, 점수·결정 모델에 쓰이지 않음 | `scripts/database.test.mjs` "입찰 프로젝트 — 핵심 저장·권한·원자성", `web/app/api/v1/projects-contract.test.ts`, `web/server/projects/project.model.test.ts` |
 | NAV-P1-03 | 인력 배치 시뮬레이션: 가용 FTE = 최신 `score_runs` 스냅샷 값, 기간 충돌 탐지, 후보는 200명 안, 저장 없음 | `web/app/api/v1/workforce-contract.test.ts`, `web/server/workforce/workforce.service.test.ts` |
@@ -338,6 +338,7 @@ docs/evidence/
 | NAV-GAPS | 자격 갭 레이더([[16-DECISIONS\|ADR-060]]): 면허제한 1행 보유·면허제한 없음 + 보조 조회 OK → 참가 가능, 1행 기록 없음 → 회사 기록 없음, 2행 → 사람 확인 필요(AND/OR 미확인), 보조 조회 없음·미완료 → 사람 확인 필요, `NOT_HELD` → 미보유, 판정이 `assessQualifications`(추출 없음)의 `structured:*`와 같음, 보유 가정을 켜면 회사 기록 없음 → 참가 가능 이동과 예산 합, 다른 확인 필요가 남은 공고는 순위에 세지 않음 | `web/server/gaps/gaps.model.test.ts`, `web/app/(app)/(work)/gaps/gaps-view.browser.test.tsx`(mock, 1440·1280) |
 | NAV-MARKET | 발주 현황([[16-DECISIONS\|ADR-060]]): 기간·주 경계(KST, 월요일 시작 13주), 관련성 거르기와 취소 공고 제외, 예산 없음·출처 금액 충돌은 합에서 빼고 미확인 구간, 1,000건씩 나눠 읽기, 2단계 겹쳐 보기(기간 내 마감 전 공고만 묶음, 회사 프로필 없음이면 생략, 판정 실패는 안내와 원인 로그, 기관 키가 1단계와 같음) | `web/server/market/market.service.test.ts`, `web/app/(app)/(work)/market/market-view.browser.test.tsx`(mock, 1440·1280) |
 | NAV-CAL | 입찰 일정([[16-DECISIONS\|ADR-060]]): KST 날짜 경계(UTC 15:00 → 다음 날), 관심 + 프로젝트 한 건, 제출 마감 변경 두 건·같은 시각 한 건, 조직 전체·내 일정 거르기, 월 칸 5·6주, 다가오는 14일 경계. 2026-10-28 원본 일정 후속: 원본 시각 KST 해석(오프셋 없음, 초 없음)·빈 값·날짜만 있는 값은 일정 없음, `?kinds=` 해석(없으면 전부, 모르는 값 무시, 빈 값은 0건), 같은 공고·종류·시각 겹침 제거(관심·프로젝트 표시가 붙은 쪽을 남김), 일정 종류 거르기 칩(켜짐·꺼짐 글자, 전체 보기), 다가오는 목록 8건 + 접기, 다가오는 목록 총 40건 상한·넘침 줄, 날 메뉴 15건 상한·넘침 줄. 저장 질의: 관련 공고 대상 조건(live 대표 입찰공고·`OPEN`·`AMENDED`·최신 판정 `RELEVANT`·`CANDIDATE`), id keyset 이어 읽기, 원본 키 6개만 경로로 읽음(`bidClseDt` 안 읽음), 내 일정은 관련 공고를 읽지 않음, 마감 하한 14일 경계, 관련 공고 읽기 실패 시 관심·프로젝트 일정 유지와 안내 | `web/server/calendar/calendar.model.test.ts`, `web/server/calendar/calendar.repo.test.ts`, `web/app/(app)/(work)/calendar/calendar-view.browser.test.tsx`(mock, 1440·1280) |
+| REC-INSIGHT | 추천 분석([[16-DECISIONS\|ADR-066]]): ADMIN·SALES·ANALYST만 요청, 사용자당 분당 3회 넘으면 429, 같은 run의 `DONE`·`MODEL`은 다시 쓰고 큐에 넣지 않음, `PENDING` 중복 요청은 하나로 묶음, 모델·`TEMPLATE`·`FAILED` 상태, 인젝션 의심이면 모델을 부르지 않고 `TEMPLATE`(`INJECTION_SUSPECTED`)·[다시 요청] 없음, 금지어·근거 없는 숫자·다른 라벨이면 `TEMPLATE`로 대체, 프롬프트·출력 로그 없음, 10분 넘은 `PENDING`은 `FAILED`(`STALE`), DB 제약 `recommendation_insights_pending_or_model_once` | `services/ai/tests/test_insight.py`, `web/server/insight/insight.service.test.ts`·`insight.model.test.ts`·`insight.repo.test.ts`, `web/worker/insight-job.test.ts`, `web/app/_lib/insight-queue.test.ts`, `web/app/api/v1/redis-gateway-contract.test.ts`, `scripts/database.test.mjs` "추천 분석 요청 (20261029000100)", `web/components/bids/recommendation-insight.browser.test.tsx`, `web/app/(app)/(work)/bids/[id]/recommendation-insight-detail.browser.test.tsx` |
 | — | P1 흐름 묶음: 관심 → 분석 비교 → 프로젝트 저장 → 인력 조회 | `web/e2e-auth/p1-navigation.write.spec.ts` |
 
 ## 관련 문서
