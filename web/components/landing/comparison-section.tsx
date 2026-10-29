@@ -83,7 +83,7 @@ const OTHER_MARKS: Record<Mark, { symbol: string; meaning: string; className: st
   no: {
     symbol: "—",
     meaning: "공개 페이지에서 확인되지 않음",
-    className: "text-muted-foreground/50",
+    className: "text-muted-foreground",
   },
 };
 

@@ -81,7 +81,8 @@ test("서비스 소개는 공고 수집 서비스 네 곳과 SOL RADAR 의 기�
 
 test("비교 표는 타사 실명과 금지 문구를 쓰지 않는다", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("html")).not.toContainText(/인포21C|비드폼|모두입찰|클라이원트/);
+  // 보이는 글자만이 아니라 title·alt·aria-label·meta 같은 속성까지 본다.
+  expect(await page.content()).not.toMatch(/인포21C|비드폼|모두입찰|클라이원트/);
   const about = page.getByRole("region", { name: SECTIONS[2].title });
   await expect(about).not.toContainText(/승률|확률|가능성|수주 금액|점유율|경쟁사|%|유일|최초/);
 });
@@ -92,12 +93,61 @@ test.describe("1280 폭", () => {
   test("비교 표가 단 폭 안에 들어간다", async ({ page }) => {
     await page.goto("/");
     const table = page.getByRole("region", { name: SECTIONS[2].title }).getByRole("table");
+    // clientWidth 는 좌우 안쪽 여백을 포함하므로 여백을 빼서 내용 폭과 비교한다.
     expect(
-      await table.evaluate(
-        (element) => element.scrollWidth <= (element.parentElement?.clientWidth ?? 0),
-      ),
+      await table.evaluate((element) => {
+        const parent = element.parentElement;
+        if (!parent) return false;
+        const style = getComputedStyle(parent);
+        const contentWidth =
+          parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        return element.getBoundingClientRect().width <= contentWidth;
+      }),
     ).toBe(true);
   });
+});
+
+// 기호 글자는 칸 바탕과 대비 4.5:1 이상이다(docs/06-UI-UX.md §3.1). 색을 1px 캔버스에 겹쳐 칠해 실제 sRGB 값으로 잰다.
+test("비교 표 기호는 바탕과 대비 4.5:1 이상이다", async ({ page }) => {
+  await page.goto("/");
+  const marks = page
+    .getByRole("region", { name: SECTIONS[2].title })
+    .locator("td > span[aria-hidden='true']");
+  await expect(marks).toHaveCount(40);
+  const ratios = await marks.evaluateAll((elements) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return [0];
+    const paint = (colors: string[]) => {
+      context.clearRect(0, 0, 1, 1);
+      colors.forEach((color) => {
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+      });
+      return Array.from(context.getImageData(0, 0, 1, 1).data.slice(0, 3));
+    };
+    const luminance = (rgb: number[]) => {
+      const [r, g, b] = rgb.map((value) => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    return elements.map((element) => {
+      const cell = element.parentElement ?? element;
+      const base = [
+        "#fff",
+        getComputedStyle(document.body).backgroundColor,
+        getComputedStyle(cell).backgroundColor,
+      ];
+      const back = luminance(paint(base));
+      const fore = luminance(paint([...base, getComputedStyle(element).color]));
+      return (Math.max(back, fore) + 0.05) / (Math.min(back, fore) + 0.05);
+    });
+  });
+  expect(Math.min(...ratios)).toBeGreaterThanOrEqual(4.5);
 });
 
 test("구역 제목 위에 작은 머리글이 없다", async ({ page }) => {
