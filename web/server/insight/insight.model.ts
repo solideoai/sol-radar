@@ -21,7 +21,10 @@ export type InsightStatus = z.infer<typeof insightStatusSchema>;
 export const insightSourceSchema = z.enum(["MODEL", "TEMPLATE"]);
 export type InsightSource = z.infer<typeof insightSourceSchema>;
 
-/** gateway 가 TEMPLATE 로 대체한 이유. gateway 응답 fallbackReason 과 같은 이름이다. */
+/**
+ * gateway 가 TEMPLATE 로 대체한 이유. gateway 응답 fallbackReason 과 같은 이름이다.
+ * INJECTION_SUSPECTED 는 입력(run 의 인젝션 의심 플래그나 gateway guard)이 의심스러워 모델을 부르지 않은 경우다(보안 리뷰 중-2).
+ */
 export const insightFallbackReasonSchema = z.enum([
   "MODEL_UNAVAILABLE",
   "INVALID_OUTPUT",
@@ -29,6 +32,7 @@ export const insightFallbackReasonSchema = z.enum([
   "UNKNOWN_NUMBER",
   "UNKNOWN_REF",
   "LABEL_CONFLICT",
+  "INJECTION_SUSPECTED",
 ]);
 export type InsightFallbackReason = z.infer<typeof insightFallbackReasonSchema>;
 
