@@ -30,10 +30,16 @@ type RecommendationInsightProps = {
 const REF_KIND: Record<InsightRef["kind"], string> = { BID: "공고문", COMPANY: "회사 자료" };
 // gateway mock 의 /insight 응답 model 값. worker 가 model_name 에 그대로 저장한다.
 // mock 응답이 실제 모델처럼 보이면 안 되므로(ADR-034 15번) 결정 모델 참고 지표와 같은 글자로 바꿔 쓴다.
-const MOCK_INSIGHT_MODEL = "fixture";
+const MOCK_INSIGHT_MODEL = "mock";
 
 const modelText = (modelName: string | null): string =>
   modelName === MOCK_INSIGHT_MODEL ? MOCK_MODEL_TEXT : `모델 ${modelName ?? "—"}`;
+
+// TEMPLATE 대체 안내. INJECTION_SUSPECTED 는 입력이 의심스러워 모델을 일부러 부르지 않은 경우라 문구를 나누고,
+// 같은 입력이면 다시 요청해도 같은 결과라 [다시 요청]을 두지 않는다(보안 리뷰 중-2). 문구는 검토 표시 "문서 지시문 의심"과 맞춘다.
+const TEMPLATE_NOTICE = "모델 설명을 쓰지 못해 규칙 결과로 정리했습니다.";
+const INJECTION_NOTICE =
+  "문서에 지시문으로 의심되는 글이 있어 모델을 부르지 않고 규칙 결과로 정리했습니다.";
 
 function RecommendationInsight({
   bidId,
@@ -139,15 +145,16 @@ function Body({
   }
   const { payload } = insight;
   const template = insight.source === "TEMPLATE";
+  const injection = insight.fallbackReason === "INJECTION_SUSPECTED";
   const madeAt = formatKst(insight.finishedAt ?? insight.createdAt);
   return (
     <div className="flex flex-col gap-4">
       {template && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <p className="type-label text-muted-foreground">
-            모델 설명을 쓰지 못해 규칙 결과로 정리했습니다.
+            {injection ? INJECTION_NOTICE : TEMPLATE_NOTICE}
           </p>
-          {canRequest && (
+          {canRequest && !injection && (
             <Button variant="outline" size="xs" onClick={onRequest}>
               다시 요청
             </Button>
