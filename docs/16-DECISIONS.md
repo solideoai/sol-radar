@@ -96,13 +96,13 @@ updated: 2026-10-29
   1. **판정은 규칙 엔진이 한다.** Bosun 은 참고 의견(검토 플래그)으로만 보인다(ADR-034 2번 유지). Qwen 설명은 판정 이름(추천·보류·비추천·`BID`·`WATCH`·`NO_BID`)을 다시 쓰지 않는다.
   2. **Qwen 은 버튼을 눌렀을 때만 부른다.** 분석된 모든 공고(추천·보류·비추천)의 상세 화면에 [추천 분석]을 둔다. 결과는 분석 run 마다 `recommendation_insights` 에 저장한다. 분석 job 의 `/explain`·`score_runs.explanation` 은 그대로다.
   3. **흐름은 분석과 같은 비동기다.** Vercel relay 는 15초 안에 끝나야 하고 202 만 성공으로 받기 때문이다. 화면 POST → redis-api 가 PENDING 행과 BullMQ `insight` job → Analysis Worker 가 gateway `POST /insight` → DONE(MODEL·TEMPLATE)·FAILED. 화면 GET 은 RLS 로 직접 읽는다.
-  4. **모델 출력은 검증한다.** 모양·글자 수, 없는 근거 번호, 금지어, 다른 판정 이름, 입력에 없는 숫자 중 하나라도 걸리면 규칙 결과로 만든 문장(TEMPLATE)으로 대체하고 화면에 표시한다. 로그에 프롬프트·모델 출력을 남기지 않는다.
+  4. **모델 출력은 검증한다.** 모양·글자 수·숨은 문자, 없는 근거 번호, 금지어, 다른 판정 이름·참여를 권하거나 말리는 표현, 입력에 없는 숫자 중 하나라도 걸리면 규칙 결과로 만든 문장(TEMPLATE)으로 대체하고 화면에 표시한다. 분석 run 이 인젝션 의심이거나 gateway guard 가 모델 입력에서 지시문을 찾으면 모델을 부르지 않고 TEMPLATE(`INJECTION_SUSPECTED`)로 답한다. 이때 공고 인용은 보내지 않는다. 로그에 프롬프트·모델 출력을 남기지 않는다.
   5. **인력은 학습하지 않고 입력으로 넣는다.** 인력은 자주 바뀌기 때문이다. Bosun 요청의 `profileSummary.staffAvailability` 를 규칙 엔진 인력 요소(K6)와 같은 기간·가용 FTE 로 채운다. 추천 분석 요청의 `company.staff` 도 같은 값이다.
   6. **과거 수행 사업은 연 1회 재학습한다.** 최종 결정 기록이 200건 쌓이면 수동으로도 돌린다. 구조는 [[21-MODEL-TRAINING|21]] §5.7 이고 구현은 발표 뒤다. 해커톤 전에는 Bosun 을 재학습하거나 교체하지 않는다.
   7. **PaddleOCR 공유 전제를 지운다(ADR-034 10번 개정).** SOL RADAR 는 회사 PaddleOCR 을 쓰지 않는다(사용자). 회사 컨테이너는 우리 것이 아니므로 멈추거나 옮기지 않는다. GPU 1 학습·서빙 전에 메모리를 확인하는 것만 남긴다.
 - **선택지(1·2·5)**: Bosun 파인튜닝을 지금 하는 안은 해커톤 일정·GPU 승인·라벨 수 때문에 로드맵으로 미뤘다. 분석마다 Qwen 을 부르는 안은 회사 GPU 를 계속 쓰고 분석이 느려져 버렸다. 판정을 Bosun 에 맡기는 안은 ADR-034 2번과 맞지 않아 버렸다.
 - **바뀌지 않는 것**: 점수·권고·필수 자격 계산, 골든 시험, `/explain`·`/health` 응답 모양, 추출 `promptHash`(`fa2ff603…`), 유료 hosted 모델 금지, service role 은 worker 만.
-- **영향**: Bosun 의 실제 state·출력은 STAFF 줄이 생겨 바뀔 수 있다(골든 점수는 그대로). 추천 분석의 `promptHash` 는 `insight/v0.1`(`cfeb7328…`)로 추출과 따로다.
+- **영향**: Bosun 의 실제 state·출력은 STAFF 줄이 생겨 바뀔 수 있다(골든 점수는 그대로). 추천 분석의 `promptHash` 는 `insight/v0.1`(`f623bb44…`)로 추출과 따로다.
 - **반영**: 표 `supabase/migrations/20261029000100_recommendation_insights.sql`([[04-DATABASE|04]]), 경로 `/api/v1/bids/{bidId}/analyses/{runId}/insight`([[05-API-SPEC|05]]), gateway `/insight`([[03-AI-PIPELINE|03]]·[[15-DATA-CONTRACTS|15]]), 화면 패널([[06-UI-UX|06]]).
 
 ## ADR-065 번역 검증의 비교 표현 넓히기와 누락 사유 로그
