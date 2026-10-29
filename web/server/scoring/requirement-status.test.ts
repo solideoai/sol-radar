@@ -190,16 +190,29 @@ describe("V2-05 · 회사 쪽 정보 부족", () => {
     });
   });
 
-  it("기술 항목 판정은 점수(skillMatch)·권고를 바꾸지 않는다", () => {
+  it("목록이 완전하지 않으면 없는 기술은 skillMatch 에서 중립 0.5 로 센다(sol-v0.2.0)", () => {
     const input = buildInput("FX-02");
     const complete = analyze(input);
     const incomplete = analyze({
       ...input,
       profile: { ...input.profile, technologiesComplete: false },
     });
-    expect(incomplete.score).toBe(complete.score);
-    expect(incomplete.factors).toEqual(complete.factors);
-    expect(incomplete.recommendation).toBe(complete.recommendation);
+    const [completeSkill, ...completeRest] = complete.factors;
+    const [incompleteSkill, ...incompleteRest] = incomplete.factors;
+    const raw = completeSkill.rawValue as { requiredRate: number; preferredRate: number | null };
+    const credit = (rate: number, total: number) => rate + (1 - rate) * 0.5 * (total > 0 ? 1 : 0);
+    const rawIncomplete = incompleteSkill.rawValue as {
+      required: number;
+      preferred: number;
+      requiredRate: number;
+      unmatchedCredit: number;
+    };
+    expect(rawIncomplete.unmatchedCredit).toBe(0.5);
+    expect(rawIncomplete.requiredRate).toBeCloseTo(
+      credit(raw.requiredRate, rawIncomplete.required),
+    );
+    expect(incompleteSkill.points).toBeGreaterThan(completeSkill.points);
+    expect(incompleteRest).toEqual(completeRest);
     expect(incomplete.requirementAssessments).not.toEqual(complete.requirementAssessments);
   });
 });

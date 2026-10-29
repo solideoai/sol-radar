@@ -109,7 +109,7 @@ flowchart TD
  E --> X[("requirement_extractions<br/>revision 단위 재사용")]
  X --> RE["규칙 엔진 (analysis job)<br/>자격 판정 SATISFIED / NOT_SATISFIED / NEEDS_REVIEW + 사유 코드<br/>API 필드 우선"]
  CP[("company_profiles 최신 revision<br/>운영: 공개 자료 rev 5 · 로컬: 가상<br/>+ team_member_scoring 200명 (ADR-043)")] --> RE
- RE --> S["SOL Score sol-v0.1.0<br/>5요소 · missing 정책 · 추천 · 보류 · 비추천 권고"]
+ RE --> S["SOL Score sol-v0.2.0<br/>5요소 · missing 정책 · 추천 · 보류 · 비추천 권고"]
  X --> K["gateway /kev<br/>영어 state → 결정 모델 Bosun<br/>참고 지표 · reviewFlags만"]
  CP --> K
  S --> F["플래그 병합<br/>MODEL_RULE_DISAGREEMENT 등<br/>점수 · 권고 불변"]
@@ -139,7 +139,7 @@ flowchart TD
 
 - 상단바에는 실행 모드·AI 표시가 없다(2026-10-26 제거). 데이터 출처는 상단바 `DEMO` 배지(보는 출처가 demo일 때만)와 행 `DEMO` 배지로 보인다.
 - 발표는 D1이다(ADR-054). 운영 사이트에서 `?origin=demo`로 운영 DB의 DEMO 데이터를 열고 `demo:reset`은 하지 않는다. 클립은 이 경로에서 찍고, 변경 감지(S5)와 장애 대체(S6)만 로컬 Compose(`mock`)에서 찍는다([[19-DEMO-SCENARIO|19]] §4). 회사 런타임이 `live`라 FX-02 [재분석]은 실모델 결과다. 운영 회사 프로필이 공개 자료 프로필이라 예상은 43 보류이고, 골든 72는 `mock`(가상 프로필) 시험 기준이다([[16-DECISIONS|ADR-059]]).
-- 모드마다 바뀌는 것은 **입력(공고 출처)과 모델 호출 방식**뿐이다. 스키마 검증·인용 검증·규칙 엔진·점수 알고리즘(`sol-v0.1.0`)·저장·화면 경로는 세 모드가 같다.
+- 모드마다 바뀌는 것은 **입력(공고 출처)과 모델 호출 방식**뿐이다. 스키마 검증·인용 검증·규칙 엔진·점수 알고리즘(`sol-v0.2.0`)·저장·화면 경로는 세 모드가 같다.
 - 모드와 모순된 env(`live` + `AI_PROVIDER=mock`, `live` + `AI_FALLBACK_TO_MOCK=true`, `live` + `KEV_ALLOW_KO_STATE=true`)는 `pnpm check:env`와 gateway가 기동을 거부한다. 자동 대체는 없다. 모드 전환은 env 교체와 worker·gateway 재시작으로 사람이 한다.
 - 분석마다 `score_runs.run_mode`·`ai_provider`·`qwen_model`·`kev_model`이 남아 과거 분석이 어느 모드였는지 알 수 있다. `kev_model`에는 결정 모델 식별자(레지스트리 `run`)가, mock이면 `mock`이 들어간다(ADR-034 15번).
 

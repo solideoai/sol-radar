@@ -23,7 +23,7 @@ import {
 } from "./calendar";
 import { agencyType, canonicalDomain, classifyDomain, type Domain } from "./domain-keywords";
 import { availableFte } from "./scoring.model";
-import { companySkillSet, matchSkill, type SkillMatch } from "./skill-aliases";
+import { companySkillSet, isNonTechnicalSkill, matchSkill, type SkillMatch } from "./skill-aliases";
 
 // 08 §3 정규화 함수 5개를 1:1 로 옮긴 것. 모두 0.0~1.0 을 돌려주고, 입력이 없으면 §4 missing 정책(중립 0.5 또는 보수 0.0)을 따른다.
 // 데이터가 없을 때 점수를 올리는 쪽으로 메우지 않는다.
@@ -39,6 +39,12 @@ export const FTE_BY_BUDGET: ReadonlyArray<readonly [number, number]> = [
 ];
 export const SCHEDULE = (bizDays: number): number =>
   bizDays >= 10 ? 1.0 : bizDays >= 5 ? 0.7 : 0.4;
+// sol-v0.2.0(ADR-071) §3.4: 금액을 아는 실적이 없을 때 연 매출 대비 예산 비율 → 규모 적합. 매출 10% 이하 1.0, 30% 이하 0.6.
+// > 미검증 가정: 구간은 v0.2 가정이다. 회사가 실적 금액을 채우면 이 경로는 쓰이지 않는다.
+export const REVENUE_SCALE = (ratio: number): number =>
+  ratio <= 0.1 ? 1.0 : ratio <= 0.3 ? 0.6 : 0.2;
+// sol-v0.2.0 §3.1: technologiesComplete=false 인 기술 목록에 없는 기술은 "모름"이라 중립값을 준다(자격 판정의 NEEDS_REVIEW 와 같은 뜻).
+export const UNKNOWN_SKILL_CREDIT = 0.5;
 
 export const round1 = (value: number): number => Math.round(value * 10) / 10;
 export const round3 = (value: number): number => Math.round(value * 1000) / 1000;
@@ -122,13 +128,22 @@ export function deriveRequiredFte(
 const knownList = (field: { state: string; value: string[] | null } | undefined): string[] =>
   field && field.state === "KNOWN" && field.value !== null ? field.value : [];
 
-/** 08 §3.1 기술 스택 적합. */
+/** 08 §3.1 기술 스택 적합. 자격·업무 범위 문구는 빼고 기술만 센다(sol-v0.2.0). */
 export function skillMatch(
   extraction: RequirementExtraction | null,
   profile: CompanyProfile,
 ): FactorOutcome {
-  const required = knownList(extraction?.requiredSkills);
-  const preferred = knownList(extraction?.preferredSkills);
+  const requested = [
+    ...knownList(extraction?.requiredSkills),
+    ...knownList(extraction?.preferredSkills),
+  ];
+  const excludedNames = requested.filter(isNonTechnicalSkill);
+  const required = knownList(extraction?.requiredSkills).filter(
+    (name) => !isNonTechnicalSkill(name),
+  );
+  const preferred = knownList(extraction?.preferredSkills).filter(
+    (name) => !isNonTechnicalSkill(name),
+  );
   const evidence = [
     ...(extraction?.requiredSkills.state === "KNOWN" ? extraction.requiredSkills.evidence : []),
     ...(extraction?.preferredSkills.state === "KNOWN" ? extraction.preferredSkills.evidence : []),
@@ -137,7 +152,7 @@ export function skillMatch(
     return build(
       "skillMatch",
       0.5,
-      { required: 0, preferred: 0 },
+      { required: 0, preferred: 0, excludedNames },
       { missing: "NO_REQUIREMENTS_EXTRACTED" },
     );
   const company = companySkillSet(profile.technologies.map((technology) => technology.name));
@@ -145,15 +160,24 @@ export function skillMatch(
     return build(
       "skillMatch",
       0.0,
-      { required: required.length, preferred: preferred.length, companyTechnologies: 0 },
+      {
+        required: required.length,
+        preferred: preferred.length,
+        companyTechnologies: 0,
+        excludedNames,
+      },
       { missing: "PROFILE_TECHNOLOGIES_EMPTY", evidence },
     );
+  const unmatchedCredit = profile.technologiesComplete ? 0 : UNKNOWN_SKILL_CREDIT;
   const matches = (names: string[]) =>
     names.map((name) => ({ requested: name, match: matchSkill(name, company) }));
   const requiredMatches = matches(required);
   const preferredMatches = matches(preferred);
   const rate = (list: typeof requiredMatches) =>
-    list.length === 0 ? null : list.filter((entry) => entry.match !== null).length / list.length;
+    list.length === 0
+      ? null
+      : list.reduce((sum, entry) => sum + (entry.match !== null ? 1 : unmatchedCredit), 0) /
+        list.length;
   const requiredRate = rate(requiredMatches);
   const preferredRate = rate(preferredMatches);
   const normalized =
@@ -180,11 +204,29 @@ export function skillMatch(
       preferredMatched: names(preferredMatches, true).length,
       preferredMatchedNames: names(preferredMatches, true),
       preferredRate,
+      unmatchedCredit,
+      excludedNames,
       aliasMatched,
     },
-    { evidence },
+    {
+      evidence,
+      note:
+        unmatchedCredit > 0 && names([...requiredMatches, ...preferredMatches], false).length > 0
+          ? "회사 기술 목록이 완전하지 않아 목록에 없는 기술은 중립 0.5로 계산"
+          : null,
+    },
   );
 }
+
+// 08 §3.2 유사도 가중치. 값이 null 인 항목은 그 실적의 비교에서 빠진다(sol-v0.2.0).
+type SimilarityTerms = { domainMatch: number; amountRatio: number | null; recency: number | null };
+const SIMILARITY_WEIGHTS: ReadonlyArray<
+  readonly [number, (terms: SimilarityTerms) => number | null]
+> = [
+  [0.4, (terms) => terms.domainMatch],
+  [0.3, (terms) => terms.amountRatio],
+  [0.3, (terms) => terms.recency],
+];
 
 /** 08 §3.2 유사 수행 실적: 분야·금액·최근성이 가장 비슷한 실적 1건의 유사도. */
 export function pastPerformance(
@@ -207,24 +249,32 @@ export function pastPerformance(
   const candidates = profile.pastProjects.map((project) => {
     const amountKrw = project.amountKrw === null ? 0 : Number(project.amountKrw);
     const domainMatch = canonicalDomain(project.domain) === bidDomain ? 1 : 0;
+    // sol-v0.2.0(ADR-071): 금액비·최근성 가운데 모르는 항목(공고 예산·실적 금액·완료일이 없음)은 비교에서 빼고
+    // 아는 항목의 가중치로 다시 나눈다. 분야는 늘 안다. 증빙은 evidenceRef 나 공개 출처(sourceIds)가 있으면 인정한다.
     const amountRatio =
       bidBudgetKrw !== null && bidBudgetKrw > 0 && amountKrw > 0
         ? Math.min(amountKrw, bidBudgetKrw) / Math.max(amountKrw, bidBudgetKrw)
-        : 0.5;
-    // 완료일을 모르면 가장 낮은 최근성 0.2 를 준다.
+        : null;
     const years =
       project.completedAt === null ? null : yearsBetween(parseDate(project.completedAt), todayDate);
-    const recency = years === null ? 0.2 : years <= 3 ? 1.0 : years <= 5 ? 0.6 : 0.2;
-    const evidenceFactor = project.evidenceRef ? 1.0 : 0.5;
+    const recency = years === null ? null : years <= 3 ? 1.0 : years <= 5 ? 0.6 : 0.2;
+    const evidenceFactor = project.evidenceRef || (project.sourceIds?.length ?? 0) > 0 ? 1.0 : 0.5;
+    const terms = SIMILARITY_WEIGHTS.map(([weight, value]) => ({
+      weight,
+      value: value({ domainMatch, amountRatio, recency }),
+    })).filter((term): term is { weight: number; value: number } => term.value !== null);
+    const weightSum = terms.reduce((sum, term) => sum + term.weight, 0);
     return {
       projectId: project.id,
       domain: project.domain,
       domainMatch,
-      amountRatio: round3(amountRatio),
+      amountRatio: amountRatio === null ? null : round3(amountRatio),
       years: years === null ? null : round3(years),
       recency,
       evidenceFactor,
-      similarity: (0.4 * domainMatch + 0.3 * amountRatio + 0.3 * recency) * evidenceFactor,
+      similarity:
+        (terms.reduce((sum, term) => sum + term.weight * term.value, 0) / weightSum) *
+        evidenceFactor,
     };
   });
   const best = candidates.reduce((top, entry) => (entry.similarity > top.similarity ? entry : top));
@@ -332,7 +382,7 @@ export function staffAvailability(
   );
 }
 
-/** 08 §3.4 규모 적합성: 최대 수행 실적 대비 예산 비율, 내부 수행 상한. */
+/** 08 §3.4 규모 적합성: 최대 수행 실적 대비 예산 비율, 내부 수행 상한. 금액 아는 실적이 없으면 연 매출 대비(sol-v0.2.0). */
 export function scaleFit(
   bid: NormalizedBidSummary,
   extraction: RequirementExtraction | null,
@@ -365,6 +415,22 @@ export function scaleFit(
         reviewFlags: ["SCALE_LIMIT_EXCEEDED"],
       },
     );
+  const revenue = krw(profile.financials?.annualRevenueKrw);
+  if (largestPast === 0 && revenue !== null && revenue > 0) {
+    const revenueRatio = budget / revenue;
+    return build(
+      "scaleFit",
+      REVENUE_SCALE(revenueRatio),
+      {
+        ...rawValue,
+        limitExceeded: false,
+        basis: "ANNUAL_REVENUE",
+        annualRevenueKrw: profile.financials?.annualRevenueKrw ?? null,
+        revenueRatio: round3(revenueRatio),
+      },
+      { evidence, note: "금액을 아는 실적이 없어 연 매출 대비 예산으로 판정" },
+    );
+  }
   if (largestPast === 0)
     return build(
       "scaleFit",
@@ -381,7 +447,7 @@ export function scaleFit(
   );
 }
 
-/** 08 §3.5 전략적 선호: 사업 분야·발주기관 선호 설정. */
+/** 08 §3.5 전략적 선호: 사업 분야·발주기관 선호 설정. 기관 선호를 하나도 정하지 않았으면 분야만 본다(sol-v0.2.0). */
 export function strategicPreference(
   bid: NormalizedBidSummary,
   bidDomain: Domain | null,
@@ -416,22 +482,25 @@ export function strategicPreference(
   const agencyMatch = prefs.agencies.includes(agency);
   const agencyTypeMatch = prefs.agencyTypes.includes(type);
   const agencyLevel = agencyMatch || agencyTypeMatch ? 1.0 : 0.5;
+  const agencySet = prefs.agencies.length > 0 || prefs.agencyTypes.length > 0;
   return build(
     "strategicPreference",
-    0.6 * domainLevel + 0.4 * agencyLevel,
+    agencySet ? 0.6 * domainLevel + 0.4 * agencyLevel : domainLevel,
     {
       ...base,
       domainMatch: domainLevel === 1.0,
       domainLevel,
       agencyMatch,
       agencyTypeMatch,
-      agencyLevel,
+      agencyLevel: agencySet ? agencyLevel : null,
     },
     {
       note:
-        domainLevel === 1.0 && agencyLevel === 1.0
-          ? `${bidDomain} 분야·${agencyMatch ? agency : type} 선호 일치`
-          : null,
+        domainLevel === 1.0 && !agencySet
+          ? `${bidDomain} 분야 선호 일치(기관 선호 미설정)`
+          : domainLevel === 1.0 && agencyLevel === 1.0
+            ? `${bidDomain} 분야·${agencyMatch ? agency : type} 선호 일치`
+            : null,
     },
   );
 }

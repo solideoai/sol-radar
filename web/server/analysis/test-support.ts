@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import {
   ANALYSIS_INPUT_SCHEMA_VERSION,
   KEV_DISCLAIMER,
-  SCORING_CONFIG_V0_1,
+  SCORING_CONFIG,
   toScoringTeam,
   type AnalysisInput,
   type CompanyProfile,
@@ -223,7 +223,7 @@ export function buildAnalysisInput(
     profile: loadProfile(),
     team: loadTeam(),
     kev: loadKevFixture(id),
-    config: { ...SCORING_CONFIG_V0_1, today: CALCULATION_DATE },
+    config: { ...SCORING_CONFIG, today: CALCULATION_DATE },
     ...overrides,
   };
 }

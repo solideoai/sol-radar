@@ -18,7 +18,7 @@ updated: 2026-10-29
 
 SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이지 낙찰 확률이 아니다. 점수는 결정론적 규칙으로 계산하고 결정 모델 출력은 별도의 보조 신호로 저장한다. 입력은 `bid_revisions.normalized` + `RequirementExtraction`([[03-AI-PIPELINE|03 AI 파이프라인]] §4.1) + `company_profiles` 특정 revision이며, 입력 스냅샷은 `score_runs.input_snapshot`에 저장한다([[04-DATABASE|04 DB]]). live 공고는 공고 API의 구조화 자격 필드(`bid_structured_requirements`)도 입력이다(§5.1).
 
-알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.1.0` 하나다. 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(§6.1).
+알고리즘은 세 실행 모드(`live`·`fixture`·`mock`, [[16-DECISIONS|ADR-020]])에서 모두 `sol-v0.2.0` 하나다(2026-10-29 `sol-v0.1.0`에서 올림, [[16-DECISIONS|ADR-071]]). 모드가 바꾸는 것은 입력(실제 공고인지 fixture인지, 추출이 실모델인지 mock인지)뿐이다. 그래서 골든 수치(§6의 94/72/68)는 입력이 고정된 `mock` 모드에서만 단언한다. `fixture` 모드는 실모델 추출이 mock 추출과 다를 수 있어 골든 대상이 아니다. 회사 프로필은 모든 모드에서 가상 솔리데오 프로필이다(§6.1).
 
 추출값을 그대로 쓰지 않고 규칙 쪽이 만드는 파생값 두 개:
 
@@ -30,7 +30,7 @@ SOL Score는 **우리 회사와 특정 공고의 내부 적합도(0~100)** 이�
 > [!warning] 미검증 가정
 > 도메인 값 집합과 키워드 표는 v0.1 가정이다. fixture 20건으로 사람이 분류한 정답과 비교해 틀리면 표를 고친다.
 
-## 2. v0.1 점수표
+## 2. 점수표 (v0.1부터 같음)
 
 | 요소 (`factor`, 05 `FactorKey`) | 최대점 | 계산 개요 |
 |---|---:|---|
@@ -47,7 +47,7 @@ solScore      = clamp(round(sum(points)), 0, 100)                          # 정
 ```
 
 > [!warning] 미검증 가정
-> 가중치 30/25/20/15/10과 임계값 75/50은 초기 제품 가정이다. 실제 조직의 판정 기준과 맞는지는 백테스트 후에만 알 수 있다([[16-DECISIONS|16 ADR]] 미결정 7번). 그래서 가중치·임계값은 `algorithm_version`(`sol-v0.1.0`)에 묶어 config로 버전 관리하고, 바뀌면 기존 `score_runs`를 덮어쓰지 않고 새 run을 만든다.
+> 가중치 30/25/20/15/10과 임계값 75/50은 초기 제품 가정이다. 실제 조직의 판정 기준과 맞는지는 백테스트 후에만 알 수 있다([[16-DECISIONS|16 ADR]] 미결정 7번). 그래서 가중치·임계값은 `algorithm_version`(지금 `sol-v0.2.0`, 가중치·임계값은 `sol-v0.1.0`과 같다)에 묶어 config로 버전 관리하고, 바뀌면 기존 `score_runs`를 덮어쓰지 않고 새 run을 만든다.
 
 ## 3. 정규화 함수 (의사코드)
 
@@ -56,18 +56,24 @@ solScore      = clamp(round(sum(points)), 0, 100)                          # 정
 ### 3.1 기술 스택 적합 `skillMatch`
 
 ```ts
-function skillMatch(req: string[], pref: string[], company: Set<string>, alias: AliasTable) {
+function skillMatch(req: string[], pref: string[], company: Set<string>, alias: AliasTable, complete: boolean) {
+  req = req.filter(isTechnical); pref = pref.filter(isTechnical);   // v0.2: 자격·인증·업무 범위 문구는 뺀다(아래)
   if (req.length === 0 && pref.length === 0) return MISSING;        // §4
   const has = (s: string) => company.has(alias.canonical(s));        // 정확 일치 + 별칭표만. 임베딩 유사도는 P1
-  const reqRate  = req.length  ? count(req,  has) / req.length  : null;
-  const prefRate = pref.length ? count(pref, has) / pref.length : null;
+  const miss = complete ? 0 : 0.5;                                    // v0.2: technologiesComplete=false 면 목록에 없는 기술은 "모름" → 중립 0.5
+  const credit = (list: string[]) => sum(list, s => has(s) ? 1 : miss) / list.length;
+  const reqRate  = req.length  ? credit(req)  : null;
+  const prefRate = pref.length ? credit(pref) : null;
   if (reqRate === null)  return prefRate;                             // 필수 없음: 우대만
   if (prefRate === null) return reqRate;                              // 우대 없음: 필수만
   return 0.8 * reqRate + 0.2 * prefRate;
 }
 ```
 
-별칭표 예: `Spring Framework ≈ Spring Boot`, `K8s ≈ Kubernetes`, `Postgres ≈ PostgreSQL`. 별칭으로 맞춘 항목은 evidence에 `matchedVia: "alias"`로 남긴다.
+별칭표 예: `Spring Framework ≈ Spring Boot`, `K8s ≈ Kubernetes`, `Postgres ≈ PostgreSQL`, `HTML ≈ HTML5`. 별칭으로 맞춘 항목은 evidence에 `matchedVia: "alias"`로 남긴다.
+
+> [!note] ADR-071: 기술이 아닌 항목 빼기 (`sol-v0.2.0`)
+> 실공고 추출은 요구 기술 목록에 자격·인증("소프트웨어사업자(컴퓨터관련서비스사업)", "직접생산확인증명서", "중소기업 확인서")과 업무 범위 문구("시스템 유지관리", "장애 대응 및 복구")를 함께 넣는다(2026-10-29 운영 실측). 자격은 §5.1 자격 판정이 따로 보므로 기술 매칭에서 뺀다. 업무 문구는 한글로만 쓰였고 유지관리·운영·관리·대응·복구·개선·개발·구축·지원 같은 낱말로 끝나면 뺀다. 영문 기술명이 든 항목("VMS 연동")은 기술로 둔다. 판정 함수는 `web/server/scoring/skill-aliases.ts` `isNonTechnicalSkill`, 뺀 항목은 `rawValue.excludedNames`에 남는다. 회사 기술 목록이 완전하지 않으면(`technologiesComplete=false`) 목록에 없는 기술은 0이 아니라 중립 0.5다. 자격 판정이 같은 경우를 `NEEDS_REVIEW`(`COMPANY_EVIDENCE_MISSING`)로 보는 것과 같은 뜻이다. `technologiesComplete=true`면 v0.1과 같다(골든 94/72/68 그대로).
 
 ### 3.2 유사 수행 실적 `pastPerformance`
 
@@ -77,18 +83,19 @@ function pastPerformance(bid: Bid, projects: Project[], today: Date) {
   if (bid.domain === UNKNOWN) return MISSING;                         // 공고 분야 미확인: 중립
   const sim = (p: Project) => {
     const domain   = sameDomain(p.domain, bid.domain) ? 1 : 0;       // 분야 코드 + 별칭표 (예: CCTV 관제 ≈ 스마트시티)
-    const amount   = bid.budgetKrw && p.amountKrw ? Math.min(p.amountKrw, bid.budgetKrw) / Math.max(p.amountKrw, bid.budgetKrw) : 0.5;   // 공고 예산이나 실적 금액(null)을 모르면 0.5
+    const amount   = bid.budgetKrw && p.amountKrw ? Math.min(p.amountKrw, bid.budgetKrw) / Math.max(p.amountKrw, bid.budgetKrw) : null;   // 공고 예산이나 실적 금액(null)을 모르면 모름
     const years    = p.completedAt === null ? null : yearsBetween(p.completedAt, today);
-    const recency  = years === null ? 0.2 : years <= 3 ? 1.0 : years <= 5 ? 0.6 : 0.2;   // 완료일(null)을 모르면 가장 낮은 구간 0.2
-    const evidence = p.evidenceRef ? 1.0 : 0.5;                       // 증빙 없는 실적은 반만 인정
-    return (0.4 * domain + 0.3 * amount + 0.3 * recency) * evidence;
+    const recency  = years === null ? null : years <= 3 ? 1.0 : years <= 5 ? 0.6 : 0.2;  // 완료일(null)을 모르면 모름
+    const evidence = p.evidenceRef || p.sourceIds?.length ? 1.0 : 0.5;  // 증빙·공개 출처 없는 실적은 반만 인정
+    const terms = [[0.4, domain], [0.3, amount], [0.3, recency]].filter(([, v]) => v !== null);   // v0.2: 모르는 항목은 빼고
+    return (sum(terms, ([w, v]) => w * v) / sum(terms, ([w]) => w)) * evidence;                  //       아는 항목 가중치로 다시 나눈다
   };
   return Math.max(...projects.map(sim));                              // v0.1: 가장 비슷한 실적 1건
 }
 ```
 
-> [!note] ADR-052: 금액·완료일을 모르는 실적
-> 공개 자료 프로필(`isDemo=false`)은 금액이나 완료일이 공개되지 않은 실적을 `amountKrw: null`·`completedAt: null`로 담는다. 추정값으로 채우지 않는다. 금액이 `null`이면 금액비는 공고 예산이 없을 때와 같은 0.5다. 완료일이 `null`이면 최근성은 가장 낮은 구간 0.2이고 `years`는 `null`로 기록한다(§4 보수 원칙: 모르는 값이 점수를 올리지 않는다). 기존 가상 fixture는 두 값이 모두 있어 점수가 바뀌지 않는다(골든 94/72/68 그대로). 실적마다 선택 필드 `sourceIds`(출처)와 `note`(비고)가 있지만 점수에는 쓰지 않는다.
+> [!note] ADR-052·ADR-071: 금액·완료일을 모르는 실적
+> 공개 자료 프로필(`isDemo=false`)은 금액이나 완료일이 공개되지 않은 실적을 `amountKrw: null`·`completedAt: null`로 담는다. 추정값으로 채우지 않는다(ADR-052). `sol-v0.1.0`은 금액비를 0.5, 최근성을 가장 낮은 0.2로 채워 분야가 맞는 실적도 25점 중 7.6점에 묶였고, 분야를 모를 때(12.5점)보다 낮았다. `sol-v0.2.0`(ADR-071)은 모르는 금액비·최근성을 비교에서 빼고 분야(늘 안다)와 아는 항목의 가중치로 다시 나눈다. 분야가 맞으면 1.0, 다르면 0이다. 실적의 공개 출처(`sourceIds`)는 증빙으로 인정한다. 기존 가상 fixture는 두 값과 `evidenceRef`가 모두 있어 점수가 바뀌지 않는다(골든 94/72/68 그대로). 비고(`note`)는 점수에 쓰지 않는다.
 
 ### 3.3 인력 가용성 `staffAvailability`
 
@@ -119,6 +126,11 @@ function scaleFit(bid: Bid, profile: CompanyProfile) {
   const cap = profile.financials?.maxContractKrw;                      // 내부 수행 상한 (선택 필드)
   if (cap && bid.budgetKrw > cap) return { value: 0.0, reviewFlag: "SCALE_LIMIT_EXCEEDED" };
   const maxPast = Math.max(...profile.pastProjects.map(p => p.amountKrw ?? 0), 0);   // 금액을 모르는(null) 실적은 뺀다
+  const revenue = profile.financials?.annualRevenueKrw;
+  if (maxPast === 0 && revenue) {                                        // v0.2: 금액 아는 실적이 없으면 연 매출 대비
+    const share = bid.budgetKrw / revenue;
+    return share <= 0.1 ? 1.0 : share <= 0.3 ? 0.6 : 0.2;
+  }
   if (maxPast === 0) return MISSING;
   const ratio = bid.budgetKrw / maxPast;
   return ratio <= 1.5 ? 1.0 : ratio <= 3 ? 0.6 : 0.2;
@@ -127,7 +139,10 @@ function scaleFit(bid: Bid, profile: CompanyProfile) {
 
 `maxContractKrw`는 [[04-DATABASE|04 DB]]·[[05-API-SPEC|05 API]] `financials`의 선택 필드(KRW 정수 문자열)다.
 
-금액을 아는 실적이 하나도 없으면(`pastProjects`가 모두 `amountKrw: null`) `maxPast`가 0이라 `scaleFit`은 MISSING(0.5, `PROFILE_PROJECTS_EMPTY`)이다(ADR-052). 수행 상한 초과 판정은 `maxContractKrw`만 보므로 영향이 없다.
+금액을 아는 실적이 하나도 없으면(`pastProjects`가 모두 `amountKrw: null`) `sol-v0.2.0`은 연 매출(`financials.annualRevenueKrw`, 공개 프로필은 DART 감사보고서 값) 대비 예산 비율로 본다. 매출 10% 이하 1.0, 30% 이하 0.6, 그 위 0.2이고 `rawValue.basis = "ANNUAL_REVENUE"`다(ADR-071). 매출도 없으면 MISSING(0.5, `PROFILE_PROJECTS_EMPTY`)이다. 수행 상한 초과 판정은 `maxContractKrw`만 보므로 영향이 없다.
+
+> [!warning] 미검증 가정
+> 매출 대비 10%·30% 구간은 `sol-v0.2.0` 가정이다. 회사가 실적 금액을 채우면 이 경로는 쓰이지 않는다.
 
 `SCALE_LIMIT_EXCEEDED` 조건: `company_profiles.financials.maxContractKrw`가 설정되어 있고 `budgetKrw > maxContractKrw`이면 `scaleFit` normalized 0.0(points 0)과 함께 `reviewFlags`에 `SCALE_LIMIT_EXCEEDED`를 넣는다([[04-DATABASE|04 DB]] `review_flags` 값). `FX-15`: 80억 > 50억. 상한이 null이면 플래그 없이 비율만 계산한다. 이 플래그는 권고를 직접 바꾸지 않고 점수(0점)와 화면 경고로만 작용한다.
 
@@ -143,6 +158,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
   if (prefs.excludedKeywords.some(k => text.includes(k))) return 0.0;                     // 제외 키워드 1개라도 → 0
   const domainLevel = bid.domain === UNKNOWN ? 0.5 : prefs.domains.includes(bid.domain) ? 1.0 : 0.5;
   const agencyLevel = prefs.agencies.includes(bid.agency) || prefs.agencyTypes.includes(agencyType(bid.agency)) ? 1.0 : 0.5;
+  if (prefs.agencies.length === 0 && prefs.agencyTypes.length === 0) return domainLevel;   // v0.2: 기관 선호 미설정 → 분야만
   return 0.6 * domainLevel + 0.4 * agencyLevel;
 }
 // agencyType: 이름 끝이 시·도·군·구·특별자치시·특별자치도 → "지자체", "교육청" 포함 → "교육청",
@@ -152,7 +168,7 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 ## 4. Missing 데이터 정책
 
 > [!tip] 심사 포인트
-> 데이터가 없을 때 점수를 **올리는** 쪽으로 메우지 않는다. 중립(0.5) 또는 보수(0.0)만 쓰고, 어떤 요소가 비었는지 `score_runs.input_snapshot.missingFactors`에 남겨 화면에 그대로 보여준다.
+> 데이터가 없을 때 점수를 **올리는** 쪽으로 메우지 않는다. 요소 전체를 모르면 중립(0.5) 또는 보수(0.0)만 쓰고, 어떤 요소가 비었는지 `score_runs.input_snapshot.missingFactors`에 남겨 화면에 그대로 보여준다. 요소 안의 하위 항목을 모르면(실적 금액·완료일, 기관 선호) `sol-v0.2.0`부터 그 항목을 빼고 아는 항목으로만 계산한다. 아는 항목이 나쁘면 점수도 낮아진다([[16-DECISIONS|ADR-071]]).
 
 | 요소 | 없는 데이터 | normalized | points | `missingFactors` 기록 | 화면 표시 ([[06-UI-UX\|06 UI]]) |
 |---|---|---:|---:|---|---|
@@ -160,12 +176,14 @@ function strategicPreference(bid: Bid, prefs: OrgPreferences | null) {
 | `skillMatch` | 회사 기술 목록 비어 있음 | 0.0 | 0.0 | `reason:"PROFILE_TECHNOLOGIES_EMPTY"` | "회사 프로필 보완 필요" 링크 |
 | `pastPerformance` | 공고 분야 미확인 | 0.5 | 12.5 | `reason:"BID_DOMAIN_UNKNOWN"` | "미확인" 배지 |
 | `pastPerformance` | 회사 실적 0건 | 0.0 | 0.0 | `reason:"PROFILE_PROJECTS_EMPTY"` | "회사 프로필 보완 필요" 링크 |
-| `pastPerformance` | 실적 금액 `amountKrw`가 `null` (공개 자료에 금액 없음, ADR-052) | 금액비 0.5로 계산 | 실적 유사도 안에서 | 기록 없음(요소 전체가 비지 않는다) | 실적 행 "공개 자료 없음" |
-| `pastPerformance` | 실적 완료일 `completedAt`이 `null` (진행 중이거나 공개 자료에 없음, ADR-052) | 최근성 0.2로 계산(`years: null`) | 실적 유사도 안에서 | 기록 없음 | 실적 행 "공개 자료 없음" |
+| `pastPerformance` | 실적 금액 `amountKrw`가 `null` (공개 자료에 금액 없음, ADR-052) | 금액비를 빼고 계산(`amountRatio: null`, ADR-071) | 실적 유사도 안에서 | 기록 없음(요소 전체가 비지 않는다) | 실적 행 "공개 자료 없음" |
+| `pastPerformance` | 실적 완료일 `completedAt`이 `null` (진행 중이거나 공개 자료에 없음, ADR-052) | 최근성을 빼고 계산(`recency: null`·`years: null`, ADR-071) | 실적 유사도 안에서 | 기록 없음 | 실적 행 "공개 자료 없음" |
+| `skillMatch` | 요구 기술이 `technologiesComplete=false`인 회사 목록에 없음 | 그 기술은 0.5로 셈(ADR-071) | 요소 안에서 | 기록 없음 | 요건 행 "확인 필요" |
+| `strategicPreference` | 기관 선호(`agencies`·`agencyTypes`)가 둘 다 비었음 | 분야 수준만(ADR-071) | 요소 안에서 | 기록 없음 | — |
 | `staffAvailability` | 필요 FTE·예산 모두 없음 | 0.5 | 10.0 | `reason:"REQUIRED_FTE_UNKNOWN"` | "미확인" 배지 |
 | `staffAvailability` | 팀 데이터 없음 | 0.5 | 10.0 | `reason:"TEAM_EMPTY"` | "인력 정보 없음" |
 | `scaleFit` | 예산 null (`FX-11`) | 0.5 | 7.5 | `reason:"BUDGET_UNKNOWN"` | "예산 미기재" 배지 |
-| `scaleFit` | 회사 실적 0건, 또는 모든 실적의 금액이 `null` | 0.5 | 7.5 | `reason:"PROFILE_PROJECTS_EMPTY"` | 위와 동일 |
+| `scaleFit` | 회사 실적 0건, 또는 모든 실적의 금액이 `null`이고 연 매출도 없음(매출이 있으면 §3.4 매출 대비, ADR-071) | 0.5 | 7.5 | `reason:"PROFILE_PROJECTS_EMPTY"` | 위와 동일 |
 | `strategicPreference` | 조직 선호 미설정 | 0.5 | 5.0 | `reason:"PREFERENCES_NOT_SET"` | "선호 설정" 링크 (ADMIN) |
 
 규칙: `missingFactors`가 **2개 이상**이면 점수와 무관하게 결정 경로에서 `NEEDS_REVIEW`로 취급해 추천(`BID`) 자동 권고를 막는다. 1개면 점수대로 가되 요소 행에 배지를 붙인다. 이 정책은 요소별 단위 테스트로 고정한다([[11-TESTING|11 테스트]]).
@@ -279,7 +297,7 @@ flowchart TD
 
 1. **평가**: 평가셋 test 분할에서 신뢰성 기준을 통과한다. 기준은 사용자가 정한다(제안값은 [[21-MODEL-TRAINING|21 모델 학습]] §4.4).
 2. **오류 분석**: 오답을 원인 단계(파싱·추출·번역·state·규칙·라벨·모델)로 나눠, 반영하려는 판단이 모델 쪽에서 믿을 만한지 확인한다(21 §4.4).
-3. **새 알고리즘 버전 `sol-v0.2.x`**: 가중치·임계값과 함께 새 버전으로 만든다. 기존 `score_runs`는 덮어쓰지 않는다(§2).
+3. **새 알고리즘 버전(`sol-v0.3.0` 이후. `sol-v0.2.0`은 ADR-071 빈 값 처리가 썼다)**: 가중치·임계값과 함께 새 버전으로 만든다. 기존 `score_runs`는 덮어쓰지 않는다(§2).
 4. **ADR**: [[16-DECISIONS|16 ADR]]에 결정을 기록한다. 결정은 사람이 한다.
 
 ### 5.6 가정 재계산 (ADR-037)
@@ -405,7 +423,7 @@ ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점�
 
 ## 다기관 공고와 SOL Score 경계
 
-[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.1.0`·30/25/20/15/10·75/50·법적 자격 3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
+[[16-DECISIONS|ADR-047]]의 관련성 점수는 이 문서의 SOL Score와 독립이다. `sol-v0.2.0`(ADR-071, 가중치·임계값은 v0.1.0과 같다)·30/25/20/15/10·75/50·법적 자격 3값·missing·Bosun 비덮어쓰기·사람 결정은 유지한다. 새 출처도 특정 revision/profile/input snapshot으로 계산하고 중복 통합 때문에 다른 출처 점수를 복사하지 않는다.
 
 새 category를 기존 `bid.domain`에 무조건 대입하거나 early stage를 입찰 가능한 추천(`BID`)으로 바꾸지 않는다. 관련성 점수는 SOL Score 코드·가중치·골든을 바꾸지 않는다.
 
@@ -418,6 +436,6 @@ ADR-043으로 200명 전원에 가상 계산 속성을 부여하고 기존 점�
 - [[05-API-SPEC|05 API]] — `AnalysisResult` DTO
 - [[06-UI-UX|06 UI]] — 점수 분해·missing 배지·결정 모델 상이 배너 표시
 - [[11-TESTING|11 테스트]] — 골든 시나리오 G3·G4
-- [[16-DECISIONS|16 ADR]] — ADR-052(금액·완료일을 모르는 실적), ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6), ADR-043(가상 직원 200명, §9), ADR-059(발표 숫자), ADR-062(추천·보류·비추천 표기, §5.2), ADR-066(인력 입력, §3.3)
+- [[16-DECISIONS|16 ADR]] — ADR-071(`sol-v0.2.0` 빈 값 처리·기술 항목 거르기·재채점), ADR-052(금액·완료일을 모르는 실적), ADR-004(결정 모델은 보조), ADR-020(판정 라벨 3값 + 사유 코드, 결정 모델 v0.2 참고 지표, 점수 미반영), ADR-034(결정 모델 Bosun v3.1 0.6B), ADR-037(가정 재계산, §5.6), ADR-043(가상 직원 200명, §9), ADR-059(발표 숫자), ADR-062(추천·보류·비추천 표기, §5.2), ADR-066(인력 입력, §3.3)
 - [[21-MODEL-TRAINING|21 모델 학습]] — 평가셋 라벨, 결정 모델 반영 전 신뢰성 기준·오류 분석
 - [[17-CLAUDE-IMPLEMENTATION|17 구현 규칙]] — 결정 모델 출력은 플래그·참고 지표만

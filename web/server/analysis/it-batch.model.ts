@@ -107,6 +107,14 @@ export function isItBatchIdempotencyKey(key: string | null): boolean {
 }
 
 /**
+ * 점수 재채점(`pnpm score:rescore`, ADR-071)이 일괄 분석 run 을 다시 계산한 run 의 requestId(`it-batch-rescore-…`).
+ * 같은 일괄 분석 run 으로 세어 검토 대기 칸에서 계속 빠진다(isItBatchIdempotencyKey).
+ */
+export function itBatchRescoreRequestId(sourceRunId: string, algorithmVersion: string): string {
+  return `${IT_BATCH_REQUEST_PREFIX}rescore-${algorithmVersion}-${sourceRunId}`;
+}
+
+/**
  * score_runs 에 넣을 QUEUED 행. CLI 가 gateway /health 로 live·local 을 확인한 뒤에만 넣는다.
  * requested_by 는 넣지 않는다(service role 이라 기본값 auth.uid() 가 null).
  * finish_score_run 은 requested_by 가 있을 때만 BID_RECOMMENDED outbox 를 쓰므로 일괄 분석은 알림을 만들지 않는다.

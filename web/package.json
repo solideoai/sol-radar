@@ -27,7 +27,8 @@
     "worker:check": "node --conditions=react-server --import tsx worker/main.ts --check",
     "worker:ping": "node --conditions=react-server --import tsx worker/ping.ts",
     "demo:preanalyze": "node --conditions=react-server --import tsx worker/demo-preanalyze.ts",
-    "it:batch-analyze": "node --conditions=react-server --import tsx worker/it-batch-analyze.ts"
+    "it:batch-analyze": "node --conditions=react-server --import tsx worker/it-batch-analyze.ts",
+    "score:rescore": "node --conditions=react-server --import tsx worker/score-rescore.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

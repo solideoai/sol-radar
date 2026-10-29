@@ -126,4 +126,9 @@ export type { AttachmentTextReader, RevisionDocumentText } from "./analysis-stor
 
 // IT 공고 1회 일괄 분석(`pnpm it:batch-analyze`, ADR-069). 멱등 키(만들기·가르기)와 저장 port. 원문 판정·행 매핑 함수는 내보내지 않는다.
 export { isItBatchIdempotencyKey, itBatchIdempotencyKey } from "./it-batch.model";
+
+// 점수 재채점(`pnpm score:rescore`, ADR-071). 화면에 보이는 run 의 스냅샷을 현재 알고리즘으로 다시 계산한다.
+export { rescore, toRescorePayload, toRescoreRunRow } from "./rescore.model";
+export type { RescoreSource, RescoreStore } from "./rescore.model";
+export { createRescoreStore } from "./rescore.repo";
 export type { ItBatchRun, ItBatchRunInput, ItBatchStore, ItBatchTarget } from "./it-batch.model";

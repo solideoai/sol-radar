@@ -131,7 +131,7 @@ export type KevAssist = {
 
 export type AnalysisResult = {
   schemaVersion: "analysis-result/v0.1";
-  algorithmVersion: "sol-v0.1.0";
+  algorithmVersion: "sol-v0.2.0";
   inputSnapshotHash: string;
   status: AnalysisStatus;
   errorCode: string | null;
