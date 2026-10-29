@@ -306,5 +306,5 @@ select count(*) from public.bid_notices where source = 'lh-bid-notice';
 
 - [LH 로컬 구현 증거](../evidence/ingestion/20261027-lh-bid-notice/summary.md)
 - [운영 적용 결과·사용량](../evidence/ingestion/20261027-ops-apply/summary.md)
-- [[2026-10-27-ingest-source-isolation-deploy|10-27 배포 실행서]]
+- 10-27 배포 실행서(git `3ae02acf` 의 `docs/plans/2026-10-27-ingest-source-isolation-deploy.md`)
 - [[../PROGRESS|진행 상황]]

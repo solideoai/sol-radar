@@ -12,7 +12,7 @@ updated: 2026-10-22
 
 > 후속(2026-10-22): 아래는 최초 구현 당시의 기록이다. 이후 기능 브랜치에 최신 origin/main을 반영하고 일회용 실제 Redis 검증 및 전송 재실행/보조 조회 장애 수정까지 수행했다. 현재 결과·명령·출력·커밋 제외 범위는 [격리 Redis 검증 기록](20261022-f08-isolated-redis.md)을 따른다. 아래 실제 Redis 미실행/미병합 서술은 최초 시점에 해당한다.
 
-기준: [외부 수집 완성 계획](../../plans/2026-10-22-external-ingestion-completion-plan.md)의 F07/F08/F13/F14와 P0-B를 읽고 **F08 일일 호출 예산만** 구현했다. 브랜치는 `fix/ingestion-quota-reservation`, 기준 HEAD는 `20cb79fa61df2e1d4ebf430e2bd8e9f65f484ceb`다. 기존 미커밋 계획 문서는 보존했다. 커밋·Push·Merge·배포는 수행하지 않았다.
+기준: 외부 수집 완성 계획(git `3ae02acf` 의 `docs/plans/2026-10-22-external-ingestion-completion-plan.md`)의 F07/F08/F13/F14와 P0-B를 읽고 **F08 일일 호출 예산만** 구현했다. 브랜치는 `fix/ingestion-quota-reservation`, 기준 HEAD는 `20cb79fa61df2e1d4ebf430e2bd8e9f65f484ceb`다. 기존 미커밋 계획 문서는 보존했다. 커밋·Push·Merge·배포는 수행하지 않았다.
 
 ## 1. 기존 결함의 정확한 원인
 

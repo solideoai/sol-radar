@@ -89,14 +89,15 @@ updated: 2026-10-29
 
 | 처리 | 파일 | 이유 |
 |---|---|---|
-| 지움 | `2026-10-16-landing-redesign-design` | 끝남, 인용 0 |
+| 남김(Q2) | `2026-10-16-landing-redesign-design` | 끝났지만 `design/tokens.json` `$comment`가 가리킨다(처음 점검에서 `design/`을 빠뜨림) |
 | 지움 | `2026-10-21-public-procurement-expansion-plan` | 끝남, 코드 인용 0(12·16 링크 고침) |
 | 지움 | `2026-10-22-external-ingestion-completion-plan` | `2026-10-28-all-sources-activation`이 대신함 |
 | 지움 | `2026-10-27-company-public-profile-plan` | 끝남, 인용 0 |
 | 지움 | `2026-10-27-ingest-source-isolation-deploy` | 끝남(10·12 링크 고침) |
 | 지움 | `2026-10-27-company-rollout-attachments` | 끝남(Documents Worker 10-28 기동). 알림 Worker 절차는 `infra/company/README.md` §9에 있다(03·10·12·16·19·PROGRESS 링크 고침) |
 | 지움 | `2026-10-27-docs-cleanup-plan` | 끝남. 정본은 git `4ee81d08` 해시로 가리킨다 |
-| B 보고에 따름 | `2026-10-21-bosun-b2-runbook` | Bosun이 회사 호스트 8009에서 돈다(§2-3). 내용이 끝난 서빙 절차뿐이면 지우고, X6 실행에 쓸 절이 있으면 남긴다(§7 Q4) |
+| 지움(B 판정) | `2026-10-21-bosun-b2-runbook` | 끝난 8009 서빙 절차다. §8 `prompt_logprobs` 확인만 E3 전제여서 22 §3.3으로 옮겼다 |
+| 링크 처리 | 지운 계획을 가리키던 증거 6개·계획 4개·polaris spec 1개 | "별칭(git `3ae02acf` 의 `docs/plans/<이름>.md`)" 글로 바꿨다 |
 | 남김(Q2) | 코드 주석이 가리키는 끝난 계획 20개 | §7 Q2 |
 | 남김 | `2026-10-26-live-ops-cutover`(§5 운영 DEMO 삭제, 발표 뒤), `2026-10-28-all-sources-activation`(외부 3종 남음), `2026-10-28-landing-sources-to-connect`(11-02 확인), `2026-10-29-recommendation-insight`(배포 전), `SIDEBAR-PLAN`(사용자 원문), `2026-10-19-e3-experiment-design`·`2026-10-20-bosun-qwen4b-migration-plan`(Q4에 따름) | 진행 중이거나 원문 |
 | 마지막에 지움 | 이 계획 | 병합 커밋에서 지우고 PROGRESS는 해시로 가리킨다 |
