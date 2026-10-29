@@ -124,6 +124,6 @@ export type {
 export { ANALYSIS_READS_ATTACHMENT_TEXT, EMPTY_ATTACHMENT_READER } from "./analysis-store.model";
 export type { AttachmentTextReader, RevisionDocumentText } from "./analysis-store.model";
 
-// IT 공고 1회 일괄 분석(`pnpm it:batch-analyze`, ADR-069). 멱등 키와 저장 port. 원문 판정·행 매핑 함수는 내보내지 않는다.
-export { itBatchIdempotencyKey } from "./it-batch.model";
+// IT 공고 1회 일괄 분석(`pnpm it:batch-analyze`, ADR-069). 멱등 키(만들기·가르기)와 저장 port. 원문 판정·행 매핑 함수는 내보내지 않는다.
+export { isItBatchIdempotencyKey, itBatchIdempotencyKey } from "./it-batch.model";
 export type { ItBatchRun, ItBatchRunInput, ItBatchStore, ItBatchTarget } from "./it-batch.model";

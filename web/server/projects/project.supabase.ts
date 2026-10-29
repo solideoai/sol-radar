@@ -58,9 +58,10 @@ const DETAIL_SELECT = `${PROJECT_FIELDS},bid:bid_notices!bid_projects_bid_id_fke
 const DECISION_SELECT =
   "id,bid_id,decision,decided_at,created_at,reviewer_id,reviewer:profiles!bid_reviews_reviewer_id_fkey(display_name,email)";
 
-// 검토 대기 칸의 원본. 대시보드(createDashboardRepo.load)와 같은 질의에 기관·데모 여부를 더한다.
+// 검토 대기 칸의 원본. 대시보드(createDashboardRepo.load)와 같은 질의에 기관·데모 여부와
+// 분석의 멱등 키(IT 일괄 분석 run 을 대기에서 뺀다, ADR-069)를 더한다.
 const PENDING_SELECT =
-  "id,title,agency,is_demo,stage,status,deadline_at,score_runs!score_runs_bid_id_fkey(id,status,recommendation,review_flags,created_at),bid_reviews!bid_reviews_bid_id_fkey(decision,disagreement_flag,decided_at)";
+  "id,title,agency,is_demo,stage,status,deadline_at,score_runs!score_runs_bid_id_fkey(id,status,recommendation,review_flags,created_at,idempotency_key),bid_reviews!bid_reviews_bid_id_fkey(decision,disagreement_flag,decided_at)";
 
 type StoredBid = {
   id: string;
@@ -262,6 +263,7 @@ export const projectRepo: ProjectRepo = {
         recommendation: recommendationSchema.nullable().parse(run.recommendation),
         reviewFlagCount: run.review_flags.length,
         createdAt: run.created_at,
+        idempotencyKey: run.idempotency_key,
       })),
       reviews: bid.bid_reviews.map((review) => ({
         decision: recommendationSchema.parse(review.decision),
