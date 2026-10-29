@@ -110,6 +110,8 @@ const scoringSchema = z.object({
         .object({
           projectId: z.string().min(1),
           name: z.string().min(1),
+          // 발주기관(가상). synthetic-people/v2 부터 있고 v1 행에는 없다.
+          client: z.string().min(1).optional(),
           domain: z.string().min(1),
           role: z.string().min(1),
           startsAt: z.iso.date(),
