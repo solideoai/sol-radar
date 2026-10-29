@@ -140,9 +140,38 @@ test("흐르는 줄이 페이지를 가로로 넘치게 하지 않는다", async
 const workDemo = (page: Page) => page.getByRole("region", { name: "SOL RADAR 업무 데모" });
 
 test("업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 가며 흐른다", async ({ page }) => {
-  test.setTimeout(45_000);
+  // 데모 한 바퀴(24.68초)를 끝까지 본다. 기계 부하가 크면 단계 타이머가 늦어 두 배 가까이 걸린다.
+  test.setTimeout(90_000);
   await page.goto("/");
   const demo = workDemo(page);
+  // 360ms의 누름 단계는 기계 부하가 크면 폴링 사이에 지나가고, 잰 때는 이미 커서가 쉬는 자리로 떠난다.
+  // 그래서 데모가 흐르기 전에 페이지 안에서 지켜보다가 data-step 이 누름 단계로 바뀌는 그 순간에 상자를 잰다.
+  const rowPress = page.evaluate((rowPressStep) => {
+    const section = document.querySelector('section[aria-label="SOL RADAR 업무 데모"]');
+    if (section === null) throw new Error("업무 데모 구역이 없습니다");
+    const boxOf = (node: Element | null) => {
+      if (node === null) return null;
+      const { x, y, width, height } = node.getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    const measure = () => {
+      const cursor = section.querySelector('[data-pressed="true"] > div');
+      return {
+        target: boxOf(section.querySelector('[data-demo-target="bid-row"]')),
+        pointer: boxOf(cursor),
+        animationName:
+          cursor === null ? "none" : getComputedStyle(cursor, "::before").animationName,
+      };
+    };
+    return new Promise<ReturnType<typeof measure>>((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (section.getAttribute("data-step") !== String(rowPressStep)) return;
+        observer.disconnect();
+        resolve(measure());
+      });
+      observer.observe(section, { attributes: true, attributeFilter: ["data-step"] });
+    });
+  }, STEP.rowPress);
   await expect(demo).toHaveAttribute("data-scene", "1");
   // 판 위에 구역 제목이 있다(2026-10-28 사용자 요청).
   await expect(
@@ -167,22 +196,14 @@ test("업무 데모는 출처 줄 고지 문장 아래에서 장면을 바꿔 �
   );
 
   // 옆에서 들어온 패널이 정착한 뒤 공고를 누른다. 커서 끝이 실제 목표 안에 있어야 한다.
-  // 360ms의 누름 단계를 느린 단언 폴링으로 건너뛰지 않게 DOM의 도착을 기다린다.
-  await page
-    .locator(`section[aria-label="SOL RADAR 업무 데모"][data-step="${STEP.rowPress}"]`)
-    .waitFor({ state: "attached", timeout: 12_000 });
-  const target = await demo.locator('[data-demo-target="bid-row"]').boundingBox();
-  const cursor = demo.locator('[data-pressed="true"] > div');
-  const pointer = await cursor.boundingBox();
+  const { target, pointer, animationName } = await rowPress;
   expect(target).not.toBeNull();
   expect(pointer).not.toBeNull();
   expect(pointer?.x ?? -Infinity).toBeGreaterThanOrEqual(target?.x ?? 0);
   expect(pointer?.x ?? Infinity).toBeLessThan((target?.x ?? 0) + (target?.width ?? 0));
   expect(pointer?.y ?? -Infinity).toBeGreaterThanOrEqual(target?.y ?? 0);
   expect(pointer?.y ?? Infinity).toBeLessThan((target?.y ?? 0) + (target?.height ?? 0));
-  expect(
-    await cursor.evaluate((node) => getComputedStyle(node, "::before").animationName),
-  ).not.toBe("none");
+  expect(animationName).not.toBe("none");
 
   await expect(demo).toHaveAttribute("data-scene", "4");
   const panel = demo.locator('[data-active="true"]');

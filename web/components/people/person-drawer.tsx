@@ -183,6 +183,8 @@ function PersonDetail({
           <p className="type-caption text-muted-foreground">상위 부서 미지정</p>
         ) : null}
       </section>
+      <ProjectHistory projects={data.scoring?.pastProjects ?? []} />
+      <Certifications certifications={data.scoring?.certifications ?? []} />
       {data.scoring ? (
         <ScoringInformation scoring={data.scoring} />
       ) : (
@@ -191,13 +193,92 @@ function PersonDetail({
     </div>
   );
 }
-function ScoringInformation({ scoring }: { scoring: NonNullable<TeamMemberDetail["scoring"]> }) {
+type Scoring = NonNullable<TeamMemberDetail["scoring"]>;
+type PastProject = NonNullable<Scoring["pastProjects"]>[number];
+type Certification = NonNullable<Scoring["certifications"]>[number];
+// 직무 코드(scripts/people/capabilities.mjs PROFILES)의 화면 이름. 모르는 코드는 그대로 보인다.
+const ROLE_LABELS: Record<string, string> = {
+  DEVELOPER: "개발자",
+  DATA_AI: "데이터·AI",
+  DEVOPS: "DevOps",
+  QA: "QA",
+  DESIGNER: "디자이너",
+  BUSINESS_ANALYST: "업무 분석",
+  SECURITY: "보안",
+  DBA: "DBA",
+  PM: "PM",
+  PL: "PL",
+};
+const roleLabel = (role: string) => ROLE_LABELS[role] ?? role;
+// 가상 이력은 매달 1일로 적혀 있어 연·월만 보인다.
+const yearMonth = (date: string) => date.slice(0, 7).replace("-", ".");
+function ProjectHistory({ projects }: { projects: PastProject[] }) {
+  const latestFirst = [...projects].sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+  return (
+    <section className="grid min-w-0 gap-3">
+      <h2 className="type-heading">수행 이력</h2>
+      {latestFirst.length ? (
+        <>
+          <p className="type-caption text-muted-foreground">
+            {latestFirst.length}건 · 최근 순
+            {latestFirst.every((project) => project.isDemo) ? " · 가상 이력" : ""}
+          </p>
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {latestFirst.map((project) => (
+              <li key={project.projectId} className="grid gap-1 p-3">
+                <p className="font-medium">{project.name}</p>
+                <p className="type-label text-muted-foreground">
+                  {project.client ? `${project.client} · ` : ""}
+                  {project.domain} 분야
+                </p>
+                <p className="type-label">
+                  {yearMonth(project.startsAt)} ~ {yearMonth(project.endsAt)} ·{" "}
+                  {roleLabel(project.role)}
+                </p>
+                {project.skills.length ? (
+                  <p className="type-caption text-muted-foreground">{project.skills.join(" · ")}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p>등록된 수행 이력 없음</p>
+      )}
+    </section>
+  );
+}
+function Certifications({ certifications }: { certifications: Certification[] }) {
+  return (
+    <section className="grid min-w-0 gap-3">
+      <h2 className="type-heading">자격증</h2>
+      {certifications.length ? (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {certifications.map((certification) => (
+            <li key={certification.evidenceRef} className="grid gap-1 p-3">
+              <p className="font-medium">{certification.name}</p>
+              <p className="type-label text-muted-foreground">
+                취득 {yearMonth(certification.issuedAt)} ·{" "}
+                {certification.expiresAt
+                  ? `만료 ${yearMonth(certification.expiresAt)}`
+                  : "만료 없음"}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>등록된 자격증 없음</p>
+      )}
+    </section>
+  );
+}
+function ScoringInformation({ scoring }: { scoring: Scoring }) {
   return (
     <section className="grid min-w-0 gap-3">
       <h2 className="type-heading">점수 계산 정보</h2>
       <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2">
         <dt className="text-muted-foreground">직무</dt>
-        <dd>{scoring.role}</dd>
+        <dd>{roleLabel(scoring.role)}</dd>
         <dt className="text-muted-foreground">등급</dt>
         <dd>{scoring.grade ?? "미등록"}</dd>
         <dt className="text-muted-foreground">스킬</dt>
