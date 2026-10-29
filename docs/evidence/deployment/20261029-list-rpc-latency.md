@@ -1,7 +1,7 @@
 ---
 title: "목록 화면 이동 지연 원인과 조치 (2026-10-29)"
 doc: "evidence-20261029-list-rpc-latency"
-status: draft
+status: done
 tags:
   - sol-radar
   - ops
@@ -73,9 +73,12 @@ updated: 2026-10-30
 
 | 항목 | 2차 조치 전(10-29 23:58 KST) | 2차 조치 뒤 |
 |---|---|---|
-| `/dashboard` Supabase 대기 | 약 1.6초 | |
-| `/bids` Supabase 대기(캐시 찬 뒤) | 약 0.65초 | |
-| summary·live_metrics·filter_options 단독 | 615·351·1,729ms | |
+| `/dashboard` Supabase 대기 | 약 1.6초 | 약 0.75초(summary 569~708ms·live_metrics 677~770ms·목록 94~751ms 병렬, 3회) |
+| `/bids` Supabase 대기(캐시 찬 뒤) | 약 0.65초 | 약 0.4초(version 22~26ms → 목록 200~347ms 병렬 → version 22~26ms, 3회) |
+| summary·live_metrics·filter_options 단독 | 615·351·1,729ms | 216·184·86ms(결과 같음: IT 범위 551건·중복 후보 27건·기관 305곳) |
+| 목록 50건(추천순 정렬) 단독 | 측정 없음 | 127ms |
+
+2차 조치 뒤 숫자는 운영 DB `20261030000100` 적용(db-push 미적용 0개·`db-verify` 마이그레이션 70개 통과) 뒤 2026-10-30 00:23 KST 관리자 계정의 사이드바 이동 edge 로그와 authenticated 단독 측정이다. 대시보드는 RPC 여러 개가 동시에 돌아 단독보다 2~4배 느리다.
 
 Supabase advisor는 search_path를 두지 않은 다섯 함수를 `function_search_path_mutable`로 알린다. 다섯 함수 모두 security invoker이고 본문 이름이 고정돼 있다. `scripts/db-verify.mjs`의 search_path 고정 검사는 SECURITY DEFINER 함수만 본다.
 

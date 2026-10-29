@@ -28,7 +28,7 @@ updated: 2026-10-30
 |---|---|---|
 | web(Vercel) | main `7f6909ec`(IT 공고만 보이기, [[16-DECISIONS\|ADR-069]]) Production 배포 성공. 그 뒤 랜딩 커밋 배포는 작업 로그를 본다. 함수 지역 `syd1`([지역 기록](evidence/deployment/20261028-region-latency.md)). [기록](evidence/it-scope/prod-20261029/README.md) | 2026-10-29 14:12 KST |
 | `/health/ready` | 200(`db`·`redis`·`storage` ok, `ai: local`). `ai`는 회사 AI gateway가 보고한 provider 값이다. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:31 KST |
-| 운영 DB | migration 68개, 마지막 `20261029000400`(공고 고르기 목록 IT 범위). db-push·`db-verify` 통과. [기록](evidence/it-scope/prod-20261029/README.md) | 2026-10-29 14:10 KST 전 |
+| 운영 DB | migration 70개, 마지막 `20261030000100`(IT 판정 함수 inline·집계 조인). db-push·`db-verify` 통과. [기록](evidence/deployment/20261029-list-rpc-latency.md) | 2026-10-30 00:20 KST 전 |
 | 회사 반영 | AI gateway·Analysis Worker·redis-api는 `384e469857f0`(main + 회사 carry). gateway는 같은 호스트 Bosun `127.0.0.1:8009`를 부른다. `sol-radar-app` checkout은 22:15 보조 수집 예약 때문에 옮기지 않았다. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:37 KST |
 | 나라장터 정기 수집 | KST 3시간 정각. ingest Worker `cbb3831e86da`. 보조 조회(면허·지역·첨부)는 기능별 한도 각 1,000회이고, 밀린 공고는 같은 revision에 하루 100~200건씩 다시 채운다. [기록](evidence/ingestion/20261029-g2b-aux-budget.md) | 2026-10-29 10:49 KST |
 | 외부 입찰공고(LH·KEPCO·K-water) | 같은 ingest Worker가 3시간 정각에 받는다. KEPCO는 공고 없는 날 HTTP 404를 빈 쪽으로 읽는다. 남은 외부 3종(K-water 발주계획·LH 사전규격·조달요청)은 꺼짐. [기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md) | 2026-10-29 09:40 KST |
@@ -135,7 +135,7 @@ updated: 2026-10-30
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
-- 2026-10-30 · 목록·대시보드 2차 가속([[16-DECISIONS|ADR-070]] 보강): 남은 대기(대시보드 약 1.6초·`/bids` 약 0.65초)의 원인인 IT 판정·정렬 함수 다섯 개를 planner가 풀어 넣도록 다시 만들고, summary 중복 후보·filter_options의 공고별 `it_scope(b)`를 조인으로(`20261030000100`). 운영 반영 대기 · `database.test.mjs` 새 시험 마이그레이션 없이 실패·있으면 통과, IT 범위·집계 시험 11건 통과, 운영 읽기 측정 filter_options 1,729→197ms·중복 후보 265→38ms([기록](evidence/deployment/20261029-list-rpc-latency.md))
+- 2026-10-30 · 목록·대시보드 2차 가속([[16-DECISIONS|ADR-070]] 보강): 남은 대기(대시보드 약 1.6초·`/bids` 약 0.65초)의 원인인 IT 판정·정렬 함수 다섯 개를 planner가 풀어 넣도록 다시 만들고, summary 중복 후보·filter_options의 공고별 `it_scope(b)`를 조인으로(`20261030000100`). 운영 DB 반영, 대시보드 대기 약 1.6→0.75초·`/bids` 약 0.65→0.4초 · `database.test.mjs` 새 시험 마이그레이션 없이 실패·있으면 통과, IT 범위·집계 시험 11건 통과, 운영 읽기 측정 filter_options 1,729→197ms·중복 후보 265→38ms([기록](evidence/deployment/20261029-list-rpc-latency.md))
 - 2026-10-29 · 목록 화면 이동 5~7초의 원인은 지역이 아니라 뷰 `opportunity_list_items` 전체를 계산하는 버전 확인 RPC(이동 한 번에 2번)와 공고마다 IT 판정을 도는 필터 선택지 RPC다. 조치([[16-DECISIONS|ADR-070]]): 목록 버전을 원본 표 해시로(`20261029000500`), 필터 선택지를 서버 데이터 캐시(10분)로. 운영 DB `000500`·main `a9d3a107` 반영 · 반영 뒤 edge 로그로 version 22~117ms, 두 번째 `/bids` 방문 filter_options 호출 없음([기록](evidence/deployment/20261029-list-rpc-latency.md))
 - 2026-10-29 · 지원사업 IT 판정을 제목 본문(괄호 밖)으로 좁힘([[16-DECISIONS|ADR-069]] 7번): 사업개요·괄호 안 사업명은 보지 않는다 · `list.service.test.ts` 새 시험 수정 전 실패 확인, `pnpm verify:changed` exit 0(web 996시험), 운영 지원사업 104건 대조로 마감 전 IT 30→19건
 - 2026-10-29 · IT 공고만 보이기([[16-DECISIONS|ADR-069]]): 목록·집계·고르기 목록에서 IT 아닌 공고 숨김, 분야 칩 8개, AI·SI 우선 + 추천순, 지원사업 IT만, 검토 대기에서 일괄 분석 제외. 운영 DB `000300`·`000400`, main `7f6909ec`, 회사에서 IT 실공고 371건 1회 일괄 분석 · 통합 브랜치 전체 `pnpm verify` exit 0(web 시험 995건)·`test:browser` 98건, 독립 리뷰 1회 반영, `db-verify` 통과, D1 10개 화면 1440·1280 넘침 0, 일괄 분석 `completed=371 failed=0`([기록](evidence/it-scope/prod-20261029/README.md), [화면 증거](evidence/it-scope/bids-qa-20261029.md))
