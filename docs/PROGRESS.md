@@ -138,6 +138,7 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-29 · 발표 대본·덱 명세에 추천 분석 장면 추가: 클립 2에 FX-01의 저장된 추천 분석 20초(30→50초), 슬라이드 10 1:40·슬라이드 3·9 0:40으로 합계 20:00 유지([[16-DECISIONS|ADR-059]] 개정, [[19-DEMO-SCENARIO|19]] §4 S3·§5·§6, [[slides-spec|덱 제작 명세]]) · 문서만 바꿈, 시간표 합계·누적 스크립트로 확인(20:00), `pnpm verify:changed` 통과
 - 2026-10-29 · 문서 정리 2차: 정본·제출물의 낡은 사실 고침, [[16-DECISIONS|ADR-067]](X6 발표 뒤) 추가, 16 218→156KB·PROGRESS 71→21KB, 끝난 계획 7개·링크 없는 증거 66개(7.2MB) 삭제(원본·계획은 git `03baf23d`) · 문서만 바꿔 `pnpm verify:changed` 검사 단계 0개, 깨진 링크 48→46(남은 것은 정리 전부터 있던 옛 증거 링크)
 - 2026-10-29 · 추천 분석 운영 반영: 운영 DB `20261029000100`·`000200`, Vercel, 회사 AI gateway·Analysis Worker·redis-api 재생성 · `db-verify` 통과, `/health/ready` 200, 운영 화면 실공고·DEMO 각 1건 `DONE`·`MODEL`([기록](evidence/company-rollout/20261029/rec-insight-rollout.md))
 - 2026-10-29 · 추천 분석 구현 main 병합([[16-DECISIONS|ADR-066]]) · 전체 `pnpm verify` exit 0, 격리 로컬 스택 끝까지 확인 통과([증거](evidence/rec-insight/README.md))
@@ -147,7 +148,6 @@ updated: 2026-10-29
 - 2026-10-28 · 운영 조직도 0명 부서 해소와 본부·그룹 직속 직원([[16-DECISIONS|ADR-063]]) · `pnpm verify:changed` exit 0, 조직도 브라우저 시험 1440·1280 통과([증거](evidence/org-rebalance-20261028/))
 - 2026-10-28 · 운영 화면 이동 지연 조치(함수 지역 `syd1`, 렌더 조회 합치기) · Supabase 호출 한 번 p50 660→16ms([기록](evidence/deployment/20261028-region-latency.md))
 - 2026-10-28 · 화면 UI 개편과 권고 표기 추천·보류·비추천([[16-DECISIONS|ADR-061]]·[[16-DECISIONS|ADR-062]]) 운영 배포 · 랜딩 1440·1280 넘침·콘솔 오류 0([증거](evidence/ui-refresh/README.md))
-- 2026-10-28 · 공공데이터 수집 서비스 회사 반영(LH·KEPCO·K-water 입찰공고, 기업마당 전용 Worker, Documents Worker) · LH 첫 회차 `SUCCEEDED` 26건, 기업마당 100/100, Documents `FAILED` 0([기록](evidence/company-rollout/20261028/sources-rollout.md))
 
 ## 관련 문서
 
