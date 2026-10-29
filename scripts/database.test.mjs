@@ -1588,6 +1588,12 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         [RUN2, ORG2],
         false,
       ],
+      [
+        "다른 조직 결정",
+        "insert into public.bid_reviews(org_id,bid_id,revision_id,decision,reason,decided_at) values($1,$2,$3,'WATCH','다른 조직 목록 버전 시험 결정',now()+interval '2 seconds')",
+        [ORG2, BID1, REV1],
+        false,
+      ],
     ]) {
       await asWorker(db);
       assert.equal((await db.query(sql, params)).affectedRows, 1, label);
