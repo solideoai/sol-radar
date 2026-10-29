@@ -1,6 +1,8 @@
 import "server-only";
 export { parseOpportunityQuery, serializeOpportunityQuery, OPPORTUNITY_SORTS } from "./query";
 export type { OpportunityQuery } from "./query";
+export { OPPORTUNITY_KEYWORD_IDS } from "./keywords";
+export type { OpportunityKeyword } from "./keywords";
 export { OpportunityReadError } from "./model";
 export {
   DEFAULT_INGEST_STALE_AFTER_MS,

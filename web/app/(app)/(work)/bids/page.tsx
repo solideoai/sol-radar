@@ -39,6 +39,7 @@ export default async function BidsPage({ searchParams }: PageProps<"/bids">) {
     query.stage.length ||
     query.status.length ||
     query.category.length ||
+    query.keyword.length ||
     query.recommendation.length ||
     query.decision.length ||
     query.includeEarly ||

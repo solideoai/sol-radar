@@ -48,6 +48,7 @@ export default async function WatchlistPage({ searchParams }: PageProps<"/watchl
     query.stage.length ||
     query.status.length ||
     query.category.length ||
+    query.keyword.length ||
     query.recommendation.length ||
     query.decision.length ||
     query.includeEarly ||

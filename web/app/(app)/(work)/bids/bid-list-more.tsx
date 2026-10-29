@@ -57,7 +57,7 @@ export function BidListMore({
       <p role="status" className="type-label text-muted-foreground">
         {busy
           ? "검색 조건에 맞는 공고를 불러오는 중…"
-          : `사업기회 ${total.toLocaleString("ko-KR")}건 · 현재 ${items.length.toLocaleString("ko-KR")}건 표시`}
+          : `${basePath === "/watchlist" ? "사업기회" : "IT 공고"} ${total.toLocaleString("ko-KR")}건 · 현재 ${items.length.toLocaleString("ko-KR")}건 표시`}
       </p>
       {items.length === 0 ? (
         empty

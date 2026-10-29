@@ -26,7 +26,8 @@ import { Switch } from "@/components/ui/switch";
 import {
   ALL_STATUSES,
   EARLY_STAGES,
-  OPPORTUNITY_CATEGORIES,
+  OPPORTUNITY_KEYWORD_LABELS,
+  OPPORTUNITY_SORT_LABELS,
   OPPORTUNITY_STAGES,
 } from "@/components/work/opportunities-copy";
 
@@ -179,6 +180,7 @@ export function OpportunityFilters({
   const [search, setSearch] = useOptimistic(query);
   const params = new URLSearchParams(search);
   const sourceFamilies = params.getAll("sourceFamily");
+  const keywords = params.getAll("keyword");
   const selectedStages = params.getAll("stage");
   const siAiFirst = params.get("siAiFirst") !== "false";
   const includeEarly = params.get("includeEarly") === "true";
@@ -220,6 +222,7 @@ export function OpportunityFilters({
     params.getAll("recommendation").length === 0 &&
     params.getAll("decision").length === 0 &&
     params.getAll("category").length === 0 &&
+    keywords.length === 0 &&
     siAiFirst &&
     !includeEarly &&
     (params.get("origin") ?? defaultOrigin) === defaultOrigin &&
@@ -229,6 +232,36 @@ export function OpportunityFilters({
       aria-label="입찰 공고 검색 조건"
       className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-4"
     >
+      <div role="group" aria-label="분야 키워드" className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-pressed={keywords.length === 0}
+          className={cn("min-w-20", keywords.length === 0 && PRESSED)}
+          onClick={() => multiple("keyword", [])}
+        >
+          전체
+        </Button>
+        {Object.entries(OPPORTUNITY_KEYWORD_LABELS).map(([keyword, label]) => (
+          <Button
+            key={keyword}
+            variant="outline"
+            size="sm"
+            aria-pressed={keywords.includes(keyword)}
+            className={cn("min-w-20", keywords.includes(keyword) && PRESSED)}
+            onClick={() =>
+              multiple(
+                "keyword",
+                keywords.includes(keyword)
+                  ? keywords.filter((value) => value !== keyword)
+                  : [...keywords, keyword],
+              )
+            }
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <label
           htmlFor="opportunity-si-ai"
@@ -239,7 +272,7 @@ export function OpportunityFilters({
             checked={siAiFirst}
             onCheckedChange={(checked) => go({ siAiFirst: checked ? null : "false" })}
           />
-          공공 SI·AI 우선
+          AI·SI 우선
         </label>
         <div role="group" aria-label="수집 출처 빠른 선택" className="flex flex-wrap gap-2">
           <Button
@@ -405,15 +438,6 @@ export function OpportunityFilters({
             onChange={(values) => multiple("recommendation", values)}
           />
         </div>
-        <div className="w-36">
-          <MultipleFilter
-            id="opportunity-category"
-            label="분야"
-            options={optionsOf(OPPORTUNITY_CATEGORIES)}
-            values={params.getAll("category")}
-            onChange={(values) => multiple("category", values)}
-          />
-        </div>
         <div className="w-32">
           <MultipleFilter
             id="opportunity-decision"
@@ -452,20 +476,15 @@ export function OpportunityFilters({
           <SingleFilter
             id="opportunity-sort"
             label="정렬"
-            value={params.get("sort") ?? "publishedAt:desc"}
-            items={[
-              { id: "publishedAt:desc", name: "최근 공고 순" },
-              { id: "deadlineAt:asc", name: "마감 빠른 순" },
-              { id: "score:desc", name: "점수 높은 순" },
-              { id: "budgetKrw:desc", name: "예산 높은 순" },
-            ]}
-            onChange={(value) => go({ sort: value === "publishedAt:desc" ? null : value })}
+            value={params.get("sort") ?? "recommended"}
+            items={optionsOf(OPPORTUNITY_SORT_LABELS)}
+            onChange={(value) => go({ sort: value === "recommended" ? null : value })}
           />
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="type-caption text-muted-foreground">
-          공공 SI·AI 우선은 표시 순서만 바꾸며 공고를 숨기지 않습니다.
+          AI·SI 우선은 AI·AX 공고, SI 공고, 나머지 공고 순으로 묶어 보입니다.
         </p>
         {!isDefault && (
           <Button

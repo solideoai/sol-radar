@@ -394,7 +394,7 @@ export function DashboardView({
               title="우선 검토할 입찰"
               description={
                 <>
-                  공공 SI·AI 우선 · 최근 공고 순
+                  AI·SI 우선 · 추천순
                   {summary.potentialDuplicateCount > 0 &&
                     ` · 중복 후보 ${count(summary.potentialDuplicateCount)}건은 별도 사업기회로 집계됩니다.`}
                 </>
