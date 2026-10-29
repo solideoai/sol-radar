@@ -1469,6 +1469,53 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
         ["정보기관"],
       );
     });
+    it("공고 고르기 뷰 bid_list_items 의 it_scope 는 목록 뷰와 같고, 관심 뷰는 IT 밖 공고도 그 값으로 돌려준다 (20261029000400)", async (t) => {
+      const db = await solDb(t);
+      await asWorker(db);
+      const live = {};
+      for (const [key, cls] of [
+        ["it", "정보시스템개발서비스"],
+        ["other", "건설장비임대서비스"],
+      ]) {
+        const [bid] = await rowsOf(
+          db,
+          "insert into public.bid_notices(source,notice_id,title,agency,stage,status,source_url,content_hash,deadline_at,is_demo) values ('g2b-bid-notice',$1,'실제 공고','실제기관','NOTICE','OPEN','https://www.g2b.go.kr/live',$2,now()+interval '10 days',false) returning id",
+          [`R25BK-PICK-${key}`, `pick-hash-${key}`],
+        );
+        await db.query(
+          "insert into public.bid_revisions(bid_id,revision,raw_payload,normalized,checksum) values ($1,1,$2,'{}',$3)",
+          [bid.id, JSON.stringify({ pubPrcrmntClsfcNm: cls }), `pick-sum-${key}`],
+        );
+        live[key] = bid.id;
+      }
+      await as(db, "admin");
+      await db.query("insert into public.bid_watches (org_id,user_id,bid_id) values ($1,$2,$3)", [
+        ORG1,
+        WHO.admin,
+        live.other,
+      ]);
+      const pick = Object.fromEntries(
+        (await rowsOf(db, "select id,it_scope from public.bid_list_items")).map((row) => [
+          row.id,
+          row.it_scope,
+        ]),
+      );
+      const list = Object.fromEntries(
+        (
+          await rowsOf(
+            db,
+            "select bid_id,it_scope from public.opportunity_list_items where org_id=$1",
+            [ORG1],
+          )
+        ).map((row) => [row.bid_id, row.it_scope]),
+      );
+      assert.deepEqual(pick, list);
+      assert.equal(pick[live.it], true);
+      assert.equal(pick[live.other], false);
+      assert.deepEqual(await rowsOf(db, "select id,it_scope from public.watched_bid_list_items"), [
+        { id: live.other, it_scope: false },
+      ]);
+    });
     it("AI·SI 우선 묶음과 추천순 키가 정한 순서를 만든다", async (t) => {
       const db = await migratedDb(t);
       const [tiers] = await rowsOf(

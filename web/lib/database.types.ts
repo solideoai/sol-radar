@@ -2907,6 +2907,7 @@ export type Database = {
           docs_unsupported: number | null
           id: string | null
           is_demo: boolean | null
+          it_scope: boolean | null
           last_synced_at: string | null
           latest_decided_at: string | null
           latest_decision: string | null
@@ -2995,6 +2996,7 @@ export type Database = {
           docs_unsupported: number | null
           id: string | null
           is_demo: boolean | null
+          it_scope: boolean | null
           last_synced_at: string | null
           latest_decided_at: string | null
           latest_decision: string | null
