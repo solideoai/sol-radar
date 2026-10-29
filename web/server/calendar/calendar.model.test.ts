@@ -4,9 +4,7 @@ import {
   EMPTY_RAW_SCHEDULE,
   collectCalendarEvents,
   filterKinds,
-  isRelevantState,
   kindsParam,
-  latestRelevanceState,
   monthWeeks,
   parseKinds,
   parseMonth,
@@ -350,33 +348,6 @@ describe("collectCalendarEvents — 원본 일정", () => {
     expect(keys.toSorted()).toEqual(
       ["BID_DEADLINE:w", "OPENING:w", "SUBMISSION_DUE:mine", "OPENING:m"].toSorted(),
     );
-  });
-});
-
-describe("관련성 — 최신 revision 의 최신 평가", () => {
-  it("만든 시각이 늦은 평가, 같으면 id 가 큰 평가를 쓴다. 평가가 없으면 null 이다", () => {
-    const at = "2026-10-28T00:00:00Z";
-    expect(
-      latestRelevanceState([
-        { state: "RELEVANT", createdAt: "2026-10-27T00:00:00Z", id: "b" },
-        { state: "LOW_RELEVANCE", createdAt: at, id: "a" },
-      ]),
-    ).toBe("LOW_RELEVANCE");
-    expect(
-      latestRelevanceState([
-        { state: "LOW_RELEVANCE", createdAt: at, id: "a" },
-        { state: "CANDIDATE", createdAt: at, id: "b" },
-      ]),
-    ).toBe("CANDIDATE");
-    expect(latestRelevanceState([])).toBeNull();
-  });
-
-  it("RELEVANT·CANDIDATE 만 관련 업종이다(사람 확인 필요·낮음·미분류·평가 없음은 아니다)", () => {
-    expect(
-      ["RELEVANT", "CANDIDATE", "NEEDS_REVIEW", "LOW_RELEVANCE", "UNCLASSIFIED", null].map(
-        isRelevantState,
-      ),
-    ).toEqual([true, true, false, false, false, false]);
   });
 });
 

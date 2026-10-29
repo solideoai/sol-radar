@@ -48,11 +48,7 @@ const SCOPE = { orgId: "org-1", userId: "user-me" };
 // 오늘 10-28 에 2026년 10월을 볼 때의 범위(relevantDeadlineWindow): 10-14 00:00 KST 부터 12-26 00:00 KST 전까지
 const WINDOW = { from: "2026-10-13T15:00:00.000Z", to: "2026-12-25T15:00:00.000Z" };
 
-const revision = (
-  number: number,
-  states: { state: string; created_at: string; id: string }[],
-  opening: string | null = "2026-11-10 11:00:00",
-) => ({
+const revision = (number: number, opening: string | null = "2026-11-10 11:00:00") => ({
   revision: number,
   BID_BEGIN: null,
   QUALIFICATION_DUE: null,
@@ -60,10 +56,14 @@ const revision = (
   SITE_BRIEFING: null,
   OPENING: opening,
   sitePlace: null,
-  relevance: states,
 });
 
-const notice = (id: string, revisions: ReturnType<typeof revision>[], latest = 2) => ({
+const notice = (
+  id: string,
+  revisions: ReturnType<typeof revision>[],
+  latest = 2,
+  itScope: boolean | null = true,
+) => ({
   id,
   title: `공고 ${id} (가상)`,
   agency: "가상 기관",
@@ -71,6 +71,7 @@ const notice = (id: string, revisions: ReturnType<typeof revision>[], latest = 2
   is_demo: false,
   status: "OPEN",
   latest_revision: latest,
+  it_scope: itScope,
   revisions,
 });
 
@@ -85,7 +86,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("calendarRepo — 관련 공고", () => {
+describe("calendarRepo — IT 공고", () => {
   it("/gaps 와 같은 대상 조건에 마감 범위(오늘 0시 − 14일부터)를 더해 500건씩 id 순으로 이어 읽는다", async () => {
     const full = Array.from({ length: 500 }, (_, index) =>
       notice(`n${String(index).padStart(3, "0")}`, []),
@@ -133,33 +134,36 @@ describe("calendarRepo — 관련 공고", () => {
     expect(select).not.toContain("bidClseDt");
   });
 
-  it("최신 revision 의 최신 평가가 RELEVANT·CANDIDATE 인 공고만, 그 revision 원본의 일정으로 싣는다", async () => {
-    const old = { created_at: "2026-10-27T00:00:00Z" };
-    const fresh = { created_at: "2026-10-28T00:00:00Z" };
+  it("IT 범위 밖 공고는 마감 일정에서 빠지고 관심 공고는 남는다", async () => {
+    // IT 범위는 목록·집계와 같은 DB 계산 열(it_scope, ADR-069)이다. 관심·프로젝트는 IT 범위 밖이어도 싣는다.
+    pages.bid_watches = [
+      [
+        {
+          bid: {
+            ...notice("watched", [revision(2)], 2, false),
+            deadline_at: "2026-11-02T01:00:00Z",
+          },
+        },
+      ],
+    ];
+    // IT 공고의 원본 일정은 최신 revision(2)의 개찰이다. IT 범위 밖(false·null) 공고는 뺀다.
     pages.bid_notices = [
       [
-        // 최신 평가 CANDIDATE → 싣는다. 일정은 최신 revision(2)의 개찰이다.
-        notice("keep", [
-          revision(1, [{ state: "RELEVANT", id: "a", ...old }], "2026-11-01 10:00"),
-          revision(2, [
-            { state: "LOW_RELEVANCE", id: "b", ...old },
-            { state: "CANDIDATE", id: "c", ...fresh },
-          ]),
-        ]),
-        // 옛 revision 만 관련이고 최신 revision 은 관련 아님 → 뺀다.
-        notice("stale", [
-          revision(1, [{ state: "RELEVANT", id: "d", ...fresh }]),
-          revision(2, [{ state: "LOW_RELEVANCE", id: "e", ...fresh }]),
-        ]),
-        // 최신 revision 에 평가가 없음 → 뺀다.
-        notice("unassessed", [revision(2, [])]),
+        notice("it", [revision(1, "2026-11-01 10:00"), revision(2)]),
+        notice("other", [revision(2)], 2, false),
+        notice("unknown", [revision(2)], 2, null),
       ],
     ];
     const { events, relevantFailed } = await getCalendarEvents(SCOPE, "org", { window: WINDOW });
+
     expect(relevantFailed).toBe(false);
-    expect(events.map((event) => [event.key, event.at])).toEqual([
-      ["BID_DEADLINE:keep", "2026-11-10T01:00:00Z"],
-      ["OPENING:keep", "2026-11-10T02:00:00.000Z"],
+    const select = String(noticeRequests()[0]?.find(([method]) => method === "select")?.[1]);
+    expect(select).toContain("it_scope");
+    expect(events.map((event) => [event.key, event.at]).toSorted()).toEqual([
+      ["BID_DEADLINE:it", "2026-11-10T01:00:00Z"],
+      ["BID_DEADLINE:watched", "2026-11-02T01:00:00Z"],
+      ["OPENING:it", "2026-11-10T02:00:00.000Z"],
+      ["OPENING:watched", "2026-11-10T02:00:00.000Z"],
     ]);
   });
 

@@ -5,7 +5,7 @@ import type { ProgramNoticeListItem } from "@/server/program-notices";
 export const PROGRAMS_PATH = "/bids/programs";
 export const PROGRAMS_TITLE = "부처 지원사업 공고";
 export const PROGRAMS_DESCRIPTION =
-  "기업마당·중소벤처기업부의 지원사업 공고입니다. SOL Score와 권고는 계산하지 않습니다.";
+  "기업마당·중소벤처기업부의 지원사업 공고 중 IT 관련 공고만 보입니다. SOL Score와 권고는 계산하지 않습니다.";
 export const PROGRAMS_LOADING = "부처 지원사업 공고를 불러오는 중…";
 
 export const SOURCE_LABEL: Record<ProgramNoticeListItem["source"], string> = {
@@ -24,11 +24,11 @@ export const RESET_FILTERS_LABEL = "필터 초기화";
 
 export const EMPTY_COPY = {
   none: {
-    title: "수집된 부처 지원사업 공고가 없습니다",
+    title: "수집된 IT 관련 부처 지원사업 공고가 없습니다",
     description: "부처 공고는 정해진 주기로 자동 수집됩니다.",
     action: "나라장터 공고 보기",
   },
-  open: { title: "진행 중인 부처 지원사업 공고가 없습니다" },
+  open: { title: "진행 중인 IT 관련 부처 지원사업 공고가 없습니다" },
   filtered: { title: "조건에 맞는 공고가 없습니다" },
 } as const;
 

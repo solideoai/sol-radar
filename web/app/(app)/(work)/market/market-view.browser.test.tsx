@@ -31,7 +31,7 @@ const AGENCIES = [
 ];
 const OVERVIEW: MarketOverview = {
   asOf: NOW.toISOString(),
-  query: { period: 90, relevance: "relevant" },
+  query: { period: 90 },
   periodStartDate: "2026-07-31",
   upcomingFromDate: "2026-08-03",
   totals: {
@@ -39,7 +39,6 @@ const OVERVIEW: MarketOverview = {
     knownBudgetKrw: "128450000000",
     unknownBudgetCount: 7,
     openNotices: 318,
-    allIndustryNotices: 1198,
     cancelledNotices: 23,
   },
   agencyCount: 187,
@@ -251,9 +250,12 @@ describe("발주 현황 화면", () => {
     expect(
       page.getByRole("link", { name: "최근 90일" }).element().getAttribute("aria-current"),
     ).toBe("page");
-    expect(page.getByRole("link", { name: "전체 업종" }).element().getAttribute("href")).toBe(
-      "/market?period=90&relevance=all",
+    expect(page.getByRole("link", { name: "최근 30일" }).element().getAttribute("href")).toBe(
+      "/market?period=30",
     );
+    // 업종 범위 전환은 없다. 늘 IT 공고만 센다(ADR-069).
+    expect(page.getByRole("link", { name: "전체 업종" }).elements()).toHaveLength(0);
+    expect(host.textContent).toContain("IT 공고만");
 
     // 정직한 표현: 시장 분석·점유율·경쟁사·승률·확률·수주 같은 말이 없다(낙찰은 고정 배지의 "수집하지 않습니다"만)
     const text = host.textContent ?? "";

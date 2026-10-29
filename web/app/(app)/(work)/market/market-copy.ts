@@ -7,9 +7,8 @@ export const MARKET_DESCRIPTION = "수집한 입찰공고로 수요기관·분�
 export const MARKET_SOURCE_BADGE =
   "나라장터 입찰공고 수집분 기준 · 낙찰·계약 데이터는 수집하지 않습니다 · 발주계획·사전규격 미포함";
 
-/** 기간·업종 범위를 든 /market 주소. 로그인 뒤 돌아올 주소와 거르기 링크가 같이 쓴다 */
-export const marketHref = (query: MarketQuery): string =>
-  `/market?period=${query.period}&relevance=${query.relevance}`;
+/** 기간을 든 /market 주소. 로그인 뒤 돌아올 주소와 거르기 링크가 같이 쓴다 */
+export const marketHref = (query: MarketQuery): string => `/market?period=${query.period}`;
 
 /** 공고 상세. 이 화면은 live 공고만 보여 준다 */
 export const marketBidHref = (bidId: string): string => `/bids/${bidId}?origin=live`;

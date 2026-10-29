@@ -69,7 +69,6 @@ const COPY: GapsCopy = {
   },
 };
 const LINKS: GapsLinks = {
-  scope: { relevant: "/gaps", all: "/gaps?scope=all" },
   clearAssume: "/gaps",
   assume: {
     SW_BUSINESS_REG: { on: "/gaps?assume=SW_BUSINESS_REG", off: "/gaps" },
@@ -152,8 +151,7 @@ const READY: ReadyGapView = {
   profile: { revision: 5, isDemo: false, name: "솔리데오" },
   asOf: "2026-10-28T05:05:00.000Z",
   today: "2026-10-28",
-  query: { scope: "relevant", assume: [] },
-  scopeCounts: { relevant: 268, all: 930 },
+  query: { assume: [] },
   radar: {
     summary: {
       total: { count: 268, budgetKrw: "111445000000" },
@@ -175,7 +173,7 @@ const READY: ReadyGapView = {
 };
 const ASSUMED: ReadyGapView = {
   ...READY,
-  query: { scope: "relevant", assume: ["SW_BUSINESS_REG"] },
+  query: { assume: ["SW_BUSINESS_REG"] },
   assumption: {
     codes: [{ code: "SW_BUSINESS_REG", name: "소프트웨어사업자 신고확인서" }],
     summary: {

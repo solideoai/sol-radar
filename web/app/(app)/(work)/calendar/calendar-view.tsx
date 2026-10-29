@@ -365,14 +365,14 @@ export function BidCalendar({
   kindsFiltered: boolean;
   // 보기(조직 전체·내 일정) 안에 일정이 한 건이라도 있는지(달과 상관없이, 종류를 거르기 전)
   hasAnyEvents: boolean;
-  // 관련 업종 공고를 읽지 못해 관심·프로젝트 일정만 실었는지(조직 전체 보기만 읽는다)
+  // IT 공고를 읽지 못해 관심·프로젝트 일정만 실었는지(조직 전체 보기만 읽는다)
   relevantFailed: boolean;
 }) {
   const monthHasEvents = weeks.some((week) =>
     week.some((day) => day.inMonth && (eventsByDate[day.date]?.length ?? 0) > 0),
   );
   const nowDate = new Date(now);
-  // 다가오는 일정이 많으면(관련 업종 실공고) 앞 몇 건만 보이고 나머지는 JS 없이 펼친다.
+  // 다가오는 일정이 많으면(IT 실공고) 앞 몇 건만 보이고 나머지는 JS 없이 펼친다.
   const upcomingShown = upcoming.slice(0, UPCOMING_VISIBLE);
   const upcomingRest = upcoming.slice(UPCOMING_VISIBLE);
   return (

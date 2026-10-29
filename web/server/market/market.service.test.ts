@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GapBucket, GapBucketsView } from "@/server/gaps";
-import type { MarketRow } from "./market.model";
+import { parseMarketQuery, type MarketRow } from "./market.model";
 import type { MarketRepo } from "./market.repo";
 import { aggregateMarket, getMarketOverview, marketWindow, overlayGaps } from "./market.service";
 
@@ -54,7 +54,6 @@ const row = (patch: Partial<MarketRow>): MarketRow => {
     publishedAt: "2026-10-20T01:00:00.000Z",
     deadlineAt: "2026-11-05T01:00:00.000Z",
     categories: ["SI_SW"],
-    relevanceState: "RELEVANT",
     ...patch,
   };
 };
@@ -77,7 +76,7 @@ describe("발주 현황 기간·주 경계(KST)", () => {
 
   it("30일은 오늘(KST) 포함 30일째 00:00 KST부터이고, 주별 추이는 월요일 시작 13주다", () => {
     expect(marketWindow(NOW, 30).readFrom).toBe("2026-08-02T15:00:00.000Z");
-    const overview = aggregateMarket(rows, { period: 30, relevance: "relevant" }, NOW);
+    const overview = aggregateMarket(rows, { period: 30 }, NOW);
     expect(overview.periodStartDate).toBe("2026-09-29");
     expect(overview.totals.notices).toBe(3);
     expect(overview.weekly).toHaveLength(13);
@@ -91,47 +90,32 @@ describe("발주 현황 기간·주 경계(KST)", () => {
     // 90일은 07-31 부터 읽지만(readFrom), 08-03 앞 게시분은 큰 사업 목록에 넣지 않는다.
     expect(marketWindow(NOW, 90).readFrom).toBe("2026-07-30T15:00:00.000Z");
     for (const period of [30, 90] as const) {
-      const overview = aggregateMarket(rows, { period, relevance: "relevant" }, NOW);
+      const overview = aggregateMarket(rows, { period }, NOW);
       expect(overview.upcomingFromDate).toBe("2026-08-03");
       expect(overview.upcoming.map((item) => item.bidId)).toEqual(
         rows.slice(0, 4).map((item) => item.bidId),
       );
     }
-    expect(aggregateMarket(rows, { period: 90, relevance: "relevant" }, NOW).totals.notices).toBe(
-      6,
-    );
+    expect(aggregateMarket(rows, { period: 90 }, NOW).totals.notices).toBe(6);
   });
 });
 
-describe("발주 현황 관련성 거르기", () => {
-  const rows = [
-    row({ relevanceState: "RELEVANT" }),
-    row({ relevanceState: "CANDIDATE", categories: ["AI_AX", "AI_AX", "DATA"] }),
-    row({ relevanceState: "LOW_RELEVANCE", categories: [] }),
-    row({ relevanceState: "NEEDS_REVIEW" }),
-    row({ relevanceState: "UNCLASSIFIED" }),
-    row({ relevanceState: "RELEVANT", status: "CANCELLED" }),
-  ];
-
-  it("기본은 RELEVANT·CANDIDATE 만 세고, 취소 공고는 빼서 따로 센다", () => {
-    const overview = aggregateMarket(rows, { period: 90, relevance: "relevant" }, NOW);
-    expect(overview.totals).toMatchObject({
-      notices: 2,
-      allIndustryNotices: 5,
-      cancelledNotices: 1,
-    });
+describe("발주 현황 분야·취소", () => {
+  it("공고 하나의 같은 분야는 한 번만 세고, 분야가 없으면 NONE, 취소 공고는 빼서 따로 센다", () => {
+    const rows = [
+      row({}),
+      row({ categories: ["AI_AX", "AI_AX", "DATA"] }),
+      row({ categories: [] }),
+      row({ status: "CANCELLED" }),
+    ];
+    const overview = aggregateMarket(rows, { period: 90 }, NOW);
+    expect(overview.totals).toMatchObject({ notices: 3, cancelledNotices: 1 });
     expect(overview.categories).toEqual([
       { key: "AI_AX", count: 1, knownBudgetKrw: "100000000" },
       { key: "DATA", count: 1, knownBudgetKrw: "100000000" },
+      { key: "NONE", count: 1, knownBudgetKrw: "100000000" },
       { key: "SI_SW", count: 1, knownBudgetKrw: "100000000" },
     ]);
-  });
-
-  it("거르기를 끄면 전체 업종을 세고 카테고리가 없는 공고는 NONE 이다", () => {
-    const overview = aggregateMarket(rows, { period: 90, relevance: "all" }, NOW);
-    expect(overview.totals.notices).toBe(5);
-    expect(overview.categories.find((c) => c.key === "NONE")?.count).toBe(1);
-    expect(overview.categories.find((c) => c.key === "SI_SW")?.count).toBe(3);
   });
 });
 
@@ -147,7 +131,7 @@ describe("발주 현황 예산", () => {
         // 14일 뒤 마감은 "마감 다가오는" 목록에서 빠진다
         row({ agency: " ", budgetKrw: "700000000", deadlineAt: "2026-11-11T00:00:00Z" }),
       ],
-      { period: 90, relevance: "relevant" },
+      { period: 90 },
       NOW,
     );
     expect(overview.totals).toMatchObject({
@@ -187,7 +171,6 @@ describe("발주 현황 나눠 읽기", () => {
     published_at: "2026-10-20T01:00:00.000Z",
     deadline_at: null,
     categories: [],
-    relevance_state: "RELEVANT",
   });
   const READ_FROM = "2026-07-30T15:00:00.000Z";
 
@@ -209,6 +192,8 @@ describe("발주 현황 나눠 읽기", () => {
       ["neq", "source", "fixture"],
       ["contains", "source_families", ["G2B"]],
       ["eq", "stage", "NOTICE"],
+      // IT 범위는 목록·대시보드와 같은 뷰 열이 정한다(ADR-069).
+      ["eq", "it_scope", true],
       ["lte", "first_seen_at", NOW.toISOString()],
       ["gte", "published_at", READ_FROM],
       ["order", "id", { ascending: true }],
@@ -216,6 +201,17 @@ describe("발주 현황 나눠 읽기", () => {
     ];
     expect(requests[0]).toEqual(filters);
     expect(requests[1]).toEqual([...filters, ["gt", "id", make(1000).id]]);
+  });
+
+  it("relevance=all 이어도 IT 범위 밖 공고를 세지 않는다", async () => {
+    // 예전 주소(?relevance=all)는 받아도 무시한다. 읽기는 늘 it_scope 로 거른다.
+    expect(parseMarketQuery({ period: "90", relevance: "all" })).toEqual({ period: 90 });
+    const { marketRepo } = await import("./market.repo");
+    requests.length = 0;
+    pages.push([make(1)]);
+    await marketRepo.listLiveNotices("org-1", READ_FROM, NOW.toISOString());
+    expect(requests[0]).toContainEqual(["eq", "it_scope", true]);
+    expect(String(requests[0]?.[1]?.[1])).not.toContain("relevance_state");
   });
 
   it("1,000건짜리 쪽이 20번 이어지면 덜 세지 않도록 읽기 실패로 둔다", async () => {
@@ -232,7 +228,7 @@ describe("발주 현황 나눠 읽기", () => {
 });
 
 describe("발주 현황 판정 묶음 겹쳐 보기(§6 B2)", () => {
-  const QUERY = { period: 30, relevance: "relevant" } as const;
+  const QUERY = { period: 30 } as const;
   const named = (label: string, patch: Partial<MarketRow>) => ({ label, row: row(patch) });
   const cases = [
     // 앞뒤 빈칸이 있는 기관 이름은 집계(topAgencies)와 같이 다듬어 같은 기관으로 센다
@@ -244,7 +240,6 @@ describe("발주 현황 판정 묶음 겹쳐 보기(§6 B2)", () => {
     named("no-deadline", { agency: "조달청", status: "AMENDED", deadlineAt: null }),
     named("cancelled", { agency: "조달청", status: "CANCELLED" }),
     named("old", { agency: "조달청", publishedAt: "2026-07-01T01:00:00.000Z" }),
-    named("low", { agency: "조달청", relevanceState: "LOW_RELEVANCE" }),
     named("unmatched", { agency: "행정안전부" }),
     named("no-agency", { agency: null, categories: ["AI_AX"] }),
   ];
@@ -264,12 +259,11 @@ describe("발주 현황 판정 묶음 겹쳐 보기(§6 B2)", () => {
     ["no-deadline", "MISSING_RECORD"],
     ["cancelled", "ELIGIBLE"],
     ["old", "ELIGIBLE"],
-    ["low", "ELIGIBLE"],
     ["no-agency", "NEEDS_REVIEW"],
   ]);
   const zero = { ELIGIBLE: 0, MISSING_RECORD: 0, NOT_HELD: 0, NEEDS_REVIEW: 0 };
 
-  it("기간·관련성 안 마감 전 공고만 기관·분야 키로 세고, 마감이 지난 공고는 묶음에 넣지 않는다", () => {
+  it("기간 안 마감 전 공고만 기관·분야 키로 세고, 마감이 지난 공고는 묶음에 넣지 않는다", () => {
     const overlay = overlayGaps(rows, QUERY, NOW, GAPS);
     expect(overlay).toEqual({
       status: "READY",

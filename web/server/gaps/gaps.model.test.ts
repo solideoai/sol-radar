@@ -12,7 +12,6 @@ import {
   buildGapRadar,
   classifyNotice,
   gapRadarHref,
-  inScope,
   parseAssume,
   parseGapQuery,
   toGapNotice,
@@ -52,7 +51,7 @@ const license = (seq: number, entry: { code: string; name: string }) =>
 const notice = (
   id: string,
   rows: StructuredRequirement[],
-  options: { aux?: "OK" | "FAILED" | null; budget?: string | null; relevance?: string | null } = {},
+  options: { aux?: "OK" | "FAILED" | null; budget?: string | null } = {},
 ): GapNotice => {
   const aux = options.aux === undefined ? "OK" : options.aux;
   const bid: NormalizedBidSummary = {
@@ -75,7 +74,6 @@ const notice = (
     agency: bid.agency,
     budgetKrw: bid.budgetKrw,
     deadlineAt: bid.deadlineAt,
-    relevance: options.relevance === undefined ? "RELEVANT" : options.relevance,
     bid,
   };
 };
@@ -277,7 +275,7 @@ describe("buildGapRadar · assumeGapRadar · 집계와 보유 가정", () => {
   });
 });
 
-describe("parseAssume · inScope · 주소 · 행 변환", () => {
+describe("parseAssume · 주소 · 행 변환", () => {
   it("사전 코드만 남기고 중복을 없애 사전 순서로 정렬한다", () => {
     expect(parseAssume("ISMS_P,SW_BUSINESS_REG,ISMS_P,UNKNOWN, CSAP")).toEqual([
       "SW_BUSINESS_REG",
@@ -288,29 +286,18 @@ describe("parseAssume · inScope · 주소 · 행 변환", () => {
     expect(parseAssume(undefined)).toEqual([]);
   });
 
-  it("관련성 RELEVANT·CANDIDATE 만 남기고, all 이면 전부다", () => {
-    const list = [
-      notice("a", [], { relevance: "RELEVANT" }),
-      notice("b", [], { relevance: "CANDIDATE" }),
-      notice("c", [], { relevance: "EXCLUDED" }),
-      notice("d", [], { relevance: null }),
-    ];
-    expect(inScope(list, "relevant").map((entry) => entry.bidId)).toEqual(["a", "b"]);
-    expect(inScope(list, "all")).toHaveLength(4);
-  });
-
   it("주소 쿼리를 읽고 스위치를 켜고 끈 다음 주소를 만든다", () => {
-    const query = parseGapQuery({ scope: "all", assume: "ISMS_P" });
-    expect(query).toEqual({ scope: "all", assume: ["ISMS_P"] });
+    const query = parseGapQuery({ assume: "ISMS_P" });
+    expect(query).toEqual({ assume: ["ISMS_P"] });
     expect(gapRadarHref(toggleAssume(query, "SW_BUSINESS_REG", true))).toBe(
-      "/gaps?scope=all&assume=SW_BUSINESS_REG,ISMS_P",
+      "/gaps?assume=SW_BUSINESS_REG,ISMS_P",
     );
     expect(gapRadarHref(toggleAssume(parseGapQuery({ assume: "ISMS_P" }), "ISMS_P", false))).toBe(
       "/gaps",
     );
   });
 
-  it("행 → 대상 공고: latest_revision 의 요건·보조 조회·최신 관련성을 쓴다", () => {
+  it("행 → 대상 공고: latest_revision 의 요건·보조 조회를 쓴다", () => {
     const requirement = {
       kind: "LICENSE_LIMIT",
       seq: 1,
@@ -328,6 +315,7 @@ describe("parseAssume · inScope · 주소 · 행 변환", () => {
       deadline_at: "2026-11-20T09:00:00+00:00",
       latest_revision: 2,
       last_synced_at: "2026-10-28T00:00:00+00:00",
+      it_scope: true,
     };
     const target = toGapNotice({
       ...rowBase,
@@ -338,7 +326,6 @@ describe("parseAssume · inScope · 주소 · 행 변환", () => {
           fetched_at: "2026-10-20T00:00:00+00:00",
           aux: null,
           requirements: [],
-          relevance: [],
         },
         {
           id: "r2",
@@ -346,14 +333,10 @@ describe("parseAssume · inScope · 주소 · 행 변환", () => {
           fetched_at: "2026-10-27T00:00:00+00:00",
           aux: { status: "OK", failed: [] },
           requirements: [requirement],
-          relevance: [
-            { state: "EXCLUDED", created_at: "2026-10-27T00:00:00+00:00", id: "a" },
-            { state: "CANDIDATE", created_at: "2026-10-28T00:00:00+00:00", id: "b" },
-          ],
         },
       ],
     });
-    expect(target).toMatchObject({ budgetKrw: "392900000", relevance: "CANDIDATE" });
+    expect(target).toMatchObject({ budgetKrw: "392900000" });
     expect(target.bid?.revisionId).toBe("r2");
     expect(classifyNotice(target, profile(), TODAY).bucket).toBe("MISSING_RECORD");
     // latest_revision 이 없으면 규칙 엔진 입력을 만들지 않는다(DATA_INVALID 로 센다).
@@ -364,14 +347,14 @@ describe("parseAssume · inScope · 주소 · 행 변환", () => {
 });
 
 describe("bucketByBid · /market 겹쳐 보기(§6 B2)", () => {
-  it("관련성 거르기 없이 받은 공고마다 classifyNotice 와 같은 묶음을 bidId 로 돌려준다", () => {
+  it("받은 공고마다 classifyNotice 와 같은 묶음을 bidId 로 돌려준다", () => {
     const notHeld = profile([
       { code: "SW_BUSINESS_REG", name: "소프트웨어사업자 신고확인서", status: "NOT_HELD" },
     ]);
     const list = [
-      notice("eligible", [], { relevance: "EXCLUDED" }),
+      notice("eligible", []),
       notice("not-held", [license(1, SW)]),
-      notice("review", [], { aux: "FAILED", relevance: null }),
+      notice("review", [], { aux: "FAILED" }),
       notice("bundle", [license(1, RESEARCH), license(2, ICT)]),
     ];
     const buckets = bucketByBid(list, notHeld, TODAY);

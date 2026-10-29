@@ -6,24 +6,24 @@ import type { CalendarEventKind, CalendarView } from "@/server/calendar";
 export const CALENDAR_PATH = "/calendar";
 export const CALENDAR_TITLE = "입찰 일정";
 export const CALENDAR_DESCRIPTION =
-  "관심 공고·입찰 프로젝트·관련 업종 공고의 마감과 원본 일정을 한국 시각(KST) 달력으로 모아 봅니다.";
+  "관심 공고·입찰 프로젝트·IT 공고의 마감과 원본 일정을 한국 시각(KST) 달력으로 모아 봅니다.";
 export const CALENDAR_CAPTION = "월간 입찰 일정";
 export const CALENDAR_LOADING = "입찰 일정을 불러오는 중…";
 
 export const VIEW_ORDER: readonly CalendarView[] = ["org", "mine"];
 export const VIEW_LABELS = { org: "조직 전체", mine: "내 일정" } as const;
 export const VIEW_HINTS = {
-  org: "내 관심 공고, 조직의 진행 중인 입찰 프로젝트, 관련 업종 공고",
+  org: "내 관심 공고, 조직의 진행 중인 입찰 프로젝트, IT 공고",
   mine: "내 관심 공고와 내가 담당인 입찰 프로젝트",
 } as const;
-// 일정의 출처. 관련 업종 공고는 조직 전체 보기에만 실린다.
+// 일정의 출처. IT 공고(ADR-069 IT 범위)는 조직 전체 보기에만 실린다.
 export const SOURCE_NOTES = {
-  org: "나라장터 입찰공고 원본의 일정 · 관련 업종의 마감 전·최근 14일 마감 공고 · 변경 공고는 수집 주기마다 반영",
+  org: "나라장터 입찰공고 원본의 일정 · IT 공고 중 마감 전·최근 14일 마감 공고 · 변경 공고는 수집 주기마다 반영",
   mine: "나라장터 입찰공고 원본의 일정 · 변경 공고는 수집 주기마다 반영",
 } as const;
-// 관련 업종 공고 읽기가 실패하면 관심·프로젝트 일정만 그리고 출처 줄 아래에 한 줄로 알린다.
+// IT 공고 읽기가 실패하면 관심·프로젝트 일정만 그리고 출처 줄 아래에 한 줄로 알린다.
 export const RELEVANT_LOAD_FAILED =
-  "관련 업종 공고 일정을 불러오지 못했습니다. 관심·프로젝트 일정만 보입니다.";
+  "IT 공고 일정을 불러오지 못했습니다. 관심·프로젝트 일정만 보입니다.";
 
 // 칩 메뉴·다가오는 목록·접근 이름은 전체 이름, 종류 거르기 칩은 짧은 이름(전체 이름은 title 로 보인다).
 export const KIND_LABELS: Record<CalendarEventKind, string> = {

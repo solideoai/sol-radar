@@ -3,13 +3,11 @@
 import { Building2Icon, InboxIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useOptimistic, useRef, useState, useTransition } from "react";
+import { useOptimistic, useRef, useState, useTransition } from "react";
 import { cn } from "cn";
 import { AppPage } from "@/components/app-page";
 import { buttonVariants } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import type { GapQuery, GapRadarView, GapScope } from "@/server/gaps";
+import type { GapQuery, GapRadarView } from "@/server/gaps";
 import { INGESTION_PATH } from "@/app/(app)/(work)/admin/ingestion/ingestion-copy";
 import { EmptyState, NO_BIDS_HINT, NO_BIDS_ACTION_LABEL } from "@/app/(app)/(work)/empty-state";
 import { GAPS_CONTENT_CLASS, GAPS_DESCRIPTION, GAPS_TITLE } from "./gaps-copy";
@@ -26,7 +24,7 @@ import {
 } from "./gaps-sections";
 
 // 자격 갭 레이더 화면(디자인 스펙 docs/plans/2026-10-28-gaps-ui-spec.md). 계산은 서버(getGapRadar)가 한다.
-// 스위치·관련성 거르기·가정 지우기는 page 가 미리 만든 주소로 router.push(scroll: false) 한다. 가정은 주소에만 있고 저장하지 않는다.
+// 대상은 늘 IT 범위 공고다(ADR-069). 스위치·가정 지우기는 page 가 미리 만든 주소로 router.push(scroll: false) 한다. 가정은 주소에만 있고 저장하지 않는다.
 // 이동하는 동안(transition pending)에는 스위치를 막는다(disabled). 주소가 지금 쿼리 기준이라, 겹쳐 누르면 앞의 조작이 사라지기 때문이다.
 
 type GapsViewProps = {
@@ -77,7 +75,7 @@ function NoProfile({ copy, canOpenCompany }: { copy: GapsCopy; canOpenCompany: b
   );
 }
 
-const queryKey = (query: GapQuery): string => `${query.scope}|${query.assume.join(",")}`;
+const queryKey = (query: GapQuery): string => query.assume.join(",");
 
 // 조사 "으로"는 건·억·만(받침 있음)으로 끝나는 값에만 붙인다.
 const changeText = (label: string, from: string, to: string): string =>
@@ -85,8 +83,6 @@ const changeText = (label: string, from: string, to: string): string =>
 
 /** 숫자 변화 알림(§7). 계산 중에는 알리지 않고, 결과가 그려진 뒤 마지막 결과만 읽는다. */
 function announcementOf(previous: GapQuery, view: ReadyGapView, copy: GapsCopy): string {
-  if (previous.scope !== view.query.scope)
-    return `${view.query.scope === "all" ? "전체" : "관련"} 업종 공고 ${formatCount(view.radar.summary.total.count)}건 기준으로 다시 셌습니다.`;
   if (view.assumption !== null) {
     const before = view.radar.summary.buckets.ELIGIBLE;
     const after = view.assumption.summary.buckets.ELIGIBLE;
@@ -126,11 +122,7 @@ function ReadyGaps({
     view.query.assume,
     (_, next) => next,
   );
-  const [scope, setScope] = useOptimistic<GapScope, GapScope>(view.query.scope, (_, next) => next);
   const bandTitle = useRef<HTMLHeadingElement>(null);
-  const scopeSwitchId = useId();
-  const scopeLabelId = useId();
-  const scopeCountsId = useId();
 
   // 주소(쿼리)가 바뀌어 새 결과가 그려지면 그때 한 번 알림 글자를 바꾼다(이전 쿼리와 비교).
   const key = queryKey(view.query);
@@ -159,10 +151,6 @@ function ReadyGaps({
     bandTitle.current?.focus();
     navigate(links.clearAssume, () => setAssumed([]));
   };
-  const changeScope = (all: boolean) => {
-    const next: GapScope = all ? "all" : "relevant";
-    navigate(links.scope[next], () => setScope(next));
-  };
 
   const total = view.radar.summary.total.count;
   return (
@@ -170,28 +158,6 @@ function ReadyGaps({
       title={GAPS_TITLE}
       description={GAPS_DESCRIPTION}
       contentClassName={GAPS_CONTENT_CLASS}
-      actions={
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <div className="flex items-center gap-2">
-            <Label id={scopeLabelId} htmlFor={scopeSwitchId} className="text-foreground">
-              전체 업종 보기
-            </Label>
-            <Switch
-              id={scopeSwitchId}
-              data-slot="gaps-scope-switch"
-              checked={scope === "all"}
-              disabled={pending}
-              onCheckedChange={changeScope}
-              aria-labelledby={scopeLabelId}
-              aria-describedby={scopeCountsId}
-            />
-          </div>
-          <p id={scopeCountsId} className="type-caption text-muted-foreground tabular-nums">
-            관련 {formatCount(view.scopeCounts.relevant)}건 · 전체{" "}
-            {formatCount(view.scopeCounts.all)}건
-          </p>
-        </div>
-      }
     >
       <p data-slot="gaps-live" aria-live="polite" className="sr-only">
         {heard.message}
@@ -202,7 +168,7 @@ function ReadyGaps({
         {total === 0 ? (
           <>
             <FixedNotices copy={copy} />
-            <NoTargets view={view} links={links} canRunIngestion={access.canRunIngestion} />
+            <NoTargets canRunIngestion={access.canRunIngestion} />
           </>
         ) : (
           <>
@@ -251,37 +217,12 @@ function ReadyGaps({
   );
 }
 
-// 대상 0건(§5 상태표). 관련 업종만 0건이면 전체 업종으로 가는 길을, 전체도 0건이면 수집 안내를 둔다.
-function NoTargets({
-  view,
-  links,
-  canRunIngestion,
-}: {
-  view: ReadyGapView;
-  links: GapsLinks;
-  canRunIngestion: boolean;
-}) {
-  if (view.query.scope === "relevant" && view.scopeCounts.all > 0)
-    return (
-      <EmptyState
-        icon={InboxIcon}
-        title="마감 전 관련 공고가 없습니다"
-        description={`전체 업종에는 ${formatCount(view.scopeCounts.all)}건이 있습니다.`}
-        action={
-          <Link
-            href={links.scope.all}
-            scroll={false}
-            className={cn(buttonVariants({ variant: "outline" }))}
-          >
-            전체 업종 보기
-          </Link>
-        }
-      />
-    );
+// 대상 0건(§5 상태표). 마감 전 IT 공고가 없으면 수집 안내를 둔다.
+function NoTargets({ canRunIngestion }: { canRunIngestion: boolean }) {
   return (
     <EmptyState
       icon={InboxIcon}
-      title="마감 전 수집 공고가 없습니다"
+      title="마감 전 IT 공고가 없습니다"
       description={canRunIngestion ? undefined : NO_BIDS_HINT}
       action={
         canRunIngestion ? (

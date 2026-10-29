@@ -6,8 +6,6 @@ import {
   EMPTY_RAW_SCHEDULE,
   RAW_SCHEDULE_KEYS,
   RAW_SITE_PLACE_KEY,
-  isRelevantState,
-  latestRelevanceState,
   latestRevisionOf,
   type CalendarBid,
   type CalendarRepo,
@@ -33,12 +31,12 @@ const OWNER_FIELDS =
   "owner:memberships!bid_projects_owner_fkey(profile:profiles!memberships_user_id_fkey(display_name,email))";
 const WATCH_SELECT = `bid:bid_notices!bid_watches_bid_id_fkey(${BID_FIELDS})`;
 const PROJECT_SELECT = `id,status,owner_id,submission_due_override,bid:bid_notices!bid_projects_bid_id_fkey(${BID_FIELDS}),${OWNER_FIELDS}`;
-// 관련 공고: /gaps(server/gaps/gaps.repo.ts)와 같은 대상 조건에 최신 revision 의 관련성 평가를 더한다(마감 하한만 다르다).
+// IT 공고: /gaps(server/gaps/gaps.repo.ts)와 같은 대상 조건이다(마감 하한만 다르다).
+// it_scope 는 bid_notices 계산 열(ADR-069)이다. 생성 타입의 Row 에 없어 필터(.eq)로 쓰지 못하고, 읽은 뒤 고른다.
 const RELEVANT_SELECT =
-  "id,title,agency,deadline_at,is_demo,status,latest_revision," +
+  "id,title,agency,deadline_at,is_demo,status,latest_revision,it_scope," +
   "opportunity:bid_opportunities!bid_opportunities_canonical_notice_id_fkey!inner(superseded_by)," +
-  `revisions:bid_revisions!bid_revisions_bid_id_fkey(${RAW_FIELDS},` +
-  "relevance:bid_relevance_assessments!bid_relevance_assessments_revision_id_fkey(state,created_at,id))";
+  REVISIONS;
 const PAGE = 500;
 
 type StoredRevision = { revision: number } & Record<keyof RawSchedule, string | null>;
@@ -54,11 +52,7 @@ type StoredBid = {
   revisions: StoredRevision[];
 };
 
-type StoredRelevantBid = StoredBid & {
-  revisions: (StoredRevision & {
-    relevance: { state: string; created_at: string; id: string }[];
-  })[];
-};
+type StoredItBid = StoredBid & { it_scope: boolean | null };
 
 function projectStatusOf(value: string): ProjectStatus {
   const status = PROJECT_STATUSES.find((known) => known === value);
@@ -89,11 +83,12 @@ const toBid = (row: StoredBid): CalendarBid => ({
 });
 
 /**
- * 관련 업종 실공고 가운데 공고 마감이 window 안인 것. 대상 조건은 /gaps 와 같다:
- * live(is_demo=false, 데모 수집기 아님) 입찰공고(stage=NOTICE), OPEN·AMENDED(취소 제외), 대표 공고(superseded_by 없음).
+ * IT 범위 실공고 가운데 공고 마감이 window 안인 것. 대상 조건은 /gaps 와 같다:
+ * live(is_demo=false, 데모 수집기 아님) 입찰공고(stage=NOTICE), OPEN·AMENDED(취소 제외), 대표 공고(superseded_by 없음),
+ * IT 범위(계산 열 it_scope, ADR-069. 목록·집계와 같은 DB 판정이다). IT 범위는 읽은 뒤 고른다.
  * 마감 하한만 다르다. /gaps 는 지금 이후, 여기는 window.from(오늘 0시 − 14일) 이후라 마감이 지난 공고의 개찰도 남는다.
  * 나라장터 공고는 마감이 지나도 status 가 OPEN·AMENDED 로 남는다(CLOSED 는 화면 뷰가 계산한다).
- * 관련성(최신 revision 의 최신 평가)은 임베드로 거를 수 없어 읽은 뒤 고른다. 1,000행 제한은 id keyset 으로 넘긴다.
+ * 1,000행 제한은 id keyset 으로 넘긴다.
  */
 async function readRelevantBids(window: DeadlineWindow): Promise<CalendarBid[]> {
   const db = await getSupabase();
@@ -113,19 +108,9 @@ async function readRelevantBids(window: DeadlineWindow): Promise<CalendarBid[]> 
     const { data, error } = await page
       .order("id")
       .limit(PAGE)
-      .overrideTypes<StoredRelevantBid[], { merge: false }>();
+      .overrideTypes<StoredItBid[], { merge: false }>();
     if (error) throw new Error("입찰 일정의 관련 공고를 읽지 못했습니다", { cause: error });
-    for (const row of data) {
-      const latest = latestRevisionOf(row.latest_revision, row.revisions);
-      const state = latestRelevanceState(
-        (latest?.relevance ?? []).map(({ state, created_at, id }) => ({
-          state,
-          createdAt: created_at,
-          id,
-        })),
-      );
-      if (isRelevantState(state)) bids.push(toBid(row));
-    }
+    bids.push(...data.filter((row) => row.it_scope === true).map(toBid));
     if (data.length < PAGE) break;
     lastId = data[data.length - 1].id;
   }

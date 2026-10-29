@@ -35,11 +35,6 @@ export const GAP_REVIEW_REASONS = [
 ] as const;
 export type GapReviewReason = (typeof GAP_REVIEW_REASONS)[number];
 
-/** 관련성 기본 거르기(§5 A1). 수집 때 계산한 최신 revision 의 최신 판정 state 다. */
-// /market 의 RELEVANT_STATES(server/market/market.model.ts)·/calendar(server/calendar/calendar.model.ts)와 같은 값이다. 도메인마다 따로 두므로 바꿀 때 셋 다 고친다.
-export const RELEVANT_STATES: readonly string[] = ["RELEVANT", "CANDIDATE"];
-export type GapScope = "relevant" | "all";
-
 /** 대상 공고 한 건. bid 는 최신 revision 의 규칙 엔진 입력이고, 모양이 틀린 공고는 null 이다(DATA_INVALID 로 센다). */
 export type GapNotice = {
   bidId: string;
@@ -47,7 +42,6 @@ export type GapNotice = {
   agency: string | null;
   budgetKrw: string | null;
   deadlineAt: string | null;
-  relevance: string | null;
   bid: NormalizedBidSummary | null;
 };
 
@@ -108,8 +102,11 @@ export type GapAssumption = {
 
 // ── 화면 계약(/gaps). 화면은 아래 타입·상수·함수만 쓴다. 계산은 서버(getGapRadar)가 한다 ──
 
-/** 주소 쿼리. `?scope=all` 이면 관련성 거르기를 끈다. `?assume=SW_BUSINESS_REG,ISMS_P` 는 보유 가정 코드다. */
-export type GapQuery = { scope: GapScope; assume: QualificationCode[] };
+/**
+ * 주소 쿼리. `?assume=SW_BUSINESS_REG,ISMS_P` 는 보유 가정 코드다.
+ * 대상은 늘 IT 범위 공고다(ADR-069). 예전 `?scope=all` 은 받아도 무시한다.
+ */
+export type GapQuery = { assume: QualificationCode[] };
 
 export type GapRadarView =
   /** 이 조직에 회사 프로필 revision 이 없다(또는 RLS 로 읽지 못했다) */
@@ -122,15 +119,13 @@ export type GapRadarView =
       /** 판정 기준 날짜(KST "YYYY-MM-DD") */
       today: string;
       query: GapQuery;
-      /** 관련성 거르기 전·후 대상 공고 수(토글 옆 숫자) */
-      scopeCounts: { relevant: number; all: number };
       /** 원래 프로필로 판정한 결과 */
       radar: GapRadar;
       /** query.assume 이 비었으면 null. 원래 결과는 radar.summary 와 비교한다 */
       assumption: GapAssumption | null;
     };
 
-/** /market 겹쳐 보기(스펙 §6 B2) 계약. buckets 는 bidId → 판정 묶음이고, 관련성 거르기 전 마감 전 live 공고 전부다 */
+/** /market 겹쳐 보기(스펙 §6 B2) 계약. buckets 는 bidId → 판정 묶음이고, 마감 전 IT 범위 live 공고 전부다 */
 export type GapBucketsView =
   | { kind: "NO_PROFILE" }
   | {
@@ -176,19 +171,14 @@ export const GAPS_ASSUMPTION_NOTICE = "가정 결과입니다. 저장되지 않�
 export const GAPS_SOURCE_NOTICE =
   "나라장터 입찰공고 수집분 기준 · 낙찰·계약 데이터는 수집하지 않습니다 · 발주계획·사전규격 미포함";
 
-/** searchParams → GapQuery. 모르는 값은 기본값(관련 공고만·가정 없음)으로 둔다. */
-export function parseGapQuery(params: {
-  scope?: string | string[];
-  assume?: string | string[];
-}): GapQuery {
-  const scope = Array.isArray(params.scope) ? params.scope[0] : params.scope;
-  return { scope: scope === "all" ? "all" : "relevant", assume: parseAssume(params.assume) };
+/** searchParams → GapQuery. 모르는 값은 기본값(가정 없음)으로 둔다. */
+export function parseGapQuery(params: { assume?: string | string[] }): GapQuery {
+  return { assume: parseAssume(params.assume) };
 }
 
 /** GapQuery → `/gaps?…`. 기본값은 쿼리에 넣지 않는다. 스위치·토글이 이 함수로 다음 주소를 만든다. */
 export function gapRadarHref(query: GapQuery): string {
   const params = new URLSearchParams();
-  if (query.scope === "all") params.set("scope", "all");
   const assume = parseAssume(query.assume.join(","));
   if (assume.length > 0) params.set("assume", assume.join(","));
   const search = params.toString().replaceAll("%2C", ",");
@@ -212,6 +202,8 @@ export type GapNoticeRow = {
   deadline_at: string | null;
   latest_revision: number;
   last_synced_at: string;
+  /** IT 범위(bid_notices 계산 열, ADR-069). repo 가 true 인 행만 남긴다 */
+  it_scope: boolean | null;
   revisions: {
     id: string;
     revision: number;
@@ -225,23 +217,17 @@ export type GapNoticeRow = {
       value: unknown;
       source_operation: string;
     }[];
-    relevance: { state: string; created_at: string; id: string }[];
   }[];
 };
 
 /**
  * 행 → 대상 공고. 최신 revision(latest_revision)의 구조화 요건·보조 조회 상태로 규칙 엔진 입력을 만든다
- * (분석 입력 조립 analysis-store.model 의 toBidSummary 와 같은 정렬·같은 auxLookup 처리). 관련성은 그 revision 의 최신 판정이다.
+ * (분석 입력 조립 analysis-store.model 의 toBidSummary 와 같은 정렬·같은 auxLookup 처리).
  * 입력 모양이 규칙 엔진 스키마에 맞지 않으면 bid=null 이다.
  */
 export function toGapNotice(row: GapNoticeRow): GapNotice {
   const revision = row.revisions.find((entry) => entry.revision === row.latest_revision);
   const budgetKrw = row.budget_krw !== null && /^\d+$/.test(row.budget_krw) ? row.budget_krw : null;
-  const relevance =
-    revision?.relevance.toSorted(
-      (left, right) =>
-        right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id),
-    )[0]?.state ?? null;
   const parsed =
     revision === undefined
       ? null
@@ -278,7 +264,6 @@ export function toGapNotice(row: GapNoticeRow): GapNotice {
     agency: row.agency,
     budgetKrw,
     deadlineAt: row.deadline_at,
-    relevance,
     bid: parsed?.success ? parsed.data : null,
   };
 }
@@ -544,15 +529,6 @@ export function bucketByBid(
   return new Map(
     judge(notices, profile, today).map(({ notice, verdict }) => [notice.bidId, verdict.bucket]),
   );
-}
-
-/** 관련성 거르기(§5 A1). all 이면 그대로. */
-export function inScope(notices: GapNotice[], scope: GapScope): GapNotice[] {
-  return scope === "all"
-    ? notices
-    : notices.filter(
-        (notice) => notice.relevance !== null && RELEVANT_STATES.includes(notice.relevance),
-      );
 }
 
 /** 주소 쿼리 `assume=SW_BUSINESS_REG,ISMS_P` → 사전 코드만, 중복 없이, 사전 순서로. 사전 밖 값은 버린다. */

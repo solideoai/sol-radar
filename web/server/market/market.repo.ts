@@ -3,7 +3,7 @@ import { getSupabase } from "@/server/supabase";
 import { marketRowSchema, type MarketRow } from "./market.model";
 
 export type MarketRepo = {
-  /** 이 조직의 live 사업기회 중 나라장터 사본이 있고 readFrom 이후 게시·asOf 까지 처음 본 입찰공고 전부 */
+  /** 이 조직의 live IT 범위 사업기회 중 나라장터 사본이 있고 readFrom 이후 게시·asOf 까지 처음 본 입찰공고 전부 */
   listLiveNotices(orgId: string, readFrom: string, asOf: string): Promise<MarketRow[]>;
 };
 
@@ -12,10 +12,11 @@ const PAGE_SIZE = 1000;
 // 끝없는 반복을 막는 상한(20,000건). 넘으면 숫자를 덜 세지 않도록 읽기 실패로 둔다.
 const MAX_PAGES = 20;
 const COLUMNS =
-  "id,bid_id,title,agency,status,budget_krw,source_conflict,published_at,deadline_at,categories,relevance_state";
+  "id,bid_id,title,agency,status,budget_krw,source_conflict,published_at,deadline_at,categories";
 
 // 사업기회 뷰(security_invoker)를 anon 키 + 세션으로 읽는다. 조직 격리는 RLS 가 한다.
 // live 범위는 procurement_summary·procurement_live_metrics 와 같다(is_demo=false, 데모 수집기 아님, 처음 본 시각 ≤ 기준).
+// IT 범위(ADR-069)는 목록·대시보드와 같은 뷰 열(it_scope)로 거른다.
 // 화면 배지("나라장터 입찰공고 수집분")와 맞게 출처 사본 중 나라장터(G2B)가 하나라도 있는 사업기회만 읽는다.
 // 대표 공고 출처(source_family)로 거르지 않는다. 같은 사업이면 refresh_bid_opportunity 가 KWATER·LH·KEPCO 를
 // 나라장터보다 대표로 골라, 나라장터에도 실린 공고가 빠지기 때문이다. 단계(NOTICE)·제목·기관·예산·마감은 대표 공고 값이다.
@@ -35,6 +36,7 @@ export const marketRepo: MarketRepo = {
         .neq("source", "fixture")
         .contains("source_families", ["G2B"])
         .eq("stage", "NOTICE")
+        .eq("it_scope", true)
         .lte("first_seen_at", asOf)
         .gte("published_at", readFrom)
         .order("id", { ascending: true })
@@ -54,7 +56,6 @@ export const marketRepo: MarketRepo = {
             publishedAt: r.published_at,
             deadlineAt: r.deadline_at,
             categories: r.categories ?? [],
-            relevanceState: r.relevance_state ?? "UNCLASSIFIED",
           }),
         );
       const last = data.at(-1)?.id ?? null;

@@ -377,16 +377,14 @@ describe("입찰 일정 화면", () => {
     await userEvent.keyboard("{Escape}");
   });
 
-  it("관련 업종 공고를 읽지 못하면 출처 줄 아래에 아이콘과 글자로 알린다", async () => {
+  it("IT 공고를 읽지 못하면 출처 줄 아래에 아이콘과 글자로 알린다", async () => {
     await page.viewport(1440, 1000);
     show({ relevantFailed: true });
 
     const notice = page.getByRole("status");
     await expect
       .element(notice)
-      .toHaveTextContent(
-        "관련 업종 공고 일정을 불러오지 못했습니다. 관심·프로젝트 일정만 보입니다.",
-      );
+      .toHaveTextContent("IT 공고 일정을 불러오지 못했습니다. 관심·프로젝트 일정만 보입니다.");
     expect(notice.element().querySelector("svg")).not.toBeNull();
     await page.screenshot({
       path: "../../../../test-results/vitest-screenshots/calendar-1440-relevant-failed.png",

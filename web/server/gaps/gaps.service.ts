@@ -5,7 +5,6 @@ import {
   assumeGapRadar,
   bucketByBid,
   buildGapRadar,
-  inScope,
   latestSyncedAt,
   toGapNotice,
   toKstDate,
@@ -31,7 +30,7 @@ export async function getGapRadar(
   return toGapRadarView(profileRow, rows, query, now);
 }
 
-/** /market 겹쳐 보기(§6 B2)용 공고별 판정 묶음. 관련성 거르기 없이 마감 전 live 공고 전부를 판정한다. 읽기만 한다. */
+/** /market 겹쳐 보기(§6 B2)용 공고별 판정 묶음. 마감 전 IT 범위 live 공고 전부를 판정한다. 읽기만 한다. */
 export async function getGapBuckets(
   orgId: string,
   now: Date = new Date(),
@@ -79,7 +78,6 @@ export function toGapRadarView(
   const profile = parseProfile(profileRow);
 
   const notices = rows.map(toGapNotice);
-  const scoped = inScope(notices, query.scope);
   const today = toKstDate(now);
   return {
     kind: "READY",
@@ -87,9 +85,8 @@ export function toGapRadarView(
     asOf: latestSyncedAt(rows),
     today,
     query,
-    scopeCounts: { relevant: inScope(notices, "relevant").length, all: notices.length },
-    radar: buildGapRadar(scoped, profile, today),
+    radar: buildGapRadar(notices, profile, today),
     assumption:
-      query.assume.length === 0 ? null : assumeGapRadar(scoped, profile, today, query.assume),
+      query.assume.length === 0 ? null : assumeGapRadar(notices, profile, today, query.assume),
   };
 }
