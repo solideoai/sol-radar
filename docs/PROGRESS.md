@@ -26,15 +26,15 @@ updated: 2026-10-29
 
 | 항목 | 현재 값 | 마지막 확인 |
 |---|---|---|
-| web(Vercel) | main `3ae02acf`(추천 분석) Production 배포 성공. 함수 지역 `syd1`([지역 기록](evidence/deployment/20261028-region-latency.md)). [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:31 KST |
+| web(Vercel) | main `7f6909ec`(IT 공고만 보이기, [[16-DECISIONS\|ADR-069]]) Production 배포 성공. 그 뒤 랜딩 커밋 배포는 작업 로그를 본다. 함수 지역 `syd1`([지역 기록](evidence/deployment/20261028-region-latency.md)). [기록](evidence/it-scope/prod-20261029/README.md) | 2026-10-29 14:12 KST |
 | `/health/ready` | 200(`db`·`redis`·`storage` ok, `ai: local`). `ai`는 회사 AI gateway가 보고한 provider 값이다. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:31 KST |
-| 운영 DB | migration 66개, 마지막 `20261029000200`(추천 분석 보안 보강). db-push·`db-verify` 통과. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:30 KST |
+| 운영 DB | migration 68개, 마지막 `20261029000400`(공고 고르기 목록 IT 범위). db-push·`db-verify` 통과. [기록](evidence/it-scope/prod-20261029/README.md) | 2026-10-29 14:10 KST 전 |
 | 회사 반영 | AI gateway·Analysis Worker·redis-api는 `384e469857f0`(main + 회사 carry). gateway는 같은 호스트 Bosun `127.0.0.1:8009`를 부른다. `sol-radar-app` checkout은 22:15 보조 수집 예약 때문에 옮기지 않았다. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:37 KST |
 | 나라장터 정기 수집 | KST 3시간 정각. ingest Worker `cbb3831e86da`. 보조 조회(면허·지역·첨부)는 기능별 한도 각 1,000회이고, 밀린 공고는 같은 revision에 하루 100~200건씩 다시 채운다. [기록](evidence/ingestion/20261029-g2b-aux-budget.md) | 2026-10-29 10:49 KST |
 | 외부 입찰공고(LH·KEPCO·K-water) | 같은 ingest Worker가 3시간 정각에 받는다. KEPCO는 공고 없는 날 HTTP 404를 빈 쪽으로 읽는다. 남은 외부 3종(K-water 발주계획·LH 사전규격·조달요청)은 꺼짐. [기록](evidence/ingestion/20261028-kepco-contract/no-data-404.md) | 2026-10-29 09:40 KST |
 | 부처 공고(기업마당) | 전용 Worker가 3시간 정각에 받는다. 첫 정기 회차 `SUCCEEDED` 100/100, `program_notices` 100행. `/bids` "부처 지원사업" 탭 화면은 아직 보지 않았다. [기록](evidence/company-rollout/20261028/sources-rollout.md) | 2026-10-28 18:00 KST |
 | 첨부 처리(Documents Worker) | 운영 중. `PARSED` 393·`FAILED` 0·다운로드 실패 0, `PENDING` 6,127(그 시각 기준). 지금 수는 미확인. [기록](evidence/attachment-pipeline/20261028-documents-worker.md) | 2026-10-28 19:0x KST |
-| 분석 | 실공고 분석 run이 있다. 2026-10-29 3건 모두 보류(38·44·45)이고, 부경대 38은 `RULES_ONLY`이고 사용자 결정으로 멈췄다. DEMO는 FX-02만 옛 분석(66 보류, 프로필 revision 2), 나머지 18건은 revision 5. [기록](evidence/company-rollout/20261029/ai-gateway-rollout.md) | 2026-10-29 |
+| 분석 | 마감 전 IT 실공고 371건을 1회 일괄 분석했다([[16-DECISIONS\|ADR-069]] 5번, 회사 일회용 컨테이너, 14:20~16:28). 371건 모두 `COMPLETED`·보류, 점수 23~60, 실패 0, 알림 이벤트 0. 새 공고는 자동 분석하지 않는다([기록](evidence/it-scope/prod-20261029/README.md)). 그 전 실공고 3건은 모두 보류(38·44·45)이고, 부경대 38은 `RULES_ONLY`이고 사용자 결정으로 멈췄다. DEMO는 FX-02만 옛 분석(66 보류, 프로필 revision 2), 나머지 18건은 revision 5. [기록](evidence/company-rollout/20261029/ai-gateway-rollout.md) | 2026-10-29 |
 | 추천 분석 | 운영 반영. 실공고(재난 정신건강, 45 보류)·DEMO FX-01(58 보류) 모두 `DONE`·`MODEL`, 화면 금지어 0. [기록](evidence/company-rollout/20261029/rec-insight-rollout.md) | 2026-10-29 11:37 KST |
 | DEMO 공고 | 19건 그대로, 16건 마감 +15일. 운영 DEMO 삭제는 발표 뒤다. FX-02는 촬영 때만 재분석한다([[16-DECISIONS\|ADR-059]]). [기록](evidence/demo-deadline/20261027/prod-run.md) | 2026-10-28 09:48 KST |
 | 알림 처리 | 처리되지 않는다. 회사에 알림 전용 Worker가 없고 outbox만 쌓인다. 기동 전 쌓인 수는 실행서 §9.1 SQL로 센다(`infra/company/README.md` §9). [기록](evidence/company-rollout/20261028/sources-rollout.md) | 2026-10-28 |
@@ -135,6 +135,7 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-29 · IT 공고만 보이기([[16-DECISIONS|ADR-069]]): 목록·집계·고르기 목록에서 IT 아닌 공고 숨김, 분야 칩 8개, AI·SI 우선 + 추천순, 지원사업 IT만, 검토 대기에서 일괄 분석 제외. 운영 DB `000300`·`000400`, main `7f6909ec`, 회사에서 IT 실공고 371건 1회 일괄 분석 · 통합 브랜치 전체 `pnpm verify` exit 0(web 시험 995건)·`test:browser` 98건, 독립 리뷰 1회 반영, `db-verify` 통과, D1 10개 화면 1440·1280 넘침 0, 일괄 분석 `completed=371 failed=0`([기록](evidence/it-scope/prod-20261029/README.md), [화면 증거](evidence/it-scope/bids-qa-20261029.md))
 - 2026-10-29 · 랜딩 서비스 소개를 공고 수집 서비스 4곳(첫 글자 + XX)과 SOL RADAR의 8행 기능 비교 표로 교체해 운영 배포(`32569fa6`·설명 문구 `3d1477c4`, [스펙](../polaris/specs/done/2026-10-29-landing-competitor-table.md), [경쟁 재조사](evidence/competitors/2026-10-29-competitors.md)). 뒤이어 주요 기능 "공고 수집과 탐색" 문구를 운영 출처로 고치고, [[18-HACKATHON|18]] §3.2.1·덱 명세 슬라이드 9를 같은 표로 바꿈 · `e2e/landing-sections.spec.ts` 17 passed(구현 전 4 failed, 최종 리뷰 뒤 대비·넘침·실명 시험 보완), 병합 뒤 전체 `pnpm verify` exit 0, 운영 1440·1280 표 넘침 0·실명 0·기호 대비 최저 5.03:1·콘솔 오류 0([증거](evidence/landing-comparison/README.md))
 - 2026-10-29 · 사용자 승인으로 새 브랜치의 커밋 메시지 검사 범위를 `origin/main..HEAD`로 조정(기준 없음·공통 조상 없음은 실패, 제목 50자·형식과 다른 게이트 유지) · 회귀 3건의 수정 전 실패 확인, 커밋·푸시 검사 시험 33건 및 `pnpm verify:changed` 통과(루트 299·웹 995시험). 실제 브랜치 신규 1커밋 검사 통과. [기록](evidence/verification/20261029-new-branch-base.json)
 - 2026-10-29 · `feat/landing-demo-motion`에서 [업무 데모 애니메이션](../polaris/specs/done/2026-10-29-landing-demo-motion.md) 구현: 수집·상세 패널 전개, 클릭·완료·인용·관심 등록 강조, 22단계·24.68초 유지 · 전체 검증 범위 통과(공통 296시험 성공 재사용, E2E 타입 오류 수정 후 웹 995·AI 264·결정 57시험·빌드 통과), 업무 데모 E2E 3건, 1440×900·1280×800 한 바퀴·가로 넘침 확인. [기록](evidence/landing-motion/20261029-implementation.json). main 병합 뒤 전체 `pnpm verify` exit 0·랜딩 E2E 3종 47 passed
@@ -144,7 +145,6 @@ updated: 2026-10-29
 - 2026-10-29 · 문서 정리 2차: 정본·제출물의 낡은 사실 고침, [[16-DECISIONS|ADR-067]](X6 발표 뒤) 추가, 16 218→156KB·PROGRESS 71→21KB, 끝난 계획 7개·링크 없는 증거 66개(7.2MB) 삭제(원본·계획은 git `03baf23d`) · 문서만 바꿔 `pnpm verify:changed` 검사 단계 0개, 깨진 링크 48→46(남은 것은 정리 전부터 있던 옛 증거 링크)
 - 2026-10-29 · 추천 분석 운영 반영: 운영 DB `20261029000100`·`000200`, Vercel, 회사 AI gateway·Analysis Worker·redis-api 재생성 · `db-verify` 통과, `/health/ready` 200, 운영 화면 실공고·DEMO 각 1건 `DONE`·`MODEL`([기록](evidence/company-rollout/20261029/rec-insight-rollout.md))
 - 2026-10-29 · 추천 분석 구현 main 병합([[16-DECISIONS|ADR-066]]) · 전체 `pnpm verify` exit 0, 격리 로컬 스택 끝까지 확인 통과([증거](evidence/rec-insight/README.md))
-- 2026-10-29 · 나라장터 보조 조회 한도를 기능별로 나누고 같은 revision에 다시 채움 · `pnpm verify:changed` 통과, 회사 `--check` exit 0, 1건 채움 확인([기록](evidence/ingestion/20261029-g2b-aux-budget.md))
 
 ## 관련 문서
 

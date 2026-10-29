@@ -1,6 +1,6 @@
 ---
 title: "IT 공고만 보이기 — 공식 분류 기준 숨김·분야 키워드 필터·추천순 정렬·IT 공고 1회 일괄 분석"
-status: in-progress
+status: done
 tags: [sol-radar, ingestion, bids, analysis, hackathon]
 updated: 2026-10-29
 ---
@@ -154,7 +154,7 @@ updated: 2026-10-29
 - 마이그레이션 `20261029000300_it_bid_scope.sql`(판정 함수·목록 뷰·집계), `20261029000400_bid_list_it_scope.sql`(옛 공고 목록 뷰에 `it_scope`).
 - 검증: 통합 브랜치에서 전체 `pnpm verify` exit 0(루트 시험 296건, web 시험 995건, 빌드), `pnpm -C web test:browser` 98건 통과. 독립 리뷰 1회(높음 1·중간 3·낮음 7) 중 코드 수정 대상은 모두 고쳤다.
 - 화면 증거: `docs/evidence/it-scope/`(목록·대시보드·달력·발주 현황·자격 갭·지원사업·빈 상태·정렬, 1440·1280).
-- 남은 것: 운영 DB 적용·배포·운영 화면 확인, 회사에서 일괄 분석 CLI 1회 실행(각각 사용자 승인).
+- 운영 반영(2026-10-29, 단계마다 사용자 승인): 운영 DB `000300`·`000400`(68개, `db-verify` 통과) → main `7f6909ec` push·Vercel success → D1 1440·1280 확인 → 회사 일회용 컨테이너에서 일괄 분석 371건 완료(실패 0, 모두 보류, 점수 23~60). 운영 Analysis Worker·`sol-radar-app` checkout 은 바꾸지 않았다. 기록은 `docs/evidence/it-scope/prod-20261029/README.md`.
 
 ## 관련 문서
 

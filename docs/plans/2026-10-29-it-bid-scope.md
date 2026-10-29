@@ -15,7 +15,7 @@ updated: 2026-10-29
 
 **Tech Stack:** Supabase Postgres(뷰·SQL 함수, PGlite 정책 시험 `scripts/database.test.mjs`), Next.js 16 `web/`(서버 도메인 `web/server/opportunities`·`calendar`·`gaps`·`market`·`program-notices`·`analysis`), BullMQ worker CLI(`web/worker`), Vitest.
 
-**Spec:** [`polaris/specs/in-progress/2026-10-29-it-bid-scope.md`](../../polaris/specs/in-progress/2026-10-29-it-bid-scope.md)
+**Spec:** [`polaris/specs/done/2026-10-29-it-bid-scope.md`](../../polaris/specs/done/2026-10-29-it-bid-scope.md)
 
 ## Global Constraints
 
@@ -296,7 +296,7 @@ it("이미 같은 키의 run 이 있으면 다시 넣지 않는다", …);
 ### Task 6: 결정·기록 문서
 
 **Files:**
-- Modify: `docs/16-DECISIONS.md`(색인 행 + `## ADR-069` 본문), `docs/PROGRESS.md`(최근 작업 로그 한 줄, 10줄 유지), `polaris/specs/in-progress/2026-10-29-it-bid-scope.md`(구현 상태)
+- Modify: `docs/16-DECISIONS.md`(색인 행 + `## ADR-069` 본문), `docs/PROGRESS.md`(최근 작업 로그 한 줄, 10줄 유지), `polaris/specs/done/2026-10-29-it-bid-scope.md`(구현 상태)
 
 - [ ] **Step 1: ADR-069 을 쓴다** — 제목 "IT 공고만 보이기(ADR-047 '숨김 아님' 개정)·분야 키워드·AI·SI 우선·추천순·1회 일괄 분석". 사용자 원문(스펙 §2 D1~D8과 8번 수정 "AI를 가장 최우선, 그 다음 SI")과 반영 문서를 적는다. ADR-047 색인 행 상태에 "(숨김은 ADR-069로 개정)" 을 덧붙인다. 상태는 채택(사용자 결정이 이미 있다).
 - [ ] **Step 2: 발표 문서 영향 확인** — `docs/submission/slides-spec.md`·`docs/19-DEMO-SCENARIO.md` 에서 `/bids` 목록·대시보드 숫자가 나오는 장면을 찾아 숫자·문구가 바뀌는 곳만 고친다(바뀌는 곳이 없으면 고치지 않는다).
