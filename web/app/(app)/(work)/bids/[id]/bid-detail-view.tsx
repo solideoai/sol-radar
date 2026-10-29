@@ -30,6 +30,7 @@ import {
   STAGE_LABEL,
 } from "@/components/bids/labels";
 import { QualificationChecklist } from "@/components/bids/qualification-checklist";
+import { RecommendationInsight } from "@/components/bids/recommendation-insight";
 import { ScoreFactors } from "@/components/bids/score-factors";
 import { SourceLink } from "@/components/bids/source-link";
 import { StageTimeline } from "@/components/bids/stage-timeline";
@@ -70,6 +71,7 @@ import type {
   Recommendation,
   RunMode,
 } from "@/server/bids";
+import type { InsightView } from "@/server/insight";
 import type { WatchSummary } from "@/server/watchlist";
 import { BidProjectEntry } from "@/components/projects/bid-project-entry";
 import type { ProjectEntryState } from "@/server/projects";
@@ -129,6 +131,18 @@ type BidDetailViewProps = {
   projectEntry?: ProjectEntryState | null;
   /** 이 조직에서 본 사업기회의 마지막 변경 시각(opportunity_list_items.changed_at). 모르면 null 이고 표시하지 않는다. */
   changedAt?: string | null;
+  /** 추천 분석 패널(ADR-066)의 첫 값. 넘기지 않으면 패널을 그리지 않는다. */
+  insight?: InsightPanelInput | null;
+};
+
+/** 추천 분석 패널에 서버가 넘기는 값. 상수·역할 판단은 서버 전용 모듈(@/server/insight)에 있어 서버 화면이 정한다. */
+export type InsightPanelInput = {
+  /** 최신 점수 run 의 최신 1건. 다른 run 의 것이면 패널이 쓰지 않는다. */
+  initial: InsightView | null;
+  /** INSIGHT_POLL_LIMIT_MS */
+  pollLimitMs: number;
+  /** 역할이 INSIGHT_REQUEST_ROLES(ADMIN·SALES·ANALYST)인가. */
+  canRequest: boolean;
 };
 
 // 09 고정
@@ -798,11 +812,13 @@ function AnalysisResult({
   bid,
   assessmentLabels,
   assumption,
+  insight,
 }: {
   analysis: AnalysisView;
   bid: DetailBid;
   assessmentLabels: Record<string, string>;
   assumption: ChecklistAssumptionProps;
+  insight: InsightPanelInput | null;
 }) {
   const openWith = useEvidenceStore((store) => store.openWith);
   const assessments = analysis.requirementAssessments.map((assessment) => ({
@@ -841,6 +857,19 @@ function AnalysisResult({
           assessments={assessments}
         />
       </Section>
+      {/* 추천 분석은 점수 run(COMPLETED·PARTIAL)에만 붙는다. run 이 바뀌면 key 로 새로 그려 옛 run 의 설명을 버린다. */}
+      {insight !== null && (
+        <Section>
+          <RecommendationInsight
+            key={analysis.id}
+            bidId={bid.id}
+            runId={analysis.id}
+            canRequest={insight.canRequest}
+            initialInsight={insight.initial?.scoreRunId === analysis.id ? insight.initial : null}
+            pollLimitMs={insight.pollLimitMs}
+          />
+        </Section>
+      )}
       <Section>
         <div className="flex flex-col gap-6">
           <EvidenceList title="근거 인용" evidence={analysis.evidence} documents={bid.documents} />
@@ -882,6 +911,7 @@ export function BidDetailView({
   watch = null,
   projectEntry = null,
   changedAt = null,
+  insight = null,
 }: BidDetailViewProps) {
   const router = useRouter();
   const at = useMemo(() => new Date(now), [now]);
@@ -1024,6 +1054,7 @@ export function BidDetailView({
                 analysis={scored}
                 bid={bid}
                 assessmentLabels={assessmentLabels}
+                insight={insight}
                 assumption={{
                   assumable: whatIf.assumable,
                   assumed: whatIf.assumed,

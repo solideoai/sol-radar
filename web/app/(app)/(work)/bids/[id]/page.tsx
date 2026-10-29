@@ -17,6 +17,7 @@ import {
   type AnalysisView,
   type BidDetail,
 } from "@/server/bids";
+import { INSIGHT_POLL_LIMIT_MS, INSIGHT_REQUEST_ROLES } from "@/server/insight";
 import { getWatchSummary } from "@/server/watchlist";
 import { getMembersPage } from "@/server/organization";
 import { assessmentLabel } from "./assessment-labels";
@@ -113,6 +114,12 @@ export default async function BidDetailPage({ params, searchParams }: PageProps<
       watch={watch}
       projectEntry={projectEntry.ok ? projectEntry.data : null}
       changedAt={changedAt}
+      // 추천 분석 첫 값은 0f 의 getInsight(Task 7)가 통합되면 그 run 의 최신 1건으로 채운다. 그 전에는 없음이다.
+      insight={{
+        initial: null,
+        pollLimitMs: INSIGHT_POLL_LIMIT_MS,
+        canRequest: INSIGHT_REQUEST_ROLES.some((role) => role === work.role),
+      }}
     />
   );
 }
