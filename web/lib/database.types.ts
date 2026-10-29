@@ -2951,6 +2951,7 @@ export type Database = {
           first_seen_at: string | null
           id: string | null
           is_demo: boolean | null
+          it_scope: boolean | null
           latest_decision: string | null
           latest_decision_at: string | null
           latest_run_id: string | null
@@ -2958,6 +2959,7 @@ export type Database = {
           notice_id: string | null
           org_id: string | null
           published_at: string | null
+          recommend_key: string | null
           recommendation: string | null
           relevance_rank: number | null
           relevance_score: number | null
@@ -2973,6 +2975,7 @@ export type Database = {
           sources: Json | null
           stage: string | null
           status: string | null
+          tags: string[] | null
           title: string | null
         }
         Relationships: []
@@ -3036,6 +3039,7 @@ export type Database = {
           first_seen_at: string | null
           id: string | null
           is_demo: boolean | null
+          it_scope: boolean | null
           latest_decision: string | null
           latest_decision_at: string | null
           latest_run_id: string | null
@@ -3043,6 +3047,7 @@ export type Database = {
           notice_id: string | null
           org_id: string | null
           published_at: string | null
+          recommend_key: string | null
           recommendation: string | null
           relevance_rank: number | null
           relevance_score: number | null
@@ -3058,6 +3063,7 @@ export type Database = {
           sources: Json | null
           stage: string | null
           status: string | null
+          tags: string[] | null
           title: string | null
         }
         Relationships: []
@@ -3184,6 +3190,22 @@ export type Database = {
         Args: never
         Returns: boolean
       }
+      it_scope: {
+        Args: { p_bid: Database["public"]["Tables"]["bid_notices"]["Row"] }
+        Returns: boolean
+      }
+      it_scope_ai_title: {
+        Args: { p_title: string }
+        Returns: boolean
+      }
+      it_scope_it_class: {
+        Args: { p_procurement_class: string }
+        Returns: boolean
+      }
+      it_scope_of: {
+        Args: { p_is_demo: boolean; p_procurement_class: string; p_relevance_state: string; p_source: string; p_title: string }
+        Returns: boolean
+      }
       latest_ingest_run: {
         Args: { p_origin: string }
         Returns: { finished_at: string; started_at: string; status: string; summary: Json }[]
@@ -3211,6 +3233,14 @@ export type Database = {
       open_bid_project: {
         Args: { p_review_id: string }
         Returns: { project_id: string; reopened: boolean }[]
+      }
+      opportunity_priority_tier: {
+        Args: { p_categories: string[]; p_title: string }
+        Returns: number
+      }
+      opportunity_recommend_key: {
+        Args: { p_deadline_at: string; p_published_at: string; p_recommendation: string; p_score: number }
+        Returns: string
       }
       own_photo_deletable: {
         Args: { p_bucket: string; p_name: string }
