@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - decision
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 16. 아키텍처 결정 기록 (ADR)
@@ -108,6 +108,7 @@ updated: 2026-10-29
   - Supabase 서울 이전: 원인이 네트워크가 아니다. 발표 뒤 일정 그대로다.
 - **바뀌지 않는 것**: 목록 뷰 `opportunity_list_items`와 목록 조회, 목록 커서 형식, 대시보드 요약·지표, 표·RLS 정책, 다른 함수. 운영 DB 적용(`pnpm db:push`)과 main push(Vercel 배포)는 각각 사용자 승인 뒤에 한다.
 - **반영**: [[PROGRESS]] 최근 작업 로그, [[20261029-list-rpc-latency|10-29 목록 지연 기록]]. 조치 뒤 숫자는 운영 반영 뒤 그 기록에 채운다.
+- **보강 (2026-10-30 사용자 결정 "1번으로 진행해")**: 운영 반영 뒤에도 대시보드 대기가 약 1.6초, `/bids`가 약 0.65초였다. 원인은 IT 판정·정렬 함수의 행마다 호출이다. 판정 함수 다섯 개(`it_scope_ai_title`·`it_scope_it_class`·`it_scope_of`·`opportunity_priority_tier`·`opportunity_recommend_key`)는 planner가 풀어 넣도록 SQL 표준 본문(`return`)으로 다시 만들고 search_path를 두지 않는다. 다섯 함수는 security invoker이고 본문 이름이 만들 때 고정된다. Supabase advisor의 `function_search_path_mutable` 알림은 받아들인다. `procurement_summary`의 중복 후보 수와 `procurement_filter_options`는 공고마다 부르던 `it_scope(b)`를 조인으로 바꾼다. 마이그레이션은 `20261030000100_inline_it_scope.sql`, 측정은 [[20261029-list-rpc-latency|10-29 목록 지연 기록]] "2차 조치"다. 판정 값·정렬 키·웹 코드는 바뀌지 않는다.
 
 ## ADR-069 IT 공고만 보이기·분야 키워드·AI·SI 우선·추천순·IT 공고 1회 일괄 분석(ADR-047 "숨김 아님" 개정)
 

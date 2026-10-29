@@ -1521,11 +1521,13 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       const [tiers] = await rowsOf(
         db,
         `select public.opportunity_priority_tier(array['AI_AX','SI_SW'],'x') ai_si,
+           public.opportunity_priority_tier(array['SI_SW','AI_AX'],'x') si_ai,
            public.opportunity_priority_tier('{}'::text[],'생성형 AI 플랫폼') ai_title,
            public.opportunity_priority_tier(array['SI_SW'],'x') si,
-           public.opportunity_priority_tier(array['CLOUD'],'x') cloud`,
+           public.opportunity_priority_tier(array['CLOUD'],'x') cloud,
+           public.opportunity_priority_tier(null,'x') none`,
       );
-      assert.deepEqual(tiers, { ai_si: 1, ai_title: 1, si: 2, cloud: 3 });
+      assert.deepEqual(tiers, { ai_si: 1, si_ai: 1, ai_title: 1, si: 2, cloud: 3, none: 3 });
       const ordered = await rowsOf(
         db,
         `select label from (values
@@ -1603,6 +1605,33 @@ describe("SOL RADAR 표 정책 — 업무 역할·조직 격리", () => {
       else assert.equal(next, previous, label);
       previous = next;
     }
+  });
+  it("IT 범위 판정·정렬 함수는 목록 뷰에 풀려 들어가고, 집계는 공고마다 it_scope(b) 를 부르지 않는다(20261030000100)", async (t) => {
+    const db = await solDb(t);
+    await as(db, "viewer");
+    // 함수 호출로 남으면 운영 3,324건에서 165ms, 풀려 들어가면 11ms 였다.
+    const plan = (
+      await rowsOf(
+        db,
+        "explain (verbose, costs off) select it_scope,relevance_rank,recommend_key,categories from public.opportunity_list_items",
+      )
+    )
+      .map((row) => row["QUERY PLAN"])
+      .join("\n");
+    for (const name of [
+      "it_scope_of",
+      "it_scope_ai_title",
+      "it_scope_it_class",
+      "opportunity_priority_tier",
+      "opportunity_recommend_key",
+    ])
+      assert.doesNotMatch(plan, new RegExp(name), name);
+    // 공고마다 it_scope(b) 를 부르면 운영에서 중복 후보 265ms, 필터 선택지 1,729ms 였다.
+    for (const { proname, prosrc } of await rowsOf(
+      db,
+      "select proname,prosrc from pg_proc where proname in ('procurement_summary','procurement_filter_options')",
+    ))
+      assert.doesNotMatch(prosrc, /public\.it_scope\(/, proname);
   });
   it("G5 — org-01 의 네 역할은 자기 조직의 조직 표를 같은 만큼 읽고 org-02 행은 0행이다 — 감사는 ADMIN 만, 알림은 본인 것만", async (t) => {
     const pglite = await solDb(t);

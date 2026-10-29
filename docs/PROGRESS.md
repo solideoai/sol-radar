@@ -5,7 +5,7 @@ status: draft
 tags:
   - sol-radar
   - progress
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 진행 상황
@@ -135,7 +135,8 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
-- 2026-10-29 · 목록 화면 이동 5~7초의 원인은 지역이 아니라 뷰 `opportunity_list_items` 전체를 계산하는 버전 확인 RPC(이동 한 번에 2번)와 공고마다 IT 판정을 도는 필터 선택지 RPC다. 조치([[16-DECISIONS|ADR-070]]): 목록 버전을 원본 표 해시로(`20261029000500`), 필터 선택지를 서버 데이터 캐시(10분)로. 운영 반영 대기([기록](evidence/deployment/20261029-list-rpc-latency.md)) · 통합 검증 전
+- 2026-10-30 · 목록·대시보드 2차 가속([[16-DECISIONS|ADR-070]] 보강): 남은 대기(대시보드 약 1.6초·`/bids` 약 0.65초)의 원인인 IT 판정·정렬 함수 다섯 개를 planner가 풀어 넣도록 다시 만들고, summary 중복 후보·filter_options의 공고별 `it_scope(b)`를 조인으로(`20261030000100`). 운영 반영 대기 · `database.test.mjs` 새 시험 마이그레이션 없이 실패·있으면 통과, IT 범위·집계 시험 11건 통과, 운영 읽기 측정 filter_options 1,729→197ms·중복 후보 265→38ms([기록](evidence/deployment/20261029-list-rpc-latency.md))
+- 2026-10-29 · 목록 화면 이동 5~7초의 원인은 지역이 아니라 뷰 `opportunity_list_items` 전체를 계산하는 버전 확인 RPC(이동 한 번에 2번)와 공고마다 IT 판정을 도는 필터 선택지 RPC다. 조치([[16-DECISIONS|ADR-070]]): 목록 버전을 원본 표 해시로(`20261029000500`), 필터 선택지를 서버 데이터 캐시(10분)로. 운영 DB `000500`·main `a9d3a107` 반영 · 반영 뒤 edge 로그로 version 22~117ms, 두 번째 `/bids` 방문 filter_options 호출 없음([기록](evidence/deployment/20261029-list-rpc-latency.md))
 - 2026-10-29 · 지원사업 IT 판정을 제목 본문(괄호 밖)으로 좁힘([[16-DECISIONS|ADR-069]] 7번): 사업개요·괄호 안 사업명은 보지 않는다 · `list.service.test.ts` 새 시험 수정 전 실패 확인, `pnpm verify:changed` exit 0(web 996시험), 운영 지원사업 104건 대조로 마감 전 IT 30→19건
 - 2026-10-29 · IT 공고만 보이기([[16-DECISIONS|ADR-069]]): 목록·집계·고르기 목록에서 IT 아닌 공고 숨김, 분야 칩 8개, AI·SI 우선 + 추천순, 지원사업 IT만, 검토 대기에서 일괄 분석 제외. 운영 DB `000300`·`000400`, main `7f6909ec`, 회사에서 IT 실공고 371건 1회 일괄 분석 · 통합 브랜치 전체 `pnpm verify` exit 0(web 시험 995건)·`test:browser` 98건, 독립 리뷰 1회 반영, `db-verify` 통과, D1 10개 화면 1440·1280 넘침 0, 일괄 분석 `completed=371 failed=0`([기록](evidence/it-scope/prod-20261029/README.md), [화면 증거](evidence/it-scope/bids-qa-20261029.md))
 - 2026-10-29 · 랜딩 서비스 소개를 공고 수집 서비스 4곳(첫 글자 + XX)과 SOL RADAR의 8행 기능 비교 표로 교체해 운영 배포(`32569fa6`·설명 문구 `3d1477c4`, [스펙](../polaris/specs/done/2026-10-29-landing-competitor-table.md), [경쟁 재조사](evidence/competitors/2026-10-29-competitors.md)). 뒤이어 주요 기능 "공고 수집과 탐색" 문구를 운영 출처로 고치고, [[18-HACKATHON|18]] §3.2.1·덱 명세 슬라이드 9를 같은 표로 바꿈 · `e2e/landing-sections.spec.ts` 17 passed(구현 전 4 failed, 최종 리뷰 뒤 대비·넘침·실명 시험 보완), 병합 뒤 전체 `pnpm verify` exit 0, 운영 1440·1280 표 넘침 0·실명 0·기호 대비 최저 5.03:1·콘솔 오류 0([증거](evidence/landing-comparison/README.md))
@@ -144,7 +145,6 @@ updated: 2026-10-29
 - 2026-10-29 · 카카오톡 링크 공유용 OG 이미지(1200×630) 생성, 루트 `opengraph-image.png`·대체 텍스트·운영 `metadataBase` 연결 · `pnpm verify:changed` 통과(117파일·995시험), 로컬 크롤러 HTML·인증 없는 PNG 응답·운영 URL 해석 확인([생성 프롬프트·검증 기록](evidence/og-image/20261029-generation.json)). 배포 전
 - 2026-10-29 · 결정 대기 9건 추천안대로 반영([[16-DECISIONS|ADR-068]]: ADR-055·056(A)·050·024 상태, S-LIVE 동국대 44, KEPCO 첨부 막음 등)과 ADR-056 대안 A 구현(분석이 첨부 처리를 최대 300초 기다림, `269679e7`) · 커밋 게이트 web `verify:quick` 통과(시험 971건), 새 시험 5건과 변형 2회 실패 확인, 깨진 링크 46(변화 없음). 회사 Analysis Worker 반영 전
 - 2026-10-29 · 발표 대본·덱 명세에 추천 분석 장면 추가: 클립 2에 FX-01의 저장된 추천 분석 20초(30→50초), 슬라이드 10 1:40·슬라이드 3·9 0:40으로 합계 20:00 유지([[16-DECISIONS|ADR-059]] 개정, [[19-DEMO-SCENARIO|19]] §4 S3·§5·§6, [[slides-spec|덱 제작 명세]]) · 문서만 바꿈, 시간표 합계·누적 스크립트로 확인(20:00), `pnpm verify:changed` 통과
-- 2026-10-29 · 문서 정리 2차: 정본·제출물의 낡은 사실 고침, [[16-DECISIONS|ADR-067]](X6 발표 뒤) 추가, 16 218→156KB·PROGRESS 71→21KB, 끝난 계획 7개·링크 없는 증거 66개(7.2MB) 삭제(원본·계획은 git `03baf23d`) · 문서만 바꿔 `pnpm verify:changed` 검사 단계 0개, 깨진 링크 48→46(남은 것은 정리 전부터 있던 옛 증거 링크)
 
 ## 관련 문서
 

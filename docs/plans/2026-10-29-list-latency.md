@@ -1,8 +1,8 @@
 ---
 title: "목록 화면 지연 줄이기 구현 계획"
-status: draft
+status: done
 tags: [sol-radar, plan, performance, bids, dashboard, hackathon]
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # 목록 화면 지연 줄이기 Implementation Plan
