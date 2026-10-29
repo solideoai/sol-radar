@@ -315,7 +315,7 @@ describe("공공조달 업무 화면", () => {
       if (element === null) throw new Error(`${label} 줄이 없습니다`);
       return element;
     };
-    expect(stat("전체 수집 공고").textContent).toContain("1");
+    expect(stat("수집된 IT 공고").textContent).toContain("1");
     expect(stat("진행 중 보류").textContent).toContain("2");
     expect(stat("마지막 수집 성공").textContent).toBe("마지막 수집 성공13:302026-10-21 KST");
     expect(stat("다음 수집 예정").textContent).toBe("다음 수집 예정15:002026-10-21 KST · 예정");

@@ -223,9 +223,9 @@ function IngestMetrics({
       <SectionHeader title="수집 지표" />
       <dl className={ruledList}>
         <MetricRow
-          label="전체 수집 공고"
+          label="수집된 IT 공고"
           value={count(summary.totalOpportunities)}
-          hint="입찰공고 · 출처 사본은 1건"
+          hint="IT 입찰공고 · 출처 사본은 1건"
         />
         <TimeRow
           label="마지막 수집 성공"
