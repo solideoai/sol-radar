@@ -5,7 +5,9 @@ import type { Database } from "@/lib/database.types";
 import { ANALYSIS_QUEUE, createAnalysisStores, createInsightStore } from "@/server/analysis";
 import {
   createAttachmentTextReader,
+  createDocumentProcessingRepo,
   readAttachmentTextSettings,
+  readDocumentsSettings,
   readStorageSettings,
 } from "@/server/documents";
 import { getSupabaseAdmin } from "@/server/supabase";
@@ -22,6 +24,7 @@ import { createInsightWorker, startInsightSweeper } from "@/worker/insight-job";
 // 설정(복구 주기·gateway·실행 모드)을 모두 읽은 뒤에 Redis 연결을 만든다. 설정 오류는 키 이름만 담아 던진다.
 // Worker 와 Queue 는 연결을 따로 쓴다(Worker 는 blocking 명령을 쓴다). 넘겨준 연결은 BullMQ 가 닫지 않으므로 close 가 끊는다.
 // 첨부 텍스트는 documents worker 가 bid-parsed 에 저장한 PARSED·PARTIAL 텍스트를 읽는다(문서당·전체 글자 상한, 2026-10-27).
+// live 분석은 처리 범위 안 첨부가 남았으면 최대 300초 기다린다(analysis-documents-wait.ts).
 // insight Worker 는 분석 Worker 와 같은 gateway 클라이언트를 쓰고(breaker 공유) 연결은 따로 쓴다.
 
 export type AnalysisRuntimeFactories = {
@@ -93,8 +96,13 @@ export function startAnalysisRuntime(
     console.log(line);
   });
   const stores = createAnalysisStores(supabase, attachments);
+  // live 분석이 기다릴 첨부 범위는 documents worker 와 같은 DOCUMENTS_MAX_PER_BID 로 정한다(ADR-056 대안 A).
+  const documents = {
+    repo: createDocumentProcessingRepo(supabase),
+    maxPerBid: readDocumentsSettings(env).maxPerBid,
+  };
   // gateway 클라이언트는 여기서 하나만 만든다(프로세스당 하나, breaker 를 job 사이에 이어 쓴다).
-  const deps = createAnalysisJobDeps(env, stores);
+  const deps = createAnalysisJobDeps(env, { ...stores, documents });
 
   // 만든 것을 닫는 단계. 만든 순서대로 쌓고, 기동이 실패하면 거꾸로 닫는다.
   const created: (() => unknown)[] = [];

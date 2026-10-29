@@ -11,6 +11,7 @@ import {
   RECORDABLE_DOWNLOAD_ERROR_CODES,
   createDocumentCandidateFinder,
   createDocumentProcessingRepo,
+  needsDocumentWork,
   readDocumentsSettings,
   readStorageSettings,
   scopeSkipReasonOf,
@@ -140,10 +141,6 @@ const isPermanentParseFailure = (failure: GatewayFailure): boolean =>
 
 const failureCodeOf = (failure: GatewayFailure): string =>
   failure.kind === "HTTP_ERROR" ? `GATEWAY_HTTP_${failure.httpStatus}` : `GATEWAY_${failure.kind}`;
-
-const needsWork = (document: { downloadStatus: string; parseStatus: string | null }): boolean =>
-  document.downloadStatus === "PENDING" ||
-  (document.downloadStatus === "OK" && document.parseStatus === "PENDING");
 
 /** 리스를 못 잡았을 때의 결과. 잡았으면 null */
 function notClaimed(documentId: string, claim: ClaimResult): DocumentResult | null {
@@ -364,7 +361,9 @@ export function createDocumentsProcessor(
     );
     if (outOfScope !== null) return skip(job, outOfScope);
 
-    const targets = selectDocuments(revision.documents, deps.settings.maxPerBid).filter(needsWork);
+    const targets = selectDocuments(revision.documents, deps.settings.maxPerBid).filter(
+      needsDocumentWork,
+    );
     const attempt: Attempt = {
       attemptId: deps.newAttemptId(),
       finalAttempt: job.attemptsMade + 1 >= (job.opts.attempts ?? 1),

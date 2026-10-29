@@ -1,4 +1,4 @@
-import { UnrecoverableError, Worker, type ConnectionOptions } from "bullmq";
+import { DelayedError, UnrecoverableError, Worker, type ConnectionOptions } from "bullmq";
 import {
   ANALYSIS_JOB,
   ANALYSIS_QUEUE,
@@ -25,9 +25,10 @@ import {
   type RunClaim,
   type RunMode,
 } from "@/server/analysis";
+import { decideDocumentsWait, type DocumentsWaitPort } from "@/worker/analysis-documents-wait";
 import { errorNameOf } from "@/worker/error-name";
 
-// ── analysis job: job 데이터 검증 → 처리 설정 → score_runs 대상 확인 → 분석·저장 → 로그 한 줄 ──
+// ── analysis job: job 데이터 검증 → 처리 설정 → score_runs 대상 확인 → (live) 첨부 처리 대기 → 분석·저장 → 로그 한 줄 ──
 // 다른 조직·다른 run 의 데이터를 섞지 않게 loader 가 읽은 행이 job 데이터와 같은지 확인한 뒤에만 쓴다.
 // 로그에는 식별자·상태·코드만 싣는다. 공고 원문·제목·프로필·오류 message 는 싣지 않는다(docs/14).
 
@@ -38,6 +39,8 @@ export type AnalysisJobDeps = {
   tracker: AnalysisRunTracker;
   extraction: ExtractionStore;
   sink: AnalysisRunSink;
+  /** live 분석이 run 을 잡기 전에 기다릴 첨부를 읽는다(ADR-056 대안 A). null 이면 기다리지 않는다. */
+  documents: DocumentsWaitPort | null;
   now: () => Date;
   env: { runMode: RunMode; given: boolean };
   /** JSON 한 줄. */
@@ -51,6 +54,8 @@ export type AnalysisJobLike = {
   data: unknown;
   attemptsMade: number;
   opts: { attempts?: number };
+  /** 첨부 처리 대기. BullMQ 는 시도 수를 쓰지 않는다(skipAttempt). */
+  moveToDelayed(timestamp: number, token?: string): Promise<void>;
 };
 
 export type AnalysisJobSummary =
@@ -187,7 +192,7 @@ function elapsedMs(t0: Date, deps: AnalysisJobDeps): number {
 
 export function createAnalysisProcessor(
   deps: AnalysisJobDeps,
-): (job: AnalysisJobLike) => Promise<AnalysisJobSummary> {
+): (job: AnalysisJobLike, token?: string) => Promise<AnalysisJobSummary> {
   /** 영구 실패면 대상 확인을 마친 run 만 FAILED 로 바꾸고, 로그 한 줄을 남긴 뒤 던질 오류를 돌려준다. */
   async function onFailure(
     error: unknown,
@@ -249,7 +254,7 @@ export function createAnalysisProcessor(
     }
   }
 
-  return async (job) => {
+  return async (job, token) => {
     const t0 = deps.now();
     let progress: Progress = { stage: "UNPARSED" };
     try {
@@ -287,6 +292,25 @@ export function createAnalysisProcessor(
       const expected: RunClaim = { status: loaded.status, startedAt: loaded.startedAt };
       progress = { stage: "VERIFIED", data, requestId, claim: expected };
 
+      // live 는 run 을 잡기 전에 처리 범위 안 첨부를 기다린다(ADR-056 대안 A). 기다리는 동안 run 은 QUEUED 그대로다.
+      const wait = await decideDocumentsWait(deps.documents, settings.runMode, loaded, deps.now());
+      if (wait.kind === "WAIT") {
+        deps.log(
+          JSON.stringify({
+            event: "analysis.waiting_documents",
+            jobId,
+            ...ids,
+            attempt,
+            pendingDocuments: wait.pending,
+            resumeAt: new Date(wait.resumeAt).toISOString(),
+            elapsedMs: elapsedMs(t0, deps),
+          }),
+        );
+        await job.moveToDelayed(wait.resumeAt, token);
+        throw new DelayedError();
+      }
+      const ready = wait.loaded;
+
       // 분석 시작 시각은 runAnalysis 가 따로 잰다. score_runs.started_at 은 이 시도의 식별자다.
       // 처리 시작 시각(t0)이되 앞 시도의 started_at 보다 늘 커서 같은 밀리초에 다시 잡아도 겹치지 않는다.
       const attemptStartedAt = nextAttemptStartedAt(t0, loaded.startedAt);
@@ -308,7 +332,7 @@ export function createAnalysisProcessor(
         claim: { status: "RUNNING", startedAt: attemptStartedAt },
       };
 
-      const context = toContext(loaded, data, requestId, settings, attemptStartedAt);
+      const context = toContext(ready, data, requestId, settings, attemptStartedAt);
       const record = await analyzeAndSave(context, {
         gateway: deps.gateway,
         now: deps.now,
@@ -328,6 +352,7 @@ export function createAnalysisProcessor(
           recommendationBasis,
           settingsSource: settings.source,
           runModeMismatch: settings.runModeMismatch,
+          ...(wait.timedOut > 0 ? { documentsTimedOut: wait.timedOut } : {}),
           ...diagnosticFields(record.diagnostics),
           elapsedMs: elapsedMs(t0, deps),
         }),
@@ -340,6 +365,8 @@ export function createAnalysisProcessor(
         recommendationBasis,
       };
     } catch (error) {
+      // 첨부 처리 대기는 실패가 아니다. job 은 이미 delayed 로 옮겼다.
+      if (error instanceof DelayedError) throw error;
       // 늦은 마감은 원래 오류(message 에 표·코드가 있다) 대신 코드만 담은 영구 실패로 바꾼다.
       const failure = isSupersededFinish(error, progress)
         ? new UnrecoverableError(RUN_SUPERSEDED)
@@ -368,7 +395,7 @@ export function createAnalysisWorker(
 /** env 로 gateway·시계·실행 모드·로그를 만든다. port 는 받는다. 설정 오류는 키 이름만 담아 그대로 던진다. */
 export function createAnalysisJobDeps(
   env: Record<string, string | undefined>,
-  ports: Pick<AnalysisJobDeps, "loader" | "tracker" | "extraction" | "sink">,
+  ports: Pick<AnalysisJobDeps, "loader" | "tracker" | "extraction" | "sink" | "documents">,
 ): AnalysisJobDeps {
   return {
     gateway: createGatewayClient(readGatewayConfig(env)),
@@ -376,6 +403,7 @@ export function createAnalysisJobDeps(
     tracker: ports.tracker,
     extraction: ports.extraction,
     sink: ports.sink,
+    documents: ports.documents,
     now: () => new Date(),
     env: readRunMode(env),
     log: (line) => {
