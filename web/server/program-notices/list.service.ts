@@ -12,7 +12,8 @@ import {
 // 마감 판정의 "오늘"은 KST 날짜다(Route 가 kstToday 로 넘긴다). 마감이 null 인 공고는 늘 보인다.
 // 묶기를 마감 거르기보다 먼저 한다. 마감 지난 기업마당 공고의 중기부 쌍둥이(마감 null)가 "기간 미표기"로 남지 않게 한다.
 // IT 관련 공고만 보인다(ADR-069, isItProgramNotice). "저장된 공고"(hasAnyNotice)도 IT 관련 공고만 센다.
-// 묶기는 IT 거르기 전 행으로 한다. 기업마당 공고가 있으면 IT 판정과 상관없이 중기부 쌍둥이를 숨긴다.
+// IT 판정은 dedupe_key 묶음 단위다. 사본 하나라도 IT 면 묶음을 남기고, 대표 사본(기업마당 우선)을 보인다.
+// 그래야 기업마당 요약에는 IT 단어가 없고 중기부 쌍둥이 요약에만 있을 때 둘 다 사라지지 않는다.
 
 /** repo 가 읽는 최대 행 수(최근 등록 순). 거른 뒤 화면에는 LIST_MAX_ITEMS 까지만 보인다. */
 export const LIST_FETCH_LIMIT = 600;
@@ -198,7 +199,7 @@ export async function listProgramNotices(
   deps: { repo: ProgramNoticesRepo; today: string },
 ): Promise<ProgramNoticeList> {
   const stored = await deps.repo.listRecent({ limit: LIST_FETCH_LIMIT });
-  const itIds = new Set(stored.filter(isItProgramNotice).map((row) => row.id));
+  const itKeys = new Set(stored.filter(isItProgramNotice).map((row) => row.dedupe_key));
   const rows = stored.filter(
     (row): row is ProgramNoticeRow & { source: ProgramNoticeSource } =>
       isSource(row.source) && (query.source === null || row.source === query.source),
@@ -209,7 +210,7 @@ export async function listProgramNotices(
   const needle = query.q === null ? null : normalizeForSearch(query.q);
   const filtered = rows
     .filter((row) => row.source === "bizinfo" || !bizinfoKeys.has(row.dedupe_key))
-    .filter((row) => itIds.has(row.id))
+    .filter((row) => itKeys.has(row.dedupe_key))
     .filter(
       (row) => query.includeClosed || row.apply_end_on === null || row.apply_end_on >= deps.today,
     )
@@ -220,7 +221,7 @@ export async function listProgramNotices(
   return {
     items,
     total: items.length,
-    hasAnyNotice: itIds.size > 0,
+    hasAnyNotice: itKeys.size > 0,
     isCapped: filtered.length > LIST_MAX_ITEMS,
   };
 }
