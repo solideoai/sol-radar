@@ -20,16 +20,24 @@ from decimal import Decimal
 
 from pydantic import ValidationError
 
+from sol_ai.adapters.base import ExtractionFailed, InsightAdapter, ModelUnavailable, QwenAdapter
 from sol_ai.contracts import (
     InsightBody,
     InsightFactor,
     InsightFallbackReason,
     InsightItem,
     InsightRequest,
+    InsightResponse,
     Recommendation,
 )
+from sol_ai.deadline import Deadline
 from sol_ai.explain import allowed_numbers, number_tokens
+from sol_ai.paths import INSIGHT_PROMPT_FILE, INSIGHT_SCHEMA_FILE
+from sol_ai.schema import prompt_hash
 from sol_ai.strict_json import parse_json
+
+# promptHash = sha256(프롬프트 + 스키마 파일 + 이 버전). 추출 promptHash 와 따로다
+INSIGHT_PROMPT_VERSION = "insight/v0.1"
 
 FORBIDDEN_WORDS = ("승률", "확률", "가능성", "수주 금액", "점유율", "경쟁사", "%")
 # 화면 판정 이름(ADR-062). "비추천"을 먼저 찾아 그 안의 "추천"을 BID 로 세지 않는다
@@ -196,3 +204,48 @@ def template_insight(request: InsightRequest) -> InsightBody:
         head,
     )
     return InsightBody(summary=summary, strengths=strengths, improvements=improvements)
+
+
+# ---------------------------------------------------------------- 경로
+
+
+def insight_prompt_hash() -> str:
+    return prompt_hash(
+        INSIGHT_PROMPT_FILE, INSIGHT_SCHEMA_FILE.read_text(encoding="utf-8"), INSIGHT_PROMPT_VERSION
+    )
+
+
+def run_insight(
+    request: InsightRequest, adapter: QwenAdapter, *, prompt_hash: str, deadline: Deadline
+) -> InsightResponse:
+    """모델을 한 번 부르고 검사한다. 이 기능이 없는 어댑터·미접속·검사 실패는 템플릿으로 대체한다."""
+    reason: InsightFallbackReason
+    if not isinstance(adapter, InsightAdapter):
+        reason = "MODEL_UNAVAILABLE"
+    else:
+        try:
+            raw = adapter.insight(request, deadline=deadline)
+        except ModelUnavailable:
+            reason = "MODEL_UNAVAILABLE"
+        except ExtractionFailed:
+            reason = "INVALID_OUTPUT"
+        else:
+            body, failure = validate_insight(raw, request)
+            if body is not None:
+                return _response(body, None, adapter.model_name, prompt_hash)
+            reason = failure or "INVALID_OUTPUT"
+    return _response(template_insight(request), reason, None, prompt_hash)
+
+
+def _response(
+    body: InsightBody, reason: InsightFallbackReason | None, model: str | None, prompt_hash: str
+) -> InsightResponse:
+    return InsightResponse(
+        summary=body.summary,
+        strengths=body.strengths,
+        improvements=body.improvements,
+        fallback=reason is not None,
+        fallbackReason=reason,
+        model=model,
+        promptHash=prompt_hash,
+    )

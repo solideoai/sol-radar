@@ -1,16 +1,22 @@
-"""추천 분석(스펙 §4.3, 계획 C3): 모델 출력 검증·템플릿.
+"""추천 분석(스펙 §4.3, 계획 C3): 모델 출력 검증·템플릿과 POST /insight.
 
 검증 순서는 JSON·모양 → 근거 번호 → 금지어 → 판정 이름 → 숫자다. 하나라도 걸리면 템플릿으로 대체하고 그 이유를 낸다.
 """
 
 import copy
 import json
+import logging
+import re
 
 import pytest
+from fake_models import Reply, chat_completion
 from support import insight_request
 
+from sol_ai.adapters.unavailable import UnavailableQwen
 from sol_ai.contracts import InsightRequest
-from sol_ai.insight import template_insight, validate_insight
+from sol_ai.deadline import Deadline
+from sol_ai.insight import run_insight, template_insight, validate_insight
+from sol_ai.paths import INSIGHT_PROMPT_FILE
 
 # 입력 숫자(58·2026-12-01·20)와 요청 refs(B1·B2·C1·C2)만 쓴 모델 출력
 MODEL_OUTPUT = {
@@ -142,3 +148,138 @@ def test_template_drops_items_that_break_output_rules():
     assert validate_insight(body.model_dump_json(), request) == (body, None)
     assert labels(body.improvements)[0] == "직접생산확인증명서"
     assert body.strengths[0].text == "기술 적합도: 30점 중 24점."
+
+
+# ---------------------------------------------------------------- POST /insight
+
+COMPLETIONS = "/v1/chat/completions"
+HEX64 = re.compile(r"[0-9a-f]{64}")
+
+
+def post_insight(client, request: dict | None = None) -> dict:
+    response = client.post("/insight", json=request or insight_request())
+    assert response.status_code == 200
+    return response.json()
+
+
+def body_of(response: dict) -> dict:
+    return {key: response[key] for key in ("summary", "strengths", "improvements")}
+
+
+def template_of(request: dict | None = None) -> dict:
+    model = InsightRequest.model_validate(request or insight_request())
+    return template_insight(model).model_dump()
+
+
+def test_insight_endpoint_model_path(make_client, local_models):
+    local_models.qwen.route("POST", COMPLETIONS, Reply(json_body=chat_completion(output())))
+    client = make_client(SOL_RUN_MODE="fixture")
+    response = post_insight(client)
+    assert (response["fallback"], response["fallbackReason"]) == (False, None)
+    assert response["model"] == client.get("/health").json()["qwen"]["model"]
+    assert HEX64.fullmatch(response["promptHash"])
+    assert body_of(response) == MODEL_OUTPUT
+    (call,) = local_models.qwen.calls("POST", COMPLETIONS)
+    sent = call.json()
+    assert (sent["max_tokens"], sent["response_format"]["json_schema"]["name"]) == (1024, "insight")
+    user = json.loads(sent["messages"][1]["content"])
+    assert "requestId" not in user and user["refs"] == insight_request()["refs"]
+
+
+def test_insight_retries_once_without_guided_json(make_client, local_models):
+    fenced = f"```json\n{output()}\n```"
+    local_models.qwen.route(
+        "POST", COMPLETIONS, Reply(400, {}), Reply(json_body=chat_completion(fenced))
+    )
+    response = post_insight(make_client(SOL_RUN_MODE="fixture"))
+    assert (response["fallback"], body_of(response)) == (False, MODEL_OUTPUT)
+    first, second = (c.json() for c in local_models.qwen.calls("POST", COMPLETIONS))
+    assert "response_format" in first and "response_format" not in second
+
+
+@pytest.mark.parametrize(
+    ("reply", "timeout_ms", "reason"),
+    [
+        (Reply(500, {}), None, "MODEL_UNAVAILABLE"),
+        (Reply(json_body=chat_completion(output()), delay=5), "300", "MODEL_UNAVAILABLE"),
+        (Reply(json_body=chat_completion(None)), None, "INVALID_OUTPUT"),
+        (
+            Reply(json_body=chat_completion(output(summary="수주 확률이 높습니다."))),
+            None,
+            "FORBIDDEN_WORD",
+        ),
+    ],
+    ids=["server-error", "timeout", "no-content", "forbidden-word"],
+)
+def test_insight_endpoint_falls_back_on_model_error(
+    make_client, local_models, monkeypatch, reply, timeout_ms, reason
+):
+    if timeout_ms is not None:
+        monkeypatch.setenv("AI_TIMEOUT_MS", timeout_ms)
+    local_models.qwen.route("POST", COMPLETIONS, reply)
+    response = post_insight(make_client(SOL_RUN_MODE="fixture"))
+    assert (response["fallback"], response["fallbackReason"], response["model"]) == (
+        True,
+        reason,
+        None,
+    )
+    assert HEX64.fullmatch(response["promptHash"])
+    assert body_of(response) == template_of()
+
+
+def test_insight_endpoint_mock_is_deterministic(make_client):
+    client = make_client()
+    first, second = post_insight(client), post_insight(client)
+    assert first == second
+    assert (first["fallback"], first["model"]) == (
+        False,
+        client.get("/health").json()["qwen"]["model"],
+    )
+    assert body_of(first) == template_of()
+
+
+@pytest.mark.parametrize(
+    ("fault", "reason"),
+    [("qwen_unreachable", "MODEL_UNAVAILABLE"), ("qwen_error", "INVALID_OUTPUT")],
+)
+def test_insight_mock_fault_falls_back(make_client, monkeypatch, fault, reason):
+    monkeypatch.setenv("AI_FAULT_INJECT", fault)
+    response = post_insight(make_client())
+    assert (response["fallback"], response["fallbackReason"]) == (True, reason)
+
+
+def test_adapter_without_insight_uses_template():
+    request = InsightRequest.model_validate(insight_request())
+    response = run_insight(
+        request, UnavailableQwen("hosted"), prompt_hash="0" * 64, deadline=Deadline(1)
+    )
+    assert (response.fallback, response.fallbackReason, response.model) == (
+        True,
+        "MODEL_UNAVAILABLE",
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"refs": [{**insight_request()["refs"][0], "id": f"B{i}"} for i in range(1, 26)]},
+        {"refs": [insight_request()["refs"][0]] * 2},
+    ],
+    ids=["too-many-refs", "duplicate-ref-id"],
+)
+def test_insight_request_limits_are_422(make_client, changes):
+    response = make_client().post("/insight", json=insight_request(**changes))
+    assert response.status_code == 422
+
+
+def test_insight_does_not_log_prompt_or_output(make_client, local_models, caplog):
+    caplog.set_level(logging.DEBUG)
+    local_models.qwen.route("POST", COMPLETIONS, Reply(json_body=chat_completion(output())))
+    post_insight(make_client(SOL_RUN_MODE="fixture"))
+    markers = [
+        insight_request()["refs"][0]["quotedText"],
+        MODEL_OUTPUT["strengths"][0]["text"],
+        INSIGHT_PROMPT_FILE.read_text(encoding="utf-8").splitlines()[0],
+    ]
+    assert [marker for marker in markers if marker in caplog.text] == []
