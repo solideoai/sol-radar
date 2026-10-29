@@ -124,7 +124,7 @@ updated: 2026-10-29
 | KEPCO·K-water 입찰공고 | KEPCO 전자입찰 계약·K-water 입찰공고 정규화와 정기 수집 | 운영 수집 중. KEPCO 첨부 주소는 해커톤 동안 막아 둔다([[16-DECISIONS|ADR-068]] 3번) | [회사 반영](evidence/company-rollout/20261028/sources-rollout.md) |
 | 회사 공개 프로필 | 운영 DB 공개 자료 프로필(revision 5), `EXECUTIVE` 역할([[16-DECISIONS\|ADR-052]]) | 운영 반영. DEMO 18건이 이 프로필로 분석됐다 | [운영 반영](evidence/company-public-profile/20261027/prod-rollout.md) |
 | 프로필 사진 | 비공개 버킷 `profile-photos`, 가입 신청 승인([[16-DECISIONS\|ADR-051]]) | 운영 적용. 기존 직원 찾기(U8)·재신청 진입점(U10) 화면은 없다 | [기록](evidence/integration/20261025-prod-apply-db-storage.md) |
-| 인력 200명 | 가상 명부·사진 200장·전원 계산 대상([[16-DECISIONS\|ADR-019·043]]) | 완료, 운영 DB 적용 | [[07-DATA-PIPELINE\|07]] |
+| 인력 200명 | 가상 명부·사진 200장·전원 계산 대상([[16-DECISIONS\|ADR-019·043]]). 인물 서랍 수행 이력·자격증, 이력 v2(1인당 3~5건·가상 발주기관) | 명부 완료·운영 DB 적용. 이력 v2 운영 DB `20261029001000` 적용(2026-10-29) | [[07-DATA-PIPELINE\|07]] · [수행 이력](evidence/people/20261029-project-history/README.md) |
 | 화면 개편 | 파스텔 선택색·묶음 머리 아이콘 사이드바·업무 화면 공통 틀·랜딩 업무 데모([[16-DECISIONS\|ADR-061]]), 권고 표기 추천·보류·비추천([[16-DECISIONS\|ADR-062]]) | 운영 배포. 화면 동결 일정은 12 | [증거](evidence/ui-refresh/README.md) |
 | 자격 갭 | `/gaps`: 실공고 구조화 필드 1차 선별·막는 자격 순위·보유 가정([[16-DECISIONS\|ADR-060]]) | 운영 배포. 운영 실숫자 미확인(로그인 필요) | [증거](evidence/gaps/20261028/README.md) |
 | 발주 현황 | `/market`: 기간·기관·분야·예산 구간·주별 집계, 자격 갭 묶음 겹쳐 보기([[16-DECISIONS\|ADR-060]]) | 운영 배포. 운영 실숫자 미확인 | [1440 스크린샷](evidence/market/20261028/market-overview-1440.png) |
@@ -135,6 +135,7 @@ updated: 2026-10-29
 
 형식: `날짜 · 변경 · 검증`. 검증에는 실제로 돌린 명령과 결과만 적는다. 이 절은 최근 10줄만 둔다.
 
+- 2026-10-29 · 인물 서랍에 수행 이력·자격증 구역 추가, 가상 직원 수행 이력 v2(1인당 3~5건·가상 발주기관 14곳·등급별 경력, 마이그레이션 `20261029001000`은 `past_projects`·`capability_version`만 바꿈, 점수 입력 불변). 운영 DB `20261029001000` 적용·`db-verify` 통과(마이그레이션 69개, v2 200행·발주기관 200) · `node --test scripts/people/*.test.mjs` 9/9(변형 5건 실패 확인), `people:check:fixtures` ok, `pnpm verify:changed` exit 0(web 996시험), 격리 Supabase에 마이그레이션 적용 v2 200행, 서랍 1440·1280 넘침 0. `test:e2e:auth` 미실행([기록](evidence/people/20261029-project-history/README.md))
 - 2026-10-29 · 목록 화면 이동 5~7초의 원인은 지역이 아니라 뷰 `opportunity_list_items` 전체를 계산하는 버전 확인 RPC(이동 한 번에 2번)와 공고마다 IT 판정을 도는 필터 선택지 RPC다. 조치([[16-DECISIONS|ADR-070]]): 목록 버전을 원본 표 해시로(`20261029000500`), 필터 선택지를 서버 데이터 캐시(10분)로. 운영 반영 대기([기록](evidence/deployment/20261029-list-rpc-latency.md)) · 통합 검증 전
 - 2026-10-29 · 지원사업 IT 판정을 제목 본문(괄호 밖)으로 좁힘([[16-DECISIONS|ADR-069]] 7번): 사업개요·괄호 안 사업명은 보지 않는다 · `list.service.test.ts` 새 시험 수정 전 실패 확인, `pnpm verify:changed` exit 0(web 996시험), 운영 지원사업 104건 대조로 마감 전 IT 30→19건
 - 2026-10-29 · IT 공고만 보이기([[16-DECISIONS|ADR-069]]): 목록·집계·고르기 목록에서 IT 아닌 공고 숨김, 분야 칩 8개, AI·SI 우선 + 추천순, 지원사업 IT만, 검토 대기에서 일괄 분석 제외. 운영 DB `000300`·`000400`, main `7f6909ec`, 회사에서 IT 실공고 371건 1회 일괄 분석 · 통합 브랜치 전체 `pnpm verify` exit 0(web 시험 995건)·`test:browser` 98건, 독립 리뷰 1회 반영, `db-verify` 통과, D1 10개 화면 1440·1280 넘침 0, 일괄 분석 `completed=371 failed=0`([기록](evidence/it-scope/prod-20261029/README.md), [화면 증거](evidence/it-scope/bids-qa-20261029.md))
@@ -144,7 +145,6 @@ updated: 2026-10-29
 - 2026-10-29 · 카카오톡 링크 공유용 OG 이미지(1200×630) 생성, 루트 `opengraph-image.png`·대체 텍스트·운영 `metadataBase` 연결 · `pnpm verify:changed` 통과(117파일·995시험), 로컬 크롤러 HTML·인증 없는 PNG 응답·운영 URL 해석 확인([생성 프롬프트·검증 기록](evidence/og-image/20261029-generation.json)). 배포 전
 - 2026-10-29 · 결정 대기 9건 추천안대로 반영([[16-DECISIONS|ADR-068]]: ADR-055·056(A)·050·024 상태, S-LIVE 동국대 44, KEPCO 첨부 막음 등)과 ADR-056 대안 A 구현(분석이 첨부 처리를 최대 300초 기다림, `269679e7`) · 커밋 게이트 web `verify:quick` 통과(시험 971건), 새 시험 5건과 변형 2회 실패 확인, 깨진 링크 46(변화 없음). 회사 Analysis Worker 반영 전
 - 2026-10-29 · 발표 대본·덱 명세에 추천 분석 장면 추가: 클립 2에 FX-01의 저장된 추천 분석 20초(30→50초), 슬라이드 10 1:40·슬라이드 3·9 0:40으로 합계 20:00 유지([[16-DECISIONS|ADR-059]] 개정, [[19-DEMO-SCENARIO|19]] §4 S3·§5·§6, [[slides-spec|덱 제작 명세]]) · 문서만 바꿈, 시간표 합계·누적 스크립트로 확인(20:00), `pnpm verify:changed` 통과
-- 2026-10-29 · 문서 정리 2차: 정본·제출물의 낡은 사실 고침, [[16-DECISIONS|ADR-067]](X6 발표 뒤) 추가, 16 218→156KB·PROGRESS 71→21KB, 끝난 계획 7개·링크 없는 증거 66개(7.2MB) 삭제(원본·계획은 git `03baf23d`) · 문서만 바꿔 `pnpm verify:changed` 검사 단계 0개, 깨진 링크 48→46(남은 것은 정리 전부터 있던 옛 증거 링크)
 
 ## 관련 문서
 
