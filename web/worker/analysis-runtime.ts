@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import type { Database } from "@/lib/database.types";
-import { ANALYSIS_QUEUE, createAnalysisStores } from "@/server/analysis";
+import { ANALYSIS_QUEUE, createAnalysisStores, createInsightStore } from "@/server/analysis";
 import {
   createAttachmentTextReader,
   readAttachmentTextSettings,
@@ -16,11 +16,13 @@ import {
   type ReconcileQueue,
 } from "@/worker/analysis-reconcile";
 import { errorNameOf } from "@/worker/error-name";
+import { createInsightWorker, startInsightSweeper } from "@/worker/insight-job";
 
-// ── analysis 런타임 조립: Worker(분석 job) + 주기 복구(멈춘 run) ──
+// ── analysis 런타임 조립: Worker(분석 job) + 주기 복구(멈춘 run) + 추천 분석(insight job·오래된 요청 정리, ADR-066) ──
 // 설정(복구 주기·gateway·실행 모드)을 모두 읽은 뒤에 Redis 연결을 만든다. 설정 오류는 키 이름만 담아 던진다.
 // Worker 와 Queue 는 연결을 따로 쓴다(Worker 는 blocking 명령을 쓴다). 넘겨준 연결은 BullMQ 가 닫지 않으므로 close 가 끊는다.
 // 첨부 텍스트는 documents worker 가 bid-parsed 에 저장한 PARSED·PARTIAL 텍스트를 읽는다(문서당·전체 글자 상한, 2026-10-27).
+// insight Worker 는 분석 Worker 와 같은 gateway 클라이언트를 쓰고(breaker 공유) 연결은 따로 쓴다.
 
 export type AnalysisRuntimeFactories = {
   /** 새 연결. BullMQ Worker 가 요구하는 maxRetriesPerRequest: null. */
@@ -101,22 +103,44 @@ export function startAnalysisRuntime(
     return made;
   };
 
+  const log = (line: string) => {
+    console.log(line);
+  };
+  const insightDeps = {
+    store: createInsightStore(supabase),
+    gateway: deps.gateway,
+    now: () => new Date(),
+    log,
+  };
+
   try {
     const workerConnection = track(make.connection(), (made) => made.disconnect());
     const worker = track(createAnalysisWorker(workerConnection, deps), (made) => made.close());
+    const insightConnection = track(make.connection(), (made) => made.disconnect());
+    const insightWorker = track(createInsightWorker(insightConnection, insightDeps), (made) =>
+      made.close(),
+    );
     const queueConnection = track(make.connection(), (made) => made.disconnect());
     const queue = track(make.queue(queueConnection), (made) => made.close());
-    const reconciler = startReconciler({
-      finder: stores.staleRuns,
-      tracker: stores.tracker,
+    const reconciler = track(
+      startReconciler({
+        finder: stores.staleRuns,
+        tracker: stores.tracker,
+        queue,
+        now: () => new Date(),
+        settings,
+        log,
+      }),
+      (made) => made.stop(),
+    );
+    const sweeper = startInsightSweeper(insightDeps);
+    return runtimeOf({
+      reconciler,
+      sweeper,
+      workers: [worker, insightWorker],
       queue,
-      now: () => new Date(),
-      settings,
-      log: (line) => {
-        console.log(line);
-      },
+      connections: [workerConnection, insightConnection, queueConnection],
     });
-    return runtimeOf({ reconciler, worker, queue, workerConnection, queueConnection });
   } catch (error) {
     // 기동은 동기라 닫기를 기다리지 않는다. closeQuietly 는 reject 하지 않는다.
     void closeQuietly(created.toReversed());
@@ -126,21 +150,21 @@ export function startAnalysisRuntime(
 
 function runtimeOf(parts: {
   reconciler: { stop(): Promise<void> };
-  worker: { close(): Promise<void> };
+  sweeper: { stop(): Promise<void> };
+  workers: { close(): Promise<void> }[];
   queue: { close(): Promise<void> };
-  workerConnection: IORedis;
-  queueConnection: IORedis;
+  connections: IORedis[];
 }): { close(): Promise<void> } {
-  const { reconciler, worker, queue, workerConnection, queueConnection } = parts;
+  const { reconciler, sweeper, workers, queue, connections } = parts;
   return {
-    // 복구를 먼저 멈춰 닫는 중에 job 을 다시 넣지 않게 한다.
+    // 복구·정리를 먼저 멈춰 닫는 중에 job 을 다시 넣거나 행을 닫지 않게 한다. 그다음 Worker, 마지막에 연결.
     close: () =>
       closeAll([
         () => reconciler.stop(),
-        () => worker.close(),
+        () => sweeper.stop(),
+        ...workers.map((worker) => () => worker.close()),
         () => queue.close(),
-        () => workerConnection.disconnect(),
-        () => queueConnection.disconnect(),
+        ...connections.map((connection) => () => connection.disconnect()),
       ]),
   };
 }

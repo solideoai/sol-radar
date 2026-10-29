@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { analyze, type AnalysisInput } from "@/server/scoring";
+import type { Json } from "@/lib/database.types";
+import { FACTOR_KEYS, analysisInputSchema, analyze, type AnalysisInput } from "@/server/scoring";
 import { FACTOR_LABEL } from "@/server/shared";
 import type { InsightGatewayResponse } from "./gateway.model";
-import { toInsightPayload, toInsightRequest, type InsightRunSource } from "./insight-request.model";
+import {
+  toInsightPayload,
+  toInsightRequest,
+  toInsightRunSource,
+  type InsightRunRows,
+  type InsightRunSource,
+} from "./insight-request.model";
 import { buildAnalysisInput, fakeGateway, jsonReply, withPatch } from "./test-support";
 
 // 추천 분석(ADR-066) gateway 요청 조립. 판정은 저장된 run 값을 그대로 옮기고, 근거 번호는 B = 공고 인용, C = 회사 자료다.
@@ -109,11 +116,15 @@ describe("toInsightRequest", () => {
   });
 
   it("요소 이름은 화면과 같은 한국어 이름이다", () => {
-    const { request } = toInsightRequest(runSource(), REQUEST_ID);
+    const { request } = toInsightRequest(
+      { ...runSource(), missingFactors: ["staffAvailability"] },
+      REQUEST_ID,
+    );
     expect(request.rules.factors.map((factor) => factor.label)).toEqual(
       Object.values(FACTOR_LABEL),
     );
     expect(request.rules.factors[0]).not.toHaveProperty("rawValue");
+    expect(request.rules.missingFactors).toEqual([FACTOR_LABEL.staffAvailability]);
   });
 
   it("Bosun 을 쓰지 않았으면 bosun 은 null 이다", () => {
@@ -203,5 +214,76 @@ describe("GatewayClient.insight", () => {
       ok: false,
       failure: { kind: "INVALID_RESPONSE" },
     });
+  });
+});
+
+describe("toInsightRunSource", () => {
+  const toJson = (value: unknown): Json => {
+    const json: Json = JSON.parse(JSON.stringify(value));
+    return json;
+  };
+
+  /** 분석 저장(finish_score_run)이 남기는 행 모양. 요소는 일부러 거꾸로 넣는다. */
+  function runRows(input = buildAnalysisInput("FX-02")): InsightRunRows {
+    const result = analyze(input);
+    return {
+      run: {
+        id: RUN_ID,
+        org_id: ORG_ID,
+        status: "COMPLETED",
+        input_snapshot: toJson(input),
+        score: result.score,
+        recommendation: result.recommendation,
+        recommendation_basis: result.recommendationBasis,
+        review_flags: [...result.reviewFlags, "CITATION_FAILED"],
+        missing_factors: [],
+        kev_assist: toJson(result.kev),
+      },
+      factors: result.factors.toReversed().map((factor) => ({
+        factor: factor.factor,
+        points: factor.points,
+        max_points: factor.maxPoints,
+        note: factor.note,
+        raw_value: toJson(factor.rawValue),
+      })),
+      checks: result.qualificationChecks.map((check) => ({
+        requirement_name: check.requirementName,
+        outcome: check.outcome,
+        reason: check.reason,
+      })),
+    };
+  }
+
+  it("저장된 run 행을 점수표 순 요소·Bosun 플래그와 함께 읽는다", () => {
+    const rows = runRows();
+    const source = toInsightRunSource(rows);
+    expect(source).toMatchObject({
+      scoreRunId: RUN_ID,
+      orgId: ORG_ID,
+      score: 72,
+      recommendation: "WATCH",
+      recommendationBasis: "RULES_WITH_KEV_ASSIST",
+      kevEnabled: true,
+      kevReviewFlags: ["KEV_NEEDS_REVIEW"],
+      reviewFlags: ["KEV_NEEDS_REVIEW", "CITATION_FAILED"],
+    });
+    expect(source?.factors.map((factor) => factor.factor)).toEqual([...FACTOR_KEYS]);
+    // 스냅샷은 입력 계약으로 읽는다(계약 밖 키는 버린다).
+    expect(source?.input).toEqual(analysisInputSchema.parse(buildAnalysisInput("FX-02")));
+    expect(source?.checks).toHaveLength(rows.checks.length);
+  });
+
+  it("끝나지 않은 run·입력 계약과 다른 스냅샷·모르는 판정 값이면 null 이다", () => {
+    const rows = runRows();
+    expect(toInsightRunSource({ ...rows, run: { ...rows.run, status: "RUNNING" } })).toBeNull();
+    expect(
+      toInsightRunSource({ ...rows, run: { ...rows.run, input_snapshot: { bid: null } } }),
+    ).toBeNull();
+    expect(
+      toInsightRunSource({
+        ...rows,
+        checks: [{ requirement_name: "자격", outcome: "MAYBE", reason: "모름" }],
+      }),
+    ).toBeNull();
   });
 });

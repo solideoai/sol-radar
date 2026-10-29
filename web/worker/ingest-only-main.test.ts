@@ -985,9 +985,9 @@ describe("ingest Worker 일정과 job 처리", () => {
 });
 
 describe("큐 소비자", () => {
-  it("analysis runtime 은 analysis 큐 Worker 하나만 만든다", async () => {
+  it("analysis runtime 은 analysis·insight 큐 Worker 만 만든다", async () => {
     const runtime = startAnalysisRuntime({ REDIS_URL: liveEnv.REDIS_URL });
     await runtime.close();
-    expect(fake.workers).toEqual(["analysis"]);
+    expect(fake.workers).toEqual(["analysis", "insight"]);
   });
 });

@@ -27,9 +27,11 @@ export type {
   QualificationStatus,
 } from "./gateway.model";
 
-// 추천 분석(ADR-066) gateway 요청 조립. worker 의 insight job 이 쓴다.
+// 추천 분석(ADR-066) gateway 요청 조립과 저장 port. worker 의 insight job 이 쓴다. 행 매핑 함수는 내보내지 않는다.
 export { toInsightPayload, toInsightRequest } from "./insight-request.model";
 export type { InsightRunSource } from "./insight-request.model";
+export { createInsightStore } from "./insight-store";
+export type { InsightFinishDone, InsightFinishFailed, InsightStore } from "./insight-store";
 export type { BreakerState } from "./circuit-breaker.model";
 export {
   pickAiUnavailableReason,

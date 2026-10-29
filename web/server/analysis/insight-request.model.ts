@@ -1,7 +1,10 @@
 import "server-only";
 import { z } from "zod";
+import type { Database } from "@/lib/database.types";
 import { insightPayloadSchema, type InsightPayload, type InsightRef } from "@/server/insight";
 import {
+  FACTOR_KEYS,
+  analysisInputSchema,
   companySkillSet,
   matchSkill,
   staffAvailabilityInput,
@@ -225,7 +228,8 @@ export function toInsightRequest(
         label: clip(check.label, MAX_LABEL),
       })),
       reviewFlags: source.reviewFlags,
-      missingFactors: source.missingFactors,
+      // 요소 키 대신 화면 이름을 보낸다. 모델 문장에 영문 키가 섞이지 않게 한다.
+      missingFactors: source.missingFactors.map((factor) => FACTOR_NAMES.get(factor) ?? factor),
     },
     bosun: source.kevEnabled ? { reviewFlags: source.kevReviewFlags } : null,
     company: {
@@ -257,4 +261,83 @@ export function toInsightPayload(
     improvements: response.improvements,
     refs: refs.filter((ref) => cited.has(ref.id)),
   });
+}
+
+// ── 저장된 run 행 → InsightRunSource. 저장 port(insight-store)가 읽은 행을 넘긴다 ──
+
+type Tables = Database["public"]["Tables"];
+export type InsightRunRows = {
+  run: Pick<
+    Tables["score_runs"]["Row"],
+    | "id"
+    | "org_id"
+    | "status"
+    | "input_snapshot"
+    | "score"
+    | "recommendation"
+    | "recommendation_basis"
+    | "review_flags"
+    | "missing_factors"
+    | "kev_assist"
+  >;
+  factors: Pick<
+    Tables["score_factors"]["Row"],
+    "factor" | "points" | "max_points" | "note" | "raw_value"
+  >[];
+  checks: Pick<Tables["qualification_checks"]["Row"], "requirement_name" | "outcome" | "reason">[];
+};
+
+// 끝난 run 만 설명한다. 점수·권고가 비어 있으면 읽지 못한 것으로 본다.
+const finishedRunSchema = z.object({
+  status: z.enum(["COMPLETED", "PARTIAL"]),
+  score: z.number(),
+  recommendation: z.enum(["BID", "WATCH", "NO_BID"]),
+  recommendation_basis: z.string().min(1),
+  kev_assist: z.looseObject({ enabled: z.boolean() }).nullable(),
+});
+const checkStatusSchema = z.enum(["SATISFIED", "NOT_SATISFIED", "NEEDS_REVIEW", "NOT_APPLICABLE"]);
+
+/** Bosun(결정 모델)이 낸 검토 플래그. 규칙 엔진 플래그와 함께 run 의 review_flags 에 저장된다. */
+const isBosunFlag = (flag: string): boolean =>
+  flag.startsWith("KEV_") || flag === "MODEL_RULE_DISAGREEMENT";
+
+/**
+ * score_runs·score_factors·qualification_checks 행 → InsightRunSource. 요소는 점수표 순이다.
+ * 끝나지 않은 run·input_snapshot 이 입력 계약과 다름·모르는 판정 값이면 null(worker 는 SOURCE_INVALID 로 닫는다).
+ */
+export function toInsightRunSource(rows: InsightRunRows): InsightRunSource | null {
+  const run = finishedRunSchema.safeParse(rows.run);
+  const input = analysisInputSchema.safeParse(rows.run.input_snapshot);
+  if (!run.success || !input.success) return null;
+  const statuses = rows.checks.map((check) => checkStatusSchema.safeParse(check.outcome));
+  const checks = rows.checks.flatMap((check, index) => {
+    const status = statuses[index];
+    return status.success
+      ? [{ label: check.requirement_name, status: status.data, reason: check.reason }]
+      : [];
+  });
+  if (checks.length !== rows.checks.length) return null;
+  const order = (factor: string) => FACTOR_KEYS.findIndex((key) => key === factor);
+  return {
+    scoreRunId: rows.run.id,
+    orgId: rows.run.org_id,
+    input: input.data,
+    score: run.data.score,
+    recommendation: run.data.recommendation,
+    recommendationBasis: run.data.recommendation_basis,
+    reviewFlags: rows.run.review_flags,
+    missingFactors: rows.run.missing_factors,
+    kevEnabled: run.data.kev_assist?.enabled === true,
+    kevReviewFlags: rows.run.review_flags.filter(isBosunFlag),
+    factors: rows.factors
+      .toSorted((a, b) => order(a.factor) - order(b.factor))
+      .map((factor) => ({
+        factor: factor.factor,
+        points: factor.points,
+        maxPoints: factor.max_points,
+        reason: factor.note ?? "",
+        rawValue: factor.raw_value,
+      })),
+    checks,
+  };
 }
