@@ -5,7 +5,7 @@ status: review
 tags:
   - sol-radar
   - api
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # 05. REST API 명세 (Next.js Route Handler)
@@ -63,6 +63,8 @@ updated: 2026-10-28
 |GET|`/bids/:id/analyses`|`ADMIN, SALES, ANALYST, VIEWER`|이 공고의 분석 이력|`Page<AnalysisResult>`|
 |GET|`/analyses/:id`|`ADMIN, SALES, ANALYST, VIEWER`|분석 상태·결과(polling)|`AnalysisResult`|
 |POST|`/analyses/:id/what-if`|`ADMIN, SALES, ANALYST, VIEWER`|가정 재계산([[16-DECISIONS\|ADR-037]], 데모 강화 컷). 저장된 입력 스냅샷에 보유 가정을 얹어 규칙 엔진으로 다시 계산하고 아무것도 저장하지 않는다. 읽기 계산이라 역할 제한이 없다. 계약은 §4.5 "가정 재계산"|`WhatIfRequest` → `200 WhatIfResult`|
+|POST|`/bids/:id/analyses/:runId/insight`|`ADMIN, SALES, ANALYST`|추천 분석 요청([[16-DECISIONS\|ADR-066]], 비동기). 본문 없음. 계약은 §4.5 "추천 분석"|`202 InsightAccepted`|
+|GET|`/bids/:id/analyses/:runId/insight`|업무 역할 전부|그 run 의 최신 추천 분석 1건(polling)|`{ insight: InsightView \| null }`|
 |GET|`/bids/:id/qualification-checks`|`ADMIN, SALES, ANALYST, VIEWER`|최신 분석의 자격 판정(항목마다 사유 코드·회사 근거·값 출처)|`QualificationCheck[]`|
 |GET|`/bids/:id/reviews`|`ADMIN, SALES, ANALYST, VIEWER`|검토 이력|`Review[]`|
 |POST|`/bids/:id/reviews`|`ADMIN, SALES`|사람 최종 결정 기록|`ReviewInput` → `201 Review`|
@@ -382,6 +384,16 @@ interface WhatIfResult {                                    // 200 본문(그대
 - 처리 순서: 인증·CSRF(§1) → 경로 id가 UUID가 아니면 저장소를 부르지 않고 `404 {resource:"analysis"}` → 본문 16KB 초과 `400`(`path:"body"`) → 본문 zod 검증 `400` → run 읽기(사용자 세션·RLS, `status`·`input_snapshot`만) → 없음·다른 조직 `404 {resource:"analysis"}` → `QUEUED`·`RUNNING`이면 `409 ANALYSIS_IN_PROGRESS`(`details` 없음) → `FAILED`이거나 스냅샷이 `AnalysisInput` 스키마에 맞지 않으면(null 포함) `404 {resource:"analysis", reason:"NO_SNAPSHOT"}` → 가정 불가 코드가 있으면 `400 VALIDATION_ERROR {issues:[{path:"assumptions",message}], rejected:[{kind,code}]}` → `200 WhatIfResult`.
 - DB에 아무것도 쓰지 않는다(`score_runs`·`bid_reviews`·`audit_logs`·알림·outbox 불변). 결정 모델·gateway·큐를 부르지 않는다. 속도 제한·`Idempotency-Key` 대상이 아니다. 권한은 4개 업무 역할 모두다.
 - 구현: `web/server/scoring/what-if.ts`(`whatIf`), `web/server/bids/what-if.service.ts`(`computeWhatIf`), `web/app/api/v1/analyses/[id]/what-if/route.ts`.
+
+#### 추천 분석 (ADR-066)
+
+공고 상세의 [추천 분석]이 부른다. Qwen 이 판단 이유·강점·보완할 점을 근거 번호와 함께 쓰고, 판정(`score`·`recommendation`)은 바꾸지 않는다. 타입 정본은 `web/server/insight/insight.model.ts`(`InsightView`·`InsightAccepted`·`insightPayloadSchema`)다.
+
+- POST 처리 순서: 인증·CSRF(§1) → 경로 id 가 UUID 가 아니면 `404` → 역할(`ADMIN`·`SALES`·`ANALYST` 아니면 `403 FORBIDDEN`) → run(없음·다른 조직·다른 공고·`COMPLETED`·`PARTIAL` 아님이면 `404 {resource:"analysis"}`) → 그 run 의 최신 행이 `PENDING` 이면 같은 행을 다시 큐에 넣고, `DONE`·`MODEL` 이면 큐 없이 그대로 돌려준다(`deduplicated: true`) → 속도 제한(사용자당 분당 3회, 새 행을 만들 때만 센다, `429 RATE_LIMITED`) → `PENDING` insert(같은 run 의 `PENDING` 이 먼저 들어가 23505 면 그 행을 돌려준다) → BullMQ `insight` job → `202 {insightId, status, deduplicated, pollUrl}`. 큐·Redis 장애는 `503`.
+- `Idempotency-Key` 는 쓰지 않는다. 중복은 run 기준으로 막는다(relay 재시도도 같은 행이 된다).
+- GET 은 모든 배포 역할에서 사용자 세션(RLS)으로 직접 읽는다(relay 없음). run 이 `COMPLETED`·`PARTIAL` 이 아니면 `404`.
+- `InsightView`: `id`, `scoreRunId`, `status`, `source`(`MODEL`·`TEMPLATE`·null), `payload`(`summary`·`strengths[{text, refIds}]`·`improvements[]`·`refs[{id, kind, label, quotedText}]`, DONE 만), `fallbackReason`, `modelName`, `errorCode`(`GATEWAY_UNAVAILABLE`·`GATEWAY_INVALID`·`SOURCE_INVALID`·`STALE`), `createdAt`, `finishedAt`.
+- 구현: `web/app/api/v1/bids/[id]/analyses/[runId]/insight/route.ts`, `web/server/insight/insight.service.ts`, 큐 생산자 `web/app/_lib/insight-queue.ts`.
 
 ### 4.6 검토·알림·대시보드·수집
 
@@ -827,12 +839,13 @@ interface KakaoNotifyEnabledInput { enabled: boolean }
 
 ## Redis HTTPS 접수 경계 (ADR-045)
 
-사용자용 `/api/v1` 경로·Supabase 세션·업무 RBAC/RLS 계약은 유지한다. Vercel `frontend`의 분석·수집 접수와 읽기, 관리자 AI 상태(ADR-049)만 회사 Next.js `redis-api`로 전달한다. 허용 경로는 아래 7개이고 그 밖은 404다(`web/app/_lib/redis-api-path.ts`). 외부 prefix는 `https://acropolissg.com/redis`, Nginx는 `/redis/`를 제거하며 설정을 변경하지 않는다.
+사용자용 `/api/v1` 경로·Supabase 세션·업무 RBAC/RLS 계약은 유지한다. Vercel `frontend`의 분석·수집 접수와 읽기, 관리자 AI 상태(ADR-049)만 회사 Next.js `redis-api`로 전달한다. 허용 경로는 아래 8개이고 그 밖은 404다(`web/app/_lib/redis-api-path.ts`). 외부 prefix는 `https://acropolissg.com/redis`, Nginx는 `/redis/`를 제거하며 설정을 변경하지 않는다.
 
 | 회사 Gateway 외부 경로 | 메서드 | 인증 | 응답 |
 | --- | --- | --- | --- |
 | `/redis/health` | GET | `X-Sol-Service-Token` | 기존 readiness 상태, 200/503; 토큰 실패401 |
 | `/redis/api/v1/bids/{id}/analyses` | POST | 서비스 token + 사용자 Bearer | 기존202 AnalysisAccepted·pollUrl |
+| `/redis/api/v1/bids/{id}/analyses/{runId}/insight` | POST | 서비스 token + 사용자 Bearer | 202 InsightAccepted·pollUrl(ADR-066, op `insight-submit`). GET 은 중계하지 않는다 |
 | `/redis/api/v1/analyses/{id}` | GET | 동일 | 기존 분석 상태/결과·타 조직404 |
 | `/redis/api/v1/admin/ingestion/runs` | POST | 동일 + 업무 ADMIN | 기존202 IngestionRun |
 | `/redis/api/v1/admin/ingestion/runs/{id}` | GET | 동일 + 업무 ADMIN | 기존 수집 실행, Worker 행 생성 전404 가능 |

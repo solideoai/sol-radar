@@ -6,7 +6,7 @@ tags:
   - sol-radar
   - pipeline
   - db
-updated: 2026-10-27
+updated: 2026-10-29
 ---
 
 # 15. 데이터 계약·품질·근거
@@ -28,6 +28,7 @@ updated: 2026-10-27
 |`RequirementExtraction`|[[03-AI-PIPELINE\|03 AI 파이프라인]] §4.1|Qwen 추출기|규칙 엔진, `requirement_extractions.payload`|
 |판정 라벨(`SATISFIED`·`NOT_SATISFIED`·`NEEDS_REVIEW`)과 `NEEDS_REVIEW` 사유 코드|[[08-SCORING\|08 점수]] §5.1|규칙 엔진, 결정 모델 어댑터|API, UI, 평가셋|
 |`AnalysisInput`|[[04-DATABASE\|04 DB]] `score_runs.input_snapshot`|worker(`web/worker`)|재현·백테스트|
+|추천 분석 gateway 계약 `InsightRequest`·`InsightResponse`(`POST /insight`)와 저장 모양 `InsightPayload`|gateway: `services/ai/src/sol_ai/contracts.py`, 웹: `web/server/analysis/gateway.model.ts`(`InsightGatewayRequest`·`insightResponseSchema`)·`web/server/insight/insight.model.ts`(`insightPayloadSchema`), 요약 [[03-AI-PIPELINE\|03]] §2.1|Analysis Worker(요청 조립 `toInsightRequest`), AI gateway(응답)|`recommendation_insights.payload`, 공고 상세 추천 분석 패널([[16-DECISIONS\|ADR-066]])|
 |`AnalysisResult`, `BidDetail` 등 API 응답·요청 스키마|[[05-API-SPEC\|05 API 명세]] §4|Route Handler(`web/app/api/v1`)|화면(`web/app`), 스크립트|
 |`EvalItem`(평가셋 정본 형식)|[[21-MODEL-TRAINING\|21 모델 학습]] §3.7|데이터셋 빌더(`pnpm dataset:build`, 예정)|평가 하네스, 학습셋 내보내기|
 |소스 registry|이 문서 §8|운영자|Connector|
