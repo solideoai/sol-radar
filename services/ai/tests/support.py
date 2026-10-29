@@ -526,3 +526,119 @@ def explain_request() -> dict:
         "kevSummary": kev,
         "documentIssues": [],
     }
+
+
+def insight_request(recommendation: str = "WATCH", **changes) -> dict:
+    """C3 InsightRequest(추천 분석). FX-01 을 본뜬 가상 공고. 강점 3·보완 4가 나오게 요소 점수를 둔다.
+
+    요소 비율: 기술 24/30·인력 14/20·전략 7/10 ≥ 0.6, 실적 8/25·규모 5/15 < 0.4.
+    """
+    request = {
+        "requestId": "6f0c2c1e-0000-4000-8000-000000000003",
+        "bid": {
+            "title": "차세대 행정정보시스템 고도화",
+            "agency": "세종특별자치시",
+            "budgetKrw": "1200000000",
+            "deadline": "2026-11-20",
+        },
+        "rules": {
+            "score": 58,
+            "recommendation": recommendation,
+            "recommendationBasis": "RULES_ONLY",
+            "factors": [
+                {
+                    "factor": "skillMatch",
+                    "label": "기술 적합도",
+                    "points": 24,
+                    "maxPoints": 30,
+                    "reason": "요구 기술 5개 중 4개를 보유했다",
+                },
+                {
+                    "factor": "pastPerformance",
+                    "label": "유사 실적",
+                    "points": 8,
+                    "maxPoints": 25,
+                    "reason": "최근 3년 안 같은 분야 실적이 1건이다",
+                },
+                {
+                    "factor": "staffAvailability",
+                    "label": "인력 가용",
+                    "points": 14,
+                    "maxPoints": 20,
+                    "reason": "사업 기간에 투입할 수 있는 인력이 있다",
+                },
+                {
+                    "factor": "scaleFit",
+                    "label": "규모 적합",
+                    "points": 5,
+                    "maxPoints": 15,
+                    "reason": "사업 규모가 최대 수행 규모보다 크다",
+                },
+                {
+                    "factor": "strategicPreference",
+                    "label": "전략 선호",
+                    "points": 7,
+                    "maxPoints": 10,
+                    "reason": "선호 분야인 민원에 해당한다",
+                },
+            ],
+            "qualificationChecks": [
+                {
+                    "label": "소프트웨어사업자 신고확인서",
+                    "status": "SATISFIED",
+                    "reason": "회사 프로필에 보유 기록이 있다",
+                },
+                {
+                    "label": "정보통신공사업 등록",
+                    "status": "NOT_SATISFIED",
+                    "reason": "회사 프로필에 미보유로 기록돼 있다",
+                },
+                {
+                    "label": "직접생산확인증명서",
+                    "status": "NEEDS_REVIEW",
+                    "reason": "공고의 세부 분류를 사람이 확인해야 한다",
+                },
+            ],
+            "reviewFlags": ["QUALIFICATION_NEEDS_REVIEW"],
+            "missingFactors": [],
+        },
+        "bosun": {"reviewFlags": []},
+        "company": {
+            "name": "솔리데오",
+            "technologies": ["Java", "Spring Boot", "PostgreSQL"],
+            "staff": {
+                "from": "2026-12-01",
+                "to": "2027-06-30",
+                "availableFte": 20,
+                "eligibleStaff": 27,
+            },
+        },
+        "refs": [
+            {
+                "id": "B1",
+                "kind": "BID",
+                "label": "요구 기술",
+                "quotedText": "백엔드는 Java, 데이터베이스는 PostgreSQL을 사용하여야 한다",
+            },
+            {
+                "id": "B2",
+                "kind": "BID",
+                "label": "참가 자격",
+                "quotedText": "정보통신공사업 등록업체일 것",
+            },
+            {
+                "id": "C1",
+                "kind": "COMPANY",
+                "label": "보유 기술",
+                "quotedText": "Java, Spring Boot, PostgreSQL",
+            },
+            {
+                "id": "C2",
+                "kind": "COMPANY",
+                "label": "투입 가능 인력",
+                "quotedText": "2026-12-01~2027-06-30 투입 가능 20명",
+            },
+        ],
+    }
+    request.update(changes)
+    return request
